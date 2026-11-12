@@ -1,0 +1,827 @@
+import { bindSceneTheme } from './themeBinding';
+/**
+ * Form lab scene (L14): one primal form, six draw calls per tower, everything else in the shader.
+ *
+ * - Primal form: a cube mesh that the vertex shader pulls per instance into a box, cylinder, cone,
+ *   dome, sphere or capsule (eight dimensions, logic/parametrik/formlabor/urform.ts).
+ * - Position layer: rounding, profile, twist and bend of the whole tower are uniforms. Pure deformation,
+ *   construction phase and explosion upload nothing.
+ * - Type morph: the plan only rewrites instance rows. Geometry is built once.
+ * - Drawing: tone steps instead of light, edges from the distance to the face seam, outline as an
+ *   inverted hull. TSL, runs on WebGPU and WebGL2.
+ */
+import * as THREE from 'three/webgpu';
+import {
+	Fn,
+	abs,
+	attribute,
+	cameraProjectionMatrix,
+	cameraViewMatrix,
+	clamp,
+	cos,
+	cross,
+	dot,
+	float,
+	floor,
+	fract,
+	frontFacing,
+	length,
+	max,
+	min,
+	mix,
+	modelViewMatrix,
+	normalGeometry,
+	normalize,
+	positionGeometry,
+	screenDPR,
+	screenSize,
+	select,
+	sign,
+	sin,
+	smoothstep,
+	step,
+	tan,
+	uniform,
+	userData,
+	varyingProperty,
+	vec2,
+	vec3,
+	vec4
+} from 'three/tsl';
+import type { Node } from 'three/webgpu';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import type { Palette3D } from '../data/city3d';
+import { flowToken } from '../data/focus';
+import {
+	FELD,
+	SCHRITT,
+	bruecken,
+	leere,
+	turm,
+	turmpuffer,
+	verformen,
+	type Angeschlossen,
+	type Genom,
+	type Palette,
+	type Puffer,
+	type Stand,
+	type Turmpuffer
+} from '../logic/parametrik/formlabor';
+
+type V = Node<'vec3'>;
+type F = Node<'float'>;
+
+/** Cube mesh in unit coordinates: |s| ≤ 0.5 is the flat zone, beyond it the arc zone. */
+function urnetz(flach: number, bogen: number): THREE.BufferGeometry {
+	const werte: number[] = [];
+	for (let i = 0; i < bogen; i++) werte.push(-1 + (0.5 * i) / bogen);
+	for (let i = 0; i <= flach; i++) werte.push(-0.5 + i / flach);
+	for (let i = 1; i <= bogen; i++) werte.push(0.5 + (0.5 * i) / bogen);
+	const n = werte.length,
+		ort: number[] = [],
+		normale: number[] = [],
+		index: number[] = [];
+	for (let achse = 0; achse < 3; achse++)
+		for (const seite of [1, -1]) {
+			const u = (achse + (seite > 0 ? 1 : 2)) % 3,
+				v = (achse + (seite > 0 ? 2 : 1)) % 3,
+				start = ort.length / 3;
+			for (let j = 0; j < n; j++)
+				for (let i = 0; i < n; i++) {
+					const p = [0, 0, 0];
+					p[achse] = seite;
+					p[u] = werte[i];
+					p[v] = werte[j];
+					ort.push(p[0], p[1], p[2]);
+					const m = [0, 0, 0];
+					m[achse] = seite;
+					normale.push(m[0], m[1], m[2]);
+				}
+			for (let j = 0; j < n - 1; j++)
+				for (let i = 0; i < n - 1; i++) {
+					const a = start + j * n + i;
+					index.push(a, a + 1, a + n + 1, a, a + n + 1, a + n);
+				}
+		}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(ort, 3));
+	g.setAttribute('normal', new THREE.Float32BufferAttribute(normale, 3));
+	g.setIndex(index);
+	return g;
+}
+
+const srgb = (css: string): [number, number, number] => {
+	const c = new THREE.Color(css).convertLinearToSRGB();
+	return [c.r, c.g, c.b];
+};
+
+export function paletteAus(p: Palette3D): Palette {
+	const strom = (token: string) => srgb(p.categories[token.replace('--cat-', '')] ?? p.paper);
+	return {
+		papier: srgb(p.paper),
+		tinte: srgb(p.ink),
+		signal: srgb(p.categories['--signal'] ?? p.ink),
+		strom: [
+			strom(flowToken.people),
+			strom(flowToken.water),
+			strom(flowToken.energy),
+			strom(flowToken.food),
+			strom(flowToken.material)
+		]
+	};
+}
+
+const QUARTER = Math.PI / 4;
+
+/** Material nodes. `art`: face, rod (no hull, with edge tone), outline or skin. */
+function material(
+	art: 'flaeche' | 'stab' | 'umriss' | 'haut',
+	farben: { ink: THREE.Color; paper: THREE.Color }
+) {
+	const s = positionGeometry,
+		N = normalGeometry,
+		iOrt = attribute('iOrt', 'vec3'),
+		iDreh = attribute('iDreh', 'vec4'),
+		iHalb = attribute('iHalb', 'vec4'),
+		iForm = attribute('iForm', 'vec4'),
+		iFarbe = attribute('iFarbe', 'vec4'),
+		iFlaeche = attribute('iFlaeche', 'vec4'),
+		iBau = attribute('iBau', 'vec4'),
+		// Per-tower values on the object (userData), one material for all towers.
+		lage1 = userData('lage1', 'vec4') as unknown as Node<'vec4'>,
+		lage2 = userData('lage2', 'vec4') as unknown as Node<'vec4'>,
+		schau = userData('schau', 'vec4') as unknown as Node<'vec4'>;
+	const vN = varyingProperty('vec3', 'vN'),
+		vF = varyingProperty('vec3', 'vF'),
+		vMass = varyingProperty('vec4', 'vMass'),
+		vUV = varyingProperty('vec4', 'vUV'),
+		vBogen = varyingProperty('vec3', 'vBogen'),
+		vFarbe = varyingProperty('vec4', 'vFarbe'),
+		vMuster = varyingProperty('vec4', 'vMuster'),
+		vRuhe = varyingProperty('vec3', 'vRuhe');
+
+	const sinc = (x: F): F => select(abs(x).lessThan(1e-4), float(1), sin(x).div(x));
+	/** Carrier position layer: the same calculation as logic/parametrik/formlabor/lage.ts. */
+	const verforme = (p: V, rund: F): V => {
+		const H = lage1.x,
+			w = p.z.div(H),
+			m = max(abs(p.x), abs(p.y)),
+			r = mix(float(1), m.div(max(length(p.xy), 1e-5)), rund),
+			wc = clamp(w, 0, 1),
+			prof = max(
+				0.12,
+				float(1)
+					.sub(lage1.z.mul(wc))
+					.mul(float(1).add(lage1.w.mul(sin(wc.mul(Math.PI)))))
+			),
+			xy = p.xy.mul(r.mul(prof)),
+			a = lage2.x.mul(clamp(w, -0.2, 1.4)),
+			x1 = xy.x.mul(cos(a)).sub(xy.y.mul(sin(a))),
+			y1 = xy.x.mul(sin(a)).add(xy.y.mul(cos(a))),
+			t = lage2.y.div(H).mul(p.z),
+			cr = cos(lage2.z),
+			sr = sin(lage2.z),
+			u = x1.mul(cr).add(y1.mul(sr)),
+			v = y1.mul(cr).sub(x1.mul(sr)),
+			u2 = u.mul(cos(t)).add(p.z.mul(sinc(t.mul(0.5))).mul(sin(t.mul(0.5)))),
+			z2 = p.z.mul(sinc(t)).sub(u.mul(sin(t)));
+		return vec3(u2.mul(cr).sub(v.mul(sr)), u2.mul(sr).add(v.mul(cr)), z2);
+	};
+
+	/** Vertex stage: primal form → instance → construction phase and explosion → position layer. Returns three coordinates. */
+	const ecke = () => {
+		// Carrier 0: stays put. 1: follows the position layer. 2: follows it but rounds itself
+		// (bodies on the axis would otherwise turn into a cloverleaf when the space is rounded).
+		const selbst = step(1.5, iFarbe.w).toVar(),
+			traeger = min(iFarbe.w, 1),
+			rundRaum = lage1.y.mul(float(1).sub(selbst)).toVar(),
+			halb = iHalb.xyz,
+			rxy = mix(iHalb.w, min(iHalb.x, iHalb.y), lage1.y.mul(selbst)).toVar(),
+			rt = iForm.x,
+			rb = iForm.y,
+			f = clamp(s.mul(2), -1, 1).toVar(),
+			a = sign(s)
+				.mul(max(abs(s).mul(2).sub(1), 0))
+				.toVar(),
+			t = tan(a.mul(QUARTER)).toVar(),
+			rz = mix(rb, rt, step(0, s.z)).toVar(),
+			innen = halb.xy.sub(rxy).toVar(),
+			rho = max(abs(a.x), abs(a.y)).toVar(),
+			hdir = t.xy.div(max(length(t.xy), 1e-5)),
+			d = normalize(t).toVar(),
+			plan = f.xy
+				.mul(innen)
+				.add(hdir.mul(rxy.sub(rz).mul(rho)))
+				.add(d.xy.mul(rz))
+				.toVar(),
+			lang = halb.z.sub(rt.add(rb).mul(0.5)).toVar(),
+			z = rb.sub(rt).mul(0.5).add(f.z.mul(lang)).add(d.z.mul(rz)).toVar(),
+			// Taper toward the top, per axis (cone, pyramid, gable roof).
+			hoch = clamp(z.div(halb.z).mul(0.5).add(0.5), 0, 1),
+			lokal = vec3(plan.mul(mix(vec2(1, 1), iForm.zw, hoch)), z).toVar(),
+			kappe = abs(N.z).toVar(),
+			kappa = mix(float(1), min(rz.div(max(rxy, 1e-4)), 1), kappe),
+			nxy = d.xy.mul(kappa).toVar(),
+			schraeg = dot(nxy.mul(plan), vec2(1, 1).sub(iForm.zw))
+				.div(halb.z.mul(2))
+				.mul(float(1).sub(kappe)),
+			n = normalize(vec3(nxy, d.z.add(schraeg))).toVar();
+		const dreh = (v: V): V =>
+			v.add(cross(iDreh.xyz, cross(iDreh.xyz, v).add(v.mul(iDreh.w))).mul(2));
+		// Construction phase: each part grows from the center during its phase and sinks in from above.
+		const phase = iBau.x,
+			lauf = clamp(
+				schau.x
+					.sub(max(phase.sub(1), 0))
+					.sub(iBau.y.mul(0.6))
+					.div(0.4),
+				0,
+				1
+			),
+			q = select(phase.lessThan(0.5), float(1), lauf).toVar(),
+			da = q
+				.mul(q)
+				.mul(float(3).sub(q.mul(2)))
+				.toVar(),
+			// Explosion: modules detach radially (explR > 0), skins move aside as a whole
+			// (explR < 0, after the position layer), the crown lifts off (explZ).
+			radial = normalize(iOrt.xy.add(vec2(1e-5, 0))),
+			hinaus = max(iBau.z, 0)
+				.mul(schau.y)
+				.add(float(1).sub(da).mul(2.5).mul(step(0.001, iBau.z))),
+			ruhe = vec3(iOrt.xy.add(radial.mul(hinaus)), iOrt.z)
+				.add((dreh(lokal) as V).mul(da))
+				.toVar(),
+			nr = dreh(n).toVar();
+		// Normal through the position layer: deform two tangents along with it (no hand-written Jacobian).
+		const hilf = select(abs(nr.z).lessThan(0.9), vec3(0, 0, 1), vec3(1, 0, 0)),
+			t1 = normalize(cross(nr, hilf)).toVar(),
+			t2 = cross(nr, t1),
+			eps = 0.06,
+			lege = (p: V): V => mix(p, verforme(p, rundRaum), traeger),
+			p0 = lege(ruhe).toVar(),
+			p1 = lege(ruhe.add(t1.mul(eps))),
+			p2 = lege(ruhe.add(t2.mul(eps))),
+			nd = normalize(cross(p1.sub(p0), p2.sub(p0))).toVar(),
+			auf = schau.y.mul(iBau.w).add(float(1).sub(da).mul(9));
+		// For the edge line: position on the face (linear per zone) and the instance dimensions.
+		// The distance to the seam is computed only in the fragment, otherwise interpolation swallows it.
+		const an = abs(N),
+			seite = float(1).sub(kappe);
+		vF.assign(
+			vec3(
+				f.y.mul(an.x).add(f.x.mul(an.y)).add(f.x.mul(an.z)),
+				f.z.mul(seite).add(f.y.mul(an.z)),
+				rb
+			)
+		);
+		vMass.assign(
+			vec4(
+				innen.y.mul(an.x).add(innen.x.mul(an.y)).add(innen.x.mul(an.z)),
+				mix(lang, innen.y, kappe),
+				rxy,
+				mix(rt, rz, kappe)
+			)
+		);
+		// Pattern coordinates on the face in meters, plus half the face size.
+		vUV.assign(
+			vec4(
+				vec2(lokal.y, lokal.z)
+					.mul(an.x)
+					.add(vec2(lokal.x, lokal.z).mul(an.y))
+					.add(lokal.xy.mul(an.z)),
+				vec2(halb.y, halb.z).mul(an.x).add(vec2(halb.x, halb.z).mul(an.y)).add(halb.xy.mul(an.z))
+			)
+		);
+		vBogen.assign(
+			vec3(vec2(a.y, a.z).mul(an.x).add(vec2(a.x, a.z).mul(an.y)).add(a.xy.mul(an.z)), kappe)
+		);
+		// Instance color arrives as sRGB and is linearized here.
+		const c = iFarbe.xyz,
+			linear = mix(c.div(12.92), c.add(0.055).div(1.055).pow(2.4), step(0.04045, c));
+		vFarbe.assign(vec4(linear, iFlaeche.w));
+		vMuster.assign(vec4(iFlaeche.xyz, da));
+		vRuhe.assign(ruhe);
+		const normale = vec3(nd.x, nd.z, nd.y.negate()).toVar();
+		vN.assign(normale);
+		const seitlich = max(iBau.z.negate(), 0).mul(schau.y).mul(Math.SQRT1_2);
+		return {
+			ort: vec3(p0.x.add(seitlich), p0.z.add(auf), p0.y.sub(seitlich).negate()),
+			normale,
+			da
+		};
+	};
+
+	const tinte = uniform(farben.ink),
+		papier = uniform(farben.paper),
+		licht = uniform(new THREE.Color(0xffffff));
+
+	if (art === 'umriss') {
+		const m = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide });
+		m.vertexNode = Fn(() => {
+			const e = ecke(),
+				view = modelViewMatrix.mul(vec4(e.ort, 1)),
+				nv = modelViewMatrix.mul(vec4(e.normale, 0)).xyz,
+				clip = cameraProjectionMatrix.mul(view),
+				richtung = normalize(cameraProjectionMatrix.mul(vec4(nv, 0)).xy.add(1e-6));
+			return vec4(
+				clip.xy.add(
+					richtung
+						.mul(1.15)
+						// Parts not yet built have no size and therefore no outline.
+						.mul(step(0.002, e.da))
+						.mul(screenDPR)
+						.mul(2)
+						.div(screenSize)
+						.mul(clip.w)
+				),
+				clip.zw
+			);
+		})();
+		m.colorNode = tinte;
+		return m;
+	}
+
+	/** Antialiased square wave 0/1 and thin line, both fading to their mean at small scale. */
+	const welle = (v: F): F => {
+		const w = v.fwidth().mul(1.5).min(0.5);
+		return smoothstep(float(0.5).sub(w), float(0.5).add(w), abs(fract(v).sub(0.5)).mul(2));
+	};
+	const linie = (v: F, breit: number): F => {
+		const w = v.fwidth().mul(1.5);
+		return mix(
+			float(1).sub(
+				smoothstep(float(breit).sub(w), float(breit).add(w), abs(fract(v).sub(0.5)).mul(2))
+			),
+			float(breit),
+			smoothstep(0.35, 0.9, w)
+		);
+	};
+	/** Pattern coverage 0–1 for the pattern id (logic: MUSTER). */
+	const musterung = (): F => {
+		const id = vMuster.x,
+			p = vUV.xy,
+			h = vUV.zw,
+			ist = (k: number): F => float(1).sub(step(0.5, abs(id.sub(k)))),
+			seite = float(1).sub(vBogen.z),
+			aa = p.fwidth().length().max(0.001),
+			punkte = float(1).sub(
+				smoothstep(float(0.25).sub(aa), float(0.25).add(aa), fract(p.div(0.9)).sub(0.5).length())
+			),
+			schach = smoothstep(
+				aa.negate().mul(2),
+				aa.mul(2),
+				sin(p.x.mul(Math.PI / 1.1)).mul(sin(p.y.mul(Math.PI / 1.1)))
+			),
+			// Windows: as many whole bays as fit on the face.
+			felder = max(vec2(1, 1), floor(h.mul(2).div(vec2(2.4, 2.9)).add(0.5))),
+			fq = abs(fract(p.div(h.mul(2)).add(0.5).mul(felder)).sub(0.5)),
+			fa = fq.fwidth().mul(1.2),
+			fenster = float(1)
+				.sub(smoothstep(float(0.24).sub(fa.x), float(0.24).add(fa.x), fq.x))
+				.mul(float(1).sub(smoothstep(float(0.27).sub(fa.y), float(0.27).add(fa.y), fq.y)))
+				.mul(seite),
+			zelle = floor(p.div(0.42)),
+			zufall = fract(sin(dot(zelle, vec2(12.9898, 78.233))).mul(43758.5453)),
+			terrazzo = step(0.6, zufall).mul(
+				float(1).sub(
+					smoothstep(
+						float(0.26).sub(aa),
+						float(0.26).add(aa),
+						fract(p.div(0.42))
+							.sub(vec2(0.5, 0.5))
+							.add(vec2(zufall.sub(0.8), fract(zufall.mul(7.3)).sub(0.5)).mul(0.3))
+							.length()
+					)
+				)
+			),
+			rB = min(h.x, h.y).mul(0.52),
+			bullauge = float(1)
+				.sub(smoothstep(rB.sub(aa), rB.add(aa), p.length()))
+				.mul(seite),
+			torBreit = h.x.mul(0.42),
+			torHoch = h.y.negate().add(min(h.y.mul(1.05), 2.2)),
+			tor = max(
+				float(1)
+					.sub(smoothstep(torBreit.sub(aa), torBreit.add(aa), abs(p.x)))
+					.mul(float(1).sub(step(torHoch, p.y))),
+				float(1).sub(
+					smoothstep(torBreit.sub(aa), torBreit.add(aa), p.sub(vec2(0, torHoch)).length())
+				)
+			).mul(seite),
+			b = vBogen.xy.mul(4),
+			dreieck = max(linie(b.x, 0.09), max(linie(b.y, 0.09), linie(b.x.add(b.y), 0.09)));
+		return ist(1)
+			.mul(welle(p.x.div(1.1)))
+			.add(ist(2).mul(linie(p.y.div(1.2), 0.1)))
+			.add(ist(3).mul(punkte))
+			.add(ist(4).mul(max(linie(p.x.div(1.25), 0.07), linie(p.y.div(1.25), 0.07))))
+			.add(ist(5).mul(schach))
+			.add(ist(6).mul(welle(p.x.add(p.y).div(1.3))))
+			.add(ist(7).mul(fenster))
+			.add(ist(8).mul(dreieck))
+			.add(ist(9).mul(terrazzo))
+			.add(ist(10).mul(welle(p.y.div(1.1).add(abs(fract(p.x.div(1.5)).sub(0.5)).mul(1.4)))))
+			.add(ist(11).mul(bullauge))
+			.add(ist(12).mul(tor));
+	};
+	/** Edge line: constant width in pixels, only at sharp seams. */
+	const kanten = (px: number): F => {
+		const eine = (d: F): F =>
+				float(1).sub(smoothstep(px - 0.55, px + 0.55, d.div(max(d.fwidth(), 1e-6)))),
+			scharf = (r: F): F => float(1).sub(smoothstep(0.03, 0.24, r)),
+			kappe = vBogen.z,
+			fu = vF.x,
+			fv = vF.y,
+			au = abs(vBogen.x),
+			av = vBogen.y,
+			in1 = vMass.x,
+			in2 = vMass.y,
+			rxy = vMass.z,
+			r2 = vMass.w,
+			rb = vF.z,
+			// Side face: seam left/right, top and bottom.
+			dU = in1.mul(float(1).sub(abs(fu))).add(float(1).sub(au).mul(rxy).mul(QUARTER)),
+			// Distance to the seam: flat zone, own arc and the opposite arc already traversed.
+			auf = max(av, 0),
+			ab = max(av.negate(), 0),
+			dT = in2
+				.mul(float(1).sub(fv))
+				.add(float(1).sub(auf).mul(r2).mul(QUARTER))
+				.add(ab.mul(rb).mul(QUARTER)),
+			dB = in2
+				.mul(float(1).add(fv))
+				.add(float(1).sub(ab).mul(rb).mul(QUARTER))
+				.add(auf.mul(r2).mul(QUARTER)),
+			wand = max(
+				eine(dU).mul(scharf(rxy)),
+				max(eine(dT).mul(scharf(r2)), eine(dB).mul(scharf(rb)))
+			),
+			// Top and bottom: distance to the edge.
+			dRand = min(in1.mul(float(1).sub(abs(fu))), in2.mul(float(1).sub(abs(fv)))).add(
+				float(1)
+					.sub(max(au, abs(av)))
+					.mul(rxy.sub(r2).add(r2.mul(QUARTER)))
+			),
+			deckel = eine(dRand).mul(scharf(r2));
+		// Narrow faces (rods, slab edges) stay seamless: color instead of ink (134).
+		return mix(wand, deckel, kappe).mul(smoothstep(0.1, 0.3, min(vUV.z, vUV.w)));
+	};
+	const ton = (n: V): F =>
+		dot(n.mul(n), mix(vec3(0.89, 0.61, 0.72), vec3(0.89, 1, 0.72), step(0, n.y)));
+	const HALB = new THREE.Vector3(-0.42, 0.62, 0.66).normalize();
+
+	if (art === 'haut') {
+		const m = new THREE.MeshBasicNodeMaterial({
+			transparent: true,
+			depthWrite: false,
+			side: THREE.DoubleSide
+		});
+		m.positionNode = Fn(() => ecke().ort)();
+		const farbe = Fn(() => {
+			const n = normalize(vN),
+				nv = cameraViewMatrix.mul(vec4(n, 0)).xyz,
+				streif = float(1).sub(abs(nv.z).clamp(0, 1)),
+				gitter = vMuster.z,
+				g = vRuhe.mul((Math.PI * 2) / 5.2),
+				gyroid = sin(g.x)
+					.mul(cos(g.y))
+					.add(sin(g.y).mul(cos(g.z)))
+					.add(sin(g.z).mul(cos(g.x))),
+				grenze = mix(float(1.7), float(-0.15), gitter),
+				gw = gyroid.fwidth().mul(1.3).max(0.0001),
+				loch = smoothstep(grenze.sub(gw), grenze.add(gw), gyroid),
+				lochrand = float(1)
+					.sub(smoothstep(gw, gw.mul(2.2), abs(gyroid.sub(grenze))))
+					.mul(step(0.02, gitter)),
+				grund = mix(vFarbe.xyz.mul(mix(float(1), ton(n), 0.6)), papier, streif.mul(0.4).add(0.3)),
+				hinten = select(frontFacing, grund, mix(grund, papier, 0.4)),
+				strich = max(
+					kanten(0.9).mul(0.85),
+					max(
+						musterung().mul(vMuster.y).mul(0.7),
+						max(lochrand.mul(0.9), smoothstep(0.8, 0.93, streif).mul(0.5))
+					)
+				),
+				deck = mix(vFarbe.w, float(0.86), gitter.mul(0.9)).mul(select(frontFacing, 1, 0.55)),
+				alpha = max(deck, strich).mul(float(1).sub(loch)).mul(step(0.01, vMuster.w));
+			return vec4(mix(hinten, mix(tinte, papier, 0.2), strich), alpha);
+		})();
+		m.colorNode = farbe.xyz;
+		m.opacityNode = farbe.w;
+		return m;
+	}
+
+	const m = new THREE.MeshBasicNodeMaterial({
+		polygonOffset: true,
+		polygonOffsetFactor: 1,
+		polygonOffsetUnits: 1
+	});
+	m.positionNode = Fn(() => ecke().ort)();
+	m.colorNode = Fn(() => {
+		const n = normalize(vN),
+			glanz = vMuster.z,
+			seide = min(glanz, 1),
+			hart = clamp(glanz.sub(1), 0, 1),
+			kontrast = mix(float(0.72), float(1), seide).add(hart.mul(0.15)),
+			nv = cameraViewMatrix.mul(vec4(n, 0)).xyz,
+			streif = float(1).sub(abs(nv.z).clamp(0, 1));
+		let c: V = vFarbe.xyz.mul(mix(float(1), ton(n), kontrast));
+		c = mix(c, tinte, musterung().mul(vMuster.y).mul(0.82));
+		c = mix(c, licht, streif.mul(streif).mul(0.2).mul(seide));
+		const punkt = smoothstep(0.972, 0.984, dot(nv, vec3(HALB.x, HALB.y, HALB.z))),
+			rand = smoothstep(0.8, 0.87, streif);
+		c = mix(c, licht, max(punkt.mul(0.75), rand.mul(0.3)).mul(hart));
+		if (art === 'stab') c = mix(c, tinte, smoothstep(0.82, 0.95, streif).mul(0.7));
+		return mix(c, tinte, kanten(art === 'stab' ? 0.7 : 0.95));
+	})();
+	return m;
+}
+
+type Klasse = keyof Turmpuffer;
+type Einheit = {
+	gruppe: THREE.Group;
+	puffer: Turmpuffer;
+	netze: Record<Klasse, THREE.InstancedBufferGeometry>;
+	lager: Record<Klasse, THREE.InstancedInterleavedBuffer>;
+	lage1: THREE.Vector4;
+	lage2: THREE.Vector4;
+	schluessel: string;
+};
+
+export type Bild = { staende: Stand[]; bau: number; explosion: number };
+
+/** Genome fields that only change uniforms (no upload). */
+const NUR_LAGE = new Set<keyof Genom>(['rund', 'verjuengung', 'bauch', 'drall', 'biegung']);
+
+export function createFormlaborScene(
+	canvas: HTMLCanvasElement,
+	palette: Palette3D,
+	onError: () => void
+) {
+	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
+	renderer.outputColorSpace = THREE.SRGBColorSpace;
+	renderer.toneMapping = THREE.NoToneMapping;
+	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+	const scene = new THREE.Scene();
+	scene.background = new THREE.Color(palette.paper);
+	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 4000);
+	let pal = paletteAus(palette);
+	const farben = { ink: new THREE.Color(palette.ink), paper: new THREE.Color(palette.paper) };
+	let letzterStand: Bild | undefined;
+	const urformen = { gross: urnetz(6, 4), mittel: urnetz(1, 2), grob: urnetz(1, 1) };
+	const stoffe = {
+		flaeche: material('flaeche', farben),
+		stab: material('stab', farben),
+		umriss: material('umriss', farben),
+		haut: material('haut', farben)
+	};
+	const schau = new THREE.Vector4(5, 0, 0, 0);
+	let alive = true,
+		initialized = false,
+		width = 1,
+		height = 1,
+		moved = false,
+		fitting = false,
+		uploads = 0;
+	const ready = renderer
+		.init()
+		.then(() => {
+			initialized = true;
+			canvas.dataset.backend =
+				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
+					? 'webgpu'
+					: 'webgl2';
+			if (alive) render();
+			else renderer.dispose();
+		})
+		.catch((cause) => {
+			if (alive) onError();
+			throw cause;
+		});
+	let wartet = 0;
+	const zeichne = () => {
+		wartet = 0;
+		if (!alive || !initialized) return;
+		renderer.render(scene, camera);
+		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
+		canvas.dataset.uploads = String(uploads);
+	};
+	/** At most one render per animation frame. */
+	const render = () => {
+		if (!wartet) wartet = requestAnimationFrame(zeichne);
+	};
+	const controls = new OrbitControls(camera, canvas);
+	controls.minZoom = 0.1;
+	controls.maxZoom = 14;
+	controls.listenToKeyEvents(canvas);
+	controls.addEventListener('change', () => {
+		if (!fitting) moved = true;
+		render();
+	});
+
+	function netz(
+		urform: THREE.BufferGeometry,
+		p: Puffer
+	): [THREE.InstancedBufferGeometry, THREE.InstancedInterleavedBuffer] {
+		const g = new THREE.InstancedBufferGeometry();
+		g.setIndex(urform.getIndex());
+		g.setAttribute('position', urform.getAttribute('position'));
+		g.setAttribute('normal', urform.getAttribute('normal'));
+		const lager = new THREE.InstancedInterleavedBuffer(p.daten, SCHRITT, 1);
+		lager.setUsage(THREE.DynamicDrawUsage);
+		const feld = (name: string, groesse: number, ab: number) =>
+			g.setAttribute(name, new THREE.InterleavedBufferAttribute(lager, groesse, ab));
+		feld('iOrt', 3, FELD.ort);
+		feld('iDreh', 4, FELD.drehung);
+		feld('iHalb', 4, FELD.halb);
+		feld('iForm', 4, FELD.rt);
+		feld('iFarbe', 4, FELD.farbe);
+		feld('iFlaeche', 4, FELD.muster);
+		feld('iBau', 4, FELD.phase);
+		g.instanceCount = 0;
+		return [g, lager];
+	}
+	function einheit(mitHaut = true): Einheit {
+		const p = turmpuffer(),
+			gruppe = new THREE.Group(),
+			lage1 = new THREE.Vector4(1, 0, 0, 0),
+			lage2 = new THREE.Vector4(0, 0, 0, 0),
+			daten = { lage1, lage2, schau },
+			netze = {} as Einheit['netze'],
+			lager = {} as Einheit['lager'];
+		const haenge = (klasse: Klasse, stoff: THREE.Material, folge: number) => {
+			const mesh = new THREE.Mesh(netze[klasse], stoff);
+			mesh.frustumCulled = false;
+			mesh.renderOrder = folge;
+			mesh.userData = daten;
+			gruppe.add(mesh);
+		};
+		for (const klasse of ['gross', 'mittel', 'grob', 'haut'] as Klasse[]) {
+			if (klasse === 'haut' && !mitHaut) continue;
+			[netze[klasse], lager[klasse]] = netz(
+				klasse === 'haut' ? urformen.gross : urformen[klasse],
+				p[klasse]
+			);
+		}
+		haenge('gross', stoffe.flaeche, 0);
+		haenge('gross', stoffe.umriss, 0);
+		haenge('mittel', stoffe.flaeche, 0);
+		haenge('mittel', stoffe.umriss, 0);
+		haenge('grob', stoffe.stab, 0);
+		if (mitHaut) haenge('haut', stoffe.haut, 2);
+		scene.add(gruppe);
+		return { gruppe, puffer: p, netze, lager, lage1, lage2, schluessel: '' };
+	}
+	function lade(e: Einheit, klassen: Klasse[], zaehlen = true) {
+		for (const k of klassen) {
+			const p = e.puffer[k];
+			e.netze[k].instanceCount = p.anzahl;
+			e.lager[k].clearUpdateRanges();
+			e.lager[k].addUpdateRange(0, Math.max(1, p.anzahl) * SCHRITT);
+			e.lager[k].needsUpdate = true;
+			if (zaehlen) uploads++;
+		}
+	}
+	const tuerme: Einheit[] = [];
+	const punkt = new THREE.Vector3(),
+		ECKEN = [
+			[1, 1],
+			[1, -1],
+			[-1, 1],
+			[-1, -1]
+		];
+	// Bridges: a separate unit without position layer (rows with traeger = 0), coarse parts only.
+	const welt = einheit(false);
+	const grenzen = new THREE.Box3();
+
+	function fit(reset = false) {
+		if (moved && !reset) {
+			camera.left = (-camera.top * width) / height;
+			camera.right = -camera.left;
+			camera.updateProjectionMatrix();
+			render();
+			return;
+		}
+		if (grenzen.isEmpty()) return;
+		const center = grenzen.getCenter(new THREE.Vector3()),
+			eye = new THREE.Vector3(-Math.sqrt(3 / 8), 0.5, Math.sqrt(3 / 8));
+		camera.position.copy(center).add(eye.multiplyScalar(900));
+		camera.lookAt(center);
+		controls.target.copy(center);
+		fitting = true;
+		controls.update();
+		fitting = false;
+		camera.updateMatrixWorld(true);
+		let span = 1;
+		const p = new THREE.Vector3(),
+			seiten = width / height;
+		for (let i = 0; i < 8; i++) {
+			p.set(
+				i & 1 ? grenzen.max.x : grenzen.min.x,
+				i & 2 ? grenzen.max.y : grenzen.min.y,
+				i & 4 ? grenzen.max.z : grenzen.min.z
+			).applyMatrix4(camera.matrixWorldInverse);
+			span = Math.max(span, Math.abs(p.y), Math.abs(p.x) / seiten);
+		}
+		span *= 1.04;
+		camera.left = -span * seiten;
+		camera.right = span * seiten;
+		camera.top = span;
+		camera.bottom = -span;
+		camera.zoom = 1;
+		camera.updateProjectionMatrix();
+		render();
+	}
+
+	/** New state. Writes only what changed: rows, uniforms or nothing. */
+	function update(bild: Bild) {
+		if (!alive) return;
+		letzterStand = bild;
+		schau.set(bild.bau, bild.explosion, 0, 0);
+		while (tuerme.length < bild.staende.length) tuerme.push(einheit());
+		const vorher = grenzen.clone();
+		grenzen.makeEmpty();
+		const angeschlossen: Angeschlossen[] = [];
+		tuerme.forEach((e, i) => {
+			const stand = bild.staende[i];
+			e.gruppe.visible = !!stand;
+			if (!stand) return;
+			// World x/y/z → three x/z/−y.
+			e.gruppe.position.set(stand.ort[0], stand.ort[2], -stand.ort[1]);
+			const g = stand.genom,
+				schluessel = JSON.stringify([
+					stand.saat,
+					(Object.keys(g) as (keyof Genom)[]).filter((k) => !NUR_LAGE.has(k)).map((k) => g[k])
+				]);
+			leere(e.puffer);
+			const t = turm(g, stand.saat, pal, e.puffer, stand.richtung);
+			if (schluessel !== e.schluessel) {
+				e.schluessel = schluessel;
+				lade(e, ['gross', 'mittel', 'grob', 'haut']);
+			}
+			e.lage1.set(t.lage.hoehe, t.lage.rund, t.lage.verjuengung, t.lage.bauch);
+			e.lage2.set(t.lage.drall, t.lage.biegung, t.lage.richtung, 0);
+			angeschlossen.push({ stand, lage: t.lage, mikrokosmen: t.mikrokosmen });
+			// Camera framing: base plate on the ground, the deformed tower above it (sample points).
+			const fasse = (x: number, y: number, z: number) =>
+				grenzen.expandByPoint(punkt.set(stand.ort[0] + x, z, -(stand.ort[1] + y)));
+			for (const [x, y] of ECKEN) {
+				fasse(x * t.radius, y * t.radius, -0.5);
+				for (let i = 1; i <= 4; i++) {
+					const z = (t.hoehe * i) / 4,
+						p = verformen([x * g.breite * 1.5, y * g.breite * 1.5, z], t.lage);
+					fasse(p[0], p[1], p[2]);
+				}
+			}
+		});
+		leere(welt.puffer);
+		if (angeschlossen.length > 1 && angeschlossen.length < 5)
+			bruecken(angeschlossen, pal, welt.puffer.grob);
+		lade(welt, ['grob'], false);
+		// Refit the camera only when the extent changes noticeably (no pumping while morphing).
+		const a = vorher.getSize(new THREE.Vector3()),
+			b = grenzen.getSize(new THREE.Vector3());
+		if (vorher.isEmpty() || Math.abs(a.x - b.x) > 14 || Math.abs(a.y - b.y) > 9) fit();
+		else render();
+	}
+
+	const stopTheme = bindSceneTheme(canvas, scene, renderer, (next) => {
+		pal = paletteAus(next);
+		farben.ink.set(next.ink);
+		farben.paper.set(next.paper);
+		for (const e of tuerme) e.schluessel = '';
+		if (letzterStand) update(letzterStand);
+		else render();
+	});
+	return {
+		ready,
+		update,
+		/** Construction phase and explosion: uniforms only. */
+		schau(bau: number, explosion: number) {
+			schau.set(bau, explosion, 0, 0);
+			render();
+		},
+		reset() {
+			moved = false;
+			fit(true);
+		},
+		resize(w: number, h: number) {
+			width = Math.max(w, 1);
+			height = Math.max(h, 1);
+			renderer.setSize(width, height, false);
+			fit();
+		},
+		dispose() {
+			if (!alive) return;
+			alive = false;
+			stopTheme();
+			if (wartet) cancelAnimationFrame(wartet);
+			controls.dispose();
+			for (const e of [...tuerme, welt]) for (const g of Object.values(e.netze)) g.dispose();
+			for (const u of Object.values(urformen)) u.dispose();
+			for (const s of Object.values(stoffe)) s.dispose();
+			if (initialized) renderer.dispose();
+		}
+	};
+}

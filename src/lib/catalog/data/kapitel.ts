@@ -13,6 +13,7 @@ export type KapitelPfad =
 	| '/material'
 	| '/interface'
 	| '/labor'
+	| '/formlabor'
 	| '/archiv';
 
 export type Kapitel = { pfad: KapitelPfad; titel: string; text: string };
@@ -70,6 +71,11 @@ export const kapitelGruppen: KapitelGruppe[] = [
 				pfad: '/labor',
 				titel: 'Lab',
 				text: 'The whole city as a simulation, the principles behind it, open studies.'
+			},
+			{
+				pfad: '/formlabor',
+				titel: 'Form lab',
+				text: 'L14: one primal form, eight types, morphing via sliders and seed.'
 			},
 			{
 				pfad: '/archiv',
