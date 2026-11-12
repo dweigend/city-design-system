@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { RadioGroup } from 'bits-ui';
+	import { KERN_AN, KERN_AUS } from '../logic/parametrik/welt/typen';
+	let kern = $state(false);
 	import DemoLayout from '../bibel/DemoLayout.svelte';
 	import Steuergruppe from '../bibel/Steuergruppe.svelte';
 	import SaatZeile from '../bibel/SaatZeile.svelte';
@@ -79,7 +81,8 @@
 		raster: raster as RasterId,
 		mass,
 		verzug,
-		relax
+		relax,
+		kern: kern ? KERN_AN : KERN_AUS
 	});
 	const world = $derived(welt(params));
 	const anteil = (v: number) => `${Math.round(v * 100)} %`;
@@ -113,6 +116,7 @@
 		mass = p.mass;
 		verzug = p.verzug;
 		relax = p.relax;
+		kern = p.kern === KERN_AN;
 		ansicht = v.ansicht ?? 'plan';
 		glas = v.glas ?? false;
 		tour = 0;
@@ -195,6 +199,7 @@
 			<Switch id="welt-glas" label="Existing stock transparent" bind:checked={glas} />
 		</Steuergruppe>
 		<Steuergruppe wert="grund" titel="Ground">
+			<Switch id="welt-kern" label="Kernel" bind:checked={kern} />
 			<ChoiceControl
 				id="welt-raster"
 				label="Grid"

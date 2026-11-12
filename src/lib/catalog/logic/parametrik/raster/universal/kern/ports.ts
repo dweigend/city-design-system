@@ -81,52 +81,14 @@ export function connectPorts(
 	candidates: readonly Connection[],
 	options = { minWidth: 1.2, loops: 1, minGain: 1 }
 ) {
-	const byId = new Map(ports.map((p) => [p.id, p]));
 	if (
-		byId.size !== ports.length ||
-		ports.some(
-			(p) => !Number.isInteger(p.level) || !['walk', 'supply', 'support'].includes(p.channel)
-		) ||
 		!Number.isInteger(options.loops) ||
 		options.loops < 0 ||
-		!Number.isFinite(options.minWidth) ||
-		options.minWidth <= 0 ||
 		!Number.isFinite(options.minGain) ||
 		options.minGain < 0
 	)
 		throw new InvariantError('invalid-port-options');
-	if (new Set(candidates.map((e) => e.id)).size !== candidates.length)
-		throw new InvariantError('duplicate-connection');
-	const rejected: string[] = [],
-		valid: Connection[] = [];
-	for (const e of candidates) {
-		const a = byId.get(e.a),
-			b = byId.get(e.b);
-		if (
-			!a ||
-			!b ||
-			a.id === b.id ||
-			![e.cost, e.width, e.capacity, e.span, e.maxSpan].every(Number.isFinite) ||
-			e.cost <= 0 ||
-			e.width <= 0 ||
-			e.capacity <= 0 ||
-			e.span < 0 ||
-			e.maxSpan < 0 ||
-			!['horizontal', 'stair', 'lift', 'ramp'].includes(e.kind)
-		)
-			throw new InvariantError('invalid-connection', [e.id]);
-		if (
-			!e.clear ||
-			e.width < options.minWidth ||
-			e.span > e.maxSpan ||
-			a.channel !== b.channel ||
-			(e.kind === 'horizontal' && a.level !== b.level)
-		) {
-			rejected.push(e.id);
-			continue;
-		}
-		valid.push(e);
-	}
+	const { valid, rejected } = validateCandidates(ports, candidates, options.minWidth);
 	valid.sort((a, b) => a.cost - b.cost || (a.id < b.id ? -1 : 1));
 	const parent = new Map(ports.map((p) => [p.id, p.id])),
 		root = (v: string): string => {
@@ -166,4 +128,55 @@ export function connectPorts(
 		components.get(r)!.push(p.id);
 	}
 	return { ports, edges, treeEdges, rejected, components: [...components.values()] };
+}
+
+export function validateCandidates(
+	ports: readonly Port[],
+	candidates: readonly Connection[],
+	minWidth: number
+) {
+	const byId = new Map(ports.map((p) => [p.id, p]));
+	if (
+		byId.size !== ports.length ||
+		ports.some(
+			(p) => !Number.isInteger(p.level) || !['walk', 'supply', 'support'].includes(p.channel)
+		) ||
+		!Number.isFinite(minWidth) ||
+		minWidth <= 0
+	)
+		throw new InvariantError('invalid-port-options');
+	if (new Set(candidates.map((e) => e.id)).size !== candidates.length)
+		throw new InvariantError('duplicate-connection');
+	const rejected: string[] = [],
+		valid: Connection[] = [];
+	for (const e of candidates) {
+		const a = byId.get(e.a),
+			b = byId.get(e.b);
+		if (
+			!a ||
+			!b ||
+			a.id === b.id ||
+			![e.cost, e.width, e.capacity, e.span, e.maxSpan].every(Number.isFinite) ||
+			e.cost <= 0 ||
+			e.width <= 0 ||
+			e.capacity <= 0 ||
+			e.span < 0 ||
+			e.maxSpan < 0 ||
+			!['horizontal', 'stair', 'lift', 'ramp'].includes(e.kind)
+		)
+			throw new InvariantError('invalid-connection', [e.id]);
+		if (
+			!e.clear ||
+			e.width < minWidth ||
+			e.span > e.maxSpan ||
+			a.channel !== b.channel ||
+			(e.kind === 'horizontal' && a.level !== b.level)
+		) {
+			rejected.push(e.id);
+			continue;
+		}
+		valid.push(e);
+	}
+
+	return { valid, rejected };
 }

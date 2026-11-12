@@ -221,6 +221,13 @@ export function slots(p: Patch, o: Occupancy, farben?: Farben): Slot[] {
 			const bestand = bits(f.vertices, h, (id, l) => isBestand(o, id, l));
 			const weg = anyWeg && m ? bits(f.vertices, h, (id, l) => isWeg(o, id, l)) : 0;
 			// Flight upward from the upper path bit: to the neighboring corner one level higher, without a level connection.
+			let wegQuer = 0;
+			for (const d of [0, 1]) {
+				const a = f.vertices[d],
+					c = f.vertices[d + 2];
+				if (isWeg(o, a, h + 1) && isWeg(o, c, h + 1) && o[address(a, h + 1)].quer?.includes(c))
+					wegQuer |= 1 << d;
+			}
 			let wegAuf = 0;
 			if (weg >> 4)
 				f.vertices.forEach((id, i) => {
@@ -267,7 +274,8 @@ export function slots(p: Patch, o: Occupancy, farben?: Farben): Slot[] {
 									(id, l) => solid(o, id, l) && !isBestand(o, id, l) && !isDeck(id, l)
 								),
 								wegStilts: wegStilts.get(`${f.id}@${h}`) ?? [],
-								wegAuf
+								wegAuf,
+								...(wegQuer ? { wegQuer } : {})
 							}
 						: {}),
 					...(farben?.frame ? { frameToken: farben.frame } : {})

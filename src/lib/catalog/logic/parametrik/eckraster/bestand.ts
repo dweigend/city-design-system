@@ -7,6 +7,8 @@
 import type { Point2 } from '../vocab';
 import type { Patch } from './topology';
 import { blockrand, HEIGHT_STEP, isBestand, occupied, solid, type Occupancy } from './state';
+import { clip } from '../raster/geometry';
+import { area } from '../raster/universal/kern/geometry';
 import { index } from './derive';
 
 export type Fassade = {
@@ -48,6 +50,15 @@ export const boundaryEdge = (p: Patch, a: string, b: string) => {
 	return ix.vertex.get(a)!.faces.filter((id) => ix.face.get(id)!.vertices.includes(b)).length === 1;
 };
 
+/** Dual edge between two mesh neighbors, averaged the same way as cellOutline. */
+export function grenze(p: Patch, c: string, n: string): [Point2, Point2][] {
+	const ix = index(p),
+		v = ix.vertex.get(c)!;
+	const m = mid(v.point, ix.vertex.get(n)!.point);
+	return v.faces
+		.filter((fid) => ix.face.get(fid)!.vertices.includes(n))
+		.map((fid) => [avg(ix.face.get(fid)!.vertices.map((id) => ix.vertex.get(id)!.point)), m]);
+}
 /**
  * Outline of a build cell exactly as in the corner module: slot center (bilinear = mean of the four
  * corners) and edge midpoints, for rim cells also the vertex itself. Counterclockwise.
@@ -137,7 +148,12 @@ export type Parzelle = {
  * Existing houses (parcels) with facade pieces and roof. Deterministic, from the occupancy only.
  * `plan` sets parcel, ridge and roof form per cell; without it the L10 perimeter block applies.
  */
-export function haeuser(p: Patch, o: Occupancy, plan?: Map<string, Parzelle>): Haus[] {
+export function haeuser(
+	p: Patch,
+	o: Occupancy,
+	plan?: Map<string, Parzelle>,
+	gasse?: (cell: string) => boolean
+): Haus[] {
 	const byId = index(p).vertex;
 	const parcel = plan
 		? new Map([...plan].map(([id, q]) => [id, q.parcel]))
@@ -155,8 +171,24 @@ export function haeuser(p: Patch, o: Occupancy, plan?: Map<string, Parzelle>): H
 			return n;
 		};
 		const levels = Math.min(...cells.map(height));
-		const outline = hull(cells.flatMap((id) => cellOutline(p, id))),
-			center = avg(outline);
+		let outline = hull(cells.flatMap((id) => cellOutline(p, id)));
+		if (gasse) {
+			const original = outline;
+			for (const c of cells)
+				for (const n of byId.get(c)!.neighbors.filter(gasse))
+					for (const [a, b] of grenze(p, c, n)) {
+						let normal: Point2 = [b[1] - a[1], a[0] - b[0]],
+							limit = normal[0] * a[0] + normal[1] * a[1];
+						const q = byId.get(c)!.point;
+						if (normal[0] * q[0] + normal[1] * q[1] > limit) {
+							normal = [-normal[0], -normal[1]];
+							limit = -limit;
+						}
+						outline = clip(outline, normal, limit);
+					}
+			if (outline.length < 3 || area(outline) < 0.4 * area(original)) outline = original;
+		}
+		const center = avg(outline);
 		const street = byId.get(key) ?? byId.get(cells[0])!,
 			given = plan?.get(cells[0]);
 		// Eaves to the street: ridge parallel to the edge; a corner turret at the block corner.

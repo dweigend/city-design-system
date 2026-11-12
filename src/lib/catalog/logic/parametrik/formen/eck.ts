@@ -803,6 +803,28 @@ function wege(slot: Slot, weg: number): Primitive[] {
 				]);
 			}
 		}
+	if (!all)
+		for (const d of [0, 1])
+			if ((ctx.wegQuer ?? 0) & (1 << d)) {
+				const i = d,
+					j = d + 2;
+				if (tok(i + 4) !== tok(j + 4)) continue;
+				const A = pt(i, ta(i), 0),
+					B = pt(i, 0, tb(i)),
+					C = pt(j, ta(j), 0),
+					D = pt(j, 0, tb(j));
+				const poly = [A, D, C, B];
+				if (
+					poly.reduce((s, a, i) => {
+						const b = poly[(i + 1) % 4];
+						return s + a[0] * b[1] - a[1] * b[0];
+					}, 0) < 0
+				)
+					poly.reverse();
+				plate(poly, tok(i + 4));
+				rand(A, D);
+				rand(C, B);
+			}
 	for (const s of ctx.wegStilts ?? []) {
 		const p = slot.corners[s.corner];
 		if (p && zMid - s.from > 0.05)

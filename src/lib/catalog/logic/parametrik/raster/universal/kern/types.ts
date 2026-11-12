@@ -8,7 +8,12 @@ export type Meaning = {
 	protected: boolean;
 };
 export type Derivation = { id: Id; parent: Id | null; rule: string; children: Id[] };
-export type SourceFace = { id: Id; ring: readonly Id[]; level: number };
+export type SourceFace = {
+	id: Id;
+	ring: readonly Id[];
+	level: number;
+	parts?: readonly (readonly Id[])[];
+};
 export type Intent = {
 	version: 1;
 	seed: number;

@@ -9,6 +9,7 @@
  *   n-gon    → n kites around the centroid, or a fan of triangles (Voronoi, organic)
  * Pure function of seed and sliders; no indices leave this file.
  */
+import { fieldChart, InvariantError, type CrossField } from '../raster/universal/kern';
 import { random } from '../random';
 import { count } from '../types';
 import type { Cell, Point2 } from '../vocab';
@@ -55,6 +56,7 @@ export const rasterarten: { id: RasterId; name: string; regel: string }[] = [
 ];
 
 export type RasterParams = {
+	feld?: boolean;
 	raster: RasterId;
 	seed: number;
 	/** Blocks per side (3–6): size of the district. */
@@ -66,7 +68,7 @@ export type RasterParams = {
 };
 
 export type Makro = { id: string; polygon: Point2[] };
-export type Netz = { grid: UniversalGrid; makros: Makro[] };
+export type Netz = { grid: UniversalGrid; makros: Makro[]; feldRueckfall?: number };
 
 type Roh = { polygon: Point2[]; teile: Point2[][] };
 type Abb = (u: number, v: number) => Point2;
@@ -482,6 +484,7 @@ export function netz(p: RasterParams): Netz {
 		g = count(p.groesse, 3, 6),
 		s = 30 * Math.max(0.8, Math.min(1.3, p.mass)),
 		verzug = Math.max(0, Math.min(1, p.verzug));
+	const feld = p.raster === 'organisch' && p.feld ? organischFeld(g, s, rng) : undefined;
 	const roh =
 		p.raster === 'achsen'
 			? achsen(g, s, rng)
@@ -498,10 +501,12 @@ export function netz(p: RasterParams): Netz {
 								: p.raster === 'viereck'
 									? viereck(g, s, rng)
 									: p.raster === 'organisch'
-										? organisch(g, s, rng)
+										? p.feld
+											? (feld ?? organisch(g, s, rng))
+											: organisch(g, s, rng)
 										: quadrat(g, s);
 	// The organic grid is always curved; all others only with the slider.
-	const staerke = p.raster === 'organisch' ? 0.55 + 0.45 * verzug : verzug;
+	const staerke = p.raster === 'organisch' && !p.feld ? 0.55 + 0.45 * verzug : verzug;
 	const r = Math.max(1, ...roh.flatMap((m) => m.polygon.map((q) => Math.hypot(q[0], q[1])))),
 		fluss = stroemung(staerke, r, rng),
 		// Round to 0.1 mm: points on shared edges reliably coincide.
@@ -532,6 +537,7 @@ export function netz(p: RasterParams): Netz {
 	const all = cells.flatMap((c) => c.polygon);
 	return {
 		makros,
+		...(p.raster === 'organisch' && p.feld ? { feldRueckfall: feld ? 0 : 1 } : {}),
 		grid: {
 			kind: p.raster === 'organisch' ? 'organic' : 'quad-irregular',
 			cells,
@@ -542,4 +548,123 @@ export function netz(p: RasterParams): Netz {
 			}
 		}
 	};
+}
+
+/** Field chart, grouped into 3×3 pre-cells per block. */
+function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefined {
+	const b = g + 1,
+		R = (b * 0.85 * s) / 2,
+		theta = (rng() * Math.PI) / 2,
+		ph0 = rng() * Math.PI * 2,
+		ph1 = rng() * Math.PI * 2;
+	const direction = (
+		radius: number,
+		weight: number,
+		offset: number
+	): CrossField['sources'][number] => ({
+		kind: 'direction',
+		point: [R * (rng() - 0.5) * 1.2, R * (rng() - 0.5) * 1.2],
+		radius: radius * R,
+		weight,
+		angle: theta + (rng() < 0.5 ? -1 : 1) * (offset + 0.3 * rng())
+	});
+	const sources: CrossField['sources'] = [
+		direction(1.6, 0.7, 0.25),
+		direction(1.3, 0.5, 0.2),
+		{
+			kind: 'attractor',
+			point: [R * (rng() - 0.5) * 0.3, R * (rng() - 0.5) * 0.3],
+			radius: 1.1 * R,
+			weight: 0.35
+		}
+	];
+	for (const k of [1, 0.5, 0.25])
+		try {
+			const chart = fieldChart(
+				{
+					angle: theta,
+					strength: 1,
+					density: 1,
+					sources: sources.map((s) => ({ ...s, weight: s.weight * k }))
+				},
+				{ min: [-R * 1.1, -R * 1.1], max: [R * 1.1, R * 1.1] },
+				3 * b + 1,
+				(2 * R) / 60
+			);
+			const at = (i: number, j: number): Point2 => {
+				const p = chart.positions.get(`cross:${i}:${j}`)!;
+				return [p[0], p[1]];
+			};
+			const blocks = new Map<string, { i: number; j: number; roh: Roh; dist: number }>();
+			for (let i = 0; i < b; i++)
+				for (let j = 0; j < b; j++) {
+					const teile: Point2[][] = [];
+					for (let u = 0; u < 3; u++)
+						for (let v = 0; v < 3; v++)
+							teile.push(
+								chart.faces.get(`field:${3 * i + u}:${3 * j + v}`)!.ring.map((id) => {
+									const p = chart.positions.get(id)!;
+									return [p[0], p[1]];
+								})
+							);
+					const polygon: Point2[] = [];
+					for (let n = 0; n < 3; n++) polygon.push(at(3 * i, 3 * j + n));
+					for (let n = 0; n < 3; n++) polygon.push(at(3 * i + n, 3 * j + 3));
+					for (let n = 0; n < 3; n++) polygon.push(at(3 * i + 3, 3 * j + 3 - n));
+					for (let n = 0; n < 3; n++) polygon.push(at(3 * i + 3 - n, 3 * j));
+					const m = mittel(polygon),
+						a = Math.atan2(m[1], m[0]),
+						dist = Math.hypot(...m);
+					blocks.set(`${i}:${j}`, { i, j, roh: { polygon, teile }, dist });
+					if (!(dist < R * (0.95 + 0.14 * Math.sin(2 * a + ph0) + 0.1 * Math.sin(3 * a + ph1))))
+						continue;
+				}
+			const keep = new Set(
+				[...blocks]
+					.filter(([, v]) => {
+						const m = mittel(v.roh.polygon),
+							a = Math.atan2(m[1], m[0]);
+						return v.dist < R * (0.95 + 0.14 * Math.sin(2 * a + ph0) + 0.1 * Math.sin(3 * a + ph1));
+					})
+					.map(([id]) => id)
+			);
+			const root = [...keep].sort((a, b) => blocks.get(a)!.dist - blocks.get(b)!.dist)[0],
+				queue = [root],
+				seen = new Set([root]);
+			for (let n = 0; n < queue.length; n++) {
+				const v = blocks.get(queue[n])!;
+				for (const [di, dj] of [
+					[1, 0],
+					[-1, 0],
+					[0, 1],
+					[0, -1]
+				]) {
+					const id = `${v.i + di}:${v.j + dj}`;
+					if (keep.has(id) && !seen.has(id)) {
+						seen.add(id);
+						queue.push(id);
+					}
+				}
+			}
+			let changed = true;
+			while (changed) {
+				changed = false;
+				for (let i = 0; i < b - 1; i++)
+					for (let j = 0; j < b - 1; j++) {
+						const ids = [`${i}:${j}`, `${i + 1}:${j}`, `${i + 1}:${j + 1}`, `${i}:${j + 1}`],
+							bits = ids.map((id) => seen.has(id));
+						if (bits[0] === bits[2] && bits[1] === bits[3] && bits[0] !== bits[1]) {
+							const id = ids
+								.filter((id) => !seen.has(id))
+								.sort((a, b) => blocks.get(a)!.dist - blocks.get(b)!.dist)[0];
+							seen.add(id);
+							changed = true;
+						}
+					}
+			}
+			return [...blocks].filter(([id]) => seen.has(id)).map(([, v]) => v.roh);
+		} catch (e) {
+			if (!(e instanceof InvariantError)) throw e;
+		}
+	return undefined;
 }

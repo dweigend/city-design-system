@@ -17,7 +17,12 @@ export const BAHN = 'bahn';
  * An occupancy. `frame`: frame/scaffold around the build cell. Group `geruest` with a frame =
  * empty frame (hollow); any other group with a frame = colored plug-in module in the frame.
  */
-export type Sample = Readonly<{ occupied: boolean; group: string; frame?: boolean }>;
+export type Sample = Readonly<{
+	occupied: boolean;
+	group: string;
+	frame?: boolean;
+	quer?: readonly string[];
+}>;
 export type Occupancy = Readonly<Record<string, Sample>>;
 /**
  * Intent of an intervention. `frame: true` sets a frame (around an existing module

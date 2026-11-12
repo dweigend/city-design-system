@@ -10,7 +10,21 @@ import type { RasterId } from './netze';
 export type FarbcodeId = 'strom' | '45' | '36' | '43';
 export type FokusId = 'alle' | 'netze' | 'volumen';
 
+export type KernTeile = { netz: boolean; wege: boolean; zugang: boolean; feld: boolean };
+export const KERN_AUS: KernTeile = Object.freeze({
+	netz: false,
+	wege: false,
+	zugang: false,
+	feld: false
+});
+export const KERN_AN: KernTeile = Object.freeze({
+	netz: true,
+	wege: true,
+	zugang: true,
+	feld: true
+});
 export type WeltParams = {
+	kern: KernTeile;
 	seed: number;
 	/** Blocks per side (3–6); a block measures 4–6 build cells of 5 m each. */
 	groesse: number;
@@ -33,6 +47,7 @@ export type WeltParams = {
 };
 
 export const weltDefaults: WeltParams = {
+	kern: KERN_AUS,
 	seed: 45,
 	groesse: 4,
 	dichte: 0.5,

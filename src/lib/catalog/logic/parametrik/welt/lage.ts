@@ -46,6 +46,7 @@ export type Block = {
 };
 export type Lage = {
 	patch: Patch;
+	feldRueckfall?: number;
 	blocks: Block[];
 	/** Block of a build cell; alleys and boundary are missing. */
 	blockOf: Map<string, Block>;
@@ -59,7 +60,16 @@ export type Lage = {
 	bahnsteig: string[];
 	extent: number;
 	/** Quality of the mesh from `toPatch`. */
-	guete: { minAngle: number; minArea: number; maxAspect: number };
+	guete: {
+		minAngle: number;
+		minArea: number;
+		maxAspect: number;
+		js?: number;
+		stufe?: 0 | 1 | 2;
+		haengend?: number;
+		fehler?: string[];
+	};
+	kern?: { model: import('../raster/universal/kern').Model };
 };
 
 const hash = (s: string) => [...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
@@ -113,7 +123,7 @@ function huelle(points: Point2[]): Point2[] {
 	return [...half(ps), ...half([...ps].reverse())];
 }
 
-function block(
+export function block(
 	id: string,
 	cells: string[],
 	patch: Patch,
@@ -249,25 +259,41 @@ export function lage(p: LageParams): Lage {
 			seed: p.seed >>> 0,
 			iterations: Math.max(0, Math.min(6, Math.round(p.relax)))
 		});
-	const rng = random((p.seed >>> 0) * 7919 + 13),
-		point = new Map(patch.vertices.map((v) => [v.id, v.point])),
-		nb = new Map(patch.vertices.map((v) => [v.id, v.neighbors])),
-		rand = new Set(patch.vertices.filter((v) => v.boundary).map((v) => v.id));
 	// Build cell of a block: all source cells in the same macro cell, not on the boundary.
-	const groups = new Map<string, string[]>(),
-		innen = new Map<string, true>();
+	const groups = new Map<string, string[]>();
 	for (const v of patch.vertices) {
 		if (v.boundary) continue;
 		const makros = new Set(patch.origins.get(v.id)!.cells.map((c) => c.split('/')[0]));
 		if (makros.size !== 1) continue;
 		const m = [...makros][0];
 		groups.set(m, [...(groups.get(m) ?? []), v.id]);
-		innen.set(v.id, true);
 	}
+	return {
+		...ausPatch(
+			patch,
+			groups,
+			p.seed,
+			patch.quality,
+			new Map(patch.cells.map((c) => [c.id, c.area]))
+		),
+		...(n.feldRueckfall === undefined ? {} : { feldRueckfall: n.feldRueckfall })
+	};
+}
+export function ausPatch(
+	patch: Patch,
+	groups: Map<string, string[]>,
+	seed: number,
+	guete: Lage['guete'],
+	areaOf: Map<string, number>
+): Lage {
+	const rng = random((seed >>> 0) * 7919 + 13),
+		point = new Map(patch.vertices.map((v) => [v.id, v.point])),
+		nb = new Map(patch.vertices.map((v) => [v.id, v.neighbors])),
+		rand = new Set(patch.vertices.filter((v) => v.boundary).map((v) => v.id));
+	const innen = new Map([...groups.values()].flat().map((id) => [id, true as const]));
 	const all = patch.vertices.map((v) => v.point),
 		extent = Math.max(...all.map((q) => Math.max(Math.abs(q[0]), Math.abs(q[1])))) * 1.1 + 4,
 		weit = Math.max(...all.map((q) => Math.hypot(q[0], q[1])));
-	const areaOf = new Map(patch.cells.map((c) => [c.id, c.area]));
 	const blocks: Block[] = [...groups]
 		.sort((a, b) => (a[0] < b[0] ? -1 : 1))
 		.map(([id, cells]) => {
@@ -359,7 +385,7 @@ export function lage(p: LageParams): Lage {
 		bahn,
 		bahnsteig,
 		extent,
-		guete: patch.quality
+		guete
 	};
 }
 

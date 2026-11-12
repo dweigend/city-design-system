@@ -148,6 +148,16 @@ function crossings(a: Streamline, b: Streamline): Vec[] {
 	const out: Vec[] = [];
 	for (let i = 1; i < a.points.length; i++)
 		for (let j = 1; j < b.points.length; j++) {
+			if (
+				Math.max(a.points[i - 1][0], a.points[i][0]) <
+					Math.min(b.points[j - 1][0], b.points[j][0]) ||
+				Math.max(b.points[j - 1][0], b.points[j][0]) <
+					Math.min(a.points[i - 1][0], a.points[i][0]) ||
+				Math.max(a.points[i - 1][1], a.points[i][1]) <
+					Math.min(b.points[j - 1][1], b.points[j][1]) ||
+				Math.max(b.points[j - 1][1], b.points[j][1]) < Math.min(a.points[i - 1][1], a.points[i][1])
+			)
+				continue;
 			const p = a.points[i - 1],
 				q = b.points[j - 1],
 				u = sub(a.points[i], p),
@@ -167,11 +177,20 @@ function crossings(a: Streamline, b: Streamline): Vec[] {
 /** Restricted chart: each primary/secondary line pair must cross exactly once.
  * Singularities, recirculation and incomplete charts reject instead of inventing connections.
  */
-export function fieldGrid(field: CrossField, bounds: { min: Vec; max: Vec }, count = 6, seed = 42) {
+export type FieldChart = {
+	positions: Map<string, Vec>;
+	faces: Map<string, SourceFace>;
+	lines: [Streamline[], Streamline[]];
+};
+export function fieldChart(
+	field: CrossField,
+	bounds: { min: Vec; max: Vec },
+	count = 6,
+	step = Math.min(bounds.max[0] - bounds.min[0], bounds.max[1] - bounds.min[1]) / 100
+): FieldChart {
 	if (!Number.isInteger(count) || count < 2 || count > 100)
 		throw new InvariantError('invalid-line-count');
-	const step = Math.min(bounds.max[0] - bounds.min[0], bounds.max[1] - bounds.min[1]) / 100;
-	const lines: Streamline[][] = [[], []];
+	const lines: [Streamline[], Streamline[]] = [[], []];
 	for (const family of [0, 1] as const)
 		for (let i = 0; i < count; i++) {
 			const target = (i + 1) / (count + 1);
@@ -224,6 +243,11 @@ export function fieldGrid(field: CrossField, bounds: { min: Vec; max: Vec }, cou
 				]
 			});
 		}
+	return { positions, faces, lines };
+}
+export function fieldGrid(field: CrossField, bounds: { min: Vec; max: Vec }, count = 6, seed = 42) {
+	const { positions, faces, lines } = fieldChart(field, bounds, count);
+
 	const intent: Intent = {
 		version: 1,
 		seed,

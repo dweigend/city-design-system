@@ -20,12 +20,12 @@ import { AUGE } from './typen';
 /** Height classes: gallery and rooftop walkway. */
 export const KLASSEN = [2, 4];
 /** Highest path level. */
-const TOP = 5;
+export const TOP = 5;
 /** Cost per level: ground only for arriving, classes cheap, intermediate levels expensive. */
-const EBENE = [3.2, 2.4, 1, 2.4, 1.05, 2.8];
-const LAUF = 2;
+export const EBENE = [3.2, 2.4, 1, 2.4, 1.05, 2.8];
+export const LAUF = 2;
 /** On a roof the path rests on it: cheap, whatever the level. */
-const DACH = 0.7;
+export const DACH = 0.7;
 /** Largest free span of a footbridge between two bearings in meters. */
 export const SPANNWEITE = 13;
 /** A flight climbs one floor (4 m): shorter would be a ladder, longer a ramp. */
@@ -34,6 +34,9 @@ export const LAUF_MIN = 2.6,
 
 export type Netz = {
 	/** Nodes as [build cell, level]. */
+	start: number;
+	ziele: { id: string; knoten: number }[];
+	ohneAnschluss: number;
 	knoten: [string, number][];
 	kanten: [number, number][];
 	tour: Vec3[];
@@ -45,49 +48,7 @@ export type Netz = {
 	ebenen: number[];
 };
 
-/** Small binary heap for Dijkstra. */
-class Heap {
-	private keys: number[] = [];
-	private vals: number[] = [];
-	get size() {
-		return this.keys.length;
-	}
-	push(key: number, val: number) {
-		let i = this.keys.length;
-		this.keys.push(key);
-		this.vals.push(val);
-		while (i > 0) {
-			const up = (i - 1) >> 1;
-			if (this.keys[up] <= key) break;
-			this.keys[i] = this.keys[up];
-			this.vals[i] = this.vals[up];
-			i = up;
-		}
-		this.keys[i] = key;
-		this.vals[i] = val;
-	}
-	pop(): [number, number] {
-		const top: [number, number] = [this.keys[0], this.vals[0]],
-			key = this.keys.pop()!,
-			val = this.vals.pop()!,
-			n = this.keys.length;
-		if (n) {
-			let i = 0;
-			for (;;) {
-				let c = 2 * i + 1;
-				if (c >= n) break;
-				if (c + 1 < n && this.keys[c + 1] < this.keys[c]) c++;
-				if (this.keys[c] >= key) break;
-				this.keys[i] = this.keys[c];
-				this.vals[i] = this.vals[c];
-				i = c;
-			}
-			this.keys[i] = key;
-			this.vals[i] = val;
-		}
-		return top;
-	}
-}
+import { Heap } from '../raster/universal/kern/heap';
 
 /**
  * Lays the path network into the occupancy. The graph is the patch: nodes are build cells per level,
@@ -358,13 +319,63 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	const knoten = [...inNet].sort((a, c) => a - c),
 		at = new Map(knoten.map((k, i) => [k, i])),
 		edges = [...kanten.values()].map(([a, c]) => [at.get(a)!, at.get(c)!] as [number, number]);
-	const adj = nachbarn();
+	return {
+		...auswertung(
+			r,
+			b,
+			knoten.map((k) => [ids[Math.floor(k / L)], k % L]),
+			edges,
+			at.get(start)!,
+			ziele
+				.filter((z) => z.anker !== undefined)
+				.map((z) => ({ id: z.id, knoten: at.get(z.anker!)! }))
+		),
+		ohneAnschluss: ziele.filter((z) => z.anker === undefined).length
+	};
+}
+
+/** Shared evaluation for the port graph. Order remains that of the laid network. */
+export function auswertung(
+	r: Lage,
+	b: Belegung,
+	cells: [string, number][],
+	edges: [number, number][],
+	start: number,
+	ziele: { id: string; knoten: number }[]
+): Netz {
+	const knoten = cells.map((_, i) => i),
+		kanten = new Map(edges.map((e, i) => [String(i), e]));
+	const pos = (k: number) => r.point.get(cells[k][0])!,
+		luft = (a: number, c: number) => Math.hypot(pos(a)[0] - pos(c)[0], pos(a)[1] - pos(c)[1]);
+	const sample = (v: string, l: number) => b.samples[address(v, l)],
+		isWeg = (v: string, l: number) => sample(v, l)?.group === WEG;
+	const adj = new Map<number, number[]>();
+	for (const [a, c] of edges) {
+		adj.set(a, [...(adj.get(a) ?? []), c]);
+		adj.set(c, [...(adj.get(c) ?? []), a]);
+	}
+	const schritte = (adj: Map<number, number[]>, from: number) => {
+		const d = new Map([[from, 0]]),
+			prev = new Map<number, number>(),
+			queue = [from];
+		for (let i = 0; i < queue.length; i++)
+			for (const w of adj.get(queue[i]) ?? [])
+				if (!d.has(w)) {
+					d.set(w, d.get(queue[i])! + 1);
+					prev.set(w, queue[i]);
+					queue.push(w);
+				}
+		return { d, prev };
+	};
 	/** Farthest node in the network, on the ground if there is one: the walkthrough starts and ends below. */
 	const weit = (from: number, boden: boolean) => {
 		const { d, prev } = schritte(adj, from);
 		let far = from;
 		for (const [k, n] of d) {
-			const besser = boden && (k % L === 0) !== (far % L === 0) ? k % L === 0 : n > d.get(far)!;
+			const besser =
+				boden && (cells[k][1] === 0) !== (cells[far][1] === 0)
+					? cells[k][1] === 0
+					: n > d.get(far)!;
 			if (k !== from && (far === from || besser)) far = k;
 		}
 		const path = [far];
@@ -380,31 +391,33 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	}
 	const tour = strecke.map((k): Vec3 => {
 		const q = pos(k),
-			l = k % L;
+			l = cells[k][1];
 		return [q[0], q[1], l * HEIGHT_STEP + (l ? WEG_D : 0.08) + AUGE];
 	});
 	let laenge = 0,
 		laeufe = 0,
 		dachwege = 0;
 	for (const [a, c] of kanten.values()) {
-		const [la, lc] = [a % L, c % L];
+		const [la, lc] = [cells[a][1], cells[c][1]];
 		if (la !== lc) laeufe++;
 		if (la > 0 || lc > 0) laenge += luft(a, c);
 	}
 	for (const k of knoten) {
-		const v = Math.floor(k / L),
-			l = k % L;
+		const v = cells[k][0],
+			l = cells[k][1];
 		if (l > 0 && sample(v, l - 1) && !isWeg(v, l - 1)) dachwege++;
 	}
 	return {
-		knoten: knoten.map((k) => [ids[Math.floor(k / L)], k % L]),
+		start,
+		ziele,
+		ohneAnschluss: 0,
+		knoten: cells,
 		kanten: edges,
 		tour,
-		// Cycle count of the network: a connection that touches the network twice closes two loops.
 		schleifen: edges.length - (knoten.length - 1),
 		laeufe,
 		laenge: Math.round(laenge),
 		dachwege,
-		ebenen: [...new Set(knoten.map((k) => k % L).filter((l) => l > 0))].sort((a, c) => a - c)
+		ebenen: [...new Set(cells.map(([, l]) => l).filter((l) => l > 0))].sort((a, b) => a - b)
 	};
 }

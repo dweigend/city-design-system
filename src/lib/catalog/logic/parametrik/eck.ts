@@ -95,6 +95,7 @@ export type SlotContext = {
 	 * There the landing stays without a railing.
 	 */
 	wegAuf?: number;
+	wegQuer?: number;
 	/** Color of the structural frame. Without the field: frame red. */
 	frameToken?: ColorToken;
 };

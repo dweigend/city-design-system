@@ -18,6 +18,9 @@ import { BAHN, BESTAND, GERUEST, HEIGHT_STEP, WEG, type Occupancy } from '../eck
 import { belegung, KERN } from './belegung';
 import { lage, type Lage } from './lage';
 import { wege } from './wege';
+import { zugangSichern } from './zugang';
+import { wegeKern } from './ports';
+import { lageKern } from './kernlage';
 import type { FarbcodeId, FokusId, Welt, WeltParams } from './typen';
 
 export { weltDefaults } from './typen';
@@ -140,8 +143,21 @@ function figur(id: string, [x, y]: Point2, z: number, token: ColorToken): Primit
  */
 let zuletzt: { key: string; lage: Lage } | undefined;
 function lageOf(p: WeltParams): Lage {
-	const key = [p.raster, p.seed >>> 0, p.groesse, p.mass, p.verzug, p.relax].join('|');
-	if (zuletzt?.key !== key) zuletzt = { key, lage: lage(p) };
+	const key = [
+		p.raster,
+		p.seed >>> 0,
+		p.groesse,
+		p.mass,
+		p.verzug,
+		p.relax,
+		p.kern.netz,
+		p.kern.feld
+	].join('|');
+	if (zuletzt?.key !== key)
+		zuletzt = {
+			key,
+			lage: p.kern.netz ? lageKern({ ...p, feld: p.kern.feld }) : lage({ ...p, feld: p.kern.feld })
+		};
 	return zuletzt.lage;
 }
 
@@ -168,12 +184,14 @@ function strukturOf(p: WeltParams) {
 		p.relax,
 		p.dichte,
 		p.hoehe,
-		p.schwamm
+		p.schwamm,
+		p.kern.netz,
+		p.kern.wege,
+		p.kern.zugang,
+		p.kern.feld
 	].join('|');
 	if (struktur?.key !== key) {
-		const r = lageOf(p),
-			b = belegung(r, p),
-			netz = wege(r, b, Math.max(1, Math.round(r.blocks.length / 6)));
+		const { r, b, netz } = teile(p);
 		const groups: (string | undefined)[] = [];
 		// slots calls the resolver once per corner bit, in slot order (eight bits each).
 		const derived = slots(r.patch, b.samples, {
@@ -230,6 +248,13 @@ function band(line: Point2[], w: number): Point2[][] {
 	return out;
 }
 
+export function teile(p: WeltParams) {
+	const r = lageOf(p),
+		b = belegung(r, p);
+	if (p.kern.zugang) zugangSichern(r, b);
+	const netz = (p.kern.wege ? wegeKern : wege)(r, b, Math.max(1, Math.round(r.blocks.length / 6)));
+	return { r, b, netz };
+}
 export function welt(input: WeltParams): Welt {
 	const p = {
 		...input,
@@ -271,7 +296,11 @@ export function welt(input: WeltParams): Welt {
 				out[i] = { ...out[i], token: '--paper', role: 'bestand', shade: 0 };
 
 	// 2. Existing stock: punched facade, round arches, roofs.
-	out.push(...haeuser(patch, o, b.plan).flatMap(bestandDetails));
+	out.push(
+		...haeuser(patch, o, b.plan, p.kern.zugang ? (id) => !r.blockOf.has(id) : undefined).flatMap(
+			bestandDetails
+		)
+	);
 
 	// 3. Ornament: steps back in focus.
 	const deko: Primitive[] = [];

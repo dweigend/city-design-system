@@ -39,7 +39,7 @@ function frontLength(a: Vec, b: Vec, c: Vec, d: Vec) {
 		Math.min(l, Math.max(project(c), project(d))) - Math.max(0, Math.min(project(c), project(d)))
 	);
 }
-function access(p: Vec[], fronts: readonly Front[], o: ParcelOptions) {
+export function frontage(p: Vec[], fronts: readonly Front[], o: ParcelOptions) {
 	return fronts
 		.filter((f) => f.level === o.level && f.width >= o.minWidth)
 		.map((f) => ({
@@ -97,7 +97,7 @@ export function parcelize(
 		leaves: Parcel[] = [],
 		unresolved: string[] = [];
 	function split(id: string, parent: string | null, p: Vec[], depth: number) {
-		const a = access(p, fronts, o);
+		const a = frontage(p, fronts, o);
 		if (!a.length) throw new InvariantError('landlocked', [id]);
 		const node: Parcel = { id, parent, polygon: p, access: a, children: [] };
 		nodes.set(id, node);
@@ -132,7 +132,7 @@ export function parcelize(
 					const limit = b[0] + ratio * (b[1] - b[0]),
 						parts = [clip(p, n, limit, 1), clip(p, n, limit, -1)];
 					if (
-						parts.some((q) => q.length < 3 || area(q) < o.minArea || !access(q, fronts, o).length)
+						parts.some((q) => q.length < 3 || area(q) < o.minArea || !frontage(q, fronts, o).length)
 					)
 						continue;
 					node.children = parts.map((_, i) => childId(id, 'parcel', i));
