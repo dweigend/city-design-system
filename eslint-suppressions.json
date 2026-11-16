@@ -1,0 +1,247 @@
+{
+	"src/lib/catalog/logic/ansicht/ansicht.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 8
+		}
+	},
+	"src/lib/catalog/logic/ansicht/werkbank.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/bibel/bibel.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/bibel/bilanz.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/bibel/szenen.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/modellierung/netz.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/modellierung/universal.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 2
+		}
+	},
+	"src/lib/catalog/logic/modellierung/wachstum.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 2
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/bestand.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 13
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/derive.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 15
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/eckraster.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 11
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/erschliessung.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 8
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/fixtures.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 4
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/koepfe.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/presentation.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 6
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/runde2.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 8
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/state.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/parametrik/eckraster/topology.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 16
+		}
+	},
+	"src/lib/catalog/logic/parametrik/formen/eck.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/parametrik/komposition/index.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/parametrik/komposition/regressions.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 7
+		}
+	},
+	"src/lib/catalog/logic/parametrik/material.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 5
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/grids.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 5
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/index.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/operatoren.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 6
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/index.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 19
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/adapters.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 2
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/benchmark.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/fields.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/geometry.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 4
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/kern.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/land.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 4
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/model.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 18
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/ports.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 15
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/topology.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 9
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/kern/transactions.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/serialization.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 1
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/structures.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 7
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/universal.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 8
+		}
+	},
+	"src/lib/catalog/logic/parametrik/raster/universal/update.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 4
+		}
+	},
+	"src/lib/catalog/logic/parametrik/welt/belegung.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 10
+		}
+	},
+	"src/lib/catalog/logic/parametrik/welt/index.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 9
+		}
+	},
+	"src/lib/catalog/logic/parametrik/welt/lage.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 18
+		}
+	},
+	"src/lib/catalog/logic/parametrik/welt/netze.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 3
+		}
+	},
+	"src/lib/catalog/logic/parametrik/welt/wege.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 13
+		}
+	},
+	"src/lib/catalog/logic/parametrik/welt/welt.test.ts": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 6
+		}
+	},
+	"src/lib/catalog/scene/PrimitiveView.svelte": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 2
+		}
+	},
+	"src/lib/catalog/scene/WeltView.svelte": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 2
+		}
+	},
+	"src/lib/catalog/werkbank/WerkbankView.svelte": {
+		"@typescript-eslint/no-non-null-assertion": {
+			"count": 2
+		}
+	}
+}

@@ -1,0 +1,64 @@
+# --- Private agent skills (never publish) ---
+.claude/skills/
+.agents/skills/
+.claude/settings.local.json
+.claude/worktrees/
+.codex
+
+# --- Node / SvelteKit ---
+node_modules/
+.svelte-kit/
+.output/
+build/
+/package
+.vercel/
+.netlify/
+.wrangler/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# --- Env ---
+.env
+.env.*
+!.env.example
+!.env.test
+
+# --- Blender / ref3d scratch ---
+*.blend1
+*.blend@
+__pycache__/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Local originals and external references (do not publish) ---
+/originals/
+static/designs/5[1-9]-*
+static/designs/6[0-9]-*
+static/designs/7[0-9]-*
+static/designs/8[0-9]-*
+static/designs/9[0-2]-*
+static/designs/15[2-9]-*
+static/designs/16[0-3]-*
+static/references/0[1-9]-*
+static/references/1[0-9]-*
+# Original adaptations use neutral filenames: uebertragung-<nr>-<thema>.webp.
+!static/designs/uebertragung-*.webp
+!static/references/uebertragung-*.webp
+docs/research/gpt-image/**/*.png
+docs/research/gpt-image/**/*.jpg
+docs/research/video/**/*.png
+docs/research/video/**/*.jpg
+docs/research/video/**/*.mp4
+docs/research/video/**/*.webm
+
+# Local open reference raw data
+/docs/research/referenz-gewachsen/roh/
+
+# Local original images, process images, and unpublished references
+/_lokal/

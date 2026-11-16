@@ -1,0 +1,55 @@
+{
+	"name": "city-game-design-system",
+	"version": "0.0.1",
+	"private": true,
+	"license": "SEE LICENSE IN LICENSE",
+	"type": "module",
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
+		"test": "bun test",
+		"analyze:health": "fallow health --report-only",
+		"analyze:unused": "fallow dead-code",
+		"analyze:duplication": "fallow dupes",
+		"check:boundaries": "bun scripts/check-boundaries.ts",
+		"check:boundaries:runtime": "depcruise src --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-baseline.json",
+		"check:boundaries:types": "bun scripts/check-svelte-type-boundaries.ts",
+		"review": "bun scripts/review.ts"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@sveltejs/adapter-auto": "^8.0.0",
+		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/vite-plugin-svelte": "^7.2.0",
+		"@types/node": "^24",
+		"@types/three": "^0.187.0",
+		"dependency-cruiser": "18.7.2",
+		"eslint": "^10.4.1",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.19.0",
+		"fallow": "3.42.0",
+		"globals": "^17.6.0",
+		"prettier": "^3.8.3",
+		"prettier-plugin-svelte": "^4.1.0",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.6.0",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.60.1",
+		"vite": "^8.3.0"
+	},
+	"dependencies": {
+		"bits-ui": "^2.21.0",
+		"lucide-svelte": "1.0.1",
+		"three": "^0.187.0"
+	}
+}

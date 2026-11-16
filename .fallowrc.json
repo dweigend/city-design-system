@@ -1,0 +1,4 @@
+{
+	"entry": ["src/routes/**/+*.{svelte,ts,js}", "src/hooks*.{ts,js}"],
+	"ignorePatterns": [".svelte-kit/**", "build/**", "static/**", "docs/**"]
+}

@@ -1,0 +1,4178 @@
+{
+	"dc7cc71b18a81d49": {
+		"haus": {
+			"version": 1,
+			"saat": 42,
+			"familie": "raumfachwerk",
+			"traeger": {
+				"version": 1,
+				"familie": "raumfachwerk",
+				"saat": 42,
+				"werte": { "lueckeM": 15.2, "felder": 5, "gurthoeheM": 2.4, "tiefeM": 9 },
+				"knoten": [
+					{ "id": "raumfachwerk:k:o:1:-1", "p": [-4.5600000000000005, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:1:0", "p": [-4.5600000000000005, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:1:1", "p": [-4.5600000000000005, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:-1", "p": [-1.52, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:0", "p": [-1.52, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:1", "p": [-1.52, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:-1", "p": [1.52, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:0", "p": [1.52, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:1", "p": [1.52, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:-1", "p": [4.5600000000000005, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:0", "p": [4.5600000000000005, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:1", "p": [4.5600000000000005, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:2:-1", "p": [0, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:2:1", "p": [0, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:3:1", "p": [3.04, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:4:1", "p": [6.08, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:u:-1:-1", "p": [-7.6, -3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:-1:1", "p": [-7.6, 3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:1:-1", "p": [7.6, -3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:1:1", "p": [7.6, 3, 8], "rolle": "lager" }
+				],
+				"kanten": [
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:1:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:2:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:3:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:1:-1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:m:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:-1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:m:1:1\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:2:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:m:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:m:2:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:m:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:1:1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:3:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:m:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:m:3:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:4:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:m:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:m:4:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:3:1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:4:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:m:4:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:m:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:m:0:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:m:0:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:m:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:m:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					}
+				],
+				"flaechen": [],
+				"zellen": [],
+				"belegung": {}
+			},
+			"anschluesse": [
+				{
+					"id": "raumfachwerk:k:m:2:-1/anschluss",
+					"elementId": "raumfachwerk:k:m:2:-1",
+					"beziehung": "eingehaengt",
+					"art": "raum",
+					"polygon": [
+						[5.75, -1.3],
+						[6.0036174186209665, -1.2750208645241996],
+						[6.2474884620746165, -1.2010433922646728],
+						[6.472241302925483, -1.080910495993309],
+						[6.669238815542512, -0.9192388155425117],
+						[6.830910495993309, -0.7222413029254828],
+						[6.951043392264673, -0.4974884620746167],
+						[7.025020864524199, -0.2536174186209667],
+						[7.05, 0],
+						[7.025020864524199, 0.2536174186209667],
+						[6.951043392264673, 0.4974884620746167],
+						[6.830910495993309, 0.7222413029254827],
+						[6.669238815542512, 0.9192388155425117],
+						[6.472241302925482, 1.080910495993309],
+						[6.2474884620746165, 1.2010433922646728],
+						[6.003617418620967, 1.2750208645241996],
+						[5.75, 1.3],
+						[-5.75, 1.3],
+						[-6.0036174186209665, 1.2750208645241996],
+						[-6.2474884620746165, 1.2010433922646728],
+						[-6.472241302925482, 1.0809104959933091],
+						[-6.669238815542512, 0.9192388155425119],
+						[-6.830910495993309, 0.7222413029254828],
+						[-6.951043392264673, 0.4974884620746169],
+						[-7.025020864524199, 0.2536174186209672],
+						[-7.05, 1.5920408388915593e-16],
+						[-7.025020864524199, -0.2536174186209669],
+						[-6.951043392264673, -0.4974884620746166],
+						[-6.830910495993309, -0.7222413029254826],
+						[-6.669238815542512, -0.9192388155425117],
+						[-6.472241302925482, -1.080910495993309],
+						[-6.247488462074617, -1.2010433922646726],
+						[-6.003617418620967, -1.2750208645241994],
+						[-5.75, -1.3]
+					],
+					"z": 8,
+					"hoeheM": 2.8,
+					"flaecheM2": 35.17524230731612,
+					"knoten": [
+						"raumfachwerk:k:m:0:-1",
+						"raumfachwerk:k:m:0:1",
+						"raumfachwerk:k:m:1:-1",
+						"raumfachwerk:k:m:1:1",
+						"raumfachwerk:k:m:3:-1",
+						"raumfachwerk:k:m:3:1",
+						"raumfachwerk:k:m:4:-1",
+						"raumfachwerk:k:m:4:1"
+					],
+					"wandIds": [],
+					"tuer": { "p": [-7.05, 0, 8], "breiteM": 1.5, "hoeheM": 2.1, "tangente": [0, -1] },
+					"fassungen": [
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:1", "p": [6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 11.6] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 11.6] }
+					]
+				},
+				{
+					"id": "raumfachwerk:k:m:2:-1/dach/anschluss",
+					"elementId": "raumfachwerk:k:m:2:-1/dach",
+					"beziehung": "eingehaengt",
+					"art": "garten",
+					"polygon": [
+						[5.75, -1.3],
+						[6.0036174186209665, -1.2750208645241996],
+						[6.2474884620746165, -1.2010433922646728],
+						[6.472241302925483, -1.080910495993309],
+						[6.669238815542512, -0.9192388155425117],
+						[6.830910495993309, -0.7222413029254828],
+						[6.951043392264673, -0.4974884620746167],
+						[7.025020864524199, -0.2536174186209667],
+						[7.05, 0],
+						[7.025020864524199, 0.2536174186209667],
+						[6.951043392264673, 0.4974884620746167],
+						[6.830910495993309, 0.7222413029254827],
+						[6.669238815542512, 0.9192388155425117],
+						[6.472241302925482, 1.080910495993309],
+						[6.2474884620746165, 1.2010433922646728],
+						[6.003617418620967, 1.2750208645241996],
+						[5.75, 1.3],
+						[-5.75, 1.3],
+						[-6.0036174186209665, 1.2750208645241996],
+						[-6.2474884620746165, 1.2010433922646728],
+						[-6.472241302925482, 1.0809104959933091],
+						[-6.669238815542512, 0.9192388155425119],
+						[-6.830910495993309, 0.7222413029254828],
+						[-6.951043392264673, 0.4974884620746169],
+						[-7.025020864524199, 0.2536174186209672],
+						[-7.05, 1.5920408388915593e-16],
+						[-7.025020864524199, -0.2536174186209669],
+						[-6.951043392264673, -0.4974884620746166],
+						[-6.830910495993309, -0.7222413029254826],
+						[-6.669238815542512, -0.9192388155425117],
+						[-6.472241302925482, -1.080910495993309],
+						[-6.247488462074617, -1.2010433922646726],
+						[-6.003617418620967, -1.2750208645241994],
+						[-5.75, -1.3]
+					],
+					"z": 10.8,
+					"hoeheM": 0.2,
+					"flaecheM2": 35.17524230731612,
+					"knoten": [
+						"raumfachwerk:k:m:0:-1",
+						"raumfachwerk:k:m:0:1",
+						"raumfachwerk:k:m:1:-1",
+						"raumfachwerk:k:m:1:1",
+						"raumfachwerk:k:m:3:-1",
+						"raumfachwerk:k:m:3:1",
+						"raumfachwerk:k:m:4:-1",
+						"raumfachwerk:k:m:4:1"
+					],
+					"wandIds": [],
+					"tuer": { "p": [-7.05, 0, 8], "breiteM": 1.5, "hoeheM": 2.1, "tangente": [0, -1] },
+					"fassungen": [
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:1", "p": [6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 11.6] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 11.6] }
+					],
+					"traegt": "raumfachwerk:k:m:2:-1/einbau"
+				}
+			],
+			"einbauten": [
+				{
+					"id": "raumfachwerk:k:m:2:-1/dach/einbau",
+					"anschlussId": "raumfachwerk:k:m:2:-1/dach/anschluss",
+					"nutzung": "food"
+				},
+				{
+					"id": "raumfachwerk:k:m:2:-1/einbau",
+					"anschlussId": "raumfachwerk:k:m:2:-1/anschluss",
+					"nutzung": "people"
+				}
+			],
+			"eingang": { "id": "raumfachwerk/eingang", "p": [-7.05, 0, 8] },
+			"bestand": {
+				"koerper": [
+					{ "id": "links", "x": -12.1, "y": -4.5, "breiteM": 4.5, "tiefeM": 9 },
+					{ "id": "rechts", "x": 7.6, "y": -4.5, "breiteM": 4.5, "tiefeM": 9 }
+				],
+				"wandachsen": [
+					[
+						[-12.1, -4.5, 8],
+						[-7.6, -4.5, 8]
+					],
+					[
+						[-7.6, -4.5, 8],
+						[-7.6, 4.5, 8]
+					],
+					[
+						[-7.6, 4.5, 8],
+						[-12.1, 4.5, 8]
+					],
+					[
+						[-12.1, 4.5, 8],
+						[-12.1, -4.5, 8]
+					],
+					[
+						[7.6, -4.5, 8],
+						[12.1, -4.5, 8]
+					],
+					[
+						[12.1, -4.5, 8],
+						[12.1, 4.5, 8]
+					],
+					[
+						[12.1, 4.5, 8],
+						[7.6, 4.5, 8]
+					],
+					[
+						[7.6, 4.5, 8],
+						[7.6, -4.5, 8]
+					]
+				]
+			},
+			"statik": {
+				"belegung": { "raum": "people", "garten": true },
+				"staebe": {
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:1:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 6386.631156312791,
+						"druckN": 25408.88835502762,
+						"ausnutzung": 0.5002799515690083
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 54778.72896642313,
+						"druckN": 29076.423619544654,
+						"ausnutzung": 0.6393192547991907
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 13474.102295408196,
+						"druckN": 114209.68413935429,
+						"ausnutzung": 0.4934389557629191
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:u:-1:-1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30422.219935228582,
+						"druckN": 182817.64672453623,
+						"ausnutzung": 0.2852624195647596
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:m:1:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 6386.631156312791,
+						"druckN": 25408.88835502762,
+						"ausnutzung": 0.5002799515690083
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 13474.102295408196,
+						"druckN": 114209.68413935429,
+						"ausnutzung": 0.4934389557629191
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 54778.72896642313,
+						"druckN": 29076.423619544654,
+						"ausnutzung": 0.6393192547991907
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:u:-1:1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30422.219935228582,
+						"druckN": 182817.64672453623,
+						"ausnutzung": 0.2852624195647596
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:1:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 112393.93266749448,
+						"druckN": 0,
+						"ausnutzung": 0.46987260198501185
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:2:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 240144.14064997682,
+						"druckN": 0,
+						"ausnutzung": 0.4148949960811894
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 232251.2932984559,
+						"druckN": 0,
+						"ausnutzung": 0.40125859062022184
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 113367.87042885915,
+						"druckN": 14092.71907266831,
+						"ausnutzung": 0.5582250618846248
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 797.8777274641698,
+						"druckN": 4211.303170645142,
+						"ausnutzung": 0.09259622985340467
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 29783.123873366505,
+						"druckN": 35365.385470654684,
+						"ausnutzung": 0.7775981042450899
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:u:-1:-1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185707.95137656844,
+						"druckN": 0,
+						"ausnutzung": 0.776368227818498
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:m:2:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 240144.14064997682,
+						"druckN": 0,
+						"ausnutzung": 0.4148949960811894
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 113367.87042885915,
+						"druckN": 14092.71907266831,
+						"ausnutzung": 0.5582250618846248
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 232251.2932984559,
+						"druckN": 0,
+						"ausnutzung": 0.40125859062022184
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 29783.123873366505,
+						"druckN": 35365.385470654684,
+						"ausnutzung": 0.7775981042450899
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 797.8777274641698,
+						"druckN": 4211.303170645142,
+						"ausnutzung": 0.09259622985340467
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:u:-1:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185707.95137656844,
+						"druckN": 0,
+						"ausnutzung": 0.776368227818498
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:3:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 240144.14064997682,
+						"druckN": 0,
+						"ausnutzung": 0.4148949960811894
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 2958.2495804290834,
+						"druckN": 2050.931317680453,
+						"ausnutzung": 0.04509495042514185
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 20415.387635524112,
+						"druckN": 19508.069372775597,
+						"ausnutzung": 0.4289346082298248
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 2958.2495804290834,
+						"druckN": 2050.931317680453,
+						"ausnutzung": 0.04509495042514185
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 20415.387635524112,
+						"druckN": 19508.069372775597,
+						"ausnutzung": 0.4289346082298248
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:m:3:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 240144.14064997682,
+						"druckN": 0,
+						"ausnutzung": 0.4148949960811894
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 20415.387635524112,
+						"druckN": 19508.069372775597,
+						"ausnutzung": 0.4289346082298248
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 2958.2495804290834,
+						"druckN": 2050.931317680453,
+						"ausnutzung": 0.04509495042514185
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 20415.387635524112,
+						"druckN": 19508.069372775597,
+						"ausnutzung": 0.4289346082298248
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 2958.2495804290834,
+						"druckN": 2050.931317680453,
+						"ausnutzung": 0.04509495042514185
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:3:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 112393.93266749448,
+						"druckN": 0,
+						"ausnutzung": 0.46987260198501185
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:4:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 6386.631156312791,
+						"druckN": 25408.88835502762,
+						"ausnutzung": 0.5002799515690083
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 797.8777274641698,
+						"druckN": 4211.303170645142,
+						"ausnutzung": 0.09259622985340467
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 29783.123873366505,
+						"druckN": 35365.385470654684,
+						"ausnutzung": 0.7775981042450899
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 232251.2932984559,
+						"druckN": 0,
+						"ausnutzung": 0.40125859062022184
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 113367.87042885915,
+						"druckN": 14092.71907266831,
+						"ausnutzung": 0.5582250618846248
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:u:1:-1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185707.95137656844,
+						"druckN": 0,
+						"ausnutzung": 0.776368227818498
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:m:4:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 6386.631156312791,
+						"druckN": 25408.88835502762,
+						"ausnutzung": 0.5002799515690083
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 29783.123873366505,
+						"druckN": 35365.385470654684,
+						"ausnutzung": 0.7775981042450899
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 797.8777274641698,
+						"druckN": 4211.303170645142,
+						"ausnutzung": 0.09259622985340467
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 113367.87042885915,
+						"druckN": 14092.71907266831,
+						"ausnutzung": 0.5582250618846248
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 232251.2932984559,
+						"druckN": 0,
+						"ausnutzung": 0.40125859062022184
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:u:1:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185707.95137656844,
+						"druckN": 0,
+						"ausnutzung": 0.776368227818498
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 54778.72896642313,
+						"druckN": 29076.423619544654,
+						"ausnutzung": 0.6393192547991907
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 13474.102295408196,
+						"druckN": 114209.68413935429,
+						"ausnutzung": 0.4934389557629191
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:u:1:-1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30422.219935228582,
+						"druckN": 182817.64672453623,
+						"ausnutzung": 0.2852624195647596
+					},
+					"[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 13474.102295408196,
+						"druckN": 114209.68413935429,
+						"ausnutzung": 0.4934389557629191
+					},
+					"[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 54778.72896642313,
+						"druckN": 29076.423619544654,
+						"ausnutzung": 0.6393192547991907
+					},
+					"[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:u:1:1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30422.219935228582,
+						"druckN": 182817.64672453623,
+						"ausnutzung": 0.2852624195647596
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 71513.91937544456,
+						"ausnutzung": 0.2766761477259283
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 6918.019667892064,
+						"druckN": 190833.65740817066,
+						"ausnutzung": 0.3100275813866381
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:u:-1:-1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 4629.42672212985,
+						"druckN": 245899.10346325632,
+						"ausnutzung": 0.2224325502329987
+					},
+					"[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 176563.67706074202,
+						"ausnutzung": 0.6830971987568718
+					},
+					"[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 6918.019667892064,
+						"druckN": 190833.65740817066,
+						"ausnutzung": 0.3100275813866381
+					},
+					"[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 71513.91937544456,
+						"ausnutzung": 0.2766761477259283
+					},
+					"[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:u:-1:1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 4629.42672212985,
+						"druckN": 245899.10346325632,
+						"ausnutzung": 0.2224325502329987
+					},
+					"[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 589.7570908908851,
+						"druckN": 0,
+						"ausnutzung": 0.012481749499837842
+					},
+					"[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 72529.28201351225,
+						"ausnutzung": 0.28060442666377455
+					},
+					"[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 589.7570908908851,
+						"druckN": 0,
+						"ausnutzung": 0.012481749499837842
+					},
+					"[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 355253.61822661327,
+						"ausnutzung": 0.3576505797170658
+					},
+					"[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 72529.28201351225,
+						"ausnutzung": 0.28060442666377455
+					},
+					"[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 589.7570908908851,
+						"druckN": 0,
+						"ausnutzung": 0.012481749499837842
+					},
+					"[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 71513.91937544456,
+						"ausnutzung": 0.2766761477259283
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 589.7570908908851,
+						"druckN": 0,
+						"ausnutzung": 0.012481749499837842
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 6918.019667892064,
+						"druckN": 190833.65740817066,
+						"ausnutzung": 0.3100275813866381
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 176563.67706074202,
+						"ausnutzung": 0.6830971987568718
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 6918.019667892064,
+						"druckN": 190833.65740817066,
+						"ausnutzung": 0.3100275813866381
+					},
+					"[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 71513.91937544456,
+						"ausnutzung": 0.2766761477259283
+					},
+					"[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:u:1:-1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 4629.42672212985,
+						"druckN": 245899.10346325632,
+						"ausnutzung": 0.2224325502329987
+					},
+					"[\"raumfachwerk:k:o:4:1\",\"raumfachwerk:k:u:1:1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 4629.42672212985,
+						"druckN": 245899.10346325632,
+						"ausnutzung": 0.2224325502329987
+					}
+				},
+				"haenger": [
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 62913.70047831727,
+						"druckN": 0,
+						"ausnutzung": 0.5917864314023129,
+						"id": "haenger:raumfachwerk:k:m:0:-1|kapsel:u:0:m",
+						"knotenId": "raumfachwerk:k:m:0:-1",
+						"p": [-6.08, -1.3, 8],
+						"uM": [0.013072044268425407, 0.0023528413516962616, -0.008233288980872453]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 62913.70047831727,
+						"druckN": 0,
+						"ausnutzung": 0.5917864314023129,
+						"id": "haenger:raumfachwerk:k:m:0:1|kapsel:u:0:p",
+						"knotenId": "raumfachwerk:k:m:0:1",
+						"p": [-6.08, 1.3, 8],
+						"uM": [0.013071452368528655, 0.002353389788550277, -0.008331499324649579]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 85211.97795125647,
+						"druckN": 0,
+						"ausnutzung": 0.801531176216316,
+						"id": "haenger:raumfachwerk:k:m:1:-1|kapsel:u:1:m",
+						"knotenId": "raumfachwerk:k:m:1:-1",
+						"p": [-3.04, -1.3, 8],
+						"uM": [0.013072042727289845, 0.0023528956208365634, -0.011906078282644554]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 55112.17164539344,
+						"druckN": 0,
+						"ausnutzung": 0.5184027507029174,
+						"id": "haenger:raumfachwerk:k:m:1:-1|kapsel:u:2:m",
+						"knotenId": "raumfachwerk:k:m:1:-1",
+						"p": [0, -1.3, 8],
+						"uM": [0.013072309257372848, 0.002352611470981346, -0.011406057988450206]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 85211.97795125647,
+						"druckN": 0,
+						"ausnutzung": 0.801531176216316,
+						"id": "haenger:raumfachwerk:k:m:1:1|kapsel:u:1:p",
+						"knotenId": "raumfachwerk:k:m:1:1",
+						"p": [-3.04, 1.3, 8],
+						"uM": [0.013071452368528655, 0.002353537524762042, -0.012005585121541006]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 55112.17164539344,
+						"druckN": 0,
+						"ausnutzung": 0.5184027507029174,
+						"id": "haenger:raumfachwerk:k:m:1:1|kapsel:u:2:p",
+						"knotenId": "raumfachwerk:k:m:1:1",
+						"p": [0, 1.3, 8],
+						"uM": [0.013071723224996777, 0.0023532724266492667, -0.011505875424105494]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 55112.17164539344,
+						"druckN": 0,
+						"ausnutzung": 0.5184027507029174,
+						"id": "haenger:raumfachwerk:k:m:3:-1|kapsel:u:2:m",
+						"knotenId": "raumfachwerk:k:m:3:-1",
+						"p": [0, -1.3, 8],
+						"uM": [0.013072309257372848, 0.002352611470981346, -0.011406057988450206]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 85211.97795125647,
+						"druckN": 0,
+						"ausnutzung": 0.801531176216316,
+						"id": "haenger:raumfachwerk:k:m:3:-1|kapsel:u:3:m",
+						"knotenId": "raumfachwerk:k:m:3:-1",
+						"p": [3.04, -1.3, 8],
+						"uM": [0.013072540339238757, 0.0023523779875815063, -0.011905921379160229]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 55112.17164539344,
+						"druckN": 0,
+						"ausnutzung": 0.5184027507029174,
+						"id": "haenger:raumfachwerk:k:m:3:1|kapsel:u:2:p",
+						"knotenId": "raumfachwerk:k:m:3:1",
+						"p": [0, 1.3, 8],
+						"uM": [0.013071723224996777, 0.0023532724266492667, -0.011505875424105494]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 85211.97795125647,
+						"druckN": 0,
+						"ausnutzung": 0.801531176216316,
+						"id": "haenger:raumfachwerk:k:m:3:1|kapsel:u:3:p",
+						"knotenId": "raumfachwerk:k:m:3:1",
+						"p": [3.04, 1.3, 8],
+						"uM": [0.013071957658279725, 0.0023530217892156753, -0.012005766961751594]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 62913.70047831727,
+						"druckN": 0,
+						"ausnutzung": 0.5917864314023129,
+						"id": "haenger:raumfachwerk:k:m:4:-1|kapsel:u:4:m",
+						"knotenId": "raumfachwerk:k:m:4:-1",
+						"p": [6.08, -1.3, 8],
+						"uM": [0.013072809497702436, 0.0023521894005603004, -0.00823314088692072]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 62913.70047831727,
+						"druckN": 0,
+						"ausnutzung": 0.5917864314023129,
+						"id": "haenger:raumfachwerk:k:m:4:1|kapsel:u:4:p",
+						"knotenId": "raumfachwerk:k:m:4:1",
+						"p": [6.08, 1.3, 8],
+						"uM": [0.013072228397428814, 0.002352738950210357, -0.008331595457379265]
+					},
+					{
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 23187.472773997102,
+						"druckN": 23189.916707071992,
+						"ausnutzung": 0.11418749104075261,
+						"id": "halter:raumfachwerk:k:m:0:-1|kapsel:b:0:m",
+						"knotenId": "raumfachwerk:k:m:0:-1",
+						"p": [-6.08, -1.3, 11.6],
+						"uM": [0.014030961661290206, 0.0024810365385909733, -0.008241026996625269]
+					},
+					{
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 23187.472773997102,
+						"druckN": 23189.916707071992,
+						"ausnutzung": 0.11418749104075261,
+						"id": "halter:raumfachwerk:k:m:4:-1|kapsel:b:4:m",
+						"knotenId": "raumfachwerk:k:m:4:-1",
+						"p": [6.08, -1.3, 11.6],
+						"uM": [0.012096676516636522, 0.0024809698981210935, -0.008240650257188203]
+					}
+				],
+				"rippen": [
+					[
+						[-6.08, -1.3, 8],
+						[-6.08, 1.3, 8]
+					],
+					[
+						[-3.04, -1.3, 8],
+						[-3.04, 1.3, 8]
+					],
+					[
+						[0, -1.3, 8],
+						[0, 1.3, 8]
+					],
+					[
+						[3.04, -1.3, 8],
+						[3.04, 1.3, 8]
+					],
+					[
+						[6.08, -1.3, 8],
+						[6.08, 1.3, 8]
+					]
+				],
+				"verformungM": {
+					"raumfachwerk:k:m:0:-1": [
+						0.01234555871627212, 0.0024810362582976366, -0.006705321100785822
+					],
+					"raumfachwerk:k:m:0:1": [
+						0.01234519766098001, 0.00043344482213004813, -0.006704551511778955
+					],
+					"raumfachwerk:k:m:1:-1": [
+						0.012163618174039164, 0.0009853771605801262, -0.010203210162670819
+					],
+					"raumfachwerk:k:m:1:1": [
+						0.012163463825418865, 0.0019289512809100133, -0.010203092643075527
+					],
+					"raumfachwerk:k:m:2:-1": [
+						0.013072049226949871, 0.0007127222353467607, -0.011214653878806375
+					],
+					"raumfachwerk:k:m:2:1": [
+						0.013071980360170293, 0.0022017780597808423, -0.011214828151565354
+					],
+					"raumfachwerk:k:m:3:-1": [
+						0.013980480877042248, 0.000985419212457154, -0.01020309208612358
+					],
+					"raumfachwerk:k:m:3:1": [
+						0.013980497693168252, 0.0019290094663429853, -0.010203207904530656
+					],
+					"raumfachwerk:k:m:4:-1": [
+						0.013798544263283767, 0.0024809708846652385, -0.00670518056318355
+					],
+					"raumfachwerk:k:m:4:1": [
+						0.013798763906176984, 0.0004335976690716229, -0.006704666421049056
+					],
+					"raumfachwerk:k:o:1:-1": [
+						0.013605976277142207, 0.002065293554210739, -0.007435137741084695
+					],
+					"raumfachwerk:k:o:1:0": [
+						0.014276725468863079, 0.0014568643770204236, -0.007867526868834325
+					],
+					"raumfachwerk:k:o:1:1": [
+						0.013606034715525737, 0.0008495718639706906, -0.007435210283438244
+					],
+					"raumfachwerk:k:o:2:-1": [
+						0.013251878207648669, 0.0014265808160852374, -0.010646641521814224
+					],
+					"raumfachwerk:k:o:2:0": [
+						0.013506022884268016, 0.0014573737439056449, -0.011397242613942959
+					],
+					"raumfachwerk:k:o:2:1": [
+						0.013251873174198252, 0.001488166671726038, -0.010646905167334632
+					],
+					"raumfachwerk:k:o:3:-1": [
+						0.01289215892998708, 0.0014266124598159191, -0.010646576036528025
+					],
+					"raumfachwerk:k:o:3:0": [
+						0.012638028671811442, 0.0014574053876363201, -0.011397244651980849
+					],
+					"raumfachwerk:k:o:3:1": [
+						0.012892083101558682, 0.0014881983154567315, -0.010646964645224145
+					],
+					"raumfachwerk:k:o:4:-1": [
+						0.012538062899038308, 0.0020652918009119573, -0.007435034376123679
+					],
+					"raumfachwerk:k:o:4:0": [
+						0.011867333130536128, 0.001457080757817506, -0.007867560311220056
+					],
+					"raumfachwerk:k:o:4:1": [
+						0.012537908952487891, 0.0008496919822084557, -0.007435315187985232
+					],
+					"raumfachwerk:k:u:-1:-1": [0, 0, 0],
+					"raumfachwerk:k:u:-1:1": [-1.7051879856692064e-7, 0.0029129155686696316, 0],
+					"raumfachwerk:k:u:1:-1": [0.026143865631992013, 0, 0],
+					"raumfachwerk:k:u:1:1": [0.026144290769655642, 0.0029131519939613886, 0]
+				},
+				"lager": [
+					{
+						"knotenId": "raumfachwerk:k:u:-1:-1",
+						"art": "fest",
+						"druckN": 175132.29030015902,
+						"schubN": 25377.831457660774
+					},
+					{
+						"knotenId": "raumfachwerk:k:u:-1:1",
+						"art": "gleitend",
+						"druckN": 175119.20673412562,
+						"schubN": 0
+					},
+					{
+						"knotenId": "raumfachwerk:k:u:1:-1",
+						"art": "gefuehrt",
+						"druckN": 175117.5898548151,
+						"schubN": 25377.83145762337
+					},
+					{
+						"knotenId": "raumfachwerk:k:u:1:1",
+						"art": "gleitend",
+						"druckN": 175113.90268957167,
+						"schubN": 0
+					}
+				],
+				"lastN": 607118.0434929456,
+				"spannweiteM": 15.2,
+				"kennzahlen": {
+					"kandidaten": 102,
+					"staebe": 85,
+					"masseKg": 5196.099184299322,
+					"laeufe": 1,
+					"ausnutzungMax": 0.801531176216316,
+					"durchbiegungM": 0.012014718162902394,
+					"groessterZugN": 240144.14064997682,
+					"groessterDruckN": 355253.61822661327,
+					"nullstaebe": 0,
+					"residuumN": 1.2957775652466808e-7
+				}
+			}
+		},
+		"knoten": 26,
+		"staebe": 85
+	},
+	"1737e0f0626d31da": {
+		"haus": {
+			"version": 1,
+			"saat": 42,
+			"familie": "raumfachwerk",
+			"traeger": {
+				"version": 1,
+				"familie": "raumfachwerk",
+				"saat": 42,
+				"werte": { "lueckeM": 15.2, "felder": 5, "gurthoeheM": 2.4, "tiefeM": 9 },
+				"knoten": [
+					{ "id": "raumfachwerk:k:o:1:-1", "p": [-4.5600000000000005, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:1:0", "p": [-4.5600000000000005, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:1:1", "p": [-4.5600000000000005, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:-1", "p": [-1.52, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:0", "p": [-1.52, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:1", "p": [-1.52, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:-1", "p": [1.52, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:0", "p": [1.52, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:1", "p": [1.52, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:-1", "p": [4.5600000000000005, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:0", "p": [4.5600000000000005, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:1", "p": [4.5600000000000005, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:2:-1", "p": [0, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:2:1", "p": [0, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:3:1", "p": [3.04, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:4:1", "p": [6.08, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:u:-1:-1", "p": [-7.6, -3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:-1:1", "p": [-7.6, 3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:1:-1", "p": [7.6, -3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:1:1", "p": [7.6, 3, 8], "rolle": "lager" }
+				],
+				"kanten": [
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:1:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:2:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:3:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:4:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:0\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:4:0",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:1:-1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:m:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:-1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:m:1:1\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:0:1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:m:0:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:2:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:m:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:m:2:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:m:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:1:1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:3:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:m:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:m:3:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:2:1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:m:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:4:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:m:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:m:4:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:3:1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:4:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:m:4:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:m:4:1\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:m:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:m:0:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:m:0:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:m:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:m:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					}
+				],
+				"flaechen": [],
+				"zellen": [],
+				"belegung": {}
+			},
+			"anschluesse": [
+				{
+					"id": "raumfachwerk:k:m:2:-1/anschluss",
+					"elementId": "raumfachwerk:k:m:2:-1",
+					"beziehung": "eingehaengt",
+					"art": "raum",
+					"polygon": [
+						[5.75, -1.3],
+						[6.0036174186209665, -1.2750208645241996],
+						[6.2474884620746165, -1.2010433922646728],
+						[6.472241302925483, -1.080910495993309],
+						[6.669238815542512, -0.9192388155425117],
+						[6.830910495993309, -0.7222413029254828],
+						[6.951043392264673, -0.4974884620746167],
+						[7.025020864524199, -0.2536174186209667],
+						[7.05, 0],
+						[7.025020864524199, 0.2536174186209667],
+						[6.951043392264673, 0.4974884620746167],
+						[6.830910495993309, 0.7222413029254827],
+						[6.669238815542512, 0.9192388155425117],
+						[6.472241302925482, 1.080910495993309],
+						[6.2474884620746165, 1.2010433922646728],
+						[6.003617418620967, 1.2750208645241996],
+						[5.75, 1.3],
+						[-5.75, 1.3],
+						[-6.0036174186209665, 1.2750208645241996],
+						[-6.2474884620746165, 1.2010433922646728],
+						[-6.472241302925482, 1.0809104959933091],
+						[-6.669238815542512, 0.9192388155425119],
+						[-6.830910495993309, 0.7222413029254828],
+						[-6.951043392264673, 0.4974884620746169],
+						[-7.025020864524199, 0.2536174186209672],
+						[-7.05, 1.5920408388915593e-16],
+						[-7.025020864524199, -0.2536174186209669],
+						[-6.951043392264673, -0.4974884620746166],
+						[-6.830910495993309, -0.7222413029254826],
+						[-6.669238815542512, -0.9192388155425117],
+						[-6.472241302925482, -1.080910495993309],
+						[-6.247488462074617, -1.2010433922646726],
+						[-6.003617418620967, -1.2750208645241994],
+						[-5.75, -1.3]
+					],
+					"z": 8,
+					"hoeheM": 2.8,
+					"flaecheM2": 35.17524230731612,
+					"knoten": [
+						"raumfachwerk:k:m:0:-1",
+						"raumfachwerk:k:m:0:1",
+						"raumfachwerk:k:m:1:-1",
+						"raumfachwerk:k:m:1:1",
+						"raumfachwerk:k:m:2:-1",
+						"raumfachwerk:k:m:2:1",
+						"raumfachwerk:k:m:3:-1",
+						"raumfachwerk:k:m:3:1",
+						"raumfachwerk:k:m:4:-1",
+						"raumfachwerk:k:m:4:1"
+					],
+					"wandIds": [],
+					"tuer": { "p": [-7.05, 0, 8], "breiteM": 1.5, "hoeheM": 2.1, "tangente": [0, -1] },
+					"fassungen": [
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:1", "p": [6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 11.6] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 11.6] }
+					]
+				},
+				{
+					"id": "raumfachwerk:k:m:2:-1/dach/anschluss",
+					"elementId": "raumfachwerk:k:m:2:-1/dach",
+					"beziehung": "eingehaengt",
+					"art": "garten",
+					"polygon": [
+						[5.75, -1.3],
+						[6.0036174186209665, -1.2750208645241996],
+						[6.2474884620746165, -1.2010433922646728],
+						[6.472241302925483, -1.080910495993309],
+						[6.669238815542512, -0.9192388155425117],
+						[6.830910495993309, -0.7222413029254828],
+						[6.951043392264673, -0.4974884620746167],
+						[7.025020864524199, -0.2536174186209667],
+						[7.05, 0],
+						[7.025020864524199, 0.2536174186209667],
+						[6.951043392264673, 0.4974884620746167],
+						[6.830910495993309, 0.7222413029254827],
+						[6.669238815542512, 0.9192388155425117],
+						[6.472241302925482, 1.080910495993309],
+						[6.2474884620746165, 1.2010433922646728],
+						[6.003617418620967, 1.2750208645241996],
+						[5.75, 1.3],
+						[-5.75, 1.3],
+						[-6.0036174186209665, 1.2750208645241996],
+						[-6.2474884620746165, 1.2010433922646728],
+						[-6.472241302925482, 1.0809104959933091],
+						[-6.669238815542512, 0.9192388155425119],
+						[-6.830910495993309, 0.7222413029254828],
+						[-6.951043392264673, 0.4974884620746169],
+						[-7.025020864524199, 0.2536174186209672],
+						[-7.05, 1.5920408388915593e-16],
+						[-7.025020864524199, -0.2536174186209669],
+						[-6.951043392264673, -0.4974884620746166],
+						[-6.830910495993309, -0.7222413029254826],
+						[-6.669238815542512, -0.9192388155425117],
+						[-6.472241302925482, -1.080910495993309],
+						[-6.247488462074617, -1.2010433922646726],
+						[-6.003617418620967, -1.2750208645241994],
+						[-5.75, -1.3]
+					],
+					"z": 10.8,
+					"hoeheM": 0.2,
+					"flaecheM2": 35.17524230731612,
+					"knoten": [
+						"raumfachwerk:k:m:0:-1",
+						"raumfachwerk:k:m:0:1",
+						"raumfachwerk:k:m:1:-1",
+						"raumfachwerk:k:m:1:1",
+						"raumfachwerk:k:m:2:-1",
+						"raumfachwerk:k:m:2:1",
+						"raumfachwerk:k:m:3:-1",
+						"raumfachwerk:k:m:3:1",
+						"raumfachwerk:k:m:4:-1",
+						"raumfachwerk:k:m:4:1"
+					],
+					"wandIds": [],
+					"tuer": { "p": [-7.05, 0, 8], "breiteM": 1.5, "hoeheM": 2.1, "tangente": [0, -1] },
+					"fassungen": [
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:1", "p": [6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 11.6] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 11.6] }
+					],
+					"traegt": "raumfachwerk:k:m:2:-1/einbau"
+				}
+			],
+			"einbauten": [
+				{
+					"id": "raumfachwerk:k:m:2:-1/dach/einbau",
+					"anschlussId": "raumfachwerk:k:m:2:-1/dach/anschluss",
+					"nutzung": "food"
+				},
+				{
+					"id": "raumfachwerk:k:m:2:-1/einbau",
+					"anschlussId": "raumfachwerk:k:m:2:-1/anschluss",
+					"nutzung": "people"
+				}
+			],
+			"eingang": { "id": "raumfachwerk/eingang", "p": [-7.05, 0, 8] },
+			"bestand": {
+				"koerper": [
+					{ "id": "links", "x": -12.1, "y": -4.5, "breiteM": 4.5, "tiefeM": 9 },
+					{ "id": "rechts", "x": 7.6, "y": -4.5, "breiteM": 4.5, "tiefeM": 9 }
+				],
+				"wandachsen": [
+					[
+						[-12.1, -4.5, 8],
+						[-7.6, -4.5, 8]
+					],
+					[
+						[-7.6, -4.5, 8],
+						[-7.6, 4.5, 8]
+					],
+					[
+						[-7.6, 4.5, 8],
+						[-12.1, 4.5, 8]
+					],
+					[
+						[-12.1, 4.5, 8],
+						[-12.1, -4.5, 8]
+					],
+					[
+						[7.6, -4.5, 8],
+						[12.1, -4.5, 8]
+					],
+					[
+						[12.1, -4.5, 8],
+						[12.1, 4.5, 8]
+					],
+					[
+						[12.1, 4.5, 8],
+						[7.6, 4.5, 8]
+					],
+					[
+						[7.6, 4.5, 8],
+						[7.6, -4.5, 8]
+					]
+				]
+			},
+			"statik": {
+				"belegung": { "raum": "people", "garten": true },
+				"staebe": {
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:0:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 6478.447729551942,
+						"druckN": 29410.94034942821,
+						"ausnutzung": 0.5639384245329592
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:1:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 10047.099344906506,
+						"druckN": 29640.009057545827,
+						"ausnutzung": 0.5835872112397998
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 54960.432113880335,
+						"druckN": 52578.91362789323,
+						"ausnutzung": 0.22716536194986653
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 9960.446587925922,
+						"druckN": 86803.51156386427,
+						"ausnutzung": 0.375031543300351
+					},
+					"[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:u:-1:-1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30019.62219186565,
+						"druckN": 183382.995337524,
+						"ausnutzung": 0.2861445702549579
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:m:1:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 10047.099344906506,
+						"druckN": 29640.009057545827,
+						"ausnutzung": 0.5835872112397998
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 9960.446587925922,
+						"druckN": 86803.51156386427,
+						"ausnutzung": 0.375031543300351
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 54960.432113880335,
+						"druckN": 52578.91362789323,
+						"ausnutzung": 0.22716536194986653
+					},
+					"[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:u:-1:1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30019.62219186565,
+						"druckN": 183382.995337524,
+						"ausnutzung": 0.2861445702549579
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:1:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 112557.29345079605,
+						"druckN": 0,
+						"ausnutzung": 0.4705555459348361
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:2:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 228614.30813627687,
+						"druckN": 0,
+						"ausnutzung": 0.3949750021865194
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 233153.46717236834,
+						"druckN": 0,
+						"ausnutzung": 0.40281726877438523
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63648.37531908382,
+						"druckN": 0,
+						"ausnutzung": 0.5986970184279186
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 4574.520260119062,
+						"druckN": 15959.729025650375,
+						"ausnutzung": 0.35091530516212777
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 12180.42076565777,
+						"druckN": 11304.290606346769,
+						"ausnutzung": 0.2485536302898412
+					},
+					"[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:u:-1:-1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185876.50264712682,
+						"druckN": 0,
+						"ausnutzung": 0.7770728710513267
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:m:2:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 228614.30813627687,
+						"druckN": 0,
+						"ausnutzung": 0.3949750021865194
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63648.37531908382,
+						"druckN": 0,
+						"ausnutzung": 0.5986970184279186
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 233153.46717236834,
+						"druckN": 0,
+						"ausnutzung": 0.40281726877438523
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 12180.42076565777,
+						"druckN": 11304.290606346769,
+						"ausnutzung": 0.2485536302898412
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 4574.520260119062,
+						"druckN": 15959.729025650375,
+						"ausnutzung": 0.35091530516212777
+					},
+					"[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:u:-1:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185876.50264712682,
+						"druckN": 0,
+						"ausnutzung": 0.7770728710513267
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:2:1\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 9088.24151865627,
+						"druckN": 0,
+						"ausnutzung": 0.19234555341850254
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:3:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 228614.30813627687,
+						"druckN": 0,
+						"ausnutzung": 0.3949750021865194
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 14193.041492390012,
+						"druckN": 6341.207793379207,
+						"ausnutzung": 0.1394276095999974
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 9375.060549820064,
+						"druckN": 14088.221637672303,
+						"ausnutzung": 0.30976544697155367
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 14193.041492390012,
+						"druckN": 6341.207793379207,
+						"ausnutzung": 0.1394276095999974
+					},
+					"[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 9375.060549820064,
+						"druckN": 14088.221637672303,
+						"ausnutzung": 0.30976544697155367
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:m:3:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 228614.30813627687,
+						"druckN": 0,
+						"ausnutzung": 0.3949750021865194
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 9375.060549820064,
+						"druckN": 14088.221637672303,
+						"ausnutzung": 0.30976544697155367
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 14193.041492390012,
+						"druckN": 6341.207793379207,
+						"ausnutzung": 0.1394276095999974
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 9375.060549820064,
+						"druckN": 14088.221637672303,
+						"ausnutzung": 0.30976544697155367
+					},
+					"[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 14193.041492390012,
+						"druckN": 6341.207793379207,
+						"ausnutzung": 0.1394276095999974
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:3:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 112557.29345079605,
+						"druckN": 0,
+						"ausnutzung": 0.4705555459348361
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:4:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 10047.099344906506,
+						"druckN": 29640.009057545827,
+						"ausnutzung": 0.5835872112397998
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 4574.520260119062,
+						"druckN": 15959.729025650375,
+						"ausnutzung": 0.35091530516212777
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 12180.42076565777,
+						"druckN": 11304.290606346769,
+						"ausnutzung": 0.2485536302898412
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 233153.46717236834,
+						"druckN": 0,
+						"ausnutzung": 0.40281726877438523
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63648.37531908382,
+						"druckN": 0,
+						"ausnutzung": 0.5986970184279186
+					},
+					"[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:u:1:-1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185876.50264712682,
+						"druckN": 0,
+						"ausnutzung": 0.7770728710513267
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:m:4:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 10047.099344906506,
+						"druckN": 29640.009057545827,
+						"ausnutzung": 0.5835872112397998
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 12180.42076565777,
+						"druckN": 11304.290606346769,
+						"ausnutzung": 0.2485536302898412
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 4574.520260119062,
+						"druckN": 15959.729025650375,
+						"ausnutzung": 0.35091530516212777
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63648.37531908382,
+						"druckN": 0,
+						"ausnutzung": 0.5986970184279186
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.056,
+						"druck": false,
+						"zugN": 233153.46717236834,
+						"druckN": 0,
+						"ausnutzung": 0.40281726877438523
+					},
+					"[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:u:1:1\"]": {
+						"durchmesserM": 0.036,
+						"druck": false,
+						"zugN": 185876.50264712682,
+						"druckN": 0,
+						"ausnutzung": 0.7770728710513267
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:m:4:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 6478.447729551942,
+						"druckN": 29410.94034942821,
+						"ausnutzung": 0.5639384245329592
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 54960.432113880335,
+						"druckN": 52578.91362789323,
+						"ausnutzung": 0.22716536194986653
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 9960.446587925922,
+						"druckN": 86803.51156386427,
+						"ausnutzung": 0.375031543300351
+					},
+					"[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:u:1:-1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30019.62219186565,
+						"druckN": 183382.995337524,
+						"ausnutzung": 0.2861445702549579
+					},
+					"[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 9960.446587925922,
+						"druckN": 86803.51156386427,
+						"ausnutzung": 0.375031543300351
+					},
+					"[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 54960.432113880335,
+						"druckN": 52578.91362789323,
+						"ausnutzung": 0.22716536194986653
+					},
+					"[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:u:1:1\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 30019.62219186565,
+						"druckN": 183382.995337524,
+						"ausnutzung": 0.2861445702549579
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:1:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 14558.615371722008,
+						"druckN": 65168.75279959913,
+						"ausnutzung": 0.24553640417993713
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 127260.44158321773,
+						"ausnutzung": 0.4923507065847535
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 98775.17851170457,
+						"ausnutzung": 0.7543010703863358
+					},
+					"[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:u:-1:-1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 3982.4150090078515,
+						"druckN": 246782.9052882816,
+						"ausnutzung": 0.22323200940577412
+					},
+					"[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:1:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 14558.615371722008,
+						"druckN": 65168.75279959913,
+						"ausnutzung": 0.24553640417993713
+					},
+					"[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 853.9142485366875,
+						"druckN": 4563.742954661526,
+						"ausnutzung": 0.1773635491869819
+					},
+					"[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 111405.45291565018,
+						"ausnutzung": 0.43101023993027054
+					},
+					"[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 853.9142485366875,
+						"druckN": 4563.742954661526,
+						"ausnutzung": 0.1773635491869819
+					},
+					"[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 98775.17851170457,
+						"ausnutzung": 0.7543010703863358
+					},
+					"[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 127260.44158321773,
+						"ausnutzung": 0.4923507065847535
+					},
+					"[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:u:-1:1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 3982.4150090078515,
+						"druckN": 246782.9052882816,
+						"ausnutzung": 0.22323200940577412
+					},
+					"[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:2:0\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 8897.408102386753,
+						"druckN": 0,
+						"ausnutzung": 0.18830671279265057
+					},
+					"[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 131627.64186219816,
+						"ausnutzung": 0.509246720117341
+					},
+					"[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 8911.081902921238,
+						"ausnutzung": 0.34631685638290177
+					},
+					"[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:2:1\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 8897.408102386753,
+						"druckN": 0,
+						"ausnutzung": 0.18830671279265057
+					},
+					"[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:-1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 8911.081902921238,
+						"ausnutzung": 0.34631685638290177
+					},
+					"[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.1683,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 217024.6182189395,
+						"ausnutzung": 0.21848892322714109
+					},
+					"[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 8911.081902921238,
+						"ausnutzung": 0.34631685638290177
+					},
+					"[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 8911.081902921238,
+						"ausnutzung": 0.34631685638290177
+					},
+					"[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 131627.64186219816,
+						"ausnutzung": 0.509246720117341
+					},
+					"[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:3:0\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 8897.408102386753,
+						"druckN": 0,
+						"ausnutzung": 0.18830671279265057
+					},
+					"[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 127260.44158321773,
+						"ausnutzung": 0.4923507065847535
+					},
+					"[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 853.9142485366875,
+						"druckN": 4563.742954661526,
+						"ausnutzung": 0.1773635491869819
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:3:1\"]": {
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 8897.408102386753,
+						"druckN": 0,
+						"ausnutzung": 0.18830671279265057
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:-1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 98775.17851170457,
+						"ausnutzung": 0.7543010703863358
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 111405.45291565018,
+						"ausnutzung": 0.43101023993027054
+					},
+					"[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 98775.17851170457,
+						"ausnutzung": 0.7543010703863358
+					},
+					"[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 853.9142485366875,
+						"druckN": 4563.742954661526,
+						"ausnutzung": 0.1773635491869819
+					},
+					"[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 0,
+						"druckN": 127260.44158321773,
+						"ausnutzung": 0.4923507065847535
+					},
+					"[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:o:4:0\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 14558.615371722008,
+						"druckN": 65168.75279959913,
+						"ausnutzung": 0.24553640417993713
+					},
+					"[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:u:1:-1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 3982.4150090078515,
+						"druckN": 246782.9052882816,
+						"ausnutzung": 0.22323200940577412
+					},
+					"[\"raumfachwerk:k:o:4:0\",\"raumfachwerk:k:o:4:1\"]": {
+						"durchmesserM": 0.1143,
+						"druck": true,
+						"zugN": 14558.615371722008,
+						"druckN": 65168.75279959913,
+						"ausnutzung": 0.24553640417993713
+					},
+					"[\"raumfachwerk:k:o:4:1\",\"raumfachwerk:k:u:1:1\"]": {
+						"durchmesserM": 0.2445,
+						"druck": true,
+						"zugN": 3982.4150090078515,
+						"druckN": 246782.9052882816,
+						"ausnutzung": 0.22323200940577412
+					}
+				},
+				"haenger": [
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63685.17285571337,
+						"druckN": 0,
+						"ausnutzung": 0.5990431478515709,
+						"id": "haenger:raumfachwerk:k:m:0:-1|kapsel:u:0:m",
+						"knotenId": "raumfachwerk:k:m:0:-1",
+						"p": [-6.08, -1.3, 8],
+						"uM": [0.013286952633675606, 0.0023893352851452297, -0.008285160417557818]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63685.17285571337,
+						"druckN": 0,
+						"ausnutzung": 0.5990431478515709,
+						"id": "haenger:raumfachwerk:k:m:0:1|kapsel:u:0:p",
+						"knotenId": "raumfachwerk:k:m:0:1",
+						"p": [-6.08, 1.3, 8],
+						"uM": [0.013286304696944038, 0.0023898850349446986, -0.008294749659802876]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 78404.20265361191,
+						"druckN": 0,
+						"ausnutzung": 0.737495059781385,
+						"id": "haenger:raumfachwerk:k:m:1:-1|kapsel:u:1:m",
+						"knotenId": "raumfachwerk:k:m:1:-1",
+						"p": [-3.04, -1.3, 8],
+						"uM": [0.013286950504172472, 0.0023894588661647074, -0.012494294312730785]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 52506.824789424485,
+						"druckN": 0,
+						"ausnutzung": 0.4938960231262987,
+						"id": "haenger:raumfachwerk:k:m:1:-1|kapsel:u:2:m",
+						"knotenId": "raumfachwerk:k:m:1:-1",
+						"p": [0, -1.3, 8],
+						"uM": [0.013287255392146115, 0.0023891927972509684, -0.011922370556782351]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 78404.20265361191,
+						"druckN": 0,
+						"ausnutzung": 0.737495059781385,
+						"id": "haenger:raumfachwerk:k:m:1:1|kapsel:u:1:p",
+						"knotenId": "raumfachwerk:k:m:1:1",
+						"p": [-3.04, 1.3, 8],
+						"uM": [0.013286304696944038, 0.002390098545578972, -0.01250511482152326]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 52506.824789424485,
+						"druckN": 0,
+						"ausnutzung": 0.4938960231262987,
+						"id": "haenger:raumfachwerk:k:m:1:1|kapsel:u:2:p",
+						"knotenId": "raumfachwerk:k:m:1:1",
+						"p": [0, 1.3, 8],
+						"uM": [0.01328661544039224, 0.0023898548310159547, -0.011933521306440625]
+					},
+					{
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 11393.31528135727,
+						"druckN": 0,
+						"ausnutzung": 0.2411306443128242,
+						"id": "haenger:raumfachwerk:k:m:2:-1|kapsel:u:2:m",
+						"knotenId": "raumfachwerk:k:m:2:-1",
+						"p": [0, -1.3, 8],
+						"uM": [0.013287255392146115, 0.0023891927972509684, -0.011922370556782351]
+					},
+					{
+						"durchmesserM": 0.016,
+						"druck": false,
+						"zugN": 11393.31528135727,
+						"druckN": 0,
+						"ausnutzung": 0.2411306443128242,
+						"id": "haenger:raumfachwerk:k:m:2:1|kapsel:u:2:p",
+						"knotenId": "raumfachwerk:k:m:2:1",
+						"p": [0, 1.3, 8],
+						"uM": [0.01328661544039224, 0.0023898548310159547, -0.011933521306440625]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 52506.824789424485,
+						"druckN": 0,
+						"ausnutzung": 0.4938960231262987,
+						"id": "haenger:raumfachwerk:k:m:3:-1|kapsel:u:2:m",
+						"knotenId": "raumfachwerk:k:m:3:-1",
+						"p": [0, -1.3, 8],
+						"uM": [0.013287255392146115, 0.0023891927972509684, -0.011922370556782351]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 78404.20265361191,
+						"druckN": 0,
+						"ausnutzung": 0.737495059781385,
+						"id": "haenger:raumfachwerk:k:m:3:-1|kapsel:u:3:m",
+						"knotenId": "raumfachwerk:k:m:3:-1",
+						"p": [3.04, -1.3, 8],
+						"uM": [0.013287519954693253, 0.002388982119458637, -0.012494142257528089]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 52506.824789424485,
+						"druckN": 0,
+						"ausnutzung": 0.4938960231262987,
+						"id": "haenger:raumfachwerk:k:m:3:1|kapsel:u:2:p",
+						"knotenId": "raumfachwerk:k:m:3:1",
+						"p": [0, 1.3, 8],
+						"uM": [0.01328661544039224, 0.0023898548310159547, -0.011933521306440625]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 78404.20265361191,
+						"druckN": 0,
+						"ausnutzung": 0.737495059781385,
+						"id": "haenger:raumfachwerk:k:m:3:1|kapsel:u:3:p",
+						"knotenId": "raumfachwerk:k:m:3:1",
+						"p": [3.04, 1.3, 8],
+						"uM": [0.01328688481000855, 0.0023896243619443438, -0.012505307440621862]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63685.17285571337,
+						"druckN": 0,
+						"ausnutzung": 0.5990431478515709,
+						"id": "haenger:raumfachwerk:k:m:4:-1|kapsel:u:4:m",
+						"knotenId": "raumfachwerk:k:m:4:-1",
+						"p": [6.08, -1.3, 8],
+						"uM": [0.013287828415066124, 0.002388805085802806, -0.008285050048790318]
+					},
+					{
+						"durchmesserM": 0.024,
+						"druck": false,
+						"zugN": 63685.17285571337,
+						"druckN": 0,
+						"ausnutzung": 0.5990431478515709,
+						"id": "haenger:raumfachwerk:k:m:4:1|kapsel:u:4:p",
+						"knotenId": "raumfachwerk:k:m:4:1",
+						"p": [6.08, 1.3, 8],
+						"uM": [0.013287195399361507, 0.0023893563766877457, -0.008294846083030298]
+					},
+					{
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 23187.270684291863,
+						"druckN": 23189.776859859903,
+						"ausnutzung": 0.11418680243102282,
+						"id": "halter:raumfachwerk:k:m:0:-1|kapsel:b:0:m",
+						"knotenId": "raumfachwerk:k:m:0:-1",
+						"p": [-6.08, -1.3, 11.6],
+						"uM": [0.014387050584816796, 0.0023947878801491578, -0.00829293222746216]
+					},
+					{
+						"durchmesserM": 0.0761,
+						"druck": true,
+						"zugN": 23187.270684291863,
+						"druckN": 23189.776859859903,
+						"ausnutzung": 0.11418680243102282,
+						"id": "halter:raumfachwerk:k:m:4:-1|kapsel:b:4:m",
+						"knotenId": "raumfachwerk:k:m:4:-1",
+						"p": [6.08, -1.3, 11.6],
+						"uM": [0.012170434487896082, 0.0023948272992444794, -0.00829255983039362]
+					}
+				],
+				"rippen": [
+					[
+						[-6.08, -1.3, 8],
+						[-6.08, 1.3, 8]
+					],
+					[
+						[-3.04, -1.3, 8],
+						[-3.04, 1.3, 8]
+					],
+					[
+						[0, -1.3, 8],
+						[0, 1.3, 8]
+					],
+					[
+						[3.04, -1.3, 8],
+						[3.04, 1.3, 8]
+					],
+					[
+						[6.08, -1.3, 8],
+						[6.08, 1.3, 8]
+					]
+				],
+				"verformungM": {
+					"raumfachwerk:k:m:0:-1": [
+						0.012553033984720758, 0.002394787574865592, -0.006759187160171894
+					],
+					"raumfachwerk:k:m:0:1": [
+						0.012552639948118663, 0.002191148558562345, -0.006758728919208095
+					],
+					"raumfachwerk:k:m:1:-1": [
+						0.012368487326672293, 0.001754316594955836, -0.010756162095355987
+					],
+					"raumfachwerk:k:m:1:1": [
+						0.012368336252071855, 0.0028314192190415635, -0.010756102072646986
+					],
+					"raumfachwerk:k:m:2:-1": [
+						0.013286989462192608, 0.0020762533299443007, -0.011796273400790975
+					],
+					"raumfachwerk:k:m:2:1": [
+						0.013286887664301085, 0.0025094512347867996, -0.011796398293797266
+					],
+					"raumfachwerk:k:m:3:-1": [
+						0.01420549175210709, 0.0017543796754097348, -0.010756045728921236
+					],
+					"raumfachwerk:k:m:3:1": [
+						0.014205440320882242, 0.002831483376771967, -0.010756230309871998
+					],
+					"raumfachwerk:k:m:4:-1": [
+						0.014020950996838595, 0.002394828310778829, -0.006759090991653707
+					],
+					"raumfachwerk:k:m:4:1": [
+						0.014021134708556855, 0.0021911977857280713, -0.006758825833589756
+					],
+					"raumfachwerk:k:o:1:-1": [
+						0.01428523684568787, 0.0024997199781685232, -0.007781894418745188
+					],
+					"raumfachwerk:k:o:1:0": [
+						0.014115429657036502, 0.00229287578999191, -0.008127283948093094
+					],
+					"raumfachwerk:k:o:1:1": [
+						0.014285212491771691, 0.002086072456088054, -0.007781755939013805
+					],
+					"raumfachwerk:k:o:2:-1": [
+						0.013625092120070197, 0.0018667089175377644, -0.011612940979157056
+					],
+					"raumfachwerk:k:o:2:0": [
+						0.013553249024714562, 0.002292904989811585, -0.011819914680279636
+					],
+					"raumfachwerk:k:o:2:1": [
+						0.013625027942108016, 0.0027191211356485502, -0.011613057683485644
+					],
+					"raumfachwerk:k:o:3:-1": [
+						0.01294887515224858, 0.0018667504027440776, -0.011612876629219063
+					],
+					"raumfachwerk:k:o:3:0": [
+						0.013020628835507989, 0.002292961001367325, -0.011819918037769786
+					],
+					"raumfachwerk:k:o:3:1": [
+						0.01294875889508975, 0.002719163004493419, -0.011613128314880214
+					],
+					"raumfachwerk:k:o:4:-1": [
+						0.012288738995847268, 0.0024998452477309648, -0.007781763532423508
+					],
+					"raumfachwerk:k:o:4:0": [0.01245844769751232, 0.00229300553214114, -0.008127288796515704],
+					"raumfachwerk:k:o:4:1": [
+						0.01228856360429173, 0.0020861987121954155, -0.007781892518719319
+					],
+					"raumfachwerk:k:u:-1:-1": [0, 0, 0],
+					"raumfachwerk:k:u:-1:1": [1.6471182388855097e-7, 0.0045854893992237755, 0],
+					"raumfachwerk:k:u:1:-1": [0.026573746446906365, 0, 0],
+					"raumfachwerk:k:u:1:1": [0.02657385201580898, 0.004585496097093982, 0]
+				},
+				"lager": [
+					{
+						"knotenId": "raumfachwerk:k:u:-1:-1",
+						"art": "fest",
+						"druckN": 175914.6962098401,
+						"schubN": 25385.60559338618
+					},
+					{
+						"knotenId": "raumfachwerk:k:u:-1:1",
+						"art": "gleitend",
+						"druckN": 175901.8490194978,
+						"schubN": 0
+					},
+					{
+						"knotenId": "raumfachwerk:k:u:1:-1",
+						"art": "gefuehrt",
+						"druckN": 175902.92845727276,
+						"schubN": 25385.605593404827
+					},
+					{
+						"knotenId": "raumfachwerk:k:u:1:1",
+						"art": "gleitend",
+						"druckN": 175899.0049162983,
+						"schubN": 0
+					}
+				],
+				"lastN": 607118.0434929456,
+				"spannweiteM": 15.2,
+				"kennzahlen": {
+					"kandidaten": 102,
+					"staebe": 102,
+					"masseKg": 5430.905262426134,
+					"laeufe": 1,
+					"ausnutzungMax": 0.7770728710513267,
+					"durchbiegungM": 0.012514243388227611,
+					"groessterZugN": 233153.46717236834,
+					"groessterDruckN": 246782.9052882816,
+					"nullstaebe": 0,
+					"residuumN": 1.3973408385936636e-7
+				}
+			}
+		},
+		"knoten": 26,
+		"staebe": 102
+	},
+	"57f40845c16c1553": {
+		"haus": {
+			"version": 1,
+			"saat": 42,
+			"familie": "raumfachwerk",
+			"traeger": {
+				"version": 1,
+				"familie": "raumfachwerk",
+				"saat": 42,
+				"werte": { "lueckeM": 15.2, "felder": 5, "gurthoeheM": 2.4, "tiefeM": 9 },
+				"knoten": [
+					{ "id": "raumfachwerk:k:o:1:-1", "p": [-4.5600000000000005, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:1:0", "p": [-4.5600000000000005, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:1:1", "p": [-4.5600000000000005, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:-1", "p": [-1.52, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:0", "p": [-1.52, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:2:1", "p": [-1.52, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:-1", "p": [1.52, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:0", "p": [1.52, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:3:1", "p": [1.52, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:-1", "p": [4.5600000000000005, -3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:0", "p": [4.5600000000000005, 0, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:o:4:1", "p": [4.5600000000000005, 3, 14], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:2:-1", "p": [0, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:2:1", "p": [0, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:3:1", "p": [3.04, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:m:4:1", "p": [6.08, 1.5, 11.6], "rolle": "nabe" },
+					{ "id": "raumfachwerk:k:u:-1:-1", "p": [-7.6, -3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:-1:1", "p": [-7.6, 3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:1:-1", "p": [7.6, -3, 8], "rolle": "lager" },
+					{ "id": "raumfachwerk:k:u:1:1", "p": [7.6, 3, 8], "rolle": "lager" }
+				],
+				"kanten": [
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:1:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:0\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:1:0",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:1:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:2:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:0\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:2:0",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:2:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:2:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:3:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:0\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:3:0",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:3:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:3:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:o:4:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:0\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:o:4:0",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:1:-1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:m:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:o:1:-1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:m:1:1\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:m:0:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:m:0:1\"]",
+						"a": "raumfachwerk:k:m:0:-1",
+						"b": "raumfachwerk:k:m:0:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:2:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:m:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:1:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:m:2:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:m:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:0\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:1:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:1:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:m:1:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:m:1:1\"]",
+						"a": "raumfachwerk:k:m:1:-1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:3:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:m:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:2:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:2:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:m:3:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:0\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:2:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:2:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:m:2:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:2:-1\",\"raumfachwerk:k:m:2:1\"]",
+						"a": "raumfachwerk:k:m:2:-1",
+						"b": "raumfachwerk:k:m:2:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:4:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:m:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:3:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:m:4:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:0\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:3:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:3:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:m:3:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:m:3:1\"]",
+						"a": "raumfachwerk:k:m:3:-1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:o:4:-1\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:0\"]",
+						"a": "raumfachwerk:k:m:4:1",
+						"b": "raumfachwerk:k:o:4:0",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:o:4:1\"]",
+						"a": "raumfachwerk:k:m:4:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:m:4:1\"]",
+						"a": "raumfachwerk:k:m:4:-1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:o:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:m:1:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:-1\",\"raumfachwerk:k:u:-1:-1\"]",
+						"a": "raumfachwerk:k:u:-1:-1",
+						"b": "raumfachwerk:k:m:0:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:1:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:o:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:1:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:m:1:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:0:1\",\"raumfachwerk:k:u:-1:1\"]",
+						"a": "raumfachwerk:k:u:-1:1",
+						"b": "raumfachwerk:k:m:0:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:o:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:m:3:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:-1\",\"raumfachwerk:k:u:1:-1\"]",
+						"a": "raumfachwerk:k:u:1:-1",
+						"b": "raumfachwerk:k:m:4:-1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:o:4:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:o:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:3:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:m:3:1",
+						"rolle": "stab",
+						"klasse": "A"
+					},
+					{
+						"id": "[\"raumfachwerk:k:m:4:1\",\"raumfachwerk:k:u:1:1\"]",
+						"a": "raumfachwerk:k:u:1:1",
+						"b": "raumfachwerk:k:m:4:1",
+						"rolle": "stab",
+						"klasse": "A"
+					}
+				],
+				"flaechen": [],
+				"zellen": [],
+				"belegung": {}
+			},
+			"anschluesse": [
+				{
+					"id": "raumfachwerk:k:m:2:-1/anschluss",
+					"elementId": "raumfachwerk:k:m:2:-1",
+					"beziehung": "eingehaengt",
+					"art": "raum",
+					"polygon": [
+						[5.75, -1.3],
+						[6.0036174186209665, -1.2750208645241996],
+						[6.2474884620746165, -1.2010433922646728],
+						[6.472241302925483, -1.080910495993309],
+						[6.669238815542512, -0.9192388155425117],
+						[6.830910495993309, -0.7222413029254828],
+						[6.951043392264673, -0.4974884620746167],
+						[7.025020864524199, -0.2536174186209667],
+						[7.05, 0],
+						[7.025020864524199, 0.2536174186209667],
+						[6.951043392264673, 0.4974884620746167],
+						[6.830910495993309, 0.7222413029254827],
+						[6.669238815542512, 0.9192388155425117],
+						[6.472241302925482, 1.080910495993309],
+						[6.2474884620746165, 1.2010433922646728],
+						[6.003617418620967, 1.2750208645241996],
+						[5.75, 1.3],
+						[-5.75, 1.3],
+						[-6.0036174186209665, 1.2750208645241996],
+						[-6.2474884620746165, 1.2010433922646728],
+						[-6.472241302925482, 1.0809104959933091],
+						[-6.669238815542512, 0.9192388155425119],
+						[-6.830910495993309, 0.7222413029254828],
+						[-6.951043392264673, 0.4974884620746169],
+						[-7.025020864524199, 0.2536174186209672],
+						[-7.05, 1.5920408388915593e-16],
+						[-7.025020864524199, -0.2536174186209669],
+						[-6.951043392264673, -0.4974884620746166],
+						[-6.830910495993309, -0.7222413029254826],
+						[-6.669238815542512, -0.9192388155425117],
+						[-6.472241302925482, -1.080910495993309],
+						[-6.247488462074617, -1.2010433922646726],
+						[-6.003617418620967, -1.2750208645241994],
+						[-5.75, -1.3]
+					],
+					"z": 8,
+					"hoeheM": 2.8,
+					"flaecheM2": 35.17524230731612,
+					"knoten": [
+						"raumfachwerk:k:m:0:-1",
+						"raumfachwerk:k:m:0:1",
+						"raumfachwerk:k:m:1:-1",
+						"raumfachwerk:k:m:1:1",
+						"raumfachwerk:k:m:2:-1",
+						"raumfachwerk:k:m:2:1",
+						"raumfachwerk:k:m:3:-1",
+						"raumfachwerk:k:m:3:1",
+						"raumfachwerk:k:m:4:-1",
+						"raumfachwerk:k:m:4:1"
+					],
+					"wandIds": [],
+					"tuer": { "p": [-7.05, 0, 8], "breiteM": 1.5, "hoeheM": 2.1, "tangente": [0, -1] },
+					"fassungen": [
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:1", "p": [6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 11.6] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 11.6] }
+					]
+				},
+				{
+					"id": "raumfachwerk:k:m:2:-1/dach/anschluss",
+					"elementId": "raumfachwerk:k:m:2:-1/dach",
+					"beziehung": "eingehaengt",
+					"art": "garten",
+					"polygon": [
+						[5.75, -1.3],
+						[6.0036174186209665, -1.2750208645241996],
+						[6.2474884620746165, -1.2010433922646728],
+						[6.472241302925483, -1.080910495993309],
+						[6.669238815542512, -0.9192388155425117],
+						[6.830910495993309, -0.7222413029254828],
+						[6.951043392264673, -0.4974884620746167],
+						[7.025020864524199, -0.2536174186209667],
+						[7.05, 0],
+						[7.025020864524199, 0.2536174186209667],
+						[6.951043392264673, 0.4974884620746167],
+						[6.830910495993309, 0.7222413029254827],
+						[6.669238815542512, 0.9192388155425117],
+						[6.472241302925482, 1.080910495993309],
+						[6.2474884620746165, 1.2010433922646728],
+						[6.003617418620967, 1.2750208645241996],
+						[5.75, 1.3],
+						[-5.75, 1.3],
+						[-6.0036174186209665, 1.2750208645241996],
+						[-6.2474884620746165, 1.2010433922646728],
+						[-6.472241302925482, 1.0809104959933091],
+						[-6.669238815542512, 0.9192388155425119],
+						[-6.830910495993309, 0.7222413029254828],
+						[-6.951043392264673, 0.4974884620746169],
+						[-7.025020864524199, 0.2536174186209672],
+						[-7.05, 1.5920408388915593e-16],
+						[-7.025020864524199, -0.2536174186209669],
+						[-6.951043392264673, -0.4974884620746166],
+						[-6.830910495993309, -0.7222413029254826],
+						[-6.669238815542512, -0.9192388155425117],
+						[-6.472241302925482, -1.080910495993309],
+						[-6.247488462074617, -1.2010433922646726],
+						[-6.003617418620967, -1.2750208645241994],
+						[-5.75, -1.3]
+					],
+					"z": 10.8,
+					"hoeheM": 0.2,
+					"flaecheM2": 35.17524230731612,
+					"knoten": [
+						"raumfachwerk:k:m:0:-1",
+						"raumfachwerk:k:m:0:1",
+						"raumfachwerk:k:m:1:-1",
+						"raumfachwerk:k:m:1:1",
+						"raumfachwerk:k:m:2:-1",
+						"raumfachwerk:k:m:2:1",
+						"raumfachwerk:k:m:3:-1",
+						"raumfachwerk:k:m:3:1",
+						"raumfachwerk:k:m:4:-1",
+						"raumfachwerk:k:m:4:1"
+					],
+					"wandIds": [],
+					"tuer": { "p": [-7.05, 0, 8], "breiteM": 1.5, "hoeheM": 2.1, "tangente": [0, -1] },
+					"fassungen": [
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:1", "p": [-6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [-3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [-3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:1:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:2:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [0, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:-1", "p": [3.04, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [0, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:3:1", "p": [3.04, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:4:1", "p": [6.08, 1.3, 8] },
+						{ "knotenId": "raumfachwerk:k:m:0:-1", "p": [-6.08, -1.3, 11.6] },
+						{ "knotenId": "raumfachwerk:k:m:4:-1", "p": [6.08, -1.3, 11.6] }
+					],
+					"traegt": "raumfachwerk:k:m:2:-1/einbau"
+				}
+			],
+			"einbauten": [
+				{
+					"id": "raumfachwerk:k:m:2:-1/dach/einbau",
+					"anschlussId": "raumfachwerk:k:m:2:-1/dach/anschluss",
+					"nutzung": "food"
+				},
+				{
+					"id": "raumfachwerk:k:m:2:-1/einbau",
+					"anschlussId": "raumfachwerk:k:m:2:-1/anschluss",
+					"nutzung": "people"
+				}
+			],
+			"eingang": { "id": "raumfachwerk/eingang", "p": [-7.05, 0, 8] },
+			"bestand": {
+				"koerper": [
+					{ "id": "links", "x": -12.1, "y": -4.5, "breiteM": 4.5, "tiefeM": 9 },
+					{ "id": "rechts", "x": 7.6, "y": -4.5, "breiteM": 4.5, "tiefeM": 9 }
+				],
+				"wandachsen": [
+					[
+						[-12.1, -4.5, 8],
+						[-7.6, -4.5, 8]
+					],
+					[
+						[-7.6, -4.5, 8],
+						[-7.6, 4.5, 8]
+					],
+					[
+						[-7.6, 4.5, 8],
+						[-12.1, 4.5, 8]
+					],
+					[
+						[-12.1, 4.5, 8],
+						[-12.1, -4.5, 8]
+					],
+					[
+						[7.6, -4.5, 8],
+						[12.1, -4.5, 8]
+					],
+					[
+						[12.1, -4.5, 8],
+						[12.1, 4.5, 8]
+					],
+					[
+						[12.1, 4.5, 8],
+						[7.6, 4.5, 8]
+					],
+					[
+						[7.6, 4.5, 8],
+						[7.6, -4.5, 8]
+					]
+				]
+			}
+		},
+		"knoten": 26,
+		"staebe": 86
+	}
+}

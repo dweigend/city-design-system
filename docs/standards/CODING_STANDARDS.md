@@ -1,0 +1,80 @@
+# Coding Standards
+
+As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
+
+Owner for: priorities, readability, types, validation, state and effects, reference code, refactoring, completion. Applies to all code under `src/`: data, logic, scenes, components, tests.
+
+## Priorities
+
+| ID   | Rule                                                                                                                                                                                 | Source · Auth.             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| C-01 | Order: correctness and accepted contracts, then clarity, simplicity, modularity, maintainability, reuse.                                                                             | CS §Priorities · N         |
+| C-02 | Minimum Sufficient Architecture: the smallest understandable solution that solves the real problem completely. Every change names benefit, affected modules, and risk.               | CS Intro, §Refactoring · N |
+| C-03 | Local fix over rebuild. Composition over inheritance. Concrete solution over speculative abstraction. Layers describe responsibility; they do not demand extra folders or wrappers.  | CS §Priorities · N         |
+| C-04 | Playability and explainability over realism. No completeness for all edge cases. Supported bounds live in the contract; within those bounds mathematical validity remains mandatory. | PR 5, 6; 103 · D\*         |
+
+## Readability
+
+| ID   | Rule                                                                                                                                                                                                                           | Source · Auth.         |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| C-10 | One function has one job, one file one cohesive responsibility. Around 20 lines per function and 200 per file are review signals, not limits. A visible procedural pipeline may be longer.                                     | CS §Readable code · N  |
+| C-11 | Same level of abstraction per function. Edge cases via guard clauses. Positive, simple conditions. No nested ternaries, no clever one-liners.                                                                                  | CS §Readable code · N  |
+| C-12 | No ambiguous boolean parameters. Named options or domain types. Small signatures; group related fields.                                                                                                                        | CS §Readable code · N  |
+| C-13 | Meaningful literals have names: thresholds, angles, radii, dimensions, bounds. Obvious 0 and 1 stay inline. Same number with a different meaning is its own constant. Tolerances: [PN-1](PROCEDURAL_PRINCIPLES.md#3-numerics). | CS §Readable code · N  |
+| C-14 | Dead code, unused imports, and commented-out alternatives are removed, including alternative generators. Comments explain reasons, assumptions, invariants, units, and provenance.                                             | CS §Readable code · N  |
+| C-15 | Ordinary TypeScript. Call order is visible in code. Dependencies are function arguments. No DSL, no hidden scheduler, no registry, no authoring wrapper.                                                                       | PR 4, Consequences · D |
+
+## Types and Contracts
+
+| ID   | Rule                                                                                                                                                                                             | Source · Auth.                      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| C-20 | Strict TypeScript. Untrusted data is `unknown`, not `any`. Public parameters and return values are explicitly typed; internal types may be inferred.                                             | CS §Types and contracts · N         |
+| C-21 | Narrow unions and discriminated states. Variants are handled exhaustively. Nullability is a deliberate decision.                                                                                 | CS §Types and contracts · N         |
+| C-22 | Type and non-null assertions require a documented invariant. Narrowing takes precedence.                                                                                                         | CS §Types and contracts · N         |
+| C-23 | Every public function documents: inputs, result, units, defaults, bounds, ordering, mutation, errors, ownership. It states whether the result is detached, a reference snapshot, or a live view. | CS §Types; AR §Dependency rules · N |
+| C-24 | External inputs are validated at the boundary: sliders, seed, URL parameters, decoded data. No internal repetition of already-guaranteed invariants. Public error contracts remain intact.       | CS §Types and contracts · N         |
+
+## State, Effects, Dependencies
+
+| ID   | Rule                                                                                                                                                                                                                                                      | Source · Auth.            |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| C-30 | Every domain fact has one owner. Derived values are computed, not stored twice. Generator state lives in `logic/`; UI holds only view, selection, and camera.                                                                                             | PR 1; CS §State · D       |
+| C-31 | Computations are pure where practical. Local mutation and stateful kernels are allowed when encapsulated. No blanket immutability mandate.                                                                                                                | CS §State · N             |
+| C-32 | State mutation, I/O, logging, async ordering, and errors are explicit. No globals, no service locators, no module-wide mutable caches. Errors are not swallowed.                                                                                          | CS §State · N             |
+| C-33 | Functions first. Classes only for genuine identity, encapsulated state, or lifecycle. New stateful APIs: `Name.create(options?)` with sensible defaults, nested fine options, and a function escape hatch. Existing calls are not rewritten mechanically. | PR Consequences; CS · D\* |
+| C-34 | No grab-bag modules (`utils`, `helpers`, `manager`), no universal registry, no factory or interface layer without need. Abstract only what lowers concrete duplication of domain rules, complexity, or coupling. Similar code alone is not enough.        | CS §State · N             |
+| C-35 | Check existing capabilities first, then write new code or add dependencies. Optimize after measurement ([PB-2](PROCEDURAL_PRINCIPLES.md#6-budgets-and-measurement-duty)).                                                                                 | CS §State · N             |
+
+## Reference Code
+
+Translation of "Model scripts as examples": what the Bible shows or executes is exemplar code.
+
+| ID   | Rule                                                                                                                                                                                                                                                                                                                                                                                 | Source · Auth.                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| C-40 | Scene and demo compositions (`logic/bibel/`, `logic/ansicht/`, lab demos) and generators are reference code. Purpose and flow are readable from code without accompanying prose.                                                                                                                                                                                                     | CS §Model scripts · N\*                               |
+| C-41 | Parameters, setup, named rules, execution, and metrics are easy to find. The mechanism stays visible. A helper is created only when its name explains an operation.                                                                                                                                                                                                                  | CS §Model scripts; SK · N\*                           |
+| C-42 | Metrics originate in `logic/`. Components only format them.                                                                                                                                                                                                                                                                                                                          | CS §Model scripts; UI §Binding UI authoring rules · N |
+| C-43 | **Example-first.** A new public contract phase in the catalog begins with four to five accepted, asserted headless scenarios via public entry points ([A-30](ARCHITECTURE.md#public-contracts)). Implementation follows. Accepted expectations change only via a documented author decision. Implementation is fixed; examples are never weakened. No gate for mechanical refactors. | PL §Example-first; AR; LA · N\*                       |
+
+## Refactoring
+
+| ID   | Rule                                                                                                                                                                                                                              | Source · Auth.              |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| C-50 | A refactor preserves: public calls, errors, mutation, identity (IDs), iteration and tie-breaking order, RNG draw sequence and continuation, units. Fixing behavior or changing an API is a separate, explicit task.               | CS §Refactoring 3; SK · N   |
+| C-51 | Sequence: read contracts, code, imports, tests, and examples; check git status; preserve other agents' work. Then decide per issue: fix, keep with justification, or report contract gap. Small, individually verifiable changes. | CS §Refactoring 1–3; SK · N |
+| C-52 | Before extracting, verify: import closure (including transitive: no Svelte, three.js, DOM in `data/` and `logic/`), public consumers, isolation of state and RNG across instances. A cohesive longer pipeline is not a defect.    | SK refactor-library · N     |
+| C-53 | Tests verify public behavior, not private file splits. New regression tests only for meaningful, unprotected contracts.                                                                                                           | CS §Refactoring 4 · N       |
+| C-54 | Tools: ESLint, Prettier, TypeScript, and svelte-check remain. No second formatter (Biome is not adopted). No repo-wide reformatting inside a local refactor.                                                                      | CS; Transfer Conflict 4 · V |
+
+## Verification
+
+| ID   | Rule                                                                                                                                                                                                                                                                                                                                                                                                                               | Source · Auth.                   |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| C-60 | Every code change: affected `bun test` files, `bun run check`, full `bun run lint`, `bun run build`. That is the single completion criterion; it matches AGENTS.md. Targeted lint on individual files is additional diagnostics and does not replace the gate. If the gate fails on a pre-existing baseline issue, it remains open and is reported per C-62. Commands and their status: [README](README.md#verification-commands). | CS §Refactoring 4; AG; 103 · N\* |
+| C-61 | Browser-facing changes additionally require sign-off per [DS-70 and DS-71](DESIGN_STANDARDS.md#browser-and-screenshot-sign-off).                                                                                                                                                                                                                                                                                                   | CS §Refactoring 5 · N            |
+| C-62 | Only executed checks are reported. Pre-existing baseline failures and own regressions are listed separately, as are blockers and unexecuted checks. Documentation alone does not establish runtime sign-off.                                                                                                                                                                                                                       | CS §Refactoring 6; LA · N        |
+| C-63 | Author review is not an independent sign-off. Roles: [README](README.md#roles-and-review).                                                                                                                                                                                                                                                                                                                                         | CS §Refactoring 6 · N            |
+
+## Done
+
+A refactor is done when behavior and contracts are preserved, affected checks pass, responsibilities and dependencies are easier to understand, and concrete complexity drops — without new speculative abstractions or dependencies. Size and style metrics inform judgment; clarity takes precedence over mechanical compliance (CS §Done · N).

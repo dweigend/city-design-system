@@ -1,0 +1,10 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		"types": ["$app/types", "node"],
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true
+	},
+	"include": ["src", "vite.config.ts", "eslint.config.js", "prettier.config.js"]
+}

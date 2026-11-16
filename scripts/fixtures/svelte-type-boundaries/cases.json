@@ -1,0 +1,22 @@
+{
+	"valid": {
+		"src/lib/catalog/ui/View.svelte": "<script lang=\"ts\">import type { Model } from '../data/model'; let value: Model;</script>",
+		"src/lib/catalog/data/model.ts": "export interface Model { id: string }"
+	},
+	"cycle": {
+		"src/lib/catalog/ui/View.svelte": "<script lang=\"ts\">import type { Model } from '../scene/model'; let value: Model;</script>",
+		"src/lib/catalog/scene/model.ts": "import type { Link } from './link'; export type Model = Link;",
+		"src/lib/catalog/scene/link.ts": "import View from '../ui/View.svelte'; export type Link = typeof View;"
+	},
+	"twoTypeEdges": {
+		"src/lib/catalog/ui/View.svelte": "<script lang=\"ts\">import type { Model } from './Other.svelte'; let value: Model;</script>",
+		"src/lib/catalog/ui/Other.svelte": "<script module lang=\"ts\">export type { default as Model } from './View.svelte';</script>"
+	},
+	"boundary": {
+		"src/lib/catalog/logic/View.svelte": "<script lang=\"ts\">import type { Model } from '../scene/model'; let value: Model;</script>",
+		"src/lib/catalog/scene/model.ts": "export interface Model { id: string }"
+	},
+	"unresolved": {
+		"src/lib/catalog/ui/View.svelte": "<script lang=\"ts\">import type { Model } from './missing'; let value: Model;</script>"
+	}
+}
