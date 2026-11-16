@@ -1,3 +1,4 @@
+import { required } from '../../required';
 import { cellOutline, grenze } from '../eckraster/bestand';
 import { address, BESTAND, WEG } from '../eckraster/state';
 import { frontage, type Front } from '../raster/universal/kern';
@@ -15,7 +16,7 @@ export function zugang(r: Lage, b: Belegung): Zugang {
 	const queue = [...new Set(r.blocks.flatMap((x) => x.saum))].filter(frei),
 		begehbar = new Set(queue);
 	for (let i = 0; i < queue.length; i++)
-		for (const w of r.nb.get(queue[i])!)
+		for (const w of required(r.nb.get(queue[i]), 'r.nb.get(queue[i])'))
 			if (frei(w) && !begehbar.has(w)) {
 				begehbar.add(w);
 				queue.push(w);
@@ -36,8 +37,7 @@ export function zugang(r: Lage, b: Belegung): Zugang {
 	}
 	for (const p of parzellen)
 		for (const c of p.cells) {
-			const fronts: Front[] = r.nb
-				.get(c)!
+			const fronts: Front[] = required(r.nb.get(c), 'r.nb .get(c)')
 				.filter((n) => begehbar.has(n))
 				.flatMap((n) =>
 					grenze(r.patch, c, n).map(([a, b], k) => ({
@@ -46,8 +46,10 @@ export function zugang(r: Lage, b: Belegung): Zugang {
 						b,
 						level: 0,
 						width: Math.hypot(
-							r.point.get(c)![0] - r.point.get(n)![0],
-							r.point.get(c)![1] - r.point.get(n)![1]
+							required(r.point.get(c), 'r.point.get(c)')[0] -
+								required(r.point.get(n), 'r.point.get(n)')[0],
+							required(r.point.get(c), 'r.point.get(c)')[1] -
+								required(r.point.get(n), 'r.point.get(n)')[1]
 						),
 						kind: 'alley' as const
 					}))
@@ -79,13 +81,15 @@ export function zugangSichern(r: Lage, b: Belegung): string[] {
 			}
 			const candidates = new Map<string, number>();
 			for (const c of p.cells)
-				for (const n of r.nb.get(c)!) {
+				for (const n of required(r.nb.get(c), 'r.nb.get(c)')) {
 					const target = b.plan.get(n)?.parcel;
 					if (target && target !== p.id && r.blockOf.get(c) === r.blockOf.get(n))
 						candidates.set(target, (candidates.get(target) ?? 0) + 1);
 				}
 			const best = [...candidates].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]?.[0];
-			if (best) for (const c of p.cells) b.plan.set(c, { ...b.plan.get(c)!, parcel: best });
+			if (best)
+				for (const c of p.cells)
+					b.plan.set(c, { ...required(b.plan.get(c), 'b.plan.get(c)'), parcel: best });
 		}
 	}
 	return removed;

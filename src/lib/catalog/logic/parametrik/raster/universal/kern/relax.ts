@@ -1,3 +1,4 @@
+import { required } from '../../../../required';
 import { area, length, sub } from './geometry';
 import { edgeId, type Intent, type Vec } from './types';
 /** Jacobi proposals on source points; exterior and fixed points stay put. */
@@ -15,15 +16,16 @@ export function relax(intent: Intent, iterations: number): Intent {
 			ends.set(key, [a, b]);
 			if (!nb.has(a)) nb.set(a, new Set());
 			if (!nb.has(b)) nb.set(b, new Set());
-			nb.get(a)!.add(b);
-			nb.get(b)!.add(a);
+			required(nb.get(a), 'nb.get(a)').add(b);
+			required(nb.get(b), 'nb.get(b)').add(a);
 		});
 	const fixed = new Set(intent.fixed);
-	for (const [key, n] of counts) if (n === 1) ends.get(key)!.forEach((v) => fixed.add(v));
+	for (const [key, n] of counts)
+		if (n === 1) required(ends.get(key), 'ends.get(key)').forEach((v) => fixed.add(v));
 	const quality = (ps: ReadonlyMap<string, Vec>) =>
 		Math.min(
 			...rings.map((ring) => {
-				const ps0 = ring.map((v) => ps.get(v)!);
+				const ps0 = ring.map((v) => required(ps.get(v), 'ps.get(v)'));
 				if (area(ps0) <= 0) return -Infinity;
 				return Math.min(
 					...ps0.map((p, i) => {
@@ -48,8 +50,8 @@ export function relax(intent: Intent, iterations: number): Intent {
 			const proposed = new Map(positions);
 			for (const [v, neighbors] of nb) {
 				if (fixed.has(v)) continue;
-				const a = positions.get(v)!,
-					ps = [...neighbors].map((w) => positions.get(w)!);
+				const a = required(positions.get(v), 'positions.get(v)'),
+					ps = [...neighbors].map((w) => required(positions.get(w), 'positions.get(w)'));
 				proposed.set(v, [
 					a[0] * (1 - step) + (step * ps.reduce((s, p) => s + p[0], 0)) / ps.length,
 					a[1] * (1 - step) + (step * ps.reduce((s, p) => s + p[1], 0)) / ps.length

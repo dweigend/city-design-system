@@ -1,3 +1,4 @@
+import { required } from '../../../../required';
 /** Small binary heap for Dijkstra. */
 export class Heap {
 	private keys: number[] = [];
@@ -21,8 +22,8 @@ export class Heap {
 	}
 	pop(): [number, number] {
 		const top: [number, number] = [this.keys[0], this.vals[0]],
-			key = this.keys.pop()!,
-			val = this.vals.pop()!,
+			key = required(this.keys.pop(), 'this.keys.pop()'),
+			val = required(this.vals.pop(), 'this.vals.pop()'),
 			n = this.keys.length;
 		if (n) {
 			let i = 0;

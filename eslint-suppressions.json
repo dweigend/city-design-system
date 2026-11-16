@@ -39,11 +39,6 @@
 			"count": 2
 		}
 	},
-	"src/lib/catalog/logic/parametrik/eckraster/bestand.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 13
-		}
-	},
 	"src/lib/catalog/logic/parametrik/eckraster/derive.ts": {
 		"@typescript-eslint/no-non-null-assertion": {
 			"count": 15
@@ -159,11 +154,6 @@
 			"count": 4
 		}
 	},
-	"src/lib/catalog/logic/parametrik/raster/universal/kern/model.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 18
-		}
-	},
 	"src/lib/catalog/logic/parametrik/raster/universal/kern/ports.ts": {
 		"@typescript-eslint/no-non-null-assertion": {
 			"count": 15
@@ -212,16 +202,6 @@
 	"src/lib/catalog/logic/parametrik/welt/lage.ts": {
 		"@typescript-eslint/no-non-null-assertion": {
 			"count": 18
-		}
-	},
-	"src/lib/catalog/logic/parametrik/welt/netze.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 3
-		}
-	},
-	"src/lib/catalog/logic/parametrik/welt/wege.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 13
 		}
 	},
 	"src/lib/catalog/logic/parametrik/welt/welt.test.ts": {

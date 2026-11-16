@@ -1,3 +1,4 @@
+import { required } from '../src/lib/catalog/logic/required';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { welt, weltDefaults, rasterarten } from '../src/lib/catalog/logic/parametrik/welt';
@@ -109,9 +110,10 @@ let md =
 for (const [group, keys] of Object.entries(groups)) {
 	md += `\n## ${group}\n\n| Grid | Seed | Part | Metric | old | new | new/old |\n|---|---:|---|---|---:|---:|---:|\n`;
 	for (const row of rows.filter((r) => r.variant !== 'main')) {
-		const old = rows.find(
-			(r) => r.raster === row.raster && r.seed === row.seed && r.variant === 'main'
-		)!;
+		const old = required(
+			rows.find((r) => r.raster === row.raster && r.seed === row.seed && r.variant === 'main'),
+			"rows.find( (r) => r.raster === row.raster && r.seed === row.seed && r.variant === 'main' )"
+		);
 		for (const key of keys) {
 			const a = Number(old[key as keyof typeof old]),
 				b = Number(row[key as keyof typeof row]);
@@ -123,9 +125,10 @@ for (const [group, keys] of Object.entries(groups)) {
 const assessments = rows
 	.filter((r) => r.variant !== 'main')
 	.map((row) => {
-		const old = rows.find(
-			(r) => r.raster === row.raster && r.seed === row.seed && r.variant === 'main'
-		)!;
+		const old = required(
+			rows.find((r) => r.raster === row.raster && r.seed === row.seed && r.variant === 'main'),
+			"rows.find( (r) => r.raster === row.raster && r.seed === row.seed && r.variant === 'main' )"
+		);
 		const num = (r: typeof row, k: string) => Number(r[k as keyof typeof r]);
 		const m3 =
 			num(row, 'tWelt') <= 1.25 * num(old, 'tWelt') && num(row, 'tLage') <= 2 * num(old, 'tLage');

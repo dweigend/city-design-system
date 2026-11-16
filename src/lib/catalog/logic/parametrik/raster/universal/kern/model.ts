@@ -1,3 +1,4 @@
+import { required } from '../../../../required';
 import {
 	acceptable,
 	area,
@@ -72,7 +73,7 @@ export function validateIntent(intent: Intent, changed?: ReadonlySet<string>) {
 		)
 			throw new InvariantError('invalid-source', [f.id]);
 		if (!changed || changed.has(f.id)) {
-			validateRing(f.ring.map((v) => intent.positions.get(v)!));
+			validateRing(f.ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
 			if (f.parts) validateParts(intent, f);
 		}
 		const m = intent.semantics.get(f.id);
@@ -81,7 +82,9 @@ export function validateIntent(intent: Intent, changed?: ReadonlySet<string>) {
 	}
 	if (intent.semantics.size !== faces.length) throw new InvariantError('orphan-meaning');
 	if (!changed) buildTopology(faces);
-	const rings = faces.map((f) => f.ring.map((v) => intent.positions.get(v)!));
+	const rings = faces.map((f) =>
+		f.ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)'))
+	);
 	const boxes = rings.map((ps) => [
 		Math.min(...ps.map((p) => p[0])),
 		Math.min(...ps.map((p) => p[1])),
@@ -120,8 +123,16 @@ export function validateIntent(intent: Intent, changed?: ReadonlySet<string>) {
 					const farA = ai === common[0] ? aj : ai,
 						farB = bi === common[0] ? bj : bi;
 					if (
-						onSegment(intent.positions.get(farA)!, pb[v], pb[(v + 1) % pb.length]) ||
-						onSegment(intent.positions.get(farB)!, pa[u], pa[(u + 1) % pa.length])
+						onSegment(
+							required(intent.positions.get(farA), 'intent.positions.get(farA)'),
+							pb[v],
+							pb[(v + 1) % pb.length]
+						) ||
+						onSegment(
+							required(intent.positions.get(farB), 'intent.positions.get(farB)'),
+							pa[u],
+							pa[(u + 1) % pa.length]
+						)
 					)
 						throw new InvariantError('overlapping-edges', [a.id, b.id]);
 				}
@@ -152,9 +163,9 @@ export function deriveChunk(
 				id,
 				parent: f.id,
 				rule: 'part',
-				children: chunk.provenance.get(f.id)!.children
+				children: required(chunk.provenance.get(f.id), 'chunk.provenance.get(f.id)').children
 			});
-			provenance.get(f.id)!.children.push(id);
+			required(provenance.get(f.id), 'provenance.get(f.id)').children.push(id);
 			for (const q of chunk.topology.faces.values())
 				polygons.push({ id: q.id, ring: q.vertices, level: q.level });
 		}
@@ -165,13 +176,21 @@ export function deriveChunk(
 			provenance
 		};
 	}
-	const initial = new Map(f.ring.map((id) => [id, intent.positions.get(id)!]));
+	const initial = new Map(
+		f.ring.map((id) => [id, required(intent.positions.get(id), 'intent.positions.get(id)')])
+	);
 	const convex = f.ring.every(
 		(v, i) =>
 			orient(
-				initial.get(v)!,
-				initial.get(f.ring[(i + 1) % f.ring.length])!,
-				initial.get(f.ring[(i + 2) % f.ring.length])!
+				required(initial.get(v), 'initial.get(v)'),
+				required(
+					initial.get(f.ring[(i + 1) % f.ring.length]),
+					'initial.get(f.ring[(i + 1) % f.ring.length])'
+				),
+				required(
+					initial.get(f.ring[(i + 2) % f.ring.length]),
+					'initial.get(f.ring[(i + 2) % f.ring.length])'
+				)
 			) > 0
 	);
 	const attempts = convex
@@ -187,14 +206,14 @@ export function deriveChunk(
 			const ring = parts[j],
 				parent = childId(prefix, parts.length === 1 ? 'convex' : 'triangle', j),
 				centerId = childId(parent, 'center', 0);
-			provenance.get(f.id)!.children.push(parent);
+			required(provenance.get(f.id), 'provenance.get(f.id)').children.push(parent);
 			provenance.set(parent, {
 				id: parent,
 				parent: f.id,
 				rule: parts.length === 1 ? 'convex' : 'ear-clip',
 				children: []
 			});
-			const ps = ring.map((id) => positions.get(id)!);
+			const ps = ring.map((id) => required(positions.get(id), 'positions.get(id)'));
 			const center: Vec = [
 				ps.reduce((s, p) => s + p[0], 0) / ps.length,
 				ps.reduce((s, p) => s + p[1], 0) / ps.length
@@ -203,7 +222,14 @@ export function deriveChunk(
 				const b = ring[(i + 1) % ring.length],
 					mid = `mid:${edgeId(id, b)}`;
 				const ends = [id, b].sort();
-				positions.set(mid, mix(positions.get(ends[0])!, positions.get(ends[1])!, 0.5));
+				positions.set(
+					mid,
+					mix(
+						required(positions.get(ends[0]), 'positions.get(ends[0])'),
+						required(positions.get(ends[1]), 'positions.get(ends[1])'),
+						0.5
+					)
+				);
 				return mid;
 			});
 			const qs = ring.map((v, i) => ({
@@ -227,7 +253,10 @@ export function deriveChunk(
 				positions.set(centerId, p);
 				if (
 					qs.every((q) =>
-						acceptable(quadQuality(q.ring.map((id) => positions.get(id)!)), intent.limits)
+						acceptable(
+							quadQuality(q.ring.map((id) => required(positions.get(id), 'positions.get(id)'))),
+							intent.limits
+						)
 					)
 				) {
 					chosen = p;
@@ -240,17 +269,20 @@ export function deriveChunk(
 			}
 			for (const q of qs) {
 				polygons.push(q);
-				provenance.get(parent)!.children.push(q.id);
+				required(provenance.get(parent), 'provenance.get(parent)').children.push(q.id);
 				provenance.set(q.id, { id: q.id, parent, rule: 'midpoint-quad', children: [] });
 			}
 		}
 		if (valid) {
 			const topology = buildTopology(polygons),
 				quality = new Map(
-					polygons.map((q) => [q.id, quadQuality(q.ring.map((v) => positions.get(v)!))])
+					polygons.map((q) => [
+						q.id,
+						quadQuality(q.ring.map((v) => required(positions.get(v), 'positions.get(v)')))
+					])
 				);
 			const sum = [...quality.values()].reduce((s, q) => s + q.area, 0),
-				sourceArea = area(f.ring.map((id) => initial.get(id)!));
+				sourceArea = area(f.ring.map((id) => required(initial.get(id), 'initial.get(id)')));
 			if (Math.abs(sum - sourceArea) > 1e-9 * Math.max(1, sourceArea))
 				throw new InvariantError('coverage', [f.id]);
 			return { root: f.id, topology, geometry: { positions, quality }, provenance };
@@ -267,7 +299,7 @@ export function compile(input: Intent): Model {
 		chunks.set(f.id, deriveChunk(intent, f));
 		for (const v of new Set([...f.ring, ...(f.parts ?? []).flat()])) {
 			if (!dependencies.has(v)) dependencies.set(v, []);
-			dependencies.get(v)!.push(f.id);
+			required(dependencies.get(v), 'dependencies.get(v)').push(f.id);
 		}
 	}
 	return { version: 1, intent, chunks, semantics: intent.semantics, dependencies };
@@ -292,7 +324,12 @@ export function validateModel(model: Model) {
 			positions.set(id, p);
 		}
 		for (const f of chunk.topology.faces.values())
-			if (!acceptable(quadQuality(f.vertices.map((v) => positions.get(v)!)), model.intent.limits))
+			if (
+				!acceptable(
+					quadQuality(f.vertices.map((v) => required(positions.get(v), 'positions.get(v)'))),
+					model.intent.limits
+				)
+			)
 				throw new InvariantError('quality', [f.id]);
 		for (const node of chunk.provenance.values()) {
 			if (node.parent === null && node.id !== chunk.root)
@@ -315,11 +352,11 @@ export function validateParts(intent: Intent, f: SourceFace) {
 		)
 			throw new InvariantError('invalid-parts', [f.id]);
 		try {
-			validateRing(ring.map((v) => intent.positions.get(v)!));
+			validateRing(ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
 		} catch {
 			throw new InvariantError('invalid-parts', [f.id]);
 		}
-		sum += area(ring.map((v) => intent.positions.get(v)!));
+		sum += area(ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
 		ring.forEach((a, i) => {
 			const key = JSON.stringify([a, ring[(i + 1) % ring.length]]);
 			if (directed.has(key)) throw new InvariantError('parts-boundary', [f.id]);
@@ -337,7 +374,9 @@ export function validateParts(intent: Intent, f: SourceFace) {
 		f.ring.some((a, i) => !boundary.has(JSON.stringify([a, f.ring[(i + 1) % f.ring.length]])))
 	)
 		throw new InvariantError('parts-boundary', [f.id]);
-	const total = area(f.ring.map((v) => intent.positions.get(v)!));
+	const total = area(
+		f.ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)'))
+	);
 	if (Math.abs(sum - total) > 1e-9 * Math.max(1, total))
 		throw new InvariantError('coverage', [f.id]);
 }
@@ -361,12 +400,12 @@ export function positionsOf(model: Model) {
 	return result;
 }
 export function interiorOf(model: Model, chunk: string) {
-	const ring = model.intent.faces.get(chunk)!.ring,
+	const ring = required(model.intent.faces.get(chunk), 'model.intent.faces.get(chunk)').ring,
 		boundary = new Set([
 			...ring,
 			...ring.map((a, i) => 'mid:' + edgeId(a, ring[(i + 1) % ring.length]))
 		]);
-	return [...model.chunks.get(chunk)!.geometry.positions.keys()]
+	return [...required(model.chunks.get(chunk), 'model.chunks.get(chunk)').geometry.positions.keys()]
 		.filter((v) => !boundary.has(v))
 		.sort();
 }

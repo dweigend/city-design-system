@@ -1,3 +1,4 @@
+import { required } from '../../required';
 /**
  * Existing stock as a historic perimeter structure (logic). Every protected build cell is a house of the
  * perimeter block; the corner module draws its volume (existing-stock bits, gray). This is where the
@@ -47,17 +48,28 @@ const avg = (ps: Point2[]): Point2 => [
 /** The shared edge of two vertices lies on the patch edge (only one face). */
 export const boundaryEdge = (p: Patch, a: string, b: string) => {
 	const ix = index(p);
-	return ix.vertex.get(a)!.faces.filter((id) => ix.face.get(id)!.vertices.includes(b)).length === 1;
+	return (
+		required(ix.vertex.get(a), 'ix.vertex.get(a)').faces.filter((id) =>
+			required(ix.face.get(id), 'ix.face.get(id)').vertices.includes(b)
+		).length === 1
+	);
 };
 
 /** Dual edge between two mesh neighbors, averaged the same way as cellOutline. */
 export function grenze(p: Patch, c: string, n: string): [Point2, Point2][] {
 	const ix = index(p),
-		v = ix.vertex.get(c)!;
-	const m = mid(v.point, ix.vertex.get(n)!.point);
+		v = required(ix.vertex.get(c), 'ix.vertex.get(c)');
+	const m = mid(v.point, required(ix.vertex.get(n), 'ix.vertex.get(n)').point);
 	return v.faces
-		.filter((fid) => ix.face.get(fid)!.vertices.includes(n))
-		.map((fid) => [avg(ix.face.get(fid)!.vertices.map((id) => ix.vertex.get(id)!.point)), m]);
+		.filter((fid) => required(ix.face.get(fid), 'ix.face.get(fid)').vertices.includes(n))
+		.map((fid) => [
+			avg(
+				required(ix.face.get(fid), 'ix.face.get(fid)').vertices.map(
+					(id) => required(ix.vertex.get(id), 'ix.vertex.get(id)').point
+				)
+			),
+			m
+		]);
 }
 /**
  * Outline of a build cell exactly as in the corner module: slot center (bilinear = mean of the four
@@ -65,17 +77,27 @@ export function grenze(p: Patch, c: string, n: string): [Point2, Point2][] {
  */
 export function cellOutline(p: Patch, id: string): Point2[] {
 	const byId = index(p).vertex;
-	const v = byId.get(id)!;
+	const v = required(byId.get(id), 'byId.get(id)');
 	const pts: Point2[] = [];
 	const push = (q: Point2) => {
 		if (!pts.some((r) => Math.hypot(r[0] - q[0], r[1] - q[1]) < 1e-6)) pts.push(q);
 	};
 	for (const fid of v.faces) {
-		const f = index(p).face.get(fid)!;
+		const f = required(index(p).face.get(fid), 'index(p).face.get(fid)');
 		const i = f.vertices.indexOf(id);
-		push(mid(v.point, byId.get(f.vertices[(i + 1) % 4])!.point));
-		push(avg(f.vertices.map((w) => byId.get(w)!.point)));
-		push(mid(v.point, byId.get(f.vertices[(i + 3) % 4])!.point));
+		push(
+			mid(
+				v.point,
+				required(byId.get(f.vertices[(i + 1) % 4]), 'byId.get(f.vertices[(i + 1) % 4])').point
+			)
+		);
+		push(avg(f.vertices.map((w) => required(byId.get(w), 'byId.get(w)').point)));
+		push(
+			mid(
+				v.point,
+				required(byId.get(f.vertices[(i + 3) % 4]), 'byId.get(f.vertices[(i + 3) % 4])').point
+			)
+		);
 	}
 	if (v.boundary) push(v.point);
 	const c = avg(pts);
@@ -104,7 +126,7 @@ function hull(points: Point2[]): Point2[] {
 /** Open facade pieces of an existing-stock cell up to the eaves. */
 function fassadenOf(p: Patch, o: Occupancy, id: string, levels: number): Fassade[] {
 	const byId = index(p).vertex;
-	const v = byId.get(id)!;
+	const v = required(byId.get(id), 'byId.get(id)');
 	const center = avg(cellOutline(p, id));
 	const out: Fassade[] = [];
 	const add = (a: Point2, b: Point2, open: number[]) => {
@@ -121,11 +143,11 @@ function fassadenOf(p: Patch, o: Occupancy, id: string, levels: number): Fassade
 			(h) => other === null || !solid(o, other, h)
 		);
 	for (const fid of v.faces) {
-		const f = index(p).face.get(fid)!;
+		const f = required(index(p).face.get(fid), 'index(p).face.get(fid)');
 		const i = f.vertices.indexOf(id);
-		const c = avg(f.vertices.map((w) => byId.get(w)!.point));
+		const c = avg(f.vertices.map((w) => required(byId.get(w), 'byId.get(w)').point));
 		for (const w of [f.vertices[(i + 1) % 4], f.vertices[(i + 3) % 4]]) {
-			const m = mid(v.point, byId.get(w)!.point);
+			const m = mid(v.point, required(byId.get(w), 'byId.get(w)').point);
 			add(m, c, open(w));
 			// Patch edge: street facade from the vertex to the edge midpoint.
 			if (boundaryEdge(p, id, w)) add(v.point, m, open(null));
@@ -175,11 +197,11 @@ export function haeuser(
 		if (gasse) {
 			const original = outline;
 			for (const c of cells)
-				for (const n of byId.get(c)!.neighbors.filter(gasse))
+				for (const n of required(byId.get(c), 'byId.get(c)').neighbors.filter(gasse))
 					for (const [a, b] of grenze(p, c, n)) {
 						let normal: Point2 = [b[1] - a[1], a[0] - b[0]],
 							limit = normal[0] * a[0] + normal[1] * a[1];
-						const q = byId.get(c)!.point;
+						const q = required(byId.get(c), 'byId.get(c)').point;
 						if (normal[0] * q[0] + normal[1] * q[1] > limit) {
 							normal = [-normal[0], -normal[1]];
 							limit = -limit;
@@ -189,12 +211,12 @@ export function haeuser(
 			if (outline.length < 3 || area(outline) < 0.4 * area(original)) outline = original;
 		}
 		const center = avg(outline);
-		const street = byId.get(key) ?? byId.get(cells[0])!,
+		const street = byId.get(key) ?? required(byId.get(cells[0]), 'byId.get(cells[0])'),
 			given = plan?.get(cells[0]);
 		// Eaves to the street: ridge parallel to the edge; a corner turret at the block corner.
 		const rand = street.neighbors
 			.filter((w) => boundaryEdge(p, street.id, w))
-			.map((w) => byId.get(w)!.point);
+			.map((w) => required(byId.get(w), 'byId.get(w)').point);
 		const dirs = rand.map((q) => Math.atan2(q[1] - street.point[1], q[0] - street.point[0]));
 		const straight =
 			dirs.length === 2 && Math.abs(Math.cos(dirs[0] - dirs[1])) > Math.cos((25 * Math.PI) / 180);

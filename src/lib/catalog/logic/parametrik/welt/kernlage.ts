@@ -1,3 +1,4 @@
+import { required } from '../../required';
 /** Block-by-block derivation; rejections and fallbacks stay visible in the quality record. */
 import { assemble } from '../eckraster/topology';
 import {
@@ -45,18 +46,21 @@ export function absicht(
 		});
 		ring = ring.filter((id, i) => id !== ring[(i + ring.length - 1) % ring.length]);
 		if (ring.length < 3) continue;
-		if (area(ring.map((v) => positions.get(v)!)) < 0) ring.reverse();
+		if (area(ring.map((v) => required(positions.get(v), 'positions.get(v)'))) < 0) ring.reverse();
 		const id = c.id.split('/')[0];
 		if (!groups.has(id)) groups.set(id, []);
-		groups.get(id)!.push(ring);
+		required(groups.get(id), 'groups.get(id)').push(ring);
 	}
 
 	// Uniform search index. The segment rectangle is expanded by the snap tolerance.
 	const lengths = [...groups.values()].flatMap((parts) =>
 		parts.flatMap((ring) =>
 			ring.map((a, i) => {
-				const A = positions.get(a)!,
-					B = positions.get(ring[(i + 1) % ring.length])!;
+				const A = required(positions.get(a), 'positions.get(a)'),
+					B = required(
+						positions.get(ring[(i + 1) % ring.length]),
+						'positions.get(ring[(i + 1) % ring.length])'
+					);
 				return Math.hypot(B[0] - A[0], B[1] - A[1]);
 			})
 		)
@@ -67,7 +71,7 @@ export function absicht(
 	for (const [id, q] of positions) {
 		const key = `${Math.floor(q[0] / size)}:${Math.floor(q[1] / size)}`;
 		if (!buckets.has(key)) buckets.set(key, []);
-		buckets.get(key)!.push([id, q]);
+		required(buckets.get(key), 'buckets.get(key)').push([id, q]);
 	}
 	let haengend = 0;
 	const faces = new Map<string, SourceFace>();
@@ -75,8 +79,8 @@ export function absicht(
 		const expanded = parts.map((ring) =>
 			ring.flatMap((a, i) => {
 				const b = ring[(i + 1) % ring.length],
-					A = positions.get(a)!,
-					B = positions.get(b)!,
+					A = required(positions.get(a), 'positions.get(a)'),
+					B = required(positions.get(b), 'positions.get(b)'),
 					dx = B[0] - A[0],
 					dy = B[1] - A[1],
 					l2 = dx * dx + dy * dy;
@@ -107,7 +111,13 @@ export function absicht(
 				haengend += hits.length;
 				return [
 					a,
-					...hits.sort((a, b) => a.t - b.t || rank.get(a.v)! - rank.get(b.v)!).map((h) => h.v)
+					...hits
+						.sort(
+							(a, b) =>
+								a.t - b.t ||
+								required(rank.get(a.v), 'rank.get(a.v)') - required(rank.get(b.v), 'rank.get(b.v)')
+						)
+						.map((h) => h.v)
 				];
 			})
 		);

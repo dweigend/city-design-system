@@ -1,6 +1,10 @@
+import { required } from '../../required';
 // @ts-expect-error Bun test API is provided at runtime.
 import { expect, test } from 'bun:test';
-import MAIN from '../../../../../../docs/research/labor/welt-kern/main-hashes.json';
+// main 502f60d: 27 outputs match with the kernel disabled. The historical research
+// hashes predate 7cf65bf: the author's removal of the separate cycle function
+// changes cycle colors and heads. Keep that research evidence unchanged.
+import MAIN from './main-hashes.json';
 import { welt, weltDefaults, rasterarten } from './index';
 import { KERN_AUS } from './typen';
 export const hash = (s: string) => {
@@ -56,8 +60,8 @@ for (const { id: raster } of rasterarten)
 				adj[c].push(a);
 				const [v, l] = n.knoten[a],
 					[w, m] = n.knoten[c],
-					A = r.point.get(v)!,
-					B = r.point.get(w)!,
+					A = required(r.point.get(v), 'r.point.get(v)'),
+					B = required(r.point.get(w), 'r.point.get(w)'),
 					d = Math.hypot(A[0] - B[0], A[1] - B[1]);
 				if (l || m) expect(d).toBeLessThanOrEqual(SPANNWEITE + 1e-6);
 				if (l !== m) {
@@ -67,7 +71,7 @@ for (const { id: raster } of rasterarten)
 					expect(r.nb.get(v)).toContain(w);
 				} else
 					expect(
-						r.nb.get(v)!.includes(w) ||
+						required(r.nb.get(v), 'r.nb.get(v)').includes(w) ||
 							r.patch.faces.some((f) => f.vertices.includes(v) && f.vertices.includes(w))
 					).toBe(true);
 			}
@@ -111,15 +115,18 @@ test('parts: area, interior points, transaction and JSON', () => {
 		first = [...m.chunks.keys()][0];
 	expect(quadsOf(m).filter((q) => q.chunk === first).length).toBe(36);
 	expect(interiorOf(m, first).length).toBe(25);
-	const v = interiorOf(m, first).find((v) => i.positions.has(v))!,
-		old = i.positions.get(v)!,
+	const v = required(
+			interiorOf(m, first).find((v) => i.positions.has(v)),
+			'interiorOf(m, first).find((v) => i.positions.has(v))'
+		),
+		old = required(i.positions.get(v), 'i.positions.get(v)'),
 		tx = transact(m, { positions: new Map([[v, [old[0] + 0.05, old[1]]]]) });
 	expect(tx.dirty).toEqual([first]);
 	expect(encode(tx.after)).toBe(encode(compile(tx.after.intent)));
 	validateModel(tx.after);
 	expect(encode(decode(encode(m)))).toBe(encode(m));
-	const f = i.faces.get(first)!;
-	const broken = { ...f, parts: f.parts!.slice(1) };
+	const f = required(i.faces.get(first), 'i.faces.get(first)');
+	const broken = { ...f, parts: required(f.parts, 'f.parts').slice(1) };
 	expect(() =>
 		compile({
 			...i,
@@ -210,14 +217,20 @@ import { slots } from '../eckraster/derive';
 import { eckModul } from '../formen/eck';
 test('diagonal footbridge: exactly one extra prism, positive area', () => {
 	const r = lage({ ...weltDefaults, relax: 0 }),
-		f = r.patch.faces.find((f) => f.vertices.every((v) => !r.rand.has(v)))!,
+		f = required(
+			r.patch.faces.find((f) => f.vertices.every((v) => !r.rand.has(v))),
+			'r.patch.faces.find((f) => f.vertices.every((v) => !r.rand.has(v)))'
+		),
 		a = f.vertices[0],
 		c = f.vertices[2];
 	const samples = {
 		[address(a, 2)]: { occupied: true, group: WEG, quer: [c] },
 		[address(c, 2)]: { occupied: true, group: WEG, quer: [a] }
 	};
-	const slot = slots(r.patch, samples).find((s) => s.context.wegQuer)!;
+	const slot = required(
+		slots(r.patch, samples).find((s) => s.context.wegQuer),
+		'slots(r.patch, samples).find((s) => s.context.wegQuer)'
+	);
 	const old = eckModul({ ...slot, context: { ...slot.context, wegQuer: 0 } }),
 		fresh = eckModul(slot),
 		prisms = fresh.filter((p) => p.kind === 'prism');

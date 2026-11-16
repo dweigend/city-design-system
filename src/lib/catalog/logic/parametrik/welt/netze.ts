@@ -1,3 +1,4 @@
+import { required } from '../../required';
 /**
  * Block grids of the world: nine systems from strict to freely organic. Each returns macro cells
  * (one block per cell) and splits them into pre-cells; `toPatch` (raster/universal) turns them into
@@ -351,7 +352,7 @@ function verschmelzen(zellen: Point2[][], d: number): Point2[][] {
 	return idx
 		.map((z) => {
 			const r = z.map(root).filter((k, i, all) => k !== all[(i + all.length - 1) % all.length]);
-			return r.map((k) => neu.get(k)!);
+			return r.map((k) => required(neu.get(k), 'neu.get(k)'));
 		})
 		.filter((z) => z.length >= 3);
 }
@@ -401,7 +402,7 @@ function viereck(g: number, s: number, rng: () => number): Roh[] {
 		versatz.set(k, [Math.cos(a) * d, Math.sin(a) * d]);
 	}
 	const zieh = (p: Point2): Point2 => {
-		const v = versatz.get(key(p))!;
+		const v = required(versatz.get(key(p)), 'versatz.get(key(p))');
 		return [p[0] + v[0], p[1] + v[1]];
 	};
 	// Random pairing across a shared edge (Townscaper): rhombi, the rest stays triangles.
@@ -432,7 +433,10 @@ function viereck(g: number, s: number, rng: () => number): Roh[] {
 		const b = tris[partner],
 			kb = b.map(key),
 			solo = a.findIndex((p) => !kb.includes(key(p))),
-			fern = b.find((p) => !ka.includes(key(p)))!;
+			fern = required(
+				b.find((p) => !ka.includes(key(p))),
+				'b.find((p) => !ka.includes(key(p)))'
+			);
 		polys.push([a[solo], a[(solo + 1) % 3], fern, a[(solo + 2) % 3]]);
 	}
 	return polys.map((q) => {
@@ -592,7 +596,10 @@ function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefin
 				(2 * R) / 60
 			);
 			const at = (i: number, j: number): Point2 => {
-				const p = chart.positions.get(`cross:${i}:${j}`)!;
+				const p = required(
+					chart.positions.get(`cross:${i}:${j}`),
+					'chart.positions.get(`cross:${i}:${j}`)'
+				);
 				return [p[0], p[1]];
 			};
 			const blocks = new Map<string, { i: number; j: number; roh: Roh; dist: number }>();
@@ -602,8 +609,11 @@ function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefin
 					for (let u = 0; u < 3; u++)
 						for (let v = 0; v < 3; v++)
 							teile.push(
-								chart.faces.get(`field:${3 * i + u}:${3 * j + v}`)!.ring.map((id) => {
-									const p = chart.positions.get(id)!;
+								required(
+									chart.faces.get(`field:${3 * i + u}:${3 * j + v}`),
+									'chart.faces.get(`field:${3 * i + u}:${3 * j + v}`)'
+								).ring.map((id) => {
+									const p = required(chart.positions.get(id), 'chart.positions.get(id)');
 									return [p[0], p[1]];
 								})
 							);
@@ -628,11 +638,15 @@ function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefin
 					})
 					.map(([id]) => id)
 			);
-			const root = [...keep].sort((a, b) => blocks.get(a)!.dist - blocks.get(b)!.dist)[0],
+			const root = [...keep].sort(
+					(a, b) =>
+						required(blocks.get(a), 'blocks.get(a)').dist -
+						required(blocks.get(b), 'blocks.get(b)').dist
+				)[0],
 				queue = [root],
 				seen = new Set([root]);
 			for (let n = 0; n < queue.length; n++) {
-				const v = blocks.get(queue[n])!;
+				const v = required(blocks.get(queue[n]), 'blocks.get(queue[n])');
 				for (const [di, dj] of [
 					[1, 0],
 					[-1, 0],
@@ -656,7 +670,11 @@ function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefin
 						if (bits[0] === bits[2] && bits[1] === bits[3] && bits[0] !== bits[1]) {
 							const id = ids
 								.filter((id) => !seen.has(id))
-								.sort((a, b) => blocks.get(a)!.dist - blocks.get(b)!.dist)[0];
+								.sort(
+									(a, b) =>
+										required(blocks.get(a), 'blocks.get(a)').dist -
+										required(blocks.get(b), 'blocks.get(b)').dist
+								)[0];
 							seen.add(id);
 							changed = true;
 						}

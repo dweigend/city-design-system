@@ -1,3 +1,4 @@
+import { required } from '../../../../required';
 import { Heap } from './heap';
 import { validateCandidates, type Connection, type PortNetwork } from './ports';
 export type Terminal = { id: string; ports: readonly string[] };
@@ -34,8 +35,8 @@ export function connectTerminals(
 	const adj = ports.map(() => [] as { to: number; e: Connection }[]),
 		partners = new Map<string, string[]>();
 	for (const e of valid) {
-		const a = ix.get(e.a)!,
-			b = ix.get(e.b)!;
+		const a = required(ix.get(e.a), 'ix.get(e.a)'),
+			b = required(ix.get(e.b), 'ix.get(e.b)');
 		adj[a].push({ to: b, e });
 		adj[b].push({ to: a, e });
 	}
@@ -142,12 +143,12 @@ export function connectTerminals(
 			pairs: { a: number; b: number; cost: number; rank: number }[] = [];
 		for (let i = 0; i < as.length; i++)
 			for (let j = i + 1; j < as.length; j++) {
-				const a = ix.get(as[i])!,
-					b = ix.get(as[j])!,
+				const a = required(ix.get(as[i]), 'ix.get(as[i])'),
+					b = required(ix.get(as[j]), 'ix.get(as[j])'),
 					found = search([a], (k) => k === b, Infinity, true);
 				if (!found) continue;
-				const p = hint.get(as[i])!,
-					q = hint.get(as[j])!,
+				const p = required(hint.get(as[i]), 'hint.get(as[i])'),
+					q = required(hint.get(as[j]), 'hint.get(as[j])'),
 					air = Math.hypot(p[0] - q[0], p[1] - q[1]);
 				pairs.push({
 					a,

@@ -1,3 +1,4 @@
+import { required } from '../../required';
 /**
  * Path network of the world as occupancy (group `weg`): nodes are build cells on one level,
  * edges are the mesh edges (level) or a flight to the neighboring cell one level higher.
@@ -76,7 +77,9 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	const wasser = ids.map((id) => b.boden.get(id) === 'wasser'),
 		garten = ids.map((id) => b.boden.get(id) === 'garten');
 	const inner = (v: number) => !r.patch.vertices[v].boundary;
-	const nb = r.patch.vertices.map((v) => v.neighbors.map((w) => vOfId.get(w)!)),
+	const nb = r.patch.vertices.map((v) =>
+			v.neighbors.map((w) => required(vOfId.get(w), 'vOfId.get(w)'))
+		),
 		lang = (v: number, w: number) => Math.hypot(pts[w][0] - pts[v][0], pts[w][1] - pts[v][1]),
 		// Measure of cost: mean edge length. Long edges cost more, short ones less.
 		pitch =
@@ -196,7 +199,7 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	/* ── Targets ── */
 	type Ziel = { id: string; kandidaten: number[]; anker?: number };
 	const ziele: Ziel[] = [];
-	const vOf = (id: string) => vOfId.get(id)!;
+	const vOf = (id: string) => required(vOfId.get(id), 'vOfId.get(id)');
 	const neben = (cells: [string, number][], level: number) => [
 		...new Set(
 			cells
@@ -225,7 +228,10 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 		.filter((x) => b.arten.get(x.id) === 'platz')
 		.sort((x, y) => y.naehe - x.naehe || y.cells.length - x.cells.length)[0];
 	const zur = (x: typeof platz, id: string) =>
-		Math.hypot(r.point.get(id)![0] - x.center[0], r.point.get(id)![1] - x.center[1]);
+		Math.hypot(
+			required(r.point.get(id), 'r.point.get(id)')[0] - x.center[0],
+			required(r.point.get(id), 'r.point.get(id)')[1] - x.center[1]
+		);
 	const mitte = (x: typeof platz) =>
 		vOf([...x.cells].sort((p, q) => zur(x, p) - zur(x, q) || (p < q ? -1 : 1))[0]);
 	const start = node(mitte(platz), 0);
@@ -282,13 +288,15 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 		for (let i = 0; i < queue.length; i++)
 			for (const w of adj.get(queue[i]) ?? [])
 				if (!d.has(w)) {
-					d.set(w, d.get(queue[i])! + 1);
+					d.set(w, required(d.get(queue[i]), 'd.get(queue[i])') + 1);
 					prev.set(w, queue[i]);
 					queue.push(w);
 				}
 		return { d, prev };
 	};
-	const anker = [...new Set(ziele.filter((z) => z.anker !== undefined).map((z) => z.anker!))];
+	const anker = [
+		...new Set(ziele.filter((z) => z.anker !== undefined).map((z) => required(z.anker, 'z.anker')))
+	];
 	for (let round = 0; round < schleifen; round++) {
 		const adj = nachbarn();
 		// Candidates: close in the air, far in the network.
@@ -318,17 +326,23 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	/* ── Metrics and walkthrough ── */
 	const knoten = [...inNet].sort((a, c) => a - c),
 		at = new Map(knoten.map((k, i) => [k, i])),
-		edges = [...kanten.values()].map(([a, c]) => [at.get(a)!, at.get(c)!] as [number, number]);
+		edges = [...kanten.values()].map(
+			([a, c]) =>
+				[required(at.get(a), 'at.get(a)'), required(at.get(c), 'at.get(c)')] as [number, number]
+		);
 	return {
 		...auswertung(
 			r,
 			b,
 			knoten.map((k) => [ids[Math.floor(k / L)], k % L]),
 			edges,
-			at.get(start)!,
+			required(at.get(start), 'at.get(start)'),
 			ziele
 				.filter((z) => z.anker !== undefined)
-				.map((z) => ({ id: z.id, knoten: at.get(z.anker!)! }))
+				.map((z) => ({
+					id: z.id,
+					knoten: required(at.get(required(z.anker, 'z.anker')), 'at.get(z.anker!)')
+				}))
 		),
 		ohneAnschluss: ziele.filter((z) => z.anker === undefined).length
 	};
@@ -345,7 +359,7 @@ export function auswertung(
 ): Netz {
 	const knoten = cells.map((_, i) => i),
 		kanten = new Map(edges.map((e, i) => [String(i), e]));
-	const pos = (k: number) => r.point.get(cells[k][0])!,
+	const pos = (k: number) => required(r.point.get(cells[k][0]), 'r.point.get(cells[k][0])'),
 		luft = (a: number, c: number) => Math.hypot(pos(a)[0] - pos(c)[0], pos(a)[1] - pos(c)[1]);
 	const sample = (v: string, l: number) => b.samples[address(v, l)],
 		isWeg = (v: string, l: number) => sample(v, l)?.group === WEG;
@@ -361,7 +375,7 @@ export function auswertung(
 		for (let i = 0; i < queue.length; i++)
 			for (const w of adj.get(queue[i]) ?? [])
 				if (!d.has(w)) {
-					d.set(w, d.get(queue[i])! + 1);
+					d.set(w, required(d.get(queue[i]), 'd.get(queue[i])') + 1);
 					prev.set(w, queue[i]);
 					queue.push(w);
 				}
@@ -375,14 +389,15 @@ export function auswertung(
 			const besser =
 				boden && (cells[k][1] === 0) !== (cells[far][1] === 0)
 					? cells[k][1] === 0
-					: n > d.get(far)!;
+					: n > required(d.get(far), 'd.get(far)');
 			if (k !== from && (far === from || besser)) far = k;
 		}
 		const path = [far];
-		while (prev.has(path[0])) path.unshift(prev.get(path[0])!);
+		while (prev.has(path[0])) path.unshift(required(prev.get(path[0]), 'prev.get(path[0])'));
 		return path;
 	};
-	const runde = (boden: boolean) => weit(weit(start, boden).at(-1)!, boden);
+	const runde = (boden: boolean) =>
+		weit(required(weit(start, boden).at(-1), 'weit(start, boden).at(-1)'), boden);
 	// If only the square on the ground is in the network, the walkthrough would be a stub: then the longest route.
 	let strecke = knoten.length > 1 ? runde(true) : [];
 	if (strecke.length < 8 && knoten.length > 1) {

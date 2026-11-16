@@ -1,3 +1,4 @@
+import { required } from '../../required';
 import {
 	connectTerminals,
 	type PortNetwork,
@@ -38,7 +39,10 @@ export function wegeplan(r: Lage, b: Belegung): Wegeplan {
 				hint.set(id, [...v.point, l * HEIGHT_STEP]);
 			}
 	const len = (a: string, c: string) =>
-		Math.hypot(r.point.get(a)![0] - r.point.get(c)![0], r.point.get(a)![1] - r.point.get(c)![1]);
+		Math.hypot(
+			required(r.point.get(a), 'r.point.get(a)')[0] - required(r.point.get(c), 'r.point.get(c)')[0],
+			required(r.point.get(a), 'r.point.get(a)')[1] - required(r.point.get(c), 'r.point.get(c)')[1]
+		);
 	const lengths = r.patch.vertices.flatMap((v) => v.neighbors.map((w) => len(v.id, w))),
 		pitch = lengths.reduce((a, b) => a + b, 0) / lengths.length;
 	const cost = (v: string, l: number) =>
@@ -123,14 +127,18 @@ export function wegeKern(r: Lage, b: Belegung, schleifen: number) {
 		});
 	const byId = new Map(p.net.ports.map((v) => [v.id, v])),
 		knoten = result.ports.map(
-			(id) => [byId.get(id)!.owner, byId.get(id)!.level] as [string, number]
+			(id) =>
+				[
+					required(byId.get(id), 'byId.get(id)').owner,
+					required(byId.get(id), 'byId.get(id)').level
+				] as [string, number]
 		),
 		ix = new Map(result.ports.map((id, i) => [id, i]));
 	for (const id of result.ports) b.samples[id] = { occupied: true, group: WEG };
 	for (const e of result.edges) {
-		const a = byId.get(e.a)!,
-			c = byId.get(e.b)!;
-		if (a.level === c.level && !r.nb.get(a.owner)!.includes(c.owner))
+		const a = required(byId.get(e.a), 'byId.get(e.a)'),
+			c = required(byId.get(e.b), 'byId.get(e.b)');
+		if (a.level === c.level && !required(r.nb.get(a.owner), 'r.nb.get(a.owner)').includes(c.owner))
 			for (const [id, other] of [
 				[e.a, c.owner],
 				[e.b, a.owner]
@@ -142,11 +150,14 @@ export function wegeKern(r: Lage, b: Belegung, schleifen: number) {
 			r,
 			b,
 			knoten,
-			result.edges.map((e) => [ix.get(e.a)!, ix.get(e.b)!]),
-			ix.get(result.anchors.get('platz')!) ?? 0,
+			result.edges.map((e) => [
+				required(ix.get(e.a), 'ix.get(e.a)'),
+				required(ix.get(e.b), 'ix.get(e.b)')
+			]),
+			ix.get(required(result.anchors.get('platz'), "result.anchors.get('platz')")) ?? 0,
 			[...result.anchors]
 				.filter(([id]) => id !== 'platz')
-				.map(([id, p]) => ({ id, knoten: ix.get(p)! }))
+				.map(([id, p]) => ({ id, knoten: required(ix.get(p), 'ix.get(p)') }))
 		),
 		ohneAnschluss: result.unreachable.length
 	};

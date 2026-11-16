@@ -1,3 +1,4 @@
+import { required } from '../../required';
 /** Comparison metrics: identical measurement for existing stock and every kernel part. */
 import { quadQuality } from '../raster/universal/kern';
 import { haeuser, cellOutline } from '../eckraster/bestand';
@@ -13,10 +14,12 @@ export const hash = (s: string) => {
 };
 export function kennzahlen(p: WeltParams) {
 	const { r, b, netz: n } = teile(p),
-		qs = r.patch.faces.map((f) => quadQuality(f.vertices.map((v) => r.point.get(v)!))),
+		qs = r.patch.faces.map((f) =>
+			quadQuality(f.vertices.map((v) => required(r.point.get(v), 'r.point.get(v)')))
+		),
 		z = zugang(r, b);
 	const adj = n.knoten.map(() => [] as number[]),
-		pt = (k: number) => r.point.get(n.knoten[k][0])!,
+		pt = (k: number) => required(r.point.get(n.knoten[k][0]), 'r.point.get(n.knoten[k][0])'),
 		len = (a: number, b: number) => Math.hypot(pt(a)[0] - pt(b)[0], pt(a)[1] - pt(b)[1]);
 	for (const [a, b] of n.kanten) {
 		adj[a].push(b);
@@ -124,7 +127,8 @@ export function kennzahlen(p: WeltParams) {
 		schleifen: n.schleifen,
 		diagonalen: n.kanten.filter(
 			([a, b]) =>
-				n.knoten[a][1] === n.knoten[b][1] && !r.nb.get(n.knoten[a][0])!.includes(n.knoten[b][0])
+				n.knoten[a][1] === n.knoten[b][1] &&
+				!required(r.nb.get(n.knoten[a][0]), 'r.nb.get(n.knoten[a][0])').includes(n.knoten[b][0])
 		).length,
 		knick: knick / (n.laenge / 100),
 		umweg: detours.reduce((s, d) => s + d, 0) / Math.max(1, detours.length),

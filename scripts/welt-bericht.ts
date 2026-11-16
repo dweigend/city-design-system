@@ -1,3 +1,4 @@
+import { required } from '../src/lib/catalog/logic/required';
 /** Reports from the unchanged raw measurements, without recomputing the world. */
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +35,10 @@ export async function bericht() {
 		rs = [...new Set(rows.map((r) => r.raster))],
 		part = (name: string) => rows.filter((r) => r.variant === name),
 		old = (r: Row) =>
-			rows.find((a) => a.raster === r.raster && a.seed === r.seed && a.variant === 'main')!;
+			required(
+				rows.find((a) => a.raster === r.raster && a.seed === r.seed && a.variant === 'main'),
+				"rows.find((a) => a.raster === r.raster && a.seed === r.seed && a.variant === 'main')"
+			);
 	const ratio = (
 			r: Row,
 			k: 'tLage' | 'tWelt' | 'tWege' | 'seiten' | 'winkel' | 'umweg' | 'hochweg' | 'fuellung'
@@ -89,8 +93,14 @@ export async function bericht() {
 	section +=
 		'\nTimes for size 6, seed 45, all parts on (ms):\n\n| Grid | Layout old | new | Ratio | World old | new | Ratio | M3 |\n|---|---:|---:|---:|---:|---:|---:|---|\n';
 	for (const raster of rs) {
-		const a = gross.find((r) => r.raster === raster && r.variant === 'main')!,
-			b = gross.find((r) => r.raster === raster && r.variant === 'kern')!;
+		const a = required(
+				gross.find((r) => r.raster === raster && r.variant === 'main'),
+				"gross.find((r) => r.raster === raster && r.variant === 'main')"
+			),
+			b = required(
+				gross.find((r) => r.raster === raster && r.variant === 'kern'),
+				"gross.find((r) => r.raster === raster && r.variant === 'kern')"
+			);
 		section += `| ${raster} | ${f(a.tLage)} | ${f(b.tLage)} | ${f(b.tLage / a.tLage)}× | ${f(a.tWelt)} | ${f(b.tWelt)} | ${f(b.tWelt / a.tWelt)}× | ${b.tLage <= 2 * a.tLage && b.tWelt <= 1.25 * a.tWelt ? 'yes' : 'no'} |\n`;
 	}
 	section +=

@@ -31,14 +31,15 @@
 	});
 	$effect(() => {
 		if (!mounted || !canvas) return;
+		const surface = canvas;
 		error = '';
 		try {
-			const current = createFormlaborScene(canvas, readPalette(host), () => {
+			const current = createFormlaborScene(surface, readPalette(host), () => {
 				error = '3D view unavailable.';
 			});
 			scene = current;
 			void current.ready.catch(() => {});
-			const resize = () => current.resize(canvas!.clientWidth, canvas!.clientHeight);
+			const resize = () => current.resize(surface.clientWidth, surface.clientHeight);
 			const observer = new ResizeObserver(resize);
 			observer.observe(host);
 			resize();
