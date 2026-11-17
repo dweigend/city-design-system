@@ -7,7 +7,7 @@ export const bogen = [
 		id: 'bogen-portal',
 		name: 'Portal',
 		group: 'bogen',
-		refs: ['13', '22', 'R16-01'],
+		refs: ['22', 'R16-01'],
 		params: [
 			spec('hoehe', 'Height', 0.3, 1, 0.05, 0.8),
 			spec('tiefe', 'Depth', 0.1, 1, 0.05, 0.35),
@@ -67,7 +67,7 @@ export const bogen = [
 		id: 'bogen-tonne',
 		name: 'Barrel vault',
 		group: 'bogen',
-		refs: ['13', '24', 'R20-06'],
+		refs: ['24', 'R20-06'],
 		params: [
 			spec('stich', 'Rise', 0.2, 1, 0.05, 0.5),
 			spec('sockel', 'Plinth', 0, 0.6, 0.05, 0.3),

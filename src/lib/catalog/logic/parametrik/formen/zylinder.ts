@@ -76,7 +76,7 @@ export const zylinder = [
 		id: 'zylinder-halbturm',
 		name: 'Half cylinder against a slab',
 		group: 'zylinder',
-		refs: ['13', '24', '12'],
+		refs: ['24', '12'],
 		params: [
 			spec('hoehe', 'Height', 0.3, 1, 0.05, 0.75),
 			spec('scheibe', 'Slab m', 0.4, 3, 0.1, 1.2),

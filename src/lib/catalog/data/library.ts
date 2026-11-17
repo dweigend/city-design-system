@@ -1,6 +1,6 @@
 /**
  * Library: raw material for generative design.
- * Images under static/library/ (WebP, quality 80). Not yet broken down:
+ * Images under static/img/ (WebP, quality 80). Not yet broken down:
  * later sort, cut out and split into forms, materials and surfaces.
  */
 
@@ -36,7 +36,7 @@ export const statusLabels: Record<RawStatus, string> = {
 export const library: RawItem[] = [
 	{
 		id: 'R01',
-		file: 'R01.webp',
+		file: 'raw-001-collection-cube-houses-patterns.webp',
 		title: 'Cube houses with patterns',
 		kind: 'sammlung',
 		status: 'roh',
@@ -46,7 +46,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R02',
-		file: 'R02.webp',
+		file: 'raw-002-collection-cube-houses-rooftop.webp',
 		title: 'Cube houses with rooftop add-ons',
 		kind: 'sammlung',
 		status: 'roh',
@@ -56,7 +56,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R03',
-		file: 'R03.webp',
+		file: 'raw-003-collection-nine-small-buildings.webp',
 		title: 'Nine small buildings on a grid',
 		kind: 'sammlung',
 		status: 'roh',
@@ -66,7 +66,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R04',
-		file: 'R04.webp',
+		file: 'raw-004-collection-eighteen-cube-types.webp',
 		title: 'Eighteen cube types',
 		kind: 'sammlung',
 		status: 'roh',
@@ -76,7 +76,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R05',
-		file: 'R05.webp',
+		file: 'raw-005-object-polyhedron-plinth.webp',
 		title: 'Polyhedron on a plinth',
 		kind: 'objekt',
 		status: 'roh',
@@ -86,7 +86,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R06',
-		file: 'R06.webp',
+		file: 'raw-006-object-gabled-house-light.webp',
 		title: 'Gabled house with light field',
 		kind: 'objekt',
 		status: 'roh',
@@ -96,7 +96,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R07',
-		file: 'R07.webp',
+		file: 'raw-007-object-cantilever-light-module.webp',
 		title: 'Cantilever with light module',
 		kind: 'objekt',
 		status: 'roh',
@@ -106,7 +106,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R08',
-		file: 'R08.webp',
+		file: 'raw-008-object-stacked-tower-wood.webp',
 		title: 'Stacked tower of wood and light',
 		kind: 'objekt',
 		status: 'roh',
@@ -116,7 +116,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R09',
-		file: 'R09.webp',
+		file: 'raw-009-object-collage-tower-cantilever.webp',
 		title: 'Collage tower with cantilever',
 		kind: 'objekt',
 		status: 'roh',
@@ -126,7 +126,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R10',
-		file: 'R10.webp',
+		file: 'raw-010-object-graphic-tower-platform.webp',
 		title: 'Graphic tower on a platform',
 		kind: 'objekt',
 		status: 'roh',
@@ -136,7 +136,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R11',
-		file: 'R11.webp',
+		file: 'raw-011-object-facade-patchwork-block.webp',
 		title: 'Facade patchwork block',
 		kind: 'objekt',
 		status: 'roh',
@@ -146,7 +146,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R12',
-		file: 'R12.webp',
+		file: 'raw-012-object-brick-tower-gardens.webp',
 		title: 'Brick tower with gardens',
 		kind: 'objekt',
 		status: 'roh',
@@ -156,7 +156,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R13',
-		file: 'R13.webp',
+		file: 'raw-013-object-tower-balconies-pipe.webp',
 		title: 'Tower with balconies and pipe',
 		kind: 'objekt',
 		status: 'roh',
@@ -166,7 +166,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R14',
-		file: 'R14.webp',
+		file: 'raw-014-object-slender-de-stijl.webp',
 		title: 'Slender De Stijl tower',
 		kind: 'objekt',
 		status: 'roh',
@@ -176,7 +176,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R15',
-		file: 'R15.webp',
+		file: 'raw-015-object-cushion-tower.webp',
 		title: 'Cushion tower',
 		kind: 'objekt',
 		status: 'roh',
@@ -186,7 +186,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R16',
-		file: 'R16.webp',
+		file: 'raw-016-collection-soft-cube-types.webp',
 		title: 'Eighteen cube types, soft',
 		kind: 'sammlung',
 		status: 'roh',
@@ -196,7 +196,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R17',
-		file: 'R17.webp',
+		file: 'raw-017-object-tower-slats.webp',
 		title: 'Tower of slats',
 		kind: 'objekt',
 		status: 'roh',
@@ -206,7 +206,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R18',
-		file: 'R18.webp',
+		file: 'raw-018-object-yellow-red-slatted.webp',
 		title: 'Yellow and red slatted tower',
 		kind: 'objekt',
 		status: 'roh',
@@ -216,7 +216,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R19',
-		file: 'R19.webp',
+		file: 'raw-019-object-red-studded-tower.webp',
 		title: 'Red studded tower',
 		kind: 'objekt',
 		status: 'roh',
@@ -226,7 +226,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R20',
-		file: 'R20.webp',
+		file: 'raw-020-collection-special-cube-types.webp',
 		title: 'Eighteen cube types, special forms',
 		kind: 'sammlung',
 		status: 'roh',
@@ -236,7 +236,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R21',
-		file: 'R21.webp',
+		file: 'raw-021-scene-station-elevated-railway.webp',
 		title: 'Station with elevated railway',
 		kind: 'szene',
 		status: 'roh',
@@ -246,7 +246,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R22',
-		file: 'R22.webp',
+		file: 'raw-022-scene-blue-blob-station.webp',
 		title: 'Blue blob at the station',
 		kind: 'szene',
 		status: 'roh',
@@ -256,7 +256,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R23',
-		file: 'R23.webp',
+		file: 'raw-023-scene-wooden-village-track.webp',
 		title: 'Wooden village by the track',
 		kind: 'szene',
 		status: 'roh',
@@ -266,7 +266,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R24',
-		file: 'R24.webp',
+		file: 'raw-024-scene-station-slatted-roof.webp',
 		title: 'Station with slatted roof',
 		kind: 'szene',
 		status: 'roh',
@@ -276,7 +276,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R25',
-		file: 'R25.webp',
+		file: 'raw-025-scene-cushions-glass-boxes.webp',
 		title: 'Cushions and glass boxes',
 		kind: 'szene',
 		status: 'roh',
@@ -286,7 +286,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R26',
-		file: 'R26.webp',
+		file: 'raw-026-object-wave-plinth-glass.webp',
 		title: 'Wave plinth with glass cube',
 		kind: 'objekt',
 		status: 'roh',
@@ -296,7 +296,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R27',
-		file: 'R27.webp',
+		file: 'raw-027-scene-bauhaus-ensemble.webp',
 		title: 'Bauhaus ensemble with cylinder',
 		kind: 'szene',
 		status: 'roh',
@@ -306,7 +306,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R28',
-		file: 'R28.webp',
+		file: 'raw-028-object-curved-wall-gable.webp',
 		title: 'Curved wall with gable',
 		kind: 'objekt',
 		status: 'roh',
@@ -316,7 +316,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R29',
-		file: 'R29.webp',
+		file: 'raw-029-scene-district-spiral-ramp.webp',
 		title: 'District with spiral ramp',
 		kind: 'szene',
 		status: 'roh',
@@ -326,7 +326,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R30',
-		file: 'R30.webp',
+		file: 'raw-030-scene-wooden-houses-tanks.webp',
 		title: 'Wooden houses with tanks',
 		kind: 'szene',
 		status: 'roh',
@@ -336,7 +336,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R31',
-		file: 'R31.webp',
+		file: 'raw-031-object-pastel-building-gradient.webp',
 		title: 'Pastel building with gradient',
 		kind: 'objekt',
 		status: 'roh',
@@ -346,7 +346,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R32',
-		file: 'R32.webp',
+		file: 'raw-032-object-roof-terrace-house.webp',
 		title: 'Roof terrace house with stairs',
 		kind: 'objekt',
 		status: 'roh',
@@ -356,7 +356,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R33',
-		file: 'R33.webp',
+		file: 'raw-033-object-compact-bauhaus-house.webp',
 		title: 'Compact Bauhaus house',
 		kind: 'objekt',
 		status: 'roh',
@@ -366,7 +366,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R34',
-		file: 'R34.webp',
+		file: 'raw-034-object-pink-house-tower.webp',
 		title: 'Pink house with tower',
 		kind: 'objekt',
 		status: 'roh',
@@ -376,7 +376,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R35',
-		file: 'R35.webp',
+		file: 'raw-035-object-blue-frame-house.webp',
 		title: 'Blue frame house',
 		kind: 'objekt',
 		status: 'roh',
@@ -386,7 +386,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R36',
-		file: 'R36.webp',
+		file: 'raw-036-object-yellow-house-striped.webp',
 		title: 'Yellow house with striped bracket',
 		kind: 'objekt',
 		status: 'roh',
@@ -396,7 +396,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R37',
-		file: 'R37.webp',
+		file: 'raw-037-object-cantilevered-box-light.webp',
 		title: 'Cantilevered box on light blue',
 		kind: 'objekt',
 		status: 'roh',
@@ -406,7 +406,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R38',
-		file: 'R38.webp',
+		file: 'raw-038-object-bauhaus-house-striped.webp',
 		title: 'Bauhaus house with striped bracket',
 		kind: 'objekt',
 		status: 'roh',
@@ -416,7 +416,7 @@ export const library: RawItem[] = [
 	},
 	{
 		id: 'R39',
-		file: 'R39.webp',
+		file: 'raw-039-object-core-tower-cantilevers.webp',
 		title: 'Core tower with cantilevers',
 		kind: 'objekt',
 		status: 'roh',

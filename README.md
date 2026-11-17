@@ -74,7 +74,7 @@ bun run check:boundaries   # Architecture and import boundaries (dependency-crui
 
 ## Images and Copyright
 
-Under `static/designs/`, `static/library/`, and `static/references/`, the repository contains exclusively original works, original raw material, and original design adaptations following documented principles (`uebertragung-*.webp`). Copyrighted third-party material and external reference originals remain local and are not part of the repository.
+Under `static/img/`, the repository contains exclusively original works (`own-*`), original raw material (`raw-*`), and original design adaptations following documented principles (`adapt-*`, `uiref-*`). Files are named `<origin>-<nnn>-<view>-<subject>.webp`. Copyrighted third-party material and external reference originals remain local and are not part of the repository.
 
 ## License
 

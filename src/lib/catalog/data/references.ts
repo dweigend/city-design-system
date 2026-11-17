@@ -1,6 +1,6 @@
 import type { Uebertragung } from './uebertragung';
 
-/** Reference images for the UI design language, stored under static/references/. */
+/** Reference images for the UI design language, stored under static/img/. */
 export type Reference = Partial<Uebertragung> & {
 	id?: string;
 	file: string;
@@ -12,7 +12,7 @@ export const references: Reference[] = [
 	{
 		id: '03',
 		eigen: true,
-		file: 'uebertragung-03-kreuzraster.webp',
+		file: 'uiref-003-ui-cross-mark-grid.webp',
 		vorbild: '',
 		zweck: 'UI layout: a grid of cross marks on which images sit freely as a collage → Grid',
 		zentrum: 'UI-Layout',
@@ -21,7 +21,7 @@ export const references: Reference[] = [
 	{
 		id: '09',
 		eigen: true,
-		file: 'uebertragung-09-kennzahlen.webp',
+		file: 'uiref-009-ui-metrics.webp',
 		vorbild: '',
 		zweck:
 			'UI layout: a quiet card with a large number and a scale ruler → Interface (metric, slider)',
@@ -31,14 +31,14 @@ export const references: Reference[] = [
 	{
 		id: '19',
 		eigen: true,
-		file: 'uebertragung-19-baustein-icons.webp',
+		file: 'uiref-019-ui-building-block-icons.webp',
 		vorbild: '',
 		zweck:
 			'UI layout: isometric icons, one color per category, as a matrix → Icons, Interface (building catalog)',
 		zentrum: 'UI-Layout',
 		title: 'Building-block icons'
 	},
-	{ file: '20-city-matrix-hud.webp', title: 'City Matrix', eigen: true },
-	{ file: '21-metabolic-metropolis.webp', title: 'Metabolic Metropolis', eigen: true },
-	{ file: '22-isometrie-stadt-aquarell.webp', title: 'Watercolor city', eigen: true }
+	{ file: 'uiref-020-ui-city-matrix.webp', title: 'City Matrix', eigen: true },
+	{ file: 'uiref-021-ui-metabolic-metropolis.webp', title: 'Metabolic Metropolis', eigen: true },
+	{ file: 'uiref-022-ui-watercolor-city.webp', title: 'Watercolor city', eigen: true }
 ];

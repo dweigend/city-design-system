@@ -117,7 +117,7 @@ export const klotz = [
 		id: 'klotz-verschraenkt',
 		name: 'Offset rectangles',
 		group: 'klotz',
-		refs: ['12', '13', '06'],
+		refs: ['12', '06'],
 		params: [
 			spec('teile', 'Parts', 2, 4, 1, 3),
 			spec('ueberstand', 'Overhang', 0, 0.4, 0.02, 0.18),

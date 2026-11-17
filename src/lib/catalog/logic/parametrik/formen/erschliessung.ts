@@ -37,7 +37,7 @@ export const erschliessung = [
 		id: 'erschliessung-aussentreppe',
 		name: 'Straight external stair',
 		group: 'erschliessung',
-		refs: ['07', '13', '22'],
+		refs: ['07', '22'],
 		params: [
 			spec('laeufe', 'Flights', 1, 3, 1, 2),
 			spec('breite', 'Width m', 0.8, 3, 0.1, 1.4),

@@ -38,18 +38,8 @@ Thumbs.db
 
 # --- Local originals and external references (do not publish) ---
 /originals/
-static/designs/5[1-9]-*
-static/designs/6[0-9]-*
-static/designs/7[0-9]-*
-static/designs/8[0-9]-*
-static/designs/9[0-2]-*
-static/designs/15[2-9]-*
-static/designs/16[0-3]-*
-static/references/0[1-9]-*
-static/references/1[0-9]-*
-# Original adaptations use neutral filenames: uebertragung-<nr>-<thema>.webp.
-!static/designs/uebertragung-*.webp
-!static/references/uebertragung-*.webp
+# Third-party references (ext-*) never belong in the repository.
+static/img/ext-*
 
 # Local original images, process images, and unpublished references
 /_lokal/

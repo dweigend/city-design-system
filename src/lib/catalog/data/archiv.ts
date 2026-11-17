@@ -1,8 +1,8 @@
 /**
  * Archive: every image in the Bible in one list. Three collections come together: the design
- * archive (static/designs/), the library of raw material (static/library/) and the references for
- * the UI language (static/references/). Every image carries provenance and rights; the files stay
- * where they are. Headless: no Svelte, no DOM.
+ * archive, the library of raw material and the references for the UI language. Every image
+ * carries provenance and rights; all files live flat in static/img/ as
+ * `<origin>-<nnn>-<view>-<subject>.webp`. Headless: no Svelte, no DOM.
  *
  * The curated designs in 51–92 and 152–163 are original adaptations.
  * Known references are kept as text metadata; originals exist only locally.
@@ -76,7 +76,7 @@ function ausEntwurf(d: Design): ArchivItem {
 		key: `E${d.id}`,
 		nr: d.id,
 		herkunft: (d.eigen ?? !istFremd(d.id)) ? 'eigen' : 'fremd',
-		datei: `designs/${d.file}`,
+		datei: `img/${d.file}`,
 		titel: d.title,
 		beschreibung: d.description,
 		quelle: d.source && d.source !== 'Eigenes Artwork' ? d.source : undefined,
@@ -94,7 +94,7 @@ function ausBibliothek(r: RawItem): ArchivItem {
 		key: r.id,
 		nr: r.id,
 		herkunft: 'roh',
-		datei: `library/${r.file}`,
+		datei: `img/${r.file}`,
 		titel: r.title,
 		listen: [],
 		begriffe: {
@@ -109,7 +109,7 @@ function ausBibliothek(r: RawItem): ArchivItem {
 
 function ausReferenz(r: Reference): ArchivItem {
 	// The file number stays stable even after other references are removed.
-	const nr = `U${r.id ?? r.file.split('-')[0]}`;
+	const nr = `U${r.id ?? r.file.split('-')[1].slice(1)}`;
 	return {
 		key: nr,
 		nr,
@@ -118,7 +118,7 @@ function ausReferenz(r: Reference): ArchivItem {
 		vorbild: r.vorbild,
 		zweck: r.zweck,
 		zentrum: r.zentrum,
-		datei: `references/${r.file}`,
+		datei: `img/${r.file}`,
 		titel: r.title,
 		listen: [],
 		begriffe: { ...leer(), ansicht: ['Interface'] }

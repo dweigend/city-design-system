@@ -2,7 +2,7 @@ import type { Uebertragung } from './uebertragung';
 
 /**
  * Design archive: collected drafts and views for the shared design language.
- * Images live under static/designs/; the classification for each image is kept here.
+ * Images live under static/img/; the classification for each image is kept here.
  */
 
 /** What the image shows: scale or type of view. */
@@ -24,7 +24,7 @@ export type DesignFit = 'kern' | 'nah' | 'abweichend' | 'offen';
 export type Design = Partial<Uebertragung> & {
 	/** Running number, two digits, also the file prefix. */
 	id: string;
-	/** File name under static/designs/. */
+	/** File name under static/img/. */
 	file: string;
 	/** Explicit origin for our own replacement images; otherwise the historical number range applies. */
 	eigen?: boolean;
@@ -71,7 +71,7 @@ export const fitLabels: Record<DesignFit, string> = {
 export const designs: Design[] = [
 	{
 		id: '01',
-		file: '01-masterplan-zone-aquarell.webp',
+		file: 'own-001-district-master-plan-zone.webp',
 		title: 'Master Plan Zone 04',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -98,7 +98,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '02',
-		file: '02-kuestenstadt-panorama.webp',
+		file: 'own-002-city-coastal-panorama.webp',
 		title: 'Coastal City Panorama',
 		added: '2026-11-11',
 		view: 'stadt',
@@ -124,7 +124,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '03',
-		file: '03-quartier-pastell-isometrie.webp',
+		file: 'own-003-district-pastel-isometric.webp',
 		title: 'Pastel District',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -148,7 +148,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '04',
-		file: '04-metabolic-village-hud.webp',
+		file: 'own-004-ui-metabolic-village-hud.webp',
 		title: 'Metabolic Village with HUD',
 		added: '2026-11-11',
 		view: 'ui',
@@ -174,7 +174,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '05',
-		file: '05-rundausschnitt-hochbahn.webp',
+		file: 'own-005-detail-elevated-railway.webp',
 		title: 'Circular Detail: Elevated Railway',
 		added: '2026-11-11',
 		view: 'detail',
@@ -199,7 +199,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '06',
-		file: '06-beton-cluster-bruecken.webp',
+		file: 'own-006-building-concrete-cluster-bridges.webp',
 		title: 'Concrete Cluster with Bridges',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -223,7 +223,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '07',
-		file: '07-farbcluster-treppen.webp',
+		file: 'own-007-building-color-cluster-stairs.webp',
 		title: 'Color Cluster with Stairs',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -242,7 +242,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '08',
-		file: '08-buchseite-module.webp',
+		file: 'own-008-ui-book-page-modules.webp',
 		title: 'Book Page: Modules and Infrastructure',
 		added: '2026-11-11',
 		view: 'ui',
@@ -265,7 +265,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '09',
-		file: '09-formenplatz-primaerformen.webp',
+		file: 'own-009-district-square-primary-forms.webp',
 		title: 'Square of Primary Forms',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -290,7 +290,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '10',
-		file: '10-industriebau-collage.webp',
+		file: 'own-010-building-industrial-collage.webp',
 		title: 'Industrial Building Collage',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -309,7 +309,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '11',
-		file: '11-holzmodell-quartier.webp',
+		file: 'own-011-district-wooden-model.webp',
 		title: 'Wooden Model District',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -334,7 +334,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '12',
-		file: '12-blaues-haus-kork.webp',
+		file: 'own-012-building-blue-house-cork.webp',
 		title: 'Blue House with Cork',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -352,26 +352,8 @@ export const designs: Design[] = [
 		tags: ['Memphis', 'Cork', 'Single color']
 	},
 	{
-		id: '13',
-		file: '13-bauhaus-haus-farbflaechen.webp',
-		title: 'Bauhaus House with Color Panels',
-		added: '2026-11-11',
-		view: 'gebaeude',
-		style: ['3D render', 'Bauhaus', 'De Stijl', 'White · Primary colors'],
-		fit: 'kern',
-		description:
-			'A white house with glazed surfaces, a half cylinder and applied color panels in blue, yellow and orange, a round red window, an orange arch as the entrance.',
-		keep: [
-			'White building volumes with color panels as a facade system',
-			'Circle and arch as signs of opening and entrance',
-			'Clear proportions, no ornament'
-		],
-		procedural: ['Facade as a grid, fill panels at random from the primary palette'],
-		tags: ['Bauhaus', 'De Stijl', 'Facade']
-	},
-	{
 		id: '14',
-		file: '14-materialstadt-raster.webp',
+		file: 'own-014-district-material-city-grid.webp',
 		title: 'Material City on a Grid',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -389,7 +371,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '15',
-		file: '15-formskulptur-gitter.webp',
+		file: 'own-015-detail-form-sculpture-lattice.webp',
 		title: 'Form Sculpture with Lattice',
 		added: '2026-11-11',
 		view: 'detail',
@@ -410,7 +392,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '16',
-		file: '16-acrylhuelle-pastell.webp',
+		file: 'own-016-building-pastel-acrylic-envelope.webp',
 		title: 'Pastel Acrylic Envelope',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -431,7 +413,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '17',
-		file: '17-utopieturm-collage.webp',
+		file: 'own-017-mood-utopian-tower-collage.webp',
 		title: 'Utopian Tower Collage',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -450,7 +432,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '18',
-		file: '18-bauklotz-turm.webp',
+		file: 'own-018-building-block-tower.webp',
 		title: 'Building Block Tower',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -471,7 +453,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '19',
-		file: '19-geraet-haus-ring.webp',
+		file: 'own-019-building-appliance-house-ring.webp',
 		title: 'Appliance House with Ring',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -489,7 +471,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '20',
-		file: '20-geraet-haus-haube.webp',
+		file: 'own-020-building-appliance-house-hood.webp',
 		title: 'Appliance House with Hood',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -507,7 +489,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '21',
-		file: '21-kugelhaeuser-roehren.webp',
+		file: 'own-021-building-sphere-houses-tubes.webp',
 		title: 'Sphere Houses with Tubes',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -526,7 +508,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '22',
-		file: '22-memphis-turm.webp',
+		file: 'own-022-building-memphis-tower.webp',
 		title: 'Memphis Tower',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -544,7 +526,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '23',
-		file: '23-formskulptur-feder.webp',
+		file: 'own-023-detail-form-sculpture-spring.webp',
 		title: 'Form Sculpture with Spring',
 		added: '2026-11-11',
 		view: 'detail',
@@ -559,7 +541,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '24',
-		file: '24-glasur-haus.webp',
+		file: 'own-024-building-glazed-house.webp',
 		title: 'Glazed House',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -574,7 +556,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '25',
-		file: '25-metabolic-grid-hud.webp',
+		file: 'own-025-ui-metabolic-grid-hud.webp',
 		title: 'Metabolic Grid with HUD',
 		added: '2026-11-11',
 		view: 'ui',
@@ -596,7 +578,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '26',
-		file: '26-modulblatt-vier-module.webp',
+		file: 'own-026-diagram-module-sheet-four.webp',
 		title: 'Module Sheet: Four Modules',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -617,7 +599,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '27',
-		file: '27-explosionszeichnung-system.webp',
+		file: 'own-027-diagram-system-drawing.webp',
 		title: 'System Drawing',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -638,7 +620,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '28',
-		file: '28-maximal-collage-insel.webp',
+		file: 'own-028-mood-maximal-collage-island.webp',
 		title: 'Maximal Collage: Island',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -657,7 +639,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '29',
-		file: '29-maximal-collage-zoom.webp',
+		file: 'own-029-mood-maximal-collage-zoom.webp',
 		title: 'Maximal Collage with Zoom',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -675,7 +657,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '30',
-		file: '30-roehrenwelt-figuren.webp',
+		file: 'own-030-mood-tube-world-figures.webp',
 		title: 'Tube World with Figures',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -693,7 +675,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '31',
-		file: '31-roehrenwelt-schnitt.webp',
+		file: 'own-031-mood-tube-world-section.webp',
 		title: 'Tube World in Section',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -712,7 +694,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '32',
-		file: '32-utopie-landschaft-panorama.webp',
+		file: 'own-032-mood-utopian-landscape.webp',
 		title: 'Utopian Landscape Panorama',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -731,7 +713,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '33',
-		file: '33-einfuegung-bestandsstadt.webp',
+		file: 'own-033-district-insertion-existing-city.webp',
 		title: 'Insertion into the Existing City',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -755,7 +737,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '34',
-		file: '34-schwammstadt-kreislauf.webp',
+		file: 'own-034-diagram-sponge-city-cycle.webp',
 		title: 'Sponge City in Cycle',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -776,7 +758,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '35',
-		file: '35-schwebende-inseln-montage.webp',
+		file: 'own-035-mood-floating-islands.webp',
 		title: 'Floating Islands',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -794,7 +776,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '36',
-		file: '36-bestand-geruest-gelb-blau-rosa.webp',
+		file: 'own-036-district-existing-stock-scaffold.webp',
 		title: 'Existing Stock with Scaffold Structures',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -815,7 +797,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '37',
-		file: '37-bestand-aufstockung-rosa.webp',
+		file: 'own-037-district-rooftop-extension-pink.webp',
 		title: 'Rooftop Extension in Pink',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -836,7 +818,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '38',
-		file: '38-industrieerbe-hochweg.webp',
+		file: 'own-038-district-industrial-heritage.webp',
 		title: 'Industrial Heritage with Elevated Walkway',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -857,7 +839,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '39',
-		file: '39-altstadt-leitungen-rot-gelb.webp',
+		file: 'own-039-district-old-town-utility.webp',
 		title: 'Old Town with Utility Network',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -879,7 +861,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '40',
-		file: '40-schnitt-bestand-untergrund.webp',
+		file: 'own-040-diagram-section-underground.webp',
 		title: 'Section with Underground',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -900,7 +882,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '41',
-		file: '41-memphis-auf-bestand.webp',
+		file: 'own-041-district-memphis-existing-stock.webp',
 		title: 'Memphis on Existing Stock',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -920,7 +902,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '42',
-		file: '42-turmhaus-eingriffe-rot.webp',
+		file: 'own-042-building-tower-house-red.webp',
 		title: 'Tower House with Red Interventions',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -939,7 +921,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '43',
-		file: '43-altstadtblock-geruest-rot.webp',
+		file: 'own-043-district-old-town-block.webp',
 		title: 'Old Town Block with Scaffold',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -960,7 +942,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '44',
-		file: '44-fokus-fusswege-rosa.webp',
+		file: 'own-044-district-focus-footpaths.webp',
 		title: 'Focus: Footpaths',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -978,7 +960,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '45',
-		file: '45-fokus-dreifarbig-wege-module.webp',
+		file: 'own-045-district-three-color-codes.webp',
 		title: 'Three Color Codes at Once',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -996,7 +978,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '46',
-		file: '46-fokus-fusswege-altstadt.webp',
+		file: 'own-046-district-focus-old-town.webp',
 		title: 'Focus: Old Town Footpaths',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -1013,7 +995,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '47',
-		file: '47-fokus-turm-zweifarbig.webp',
+		file: 'own-047-district-tower-two-networks.webp',
 		title: 'Tower with Two Networks',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -1031,7 +1013,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '48',
-		file: '48-fokus-orange-module.webp',
+		file: 'own-048-building-orange-modules-white.webp',
 		title: 'Orange Modules in a White Structure',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -1048,7 +1030,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '49',
-		file: '49-fokus-wege-und-leitungen.webp',
+		file: 'own-049-district-paths-utility-lines.webp',
 		title: 'Paths and Utility Lines',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -1066,7 +1048,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '50',
-		file: '50-karte-reduziert-hud.webp',
+		file: 'own-050-ui-reduced-map-hud.webp',
 		title: 'Reduced Map with HUD',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1089,7 +1071,7 @@ export const designs: Design[] = [
 		zweck:
 			'Collage technique: cut-out fragments as a library of components, building by combining → Material',
 		zentrum: 'Technik',
-		file: 'uebertragung-52-bauteil-tafel.webp',
+		file: 'adapt-052-inspiration-components-combine.webp',
 		title: 'Components to Combine',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1112,7 +1094,7 @@ export const designs: Design[] = [
 		vorbild: '',
 		zweck: 'Typology plate as a rendering technique: many variants of one rule set → Lab / Growth',
 		zentrum: 'Technik',
-		file: 'uebertragung-53-hausvarianten.webp',
+		file: 'adapt-053-inspiration-house-variants-scaffold.webp',
 		title: 'House Variants in the Scaffold',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1135,7 +1117,7 @@ export const designs: Design[] = [
 		zweck:
 			'Technique/color rule: existing stock in grayscale, intervention as one flat signal color → City #weiterbauen, Color',
 		zentrum: 'Technik',
-		file: 'uebertragung-55-weiterbauen.webp',
+		file: 'adapt-055-inspiration-building-existing-stock.webp',
 		title: 'Building on Existing Stock',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1160,7 +1142,7 @@ export const designs: Design[] = [
 		zweck:
 			'Walking distance principle: nodes, edges and radii as an overlay → City #hochwege, Interface (overlay)',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-56-gehweite.webp',
+		file: 'adapt-056-diagram-walking-distance.webp',
 		title: 'Walking Distance in the District',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -1184,7 +1166,7 @@ export const designs: Design[] = [
 		zweck:
 			'Callout UI layout: black label boxes with a pointer on a white model, yellow for community → Interface',
 		zentrum: 'UI-Layout',
-		file: 'uebertragung-58-quartier-labels.webp',
+		file: 'adapt-058-diagram-district-place-labels.webp',
 		title: 'District with Place Labels',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -1208,7 +1190,7 @@ export const designs: Design[] = [
 		zweck:
 			'Plug-in principle: capsules hang in a pole scaffold, ladders provide access, the silhouette sprawls → Forms, House',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-65-kapsel-geruest.webp',
+		file: 'adapt-065-inspiration-capsules-scaffold.webp',
 		title: 'Capsules in the Scaffold',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1232,7 +1214,7 @@ export const designs: Design[] = [
 		zweck:
 			'Fuller architectural style: geodesic dome with portholes → Forms (structural family: dome)',
 		zentrum: 'Stil',
-		file: 'uebertragung-67-dachkuppel.webp',
+		file: 'adapt-067-inspiration-dome-existing-roof.webp',
 		title: 'Dome on an Existing Roof',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1252,7 +1234,7 @@ export const designs: Design[] = [
 		zweck:
 			'Haus-Rucker-Co/pneumatic architectural style: light, temporary, see-through → Forms (envelope)',
 		zentrum: 'Stil',
-		file: 'uebertragung-69-pneu-hof.webp',
+		file: 'adapt-069-inspiration-pneumatic-structure.webp',
 		title: 'Pneumatic Structure over the Courtyard',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1276,7 +1258,7 @@ export const designs: Design[] = [
 		zweck:
 			'Archigram collage style: megastructure as a shelf for mobile units → City (stance), Forms',
 		zentrum: 'Stil',
-		file: 'uebertragung-74-stadtregal.webp',
+		file: 'adapt-074-inspiration-city-shelf.webp',
 		title: 'City Shelf above the Existing Stock',
 		added: '2026-11-11',
 		view: 'inspiration',
@@ -1299,7 +1281,7 @@ export const designs: Design[] = [
 		zweck:
 			'Principle of building on existing stock: an exploded view shows new floor slabs and a core in the old building; existing stock as line, intervention in color → City #weiterbauen, House',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-84-altbau-einschub.webp',
+		file: 'adapt-084-diagram-layers-old-building.webp',
 		title: 'New Layers in an Old Building',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -1323,7 +1305,7 @@ export const designs: Design[] = [
 		zweck:
 			'Self-sufficiency principle: sun and rain cloud as inflow symbols, greenhouse floors in the residential tower → House, City (claim)',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-85-farm-kreislauf.webp',
+		file: 'adapt-085-building-farm-cycles.webp',
 		title: 'Farm and Cycles',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -1347,7 +1329,7 @@ export const designs: Design[] = [
 		zweck:
 			'UI layout: exploded tower, numbered and named levels, one ramp through all of them → Interface (floor panel), House',
 		zentrum: 'UI-Layout',
-		file: 'uebertragung-86-hausebenen.webp',
+		file: 'adapt-086-diagram-courtyard-rooftop-farm.webp',
 		title: 'From Courtyard to Rooftop Farm',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -1371,7 +1353,7 @@ export const designs: Design[] = [
 		zweck:
 			'Principle of the vertical water cycle: water drips from slab to slab, a color spot marks the function → City #schwamm',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-87-wasserschichten.webp',
+		file: 'adapt-087-diagram-water-layers-house.webp',
 		title: 'Water through the Layers of a House',
 		added: '2026-11-11',
 		view: 'diagramm',
@@ -1395,7 +1377,7 @@ export const designs: Design[] = [
 		zweck:
 			'Densification principle: each volume one use in its own color, neighbors only as line, terraces in between → Color, City #weiterbauen',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-91-eckgrundstueck.webp',
+		file: 'adapt-091-district-building-corner-lot.webp',
 		title: 'Building On at the Corner Lot',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -1414,7 +1396,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '93',
-		file: '93-ui-city-stack-ebenen.webp',
+		file: 'own-093-ui-city-stack-layers.webp',
 		title: 'City Stack: Layers and Drawing Modes',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1434,7 +1416,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '94',
-		file: '94-ui-diagram-builder.webp',
+		file: 'own-094-ui-diagram-builder.webp',
 		title: 'Diagram Builder',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1455,7 +1437,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '95',
-		file: '95-ui-urban-systems-editor.webp',
+		file: 'own-095-ui-urban-systems-editor.webp',
 		title: 'Urban Systems Editor',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1476,7 +1458,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '96',
-		file: '96-ui-minimalist-city-editor.webp',
+		file: 'own-096-ui-minimalist-city-editor.webp',
 		title: 'Minimalist City Editor',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1499,7 +1481,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '97',
-		file: '97-ui-stadt-und-stapel.webp',
+		file: 'own-097-ui-city-and-stack.webp',
 		title: 'City and Stack at Once',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1519,7 +1501,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '98',
-		file: '98-ui-formpalette-greifen.webp',
+		file: 'own-098-ui-form-palette-grabbing.webp',
 		title: 'Form Palette and Grabbing',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1537,7 +1519,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '99',
-		file: '99-ui-archi-stack-auftraege.webp',
+		file: 'own-099-ui-archi-stack-commissions.webp',
 		title: 'Archi-Stack with Commissions',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1558,7 +1540,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '100',
-		file: '100-ui-level-im-haus.webp',
+		file: 'own-100-ui-level-inside-house.webp',
 		title: 'A Level inside the House',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1576,7 +1558,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '101',
-		file: '101-ui-construction-palette.webp',
+		file: 'own-101-ui-construction-palette.webp',
 		title: 'Construction Palette',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1594,7 +1576,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '102',
-		file: '102-ui-axon-build-puzzle.webp',
+		file: 'own-102-ui-axon-build.webp',
 		title: 'Axon Build',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1612,7 +1594,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '103',
-		file: '103-ui-wuerfelberg-treppen.webp',
+		file: 'own-103-ui-cube-mountain-stairs.webp',
 		title: 'Cube Mountain with Stairs',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1626,7 +1608,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '104',
-		file: '104-ui-raumgitter-volumen.webp',
+		file: 'own-104-ui-volumes-spatial-grid.webp',
 		title: 'Volumes in a Spatial Grid',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1640,7 +1622,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '105',
-		file: '105-ui-city-actualizer.webp',
+		file: 'own-105-ui-city-actualizer-matrix.webp',
 		title: 'City Actualizer: Matrix System',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1657,7 +1639,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '106',
-		file: '106-ui-grid-section-stadt.webp',
+		file: 'own-106-ui-grid-section-city.webp',
 		title: 'Grid Section: City Slab',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1671,7 +1653,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '107',
-		file: '107-ui-metropolis-matrix.webp',
+		file: 'own-107-ui-metropolis-matrix-phase.webp',
 		title: 'Metropolis Matrix: Phase 2',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1686,7 +1668,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '108',
-		file: '108-ui-district-metabolic.webp',
+		file: 'own-108-ui-district-04-metabolic.webp',
 		title: 'District 04: Metabolic',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1703,7 +1685,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '109',
-		file: '109-ui-valley-outpost.webp',
+		file: 'own-109-ui-valley-outpost.webp',
 		title: 'Valley Outpost',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1718,7 +1700,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '110',
-		file: '110-ui-hybrid-construct.webp',
+		file: 'own-110-ui-hybrid-construct.webp',
 		title: 'Hybrid Construct',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1732,7 +1714,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '111',
-		file: '111-ui-mixed-view-tisch.webp',
+		file: 'own-111-ui-mixed-view-table.webp',
 		title: 'Mixed View on the Table',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1750,7 +1732,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '112',
-		file: '112-ui-sector-c-hybrid.webp',
+		file: 'own-112-ui-sector-c-mixed.webp',
 		title: 'Sector C: Mixed View',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1764,7 +1746,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '113',
-		file: '113-ui-utopic-districts.webp',
+		file: 'own-113-ui-utopic-districts-three.webp',
 		title: 'Utopic Districts: Three Views',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1778,7 +1760,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '114',
-		file: '114-ui-planning-matrix-schnitt.webp',
+		file: 'own-114-ui-city-planning-matrix.webp',
 		title: 'City Planning Matrix: Plan and Section',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1792,7 +1774,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '115',
-		file: '115-ui-metabolic-village-geist.webp',
+		file: 'own-115-ui-metabolic-village-ghost.webp',
 		title: 'Metabolic Village: Ghost Town',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1807,7 +1789,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '116',
-		file: '116-ui-modules-infrastructure.webp',
+		file: 'own-116-ui-modules-infrastructure.webp',
 		title: 'Modules & Infrastructure',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1821,7 +1803,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '117',
-		file: '117-ui-metabolic-grid-skizze.webp',
+		file: 'own-117-ui-metabolic-grid-pencil.webp',
 		title: 'Metabolic Grid: Pencil',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1835,7 +1817,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '118',
-		file: '118-ui-komponenten-gelaende.webp',
+		file: 'own-118-ui-components-terrain.webp',
 		title: 'Components and Terrain',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1849,7 +1831,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '119',
-		file: '119-ui-design-tools-volumen.webp',
+		file: 'own-119-ui-design-tools-volumes.webp',
 		title: 'Design Tools: Volumes',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1866,7 +1848,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '120',
-		file: '120-ui-resource-loops-fokus.webp',
+		file: 'own-120-ui-focus-resource-loops.webp',
 		title: 'Focus: Resource Loops',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1884,7 +1866,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '121',
-		file: '121-ui-metropolis-simulator.webp',
+		file: 'own-121-ui-metropolis-simulator.webp',
 		title: 'Metropolis Simulator',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1899,7 +1881,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '122',
-		file: '122-ui-minimal-grid-analytics.webp',
+		file: 'own-122-ui-minimal-grid-analytics.webp',
 		title: 'Minimal Grid with Analytics',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1914,7 +1896,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '123',
-		file: '123-ui-housing-study-collage.webp',
+		file: 'own-123-ui-utopic-housing-study.webp',
 		title: 'Utopic Housing Study',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1933,7 +1915,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '124',
-		file: '124-ui-analog-dashboard-ziel.webp',
+		file: 'own-124-ui-analog-dashboard.webp',
 		title: 'Analog Dashboard',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1948,7 +1930,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '125',
-		file: '125-ui-workspace-tracking.webp',
+		file: 'own-125-ui-workspace-tracking.webp',
 		title: 'Workspace with Tracking Overlay',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1966,7 +1948,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '126',
-		file: '126-ui-urban-lab-regler.webp',
+		file: 'own-126-ui-urban-lab-generative.webp',
 		title: 'Urban Lab: Generative Sliders',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1983,7 +1965,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '127',
-		file: '127-ui-development-matrix.webp',
+		file: 'own-127-ui-development-matrix.webp',
 		title: 'Development Matrix',
 		added: '2026-11-11',
 		view: 'ui',
@@ -1997,7 +1979,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '128',
-		file: '128-ui-telemetrie-wueste.webp',
+		file: 'own-128-ui-telemetry-desert.webp',
 		title: 'Telemetry in the Desert',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2014,7 +1996,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '129',
-		file: '129-ui-urban-matrix-inventar.webp',
+		file: 'own-129-ui-urban-matrix-module.webp',
 		title: 'Urban Matrix with Module Inventory',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2028,7 +2010,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '130',
-		file: '130-ui-circular-city-focus.webp',
+		file: 'own-130-ui-circular-city-focus.webp',
 		title: 'Circular City: Focus Modes',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2046,7 +2028,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '131',
-		file: '131-ui-editorial-matrix.webp',
+		file: 'own-131-ui-editorial-matrix.webp',
 		title: 'Editorial Matrix',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2060,7 +2042,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '132',
-		file: '132-ui-implant-graft-collage.webp',
+		file: 'own-132-ui-implant-connect-graft.webp',
 		title: 'Implant, Connect, Graft',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2074,7 +2056,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '133',
-		file: '133-ui-expand-northward.webp',
+		file: 'own-133-ui-expand-northward.webp',
 		title: 'Expand Northward',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2093,7 +2075,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '134',
-		file: '134-ui-turm-bauphasen.webp',
+		file: 'own-134-ui-tower-construction.webp',
 		title: 'Tower in Construction Phases',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2110,7 +2092,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '135',
-		file: '135-ui-voyage-matrix-schnitt.webp',
+		file: 'own-135-ui-voyage-matrix.webp',
 		title: 'Voyage Matrix: Underground Section',
 		added: '2026-11-11',
 		view: 'ui',
@@ -2127,7 +2109,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '136',
-		file: '136-art-stapelhaus-farbrahmen.webp',
+		file: 'own-136-building-stacked-house-color.webp',
 		title: 'Stacked House in Color Frames',
 		added: '2026-11-11',
 		view: 'gebaeude',
@@ -2145,7 +2127,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '137',
-		file: '137-art-biomorphic-study.webp',
+		file: 'own-137-mood-biomorphic-housing-study.webp',
 		title: 'Biomorphic Housing Study',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2160,7 +2142,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '138',
-		file: '138-art-utopie-collage-glitch.webp',
+		file: 'own-138-mood-utopian-collage-glitch.webp',
 		title: 'Utopian Collage with Glitch',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2176,7 +2158,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '139',
-		file: '139-art-maximal-stadtschacht.webp',
+		file: 'own-139-mood-maximal-city-shaft.webp',
 		title: 'Maximal City Shaft',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2192,7 +2174,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '140',
-		file: '140-art-kuppel-rutschen.webp',
+		file: 'own-140-mood-dome-slides-pools.webp',
 		title: 'Dome, Slides, Pools',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2207,7 +2189,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '141',
-		file: '141-art-glitch-achse.webp',
+		file: 'own-141-mood-glitch-axis.webp',
 		title: 'Glitch Axis',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2222,7 +2204,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '142',
-		file: '142-art-formskulptur-insel.webp',
+		file: 'own-142-mood-form-sculpture-island.webp',
 		title: 'Form Sculpture Island',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2238,7 +2220,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '143',
-		file: '143-art-pastell-stadtband.webp',
+		file: 'own-143-district-pastel-city-band.webp',
 		title: 'Pastel City Band',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -2253,7 +2235,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '144',
-		file: '144-art-bestand-collage-berlin.webp',
+		file: 'own-144-mood-existing-stock-utopia.webp',
 		title: 'Existing Stock Meets Utopia',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2271,7 +2253,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '145',
-		file: '145-art-kuppelgarten-nacht.webp',
+		file: 'own-145-mood-dome-gardens-night.webp',
 		title: 'Dome Gardens at Night',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2286,7 +2268,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '146',
-		file: '146-art-megastruktur-holzstich.webp',
+		file: 'own-146-mood-megastructure-wood.webp',
 		title: 'Megastructure as a Wood Engraving',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2301,7 +2283,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '147',
-		file: '147-art-modellstadt-render.webp',
+		file: 'own-147-city-model-blob.webp',
 		title: 'Model City with Blob',
 		added: '2026-11-11',
 		view: 'stadt',
@@ -2317,7 +2299,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '148',
-		file: '148-art-op-art-neon.webp',
+		file: 'own-148-mood-op-art-neon.webp',
 		title: 'Op Art in Neon',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2333,7 +2315,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '149',
-		file: '149-art-schachbrett-stadt.webp',
+		file: 'own-149-district-checkerboard-city.webp',
 		title: 'Checkerboard City',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -2352,7 +2334,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '150',
-		file: '150-art-schachbrett-park.webp',
+		file: 'own-150-district-checkerboard-park.webp',
 		title: 'Checkerboard Park',
 		added: '2026-11-11',
 		view: 'quartier',
@@ -2367,7 +2349,7 @@ export const designs: Design[] = [
 	},
 	{
 		id: '151',
-		file: '151-art-strassenblick-render.webp',
+		file: 'own-151-mood-view-eye-level.webp',
 		title: 'View at Eye Level',
 		added: '2026-11-11',
 		view: 'stimmung',
@@ -2388,7 +2370,7 @@ export const designs: Design[] = [
 		zweck:
 			'Layering principle: an exploded axonometric separates structural system, substructure and envelope → Forms (scaffold · envelope · occupied)',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-156-hausschichten.webp',
+		file: 'adapt-156-building-scaffold-envelope.webp',
 		title: 'Scaffold, Envelope and Occupancy',
 		added: '2026-11-13',
 		view: 'gebaeude',
@@ -2413,7 +2395,7 @@ export const designs: Design[] = [
 		zweck:
 			'Light envelope principle: a net membrane over high points, diagonals visible, garden plinth → Forms (structural family: membrane)',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-160-marktmembran.webp',
+		file: 'adapt-160-building-membrane-market-deck.webp',
 		title: 'Membrane over the Market Deck',
 		added: '2026-11-13',
 		view: 'gebaeude',
@@ -2438,7 +2420,7 @@ export const designs: Design[] = [
 		zweck:
 			'Elevated walkway principle: a footbridge and a cable car dock onto the same tower at different heights, red figures → City #hochwege',
 		zentrum: 'Prinzip',
-		file: 'uebertragung-163-hochweg-turm.webp',
+		file: 'adapt-163-building-elevated-walkways.webp',
 		title: 'Elevated Walkways at the Scaffold Tower',
 		added: '2026-11-13',
 		view: 'gebaeude',
