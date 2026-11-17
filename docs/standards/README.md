@@ -1,10 +1,10 @@
 # Design Bible Standards
 
-As of 2026-11-14. **Draft.** Independent review: [Review](herleitung/review.md), initial verdict "accept with corrections." The corrections have been incorporated; the documented re-verification of 2026-11-12 signs off on the documentation corrections. Author sign-off remains open. These files establish rules. They do not serve as proof of implementation.
+As of 2026-11-14. **Draft.** Author sign-off remains open. These files establish rules. They do not serve as proof of implementation.
 
 The goal remains the design bible as a SvelteKit website. It generates a city procedurally. Therefore it requires binding rules for mathematics, code, architecture, and documentation. The foundation is the standards of the sister repository `city-library`. They apply here in full in their domain intent, translated to the catalog, bible pages, labs, demos, and scenes. The library is read-only and never modified.
 
-Derivation: [Transfer](herleitung/transfer.md) (transfer matrix) and the current-state analysis (103) in the private design lab.
+The derivation from the city library lives in the private design lab.
 
 ## Precedence
 
@@ -42,23 +42,23 @@ If two rules contradict each other, the conflict is reported and not resolved si
 
 **Sources** (library paths refer to the sister repository; `§` names the start of a heading or a named list item in the source):
 
-| Abbrev.                                       | Source                                                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| CS                                            | `city-library/docs/CODING_STANDARDS.md`                                                     |
-| AR                                            | `city-library/docs/ARCHITECTURE.md`                                                         |
-| NC                                            | `city-library/docs/NAMING_CONVENTIONS.md`                                                   |
-| UI                                            | `city-library/docs/DESIGN.md`                                                               |
-| PR                                            | `city-library/docs/evolution/principles.md`; only "The principles" and "Consequences" are D |
-| ST                                            | `city-library/docs/evolution/structure.md`; accepted on 2026-11-11, not yet migrated there  |
-| RF                                            | `city-library/docs/evolution/refactoring.md`; predominantly proposal                        |
-| GW                                            | `city-library/docs/development/git-workflow.md`                                             |
-| PL                                            | `city-library/PLAN.md`; example-first and reviews                                           |
-| LA                                            | `city-library/AGENTS.md`                                                                    |
-| SK                                            | local library skills under `city-library/.agents/skills/` including `references/`           |
-| AG                                            | [AGENTS.md](../../AGENTS.md) of this repo (project rule)                                    |
-| 95, 96; standards derivation in `herleitung/` | `docs/research/01-universal-grid.md`, `docs/research/02-geometry-principles.md`             |
-| KE, K3, GE, SG                                | measurement reports in the private design lab                                               |
-| Code                                          | location in this repo                                                                       |
+| Abbrev.        | Source                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| CS             | `city-library/docs/CODING_STANDARDS.md`                                                     |
+| AR             | `city-library/docs/ARCHITECTURE.md`                                                         |
+| NC             | `city-library/docs/NAMING_CONVENTIONS.md`                                                   |
+| UI             | `city-library/docs/DESIGN.md`                                                               |
+| PR             | `city-library/docs/evolution/principles.md`; only "The principles" and "Consequences" are D |
+| ST             | `city-library/docs/evolution/structure.md`; accepted on 2026-11-11, not yet migrated there  |
+| RF             | `city-library/docs/evolution/refactoring.md`; predominantly proposal                        |
+| GW             | `city-library/docs/development/git-workflow.md`                                             |
+| PL             | `city-library/PLAN.md`; example-first and reviews                                           |
+| LA             | `city-library/AGENTS.md`                                                                    |
+| SK             | local library skills under `city-library/.agents/skills/` including `references/`           |
+| AG             | [AGENTS.md](../../AGENTS.md) of this repo (project rule)                                    |
+| 95, 96         | `docs/research/01-universal-grid.md`, `docs/research/02-geometry-principles.md`             |
+| KE, K3, GE, SG | measurement reports in the private design lab                                               |
+| Code           | location in this repo                                                                       |
 
 ## Roles and Review
 
@@ -72,7 +72,7 @@ Set by David (2026-11-12):
 
 ## Verification Commands
 
-Authoritative is `package.json`. Status of the command table: 2026-11-12; scripts, baseline, and negative probes are described in [Tooling Baseline](herleitung/tooling-baseline.md). The statement "none of the commands executed" referred to the initial draft of the standards. The [re-verification of 2026-11-12](herleitung/review.md#re-verification) documents executed checks and their results at that time. That does not constitute a current runtime sign-off.
+Authoritative is `package.json`. `bun run verify` runs all gates.
 
 | Purpose                       | Command                                                           | Role                                                                                                          |
 | ----------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -106,9 +106,9 @@ Only executed checks are reported. A tool only counts as a gate for a rule once 
 - Two different axis mappings to three.js ([PE-3](PROCEDURAL_PRINCIPLES.md#2-units-and-coordinate-systems)).
 - Error form: exception or result type ([PT-10](PROCEDURAL_PRINCIPLES.md#4-topology-and-embedding)).
 - License list for dependencies; `Unlicense` is missing in 100 E4 ([DOC-52](DOCUMENTATION_STANDARDS.md#sources-and-licenses)).
-- Research notes live in the private design lab; the standards derivation lives under `herleitung/` ([DOC-31](DOCUMENTATION_STANDARDS.md#research)).
+- Research notes and the standards derivation live in the private design lab ([DOC-31](DOCUMENTATION_STANDARDS.md#research)).
 - The complementary AST check captures explicit Svelte type edges; remaining tool limits are listed in [ARCHITECTURE](ARCHITECTURE.md#import-matrix).
-- The ESLint suppression baseline counts per file only and includes 5 assertions from the unfinished `logic/modellierung/` ([Tooling Baseline](herleitung/tooling-baseline.md)).
+- The ESLint suppression baseline counts per file only and includes 5 assertions from the unfinished `logic/modellierung/`.
 
 ### Decided
 

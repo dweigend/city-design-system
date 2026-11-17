@@ -1,4 +1,4 @@
-// Existing findings: see docs/standards/herleitung/tooling-baseline.md and 103 step 2.
+// Existing findings are frozen in .dependency-cruiser-baseline.json.
 module.exports = {
 	forbidden: [
 		{

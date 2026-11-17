@@ -1,6 +1,6 @@
 # Git Workflow
 
-As of 2026-11-17. Owner for authorization, branches, commits, example-first history, delivery and cleanup. Authority letters (D, N, V) follow the [Standards README](../standards/README.md#legend); sources are traced in [herleitung/transfer.md](../standards/herleitung/transfer.md).
+As of 2026-11-17. Owner for authorization, branches, commits, example-first history, delivery and cleanup. Authority letters (D, N, V) follow the [Standards README](../standards/README.md#legend).
 
 Remote: GitHub `city-design-system`. No CI workflow, no ruleset.
 

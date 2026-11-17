@@ -130,7 +130,7 @@ Measured coupling on 2026-11-12 (import paths, excluding tests): `formen` and `e
 
 ## Current Deviations
 
-Measured on 2026-11-12 via import search in `src/lib/catalog/`, excluding `logic/modellierung/` (in progress). The parallel tooling run lists the same cases as baseline: 11 `data` → `logic` imports, 3 renderer imports, 1 cycle ([Tooling Baseline](herleitung/tooling-baseline.md)). This list is a starting baseline, not an assignment; fix sequence: see the step plan in the private design lab.
+Measured on 2026-11-12 via import search in `src/lib/catalog/`, excluding `logic/modellierung/` (in progress). The parallel tooling run lists the same cases as baseline: 11 `data` → `logic` imports, 3 renderer imports, 1 cycle. This list is a starting baseline, not an assignment; fix sequence: see the step plan in the private design lab.
 
 | Rule        | Location                                                                                        | Kind                               |
 | ----------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |

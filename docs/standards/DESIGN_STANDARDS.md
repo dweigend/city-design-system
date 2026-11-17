@@ -51,7 +51,7 @@ Unchecked: color-space chain from sRGB tokens to the renderer, value ranges of a
 | DS-44 | Inline styles in components only for computed values: custom properties and dimensions from data. Static styling lives in the `<style>` block.                                                           | UI §Encapsulated styling · N\*     |
 | DS-45 | Consumers do not style internals of foreign components. Variants work through props. `:global` only where Bits UI requires it for its own parts.                                                         | UI §Encapsulated styling · N\*     |
 
-Status of search on 2026-11-12: no CSS in routes. An ESLint rule is configured for DS-42; its negative probes are listed in [Tooling Baseline](herleitung/tooling-baseline.md). In components, 132 occurrences of `:global`; not individually evaluated.
+Status of search on 2026-11-12: no CSS in routes. An ESLint rule is configured for DS-42; it is enforced by `bun run lint`. In components, 132 occurrences of `:global`; not individually evaluated.
 
 ## Component API
 
