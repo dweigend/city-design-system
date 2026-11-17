@@ -78,7 +78,7 @@ Under `static/designs/`, `static/library/`, and `static/references/`, the reposi
 
 ## License
 
-Code (source, scripts, configuration): MIT – see [LICENSE](LICENSE). Texts, images, 3D scenes, and other content: CC BY-NC 4.0 – see [LICENSE-CONTENT.md](LICENSE-CONTENT.md). Third-party sources (e.g., geodata) retain their own licenses; see respective notices.
+Code (source, scripts, configuration): MIT – see [LICENSE](LICENSE). Texts, images, 3D scenes, and other content: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Third-party sources (e.g., geodata) retain their own licenses; see respective notices.
 
 ## Built with
 
