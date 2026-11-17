@@ -1,7 +1,7 @@
 /**
  * Development mode of the structural simulation: computes the expensive form finding ahead of
- * time and stores the results as data. Run with `bun scripts/statik-vorberechnen.ts` after any
- * change of the generator, then format the file with prettier. `hausAuftrag.test.ts` fails while
+ * time and stores the results as data. Run `bun run precompute:statik` after any change of the
+ * generator. `hausAuftrag.test.ts` fails while
  * the stored file is stale.
  */
 import { writeFileSync } from 'node:fs';

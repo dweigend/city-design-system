@@ -28,6 +28,7 @@
 		"check:fallow:baseline": "bun scripts/check-fallow.ts --save",
 		"check:skills": "bun scripts/check-private-skills.ts",
 		"verify": "bun scripts/verify.ts",
+		"precompute:statik": "bun scripts/statik-vorberechnen.ts && prettier --write src/lib/catalog/data/vorberechnet/haengehaus.json",
 		"review": "bun scripts/review.ts"
 	},
 	"devDependencies": {
