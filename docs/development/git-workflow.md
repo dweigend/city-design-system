@@ -6,11 +6,11 @@ Remote: GitHub `city-design-system`. CI: `.github/workflows/verify.yml` (job `ve
 
 ## Authorization
 
-| ID    | Rule                                                                                                          | Auth. |
-| ----- | ------------------------------------------------------------------------------------------------------------- | ----- |
-| GW-01 | An implementation task authorizes no commit, push, pull request or merge. A granted permission is used fully. | N     |
-| GW-02 | `main` changes only on David's explicit instruction, one merge at a time. Agents commit on working branches.  | D     |
-| GW-03 | Pushing and creating remote repositories only on David's instruction.                                         | D     |
+| ID    | Rule                                                                                                                                                                                                                                       | Auth. |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| GW-01 | An implementation task authorizes no commit, push, pull request or merge. A granted permission is used fully within its named operation and candidate; it does not authorize other remote writes.                                          | N     |
+| GW-02 | `main` changes only on David's explicit instruction, one merge at a time. A new candidate invalidates a merge instruction based on the previous approval; re-review requires a fresh merge instruction. Agents commit on working branches. | D     |
+| GW-03 | Pushing and creating remote repositories only on David's instruction.                                                                                                                                                                      | D     |
 
 ## Branches
 
@@ -43,14 +43,14 @@ Remote: GitHub `city-design-system`. CI: `.github/workflows/verify.yml` (job `ve
 
 ## Delivery and Cleanup
 
-| ID    | Rule                                                                                                                             | Auth. |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| GW-40 | Before delivery, `bun run verify` runs ([C-60–62](../standards/CODING_STANDARDS.md#verification)). Record only executed results. | N     |
-| GW-41 | "Delivered" means committed, pushed and represented by a current pull request with accurate title, description and check log.    | N     |
-| GW-42 | Link every created or pushed pull request with its full URL in T3; report if that fails.                                         | N     |
-| GW-43 | Before handoff, check branch, working tree, remote head, PR head and status; name open parallel work and pending checks.         | N     |
-| GW-50 | After a verified merge, delete the short-lived worktree and branch.                                                              | D     |
-| GW-51 | Cleanup never replaces delivery. Unintegrated or foreign work stays intact.                                                      | N     |
+| ID    | Rule                                                                                                                                                     | Auth. |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| GW-40 | Before delivery, `bun run verify` runs ([C-60–62](../standards/CODING_STANDARDS.md#verification)). Record only executed results.                         | N     |
+| GW-41 | "Delivered" means committed, pushed and represented by a current pull request with accurate title, description and check log.                            | N     |
+| GW-42 | Link every created or pushed pull request with its full URL in T3; report if that fails.                                                                 | N     |
+| GW-43 | Before handoff, check branch, working tree, remote head, PR head and status; name open parallel work and pending checks.                                 | N     |
+| GW-50 | After a verified merge, delete the owned short-lived worktree and local branch. Remote branch deletion is a push and requires authorization under GW-03. | D     |
+| GW-51 | Cleanup never replaces delivery. Unintegrated or foreign work stays intact.                                                                              | N     |
 
 ## Dependency Updates
 
