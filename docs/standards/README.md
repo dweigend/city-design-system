@@ -65,7 +65,7 @@ If two rules contradict each other, the conflict is reported and not resolved si
 Set by David (2026-11-12, extended 2026-11-17). Model assignment per task: local skill `model-routing`, which links here.
 
 - Implementer and reviewer are always different agents, from different model families. Self-review is not a sign-off.
-- Opus 5.5 orchestrates, designs and implements; GPT-6.1 Sol is the implementation workhorse and runs at fixed low reasoning inside the Sol loop, without automatic escalation; GPT-6 Luna takes routine chores. Never Haiku.
+- Opus 5.5 orchestrates, designs and implements; GPT-6.1 Sol is the implementation workhorse; in the Sol loop it is the reviewer at fixed low reasoning, without automatic escalation, while the implementing agent answers its findings. A Sol review of Sol-built code is a same-family check, not the independent review; GPT-6 Luna takes routine chores. Never Haiku.
 - Critical changes (CI, workflows, build configuration, secrets): specialist review by Fable 5.2. Independent reviews and sign-off: GPT-6 Astra.
 - **Merge council for `main`:** two independent, mandatory reviews, one from a Claude model and one from a Codex model. A smaller Antigravity review is optional and never blocks. The Claude reviewer is never the implementing agent; for a change built by a Claude model the Codex review provides the different-family review. The council reports findings; merging stays David's decision (GW-02).
 - Quota exhaustion, timeouts or reaching a round limit are never an approval. Sign-off stays open.
@@ -140,7 +140,7 @@ David decided on 2026-11-16 that all text, comments, documentation, and website 
 | `*.test.ts` belongs to `dev` regardless of folder; runtime code must not import `dev` ([A-27](ARCHITECTURE.md#import-matrix)).                                                       | Brief David, 2026-11-16          |
 | Private skills are never tracked.                                                                                                                                                    | AG                               |
 | Two permanent branches; `experimente` is rebased onto `main` after every merge, never rebuilt and never merged into `main` ([GW-13–GW-16](../development/git-workflow.md#branches)). | Brief David, 2026-11-17          |
-| Review council, Sol loop at fixed low reasoning, root-cause method, browser evidence (above).                                                                                        | Brief David, 2026-11-17          |
+| Review council, Sol loop (Sol reviews at fixed low reasoning), root-cause method, browser evidence (above).                                                                          | Brief David, 2026-11-17          |
 | CI `verify` on pull requests and `main`; ruleset after the first report ([GW-60–GW-62](../development/git-workflow.md#ci-and-branch-protection)).                                    | Brief David, 2026-11-17          |
 
 ## Local Skills
