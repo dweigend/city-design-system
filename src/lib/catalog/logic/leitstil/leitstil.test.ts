@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides bun:test at runtime; the project has no @types/bun.
 import { describe, test, expect } from 'bun:test';
 import {
 	stilFuer,

@@ -88,9 +88,10 @@ export function kontur(): Node<'float'> {
 
 /**
  * Hatching by material: concrete one layer at 45°, metal crossed, wood vertical and fine.
+ * Any other material name hatches like concrete.
  * Stroke width grows with darkness and contour: roofs delicate, shaded sides and rims bold.
  */
-export function schraffur(material: 'concrete' | 'wood' | 'metal' | string): Node<'float'> {
+export function schraffur(material: string): Node<'float'> {
 	const ton = dunkelheit().mul(0.55).add(kontur().mul(0.9)).clamp(0, 1);
 	const breite = (hell: number, dunkel: number) => mix(float(hell), float(dunkel), ton);
 	if (material === 'wood') return strich(linien(90, SCHRAFFUR_ABSTAND_M * 0.6), breite(0.05, 0.14));

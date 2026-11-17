@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, test, expect } from 'bun:test';
 import { createPatch, projection, cellAt } from './topology';
 import {
@@ -105,7 +104,7 @@ test('dual cells cover the primal domain and neighbor-filled follows shared side
 	for (const s of all) {
 		const [faceId, h] = s.id.split('@'),
 			f = p.faces.find((f) => f.id === faceId)!;
-		expect(s.context.neighborFilled).toEqual(
+		expect<readonly boolean[]>(s.context.neighborFilled).toEqual(
 			f.neighbors.map((id) => id !== null && all.find((x) => x.id === `${id}@${h}`)!.mask !== 0)
 		);
 	}

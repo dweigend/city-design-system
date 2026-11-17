@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides bun:test at runtime; the project has no @types/bun.
 import { describe, expect, test } from 'bun:test';
 import { vorberechnet } from '../../logic/traeger/hausAuftrag';
 import { hausLeitstil, hatHausLeitstil } from './haus';
@@ -13,7 +12,7 @@ describe('A2: computed house → house style', () => {
 		const bild = hausLeitstil(haus, 'belegt');
 		const ort = new Map(haus.traeger.knoten.map((n) => [n.id, n.p]));
 		const erwartet = haus.traeger.kanten.filter((k) => statik.staebe[k.id]);
-		expect(bild.staebe.slice(0, erwartet.length)).toEqual(
+		expect<readonly unknown[]>(bild.staebe.slice(0, erwartet.length)).toEqual(
 			erwartet.map((k) => ({
 				a: ort.get(k.a),
 				b: ort.get(k.b),

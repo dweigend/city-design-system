@@ -24,8 +24,8 @@ export type Antwort<A> =
 export type Warteschlange<E, A> = {
 	/** Never rejects. Resolves at once from the cache, else when the job ends or goes stale. */
 	anfragen(auftrag: Auftrag<E>): Promise<Antwort<A>>;
-	/** Makes all jobs of a channel stale. A running job ends unseen. */
-	abbrechen(kanal: string): void;
+	/** Makes all jobs of a channel stale. A running job ends unseen. Safe to call detached. */
+	abbrechen(this: void, kanal: string): void;
 	stand(): { laufend: number; wartend: number };
 };
 

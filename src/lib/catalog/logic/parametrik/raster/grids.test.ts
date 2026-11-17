@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import { gridGenerators, contourGrid, voronoiGrid } from './index';
 import { area, cross } from './geometry';
