@@ -2,7 +2,7 @@ import type { Primitive } from '../types';
 import { family, spec } from './kit';
 import { grundrissRahmen, rechteckigerRahmen } from './grundrissRahmen';
 
-/** Frame: lattice cube, plug-in frame, truss girder (06, 15, 26, 36, U01). */
+/** Frame: lattice cube, plug-in frame, truss girder (06, 15, 26, 36). */
 export const rahmen = [
 	family({
 		id: 'rahmen-gitterwuerfel',

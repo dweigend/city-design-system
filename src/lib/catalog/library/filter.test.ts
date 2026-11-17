@@ -83,7 +83,7 @@ describe('Archive', () => {
 			const a = archiv.find((x) => x.key === `E${d.id}`);
 			expect(a?.herkunft).toBe((d.eigen ?? !istFremd(d.id)) ? 'eigen' : 'fremd');
 		}
-		for (const nr of ['U20', 'U21', 'U22']) {
+		for (const nr of ['U20', 'U22']) {
 			expect(archiv.find((a) => a.nr === nr)?.herkunft).toBe('eigen');
 		}
 		expect(archiv.filter((a) => a.herkunft === 'roh').length).toBe(library.length);

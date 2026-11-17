@@ -17,7 +17,7 @@ function cap(
 	return [k.cylinder(u, v, z, r * 1.06, 0.35, '--paper', { rank })];
 }
 
-/** Cylinder: silo, round tower, half cylinder (06, 13, 18, 21, R04-06). */
+/** Cylinder: silo, round tower, half cylinder (06, 18, 21, R04-06). */
 export const zylinder = [
 	family({
 		id: 'zylinder-silo',

@@ -1,7 +1,7 @@
 import type { Primitive } from '../types';
 import { family, spec } from './kit';
 
-/** Arch: portal, arcade, barrel vault, halfpipe (13, 22, 24, 149, R16-01). */
+/** Arch: portal, arcade, barrel vault, halfpipe (22, 24, 149, R16-01). */
 export const bogen = [
 	family({
 		id: 'bogen-portal',

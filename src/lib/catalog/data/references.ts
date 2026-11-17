@@ -39,6 +39,5 @@ export const references: Reference[] = [
 		title: 'Building-block icons'
 	},
 	{ file: 'uiref-020-ui-city-matrix.webp', title: 'City Matrix', eigen: true },
-	{ file: 'uiref-021-ui-metabolic-metropolis.webp', title: 'Metabolic Metropolis', eigen: true },
 	{ file: 'uiref-022-ui-watercolor-city.webp', title: 'Watercolor city', eigen: true }
 ];

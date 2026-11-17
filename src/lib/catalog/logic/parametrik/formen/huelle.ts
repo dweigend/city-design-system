@@ -1,13 +1,13 @@
 import type { Primitive, Vec3 } from '../types';
 import { family, spec } from './kit';
 
-/** Envelope: climate skin, greenhouse, membrane (16, 27, 48, U04, U05). */
+/** Envelope: climate skin, greenhouse, membrane (16, 27, 48). */
 export const huelle = [
 	family({
 		id: 'huelle-klimahaut',
 		name: 'Climate skin over contents',
 		group: 'huelle',
-		refs: ['16', 'U04', '48'],
+		refs: ['16', '48'],
 		params: [
 			spec('hoehe', 'Height', 0.3, 1, 0.05, 0.85),
 			spec('inhalt', 'Contents', 0, 6, 1, 3),
@@ -93,7 +93,7 @@ export const huelle = [
 		id: 'huelle-membran',
 		name: 'Membrane on masts',
 		group: 'huelle',
-		refs: ['U05', '16', '32'],
+		refs: ['16', '32'],
 		params: [
 			spec('hoch', 'High point', 0.4, 1, 0.05, 0.95),
 			spec('tief', 'Low point', 0.1, 0.8, 0.05, 0.35),

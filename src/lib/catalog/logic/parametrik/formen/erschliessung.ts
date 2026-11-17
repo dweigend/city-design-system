@@ -189,7 +189,7 @@ export const erschliessung = [
 		id: 'erschliessung-steg',
 		name: 'Footbridge with ramp',
 		group: 'erschliessung',
-		refs: ['38', '33', '44'],
+		refs: ['38', '33'],
 		params: [
 			spec('hoehe', 'Elevation', 0.2, 0.8, 0.05, 0.45),
 			spec('breite', 'Width m', 1.2, 4, 0.1, 2.4),

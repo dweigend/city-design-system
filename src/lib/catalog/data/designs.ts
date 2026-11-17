@@ -941,24 +941,6 @@ export const designs: Design[] = [
 		tags: ['Construction process', 'Scaffold', 'Cable car', 'Old town']
 	},
 	{
-		id: '44',
-		file: 'own-044-district-focus-footpaths.webp',
-		title: 'Focus: Footpaths',
-		added: '2026-11-11',
-		view: 'quartier',
-		style: ['Isometric', 'Grayscale', 'Pink as single color', 'Transparency'],
-		fit: 'kern',
-		description:
-			'A version of 37 without the roof terrace furnishings: existing stock and rooftop extensions only gray and semitransparent, the public footpath network (stairs, ramps, squares) as the only color. One theme, one hue.',
-		keep: [
-			'Focus through one color: everything else recedes as gray',
-			'Transparent volumes take mass out of the image',
-			'Pink = footpaths and public space'
-		],
-		procedural: ['Focus mode "Paths": network in color, buildings as an envelope at 40 % opacity'],
-		tags: ['Focus', 'Footpaths', 'Focus & color code']
-	},
-	{
 		id: '45',
 		file: 'own-045-district-three-color-codes.webp',
 		title: 'Three Color Codes at Once',
@@ -985,7 +967,7 @@ export const designs: Design[] = [
 		style: ['Isometric', 'Grayscale', 'Pink as single color', 'Transparency'],
 		fit: 'kern',
 		description:
-			'Like 44, but with half-timbering, a clock tower and gables in the existing stock; the pink paths and a pink scaffold run through the old town.',
+			'An old town with half-timbering, a clock tower and gables in the existing stock; the pink paths and a pink scaffold run through the old town.',
 		keep: [
 			'Even richly detailed existing stock stays calm when it is gray and transparent',
 			'Scaffold in the focus color shows the construction process of the network'
@@ -1800,20 +1782,6 @@ export const designs: Design[] = [
 		keep: ['Project card on the left with a preview', 'Blob plus modules'],
 		procedural: ['Project panel with module thumbnails'],
 		tags: ['Project', 'Modules', 'UI']
-	},
-	{
-		id: '117',
-		file: 'own-117-ui-metabolic-grid-pencil.webp',
-		title: 'Metabolic Grid: Pencil',
-		added: '2026-11-11',
-		view: 'ui',
-		style: ['Pencil', 'Black and white', 'HUD'],
-		fit: 'offen',
-		description:
-			'The district from 25 entirely as a pencil drawing, the HUD unchanged. A functional sketch: the style is not binding.',
-		keep: ['The entire scene in sketch mode: the "Sketch" drawing mode works at large scale too'],
-		procedural: ['Sketch shader for the whole scene'],
-		tags: ['Sketch', 'Drawing mode', 'UI']
 	},
 	{
 		id: '118',
