@@ -12,6 +12,6 @@ How this repository is built and delivered. Not the design bible itself (that li
 
 - Research notes, explorations, comparison plates and raw data: the private lab repo `city-design-lab`. Only condensed findings go to `docs/research/`.
 - Agent templates, prompts and checklists: local skills (`git-delivery`, `model-routing`), never tracked.
-- Notes and images for local use only: `_lokal/`.
+- Notes, process images and originals for local use only: the private lab repository, never this one.
 
 A file here is removed once its contract is fully absorbed into code and standards.
