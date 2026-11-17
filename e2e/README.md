@@ -20,3 +20,5 @@ Projects: desktop 1366 × 768 and narrow 390 × 844, each in light and dark, plu
 `support/routes.ts` is the one table of pages and demos. A new page or demo needs one row there and is then covered by the route checks and the screenshot capture.
 
 Headless Chromium renders WebGL with SwiftShader. Its images are visual evidence, never performance evidence ([DS-73](../docs/standards/DESIGN_STANDARDS.md#browser-and-screenshot-sign-off)). Specs are named `*.e2e.ts` so `bun test` never collects them; types are checked by `tsconfig.e2e.json` in `bun run check`.
+
+Screenshot evidence records controlled inputs and rendering context; it is not a byte-stable visual baseline. Captures request reduced motion, wait for fonts and image loading, and scroll to initialize offscreen regions. They do not freeze live font responses, scene clocks or asynchronous GPU work. Runtime-identical source has produced different PNGs between runs. Inspect differences independently; there is no automatic pixel tolerance or baseline acceptance.

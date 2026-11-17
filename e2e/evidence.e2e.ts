@@ -6,10 +6,11 @@ import { evidenceDir, recordEntry, renderInfo, worktreeState } from './support/e
 
 /**
  * Opt-in screenshot evidence: `EVIDENCE_DIR=/abs/path bun run test:browser e2e/evidence.e2e.ts`.
- * Every capture target × viewport × theme. Loops are held on their still frame (reduced motion)
- * so the images are reproducible; camera and controls stay at their defaults.
+ * Every capture target × viewport × theme uses default cameras and controls with reduced
+ * motion requested. Live fonts, asynchronous rendering and wall-clock scene updates are
+ * not frozen, so repeated captures are not guaranteed to have identical pixels.
  */
-const STATE = 'default camera and controls, reduced motion (loops on still frame)';
+const STATE = 'default camera and controls, reduced motion requested';
 /** Pause per viewport step so viewport-triggered renderers and lazy images can start. */
 const STEP_SETTLE_MS = 400;
 

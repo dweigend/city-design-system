@@ -125,7 +125,7 @@ Only executed checks are reported. Growth of every baseline is measured against 
 - The complementary AST check captures explicit Svelte type edges; remaining tool limits are listed in [ARCHITECTURE](ARCHITECTURE.md#import-matrix).
 - Type checking runs in three environments: app (`tsconfig.json`, svelte-check, no Bun globals), tests and scripts (`tsconfig.bun.json`), browser scenarios (`tsconfig.e2e.json`); `bun run check` runs all three.
 - Typed ESLint runs `recommendedTypeChecked` and `switch-exhaustiveness-check` on runtime code. Not enabled yet, measured 2026-11-17: `no-floating-promises` (159, mostly `node:test` calls in tests), the `no-unsafe-*` family (215), `no-unnecessary-type-assertion` (22). `noUncheckedIndexedAccess` (2,598 app diagnostics) and `exactOptionalPropertyTypes` (78) stay off; adoption is scoped per module, never as one sweep.
-- The ESLint suppression baseline counts per file and rule only; replacing one suppressed assertion with another in the same file passes the growth guard.
+- ESLint suppression identities and their limits are defined in [Baseline rules](../../scripts/README.md#baseline-rules).
 
 ### Decided
 
