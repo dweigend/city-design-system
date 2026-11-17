@@ -149,7 +149,8 @@ export const probes: Probe[] = [
 		name: 'baselines: eslint suppression swapped for a new finding',
 		gate: ['bun', 'run', 'check:baselines'],
 		inject: swapSuppressedFinding,
-		expect: /eslint-suppressions\.json growth: .+werkbank\.ts .+: new finding `key!` \(0 -> 1\)/
+		expect:
+			/eslint-suppressions\.json growth: .+werkbank\.ts .+: new finding `\["key","!"\]` \(0 -> 1\)/
 	},
 	{
 		name: 'baselines: eslint suppression for missing file',

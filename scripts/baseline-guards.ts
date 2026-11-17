@@ -1,3 +1,5 @@
+import ts from 'typescript';
+
 // Pure comparisons behind check-baselines.ts. A baseline may only shrink:
 // growth = an entry, count or suppressed finding the base ref does not have;
 // stale = an entry the tools no longer produce. No I/O here, so the rules are unit-testable.
@@ -63,10 +65,23 @@ export type SuppressedFindings = Record<string, Record<string, string[]>>;
 /** Source range of one ESLint message: 1-based lines and columns, end exclusive. */
 export type FindingRange = { line: number; column: number; endLine?: number; endColumn?: number };
 
+/** Token texts preserve literal contents and boundaries while ignoring formatting trivia. */
+function tokenIdentity(text: string): string {
+	const tree = ts.createSourceFile('finding.ts', text, ts.ScriptTarget.Latest, true);
+	const tokens: string[] = [];
+	function visit(node: ts.Node): void {
+		const children = node.getChildren(tree);
+		if (children.length) children.forEach(visit);
+		else if (node.kind !== ts.SyntaxKind.EndOfFileToken) tokens.push(node.getText(tree));
+	}
+	visit(tree);
+	return JSON.stringify(tokens);
+}
+
 /**
- * Identity text of a finding: the reported source range without whitespace, so
- * it survives line shifts and reformatting. A message without an end covers
- * the rest of its line.
+ * Identity text of a finding: the reported source range as token texts, so
+ * line shifts and reformatting preserve identity without changing literals.
+ * A message without an end covers the rest of its line.
  */
 export function findingText(source: string, range: FindingRange): string {
 	const lines = source.split('\n');
@@ -76,7 +91,7 @@ export function findingText(source: string, range: FindingRange): string {
 		range.endLine === undefined || range.endColumn === undefined
 			? offset(range.line + 1, 0)
 			: offset(range.endLine, range.endColumn);
-	return source.slice(offset(range.line, range.column), end).replace(/\s+/g, '');
+	return tokenIdentity(source.slice(offset(range.line, range.column), end));
 }
 
 function tally(texts: string[] = []): Map<string, number> {

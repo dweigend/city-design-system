@@ -56,14 +56,18 @@ describe('guardCruiseBaseline', () => {
 const rule = '@typescript-eslint/no-non-null-assertion';
 
 describe('findingText', () => {
-	test('cuts the reported range and drops whitespace', () => {
+	test('cuts the reported range and ignores formatting trivia', () => {
 		const source = 'const a = 1;\nconst b = list.find(\n\t(x) => x > a\n)!.name;\n';
 		const range = { line: 2, column: 11, endLine: 4, endColumn: 3 };
-		expect(findingText(source, range)).toBe('list.find((x)=>x>a)!');
+		expect(findingText(source, range)).toBe(
+			JSON.stringify(['list', '.', 'find', '(', '(', 'x', ')', '=>', 'x', '>', 'a', ')', '!'])
+		);
 	});
 
 	test('takes the rest of the line when the message has no end', () => {
-		expect(findingText('a;\n  b!.c;\nd;\n', { line: 2, column: 3 })).toBe('b!.c;');
+		expect(findingText('a;\n  b!.c;\nd;\n', { line: 2, column: 3 })).toBe(
+			JSON.stringify(['b', '!', '.', 'c', ';'])
+		);
 	});
 });
 
@@ -167,7 +171,27 @@ describe('suppressed findings in a linted file', () => {
 	};
 
 	test('the fixture file still holds exactly the accepted assertion', async () => {
-		expect(await lint(source)).toEqual({ [rule]: ['flows.find((f)=>f.id===strom)!'] });
+		expect(await lint(source)).toEqual({
+			[rule]: [
+				JSON.stringify([
+					'flows',
+					'.',
+					'find',
+					'(',
+					'(',
+					'f',
+					')',
+					'=>',
+					'f',
+					'.',
+					'id',
+					'===',
+					'strom',
+					')',
+					'!'
+				])
+			]
+		});
 	});
 
 	test('fails when a new assertion replaces the accepted one at count 1', async () => {
@@ -176,7 +200,7 @@ describe('suppressed findings in a linted file', () => {
 			.replace('\t\tkey,\n', '\t\tkey: key!,\n');
 		expect(swapped).toContain('key: key!');
 		expect(await guard(swapped)).toEqual({
-			growth: [`${file} ${rule}: new finding \`key!\` (0 -> 1)`],
+			growth: [`${file} ${rule}: new finding \`["key","!"]\` (0 -> 1)`],
 			stale: []
 		});
 	});
