@@ -54,6 +54,3 @@ static/references/1[0-9]-*
 # Local original images, process images, and unpublished references
 /_lokal/
 
-# Raw OSM extracts stay local; only the derived catalog data is published
-/data/osm/altstaedte/*.json
-!/data/osm/altstaedte/messwerte.json

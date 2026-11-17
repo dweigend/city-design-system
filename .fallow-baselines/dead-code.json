@@ -11,7 +11,6 @@
   },
   "identity": "dc1",
   "unused_files": [
-    "unused-file:scripts/altstadt-umrisse.ts",
     "unused-file:scripts/statik-vorberechnen.ts",
     "unused-file:src/lib/catalog/library/index.ts",
     "unused-file:src/lib/catalog/logic/parametrik/attractor.ts",
