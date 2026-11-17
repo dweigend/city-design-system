@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { random } from './random';
-import type { Primitive } from './types';
+import { box, type Primitive, type Vec3 } from './types';
 import { welt, weltDefaults, type WeltParams } from './welt';
 import { createPatch, type Patch } from './eckraster/topology';
 import { fixture, fixtureNames } from './eckraster/fixtures';
@@ -168,5 +168,15 @@ describe('formen: identity, order, mutation and golden', () => {
 			expect(new Set(out.map((p) => p.id)).size).toBe(out.length);
 			expect(() => finite(out)).not.toThrow();
 		}
+	});
+});
+
+describe('box ownership', () => {
+	test('keeps the position and size arrays by reference, as documented', () => {
+		const position: Vec3 = [1, 2, 3],
+			size: Vec3 = [4, 5, 6];
+		const b = box('b', position, size);
+		expect(b.kind === 'box' && b.position).toBe(position);
+		expect(b.kind === 'box' && b.size).toBe(size);
 	});
 });

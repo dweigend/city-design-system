@@ -136,7 +136,9 @@ export function assemble(
 /**
  * Patch as a grid on one `level`: `dual` gives the build cells, `slots` the faces; cell IDs get
  * the suffix `@level`, links are listed once per pair (smaller ID first). Order follows the
- * patch. Detached; `p` is not mutated.
+ * patch. New grid, cell and link objects; `p` is not mutated. Not deep-detached: `dual` cells share
+ * `polygon` and `center` with `p.cells`, `slots` polygons are new arrays of the `p.vertices` point
+ * objects. Treat the result as read-only.
  */
 export function projection(p: Patch, view: 'dual' | 'slots', level = 0): Grid {
 	const cells =

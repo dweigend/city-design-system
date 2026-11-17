@@ -119,7 +119,10 @@ export type Primitive = Base &
 		/** Tensile surface through four corners (hypar), sag pulls the center down. */
 		| { kind: 'membrane'; corners: [Vec3, Vec3, Vec3, Vec3]; sag?: number }
 	);
-/** Box primitive; `position` is the min corner, `size` the extent, both in meters. Detached. */
+/**
+ * Box primitive; `position` is the min corner, `size` the extent, both in meters. New object that
+ * keeps the `position` and `size` arrays by reference (not copied); callers must not mutate them.
+ */
 export function box(
 	id: string,
 	position: Vec3,

@@ -37,6 +37,14 @@ describe('L10 topology and intent', () => {
 		}
 		expect(projection(p, 'slots', 2).cells[0].id).toBe(`${p.faces[0].id}@2`);
 	});
+	test('projection shares geometry with the patch, as documented', () => {
+		const dual = projection(p, 'dual').cells[0];
+		expect(dual.polygon).toBe(p.cells[0].polygon);
+		expect(dual.center).toBe(p.cells[0].center);
+		const points = new Set(p.vertices.map((v) => v.point));
+		const slot = projection(p, 'slots').cells[0];
+		expect(slot.polygon.every((q) => points.has(q))).toBe(true);
+	});
 	test('all eight bit positions and fixed free cap', () => {
 		const f = p.faces.find((f) => !f.vertices.includes(protectedVertex(p)))!;
 		for (let bit = 0; bit < 8; bit++) {
