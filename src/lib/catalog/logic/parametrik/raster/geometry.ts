@@ -1,5 +1,5 @@
-import { ShapeUtils, Vector2 } from 'three';
 import type { Cell, Grid, GridKind, Point2 } from '../vocab';
+import { triangulate } from './earcut';
 export const cross = (a: Point2, b: Point2, c: Point2) =>
 	(b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 export const area = (p: Point2[]) =>
@@ -51,11 +51,9 @@ export function intersect(p: Point2[], boundary: Point2[]): Point2[] {
 		return clip(out, n, n[0] * a[0] + n[1] * a[1]);
 	}, p);
 }
+/** Splits a simple polygon into triangles (earcut order); returns the original point objects. */
 export function triangles(p: Point2[]): Point2[][] {
-	return ShapeUtils.triangulateShape(
-		p.map((v) => new Vector2(...v)),
-		[]
-	).map((t) => t.map((i) => p[i]));
+	return triangulate(p).map((t) => t.map((i) => p[i]));
 }
 export function convexParts(p: Point2[]): Point2[][] {
 	const q = area(p) > 0 ? p : [...p].reverse();

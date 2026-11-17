@@ -117,10 +117,14 @@ function wachse(
 			continue;
 		}
 		const q: Punkt = [p[0] + dx * w.schritt, p[1] + dy * w.schritt];
+		const abstandsRegel = w.nah;
 		if (
-			w.nah &&
-			netz.abstand(q, w.nah.r, (e) => w.nah!.nur(e) && netz.a[e] !== cur && netz.b[e] !== cur) <
-				w.nah.r
+			abstandsRegel &&
+			netz.abstand(
+				q,
+				abstandsRegel.r,
+				(e) => abstandsRegel.nur(e) && netz.a[e] !== cur && netz.b[e] !== cur
+			) < abstandsRegel.r
 		)
 			return;
 		const nah = netz.naechster(q, w.fang, (n) => n === cur || netz.verbunden(n, cur));
@@ -302,8 +306,10 @@ function feldNetz(netz: Netz, g: number, rng: () => number) {
 	};
 	linie(netz.knoten(c[0], c[1]), 0, [1, -1]);
 	let schutz = 0;
-	while (warteschlange.length && schutz++ < 900) {
-		const { n, f } = warteschlange.shift()!;
+	while (schutz++ < 900) {
+		const eintrag = warteschlange.shift();
+		if (!eintrag) break;
+		const { n, f } = eintrag;
 		const dsep = 14 + 26 * (1 - dichte(netz.x[n], netz.y[n]));
 		const nahe = netz.abstand([netz.x[n], netz.y[n]], dsep, (e) => {
 			const t = netz.tag[e];

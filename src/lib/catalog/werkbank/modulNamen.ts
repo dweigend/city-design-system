@@ -2,7 +2,7 @@
 import type { Tag } from '../logic/ansicht/tags';
 import { auswahlKey } from '../logic/ansicht/fokus';
 import { flows } from '../data/focus';
-import { schichtLabels } from '../data/werkbank';
+import { schichtLabels } from '../logic/ansicht/optionen';
 
 /**
  * Selectable modules with readable names: layer, flow, floor; equal names get a

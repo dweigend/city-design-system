@@ -42,6 +42,10 @@ export const CELL_HEIGHT = 18;
 /** Same frame for every vignette: center and half height of the view in meters. */
 export const catalogView = { center: [0, 0, 6.5] as [number, number, number], span: 13.5 };
 
+/**
+ * Form context on a test cell (see `polygonContext`). The footprint is the shared `testCells`
+ * polygon by reference; generators must not mutate it.
+ */
 export function cellContext(shape: CellShape, seed: number): FormContext {
 	return polygonContext(testCells[shape].polygon, seed);
 }
@@ -103,5 +107,6 @@ export function formOnCell(
 	];
 }
 
+/** Parameter record of a family with every spec at its default, in spec order. New object. */
 export const defaults = (family: FormFamily) =>
 	Object.fromEntries(family.params.map((p) => [p.key, p.default]));

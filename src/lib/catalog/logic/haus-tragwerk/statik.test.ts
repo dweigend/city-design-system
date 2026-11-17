@@ -407,38 +407,46 @@ test('H10: deformation classes follow the span; an empty house states its dead l
 	assert.ok(leer.lager.reduce((s, l) => s + l.druckN, 0) >= eigengewichtN(leer));
 });
 
-test('H11: the upper chord stays continuous and mirrored in all 81 seed classes', () => {
-	const klassen = new Map<string, number>();
-	for (let saat = 0; saat < 10000; saat++) {
-		const key = JSON.stringify(hausParameter(saat));
-		if (!klassen.has(key)) klassen.set(key, saat);
+// H11 builds and solves 83 houses (about 5 s on an idle machine), so the default 5 s budget is
+// too tight on loaded hosts and CI runners. The budget covers runtime only; the assertions are unchanged.
+const H11_TIMEOUT_MS = 60_000;
+
+test(
+	'H11: the upper chord stays continuous and mirrored in all 81 seed classes',
+	{ timeout: H11_TIMEOUT_MS },
+	() => {
+		const klassen = new Map<string, number>();
+		for (let saat = 0; saat < 10000; saat++) {
+			const key = JSON.stringify(hausParameter(saat));
+			if (!klassen.has(key)) klassen.set(key, saat);
+		}
+		assert.equal(klassen.size, 81);
+		for (const saat of new Set([7, 3, ...klassen.values()])) {
+			const h = neuBauen('raumfachwerk', saat);
+			const ort = new Map(h.traeger.knoten.map((n) => [n.id, n.p]));
+			const ids = new Set(h.traeger.kanten.map((k) => k.id));
+			for (const j of [-1, 0, 1])
+				for (let i = 1; i < hausParameter(saat).felder - 1; i++) {
+					const id = kantenId(`raumfachwerk:k:o:${i}:${j}`, `raumfachwerk:k:o:${i + 1}:${j}`);
+					assert.ok(ids.has(id), `seed ${saat}: upper chord missing ${id}`);
+				}
+			const teile = new Map(
+				h.traeger.kanten.map((k) => [bild(ort.get(k.a) as Vec3, ort.get(k.b) as Vec3, 1, 1), k])
+			);
+			const { statik } = mitStatik(h);
+			for (const k of h.traeger.kanten)
+				for (const [sx, sy] of [
+					[-1, 1],
+					[1, -1]
+				]) {
+					const partner = teile.get(bild(ort.get(k.a) as Vec3, ort.get(k.b) as Vec3, sx, sy));
+					assert.ok(partner, `seed ${saat}: mirror partner missing`);
+					assert.deepEqual(statik.staebe[partner.id], statik.staebe[k.id]);
+				}
+			assert.ok(statik.kennzahlen.ausnutzungMax <= 1 + 1e-9);
+		}
 	}
-	assert.equal(klassen.size, 81);
-	for (const saat of new Set([7, 3, ...klassen.values()])) {
-		const h = neuBauen('raumfachwerk', saat);
-		const ort = new Map(h.traeger.knoten.map((n) => [n.id, n.p]));
-		const ids = new Set(h.traeger.kanten.map((k) => k.id));
-		for (const j of [-1, 0, 1])
-			for (let i = 1; i < hausParameter(saat).felder - 1; i++) {
-				const id = kantenId(`raumfachwerk:k:o:${i}:${j}`, `raumfachwerk:k:o:${i + 1}:${j}`);
-				assert.ok(ids.has(id), `seed ${saat}: upper chord missing ${id}`);
-			}
-		const teile = new Map(
-			h.traeger.kanten.map((k) => [bild(ort.get(k.a) as Vec3, ort.get(k.b) as Vec3, 1, 1), k])
-		);
-		const { statik } = mitStatik(h);
-		for (const k of h.traeger.kanten)
-			for (const [sx, sy] of [
-				[-1, 1],
-				[1, -1]
-			]) {
-				const partner = teile.get(bild(ort.get(k.a) as Vec3, ort.get(k.b) as Vec3, sx, sy));
-				assert.ok(partner, `seed ${saat}: mirror partner missing`);
-				assert.deepEqual(statik.staebe[partner.id], statik.staebe[k.id]);
-			}
-		assert.ok(statik.kennzahlen.ausnutzungMax <= 1 + 1e-9);
-	}
-});
+);
 
 test('H12: the footbridge reserve used by the generator detects a strut through its middle', () => {
 	for (const saat of [42, 7, 1234]) {

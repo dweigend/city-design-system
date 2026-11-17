@@ -123,9 +123,12 @@
 		display: grid;
 		grid-template-columns: repeat(5, minmax(0, 1fr));
 	}
+	/* Step names share the chip width; a name longer than its column breaks inside it. */
 	.stufe {
 		font-size: var(--text-s);
 		padding-bottom: var(--space-1);
+		overflow-wrap: break-word;
+		hyphens: auto;
 	}
 	.band li {
 		display: flex;
@@ -203,6 +206,9 @@
 			grid-row: auto;
 			min-height: 0;
 			align-items: center;
+		}
+		.stufe {
+			font-size: var(--text-xs);
 		}
 		.name > span {
 			flex-direction: row;

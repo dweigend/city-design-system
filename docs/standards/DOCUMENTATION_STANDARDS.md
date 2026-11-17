@@ -69,13 +69,13 @@ Translation of the library model pattern (question, visible mechanism, targeted 
 
 ## Sources and Licenses
 
-| ID     | Rule                                                                                                                                                                    | Source · Auth.                   |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| DOC-50 | Source citation: author, title, place, year, DOI or URL. "Freely readable" is not a usage license. Attribution, licenses, and original titles remain unaltered.         | 96 Reading key; NC §Profiles · N |
-| DOC-51 | Third-party reference images and originals remain local and untracked (`.gitignore`). Only original works are published.                                                | Project `.gitignore` · N         |
-| DOC-52 | Before every new dependency: license, size, benefit. The license list in 100 E4 lists MIT, ISC, BSL; `Unlicense` is missing there (KE E7). David will clarify the list. | 100 E4; KE E7 · V                |
-| DOC-53 | Only ideas and contracts are adopted from the library and earlier projects — no code and no third-party-licensed models.                                                | 100 §2.1 · V                     |
-| DOC-54 | Open data carries its attribution in the derived work. Raw data remains local.                                                                                          | 102 §Sources and Licenses · N    |
+| ID     | Rule                                                                                                                                                                                                                                             | Source · Auth.                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| DOC-50 | Source citation: author, title, place, year, DOI or URL. "Freely readable" is not a usage license. Attribution, licenses, and original titles remain unaltered.                                                                                  | 96 Reading key; NC §Profiles · N |
+| DOC-51 | Third-party reference images and originals remain local and untracked (`.gitignore`). Only original works are published.                                                                                                                         | Project `.gitignore` · N         |
+| DOC-52 | Before every new dependency: license, size, benefit. The license list in 100 E4 lists MIT, ISC, BSL; `Unlicense` is missing there (KE E7); Apache-2.0 came with `@playwright/test` (dev only). Open: [README register](README.md#decision-open). | 100 E4; KE E7 · V                |
+| DOC-53 | Only ideas and contracts are adopted from the library and earlier projects — no code and no third-party-licensed models.                                                                                                                         | 100 §2.1 · V                     |
+| DOC-54 | Open data carries its attribution in the derived work. Raw data remains local.                                                                                                                                                                   | 102 §Sources and Licenses · N    |
 
 ## Frozen Evidence
 

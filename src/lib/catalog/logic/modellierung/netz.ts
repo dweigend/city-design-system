@@ -176,6 +176,15 @@ export class Netz {
 	}
 }
 
+/** Next half-edge target on the left face of u → v: the neighbor of v that precedes u in angle order. */
+function naechsteKante(nachbarn: Map<number, { n: number; w: number }[]>, u: number, v: number) {
+	// v is an endpoint of an edge in `kanten`, so `flaechen` registered its neighbors.
+	const l = nachbarn.get(v);
+	if (!l) throw new Error(`flaechen: node ${v} has no registered neighbors`);
+	const i = l.findIndex((k) => k.n === u);
+	return l[(i - 1 + l.length) % l.length].n;
+}
+
 /** Faces of a planar graph (half-edges, face on the left). Positive area = bounded face. */
 export function flaechen(netz: Netz, kanten: number[]) {
 	const nachbarn = new Map<number, { n: number; w: number }[]>();
@@ -207,9 +216,7 @@ export function flaechen(netz: Netz, kanten: number[]) {
 				besucht.add(`${u}>${v}`);
 				ring.push(u);
 				flaeche += netz.x[u] * netz.y[v] - netz.x[v] * netz.y[u];
-				const l = nachbarn.get(v)!;
-				const i = l.findIndex((k) => k.n === u);
-				const w = l[(i - 1 + l.length) % l.length].n;
+				const w = naechsteKante(nachbarn, u, v);
 				u = v;
 				v = w;
 			}

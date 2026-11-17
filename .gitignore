@@ -1,6 +1,7 @@
 # --- Private agent skills (never publish) ---
-.claude/skills/
-.agents/skills/
+# Without trailing slash so worktree symlinks (bun run bootstrap) are ignored too.
+.claude/skills
+.agents/skills
 .claude/settings.local.json
 .claude/worktrees/
 .codex

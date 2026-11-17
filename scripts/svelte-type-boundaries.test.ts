@@ -1,74 +1,16 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import cases from './fixtures/svelte-type-boundaries/cases.json';
+import { checkTypeEdges, createTypeResolver, typeSpecifiers } from './svelte-type-boundaries';
 import {
-	checkTypeEdges,
-	collectTypeEdges,
-	createTypeResolver,
-	typeSpecifiers,
-	type GraphModule
-} from './svelte-type-boundaries';
+	cleanupFixtures,
+	config,
+	fixture,
+	repo,
+	runtimeGate
+} from './svelte-type-boundaries.fixture';
 
-const repo = resolve(import.meta.dir, '..');
-const config = createRequire(import.meta.url)('../.dependency-cruiser.cjs');
-const depcruise = resolve(repo, 'node_modules/dependency-cruiser/bin/dependency-cruiser.mjs');
-
-const fixtureRoots: string[] = [];
-
-afterEach(() => {
-	for (const root of fixtureRoots.splice(0)) {
-		rmSync(root, { recursive: true, force: true });
-	}
-});
-
-function fixture(files: Record<string, string>) {
-	const root = mkdtempSync(resolve(tmpdir(), 'city-type-boundaries-'));
-	fixtureRoots.push(root);
-	for (const [name, source] of Object.entries({
-		'src/fixture.ts': 'export {};',
-		'package.json': JSON.stringify({ type: 'module', imports: { '#lib/*': './src/lib/*' } }),
-		'tsconfig.json': JSON.stringify({
-			compilerOptions: {
-				module: 'esnext',
-				moduleResolution: 'bundler',
-				paths: { '$lib/*': ['./src/lib/*'] }
-			}
-		}),
-		'.dependency-cruiser.cjs': `module.exports = ${JSON.stringify(config)}`,
-		...files
-	})) {
-		mkdirSync(dirname(resolve(root, name)), { recursive: true });
-		writeFileSync(resolve(root, name), source);
-	}
-	const run = Bun.spawnSync(
-		[
-			process.execPath,
-			depcruise,
-			'src',
-			'--config',
-			'.dependency-cruiser.cjs',
-			'--output-type',
-			'json'
-		],
-		{ cwd: root }
-	);
-	if (![0, 1].includes(run.exitCode) || !run.stdout.length) throw new Error(run.stderr.toString());
-	const graph: { modules: GraphModule[] } = JSON.parse(run.stdout.toString());
-	const edges = collectTypeEdges(
-		graph.modules,
-		root,
-		createTypeResolver(root, config.options.enhancedResolveOptions.extensions)
-	);
-	return {
-		graph,
-		edges,
-		findings: checkTypeEdges(graph.modules, edges, config.forbidden),
-		root
-	};
-}
+afterEach(cleanupFixtures);
 
 describe('Svelte type boundary supplement', () => {
 	test('valid type import is allowed', () => {
@@ -189,8 +131,10 @@ describe('Svelte type boundary supplement', () => {
 		const from = 'src/lib/catalog/logic/View.svelte';
 		const to = resolveType(from, 'three');
 		expect(to).toBe('three');
+		// A Svelte file in a headless folder answers to both its folder and its component layer.
 		expect(checkTypeEdges([], [{ from, to, specifier: 'three' }], config.forbidden)).toEqual([
-			`headless-core: ${from} -> three`
+			`headless-core: ${from} -> three`,
+			`component-no-three: ${from} -> three`
 		]);
 		expect(resolveType('src/lib/catalog/ui/View.svelte', '$app/navigation')).toBe(
 			'$app/navigation'
@@ -258,13 +202,6 @@ describe('Svelte type boundary supplement', () => {
 	});
 });
 
-function runtimeGate(root: string) {
-	return Bun.spawnSync(
-		[process.execPath, depcruise, 'src', '--config', '.dependency-cruiser.cjs'],
-		{ cwd: root }
-	);
-}
-
 describe('Test layer precedence', () => {
 	test.each([
 		'src/lib/catalog/data/model.ts',
@@ -272,10 +209,11 @@ describe('Test layer precedence', () => {
 		'src/lib/catalog/scene/model.ts',
 		'src/routes/model.ts'
 	])('non-dev file %s cannot import a test, including types', (from) => {
-		const to = 'src/lib/catalog/data/model.test.ts';
+		// The test sits outside every runtime layer, so only the dev rule can fire.
+		const to = 'src/lib/catalog/ui/model.test.ts';
 		for (const statement of [
-			`import '$lib/catalog/data/model.test';`,
-			`import type { Model } from '$lib/catalog/data/model.test'; export type Value = Model;`
+			`import '$lib/catalog/ui/model.test';`,
+			`import type { Model } from '$lib/catalog/ui/model.test'; export type Value = Model;`
 		]) {
 			const result = fixture({ [from]: statement, [to]: 'export interface Model {}' });
 			const run = runtimeGate(result.root);

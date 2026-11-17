@@ -21,7 +21,7 @@
 		schichtLabels,
 		transparenzStufen,
 		werkbankSzenen
-	} from '../data/werkbank';
+	} from '../logic/ansicht/optionen';
 	import { werkbankSzene, type WerkbankSzene } from '../logic/ansicht/szenen';
 	import { schichten, tagAll, tagFor, quelle, type Schicht } from '../logic/ansicht/tags';
 	import { auswahlKey, type FokusArt, type Transparenz } from '../logic/ansicht/fokus';

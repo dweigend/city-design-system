@@ -24,21 +24,6 @@
 			"count": 1
 		}
 	},
-	"src/lib/catalog/logic/modellierung/netz.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 1
-		}
-	},
-	"src/lib/catalog/logic/modellierung/universal.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 2
-		}
-	},
-	"src/lib/catalog/logic/modellierung/wachstum.ts": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 2
-		}
-	},
 	"src/lib/catalog/logic/parametrik/eckraster/bestand.ts": {
 		"@typescript-eslint/no-non-null-assertion": {
 			"count": 13

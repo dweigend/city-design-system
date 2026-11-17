@@ -57,25 +57,31 @@ Mapping of library concepts:
 | `route`       |   ✘    |    ✘    |    ✘    |      ✔      |    ✔    |        ✔         |             ✘              |    ✘    |
 | `dev`         |   ✔    |    ✔    |    ✔    |      ✘      |    ✘    |        ✘         |             ✘              |    ✔    |
 
-As rules for dependency-cruiser. The "Tool" column names the rule in `.dependency-cruiser.cjs` (as of 2026-11-12); "—" means: not yet configured, rule name is a proposal.
+As rules for dependency-cruiser. The "Tool" column names the rule in `.dependency-cruiser.cjs`; "—" means: not configured. Every rule has a negative fixture in `scripts/fixtures/boundary-rules/cases.json`.
 
-**Current tool coverage (2026-11-14).** The Svelte adapter of dependency-cruiser analyzes compiled JavaScript; pure type edges are still missing there. `check:boundaries:types` therefore augments the complete dependency-cruiser graph via Svelte and TypeScript AST with explicit type imports and type re-exports from instance and module scripts (`import type`, inline `type`, `export type`, inline type re-exports). Relative paths, TS path aliases, and package imports are resolved; unresolvable type edges fail the check. The augmented graph checks the existing rules `headless-core`, `data-no-logic`, and `no-cycles` for additional violations, including cycles across TS and multiple Svelte type edges. Findings already present in the original graph stay with the existing gate and its unchanged baseline. `check:boundaries` runs both gates even if one fails; `review` incorporates this combined gate. Executable positive and negative fixtures: `scripts/svelte-type-boundaries.test.ts`. The extension does not implement any of the matrix rules marked "—" below; type expressions like `import('./modul').Typ` are not part of this extension.
+**Current tool coverage (2026-11-14).** The Svelte adapter of dependency-cruiser analyzes compiled JavaScript; pure type edges are still missing there. `check:boundaries:types` therefore augments the complete dependency-cruiser graph via Svelte and TypeScript AST with explicit type imports and type re-exports from instance and module scripts (`import type`, inline `type`, `export type`, inline type re-exports). Relative paths, TS path aliases, and package imports are resolved; unresolvable type edges fail the check. The augmented graph checks the existing rules `headless-core`, `data-no-logic`, and `no-cycles` for additional violations, including cycles across TS and multiple Svelte type edges. Findings already present in the original graph stay with the existing gate and its unchanged baseline. `check:boundaries` runs both gates even if one fails; `review` incorporates this combined gate. Executable positive and negative fixtures: `scripts/svelte-type-boundaries.test.ts`. The supplement evaluates the same rules, including `pathNot` and transitive `reachable` rules, and rejects any other rule shape. Type expressions like `import('./modul').Typ` are not part of this extension.
 
 | ID   | from               | forbidden to                                          | Tool                                          | Source · Auth.                                             |
 | ---- | ------------------ | ----------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
-| A-20 | `data`             | `logic`, `scene`, `component`, `route`                | `data-no-logic`, `headless-core`; `route` —   | Transfer Matrix (three layers) · N\*                       |
-| A-21 | `data`             | `svelte`, `$app`, `bits-ui`, `lucide-svelte`, `three` | `headless-core` for `svelte`, `three`; rest — | PR 1; AR §Strict separation · D                            |
-| A-22 | `logic`            | `scene`, `component`, `route`                         | `headless-core`; `route` —                    | AR §Ten architectural principles (Dependency rule); AG · D |
-| A-23 | `logic`            | `svelte`, `$app`, `bits-ui`, `lucide-svelte`, `three` | `headless-core` for `svelte`, `three`; rest — | PR 1; AR §Strict separation · D                            |
-| A-24 | `scene`            | `component`, `route`, `svelte`, `$app`, `bits-ui`     | — (`scene-no-ui`)                             | AR §Layers · N\*                                           |
-| A-25 | `component`        | `three`                                               | — (`component-no-three`)                      | AR §Layers (renderers in visualization layer) · N\*        |
-| A-26 | `route`            | `data`, `logic`, `scene`, `bits-ui`, `three`          | — (`route-thin`)                              | AG; UI §Flat first · D\*                                   |
+| A-20 | `data`             | `logic`, `scene`, `component`, `route`                | `data-no-logic`, `headless-core` (transitive) | Transfer Matrix (three layers) · N\*                       |
+| A-21 | `data`             | `svelte`, `$app`, `bits-ui`, `lucide-svelte`, `three` | `headless-core` (transitive)                  | PR 1; AR §Strict separation · D                            |
+| A-22 | `logic`            | `scene`, `component`, `route`                         | `headless-core` (transitive)                  | AR §Ten architectural principles (Dependency rule); AG · D |
+| A-23 | `logic`            | `svelte`, `$app`, `bits-ui`, `lucide-svelte`, `three` | `headless-core` (transitive)                  | PR 1; AR §Strict separation · D                            |
+| A-24 | `scene`            | `component`, `route`, `svelte`, `$app`, `bits-ui`     | `scene-no-ui` (direct edges only, see below)  | AR §Layers · N\*                                           |
+| A-25 | `component`        | `three`                                               | `component-no-three` (direct)                 | AR §Layers (renderers in visualization layer) · N\*        |
+| A-26 | `route`            | `data`, `logic`, `scene`, `bits-ui`, `three`          | `route-thin` (direct)                         | AG; UI §Flat first · D\*                                   |
 | A-27 | all except `dev`   | `dev`                                                 | `no-runtime-to-dev`                           | ST §Import rules · D                                       |
 | A-28 | `src/lib/catalog/` | cycles                                                | `no-cycles` plus Svelte type-edge extension   | AR §Dependency rules · N                                   |
 
+Limits of the tool coverage:
+
+- A-24 checks direct edges only. The transitive check finds one chain: `scene/themeBinding.ts` imports the `theme/` barrel, which reaches Svelte and Bits UI components. Its fix belongs to the library refactor plan (theme coupling); the transitive rule is switched on afterwards.
+- A-25 and A-26 can only be direct: components reach `three` legitimately through `scene/`, routes reach every layer through their page component.
+- Plain `.ts` helpers inside component folders belong to no layer. Public entry points (A-30) and autonomous families (A-40) are not enforced until the module map (A-41) is decided.
+
 Not verifiable via the import graph and must be evidenced separately:
 
-- Browser globals (`document`, `window`, `localStorage`) in `data/` and `logic/`: forbidden (A-05). Verify via lint or Bun run without DOM.
+- Browser globals (`document`, `window`, `localStorage`, …) in `data/` and `logic/`: forbidden (A-05). ESLint `no-restricted-globals` enforces this for headless `.ts` files, tests excluded; `globalThis.window` is not caught.
 - No CSS in routes: [DS-42](DESIGN_STANDARDS.md#css-boundaries).
 - Routes as one-liners: A `+page.svelte` imports exactly one page component and renders it. `+layout.svelte` loads `app.css`.
 
@@ -146,8 +152,10 @@ Measured on 2026-11-12 via import search in `src/lib/catalog/`, excluding `logic
 
 Not measured: transitive imports, deep imports in detail, `dispose` paths. Cycle search is incomplete: type imports from `.svelte` files are missing from the graph.
 
+**Addendum 2026-11-17.** The dependency-cruiser baseline is empty. `data/werkbank.ts` is gone: its option tables live with the view types they are keyed by in `logic/ansicht/optionen.ts`. `raster/geometry.ts` triangulates with its own earcut port (`raster/earcut.ts`, identical vertex and triangle order to the former three.js call, proven by `earcut.test.ts`). The `universal` cycle is resolved by `universal/quality.ts`. `data/city3d.ts` now holds types only; the three.js scene and `window` access left it. The table above stays as the measurement of 2026-11-12.
+
 **Addendum 2026-11-14 on A-25.** A read-only search for module specifiers `three` and `three/…` across all `*.svelte` and `*.svelte.ts` files under `src/lib/catalog/` yields zero hits. The direct component import from the historical table is therefore no longer present in the current codebase. This is not a check of transitive imports or full architectural sign-off; the measurement of 2026-11-12 remains readable unchanged.
 
 ## Verification
 
-Check per implementation slice: headless access via public entry points, import direction, explicit contracts, one owner per state; for UI additionally: only defined actions, no domain rule in the component (AR §Layers · N). The tool covers A-20 through A-23 and A-28 only partially; A-24 through A-27 are unchecked. A-28 is extended with explicit Svelte type edges; coverage and remaining limits are in [Import Matrix](#import-matrix). New violations are findings. The baseline is reduced separately and never broadened wholesale.
+Check per implementation slice: headless access via public entry points, import direction, explicit contracts, one owner per state; for UI additionally: only defined actions, no domain rule in the component (AR §Layers · N). The tool covers A-20 through A-28; coverage limits are in [Import Matrix](#import-matrix). New violations are findings. The baseline is reduced separately and never broadened wholesale.

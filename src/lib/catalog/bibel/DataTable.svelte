@@ -9,7 +9,7 @@
 		label,
 		mono = []
 	}: {
-		columns: { key: keyof R & string; label: string }[];
+		columns: { key: Extract<keyof R, string>; label: string }[];
 		rows: R[];
 		label: string;
 		mono?: string[];

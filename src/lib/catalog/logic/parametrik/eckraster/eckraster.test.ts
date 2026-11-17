@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, test, expect } from 'bun:test';
 import { createPatch, projection, cellAt } from './topology';
 import {
@@ -37,6 +36,14 @@ describe('L10 topology and intent', () => {
 			expect(cellAt(p, c.center)).toBe(c.id);
 		}
 		expect(projection(p, 'slots', 2).cells[0].id).toBe(`${p.faces[0].id}@2`);
+	});
+	test('projection shares geometry with the patch, as documented', () => {
+		const dual = projection(p, 'dual').cells[0];
+		expect(dual.polygon).toBe(p.cells[0].polygon);
+		expect(dual.center).toBe(p.cells[0].center);
+		const points = new Set(p.vertices.map((v) => v.point));
+		const slot = projection(p, 'slots').cells[0];
+		expect(slot.polygon.every((q) => points.has(q))).toBe(true);
 	});
 	test('all eight bit positions and fixed free cap', () => {
 		const f = p.faces.find((f) => !f.vertices.includes(protectedVertex(p)))!;
@@ -105,7 +112,7 @@ test('dual cells cover the primal domain and neighbor-filled follows shared side
 	for (const s of all) {
 		const [faceId, h] = s.id.split('@'),
 			f = p.faces.find((f) => f.id === faceId)!;
-		expect(s.context.neighborFilled).toEqual(
+		expect<readonly boolean[]>(s.context.neighborFilled).toEqual(
 			f.neighbors.map((id) => id !== null && all.find((x) => x.id === `${id}@${h}`)!.mask !== 0)
 		);
 	}
