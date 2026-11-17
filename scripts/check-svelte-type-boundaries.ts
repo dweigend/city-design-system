@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+	assertSupportedRules,
 	checkTypeEdges,
 	collectTypeEdges,
 	createTypeResolver,
@@ -10,15 +11,8 @@ import {
 
 const root = process.cwd();
 const config = createRequire(import.meta.url)(resolve(root, '.dependency-cruiser.cjs'));
-// The supplement intentionally supports exactly today's rule shapes; never silently ignore new options.
-for (const rule of config.forbidden) {
-	if (
-		Object.keys(rule.from).some((key) => key !== 'path') ||
-		Object.keys(rule.to).some((key) => !['path', 'circular'].includes(key))
-	) {
-		throw new Error(`Unsupported boundary rule shape: ${rule.name}`);
-	}
-}
+// The supplement evaluates exactly the rule shapes it knows; it never silently ignores new options.
+assertSupportedRules(config.forbidden);
 const result = Bun.spawnSync(
 	[
 		process.execPath,

@@ -4,20 +4,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { parse } from 'svelte/compiler';
 import ts from 'typescript';
 
-export interface GraphModule {
-	source: string;
-	dependencies: { resolved: string }[];
-}
-export interface TypeEdge {
-	from: string;
-	to: string;
-	specifier: string;
-}
-interface Rule {
-	name: string;
-	from: { path?: string };
-	to: { path?: string; circular?: boolean };
-}
+import type { GraphModule, TypeEdge } from './svelte-type-boundaries.rules';
 
 /** Read explicit type dependencies from both Svelte script contexts, never markup/comments. */
 export function typeSpecifiers(source: string): string[] {
@@ -25,9 +12,11 @@ export function typeSpecifiers(source: string): string[] {
 	const specifiers = new Set<string>();
 	for (const script of [ast.instance, ast.module]) {
 		if (!script) continue;
+		// Svelte parses scripts with acorn, whose nodes carry source offsets the estree type omits.
+		const { start, end } = script.content as typeof script.content & { start: number; end: number };
 		const file = ts.createSourceFile(
 			'component.ts',
-			source.slice(script.content.start, script.content.end),
+			source.slice(start, end),
 			ts.ScriptTarget.Latest,
 			true,
 			ts.ScriptKind.TS
@@ -136,44 +125,8 @@ export function collectTypeEdges(
 		);
 }
 
-function pathBack(
-	graph: Map<string, Set<string>>,
-	start: string,
-	end: string
-): string[] | undefined {
-	const queue = [[start]];
-	const visited = new Set<string>();
-	for (const path of queue) {
-		const last = path[path.length - 1];
-		if (last === end) return path;
-		if (visited.has(last)) continue;
-		visited.add(last);
-		for (const next of graph.get(last) ?? []) queue.push([...path, next]);
-	}
-}
-
-/** Check only added edges; old findings stay owned by the existing baseline gate. */
-export function checkTypeEdges(modules: GraphModule[], edges: TypeEdge[], rules: Rule[]): string[] {
-	const graph = new Map(
-		modules.map((m) => [m.source, new Set(m.dependencies.map((d) => d.resolved))])
-	);
-	const added = edges.filter((e) => !graph.get(e.from)?.has(e.to));
-	for (const edge of edges) {
-		if (!graph.has(edge.from)) graph.set(edge.from, new Set());
-		graph.get(edge.from)?.add(edge.to);
-	}
-	const findings = new Set<string>();
-	for (const edge of added) {
-		for (const rule of rules) {
-			if (rule.from.path && !new RegExp(rule.from.path).test(edge.from)) continue;
-			if (rule.to.path && !new RegExp(rule.to.path).test(edge.to)) continue;
-			if (rule.to.circular) {
-				const back = pathBack(graph, edge.to, edge.from);
-				if (back) findings.add(`${rule.name}: ${[edge.from, ...back].join(' -> ')}`);
-			} else {
-				findings.add(`${rule.name}: ${edge.from} -> ${edge.to}`);
-			}
-		}
-	}
-	return [...findings];
-}
+export {
+	assertSupportedRules,
+	checkTypeEdges,
+	type GraphModule
+} from './svelte-type-boundaries.rules';
