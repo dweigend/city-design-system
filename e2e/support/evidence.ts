@@ -23,6 +23,7 @@ export type EvidenceEntry = {
 	fonts: string;
 	gitHead: string;
 	gitDiffStatSha256: string;
+	gitStatus: string;
 	capturedAt: string;
 };
 
@@ -44,7 +45,9 @@ function git(...args: string[]): string {
 export function worktreeState() {
 	return {
 		gitHead: git('rev-parse', 'HEAD').trim(),
-		gitDiffStatSha256: createHash('sha256').update(git('diff', '--stat')).digest('hex')
+		gitDiffStatSha256: createHash('sha256').update(git('diff', '--stat')).digest('hex'),
+		/** Uncommitted and untracked changes at capture time; empty means a clean candidate. */
+		gitStatus: git('status', '--porcelain').trim()
 	};
 }
 
