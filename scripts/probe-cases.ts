@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { editJson, type Sandbox } from './probe-sandbox';
 
 // Gate probe cases: each injects one violation into a sandbox and names the
@@ -17,6 +19,7 @@ export type Probe = {
 
 const CRUISE_BASELINE = '.dependency-cruiser-baseline.json';
 const SUPPRESSIONS = 'eslint-suppressions.json';
+const WERKBANK = 'src/lib/catalog/logic/ansicht/werkbank.ts';
 const LOGIC_IMPORT =
 	"import { STOREY } from '../logic/ansicht/tags';\nexport const probe = STOREY;\n";
 
@@ -32,6 +35,17 @@ function bumpSuppression(box: Sandbox): void {
 		value[file][rule].count += 1;
 		return value;
 	});
+}
+
+/** Swaps the accepted assertion in `WERKBANK` for a new one; the suppressed count stays 1. */
+function swapSuppressedFinding(box: Sandbox): void {
+	const source = readFileSync(join(box.root, WERKBANK), 'utf8');
+	const swapped = source
+		.replace('=== strom)!.name', '=== strom)?.name')
+		.replace('\t\tkey,\n', '\t\tkey: key!,\n');
+	if (!swapped.includes('?.name') || !swapped.includes('key: key!'))
+		throw new Error(`${WERKBANK}: the accepted assertion is gone; update this probe`);
+	box.write(WERKBANK, swapped);
 }
 
 /** All gate probes, in verify order. */
@@ -130,6 +144,12 @@ export const probes: Probe[] = [
 		gate: ['bun', 'run', 'check:baselines'],
 		inject: bumpSuppression,
 		expect: /eslint-suppressions\.json growth: .+: (\d+) -> \d+/
+	},
+	{
+		name: 'baselines: eslint suppression swapped for a new finding',
+		gate: ['bun', 'run', 'check:baselines'],
+		inject: swapSuppressedFinding,
+		expect: /eslint-suppressions\.json growth: .+werkbank\.ts .+: new finding `key!` \(0 -> 1\)/
 	},
 	{
 		name: 'baselines: eslint suppression for missing file',
