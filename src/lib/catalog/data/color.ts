@@ -5,7 +5,7 @@
  * One naming system: every ramp (gray included) has five steps with the same names
  * (flowSteps), between background (--paper) and ink (--ink).
  * Focus (at most three flows, three layers, modes) has belonged to Color since the restructure of 2026-11-12.
- * Sources: docs/research/90-city-game-ideen.md §3.3, 85-referenzauswahl.md (120, 130),
+ * Sources: docs/research/04-city-rules.md §3.3,
  * blender/README.md (target style A, "architectural drawing").
  */
 import {

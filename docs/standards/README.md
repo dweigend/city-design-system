@@ -4,7 +4,7 @@ As of 2026-11-14. **Draft.** Independent review: [Review](herleitung/review.md),
 
 The goal remains the design bible as a SvelteKit website. It generates a city procedurally. Therefore it requires binding rules for mathematics, code, architecture, and documentation. The foundation is the standards of the sister repository `city-library`. They apply here in full in their domain intent, translated to the catalog, bible pages, labs, demos, and scenes. The library is read-only and never modified.
 
-Derivation: [Transfer](herleitung/transfer.md) (transfer matrix) and [103 · Ist-Analyse](../research/103-library-prinzipien-refactoring.md).
+Derivation: [Transfer](herleitung/transfer.md) (transfer matrix) and the current-state analysis (103) in the private design lab.
 
 ## Precedence
 
@@ -42,23 +42,23 @@ If two rules contradict each other, the conflict is reported and not resolved si
 
 **Sources** (library paths refer to the sister repository; `§` names the start of a heading or a named list item in the source):
 
-| Abbrev.                                               | Source                                                                                                 |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| CS                                                    | `city-library/docs/CODING_STANDARDS.md`                                                                |
-| AR                                                    | `city-library/docs/ARCHITECTURE.md`                                                                    |
-| NC                                                    | `city-library/docs/NAMING_CONVENTIONS.md`                                                              |
-| UI                                                    | `city-library/docs/DESIGN.md`                                                                          |
-| PR                                                    | `city-library/docs/evolution/principles.md`; only "The principles" and "Consequences" are D            |
-| ST                                                    | `city-library/docs/evolution/structure.md`; accepted on 2026-11-11, not yet migrated there             |
-| RF                                                    | `city-library/docs/evolution/refactoring.md`; predominantly proposal                                   |
-| GW                                                    | `city-library/docs/development/git-workflow.md`                                                        |
-| PL                                                    | `city-library/PLAN.md`; example-first and reviews                                                      |
-| LA                                                    | `city-library/AGENTS.md`                                                                               |
-| SK                                                    | local library skills under `city-library/.agents/skills/` including `references/`                      |
-| AG                                                    | [AGENTS.md](../../AGENTS.md) of this repo (project rule)                                               |
-| 95, 96, 99 ff.; standards derivation in `herleitung/` | `docs/research/NN-…md`                                                                                 |
-| KE, K3, GE, SG                                        | measurement reports `docs/research/labor/` in `kern-exp`, `kern-exp3d`, `gewachsen-exp`, `stadtgenese` |
-| Code                                                  | location in this repo                                                                                  |
+| Abbrev.                                       | Source                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| CS                                            | `city-library/docs/CODING_STANDARDS.md`                                                     |
+| AR                                            | `city-library/docs/ARCHITECTURE.md`                                                         |
+| NC                                            | `city-library/docs/NAMING_CONVENTIONS.md`                                                   |
+| UI                                            | `city-library/docs/DESIGN.md`                                                               |
+| PR                                            | `city-library/docs/evolution/principles.md`; only "The principles" and "Consequences" are D |
+| ST                                            | `city-library/docs/evolution/structure.md`; accepted on 2026-11-11, not yet migrated there  |
+| RF                                            | `city-library/docs/evolution/refactoring.md`; predominantly proposal                        |
+| GW                                            | `city-library/docs/development/git-workflow.md`                                             |
+| PL                                            | `city-library/PLAN.md`; example-first and reviews                                           |
+| LA                                            | `city-library/AGENTS.md`                                                                    |
+| SK                                            | local library skills under `city-library/.agents/skills/` including `references/`           |
+| AG                                            | [AGENTS.md](../../AGENTS.md) of this repo (project rule)                                    |
+| 95, 96; standards derivation in `herleitung/` | `docs/research/01-universal-grid.md`, `docs/research/02-geometry-principles.md`             |
+| KE, K3, GE, SG                                | measurement reports in the private design lab                                               |
+| Code                                          | location in this repo                                                                       |
 
 ## Roles and Review
 
@@ -74,18 +74,20 @@ Set by David (2026-11-12):
 
 Authoritative is `package.json`. Status of the command table: 2026-11-12; scripts, baseline, and negative probes are described in [Tooling Baseline](herleitung/tooling-baseline.md). The statement "none of the commands executed" referred to the initial draft of the standards. The [re-verification of 2026-11-12](herleitung/review.md#re-verification) documents executed checks and their results at that time. That does not constitute a current runtime sign-off.
 
-| Purpose                       | Command                                                           | Role                                                                             |
-| ----------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Behavior tests                | `bun test <path>` or `bun run test`                               | Gate                                                                             |
-| Svelte and type check         | `bun run check`                                                   | Gate; checks types and Svelte only                                               |
-| Format and lint               | `bun run lint`                                                    | Gate; includes the "no CSS in routes" rule                                       |
-| Build                         | `bun run build`                                                   | Gate                                                                             |
-| Import boundaries             | `bun run check:boundaries`                                        | Both gates: original graph with baseline and AST extension for Svelte type edges |
-| Svelte type edges separately  | `bun run check:boundaries:types`                                  | Additional violations against existing rules; no new baseline                    |
-| Health, dead code, duplicates | `bun run analyze:health`, `analyze:unused`, `analyze:duplication` | report only; not proof of deletion                                               |
-| Everything sequentially       | `bun run review`                                                  | Reports and gates                                                                |
-| Format Markdown               | `bunx prettier --write <files>`                                   | —                                                                                |
-| Private skills untracked      | `git ls-files .agents/skills .claude/skills`                      | Output must be empty                                                             |
+| Purpose                       | Command                                                           | Role                                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Behavior tests                | `bun test <path>` or `bun run test`                               | Gate                                                                                                          |
+| Svelte and type check         | `bun run check`                                                   | Gate; checks types and Svelte only                                                                            |
+| Format and lint               | `bun run lint`                                                    | Gate; includes the "no CSS in routes" rule                                                                    |
+| Build                         | `bun run build`                                                   | Gate                                                                                                          |
+| Import boundaries             | `bun run check:boundaries`                                        | Both gates: original graph with baseline and AST extension for Svelte type edges                              |
+| Svelte type edges separately  | `bun run check:boundaries:types`                                  | Additional violations against existing rules; no new baseline                                                 |
+| Fallow gate                   | `bun run check:fallow`                                            | Gate; dead code, complexity, duplication against `.fallow-baselines/`; only new findings fail                 |
+| Health, dead code, duplicates | `bun run analyze:health`, `analyze:unused`, `analyze:duplication` | report only, full stock; not proof of deletion                                                                |
+| Private skills untracked      | `bun run check:skills`                                            | Gate; fails if `git ls-files .agents/skills .claude/skills` prints anything                                   |
+| Quality gate                  | `bun run verify`                                                  | All gates: lint, check, test, boundaries, Fallow, private skills, build. Every step runs; any failure exits 1 |
+| Reports plus gate             | `bun run review`                                                  | Fallow full-stock reports, then `verify`                                                                      |
+| Format Markdown               | `bunx prettier --write <files>`                                   | —                                                                                                             |
 
 Only executed checks are reported. A tool only counts as a gate for a rule once a negative probe demonstrably fails. Which rows of the import matrix the tool covers today is documented in [ARCHITECTURE](ARCHITECTURE.md#import-matrix).
 
@@ -104,7 +106,7 @@ Only executed checks are reported. A tool only counts as a gate for a rule once 
 - Two different axis mappings to three.js ([PE-3](PROCEDURAL_PRINCIPLES.md#2-units-and-coordinate-systems)).
 - Error form: exception or result type ([PT-10](PROCEDURAL_PRINCIPLES.md#4-topology-and-embedding)).
 - License list for dependencies; `Unlicense` is missing in 100 E4 ([DOC-52](DOCUMENTATION_STANDARDS.md#sources-and-licenses)).
-- Research numbers 104–106 are duplicated due to parallel threads; the standards derivation therefore lives outside the number sequence under `herleitung/` ([DOC-31](DOCUMENTATION_STANDARDS.md#research)).
+- Research notes live in the private design lab; the standards derivation lives under `herleitung/` ([DOC-31](DOCUMENTATION_STANDARDS.md#research)).
 - The complementary AST check captures explicit Svelte type edges; remaining tool limits are listed in [ARCHITECTURE](ARCHITECTURE.md#import-matrix).
 - The ESLint suppression baseline counts per file only and includes 5 assertions from the unfinished `logic/modellierung/` ([Tooling Baseline](herleitung/tooling-baseline.md)).
 

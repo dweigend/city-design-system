@@ -8,7 +8,7 @@
  * Pipeline: seed → parameters → stock → lattice → capsule and clear spaces → load cases →
  * removal → carrier plan with sized members. A change of occupancy does not change the form:
  * `nachrechnen` checks the built members under the new load. Demo loads, no code check
- * (docs/research/122, appendix C).
+ * (docs/research/06-structural-demo.md, appendix C).
  */
 import type { FlowId } from '../../data/focus';
 import { hashUnit } from '../parzelle/zufall';

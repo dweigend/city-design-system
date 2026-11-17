@@ -21,7 +21,7 @@ export type Lastfall = {
 	eigengewichtG?: Vec3;
 };
 export type Werkstoff = { eModulPa: number; grenzspannungPa: number; dichteKgM3: number };
-/** Demo values of structural steel S235; no code check (docs/research/122, appendix C). */
+/** Demo values of structural steel S235; no code check (docs/research/06-structural-demo.md, appendix C). */
 export const STAHL: Werkstoff = { eModulPa: 210e9, grenzspannungPa: 235e6, dichteKgM3: 7850 };
 export const ERDBESCHLEUNIGUNG_M_S2 = 9.81;
 /** Explicit failures. None of them yields a seemingly valid structure. */

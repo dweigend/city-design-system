@@ -1,5 +1,5 @@
 /**
- * Additional contract for L10 (Townscaper principle, docs/research/80-townscaper.md §9–10).
+ * Additional contract for L10 (Townscaper principle, docs/research/03-form-language.md §9–10).
  * Types only. Systems (eckraster/): topology, occupancy, masks, context.
  * Forms (formen/eck.ts): corner modules (geometry).
  *

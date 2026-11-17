@@ -1,6 +1,6 @@
 # Standards Transfer from the City Library
 
-As of 2026-11-12. Preparation, not an implementation or independent sign-off. The goal remains a design bible with executable rules. The library remains unchanged. This report supplements [103](../../research/103-library-prinzipien-refactoring.md); it does not replace its coordinated interface plan.
+As of 2026-11-12. Preparation, not an implementation or independent sign-off. The goal remains a design bible with executable rules. The library remains unchanged. This report supplements report 103 of the private design lab; it does not replace its coordinated interface plan.
 
 ## Authority and Sources
 
@@ -55,7 +55,7 @@ Related individual rules appear together in one row. "Adapt" denotes a concrete 
 | Canonical verbs `create`/`add`/`delete`/`take`/`read`/`set`/`request`/`cancel`/`release`/`wait`/`activate`/`select`/`sample`/`advance`/`run`/`setup`/`reset`/`move`/`rotate`; computed results as nouns | D for verb families / N; otherwise N | Adopt for corresponding new operations without introducing unrelated queue/signal APIs. Native platform names remain preserved.                                                                                          |
 | Distinguish `Options`/`Parameters`/`Spec`/`State`/`Snapshot`/`Observation`/`Result`/`Data`                                                                                                              | N / N                                | Adopt only when roles genuinely differ; no automatic type proliferation, avoid `I-`/`Impl`/`Manager` suffixes.                                                                                                           |
 | Name profiles by behavior; define seed, draw sequence, and format migration                                                                                                                             | N / N                                | Adopt. No `standard`/`compatible` disguising open semantics.                                                                                                                                                             |
-| Preserve sources, licenses, raw fixtures, frozen evidence, and hashes faithfully                                                                                                                        | N / N, L                             | Adopt. Current explanation stands on its own; never rewrite historical evidence for linguistic cleanup.                                                                                                                  |
+| Preserve sources, licenses, raw fixtures, frozen evidence, and hashes faithfully                                                                                                                        | N / N, L                             | Adopt. Current explanation stands on its own; never rewrite historical evidence for linguistic cleanup (one exception: the English translation, [DOC-60](../DOCUMENTATION_STANDARDS.md)).                                |
 | Minimal UI, fixed token system, scientific palette separated                                                                                                                                            | N / U                                | Adopt. Accessible names, error messages, and attribution stay visible. No one-off colors or local UI themes.                                                                                                             |
 | Svelte/Tailwind/shadcn; Bits for special cases                                                                                                                                                          | N / U                                | Adapt. Here Svelte 5 + Bits UI for interactions; no second component library, no Tailwind requirement.                                                                                                                   |
 | External component-owned CSS files, no Svelte CSS whatsoever                                                                                                                                            | N / U                                | Adapt. Here CSS in catalog components per AGENTS; routes neither `style` block nor inline CSS. No global override escape-hatch file.                                                                                     |
@@ -80,7 +80,7 @@ Do not adopt as binding: proposals from P on daily ticks, cohorts, `tuning` cent
 
 ## Conflicts and Decisions
 
-1. **Language open:** keep German for Bible and research; prefer English code names going forward. David must decide whether this separation holds or everything becomes English. No retroactive translation of frozen evidence.
+1. **Language open:** keep German for Bible and research; prefer English code names going forward. David must decide whether this separation holds or everything becomes English. No retroactive translation of frozen evidence. **Resolved 2026-11-16 and 2026-11-17:** all text, documentation, reviews, and instruction files are English; identifiers, filenames, folders, and routes remain unchanged ([NC-01](../NAMING_CONVENTIONS.md#language)).
 2. **UI decided by project rule:** Bits UI and catalog CSS take precedence over library shadcn/Tailwind and external-CSS mandate. No additional UI installation.
 3. **Global CSS:** global-only already applies. The numerical 100-line limit is a newly proposed clarification and needs a decision.
 4. **Toolchain:** keep ESLint/Prettier. Consider Biome only after separate utility and Svelte-compatibility proof.
@@ -89,7 +89,7 @@ Do not adopt as binding: proposals from P on daily ticks, cohorts, `tuning` cent
 
 ## Design-Specific Binding Additions (V for Adoption)
 
-Basis: [95](../../research/95-universalraster.md), [96](../../research/96-geometrie-paper.md), [100](../../research/100-zielkriterien-kern.md) and their current result limitations. Architecture ideas or individual measurements are not an overall sign-off.
+Basis: [95 (01-universal-grid)](../../research/01-universal-grid.md), [96 (02-geometry-principles)](../../research/02-geometry-principles.md), 100 (private lab) and their current result limitations. Architecture ideas or individual measurements are not an overall sign-off.
 
 - **Reproducibility:** define algorithm version, seed normalization, PRNG, stream splitting, traversal/tie order, and draw consumption. Identical inputs and declared runtime environment produce identical data. Continuation stores RNG state, not merely seed. Rendering, color selection, and observation consume no domain draws. Claim cross-platform bit-exactness only after proof.
 - **Units and coordinates:** distinguish world, carrier/UV, grid, renderer, and screen space. Document origin, handedness, axes, vertical direction, angular unit, length unit, and transforms. Camera never changes world coordinates. Known points and rotations as contract probes.
@@ -167,4 +167,4 @@ Every code step: relevant `bun test` files, `bun run check`, affected ESLint/Pre
 
 ## Evidence of This Task
 
-Only this file written; library and parallel areas only read or left untouched. Registry metadata and Fallow documentation checked; nothing installed. Formatted with `bunx prettier --write docs/research/107-standards-transfer.md`. No application tests or browser checks executed for this pure research task; no commit.
+Only this file written; library and parallel areas only read or left untouched. Registry metadata and Fallow documentation checked; nothing installed. Formatted with prettier. No application tests or browser checks executed for this pure research task; no commit.

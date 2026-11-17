@@ -1,7 +1,7 @@
 /**
  * Texts and sequences of the interactive city building blocks: building on existing stock, sponge
  * city, component passport. Content only, no geometry (that lives in logic/stadt/). Durations in
- * seconds. Sources: data/stadt.ts (rules), docs/research/90-city-game-ideen.md §1.1–1.3,
+ * seconds. Sources: data/stadt.ts (rules), docs/research/04-city-rules.md §1.1–1.3,
  * Refunc research (offcut stays inventory, type and instance, fixed structural frame with changing
  * envelope, connection types with matching parts, existing object with a new function).
  */

@@ -2,7 +2,7 @@
  * Material per construction type (Material page, section on detail levels). Facts and copy only:
  * which component of a structural family is made of which material family. No separate material
  * system is created; every recipe comes from data/materialSeite.ts.
- * Concept: docs/research/119-formensprache-traegerfamilien.md §3 "Materialstufen".
+ * Concept: docs/research/03-form-language.md §3 "Materialstufen".
  */
 import type { TraegerFamilieText } from './traeger';
 import type { FamilieId, Phase, StufePhaseId } from './materialSeite';

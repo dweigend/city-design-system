@@ -1,5 +1,5 @@
 /**
- * Texts for the page Forms · Structures (concept: docs/research/119-formensprache-traegerfamilien.md).
+ * Texts for the page Forms · Structures (concept: docs/research/03-form-language.md).
  * Facts and wording only, no rules. Headings are statements; the deep dive sits one
  * level deeper (expandable under the caption).
  */

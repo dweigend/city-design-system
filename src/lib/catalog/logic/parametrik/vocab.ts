@@ -1,6 +1,6 @@
 /**
  * Contract between grids (procedural systems) and forms (form vocabulary).
- * Specification: docs/research/70-vokabular.md. Types only, no logic.
+ * Specification: docs/research/03-form-language.md. Types only, no logic.
  *
  * Grids return cells. Forms fill a cell (footprint) with primitives.
  * Both are pure, deterministic functions of parameters and seed.

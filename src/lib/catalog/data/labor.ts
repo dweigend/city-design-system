@@ -1,7 +1,7 @@
 /**
  * Lab: full simulation with presets, "How the city computes" (layers and twelve
  * principles, each with its experiment) and two standalone operator studies.
- * Sources: docs/research/114-struktur-inhaltsplan.md §5, duplication analysis Ü16, Ü34, Ü35.
+ * Source: docs/research/05-bible-structure.md §5.
  */
 export type Abschnitt = { id: string; titel: string; lead?: string };
 

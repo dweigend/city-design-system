@@ -251,7 +251,7 @@ export const designs: Design[] = [
 		description:
 			'Spread "The Metabolic City Builder · 04 / Modules & Infrastructure": grotesque headline, body text, sketches, and on the right a module tower with labels (Pod Type-B, Module v.08, Terramorphic Roof, Place Module) and a narrow toolbar (Build, Erase, Tube, Destroy) with coordinates.',
 		keep: [
-			'Editorial layout as a model for the design book itself',
+			'Editorial layout as a model for the design bible itself',
 			'Labels with hairlines and module names in capitals',
 			'Status lines ("System Status: Active", "Grid Aligned")',
 			'Vertical toolbar with four core tools'

@@ -12,7 +12,7 @@ import { erschliessung } from './erschliessung';
 import { vegetation } from './vegetation';
 import { bestand } from './bestand';
 
-/** All form families (docs/research/70-vokabular.md §2), in group order. */
+/** All form families (docs/research/03-form-language.md §2), in group order. */
 export const formFamilies: FormFamily[] = [
 	...klotz,
 	...zylinder,

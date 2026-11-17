@@ -1,7 +1,7 @@
 /**
  * Grid chapter: copy for the three sections. One simulation (nine grids, five layers),
  * then two explainer loops (quad subdivision, corner leeway). Corner modules belong to Forms.
- * Sources: docs/research/95-universalraster.md, 114-struktur-inhaltsplan.md §3.
+ * Sources: docs/research/01-universal-grid.md, 05-bible-structure.md §3.
  */
 
 export type Abschnitt = { id: string; titel: string; lead: string };

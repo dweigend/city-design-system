@@ -1,8 +1,8 @@
 /**
  * City chapter (home page): copy for the four sections. Building on existing stock comes first,
  * then elevated walkways, the sponge city and the component passport. Demo content lives in
- * stadtBausteine.ts and stadtHochwege.ts. Sources: docs/research/90-city-game-ideen.md §1.1–1.3,
- * docs/research/114-struktur-inhaltsplan.md §5.
+ * stadtBausteine.ts and stadtHochwege.ts. Sources: docs/research/04-city-rules.md §1.1–1.3,
+ * docs/research/05-bible-structure.md §5.
  */
 
 export type Abschnitt = { id: string; titel: string; lead: string };

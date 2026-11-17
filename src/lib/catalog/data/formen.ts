@@ -1,8 +1,8 @@
 /**
  * Chapter Forms: section texts following the simulation "Tower on the cell" and its loops
  * (their texts live in data/turm.ts). Designer's draft; the editors write the final version.
- * Sources: docs/research/70-vokabular.md, 85-referenzauswahl.md, 90-city-game-ideen.md §1.4,
- * 114-struktur-inhaltsplan.md §2. Context rules and building zones came from data/icons.ts.
+ * Sources: docs/research/03-form-language.md, §1.4 of 04-city-rules.md,
+ * 05-bible-structure.md §2. Context rules and building zones came from data/icons.ts.
  */
 
 export type Abschnitt = { id: string; titel: string; lead: string };

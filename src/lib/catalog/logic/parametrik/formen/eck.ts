@@ -1,5 +1,5 @@
 /**
- * Corner modules for L10 (docs/research/80-townscaper.md §3, §9–10; contract ../eck.ts).
+ * Corner modules for L10 (docs/research/03-form-language.md §3, §9–10; contract ../eck.ts).
  *
  * Octant model: corner i of the slot owns the quarter of the quad at corners[i]
  * (unit square u, v ∈ [0, ½] and so on). Lower bits fill the lower half

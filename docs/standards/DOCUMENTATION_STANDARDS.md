@@ -11,20 +11,21 @@ Owner for: single source of truth, status labeling, bible pages, labs, research,
 | DOC-01 | **One fact, one owner.** All other places link. Repetition is a defect, even when accurate.                                                                                                        | AR §Ten architectural principles (Single source of truth) · N |
 | DOC-02 | Every normative statement carries its status: **available** (delivered and verified), **target** (accepted, not delivered), or **proposal**. A folder, plan, or standard is not proof of delivery. | AR §Binding domain layout; PL · N                             |
 | DOC-03 | Origin and evidence are separated: source (someone states it), measurement (we measured it), author decision (David decided). Research does not become a contract by itself.                       | LA; PL; Transfer · N                                          |
-| DOC-04 | An author decision comes only from David, stands separate from measurement findings, and carries a date.                                                                                           | 100 §Ergebnis der Experimente; KE E4 · V                      |
-| DOC-05 | Dates are absolute: "As of 2026-11-12," never "today" or "recently."                                                                                                                               | Current practice in `docs/research/` · V                      |
+| DOC-04 | An author decision comes only from David, stands separate from measurement findings, and carries a date.                                                                                           | 100 §Results of the Experiments; KE E4 · V                    |
+| DOC-05 | Dates are absolute: "As of 2026-11-12," never "today" or "recently."                                                                                                                               | Current practice in the research notes · V                    |
 
 Owner by document type:
 
-| Type             | Location                               | Owns                                                                                      |
-| ---------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Standards        | `docs/standards/`, `docs/development/` | Rules                                                                                     |
-| AGENTS.md        | Repo root                              | Short duties and pointers                                                                 |
-| README.md        | Repo root                              | Orientation, getting started, "Built with"                                                |
-| Bible            | `src/lib/catalog/data/`, pages         | Design rules for readers                                                                  |
-| Contract comment | on the public function                 | Units, mutation, copy semantics, errors ([C-23](CODING_STANDARDS.md#types-and-contracts)) |
-| Tests            | `*.test.ts`                            | executable expectations                                                                   |
-| Research         | `docs/research/`                       | Evidence, measurements, history                                                           |
+| Type             | Location                                                           | Owns                                                                                      |
+| ---------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Standards        | `docs/standards/`, `docs/development/`                             | Rules                                                                                     |
+| AGENTS.md        | Repo root                                                          | Short duties and pointers                                                                 |
+| README.md        | Repo root                                                          | Orientation, getting started, "Built with"                                                |
+| Bible            | `src/lib/catalog/data/`, pages                                     | Design rules for readers                                                                  |
+| Contract comment | on the public function                                             | Units, mutation, copy semantics, errors ([C-23](CODING_STANDARDS.md#types-and-contracts)) |
+| Tests            | `*.test.ts`                                                        | executable expectations                                                                   |
+| Research         | `docs/research/` (private lab; only condensed outcomes are public) | Evidence, measurements, history                                                           |
+| Private lab repo | private sibling repo `city-design-lab`                             | Ideas, side quests, raw assets, prototypes; never linked from here                        |
 
 ## Bible Pages
 
@@ -41,10 +42,10 @@ Translation of the library model pattern (question, visible mechanism, targeted 
 
 ## Labs
 
-| ID     | Rule                                                                                                                                 | Source · Auth.        |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
-| DOC-20 | A lab (`labor/L*.svelte`, route `/labor`) is an interactive part of the product. It uses public contracts and follows all standards. | Transfer addendum · V |
-| DOC-21 | Visual evidence of a lab lives under `docs/research/labor/<topic>/`. A README there states seed, camera, and status.                 | Transfer addendum · V |
+| ID     | Rule                                                                                                                                    | Source · Auth.        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| DOC-20 | A lab (`labor/L*.svelte`, route `/labor`) is an interactive part of the product. It uses public contracts and follows all standards.    | Transfer addendum · V |
+| DOC-21 | Visual evidence of a lab lives in the private lab repo under `research/labor/<topic>/`. A README there states seed, camera, and status. | Transfer addendum · V |
 
 ## Research
 
@@ -57,14 +58,14 @@ Translation of the library model pattern (question, visible mechanism, targeted 
 
 ## Experiments, Tables, Plates
 
-| ID     | Rule                                                                                                                                                                                                                                                     | Source · Auth.                                |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| DOC-40 | Throwaway code lives outside the product tree: temporary directory or throwaway worktree. Scope, end, and deletion time are set upfront. No new dependency in the repo.                                                                                  | 100 §5 · V                                    |
-| DOC-41 | Only the following enter the repo: one condensed metric table, at most one image plate (up to 1600 px), and the verdict accepted or rejected, under `docs/research/labor/<experiment>/`. No experiment code, raw data, intermediate images, or profiles. | 100 §5 · V                                    |
-| DOC-42 | The report includes the measurement contract per [PB-3](PROCEDURAL_PRINCIPLES.md#6-budgets-and-measurement-duty).                                                                                                                                        | KE Measurement contract · V                   |
-| DOC-43 | **Plates** hold seed, model time, camera, and scale constant. Every deviation is labeled. No cherry-picking the best seed. The caption states what the plate shows and what it does not prove.                                                           | PR §Rules learned in review; Transfer; KE · V |
-| DOC-44 | Blocked evidence remains open and is marked blocked in the report.                                                                                                                                                                                       | KE E3 · V                                     |
-| DOC-45 | Tables name unit and statistic in the column header. Numbers from different test domains are never summed together.                                                                                                                                      | KE Measurement contract · V                   |
+| ID     | Rule                                                                                                                                                                                                                                                    | Source · Auth.                                |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| DOC-40 | Throwaway code lives outside the product tree: temporary directory or throwaway worktree. Scope, end, and deletion time are set upfront. No new dependency in the repo.                                                                                 | 100 §5 · V                                    |
+| DOC-41 | Only the following enter the lab repo: one condensed metric table, at most one image plate (up to 1600 px), and the verdict accepted or rejected, under `research/labor/<experiment>/`. No experiment code, raw data, intermediate images, or profiles. | 100 §5 · V                                    |
+| DOC-42 | The report includes the measurement contract per [PB-3](PROCEDURAL_PRINCIPLES.md#6-budgets-and-measurement-duty).                                                                                                                                       | KE Measurement contract · V                   |
+| DOC-43 | **Plates** hold seed, model time, camera, and scale constant. Every deviation is labeled. No cherry-picking the best seed. The caption states what the plate shows and what it does not prove.                                                          | PR §Rules learned in review; Transfer; KE · V |
+| DOC-44 | Blocked evidence remains open and is marked blocked in the report.                                                                                                                                                                                      | KE E3 · V                                     |
+| DOC-45 | Tables name unit and statistic in the column header. Numbers from different test domains are never summed together.                                                                                                                                     | KE Measurement contract · V                   |
 
 ## Sources and Licenses
 
@@ -74,16 +75,16 @@ Translation of the library model pattern (question, visible mechanism, targeted 
 | DOC-51 | Third-party reference images and originals remain local and untracked (`.gitignore`). Only original works are published.                                                | Project `.gitignore` · N         |
 | DOC-52 | Before every new dependency: license, size, benefit. The license list in 100 E4 lists MIT, ISC, BSL; `Unlicense` is missing there (KE E7). David will clarify the list. | 100 E4; KE E7 · V                |
 | DOC-53 | Only ideas and contracts are adopted from the library and earlier projects — no code and no third-party-licensed models.                                                | 100 §2.1 · V                     |
-| DOC-54 | Open data carries its attribution in the derived work. Raw data remains local.                                                                                          | 102 §Quellen und Lizenzen · N    |
+| DOC-54 | Open data carries its attribution in the derived work. Raw data remains local.                                                                                          | 102 §Sources and Licenses · N    |
 
 ## Frozen Evidence
 
-| ID     | Rule                                                                                                                                   | Source · Auth.                                       |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| DOC-60 | Historical findings, measurement reports, frozen hashes, and accepted expectations are never rewritten, not even for language cleanup. | NC §Profiles; PL · N                                 |
-| DOC-61 | A correction is a dated addendum in the same report. The old finding remains readable.                                                 | Current practice (100 §Ergebnis der Experimente) · V |
-| DOC-62 | If a path changes, references are updated, not contents.                                                                               | NC §Repository structure · N                         |
-| DOC-63 | Current explanation stands on its own. Standards and Bible define behavior themselves and link to evidence.                            | NC §Profiles · N                                     |
+| ID     | Rule                                                                                                                                                                                                                                                                                                                                     | Source · Auth.                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| DOC-60 | Historical findings, measurement reports, frozen hashes, and accepted expectations are never rewritten, not even for language cleanup. Exception, David 2026-11-17: one translation into English with unified terminology; measurements, hashes, technical meaning, accepted expectations and original source quotations stay unchanged. | NC §Profiles; PL · N                                   |
+| DOC-61 | A correction is a dated addendum in the same report. The old finding remains readable.                                                                                                                                                                                                                                                   | Current practice (100 §Results of the Experiments) · V |
+| DOC-62 | If a path changes, references are updated, not contents.                                                                                                                                                                                                                                                                                 | NC §Repository structure · N                           |
+| DOC-63 | Current explanation stands on its own. Standards and Bible define behavior themselves and link to evidence.                                                                                                                                                                                                                              | NC §Profiles · N                                       |
 
 ## Format
 

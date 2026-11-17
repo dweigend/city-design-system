@@ -1,37 +1,39 @@
-## Project Configuration
+# City Design System
 
-- **Language**: TypeScript
-- **Package Manager**: bun
-- **Add-ons**: none
+Design bible for a city-builder game as a SvelteKit website. TypeScript, bun. All texts, comments and docs are English.
 
----
+## Rules
 
-- Goal: Build a design bible for a city-builder game as a SvelteKit website.
-- Always build UI components with Bits UI: https://www.bits-ui.com/docs/llms
-- Always build 3D components with three.js.
-- Place all elements modularly in the catalog under `src/lib/catalog/`; separate UI and logic cleanly.
-- Keep `src/app.css` short: global styles only. Write custom styles directly into the respective Bits UI components.
-- No CSS in pages (`src/routes/**`): no `<style>` block, no inline styles. CSS exists only in `src/app.css` and in the catalog components.
-- UI: sleek and minimalist.
-- All texts, comments and documentation are in English.
+- Read [docs/standards/README.md](docs/standards/README.md) and the standards it links before changing code. They are binding; each rule has one owner file.
+- UI components: Bits UI (https://www.bits-ui.com/docs/llms). 3D: three.js. UI is sleek and minimalist.
+- Everything lives modularly in `src/lib/catalog/`. `data/` and `logic/` are headless: no Svelte, three.js or DOM. `scene/` projects data with three.js. UI changes domain state only through public actions.
+- Independent modules: import other modules through their public entry point only; keep helpers private; one owner per domain fact ([ARCHITECTURE](docs/standards/ARCHITECTURE.md)).
+- Short functions: one job per function, one responsibility per file; about 20 and 200 lines trigger review ([CODING_STANDARDS](docs/standards/CODING_STANDARDS.md)).
+- One vocabulary: names follow [NAMING_CONVENTIONS](docs/standards/NAMING_CONVENTIONS.md) and [GLOSSARY](docs/standards/GLOSSARY.md). Document every public function (C-23).
+- CSS only in `src/app.css` (globals only, short) and in catalog components. None in `src/routes/**`: no `<style>`, no inline styles.
+- Procedural code: seed, draw sequence, units (meters, radians), tolerances and invariants follow [PROCEDURAL_PRINCIPLES](docs/standards/PROCEDURAL_PRINCIPLES.md). No performance or quality claim without measurement.
+- Research, ideas and side experiments happen in the private repo `city-design-lab` (sibling folder); `main` only gets accepted results. Code experiments that need the catalog stay on branch `experimente`.
+- A new public contract phase starts with 4–5 accepted, executable examples. Refactors preserve behavior, identity, ordering and RNG continuation.
 
-## Standards
+## Verification
 
-- Binding: Read [docs/standards/README.md](docs/standards/README.md) and the domain standards linked there before making changes. They translate the `city-library` standards to this design bible.
-- Architecture: `data/` and `logic/` remain headless (no Svelte, no three.js, no DOM). `scene/` projects data with three.js. UI changes domain state only via public actions.
-- Procedural: Seed, draw sequence, units (meters, radians), tolerances, and invariants follow [PROCEDURAL_PRINCIPLES.md](docs/standards/PROCEDURAL_PRINCIPLES.md). No performance or quality claim without measurement.
-- New public contract phases start with 4–5 accepted, executable examples. Refactors preserve behavior, identity, ordering, and RNG continuation.
-- Verification: affected `bun test` files, `bun run check`, `bun run lint`, `bun run build`. Browser-facing changes must also be tested interactively in a real browser and signed off independently using current screenshots. Only report executed checks.
-- Implementer and reviewer are always different agents.
-- Git delivery follows [docs/development/git-workflow.md](docs/development/git-workflow.md). Other agents' work and frozen evidence must be preserved.
+- Run `bun run verify` before reporting any code change as done. It must exit 0: lint, check, test, boundaries, Fallow, private skills, build.
+- Fallow and boundary gates block new findings. Never extend a baseline (`.fallow-baselines/`, `.dependency-cruiser-baseline.json`, `eslint-suppressions.json`) to pass; fix the code.
+- Single test file: `bun test <path>`.
+- Browser-facing changes: operate them in a real browser; an independent agent signs off on current screenshots.
+- Report only executed checks. Implementer and reviewer are always different agents.
+
+## Delivery
+
+- Git follows [docs/development/git-workflow.md](docs/development/git-workflow.md). Do not commit or push without authorization. Preserve other agents' work and frozen evidence.
 - `.agents/skills/` and `.claude/skills/` must never be tracked.
+- Local skills: `refactor-catalog` (headless logic), `refactor-scene` (demos, scenes), `git-delivery`, `model-routing`, `frontend-design`.
 
 ## Code Review Rules
 
 - Report only real issues: bugs, regressions, security, accessibility. No pure style nitpicks.
-- Report if files under `.claude/skills/` or `.agents/skills/` are tracked.
-- Report if UI components are not built with Bits UI or 3D components are not built with three.js.
-- Report if UI and logic are mixed in the catalog (`src/lib/catalog/`).
-- Report if `src/app.css` contains more than global styles.
-- Report if pages under `src/routes/` contain their own CSS.
-- Review changes to `.github/workflows/`, build configuration, or secrets especially strictly.
+- Report tracked files under `.claude/skills/` or `.agents/skills/`.
+- Report UI not built with Bits UI, 3D not built with three.js, and UI mixed with logic in `src/lib/catalog/`.
+- Report non-global styles in `src/app.css` and any CSS in `src/routes/`.
+- Report extended baselines without a documented owner decision.
+- Review changes to `.github/workflows/`, build configuration or secrets especially strictly.

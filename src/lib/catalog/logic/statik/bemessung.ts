@@ -1,7 +1,7 @@
 /**
  * Member sizing: the smallest catalog section that carries a tension and a compression force.
  * Tension takes a solid rod; any compression needs a tube and is checked against Euler buckling.
- * Demo checks with declared safety, not a code verification (docs/research/122, appendix C).
+ * Demo checks with declared safety, not a code verification (docs/research/06-structural-demo.md, appendix C).
  */
 import type { Werkstoff } from './modell';
 

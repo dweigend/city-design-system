@@ -1,7 +1,7 @@
 /**
  * Path network of the world as occupancy (group `weg`): nodes are build cells on one level,
  * edges are the mesh edges (level) or a flight to the neighboring cell one level higher.
- * Rules after docs/research/90-city-game-ideen.md §1.3:
+ * Rules after docs/research/04-city-rules.md §1.3:
  * 1. Height classes: paths preferably lie on the gallery (level 2, 8 m, above the alleys) and
  *    on the rooftop walkway (level 4, 16 m, above the roofs). Other levels are expensive and serve
  *    as transitions; a height jump of one floor is a stair flight.

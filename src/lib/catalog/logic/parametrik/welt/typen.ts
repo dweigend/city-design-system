@@ -1,7 +1,7 @@
 /**
  * L11 · World, round 3 "District on existing stock": the world is an occupancy on a
  * quad patch from one of nine grid systems; all volumes, frames and paths come from the corner modules of L10.
- * Types and defaults only. Scale: docs/research/85-referenzauswahl.md.
+ * Types and defaults only. Scale: docs/research/03-form-language.md.
  */
 import type { Primitive, Vec3 } from '../types';
 import type { Point2 } from '../vocab';

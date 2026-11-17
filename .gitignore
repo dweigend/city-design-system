@@ -50,15 +50,10 @@ static/references/1[0-9]-*
 # Original adaptations use neutral filenames: uebertragung-<nr>-<thema>.webp.
 !static/designs/uebertragung-*.webp
 !static/references/uebertragung-*.webp
-docs/research/gpt-image/**/*.png
-docs/research/gpt-image/**/*.jpg
-docs/research/video/**/*.png
-docs/research/video/**/*.jpg
-docs/research/video/**/*.mp4
-docs/research/video/**/*.webm
-
-# Local open reference raw data
-/docs/research/referenz-gewachsen/roh/
 
 # Local original images, process images, and unpublished references
 /_lokal/
+
+# Raw OSM extracts stay local; only the derived catalog data is published
+/data/osm/altstaedte/*.json
+!/data/osm/altstaedte/messwerte.json

@@ -1,6 +1,6 @@
 /**
- * Universal principles of the design bible. Synthesis of docs/research/96-geometrie-paper.md §8
- * (U1–U10, paper abbreviations P/Q/E/D/G) and the rules from L11 (docs/research/labor/welt/README.md).
+ * Universal principles of the design bible. Synthesis of docs/research/02-geometry-principles.md §8
+ * (U1–U10, paper abbreviations P/Q/E/D/G) and the rules from L11 (docs/research/02-geometry-principles.md).
  * Every rule holds on every grid; code locations are relative to src/lib/catalog/.
  */
 export type Glyph =

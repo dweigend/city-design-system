@@ -1,8 +1,7 @@
 /**
  * Growth chapter (replaces Modeling): texts, teaching examples and demo settings.
  * Paths first, then blocks; fields; splitting; parcels without streets; WFC; method matrix.
- * Sources: docs/research/102-gewachsene-staedte.md, 114-struktur-inhaltsplan.md §4,
- * 115-split-grammar-parzellen.md, 116-storylines-argon.md §6.
+ * Sources: docs/research/04-city-rules.md, 05-bible-structure.md §4.
  */
 import type { Phase } from './raster';
 import type { BlockSpec, DriverSpec } from './parzelle';
