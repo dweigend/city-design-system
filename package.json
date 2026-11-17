@@ -24,6 +24,10 @@
 		"check:boundaries": "bun scripts/check-boundaries.ts",
 		"check:boundaries:runtime": "depcruise src --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-baseline.json",
 		"check:boundaries:types": "bun scripts/check-svelte-type-boundaries.ts",
+		"check:fallow": "bun scripts/check-fallow.ts",
+		"check:fallow:baseline": "bun scripts/check-fallow.ts --save",
+		"check:skills": "bun scripts/check-private-skills.ts",
+		"verify": "bun scripts/verify.ts",
 		"review": "bun scripts/review.ts"
 	},
 	"devDependencies": {

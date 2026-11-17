@@ -38,3 +38,23 @@ The addition reads explicit type imports and type re-exports from both Svelte sc
 `*.test.ts` belongs to `dev` regardless of folder and is therefore not subject to `data-no-logic` or `headless-core`. The earlier statement "data→logic also affects tests" no longer applies. `no-runtime-to-dev` blocks imports from non-dev files into `*.test.ts` and `benchmark.ts`, including type imports. The executable positive and negative probes live in `scripts/svelte-type-boundaries.test.ts`; the decision is in the [decision register](../README.md#decided), the contract in [A-27](../ARCHITECTURE.md#import-matrix).
 
 The boundary baseline loses exclusively the two outdated `data-no-logic` findings from `data/color.test.ts`. All other entries remain unchanged; no entries are added.
+
+## Addendum 2026-11-17 · Quality Gate and Fallow Baselines
+
+`bun run verify` (`scripts/verify.ts`) runs `lint`, `check`, `test`, `check:boundaries`, `check:fallow`, `check:skills`, and `build` in sequence. Every step runs even after a failure; any failure exits 1. `review` now prints the three full-stock Fallow reports and then calls `verify`. Rule: [C-64](../CODING_STANDARDS.md#verification).
+
+`check:fallow` (`scripts/check-fallow.ts`) compares three analyses against committed baselines in `.fallow-baselines/`, using Fallow's own `--baseline` feature:
+
+| Analysis    | Flags                                              | Stock in baseline on 2026-11-17 |
+| ----------- | -------------------------------------------------- | ------------------------------- |
+| `dead-code` | `--baseline`                                       | 185 findings at error severity  |
+| `health`    | `--complexity --baseline --baseline-mode identity` | 247 complexity findings         |
+| `dupes`     | `--baseline --fail-on-issues`                      | all current clone groups        |
+
+Measured: without baselines `dead-code` and `health` exit 1 and `dupes` exits 0; with baselines all three exit 0. Negative probes, each added as a temporary file under `src/lib/catalog/logic/` and deleted afterwards: an unreachable file made `dead-code` exit 1 (1 finding); a function with cyclomatic complexity 71 made `health` exit 1 (1 finding); a copy of `logic/leitstil/kontext.ts` made `dupes` exit 1 (one 154-line clone group).
+
+Health uses identity mode, so a new hotspot that replaces a removed one in the same file is reported. Identity is file path plus function name: renaming or moving a baselined function reports it as new. Unnamed functions and equal names within one file share one identity and can mask each other.
+
+`bun run check:fallow:baseline` rewrites the baselines. It is used only to record a reduction or a documented decision (C-64). The baselines are excluded from Prettier so that they stay byte-identical to Fallow's output.
+
+Not gated by this change: function length and ESLint `complexity`/`max-lines` remain warnings; the `src/app.css` line limit ([DS-41](../DESIGN_STANDARDS.md#css-boundaries)) has no check.

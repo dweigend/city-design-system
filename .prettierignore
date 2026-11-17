@@ -9,4 +9,9 @@ bun.lockb
 /static/
 
 # Generated measurements: preserve unchanged (manifests, checksums)
-/docs/research/referenz-gewachsen/*.json
+
+# Generated Fallow baselines: preserve as written by `bun run check:fallow:baseline`
+/.fallow-baselines/
+
+# Frozen OSM extracts: preserve unchanged
+/data/osm/
