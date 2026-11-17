@@ -93,6 +93,8 @@ class Heap {
  * Lays the path network into the occupancy. The graph is the patch: nodes are build cells per level,
  * edges the mesh edges. Costs count in mean edge lengths, not in grid steps.
  * `schleifen`: desired number of additional connections.
+ * Mutates `b.samples` in place: writes every path cell as group `weg`. `r` is read only.
+ * Deterministic; draws no random numbers.
  */
 export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	const { samples } = b,

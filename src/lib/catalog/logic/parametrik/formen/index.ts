@@ -43,4 +43,5 @@ export const formGroups: { id: FormGroup; name: string }[] = [
 	{ id: 'bestand', name: 'Existing stock' }
 ];
 
+/** Canonical family with this ID (same reference as in `formFamilies`), or `undefined`. */
 export const formFamily = (id: string) => formFamilies.find((f) => f.id === id);

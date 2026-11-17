@@ -60,6 +60,11 @@ export const gate = (p: Patch) =>
 	courtRing(p).reduce((a, b) =>
 		Math.abs(angle(p, a) - 235) <= Math.abs(angle(p, b) - 235) ? a : b
 	);
+/**
+ * Named test scene: the initial occupancy of `p` (protected perimeter block) plus the scene's
+ * intents, replayed through `apply` in a fixed order. `phase` (1 … 4, default 4) only affects
+ * the frame tower. Returns a new occupancy; `p` is not mutated. Draws no random numbers.
+ */
 export function fixture(p: Patch, name: FixtureName, phase = 4): Occupancy {
 	let o = initialOccupancy(p);
 	const set = (id: string, h: number, group: FunktionId = 'wohnen') => {

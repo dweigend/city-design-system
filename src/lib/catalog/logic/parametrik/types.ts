@@ -119,6 +119,7 @@ export type Primitive = Base &
 		/** Tensile surface through four corners (hypar), sag pulls the center down. */
 		| { kind: 'membrane'; corners: [Vec3, Vec3, Vec3, Vec3]; sag?: number }
 	);
+/** Box primitive; `position` is the min corner, `size` the extent, both in meters. Detached. */
 export function box(
 	id: string,
 	position: Vec3,
@@ -129,10 +130,16 @@ export function box(
 ): Primitive {
 	return { id, kind: 'box', position, size, token, role, material };
 }
+/** Clamps `n` to [min, max]; NaN and ±Infinity fall back to `min`. Assumes min ≤ max. */
 export const clamp = (n: number, min: number, max: number) =>
 	Math.max(min, Math.min(max, Number.isFinite(n) ? n : min));
+/** Clamped (see `clamp`) and rounded to the nearest integer (halves round up): slider → count. */
 export const count = (n: number, min: number, max: number) => Math.round(clamp(n, min, max));
-/** Moves any primitive vertically; used by explosion (rank × gap) and stacking. */
+/**
+ * Moves any primitive vertically by `dz` meters; used by explosion (rank × gap) and stacking.
+ * Returns a shallow copy; moved coordinates are new arrays, untouched ones (prism polygon) are
+ * shared. The input is never mutated. `dz = 0` returns the input itself (same reference).
+ */
 export function shiftZ(p: Primitive, dz: number): Primitive {
 	if (!dz) return p;
 	const up = ([x, y, z]: Vec3): Vec3 => [x, y, z + dz];
@@ -156,6 +163,9 @@ export function shiftZ(p: Primitive, dz: number): Primitive {
 			return { ...p, position: up(p.position) };
 	}
 }
-/** Explosion: each primitive rises by its rank × gap (40-grammatik §3.4). */
+/**
+ * Explosion: each primitive rises by max(0, rank) × gap meters (40-grammatik §3.4). New array
+ * in input order; primitives without a lift keep their reference. Inputs are not mutated.
+ */
 export const explode = (primitives: Primitive[], gap: number) =>
 	primitives.map((p) => shiftZ(p, gap * Math.max(0, p.rank ?? 0)));

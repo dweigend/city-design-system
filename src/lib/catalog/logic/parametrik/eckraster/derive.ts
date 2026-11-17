@@ -276,6 +276,7 @@ export function slots(p: Patch, o: Occupancy, farben?: Farben): Slot[] {
 		});
 	});
 }
+/** Short English explanation of which corner-module rule a slot follows (for labels). Pure. */
 export const reason = (s: Slot) =>
 	s.context.role === 'bestand' || (s.mask && (s.context.bestand ?? 0) === s.mask)
 		? 'Protected existing stock'

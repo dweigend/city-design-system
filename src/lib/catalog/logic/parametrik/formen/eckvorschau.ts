@@ -93,6 +93,10 @@ const KOPF_SEED = (() => {
 	return 1;
 })();
 
+/**
+ * Single slot of a mask case on a fixed quad (`shape`), level 0, open above. The crown cases
+ * (`kopf`, `voll`) use a searched seed so the vignette always shows a crown; others use `seed`.
+ */
 export function caseSlot(c: MaskCase, shape: SlotShape, seed = 7, token?: ColorToken): Slot {
 	return {
 		id: `${c.key}-${shape}`,
@@ -149,6 +153,7 @@ function cage(slot: Slot): Primitive[] {
 	return out;
 }
 
+/** Cage lines of `caseSlot` followed by its corner module, as a new array. */
 export function caseScene(
 	c: MaskCase,
 	shape: SlotShape,
@@ -159,7 +164,9 @@ export function caseScene(
 	return [...cage(slot), ...eckModul(slot)];
 }
 
+/** Display label: case title and mask bits. */
 export const caseLabel = (c: MaskCase) => `${c.title} · ${maskBits(c.mask)}`;
+/** Display explanation: mask class name and bits 7…0 (top | bottom). */
 export const caseReason = (c: MaskCase) =>
 	`${maskName(c.mask)} · bits 7…0 ${maskBits(c.mask)} (top | bottom)`;
 
@@ -252,6 +259,10 @@ export const patches: Patch[] = [
 	}
 ];
 
+/**
+ * Slots of a mini cluster: an (n+1)² vertex lattice with spacing `step` meters, jittered by
+ * `random(seed)` (two draws per vertex, x-major; ±0.4 m on the edge, ±1.6 m inside).
+ */
 export function patchSlots(p: Patch, seed = 7, step = 9): Slot[] {
 	const rng = random(seed);
 	const v: Point2[][] = [];
