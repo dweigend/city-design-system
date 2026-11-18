@@ -26,20 +26,20 @@ function teeth(s: Solids, section: CrossSection, body: Manifold, f: RoofFrame, c
 	const near = Math.min(...along) - 1,
 		far = Math.max(...along) + 1;
 	const peak = f.eave + step * f.slope;
-	// A single continuous profile includes every vertical riser. Overshoot the clipping prism at its ends.
+	// Continue the first and last slopes past the footprint. A profile corner exactly
+	// at a rounded wall's support point can leave a zero-length edge after clipping.
 	const end = f.low + f.width;
+	const bottom = -1 - f.slope;
 	const profile: Vec2[] = [
-		[f.low - 1, -1],
-		[end + 1, -1],
-		[end + 1, peak],
-		[end, peak]
+		[f.low - 1, bottom],
+		[end + 1, bottom],
+		[end + 1, peak + f.slope]
 	];
-	for (let i = count - 1; i >= 0; i--) {
+	for (let i = count - 1; i > 0; i--) {
 		const u = f.low + i * step;
-		profile.push([u, f.eave]);
-		if (i > 0) profile.push([u, peak]);
+		profile.push([u, f.eave], [u, peak]);
 	}
-	profile.push([f.low - 1, f.eave]);
+	profile.push([f.low - 1, f.eave - f.slope]);
 	const shape = s.keep(new s.kernel.CrossSection(profile));
 	const sweep = s.keep(shape.extrude(far - near));
 	const cutter = s.keep(

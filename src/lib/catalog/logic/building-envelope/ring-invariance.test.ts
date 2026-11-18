@@ -71,12 +71,15 @@ function faces(mesh: EnvelopeMesh) {
 		})
 		.sort();
 }
-function checkSurvey(ring: Vec2[], survey: Vec2[], roof: Roof, direction = 0) {
-	const build = (polygon: Vec2[]) =>
-		buildEnvelope(kernel, [{ polygon, roof, params: { pitch: 0.31, direction } }]);
-	assert.deepEqual(roundFootprint(survey, 0), roundFootprint(ring, 0));
-	assert.deepEqual(offsetFootprint(kernel, survey, -0.125), offsetFootprint(kernel, ring, -0.125));
-	assert.deepEqual(faces(build(survey)), faces(build(ring)));
+function surveyGeometry(polygon: Vec2[], roof: Roof, direction = 0, radius = 0) {
+	const mesh = buildEnvelope(kernel, [
+		{ polygon, roof, params: { pitch: 0.31, direction }, storeys: [{ radius }] }
+	]);
+	return {
+		rounded: roundFootprint(polygon, radius),
+		inset: offsetFootprint(kernel, polygon, -0.125, radius),
+		faces: faces(mesh)
+	};
 }
 test('an exact closing-wall station cannot choose which near-coincident corner survives', () => {
 	const d = 2 ** -24;
@@ -87,7 +90,10 @@ test('an exact closing-wall station cannot choose which near-coincident corner s
 		[4, 4],
 		[4 - d, 4 + d]
 	];
-	checkSurvey(ring, [...ring, [(4 - d) / 4, (4 + d) / 4]], 'hip');
+	assert.deepEqual(
+		surveyGeometry([...ring, [(4 - d) / 4, (4 + d) / 4]], 'hip'),
+		surveyGeometry(ring, 'hip')
+	);
 });
 function generatedRing(seed: number): Vec2[] {
 	const directions: Vec2[] = [
@@ -122,12 +128,17 @@ function subdivide(ring: Vec2[], seed: number) {
 		return points;
 	});
 }
-test('seeded simple rings retain their oriented triangles after resampling every wall cyclically', () => {
-	for (let seed = 0; seed < 96; seed++) {
+for (let seed = 0; seed < 96; seed++) {
+	const roof = roofs[seed % roofs.length];
+	test(roof + ' meshes preserve rounded and sharp walls after resampling, seed ' + seed, () => {
 		const ring = generatedRing(seed),
 			survey = subdivide(ring, seed);
 		const rotated = rotate(survey, Math.floor(hash(seed, 0, 4) * survey.length));
-		for (const variant of [rotated, [...rotated].reverse()])
-			checkSurvey(ring, variant, roofs[seed % 4], hash(seed, 1, 5) * Math.PI);
-	}
-});
+		const direction = hash(seed, 1, 5) * Math.PI;
+		for (const radius of [0, 0.1 + hash(seed, 1, 6)]) {
+			const expected = surveyGeometry(ring, roof, direction, radius);
+			for (const variant of [rotated, [...rotated].reverse()])
+				assert.deepEqual(surveyGeometry(variant, roof, direction, radius), expected);
+		}
+	});
+}

@@ -217,3 +217,52 @@ test('hips on both sides of local extraction precision export closed positive-ar
 		}
 	}
 });
+
+test('rounded 4 m sawtooth exports a closed shell with three teeth', () => {
+	const polygon: Vec2[] = [
+		[0, 0],
+		[4, 0],
+		[4, 4],
+		[0, 4]
+	];
+	const mesh = buildEnvelope(kernel, [
+		{
+			polygon,
+			roof: 'sawtooth',
+			params: { direction: 0.13, pitch: 0.55 },
+			storeys: [{ radius: 0.25 }]
+		}
+	]);
+	assert.ok(closed(mesh));
+	positiveAreas(mesh);
+	assert.equal(mesh.shellIndexEnds.length, 1);
+	const across = (x: number, y: number) => -x * Math.sin(0.13) + y * Math.cos(0.13);
+	const span = roundFootprint(polygon, 0.25).map(([x, y]) => across(x, y));
+	const low = Math.min(...span),
+		step = (Math.max(...span) - low) / 3;
+	const peak = 3 + step * Math.tan(0.55);
+	const ridges: number[] = [];
+	for (let i = 0; i < mesh.positions.length; i += 3) {
+		if (Math.abs(mesh.positions[i + 2] - peak) < 1e-5)
+			ridges.push(across(mesh.positions[i], mesh.positions[i + 1]));
+	}
+	for (const tooth of [1, 2, 3])
+		assert.ok(ridges.some((r) => Math.abs(r - (low + tooth * step)) < 1e-5));
+});
+
+for (const roof of roofs) {
+	test('rounded seeded footprints export closed ' + roof + ' roofs', () => {
+		for (let seed = 0; seed < 32; seed++) {
+			const polygon = star(seed),
+				direction = hash(seed, 2, 0) * Math.PI,
+				pitch = 0.25 + 0.6 * hash(seed, 3, 0);
+			const radius = 0.1 + hash(seed, 4, 0);
+			const mesh = buildEnvelope(kernel, [
+				{ polygon, roof, params: { direction, pitch }, storeys: [{ radius }] }
+			]);
+			assert.equal(mesh.shellIndexEnds.length, 1, 'seed ' + seed);
+			assert.ok(closed(mesh));
+			positiveAreas(mesh);
+		}
+	});
+}
