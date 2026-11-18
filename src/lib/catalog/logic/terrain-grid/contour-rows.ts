@@ -1,30 +1,27 @@
-/**
- * Rows that follow the contour lines. The grid starts as a regular lattice in the valley
- * frame; then every row slides along its column until it lies on one height. On slopes a
- * row is a contour line, on flat ground a gentle virtual tilt keeps the lattice regular.
- *
- * The result is a shift per lattice vertex along its column, in meters. Every step has a
- * bounded reach in columns, so an intervention in the terrain moves rows only nearby and a
- * local recomputation equals the full one (PD-10).
- */
+/** Contour streets bound evenly divided blocks in the valley frame. */
 import { groundLevel, valleyPoint, type Terrain } from '../terrain';
 
 /** Edge length of one cell in the valley frame, meters: the module of the measure chain. */
 export const MODULE = 5;
+/** Number of cells between consecutive street bands. */
+export const BLOCK = { rows: 8, columns: 12 } as const;
 /** Distance between height samples along a column, meters. */
 const SAMPLE = 1;
 /** Virtual gradient across the valley: on ground flatter than this, rows stay regular. */
-const TILT = 0.03;
+const TILT = 0.008;
 /** Columns to each side that set the height a row aims for. */
-const WINDOW = 10;
+const WINDOW = 20;
 /** Farthest a row moves from its lattice position, meters. */
-const MAX_SHIFT = 14;
-/** Closest and widest distance between neighboring rows along a column, meters. */
-const SPACING = { min: 2.8, max: 8.5 };
-const SMOOTH_PASSES = 2;
-const SPACING_PASSES = 3;
+export const MAX_SHIFT = 22;
+/** Maximum deviation from nominal block depth, as a share (also for a partial block). */
+const DEPTH_SLACK = 0.4;
+const SMOOTH_PASSES = 3;
+/** Maximum along-valley displacement (meters) and lean per nominal meter across the valley. */
+export const MAX_LEAN = 6;
+const LEAN_GRADE = 0.025;
+const GRADIENT_RADIUS = 10;
 /** Columns beyond a changed column whose rows may move. */
-export const REACH = WINDOW + SMOOTH_PASSES;
+export const REACH = Math.max(WINDOW + SMOOTH_PASSES, BLOCK.columns + GRADIENT_RADIUS / MODULE);
 
 export type Lattice = Readonly<{ terrain: Terrain; columns: number; rows: number }>;
 type Columns = Map<number, Float64Array>;
@@ -83,34 +80,39 @@ function shiftTo(field: Float64Array, at: number, level: number): number {
 	return field[at] < level === rising ? MAX_SHIFT : -MAX_SHIFT;
 }
 
-/** Keeps the rows of one column in order and their spacing within bounds; ends stay fixed. */
-function spaceRows(shifts: Float64Array) {
-	const last = shifts.length - 1;
-	const position = (row: number) => row * MODULE + shifts[row];
-	const clampTo = (row: number, low: number, high: number) => {
-		shifts[row] = Math.max(low, Math.min(high, position(row))) - row * MODULE;
-	};
-	shifts[0] = shifts[last] = 0;
-	for (let pass = 0; pass < SPACING_PASSES; pass++) {
-		for (let row = 1; row < last; row++)
-			clampTo(row, position(row - 1) + SPACING.min, position(row - 1) + SPACING.max);
-		for (let row = last - 1; row > 0; row--)
-			clampTo(row, position(row + 1) - SPACING.max, position(row + 1) - SPACING.min);
+/** Clamp each street shift against its predecessor and the remaining distance to the fixed rim. */
+function divideBlocks(shifts: Float64Array, rows: number): Float64Array {
+	const result = new Float64Array(rows + 1);
+	let previous = 0;
+	for (let start = 0; start < rows; start += BLOCK.rows) {
+		const end = Math.min(start + BLOCK.rows, rows);
+		const delta = (end - start) * MODULE * DEPTH_SLACK;
+		const remaining = (rows - end) * MODULE * DEPTH_SLACK;
+		const shift = shifts[Math.ceil(end / BLOCK.rows)];
+		const next = Math.max(
+			-remaining,
+			previous - delta,
+			Math.min(remaining, previous + delta, shift)
+		);
+		for (let row = start + 1; row <= end; row++)
+			result[row] = previous + ((next - previous) * (row - start)) / (end - start);
+		previous = next;
 	}
+	return result;
 }
 
 function solveColumn(lattice: Lattice, fields: Columns, column: number): Float64Array {
-	const shifts = new Float64Array(lattice.rows + 1);
+	const shifts = new Float64Array(Math.ceil(lattice.rows / BLOCK.rows) + 1);
 	// Fields exist for every column in reach; `fields.get(column)` is always present here.
 	const field = fields.get(column) ?? tiltedGround(lattice, column);
-	for (let row = 1; row < lattice.rows; row++) {
+	for (let row = BLOCK.rows; row < lattice.rows; row += BLOCK.rows) {
 		const sample = Math.round((row * MODULE) / SAMPLE);
-		shifts[row] = shiftTo(field, sample, aim(lattice, fields, column, sample));
+		shifts[row / BLOCK.rows] = shiftTo(field, sample, aim(lattice, fields, column, sample));
 	}
 	return shifts;
 }
 
-/** One [1 2 1] pass along the columns and along the rows; missing side columns mirror. */
+/** One [1 2 1] pass along the columns; missing side columns mirror. */
 function smooth(source: Columns, from: number, to: number): Columns {
 	const result: Columns = new Map();
 	for (let column = from; column <= to; column++) {
@@ -118,14 +120,9 @@ function smooth(source: Columns, from: number, to: number): Columns {
 		if (!center) continue;
 		const left = source.get(column - 1) ?? center;
 		const right = source.get(column + 1) ?? center;
-		const across = center.map((value, row) => (left[row] + 2 * value + right[row]) / 4);
 		result.set(
 			column,
-			across.map((value, row) =>
-				row === 0 || row === across.length - 1
-					? 0
-					: (across[row - 1] + 2 * value + across[row + 1]) / 4
-			)
+			center.map((value, row) => (left[row] + 2 * value + right[row]) / 4)
 		);
 	}
 	return result;
@@ -154,8 +151,54 @@ export function rowShifts(lattice: Lattice, from: number, to: number): Columns {
 	for (let column = clampColumn(lattice, from); column <= clampColumn(lattice, to); column++) {
 		const columnShifts = shifts.get(column);
 		if (!columnShifts) continue;
-		spaceRows(columnShifts);
-		result.set(column, columnShifts);
+		result.set(column, divideBlocks(columnShifts, lattice.rows));
 	}
 	return result;
+}
+
+/** Bounded fall-line displacement at each street crossing, integrated uphill in meters. */
+function crossStreet(lattice: Lattice, column: number): Float64Array {
+	const offsets = new Float64Array(Math.ceil(lattice.rows / BLOCK.rows) + 1);
+	if (column === 0 || column === lattice.columns) return offsets;
+	const height = (along: number, across: number) =>
+		groundLevel(lattice.terrain, ...valleyPoint(lattice.terrain, column * MODULE + along, across));
+	for (let i = 1; i < offsets.length; i++) {
+		const low = (i - 1) * BLOCK.rows * MODULE;
+		const high = Math.min(i * BLOCK.rows, lattice.rows) * MODULE;
+		const mid = (high + low) / 2;
+		const dx =
+			(height(GRADIENT_RADIUS, mid) - height(-GRADIENT_RADIUS, mid)) / (2 * GRADIENT_RADIUS);
+		const dy = (height(0, high) - height(0, low)) / (high - low);
+		const gradeRatio = (dx * dy) / (dy * dy + TILT * TILT);
+		const step = LEAN_GRADE * (high - low);
+		offsets[i] = Math.max(
+			-MAX_LEAN,
+			Math.min(
+				MAX_LEAN,
+				offsets[i - 1] + Math.max(-step, Math.min(step, gradeRatio * (high - low)))
+			)
+		);
+	}
+	return offsets;
+}
+
+/** Interpolates neighboring cross streets in both directions to keep the parcels regular. */
+export function columnLeans(lattice: Lattice, column: number, crossings: Columns): Float64Array {
+	const left = column - (column % BLOCK.columns);
+	const right = Math.min(left + BLOCK.columns, lattice.columns);
+	const fraction = (column - left) / Math.max(1, right - left);
+	const offsets = (c: number) => {
+		const profile = crossings.get(c) ?? crossStreet(lattice, c);
+		crossings.set(c, profile);
+		return profile;
+	};
+	const a = offsets(left),
+		b = offsets(right);
+	const nodes = a.map((value, i) => value + fraction * (b[i] - value));
+	return Float64Array.from({ length: lattice.rows + 1 }, (_, row) => {
+		const i = Math.floor(row / BLOCK.rows),
+			j = Math.ceil(row / BLOCK.rows);
+		const span = Math.min(BLOCK.rows, lattice.rows - i * BLOCK.rows);
+		return nodes[i] + ((nodes[j] - nodes[i]) * (row % BLOCK.rows)) / Math.max(1, span);
+	});
 }

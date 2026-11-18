@@ -19,9 +19,18 @@ import {
 	type TerrainEdit,
 	type TerrainZone
 } from '../terrain';
-import { MODULE, REACH, rowShifts, type Lattice } from './contour-rows';
+import {
+	BLOCK,
+	columnLeans,
+	MAX_LEAN,
+	MAX_SHIFT,
+	MODULE,
+	REACH,
+	rowShifts,
+	type Lattice
+} from './contour-rows';
 
-export { MODULE } from './contour-rows';
+export { BLOCK, MODULE } from './contour-rows';
 /** Height of a level datum above the ground: the visible foot of every building, meters. */
 export const PLINTH = 0.5;
 /** Datum of cells that flood, meters above mean water: decks stand on stilts there. */
@@ -29,7 +38,8 @@ export const FLOOD_DATUM = 4.5;
 /** Edge length of a chunk in cells. */
 const CHUNK_CELLS = 16;
 /** Rows a cell may lie from its lattice row; bounds the search of `cellAtPoint`. */
-const ROW_SEARCH = 4;
+const ROW_SEARCH = Math.ceil(MAX_SHIFT / MODULE) + 1;
+const COLUMN_SEARCH = Math.ceil(MAX_LEAN / MODULE);
 /** Smallest radial scale of the valley frame: world meters per frame meter along the valley. */
 const FRAME_SCALE_MIN = 0.75;
 
@@ -39,6 +49,8 @@ export type TerrainCell = QuadCell &
 		column: number;
 		row: number;
 		zone: TerrainZone;
+		street: 'along' | 'across' | 'both' | null;
+		block: string;
 	}>;
 
 export type TerrainGrid = QuadGrid<TerrainCell> &
@@ -50,6 +62,7 @@ export type TerrainGrid = QuadGrid<TerrainCell> &
 		vertices: readonly Vec3[];
 	}>;
 
+/** Stable lattice address of a cell or vertex. */
 export const cellId = (column: number, row: number) => `${column}/${row}`;
 
 const latticeOf = (terrain: Terrain): Lattice => ({
@@ -58,11 +71,22 @@ const latticeOf = (terrain: Terrain): Lattice => ({
 	rows: Math.floor(terrain.across / MODULE)
 });
 
-function columnVertices(lattice: Lattice, column: number, shifts: Float64Array): Vec3[] {
+function columnVertices(
+	lattice: Lattice,
+	column: number,
+	shifts: Float64Array,
+	leans: Float64Array
+): Vec3[] {
 	return Array.from(shifts, (shift, row): Vec3 => {
-		const [x, y] = valleyPoint(lattice.terrain, column * MODULE, row * MODULE + shift);
+		const [x, y] = valleyPoint(lattice.terrain, column * MODULE + leans[row], row * MODULE + shift);
 		return [x, y, terrainHeight(lattice.terrain, x, y)];
 	});
+}
+
+function streetBand(column: number, row: number): TerrainCell['street'] {
+	const across = column % BLOCK.columns === 0;
+	if (row % BLOCK.rows === 0) return across ? 'both' : 'along';
+	return across ? 'across' : null;
 }
 
 function makeCell(
@@ -84,10 +108,13 @@ function makeCell(
 	const level = groundLevel(terrain, x, y);
 	const zone = terrainZone(terrain, x, y);
 	const raised = level < FLOOD_LINE;
+	const street = streetBand(column, row);
 	const neighbor = (c: number, r: number) =>
 		c < 0 || r < 0 || c >= columns || r >= rows ? null : cellId(c, r);
 	return {
 		id: cellId(column, row),
+		street,
+		block: `${Math.floor(column / BLOCK.columns)}:${Math.floor(row / BLOCK.rows)}`,
 		index: row * columns + column,
 		column,
 		row,
@@ -108,7 +135,7 @@ function makeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable: zone !== 'water',
+		buildable: zone !== 'water' && street === null,
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }
@@ -117,10 +144,13 @@ function makeCell(
 function derive(lattice: Lattice, from: number, to: number, previous?: TerrainGrid): TerrainGrid {
 	const { columns, rows } = lattice;
 	const vertices = previous ? [...previous.vertices] : new Array<Vec3>((columns + 1) * (rows + 1));
+	const crossings = new Map<number, Float64Array>();
 	for (const [column, shifts] of rowShifts(lattice, from, to))
-		columnVertices(lattice, column, shifts).forEach((point, row) => {
-			vertices[row * (columns + 1) + column] = point;
-		});
+		columnVertices(lattice, column, shifts, columnLeans(lattice, column, crossings)).forEach(
+			(point, row) => {
+				vertices[row * (columns + 1) + column] = point;
+			}
+		);
 	const cells = previous ? [...previous.cells] : new Array<TerrainCell>(columns * rows);
 	for (let row = 0; row < rows; row++)
 		for (let column = Math.max(0, from - 1); column <= Math.min(columns - 1, to); column++)
@@ -137,17 +167,26 @@ export function deriveGrid(terrain: Terrain): TerrainGrid {
 	return derive(lattice, 0, lattice.columns);
 }
 
-/** Vertex columns whose rows may move when the given interventions appear or disappear. */
-function columnsInReach(lattice: Lattice, edits: readonly TerrainEdit[]): [number, number] {
-	let from = Infinity;
-	let to = -Infinity;
-	for (const edit of edits) {
-		const [along] = valleyCoords(lattice.terrain, edit.center[0], edit.center[1]);
-		const reach = editReach(edit) / FRAME_SCALE_MIN;
-		from = Math.min(from, Math.floor((along - reach) / MODULE) - REACH);
-		to = Math.max(to, Math.ceil((along + reach) / MODULE) + REACH);
+/** Sorted, disjoint vertex-column intervals affected by inserted, removed or reordered edits. */
+function columnsInReach(lattice: Lattice, edits: readonly TerrainEdit[]) {
+	const ranges = edits
+		.map((edit): [number, number] => {
+			const [along] = valleyCoords(lattice.terrain, ...edit.center);
+			const reach = editReach(edit) / FRAME_SCALE_MIN;
+			return [
+				Math.max(0, Math.floor((along - reach) / MODULE) - REACH),
+				Math.min(lattice.columns, Math.ceil((along + reach) / MODULE) + REACH)
+			];
+		})
+		.sort(([a], [b]) => a - b);
+	const merged: [number, number][] = [];
+	for (const [from, to] of ranges) {
+		if (from > to) continue;
+		const last = merged.at(-1);
+		if (last && from <= last[1] + 1) last[1] = Math.max(last[1], to);
+		else merged.push([from, to]);
 	}
-	return [Math.max(0, from), Math.min(lattice.columns, to)];
+	return merged;
 }
 
 /**
@@ -157,16 +196,23 @@ function columnsInReach(lattice: Lattice, edits: readonly TerrainEdit[]): [numbe
  */
 export function regrid(previous: TerrainGrid, terrain: Terrain): TerrainGrid {
 	if (terrain.seed !== previous.terrain.seed) return deriveGrid(terrain);
-	const before = new Set(previous.terrain.edits);
-	const after = new Set(terrain.edits);
-	const differing = [
-		...previous.terrain.edits.filter((edit) => !after.has(edit)),
-		...terrain.edits.filter((edit) => !before.has(edit))
-	];
-	if (!differing.length) return { ...previous, terrain };
+	const before = previous.terrain.edits;
+	const after = terrain.edits;
+	// Preserve edit order and multiplicity: overlapping basin banks blend sequentially.
+	let first = 0;
+	while (first < before.length && before[first] === after[first]) first++;
+	let endBefore = before.length,
+		endAfter = after.length;
+	while (endBefore > first && endAfter > first && before[endBefore - 1] === after[endAfter - 1]) {
+		endBefore--;
+		endAfter--;
+	}
+	const differing = [...before.slice(first, endBefore), ...after.slice(first, endAfter)];
 	const lattice = latticeOf(terrain);
-	const [from, to] = columnsInReach(lattice, differing);
-	return derive(lattice, from, to, previous);
+	let result = { ...previous, terrain };
+	for (const [from, to] of columnsInReach(lattice, differing))
+		result = derive(lattice, from, to, result);
+	return result;
 }
 
 /** True if the ground point lies inside or on the counter-clockwise quad of the cell. */
@@ -186,7 +232,11 @@ export function cellAtPoint(grid: TerrainGrid, x: number, y: number): TerrainCel
 	const column = Math.floor(along / MODULE);
 	const row = Math.floor(across / MODULE);
 	for (let r = Math.max(0, row - ROW_SEARCH); r <= Math.min(grid.rows - 1, row + ROW_SEARCH); r++)
-		for (let c = Math.max(0, column - 1); c <= Math.min(grid.columns - 1, column + 1); c++) {
+		for (
+			let c = Math.max(0, column - COLUMN_SEARCH);
+			c <= Math.min(grid.columns - 1, column + COLUMN_SEARCH);
+			c++
+		) {
 			const cell = grid.cells[r * grid.columns + c];
 			if (contains(cell, x, y)) return cell;
 		}
