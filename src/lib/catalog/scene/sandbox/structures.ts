@@ -1,3 +1,4 @@
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../logic/params';
 /**
  * Everything the player builds, drawn from the shared render contract: keyed groups of
  * primitives (a house chunk, a forest chunk, a transit line) become a few merged meshes each.
@@ -12,18 +13,20 @@ import type { Primitive } from '../../logic/parametrik/types';
 import { batch, geometryOf } from '../batch';
 import { outlinePosition } from '../surfaces';
 
-const STROKE_PX = { crease: 0.8, outline: 1 };
-/**
- * Lines keep their weight only while the model is large enough to carry them: the outline is
- * never wider than this many meters, and creases fade below this many pixels per meter.
- */
-const LINE_SCALE = { outlineMeters: 0.09, creaseFullAt: 7, creaseFloor: 0.22 };
-const GLASS_OPACITY = 0.34;
+export const STRUCTURE_PARAMS = defineParams({
+	creasePx: numberParam('Crease width', 'px', 0.8, [0.1, 8, 0.1]),
+	outlinePx: numberParam('Outline width', 'px', 1, [0.1, 8, 0.1]),
+	outlineMaxMeters: numberParam('Maximum outline width', 'm', 0.09, [0, 1, 0.01]),
+	creaseFullAt: numberParam('Crease fade threshold', 'px/m', 7, [0.1, 100, 0.5]),
+	creaseFloor: numberParam('Minimum crease opacity', 'ratio', 0.22, [0, 1, 0.01]),
+	glassOpacity: numberParam('Glass opacity', 'ratio', 0.34, [0, 1, 0.01])
+});
 
 export type Structures = ReturnType<typeof createStructures>;
 
 /** Creates the structure layer. The caller adds `group` to its scene and calls `dispose`. */
-export function createStructures() {
+export function createStructures(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
+	const profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
 	const group = new THREE.Group();
 	const entries = new Map<string, { primitives: Primitive[]; objects: THREE.Group }>();
 	const paper = new THREE.Color();
@@ -61,14 +64,14 @@ export function createStructures() {
 		sheet: surface({ side: THREE.DoubleSide }),
 		glass: surface({
 			transparent: true,
-			opacity: GLASS_OPACITY,
+			opacity: profile.glassOpacity,
 			depthWrite: false,
 			side: THREE.DoubleSide
 		}),
 		hull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, color: ink }),
-		crease: new THREE.Line2NodeMaterial({ color: ink, linewidth: STROKE_PX.crease })
+		crease: new THREE.Line2NodeMaterial({ color: ink, linewidth: profile.creasePx })
 	};
-	const outlinePx = uniform(STROKE_PX.outline);
+	const outlinePx = uniform(profile.outlinePx);
 	materials.pencilHull.vertexNode = outlinePosition(uniform(0.5));
 	materials.hull.vertexNode = outlinePosition(outlinePx);
 	materials.crease.transparent = true;
@@ -165,10 +168,10 @@ export function createStructures() {
 		},
 		/** Adapts line weights to the zoom, given in screen pixels per world meter. */
 		setScale(pixelsPerMeter: number) {
-			outlinePx.value = Math.min(STROKE_PX.outline, LINE_SCALE.outlineMeters * pixelsPerMeter);
+			outlinePx.value = Math.min(profile.outlinePx, profile.outlineMaxMeters * pixelsPerMeter);
 			materials.crease.opacity = Math.max(
-				LINE_SCALE.creaseFloor,
-				Math.min(1, pixelsPerMeter / LINE_SCALE.creaseFullAt)
+				profile.creaseFloor,
+				Math.min(1, pixelsPerMeter / profile.creaseFullAt)
 			);
 		},
 		/** Removes every key. */

@@ -1,3 +1,4 @@
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../logic/params';
 /**
  * Terrain as a paper relief: the ground carries contour hairlines, the area grid appears as a
  * plan drawn onto the land, and painted land cover shows as tinted, patterned areas.
@@ -15,16 +16,15 @@ import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry
 
 /** Contour intervals in meters. */
 const CONTOUR = { minor: 1, major: 5 };
-/** Cells per parcel line of the measure chain (10 cells of 5 m = 50 m). */
-const PARCEL_CELLS = 10;
-/** Radius of the grid lens around the cursor, in cells. */
-const LENS_RADIUS = 11;
-/** Share of the people color in the ground tone of a street. */
-const STREET_TINT = 0.3;
-/** Texture channel of the street mask; the cover kinds use the channels before it. */
+export const TERRAIN_VIEW_PARAMS = defineParams({
+	parcelCells: numberParam('Measure chain interval', 'cells', 10, [1, 100, 1], 'integer'),
+	lensCells: numberParam('Grid lens radius', 'cells', 11, [1, 100, 0.5]),
+	streetTint: numberParam('Street tint', 'ratio', 0.3, [0, 1, 0.01]),
+	planContourGain: numberParam('Plan contour gain', 'ratio', 0.9, [0, 1, 0.01])
+});
+
+// Streets use the first texture channel after the cover kinds.
 const STREET_CHANNEL = 3;
-/** Extra weight of the contour lines when the whole grid is shown. */
-const PLAN_CONTOUR_GAIN = 0.9;
 const INK_SHARE = {
 	contourMinor: 0.2,
 	contourMajor: 0.44,
@@ -55,7 +55,11 @@ export type TerrainMesh = ReturnType<typeof createTerrainMesh>;
  * Builds the terrain objects for a grid. The caller adds `group` to its scene and calls
  * `dispose` when the grid is replaced. Face index >> 1 of `surface` is the cell index.
  */
-export function createTerrainMesh(grid: TerrainGrid) {
+export function createTerrainMesh(
+	grid: TerrainGrid,
+	overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>
+) {
+	const profile = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
 	const colors = {
 		paper: uniform(new THREE.Color()),
 		ink: uniform(new THREE.Color()),
@@ -119,7 +123,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		// Streets are paths: a light tone of the people color, without an outline.
 		ground = mix(
 			ground,
-			mix(colors.paper, colors.people, STREET_TINT),
+			mix(colors.paper, colors.people, profile.streetTint),
 			inside(masks.a).mul(pathWeight)
 		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
@@ -128,7 +132,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const major = hairline(height.div(CONTOUR.major), 1.2);
 		const contour = minor.mul(INK_SHARE.contourMinor).max(major.mul(INK_SHARE.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
-		const weighted = contour.mul(gridStrength.mul(PLAN_CONTOUR_GAIN).add(1));
+		const weighted = contour.mul(gridStrength.mul(profile.planContourGain).add(1));
 		ground = mix(
 			ground,
 			colors.ink,
@@ -140,13 +144,13 @@ export function createTerrainMesh(grid: TerrainGrid) {
 				chart
 					.sub(cursor)
 					.length()
-					.smoothstep(LENS_RADIUS * 0.35, LENS_RADIUS)
+					.smoothstep(profile.lensCells * 0.35, profile.lensCells)
 			)
 			.mul(lensStrength)
 			.max(gridStrength);
 		const cellLine = hairline(chart.x, 1).max(hairline(chart.y, 1)).mul(resolvable(chart.x));
-		const parcelLine = hairline(chart.x.div(PARCEL_CELLS), 1).max(
-			hairline(chart.y.div(PARCEL_CELLS), 1)
+		const parcelLine = hairline(chart.x.div(profile.parcelCells), 1).max(
+			hairline(chart.y.div(profile.parcelCells), 1)
 		);
 		const plan = cellLine.mul(lens).mul(INK_SHARE.cell).max(parcelLine.mul(INK_SHARE.parcel));
 		return mix(ground, colors.blueprint, plan.mul(terrainWeight));
