@@ -45,9 +45,10 @@ export function createTerrainMesh(
 	overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>
 ) {
 	const profile = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
-	const nodes = Object.fromEntries(Object.entries(profile).map(([key,value]) => [key, floatUniform(value)])) as Record<keyof typeof profile, ReturnType<typeof floatUniform>>;
+	const nodes = Object.fromEntries(
+		Object.entries(profile).map(([key, value]) => [key, floatUniform(value)])
+	) as Record<keyof typeof profile, ReturnType<typeof floatUniform>>;
 	const paper = uniform(new THREE.Color());
-	
 
 	const parcelCells = nodes.parcelCells;
 	const lensCells = nodes.lensCells;
@@ -123,9 +124,7 @@ export function createTerrainMesh(
 		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
-		const minor = hairline(height.div(nodes.minor), 1).mul(
-			resolvable(height.div(nodes.minor))
-		);
+		const minor = hairline(height.div(nodes.minor), 1).mul(resolvable(height.div(nodes.minor)));
 		const major = hairline(height.div(nodes.major), 1.2);
 		const contour = minor.mul(nodes.contourMinor).max(major.mul(nodes.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
@@ -143,9 +142,7 @@ export function createTerrainMesh(
 		const parcelLine = hairline(chart.x.div(parcelCells), 1).max(
 			hairline(chart.y.div(parcelCells), 1)
 		);
-		const near = float(1).sub(
-			chart.fwidth().length().smoothstep(nodes.nearStart, nodes.nearEnd)
-		);
+		const near = float(1).sub(chart.fwidth().length().smoothstep(nodes.nearStart, nodes.nearEnd));
 		const plan = cellLine
 			.mul(lens.mul(near).max(gridStrength))
 			.mul(nodes.cellInk)
@@ -189,13 +186,11 @@ export function createTerrainMesh(
 		 */
 		setParams(overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>) {
 			const next = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
-			
+
 			for (const key of Object.keys(next) as (keyof typeof next)[]) nodes[key].value = next[key];
 			alleys.setParams(next);
-			
-			
+
 			lensInnerCells.value = next.lensCells * 0.35;
-			
 		},
 		/** World line segments of the model base outline, three.js coordinates. */
 		baseLines: () => baseLines,

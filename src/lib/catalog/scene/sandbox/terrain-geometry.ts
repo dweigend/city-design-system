@@ -26,10 +26,12 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 	const chart: number[] = [];
 	const indices: number[] = [];
 	const relief: number[] = [];
+	const frontages: number[] = [];
 	for (const cell of grid.cells) {
 		const start = positions.length / 3;
 		for (const vertex of cell.corners) {
 			pushThree(positions, vertex);
+			for (let side = 0; side < 4; side++) frontages.push((cell.alleyEdges >> side) & 1);
 			relief.push(vertex[2], ravineDepth(grid.terrain, vertex[0], vertex[1]));
 		}
 		const { column: c, row: r } = cell;
@@ -37,6 +39,7 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
 	}
 	const geometry = chartedGeometry(positions, chart);
+	geometry.setAttribute('frontages', new THREE.Float32BufferAttribute(frontages, 4));
 	geometry.setAttribute('relief', new THREE.Float32BufferAttribute(relief, 2));
 	geometry.setIndex(indices);
 	geometry.computeVertexNormals();

@@ -1,12 +1,12 @@
 import { defineParams, numberParam, resolveParams } from '../params';
 const schema = defineParams({
-	alleyBend: numberParam("Terrace alley bend", "m", 3.6, [0, 4, 0.1]),
+	alleyBend: numberParam('Terrace alley bend', 'm', 3.6, [0, 4, 0.1]),
 	minParcelArea: numberParam('Minimum parcel area', 'm²', 7.5, [0.5, 7.5, 0.5]),
 	frontageShift: numberParam('Frontage variation', 'cells', 0.48, [0, 0.48, 0.01]),
 	relaxPasses: numberParam('Block relaxation', 'passes', 5, [3, 6, 1], 'integer'),
 	settlementWidth: numberParam('Settlement half-width', 'valley share', 0.34, [0.1, 0.48, 0.01]),
 	settlementReach: numberParam('Settlement half-depth', 'valley share', 0.39, [0.1, 0.45, 0.01]),
-	stagger: numberParam('Parcel stagger', 'cells', 0.32, [0, 0.4, 0.01]),
+	stagger: numberParam('Parcel stagger', 'cells', 0.18, [0, 0.4, 0.01]),
 	promenadeWidth: numberParam('Riverside promenade width', 'm', 3, [0.1, 5, 0.1]),
 	mainAlleyWidth: numberParam('Main alley width', 'm', 1.8, [0.1, 5, 0.1]),
 	alleyWidth: numberParam('Alley line width', 'm', 0.55, [0.1, 5, 0.05]),
@@ -27,7 +27,8 @@ const schema = defineParams({
 /** Validates the controls shared by the world and its projection. */
 export const parcelProfile = (overrides?: import('../params').ParamOverrides<typeof schema>) => {
 	const profile = resolveParams(schema, undefined, overrides);
-	if (![2, 4, 8].includes(profile.terraceRows)) throw new RangeError("Terrace rows must be 2, 4 or 8");
+	if (![2, 4, 8].includes(profile.terraceRows))
+		throw new RangeError('Terrace rows must be 2, 4 or 8');
 	return profile;
 };
 export const defaultAlleyPlan = parcelProfile();

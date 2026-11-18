@@ -13,6 +13,8 @@ export type TerrainCell = QuadCell &
 		pattern: Pattern;
 		alley: 'along' | 'across' | 'both' | null;
 		block: string;
+		blockSides: number;
+		alleyEdges: number;
 	}>;
 
 export type TerrainGrid = QuadGrid<TerrainCell> &

@@ -80,9 +80,23 @@ export function patternOffsets(
 	// On flat terraces a contour alone gives a straight line. Offset adjoining
 	// crossings together, fading the transverse bend where the scarp sets the grade.
 	const phaseAngle = hash(seed, 0, 35) * 2 * Math.PI;
-	const strength = rim * (1 - flood) * (1 - weight) * lattice.profile.alleyBend;
-	const curvedX = lateral + strength * Math.sin(r * Math.PI / BLOCK.rows + c / BLOCK.columns + phaseAngle) * (1 - contour);
-	const curvedY = shift + rim * flood * jy + strength * (1 - contour) * Math.sin(c * Math.PI / BLOCK.columns + r / BLOCK.rows + phaseAngle);
+	const strength =
+		rim *
+		(1 - flood) *
+		(1 - weight) *
+		lattice.profile.alleyBend *
+		smooth((Math.abs(c * MODULE - lattice.terrain.creekAlong) - 35) / 40);
+	const curvedX =
+		lateral +
+		strength *
+			Math.sin((r * Math.PI) / BLOCK.rows + c / BLOCK.columns + phaseAngle) *
+			(1 - contour);
+	const curvedY =
+		shift +
+		rim * flood * jy +
+		strength *
+			(1 - contour) *
+			Math.sin((c * Math.PI) / BLOCK.columns + r / BLOCK.rows + phaseAngle);
 	if (weight === 0) return [curvedX, curvedY];
 	const radius = 76 + dy,
 		angle = x / 76;

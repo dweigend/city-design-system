@@ -5,145 +5,139 @@ import { BLOCK, MODULE, type Lattice } from './contour-rows';
 import { settlementExtent } from './alley-plan';
 import { cellId } from './types';
 
-type Address = readonly [number, number];
-const quad = <T>(at: (side: number) => T): [T, T, T, T] => [at(0), at(1), at(2), at(3)];
-const ringAt = (c: number, r: number) => [
-	cellId(c, r),
-	cellId(c + 1, r),
-	cellId(c + 1, r + 1),
-	cellId(c, r + 1)
-];
-
-// Exchange a shared side for a diagonal of its six-sided union. The middle
-// vertices become three-way junctions and the diagonal ends become five-way junctions.
-function exchange(faces: Map<string, kern.SourceFace>, c: number, r: number, reverse: boolean) {
-	const [a, b, e, f] = ringAt(c, r),
-		[, g, h] = ringAt(c + 1, r);
-	const left = reverse ? [a, b, g, f] : [a, h, e, f];
-	const right = reverse ? [g, h, e, f] : [a, b, g, h];
-	for (const [i, ring] of [left, right].entries()) {
-		const id = cellId(c + i, r);
-		faces.set(id, { id, ring, level: 0 });
-	}
-}
-
-function exchangeInterior(
-	faces: Map<string, kern.SourceFace>,
-	width: number,
-	height: number,
-	seed: number,
-	spacing: number
-) {
-	for (let r = 2; r + 1 < height; r += Math.max(3, Math.round(spacing)))
-		for (let c = 2; c + 2 < width - 1; c += 4) {
-			const start = c + Number(hash(seed, c + r * width, 2) > 0.5 && c + 3 < width - 1);
-			exchange(faces, start, r, hash(seed, c + r * width, 3) > 0.5);
-		}
-}
-
-type Ground = (c: number, r: number) => kern.Vec;
-function parcelVertex(
-	c: number,
-	r: number,
-	width: number,
-	height: number,
-	seed: number,
-	profile: Lattice['profile'],
-	ground: Ground,
-	settled: boolean
-) {
-	const [x, y] = ground(c, r);
-	if (!settled || c <= 1 || c === width || r === 0 || r === height)
-		return { position: [x, y] as const, fixed: true };
-	const shift = (hash(seed, c + r * width, 5) * 2 - 1) * profile.frontageShift;
-	const [nearX, nearY] = ground(c + Math.sign(shift), r);
-	const fixed = r % profile.terraceRows === 1 || r % profile.terraceRows === 0;
-	const jitter = (channel: number) =>
-		MODULE * profile.stagger * (2 * hash(seed, r * (width + 1) + c, channel) - 1);
-	return {
-		position: [
-			x + Math.abs(shift) * (nearX - x) + jitter(0),
-			y + Math.abs(shift) * (nearY - y) + jitter(1)
-		] as const,
-		fixed
-	};
-}
-
-function blockIntent(
-	width: number,
-	height: number,
-	seed: number,
-	profile: Lattice['profile'],
-	ground: Ground,
-	settled: boolean
-) {
-	const faces = new Map<string, kern.SourceFace>(),
-		positions = new Map<string, kern.Vec>(),
-		fixed = new Set<string>();
-	for (let r = 0; r <= height; r++)
-		for (let c = 0; c <= width; c++) {
-			const id = cellId(c, r);
-			const vertex = parcelVertex(c, r, width, height, seed, profile, ground, settled);
-			positions.set(id, vertex.position);
-			if (vertex.fixed) fixed.add(id);
-			if (c < width && r < height) faces.set(id, { id, ring: ringAt(c, r), level: 0 });
-		}
-	if (settled) exchangeInterior(faces, width, height, seed, profile.terraceRows);
-	return {
-		version: 1 as const,
-		seed,
-		positions,
-		faces,
-		fixed,
-		semantics: new Map(),
-		limits: kern.defaultLimits
-	};
-}
-
-function admissible(intent: kern.Intent, positions: kern.Intent['positions'], minArea: number) {
-	const limits = { ...intent.limits, minArea };
-	return [...intent.faces.values()].every((face) =>
-		kern.acceptable(
-			kern.quadQuality(face.ring.map((v) => required(positions.get(v), 'relaxed corner'))),
-			limits
-		)
+import { blockTemplate, type Address, type Ground } from './block-faces';
+function project(p: kern.Vec, width: number, height: number, ground: Ground): kern.Vec {
+	const u = Math.max(0, Math.min(width, p[0] / MODULE)),
+		v = Math.max(0, Math.min(height, p[1] / MODULE));
+	const c = Math.min(Math.floor(u), width - 1),
+		r = Math.min(Math.floor(v), height - 1);
+	if (Number.isInteger(u) && Number.isInteger(v)) return ground(u, v);
+	return kern.mix(
+		kern.mix(ground(c, r), ground(c + 1, r), u - c),
+		kern.mix(ground(c, r + 1), ground(c + 1, r + 1), u - c),
+		v - r
 	);
 }
 
-function fitPatch(
-	width: number,
-	height: number,
-	seed: number,
-	profile: Lattice['profile'],
-	ground: Ground,
-	settled: boolean
+type Template = ReturnType<typeof blockTemplate>;
+const regularTemplates = new WeakMap<Template, Template>();
+
+function fitBlocks(
+	template: Template,
+	positions: Map<string, kern.Vec>,
+	minArea: number,
+	regular: () => Template,
+	projectVertex: (p: kern.Vec) => kern.Vec
 ) {
-	const intent = blockIntent(width, height, seed, profile, ground, settled);
-	const relaxed = kern.relax(intent, settled ? profile.relaxPasses : 0).positions;
-	if (admissible(intent, relaxed, profile.minParcelArea)) return { intent, positions: relaxed };
-	// A sharp bend can invalidate a diagonal. Retain the displaced frontage and
-	// recover the block with its original incidences, backing off only as far as necessary.
-	for (const face of intent.faces.values()) {
-		const [c, r] = face.id.split('/').map(Number);
-		face.ring = ringAt(c, r);
+	const limits = { ...kern.defaultLimits, minArea };
+	const groups = new Set<string>();
+	for (const [id, face] of template.faces) {
+		const points = face.ring.map((v) => required(positions.get(v), 'projected corner'));
+		if (!kern.acceptable(kern.quadQuality(points), limits))
+			groups.add(required(template.parents.get(id), 'block').group);
 	}
-	const candidate = kern.relax(intent, profile.relaxPasses).positions;
-	const base = new Map(
-		[...candidate.keys()].map((id) => {
-			const [c, r] = id.split('/').map(Number);
-			return [id, ground(c, r)] as const;
+	if (!groups.size) return template;
+	// A concave source can cross the two proposal groups that supplied its ears.
+	const affectedParents = new Set(
+		[...template.parents.values()].filter((p) => groups.has(p.group)).map((p) => p.id)
+	);
+	for (const parent of template.parents.values())
+		if (affectedParents.has(parent.id)) groups.add(parent.group);
+	const fallback = regular(),
+		faces = new Map(template.faces),
+		parents = new Map(template.parents);
+	for (const [id, block] of fallback.parents) {
+		if (!groups.has(block.group)) continue;
+		const face = required(fallback.faces.get(id), 'replacement parcel');
+		parents.set(id, block);
+		faces.set(id, face);
+		for (const v of face.ring)
+			positions.set(v, projectVertex(required(fallback.positions.get(v), 'replacement corner')));
+	}
+	repairCenters(faces, parents, groups, positions, limits);
+	return { ...template, faces, parents };
+}
+
+function repairCenters(
+	faces: Template['faces'],
+	parents: Template['parents'],
+	groups: Set<string>,
+	positions: Map<string, kern.Vec>,
+	limits: kern.Limits
+) {
+	const blocks = new Set([...parents.values()].filter((p) => groups.has(p.group)).map((p) => p.id));
+	for (const id of blocks) {
+		const [x, y] = id.split('/').map(Number),
+			center = cellId(x + 1, y + 1);
+		const children = [...faces.values()].filter((f) => parents.get(f.id)?.id === id);
+		const corners = [
+			[x, y],
+			[x + 2, y],
+			[x + 2, y + 2],
+			[x, y + 2]
+		].map(([c, r]) => required(positions.get(cellId(c, r)), 'block boundary'));
+		const original = required(positions.get(center), 'block center');
+		const attempts = corners
+			.flatMap((corner, i) => [corner, kern.mix(corner, corners[(i + 1) % 4], 0.5)])
+			.flatMap((p) => [1 / 32, 1 / 16, 1 / 8, 1 / 4].map((share) => kern.mix(original, p, share)));
+		if (
+			!kern.fitQuadCenter(positions, center, children, corners, limits, [
+				original,
+				...attempts,
+				original
+			])
+		)
+			throw new kern.InvariantError('quality-unattainable', [id]);
+	}
+}
+
+function parcelTopology(fitted: Template) {
+	const topology = kern.buildTopology([...fitted.faces.values()]);
+	const address = (id: string): Address => {
+		const [c, r] = id.split('/').map(Number);
+		return [c, r];
+	};
+	const faces = new Map(
+		[...fitted.faces].map(([id, face]) => {
+			let edge = required(topology.faces.get(id), 'parcel face').edge;
+			const neighbors = face.ring.map(() => {
+				const side = required(topology.edges.get(edge), 'parcel side');
+				edge = side.next;
+				return side.twin
+					? address(required(topology.edges.get(side.twin), 'parcel twin').face)
+					: undefined;
+			});
+			return [
+				id,
+				{
+					vertices: face.ring.map(address),
+					neighbors,
+					block: required(fitted.parents.get(id), 'source block')
+				}
+			];
 		})
 	);
-	for (let share = 1; share >= 1 / 64; share /= 2) {
-		const positions = new Map(
-			[...candidate].map(([id, p]) => [
-				id,
-				kern.mix(required(base.get(id), 'base corner'), p, share)
-			])
-		);
-		if (admissible(intent, positions, profile.minParcelArea)) return { intent, positions };
+	return faces;
+}
+const faceCache = new WeakMap<Template, ReturnType<typeof parcelTopology>>();
+
+// Beyond the settlement only the dimensions of the partial rim affect the chart.
+const emptyTemplates = new Map<string, Template>();
+function templateFor(
+	width: number,
+	height: number,
+	seed: number,
+	profile: Lattice['profile'],
+	settled: boolean
+) {
+	if (settled) return blockTemplate(width, height, seed, profile, true);
+	const key = cellId(width, height);
+	let result = emptyTemplates.get(key);
+	if (!result) {
+		result = blockTemplate(width, height, seed, profile, false);
+		emptyTemplates.set(key, result);
 	}
-	return { intent, positions: base };
+	return result;
 }
 
 function makePatch(
@@ -152,28 +146,26 @@ function makePatch(
 	seed: number,
 	profile: Lattice['profile'],
 	ground: Ground,
-	settled: boolean
+	settled: boolean,
+	template = templateFor(width, height, seed, profile, settled)
 ) {
-	const { intent, positions } = fitPatch(width, height, seed, profile, ground, settled);
-	const topology = kern.buildTopology([...intent.faces.values()]);
-	const address = (id: string): Address => {
-		const [c, r] = id.split('/').map(Number);
-		return [c, r];
+	const projectVertex = (p: kern.Vec) => project(p, width, height, ground);
+	const positions = new Map([...template.positions].map(([id, p]) => [id, projectVertex(p)]));
+	const regular = () => {
+		let value = regularTemplates.get(template);
+		if (!value) {
+			value = blockTemplate(width, height, seed, profile, settled, false);
+			regularTemplates.set(template, value);
+		}
+		return value;
 	};
-	const faces = new Map(
-		[...intent.faces].map(([id, face]) => {
-			let edge = required(topology.faces.get(id), 'parcel face').edge;
-			const neighbors = quad(() => {
-				const side = required(topology.edges.get(edge), 'parcel side');
-				edge = side.next;
-				return side.twin
-					? address(required(topology.edges.get(side.twin), 'parcel twin').face)
-					: undefined;
-			});
-			return [id, { vertices: quad((i) => address(face.ring[i])), neighbors }];
-		})
-	);
-	return { positions, faces };
+	const fitted = fitBlocks(template, positions, profile.minParcelArea, regular, projectVertex);
+	let faces = faceCache.get(fitted);
+	if (!faces) {
+		faces = parcelTopology(fitted);
+		faceCache.set(fitted, faces);
+	}
+	return { positions, faces, template };
 }
 
 type CachedBlock = { ground: readonly kern.Vec[]; patch: ReturnType<typeof makePatch> };
@@ -191,15 +183,26 @@ export function blockPatches(lattice: Lattice, ground: Ground, cache: BlockCache
 			const width = Math.min(BLOCK.columns, lattice.columns - x);
 			const height = Math.min(BLOCK.rows, lattice.rows - y);
 			const points = Array.from({ length: (width + 1) * (height + 1) }, (_, i) =>
-				ground(x + i % (width + 1), y + Math.floor(i / (width + 1))));
+				ground(x + (i % (width + 1)), y + Math.floor(i / (width + 1)))
+			);
 			const old = cache.get(key);
-			if (old && points.every(([a,b], i) => a === old.ground[i][0] && b === old.ground[i][1])) {
+			if (old && points.every(([a, b], i) => a === old.ground[i][0] && b === old.ground[i][1])) {
 				entry = { patch: old.patch, reused: true };
 			} else {
-				const patch = makePatch(width, height,
+				const patch = makePatch(
+					width,
+					height,
 					Math.floor(hash(lattice.terrain.seed, y * lattice.columns + x, 0) * 0xffffffff),
-					lattice.profile, (c,r) => points[r * (width + 1) + c],
-					settlementExtent(lattice.terrain, x + BLOCK.columns / 2, y + BLOCK.rows / 2, lattice.profile) > 0);
+					lattice.profile,
+					(c, r) => points[r * (width + 1) + c],
+					settlementExtent(
+						lattice.terrain,
+						x + BLOCK.columns / 2,
+						y + BLOCK.rows / 2,
+						lattice.profile
+					) > 0,
+					old?.patch.template
+				);
 				cache.set(key, { ground: points, patch });
 				entry = { patch, reused: false };
 			}

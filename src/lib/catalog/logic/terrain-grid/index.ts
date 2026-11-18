@@ -66,26 +66,39 @@ function columnVertices(
 }
 
 function withinEdit(point: Vec3, edits: readonly TerrainEdit[]) {
-	return edits.some(edit => (point[0] - edit.center[0]) ** 2 + (point[1] - edit.center[1]) ** 2 <= editReach(edit) ** 2);
+	return edits.some(
+		(edit) =>
+			(point[0] - edit.center[0]) ** 2 + (point[1] - edit.center[1]) ** 2 <= editReach(edit) ** 2
+	);
 }
 
 const cachedFields = new WeakMap<TerrainGrid, Map<number, Float64Array>>();
 const cachedBlocks = new WeakMap<TerrainGrid, BlockCache>();
 
-function contourPatches(lattice: Lattice, from: number, to: number, cache: BlockCache, fields: Map<number, Float64Array>) {
+function contourPatches(
+	lattice: Lattice,
+	from: number,
+	to: number,
+	cache: BlockCache,
+	fields: Map<number, Float64Array>
+) {
 	const shifts = rowShifts(lattice, from, to, fields);
 	const crossings = new Map<number, Float64Array>();
 	const leans = new Map([...shifts.keys()].map((c) => [c, columnLeans(lattice, c, crossings)]));
-	return blockPatches(lattice, (c, r) => {
-		const [dx, dy] = patternOffsets(
-			lattice,
-			c,
-			r,
-			required(leans.get(c), 'contour lean')[r],
-			required(shifts.get(c), 'contour shift')[r]
-		);
-		return valleyPoint(lattice.terrain, c * MODULE + dx, r * MODULE + dy);
-	}, cache);
+	return blockPatches(
+		lattice,
+		(c, r) => {
+			const [dx, dy] = patternOffsets(
+				lattice,
+				c,
+				r,
+				required(leans.get(c), 'contour lean')[r],
+				required(shifts.get(c), 'contour shift')[r]
+			);
+			return valleyPoint(lattice.terrain, c * MODULE + dx, r * MODULE + dy);
+		},
+		cache
+	);
 }
 
 function makeCell(
@@ -98,7 +111,13 @@ function makeCell(
 	edits: readonly TerrainEdit[] = []
 ): TerrainCell {
 	const { patch, x, y, id, reused } = patches(column, row);
-	if (old && reused && !withinEdit(old.center, edits) && old.corners.every(p => !withinEdit(p, edits))) return old;
+	if (
+		old &&
+		reused &&
+		!withinEdit(old.center, edits) &&
+		old.corners.every((p) => !withinEdit(p, edits))
+	)
+		return old;
 	const face = required(patch.faces.get(id), 'organic parcel');
 	const point = (i: number) => {
 		const [c, r] = face.vertices[i];
@@ -118,18 +137,29 @@ function makeCell(
 		][i];
 		return c >= 0 && c < lattice.columns && r >= 0 && r < lattice.rows ? cellId(c, r) : null;
 	};
+	const source = {
+		id: x + ':' + y + '/' + face.block.id,
+		sides: face.block.sides,
+		mask: face.block.mask
+	};
 	const neighbors = [adjacent(0), adjacent(1), adjacent(2), adjacent(3)] as const;
-	if (
-		old &&
+	if (old && sameParcel(old, source, corners, neighbors, edits)) return old;
+	return describeCell(lattice, corners, column, row, vertexIds, neighbors, source);
+}
+
+function sameParcel(
+	old: TerrainCell,
+	source: { id: string; mask: number },
+	corners: TerrainCell['corners'],
+	neighbors: TerrainCell['neighbors'],
+	edits: readonly TerrainEdit[]
+) {
+	return (
+		old.block === source.id &&
+		old.alleyEdges === source.mask &&
 		corners.every((p, i) => p === old.corners[i] && neighbors[i] === old.neighbors[i]) &&
-		!edits.some(
-			(edit) =>
-				Math.hypot(old.center[0] - edit.center[0], old.center[1] - edit.center[1]) <=
-				editReach(edit)
-		)
-	)
-		return old;
-	return describeCell(lattice, corners, column, row, vertexIds, neighbors);
+		!withinEdit(old.center, edits)
+	);
 }
 
 function describeCell(
@@ -138,7 +168,8 @@ function describeCell(
 	column: number,
 	row: number,
 	vertexIds: TerrainCell['vertexIds'],
-	neighbors: TerrainCell['neighbors']
+	neighbors: TerrainCell['neighbors'],
+	source: { id: string; sides: number; mask: number }
 ): TerrainCell {
 	const { terrain, columns } = lattice;
 	const x = (corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]) / 4;
@@ -160,7 +191,9 @@ function describeCell(
 		pattern,
 		plan,
 		alley,
-		block: `${Math.floor(column / BLOCK.columns)}:${Math.floor(row / BLOCK.rows)}`,
+		block: source.id,
+		blockSides: source.sides,
+		alleyEdges: source.mask,
 		index: row * columns + column,
 		column,
 		row,
@@ -195,9 +228,20 @@ function derive(
 	for (const edit of edits) {
 		const [along] = valleyCoords(lattice.terrain, ...edit.center);
 		const reach = editReach(edit) / FRAME_SCALE_MIN;
-		for (let c = Math.floor((along-reach)/MODULE); c <= Math.ceil((along+reach)/MODULE); c++) fields.delete(c);
+		for (
+			let c = Math.floor((along - reach) / MODULE);
+			c <= Math.ceil((along + reach) / MODULE);
+			c++
+		)
+			fields.delete(c);
 	}
-	const patches = contourPatches(lattice, first, Math.min(columns, end + BLOCK.columns), cache, fields);
+	const patches = contourPatches(
+		lattice,
+		first,
+		Math.min(columns, end + BLOCK.columns),
+		cache,
+		fields
+	);
 	for (let c = first; c <= end; c++)
 		data.vertices[c] = columnVertices(lattice, c, patches, edits, data.vertices[c]);
 	for (let c = first; c <= last; c++)
