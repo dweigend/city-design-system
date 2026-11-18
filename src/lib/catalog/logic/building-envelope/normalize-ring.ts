@@ -33,6 +33,12 @@ function adjacentDistinct(points: Point2[], tolerance: number) {
 	while (ring.length > 1 && near(ring[0], ring[ring.length - 1])) ring.pop();
 	return ring;
 }
+// Check betweenness as well as collinearity so a retraced wall remains invalid.
+function wallCorners(ring: Point2[]) {
+	return ring.filter(
+		(p, i) => !onSegment(p, ring[(i + ring.length - 1) % ring.length], ring[(i + 1) % ring.length])
+	);
+}
 /** Canonical simple ring: no wall subdivisions, lexicographically first corner, CCW winding. */
 export function normalizeRing(points: readonly Point2[]): Point2[] {
 	const copied = points.map(([x, y]): Point2 => {
@@ -40,19 +46,14 @@ export function normalizeRing(points: readonly Point2[]): Point2[] {
 			throw new RangeError('Expected finite plan coordinates');
 		return [x || 0, y || 0];
 	});
-	const cycle = startAtMinimum(adjacentDistinct(copied, 0));
+	const cycle = startAtMinimum(wallCorners(adjacentDistinct(copied, 0)));
 	if (cycle.length < 3) return [];
-	// Choose traversal before tolerance-based coalescing, including across the closing edge.
+	// Only actual corners choose the traversal and therefore the survivor of a short edge.
 	const traversal = compare(cycle[1], cycle[cycle.length - 1]) > 0 ? reverseCycle(cycle) : cycle;
 	const ring = adjacentDistinct(traversal, epsilon);
 	if (ring.length < 3 || ring.every((p) => orient(ring[0], ring[1], p) === 0)) return [];
 	assertSimple(ring);
-	const corners = startAtMinimum(
-		ring.filter(
-			(p, i) =>
-				orient(ring[(i + ring.length - 1) % ring.length], p, ring[(i + 1) % ring.length]) !== 0
-		)
-	);
+	const corners = startAtMinimum(wallCorners(ring));
 	return orient(corners[corners.length - 1], corners[0], corners[1]) > 0
 		? corners
 		: reverseCycle(corners);

@@ -48,8 +48,8 @@ function arc(ring: Point2[], i: number, radius: number): Point2[] {
 }
 /** Samples tangent circular fillets on a simple open or closed ring, with at most 7.5° per chord. */
 export function roundFootprint(points: readonly Point2[], radius: number): Point2[] {
+	const ring = normalizeRing(points);
 	if (!Number.isFinite(radius) || radius < 0)
 		throw new RangeError('Expected a nonnegative finite radius');
-	const ring = normalizeRing(points);
 	return radius && ring.length >= 3 ? ring.flatMap((_, i) => arc(ring, i, radius)) : ring;
 }

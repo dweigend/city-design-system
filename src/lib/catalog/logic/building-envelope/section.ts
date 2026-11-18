@@ -19,8 +19,8 @@ export function offsetFootprint(
 	offset: number,
 	radius = 0
 ) {
-	const params = resolveParams(envelopeParams, { offset, radius });
 	const clean = normalizeRing(ring);
+	const params = resolveParams(envelopeParams, { offset, radius });
 	if (!clean.length) return [];
 	return withSolids(kernel, (s) => {
 		const base = s.keep(new kernel.CrossSection(clean, 'EvenOdd'));

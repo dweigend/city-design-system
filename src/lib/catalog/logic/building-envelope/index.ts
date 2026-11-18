@@ -67,8 +67,8 @@ export function buildEnvelope(
 	kernel: ManifoldToplevel,
 	cells: readonly BuildingCell[]
 ): EnvelopeMesh {
+	const cleaned = cells.map((cell) => ({ ...cell, polygon: normalizeRing(cell.polygon) }));
 	return withSolids(kernel, (s) => {
-		const cleaned = cells.map((cell) => ({ ...cell, polygon: normalizeRing(cell.polygon) }));
 		const first = cleaned.find((c) => c.polygon.length);
 		const [x, y] = first?.polygon[0] ?? [0, 0];
 		const origin: Vec3 = [x, y, first?.base ?? 0];
