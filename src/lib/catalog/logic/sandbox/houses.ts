@@ -1,47 +1,47 @@
 import { sandboxEpochs } from '../../data/sandbox';
-import { STORY } from '../../data/grid';
 import { houseChunk, type HouseUse, type Stacks } from '../house-brush';
-import type { Primitive } from '../parametrik/types';
 import { present, type Focus } from '../presentation';
 import type { SandboxState } from './state';
 import type { World } from './world';
 
-/** Current stories retain their original floor indices for the house massing grammar. */
-export function currentStacks(state: SandboxState): Stacks {
-	const stacks = new Map<string, HouseUse[]>();
+const phasesByState = new WeakMap<SandboxState, ReadonlyMap<number, Stacks>>();
+const empty: Stacks = new Map();
+
+/** Groups the immutable construction record by year, retaining original floor indices. */
+export function constructionPhases(state: SandboxState): ReadonlyMap<number, Stacks> {
+	const cached = phasesByState.get(state);
+	if (cached) return cached;
+	const phases = new Map<number, Map<string, HouseUse[]>>();
 	for (const [id, uses] of state.stacks) {
-		const current: HouseUse[] = [];
-		state.storyParts.get(id)?.forEach((year, i) => {
-			if (year.built === state.year) current[i] = uses[i];
+		state.storyParts.get(id)?.forEach(({ built }, level) => {
+			const phase = phases.get(built) ?? new Map<string, HouseUse[]>();
+			const floors = phase.get(id) ?? [];
+			floors[level] = uses[level];
+			phase.set(id, floors);
+			phases.set(built, phase);
 		});
-		if (current.length) stacks.set(id, current);
 	}
-	return stacks;
+	phasesByState.set(state, phases);
+	return phases;
 }
 
-/** Projects old floors as cell masses and new floors with the house grammar. */
+/** Current stories retain their original floor indices for the house massing grammar. */
+export const currentStacks = (state: SandboxState): Stacks =>
+	constructionPhases(state).get(state.year) ?? empty;
+
+/** Seeded stock uses pencil terraces. Later additions keep their built form as they age to pencil. */
 export function houseView(world: World, stacks: Stacks, chunk: string, focus: Focus) {
 	const { grid, state, seed } = world;
-	const stock: Primitive[] = [];
-	for (const cell of grid.chunks.get(chunk) ?? []) {
-		const count = state.storyParts.get(cell.id)?.filter((year) => year.built < state.year).length;
-		if (!count) continue;
-		const [cx, cy] = cell.center;
-		stock.push({
-			id: cell.id,
-			kind: 'prism',
-			role: 'bestand',
-			material: 'paper',
-			token: '--paper',
-			polygon: cell.corners.map(([x, y]) => [cx + (x - cx) * 0.92, cy + (y - cy) * 0.92]),
-			z: cell.pad,
-			height: count * STORY
+	const project = (floors: Stacks, built: number) =>
+		houseChunk(grid, floors, chunk, seed, styleForYear(built), {
+			occupied: state.stacks,
+			blockOf: (id) => grid.cellsById.get(id)?.block,
+			olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
 		});
-	}
-	return [
-		...present(stock, focus.stock),
-		...present(houseChunk(grid, stacks, chunk, seed, styleForYear(state.year)), focus.houses)
-	];
+	const stock = [...constructionPhases(state)].flatMap(([built, floors]) =>
+		built < state.year ? project(floors, built) : []
+	);
+	return [...present(stock, focus.stock), ...present(project(stacks, state.year), focus.houses)];
 }
 
 /** Selects the newest epoch starting by the build year; earlier stock uses the oldest style. */

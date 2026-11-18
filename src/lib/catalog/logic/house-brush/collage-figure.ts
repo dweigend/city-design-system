@@ -6,6 +6,15 @@ import { bayOf, panel, type Bay } from './collage-bay';
 import { accentOf, part } from './form';
 import type { Mass } from './massing';
 
+const FIXTURE = {
+	tankRadius: 0.49,
+	dishRadius: 0.56,
+	dishHub: 0.2,
+	mastHeight: 1.65,
+	dishDepth: 0.06,
+	glaze: 0.04
+};
+
 /** A suspended flight climbing across the section to the roof landing. */
 function stairs(id: string, at: Bay, z: number, r: number): Primitive[] {
 	return Array.from({ length: 8 }, (_, i) =>
@@ -33,25 +42,35 @@ export function collageFigure(
 	const span = Math.sqrt(sideLength(cell, side) * r);
 	const token = accentOf(mass.use) ?? '--paper';
 	const [a, b] = panel(at, 0, 0, 1, 1, z);
+	const base = at(0.5, 0.5, z);
+	const mount = at(0.5, 0.5, z + r * FIXTURE.mastHeight);
+	const pedestal = {
+		...part(id + ':mast', '--paper', { kind: 'polyline', points: [base, mount] }),
+		role: 'bestand' as const
+	};
 	switch (mass.use) {
 		case 'living':
 			return stairs(id, at, z, span);
 		case 'water':
 			return [
+				pedestal,
 				part(id, token, {
 					kind: 'sphere',
-					position: at(0.78, 0.38, z + r * 0.74),
-					radius: r * 1.42
+					position: at(0.5, 0.5, mount[2] + r * FIXTURE.tankRadius),
+					radius: r * FIXTURE.tankRadius,
+					edges: false,
+					shade: FIXTURE.glaze
 				})
 			];
 		case 'energy':
 			return [
+				pedestal,
 				part(id, token, {
 					kind: 'ring',
-					position: at(0.48, 0.44, z + span * 0.78),
-					radius: span * 1.05,
-					innerRadius: span * 0.24,
-					depth: r * 0.11,
+					position: mount,
+					radius: r * FIXTURE.dishRadius,
+					innerRadius: r * FIXTURE.dishRadius * FIXTURE.dishHub,
+					depth: r * FIXTURE.dishDepth,
 					edges: false,
 					tilt: 0.65,
 					rotation: Math.atan2(b[1] - a[1], b[0] - a[0])
@@ -63,6 +82,7 @@ export function collageFigure(
 				kind: 'prism',
 				polygon: panel(at, -0.3, 0.1, 1.35, 0.8, bed).map(([x, y]) => [x, y]),
 				z: bed,
+				edges: false,
 				height: r * p.gardenDepth
 			});
 			const trees = [0, 0.5, 1].flatMap((u, i) => {

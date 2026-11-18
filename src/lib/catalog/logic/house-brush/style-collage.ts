@@ -15,7 +15,7 @@ const COLLAGE_DEFAULTS = {
 	glazingDepth: 0.56,
 	treeRadius: 0.36,
 	treeHeight: 0.94,
-	gardenDepth: 0.11
+	gardenDepth: 0.065
 };
 const CHANNEL = { figureSeat: 31, figureSide: 32 };
 
@@ -36,7 +36,7 @@ function drawBay({ cell, level }: Story, floor: number, p: typeof COLLAGE_DEFAUL
 		z: floor,
 		height: STORY,
 		glass: !base,
-		edges: !base
+		edges: false
 	});
 	const strokes = corners.map(([x, y, z], i) =>
 		pencil(id + ':post' + i, [
@@ -56,7 +56,6 @@ function drawBay({ cell, level }: Story, floor: number, p: typeof COLLAGE_DEFAUL
 			...shell,
 			role: base ? 'bestand' : 'neu',
 			material: 'paper',
-			emphasis: base ? undefined : 'netz',
 			shade: base ? p.wash : 0
 		},
 		pencil(id + ':cut', corners, true),
@@ -82,14 +81,7 @@ export function collageMass(site: Site, mass: Mass, p = COLLAGE_DEFAULTS): Primi
 	);
 	if (!seat) return parts;
 	const side = Math.floor(hash(site.seed, key(seat), CHANNEL.figureSide) * 4);
-	const additions = collageFigure(mass, seat.cell, side, p);
-	parts.push(
-		...additions.map((piece): Primitive => ({
-			...piece,
-			edges: true,
-			emphasis: piece.id.includes(':step') ? undefined : 'netz'
-		}))
-	);
+	parts.push(...collageFigure(mass, seat.cell, side, p));
 	if (mass.use === 'living') {
 		const neighbor = exposed.find((story) => seat.cell.neighbors.includes(story.cell.id));
 		const seats = neighbor ? [seat, neighbor] : [seat];
