@@ -2,6 +2,7 @@ import type { Primitive } from '../types';
 import type { Kit } from './kit';
 import { family, spec } from './kit';
 import { scatter } from './geom';
+import { TREE_FORM, trunkRadius } from '../../tree-forms';
 
 const params = [
 	spec('anzahl', 'Count', 1, 14, 1, 5),
@@ -28,9 +29,9 @@ function grove(
 		const u = (x - ox) * c - (y - oy) * sn,
 			v = (x - ox) * sn + (y - oy) * c,
 			s = s0 * (1 - p.streuung * 0.5 + k.rng() * p.streuung),
-			trunk = Math.min(s * 0.9, k.ctx.height * 0.25);
+			trunk = Math.min(s * TREE_FORM.trunkHeight, k.ctx.height * 0.25);
 		out.push(
-			k.cylinder(u, v, k.ctx.z, Math.max(0.12, s * 0.07), trunk + s * 0.3, '--paper', {
+			k.cylinder(u, v, k.ctx.z, trunkRadius(s), trunk + s * TREE_FORM.trunkIntoCrown, '--paper', {
 				rank: 0,
 				material: 'wood'
 			})
@@ -50,7 +51,9 @@ export const vegetation = [
 		params,
 		build: (k, p) =>
 			grove(k, p, (u, v, z, s) => [
-				k.sphere(u, v, z + s * 0.6, s * 0.6, '--cat-nature', { rank: 1 })
+				k.sphere(u, v, z + s * TREE_FORM.ballRadius, s * TREE_FORM.ballRadius, '--cat-nature', {
+					rank: 1
+				})
 			])
 	}),
 	family({
@@ -60,7 +63,11 @@ export const vegetation = [
 		refs: ['11', '09', '23'],
 		params,
 		build: (k, p) =>
-			grove(k, p, (u, v, z, s) => [k.cone(u, v, z, s * 0.42, s * 1.8, '--cat-nature', { rank: 1 })])
+			grove(k, p, (u, v, z, s) => [
+				k.cone(u, v, z, s * TREE_FORM.coneRadius, s * TREE_FORM.coneHeight, '--cat-nature', {
+					rank: 1
+				})
+			])
 	}),
 	family({
 		id: 'vegetation-voxelbaum',

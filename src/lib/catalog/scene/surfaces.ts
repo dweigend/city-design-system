@@ -86,8 +86,11 @@ export function surfaceColor(
 	).mul(tone);
 }
 
-/** Screen-space inverted hull, portable to WGSL and GLSL through TSL. */
-export function outlinePosition(thickness: number) {
+/**
+ * Screen-space inverted hull, portable to WGSL and GLSL through TSL.
+ * @param thickness outline width in CSS pixels; a node makes it adjustable per frame
+ */
+export function outlinePosition(thickness: number | Node<'float'>) {
 	const clip = cameraProjectionMatrix.mul(vec4(positionView, 1));
 	const direction = cameraProjectionMatrix.mul(vec4(normalView, 0)).xy.add(0.000001).normalize();
 	return vec4(

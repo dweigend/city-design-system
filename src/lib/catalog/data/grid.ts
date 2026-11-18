@@ -6,6 +6,9 @@ import { project, type Point } from './iso';
  */
 export const U = 4;
 
+/** Vertical module: height of one story in meters. Single owner for every stacking system. */
+export const STORY = 4;
+
 /** Plot: 10 U = 40 px = 10 m. */
 const FIELD = 10 * U;
 

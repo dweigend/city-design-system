@@ -55,6 +55,8 @@ export function build(p: Exclude<Primitive, { kind: 'polyline' }>, coarse = fals
 	switch (p.kind) {
 		case 'prism': {
 			const shape = new THREE.Shape(p.polygon.map(([x, y]) => new THREE.Vector2(x, y)));
+			for (const hole of p.holes ?? [])
+				shape.holes.push(new THREE.Path(hole.map(([x, y]) => new THREE.Vector2(x, y))));
 			const geometry = new THREE.ExtrudeGeometry(shape, { depth: p.height, bevelEnabled: false });
 			// Shape x/y → world x/-z (see vector), extrusion → up.
 			geometry.rotateX(-Math.PI / 2);

@@ -61,8 +61,17 @@ export type Primitive = Base &
 				curvature?: number;
 		  }
 		| { kind: 'pipe'; points: Vec3[]; radius: number }
-		/** Extruded ground polygon (x/y in meters) from z to z + height; for irregular cells and parcels. */
-		| { kind: 'prism'; polygon: [number, number][]; z: number; height: number }
+		/**
+		 * Extruded ground polygon (x/y in meters) from z to z + height; for irregular cells and parcels.
+		 * holes: inner rings cut out of the polygon (courtyards); they do not touch the outer ring.
+		 */
+		| {
+				kind: 'prism';
+				polygon: [number, number][];
+				holes?: [number, number][][];
+				z: number;
+				height: number;
+		  }
 		/** Line only, no surface: grid edges, networks, plan lines. */
 		| { kind: 'polyline'; points: Vec3[]; closed?: boolean }
 		/** position = center. squash scales height (kissen, ufo). */

@@ -75,7 +75,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 			continue;
 		}
 		const color = colorOf(p);
-		if (p.kind === 'prism' && !p.rotation) {
+		if (p.kind === 'prism' && !p.rotation && !p.holes?.length) {
 			const target = p.glass ? out.glas : out[role];
 			let poly = p.polygon;
 			let area = 0;

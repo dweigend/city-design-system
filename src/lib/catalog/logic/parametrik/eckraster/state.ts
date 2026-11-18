@@ -1,5 +1,7 @@
+import { STORY } from '../../../data/grid';
 import type { Patch } from './topology';
-export const HEIGHT_STEP = 4;
+/** Height of one level in meters; owner: data/grid.ts. */
+export const HEIGHT_STEP = STORY;
 /** Highest level (towers): levels 0 … MAX_LEVEL, one floor of HEIGHT_STEP each. */
 export const MAX_LEVEL = 6;
 /** Group of the protected existing stock; such occupancies are immutable. */
