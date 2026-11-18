@@ -20,7 +20,7 @@ test('a descending stair meets both roof heights', () => {
 	expect(treads[0].z + 0.25).toBe(5);
 	expect(treads[treads.length - 1].z + 0.25).toBe(4);
 });
-test('a bent route keeps span identities distinct', () => {
+test('a bent route joins both rails and keeps span identities distinct', () => {
 	const parts = walkwayParts(
 		[
 			[1, 2, 4],
@@ -29,6 +29,9 @@ test('a bent route keeps span identities distinct', () => {
 		],
 		{ id: 'route' }
 	);
+	const rails = parts.filter((p) => p.kind === 'polyline');
+	expect(rails[0].points[1]).toEqual(rails[2].points[0]);
+	expect(rails[1].points[1]).toEqual(rails[3].points[0]);
 	expect(new Set(parts.map((p) => p.id)).size).toBe(parts.length);
 	expect(parts.every((p) => p.id.startsWith('route:'))).toBe(true);
 });
