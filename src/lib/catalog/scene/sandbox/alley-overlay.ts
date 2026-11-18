@@ -49,7 +49,9 @@ export function alleyOverlay(
 				[
 					channel('along'),
 					channel('across'),
-					(stairAlley ? 128 : 0) + (occupied.has(cell.index) ? 64 : 0),
+					(stairAlley ? 128 : 0) +
+						(occupied.has(cell.index) ? 64 : 0) +
+						(cell.plan.kind === 'riversidePromenade' ? 32 : 0),
 					255 * cell.plan.extent
 				],
 				cell.index * 4
@@ -66,7 +68,14 @@ export function alleyOverlay(
 			if (changed) update(current, anchors);
 		},
 		dispose: () => map.dispose(),
-		shade(ground: Node<'vec3'>, ink: Node<'vec3'>, people: Node<'color'>, weight: Node<'float'>) {
+		shade(
+			ground: Node<'vec3'>,
+			ink: Node<'vec3'>,
+			people: Node<'color'>,
+			paper: Node<'vec3'>,
+			focus: Node<'float'>,
+			weight: Node<'float'>
+		) {
 			const chart = attribute('chart', 'vec2');
 			const mask = texture(map, chart.div(vec2(grid.columns, grid.rows)));
 			const dist = chart.fract().sub(0.5).abs().mul(2);
@@ -82,27 +91,30 @@ export function alleyOverlay(
 			const across = band(uv.x.mul(2), mask.g)
 				.mul(edges.w)
 				.max(band(float(1).sub(uv.x).mul(2), mask.g).mul(edges.y));
+			const code = mask.b.mul(255).round();
+			const stairs = float(code.greaterThanEqual(128));
+			const occupied = code.div(64).floor().mod(2);
+			const promenade = code.div(32).floor().mod(2);
+			const visibility = mask.a.mul(weight);
+			const pressure = mix(nodes.emptyInk, nodes.cityInk, occupied);
 			const coverage = along.max(across);
-			const stairs = float(mask.b.greaterThanEqual(0.5));
-			const occupied = mask.b.mul(255).div(64).round().mod(2);
-			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.35, 0.65).mul(stairs);
-			const alleys = mix(
-				ground,
-				ink,
-				coverage
-					.mul(mix(nodes.emptyInk, nodes.cityInk, occupied))
-					.mul(mask.a)
-					.mul(weight)
-			);
-			return mix(
-				alleys,
-				people,
-				band(dist.x, mask.g)
-					.mul(stairs)
-					.mul(tread.add(1).div(2))
-					.mul(float(mask.a.greaterThan(0)))
-					.mul(weight)
-			);
+			// Opposite lips of the same frontage catch light and cast a hairline.
+			const shadow = band(uv.y.mul(2), mask.r)
+				.mul(edges.x)
+				.max(band(uv.x.mul(2), mask.g).mul(edges.w));
+			const light = mix(ground, paper, coverage.mul(visibility));
+			const emboss = mix(light, ink, shadow.mul(pressure).mul(visibility));
+			const focused = mix(emboss, people, coverage.mul(focus).mul(visibility));
+			const shore = band(dist.y, mask.r).mul(promenade).mul(visibility);
+			const bank = mix(focused, paper, shore);
+			const stitch = chart.x.mul(nodes.treadsPerCell).fract().smoothstep(0.75, 0.95);
+			const promenadeEdge = band(uv.y.mul(2).sub(mask.r).abs(), uv.y.fwidth().mul(2))
+				.mul(stitch.add(1).div(2))
+				.mul(promenade)
+				.mul(visibility);
+			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.3, 0.65);
+			const flight = band(dist.x, mask.g).mul(stairs).mul(tread).mul(visibility);
+			return mix(bank, people, flight.max(promenadeEdge));
 		}
 	};
 }

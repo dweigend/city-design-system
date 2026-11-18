@@ -151,6 +151,8 @@ export function createTerrainMesh(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
 			pathInk,
 			colors.people,
+			paperColor,
+			peopleFocus,
 			pathWeight
 		);
 	}
