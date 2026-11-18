@@ -25,7 +25,8 @@
 			.filter((entry) => entry.count > 0)
 	);
 
-	function history(event: KeyboardEvent) {
+	function history(event: KeyboardEvent, key: string) {
+		if (key !== 'z') return;
 		event.preventDefault();
 		if (event.shiftKey) session.redo();
 		else session.undo();
@@ -38,9 +39,8 @@
 	}
 	function shortcut(event: KeyboardEvent) {
 		const key = event.key.toLowerCase();
-		const command = event.ctrlKey || event.metaKey;
-		if (command && key === 'z') history(event);
-		else if (!command && !event.altKey) pick(key);
+		if (event.ctrlKey || event.metaKey) history(event, key);
+		else if (!event.altKey) pick(key);
 	}
 </script>
 

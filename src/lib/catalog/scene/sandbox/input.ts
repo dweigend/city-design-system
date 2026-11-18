@@ -39,6 +39,14 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		if (mode === 'draw') hooks.strokeEnd();
 	}
 
+	function startSinglePointer(event: PointerEvent, position: { x: number; y: number }) {
+		const primary = event.button === 0 && !event.shiftKey;
+		if (primary && hooks.draws()) {
+			mode = 'draw';
+			hooks.strokeStart(position.x, position.y);
+		} else mode = 'pan';
+	}
+
 	function down(event: PointerEvent) {
 		canvas.setPointerCapture(event.pointerId);
 		const position = local(event);
@@ -49,11 +57,23 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 			pinchDistance = center().distance;
 			return;
 		}
-		const primary = event.button === 0 && !event.shiftKey;
-		if (primary && hooks.draws()) {
-			mode = 'draw';
-			hooks.strokeStart(position.x, position.y);
-		} else mode = 'pan';
+		startSinglePointer(event, position);
+	}
+
+	function movePinch(dx: number, dy: number) {
+		if (pointers.size !== 2) return;
+		const now = center();
+		view.pan(dx / 2, dy / 2);
+		view.zoomAt(pinchDistance / Math.max(1, now.distance), now.x, now.y);
+		pinchDistance = now.distance;
+		hooks.viewChanged();
+	}
+
+	function moveView(dx: number, dy: number) {
+		if (mode === 'pan') {
+			view.pan(dx, dy);
+			hooks.viewChanged();
+		} else if (mode === 'pinch') movePinch(dx, dy);
 	}
 
 	function move(event: PointerEvent) {
@@ -64,16 +84,7 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		if (mode === 'draw') {
 			hooks.hover(position);
 			hooks.strokeMove(position.x, position.y);
-		} else if (mode === 'pan') {
-			view.pan(position.x - previous.x, position.y - previous.y);
-			hooks.viewChanged();
-		} else if (mode === 'pinch' && pointers.size === 2) {
-			const now = center();
-			view.pan((position.x - previous.x) / 2, (position.y - previous.y) / 2);
-			view.zoomAt(pinchDistance / Math.max(1, now.distance), now.x, now.y);
-			pinchDistance = now.distance;
-			hooks.viewChanged();
-		}
+		} else moveView(position.x - previous.x, position.y - previous.y);
 	}
 
 	function up(event: PointerEvent) {
