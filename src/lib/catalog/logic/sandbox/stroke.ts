@@ -24,14 +24,17 @@ export type Stroke = Readonly<{
 	draft: World;
 	/** Cells the stroke has passed, in order, each once. */
 	cellIds: readonly string[];
+	/** Most recent valid pointer cell, if the stroke has reached one. */
+	lastPointerCellId: string | undefined;
 }>;
 
-/** Starts a stroke on the given world. */
+/** Creates an empty stroke snapshot for the tool, sharing the given world as base and draft. */
 export const beginStroke = (tool: Tool, world: World): Stroke => ({
 	tool,
 	base: world,
 	draft: world,
-	cellIds: []
+	cellIds: [],
+	lastPointerCellId: undefined
 });
 
 function cellEdit(tool: Tool, cellId: string): Edit | undefined {
@@ -43,25 +46,29 @@ function cellEdit(tool: Tool, cellId: string): Edit | undefined {
 }
 
 /**
- * Extends a stroke to a cell. Cells between the last and the new cell are filled in, so a
- * fast pointer leaves no gaps. Every cell reacts once per stroke: one story up, one layer
- * off. A line stroke routes the whole line again from the cells passed so far.
+ * Extends an immutable stroke snapshot to a cell ID on its draft grid, filling from the
+ * last pointer cell. Each cell is edited on its first visit, and line strokes route through
+ * the cells in first-visit order. A move over visited cells updates the pointer while
+ * sharing the draft and visited IDs. A repeated pointer cell or unknown ID returns the
+ * input stroke.
  */
 export function extendStroke(stroke: Stroke, cellId: string): Stroke {
 	const { grid } = stroke.draft;
-	const last = stroke.cellIds[stroke.cellIds.length - 1];
+	const last = stroke.lastPointerCellId;
+	if (cellId === last || !grid.cellsById.has(cellId)) return stroke;
 	const reached = last ? cellsBetween(grid, last, cellId).map((cell) => cell.id) : [cellId];
 	const fresh = reached.filter((id) => !stroke.cellIds.includes(id));
-	if (!fresh.length || !grid.cellsById.has(cellId)) return stroke;
+	const lastPointerCellId = cellId;
+	if (!fresh.length) return { ...stroke, lastPointerCellId };
 	const cellIds = [...stroke.cellIds, ...fresh];
 	if (stroke.tool.kind === 'line') {
 		const edit: Edit = { kind: 'line', transit: stroke.tool.transit, cellIds };
-		return { ...stroke, cellIds, draft: applyEdit(stroke.base, edit) };
+		return { ...stroke, lastPointerCellId, cellIds, draft: applyEdit(stroke.base, edit) };
 	}
 	let draft = stroke.draft;
 	for (const id of fresh) {
 		const edit = cellEdit(stroke.tool, id);
 		if (edit) draft = applyEdit(draft, edit);
 	}
-	return { ...stroke, cellIds, draft };
+	return { ...stroke, lastPointerCellId, cellIds, draft };
 }
