@@ -4,7 +4,7 @@ import { quadQuality } from '../raster/universal/kern';
 import { haeuser, cellOutline } from '../eckraster/bestand';
 import { cellAt } from '../eckraster/topology';
 import type { Point2 } from '../vocab';
-import { teile } from './index';
+import { layoutOccupancyAndNetwork } from './index';
 import { zugang, MIN_FRONT } from './zugang';
 import type { WeltParams } from './typen';
 export const hash = (s: string) => {
@@ -13,7 +13,7 @@ export const hash = (s: string) => {
 	return (h >>> 0).toString(16).padStart(8, '0');
 };
 export function kennzahlen(p: WeltParams) {
-	const { r, b, netz: n } = teile(p),
+	const { r, b, netz: n } = layoutOccupancyAndNetwork(p),
 		qs = r.patch.faces.map((f) =>
 			quadQuality(f.vertices.map((v) => required(r.point.get(v), 'r.point.get(v)')))
 		),

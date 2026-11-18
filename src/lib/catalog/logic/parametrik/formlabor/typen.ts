@@ -503,7 +503,7 @@ export const typen: Typ[] = [
 
 const keys = Object.keys(basis) as GenomKey[];
 
-export function mischeGenom(a: Genom, b: Genom, t: number): Genom {
+function mischeGenom(a: Genom, b: Genom, t: number): Genom {
 	const g = { ...a };
 	for (const k of keys) g[k] = lerp(a[k], b[k], t);
 	return g;
