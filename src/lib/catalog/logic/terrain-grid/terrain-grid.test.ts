@@ -2,6 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createTerrain, groundLevel, valleyCoords, type TerrainEdit } from '../terrain';
 import {
+	defaultStreetPlan,
 	type TerrainCell,
 	BLOCK,
 	cellAtPoint,
@@ -97,13 +98,25 @@ describe('terrain grid', () => {
 	});
 
 	test('one-cell street bands bound stable block addresses', () => {
-		expect(cellAt(12, 8).street).toBe('both');
-		expect(cellAt(13, 8).street).toBe('along');
-		expect(cellAt(12, 9).street).toBe('across');
-		expect(cellAt(13, 9).street).toBeNull();
+		const widths = new Set(grid.cells.map((cell) => cell.plan.width));
+		expect(widths.size).toBeGreaterThanOrEqual(5);
+		expect(grid.cells.some((cell) => cell.plan.bridge && cell.zone === 'water')).toBe(true);
+		expect(grid.cells.some((cell) => cell.plan.square)).toBe(true);
+		expect(grid.cells.some((cell) => cell.plan.stairs)).toBe(true);
 		expect(cellAt(11, 7).block).toBe('0:0');
 		expect(cellAt(12, 8).block).toBe('1:1');
 		expect(cellAt(23, 15).block).toBe('1:1');
+	});
+
+	test('street widths follow the world profile without changing parcel addresses', () => {
+		const profile = { ...defaultStreetPlan, mainWidth: 3 };
+		const next = deriveGrid(terrain, profile);
+		const main = grid.cells.find((cell) => cell.plan.width === defaultStreetPlan.mainWidth);
+		if (!main) throw new Error('missing main street');
+		expect(next.cellsById.get(main.id)?.plan.width).toBe(profile.mainWidth);
+		expect(deriveGrid(terrain, profile).cellsById.get(main.id)?.plan).toEqual(
+			next.cellsById.get(main.id)?.plan
+		);
 	});
 
 	test('neighbors share their corners bit for bit', () => {
@@ -117,7 +130,7 @@ describe('terrain grid', () => {
 
 	test('level datums: no building on water, stilts where it floods, a plinth elsewhere', () => {
 		for (const cell of grid.cells) {
-			expect(cell.buildable).toBe(cell.zone !== 'water' && cell.street === null);
+			expect(cell.buildable).toBe(!cell.plan.open && !cell.plan.square && cell.street === null);
 			if (cell.raised) expect(cell.pad).toBe(FLOOD_DATUM);
 			else expect(cell.pad - PLINTH).toBe(Math.round(cell.pad - PLINTH));
 		}

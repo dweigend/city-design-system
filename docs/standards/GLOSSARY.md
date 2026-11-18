@@ -68,7 +68,7 @@ This glossary defines the binding English (US) terminology for the design bible,
 | retention basin / basin                     | Becken (Rückhaltebecken)             | Open water basin in the courtyard (`becken`).                                                                      |
 | flood swale                                 | Flutmulde                            | Overflow channel for heavy rain.                                                                                   |
 | unsealing / unsealed ground                 | Entsiegelung / Boden geöffnet        | Removing asphalt to restore infiltration (`entsiegelt`).                                                           |
-| alley                                       | Gasse                                | Public pedestrian space between blocks (`alleys`). The city has _no streets_.                                      |
+| alley                                       | Gasse                                | Narrow pedestrian route between blocks. Sandbox `street` includes alleys.                                          |
 | cul-de-sac / dead-end alley                 | Stichgasse / Sackgasse               | Alley leading into the interior of a block (e.g., Fès, Marrakesch).                                                |
 | square                                      | Platz                                | Public open space (`squares`); do not confuse with _square grid_.                                                  |
 | courtyard / back courtyard                  | Hof / Hinterhof                      | Open center of a block (`hof`, _shared courtyard_ for shared block interiors).                                     |

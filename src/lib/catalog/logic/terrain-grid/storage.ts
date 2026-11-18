@@ -76,6 +76,7 @@ class CellIndex implements ReadonlyMap<string, TerrainCell> {
 /** Publish the new columns and affected chunks. Flatten only on a bulk array read. */
 export function assemble(
 	terrain: Terrain,
+	profile: TerrainGrid['profile'],
 	data: Storage,
 	first: number,
 	last: number,
@@ -97,6 +98,7 @@ export function assemble(
 	}
 	let vertices: Vec3[] | undefined, cells: TerrainCell[] | undefined;
 	const grid = {
+		profile,
 		terrain,
 		columns,
 		rows,
