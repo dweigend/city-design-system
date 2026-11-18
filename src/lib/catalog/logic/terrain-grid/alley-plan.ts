@@ -5,8 +5,8 @@ import type { Terrain, TerrainZone } from '../terrain';
 import { BLOCK, MODULE } from './contour-rows';
 import type { Pattern } from './patterns';
 
-import { defaultStreetPlan } from './street-profile';
-type Profile = typeof defaultStreetPlan;
+import { defaultAlleyPlan } from './alley-profile';
+type Profile = typeof defaultAlleyPlan;
 type Site = { corners: QuadCell['corners']; zone: TerrainZone; pattern: Pattern; incision: number };
 
 /** Fraction of the seeded settlement envelope at a chart address. */
@@ -20,17 +20,17 @@ export function settlementExtent(terrain: Terrain, column: number, row: number, 
 }
 
 /** Classifies the circulation and reserved ground at a stable lattice address. */
-export function streetPlan(
+export function alleyPlan(
 	terrain: Terrain,
 	column: number,
 	row: number,
 	site: Site,
-	profile = defaultStreetPlan
+	profile = defaultAlleyPlan
 ) {
 	const [a, b, , d] = site.corners;
 	const grade = (p: typeof a) => Math.abs(p[2] - a[2]) / Math.hypot(p[0] - a[0], p[1] - a[1]);
 	const bank = Math.round((terrain.bands.riverEnd + profile.bankSetback) / MODULE);
-	const bridge = riverCrossing(terrain, column, row, bank, profile);
+	const footbridge = riverCrossing(terrain, column, row, bank, profile);
 	const steep = grade(d) >= profile.steepGrade;
 	const along = row === bank || row % (steep ? profile.terraceRows : BLOCK.rows) === 0;
 	const phase = row % BLOCK.rows;
@@ -39,16 +39,31 @@ export function streetPlan(
 	const open =
 		site.zone === 'water' || grade(b) > profile.ravineGrade || site.incision > profile.ravineDepth;
 	const extent = settlementExtent(terrain, column, row, profile);
-	const direction = bridge || (!open && extent > 0) ? directionAt(along, across || bridge) : null;
-	const width = streetWidth(row === bank, along, steep, profile);
+	const direction =
+		footbridge || (!open && extent > 0) ? directionAt(along, across || footbridge) : null;
+	const kind = routeKind(
+		direction,
+		footbridge,
+		row === bank,
+		along,
+		steep && across && column % (2 * BLOCK.columns) === 0
+	);
+	const widths = {
+		riversidePromenade: profile.promenadeWidth,
+		mainAlley: profile.mainAlleyWidth,
+		alley: profile.alleyWidth,
+		stairAlley: profile.stairAlleyWidth,
+		footbridge: profile.footbridgeWidth
+	};
 	return {
 		direction,
-		width: direction ? width : 0,
+		kind,
+		width: kind ? widths[kind] : 0,
 		extent,
-		bridge,
+		footbridge,
 		square: square && !open && extent > 0,
 		open,
-		stairs: !bridge && !!direction && steep && across && column % (2 * BLOCK.columns) === 0
+		stairAlley: kind === 'stairAlley'
 	};
 }
 
@@ -79,12 +94,16 @@ function nodeSquare(site: Site, column: number, phase: number, profile: Profile)
 		Math.min(phase, BLOCK.rows - phase) <= profile.squareRadius
 	);
 }
-function streetWidth(bank: boolean, along: boolean, steep: boolean, profile: Profile) {
-	return bank
-		? profile.riverWidth
-		: along
-			? profile.mainWidth
-			: steep
-				? profile.stairWidth
-				: profile.alleyWidth;
+function routeKind(
+	direction: ReturnType<typeof directionAt>,
+	footbridge: boolean,
+	bank: boolean,
+	along: boolean,
+	stair: boolean
+) {
+	if (!direction) return null;
+	if (footbridge) return 'footbridge';
+	if (stair) return 'stairAlley';
+	if (bank) return 'riversidePromenade';
+	return along ? 'mainAlley' : 'alley';
 }

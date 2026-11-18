@@ -9,7 +9,7 @@ import type { Node } from 'three/webgpu';
 import { attribute, float, mix, texture, uniform, vec2 } from 'three/tsl';
 import { defineParams, numberParam, resolveParams } from '../../logic/params';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
-import { bridgeGeometry, streetOverlay } from './street-overlay';
+import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import type { Palette3D } from '../../data/city3d';
@@ -76,8 +76,10 @@ export function createTerrainMesh(grid: TerrainGrid) {
 	const cursor = uniform(new THREE.Vector2(-100, -100));
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
+	const peopleFocus = uniform(0);
+	const pathInk = mix(colors.ink, colors.people, peopleFocus);
 	const cover = coverTexture(grid);
-	const streets = streetOverlay(grid);
+	const alleys = alleyOverlay(grid);
 	const chart = attribute('chart', 'vec2');
 	const relief = attribute('relief', 'vec2');
 	const height = relief.x;
@@ -160,9 +162,9 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			.mul(lens.mul(near).max(gridStrength))
 			.mul(grid.profile.cellInk)
 			.max(parcelLine.mul(INK_SHARE.parcel));
-		return streets.shade(
+		return alleys.shade(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
-			colors.ink,
+			pathInk,
 			colors.people,
 			pathWeight
 		);
@@ -186,13 +188,13 @@ export function createTerrainMesh(grid: TerrainGrid) {
 
 	const group = new THREE.Group();
 	const deckMaterial = new THREE.MeshLambertNodeMaterial();
-	deckMaterial.colorNode = mix(colors.paper, colors.ink, grid.profile.bridgeTone);
-	const deck = new THREE.Mesh(bridgeGeometry(grid), deckMaterial);
+	deckMaterial.colorNode = mix(colors.paper, pathInk, grid.profile.footbridgeTone);
+	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(surface, water, baseMesh, deck);
 
 	return {
 		group,
-		setStreets: streets.update,
+		setAlleys: alleys.update,
 		surface,
 		/** World line segments of the model base outline, three.js coordinates. */
 		baseLines: () => baseLines,
@@ -206,7 +208,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 				mesh.geometry.dispose();
 				mesh.geometry = geometry;
 			};
-			replace(deck, bridgeGeometry(next));
+			replace(deck, footbridgeGeometry(next));
 			replace(surface, surfaceGeometry(next));
 			replace(water, waterGeometry(next));
 			replace(baseMesh, nextBase.geometry);
@@ -226,7 +228,8 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */
-		setPresentation(view: Focus) {
+		setPresentation(view: Focus, highlightPeople: boolean) {
+			peopleFocus.value = Number(highlightPeople);
 			const weights: Record<Representation, number> = {
 				full: 1,
 				silhouette: 0.6,
@@ -262,7 +265,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 			}
-			streets.dispose();
+			alleys.dispose();
 			cover.map.dispose();
 		}
 	};

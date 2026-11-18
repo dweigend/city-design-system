@@ -1,8 +1,8 @@
 import { blockPatches } from './block-patch';
 import { required } from '../required';
-import { defaultStreetPlan, parcelProfile } from './street-profile';
-import { streetPlan } from './street-plan';
-export { defaultStreetPlan };
+import { defaultAlleyPlan, parcelProfile } from './alley-profile';
+import { alleyPlan } from './alley-plan';
+export { defaultAlleyPlan };
 /**
  * Area grid derived from the terrain: quad cells of one module (5 m) with terrace, contour, floodplain
  * and civic-square layouts. The grid is a pure function of the
@@ -39,7 +39,7 @@ export const FLOOD_DATUM = 4.5;
 /** Smallest radial scale of the valley frame: world meters per frame meter along the valley. */
 const FRAME_SCALE_MIN = 0.75;
 
-const latticeOf = (terrain: Terrain, profile = defaultStreetPlan): Lattice => ({
+const latticeOf = (terrain: Terrain, profile = defaultAlleyPlan): Lattice => ({
 	terrain,
 	profile,
 	columns: Math.floor(terrain.along / MODULE),
@@ -137,19 +137,19 @@ function describeCell(
 	const zone = terrainZone(terrain, x, y);
 	const raised = level < FLOOD_LINE;
 	const pattern = patternAt(lattice, column, row);
-	const plan = streetPlan(
+	const plan = alleyPlan(
 		terrain,
 		column,
 		row,
 		{ corners, zone, pattern, incision: ravineDepth(terrain, x, y) },
 		lattice.profile
 	);
-	const street = plan.direction;
+	const alley = plan.direction;
 	return {
 		id: cellId(column, row),
 		pattern,
 		plan,
-		street,
+		alley,
 		block: `${Math.floor(column / BLOCK.columns)}:${Math.floor(row / BLOCK.rows)}`,
 		index: row * columns + column,
 		column,
@@ -161,7 +161,7 @@ function describeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable: !plan.open && !plan.square && street === null,
+		buildable: !plan.open && !plan.square && alley === null,
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }

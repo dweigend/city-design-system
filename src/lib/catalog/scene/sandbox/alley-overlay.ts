@@ -24,22 +24,22 @@ function markFrontage(next: TerrainGrid, cell: TerrainCell, radius: number, occu
 			occupied.add(y * next.columns + x);
 }
 
-/** Nearest-cell mask for street widths, stair treads and occupied frontages. */
-export function streetOverlay(grid: TerrainGrid, profile = grid.profile) {
+/** Nearest-cell mask for alley widths, stair treads and occupied frontages. */
+export function alleyOverlay(grid: TerrainGrid, profile = grid.profile) {
 	const pixels = new Uint8Array(grid.cells.length * 4);
 	const map = new THREE.DataTexture(pixels, grid.columns, grid.rows);
 	function update(next: TerrainGrid, houses: Iterable<string>) {
 		const occupied = frontages(next, houses, profile.cityRadiusCells);
 		for (const cell of next.cells) {
-			const { square, width, stairs } = cell.plan;
+			const { square, width, stairAlley } = cell.plan;
 			const band = Math.min(255, Math.round((255 * width) / MODULE));
 			const channel = (axis: 'along' | 'across') =>
-				square ? 255 : cell.street === axis || cell.street === 'both' ? band : 0;
+				square ? 255 : cell.alley === axis || cell.alley === 'both' ? band : 0;
 			pixels.set(
 				[
 					channel('along'),
 					channel('across'),
-					stairs ? 255 : 0,
+					stairAlley ? 255 : 0,
 					255 * cell.plan.extent * (occupied.has(cell.index) ? profile.cityInk : profile.emptyInk)
 				],
 				cell.index * 4
@@ -51,7 +51,7 @@ export function streetOverlay(grid: TerrainGrid, profile = grid.profile) {
 	return {
 		update,
 		dispose: () => map.dispose(),
-		shade(ground: Node<'vec3'>, ink: Node<'color'>, people: Node<'color'>, weight: Node<'float'>) {
+		shade(ground: Node<'vec3'>, ink: Node<'vec3'>, people: Node<'color'>, weight: Node<'float'>) {
 			const chart = attribute('chart', 'vec2');
 			const mask = texture(map, chart.div(vec2(grid.columns, grid.rows)));
 			const dist = chart.fract().sub(0.5).abs().mul(2);
@@ -61,9 +61,9 @@ export function streetOverlay(grid: TerrainGrid, profile = grid.profile) {
 					.mul(float(width.greaterThan(0)));
 			const coverage = band(dist.x, mask.g).max(band(dist.y, mask.r));
 			const tread = chart.y.mul(profile.treadsPerCell).fract().smoothstep(0.35, 0.65).mul(mask.b);
-			const streets = mix(ground, ink, coverage.mul(mask.a).mul(weight));
+			const alleys = mix(ground, ink, coverage.mul(mask.a).mul(weight));
 			return mix(
-				streets,
+				alleys,
 				people,
 				band(dist.x, mask.g)
 					.mul(mask.b)
@@ -76,8 +76,8 @@ export function streetOverlay(grid: TerrainGrid, profile = grid.profile) {
 }
 
 /** A closed deck with shared cross sections and sloped landings at ground level. */
-export function bridgeGeometry(grid: TerrainGrid) {
-	const span = grid.cells.filter((cell) => cell.plan.bridge);
+export function footbridgeGeometry(grid: TerrainGrid) {
+	const span = grid.cells.filter((cell) => cell.plan.footbridge);
 	const positions: number[] = [];
 	if (span.length) appendBridge(positions, grid, span);
 	const geometry = new THREE.BufferGeometry();
@@ -89,10 +89,10 @@ export function bridgeGeometry(grid: TerrainGrid) {
 function appendBridge(output: number[], grid: TerrainGrid, span: TerrainCell[]) {
 	const first = span[0],
 		last = span[span.length - 1];
-	const { approachCells, bridgeClearance, deckDepth } = grid.profile;
+	const { approachCells, footbridgeClearance, deckDepth } = grid.profile;
 	const start = Math.max(0, first.row - approachCells),
 		end = Math.min(grid.rows, last.row + 1 + approachCells);
-	const deck = grid.terrain.waterLevel + bridgeClearance;
+	const deck = grid.terrain.waterLevel + footbridgeClearance;
 	type Point = TerrainCell['center'];
 	const quad = (a: Point, b: Point, c: Point, d: Point) => {
 		for (const p of [a, b, c, a, c, d]) pushThree(output, p);
@@ -111,9 +111,20 @@ function appendBridge(output: number[], grid: TerrainGrid, span: TerrainCell[]) 
 	};
 	for (let r = start; r < end; r++) {
 		const cell = grid.cells[r * grid.columns + first.column];
-		const [[a, A], [b, B], [c, C], [d, D]] = cell.corners.map((p, i) =>
-			section(p, r + Number(i >= 2))
-		);
+		const [southWest, southEast, northEast, northWest] = cell.corners;
+		const side = (left: Point, right: Point): Point => {
+			const length = Math.hypot(left[0] - right[0], left[1] - right[1]);
+			const t = (1 - Math.min(1, grid.profile.footbridgeWidth / length)) / 2;
+			return [
+				left[0] + (right[0] - left[0]) * t,
+				left[1] + (right[1] - left[1]) * t,
+				left[2] + (right[2] - left[2]) * t
+			];
+		};
+		const [a, A] = section(side(southWest, southEast), r);
+		const [b, B] = section(side(southEast, southWest), r);
+		const [c, C] = section(side(northEast, northWest), r + 1);
+		const [d, D] = section(side(northWest, northEast), r + 1);
 		quad(a, b, c, d);
 		quad(D, C, B, A);
 		quad(a, d, D, A);

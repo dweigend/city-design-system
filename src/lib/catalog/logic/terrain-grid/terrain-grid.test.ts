@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createTerrain, groundLevel, valleyCoords, type TerrainEdit } from '../terrain';
 import {
-	defaultStreetPlan,
+	defaultAlleyPlan,
 	type TerrainCell,
 	BLOCK,
 	cellAtPoint,
@@ -58,7 +58,7 @@ describe('terrain grid', () => {
 		expect(along / lattice).toBeLessThan(0.12);
 	});
 
-	test('scarp streets improve on the previous contour solver for seed 7', () => {
+	test('scarp alleys improve on the previous contour solver for seed 7', () => {
 		let along = 0,
 			across = 0;
 		for (const cell of onScarp.filter((cell) => cell.row % BLOCK.rows === 0)) {
@@ -67,11 +67,11 @@ describe('terrain grid', () => {
 			along += Math.abs(height(b) - height(a));
 			across += Math.abs(height(d) - height(a));
 		}
-		// Same street edges at 62862c9 measured 0.03365.
+		// Same alley edges at 62862c9 measured 0.03365.
 		expect(along / across).toBeLessThan(0.0336);
 	});
 
-	test('contour streets respect block depths through the creek and the partial rim', () => {
+	test('contour alleys respect block depths through the creek and the partial rim', () => {
 		let greatestLean = 0;
 		for (let column = 0; column <= grid.columns; column++) {
 			const frame = (row: number) => {
@@ -93,23 +93,23 @@ describe('terrain grid', () => {
 		expect(greatestLean).toBeLessThanOrEqual(6 + 1e-9);
 	});
 
-	test('one-cell street bands bound stable block addresses', () => {
+	test('one-cell alley bands bound stable block addresses', () => {
 		const widths = new Set(grid.cells.map((cell) => cell.plan.width));
 		expect(widths.size).toBeGreaterThanOrEqual(5);
-		expect(grid.cells.some((cell) => cell.plan.bridge && cell.zone === 'water')).toBe(true);
+		expect(grid.cells.some((cell) => cell.plan.footbridge && cell.zone === 'water')).toBe(true);
 		expect(grid.cells.some((cell) => cell.plan.square)).toBe(true);
-		expect(grid.cells.some((cell) => cell.plan.stairs)).toBe(true);
+		expect(grid.cells.some((cell) => cell.plan.stairAlley)).toBe(true);
 		expect(cellAt(11, 7).block).toBe('0:0');
 		expect(cellAt(12, 8).block).toBe('1:1');
 		expect(cellAt(23, 15).block).toBe('1:1');
 	});
 
-	test('street widths follow the world profile without changing parcel addresses', () => {
-		const profile = { ...defaultStreetPlan, mainWidth: 3 };
+	test('alley widths follow the world profile without changing parcel addresses', () => {
+		const profile = { ...defaultAlleyPlan, mainAlleyWidth: 3 };
 		const next = deriveGrid(terrain, profile);
-		const main = grid.cells.find((cell) => cell.plan.width === defaultStreetPlan.mainWidth);
-		if (!main) throw new Error('missing main street');
-		expect(next.cellsById.get(main.id)?.plan.width).toBe(profile.mainWidth);
+		const main = grid.cells.find((cell) => cell.plan.width === defaultAlleyPlan.mainAlleyWidth);
+		if (!main) throw new Error('missing main alley');
+		expect(next.cellsById.get(main.id)?.plan.width).toBe(profile.mainAlleyWidth);
 		expect(deriveGrid(terrain, profile).cellsById.get(main.id)?.plan).toEqual(
 			next.cellsById.get(main.id)?.plan
 		);
@@ -126,7 +126,7 @@ describe('terrain grid', () => {
 
 	test('level datums: no building on water, stilts where it floods, a plinth elsewhere', () => {
 		for (const cell of grid.cells) {
-			expect(cell.buildable).toBe(!cell.plan.open && !cell.plan.square && cell.street === null);
+			expect(cell.buildable).toBe(!cell.plan.open && !cell.plan.square && cell.alley === null);
 			if (cell.raised) expect(cell.pad).toBe(FLOOD_DATUM);
 			else expect(cell.pad - PLINTH).toBe(Math.round(cell.pad - PLINTH));
 		}
@@ -162,7 +162,7 @@ describe('terrain grid', () => {
 		expect(frame(21, 48)[0] - x).toBeCloseTo(MODULE, 9);
 		expect(frame(21, 48)[1]).toBeCloseTo(y, 9);
 		expect(Math.abs(frame(20, 49)[0] - x)).toBeLessThanOrEqual(
-			defaultStreetPlan.frontageShift * MODULE
+			defaultAlleyPlan.frontageShift * MODULE
 		);
 		expect(Math.abs(frame(30, 27)[0] - 30 * MODULE)).toBeGreaterThan(3);
 		// The fan has a common pole 76 m below its central row in the valley frame.
@@ -172,7 +172,7 @@ describe('terrain grid', () => {
 				const [u, v] = frame(c, r);
 				expect(
 					Math.abs(Math.hypot(u - pole[0], v - pole[1]) - (76 + (r - 44) * MODULE))
-				).toBeLessThan(MODULE * defaultStreetPlan.stagger * Math.SQRT2);
+				).toBeLessThan(MODULE * defaultAlleyPlan.stagger * Math.SQRT2);
 			}
 	});
 
@@ -210,7 +210,7 @@ describe('terrain grid', () => {
 						c.column === grid.columns - 1 ||
 						c.row === grid.rows - 1
 				)
-				.every((c) => !c.street)
+				.every((c) => !c.alley)
 		).toBe(true);
 	});
 

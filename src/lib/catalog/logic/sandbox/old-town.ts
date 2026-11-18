@@ -11,7 +11,7 @@ export type TownOptions = Partial<typeof townDefaults>;
 /** Assigns lots to the nearest public frontage along actual parcel sides. */
 function frontageLots(grid: TerrainGrid, depthLimit: number) {
 	let front = grid.cells
-		.filter((c) => c.street && !c.plan.open)
+		.filter((c) => c.alley && !c.plan.open)
 		.map((cell) => ({ cell, lot: cell.id }));
 	const sites = new Map<string, { lot: string; depth: number }>();
 	for (let depth = 1; depth <= depthLimit; depth++) {
@@ -26,7 +26,7 @@ function frontageLots(grid: TerrainGrid, depthLimit: number) {
 	return sites;
 }
 
-/** Paired street-front lots on the first dry terrace. Parcel-addressed draws leave alleys and gardens. */
+/** Paired alley-front lots on the first dry terrace. Parcel-addressed draws leave alleys and gardens. */
 export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 	const settings = { ...townDefaults, ...options };
 	const frontages = frontageLots(grid, settings.frontageDepth);
@@ -70,5 +70,16 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 			}))
 		);
 	}
-	return { ...EMPTY_STATE, year: settings.year, stacks, storyParts };
+	const cover = new Map<string, 'meadow'>();
+	for (const { cell } of lots.slice(0, settings.cells)) {
+		for (const neighbor of neighborsOf(grid, cell)) {
+			if (
+				neighbor.buildable &&
+				!stacks.has(neighbor.id) &&
+				hashUnit(seed, neighbor.id, 'planting') < settings.gardenShare
+			)
+				cover.set(neighbor.id, 'meadow');
+		}
+	}
+	return { ...EMPTY_STATE, year: settings.year, stacks, storyParts, cover };
 }

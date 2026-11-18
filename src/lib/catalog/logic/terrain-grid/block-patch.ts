@@ -2,7 +2,7 @@ import { hash } from '../hash-random';
 import { kern } from '../parametrik/raster/universal';
 import { required } from '../required';
 import { BLOCK, MODULE, type Lattice } from './contour-rows';
-import { settlementExtent } from './street-plan';
+import { settlementExtent } from './alley-plan';
 import { cellId } from './types';
 
 type Address = readonly [number, number];
@@ -176,7 +176,7 @@ function makePatch(
 	return { positions, faces };
 }
 
-/** Fits the Universal kernel's relaxed patches inside fixed street bands, including partial rim blocks. */
+/** Fits the Universal kernel's relaxed patches inside fixed alley bands, including partial rim blocks. */
 export function blockPatches(lattice: Lattice, ground: Ground) {
 	const patches = new Map<string, ReturnType<typeof makePatch>>();
 	return (c: number, r: number) => {

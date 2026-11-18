@@ -1,9 +1,9 @@
-/** Contour streets bound evenly divided blocks in the valley frame. */
+/** Contour alleys bound evenly divided blocks in the valley frame. */
 import { groundLevel, valleyPoint, type Terrain } from '../terrain';
 
 /** Edge length of one cell in the valley frame, meters: the module of the measure chain. */
 export const MODULE = 5;
-/** Number of cells between consecutive street bands. */
+/** Number of cells between consecutive alley bands. */
 export const BLOCK = { rows: 8, columns: 12 } as const;
 /** Distance between height samples along a column, meters. */
 const SAMPLE = 1;
@@ -24,7 +24,7 @@ const GRADIENT_RADIUS = 10;
 export const REACH = Math.max(WINDOW + SMOOTH_PASSES, BLOCK.columns + GRADIENT_RADIUS / MODULE);
 
 export type Lattice = Readonly<{
-	profile: typeof import('./street-profile').defaultStreetPlan;
+	profile: typeof import('./alley-profile').defaultAlleyPlan;
 	terrain: Terrain;
 	columns: number;
 	rows: number;
@@ -85,7 +85,7 @@ function shiftTo(field: Float64Array, at: number, level: number): number {
 	return field[at] < level === rising ? MAX_SHIFT : -MAX_SHIFT;
 }
 
-/** Clamp each street shift against its predecessor and the remaining distance to the fixed rim. */
+/** Clamp each alley shift against its predecessor and the remaining distance to the fixed rim. */
 function divideBlocks(shifts: Float64Array, rows: number): Float64Array {
 	const result = new Float64Array(rows + 1);
 	let previous = 0;
@@ -112,7 +112,7 @@ export const smoothWeight = (x: number) => {
 	return t * t * (3 - 2 * t);
 };
 
-/** Share of contour alignment at a street node, before limiting block depth. */
+/** Share of contour alignment at a alley node, before limiting block depth. */
 function contourWeight({ bands }: Terrain, y: number) {
 	return (
 		smoothWeight((y - bands.scarpStart + 50) / 30) *
@@ -178,8 +178,8 @@ export function rowShifts(lattice: Lattice, from: number, to: number): Columns {
 	return result;
 }
 
-/** Bounded fall-line displacement at each street crossing, integrated uphill in meters. */
-function crossStreet(lattice: Lattice, column: number): Float64Array {
+/** Bounded fall-line displacement at each alley crossing, integrated uphill in meters. */
+function crossAlley(lattice: Lattice, column: number): Float64Array {
 	const offsets = new Float64Array(Math.ceil(lattice.rows / BLOCK.rows) + 1);
 	if (column === 0 || column === lattice.columns) return offsets;
 	const height = (along: number, across: number) =>
@@ -204,13 +204,13 @@ function crossStreet(lattice: Lattice, column: number): Float64Array {
 	return offsets;
 }
 
-/** Interpolates neighboring cross streets in both directions to keep the parcels regular. */
+/** Interpolates neighboring cross alleys in both directions to keep the parcels regular. */
 export function columnLeans(lattice: Lattice, column: number, crossings: Columns): Float64Array {
 	const left = column - (column % BLOCK.columns);
 	const right = Math.min(left + BLOCK.columns, lattice.columns);
 	const fraction = (column - left) / Math.max(1, right - left);
 	const offsets = (c: number) => {
-		const profile = crossings.get(c) ?? crossStreet(lattice, c);
+		const profile = crossings.get(c) ?? crossAlley(lattice, c);
 		crossings.set(c, profile);
 		return profile;
 	};
