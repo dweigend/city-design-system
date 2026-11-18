@@ -2,9 +2,17 @@ import * as THREE from 'three/webgpu';
 import { attribute, float, mix, texture, vec2 } from 'three/tsl';
 import type { Node } from 'three/webgpu';
 import { MODULE, type TerrainCell, type TerrainGrid } from '../../logic/terrain-grid';
+import { defineParams, numberParam, resolveParams } from '../../logic/params';
 import { pushThree } from '../world-space';
 
-const viewProfile = { emptyInk: 0.14, cityInk: 0.48, cityRadiusCells: 4, treadsPerCell: 6 };
+const viewProfile = resolveParams(
+	defineParams({
+		emptyInk: numberParam('Outer street ink', 'ratio', 0.18, [0, 1, 0.01]),
+		cityInk: numberParam('Settled street ink', 'ratio', 0.32, [0, 1, 0.01]),
+		cityRadiusCells: numberParam('Frontage reach', 'cells', 4, [1, 16, 1], 'integer'),
+		treadsPerCell: numberParam('Treads per module', 'treads', 4, [1, 10, 1], 'integer')
+	})
+);
 
 function frontages(next: TerrainGrid, houses: Iterable<string>, radius: number) {
 	const occupied = new Set<number>();
@@ -42,7 +50,7 @@ export function streetOverlay(grid: TerrainGrid, profile = viewProfile) {
 					channel('along'),
 					channel('across'),
 					stairs ? 255 : 0,
-					255 * (occupied.has(cell.index) ? profile.cityInk : profile.emptyInk)
+					255 * cell.plan.extent * (occupied.has(cell.index) ? profile.cityInk : profile.emptyInk)
 				],
 				cell.index * 4
 			);
@@ -63,7 +71,16 @@ export function streetOverlay(grid: TerrainGrid, profile = viewProfile) {
 					.mul(float(width.greaterThan(0)));
 			const coverage = band(dist.x, mask.g).max(band(dist.y, mask.r));
 			const tread = chart.y.mul(profile.treadsPerCell).fract().smoothstep(0.35, 0.65).mul(mask.b);
-			return mix(ground, mix(ink, people, tread), coverage.mul(mask.a).mul(weight));
+			const streets = mix(ground, ink, coverage.mul(mask.a).mul(weight));
+			return mix(
+				streets,
+				people,
+				band(dist.x, mask.g)
+					.mul(mask.b)
+					.mul(tread.add(1).div(2))
+					.mul(float(mask.a.greaterThan(0)))
+					.mul(weight)
+			);
 		}
 	};
 }

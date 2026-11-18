@@ -4,10 +4,18 @@
  */
 import * as THREE from 'three/webgpu';
 import type { TerrainGrid } from '../../logic/terrain-grid';
+import { ravineDepth } from '../../logic/terrain';
 import { pushThree } from '../world-space';
 
 /** Bottom of the model base, meters below mean water. */
 const BASE_DEPTH = 9;
+
+function chartedGeometry(positions: number[], chart: number[]) {
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	geometry.setAttribute('chart', new THREE.Float32BufferAttribute(chart, 2));
+	return geometry;
+}
 
 /**
  * Terrain surface with one vertex per grid corner and the chart position (column, row) as
@@ -17,19 +25,19 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 	const positions: number[] = [];
 	const chart: number[] = [];
 	const indices: number[] = [];
-	const stride = grid.columns + 1;
-	grid.vertices.forEach((vertex, i) => {
-		pushThree(positions, vertex);
-		chart.push(i % stride, Math.floor(i / stride));
-	});
-	for (let row = 0; row < grid.rows; row++)
-		for (let column = 0; column < grid.columns; column++) {
-			const a = row * stride + column;
-			indices.push(a, a + 1, a + stride + 1, a, a + stride + 1, a + stride);
+	const relief: number[] = [];
+	for (const cell of grid.cells) {
+		const start = positions.length / 3;
+		for (const vertex of cell.corners) {
+			pushThree(positions, vertex);
+			relief.push(vertex[2], ravineDepth(grid.terrain, vertex[0], vertex[1]));
 		}
-	const geometry = new THREE.BufferGeometry();
-	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-	geometry.setAttribute('chart', new THREE.Float32BufferAttribute(chart, 2));
+		const { column: c, row: r } = cell;
+		chart.push(c, r, c + 1, r, c + 1, r + 1, c, r + 1);
+		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+	}
+	const geometry = chartedGeometry(positions, chart);
+	geometry.setAttribute('relief', new THREE.Float32BufferAttribute(relief, 2));
 	geometry.setIndex(indices);
 	geometry.computeVertexNormals();
 	return geometry;
@@ -83,9 +91,7 @@ export function waterGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 		chart.push(column, row, column + 1, row, column + 1, row + 1);
 		chart.push(column, row, column + 1, row + 1, column, row + 1);
 	}
-	const geometry = new THREE.BufferGeometry();
-	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-	geometry.setAttribute('chart', new THREE.Float32BufferAttribute(chart, 2));
+	const geometry = chartedGeometry(positions, chart);
 	geometry.computeVertexNormals();
 	return geometry;
 }

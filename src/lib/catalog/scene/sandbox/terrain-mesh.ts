@@ -6,7 +6,8 @@
  */
 import * as THREE from 'three/webgpu';
 import type { Node } from 'three/webgpu';
-import { attribute, float, mix, positionWorld, texture, uniform, vec2 } from 'three/tsl';
+import { attribute, float, mix, texture, uniform, vec2 } from 'three/tsl';
+import { defineParams, numberParam, resolveParams } from '../../logic/params';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
 import { bridgeGeometry, streetOverlay } from './street-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
@@ -15,7 +16,15 @@ import type { Palette3D } from '../../data/city3d';
 import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
 
 /** Contour intervals in meters. */
-const CONTOUR = { minor: 1, major: 5 };
+const reliefProfile = resolveParams(
+	defineParams({
+		minor: numberParam('Minor contour interval', 'm', 0.5, [0.25, 2, 0.25]),
+		major: numberParam('Major contour interval', 'm', 5, [2, 10, 1]),
+		ravineTone: numberParam('Ravine wash', 'ratio', 0.1, [0, 1, 0.01]),
+		hatchSpacing: numberParam('Ravine hatch spacing', 'm', 4, [1, 10, 1]),
+		paperWash: numberParam('Paper wash', 'ratio', 0.045, [0, 0.25, 0.005])
+	})
+);
 /** Cells per parcel line of the measure chain (10 cells of 5 m = 50 m). */
 const PARCEL_CELLS = 10;
 /** Radius of the grid lens around the cursor, in cells. */
@@ -32,7 +41,7 @@ const INK_SHARE = {
 
 /** 1 on a line at every integer of `value`, antialiased; width in screen pixels. */
 function hairline(value: Node<'float'>, widthPx: number): Node<'float'> {
-	const distancePx = value.sub(0.5).fract().sub(0.5).abs().div(value.fwidth());
+	const distancePx = value.sub(0.5).fract().sub(0.5).abs().div(value.fwidth().max(1e-6));
 	return float(1).sub(distancePx.smoothstep(widthPx / 2 - 0.5, widthPx / 2 + 0.5));
 }
 /** 1 where line patterns of `value` are still resolvable on screen, 0 where they would alias. */
@@ -71,7 +80,8 @@ export function createTerrainMesh(grid: TerrainGrid) {
 	const cover = coverTexture(grid);
 	const streets = streetOverlay(grid);
 	const chart = attribute('chart', 'vec2');
-	const height = positionWorld.y;
+	const relief = attribute('relief', 'vec2');
+	const height = relief.x;
 
 	function waterColor(): Node<'vec3'> {
 		const flow = hairline(chart.y.mul(0.5), 1)
@@ -84,7 +94,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const masks = texture(cover.map, chart.div(vec2(grid.columns, grid.rows)));
 		const inside = (mask: Node<'float'>) => mask.smoothstep(0.46, 0.54);
 		const edge = (mask: Node<'float'>) =>
-			float(1).sub(mask.sub(0.5).abs().div(mask.fwidth()).smoothstep(0.4, 1.4));
+			float(1).sub(mask.sub(0.5).abs().div(mask.fwidth().max(1e-6)).smoothstep(0.4, 1.4));
 		const furrows = chart.y
 			.mul(2)
 			.fract()
@@ -109,11 +119,20 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		);
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(colors.paper, ground, forestWeight);
-		ground = streets.shade(ground, colors.ink, colors.people, pathWeight);
+		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
+		const hatchPhase = attribute('position', 'vec3').x.add(height).div(reliefProfile.hatchSpacing);
+		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
+		ground = mix(
+			ground,
+			colors.ink,
+			incision.mul(hatch.add(1)).mul(reliefProfile.ravineTone).mul(terrainWeight)
+		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
-		const minor = hairline(height.div(CONTOUR.minor), 1).mul(resolvable(height.div(CONTOUR.minor)));
-		const major = hairline(height.div(CONTOUR.major), 1.2);
+		const minor = hairline(height.div(reliefProfile.minor), 1).mul(
+			resolvable(height.div(reliefProfile.minor))
+		);
+		const major = hairline(height.div(reliefProfile.major), 1.2);
 		const contour = minor.mul(INK_SHARE.contourMinor).max(major.mul(INK_SHARE.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
 		const weighted = contour.mul(gridStrength.mul(PLAN_CONTOUR_GAIN).add(1));
@@ -140,10 +159,15 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const plan = near.mul(
 			cellLine.mul(lens).mul(INK_SHARE.cell).max(parcelLine.mul(INK_SHARE.parcel))
 		);
-		return mix(ground, colors.blueprint, plan.mul(terrainWeight));
+		return streets.shade(
+			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
+			colors.ink,
+			colors.people,
+			pathWeight
+		);
 	}
 
-	const surfaceMaterial = new THREE.MeshLambertNodeMaterial();
+	const surfaceMaterial = new THREE.MeshBasicNodeMaterial();
 	surfaceMaterial.colorNode = groundColor();
 	const surface = new THREE.Mesh(surfaceGeometry(grid), surfaceMaterial);
 	surface.receiveShadow = true;
@@ -190,12 +214,14 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		/** Applies theme colors; no geometry changes. */
 		setPalette(palette: Palette3D) {
 			const category = (name: string) => new THREE.Color(palette.categories[name]);
-			colors.paper.value.set(palette.paper);
+			colors.paper.value
+				.set(palette.paper)
+				.lerp(new THREE.Color(palette.ink), reliefProfile.paperWash);
 			colors.ink.value.set(palette.ink);
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
 			colors.nature.value.copy(category('nature'));
-			colors.people.value.set(palette.categories['--signal']);
+			colors.people.value.copy(category('business'));
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */
