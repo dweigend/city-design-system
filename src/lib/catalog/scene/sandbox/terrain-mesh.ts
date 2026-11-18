@@ -18,6 +18,10 @@ const CONTOUR = { minor: 1, major: 5 };
 const PARCEL_CELLS = 10;
 /** Radius of the grid lens around the cursor, in cells. */
 const LENS_RADIUS = 11;
+/** Share of the people color in the ground tone of a street. */
+const STREET_TINT = 0.3;
+/** Texture channel of the street mask; the cover kinds use the channels before it. */
+const STREET_CHANNEL = 3;
 /** Extra weight of the contour lines when the whole grid is shown. */
 const PLAN_CONTOUR_GAIN = 0.9;
 const INK_SHARE = {
@@ -57,12 +61,18 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		blueprint: uniform(new THREE.Color()),
 		water: uniform(new THREE.Color()),
 		nature: uniform(new THREE.Color()),
-		food: uniform(new THREE.Color())
+		food: uniform(new THREE.Color()),
+		people: uniform(new THREE.Color())
 	};
 	const cursor = uniform(new THREE.Vector2(-100, -100));
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const cover = coverTexture(grid);
+	const writeStreets = (cells: TerrainGrid['cells']) => {
+		for (const cell of cells) cover.data[cell.index * 4 + STREET_CHANNEL] = cell.street ? 255 : 0;
+		cover.map.needsUpdate = true;
+	};
+	writeStreets(grid.cells);
 	const chart = attribute('chart', 'vec2');
 	const height = positionWorld.y;
 
@@ -95,14 +105,15 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			furrows
 		);
 		ground = mix(ground, field, inside(masks.g));
-		ground = mix(ground, waterColor(), inside(masks.b));
 		const meadow = mix(
 			mix(colors.paper, colors.nature, 0.12),
 			colors.nature,
 			dots.mul(resolvable(chart.x.mul(2))).mul(0.7)
 		);
-		ground = mix(ground, meadow, inside(masks.a));
-		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b)).max(edge(masks.a));
+		ground = mix(ground, meadow, inside(masks.b));
+		// Streets are paths: a light tone of the people color, without an outline.
+		ground = mix(ground, mix(colors.paper, colors.people, STREET_TINT), inside(masks.a));
+		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
 		const minor = hairline(height.div(CONTOUR.minor), 1).mul(resolvable(height.div(CONTOUR.minor)));
 		const major = hairline(height.div(CONTOUR.major), 1.2);
@@ -162,6 +173,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 				mesh.geometry.dispose();
 				mesh.geometry = geometry;
 			};
+			writeStreets(next.cells);
 			replace(surface, surfaceGeometry(next));
 			replace(water, waterGeometry(next));
 			replace(baseMesh, nextBase.geometry);
@@ -175,6 +187,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
 			colors.nature.value.copy(category('nature'));
+			colors.people.value.copy(category('business'));
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */
