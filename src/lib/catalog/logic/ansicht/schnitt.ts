@@ -4,6 +4,7 @@
  * clipped; all other forms stay or go depending on their center.
  */
 import type { Primitive, Vec3 } from '../parametrik/types';
+import { legacyRoleOf } from '../parametrik/types';
 import {
 	area,
 	bounds,
@@ -62,7 +63,7 @@ function cutSolid(
 	const out: Primitive[] = [body];
 	// Glass, ghost and pure surfaces without volume get no poché.
 	if (p.glass || p.material === 'ghost' || p.material === 'glass') return out;
-	const section = p.role;
+	const section = legacyRoleOf(p);
 	const cap = { role: p.role, token: '--paper', material: 'paper', section, emphasis } as const;
 	if (s.hoehe !== null && s.hoehe < z + height && s.hoehe > z)
 		out.push({

@@ -47,9 +47,16 @@ export function roofCarrier(site: Site, mass: Mass, context: RoofContext): Primi
 	const low: Vec3[] = [],
 		high: Vec3[] = [],
 		parts: Primitive[] = [];
-	const trace = (suffix: string, points: Vec3[]): Primitive => ({
+	const trace = (
+		suffix: string,
+		points: Vec3[],
+		bearings?: Vec3[],
+		member?: Primitive['member']
+	): Primitive => ({
 		...part(carrier.id + '/' + suffix, '--paper', { kind: 'polyline', points }),
-		role: 'bestand'
+		role: 'traeger',
+		bearings,
+		member
 	});
 	for (const [i, c] of run.cells.entries()) {
 		const bay = bayOf(carrier, { cell: c, level }, [...c.corners]);
@@ -57,16 +64,24 @@ export function roofCarrier(site: Site, mass: Mass, context: RoofContext): Primi
 		low.push(foot);
 		high.push([foot[0], foot[1], foot[2] + inradius(c) * CARRIER.girderDepth]);
 		const joint = along(bay, run.side, CARRIER.pierInset, 0.5, 1);
-		parts.push(trace('bent/' + c.id, [[joint[0], joint[1], roofs[i]], joint, foot]));
-		if (i) parts.push(trace('brace/' + i, [low[i - 1], high[i]]));
+		const bearing: Vec3 = [joint[0], joint[1], roofs[i]];
+		parts.push(trace('bent/' + c.id, [bearing, joint, foot], [bearing]));
+		if (i)
+			parts.push(
+				trace('brace/' + i, [low[i - 1], high[i]], undefined, i % 2 ? 'secondary' : 'alternate')
+			);
 		if (c !== cell) parts.push(...dockedModule(bay, run.side));
 	}
-	const chord = part(carrier.id + '/lower', '--paper', {
-		kind: 'pipe',
-		points: low,
-		radius: Math.min(...run.cells.map(inradius)) * CARRIER.chordRadius,
-		edges: false,
-		shade: CARRIER.graphite
-	});
+	const chord: Primitive = {
+		...part(carrier.id + '/lower', '--paper', {
+			kind: 'pipe',
+			points: low,
+			radius: Math.min(...run.cells.map(inradius)) * CARRIER.chordRadius,
+			edges: false,
+			shade: CARRIER.graphite
+		}),
+		role: 'traeger',
+		legacyRole: 'neu'
+	};
 	return [...parts, chord, trace('upper', high)];
 }

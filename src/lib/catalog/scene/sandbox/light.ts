@@ -1,30 +1,34 @@
 import * as THREE from 'three/webgpu';
+import { float, mix, shadow, uniform } from 'three/tsl';
+import { LICHT } from '../../data/leitstil';
 
-/**
- * Light of the white model. A surface that faces up shows its own color unchanged;
- * surfaces turned away or in shadow fall toward the ambient share.
- */
-const LIGHT = { ambient: 0.72, sunAzimuthRad: -0.75, sunElevationRad: 0.8 };
 const SHADOW_MAP_SIZE = 4096;
 /** Smallest half width of the shadow volume, meters, and its factor of the visible span. */
 const SHADOW_REACH = { min: 120, perSpan: 1.1 };
 
-/** Creates sun and ambient light. `aim` fits the shadow volume to the visible ground. */
+/** Fits a directional shadow to the scene without shading the paper with ambient light. */
 export function createLight() {
-	const direction = new THREE.Vector3(
-		Math.sin(LIGHT.sunAzimuthRad) * Math.cos(LIGHT.sunElevationRad),
-		Math.sin(LIGHT.sunElevationRad),
-		Math.cos(LIGHT.sunAzimuthRad) * Math.cos(LIGHT.sunElevationRad)
-	);
-	// Lambert divides by π: intensities carry it, so a ground facing up reads as its own color.
-	const ambient = new THREE.AmbientLight(0xffffff, Math.PI * LIGHT.ambient);
-	const sun = new THREE.DirectionalLight(0xffffff, (Math.PI * (1 - LIGHT.ambient)) / direction.y);
+	const direction = new THREE.Vector3(-LICHT[0], -LICHT[2], LICHT[1]).normalize();
+	const sun = new THREE.DirectionalLight(0xffffff);
 	sun.castShadow = true;
 	sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
 	sun.shadow.bias = -0.0006;
 	sun.shadow.normalBias = 0.05;
+	// Three's depth-only shadow node returns a scalar, but its type omits the TSL scalar interface.
+	const shadowMask = shadow(sun) as ReturnType<typeof shadow> & THREE.Node<'float'>;
+	const shadowTone = uniform(new THREE.Vector3());
 	return {
-		objects: [ambient, sun, sun.target],
+		objects: [sun, sun.target],
+		/** The ground holds the paper palette outside the cast shadow. */
+		shade(color: THREE.Node<'vec3'>) {
+			return mix(shadowTone, color, float(shadowMask));
+		},
+		/** Sets the Leitstil shadow tone for the current theme. */
+		setTone(color: THREE.Color) {
+			shadowTone.value.set(color.r, color.g, color.b);
+		},
+		/** Releases the shadow render target. */
+		dispose: () => shadowMask.dispose(),
 		/** Centers the shadow volume on the view target; sharp shadows at every zoom. */
 		aim(target: THREE.Vector3, span: number) {
 			const reach = Math.max(SHADOW_REACH.min, span * SHADOW_REACH.perSpan);

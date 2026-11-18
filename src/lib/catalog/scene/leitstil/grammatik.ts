@@ -1,12 +1,9 @@
-import { Color, LinearSRGBColorSpace } from 'three';
+import { Color } from 'three';
 import { resolveTokens } from '../themeBinding';
 import { TOENE, PROJEKTION_TOENE } from '../../data/leitstil';
 import { flowStepToken, type FlowId, type FlowStep } from '../../data/focus';
-import { oklchToLinear } from '../../logic/farbe/oklch';
+import { neutral } from './tone';
 import type { Stil } from '../../logic/leitstil';
-export function neutral(l: number): Color {
-	return new Color().setRGB(...oklchToLinear({ l, c: 0, h: 0 }), LinearSRGBColorSpace);
-}
 export function grammatik(host: HTMLElement, s: Stil) {
 	const names = [
 		'--paper',

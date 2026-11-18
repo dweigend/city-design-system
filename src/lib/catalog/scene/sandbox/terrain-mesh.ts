@@ -12,6 +12,8 @@ import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
 import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
+import { flowToken } from '../../data/focus';
+import { WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
 import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
@@ -42,7 +44,8 @@ export type TerrainMesh = ReturnType<typeof createTerrainMesh>;
  */
 export function createTerrainMesh(
 	grid: TerrainGrid,
-	overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>
+	overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>,
+	shadeGround = (color: Node<'vec3'>) => color
 ) {
 	const profile = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
 	const nodes = Object.fromEntries(
@@ -158,23 +161,23 @@ export function createTerrainMesh(
 	}
 
 	const surfaceMaterial = new THREE.MeshBasicNodeMaterial();
-	surfaceMaterial.colorNode = groundColor();
+	surfaceMaterial.colorNode = shadeGround(groundColor());
 	const surface = new THREE.Mesh(surfaceGeometry(grid), surfaceMaterial);
 	surface.receiveShadow = true;
 
-	const waterMaterial = new THREE.MeshLambertNodeMaterial();
+	const waterMaterial = new THREE.MeshBasicNodeMaterial();
 	waterMaterial.colorNode = waterColor();
 	const water = new THREE.Mesh(waterGeometry(grid), waterMaterial);
 	water.receiveShadow = true;
 
-	const baseMaterial = new THREE.MeshLambertNodeMaterial();
+	const baseMaterial = new THREE.MeshBasicNodeMaterial();
 	baseMaterial.colorNode = mix(paperColor, colors.ink, 0.05);
 	const base = baseGeometry(grid);
 	const baseMesh = new THREE.Mesh(base.geometry, baseMaterial);
 	let baseLines = base.lines;
 
 	const group = new THREE.Group();
-	const deckMaterial = new THREE.MeshLambertNodeMaterial();
+	const deckMaterial = new THREE.MeshBasicNodeMaterial();
 	deckMaterial.colorNode = mix(paperColor, pathInk, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(surface, water, baseMesh, deck);
@@ -220,7 +223,7 @@ export function createTerrainMesh(
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
 			colors.nature.value.copy(category('nature'));
-			colors.people.value.copy(category('business'));
+			colors.people.value.copy(category(flowToken[WEG_STROM].slice('--cat-'.length)));
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */

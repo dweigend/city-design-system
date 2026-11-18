@@ -33,7 +33,8 @@ import {
 	type Koerper
 } from '../../logic/leitstil';
 import { TOENE, WEG_STROM } from '../../data/leitstil';
-import { grammatik, neutral } from './grammatik';
+import { grammatik } from './grammatik';
+import { neutral } from './tone';
 import { kameraFuer, welt } from './kamera';
 import { schattenPolygon } from './schatten';
 import { stabStriche } from './tragwerk';

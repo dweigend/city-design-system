@@ -12,7 +12,11 @@ import type { TerrainMesh } from './terrain-mesh';
 /** Keys of the structure layer per kind of derived part. */
 export const KEY = { house: 'house:', forest: 'forest:', line: 'line:' };
 
-export type Target = Readonly<{ terrain: TerrainMesh; structures: Structures }>;
+export type Target = Readonly<{
+	terrain: TerrainMesh;
+	structures: Structures;
+	earliestFullYear?: number;
+}>;
 
 function projectCover(target: Target, after: World, cellIds: readonly string[]) {
 	for (const cellId of cellIds) {
@@ -38,7 +42,6 @@ function projectLines(
 function projectAlleys(
 	target: Target,
 	world: World,
-
 	delta: ReturnType<typeof changes>,
 	refocus: boolean
 ) {
@@ -66,7 +69,10 @@ export function projectChanges(
 	projectAlleys(target, after, delta, refocus);
 	const chunks = (dirty: ReadonlySet<string>) => (refocus ? grid.chunks.keys() : dirty);
 	for (const chunk of chunks(delta.houseChunks))
-		structures.set(KEY.house + chunk, houseView(after, stacks, chunk, levels));
+		structures.set(
+			KEY.house + chunk,
+			houseView(after, stacks, chunk, levels, target.earliestFullYear)
+		);
 	for (const chunk of chunks(delta.forestChunks))
 		structures.set(
 			KEY.forest + chunk,

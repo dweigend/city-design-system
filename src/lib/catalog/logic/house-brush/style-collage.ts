@@ -54,6 +54,7 @@ function drawBay({ cell, level }: Story, floor: number, p: typeof COLLAGE_DEFAUL
 	return [
 		{
 			...shell,
+			envelope: true,
 			role: base ? 'bestand' : 'neu',
 			material: 'paper',
 			shade: base ? p.wash : 0

@@ -1,4 +1,4 @@
-import { BLICK, MASSSTAB, ROLLEN, WEG_STROM, type Kontext } from '../../data/leitstil';
+import { BLICK, MASSSTAB, ROLLEN, STRICHE, WEG_STROM, type Kontext } from '../../data/leitstil';
 import { flowStepToken } from '../../data/focus';
 import { stilFuer, type Stil } from './kontext';
 import type { LeitstilSzene } from './szene';
@@ -15,7 +15,10 @@ export function pruefeStil(s: Stil, k: Kontext): Verstoss[] {
 		s.signalZiele.some((z) => z !== 'auswahl' && z !== 'baustelle')
 	)
 		add('INV-08', 'Signal may mark exactly one action target, as a line.');
-	if (ROLLEN.some((id) => id !== 'traeger' && r[id].strichPx >= 1.5) || r.traeger.strichPx < 1.5)
+	if (
+		ROLLEN.some((id) => id !== 'traeger' && r[id].strichPx >= STRICHE.minimumTraeger) ||
+		r.traeger.strichPx < STRICHE.minimumTraeger
+	)
 		add('INV-03', 'Stroke band violated.');
 	if (
 		Object.keys(r).length !== ROLLEN.length ||

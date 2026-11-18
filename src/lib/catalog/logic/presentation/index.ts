@@ -61,7 +61,9 @@ export function present(parts: Primitive[], level: Representation): Primitive[] 
 	if (!lod) return [];
 	if (lod === 'detail') return parts;
 	const mass = parts
-		.filter((p) => !p.detail || (level === 'pencil' && p.role === 'bestand'))
+		.filter(
+			(p) => !p.detail || (level === 'pencil' && (p.role === 'bestand' || p.role === 'traeger'))
+		)
 		.map(massOf);
 	if (lod === 'mid') return mass;
 	return mass.map((p) => {
@@ -69,6 +71,9 @@ export function present(parts: Primitive[], level: Representation): Primitive[] 
 		return {
 			...styled,
 			role: 'bestand',
+			envelope: undefined,
+			member: undefined,
+			bearings: undefined,
 			token: '--paper',
 			glass: false,
 			shade: 0,

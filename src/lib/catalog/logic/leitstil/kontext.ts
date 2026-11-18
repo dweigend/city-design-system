@@ -4,6 +4,7 @@ import {
 	MASSSTAB,
 	MODUS_VERSCHIEBUNG,
 	ROLLEN,
+	STRICHE,
 	SITUATION_VERSCHIEBUNG,
 	WEG_STROM,
 	ZOOM_BASIS,
@@ -52,7 +53,7 @@ export function stilFuer(k: Kontext): Stil {
 			{
 				token: '--ink-2',
 				stufe: 4,
-				strichPx: 0.6,
+				strichPx: STRICHE.detail,
 				sichtbar: true,
 				level: basis.level,
 				kontrast: 3,
@@ -61,11 +62,11 @@ export function stilFuer(k: Kontext): Stil {
 			}
 		])
 	) as Record<Rolle, RollenStil>;
-	Object.assign(rollen.bestand, { token: 'bleistift', strichPx: 0.75, kontrast: 1 });
-	Object.assign(rollen.traeger, { token: '--ink', strichPx: 1.5, kontrast: 6 });
+	Object.assign(rollen.bestand, { token: 'bleistift', strichPx: STRICHE.bestand, kontrast: 1 });
+	Object.assign(rollen.traeger, { token: '--ink', strichPx: STRICHE.minimumTraeger, kontrast: 6 });
 	Object.assign(rollen.huelle, {
 		token: 'modellweiss',
-		strichPx: 1.2,
+		strichPx: STRICHE.kontur,
 		kontrast: 5,
 		schatten: true
 	});

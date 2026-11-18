@@ -5,7 +5,7 @@
  * are written directly. No materials: the scene decides the look.
  */
 import * as THREE from 'three/webgpu';
-import type { Primitive, Vec3 } from '../logic/parametrik/types';
+import { legacyRoleOf, type Primitive, type Vec3 } from '../logic/parametrik/types';
 import { build } from './parametrik';
 
 type Faces = { p: number[]; n: number[]; c: number[] };
@@ -29,6 +29,7 @@ export type Batch = {
 const faces = (): Faces => ({ p: [], n: [], c: [] });
 const EDGE = Math.cos((46 * Math.PI) / 180);
 
+/** Gathers triangle, edge and hull geometry for the scene materials. */
 export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.Color): Batch {
 	const out: Batch = {
 		neu: faces(),
@@ -68,7 +69,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 		target.push(a[0], a[2], -a[1], b[0], b[2], -b[1]);
 
 	for (const p of primitives) {
-		const role = p.role === 'bestand' ? 'alt' : 'neu';
+		const role = legacyRoleOf(p) === 'neu' ? 'neu' : 'alt';
 		if (p.kind === 'polyline') {
 			const pts = p.closed ? [...p.points, p.points[0]] : p.points;
 			for (let i = 1; i < pts.length; i++) seg(out.kanten[role], pts[i - 1], pts[i]);
@@ -163,7 +164,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 				l1: Vec3 = [cx - cos, cy - sin, z1],
 				r0: Vec3 = [cx + cos, cy + sin, z0],
 				r1: Vec3 = [cx + cos, cy + sin, z1];
-			const plain = p.token === '--paper' || p.role === 'bestand';
+			const plain = p.token === '--paper' || role === 'alt';
 			const bars: [Vec3, Vec3][] = [
 				[l0, l1],
 				[r0, r1],
@@ -181,7 +182,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 		}
 		const built = build(p, true);
 		// Coplanar surfaces in existing stock (cornice on roof) flicker otherwise: darker ones sit higher.
-		if (p.role === 'bestand') built.position.y += (p.shade ?? 0) * 0.1;
+		if (role === 'alt') built.position.y += (p.shade ?? 0) * 0.1;
 		matrix.compose(built.position, quat.setFromAxisAngle(up, built.rotation), one);
 		normalMatrix.getNormalMatrix(matrix);
 		const pushSegments = (target: number[], source: ArrayLike<number>) => {
@@ -191,8 +192,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 			}
 		};
 		if (p.kind === 'frame' && built.rulings) {
-			if (p.token === '--paper' || p.role === 'bestand')
-				pushSegments(out.kanten[role], built.rulings);
+			if (p.token === '--paper' || role === 'alt') pushSegments(out.kanten[role], built.rulings);
 			else {
 				const n = out.staebe.p.length;
 				pushSegments(out.staebe.p, built.rulings);

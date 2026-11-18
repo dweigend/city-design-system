@@ -6,9 +6,13 @@
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
+import { STRICHE, type Kontext } from '../../data/leitstil';
+import { grammatik } from '../leitstil/grammatik';
+import { nearestZoom, sandboxStyle } from './drafting-style';
+import { STRUCTURE_VARIANTS, type StructureVariant } from './view-params';
 import type { Palette3D } from '../../data/city3d';
 import { bindSceneTheme } from '../themeBinding';
-import type { Vec3 } from '../../logic/parametrik/types';
+import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { cellAtPoint } from '../../logic/terrain-grid';
@@ -22,7 +26,17 @@ import { createView } from './view';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
-const STROKE_PX = { base: 1.2, cursor: 2 };
+type StageOptions = {
+	/** Optional study window in world meters, from its low corner to its high corner. */
+	frame?: readonly [Vec3, Vec3];
+	/** Retain additions from these epochs in their full drafting treatment for comparison. */
+	earliestFullYear?: number;
+	/** Fixed additions to the study outside the editable sandbox state. */
+	additions?: Primitive[];
+};
+
+/** The cursor is an interaction target, separate from the drafting roles. */
+const CURSOR_PX = 2;
 
 export type CursorTone = 'signal' | 'ink';
 export type SandboxStage = ReturnType<typeof createSandboxStage>;
@@ -31,7 +45,11 @@ export type SandboxStage = ReturnType<typeof createSandboxStage>;
  * Creates the stage on a canvas. `onError` fires once if no GPU backend starts.
  * The caller feeds sizes through `resize` and releases everything with `dispose`.
  */
-export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => void) {
+export function createSandboxStage(
+	canvas: HTMLCanvasElement,
+	onError: () => void,
+	study: StageOptions = {}
+) {
 	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
 	const gpu = startRenderer(renderer, canvas, { ready: () => render(), failed: onError });
 
@@ -39,14 +57,15 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 	const view = createView();
 	const light = createLight();
 	const structures = createStructures();
+	const studyAdditions = study.additions ?? [];
 	scene.add(...light.objects, structures.group);
 
 	const ink = new THREE.Color();
 	const signal = new THREE.Color();
-	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STROKE_PX.base });
+	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STRICHE.kontur });
 	const cursorMaterial = new THREE.Line2NodeMaterial({
 		color: signal,
-		linewidth: STROKE_PX.cursor
+		linewidth: CURSOR_PX
 	});
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
@@ -57,6 +76,22 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 	let shown: World | undefined;
 	let palette: Palette3D | undefined;
 	let planView = false;
+	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
+	let refreshTones = true;
+
+	function updateStyle() {
+		const scale = 1 / view.metersPerPixel();
+		const zoom = nearestZoom(scale);
+		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
+		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
+		const style = sandboxStyle(context, variant);
+		const tones = refreshTones ? grammatik(canvas, style) : undefined;
+		structures.setStyle(style, variant, scale, tones);
+		if (tones) light.setTone(tones.schatten);
+		canvas.dataset.zoom = zoom;
+		canvas.dataset.structureVariant = variant;
+		refreshTones = false;
+	}
 	let pending = 0;
 	/** At most one image per animation frame, however many inputs arrive. */
 	function render() {
@@ -65,7 +100,7 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 			pending = 0;
 			if (!gpu.isLive()) return;
 			light.aim(view.target, view.span());
-			structures.setScale(1 / view.metersPerPixel());
+			updateStyle();
 			renderer.render(scene, view.camera);
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		});
@@ -73,12 +108,13 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
+		refreshTones = true;
 		ink.set(next.ink);
 		signal.set(next.categories['--signal']);
 		baseOutline.color.copy(ink);
 		cursorMaterial.color.copy(cursorTone === 'signal' ? signal : ink);
 		terrain?.setPalette(next);
-		structures.setPalette(next);
+
 		render();
 	}
 
@@ -97,6 +133,14 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		scene.add(baseLines);
 	}
 
+	function frameTerrain(mesh: TerrainMesh) {
+		const bounds = new THREE.Box3();
+		if (study.frame) {
+			for (const [x, y, z] of study.frame) bounds.expandByPoint(new THREE.Vector3(x, z, -y));
+		} else bounds.setFromObject(mesh.surface);
+		view.frameBox(bounds, OPENING_MARGIN);
+	}
+
 	/** Starts over on a new terrain: fresh surface, nothing built, opening view. */
 	function open(world: World): World {
 		if (terrain) {
@@ -104,11 +148,12 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 			terrain.dispose();
 		}
 		structures.clear();
-		terrain = createTerrainMesh(world.grid);
+		structures.set('study', studyAdditions);
+		terrain = createTerrainMesh(world.grid, undefined, light.shade);
 		scene.add(terrain.group);
 		terrain.setGridVisible(planView ? 1 : 0);
 		drawBaseLines(terrain);
-		view.frameBox(new THREE.Box3().setFromObject(terrain.surface), OPENING_MARGIN);
+		frameTerrain(terrain);
 		if (palette) terrain.setPalette(palette);
 		return { ...world, state: EMPTY_STATE, lines: [] };
 	}
@@ -121,7 +166,13 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 	}
 
 	function updateWorld(mesh: TerrainMesh, before: World, after: World, nextFocus: FocusId) {
-		projectChanges({ terrain: mesh, structures }, before, after, nextFocus, nextFocus !== focus);
+		projectChanges(
+			{ terrain: mesh, structures, earliestFullYear: study.earliestFullYear },
+			before,
+			after,
+			nextFocus,
+			nextFocus !== focus
+		);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
 	}
 
@@ -167,6 +218,12 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		resize(width: number, height: number) {
 			renderer.setSize(width, height, false);
 			view.resize(width, height);
+			if (study.frame && terrain) frameTerrain(terrain);
+			render();
+		},
+		/** Switches the structural line treatment without replaying interventions. */
+		setStructureVariant(next: StructureVariant) {
+			variant = next;
 			render();
 		},
 		/** Axonometric view, or the plan seen from above. */
@@ -174,7 +231,7 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 			planView = plan;
 			view.setPlan(plan);
 			terrain?.setGridVisible(plan ? 1 : 0);
-			if (terrain) view.frameBox(new THREE.Box3().setFromObject(terrain.surface), OPENING_MARGIN);
+			if (terrain) frameTerrain(terrain);
 			render();
 		},
 		/**
@@ -210,6 +267,7 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 			removeLines(cursor);
 			if (terrain) terrain.dispose();
 			structures.dispose();
+			light.dispose();
 			baseOutline.dispose();
 			cursorMaterial.dispose();
 			gpu.dispose();

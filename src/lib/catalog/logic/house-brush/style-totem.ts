@@ -38,7 +38,15 @@ export function dockedModule(b: Bay, side: number, p = TOTEM_DEFAULTS): Primitiv
 			points: castingSeam(end(p.shoulder), end(1 - p.shoulder), radius, p.seamSegments),
 			closed: true
 		}),
-		b.piece('suspension', '--paper', { kind: 'polyline', points: [crown, b.point(0.5, 0.5, 1)] }),
+		{
+			...b.piece('suspension', '--paper', {
+				kind: 'polyline',
+				points: [crown, b.point(0.5, 0.5, 1)]
+			}),
+			role: 'traeger',
+			legacyRole: 'neu',
+			member: 'secondary'
+		},
 		{
 			...b.piece('module', '--paper', {
 				kind: 'capsule',
@@ -65,7 +73,8 @@ export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive
 					kind: 'polyline',
 					points: [...pier(0), ...pier(1).reverse()]
 				}),
-				role: 'bestand'
+				role: 'traeger',
+				bearings: [pier(0)[0], pier(1)[0]]
 			},
 			...dockedModule(b, side, p),
 			...guest(b, mass.use, side, false)

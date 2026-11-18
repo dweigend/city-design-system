@@ -92,7 +92,6 @@ test('sandbox projection exposes cell units and validates material overrides', (
 		default: 10
 	});
 	expect(() => resolveParams(TERRAIN_VIEW_PARAMS, { parcelCells: 2.5 })).toThrow(RangeError);
-	expect(STRUCTURE_PARAMS.creasePx.unit).toBe('px');
 	expect(() => resolveParams(STRUCTURE_PARAMS, { glassOpacity: 2 })).toThrow(RangeError);
 });
 
