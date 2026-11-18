@@ -46,8 +46,7 @@ export function dockedModule(b: Bay, side: number, p = TOTEM_DEFAULTS): Primitiv
 				to: end(1 - p.shoulder),
 				radius
 			}),
-			edges: true,
-			emphasis: 'netz',
+			edges: false,
 			shade: p.glaze
 		}
 	];

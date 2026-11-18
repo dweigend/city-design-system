@@ -6,6 +6,7 @@ import type { Pattern } from './patterns';
 export type TerrainCell = QuadCell &
 	Readonly<{
 		/** Lattice position; the id `column/row` is the stable anchor of everything painted. */
+		plan: ReturnType<typeof import('./street-plan').streetPlan>;
 		column: number;
 		row: number;
 		zone: TerrainZone;
@@ -16,6 +17,7 @@ export type TerrainCell = QuadCell &
 
 export type TerrainGrid = QuadGrid<TerrainCell> &
 	Readonly<{
+		profile: typeof import('./street-profile').defaultStreetPlan;
 		terrain: Terrain;
 		columns: number;
 		rows: number;

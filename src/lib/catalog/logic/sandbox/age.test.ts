@@ -1,8 +1,8 @@
 // @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import { applyEdit, createWorld, commit, startHistory, undo, withState, changes } from './index';
-import { styleForYear } from './index';
-import { levelFor } from '../presentation';
+import { currentStacks, houseView, styleForYear } from './index';
+import { focuses, levelFor } from '../presentation';
 const town = createWorld(7);
 test('the old town occupies a reproducible set of lower terrace building sites', () => {
 	expect(town.state.stacks).toEqual(createWorld(7).state.stacks);
@@ -53,4 +53,29 @@ test('an erased story returns one unit and rebuilding at its anchor creates a fr
 		'totem',
 		'collage'
 	]);
+});
+
+test('a new collage floor covers the old ridge and keeps its silhouette when it ages', () => {
+	const cellId = [...town.state.stacks.keys()][0];
+	const roof = cellId + '@' + ((town.state.stacks.get(cellId)?.length ?? 1) - 1) + ':ridge';
+	const view = (world: typeof town) =>
+		[
+			...new Set(
+				[...world.state.stacks.keys()].map((id) => world.grid.cellsById.get(id)?.chunk ?? '')
+			)
+		].flatMap((chunk) => houseView(world, currentStacks(world.state), chunk, focuses.all));
+	const initial = view(town);
+	expect(initial.find((p) => p.id === roof)).toMatchObject({ kind: 'polyline', role: 'bestand' });
+	expect(initial.some((p) => p.detail && p.id.includes(':opening'))).toBe(true);
+	const painted = applyEdit(town, { kind: 'raise', use: 'water', cellId });
+	const fresh = view(painted);
+	expect(fresh.some((p) => p.id === roof)).toBe(false);
+	const tank = fresh.find((p) => p.kind === 'sphere' && p.role === 'neu');
+	expect(tank).toBeDefined();
+	const aged = view(applyEdit(painted, { kind: 'advance' }));
+	expect(aged.find((p) => p.id === tank?.id)).toMatchObject({
+		kind: 'sphere',
+		role: 'bestand',
+		token: '--paper'
+	});
 });

@@ -23,7 +23,12 @@ const GRADIENT_RADIUS = 10;
 /** Columns beyond a changed column whose rows may move. */
 export const REACH = Math.max(WINDOW + SMOOTH_PASSES, BLOCK.columns + GRADIENT_RADIUS / MODULE);
 
-export type Lattice = Readonly<{ terrain: Terrain; columns: number; rows: number }>;
+export type Lattice = Readonly<{
+	profile: typeof import('./street-profile').defaultStreetPlan;
+	terrain: Terrain;
+	columns: number;
+	rows: number;
+}>;
 type Columns = Map<number, Float64Array>;
 
 const clampColumn = (lattice: Lattice, column: number) =>

@@ -2,7 +2,7 @@ import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
-import { routeLine, type TransitLine } from '../transit-line';
+import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
 import { seedTown, type TownOptions } from './old-town';
 import { type Edit, type LineStroke, type SandboxState, type Store, type StoryPart } from './state';
 
@@ -25,7 +25,11 @@ export type BuiltLine = TransitLine & { year: number };
 
 function route(grid: TerrainGrid, strokes: readonly LineStroke[]): BuiltLine[] {
 	return strokes.flatMap((stroke) => {
-		const line = routeLine(grid, { id: stroke.id, kind: stroke.transit, cellIds: stroke.cellIds });
+		const line = routeLine(
+			grid,
+			{ id: stroke.id, kind: stroke.transit, cellIds: stroke.cellIds },
+			stroke.profile
+		);
 		return line ? [{ ...line, year: stroke.year }] : [];
 	});
 }
@@ -134,7 +138,7 @@ function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
 function cellEdit(
 	state: SandboxState,
 	cell: TerrainCell,
-	edit: Exclude<Edit, { kind: 'line' | 'advance' }>
+	edit: Exclude<Edit, { kind: 'line' | 'line-profile' | 'advance' }>
 ) {
 	if (edit.kind === 'raise') return raiseStory(state, cell, edit.use);
 	if (edit.kind === 'clear') return clearCell(state, cell);
@@ -151,9 +155,21 @@ function cellEdit(
 	return cover === state.cover ? state : { ...state, cover };
 }
 
+function setLineProfile(state: SandboxState, edit: Extract<Edit, { kind: 'line-profile' }>) {
+	const index = state.lines.findIndex(({ id }) => id === edit.lineId);
+	if (index < 0) return state;
+	const { profile: previous, ...stroke } = state.lines[index];
+	const profile = transitOverrides(stroke.transit, edit.profile);
+	if (JSON.stringify(previous) === JSON.stringify(profile)) return state;
+	const lines = state.lines.slice();
+	lines[index] = profile ? { ...stroke, profile } : stroke;
+	return { ...state, lines };
+}
+
 function nextState(world: World, edit: Edit): SandboxState {
 	const { state } = world;
 	if (edit.kind === 'advance') return { ...state, year: state.year + 1 };
+	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
 	if (edit.kind === 'line') {
 		const stroke = {
 			year: state.year,
@@ -173,6 +189,8 @@ function nextState(world: World, edit: Edit): SandboxState {
  * Applies one edit. Pure: returns a new world, or the input itself when nothing changes
  * (unknown cell, full stack, open water, a line too short to route). After an intervention
  * in the terrain the grid follows, and houses on ground that fell away go to the store.
+ * A line profile replaces its overrides in schema units, or resets them when omitted.
+ * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
 	const next = withState(world, nextState(world, edit));

@@ -3,6 +3,17 @@ import { expect, test } from 'bun:test';
 import { walkwayParts } from './index';
 import { flowToken } from '../../data/focus';
 test('a single roof has no span', () => expect(walkwayParts([[0, 0, 4]])).toEqual([]));
+test('walkway width is bounded in both input forms', () => {
+	for (const width of [0.5, 10]) {
+		expect(walkwayParts([], { width })).toEqual([]);
+		expect(walkwayParts([], undefined, { width })).toEqual([]);
+	}
+	for (const width of [0.49, 10.1, 1e300]) {
+		expect(() => walkwayParts([], { width })).toThrow(RangeError);
+		expect(() => walkwayParts([], undefined, { width })).toThrow(RangeError);
+	}
+});
+
 test('a level span has a people deck, two handrails and a pier', () => {
 	const parts = walkwayParts([
 		[0, 0, 4],
