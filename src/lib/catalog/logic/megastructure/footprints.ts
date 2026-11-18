@@ -5,16 +5,22 @@ export type RoofCell = {
 	polygon: readonly (readonly [number, number])[];
 };
 
-function wallRuns(ring: readonly Vec[]) {
-	const sign = area(ring) < 0 ? -1 : 1;
-	validateRing(sign < 0 ? [...ring].reverse() : ring);
-	return ring.filter((point, i) => {
-		const previous = ring[(i + ring.length - 1) % ring.length],
-			next = ring[(i + 1) % ring.length];
-		const turn = orient(previous, point, next) * sign;
+/** CCW wall corners starting at the lexicographically smallest (x, y). */
+function normalizeRoofRing(ring: readonly Vec[]) {
+	const ccw = area(ring) < 0 ? [...ring].reverse() : ring;
+	validateRing(ccw);
+	const corners = ccw.filter((point, i) => {
+		const previous = ccw[(i + ccw.length - 1) % ccw.length],
+			next = ccw[(i + 1) % ccw.length];
+		const turn = orient(previous, point, next);
 		if (turn < 0) throw new RangeError('Nonconvex roof footprint');
 		return turn !== 0;
 	});
+	const start = corners.reduce((first, [x, y], i) => {
+		const [fx, fy] = corners[first];
+		return x < fx || (x === fx && y < fy) ? i : first;
+	}, 0);
+	return [...corners.slice(start), ...corners.slice(0, start)];
 }
 // For convex rings a supporting wall of either ring separates disjoint interiors.
 // All vertices on the exterior or on the line allow point and edge contact.
@@ -29,7 +35,7 @@ function separatingWall(ring: readonly Vec[], other: readonly Vec[]) {
 export function surveyedRoofs(roofs: readonly RoofCell[]) {
 	const result = roofs.map((roof) => {
 		if (!Number.isFinite(roof.height)) throw new RangeError('Invalid roof height');
-		return { ...roof, polygon: wallRuns(roof.polygon) };
+		return { ...roof, polygon: normalizeRoofRing(roof.polygon) };
 	});
 	for (const [i, a] of result.entries())
 		for (const b of result.slice(i + 1)) {

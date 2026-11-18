@@ -81,3 +81,29 @@ test('ten subdivisions of one wall preserve the entire structural result', () =>
 	];
 	assert.deepEqual(buildRoofFrame([{ ...rect, polygon }]), buildRoofFrame([rect]));
 });
+
+test('all start points and windings of subdivided walls yield the same bearings and solved frame', () => {
+	const polygon: RoofCell['polygon'] = [
+		[0, 0],
+		[12, 0],
+		[9, 4],
+		[0, 3]
+	];
+	const expected = buildRoofFrame([{ ...rect, polygon }], { maxSpan: 7 });
+	assert.equal(expected?.analysis.status, 'ok');
+	const subdivided: RoofCell['polygon'] = [
+		[0, 0],
+		[1, 0],
+		[12, 0],
+		[9, 4],
+		[0, 3]
+	];
+	for (const outline of [polygon, subdivided]) {
+		for (const ring of [outline, [...outline].reverse()]) {
+			for (let i = 0; i < ring.length; i++) {
+				const rotated = [...ring.slice(i), ...ring.slice(0, i)];
+				assert.deepEqual(buildRoofFrame([{ ...rect, polygon: rotated }], { maxSpan: 7 }), expected);
+			}
+		}
+	}
+});

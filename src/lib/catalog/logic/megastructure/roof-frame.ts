@@ -49,7 +49,7 @@ function linked(structure: Fachwerk) {
 			}
 	return seen.size === structure.knoten.length;
 }
-/** Braces disjoint convex roofs in meters. Ring order defines wall identity. Returns detached
+/** Braces disjoint convex roofs in meters. Normalized wall order defines bearing identity. Returns detached
  * members, fixed bearings and a 1 kN/head load probe. Empty or span-disconnected layouts
  * return undefined. Malformed rings, interior overlap and invalid bearing stations throw before the solve. */
 export function buildRoofFrame(
