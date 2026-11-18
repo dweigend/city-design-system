@@ -151,9 +151,10 @@ export const clamp = (n: number, min: number, max: number) =>
 	Math.max(min, Math.min(max, Number.isFinite(n) ? n : min));
 export const count = (n: number, min: number, max: number) => Math.round(clamp(n, min, max));
 /** Moves any primitive vertically; used by explosion (rank × gap) and stacking. */
-export function shiftZ(p: Primitive, dz: number): Primitive {
-	if (!dz) return p;
+export function shiftZ(primitive: Primitive, dz: number): Primitive {
+	if (!dz) return primitive;
 	const up = ([x, y, z]: Vec3): Vec3 => [x, y, z + dz];
+	const p = primitive.bearings ? { ...primitive, bearings: primitive.bearings.map(up) } : primitive;
 	switch (p.kind) {
 		case 'frame':
 			return {

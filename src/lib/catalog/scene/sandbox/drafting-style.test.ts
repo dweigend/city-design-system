@@ -1,9 +1,9 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
-import { structureMaterials } from './structure-materials';
 import { MASSSTAB, STRICHE } from '../../data/leitstil';
 import { pruefeStil, stilFuer } from '../../logic/leitstil';
 import { tag } from '../../logic/ansicht/tags';
+import { shiftZ } from '../../logic/parametrik/types';
 import { focuses } from '../../logic/presentation';
 import { acceptanceScene, currentStacks, houseView } from '../../logic/sandbox';
 import { nearestZoom, sandboxStyle } from './drafting-style';
@@ -53,7 +53,17 @@ test('the fixed plate retains three eras, two rail stops, two walkway landings a
 	expect(acceptanceScene().additions).toEqual(additions);
 });
 
-test('the renderer applies role widths and switches both structural strokes', () => {
+test('the renderer applies role widths and switches both structural strokes', async () => {
+	// Bun loads the Leitstil entry point without compiling the theme's Svelte rune.
+	const shim = !('$state' in globalThis);
+	if (shim)
+		Object.defineProperty(globalThis, '$state', {
+			configurable: true,
+			value: (value: unknown) => value
+		});
+	const { structureMaterials } = await import('./structure-materials').finally(() => {
+		if (shim) Reflect.deleteProperty(globalThis, '$state');
+	});
 	const finishes = structureMaterials();
 	const { materials } = finishes;
 	const scale = MASSSTAB.quartier;
@@ -71,16 +81,30 @@ test('the renderer applies role widths and switches both structural strokes', ()
 	}
 });
 
-test('the seed-7 roof carrier is in the bible frame layer', () => {
+function seedRoofCarrier() {
 	const { world, earliestFullYear } = acceptanceScene();
 	const chunk = world.grid.cellsById.get('81/41')?.chunk;
 	if (!chunk) throw new Error('Expected the roof carrier anchor');
 	const parts = houseView(world, currentStacks(world.state), chunk, focuses.all, earliestFullYear);
-	const frame = parts.filter(
-		(part) => part.id.startsWith('81/41@1:span/') && part.role === 'traeger'
-	);
+	return parts.filter((part) => part.id.startsWith('81/41@1:span/') && part.role === 'traeger');
+}
+
+test('the seed-7 roof carrier is in the bible frame layer', () => {
+	const frame = seedRoofCarrier();
 	expect(frame.filter(({ id }) => id.includes('/bent/'))).toHaveLength(3);
 	expect(frame.map(({ id }) => id)).toContain('81/41@1:span/upper');
 	expect(frame.map(({ id }) => id)).toContain('81/41@1:span/lower');
 	for (const part of frame) expect(tag(part)).toMatchObject({ schicht: 'geruest', phase: 1 });
+});
+
+test('a vertical shift keeps the seed-7 bearing on its carrier', () => {
+	const bent = seedRoofCarrier().find((part) => part.id === '81/41@1:span/bent/82/41');
+	if (bent?.kind !== 'polyline') throw new Error('Expected the carrier bent over roof 82/41');
+	const raised = shiftZ(bent, 4);
+	if (raised.kind !== 'polyline') throw new Error('Expected the same carrier geometry');
+	expect(bent.bearings).toEqual([bent.points[0]]);
+	expect(bent.bearings?.[0][2]).toBe(10.5);
+	expect(raised.bearings).toEqual([raised.points[0]]);
+	expect(raised.bearings?.[0][2]).toBe(14.5);
+	expect(shiftZ(bent, 0)).toBe(bent);
 });

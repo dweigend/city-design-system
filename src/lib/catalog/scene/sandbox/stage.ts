@@ -7,7 +7,7 @@ import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { STRICHE, type Kontext } from '../../data/leitstil';
-import { grammatik } from '../leitstil/grammatik';
+import { grammatik } from '../leitstil';
 import { nearestZoom, sandboxStyle } from './drafting-style';
 import { STRUCTURE_VARIANTS, type StructureVariant } from './view-params';
 import type { Palette3D } from '../../data/city3d';
