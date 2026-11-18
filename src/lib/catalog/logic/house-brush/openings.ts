@@ -13,8 +13,6 @@ import { storiesOf, type HouseUse } from './stacks';
 
 /** Share of free walls that carry an opening. */
 const OPENING_SHARE = 0.66;
-/** Distance of the wall plane behind the cell side, meters; equals the wall inset of the body. */
-export const WALL_INSET = 0.45;
 /** Thickness of an opening and how far it stands proud of the wall, meters. */
 const RELIEF = { depth: 0.2, proud: 0.07 };
 /** Height band of a story that an adjacent story must leave free for an opening, meters. */
@@ -62,14 +60,14 @@ function figures(use: HouseUse, level: number, width: number): Figure[] {
 }
 
 /** Wall frame of one cell side: middle of the wall, direction along it, outward normal. */
-function wallFrame(cell: QuadCell, side: number) {
+function wallFrame(cell: QuadCell, side: number, inset: number) {
 	const a = cell.corners[side];
 	const b = cell.corners[(side + 1) % 4];
 	const length = sideLength(cell, side);
 	const along: [number, number] = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
 	// Cells are counter-clockwise: the solid lies left of the side, outward is to the right.
 	const outward: [number, number] = [along[1], -along[0]];
-	const set = WALL_INSET - RELIEF.proud;
+	const set = inset - RELIEF.proud;
 	return {
 		along,
 		outward,
@@ -108,7 +106,7 @@ function isCovered(site: Site, neighborId: string, floor: number): boolean {
 	});
 }
 
-function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string>) {
+function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string>, inset: number) {
 	const { cell, level } = story;
 	const isOuter = (side: number) => {
 		const neighborId = cell.neighbors[side];
@@ -126,7 +124,7 @@ function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string
 		// A wall that ends in a rounded corner has less free length than one in a straight run.
 		const atCorner = isOuter((side + 1) % 4) || isOuter((side + 3) % 4);
 		const width = sideLength(cell, side) * (atCorner ? WALL_SHARE.corner : WALL_SHARE.run);
-		const frame = wallFrame(cell, side);
+		const frame = wallFrame(cell, side, inset);
 		figures(mass.use, level, width).forEach((figure, k) =>
 			parts.push(
 				detail(
@@ -144,7 +142,7 @@ function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string
  * Openings of a mass. Deterministic per cell, level and side; a local edit elsewhere never
  * moves a window.
  */
-export function openings(site: Site, mass: Mass): Primitive[] {
+export function openings(site: Site, mass: Mass, inset: number): Primitive[] {
 	const members = new Set(mass.stories.map((story) => story.cell.id));
-	return mass.stories.flatMap((story) => storyOpenings(site, mass, story, members));
+	return mass.stories.flatMap((story) => storyOpenings(site, mass, story, members, inset));
 }

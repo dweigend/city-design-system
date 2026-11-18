@@ -144,6 +144,7 @@ export function roundRing(ring: readonly Point2[], fillet: Fillet): Point2[] {
 			Math.hypot(after[0] - vertex[0], after[1] - vertex[1])
 		);
 		const wanted = angle > 0 ? fillet.convex : fillet.concave;
+		if (wanted === 0) return [vertex];
 		const radius = Math.min(wanted, (shortest * FILLET_SHARE) / Math.tan(Math.abs(angle) / 2));
 		return arc(vertex, into, angle, radius);
 	});

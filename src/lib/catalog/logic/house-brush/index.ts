@@ -10,6 +10,7 @@
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 import { body } from './body';
+import { profileOf } from './profile';
 import { crowns } from './crowns';
 import { floorOf, massesOfChunk } from './massing';
 import { storiesOf, type Stacks } from './stacks';
@@ -30,10 +31,10 @@ export function houseChunk(
 	seed: number
 ): Primitive[] {
 	const site = { grid, stacks, seed };
-	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
-		...body(site, mass),
-		...crowns(site, mass)
-	]);
+	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => {
+		const profile = profileOf(site, mass);
+		return [...body(site, mass, profile), ...crowns(site, mass, profile.tiers * profile.rise)];
+	});
 }
 
 /** Height in meters of the top of a cell's stack: where the next story would stand. */

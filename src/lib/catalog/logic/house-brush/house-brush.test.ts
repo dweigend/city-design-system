@@ -44,9 +44,9 @@ describe('house brush', () => {
 		const list = parts(raise(EMPTY, cell.id, 'living'), cell);
 		expect(new Set(list.map((p) => p.token))).toEqual(new Set(['--paper']));
 		expect(named(list, ':coping')).toHaveLength(0);
-		const [dome] = named(list, ':crown0');
-		// Inscribed radius 2.5 m minus wall inset 0.45 m and roof margin 0.25 m.
-		expect(dome.kind === 'dome' && dome.radius).toBeCloseTo(1.8, 9);
+		const [dome] = named(list, ':crown2');
+		// The solo dome occupies 62% of the inscribed radius.
+		expect(dome.kind === 'dome' && dome.radius).toBeCloseTo(2.5 * 0.62, 9);
 	});
 
 	test('neighbors merge into one mass; a covered mass loses its coping', () => {
@@ -80,11 +80,36 @@ describe('house brush', () => {
 			};
 		});
 		const stacks = raise(EMPTY, '1/1', 'living');
-		const dome = (list: Primitive[]) => named(list, ':crown0')[0];
+		const dome = (list: Primitive[]) => named(list, ':crown2')[0];
 		const wide = dome(parts(stacks, cellAt(1, 1)));
 		const slim = dome(parts(stacks, cellAt(1, 1), narrow));
 		expect(wide.kind === 'dome' && slim.kind === 'dome' && slim.radius < wide.radius).toBe(true);
-		expect(slim.kind === 'dome' && slim.radius).toBeCloseTo(1.25 - 0.7, 9);
+		expect(slim.kind === 'dome' && slim.radius).toBeCloseTo(1.25 * 0.62, 9);
+	});
+
+	test('the third story opens a ground arcade and its removal closes it again', () => {
+		const cell = cellAt(1, 1);
+		const two = raise(raise(EMPTY, cell.id, 'water'), cell.id, 'living');
+		const three = raise(two, cell.id, 'food');
+		const arcade = parts(three, cell).filter((p) => p.id.includes(':piloti'));
+		expect(arcade).toHaveLength(4);
+		expect(arcade.every((p) => p.kind === 'cylinder' && p.token === '--paper')).toBe(true);
+		expect(parts(lower(three, cell.id), cell)).toEqual(parts(two, cell));
+		expect(parts(two, cell).some((p) => p.id.includes(':piloti'))).toBe(false);
+	});
+
+	test('the solo totem stands on the upper tread for every use', () => {
+		const cell = cellAt(1, 1);
+		for (const use of ['living', 'energy', 'water', 'material', 'food'] as const) {
+			const list = parts(raise(EMPTY, cell.id, use), cell);
+			const [tier] = named(list, ':tier1');
+			const base = named(list, ':crown0')[0];
+			expect(list.filter((p) => p.id.includes(':crown'))).toHaveLength(3);
+			expect(tier.kind === 'prism' && base.kind === 'cylinder' && base.position[2]).toBeCloseTo(
+				tier.kind === 'prism' && tier.z + tier.height,
+				9
+			);
+		}
 	});
 
 	test('where it floods, the house stands on a deck with stilts', () => {
