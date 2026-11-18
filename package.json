@@ -55,6 +55,7 @@
 	"dependencies": {
 		"bits-ui": "^2.21.0",
 		"lucide-svelte": "1.0.1",
+		"manifold-3d": "^3.5.5",
 		"three": "^0.187.0"
 	}
 }
