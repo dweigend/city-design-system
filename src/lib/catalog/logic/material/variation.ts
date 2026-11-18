@@ -1,7 +1,7 @@
 import type { AusfuehrungId } from '../../data/materialAusfuehrung';
 import { studienZufall } from './studienZufall';
 
-export const rauschWahl = [
+const rauschWahl = [
 	{ value: 'quiet', label: 'Subtle' },
 	{ value: 'native', label: 'Reference' },
 	{ value: 'strong', label: 'Pronounced' }

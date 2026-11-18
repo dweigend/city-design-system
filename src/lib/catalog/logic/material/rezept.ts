@@ -42,7 +42,13 @@ export type Wahl = {
 
 export type Rezept = {
 	familie: FamilieId;
-	farbe: { token: ColorToken; papier: number; tint: Tint };
+	farbe: {
+		token: ColorToken;
+		papier: number;
+		tint: Tint;
+		/** Explicit pigment share chosen by the picker, overriding the finish pigment. */
+		anteil?: number;
+	};
 	ton: { kontrast: number };
 	rauschen: {
 		art: RauschArt;

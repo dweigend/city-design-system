@@ -4,10 +4,9 @@
  * builds geometry from it. Everything is a function of the inputs, without randomness.
  */
 import type { FamilieId, FarbePhaseId, FormId } from '../../data/materialSeite';
-import { familien } from '../../data/materialSeite';
 import type { MaterialVariation } from './variation';
 import type { FlowId } from '../../data/focus';
-import { bisKnoten, rezept, voreinstellung, type Rezept, type Strom, type Wahl } from './rezept';
+import { bisKnoten, rezept, voreinstellung, type Rezept, type Strom } from './rezept';
 
 export type Vec3 = [number, number, number];
 export type TeilArt = 'quader' | 'zylinder' | 'kuppel' | 'kugel';
@@ -67,7 +66,7 @@ const k = (r: number, lage: Vec3, rolle: TeilRolle = 'neu'): Teil => ({
 	rolle
 });
 
-/** The four forms of the lab. */
+/** The four forms of the material studies. */
 export function form(id: FormId): Teil[] {
 	switch (id) {
 		case 'box':
@@ -89,46 +88,6 @@ export function form(id: FormId): Teil[] {
 				z(0.9, 8.8, [-3.9, -1.2, 0])
 			];
 	}
-}
-
-const bestandRezept = (strom: Strom) => rezept('bestand', voreinstellung('bestand', strom));
-
-/** Lab: chosen family on a form. Existing stock stays white architectural model, the core is hidden. */
-export function laborSzene(id: FormId, fam: FamilieId, wahl: Wahl): Stueck[] {
-	return formSzene(id, rezept(fam, wahl));
-}
-
-/** Places one resolved recipe on new construction. Fixed stock keeps its native neutral recipe. */
-export function formSzene(id: FormId, r: Rezept): Stueck[] {
-	return form(id)
-		.filter((t) => t.rolle !== 'kern')
-		.map((teil, i) => ({
-			id: `${id}-${i}`,
-			teil,
-			rezept: teil.rolle === 'bestand' ? bestandRezept('neutral') : r
-		}));
-}
-
-/** Family strip, one sphere per family at 2.6 m spacing. The optional featured piece supplies
- * its actual surface, including any assembly choices. Other spheres keep their native finish. */
-export function leisteSzene(strom: Strom, fokus?: Stueck): Stueck[] {
-	return familien.map((f, i) => ({
-		id: `leiste-${f.id}`,
-		teil: {
-			art: 'kugel',
-			mass: [1, 1, 1],
-			lage: [(i - (familien.length - 1) / 2) * 2.6, 0, 0],
-			rolle: 'neu'
-		},
-		...(f.id === fokus?.rezept.familie
-			? { rezept: fokus.rezept, ausfuehrung: fokus.ausfuehrung, variation: fokus.variation }
-			: { rezept: rezept(f.id, voreinstellung(f.id, strom)) })
-	}));
-}
-
-/** Kit: box and dome side by side, the recipe up to node `n` (1–6). */
-export function rezeptSzene(fam: FamilieId, strom: Strom, n: number): Stueck[] {
-	return knotenSzene(rezept(fam, voreinstellung(fam, strom)), n);
 }
 
 /** Projects the first n recipe nodes (1–6) on a box, plinth and dome in stable order. */
