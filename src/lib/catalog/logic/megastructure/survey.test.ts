@@ -71,7 +71,9 @@ test('roof interiors cannot overlap even at different elevations; a shared wall 
 	for (const polygon of rings)
 		assert.throws(() => buildRoofFrame([rect, { ...second, polygon }]), /Overlapping/);
 	const adjacent = rect.polygon.map(([x, y]): [number, number] => [x, y + 4]).reverse();
-	assert.equal(buildRoofFrame([rect, { ...second, polygon: adjacent }])?.analysis.status, 'ok');
+	const result = buildRoofFrame([rect, { ...second, polygon: adjacent }]);
+	assert.equal(result.status, 'assembled');
+	assert.equal(result.frame.analysis.status, 'ok');
 });
 test('ten subdivisions of one wall preserve the entire structural result', () => {
 	const polygon: RoofCell['polygon'] = [
@@ -90,7 +92,8 @@ test('all start points and windings of subdivided walls yield the same bearings 
 		[0, 3]
 	];
 	const expected = buildRoofFrame([{ ...rect, polygon }], { maxSpan: 7 });
-	assert.equal(expected?.analysis.status, 'ok');
+	assert.equal(expected.status, 'assembled');
+	assert.equal(expected.frame.analysis.status, 'ok');
 	const subdivided: RoofCell['polygon'] = [
 		[0, 0],
 		[1, 0],

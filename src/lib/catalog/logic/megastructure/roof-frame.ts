@@ -44,7 +44,7 @@ type RoofFrameResult =
 	| { status: 'no-local-bay'; roofIds: string[] }
 	| { status: 'span-disconnected'; components: string[][] }
 	| { status: 'incompatible-bridge-bearings' }
-	| { status: 'tree-layout-unresolved'; treesTried: number };
+	| { status: 'tree-layout-unresolved' | 'incompatible-cycle-bearings'; treesTried: number };
 
 /** Plans one connected assembly on disjoint convex footprints in meters. Returns a
  * detached frame with its load probe, or a reason. Components use sorted roof IDs.
@@ -80,12 +80,5 @@ export function planRoofFrame(
 		)
 	};
 }
-/** Returns the assembled frame and its 1 kN/head load probe, or undefined when planning
- * fails. Same meters, defaults, validation and ownership as planRoofFrame. */
-export function buildRoofFrame(
-	roofs: readonly RoofCell[],
-	overrides?: ParamOverrides<typeof frameParams>
-) {
-	const result = planRoofFrame(roofs, overrides);
-	return result.status === 'assembled' ? result.frame : undefined;
-}
+/** Builds a roof frame with the same tagged planning and load-probe result as planRoofFrame. */
+export const buildRoofFrame = planRoofFrame;

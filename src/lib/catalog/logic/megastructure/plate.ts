@@ -25,7 +25,9 @@ function roofBounds(r: RoofCell): Bounds {
 /** Generates the three-roof plate in world meters. Fixed survey and load case, no RNG.
  * The returned geometry is detached. A broken fixture constraint raises an invariant error. */
 export function infrastructurePlate() {
-	const frame = required(buildRoofFrame(roofs), 'roof frame');
+	const result = buildRoofFrame(roofs);
+	if (result.status !== 'assembled') throw new Error('Plate roof frame: ' + result.status);
+	const { frame } = result;
 	const positions = new Map(frame.structure.knoten.map((n) => [n.id, n.p]));
 	const rods = frame.structure.staebe.map((s) => ({
 		a: required(positions.get(s.a), 'start'),

@@ -33,7 +33,7 @@ type Selection =
 	| { status: 'connected'; choices: number[] }
 	| { status: 'span-disconnected'; components: number[][] }
 	| { status: 'incompatible-bridge-bearings' }
-	| { status: 'tree-layout-unresolved'; treesTried: number };
+	| { status: 'tree-layout-unresolved' | 'incompatible-cycle-bearings'; treesTried: number };
 
 /** Selects one bay per roof from the compatibility graph. A bridge conflict proves
  * disconnection for every selection. A failed cyclic policy reports its own status. */
@@ -43,11 +43,16 @@ export function selectConnectedLayout(sizes: number[], edges: RoofLink[]): Selec
 	const first = treeChoices(sizes, tree);
 	if (first) return { status: 'connected', choices: first };
 	if (!chords.length) return { status: 'incompatible-bridge-bearings' };
-	const { mandatory, alternatives } = treeExchanges(sizes.length, tree, chords);
+	const { mandatory, alternatives, exhaustive } = treeExchanges(sizes.length, tree, chords);
 	if (!treeChoices(sizes, mandatory)) return { status: 'incompatible-bridge-bearings' };
+	let treesTried = 1;
 	for (const other of alternatives) {
+		treesTried++;
 		const choices = treeChoices(sizes, other);
 		if (choices) return { status: 'connected', choices };
 	}
-	return { status: 'tree-layout-unresolved', treesTried: 1 + alternatives.length };
+	return {
+		status: exhaustive ? 'incompatible-cycle-bearings' : 'tree-layout-unresolved',
+		treesTried
+	};
 }

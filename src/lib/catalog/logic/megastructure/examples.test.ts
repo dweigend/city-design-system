@@ -1,3 +1,4 @@
+import { strict as assert } from 'node:assert';
 // @ts-expect-error Bun provides its test API at runtime.
 import { expect, test } from 'bun:test';
 import { buildRoofFrame, dockModule, routeSlope, moduleBridge, type RoofCell } from './index';
@@ -12,11 +13,13 @@ const roofs: RoofCell[] = [0, 8, 16].map((x, i) => ({
 	]
 }));
 test('three irregular roofs share a solved frame with bearings on their walls', () => {
-	const frame = buildRoofFrame(roofs);
-	expect(frame?.analysis.status).toBe('ok');
-	expect(frame?.structure.lager.length).toBeGreaterThanOrEqual(9);
-	expect(buildRoofFrame([...roofs].reverse())).toEqual(frame);
-	expect(buildRoofFrame(roofs, { maxSpan: 2 })).toBeUndefined();
+	const result = buildRoofFrame(roofs);
+	assert.equal(result.status, 'assembled');
+	const { frame } = result;
+	expect(frame.analysis.status).toBe('ok');
+	expect(frame.structure.lager.length).toBeGreaterThanOrEqual(9);
+	expect(buildRoofFrame([...roofs].reverse())).toEqual(result);
+	expect(buildRoofFrame(roofs, { maxSpan: 2 }).status).toBe('no-local-bay');
 });
 test('an occupied facade socket refuses a second module', () => {
 	const socket = { point: [0, 0, 3], normal: [0, -1, 0], tangent: [1, 0, 0] } as const;

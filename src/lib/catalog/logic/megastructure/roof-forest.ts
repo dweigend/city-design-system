@@ -71,17 +71,39 @@ function parentLink(forest: ReturnType<typeof rootForest>, i: number) {
 	if (!edge) throw new Error('Missing parent link on tree path');
 	return edge;
 }
-/** Mandatory links are tree edges on no fundamental cycle. With at most two chords,
- * also retain the first two distinct single-edge exchanges in deterministic path order. */
+const MAX_CYCLE_PRODUCT = 64;
+
+/** Finds mandatory bridges and, within the cycle-product budget, enumerates all
+ * other spanning trees by their omitted edges. The primary tree is tried separately. */
 export function treeExchanges(count: number, tree: RoofLink[], chords: RoofLink[]) {
 	const forest = rootForest(count, tree),
 		mandatory = new Set(tree),
-		alternatives: RoofLink[][] = [];
-	for (const chord of chords)
-		for (const edge of pathEdges(chord.a, chord.b, forest)) {
-			mandatory.delete(edge);
-			if (chords.length <= 2 && alternatives.length < 2)
-				alternatives.push([...tree.filter((e) => e !== edge), chord]);
+		cycles: RoofLink[][] = [];
+	for (const chord of chords) {
+		const path = pathEdges(chord.a, chord.b, forest);
+		for (const edge of path) mandatory.delete(edge);
+		if (chords.length <= 2) cycles.push([chord, ...path]);
+	}
+	const exhaustive =
+		chords.length <= 2 &&
+		cycles.reduce((product, cycle) => product * cycle.length, 1) <= MAX_CYCLE_PRODUCT;
+	return {
+		mandatory: [...mandatory],
+		exhaustive,
+		alternatives: exhaustive ? alternativeTrees(tree, chords, cycles) : []
+	};
+}
+
+function* alternativeTrees(tree: RoofLink[], chords: RoofLink[], cycles: RoofLink[][]) {
+	const [first, second = []] = cycles;
+	const shared = new Set(first.filter((edge) => second.includes(edge)));
+	const all = [...tree, ...chords];
+	for (const a of first) {
+		for (const b of second.length ? second : [undefined]) {
+			if (a === chords[0] && b === chords[1]) continue;
+			// Removing two shared edges leaves the symmetric difference cycle intact.
+			if (b && shared.has(a) && shared.has(b)) continue;
+			yield all.filter((edge) => edge !== a && edge !== b);
 		}
-	return { mandatory: [...mandatory], alternatives };
+	}
 }

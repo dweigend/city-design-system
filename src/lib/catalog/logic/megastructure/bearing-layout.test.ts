@@ -65,14 +65,17 @@ function subdivide(ring: Ring, seed: number): Ring {
 	});
 }
 
-function bearings(frame: ReturnType<typeof buildRoofFrame>) {
+function assembled(result: ReturnType<typeof buildRoofFrame>) {
+	return result.status === 'assembled' ? result.frame : undefined;
+}
+function bearings(frame: ReturnType<typeof assembled>) {
 	if (!frame) return;
 	const ids = new Set(frame.structure.lager.map((b) => b.knotenId));
 	return frame.structure.knoten.filter((n) => ids.has(n.id));
 }
 test('a 4 by 12 m roof fits the verified 7 m span in every survey order', () => {
 	for (const ring of surveys(rectangle)) {
-		const result = buildRoofFrame([cell(ring)], { maxSpan: 7 });
+		const result = assembled(buildRoofFrame([cell(ring)], { maxSpan: 7 }));
 		assert.equal(result?.analysis.status, 'ok');
 		assert.deepEqual(
 			bearings(result)?.map((n) => n.p),
@@ -96,7 +99,7 @@ test('sampled roofs retain solvability and bearing identities across wall subdiv
 			source.map(([x, y]): Ring[number] => [-x, y])
 		]) {
 			const expected = buildRoofFrame([cell(ring)], { maxSpan });
-			outcomes.add(expected?.analysis.status === 'ok');
+			outcomes.add(assembled(expected)?.analysis.status === 'ok');
 			for (const polygon of surveys(subdivide(ring, seed))) {
 				assert.deepEqual(buildRoofFrame([cell(polygon)], { maxSpan }), expected, 'seed ' + seed);
 			}
@@ -114,7 +117,7 @@ const legacySpans = [
 test('every minimum solvable span in the 7f270be roof corpus still solves', () => {
 	for (const [seed, maxSpan] of legacySpans.entries()) {
 		assert.equal(
-			buildRoofFrame([cell(generatedRing(seed))], { maxSpan })?.analysis.status,
+			assembled(buildRoofFrame([cell(generatedRing(seed))], { maxSpan }))?.analysis.status,
 			'ok',
 			'legacy seed ' + seed
 		);
@@ -123,8 +126,8 @@ test('every minimum solvable span in the 7f270be roof corpus still solves', () =
 test('retains the 7f270be two-roof solution when local choices cannot connect', () => {
 	const second: Ring = rectangle.map(([x, y]) => [x + 9, y + 4]);
 	assert.equal(
-		buildRoofFrame([cell(rectangle), { ...cell(second), id: 'b' }], { maxSpan: 8 })?.analysis
-			.status,
+		assembled(buildRoofFrame([cell(rectangle), { ...cell(second), id: 'b' }], { maxSpan: 8 }))
+			?.analysis.status,
 		'ok'
 	);
 });
@@ -138,14 +141,16 @@ test('rigid rotations and reflections carry the bearings with an asymmetric roof
 			i === 0 ? [x + 1 / 8, y + 1 / 32] : [x, y]
 		);
 		const maxSpan = 4 + Math.floor(hash(seed, 0, 4) * 10);
-		const original = buildRoofFrame([cell(ring)], { maxSpan });
+		const original = assembled(buildRoofFrame([cell(ring)], { maxSpan }));
 		if (original) solved++;
 		for (const transform of maps) {
 			const outline = subdivide(ring.map(transform), seed).reverse();
 			const i = seed % outline.length;
-			const result = buildRoofFrame([cell([...outline.slice(i), ...outline.slice(0, i)])], {
-				maxSpan
-			});
+			const result = assembled(
+				buildRoofFrame([cell([...outline.slice(i), ...outline.slice(0, i)])], {
+					maxSpan
+				})
+			);
 			assert.equal(result?.analysis.status, original?.analysis.status);
 			const feet = bearings(original)?.map((n) => ({
 				id: n.id,
@@ -165,7 +170,7 @@ test('the 48 legacy-span assemblies and the coupled pair retain their reviewed s
 	frames.push(buildRoofFrame([cell(rectangle), { ...cell(second), id: 'b' }], { maxSpan: 8 }));
 	// Byte digest of all joint coordinates, bearings and members in assembly order at b68bce4.
 	const digest = createHash('sha256')
-		.update(JSON.stringify(frames.map((f) => f?.structure)))
+		.update(JSON.stringify(frames.map((f) => assembled(f)?.structure)))
 		.digest('hex');
 	assert.equal(digest, '9d73b7a866057134ca8f2cbc1c922e63d8df0d379035f3f02f5a70e2ce33930d');
 });

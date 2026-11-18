@@ -69,15 +69,15 @@ test('every member stays in span and every bearing lies on a surveyed wall', () 
 	);
 	for (const span of [11, 12, 13, 14, 15, 16]) {
 		const result = buildRoofFrame(plate.roofs, { maxSpan: span });
-		assert.ok(result);
-		const nodes = new Map(result.structure.knoten.map((n) => [n.id, n.p]));
-		for (const s of result.structure.staebe) {
+		assert.equal(result.status, 'assembled');
+		const nodes = new Map(result.frame.structure.knoten.map((n) => [n.id, n.p]));
+		for (const s of result.frame.structure.staebe) {
 			const a = nodes.get(s.a),
 				b = nodes.get(s.b);
 			assert.ok(a && b);
 			assert.ok(Math.hypot(...a.map((v, j) => v - b[j])) <= span);
 		}
-		for (const bearing of result.structure.lager) {
+		for (const bearing of result.frame.structure.lager) {
 			const point = nodes.get(bearing.knotenId);
 			assert.ok(point);
 			assert.ok(abstandZurWand(point, { koerper: [], wandachsen: walls }) < 1e-8);
