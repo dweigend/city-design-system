@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { attribute, float, mix, texture, vec2 } from 'three/tsl';
 import type { Node } from 'three/webgpu';
-import { MODULE, type TerrainGrid } from '../../logic/terrain-grid';
+import { MODULE, type TerrainCell, type TerrainGrid } from '../../logic/terrain-grid';
 import { pushThree } from '../world-space';
 
 const viewProfile = { emptyInk: 0.14, cityInk: 0.48, cityRadiusCells: 4, treadsPerCell: 6 };
@@ -11,13 +11,19 @@ function frontages(next: TerrainGrid, houses: Iterable<string>, radius: number) 
 	for (const id of houses) {
 		const cell = next.cellsById.get(id);
 		if (!cell) continue;
-		for (let dy = -radius; dy <= radius; dy++)
-			for (let dx = -radius; dx <= radius; dx++) {
-				const x = cell.column + dx;
-				if (x >= 0 && x < next.columns) occupied.add((cell.row + dy) * next.columns + x);
-			}
+		markFrontage(next, cell, radius, occupied);
 	}
 	return occupied;
+}
+
+function markFrontage(next: TerrainGrid, cell: TerrainCell, radius: number, occupied: Set<number>) {
+	for (let y = Math.max(0, cell.row - radius); y <= Math.min(next.rows - 1, cell.row + radius); y++)
+		for (
+			let x = Math.max(0, cell.column - radius);
+			x <= Math.min(next.columns - 1, cell.column + radius);
+			x++
+		)
+			occupied.add(y * next.columns + x);
 }
 
 /** Nearest-cell mask for street widths, stair treads and occupied frontages. */
