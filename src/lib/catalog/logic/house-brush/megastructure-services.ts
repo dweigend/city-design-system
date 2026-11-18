@@ -2,21 +2,13 @@ import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { along, type Bay } from './megastructure-bay';
 
-/** Mitres exposed corners and meets the next gallery at full width on straight runs. */
-export function gallery(
-	bay: Bay,
-	side: number,
-	exterior: number[],
-	width: number,
-	supply: boolean
-): Primitive[] {
-	const start = exterior.includes((side + 3) % 4) ? width : 0;
-	const end = exterior.includes((side + 1) % 4) ? 1 - width : 1;
+/** Short walkable landing on the side served by the access flight. */
+export function gallery(bay: Bay, side: number, width: number): Primitive[] {
 	const outline = [
 		[0, 0],
 		[1, 0],
-		[end, width],
-		[start, width]
+		[1, width],
+		[0, width]
 	].map(([t, s]) => along(bay, side, t, s, 0.88));
 	const deck = bay.piece(`gallery-${side}`, flowToken.people, {
 		kind: 'prism',
@@ -24,7 +16,7 @@ export function gallery(
 		z: outline[0][2],
 		height: 0.09 * bay.gauge
 	});
-	if (!supply) return [deck];
+
 	return [
 		deck,
 		bay.piece(`main-${side}`, flowToken.energy, {
