@@ -66,5 +66,5 @@ export function resolveParams<const S extends Schema>(
 			const inherited = epoch === undefined ? field.default : epoch;
 			return [key, validateValue(key, field, caller === undefined ? inherited : caller)];
 		})
-	);
+	) as Values<S>;
 }
