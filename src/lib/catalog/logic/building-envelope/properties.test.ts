@@ -59,6 +59,7 @@ for (const seed of Array.from({ length: 30 }, (_, i) => i)) {
 		};
 		const mesh = buildEnvelope(kernel, [cell]);
 		assert.equal(closed(mesh), true);
+		positiveAreas(mesh);
 		assert.equal(mesh.positions.every(Number.isFinite), true);
 		assert.deepEqual(buildEnvelope(kernel, [cell]), mesh);
 	});
@@ -127,4 +128,57 @@ test('unequal adjacent roofs keep only the exposed step above the lower roof', (
 	}
 	assert.equal(area, 12);
 	assert.ok(closed(mesh));
+});
+
+function positiveAreas(mesh: EnvelopeMesh) {
+	for (let i = 0; i < mesh.indices.length; i += 3) {
+		const [a, b, c] = Array.from(mesh.indices.subarray(i, i + 3), (id) =>
+			mesh.positions.subarray(id * 3, id * 3 + 3)
+		);
+		const u = Array.from(b, (v, j) => v - a[j]),
+			v = Array.from(c, (w, j) => w - a[j]);
+		const area =
+			Math.hypot(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]) /
+			2;
+		assert.ok(area > 1e-14);
+	}
+}
+test('shallow hips retain positive faces and closed edges through Float32 extraction', () => {
+	const polygon: Vec2[] = [
+		[0, 0],
+		[4, 0],
+		[4, 4],
+		[0, 4]
+	];
+	for (let seed = 0; seed < 40; seed++) {
+		const pitch = seed === 0 ? 1e-9 : 10 ** (-12 + 11 * hash(seed, 0, 2));
+		const mesh = buildEnvelope(kernel, [
+			{ polygon, roof: 'hip', params: { pitch, direction: 2 * hash(seed, 1, 2) } }
+		]);
+		assert.ok(closed(mesh));
+		positiveAreas(mesh);
+		if (seed === 0) assert.equal(Math.max(...mesh.positions.filter((_, i) => i % 3 === 2)), 3);
+	}
+});
+test('tall world datums preserve centimetre storeys in their local frame', () => {
+	for (const base of [1e6, 4e38]) {
+		const mesh = buildEnvelope(kernel, [
+			{
+				polygon: [
+					[0, 0],
+					[4, 0],
+					[4, 4],
+					[0, 4]
+				],
+				base,
+				roof: 'shed',
+				params: { pitch: 0 },
+				storeys: [{ height: 0.01 }]
+			}
+		]);
+		assert.equal(mesh.origin[2], base);
+		assert.ok(Math.abs(Math.max(...mesh.positions.filter((_, i) => i % 3 === 2)) - 0.01) < 1e-8);
+		assert.ok(closed(mesh));
+		positiveAreas(mesh);
+	}
 });

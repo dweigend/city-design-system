@@ -1,5 +1,6 @@
 import type { CrossSection, Manifold, Vec2, Vec3 } from 'manifold-3d';
 import type { Roof, Settings } from './contract';
+import { epsilon } from './footprint';
 import { clip, type Solids } from './solids';
 
 type RoofFrame = { across: Vec2; low: number; width: number; slope: number; eave: number };
@@ -15,15 +16,36 @@ function frame(section: CrossSection, p: Settings): RoofFrame {
 function below(s: Solids, body: Manifold, f: RoofFrame, slope: number, start: number) {
 	return clip(s, body, [slope * f.across[0], slope * f.across[1], -1], slope * start - f.eave);
 }
-function teeth(s: Solids, body: Manifold, f: RoofFrame, count: number) {
+function teeth(s: Solids, section: CrossSection, body: Manifold, f: RoofFrame, count: number) {
 	const [x, y] = f.across,
 		step = f.width / count;
-	const pieces = Array.from({ length: count }, (_, i) => {
-		const start = f.low + i * step;
-		const end = clip(s, body, [-x, -y, 0], -(f.low + (i + 1) * step));
-		return below(s, clip(s, end, [x, y, 0], start), f, f.slope, start);
-	});
-	return s.keep(s.kernel.Manifold.union(pieces));
+	const along = section
+		.toPolygons()
+		.flat()
+		.map(([a, b]) => a * y - b * x);
+	const near = Math.min(...along) - 1,
+		far = Math.max(...along) + 1;
+	const peak = f.eave + step * f.slope;
+	// A single continuous profile includes every vertical riser. Overshoot the clipping prism at its ends.
+	const end = f.low + f.width;
+	const profile: Vec2[] = [
+		[f.low - 1, -1],
+		[end + 1, -1],
+		[end + 1, peak],
+		[end, peak]
+	];
+	for (let i = count - 1; i >= 0; i--) {
+		const u = f.low + i * step;
+		profile.push([u, f.eave]);
+		if (i > 0) profile.push([u, peak]);
+	}
+	profile.push([f.low - 1, f.eave]);
+	const shape = s.keep(new s.kernel.CrossSection(profile));
+	const sweep = s.keep(shape.extrude(far - near));
+	const cutter = s.keep(
+		sweep.transform([x, y, 0, 0, 0, 0, 1, 0, y, -x, 0, 0, near * y, -near * x, 0, 1])
+	);
+	return s.keep(body.intersect(cutter));
 }
 function sweptEdge(s: Solids, a: Vec2, b: Vec2, f: RoofFrame, reach: number) {
 	const [x, y] = f.across,
@@ -49,10 +71,11 @@ function hipped(s: Solids, section: CrossSection, f: RoofFrame) {
 /** Constructs the last storey and roof in one volume, with a horizontal eave datum. */
 export function roofSolid(s: Solids, section: CrossSection, roof: Roof, p: Settings) {
 	const f = frame(section, p);
-	if (!f.slope) return s.keep(section.extrude(p.height));
+	if (f.width * f.slope <= Math.max(epsilon, p.height * 2 ** -23))
+		return s.keep(section.extrude(p.height));
 	if (roof === 'hip') return hipped(s, section, f);
 	const body = s.keep(section.extrude(p.height + f.width * f.slope));
-	if (roof === 'sawtooth') return teeth(s, body, f, p.teeth);
+	if (roof === 'sawtooth') return teeth(s, section, body, f, p.teeth);
 	const rising = below(s, body, f, f.slope, f.low);
 	return roof === 'gable' ? below(s, rising, f, -f.slope, f.low + f.width) : rising;
 }
