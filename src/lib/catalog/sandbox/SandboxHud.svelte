@@ -35,14 +35,13 @@
 		timeLayers.map(({ year, flows: layerFlows }) => ({
 			year,
 			flows: layerFlows,
-			label: layerFlows.length
-				? flows
-						.filter(({ id }) => layerFlows.includes(id))
-						.map(({ name }) => name)
-						.join(', ')
-				: 'Generation'
+			label: flows
+				.filter(({ id }) => layerFlows.includes(id))
+				.map(({ name }) => name)
+				.join(', ')
 		}))
 	);
+	const firstYear = $derived(Math.min(year, timeLayers[0]?.year ?? hudZeit.min));
 
 	const icons = { look: Hand, house: House, line: Route, cover: Trees, dig: Shovel, erase: Eraser };
 	/** Last option per tool, so switching tools keeps the player's choice. */
@@ -170,6 +169,7 @@
 			<Timeline
 				{year}
 				{events}
+				min={firstYear}
 				max={Math.max(hudZeit.min + (hudZeit.max - hudZeit.min) * 2, year + hudZeit.major)}
 				labelEvery={false}
 			/>

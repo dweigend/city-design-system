@@ -83,5 +83,8 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 				cover.set(neighbor.id, 'meadow');
 		}
 	}
-	return { ...EMPTY_STATE, year: settings.year, stacks, storyParts, cover };
+	const timeLayers = stacks.size
+		? [{ year: built, flows: ['people'] as const }]
+		: EMPTY_STATE.timeLayers;
+	return { ...EMPTY_STATE, year: settings.year, stacks, storyParts, cover, timeLayers };
 }

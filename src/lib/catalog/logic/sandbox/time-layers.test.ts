@@ -30,18 +30,9 @@ test('building, aging and adding a floor keep both styles in the same stack', ()
 	expect(mixed.state.stacks.get(cellId)).toEqual(['living', 'water']);
 });
 
-test('contract snapshot: conversion retains the original identity; the attached façade has its own build year', () => {
-	const plinth = { id: 'p/1/0', built: 1900, kind: 'story', use: 'living' };
-	const upper = { id: 'p/3/0', built: 1980, kind: 'story' };
-	const facade = { id: 'p/4/0', built: 1980, kind: 'facade', attachedTo: plinth.id };
-	const converted = [{ ...plinth, use: 'material' }, upper, facade];
-	expect(converted.map(({ id, built }) => [id, built])).toEqual([
-		[plinth.id, 1900],
-		[upper.id, 1980],
-		[facade.id, 1980]
-	]);
-	expect(facade.attachedTo).toBe(plinth.id);
-});
+test.todo(
+	'Conversion keeps a stable composition and gives a new façade its own build year (the sandbox has no composition IDs or addressable façades)'
+);
 
 test('deconstructing the top floor credits its unit once and round-trips through undo and redo', () => {
 	const removed = applyEdit(mixed, { kind: 'clear', cellId });
@@ -56,20 +47,9 @@ test('deconstructing the top floor credits its unit once and round-trips through
 	expect(states[2]).toBe(removed.state);
 });
 
-test('contract snapshot: replacing a rail pillar gives it a new identity while the segment and stop stay', () => {
-	const rail = ['segment', 'pillar', 'stop'].map((kind, slot) => ({
-		kind,
-		id: `p/1/${slot}`,
-		built: 1900,
-		units: 3
-	}));
-	const replacement = { ...rail[1], id: 'p/2/0', built: 1980 };
-	const next = [rail[0], replacement, rail[2]];
-	expect(next.map(({ id }) => id)).toEqual(['p/1/0', 'p/2/0', 'p/1/2']);
-	expect([replacement.built, rail[1].units]).toEqual([1980, 3]);
-	expect(next[0]).toBe(rail[0]);
-	expect(next[2]).toBe(rail[2]);
-});
+test.todo(
+	'Replacing a rail pillar keeps the segment and stop IDs (rail is stored as a whole stroke without addressable parts or a replacement action)'
+);
 
 test('terrain projection can move beneath a story without changing its cell anchor or identity', () => {
 	const cellId = '29/34';

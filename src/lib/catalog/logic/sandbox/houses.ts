@@ -3,7 +3,7 @@ import { buildingPlots } from './building-plots';
 import { houseChunk, type HouseUse, type Stacks } from '../house-brush';
 import type { Primitive } from '../parametrik/types';
 import { present, type Focus } from '../presentation';
-import { styleForYear, type SandboxState } from './state';
+import type { SandboxState } from './state';
 import type { World } from './world';
 
 type Phase = Readonly<{ built: number; style: BuildingMethod }>;
@@ -25,7 +25,7 @@ function groupPhases(state: SandboxState, stacks: Stacks, currentOnly = false) {
 		uses.forEach((use, level) => {
 			const part = state.storyParts.get(id)?.[level];
 			if (!part || (currentOnly && part.built !== state.year)) return;
-			const { built, style = styleForYear(part.built) } = part;
+			const { built, style } = part;
 			const key = `${built}/${style}`;
 			const phase = keys.get(key) ?? { built, style };
 			const floors = phases.get(phase) ?? new Map();

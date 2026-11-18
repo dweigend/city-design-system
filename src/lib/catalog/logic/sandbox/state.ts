@@ -10,8 +10,7 @@ export type StoryPart = Readonly<{
 	id: string;
 	anchor: Readonly<{ cellId: string; level: number }>;
 	built: number;
-	/** Optional on snapshots created before building methods were stored. */
-	style?: BuildingMethod;
+	style: BuildingMethod;
 }>;
 
 /** A line as the player drew it: the cells of the stroke. Its route is derived from the grid. */
@@ -26,6 +25,9 @@ export type LineStroke = Readonly<{
 /** Modules in the material store per use: what deconstruction has set aside for reuse. */
 export type Store = Readonly<Record<HouseUse, number>>;
 
+export type SnapshotStory = Omit<StoryPart, 'style'> & { style?: BuildingMethod };
+export type TimeLayer = Readonly<{ year: number; flows: readonly FlowId[] }>;
+
 /**
  * Everything the player has done, as intent: interventions in the terrain and what is
  * painted onto cells. Cell ids are the stable anchors; grid, routes and geometry are derived
@@ -33,7 +35,7 @@ export type Store = Readonly<Record<HouseUse, number>>;
  */
 export type SandboxState = Readonly<{
 	year: number;
-	timeLayers: readonly Readonly<{ year: number; flows: readonly FlowId[] }>[];
+	timeLayers: readonly TimeLayer[];
 	nextAction: number;
 	storyParts: ReadonlyMap<string, readonly StoryPart[]>;
 	edits: readonly TerrainEdit[];
@@ -42,6 +44,13 @@ export type SandboxState = Readonly<{
 	lines: readonly LineStroke[];
 	store: Store;
 }>;
+
+/** Accepted restore input, including snapshots saved before methods and time layers. */
+export type SandboxSnapshot = Omit<SandboxState, 'timeLayers' | 'storyParts'> &
+	Readonly<{
+		timeLayers?: SandboxState['timeLayers'];
+		storyParts: ReadonlyMap<string, readonly SnapshotStory[]>;
+	}>;
 
 const EMPTY_STORE: Store = { living: 0, water: 0, energy: 0, food: 0, material: 0 };
 
@@ -75,5 +84,5 @@ export function stylesForYear(year: number): readonly [BuildingMethod, ...Buildi
 	return (sandboxEpochs.findLast((epoch) => epoch.from <= year) ?? sandboxEpochs[0]).houseStyles;
 }
 
-/** Default style of an epoch, also used to read records without a stored style. */
+/** Default style when building in an epoch. */
 export const styleForYear = (year: number): BuildingMethod => stylesForYear(year)[0];
