@@ -7,7 +7,7 @@ import { form, type Stueck, type Teil } from './formen';
 import type { FormId } from '../../data/materialSeite';
 import { blockEntwurf, hausRezept, type HausTeil } from './hausBausteine';
 import { pickerHaut, pickerZonen, type PickerZustand } from './picker';
-import { bekleide, hausEntwurf } from './siedlung';
+import { bekleide, siedlungEntwurf } from './siedlung';
 import { rezept, voreinstellung, type Rezept } from './rezept';
 
 /** House seed shared by the color-target cases, so only the skin differs between them. */
@@ -22,10 +22,11 @@ export const farbZielFaelle: readonly PickerZustand[] = [
 	{ material: 'metall', textur: 'metall-messing', farbe: 'people', saat: FARBZIEL_SAAT }
 ];
 
+/** Moves a draft along x and prefixes its ids; fixed per-part skins stay with their parts. */
 function versetzt(entwurf: readonly HausTeil[], dx: number, praefix: string): HausTeil[] {
-	return entwurf.map(({ id, zone, teil }) => {
+	return entwurf.map(({ id, teil, ...part }) => {
 		const lage: Teil['lage'] = [teil.lage[0] + dx, teil.lage[1], teil.lage[2]];
-		return { id: `${praefix}${id}`, zone, teil: { ...teil, lage } };
+		return { ...part, id: `${praefix}${id}`, teil: { ...teil, lage } };
 	});
 }
 
@@ -50,11 +51,14 @@ export function lupenSzene(z: PickerZustand): Stueck[] {
 	return bekleide(LUPE_ENTWURF, pickerZonen(z));
 }
 
-/** Dresses one seeded house per case in a row, with the picker's color-target rule per case. */
+/**
+ * Repeats the picker's first settlement house (same seed, same topology) once per case in a row,
+ * dressed with that case's color-target rule. Fixed finishes of the house keep their own skin.
+ */
 export function farbZielSzene(faelle: readonly PickerZustand[] = farbZielFaelle): Stueck[] {
 	return faelle.flatMap((fall, i) => {
 		const dx = (i - (faelle.length - 1) / 2) * ABSTAND_M;
-		const entwurf = versetzt(hausEntwurf(fall.saat), dx, `c${i}-`);
+		const entwurf = versetzt(siedlungEntwurf(fall.saat, 1), dx, `c${i}-`);
 		return bekleide(entwurf, pickerZonen(fall));
 	});
 }
@@ -67,16 +71,18 @@ const bestandRezept = () => rezept('bestand', voreinstellung('bestand', 'neutral
 /**
  * The picked skin on the four study forms in a row: flat, curved and stacked new parts, then new
  * construction on white existing stock. Pattern runs in world meters across every form; stock
- * keeps its neutral recipe and hidden cores stay out.
+ * keeps its neutral recipe and hidden cores stay out. `nur` keeps one form alone at the center,
+ * so the stage frames it close and its grain, joints and gloss read; ids stay the same.
  */
-export function formenSzene(z: PickerZustand): Stueck[] {
+export function formenSzene(z: PickerZustand, nur?: FormId): Stueck[] {
 	const { huelle } = pickerZonen(z);
 	const neu = hausRezept(huelle);
-	return FORMEN.flatMap((id, i) =>
+	const formen = nur ? [nur] : FORMEN;
+	return formen.flatMap((id, i) =>
 		form(id)
 			.filter((teil) => teil.rolle !== 'kern')
 			.map((teil, j) => {
-				const dx = (i - (FORMEN.length - 1) / 2) * FORM_ABSTAND_M;
+				const dx = (i - (formen.length - 1) / 2) * FORM_ABSTAND_M;
 				const lage: Teil['lage'] = [teil.lage[0] + dx, teil.lage[1], teil.lage[2]];
 				const bestand = teil.rolle === 'bestand';
 				return {

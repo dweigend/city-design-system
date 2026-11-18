@@ -113,7 +113,7 @@ test('pigment-free finishes route color to the accent, and the plinth joins it',
 	const z = { material: 'beton', textur: 'beton-schaum', farbe: 'people', saat: 1 } as const;
 	const haut = pickerHaut(z);
 	assert.equal(haut.farbZiel, 'akzent');
-	assert.match(haut.status, /keeps its color · People on door, cornice and plinth/);
+	assert.match(haut.status, /keeps its color · People on trim and plinth/);
 	const plinth = pickerSzene(z).stuecke.find((s) => s.id.endsWith('plinth'));
 	assert.equal(plinth?.rezept.farbe.token, flowToken.people);
 	const natur = pickerSzene({ ...z, farbe: 'natur' }).stuecke.find((s) => s.id.endsWith('plinth'));

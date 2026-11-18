@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { familien } from '../data/materialSeite';
 import { probeSzene, mischSzene } from '../logic/material/studien';
 import { form } from '../logic/material/formen';
+import { siedlungEntwurf } from '../logic/material/siedlung';
 import { voreinstellung } from '../logic/material/rezept';
 import { studienGeometrie } from './materialStudienGeometrie';
 
@@ -13,7 +14,8 @@ describe('Physical specimen geometry', () => {
 		expect(studienGeometrie(form('box')[0])).toBeUndefined();
 		const parts = [
 			...familien.flatMap((f) => probeSzene(f.id, voreinstellung(f.id))),
-			...mischSzene()
+			...mischSzene(),
+			...siedlungEntwurf(1).filter((p) => p.teil.profil)
 		];
 		for (const { teil } of parts) {
 			const geo = studienGeometrie(teil);
