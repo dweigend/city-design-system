@@ -68,9 +68,13 @@ This glossary defines the binding English (US) terminology for the design bible,
 | retention basin / basin                     | Becken (Rückhaltebecken)             | Open water basin in the courtyard (`becken`).                                                                      |
 | flood swale                                 | Flutmulde                            | Overflow channel for heavy rain.                                                                                   |
 | unsealing / unsealed ground                 | Entsiegelung / Boden geöffnet        | Removing asphalt to restore infiltration (`entsiegelt`).                                                           |
-| alley                                       | Gasse                                | Narrow pedestrian route between blocks. Sandbox `street` includes alleys.                                          |
+| alley                                       | Gasse                                | The city has no streets. Alleys are narrow public pedestrian routes between blocks (`alley`).                      |
+| riverside promenade                         | Uferpromenade                        | Broadest pedestrian route, following the bank (`riversidePromenade`).                                              |
+| main alley                                  | Hauptgasse                           | Principal pedestrian connection between squares and parcel frontages (`mainAlley`).                                |
+| stair alley                                 | Treppengasse                         | Stepped pedestrian connection across a slope (`stairAlley`).                                                       |
+| pedestrian footbridge                       | Fußgängerbrücke                      | River crossing with pedestrian approaches (`footbridge`). Rail and capsule rail use their own structures.          |
 | cul-de-sac / dead-end alley                 | Stichgasse / Sackgasse               | Alley leading into the interior of a block (e.g., Fès, Marrakesch).                                                |
-| square                                      | Platz                                | Public open space (`squares`); do not confuse with _square grid_.                                                  |
+| square                                      | Platz                                | Public gathering space (`square`, collection `squares`); do not confuse with _square grid_.                        |
 | courtyard / back courtyard                  | Hof / Hinterhof                      | Open center of a block (`hof`, _shared courtyard_ for shared block interiors).                                     |
 | perimeter block                             | Blockrand                            | Closed built edge along the block perimeter (`blockrand`).                                                         |
 | perimeter row / historic row                | Gründerzeitzeile                     | Continuous historic row of perimeter buildings (`zeile`).                                                          |

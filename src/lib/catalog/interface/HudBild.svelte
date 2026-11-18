@@ -17,7 +17,7 @@
 	} from '../data/interface';
 
 	/**
-	 * HUD as an image: a district without streets, above it only floating information. Purely presentational
+	 * HUD as an image: a district for people on foot, above it only floating information. Purely presentational
 	 * (inert): controls are on the right in the demo. Number marks refer to the pattern legend.
 	 * Plan colors the ink blue (blueprint); the flow colors keep their meaning.
 	 */

@@ -81,7 +81,7 @@ export const bestand = [
 		params: [
 			spec('geschosse', 'Floors', 1, 5, 1, 3),
 			spec('neigung', 'Roof pitch', 0.4, 1.4, 0.05, 0.9),
-			spec('traufseitig', 'Eaves to street', 0, 1, 1, 0)
+			spec('traufseitig', 'Eaves to alley', 0, 1, 1, 0)
 		],
 		build(k, p) {
 			const along = !!p.traufseitig,

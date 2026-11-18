@@ -1,6 +1,6 @@
 /**
  * Existing-stock details for the corner modules (form): punched facade as gray hairlines, round
- * arches on the ground floor, gable roof (eaves to the street) with chimney, corner turret with spire.
+ * arches on the ground floor, gable roof (eaves to the alley) with chimney, corner turret with spire.
  * The volume itself comes from eckModul (existing-stock bits). References 33, 36, 43: existing stock as a fine line.
  */
 import type { Primitive, Vec3 } from '../types';

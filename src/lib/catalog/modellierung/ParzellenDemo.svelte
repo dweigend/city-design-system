@@ -10,7 +10,7 @@
 	import { epochen, nutzungen, parzellenBloecke, parzellenLegende as L } from '../data/wachstum';
 
 	/**
-	 * Parcels without streets: founding at access edges, a shared courtyard, then three eras with their own
+	 * Parcels with pedestrian access: founding at access edges, a shared courtyard, then three eras with their own
 	 * drivers (split, merge, convert). Existing stock stays gray, whatever was created or converted
 	 * in the running era carries a strong outline. Block as an image strip, eras as a
 	 * step strip. Same seed, same chronicle; the image is a function of the clock time.

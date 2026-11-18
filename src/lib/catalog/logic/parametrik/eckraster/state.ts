@@ -65,7 +65,7 @@ const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >
 
 /**
  * Historic perimeter block along the two rear patch edges (rim4 → rim0 → rim1), two cells deep:
- * rim cell (street facade) plus the cell behind it form a parcel of equal height,
+ * rim cell (alley facade) plus the cell behind it form a parcel of equal height,
  * 3–4 floors, the corner house at rim0 with 5. Deterministic per vertex ID.
  */
 export function blockrand(p: Patch): { id: string; levels: number; parcel: string }[] {
