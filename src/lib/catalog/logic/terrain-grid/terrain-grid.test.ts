@@ -1,7 +1,8 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
-import { createTerrain, groundLevel, type TerrainEdit } from '../terrain';
+import { createTerrain, groundLevel, valleyCoords, type TerrainEdit } from '../terrain';
 import {
+	BLOCK,
 	cellAtPoint,
 	cellId,
 	cellsBetween,
@@ -50,6 +51,54 @@ describe('terrain grid', () => {
 		expect(along / lattice).toBeLessThan(0.12);
 	});
 
+	test('scarp streets improve on the previous contour solver for seed 7', () => {
+		let along = 0,
+			across = 0;
+		for (const cell of onScarp.filter((cell) => cell.row % BLOCK.rows === 0)) {
+			const [a, b, , d] = cell.corners;
+			const height = (p: typeof a) => groundLevel(terrain, p[0], p[1]);
+			along += Math.abs(height(b) - height(a));
+			across += Math.abs(height(d) - height(a));
+		}
+		// Same street edges at 62862c9 measured 0.03365.
+		expect(along / across).toBeLessThan(0.0336);
+	});
+
+	test('blocks divide evenly through the creek and the partial block at the rim', () => {
+		let greatestLean = 0;
+		for (let column = 0; column <= grid.columns; column++) {
+			const frame = (row: number) => {
+				const [x, y] = grid.vertices[row * (grid.columns + 1) + column];
+				return valleyCoords(terrain, x, y);
+			};
+			expect(frame(0)[1]).toBeCloseTo(0, 9);
+			expect(frame(grid.rows)[1]).toBeCloseTo(grid.rows * MODULE, 9);
+			for (let start = 0; start < grid.rows; start += BLOCK.rows) {
+				const end = Math.min(start + BLOCK.rows, grid.rows);
+				const step = (frame(end)[1] - frame(start)[1]) / (end - start);
+				expect(step).toBeGreaterThanOrEqual(3 - 1e-9);
+				expect(step).toBeLessThanOrEqual(7 + 1e-9);
+				for (let row = start; row < end; row++) {
+					const [along, across] = frame(row);
+					expect(across).toBeCloseTo(frame(start)[1] + (row - start) * step, 9);
+					greatestLean = Math.max(greatestLean, Math.abs(along - column * MODULE));
+				}
+			}
+		}
+		expect(greatestLean).toBeGreaterThan(1);
+		expect(greatestLean).toBeLessThanOrEqual(6 + 1e-9);
+	});
+
+	test('one-cell street bands bound stable block addresses', () => {
+		expect(cellAt(12, 8).street).toBe('both');
+		expect(cellAt(13, 8).street).toBe('along');
+		expect(cellAt(12, 9).street).toBe('across');
+		expect(cellAt(13, 9).street).toBeNull();
+		expect(cellAt(11, 7).block).toBe('0:0');
+		expect(cellAt(12, 8).block).toBe('1:1');
+		expect(cellAt(23, 15).block).toBe('1:1');
+	});
+
 	test('neighbors share their corners bit for bit', () => {
 		const cell = cellAt(40, 60);
 		expect(cell.neighbors).toEqual(['40/59', '41/60', '40/61', '39/60']);
@@ -61,7 +110,7 @@ describe('terrain grid', () => {
 
 	test('level datums: no building on water, stilts where it floods, a plinth elsewhere', () => {
 		for (const cell of grid.cells) {
-			expect(cell.buildable).toBe(cell.zone !== 'water');
+			expect(cell.buildable).toBe(cell.zone !== 'water' && cell.street === null);
 			if (cell.raised) expect(cell.pad).toBe(FLOOD_DATUM);
 			else expect(cell.pad - PLINTH).toBe(Math.round(cell.pad - PLINTH));
 		}
@@ -77,18 +126,31 @@ describe('terrain grid', () => {
 		expect(stroke).toHaveLength(7);
 	});
 
+	test('distant basins preserve the cells between their affected columns', () => {
+		const edits = [12, 140].map((column): TerrainEdit => {
+			const [x, y] = cellAt(column, 68).center;
+			return { kind: 'basin', center: [x, y], radius: 9 };
+		});
+		const dug = createTerrain({ seed: 7, edits });
+		const local = regrid(grid, dug);
+		expect(local.cellsById.get('76/68')).toBe(cellAt(76, 68));
+		expect(local.cells).toEqual(deriveGrid(dug).cells);
+	});
+
 	test('after an intervention the grid is derived only in reach and equals the full derivation', () => {
 		const at = cellAt(70, 40).center;
 		const edit: TerrainEdit = { kind: 'basin', center: [at[0], at[1]], radius: 9 };
 		const dug = createTerrain({ seed: 7, edits: [edit] });
 		const local = regrid(grid, dug);
 		const full = deriveGrid(dug);
+		expect(local.vertices).toEqual(full.vertices);
 		expect(local.cells).toEqual(full.cells);
 		const reused = local.cells.filter((cell, i) => cell === grid.cells[i]).length;
 		expect(reused).toBeGreaterThan(grid.cells.length * 0.6);
 		// Cells keep their identity: the anchor of everything painted survives.
 		expect(local.cells.map((cell) => cell.id)).toEqual(grid.cells.map((cell) => cell.id));
-		const water = (cells: typeof grid.cells) => cells.filter((cell) => !cell.buildable).length;
+		const water = (cells: typeof grid.cells) =>
+			cells.filter((cell) => cell.zone === 'water').length;
 		expect(water(local.cells)).toBeGreaterThan(water(grid.cells));
 		// Taking the intervention back gives the first grid again.
 		expect(regrid(local, terrain).cells).toEqual(grid.cells);
