@@ -53,6 +53,8 @@ export function projectChanges(
 	const levels = focuses[focus];
 	target.terrain.setPresentation(levels);
 	const stacks = currentStacks(state);
+	if (refocus || delta.terrain || delta.houseChunks.size)
+		target.terrain.setStreets(grid, stacks.keys());
 	const chunks = (dirty: ReadonlySet<string>) => (refocus ? grid.chunks.keys() : dirty);
 	for (const chunk of chunks(delta.houseChunks))
 		structures.set(KEY.house + chunk, houseView(after, stacks, chunk, levels));
