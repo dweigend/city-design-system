@@ -43,14 +43,14 @@
 	}
 	.plates {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
 		gap: var(--space-4);
 	}
 	figure {
 		margin: 0;
 	}
 	.view {
-		height: 440px;
+		height: 560px;
 		border: var(--hair) solid var(--line);
 	}
 	figcaption {
