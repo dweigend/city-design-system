@@ -5,6 +5,7 @@
  */
 import type { FamilieId, FarbePhaseId, FormId } from '../../data/materialSeite';
 import { familien } from '../../data/materialSeite';
+import type { MaterialVariation } from './variation';
 import type { FlowId } from '../../data/focus';
 import { bisKnoten, rezept, voreinstellung, type Rezept, type Strom, type Wahl } from './rezept';
 
@@ -12,14 +13,40 @@ export type Vec3 = [number, number, number];
 export type TeilArt = 'quader' | 'zylinder' | 'kuppel' | 'kugel';
 /** Role of a part: new (carries the chosen material), existing stock, core inside the existing stock. */
 export type TeilRolle = 'neu' | 'bestand' | 'kern';
+/** Physical profiles use the same meter hull as the legacy part; no rotation or hull expansion. */
+export type StudienProfil =
+	| { art: 'fase'; radius: number }
+	| { art: 'lochplatte' }
+	| {
+			art: 'fassade';
+			quer?: boolean;
+			/** Left and bottom offsets, width and height as fractions of the panel. */
+			fenster?: readonly (readonly [number, number, number, number])[];
+	  }
+	| { art: 'faltblech' | 'wellenplatte' | 'folie' | 'facetten' }
+	| { art: 'rohr' | 'flor'; wand: number }
+	/** `kreuz` turns the shallow pillow into a deep four-lobed enclosure with fitted seams. */
+	| { art: 'kissen' | 'naht'; form?: 'kreuz' }
+	/** Angular block: the hull with seeded chamfered corners, all faces planar. */
+	| { art: 'brocken'; saat: number }
+	| { art: 'lackfilm'; saat: number };
 export type Teil = {
 	art: TeilArt;
 	/** quader: width, depth, height · zylinder: radius, –, height · kuppel and kugel: radius. */
 	mass: Vec3;
 	lage: Vec3;
 	rolle: TeilRolle;
+	profil?: StudienProfil;
 };
-export type Stueck = { id: string; teil: Teil; rezept: Rezept; /** Auftritt 0–1 */ skala?: number };
+export type Stueck = {
+	id: string;
+	teil: Teil;
+	rezept: Rezept;
+	/** Entrance share, 0–1. */
+	skala?: number;
+	variation?: MaterialVariation;
+	ausfuehrung?: import('../../data/materialAusfuehrung').AusfuehrungId;
+};
 
 const q = (mass: Vec3, lage: Vec3, rolle: TeilRolle = 'neu'): Teil => ({
 	art: 'quader',
@@ -68,18 +95,23 @@ const bestandRezept = (strom: Strom) => rezept('bestand', voreinstellung('bestan
 
 /** Lab: chosen family on a form. Existing stock stays white architectural model, the core is hidden. */
 export function laborSzene(id: FormId, fam: FamilieId, wahl: Wahl): Stueck[] {
-	const r = rezept(fam, wahl);
+	return formSzene(id, rezept(fam, wahl));
+}
+
+/** Places one resolved recipe on new construction. Fixed stock keeps its native neutral recipe. */
+export function formSzene(id: FormId, r: Rezept): Stueck[] {
 	return form(id)
 		.filter((t) => t.rolle !== 'kern')
 		.map((teil, i) => ({
 			id: `${id}-${i}`,
 			teil,
-			rezept: teil.rolle === 'bestand' ? bestandRezept(wahl.strom) : r
+			rezept: teil.rolle === 'bestand' ? bestandRezept('neutral') : r
 		}));
 }
 
-/** Family strip: one sphere per family, spacing 2.6 m. */
-export function leisteSzene(strom: Strom): Stueck[] {
+/** Family strip, one sphere per family at 2.6 m spacing. The optional featured piece supplies
+ * its actual surface, including any assembly choices. Other spheres keep their native finish. */
+export function leisteSzene(strom: Strom, fokus?: Stueck): Stueck[] {
 	return familien.map((f, i) => ({
 		id: `leiste-${f.id}`,
 		teil: {
@@ -88,13 +120,20 @@ export function leisteSzene(strom: Strom): Stueck[] {
 			lage: [(i - (familien.length - 1) / 2) * 2.6, 0, 0],
 			rolle: 'neu'
 		},
-		rezept: rezept(f.id, voreinstellung(f.id, strom))
+		...(f.id === fokus?.rezept.familie
+			? { rezept: fokus.rezept, ausfuehrung: fokus.ausfuehrung, variation: fokus.variation }
+			: { rezept: rezept(f.id, voreinstellung(f.id, strom)) })
 	}));
 }
 
 /** Kit: box and dome side by side, the recipe up to node `n` (1–6). */
 export function rezeptSzene(fam: FamilieId, strom: Strom, n: number): Stueck[] {
-	const r = bisKnoten(rezept(fam, voreinstellung(fam, strom)), n);
+	return knotenSzene(rezept(fam, voreinstellung(fam, strom)), n);
+}
+
+/** Projects the first n recipe nodes (1–6) on a box, plinth and dome in stable order. */
+export function knotenSzene(voll: Rezept, n: number): Stueck[] {
+	const r = bisKnoten(voll, n);
 	return [
 		{ id: 'r-box', teil: q([3.4, 3.4, 3.4], [-2.5, 0, 0]), rezept: r },
 		{ id: 'r-sockel', teil: z(2.1, 0.4, [2.7, 0, 0]), rezept: r },

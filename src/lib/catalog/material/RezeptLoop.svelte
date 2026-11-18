@@ -1,21 +1,20 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import DemoLayout from '../bibel/DemoLayout.svelte';
 	import ChoiceControl from '../labor/ChoiceControl.svelte';
 	import Vertiefung from '../ui/Vertiefung.svelte';
 	import LoopSchritte from '../bibel/LoopSchritte.svelte';
-	import { LoopUhr, phaseBei } from '../bibel/loopUhr.svelte';
+	import { studienLoop } from './studienLoop.svelte';
 	import Buehne from './Buehne.svelte';
 	import KnotenKette from './KnotenKette.svelte';
 	import {
+		achsenWahl,
 		familie,
-		rezeptFamilien,
+		familien,
 		rezeptPhasen,
-		rezeptVertiefung,
-		type FamilieId
+		rezeptVertiefung
 	} from '../data/materialSeite';
-	import { rezeptSzene } from '../logic/material/formen';
-	import { rezept, voreinstellung } from '../logic/material/rezept';
+	import { knotenSzene } from '../logic/material/formen';
+	import type { MaterialWerkstatt, MaterialWahl } from '../logic/material/werkstatt';
 	import { tslQuelle } from '../logic/material/tslQuelle';
 
 	/**
@@ -23,72 +22,61 @@
 	 * flat and round surfaces; the node chain and the TSL line stand directly below.
 	 * The image is a pure function of the clock time and the family.
 	 */
-	const DAUER = 3.4;
-	const STILL = 0.5;
-	const uhr = new LoopUhr(true, STILL * DAUER);
 
-	let fam = $state<string>('beton');
+	let { werkstatt, waehle }: { werkstatt: MaterialWerkstatt; waehle: MaterialWahl } = $props();
 	let host: HTMLDivElement;
 
-	const eintrag = $derived(rezeptFamilien.find((x) => x.id === fam) ?? rezeptFamilien[0]);
-	const f = $derived(familie(fam as FamilieId));
-	const stand = $derived(phaseBei(uhr.sekunden, rezeptPhasen.length, DAUER));
+	const r = $derived(werkstatt.rezept);
+	const f = $derived(familie(r.familie));
+	const loop = studienLoop(() => host, rezeptPhasen.length, 3.4, 0.5);
+	const uhr = loop.uhr;
+	const stand = $derived(loop.stand);
 	const phase = $derived(rezeptPhasen[stand.index]);
-	const stuecke = $derived(rezeptSzene(eintrag.id, eintrag.strom, stand.index + 1));
-	const quelle = $derived(tslQuelle(rezept(eintrag.id, voreinstellung(eintrag.id, eintrag.strom))));
+	const anzahl = $derived(stand.index + 1);
+	const stuecke = $derived(knotenSzene(r, anzahl));
+	const quelle = $derived(tslQuelle(r));
 	const satz = $derived(
 		phase.id === 'rauschen' || phase.id === 'fugen' || phase.id === 'haut' ? f.knoten[phase.id] : ''
 	);
-	const familien = rezeptFamilien.map((x) => ({ value: x.id, label: familie(x.id).name }));
-
-	onMount(() => {
-		const io = new IntersectionObserver(([e]) => (uhr.sichtbar = e.isIntersecting), {
-			rootMargin: '100px'
-		});
-		io.observe(host);
-		return () => {
-			io.disconnect();
-			uhr.stopp();
-		};
-	});
-	$effect(() => {
-		void uhr.laeuft;
-		void uhr.sichtbar;
-		uhr.abgleichen();
-	});
-
-	function waehle(i: number) {
-		uhr.sekunden = (i + (uhr.laeuft ? 0 : STILL)) * DAUER;
-	}
+	const materialWahl = familien.map((x) => ({ value: x.id, label: x.name }));
 </script>
 
-<DemoLayout label="Kit of a material">
+<DemoLayout label="Simplified diagram recipe">
 	{#snippet bild()}
 		<div class="bild" bind:this={host}>
 			<Buehne
 				{stuecke}
+				diagrammZeitS={r.haut.bewegt && anzahl >= 3 ? uhr.sekunden : 0}
+				bewegung={false}
 				verhaeltnis="16 / 8"
-				label="{f.name} after step {stand.index + 1}, {phase.titel}: {phase.text}"
+				label="Simplified diagram representation: {f.name} after step {stand.index +
+					1}, {phase.titel}: {phase.text}"
 			/>
 			<KnotenKette phasen={rezeptPhasen} index={stand.index} code={quelle[stand.index].code} />
 		</div>
 	{/snippet}
 	{#snippet steuerung()}
-		<ChoiceControl id="rezept-familie" label="Material" bind:value={fam} items={familien} />
-		<LoopSchritte
-			id="rezept-loop"
-			label="Nodes"
-			phasen={rezeptPhasen}
-			index={stand.index}
-			anteil={stand.anteil}
-			laeuft={uhr.laeuft}
-			onwahl={waehle}
-			onumschalten={() => (uhr.laeuft = !uhr.laeuft)}
+		<ChoiceControl
+			id="rezept-familie"
+			label="Material"
+			bind:value={() => f.id, (v) => waehle('beispiel', v)}
+			items={materialWahl}
 		/>
+		<ChoiceControl
+			id="rezept-deckkraft"
+			label="Diagram opacity"
+			bind:value={() => werkstatt.auswahl.wahl.deckkraft, (v) => waehle('deckkraft', v)}
+			items={[...achsenWahl.deckkraft]}
+		/>
+		<LoopSchritte id="rezept-loop" label="Nodes" phasen={rezeptPhasen} {...loop.schritte} />
 	{/snippet}
 	{#snippet unterschrift()}
 		{#if satz}<p><b>{f.name}.</b> {satz}</p>{/if}
-		<Vertiefung label="The whole recipe in TSL">
+		<p>
+			The six stages show the recipe for {werkstatt.auswahl.finish.name}. The studio lights its
+			physical finish.
+		</p>
+		<Vertiefung label="The diagram recipe in TSL">
 			<pre><code
 					>{#each quelle as z, i (z.knoten)}<span class="zeile" class:jetzt={i === stand.index}
 							>{z.code}</span
@@ -119,7 +107,7 @@
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		line-height: 1.6;
-		color: var(--ink-3);
+		color: var(--ink-2);
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}

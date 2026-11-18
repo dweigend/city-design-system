@@ -3,7 +3,7 @@
 	import DemoLayout from '../bibel/DemoLayout.svelte';
 	import LoopSchritte from '../bibel/LoopSchritte.svelte';
 	import ChoiceControl from '../labor/ChoiceControl.svelte';
-	import { LoopUhr, phaseBei } from '../bibel/loopUhr.svelte';
+	import { studienLoop } from './studienLoop.svelte';
 	import { bauweiseWahl, bauweisen, tragwerkStufen } from '../data/materialTraeger';
 	import { familienTexte, type TraegerFamilieText } from '../data/traeger';
 	import { materialModell, materialPlan, naehe } from '../logic/traeger/integration/material';
@@ -17,9 +17,6 @@
 	 * and membrane show their recipe, and pulls back until only the line remains. Finally
 	 * the envelope becomes the ghost. Construction type selectable; the image is a pure function of time and choice.
 	 */
-	const DAUER = 4;
-	const STILL = 0.6;
-	const uhr = new LoopUhr(true, STILL * DAUER);
 	const stufen = tragwerkStufen.map((s) => s.id);
 	const wahl = bauweisen.map((b) => ({
 		value: b.id,
@@ -30,7 +27,8 @@
 	let bauweise = $state<string>(bauweisen[0].id);
 	let szene = $state<TraegerMaterialSzene>();
 	let fehler = $state('');
-	const stand = $derived(phaseBei(uhr.sekunden, tragwerkStufen.length, DAUER));
+	const loop = studienLoop(() => host, tragwerkStufen.length, 4, 0.6, '0px');
+	const stand = $derived(loop.stand);
 	const phase = $derived(tragwerkStufen[stand.index]);
 	const eintrag = $derived(bauweisen.find((b) => b.id === bauweise) ?? bauweisen[0]);
 	const plan = $derived(materialPlan(bauweise as TraegerFamilieText));
@@ -57,22 +55,13 @@
 			},
 			{ rootMargin: '200px' }
 		);
-		const sicht = new IntersectionObserver(([e]) => (uhr.sichtbar = e.isIntersecting));
 		nahe.observe(host);
-		sicht.observe(host);
 		return () => {
 			nahe.disconnect();
-			sicht.disconnect();
 			ro.disconnect();
-			uhr.stopp();
 			aktuell?.dispose();
 			szene = undefined;
 		};
-	});
-	$effect(() => {
-		void uhr.laeuft;
-		void uhr.sichtbar;
-		uhr.abgleichen();
 	});
 	$effect(() => {
 		szene?.zeige(modell);
@@ -80,16 +69,15 @@
 	$effect(() => {
 		szene?.blick(nah);
 	});
-
-	function waehle(i: number) {
-		uhr.sekunden = (i + (uhr.laeuft ? 0 : STILL)) * DAUER;
-	}
 </script>
 
 <DemoLayout label="Detail levels on the structural system">
 	{#snippet bild()}
 		<div class="buehne" bind:this={host}>
-			<canvas bind:this={canvas} aria-label="{eintrag.satz} {phase.titel}: {phase.text}"></canvas>
+			<canvas
+				bind:this={canvas}
+				aria-label="Simplified diagram representation. {eintrag.satz} {phase.titel}: {phase.text}"
+			></canvas>
 			{#if fehler}<p class="fehler" role="status">{fehler}</p>{/if}
 		</div>
 	{/snippet}
@@ -101,20 +89,11 @@
 				items={wahl}
 				bind:value={bauweise}
 			/>
-			<LoopSchritte
-				id="tragwerk-stufen"
-				label="Level"
-				phasen={tragwerkStufen}
-				index={stand.index}
-				anteil={stand.anteil}
-				laeuft={uhr.laeuft}
-				onwahl={waehle}
-				onumschalten={() => (uhr.laeuft = !uhr.laeuft)}
-			/>
+			<LoopSchritte id="tragwerk-stufen" label="Level" phasen={tragwerkStufen} {...loop.schritte} />
 		</div>
 	{/snippet}
 	{#snippet unterschrift()}
-		<p>{eintrag.satz}</p>
+		<p>Simplified diagram representation. {eintrag.satz}</p>
 	{/snippet}
 </DemoLayout>
 

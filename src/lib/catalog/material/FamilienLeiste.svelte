@@ -2,50 +2,67 @@
 	import { RadioGroup } from 'bits-ui';
 	import Buehne from './Buehne.svelte';
 	import { familien, type FamilieId } from '../data/materialSeite';
-	import { leisteSzene } from '../logic/material/formen';
+	import { leisteSzene, type Stueck } from '../logic/material/formen';
 	import type { Strom } from '../logic/material/rezept';
 
 	/**
-	 * The nine families as spheres in the selected flow color, directly above the lab.
+	 * The nine families as studio spheres in the selected flow color, directly above the lab.
 	 * One canvas draws all spheres; above it lies the selection as a Bits RadioGroup,
-	 * one column per sphere. Arrow keys move through the row.
+	 * one column per sphere. The strip scrolls on narrow screens; arrow keys browse every name.
 	 */
-	let { strom, value = $bindable('beton') }: { strom: Strom; value?: FamilieId } = $props();
+	let {
+		strom,
+		fokus,
+		value = $bindable('beton')
+	}: { strom: Strom; fokus?: Stueck; value?: FamilieId } = $props();
 
-	const stuecke = $derived(leisteSzene(strom));
+	const stuecke = $derived(leisteSzene(strom, fokus));
 </script>
 
-<div class="leiste">
-	<div class="kugeln">
-		<Buehne
-			{stuecke}
-			label="Nine material families as spheres"
-			verhaeltnis="9 / 1.15"
-			hoeheDeg={20}
-			azimutDeg={0}
-			rand={0.026}
-			rahmen={false}
-			bewegung={false}
-		/>
+<div class="scroll">
+	<div class="leiste">
+		<div class="kugeln">
+			<Buehne
+				{stuecke}
+				studio
+				label={fokus
+					? 'Nine material families as spheres. The selected sphere shows the studio finish.'
+					: 'Nine native material families as spheres.'}
+				verhaeltnis="9 / 1.15"
+				hoeheDeg={20}
+				azimutDeg={0}
+				rand={0.026}
+				rahmen={false}
+				bewegung={false}
+			/>
+		</div>
+		<RadioGroup.Root
+			value={value as string}
+			onValueChange={(v) => (value = v as FamilieId)}
+			aria-label="Material family"
+			orientation="horizontal"
+			class="cg-familien"
+		>
+			{#each familien as f (f.id)}
+				<RadioGroup.Item value={f.id} class="cg-familie" aria-label={f.name} title={f.name}>
+					<span class="name">{f.name}</span>
+				</RadioGroup.Item>
+			{/each}
+		</RadioGroup.Root>
 	</div>
-	<RadioGroup.Root
-		value={value as string}
-		onValueChange={(v) => (value = v as FamilieId)}
-		aria-label="Material family"
-		orientation="horizontal"
-		class="cg-familien"
-	>
-		{#each familien as f (f.id)}
-			<RadioGroup.Item value={f.id} class="cg-familie" aria-label={f.name} title={f.name}>
-				<span class="name">{f.name}</span>
-			</RadioGroup.Item>
-		{/each}
-	</RadioGroup.Root>
 </div>
 
 <style>
+	.scroll {
+		min-width: 0;
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		scrollbar-width: thin;
+		padding: var(--space-1);
+	}
 	.leiste {
 		position: relative;
+		min-width: 630px;
 		padding-bottom: calc(var(--text-xs) * 1.6 + var(--space-2));
 		border-bottom: var(--hair) solid var(--line);
 	}
@@ -94,13 +111,14 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	/* Narrow: only spheres; the name stands below the lab. */
-	@media (max-width: 720px) {
+	@media (max-width: 620px) {
 		.leiste {
-			padding-bottom: var(--space-2);
+			min-width: 585px;
 		}
-		.name {
-			display: none;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.leiste :global(.cg-familie) {
+			transition: none;
 		}
 	}
 </style>

@@ -8,6 +8,7 @@ import * as THREE from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import {
 	abs,
+	cameraViewMatrix,
 	color,
 	dot,
 	float,
@@ -26,6 +27,7 @@ import {
 	time,
 	vec2,
 	vec3,
+	vec4,
 	viewportMipTexture
 } from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
@@ -57,8 +59,17 @@ export function kantenfarbe(r: Rezept, palette: Palette3D): THREE.Color {
 }
 
 /** Noise around 0 (roughly −1 … 1): the grain of the material. */
-function rauschen(art: NonNullable<Rezept['rauschen']>['art'], m: number): Node<'float'> {
-	const p = positionWorld;
+function kornOrt(versatzM: [number, number, number] | undefined) {
+	if (!versatzM) return { p: positionWorld, b: blatt() };
+	const p = positionWorld.add(vec3(...versatzM));
+	return { p, b: cameraViewMatrix.mul(vec4(p, 0)).xy };
+}
+
+function rauschen(
+	{ art, massstab: m, versatzM }: NonNullable<Rezept['rauschen']>,
+	zeit: Node<'float'>
+): Node<'float'> {
+	const { p, b } = kornOrt(versatzM);
 	switch (art) {
 		case 'poren': {
 			// Cloudy gray and small, dark cell dots.
@@ -69,9 +80,7 @@ function rauschen(art: NonNullable<Rezept['rauschen']>['art'], m: number): Node<
 		case 'maser':
 			// Growth rings: fine vertical stripes, gently warped by stretched noise.
 			return sin(
-				blatt()
-					.x.mul(m * 6)
-					.add(mx_noise_float(p.mul(vec3(m * 0.8, m * 0.12, m * 0.8))).mul(1.6))
+				b.x.mul(m * 6).add(mx_noise_float(p.mul(vec3(m * 0.8, m * 0.12, m * 0.8))).mul(1.6))
 			);
 		case 'schliff':
 			return mx_noise_float(p.mul(vec3(m, m * 40, m))).mul(1.4);
@@ -80,14 +89,18 @@ function rauschen(art: NonNullable<Rezept['rauschen']>['art'], m: number): Node<
 		case 'schlieren':
 			return mx_noise_float(p.mul(vec3(m, m * 4, m)));
 		case 'faser':
-			return mx_noise_float(vec3(blatt().mul(vec2(m * 8, m)), 0));
+			return mx_noise_float(vec3(b.mul(vec2(m * 8, m)), 0));
 		case 'welle':
-			return mx_noise_float(vec3(p.x.mul(m), p.z.mul(m), p.y.mul(m * 2).add(time.mul(0.4))));
+			return mx_noise_float(vec3(p.x.mul(m), p.z.mul(m), p.y.mul(m * 2).add(zeit.mul(0.4))));
 	}
 }
 
 /** Fugen 0 … 1: wiederkehrende Linien in Metern Abstand. */
-function fugen(art: NonNullable<Rezept['fugen']>['art'], a: number): Node<'float'> {
+function fugen(
+	art: NonNullable<Rezept['fugen']>['art'],
+	a: number,
+	zeit: Node<'float'>
+): Node<'float'> {
 	const b = blatt(),
 		h = positionWorld.y;
 	switch (art) {
@@ -117,7 +130,7 @@ function fugen(art: NonNullable<Rezept['fugen']>['art'], a: number): Node<'float
 			return strich(
 				b.x
 					.div(a)
-					.add(time.mul(0.3))
+					.add(zeit.mul(0.3))
 					.add(mx_noise_float(positionWorld.mul(0.6)).mul(0.6)),
 				0.04
 			);
@@ -128,7 +141,12 @@ function fugen(art: NonNullable<Rezept['fugen']>['art'], a: number): Node<'float
 const HALF = new THREE.Vector3(-0.42, 0.62, 0.66).normalize();
 
 /** A recipe as a node material. `doppelt` shows back faces (open forms). */
-export function rezeptMaterial(r: Rezept, palette: Palette3D, doppelt = false) {
+export function rezeptMaterial(
+	r: Rezept,
+	palette: Palette3D,
+	doppelt = false,
+	zeit: Node<'float'> = time
+) {
 	const paper = color(new THREE.Color(palette.paper));
 	const ink = color(new THREE.Color(palette.ink));
 	const licht = color(new THREE.Color(0xffffff));
@@ -138,14 +156,13 @@ export function rezeptMaterial(r: Rezept, palette: Palette3D, doppelt = false) {
 	// 2 Color.
 	let c: Node<'vec3'> = color(grundfarbe(r, palette)).mul(ton);
 	// 3 Noise.
-	if (r.rauschen)
-		c = c.mul(rauschen(r.rauschen.art, r.rauschen.massstab).mul(r.rauschen.staerke).add(1));
+	if (r.rauschen) c = c.mul(rauschen(r.rauschen, zeit).mul(r.rauschen.staerke).add(1));
 	// 4 Joints: water draws light lines, everything else dark ones.
 	if (r.fugen)
 		c = mix(
 			c,
 			r.fugen.art === 'strom' ? licht : ink,
-			fugen(r.fugen.art, r.fugen.abstand).mul(r.fugen.staerke)
+			fugen(r.fugen.art, r.fugen.abstand, zeit).mul(r.fugen.staerke)
 		);
 	// 5 Edge: outline of round forms from the normal (the stage draws straight edges as lines).
 	const facing = abs(normalView.z).clamp(0, 1);
