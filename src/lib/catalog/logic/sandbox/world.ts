@@ -54,8 +54,11 @@ function settle(grid: TerrainGrid, state: SandboxState): SandboxState {
 }
 
 /** A new world with a seeded old town on the terrain of a seed. */
-export function createWorld(seed: number, options?: TownOptions): World {
-	const grid = deriveGrid(createTerrain({ seed }));
+export function createWorld(
+	seed: number,
+	options?: TownOptions & { plan?: Parameters<typeof deriveGrid>[1] }
+): World {
+	const grid = deriveGrid(createTerrain({ seed }), options?.plan);
 	return { seed: grid.terrain.seed, state: seedTown(grid, options), grid, lines: [] };
 }
 

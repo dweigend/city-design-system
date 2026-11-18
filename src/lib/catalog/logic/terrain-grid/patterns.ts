@@ -74,8 +74,8 @@ export function patternOffsets(
 		rim *
 			bend *
 			Math.sin((Math.PI * c) / (2 * BLOCK.columns)) ** 2 *
-			smooth((y - bands.scarpStart) / 30) *
-			(1 - smooth((y - bands.scarpEnd) / 30));
+			smooth((y - bands.scarpStart) / lattice.profile.transitionWidth) *
+			(1 - smooth((y - bands.scarpEnd) / lattice.profile.transitionWidth));
 	const lateral = flood ? displacement : Math.max(-MAX_LEAN, Math.min(MAX_LEAN, displacement));
 	if (weight === 0) return [lateral, shift + rim * flood * jy];
 	const radius = 76 + dy,

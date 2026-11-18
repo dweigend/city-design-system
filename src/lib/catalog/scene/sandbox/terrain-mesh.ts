@@ -35,7 +35,6 @@ const INK_SHARE = {
 	contourMinor: 0.2,
 	contourMajor: 0.44,
 	parcel: 0.16,
-	cell: 0.12,
 	outline: 0.55
 };
 
@@ -149,16 +148,18 @@ export function createTerrainMesh(grid: TerrainGrid) {
 					.length()
 					.smoothstep(LENS_RADIUS * 0.35, LENS_RADIUS)
 			)
-			.mul(lensStrength)
-			.max(gridStrength);
+			.mul(lensStrength);
 		const cellLine = hairline(chart.x, 1).max(hairline(chart.y, 1)).mul(resolvable(chart.x));
 		const parcelLine = hairline(chart.x.div(PARCEL_CELLS), 1).max(
 			hairline(chart.y.div(PARCEL_CELLS), 1)
 		);
-		const near = float(1).sub(chart.fwidth().length().smoothstep(0.05, 0.12));
-		const plan = near.mul(
-			cellLine.mul(lens).mul(INK_SHARE.cell).max(parcelLine.mul(INK_SHARE.parcel))
+		const near = float(1).sub(
+			chart.fwidth().length().smoothstep(grid.profile.nearStart, grid.profile.nearEnd)
 		);
+		const plan = cellLine
+			.mul(lens.mul(near).max(gridStrength))
+			.mul(grid.profile.cellInk)
+			.max(parcelLine.mul(INK_SHARE.parcel));
 		return streets.shade(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
 			colors.ink,
@@ -185,7 +186,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 
 	const group = new THREE.Group();
 	const deckMaterial = new THREE.MeshLambertNodeMaterial();
-	deckMaterial.colorNode = mix(colors.paper, colors.ink, 0.25);
+	deckMaterial.colorNode = mix(colors.paper, colors.ink, grid.profile.bridgeTone);
 	const deck = new THREE.Mesh(bridgeGeometry(grid), deckMaterial);
 	group.add(surface, water, baseMesh, deck);
 

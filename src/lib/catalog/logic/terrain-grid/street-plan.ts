@@ -39,16 +39,16 @@ export function streetPlan(
 	const open =
 		site.zone === 'water' || grade(b) > profile.ravineGrade || site.incision > profile.ravineDepth;
 	const extent = settlementExtent(terrain, column, row, profile);
-	const direction = (bridge || !open) && extent > 0 ? directionAt(along, across || bridge) : null;
+	const direction = bridge || (!open && extent > 0) ? directionAt(along, across || bridge) : null;
 	const width = streetWidth(row === bank, along, steep, profile);
 	return {
 		direction,
 		width: direction ? width : 0,
 		extent,
-		bridge: bridge && extent > 0,
+		bridge,
 		square: square && !open && extent > 0,
 		open,
-		stairs: !!direction && steep && across && column % (2 * BLOCK.columns) === 0
+		stairs: !bridge && !!direction && steep && across && column % (2 * BLOCK.columns) === 0
 	};
 }
 

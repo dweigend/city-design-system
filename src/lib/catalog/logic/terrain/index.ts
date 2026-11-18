@@ -188,12 +188,8 @@ function creekCut(terrain: Terrain, along: number, across: number, height: numbe
 /** Incision of the tributary below the undisturbed valley profile, in meters. */
 export function ravineDepth(terrain: Terrain, x: number, y: number): number {
 	const [along, across] = valleyCoords(terrain, x, y);
-	return creekCut(
-		terrain,
-		along,
-		across,
-		crossProfile(terrain, along, across) + ridge(terrain, along, across)
-	);
+	const uncut = crossProfile(terrain, along, across) + ridge(terrain, along, across);
+	return Math.max(0, uncut - groundLevel(terrain, x, y));
 }
 
 /** Ground of the form rule alone, in valley coordinates. */

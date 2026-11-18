@@ -194,8 +194,11 @@ function derive(
  * Derives the whole grid from a terrain. Deterministic: the same terrain gives the same
  * grid, with row-major arrays materialized on their first bulk read.
  */
-export function deriveGrid(terrain: Terrain, profile = defaultStreetPlan): TerrainGrid {
-	const lattice = latticeOf(terrain, { ...profile, ...parcelProfile(profile) });
+export function deriveGrid(
+	terrain: Terrain,
+	profile?: Parameters<typeof parcelProfile>[0]
+): TerrainGrid {
+	const lattice = latticeOf(terrain, parcelProfile(profile));
 	return derive(lattice, 0, lattice.columns);
 }
 
