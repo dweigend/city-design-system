@@ -1,5 +1,5 @@
 import { hash } from '../hash-random';
-import { BLOCK, MODULE, smoothWeight as smooth, type Lattice } from './contour-rows';
+import { BLOCK, MODULE, MAX_LEAN, smoothWeight as smooth, type Lattice } from './contour-rows';
 
 export type Pattern = 'orthogonal' | 'contour' | 'irregular' | 'fan';
 
@@ -63,11 +63,25 @@ export function patternOffsets(
 		dy = (r - squareRow(lattice)) * MODULE;
 	const weight =
 		rim * (1 - smooth((Math.abs(x) - 28) / 48)) * (1 - smooth((Math.abs(dy) - 10) / 32));
-	if (weight === 0) return [contour * lean + rim * flood * jx, shift + rim * flood * jy];
+	const phase = r % BLOCK.rows;
+	const bend =
+		(Math.min(phase, BLOCK.rows - phase) / (BLOCK.rows / 2)) *
+		MODULE *
+		lattice.profile.switchbackColumns;
+	const displacement =
+		contour * lean +
+		rim * flood * jx +
+		rim *
+			bend *
+			Math.sin((Math.PI * c) / (2 * BLOCK.columns)) ** 2 *
+			smooth((y - bands.scarpStart) / 30) *
+			(1 - smooth((y - bands.scarpEnd) / 30));
+	const lateral = flood ? displacement : Math.max(-MAX_LEAN, Math.min(MAX_LEAN, displacement));
+	if (weight === 0) return [lateral, shift + rim * flood * jy];
 	const radius = 76 + dy,
 		angle = x / 76;
 	return [
-		contour * lean + rim * flood * jx + weight * (radius * Math.sin(angle) - x),
+		lateral + weight * (radius * Math.sin(angle) - x),
 		shift + rim * flood * jy + weight * radius * (Math.cos(angle) - 1)
 	];
 }

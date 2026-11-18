@@ -93,10 +93,10 @@ describe('house brush', () => {
 		expect(list.some((p) => p.pattern || p.token === '--signal')).toBe(false);
 	});
 
-	test('adjacent carrier bays share a perimeter walk and one access stair', () => {
+	test('adjacent carrier bays share one stair landing and one access stair', () => {
 		const stacks = raise(raise(EMPTY, '1/1', 'living'), '2/1', 'living');
 		const list = houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, 'megastructure');
-		expect(list.filter((p) => p.id.includes('/gallery-'))).toHaveLength(6);
+		expect(list.filter((p) => p.id.includes('/gallery-'))).toHaveLength(1);
 		expect(named(list, '/tread-0')).toHaveLength(1);
 		expect(named(list, '/module').length).toBeGreaterThan(0);
 		expect(list.some((p) => p.token === '--signal')).toBe(false);
@@ -151,4 +151,27 @@ describe('house brush', () => {
 		for (let i = 0; i < 12; i++) full = raise(full, '1/1', 'living');
 		expect(raise(full, '1/1', 'living')).toBe(full);
 	});
+});
+
+test('a carrier crosses the chunk seam only above older roofs in its block', () => {
+	const anchor = cellAt(3, 2);
+	const current = raise(EMPTY, anchor.id, 'living');
+	const occupied = raise(raise(current, '2/2', 'water'), '4/2', 'food');
+	const context = {
+		occupied,
+		blockOf: () => 'one block',
+		olderRoof: (id: string) => occupied.has(id) && !current.has(id)
+	};
+	const project = (blockOf: (id: string) => string) =>
+		houseChunk(grid, current, anchor.chunk, SEED, 'totem', { ...context, blockOf }).filter((p) =>
+			p.id.includes(':span/')
+		);
+	const span = project(context.blockOf);
+	const chord = named(span, '/lower')[0];
+	expect(chord.kind === 'pipe' && chord.points.length).toBe(3);
+	expect(named(span, '/module')).toHaveLength(2);
+	expect(
+		project((id) => (id === '4/2' ? 'next block' : 'one block')).some((p) => p.id.includes('/4/2/'))
+	).toBe(false);
+	expect(touchedChunks(grid, current, current, ['4/2']).has(anchor.chunk)).toBe(true);
 });

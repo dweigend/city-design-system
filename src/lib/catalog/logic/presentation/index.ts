@@ -59,7 +59,9 @@ export function present(parts: Primitive[], level: Representation): Primitive[] 
 	const lod = geometry[level];
 	if (!lod) return [];
 	if (lod === 'detail') return parts;
-	const mass = parts.filter((p) => !p.detail).map(massOf);
+	const mass = parts
+		.filter((p) => !p.detail || (level === 'pencil' && p.role === 'bestand'))
+		.map(massOf);
 	if (lod === 'mid') return mass;
 	return mass.map((p) => {
 		const styled = look(p, lod === 'block' ? 'context' : 'background') ?? p;

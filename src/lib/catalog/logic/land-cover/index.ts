@@ -2,10 +2,17 @@
  * Land cover: the player plants areas, not objects. A cell carries at most one cover;
  * forests derive their trees from the cell, its neighbors and the seed.
  */
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
-import { TREE_FORM, trunkRadius, crownParts, type CrownForm } from '../tree-forms';
+import {
+	TREE_FORM,
+	trunkRadius,
+	crownParts,
+	type CrownForm,
+	type TreeProfile
+} from '../tree-forms';
 
 /** Order is part of the contract: the scene maps the kinds to texture channels. */
 export const COVER_KINDS = ['forest', 'field', 'meadow'] as const;
@@ -14,13 +21,19 @@ export type CoverKind = (typeof COVER_KINDS)[number];
 /** Cover per cell id; a cell without cover has no entry. */
 export type Cover = ReadonlyMap<string, CoverKind>;
 
-/** Tree size in meters: smallest tree and the seeded range on top of it. */
-const TREE_SIZE = { min: 1.9, range: 1.9 };
-/** Share of the cell a tree keeps clear of the cell sides. */
-const CELL_MARGIN = 0.16;
+/** Forest placement, tree size and canopy density controls for projected land cover. */
+export const LAND_COVER_PARAMS = defineParams({
+	// Add the seeded size range in meters to this minimum.
+	treeSizeMin: numberParam('Minimum tree size', 'm', 1.9, [0.01, 30, 0.1]),
+	treeSizeRange: numberParam('Tree size range', 'm', 1.9, [0, 30, 0.1]),
+	cellMargin: numberParam('Cell margin', 'ratio', 0.16, [0, 0.5, 0.01]),
+	lightTone: numberParam('Light tone', 'ratio', 0, [0, 1, 0.01]),
+	middleTone: numberParam('Middle tone', 'ratio', 0.07, [0, 1, 0.01]),
+	darkTone: numberParam('Dark tone', 'ratio', 0.14, [0, 1, 0.01])
+});
+const defaults = resolveParams(LAND_COVER_PARAMS);
 /** Extra preference for conifers starts at `from` meters and reaches certainty at `to`. */
 const CONIFER_RANGE = { from: 3, to: 20 };
-const TONE_STEPS = [0, 0.07, 0.14];
 const CHANNEL = { along: 21, across: 22, size: 23, kind: 24, tone: 25, form: 26 };
 
 /**
@@ -54,20 +67,35 @@ function forestForm(seed: number, id: number, z: number): CrownForm {
 	return 'ball';
 }
 
-function tree(seed: number, cell: QuadCell, slot: number): Primitive[] {
+function tree(
+	seed: number,
+	cell: QuadCell,
+	slot: number,
+	profile: typeof defaults,
+	formProfile: TreeProfile
+): Primitive[] {
 	const id = cell.index * 4 + slot;
-	const share = (channel: number) => CELL_MARGIN + hash(seed, id, channel) * (1 - 2 * CELL_MARGIN);
+	const share = (channel: number) =>
+		profile.cellMargin + hash(seed, id, channel) * (1 - 2 * profile.cellMargin);
 	const [x, y, z] = cellPoint(cell, share(CHANNEL.along), share(CHANNEL.across));
-	const s = TREE_SIZE.min + hash(seed, id, CHANNEL.size) * TREE_SIZE.range;
-	const trunk = s * TREE_FORM.trunkHeight * 0.5;
-	const shade = TONE_STEPS[Math.floor(hash(seed, id, CHANNEL.tone) * TONE_STEPS.length)];
+	const s = profile.treeSizeMin + hash(seed, id, CHANNEL.size) * profile.treeSizeRange;
+	const trunk = s * formProfile.trunkHeight * 0.5;
+	const tones = [profile.lightTone, profile.middleTone, profile.darkTone];
+	const shade = tones[Math.floor(hash(seed, id, CHANNEL.tone) * tones.length)];
 	const common = { role: 'neu', material: 'wood', shade } as const;
 	const form = forestForm(seed, id, z);
-	const crown = crownParts(form, [x, y, z + (form === 'cone' ? trunk * 0.5 : trunk)], s, (i) => ({
-		...common,
-		id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`,
-		token: '--cat-nature'
-	}));
+	const crown = crownParts(
+		form,
+		[x, y, z + (form === 'cone' ? trunk * 0.5 : trunk)],
+		s,
+		(i) => ({
+			...common,
+			id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`,
+			token: '--cat-nature'
+		}),
+		undefined,
+		formProfile
+	);
 	const stem: Primitive = {
 		...common,
 		id: `${cell.id}:trunk${slot}`,
@@ -75,8 +103,8 @@ function tree(seed: number, cell: QuadCell, slot: number): Primitive[] {
 		shade: 0,
 		kind: 'cylinder',
 		position: [x, y, z - 0.3],
-		radius: trunkRadius(s),
-		height: trunk + s * TREE_FORM.trunkIntoCrown + 0.3
+		radius: trunkRadius(s, formProfile),
+		height: trunk + s * formProfile.trunkIntoCrown + 0.3
 	};
 	return [stem, ...crown];
 }
@@ -91,11 +119,16 @@ export function forestChunk(
 	grid: QuadGrid,
 	cover: Cover,
 	chunk: string,
-	seed: number
+	seed: number,
+	overrides?: ParamOverrides<typeof LAND_COVER_PARAMS>,
+	formProfile: TreeProfile = TREE_FORM
 ): Primitive[] {
+	const profile = overrides ? resolveParams(LAND_COVER_PARAMS, undefined, overrides) : defaults;
 	return (grid.chunks.get(chunk) ?? []).flatMap((cell) => {
 		if (cover.get(cell.id) !== 'forest') return [];
 		const enclosed = cell.neighbors.every((id) => id !== null && cover.get(id) === 'forest');
-		return enclosed ? [...tree(seed, cell, 0), ...tree(seed, cell, 1)] : tree(seed, cell, 0);
+		return enclosed
+			? [...tree(seed, cell, 0, profile, formProfile), ...tree(seed, cell, 1, profile, formProfile)]
+			: tree(seed, cell, 0, profile, formProfile);
 	});
 }

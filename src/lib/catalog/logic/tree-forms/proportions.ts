@@ -1,22 +1,19 @@
-/**
- * Proportions of the abstract model trees: one owner for the form vocabulary of the design
- * bible and for the forests of the sandbox. Every length is a factor of the tree size `s`
- * in meters, unless named otherwise. Independent core module: imports nothing.
- */
-export const TREE_FORM = {
-	/** Trunk radius as a share of the size, with a lower bound in meters. */
-	trunkRadius: 0.07,
-	trunkRadiusMin: 0.12,
-	/** Trunk height below the crown, and how far the trunk reaches into the crown. */
-	trunkHeight: 0.9,
-	trunkIntoCrown: 0.3,
-	/** Ball tree: radius of the crown; its center sits one radius above the trunk. */
-	ballRadius: 0.6,
-	/** Cone tree: base radius and height of the crown. */
-	coneRadius: 0.42,
-	coneHeight: 1.8
-} as const;
+import { defineParams, numberParam, resolveParams } from '../params';
 
-/** Trunk radius in meters for a tree of size `s`. */
-export const trunkRadius = (s: number) =>
-	Math.max(TREE_FORM.trunkRadiusMin, s * TREE_FORM.trunkRadius);
+/** Shared proportions for the design bible and sandbox. */
+export const TREE_PARAMS = defineParams({
+	trunkRadius: numberParam('Trunk radius factor', 'ratio', 0.07, [0.01, 2, 0.01]),
+	trunkRadiusMin: numberParam('Minimum trunk radius', 'm', 0.12, [0, 5, 0.01]),
+	trunkHeight: numberParam('Trunk height factor', 'ratio', 0.9, [0.01, 5, 0.05]),
+	trunkIntoCrown: numberParam('Trunk overlap factor', 'ratio', 0.3, [0, 5, 0.05]),
+	ballRadius: numberParam('Ball radius factor', 'ratio', 0.6, [0.01, 5, 0.05]),
+	coneRadius: numberParam('Cone radius factor', 'ratio', 0.42, [0.01, 5, 0.01]),
+	coneHeight: numberParam('Cone height factor', 'ratio', 1.8, [0.01, 8, 0.05])
+});
+
+export const TREE_FORM = Object.freeze(resolveParams(TREE_PARAMS));
+export type TreeProfile = typeof TREE_FORM;
+
+/** Trunk radius in meters for a tree of size `s`, using the supplied resolved profile. */
+export const trunkRadius = (s: number, profile: TreeProfile = TREE_FORM) =>
+	Math.max(profile.trunkRadiusMin, s * profile.trunkRadius);

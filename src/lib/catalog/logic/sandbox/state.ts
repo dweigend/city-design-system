@@ -2,7 +2,7 @@ import { townDefaults } from '../../data/sandbox';
 import type { HouseUse, Stacks } from '../house-brush';
 import type { Cover, CoverKind } from '../land-cover';
 import type { TerrainEdit } from '../terrain';
-import type { TransitKind } from '../transit-line';
+import type { TransitKind, TransitOverrides } from '../transit-line';
 
 /** Identity stays with the floor when its cell geometry changes. */
 export type StoryPart = Readonly<{
@@ -17,6 +17,7 @@ export type LineStroke = Readonly<{
 	year: number;
 	transit: TransitKind;
 	cellIds: readonly string[];
+	profile?: TransitOverrides;
 }>;
 
 /** Modules in the material store per use: what deconstruction has set aside for reuse. */
@@ -60,4 +61,6 @@ export type Edit =
 	| { kind: 'dig'; cellId: string }
 	/** Eraser: takes the top story, else the cover, else lines and basins at the cell. */
 	| { kind: 'clear'; cellId: string }
-	| { kind: 'line'; transit: TransitKind; cellIds: readonly string[] };
+	| { kind: 'line'; transit: TransitKind; cellIds: readonly string[] }
+	/** Replaces a line's overrides with a sparse profile. Omit it to restore defaults. */
+	| { kind: 'line-profile'; lineId: string; profile?: TransitOverrides };
