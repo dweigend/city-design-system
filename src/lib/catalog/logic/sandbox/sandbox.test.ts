@@ -30,6 +30,18 @@ function site(world: World = empty) {
 	if (!cell) throw new Error('fixture missing');
 	return cell;
 }
+/** Cell id at an offset from a buildable block interior on dry ground. */
+const at = (column: number, row: number) => {
+	const origin = empty.grid.cells.find(
+		(c) =>
+			c.zone === 'lower-terrace' &&
+			[0, 1, 2, 3, 4].every((dc) =>
+				[0, 1].every((dr) => empty.grid.cellsById.get(`${c.column + dc}/${c.row + dr}`)?.buildable)
+			)
+	);
+	if (!origin) throw new Error('fixture missing');
+	return `${origin.column + column}/${origin.row + row}`;
+};
 const row = (from: number, to: number) => `${from}/${site().row}:${to}/${site().row}`.split(':');
 const paint = (world: World, cellIds: string[], use: 'living' | 'water' = 'living') =>
 	cellIds.reduce((w, cellId) => applyEdit(w, { kind: 'raise', cellId, use }), world);
@@ -47,29 +59,30 @@ describe('sandbox', () => {
 	});
 
 	test('the house brush fills from the pointer after retracing a row', () => {
-		const stroke = ['0/0', '4/0', '0/0', '1/1'].reduce(
+		const stroke = [at(0, 0), at(4, 0), at(0, 0), at(1, 1)].reduce(
 			extendStroke,
 			beginStroke({ kind: 'house', use: 'living' }, empty)
 		);
-		const expected = ['0/0', '1/0', '2/0', '3/0', '4/0', '0/1', '1/1'];
+		const expected = [at(0, 0), at(1, 0), at(2, 0), at(3, 0), at(4, 0), at(0, 1), at(1, 1)];
 		expect(stroke.cellIds).toEqual(expected);
 		expect([...stroke.draft.state.stacks.keys()]).toEqual(expected);
 		for (const id of expected) expect(storiesOf(stroke.draft.state.stacks, id)).toEqual(['living']);
 	});
 
 	test('the eraser fills from the pointer after retracing a row', () => {
-		const rowIds = ['0/0', '1/0', '2/0', '3/0', '4/0'];
-		const erasedIds = [...rowIds, '0/1', '1/1'];
-		const untouchedIds = ['2/1', '3/1'];
+		const rowIds = [at(0, 0), at(1, 0), at(2, 0), at(3, 0), at(4, 0)];
+		const erasedIds = [...rowIds, at(0, 1), at(1, 1)];
+		const untouchedIds = [at(2, 1), at(3, 1)];
 		const built = paint(paint(empty, [...erasedIds, ...untouchedIds]), rowIds);
-		const stroke = ['0/0', '4/0', '0/0', '1/1'].reduce(
+		const stroke = [at(0, 0), at(4, 0), at(0, 0), at(1, 1)].reduce(
 			extendStroke,
 			beginStroke({ kind: 'erase' }, built)
 		);
 		expect(stroke.cellIds).toEqual(erasedIds);
 		for (const id of [...rowIds, ...untouchedIds])
 			expect(storiesOf(stroke.draft.state.stacks, id)).toEqual(['living']);
-		for (const id of ['0/1', '1/1']) expect(storiesOf(stroke.draft.state.stacks, id)).toEqual([]);
+		for (const id of [at(0, 1), at(1, 1)])
+			expect(storiesOf(stroke.draft.state.stacks, id)).toEqual([]);
 		expect(stroke.draft.state.store.living).toBe(erasedIds.length);
 	});
 
