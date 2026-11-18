@@ -1,5 +1,3 @@
-import { resolveParams, type ParamOverrides } from '../../logic/params';
-import { STRUCTURE_PARAMS } from './view-params';
 /**
  * Everything the player builds, drawn from the shared render contract: keyed groups of
  * primitives (a house chunk, a forest chunk, a transit line) become a few merged meshes each.
@@ -10,15 +8,18 @@ import { attribute, uniform } from 'three/tsl';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import type { Palette3D } from '../../data/city3d';
+import { resolveParams, type ParamOverrides } from '../../logic/params';
 import type { Primitive } from '../../logic/parametrik/types';
 import { batch, geometryOf } from '../batch';
 import { outlinePosition } from '../surfaces';
+import { STRUCTURE_PARAMS } from './view-params';
 
 export type Structures = ReturnType<typeof createStructures>;
 
 /** Creates the structure layer. The caller adds `group` to its scene and calls `dispose`. */
 export function createStructures(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
-	const profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
+	let profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
+	let pixelsPerMeter: number | undefined;
 	const group = new THREE.Group();
 	const entries = new Map<string, { primitives: Primitive[]; objects: THREE.Group }>();
 	const paper = new THREE.Color();
@@ -132,9 +133,30 @@ export function createStructures(overrides?: ParamOverrides<typeof STRUCTURE_PAR
 		group.add(objects);
 	}
 
+	/** Adapts line weights to the zoom, given in screen pixels per world meter. */
+	function setScale(scale: number) {
+		pixelsPerMeter = scale;
+		outlinePx.value = Math.min(profile.outlinePx, profile.outlineMaxMeters * scale);
+		materials.crease.opacity = Math.max(
+			profile.creaseFloor,
+			Math.min(1, scale / profile.creaseFullAt)
+		);
+	}
+
 	return {
 		group,
 		set,
+		setScale,
+		/** Replaces view overrides in schema units. Omitted values restore defaults.
+		 * Updates existing materials at the current zoom. Invalid values throw RangeError.
+		 */
+		setParams(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
+			profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
+			materials.crease.linewidth = profile.creasePx;
+			materials.glass.opacity = profile.glassOpacity;
+			if (pixelsPerMeter === undefined) outlinePx.value = profile.outlinePx;
+			else setScale(pixelsPerMeter);
+		},
 		/** Solid meshes of every key with the given prefix, for ray casting. */
 		solids(prefix: string): THREE.Mesh[] {
 			return [...entries]
@@ -157,14 +179,6 @@ export function createStructures(overrides?: ParamOverrides<typeof STRUCTURE_PAR
 			materials.hull.color.copy(ink);
 			materials.crease.color.copy(ink);
 			for (const [key, entry] of [...entries]) set(key, entry.primitives);
-		},
-		/** Adapts line weights to the zoom, given in screen pixels per world meter. */
-		setScale(pixelsPerMeter: number) {
-			outlinePx.value = Math.min(profile.outlinePx, profile.outlineMaxMeters * pixelsPerMeter);
-			materials.crease.opacity = Math.max(
-				profile.creaseFloor,
-				Math.min(1, pixelsPerMeter / profile.creaseFullAt)
-			);
 		},
 		/** Removes every key. */
 		clear() {

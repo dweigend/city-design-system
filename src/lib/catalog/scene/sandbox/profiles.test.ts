@@ -1,15 +1,17 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { STRUCTURE_PARAMS, TERRAIN_VIEW_PARAMS } from '../../scene/sandbox/view-params';
-import { forestChunk, LAND_COVER_PARAMS, type Cover } from '../land-cover';
-import { squareGrid } from '../quad-grid';
-import { createTerrain } from '../terrain';
-import { deriveGrid } from '../terrain-grid';
-import { lineParts, routeLine, TRANSIT_PARAMS, vehiclePoses } from '../transit-line';
-import { TREE_PARAMS, trunkRadius } from '../tree-forms';
-import { walkwayParts, WALKWAY_PARAMS } from '../walkway';
-import { resolveParams } from './index';
+import { UniformNode } from 'three/webgpu';
+import { createTerrainMesh } from './terrain-mesh';
+import { STRUCTURE_PARAMS, TERRAIN_VIEW_PARAMS } from './view-params';
+import { forestChunk, LAND_COVER_PARAMS, type Cover } from '../../logic/land-cover';
+import { squareGrid } from '../../logic/quad-grid';
+import { createTerrain } from '../../logic/terrain';
+import { deriveGrid } from '../../logic/terrain-grid';
+import { lineParts, routeLine, TRANSIT_PARAMS, vehiclePoses } from '../../logic/transit-line';
+import { TREE_PARAMS, trunkRadius } from '../../logic/tree-forms';
+import { walkwayParts, WALKWAY_PARAMS } from '../../logic/walkway';
+import { resolveParams } from '../../logic/params';
 
 const fingerprint = (value: unknown) =>
 	createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -35,7 +37,7 @@ const routes = [
 	['capsule', '723ddf36572243eace1fe5f5673cc6f7946d11c9c5786945002316e3c612c5c9']
 ] as const;
 for (const [kind, expected] of routes) {
-	test(kind + ' retains the default output and projects the persisted profile', () => {
+	test(kind + ' retains the default output and projects serialized overrides', () => {
 		const stroke = { id: 'test', kind, cellIds: ['40/35', '80/35', '80/75'] };
 		const line = routeLine(grid, stroke);
 		if (!line) throw new Error('Expected the default route');
@@ -43,6 +45,7 @@ for (const [kind, expected] of routes) {
 		const radius = TRANSIT_PARAMS[kind].deckRadius.default + 0.1;
 		const changed = routeLine(grid, stroke, { deckRadius: radius, speed: 8 });
 		if (!changed) throw new Error('Expected the customized route');
+		expect(changed.profile).toEqual({ deckRadius: radius, speed: 8 });
 		expect(lineParts(JSON.parse(JSON.stringify(changed)))[0]).toMatchObject({ radius });
 		expect(changed.path).toEqual(line.path);
 		expect(changed.pillars[0].top).toBeCloseTo(line.pillars[0].top - 0.1);
@@ -76,4 +79,25 @@ test('sandbox projection exposes cell units and validates material overrides', (
 	expect(() => resolveParams(TERRAIN_VIEW_PARAMS, { parcelCells: 2.5 })).toThrow(RangeError);
 	expect(STRUCTURE_PARAMS.creasePx.unit).toBe('px');
 	expect(() => resolveParams(STRUCTURE_PARAMS, { glassOpacity: 2 })).toThrow(RangeError);
+});
+
+test('terrain parameters update numeric uniforms on the existing surface shader', () => {
+	const terrain = createTerrainMesh(grid);
+	try {
+		const shader = terrain.surface.material.colorNode;
+		const uniforms = new Set<UniformNode>();
+		shader?.traverse((node) => {
+			if (node instanceof UniformNode) uniforms.add(node);
+		});
+		const values = () => [...uniforms].map((uniform) => uniform.value);
+		const defaults = values();
+		terrain.setParams({ parcelCells: 23, lensCells: 17, streetTint: 0.42, planContourGain: 0.63 });
+		expect(values()).toEqual(expect.arrayContaining([23, 17, 17 * 0.35, 0.42, 0.63]));
+		expect(terrain.surface.material.colorNode).toBe(shader);
+		expect(() => terrain.setParams({ parcelCells: 2.5 })).toThrow(RangeError);
+		terrain.setParams();
+		expect(values()).toEqual(defaults);
+	} finally {
+		terrain.dispose();
+	}
 });

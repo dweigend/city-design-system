@@ -1,5 +1,6 @@
 import { defineParams, numberParam } from '../../logic/params';
 
+/** Structure outline, crease and glass controls in pixels, meters and opacity ratios. */
 export const STRUCTURE_PARAMS = defineParams({
 	creasePx: numberParam('Crease width', 'px', 0.8, [0.1, 8, 0.1]),
 	outlinePx: numberParam('Outline width', 'px', 1, [0.1, 8, 0.1]),
@@ -9,6 +10,7 @@ export const STRUCTURE_PARAMS = defineParams({
 	glassOpacity: numberParam('Glass opacity', 'ratio', 0.34, [0, 1, 0.01])
 });
 
+/** Terrain grid, cursor lens, street tint and contour controls in cell units and ratios. */
 export const TERRAIN_VIEW_PARAMS = defineParams({
 	parcelCells: numberParam('Measure chain interval', 'cells', 10, [1, 100, 1], 'integer'),
 	lensCells: numberParam('Grid lens radius', 'cells', 11, [1, 100, 0.5]),

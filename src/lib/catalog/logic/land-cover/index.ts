@@ -21,8 +21,9 @@ export type CoverKind = (typeof COVER_KINDS)[number];
 /** Cover per cell id; a cell without cover has no entry. */
 export type Cover = ReadonlyMap<string, CoverKind>;
 
-/** Tree size in meters: smallest tree and the seeded range on top of it. */
+/** Forest placement, tree size and canopy density controls for projected land cover. */
 export const LAND_COVER_PARAMS = defineParams({
+	// Add the seeded size range in meters to this minimum.
 	treeSizeMin: numberParam('Minimum tree size', 'm', 1.9, [0.01, 30, 0.1]),
 	treeSizeRange: numberParam('Tree size range', 'm', 1.9, [0, 30, 0.1]),
 	cellMargin: numberParam('Cell margin', 'ratio', 0.16, [0, 0.5, 0.01]),
