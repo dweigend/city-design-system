@@ -8,7 +8,11 @@
 	import { ThemeToggle } from '../theme';
 	import { kapitelGruppen } from '../data/kapitel';
 	import KapitelNav from './KapitelNav.svelte';
-	let { title, children }: { title: string; children: Snippet } = $props();
+	let {
+		title,
+		children,
+		showTitle = true
+	}: { title: string; children: Snippet; showTitle?: boolean } = $props();
 
 	/**
 	 * Header bar the same on every page: brand on the left, chapters, color mode on the right.
@@ -46,8 +50,8 @@
 	<ThemeToggle />
 </header>
 
-<main>
-	<h1>{title}</h1>
+<main class:without-title={!showTitle}>
+	<h1 class:visually-hidden={!showTitle}>{title}</h1>
 	{@render children()}
 </main>
 
@@ -162,5 +166,17 @@
 			margin-bottom: var(--space-8);
 			font-size: var(--text-xl);
 		}
+	}
+	main.without-title {
+		padding-block-start: var(--space-4);
+	}
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: 0;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>
