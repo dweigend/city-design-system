@@ -7,20 +7,21 @@ export { deckCorners, spanEnd, deckParts, WALKWAY_WIDTH_M, WALKWAY_PARAMS } from
 
 /** Projects an ordered roof route in world meters (z up). Each span has two rails,
  * level treads or a slab, and a central pier when above the support datum.
- * Consecutive anchors need enough horizontal run for both sides of a bend. Prefix IDs when composing routes. */
+ * Consecutive anchors need enough horizontal run for both sides of a bend. Prefix IDs when composing routes.
+ * Width uses the schema bounds in meters, with the explicit width taking precedence over overrides.
+ * Invalid dimensions throw RangeError. Output is detached and inputs are read without mutation. */
 export function walkwayParts(
 	points: readonly Vec3[],
 	{ id = 'walkway', width, groundZ = 0 }: { id?: string; width?: number; groundZ?: number } = {},
 	overrides?: ParamOverrides<typeof WALKWAY_PARAMS>
 ): Primitive[] {
-	if (
-		(width !== undefined && (!Number.isFinite(width) || width <= 0)) ||
-		!Number.isFinite(groundZ) ||
-		points.some((p) => !p.every(Number.isFinite))
-	)
+	if (!Number.isFinite(groundZ) || points.some((p) => !p.every(Number.isFinite)))
 		throw new RangeError('Invalid walkway dimensions');
-	const profile = overrides ? resolveParams(WALKWAY_PARAMS, undefined, overrides) : WALKWAY_PROFILE;
-	const deckWidth = width === undefined ? profile.width : width;
+	const profile =
+		width === undefined && !overrides
+			? WALKWAY_PROFILE
+			: resolveParams(WALKWAY_PARAMS, overrides, { width });
+	const deckWidth = profile.width;
 	return routeDecks(points, deckWidth).flatMap((ring, i) => {
 		const a = points[i],
 			b = points[i + 1];

@@ -1,3 +1,4 @@
+/** Numeric parameter schemas and validation for defaults, epochs and caller overrides. */
 type Field = Readonly<{
 	type: 'number' | 'integer';
 	label: string;
@@ -10,6 +11,7 @@ type Field = Readonly<{
 
 type Schema = Readonly<Record<string, Field>>;
 type Values<S extends Schema> = { readonly [K in keyof S]: number };
+/** Sparse values in the schema's units. Omitted or undefined fields inherit the previous layer. */
 export type ParamOverrides<S extends Schema> = Partial<Values<S>>;
 
 /** Describes a numeric control with inclusive bounds and a UI increment in the given unit. */
@@ -47,7 +49,7 @@ export function defineParams<const S extends Schema>(schema: S): Readonly<S> {
 }
 
 /** Returns detached numeric values. Caller fields override epoch fields, which override defaults.
- * Undefined inherits the previous layer. Unknown keys and invalid effective values throw RangeError.
+ * Undefined inherits the previous layer. Unknown keys and invalid values in either layer throw RangeError.
  */
 export function resolveParams<const S extends Schema>(
 	schema: S,
@@ -63,8 +65,8 @@ export function resolveParams<const S extends Schema>(
 		Object.entries(schema).map(([key, field]) => {
 			const epoch = valueAt(epochOverrides, key);
 			const caller = valueAt(callerOverrides, key);
-			const inherited = epoch === undefined ? field.default : epoch;
-			return [key, validateValue(key, field, caller === undefined ? inherited : caller)];
+			const inherited = epoch === undefined ? field.default : validateValue(key, field, epoch);
+			return [key, caller === undefined ? inherited : validateValue(key, field, caller)];
 		})
 	) as Values<S>;
 }

@@ -1,8 +1,9 @@
 import { defineParams, numberParam, resolveParams } from '../params';
 import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
 
+/** Deck width, thickness and maximum tread rise in meters for elevated walkways. */
 export const WALKWAY_PARAMS = defineParams({
-	width: numberParam('Deck width', 'm', 2.2, [Number.MIN_VALUE, Number.MAX_VALUE, 0.1]),
+	width: numberParam('Deck width', 'm', 2.2, [0.5, 10, 0.1]),
 	thickness: numberParam('Deck thickness', 'm', 0.25, [0.01, 3, 0.01]),
 	treadRise: numberParam('Maximum tread rise', 'm', 0.2, [0.01, 1, 0.01])
 });
