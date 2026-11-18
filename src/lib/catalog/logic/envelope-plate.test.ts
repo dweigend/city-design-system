@@ -8,10 +8,12 @@ test('the prerender entry generates twelve shells with renderer imports forbidde
 		[
 			'-e',
 			`
- Bun.plugin({name:'headless',setup(build){
+ const route='./src/routes/labor/building-envelope/+page.server.ts';
+ const graph=await Bun.build({entrypoints:[route],target:'bun',external:['manifold-3d'],plugins:[{name:'headless',setup(build){
  build.onResolve({filter:/^three(?:\\/|$)/},()=>{throw new Error('Renderer imported during prerender')});
- }});
- const {load}=await import('./src/routes/labor/building-envelope/+page.server.ts');
+ }}]});
+ if(!graph.success)throw new Error(graph.logs.join('\\n'));
+ const {load}=await import(route);
  const {meshes}=await load();
  if(meshes.length!==12 || meshes.some(m=>m.shellIndexEnds.length!==1 || !m.indices.length))throw new Error('Invalid comparison plate');
  `
