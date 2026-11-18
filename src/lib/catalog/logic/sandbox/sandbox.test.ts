@@ -42,7 +42,99 @@ describe('sandbox', () => {
 		expect(stroke.cellIds).toHaveLength(5);
 		for (const id of stroke.cellIds)
 			expect(storiesOf(stroke.draft.state.stacks, id)).toEqual(['living']);
-		expect(extendStroke(stroke, to)).toBe(stroke);
+		expect(extendStroke(stroke, from)).toBe(stroke);
+		expect(extendStroke(stroke, 'unknown')).toBe(stroke);
+	});
+
+	test('the house brush fills from the pointer after retracing a row', () => {
+		const stroke = ['0/0', '4/0', '0/0', '1/1'].reduce(
+			extendStroke,
+			beginStroke({ kind: 'house', use: 'living' }, empty)
+		);
+		const expected = ['0/0', '1/0', '2/0', '3/0', '4/0', '0/1', '1/1'];
+		expect(stroke.cellIds).toEqual(expected);
+		expect([...stroke.draft.state.stacks.keys()]).toEqual(expected);
+		for (const id of expected) expect(storiesOf(stroke.draft.state.stacks, id)).toEqual(['living']);
+	});
+
+	test('the eraser fills from the pointer after retracing a row', () => {
+		const rowIds = ['0/0', '1/0', '2/0', '3/0', '4/0'];
+		const erasedIds = [...rowIds, '0/1', '1/1'];
+		const untouchedIds = ['2/1', '3/1'];
+		const built = paint(paint(empty, [...erasedIds, ...untouchedIds]), rowIds);
+		const stroke = ['0/0', '4/0', '0/0', '1/1'].reduce(
+			extendStroke,
+			beginStroke({ kind: 'erase' }, built)
+		);
+		expect(stroke.cellIds).toEqual(erasedIds);
+		for (const id of [...rowIds, ...untouchedIds])
+			expect(storiesOf(stroke.draft.state.stacks, id)).toEqual(['living']);
+		for (const id of ['0/1', '1/1']) expect(storiesOf(stroke.draft.state.stacks, id)).toEqual([]);
+		expect(stroke.draft.state.store.living).toBe(erasedIds.length);
+	});
+
+	test('a zig-zag fills its segments in first-visit order', () => {
+		const stroke = ['0/0', '2/0', '2/2', '4/2', '4/0', '2/0', '2/2'].reduce(
+			extendStroke,
+			beginStroke({ kind: 'house', use: 'living' }, empty)
+		);
+		expect(stroke.cellIds).toEqual([
+			'0/0',
+			'1/0',
+			'2/0',
+			'2/1',
+			'2/2',
+			'3/2',
+			'4/2',
+			'4/1',
+			'4/0',
+			'3/0'
+		]);
+		expect(stroke.lastPointerCellId).toBe('2/2');
+	});
+
+	test('a line crossing its own stroke routes through first visits only', () => {
+		const crossed = ['0/1', '8/1', '8/3', '6/3', '6/0'].reduce(
+			extendStroke,
+			beginStroke({ kind: 'line', transit: 'viaduct' }, empty)
+		);
+		expect(crossed.draft.lines).toHaveLength(1);
+		const retraced = extendStroke(extendStroke(crossed, '6/1'), '0/1');
+		expect(retraced.draft).toBe(crossed.draft);
+		expect(retraced.cellIds).toBe(crossed.cellIds);
+		expect(retraced.lastPointerCellId).toBe('0/1');
+
+		const stroke = extendStroke(retraced, '0/9');
+		const expected = [
+			'0/1',
+			'1/1',
+			'2/1',
+			'3/1',
+			'4/1',
+			'5/1',
+			'6/1',
+			'7/1',
+			'8/1',
+			'8/2',
+			'8/3',
+			'7/3',
+			'6/3',
+			'6/2',
+			'6/0',
+			'0/2',
+			'0/3',
+			'0/4',
+			'0/5',
+			'0/6',
+			'0/7',
+			'0/8',
+			'0/9'
+		];
+		expect(stroke.cellIds).toEqual(expected);
+		expect(stroke.draft.state.lines).toEqual([
+			{ id: 'line1', transit: 'viaduct', cellIds: expected }
+		]);
+		expect(stroke.draft.lines[0].cellIds).toEqual(expected);
 	});
 
 	test('undo and redo return the saved states; a new stroke clears the redo', () => {
