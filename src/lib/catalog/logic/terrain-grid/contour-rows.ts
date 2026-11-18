@@ -101,13 +101,30 @@ function divideBlocks(shifts: Float64Array, rows: number): Float64Array {
 	return result;
 }
 
+/** Hermite blend across a normalized transition interval. */
+export const smoothWeight = (x: number) => {
+	const t = Math.max(0, Math.min(1, x));
+	return t * t * (3 - 2 * t);
+};
+
+/** Share of contour alignment at a street node, before limiting block depth. */
+function contourWeight({ bands }: Terrain, y: number) {
+	return (
+		smoothWeight((y - bands.scarpStart + 50) / 30) *
+			(1 - smoothWeight((y - bands.scarpEnd - 12) / 26)) +
+		smoothWeight((y - bands.scarpEnd - 38) / 28)
+	);
+}
+
 function solveColumn(lattice: Lattice, fields: Columns, column: number): Float64Array {
 	const shifts = new Float64Array(Math.ceil(lattice.rows / BLOCK.rows) + 1);
 	// Fields exist for every column in reach; `fields.get(column)` is always present here.
 	const field = fields.get(column) ?? tiltedGround(lattice, column);
 	for (let row = BLOCK.rows; row < lattice.rows; row += BLOCK.rows) {
 		const sample = Math.round((row * MODULE) / SAMPLE);
-		shifts[row / BLOCK.rows] = shiftTo(field, sample, aim(lattice, fields, column, sample));
+		shifts[row / BLOCK.rows] =
+			contourWeight(lattice.terrain, row * MODULE) *
+			shiftTo(field, sample, aim(lattice, fields, column, sample));
 	}
 	return shifts;
 }

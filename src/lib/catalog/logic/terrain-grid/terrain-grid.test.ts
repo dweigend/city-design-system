@@ -2,6 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createTerrain, groundLevel, valleyCoords, type TerrainEdit } from '../terrain';
 import {
+	type TerrainCell,
 	BLOCK,
 	cellAtPoint,
 	cellId,
@@ -33,6 +34,11 @@ describe('terrain grid', () => {
 		for (const cell of grid.cells) {
 			const [a, b, c, d] = cell.corners;
 			const area = ((c[0] - a[0]) * (d[1] - b[1]) - (d[0] - b[0]) * (c[1] - a[1])) / 2;
+			for (const [i, p] of cell.corners.entries()) {
+				const q = cell.corners[(i + 1) % 4],
+					s = cell.corners[(i + 2) % 4];
+				expect((q[0] - p[0]) * (s[1] - p[1]) - (q[1] - p[1]) * (s[0] - p[0])).toBeGreaterThan(0);
+			}
 			expect(area).toBeGreaterThan(MODULE * MODULE * 0.3);
 			expect(area).toBeLessThan(MODULE * MODULE * 2.4);
 		}
@@ -64,7 +70,7 @@ describe('terrain grid', () => {
 		expect(along / across).toBeLessThan(0.0336);
 	});
 
-	test('blocks divide evenly through the creek and the partial block at the rim', () => {
+	test('contour blocks divide evenly through the creek and the partial block at the rim', () => {
 		let greatestLean = 0;
 		for (let column = 0; column <= grid.columns; column++) {
 			const frame = (row: number) => {
@@ -74,6 +80,7 @@ describe('terrain grid', () => {
 			expect(frame(0)[1]).toBeCloseTo(0, 9);
 			expect(frame(grid.rows)[1]).toBeCloseTo(grid.rows * MODULE, 9);
 			for (let start = 0; start < grid.rows; start += BLOCK.rows) {
+				if (cellAt(Math.min(column, grid.columns - 1), start).pattern !== 'contour') continue;
 				const end = Math.min(start + BLOCK.rows, grid.rows);
 				const step = (frame(end)[1] - frame(start)[1]) / (end - start);
 				expect(step).toBeGreaterThanOrEqual(3 - 1e-9);
@@ -124,6 +131,47 @@ describe('terrain grid', () => {
 		expect(stroke[0]).toBe('10/10');
 		expect(stroke[stroke.length - 1]).toBe('14/12');
 		expect(stroke).toHaveLength(7);
+	});
+
+	test('block patterns include curved fan rows, orthogonal terraces and irregular river parcels', () => {
+		const patterns = new Map<string, TerrainCell['pattern']>();
+		for (const cell of grid.cells) {
+			expect(patterns.get(cell.block) ?? cell.pattern).toBe(cell.pattern);
+			patterns.set(cell.block, cell.pattern);
+		}
+		expect(new Set(patterns.values())).toEqual(
+			new Set(['orthogonal', 'contour', 'irregular', 'fan'])
+		);
+	});
+
+	test('seed 7 has square terrace parcels, skewed river parcels and concentric fan rows', () => {
+		const frame = (c: number, r: number) => {
+			const [x, y] = cellAt(c, r).corners[0];
+			return valleyCoords(terrain, x, y);
+		};
+		const [x, y] = frame(20, 48);
+		expect(frame(21, 48)[0] - x).toBeCloseTo(MODULE, 9);
+		expect(frame(21, 48)[1]).toBeCloseTo(y, 9);
+		expect(frame(20, 49)[0]).toBeCloseTo(x, 9);
+		expect(Math.abs(frame(30, 27)[0] - 30 * MODULE)).toBeGreaterThan(3);
+		// The fan has a common pole 76 m below its central row in the valley frame.
+		const pole = [42 * MODULE, 44 * MODULE - 76];
+		for (const r of [43, 44, 45])
+			for (const c of [38, 42, 46]) {
+				const [u, v] = frame(c, r);
+				expect(Math.hypot(u - pole[0], v - pole[1])).toBeCloseTo(76 + (r - 44) * MODULE, 9);
+			}
+	});
+
+	test('repeating an edit recomputes its bank and preserves untouched chunk lists', () => {
+		const [x, y] = cellAt(70, 40).center;
+		const edit: TerrainEdit = { kind: 'basin', center: [x, y], radius: 9 };
+		const once = regrid(grid, createTerrain({ edits: [edit] }));
+		const terrain = createTerrain({ edits: [edit, edit] });
+		const twice = regrid(once, terrain);
+		expect(twice.chunks.get('0:0')).toBe(once.chunks.get('0:0'));
+		expect(twice.cells.some((cell, i) => cell.center[2] !== once.cells[i].center[2])).toBe(true);
+		expect(twice.cells).toEqual(deriveGrid(terrain).cells);
 	});
 
 	test('distant basins preserve the cells between their affected columns', () => {
