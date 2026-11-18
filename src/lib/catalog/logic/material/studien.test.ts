@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime.
 import { describe, expect, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { familien } from '../../data/materialSeite';
