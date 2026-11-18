@@ -1,3 +1,6 @@
+import { defaultStreetPlan } from './street-profile';
+import { streetPlan } from './street-plan';
+export { defaultStreetPlan };
 /**
  * Area grid derived from the terrain: quad cells of one module (5 m) with terrace, contour, floodplain
  * and civic-square layouts. The grid is a pure function of the
@@ -10,6 +13,7 @@ import {
 	editReach,
 	FLOOD_LINE,
 	groundLevel,
+	ravineDepth,
 	terrainHeight,
 	terrainZone,
 	valleyCoords,
@@ -33,8 +37,9 @@ export const FLOOD_DATUM = 4.5;
 /** Smallest radial scale of the valley frame: world meters per frame meter along the valley. */
 const FRAME_SCALE_MIN = 0.75;
 
-const latticeOf = (terrain: Terrain): Lattice => ({
+const latticeOf = (terrain: Terrain, profile = defaultStreetPlan): Lattice => ({
 	terrain,
+	profile,
 	columns: Math.floor(terrain.along / MODULE),
 	rows: Math.floor(terrain.across / MODULE)
 });
@@ -53,12 +58,6 @@ function columnVertices(
 			z = terrainHeight(lattice.terrain, x, y);
 		return old && old[0] === x && old[1] === y && old[2] === z ? old : [x, y, z];
 	});
-}
-
-function streetBand(column: number, row: number): TerrainCell['street'] {
-	const across = column % BLOCK.columns === 0;
-	if (row % BLOCK.rows === 0) return across ? 'both' : 'along';
-	return across ? 'across' : null;
 }
 
 function makeCell(
@@ -101,12 +100,21 @@ function describeCell(
 	const level = groundLevel(terrain, x, y);
 	const zone = terrainZone(terrain, x, y);
 	const raised = level < FLOOD_LINE;
-	const street = streetBand(column, row);
+	const pattern = patternAt(lattice, column, row);
+	const plan = streetPlan(
+		terrain,
+		column,
+		row,
+		{ corners, zone, pattern, incision: ravineDepth(terrain, x, y) },
+		lattice.profile
+	);
+	const street = plan.direction;
 	const neighbor = (c: number, r: number) =>
 		c < 0 || r < 0 || c >= columns || r >= rows ? null : cellId(c, r);
 	return {
 		id: cellId(column, row),
-		pattern: patternAt(lattice, column, row),
+		pattern,
+		plan,
 		street,
 		block: `${Math.floor(column / BLOCK.columns)}:${Math.floor(row / BLOCK.rows)}`,
 		index: row * columns + column,
@@ -129,7 +137,7 @@ function describeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable: zone !== 'water' && street === null,
+		buildable: !plan.open && !plan.square && street === null,
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }
@@ -159,15 +167,15 @@ function derive(
 		data.cells[c] = Array.from({ length: rows }, (_, r) =>
 			makeCell(lattice, data.vertices, c, r, data.cells[c]?.[r], edits)
 		);
-	return assemble(lattice.terrain, data, first, last, previous);
+	return assemble(lattice.terrain, lattice.profile, data, first, last, previous);
 }
 
 /**
  * Derives the whole grid from a terrain. Deterministic: the same terrain gives the same
  * grid, with row-major arrays materialized on their first bulk read.
  */
-export function deriveGrid(terrain: Terrain): TerrainGrid {
-	const lattice = latticeOf(terrain);
+export function deriveGrid(terrain: Terrain, profile = defaultStreetPlan): TerrainGrid {
+	const lattice = latticeOf(terrain, profile);
 	return derive(lattice, 0, lattice.columns);
 }
 
@@ -199,7 +207,7 @@ function columnsInReach(lattice: Lattice, edits: readonly TerrainEdit[]) {
  * objects as before. The result equals `deriveGrid(terrain)`. A different seed derives all.
  */
 export function regrid(previous: TerrainGrid, terrain: Terrain): TerrainGrid {
-	if (terrain.seed !== previous.terrain.seed) return deriveGrid(terrain);
+	if (terrain.seed !== previous.terrain.seed) return deriveGrid(terrain, previous.profile);
 	const before = previous.terrain.edits;
 	const after = terrain.edits;
 	// Preserve edit order and multiplicity: overlapping basin banks blend sequentially.
@@ -212,11 +220,11 @@ export function regrid(previous: TerrainGrid, terrain: Terrain): TerrainGrid {
 		endAfter--;
 	}
 	const differing = [...before.slice(first, endBefore), ...after.slice(first, endAfter)];
-	const lattice = latticeOf(terrain);
+	const lattice = latticeOf(terrain, previous.profile);
 	let result = previous;
 	for (const [from, to] of columnsInReach(lattice, differing))
 		result = derive(lattice, from, to, result, differing);
 	return result === previous && previous.terrain !== terrain
-		? assemble(terrain, columnStorage(previous), 0, -1, previous)
+		? assemble(terrain, previous.profile, columnStorage(previous), 0, -1, previous)
 		: result;
 }
