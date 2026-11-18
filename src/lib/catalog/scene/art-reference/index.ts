@@ -1,13 +1,13 @@
 import * as T from 'three';
 import { flowToken } from '../../data/focus';
 import { bindSceneTheme, resolveTokens } from '../themeBinding';
+import { createPlateMaterials, recolorPlate } from './materials';
 import { plateModel } from './models';
 
 function disposeModel(group: T.Group) {
 	group.traverse((node) => {
 		if (node instanceof T.Mesh || node instanceof T.Line) {
 			node.geometry.dispose();
-			node.material.dispose();
 		}
 	});
 }
@@ -24,7 +24,9 @@ export function mountPlate(canvas: HTMLCanvasElement, kind: 'collage' | 'vessel'
 	const light = new T.DirectionalLight(0xffffff, 2);
 	light.position.set(-8, 14, 7);
 	scene.add(light);
-	let group = new T.Group();
+	const materials = createPlateMaterials();
+	let group = plateModel(kind, seed, materials);
+	scene.add(group);
 	function draw() {
 		const { width, height } = canvas.getBoundingClientRect();
 		if (!width || !height) return;
@@ -44,16 +46,13 @@ export function mountPlate(canvas: HTMLCanvasElement, kind: 'collage' | 'vessel'
 			'--ink-3',
 			flowToken.water
 		]);
-		scene.remove(group);
-		disposeModel(group);
-		group = plateModel(kind, seed, {
-			paper: tokens['--paper-2'],
-			glaze: new T.Color(tokens['--paper-2']).lerp(new T.Color(tokens['--ink-3']), 0.35).getStyle(),
-			ink: tokens['--ink'],
-			soft: tokens['--ink-3'],
-			water: tokens[flowToken.water]
-		});
-		scene.add(group);
+		recolorPlate(
+			materials,
+			tokens['--paper-2'],
+			tokens['--ink'],
+			tokens['--ink-3'],
+			tokens[flowToken.water]
+		);
 		draw();
 	}
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, refresh);
@@ -63,13 +62,18 @@ export function mountPlate(canvas: HTMLCanvasElement, kind: 'collage' | 'vessel'
 		update(next: number) {
 			if (next !== seed) {
 				seed = next;
-				refresh();
+				scene.remove(group);
+				disposeModel(group);
+				group = plateModel(kind, seed, materials);
+				scene.add(group);
+				draw();
 			}
 		},
 		dispose() {
 			observer.disconnect();
 			stopTheme();
 			disposeModel(group);
+			Object.values(materials).forEach((m) => m.dispose());
 			renderer.dispose();
 			renderer.forceContextLoss();
 		}

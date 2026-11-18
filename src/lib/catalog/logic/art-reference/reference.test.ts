@@ -49,3 +49,65 @@ test('empty cells emit nothing and invalid controls fail at the boundary', () =>
 	expect(buildVessel([], 2)).toBeNull();
 	expect(() => composeCollage(cell, 2, { count: 0 })).toThrow(RangeError);
 });
+
+test('both entry points reject malformed nonempty cell rings with RangeError', () => {
+	const invalid = [
+		[[0, 0]],
+		[
+			[0, 0],
+			[1, 0]
+		],
+		[
+			[0, 0],
+			[4, 4],
+			[0, 4],
+			[4, 0]
+		],
+		[
+			[0, 0],
+			[4, 0],
+			[4, 0],
+			[4, 4],
+			[0, 4]
+		],
+		[
+			[0, 0],
+			[1, 0],
+			[2, 0]
+		],
+		[
+			[0, 0],
+			[4, 0],
+			[4, 4],
+			[2, 0],
+			[0, 4]
+		],
+		[
+			[0, 0],
+			[4, 0],
+			[4, 4],
+			[NaN, 4]
+		],
+		[
+			[0, 0],
+			[4, 0],
+			[4, 4],
+			[Infinity, 4]
+		]
+	] as const;
+	for (const ring of invalid)
+		for (const generate of [composeCollage, buildVessel])
+			expect(() => generate(ring, 17)).toThrow(RangeError);
+});
+
+test('straight boundary subdivisions and a narrow valid ring remain usable', () => {
+	const narrow = [
+		[0, 0],
+		[2, 0],
+		[4, 0],
+		[4, 0.004],
+		[0, 0.004]
+	] as const;
+	expect(composeCollage(narrow, 17).length).toBeGreaterThan(0);
+	expect(buildVessel(narrow, 17)).not.toBeNull();
+});

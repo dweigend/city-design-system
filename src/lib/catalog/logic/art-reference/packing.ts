@@ -1,11 +1,38 @@
 import { hash } from '../hash-random';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { segmentIntersection, lengthTolerance, norm, sub, cross } from '../parzelle';
 export type Cell = readonly (readonly [number, number])[];
 type Disc = { x: number; y: number; radius: number };
 const collageParams = defineParams({
 	count: numberParam('Fragments', 'pieces', 12, [1, 32, 1], 'integer'),
 	fill: numberParam('Occupied radius', 'ratio', 0.82, [0.25, 0.96, 0.01])
 });
+function validateCell(cell: Cell) {
+	if (cell.length === 0) return;
+	if (cell.length < 3 || !cell.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y)))
+		throw new RangeError('Expected at least three finite XY vertices');
+	const box = bounds(cell);
+	const tolerance = lengthTolerance(Math.hypot(box.width, box.height));
+	const first = sub(cell[1], cell[0]);
+	if (!cell.some((p) => cross(first, sub(p, cell[0])) !== 0))
+		throw new RangeError('Expected a cell ring with nonzero area');
+	validateEdges(cell, tolerance);
+}
+
+function validateEdges(cell: Cell, tolerance: number) {
+	for (const [i, a] of cell.entries()) {
+		const next = (i + 1) % cell.length,
+			b = cell[next];
+		if (norm(sub(b, a)) <= tolerance)
+			throw new RangeError('Cell edge is shorter than the length tolerance');
+		for (let j = i + 2; j < cell.length; j++) {
+			const end = (j + 1) % cell.length;
+			if (end !== i && segmentIntersection(a, b, cell[j], cell[end]))
+				throw new RangeError('Expected a simple cell ring');
+		}
+	}
+}
+
 function clearance(cell: Cell, x: number, y: number) {
 	let inside = false,
 		distance = Infinity;
@@ -42,6 +69,8 @@ function bestCandidate(cell: Cell, box: ReturnType<typeof bounds>, placed: Disc[
 	return best;
 }
 /** Pack a simple hole-free ring (metres). V1 samples 256 candidates per fragment,
+ * Empty input yields no fragments. Malformed nonempty rings throw RangeError.
+ * Simplicity and edge length use the parcel geometry tolerances.
  * channels 0/1 for XY, 2 for radians, 3 for height. Stops below 1 mm and can miss thin cells.
  */
 export function composeCollage(
@@ -51,8 +80,10 @@ export function composeCollage(
 ) {
 	const { count, fill } = resolveParams(collageParams, undefined, overrides);
 	const pieces: (Disc & { angle: number; height: number })[] = [];
+	validateCell(cell);
+	if (!cell.length) return pieces;
 	const box = bounds(cell);
-	for (let id = 0; id < count && cell.length >= 3; id++) {
+	for (let id = 0; id < count; id++) {
 		const candidate = bestCandidate(cell, box, pieces, seed);
 		if (candidate.radius * fill < 0.001) break;
 		pieces.push({

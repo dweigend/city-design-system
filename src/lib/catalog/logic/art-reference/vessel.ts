@@ -8,6 +8,7 @@ const vesselParams = defineParams({
 });
 /** Loft a hollow ceramic body on the first fitted disc. V1 uses 64 height intervals.
  * Sections are circles normal to world Z. Offset follows local X rotated by the base angle.
+ * Empty or unfittable cells yield null. Malformed nonempty rings throw RangeError.
  * Channel 4 phases the shoulders and 5 controls eccentricity.
  */
 export function buildVessel(
