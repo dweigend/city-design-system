@@ -19,7 +19,7 @@ function shuttle(distance: number, speed: number, time: number) {
 export function vehiclePoses(line: TransitLine, timeS: number): TransitPose[] {
 	const train = line.kind === 'viaduct',
 		vehicle = VEHICLE[line.kind],
-		speed = DESIGN[line.kind].speed;
+		speed = (line.profile ?? DESIGN[line.kind]).speed;
 	const pitch = vehicle.length + CAR_GAP,
 		span = train ? (vehicle.cars - 1) * pitch + vehicle.length : 0;
 	const count = train ? vehicle.cars : Math.max(1, Math.ceil(line.length / POD_SPACING));
