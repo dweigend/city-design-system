@@ -111,3 +111,39 @@ test('straight boundary subdivisions and a narrow valid ring remain usable', () 
 	expect(composeCollage(narrow, 17).length).toBeGreaterThan(0);
 	expect(buildVessel(narrow, 17)).not.toBeNull();
 });
+
+test('every cyclic start rejects the shallow crossing in either winding', () => {
+	const crossing = [
+		[0, 0],
+		[1, 0],
+		[1, -0.1],
+		[4, -0.1],
+		[4, 1e-8],
+		[-4, -1.2e-8],
+		[-4, 4],
+		[0, 4],
+		[0, 0.1]
+	] as const;
+	for (const ring of [crossing, crossing.toReversed()]) {
+		for (let start = 0; start < ring.length; start++) {
+			const rotated = [...ring.slice(start), ...ring.slice(0, start)];
+			for (const generate of [composeCollage, buildVessel])
+				expect(() => generate(rotated, 17)).toThrow(RangeError);
+		}
+	}
+});
+
+test('a disjoint notch must clear the scale-relative edge tolerance', () => {
+	const notch = (gap: number) =>
+		[
+			[0, 0],
+			[4, 0],
+			[4, 4],
+			[2, gap],
+			[0, 4]
+		] as const;
+	for (const generate of [composeCollage, buildVessel]) {
+		expect(() => generate(notch(1e-9), 17)).toThrow(RangeError);
+		expect(() => generate(notch(1e-7), 17)).not.toThrow();
+	}
+});

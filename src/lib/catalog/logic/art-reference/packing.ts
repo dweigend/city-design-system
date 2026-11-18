@@ -1,6 +1,7 @@
 import { hash } from '../hash-random';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
-import { segmentIntersection, lengthTolerance, norm, sub, cross } from '../parzelle';
+import { lengthTolerance, norm, sub } from '../parzelle';
+import { intersects, orient } from '../parametrik/raster/universal/kern';
 export type Cell = readonly (readonly [number, number])[];
 type Disc = { x: number; y: number; radius: number };
 const collageParams = defineParams({
@@ -13,8 +14,8 @@ function validateCell(cell: Cell) {
 		throw new RangeError('Expected at least three finite XY vertices');
 	const box = bounds(cell);
 	const tolerance = lengthTolerance(Math.hypot(box.width, box.height));
-	const first = sub(cell[1], cell[0]);
-	if (!cell.some((p) => cross(first, sub(p, cell[0])) !== 0))
+
+	if (!cell.some((p) => orient(cell[0], cell[1], p) !== 0))
 		throw new RangeError('Expected a cell ring with nonzero area');
 	validateEdges(cell, tolerance);
 }
@@ -27,12 +28,37 @@ function validateEdges(cell: Cell, tolerance: number) {
 			throw new RangeError('Cell edge is shorter than the length tolerance');
 		for (let j = i + 2; j < cell.length; j++) {
 			const end = (j + 1) % cell.length;
-			if (end !== i && segmentIntersection(a, b, cell[j], cell[end]))
+			if (end !== i && edgesMeet(a, b, cell[j], cell[end], tolerance))
 				throw new RangeError('Expected a simple cell ring');
 		}
 	}
 }
 
+// Exact topology from the universal kernel; for disjoint segments the nearest pair
+// includes an endpoint. Test all four distances so the metric tolerance is symmetric.
+function edgesMeet(
+	a: Cell[number],
+	b: Cell[number],
+	c: Cell[number],
+	d: Cell[number],
+	tolerance: number
+) {
+	return (
+		intersects(a, b, c, d) ||
+		Math.min(
+			edgeDistance(...a, c, d),
+			edgeDistance(...b, c, d),
+			edgeDistance(...c, a, b),
+			edgeDistance(...d, a, b)
+		) <= tolerance
+	);
+}
+function edgeDistance(x: number, y: number, [ax, ay]: Cell[number], [bx, by]: Cell[number]) {
+	const dx = bx - ax,
+		dy = by - ay;
+	const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)));
+	return Math.hypot(x - ax - t * dx, y - ay - t * dy);
+}
 function clearance(cell: Cell, x: number, y: number) {
 	let inside = false,
 		distance = Infinity;
@@ -40,8 +66,7 @@ function clearance(cell: Cell, x: number, y: number) {
 		const [bx, by] = cell[(i + 1) % cell.length];
 		const dx = bx - ax,
 			dy = by - ay;
-		const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
-		distance = Math.min(distance, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+		distance = Math.min(distance, edgeDistance(x, y, cell[i], cell[(i + 1) % cell.length]));
 		if (ay > y !== by > y && x < ax + ((y - ay) * dx) / dy) inside = !inside;
 	}
 	return inside ? distance : 0;
@@ -70,7 +95,7 @@ function bestCandidate(cell: Cell, box: ReturnType<typeof bounds>, placed: Disc[
 }
 /** Pack a simple hole-free ring (metres). V1 samples 256 candidates per fragment,
  * Empty input yields no fragments. Malformed nonempty rings throw RangeError.
- * Simplicity and edge length use the parcel geometry tolerances.
+ * Crossings use exact orientation. Nonadjacent edges must clear the parcel length tolerance.
  * channels 0/1 for XY, 2 for radians, 3 for height. Stops below 1 mm and can miss thin cells.
  */
 export function composeCollage(
