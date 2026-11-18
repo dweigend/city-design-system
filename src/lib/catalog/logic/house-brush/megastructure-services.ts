@@ -2,31 +2,35 @@ import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { along, type Bay } from './megastructure-bay';
 
-/** Walkable strip between two local edge stations, in meters above the floor. */
-function deck(bay: Bay, side: number, start: number, end: number, h: number, id: string) {
+/** Mitres exposed corners and meets the next gallery at full width on straight runs. */
+export function gallery(
+	bay: Bay,
+	side: number,
+	exterior: number[],
+	width: number,
+	supply: boolean
+): Primitive[] {
+	const start = exterior.includes((side + 3) % 4) ? width : 0;
+	const end = exterior.includes((side + 1) % 4) ? 1 - width : 1;
 	const outline = [
-		[start, 0],
-		[end, 0],
-		[end - 0.19, 0.19],
-		[start + 0.19, 0.19]
-	].map(([t, s]) => along(bay, side, t, s, h));
-	return bay.piece(id, flowToken.people, {
+		[0, 0],
+		[1, 0],
+		[end, width],
+		[start, width]
+	].map(([t, s]) => along(bay, side, t, s, 0.88));
+	const deck = bay.piece(`gallery-${side}`, flowToken.people, {
 		kind: 'prism',
 		polygon: outline.map(([x, y]) => [x, y]),
 		z: outline[0][2],
 		height: 0.09 * bay.gauge
 	});
-}
-
-/** Perimeter galleries turn through the corners, with the energy main hung beneath. */
-export function gallery(bay: Bay, side: number): Primitive[] {
-	const main = [along(bay, side, 0, 0, 0.69), along(bay, side, 1, 0, 0.69)];
+	if (!supply) return [deck];
 	return [
-		deck(bay, side, 0, 1, 0.88, `gallery-${side}`),
+		deck,
 		bay.piece(`main-${side}`, flowToken.energy, {
 			kind: 'pipe',
-			points: main,
-			radius: 0.14 * bay.gauge
+			points: [along(bay, side, 0, 0, 0.69), along(bay, side, 1, 0, 0.69)],
+			radius: width * bay.gauge
 		})
 	];
 }

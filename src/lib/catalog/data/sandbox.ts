@@ -82,9 +82,11 @@ export const sandboxZones = {
 
 /** Ascending inclusive boundaries of the sandbox's architectural epochs. */
 export const sandboxEpochs = [
-	{ from: 1900, style: 'collage' },
-	{ from: 1980, style: 'megastructure' },
-	{ from: 2026, style: 'totem' }
+	{ from: 1900, style: 'terrace', label: 'Historic pencil stock' },
+	{ from: 1980, style: 'collage', label: 'Collage additions' },
+	{ from: 2027, style: 'megastructure', label: 'Infrastructure carriers' },
+	{ from: 2028, style: 'totem', label: 'Docked modules' },
+	{ from: 2029, style: 'collage', label: 'Collage additions' }
 ] as const;
 
 /** Starter town parameters. Distances in the carrier chart are in cells. */

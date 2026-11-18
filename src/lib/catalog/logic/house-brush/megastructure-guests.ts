@@ -1,39 +1,7 @@
 import { STORY } from '../../data/grid';
-import type { Primitive, Vec3 } from '../parametrik/types';
-import { planen } from '../traeger';
+import type { Primitive } from '../parametrik/types';
 import type { Bay } from './megastructure-bay';
 import type { HouseUse } from './stacks';
-
-const mast = planen('raumfachwerk', { phase: 0 });
-const span =
-	Math.max(...mast.knoten.map((n) => n.p[0])) - Math.min(...mast.knoten.map((n) => n.p[0]));
-
-/** Three feet spread the mooring load beneath one tethered gas cell. */
-export function aerostat(b: Bay): Primitive[] {
-	const base = b.point(0.5, 0.5, 1),
-		scale = (b.radius * 2.3) / span;
-	const nodes = new Map(
-		mast.knoten.map((n) => [n.id, n.p.map((x, i) => base[i] + scale * x) as Vec3])
-	);
-	const feet = mast.kanten.flatMap((edge) => {
-		const a = nodes.get(edge.a),
-			z = nodes.get(edge.b);
-		return a && z
-			? [b.piece(edge.id, '--signal', { kind: 'pipe', points: [a, z], radius: 0.065 * b.gauge })]
-			: [];
-	});
-	const peak = [...nodes.values()].sort((a, z) => z[2] - a[2])[0];
-	const balloon: Vec3 = [peak[0], peak[1], peak[2] + b.radius * 1.12];
-	return [
-		...feet,
-		b.piece('envelope', '--paper', {
-			kind: 'sphere',
-			position: balloon,
-			radius: b.radius * 1.45,
-			squash: 0.78
-		})
-	];
-}
 
 function salvage(b: Bay, z: number) {
 	const r = b.gauge;
@@ -59,10 +27,10 @@ function salvage(b: Bay, z: number) {
 /** Program-specific removable bodies hang from a short central hanger. */
 export function guest(b: Bay, use: HouseUse, side: number, exposed: boolean): Primitive[] {
 	const r = b.gauge;
-	const mid = b.point(0.5, 0.5, 0.49);
+	const mid = b.point(0.5, 0.18, 0.49);
 	const raisedTank = exposed && use === 'water';
 	if (raisedTank) mid[2] += STORY * 0.51 + 1.25 * b.radius;
-	const hanger = b.piece('hanger', '--signal', {
+	const hanger = b.piece('hanger', '--paper', {
 		kind: 'pipe',
 		points: [mid, b.point(0.5, 0.5, 1)],
 		radius: r * 0.11
@@ -75,24 +43,19 @@ export function guest(b: Bay, use: HouseUse, side: number, exposed: boolean): Pr
 				...b.piece('vessel', b.token, {
 					kind: 'sphere',
 					position: mid,
-					radius: raisedTank ? b.radius * 1.12 : r * 0.96,
+					radius: raisedTank ? b.radius * 0.68 : r * 0.48,
 					squash: use === 'food' ? 0.73 : 1
 				}),
 				material: use === 'food' ? 'greenhouse' : 'glaze',
 				glass: use === 'food'
 			}
 		];
-	const [a, c] =
-		side % 2
-			? [b.point(0.5, 0.2, 0.49), b.point(0.5, 0.8, 0.49)]
-			: [b.point(0.2, 0.5, 0.49), b.point(0.8, 0.5, 0.49)];
+	if (use !== 'energy') return [];
 	return [
-		hanger,
-		b.piece('cartridge', b.token, {
-			kind: 'capsule',
-			from: a,
-			to: c,
-			radius: Math.min(0.9 * r, STORY * 0.31)
+		b.piece('feed', b.token, {
+			kind: 'pipe',
+			points: [b.point(0, 0, 0), b.point(0, 0, 1), b.point(side % 2, 1, 1)],
+			radius: r * 0.09
 		})
 	];
 }

@@ -1,13 +1,8 @@
-/**
- * Bodies: every mass is a white wall under a thin floor plate that stands proud of it. Stacked
- * masses keep their plates visible — a house reads as modules that can be taken apart again.
- * Color rule: the shell stays white. A use shows its color in the openings, in its crown and
- * as a glazed coping along the roof edge of a mass that lies open to the sky.
- */
+/** Historic terrace shells, supports and wall openings. */
 import { STORY } from '../../data/grid';
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell } from '../quad-grid';
-import { accentOf, part, type Form, type Site } from './form';
+import { part, type Form, type Site } from './form';
 import type { Mass } from './massing';
 import { openings } from './openings';
 import { boundaryRings, insetRing, ringArea, roundRing, type Fillet } from './outline';
@@ -21,9 +16,6 @@ const FOOT = { inset: 0.3, depth: 2.4, shade: 0.06 };
 /** Deck of a raised mass: thickness and overhang beyond the cells, meters. */
 const DECK = { thickness: 0.4, overhang: 0.2 };
 const STILT = { radius: 0.17, embed: 0.8 };
-/** Glaze of an open roof: a colored coping along its edge, meters. */
-const COPING_SHARE = 0.6;
-
 /** Traces once per footprint; each slab retains the outer ring and every courtyard. */
 function slabOf(cells: readonly QuadCell[], fillet: Fillet) {
 	const ids = new Set(cells.map((cell) => cell.id));
@@ -69,20 +61,11 @@ function support(mass: Mass, fillet: Fillet): Primitive[] {
 
 /** Each tread follows all boundary rings, including the edges facing a courtyard. */
 function roof(mass: Mass, slab: Slab, profile: Profile): Primitive[] {
-	if (!profile.tiers) return [];
-	const parts: Primitive[] = [];
-	const accent = accentOf(mass.use);
-	const top = mass.floor + STORY;
-	const lipHeight = profile.rise * COPING_SHARE;
-	const lip = slab(profile.setback, top, lipHeight);
-	parts.push(part(mass.id + (accent ? ':coping' : ':lip'), accent ?? '--paper', lip));
-	for (let tier = 0; tier < profile.tiers; tier++) {
-		const lipBelow = tier === 0 ? lipHeight : 0;
-		const inset = profile.setback * (tier === 0 ? 1.5 : tier + 1);
-		const z = top + tier * profile.rise + lipBelow;
-		parts.push(part(mass.id + ':tier' + tier, '--paper', slab(inset, z, profile.rise - lipBelow)));
-	}
-	return parts;
+	return Array.from({ length: profile.tiers }, (_, tier) => {
+		const inset = profile.setback * (tier + 1);
+		const floor = mass.floor + STORY + tier * profile.rise;
+		return part(mass.id + ':tier' + tier, '--paper', slab(inset, floor, profile.rise));
+	});
 }
 
 /** Wall, floor plate, support and openings of one mass in the shared render contract. */

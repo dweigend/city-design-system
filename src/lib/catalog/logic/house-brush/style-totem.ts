@@ -1,155 +1,75 @@
 import { STORY } from '../../data/grid';
-import { hash } from '../hash-random';
-import type { Primitive } from '../parametrik/types';
-import { inradius, sideLength } from '../quad-grid';
-import { accentOf, part, type Form, type Site } from './form';
-import type { Mass, Story } from './massing';
-import { boundaryRings, ringArea } from './outline';
-import { storiesOf } from './stacks';
-import { checkeredBlock } from './totem-checker';
-import { joinedBarrel } from './totem-barrels';
-import { totemSolid } from './totem-solids';
+import type { Primitive, Vec3 } from '../parametrik/types';
+import { kanal } from '../traeger';
+import type { Site } from './form';
+import type { Mass } from './massing';
+import { guest } from './megastructure-guests';
+import { along, bayOf, mountingGrid, type Bay } from './megastructure-bay';
 
-const PATTERNS = ['schachbrett', 'punkte', 'diagonal'];
-const CHANNEL = { shape: 31, finish: 32, direction: 33, beam: 34, pattern: 35, portal: 36 };
+const TOTEM_DEFAULTS = {
+	shoulder: 0.22,
+	seat: 0.6,
+	radius: 0.74,
+	clearance: 0.31,
+	glaze: 0.09,
+	seamSegments: 8
+};
 
-/** One continuous ceramic bar bends around all reentrant corners and courtyards. */
-function bar(mass: Mass, z: number, height: number): Primitive {
-	const cells = mass.stories.map((s) => s.cell);
-	const ids = new Set(cells.map((c) => c.id));
-	const [polygon, ...holes] = boundaryRings(cells, (id) => ids.has(id)).sort(
-		(a, b) => ringArea(b) - ringArea(a)
+// The horizontal joint follows both hemispherical ends of the slip-cast shell.
+function castingSeam(from: Vec3, to: Vec3, radius: number, segments: number): Vec3[] {
+	const angle = Math.atan2(to[1] - from[1], to[0] - from[0]);
+	return [to, from].flatMap((center, end) =>
+		Array.from({ length: segments + 1 }, (_, i): Vec3 => {
+			const turn = angle + Math.PI * (end + i / segments - 0.5);
+			return [center[0] + radius * Math.cos(turn), center[1] + radius * Math.sin(turn), center[2]];
+		})
 	);
-	return {
-		...part(mass.id + ':bar', accentOf(mass.use) ?? '--paper', {
-			kind: 'prism',
-			polygon,
-			holes,
-			z,
-			height
+}
+
+/** A single glazed cartridge hangs from the carrier's crossbeam. */
+export function dockedModule(b: Bay, side: number, p = TOTEM_DEFAULTS): Primitive[] {
+	const end = (t: number) => along(b, side, t, 0.5, p.seat);
+	const radius = Math.min(b.radius * p.radius, STORY * p.clearance);
+	const crown = b.point(0.5, 0.5, p.seat);
+	crown[2] += radius;
+	return [
+		b.piece('casting-seam', '--paper', {
+			kind: 'polyline',
+			points: castingSeam(end(p.shoulder), end(1 - p.shoulder), radius, p.seamSegments),
+			closed: true
 		}),
-		edges: false
-	};
-}
-
-function body(site: Site, story: Story, seed: number, z: number, h: number): Form {
-	const { cell, level } = story;
-	const draw = (channel: number) => hash(seed, cell.index, channel);
-	const side = Math.floor(draw(CHANNEL.direction) * 4);
-	const a = cell.corners[side],
-		b = cell.corners[(side + 1) % 4];
-	const r = Math.min(inradius(cell) * 0.96, sideLength(cell, side) * 0.5);
-	const top = storiesOf(site.stacks, cell.id).length === level + 1;
-	const choice = Math.floor(draw(CHANNEL.shape) * 10);
-	const shape = (!top && [5, 6].includes(choice)) || (level > 0 && choice === 0) ? 8 : choice;
-	return totemSolid(
+		b.piece('suspension', '--paper', { kind: 'polyline', points: [crown, b.point(0.5, 0.5, 1)] }),
 		{
-			x: cell.center[0],
-			y: cell.center[1],
-			z,
-			r,
-			h: top ? h + r * 1.15 : h,
-			turn: Math.atan2(b[1] - a[1], b[0] - a[0])
-		},
-		shape
-	);
-}
-
-function finishOf(mass: Mass, story: Story, seed: number, form: Form): Primitive {
-	const { cell, level } = story;
-	const draw = (channel: number) => hash(seed, cell.index, channel);
-	const finish = draw(CHANNEL.finish);
-	const pattern =
-		finish < 0.32 ? PATTERNS[Math.floor(draw(CHANNEL.pattern) * PATTERNS.length)] : undefined;
-	return {
-		...part(
-			cell.id + '@' + level + ':solid',
-			finish > 0.44 ? (accentOf(mass.use) ?? '--paper') : '--paper',
-			form
-		),
-		pattern,
-		shade: pattern ? 0.48 : 0.04,
-		edges: false
-	};
-}
-
-/** Stacks ceramic bodies on a common bar, fusing neighboring seats into portals and barrels. */
-export function totemMass(site: Site, mass: Mass): Primitive[] {
-	const anchor = mass.stories[0];
-	const seed = Math.floor(hash(site.seed, anchor.cell.index, anchor.level) * 0x100000000);
-	const thickness = Math.min(STORY * 0.22, inradius(anchor.cell) * 0.44);
-	const z = mass.floor + thickness;
-	const members = new Map(mass.stories.map((story) => [story.cell.id, story]));
-	const consumed = new Set<string>();
-	const solids: Primitive[] = [];
-	for (const story of mass.stories) {
-		if (consumed.has(story.cell.id)) continue;
-		consumed.add(story.cell.id);
-
-		const joined = pair(site, story, members, consumed, seed, z);
-		const solid = finishOf(
-			mass,
-			story,
-			seed,
-			joined ?? body(site, story, seed, z, STORY - thickness)
-		);
-		if (
-			solid.kind === 'box' ||
-			(mass.use === 'living' && solid.kind === 'cylinder' && story.level > 0)
-		)
-			solids.push(...checkeredBlock(solid));
-		else solids.push(solid);
-	}
-	return [
-		...mass.stories.flatMap((story) => foot(mass, story)),
-		bar(mass, mass.floor, thickness),
-		...solids
-	];
-}
-
-/** Sky-exposed neighbors can share a single horizontal body over their seats. */
-function pair(
-	site: Site,
-	story: Story,
-	members: Map<string, Story>,
-	consumed: Set<string>,
-	seed: number,
-	z: number
-) {
-	const exposed = (s: Story) => storiesOf(site.stacks, s.cell.id).length === s.level + 1;
-	if (!exposed(story) || hash(seed, story.cell.index, CHANNEL.beam) > 0.58) return;
-	for (const [side, id] of story.cell.neighbors.entries()) {
-		const neighbor = id && members.get(id);
-		if (!neighbor || consumed.has(neighbor.cell.id) || !exposed(neighbor)) continue;
-		const form = joinedBarrel(
-			story.cell,
-			side,
-			neighbor.cell,
-			z,
-			hash(seed, story.cell.index, CHANNEL.portal) < 0.68
-		);
-		if (form) {
-			consumed.add(neighbor.cell.id);
-			return form;
-		}
-	}
-}
-
-/** A short bearing embeds each ground seat into its local terrain, including raised pads. */
-function foot(mass: Mass, { cell, level }: Story): Primitive[] {
-	if (level !== 0) return [];
-	const radius = inradius(cell) * (mass.raised ? 0.35 : 0.63);
-	const z = Math.min(mass.floor, ...cell.corners.map((p) => p[2])) - radius * 0.17;
-	return [
-		{
-			...part(cell.id + '@0:bearing', '--paper', {
-				kind: 'cylinder',
-				position: [cell.center[0], cell.center[1], z],
-				radius,
-				height: mass.floor - z
+			...b.piece('module', '--paper', {
+				kind: 'capsule',
+				from: end(p.shoulder),
+				to: end(1 - p.shoulder),
+				radius
 			}),
-			edges: false,
-			shade: 0.12
+			edges: true,
+			emphasis: 'netz',
+			shade: p.glaze
 		}
 	];
+}
+
+/** A portal frame follows each cell side and carries one white ceramic module. */
+export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive[] {
+	const joints = mountingGrid(mass);
+	return mass.stories.flatMap((story) => {
+		const b = bayOf(mass, story, joints(story.cell));
+		const side = kanal(site.seed, 'raumfachwerk', story.cell.id, 'module') % 4;
+		const pier = (end: number) => [along(b, side, 0.5, end, 0), along(b, side, 0.5, end, 1)];
+		return [
+			{
+				...b.piece('portal', '--paper', {
+					kind: 'polyline',
+					points: [...pier(0), ...pier(1).reverse()]
+				}),
+				role: 'bestand'
+			},
+			...dockedModule(b, side, p),
+			...guest(b, mass.use, side, false)
+		];
+	});
 }
