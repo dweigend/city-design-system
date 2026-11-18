@@ -182,3 +182,38 @@ test('tall world datums preserve centimetre storeys in their local frame', () =>
 		positiveAreas(mesh);
 	}
 });
+
+test('hips on both sides of local extraction precision export closed positive-area faces', () => {
+	const square: Vec2[] = [
+		[0, 0],
+		[4, 0],
+		[4, 4],
+		[0, 4]
+	];
+	const concave: Vec2[] = [
+		[0, 0],
+		[8, 0],
+		[8, 4],
+		[3, 4],
+		[3, 6],
+		[0, 6]
+	];
+	for (const polygon of [square, concave]) {
+		for (const direction of [0, 0.25, Math.PI / 2]) {
+			for (const pitch of [
+				0,
+				Number.EPSILON,
+				1e-7,
+				...Array.from({ length: 65 }, (_, i) => 10 ** (-12 + i / 8))
+			]) {
+				const mesh = buildEnvelope(kernel, [
+					{ polygon, roof: 'hip', params: { direction, pitch } }
+				]);
+				assert.ok(closed(mesh));
+				positiveAreas(mesh);
+				const peak = Math.max(...mesh.positions.filter((_, i) => i % 3 === 2));
+				if (pitch === 1e-4) assert.ok(peak > 3);
+			}
+		}
+	}
+});

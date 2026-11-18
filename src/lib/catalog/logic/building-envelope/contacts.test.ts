@@ -87,5 +87,5 @@ test('all public ring operations reject crossings, nonadjacent touches and retra
 	assert.deepEqual(offsetFootprint(kernel, collapsed, 0), []);
 	assert.deepEqual(roundFootprint([...square, square[0]], 0), square);
 	const clockwise = [...square].reverse();
-	assert.deepEqual(roundFootprint(clockwise, 0), clockwise);
+	assert.deepEqual(roundFootprint(clockwise, 0), square);
 });

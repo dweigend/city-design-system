@@ -1,6 +1,7 @@
 import type { CrossSection, Manifold, ManifoldToplevel, Vec3, Vec2 } from 'manifold-3d';
 import { settings, type BuildingCell, type EnvelopeMesh } from './contract';
-import { cleanRing, epsilon } from './footprint';
+import { normalizeRing } from './normalize-ring';
+import { epsilon } from './precision';
 import { extractEnvelope } from './mesh';
 import { roofSolid } from './roof';
 import { clip, withSolids, type Solids } from './solids';
@@ -45,7 +46,7 @@ function storeys(s: Solids, cell: BuildingCell, base: CrossSection) {
 				bodies.push(s.keep(foot.translate([0, 0, z])));
 		const body =
 			i === floors.length - 1
-				? roofSolid(s, section, cell.roof, p)
+				? roofSolid(s, section, cell.roof, p, z)
 				: s.keep(section.extrude(p.height));
 		bodies.push(s.keep(body.translate([0, 0, z])));
 		z += p.height;
@@ -67,7 +68,7 @@ export function buildEnvelope(
 	cells: readonly BuildingCell[]
 ): EnvelopeMesh {
 	return withSolids(kernel, (s) => {
-		const cleaned = cells.map((cell) => ({ ...cell, polygon: cleanRing(cell.polygon) }));
+		const cleaned = cells.map((cell) => ({ ...cell, polygon: normalizeRing(cell.polygon) }));
 		const first = cleaned.find((c) => c.polygon.length);
 		const [x, y] = first?.polygon[0] ?? [0, 0];
 		const origin: Vec3 = [x, y, first?.base ?? 0];

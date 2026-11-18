@@ -1,8 +1,7 @@
-import { orient, intersects, onSegment } from '../parametrik/raster/universal/kern';
+import { normalizeRing } from './normalize-ring';
+import { epsilon } from './precision';
 import type { Point2 } from '../parametrik/vocab';
 
-/** Plan tolerance in local metres. Input rings may repeat their first point. */
-export const epsilon = 1e-7;
 function distance(a: Point2, b: Point2) {
 	return Math.hypot(a[0] - b[0], a[1] - b[1]);
 }
@@ -13,32 +12,6 @@ function segmentDistance(p: Point2, a: Point2, b: Point2) {
 	if (along <= 0) return distance(p, a);
 	if (along >= dx * dx + dy * dy) return distance(p, b);
 	return Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / Math.hypot(dx, dy);
-}
-function assertSimple(ring: Point2[]) {
-	for (let i = 0; i < ring.length; i++) {
-		const a = ring[i],
-			b = ring[(i + 1) % ring.length],
-			c = ring[(i + 2) % ring.length];
-		if (onSegment(c, a, b) || onSegment(a, b, c))
-			throw new RangeError('Self-intersecting footprint');
-		for (let j = i + 2; j < ring.length; j++) {
-			if (i === 0 && j === ring.length - 1) continue;
-			if (intersects(a, b, ring[j], ring[(j + 1) % ring.length]))
-				throw new RangeError('Self-intersecting footprint');
-		}
-	}
-}
-/** Drops coincident neighbours and rejects non-finite plan coordinates. */
-export function cleanRing(points: readonly Point2[]) {
-	const ring: Point2[] = [];
-	for (const p of points) {
-		if (!p.every(Number.isFinite)) throw new RangeError('Expected finite plan coordinates');
-		if (!ring.length || distance(p, ring[ring.length - 1]) > epsilon) ring.push([...p]);
-	}
-	if (ring.length > 1 && distance(ring[0], ring[ring.length - 1]) <= epsilon) ring.pop();
-	if (ring.length < 3 || ring.every((p) => orient(ring[0], ring[1], p) === 0)) return [];
-	assertSimple(ring);
-	return ring;
 }
 function clearance(ring: Point2[], i: number) {
 	const p = ring[i];
@@ -77,6 +50,6 @@ function arc(ring: Point2[], i: number, radius: number): Point2[] {
 export function roundFootprint(points: readonly Point2[], radius: number): Point2[] {
 	if (!Number.isFinite(radius) || radius < 0)
 		throw new RangeError('Expected a nonnegative finite radius');
-	const ring = cleanRing(points);
+	const ring = normalizeRing(points);
 	return radius && ring.length >= 3 ? ring.flatMap((_, i) => arc(ring, i, radius)) : ring;
 }

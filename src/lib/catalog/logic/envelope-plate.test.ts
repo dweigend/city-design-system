@@ -1,3 +1,5 @@
+import ts from 'typescript';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
@@ -21,4 +23,10 @@ test('the prerender entry generates twelve shells with renderer imports forbidde
 		{ encoding: 'utf8' }
 	);
 	assert.equal(result.status, 0, result.stderr);
+});
+
+test('the prerender route loads data exclusively from the catalog page entry', () => {
+	const file = readFileSync('src/routes/labor/building-envelope/+page.server.ts', 'utf8');
+	const imports = ts.preProcessFile(file).importedFiles.map((ref) => ref.fileName);
+	assert.deepEqual(imports, ['#lib/catalog/labor/envelope-plate.server.ts']);
 });

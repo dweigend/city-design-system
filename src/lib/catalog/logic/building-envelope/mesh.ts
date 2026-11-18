@@ -1,15 +1,13 @@
 import type { Manifold, Vec3 } from 'manifold-3d';
 import type { EnvelopeMesh } from './contract';
 import type { Solids } from './solids';
-import { epsilon } from './footprint';
+import { epsilon, localResolution } from './precision';
 
 // Local metres. One Float32 spacing at the largest coordinate is a lower bound on resolution.
 function extractionTolerance(body: Manifold) {
 	const bounds = body.boundingBox();
 	const extent = Math.max(...[...bounds.min, ...bounds.max].map(Math.abs));
-	if (!Number.isFinite(Math.fround(extent)))
-		throw new RangeError('Envelope exceeds local coordinate range');
-	return Math.max(epsilon, extent * 2 ** -23);
+	return localResolution(extent);
 }
 function triangleArea(p: Float32Array, a: number, b: number, c: number) {
 	const ux = p[3 * b] - p[3 * a],

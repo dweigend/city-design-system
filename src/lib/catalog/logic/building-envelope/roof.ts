@@ -1,6 +1,6 @@
 import type { CrossSection, Manifold, Vec2, Vec3 } from 'manifold-3d';
 import type { Roof, Settings } from './contract';
-import { epsilon } from './footprint';
+import { localResolution } from './precision';
 import { clip, type Solids } from './solids';
 
 type RoofFrame = { across: Vec2; low: number; width: number; slope: number; eave: number };
@@ -69,11 +69,29 @@ function hipped(s: Solids, section: CrossSection, f: RoofFrame) {
 	return s.keep(s.kernel.Manifold.difference([body, ...cutters]));
 }
 /** Constructs the last storey and roof in one volume, with a horizontal eave datum. */
-export function roofSolid(s: Solids, section: CrossSection, roof: Roof, p: Settings) {
+export function roofSolid(s: Solids, section: CrossSection, roof: Roof, p: Settings, z: number) {
 	const f = frame(section, p);
-	if (f.width * f.slope <= Math.max(epsilon, p.height * 2 ** -23))
-		return s.keep(section.extrude(p.height));
-	if (roof === 'hip') return hipped(s, section, f);
+	const bounds = section.bounds();
+	const resolution = localResolution(
+		Math.max(
+			...bounds.min.map(Math.abs),
+			...bounds.max.map(Math.abs),
+			Math.abs(z),
+			Math.abs(z + p.height + f.width * f.slope)
+		)
+	);
+	if (f.width * f.slope <= resolution) return s.keep(section.extrude(p.height));
+	if (roof === 'hip') {
+		// Construct the wavefront at unit pitch so near-horizontal cutters never become sliver solids.
+		const unit = hipped(s, section, { ...f, slope: 1 });
+		const rise = (unit.boundingBox().max[2] - p.height) * f.slope;
+		if (rise <= resolution) return s.keep(section.extrude(p.height));
+		return s.keep(
+			unit.warp((v) => {
+				if (v[2] > p.height) v[2] = p.height + (v[2] - p.height) * f.slope;
+			})
+		);
+	}
 	const body = s.keep(section.extrude(p.height + f.width * f.slope));
 	if (roof === 'sawtooth') return teeth(s, section, body, f, p.teeth);
 	const rising = below(s, body, f, f.slope, f.low);
