@@ -3,7 +3,9 @@ import { expect, test } from 'bun:test';
 import { structureMaterials } from './structure-materials';
 import { MASSSTAB, STRICHE } from '../../data/leitstil';
 import { pruefeStil, stilFuer } from '../../logic/leitstil';
-import { acceptanceScene } from '../../logic/sandbox';
+import { tag } from '../../logic/ansicht/tags';
+import { focuses } from '../../logic/presentation';
+import { acceptanceScene, currentStacks, houseView } from '../../logic/sandbox';
 import { nearestZoom, sandboxStyle } from './drafting-style';
 
 const context = { zoom: 'quartier', modus: 'ansehen', situation: 'normal' } as const;
@@ -67,4 +69,18 @@ test('the renderer applies role widths and switches both structural strokes', ()
 	} finally {
 		finishes.dispose();
 	}
+});
+
+test('the seed-7 roof carrier is in the bible frame layer', () => {
+	const { world, earliestFullYear } = acceptanceScene();
+	const chunk = world.grid.cellsById.get('81/41')?.chunk;
+	if (!chunk) throw new Error('Expected the roof carrier anchor');
+	const parts = houseView(world, currentStacks(world.state), chunk, focuses.all, earliestFullYear);
+	const frame = parts.filter(
+		(part) => part.id.startsWith('81/41@1:span/') && part.role === 'traeger'
+	);
+	expect(frame.filter(({ id }) => id.includes('/bent/'))).toHaveLength(3);
+	expect(frame.map(({ id }) => id)).toContain('81/41@1:span/upper');
+	expect(frame.map(({ id }) => id)).toContain('81/41@1:span/lower');
+	for (const part of frame) expect(tag(part)).toMatchObject({ schicht: 'geruest', phase: 1 });
 });

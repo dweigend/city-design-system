@@ -118,6 +118,11 @@ export function structureMaterials() {
 		envelopeShadows: () => envelopeShadows,
 		/** Palette lookup for detached colored parts. */
 		colorOf,
+		/** Applies the primitive's ink share to a flow color without changing the cached token. */
+		accentColor(token: string, shade = 0) {
+			const color = colorOf(token);
+			return palette && shade ? color.clone().lerp(palette.ink, shade) : color;
+		},
 		setParams,
 		/** The stage supplies the validated style and a new palette when the theme changes. */
 		setStyle(

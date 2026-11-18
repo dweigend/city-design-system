@@ -66,7 +66,7 @@ export function populateStructures(
 	finishes: StructureMaterials,
 	bearingGeometry: THREE.BufferGeometry
 ) {
-	const { materials, colorOf } = finishes;
+	const { materials, colorOf, accentColor } = finishes;
 	const toColor = (part: Primitive) => colorOf(part.token);
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
@@ -81,6 +81,11 @@ export function populateStructures(
 		if (segments.length)
 			objects.add(new LineSegments2(new LineSegmentsGeometry().setPositions(segments), material));
 	};
+	const outlines = (parts: Batch) => {
+		for (const faces of [parts.neu, parts.glas])
+			if (faces.p.length) objects.add(silhouette(faces, materials.hull));
+	};
+	const cast = finishes.envelopeShadows();
 	const parts = partition(primitives);
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 	const body = batch(
@@ -88,22 +93,28 @@ export function populateStructures(
 		toColor
 	);
 	const sheets = batch(parts.regular.filter(isSheet), toColor);
-	mesh(body.neu, materials.solid, true, finishes.envelopeShadows());
+	mesh(body.neu, materials.solid, true, cast);
 	mesh(body.alt, materials.stock, true);
 	mesh(body.hull.alt, materials.pencilHull);
-	mesh(body.blatt, materials.sheet, false, finishes.envelopeShadows());
-	mesh(sheets.blatt, materials.sheet, false, finishes.envelopeShadows());
+	mesh(body.blatt, materials.sheet, false, cast);
+	mesh(sheets.blatt, materials.sheet, false, cast);
 	mesh(body.glas, materials.glass);
-	[body.neu, body.glas]
-		.filter((faces) => faces.p.length)
-		.forEach((faces) => objects.add(silhouette(faces, materials.hull)));
+	outlines(body);
 	lines(body.kanten.alt, materials.pencil);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
 
-	const accent = batch(parts.accents, toColor);
-	for (const faces of [accent.neu, accent.blatt, accent.glas]) mesh(faces, materials.signal, true);
+	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
+	const accent = batch(
+		parts.accents.filter((part) => !isSheet(part)),
+		toAccent
+	);
+	const accentSheets = batch(parts.accents.filter(isSheet), toAccent);
+	for (const faces of [accent.neu, accent.blatt, accent.glas, accentSheets.blatt])
+		mesh(faces, materials.signal, true, cast);
+	outlines(accent);
 	lines(accent.kanten.neu, materials.detail);
+	lines(accentSheets.kanten.neu, materials.perimeter);
 
 	const main = parts.carriers.filter((part) => !part.member || part.member === 'primary');
 	const ties = parts.carriers.filter((part) => part.member === 'secondary');
