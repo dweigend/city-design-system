@@ -95,10 +95,9 @@ Only executed checks are reported. A tool only counts as a gate for a rule once 
 
 ### Decision Open
 
-| #   | Question                            | Default until decision                                                                                  | Owner                                                      |
-| --- | ----------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| 2   | Upper limit for `src/app.css`       | At most 100 physical lines. Current: 121 lines.                                                         | [DS-41](DESIGN_STANDARDS.md#css-boundaries)                |
-| 3   | Module map of autonomous generators | Four autonomous generator families, one composition point `welt/`. No gate before the map is confirmed. | [A-41](ARCHITECTURE.md#autonomous-modules-and-composition) |
+| #   | Question                      | Default until decision                          | Owner                                       |
+| --- | ----------------------------- | ----------------------------------------------- | ------------------------------------------- |
+| 2   | Upper limit for `src/app.css` | At most 100 physical lines. Current: 121 lines. | [DS-41](DESIGN_STANDARDS.md#css-boundaries) |
 
 ### Noticed During Implementation, Also to Clarify
 

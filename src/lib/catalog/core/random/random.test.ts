@@ -1,6 +1,6 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
-import { nextSeed, random } from './random';
+import { nextSeed, random } from './index';
 
 // Frozen u32 numerators from the legacy entry point on 895d9a2, with an exact binary denominator.
 const fraction = (word: number) => word / 0x1_0000_0000;

@@ -265,6 +265,30 @@ function runtimeGate(root: string) {
 	);
 }
 
+describe('Core layer boundary', () => {
+	test.each([
+		"import '../../logic/legacy';",
+		"export type { Model } from '$lib/catalog/logic/legacy';"
+	])('rejects dependencies on legacy logic through %s', (statement) => {
+		const { root } = fixture({
+			'src/lib/catalog/core/params/index.ts': statement,
+			'src/lib/catalog/logic/legacy.ts': 'export type Model = number;'
+		});
+		const run = runtimeGate(root);
+		expect(run.exitCode).toBe(1);
+		expect(run.stdout.toString()).toContain('core-no-higher-layers');
+	});
+
+	test('allows a private neighbor and an incoming legacy re-export', () => {
+		const { root } = fixture({
+			'src/lib/catalog/core/params/index.ts': "export { value } from './value';",
+			'src/lib/catalog/core/params/value.ts': 'export const value = 1;',
+			'src/lib/catalog/logic/legacy.ts': "export { value } from '../core/params';"
+		});
+		expect(runtimeGate(root).exitCode).toBe(0);
+	});
+});
+
 describe('Test layer precedence', () => {
 	test.each([
 		'src/lib/catalog/data/model.ts',

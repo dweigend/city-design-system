@@ -11,6 +11,14 @@ module.exports = {
 			}
 		},
 		{
+			name: 'core-no-higher-layers',
+			severity: 'error',
+			from: { path: '^src/lib/catalog/core/(?!.*(?:\\.test\\.ts|/benchmark\\.ts)$)' },
+			to: {
+				path: '(^src/(?!lib/catalog/core/)|\\.svelte(?:\\.[jt]s)?$|(^|node_modules/)(svelte|three|bits-ui|lucide-svelte)(/|$)|^\\$app(/|$))'
+			}
+		},
+		{
 			name: 'data-no-logic',
 			severity: 'error',
 			from: { path: '^src/lib/catalog/data/(?!.*\\.test\\.ts$)' },
