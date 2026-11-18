@@ -85,7 +85,7 @@ test('terrain parameters update numeric uniforms on the existing surface shader'
 	const terrain = createTerrainMesh(grid);
 	try {
 		const shader = terrain.surface.material.colorNode;
-		const uniforms = new Set<UniformNode>();
+		const uniforms = new Set<UniformNode<unknown>>();
 		shader?.traverse((node) => {
 			if (node instanceof UniformNode) uniforms.add(node);
 		});
