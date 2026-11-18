@@ -58,6 +58,11 @@ export function renderEnvelopePlate(
 		paper.color.set(palette.paper);
 		glaze.color.set(palette.blueprintSoft);
 		line.color.set(palette.ink);
+		// Keep the shaded faces legible when paper is the dark background.
+		if (paper.color.getHex() < line.color.getHex()) {
+			paper.color.lerp(line.color, 0.29);
+			glaze.color.lerp(line.color, 0.27);
+		}
 		draw(plan);
 	});
 	return {
