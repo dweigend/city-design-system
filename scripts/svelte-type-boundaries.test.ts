@@ -56,7 +56,10 @@ function fixture(files: Record<string, string>) {
 		{ cwd: root }
 	);
 	if (![0, 1].includes(run.exitCode) || !run.stdout.length) throw new Error(run.stderr.toString());
-	const graph: { modules: GraphModule[] } = JSON.parse(run.stdout.toString());
+	const graph: {
+		modules: GraphModule[];
+		summary: { violations: { from: string; to: string; rule: { name: string } }[] };
+	} = JSON.parse(run.stdout.toString());
 	const edges = collectTypeEdges(
 		graph.modules,
 		root,
@@ -264,6 +267,67 @@ function runtimeGate(root: string) {
 		{ cwd: root }
 	);
 }
+
+describe('Core layer boundary', () => {
+	test.each([
+		"import '../../logic/legacy';",
+		"export type { Model } from '$lib/catalog/logic/legacy';"
+	])('rejects dependencies on legacy logic through %s', (statement) => {
+		const { root } = fixture({
+			'src/lib/catalog/core/params/index.ts': statement,
+			'src/lib/catalog/logic/legacy.ts': 'export type Model = number;'
+		});
+		const run = runtimeGate(root);
+		expect(run.exitCode).toBe(1);
+		expect(run.stdout.toString()).toContain('core-no-higher-layers');
+	});
+
+	test.each(['scripts', 'docs'])('rejects a scene re-export through %s', (directory) => {
+		const core = 'src/lib/catalog/core/random/index.ts';
+		const adapter = `${directory}/adapter.ts`;
+		const { graph } = fixture({
+			[core]: `export { value } from '../../../../../${directory}/adapter';`,
+			[adapter]: "export { value } from '../src/lib/catalog/scene/higher';",
+			'src/lib/catalog/scene/higher.ts': 'export const value = 1;'
+		});
+		expect(graph.summary.violations).toMatchObject([
+			{ from: core, to: adapter, rule: { name: 'core-no-higher-layers' } }
+		]);
+	});
+
+	test('rejects cross-module, external private and contract-test private imports', () => {
+		const params = 'src/lib/catalog/core/params/index.ts';
+		const random = 'src/lib/catalog/core/random/index.ts';
+		const privateFile = 'src/lib/catalog/core/random/private.ts';
+		const contract = 'src/lib/catalog/core/random/contract.test.ts';
+		const consumer = 'src/lib/catalog/logic/consumer.ts';
+		const { graph } = fixture({
+			[params]: "import '../random';",
+			[random]: "export { value } from './private';",
+			[privateFile]: 'export const value = 1;',
+			[contract]: "import './private';",
+			[consumer]: "import '$lib/catalog/core/random/private';"
+		});
+		expect(
+			graph.summary.violations.map(({ from, to, rule }) => [from, to, rule.name]).sort()
+		).toEqual([
+			[params, random, 'core-params-independent'],
+			[contract, privateFile, 'core-random-public-entry'],
+			[consumer, privateFile, 'core-random-public-entry']
+		]);
+	});
+
+	test('allows private code within a module and public imports from consumers and contracts', () => {
+		const { root } = fixture({
+			'src/lib/catalog/core/params/index.ts': "export { value } from './value';",
+			'src/lib/catalog/core/params/value.ts': 'export const value = 1;',
+			'src/lib/catalog/core/params/value.unit.test.ts': "import './value';",
+			'src/lib/catalog/core/params/contract.test.ts': "import './index';",
+			'src/lib/catalog/logic/legacy.ts': "export { value } from '../core/params';"
+		});
+		expect(runtimeGate(root).exitCode).toBe(0);
+	});
+});
 
 describe('Test layer precedence', () => {
 	test.each([

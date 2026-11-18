@@ -1,9 +1,19 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
-import { defineParams, resolveParams } from './index';
+import { defineParams, numberParam, resolveParams } from './index';
 
-const schema = defineParams({
-	radius: {
+const fields = {
+	radius: numberParam('Radius', 'm', 0.55, [0.1, 3, 0.05]),
+	cars: numberParam('Cars', 'cars', 3, [1, 8, 1], 'integer')
+};
+const schema = defineParams(fields);
+
+test('reads detached defaults from a frozen, serializable schema', () => {
+	expect(JSON.parse(JSON.stringify(schema))).toEqual(schema);
+	expect(Object.isFrozen(schema)).toBe(true);
+	expect(Object.isFrozen(schema.radius)).toBe(true);
+	expect(schema.radius).not.toBe(fields.radius);
+	expect(schema.radius).toEqual({
 		type: 'number',
 		label: 'Radius',
 		unit: 'm',
@@ -11,21 +21,23 @@ const schema = defineParams({
 		min: 0.1,
 		max: 3,
 		step: 0.05
-	},
-	cars: { type: 'integer', label: 'Cars', unit: 'cars', default: 3, min: 1, max: 8, step: 1 }
-});
-
-test('reads detached defaults from a serializable schema', () => {
-	expect(JSON.parse(JSON.stringify(schema))).toEqual(schema);
+	});
 	expect(resolveParams(schema)).toEqual({ radius: 0.55, cars: 3 });
 	expect(resolveParams(schema)).not.toBe(resolveParams(schema));
 });
 
 test('inherits by field and gives caller values precedence', () => {
-	expect(resolveParams(schema, { radius: 1, cars: 2 }, { radius: 1.123 })).toEqual({
-		radius: 1.123,
-		cars: 2
+	expect(resolveParams(schema, { radius: 1, cars: 2 }, { radius: 1.123, cars: undefined })).toEqual(
+		{
+			radius: 1.123,
+			cars: 2
+		}
+	);
+	expect(resolveParams(schema, { radius: undefined }, { cars: 8 })).toEqual({
+		radius: 0.55,
+		cars: 8
 	});
+	expect(resolveParams(schema, { radius: 0.1 }, { cars: 1 })).toEqual({ radius: 0.1, cars: 1 });
 });
 
 test('validates both layers independently', () => {

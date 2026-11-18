@@ -48,6 +48,16 @@ Mapping of library concepts:
 
 ✔ allowed, ✘ forbidden. Prohibitions also apply to `import type` and transitive imports.
 
+The `core` layer owns the public entry points `core/params/index.ts` and
+`core/random/index.ts`. Catalog consumers can import these entry points directly.
+The existing logic entry points forward to them. The `core-no-higher-layers`
+rule allows headless core files and explicitly approved npm packages as import
+targets. The package list is empty. Each core module's runtime code depends
+only on its own files. External consumers and contract tests access a core
+module through its `index.ts`. Tests remain in the `dev` layer and can also
+import `bun:test`. Tests named `*.unit.test.ts` can import private files in
+their own module.
+
 | from ↓ · to → | `data` | `logic` | `scene` | `component` | `route` | `svelte`, `$app` | `bits-ui`, `lucide-svelte` | `three` |
 | ------------- | :----: | :-----: | :-----: | :---------: | :-----: | :--------------: | :------------------------: | :-----: |
 | `data`        |   ✔    |    ✘    |    ✘    |      ✘      |    ✘    |        ✘         |             ✘              |    ✘    |
@@ -94,12 +104,12 @@ Not verifiable via the import graph and must be evidenced separately:
 | ID   | Rule                                                                                                                                                                                                          | Source · Auth.                     |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | A-40 | Generator families declared autonomous do not import each other, not even for types. Coordinate types are declared structurally. Not every subdirectory of `logic/` is autonomous.                            | ST §Principles · D\*               |
-| A-41 | **Decision open: Module map.** See default below. No gate and no moves before David confirms the map.                                                                                                         | Transfer Conflict 5 · V            |
+| A-41 | The accepted module map puts numeric parameter schemas and both random contracts in `core`. The generator map below describes the legacy layout during migration.                                             | Brief David, 2026-11-18 · D        |
 | A-42 | Shared flows across autonomous families live in exactly one named composition point. It may import all families; no family imports it.                                                                        | ST §Principles · D\*               |
 | A-43 | Only small, stable helpers may be copied between autonomous families. Each copy is registered and passes shared conformance cases. Identity, geometric predicates, and copy semantics have exactly one owner. | ST §Duplication rule · D           |
 | A-44 | Scenes and demos (`logic/bibel/`, `logic/ansicht/`) are consumers. They import only public entry points; nothing imports them except components and tests.                                                    | ST §Import rules (`models/`) · D\* |
 
-Default module map (proposal, not implemented):
+Legacy generator module map:
 
 | Role                   | Module under `logic/parametrik/`                                                                                                                   |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
