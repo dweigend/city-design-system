@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { ToggleGroup } from 'bits-ui';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { flows } from '../data/focus';
+	import { hudZeit } from '../data/interface';
+	import { Timeline } from '../interface';
 	import { Dices, Eraser, Hand, House, Redo2, Route, Shovel, Trees, Undo2 } from 'lucide-svelte';
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
 	import {
 		sandboxCovers,
 		sandboxLines,
+		sandboxMethods,
 		sandboxTools,
 		sandboxUses,
 		type SandboxOption,
@@ -20,6 +25,24 @@
 	 * new terrain below. Thin: it only sets the session's tool and calls its actions.
 	 */
 	let { session }: { session: Session } = $props();
+
+	const narrow = new MediaQuery('(max-width: 640px)');
+	const methods = $derived(
+		session.methods.map((id) => ({ id, ...sandboxMethods[id] })).sort((a, b) => a.phase - b.phase)
+	);
+	const { year, timeLayers } = $derived(session.world.state);
+	const events = $derived(
+		timeLayers.map(({ year, flows: layerFlows }) => ({
+			year,
+			flows: layerFlows,
+			label: layerFlows.length
+				? flows
+						.filter(({ id }) => layerFlows.includes(id))
+						.map(({ name }) => name)
+						.join(', ')
+				: 'Generation'
+		}))
+	);
 
 	const icons = { look: Hand, house: House, line: Route, cover: Trees, dig: Shovel, erase: Eraser };
 	/** Last option per tool, so switching tools keeps the player's choice. */
@@ -69,7 +92,7 @@
 	<div class="hud">
 		<ToggleGroup.Root
 			type="single"
-			orientation="vertical"
+			orientation={narrow.current ? 'horizontal' : 'vertical'}
 			value={session.tool.kind}
 			onValueChange={(value) => value && pickTool(value as SandboxToolId)}
 			class="cg-sandbox-tools"
@@ -92,11 +115,25 @@
 		{#if options.length}
 			<div class="options">
 				<SandboxOptions
-					label="{active?.name} options"
+					label={session.tool.kind === 'house' ? 'House use' : `${active?.name} options`}
+					horizontal={narrow.current}
 					{options}
 					value={option}
 					onpick={pickOption}
 				/>
+				{#if session.tool.kind === 'house'}
+					<SandboxOptions
+						label="Building method"
+						options={methods}
+						value={session.method}
+						horizontal
+						compact
+						onpick={(index) => {
+							const method = methods[index];
+							if (method) session.pickMethod(method.id);
+						}}
+					/>
+				{/if}
 			</div>
 		{/if}
 
@@ -127,6 +164,18 @@
 				{#snippet icon()}<Icon icon={Dices} size={24} />{/snippet}
 			</Button>
 		</div>
+	</div>
+	<div class="timeline" role="group" aria-label="Timeline">
+		<div class="scale" class:without-events={!events.length}>
+			<Timeline
+				{year}
+				{events}
+				max={Math.max(hudZeit.max, year + hudZeit.major)}
+				labelEvery={false}
+			/>
+		</div>
+		<output aria-label="World year">{year}</output>
+		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
 	{#if active}<p class="hint">{active.hint}</p>{/if}
 </div>
@@ -161,6 +210,8 @@
 	}
 	.options {
 		grid-area: options;
+		display: grid;
+		gap: var(--space-2);
 	}
 	.history {
 		grid-area: history;
@@ -184,6 +235,41 @@
 		text-align: center;
 		pointer-events: none;
 	}
+	.timeline {
+		position: absolute;
+		left: var(--space-4);
+		bottom: var(--space-4);
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		background: var(--paper);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		pointer-events: auto;
+	}
+	.scale {
+		width: clamp(10rem, 18vw, 18rem);
+		margin: 0 var(--space-6);
+	}
+	.scale.without-events {
+		padding-top: var(--ctl-s);
+	}
+	.timeline output {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		clip-path: inset(50%);
+		overflow: hidden;
+	}
+	.timeline :global(.cg-button) {
+		min-width: 0;
+		gap: var(--space-2);
+	}
+	@media (max-width: 980px) {
+		.hint {
+			display: none;
+		}
+	}
 	/* Narrow screens: the tools lie along the bottom edge, options above them. */
 	@media (max-width: 640px) {
 		.hud-group {
@@ -203,6 +289,26 @@
 			grid-template-columns: 1fr auto;
 			grid-template-areas: 'options options' 'tools history';
 			align-items: end;
+			column-gap: var(--space-1);
+		}
+		.options {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--space-1);
+		}
+		.timeline {
+			position: static;
+			align-self: flex-start;
+			padding-left: var(--space-2);
+		}
+		.scale {
+			display: none;
+		}
+		.timeline output {
+			position: static;
+			width: auto;
+			height: auto;
+			clip-path: none;
 		}
 		:global(.cg-sandbox-tools),
 		.history {
@@ -213,13 +319,6 @@
 		.history > :global(.cg-button + .cg-button) {
 			margin-top: 0;
 			margin-left: calc(-1 * var(--hair));
-		}
-		.hint {
-			position: static;
-			translate: none;
-			max-width: 100%;
-			justify-self: center;
-			align-self: center;
 		}
 	}
 </style>

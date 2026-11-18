@@ -1,16 +1,20 @@
 <script lang="ts">
 	import { ToggleGroup } from 'bits-ui';
-	import type { SandboxOption } from '../data/sandbox';
+	type Option = { id: string; name: string; color?: string; figure?: string; shortcut?: string };
 
 	/** Options of the active tool: swatch, name and the figure that carries the meaning. */
 	let {
 		label,
 		options,
 		value,
+		horizontal = false,
+		compact = false,
 		onpick
 	}: {
 		label: string;
-		options: SandboxOption<string>[];
+		options: readonly Option[];
+		horizontal?: boolean;
+		compact?: boolean;
 		value: string;
 		/** Called with the 0-based index of the picked option. */
 		onpick: (index: number) => void;
@@ -19,21 +23,25 @@
 
 <ToggleGroup.Root
 	type="single"
-	orientation="vertical"
+	orientation={horizontal ? 'horizontal' : 'vertical'}
 	{value}
 	onValueChange={(next) => next && onpick(options.findIndex((o) => o.id === next))}
 	class="cg-sandbox-options"
+	data-compact={compact || undefined}
 	aria-label={label}
 >
 	{#each options as entry, index (entry.id)}
 		<ToggleGroup.Item
 			value={entry.id}
 			class="cg-sandbox-option"
-			aria-keyshortcuts={String(index + 1)}
+			aria-label={entry.name}
+			aria-keyshortcuts={entry.shortcut ?? String(index + 1)}
+			title={`${entry.name} (${entry.shortcut ?? index + 1})`}
 		>
-			<span class="swatch" style:--swatch={entry.color}></span>
+			{#if entry.color}<span class="swatch" style:--swatch={entry.color}></span>{/if}
 			<span class="name">{entry.name}</span>
-			<span class="figure">{entry.figure}</span>
+			{#if entry.figure}<span class="figure">{entry.figure}</span>{/if}
+			{#if entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
 		</ToggleGroup.Item>
 	{/each}
 </ToggleGroup.Root>
@@ -92,11 +100,30 @@
 		font-size: var(--text-xs);
 		opacity: 0.7;
 	}
+	:global(.cg-sandbox-options[data-compact]) {
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+	}
+	:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
+		grid-template-columns: auto auto;
+		grid-template-areas: 'name key';
+		column-gap: var(--space-2);
+	}
+	:global(.cg-sandbox-options[data-compact] .cg-sandbox-option + .cg-sandbox-option) {
+		border-top: 0;
+		border-left: var(--hair) solid var(--line);
+	}
+	kbd {
+		grid-area: key;
+		font: inherit;
+		font-size: var(--text-xs);
+		opacity: 0.7;
+	}
 	/* Narrow screens: one row of swatches with their names. */
 	@media (max-width: 640px) {
 		:global(.cg-sandbox-options) {
 			grid-auto-flow: column;
-			grid-auto-columns: 1fr;
+			grid-auto-columns: minmax(var(--ctl-m), auto);
 		}
 		:global(.cg-sandbox-option) {
 			grid-template-columns: auto;
@@ -108,6 +135,12 @@
 			border-top: 0;
 			border-left: var(--hair) solid var(--line);
 		}
+		:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
+			grid-template-columns: auto;
+			grid-template-areas: 'key';
+			min-width: var(--space-8);
+		}
+		:global(.cg-sandbox-options[data-compact]) .name,
 		.figure {
 			display: none;
 		}

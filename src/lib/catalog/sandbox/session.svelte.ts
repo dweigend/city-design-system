@@ -1,3 +1,4 @@
+import { sandboxGenerationYears, type BuildingMethod } from '../data/sandbox';
 import { focuses, type FocusId } from '../logic/presentation';
 import {
 	applyEdit,
@@ -10,7 +11,8 @@ import {
 	undo,
 	withState,
 	type Stroke,
-	type Tool
+	type Tool,
+	stylesForYear
 } from '../logic/sandbox';
 
 /**
@@ -18,12 +20,20 @@ import {
  * history. View state for the components; every change of the world goes through the actions
  * of logic/sandbox.
  */
-export function createSession(initialSeed: number) {
+export function createSession(initialSeed: number, generationYears = sandboxGenerationYears) {
+	const startingWorld = createWorld(initialSeed);
 	/** The committed world; its derived grid is the session's cache (PT-14). */
-	let world = $state.raw(createWorld(initialSeed));
-	let history = $state.raw(startHistory(world.state));
+	let world = $state.raw(startingWorld);
+	let history = $state.raw(startHistory(startingWorld.state));
 	let stroke = $state.raw<Stroke>();
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
+
+	const methods = $derived(stylesForYear(world.state.year));
+	let chosenMethod = $state<BuildingMethod>();
+	const method = $derived(
+		chosenMethod && methods.includes(chosenMethod) ? chosenMethod : methods[0]
+	);
+	const selectedTool = $derived(tool.kind === 'house' ? { ...tool, style: method } : tool);
 
 	let focus = $state<FocusId>('all');
 	function restore(next: typeof history) {
@@ -41,11 +51,21 @@ export function createSession(initialSeed: number) {
 		},
 		advance() {
 			if (stroke) return;
-			world = applyEdit(world, { kind: 'advance' });
+			world = applyEdit(world, { kind: 'advance', years: generationYears });
 			history = commit(history, world.state);
 		},
 		get tool() {
-			return tool;
+			return selectedTool;
+		},
+		get methods() {
+			return methods;
+		},
+		get method() {
+			return method;
+		},
+		/** Changes the house method if it is available in this epoch. */
+		pickMethod(next: BuildingMethod) {
+			if (tool.kind === 'house' && methods.includes(next)) chosenMethod = next;
 		},
 		set tool(next: Tool) {
 			tool = next;
@@ -61,7 +81,7 @@ export function createSession(initialSeed: number) {
 			return history.future.length > 0;
 		},
 		strokeStart(cellId: string) {
-			stroke = extendStroke(beginStroke(tool, world), cellId);
+			stroke = extendStroke(beginStroke(selectedTool, world), cellId);
 		},
 		strokeMove(cellId: string) {
 			if (stroke) stroke = extendStroke(stroke, cellId);

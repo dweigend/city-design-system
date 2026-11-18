@@ -5,7 +5,7 @@
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
 	import { ThemeToggle } from '../theme';
-	import { sandboxTools, sandboxUses, sandboxZones } from '../data/sandbox';
+	import { sandboxMethods, sandboxTools, sandboxUses, sandboxZones } from '../data/sandbox';
 	import type { TerrainCell } from '../logic/terrain-grid';
 	import SandboxCanvas from './SandboxCanvas.svelte';
 	import SandboxHud from './SandboxHud.svelte';
@@ -32,16 +32,24 @@
 		if (event.shiftKey) session.redo();
 		else session.undo();
 	}
-	const commands: Record<string, () => void> = {
-		f: session.cycleFocus,
-		y: session.advance,
-		p: () => (plan = !plan)
-	};
+	const commands = new Map<string, () => void>([
+		['f', session.cycleFocus],
+		['y', session.advance],
+		['p', () => (plan = !plan)],
+		...sandboxTools.map(({ shortcut, id }): [string, () => void] => [
+			shortcut.toLowerCase(),
+			() => hud?.pickTool(id)
+		]),
+		...sandboxUses.map((_, index): [string, () => void] => [
+			String(index + 1),
+			() => hud?.pickOption(index)
+		])
+	]);
 	function pick(key: string) {
-		const tool = sandboxTools.find((entry) => entry.shortcut.toLowerCase() === key);
-		if (tool) hud?.pickTool(tool.id);
-		else if (Object.hasOwn(commands, key)) commands[key]();
-		else if (/^[1-9]$/.test(key)) hud?.pickOption(Number(key) - 1);
+		const command = commands.get(key);
+		if (command) return command();
+		const method = session.methods.find((id) => sandboxMethods[id].shortcut.toLowerCase() === key);
+		if (method) session.pickMethod(method);
 	}
 	function pickOnce(event: KeyboardEvent, key: string) {
 		if (!event.repeat) pick(key);
@@ -87,13 +95,6 @@
 				shortcut="F"
 				onclick={session.cycleFocus}
 			/>
-			<Button
-				variant="secondary"
-				label="Built becomes stock"
-				shortcut="Y"
-				onclick={session.advance}
-			/>
-			<span class="readout">Year {session.world.state.year}</span>
 		</div>
 	</header>
 	<div class="mode">

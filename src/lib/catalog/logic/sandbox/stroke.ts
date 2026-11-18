@@ -1,3 +1,4 @@
+import type { BuildingMethod } from '../../data/sandbox';
 import type { HouseUse } from '../house-brush';
 import type { CoverKind } from '../land-cover';
 import { cellsBetween } from '../terrain-grid';
@@ -8,7 +9,7 @@ import { applyEdit, type World } from './world';
 /** The tool in the player's hand. `look` only moves the view. */
 export type Tool =
 	| { kind: 'look' }
-	| { kind: 'house'; use: HouseUse }
+	| { kind: 'house'; use: HouseUse; style?: BuildingMethod }
 	| { kind: 'line'; transit: TransitKind }
 	| { kind: 'cover'; cover: CoverKind }
 	| { kind: 'dig' }
@@ -38,7 +39,7 @@ export const beginStroke = (tool: Tool, world: World): Stroke => ({
 });
 
 function cellEdit(tool: Tool, cellId: string): Edit | undefined {
-	if (tool.kind === 'house') return { kind: 'raise', cellId, use: tool.use };
+	if (tool.kind === 'house') return { kind: 'raise', cellId, use: tool.use, style: tool.style };
 	if (tool.kind === 'cover') return { kind: 'cover', cellId, cover: tool.cover };
 	if (tool.kind === 'dig') return { kind: 'dig', cellId };
 	if (tool.kind === 'erase') return { kind: 'clear', cellId };

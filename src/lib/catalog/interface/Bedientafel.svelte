@@ -5,6 +5,7 @@
 	import Icon from '../ui/Icon.svelte';
 	import Metric from '../ui/Metric.svelte';
 	import Scale from '../ui/Scale.svelte';
+	import Timeline from './Timeline.svelte';
 	import Selection from '../ui/Selection.svelte';
 	import Switch from '../ui/Switch.svelte';
 	import Tabs from '../ui/Tabs.svelte';
@@ -14,7 +15,7 @@
 	import Tooltip from '../ui/Tooltip.svelte';
 	import { flows, flowToken, type FlowId } from '../data/focus';
 	import { formIcons } from '../data/icons';
-	import { bedienBeispiele as B, bedienelemente, hudZeit } from '../data/interface';
+	import { bedienBeispiele as B, bedienelemente } from '../data/interface';
 
 	/**
 	 * Panel of UI controls: each element once, with its name and its task in the game.
@@ -23,20 +24,6 @@
 	 */
 	const rolle = Object.fromEntries(bedienelemente.map((e) => [e.id, e]));
 	const name = (id: FlowId) => flows.find((f) => f.id === id)?.name ?? id;
-	const jahre = {
-		label: hudZeit.label,
-		min: hudZeit.min,
-		max: hudZeit.max,
-		value: hudZeit.value,
-		minor: hudZeit.minor,
-		major: hudZeit.major,
-		format: (v: number) => String(Math.round(v)),
-		markers: hudZeit.ereignisse.map((e) => ({
-			value: e.jahr,
-			label: e.text,
-			color: `var(${flowToken[e.strom]})`
-		}))
-	};
 	const reiter = B.reiter.map((r, i) => ({ ...r, index: String(i + 1).padStart(2, '0') }));
 	const zustaende = [
 		{ label: 'Planned', color: 'var(--blueprint)', onColor: 'var(--on-accent)' },
@@ -165,7 +152,7 @@
 
 	<section class="zelle breit">
 		{@render kopf('zeitleiste')}
-		<Scale {...jahre} />
+		<Timeline mode="input" caption />
 	</section>
 </div>
 

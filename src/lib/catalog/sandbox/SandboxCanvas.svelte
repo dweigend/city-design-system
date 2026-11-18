@@ -71,8 +71,7 @@
 			return;
 		}
 		current.setLens(hovered.column + 0.5, hovered.row + 0.5, 1);
-		const tone = session.tool.kind === 'erase' ? 'ink' : 'signal';
-		current.setCursor(cursorFrame(session.world.state, session.tool, hovered), tone);
+		current.setCursor(cursorFrame(session.world.state, session.tool, hovered));
 	}
 
 	$effect(() => {
