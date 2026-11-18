@@ -1,4 +1,5 @@
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../logic/params';
+import { resolveParams, type ParamOverrides } from '../../logic/params';
+import { TERRAIN_VIEW_PARAMS } from './view-params';
 /**
  * Terrain as a paper relief: the ground carries contour hairlines, the area grid appears as a
  * plan drawn onto the land, and painted land cover shows as tinted, patterned areas.
@@ -16,12 +17,6 @@ import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry
 
 /** Contour intervals in meters. */
 const CONTOUR = { minor: 1, major: 5 };
-export const TERRAIN_VIEW_PARAMS = defineParams({
-	parcelCells: numberParam('Measure chain interval', 'cells', 10, [1, 100, 1], 'integer'),
-	lensCells: numberParam('Grid lens radius', 'cells', 11, [1, 100, 0.5]),
-	streetTint: numberParam('Street tint', 'ratio', 0.3, [0, 1, 0.01]),
-	planContourGain: numberParam('Plan contour gain', 'ratio', 0.9, [0, 1, 0.01])
-});
 
 // Streets use the first texture channel after the cover kinds.
 const STREET_CHANNEL = 3;

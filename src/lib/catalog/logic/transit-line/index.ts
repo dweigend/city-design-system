@@ -11,14 +11,7 @@ import {
 	type TransitPillar
 } from './contract';
 import { elevate, groundAt } from './elevation';
-export type {
-	TransitLine,
-	TransitKind,
-	TransitStop,
-	TransitPillar,
-	TransitPose,
-	TransitProfile
-} from './contract';
+export type { TransitLine, TransitKind, TransitStop, TransitPillar, TransitPose } from './contract';
 export { TRANSIT_PARAMS, VEHICLE } from './contract';
 export { lineParts } from './parts';
 export { vehiclePoses } from './vehicles';

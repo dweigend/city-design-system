@@ -1,4 +1,5 @@
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../logic/params';
+import { resolveParams, type ParamOverrides } from '../../logic/params';
+import { STRUCTURE_PARAMS } from './view-params';
 /**
  * Everything the player builds, drawn from the shared render contract: keyed groups of
  * primitives (a house chunk, a forest chunk, a transit line) become a few merged meshes each.
@@ -12,15 +13,6 @@ import type { Palette3D } from '../../data/city3d';
 import type { Primitive } from '../../logic/parametrik/types';
 import { batch, geometryOf } from '../batch';
 import { outlinePosition } from '../surfaces';
-
-export const STRUCTURE_PARAMS = defineParams({
-	creasePx: numberParam('Crease width', 'px', 0.8, [0.1, 8, 0.1]),
-	outlinePx: numberParam('Outline width', 'px', 1, [0.1, 8, 0.1]),
-	outlineMaxMeters: numberParam('Maximum outline width', 'm', 0.09, [0, 1, 0.01]),
-	creaseFullAt: numberParam('Crease fade threshold', 'px/m', 7, [0.1, 100, 0.5]),
-	creaseFloor: numberParam('Minimum crease opacity', 'ratio', 0.22, [0, 1, 0.01]),
-	glassOpacity: numberParam('Glass opacity', 'ratio', 0.34, [0, 1, 0.01])
-});
 
 export type Structures = ReturnType<typeof createStructures>;
 
