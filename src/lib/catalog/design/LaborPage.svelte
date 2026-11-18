@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import DesignShell from './DesignShell.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
 	import LayerDiagram from '../bibel/LayerDiagram.svelte';
@@ -38,6 +39,7 @@
 
 	<Abschnitt id={Lab.studien.id} titel={Lab.studien.titel} lead={Lab.studien.lead}>
 		<OperatorStudien />
+		<a href={resolve('/labor/building-envelope')}>Roof geometry on three cell shapes</a>
 	</Abschnitt>
 	<Abschnitt id={Lab.leitstil.id} titel={Lab.leitstil.titel} lead={Lab.leitstil.lead}>
 		<LeitstilSpektrum />
