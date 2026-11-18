@@ -53,7 +53,10 @@ The `core` layer owns the public entry points `core/params/index.ts` and
 The existing logic entry points forward to them. The `core-no-higher-layers`
 rule restricts core runtime files to other core files within `src/` and
 blocks Svelte, Bits UI, Lucide-Svelte, and three.js imports. Tests remain in the
-`dev` layer. Each of the two core modules is self-contained.
+`dev` layer. Each core module's runtime code depends only on its own files
+within `core/`. External consumers and contract tests access a core module
+through its `index.ts`. Tests named `*.unit.test.ts` can import private files
+in their own module.
 
 | from ↓ · to → | `data` | `logic` | `scene` | `component` | `route` | `svelte`, `$app` | `bits-ui`, `lucide-svelte` | `three` |
 | ------------- | :----: | :-----: | :-----: | :---------: | :-----: | :--------------: | :------------------------: | :-----: |

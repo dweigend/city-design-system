@@ -1,4 +1,7 @@
 // Existing findings are frozen in .dependency-cruiser-baseline.json.
+const corePath = 'src/lib/catalog/core/';
+const runtimeFile = '(?!.*\\.test\\.ts$)(?!benchmark\\.ts$)(?!.*/benchmark\\.ts$)';
+
 module.exports = {
 	forbidden: [
 		{
@@ -13,11 +16,31 @@ module.exports = {
 		{
 			name: 'core-no-higher-layers',
 			severity: 'error',
-			from: { path: '^src/lib/catalog/core/(?!.*(?:\\.test\\.ts|/benchmark\\.ts)$)' },
+			from: { path: `^${corePath}${runtimeFile}` },
 			to: {
 				path: '(^src/(?!lib/catalog/core/)|\\.svelte(?:\\.[jt]s)?$|(^|node_modules/)(svelte|three|bits-ui|lucide-svelte)(/|$)|^\\$app(/|$))'
 			}
 		},
+		...['params', 'random'].flatMap((name) => {
+			const modulePath = `${corePath}${name}/`;
+			return [
+				{
+					name: `core-${name}-independent`,
+					severity: 'error',
+					from: { path: `^${modulePath}${runtimeFile}` },
+					to: { path: `^${corePath}(?!${name}/)` }
+				},
+				{
+					name: `core-${name}-public-entry`,
+					severity: 'error',
+					from: {
+						// Public contract tests count as external consumers, even inside the module.
+						path: `^(?:(?!${modulePath})|${modulePath}(?!.*\\.unit\\.test\\.ts$).*\\.test\\.ts$)`
+					},
+					to: { path: `^${modulePath}(?!index\\.ts$)` }
+				}
+			];
+		}),
 		{
 			name: 'data-no-logic',
 			severity: 'error',
