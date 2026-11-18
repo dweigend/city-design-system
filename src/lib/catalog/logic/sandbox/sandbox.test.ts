@@ -26,6 +26,7 @@ function site(world: World = empty) {
 		(c) =>
 			c.zone === 'lower-terrace' &&
 			c.column === 30 &&
+			[0, 1, 8].every((dx) => world.grid.cellsById.get(`${c.column + dx}/${c.row}`)?.buildable) &&
 			world.grid.cellsById.get(`36/${c.row}`)?.zone === 'lower-terrace'
 	);
 	if (!cell) throw new Error('fixture missing');

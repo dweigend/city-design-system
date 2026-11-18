@@ -8,6 +8,7 @@ import * as THREE from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import { attribute, float, mix, positionWorld, texture, uniform, vec2 } from 'three/tsl';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
+import { bridgeGeometry, streetOverlay } from './street-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import type { Palette3D } from '../../data/city3d';
@@ -19,17 +20,13 @@ const CONTOUR = { minor: 1, major: 5 };
 const PARCEL_CELLS = 10;
 /** Radius of the grid lens around the cursor, in cells. */
 const LENS_RADIUS = 11;
-/** Share of the people color in the ground tone of a street. */
-const STREET_TINT = 0.3;
-/** Texture channel of the street mask; the cover kinds use the channels before it. */
-const STREET_CHANNEL = 3;
 /** Extra weight of the contour lines when the whole grid is shown. */
 const PLAN_CONTOUR_GAIN = 0.9;
 const INK_SHARE = {
 	contourMinor: 0.2,
 	contourMajor: 0.44,
 	parcel: 0.16,
-	cell: 0.34,
+	cell: 0.12,
 	outline: 0.55
 };
 
@@ -72,11 +69,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const cover = coverTexture(grid);
-	const writeStreets = (cells: TerrainGrid['cells']) => {
-		for (const cell of cells) cover.data[cell.index * 4 + STREET_CHANNEL] = cell.street ? 255 : 0;
-		cover.map.needsUpdate = true;
-	};
-	writeStreets(grid.cells);
+	const streets = streetOverlay(grid);
 	const chart = attribute('chart', 'vec2');
 	const height = positionWorld.y;
 
@@ -116,12 +109,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		);
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(colors.paper, ground, forestWeight);
-		// Streets are paths: a light tone of the people color, without an outline.
-		ground = mix(
-			ground,
-			mix(colors.paper, colors.people, STREET_TINT),
-			inside(masks.a).mul(pathWeight)
-		);
+		ground = streets.shade(ground, colors.ink, colors.people, pathWeight);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
 		const minor = hairline(height.div(CONTOUR.minor), 1).mul(resolvable(height.div(CONTOUR.minor)));
@@ -148,7 +136,10 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const parcelLine = hairline(chart.x.div(PARCEL_CELLS), 1).max(
 			hairline(chart.y.div(PARCEL_CELLS), 1)
 		);
-		const plan = cellLine.mul(lens).mul(INK_SHARE.cell).max(parcelLine.mul(INK_SHARE.parcel));
+		const near = float(1).sub(chart.fwidth().length().smoothstep(0.05, 0.12));
+		const plan = near.mul(
+			cellLine.mul(lens).mul(INK_SHARE.cell).max(parcelLine.mul(INK_SHARE.parcel))
+		);
 		return mix(ground, colors.blueprint, plan.mul(terrainWeight));
 	}
 
@@ -169,10 +160,14 @@ export function createTerrainMesh(grid: TerrainGrid) {
 	let baseLines = base.lines;
 
 	const group = new THREE.Group();
-	group.add(surface, water, baseMesh);
+	const deckMaterial = new THREE.MeshLambertNodeMaterial();
+	deckMaterial.colorNode = mix(colors.paper, colors.ink, 0.25);
+	const deck = new THREE.Mesh(bridgeGeometry(grid), deckMaterial);
+	group.add(surface, water, baseMesh, deck);
 
 	return {
 		group,
+		setStreets: streets.update,
 		surface,
 		/** World line segments of the model base outline, three.js coordinates. */
 		baseLines: () => baseLines,
@@ -186,7 +181,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 				mesh.geometry.dispose();
 				mesh.geometry = geometry;
 			};
-			writeStreets(next.cells);
+			replace(deck, bridgeGeometry(next));
 			replace(surface, surfaceGeometry(next));
 			replace(water, waterGeometry(next));
 			replace(baseMesh, nextBase.geometry);
@@ -200,7 +195,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
 			colors.nature.value.copy(category('nature'));
-			colors.people.value.copy(category('business'));
+			colors.people.value.set(palette.categories['--signal']);
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */
@@ -215,6 +210,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			terrainWeight.value = weights[view.terrain];
 			forestWeight.value = weights[view.forest];
 			pathWeight.value = weights[view.paths];
+			deck.visible = view.paths !== 'hidden';
 			group.visible = view.terrain !== 'hidden';
 		},
 		setGridVisible(strength: number) {
@@ -235,10 +231,11 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			cover.map.needsUpdate = true;
 		},
 		dispose() {
-			for (const mesh of [surface, water, baseMesh]) {
+			for (const mesh of [surface, water, baseMesh, deck]) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 			}
+			streets.dispose();
 			cover.map.dispose();
 		}
 	};
