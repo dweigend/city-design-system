@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { houseChunk, storiesOf } from '../house-brush';
 import {
 	applyEdit,
+	EMPTY_STATE,
 	beginStroke,
 	changes,
 	commit,
@@ -17,7 +18,7 @@ import {
 } from './index';
 
 const SEED = 7;
-const empty = createWorld(SEED);
+const empty = withState(createWorld(SEED), EMPTY_STATE);
 const terrace = empty.grid.cells.filter((cell) => cell.zone === 'lower-terrace');
 /** A dry cell with dry neighbors along its row. */
 function site(world: World = empty) {
@@ -145,7 +146,7 @@ describe('sandbox', () => {
 		];
 		expect(stroke.cellIds).toEqual(expected);
 		expect(stroke.draft.state.lines).toEqual([
-			{ id: 'line1', transit: 'viaduct', cellIds: expected }
+			{ id: 'line1', year: empty.state.year, transit: 'viaduct', cellIds: expected }
 		]);
 		expect(stroke.draft.lines[0].cellIds).toEqual(expected);
 	});
@@ -202,7 +203,9 @@ describe('sandbox', () => {
 	test('a line is stored as its stroke and routed on the current grid', () => {
 		const [from, to] = row(20, 60);
 		const lined = applyEdit(empty, { kind: 'line', transit: 'viaduct', cellIds: [from, to] });
-		expect(lined.state.lines).toEqual([{ id: 'line1', transit: 'viaduct', cellIds: [from, to] }]);
+		expect(lined.state.lines).toEqual([
+			{ id: 'line1', year: empty.state.year, transit: 'viaduct', cellIds: [from, to] }
+		]);
 		expect(lined.lines[0].path.length).toBeGreaterThan(20);
 		expect(applyEdit(empty, { kind: 'line', transit: 'viaduct', cellIds: [from] })).toBe(empty);
 		const dug = applyEdit(lined, { kind: 'dig', cellId: `40/${site().row}` });

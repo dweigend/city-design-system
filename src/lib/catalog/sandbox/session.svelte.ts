@@ -1,4 +1,6 @@
+import { focuses, type FocusId } from '../logic/presentation';
 import {
+	applyEdit,
 	beginStroke,
 	commit,
 	createWorld,
@@ -23,12 +25,25 @@ export function createSession(initialSeed: number) {
 	let stroke = $state.raw<Stroke>();
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
 
+	let focus = $state<FocusId>('all');
 	function restore(next: typeof history) {
 		history = next;
 		world = withState(world, next.present);
 	}
 
 	return {
+		get focus() {
+			return focus;
+		},
+		cycleFocus() {
+			const keys = Object.keys(focuses) as FocusId[];
+			focus = keys[(keys.indexOf(focus) + 1) % keys.length];
+		},
+		advance() {
+			if (stroke) return;
+			world = applyEdit(world, { kind: 'advance' });
+			history = commit(history, world.state);
+		},
 		get tool() {
 			return tool;
 		},
@@ -60,7 +75,7 @@ export function createSession(initialSeed: number) {
 		},
 		undo: () => restore(undo(history)),
 		redo: () => restore(redo(history)),
-		/** New terrain from a seed; the built city starts empty again. */
+		/** New terrain from a seed; the built city starts with its seeded town. */
 		restart(seed: number) {
 			stroke = undefined;
 			world = createWorld(seed);

@@ -9,6 +9,7 @@ import type { Node } from 'three/webgpu';
 import { attribute, float, mix, positionWorld, texture, uniform, vec2 } from 'three/tsl';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
 import type { TerrainGrid } from '../../logic/terrain-grid';
+import type { Focus, Representation } from '../../logic/presentation';
 import type { Palette3D } from '../../data/city3d';
 import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
 
@@ -64,6 +65,9 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		food: uniform(new THREE.Color()),
 		people: uniform(new THREE.Color())
 	};
+	const terrainWeight = uniform(1),
+		forestWeight = uniform(1),
+		pathWeight = uniform(1);
 	const cursor = uniform(new THREE.Vector2(-100, -100));
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
@@ -80,7 +84,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const flow = hairline(chart.y.mul(0.5), 1)
 			.mul(resolvable(chart.y.mul(0.5)))
 			.mul(0.5);
-		return mix(colors.water, colors.paper, flow);
+		return mix(colors.paper, mix(colors.water, colors.paper, flow), terrainWeight);
 	}
 
 	function groundColor(): Node<'vec3'> {
@@ -111,8 +115,13 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			dots.mul(resolvable(chart.x.mul(2))).mul(0.7)
 		);
 		ground = mix(ground, meadow, inside(masks.b));
+		ground = mix(colors.paper, ground, forestWeight);
 		// Streets are paths: a light tone of the people color, without an outline.
-		ground = mix(ground, mix(colors.paper, colors.people, STREET_TINT), inside(masks.a));
+		ground = mix(
+			ground,
+			mix(colors.paper, colors.people, STREET_TINT),
+			inside(masks.a).mul(pathWeight)
+		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
 		const minor = hairline(height.div(CONTOUR.minor), 1).mul(resolvable(height.div(CONTOUR.minor)));
@@ -120,7 +129,11 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const contour = minor.mul(INK_SHARE.contourMinor).max(major.mul(INK_SHARE.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
 		const weighted = contour.mul(gridStrength.mul(PLAN_CONTOUR_GAIN).add(1));
-		ground = mix(ground, colors.ink, weighted.max(outline.mul(INK_SHARE.outline)));
+		ground = mix(
+			ground,
+			colors.ink,
+			weighted.mul(terrainWeight).max(outline.mul(INK_SHARE.outline).mul(forestWeight))
+		);
 
 		const lens = float(1)
 			.sub(
@@ -136,7 +149,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			hairline(chart.y.div(PARCEL_CELLS), 1)
 		);
 		const plan = cellLine.mul(lens).mul(INK_SHARE.cell).max(parcelLine.mul(INK_SHARE.parcel));
-		return mix(ground, colors.blueprint, plan);
+		return mix(ground, colors.blueprint, plan.mul(terrainWeight));
 	}
 
 	const surfaceMaterial = new THREE.MeshLambertNodeMaterial();
@@ -191,6 +204,19 @@ export function createTerrainMesh(grid: TerrainGrid) {
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */
+		setPresentation(view: Focus) {
+			const weights: Record<Representation, number> = {
+				full: 1,
+				silhouette: 0.6,
+				pencil: 0.27,
+				transparent: 0.14,
+				hidden: 0
+			};
+			terrainWeight.value = weights[view.terrain];
+			forestWeight.value = weights[view.forest];
+			pathWeight.value = weights[view.paths];
+			group.visible = view.terrain !== 'hidden';
+		},
 		setGridVisible(strength: number) {
 			gridStrength.value = strength;
 		},

@@ -60,7 +60,7 @@
 		};
 	});
 
-	$effect(() => stage?.show(session.world));
+	$effect(() => stage?.show(session.world, session.focus));
 	$effect(() => stage?.setPlan(plan));
 	$effect(() => onhover?.(hovered));
 

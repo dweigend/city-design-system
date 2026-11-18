@@ -1,6 +1,6 @@
+import { currentStacks } from './houses';
 import { chunksOfCells, touchedChunks } from '../house-brush';
 import { changedChunks, neighborsOf } from '../quad-grid';
-import type { TransitLine } from '../transit-line';
 import type { World } from './world';
 
 /** What a view has to redraw to get from one world to another. */
@@ -12,7 +12,7 @@ export type Changes = Readonly<{
 	/** Cells whose cover differs. */
 	coverCells: readonly string[];
 	removedLines: readonly string[];
-	addedLines: readonly TransitLine[];
+	addedLines: World['lines'];
 }>;
 
 /** Keys whose values differ between two maps, by reference. */
@@ -23,16 +23,34 @@ function changedKeys<V>(before: ReadonlyMap<string, V>, after: ReadonlyMap<strin
 	return keys;
 }
 
+function editedCells(before: World, after: World) {
+	if (before.state.year !== after.state.year)
+		return [...new Set([...before.state.stacks.keys(), ...after.state.stacks.keys()])];
+	return [
+		...new Set([
+			...changedKeys(before.state.stacks, after.state.stacks),
+			...changedKeys(before.state.storyParts, after.state.storyParts)
+		])
+	];
+}
+
 function houseChunks(before: World, after: World, movedChunks: ReadonlySet<string>): Set<string> {
-	const stackCells = changedKeys(before.state.stacks, after.state.stacks);
-	const chunks = new Set<string>();
-	for (const world of [before, after]) {
-		const { grid } = world;
-		for (const chunk of touchedChunks(grid, before.state.stacks, after.state.stacks, stackCells))
-			chunks.add(chunk);
-		// Houses on cells that moved take the new cell shapes.
+	const cells = editedCells(before, after);
+	const chunks = new Set(movedChunks);
+	const oldStacks = currentStacks(before.state),
+		newStacks = currentStacks(after.state);
+	for (const [world, stacks] of [
+		[before, oldStacks],
+		[after, newStacks]
+	] as const) {
+		const grid = world.grid;
+		for (const id of cells) {
+			const cell = grid.cellsById.get(id);
+			if (cell) chunks.add(cell.chunk);
+		}
+		for (const chunk of touchedChunks(grid, oldStacks, newStacks, cells)) chunks.add(chunk);
 		const moved = [...movedChunks].flatMap((chunk) => grid.chunks.get(chunk) ?? []);
-		for (const chunk of chunksOfCells(grid, world.state.stacks, moved)) chunks.add(chunk);
+		for (const chunk of chunksOfCells(grid, stacks, moved)) chunks.add(chunk);
 	}
 	return chunks;
 }
@@ -67,6 +85,8 @@ export function changes(before: World, after: World): Changes {
 		forestChunks: new Set([...forestChunks(before, after, coverCells), ...moved]),
 		coverCells,
 		removedLines: before.lines.filter((line) => !afterLines.has(line)).map((line) => line.id),
-		addedLines: after.lines.filter((line) => !beforeLines.has(line))
+		addedLines: after.lines.filter(
+			(line) => before.state.year !== after.state.year || !beforeLines.has(line)
+		)
 	};
 }

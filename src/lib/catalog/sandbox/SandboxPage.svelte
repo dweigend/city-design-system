@@ -2,6 +2,7 @@
 	import { Toggle } from 'bits-ui';
 	import { Map as MapIcon } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
+	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
 	import { ThemeToggle } from '../theme';
 	import { sandboxTools, sandboxUses, sandboxZones } from '../data/sandbox';
@@ -12,7 +13,7 @@
 
 	/**
 	 * The city sandbox as a full page: the terrain fills the window, a sparse HUD floats on
-	 * top. Starts on an empty field; the terrain comes from the seed.
+	 * top. Starts with a small old town; the terrain comes from the seed.
 	 */
 	const session = createSession(7);
 	let hud = $state<SandboxHud>();
@@ -31,16 +32,24 @@
 		if (event.shiftKey) session.redo();
 		else session.undo();
 	}
+	const commands: Record<string, () => void> = {
+		f: session.cycleFocus,
+		y: session.advance,
+		p: () => (plan = !plan)
+	};
 	function pick(key: string) {
 		const tool = sandboxTools.find((entry) => entry.shortcut.toLowerCase() === key);
 		if (tool) hud?.pickTool(tool.id);
-		else if (key === 'p') plan = !plan;
+		else if (Object.hasOwn(commands, key)) commands[key]();
 		else if (/^[1-9]$/.test(key)) hud?.pickOption(Number(key) - 1);
+	}
+	function pickOnce(event: KeyboardEvent, key: string) {
+		if (!event.repeat) pick(key);
 	}
 	function shortcut(event: KeyboardEvent) {
 		const key = event.key.toLowerCase();
 		if (event.ctrlKey || event.metaKey) history(event, key);
-		else if (!event.altKey) pick(key);
+		else if (!event.altKey) pickOnce(event, key);
 	}
 </script>
 
@@ -71,6 +80,21 @@
 				{/each}
 			</dl>
 		{/if}
+		<div class="time">
+			<Button
+				variant="secondary"
+				label={'Focus · ' + session.focus}
+				shortcut="F"
+				onclick={session.cycleFocus}
+			/>
+			<Button
+				variant="secondary"
+				label="Built becomes stock"
+				shortcut="Y"
+				onclick={session.advance}
+			/>
+			<span class="readout">Year {session.world.state.year}</span>
+		</div>
 	</header>
 	<div class="mode">
 		<Toggle.Root
@@ -149,6 +173,13 @@
 		border: var(--hair) solid var(--ink);
 		border-radius: 50%;
 		background: var(--dot);
+	}
+	.time {
+		margin-top: var(--space-2);
+		pointer-events: auto;
+		display: grid;
+		justify-items: start;
+		gap: var(--space-1);
 	}
 	.mode {
 		position: absolute;
