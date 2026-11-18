@@ -6,6 +6,7 @@
  * `SPANNWEITE`); only the space frame carries the path farther than a footbridge reaches.
  * Dimensions in meters, x/y ground plane, z up. Headless, deterministic per seed.
  */
+import { deckCorners, deckParts, WALKWAY_WIDTH_M } from '../../walkway';
 import { familie, loopZiel, planen, kantenId, type TraegerPlan, type Vec3 } from '../index';
 import type { TraegerFamilieText } from '../../../data/traeger';
 import { box, type Primitive } from '../../parametrik/types';
@@ -15,7 +16,7 @@ import { wegenetz, type Knoten } from '../../bibel/wege';
 /** Height of the elevated walkway level: two old-building floors. */
 export const HOCHWEG_M = 8;
 /** Width of a footbridge. */
-export const STEG_BREITE_M = 2.2;
+export const STEG_BREITE_M = WALKWAY_WIDTH_M;
 
 export type NetzKante = {
 	a: number;
@@ -182,26 +183,20 @@ export function wegePlan(
 	for (const e of kanten) {
 		const a = knoten[e.a],
 			b = knoten[e.b];
-		const dx = (b.x - a.x) / e.laenge,
-			dy = (b.y - a.y) / e.laenge;
-		const ende = [a.x + (b.x - a.x) * e.anteil, a.y + (b.y - a.y) * e.anteil];
-		// Visible edges keep their width; invisible ones collapse onto a point.
-		const halb = e.anteil > 0 ? STEG_BREITE_M / 2 : 0;
-		const ecke = (name: string, x: number, y: number, seite: number) => {
+		const z = a.ebene * 4;
+		const [a0, a1, b1, b0] = deckCorners(
+			[a.x, a.y, z],
+			[b.x, b.y, z],
+			STEG_BREITE_M,
+			e.anteil,
+			e.laenge
+		);
+		const corner = (name: string, p: Vec3) => {
 			const id = `weg:${e.target}:${name}`;
-			plan.knoten.push({
-				id,
-				p: [x - dy * halb * seite, y + dx * halb * seite, a.ebene * 4],
-				rolle: 'frei'
-			});
+			plan.knoten.push({ id, p, rolle: 'frei' });
 			return id;
 		};
-		const ring = [
-			ecke('a0', a.x, a.y, -1),
-			ecke('b0', ende[0], ende[1], -1),
-			ecke('b1', ende[0], ende[1], 1),
-			ecke('a1', a.x, a.y, 1)
-		];
+		const ring = [corner('a0', a0), corner('b0', b0), corner('b1', b1), corner('a1', a1)];
 		ring.forEach((id, i) => {
 			const next = ring[(i + 1) % 4];
 			plan.kanten.push({ id: kantenId(id, next), a: id, b: next, rolle: 'rand' });
@@ -283,28 +278,12 @@ export function hausAst(port: Vec3, tangente: [number, number] = [1, 0], laengeM
 		y + ty * u - tx * v,
 		h
 	];
-	return [
-		{
-			id: 'hochweg:haus-port',
-			kind: 'prism',
-			polygon: [at(-0.8, 0, z), at(0.8, 0, z), at(0.8, laengeM, z), at(-0.8, laengeM, z)].map(
-				([x, y]) => [x, y]
-			),
-			z: z - 0.25,
-			height: 0.25,
-			token: '--paper',
-			role: 'neu',
-			material: 'concrete'
-		},
-		...[-0.8, 0.8].map((u): Primitive => ({
-			id: `hochweg:haus-port:${u}`,
-			kind: 'polyline',
-			points: [at(u, 0, z + 1), at(u, laengeM, z + 1)],
-			token: '--paper',
-			role: 'neu',
-			material: 'metal'
-		}))
-	];
+	return deckParts(
+		[at(-0.8, 0, z), at(0.8, 0, z), at(0.8, laengeM, z), at(-0.8, laengeM, z)],
+		'hochweg:haus-port',
+		1.6,
+		'--paper'
+	);
 }
 
 /** Explicit circulation graph: shared honeycomb walls and its reserved vertical shaft.

@@ -5,7 +5,7 @@
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
-import { TREE_FORM, trunkRadius } from '../tree-forms';
+import { TREE_FORM, trunkRadius, crownParts, type CrownForm } from '../tree-forms';
 
 /** Order is part of the contract: the scene maps the kinds to texture channels. */
 export const COVER_KINDS = ['forest', 'field', 'meadow'] as const;
@@ -18,10 +18,10 @@ export type Cover = ReadonlyMap<string, CoverKind>;
 const TREE_SIZE = { min: 1.9, range: 1.9 };
 /** Share of the cell a tree keeps clear of the cell sides. */
 const CELL_MARGIN = 0.16;
-/** Conifers take over with height: none at `from` meters above the water, all at `to`. */
+/** Extra preference for conifers starts at `from` meters and reaches certainty at `to`. */
 const CONIFER_RANGE = { from: 3, to: 20 };
 const TONE_STEPS = [0, 0.07, 0.14];
-const CHANNEL = { along: 21, across: 22, size: 23, kind: 24, tone: 25 };
+const CHANNEL = { along: 21, across: 22, size: 23, kind: 24, tone: 25, form: 26 };
 
 /**
  * Sets or clears the cover of a cell. Returns a new map, or the input if nothing changes.
@@ -43,6 +43,17 @@ function cellPoint(cell: QuadCell, u: number, v: number): Vec3 {
 	return [mix(0), mix(1), mix(2)];
 }
 
+/** At low elevations the forest mixes crown forms. Higher sites favor cones. */
+function forestForm(seed: number, id: number, z: number): CrownForm {
+	const coniferShare = (z - CONIFER_RANGE.from) / (CONIFER_RANGE.to - CONIFER_RANGE.from);
+	if (hash(seed, id, CHANNEL.kind) < coniferShare) return 'cone';
+	const variety = hash(seed, id, CHANNEL.form);
+	if (variety < 0.15) return 'voxel';
+	if (variety < 0.3) return 'spiral';
+	if (variety < 0.4) return 'cone';
+	return 'ball';
+}
+
 function tree(seed: number, cell: QuadCell, slot: number): Primitive[] {
 	const id = cell.index * 4 + slot;
 	const share = (channel: number) => CELL_MARGIN + hash(seed, id, channel) * (1 - 2 * CELL_MARGIN);
@@ -51,26 +62,12 @@ function tree(seed: number, cell: QuadCell, slot: number): Primitive[] {
 	const trunk = s * TREE_FORM.trunkHeight * 0.5;
 	const shade = TONE_STEPS[Math.floor(hash(seed, id, CHANNEL.tone) * TONE_STEPS.length)];
 	const common = { role: 'neu', material: 'wood', shade } as const;
-	const coniferShare = (z - CONIFER_RANGE.from) / (CONIFER_RANGE.to - CONIFER_RANGE.from);
-	const conifer = hash(seed, id, CHANNEL.kind) < coniferShare;
-	const crown: Primitive = conifer
-		? {
-				...common,
-				id: `${cell.id}:tree${slot}`,
-				token: '--cat-nature',
-				kind: 'cone',
-				position: [x, y, z + trunk * 0.5],
-				radius: s * TREE_FORM.coneRadius,
-				height: s * TREE_FORM.coneHeight
-			}
-		: {
-				...common,
-				id: `${cell.id}:tree${slot}`,
-				token: '--cat-nature',
-				kind: 'sphere',
-				position: [x, y, z + trunk + s * TREE_FORM.ballRadius],
-				radius: s * TREE_FORM.ballRadius
-			};
+	const form = forestForm(seed, id, z);
+	const crown = crownParts(form, [x, y, z + (form === 'cone' ? trunk * 0.5 : trunk)], s, (i) => ({
+		...common,
+		id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`,
+		token: '--cat-nature'
+	}));
 	const stem: Primitive = {
 		...common,
 		id: `${cell.id}:trunk${slot}`,
@@ -81,7 +78,7 @@ function tree(seed: number, cell: QuadCell, slot: number): Primitive[] {
 		radius: trunkRadius(s),
 		height: trunk + s * TREE_FORM.trunkIntoCrown + 0.3
 	};
-	return [stem, crown];
+	return [stem, ...crown];
 }
 
 /**
