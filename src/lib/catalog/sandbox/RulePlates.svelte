@@ -1,18 +1,15 @@
 <script lang="ts">
 	import PrimitiveView from '../scene/PrimitiveView.svelte';
-	import { rulePlates } from '../logic/bibel/hausregel';
+	import type { RulePlate } from '../logic/bibel/hausregel';
 
-	/** One house rule on three grids, side by side, drawn by the bible's own primitive view. */
-	const plates = rulePlates();
+	/** Plates of the house rule side by side, drawn by the bible's own primitive view. */
+	let { title, text, plates }: { title: string; text: string; plates: RulePlate[] } = $props();
 </script>
 
-<svelte:head><title>One house rule, any grid · City Design System</title></svelte:head>
+<svelte:head><title>{title} · City Design System</title></svelte:head>
 <main>
-	<h1>One house rule, any grid</h1>
-	<p>
-		The same building program on three carriers. The rule reads only cells, sides and neighbors;
-		walls, windows, roof edges and crowns take their measure from each cell.
-	</p>
+	<h1>{title}</h1>
+	<p>{text}</p>
 	<div class="plates">
 		{#each plates as plate (plate.id)}
 			<figure>

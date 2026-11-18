@@ -4,7 +4,14 @@
  * that follow the contours on a slope. The house brush reads only the quad carrier contract,
  * so nothing in the rule knows which grid it stands on.
  */
-import { houseChunk, raise, type HouseUse, type Stacks } from '../house-brush';
+import {
+	houseChunk,
+	HOUSE_STYLES,
+	raise,
+	type HouseStyle,
+	type HouseUse,
+	type Stacks
+} from '../house-brush';
 import { createPatch } from '../parametrik/eckraster/topology';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { quadGrid, squareGrid, type QuadCell, type QuadGrid } from '../quad-grid';
@@ -157,4 +164,29 @@ export function rulePlates(): RulePlate[] {
 		plate('fan', 'Corner grid', 'Irregular quads of the five-sector fan.', fanGrid()),
 		plate('slope', 'Terrain grid', 'Cells that follow the contours at the creek.', slopeGrid())
 	];
+}
+
+const STYLE_TITLES: Record<HouseStyle, string> = {
+	terrace: 'Terrace',
+	totem: 'Totem',
+	megastructure: 'Megastructure',
+	collage: 'Collage'
+};
+
+/**
+ * Style study: the same building program on the same terrain cells, once per look of the
+ * house rule. Deterministic; detached primitives in meters.
+ */
+export function stylePlates(): RulePlate[] {
+	const grid = slopeGrid();
+	const stacks = paint(grid);
+	return HOUSE_STYLES.map((style) => ({
+		id: style,
+		title: STYLE_TITLES[style],
+		text: 'Same cells, same program.',
+		primitives: [
+			...outlines(grid),
+			...[...grid.chunks.keys()].flatMap((chunk) => houseChunk(grid, stacks, chunk, SEED, style))
+		]
+	}));
 }

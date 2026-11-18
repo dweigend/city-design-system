@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RulePlates from '#lib/catalog/sandbox/RulePlates.svelte';
+	import RulePage from '#lib/catalog/sandbox/RulePage.svelte';
 </script>
 
-<RulePlates />
+<RulePage />
