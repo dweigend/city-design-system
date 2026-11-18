@@ -65,66 +65,76 @@
 	}
 </script>
 
-<div class="hud">
-	<ToggleGroup.Root
-		type="single"
-		orientation="vertical"
-		value={session.tool.kind}
-		onValueChange={(value) => value && pickTool(value as SandboxToolId)}
-		class="cg-sandbox-tools"
-		aria-label="Tool"
-	>
-		{#each sandboxTools as tool (tool.id)}
-			<ToggleGroup.Item
-				value={tool.id}
-				class="cg-button"
-				data-variant="icon"
-				aria-label={tool.name}
-				aria-keyshortcuts={tool.shortcut}
-				title="{tool.name} ({tool.shortcut})"
+<div class="hud-group">
+	<div class="hud">
+		<ToggleGroup.Root
+			type="single"
+			orientation="vertical"
+			value={session.tool.kind}
+			onValueChange={(value) => value && pickTool(value as SandboxToolId)}
+			class="cg-sandbox-tools"
+			aria-label="Tool"
+		>
+			{#each sandboxTools as tool (tool.id)}
+				<ToggleGroup.Item
+					value={tool.id}
+					class="cg-button"
+					data-variant="icon"
+					aria-label={tool.name}
+					aria-keyshortcuts={tool.shortcut}
+					title="{tool.name} ({tool.shortcut})"
+				>
+					<Icon icon={icons[tool.id]} size={24} />
+				</ToggleGroup.Item>
+			{/each}
+		</ToggleGroup.Root>
+
+		{#if options.length}
+			<div class="options">
+				<SandboxOptions
+					label="{active?.name} options"
+					{options}
+					value={option}
+					onpick={pickOption}
+				/>
+			</div>
+		{/if}
+
+		<div class="history">
+			<Button
+				variant="icon"
+				label="Undo"
+				shortcut="Control+Z"
+				disabled={!session.canUndo}
+				onclick={session.undo}
 			>
-				<Icon icon={icons[tool.id]} size={24} />
-			</ToggleGroup.Item>
-		{/each}
-	</ToggleGroup.Root>
-
-	{#if options.length}
-		<div class="options">
-			<SandboxOptions label="{active?.name} options" {options} value={option} onpick={pickOption} />
+				{#snippet icon()}<Icon icon={Undo2} size={24} />{/snippet}
+			</Button>
+			<Button
+				variant="icon"
+				label="Redo"
+				shortcut="Control+Shift+Z"
+				disabled={!session.canRedo}
+				onclick={session.redo}
+			>
+				{#snippet icon()}<Icon icon={Redo2} size={24} />{/snippet}
+			</Button>
+			<Button
+				variant="icon"
+				label="New terrain"
+				onclick={() => session.restart(session.world.seed + 1)}
+			>
+				{#snippet icon()}<Icon icon={Dices} size={24} />{/snippet}
+			</Button>
 		</div>
-	{/if}
-
-	<div class="history">
-		<Button
-			variant="icon"
-			label="Undo"
-			shortcut="Control+Z"
-			disabled={!session.canUndo}
-			onclick={session.undo}
-		>
-			{#snippet icon()}<Icon icon={Undo2} size={24} />{/snippet}
-		</Button>
-		<Button
-			variant="icon"
-			label="Redo"
-			shortcut="Control+Shift+Z"
-			disabled={!session.canRedo}
-			onclick={session.redo}
-		>
-			{#snippet icon()}<Icon icon={Redo2} size={24} />{/snippet}
-		</Button>
-		<Button
-			variant="icon"
-			label="New terrain"
-			onclick={() => session.restart(session.world.seed + 1)}
-		>
-			{#snippet icon()}<Icon icon={Dices} size={24} />{/snippet}
-		</Button>
 	</div>
+	{#if active}<p class="hint">{active.hint}</p>{/if}
 </div>
-{#if active}<p class="hint">{active.hint}</p>{/if}
 
 <style>
+	.hud-group {
+		display: contents;
+	}
 	.hud {
 		position: absolute;
 		top: 50%;
@@ -176,11 +186,19 @@
 	}
 	/* Narrow screens: the tools lie along the bottom edge, options above them. */
 	@media (max-width: 640px) {
-		.hud {
-			top: auto;
-			right: var(--space-2);
+		.hud-group {
+			position: absolute;
 			left: var(--space-2);
+			right: var(--space-2);
 			bottom: var(--space-2);
+			display: flex;
+			flex-direction: column-reverse;
+			align-items: stretch;
+			gap: var(--space-2);
+			pointer-events: none;
+		}
+		.hud {
+			position: static;
 			translate: none;
 			grid-template-columns: 1fr auto;
 			grid-template-areas: 'options options' 'tools history';
@@ -197,8 +215,11 @@
 			margin-left: calc(-1 * var(--hair));
 		}
 		.hint {
-			top: var(--space-16);
-			bottom: auto;
+			position: static;
+			translate: none;
+			max-width: 100%;
+			justify-self: center;
+			align-self: center;
 		}
 	}
 </style>

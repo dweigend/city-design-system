@@ -3,7 +3,8 @@ import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { routeLine, type TransitLine } from '../transit-line';
-import { EMPTY_STATE, type Edit, type LineStroke, type SandboxState, type Store } from './state';
+import { seedTown, type TownOptions } from './old-town';
+import { type Edit, type LineStroke, type SandboxState, type Store, type StoryPart } from './state';
 
 /** Radius of a dug basin around its cell, meters. */
 const DIG_RADIUS = 9;
@@ -17,13 +18,15 @@ export type World = Readonly<{
 	state: SandboxState;
 	grid: TerrainGrid;
 	/** Routes of `state.lines` on the current grid; a stroke too short to route is absent. */
-	lines: readonly TransitLine[];
+	lines: readonly BuiltLine[];
 }>;
 
-function route(grid: TerrainGrid, strokes: readonly LineStroke[]): TransitLine[] {
+export type BuiltLine = TransitLine & { year: number };
+
+function route(grid: TerrainGrid, strokes: readonly LineStroke[]): BuiltLine[] {
 	return strokes.flatMap((stroke) => {
 		const line = routeLine(grid, { id: stroke.id, kind: stroke.transit, cellIds: stroke.cellIds });
-		return line ? [line] : [];
+		return line ? [{ ...line, year: stroke.year }] : [];
 	});
 }
 
@@ -37,22 +40,23 @@ const stored = (store: Store, use: HouseUse, count: number): Store => ({
  * go to the material store, their cover goes. Returns the input if nothing has to yield.
  */
 function settle(grid: TerrainGrid, state: SandboxState): SandboxState {
-	let { stacks, cover, store } = state;
+	let { stacks, cover, store, storyParts } = state;
 	for (const cellId of [...stacks.keys(), ...cover.keys()]) {
 		if (grid.cellsById.get(cellId)?.buildable) continue;
 		for (const use of storiesOf(stacks, cellId)) store = stored(store, use, 1);
+		storyParts = partsAt(storyParts, cellId, []);
 		while (storiesOf(stacks, cellId).length) stacks = lower(stacks, cellId);
 		cover = setCover(cover, cellId, undefined);
 	}
 	return stacks === state.stacks && cover === state.cover
 		? state
-		: { ...state, stacks, cover, store };
+		: { ...state, stacks, cover, store, storyParts };
 }
 
-/** A new, empty world on the terrain of a seed. */
-export function createWorld(seed: number): World {
+/** A new world with a seeded old town on the terrain of a seed. */
+export function createWorld(seed: number, options?: TownOptions): World {
 	const grid = deriveGrid(createTerrain({ seed }));
-	return { seed: grid.terrain.seed, state: EMPTY_STATE, grid, lines: [] };
+	return { seed: grid.terrain.seed, state: seedTown(grid, options), grid, lines: [] };
 }
 
 /**
@@ -74,18 +78,27 @@ export function withState(world: World, state: SandboxState): World {
 	};
 }
 
-/** Next free line identity: one above the highest number in use. */
-function nextLineId(lines: readonly LineStroke[]): string {
-	const highest = Math.max(0, ...lines.map((line) => Number(line.id.slice('line'.length))));
-	return `line${highest + 1}`;
+function partsAt(source: SandboxState['storyParts'], id: string, parts: readonly StoryPart[]) {
+	const next = new Map(source);
+	if (parts.length) next.set(id, parts);
+	else next.delete(id);
+	return next;
 }
-
 function raiseStory(state: SandboxState, cell: TerrainCell, use: HouseUse): SandboxState {
 	const stacks = cell.buildable ? raise(state.stacks, cell.id, use) : state.stacks;
 	if (stacks === state.stacks) return state;
 	// A house replaces what grew on its cell and takes its module from the store first.
 	return {
 		...state,
+		nextAction: state.nextAction + 1,
+		storyParts: partsAt(state.storyParts, cell.id, [
+			...(state.storyParts.get(cell.id) ?? []),
+			{
+				id: 'p/' + state.nextAction + '/0',
+				anchor: { cellId: cell.id, level: storiesOf(state.stacks, cell.id).length },
+				built: state.year
+			}
+		]),
 		stacks,
 		cover: setCover(state.cover, cell.id, undefined),
 		store: stored(state.store, use, -1)
@@ -99,7 +112,16 @@ function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
 	const stories = storiesOf(state.stacks, cell.id);
 	if (stories.length) {
 		const use = stories[stories.length - 1];
-		return { ...state, stacks: lower(state.stacks, cell.id), store: stored(state.store, use, 1) };
+		return {
+			...state,
+			storyParts: partsAt(
+				state.storyParts,
+				cell.id,
+				state.storyParts.get(cell.id)?.slice(0, -1) ?? []
+			),
+			stacks: lower(state.stacks, cell.id),
+			store: stored(state.store, use, 1)
+		};
 	}
 	if (state.cover.has(cell.id))
 		return { ...state, cover: setCover(state.cover, cell.id, undefined) };
@@ -109,7 +131,11 @@ function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
 	return edits.length === state.edits.length ? state : { ...state, edits };
 }
 
-function cellEdit(state: SandboxState, cell: TerrainCell, edit: Exclude<Edit, { kind: 'line' }>) {
+function cellEdit(
+	state: SandboxState,
+	cell: TerrainCell,
+	edit: Exclude<Edit, { kind: 'line' | 'advance' }>
+) {
 	if (edit.kind === 'raise') return raiseStory(state, cell, edit.use);
 	if (edit.kind === 'clear') return clearCell(state, cell);
 	if (edit.kind === 'dig') {
@@ -127,10 +153,16 @@ function cellEdit(state: SandboxState, cell: TerrainCell, edit: Exclude<Edit, { 
 
 function nextState(world: World, edit: Edit): SandboxState {
 	const { state } = world;
+	if (edit.kind === 'advance') return { ...state, year: state.year + 1 };
 	if (edit.kind === 'line') {
-		const stroke = { id: nextLineId(state.lines), transit: edit.transit, cellIds: edit.cellIds };
+		const stroke = {
+			year: state.year,
+			id: 'line' + state.nextAction,
+			transit: edit.transit,
+			cellIds: edit.cellIds
+		};
 		return route(world.grid, [stroke]).length
-			? { ...state, lines: [...state.lines, stroke] }
+			? { ...state, nextAction: state.nextAction + 1, lines: [...state.lines, stroke] }
 			: state;
 	}
 	const cell = world.grid.cellsById.get(edit.cellId);
@@ -144,5 +176,5 @@ function nextState(world: World, edit: Edit): SandboxState {
  */
 export function applyEdit(world: World, edit: Edit): World {
 	const next = withState(world, nextState(world, edit));
-	return next === world ? world : withState(next, settle(next.grid, next.state));
+	return next.grid === world.grid ? next : withState(next, settle(next.grid, next.state));
 }

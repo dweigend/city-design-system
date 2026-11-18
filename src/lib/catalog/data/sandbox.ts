@@ -79,3 +79,25 @@ export const sandboxZones = {
 	'upper-terrace': 'Upper terrace',
 	ridge: 'Ridge'
 } as const;
+
+/** Ascending inclusive boundaries of the sandbox's architectural epochs. */
+export const sandboxEpochs = [
+	{ from: 1900, style: 'collage' },
+	{ from: 1980, style: 'megastructure' },
+	{ from: 2026, style: 'totem' }
+] as const;
+
+/** Starter town parameters. Distances in the carrier chart are in cells. */
+export const townDefaults = {
+	year: 2026,
+	stockYear: 1900,
+	cells: 210,
+	centerMin: 0.4,
+	centerRange: 0.2,
+	frontageDepth: 2,
+	gardenShare: 0.16,
+	alongScale: 1.6,
+	inlandRows: 7,
+	depthPenalty: 1.5,
+	maxFloors: 3
+};

@@ -43,6 +43,21 @@ export function createStructures() {
 	};
 	const materials = {
 		solid: surface(),
+		stock: new THREE.MeshBasicNodeMaterial({
+			color: paper,
+			polygonOffset: true,
+			polygonOffsetFactor: 1,
+			polygonOffsetUnits: 1
+		}),
+		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
+		pencil: new THREE.Line2NodeMaterial({ linewidth: 0.65 }),
+		ghostEdge: new THREE.Line2NodeMaterial({ linewidth: 0.4, transparent: true, opacity: 0.22 }),
+		ghost: new THREE.MeshBasicNodeMaterial({
+			transparent: true,
+			opacity: 0.16,
+			depthWrite: false,
+			side: THREE.DoubleSide
+		}),
 		sheet: surface({ side: THREE.DoubleSide }),
 		glass: surface({
 			transparent: true,
@@ -54,6 +69,7 @@ export function createStructures() {
 		crease: new THREE.Line2NodeMaterial({ color: ink, linewidth: STROKE_PX.crease })
 	};
 	const outlinePx = uniform(STROKE_PX.outline);
+	materials.pencilHull.vertexNode = outlinePosition(uniform(0.5));
 	materials.hull.vertexNode = outlinePosition(outlinePx);
 	materials.crease.transparent = true;
 
@@ -70,7 +86,10 @@ export function createStructures() {
 
 	function build(primitives: Primitive[]): THREE.Group {
 		const objects = new THREE.Group();
-		const parts = batch(primitives, colorOf);
+		const parts = batch(
+			primitives.filter((p) => p.material !== 'ghost'),
+			colorOf
+		);
 		const mesh = (faces: typeof parts.neu, material: THREE.Material, shadow: boolean) => {
 			if (!faces.p.length) return undefined;
 			const object = new THREE.Mesh(geometryOf(faces), material);
@@ -78,18 +97,26 @@ export function createStructures() {
 			objects.add(object);
 			return object;
 		};
-		objects.userData.solid = mesh(parts.neu, materials.solid, true);
+		const hits = [mesh(parts.neu, materials.solid, true), mesh(parts.alt, materials.stock, false)];
+		mesh(parts.hull.alt, materials.pencilHull, false);
+		const ghosts = batch(
+			primitives.filter((p) => p.material === 'ghost'),
+			colorOf
+		);
+		for (const faces of [ghosts.alt, ghosts.blatt, ghosts.neu, ghosts.glas])
+			hits.push(mesh(faces, materials.ghost, false));
+		objects.userData.hits = hits.filter(Boolean);
+		const lines = (segments: number[], material: THREE.Line2NodeMaterial) => {
+			if (segments.length)
+				objects.add(new LineSegments2(new LineSegmentsGeometry().setPositions(segments), material));
+		};
+		lines(parts.kanten.alt, materials.pencil);
+		lines(ghosts.kanten.alt, materials.ghostEdge);
 		mesh(parts.blatt, materials.sheet, true);
 		// The ink silhouette is an inverted hull over every solid, not only over round parts.
 		mesh(parts.neu, materials.hull, false);
 		mesh(parts.glas, materials.glass, false);
-		if (parts.kanten.neu.length)
-			objects.add(
-				new LineSegments2(
-					new LineSegmentsGeometry().setPositions(parts.kanten.neu),
-					materials.crease
-				)
-			);
+		lines(parts.kanten.neu, materials.crease);
 		return objects;
 	}
 
@@ -116,8 +143,8 @@ export function createStructures() {
 		/** Solid meshes of every key with the given prefix, for ray casting. */
 		solids(prefix: string): THREE.Mesh[] {
 			return [...entries]
-				.filter(([key, entry]) => key.startsWith(prefix) && entry.objects.userData.solid)
-				.map(([, entry]) => entry.objects.userData.solid as THREE.Mesh);
+				.filter(([key]) => key.startsWith(prefix))
+				.flatMap(([, entry]) => entry.objects.userData.hits as THREE.Mesh[]);
 		},
 		/** Applies theme colors. Colors are baked per vertex, so every key is rebuilt once. */
 		setPalette(palette: Palette3D) {
@@ -127,6 +154,11 @@ export function createStructures() {
 			categories = Object.fromEntries(
 				Object.entries(palette.categories).map(([name, value]) => [name, new THREE.Color(value)])
 			);
+			materials.stock.color.copy(paper);
+			materials.pencil.color.copy(paper).lerp(ink, 0.52);
+			materials.pencilHull.color.copy(materials.pencil.color);
+			materials.ghostEdge.color.copy(materials.pencil.color);
+			materials.ghost.color.copy(paper).lerp(ink, 0.28);
 			materials.hull.color.copy(ink);
 			materials.crease.color.copy(ink);
 			for (const [key, entry] of [...entries]) set(key, entry.primitives);

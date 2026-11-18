@@ -9,6 +9,7 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import type { Palette3D } from '../../data/city3d';
 import { bindSceneTheme } from '../themeBinding';
 import type { Vec3 } from '../../logic/parametrik/types';
+import type { FocusId } from '../../logic/presentation';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { cellAtPoint } from '../../logic/terrain-grid';
 import { createLight } from './light';
@@ -52,6 +53,7 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 	let cursorTone: CursorTone = 'signal';
 	let terrain: TerrainMesh | undefined;
 	/** The world the stage currently shows; the next one is drawn as a difference to it. */
+	let focus: FocusId = 'all';
 	let shown: World | undefined;
 	let palette: Palette3D | undefined;
 	let planView = false;
@@ -111,12 +113,15 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		return { ...world, state: EMPTY_STATE, lines: [] };
 	}
 
+	function alreadyShown(world: World, nextFocus: FocusId) {
+		return world === shown && nextFocus === focus;
+	}
 	function previousWorld(world: World): World {
 		return shown && shown.seed === world.seed ? shown : open(world);
 	}
 
-	function updateWorld(mesh: TerrainMesh, before: World, after: World) {
-		projectChanges({ terrain: mesh, structures }, before, after);
+	function updateWorld(mesh: TerrainMesh, before: World, after: World, nextFocus: FocusId) {
+		projectChanges({ terrain: mesh, structures }, before, after, nextFocus, nextFocus !== focus);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
 	}
 
@@ -148,11 +153,12 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		 * Shows a world. A new seed starts over; otherwise only what differs from the world
 		 * shown before is drawn again.
 		 */
-		show(world: World) {
-			if (world === shown) return;
+		show(world: World, nextFocus: FocusId) {
+			if (alreadyShown(world, nextFocus)) return;
 			const before = previousWorld(world);
 			if (!terrain) return;
-			updateWorld(terrain, before, world);
+			updateWorld(terrain, before, world, nextFocus);
+			focus = nextFocus;
 			shown = world;
 			canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
 			render();
