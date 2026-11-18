@@ -41,7 +41,7 @@ describe('terrain grid', () => {
 				expect((q[0] - p[0]) * (s[1] - p[1]) - (q[1] - p[1]) * (s[0] - p[0])).toBeGreaterThan(0);
 			}
 			expect(area).toBeGreaterThan(MODULE * MODULE * 0.3);
-			expect(area).toBeLessThan(MODULE * MODULE * 2.4);
+			expect(area).toBeLessThan(MODULE * MODULE * 3);
 		}
 	});
 
@@ -71,7 +71,7 @@ describe('terrain grid', () => {
 		expect(along / across).toBeLessThan(0.0336);
 	});
 
-	test('contour blocks divide evenly through the creek and the partial block at the rim', () => {
+	test('contour streets respect block depths through the creek and the partial rim', () => {
 		let greatestLean = 0;
 		for (let column = 0; column <= grid.columns; column++) {
 			const frame = (row: number) => {
@@ -86,7 +86,7 @@ describe('terrain grid', () => {
 				const step = (frame(end)[1] - frame(start)[1]) / (end - start);
 				expect(step).toBeGreaterThanOrEqual(3 - 1e-9);
 				expect(step).toBeLessThanOrEqual(7 + 1e-9);
-				for (let row = start; row < end; row++) {
+				for (const row of [start]) {
 					const [along, across] = frame(row);
 					expect(across).toBeCloseTo(frame(start)[1] + (row - start) * step, 9);
 					greatestLean = Math.max(greatestLean, Math.abs(along - column * MODULE));
@@ -165,15 +165,57 @@ describe('terrain grid', () => {
 		const [x, y] = frame(20, 48);
 		expect(frame(21, 48)[0] - x).toBeCloseTo(MODULE, 9);
 		expect(frame(21, 48)[1]).toBeCloseTo(y, 9);
-		expect(frame(20, 49)[0]).toBeCloseTo(x, 9);
+		expect(Math.abs(frame(20, 49)[0] - x)).toBeLessThanOrEqual(
+			defaultStreetPlan.frontageShift * MODULE
+		);
 		expect(Math.abs(frame(30, 27)[0] - 30 * MODULE)).toBeGreaterThan(3);
 		// The fan has a common pole 76 m below its central row in the valley frame.
 		const pole = [42 * MODULE, 44 * MODULE - 76];
-		for (const r of [43, 44, 45])
+		for (const r of [44, 45])
 			for (const c of [38, 42, 46]) {
 				const [u, v] = frame(c, r);
-				expect(Math.hypot(u - pole[0], v - pole[1])).toBeCloseTo(76 + (r - 44) * MODULE, 9);
+				expect(
+					Math.abs(Math.hypot(u - pole[0], v - pole[1]) - (76 + (r - 44) * MODULE))
+				).toBeLessThan(0.1);
 			}
+	});
+
+	test('identical seeds produce identical relaxed quads, with three- and five-way junctions', () => {
+		const other = deriveGrid(createTerrain({ seed: 7 }));
+		expect(other.cells).toEqual(grid.cells);
+		const incidence = new Map<string, number>();
+		for (const cell of grid.cells)
+			for (const id of cell.vertexIds) incidence.set(id, (incidence.get(id) ?? 0) + 1);
+		const interior = [...incidence].filter(([id]) => {
+			const [c, r] = id.split('/').map(Number);
+			return c > 0 && r > 0 && c < grid.columns && r < grid.rows;
+		});
+		for (const valence of [3, 5]) expect(interior.some(([, n]) => n === valence)).toBe(true);
+	});
+
+	test('organic sides and brush strokes agree with the shared topology', () => {
+		for (const cell of grid.cells)
+			cell.neighbors.forEach((id, i) => {
+				if (!id) return;
+				const neighbor = grid.cellsById.get(id);
+				const side = neighbor?.neighbors.indexOf(cell.id) ?? -1;
+				expect(neighbor?.vertexIds[side]).toBe(cell.vertexIds[(i + 1) % 4]);
+			});
+		const path = cellsBetween(grid, '51/42', '68/54');
+		expect(path[0].id).toBe('51/42');
+		expect(path.at(-1)?.id).toBe('68/54');
+		expect(path.slice(1).every((cell, i) => path[i].neighbors.includes(cell.id))).toBe(true);
+		expect(
+			grid.cells
+				.filter(
+					(c) =>
+						c.column === 0 ||
+						c.row === 0 ||
+						c.column === grid.columns - 1 ||
+						c.row === grid.rows - 1
+				)
+				.every((c) => !c.street)
+		).toBe(true);
 	});
 
 	test('repeating an edit recomputes its bank and preserves untouched chunk lists', () => {

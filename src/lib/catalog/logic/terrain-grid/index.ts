@@ -1,4 +1,6 @@
-import { defaultStreetPlan } from './street-profile';
+import { blockPatches } from './block-patch';
+import { required } from '../required';
+import { defaultStreetPlan, parcelProfile } from './street-profile';
 import { streetPlan } from './street-plan';
 export { defaultStreetPlan };
 /**
@@ -44,19 +46,36 @@ const latticeOf = (terrain: Terrain, profile = defaultStreetPlan): Lattice => ({
 	rows: Math.floor(terrain.across / MODULE)
 });
 
+type Patches = ReturnType<typeof blockPatches>;
+
 function columnVertices(
 	lattice: Lattice,
 	column: number,
-	shifts: Float64Array,
-	leans: Float64Array,
+	patches: Patches,
 	previous?: readonly Vec3[]
 ): Vec3[] {
-	return Array.from(shifts, (shift, row): Vec3 => {
-		const [along, across] = patternOffsets(lattice, column, row, leans[row], shift);
-		const [x, y] = valleyPoint(lattice.terrain, column * MODULE + along, row * MODULE + across);
+	return Array.from({ length: lattice.rows + 1 }, (_, row): Vec3 => {
+		const { patch, id } = patches(column, row);
+		const [x, y] = required(patch.positions.get(id), 'relaxed vertex');
 		const old = previous?.[row],
 			z = terrainHeight(lattice.terrain, x, y);
 		return old && old[0] === x && old[1] === y && old[2] === z ? old : [x, y, z];
+	});
+}
+
+function contourPatches(lattice: Lattice, from: number, to: number) {
+	const shifts = rowShifts(lattice, from, to);
+	const crossings = new Map<number, Float64Array>();
+	const leans = new Map([...shifts.keys()].map((c) => [c, columnLeans(lattice, c, crossings)]));
+	return blockPatches(lattice, (c, r) => {
+		const [dx, dy] = patternOffsets(
+			lattice,
+			c,
+			r,
+			required(leans.get(c), 'contour lean')[r],
+			required(shifts.get(c), 'contour shift')[r]
+		);
+		return valleyPoint(lattice.terrain, c * MODULE + dx, r * MODULE + dy);
 	});
 }
 
@@ -65,19 +84,34 @@ function makeCell(
 	vertices: readonly (readonly Vec3[])[],
 	column: number,
 	row: number,
+	patches: Patches,
 	old?: TerrainCell,
 	edits: readonly TerrainEdit[] = []
 ): TerrainCell {
-	const vertex = (c: number, r: number) => vertices[c][r];
-	const corners = [
-		vertex(column, row),
-		vertex(column + 1, row),
-		vertex(column + 1, row + 1),
-		vertex(column, row + 1)
-	] as const;
+	const { patch, x, y, id } = patches(column, row);
+	const face = required(patch.faces.get(id), 'organic parcel');
+	const point = (i: number) => {
+		const [c, r] = face.vertices[i];
+		return vertices[x + c][y + r];
+	};
+	const corners = [point(0), point(1), point(2), point(3)] as const;
+	const vertexId = (i: number) => cellId(x + face.vertices[i][0], y + face.vertices[i][1]);
+	const vertexIds = [vertexId(0), vertexId(1), vertexId(2), vertexId(3)] as const;
+	const adjacent = (i: number) => {
+		const local = face.neighbors[i];
+		if (local) return cellId(x + local[0], y + local[1]);
+		const [c, r] = [
+			[column, row - 1],
+			[column + 1, row],
+			[column, row + 1],
+			[column - 1, row]
+		][i];
+		return c >= 0 && c < lattice.columns && r >= 0 && r < lattice.rows ? cellId(c, r) : null;
+	};
+	const neighbors = [adjacent(0), adjacent(1), adjacent(2), adjacent(3)] as const;
 	if (
 		old &&
-		corners.every((p, i) => p === old.corners[i]) &&
+		corners.every((p, i) => p === old.corners[i] && neighbors[i] === old.neighbors[i]) &&
 		!edits.some(
 			(edit) =>
 				Math.hypot(old.center[0] - edit.center[0], old.center[1] - edit.center[1]) <=
@@ -85,16 +119,18 @@ function makeCell(
 		)
 	)
 		return old;
-	return describeCell(lattice, corners, column, row);
+	return describeCell(lattice, corners, column, row, vertexIds, neighbors);
 }
 
 function describeCell(
 	lattice: Lattice,
 	corners: TerrainCell['corners'],
 	column: number,
-	row: number
+	row: number,
+	vertexIds: TerrainCell['vertexIds'],
+	neighbors: TerrainCell['neighbors']
 ): TerrainCell {
-	const { terrain, columns, rows } = lattice;
+	const { terrain, columns } = lattice;
 	const x = (corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]) / 4;
 	const y = (corners[0][1] + corners[1][1] + corners[2][1] + corners[3][1]) / 4;
 	const level = groundLevel(terrain, x, y);
@@ -109,8 +145,6 @@ function describeCell(
 		lattice.profile
 	);
 	const street = plan.direction;
-	const neighbor = (c: number, r: number) =>
-		c < 0 || r < 0 || c >= columns || r >= rows ? null : cellId(c, r);
 	return {
 		id: cellId(column, row),
 		pattern,
@@ -121,19 +155,9 @@ function describeCell(
 		column,
 		row,
 		corners,
-		vertexIds: [
-			cellId(column, row),
-			cellId(column + 1, row),
-			cellId(column + 1, row + 1),
-			cellId(column, row + 1)
-		],
+		vertexIds,
 		center: [x, y, terrainHeight(terrain, x, y)],
-		neighbors: [
-			neighbor(column, row - 1),
-			neighbor(column + 1, row),
-			neighbor(column, row + 1),
-			neighbor(column - 1, row)
-		],
+		neighbors,
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
@@ -152,20 +176,16 @@ function derive(
 ): TerrainGrid {
 	const { columns, rows } = lattice;
 	const data = columnStorage(previous);
-	const crossings = new Map<number, Float64Array>();
-	for (const [column, shifts] of rowShifts(lattice, from, to))
-		data.vertices[column] = columnVertices(
-			lattice,
-			column,
-			shifts,
-			columnLeans(lattice, column, crossings),
-			data.vertices[column]
-		);
-	const first = Math.max(0, from - 1),
-		last = Math.min(columns - 1, to);
+	const first = Math.max(0, Math.floor((from - 1) / BLOCK.columns) * BLOCK.columns);
+	const end = Math.min(columns, Math.ceil((to + 1) / BLOCK.columns) * BLOCK.columns);
+	const last = end - 1;
+	// The final seam is fixed and sampled by the block on its right.
+	const patches = contourPatches(lattice, first, Math.min(columns, end + BLOCK.columns));
+	for (let c = first; c <= end; c++)
+		data.vertices[c] = columnVertices(lattice, c, patches, data.vertices[c]);
 	for (let c = first; c <= last; c++)
 		data.cells[c] = Array.from({ length: rows }, (_, r) =>
-			makeCell(lattice, data.vertices, c, r, data.cells[c]?.[r], edits)
+			makeCell(lattice, data.vertices, c, r, patches, data.cells[c]?.[r], edits)
 		);
 	return assemble(lattice.terrain, lattice.profile, data, first, last, previous);
 }
@@ -175,7 +195,7 @@ function derive(
  * grid, with row-major arrays materialized on their first bulk read.
  */
 export function deriveGrid(terrain: Terrain, profile = defaultStreetPlan): TerrainGrid {
-	const lattice = latticeOf(terrain, profile);
+	const lattice = latticeOf(terrain, { ...profile, ...parcelProfile(profile) });
 	return derive(lattice, 0, lattice.columns);
 }
 

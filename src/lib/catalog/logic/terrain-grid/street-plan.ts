@@ -1,3 +1,5 @@
+import { townDefaults } from '../../data/sandbox';
+import { hashUnit } from '../parzelle';
 import type { QuadCell } from '../quad-grid';
 import type { Terrain, TerrainZone } from '../terrain';
 import { BLOCK, MODULE } from './contour-rows';
@@ -6,6 +8,16 @@ import type { Pattern } from './patterns';
 import { defaultStreetPlan } from './street-profile';
 type Profile = typeof defaultStreetPlan;
 type Site = { corners: QuadCell['corners']; zone: TerrainZone; pattern: Pattern; incision: number };
+
+/** Fraction of the seeded settlement envelope at a chart address. */
+export function settlementExtent(terrain: Terrain, column: number, row: number, profile: Profile) {
+	const center = townDefaults.centerMin + townDefaults.centerRange * hashUnit(terrain.seed, 'town');
+	const dx = ((column * MODULE) / terrain.along - center) / profile.settlementWidth;
+	const dy =
+		(row * MODULE - (terrain.bands.riverEnd + terrain.bands.scarpEnd) / 2) /
+		(terrain.across * profile.settlementReach);
+	return Math.max(0, Math.min(1, (1 - Math.hypot(dx, dy)) * BLOCK.rows));
+}
 
 /** Classifies the circulation and reserved ground at a stable lattice address. */
 export function streetPlan(
@@ -26,13 +38,15 @@ export function streetPlan(
 	const square = nodeSquare(site, column, phase, profile);
 	const open =
 		site.zone === 'water' || grade(b) > profile.ravineGrade || site.incision > profile.ravineDepth;
-	const direction = bridge || !open ? directionAt(along, across || bridge) : null;
+	const extent = settlementExtent(terrain, column, row, profile);
+	const direction = (bridge || !open) && extent > 0 ? directionAt(along, across || bridge) : null;
 	const width = streetWidth(row === bank, along, steep, profile);
 	return {
 		direction,
 		width: direction ? width : 0,
-		bridge,
-		square: square && !open,
+		extent,
+		bridge: bridge && extent > 0,
+		square: square && !open && extent > 0,
 		open,
 		stairs: !!direction && steep && across && column % (2 * BLOCK.columns) === 0
 	};
