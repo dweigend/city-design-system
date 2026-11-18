@@ -1,13 +1,11 @@
 import { required } from '../../../../required';
 import { area, length, sub } from './geometry';
 import { edgeId, type Intent, type Vec } from './types';
-/** Jacobi proposals on source points; exterior and fixed points stay put. */
-export function relax(intent: Intent, iterations: number): Intent {
-	if (!iterations) return intent;
+type Rings = readonly (readonly string[])[];
+function neighborhood(intent: Intent, rings: Rings) {
 	const nb = new Map<string, Set<string>>(),
 		counts = new Map<string, number>(),
-		ends = new Map<string, [string, string]>(),
-		rings = [...intent.faces.values()].flatMap((f) => f.parts ?? [f.ring]);
+		ends = new Map<string, [string, string]>();
 	for (const ring of rings)
 		ring.forEach((a, i) => {
 			const b = ring[(i + 1) % ring.length],
@@ -22,27 +20,38 @@ export function relax(intent: Intent, iterations: number): Intent {
 	const fixed = new Set(intent.fixed);
 	for (const [key, n] of counts)
 		if (n === 1) required(ends.get(key), 'ends.get(key)').forEach((v) => fixed.add(v));
-	const quality = (ps: ReadonlyMap<string, Vec>) =>
-		Math.min(
-			...rings.map((ring) => {
-				const ps0 = ring.map((v) => required(ps.get(v), 'ps.get(v)'));
-				if (area(ps0) <= 0) return -Infinity;
-				return Math.min(
-					...ps0.map((p, i) => {
-						const a = sub(ps0[(i + ps0.length - 1) % ps0.length], p),
-							b = sub(ps0[(i + 1) % ps0.length], p);
-						const cross = a[0] * b[1] - a[1] * b[0];
-						const angle =
-							(Math.acos(
-								Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (length(a) * length(b))))
-							) *
-								180) /
-							Math.PI;
-						return cross > 0 ? 360 - angle : angle;
-					})
-				);
-			})
-		);
+	return { nb, fixed };
+}
+
+function minimumAngle(rings: Rings, ps: ReadonlyMap<string, Vec>) {
+	return Math.min(
+		...rings.map((ring) => {
+			const ps0 = ring.map((v) => required(ps.get(v), 'ps.get(v)'));
+			if (area(ps0) <= 0) return -Infinity;
+			return Math.min(
+				...ps0.map((p, i) => {
+					const a = sub(ps0[(i + ps0.length - 1) % ps0.length], p),
+						b = sub(ps0[(i + 1) % ps0.length], p);
+					const cross = a[0] * b[1] - a[1] * b[0];
+					const angle =
+						(Math.acos(
+							Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (length(a) * length(b))))
+						) *
+							180) /
+						Math.PI;
+					return cross > 0 ? 360 - angle : angle;
+				})
+			);
+		})
+	);
+}
+
+/** Jacobi proposals on source points; exterior and fixed points stay put. */
+export function relax(intent: Intent, iterations: number): Intent {
+	if (!iterations) return intent;
+	const rings = [...intent.faces.values()].flatMap((f) => f.parts ?? [f.ring]);
+	const { nb, fixed } = neighborhood(intent, rings);
+	const quality = (ps: ReadonlyMap<string, Vec>) => minimumAngle(rings, ps);
 	let positions = intent.positions;
 	const limit = Math.min(quality(positions), 12);
 	for (let pass = 0; pass < Math.min(6, Math.max(0, Math.round(iterations))); pass++)
