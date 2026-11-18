@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DesignShell from './DesignShell.svelte';
+	import { resolve } from '$app/paths';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
 	import LayerDiagram from '../bibel/LayerDiagram.svelte';
 	import PrincipleList from '../bibel/PrincipleList.svelte';
@@ -41,6 +42,7 @@
 	</Abschnitt>
 	<Abschnitt id={Lab.leitstil.id} titel={Lab.leitstil.titel} lead={Lab.leitstil.lead}>
 		<LeitstilSpektrum />
+		<a href={resolve('/labor/references')}>Reference studies</a>
 	</Abschnitt>
 </DesignShell>
 

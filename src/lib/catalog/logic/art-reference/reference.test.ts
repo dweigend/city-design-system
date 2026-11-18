@@ -1,3 +1,4 @@
+// @ts-expect-error Bun supplies its test API at runtime.
 import { expect, test } from 'bun:test';
 import { composeCollage, buildVessel } from './index';
 const cell = [
@@ -34,13 +35,14 @@ test('seed replay reproduces layouts and profiles', () => {
 	}
 });
 test('the pierced body stays inside its support disc at every elevation', () => {
-	const vessel = buildVessel(cell, 2)!;
+	const vessel = buildVessel(cell, 2);
+	if (!vessel) throw new Error('Expected a vessel on the notched plot');
 	for (const ring of vessel.rings) {
 		expect(Math.abs(ring.offset) + ring.outer).toBeLessThanOrEqual(vessel.base.radius);
 		expect(ring.inner).toBeGreaterThan(0);
 		expect(ring.inner).toBeLessThan(ring.outer);
 	}
-	expect(vessel.rings.at(-1)!.z).toBeGreaterThan(vessel.rings[0].z);
+	expect(vessel.rings[vessel.rings.length - 1].z).toBeGreaterThan(vessel.rings[0].z);
 });
 test('empty cells emit nothing and invalid controls fail at the boundary', () => {
 	expect(composeCollage([], 2)).toEqual([]);
