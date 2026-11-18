@@ -115,7 +115,7 @@ const srgb = (css: string): [number, number, number] => {
 	return [c.r, c.g, c.b];
 };
 
-export function paletteAus(p: Palette3D): Palette {
+function paletteAus(p: Palette3D): Palette {
 	const strom = (token: string) => srgb(p.categories[token.replace('--cat-', '')] ?? p.paper);
 	return {
 		papier: srgb(p.paper),

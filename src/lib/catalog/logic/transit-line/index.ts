@@ -2,15 +2,24 @@ import type { TerrainGrid } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';
 import { alignment, chainage, segment, poseAt } from './alignment';
 import {
-	DESIGN,
-	SHAFT_OFFSET,
+	resolveTransitProfile,
+	changedTransitOverrides,
+	type TransitProfile,
+	type TransitOverrides,
 	type TransitLine,
 	type TransitKind,
 	type TransitPillar
 } from './contract';
 import { elevate, groundAt } from './elevation';
-export type { TransitLine, TransitKind, TransitStop, TransitPillar, TransitPose } from './contract';
-export { VEHICLE } from './contract';
+export type {
+	TransitLine,
+	TransitKind,
+	TransitOverrides,
+	TransitStop,
+	TransitPillar,
+	TransitPose
+} from './contract';
+export { TRANSIT_PARAMS, VEHICLE, transitOverrides } from './contract';
 export { lineParts } from './parts';
 export { vehiclePoses } from './vehicles';
 
@@ -29,21 +38,21 @@ function stopSamples(distances: number[]) {
 			return samples;
 	}
 }
-function stations(grid: TerrainGrid, path: Vec3[], distances: number[]) {
+function stations(grid: TerrainGrid, path: Vec3[], distances: number[], shaftOffset: number) {
 	return stopSamples(distances).map((i) => {
 		const { position, headingRad } = poseAt(path, distances, distances[i]);
 		// Keep the offset shaft's surveyed elevation through plain-data serialization.
 		const groundZ = groundAt(
 			grid,
-			position[0] - SHAFT_OFFSET * Math.sin(headingRad),
-			position[1] + SHAFT_OFFSET * Math.cos(headingRad)
+			position[0] - shaftOffset * Math.sin(headingRad),
+			position[1] + shaftOffset * Math.cos(headingRad)
 		);
 		return { position, headingRad, groundZ };
 	});
 }
-function supports(grid: TerrainGrid, path: Vec3[], distances: number[], kind: TransitKind) {
+function supports(grid: TerrainGrid, path: Vec3[], distances: number[], profile: TransitProfile) {
 	const pillars: TransitPillar[] = [],
-		{ supportSpacing, deckRadius } = DESIGN[kind];
+		{ supportSpacing, deckRadius } = profile;
 	for (
 		let at = supportSpacing;
 		at <= distances[distances.length - 1] - END_MARGIN;
@@ -56,11 +65,12 @@ function supports(grid: TerrainGrid, path: Vec3[], distances: number[], kind: Tr
 }
 /** Routes ordered cell IDs over a grid in world meters, skipping unknown IDs and adjacent repeats.
  * Returns detached data in stroke order, or undefined for fewer than two distinct cells or a
- * rounded plan shorter than 24 m. Neither input is mutated.
+ * rounded plan shorter than 24 m. Invalid overrides throw RangeError. Neither input is mutated.
  */
 export function routeLine(
 	grid: TerrainGrid,
-	stroke: { id: string; kind: TransitKind; cellIds: readonly string[] }
+	stroke: { id: string; kind: TransitKind; cellIds: readonly string[] },
+	overrides?: TransitOverrides
 ): TransitLine | undefined {
 	const cellIds: string[] = [],
 		centers: Vec3[] = [];
@@ -72,8 +82,10 @@ export function routeLine(
 		}
 	}
 	if (centers.length < 2) return;
-	const { id, kind } = stroke,
-		{ radius, grade, clearance } = DESIGN[kind];
+	const { id, kind } = stroke;
+	const profile = resolveTransitProfile(kind, overrides);
+	const stored = overrides && changedTransitOverrides(kind, profile);
+	const { radius, grade, clearance } = profile;
 	const plan = alignment(centers, radius);
 	if ((chainage(plan).at(-1) ?? 0) < MIN_LENGTH) return;
 	const path = elevate(grid, plan, grade, clearance),
@@ -81,10 +93,11 @@ export function routeLine(
 	return {
 		id,
 		kind,
+		...(stored ? { profile: stored } : {}),
 		cellIds,
 		path,
 		length: distances[distances.length - 1],
-		stops: stations(grid, path, distances),
-		pillars: supports(grid, path, distances, kind)
+		stops: stations(grid, path, distances, profile.shaftOffset),
+		pillars: supports(grid, path, distances, profile)
 	};
 }

@@ -152,7 +152,7 @@ export const hudDaten = {
 
 /**
  * District in the HUD: four old buildings around a courtyard (existing stock, gray), with new
- * additions on top and in between, per flow. Pedestrian paths run over the elevated walkway and
+ * additions on top and in between, per flow. No streets: paths run over the elevated walkway and
  * through the courtyard. Dimensions in meters (iso.ts).
  */
 export type HudLot = { id: string; box: Box; strom?: FlowId };
@@ -192,7 +192,7 @@ export const hudZeit = {
 	]
 };
 
-/** Tools in the bar. Tools act on the pedestrian city. */
+/** Tools in the bar. No tool for streets: the city has none. */
 export const hudWerkzeuge = [
 	{ id: 'auswahl', label: 'Select' },
 	{ id: 'bauen', label: 'Build' },
@@ -270,7 +270,7 @@ export const bedienelemente: { id: string; name: string; rolle: string }[] = [
 	{ id: 'zeitleiste', name: 'Timeline', rolle: 'Years, events and epochs of the city.' }
 ];
 
-/** Panel examples in the terms of the game (pedestrian access and shared provision). */
+/** Panel examples in the terms of the game (no streets, no taxes). */
 export const bedienBeispiele = {
 	aufgaben: [
 		{ id: 'wasser', label: 'Connect rain catcher', done: true },

@@ -28,8 +28,8 @@ test('inherits by field and gives caller values precedence', () => {
 	});
 });
 
-test('validates the effective values after merging', () => {
-	expect(resolveParams(schema, { radius: -1 }, { radius: 3 }).radius).toBe(3);
+test('validates both layers independently', () => {
+	expect(() => resolveParams(schema, { radius: -1 }, { radius: 3 })).toThrow(RangeError);
 	for (const radius of [NaN, Infinity, 0, 3.1]) {
 		expect(() => resolveParams(schema, {}, { radius })).toThrow(RangeError);
 	}

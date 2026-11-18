@@ -8,22 +8,18 @@ import { attribute, uniform } from 'three/tsl';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import type { Palette3D } from '../../data/city3d';
+import { resolveParams, type ParamOverrides } from '../../logic/params';
 import type { Primitive } from '../../logic/parametrik/types';
 import { batch, geometryOf } from '../batch';
 import { outlinePosition } from '../surfaces';
-
-const STROKE_PX = { crease: 0.8, outline: 1 };
-/**
- * Lines keep their weight only while the model is large enough to carry them: the outline is
- * never wider than this many meters, and creases fade below this many pixels per meter.
- */
-const LINE_SCALE = { outlineMeters: 0.09, creaseFullAt: 7, creaseFloor: 0.22 };
-const GLASS_OPACITY = 0.34;
+import { STRUCTURE_PARAMS } from './view-params';
 
 export type Structures = ReturnType<typeof createStructures>;
 
 /** Creates the structure layer. The caller adds `group` to its scene and calls `dispose`. */
-export function createStructures() {
+export function createStructures(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
+	let profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
+	let pixelsPerMeter: number | undefined;
 	const group = new THREE.Group();
 	const entries = new Map<string, { primitives: Primitive[]; objects: THREE.Group }>();
 	const paper = new THREE.Color();
@@ -61,14 +57,14 @@ export function createStructures() {
 		sheet: surface({ side: THREE.DoubleSide }),
 		glass: surface({
 			transparent: true,
-			opacity: GLASS_OPACITY,
+			opacity: profile.glassOpacity,
 			depthWrite: false,
 			side: THREE.DoubleSide
 		}),
 		hull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, color: ink }),
-		crease: new THREE.Line2NodeMaterial({ color: ink, linewidth: STROKE_PX.crease })
+		crease: new THREE.Line2NodeMaterial({ color: ink, linewidth: profile.creasePx })
 	};
-	const outlinePx = uniform(STROKE_PX.outline);
+	const outlinePx = uniform(profile.outlinePx);
 	materials.pencilHull.vertexNode = outlinePosition(uniform(0.5));
 	materials.hull.vertexNode = outlinePosition(outlinePx);
 	materials.crease.transparent = true;
@@ -137,9 +133,30 @@ export function createStructures() {
 		group.add(objects);
 	}
 
+	/** Adapts line weights to the zoom, given in screen pixels per world meter. */
+	function setScale(scale: number) {
+		pixelsPerMeter = scale;
+		outlinePx.value = Math.min(profile.outlinePx, profile.outlineMaxMeters * scale);
+		materials.crease.opacity = Math.max(
+			profile.creaseFloor,
+			Math.min(1, scale / profile.creaseFullAt)
+		);
+	}
+
 	return {
 		group,
 		set,
+		setScale,
+		/** Replaces view overrides in schema units. Omitted values restore defaults.
+		 * Updates existing materials at the current zoom. Invalid values throw RangeError.
+		 */
+		setParams(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
+			profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
+			materials.crease.linewidth = profile.creasePx;
+			materials.glass.opacity = profile.glassOpacity;
+			if (pixelsPerMeter === undefined) outlinePx.value = profile.outlinePx;
+			else setScale(pixelsPerMeter);
+		},
 		/** Solid meshes of every key with the given prefix, for ray casting. */
 		solids(prefix: string): THREE.Mesh[] {
 			return [...entries]
@@ -162,14 +179,6 @@ export function createStructures() {
 			materials.hull.color.copy(ink);
 			materials.crease.color.copy(ink);
 			for (const [key, entry] of [...entries]) set(key, entry.primitives);
-		},
-		/** Adapts line weights to the zoom, given in screen pixels per world meter. */
-		setScale(pixelsPerMeter: number) {
-			outlinePx.value = Math.min(STROKE_PX.outline, LINE_SCALE.outlineMeters * pixelsPerMeter);
-			materials.crease.opacity = Math.max(
-				LINE_SCALE.creaseFloor,
-				Math.min(1, pixelsPerMeter / LINE_SCALE.creaseFullAt)
-			);
 		},
 		/** Removes every key. */
 		clear() {

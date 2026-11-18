@@ -1,5 +1,6 @@
 import { defineParams, numberParam, resolveParams } from '../params';
 const schema = defineParams({
+	alleyBend: numberParam("Terrace alley bend", "m", 3.6, [0, 4, 0.1]),
 	minParcelArea: numberParam('Minimum parcel area', 'm²', 7.5, [0.5, 7.5, 0.5]),
 	frontageShift: numberParam('Frontage variation', 'cells', 0.48, [0, 0.48, 0.01]),
 	relaxPasses: numberParam('Block relaxation', 'passes', 5, [3, 6, 1], 'integer'),
@@ -21,17 +22,12 @@ const schema = defineParams({
 	ravineGrade: numberParam('Ravine grade', 'grade', 0.28, [0.01, 1, 0.01]),
 	transitionWidth: numberParam('Transition width', 'm', 30, [1, 80, 0.01]),
 	deckDepth: numberParam('Deck depth', 'm', 0.4, [0.1, 1, 0.01]),
-	approachCells: numberParam('Approach cells', 'cells', 3, [1, 8, 1], 'integer'),
-	emptyInk: numberParam('Empty ink', 'ratio', 0.18, [0, 1, 0.01]),
-	cityInk: numberParam('City ink', 'ratio', 0.32, [0, 1, 0.01]),
-	cityRadiusCells: numberParam('City radius cells', 'cells', 4, [1, 16, 1], 'integer'),
-	treadsPerCell: numberParam('Treads per cell', 'steps', 4, [1, 10, 1], 'integer'),
-	cellInk: numberParam('Cell ink', 'ratio', 0.16, [0, 1, 0.01]),
-	nearStart: numberParam('Near start', 'cells/px', 0.05, [0.01, 0.1, 0.01]),
-	nearEnd: numberParam('Near end', 'cells/px', 0.12, [0.11, 0.5, 0.01]),
-	footbridgeTone: numberParam('Bridge tone', 'ratio', 0.25, [0, 1, 0.01])
+	approachCells: numberParam('Approach cells', 'cells', 3, [1, 8, 1], 'integer')
 });
 /** Validates the controls shared by the world and its projection. */
-export const parcelProfile = (overrides?: import('../params').ParamOverrides<typeof schema>) =>
-	resolveParams(schema, undefined, overrides);
+export const parcelProfile = (overrides?: import('../params').ParamOverrides<typeof schema>) => {
+	const profile = resolveParams(schema, undefined, overrides);
+	if (![2, 4, 8].includes(profile.terraceRows)) throw new RangeError("Terrace rows must be 2, 4 or 8");
+	return profile;
+};
 export const defaultAlleyPlan = parcelProfile();

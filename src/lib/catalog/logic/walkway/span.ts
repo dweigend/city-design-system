@@ -1,6 +1,14 @@
+import { defineParams, numberParam, resolveParams } from '../params';
 import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
 
-export const WALKWAY_WIDTH_M = 2.2;
+/** Deck width, thickness and maximum tread rise in meters for elevated walkways. */
+export const WALKWAY_PARAMS = defineParams({
+	width: numberParam('Deck width', 'm', 2.2, [0.5, 10, 0.1]),
+	thickness: numberParam('Deck thickness', 'm', 0.25, [0.01, 3, 0.01]),
+	treadRise: numberParam('Maximum tread rise', 'm', 0.2, [0.01, 1, 0.01])
+});
+export const WALKWAY_PROFILE = resolveParams(WALKWAY_PARAMS);
+export const WALKWAY_WIDTH_M = WALKWAY_PROFILE.width;
 type Point = [number, number];
 type Ring = [Vec3, Vec3, Vec3, Vec3];
 
@@ -37,15 +45,21 @@ export function deckCorners(
 }
 
 /** Four ordered deck corners (start left/right, end right/left) at walking height. */
-export function deckParts(ring: Ring, id: string, width: number, token: ColorToken): Primitive[] {
+export function deckParts(
+	ring: Ring,
+	id: string,
+	width: number,
+	token: ColorToken,
+	profile: Pick<typeof WALKWAY_PROFILE, 'thickness' | 'treadRise'> = WALKWAY_PROFILE
+): Primitive[] {
 	const [a, b, c, d] = ring;
 	const base = { token, role: 'neu' } as const;
 	const deck: Primitive = {
 		id,
 		kind: 'prism',
 		polygon: ring.map(([x, y]) => [x, y]),
-		z: a[2] - 0.25,
-		height: 0.25,
+		z: a[2] - profile.thickness,
+		height: profile.thickness,
 		...base,
 		material: 'concrete'
 	};
@@ -58,7 +72,7 @@ export function deckParts(ring: Ring, id: string, width: number, token: ColorTok
 		material: 'metal'
 	});
 	if (a[2] === d[2]) return [deck, rail(-width / 2, a, d), rail(width / 2, b, c)];
-	const steps = Math.ceil(Math.abs(d[2] - a[2]) / 0.2) + 1;
+	const steps = Math.ceil(Math.abs(d[2] - a[2]) / profile.treadRise) + 1;
 	if (steps > 4096) throw new RangeError('Walkway exceeds the tread budget');
 	const treads = Array.from({ length: steps }, (_, i): Primitive => {
 		const edge = (p: Vec3, q: Vec3, j: number): Point =>
@@ -67,7 +81,7 @@ export function deckParts(ring: Ring, id: string, width: number, token: ColorTok
 			...deck,
 			id: `${id}:tread:${i}`,
 			polygon: [edge(a, d, i), edge(b, c, i), edge(b, c, i + 1), edge(a, d, i + 1)],
-			z: a[2] + (d[2] - a[2]) * (i / (steps - 1)) - 0.25
+			z: a[2] + (d[2] - a[2]) * (i / (steps - 1)) - profile.thickness
 		};
 	});
 	return [...treads, rail(-width / 2, a, d), rail(width / 2, b, c)];

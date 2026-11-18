@@ -59,9 +59,8 @@ export function megastructureMass(site: Site, mass: Mass, p = MEGASTRUCTURE_DEFA
 		if (story === anchor || hash(seed, key, DRAW.occupancy) > p.emptyShare)
 			parts.push(...dockedModule(b, side), ...guest(b, mass.use, side, story === roof));
 		const route = exterior.at(side % exterior.length);
-		for (const edge of exterior)
-			parts.push(...gallery(b, edge, exterior, p.galleryWidth, edge === route));
-		if (story === anchor && route !== undefined) parts.push(...access(b, route));
+		if (story === anchor && route !== undefined)
+			parts.push(...gallery(b, route, p.galleryWidth), ...access(b, route));
 		return parts;
 	});
 }

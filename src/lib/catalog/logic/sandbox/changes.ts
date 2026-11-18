@@ -1,5 +1,5 @@
-import { currentStacks } from './houses';
-import { chunksOfCells, touchedChunks } from '../house-brush';
+import { constructionPhases } from './houses';
+import { chunksOfCells } from '../house-brush';
 import { changedChunks, neighborsOf } from '../quad-grid';
 import type { World } from './world';
 
@@ -37,20 +37,16 @@ function editedCells(before: World, after: World) {
 function houseChunks(before: World, after: World, movedChunks: ReadonlySet<string>): Set<string> {
 	const cells = editedCells(before, after);
 	const chunks = new Set(movedChunks);
-	const oldStacks = currentStacks(before.state),
-		newStacks = currentStacks(after.state);
-	for (const [world, stacks] of [
-		[before, oldStacks],
-		[after, newStacks]
-	] as const) {
-		const grid = world.grid;
-		for (const id of cells) {
-			const cell = grid.cellsById.get(id);
-			if (cell) chunks.add(cell.chunk);
-		}
-		for (const chunk of touchedChunks(grid, oldStacks, newStacks, cells)) chunks.add(chunk);
+	for (const world of [before, after]) {
+		const { grid, state } = world;
 		const moved = [...movedChunks].flatMap((chunk) => grid.chunks.get(chunk) ?? []);
-		for (const chunk of chunksOfCells(grid, stacks, moved)) chunks.add(chunk);
+		const changed = cells.flatMap((id) => grid.cellsById.get(id) ?? []);
+		const affected = new Set(
+			[...moved, ...changed].flatMap((cell) => [cell, ...neighborsOf(grid, cell)])
+		);
+		for (const phase of constructionPhases(state).values()) {
+			for (const chunk of chunksOfCells(grid, phase, affected)) chunks.add(chunk);
+		}
 	}
 	return chunks;
 }

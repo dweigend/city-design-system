@@ -176,30 +176,35 @@ function makePatch(
 	return { positions, faces };
 }
 
+type CachedBlock = { ground: readonly kern.Vec[]; patch: ReturnType<typeof makePatch> };
+export type BlockCache = Map<string, CachedBlock>;
+
 /** Fits the Universal kernel's relaxed patches inside fixed alley bands, including partial rim blocks. */
-export function blockPatches(lattice: Lattice, ground: Ground) {
-	const patches = new Map<string, ReturnType<typeof makePatch>>();
+export function blockPatches(lattice: Lattice, ground: Ground, cache: BlockCache) {
+	const patches = new Map<string, { patch: ReturnType<typeof makePatch>; reused: boolean }>();
 	return (c: number, r: number) => {
 		const x = Math.floor(Math.min(c, lattice.columns - 1) / BLOCK.columns) * BLOCK.columns;
 		const y = Math.floor(Math.min(r, lattice.rows - 1) / BLOCK.rows) * BLOCK.rows;
 		const key = cellId(x, y);
-		let patch = patches.get(key);
-		if (!patch) {
-			patch = makePatch(
-				Math.min(BLOCK.columns, lattice.columns - x),
-				Math.min(BLOCK.rows, lattice.rows - y),
-				Math.floor(hash(lattice.terrain.seed, y * lattice.columns + x, 0) * 0xffffffff),
-				lattice.profile,
-				(c, r) => ground(x + c, y + r),
-				settlementExtent(
-					lattice.terrain,
-					x + BLOCK.columns / 2,
-					y + BLOCK.rows / 2,
-					lattice.profile
-				) > 0
-			);
-			patches.set(key, patch);
+		let entry = patches.get(key);
+		if (!entry) {
+			const width = Math.min(BLOCK.columns, lattice.columns - x);
+			const height = Math.min(BLOCK.rows, lattice.rows - y);
+			const points = Array.from({ length: (width + 1) * (height + 1) }, (_, i) =>
+				ground(x + i % (width + 1), y + Math.floor(i / (width + 1))));
+			const old = cache.get(key);
+			if (old && points.every(([a,b], i) => a === old.ground[i][0] && b === old.ground[i][1])) {
+				entry = { patch: old.patch, reused: true };
+			} else {
+				const patch = makePatch(width, height,
+					Math.floor(hash(lattice.terrain.seed, y * lattice.columns + x, 0) * 0xffffffff),
+					lattice.profile, (c,r) => points[r * (width + 1) + c],
+					settlementExtent(lattice.terrain, x + BLOCK.columns / 2, y + BLOCK.rows / 2, lattice.profile) > 0);
+				cache.set(key, { ground: points, patch });
+				entry = { patch, reused: false };
+			}
+			patches.set(key, entry);
 		}
-		return { patch, x, y, id: cellId(c - x, r - y) };
+		return { patch: entry.patch, reused: entry.reused, x, y, id: cellId(c - x, r - y) };
 	};
 }

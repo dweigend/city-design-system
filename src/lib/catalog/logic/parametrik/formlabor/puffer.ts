@@ -60,7 +60,7 @@ export const puffer = (platz: number): Puffer => ({
 });
 
 export type Quat = [number, number, number, number];
-export const EINS: Quat = [0, 0, 0, 1];
+const EINS: Quat = [0, 0, 0, 1];
 /** Rotation about the vertical axis. */
 export const umZ = (a: number): Quat => [0, 0, Math.sin(a / 2), Math.cos(a / 2)];
 export function mal(a: Quat, b: Quat): Quat {

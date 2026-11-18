@@ -1,6 +1,6 @@
 /**
  * Growth chapter (replaces Modeling): texts, teaching examples and demo settings.
- * Paths first, then blocks; fields; splitting; parcels with pedestrian access; WFC; method matrix.
+ * Paths first, then blocks; fields; splitting; parcels without streets; WFC; method matrix.
  * Sources: docs/research/04-city-rules.md, 05-bible-structure.md §4.
  */
 import type { Phase } from './raster';
@@ -152,11 +152,11 @@ export const teilenBeispiel = {
 	fliessen: [0.35, 0.65] as const
 };
 
-/* 5 · Parcels with pedestrian access */
+/* 5 · Parcels without streets */
 
 export const parzellen: Abschnitt = {
 	id: 'wachstum-parzellen',
-	titel: 'Lots connect to pedestrian paths',
+	titel: 'Lots hang on paths, not on streets',
 	lead: 'A lot has access if you can reach it on foot: by alley, square, elevated walkway or transit stop. The core of the block belongs to everyone, and over the decades the city keeps recutting its lots.'
 };
 

@@ -25,11 +25,15 @@ function markFrontage(next: TerrainGrid, cell: TerrainCell, radius: number, occu
 }
 
 /** Nearest-cell mask for alley widths, stair treads and occupied frontages. */
-export function alleyOverlay(grid: TerrainGrid, profile = grid.profile) {
+export function alleyOverlay(grid: TerrainGrid, profile: Readonly<Record<keyof typeof import("./view-params").TERRAIN_VIEW_PARAMS, number>>, nodes: { treadsPerCell: Node<"float">, cityInk: Node<"float">, emptyInk: Node<"float"> }) {
 	const pixels = new Uint8Array(grid.cells.length * 4);
 	const map = new THREE.DataTexture(pixels, grid.columns, grid.rows);
+	let current = grid;
+	let anchors: string[] = [];
 	function update(next: TerrainGrid, houses: Iterable<string>) {
-		const occupied = frontages(next, houses, profile.cityRadiusCells);
+		current = next;
+		anchors = [...houses];
+		const occupied = frontages(next, anchors, profile.cityRadiusCells);
 		for (const cell of next.cells) {
 			const { square, width, stairAlley } = cell.plan;
 			const band = Math.min(255, Math.round((255 * width) / MODULE));
@@ -39,8 +43,8 @@ export function alleyOverlay(grid: TerrainGrid, profile = grid.profile) {
 				[
 					channel('along'),
 					channel('across'),
-					stairAlley ? 255 : 0,
-					255 * cell.plan.extent * (occupied.has(cell.index) ? profile.cityInk : profile.emptyInk)
+					(stairAlley ? 128 : 0) + (occupied.has(cell.index) ? 64 : 0),
+					255 * cell.plan.extent
 				],
 				cell.index * 4
 			);
@@ -50,6 +54,11 @@ export function alleyOverlay(grid: TerrainGrid, profile = grid.profile) {
 	update(grid, []);
 	return {
 		update,
+		setParams(next: typeof profile) {
+			const changed = next.cityRadiusCells !== profile.cityRadiusCells;
+			profile = next;
+			if (changed) update(current, anchors);
+		},
 		dispose: () => map.dispose(),
 		shade(ground: Node<'vec3'>, ink: Node<'vec3'>, people: Node<'color'>, weight: Node<'float'>) {
 			const chart = attribute('chart', 'vec2');
@@ -60,13 +69,15 @@ export function alleyOverlay(grid: TerrainGrid, profile = grid.profile) {
 					.sub(distance.smoothstep(width.sub(distance.fwidth()), width.add(distance.fwidth())))
 					.mul(float(width.greaterThan(0)));
 			const coverage = band(dist.x, mask.g).max(band(dist.y, mask.r));
-			const tread = chart.y.mul(profile.treadsPerCell).fract().smoothstep(0.35, 0.65).mul(mask.b);
-			const alleys = mix(ground, ink, coverage.mul(mask.a).mul(weight));
+			const stairs = float(mask.b.greaterThanEqual(0.5));
+			const occupied = mask.b.mul(255).div(64).round().mod(2);
+			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.35, 0.65).mul(stairs);
+			const alleys = mix(ground, ink, coverage.mul(mix(nodes.emptyInk, nodes.cityInk, occupied)).mul(mask.a).mul(weight));
 			return mix(
 				alleys,
 				people,
 				band(dist.x, mask.g)
-					.mul(mask.b)
+					.mul(stairs)
 					.mul(tread.add(1).div(2))
 					.mul(float(mask.a.greaterThan(0)))
 					.mul(weight)

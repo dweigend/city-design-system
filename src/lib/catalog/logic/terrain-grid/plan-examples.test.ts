@@ -23,9 +23,9 @@ test('five seed-7 addresses pin the crossing, stair, square, bank and alley', ()
 });
 test('the world validates and forwards plan controls', () => {
 	expect(() => createWorld(7, { plan: { terraceRows: 0 } })).toThrow(RangeError);
-	const world = createWorld(7, { plan: { promenadeWidth: 4, footbridgeTone: 0.12 } });
+	const world = createWorld(7, { plan: { promenadeWidth: 4 } });
 	expect(world.grid.cellsById.get('59/23')?.plan.width).toBe(4);
-	expect(world.grid.profile.footbridgeTone).toBe(0.12);
+	for (const rows of [3, 5, 6, 7]) expect(() => createWorld(7, {plan: {terraceRows: rows}})).toThrow(RangeError);
 });
 test('a basin cut into a terrace deepens its incision', () => {
 	const site = cell('47/40');

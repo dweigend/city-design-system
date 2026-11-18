@@ -191,7 +191,7 @@ function strukturOf(p: WeltParams) {
 		p.kern.feld
 	].join('|');
 	if (struktur?.key !== key) {
-		const { r, b, netz } = teile(p);
+		const { r, b, netz } = layoutOccupancyAndNetwork(p);
 		const groups: (string | undefined)[] = [];
 		// slots calls the resolver once per corner bit, in slot order (eight bits each).
 		const derived = slots(r.patch, b.samples, {
@@ -248,7 +248,8 @@ function band(line: Point2[], w: number): Point2[][] {
 	return out;
 }
 
-export function teile(p: WeltParams) {
+/** Derives the layout, occupancy and path network from world parameters. */
+export function layoutOccupancyAndNetwork(p: WeltParams) {
 	const r = lageOf(p),
 		b = belegung(r, p);
 	if (p.kern.zugang) zugangSichern(r, b);

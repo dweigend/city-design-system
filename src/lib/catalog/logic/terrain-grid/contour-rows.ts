@@ -155,12 +155,11 @@ function smooth(source: Columns, from: number, to: number): Columns {
  * 0 … lattice.rows in meters along the column. Solving a part of the lattice gives exactly
  * the values of solving all of it.
  */
-export function rowShifts(lattice: Lattice, from: number, to: number): Columns {
+export function rowShifts(lattice: Lattice, from: number, to: number, fields: Columns): Columns {
 	const first = clampColumn(lattice, from - SMOOTH_PASSES);
 	const last = clampColumn(lattice, to + SMOOTH_PASSES);
-	const fields: Columns = new Map();
 	for (let c = clampColumn(lattice, first - WINDOW); c <= clampColumn(lattice, last + WINDOW); c++)
-		fields.set(c, tiltedGround(lattice, c));
+		if (!fields.has(c)) fields.set(c, tiltedGround(lattice, c));
 	let shifts: Columns = new Map();
 	for (let column = first; column <= last; column++)
 		shifts.set(column, solveColumn(lattice, fields, column));

@@ -9,6 +9,7 @@
  */
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
+import { roofCarrier, type RoofContext } from './roof-carrier';
 import { floorOf, massesOfChunk } from './massing';
 import { storiesOf, type Stacks } from './stacks';
 import { massRules, type HouseStyle } from './styles';
@@ -23,6 +24,7 @@ export { HOUSE_STYLES, type HouseStyle } from './styles';
  * @param chunk chunk identity of the grid's cells
  * @param seed integer seed of the decor decisions (openings, crowns)
  * @param style look of the masses; the massing itself is the same in every style
+ * @param context optional full occupancy and historic roof frontage of a layered town
  * @returns detached primitives in world meters; empty for a chunk without masses
  */
 export function houseChunk(
@@ -30,11 +32,16 @@ export function houseChunk(
 	stacks: Stacks,
 	chunk: string,
 	seed: number,
-	style: HouseStyle = 'terrace'
+	style: HouseStyle = 'terrace',
+	context?: RoofContext
 ): Primitive[] {
-	const site = { grid, stacks, seed };
+	const site = { grid, stacks: context?.occupied ?? stacks, seed };
 	const rule = massRules[style];
-	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => rule(site, mass));
+	const spans = context && (style === 'megastructure' || style === 'totem');
+	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
+		...rule(site, mass),
+		...(spans ? roofCarrier(site, mass, context) : [])
+	]);
 }
 
 /** Height in meters of the top of a cell's stack: where the next story would stand. */

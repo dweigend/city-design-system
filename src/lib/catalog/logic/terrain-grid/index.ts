@@ -1,4 +1,4 @@
-import { blockPatches } from './block-patch';
+import { blockPatches, type BlockCache } from './block-patch';
 import { required } from '../required';
 import { defaultAlleyPlan, parcelProfile } from './alley-profile';
 import { alleyPlan } from './alley-plan';
@@ -52,19 +52,28 @@ function columnVertices(
 	lattice: Lattice,
 	column: number,
 	patches: Patches,
+	edits: readonly TerrainEdit[],
 	previous?: readonly Vec3[]
 ): Vec3[] {
 	return Array.from({ length: lattice.rows + 1 }, (_, row): Vec3 => {
-		const { patch, id } = patches(column, row);
+		const { patch, id, reused } = patches(column, row);
+		const old = previous?.[row];
+		if (reused && old && !withinEdit(old, edits)) return old;
 		const [x, y] = required(patch.positions.get(id), 'relaxed vertex');
-		const old = previous?.[row],
-			z = terrainHeight(lattice.terrain, x, y);
+		const z = terrainHeight(lattice.terrain, x, y);
 		return old && old[0] === x && old[1] === y && old[2] === z ? old : [x, y, z];
 	});
 }
 
-function contourPatches(lattice: Lattice, from: number, to: number) {
-	const shifts = rowShifts(lattice, from, to);
+function withinEdit(point: Vec3, edits: readonly TerrainEdit[]) {
+	return edits.some(edit => (point[0] - edit.center[0]) ** 2 + (point[1] - edit.center[1]) ** 2 <= editReach(edit) ** 2);
+}
+
+const cachedFields = new WeakMap<TerrainGrid, Map<number, Float64Array>>();
+const cachedBlocks = new WeakMap<TerrainGrid, BlockCache>();
+
+function contourPatches(lattice: Lattice, from: number, to: number, cache: BlockCache, fields: Map<number, Float64Array>) {
+	const shifts = rowShifts(lattice, from, to, fields);
 	const crossings = new Map<number, Float64Array>();
 	const leans = new Map([...shifts.keys()].map((c) => [c, columnLeans(lattice, c, crossings)]));
 	return blockPatches(lattice, (c, r) => {
@@ -76,7 +85,7 @@ function contourPatches(lattice: Lattice, from: number, to: number) {
 			required(shifts.get(c), 'contour shift')[r]
 		);
 		return valleyPoint(lattice.terrain, c * MODULE + dx, r * MODULE + dy);
-	});
+	}, cache);
 }
 
 function makeCell(
@@ -88,7 +97,8 @@ function makeCell(
 	old?: TerrainCell,
 	edits: readonly TerrainEdit[] = []
 ): TerrainCell {
-	const { patch, x, y, id } = patches(column, row);
+	const { patch, x, y, id, reused } = patches(column, row);
+	if (old && reused && !withinEdit(old.center, edits) && old.corners.every(p => !withinEdit(p, edits))) return old;
 	const face = required(patch.faces.get(id), 'organic parcel');
 	const point = (i: number) => {
 		const [c, r] = face.vertices[i];
@@ -180,14 +190,24 @@ function derive(
 	const end = Math.min(columns, Math.ceil((to + 1) / BLOCK.columns) * BLOCK.columns);
 	const last = end - 1;
 	// The final seam is fixed and sampled by the block on its right.
-	const patches = contourPatches(lattice, first, Math.min(columns, end + BLOCK.columns));
+	const cache = new Map(previous && cachedBlocks.get(previous));
+	const fields = new Map(previous && cachedFields.get(previous));
+	for (const edit of edits) {
+		const [along] = valleyCoords(lattice.terrain, ...edit.center);
+		const reach = editReach(edit) / FRAME_SCALE_MIN;
+		for (let c = Math.floor((along-reach)/MODULE); c <= Math.ceil((along+reach)/MODULE); c++) fields.delete(c);
+	}
+	const patches = contourPatches(lattice, first, Math.min(columns, end + BLOCK.columns), cache, fields);
 	for (let c = first; c <= end; c++)
-		data.vertices[c] = columnVertices(lattice, c, patches, data.vertices[c]);
+		data.vertices[c] = columnVertices(lattice, c, patches, edits, data.vertices[c]);
 	for (let c = first; c <= last; c++)
 		data.cells[c] = Array.from({ length: rows }, (_, r) =>
 			makeCell(lattice, data.vertices, c, r, patches, data.cells[c]?.[r], edits)
 		);
-	return assemble(lattice.terrain, lattice.profile, data, first, last, previous);
+	const result = assemble(lattice.terrain, lattice.profile, data, first, last, previous);
+	cachedFields.set(result, fields);
+	cachedBlocks.set(result, cache);
+	return result;
 }
 
 /**
