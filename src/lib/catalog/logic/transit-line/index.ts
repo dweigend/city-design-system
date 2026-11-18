@@ -1,18 +1,25 @@
-import { resolveParams, type ParamOverrides } from '../params';
 import type { TerrainGrid } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';
 import { alignment, chainage, segment, poseAt } from './alignment';
 import {
-	DESIGN,
-	TRANSIT_PARAMS,
+	resolveTransitProfile,
+	changedTransitOverrides,
 	type TransitProfile,
+	type TransitOverrides,
 	type TransitLine,
 	type TransitKind,
 	type TransitPillar
 } from './contract';
 import { elevate, groundAt } from './elevation';
-export type { TransitLine, TransitKind, TransitStop, TransitPillar, TransitPose } from './contract';
-export { TRANSIT_PARAMS, VEHICLE } from './contract';
+export type {
+	TransitLine,
+	TransitKind,
+	TransitOverrides,
+	TransitStop,
+	TransitPillar,
+	TransitPose
+} from './contract';
+export { TRANSIT_PARAMS, VEHICLE, transitOverrides } from './contract';
 export { lineParts } from './parts';
 export { vehiclePoses } from './vehicles';
 
@@ -58,12 +65,12 @@ function supports(grid: TerrainGrid, path: Vec3[], distances: number[], profile:
 }
 /** Routes ordered cell IDs over a grid in world meters, skipping unknown IDs and adjacent repeats.
  * Returns detached data in stroke order, or undefined for fewer than two distinct cells or a
- * rounded plan shorter than 24 m. Neither input is mutated.
+ * rounded plan shorter than 24 m. Invalid overrides throw RangeError. Neither input is mutated.
  */
 export function routeLine(
 	grid: TerrainGrid,
 	stroke: { id: string; kind: TransitKind; cellIds: readonly string[] },
-	overrides?: ParamOverrides<typeof TRANSIT_PARAMS.viaduct>
+	overrides?: TransitOverrides
 ): TransitLine | undefined {
 	const cellIds: string[] = [],
 		centers: Vec3[] = [];
@@ -76,9 +83,8 @@ export function routeLine(
 	}
 	if (centers.length < 2) return;
 	const { id, kind } = stroke;
-	const profile = overrides
-		? resolveParams(TRANSIT_PARAMS[kind], undefined, overrides)
-		: DESIGN[kind];
+	const profile = resolveTransitProfile(kind, overrides);
+	const stored = overrides && changedTransitOverrides(kind, profile);
 	const { radius, grade, clearance } = profile;
 	const plan = alignment(centers, radius);
 	if ((chainage(plan).at(-1) ?? 0) < MIN_LENGTH) return;
@@ -87,7 +93,7 @@ export function routeLine(
 	return {
 		id,
 		kind,
-		...(overrides ? { profile } : {}),
+		...(stored ? { profile: stored } : {}),
 		cellIds,
 		path,
 		length: distances[distances.length - 1],

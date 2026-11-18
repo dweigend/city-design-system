@@ -1,5 +1,11 @@
 import { chainage, poseAt } from './alignment';
-import { DESIGN, VEHICLE, CAR_GAP, type TransitLine, type TransitPose } from './contract';
+import {
+	resolveTransitProfile,
+	VEHICLE,
+	CAR_GAP,
+	type TransitLine,
+	type TransitPose
+} from './contract';
 const DWELL = 3,
 	POD_SPACING = 70,
 	TRAIN_LIFT = 1.5;
@@ -14,12 +20,13 @@ function shuttle(distance: number, speed: number, time: number) {
 }
 /** Samples detached vehicle centers (meters) and travel directions (radians) on a routed line at
  * finite simulation time in seconds, including negative times. Car and pod identities follow
- * array order through both reversals. Time zero starts the first terminal dwell. No mutation.
+ * array order through both reversals. Time zero starts the first terminal dwell. Invalid
+ * profile overrides throw RangeError. No mutation.
  */
 export function vehiclePoses(line: TransitLine, timeS: number): TransitPose[] {
 	const train = line.kind === 'viaduct',
 		vehicle = VEHICLE[line.kind],
-		speed = (line.profile ?? DESIGN[line.kind]).speed;
+		speed = resolveTransitProfile(line.kind, line.profile).speed;
 	const pitch = vehicle.length + CAR_GAP,
 		span = train ? (vehicle.cars - 1) * pitch + vehicle.length : 0;
 	const count = train ? vehicle.cars : Math.max(1, Math.ceil(line.length / POD_SPACING));

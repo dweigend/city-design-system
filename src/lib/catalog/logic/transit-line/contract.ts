@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
 import type { Vec3 } from '../parametrik/types';
 export type TransitKind = 'viaduct' | 'capsule';
 export type TransitStop = Readonly<{ position: Vec3; headingRad: number }>;
@@ -6,7 +6,7 @@ export type TransitPillar = Readonly<{ foot: Vec3; top: number }>;
 export type TransitLine = Readonly<{
 	id: string;
 	kind: TransitKind;
-	profile?: TransitProfile;
+	profile?: TransitOverrides;
 	cellIds: readonly string[];
 	path: readonly Vec3[];
 	length: number;
@@ -21,6 +21,7 @@ const stationFields = {
 	shaftOffset: numberParam('Station shaft offset', 'm', 2.6, [0, 10, 0.1])
 };
 
+/** Routing, station, support and vehicle controls by transit kind, in meters, ratios and m/s. */
 export const TRANSIT_PARAMS = {
 	viaduct: defineParams({
 		...stationFields,
@@ -44,11 +45,51 @@ export const TRANSIT_PARAMS = {
 	})
 } as const;
 
-export const DESIGN = {
+const DESIGN = {
 	viaduct: resolveParams(TRANSIT_PARAMS.viaduct),
 	capsule: resolveParams(TRANSIT_PARAMS.capsule)
 };
 export type TransitProfile = typeof DESIGN.viaduct;
+/** Sparse transit settings in the units defined by TRANSIT_PARAMS. */
+export type TransitOverrides = ParamOverrides<typeof TRANSIT_PARAMS.viaduct>;
+
+export const CAPSULE_HOOP_RADIUS = 1.4;
+
+export function resolveTransitProfile(
+	kind: TransitKind,
+	overrides?: TransitOverrides
+): TransitProfile {
+	if (!overrides) return DESIGN[kind];
+	const profile = resolveParams(TRANSIT_PARAMS[kind], undefined, overrides);
+	const { clearance, deckRadius, platformDrop, platformHeight } = profile;
+	if (deckRadius >= clearance) throw new RangeError('Deck radius must be below clearance');
+	const stationDrop = platformDrop + (kind === 'viaduct' ? platformHeight : 0);
+	if (stationDrop >= clearance) throw new RangeError('Station drop must be below clearance');
+	if (kind === 'capsule' && deckRadius >= CAPSULE_HOOP_RADIUS)
+		throw new RangeError('Capsule deck radius must be below the hoop radius');
+	return profile;
+}
+
+/** Validates transit overrides and returns a detached record containing only differences from
+ * the kind's defaults, or undefined for the default profile. Invalid dimensions throw RangeError.
+ */
+export function transitOverrides(
+	kind: TransitKind,
+	overrides?: TransitOverrides
+): TransitOverrides | undefined {
+	if (!overrides) return;
+	return changedTransitOverrides(kind, resolveTransitProfile(kind, overrides));
+}
+
+export function changedTransitOverrides(
+	kind: TransitKind,
+	profile: TransitProfile
+): TransitOverrides | undefined {
+	const changed = Object.entries(profile).filter(
+		([key, value]) => value !== DESIGN[kind][key as keyof TransitProfile]
+	);
+	return changed.length ? Object.fromEntries(changed) : undefined;
+}
 export const VEHICLE: Record<TransitKind, { length: number; radius: number; cars: number }> = {
 	viaduct: { length: 7, radius: 1.15, cars: 3 },
 	capsule: { length: 3.4, radius: 0.95, cars: 1 }

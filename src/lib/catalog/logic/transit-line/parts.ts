@@ -1,6 +1,12 @@
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { chainage, poseAt } from './alignment';
-import { DESIGN, type TransitProfile, type TransitLine, type TransitStop } from './contract';
+import {
+	CAPSULE_HOOP_RADIUS,
+	resolveTransitProfile,
+	type TransitProfile,
+	type TransitLine,
+	type TransitStop
+} from './contract';
 const surface = { role: 'neu', material: 'concrete' } as const;
 const paper = { ...surface, token: '--paper' } as const;
 const PLATFORM_RADIUS = 4.5,
@@ -61,10 +67,11 @@ function stopParts(
 	];
 }
 /** Projects a routed line into detached world-meter primitives, ordered deck, hoops, pillars and
- * stations. Reads the line without mutation. A hand-built stop without a ground survey uses nominal clearance.
+ * stations. Invalid profile overrides throw RangeError. A stop without a ground survey uses nominal clearance.
+ * The line is read without mutation.
  */
 export function lineParts(line: TransitLine): Primitive[] {
-	const design = line.profile ?? DESIGN[line.kind],
+	const design = resolveTransitProfile(line.kind, line.profile),
 		capsule = line.kind === 'capsule';
 	const parts: Primitive[] = [
 		{
@@ -89,7 +96,7 @@ export function lineParts(line: TransitLine): Primitive[] {
 				axis: 'x',
 				position,
 				rotation: headingRad,
-				radius: 1.4,
+				radius: CAPSULE_HOOP_RADIUS,
 				tube: 0.1
 			});
 		}
