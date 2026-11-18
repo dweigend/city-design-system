@@ -71,7 +71,7 @@ export const buildings: Building[] = [
 
 export type Lot = { box: Box; category: string; label: string };
 
-/** Small sample city: one block of plots, a main alley. */
+/** Small sample city: one block of plots, street 10 m. */
 export const miniCity: Lot[] = [
 	{
 		box: { x: 0, y: 0, z: 0, w: 20, d: 20, h: 16 },
@@ -82,8 +82,8 @@ export const miniCity: Lot[] = [
 	{ box: { x: 30, y: 10, z: 0, w: 10, d: 10, h: 12 }, category: 'business', label: 'Shop' },
 	{ box: { x: 0, y: 30, z: 0, w: 20, d: 10, h: 8 }, category: 'health', label: 'Clinic' },
 	{ box: { x: 30, y: 30, z: 0, w: 10, d: 10, h: 1 }, category: 'nature', label: 'Park' },
-	{ box: { x: 23, y: -10, z: 0, w: 2, d: 60, h: 0.4 }, category: 'mobility', label: 'Main alley' },
-	{ box: { x: -10, y: 23, z: 0, w: 60, d: 2, h: 0.4 }, category: 'mobility', label: 'Main alley' }
+	{ box: { x: 20, y: -10, z: 0, w: 10, d: 60, h: 0.4 }, category: 'mobility', label: 'Street' },
+	{ box: { x: -10, y: 20, z: 0, w: 60, d: 10, h: 0.4 }, category: 'mobility', label: 'Street' }
 ];
 
 /** Faces of the city in drawing order (back to front), with category. */

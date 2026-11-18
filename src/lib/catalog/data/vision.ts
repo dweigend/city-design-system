@@ -39,7 +39,7 @@ export const leitbild = {
 			ton: 'bestand'
 		},
 		{
-			titel: 'A city for people on foot',
+			titel: 'No streets',
 			text: 'Paths run overhead and belong to people on foot. Everything is within walking distance.',
 			ziel: 'hochwege',
 			ton: 'people'

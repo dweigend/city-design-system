@@ -16,7 +16,7 @@ export const weiterbauen: Abschnitt = {
 export const hochwege: Abschnitt = {
 	id: 'hochwege',
 	titel: 'Elevated walkways connect every building',
-	lead: 'The city belongs to people on foot. Paths run above the alleys and across the roofs, and every building plugs into the network that is already there.'
+	lead: 'The city has no streets. Paths run above the alleys and across the roofs, and every building plugs into the network that is already there.'
 };
 
 export const schwamm: Abschnitt = {

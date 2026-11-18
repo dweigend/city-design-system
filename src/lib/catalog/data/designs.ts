@@ -87,7 +87,7 @@ export const designs: Design[] = [
 		],
 		differs: [
 			'Warmer, more saturated greens and watercolor forest than in 03 and 05',
-			'The bridge at lower left reads like a road or footbridge: make it unmistakably a footpath'
+			'The bridge at lower left reads like a street or footbridge: make it unmistakably a footpath'
 		],
 		procedural: [
 			'Stack complexes from cube modules, roof surfaces as garden slots',
@@ -112,7 +112,7 @@ export const designs: Design[] = [
 			'Parks and green corridors between the districts'
 		],
 		differs: [
-			'Wide roads and highway interchanges contradict the pedestrian city: reinterpret them as elevated railways and footpaths',
+			'Wide streets and highway interchanges contradict the no-streets concept: reinterpret them as elevated railways and footpaths',
 			'Perspective oblique view instead of isometric',
 			'Glass tower forms depart from the modular form language'
 		],
@@ -210,7 +210,7 @@ export const designs: Design[] = [
 		keep: [
 			'Brutalist core (concrete) plus light modules (timber, white box)',
 			'Exterior tubes and frames as at the Centre Pompidou',
-			'Colored pedestrian bridges as circulation instead of roads',
+			'Colored pedestrian bridges as circulation instead of streets',
 			'Solar surfaces and planter rings as visible cycles'
 		],
 		differs: ['Photorealistic materials: reduce them for the game'],
@@ -323,7 +323,7 @@ export const designs: Design[] = [
 			'Exterior stairs and skybridge'
 		],
 		differs: [
-			'Gray roads between the blocks contradict the pedestrian city',
+			'Gray streets between the blocks contradict the no-streets concept',
 			'Gabled roofs are rather conventional'
 		],
 		procedural: [
@@ -365,7 +365,7 @@ export const designs: Design[] = [
 			'Material as the identity of individual buildings',
 			'White square surfaces, trees and people as a sense of scale'
 		],
-		differs: ['Grid roads contradict the concept', 'Textures too loud for an entire district'],
+		differs: ['Grid streets contradict the concept', 'Textures too loud for an entire district'],
 		procedural: ['Materials as a shader set, used sparingly (one outlier per block)'],
 		tags: ['Material', 'Texture', 'Grid']
 	},
@@ -426,7 +426,7 @@ export const designs: Design[] = [
 			'Inflatable elements (Ant Farm)',
 			'Many people bring the building to life'
 		],
-		differs: ['Cars and a road at lower left', 'Collage style instead of a unified rendering'],
+		differs: ['Cars and a street at lower left', 'Collage style instead of a unified rendering'],
 		procedural: ['Vertical stacking of platforms with programs (pool, garden, sports)'],
 		tags: ['Utopia', 'Archigram', 'Ant Farm', 'Vertical']
 	},
@@ -931,7 +931,7 @@ export const designs: Design[] = [
 			'A historic block with a dome, a clock tower and townhouses as line, transparent rooftop extensions, a red network of scaffold towers, stairs, bridges, cranes and a cable car.',
 		keep: [
 			'Scaffold and crane show the construction process as part of the aesthetic',
-			'Cable car as transport without roads',
+			'Cable car as transport without streets',
 			'Landmarks are preserved'
 		],
 		procedural: [
@@ -1131,7 +1131,7 @@ export const designs: Design[] = [
 		style: ['Map', 'Line', 'Flow color'],
 		fit: 'kern',
 		description:
-			'Original rendering: our own district plan without roads, elevated walkway nodes as areas in the People flow color, walking radii as thin circles.',
+			'Original rendering: our own district plan without streets, elevated walkway nodes as areas in the People flow color, walking radii as thin circles.',
 		keep: [
 			'Radii as a representation of the 15-minute city',
 			'Nodes and edges as a network overlay',
@@ -1447,7 +1447,7 @@ export const designs: Design[] = [
 		style: ['UI sketch', 'Classic city builder', 'Black-and-white frame'],
 		fit: 'offen',
 		description:
-			'A classic city-builder layout: time controls at the top (play, pause, fast-forward), funds, population, satisfaction; on the left a history graph, an event list, a build menu with categories and counters, a legend; at the bottom a building palette; on the right city statistics (water, power, waste). Center: colorful buildings on a road grid. A functional sketch: the style is not binding.',
+			'A classic city-builder layout: time controls at the top (play, pause, fast-forward), funds, population, satisfaction; on the left a history graph, an event list, a build menu with categories and counters, a legend; at the bottom a building palette; on the right city statistics (water, power, waste). Center: colorful buildings on a street grid. A functional sketch: the style is not binding.',
 		keep: [
 			'Time controls and a header with three metrics',
 			'Build menu with counters per category',
@@ -1455,7 +1455,7 @@ export const designs: Design[] = [
 			'Statistics table for flows (water, power, waste)'
 		],
 		differs: [
-			'Road grid and cars contradict the concept',
+			'Street grid and cars contradict the concept',
 			'Flat instead of vertical: exactly what we want to do differently'
 		],
 		procedural: ['Use as a counterexample and as a checklist of mandatory elements'],
@@ -1475,7 +1475,7 @@ export const designs: Design[] = [
 			'Two scales at once: the city in the center, the selected house as an inset',
 			'Section inset shows the interior without a scene change'
 		],
-		differs: ['Roads and factory chimneys'],
+		differs: ['Streets and factory chimneys'],
 		procedural: [
 			'Picture-in-picture: a second camera on the selected house, switchable between exterior and section'
 		],
@@ -1841,9 +1841,9 @@ export const designs: Design[] = [
 		style: ['UI sketch', 'Classic', 'Pattern'],
 		fit: 'offen',
 		description:
-			'A classic simulator with roads and zones, tools and pattern swatches on the left, a floor plan, legend and curves on the right, a timeline at the bottom. A functional sketch: the style is not binding.',
+			'A classic simulator with streets and zones, tools and pattern swatches on the left, a floor plan, legend and curves on the right, a timeline at the bottom. A functional sketch: the style is not binding.',
 		keep: ['Pattern swatches (dots, waves, hatching) as a legend'],
-		differs: ['Classic roads and zones'],
+		differs: ['Classic streets and zones'],
 		procedural: ['Pattern as a second channel in the legend'],
 		tags: ['Classic', 'Pattern', 'Counterexample', 'UI']
 	},
@@ -1858,7 +1858,7 @@ export const designs: Design[] = [
 		description:
 			'A classic city slab, a plain frame with system status, tools, a minimap, histograms and the selected module. A functional sketch: the style is not binding.',
 		keep: ['Selection info "Selected: Comm. Module C3"', 'Minimap and histogram on the right'],
-		differs: ['Road grid'],
+		differs: ['Street grid'],
 		procedural: ['Selection panel with module ID'],
 		tags: ['Minimal', 'Analytics', 'UI']
 	},
@@ -1892,7 +1892,7 @@ export const designs: Design[] = [
 		description:
 			'A paper aesthetic with tape, stamps and Polaroids: metrics as pictures (money, face, lightning bolt, leaf), the alert "Grid Overload", the goal "Reconnect District 4", a build menu with marked icons. A functional sketch: the style is not binding.',
 		keep: ['Goal and alert as notes', 'Tactile collage as an artistic UI option'],
-		differs: ['Roads and cars'],
+		differs: ['Streets and cars'],
 		procedural: ['Alerts as pinned notes'],
 		tags: ['Collage', 'Goal', 'Alert', 'UI']
 	},
@@ -2037,7 +2037,7 @@ export const designs: Design[] = [
 			'Hints written directly onto the map',
 			'Materials as a header value'
 		],
-		differs: ['Roads as a category'],
+		differs: ['Streets as a category'],
 		procedural: ['Sector unlock as a map note'],
 		tags: ['Expansion', 'Note', 'Map', 'UI']
 	},
@@ -2260,7 +2260,7 @@ export const designs: Design[] = [
 		description:
 			'A rendered city: concrete towers, a blob, domes, tubes, grid houses, solar fields, a river with bridges.',
 		keep: ['Overall image of the rendered city with utopian buildings'],
-		differs: ['Roads and cars'],
+		differs: ['Streets and cars'],
 		procedural: ['Reference for the detail level at large scale'],
 		tags: ['Render', 'City', 'Artwork'],
 		source: 'Eigenes Artwork'
@@ -2326,7 +2326,7 @@ export const designs: Design[] = [
 		description:
 			'A perspective at eye level: colorful cubes, a slide, a mushroom form, a scaffold tower with capsules, tube transit, a wind turbine, a canal and a promenade.',
 		keep: ['Eye level as a reward or photo mode'],
-		differs: ['Road with cars'],
+		differs: ['Street with cars'],
 		procedural: ['Photo mode: camera at pedestrian height'],
 		tags: ['Eye level', 'Photo mode', 'Artwork'],
 		source: 'Eigenes Artwork'
