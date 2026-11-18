@@ -168,11 +168,16 @@ function makePatch(
 	return { positions, faces, template };
 }
 
-type CachedBlock = { ground: readonly kern.Vec[]; patch: ReturnType<typeof makePatch> };
+type CachedBlock = { patch: ReturnType<typeof makePatch> };
 export type BlockCache = Map<string, CachedBlock>;
 
 /** Fits the Universal kernel's relaxed patches inside fixed alley bands, including partial rim blocks. */
-export function blockPatches(lattice: Lattice, ground: Ground, cache: BlockCache) {
+export function blockPatches(
+	lattice: Lattice,
+	ground: Ground,
+	cache: BlockCache,
+	unchanged: (x: number, y: number, width: number, height: number) => boolean
+) {
 	const patches = new Map<string, { patch: ReturnType<typeof makePatch>; reused: boolean }>();
 	return (c: number, r: number) => {
 		const x = Math.floor(Math.min(c, lattice.columns - 1) / BLOCK.columns) * BLOCK.columns;
@@ -182,13 +187,14 @@ export function blockPatches(lattice: Lattice, ground: Ground, cache: BlockCache
 		if (!entry) {
 			const width = Math.min(BLOCK.columns, lattice.columns - x);
 			const height = Math.min(BLOCK.rows, lattice.rows - y);
-			const points = Array.from({ length: (width + 1) * (height + 1) }, (_, i) =>
-				ground(x + (i % (width + 1)), y + Math.floor(i / (width + 1)))
-			);
+
 			const old = cache.get(key);
-			if (old && points.every(([a, b], i) => a === old.ground[i][0] && b === old.ground[i][1])) {
+			if (old && unchanged(x, y, width, height)) {
 				entry = { patch: old.patch, reused: true };
 			} else {
+				const points = Array.from({ length: (width + 1) * (height + 1) }, (_, i) =>
+					ground(x + (i % (width + 1)), y + Math.floor(i / (width + 1)))
+				);
 				const patch = makePatch(
 					width,
 					height,
@@ -203,7 +209,7 @@ export function blockPatches(lattice: Lattice, ground: Ground, cache: BlockCache
 					) > 0,
 					old?.patch.template
 				);
-				cache.set(key, { ground: points, patch });
+				cache.set(key, { patch });
 				entry = { patch, reused: false };
 			}
 			patches.set(key, entry);

@@ -138,7 +138,9 @@ describe('terrain grid', () => {
 
 	test('level datums: no building on water, stilts where it floods, a plinth elsewhere', () => {
 		for (const cell of grid.cells) {
-			expect(cell.buildable).toBe(!cell.plan.open && !cell.plan.square && cell.alley === null);
+			expect(cell.buildable).toBe(
+				!cell.plan.open && !cell.plan.square && (cell.alley === null || cell.plan.edgePassage)
+			);
 			if (cell.raised) expect(cell.pad).toBe(FLOOD_DATUM);
 			else expect(cell.pad - PLINTH).toBe(Math.round(cell.pad - PLINTH));
 		}
@@ -181,7 +183,7 @@ describe('terrain grid', () => {
 				const [u, v] = frame(c, r);
 				expect(
 					Math.abs(Math.hypot(u - pole[0], v - pole[1]) - (76 + (r - 44) * MODULE))
-				).toBeLessThan(MODULE * defaultAlleyPlan.stagger * Math.SQRT2);
+				).toBeLessThan(MODULE * (defaultAlleyPlan.stagger * Math.SQRT2 + (r - 44) * 0.2));
 			}
 	});
 

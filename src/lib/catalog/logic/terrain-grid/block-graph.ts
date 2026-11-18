@@ -69,6 +69,34 @@ function paired(left: Face, right: Face, positions: Map<string, kern.Vec>, seed:
 	}
 }
 
+// Cut a four-module run with both frontages intact. These normalized cuts
+// are affine coordinates for all strips with the same topology.
+const depthCuts = ([0.5, 0.4, 0.6] as const).map((firstCut) => {
+	const polygon: kern.Vec[] = [
+		[0, 0],
+		[2, 0],
+		[2, 4],
+		[0, 4]
+	];
+	const fronts: kern.Front[] = [1, 3].map((i) => ({
+		id: String(i),
+		a: polygon[i],
+		b: polygon[(i + 1) % 4],
+		width: 1,
+		level: 0,
+		kind: 'alley'
+	}));
+	const cut = kern.parcelize('strip', polygon, fronts, {
+		maxArea: 5,
+		minArea: 3,
+		minWidth: 1,
+		minFront: 1,
+		maxDepth: 1,
+		level: 0,
+		firstCut
+	});
+	return Math.max(...cut.leaves[0].polygon.map((p) => p[1])) - 2;
+});
 /** Build a shared graph of terrace frontages before subdividing its faces. */
 export function sourceGraph(
 	width: number,
@@ -87,7 +115,12 @@ export function sourceGraph(
 				interior ? (hash(seed, c + r * (width + 1), channel) * 2 - 1) * limit : 0;
 			positions.set(cellId(c, r), [
 				(c + drift(1, Math.min(profile.stagger, profile.frontageShift))) * MODULE,
-				(r + drift(2)) * MODULE
+				(r +
+					drift(2) +
+					(interior && r % 4 === 2
+						? depthCuts[Math.floor(hash(seed, c, r) * depthCuts.length)]
+						: 0)) *
+					MODULE
 			]);
 			if (c < width && r < height)
 				faces.set(cellId(c, r), {

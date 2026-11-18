@@ -73,6 +73,8 @@ function withinEdit(point: Vec3, edits: readonly TerrainEdit[]) {
 }
 
 const cachedFields = new WeakMap<TerrainGrid, Map<number, Float64Array>>();
+type ShapeColumn = { shift: Float64Array; lean: Float64Array };
+const cachedShape = new WeakMap<TerrainGrid, Map<number, ShapeColumn>>();
 const cachedBlocks = new WeakMap<TerrainGrid, BlockCache>();
 
 function contourPatches(
@@ -80,11 +82,30 @@ function contourPatches(
 	from: number,
 	to: number,
 	cache: BlockCache,
-	fields: Map<number, Float64Array>
+	fields: Map<number, Float64Array>,
+	shape: Map<number, ShapeColumn>
 ) {
 	const shifts = rowShifts(lattice, from, to, fields);
 	const crossings = new Map<number, Float64Array>();
 	const leans = new Map([...shifts.keys()].map((c) => [c, columnLeans(lattice, c, crossings)]));
+	const changes = new Map<number, Uint16Array>();
+	for (const [c, shift] of shifts) {
+		const lean = required(leans.get(c), 'contour lean'),
+			old = shape.get(c);
+		const count = new Uint16Array(shift.length + 1);
+		for (let r = 0; r < shift.length; r++)
+			count[r + 1] =
+				count[r] + Number(!old || old.shift[r] !== shift[r] || old.lean[r] !== lean[r]);
+		changes.set(c, count);
+		shape.set(c, { shift, lean });
+	}
+	const unchanged = (x: number, y: number, width: number, height: number) => {
+		for (let c = x; c <= x + width; c++) {
+			const count = required(changes.get(c), 'column changes');
+			if (count[y] !== count[y + height + 1]) return false;
+		}
+		return true;
+	};
 	return blockPatches(
 		lattice,
 		(c, r) => {
@@ -97,7 +118,8 @@ function contourPatches(
 			);
 			return valleyPoint(lattice.terrain, c * MODULE + dx, r * MODULE + dy);
 		},
-		cache
+		cache,
+		unchanged
 	);
 }
 
@@ -191,6 +213,7 @@ function describeCell(
 		pattern,
 		plan,
 		alley,
+		ridgeSide: ((source.mask & 1) !== 0 ? 0 : 1) + ((column + row) % 2),
 		block: source.id,
 		blockSides: source.sides,
 		alleyEdges: source.mask,
@@ -204,7 +227,7 @@ function describeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable: !plan.open && !plan.square && alley === null,
+		buildable: !plan.open && !plan.square && (alley === null || plan.edgePassage),
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }
@@ -235,12 +258,14 @@ function derive(
 		)
 			fields.delete(c);
 	}
+	const shape = new Map(previous && cachedShape.get(previous));
 	const patches = contourPatches(
 		lattice,
 		first,
 		Math.min(columns, end + BLOCK.columns),
 		cache,
-		fields
+		fields,
+		shape
 	);
 	for (let c = first; c <= end; c++)
 		data.vertices[c] = columnVertices(lattice, c, patches, edits, data.vertices[c]);
@@ -249,6 +274,7 @@ function derive(
 			makeCell(lattice, data.vertices, c, r, patches, data.cells[c]?.[r], edits)
 		);
 	const result = assemble(lattice.terrain, lattice.profile, data, first, last, previous);
+	cachedShape.set(result, shape);
 	cachedFields.set(result, fields);
 	cachedBlocks.set(result, cache);
 	return result;

@@ -32,9 +32,20 @@ export function alleyPlan(
 	const bank = Math.round((terrain.bands.riverEnd + profile.bankSetback) / MODULE);
 	const footbridge = riverCrossing(terrain, column, row, bank, profile);
 	const steep = grade(d) >= profile.steepGrade;
-	const along = row === bank || row % (steep ? profile.terraceRows : BLOCK.rows) === 0;
+	const span = steep ? profile.terraceRows : BLOCK.rows;
+	const lane = column % BLOCK.columns;
+	const offset = lane >= BLOCK.columns / 3 && lane < (2 * BLOCK.columns) / 3 ? 1 : 0;
+	const landing = lane === BLOCK.columns / 3 || lane === (2 * BLOCK.columns) / 3;
+	const along = row === bank || row % span === offset || (landing && row % span <= 1);
 	const phase = row % BLOCK.rows;
-	const across = column % BLOCK.columns === 0;
+	const flight =
+		site.zone !== 'water' &&
+		row > bank &&
+		(grade(d) >= profile.landingGrade || (site.zone === 'lower-terrace' && phase <= 2)) &&
+		lane === (Math.floor(row / BLOCK.rows) % 2 ? BLOCK.columns / 3 : (2 * BLOCK.columns) / 3) &&
+		phase > 0 &&
+		phase <= profile.terraceRows;
+	const across = lane === 0 || flight;
 	const square = nodeSquare(site, column, phase, profile);
 	const open =
 		site.zone === 'water' || grade(b) > profile.ravineGrade || site.incision > profile.ravineDepth;
@@ -46,11 +57,11 @@ export function alleyPlan(
 		footbridge,
 		row === bank,
 		along,
-		steep && across && column % (2 * BLOCK.columns) === 0
+		flight || (steep && across && column % (2 * BLOCK.columns) === 0)
 	);
 	const widths = {
 		riversidePromenade: profile.promenadeWidth,
-		mainAlley: profile.mainAlleyWidth,
+		mainAlley: profile.mainAlleyWidth * (square || landing ? 1 : profile.passageShare),
 		alley: profile.alleyWidth,
 		stairAlley: profile.stairAlleyWidth,
 		footbridge: profile.footbridgeWidth
@@ -59,6 +70,7 @@ export function alleyPlan(
 		direction,
 		kind,
 		width: kind ? widths[kind] : 0,
+		edgePassage: kind === 'mainAlley' && !square && !landing && !across,
 		extent,
 		footbridge,
 		square: square && !open && extent > 0,
