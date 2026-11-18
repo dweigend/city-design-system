@@ -11,14 +11,14 @@ import type { Lage } from './lage';
 import type { Belegung } from './belegung';
 import { auswertung, DACH, EBENE, LAUF, LAUF_MIN, LAUF_MAX, SPANNWEITE, TOP } from './wege';
 import { wegZiele } from './ziele';
-export type Wegeplan = {
+type Wegeplan = {
 	net: PortNetwork;
 	terminals: Terminal[];
 	exclusive: [string, string][];
 	hint: Map<string, [number, number, number]>;
 	pitch: number;
 };
-export function wegeplan(r: Lage, b: Belegung): Wegeplan {
+function wegeplan(r: Lage, b: Belegung): Wegeplan {
 	const ports: Port[] = [],
 		edges: Connection[] = [],
 		exclusive: [string, string][] = [],

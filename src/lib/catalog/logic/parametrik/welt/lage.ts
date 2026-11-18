@@ -123,7 +123,7 @@ function huelle(points: Point2[]): Point2[] {
 	return [...half(ps), ...half([...ps].reverse())];
 }
 
-export function block(
+function block(
 	id: string,
 	cells: string[],
 	patch: Patch,

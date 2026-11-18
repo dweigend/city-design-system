@@ -36,7 +36,7 @@ export const ruhe = (hoehe: number): Lage => ({
 });
 
 /** Radial scale at height w = z / hoehe. */
-export function profil(w: number, l: Lage): number {
+function profil(w: number, l: Lage): number {
 	const c = clamp(w);
 	return Math.max(0.12, (1 - l.verjuengung * c) * (1 + l.bauch * Math.sin(Math.PI * c)));
 }

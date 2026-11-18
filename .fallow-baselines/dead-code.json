@@ -45,7 +45,6 @@
     "unused-export:src/lib/catalog/formen/turm/index.ts:Buehne",
     "unused-export:src/lib/catalog/interface/index.ts:HudBild",
     "unused-export:src/lib/catalog/library/filter.ts:matches",
-    "unused-export:src/lib/catalog/logic/ansicht/fokus.ts:look",
     "unused-export:src/lib/catalog/logic/ansicht/fokus.ts:stufe",
     "unused-export:src/lib/catalog/logic/ansicht/schnitt.ts:keinSchnitt",
     "unused-export:src/lib/catalog/logic/ansicht/szenen.ts:untergrund",

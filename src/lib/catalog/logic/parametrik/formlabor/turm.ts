@@ -40,12 +40,12 @@ import {
 /** Floor height in meters. */
 export const HF = 3.6;
 /** Bays per side; the ring has 4 × FELDER slots. */
-export const FELDER = 3;
+const FELDER = 3;
 const RING = 4 * FELDER;
 /** Maximum number of floors (no slots exist above it). */
 export const G_MAX = 15;
 /** Floors per microcosm. */
-export const SEG = 3;
+const SEG = 3;
 /** The lowest floors belong to the existing stock. */
 export const SOCKEL = 2;
 
@@ -116,7 +116,7 @@ const MEMPHIS = [
 export type Mikrokosmos = { dx: number; dy: number; mass: number; strom: number };
 
 /** Offset, scale and lead color per microcosm. The lowest one sits fixed on the existing stock. */
-export function mikrokosmen(g: Genom, saat: number): Mikrokosmos[] {
+function mikrokosmen(g: Genom, saat: number): Mikrokosmos[] {
 	const n = Math.ceil(G_MAX / SEG);
 	return Array.from({ length: n }, (_, s) => {
 		const fest = s === 0 ? 0 : 1,

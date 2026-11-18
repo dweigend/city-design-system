@@ -96,9 +96,6 @@
       },
       "crap_high": {
         "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
       }
     },
     "src/lib/catalog/logic/ansicht/geometrie.ts": {
@@ -383,7 +380,7 @@
     },
     "src/lib/catalog/logic/parametrik/raster/universal/kern/fields.ts": {
       "complexity_high": {
-        "count": 2
+        "count": 1
       },
       "complexity_moderate": {
         "count": 1
@@ -408,9 +405,6 @@
     "src/lib/catalog/logic/parametrik/raster/universal/kern/ports.ts": {
       "complexity_high": {
         "count": 2
-      },
-      "crap_high": {
-        "count": 1
       }
     },
     "src/lib/catalog/logic/parametrik/raster/universal/kern/topology.ts": {
@@ -470,9 +464,6 @@
     },
     "src/lib/catalog/logic/parametrik/welt/lage.ts": {
       "complexity_critical": {
-        "count": 1
-      },
-      "complexity_high": {
         "count": 1
       },
       "crap_critical": {
@@ -818,25 +809,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/scene/material.ts": {
-      "crap_high": {
-        "count": 2
-      },
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts": {
-      "crap_critical": {
-        "count": 2
-      },
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 4
-      }
-    },
     "src/lib/catalog/scene/materialRezept.ts": {
       "crap_critical": {
         "count": 2
@@ -1050,11 +1022,6 @@
     },
     "src/lib/catalog/library/ArchivDetail.svelte\u0000<template>": {
       "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/logic/ansicht/fokus.ts\u0000look": {
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -1419,11 +1386,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/logic/parametrik/raster/universal/kern/fields.ts\u0000fieldGrid": {
-      "complexity_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/logic/parametrik/raster/universal/kern/fields.ts\u0000sampleField": {
       "complexity_high": {
         "count": 1
@@ -1459,9 +1421,6 @@
     },
     "src/lib/catalog/logic/parametrik/raster/universal/kern/ports.ts\u0000connectPorts": {
       "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
         "count": 1
       }
     },
@@ -1539,11 +1498,6 @@
         "count": 1
       },
       "crap_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/logic/parametrik/welt/lage.ts\u0000lage": {
-      "complexity_high": {
         "count": 1
       }
     },
@@ -2019,56 +1973,6 @@
         "count": 1
       },
       "crap_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/material.ts\u0000finishMaterial": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/material.ts\u0000lookColor": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/material.ts\u0000patternInk": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000baue": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000createMaterialBuehne": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000geometrie": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000huelle": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000kamera": {
-      "crap_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000taste": {
-      "crap_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialBuehne.ts\u0000zeichne": {
-      "crap_high": {
         "count": 1
       }
     },
