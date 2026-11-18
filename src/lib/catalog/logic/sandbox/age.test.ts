@@ -54,3 +54,22 @@ test('an erased story returns one unit and rebuilding at its anchor creates a fr
 		'collage'
 	]);
 });
+
+test('most occupied seed-7 parcels have a visibly oblique corner', () => {
+	const occupied = town.grid.cells.filter((cell) => town.state.stacks.has(cell.id));
+	const oblique = occupied.filter(({ corners }) =>
+		corners.some((v, i) => {
+			const a = corners[(i + 3) % 4],
+				b = corners[(i + 1) % 4];
+			const ux = a[0] - v[0],
+				uy = a[1] - v[1],
+				vx = b[0] - v[0],
+				vy = b[1] - v[1];
+			return (
+				Math.abs(ux * vx + uy * vy) >
+				Math.sin((7 * Math.PI) / 180) * Math.hypot(ux, uy) * Math.hypot(vx, vy)
+			);
+		})
+	);
+	expect(oblique.length).toBeGreaterThan(occupied.length / 2);
+});

@@ -1,16 +1,35 @@
 import { townDefaults } from '../../data/sandbox';
 import type { StoryPart } from './state';
-import { DEFAULT_RULES, hashUnit } from '../parzelle';
-import { BLOCK, MODULE, type TerrainGrid } from '../terrain-grid';
+import { hashUnit } from '../parzelle';
+import { type TerrainGrid } from '../terrain-grid';
+import { neighborsOf } from '../quad-grid';
 import type { HouseUse } from '../house-brush';
 import { EMPTY_STATE } from './state';
 
 export type TownOptions = Partial<typeof townDefaults>;
 
+/** Assigns lots to the nearest public frontage along actual parcel sides. */
+function frontageLots(grid: TerrainGrid, depthLimit: number) {
+	let front = grid.cells
+		.filter((c) => c.street && !c.plan.open)
+		.map((cell) => ({ cell, lot: cell.id }));
+	const sites = new Map<string, { lot: string; depth: number }>();
+	for (let depth = 1; depth <= depthLimit; depth++) {
+		front = front.flatMap(({ cell, lot }) =>
+			neighborsOf(grid, cell).flatMap((next) => {
+				if (!next.buildable || next.zone !== 'lower-terrace' || sites.has(next.id)) return [];
+				sites.set(next.id, { lot, depth });
+				return [{ cell: next, lot }];
+			})
+		);
+	}
+	return sites;
+}
+
 /** Paired street-front lots on the first dry terrace. Parcel-addressed draws leave alleys and gardens. */
 export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 	const settings = { ...townDefaults, ...options };
-	const frontage = Math.max(1, Math.round(DEFAULT_RULES.frontTarget / MODULE));
+	const frontages = frontageLots(grid, settings.frontageDepth);
 	const seed = grid.terrain.seed;
 	const center =
 		grid.columns * (settings.centerMin + settings.centerRange * hashUnit(seed, 'town'));
@@ -18,15 +37,10 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 	const shore = sites.find((c) => Math.abs(c.column - center) < 1)?.row ?? grid.rows / 3;
 	const lots = sites
 		.flatMap((cell) => {
-			const r = cell.row % BLOCK.rows;
-			const depth = Math.min(r, BLOCK.rows - r);
-			if (depth > settings.frontageDepth) return [];
-			const lot = [
-				cell.block,
-				Math.floor(((cell.column % BLOCK.columns) - 1) / frontage),
-				r < BLOCK.rows / 2 ? 0 : 1
-			];
-			if (hashUnit(seed, ...lot, 'garden') < settings.gardenShare) return [];
+			const frontage = frontages.get(cell.id);
+			if (!frontage) return [];
+			const { lot, depth } = frontage;
+			if (hashUnit(seed, lot, 'garden') < settings.gardenShare) return [];
 			const score =
 				Math.hypot(
 					(cell.column - center) / settings.alongScale,
@@ -37,7 +51,7 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 				{
 					cell,
 					score,
-					height: 1 + Math.floor(hashUnit(seed, ...lot, 'height') * settings.maxFloors)
+					height: 1 + Math.floor(hashUnit(seed, lot, 'height') * settings.maxFloors)
 				}
 			];
 		})

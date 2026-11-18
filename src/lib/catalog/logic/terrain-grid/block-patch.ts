@@ -55,11 +55,11 @@ function parcelVertex(
 	const [x, y] = ground(c, r);
 	if (!settled || c <= 1 || c === width || r === 0 || r === height)
 		return { position: [x, y] as const, fixed: true };
-	const shift = (hash(seed, c, 5) * 2 - 1) * profile.frontageShift;
+	const shift = (hash(seed, c + r * width, 5) * 2 - 1) * profile.frontageShift;
 	const [nearX, nearY] = ground(c + Math.sign(shift), r);
-	const fixed = r % profile.terraceRows <= 1;
+	const fixed = r % profile.terraceRows === 1 || r % profile.terraceRows === 0;
 	const jitter = (channel: number) =>
-		fixed ? 0 : MODULE * profile.stagger * (2 * hash(seed, r * (width + 1) + c, channel) - 1);
+		MODULE * profile.stagger * (2 * hash(seed, r * (width + 1) + c, channel) - 1);
 	return {
 		position: [
 			x + Math.abs(shift) * (nearX - x) + jitter(0),
@@ -100,7 +100,17 @@ function blockIntent(
 	};
 }
 
-function makePatch(
+function admissible(intent: kern.Intent, positions: kern.Intent['positions'], minArea: number) {
+	const limits = { ...intent.limits, minArea };
+	return [...intent.faces.values()].every((face) =>
+		kern.acceptable(
+			kern.quadQuality(face.ring.map((v) => required(positions.get(v), 'relaxed corner'))),
+			limits
+		)
+	);
+}
+
+function fitPatch(
 	width: number,
 	height: number,
 	seed: number,
@@ -109,27 +119,42 @@ function makePatch(
 	settled: boolean
 ) {
 	const intent = blockIntent(width, height, seed, profile, ground, settled);
-	let positions = kern.relax(intent, settled ? profile.relaxPasses : 0).positions;
-	const valid = [...intent.faces.values()].every((face) => {
-		const points = face.ring.map((v) => required(positions.get(v), 'relaxed corner'));
-		return kern.acceptable(kern.quadQuality(points), {
-			...intent.limits,
-			minArea: profile.minParcelArea
-		});
-	});
-	if (!valid) {
-		for (let r = 0; r < height; r++)
-			for (let c = 0; c < width; c++) {
-				const id = cellId(c, r);
-				intent.faces.set(id, { id, ring: ringAt(c, r), level: 0 });
-			}
-		positions = new Map(
-			[...intent.positions.keys()].map((id) => {
-				const [c, r] = id.split('/').map(Number);
-				return [id, ground(c, r)];
-			})
-		);
+	const relaxed = kern.relax(intent, settled ? profile.relaxPasses : 0).positions;
+	if (admissible(intent, relaxed, profile.minParcelArea)) return { intent, positions: relaxed };
+	// A sharp bend can invalidate a diagonal. Retain the displaced frontage and
+	// recover the block with its original incidences, backing off only as far as necessary.
+	for (const face of intent.faces.values()) {
+		const [c, r] = face.id.split('/').map(Number);
+		face.ring = ringAt(c, r);
 	}
+	const candidate = kern.relax(intent, profile.relaxPasses).positions;
+	const base = new Map(
+		[...candidate.keys()].map((id) => {
+			const [c, r] = id.split('/').map(Number);
+			return [id, ground(c, r)] as const;
+		})
+	);
+	for (let share = 1; share >= 1 / 64; share /= 2) {
+		const positions = new Map(
+			[...candidate].map(([id, p]) => [
+				id,
+				kern.mix(required(base.get(id), 'base corner'), p, share)
+			])
+		);
+		if (admissible(intent, positions, profile.minParcelArea)) return { intent, positions };
+	}
+	return { intent, positions: base };
+}
+
+function makePatch(
+	width: number,
+	height: number,
+	seed: number,
+	profile: Lattice['profile'],
+	ground: Ground,
+	settled: boolean
+) {
+	const { intent, positions } = fitPatch(width, height, seed, profile, ground, settled);
 	const topology = kern.buildTopology([...intent.faces.values()]);
 	const address = (id: string): Address => {
 		const [c, r] = id.split('/').map(Number);
