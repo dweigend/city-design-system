@@ -22,6 +22,14 @@ function projectCover(target: Target, after: World, cellIds: readonly string[]) 
 	if (cellIds.length) target.terrain.commitCover();
 }
 
+function projectLines(
+	structures: Structures,
+	{ removedLines, addedLines }: ReturnType<typeof changes>
+) {
+	for (const id of removedLines) structures.set(KEY.line + id, []);
+	for (const line of addedLines) structures.set(KEY.line + line.id, lineParts(line));
+}
+
 /**
  * Redraws what differs between two worlds of the same seed: the terrain surface if the grid
  * moved, and only the touched house and forest chunks, cover cells and lines.
@@ -36,6 +44,5 @@ export function projectChanges(target: Target, before: World, after: World) {
 	for (const chunk of delta.forestChunks)
 		structures.set(KEY.forest + chunk, forestChunk(grid, state.cover, chunk, seed));
 	projectCover(target, after, delta.coverCells);
-	for (const id of delta.removedLines) structures.set(KEY.line + id, []);
-	for (const line of delta.addedLines) structures.set(KEY.line + line.id, lineParts(line));
+	projectLines(structures, delta);
 }

@@ -52,12 +52,15 @@
 	export function pickTool(id: SandboxToolId) {
 		session.tool = toolOf(id);
 	}
+	function optionAt<Id extends string>(options: SandboxOption<Id>[], index: number, fallback: Id) {
+		return options[index]?.id ?? fallback;
+	}
 	/** Sets option n (0-based) of the active tool, if it has that many. */
 	export function pickOption(index: number) {
 		const kind = session.tool.kind;
-		if (kind === 'house') chosen.house = sandboxUses[index]?.id ?? chosen.house;
-		if (kind === 'line') chosen.line = sandboxLines[index]?.id ?? chosen.line;
-		if (kind === 'cover') chosen.cover = sandboxCovers[index]?.id ?? chosen.cover;
+		if (kind === 'house') chosen.house = optionAt(sandboxUses, index, chosen.house);
+		if (kind === 'line') chosen.line = optionAt(sandboxLines, index, chosen.line);
+		if (kind === 'cover') chosen.cover = optionAt(sandboxCovers, index, chosen.cover);
 		session.tool = toolOf(kind);
 	}
 </script>

@@ -37,13 +37,18 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 
 /** Corner points along the grid rim, counter-clockwise, as world points. */
 function rim(grid: TerrainGrid) {
-	const cell = (column: number, row: number) => grid.cells[row * grid.columns + column];
-	const last = { column: grid.columns - 1, row: grid.rows - 1 };
+	const { columns, rows } = grid;
+	const lastRowStart = (rows - 1) * columns;
+	const edges = [
+		{ start: 0, step: 1, count: columns },
+		{ start: columns - 1, step: columns, count: rows },
+		{ start: lastRowStart + columns - 1, step: -1, count: columns },
+		{ start: lastRowStart, step: -columns, count: rows }
+	];
 	const points = [];
-	for (let c = 0; c <= last.column; c++) points.push(cell(c, 0).corners[0]);
-	for (let r = 0; r <= last.row; r++) points.push(cell(last.column, r).corners[1]);
-	for (let c = last.column; c >= 0; c--) points.push(cell(c, last.row).corners[2]);
-	for (let r = last.row; r >= 0; r--) points.push(cell(0, r).corners[3]);
+	for (const [corner, { start, step, count }] of edges.entries()) {
+		for (let i = 0; i < count; i++) points.push(grid.cells[start + i * step].corners[corner]);
+	}
 	return points;
 }
 

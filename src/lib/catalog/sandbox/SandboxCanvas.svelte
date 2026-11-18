@@ -64,16 +64,19 @@
 	$effect(() => stage?.setPlan(plan));
 	$effect(() => onhover?.(hovered));
 
-	$effect(() => {
-		if (!stage) return;
+	function updateCursor(current: SandboxStage) {
 		if (!hovered || session.tool.kind === 'look') {
-			stage.setLens(0, 0, 0);
-			stage.setCursor([]);
+			current.setLens(0, 0, 0);
+			current.setCursor([]);
 			return;
 		}
-		stage.setLens(hovered.column + 0.5, hovered.row + 0.5, 1);
+		current.setLens(hovered.column + 0.5, hovered.row + 0.5, 1);
 		const tone = session.tool.kind === 'erase' ? 'ink' : 'signal';
-		stage.setCursor(cursorFrame(session.world.state, session.tool, hovered), tone);
+		current.setCursor(cursorFrame(session.world.state, session.tool, hovered), tone);
+	}
+
+	$effect(() => {
+		if (stage) updateCursor(stage);
 	});
 </script>
 

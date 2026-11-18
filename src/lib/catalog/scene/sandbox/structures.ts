@@ -57,13 +57,14 @@ export function createStructures() {
 	materials.hull.vertexNode = outlinePosition(outlinePx);
 	materials.crease.transparent = true;
 
+	function tokenColor(token: Primitive['token']): THREE.Color {
+		if (token === '--paper') return paper;
+		if (token === '--blueprint') return blueprint;
+		return categories[token.replace('--cat-', '')] ?? paper;
+	}
+
 	function colorOf(p: Primitive): THREE.Color {
-		const base =
-			p.token === '--paper'
-				? paper
-				: p.token === '--blueprint'
-					? blueprint
-					: (categories[p.token.replace('--cat-', '')] ?? paper);
+		const base = tokenColor(p.token);
 		return p.shade ? base.clone().lerp(ink, p.shade) : base;
 	}
 

@@ -111,7 +111,32 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		return { ...world, state: EMPTY_STATE, lines: [] };
 	}
 
+	function previousWorld(world: World): World {
+		return shown && shown.seed === world.seed ? shown : open(world);
+	}
+
+	function updateWorld(mesh: TerrainMesh, before: World, after: World) {
+		projectChanges({ terrain: mesh, structures }, before, after);
+		if (before.grid !== after.grid) drawBaseLines(mesh);
+	}
+
 	const raycaster = new THREE.Raycaster();
+
+	function hitAt(surface: TerrainMesh['surface'], xPx: number, yPx: number) {
+		raycaster.setFromCamera(view.ndc(xPx, yPx), view.camera);
+		const built = [...structures.solids(KEY.house), ...structures.solids(KEY.forest)];
+		return raycaster.intersectObjects([surface, ...built], false)[0];
+	}
+
+	function cellIndexAtHit(
+		hit: THREE.Intersection,
+		surface: TerrainMesh['surface'],
+		grid: World['grid']
+	) {
+		if (hit.object === surface) return (hit.faceIndex ?? NaN) >> 1;
+		return cellAtPoint(grid, hit.point.x, -hit.point.z)?.index;
+	}
+
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, applyPalette);
 
@@ -125,10 +150,9 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		 */
 		show(world: World) {
 			if (world === shown) return;
-			const before = shown && shown.seed === world.seed ? shown : open(world);
+			const before = previousWorld(world);
 			if (!terrain) return;
-			projectChanges({ terrain, structures }, before, world);
-			if (before.grid !== world.grid) drawBaseLines(terrain);
+			updateWorld(terrain, before, world);
 			shown = world;
 			canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
 			render();
@@ -153,12 +177,8 @@ export function createSandboxStage(canvas: HTMLCanvasElement, onError: () => voi
 		 */
 		pickCell(xPx: number, yPx: number): number | undefined {
 			if (!terrain || !shown) return undefined;
-			raycaster.setFromCamera(view.ndc(xPx, yPx), view.camera);
-			const built = [...structures.solids(KEY.house), ...structures.solids(KEY.forest)];
-			const hit = raycaster.intersectObjects([terrain.surface, ...built], false)[0];
-			if (!hit) return undefined;
-			if (hit.object === terrain.surface) return (hit.faceIndex ?? NaN) >> 1;
-			return cellAtPoint(shown.grid, hit.point.x, -hit.point.z)?.index;
+			const hit = hitAt(terrain.surface, xPx, yPx);
+			return hit && cellIndexAtHit(hit, terrain.surface, shown.grid);
 		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
