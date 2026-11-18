@@ -41,3 +41,11 @@ describe('land cover', () => {
 		expect(forestChunk(grid, cover, '0:0', 8)).not.toEqual(forestChunk(grid, cover, '0:0', 7));
 	});
 });
+test('a planted chunk uses all four crown geometries with unique part identities', () => {
+	const cover = forest(grid.cells.map((cell) => cell.id));
+	const parts = forestChunk(grid, cover, '0:0', 7);
+	expect(new Set(parts.filter((p) => p.id.includes(':tree')).map((p) => p.kind))).toEqual(
+		new Set(['sphere', 'cone', 'helix', 'box'])
+	);
+	expect(new Set(parts.map((p) => p.id)).size).toBe(parts.length);
+});
