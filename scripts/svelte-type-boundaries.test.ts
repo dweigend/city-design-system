@@ -282,6 +282,19 @@ describe('Core layer boundary', () => {
 		expect(run.stdout.toString()).toContain('core-no-higher-layers');
 	});
 
+	test.each(['scripts', 'docs'])('rejects a scene re-export through %s', (directory) => {
+		const core = 'src/lib/catalog/core/random/index.ts';
+		const adapter = `${directory}/adapter.ts`;
+		const { graph } = fixture({
+			[core]: `export { value } from '../../../../../${directory}/adapter';`,
+			[adapter]: "export { value } from '../src/lib/catalog/scene/higher';",
+			'src/lib/catalog/scene/higher.ts': 'export const value = 1;'
+		});
+		expect(graph.summary.violations).toMatchObject([
+			{ from: core, to: adapter, rule: { name: 'core-no-higher-layers' } }
+		]);
+	});
+
 	test('rejects cross-module, external private and contract-test private imports', () => {
 		const params = 'src/lib/catalog/core/params/index.ts';
 		const random = 'src/lib/catalog/core/random/index.ts';

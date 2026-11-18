@@ -51,12 +51,12 @@ Mapping of library concepts:
 The `core` layer owns the public entry points `core/params/index.ts` and
 `core/random/index.ts`. Catalog consumers can import these entry points directly.
 The existing logic entry points forward to them. The `core-no-higher-layers`
-rule restricts core runtime files to other core files within `src/` and
-blocks Svelte, Bits UI, Lucide-Svelte, and three.js imports. Tests remain in the
-`dev` layer. Each core module's runtime code depends only on its own files
-within `core/`. External consumers and contract tests access a core module
-through its `index.ts`. Tests named `*.unit.test.ts` can import private files
-in their own module.
+rule allows headless core files and explicitly approved npm packages as import
+targets. The package list is empty. Each core module's runtime code depends
+only on its own files. External consumers and contract tests access a core
+module through its `index.ts`. Tests remain in the `dev` layer and can also
+import `bun:test`. Tests named `*.unit.test.ts` can import private files in
+their own module.
 
 | from ↓ · to → | `data` | `logic` | `scene` | `component` | `route` | `svelte`, `$app` | `bits-ui`, `lucide-svelte` | `three` |
 | ------------- | :----: | :-----: | :-----: | :---------: | :-----: | :--------------: | :------------------------: | :-----: |

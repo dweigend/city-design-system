@@ -1,6 +1,8 @@
 // Existing findings are frozen in .dependency-cruiser-baseline.json.
 const corePath = 'src/lib/catalog/core/';
 const runtimeFile = '(?!.*\\.test\\.ts$)(?!benchmark\\.ts$)(?!.*/benchmark\\.ts$)';
+// List approved npm packages here by their resolved node_modules paths.
+const coreTargets = [`${corePath}(?!.*\\.svelte(?:\\.[jt]s)?$)`].join('|');
 
 module.exports = {
 	forbidden: [
@@ -16,10 +18,14 @@ module.exports = {
 		{
 			name: 'core-no-higher-layers',
 			severity: 'error',
-			from: { path: `^${corePath}${runtimeFile}` },
-			to: {
-				path: '(^src/(?!lib/catalog/core/)|\\.svelte(?:\\.[jt]s)?$|(^|node_modules/)(svelte|three|bits-ui|lucide-svelte)(/|$)|^\\$app(/|$))'
-			}
+			from: { path: `^${corePath}(?!.*\\.test\\.ts$)` },
+			to: { path: `^(?!(?:${coreTargets}))` }
+		},
+		{
+			name: 'core-test-allowed-imports',
+			severity: 'error',
+			from: { path: `^${corePath}.*\\.test\\.ts$` },
+			to: { path: `^(?!(?:${coreTargets}|bun:test$))` }
 		},
 		...['params', 'random'].flatMap((name) => {
 			const modulePath = `${corePath}${name}/`;
@@ -56,10 +62,10 @@ module.exports = {
 		{ name: 'no-cycles', severity: 'error', from: {}, to: { circular: true } }
 	],
 	options: {
-		doNotFollow: { path: 'node_modules' },
+		// Keep incoming edges visible to the rules while skipping traversal of these folders.
+		doNotFollow: { path: '((^|/)node_modules/|^(\\.svelte-kit|build|static|docs)/)' },
 		tsPreCompilationDeps: true,
 		tsConfig: { fileName: 'tsconfig.json' },
-		enhancedResolveOptions: { extensions: ['.ts', '.js', '.svelte'] },
-		exclude: '^(.svelte-kit|build|static|docs)/'
+		enhancedResolveOptions: { extensions: ['.ts', '.js', '.svelte'] }
 	}
 };
