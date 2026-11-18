@@ -9,19 +9,15 @@ import type { Node } from 'three/webgpu';
 import { attribute, float, mix, positionWorld, texture, uniform, vec2 } from 'three/tsl';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
 import { bridgeGeometry, streetOverlay } from './street-overlay';
+import { resolveParams, type ParamOverrides } from '../../logic/params';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import type { Palette3D } from '../../data/city3d';
 import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
+import { TERRAIN_VIEW_PARAMS } from './view-params';
 
 /** Contour intervals in meters. */
 const CONTOUR = { minor: 1, major: 5 };
-/** Cells per parcel line of the measure chain (10 cells of 5 m = 50 m). */
-const PARCEL_CELLS = 10;
-/** Radius of the grid lens around the cursor, in cells. */
-const LENS_RADIUS = 11;
-/** Extra weight of the contour lines when the whole grid is shown. */
-const PLAN_CONTOUR_GAIN = 0.9;
 const INK_SHARE = {
 	contourMinor: 0.2,
 	contourMajor: 0.44,
@@ -52,7 +48,15 @@ export type TerrainMesh = ReturnType<typeof createTerrainMesh>;
  * Builds the terrain objects for a grid. The caller adds `group` to its scene and calls
  * `dispose` when the grid is replaced. Face index >> 1 of `surface` is the cell index.
  */
-export function createTerrainMesh(grid: TerrainGrid) {
+export function createTerrainMesh(
+	grid: TerrainGrid,
+	overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>
+) {
+	const profile = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
+	const parcelCells = uniform(profile.parcelCells);
+	const lensCells = uniform(profile.lensCells);
+	const lensInnerCells = uniform(profile.lensCells * 0.35);
+	const planContourGain = uniform(profile.planContourGain);
 	const colors = {
 		paper: uniform(new THREE.Color()),
 		ink: uniform(new THREE.Color()),
@@ -116,7 +120,7 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		const major = hairline(height.div(CONTOUR.major), 1.2);
 		const contour = minor.mul(INK_SHARE.contourMinor).max(major.mul(INK_SHARE.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
-		const weighted = contour.mul(gridStrength.mul(PLAN_CONTOUR_GAIN).add(1));
+		const weighted = contour.mul(gridStrength.mul(planContourGain).add(1));
 		ground = mix(
 			ground,
 			colors.ink,
@@ -124,17 +128,12 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		);
 
 		const lens = float(1)
-			.sub(
-				chart
-					.sub(cursor)
-					.length()
-					.smoothstep(LENS_RADIUS * 0.35, LENS_RADIUS)
-			)
+			.sub(chart.sub(cursor).length().smoothstep(lensInnerCells, lensCells))
 			.mul(lensStrength)
 			.max(gridStrength);
 		const cellLine = hairline(chart.x, 1).max(hairline(chart.y, 1)).mul(resolvable(chart.x));
-		const parcelLine = hairline(chart.x.div(PARCEL_CELLS), 1).max(
-			hairline(chart.y.div(PARCEL_CELLS), 1)
+		const parcelLine = hairline(chart.x.div(parcelCells), 1).max(
+			hairline(chart.y.div(parcelCells), 1)
 		);
 		const near = float(1).sub(chart.fwidth().length().smoothstep(0.05, 0.12));
 		const plan = near.mul(
@@ -169,6 +168,16 @@ export function createTerrainMesh(grid: TerrainGrid) {
 		group,
 		setStreets: streets.update,
 		surface,
+		/** Replaces view overrides in schema units, restoring omitted fields to defaults.
+		 * Updates the shader uniforms in place. Invalid values throw RangeError.
+		 */
+		setParams(overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>) {
+			const next = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
+			parcelCells.value = next.parcelCells;
+			lensCells.value = next.lensCells;
+			lensInnerCells.value = next.lensCells * 0.35;
+			planContourGain.value = next.planContourGain;
+		},
 		/** World line segments of the model base outline, three.js coordinates. */
 		baseLines: () => baseLines,
 		/**

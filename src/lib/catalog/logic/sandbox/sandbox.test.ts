@@ -1,6 +1,7 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import { houseChunk, storiesOf } from '../house-brush';
+import { lineParts } from '../transit-line';
 import {
 	applyEdit,
 	EMPTY_STATE,
@@ -213,6 +214,25 @@ describe('sandbox', () => {
 		expect(dug.state.lines).toBe(lined.state.lines);
 		expect(dug.lines[0]).not.toBe(lined.lines[0]);
 		expect(changes(lined, dug).addedLines).toHaveLength(1);
+	});
+
+	test('line profile edits store only changes and survive regrid and undo', () => {
+		const lined = applyEdit(empty, { kind: 'line', transit: 'viaduct', cellIds: row(20, 60) });
+		const edit = { kind: 'line-profile', lineId: 'line1' } as const;
+		const profile = { deckRadius: 0.8, clearance: 9 };
+		const tuned = applyEdit(lined, { ...edit, profile });
+		profile.deckRadius = 0.9;
+		const dug = applyEdit(tuned, { kind: 'dig', cellId: '40/' + site().row });
+		const history = commit(commit(startHistory(lined.state), tuned.state), dug.state);
+		expect(dug.grid).not.toBe(tuned.grid);
+		const restored = withState(dug, undo(history).present);
+		for (const world of [tuned, dug, restored, withState(restored, redo(undo(history)).present)]) {
+			expect(world.state.lines[0].profile).toEqual({ deckRadius: 0.8 });
+			expect(lineParts(world.lines[0])[0]).toMatchObject({ radius: 0.8 });
+		}
+		expect(withState(restored, undo(undo(history)).present).lines[0].profile).toBeUndefined();
+		expect(applyEdit(tuned, edit).state.lines[0]).toEqual(lined.state.lines[0]);
+		expect(() => applyEdit(tuned, { ...edit, profile: { deckRadius: 100 } })).toThrow(RangeError);
 	});
 
 	test('the cursor previews the next story, the ground on water, the top story for the eraser', () => {

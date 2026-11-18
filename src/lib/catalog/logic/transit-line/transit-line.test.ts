@@ -20,6 +20,31 @@ function route(kind: TransitKind, cellIds: string[]) {
 	return line;
 }
 const straight = ['40/60', '40/95'];
+
+test('a sparse saved profile falls back to defaults and validates values on read', () => {
+	const line = route('capsule', straight);
+	const partial = { ...line, profile: { supportRadius: 0.4 } };
+	expect(lineParts(partial)[0]).toEqual(lineParts(line)[0]);
+	expect(vehiclePoses(partial, 10)).toEqual(vehiclePoses(line, 10));
+	const invalid = { ...line, profile: { hoopSpacing: 0.001 } };
+	expect(() => lineParts(invalid)).toThrow(RangeError);
+	expect(() => vehiclePoses(invalid, 10)).toThrow(RangeError);
+});
+
+test('rejects incompatible deck, station and hoop dimensions', () => {
+	const stroke = { id: 'test', kind: 'viaduct', cellIds: straight } as const;
+	expect(() => routeLine(grid, stroke, { clearance: 1, deckRadius: 1 })).toThrow(/Deck radius/);
+	expect(() =>
+		routeLine(grid, stroke, { clearance: 1, platformDrop: 0.6, platformHeight: 0.4 })
+	).toThrow(/Station drop/);
+	expect(() =>
+		routeLine(grid, { ...stroke, kind: 'capsule' }, { clearance: 1.5, platformDrop: 1.5 })
+	).toThrow(/Station drop/);
+	expect(() => routeLine(grid, { ...stroke, kind: 'capsule' }, { deckRadius: 1.4 })).toThrow(
+		/hoop radius/
+	);
+});
+
 for (const kind of ['viaduct', 'capsule'] as const) {
 	test(kind + ' crosses the scarp above ground within grade on a straight alignment', () => {
 		const line = route(kind, straight);

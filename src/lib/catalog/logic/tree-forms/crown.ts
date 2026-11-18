@@ -1,5 +1,5 @@
 import type { Primitive, Vec3 } from '../parametrik/types';
-import { TREE_FORM } from './proportions';
+import { TREE_FORM, type TreeProfile } from './proportions';
 
 export type CrownForm = 'ball' | 'cone' | 'voxel' | 'spiral';
 type CrownBase = Pick<Primitive, 'id' | 'role' | 'token' | 'material'>;
@@ -21,7 +21,8 @@ export function crownParts(
 	[u, v, z]: Vec3,
 	s: number,
 	base: (index: number) => CrownBase,
-	frame: Frame = worldFrame
+	frame: Frame = worldFrame,
+	profile: TreeProfile = TREE_FORM
 ): Primitive[] {
 	const at = (h: number): Vec3 => [...frame.world(u, v), h];
 	switch (form) {
@@ -30,8 +31,8 @@ export function crownParts(
 				{
 					...base(0),
 					kind: 'sphere',
-					position: at(z + s * TREE_FORM.ballRadius),
-					radius: s * TREE_FORM.ballRadius,
+					position: at(z + s * profile.ballRadius),
+					radius: s * profile.ballRadius,
 					squash: undefined
 				}
 			];
@@ -41,8 +42,8 @@ export function crownParts(
 					...base(0),
 					kind: 'cone',
 					position: at(z),
-					radius: s * TREE_FORM.coneRadius,
-					height: s * TREE_FORM.coneHeight
+					radius: s * profile.coneRadius,
+					height: s * profile.coneHeight
 				}
 			];
 		case 'spiral':
