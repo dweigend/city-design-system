@@ -32,12 +32,19 @@ test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b4
 });
 
 const grid = deriveGrid(createTerrain({ seed: 7 }));
+const terrainRoutes = {
+	viaduct: '40d528cc64c0842ebe79fd5463f70facdb917dace6e26f82b4b253e91fddccf8',
+	capsule: '74c195617e208e2165f6d931e40ab0546904a4f01ac969a3a6364b838a910f95'
+};
 const kinds = ['viaduct', 'capsule'] as const;
 for (const kind of kinds) {
 	test(kind + ' retains the default output and projects serialized overrides', () => {
 		const stroke = { id: 'test', kind, cellIds: ['40/35', '80/35', '80/75'] };
 		const line = routeLine(grid, stroke);
 		if (!line) throw new Error('Expected the default route');
+		expect(fingerprint([line.path, lineParts(line), vehiclePoses(line, 10)])).toBe(
+			terrainRoutes[kind]
+		);
 		// Defaults written out give the same route as no overrides: independent of the terrain.
 		const defaults = Object.fromEntries(
 			Object.entries(TRANSIT_PARAMS[kind]).map(([name, param]) => [name, param.default])
