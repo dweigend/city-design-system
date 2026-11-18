@@ -18,10 +18,15 @@ import type { Palette3D } from '../../data/city3d';
 import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
 
+/** A constant screen-space field has no resolvable contour. */
+const MIN_DERIVATIVE = 1e-6;
+
 /** 1 on a line at every integer of `value`, antialiased; width in screen pixels. */
 function hairline(value: Node<'float'>, widthPx: number): Node<'float'> {
-	const distancePx = value.sub(0.5).fract().sub(0.5).abs().div(value.fwidth().max(1e-6));
-	return float(1).sub(distancePx.smoothstep(widthPx / 2 - 0.5, widthPx / 2 + 0.5));
+	const derivative = value.fwidth();
+	const distancePx = value.sub(0.5).fract().sub(0.5).abs().div(derivative.max(MIN_DERIVATIVE));
+	const coverage = float(1).sub(distancePx.smoothstep(widthPx / 2 - 0.5, widthPx / 2 + 0.5));
+	return coverage.mul(float(derivative.greaterThan(MIN_DERIVATIVE)));
 }
 /** 1 where line patterns of `value` are still resolvable on screen, 0 where they would alias. */
 const resolvable = (value: Node<'float'>) => float(1).sub(value.fwidth().smoothstep(0.22, 0.55));
@@ -92,7 +97,7 @@ export function createTerrainMesh(
 		const masks = texture(cover.map, chart.div(vec2(grid.columns, grid.rows)));
 		const inside = (mask: Node<'float'>) => mask.smoothstep(0.46, 0.54);
 		const edge = (mask: Node<'float'>) =>
-			float(1).sub(mask.sub(0.5).abs().div(mask.fwidth().max(1e-6)).smoothstep(0.4, 1.4));
+			float(1).sub(mask.sub(0.5).abs().div(mask.fwidth().max(MIN_DERIVATIVE)).smoothstep(0.4, 1.4));
 		const furrows = chart.y
 			.mul(2)
 			.fract()

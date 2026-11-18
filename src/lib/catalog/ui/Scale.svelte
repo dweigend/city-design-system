@@ -23,6 +23,7 @@
 		minor,
 		major,
 		markers = [],
+		markerShape = 'square',
 		segments = [],
 		format = (v: number) => String(v),
 		detail
@@ -40,6 +41,7 @@
 		minor?: number;
 		major?: number;
 		markers?: Marker[];
+		markerShape?: 'square' | 'dot';
 		segments?: Segment[];
 		format?: (v: number) => string;
 		detail?: string;
@@ -89,7 +91,13 @@
 	{#each segments as s (s.from)}<span class="bound" style:left="{p(s.from)}%"></span>{/each}
 {/snippet}
 
-<div class="scale" data-track={track} data-mode={mode} class:snapping>
+<div
+	class="scale"
+	data-track={track}
+	data-mode={mode}
+	data-marker-shape={markerShape}
+	class:snapping
+>
 	{#if caption || segments.length}
 		<div class="row head">
 			{#if segments.length}
@@ -113,6 +121,8 @@
 							{...props}
 							class="mark"
 							class:future={m.value > shown}
+							class:dot={markerShape === 'dot'}
+							class:future-dot={markerShape === 'dot' && m.value > shown}
 							style:left="{p(m.value)}%"
 							style:--c={m.color}
 							aria-label="{format(m.value)}: {m.label}"
@@ -215,6 +225,34 @@
 		cursor: help;
 	}
 	.mark.future {
+		background: var(--paper);
+		box-shadow: inset 0 0 0 var(--hair) var(--c);
+	}
+
+	[data-marker-shape='dot'] .marks {
+		z-index: 1;
+		transform: translateY(var(--row));
+		pointer-events: none;
+	}
+	.mark.dot {
+		bottom: 50%;
+		width: 24px;
+		height: 24px;
+		transform: translate(-50%, 50%);
+		background: none;
+		box-shadow: none;
+		pointer-events: auto;
+	}
+	.dot::after {
+		content: '';
+		display: block;
+		margin: auto;
+		width: var(--space-2);
+		height: var(--space-2);
+		border-radius: 50%;
+		background: var(--c);
+	}
+	.future-dot::after {
 		background: var(--paper);
 		box-shadow: inset 0 0 0 var(--hair) var(--c);
 	}

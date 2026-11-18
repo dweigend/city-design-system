@@ -53,5 +53,6 @@
 	minor={hudZeit.major}
 	major={labelEvery || undefined}
 	{markers}
+	markerShape="dot"
 	detail={`${hudZeit.label} ${year}`}
 />

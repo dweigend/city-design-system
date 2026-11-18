@@ -121,9 +121,11 @@
 	}
 	header {
 		position: absolute;
-		top: var(--space-4);
-		left: var(--space-4);
+		top: var(--space-2);
+		left: var(--space-2);
 		display: grid;
+		padding: var(--space-2);
+		background: var(--paper);
 		gap: var(--space-1);
 		pointer-events: none;
 	}
@@ -192,5 +194,10 @@
 	}
 	.mode > :global(*) {
 		background: var(--paper);
+	}
+	.mode :global(.cg-button[data-state='on']) {
+		background: var(--paper);
+		color: var(--ink);
+		box-shadow: inset 0 calc(-1 * var(--stroke)) var(--signal);
 	}
 </style>

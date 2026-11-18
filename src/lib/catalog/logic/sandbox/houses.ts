@@ -1,6 +1,7 @@
 import type { BuildingMethod } from '../../data/sandbox';
 import { buildingPlots } from './building-plots';
 import { houseChunk, type HouseUse, type Stacks } from '../house-brush';
+import type { Primitive } from '../parametrik/types';
 import { present, type Focus } from '../presentation';
 import { styleForYear, type SandboxState } from './state';
 import type { World } from './world';
@@ -57,6 +58,13 @@ export function currentStacks(state: SandboxState): Stacks {
 	return current;
 }
 
+// The form grammar also draws fragments as stock for the style study. A freshly painted
+// volume is new work in the sandbox; its drafted line details can keep their own weight.
+const newVolume = (part: Primitive): Primitive =>
+	part.role === 'bestand' && part.kind !== 'polyline'
+		? { ...part, role: 'neu', edges: true }
+		: part;
+
 /** Projects each layer with its saved geometry and the selected view's current or stock style. */
 export function houseView(world: World, stacks: Stacks, chunk: string, focus: Focus, earliestFullYear = world.state.year) {
 	const { grid, state, seed } = world;
@@ -75,6 +83,6 @@ export function houseView(world: World, stacks: Stacks, chunk: string, focus: Fo
 		});
 	return [
 		...present(stock.flatMap(project), focus.stock),
-		...present([...phases.filter(([phase]) => phase.built >= earliestFullYear && phase.built < state.year), ...current].flatMap(project), focus.houses)
+		...present([...phases.filter(([phase]) => phase.built >= earliestFullYear && phase.built < state.year), ...current].flatMap(project).map(newVolume), focus.houses)
 	];
 }

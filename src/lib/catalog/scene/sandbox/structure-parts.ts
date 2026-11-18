@@ -95,18 +95,21 @@ export function populateStructures(
 	};
 	const parts = partition(primitives);
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
+	const stock = batch(parts.regular.filter((part) => part.role === 'bestand'), toColor);
 	const body = batch(
-		parts.regular.filter((part) => !isSheet(part)),
+		parts.regular.filter((part) => part.role !== 'bestand' && !isSheet(part)),
 		toColor
 	);
 	const sheets = batch(parts.regular.filter(isSheet), toColor);
 	surface(body.neu, materials.solid, materials.hull, true);
-	mesh(body.alt, materials.stock, true);
-	mesh(body.hull.alt, materials.pencilHull);
+	mesh(stock.alt, materials.stock, true);
+	mesh(stock.blatt, materials.stockSheet);
+	mesh(stock.glas, materials.stockSheet);
+	mesh(stock.hull.alt, materials.pencilHull);
 	surface(body.blatt, materials.sheet, materials.sheetHull, false);
 	surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
 	surface(body.glas, materials.glass, materials.hull, false, false);
-	lines(body.kanten.alt, materials.pencil);
+	lines(stock.kanten.alt, materials.pencil);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
 

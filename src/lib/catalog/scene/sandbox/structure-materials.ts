@@ -33,6 +33,7 @@ export function structureMaterials() {
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
 		}),
+		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
 		detail: new THREE.Line2NodeMaterial(),
@@ -84,6 +85,7 @@ export function structureMaterials() {
 		sideColor.value.copy(neutral(g.modellL + TOENE.rechts));
 		bottomColor.value.copy(neutral(g.modellL + TOENE.unten));
 		materials.stock.color.copy(paper);
+		materials.stockSheet.color.copy(paper);
 		materials.glass.color.copy(g.weiss);
 		materials.ghost.color.copy(g.blei);
 		materials.pencil.color.copy(g.blei);

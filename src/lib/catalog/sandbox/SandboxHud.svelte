@@ -170,7 +170,7 @@
 			<Timeline
 				{year}
 				{events}
-				max={Math.max(hudZeit.max, year + hudZeit.major)}
+				max={Math.max(hudZeit.min + (hudZeit.max - hudZeit.min) * 2, year + hudZeit.major)}
 				labelEvery={false}
 			/>
 		</div>
@@ -208,10 +208,20 @@
 	:global(.cg-sandbox-tools) {
 		grid-area: tools;
 	}
+	:global(.cg-sandbox-tools > .cg-button[data-state='on']) {
+		background: var(--paper);
+		color: var(--ink);
+		box-shadow: inset 0 calc(-1 * var(--stroke)) var(--signal);
+	}
 	.options {
 		grid-area: options;
 		display: grid;
 		gap: var(--space-2);
+	}
+	@media (min-width: 641px) {
+		.options > :global(.cg-sandbox-options:not([data-compact])) {
+			justify-self: end;
+		}
 	}
 	.history {
 		grid-area: history;
@@ -223,16 +233,15 @@
 	}
 	.hint {
 		position: absolute;
-		left: 50%;
+		right: var(--space-4);
 		bottom: var(--space-4);
-		translate: -50% 0;
-		max-width: calc(100% - var(--space-8));
+		max-width: 38vw;
 		margin: 0;
 		padding: var(--space-1) var(--space-3);
 		background: var(--paper);
 		color: var(--ink-2);
 		font-size: var(--text-s);
-		text-align: center;
+		text-align: right;
 		pointer-events: none;
 	}
 	.timeline {
@@ -242,13 +251,14 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
+		border: var(--hair) solid var(--line);
 		background: var(--paper);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		pointer-events: auto;
 	}
 	.scale {
-		width: clamp(10rem, 18vw, 18rem);
+		width: clamp(12rem, 36vw, 34rem);
 		margin: 0 var(--space-6);
 	}
 	.scale.without-events {
