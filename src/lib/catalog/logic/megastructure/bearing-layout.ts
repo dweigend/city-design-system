@@ -46,11 +46,25 @@ export function bearingLayouts(roof: RoofCell, level: number, maxSpan: number) {
 		}
 	return result;
 }
+const REQUIRED_LINKS = 3;
+function allowedLength(a: Joint, b: Joint, maxSpan: number) {
+	const d = length(a, b);
+	return d > 1e-8 && d <= maxSpan ? d : Infinity;
+}
+/** True once three noncoincident chords fit between the crowns; same test as assembly. */
+export function canLinkCrowns(bay: Bay, other: Bay, maxSpan: number) {
+	let count = 0;
+	for (const a of bay.crown)
+		for (const b of other.crown) {
+			if (allowedLength(a, b, maxSpan) !== Infinity && ++count === REQUIRED_LINKS) return true;
+		}
+	return false;
+}
 /** The three shortest available links between neighboring crowns, or none. */
 export function crownLinks(bay: Bay, other: Bay, maxSpan: number) {
 	const pairs = bay.crown
-		.flatMap((a) => other.crown.map((b) => ({ a, b, d: length(a, b) })))
-		.filter((p) => p.d > 1e-8 && p.d <= maxSpan)
+		.flatMap((a) => other.crown.map((b) => ({ a, b, d: allowedLength(a, b, maxSpan) })))
+		.filter((p) => p.d !== Infinity)
 		.sort((a, b) => a.d - b.d);
-	return pairs.length >= 3 ? pairs.slice(0, 3) : [];
+	return pairs.length >= REQUIRED_LINKS ? pairs.slice(0, REQUIRED_LINKS) : [];
 }

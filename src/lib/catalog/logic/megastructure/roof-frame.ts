@@ -1,5 +1,6 @@
 import { bayMembers, bearingLayouts, crownLinks, type Joint, type Bay } from './bearing-layout';
-import { connectedLayouts } from './connected-layouts';
+import { roofLinks } from './roof-links';
+import { selectConnectedLayout } from './connected-layouts';
 import { surveyedRoofs, type RoofCell } from './footprints';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
 import { kantenId, type Vec3 } from '../traeger';
@@ -37,27 +38,54 @@ function solveLayout(bays: Bay[], maxSpan: number) {
 	return { structure, analysis: loeseFachwerk(structure, [{ id: 'service-probe', lasten }]) };
 }
 
-/** Braces disjoint convex roofs in meters. Normalized wall order defines bearing identity. Returns detached
- * members, fixed bearings and a 1 kN/head load probe. Empty or span-disconnected layouts
- * return undefined. Malformed rings and overlapping interiors throw before the solve. */
+type RoofFrameResult =
+	| { status: 'assembled'; frame: ReturnType<typeof solveLayout> }
+	| { status: 'empty-survey' }
+	| { status: 'no-local-bay'; roofIds: string[] }
+	| { status: 'span-disconnected'; components: string[][] }
+	| { status: 'incompatible-bridge-bearings' }
+	| { status: 'tree-layout-unresolved'; treesTried: number };
+
+/** Plans one connected assembly on disjoint convex footprints in meters. Returns a
+ * detached frame with its load probe, or a reason. Components use sorted roof IDs.
+ * A failed cyclic tree policy leaves global feasibility undecided. Invalid surveys throw. */
+export function planRoofFrame(
+	roofs: readonly RoofCell[],
+	overrides?: ParamOverrides<typeof frameParams>
+): RoofFrameResult {
+	const { clearance, maxSpan } = resolveParams(frameParams, overrides);
+	if (!roofs.length) return { status: 'empty-survey' };
+	if (new Set(roofs.map((r) => r.id)).size !== roofs.length)
+		throw new RangeError('Duplicate roof ID');
+	const level = Math.max(...roofs.map((r) => r.height)) + clearance;
+	const ordered = surveyedRoofs(roofs).sort((a, b) => (a.id < b.id ? -1 : 1));
+	const options = ordered.map((r) => bearingLayouts(r, level, maxSpan));
+	const missing = ordered.filter((_, i) => !options[i].length);
+	if (missing.length) return { status: 'no-local-bay', roofIds: missing.map((r) => r.id) };
+	const selection = selectConnectedLayout(
+		options.map((b) => b.length),
+		roofLinks(options, maxSpan)
+	);
+	if (selection.status === 'span-disconnected')
+		return {
+			status: selection.status,
+			components: selection.components.map((group) => group.map((i) => ordered[i].id))
+		};
+	if (selection.status !== 'connected') return selection;
+	return {
+		status: 'assembled',
+		frame: solveLayout(
+			selection.choices.map((option, i) => options[i][option]),
+			maxSpan
+		)
+	};
+}
+/** Returns the assembled frame and its 1 kN/head load probe, or undefined when planning
+ * fails. Same meters, defaults, validation and ownership as planRoofFrame. */
 export function buildRoofFrame(
 	roofs: readonly RoofCell[],
 	overrides?: ParamOverrides<typeof frameParams>
 ) {
-	const { clearance, maxSpan } = resolveParams(frameParams, overrides);
-	if (!roofs.length) return;
-	if (new Set(roofs.map((r) => r.id)).size !== roofs.length)
-		throw new RangeError('Duplicate roof ID');
-	const level = Math.max(...roofs.map((r) => r.height)) + clearance;
-	const options = surveyedRoofs(roofs)
-		.sort((a, b) => (a.id < b.id ? -1 : 1))
-		.map((roof) => bearingLayouts(roof, level, maxSpan));
-	if (options.some((bays) => !bays.length)) return;
-	let failed: ReturnType<typeof solveLayout> | undefined;
-	for (const bays of connectedLayouts(options, maxSpan)) {
-		const result = solveLayout(bays, maxSpan);
-		if (result.analysis.status === 'ok') return result;
-		failed ??= result;
-	}
-	return failed;
+	const result = planRoofFrame(roofs, overrides);
+	return result.status === 'assembled' ? result.frame : undefined;
 }

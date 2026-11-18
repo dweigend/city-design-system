@@ -1,32 +1,53 @@
-import { crownLinks, type Bay } from './bearing-layout';
+import { rootForest, spanForest, treeExchanges } from './roof-forest';
+import type { RoofLink } from './roof-links';
 
-// A partial choice can only lose links as each remaining roof commits to one bay.
-function canConnect(options: Bay[][], maxSpan: number) {
-	const reached = new Set([0]);
-	for (const i of reached) {
-		for (const [j, candidates] of options.entries()) {
-			if (reached.has(j)) continue;
-			if (options[i].some((a) => candidates.some((b) => crownLinks(a, b, maxSpan).length > 0)))
-				reached.add(j);
-		}
-	}
-	return reached.size === options.length;
+function supports(edge: RoofLink, parent: number, p: number, c: number) {
+	return edge.pairs[parent === edge.a ? p * edge.columns + c : c * edge.columns + p] === 1;
 }
-/** Yields connected assemblies in canonical preference order. A disconnected optimistic
- * graph prunes all completions of the current prefix before any structural solve. */
-export function* connectedLayouts(options: Bay[][], maxSpan: number): Generator<Bay[]> {
-	const remaining = [...options];
-	function* visit(index: number): Generator<Bay[]> {
-		if (!canConnect(remaining, maxSpan)) return;
-		if (index === options.length) {
-			yield remaining.map(([bay]) => bay);
-			return;
+// reachable[i][b] means that bay b supports every subtree rooted below roof i.
+function treeChoices(sizes: number[], tree: RoofLink[]) {
+	const { parent, incoming, order } = rootForest(sizes.length, tree);
+	const reachable = sizes.map((n) => new Uint8Array(n).fill(1));
+	const witness: Int32Array[] = [];
+	for (let j = order.length - 1; j >= 0; j--) {
+		const child = order[j],
+			edge = incoming[child];
+		if (!edge) continue;
+		const i = parent[child],
+			choices = new Int32Array(sizes[i]).fill(-1);
+		witness[child] = choices;
+		for (let p = 0; p < sizes[i]; p++) {
+			if (!reachable[i][p]) continue;
+			choices[p] = reachable[child].findIndex((ok, c) => ok === 1 && supports(edge, i, p, c));
+			if (choices[p] === -1) reachable[i][p] = 0;
 		}
-		for (const bay of options[index]) {
-			remaining[index] = [bay];
-			yield* visit(index + 1);
-		}
-		remaining[index] = options[index];
+		if (!reachable[i].includes(1)) return;
 	}
-	yield* visit(0);
+	const selected: number[] = [];
+	for (const i of order)
+		selected[i] = parent[i] === i ? reachable[i].indexOf(1) : witness[i][selected[parent[i]]];
+	return selected;
+}
+
+type Selection =
+	| { status: 'connected'; choices: number[] }
+	| { status: 'span-disconnected'; components: number[][] }
+	| { status: 'incompatible-bridge-bearings' }
+	| { status: 'tree-layout-unresolved'; treesTried: number };
+
+/** Selects one bay per roof from the compatibility graph. A bridge conflict proves
+ * disconnection for every selection. A failed cyclic policy reports its own status. */
+export function selectConnectedLayout(sizes: number[], edges: RoofLink[]): Selection {
+	const { components, tree, chords } = spanForest(sizes.length, edges);
+	if (components.length > 1) return { status: 'span-disconnected', components };
+	const first = treeChoices(sizes, tree);
+	if (first) return { status: 'connected', choices: first };
+	if (!chords.length) return { status: 'incompatible-bridge-bearings' };
+	const { mandatory, alternatives } = treeExchanges(sizes.length, tree, chords);
+	if (!treeChoices(sizes, mandatory)) return { status: 'incompatible-bridge-bearings' };
+	for (const other of alternatives) {
+		const choices = treeChoices(sizes, other);
+		if (choices) return { status: 'connected', choices };
+	}
+	return { status: 'tree-layout-unresolved', treesTried: 1 + alternatives.length };
 }

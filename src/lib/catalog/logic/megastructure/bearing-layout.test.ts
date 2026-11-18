@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { hash } from '../hash-random';
@@ -154,4 +155,17 @@ test('rigid rotations and reflections carry the bearings with an asymmetric roof
 		}
 	}
 	assert.ok(solved > 0 && solved < 48);
+});
+
+test('the 48 legacy-span assemblies and the coupled pair retain their reviewed structures', () => {
+	const frames = legacySpans.map((maxSpan, seed) =>
+		buildRoofFrame([cell(generatedRing(seed))], { maxSpan })
+	);
+	const second: Ring = rectangle.map(([x, y]) => [x + 9, y + 4]);
+	frames.push(buildRoofFrame([cell(rectangle), { ...cell(second), id: 'b' }], { maxSpan: 8 }));
+	// Byte digest of all joint coordinates, bearings and members in assembly order at b68bce4.
+	const digest = createHash('sha256')
+		.update(JSON.stringify(frames.map((f) => f?.structure)))
+		.digest('hex');
+	assert.equal(digest, '9d73b7a866057134ca8f2cbc1c922e63d8df0d379035f3f02f5a70e2ce33930d');
 });
