@@ -14,7 +14,7 @@ import {
 } from '../house-brush';
 import { createPatch } from '../parametrik/eckraster/topology';
 import type { Primitive, Vec3 } from '../parametrik/types';
-import { quadGrid, squareGrid, type QuadCell, type QuadGrid } from '../quad-grid';
+import { patchGrid, quadGrid, squareGrid, type QuadCell, type QuadGrid } from '../quad-grid';
 import { createTerrain } from '../terrain';
 import { deriveGrid } from '../terrain-grid';
 
@@ -68,41 +68,8 @@ function recenter(cells: readonly QuadCell[]): QuadCell[] {
 	}));
 }
 
-/** The quads of the corner-grid fan as a carrier: flat ground, one chunk. */
-function fanGrid(): QuadGrid {
-	const patch = createPatch(42);
-	const points = new Map(patch.vertices.map((vertex) => [vertex.id, vertex.point]));
-	const corner = (id: string): Vec3 => {
-		const [x, y] = points.get(id) ?? [0, 0];
-		return [x, y, 0];
-	};
-	return quadGrid(
-		patch.faces.map((face, index): QuadCell => {
-			const corners = [
-				corner(face.vertices[0]),
-				corner(face.vertices[1]),
-				corner(face.vertices[2]),
-				corner(face.vertices[3])
-			] as const;
-			return {
-				id: face.id,
-				index,
-				corners,
-				vertexIds: face.vertices,
-				center: [
-					(corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]) / 4,
-					(corners[0][1] + corners[1][1] + corners[2][1] + corners[3][1]) / 4,
-					0
-				],
-				neighbors: [face.neighbors[0], face.neighbors[1], face.neighbors[2], face.neighbors[3]],
-				pad: 0.5,
-				raised: false,
-				buildable: true,
-				chunk: 'plate'
-			};
-		})
-	);
-}
+/** The quads of the corner-grid fan as a carrier, through the library's patch adapter. */
+const fanGrid = (): QuadGrid => patchGrid(createPatch(42));
 
 /** Terrain cells at the creek, where the rows follow the contours into the notch. */
 function slopeGrid(): QuadGrid {
