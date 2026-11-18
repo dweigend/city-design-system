@@ -1,133 +1,89 @@
-/**
- * Crowns: what stands on an open roof. Every use has one signature figure — dome, tank, sun
- * dish, greenhouse vault, shed roof. Figures are sized by the cell they stand on (its
- * inscribed circle and its side lengths), so they fit any cell shape. A single cell carries
- * its figure large; wide roofs carry small ones here and there.
- */
 import { STORY } from '../../data/grid';
 import { hash } from '../hash-random';
 import type { ColorToken, Primitive } from '../parametrik/types';
-import { inradius, sideLength, type QuadCell } from '../quad-grid';
+import { inradius, type QuadCell } from '../quad-grid';
 import { accentOf, CHANNEL, part, type Form, type Site } from './form';
 import type { Mass, Story } from './massing';
-import { WALL_INSET } from './openings';
 import { storiesOf, type HouseUse } from './stacks';
 
 /** Share of the cells of a wide roof that carry a small crown. */
 const SMALL_CROWN_SHARE = 0.22;
-/** Scale of a small crown relative to the solo figure. */
-const SMALL = 0.55;
-/** Clear distance between a figure and the wall plane, meters. */
-const ROOF_MARGIN = 0.25;
+const FIGURE_SHARE = { small: 0.52, solo: 0.62 };
+const PLINTH = { width: 0.72, height: 0.38 };
+const COLLAR = { width: 0.84, height: 0.2 };
 
-/** Where a figure stands: cell center on the roof, sizes taken from the cell. */
-type Seat = Readonly<{
-	x: number;
-	y: number;
-	z: number;
-	/** Radius of the largest round figure, meters. */
-	radius: number;
-	/** Usable lengths along the cell's first and second side, meters. */
-	width: number;
-	depth: number;
-	/** Direction of the cell's first side, radians. */
-	turn: number;
-	quarter: number;
-	small: boolean;
-}>;
+const TANK = { center: 1.02, squash: 0.75, lidLevel: 1.7, lidWidth: 0.38, lidHeight: 0.16 };
+const HALO = { center: 0.84, bore: 0.5, depth: 0.38 };
+const VAULT_SPAN = 1.4;
+const CONE_HEIGHT = 1.45;
 
-type Piece = { token?: ColorToken; form: Form };
-
-/** Signature figure of a use on a seat. `token` overrides the accent of the use. */
-function figure(use: HouseUse, seat: Seat): Piece[] {
-	const { x, y, z, radius: r, turn } = seat;
+/** Compositions in multiples of the seat radius. Rings stand upright on their pedestal. */
+function figure(use: HouseUse, cell: QuadCell, z: number, r: number, turn: number): Piece[] {
+	const [x, y] = cell.center;
+	const at = (level: number): [number, number, number] => [x, y, z + level * r];
+	const disc = (level: number, width: number, height: number): Form => ({
+		kind: 'cylinder',
+		position: at(level),
+		radius: width * r,
+		height: height * r
+	});
+	const plinth = disc(0, PLINTH.width, PLINTH.height);
+	const collar = disc(PLINTH.height, COLLAR.width, COLLAR.height);
+	const shoulder = PLINTH.height + COLLAR.height;
+	const paper = (form: Form): Piece => ({ form, token: '--paper' });
 	switch (use) {
 		case 'living':
-			// Roof garden on wide roofs, a white dome on a single cell.
-			return seat.small
-				? [
-						{
-							token: '--paper',
-							form: { kind: 'cylinder', position: [x, y, z], radius: 0.1, height: r }
-						},
-						{
-							token: '--cat-nature',
-							form: { kind: 'sphere', position: [x, y, z + r * 1.5], radius: r * 0.8 }
-						}
-					]
-				: [{ token: '--paper', form: { kind: 'dome', position: [x, y, z], radius: r } }];
+			return [
+				paper(plinth),
+				paper(collar),
+				paper({ kind: 'dome', position: at(shoulder), radius: r })
+			];
 		case 'water':
 			return [
-				{
-					token: '--paper',
-					form: { kind: 'cylinder', position: [x, y, z], radius: r * 0.7, height: r * 0.4 }
-				},
-				{ form: { kind: 'sphere', position: [x, y, z + r * 1.1], radius: r * 0.9, squash: 0.86 } }
+				paper(plinth),
+				{ form: { kind: 'sphere', position: at(TANK.center), radius: r, squash: TANK.squash } },
+				paper(disc(TANK.lidLevel, TANK.lidWidth, TANK.lidHeight))
 			];
 		case 'energy':
 			return [
-				{
-					token: '--paper',
-					form: { kind: 'cylinder', position: [x, y, z], radius: 0.1, height: r * 1.25 }
-				},
+				{ form: plinth },
+				paper(collar),
 				{
 					form: {
 						kind: 'ring',
-						position: [x, y, z + r * 1.25],
-						radius: r * 0.95,
-						innerRadius: 0,
-						depth: 0.12,
-						tilt: 0.95,
-						rotation: turn + (seat.quarter * Math.PI) / 2
+						position: at(shoulder + HALO.center),
+						radius: r,
+						innerRadius: r * HALO.bore,
+						depth: r * HALO.depth,
+						rotation: turn
 					}
 				}
 			];
 		case 'food':
 			return [
+				paper(plinth),
+				{ form: collar },
 				{
 					form: {
 						kind: 'vault',
-						position: [x, y, z],
-						width: seat.width,
-						length: seat.depth,
-						rise: Math.min(seat.width, seat.depth) * 0.48,
+						position: at(shoulder),
+						width: r * VAULT_SPAN,
+						length: r * VAULT_SPAN,
+						rise: r,
 						rotation: turn
 					}
 				}
 			];
 		case 'material':
 			return [
-				{
-					form: {
-						kind: 'wedge',
-						position: [x - seat.width / 2, y - seat.depth / 2, z],
-						size: [seat.width, seat.depth, Math.min(seat.width, seat.depth) * 0.55],
-						low: 0.28,
-						rotation: turn + (seat.quarter % 2) * Math.PI
-					}
-				}
+				{ form: plinth },
+				paper(collar),
+				{ form: { kind: 'cone', position: at(shoulder), radius: r, height: r * CONE_HEIGHT } }
 			];
 	}
 }
 
-function seatOf(site: Site, cell: QuadCell, top: number, small: boolean): Seat {
-	const scale = small ? SMALL : 1;
-	const clear = WALL_INSET + ROOF_MARGIN;
-	return {
-		x: cell.center[0],
-		y: cell.center[1],
-		z: top,
-		radius: Math.max(0.4, inradius(cell) - clear) * scale,
-		width: Math.max(0.8, (sideLength(cell, 0) + sideLength(cell, 2)) / 2 - 2 * clear) * scale,
-		depth: Math.max(0.8, (sideLength(cell, 1) + sideLength(cell, 3)) / 2 - 2 * clear) * scale,
-		turn: Math.atan2(
-			cell.corners[1][1] - cell.corners[0][1],
-			cell.corners[1][0] - cell.corners[0][0]
-		),
-		quarter: Math.floor(hash(site.seed, cell.index, CHANNEL.crownTurn) * 4),
-		small
-	};
-}
+type Piece = { token?: ColorToken; form: Form };
 
 /** Stories of the mass that lie open to the sky. */
 function roofStories(site: Site, mass: Mass): Story[] {
@@ -140,13 +96,21 @@ function roofStories(site: Site, mass: Mass): Story[] {
  * Crowns of a mass. A mass of one cell gets the solo figure; wider roofs get small figures
  * on a seeded share of their cells. Deterministic per cell.
  */
-export function crowns(site: Site, mass: Mass): Primitive[] {
+export function crowns(site: Site, mass: Mass, roofHeight: number): Primitive[] {
 	const solo = mass.stories.length === 1;
-	const top = mass.floor + STORY;
-	return roofStories(site, mass).flatMap((story) => {
-		const carries = solo || hash(site.seed, story.cell.index, CHANNEL.crown) < SMALL_CROWN_SHARE;
-		if (!carries) return [];
-		return figure(mass.use, seatOf(site, story.cell, top, !solo)).map(({ token, form }, k) => ({
+	const top = mass.floor + STORY + roofHeight;
+	const exposed = roofStories(site, mass);
+	const selected = exposed.filter(
+		({ cell }) => solo || hash(site.seed, cell.index, CHANNEL.crown) < SMALL_CROWN_SHARE
+	);
+	if (roofHeight > 0 && !selected.length) selected.push(exposed[0]);
+	return selected.flatMap((story) => {
+		const cell = story.cell;
+		const [a, b] = cell.corners;
+		const quarter = Math.floor(hash(site.seed, cell.index, CHANNEL.crownTurn) * 4);
+		const turn = Math.atan2(b[1] - a[1], b[0] - a[0]) + (quarter * Math.PI) / 2;
+		const radius = inradius(cell) * (solo ? FIGURE_SHARE.solo : FIGURE_SHARE.small);
+		return figure(mass.use, cell, top, radius, turn).map(({ token, form }, k) => ({
 			...part(
 				`${story.cell.id}@${story.level}:crown${k}`,
 				token ?? accentOf(mass.use) ?? '--paper',
