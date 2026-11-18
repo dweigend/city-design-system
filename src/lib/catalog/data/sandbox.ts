@@ -1,0 +1,81 @@
+/**
+ * Copy and choices of the city sandbox: tools, their options and the names of the terrain
+ * zones. Declarative facts only; the rules live in logic/sandbox.
+ */
+export type SandboxToolId = 'look' | 'house' | 'line' | 'cover' | 'dig' | 'erase';
+
+export type SandboxTool = {
+	id: SandboxToolId;
+	name: string;
+	shortcut: string;
+	/** One sentence on what a stroke does. */
+	hint: string;
+};
+
+export const sandboxTools: SandboxTool[] = [
+	{ id: 'look', name: 'Look', shortcut: 'V', hint: 'Drag to move the sheet, scroll to zoom.' },
+	{
+		id: 'house',
+		name: 'House',
+		shortcut: 'H',
+		hint: 'Drag to paint a house. Every stroke adds one story.'
+	},
+	{
+		id: 'line',
+		name: 'Line',
+		shortcut: 'L',
+		hint: 'Drag a line across the grid. It rises on pillars and gets its stops.'
+	},
+	{ id: 'cover', name: 'Area', shortcut: 'A', hint: 'Drag to plant an area. It follows the grid.' },
+	{
+		id: 'dig',
+		name: 'Dig',
+		shortcut: 'D',
+		hint: 'Drag to dig a harbor basin. The grid follows the new shore; houses in the way go to the store.'
+	},
+	{
+		id: 'erase',
+		name: 'Erase',
+		shortcut: 'E',
+		hint: 'Drag to take away: first a story, then the area, then lines and basins.'
+	}
+];
+
+export type SandboxOption<T extends string> = {
+	id: T;
+	name: string;
+	/** The figure that carries the meaning besides color (second channel). */
+	figure: string;
+	/** CSS color of the swatch. */
+	color: string;
+};
+
+/** Uses of a house. Order = number keys 1–5. Paths and rail keep the people color. */
+export const sandboxUses: SandboxOption<'living' | 'water' | 'energy' | 'food' | 'material'>[] = [
+	{ id: 'living', name: 'Living', figure: 'Ribbon window, dome', color: 'var(--paper)' },
+	{ id: 'water', name: 'Water', figure: 'Porthole, tank', color: 'var(--cat-health)' },
+	{ id: 'energy', name: 'Energy', figure: 'Twin panels, sun dish', color: 'var(--cat-mobility)' },
+	{ id: 'food', name: 'Food', figure: 'Glazing, greenhouse', color: 'var(--cat-nature)' },
+	{ id: 'material', name: 'Workshop', figure: 'Gate, shed roof', color: 'var(--cat-living)' }
+];
+
+export const sandboxLines: SandboxOption<'viaduct' | 'capsule'>[] = [
+	{ id: 'viaduct', name: 'Elevated rail', figure: 'Beam, train', color: 'var(--cat-business)' },
+	{ id: 'capsule', name: 'Capsule tube', figure: 'Tube, pods', color: 'var(--cat-business-2)' }
+];
+
+export const sandboxCovers: SandboxOption<'forest' | 'field' | 'meadow'>[] = [
+	{ id: 'forest', name: 'Forest', figure: 'Trees', color: 'var(--cat-nature)' },
+	{ id: 'field', name: 'Field', figure: 'Furrows', color: 'var(--cat-nature-3)' },
+	{ id: 'meadow', name: 'Meadow', figure: 'Dots', color: 'var(--cat-nature-2)' }
+];
+
+/** Names of the terrain zones for the readout. */
+export const sandboxZones = {
+	water: 'Water',
+	floodplain: 'Floodplain',
+	'lower-terrace': 'Lower terrace',
+	scarp: 'Slope',
+	'upper-terrace': 'Upper terrace',
+	ridge: 'Ridge'
+} as const;

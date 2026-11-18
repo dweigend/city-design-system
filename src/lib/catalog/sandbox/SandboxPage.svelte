@@ -1,0 +1,164 @@
+<script lang="ts">
+	import { Toggle } from 'bits-ui';
+	import { Map as MapIcon } from 'lucide-svelte';
+	import { resolve } from '$app/paths';
+	import Icon from '../ui/Icon.svelte';
+	import { ThemeToggle } from '../theme';
+	import { sandboxTools, sandboxUses, sandboxZones } from '../data/sandbox';
+	import type { TerrainCell } from '../logic/terrain-grid';
+	import SandboxCanvas from './SandboxCanvas.svelte';
+	import SandboxHud from './SandboxHud.svelte';
+	import { createSession } from './session.svelte';
+
+	/**
+	 * The city sandbox as a full page: the terrain fills the window, a sparse HUD floats on
+	 * top. Starts on an empty field; the terrain comes from the seed.
+	 */
+	const session = createSession(7);
+	let hud = $state<SandboxHud>();
+	let hovered = $state.raw<TerrainCell>();
+	let plan = $state(false);
+
+	const store = $derived(
+		sandboxUses
+			.map((use) => ({ ...use, count: session.world.state.store[use.id] }))
+			.filter((entry) => entry.count > 0)
+	);
+
+	function history(event: KeyboardEvent) {
+		event.preventDefault();
+		if (event.shiftKey) session.redo();
+		else session.undo();
+	}
+	function pick(key: string) {
+		const tool = sandboxTools.find((entry) => entry.shortcut.toLowerCase() === key);
+		if (tool) hud?.pickTool(tool.id);
+		else if (key === 'p') plan = !plan;
+		else if (/^[1-9]$/.test(key)) hud?.pickOption(Number(key) - 1);
+	}
+	function shortcut(event: KeyboardEvent) {
+		const key = event.key.toLowerCase();
+		const command = event.ctrlKey || event.metaKey;
+		if (command && key === 'z') history(event);
+		else if (!command && !event.altKey) pick(key);
+	}
+</script>
+
+<svelte:head><title>Sandbox · City Design System</title></svelte:head>
+<svelte:window onkeydown={shortcut} />
+<main>
+	<SandboxCanvas
+		{session}
+		{plan}
+		label="City sandbox: terrain with area grid. Arrow keys move the view, plus and minus zoom."
+		onhover={(cell) => (hovered = cell)}
+	/>
+	<header>
+		<a class="brand" href={resolve('/')}>City Design System</a>
+		<h1>Sandbox</h1>
+		<p class="readout" aria-live="polite">
+			{#if hovered}
+				{sandboxZones[hovered.zone]} · {Math.round(hovered.center[2])} m
+			{:else}
+				Terrain {session.world.seed}
+			{/if}
+		</p>
+		{#if store.length}
+			<dl class="store" aria-label="Material store">
+				<dt>Store</dt>
+				{#each store as entry (entry.id)}
+					<dd><span class="dot" style:--dot={entry.color}></span>{entry.count} {entry.name}</dd>
+				{/each}
+			</dl>
+		{/if}
+	</header>
+	<div class="mode">
+		<Toggle.Root
+			bind:pressed={plan}
+			class="cg-button"
+			data-variant="icon"
+			aria-label="Plan view"
+			aria-keyshortcuts="P"
+			title="Plan view (P)"
+		>
+			<Icon icon={MapIcon} size={24} />
+		</Toggle.Root>
+		<ThemeToggle />
+	</div>
+	<SandboxHud bind:this={hud} {session} />
+</main>
+
+<style>
+	main {
+		position: fixed;
+		inset: 0;
+		overflow: hidden;
+	}
+	header {
+		position: absolute;
+		top: var(--space-4);
+		left: var(--space-4);
+		display: grid;
+		gap: var(--space-1);
+		pointer-events: none;
+	}
+	.brand {
+		color: var(--ink-2);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-decoration: none;
+		text-transform: uppercase;
+		pointer-events: auto;
+	}
+	h1 {
+		margin: 0;
+		font-size: var(--text-l);
+		font-weight: 600;
+		line-height: 1.1;
+	}
+	.readout,
+	.store {
+		margin: 0;
+		color: var(--ink-2);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.store {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1) var(--space-3);
+		margin-top: var(--space-2);
+	}
+	.store dt {
+		color: var(--ink);
+		font-weight: 600;
+	}
+	.store dd {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		margin: 0;
+	}
+	.dot {
+		width: var(--space-2);
+		height: var(--space-2);
+		border: var(--hair) solid var(--ink);
+		border-radius: 50%;
+		background: var(--dot);
+	}
+	.mode {
+		position: absolute;
+		top: var(--space-4);
+		right: var(--space-4);
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.mode > :global(*) {
+		background: var(--paper);
+	}
+</style>
