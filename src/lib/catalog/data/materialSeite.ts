@@ -12,7 +12,6 @@ import type { ColorRule, MaterialId } from './material';
  * (MaterialSpec) and takes over its steps as defaults.
  */
 
-export type Abschnitt = { id: string; titel: string; lead: string };
 export type Phase = { id: string; titel: string; text: string };
 /** A loop step with a sentence below the image: what can be seen where. */
 export type BildPhase = Phase & { bild: string };
@@ -215,65 +214,8 @@ export const familien: Familie[] = [
 
 export const familie = (id: FamilieId): Familie => familien.find((f) => f.id === id) ?? familien[0];
 
-/** Lab axes: named steps for the controls. */
-export const achsenWahl = {
-	rauheit: [
-		{ value: 'glatt', label: 'Smooth' },
-		{ value: 'fein', label: 'Fine' },
-		{ value: 'grob', label: 'Coarse' }
-	],
-	glanz: [
-		{ value: 'matt', label: 'Matte' },
-		{ value: 'seidenmatt', label: 'Satin' },
-		{ value: 'glanz', label: 'Gloss' }
-	],
-	deckkraft: [
-		{ value: 'solid', label: 'Solid' },
-		{ value: 'glass', label: 'Glass' },
-		{ value: 'hull', label: 'Envelope' },
-		{ value: 'trace', label: 'Trace' }
-	],
-	kante: [
-		{ value: 'tinte', label: 'Ink' },
-		{ value: 'fein', label: 'Fine' },
-		{ value: 'gedaempft', label: 'Muted' },
-		{ value: 'keine', label: 'None' }
-	]
-} as const;
-
+/** Forms of the material studies. */
 export type FormId = 'box' | 'kuppel' | 'turm' | 'bestand';
-export const formWahl: { value: FormId; label: string }[] = [
-	{ value: 'box', label: 'Box' },
-	{ value: 'kuppel', label: 'Dome' },
-	{ value: 'turm', label: 'Tower' },
-	{ value: 'bestand', label: 'Add to stock' }
-];
-
-/* ── Sections ── */
-
-export const familienAbschnitt: Abschnitt = {
-	id: 'material-familien',
-	titel: 'Material families',
-	lead: 'Nine families, native finishes. Inspect a constructed specimen, compare finishes, or bring the materials together in an assembly.'
-};
-
-export const rezeptAbschnitt: Abschnitt = {
-	id: 'material-rezept',
-	titel: 'The diagram recipe',
-	lead: 'A simplified diagram representation builds a surface in six steps: tone, color, noise, joints, edge and skin.'
-};
-
-export const farbeAbschnitt: Abschnitt = {
-	id: 'material-farbe',
-	titel: 'Color and material',
-	lead: 'Material describes the surface; flow color describes its role. Compare both under the same studio light.'
-};
-
-export const stufenAbschnitt: Abschnitt = {
-	id: 'material-stufen',
-	titel: 'Material recedes',
-	lead: 'In this simplified diagram representation, surface detail recedes with distance until only the structure remains.'
-};
 
 /* ── Loops ── */
 
@@ -296,24 +238,9 @@ export const rezeptPhasen: (Phase & { id: KnotenId })[] = [
 	{ id: 'haut', titel: 'Skin', text: 'Gloss, turbidity and opacity turn it into the material.' }
 ];
 
-/** Families the builder plays through (the four that build the new), each with one flow. */
-export const rezeptFamilien: {
-	id: FamilieId;
-	strom: 'people' | 'water' | 'energy' | 'material';
-}[] = [
-	{ id: 'beton', strom: 'material' },
-	{ id: 'metall', strom: 'people' },
-	{ id: 'keramik', strom: 'water' },
-	{ id: 'kunststoff', strom: 'energy' }
-];
-
 /** Postscript in the builder's deep dive. */
 export const rezeptVertiefung =
 	'One recipe, two targets: three.js translates the same nodes into WGSL for WebGPU and into GLSL for WebGL 2. All dimensions are meters on the world position, so there are no seams. blatt is the world position in the image plane; strich, fenster, umriss, glanzpunkt and unscharf are small, anti-aliased helper nodes. The stage also draws straight edges as lines.';
-
-/** Sentence below the lab when a family sits on existing stock. */
-export const bestandHinweis =
-	'The old building stays a white model. The material applies only to what is newly added.';
 
 export type FarbePhaseId = 'material' | 'farbe' | 'haus';
 export const farbePhasen: (BildPhase & { id: FarbePhaseId })[] = [

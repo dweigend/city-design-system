@@ -1,32 +1,26 @@
 <script lang="ts">
 	import DemoLayout from '../bibel/DemoLayout.svelte';
-	import ChoiceControl from '../labor/ChoiceControl.svelte';
 	import Vertiefung from '../ui/Vertiefung.svelte';
 	import LoopSchritte from '../bibel/LoopSchritte.svelte';
 	import { studienLoop } from './studienLoop.svelte';
 	import Buehne from './Buehne.svelte';
 	import KnotenKette from './KnotenKette.svelte';
-	import {
-		achsenWahl,
-		familie,
-		familien,
-		rezeptPhasen,
-		rezeptVertiefung
-	} from '../data/materialSeite';
+	import { familie, rezeptPhasen, rezeptVertiefung } from '../data/materialSeite';
 	import { knotenSzene } from '../logic/material/formen';
-	import type { MaterialWerkstatt, MaterialWahl } from '../logic/material/werkstatt';
+	import type { Rezept } from '../logic/material/rezept';
 	import { tslQuelle } from '../logic/material/tslQuelle';
 
 	/**
 	 * Explainer loop “Kit”: a material arises node by node. Box and dome show
 	 * flat and round surfaces; the node chain and the TSL line stand directly below.
-	 * The image is a pure function of the clock time and the family.
+	 * The image is a pure function of the clock time and the recipe, which follows the picker's
+	 * material and color read-only.
 	 */
 
-	let { werkstatt, waehle }: { werkstatt: MaterialWerkstatt; waehle: MaterialWahl } = $props();
+	let { rezept, finish }: { rezept: Rezept; finish: string } = $props();
 	let host: HTMLDivElement;
 
-	const r = $derived(werkstatt.rezept);
+	const r = $derived(rezept);
 	const f = $derived(familie(r.familie));
 	const loop = studienLoop(() => host, rezeptPhasen.length, 3.4, 0.5);
 	const uhr = loop.uhr;
@@ -38,7 +32,6 @@
 	const satz = $derived(
 		phase.id === 'rauschen' || phase.id === 'fugen' || phase.id === 'haut' ? f.knoten[phase.id] : ''
 	);
-	const materialWahl = familien.map((x) => ({ value: x.id, label: x.name }));
 </script>
 
 <DemoLayout label="Simplified diagram recipe">
@@ -56,25 +49,12 @@
 		</div>
 	{/snippet}
 	{#snippet steuerung()}
-		<ChoiceControl
-			id="rezept-familie"
-			label="Material"
-			bind:value={() => f.id, (v) => waehle('beispiel', v)}
-			items={materialWahl}
-		/>
-		<ChoiceControl
-			id="rezept-deckkraft"
-			label="Diagram opacity"
-			bind:value={() => werkstatt.auswahl.wahl.deckkraft, (v) => waehle('deckkraft', v)}
-			items={[...achsenWahl.deckkraft]}
-		/>
 		<LoopSchritte id="rezept-loop" label="Nodes" phasen={rezeptPhasen} {...loop.schritte} />
 	{/snippet}
 	{#snippet unterschrift()}
 		{#if satz}<p><b>{f.name}.</b> {satz}</p>{/if}
 		<p>
-			The six stages show the recipe for {werkstatt.auswahl.finish.name}. The studio lights its
-			physical finish.
+			Six nodes build {f.name.toLowerCase()} as a diagram. The picker above shows {finish} in the studio.
 		</p>
 		<Vertiefung label="The diagram recipe in TSL">
 			<pre><code

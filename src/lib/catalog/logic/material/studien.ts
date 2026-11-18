@@ -233,29 +233,25 @@ export function probeSzene(fam: FamilieId, wahl: Wahl, finish?: AusfuehrungId): 
 	}));
 }
 
+/** Families whose specimen is a dedicated scene rather than plinth plus pieces. */
+const eigeneProben: Partial<Record<FamilieId, (r: Rezept) => Stueck[]>> = {
+	glas: optik,
+	kunststoff: optik,
+	membran,
+	wasser
+};
+/** Assembled pieces per family; every other family uses the mineral study. */
+const probenTeile: Partial<Record<FamilieId, () => BauTeil[]>> = { metall, holz, bestand };
+
 /** Places one resolved recipe on the specimen's featured pieces. Supports keep their authored recipes. */
-export function probeMitRezept(r: Rezept, finish?: AusfuehrungId): Stueck[] {
+function probeMitRezept(r: Rezept, finish?: AusfuehrungId): Stueck[] {
 	const fam = r.familie;
 	const referenz = referenzTeile(finish);
 	if (referenz && ausfuehrungenVon(fam).some((a) => a.id === finish))
 		return referenzSzene(referenz, r, finish);
-	if (fam === 'glas' || fam === 'kunststoff') return optik(r);
-	if (fam === 'membran') return membran(r);
-	if (fam === 'wasser') return wasser(r);
-	let parts: BauTeil[];
-	switch (fam) {
-		case 'metall':
-			parts = metall();
-			break;
-		case 'holz':
-			parts = holz();
-			break;
-		case 'bestand':
-			parts = bestand();
-			break;
-		default:
-			parts = mineral(fam);
-	}
+	const eigen = eigeneProben[fam];
+	if (eigen) return eigen(r);
+	const parts = probenTeile[fam]?.() ?? mineral(fam);
 	return [sockel(), ...parts.map((b) => teil(b, r))];
 }
 

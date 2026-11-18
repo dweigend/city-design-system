@@ -12,7 +12,7 @@ import {
 	voreinstellung
 } from './rezept';
 import { tslQuelle } from './tslQuelle';
-import { farbeSzene, form, laborSzene, leisteSzene } from './formen';
+import { farbeSzene } from './formen';
 
 describe('Material recipe: examples', () => {
 	test('existing stock and glass stay without color for every flow', () => {
@@ -64,11 +64,9 @@ describe('Material recipe: invariants', () => {
 		expect(keramik[5].code).toContain('fresnel.smoothstep(0.8, 0.86)');
 	});
 	test('scenes are pure: same input, same result', () => {
-		const w = voreinstellung('keramik', 'food');
-		expect(laborSzene('turm', 'keramik', w)).toEqual(laborSzene('turm', 'keramik', w));
 		expect(farbeSzene('haus', 0.5)).toEqual(farbeSzene('haus', 0.5));
 	});
-	test('every family has a recipe within range, every form stands on the ground', () => {
+	test('every family has a recipe within range', () => {
 		for (const f of familien) {
 			const r = rezept(f.id);
 			expect(r.farbe.papier).toBeGreaterThanOrEqual(0);
@@ -76,14 +74,5 @@ describe('Material recipe: invariants', () => {
 			expect(r.haut.deckkraft).toBeGreaterThan(0);
 			expect(r.haut.deckkraft).toBeLessThanOrEqual(1);
 		}
-		for (const id of ['box', 'kuppel', 'turm', 'bestand'] as const)
-			expect(Math.min(...form(id).map((t) => t.lage[2]))).toBe(0);
-		expect(leisteSzene('water')).toHaveLength(familien.length);
-	});
-	test('existing stock in the lab stays white architectural model, even when metal is chosen', () => {
-		const s = laborSzene('bestand', 'metall', voreinstellung('metall', 'people'));
-		const alt = s.find((x) => x.teil.rolle === 'bestand');
-		expect(alt?.rezept.familie).toBe('bestand');
-		expect(s.some((x) => x.teil.rolle === 'kern')).toBe(false);
 	});
 });

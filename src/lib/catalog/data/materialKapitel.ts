@@ -1,68 +1,43 @@
-/** Specimen captions and form labels for the physical Material chapter. */
-import {
-	familienAbschnitt,
-	farbeAbschnitt,
-	rezeptAbschnitt,
-	stufenAbschnitt,
-	type FamilieId
-} from './materialSeite';
+/** Section anchors and one-line captions of the Material page: the picker first, then six layer demos. */
 
-export const laborFormen = [
-	{ value: 'probe', label: 'Specimen' },
-	{ value: 'montage', label: 'Assembly' }
-];
+/** The live picker. Keeps the families lab's public anchor so that old links land on it. */
+export const pickerAbschnitt = { id: 'material-familien', titel: 'Material picker' };
 
-/** Captions describe construction independently of the selected finish. */
-export const konstruktion: Record<FamilieId, string> = {
-	metall:
-		'Metal study: folds, cut edges and curved sections show how the finish catches the light.',
-	keramik: 'Ceramic study: joints and edges reveal the finish at a change of plane.',
-	beton:
-		'Assembled mineral study: solid cast pieces reveal surface texture, panel joints and edge depth.',
-	kunststoff: 'Polymer study: exposed faces show how the finish behaves at edges and in light.',
-	glas: 'Glazing study: the glass surface catches reflections above the layers behind it.',
-	holz: 'Assembled timber study: beams and boards expose long grain, end grain and construction joints.',
-	membran: 'Membrane study: the finish follows curves and softens reflections across the surface.',
-	wasser:
-		'Assembled water study: waves travel between the banks, with a submerged landing visible through the shallows.',
-	bestand: 'Assembled stock study: a matte white architectural model with understated joints.'
+/** One layer demo card: stable anchor, short heading, one caption line. */
+export type DemoKarteText = { id: string; titel: string; text: string };
+
+export const farbZielKarte: DemoKarteText = {
+	id: 'material-farbziel',
+	titel: 'Where color goes',
+	text: 'One flow, three skins. Glaze takes the pigment; glass and brass keep their own color, so door, cornice and plinth carry it.'
 };
 
-/** Building comparison section; the anchor is public and stays stable. */
-export const haeuserAbschnitt = {
-	id: 'material-buildings',
-	titel: 'Building studies',
-	lead: 'Compare finishes on a timber house, a glass pavilion and a stepped concrete tower. The building and view stay fixed when you switch finishes.'
+export const formKarte: DemoKarteText = {
+	id: 'material-formen',
+	titel: 'Form and stock',
+	text: 'The picked skin on box, dome and tower. Its pattern runs in world meters, without seams. Existing stock stays white.'
 };
 
-/** Divider before the explanatory studies; separates teaching from the surface workflow. */
-export const erklaerungTeil = {
-	id: 'material-erklaerung',
-	titel: 'How it works',
-	lead: 'Simplified diagram studies. They explain recipe, color and distance; the surfaces above are the reference.'
+export const rezeptKarte: DemoKarteText = {
+	id: 'material-rezept',
+	titel: 'The diagram recipe',
+	text: 'Six nodes build the picked material as a diagram: tone, color, noise, joints, edge, skin.'
 };
 
-/** Assembly caption: which pieces take the finish and which inputs stay fixed. */
-export const montageText =
-	'Assembly: mineral base, metal frame, timber deck, glazing, membrane and water. Only the selected family takes the finish; flow color and fine tuning stay fixed.';
+export const farbeKarte: DemoKarteText = {
+	id: 'material-farbe',
+	titel: 'Color and material',
+	text: 'Material is depth, color is role. Then four roles in one building.'
+};
 
-/** Page index: surface workflow first, teaching second. Every entry links a stable section anchor. */
-export const materialIndex = [
-	{
-		id: 'material-index-oberflaechen',
-		titel: 'Surfaces',
-		links: [
-			{ id: familienAbschnitt.id, label: 'Families and finishes' },
-			{ id: haeuserAbschnitt.id, label: 'Building studies' }
-		]
-	},
-	{
-		id: 'material-index-erklaerung',
-		titel: erklaerungTeil.titel,
-		links: [
-			{ id: rezeptAbschnitt.id, label: 'Diagram recipe' },
-			{ id: farbeAbschnitt.id, label: 'Color and material' },
-			{ id: stufenAbschnitt.id, label: 'Detail levels' }
-		]
-	}
-];
+export const wasserKarte: DemoKarteText = {
+	id: 'material-wasser',
+	titel: 'Water',
+	text: 'The one surface with time: ripples cross a shallow basin. It always carries its own blue.'
+};
+
+export const stufenKarte: DemoKarteText = {
+	id: 'material-stufen',
+	titel: 'Material recedes',
+	text: 'With distance, surface detail drops away until only structure and then a ghost remain.'
+};
