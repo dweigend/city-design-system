@@ -2,7 +2,7 @@ import type { Primitive } from '../types';
 import type { Kit } from './kit';
 import { family, spec } from './kit';
 import { scatter } from './geom';
-import { TREE_FORM, trunkRadius } from '../../tree-forms';
+import { TREE_FORM, trunkRadius, crownParts, type CrownForm } from '../../tree-forms';
 
 const params = [
 	spec('anzahl', 'Count', 1, 14, 1, 5),
@@ -10,12 +10,8 @@ const params = [
 	spec('streuung', 'Scatter', 0, 1, 0.05, 0.4)
 ];
 
-/** Places n trees; crown(k, u, v, z, size, rank) draws one crown above a trunk. */
-function grove(
-	k: Kit,
-	p: Record<string, number>,
-	crown: (x: number, y: number, z: number, s: number) => Primitive[]
-) {
+/** Places trees in scatter order with one crown above each trunk. */
+function grove(k: Kit, p: Record<string, number>, form: CrownForm) {
 	const s0 = Math.min(3, k.radius * 0.5) * p.groesse,
 		pts = scatter(k.outline(0), p.anzahl, s0 * 1.4, k.rng, s0 * 0.6);
 	const out: Primitive[] = [
@@ -36,7 +32,9 @@ function grove(
 				material: 'wood'
 			})
 		);
-		out.push(...crown(u, v, k.ctx.z + trunk, s));
+		out.push(
+			...crownParts(form, [u, v, k.ctx.z + trunk], s, () => k.base('--cat-nature', { rank: 1 }), k)
+		);
 	}
 	return out;
 }
@@ -49,12 +47,7 @@ export const vegetation = [
 		group: 'vegetation',
 		refs: ['09', '18', '11'],
 		params,
-		build: (k, p) =>
-			grove(k, p, (u, v, z, s) => [
-				k.sphere(u, v, z + s * TREE_FORM.ballRadius, s * TREE_FORM.ballRadius, '--cat-nature', {
-					rank: 1
-				})
-			])
+		build: (k, p) => grove(k, p, 'ball')
 	}),
 	family({
 		id: 'vegetation-kegelbaum',
@@ -62,12 +55,7 @@ export const vegetation = [
 		group: 'vegetation',
 		refs: ['11', '09', '23'],
 		params,
-		build: (k, p) =>
-			grove(k, p, (u, v, z, s) => [
-				k.cone(u, v, z, s * TREE_FORM.coneRadius, s * TREE_FORM.coneHeight, '--cat-nature', {
-					rank: 1
-				})
-			])
+		build: (k, p) => grove(k, p, 'cone')
 	}),
 	family({
 		id: 'vegetation-voxelbaum',
@@ -75,26 +63,7 @@ export const vegetation = [
 		group: 'vegetation',
 		refs: ['09', '18', '14'],
 		params,
-		build: (k, p) =>
-			grove(k, p, (u, v, z, s) => {
-				const c = s * 0.45,
-					out: Primitive[] = [];
-				// Crown: 3 × 3 cubes minus corners, plus a top cube (plus sign in plan).
-				for (const [du, dv, dz] of [
-					[0, 0, 0],
-					[1, 0, 0],
-					[-1, 0, 0],
-					[0, 1, 0],
-					[0, -1, 0],
-					[0, 0, 1]
-				])
-					out.push(
-						k.box(u + du * c - c / 2, v + dv * c - c / 2, z + dz * c, c, c, c, '--cat-nature', {
-							rank: 1
-						})
-					);
-				return out;
-			})
+		build: (k, p) => grove(k, p, 'voxel')
 	}),
 	family({
 		id: 'vegetation-spiralbaum',
@@ -102,9 +71,6 @@ export const vegetation = [
 		group: 'vegetation',
 		refs: ['15', '18', '23'],
 		params,
-		build: (k, p) =>
-			grove(k, p, (u, v, z, s) => [
-				k.helix(u, v, z, s * 0.55, s * 0.12, s * 1.6, 2.5, s * 0.16, '--cat-nature', { rank: 1 })
-			])
+		build: (k, p) => grove(k, p, 'spiral')
 	})
 ];

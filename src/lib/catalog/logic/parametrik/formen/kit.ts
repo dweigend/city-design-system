@@ -57,6 +57,7 @@ export function kit(ctx: FormContext, familyId: string) {
 	};
 	return {
 		ctx,
+		base,
 		rng,
 		pick,
 		tone,

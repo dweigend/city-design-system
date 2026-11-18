@@ -1,3 +1,4 @@
+import { spanEnd, WALKWAY_WIDTH_M } from '../walkway';
 import type { HochwegBeispiel } from '../../data/stadtHochwege';
 import { wegenetz, type Kante, type Knoten } from '../bibel/wege';
 import { beam, GRUND, kiste, stromStufe, type Kiste } from './kiste';
@@ -102,9 +103,9 @@ function wegKiste(e: HochwegKante, knoten: Knoten[], hover?: string): Kiste {
 	return beam(
 		e.target,
 		[a.x, a.y],
-		[a.x + (b.x - a.x) * e.anteil, a.y + (b.y - a.y) * e.anteil],
+		spanEnd([a.x, a.y], [b.x, b.y], e.anteil),
 		a.ebene * 4 + WEG_UEBER,
-		2.2,
+		WALKWAY_WIDTH_M,
 		0.4,
 		stromStufe('people', aktiv ? 5 : 4),
 		{ edge: aktiv ? '--signal' : '--ink', target: e.target }
