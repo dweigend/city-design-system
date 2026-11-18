@@ -18,10 +18,12 @@ export function slopeMesh(s: NonNullable<ReturnType<typeof routeSlope>>, p: Pigm
 }
 function addFlight(
 	group: T.Group,
-	{ a, b, count, run }: NonNullable<ReturnType<typeof routeSlope>>['flights'][number],
+	flight: NonNullable<ReturnType<typeof routeSlope>>['flights'][number],
 	width: number,
 	p: Pigments
 ) {
+	const { count, run } = flight;
+	const [a, b] = flight.a[2] <= flight.b[2] ? [flight.a, flight.b] : [flight.b, flight.a];
 	const angle = Math.atan2(b[1] - a[1], b[0] - a[0]),
 		dz = b[2] - a[2],
 		n = Math.max(1, count),

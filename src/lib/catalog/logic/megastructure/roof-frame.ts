@@ -1,12 +1,9 @@
+import { surveyedRoofs, type RoofCell } from './footprints';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
 import { kantenId, type Vec3 } from '../traeger';
 import { loeseFachwerk, rohr, STAHL, type Fachwerk } from '../statik';
 
-export type RoofCell = {
-	id: string;
-	height: number;
-	polygon: readonly (readonly [number, number])[];
-};
+export type { RoofCell } from './footprints';
 const frameParams = defineParams({
 	maxSpan: numberParam('Maximum member length', 'm', 15, [1, 50, 0.5]),
 	clearance: numberParam('Roof clearance', 'm', 2, [0.5, 10, 0.25])
@@ -18,12 +15,6 @@ function length(a: Joint, b: Joint) {
 }
 function bay(roof: RoofCell, level: number) {
 	const ring = roof.polygon;
-	if (
-		ring.length < 3 ||
-		!Number.isFinite(roof.height) ||
-		ring.some((p) => !p.every(Number.isFinite))
-	)
-		throw new RangeError('Invalid roof');
 	const feet = Array.from({ length: 3 }, (_, k): Joint => {
 		const i = Math.floor((k * ring.length) / 3),
 			a = ring[i],
@@ -60,7 +51,7 @@ function linked(structure: Fachwerk) {
 }
 /** Braces disjoint convex roofs in meters. Ring order defines wall identity. Returns detached
  * members, fixed bearings and a 1 kN/head load probe. Empty or span-disconnected layouts
- * return undefined. Invalid coordinates, IDs or collinear bearing stations throw RangeError. */
+ * return undefined. Malformed rings, interior overlap and invalid bearing stations throw before the solve. */
 export function buildRoofFrame(
 	roofs: readonly RoofCell[],
 	overrides?: ParamOverrides<typeof frameParams>
@@ -70,7 +61,9 @@ export function buildRoofFrame(
 	if (new Set(roofs.map((r) => r.id)).size !== roofs.length)
 		throw new RangeError('Duplicate roof ID');
 	const level = Math.max(...roofs.map((r) => r.height)) + clearance;
-	const bays = [...roofs].sort((a, b) => (a.id < b.id ? -1 : 1)).map((r) => bay(r, level));
+	const bays = surveyedRoofs(roofs)
+		.sort((a, b) => (a.id < b.id ? -1 : 1))
+		.map((r) => bay(r, level));
 	const structure: Fachwerk = { knoten: [], staebe: [], lager: [] };
 	const add = (a: Joint, b: Joint) =>
 		structure.staebe.push({

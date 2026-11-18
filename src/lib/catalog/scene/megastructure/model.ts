@@ -12,7 +12,7 @@ function stock(roof: RoofCell, p: Pigments) {
 			dy = b[1] - a[1];
 		for (let z = 1.45; z < roof.height - 0.2; z += 1.6)
 			for (let j = 1; j <= 5; j++) {
-				const window = solid(new T.BoxGeometry(Math.hypot(dx, dy) * 0.12, 0.04, 0.52), p.steel);
+				const window = solid(new T.BoxGeometry(Math.hypot(dx, dy) * 0.12, 0.04, 0.52), p.window);
 				window.rotation.z = Math.atan2(dy, dx);
 				window.position.set(a[0] + (dx * j) / 6, a[1] + (dy * j) / 6, z);
 				group.add(window);
@@ -25,7 +25,13 @@ export function plateModel(p: Pigments) {
 	const plate = infrastructurePlate(),
 		group = new T.Group();
 	for (const roof of plate.roofs) group.add(stock(roof, p));
-	for (const r of plate.rods) group.add(rod(r.a, r.b, r.radius, p.steel));
+	const axes = plate.rods.flatMap((r) => [new T.Vector3(...r.a), new T.Vector3(...r.b)]);
+	group.add(
+		new T.LineSegments(
+			new T.BufferGeometry().setFromPoints(axes),
+			new T.LineBasicMaterial({ color: p.steel })
+		)
+	);
 	for (const m of plate.modules) group.add(moduleMesh(m, p));
 	addBridge(group, plate.bridge, p);
 	addTerraces(group, p);

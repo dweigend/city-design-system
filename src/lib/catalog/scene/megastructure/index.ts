@@ -5,11 +5,18 @@ import { bindSceneTheme, resolveTokens } from '../themeBinding';
 import { flowToken } from '../../data/focus';
 function coloredModel(canvas: HTMLCanvasElement) {
 	const host = canvas.parentElement ?? document.body;
-	const c = resolveTokens(host, ['--paper', '--paper-3', '--ink-2', ...Object.values(flowToken)]);
+	const c = resolveTokens(host, [
+		'--paper',
+		'--line',
+		'--paper-3',
+		'--ink-3',
+		...Object.values(flowToken)
+	]);
 	return plateModel({
 		paper: c['--paper'],
 		stock: c['--paper-3'],
-		steel: c['--ink-2'],
+		steel: c['--ink-3'],
+		window: c['--line'],
 		pink: c[flowToken.people],
 		blue: c[flowToken.water],
 		orange: c[flowToken.material],

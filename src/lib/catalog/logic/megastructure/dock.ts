@@ -5,6 +5,16 @@ type Direction = readonly [number, number, number];
 export type Socket = { point: Direction; normal: Direction; tangent: Direction };
 export type Bounds = { min: Vec3; max: Vec3 };
 type Obstacle = Bounds | { a: Vec3; b: Vec3; radius: number };
+function finitePoint(p: Direction) {
+	return p.length === 3 && [p[0], p[1], p[2]].every(Number.isFinite);
+}
+function validateObstacle(b: Obstacle) {
+	if ('min' in b) {
+		if (!finitePoint(b.min) || !finitePoint(b.max) || b.min.some((v, i) => v > b.max[i]))
+			throw new RangeError('Invalid obstacle bounds');
+	} else if (!finitePoint(b.a) || !finitePoint(b.b) || !Number.isFinite(b.radius) || b.radius < 0)
+		throw new RangeError('Invalid obstacle segment');
+}
 function intersects(bounds: Bounds, b: Obstacle) {
 	if ('min' in b)
 		return bounds.min.every((v, i) => v < b.max[i] - 1e-9 && bounds.max[i] > b.min[i] + 1e-9);
@@ -19,7 +29,7 @@ function intersects(bounds: Bounds, b: Obstacle) {
 }
 const sizes = {
 	capsule: [4, 2, 2],
-	tank: [3, 3, 3],
+	tank: [1, 1, 1],
 	'solar-ring': [3, 3, 0.5],
 	garden: [4, 3, 0.5]
 } as const;
@@ -39,7 +49,7 @@ function crossVector(a: Direction, b: Direction): Vec3 {
 /** Places one module against a socket plane in meters. Normal points outwards.
  * Gram–Schmidt retains the supplied tangent direction in the plane. World AABBs
  * conservatively reject penetration; face contact is allowed. Returns detached data
- * or undefined when occupied. Degenerate axes and nonfinite points throw RangeError.
+ * or undefined when occupied. Invalid obstacles, degenerate axes and nonfinite points throw RangeError.
  */
 export function dockModule(
 	kind: ModuleKind,
@@ -47,6 +57,7 @@ export function dockModule(
 	occupied: readonly Obstacle[],
 	overrides?: ParamOverrides<typeof dockParams>
 ) {
+	occupied.forEach(validateObstacle);
 	const { pitch } = resolveParams(dockParams, overrides);
 	const normal = unit(socket.normal),
 		side = unit(crossVector(normal, unit(socket.tangent))),

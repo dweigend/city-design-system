@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { mountPlate } from './index';
-	import Button from '../../ui/Button.svelte';
+	import { mountPlate } from '../scene/megastructure';
+	import Button from '../ui/Button.svelte';
 	let canvas: HTMLCanvasElement;
 	let view = $state<ReturnType<typeof mountPlate>>();
 	let error = $state('');

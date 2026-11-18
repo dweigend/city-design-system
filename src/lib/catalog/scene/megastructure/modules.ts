@@ -5,6 +5,7 @@ export type Pigments = {
 	paper: string;
 	stock: string;
 	steel: string;
+	window: string;
 	pink: string;
 	blue: string;
 	orange: string;
@@ -24,7 +25,7 @@ export function moduleMesh(m: DockedModule, p: Pigments) {
 	if (m.kind === 'tank') group.add(solid(new T.SphereGeometry(w / 2, 40, 24), p.blue));
 	else if (m.kind === 'capsule') addCapsule(group, w, d, h, p);
 	else if (m.kind === 'solar-ring')
-		group.add(solid(new T.TorusGeometry(w / 2 - h / 2, h / 2, 12, 48), p.steel));
+		group.add(solid(new T.TorusGeometry(w / 2 - h / 2, h / 2, 12, 48), p.yellow));
 	else addBeds(group, w, d, h, p);
 	return group;
 }
