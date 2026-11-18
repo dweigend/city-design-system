@@ -44,10 +44,13 @@ test('an erased story returns one unit and rebuilding at its anchor creates a fr
 	expect(undo(commit(startHistory(built.state), cleared.state)).present.store).toEqual(
 		built.state.store
 	);
-	expect([1900, 1979, 1980, 2026].map(styleForYear)).toEqual([
+	expect([1900, 1979, 1980, 2026, 2027, 2028, 2029].map(styleForYear)).toEqual([
+		'terrace',
+		'terrace',
 		'collage',
 		'collage',
 		'megastructure',
-		'totem'
+		'totem',
+		'collage'
 	]);
 });
