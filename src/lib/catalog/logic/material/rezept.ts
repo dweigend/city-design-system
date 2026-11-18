@@ -44,7 +44,13 @@ export type Rezept = {
 	familie: FamilieId;
 	farbe: { token: ColorToken; papier: number; tint: Tint };
 	ton: { kontrast: number };
-	rauschen: { art: RauschArt; massstab: number; staerke: number } | null;
+	rauschen: {
+		art: RauschArt;
+		massstab: number;
+		staerke: number;
+		/** Optional grain origin offset in world meters. Joints always use the authored origin. */
+		versatzM?: [number, number, number];
+	} | null;
 	fugen: { art: FugenArt; abstand: number; staerke: number } | null;
 	/** Edge line: share of paper in the ink, relative width; null = no edge, no outline. */
 	kante: { papier: number; breite: number } | null;

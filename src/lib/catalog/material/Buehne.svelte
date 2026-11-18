@@ -17,7 +17,10 @@
 		azimutDeg = 32,
 		rand = 0.12,
 		rahmen = true,
-		bewegung = true
+		bewegung = true,
+		studio = false,
+		lichtVonRechts = false,
+		diagrammZeitS
 	}: {
 		stuecke: Stueck[];
 		label: string;
@@ -31,6 +34,10 @@
 		rahmen?: boolean;
 		/** Let animated materials (water) run. */
 		bewegung?: boolean;
+		/** Fixed physical studio lighting; diagram rendering remains the default. */
+		studio?: boolean;
+		lichtVonRechts?: boolean;
+		diagrammZeitS?: number;
 	} = $props();
 
 	let canvas: HTMLCanvasElement;
@@ -38,16 +45,26 @@
 	let buehne = $state<MaterialBuehne>();
 	let fehler = $state('');
 
+	/** Restore the mounted stage’s initial camera; safe before mounting. */
 	export function zuruecksetzen() {
 		buehne?.zuruecksetzen();
 	}
 
+	/** Replay the mounted water simulation without changing view or selection. */
+	export function wasserStart() {
+		buehne?.wasserStart();
+	}
+
 	onMount(() => {
 		let aktuell: MaterialBuehne | undefined;
+		let sichtbar = false;
+		const sicht = new IntersectionObserver(([e]) => {
+			sichtbar = e.isIntersecting;
+			aktuell?.setAktiv(sichtbar);
+		});
 		const ro = new ResizeObserver(() => aktuell?.resize(canvas.clientWidth, canvas.clientHeight));
 		const io = new IntersectionObserver(
 			([e]) => {
-				aktuell?.setAktiv(e.isIntersecting);
 				if (!e.isIntersecting || aktuell) return;
 				try {
 					aktuell = createMaterialBuehne(canvas, {
@@ -56,9 +73,12 @@
 						azimutDeg,
 						rand,
 						bewegung,
+						studio,
+						lichtVonRechts,
 						onError: () => (fehler = '3D view unavailable.')
 					});
 					void aktuell.ready.catch(() => {});
+					aktuell.setAktiv(sichtbar);
 					aktuell.resize(canvas.clientWidth, canvas.clientHeight);
 					buehne = aktuell;
 					ro.observe(canvas);
@@ -69,8 +89,10 @@
 			},
 			{ rootMargin: '200px' }
 		);
+		sicht.observe(host);
 		io.observe(host);
 		return () => {
+			sicht.disconnect();
 			io.disconnect();
 			ro.disconnect();
 			aktuell?.dispose();
@@ -78,6 +100,9 @@
 		};
 	});
 
+	$effect(() => {
+		if (diagrammZeitS !== undefined) buehne?.setzeDiagrammZeit(diagrammZeitS);
+	});
 	$effect(() => {
 		buehne?.zeige(stuecke);
 	});

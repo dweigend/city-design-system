@@ -8,19 +8,33 @@ import { deckung, type Rezept } from './rezept';
 
 const n2 = (v: number) => v.toFixed(2);
 
-const rauschCode: Record<RauschArt, (m: number) => string> = {
-	poren: (m) =>
-		`mx_fractal_noise_float(positionWorld.mul(${n2(m)})).mul(0.8).sub(float(1).sub(mx_worley_noise_float(positionWorld.mul(${n2(m * 2)})).smoothstep(0.06, 0.14)).mul(1.6))`,
-	maser: (m) =>
-		`sin(blatt.x.mul(${n2(m * 6)}).add(mx_noise_float(positionWorld.mul(vec3(${n2(m * 0.8)}, ${n2(m * 0.12)}, ${n2(m * 0.8)}))).mul(1.6)))`,
-	schliff: (m) =>
-		`mx_noise_float(positionWorld.mul(vec3(${n2(m)}, ${n2(m * 40)}, ${n2(m)}))).mul(1.4)`,
-	glasur: (m) => `mx_fractal_noise_float(positionWorld.mul(${n2(m)}))`,
-	schlieren: (m) => `mx_noise_float(positionWorld.mul(vec3(${n2(m)}, ${n2(m * 4)}, ${n2(m)})))`,
-	faser: (m) => `mx_noise_float(vec3(blatt.mul(vec2(${n2(m * 8)}, ${n2(m)})), 0))`,
-	welle: (m) =>
-		`mx_noise_float(vec3(positionWorld.x.mul(${n2(m)}), positionWorld.z.mul(${n2(m)}), positionWorld.y.mul(${n2(m * 2)}).add(time.mul(0.4))))`
+const rauschCode: Record<RauschArt, (m: number, p: string, blatt: string) => string> = {
+	poren: (m, p) =>
+		`mx_fractal_noise_float(${p}.mul(${n2(m)})).mul(0.8).sub(float(1).sub(mx_worley_noise_float(${p}.mul(${n2(m * 2)})).smoothstep(0.06, 0.14)).mul(1.6))`,
+	maser: (m, p, blatt) =>
+		`sin(${blatt}.x.mul(${n2(m * 6)}).add(mx_noise_float(${p}.mul(vec3(${n2(m * 0.8)}, ${n2(m * 0.12)}, ${n2(m * 0.8)}))).mul(1.6)))`,
+	schliff: (m, p) => `mx_noise_float(${p}.mul(vec3(${n2(m)}, ${n2(m * 40)}, ${n2(m)}))).mul(1.4)`,
+	glasur: (m, p) => `mx_fractal_noise_float(${p}.mul(${n2(m)}))`,
+	schlieren: (m, p) => `mx_noise_float(${p}.mul(vec3(${n2(m)}, ${n2(m * 4)}, ${n2(m)})))`,
+	faser: (m, _p, blatt) => `mx_noise_float(vec3(${blatt}.mul(vec2(${n2(m * 8)}, ${n2(m)})), 0))`,
+	welle: (m, p) =>
+		`mx_noise_float(vec3(${p}.x.mul(${n2(m)}), ${p}.z.mul(${n2(m)}), ${p}.y.mul(${n2(m * 2)}).add(time.mul(0.4))))`
 };
+
+function kornCode(korn: Rezept['rauschen']): string {
+	if (!korn) return '// no noise';
+	const { art, massstab, staerke, versatzM } = korn;
+	const p = versatzM ? 'grainP' : 'positionWorld';
+	const b = versatzM ? 'grainSheet' : 'blatt';
+	const zeilen = [];
+	if (versatzM) {
+		zeilen.push(`const grainP = positionWorld.add(vec3(${versatzM.join(', ')}));`);
+		if (art === 'maser' || art === 'faser')
+			zeilen.push('const grainSheet = cameraViewMatrix.mul(vec4(grainP, 0)).xy;');
+	}
+	zeilen.push(`c = c.mul(${rauschCode[art](massstab, p, b)}).mul(${n2(staerke)}).add(1));`);
+	return zeilen.join('\n');
+}
 
 const fugenCode: Record<FugenArt, (a: number) => string> = {
 	schalung: (a) => `strich(positionWorld.y.div(${n2(a)}), 0.02)`,
@@ -62,9 +76,7 @@ export function tslQuelle(r: Rezept): { knoten: KnotenId; code: string }[] {
 		},
 		{
 			knoten: 'rauschen',
-			code: r.rauschen
-				? `c = c.mul(${rauschCode[r.rauschen.art](r.rauschen.massstab)}.mul(${n2(r.rauschen.staerke)}).add(1));`
-				: '// no noise'
+			code: kornCode(r.rauschen)
 		},
 		{
 			knoten: 'fugen',

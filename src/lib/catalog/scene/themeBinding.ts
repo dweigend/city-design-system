@@ -62,16 +62,18 @@ export function readPalette(host: HTMLElement): Palette3D {
 
 /** Bind once per renderer. CSS is read synchronously after theme/ projects its attributes.
  * Register after scene construction; dispose before releasing GPU resources.
- * Detached thumbnail canvases use the document palette.
+ * Detached thumbnail canvases use the document palette. A palette projection can
+ * hold studio paper and ink constant while still resolving live semantic tokens.
  */
 export function bindSceneTheme(
 	canvas: HTMLCanvasElement,
 	scene: Scene,
 	renderer: { setClearColor(color: ColorRepresentation, alpha?: number): void },
-	apply: (palette: Palette3D) => void
+	apply: (palette: Palette3D) => void,
+	projekt: (palette: Palette3D) => Palette3D = (palette) => palette
 ): () => void {
 	const refresh = () => {
-		const palette = readPalette(canvas.parentElement ?? document.documentElement);
+		const palette = projekt(readPalette(canvas.parentElement ?? document.documentElement));
 		scene.background = new Color(palette.paper);
 		renderer.setClearColor(palette.paper, 1);
 		canvas.dataset.themePaper = palette.paper;

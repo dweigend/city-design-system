@@ -246,33 +246,33 @@ export const formWahl: { value: FormId; label: string }[] = [
 	{ value: 'box', label: 'Box' },
 	{ value: 'kuppel', label: 'Dome' },
 	{ value: 'turm', label: 'Tower' },
-	{ value: 'bestand', label: 'Existing stock' }
+	{ value: 'bestand', label: 'Add to stock' }
 ];
 
 /* ── Sections ── */
 
 export const familienAbschnitt: Abschnitt = {
 	id: 'material-familien',
-	titel: 'Every material has a job',
-	lead: 'Metal, ceramics, concrete and plastic build the new. Glass, wood, membrane and water complement them; existing stock stays white. Color comes from the flow a component carries.'
+	titel: 'Material families',
+	lead: 'Nine families, native finishes. Inspect a constructed specimen, compare finishes, or bring the materials together in an assembly.'
 };
 
 export const rezeptAbschnitt: Abschnitt = {
 	id: 'material-rezept',
-	titel: 'A material is made of six nodes',
-	lead: 'No material is a photo. Each is a small program in TSL, the shader language of three.js: a few nodes, wired up step by step. That is why it looks the same on every form, at every size, in light and dark mode alike.'
+	titel: 'The diagram recipe',
+	lead: 'A simplified diagram representation builds a surface in six steps: tone, color, noise, joints, edge and skin.'
 };
 
 export const farbeAbschnitt: Abschnitt = {
 	id: 'material-farbe',
-	titel: 'Color carries function, material carries depth',
-	lead: 'Color says which flow a component carries. Material says how close, how heavy and how important it is. The two change independently of each other.'
+	titel: 'Color and material',
+	lead: 'Material describes the surface; flow color describes its role. Compare both under the same studio light.'
 };
 
 export const stufenAbschnitt: Abschnitt = {
 	id: 'material-stufen',
-	titel: 'Material steps back when it is not needed',
-	lead: 'Up close at the node, a structure shows grain, brushing and gloss. From afar, color and edge remain. And where the envelope hides the structure behind it, it becomes a ghost.'
+	titel: 'Material recedes',
+	lead: 'In this simplified diagram representation, surface detail recedes with distance until only the structure remains.'
 };
 
 /* ── Loops ── */
