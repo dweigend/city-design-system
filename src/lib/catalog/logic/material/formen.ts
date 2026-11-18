@@ -28,6 +28,8 @@ export type StudienProfil =
 	| { art: 'kissen' | 'naht'; form?: 'kreuz' }
 	/** Angular block: the hull with seeded chamfered corners, all faces planar. */
 	| { art: 'brocken'; saat: number }
+	| { art: 'paneele'; felder: readonly (readonly Vec3[])[] }
+	| { art: 'streben'; kanten: readonly (readonly [Vec3, Vec3])[]; radius: number }
 	| { art: 'lackfilm'; saat: number };
 export type Teil = {
 	art: TeilArt;

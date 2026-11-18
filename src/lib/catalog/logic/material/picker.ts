@@ -123,8 +123,8 @@ function gefaerbteHuelle(z: PickerZustand, strom: FlowId): Haut {
 
 /**
  * Resolves detached skin and accent. A finish that takes pigment carries the flow color itself;
- * glass and pigment-free finishes keep their own color and the accent zone (door, cornice,
- * plinth) carries it instead. `status` names the texture and the color's target in one line.
+ * glass and pigment-free finishes keep their own color and the trim and plinth carry it
+ * instead. `status` names the texture and the color's target in one line.
  */
 export function pickerHaut(z: PickerZustand): PickerHaut {
 	const name = gewaehlteTextur(z).name;
@@ -149,7 +149,7 @@ export function pickerHaut(z: PickerZustand): PickerHaut {
 		strom: z.farbe,
 		anteil: AKZENT_ANTEIL
 	};
-	const status = `${name} keeps its color · ${farbe} on door, cornice and plinth`;
+	const status = `${name} keeps its color · ${farbe} on trim and plinth`;
 	return { huelle: { familie: z.material, finish: z.textur }, akzent, farbZiel: 'akzent', status };
 }
 

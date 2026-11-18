@@ -7,6 +7,7 @@ import { florGeometrie } from './materialFlorGeometrie';
 import { folienGeometrie } from './materialFolienGeometrie';
 import { lackfilmGeometrie } from './materialLackfilmGeometrie';
 import { membranGeometrie } from './materialKissenGeometrie';
+import { tragwerkGeometrie } from './materialTragwerkGeometrie';
 import { wellenplatte } from './materialWellenplatte';
 
 function rechteck(w: number, h: number): THREE.Shape {
@@ -152,6 +153,9 @@ export function studienGeometrie(t: Teil): THREE.BufferGeometry | undefined {
 			return wellenplatte(w, d, h);
 		case 'brocken':
 			return brockenGeometrie(w, d, h, t.profil.saat);
+		case 'paneele':
+		case 'streben':
+			return tragwerkGeometrie(t.profil);
 		default:
 			return membranGeometrie(t.profil, w, d, h);
 		case 'lackfilm':
