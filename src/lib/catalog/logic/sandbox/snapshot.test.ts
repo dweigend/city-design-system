@@ -142,3 +142,18 @@ test('the c67d10e seed-7 save retains every occupied cell and construction recor
 		expect(dug.state.stacks).toBe(stacks);
 	}
 });
+
+test('digging at 87/44 removes the three storeys at 89/42 when their ground opens', () => {
+	const town = createWorld(7);
+	const id = '89/42';
+	expect(town.grid.cellsById.get(id)).toMatchObject({ buildable: true, plan: { open: false } });
+	expect(town.state.stacks.get(id)).toEqual(['living', 'living', 'living']);
+	const dug = applyEdit(town, { kind: 'dig', cellId: '87/44' });
+	expect(dug.grid.cellsById.get(id)).toMatchObject({ buildable: false, plan: { open: true } });
+	expect(dug.state.stacks.has(id)).toBe(false);
+	expect(dug.state.storyParts.has(id)).toBe(false);
+	const recovered = { ...town.state.store };
+	for (const [cellId, stories] of town.state.stacks)
+		if (!dug.state.stacks.has(cellId)) for (const use of stories) recovered[use]++;
+	expect(dug.state.store).toEqual(recovered);
+});

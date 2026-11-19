@@ -55,20 +55,28 @@ function waterOrGroundRoute(cell: TerrainCell | undefined) {
 	return cell?.zone === 'water' || (!!cell?.alley && !cell.plan.footbridge);
 }
 
-function alleyOccupiesLot(cell: TerrainCell | undefined) {
-	return !!cell?.alley && !cell.lotCorners;
+function alleyOccupiesLot(cell: TerrainCell) {
+	return !!cell.alley && !cell.lotCorners;
 }
 
-/** Existing houses yield only where a terrain edit floods the site or takes its lot for circulation. */
+function lostHouseSite(before: TerrainCell, after: TerrainCell) {
+	if (after.buildable || before === after) return false;
+	return (
+		before.buildable ||
+		(after.plan.open && !before.plan.open) ||
+		(after.zone === 'water' && before.zone !== 'water') ||
+		(after.plan.square && !before.plan.square) ||
+		(alleyOccupiesLot(after) && !alleyOccupiesLot(before))
+	);
+}
+
+/** Return storeys to the material store when an intervention takes away their site. */
 function settleHouses(previous: TerrainGrid, grid: TerrainGrid, state: SandboxState): SandboxState {
 	let { stacks, store, storyParts } = state;
 	for (const [cellId, stories] of state.stacks) {
 		const before = previous.cellsById.get(cellId);
 		const after = grid.cellsById.get(cellId);
-		if (!after || before === after) continue;
-		const flooded = after.zone === 'water' && before?.zone !== 'water';
-		const takenByAlley = alleyOccupiesLot(after) && !alleyOccupiesLot(before);
-		if (!flooded && !takenByAlley) continue;
+		if (!before || !after || !lostHouseSite(before, after)) continue;
 		for (const use of stories) {
 			store = stored(store, use, 1);
 			stacks = lower(stacks, cellId);
