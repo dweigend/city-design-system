@@ -36,8 +36,8 @@ function strip(seed: number): FrameSeam[] {
 	return [...edges.values()];
 }
 
-test('48 small polygon graphs preserve ordering, two-ring repair and monotonic built stock', () => {
-	for (let seed = 0; seed < 48; seed++) {
+test('64 small polygon graphs preserve ordering, two-ring repair and monotonic built stock', () => {
+	for (let seed = 0; seed < 64; seed++) {
 		const seams = strip(seed),
 			ids = seams.map((s) => s.id),
 			rules = compileSeams(seams);
@@ -57,7 +57,9 @@ test('48 small polygon graphs preserve ordering, two-ring repair and monotonic b
 		for (let tick = 1; tick <= 5; tick++) {
 			const pack = tick < 4 ? rules : changed;
 			const prior = new Map(state);
-			for (const [id, bay] of pack.tick(ids, state, seed, tick)) state.set(id, bay);
+			const full = pack.tick(ids, state, seed, tick);
+            expect(pack.tick(halo, state, seed, tick)).toEqual(new Map([...full].filter(([id]) => halo.includes(id))));
+            for (const [id, bay] of full) state.set(id, bay);
 			for (const [id, bay] of prior) {
 				if (bay.built) expect(state.get(id)?.built).toBeTruthy();
 				if (bay.built === 'main') expect(state.get(id)?.built).toBe('main');
