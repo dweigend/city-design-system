@@ -5,15 +5,7 @@ function readCell(id: string, state: Snapshot, rules: Rules) {
 	const cell = state.get(id);
 	if (!cell || cell.id !== id || !rules.vocabulary.has(cell.form))
 		throw new RangeError('Unknown cell or form: ' + id);
-	const pending = cell.pending;
-	if (
-		(cell.intent !== undefined && !rules.vocabulary.has(cell.intent)) ||
-		(pending &&
-			(!rules.vocabulary.has(pending.form) ||
-				!Number.isSafeInteger(pending.ticks) ||
-				pending.ticks < 1))
-	)
-		throw new RangeError('Invalid development state: ' + id);
+	validateDevelopment(cell, rules);
 	if (cell.neighbors.length < 3 || cell.neighbors.length > 5)
 		throw new RangeError('Invalid side count: ' + id);
 	return cell;
@@ -37,13 +29,8 @@ function domain(cell: NeighbourCell, adjacent: readonly NeighbourCell[], rules: 
 	for (const form of rules.forms) {
 		const city = rules.city.get(form) ?? 1;
 		const district = rules.districts.get(cell.district)?.get(form) ?? 1;
-		const sources = rules.sources.get(form);
-		const blocker = adjacent.find((other) => !rules.accepts(form, other.form));
-		if (!city) vetoes.push({ form, reason: 'city' });
-		else if (!district) vetoes.push({ form, reason: 'district' });
-		else if (blocker) vetoes.push({ form, reason: 'contact', neighbour: blocker.id });
-		else if (form !== cell.form && sources && !adjacent.some((other) => sources.has(other.form)))
-			vetoes.push({ form, reason: 'growth-source' });
+		const veto = exclusion(form, cell, adjacent, rules, city, district);
+		if (veto) vetoes.push(veto);
 		else {
 			total += city * district;
 			choices.push({ form, end: total });
@@ -102,4 +89,33 @@ export function decisions(ids: Iterable<string>, state: Snapshot, rules: Rules, 
 		);
 	}
 	return result;
+}
+
+function validateDevelopment(cell: NeighbourCell, rules: Rules) {
+	const pending = cell.pending;
+	if (
+		(cell.intent !== undefined && !rules.vocabulary.has(cell.intent)) ||
+		(pending &&
+			(!rules.vocabulary.has(pending.form) ||
+				!Number.isSafeInteger(pending.ticks) ||
+				pending.ticks < 1))
+	)
+		throw new RangeError('Invalid development state: ' + cell.id);
+}
+
+function exclusion(
+	form: string,
+	cell: NeighbourCell,
+	adjacent: readonly NeighbourCell[],
+	rules: Rules,
+	city: number,
+	district: number
+): Veto | undefined {
+	const sources = rules.sources.get(form);
+	const blocker = adjacent.find((other) => !rules.accepts(form, other.form));
+	if (!city) return { form, reason: 'city' };
+	if (!district) return { form, reason: 'district' };
+	if (blocker) return { form, reason: 'contact', neighbour: blocker.id };
+	if (form !== cell.form && sources && !adjacent.some((other) => sources.has(other.form)))
+		return { form, reason: 'growth-source' };
 }

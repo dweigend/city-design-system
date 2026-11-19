@@ -27,12 +27,7 @@ test('64 seeds on mixed 3–5 sided parcels preserve reciprocal contacts, stock 
 		);
 		for (let t = 0; t < 3; t++) {
 			const next = new Map([...state, ...rules.tick(state.keys(), state, seed)]);
-			for (const [id, cell] of next) {
-				if (cell.protected) expect(cell).toBe(original.get(id));
-				for (const n of cell.neighbors)
-					if (n !== null)
-						expect(contacts[cell.form as keyof typeof contacts]).toContain(next.get(n)?.form);
-			}
+			checkContacts(next, original);
 			state = next;
 		}
 	}
@@ -122,3 +117,12 @@ test('budget exhaustion and contradictory zoning hold stock across seeds and sid
 		}
 	}
 });
+
+function checkContacts(next: Snapshot, original: Snapshot) {
+	for (const [id, cell] of next) {
+		if (cell.protected) expect(cell).toBe(original.get(id));
+		for (const n of cell.neighbors)
+			if (n !== null)
+				expect(contacts[cell.form as keyof typeof contacts]).toContain(next.get(n)?.form);
+	}
+}

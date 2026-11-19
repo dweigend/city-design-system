@@ -56,18 +56,32 @@ export function seamSimulator(
 		return rules;
 	}
 	let literalReason = 'missing-frontage';
+
+	function allowed(
+		pack: ReturnType<typeof compileSeams>,
+		state: BaySnapshot,
+		action: string,
+		tick: number
+	) {
+		if (!edges.some((s) => s.id === action)) return false;
+		const decision = pack.solve([action], state, seed).get(action);
+		if (action === goal.literal && tick === ctx.tick)
+			literalReason = decision?.reason ?? 'missing-frontage';
+		return decision?.role === 'main' && state.get(action)?.built !== 'main';
+	}
 	const domain: Simulator<BaySnapshot, string | null> = {
 		choices: () => options,
 		step: (state, action, tick) => {
 			const pack = constraints(action, tick);
-			if (action) {
-				if (!halo.has(action) || !edges.some((s) => s.id === action)) return;
-				const decision = pack.solve([action], state, seed).get(action);
-				if (action === goal.literal && tick === ctx.tick)
-					literalReason = decision?.reason ?? 'missing-frontage';
-				if (decision?.role !== 'main' || state.get(action)?.built === 'main') return;
-			}
-			const { state: next, rejected } = transition(pack, region, state, seed, tick, admit);
+			if (action && !allowed(pack, state, action, tick)) return;
+			const { state: next, rejected } = transition(
+				pack,
+				region,
+				state,
+				seed,
+				{ tick, year: (ctx.year ?? ctx.tick) + (tick - ctx.tick) * (ctx.yearsPerTick ?? 1) },
+				admit
+			);
 			if (action && rejected.has(action)) {
 				if (action === goal.literal && tick === ctx.tick) literalReason = 'structural-veto';
 				return;

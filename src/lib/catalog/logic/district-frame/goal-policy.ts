@@ -12,14 +12,18 @@ export function goalPolicy(
 	const ids = [goal.literal, ...goal.alternatives.slice(0, 1)];
 	const recent = new Map<string, number>();
 	for (const e of history) recent.set(e.seam, (recent.get(e.seam) ?? 0) + 1);
+	const weightOf = (state: BaySnapshot, id: string) => {
+		const bay = state.get(id);
+		if (bay?.built) return 2;
+		return bay?.pending ? 0.25 : 0;
+	};
 	return (state: BaySnapshot, tick: number, action: string | null) => {
 		let progress = 0,
 			continuity = 0,
 			opening = 0;
 		for (const id of new Set(ids)) {
-			const bay = state.get(id);
-			if (!bay?.built && !bay?.pending) continue;
-			const weight = bay.built ? 2 : 0.25;
+			const weight = weightOf(state, id);
+			if (!weight) continue;
 			if (observations.some((o) => o.seam === id && o.from <= tick)) {
 				opening -= 16 * weight;
 				continue;

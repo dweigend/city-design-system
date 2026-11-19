@@ -2,9 +2,11 @@ import { defineRules, type Options, type Policy, type Snapshot } from '../neighb
 import { FRAME_DIAMETER } from '../../data/frame-sections';
 
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
-import { hashUnit } from '../../core/random';
+import { compileSeams } from './seams';
+import { faceSeam } from './address';
+import type { FrameSeam } from './seam-policy';
 
-export const framePlacementParams = defineParams({
+const framePlacementParams = defineParams({
 	secondaryDensity: numberParam(
 		'Interior seams with a secondary member',
 		'fraction',
@@ -33,52 +35,19 @@ type Polygon = Readonly<{
 	neighbors: readonly (string | null)[];
 }>;
 type Side = { vertices: readonly [string, string]; axis: readonly [Point, Point] };
-type FrameEdge = Side & {
-	id: string;
-	role: 'main' | 'secondary' | 'gap';
-	reason: 'opening' | 'passage' | 'unoccupied' | 'density' | 'district' | 'court' | 'houses';
-	nominalDiameter: number;
-};
-
-function sideOf(face: Polygon, index: number): Side {
-	const next = (index + 1) % face.vertexIds.length;
-	const a = face.vertexIds[index],
-		b = face.vertexIds[next];
-	const p = face.corners[index],
-		q = face.corners[next];
+function sideOf(face: Polygon, index: number) {
+	const address = faceSeam(face, index);
+	const a = face.corners[index],
+		b = face.corners[(index + 1) % face.corners.length];
 	if (
-		a === b ||
-		!p.every(Number.isFinite) ||
-		!q.every(Number.isFinite) ||
-		p.every((v, k) => v === q[k])
+		address.vertices[0] === address.vertices[1] ||
+		!a.every(Number.isFinite) ||
+		!b.every(Number.isFinite) ||
+		a.every((v, k) => v === b[k])
 	)
 		throw new RangeError('Invalid frame edge');
-	return a < b ? { vertices: [a, b], axis: [p, q] } : { vertices: [b, a], axis: [q, p] };
-}
-
-function placement(
-	a: string,
-	b: string,
-	districtEdge: boolean,
-	opening: boolean
-): Pick<FrameEdge, 'role' | 'reason'> {
-	if (opening) return { role: 'gap', reason: 'opening' };
-	if ([a, b].includes('passage')) return { role: 'gap', reason: 'passage' };
-	if (![a, b].includes('house')) return { role: 'gap', reason: 'unoccupied' };
-	if (districtEdge) return { role: 'main', reason: 'district' };
-	if ([a, b].includes('court')) return { role: 'main', reason: 'court' };
-	return { role: 'secondary', reason: 'houses' };
-}
-
-function interiorPlacement(key: string, district: string, policy: FramePolicy) {
-	const { secondaryDensity } = resolveParams(
-		framePlacementParams,
-		policy.city,
-		policy.districts?.get(district)
-	);
-	return hashUnit(policy.seed, key, 'frame-secondary-v1') < secondaryDensity
-		? ({ role: 'secondary', reason: 'houses' } as const)
-		: ({ role: 'gap', reason: 'density' } as const);
+	const axis: Side['axis'] = address.vertices[0] === face.vertexIds[index] ? [a, b] : [b, a];
+	return { ...address, axis };
 }
 
 function parcel(id: string, state: Snapshot, carrier: ReadonlyMap<string, Polygon>) {
@@ -111,32 +80,37 @@ export function districtFrame(
 	openings: ReadonlySet<string> = new Set(),
 	policy: FramePolicy = { seed: 0 }
 ) {
-	const edges = new Map<string, FrameEdge>();
-	for (const id of new Set(ids)) {
+	const requested = new Set(ids);
+	for (const id of requested) parcel(id, state, carrier);
+	const axes = new Map<string, ReturnType<typeof sideOf>>();
+	const seams: FrameSeam[] = [];
+	const selection = new Set<string>();
+	for (const id of [...state.keys()].sort()) {
 		const { cell, face } = parcel(id, state, carrier);
-		for (const [i, neighbour] of face.neighbors.entries()) {
-			if (neighbour === null) continue;
-			const other = parcel(neighbour, state, carrier);
+		face.neighbors.forEach((n, i) => {
+			if (n === null) return;
 			const side = sideOf(face, i);
-			const key = JSON.stringify(side.vertices);
+			if (requested.has(id)) selection.add(side.id);
+			if (axes.has(side.id)) return;
+			const other = parcel(n, state, carrier);
 			const reciprocal = other.face.neighbors.indexOf(id);
 			if (reciprocal < 0 || JSON.stringify(sideOf(other.face, reciprocal)) !== JSON.stringify(side))
-				throw new RangeError('Inconsistent shared frame edge: ' + key);
-			if (edges.has(key)) continue;
-			const seam = placement(
-				cell.form,
-				other.cell.form,
-				cell.district !== other.cell.district,
-				openings.has(key)
-			);
-			const choice =
-				seam.role === 'secondary' ? interiorPlacement(key, cell.district, policy) : seam;
-			const nominalDiameter =
-				choice.role === 'gap' ? 0 : FRAME_DIAMETER[choice.role === 'main' ? 'main' : 'brace'];
-			edges.set(key, { ...side, ...choice, id: key, nominalDiameter });
-		}
+				throw new RangeError('Inconsistent shared frame edge: ' + side.id);
+			axes.set(side.id, side);
+			seams.push(surveyPair(cell, other.cell, side, openings, policy));
+		});
 	}
-	return [...edges.values()].sort((a, b) => (a.id < b.id ? -1 : 1));
+	return [...compileSeams(seams).solve(selection, new Map(), policy.seed)].map(([id, decision]) => {
+		const side = axes.get(id);
+		if (!side) throw new RangeError('Missing seam axis');
+		const { role, reason } = decision;
+		return {
+			...side,
+			role,
+			reason,
+			nominalDiameter: role === 'gap' ? 0 : FRAME_DIAMETER[role === 'main' ? 'main' : 'brace']
+		};
+	});
 }
 
 export {
@@ -148,8 +122,6 @@ export {
 } from './seams';
 export {
 	seamPolicy,
-	pairWeights,
-	characterWeights,
 	type EdgeUse,
 	type FrameRole,
 	type FrameSeam,
@@ -164,3 +136,30 @@ export {
 } from './horizon';
 
 export { transition as advanceSeams } from './transition';
+export { faceSeam, seamAddress } from './address';
+
+function surveyPair(
+	cell: ReturnType<typeof parcel>['cell'],
+	other: typeof cell,
+	side: ReturnType<typeof sideOf>,
+	openings: ReadonlySet<string>,
+	policy: FramePolicy
+): FrameSeam {
+	const pair = [cell, other];
+	const forms = pair.map((c) => c.form);
+	const density = resolveParams(
+		framePlacementParams,
+		policy.city,
+		policy.districts?.get(cell.district)
+	).secondaryDensity;
+	return {
+		...side,
+		houses: pair.filter((c) => c.form === 'house').map((c) => c.id),
+		district: cell.district,
+		character: 'neutral',
+		districtEdge: cell.district !== other.district,
+		use: forms.includes('court') ? 'court' : 'houses',
+		secondaryFactor: density,
+		opening: openings.has(side.id) ? 'opening' : forms.includes('passage') ? 'passage' : undefined
+	};
+}

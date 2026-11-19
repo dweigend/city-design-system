@@ -6,7 +6,7 @@ export type EdgeUse = 'court' | 'shore' | 'slope' | 'land' | 'frontage' | 'step'
 export type Character = 'core' | 'shore' | 'slope' | 'quiet' | 'neutral';
 type Pair = readonly [main: number, secondary: number];
 type RoleTable<K extends string> = Readonly<Record<K, Pair>>;
-export const pairWeights: RoleTable<EdgeUse> = {
+const pairWeights: RoleTable<EdgeUse> = {
 	court: [1, 0],
 	shore: [1, 0],
 	slope: [1, 0],
@@ -15,7 +15,7 @@ export const pairWeights: RoleTable<EdgeUse> = {
 	step: [0.6, 0.2],
 	houses: [0, 0.15]
 };
-export const characterWeights: RoleTable<Character | 'coreCourt' | 'quietCourt'> = {
+const characterWeights: RoleTable<Character | 'coreCourt' | 'quietCourt'> = {
 	neutral: [1, 1],
 	shore: [1, 0.5],
 	slope: [1, 0.5],
@@ -24,7 +24,7 @@ export const characterWeights: RoleTable<Character | 'coreCourt' | 'quietCourt'>
 	quiet: [0, 0],
 	quietCourt: [0.5, 0]
 };
-export const seamParams = defineParams({
+const seamParams = defineParams({
 	districtMainWeight: numberParam('Occupied district boundary', '', 1, [0, 100, 0.1]),
 	quietDistrictShare: numberParam('Quiet district tendency', 'fraction', 0.33, [0, 1, 0.01]),
 	spineWeight: numberParam('Shore and slope spine weight', '', 2, [0, 100, 0.1]),
@@ -52,6 +52,7 @@ export type FrameSeam = Readonly<{
 	opening?: string;
 	blocker?: string;
 	attachment?: boolean;
+	secondaryFactor?: number;
 	gate?: boolean;
 	intent?: FrameRole;
 }>;
@@ -88,25 +89,7 @@ export function seamProposal(
 	if (s.opening || !s.houses.length) return { role: 'gap', reason: s.opening ?? 'unoccupied' };
 	if (s.gate && s.transverse !== 'mainAlley' && s.transverse !== 'riversidePromenade')
 		return { role: 'gap', reason: 'gate-rank' };
-	const factors = (character: Character) => {
-		const key =
-			s.use === 'court' && (character === 'quiet' || character === 'core')
-				? (`${character}Court` as const)
-				: character;
-		return policy.characters.get(key) ?? [1, 1];
-	};
-	const [am, as] = factors(s.character),
-		[bm, bs] = factors(s.adjacentCharacter ?? s.character);
-	const dm = Math.min(am, bm),
-		ds = Math.min(as, bs);
-	const [pm, ps] = policy.pairs.get(s.use) ?? [0, 0];
-	const spine = s.use === 'shore' || s.use === 'slope' ? policy.spineWeight : 1;
-	const main =
-		(s.districtEdge ? policy.districtMainWeight : pm) *
-		dm *
-		spine *
-		(s.gate ? policy.gateWeight : 1);
-	const secondary = s.attachment ? ps * ds : 0;
+	const { main, secondary } = roleWeights(s, policy);
 	if (s.intent) {
 		const allowed = s.intent === 'gap' || (s.intent === 'main' ? main : secondary) > 0;
 		return allowed
@@ -126,6 +109,29 @@ export function seamProposal(
 			s.id,
 			'tg-role-v1'
 		),
-		reason: s.use
+		reason: s.secondaryFactor === 0 && main === 0 ? 'density' : s.use
 	};
+}
+
+function roleWeights(s: FrameSeam, policy: SeamPolicy) {
+	const factors = (character: Character) => {
+		const key =
+			s.use === 'court' && (character === 'quiet' || character === 'core')
+				? (`${character}Court` as const)
+				: character;
+		return policy.characters.get(key) ?? [1, 1];
+	};
+	const [am, as] = factors(s.character),
+		[bm, bs] = factors(s.adjacentCharacter ?? s.character);
+	const dm = Math.min(am, bm),
+		ds = Math.min(as, bs);
+	const [pm, ps] = policy.pairs.get(s.use) ?? [0, 0];
+	const spine = s.use === 'shore' || s.use === 'slope' ? policy.spineWeight : 1;
+	const main =
+		(s.districtEdge ? policy.districtMainWeight : pm) *
+		dm *
+		spine *
+		(s.gate ? policy.gateWeight : 1);
+	const secondary = s.attachment ? ps * ds * (s.secondaryFactor ?? 1) : 0;
+	return { main, secondary };
 }

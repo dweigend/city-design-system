@@ -7,10 +7,16 @@ type Action = 'sell' | 'charge' | 'dispatch' | 'wait';
 const battery: Simulator<number, Action> = {
 	choices: () => ['sell', 'charge', 'dispatch', 'wait'],
 	step: (charge, action, tick) => {
-		if ((action === 'charge' && charge) || (action === 'dispatch' && !charge)) return;
-		const state = action === 'charge' ? 1 : action === 'dispatch' ? 0 : charge;
-		const revenue = action === 'sell' ? 2 : action === 'dispatch' && tick === 2 ? 12 : 0;
-		return { state, contributions: { revenue } };
+		switch (action) {
+			case 'charge':
+				return charge ? undefined : { state: 1, contributions: { revenue: 0 } };
+			case 'dispatch':
+				return charge ? { state: 0, contributions: { revenue: tick === 2 ? 12 : 0 } } : undefined;
+			case 'sell':
+				return { state: charge, contributions: { revenue: 2 } };
+			case 'wait':
+				return { state: charge, contributions: { revenue: 0 } };
+		}
 	}
 };
 const settings: SearchSettings = { lookahead: 2, width: 1, budget: 200, strategy: 'exact' };

@@ -67,7 +67,7 @@ test('a vocabulary larger than the budget holds before the first candidate', () 
 	});
 });
 
-test('district seam, court, inter-house secondary and intentional gap share one edge contract', () => {
+test('disconnected district and court sides stay open along an isolated strip', () => {
 	const grid = squareGrid(6, 1, 5);
 	const state = new Map(
 		grid.cells.map((c, i) => [
@@ -86,7 +86,7 @@ test('district seam, court, inter-house secondary and intentional gap share one 
 		...frameRules({}, { delay: 1 }).tick(state.keys(), state, 7)
 	]);
 	const edges = districtFrame(next.keys(), next, grid.cellsById, new Set(['["5/0","5/1"]']));
-	expect(edges.map((edge) => edge.role)).toEqual(['main', 'main', 'main', 'secondary', 'gap']);
+	expect(edges.map((edge) => edge.role)).toEqual(['gap', 'gap', 'gap', 'gap', 'gap']);
 	expect(edges.map((edge) => edge.vertices[0])).toEqual(['1/0', '2/0', '3/0', '4/0', '5/0']);
 });
 

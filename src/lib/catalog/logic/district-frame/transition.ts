@@ -1,23 +1,21 @@
 import type { compileSeams, BaySnapshot } from './seams';
 import type { Admission } from './planning-contract';
 
-/** Advances admissible bays from one frozen survey, retaining prior stock on physical rejection. */
+type Clock = { tick: number; year: number };
+
+/** Resolves maturity and physical support simultaneously on the frozen input, then restricts the patch. */
 export function transition(
 	rules: ReturnType<typeof compileSeams>,
 	region: string[],
 	prior: BaySnapshot,
 	seed: number,
-	tick: number,
+	date: number | Clock,
 	admit: Admission
 ) {
-	const patch = rules.tick(region, prior, seed, tick);
-	const decisions = rules.solve(rules.affected(region), prior, seed);
+	const clock = typeof date === 'number' ? { tick: date, year: date } : date;
 	const rejected = new Set<string>();
-	for (const [id, bay] of patch) {
-		if (bay.built && bay.built !== prior.get(id)?.built && !admit(id, decisions)) {
-			patch.delete(id);
-			rejected.add(id);
-		}
-	}
-	return { state: new Map([...prior, ...patch]), decisions, rejected };
+	const patch = rules.tick(region, prior, seed, clock.tick, clock.year, admit, rejected);
+	const state = new Map(prior);
+	for (const [id, bay] of patch) state.set(id, bay);
+	return { state, rejected };
 }

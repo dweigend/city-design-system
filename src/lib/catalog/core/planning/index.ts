@@ -28,42 +28,36 @@ export function searchSequences<S, A>(
 	settings: SearchSettings
 ) {
 	const { strategy, width, budget, lookahead } = settings;
-	if (
-		![width, budget, lookahead].every(Number.isSafeInteger) ||
-		width < 1 ||
-		width > 64 ||
-		budget < 0 ||
-		budget > 100000 ||
-		lookahead < 0 ||
-		lookahead > 8
-	)
-		throw new RangeError('Invalid search settings');
+	validateSettings(settings);
 	let frontier: Path<S, A>[] = [{ state: initial, steps: [], score: 0 }],
 		expansions = 0,
 		pruned = 0,
 		exhausted = false;
-	const depth = strategy === 'greedy' ? 1 : lookahead + 1;
-	for (let level = 0; level < depth; level++) {
-		const next: Path<S, A>[] = [];
-		for (const path of frontier) {
-			for (const action of domain.choices(path.state, tick + level)) {
+
+	function expand(paths: Path<S, A>[], next: Path<S, A>[], date: number) {
+		for (const path of paths) {
+			for (const action of domain.choices(path.state, date)) {
 				if (expansions === budget) {
-					exhausted = true;
-					break;
+					return false;
 				}
 				expansions++;
-				const result = domain.step(path.state, action, tick + level);
+				const result = domain.step(path.state, action, date);
 				if (!result) continue;
 				const value = Object.values(result.contributions).reduce((a, b) => a + b, 0);
 				if (!Number.isFinite(value)) throw new RangeError('Nonfinite planning utility');
 				next.push({
 					state: result.state,
-					steps: [...path.steps, { ...result, action, tick: tick + level }],
+					steps: [...path.steps, { ...result, action, tick: date }],
 					score: path.score + value
 				});
 			}
-			if (exhausted) break;
 		}
+		return true;
+	}
+	const depth = strategy === 'greedy' ? 1 : lookahead + 1;
+	for (let level = 0; level < depth; level++) {
+		const next: Path<S, A>[] = [];
+		exhausted = !expand(frontier, next, tick + level);
 		if (exhausted || !next.length) break;
 		next.sort((a, b) => b.score - a.score);
 		const keep = strategy === 'exact' ? next.length : strategy === 'greedy' ? 1 : width;
@@ -99,4 +93,17 @@ export function runTicks<S, R>(
 		checkpoints.push(state);
 	}
 	return { series, checkpoints };
+}
+
+function validateSettings({ width, budget, lookahead }: SearchSettings) {
+	if (
+		![width, budget, lookahead].every(Number.isSafeInteger) ||
+		width < 1 ||
+		width > 64 ||
+		budget < 0 ||
+		budget > 100000 ||
+		lookahead < 0 ||
+		lookahead > 8
+	)
+		throw new RangeError('Invalid search settings');
 }

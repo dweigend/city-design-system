@@ -62,10 +62,7 @@ test('64 small polygon graphs preserve ordering, two-ring repair and monotonic b
 				new Map([...full].filter(([id]) => halo.includes(id)))
 			);
 			for (const [id, bay] of full) state.set(id, bay);
-			for (const [id, bay] of prior) {
-				if (bay.built) expect(state.get(id)?.built).toBeTruthy();
-				if (bay.built === 'main') expect(state.get(id)?.built).toBe('main');
-			}
+			checkStock(prior, state);
 		}
 	}
 });
@@ -127,3 +124,10 @@ test('snapshot preferences preserve city vetoes, protected stock and neutral rep
 	expect(stock.get('a')).toBe(a);
 	expect(biased.explain('a', new Map([['a', { ...a, protected: false }]]), 7).target).toBe('hall');
 });
+
+function checkStock(prior: ReadonlyMap<string, BayState>, state: ReadonlyMap<string, BayState>) {
+	for (const [id, bay] of prior) {
+		if (bay.built) expect(state.get(id)?.built).toBeTruthy();
+		if (bay.built === 'main') expect(state.get(id)?.built).toBe('main');
+	}
+}

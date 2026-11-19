@@ -44,7 +44,7 @@ export type Policy = Readonly<{
 	preferenceSnapshot?: PreferenceSnapshot;
 }>;
 
-export const neighbourhoodParams = defineParams({
+const neighbourhoodParams = defineParams({
 	delay: numberParam('Conversion delay', 'ticks', 2, [1, 1024, 1], 'integer'),
 	budget: numberParam('Candidate budget per cell', 'forms', 16, [0, 256, 1], 'integer')
 });
@@ -89,24 +89,7 @@ export function compile(policy: Policy, options?: Options) {
 			([id, values]) => [id, weights(values, vocabulary)] as const
 		)
 	);
-	const revision = policy.revision;
-	const published = policy.preferenceSnapshot;
-	const matches =
-		revision &&
-		published &&
-		revision.snapshotRevision === published.snapshotRevision &&
-		revision.profileRevision === published.profileRevision;
-	const preferences = matches ? published.preferences : {};
-	const preferredDistricts = new Set(Object.keys(preferences));
-	const status = !published ? 'missing' : matches ? 'current' : 'stale';
-	for (const [id, preference] of Object.entries(preferences)) {
-		const district = districts.get(id) ?? new Map<string, number>();
-		for (const [form, factor] of weights(preference.formMultipliers, vocabulary)) {
-			if (factor <= 0) throw new RangeError('Expected a positive preference');
-			district.set(form, Math.min(1e6, (district.get(form) ?? 1) * factor));
-		}
-		districts.set(id, district);
-	}
+	const { revision, status, preferredDistricts } = applyPreferences(policy, vocabulary, districts);
 	const accepts = (a: string, b: string) => !!(contacts.get(a)?.has(b) && contacts.get(b)?.has(a));
 	return {
 		...resolveParams(neighbourhoodParams, options),
@@ -140,3 +123,41 @@ export type Decision = Readonly<{
 	evaluated: number;
 	blocker?: string;
 }>;
+
+function applyPreferences(
+	policy: Policy,
+	vocabulary: Set<string>,
+	districts: Map<string, Map<string, number>>
+) {
+	const revision = policy.revision;
+	const published = policy.preferenceSnapshot;
+	const matches = sameRevision(revision, published);
+	const preferences = matches ? published.preferences : {};
+	const preferredDistricts = new Set(Object.keys(preferences));
+	const status: NonNullable<Decision['preferenceStatus']> = !published
+		? 'missing'
+		: matches
+			? 'current'
+			: 'stale';
+	for (const [id, preference] of Object.entries(preferences)) {
+		const district = districts.get(id) ?? new Map<string, number>();
+		for (const [form, factor] of weights(preference.formMultipliers, vocabulary)) {
+			if (factor <= 0) throw new RangeError('Expected a positive preference');
+			district.set(form, Math.min(1e6, (district.get(form) ?? 1) * factor));
+		}
+		districts.set(id, district);
+	}
+	return { revision, status, preferredDistricts };
+}
+
+function sameRevision(
+	revision: Policy['revision'],
+	published: Policy['preferenceSnapshot']
+): published is PreferenceSnapshot {
+	return Boolean(
+		revision &&
+		published &&
+		revision.snapshotRevision === published.snapshotRevision &&
+		revision.profileRevision === published.profileRevision
+	);
+}

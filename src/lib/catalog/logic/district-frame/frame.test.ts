@@ -33,9 +33,9 @@ test('both sides of a sloping shared seam yield one canonical axis in metres', (
 			id: '["a","b"]',
 			vertices: ['a', 'b'],
 			axis: [a, b],
-			role: 'secondary',
+			role: 'gap',
 			reason: 'houses',
-			nominalDiameter: 0.1
+			nominalDiameter: 0
 		}
 	]);
 });

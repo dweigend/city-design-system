@@ -28,27 +28,21 @@ export function planGoal(
 	const phases: Phase[] = search.steps.map((s) => ({ tick: s.tick, seam: s.action }));
 	if (!phases.length) phases.push({ tick: ctx.tick, seam: null });
 	const first = phases[0].seam;
-	const reason =
-		search.diagnostics.exhausted && !search.steps.length
-			? 'budget'
-			: first === goal.literal
-				? 'literal'
-				: literalReason !== 'intent'
-					? literalReason
-					: ctx.observations.some(
-								(o) => o.seam === goal.literal && o.from <= ctx.tick + ctx.lookahead
-						  )
-						? 'forecast-opening'
-						: first
-							? 'continuity'
-							: 'completed-or-deferred';
+	function explanation() {
+		if (search.diagnostics.exhausted && !search.steps.length) return 'budget';
+		if (first === goal.literal) return 'literal';
+		if (literalReason !== 'intent') return literalReason;
+		if (ctx.observations.some((o) => o.seam === goal.literal && o.from <= ctx.tick + ctx.lookahead))
+			return 'forecast-opening';
+		return first ? 'continuity' : 'completed-or-deferred';
+	}
 	return {
 		tick: ctx.tick,
 		goal: goal.id,
 		objective: 'frame-painted-frontage' as const,
 		created: goal.created,
 		literal: goal.literal,
-		reason,
+		reason: explanation(),
 		lookback: ctx.lookback,
 		history,
 		observations: ctx.observations.filter((o) => o.from <= ctx.tick && halo.has(o.seam)),

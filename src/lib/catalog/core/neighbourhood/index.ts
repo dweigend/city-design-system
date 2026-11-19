@@ -6,9 +6,10 @@ import {
 	type Policy,
 	type Snapshot
 } from './contract';
+import { tickPatch } from './patch';
+export { tickPatch };
 import { decisions } from './solve';
 export {
-	neighbourhoodParams,
 	type DistrictPreferences,
 	type PreferenceSnapshot,
 	type Decision,
@@ -48,7 +49,7 @@ export function defineRules(policy: Policy, options?: Options) {
 		},
 		/** Advances one synchronous step and returns sparse replacements. Unchanged records stay owned by the caller. */
 		tick(ids: Iterable<string>, state: Snapshot, seed: number) {
-			const patch = new Map<string, NeighbourCell>();
+			const patch = tickPatch<NeighbourCell>();
 			for (const [id, decision] of decisions(ids, state, rules, seed)) {
 				const cell = state.get(id);
 				if (!cell) throw new RangeError('Missing cell: ' + id);
@@ -69,16 +70,12 @@ export function affectedRegion(changed: Iterable<string>, before: Snapshot, afte
 	for (const state of [before, after]) {
 		let frontier = edits;
 		for (let ring = 0; ring < 2; ring++) {
-			const next = new Set<string>();
-			for (const id of frontier) {
-				for (const other of state.get(id)?.neighbors ?? []) {
-					if (other !== null) {
-						next.add(other);
-						affected.add(other);
-					}
-				}
-			}
-			frontier = [...next];
+			frontier = [
+				...new Set(
+					frontier.flatMap((id) => state.get(id)?.neighbors ?? []).filter((id) => id !== null)
+				)
+			];
+			for (const id of frontier) affected.add(id);
 		}
 	}
 	return [...affected].filter((id) => after.has(id)).sort();

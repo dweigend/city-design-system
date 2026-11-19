@@ -1,9 +1,11 @@
+import { tickPatch } from '../../core/neighbourhood';
 import { hashUnit } from '../../core/random';
 import { seamPolicy, seamProposal, type FrameRole, type FrameSeam } from './seam-policy';
 
 export type BayState = Readonly<{
 	built?: Exclude<FrameRole, 'gap'>;
 	builtTick?: number;
+	builtYear?: number;
 	pending?: Exclude<FrameRole, 'gap'>;
 	ticks?: number;
 }>;
@@ -25,6 +27,38 @@ export const omissionMeasures = [
 type Measure = (typeof omissionMeasures)[number];
 export type OmissionEvidence = Partial<Record<Measure, number | string>>;
 
+type Proposal = ReturnType<typeof seamProposal>;
+
+function protect(seam: FrameSeam, built: BayState['built'], proposal: Proposal): Proposal {
+	if (!built || (built !== 'main' && proposal.role !== 'gap')) return proposal;
+	if (seam.intent && proposal.role !== seam.intent) return { ...proposal, role: built };
+	const reason = seam.intent && seam.intent !== built ? 'protected-stock' : 'built';
+	return { ...proposal, role: built, reason };
+}
+
+function elapsed(old: BayState | undefined, role: FrameRole) {
+	return (old?.pending === role ? (old.ticks ?? 0) : 0) + 1;
+}
+
+function advanceBay(
+	old: BayState | undefined,
+	role: FrameRole,
+	delay: number,
+	tick: number,
+	year?: number
+): BayState | undefined {
+	if (role === 'gap' || role === old?.built) {
+		if (!old?.pending) return;
+		const stock = { ...old };
+		delete stock.pending;
+		delete stock.ticks;
+		return stock;
+	}
+	const ticks = elapsed(old, role);
+	if (ticks < delay) return { ...old, pending: role, ticks };
+	return { built: role, builtTick: tick, ...(year === undefined ? {} : { builtYear: year }) };
+}
+
 /** Indexes one survey. Incidence uses stable endpoint and house IDs, including irregular rings. */
 export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) {
 	const byId = new Map<string, FrameSeam>();
@@ -43,8 +77,7 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 	}
 	const adjacent = (s: FrameSeam) =>
 		s.vertices.flatMap((v) => vertices.get(v) ?? []).filter((n) => n.id !== s.id);
-	function solve(ids: Iterable<string>, state: BaySnapshot, seed: number) {
-		const result = new Map<string, ReturnType<typeof seamProposal>>();
+	function evaluate(state: BaySnapshot, seed: number) {
 		const proposals = new Map<string, ReturnType<typeof seamProposal>>();
 		function raw(s: FrameSeam) {
 			const value = proposals.get(s.id) ?? seamProposal(s, seed, policy);
@@ -76,66 +109,88 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			return state.get(s.id)?.built === 'main' || (raw(s).role === 'main' && !capacity(s));
 		}
 
-		const main = new Map<string, boolean>();
-		function selectedMain(s: FrameSeam) {
-			const cached = main.get(s.id);
-			if (cached !== undefined) return cached;
-			const ok = state.get(s.id)?.built === 'main' || (eligible(s) && adjacent(s).some(eligible));
-			main.set(s.id, ok);
-			return ok;
-		}
 		function connected(s: FrameSeam) {
 			const ring = adjacent(s);
-			const isRoot = selectedMain;
+			const isRoot = (n: FrameSeam) => state.get(n.id)?.built === 'main';
 			return (
 				(policy.maxBranchSeams >= 1 && ring.some(isRoot)) ||
 				(policy.maxBranchSeams >= 2 &&
 					ring.some((n) => state.get(n.id)?.built === 'secondary' && adjacent(n).some(isRoot)))
 			);
 		}
-		for (const id of [...new Set(ids)].sort()) {
-			const s = byId.get(id);
-			if (!s) throw new RangeError('Unknown seam: ' + id);
-			let proposal = raw(s);
+		function connector(s: FrameSeam, proposal: Proposal) {
 			if (
 				!s.attachment &&
 				proposal.role === 'gap' &&
 				s.vertices.every((v) =>
-					(vertices.get(v) ?? []).some((n) => n.id !== s.id && selectedMain(n))
+					(vertices.get(v) ?? []).some((n) => n.id !== s.id && state.get(n.id)?.built === 'main')
 				)
 			) {
 				const connector = seamProposal({ ...s, attachment: true }, seed, policy);
 				if (connector.role === 'secondary') proposal = connector;
 			}
-			if (proposal.role === 'main' && !selectedMain(s))
+			return proposal;
+		}
+		function decide(s: FrameSeam) {
+			let proposal = raw(s);
+			proposal = connector(s, proposal);
+			if (proposal.role === 'main' && !(eligible(s) && adjacent(s).some(eligible)))
 				proposal = {
 					role: 'gap',
 					...(capacity(s) ?? { reason: 'isolated-main', blocker: s.id })
 				};
 			if (proposal.role === 'secondary' && !connected(s))
 				proposal = { role: 'gap', reason: 'detached-spur' };
-			const built = state.get(id)?.built;
-			if (built && (built === 'main' || proposal.role === 'gap'))
-				proposal = {
-					...proposal,
-					role: built,
-					reason:
-						s.intent && proposal.role !== s.intent
-							? proposal.reason
-							: s.intent && s.intent !== built
-								? 'protected-stock'
-								: 'built'
-				};
-			result.set(id, proposal);
+			return protect(s, state.get(s.id)?.built, proposal);
 		}
-		return result;
+		return { decide, eligible };
+	}
+	function requested(ids: Iterable<string>) {
+		return [...new Set(ids)].sort().map((id) => {
+			const seam = byId.get(id);
+			if (!seam) throw new RangeError('Unknown seam: ' + id);
+			return seam;
+		});
+	}
+	function solve(ids: Iterable<string>, state: BaySnapshot, seed: number) {
+		const { decide } = evaluate(state, seed);
+		return new Map(requested(ids).map((s) => [s.id, decide(s)]));
+	}
+	function tick(
+		ids: Iterable<string>,
+		state: BaySnapshot,
+		seed: number,
+		tick: number,
+		year?: number,
+		admit: (id: string) => boolean = () => true,
+		rejected = new Set<string>()
+	) {
+		const { decide, eligible } = evaluate(state, seed);
+		const patch = tickPatch<BayState>();
+		function partner(s: FrameSeam) {
+			if (state.get(s.id)?.built === 'main') return true;
+			return (
+				eligible(s) && elapsed(state.get(s.id), 'main') >= policy.frameDelayTicks && admit(s.id)
+			);
+		}
+		for (const s of requested(ids)) {
+			const old = state.get(s.id),
+				{ role } = decide(s);
+			const next = advanceBay(old, role, policy.frameDelayTicks, tick, year);
+			if (!next) continue;
+			const building = next.built && next.built !== old?.built;
+			if (building && (!admit(s.id) || (role === 'main' && !adjacent(s).some(partner))))
+				rejected.add(s.id);
+			else patch.set(s.id, next);
+		}
+		return patch;
 	}
 	return {
-		/** Returns four rings for main arbitration and dependent two-hop spurs. Union both surveys on a topology change. */
+		/** Returns two rings for main arbitration and dependent two-hop spurs. Union both surveys on a topology change. */
 		affected(ids: Iterable<string>) {
 			const found = new Set(ids);
 			let frontier = [...found];
-			for (let ring = 0; ring < 4; ring++) {
+			for (let ring = 0; ring < 2; ring++) {
 				const next = new Set<string>();
 				for (const id of frontier) {
 					const seam = byId.get(id);
@@ -165,24 +220,7 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 				}))
 			};
 		},
-		/** Returns a synchronous sparse patch; preserves every previously built bay and its stock. */
-		tick(ids: Iterable<string>, state: BaySnapshot, seed: number, tick: number) {
-			const patch = new Map<string, BayState>();
-			for (const [id, { role }] of solve(ids, state, seed)) {
-				const old = state.get(id);
-				if (role === 'gap' || role === old?.built) {
-					if (old?.pending) patch.set(id, { built: old.built, builtTick: old.builtTick });
-					continue;
-				}
-				const ticks = (old?.pending === role ? (old.ticks ?? 0) : 0) + 1;
-				patch.set(
-					id,
-					ticks >= policy.frameDelayTicks
-						? { built: role, builtTick: tick }
-						: { ...old, pending: role, ticks }
-				);
-			}
-			return patch;
-		}
+		/** Advances only requested addresses against the same frozen incidence and stock. */
+		tick
 	};
 }
