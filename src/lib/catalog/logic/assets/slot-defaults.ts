@@ -1,8 +1,10 @@
+import { flowToken } from '../../data/focus';
 import type { ColorToken } from '../parametrik/types';
 import type { AssetRecipe, AssetSurface } from './definition';
 
 const pigments: Record<string, ColorToken> = {
 	body: '--paper',
+	figure: flowToken.people,
 	plaza: '--cat-business-2',
 	accent: '--body-living',
 	glass: '--cat-health-3',
