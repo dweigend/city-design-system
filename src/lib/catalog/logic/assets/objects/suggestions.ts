@@ -5,7 +5,7 @@ export const suggestions = {
 	frame: sheetMetal.finishes.brushed,
 	body: { material: 'glaze', finish: 'keramik-ton', token: '--body-living' },
 	shell: { material: 'metal', finish: 'metall-kalkgruen', token: '--cat-nature-2' },
-	slats: { material: 'wood', finish: 'holz-natur', token: '--body-living' },
+	slats: { material: 'wood', finish: 'holz-natur', token: '--cat-living' },
 	foot: terrazzo.finishes['chalk-chip'],
 	fabric: { material: 'membrane', finish: 'membran-gewebe', token: '--paper' },
 	liquid: { material: 'water', finish: 'wasser-ruhig', token: '--cat-health' },

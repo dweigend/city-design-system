@@ -37,9 +37,9 @@ export const lighting = [
 	]),
 	asset('folio-floor-lamp', ['foot', 'frame', 'shell', 'diffuser'], [1.3, 1.3], (span) => [
 		post(0, 0, 0, 0.45, 0.1, 'foot'),
-		post(0, 0, 0.1, 0.05, 0.85 + span),
-		bow(0, 0, 0.75 + span, 0.91, 0.6, 0.22),
-		panel(0, 0, 0.85 + span, 0.64, 0.44, 0.045, 'diffuser')
+		post(0, 0, 0.1, 0.05, 0.85 + (2.35 * span - 0.55)),
+		bow(0, 0, 0.75 + (2.35 * span - 0.55), 0.91, 0.6, 0.22),
+		panel(0, 0, 0.85 + (2.35 * span - 0.55), 0.64, 0.44, 0.045, 'diffuser')
 	]),
 	asset('forked-lamp', ['frame', 'diffuser', 'shell'], [2.6, 1.2], (span) => [
 		post(0, 0, 0, 0.095, 2),
@@ -69,9 +69,9 @@ export const lighting = [
 	]),
 	asset('halo-standard', ['foot', 'frame', 'shell', 'diffuser'], [1.5, 1.6], (span) => [
 		post(0, 0, 0, 0.22, 0.12, 'foot'),
-		post(0, 0, 0.12, 0.065, 1.1 + span),
-		eye(0, 0, 1.55 + span, 0.45, 0.075, 0.12),
-		eye(0.075, 0, 1.55 + span, 0.41, 0.045, 0.04, 'diffuser')
+		post(0, 0, 0.12, 0.065, 1.1 + (2.35 * span - 0.55)),
+		eye(0, 0, 1.55 + (2.35 * span - 0.55), 0.45, 0.075, 0.12),
+		eye(0.075, 0, 1.55 + (2.35 * span - 0.55), 0.41, 0.045, 0.04, 'diffuser')
 	]),
 	asset('arcade-pendants', ['frame', 'diffuser'], [3.4, 1.2], (span, variant) => [
 		bow(0, 0, 0, 3.1 * span, 0.18, 2.4, 'frame'),

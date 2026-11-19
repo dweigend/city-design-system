@@ -12,7 +12,7 @@ export const seating = [
 	asset('button-perch', ['foot', 'frame', 'shell'], [1.4, 1.4], (span) => [
 		post(0, 0, 0, 0.31, 0.09, 'foot'),
 		post(0, 0, 0.09, 0.1, 0.28),
-		bead(0, 0, 0.39, 0.32 + 0.3 * span, 0.16, 'shell')
+		bead(0, 0, 0.39, 0.1 + 0.54 * span, 0.16, 'shell')
 	]),
 	asset('reading-wing', ['foot', 'slats'], [2.7, 1.3], (span) => [
 		panel(0, 0, 0, 1.9 * span, 0.66, 0.38, 'foot'),
