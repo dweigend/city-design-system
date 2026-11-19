@@ -3,7 +3,15 @@ import { flowToken } from '../../data/focus';
 import type { Vec3, Primitive } from '../parametrik/types';
 import { routeDecks } from './route';
 import { deckParts, WALKWAY_PARAMS, WALKWAY_PROFILE } from './span';
-export { deckCorners, spanEnd, deckParts, WALKWAY_WIDTH_M, WALKWAY_PARAMS } from './span';
+export { routeDecks };
+export {
+	spanSurvey,
+	deckCorners,
+	spanEnd,
+	deckParts,
+	WALKWAY_WIDTH_M,
+	WALKWAY_PARAMS
+} from './span';
 
 /** Projects an ordered roof route in world meters (z up). Each span has two rails,
  * level treads or a slab, and a central pier when above the support datum.

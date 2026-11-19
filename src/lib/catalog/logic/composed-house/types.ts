@@ -6,7 +6,7 @@ import type {
 	HousePlan,
 	TierKind
 } from '../district-frame';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { Vec3 } from '../parametrik/types';
 import type { QuadCell } from '../quad-grid';
 
 export type HouseSite = {
@@ -27,7 +27,6 @@ export type HouseSlot = {
 	facing: [number, number];
 	use: HouseUse;
 };
-export type ElementProvider = (slot: HouseSlot) => Primitive[];
 export type Deck = {
 	position: Vec3;
 	width: number;

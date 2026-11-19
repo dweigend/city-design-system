@@ -1,15 +1,16 @@
+import { buildObject } from '../assets';
 import { expect, test } from 'bun:test';
 import { STORY } from '../../data/grid';
 import { squareGrid } from '../quad-grid';
 import type { HouseUse } from '../../data/house-body';
 import {
+	houseLinks,
 	houseSurfaces,
 	type HouseSurfaces,
 	composedGroups,
 	composedHouse,
 	planHouse,
-	sectionParts,
-	type HouseSlot
+	sectionParts
 } from './index';
 
 const grid = squareGrid(9, 3, 12);
@@ -70,18 +71,10 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 			expect(levels.has(Math.round(s.top * 1000))).toBe(true);
 		}
 });
-test('a continuous living programme reserves one volume, and providers receive deterministic ordered slots', () => {
+test('a continuous living programme reserves one volume and cell order preserves the composition', () => {
 	for (let n = 1; n <= 12; n++) {
-		const input = site(n, 12, true),
-			s = planHouse(input),
-			seen: HouseSlot[] = [];
-		const withoutAssets = composedHouse(input, (slot) => {
-			seen.push(slot);
-			return [];
-		});
-		expect(seen).toEqual(s.slots);
-		expect(seen.filter((slot) => slot.id.endsWith('/body'))).toHaveLength(1);
-		expect(withoutAssets.some((p) => p.id.endsWith('/body'))).toBe(false);
+		const input = site(n, 12, true);
+		expect(planHouse(input).slots.filter((s) => s.id.endsWith('/body'))).toHaveLength(1);
 		expect(composedHouse(input)).toEqual(composedHouse({ ...input, cells: [...cells].reverse() }));
 	}
 });
@@ -119,7 +112,7 @@ test('replacing every named surface changes no generated geometry', () => {
 	for (const slot of Object.keys(palette) as (keyof HouseSurfaces)[]) palette[slot] = replacement;
 	for (const seed of [0, 1, 2, 3, 4]) {
 		const section = planHouse(site(9, seed));
-		expect(sectionParts(section, undefined, palette)).toEqual(
+		expect(sectionParts(section, palette)).toEqual(
 			sectionParts(section).map((p) => ({ ...p, ...replacement, material: 'wood' }))
 		);
 	}
@@ -128,7 +121,7 @@ test('replacing every named surface changes no generated geometry', () => {
 test('reassigning the capsule glass leaves its shell and the continuous frame untouched', () => {
 	const input = site(2, 7, true);
 	const before = composedHouse(input);
-	const after = composedHouse(input, undefined, {
+	const after = composedHouse(input, {
 		...houseSurfaces,
 		pane: { token: '--signal', finish: 'holz-natur' }
 	});
@@ -139,4 +132,43 @@ test('reassigning the capsule glass leaves its shell and the continuous frame un
 			expect(after[i]).toMatchObject({ id: part.id, finish: 'holz-natur', token: '--signal' });
 		else expect(after[i]).toEqual(part);
 	}
+});
+
+test('every house and bridge part traces to a colour-free registry member and its assigned slot', () => {
+	const houses = [
+		planHouse(site(12, 3)),
+		planHouse({
+			...site(5, 4),
+			cells: [grid.cells[2]],
+			stacks: new Map([[grid.cells[2].id, uses]])
+		})
+	];
+	const palette = { ...houseSurfaces };
+	const assignment = { token: '--signal', finish: 'wood' } as const;
+	for (const slot of Object.keys(palette) as (keyof HouseSurfaces)[]) palette[slot] = assignment;
+	const bridges = houseLinks(grid, houses, 17, [], palette);
+	expect(bridges.length).toBeGreaterThan(0);
+	const parts = [
+		...houses.flatMap((h) => sectionParts(h, palette)),
+		...bridges.flatMap((b) => b.parts)
+	];
+	const objects = new Set<string>();
+	for (const part of parts) {
+		const { objectId, variant, seed, member, slot } = part.source;
+		const source = buildObject(objectId, variant, seed).geometry[member];
+		expect(source).toMatchObject({ kind: part.kind, slot });
+		for (const key of ['token', 'material', 'finish', 'overprint', 'topToken', 'printBand'])
+			expect(source).not.toHaveProperty(key);
+		expect(part).toMatchObject(assignment);
+		objects.add(objectId);
+	}
+	for (const id of [
+		'primitive-cylinder',
+		'primitive-box',
+		'primitive-slab',
+		'primitive-pipe',
+		'lattice-mast',
+		'stairs'
+	])
+		expect(objects.has(id)).toBe(true);
 });

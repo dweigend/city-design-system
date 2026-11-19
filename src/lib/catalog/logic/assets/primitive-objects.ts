@@ -1,6 +1,8 @@
 import type { Primitive, Vec3 } from '../parametrik/types';
 import type { ObjectGeometry } from './object-geometry';
 import { mount, type AssetRecipe } from './definition';
+import { plate, circle } from './assembly';
+import { panel } from './objects/forms';
 import { surface } from './parts';
 
 type Kind = Primitive['kind'];
@@ -152,3 +154,27 @@ export const primitiveObjects: AssetRecipe[] = Object.entries(forms).map(([kind,
 	anchors: [mount('deck')],
 	draw: (variant) => [structuredClone(draw(1 + 0.5 * variant))]
 }));
+
+const square: [number, number][] = [
+	[-0.5, -0.5],
+	[0.5, -0.5],
+	[0.5, 0.5],
+	[-0.5, 0.5]
+];
+// A unit bearing plate for surveyed decks, landings and mitered walkway treads.
+primitiveObjects.push({
+	id: 'primitive-slab',
+	category: 'primitive-forms',
+	variants: ['square', 'rounded', 'round'],
+	footprint: [1, 1],
+	slotNames: ['body'],
+	anchors: [mount('deck')],
+	draw(variant) {
+		const outline =
+			variant === 1
+				? panel(0, 0, 0, 1, 1, 1, 'body')
+				: plate(variant === 2 ? circle(0.5, 20) : structuredClone(square), 0, 1);
+		if (outline.kind !== 'prism') throw new Error('Expected a bearing plate');
+		return [{ ...outline, bearing: 'slab' }];
+	}
+});

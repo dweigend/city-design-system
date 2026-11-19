@@ -1,10 +1,11 @@
 import { required } from '../required';
+import type { HousePart } from './house-object';
 import { roofLanding } from './deck-plan';
 import type { HouseSurfaces } from './surfaces';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { Vec3 } from '../parametrik/types';
 import { access } from './access';
-import { lattice } from './mast';
-import { piece, slab } from './parts';
+import { fitting, mountFitting } from './asset-fit';
+import { column, pipeBetween, beam, slab } from './parts';
 import type { Section } from './types';
 
 function columns(s: Section, surfaces: HouseSurfaces) {
@@ -18,49 +19,42 @@ function columns(s: Section, surfaces: HouseSurfaces) {
 		[0.23, 0.21]
 	];
 	return posts.map(([u, v], i) =>
-		piece(
+		column(
 			s.id + '/post/' + i,
-			{
-				kind: 'cylinder',
-				position: [x + u * s.width, y + v * s.depth, z],
-				radius: r,
-				height: (v < 0 ? required(s.decks.at(-1), 'upper deck').position[2] : s.top) - z + 0.25
-			},
+			[x + u * s.width, y + v * s.depth, z],
+			r,
+			(v < 0 ? required(s.decks.at(-1), 'upper deck').position[2] : s.top) - z + 0.25,
 			surfaces.frame
 		)
 	);
 }
-function towers(s: Section, surfaces: HouseSurfaces): Primitive[] {
+function towers(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	if (s.stories < 3) return [];
 	const [x, y, z] = s.base,
 		h = s.top - z,
 		side = Math.min(1.7, s.width * 0.14, s.depth * 0.15);
-	const mast = lattice(
+	const asset = fitting(
+		'lattice-mast',
 		s.id + '/lattice',
-		[x - s.width * 0.31 - side / 2, y - s.depth * 0.27, z + 0.08],
-		side,
-		required(s.decks.at(-1), 'upper deck').position[2] - z + 0.35,
-		surfaces.frame
+		s.seed,
+		'deck',
+		{ body: surfaces.frame, frame: surfaces.frame },
+		s.stories < 5 ? 'compact' : 'extended'
 	);
-	if (s.typology !== 'tower') return [mast];
+	const mast = mountFitting(asset, {
+		position: [x - s.width * 0.31, y - s.depth * 0.27 + side / 2, z],
+		size: [side, side, required(s.decks.at(-1), 'upper deck').position[2] - z + 0.35]
+	});
+	if (s.typology !== 'tower') return mast;
 	const round = s.plan === 'round',
 		cx = x + (round ? 0 : s.width * 0.27),
 		cy = y + (round ? 0 : s.depth * 0.26);
 	const rise = h + Math.min(2.2, side * 1.3);
 	const core = round
-		? piece(
-				s.id + '/core',
-				{
-					kind: 'cylinder',
-					position: [cx, cy, z],
-					radius: side * 0.85,
-					height: rise
-				},
-				surfaces.frame
-			)
+		? column(s.id + '/core', [cx, cy, z], side * 0.85, rise, surfaces.frame)
 		: slab(s.id + '/core', [cx, cy, z], side * 1.5, side * 1.4, rise, 0.04, surfaces.frame);
 	return [
-		mast,
+		...mast,
 		core,
 		slab(
 			s.id + '/watch',
@@ -127,9 +121,11 @@ function supplies(s: Section, surfaces: HouseSurfaces) {
 			return points
 				.slice(1)
 				.map((p, j) =>
-					piece(
+					pipeBetween(
 						slot.id + '/pipe/' + j,
-						{ kind: 'pipe', points: [points[j], p], radius: Math.min(0.21, s.width * 0.023) },
+						points[j],
+						p,
+						Math.min(0.21, s.width * 0.023),
 						surfaces[slot.use]
 					)
 				);
@@ -140,13 +136,10 @@ export function houseStructure(s: Section, surfaces: HouseSurfaces) {
 	const [x, y] = roofLanding(s);
 	const rear = s.base[1] + s.depth * 0.21;
 	const beams = [-0.23, 0.23].map((u, i) =>
-		slab(
+		beam(
 			s.id + '/roof-beam/' + i,
 			[s.base[0] + u * s.width, (y + rear) / 2, s.top - 0.35],
-			s.width * 0.035,
-			y - rear + 0.12,
-			0.19,
-			0.04,
+			[s.width * 0.035, y - rear + 0.12, 0.19],
 			surfaces.frame
 		)
 	);

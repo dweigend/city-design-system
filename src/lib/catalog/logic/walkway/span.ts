@@ -44,7 +44,44 @@ export function deckCorners(
 	];
 }
 
-/** Four ordered deck corners (start left/right, end right/left) at walking height. */
+/** Surveys the walking surfaces and handrail endpoints on a mitered span, in world metres. */
+export function spanSurvey(
+	ring: Ring,
+	id: string,
+	width: number,
+	profile: Pick<typeof WALKWAY_PROFILE, 'thickness' | 'treadRise'> = WALKWAY_PROFILE,
+	simplifyAtCity = false
+) {
+	const [a, b, c, d] = ring;
+	const rise = d[2] - a[2],
+		steps = Math.ceil(Math.abs(rise) / profile.treadRise) + 1;
+	if (steps > 4096) throw new RangeError('Walkway exceeds the tread budget');
+	const edge = (p: Vec3, q: Vec3, j: number): Point =>
+		spanEnd([p[0], p[1]], [q[0], q[1]], j / steps);
+	const treads = Array.from({ length: steps }, (_, i) => {
+		const polygon =
+			steps === 1
+				? ring.map(([x, y]): Point => [x, y])
+				: [edge(a, d, i), edge(b, c, i), edge(b, c, i + 1), edge(a, d, i + 1)];
+		const level = a[2] + (steps === 1 ? 0 : rise * (i / (steps - 1)));
+		return {
+			id: steps === 1 ? id : id + ':tread:' + i,
+			polygon,
+			z: level - profile.thickness,
+			height: profile.thickness,
+			...(simplifyAtCity && steps > 1 ? { cityForm: i === 0 ? ring : (false as const) } : {})
+		};
+	});
+	const raised = ([x, y, z]: Vec3): Vec3 => [x, y, z + 1];
+	const rail = (side: number, start: Vec3, end: Vec3) => ({
+		id: id + ':' + side,
+		points: [raised(start), raised(end)] as [Vec3, Vec3],
+		...(simplifyAtCity ? { cityForm: false as const } : {})
+	});
+	return { treads, rails: [rail(-width / 2, a, d), rail(width / 2, b, c)] };
+}
+
+/** Draws a surveyed span in the walkway's drafting treatment. */
 export function deckParts(
 	ring: Ring,
 	id: string,
@@ -53,40 +90,22 @@ export function deckParts(
 	profile: Pick<typeof WALKWAY_PROFILE, 'thickness' | 'treadRise'> = WALKWAY_PROFILE,
 	simplifyAtCity = false
 ): Primitive[] {
-	const [a, b, c, d] = ring;
-	const base = { token, role: 'neu' } as const;
-	const deck: Primitive = {
-		id,
-		kind: 'prism',
-		bearing: 'slab',
-		polygon: ring.map(([x, y]) => [x, y]),
-		z: a[2] - profile.thickness,
-		height: profile.thickness,
-		...base,
-		material: 'concrete'
-	};
-	const raised = ([x, y, z]: Vec3): Vec3 => [x, y, z + 1];
-	const rail = (side: number, start: Vec3, end: Vec3): Primitive => ({
-		id: `${id}:${side}`,
-		kind: 'polyline',
-		...(simplifyAtCity ? { cityForm: false as const } : {}),
-		points: [raised(start), raised(end)],
-		...base,
-		material: 'metal'
-	});
-	if (a[2] === d[2]) return [deck, rail(-width / 2, a, d), rail(width / 2, b, c)];
-	const steps = Math.ceil(Math.abs(d[2] - a[2]) / profile.treadRise) + 1;
-	if (steps > 4096) throw new RangeError('Walkway exceeds the tread budget');
-	const treads = Array.from({ length: steps }, (_, i): Primitive => {
-		const edge = (p: Vec3, q: Vec3, j: number): Point =>
-			spanEnd([p[0], p[1]], [q[0], q[1]], j / steps);
-		return {
-			...deck,
-			id: `${id}:tread:${i}`,
-			...(simplifyAtCity ? { cityForm: i === 0 ? ring : (false as const) } : {}),
-			polygon: [edge(a, d, i), edge(b, c, i), edge(b, c, i + 1), edge(a, d, i + 1)],
-			z: a[2] + (d[2] - a[2]) * (i / (steps - 1)) - profile.thickness
-		};
-	});
-	return [...treads, rail(-width / 2, a, d), rail(width / 2, b, c)];
+	const { treads, rails } = spanSurvey(ring, id, width, profile, simplifyAtCity);
+	return [
+		...treads.map((p): Primitive => ({
+			...p,
+			kind: 'prism',
+			bearing: 'slab',
+			role: 'neu',
+			token,
+			material: 'concrete'
+		})),
+		...rails.map((p): Primitive => ({
+			...p,
+			kind: 'polyline',
+			role: 'neu',
+			token,
+			material: 'metal'
+		}))
+	];
 }

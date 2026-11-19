@@ -1,7 +1,6 @@
 import { BODY_TOKEN, type HouseUse } from '../../data/house-body';
 import { flowToken } from '../../data/focus';
 import type { SlotAssignment } from '../assets';
-import { finishMaterial } from '../material/surface';
 import type { ColorToken } from '../parametrik/types';
 
 export type Surface = SlotAssignment;
@@ -22,12 +21,3 @@ export const houseSurfaces: HouseSurfaces = {
 	food: metal(BODY_TOKEN.food),
 	material: metal(BODY_TOKEN.material)
 };
-
-/** Dresses the bespoke spanning members using the same slot contract as the registry. */
-export function structuralSurface({ token, finish }: SlotAssignment) {
-	return {
-		token,
-		material: finishMaterial(finish),
-		...(finish === 'city-drawing' ? {} : { finish })
-	};
-}

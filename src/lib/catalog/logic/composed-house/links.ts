@@ -1,10 +1,10 @@
 import { required } from '../required';
-import { structuralSurface, houseSurfaces, type HouseSurfaces } from './surfaces';
+import { houseSurfaces, type HouseSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
 import { sectionObstacle, type HouseObstacle } from './clearance';
 import { bridgeForm, type EnsembleDistrict } from '../district-frame';
 import { neighborsOf, type QuadGrid } from '../quad-grid';
-import { walkwayParts } from '../walkway';
+import { bridgeParts } from './bridge-parts';
 
 import type { Section } from './types';
 
@@ -65,12 +65,7 @@ function link(
 		to,
 		route,
 		width,
-		parts: walkwayParts(route, {
-			id: id + '/' + kind,
-			width,
-			groundZ: Math.max(from[2], to[2]),
-			simplifyAtCity: true
-		}).map((p) => ({ ...p, ...structuralSurface(surfaces.access) }))
+		parts: bridgeParts(route, id + '/' + kind, width, surfaces.access)
 	};
 }
 /** Connects visible deck pairs within three carrier sides, with stable undirected ownership. */

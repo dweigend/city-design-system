@@ -1,7 +1,8 @@
-import { assetRegistry, buildObject, type Attachment, type SlotAssignment } from '../assets';
+import { assetRegistry, type Attachment, type SlotAssignment } from '../assets';
 import { bounds, union } from '../ansicht/geometrie';
 import { required } from '../required';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import { houseObject, type HousePart } from './house-object';
+import type { Vec3 } from '../parametrik/types';
 import { hashUnit } from '../../core/random';
 
 type Mount = { position: Vec3; size: Vec3; angle?: number };
@@ -27,14 +28,14 @@ export function fitting(
 	const slots = Object.fromEntries(
 		asset.slotNames.map((name) => [name, required(assignments[name], id + '/' + name)])
 	);
-	const object = buildObject(id, variant, seed, { instanceId: instance + '/' + id, slots });
+	const object = houseObject(id, variant, seed, { instanceId: instance + '/' + id, slots });
 	const anchor = required(
 		object.anchors.find((a) => a.attachment === attachment),
 		id + ' ' + attachment
 	);
 	return { parts: object.parts, anchor, footprint: object.footprint };
 }
-function placed(part: Primitive, { point, scale: [sx, sy, sz], angle }: Fit): Primitive {
+function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): HousePart {
 	const radius = Math.min(sx, sy);
 	switch (part.kind) {
 		case 'pipe':
@@ -66,6 +67,15 @@ function placed(part: Primitive, { point, scale: [sx, sy, sz], angle }: Fit): Pr
 				radius: part.radius * radius,
 				height: part.height * sz
 			};
+		case 'frame': {
+			const [w, d, h] = part.size;
+			return {
+				...part,
+				position: point(part.position),
+				size: [w * sx, d * sy, h * sz],
+				bar: part.bar * radius
+			};
+		}
 		case 'box':
 		case 'wedge': {
 			const [w, d, h] = part.size,
