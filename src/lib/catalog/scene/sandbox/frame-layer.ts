@@ -6,9 +6,9 @@ import type { FocusId } from '../../logic/presentation';
 import type { Structures } from './structures';
 
 type Result = ReturnType<typeof trimBay>;
-type Display = { bay: BaySurvey; planned: boolean; aged: boolean; geometry: string };
+type Display = { bay: BaySurvey; planned: boolean; subdued: boolean; geometry: string };
 function forms(row: Display, result?: Result): Primitive[] {
-	const { bay, planned, aged } = row;
+	const { bay, planned, subdued } = row;
 	if (result?.status === 'rejected' && !planned) return [];
 	const axes = bayAxes(bay).axes;
 	const rods =
@@ -24,7 +24,7 @@ function forms(row: Display, result?: Result): Primitive[] {
 		kind: 'pipe',
 		points: [r.a, r.b],
 		radius: r.diameter / 2,
-		role: aged ? 'bestand' : 'traeger',
+		role: subdued ? 'bestand' : 'traeger',
 		member: r.diameter >= 0.18 ? 'primary' : 'secondary',
 		sectionDiameter: r.diameter,
 		planned,
@@ -151,7 +151,7 @@ export function createFrameLayer(
 					next.delete(id);
 					return;
 				}
-				const row = display(bay, old, world.state.year, focus);
+				const row = display(bay, old, focus);
 				next.set(id, row);
 				if (installed) cache.set(row.geometry, installed.result);
 				paint(id, row);
@@ -200,20 +200,19 @@ function installedBay(world: World, id: string) {
 	const saved = world.state.frameInstallations?.get(id);
 	if (saved?.result.status === 'sized' && world.state.frameBays?.get(id)?.built) return saved;
 }
-function display(bay: BaySurvey, old: BayState | undefined, year: number, focus: FocusId): Display {
-	const built = old?.builtYear ?? old?.builtTick ?? year;
+function display(bay: BaySurvey, old: BayState | undefined, focus: FocusId): Display {
 	return {
 		bay,
 		geometry: JSON.stringify(bay),
 		planned: !old?.built,
-		aged: !!old?.built && (built < year || focus !== 'all')
+		subdued: !!old?.built && focus !== 'all'
 	};
 }
 function changed(previous: Display | undefined, row: Display) {
 	return (
 		!previous ||
 		previous.geometry !== row.geometry ||
-		previous.aged !== row.aged ||
+		previous.subdued !== row.subdued ||
 		previous.planned !== row.planned
 	);
 }

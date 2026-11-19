@@ -2,9 +2,15 @@
  * Projection of sandbox worlds onto the stage: derives the parts that differ between two
  * worlds and hands them to the terrain and the structure layer. Nothing flows back (PP-2).
  */
-import { focuses, present, levelFor, type FocusId } from '../../logic/presentation';
+import { focuses, present, type FocusId } from '../../logic/presentation';
 import { forestChunk } from '../../logic/land-cover';
-import { installationPartView, houseGroups, changes, type World } from '../../logic/sandbox';
+import {
+	installationPartView,
+	spongeWorkView,
+	houseGroups,
+	changes,
+	type World
+} from '../../logic/sandbox';
 import { houseDistricts } from './house-districts';
 import { roundedStops } from './station-rings';
 import { lineParts, TRANSIT_PARAMS } from '../../logic/transit-line';
@@ -16,7 +22,8 @@ export const KEY = {
 	house: 'house:',
 	forest: 'forest:',
 	line: 'line:',
-	installation: 'installation:'
+	installation: 'installation:',
+	sponge: 'sponge:'
 };
 
 export type Target = Readonly<{
@@ -61,9 +68,21 @@ function projectLines(
 ) {
 	for (const id of delta.removedLines) structures.set(KEY.line + id, []);
 	for (const line of refocus ? world.lines : delta.addedLines) {
-		const level = levelFor(focus, 'rail', line.year, world.state.year);
-		structures.set(KEY.line + line.id, present(roundedStops(lineParts(line)), level));
+		structures.set(KEY.line + line.id, present(roundedStops(lineParts(line)), focuses[focus].rail));
 	}
+}
+
+function projectSpongeWorks(target: Target, before: World, after: World, redraw: boolean) {
+	const prior = before.state.spongeWorks;
+	const next = after.state.spongeWorks;
+	if (prior === next && !redraw) return;
+	const beforeByCell = new Map(prior?.map((work) => [work.cellId, work]));
+	const afterByCell = new Map(next?.map((work) => [work.cellId, work]));
+	for (const cellId of beforeByCell.keys())
+		if (!afterByCell.has(cellId)) target.structures.set(KEY.sponge + cellId, []);
+	for (const [cellId, work] of afterByCell)
+		if (redraw || beforeByCell.get(cellId) !== work)
+			target.structures.set(KEY.sponge + cellId, spongeWorkView(after.grid, work), cellId);
 }
 function projectAlleys(
 	target: Target,
@@ -143,6 +162,7 @@ export function projectChanges(
 
 	if (refocus || delta.installations)
 		projectInstallations(structures, before, after, focus, target.coarse);
+	projectSpongeWorks(target, before, after, refocus || delta.terrain);
 	projectCover(target, after, delta.coverCells);
 	projectLines(structures, after, delta, focus, refocus);
 }

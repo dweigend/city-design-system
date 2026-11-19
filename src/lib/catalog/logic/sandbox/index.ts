@@ -5,6 +5,8 @@
  */
 export { EMPTY_STATE, styleForYear, stylesForYear } from './state';
 export { installationPartView, installationView } from './installation-view';
+export { spongeWorkView } from './sponge-view';
+export { advanceAdditions } from './advance-additions';
 export {
 	prepareAdvance,
 	applyEdit,

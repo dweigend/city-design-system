@@ -1,10 +1,19 @@
 import { expect, test } from 'bun:test';
-import { applyEdit, commit, createWorld, startHistory, undo, withState } from '../../logic/sandbox';
+import {
+	applyEdit,
+	beginStroke,
+	commit,
+	createWorld,
+	extendStroke,
+	startHistory,
+	undo,
+	withState
+} from '../../logic/sandbox';
 import type { Primitive } from '../../logic/parametrik/types';
 import { KEY, projectChanges } from './projection';
 import { createTerrainMesh } from './terrain-mesh';
 
-test('advancing redraws built houses and rail in pencil and undo restores their working colors', () => {
+test('advancing tints painted houses gradually and preserves path and rail ink exactly', () => {
 	const before = createWorld(7, { cells: 0 });
 	const painted = applyEdit(before, {
 		kind: 'raise',
@@ -12,7 +21,11 @@ test('advancing redraws built houses and rail in pencil and undo restores their 
 		use: 'water',
 		style: 'totem'
 	});
-	const built = applyEdit(painted, {
+	const path = ['30/35', '35/37'].reduce(
+		extendStroke,
+		beginStroke({ kind: 'line', transit: 'walkway' }, painted)
+	).draft;
+	const built = applyEdit(path, {
 		kind: 'line',
 		transit: 'viaduct',
 		cellIds: ['30/40', '40/40']
@@ -27,6 +40,7 @@ test('advancing redraws built houses and rail in pencil and undo restores their 
 		projectChanges(target, before, built, 'all', false);
 		const freshHouse = parts(KEY.house);
 		const freshRail = parts(KEY.line);
+		const freshPath = parts(KEY.installation);
 		const capsule = freshHouse.find((part) => part.kind === 'capsule');
 		expect(capsule).toMatchObject({
 			role: 'neu',
@@ -36,19 +50,20 @@ test('advancing redraws built houses and rail in pencil and undo restores their 
 		});
 		expect(freshHouse.some((part) => part.token === '--cat-health')).toBe(true);
 		expect(freshRail.some((part) => part.token === '--cat-business')).toBe(true);
+		expect(freshPath.some((part) => part.token === '--cat-business')).toBe(true);
 
 		projectChanges(target, built, aged, 'all', false);
-		expect(parts(KEY.house).find((part) => part.id === capsule?.id)).toMatchObject({
-			kind: 'capsule',
-			token: '--paper',
-			role: 'bestand',
-			material: 'paper',
-			edges: true
-		});
-		expect(parts(KEY.line).length).toBeGreaterThan(0);
-		expect(
-			parts(KEY.line).every((part) => part.role === 'bestand' && part.token === '--paper')
-		).toBe(true);
+		const ageTint = 0.06;
+		for (const part of freshHouse.filter(({ role }) => role === 'neu'))
+			expect(parts(KEY.house).find(({ id }) => id === part.id)).toMatchObject({
+				role: part.role,
+				token: part.token,
+				ageTint
+			});
+		// Force a rebuild to exercise the aged records, not just the retained batches.
+		projectChanges(target, aged, aged, 'all', true);
+		expect(parts(KEY.line)).toEqual(freshRail);
+		expect(parts(KEY.installation)).toEqual(freshPath);
 
 		const history = commit(startHistory(built.state), aged.state);
 		projectChanges(target, aged, withState(aged, undo(history).present), 'all', false);
@@ -59,7 +74,7 @@ test('advancing redraws built houses and rail in pencil and undo restores their 
 	}
 });
 
-test('a newly painted ground-floor colour body becomes pencil at the next year', () => {
+test('a painted ground-floor body keeps its colour and envelope in later years', () => {
 	const before = createWorld(7, { cells: 0 });
 	const built = applyEdit(before, { kind: 'raise', cellId: '30/30', use: 'living' });
 	const aged = applyEdit(built, { kind: 'advance' });
@@ -77,10 +92,11 @@ test('a newly painted ground-floor colour body becomes pencil at the next year',
 		});
 		projectChanges(target, built, aged, 'all', false);
 		expect(shell()).toMatchObject({
-			role: 'bestand',
+			role: 'neu',
 			kind: 'prism',
-			material: 'paper',
-			token: '--paper'
+			token: '--body-living',
+			envelope: true,
+			ageTint: 0.06
 		});
 	} finally {
 		terrain.dispose();

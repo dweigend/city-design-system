@@ -29,6 +29,11 @@ export type Store = Readonly<Record<HouseUse, number>>;
 
 export type SnapshotStory = Omit<StoryPart, 'style'> & { style?: BuildingMethod };
 export type TimeLayer = Readonly<{ year: number; flows: readonly FlowId[] }>;
+export type SpongeWork = Readonly<{
+	cellId: string;
+	built: number;
+	kind: 'tank' | 'retention-basin' | 'green-roof' | 'water-square';
+}>;
 
 /**
  * Everything the player has done, as intent: interventions in the terrain and what is
@@ -38,6 +43,8 @@ export type TimeLayer = Readonly<{ year: number; flows: readonly FlowId[] }>;
 export type SandboxState = Readonly<{
 	year: number;
 	futureTarget?: FutureTarget;
+	/** Completed water works. Older snapshots and worlds without the target omit the field. */
+	spongeWorks?: readonly SpongeWork[];
 	frameTimeline?: import('./frame-state').FrameTimeline;
 	frameInstallations?: ReadonlyMap<string, import('./frame-state').FrameInstallation>;
 	frameIntents?: ReadonlyMap<string, import('../district-frame').FrameRole>;

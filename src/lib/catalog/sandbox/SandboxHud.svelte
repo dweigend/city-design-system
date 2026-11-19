@@ -35,6 +35,7 @@
 		type SandboxToolId
 	} from '../data/sandbox';
 	import { activateChoice, createHudCommands } from './hud-commands';
+	import { advanceMessage } from './feedback';
 	import SandboxOptions from './SandboxOptions.svelte';
 	import type { Session } from './session.svelte';
 
@@ -109,11 +110,12 @@
 			? 'Draw a footbridge with stairs and a square at each end.'
 			: undefined
 	);
+	const advanceReport = $derived(advanceMessage(session.completion));
 	const hint = $derived(
 		session.failure
 			? (surveyMessages[session.failure.reason] ??
 					'The selected walls cannot support a continuous carrier.')
-			: (drawingHint ?? lineHint ?? active.hint)
+			: (advanceReport ?? drawingHint ?? lineHint ?? active.hint)
 	);
 	/** Sets the tool by its id for keyboard shortcuts. */
 	export function pickTool(id: SandboxToolId) {
@@ -216,6 +218,7 @@
 	<div class="hint" class:warning={Boolean(session.failure)}>
 		<span role="status">
 			{hint}
+			{#if session.failure && advanceReport}<span class="pending">{advanceReport}</span>{/if}
 			{#if session.requestedChoice}<span class="pending">Pending · {session.requestedChoice}</span
 				>{/if}
 		</span>

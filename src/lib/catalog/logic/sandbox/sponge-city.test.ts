@@ -4,9 +4,14 @@ import { createTerrain } from '../terrain';
 import { deriveGrid } from '../terrain-grid';
 import {
 	EMPTY_STATE,
+	advanceAdditions,
+	applyEdit,
 	installationView,
+	openingScene,
 	runFrameTimeline,
 	setFutureTarget,
+	spongeWorkView,
+	withState,
 	type World
 } from './index';
 import { frameIntent } from './frame-intent';
@@ -53,7 +58,7 @@ test('four default ticks reproduce the original state bytes and ordering', () =>
 	);
 });
 
-test('switching after tick one adds visible tanks only to new bays over four ticks', () => {
+test('switching after tick one adds framed tanks only to new bays over four ticks', () => {
 	const world = start();
 	const off = runFrameTimeline(world, 4, undefined, 1).checkpoints;
 	const prefix = runFrameTimeline(world, 1, undefined, 1).checkpoints;
@@ -70,9 +75,9 @@ test('switching after tick one adds visible tanks only to new bays over four tic
 
 	for (const tank of tanks(on[4])) {
 		expect(tank.built).toBeGreaterThan(atSwitch.state.year);
-		expect(forms.some((form) => form.id.startsWith(tank.id + '/') && form.kind === 'sphere')).toBe(
-			true
-		);
+		expect(
+			forms.find((form) => form.id.startsWith(tank.id + '/') && form.kind === 'sphere')
+		).toMatchObject({ role: 'neu' });
 		const support = on[4].state.parts.get(tank.attachedTo);
 		expect(support?.built).toBe(tank.built);
 	}
@@ -96,5 +101,45 @@ test('switching off preserves the fitted tanks and their supports on later ticks
 	const later = runFrameTimeline(disabled, 2, undefined, 1).checkpoints[2];
 	expect(tanks(built).length).toBeGreaterThan(0);
 	expect(tanks(later)).toEqual(tanks(built));
+	expect(later.state.spongeWorks).toBe(built.state.spongeWorks);
 	for (const [id, part] of built.state.parts) expect(later.state.parts.get(id)).toBe(part);
+});
+
+test('seed 7 adds four differently shaped, permanent catchment works per tick and replays them', () => {
+	const base = openingScene(7).world;
+	const start = setFutureTarget(base, 'sponge-city');
+	const sequence = () => runFrameTimeline(start, 3).checkpoints;
+	const worlds = sequence();
+	const replay = sequence();
+	const works = (world: World) => world.state.spongeWorks ?? [];
+	const forms = (world: World) => works(world).map((work) => spongeWorkView(world.grid, work));
+	expect(worlds.map((world) => works(world).length)).toEqual([0, 4, 8, 12]);
+	expect(replay.map(forms)).toEqual(worlds.map(forms));
+	for (let i = 1; i < worlds.length; i++) {
+		const [before, after] = [worlds[i - 1], worlds[i]];
+		const added = works(after).slice(works(before).length);
+		expect(works(after).slice(0, works(before).length)).toEqual([...works(before)]);
+		expect(forms(after).slice(0, works(before).length)).toEqual(forms(before));
+		expect(added.map(({ kind }) => kind)).toEqual([
+			'tank',
+			'retention-basin',
+			'green-roof',
+			'water-square'
+		]);
+		expect(added.every(({ built }) => built === after.state.year)).toBe(true);
+		expect(
+			forms(after).every((parts) =>
+				parts.some(({ token, role }) => token.startsWith('--cat-') && role === 'neu')
+			)
+		).toBe(true);
+		expect(advanceAdditions(before, after)).toMatchObject({
+			'retention-basin': 1,
+			'green-roof': 1,
+			'water-square': 1
+		});
+	}
+	const restored = withState(worlds[3], worlds[1].state);
+	expect(forms(restored)).toEqual(forms(worlds[1]));
+	const invalid = applyEdit(worlds[3], { kind: 'advance', years: 0 });
+	expect(invalid).toBe(worlds[3]);
 });

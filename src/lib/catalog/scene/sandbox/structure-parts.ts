@@ -206,19 +206,18 @@ export function populateStructures(
 	}
 
 	function drawAccents() {
-		const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 		const accent = batch(
 			parts.accents.filter((part) => !isSheet(part)),
-			toAccent
+			accentColor
 		);
-		const accentSheets = batch(parts.accents.filter(isSheet), toAccent);
+		const accentSheets = batch(parts.accents.filter(isSheet), accentColor);
 		surface(accent.neu, materials.signal, materials.hull, true);
 		surface(accent.glas, materials.signal, materials.hull, true);
 		for (const faces of [accent.blatt, accentSheets.blatt, accentSheets.glas])
 			surface(faces, materials.signal, materials.sheetHull, true);
 		lines(accent.kanten.neu, materials.detail);
 		lines(accentSheets.kanten.neu, materials.perimeter);
-		const plainAccents = batch(parts.plainAccents, toAccent);
+		const plainAccents = batch(parts.plainAccents, accentColor);
 		for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
 			fill(faces, materials.signal, true);
 	}
@@ -263,7 +262,7 @@ export function populateStructures(
 				])
 		);
 		const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
-			part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
+			part.token === '--paper' ? finishes.modelWhite : accentColor(part)
 		);
 		if (fired.geometry) {
 			const casting = new THREE.Mesh(fired.geometry, materials.fired);

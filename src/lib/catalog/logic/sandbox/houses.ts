@@ -17,6 +17,7 @@ import { present, type Focus } from '../presentation';
 import type { SandboxState } from './state';
 import type { World } from './world';
 import { ensembleEditCells, ensembleFloors, houseEnsembles } from './house-ensembles';
+import { isColourBuild, isPainted, presentHouseGroup } from './house-phase-ink';
 
 type Phase = Readonly<{ built: number; style: BuildingMethod; painted: boolean }>;
 type MutableStacks = Map<string, HouseUse[]>;
@@ -38,8 +39,9 @@ function groupPhases(state: SandboxState, stacks: Stacks, currentOnly = false) {
 			const part = state.storyParts.get(id)?.[level];
 			if (!part || (currentOnly && part.built !== state.year)) return;
 			const { built, style } = part;
-			const key = `${built}/${style}`;
-			const phase = keys.get(key) ?? { built, style, painted: !part.id.startsWith('p/0/') };
+			const painted = isPainted(part.id);
+			const key = `${built}/${style}/${painted}`;
+			const phase = keys.get(key) ?? { built, style, painted };
 			const floors = phases.get(phase) ?? new Map();
 			setFloor(floors, id, level, use);
 			keys.set(key, phase);
@@ -70,17 +72,14 @@ export function currentStacks(state: SandboxState): Stacks {
 	return current;
 }
 
-// The form grammar also draws fragments as stock for the style study. A freshly painted
-// volume is new work in the sandbox; its drafted line details can keep their own weight.
-const newVolume = (part: Primitive): Primitive =>
-	part.role === 'bestand' && part.kind !== 'polyline'
-		? { ...part, role: 'neu', edges: part.edges ?? true }
-		: part;
-
-function printOrder(state: SandboxState, firstFullYear: number) {
+function printOrder(state: SandboxState, earliestFullYear?: number) {
 	return (cell: QuadCell, level: number) => {
 		const story = state.storyParts.get(cell.id)?.[level];
-		if (story?.style !== 'collage' || story.built < firstFullYear) return;
+		if (
+			story?.style !== 'collage' ||
+			!isColourBuild({ built: story.built, painted: isPainted(story.id) }, earliestFullYear)
+		)
+			return;
 		const [, action, slot] = story.id.split('/');
 		return Number(action) + Number(slot) / (Number(slot) + 1) || 0;
 	};
@@ -103,13 +102,13 @@ function houseProjection(world: World) {
 	return { plots, ensembles, occupied };
 }
 
-/** Projects each layer with its saved geometry and the selected view's current or stock style. */
+/** Projects each layer with its saved geometry and the selected view's colour or stock style. */
 export function houseView(
 	world: World,
 	stacks: Stacks,
 	chunk: string,
 	focus: Focus,
-	earliestFullYear = world.state.year
+	earliestFullYear?: number
 ) {
 	const { grid, state, seed } = world;
 	const { plots, ensembles, occupied } = houseProjection(world);
@@ -118,7 +117,6 @@ export function houseView(
 		stacks === currentStacks(state)
 			? phases.filter(([phase]) => phase.built === state.year)
 			: [...groupPhases(state, stacks, true)];
-	const stock = phases.filter(([phase]) => phase.built < earliestFullYear);
 	const project = ([{ built, style, painted }, floors]: (typeof phases)[number]) =>
 		houseChunk(
 			plots,
@@ -136,16 +134,14 @@ export function houseView(
 			},
 			world.roofBuilder
 		);
+	const stock = phases.filter(([phase]) => !isColourBuild(phase, earliestFullYear));
+	const colour = [...phases.filter(([phase]) => phase.built < state.year), ...current].filter(
+		([phase]) => isColourBuild(phase, earliestFullYear)
+	);
 	return [
 		...present(stock.flatMap(project), focus.stock),
-		...present(
-			[
-				...phases.filter(([phase]) => phase.built >= earliestFullYear && phase.built < state.year),
-				...current
-			]
-				.flatMap(project)
-				.map(newVolume),
-			focus.houses
+		...colour.flatMap((entry) =>
+			presentHouseGroup(project(entry), entry[0], state.year, focus, earliestFullYear)
 		)
 	];
 }
@@ -179,18 +175,13 @@ export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Ma
 	return out;
 }
 
-function presentHouseGroup(parts: Primitive[], phase: Phase, firstFullYear: number, focus: Focus) {
-	if (phase.built < firstFullYear) return present(parts, focus.stock);
-	return present(parts.map(newVolume), focus.houses);
-}
-
 /** Projects mass batches per chunk. A key filter skips primitive generation of other masses. */
 export function houseGroups(
 	world: World,
 	chunk: string,
 	focus: Focus,
 	keys?: ReadonlySet<string>,
-	firstFullYear = world.state.year
+	earliestFullYear?: number
 ) {
 	const { grid, state, seed } = world;
 	const { plots, ensembles, occupied } = houseProjection(world);
@@ -200,7 +191,7 @@ export function houseGroups(
 		const context = {
 			occupied,
 			ensembles: phase.painted ? ensembles : undefined,
-			printOrder: printOrder(state, firstFullYear),
+			printOrder: printOrder(state, earliestFullYear),
 			blockOf: (id: string) => grid.cellsById.get(id)?.block.split('/')[0],
 			olderRoof: (id: string) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < phase.built
 		};
@@ -216,7 +207,7 @@ export function houseGroups(
 				context,
 				world.roofBuilder
 			);
-			groups.set(key, presentHouseGroup(parts, phase, firstFullYear, focus));
+			groups.set(key, presentHouseGroup(parts, phase, state.year, focus, earliestFullYear));
 		}
 	}
 	return groups;

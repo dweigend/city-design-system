@@ -333,7 +333,7 @@ export function createSandboxStage(
 
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
 		if (before.lines !== world.lines) vehicles.setLines(world.lines);
-		vehicles.setFocus(nextFocus, world.state.year);
+		vehicles.setFocus(nextFocus);
 	}
 
 	function worldShown(world: World, nextFocus: FocusId) {

@@ -78,17 +78,12 @@ export function changes(before: World, after: World): Changes {
 	const afterLines = new Set(after.lines);
 	return {
 		terrain: moved.size > 0,
-		installations:
-			before.grid !== after.grid ||
-			before.state.parts !== after.state.parts ||
-			before.state.year !== after.state.year,
+		installations: before.grid !== after.grid || before.state.parts !== after.state.parts,
 		houseChunks: new Set(houseGroups.values()),
 		houseGroups,
 		forestChunks: new Set([...forestChunks(before, after, coverCells), ...moved]),
 		coverCells,
 		removedLines: before.lines.filter((line) => !afterLines.has(line)).map((line) => line.id),
-		addedLines: after.lines.filter(
-			(line) => before.state.year !== after.state.year || !beforeLines.has(line)
-		)
+		addedLines: after.lines.filter((line) => !beforeLines.has(line))
 	};
 }

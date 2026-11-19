@@ -279,7 +279,7 @@ export function structureMaterials() {
 	}
 
 	/** Resolves a flat print patch against the same palette as its source pigments. */
-	function surfaceColor(part: Primitive) {
+	function printColor(part: Primitive) {
 		const base = colorOf(part.token);
 		if (!part.overprint || !palette) return base;
 		const key = part.token + '/' + part.overprint;
@@ -297,6 +297,10 @@ export function structureMaterials() {
 		return color;
 	}
 
+	function ageColor(color: THREE.Color, part: Primitive) {
+		return part.ageTint ? color.clone().lerp(paper, part.ageTint) : color;
+	}
+
 	return {
 		explicit,
 		materials,
@@ -304,11 +308,12 @@ export function structureMaterials() {
 		minContourPx: () => minContourPx,
 		/** Palette lookup for detached colored parts. */
 		colorOf,
-		surfaceColor,
+		surfaceColor: (part: Primitive) => ageColor(printColor(part), part),
 		/** Applies the primitive's ink share to a flow color without changing the cached token. */
-		accentColor(this: void, token: string, shade = 0) {
-			const color = colorOf(token);
-			return palette && shade ? color.clone().lerp(palette.ink, shade) : color;
+		accentColor(this: void, part: Primitive) {
+			const color = colorOf(part.token);
+			const shaded = palette && part.shade ? color.clone().lerp(palette.ink, part.shade) : color;
+			return ageColor(shaded, part);
 		},
 		modelWhite: solidColor.value,
 		seconds,

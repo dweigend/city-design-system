@@ -175,9 +175,13 @@ test('same-year carrier and capsules retain their selected flows on the timeline
 		'material',
 		'water'
 	]);
-	expect(
-		installationView(aged, 'all').filter((p) => p.kind === 'capsule' && p.role === 'bestand')
-	).toHaveLength(3);
+	const installed = installationView(group, 'all');
+	const capsules = installed.filter((part) => part.kind === 'capsule');
+	expect(capsules).toHaveLength(3);
+	expect(installed.some(({ role, token }) => role === 'neu' && token === '--cat-health')).toBe(
+		true
+	);
+	expect(installationView(aged, 'all')).toEqual(installed);
 	const old = withState(town, { ...town.state, year: 1900 });
 	expect(
 		ids.reduce(

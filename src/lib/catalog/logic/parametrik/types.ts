@@ -58,6 +58,8 @@ type Base = {
 	stretchRank?: number;
 	pattern?: string;
 	shade?: number;
+	/** Share of paper mixed into the sandbox construction phase's surface pigment. */
+	ageTint?: number;
 	floors?: number[];
 	/** Rotation about the vertical axis in radians (counter-clockwise in plan), pivot = primitive center. */
 	rotation?: number;
