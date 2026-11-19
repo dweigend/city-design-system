@@ -46,6 +46,7 @@ export function structureMaterials() {
 		}),
 		signal: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide, vertexColors: true }),
 		primary: new THREE.Line2NodeMaterial(),
+		stockPrimary: new THREE.Line2NodeMaterial(),
 		secondary: new THREE.Line2NodeMaterial(),
 		bearing: new THREE.MeshBasicNodeMaterial(),
 		perimeter: new THREE.Line2NodeMaterial(),
@@ -109,11 +110,13 @@ export function structureMaterials() {
 		const fine = style.kamera.pxProM <= MASSSTAB.quartier;
 		const inInk = variant === 'leitstil';
 		materials.primary.linewidth = inInk ? strichbreite(0.18, scale) : traeger.strichPx;
+		materials.stockPrimary.linewidth = materials.primary.linewidth;
 		const secondary = fine ? kontext.strichPx : strichbreite(0.1, scale);
 		materials.secondary.linewidth = inInk ? secondary : traeger.strichPx;
 		if (palette) {
 			const ink = traeger.token === '--ink' ? palette.ink : palette.blei;
 			materials.primary.color.copy(ink);
+			materials.stockPrimary.color.copy(palette.blei).lerp(ink, 0.5);
 			materials.secondary.color.copy(inInk && fine ? palette.detail : ink);
 		}
 	}

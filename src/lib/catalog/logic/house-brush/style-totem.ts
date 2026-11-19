@@ -85,7 +85,7 @@ export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive
 }
 
 /** Projects a K2 module in its solved socket basis, meters. */
-export function dockedForms(
+function dockedForms(
 	id: string,
 	recipe: 'capsule' | 'tank' | 'solar-ring' | 'garden' | 'workshop' | 'access',
 	m: DockedModule

@@ -137,7 +137,14 @@ export function populateStructures(
 	lines(batch(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
 	lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
 	lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
-	lines(batch(stock.flatMap(memberTrace), toColor).kanten.neu, materials.pencil);
+	lines(
+		batch(stock.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor).kanten.neu,
+		materials.stockPrimary
+	);
+	lines(
+		batch(stock.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor).kanten.neu,
+		materials.pencil
+	);
 	const points = parts.carriers.flatMap((part) => part.bearings ?? []);
 	if (points.length) objects.add(bearingDots(points, bearingGeometry, materials.bearing));
 

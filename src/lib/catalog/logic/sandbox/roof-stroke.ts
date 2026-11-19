@@ -3,7 +3,7 @@ import { roofWalls } from '../house-brush';
 import { required } from '../required';
 import { STORY } from '../../data/grid';
 import { buildRoofFrame } from '../megastructure';
-import type { QuadCell } from '../quad-grid';
+import type { QuadCell, QuadGrid } from '../quad-grid';
 import type { Vec3 } from '../parametrik/types';
 import {
 	position,
@@ -109,6 +109,10 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 	});
 	if (seats.length < 2 || seats.length < roofs.length) return rejected('no-local-bay', cells);
 	const crown = Math.max(...roofs.map((r) => r.height)) + 6;
+	return assembleSeats(grid, seats, crown);
+}
+
+function assembleSeats(grid: QuadGrid, seats: Anchor[], crown: number): Proposal {
 	const parts: Installation[] = [];
 	const top = (a: Anchor) => ({
 		...a,

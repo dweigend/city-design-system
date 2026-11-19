@@ -132,6 +132,15 @@ export function walkwayStroke(grid: TerrainGrid, cells: TerrainCell[]): Proposal
 		}
 		parts.push({ kind: 'pillar', recipe: 'support', anchor });
 	}
+	return connectApproaches(grid, seats, z, parts);
+}
+
+function connectApproaches(
+	grid: TerrainGrid,
+	seats: TerrainCell[],
+	z: number,
+	parts: Installation[]
+): Proposal {
 	for (const [end, inner] of [
 		[seats[0], seats[1]],
 		[seats[seats.length - 1], seats[seats.length - 2]]

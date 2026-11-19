@@ -42,32 +42,35 @@ function segmentView(
 	}));
 }
 
+function pillarView(world: World, p: Extract<BuiltPart, { kind: 'pillar' }>, a: Vec3): Primitive[] {
+	const b = base(p.id);
+	const node = p.recipe === 'bearing' ? position(buildingPlots(world.grid), p.anchor) : a;
+	const dot: Primitive = {
+		...b,
+		id: p.id + '/joint',
+		member: 'primary',
+		bearings: [node],
+		kind: 'sphere',
+		position: node,
+		radius: 0.25,
+		shade: 1,
+		edges: false
+	};
+	if (p.recipe === 'bearing') return [dot];
+	const ground =
+		world.grid.cellsById.get(p.anchor.cellId)?.corners[p.anchor.vertex ?? 0][2] ?? a[2];
+	return [
+		carrierForm(p.id, { a: [a[0], a[1], ground], b: a, radius: FRAME_DIAMETER.main / 2 }, true),
+		dot
+	];
+}
+
 function partView(world: World, p: BuiltPart): Primitive[] {
 	if (p.kind === 'module') return moduleView(world, p);
 	const a = position(world.grid, p.anchor);
 	const b = base(p.id);
 	if (p.kind === 'segment') return segmentView(world, p, a);
-	if (p.kind === 'pillar') {
-		const node = p.recipe === 'bearing' ? position(buildingPlots(world.grid), p.anchor) : a;
-		const dot: Primitive = {
-			...b,
-			id: p.id + '/joint',
-			member: 'primary',
-			bearings: [node],
-			kind: 'sphere',
-			position: node,
-			radius: 0.25,
-			shade: 1,
-			edges: false
-		};
-		if (p.recipe === 'bearing') return [dot];
-		const ground =
-			world.grid.cellsById.get(p.anchor.cellId)?.corners[p.anchor.vertex ?? 0][2] ?? a[2];
-		return [
-			carrierForm(p.id, { a: [a[0], a[1], ground], b: a, radius: FRAME_DIAMETER.main / 2 }, true),
-			dot
-		];
-	}
+	if (p.kind === 'pillar') return pillarView(world, p, a);
 	const width = p.recipe === 'plaza' ? 2 * WALKWAY_WIDTH_M : WALKWAY_WIDTH_M;
 	return [
 		{
