@@ -1,3 +1,4 @@
+import { people } from './objects/people';
 import { smallArchitecture } from './objects/small-architecture';
 import { textiles } from './objects/textiles';
 import { publicArt } from './objects/public-art';
@@ -160,5 +161,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...recycling,
 	...publicArt,
 	...textiles,
-	...smallArchitecture
+	...smallArchitecture,
+	...people
 ];
