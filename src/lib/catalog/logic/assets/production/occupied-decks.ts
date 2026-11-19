@@ -1,4 +1,4 @@
-import { drum, cap } from '../parts';
+import { cap } from '../parts';
 import { panel } from '../objects/forms';
 import { actionFigure } from './activities/action-figure';
 import type { ObjectGeometry } from '../object-geometry';
@@ -34,8 +34,7 @@ function furniture(place: Place, w: number): ObjectGeometry[] {
 		case 'work':
 			return [
 				panel(0.88, 0, 0.84, 1, w - 0.8, 0.18, 'slats'),
-				...[-1, 1].map((s) => panel(0.88, s * w * 0.31, 0, 0.88, 0.32, 0.84, 'frame')),
-				drum([0.87, 0, 1.02], 0.25, 0.32, 'body')
+				...[-1, 1].map((s) => panel(0.88, s * w * 0.31, 0, 0.88, 0.32, 0.84, 'frame'))
 			];
 		case 'play':
 			return [
@@ -53,8 +52,8 @@ function furniture(place: Place, w: number): ObjectGeometry[] {
 			});
 		case 'market':
 			return [
-				panel(0.9, 0, 0, 0.8, w - 0.8, 0.86, 'slats'),
-				...[-1, 0, 1].map((t) => cap([0.9, t * w * 0.25, 0.86], 0.36, 0.31, 'frame'))
+				panel(0.9, 0, 0, 0.68, w * 0.49, 0.73, 'frame'),
+				panel(0.9, 0, 0.73, 0.82, w * 0.52, 0.13, 'slats')
 			];
 	}
 }

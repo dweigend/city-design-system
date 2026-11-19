@@ -1,5 +1,5 @@
 import { clay, actionFigure } from './activities/action-figure';
-import { circle, pipe, shell } from '../assembly';
+import { pipe, shell } from '../assembly';
 import { panel } from '../objects/forms';
 import { cap, drum, ring } from '../parts';
 import { series } from './series';
@@ -135,8 +135,7 @@ export const promenade = [
 						r = Math.min(0.29, (w / n) * 0.27);
 					return [
 						...[-1, 1].map((s) => drum([x, s * 0.92, 0], r, 0.43, 'body')),
-						...chessPlayers(x, i),
-						...circle(0.15, 4).map(([a, b]) => drum([x + a, b, 0.85], 0.06, 0.055, 'body'))
+						...chessPlayers(x, i)
 					];
 				}).flat()
 			];
