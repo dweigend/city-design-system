@@ -84,13 +84,14 @@ export function megastructureMass(site: Site, mass: Mass, p = MEGASTRUCTURE_DEFA
 export function carrierForm(id: string, rod: ModuleRod, main: boolean): Primitive {
 	return {
 		id,
-		role: 'neu',
+		role: 'traeger',
+		legacyRole: 'neu',
 		token: '--paper',
 		material: 'metal',
 		kind: 'pipe',
 		points: [rod.a, rod.b],
 		radius: rod.radius,
-		stroke: main ? 'carrier' : 'brace',
+		member: main ? 'primary' : 'secondary',
 		edges: false,
 		shade: 1
 	};

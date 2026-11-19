@@ -37,6 +37,7 @@ export function structureMaterials() {
 		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
 		detail: new THREE.Line2NodeMaterial(),
+		rail: new THREE.Line2NodeMaterial(),
 		ghost: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
 			opacity: 0.16,
@@ -91,6 +92,7 @@ export function structureMaterials() {
 		materials.pencil.color.copy(g.blei);
 		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
+		materials.rail.color.copy(g.detail);
 		materials.hull.color.copy(g.kontur);
 		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
@@ -150,6 +152,8 @@ export function structureMaterials() {
 			sheetOffsetM.value = (2 * outlinePx.value) / scale;
 			materials.perimeter.linewidth = huelle.strichPx;
 			materials.detail.linewidth = kontext.strichPx;
+			materials.rail.linewidth = kontext.strichPx;
+			materials.rail.visible = style.kamera.pxProM > MASSSTAB.quartier;
 			envelopeShadows = huelle.schatten;
 			applyStructuralStyle(style, variant, scale);
 			return Boolean(tones);

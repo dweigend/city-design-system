@@ -96,12 +96,12 @@ describe('house brush', () => {
 	test('adjacent roof quads produce connected physical rods in both sections', () => {
 		const stacks = raise(raise(EMPTY, '1/1', 'living'), '2/1', 'living');
 		const list = houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, 'megastructure');
-		expect(list.some((p) => p.kind === 'pipe' && p.radius === 0.09 && p.stroke === 'carrier')).toBe(
+		expect(list.some((p) => p.kind === 'pipe' && p.radius === 0.09 && p.member === 'primary')).toBe(
 			true
 		);
-		expect(list.some((p) => p.kind === 'pipe' && p.radius === 0.05 && p.stroke === 'brace')).toBe(
-			true
-		);
+		expect(
+			list.some((p) => p.kind === 'pipe' && p.radius === 0.05 && p.member === 'secondary')
+		).toBe(true);
 	});
 	test('where it floods, the house stands on a deck with stilts', () => {
 		const wet = withCell('1/1', (cell) => ({ ...cell, raised: true, pad: 4.5 }));
@@ -152,4 +152,27 @@ describe('house brush', () => {
 		for (let i = 0; i < 12; i++) full = raise(full, '1/1', 'living');
 		expect(raise(full, '1/1', 'living')).toBe(full);
 	});
+});
+
+test('a carrier crosses the chunk seam only above older roofs in its block', () => {
+	const anchor = cellAt(3, 2);
+	const current = raise(EMPTY, anchor.id, 'living');
+	const occupied = raise(raise(current, '2/2', 'water'), '4/2', 'food');
+	const context = {
+		occupied,
+		blockOf: () => 'one block',
+		olderRoof: (id: string) => occupied.has(id) && !current.has(id)
+	};
+	const project = (blockOf: (id: string) => string) =>
+		houseChunk(grid, current, anchor.chunk, SEED, 'totem', { ...context, blockOf }).filter((p) =>
+			p.id.includes(':span/')
+		);
+	const span = project(context.blockOf);
+	const chord = named(span, '/lower')[0];
+	expect(chord.kind === 'pipe' && chord.points.length).toBe(3);
+	expect(named(span, '/module')).toHaveLength(2);
+	expect(
+		project((id) => (id === '4/2' ? 'next block' : 'one block')).some((p) => p.id.includes('/4/2/'))
+	).toBe(false);
+	expect(touchedChunks(grid, current, current, ['4/2']).has(anchor.chunk)).toBe(true);
 });

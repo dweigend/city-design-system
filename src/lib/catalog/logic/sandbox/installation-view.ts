@@ -37,7 +37,7 @@ function segmentView(
 	}
 	return moduleBridge(a, end, p.id).map((form) => ({
 		...form,
-		...(form.kind === 'polyline' ? { stroke: 'brace' as const, detail: true } : {}),
+		...(form.kind === 'polyline' ? { member: 'secondary' as const, detail: true } : {}),
 		token: p.recipe === 'stair' ? '--cat-business-3' : flowToken.people
 	}));
 }
@@ -52,6 +52,8 @@ function partView(world: World, p: BuiltPart): Primitive[] {
 		const dot: Primitive = {
 			...b,
 			id: p.id + '/joint',
+			member: 'primary',
+			bearings: [node],
 			kind: 'sphere',
 			position: node,
 			radius: 0.25,
@@ -82,6 +84,18 @@ function partView(world: World, p: BuiltPart): Primitive[] {
 export function installationView(world: World, focus: FocusId): Primitive[] {
 	return [...world.state.parts.values()].flatMap((p) => {
 		const system = world.state.compositions.get(p.owner)?.system ?? 'houses';
-		return present(partView(world, p), levelFor(focus, system, p.built, world.state.year));
+		const parts = partView(world, p);
+		const level = levelFor(focus, system, p.built, world.state.year);
+		if (level === 'pencil')
+			return parts
+				.filter((part) => !part.detail)
+				.flatMap((part) =>
+					present([part], level).map((styled) => ({
+						...styled,
+						member: part.member,
+						bearings: part.bearings
+					}))
+				);
+		return present(parts, level);
 	});
 }

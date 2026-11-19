@@ -129,10 +129,15 @@ export function populateStructures(
 	lines(accent.kanten.neu, materials.detail);
 	lines(accentSheets.kanten.neu, materials.perimeter);
 
-	const main = parts.carriers.filter((part) => !part.member || part.member === 'primary');
-	const ties = parts.carriers.filter((part) => part.member === 'secondary');
+	const current = parts.carriers.filter((p) => p.role !== 'bestand');
+	const stock = parts.carriers.filter((p) => p.role === 'bestand');
+	const main = current.filter((p) => !p.member || p.member === 'primary');
+	const ties = current.filter((p) => p.member === 'secondary' && !p.detail);
+	const rails = current.filter((p) => p.member === 'secondary' && p.detail);
 	lines(batch(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
 	lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
+	lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
+	lines(batch(stock.flatMap(memberTrace), toColor).kanten.neu, materials.pencil);
 	const points = parts.carriers.flatMap((part) => part.bearings ?? []);
 	if (points.length) objects.add(bearingDots(points, bearingGeometry, materials.bearing));
 

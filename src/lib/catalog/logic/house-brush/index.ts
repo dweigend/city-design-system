@@ -1,3 +1,6 @@
+import { roofCarrier, type RoofContext } from './roof-carrier';
+import { totemMass } from './style-totem';
+import { megastructureMass } from './style-megastructure';
 import { profileOf } from './profile';
 /**
  * House brush: the player paints stories onto grid cells, the grammar derives architecture.
@@ -35,9 +38,17 @@ export function houseChunk(
 	chunk: string,
 	seed: number,
 	style: HouseStyle = 'terrace',
-	context?: { occupied: Stacks }
+	context?: RoofContext
 ): Primitive[] {
 	const site = { grid, stacks: context?.occupied ?? stacks, seed };
+	// Old story records retain the grammar that built them. Q installations carry their own parts.
+	if (context && (style === 'megastructure' || style === 'totem')) {
+		const rule = style === 'totem' ? totemMass : megastructureMass;
+		return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
+			...rule(site, mass),
+			...roofCarrier(site, mass, context)
+		]);
+	}
 	const rule = massRules[style];
 	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => rule(site, mass));
 }

@@ -38,7 +38,6 @@ type Base = {
 	token: ColorToken;
 	material: MaterialId;
 	detail?: boolean;
-	stroke?: 'carrier' | 'brace';
 	rank?: number;
 	stretchRank?: number;
 	pattern?: string;
