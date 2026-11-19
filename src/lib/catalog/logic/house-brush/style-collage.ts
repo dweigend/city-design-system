@@ -92,7 +92,7 @@ export function collageMass(site: Site, mass: Mass, p = COLLAGE_DEFAULTS): Primi
 			floor: mass.floor + STORY,
 			stories: seats.map((story) => ({ ...story, level: story.level + 1 }))
 		};
-		parts.push(...megastructureMass(site, carrier));
+		parts.push(...megastructureMass(site, carrier, undefined, 'shared'));
 	}
 	return parts;
 }

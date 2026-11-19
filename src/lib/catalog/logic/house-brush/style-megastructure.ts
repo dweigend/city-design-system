@@ -8,7 +8,7 @@ import type { Mass } from './massing';
 import { along, bayOf, mountingGrid, type Bay } from './megastructure-bay';
 import { shellForms, dockedModule } from './style-totem';
 import { guest } from './megastructure-guests';
-import { access, gallery } from './megastructure-services';
+import { access, gallery, supply } from './megastructure-services';
 import { storiesOf } from './stacks';
 
 const MEGASTRUCTURE_DEFAULTS = { emptyShare: 0.16, galleryWidth: 0.075 };
@@ -55,7 +55,12 @@ function skeleton(b: Bay, posts: Set<string>, girders: Set<string>, brace: numbe
 }
 
 /** A bolted carrier follows each painted story. Its infill can be removed bay by bay. */
-export function megastructureMass(site: Site, mass: Mass, p = MEGASTRUCTURE_DEFAULTS): Primitive[] {
+export function megastructureMass(
+	site: Site,
+	mass: Mass,
+	p = MEGASTRUCTURE_DEFAULTS,
+	accessFlight: 'own' | 'shared' = 'own'
+): Primitive[] {
 	const posts = new Set<string>(),
 		girders = new Set<string>();
 	const cornersOf = mountingGrid(mass);
@@ -74,8 +79,11 @@ export function megastructureMass(site: Site, mass: Mass, p = MEGASTRUCTURE_DEFA
 		if (story === anchor || hash(seed, key, DRAW.occupancy) > p.emptyShare)
 			parts.push(...dockedModule(b, side), ...guest(b, mass.use, side, story === roof));
 		const route = exterior.at(side % exterior.length);
-		if (story === anchor && route !== undefined)
-			parts.push(...gallery(b, route, p.galleryWidth), ...access(b, route));
+		if (story === anchor && route !== undefined) {
+			parts.push(...gallery(b, route, p.galleryWidth));
+			if (accessFlight === 'own') parts.push(...access(b, route));
+			parts.push(supply(b, route));
+		}
 		return parts;
 	});
 }
