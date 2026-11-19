@@ -18,6 +18,7 @@ import { observatory } from './observatory';
 import { roundTree } from './round-tree';
 import { columnTree } from './column-tree';
 import { conifer } from './conifer';
+import { umbrellaTree } from './umbrella-tree';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -38,5 +39,6 @@ export const recipes: readonly AssetRecipe[] = [
 	observatory,
 	roundTree,
 	columnTree,
-	conifer
+	conifer,
+	umbrellaTree
 ];
