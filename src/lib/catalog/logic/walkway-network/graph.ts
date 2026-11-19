@@ -37,9 +37,10 @@ function groundEdges(tree: Segment[], input: NetworkInput, plazas: Set<string>) 
 	});
 }
 function addFlight(option: Option, tree: Segment[], input: NetworkInput) {
-	const { pair, entry, segment, foot, kind } = option;
+	const { pair, entry, segment, kind } = option;
 	const anchor = split(tree, segment, entry);
-	if (distance(anchor, foot) > epsilon) tree.push({ a: anchor, b: foot });
+	const foot = distance(anchor, option.foot) <= epsilon ? anchor : option.foot;
+	if (anchor !== foot) tree.push({ a: anchor, b: foot });
 	const flight = edge(kind, [[...foot, input.terrain(...foot)], [...pair.first.p]]);
 	const deck = option.route.map((link) =>
 		edge(

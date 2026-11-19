@@ -1,10 +1,9 @@
 import { houseStair } from '../../data/house-stair';
 import type { HouseObstacle } from '../composed-house';
 import type { ObjectGeometry } from '../assets';
-import type { Vec3 } from '../parametrik/types';
 
 export type Point = [number, number];
-export type Position = Vec3;
+export type Position = HouseObstacle['position'];
 export const width = houseStair.width;
 export const epsilon = 1e-8;
 export type NetworkInput = {

@@ -11,7 +11,7 @@ function ensemble(houses: House[]): Input {
 }
 
 test('a third entrance joins the middle of a shared trunk', () => {
-	const input = ensemble([house('a', 0, 0), house('b', 16, 0), house('c', 8, -7)]);
+	const input = ensemble([house('a', 0, 0), house('b', 16, 0), house('c', 8, 7)]);
 	const net = planNetwork(input, 11);
 	expect(net.nodes.some((n) => n.kind === 'fork')).toBe(true);
 	expect(net.edges.length).toBe(net.nodes.length - 1);

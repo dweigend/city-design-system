@@ -44,10 +44,11 @@ function approach(input: NetworkInput, entry: Point, pair: Pair) {
 	const foot = stairFoot(input, entry, top, z);
 	if (foot) return { foot, kind: 'stair' as const };
 }
-function aboveTerrain(input: NetworkInput, span: Segment, z: number) {
+function aboveTerrain(input: NetworkInput, span: Segment, startZ: number, endZ: number) {
 	const n = Math.ceil(distance(span.a, span.b));
 	for (let i = 0; i <= n; i++)
-		if (input.terrain(...mix(span.a, span.b, i / n)) > z - 0.25) return false;
+		if (input.terrain(...mix(span.a, span.b, i / n)) > startZ + ((endZ - startZ) * i) / n + epsilon)
+			return false;
 	return true;
 }
 function candidate(
@@ -63,6 +64,7 @@ function candidate(
 	if (!flight) return;
 	const lead = { a: entry, b: flight.foot },
 		climb = { a: flight.foot, b: pair.span.a };
+	if (!aboveTerrain(input, climb, input.terrain(...flight.foot), pair.first.p[2])) return;
 	if (separation(lead, pair.span) < 3 - epsilon) return;
 	if (
 		tree.some((s) => separation(s, lead) < epsilon && distance(entry, nearest(entry, s)) > epsilon)
@@ -112,7 +114,8 @@ export function deckOptions(input: NetworkInput, tree: Segment[], field: Field) 
 	const options = [];
 	const links = pairs(input, field).filter(
 		({ span, first }) =>
-			tree.every((s) => separation(s, span) >= 3 - epsilon) && aboveTerrain(input, span, first.p[2])
+			tree.every((s) => separation(s, span) >= 3 - epsilon) &&
+			aboveTerrain(input, span, first.p[2] - 0.25, first.p[2] - 0.25)
 	);
 	for (const pair of links)
 		for (const segment of tree) {
