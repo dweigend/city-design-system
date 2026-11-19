@@ -3,7 +3,7 @@ import type { NetworkInput } from '../walkway-network';
 import { groundDeck } from './network-deck';
 import { budgetedNetwork } from './network-budget';
 import { networkParts } from './network-parts';
-import { networkHouse, outline, overlaps, planBounds } from './network-site';
+import { networkHouse, bodyBounds, overlaps, planBounds } from './network-site';
 import { MODULE } from '../terrain-grid';
 
 type Sections = ReturnType<typeof planHouse>[];
@@ -30,7 +30,7 @@ function survey(sections: Sections, site: Site) {
 	const houses = visits.map(({ id, entrance, obstacles }) => ({ id, entrance, obstacles }));
 	const owners = new Set(houses.map((h) => h.id));
 	const stock = site.stock.filter(
-		(box) => !owners.has(box.owner ?? '') && overlaps(window, planBounds(outline(box)))
+		(box) => !owners.has(box.owner ?? '') && overlaps(window, bodyBounds(box))
 	);
 	houses[0].obstacles.push(...stock);
 	const terrain = (x: number, y: number) => {
@@ -60,7 +60,7 @@ export function ensembleNetwork(
 	const input = survey(sections, site);
 	const id = 'network/' + sections[0].id;
 	const signature = JSON.stringify([seed, input, sections.map((h) => h.cells.map((c) => c.id))]);
-	const saved = cache?.get(id);
+	const saved = cache?.get(sections[0].id);
 	if (saved?.signature === signature) return saved.group;
 	const tree = budgetedNetwork(input, seed);
 	const network = tree && groundDeck(tree, input.terrain);
@@ -72,7 +72,7 @@ export function ensembleNetwork(
 		span: JSON.stringify([seed, network.geometry]),
 		parts: () => networkParts(network, id, seed)
 	};
-	cache?.set(id, { signature, group });
+	cache?.set(sections[0].id, { signature, group });
 	return group;
 }
 

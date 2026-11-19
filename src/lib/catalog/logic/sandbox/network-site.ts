@@ -27,7 +27,7 @@ export function networkHouse(section: Section) {
 	const obstacles: HouseObstacle[] = [],
 		overhangs: Point[][] = [];
 	for (const body of bodyObstacles(section)) {
-		const exclusion = entranceOverhang(body, entrance, ground);
+		const exclusion = entranceApron(body, entrance, ground);
 		if (exclusion) overhangs.push(exclusion);
 		else obstacles.push(body);
 	}
@@ -51,25 +51,29 @@ export function overlaps(a: Bounds, b: Bounds) {
 	return a.left <= b.right && a.right >= b.left && a.bottom <= b.top && a.top >= b.bottom;
 }
 
-/** Rectangle in plan for a bottom-centred occupied volume. */
-export function outline({ position: [x, y], size: [w, d] }: HouseObstacle): Point[] {
-	return [
-		[x - w / 2, y - d / 2],
-		[x + w / 2, y - d / 2],
-		[x + w / 2, y + d / 2],
-		[x - w / 2, y + d / 2]
-	];
+/** Plan extents of a bottom-centred occupied volume. */
+export function bodyBounds({ position: [x, y], size: [w, d] }: HouseObstacle): Bounds {
+	return { left: x - w / 2, right: x + w / 2, bottom: y - d / 2, top: y + d / 2 };
 }
 
-// An elevated cabin can overhang a mast entrance. Keep its projection outside the
-// walking line, allowing only the deck edge under it when there is door-height clearance.
-function entranceOverhang(body: HouseObstacle, [x, y]: Point, ground: number) {
+// The last approach to a facade can use its one-metre setback. Reserve the whole
+// physical footprint unless a door-height overhang can accept the decking edge.
+function entranceApron(body: HouseObstacle, [x, y]: Point, ground: number) {
 	const [u, v, z] = body.position,
 		[w, d] = body.size;
 	const distance = Math.max(Math.abs(x - u) - w / 2, Math.abs(y - v) - d / 2);
 	const half = houseStair.width / 2;
-	if (z - ground < 2.1 || distance >= 1 + half) return;
+	if (distance >= 1 + half) return;
+	// Against a low facade the entire width must still clear the body.
+	if (distance < half && z - ground - houseStair.thickness < 2.1) return;
 	const inset = Math.max(0, half - distance + 1e-7);
 	if (distance < 0 || Math.min(w, d) <= 2 * inset) return;
-	return outline({ ...body, size: [w - 2 * inset, d - 2 * inset, body.size[2]] });
+	const { left, right, bottom, top } = bodyBounds(body);
+	const ring: Point[] = [
+		[left + inset, bottom + inset],
+		[right - inset, bottom + inset],
+		[right - inset, top - inset],
+		[left + inset, top - inset]
+	];
+	return ring;
 }

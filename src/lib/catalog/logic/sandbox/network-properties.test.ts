@@ -128,7 +128,7 @@ function inspect(world: World, count: number) {
 	peopleOnDeck(parts, deck);
 }
 
-for (const seed of [7, 29, 41])
+for (const seed of [7, 13, 29, 41])
 	test('3–12 painted houses on terrain seed ' + seed, () => {
 		let world = createWorld(seed, { cells: 0 });
 		for (let i = 0; i < 12; i++) {
