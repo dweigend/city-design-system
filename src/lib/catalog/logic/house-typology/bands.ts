@@ -7,15 +7,15 @@ const full: Bay = (w, d) => [w, d];
 const shapes: Partial<Record<Plan['type'], Bay>> = {
 	'deck-tower': full,
 	'portal-house': (w, d) => [w, d * 0.88],
-	'lattice-head': (w, d) => [w * 0.62, d * 0.64],
+	'lattice-head': (w, d) => [w * 0.72, d * 0.84],
 	'courtyard-house': full,
 	'terrace-house': (w, d, t) => [w * (1 - t * 0.48), d * (1 - t * 0.34)],
-	'plinth-house': (w, d, t) => (t ? [w * 0.32, d * 0.5] : [w, d]),
-	rack: (w, d) => [0.88 * w, Math.min(d, 5.3)],
+	'plinth-house': (w, d, t) => (t ? [w * 0.32, Math.max(3, d * 0.5)] : [w, d]),
+	rack: (w, d, t) => [w * (t > 0.25 && t < 0.75 ? 1 : 0.56), Math.min(d, 4)],
 	'bridge-house': (w, d) => [w, Math.min(d, 4.5)],
 	'twin-stack': (w, d) => [w * 0.62, d],
 	'slab-house': (w, d) => [w, Math.min(d, 3.25)],
-	'water-house': (w, d, t) => (t ? [w * 0.62, d * 0.64] : [w, d])
+	'water-house': (w, d, t) => (t ? [w * 0.58, d * 0.68] : [w, d])
 };
 
 function corners([x, y, z]: Point, w: number, d: number): Point[] {

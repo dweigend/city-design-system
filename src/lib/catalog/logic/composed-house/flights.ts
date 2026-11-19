@@ -1,60 +1,27 @@
+import { flightRail } from './flight-rail';
+import { edge, pairedTreads, type Station } from './stair-track';
+import { flightStations } from './flight-stations';
 import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
 import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
 import { houseObject } from './house-object';
-import type { HouseSurfaces } from './surfaces';
+import { roleSurface, type HouseSurfaces } from './surfaces';
 import type { Section } from './types';
 
-type Leg = { from: Vec3; to: Vec3; kind: 'stairs' | 'landing'; steps: number; flight: number };
-const { going, rise, width } = houseStair;
-
-function flightEdge(s: Section, sign: number) {
-	const bay = s.composition.bay;
-	if (s.typology === 'cluster-mast') {
-		const edges = s.composition.levels.flatMap((l) =>
-			l.bodies.map(
-				(b) =>
-					sign * b.position[1] +
-					(Math.abs(Math.sin(b.rotation)) * b.size[0] +
-						Math.abs(Math.cos(b.rotation)) * b.size[1]) /
-						2
-			)
-		);
-		return (
-			sign *
-			Math.min(
-				sign * bay.y + bay.depth / 2 - 2 * width,
-				Math.max(...edges, sign * s.composition.core.position[1] + 0.2) + 0.05
-			)
-		);
-	}
-	return roofLanding(s)[1];
-}
-function stations(s: Section) {
-	const { x, width: bayWidth } = s.composition.bay;
-	const court = s.composition.levels[0].court;
-	const span = court?.width ?? bayWidth;
-	const path = s.composition.path;
-	const count = Math.min(17, Math.floor((span - width) / going));
-	const flank = ['core', 'cascade', 'external'].includes(path);
-	const length = count * going;
-	const left =
-		path === 'cascade' ? x + (span - width) / 2 - length : x - (flank ? span - width : length) / 2;
-	const sign = s.composition.accessSide === 'north' ? 1 : -1;
-	const rear = court ? court.center[1] - (sign * court.width) / 2 : flightEdge(s, sign);
-	return [0, 1].flatMap((lane) =>
-		Array.from({ length: count + 1 }, (_, i) => ({
-			x: left + (lane ? count - i : i) * going,
-			y: rear + sign * (0.5 + lane) * width,
-			turn: i === count
-		}))
-	);
-}
+type Leg = {
+	from: Vec3;
+	to: Vec3;
+	kind: 'stairs' | 'landing';
+	steps: number;
+	flight: number;
+	ends: [Station, Station];
+};
+const { going } = houseStair;
 
 /** Surveys a continuous switchback of rigid treads and level half-landings. */
 export function flightRoute(s: Section) {
-	const track = stations(s),
+	const track = flightStations(s),
 		legs: Leg[] = [],
 		stops: Vec3[] = [];
 	const doors = [roofLanding(s), ...s.composition.levels.map((l) => l.landing).reverse()];
@@ -62,11 +29,13 @@ export function flightRoute(s: Section) {
 		z = s.top;
 	const point = (): Vec3 => [track[index].x, track[index].y, z];
 	function advance(drop: number, flight: number) {
-		const from = point();
+		const from = point(),
+			start = track[index].station;
 		index = (index + 1) % track.length;
 		z -= drop;
 		legs.push({
 			from,
+			ends: [start, track[index].station],
 			to: point(),
 			flight,
 			steps: Number(drop !== 0),
@@ -74,7 +43,7 @@ export function flightRoute(s: Section) {
 		});
 	}
 	function descend(target: number, flight: number) {
-		const count = Math.max(1, Math.round((z - target) / rise));
+		const count = Math.max(1, Math.round((z - target) / 0.18));
 		const step = (z - target) / count;
 		for (let i = 0; i < count; i++) {
 			if (track[index].turn) advance(0, flight);
@@ -89,10 +58,10 @@ export function flightRoute(s: Section) {
 	});
 	descend(s.start ? s.base[2] : terrainHeight(s, point()), doors.length - 1);
 	stops.push(point());
-	return { axis: s.stairAxis, width, legs, docks, stops };
+	return { axis: s.stairAxis, width: s.composition.flightWidth, legs, docks, stops };
 }
 
-function rectangle(a: Vec3, b: Vec3): [number, number][] {
+function rectangle(a: Vec3, b: Vec3, width: number): [number, number][] {
 	const dx = b[0] - a[0],
 		dy = b[1] - a[1];
 	const length = Math.hypot(dx, dy) || 1;
@@ -107,6 +76,7 @@ function rectangle(a: Vec3, b: Vec3): [number, number][] {
 }
 
 function roofBypass(s: Section, station: Vec3, door: Vec3): Vec3[] {
+	const width = s.composition.flightWidth;
 	const bodies = s.composition.levels[s.composition.levels.length - 1].bodies;
 	const b = bodies[0],
 		halfWidth =
@@ -128,6 +98,7 @@ function roofBypass(s: Section, station: Vec3, door: Vec3): Vec3[] {
 }
 /** Instantiates rigid straight treads and level connections to each landing. */
 export function flightAccess(s: Section, surfaces: HouseSurfaces) {
+	const { flightWidth: width } = s.composition;
 	const route = flightRoute(s),
 		id = s.id + '/stair/';
 	const stock = (name: string, variant: string, deck: HouseSurfaces['deck']) => {
@@ -138,12 +109,12 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 		if (p.kind !== 'prism') throw Error('Expected stair plate');
 		return p;
 	};
-	const tread = stock('stairs', 'straight-tread', surfaces.access);
+	const tread = stock('stairs', 'straight-tread', roleSurface(surfaces.access, 'deck'));
 	const plate = stock('landing', 'mast-platform', surfaces.deck);
 	const platform = (from: Vec3, to: Vec3, key: string) => ({
 		...plate,
 		id: id + key,
-		polygon: rectangle(from, to),
+		polygon: rectangle(from, to, width),
 		z: from[2] - plate.height
 	});
 	const cheek = houseObject('stairs', 'short-flight', s.seed, {
@@ -151,31 +122,39 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 		slots: { deck: surfaces.access, body: surfaces.frame }
 	}).parts[0];
 	if (cheek.kind !== 'box') throw Error('Expected rectangular stair section');
-	const stringers = route.legs.flatMap(({ from, to, kind }, i) =>
+	const stringers = route.legs.flatMap(({ from, to, kind, ends }, i) =>
 		kind === 'stairs'
 			? [
 					{
 						...cheek,
 						id: id + i + '/stringer',
-						position: [Math.min(from[0], to[0]), from[1] + width / 2 - 0.3, to[2] - 0.3] as Vec3,
+						rotation: Math.atan2(to[1] - from[1], to[0] - from[0]),
+						position: [
+							(edge(ends[0], 0.75)[0] + edge(ends[1], 0.75)[0] - going) / 2,
+							(edge(ends[0], 0.75)[1] + edge(ends[1], 0.75)[1] - 0.3) / 2,
+							to[2] - 0.3
+						] as Vec3,
 						size: [going, 0.3, 0.3] as Vec3
 					}
 				]
 			: []
 	);
-	const parts = route.legs.map(({ from, to, kind }, i) => {
-		if (kind === 'landing') return platform(from, to, i + '/landing');
-		const x = (to[0] + from[0]) / 2;
-		return {
-			...tread,
-			id: id + i + '/tread',
-			z: to[2] - tread.height,
-			polygon: tread.polygon.map(([u, v]): [number, number] => [x + u, from[1] + v])
-		};
+	const parts = route.legs.flatMap((leg, i) => {
+		const { to, kind, ends } = leg;
+		const [a, b] = ends;
+		const stock = kind === 'landing' ? plate : tread;
+		return pairedTreads(
+			stock,
+			id + i + '/' + (kind === 'landing' ? 'landing' : 'tread'),
+			a,
+			b,
+			to[2]
+		);
 	});
 	return [
 		...parts,
 		...stringers,
+		...flightRail(s, route, surfaces),
 		...route.docks.flatMap(({ station, door }, i) => {
 			const knee: Vec3 = [door[0], station[1], door[2]];
 			const path =

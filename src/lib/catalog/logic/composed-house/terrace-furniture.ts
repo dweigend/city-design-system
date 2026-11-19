@@ -52,7 +52,7 @@ function seat(floor: Floor, l: Level, people: Vec3[]) {
 	const [ax, ay] = l.landing;
 	for (const r of [0.39, 0.24, 0.15]) {
 		for (const dy of [0, -0.25, 0.25, -0.55, 0.55, -1, 1]) {
-			for (const dx of [1.2, -1.2, 0.8, -0.8, 1.8, -1.8, 0.5, -0.5, 0]) {
+			for (const dx of [1.2, -1.2, 0.8, -0.8, 1.8, -1.8, 0.65, -0.65, 0.5, -0.5, 0]) {
 				const x = ax + dx,
 					y = ay + dy;
 				if (people.some((p) => Math.hypot(x - p[0], y - p[1]) < r + 0.18)) continue;
@@ -63,7 +63,7 @@ function seat(floor: Floor, l: Level, people: Vec3[]) {
 }
 /** Places one freestanding registry planter on the clear portion of each furnished terrace. */
 export function terraceFurniture(s: Section, house: HousePart[], surfaces: HouseSurfaces) {
-	return s.composition.levels.flatMap((l, i) => {
+	const planted = s.composition.levels.flatMap((l, i) => {
 		const base = s.id + '/level/' + i + '/';
 		const floor = house.find(
 			(p): p is Floor => p.kind === 'prism' && (p.id === base + 'deck' || p.id === base + 'landing')
@@ -72,15 +72,34 @@ export function terraceFurniture(s: Section, house: HousePart[], surfaces: House
 		const people = s.composition.people.filter((p) => p.level === i).map((p) => p.position);
 		const spot = seat(floor, l, people);
 		if (!spot) return [];
-		const stock = members(
-			'rolled-lip-planter',
-			'compact',
-			s.seed,
-			base + 'furniture',
-			surfaces,
-			l.use
-		);
-		const scale = spot.r / 0.69;
-		return place(stock, [0, 0, 0], [spot.x, spot.y, l.position[2]], [scale, scale, scale], 0);
+		return planter(s, surfaces, base, l.use, spot, l.position[2]);
 	});
+	const roof = house.find((p): p is Floor => p.kind === 'prism' && p.id.endsWith('/roof-walk'));
+	if (!roof || !roof.polygon.length) return planted;
+	const [a, , c] = roof.polygon;
+	if (Math.min(Math.abs(c[0] - a[0]), Math.abs(c[1] - a[1])) < 2.5) return planted;
+	const x = 0.8 * a[0] + 0.2 * c[0],
+		y = 0.8 * a[1] + 0.2 * c[1];
+	return planted.concat(
+		planter(
+			s,
+			surfaces,
+			s.id + '/roof/',
+			s.composition.crown.use,
+			{ x, y, r: 0.34 },
+			roof.z + roof.height
+		)
+	);
+}
+function planter(
+	s: Section,
+	surfaces: HouseSurfaces,
+	base: string,
+	use: Level['use'],
+	spot: { x: number; y: number; r: number },
+	z: number
+) {
+	const stock = members('rolled-lip-planter', 'compact', s.seed, base + 'furniture', surfaces, use);
+	const scale = spot.r / 0.69;
+	return place(stock, [0, 0, 0], [spot.x, spot.y, z], [scale, scale, scale], 0);
 }

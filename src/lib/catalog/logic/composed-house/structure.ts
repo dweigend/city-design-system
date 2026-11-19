@@ -30,7 +30,16 @@ function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: House
 	const box = union(stock.map(bounds));
 	const scale = p.size.map((v, i) => v / (box.max[i] - box.min[i])) as Vec3;
 	const fitted = place(stock, box.min, p.position, scale, 0);
-	return socket || p.joint === 'beam' ? fitted : columnSections(fitted, p);
+	if (socket) return fitted.map((m) => socketLip(m, p));
+	return p.joint === 'beam' ? fitted : columnSections(fitted, p);
+}
+function socketLip(member: HousePart, p: Extract<Solid, { kind: 'box' }>): HousePart {
+	if (member.kind !== 'box') return member;
+	const size = member.size.map((d) => Math.max(d, 0.12)) as Vec3;
+	const position = member.position.map((v, k) =>
+		Math.min(v, p.position[k] + p.size[k] - size[k])
+	) as Vec3;
+	return { ...member, position, size };
 }
 function columnSections(stock: HousePart[], p: Extract<Solid, { kind: 'box' }>): HousePart[] {
 	const lip = Math.max(0.12, Math.min(p.size[2] / 2, 0.15));

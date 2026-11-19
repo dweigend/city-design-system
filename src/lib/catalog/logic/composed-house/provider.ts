@@ -33,9 +33,9 @@ export function members(
 		shell: use ? finish : surfaces.shell,
 		glass: id.includes('solar-sail') ? finish : surfaces.pane,
 		edge: roleSurface(paint, 'fitting'),
-		liquid: finish,
+		liquid: paint,
 		fabric: finish,
-		planting: finish,
+		planting: paint,
 		deck: use ? finish : surfaces.deck,
 		accent: surfaces[use ?? 'frame'],
 		channel: surfaces[use ?? 'water'],
@@ -52,7 +52,7 @@ function drumPanels(b: Body, stock: ReturnType<typeof members>, surfaces: HouseS
 		b.variant,
 		b.seed,
 		b.id,
-		{ ...surfaces, pane: roleSurface(surfaces[b.use],'capsule') },
+		{ ...surfaces, pane: roleSurface(surfaces[b.use], 'capsule') },
 		b.use
 	);
 	return stock.flatMap((p, i): typeof stock => {

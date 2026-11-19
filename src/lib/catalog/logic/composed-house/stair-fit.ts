@@ -1,4 +1,4 @@
-import { houseStair } from '../../data/house-stair';
+import { publicStair } from './stair-track';
 import type { Section } from './types';
 import { houseSurfaces } from './surfaces';
 import { fitsWinding } from './access';
@@ -10,12 +10,12 @@ import { bounds } from '../ansicht/geometrie';
 import type { HousePart } from './house-object';
 
 type XY = [number, number];
-const radius = houseStair.radius + houseStair.width / 2;
+const radius = publicStair.radius + publicStair.width / 2;
 const margin = 0.6;
 
 function axes(s: Section, rear: number, sign: number) {
 	const { x, y, width, depth } = s.composition.bay;
-	const reach = houseStair.radius + houseStair.width;
+	const reach = publicStair.radius + publicStair.width;
 	const edge = (center: number, span: number) => [
 		center - span / 2 + radius - margin,
 		center + span / 2 - radius + margin
@@ -94,7 +94,7 @@ function dockClearance(s: Section) {
 }
 function parcelAxes(s: Section, rear: number, sign: number): XY[] {
 	const [cx] = s.base;
-	const reach = houseStair.radius + houseStair.width;
+	const reach = publicStair.radius + publicStair.width;
 	return s.cells.flatMap((cell) => {
 		const [x, y] = cell.center;
 		const points: XY[] = [

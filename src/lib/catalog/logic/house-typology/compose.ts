@@ -106,6 +106,7 @@ export function composeHouse(
 	);
 	return {
 		id: site.id,
+		flightWidth: plan.site.accessDepth > 4 || (levels[0].court?.width ?? 0) >= 5 ? 2.5 : 1.25,
 		compact: site.compact,
 		path,
 		signature: silhouette(type, path, site.compact, site.programme.length > 8),

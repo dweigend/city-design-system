@@ -129,7 +129,8 @@ function placeBox(
 }
 function placeAnnular(part: HousePart, fit: Fit): HousePart {
 	switch (part.kind) {
- case 'mesh':return {...part,points:part.points.map(fit.point)};
+		case 'mesh':
+			return { ...part, points: part.points.map(fit.point) };
 		case 'ring':
 			return placeRing(part, fit);
 		case 'torus':

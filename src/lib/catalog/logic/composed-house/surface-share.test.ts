@@ -43,10 +43,7 @@ function sample(positions: number[], slots: number[], axis: number, sign: number
 	return hits;
 }
 function shares(s: ReturnType<typeof specimen>) {
-	const palette = {
-		...houseSurfaces,
-		shell: { ...houseSurfaces.shell, token: '--signal' as const }
-	};
+	const palette = houseSurfaces;
 	const painted = new Set(
 		[
 			palette.shell,

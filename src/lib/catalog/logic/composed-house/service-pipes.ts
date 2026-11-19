@@ -3,7 +3,7 @@ import type { Vec3 } from '../parametrik/types';
 import type { HouseSurfaces } from './surfaces';
 import { pipeBetween } from './parts';
 
-/** Connects adjacent tank and dwelling faces with an exposed 0.3 m supply pipe. */
+/** Connects adjacent tank and dwelling faces with an exposed 0.4 m supply pipe. */
 export function servicePipes(section: Section, surfaces: HouseSurfaces) {
 	if (section.typology !== 'water-house' || section.composition.compact) return [];
 	const sign = section.composition.accessSide === 'north' ? -1 : 1;

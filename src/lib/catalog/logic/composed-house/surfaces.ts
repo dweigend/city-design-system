@@ -12,7 +12,7 @@ const metal = (token: ColorToken): Surface => ({ token, finish: 'metal' });
 export const houseSurfaces: HouseSurfaces = {
 	frame: { token: '--ink', finish: 'perforated-metal' },
 	deck: { token: '--paper', finish: 'beton-terrazzo' },
-	shell: { token: '--paper', finish: 'metall-lackiert' },
+	shell: { token: '--signal', finish: 'metall-lackiert' },
 	pane: { token: '--blueprint', finish: 'glas-klar' },
 	access: metal(flowToken.people),
 	living: { token: BODY_TOKEN.living, finish: 'metall-lackiert' },

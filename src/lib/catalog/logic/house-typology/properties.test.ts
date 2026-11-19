@@ -251,6 +251,9 @@ function auditNarrow(input: HouseSite, mix: number, height: number) {
 	const body = h.levels.flatMap((l) => l.bodies).reduce((sum, b) => sum + vol(b.size), 0);
 	expect(body / h.parts.reduce((sum, p) => sum + vol(p.size), 0)).toBeGreaterThanOrEqual(0.55);
 	const parts = sectionParts(house);
+	expect(
+		parts.filter((p) => p.id.includes('/level/') && p.source.objectId === 'rolled-lip-planter')
+	).toHaveLength(h.levels.length);
 	expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
 	expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
 	expect(route.docks.slice(1).map((d) => d.door)).toEqual(

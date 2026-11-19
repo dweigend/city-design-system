@@ -53,7 +53,13 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	if (plate.kind !== 'prism') throw new Error('Expected ladder landing');
 	const sign = s.composition.accessSide === 'north' ? 1 : -1;
 	const extra = route.rests.map(([x, y, z]) => ({
-		door: [x, y - (s.typology === 'tree-house' ? 1 : sign) * 0.6, z] as Vec3,
+		door: [
+			x,
+			y -
+				(s.typology === 'tree-house' ? 1 : sign) *
+					(s.typology === 'cluster-mast' && !s.composition.compact ? 0.42 : 0.6),
+			z
+		] as Vec3,
 		station: [x, y, z] as Vec3
 	}));
 	const landings = [...route.docks, ...extra].map(({ door: [dx, dy, z], station: [x, y] }, i) => ({

@@ -6,6 +6,43 @@ import { typologies, type Typology } from './families';
 
 type Part = ReturnType<typeof sectionParts>[number];
 type XY = [number, number];
+
+function stockThickness(p: Part) {
+	switch (p.kind) {
+		case 'prism':
+			return p.height;
+		case 'box':
+			return Math.min(...p.size);
+		case 'cylinder':
+			return Math.min(p.radius * 2, p.height);
+		case 'pipe':
+		case 'capsule':
+			return p.radius * 2;
+	}
+}
+test('stock gauges and service pipe runs hold across the sixteen typologies', () => {
+	for (const type of typologies)
+		for (const cells of type === 'courtyard-house' ? [4] : [1, 2, 4]) {
+			checkStockGauges(specimen(cells, type));
+		}
+});
+function checkStockGauges(section: ReturnType<typeof specimen>) {
+	const parts = sectionParts(section);
+	for (const p of parts.filter((p) => !p.source.objectId.startsWith('person-'))) {
+		const thickness = stockThickness(p);
+		if (thickness !== undefined) expect(thickness, p.id).toBeGreaterThanOrEqual(0.12 - 1e-8);
+	}
+	const pipes = parts.filter((p) => p.id.includes('/service/pipe/'));
+	expect(pipes.length).toBeLessThanOrEqual(2);
+	for (const p of pipes) {
+		if (p.kind !== 'pipe') throw Error('Expected a supply pipe');
+		expect(p.radius * 2).toBeWithin(0.3, 0.5);
+		const length = p.points
+			.slice(1)
+			.reduce((sum, b, i) => sum + Math.hypot(...b.map((v, k) => v - p.points[i][k])), 0);
+		expect(length).toBeLessThanOrEqual(section.top - section.base[2]);
+	}
+}
 function edgeDistance(a: XY, b: XY, p: XY) {
 	const dx = b[0] - a[0],
 		dy = b[1] - a[1];
@@ -83,12 +120,12 @@ test('every floor and roof exit meets its physical deck within two centimetres',
 });
 test('switchback half-landings meet a building member, directly or through an attached deck seat', () => {
 	for (const type of ['deck-tower', 'rack', 'cluster-mast', 'plinth-house'] as const) {
-		const parts = sectionParts(specimen(1, type));
+		const parts = sectionParts(specimen(type === 'cluster-mast' ? 4 : 1, type));
 		const building = parts.filter(
 			(p) =>
 				!p.id.includes('/stair/') && !p.id.includes('/landing-seat/') && !p.id.includes('/people/')
 		);
-		const track = parts.filter((p) => p.id.endsWith('/tread')).flatMap(housePartPlan);
+		const track = parts.filter((p) => /\/tread(?:\/outer)?$/.test(p.id)).flatMap(housePartPlan);
 		const envelope = building.flatMap(housePartPlan);
 		for (const axis of [0, 1] as const) {
 			const coords = (points: XY[]) => points.map((p) => p[axis]);
@@ -233,10 +270,34 @@ function checkBandFinish(
 	else if (b.use === 'food') expect(sill?.finish).toBe('holz-natur');
 }
 
-test('every inhabited storey has a registry terrace planter',()=>{
- for(const type of typologies){
- const s=specimen(type==='courtyard-house'?4:2,type);
- const furniture=sectionParts(s).filter(p=>p.source.objectId==='rolled-lip-planter');
- expect(furniture.length,type).toBe(s.decks.length);
- }
+test('every inhabited storey has a registry terrace planter', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
+		const furniture = sectionParts(s).filter(
+			(p) => p.source.objectId === 'rolled-lip-planter' && p.id.includes('/level/')
+		);
+		expect(furniture.length, type).toBe(s.decks.length);
+	}
+});
+
+test('public flights span two 1.25 m stock plates at each riser', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
+		if (s.compact) continue;
+		expect(circulation(s).width, type).toBe(2.5);
+		const parts = sectionParts(s),
+			halves = parts.filter((p) => p.id.includes('/stair/') && p.id.endsWith('/tread/outer'));
+		expect(halves.length, type).toBeGreaterThan(0);
+		for (const second of halves) {
+			if (second.kind !== 'prism') throw Error('Expected a second registered tread');
+			expect(second.height).toBeLessThanOrEqual(0.25);
+			const first = parts.find((p) => p.id === second.id.slice(0, -6));
+			if (first?.kind !== 'prism') throw Error('Missing inside tread');
+			const span = Math.hypot(
+				first.polygon[0][0] - second.polygon[3][0],
+				first.polygon[0][1] - second.polygon[3][1]
+			);
+			expect(span).toBeCloseTo(2.5);
+		}
+	}
 });

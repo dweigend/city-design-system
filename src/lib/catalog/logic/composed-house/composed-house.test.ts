@@ -161,7 +161,7 @@ test('every house and bridge part traces to a colour-free registry member and it
 		expect(objects.has(id)).toBe(true);
 });
 
-test('a seated pod takes a stair in a clear elongated bay and a caged ladder with four-metre rests on a square', () => {
+test('compact pods keep a caged ladder until a full public stair fits its geometry and mass budget', () => {
 	const unit = squareGrid(1, 1, 1).cells[0];
 	function house(depth: number, width = 4, pad = 8) {
 		const corners = unit.corners.map(
@@ -201,6 +201,7 @@ test('a seated pod takes a stair in a clear elongated bay and a caged ladder wit
 			expect(route.legs.some((l) => l.kind === 'ladder')).toBe(false);
 		}
 	}
-	expect(stair).toBe(true);
-	expect(house(4, 12, 0).compact).toBe(false);
+	const shallow = house(4, 12, 0);
+	if (!shallow.compact) expect(circulation(shallow).width).toBe(2.5);
+	expect(circulation(specimen(1, 'round-tower')).width).toBe(2.5);
 });

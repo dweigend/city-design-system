@@ -8,7 +8,6 @@ function direct(a: HouseComposition, b: HouseComposition) {
 function bridgeKind(a: HouseComposition, b: HouseComposition, span: number): Bridge['kind'] {
 	if (span < 0.3) return 'platform';
 	if ([a.typology, b.typology].includes('bridge-house')) return 'bridge-house';
-	if (a.typology === 'capsule-stack' && b.typology === 'capsule-stack') return 'tube';
 	return 'walkway';
 }
 function bridge(a: HouseComposition, b: HouseComposition, p: Port, q: Port, span: number): Bridge {
