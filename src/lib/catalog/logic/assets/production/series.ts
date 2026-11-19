@@ -61,3 +61,14 @@ export function series(
 export function pillow(from: Vec3, to: Vec3, radius: number, slot: Slot): ObjectGeometry {
 	return { ...surface(slot), kind: 'capsule', from, to, radius };
 }
+
+/** Seamless inflated band resting around the supplied centre. */
+export function tubeRing(
+	position: Vec3,
+	radius: number,
+	tube: number,
+	axis: 'x' | 'z',
+	slot: Slot
+): ObjectGeometry {
+	return { ...surface(slot), kind: 'torus', axis, position, radius, tube };
+}
