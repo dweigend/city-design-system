@@ -60,13 +60,13 @@ export function createStructures() {
 		if (previous) release(previous.objects);
 		entries.delete(key);
 		if (!primitives.length) return;
-		const drawing = distanceDrawing(primitives, distance);
+		const drawing = distanceDrawing(primitives, distance, previous?.drawing.contours);
 		entries.set(key, { primitives, drawing, cellId, objects: draw(drawing, cellId) });
 	}
 
 	function redraw(recolor: boolean) {
 		for (const entry of entries.values()) {
-			const drawing = distanceDrawing(entry.primitives, distance);
+			const drawing = distanceDrawing(entry.primitives, distance, entry.drawing.contours);
 			if (!recolor && sameDrawing(entry.drawing, drawing)) continue;
 			release(entry.objects);
 			entry.drawing = drawing;

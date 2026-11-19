@@ -124,7 +124,7 @@ export function contourWidthMeters(part: Primitive, elevation: number): number {
 		case 'prism':
 			return prismWidth(rotated(part.polygon, part.rotation ?? 0), part.height, camera);
 		case 'box':
-			return prismWidth(boxPolygon(part.position, part.size, part.rotation), part.size[2], camera);
+			return prismWidth(boxPolygon([0, 0, 0], part.size, part.rotation), part.size[2], camera);
 		case 'membrane':
 			if (!part.sag) return narrowSpan(convexHull(part.corners.map(camera.point)));
 			return builtWidth(part, camera);

@@ -197,3 +197,56 @@ test('city ceramic loses only its outline below six projected pixels', async () 
 		layer.dispose();
 	}
 });
+
+test('the city ceramic switches once in each zoom direction and starts fresh after clear', async () => {
+	const layer = await structureLayer();
+	try {
+		const body = installationView(installed, 'all', true).find(
+			(p) => p.kind === 'mesh' && p.token === '--paper'
+		);
+		assert(body);
+		const style = sandboxStyle(
+			{ zoom: 'stadt', modus: 'ansehen', situation: 'normal' },
+			'leitstil'
+		);
+		for (const elevation of [BLICK.hoeheRad, (11 * Math.PI) / 180, Math.PI / 2]) {
+			const boundary = 6 / contourWidthMeters(body, elevation);
+			const setScale = (ratio: number) =>
+				layer.setStyle([style, 'leitstil', boundary * ratio], elevation);
+			const visible = () => {
+				const [face] = layer.solids('body');
+				assert(face instanceof T.Mesh && face.parent && face.userData.cellId === '90/40');
+				return face.parent.children.some(
+					(o) => o instanceof T.Mesh && o !== face && o.geometry === face.geometry
+				);
+			};
+			layer.clear();
+			setScale(1);
+			layer.set('body', [body], '90/40');
+			const sweep = [1, 0.999, 1.001, 0.9, 0.899, 0.999, 1.001, 0.999, 1.1, 1.101, 1.001, 0.999];
+			const states = sweep.map((r) => {
+				setScale(r);
+				return visible();
+			});
+			assert.deepEqual(states, [
+				true,
+				true,
+				true,
+				true,
+				false,
+				false,
+				false,
+				false,
+				false,
+				true,
+				true,
+				true
+			]);
+			layer.clear();
+			layer.set('body', [body], '90/40');
+			assert.equal(visible(), false);
+		}
+	} finally {
+		layer.dispose();
+	}
+});

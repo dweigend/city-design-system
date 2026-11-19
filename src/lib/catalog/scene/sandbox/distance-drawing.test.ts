@@ -107,3 +107,23 @@ test('oblique indexed panels use the minimum silhouette width and ignore unused 
 	expect(contourWidthMeters(mesh, Math.PI / 2)).toBeCloseTo(Math.SQRT2, 10);
 	expect(contourWidthMeters({ ...mesh, triangles: [0, 0, 0] }, Math.PI / 2)).toBe(0);
 });
+
+test('translated and rotated garden trays keep the inclusive six-pixel plan contour', () => {
+	for (const x of [0, 43.380373247743925, 1e14]) {
+		const tray: Primitive = {
+			id: 'tray',
+			kind: 'box',
+			role: 'neu',
+			material: 'glaze',
+			token: '--paper',
+			position: [x, -x, 24.59],
+			size: [4, 3, 0.5],
+			rotation: 1.7534404827208785
+		};
+		const distance = { ...city, scale: 2 };
+		expect(contourWidthMeters(tray, city.elevation) * 2).toBeCloseTo(6, 10);
+		expect(distanceDrawing([tray], distance).unoutlined.size).toBe(0);
+		expect(distanceDrawing([tray], { ...distance, scale: 2 * (1 - 1e-7) }).unoutlined.size).toBe(0);
+		expect(distanceDrawing([tray], { ...distance, scale: 2 * (1 - 2e-6) }).unoutlined.size).toBe(1);
+	}
+});
