@@ -206,11 +206,7 @@
 			>
 				{#snippet icon()}<Icon icon={Redo2} size={24} />{/snippet}
 			</Button>
-			<Button
-				variant="icon"
-				label="New terrain"
-				onclick={() => session.restart(session.world.seed + 1)}
-			>
+			<Button variant="icon" label="New terrain" onclick={session.restart}>
 				{#snippet icon()}<Icon icon={Dices} size={24} />{/snippet}
 			</Button>
 		</div>

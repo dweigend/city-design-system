@@ -4,6 +4,7 @@ import { createSessionActions } from './session-actions';
 import { focuses, type FocusId } from '../logic/presentation';
 import {
 	openingScene,
+	beginStroke,
 	traceStroke,
 	type Stroke,
 	type Tool,
@@ -24,8 +25,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	const completion = $derived(state.completion);
 	let roofBuilder = $state.raw<typeof startingWorld.roofBuilder>();
 	const projected = $derived(roofBuilder ? { ...world, roofBuilder } : world);
-	let stroke = $state.raw<Pick<Stroke, 'cellIds' | 'lastPointerCellId'>>();
-	let strokeTool: Tool | undefined;
+	let stroke = $state.raw<Stroke>();
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
 
 	const methods = $derived(stylesForYear(world.state.year));
@@ -41,6 +41,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get completion() {
 			return completion;
 		},
+		onCompletion: actions.onCompletion,
 		opening: { additions, additionSeed: initialSeed, referenceCellId },
 		get timelineWindow() {
 			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
@@ -55,9 +56,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			const keys = Object.keys(focuses) as FocusId[];
 			focus = keys[(keys.indexOf(focus) + 1) % keys.length];
 		},
-		advance() {
-			if (!stroke) actions.advance();
-		},
+		advance: actions.advance,
 		get tool() {
 			return selectedTool;
 		},
@@ -81,8 +80,8 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get world() {
 			return projected;
 		},
-		get previewCells() {
-			return stroke?.cellIds ?? [];
+		get gesture() {
+			return stroke;
 		},
 		get failure() {
 			return stroke ? undefined : state.rejection;
@@ -93,38 +92,29 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get canRedo() {
 			return state.canRedo;
 		},
-		strokeStart(cellId: string | undefined) {
-			strokeTool = selectedTool;
-			stroke = { cellIds: [], lastPointerCellId: undefined };
-			if (cellId) stroke = traceStroke(world.grid, stroke, cellId);
+		/** Starts a gesture on the snapshot the picker used for the first hit. */
+		strokeStart(base: Stroke['base'], cellId: string | undefined) {
+			const started = beginStroke(selectedTool, base);
+			stroke = cellId ? { ...started, ...traceStroke(base.grid, started, cellId) } : started;
 		},
 		strokeMove(cellId: string) {
-			if (stroke) stroke = traceStroke(world.grid, stroke, cellId);
+			if (!stroke) return;
+			const trace = traceStroke(stroke.base.grid, stroke, cellId);
+			if (trace !== stroke) stroke = { ...stroke, ...trace };
 		},
 		/** Detaches the completed gesture so that its first feedback can paint before the edit. */
 		strokeRelease(): StrokeRelease | undefined {
-			const release =
-				stroke?.cellIds.length && strokeTool
-					? { tool: strokeTool, cellIds: stroke.cellIds }
-					: undefined;
+			const release = stroke;
 			stroke = undefined;
-			strokeTool = undefined;
-			if (release) actions.release(release);
-			return release;
+			if (release?.cellIds.length && actions.release(release)) return release;
 		},
 		commitRelease: actions.commitRelease,
 		strokeCancel() {
 			stroke = undefined;
-			strokeTool = undefined;
 		},
 		undo: actions.undo,
 		redo: actions.redo,
-		/** New terrain from a seed; the built city starts with its seeded town. */
-		restart(seed: number) {
-			stroke = undefined;
-			strokeTool = undefined;
-			actions.restart(seed);
-		}
+		restart: actions.restart
 	};
 }
 

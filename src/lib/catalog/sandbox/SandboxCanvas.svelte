@@ -48,7 +48,9 @@
 	}>();
 	const releaseFrames = new SvelteSet<number>();
 
-	const hovered = $derived(hoveredId ? session.world.grid.cellsById.get(hoveredId) : undefined);
+	const previewWorld = $derived(session.gesture?.base ?? session.world);
+	const previewTool = $derived(session.gesture?.tool ?? session.tool);
+	const hovered = $derived(hoveredId ? previewWorld.grid.cellsById.get(hoveredId) : undefined);
 	let hover = $state.raw<ReturnType<typeof createCanvasHover>>();
 
 	function queueFrame(callback: () => void) {
@@ -61,20 +63,30 @@
 
 	function showResponse(view: SandboxStage['view'], release: StrokeRelease) {
 		const kind = release.tool.kind;
-		const cell = session.world.grid.cellsById.get(release.cellIds[0]);
+		const cell = release.base.grid.cellsById.get(release.cellIds[0]);
 		if (!cell) return;
 		const width = (kind === 'dig' ? 2 * DIG_RADIUS_M : MODULE) / view.metersPerPixel();
 		response = { kind, width, ...view.project(cell.center) };
 		onresponse(release.tool);
 	}
 
-	function releaseStroke(view: SandboxStage['view'], releasedAt: number) {
+	function releaseStroke(
+		view: SandboxStage['view'],
+		releasedAt: number,
+		target: ReturnType<typeof createCanvasHover>
+	) {
 		const release = session.strokeRelease();
-		if (!release) return;
+		if (!release) {
+			target.endStroke();
+			return;
+		}
 		showResponse(view, release);
 		queueFrame(() => {
 			canvas.dataset.responseMs = String(performance.now() - releasedAt);
-			queueFrame(() => session.commitRelease(release));
+			queueFrame(() => {
+				session.commitRelease(release);
+				if (!session.gesture) target.endStroke();
+			});
 		});
 	}
 
@@ -86,7 +98,12 @@
 		});
 		void current.ready.catch(() => {});
 		const target = createCanvasHover(current, (id) => (hoveredId = id));
+		const cancelStroke = () => {
+			session.strokeCancel();
+			target.endStroke();
+		};
 		const resize = () => {
+			cancelStroke();
 			current.resize(host.clientWidth, host.clientHeight);
 			target.refresh();
 		};
@@ -97,15 +114,17 @@
 			draws: () => session.tool.kind !== 'look',
 			hover: target.move,
 			strokeStart: (x, y) => {
-				session.strokeStart(target.move({ x, y })?.id);
+				const picked = target.startStroke({ x, y });
+				if (picked) session.strokeStart(picked.world, picked.cell?.id);
 			},
 			strokeMove: (x, y) => {
 				const cell = target.move({ x, y });
 				if (cell) session.strokeMove(cell.id);
 			},
-			strokeEnd: (releasedAt) => releaseStroke(current.view, releasedAt),
-			strokeCancel: session.strokeCancel,
+			strokeEnd: (releasedAt) => releaseStroke(current.view, releasedAt, target),
+			strokeCancel: cancelStroke,
 			viewChanged: (position) => {
+				cancelStroke();
 				current.viewChanged();
 				if (position) target.move(position);
 				else target.refresh();
@@ -136,6 +155,7 @@
 		hover?.show(world, focus, place);
 	});
 	$effect(() => {
+		if (session.gesture) return;
 		stage?.setPlan(plan);
 		hover?.refresh();
 	});
@@ -147,19 +167,17 @@
 		else current.setLens(0, 0, 0);
 	}
 
-	const previewCells = $derived(
-		session.previewCells.length ? session.previewCells : hovered ? [hovered.id] : []
-	);
+	const previewCells = $derived(session.gesture?.cellIds ?? (hovered ? [hovered.id] : []));
 
 	function updateCursor(current: SandboxStage) {
-		if (session.tool.kind === 'look') {
+		if (previewTool.kind === 'look') {
 			current.setLens(0, 0, 0);
 			current.setCursor([]);
 			return;
 		}
 		const target = hovered ? cursorTarget(hovered) : [];
 		updateLens(current);
-		current.setCursor(strokePreview(session.world, session.tool, previewCells), target);
+		current.setCursor(strokePreview(previewWorld, previewTool, previewCells), target);
 	}
 
 	$effect(() => {
@@ -175,7 +193,7 @@
 	<canvas bind:this={canvas} tabindex="0" aria-label={label}></canvas>
 	<StrokeResponse {response} />
 	<StoreFlight
-		completion={session.completion}
+		onCompletion={session.onCompletion}
 		destination={storeTarget}
 		project={(point) => stage?.view.project(point)}
 	/>

@@ -36,9 +36,7 @@
 	let transitPaused = $state(false);
 	const sound = createSandboxSound();
 	$effect(() => sound.dispose);
-	$effect(() => {
-		if (session.completion) sound.play(session.completion);
-	});
+	$effect(() => session.onCompletion(sound.play));
 
 	const pathsLabel = focusModes.find((mode) => mode.id === 'wege')?.name ?? 'Paths';
 	const focusLabel = $derived(session.focus === 'people' ? pathsLabel : session.focus);

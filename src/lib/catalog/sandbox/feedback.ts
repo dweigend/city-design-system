@@ -2,7 +2,7 @@ import { STORY } from '../data/grid';
 import type { Vec3 } from '../logic/parametrik/types';
 import type { Tool, World } from '../logic/sandbox';
 
-export type StrokeRelease = Readonly<{ tool: Tool; cellIds: readonly string[] }>;
+export type StrokeRelease = Readonly<{ base: World; tool: Tool; cellIds: readonly string[] }>;
 
 export type Completion = Readonly<{
 	kind: Tool['kind'] | 'advance';

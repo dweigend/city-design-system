@@ -17,7 +17,7 @@ type Command =
 	| {
 			kind: 'undo' | 'redo' | 'advance';
 	  }
-	| { kind: 'restart'; seed: number };
+	| { kind: 'restart' };
 
 type SessionState = Readonly<{
 	world: World;
@@ -38,6 +38,7 @@ export function createSessionActions(
 	let completion: Completion | undefined;
 	let rejection: Stroke['failure'];
 	const queue: Command[] = [];
+	const completionListeners = new Set<(value: Completion) => void>();
 
 	function snapshot(): SessionState {
 		return {
@@ -54,6 +55,7 @@ export function createSessionActions(
 		completion = { kind, before: world, after: next, cellIds };
 		world = next;
 		history = commit(history, next.state);
+		for (const listener of completionListeners) listener(completion);
 	}
 
 	function restore(next: typeof history) {
@@ -63,7 +65,12 @@ export function createSessionActions(
 		completion = undefined;
 	}
 
+	function matches({ base }: StrokeRelease) {
+		return base.seed === world.seed && base.state === world.state;
+	}
+
 	function place(release: StrokeRelease) {
+		if (!matches(release)) return;
 		const { tool, cellIds } = release;
 		const { draft, failure } = applyStroke(world, tool, cellIds);
 		rejection = failure;
@@ -82,7 +89,7 @@ export function createSessionActions(
 			case 'advance':
 				return edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance');
 			case 'restart':
-				world = openingScene(command.seed).world;
+				world = openingScene(world.seed + 1).world;
 				history = startHistory(world.state);
 				completion = undefined;
 		}
@@ -105,10 +112,20 @@ export function createSessionActions(
 
 	return {
 		snapshot,
-		/** Reserves a stroke's position before its first feedback frame. */
+		/** Delivers each completed edit before the next queued command executes. */
+		onCompletion(listener: (value: Completion) => void) {
+			completionListeners.add(listener);
+			return () => {
+				completionListeners.delete(listener);
+			};
+		},
+		/** Reserves a stroke only if its displayed world still belongs at the end of the queue. */
 		release(release: StrokeRelease) {
+			if (!matches(release)) return false;
+			if (queue.some(({ kind }) => kind === 'restart')) return false;
 			queue.push({ kind: 'stroke', release, ready: false });
 			publish(snapshot());
+			return true;
 		},
 		/** Marks this stroke ready to commit after feedback. Earlier commands still go first. */
 		commitRelease(release: StrokeRelease) {
@@ -122,7 +139,7 @@ export function createSessionActions(
 		undo: () => enqueue({ kind: 'undo' }),
 		redo: () => enqueue({ kind: 'redo' }),
 		advance: () => enqueue({ kind: 'advance' }),
-		restart: (seed: number) => enqueue({ kind: 'restart', seed }),
+		restart: () => enqueue({ kind: 'restart' }),
 		/** Clears the last survey mark when switching tools or construction methods. */
 		clearRejection() {
 			rejection = undefined;

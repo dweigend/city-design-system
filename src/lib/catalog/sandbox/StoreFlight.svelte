@@ -4,57 +4,71 @@
 	import { storedModules, type Completion } from './feedback';
 
 	let {
-		completion,
+		onCompletion,
 		destination,
 		project
 	}: {
-		completion?: Completion;
+		onCompletion: (listener: (value: Completion) => void) => () => void;
 		destination?: HTMLElement;
 		project: (point: Vec3) => { x: number; y: number } | undefined;
 	} = $props();
 	let overlay: HTMLDivElement;
-	let flights = $state.raw<{ x: number; y: number }[]>([]);
-	let endX = $state(0);
-	let endY = $state(0);
+	type Flight = {
+		endX: number;
+		endY: number;
+		points: { x: number; y: number }[];
+	};
+	let flights = $state.raw<Flight[]>([]);
+	const timers = new Set<ReturnType<typeof setTimeout>>();
 
-	const returnsModules = new Set(['dig', 'erase']);
-	const transfer = $derived(
-		completion && returnsModules.has(completion.kind) ? completion : undefined
-	);
-
-	function setDestination(element: HTMLElement) {
-		const target = element.getBoundingClientRect();
+	function startFlight(completion: Completion) {
+		if (completion.kind !== 'dig' && completion.kind !== 'erase') return;
+		if (!destination || !overlay) return;
+		const points = storedModules(completion).flatMap((point) => project(point) ?? []);
+		if (!points.length) return;
+		const target = destination.getBoundingClientRect();
 		const local = overlay.getBoundingClientRect();
-		endX = target.x + target.width / 2 - local.x;
-		endY = target.y + target.height / 2 - local.y;
+		const flight = {
+			endX: target.x + target.width / 2 - local.x,
+			endY: target.y + target.height / 2 - local.y,
+			points
+		};
+		flights = [...flights, flight];
+		const timer = setTimeout(() => {
+			timers.delete(timer);
+			flights = flights.filter((active) => active !== flight);
+		}, sandboxMotion.responseMs);
+		timers.add(timer);
 	}
 
-	$effect(() => {
+	function clearFlights() {
+		for (const timer of timers) clearTimeout(timer);
+		timers.clear();
 		flights = [];
-		if (!transfer || !destination || !overlay) return;
-		setDestination(destination);
-		flights = storedModules(transfer).flatMap((point) => project(point) ?? []);
-	});
+	}
+
+	$effect(() => onCompletion(startFlight));
+	$effect(() => clearFlights);
 </script>
 
 <svelte:document
 	onvisibilitychange={() => {
-		if (document.hidden) flights = [];
+		if (document.hidden) clearFlights();
 	}}
 />
 <div
 	class="flight"
 	bind:this={overlay}
 	aria-hidden="true"
-	style:--end-x="{endX}px"
-	style:--end-y="{endY}px"
 	style:--duration="{sandboxMotion.responseMs}ms"
 >
-	{#key completion}
-		{#each flights as { x, y }, index (index)}
-			<span class="module" style:--start-x="{x}px" style:--start-y="{y}px"></span>
-		{/each}
-	{/key}
+	{#each flights as flight (flight)}
+		<div style:--end-x="{flight.endX}px" style:--end-y="{flight.endY}px">
+			{#each flight.points as { x, y }, index (index)}
+				<span class="module" style:--start-x="{x}px" style:--start-y="{y}px"></span>
+			{/each}
+		</div>
+	{/each}
 </div>
 
 <style>
