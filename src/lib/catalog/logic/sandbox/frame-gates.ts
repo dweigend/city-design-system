@@ -62,9 +62,11 @@ export function surveyGates(
 			houses: [a.id, b.id],
 			use: kind === 'mainAlley' ? 'frontage' : 'shore',
 			district,
-			character: characters.get(district) ?? 'core',
+			character: characters.get(district) ?? 'neutral',
 			districtEdge: false,
 			gate: true,
+ transverse: kind,
+ adjacentCharacter: characters.get(world.grid.cellsById.get(b.id)?.block ?? road.block),
 			blocker: road.id,
 			intent: world.state.frameIntents?.get(id)
 		});

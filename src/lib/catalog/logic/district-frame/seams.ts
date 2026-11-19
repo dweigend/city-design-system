@@ -94,7 +94,7 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 				proposal = { role: 'gap', reason: 'detached-spur' };
 			const built = state.get(id)?.built;
 			if (built && (built === 'main' || proposal.role === 'gap'))
-				proposal = { role: built, reason: 'built' };
+				proposal = { role: built, reason: s.intent && proposal.role !== s.intent ? proposal.reason : s.intent && s.intent !== built ? 'protected-stock' : 'built' };
 			result.set(id, proposal);
 		}
 		return result;
@@ -126,7 +126,8 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			const [decision] = solve([id], state, seed).values();
 			return {
 				...decision,
-				blocker: byId.get(id)?.blocker,
+				ruleId: decision.reason,
+ blocker: byId.get(id)?.blocker ?? id,
 				diagnostics: omissionMeasures.map((measure) => ({
 					measure,
 					value: evidence[measure] ?? null

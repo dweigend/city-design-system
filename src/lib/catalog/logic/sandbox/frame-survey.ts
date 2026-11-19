@@ -15,6 +15,8 @@ import { buildingPlots } from './building-plots';
 
 import { surveyGates } from './frame-gates';
 
+import { courtOpenings } from './court-openings';
+import { seamIncidence,seamVertices } from './seam-incidence';
 const policy = seamPolicy();
 const districts = new WeakMap<TerrainGrid, Map<string, Character>>();
 function characters(grid: TerrainGrid) {
@@ -31,7 +33,8 @@ function characters(grid: TerrainGrid) {
 		const border = cell.neighbors.flatMap((id) => (id ? (grid.cellsById.get(id) ?? []) : []));
 		if (border.some((n) => n.plan.kind === 'riversidePromenade')) result.set(cell.block, 'shore');
 		else if (border.some((n) => n.zone === 'scarp')) result.set(cell.block, 'slope');
-		else if (!old) result.set(cell.block, 'core');
+		else if(old!=='slope' && (cell.neighbors.includes(null)||border.some(n=>n.zone==='water'))) result.set(cell.block,'neutral');
+ else if (!old) result.set(cell.block, 'core');
 	}
 	districts.set(grid, result);
 	return result;
@@ -60,41 +63,33 @@ function opening(
 	side: number
 ) {
 	if (!other) return 'rim';
+ const court=courtOpenings(grid).get(JSON.stringify(seamVertices(house,side)));
+ if(court)return court;
+ if(house.plan.square && other.plan.square)return 'square-interior';
 	if (other.zone === 'water' || house.zone === 'water') return 'water';
 	if (house.zone === 'scarp' && other.zone === 'scarp') return 'scarp-interior';
-	const rank = other.plan.kind;
+	const rank = other.plan.kind ?? house.plan.kind;
 	if (rank === 'alley' || rank === 'stairAlley' || rank === 'footbridge') return 'passage';
 	if (house.plan.edgePassage && house.alleyEdges & (1 << side)) return 'reserved-frontage';
-	if (other.plan.square) {
-		const face = other.neighbors.indexOf(house.id);
-		const near = other.neighbors.map((id) => (id ? grid.cellsById.get(id) : undefined));
-		const entry = near.findIndex((n) => n && !n.plan.square && n.plan.kind !== null);
-		if (entry < 0 && near.every((n) => !n?.plan.square) && face === 0) return 'square-entrance';
-		if (
-			entry >= 0 &&
-			(face === entry ||
-				(face === (entry + 2) % 4 &&
-					near.some((n) => n?.zone === 'water' || n?.plan.kind === 'riversidePromenade')))
-		)
-			return 'square-entrance';
-	}
+	
 }
 
 import type { BaySurvey } from '../megastructure';
 /** Surveys incident terrain seams and records the supporting wall and a return wall on the same roof. */
-export function frameSurvey(world: World, ids: Iterable<string> = world.state.stacks.keys()) {
+export function frameSurvey(world: World, includeEmpty = false) {
 	const { grid, state, seed } = world;
 	const plots = buildingPlots(grid);
 	const seams = new Map<string, FrameSeam>(),
 		bays = new Map<string, BaySurvey>();
-	const character = characters(world.districtGrid ?? grid);
+	const character = characters(grid);
+ const incidence=seamIncidence(grid);
 	const roads = new Map<string, TerrainCell>();
 	const attachments = new Set(
 		[...state.parts.values()].flatMap((p) =>
 			p.kind === 'module' || p.recipe === 'walkway' ? [p.anchor.cellId] : []
 		)
 	);
-	for (const id of ids) {
+	for (const id of state.stacks.keys()) {
 		const cell = grid.cellsById.get(id),
 			plot = plots.cellsById.get(id);
 		const count = state.stacks.get(id)?.length ?? 0;
@@ -143,7 +138,11 @@ export function frameSurvey(world: World, ids: Iterable<string> = world.state.st
 				houses: other && stories ? [id, other.id] : [id],
 				intent: state.frameIntents?.get(key),
 				district: cell.block,
-				character: character.get(cell.block) ?? 'core',
+				character: character.get(cell.block) ?? 'neutral',
+ adjacentCharacter: other && character.get(other.block),
+ higherSide: otherHeight === height ? undefined : id,
+ roofDifference: otherHeight === undefined ? undefined : height-otherHeight,
+ frontage: other?.plan.kind ?? undefined,
 				use: edgeUse(cell, other, otherHeight === undefined ? undefined : height - otherHeight),
 				districtEdge: !!other && other.block !== cell.block,
 				opening: opening(cell, other, grid, side) ?? (!wall.exposed[side] || returnSide===undefined ? 'no-wall-bearing' : undefined),
@@ -153,7 +152,14 @@ export function frameSurvey(world: World, ids: Iterable<string> = world.state.st
 		}
 	}
 	surveyGates(world, roads.values(), plots, character, seams, bays);
-	const sides = new Map<string, string[]>();
+	if(includeEmpty)for(const edge of incidence.values()){
+ if(seams.has(edge.id))continue;
+ const [a,b]=edge.sides;
+ const cell=grid.cellsById.get(a.cellId),other=b && grid.cellsById.get(b.cellId);
+ if(!cell)continue;
+ seams.set(edge.id,{id:edge.id,vertices:edge.vertices,houses:[],district:cell.block,character:character.get(cell.block)??'neutral',districtEdge:!!other&&cell.block!==other.block,use:'land',opening:opening(cell,other,grid,a.side)??'unoccupied',blocker:other?.id});
+ }
+ const sides = new Map<string, string[]>();
 	for (const s of seams.values())
 		for (const h of s.houses) {
 			const list = sides.get(h) ?? [];
@@ -172,8 +178,9 @@ export function frameSurvey(world: World, ids: Iterable<string> = world.state.st
 		return { ...bay, gaps };
 	}
 	return {
-		seams,
-		bays,
+		incidence,
+ seams,
+ bays,
 		supportedBay,
 		characters: character,
 		rules: compileSeams(seams.values(), policy),
