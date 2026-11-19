@@ -9,6 +9,7 @@ import { livingCapsule } from './living-capsule';
 import { tankCapsule } from './tank-capsule';
 import { dome } from './dome';
 import { barrelVault } from './barrel-vault';
+import { sawtooth } from './sawtooth';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -20,5 +21,6 @@ export const recipes: readonly AssetRecipe[] = [
 	livingCapsule,
 	tankCapsule,
 	dome,
-	barrelVault
+	barrelVault,
+	sawtooth
 ];
