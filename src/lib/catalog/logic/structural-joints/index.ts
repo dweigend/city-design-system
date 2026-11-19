@@ -16,13 +16,14 @@ type Seat =
 	| 'rail-saddle';
 export type StructuralContact = {
 	member: Part;
+	/** For terrain, use the stable ground patch ID and its usable bearing width in metres. */
 	support: Part;
 	seat: Seat;
 	/** Stable site ID within the directed member/support pair. */
 	anchor: string;
 	owner: string;
 	built: number;
-	/** World-space centre of the member end on the exposed support plane, in metres. */
+	/** World-space member endpoint on the surveyed support face, in metres. The planner ends the member here. */
 	point: Vec3;
 	/** Axis of the circular member or its bounding cylinder, directed away from the support. */
 	axis: Vec3;

@@ -117,3 +117,39 @@ test('oblique members meet a level crest without crossing the surveyed face', ()
 		expect(heights.filter((h) => Math.abs(h) < 1e-10).length).toBeGreaterThanOrEqual(32);
 	}
 });
+
+test('a city-edge run bears directly on the ground at both column endpoints', () => {
+	// The terrain rises one metre over the eight-metre run. Both columns are vertical.
+	const ground = (x: number) => 3 + x / 8;
+	const contacts: StructuralContact[] = [0, 8].map((x) => ({
+		member: { id: 'edge-column/' + x, diameter: 0.4 },
+		support: { id: 'terrain/riverbank', diameter: 2 },
+		seat: 'terrain',
+		point: [x, 0, ground(x)],
+		axis: [0, 0, 1],
+		supportNormal: [-1 / 8, 0, 1],
+		owner: 'edge-run',
+		anchor: 'foot',
+		built: 2026,
+		stroke: 'main'
+	}));
+	const shoes = deriveStructuralJoints(contacts);
+	expect(shoes).toHaveLength(2);
+	for (const [i, shoe] of shoes.entries()) {
+		expect(shoe.point).toEqual(contacts[i].point);
+		expect(shoe.type).toBe('shoe');
+		const [plate, dot] = shoe.geometry;
+		expect([plate.feature, dot.feature]).toEqual(['plate', 'dot']);
+		const clearance = ([x, , z]: Vec3) => shoe.point[2] + z - ground(shoe.point[0] + x);
+		expect([...plate.points, ...dot.points].every((p) => clearance(p) >= -1e-10)).toBe(true);
+		// An underside triangle with positive area bears on the ground across its whole face.
+		let bearingArea = 0;
+		for (let j = 0; j < plate.triangles.length; j += 3) {
+			const face = plate.triangles.slice(j, j + 3).map((k) => plate.points[k]);
+			if (!face.every((p) => Math.abs(clearance(p)) < 1e-10)) continue;
+			const [a, b, c] = face;
+			bearingArea += Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+		}
+		expect(bearingArea).toBeGreaterThan(0);
+	}
+});
