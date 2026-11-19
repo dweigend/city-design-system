@@ -11,7 +11,7 @@ import { populateStructures } from './structure-parts';
 export async function createAssetPlate(host: HTMLElement) {
 	const canvas = document.createElement('canvas');
 	const palette = readPalette(host);
-	const stage = createParametrikScene(canvas, palette, () => {}, false);
+	const stage = createParametrikScene(canvas, palette, () => {}, false, true);
 	try {
 		await stage.ready;
 	} catch (error) {
@@ -33,6 +33,8 @@ export async function createAssetPlate(host: HTMLElement) {
 	const dot = new THREE.SphereGeometry(0.04);
 	return {
 		async photo(parts: Primitive[]) {
+			// The studio depth and AO passes update once per animation frame.
+			await new Promise<void>((done) => requestAnimationFrame(() => done()));
 			const group = populateStructures(parts, finishes, dot);
 			try {
 				return await stage.snapshotDrawing(group, [1, -1.45, 0.55]);
