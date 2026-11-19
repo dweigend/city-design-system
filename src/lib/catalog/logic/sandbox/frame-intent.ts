@@ -1,34 +1,44 @@
-import { compileSeams } from '../district-frame';
 import { frameSurvey } from './frame-survey';
-import { rejected, type Failure } from './installation-parts';
+import { initialTimeline } from './frame-planning';
+import { seamVertices } from './seam-incidence';
+import type { Failure } from './installation-parts';
 import type { World } from './world';
 
-/** Places compatible player intent on the surveyed frontage. A refused stroke preserves its world. */
+/** Interprets a painted frontage as a persistent frame goal. Alternatives stay on painted parcels. */
 export function frameIntent(
 	world: World,
 	ids: readonly string[]
 ): { draft: World; failure?: Failure } {
-	const cells = ids.flatMap((id) => world.grid.cellsById.get(id) ?? []);
-	const selected = new Set(ids);
-	const survey = frameSurvey(world);
-	const intents = new Map(world.state.frameIntents);
-	const touched = [...survey.seams.values()].filter((s) => s.houses.some((id) => selected.has(id)));
-	const requested = new Map(survey.seams);
-	for (const s of touched) requested.set(s.id, { ...s, intent: 'main' });
-	const decisions = compileSeams(requested.values()).solve(
-		touched.map((s) => s.id),
-		world.state.frameBays ?? new Map(),
-		world.seed
-	);
-	let reason = 'no-frame-edge';
-	for (const [id, decision] of decisions) {
-		if (decision.reason === 'intent' && decision.role === 'main')
-			intents.set(id, 'main');
-		else reason = decision.reason;
-	}
-	if (![...intents].some(([id,role])=>world.state.frameIntents?.get(id)!==role)) {
-		const proposal = rejected(reason, cells);
-		return { draft: world, ...('failure' in proposal ? { failure: proposal.failure } : {}) };
-	}
-	return { draft: { ...world, state: { ...world.state, frameIntents: intents } } };
+	const first = world.grid.cellsById.get(ids[0]);
+	if (!first) return { draft: world };
+	const selected = new Set(ids),
+		survey = frameSurvey(world);
+	const touched = [...survey.seams.values()]
+		.filter((s) => s.houses.some((h) => selected.has(h)))
+		.sort(
+			(a, b) =>
+				Number(b.houses.includes(first.id)) - Number(a.houses.includes(first.id)) ||
+				Number(b.use === 'court' || b.use === 'shore') -
+					Number(a.use === 'court' || a.use === 'shore') ||
+				(a.id < b.id ? -1 : 1)
+		);
+	const literal = touched[0]?.id ?? JSON.stringify(seamVertices(first, 0));
+	const alternative = touched
+		.slice(1)
+		.find((s) => !s.opening && s.vertices.some((v) => touched[0]?.vertices.includes(v)));
+	const base = world.state.frameTimeline ?? initialTimeline;
+	const goal = {
+		id: 'stroke/' + world.state.nextAction,
+		literal,
+		alternatives: alternative ? [alternative.id] : [],
+		houses: [...selected],
+		created: base.tick
+	};
+	const timeline = { ...base, goals: [...base.goals, goal] };
+	return {
+		draft: {
+			...world,
+			state: { ...world.state, nextAction: world.state.nextAction + 1, frameTimeline: timeline }
+		}
+	};
 }

@@ -1,4 +1,4 @@
-import { frameSurvey } from './frame-survey';
+import { advanceFrames } from './frame-construction';
 import { walkwayParts, WALKWAY_WIDTH_M } from '../walkway';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { applyEdit, createWorld, type World } from './world';
@@ -72,10 +72,11 @@ function elevatedWalkway({ grid }: World): Primitive[] {
 export function acceptanceScene(seed = SEED) {
 	const start = createWorld(seed);
 	const placed = interventions().reduce(applyEdit, start);
-	const { rules, seams } = frameSurvey(placed);
-	const first = rules.tick(seams.keys(), new Map(), seed, start.state.year - 1);
-	const built = rules.tick(seams.keys(), first, seed, start.state.year);
-	const world = { ...placed, state: { ...placed.state, frameBays: new Map([...first, ...built]) } };
+	const first = {
+		...placed,
+		state: { ...placed.state, ...advanceFrames(placed, start.state.year - 1) }
+	};
+	const world = { ...first, state: { ...first.state, ...advanceFrames(first, start.state.year) } };
 	return {
 		world,
 		earliestFullYear: start.state.year,

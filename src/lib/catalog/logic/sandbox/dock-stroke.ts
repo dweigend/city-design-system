@@ -44,7 +44,11 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 	const selected = rods.filter((r) => ids.has(r.part.anchor.cellId));
 	for (const owner of [...new Set(selected.map((r) => r.part.owner))].sort()) {
 		const candidates = selected.filter(
-			(r) => r.part.owner === owner && r.part.recipe === 'chord' && Math.abs(r.a[2] - r.b[2]) < 1e-8
+			(r) =>
+				r.part.owner === owner &&
+				r.part.recipe === 'chord' &&
+				!r.part.frame?.gate &&
+				Math.abs(r.a[2] - r.b[2]) < 1e-8
 		);
 		if (!candidates.length) continue;
 		const plots = buildingPlots(world.grid);

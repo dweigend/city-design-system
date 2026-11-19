@@ -45,12 +45,14 @@ export function createFrameLayer(
 	let previous:
 		{ survey: ReturnType<typeof frameSurvey>; world: World; focus: FocusId } | undefined;
 	const roles = new Map<string, { role: string }>();
-	const timings = new Map<string,number>();
-	const previewTimings=new Map<string,number>();
-	const awaitingDraw=new Map<string,number>();
+	const timings = new Map<string, number>();
+	const previewTimings = new Map<string, number>();
+	const awaitingDraw = new Map<string, number>();
 	function submit() {
 		if (stopped || active) return;
-		const next = [...rows.values()].find((r) => !r.planned && !awaitingDraw.has(r.bay.id) && !cache.has(r.geometry));
+		const next = [...rows.values()].find(
+			(r) => !r.planned && !awaitingDraw.has(r.bay.id) && !cache.has(r.geometry)
+		);
 		if (!next) return;
 		if (!worker) {
 			worker = new Worker(new URL('./frame.worker.ts', import.meta.url), { type: 'module' });
@@ -85,7 +87,7 @@ export function createFrameLayer(
 	return {
 		/** Displays a saved frame generation and exposes still-pending spans as dashed lines. */
 		show(world: World, focus: FocusId) {
-			const started=performance.now();
+			const started = performance.now();
 			const survey = frameSurvey(world);
 			const { bays, seams, rules } = survey;
 			const stock = world.state.frameBays ?? new Map();
@@ -119,9 +121,14 @@ export function createFrameLayer(
 			for (const id of roles.keys()) if (!seams.has(id)) roles.delete(id);
 			for (const id of redraw) {
 				const decision = roles.get(id);
-				const bay = survey.supportedBay(id, roles);
+				const installation = world.state.frameInstallations?.get(id);
+				const installed =
+					installation?.result.status === 'sized' && stock.get(id)?.built
+						? installation
+						: undefined;
+				const bay = installed?.bay ?? survey.supportedBay(id, roles);
 				if (!decision) continue;
-				if (!bay || decision.role === 'gap') {
+				if (!bay || decision.role === 'gap' || installation?.result.status === 'rejected') {
 					next.delete(id);
 					continue;
 				}
@@ -135,13 +142,15 @@ export function createFrameLayer(
 						((old.builtTick ?? world.state.year) < world.state.year || focus !== 'all')
 				};
 				next.set(id, row);
+				if (installed) cache.set(row.geometry, installed.result);
 				const prior = rows.get(id);
 				if (
-					previous?.world.seed !== world.seed || prior?.geometry !== row.geometry ||
+					previous?.world.seed !== world.seed ||
+					prior?.geometry !== row.geometry ||
 					prior.planned !== row.planned ||
 					prior.aged !== row.aged
 				) {
-					if(!row.planned && !cache.has(row.geometry)) awaitingDraw.set(id,started);
+					if (!row.planned && !cache.has(row.geometry)) awaitingDraw.set(id, started);
 					structures.set('tg/' + id, forms(row, cache.get(row.geometry)));
 				}
 			}
@@ -156,11 +165,13 @@ export function createFrameLayer(
 		},
 		/** Starts sizing once the preview has been submitted to the renderer. */
 		afterDraw() {
-			for (const [id,start] of awaitingDraw) if(rows.has(id)) previewTimings.set(id,performance.now()-start);
+			for (const [id, start] of awaitingDraw)
+				if (rows.has(id)) previewTimings.set(id, performance.now() - start);
 			awaitingDraw.clear();
 			submit();
 		},
-		timings,previewTimings,
+		timings,
+		previewTimings,
 		dispose() {
 			stopped = true;
 			worker?.terminate();

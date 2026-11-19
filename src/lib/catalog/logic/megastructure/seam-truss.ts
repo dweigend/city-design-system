@@ -1,3 +1,4 @@
+import { schneidet, type Prisma } from '../haus-tragwerk';
 import { crossesGap, interiorLength } from './clearance';
 import { type Aufgabe, type Vec3 } from '../statik';
 import { sizeMembers } from './sections';
@@ -8,6 +9,7 @@ export type BaySurvey = Readonly<{
 	b: Vec3;
 	back: Vec3;
 	gateShoes?: Vec3[];
+	clearVolumes?: readonly Prisma[];
 	crown?: number;
 	clearances?: readonly (readonly Vec3[])[];
 	gaps?: readonly (readonly [Vec3, Vec3])[];
@@ -60,6 +62,7 @@ export function trimBay(bay: BaySurvey) {
 		const span = Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]);
 		const p = points[i],
 			q = points[j];
+		if (bay.clearVolumes?.some((volume) => schneidet(p, q, volume))) return [];
 		if (bay.gaps?.some((gap) => crossesGap(p, q, gap))) return [];
 		if (
 			bay.clearances?.some(
@@ -88,10 +91,11 @@ export function trimBay(bay: BaySurvey) {
 			status: 'rejected' as const,
 			reason: 'clearance',
 			element: bay.id,
+			geometry: bay,
 			loadCase: LOAD_CASE
 		};
 	const task: Omit<Aufgabe, 'werkstoff'> = {
-		knoten: nodes,
+		knoten: nodes.filter((_, i) => !bay.gateShoes || i !== 2),
 		kandidaten: candidates,
 		lager: nodes
 			.filter((_, i) => i !== 3 && i !== 4 && (!bay.gateShoes || i !== 2))
@@ -109,6 +113,7 @@ export function trimBay(bay: BaySurvey) {
 			status: 'rejected' as const,
 			reason: result.status,
 			element: result.elementId,
+			geometry: bay,
 			loadCase: LOAD_CASE
 		};
 	return {

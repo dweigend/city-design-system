@@ -36,3 +36,24 @@ test('a corner without transverse restraint identifies the load case and singula
 	});
 	expect(bayAxes(bay).axes).toHaveLength(3);
 });
+
+test('a volume crossing the clear span rejects the physical axis before the load probe', () => {
+	const volume = {
+		z: 0,
+		hoeheM: 8,
+		polygon: [
+			[1, -1],
+			[3, -1],
+			[3, 1],
+			[1, 1]
+		] as [number, number][]
+	};
+	const bay = { ...base, clearVolumes: [volume] };
+	expect(trimBay(bay)).toMatchObject({
+		status: 'rejected',
+		reason: 'clearance',
+		geometry: bay,
+		element: bay.id,
+		loadCase: 'service-probe'
+	});
+});

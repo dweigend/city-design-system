@@ -1,3 +1,4 @@
+import { savedCarrier } from './saved-carrier.fixture';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
@@ -53,10 +54,7 @@ const fixtures = [
 for (const [recipe, flow, from, to, seats, hash] of fixtures)
 	test('restore original ' + recipe + ' geometry', () => {
 		const world = createWorld(7);
-		const frame = [from, to].reduce(
-			extendStroke,
-			beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, world)
-		).draft;
+		const frame = savedCarrier(world, from);
 		const parts = new Map(frame.state.parts);
 		for (const [index, [attachedTo, share]] of seats.entries()) {
 			const rod = parts.get(attachedTo);

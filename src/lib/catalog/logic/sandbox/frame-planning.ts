@@ -1,0 +1,111 @@
+import {
+	planGoal,
+	type FrameGoal,
+	type Forecast,
+	type FrameSeam,
+	type PlanningContext,
+	type FrameEvent,
+	type FrameRole,
+	type BayState
+} from '../district-frame';
+import { trimBay } from '../megastructure';
+import type { frameSurvey } from './frame-survey';
+import type { World } from './world';
+
+type Survey = ReturnType<typeof frameSurvey>;
+export type PlanningControls = Pick<
+	PlanningContext,
+	'lookahead' | 'lookback' | 'search' | 'observations'
+>;
+export type FrameTimeline = {
+	tick: number;
+	goals: readonly FrameGoal[];
+	events: readonly FrameEvent[];
+	results: readonly FrameTick[];
+	controls: PlanningControls;
+};
+export type FrameTick = Forecast & {
+	status: 'committed' | 'waiting' | 'blocked';
+	delta: { id: string; state: BayState }[];
+};
+export const initialTimeline: FrameTimeline = {
+	tick: 0,
+	goals: [],
+	events: [],
+	results: [],
+	controls: { lookahead: 2, lookback: 2, observations: [] }
+};
+
+/** Compiles local forecasts for persistent strokes. Newer overlapping strokes own their shared seam. */
+export function planFrames(world: World, survey: Survey, timeline: FrameTimeline) {
+	const tick = timeline.tick + 1,
+		stock = world.state.frameBays ?? new Map<string, BayState>();
+	const intents = new Map<string, FrameRole>(),
+		plans: Forecast[] = [];
+	const owners = new Map<string, string>(),
+		sized = new Map<string, ReturnType<typeof trimBay>>();
+	for (const goal of timeline.goals)
+		for (const id of [goal.literal, ...goal.alternatives]) owners.set(id, goal.id);
+	const context = { ...timeline.controls, tick, events: timeline.events };
+	const reserved = context.observations.filter((o) => o.from <= tick);
+	const candidates = [...survey.seams.values()];
+	function size(id: string, roles: ReadonlyMap<string, { role: string }>) {
+		const bay = survey.supportedBay(id, roles);
+		if (!bay) return;
+		const key = JSON.stringify(bay);
+		const result = sized.get(key) ?? trimBay(bay);
+		sized.set(key, result);
+		return { bay, result };
+	}
+	for (const goal of timeline.goals) {
+		const edges = candidates.map((s) =>
+			owners.has(s.id) && owners.get(s.id) !== goal.id ? { ...s, opening: 'other-stroke' } : s
+		);
+		const plan = planGoal(
+			goal,
+			edges,
+			stock,
+			world.seed,
+			context,
+			(id, roles) =>
+				world.state.frameInstallations?.get(id)?.result.status === 'sized' ||
+				size(id, roles)?.result.status === 'sized'
+		);
+		plans.push(plan);
+		for (const id of [goal.literal, ...goal.alternatives])
+			if (owners.get(id) === goal.id) intents.set(id, plan.phases[0].seam === id ? 'main' : 'gap');
+	}
+	const seams = candidates.map((s): FrameSeam => ({
+		...s,
+		intent: intents.get(s.id) ?? s.intent,
+		opening: reserved.find((o) => o.seam === s.id)?.reason ?? s.opening
+	}));
+	return { plans, seams, size, tick };
+}
+
+/** Records only observed changes at commit; forecast phases never enter the event stream. */
+export function recordPlans(
+	timeline: FrameTimeline,
+	plans: Forecast[],
+	tick: number,
+	stock: ReadonlyMap<string, BayState>,
+	prior: ReadonlyMap<string, BayState>
+) {
+	const events = timeline.events.filter((e) => e.tick >= tick - 32);
+	const results = plans.map((plan): FrameTick => {
+		const seam = plan.phases[0].seam;
+		const ids = [
+			...new Set([plan.literal, ...plan.consequences.flatMap((c) => c.stock.map((s) => s.id))])
+		];
+		const delta = ids.flatMap((id) => {
+			const state = stock.get(id);
+			return state && state !== prior.get(id) ? [{ id, state }] : [];
+		});
+		const applied =
+			seam !== null &&
+			delta.some((d) => d.id === seam && (d.state.pending === 'main' || d.state.built === 'main'));
+		if (applied) events.push({ goal: plan.goal, seam, tick });
+		return { ...plan, status: applied ? 'committed' : seam ? 'blocked' : 'waiting', delta };
+	});
+	return { ...timeline, tick, events, results };
+}

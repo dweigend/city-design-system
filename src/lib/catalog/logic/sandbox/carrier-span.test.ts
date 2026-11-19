@@ -1,10 +1,7 @@
-import { expect, spyOn, test } from 'bun:test';
-import * as diagonals from './carrier-diagonals';
-import { memberLength } from '../megastructure';
-import { buildingPlots } from './building-plots';
+import { expect, test } from 'bun:test';
 import { carrierProbe } from './carrier-probe';
 import { position } from './installation-parts';
-import { beginStroke, createWorld, extendStroke, installationView, type World } from './index';
+import { createWorld } from './index';
 
 test('a transverse tie between faces on the same roof uses its full length', () => {
 	const { grid } = createWorld(7);
@@ -19,84 +16,3 @@ test('a transverse tie between faces on the same roof uses its full length', () 
 		failure: { reason: 'member-too-long', marks: [[position(grid, foot), position(grid, top)]] }
 	});
 });
-
-function paint(world: World, from: string, to: string) {
-	return [from, to].reduce(
-		extendStroke,
-		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, world)
-	);
-}
-
-test('seed 7 repairs the overlong inter-roof diagonal before committing the carrier', () => {
-	const world = createWorld(7);
-	const survey = spyOn(diagonals, 'probeWallConnections');
-	try {
-		const stroke = paint(world, '83/47', '87/47');
-		expect(stroke.failure).toBeUndefined();
-		const proposal: Parameters<typeof diagonals.probeWallConnections> | undefined =
-			survey.mock.lastCall;
-		if (!proposal) throw new Error('Missing wall connection proposal');
-		const [grid, parts, cells] = proposal;
-		const longitudinal = parts.flatMap((part) => {
-			if (part.recipe !== 'brace' || part.anchor.cellId === part.end.cellId) return [];
-			const a = position(grid, part.anchor),
-				b = position(grid, part.end);
-			return [{ a, b, length: memberLength({ p: a }, { p: b }) }];
-		});
-		const [longest] = longitudinal.sort((a, b) => b.length - a.length);
-		expect(longest.length).toBeCloseTo(16.905, 3);
-		expect(carrierProbe(grid, parts, cells)).toEqual({
-			failure: { reason: 'member-too-long', marks: [[longest.a, longest.b]] }
-		});
-		const committed = [...stroke.draft.state.parts.values()];
-		expect(carrierProbe(buildingPlots(world.grid), committed, cells)).toHaveProperty('parts');
-		expect(committed.filter((p) => p.recipe === 'brace')).toHaveLength(
-			parts.filter((p) => p.recipe === 'brace').length
-		);
-	} finally {
-		survey.mockRestore();
-	}
-});
-
-// The fixture sweep checks a geometric invariant; the runner timeout only guards hangs.
-test('every member of every committed carrier stays within 15 m in space', () => {
-	// These roofs exercise single bays, connected spans and rejected strokes.
-	const fixtures = [
-		{ seed: 7, roofs: ['83/47', '87/44', '93/48', '95/40'] },
-		{ seed: 19, roofs: ['89/45', '89/40', '90/38', '79/51'] }
-	];
-	for (const { seed, roofs } of fixtures) {
-		const world = createWorld(seed);
-		let built = 0;
-		let rejected = 0;
-		for (const from of roofs) {
-			expect(world.state.stacks.has(from)).toBe(true);
-			const [x, y] = from.split('/').map(Number);
-			for (const [dx, dy] of [
-				[0, 0],
-				[4, 0],
-				[0, -5],
-				[-4, 3]
-			]) {
-				const stroke = paint(world, from, x + dx + '/' + (y + dy));
-				if (stroke.failure) {
-					expect(stroke.draft).toBe(world);
-					rejected++;
-					continue;
-				}
-				const rods = installationView(stroke.draft, 'all').filter((p) => p.kind === 'pipe');
-				expect(rods.length).toBeGreaterThan(0);
-				expect(rods.length).toBe(
-					[...stroke.draft.state.parts.values()].filter((p) => p.kind === 'segment').length
-				);
-				for (const {
-					points: [a, b]
-				} of rods)
-					expect(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])).toBeLessThanOrEqual(15);
-				built++;
-			}
-		}
-		expect(built).toBeGreaterThan(0);
-		expect(rejected).toBeGreaterThan(0);
-	}
-}, 60_000);

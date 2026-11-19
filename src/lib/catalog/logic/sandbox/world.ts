@@ -5,6 +5,7 @@ import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
+import { advanceFrames } from './frame-construction';
 import { frameSurvey } from './frame-survey';
 import { seedTown, type TownOptions } from './old-town';
 import { migrateSnapshot } from './snapshot';
@@ -280,10 +281,7 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
 	if (edit.kind === 'advance') {
 		const next = advance(state, edit.years ?? sandboxGenerationYears);
 		if (next === state) return state;
-		const { rules, seams } = frameSurvey(world);
-		const previous = state.frameBays ?? new Map();
-		const patch = rules.tick(seams.keys(), previous, world.seed, next.year);
-		return patch.size ? { ...next, frameBays: new Map([...previous, ...patch]) } : next;
+		return { ...next, ...advanceFrames(world, next.year) };
 	}
 	if (edit.kind === 'clear' && state.frameBays?.size) {
 		const cell = world.grid.cellsById.get(edit.cellId);
@@ -295,7 +293,17 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
 				intents = new Map(state.frameIntents);
 			for (const key of keys) if (bays.delete(key)) intents.set(key, 'gap');
 			if (bays.size < state.frameBays.size)
-				return { ...state, frameBays: bays, frameIntents: intents };
+				return {
+					...removeInstallations(
+						state,
+						(p) => p.kind === 'segment' && !!p.frame && keys.includes(p.frame.seam)
+					),
+					frameBays: bays,
+					frameIntents: intents,
+					frameInstallations: new Map(
+						[...(state.frameInstallations ?? [])].filter(([id]) => bays.has(id))
+					)
+				};
 		}
 	}
 	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
@@ -321,5 +329,17 @@ export function applyEdit(world: World, edit: Edit): World {
 	for (const id of bays.keys()) if (!seams.has(id) || seams.get(id)?.opening) bays.delete(id);
 	return bays.size === next.state.frameBays.size
 		? next
-		: { ...next, state: { ...next.state, frameBays: bays } };
+		: {
+				...next,
+				state: {
+					...removeInstallations(
+						next.state,
+						(p) => p.kind === 'segment' && !!p.frame && !bays.has(p.frame.seam)
+					),
+					frameBays: bays,
+					frameInstallations: new Map(
+						[...(next.state.frameInstallations ?? [])].filter(([id]) => bays.has(id))
+					)
+				}
+			};
 }

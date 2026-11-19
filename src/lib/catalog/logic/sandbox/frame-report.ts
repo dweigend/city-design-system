@@ -14,15 +14,15 @@ const tangent = ([a, b]: Segment) => [
 
 /** Computes evidence on demand from the complete snapshot; interactive solving does not read this report. */
 export function frameReport(world: World) {
-	const survey = frameSurvey(world),
+	const survey = frameSurvey(world, true),
 		{ seams, bays, rules } = survey;
 	const stock = world.state.frameBays ?? new Map();
-	const decisions = rules.solve(seams.keys(), stock, world.seed);
+
 	const perimeter = new Map<string, number>(),
 		occupied = new Map<string, number>();
 	const node = new Map<string, string[]>(),
 		diagnostics = new Map<string, OmissionEvidence>();
-	const main = new Set([...decisions].filter(([, d]) => d.role === 'main').map(([id]) => id));
+	const main = new Set([...stock].filter(([, d]) => d.built === 'main').map(([id]) => id));
 	const square = squareShares(world.grid, main);
 	const routeLength = new Map<string, number>(),
 		gatedBlocks = new Set<string>();
@@ -49,7 +49,7 @@ export function frameReport(world: World) {
 	for (const [id, seam] of seams) {
 		const bay = bays.get(id);
 		if (!bay) continue;
-		const active = decisions.get(id)?.role !== 'gap';
+		const active = !!stock.get(id)?.built;
 		const span = bayAxes(bay).axes[2];
 		const boundary = perimeter.get(seam.district) ?? 0;
 		let water = 0,
@@ -166,12 +166,25 @@ export function frameReport(world: World) {
 	}
 	const blocks = new Set(world.grid.cells.map((c) => c.block));
 	return {
-		longestRun,
+		longestRun: [...main].every(
+			(id) => world.state.frameInstallations?.get(id)?.result.status === 'sized'
+		)
+			? longestRun
+			: null,
+		quiet: [...blocks].filter((id) => survey.characters.get(id) === 'quiet').length,
+		total: blocks.size,
+		unclassified: [...blocks].filter((id) => survey.characters.get(id) === 'neutral'),
 		gateCount,
 		quietDistrictShare: blocks.size
 			? [...blocks].filter((id) => survey.characters.get(id) === 'quiet').length / blocks.size
 			: null,
 		districtMainShare: new Map([...perimeter].map(([id, p]) => [id, (occupied.get(id) ?? 0) / p])),
-		explain: (id: string) => rules.explain(id, stock, world.seed, diagnostics.get(id))
+		explain: (id: string) => ({
+			...rules.explain(id, stock, world.seed, diagnostics.get(id)),
+			planning: world.state.frameTimeline?.results.filter(
+				(r) => r.literal === id || r.phases.some((p) => p.seam === id)
+			),
+			structure: world.state.frameInstallations?.get(id)?.result
+		})
 	};
 }
