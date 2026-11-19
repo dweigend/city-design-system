@@ -1,2 +1,2 @@
-import { checkAssets } from '../../fixtures/asset-contract';
+import { checkAssets } from '../../fixtures/asset-contract.fixture.test';
 checkAssets('capsules');

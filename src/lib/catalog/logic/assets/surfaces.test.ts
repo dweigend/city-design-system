@@ -1,4 +1,4 @@
-import { checkAssets } from '../../fixtures/asset-contract';
+import { checkAssets } from '../../fixtures/asset-contract.fixture.test';
 import { expect, test } from 'bun:test';
 import { assetRegistry, getAssetSurface } from './index';
 import { materialAusfuehrungen } from '../../data/materialAusfuehrung';

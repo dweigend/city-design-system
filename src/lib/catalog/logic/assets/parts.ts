@@ -41,7 +41,7 @@ export function ring(
 	innerRadius: number,
 	depth: number,
 	token: ColorToken = white
-): Primitive {
+): Extract<Primitive, { kind: 'ring' }> {
 	return { ...surface(token), kind: 'ring', position, radius, innerRadius, depth };
 }
 /** Hemisphere or shallow dome on a horizontal seating plane. */
