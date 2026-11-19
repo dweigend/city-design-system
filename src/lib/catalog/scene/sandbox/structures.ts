@@ -4,7 +4,7 @@ import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import { createJointLayer } from './joint-layer';
 import { kineticGroups } from './kinetic-groups';
-import { structureBatch } from './structure-batch';
+import { stockPickTargets, structureBatch } from './structure-batch';
 import { structureMaterials } from './structure-materials';
 import { placementGroups, placementOffset } from './placement-motion';
 import {
@@ -198,6 +198,7 @@ export function createStructures(quality?: StudioQuality, cityEdges = false) {
 
 	return {
 		group,
+		stockTargets: (parts: Primitive[]) => stockPickTargets(parts, finishes),
 		set,
 		/** Coalesces geometry changes until the camera and drawing style are ready. */
 		queue(this: void, key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {

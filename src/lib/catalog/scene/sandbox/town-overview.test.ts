@@ -68,19 +68,28 @@ test('the contact wash follows the slab face and stops when a wall lifts off it'
 
 test('the neutral rail is metal and the neutral tube retains its clear shell', async () => {
 	const { roundedStops } = await import('./station-rings');
-	const rail: Primitive = {
-		id: 'line/deck',
-		role: 'neu',
-		kind: 'pipe',
-		points: [
-			[0, 0, 2],
-			[4, 0, 2]
+	const { lineParts, cityTransitSlots } = await import('../../logic/transit-line');
+	const line: import('../../logic/transit-line').TransitLine = {
+		kind: 'viaduct',
+		id: 'rail',
+		cellIds: [],
+		path: [
+			[0, 0, 6],
+			[30, 0, 6]
 		],
-		radius: 0.55,
-		material: 'concrete',
-		token: '--cat-business'
+		length: 30,
+		stops: [{ position: [0, 0, 6], headingRad: 0 }],
+		pillars: []
 	};
-	const [deck, tube] = roundedStops([rail, { ...rail, glass: true }]);
-	expect(deck).toMatchObject({ finish: 'metall-gebuerstet', token: '--paper' });
-	expect(tube).toMatchObject({ finish: 'clear-acrylic', token: '--paper' });
+	const custom = {
+		...cityTransitSlots,
+		platform: { token: '--cat-business', finish: 'holz-natur' }
+	} as const;
+	const parts = (kind: 'viaduct' | 'capsule') => roundedStops(lineParts({ ...line, kind }, custom));
+	expect(parts('viaduct')[0]).toMatchObject(cityTransitSlots.deck);
+	expect(parts('capsule')[0]).toMatchObject({ finish: 'clear-acrylic', token: '--paper' });
+	expect(parts('viaduct').find((p) => p.id === 'rail/stop/0')).toMatchObject({
+		kind: 'torus',
+		...custom.platform
+	});
 });

@@ -24,7 +24,13 @@ import { studioPipeline } from '../studio-pipeline';
 import { type StudioQuality } from '../studio-quality';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { projectStockOverview, KEY, projectChanges, projectInstallations } from './projection';
+import {
+	housePickTargets,
+	projectStockOverview,
+	KEY,
+	projectChanges,
+	projectInstallations
+} from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
@@ -447,7 +453,7 @@ export function createSandboxStage(
 			prepareView();
 			return picker(x, y, shown.grid, [
 				...structures.solids(KEY.installation),
-				...structures.solids(KEY.house),
+				...housePickTargets(terrain, structures),
 				...structures.solids(KEY.forest),
 				...vehicles.group.children.filter((car) => car.visible),
 				terrain.water

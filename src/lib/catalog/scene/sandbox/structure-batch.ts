@@ -1,4 +1,6 @@
-import type * as THREE from 'three/webgpu';
+import { batchFaces } from '../batch';
+import { isStructural } from '../../logic/parametrik/types';
+import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { DistanceDrawing } from './distance-drawing';
 import { roofPick, seatedTargets } from './roof-pick';
@@ -39,4 +41,35 @@ function roofWidth(part: Primitive, { materials }: StructureMaterials) {
 function detachedTargets(group: THREE.Group) {
 	const hits: THREE.Object3D[] = group.userData.hits;
 	return seatedTargets(hits);
+}
+
+/** CPU-only stock surfaces and cell-owned roof hits. None of these objects enter the scene. */
+export function stockPickTargets(parts: Primitive[], finishes: StructureMaterials) {
+	const targets: THREE.Object3D[] = [];
+	const solids: Primitive[] = [];
+	const ghosts: Primitive[] = [];
+	for (const part of parts) {
+		if (part.roofCell) {
+			const proxy = roofPick(part, () => roofWidth(part, finishes));
+			if (proxy) targets.push(proxy);
+		} else if (!part.detail || finishes.contours) {
+			if (part.material === 'ghost') ghosts.push(part);
+			else if (!isStructural(part)) solids.push(part);
+		}
+	}
+	const white = new THREE.Color();
+	addSurface(batchFaces(solids, () => white).alt.p, finishes.materials.stock);
+	if (ghosts.length) {
+		const faces = batchFaces(ghosts, () => white);
+		for (const layer of [faces.alt, faces.glas, faces.blatt, faces.neu])
+			addSurface(layer.p, finishes.materials.ghost);
+	}
+	return targets;
+
+	function addSurface(positions: number[], material: THREE.Material) {
+		if (!positions.length) return;
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+		targets.push(new THREE.Mesh(geometry, material));
+	}
 }

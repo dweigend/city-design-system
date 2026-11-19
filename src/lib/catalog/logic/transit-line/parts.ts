@@ -7,8 +7,9 @@ import {
 	type TransitLine,
 	type TransitStop
 } from './contract';
+import { drawingTransitSlots, type TransitSlots } from './slots';
 const surface = { role: 'neu', material: 'concrete' } as const;
-const paper = { ...surface, token: '--paper' } as const;
+
 const PLATFORM_RADIUS = 4.5,
 	HALO_HEIGHT = 3.4;
 const SHAFT_RADIUS = 1.1,
@@ -17,7 +18,8 @@ function stopParts(
 	line: TransitLine,
 	stop: TransitStop,
 	id: string,
-	profile: TransitProfile
+	profile: TransitProfile,
+	slots: TransitSlots
 ): Primitive[] {
 	const {
 			position: [x, y, z],
@@ -29,7 +31,7 @@ function stopParts(
 	const shaft: Primitive = {
 		...surface,
 		id: id + '/shaft',
-		token: '--cat-business',
+		...slots.shaft,
 		member: 'primary',
 		kind: 'cylinder',
 		radius: SHAFT_RADIUS,
@@ -42,12 +44,21 @@ function stopParts(
 	};
 	if (line.kind === 'capsule')
 		return [
-			{ ...paper, id, kind: 'sphere', position: [x, y, z], radius: 3.6, squash: 0.72 },
+			{
+				...surface,
+				...slots.platform,
+				id,
+				kind: 'sphere',
+				position: [x, y, z],
+				radius: 3.6,
+				squash: 0.72
+			},
 			shaft
 		];
 	return [
 		{
-			...paper,
+			...surface,
+			...slots.platform,
 			id,
 			kind: 'cylinder',
 			position: [x, y, top - profile.platformHeight],
@@ -62,7 +73,7 @@ function stopParts(
 			position: [x, y, top + HALO_HEIGHT],
 			radius: PLATFORM_RADIUS,
 			tube: 0.16,
-			token: '--cat-business'
+			...slots.halo
 		},
 		shaft
 	];
@@ -71,7 +82,10 @@ function stopParts(
  * stations. Invalid profile overrides throw RangeError. A stop without a ground survey uses nominal clearance.
  * The line is read without mutation.
  */
-export function lineParts(line: TransitLine): Primitive[] {
+export function lineParts(
+	line: TransitLine,
+	slots: TransitSlots = drawingTransitSlots
+): Primitive[] {
 	const design = resolveTransitProfile(line.kind, line.profile),
 		capsule = line.kind === 'capsule';
 	const parts: Primitive[] = [
@@ -81,8 +95,7 @@ export function lineParts(line: TransitLine): Primitive[] {
 			kind: 'pipe',
 			points: line.path.map((p): Vec3 => [...p]),
 			radius: design.deckRadius,
-			// Rail and tube carry people: the color of that flow (data/focus.ts).
-			token: '--cat-business',
+			...(capsule ? slots.glass : slots.deck),
 			...(capsule ? { glass: true } : {})
 		}
 	];
@@ -91,7 +104,8 @@ export function lineParts(line: TransitLine): Primitive[] {
 		for (let at = 0; at <= line.length; at += design.hoopSpacing) {
 			const { position, headingRad } = poseAt(line.path, distances, at);
 			parts.push({
-				...paper,
+				...surface,
+				...slots.hoop,
 				id: line.id + '/hoop/' + at,
 				kind: 'torus',
 				axis: 'x',
@@ -105,7 +119,8 @@ export function lineParts(line: TransitLine): Primitive[] {
 	line.pillars.forEach(({ foot: [x, y, z], top }, i) => {
 		const base = z - FOUNDATION_DEPTH;
 		parts.push({
-			...paper,
+			...surface,
+			...slots.pillar,
 			id: line.id + '/pillar/' + i,
 			member: 'primary',
 			bearings: [[x, y, z]],
@@ -116,7 +131,7 @@ export function lineParts(line: TransitLine): Primitive[] {
 		});
 	});
 	line.stops.forEach((stop, i) =>
-		parts.push(...stopParts(line, stop, line.id + '/stop/' + i, design))
+		parts.push(...stopParts(line, stop, line.id + '/stop/' + i, design, slots))
 	);
 	return parts;
 }

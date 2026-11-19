@@ -14,7 +14,7 @@ import {
 } from '../../logic/sandbox';
 import { houseDistricts } from './house-districts';
 import { roundedStops } from './station-rings';
-import { lineParts, TRANSIT_PARAMS } from '../../logic/transit-line';
+import { cityTransitSlots, lineParts, TRANSIT_PARAMS } from '../../logic/transit-line';
 import type { Structures } from './structures';
 import type { TerrainMesh } from './terrain-mesh';
 
@@ -85,7 +85,10 @@ function projectLines(
 ) {
 	for (const id of delta.removedLines) structures.set(KEY.line + id, []);
 	for (const line of refocus ? world.lines : delta.addedLines) {
-		structures.set(KEY.line + line.id, present(roundedStops(lineParts(line)), focuses[focus].rail));
+		structures.set(
+			KEY.line + line.id,
+			present(roundedStops(lineParts(line, cityTransitSlots)), focuses[focus].rail)
+		);
 	}
 }
 
@@ -112,6 +115,21 @@ function projectAlleys(
 }
 const houseLayers = new WeakMap<TerrainMesh, ReturnType<typeof houseDistricts>>();
 
+function writeDistrict(
+	structures: Target['structures'],
+	chunk: string,
+	parts: Parameters<Structures['set']>[1]
+) {
+	const key = chunk === 'stock-overview' ? 'visual:stock-overview' : KEY.house + chunk;
+	structures.set(key, parts);
+}
+
+/** Combines seated model hits with the detached source stock hidden by the town simplification. */
+export function housePickTargets(mesh: TerrainMesh, structures: Structures) {
+	const stock = houseLayers.get(mesh)?.stockTargets(structures.stockTargets) ?? [];
+	return [...structures.solids(KEY.house), ...stock];
+}
+
 /** Changes only the render representation of occupied historic lots at the town threshold. */
 export function projectStockOverview(
 	mesh: TerrainMesh | undefined,
@@ -120,7 +138,7 @@ export function projectStockOverview(
 ) {
 	const houses = mesh && houseLayers.get(mesh);
 	houses?.setOverview(overview);
-	houses?.flush((chunk, parts) => structures.set(KEY.house + chunk, parts));
+	houses?.flush((chunk, parts) => writeDistrict(structures, chunk, parts));
 }
 
 function projectHouses(
@@ -149,7 +167,7 @@ function projectHouses(
 		}
 	}
 	for (const removed of keys) houses.remove(removed);
-	houses.flush((chunk, parts) => target.structures.set(KEY.house + chunk, parts));
+	houses.flush((chunk, parts) => writeDistrict(target.structures, chunk, parts));
 }
 
 /**
