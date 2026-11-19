@@ -4,7 +4,13 @@
  */
 import { focuses, present, levelFor, type FocusId } from '../../logic/presentation';
 import { forestChunk } from '../../logic/land-cover';
-import { houseView, currentStacks, changes, type World } from '../../logic/sandbox';
+import {
+	installationView,
+	houseView,
+	currentStacks,
+	changes,
+	type World
+} from '../../logic/sandbox';
 import { lineParts } from '../../logic/transit-line';
 import type { Structures } from './structures';
 import type { TerrainMesh } from './terrain-mesh';
@@ -24,6 +30,16 @@ function projectCover(target: Target, after: World, cellIds: readonly string[]) 
 		if (cell) target.terrain.setCover(cell.index, after.state.cover.get(cellId));
 	}
 	if (cellIds.length) target.terrain.commitCover();
+}
+
+function projectInstallations(
+	structures: Structures,
+	world: World,
+	focus: FocusId,
+	refocus: boolean,
+	dirty: boolean
+) {
+	if (refocus || dirty) structures.set('installations', installationView(world, focus));
 }
 
 function projectLines(
@@ -78,6 +94,8 @@ export function projectChanges(
 			KEY.forest + chunk,
 			present(forestChunk(grid, state.cover, chunk, seed), levels.forest)
 		);
+
+	projectInstallations(structures, after, focus, refocus, delta.installations);
 	projectCover(target, after, delta.coverCells);
 	projectLines(structures, after, delta, focus, refocus);
 }

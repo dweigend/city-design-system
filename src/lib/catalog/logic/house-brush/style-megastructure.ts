@@ -1,10 +1,12 @@
+import { buildRoofFrame } from '../megastructure';
+import { moduleGroup, type ModuleRod } from './module-group';
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { kanal, kantenId } from '../traeger';
 import type { Site } from './form';
 import type { Mass } from './massing';
 import { along, bayOf, mountingGrid, type Bay } from './megastructure-bay';
-import { dockedModule } from './style-totem';
+import { dockedForms, dockedModule } from './style-totem';
 import { guest } from './megastructure-guests';
 import { access, gallery } from './megastructure-services';
 import { storiesOf } from './stacks';
@@ -76,4 +78,50 @@ export function megastructureMass(site: Site, mass: Mass, p = MEGASTRUCTURE_DEFA
 			parts.push(...gallery(b, route, p.galleryWidth), ...access(b, route));
 		return parts;
 	});
+}
+
+/** Draws a surveyed steel member with its solved physical section and Leitstil stroke. */
+export function carrierForm(id: string, rod: ModuleRod, main: boolean): Primitive {
+	return {
+		id,
+		role: 'neu',
+		token: '--paper',
+		material: 'metal',
+		kind: 'pipe',
+		points: [rod.a, rod.b],
+		radius: rod.radius,
+		stroke: main ? 'carrier' : 'brace',
+		edges: false,
+		shade: 1
+	};
+}
+
+/** Survey used by both infrastructure styles on the standalone house brush plates. */
+export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
+	const roofs = mass.stories.map(({ cell }) => ({
+		id: cell.id,
+		height: mass.floor,
+		polygon: cell.corners.map(([x, y]): [number, number] => [x, y])
+	}));
+	const result = buildRoofFrame(roofs, { clearance: 4 }, 'leitstil');
+	if (result.status !== 'assembled') return [];
+	const rods = result.frame.rods.map((r) => ({
+		a: r.a.p,
+		b: r.b.p,
+		radius: r.radius,
+		main: r.main
+	}));
+	const parts = rods.map((r, i) => carrierForm(mass.id + '/rod/' + i, r, r.main));
+	if (withModules) {
+		const group = moduleGroup(
+			rods,
+			rods.filter((r) => r.main && r.a[2] === r.b[2]),
+			mass.use,
+			[]
+		);
+		group?.forEach(({ recipe, m }, i) =>
+			parts.push(...dockedForms(mass.id + '/module/' + i, recipe, m))
+		);
+	}
+	return parts;
 }

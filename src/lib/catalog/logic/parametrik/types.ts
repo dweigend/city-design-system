@@ -10,6 +10,10 @@ export type Role = BuildingRole | 'traeger';
  */
 export type { MaterialId } from '../../data/material';
 export type ColorToken =
+	| '--cat-health-5'
+	| '--cat-business-3'
+	| '--cat-business-2'
+	| '--cat-nature-2'
 	| '--cat-hazard'
 	| '--paper'
 	| '--cat-living'
@@ -34,6 +38,7 @@ type Base = {
 	token: ColorToken;
 	material: MaterialId;
 	detail?: boolean;
+	stroke?: 'carrier' | 'brace';
 	rank?: number;
 	stretchRank?: number;
 	pattern?: string;

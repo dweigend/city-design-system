@@ -75,7 +75,11 @@
 	}
 
 	$effect(() => {
-		if (stage) updateCursor(stage);
+		if (!stage) return;
+		if (session.failure) {
+			stage.setLens(0, 0, 0);
+			stage.setCursor(session.failure.marks, 'signal');
+		} else updateCursor(stage);
 	});
 </script>
 

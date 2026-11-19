@@ -1,7 +1,7 @@
 import { preferredWallRing } from './wall-order';
 import type { RoofCell } from './footprints';
 import type { Vec3 } from '../traeger';
-export type Joint = { id: string; p: Vec3 };
+export type Joint = { id: string; roofId: string; p: Vec3 };
 function length(a: Joint, b: Joint) {
 	return Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
 }
@@ -12,6 +12,7 @@ function bay(roof: RoofCell, level: number, start: number, direction: number) {
 			a = ring[i],
 			b = ring[(i + 1) % ring.length];
 		return {
+			roofId: roof.id,
 			id: JSON.stringify([roof.id, k, 'foot']),
 			p: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, roof.height]
 		};
@@ -19,6 +20,7 @@ function bay(roof: RoofCell, level: number, start: number, direction: number) {
 	const [a, b, c] = feet.map((n) => n.p);
 	if (Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) < 1e-8) return;
 	const crown = feet.map(({ p }, k): Joint => ({
+		roofId: roof.id,
 		id: JSON.stringify([roof.id, k, 'head']),
 		p: [p[0], p[1], level + (k === 1 ? 1 : 0)]
 	}));

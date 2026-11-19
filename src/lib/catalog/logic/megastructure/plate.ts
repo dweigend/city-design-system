@@ -25,15 +25,10 @@ function roofBounds(r: RoofCell): Bounds {
 /** Generates the three-roof plate in world meters. Fixed survey and load case, no RNG.
  * The returned geometry is detached. A broken fixture constraint raises an invariant error. */
 export function infrastructurePlate() {
-	const result = buildRoofFrame(roofs);
+	const result = buildRoofFrame(roofs, undefined, 'leitstil');
 	if (result.status !== 'assembled') throw new Error('Plate roof frame: ' + result.status);
 	const { frame } = result;
-	const positions = new Map(frame.structure.knoten.map((n) => [n.id, n.p]));
-	const rods = frame.structure.staebe.map((s) => ({
-		a: required(positions.get(s.a), 'start'),
-		b: required(positions.get(s.b), 'end'),
-		radius: 0.07
-	}));
+	const rods = frame.rods.map(({ a, b, radius }) => ({ a: a.p, b: b.p, radius }));
 	const stock = roofs.map(roofBounds),
 		modules: DockedModule[] = [];
 	const place = (kind: ModuleKind, point: Vec3, normal: Vec3) => {
@@ -50,7 +45,7 @@ export function infrastructurePlate() {
 	const [x, y, z] = required(head, 'high chord').p;
 	place('tank', [x, y, z + rods[0].radius], [0, 0, 1]);
 	place('garden', [23.7, 3.3, 5], [0, 0, 1]);
-	place('solar-ring', [17.75, 3.5, 10.07], [0, 0, 1]);
+	place('solar-ring', [17.75, 3.5, 10 + rods[0].radius], [0, 0, 1]);
 	const points: Vec3[] = [
 		[17, -12, 0.35],
 		[26, -9, 3.45],

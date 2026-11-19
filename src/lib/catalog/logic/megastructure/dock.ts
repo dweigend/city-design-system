@@ -29,7 +29,7 @@ function intersects(bounds: Bounds, b: Obstacle) {
 }
 const sizes = {
 	capsule: [4, 2, 2],
-	tank: [1, 1, 1],
+	tank: [2, 2, 2],
 	'solar-ring': [3, 3, 0.5],
 	garden: [4, 3, 0.5]
 } as const;

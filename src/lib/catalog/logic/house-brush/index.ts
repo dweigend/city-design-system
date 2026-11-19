@@ -9,7 +9,7 @@
  */
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
-import { roofCarrier, type RoofContext } from './roof-carrier';
+
 import { floorOf, massesOfChunk } from './massing';
 import { storiesOf, type Stacks } from './stacks';
 import { massRules, type HouseStyle } from './styles';
@@ -17,6 +17,7 @@ import { massRules, type HouseStyle } from './styles';
 export { MAX_STORIES, lower, raise, storiesOf, type HouseUse, type Stacks } from './stacks';
 export { chunksOfCells, touchedChunks } from './massing';
 
+export { dockedForms } from './style-totem';
 export { HOUSE_STYLES, type HouseStyle } from './styles';
 
 /**
@@ -33,17 +34,16 @@ export function houseChunk(
 	chunk: string,
 	seed: number,
 	style: HouseStyle = 'terrace',
-	context?: RoofContext
+	context?: { occupied: Stacks }
 ): Primitive[] {
 	const site = { grid, stacks: context?.occupied ?? stacks, seed };
 	const rule = massRules[style];
-	const spans = context && (style === 'megastructure' || style === 'totem');
-	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
-		...rule(site, mass),
-		...(spans ? roofCarrier(site, mass, context) : [])
-	]);
+	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => rule(site, mass));
 }
 
 /** Height in meters of the top of a cell's stack: where the next story would stand. */
 export const stackTop = (stacks: Stacks, cell: QuadCell): number =>
 	floorOf(cell, storiesOf(stacks, cell.id).length);
+
+export { atSocket, moduleGroup, type ModuleRecipe } from './module-group';
+export { carrierForm } from './style-megastructure';

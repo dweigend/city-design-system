@@ -59,9 +59,15 @@ export const sandboxUses: SandboxOption<'living' | 'water' | 'energy' | 'food' |
 	{ id: 'material', name: 'Workshop', figure: 'Gate, shed roof', color: 'var(--cat-living)' }
 ];
 
-export const sandboxLines: SandboxOption<'viaduct' | 'capsule'>[] = [
+export const sandboxLines: SandboxOption<'viaduct' | 'capsule' | 'walkway'>[] = [
 	{ id: 'viaduct', name: 'Elevated rail', figure: 'Beam, train', color: 'var(--cat-business)' },
-	{ id: 'capsule', name: 'Capsule tube', figure: 'Tube, pods', color: 'var(--cat-business-2)' }
+	{ id: 'capsule', name: 'Capsule tube', figure: 'Tube, pods', color: 'var(--cat-business-2)' },
+	{
+		id: 'walkway',
+		name: 'Elevated walkway',
+		figure: 'Footbridge, stairs and square',
+		color: 'var(--cat-business)'
+	}
 ];
 
 export const sandboxCovers: SandboxOption<'forest' | 'field' | 'meadow'>[] = [
