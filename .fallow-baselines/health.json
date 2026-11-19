@@ -393,7 +393,7 @@
         "count": 1
       },
       "complexity_high": {
-        "count": 2
+        "count": 1
       },
       "crap_critical": {
         "count": 1
@@ -432,11 +432,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/logic/parametrik/style.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/logic/parametrik/welt/belegung.ts": {
       "complexity_critical": {
         "count": 1
@@ -468,9 +463,6 @@
       }
     },
     "src/lib/catalog/logic/parametrik/welt/netze.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "complexity_moderate": {
         "count": 3
       },
@@ -483,9 +475,6 @@
         "count": 1
       },
       "complexity_high": {
-        "count": 1
-      },
-      "crap_critical": {
         "count": 1
       },
       "crap_high": {
@@ -785,11 +774,6 @@
         "count": 2
       }
     },
-    "src/lib/catalog/scene/leitstil/grammatik.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/scene/leitstil/haus.ts": {
       "complexity_high": {
         "count": 1
@@ -800,29 +784,23 @@
         "count": 3
       },
       "crap_critical": {
-        "count": 3
+        "count": 2
       },
       "crap_high": {
         "count": 1
       }
     },
     "src/lib/catalog/scene/materialRezept.ts": {
-      "crap_critical": {
-        "count": 2
-      },
-      "crap_high": {
-        "count": 1
-      },
       "crap_moderate": {
         "count": 1
       }
     },
     "src/lib/catalog/scene/parametrik.ts": {
       "complexity_critical": {
-        "count": 3
+        "count": 2
       },
       "crap_critical": {
-        "count": 5
+        "count": 2
       },
       "crap_moderate": {
         "count": 1
@@ -852,9 +830,6 @@
     },
     "src/lib/catalog/scene/surfaces.ts": {
       "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
         "count": 1
       }
     },
@@ -1393,11 +1368,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/logic/parametrik/raster/universal/kern/model.ts\u0000deriveChunk": {
-      "complexity_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/logic/parametrik/raster/universal/kern/model.ts\u0000validateIntent": {
       "complexity_critical": {
         "count": 1
@@ -1454,11 +1424,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/logic/parametrik/style.ts\u0000stylize": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/logic/parametrik/welt/belegung.ts\u0000<arrow>": {
       "complexity_moderate": {
         "count": 1
@@ -1498,11 +1463,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/logic/parametrik/welt/netze.ts\u0000netz": {
-      "complexity_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/logic/parametrik/welt/netze.ts\u0000polarnetz": {
       "complexity_moderate": {
         "count": 1
@@ -1536,9 +1496,6 @@
     },
     "src/lib/catalog/logic/parametrik/welt/wege.ts\u0000wege": {
       "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
         "count": 1
       }
     },
@@ -1929,11 +1886,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/scene/leitstil/grammatik.ts\u0000grammatik": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/scene/leitstil/haus.ts\u0000hausLeitstil": {
       "complexity_high": {
         "count": 1
@@ -1955,11 +1907,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/scene/leitstil/zeichne.ts\u0000prisma": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/scene/leitstil/zeichne.ts\u0000zeichnen": {
       "complexity_critical": {
         "count": 1
@@ -1973,29 +1920,6 @@
         "count": 1
       }
     },
-    "src/lib/catalog/scene/materialRezept.ts\u0000grundfarbe": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialRezept.ts\u0000rauschen": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/materialRezept.ts\u0000rezeptMaterial": {
-      "crap_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/parametrik.ts\u0000build": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      }
-    },
     "src/lib/catalog/scene/parametrik.ts\u0000fit": {
       "crap_critical": {
         "count": 1
@@ -2005,16 +1929,6 @@
       "complexity_critical": {
         "count": 1
       },
-      "crap_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/parametrik.ts\u0000stopTheme": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/scene/parametrik.ts\u0000surfaceTone": {
       "crap_critical": {
         "count": 1
       }
@@ -2095,9 +2009,6 @@
     },
     "src/lib/catalog/scene/surfaces.ts\u0000surfaceColor": {
       "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
         "count": 1
       }
     },
