@@ -56,3 +56,16 @@ export function florMuster(base: Node<'vec3'>, welt: Node<'vec3'>): Muster {
 		rauheitVersatz: spitzen.mul(-0.11)
 	};
 }
+
+/** Low planting islands on a dry substrate. The two noise scales are measured in metres. */
+export function plantedMatPattern(base: Node<'vec3'>, world: Node<'vec3'>): Muster {
+	const patch = mx_noise_float(world.mul(2.3));
+	const leaf = mx_worley_noise_float(world.mul(13), 1);
+	const tips = float(1).sub(leaf.smoothstep(0.18, 0.55));
+	const cover = patch.add(tips.mul(0.27)).smoothstep(-0.26, 0.12);
+	return {
+		farbe: mix(base.mul(0.48), base.mul(tips.mul(0.28).add(0.87)), cover),
+		hoehe: cover.mul(0.7).add(tips.mul(0.3)),
+		relief: 0.014
+	};
+}

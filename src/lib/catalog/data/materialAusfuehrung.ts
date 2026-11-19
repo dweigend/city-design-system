@@ -286,5 +286,17 @@ export const materialAusfuehrungen: readonly Ausfuehrung[] = [
 		transmission: 0,
 		deckkraft: 1
 	},
+	{
+		id: 'planted-mat',
+		familie: 'membran',
+		name: 'Planted roof mat',
+		beschreibung: 'Low leaves form irregular patches across a backed planting blanket.',
+		grundton: '#769266',
+		pigment: 0.64,
+		rauheit: 0.92,
+		metall: 0,
+		transmission: 0,
+		deckkraft: 1
+	},
 	...referenzAusfuehrungen
 ];

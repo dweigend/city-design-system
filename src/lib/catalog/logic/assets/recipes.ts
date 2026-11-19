@@ -41,6 +41,7 @@ import { terrazzo } from './terrazzo';
 import { sheetMetal } from './sheet-metal';
 import { corrugated } from './corrugated';
 import { glass } from './glass';
+import { planted } from './planted';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -84,5 +85,6 @@ export const recipes: readonly AssetRecipe[] = [
 	terrazzo,
 	sheetMetal,
 	corrugated,
-	glass
+	glass,
+	planted
 ];
