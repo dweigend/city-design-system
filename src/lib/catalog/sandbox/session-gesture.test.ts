@@ -107,7 +107,8 @@ test('held zoom cancels the stroke and a redraw repicks the stationary pointer',
 		);
 		expect(d.session.gesture).toBeUndefined();
 		city = true;
-		d.hover.refresh(); // The stage calls the shared refresh after installing the drawing.
+		expect(d.hovered()).toBe('81/44');
+		d.draw();
 		expect(d.hovered()).toBe('80/44');
 		d.pointer('pointerup', '600/400', 'mouse');
 		expect(d.waiting()).toBeUndefined();

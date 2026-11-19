@@ -44,8 +44,15 @@ export function gestureDriver(
 	const unsubscribe = session.onCompletion(options.record ?? ((event) => events.push(event)));
 	let displayed = session.world;
 	let hovered: string | undefined;
+	let frameDrawn: (() => void) | undefined;
 	const hover = createCanvasHover(
 		{
+			afterFrame(listener) {
+				frameDrawn = listener;
+				return () => {
+					frameDrawn = undefined;
+				};
+			},
 			show: (world) => (displayed = world),
 			pickCell: (x, y) =>
 				pick
@@ -156,11 +163,14 @@ export function gestureDriver(
 		session,
 		canvas,
 		view,
-		hover,
 		events,
 		rings,
 		tick,
 		finish,
+		draw() {
+			show();
+			frameDrawn?.();
+		},
 		hovered: () => hovered,
 		world: () => session.world,
 		waiting: () => waiting?.release,
@@ -179,6 +189,7 @@ export function gestureDriver(
 		},
 		dispose() {
 			detach();
+			hover.dispose();
 			unsubscribe();
 			session.disposeInput();
 			waiting = undefined;
