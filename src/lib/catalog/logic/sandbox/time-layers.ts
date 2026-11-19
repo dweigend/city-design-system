@@ -24,3 +24,11 @@ export function constructionLayers(
 		.sort(([a], [b]) => a - b)
 		.map(([year, flows]) => ({ year, flows: [...flows] }));
 }
+
+/** Timeline starts at the first playable year and keeps at least four generation spans visible. */
+export function timelineWindow(startYear: number, year: number, generationYears: number) {
+	return {
+		min: startYear,
+		max: Math.max(startYear + 4 * generationYears, year + generationYears)
+	};
+}

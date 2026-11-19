@@ -94,7 +94,7 @@ export function createSandboxStage(
 		const style = sandboxStyle(context, variant);
 		const tones = refreshTones ? grammatik(canvas, style) : undefined;
 		structures.setStyle(style, variant, scale, tones);
-		if (tones) light.setTone(tones.schatten);
+		if (tones) light.setTone(tones.schatten, tones.paper);
 		canvas.dataset.zoom = zoom;
 		canvas.dataset.structureVariant = variant;
 		refreshTones = false;

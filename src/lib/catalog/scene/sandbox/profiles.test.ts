@@ -1,7 +1,9 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { UniformNode } from 'three/webgpu';
+import { Color, UniformNode, Vector3 } from 'three/webgpu';
+import { vec3 } from 'three/tsl';
+import { createLight } from './light';
 import { writeAlleyMask } from './alley-mask';
 import { createTerrainMesh } from './terrain-mesh';
 import { STRUCTURE_PARAMS, TERRAIN_VIEW_PARAMS } from './view-params';
@@ -141,4 +143,51 @@ test('removing the last nearby house clears only its local stair ink', () => {
 	expect(ink(last.index)).toBe(128);
 	writeAlleyMask(pixels, grid, [], 1);
 	expect(stairs.every((c) => ink(c.index) === 0)).toBe(true);
+});
+
+test('night shadows cannot brighten the paper while daytime still uses the drawing shadow tone', () => {
+	const light = createLight();
+	const readTone = () => {
+		let tone: Vector3 | undefined;
+		light.shade(vec3(1)).traverse((node) => {
+			if (node instanceof UniformNode && node.value instanceof Vector3) tone = node.value;
+		});
+		return tone?.toArray();
+	};
+	try {
+		light.setTone(new Color(0.8, 0.8, 0.8), new Color(0.96, 0.96, 0.96));
+		expect(readTone()).toEqual([0.8, 0.8, 0.8]);
+		light.setTone(new Color(0.02, 0.02, 0.02), new Color(0.006, 0.007, 0.008));
+		expect(readTone()).toEqual([0.006, 0.007, 0.008]);
+	} finally {
+		light.dispose();
+	}
+});
+
+test('the terrain shader switches off the wash only for the dark palette', () => {
+	const terrain = createTerrainMesh(grid);
+	const palette = {
+		ink: '#181a20',
+		paper: '#faf9f6',
+		blueprint: '#4470a5',
+		blueprintSoft: '#7796cc',
+		categories: { health: '#497dbe', nature: '#378654', mobility: '#e9bf55', business: '#d46898' }
+	};
+	const uniforms = new Set<UniformNode<number>>();
+	terrain.surface.material.colorNode?.traverse((node) => {
+		if (node instanceof UniformNode && typeof node.value === 'number') uniforms.add(node);
+	});
+	try {
+		terrain.setPalette(palette);
+		const daytime = [...uniforms].map(({ value }) => value);
+		terrain.setPalette({ ...palette, paper: '#101215', ink: '#f1efe9' });
+		const night = [...uniforms].map(({ value }) => value);
+		expect(
+			night.flatMap((value, i) => (value === daytime[i] ? [] : [[daytime[i], value]]))
+		).toEqual([[1, 0]]);
+		terrain.setPalette(palette);
+		expect([...uniforms].map(({ value }) => value)).toEqual(daytime);
+	} finally {
+		terrain.dispose();
+	}
 });

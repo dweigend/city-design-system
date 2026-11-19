@@ -11,6 +11,7 @@ import {
 	houseView,
 	redo,
 	startHistory,
+	timelineWindow,
 	undo,
 	withState
 } from './index';
@@ -96,4 +97,20 @@ test('three methods build in the same year and remain distinct when time advance
 	expect(view(withState(aged, undo(history).present))).toEqual(fresh);
 	expect(applyEdit(aged, { kind: 'advance', years: -1 })).toBe(aged);
 	expect(applyEdit(base, { kind: 'raise', cellId, use: 'living', style: 'totem' })).toBe(base);
+});
+
+test('the playable timeline keeps four generations in view through 2076 and the third advance', () => {
+	const start = createWorld(7, { cells: 0 });
+	const at2051 = applyEdit(start, { kind: 'advance' });
+	const at2076 = applyEdit(at2051, { kind: 'advance' });
+	const at2101 = applyEdit(at2076, { kind: 'advance' });
+	const at2126 = applyEdit(at2101, { kind: 'advance' });
+	for (const world of [start, at2051, at2076, at2101])
+		expect(timelineWindow(start.state.year, world.state.year, 25)).toEqual({
+			min: 2026,
+			max: 2126
+		});
+	expect([at2076.state.year, at2101.state.year]).toEqual([2076, 2101]);
+	expect(timelineWindow(start.state.year, at2126.state.year, 25).max).toBe(2151);
+	expect(timelineWindow(start.state.year, start.state.year, 10).max).toBe(2066);
 });

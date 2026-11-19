@@ -12,7 +12,8 @@ import {
 	withState,
 	type Stroke,
 	type Tool,
-	stylesForYear
+	stylesForYear,
+	timelineWindow
 } from '../logic/sandbox';
 
 /**
@@ -42,6 +43,9 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	}
 
 	return {
+		get timelineWindow() {
+			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
+		},
 		get focus() {
 			return focus;
 		},

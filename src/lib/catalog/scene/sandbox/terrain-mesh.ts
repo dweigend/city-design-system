@@ -71,7 +71,9 @@ export function createTerrainMesh(
 		food: uniform(new THREE.Color()),
 		people: uniform(new THREE.Color())
 	};
-	const paperColor = mix(colors.paper, colors.ink, nodes.paperWash);
+	// Inverting a paper wash toward light ink would fill the night sheet with gray.
+	const daylight = floatUniform(1);
+	const paperColor = mix(colors.paper, colors.ink, nodes.paperWash.mul(daylight));
 	const terrainWeight = uniform(1),
 		forestWeight = uniform(1),
 		pathWeight = uniform(1);
@@ -225,6 +227,7 @@ export function createTerrainMesh(
 			const category = (name: string) => new THREE.Color(palette.categories[name]);
 			colors.paper.value.set(palette.paper);
 			colors.ink.value.set(palette.ink);
+			daylight.value = Number(colors.paper.value.r >= colors.ink.value.r);
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
 			colors.nature.value.copy(category('nature'));

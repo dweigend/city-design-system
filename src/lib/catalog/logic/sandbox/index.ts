@@ -11,3 +11,4 @@ export { beginStroke, extendStroke, type Stroke, type Tool } from './stroke';
 export { cursorFrame } from './cursor';
 export { currentStacks, houseView } from './houses';
 export { acceptanceScene } from './acceptance-scene';
+export { timelineWindow } from './time-layers';
