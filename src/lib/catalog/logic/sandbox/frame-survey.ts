@@ -1,3 +1,4 @@
+import { faceSeam } from '../district-frame';
 import { STORY } from '../../data/grid';
 import { hashUnit } from '../../core/random';
 import {
@@ -16,7 +17,7 @@ import { buildingPlots } from './building-plots';
 import { surveyGates } from './frame-gates';
 
 import { courtOpenings } from './court-openings';
-import { seamIncidence, seamVertices } from './seam-incidence';
+import { seamIncidence } from './seam-incidence';
 const policy = seamPolicy();
 const districts = new WeakMap<TerrainGrid, Map<string, Character>>();
 function characters(grid: TerrainGrid) {
@@ -30,6 +31,9 @@ function characters(grid: TerrainGrid) {
 			result.set(cell.block, 'quiet');
 			continue;
 		}
+		classify(cell, old);
+	}
+	function classify(cell: TerrainCell, old: Character | undefined) {
 		const border = cell.neighbors.flatMap((id) => (id ? (grid.cellsById.get(id) ?? []) : []));
 		if (border.some((n) => n.plan.kind === 'riversidePromenade')) result.set(cell.block, 'shore');
 		else if (border.some((n) => n.zone === 'scarp')) result.set(cell.block, 'slope');
@@ -67,13 +71,12 @@ function opening(
 	side: number
 ) {
 	if (!other) return 'rim';
-	const court = courtOpenings(grid).get(JSON.stringify(seamVertices(house, side)));
+	const court = courtOpenings(grid).get(faceSeam(house, side).id);
 	if (court) return court;
-	if (house.plan.square && other.plan.square) return 'square-interior';
-	if (other.zone === 'water' || house.zone === 'water') return 'water';
-	if (house.zone === 'scarp' && other.zone === 'scarp') return 'scarp-interior';
+	const terrain = terrainGap(house, other);
+	if (terrain) return terrain;
 	const rank = other.plan.kind ?? house.plan.kind;
-	if (rank === 'alley' || rank === 'stairAlley' || rank === 'footbridge') return 'passage';
+	if (rank && ['alley', 'stairAlley', 'footbridge'].includes(rank)) return 'passage';
 	if (house.plan.edgePassage && house.alleyEdges & (1 << side)) return 'reserved-frontage';
 }
 
@@ -92,33 +95,22 @@ function surveyFrame(world: World, includeEmpty: boolean) {
 			p.kind === 'module' || p.recipe === 'walkway' ? [p.anchor.cellId] : []
 		)
 	);
-	for (const id of state.stacks.keys()) {
-		const cell = grid.cellsById.get(id),
+	for (const id of state.stacks.keys()) surveyHouse(id);
+	function surveyHouse(id: string) {
+		const found = grid.cellsById.get(id),
 			plot = plots.cellsById.get(id);
 		const count = state.stacks.get(id)?.length ?? 0;
-		if (!cell || !count || !plot) continue;
+		if (!found || !count || !plot) return;
+		const cell = found;
 		const height = cell.pad + count * STORY;
 		const wall = roofWalls(plots, state.stacks, plot, seed);
 		const ring = insetRing(
 			plot.corners.map(([x, y]) => [x, y]),
 			wall.inset
 		);
-		for (const [side, n] of cell.neighbors.entries()) {
-			const other = n ? grid.cellsById.get(n) : undefined;
-			if (other?.plan.kind) roads.set(other.id, other);
-			const stories = n ? (state.stacks.get(n)?.length ?? 0) : 0;
-			const otherHeight = other && stories ? other.pad + stories * STORY : undefined;
-			if (
-				other &&
-				otherHeight !== undefined &&
-				(otherHeight > height || (otherHeight === height && other.id < id))
-			)
-				continue;
+		function surveyBay(side: number, key: string) {
 			const next = (side + 1) % 4;
-			const va = cell.vertexIds[side],
-				vb = cell.vertexIds[next];
-			const vertices: [string, string] = va < vb ? [va, vb] : [vb, va];
-			const key = JSON.stringify(vertices);
+
 			const roofPoint = (i: number): Vec3 => [ring[i][0], ring[i][1], height];
 			const a = roofPoint(side),
 				b = roofPoint(next);
@@ -127,43 +119,47 @@ function surveyFrame(world: World, includeEmpty: boolean) {
 			);
 			const rear0 = roofPoint(returnSide ?? side),
 				rear1 = roofPoint(((returnSide ?? side) + 1) % 4);
-			const clearances = cell.neighbors.flatMap((n) => {
-				const near = n && grid.cellsById.get(n);
-				return near &&
-					(near.zone === 'water' || near.plan.square || near.plan.kind || state.stacks.has(near.id))
-					? [near.corners]
-					: [];
-			});
 			bays.set(key, {
 				id: key,
 				a,
 				b,
-				clearances,
+				clearances: clearances(world, cell),
 				back: rear0.map((v, i) => (v + rear1[i]) / 2) as Vec3
 			});
-			seams.set(key, {
-				id: key,
-				vertices,
-				houses: other && stories ? [id, other.id] : [id],
-				intent: state.frameIntents?.get(key),
-				district: cell.block,
-				character: character.get(cell.block) ?? 'neutral',
-				adjacentCharacter: other && character.get(other.block),
-				higherSide: otherHeight === height ? undefined : id,
-				roofDifference: otherHeight === undefined ? undefined : height - otherHeight,
-				frontage: other?.plan.kind ?? undefined,
-				use: edgeUse(cell, other, otherHeight === undefined ? undefined : height - otherHeight),
-				districtEdge: !!other && other.block !== cell.block,
-				opening:
-					opening(cell, other, grid, side) ??
-					(!wall.exposed[side] || returnSide === undefined ? 'no-wall-bearing' : undefined),
-				blocker: other?.id,
-				attachment: attachments.has(id) || (!!n && attachments.has(n))
-			});
+			return returnSide;
 		}
+		cell.neighbors.forEach((n, side) => {
+			const other = n ? grid.cellsById.get(n) : undefined;
+			if (other?.plan.kind) roads.set(other.id, other);
+			const otherHeight = roofHeight(world, other);
+			if (other && higherRoof(other, otherHeight, cell, height)) return;
+			const { vertices, id: key } = faceSeam(cell, side);
+			const returnSide = surveyBay(side, key);
+			const reason = opening(cell, other, grid, side) ?? bearingGap(wall.exposed[side], returnSide);
+			seams.set(key, features());
+			function features(): FrameSeam {
+				const houses = other && otherHeight !== undefined ? [id, other.id] : [id];
+				const roofDifference = otherHeight === undefined ? undefined : height - otherHeight;
+				return {
+					id: key,
+					vertices,
+					houses,
+					intent: state.frameIntents?.get(key),
+					...districtFeatures(cell, other, character),
+					higherSide: otherHeight === height ? undefined : id,
+					roofDifference,
+					frontage: other?.plan.kind ?? undefined,
+					use: edgeUse(cell, other, roofDifference),
+					opening: reason,
+					blocker: other?.id,
+					attachment: attachments.has(id) || attachments.has(other?.id ?? id)
+				};
+			}
+		});
 	}
 	surveyGates(world, roads.values(), plots, character, seams, bays);
-	if (includeEmpty)
+	if (includeEmpty) surveyEmpty();
+	function surveyEmpty() {
 		for (const edge of incidence.values()) {
 			if (seams.has(edge.id)) continue;
 			const [a, b] = edge.sides;
@@ -174,14 +170,13 @@ function surveyFrame(world: World, includeEmpty: boolean) {
 				id: edge.id,
 				vertices: edge.vertices,
 				houses: [],
-				district: cell.block,
-				character: character.get(cell.block) ?? 'neutral',
-				districtEdge: !!other && cell.block !== other.block,
+				...districtFeatures(cell, other, character),
 				use: 'land',
 				opening: opening(cell, other, grid, a.side) ?? 'unoccupied',
 				blocker: other?.id
 			});
 		}
+	}
 	const sides = new Map<string, string[]>();
 	for (const s of seams.values())
 		for (const h of s.houses) {
@@ -220,4 +215,52 @@ export function frameSurvey(world: World, includeEmpty = false) {
 	const survey = surveyFrame(world, false);
 	occupiedSurveys.set(world, survey);
 	return survey;
+}
+
+function terrainGap(house: TerrainCell, other: TerrainCell) {
+	if (house.plan.square && other.plan.square) return 'square-interior';
+	if (other.zone === 'water' || house.zone === 'water') return 'water';
+	if (house.zone === 'scarp' && other.zone === 'scarp') return 'scarp-interior';
+}
+
+function roofHeight(world: World, cell: TerrainCell | undefined) {
+	if (!cell) return;
+	const levels = world.state.stacks.get(cell.id)?.length;
+	return levels ? cell.pad + levels * STORY : undefined;
+}
+function higherRoof(
+	other: TerrainCell,
+	elevation: number | undefined,
+	cell: TerrainCell,
+	height: number
+) {
+	return (
+		elevation !== undefined && (elevation > height || (elevation === height && other.id < cell.id))
+	);
+}
+function clearances({ grid, state }: World, cell: TerrainCell) {
+	return cell.neighbors.flatMap((n) => {
+		const near = n && grid.cellsById.get(n);
+		return near &&
+			(near.zone === 'water' || near.plan.square || near.plan.kind || state.stacks.has(near.id))
+			? [near.corners]
+			: [];
+	});
+}
+
+function bearingGap(exposed: boolean, returnSide: number | undefined) {
+	if (!exposed || returnSide === undefined) return 'no-wall-bearing';
+}
+
+function districtFeatures(
+	cell: TerrainCell,
+	other: TerrainCell | undefined,
+	characters: ReadonlyMap<string, Character>
+) {
+	return {
+		district: cell.block,
+		character: characters.get(cell.block) ?? ('neutral' as const),
+		adjacentCharacter: other && characters.get(other.block),
+		districtEdge: !!other && other.block !== cell.block
+	};
 }

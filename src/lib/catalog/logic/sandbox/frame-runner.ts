@@ -7,7 +7,8 @@ import { initialTimeline } from './frame-planning';
 export function runFrameTimeline(
 	world: World,
 	count: number,
-	observe?: (world: World, index: number) => Partial<PlanningControls>
+	observe?: (world: World, index: number) => Partial<PlanningControls>,
+	years?: number
 ) {
 	return runTicks(world, count, (checkpoint, i) => {
 		const timeline = checkpoint.state.frameTimeline ?? initialTimeline;
@@ -22,7 +23,7 @@ export function runFrameTimeline(
 						}
 					}
 				: checkpoint,
-			{ kind: 'advance', years: 1 }
+			{ kind: 'advance', years }
 		);
 		return { state, result: state.state.frameTimeline?.results ?? [] };
 	});

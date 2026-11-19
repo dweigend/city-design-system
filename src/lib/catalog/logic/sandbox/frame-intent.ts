@@ -1,6 +1,6 @@
+import { faceSeam } from '../district-frame';
 import { frameSurvey } from './frame-survey';
 import { initialTimeline } from './frame-planning';
-import { seamVertices } from './seam-incidence';
 import type { Failure } from './installation-parts';
 import type { World } from './world';
 
@@ -22,7 +22,7 @@ export function frameIntent(
 					Number(a.use === 'court' || a.use === 'shore') ||
 				(a.id < b.id ? -1 : 1)
 		);
-	const literal = touched[0]?.id ?? JSON.stringify(seamVertices(first, 0));
+	const literal = touched[0]?.id ?? faceSeam(first, 0).id;
 	const alternative = touched
 		.slice(1)
 		.find((s) => !s.opening && s.vertices.some((v) => touched[0]?.vertices.includes(v)));

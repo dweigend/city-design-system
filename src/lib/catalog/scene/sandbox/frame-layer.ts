@@ -1,3 +1,4 @@
+import type { BayState } from '../../logic/district-frame';
 import { bayAxes, type BaySurvey, type trimBay } from '../../logic/megastructure';
 import { frameSurvey, type World } from '../../logic/sandbox';
 import type { Primitive } from '../../logic/parametrik/types';
@@ -92,78 +93,81 @@ export function createFrameLayer(
 			const { bays, seams, rules } = survey;
 			const stock = world.state.frameBays ?? new Map();
 			const next = new Map(rows);
-			let region = [...seams.keys()];
-			if (
-				previous &&
-				previous.world.seed === world.seed &&
-				previous.focus === focus &&
-				previous.world.state.year === world.state.year
-			) {
-				const before = previous.survey;
-				const changed = [...new Set([...seams.keys(), ...before.seams.keys()])].filter(
-					(id) =>
-						JSON.stringify(seams.get(id)) !== JSON.stringify(before.seams.get(id)) ||
-						JSON.stringify(bays.get(id)) !== JSON.stringify(before.bays.get(id)) ||
-						stock.get(id) !== previous?.world.state.frameBays?.get(id)
-				);
-				region = [
-					...new Set([...rules.affected(changed), ...before.rules.affected(changed)])
-				].filter((id) => seams.has(id));
+			const region = changedRegion();
+			function changedRegion() {
+				if (
+					previous &&
+					previous.world.seed === world.seed &&
+					previous.focus === focus &&
+					previous.world.state.year === world.state.year
+				) {
+					const before = previous.survey;
+					const changed = [...new Set([...seams.keys(), ...before.seams.keys()])].filter(
+						(id) =>
+							JSON.stringify(seams.get(id)) !== JSON.stringify(before.seams.get(id)) ||
+							JSON.stringify(bays.get(id)) !== JSON.stringify(before.bays.get(id)) ||
+							stock.get(id) !== previous?.world.state.frameBays?.get(id)
+					);
+					return [
+						...new Set([...rules.affected(changed), ...before.rules.affected(changed)])
+					].filter((id) => seams.has(id));
+				}
+				return [...seams.keys()];
 			}
 			for (const id of next.keys()) if (!seams.has(id)) next.delete(id);
-			const decisions = rules.solve(region, stock, world.seed);
-			const redraw = new Set(region);
-			for (const [id, d] of decisions) {
-				if (roles.get(id)?.role !== d.role)
-					for (const near of rules.affected([id])) redraw.add(near);
-				roles.set(id, d);
+			const redraw = updateRoles();
+			function updateRoles() {
+				const decisions = rules.solve(region, stock, world.seed);
+				const redraw = new Set(region);
+				for (const [id, d] of decisions) {
+					if (roles.get(id)?.role !== d.role)
+						for (const near of rules.affected([id])) redraw.add(near);
+					roles.set(id, d);
+				}
+				for (const id of roles.keys()) if (!seams.has(id)) roles.delete(id);
+				return redraw;
 			}
-			for (const id of roles.keys()) if (!seams.has(id)) roles.delete(id);
-			for (const id of redraw) {
+			for (const id of redraw) project(id);
+			function visibleGeometry(id: string, role: string, installed?: BaySurvey) {
+				if (role === 'gap' || world.state.frameInstallations?.get(id)?.result.status === 'rejected')
+					return;
+				return installed ?? survey.supportedBay(id, roles);
+			}
+			function project(id: string) {
 				const decision = roles.get(id);
+				if (!decision) return;
 				const old = stock.get(id);
-				if (world.state.frameTimeline && !old?.pending && !old?.built) {
+				if (world.state.frameTimeline && !visibleBay(old)) {
 					next.delete(id);
-					continue;
+					return;
 				}
-				const installation = world.state.frameInstallations?.get(id);
-				const installed =
-					installation?.result.status === 'sized' && stock.get(id)?.built
-						? installation
-						: undefined;
-				const bay = installed?.bay ?? survey.supportedBay(id, roles);
-				if (!decision) continue;
-				if (!bay || decision.role === 'gap' || installation?.result.status === 'rejected') {
+				const installed = installedBay(world, id);
+				const bay = visibleGeometry(id, decision.role, installed?.bay);
+				if (!bay) {
 					next.delete(id);
-					continue;
+					return;
 				}
-				const row = {
-					bay,
-					geometry: JSON.stringify(bay),
-					planned: !old?.built,
-					aged:
-						!!old?.built &&
-						((old.builtTick ?? world.state.year) < world.state.year || focus !== 'all')
-				};
+				const row = display(bay, old, world.state.year, focus);
 				next.set(id, row);
 				if (installed) cache.set(row.geometry, installed.result);
+				paint(id, row);
+			}
+			function paint(id: string, row: Display) {
 				const prior = rows.get(id);
-				if (
-					previous?.world.seed !== world.seed ||
-					prior?.geometry !== row.geometry ||
-					prior.planned !== row.planned ||
-					prior.aged !== row.aged
-				) {
+				if (previous?.world.seed !== world.seed || changed(prior, row)) {
 					if (!row.planned && !cache.has(row.geometry)) awaitingDraw.set(id, started);
 					structures.set('tg/' + id, forms(row, cache.get(row.geometry)));
 				}
 			}
-			for (const [id, prior] of rows)
-				if (next.get(id)?.geometry !== prior.geometry) {
-					cache.delete(prior.geometry);
-					timings.delete(id);
-					if (!next.has(id)) structures.set('tg/' + id, []);
-				}
+			retire();
+			function retire() {
+				for (const [id, prior] of rows)
+					if (next.get(id)?.geometry !== prior.geometry) {
+						cache.delete(prior.geometry);
+						timings.delete(id);
+						if (!next.has(id)) structures.set('tg/' + id, []);
+					}
+			}
 			rows = next;
 			previous = { survey, world, focus };
 		},
@@ -183,4 +187,29 @@ export function createFrameLayer(
 			cache.clear();
 		}
 	};
+}
+
+function visibleBay(old?: BayState) {
+	return old?.pending || old?.built;
+}
+function installedBay(world: World, id: string) {
+	const saved = world.state.frameInstallations?.get(id);
+	if (saved?.result.status === 'sized' && world.state.frameBays?.get(id)?.built) return saved;
+}
+function display(bay: BaySurvey, old: BayState | undefined, year: number, focus: FocusId): Display {
+	const built = old?.builtYear ?? old?.builtTick ?? year;
+	return {
+		bay,
+		geometry: JSON.stringify(bay),
+		planned: !old?.built,
+		aged: !!old?.built && (built < year || focus !== 'all')
+	};
+}
+function changed(previous: Display | undefined, row: Display) {
+	return (
+		!previous ||
+		previous.geometry !== row.geometry ||
+		previous.aged !== row.aged ||
+		previous.planned !== row.planned
+	);
 }

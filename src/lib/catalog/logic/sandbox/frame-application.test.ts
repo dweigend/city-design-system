@@ -39,14 +39,7 @@ test('a painted goal survives forecast error, fork and replay on the actual cont
 			.map((c) => [c.id, ['living'] as const])
 	);
 	const world: World = { grid, seed, state: { ...EMPTY_STATE, stacks }, lines: [] };
-	const stable = applyEdit(applyEdit(world, { kind: 'advance', years: 1 }), {
-		kind: 'advance',
-		years: 1
-	});
-	const id = [...(stable.state.frameBays ?? [])].find(([, s]) => s.built === 'main')?.[0];
-	if (!id) throw new Error('Missing surveyed main run');
-	const house = frameSurvey(world).seams.get(id)?.houses[0];
-	if (!house) throw new Error('Missing supporting roof');
+	const { id, house } = builtFrontage(world);
 	const painted = frameIntent(world, [house]).draft;
 	const baseline = runFrameTimeline(painted, 3);
 	const replay = runFrameTimeline(painted, 3);
@@ -79,7 +72,7 @@ test('64 seeded integrated planning ticks agree on regional stock, pending durat
 			row[0].id,
 			row[1].id
 		]).draft;
-		const replay = runFrameTimeline(world, 3);
+		const replay = runFrameTimeline(world, 3, undefined, 1);
 		for (let t = 1; t <= 3; t++) {
 			const survey = frameSurvey(world);
 			const region = [...survey.seams.keys()].filter((_, i) => i % 3 === seed % 3);
@@ -97,3 +90,15 @@ test('64 seeded integrated planning ticks agree on regional stock, pending durat
 		}
 	}
 }, 60_000);
+
+function builtFrontage(world: World) {
+	const stable = applyEdit(applyEdit(world, { kind: 'advance', years: 1 }), {
+		kind: 'advance',
+		years: 1
+	});
+	const id = [...(stable.state.frameBays ?? [])].find(([, s]) => s.built === 'main')?.[0];
+	if (!id) throw new Error('Missing surveyed main run');
+	const house = frameSurvey(world).seams.get(id)?.houses[0];
+	if (!house) throw new Error('Missing supporting roof');
+	return { id, house };
+}

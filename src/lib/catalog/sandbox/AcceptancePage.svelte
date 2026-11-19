@@ -13,19 +13,21 @@
 	let host: HTMLDivElement;
 	let canvas: HTMLCanvasElement;
 	let stage = $state.raw<SandboxStage>();
+	let seed = $state(7);
 	let plan = $state(false);
 	let error = $state('');
 
 	onMount(() => {
 		const query = new URLSearchParams(location.search);
-		const requested=Number(query.get('seed') ?? '7');
+		const requested = Number(query.get('seed') ?? '7');
+		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
 		const study = {
-			...acceptanceScene(Number.isSafeInteger(requested) ? requested >>> 0 : 7),
-			onFrameFailure:(reason:string)=>{error='Frame survey: '+reason;},
+			...acceptanceScene(seed),
+			onFrameFailure: (reason: string) => {
+				error = 'Frame survey: ' + reason;
+			},
 			minInkAppliesTo:
-				query.get('minInkAppliesTo') === 'primary'
-					? ('primary' as const)
-					: ('all' as const)
+				query.get('minInkAppliesTo') === 'primary' ? ('primary' as const) : ('all' as const)
 		};
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), study);
 		void current.ready.catch(() => {});
@@ -89,7 +91,7 @@
 		<canvas
 			bind:this={canvas}
 			tabindex="0"
-			aria-label="Seed 7 acceptance scene. Arrow keys pan, plus and minus zoom."
+			aria-label="Seed {seed} acceptance scene. Arrow keys pan, plus and minus zoom."
 		></canvas>
 		{#if error}<p role="alert">{error}</p>{/if}
 	</div>

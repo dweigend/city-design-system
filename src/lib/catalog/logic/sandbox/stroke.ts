@@ -80,12 +80,7 @@ function evaluateStroke(
 	previous: World,
 	fresh: readonly string[]
 ): Outcome {
-	if (
-		tool.kind === 'house' &&
-		(tool.style ?? styleForYear(base.state.year)) === 'megastructure' &&
-		stylesForYear(base.state.year).includes('megastructure')
-	)
-		return frameIntent(base, ids);
+	if (isFrameStroke(base, tool)) return frameIntent(base, ids);
 	if (proposal) {
 		if ('failure' in proposal) return { draft: base, failure: proposal.failure };
 		return { draft: withState(base, install(base.state, proposal, tool)), failure: undefined };
@@ -94,12 +89,7 @@ function evaluateStroke(
 		return { draft: applyEdit(base, { kind: 'line', transit: tool.transit, cellIds: ids }) };
 	if (tool.kind === 'dig') return { draft: digStroke(base, ids) };
 	if (tool.kind === 'erase') return { draft: eraseStroke(base, ids) };
-	let draft = previous;
-	for (const id of fresh) {
-		const edit = cellEdit(tool, id);
-		if (edit) draft = applyEdit(draft, edit);
-	}
-	return { draft, failure: undefined };
+	return applyCells(previous, tool, fresh);
 }
 
 /** Surveys a trace once and retains the same proposal for drawing and applying it. */
@@ -125,4 +115,21 @@ export type StrokePlan = ReturnType<typeof planStroke>;
 /** Surveys or applies one complete trace to a detached snapshot. Each visited cell is edited once. */
 export function applyStroke(world: World, tool: Tool, cellIds: readonly string[]): Outcome {
 	return planStroke(world, tool, cellIds).outcome();
+}
+
+function applyCells(previous: World, tool: Tool, fresh: readonly string[]): Outcome {
+	let draft = previous;
+	for (const id of fresh) {
+		const edit = cellEdit(tool, id);
+		if (edit) draft = applyEdit(draft, edit);
+	}
+	return { draft, failure: undefined };
+}
+
+function isFrameStroke(base: World, tool: Tool) {
+	return (
+		tool.kind === 'house' &&
+		(tool.style ?? styleForYear(base.state.year)) === 'megastructure' &&
+		stylesForYear(base.state.year).includes('megastructure')
+	);
 }

@@ -68,10 +68,15 @@
 	$effect(() => {
 		if (!world || !stage) return;
 		stage.show(world, 'all');
-		const next = plan?.phases.find((phase) => phase.tick > tick && phase.seam);
-		const bay = next?.seam && frameSurvey(world).bays.get(next.seam);
-		stage.setCursor(bay ? [bayAxes(bay).axes[2]] : []);
+		const axes = forecastAxis(world);
+		stage.setCursor(axes);
 	});
+
+	function forecastAxis(snapshot: NonNullable<typeof world>) {
+		const next = plan?.phases.find((phase) => phase.tick > tick && phase.seam);
+		const bay = next?.seam && frameSurvey(snapshot).bays.get(next.seam);
+		return bay ? [bayAxes(bay).axes[2]] : [];
+	}
 </script>
 
 <svelte:head><title>Frame timeline · Sandbox</title></svelte:head>
@@ -80,7 +85,7 @@
 	<header>
 		<a href={resolve('/sandbox')}>Sandbox</a>
 		<h1>Frame timeline</h1>
-		<span>Seed 7 · House {study?.parcel ?? '11/5'}</span>
+		<span>Seed 7 · House {study?.parcel ?? '…'}</span>
 	</header>
 	<div class="view" bind:this={host}>
 		<canvas bind:this={canvas} aria-label="Neighbourhood frame at tick {tick}"></canvas>

@@ -1,3 +1,6 @@
+import type { FrameSeam } from '../district-frame';
+import type { TerrainCell } from '../terrain-grid';
+import { faceSeam } from '../district-frame';
 import { physicalRuns } from './frame-runs';
 import { squareShares } from './frame-clearance';
 import { bayAxes, interiorLength } from '../megastructure';
@@ -27,7 +30,19 @@ export function frameReport(world: World) {
 	const square = squareShares(world.grid, main);
 	const routeLength = new Map<string, number>(),
 		gatedBlocks = new Set<string>();
-	for (const cell of world.grid.cells) {
+	for (const cell of world.grid.cells) measureParcel(cell);
+	function measureParcel(cell: TerrainCell) {
+		measureRoute(cell);
+		for (const [i, n] of cell.neighbors.entries()) {
+			if (n && world.grid.cellsById.get(n)?.block === cell.block) continue;
+			const distance = length([cell.corners[i], cell.corners[(i + 1) % 4]]);
+			perimeter.set(cell.block, (perimeter.get(cell.block) ?? 0) + distance);
+			const id = faceSeam(cell, i).id;
+			if (main.has(id)) occupied.set(cell.block, (occupied.get(cell.block) ?? 0) + distance);
+		}
+	}
+
+	function measureRoute(cell: TerrainCell) {
 		if (cell.plan.kind === 'mainAlley' || cell.plan.kind === 'riversidePromenade') {
 			const dir = cell.plan.direction;
 			const across = length([cell.corners[0], cell.corners[3]]);
@@ -38,50 +53,36 @@ export function frameReport(world: World) {
 					(dir === 'along' ? along : dir === 'across' ? across : along + across)
 			);
 		}
-		for (const [i, n] of cell.neighbors.entries()) {
-			if (n && world.grid.cellsById.get(n)?.block === cell.block) continue;
-			const distance = length([cell.corners[i], cell.corners[(i + 1) % 4]]);
-			perimeter.set(cell.block, (perimeter.get(cell.block) ?? 0) + distance);
-			const id = JSON.stringify([cell.vertexIds[i], cell.vertexIds[(i + 1) % 4]].sort());
-			if (main.has(id)) occupied.set(cell.block, (occupied.get(cell.block) ?? 0) + distance);
-		}
 	}
 	let gateCount = 0;
-	for (const [id, seam] of seams) {
+	for (const [id, seam] of seams) measureSeam(id, seam);
+	function measureSeam(id: string, seam: FrameSeam) {
 		const bay = bays.get(id);
-		if (!bay) continue;
+		if (!bay) return;
 		const active = !!stock.get(id)?.built;
 		const span = bayAxes(bay).axes[2];
 		const boundary = perimeter.get(seam.district) ?? 0;
-		let water = 0,
-			plaza = 0;
-		const touched = new Set(
-			seam.houses.flatMap((h) => [h, ...(world.grid.cellsById.get(h)?.neighbors ?? [])])
-		);
-		for (const cellId of touched) {
-			const c = cellId && world.grid.cellsById.get(cellId);
-			if (!active || !c) continue;
-			const inside = interiorLength(span[0], span[1], c.corners);
-			if (c.zone === 'water') water += inside;
-			if (c.plan.square) plaza += inside;
+		const { water, plaza } = crossings(world, seam, span, active);
+		if (active && seam.gate) recordGate(seam);
+		diagnostics.set(id, evidence());
+		function evidence(): OmissionEvidence {
+			return {
+				'water-crossing': water,
+				'square-interior': plaza,
+				...(square.has(id) ? { enclosure: square.get(id) } : {}),
+				'interior-main': Number(main.has(id) && seam.use === 'houses' && !seam.districtEdge),
+				'path-opening': Number(active && seam.opening === 'passage'),
+				'scarp-bearing': active
+					? seam.houses.filter((h) => world.grid.cellsById.get(h)?.zone === 'scarp').length
+					: 0,
+				'chord-height': active ? Math.abs(span[0][2] - span[1][2]) : 0,
+				...(boundary ? { 'block-share': (occupied.get(seam.district) ?? 0) / boundary } : {})
+			};
 		}
-		if (active && seam.gate) {
-			const road = seam.blocker && world.grid.cellsById.get(seam.blocker);
-			if (road) gatedBlocks.add(road.block);
-		}
-		diagnostics.set(id, {
-			'water-crossing': water,
-			'square-interior': plaza,
-			...(square.has(id) ? { enclosure: square.get(id) } : {}),
-			'interior-main': Number(main.has(id) && seam.use === 'houses' && !seam.districtEdge),
-			'path-opening': Number(active && seam.opening === 'passage'),
-			'scarp-bearing': active
-				? seam.houses.filter((h) => world.grid.cellsById.get(h)?.zone === 'scarp').length
-				: 0,
-			'chord-height': active ? Math.abs(span[0][2] - span[1][2]) : 0,
-			...(boundary ? { 'block-share': (occupied.get(seam.district) ?? 0) / boundary } : {})
-		});
-		if (!main.has(id)) continue;
+		if (main.has(id)) registerMain(id, seam);
+	}
+
+	function registerMain(id: string, seam: FrameSeam) {
 		if (seam.gate) gateCount++;
 		for (const v of seam.vertices) {
 			const list = node.get(v) ?? [];
@@ -89,57 +90,48 @@ export function frameReport(world: World) {
 			node.set(v, list);
 		}
 	}
+	function recordGate(seam: FrameSeam) {
+		const road = seam.blocker && world.grid.cellsById.get(seam.blocker);
+		if (road) gatedBlocks.add(road.block);
+	}
 	const { lengths, longestRun } = physicalRuns(main, world.state.frameInstallations);
 	for (const [id, n] of lengths) {
 		const row = diagnostics.get(id);
 		if (row) row['run-length'] = n;
 	}
-	for (const [id, s] of seams) {
+	for (const [id, seam] of seams) measureRun(id, seam);
+	function measureRun(id: string, s: FrameSeam) {
 		const d = diagnostics.get(id),
 			bay = bays.get(id);
-		if (!d || !bay || !main.has(id)) continue;
-		const queue = [id],
-			distance = new Map([[id, 0]]),
-			axis = tangent([bay.a, bay.b]);
-		// Cell separation is the shortest side-neighbour path between supporting parcels.
-		const cells = s.houses.slice(),
-			steps = new Map(cells.map((h) => [h, 0]));
-		for (let i = 0; i < cells.length; i++) {
-			const h = cells[i],
-				depth = steps.get(h) ?? 0;
-			for (const n of world.grid.cellsById.get(h)?.neighbors ?? [])
-				if (n && !steps.has(n)) {
-					steps.set(n, depth + 1);
-					cells.push(n);
-				}
+		if (!d || !bay || !main.has(id)) return;
+		const axis = tangent([bay.a, bay.b]);
+		function parallel(id: string) {
+			const bay = bays.get(id);
+			if (!bay) return false;
+			const dir = tangent([bay.a, bay.b]);
+			return Math.abs(axis[0] * dir[1] - axis[1] * dir[0]) <= 1e-8;
 		}
-		const blocks = new Set<string>();
-		for (let i = 0; i < queue.length; i++) {
-			const current = seams.get(queue[i]);
-			if (!current) continue;
-			blocks.add(current.district);
-			for (const v of current.vertices)
-				for (const candidate of node.get(v) ?? []) {
-					if (distance.has(candidate)) continue;
-					const b = bays.get(candidate);
-					if (!b) continue;
-					const dir = tangent([b.a, b.b]);
-					if (Math.abs(axis[0] * dir[1] - axis[1] * dir[0]) > 1e-8) continue;
-					distance.set(candidate, i);
-					queue.push(candidate);
-				}
+		const steps = distances(s.houses, (h) => world.grid.cellsById.get(h)?.neighbors ?? []);
+
+		function measureSpacing() {
+			let nearest = Infinity;
+			for (const k of main) {
+				const other = seams.get(k);
+				if (!other || !parallel(k) || other.vertices.some((v) => s.vertices.includes(v))) continue;
+				for (const h of other.houses) nearest = Math.min(nearest, steps.get(h) ?? Infinity);
+			}
+			if (d && Number.isFinite(nearest)) d['parallel-distance'] = nearest;
 		}
-		d['straight-blocks'] = blocks.size;
-		let nearest = Infinity;
-		for (const k of main) {
-			const other = seams.get(k),
-				b = bays.get(k);
-			if (!other || !b || other.vertices.some((v) => s.vertices.includes(v))) continue;
-			const dir = tangent([b.a, b.b]);
-			if (Math.abs(axis[0] * dir[1] - axis[1] * dir[0]) > 1e-8) continue;
-			for (const h of other.houses) nearest = Math.min(nearest, steps.get(h) ?? Infinity);
-		}
-		if (Number.isFinite(nearest)) d['parallel-distance'] = nearest;
+		const run = distances(
+			[id],
+			(key) =>
+				seams
+					.get(key)
+					?.vertices.flatMap((v) => node.get(v) ?? [])
+					.filter(parallel) ?? []
+		);
+		d['straight-blocks'] = new Set([...run.keys()].map((k) => seams.get(k)?.district)).size;
+		measureSpacing();
 	}
 	for (const [id, seam] of seams) {
 		const d = diagnostics.get(id),
@@ -165,4 +157,37 @@ export function frameReport(world: World) {
 			structure: world.state.frameInstallations?.get(id)?.result
 		})
 	};
+}
+
+function crossings(world: World, seam: FrameSeam, span: Segment, active: boolean) {
+	let water = 0,
+		plaza = 0;
+	const touched = new Set(
+		seam.houses.flatMap((h) => [h, ...(world.grid.cellsById.get(h)?.neighbors ?? [])])
+	);
+	for (const cellId of touched) {
+		const c = cellId && world.grid.cellsById.get(cellId);
+		if (!active || !c) continue;
+		const inside = interiorLength(span[0], span[1], c.corners);
+		if (c.zone === 'water') water += inside;
+		if (c.plan.square) plaza += inside;
+	}
+	return { water, plaza };
+}
+
+function distances(
+	starts: readonly string[],
+	neighbours: (id: string) => readonly (string | null)[]
+) {
+	const queue = [...starts],
+		hops = new Map(starts.map((id) => [id, 0]));
+	for (const id of queue) {
+		const next = (hops.get(id) ?? 0) + 1;
+		for (const n of neighbours(id)) {
+			if (!n || hops.has(n)) continue;
+			queue.push(n);
+			hops.set(n, next);
+		}
+	}
+	return hops;
 }

@@ -1,5 +1,5 @@
+import { faceSeam } from '../district-frame';
 import type { TerrainGrid, TerrainCell } from '../terrain-grid';
-import { seamVertices } from './seam-incidence';
 const cache = new WeakMap<TerrainGrid, Map<string, string>>();
 function boundary(grid: TerrainGrid, start: TerrainCell, seen: Set<string>) {
 	const queue = [start],
@@ -19,7 +19,7 @@ function boundary(grid: TerrainGrid, start: TerrainCell, seen: Set<string>) {
 			const a = cell.corners[side],
 				b = cell.corners[(side + 1) % 4];
 			edges.push({
-				id: JSON.stringify(seamVertices(cell, side)),
+				id: faceSeam(cell, side).id,
 				street: n?.plan.kind === 'alley' || n?.plan.kind === 'stairAlley',
 				river: n?.zone === 'water' || n?.plan.kind === 'riversidePromenade',
 				x: (a[0] + b[0]) / 2,

@@ -102,3 +102,43 @@ test('replanning one painted goal fits the contour tick budget', () => {
 	);
 	expect(medianMs).toBeLessThan(100);
 });
+
+import { prepareAdvance } from './world';
+import { sizeFrameSites } from './frame-sizing';
+
+test('snapshot sizing and foreground advance with several independent painted goals', () => {
+	for (const count of [4, 8]) {
+		let world = carrier(7);
+		const parcels = [...world.state.stacks.keys()];
+		for (let i = 0; i < count; i++)
+			world = frameIntent(world, [parcels[Math.floor((i * parcels.length) / count)]]).draft;
+		const samples: number[][] = [[], [], []];
+		for (let i = 0; i < 12; i++) {
+			const start = performance.now();
+			const work = prepareAdvance(world);
+			expect(work.preview().state.parts).toBe(world.state.parts);
+			const preview = performance.now();
+			const proofs = sizeFrameSites(work.sites);
+			const sized = performance.now();
+			const built = work.finish(proofs);
+			const end = performance.now();
+			expect(built.state.frameTimeline?.results).toHaveLength(count);
+			if (i >= 3)
+				[preview - start, sized - preview, end - sized].forEach((ms, j) => samples[j].push(ms));
+		}
+		const [previewMs, sizingMs, commitMs] = samples.map((xs) => xs.sort((a, b) => a - b)[4]);
+		console.info(
+			'PLAN_BATCH ' +
+				JSON.stringify({
+					seed: 7,
+					count,
+					warmup: 3,
+					repeats: 9,
+					previewMs,
+					sizingMs,
+					commitMs,
+					processPeakRssKiB: resourceUsage().maxRSS
+				})
+		);
+	}
+}, 60000);

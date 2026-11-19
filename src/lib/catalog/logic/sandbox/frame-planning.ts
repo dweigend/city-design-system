@@ -5,7 +5,7 @@ import {
 	type FrameRole,
 	type BayState
 } from '../district-frame';
-import { trimBay } from '../megastructure';
+import type { FrameInstallation } from './frame-state';
 import type { frameSurvey } from './frame-survey';
 import type { World } from './world-contract';
 
@@ -20,26 +20,29 @@ export const initialTimeline: FrameTimeline = {
 };
 
 /** Compiles local forecasts for persistent strokes. Newer overlapping strokes own their shared seam. */
-export function planFrames(world: World, survey: Survey, timeline: FrameTimeline) {
+export function planFrames(
+	world: World,
+	survey: Survey,
+	timeline: FrameTimeline,
+	year: number,
+	proofs: ReadonlyMap<string, FrameInstallation>
+) {
 	const tick = timeline.tick + 1,
 		stock = world.state.frameBays ?? new Map<string, BayState>();
 	const intents = new Map<string, FrameRole>(),
 		plans: Forecast[] = [];
-	const owners = new Map<string, string>(),
-		sized = new Map<string, ReturnType<typeof trimBay>>();
+	const owners = new Map<string, string>();
 	for (const goal of timeline.goals)
 		for (const id of [goal.literal, ...goal.alternatives]) owners.set(id, goal.id);
-	const context = { ...timeline.controls, tick, events: timeline.events };
+	const context = {
+		...timeline.controls,
+		tick,
+		year,
+		yearsPerTick: year - world.state.year,
+		events: timeline.events
+	};
 	const reserved = context.observations.filter((o) => o.from <= tick);
 	const candidates = [...survey.seams.values()];
-	function size(id: string, roles: ReadonlyMap<string, { role: string }>) {
-		const bay = survey.supportedBay(id, roles);
-		if (!bay) return;
-		const key = JSON.stringify(bay);
-		const result = sized.get(key) ?? trimBay(bay);
-		sized.set(key, result);
-		return { bay, result };
-	}
 	for (const goal of timeline.goals) {
 		const edges = candidates.map((s) =>
 			owners.has(s.id) && owners.get(s.id) !== goal.id ? { ...s, opening: 'other-stroke' } : s
@@ -50,9 +53,7 @@ export function planFrames(world: World, survey: Survey, timeline: FrameTimeline
 			stock,
 			world.seed,
 			context,
-			(id, roles) =>
-				world.state.frameInstallations?.get(id)?.result.status === 'sized' ||
-				size(id, roles)?.result.status === 'sized'
+			(id) => proofs.get(id)?.result.status === 'sized'
 		);
 		plans.push(plan);
 		for (const id of [goal.literal, ...goal.alternatives])
@@ -63,7 +64,7 @@ export function planFrames(world: World, survey: Survey, timeline: FrameTimeline
 		intent: intents.get(s.id) ?? s.intent,
 		opening: reserved.find((o) => o.seam === s.id)?.reason ?? s.opening
 	}));
-	return { plans, seams, size, tick };
+	return { plans, seams, tick };
 }
 
 /** Records only observed changes at commit; forecast phases never enter the event stream. */

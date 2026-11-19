@@ -11,6 +11,7 @@
 	import type { TerrainCell } from '../logic/terrain-grid';
 	import SandboxCanvas from './SandboxCanvas.svelte';
 	import SandboxHud from './SandboxHud.svelte';
+	import { sizeAfterPaint } from './size-after-paint';
 	import { createSession } from './session.svelte';
 	import { createSandboxSound } from './sound';
 
@@ -18,7 +19,7 @@
 	 * The city sandbox as a full page: the terrain fills the window, a sparse HUD floats on
 	 * top. Starts with a small old town; the terrain comes from the seed.
 	 */
-	const session = createSession(7);
+	const session = createSession(7, undefined, undefined, sizeAfterPaint);
 	let hud = $state<SandboxHud>();
 	let hovered = $state.raw<TerrainCell>();
 	let header = $state<HTMLElement>();
@@ -201,7 +202,11 @@
 		gap: var(--space-1);
 		pointer-events: none;
 	}
-	.study-link { font-size: var(--text-s); color: var(--ink); pointer-events: auto; }
+	.study-link {
+		font-size: var(--text-s);
+		color: var(--ink);
+		pointer-events: auto;
+	}
 	.brand {
 		color: var(--ink-2);
 		font-family: var(--font-mono);

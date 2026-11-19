@@ -117,7 +117,7 @@ export function structureMaterials() {
 
 	function applyStructuralStyle(style: Stil, minimum: MinimumInk, scale: number) {
 		const { traeger } = style.rollen;
-		const ink = palette && (traeger.token === '--ink' ? palette.ink : palette.blei);
+		const ink = palette?.[traeger.token === '--ink' ? 'ink' : 'blei'];
 		for (const [diameter, material] of [
 			[0.18, materials.primary],
 			[0.14, materials.rib],
@@ -126,15 +126,21 @@ export function structureMaterials() {
 			const px = diameter * scale;
 			material.linewidth =
 				diameter === 0.18 || minimum === 'all' ? strichbreite(diameter, scale) : px;
-			if (palette && ink)
-				material.color.copy(material.linewidth >= STRICHE.minimumTraeger ? ink : palette.detail);
+			const color = material.linewidth >= STRICHE.minimumTraeger ? ink : palette?.detail;
+			if (color) material.color.copy(color);
 		}
-		materials.planned.linewidth = style.rollen.geplant.strichPx;
-		if (palette) materials.planned.color.copy(palette.blei);
-		materials.stockPrimary.linewidth = STRICHE.bestand;
-		if (palette) materials.stockPrimary.color.copy(palette.blei);
+		styleStock(style);
 	}
 
+	function styleStock(style: Stil) {
+		materials.planned.linewidth = style.rollen.geplant.strichPx;
+
+		materials.stockPrimary.linewidth = STRICHE.bestand;
+		if (palette) {
+			materials.planned.color.copy(palette.blei);
+			materials.stockPrimary.color.copy(palette.blei);
+		}
+	}
 	function colorOf(token: string) {
 		const cached = colors.get(token);
 		if (cached) return cached;

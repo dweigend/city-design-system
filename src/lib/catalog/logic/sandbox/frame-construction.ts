@@ -1,3 +1,4 @@
+import { sizeFrameSites, sizingSites } from './frame-sizing';
 import type { BaySurvey } from '../megastructure';
 import { planFrames, recordPlans, initialTimeline } from './frame-planning';
 import { advanceSeams, compileSeams, type BayState } from '../district-frame';
@@ -35,11 +36,16 @@ function installMembers(
 	return owner;
 }
 /** Commits only feasible matured bays. Stored axes and sections are the replay authority. */
-export function advanceFrames(world: World, year: number, region?: readonly string[]) {
+export function advanceFrames(
+	world: World,
+	year: number,
+	region?: readonly string[],
+	proofs = sizeFrameSites(sizingSites(world))
+) {
 	const survey = frameSurvey(world),
 		prior = world.state.frameBays ?? new Map<string, BayState>();
 	const timeline = world.state.frameTimeline ?? initialTimeline;
-	const planning = planFrames(world, survey, timeline);
+	const planning = planFrames(world, survey, timeline, year, proofs);
 	const rules =
 		timeline.goals.length || timeline.controls.observations.length
 			? compileSeams(planning.seams)
@@ -53,27 +59,34 @@ export function advanceFrames(world: World, year: number, region?: readonly stri
 		region ? [...region] : [...survey.seams.keys()],
 		prior,
 		world.seed,
-		year,
-		(id, roles) => {
-			if (installations.get(id)?.result.status === 'sized') return true;
-			const installation = planning.size(id, roles);
-			if (installation) installations.set(id, installation);
-			if (installation?.result.status !== 'sized') return false;
-			const house = survey.seams.get(id)?.houses[0];
-			if (!house) return false;
-			const owner = installMembers(
-				world,
-				id,
-				house,
-				installation.bay,
-				installation.result,
-				year,
-				parts
-			);
-			compositions.set(owner, { id: owner, system: 'houses' });
-			return true;
+		{ tick: planning.tick, year },
+		(id) => {
+			const proof = proofs.get(id);
+			if (proof?.result.status === 'rejected' && (!region || region.includes(id)))
+				installations.set(id, proof);
+			return proof?.result.status === 'sized';
 		}
 	);
+	for (const id of region ?? survey.seams.keys()) install(id);
+	function install(id: string) {
+		const role = stock.get(id)?.built;
+		if (!role || role === prior.get(id)?.built) return;
+		const installation = proofs.get(id);
+		if (installation?.result.status !== 'sized') return;
+		installations.set(id, installation);
+		const house = survey.seams.get(id)?.houses[0];
+		if (!house) return;
+		const owner = installMembers(
+			world,
+			id,
+			house,
+			installation.bay,
+			installation.result,
+			year,
+			parts
+		);
+		compositions.set(owner, { id: owner, system: 'houses' });
+	}
 	const frameIntents = new Map(world.state.frameIntents);
 	for (const seam of planning.seams) if (seam.intent) frameIntents.set(seam.id, seam.intent);
 	return {
