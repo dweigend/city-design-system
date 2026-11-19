@@ -12,7 +12,7 @@ export type HouseStyle = (typeof HOUSE_STYLES)[number];
 /** One rule per style: a mass on its site becomes parts in the shared render contract. */
 export const massRules: Record<HouseStyle, (site: Site, mass: Mass) => Primitive[]> = {
 	terrace: terraceMass,
-	totem: (_site, mass) => surveyedMass(mass, true),
-	megastructure: (_site, mass) => surveyedMass(mass, false),
+	totem: (site, mass) => surveyedMass(mass, true, site.seed),
+	megastructure: (site, mass) => surveyedMass(mass, false, site.seed),
 	collage: collageMass
 };

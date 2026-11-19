@@ -64,6 +64,7 @@ export {
 	atSocket,
 	socketBounds,
 	capsulePitch,
+	waterFitting,
 	moduleGroup,
 	type ModuleRecipe
 } from './module-group';

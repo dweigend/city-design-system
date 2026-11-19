@@ -1,3 +1,4 @@
+import { STORY } from '../../data/grid';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
 import { rechteck, schneidet } from '../haus-tragwerk';
 import type { Vec3 } from '../traeger';
@@ -30,6 +31,7 @@ function intersects(bounds: Bounds, b: Obstacle) {
 const sizes = {
 	capsule: [4, 2, 2],
 	tank: [2, 2, 2],
+	ceramic: [3, 3, STORY],
 	'solar-ring': [3, 3, 0.5],
 	garden: [4, 3, 0.5]
 } as const;

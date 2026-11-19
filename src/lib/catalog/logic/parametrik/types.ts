@@ -10,6 +10,7 @@ export type Role = BuildingRole | 'traeger';
  */
 export type { MaterialId } from '../../data/material';
 export type ColorToken =
+	| '--cat-health-3'
 	| '--cat-health-5'
 	| '--cat-business-3'
 	| '--cat-business-2'

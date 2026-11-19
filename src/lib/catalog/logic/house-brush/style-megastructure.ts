@@ -1,5 +1,5 @@
 import { buildRoofFrame } from '../megastructure';
-import { moduleGroup, type ModuleRod } from './module-group';
+import { waterFitting, moduleGroup, type ModuleRod } from './module-group';
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { kanal, kantenId } from '../traeger';
@@ -98,7 +98,7 @@ export function carrierForm(id: string, rod: ModuleRod, main: boolean): Primitiv
 }
 
 /** Survey used by both infrastructure styles on the standalone house brush plates. */
-export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
+export function surveyedMass(mass: Mass, withModules: boolean, seed: number): Primitive[] {
 	const roofs = mass.stories.map(({ cell }) => ({
 		id: cell.id,
 		height: mass.floor,
@@ -118,7 +118,9 @@ export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
 			rods,
 			rods.filter((r) => r.main && r.a[2] === r.b[2]),
 			mass.use,
-			[]
+			[],
+			undefined,
+			waterFitting(seed, mass.stories[0].cell.id)
 		);
 		group?.forEach(({ recipe, seat }, i) =>
 			parts.push(...shellForms(mass.id + '/module/' + i, recipe, seat))

@@ -1,6 +1,6 @@
 import * as T from 'three';
 import type { PlateMaterials } from './materials';
-import { buildVessel, composeCollage, type Cell } from '../../logic/art-reference';
+import { buildVessel, vesselMeshes, composeCollage, type Cell } from '../../logic/art-reference';
 
 const cell: Cell = [
 	[-8, -4],
@@ -75,36 +75,16 @@ function stock(
 }
 
 function vesselModel(v: NonNullable<ReturnType<typeof buildVessel>>, ink: PlateMaterials) {
-	const profile = [
-		...v.rings.map((r) => ({ ...r, radius: r.outer })),
-		...v.rings.toReversed().map((r) => ({ ...r, radius: r.inner }))
-	];
-	const points: number[] = [],
-		indices: number[] = [];
-	for (const [i, r] of profile.entries()) {
-		for (let j = 0; j < 48; j++) {
-			const a = (j * Math.PI) / 24;
-			points.push(r.offset + r.radius * Math.cos(a), r.z, -r.radius * Math.sin(a));
-			const next = ((i + 1) % profile.length) * 48,
-				k = i * 48 + j,
-				l = i * 48 + ((j + 1) % 48);
-			indices.push(k, l, next + j, l, next + ((j + 1) % 48), next + j);
-		}
-	}
-	const geometry = new T.BufferGeometry();
-	geometry.setAttribute('position', new T.Float32BufferAttribute(points, 3));
-	geometry.setIndex(indices);
+	const { body, lip } = vesselMeshes(v, [v.base.x, v.base.y, 0], v.base.angle);
+	const geometry = new T.BufferGeometry().setFromPoints(
+		body.points.map(([x, y, z]) => new T.Vector3(x, z, -y))
+	);
+	const indices = new Map(body.points.map((point, i) => [point, i]));
+	geometry.setIndex([...body.triangles, ...lip.triangles.map((i) => indices.get(lip.points[i])!)]);
 	geometry.computeVertexNormals();
-	// Each profile interval contributes two triangles per angular segment.
-	const strip = 48 * 6;
-	const lipStart = (v.rings.length - 1) * strip;
-	geometry.addGroup(0, lipStart, 0);
-	geometry.addGroup(lipStart, strip, 1);
-	geometry.addGroup(lipStart + strip, indices.length - lipStart - strip, 0);
-	const mesh = new T.Mesh(geometry, [ink.glaze, ink.water]);
-	mesh.position.set(v.base.x, 0, -v.base.y);
-	mesh.rotation.y = v.base.angle;
-	return mesh;
+	geometry.addGroup(0, body.triangles.length, 0);
+	geometry.addGroup(body.triangles.length, lip.triangles.length, 1);
+	return new T.Mesh(geometry, [ink.glaze, ink.water]);
 }
 
 /** Project the same notched plot into a paper-stock composition or a ceramic inlet study. */

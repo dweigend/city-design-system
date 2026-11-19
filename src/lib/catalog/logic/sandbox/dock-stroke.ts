@@ -5,6 +5,7 @@ import {
 	atSocket,
 	socketBounds,
 	capsulePitch,
+	waterFitting,
 	ringArea,
 	moduleGroup,
 	stackTop,
@@ -55,7 +56,15 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 				return c ? Math.abs(ringArea(c.corners.map(([x, y]) => [x, y]))) : 0;
 			})
 		);
-		const group = moduleGroup(rods, candidates, use, occupied, capsulePitch(area * STORY));
+		const waterPart = waterFitting(world.seed, candidates[0].part.anchor.cellId);
+		const group = moduleGroup(
+			rods,
+			candidates,
+			use,
+			occupied,
+			capsulePitch(area * STORY),
+			waterPart
+		);
 		if (group)
 			return {
 				owner,

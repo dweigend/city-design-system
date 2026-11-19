@@ -1,9 +1,11 @@
+import { kanal } from '../traeger';
 import { dockModule, type Bounds, type ModuleKind, type DockedModule } from '../megastructure';
 import type { Vec3 } from '../parametrik/types';
 import type { HouseUse } from './stacks';
 
 export type ModuleRod = { a: Vec3; b: Vec3; radius: number };
-export type ModuleRecipe = 'capsule' | 'tank' | 'solar-ring' | 'garden' | 'workshop' | 'access';
+export type ModuleRecipe =
+	'capsule' | 'ceramic' | 'tank' | 'solar-ring' | 'garden' | 'workshop' | 'access';
 const accents = {
 	living: 'access',
 	water: 'tank',
@@ -13,6 +15,7 @@ const accents = {
 } as const;
 const hardware: Record<Exclude<ModuleRecipe, 'capsule'>, ModuleKind> = {
 	tank: 'tank',
+	ceramic: 'ceramic',
 	'solar-ring': 'solar-ring',
 	garden: 'garden',
 	workshop: 'garden',
@@ -20,6 +23,11 @@ const hardware: Record<Exclude<ModuleRecipe, 'capsule'>, ModuleKind> = {
 };
 type Obstacles = Parameters<typeof dockModule>[2];
 type Seat = { shell: DockedModule; accent?: DockedModule };
+
+/** A carrier site keeps the same water fitting across previews and rebuilds. */
+export function waterFitting(seed: number, cellId: string) {
+	return kanal(seed, 'raumfachwerk', cellId, 'water-fitting') % 2 ? 'tank' : 'ceramic';
+}
 
 /** Scale three round-ended shells to at least the given story volume in cubic meters. */
 export function capsulePitch(volume: number) {
@@ -82,8 +90,10 @@ export function moduleGroup<R extends ModuleRod>(
 	candidates: R[],
 	use: HouseUse,
 	stock: Bounds[],
-	pitch = 1.5
+	pitch = 1.5,
+	waterPart: 'tank' | 'ceramic' = 'tank'
 ) {
+	const accent = use === 'water' ? waterPart : accents[use];
 	const seats = candidates.flatMap((rod) =>
 		[0.5, 0.32, 0.68, 0.2, 0.8].map((share) => ({ rod, share }))
 	);
@@ -99,11 +109,12 @@ export function moduleGroup<R extends ModuleRod>(
 	};
 	const fit = (
 		group: NonNullable<ReturnType<typeof place>>[],
-		bounds: Bounds[]
+		bounds: Bounds[],
+		fitting: ModuleRecipe
 	): typeof group | undefined => {
 		if (group.length === 3) return group;
 		for (const seat of seats) {
-			const next = place(seat, group.length === 2 ? accents[use] : 'capsule', bounds);
+			const next = place(seat, group.length === 2 ? fitting : 'capsule', bounds);
 			if (!next) continue;
 			const [x, y] = next.seat.shell.center;
 			if (
@@ -112,9 +123,9 @@ export function moduleGroup<R extends ModuleRod>(
 				)
 			)
 				continue;
-			const result = fit([...group, next], [...bounds, ...socketBounds(next.seat)]);
+			const result = fit([...group, next], [...bounds, ...socketBounds(next.seat)], fitting);
 			if (result) return result;
 		}
 	};
-	return fit([], stock);
+	return fit([], stock, accent) ?? (accent === 'ceramic' ? fit([], stock, 'tank') : undefined);
 }

@@ -1,3 +1,5 @@
+import { ceramicFitting } from './ceramic-fitting';
+import type { ModuleRecipe } from './module-group';
 import type { DockedModule } from '../megastructure';
 import { flowToken } from '../../data/focus';
 import { STORY } from '../../data/grid';
@@ -85,13 +87,10 @@ export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive
 }
 
 /** Projects a K2 module in its solved socket basis, meters. */
-function dockedForms(
-	id: string,
-	recipe: 'capsule' | 'tank' | 'solar-ring' | 'garden' | 'workshop' | 'access',
-	m: DockedModule
-): Primitive[] {
+function dockedForms(id: string, recipe: ModuleRecipe, m: DockedModule): Primitive[] {
 	const [x, y, z] = m.center;
 	const b = { id, role: 'neu', material: 'glaze', token: '--paper' } as const;
+	if (recipe === 'ceramic') return ceramicFitting(id, m);
 	if (recipe === 'tank')
 		return [
 			{
