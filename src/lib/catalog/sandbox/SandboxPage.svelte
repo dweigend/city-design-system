@@ -110,6 +110,7 @@
 	<header bind:this={header}>
 		<a class="brand" href={resolve('/')}>City Design System</a>
 		<h1>Sandbox</h1>
+		<a class="study-link" href={resolve('/sandbox/tragwerk')}>Frame timeline</a>
 		<p class="readout" aria-live="polite">
 			{#if hovered}
 				{sandboxZones[hovered.zone]} · {Math.round(hovered.center[2])} m
@@ -200,6 +201,7 @@
 		gap: var(--space-1);
 		pointer-events: none;
 	}
+	.study-link { font-size: var(--text-s); color: var(--ink); pointer-events: auto; }
 	.brand {
 		color: var(--ink-2);
 		font-family: var(--font-mono);

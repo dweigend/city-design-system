@@ -33,7 +33,7 @@ function forms(row: Display, result?: Result): Primitive[] {
 
 /** Projects provisional bays immediately. A single worker sizes current built bays one at a time. */
 export function createFrameLayer(
-	structures: Structures,
+	structures: Pick<Structures, 'set'>,
 	render: () => void,
 	failure: (detail: string) => void
 ) {
@@ -121,6 +121,11 @@ export function createFrameLayer(
 			for (const id of roles.keys()) if (!seams.has(id)) roles.delete(id);
 			for (const id of redraw) {
 				const decision = roles.get(id);
+				const old = stock.get(id);
+				if (world.state.frameTimeline && !old?.pending && !old?.built) {
+					next.delete(id);
+					continue;
+				}
 				const installation = world.state.frameInstallations?.get(id);
 				const installed =
 					installation?.result.status === 'sized' && stock.get(id)?.built
@@ -132,7 +137,6 @@ export function createFrameLayer(
 					next.delete(id);
 					continue;
 				}
-				const old = stock.get(id);
 				const row = {
 					bay,
 					geometry: JSON.stringify(bay),
