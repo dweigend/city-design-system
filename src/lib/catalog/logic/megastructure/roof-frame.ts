@@ -1,3 +1,4 @@
+import { FRAME_DIAMETER } from '../../data/frame-sections';
 import { bayMembers, bearingLayouts, crownLinks, type Joint, type Bay } from './bearing-layout';
 import { roofLinks } from './roof-links';
 import { selectConnectedLayout } from './connected-layouts';
@@ -12,7 +13,7 @@ const frameParams = defineParams({
 	maxSpan: numberParam('Maximum member length', 'm', MAX_FRAME_SPAN_M, [1, 50, 0.5]),
 	clearance: numberParam('Roof clearance', 'm', 2, [0.5, 10, 0.25])
 });
-export const FRAME_DIAMETER = { main: 0.18, brace: 0.1 } as const;
+export { FRAME_DIAMETER } from '../../data/frame-sections';
 type Sections = 'uniform' | 'leitstil';
 function solveLayout(bays: Bay[], maxSpan: number, sections: Sections) {
 	const rods: { a: Joint; b: Joint; radius: number; main: boolean }[] = [];
