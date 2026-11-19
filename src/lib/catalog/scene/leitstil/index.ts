@@ -1,2 +1,4 @@
 export { zeichneSzene } from './zeichne';
 export { hausLeitstil, hatHausLeitstil } from './haus';
+export { grammatik } from './grammatik';
+export { neutral } from './tone';

@@ -30,6 +30,7 @@ function stopParts(
 		...surface,
 		id: id + '/shaft',
 		token: '--cat-business',
+		member: 'primary',
 		kind: 'cylinder',
 		radius: SHAFT_RADIUS,
 		height: top - ground,
@@ -106,6 +107,8 @@ export function lineParts(line: TransitLine): Primitive[] {
 		parts.push({
 			...paper,
 			id: line.id + '/pillar/' + i,
+			member: 'primary',
+			bearings: [[x, y, z]],
 			kind: 'cylinder',
 			position: [x, y, base],
 			radius: design.supportRadius,

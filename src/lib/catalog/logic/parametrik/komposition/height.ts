@@ -1,4 +1,4 @@
-import type { Primitive, Vec3 } from '../types';
+import { transformAnchors, type Primitive, type Vec3 } from '../types';
 import type { Cell, Grid } from '../vocab';
 
 /** Nearest story above this footprint; an open roof retains its full height. */
@@ -54,7 +54,8 @@ export function fitHeight(primitives: Primitive[], center: Vec3, budget: number)
 export function scaleForm(primitives: Primitive[], center: Vec3, scale: number): Primitive[] {
 	if (scale === 1) return primitives;
 	const point = (p: Vec3): Vec3 => p.map((v, i) => center[i] + (v - center[i]) * scale) as Vec3;
-	return primitives.map((p) => {
+	return primitives.map((primitive) => {
+		const p = transformAnchors(primitive, point);
 		switch (p.kind) {
 			case 'prism':
 				return {
@@ -73,14 +74,7 @@ export function scaleForm(primitives: Primitive[], center: Vec3, scale: number):
 					...p,
 					position: point(p.position),
 					size: p.size.map((v) => v * scale) as Vec3,
-					...(p.kind === 'frame'
-						? {
-								bar: p.bar * scale,
-								...(p.members
-									? { members: p.members.map(([a, b]): [Vec3, Vec3] => [point(a), point(b)]) }
-									: {})
-							}
-						: {}),
+					...(p.kind === 'frame' ? { bar: p.bar * scale } : {}),
 					...(p.kind === 'wedge' && p.low !== undefined ? { low: p.low * scale } : {})
 				};
 			case 'polyline':

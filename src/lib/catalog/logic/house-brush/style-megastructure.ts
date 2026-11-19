@@ -12,9 +12,18 @@ import { storiesOf } from './stacks';
 const MEGASTRUCTURE_DEFAULTS = { emptyShare: 0.16, galleryWidth: 0.075 };
 const DRAW = { orientation: 21, occupancy: 22 };
 
+// Keep half the shared primary members, alternating posts and girders on successive pairs.
+function memberOf(i: number, primaryCount: number): Primitive['member'] {
+	if (i >= primaryCount) return i === primaryCount ? 'secondary' : 'alternate';
+	return i % 4 === 0 || i % 4 === 3 || (primaryCount % 2 === 1 && i === primaryCount - 1)
+		? undefined
+		: 'alternate';
+}
+
 /** One post per shared vertex and one girder per shared side at this level. */
 function skeleton(b: Bay, posts: Set<string>, girders: Set<string>, brace: number) {
 	const members: [Vec3, Vec3][] = [];
+	const feet = new Set<Vec3>();
 	b.cell.vertexIds.forEach((id, i) => {
 		const top = along(b, i, 0, 0, 1);
 		if (!posts.has(id)) {
@@ -22,6 +31,7 @@ function skeleton(b: Bay, posts: Set<string>, girders: Set<string>, brace: numbe
 			const foot = along(b, i, 0, 0, 0);
 			if (b.level === 0) foot[2] = Math.min(foot[2], b.cell.corners[i][2]);
 			members.push([foot, top]);
+			feet.add(foot);
 		}
 		const edge = kantenId(id, b.cell.vertexIds[(i + 1) % 4]);
 		if (!girders.has(edge)) {
@@ -29,13 +39,16 @@ function skeleton(b: Bay, posts: Set<string>, girders: Set<string>, brace: numbe
 			members.push([top, along(b, i, 1, 0, 1)]);
 		}
 	});
+	const primaryCount = members.length;
 	members.push(
 		[along(b, brace, 0, 0, 0), along(b, brace, 1, 0, 1)],
 		[b.point(0, 0, 1), b.point(1, 1, 1)]
 	);
 	return members.map(([from, to], i): Primitive => ({
 		...b.piece(`strut-${i}`, '--paper', { kind: 'polyline', points: [from, to] }),
-		role: 'bestand'
+		role: 'traeger',
+		member: memberOf(i, primaryCount),
+		...(feet.has(from) ? { bearings: [from] } : {})
 	}));
 }
 

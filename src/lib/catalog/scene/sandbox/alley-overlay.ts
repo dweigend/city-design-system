@@ -11,7 +11,7 @@ export function alleyOverlay(
 	profile: Readonly<Record<keyof typeof import('./view-params').TERRAIN_VIEW_PARAMS, number>>,
 	nodes: {
 		treadsPerCell: Node<'float'>;
-		cityInk: Node<'float'>;
+		embossInk: Node<'float'>;
 		emptyInk: Node<'float'>;
 		embossWidth: Node<'float'>;
 	}
@@ -65,7 +65,7 @@ export function alleyOverlay(
 			const occupied = code.div(64).floor().mod(2);
 
 			const visibility = mask.a.mul(weight);
-			const pressure = mix(nodes.emptyInk, nodes.cityInk, occupied);
+			const pressure = mix(nodes.emptyInk, nodes.embossInk, occupied);
 			const coverage = along.max(across);
 			// Opposite lips of the same frontage catch light and cast a hairline.
 			const shadow = band(uv.y.mul(2), horizontal)
@@ -83,7 +83,7 @@ export function alleyOverlay(
 			);
 			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.3, 0.65);
 			const flight = band(dist.x, mask.g).mul(stairs).mul(tread).mul(visibility);
-			return mix(bank, people, flight.max(promenadeEdge));
+			return mix(mix(bank, ink, promenadeEdge.mul(pressure)), people, flight);
 		}
 	};
 }

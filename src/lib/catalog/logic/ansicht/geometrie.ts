@@ -2,7 +2,7 @@
  * Geometry of the view layer: bounding boxes, translation, polygon clipping.
  * Pure, without three.js; works on primitives only (world coordinates x/y ground, z height).
  */
-import type { Primitive, Vec3 } from '../parametrik/types';
+import { transformAnchors, type Primitive, type Vec3 } from '../parametrik/types';
 
 export type Bounds = { min: Vec3; max: Vec3 };
 export type Point2 = [number, number];
@@ -95,9 +95,10 @@ export function union(list: Bounds[]): Bounds {
 }
 
 /** Moves a primitive by d (meters). */
-export function translate(p: Primitive, [dx, dy, dz]: Vec3): Primitive {
-	if (!dx && !dy && !dz) return p;
+export function translate(primitive: Primitive, [dx, dy, dz]: Vec3): Primitive {
+	if (!dx && !dy && !dz) return primitive;
 	const move = ([x, y, z]: Vec3): Vec3 => [x + dx, y + dy, z + dz];
+	const p = transformAnchors(primitive, move);
 	switch (p.kind) {
 		case 'pipe':
 		case 'polyline':

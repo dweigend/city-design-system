@@ -31,18 +31,31 @@ export const currentStacks = (state: SandboxState): Stacks =>
 	constructionPhases(state).get(state.year) ?? empty;
 
 /** Seeded stock uses pencil terraces. Later additions keep their built form as they age to pencil. */
-export function houseView(world: World, stacks: Stacks, chunk: string, focus: Focus) {
+export function houseView(
+	world: World,
+	stacks: Stacks,
+	chunk: string,
+	focus: Focus,
+	earliestFullYear = world.state.year
+) {
 	const { grid, state, seed } = world;
 	const project = (floors: Stacks, built: number) =>
 		houseChunk(buildingPlots(grid), floors, chunk, seed, styleForYear(built), {
 			occupied: state.stacks,
-			blockOf: (id) => grid.cellsById.get(id)?.block,
+			// Plots already exclude passages; roof runs stay within the original lattice block.
+			blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
 			olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
 		});
 	const stock = [...constructionPhases(state)].flatMap(([built, floors]) =>
-		built < state.year ? project(floors, built) : []
+		built < earliestFullYear ? project(floors, built) : []
 	);
-	return [...present(stock, focus.stock), ...present(project(stacks, state.year), focus.houses)];
+	const earlierAdditions = [...constructionPhases(state)].flatMap(([built, floors]) =>
+		built >= earliestFullYear && built < state.year ? project(floors, built) : []
+	);
+	return [
+		...present(stock, focus.stock),
+		...present([...earlierAdditions, ...project(stacks, state.year)], focus.houses)
+	];
 }
 
 /** Selects the newest epoch starting by the build year; earlier stock uses the oldest style. */

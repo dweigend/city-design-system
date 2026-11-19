@@ -1,19 +1,19 @@
 import { defineParams, numberParam } from '../../logic/params';
 
-/** Structure outline, crease and glass controls in pixels, meters and opacity ratios. */
+/** Sandbox-specific materials. Drafting widths and tones belong to the bible's Leitstil. */
 export const STRUCTURE_PARAMS = defineParams({
-	creasePx: numberParam('Crease width', 'px', 0.8, [0.1, 8, 0.1]),
-	outlinePx: numberParam('Outline width', 'px', 1, [0.1, 8, 0.1]),
-	outlineMaxMeters: numberParam('Maximum outline width', 'm', 0.09, [0, 1, 0.01]),
-	creaseFullAt: numberParam('Crease fade threshold', 'px/m', 7, [0.1, 100, 0.5]),
-	creaseFloor: numberParam('Minimum crease opacity', 'ratio', 0.22, [0, 1, 0.01]),
+	// Glazed components are outside the opaque envelope role.
 	glassOpacity: numberParam('Glass opacity', 'ratio', 0.34, [0, 1, 0.01])
 });
 
+/** Two interpretations of the same structure. The hairline is the 18 November comparison. */
+export const STRUCTURE_VARIANTS = ['leitstil', 'hairline'] as const;
+export type StructureVariant = (typeof STRUCTURE_VARIANTS)[number];
+
 /** Terrain grid, cursor lens, alley ink and contour controls in cell units and ratios. */
 export const TERRAIN_VIEW_PARAMS = defineParams({
-	emptyInk: numberParam('Empty ink', 'ratio', 0.08, [0, 1, 0.01]),
-	cityInk: numberParam('City ink', 'ratio', 0.15, [0, 1, 0.01]),
+	emptyInk: numberParam('Open alley impression ink', 'ratio', 0.02, [0, 1, 0.01]),
+	embossInk: numberParam('Occupied alley impression ink', 'ratio', 0.04, [0, 1, 0.01]),
 	embossWidth: numberParam('Alley impression width', 'ratio', 0.24, [0.05, 1, 0.01]),
 	cityRadiusCells: numberParam('City radius cells', 'cells', 4, [1, 16, 1], 'integer'),
 	treadsPerCell: numberParam('Treads per cell', 'steps', 4, [1, 10, 1], 'integer'),
@@ -26,10 +26,10 @@ export const TERRAIN_VIEW_PARAMS = defineParams({
 	ravineTone: numberParam('Ravine wash', 'ratio', 0.1, [0, 1, 0.01]),
 	hatchSpacing: numberParam('Ravine hatch spacing', 'm', 4, [1, 10, 1]),
 	paperWash: numberParam('Paper wash', 'ratio', 0.045, [0, 0.25, 0.005]),
-	contourMinor: numberParam('contourMinor', 'ratio', 0.2, [0, 1, 0.01]),
-	contourMajor: numberParam('contourMajor', 'ratio', 0.44, [0, 1, 0.01]),
-	parcel: numberParam('parcel', 'ratio', 0.16, [0, 1, 0.01]),
-	outline: numberParam('outline', 'ratio', 0.55, [0, 1, 0.01]),
+	contourMinor: numberParam('Minor contour ink', 'ratio', 0.2, [0, 1, 0.01]),
+	contourMajor: numberParam('Major contour ink', 'ratio', 0.44, [0, 1, 0.01]),
+	parcel: numberParam('Parcel grid ink', 'ratio', 0.16, [0, 1, 0.01]),
+	outline: numberParam('Land-cover outline ink', 'ratio', 0.55, [0, 1, 0.01]),
 	parcelCells: numberParam('Measure chain interval', 'cells', 10, [1, 100, 1], 'integer'),
 	lensCells: numberParam('Grid lens radius', 'cells', 11, [1, 100, 0.5]),
 	planContourGain: numberParam('Plan contour gain', 'ratio', 0.9, [0, 1, 0.01])

@@ -1,4 +1,5 @@
 import { bindSceneTheme } from './themeBinding';
+import { legacyRoleOf } from '../logic/parametrik/types';
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
@@ -597,13 +598,14 @@ export function createParametrikScene(
 			}
 		>();
 		for (const p of primitives) {
+			const role = legacyRoleOf(p);
 			const group = groupOf?.(p) ?? '';
 			parent = groupOf ? groupFor(group) : model;
 			if (p.kind === 'polyline') {
-				const key = `${group}\u0000${p.role}\u0000${p.emphasis ?? ''}`;
+				const key = `${group}\u0000${role}\u0000${p.emphasis ?? ''}`;
 				const batch = plan.get(key) ?? {
 					group,
-					role: p.role,
+					role,
 					strong: p.emphasis,
 					positions: []
 				};
@@ -628,7 +630,7 @@ export function createParametrikScene(
 							? palette.blueprint
 							: palette.categories[category];
 				const color =
-					p.role === 'bestand'
+					role === 'bestand'
 						? new THREE.Color(palette.paper)
 								.convertLinearToSRGB()
 								.lerp(new THREE.Color(palette.ink).convertLinearToSRGB(), p.shade ?? 0.06)
@@ -638,7 +640,7 @@ export function createParametrikScene(
 								.lerp(new THREE.Color(palette.paper).convertLinearToSRGB(), style.memphis ? 0 : 0.5)
 								.convertSRGBToLinear();
 				if (style.memphis && p.pattern) color.set(palette.paper);
-				if (p.role === 'neu' && p.shade)
+				if (role === 'neu' && p.shade)
 					color
 						.convertLinearToSRGB()
 						.lerp(new THREE.Color(palette.ink).convertLinearToSRGB(), p.shade)
@@ -689,12 +691,12 @@ export function createParametrikScene(
 					: undefined;
 			if (p.kind === 'frame' && built.rulings) {
 				// Stabwerk as drawing: paper bars in ink, coloured bars as a broad coloured stroke.
-				const plain = p.token === '--paper' || p.role === 'bestand';
+				const plain = p.token === '--paper' || role === 'bestand';
 				if (!plain)
 					segments(built.rulings, place, false, 2.6, () =>
 						look ? lookColor(look, palette) : surfaceTone()
 					);
-				segments(built.rulings, place, p.role === 'bestand', plain ? 0.9 : 0.45);
+				segments(built.rulings, place, role === 'bestand', plain ? 0.9 : 0.45);
 				// Invisible proxy keeps the bars in the camera fit.
 				const proxy = new THREE.Mesh(
 					geometry,
@@ -730,7 +732,7 @@ export function createParametrikScene(
 			} else {
 				const mesh = paintedMesh(geometry, () => {
 					const color = surfaceTone();
-					const key = `surface-${color.getHexString()}-${see}-${p.glass}-${built.double}-${p.role}-${style.level}-${style.material}-${p.material}-${style.memphis ? p.pattern : ''}`;
+					const key = `surface-${color.getHexString()}-${see}-${p.glass}-${built.double}-${role}-${style.level}-${style.material}-${p.material}-${style.memphis ? p.pattern : ''}`;
 					usedMaterials.add(key);
 					let material = materials.get(key) as THREE.MeshBasicNodeMaterial | undefined;
 					if (!material) {
@@ -746,7 +748,7 @@ export function createParametrikScene(
 						material.colorNode = surfaceColor(
 							color,
 							p.material,
-							p.role === 'bestand' || p.glass ? 'flat' : style.material,
+							role === 'bestand' || p.glass ? 'flat' : style.material,
 							style.memphis ? p.pattern : undefined,
 							inkColor(false)
 						);
@@ -760,7 +762,7 @@ export function createParametrikScene(
 				pickables.push(mesh);
 				parent.add(mesh);
 			}
-			const existing = p.role === 'bestand';
+			const existing = role === 'bestand';
 			// Material edge: ink toward paper and relative width; existing stock in white architectural model keeps its gray line.
 			const edge = look && !(existing && look.material === 'paper') ? look.edge : undefined;
 			const drawEdges = !look || look.edge !== null;

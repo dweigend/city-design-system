@@ -2,7 +2,8 @@ import type { MaterialId } from '../../data/material';
 
 /** Coordinates in meters: x/y ground plane, z height. */
 export type Vec3 = [number, number, number];
-export type Role = 'bestand' | 'neu';
+type BuildingRole = 'bestand' | 'neu';
+export type Role = BuildingRole | 'traeger';
 /**
  * Material (data/material.ts). concrete, wood, metal draw without the material system as before;
  * all others only through the material system (SceneStyle.materials or their own id).
@@ -22,6 +23,14 @@ export type ColorToken =
 type Base = {
 	id: string;
 	role: Role;
+	/** Previous drawing treatment for an existing bible plate. A carrier otherwise uses stock there. */
+	legacyRole?: BuildingRole;
+	/** Secondary members use the detail stroke. Alternate braces remain on the bible plates. */
+	member?: 'primary' | 'secondary' | 'alternate';
+	/** New envelope in the sandbox when the bible plate uses cutaway hatching or glazing. */
+	envelope?: boolean;
+	/** Bearing locations in world meters, rendered as ink dots in the drafting treatment. */
+	bearings?: Vec3[];
 	token: ColorToken;
 	material: MaterialId;
 	detail?: boolean;
@@ -39,7 +48,7 @@ type Base = {
 	/** View layer: strong edge; network in focus in ink, selection in signal (data/color.ts). */
 	emphasis?: 'netz' | 'auswahl';
 	/** View layer: cut face (poché) – new in ink, existing stock hatched gray. */
-	section?: Role;
+	section?: BuildingRole;
 };
 export type Primitive = Base &
 	(
@@ -141,17 +150,23 @@ export function box(
 export const clamp = (n: number, min: number, max: number) =>
 	Math.max(min, Math.min(max, Number.isFinite(n) ? n : min));
 export const count = (n: number, min: number, max: number) => Math.round(clamp(n, min, max));
+
+/** Moves world-space attachments with the same point transform as their parent geometry. */
+export function transformAnchors(p: Primitive, point: (position: Vec3) => Vec3): Primitive {
+	const withBearings = p.bearings ? { ...p, bearings: p.bearings.map(point) } : p;
+	if (withBearings.kind !== 'frame' || !withBearings.members) return withBearings;
+	return {
+		...withBearings,
+		members: withBearings.members.map(([a, b]): [Vec3, Vec3] => [point(a), point(b)])
+	};
+}
+
 /** Moves any primitive vertically; used by explosion (rank × gap) and stacking. */
-export function shiftZ(p: Primitive, dz: number): Primitive {
-	if (!dz) return p;
+export function shiftZ(primitive: Primitive, dz: number): Primitive {
+	if (!dz) return primitive;
 	const up = ([x, y, z]: Vec3): Vec3 => [x, y, z + dz];
+	const p = transformAnchors(primitive, up);
 	switch (p.kind) {
-		case 'frame':
-			return {
-				...p,
-				position: up(p.position),
-				...(p.members ? { members: p.members.map(([a, b]): [Vec3, Vec3] => [up(a), up(b)]) } : {})
-			};
 		case 'pipe':
 		case 'polyline':
 			return { ...p, points: p.points.map(up) };
@@ -168,3 +183,13 @@ export function shiftZ(p: Primitive, dz: number): Primitive {
 /** Explosion: each primitive rises by its rank × gap (40-grammatik §3.4). */
 export const explode = (primitives: Primitive[], gap: number) =>
 	primitives.map((p) => shiftZ(p, gap * Math.max(0, p.rank ?? 0)));
+
+/** Structural strokes and frame layers share the same primitive classification. */
+export function isStructural(p: Primitive): boolean {
+	return p.role === 'traeger' || Boolean(p.member);
+}
+
+/** Preserves the role used by renderers that predate the sandbox structural system. */
+export function legacyRoleOf(primitive: Primitive): BuildingRole {
+	return primitive.role === 'traeger' ? (primitive.legacyRole ?? 'bestand') : primitive.role;
+}

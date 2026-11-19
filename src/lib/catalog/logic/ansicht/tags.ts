@@ -4,7 +4,7 @@
  * tags, never the internals of a scene: so the same layer serves corner modules and world.
  */
 import { flowToken, type FlowId } from '../../data/focus';
-import type { ColorToken, Primitive } from '../parametrik/types';
+import { isStructural, type ColorToken, type Primitive } from '../parametrik/types';
 import { bounds } from './geometrie';
 
 /** Floor height in meters (eckraster HEIGHT_STEP). */
@@ -59,7 +59,7 @@ export function schichtOf(p: Primitive, flow: FlowId | null): Schicht {
 	const id = quelle(p.id);
 	if (id === 'ground' || id.startsWith('untergrund')) return 'boden';
 	if (p.role === 'bestand') return 'bestand';
-	if (p.token === '--signal' || id.includes('geruest')) return 'geruest';
+	if (isStructural(p) || p.token === '--signal' || id.includes('geruest')) return 'geruest';
 	if (id.startsWith('treppe') || id.startsWith('netz') || p.kind === 'pipe') return 'netz';
 	if (id.startsWith('kopf')) return 'kopf';
 	if (id.startsWith('garden')) return 'gruen';
@@ -83,9 +83,11 @@ export function tag(p: Primitive): Tag {
 	const level = at ? Number(at[1]) : Math.floor((bounds(p).min[2] + 0.2) / STOREY);
 	const flow = p.token === '--paper' ? null : flowOfToken(p.token);
 	const line = p.kind === 'polyline';
-	// Contour lines belong to the structure of their module (phase 2), existing-stock lines to the existing stock.
+	// Only new contour polylines bypass the role and geometry classification.
 	const schicht =
-		line && p.role !== 'bestand' && !id.startsWith('treppe') ? 'struktur' : schichtOf(p, flow);
+		line && p.role === 'neu' && !isStructural(p) && !id.startsWith('treppe')
+			? 'struktur'
+			: schichtOf(p, flow);
 	const phase = phaseOf[schicht];
 	const module = moduleOf(id);
 	return { id, module, level, group: `${module}@${level}#${phase}`, flow, schicht, phase, line };
