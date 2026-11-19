@@ -19,8 +19,8 @@ export const houseProjections = [
 		block(1.77, 0, 0.18, 0.45, 5.5 * factor, 0.58, food)
 	]),
 	asset('capsule-socket', [1.5, 4], (factor) => [
-		ring([0.65, 0, 1.85], 1.8 * factor, 1.47 * factor, 1.3),
-		ring([1.32, 0, 1.85], 1.83 * factor, 1.54 * factor, 0.16, workshop)
+		ring([0.65, 0, 1.85 * factor], 1.8 * factor, 1.47 * factor, 1.3),
+		ring([1.32, 0, 1.85 * factor], 1.83 * factor, 1.54 * factor, 0.16, workshop)
 	]),
 	asset('window-reveal', [0.65, 4], (factor) => [
 		...row(2, (t) => block(0.3, t * 1.7 * factor, 0, 0.6, 0.2, 2.4)),

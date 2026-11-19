@@ -71,8 +71,8 @@ export const streetSignals = [
 			bulb([t * 2.8, 0, (3.05 + 0.45 * ((t * 2.8) / 3.3) ** 2) * factor - 0.1], 0.13, 1.1, energy)
 		)
 	]),
-	asset('tactile-turn', [3, 3], (factor) => [
-		...row(4, (_, i) =>
+	asset('tactile-turn', [3, 3], (factor, variant) => [
+		...row(2 + 2 * variant, (_, i) =>
 			pipe(
 				[
 					[-1.3, -1.1 + i * 0.12, 0.065],

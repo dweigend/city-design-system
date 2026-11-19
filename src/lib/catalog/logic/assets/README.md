@@ -4,6 +4,6 @@ Import `assetRegistry` and `buildAsset` from `logic/assets`. Look up the stable 
 
 A footprint reserves local plan dimensions in metres across all seeds and variants. Deck and roof reservations are centred on the origin in x and y. Facades occupy x from zero to the reserved depth and are centred along y. Each anchor is an alternative mounting surface at the local origin. Align the local normal to the outward host normal and translate the origin to the host attachment point. Local z is up. Rotations are radians. Footprints include placement clearance.
 
-The contact sheet uses the dedicated scene entry point `scene/sandbox/asset-plate` to photograph the same primitive batches used by sandbox structures.
+The contact sheet photographs the game's structure batches on the bible's parametric vignette stage. The game and bible project solids through `scene/primitive-geometry` and resolve explicit finishes through the same material and surface chart.
 
 For a facade, roof or deck with its own geometry, spread `getAssetSurface('terrazzo', 'water-chip')` onto its primitive. The returned `material`, `finish` and `token` use the ordinary sandbox finish pipeline. The surface category also supplies folded samples for inspecting each treatment.

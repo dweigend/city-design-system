@@ -42,8 +42,8 @@ export const playgrounds = [
 		...row(5, (_, i) => block(-2.29, 0, i * 0.34 * factor, 0.34, 0.8, 0.11))
 	]),
 	asset('ping-table', [3, 2], (factor) => [
-		...legs(1.1, 0.61, 0.76, 0.055),
-		block(0, 0, 0.76, 2.74, 1.52, 0.09, water),
+		...legs(1.1 * factor, 0.61, 0.76, 0.055),
+		block(0, 0, 0.76, 2.74 * factor, 1.52, 0.09, water),
 		block(0, 0, 0.85, 0.025, 1.63, 0.21 * factor)
 	]),
 	asset('play-bars', [4, 2], (factor) => [
@@ -71,8 +71,9 @@ export const playgrounds = [
 		block(-2.32, 0, 0, 0.24, 2.6, 1.65 * factor),
 		rod([-2.18, -1.27, 1.65 * factor], [-2.18, 1.27, 1.65 * factor], 0.055)
 	]),
-	asset('jump-bed', [3, 3], (factor) => [
-		plate(circle(1.4), 0, 0.15, white, circle(1.1 * factor).reverse()),
+	asset('jump-bed', [3, 3], (factor, variant) => [
+		plate(circle(1.4, 4 + 2 * variant), 0, 0.15, white, circle(1.1 * factor).reverse()),
+		...circle(1.22, 4 + 2 * variant).map(([x, y]) => drum([x, y, 0.15], 0.08, 0.08, energy)),
 		drum([0, 0, 0.05], 1.09 * factor, 0.06, path)
 	])
 ];

@@ -5,21 +5,23 @@ const asset = family('ceramics', 'deck');
 export const sculpturalWare = [
 	asset('orb-finial', [2, 2], (factor) => [
 		glaze(drum([0, 0, 0], 0.62, 0.3)),
-		glaze(bulb([0, 0, 0.3 + 0.88 * factor], 0.88 * factor, 1, energy))
+		glaze(bulb([0, 0, 0.3 + 1.15 * factor], 0.88, (1.15 * factor) / 0.88, energy))
 	]),
 	asset('memphis-portal', [5, 2], (factor) => [
-		glaze(shell('arch', 0, 0, 0, 4.4, 1.3, 3.2 * factor, 0.42, living)),
-		glaze(bulb([1.6, 0, 3.2 * factor + 0.42], 0.42, 1, energy))
+		glaze(shell('arch', 0, 0, 0, 4.4, 1.3, 1 + 3 * factor, 0.42, living)),
+		glaze(bulb([1.6, 0, 1 + 3 * factor + 0.4], 0.42, 1, energy))
 	]),
-	asset('offset-totem', [3, 3], (factor) => [
+	asset('offset-totem', [3, 3], (factor, variant) => [
 		glaze(drum([0, 0, 0], 1, 0.3)),
 		glaze(block(-0.36, 0, 0.3, 1.25, 1.4, 1.7 * factor, workshop)),
 		glaze(ring([0.1, 0, 0.3 + 1.7 * factor + 0.74], 0.84, 0.36, 0.6, water)),
-		glaze(bulb([0.18, 0, 0.3 + 1.7 * factor + 1.93], 0.43, 1, energy))
+		...Array.from({ length: 1 + variant }, (_, i) =>
+			glaze(bulb([0.18, 0, 0.3 + 1.7 * factor + 1.93 + i * 0.72], 0.43, 1, energy))
+		)
 	]),
-	asset('disc-capital', [3, 3], (factor) => [
+	asset('disc-capital', [3, 3], (factor, variant) => [
 		glaze(drum([0, 0, 0], 0.52, 0.48)),
-		...row(4, (_, i) =>
+		...row(2 + variant, (_, i) =>
 			glaze(drum([0, 0, 0.48 + i * 0.18], (0.68 + i * 0.22) * factor, 0.18, i % 2 ? path : living))
 		)
 	]),
@@ -45,10 +47,10 @@ export const sculpturalWare = [
 		glaze(
 			pipe(
 				[
-					[-0.6, 0, 0.32],
+					[-0.6, 0, 0.29],
 					[0.82, 0, 1.42 * factor],
 					[-0.8, 0, 2.6 * factor],
-					[0.8, 0, 3.9 * factor]
+					[0.8, 0, 3.9 * factor + 0.12]
 				],
 				0.27,
 				workshop

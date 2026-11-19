@@ -29,7 +29,8 @@ function surfaceGeometry(part: Surface) {
 	return g;
 }
 
-function chartSurface(g: BufferGeometry) {
+/** Attaches the local metre chart and face UVs used by finished primitives in all scene views. */
+export function chartSurface(g: BufferGeometry) {
 	g.computeBoundingBox();
 	const bounds = g.boundingBox ?? new Box3();
 	const size = bounds.getSize(new Vector3());

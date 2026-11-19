@@ -26,9 +26,9 @@ export const houseVolumes = [
 		)
 	]),
 	asset('ridge-house', [6, 5], (factor) => [
-		block(0, 0, 0, 6, 4.8, 3, living),
-		slope(-1.5, 0, 3, 3, 4.8, 2 * factor, Math.PI),
-		slope(1.5, 0, 3, 3, 4.8, 2 * factor)
+		block(0, 0, 0, 6, 4.8, 3 * factor, living),
+		slope(-1.5, 0, 3 * factor, 3, 4.8, 2 * factor, Math.PI),
+		slope(1.5, 0, 3 * factor, 3, 4.8, 2 * factor)
 	]),
 	asset('drum-house', [6, 6], (factor) => [
 		drum([0, 0, 0], 2.9, 2.2 * factor, living),
@@ -57,9 +57,9 @@ export const houseVolumes = [
 		block(0, 0, 0, 3.6, 6.6 * factor, 0.18)
 	]),
 	asset('setback-storey', [7, 5], (factor) => [
-		block(0, 0, 0, 6.8, 4.8, 0.26),
-		block(-0.45, 0.45, 0.26, 5.5 * factor, 3.7, 2.8, living),
-		block(-0.45, -1.42, 1.1, 4.7 * factor, 0.08, 0.95, pane)
+		block(0, 0, 0, 6.8 * factor, 4.8, 0.26),
+		block(-0.45 * factor, 0.45, 0.26, 5.5 * factor, 3.7, 2.8, living),
+		block(-0.45 * factor, -1.42, 1.1, 4.7 * factor, 0.08, 0.95, pane)
 	]),
 	asset('lantern-head', [6, 6], (factor, variant) => [
 		drum([0, 0, 0], 1.25, 0.7),
@@ -80,10 +80,10 @@ export const houseVolumes = [
 		block(1.55, 0, 0, 1.4, 2.8, 9 * factor),
 		...row(3, (_, i) => block(0, 0, 1 + i * 3 * factor, 3.2, 1, 0.4))
 	]),
-	asset('stepped-gable-body', [6, 5], (factor) => [
+	asset('stepped-gable-body', [6, 5], (factor, variant) => [
 		block(0, 0, 0, 6, 4.8, 3),
-		...row(3, (_, i) =>
-			block(0, -2.22, 3 + i * 0.52, 5.4 - i * 1.5, 0.35, 0.52 * factor + 0.15, living)
+		...row(2 + variant, (_, i) =>
+			block(0, -2.22, 3 + i * 0.52 * factor, 5.4 - i * 1.25, 0.35, 0.52 * factor + 0.15, living)
 		)
 	]),
 	asset('corner-house', [7, 7], (factor) => [

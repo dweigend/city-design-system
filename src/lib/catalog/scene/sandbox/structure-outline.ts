@@ -1,4 +1,11 @@
-import { InstancedBufferAttribute, type Node } from 'three/webgpu';
+import {
+	BufferGeometry,
+	InstancedBufferGeometry,
+	InstancedBufferAttribute,
+	Material,
+	Mesh,
+	type Node
+} from 'three/webgpu';
 import {
 	attribute,
 	cameraProjectionMatrix,
@@ -23,6 +30,23 @@ export const outlineOffsets = new InstancedBufferAttribute(
 	),
 	2
 );
+
+/** Identifies the ceramic finishes with a continuous ink contour. */
+export function hasGlazeContour(finish: string | undefined) {
+	return finish === 'keramik-glasiert' || finish === 'glaze';
+}
+
+/** Creates a screen-space contour sharing the face positions. Caller owns the returned geometry. */
+export function silhouette(source: BufferGeometry, material: Material) {
+	const geometry = new InstancedBufferGeometry();
+	geometry.setAttribute('position', source.getAttribute('position'));
+	geometry.setIndex(source.index);
+	if (source.userData.outlineVertices !== undefined)
+		geometry.setDrawRange(0, source.userData.outlineVertices);
+	geometry.setAttribute('outlineOffset', outlineOffsets);
+	geometry.instanceCount = outlineOffsets.count;
+	return new Mesh(geometry, material);
+}
 
 /** Projects an outline copy, with optional depth separation for double-sided geometry. */
 export function outlinePositionAtOffset(

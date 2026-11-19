@@ -51,6 +51,8 @@ import {
 import type { Node } from 'three/webgpu';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Palette3D } from '../data/city3d';
+import { sceneSwatch } from './scene-palette';
+import type { ColorToken } from '../logic/parametrik/types';
 import { flowToken } from '../data/focus';
 import {
 	FELD,
@@ -116,11 +118,11 @@ const srgb = (css: string): [number, number, number] => {
 };
 
 function paletteAus(p: Palette3D): Palette {
-	const strom = (token: string) => srgb(p.categories[token.replace('--cat-', '')] ?? p.paper);
+	const strom = (token: ColorToken) => srgb(sceneSwatch(p, token));
 	return {
 		papier: srgb(p.paper),
 		tinte: srgb(p.ink),
-		signal: srgb(p.categories['--signal'] ?? p.ink),
+		signal: strom('--signal'),
 		strom: [
 			strom(flowToken.people),
 			strom(flowToken.water),
