@@ -13,6 +13,8 @@ export type TerrainCell = QuadCell &
 		pattern: Pattern;
 		alley: 'along' | 'across' | 'both' | null;
 		block: string;
+		/** Kernel parcel owning this addressable carrier cell. */
+		parcel: string;
 		blockSides: number;
 		/** Buildable remainder where an alley takes part of the terrain cell. */
 		lotCorners?: QuadCell['corners'];

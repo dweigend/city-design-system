@@ -15,7 +15,7 @@ export type Parcel = {
 	access: { front: string; length: number; level: number }[];
 	children: string[];
 };
-const cutRatios = [0.5, 0.4, 0.6] as const;
+export const cutRatios = [0.5, 0.4, 0.6] as const;
 export type ParcelOptions = {
 	/** Preferred first cut; both children still need sufficient area and frontage. */
 	firstCut?: (typeof cutRatios)[number];

@@ -69,38 +69,6 @@ function paired(left: Face, right: Face, positions: Map<string, kern.Vec>, seed:
 	}
 }
 
-// Cut a four-module run with both frontages intact. These normalized cuts
-// are affine coordinates for all strips with the same topology.
-const depthCuts = ([0.5, 0.4, 0.6] as const).map((firstCut) => {
-	const polygon: kern.Vec[] = [
-		[0, 0],
-		[2, 0],
-		[2, 4],
-		[0, 4]
-	];
-	const fronts: kern.Front[] = [1, 3].map((i) => ({
-		id: String(i),
-		a: polygon[i],
-		b: polygon[(i + 1) % 4],
-		width: 1,
-		level: 0,
-		kind: 'alley'
-	}));
-	const cut = kern.parcelize('strip', polygon, fronts, {
-		maxArea: 5,
-		minArea: 3,
-		minWidth: 1,
-		minFront: 1,
-		maxDepth: 1,
-		level: 0,
-		firstCut
-	});
-	return Math.max(...cut.leaves[0].polygon.map((p) => p[1])) - 2;
-});
-/** Seeded frontage cut measured from the first end of the shared edge. */
-export function frontageRatio(seed: number, c: number, r: number) {
-	return 0.5 + depthCuts[Math.floor(hash(seed, c, r) * depthCuts.length)] / 4;
-}
 function courtVertex(
 	c: number,
 	r: number,
@@ -111,15 +79,9 @@ function courtVertex(
 ): kern.Vec {
 	const drift = (channel: number, limit = profile.stagger) =>
 		interior ? (hash(seed, c + r * (width + 1), channel) * 2 - 1) * limit : 0;
-	// Alternate the cut axis in neighbouring four-module courts.
-	const transverse = (Math.floor(c / 4) + Math.floor(r / 4) + seed) % 2 === 0;
-	const cut = interior ? depthCuts[Math.floor(hash(seed, c, r) * depthCuts.length)] : 0;
 	return [
-		(c +
-			drift(1, Math.min(profile.stagger, profile.frontageShift)) +
-			(transverse && c % 4 === 2 ? cut : 0)) *
-			MODULE,
-		(r + drift(2) + (!transverse && r % 4 === 2 ? cut : 0)) * MODULE
+		(c + drift(1, Math.min(profile.stagger, profile.frontageShift))) * MODULE,
+		(r + drift(2)) * MODULE
 	];
 }
 /** Build a shared graph of terrace frontages before subdividing its faces. */

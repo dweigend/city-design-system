@@ -41,3 +41,46 @@ test('a physical step between two passage footprints keeps their walls separate'
 	);
 	expect(separated).toBeDefined();
 });
+
+test('snapping preserves the full perpendicular width on both owners of every seed-7 passage', () => {
+	for (const cell of terrain.cells.filter((c) => c.lotCorners)) {
+		const side = cell.alleyEdges & 1 ? 0 : 2,
+			a = cell.corners[side],
+			b = cell.corners[(side + 1) % 4];
+		const dx = b[0] - a[0],
+			dy = b[1] - a[1];
+		for (const p of plots.cells[cell.index].corners) {
+			expect((dx * (p[1] - a[1]) - dy * (p[0] - a[0])) / Math.hypot(dx, dy)).toBeGreaterThanOrEqual(
+				cell.plan.width
+			);
+		}
+	}
+	for (const id of ['114/89', '106/72', '107/72'])
+		expect(terrain.cellsById.get(id)?.lotCorners).toBeDefined();
+	const a = plots.cellsById.get('106/72'),
+		b = plots.cellsById.get('107/72');
+	expect(a?.neighbors).toContain(b?.id);
+	expect(b?.neighbors).toContain(a?.id);
+});
+
+test('the pencil ridge on 106/72 follows the P1 angle on its final inset footprint', () => {
+	const cell = plots.cellsById.get('106/72');
+	if (!cell) throw new Error('missing lot');
+	const parts = houseChunk(plots, new Map([[cell.id, ['living']]]), cell.chunk, 7);
+	const ridge = parts.find((p) => p.id.endsWith(':ridge'));
+	if (ridge?.kind !== 'polyline') throw new Error('missing ridge');
+	const [a, , b] = ridge.points;
+	// P1 selects the transverse axis at this address.
+	const sides = cell.corners.map(([x, y], i) => [
+		cell.corners[(i + 1) % 4][0] - x,
+		cell.corners[(i + 1) % 4][1] - y
+	]);
+	const [x, y] = sides.reduce((a, b) => (Math.hypot(...a) >= Math.hypot(...b) ? a : b));
+	const angle = Math.atan2(y, x) + Math.PI / 2;
+	const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+	expect(length).toBeGreaterThan(0);
+	expect(((b[0] - a[0]) * Math.sin(angle) - (b[1] - a[1]) * Math.cos(angle)) / length).toBeCloseTo(
+		0,
+		12
+	);
+});

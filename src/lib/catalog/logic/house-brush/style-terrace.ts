@@ -1,9 +1,9 @@
 import { STORY } from '../../data/grid';
 import { hash } from '../hash-random';
-import type { Primitive } from '../parametrik/types';
+import type { Primitive, Vec3 } from '../parametrik/types';
 import { inradius } from '../quad-grid';
 import { body } from './body';
-import { bayOf } from './collage-bay';
+import { pencilGables } from './stock-roof-axis';
 import { part, type Site } from './form';
 import type { Mass } from './massing';
 import { profileOf } from './profile';
@@ -23,13 +23,18 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 	}));
 	for (const { cell, level } of mass.stories) {
 		if (storiesOf(site.stacks, cell.id).length !== level + 1) continue;
-		const at = bayOf(cell, cell.ridgeSide ?? mass.stories[0].cell.index % 4);
+
 		const top = mass.floor + STORY + profile.tiers * profile.rise;
 		const height =
 			inradius(cell) * p.pitch * (1 + hash(site.seed, cell.index, level) * p.variation);
-		const span = (profile.setback * profile.tiers) / Math.max(inradius(cell) * 2, Number.EPSILON);
-		for (const [i, v] of [span, 1 - span].entries()) {
-			const points = [at(span, v, top), at(0.5, v, top + height), at(1 - span, v, top)];
+		const ends = pencilGables(cell, site.seed, profile.setback * profile.tiers);
+		if (ends.length !== 2) continue;
+		for (const [i, { a, b, peak }] of ends.entries()) {
+			const points: Vec3[] = [
+				[...a, top],
+				[...peak, top + height],
+				[...b, top]
+			];
 			solids.push({
 				...part(cell.id + '@' + level + ':gable' + i, '--paper', { kind: 'polyline', points }),
 				role: 'bestand'
@@ -39,9 +44,13 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 			...part(cell.id + '@' + level + ':ridge', '--paper', {
 				kind: 'polyline',
 				points: [
-					at(0.5, span, top + height),
-					at(0.5 + p.wobble, 0.5, top + height * (1 - p.wobble)),
-					at(0.5, 1 - span, top + height)
+					[...ends[0].peak, top + height],
+					[
+						(ends[0].peak[0] + ends[1].peak[0]) / 2,
+						(ends[0].peak[1] + ends[1].peak[1]) / 2,
+						top + height * (1 - p.wobble)
+					],
+					[...ends[1].peak, top + height]
 				]
 			}),
 			role: 'bestand'

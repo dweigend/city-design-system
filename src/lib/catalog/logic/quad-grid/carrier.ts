@@ -16,8 +16,6 @@ export type QuadCell = Readonly<{
 	/** Identities of the four corners; neighbors share them. Topology reads these, never positions. */
 	vertexIds: readonly [string, string, string, string];
 	center: Vec3;
-	/** Frontage side determining the ridge direction when the carrier supplies one. */
-	ridgeSide?: number;
 	/** Neighbor across side i (corner i → corner i + 1), or null at the rim. */
 	neighbors: readonly [string | null, string | null, string | null, string | null];
 	/** Level datum in meters: floor height of story 0. Equal pads let neighbors merge. */

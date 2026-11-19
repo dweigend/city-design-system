@@ -11,7 +11,7 @@ export type Form = Without<Primitive, 'id' | 'role' | 'token' | 'material'>;
 export type Site = Readonly<{ grid: QuadGrid; stacks: Stacks; seed: number }>;
 
 /** One draw channel per decision of the grammar (PD-4). */
-export const CHANNEL = { opening: 11, crown: 12, crownTurn: 13, corner: 14, tiers: 15 };
+export const CHANNEL = { opening: 11, crown: 12, crownTurn: 13, corner: 14, tiers: 15, ridge: 17 };
 
 /** Share of ink in the pane of a plain window: dark on a white wall. */
 const PANE_SHADE = 0.78;

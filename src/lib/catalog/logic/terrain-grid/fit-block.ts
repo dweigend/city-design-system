@@ -35,10 +35,17 @@ export function fitBlocks(
 		const face = required(fallback.faces.get(id), 'replacement parcel');
 		parents.set(id, block);
 		faces.set(id, face);
-		for (const v of face.ring)
-			positions.set(v, projectVertex(required(fallback.positions.get(v), 'replacement corner')));
+		for (const v of face.ring) {
+			const next = projectVertex(required(fallback.positions.get(v), 'replacement corner'));
+			const old = positions.get(v);
+			// Do not displace a seam owned by a surviving kernel parcel.
+			if (template.cutVertices.has(v) && old && (old[0] !== next[0] || old[1] !== next[1]))
+				return undefined;
+			positions.set(v, next);
+		}
 	}
-	if (!repairCenters(faces, parents, groups, positions, limits)) return undefined;
+	if (!repairCenters(faces, parents, groups, positions, limits, fallback.cutVertices))
+		return undefined;
 	return { ...template, faces, parents };
 }
 
@@ -47,7 +54,8 @@ function repairCenters(
 	parents: Template['parents'],
 	groups: Set<string>,
 	positions: Map<string, kern.Vec>,
-	limits: kern.Limits
+	limits: kern.Limits,
+	fixed: ReadonlySet<string>
 ) {
 	const blocks = new Set([...parents.values()].filter((p) => groups.has(p.group)).map((p) => p.id));
 	for (const id of blocks) {
@@ -60,6 +68,18 @@ function repairCenters(
 			[x + 2, y + 2],
 			[x, y + 2]
 		].map(([c, r]) => required(positions.get(cellId(c, r)), 'block boundary'));
+		if (fixed.has(center)) {
+			if (
+				children.every((f) =>
+					kern.acceptable(
+						kern.quadQuality(f.ring.map((v) => required(positions.get(v), 'parcel vertex'))),
+						limits
+					)
+				)
+			)
+				continue;
+			return false;
+		}
 		const original = required(positions.get(center), 'block center');
 		const attempts = corners
 			.flatMap((corner, i) => [corner, kern.mix(corner, corners[(i + 1) % 4], 0.5)])

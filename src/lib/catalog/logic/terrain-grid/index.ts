@@ -1,4 +1,4 @@
-import { roofSide } from './roof-side';
+export { passageClearance } from './frontage-lot';
 import { behindPassage } from './frontage-lot';
 import { blockPatches, type BlockCache } from './block-patch';
 import { required } from '../required';
@@ -164,6 +164,7 @@ function makeCell(
 	const source = {
 		id: x + ':' + y + '/' + face.block.id,
 		sides: face.block.sides,
+		parcel: x + ':' + y + '/' + face.block.parcel,
 		mask: face.block.mask
 	};
 	const neighbors = [adjacent(0), adjacent(1), adjacent(2), adjacent(3)] as const;
@@ -173,13 +174,14 @@ function makeCell(
 
 function sameParcel(
 	old: TerrainCell,
-	source: { id: string; mask: number },
+	source: { id: string; parcel: string; mask: number },
 	corners: TerrainCell['corners'],
 	neighbors: TerrainCell['neighbors'],
 	edits: readonly TerrainEdit[]
 ) {
 	return (
 		old.block === source.id &&
+		old.parcel === source.parcel &&
 		old.alleyEdges === source.mask &&
 		corners.every((p, i) => p === old.corners[i] && neighbors[i] === old.neighbors[i]) &&
 		!withinEdit(old.center, edits)
@@ -193,7 +195,7 @@ function describeCell(
 	row: number,
 	vertexIds: TerrainCell['vertexIds'],
 	neighbors: TerrainCell['neighbors'],
-	source: { id: string; sides: number; mask: number }
+	source: { id: string; parcel: string; sides: number; mask: number }
 ): TerrainCell {
 	const { terrain, columns } = lattice;
 	const x = (corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]) / 4;
@@ -218,8 +220,8 @@ function describeCell(
 		pattern,
 		plan,
 		alley,
-		ridgeSide: roofSide(lotCorners ?? corners, terrain.seed, row * columns + column),
 		block: source.id,
+		parcel: source.parcel,
 		blockSides: source.sides,
 		lotCorners,
 		alleyEdges: source.mask,
