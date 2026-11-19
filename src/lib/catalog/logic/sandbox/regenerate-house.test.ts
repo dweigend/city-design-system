@@ -8,7 +8,7 @@ import {
 	withState
 } from './index';
 import { buildingPlots } from './building-plots';
-import { circulation, planHouse, sectionParts } from '../composed-house';
+import { circulation, planHouse, sectionParts, housePartPlan } from '../composed-house';
 import { squareGrid } from '../quad-grid';
 import { bounds } from '../ansicht/geometrie';
 
@@ -46,6 +46,15 @@ test('seed-7 terrain parcels and narrow 1.8–5 metre bays carry connected acces
 				const route = circulation(s);
 				expect(route.stops).toHaveLength(s.decks.length + 2);
 				const volumes = sectionParts(s).map((p) => {
+					expect(
+						housePartPlan(p).every(([x, y]) =>
+							c.corners.every(([u, v], i) => {
+								const q = c.corners[(i + 1) % 4];
+								return (q[0] - u) * (y - v) - (q[1] - v) * (x - u) >= -1e-6;
+							})
+						),
+						p.id + ' on ' + c.id
+					).toBe(true);
 					const b = bounds(p);
 					return {
 						v: b.max.reduce((v, x, i) => v * (x - b.min[i]), 1),

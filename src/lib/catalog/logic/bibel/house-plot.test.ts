@@ -89,7 +89,8 @@ function inspect(s: Section) {
 	const occupied = parts
 		.filter((p) => p.id.includes('/body/') || p.id.includes('/post/'))
 		.map(bounds);
-	let total = 0,
+	let body = 0,
+		total = 0,
 		access = 0;
 	for (const p of parts) {
 		expect(
@@ -100,6 +101,7 @@ function inspect(s: Section) {
 		const volume = box.max.reduce((v, max, i) => v * (max - box.min[i]), 1);
 		expect(Number.isFinite(volume)).toBe(true);
 		total += volume;
+		if (p.id.includes('/body/') || p.id.includes('/planter/')) body += volume;
 		if (!p.id.includes('/stair/')) continue;
 		access += volume;
 		expect(
@@ -122,6 +124,7 @@ function inspect(s: Section) {
 			expect(Math.hypot(ring[0][0] - ring[j][0], ring[0][1] - ring[j][1])).toBeCloseTo(1.25, 8);
 		}
 	}
+	expect(body).toBeGreaterThan(access);
 	expect(access / total).toBeLessThanOrEqual(0.1);
 	return path;
 }
