@@ -103,7 +103,7 @@ describe('house brush', () => {
 		expect(list.some((p) => p.pattern || p.token === '--signal')).toBe(false);
 	});
 
-	test('the surveyed frame covers both adjacent roof quads with sized secondary rods', () => {
+	test('the surveyed frame spans both adjacent roof quads as one connected set of secondary rods', () => {
 		const stacks = raise(raise(EMPTY, '1/1', 'living'), '2/1', 'living');
 		const list = houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, 'megastructure');
 		const rods = list.filter((p) => p.kind === 'pipe');
@@ -111,6 +111,19 @@ describe('house brush', () => {
 		const seamX = Math.max(...cellAt(1, 1).corners.map(([x]) => x));
 		expect(Math.min(...xs)).toBeLessThan(seamX);
 		expect(Math.max(...xs)).toBeGreaterThan(seamX);
+		const key = ([x, y, z]: readonly number[]) => [x, y, z].map((v) => v.toFixed(3)).join(',');
+		const reached = new Set([key(rods[0].points[0])]);
+		for (let grew = true; grew; ) {
+			grew = false;
+			for (const { points } of rods) {
+				const keys = points.map(key);
+				if (keys.some((k) => reached.has(k)) && keys.some((k) => !reached.has(k))) {
+					keys.forEach((k) => reached.add(k));
+					grew = true;
+				}
+			}
+		}
+		expect(rods.every(({ points }) => points.every((p) => reached.has(key(p))))).toBe(true);
 		expect(rods.every((rod) => rod.radius === 0.05 && rod.member === 'secondary')).toBe(true);
 	});
 	test('where it floods, the house stands on a deck with stilts', () => {

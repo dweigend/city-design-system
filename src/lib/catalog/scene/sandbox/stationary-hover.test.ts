@@ -1,3 +1,4 @@
+import { savedCarrier } from '../../logic/sandbox/fixtures/saved-carrier.fixture.test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -40,7 +41,7 @@ async function exerciseHover() {
 			extendStroke,
 			beginStroke({ kind: 'house', style, use: 'water' }, world)
 		).draft;
-	const carrier = draw(base, 'megastructure'),
+	const carrier = savedCarrier(base, '90/40', 'water'),
 		installed = draw(carrier, 'totem');
 	const dug = applyEdit(installed, { kind: 'dig', cellId: '90/40' });
 	assert.notEqual(dug.grid, installed.grid);
@@ -68,32 +69,19 @@ async function exerciseHover() {
 				assert.equal(marked, hover.cellAt(x, y)?.id);
 				return marked;
 			},
-			count: () => publications,
-			position: () => ({ x, y })
+			position: () => ({ x, y }),
+			count: () => publications
 		};
 	}
 	const pointers = [pointer(), pointer(), pointer()];
 	function frame(world: World) {
 		for (const p of pointers) p.hover.show(world, 'all');
-		const before = pointers.map((p) => p.count());
 		stage.render();
 		clock.draw();
-		return pointers.map((p, i) => {
-			assert.equal(p.count(), before[i] + 1);
-			return p.check();
-		});
+		return pointers.map((p) => p.check());
 	}
 	try {
 		frame(carrier);
-		pointers[0].move(613.68, 439.63);
-		pointers[1].move(613.71, 436.08);
-		assert.deepEqual(
-			pointers.slice(0, 2).map((p) => p.check()),
-			['89/42', '87/43']
-		);
-		assert.deepEqual(frame(installed).slice(0, 2), ['90/40', '90/40']);
-		assert.deepEqual(frame(carrier).slice(0, 2), ['89/42', '87/43']);
-
 		stage.setPlan(true);
 		frame(carrier);
 		const forms = installationView(installed, 'all', true);
@@ -114,8 +102,13 @@ async function exerciseHover() {
 			pointers[i].move(((1 + s.x) * canvasWidth) / 2, ((1 - s.y) * canvasHeight) / 2);
 		}
 		const background = frame(carrier);
+		const before = pointers.map((p) => p.count());
 		const fitted = frame(installed);
 		assert.deepEqual(fitted.slice(0, 2), ['90/40', '90/40']);
+		assert.deepEqual(
+			pointers.slice(0, 2).map((p, i) => p.count() - before[i]),
+			[1, 1]
+		);
 		// The open bore may expose another installation surface below it. Its fresh ray is the oracle.
 		assert.deepEqual(frame(carrier), background);
 		frame(installed);

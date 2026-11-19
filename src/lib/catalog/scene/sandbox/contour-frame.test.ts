@@ -1,3 +1,4 @@
+import { savedCarrier } from '../../logic/sandbox/fixtures/saved-carrier.fixture.test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -59,7 +60,7 @@ async function exerciseFrames() {
 	const stroke = (w: World, style: 'megastructure' | 'totem') =>
 		['90/40', '94/40'].reduce(extendStroke, beginStroke({ kind: 'house', style, use: 'water' }, w))
 			.draft;
-	const carrier = stroke(base, 'megastructure'),
+	const carrier = savedCarrier(base, '90/40', 'water'),
 		installed = stroke(carrier, 'totem');
 	const body = installationView(installed, 'all', true).find(
 		(p) => p.kind === 'mesh' && p.token === '--paper'

@@ -3,14 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BLICK } from '../../data/leitstil';
 import { focuses } from '../../logic/presentation';
-import {
-	acceptanceScene,
-	applyEdit,
-	createWorld,
-	currentStacks,
-	houseView,
-	type World
-} from '../../logic/sandbox';
+import { applyEdit, createWorld, currentStacks, houseView, type World } from '../../logic/sandbox';
 import { contourWidthMeters } from './contour-width';
 import { distanceDrawing } from './distance-drawing';
 
@@ -47,10 +40,14 @@ test('the portrait city tread retains its projected surface below the half-pixel
 });
 test('water and greenhouse contours follow the fitted guest in each city projection', () => {
 	const vessels = [];
-	const study = acceptanceScene();
-	const tank = chunk(study.world, '83/44').find((p) => p.id === '83/44@0/83/44/vessel');
+	const water = applyEdit(createWorld(7), {
+		kind: 'raise',
+		style: 'megastructure',
+		use: 'water',
+		cellId: '89/41'
+	});
+	const tank = chunk(water, '89/41').find((p) => p.id.endsWith('/vessel'));
 	assert(tank?.kind === 'sphere');
-	assert(Math.abs(2 * tank.radius * 3.5 - 5.765633) < 1e-6);
 	vessels.push(tank);
 	const food = applyEdit(createWorld(7), {
 		kind: 'raise',

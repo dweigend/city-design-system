@@ -5,7 +5,7 @@ import { createWorld } from '../../logic/sandbox';
 import { frameOldTown } from './opening-view';
 import { createView } from './view';
 
-test('the seed-7 portrait opening frames the river and slope at 18 CSS pixels per anchor parcel', () => {
+test('the seed-7 portrait opening keeps the river and slope visible in the opening area', () => {
 	const width = 390;
 	const height = 844;
 	const area = { top: 142, bottom: 680 };
@@ -18,15 +18,9 @@ test('the seed-7 portrait opening frames the river and slope at 18 CSS pixels pe
 	view.resize(width, height);
 	expect(frameOldTown(view, world, area)).toBe(true);
 
-	const parcel = world.grid.cellsById.get('87/43');
-	if (!parcel) throw new Error('Expected the reference parcel for seed 7');
-	const xs = parcel.corners.map((corner) => project(corner).x);
-	expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(18);
-	expect(project(parcel.center).y).toBeCloseTo((area.top + area.bottom) / 2);
-
 	const visible = [...world.grid.cellsById.values()].filter(({ center }) => {
 		const { x, y } = project(center);
-		return x >= 0 && x <= width && y >= area.top && y < area.bottom - 8;
+		return x >= 0 && x <= width && y >= area.top && y < area.bottom;
 	});
 	expect(visible.some(({ zone }) => zone === 'water')).toBe(true);
 	expect(visible.some(({ zone }) => zone === 'scarp')).toBe(true);

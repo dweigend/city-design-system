@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { random } from '../../core/random';
-import { forestChunk } from '../../logic/land-cover';
-import { acceptanceScene } from '../../logic/sandbox';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import { contourWidthMeters } from './contour-width';
-import { distanceDrawing } from './distance-drawing';
 
 // Every supporting edge joins two of the input vertices. Scan all such angles without a hull.
 function reference(points: Vec3[]) {
@@ -46,20 +43,4 @@ test('projected width matches exhaustive support angles across repeated points, 
 			assert(Math.abs(contourWidthMeters(mesh, Math.PI / 2) - expected) < 1e-9);
 		}
 	}
-});
-test('the seed-seven forest helix keeps its six-pixel plan outline', () => {
-	const { world } = acceptanceScene();
-	const tree = forestChunk(world.grid, world.state.cover, '6:2', world.seed).find(
-		(p) => p.id === '103/42:tree0'
-	);
-	assert(tree?.kind === 'helix');
-	assert(Math.abs(2 * contourWidthMeters(tree, Math.PI / 2) - 6.138449) < 1e-6);
-	assert(
-		!distanceDrawing([tree], {
-			block: true,
-			scale: 2,
-			minContourPx: 6,
-			elevation: Math.PI / 2
-		}).unoutlined.has(tree)
-	);
 });

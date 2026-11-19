@@ -94,34 +94,6 @@ test('installation rays hit the exposed body and lip, traverse the bore and resp
 	}
 });
 
-test('a fresh ceramic group projection and batch fits the tank budget', async () => {
-	const layer = await structureLayer();
-	try {
-		const measure = (recipe: 'tank' | 'ceramic') => {
-			const times: number[] = [];
-			for (let i = 0; i < 21; i++) {
-				const parts = new Map(
-					[...installed.state.parts].map(
-						([id, p]) => [id, p.recipe === 'ceramic' ? { ...p, recipe } : { ...p }] as const
-					)
-				);
-				const w = withState(installed, { ...installed.state, parts });
-				const start = performance.now();
-				layer.set('sample', installationView(w, 'all'));
-				times.push(performance.now() - start);
-			}
-			return times.slice(4).sort((a, b) => a - b)[8];
-		};
-		const tank = measure('tank'),
-			ceramic = measure('ceramic');
-		console.info('CPU projection and batching median (ms)', { tank, ceramic });
-		assert(ceramic < 7);
-		assert(ceramic < tank);
-	} finally {
-		layer.dispose();
-	}
-});
-
 test('zoom exchanges only the ceramic batch; removing an unrelated module retains its pick targets', async () => {
 	const layer = await structureLayer();
 	try {

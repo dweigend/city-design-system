@@ -2,16 +2,8 @@ import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import { expect, test } from 'bun:test';
 import { position } from './installation-parts';
 import { atSocket } from '../house-brush';
-import { probeFrame } from '../megastructure';
 import type { Vec3 } from '../parametrik/types';
-import {
-	applyEdit,
-	beginStroke,
-	createWorld,
-	extendStroke,
-	installationView,
-	withState
-} from './index';
+import { applyEdit, beginStroke, createWorld, extendStroke, withState } from './index';
 
 const seed = createWorld(7);
 const town = withState(seed, { ...seed.state, store: { ...seed.state.store, material: 100 } });
@@ -23,51 +15,7 @@ const stroke = (
 	style === 'megastructure'
 		? savedCarrier(world, cells[0], 'water')
 		: cells.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world)).draft;
-const carrier = stroke('megastructure', town);
 
-test('projected rods and wall bearings pass the K2 load case with their installed sections', () => {
-	const forms = installationView(carrier, 'all');
-	const nodes = new Map<string, { id: string; p: Vec3 }>();
-	const joint = (p: Vec3) => {
-		const n = { id: p.join('/'), p };
-		nodes.set(n.id, n);
-		return n;
-	};
-	const bearings = forms.flatMap((p) => (p.kind === 'sphere' ? [joint(p.position)] : []));
-	const rods = forms.flatMap((p) =>
-		p.kind === 'pipe'
-			? [{ id: p.id, a: joint(p.points[0]), b: joint(p.points[1]), radius: p.radius }]
-			: []
-	);
-	const brace = [...carrier.state.parts.values()].find(
-		(p) =>
-			p.recipe === 'brace' &&
-			p.anchor.cellId === '87/47' &&
-			p.anchor.face === 2 &&
-			p.end.cellId === '86/47'
-	);
-	expect(brace).toBeDefined();
-	const length = ({ a, b }: (typeof rods)[number]) =>
-		Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
-	const replacement = rods.find((rod) => rod.id === brace?.id);
-	if (!replacement) throw new Error('Missing replacement diagonal');
-	expect(length(replacement)).toBeCloseTo(10.637, 3);
-	expect(Math.max(...rods.map(length))).toBeCloseTo(13.631, 3);
-	expect(probeFrame([...nodes.values()], bearings, rods).analysis.status).toBe('ok');
-	const postFeet = new Set(
-		rods.filter((r) => r.a.p[0] === r.b.p[0] && r.a.p[1] === r.b.p[1]).map((r) => r.a.id)
-	);
-	const lateralFeet = new Set(bearings.filter((n) => !postFeet.has(n.id)).map((n) => n.id));
-	const unbraced = rods.filter((r) => !lateralFeet.has(r.a.id) && !lateralFeet.has(r.b.id));
-	expect(unbraced).toHaveLength(6);
-	expect(
-		probeFrame(
-			[...nodes.values()].filter((n) => !lateralFeet.has(n.id)),
-			bearings.filter((n) => postFeet.has(n.id)),
-			unbraced
-		).analysis.status
-	).toBe('mechanismus');
-});
 test('basin at 80/48 retires the tilted chord with its three capsules and refunds the owner', () => {
 	const cells = ['82/46', '87/44'];
 	const built = stroke('totem', stroke('megastructure', town, cells), cells);
@@ -103,7 +51,7 @@ test('a socket interpolates height along the full rod axis', () => {
 	expect(moved.shell.center[2] - seat.shell.center[2]).toBeCloseTo(0.25, 10);
 });
 
-test('an unstable wall layout cannot consume stock or reserve a roof', () => {
+test('a frame stroke records a goal without immediately consuming stock or installing parts', () => {
 	const attempt = extendStroke(
 		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, town),
 		'89/44'

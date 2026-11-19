@@ -33,15 +33,21 @@ test.todo(
 );
 
 test('deconstructing the top floor credits its unit once and round-trips through undo and redo', () => {
-	const removed = applyEdit(mixed, { kind: 'clear', cellId });
-	const history = commit(startHistory(mixed.state), removed.state);
+	const cellId = '86/43';
+	const stock = createWorld(7);
+	const built = applyEdit(stock, { kind: 'raise', cellId, use: 'water', style: 'collage' });
+	const floors = stock.state.stacks.get(cellId)?.length ?? 0;
+	expect(floors).toBeGreaterThan(0);
+	const water = built.state.store.water;
+	const removed = applyEdit(built, { kind: 'clear', cellId });
+	const history = commit(startHistory(built.state), removed.state);
 	const states = [history, undo(history), redo(undo(history))].map(({ present }) => present);
-	expect(states.map((state) => [state.storyParts.get(cellId)?.length, state.store.water])).toEqual([
-		[1, 1],
-		[2, 0],
-		[1, 1]
+	expect(states.map((state) => [state.stacks.get(cellId)?.length, state.store.water])).toEqual([
+		[floors, water + 1],
+		[floors + 1, water],
+		[floors, water + 1]
 	]);
-	expect(states[1]).toBe(mixed.state);
+	expect(states[1]).toBe(built.state);
 	expect(states[2]).toBe(removed.state);
 });
 
