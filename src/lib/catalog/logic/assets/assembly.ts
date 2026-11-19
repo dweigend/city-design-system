@@ -15,7 +15,7 @@ export function family(category: AssetCategory, attachment: Attachment) {
 		footprint,
 		anchors: [mount(attachment)],
 		variants: ['compact', 'standard', 'extended'],
-		draw: (variant, sample) => draw(0.72 + variant * 0.12 + sample * 0.04, variant)
+		draw: (variant, sample) => draw(0.42 + variant * 0.28 + sample * 0.02, variant)
 	});
 }
 

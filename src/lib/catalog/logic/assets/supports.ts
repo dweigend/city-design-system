@@ -1,4 +1,4 @@
-import { family, block, legs, row, plate, cage, shell, pipe } from './assembly';
+import { family, block, legs, row, cage, shell, pipe } from './assembly';
 import { bulb, rod, water, workshop } from './parts';
 const asset = family('structure', 'deck');
 export const supports = [
@@ -15,10 +15,20 @@ export const supports = [
 		block(0, 0, 4 * factor - 0.12, 4.7, 1.1, 0.33)
 	]),
 	asset('space-truss', [8, 2], (factor, variant) => [
-		cage(0, 0, 0, 7.7, 1.7, 1.3 * factor, [4 + variant, 1, 1])
+		{
+			...cage(0, 0, 0, 7.7, 1.7, 1.3 * factor, [2 + 2 * variant, 1, 1]),
+			bar: 0.16,
+			finish: 'metal',
+			token: '--blueprint'
+		}
 	]),
 	asset('lattice-mast', [3, 3], (factor, variant) => [
-		cage(0, 0, 0, 2.6, 2.6, 9 * factor, [1, 1, 4 + variant]),
+		{
+			...cage(0, 0, 0, 2.6, 2.6, 9 * factor, [1, 1, 2 + 2 * variant]),
+			bar: 0.16,
+			finish: 'metal',
+			token: '--blueprint'
+		},
 		block(0, 0, 9 * factor + 0.08, 2.9, 2.9, 0.16)
 	]),
 	asset('gusset-joint', [2, 2], (factor) => [
@@ -47,7 +57,12 @@ export const supports = [
 		rod([0, 0, 0.12], [0, 0, 2.5 * factor], 0.09)
 	]),
 	asset('derrick', [6, 4], (factor) => [
-		cage(-1.1, 0, 0, 1.5, 1.5, 5 * factor, [1, 1, 3]),
+		{
+			...cage(-1.1, 0, 0, 1.5, 1.5, 5 * factor, [1, 1, 3]),
+			bar: 0.16,
+			finish: 'metal',
+			token: '--blueprint'
+		},
 		rod([-1.1, 0, 5 * factor], [2.7, 0, 6 * factor], 0.14),
 		rod([-1.1, 0, 3.4 * factor], [2.7, 0, 6 * factor], 0.11),
 		rod([2.7, 0, 6 * factor], [2.7, 0, 3 * factor], 0.04)

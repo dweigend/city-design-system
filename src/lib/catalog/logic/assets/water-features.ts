@@ -37,11 +37,11 @@ export const waterFeatures = [
 		block(0, 0, 0, 4.9, 1.25, 0.13, water),
 		...row(2, (t) => block(0, t * 0.57, 0.13, 4.9, 0.12, 0.25 * factor))
 	]),
-	asset('pond-island', [5, 5], (factor) => [
+	asset('pond-island', [5, 5], (factor, variant) => [
 		drum([0, 0, 0], 2.32, 0.16, water),
 		crescent(2.42, 2.24, 0, 0.28, Math.PI * 1.98),
 		block(0, 0, 0.29, 4.8, 0.61, 0.13, path),
-		...row(2, (t) => bulb([t * 0.9, t * 1.25, 0.22], 0.42 * factor, 0.42, food))
+		...row(2 + variant, (t, i) => bulb([t * 1.25, i % 2 ? 1 : -1, 0.22], 0.42 * factor, 0.42, food))
 	]),
 	asset('drinking-loop', [2, 2], (factor) => [
 		drum([0, 0, 0], 0.23, 1.05 * factor),

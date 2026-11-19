@@ -13,7 +13,7 @@ import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
 import { finishedMeshes } from './finish-batch';
 import { printBatch, printGeometry } from './print-batch';
-import { outlineOffsets } from './structure-outline';
+import { glazeContourMaterial, hasGlazeContour, silhouette } from './structure-outline';
 
 /** Bakes the local fittings into one ink draw, leaving them out of the picking geometry. */
 export function jointMesh(joints: readonly StructuralJoint[], material: THREE.Material) {
@@ -73,17 +73,6 @@ function bearingDots(points: Vec3[], geometry: THREE.BufferGeometry, material: T
 	return dots;
 }
 
-function silhouette(source: THREE.BufferGeometry, material: THREE.Material) {
-	const geometry = new THREE.InstancedBufferGeometry();
-	geometry.setAttribute('position', source.getAttribute('position'));
-	geometry.setIndex(source.index);
-	if (source.userData.outlineVertices !== undefined)
-		geometry.setDrawRange(0, source.userData.outlineVertices);
-	geometry.setAttribute('outlineOffset', outlineOffsets);
-	geometry.instanceCount = outlineOffsets.count;
-	return new THREE.Mesh(geometry, material);
-}
-
 const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 
 /** Projects one structure key into pickable surfaces and independent drafting marks. */
@@ -138,6 +127,8 @@ export function populateStructures(
 	for (const face of finishedMeshes(parts.finished, finishes.explicit)) {
 		face.castShadow = cast;
 		objects.add(face);
+		if (hasGlazeContour(face.material.name))
+			objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
 		hits.push(face);
 	}
 	drawStockAndBodies();

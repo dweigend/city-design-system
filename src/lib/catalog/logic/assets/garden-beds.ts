@@ -2,9 +2,11 @@ import { family, block, legs, row, plate, circle, crescent, cage, shell } from '
 import { drum, bulb, rod, ring, energy, food, path, living, pane } from './parts';
 const asset = family('gardens', 'deck');
 export const gardenBeds = [
-	asset('tree-grate', [3, 3], (factor) => [
+	asset('tree-grate', [3, 3], (factor, variant) => [
 		plate(circle(1.42), 0, 0.09, path, circle(0.51 * factor).reverse()),
-		...circle(1.33, 24).map(([x, y]) => rod([x * 0.47, y * 0.47, 0.095], [x, y, 0.095], 0.017))
+		...circle(1.33, 8 + 8 * variant).map(([x, y]) =>
+			rod([x * 0.47, y * 0.47, 0.095], [x, y, 0.095], 0.017)
+		)
 	]),
 	asset('grove-island', [6, 4], (factor) => [
 		plate(
@@ -85,8 +87,8 @@ export const gardenBeds = [
 		block(0, 0, (4 + variant) * 0.37, 1.56, 1.2, 0.14),
 		block(0, -0.65, 0.21, 1.15 * factor, 0.38, 0.09)
 	]),
-	asset('nest-wall', [4, 1.2], (factor) => [
-		...Array.from({ length: 3 }, (_, i) =>
+	asset('nest-wall', [4, 1.2], (factor, variant) => [
+		...Array.from({ length: 2 + variant }, (_, i) =>
 			row(4, (t, j) =>
 				block(
 					0.91 * t * 1.4 + ((i % 2) - 0.5) * 0.32,
@@ -99,7 +101,7 @@ export const gardenBeds = [
 				)
 			)
 		).flat(),
-		...Array.from({ length: 3 }, (_, i) =>
+		...Array.from({ length: 2 + variant }, (_, i) =>
 			row(4, (t) => ({
 				...ring(
 					[0.91 * t * 1.4 + ((i % 2) - 0.5) * 0.32, -0.41, i * 0.63 + 0.36],

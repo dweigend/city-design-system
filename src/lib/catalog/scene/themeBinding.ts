@@ -1,4 +1,4 @@
-import { surfaceTokens } from '../logic/parametrik/types';
+import { scenePalette } from './scene-palette';
 import { onThemeChange } from '../theme';
 import type { Palette3D } from '../data/city3d';
 import { Color, type Scene, type ColorRepresentation } from 'three';
@@ -33,23 +33,9 @@ export function resolveTokens(host: HTMLElement, names: readonly string[]): Reco
 	return out;
 }
 
+/** Resolves the active host theme into a detached scene palette. */
 export function readPalette(host: HTMLElement): Palette3D {
-	const names = [
-		...surfaceTokens,
-		'--ink-3',
-		'--blueprint-soft',
-		'--cat-health-1',
-		'--cat-health-2'
-	];
-	const t = resolveTokens(host, names);
-	return {
-		paper: t['--paper'],
-		ink: t['--ink'],
-		ink3: t['--ink-3'],
-		blueprint: t['--blueprint'],
-		blueprintSoft: t['--blueprint-soft'],
-		categories: Object.fromEntries(names.map((name) => [name.replace('--cat-', ''), t[name]]))
-	};
+	return scenePalette((names) => resolveTokens(host, names));
 }
 
 /** Bind once per renderer. CSS is read synchronously after theme/ projects its attributes.

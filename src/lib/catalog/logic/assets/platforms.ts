@@ -17,11 +17,11 @@ export const platforms = [
 		drum([0, 0, 0], 1.1, 1.5 * factor),
 		drum([0, 0, 1.5 * factor], 3.4, 0.35)
 	]),
-	asset('orchard-deck', [8, 6], (factor) => [
+	asset('orchard-deck', [8, 6], (factor, variant) => [
 		block(0, 0, 0, 7.8, 5.8, 0.36),
-		...row(3, (t) => block(t * 2.55, 0, 0.36, 1.7, 4.8, 0.45, food)),
-		...row(3, (t) => drum([t * 2.55, 0, 0.81], 0.14, 1.7 * factor)),
-		...row(3, (t) => bulb([t * 2.55, 0, 0.81 + 1.7 * factor], 0.87, 0.85, food))
+		...row(2 + variant, (t) => block(t * 2.55, 0, 0.36, 1.45, 4.8, 0.45, food)),
+		...row(2 + variant, (t) => drum([t * 2.55, 0, 0.81], 0.14, 1.7 * factor)),
+		...row(2 + variant, (t) => bulb([t * 2.55, 0, 0.81 + 1.7 * factor], 0.74, 0.85, food))
 	]),
 	asset('fork-deck', [8, 6], (factor) => [
 		plate(
@@ -42,9 +42,17 @@ export const platforms = [
 		)
 	]),
 	asset('cross-deck', [7, 7], (factor) => [
-		block(0, 0, 0, 6.9, 1.7 * factor, 0.36, path),
+		block(0, 0, 0, 6.9, 1.7 * factor, 0.36 * factor, path),
 		...row(2, (t) =>
-			block(0, t * (1.725 + 0.425 * factor), 0, 1.7 * factor, 3.45 - 0.85 * factor, 0.36, path)
+			block(
+				0,
+				t * (1.725 + 0.425 * factor),
+				0,
+				1.7 * factor,
+				3.45 - 0.85 * factor,
+				0.36 * factor,
+				path
+			)
 		)
 	]),
 	asset('transfer-plinth', [5, 5], (factor) => [

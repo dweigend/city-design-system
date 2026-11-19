@@ -3,7 +3,7 @@ import { drum, ring, surface, workshop, path, living } from './parts';
 const asset = family('house-fittings', 'deck');
 export const houseFittings = [
 	asset('twin-outlet', [4, 3], (factor) => [
-		...row(2, (t) => ring([0, t * 0.75, 0.65], 0.64, 0.46 * factor, 3.8)),
+		...row(2, (t) => ring([0, t * 0.75, 0.65], 0.64, 0.46 * factor, 3.8 * factor)),
 		block(0, 0, 0, 0.48, 2.85, 0.26)
 	]),
 	asset('capsule-cradle', [5, 3], (factor) => [
@@ -60,9 +60,9 @@ export const houseFittings = [
 		}
 	]),
 	asset('service-bench', [3, 1.6], (factor) => [
-		...legs(1.14, 0.52, 0.89, 0.065),
-		block(0, 0, 0.89, 2.72, 1.35, 0.12),
-		block(-0.8, 0.16, 1.01, 0.42, 0.49, 0.23, workshop),
-		...row(2, (t) => block(-0.8 + t * 0.15, 0.16, 1.24, 0.08, 0.47, 0.16 * factor, path))
+		...legs(1.14 * factor, 0.52, 0.89, 0.065),
+		block(0, 0, 0.89, 2.72 * factor, 1.35, 0.12),
+		block(-0.8 * factor, 0.16, 1.01, 0.42, 0.49, 0.23, workshop),
+		...row(2, (t) => block(-0.8 * factor + t * 0.15, 0.16, 1.24, 0.08, 0.47, 0.16 * factor, path))
 	])
 ];

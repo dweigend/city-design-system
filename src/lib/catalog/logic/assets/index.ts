@@ -11,9 +11,11 @@ export {
 	type Attachment
 } from './definition';
 /** Ordered descriptions for placement tools and the contact sheet. Dimensions are metres. */
-export const assetRegistry: readonly AssetDefinition[] = recipes.map(
-	({ draw: _draw, ...entry }) => entry
-);
+export const assetRegistry: readonly AssetDefinition[] = recipes.map((recipe) => {
+	const entry: Partial<typeof recipe> = { ...recipe };
+	delete entry.draw;
+	return entry as AssetDefinition;
+});
 
 /** Builds detached local primitives for a named variant. Seed is read as u32.
  * Supply a unique instanceId when composing multiple instances into one structure batch. */

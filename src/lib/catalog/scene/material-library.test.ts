@@ -1,3 +1,4 @@
+import { scenePalette } from './scene-palette';
 import { readFileSync } from 'node:fs';
 import { surfaceTokens } from '../logic/parametrik/types';
 import { colorOf, parsePalette } from '../logic/farbe/palette';
@@ -14,15 +15,11 @@ test('flat, curved and indexed forms resolve every finish with use, ink and pape
 	const css = parsePalette(readFileSync(new URL('../../../app.css', import.meta.url), 'utf8'));
 	for (const mode of ['light', 'dark'] as const) {
 		const hex = (token: string) => linearToHex(oklchToLinear(colorOf(css, mode, token)));
-		const palette = {
-			paper: hex('--paper'),
-			ink: hex('--ink'),
-			blueprint: hex('--blueprint'),
-			blueprintSoft: hex('--paper'),
-			categories: Object.fromEntries(
-				surfaceTokens.map((token) => [token.replace('--cat-', ''), hex(token)])
+		const palette = scenePalette((names) =>
+			Object.fromEntries(
+				names.map((token) => [token, hex(token === '--blueprint-soft' ? '--paper' : token)])
 			)
-		};
+		);
 		const library = createMaterialLibrary(palette);
 		for (const token of surfaceTokens) {
 			const pigment = tokenColor(palette, token);

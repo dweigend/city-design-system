@@ -20,7 +20,7 @@ import { compileSurface, createMaterialLibrary } from '../material-library';
 import { outlinePosition } from '../surfaces';
 import { conduitInk } from './print-flow';
 import { cutPaper } from './paper-inlay';
-import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
+import { outlineExpansion, outlinePositionAtOffset, type GlazeContour } from './structure-outline';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { Rgb } from '../../logic/farbe/oklch';
 import { overprintColor } from '../../logic/farbe/overprint';
@@ -32,6 +32,7 @@ export type StructureMaterials = ReturnType<typeof structureMaterials>;
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
 export function structureMaterials() {
 	const explicit = createMaterialLibrary();
+	const glazeContour: GlazeContour = { ink: new THREE.Color(0) };
 	const solidColor = uniform(neutral(TOENE.modellweiss));
 	const flankColor = uniform(neutral(TOENE.modellweiss + TOENE.vorn));
 	const sideColor = uniform(neutral(TOENE.modellweiss + TOENE.rechts));
@@ -198,6 +199,7 @@ export function structureMaterials() {
 		colors.clear();
 		overprints.clear();
 		paper.copy(g.paper);
+		glazeContour.ink.copy(g.ink);
 		graphite.value.copy(g.blei);
 		paperTone.value.copy(g.paper);
 		shadowTone.value.copy(g.schatten);
@@ -314,6 +316,7 @@ export function structureMaterials() {
 
 	return {
 		explicit,
+		glazeContour,
 		materials,
 		envelopeShadows: () => envelopeShadows,
 		minContourPx: () => minContourPx,
@@ -358,6 +361,7 @@ export function structureMaterials() {
 		/** Releases shared materials. Mesh geometry belongs to the structure layer. */
 		dispose() {
 			explicit.dispose();
+			glazeContour.material?.dispose();
 			for (const material of Object.values(materials)) material.dispose();
 		}
 	};

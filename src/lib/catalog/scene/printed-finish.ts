@@ -89,6 +89,14 @@ export function aggregateCoverage(plane: Node<'vec2'>) {
 	const density = float(1).sub(edge.smoothstep(radius.sub(aa), radius.add(aa)));
 	return { chip: density, pale: float(seed.lessThanEqual(0.51)) };
 }
+
+/** Returns the fired body colour beneath the dip in the active palette's linear colour space. */
+export function firedBodyColor(palette: Palette3D, token: ColorToken) {
+	return new Color(palette.paper)
+		.lerp(tokenColor(palette, token), 0.36)
+		.lerp(new Color(palette.ink), 0.22);
+}
+
 /** Builds an opaque sandbox print in the selected flow pigment. Close views resolve
  * aggregate. Pigmented faces use the fine, hard-edged shadow screen at every distance. */
 export function printedFinish(
@@ -120,7 +128,7 @@ export function printedFinish(
 		material.colorNode = mix(base, mix(dark, inlay?.paper ?? paper, pale), chip.mul(share));
 		return material;
 	}
-	let result = mix(paper, pigment, step(0, dip));
+	let result = mix(color(firedBodyColor(palette, token)), pigment, step(0, dip));
 	result = mix(result, ink, step(abs(dip), 0.009).mul(0.65));
 	result = mix(result, ink, screen.mul(step(0, dip)));
 	material.colorNode = mix(result, ink, step(abs(normalView.z), 0.055).mul(0.76));
