@@ -22,24 +22,22 @@ function character(id: string, variants: string[], poses: Pose[]): AssetRecipe {
 					phase: v
 				}),
 				...(pose === 'carry' ? [panel(0.27, 0, 0.83, 0.21, 0.28, 0.24, 'skin')] : []),
-				...(pose === 'sit' ? [panel(0, 0, 0, 0.34, 0.38, 0.45, 'gear')] : [])
+				...(pose === 'sit'
+					? [panel(0, 0, 0, 0.3, 0.32, 0.34, 'gear'), panel(0, 0, 0.34, 0.38, 0.4, 0.11, 'skin')]
+					: [])
 			];
 		}
 	};
 }
 export const publicLife = [
-	character('plaza-gardener', ['loosen', 'plant', 'pat'], ['stand', 'walk', 'carry']),
+	character('plaza-gardener', ['loosen', 'plant', 'pat'], ['stand', 'sit', 'carry']),
 	character('plaza-potter', ['open', 'raise', 'shape'], ['sit', 'stand', 'carry']),
-	character(
-		'plaza-painter',
-		['low-stroke', 'mid-stroke', 'high-stroke'],
-		['stand', 'walk', 'stand']
-	),
+	character('plaza-painter', ['low-stroke', 'mid-stroke', 'high-stroke'], ['stand', 'walk', 'sit']),
 	character('plaza-drummer', ['left-beat', 'cross-beat', 'right-beat'], ['sit', 'stand', 'sit']),
 	character('plaza-cellist', ['down-bow', 'mid-bow', 'up-bow'], ['sit', 'stand', 'sit']),
-	character('plaza-skater', ['coast', 'carve', 'crouch'], ['walk', 'stand', 'walk']),
-	character('kick-scooter-child', ['plant-foot', 'push-off', 'coast'], ['stand', 'walk', 'walk']),
-	character('plaza-porter', ['carry', 'balance', 'lift'], ['carry', 'walk', 'carry']),
-	character('plaza-bowler', ['release', 'swing', 'draw-back'], ['walk', 'stand', 'walk']),
+	character('plaza-skater', ['coast', 'carve', 'crouch'], ['walk', 'stand', 'sit']),
+	character('kick-scooter-child', ['plant-foot', 'push-off', 'coast'], ['stand', 'walk', 'sit']),
+	character('plaza-porter', ['carry', 'balance', 'lift'], ['carry', 'walk', 'sit']),
+	character('plaza-bowler', ['release', 'swing', 'draw-back'], ['walk', 'stand', 'sit']),
 	character('plaza-photographer', ['kneel', 'brace', 'stand'], ['sit', 'lean', 'stand'])
 ];
