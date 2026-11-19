@@ -48,30 +48,37 @@ const junior = {
 	arm: 0.061
 };
 /** Builds a rigid adult or child around its hip and fixed hand/foot targets in metres, facing +x. */
-export function actionFigure(g: Gesture, child: boolean, x = 0, y = 0, elevation = 0) {
+export function actionFigure(g: Gesture, child: boolean, x = 0, y = 0, elevation = 0, heading = 0) {
 	const { head, torso, waist, stance, shoulderWidth, thigh, forearm, leg, arm } = child
 		? junior
 		: adult;
 	const hip = g.hip;
 	const shoulderZ = hip + Math.sqrt(torso ** 2 - g.lean ** 2);
-	const point = (dx: number, dy: number, z: number): Vec3 => [x + dx, y + dy, elevation + z];
+	const c = Math.cos(heading),
+		s = Math.sin(heading);
+	const place = ([dx, dy, z]: Vec3): Vec3 => [
+		x + c * dx - s * dy,
+		y + s * dx + c * dy,
+		elevation + z
+	];
+	const segment = (a: Vec3, b: Vec3, r: number, slot: string) => limb(place(a), place(b), r, slot);
 	const parts: ObjectGeometry[] = [
-		limb(point(0, 0, hip), point(g.lean, 0, shoulderZ - 0.07), waist, 'coat'),
-		bulb(point(g.lean + 0.02, 0, shoulderZ + head * 0.98), head, 1, 'skin')
+		segment([0, 0, hip], [g.lean, 0, shoulderZ - 0.07], waist, 'coat'),
+		bulb(place([g.lean + 0.02, 0, shoulderZ + head * 0.98]), head, 1, 'skin')
 	];
 	for (const [i, sign] of [-1, 1].entries()) {
-		const ankle = point(...g.feet[i]),
-			hand = point(...g.hands[i]);
-		const pelvis = point(0, sign * stance, hip);
-		const shoulder = point(g.lean, sign * shoulderWidth, shoulderZ - 0.045);
+		const ankle = g.feet[i],
+			hand = g.hands[i];
+		const pelvis: Vec3 = [0, sign * stance, hip];
+		const shoulder: Vec3 = [g.lean, sign * shoulderWidth, shoulderZ - 0.045];
 		const knee = bent(pelvis, ankle, thigh, 1);
 		const elbow = bent(shoulder, hand, forearm, -1);
 
 		parts.push(
-			limb(pelvis, knee, leg * 1.08, 'coat'),
-			limb(knee, ankle, leg, 'gear'),
-			limb(shoulder, elbow, arm * 1.12, 'coat'),
-			limb(elbow, hand, arm, 'skin')
+			segment(pelvis, knee, leg * 1.08, 'coat'),
+			segment(knee, ankle, leg, 'gear'),
+			segment(shoulder, elbow, arm * 1.12, 'coat'),
+			segment(elbow, hand, arm, 'skin')
 		);
 	}
 	return parts;

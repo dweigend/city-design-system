@@ -1,3 +1,5 @@
+import { actionFigure } from './activities/action-figure';
+import { feet, hands, upright } from './activities/props';
 import { block, shell } from '../assembly';
 import { drum, ring, rod } from '../parts';
 import { panel } from '../objects/forms';
@@ -15,6 +17,19 @@ function pier(x: number, h: number) {
 		...[-1, 1].map((s) => rod([x, 0, h * 0.52], [x, s * 0.96, h], 0.21, 'foot'))
 	];
 }
+function travellers(w: number, y: number, z: number, coat: string) {
+	const count = Math.floor(w / 1.65);
+	const pose = { hip: upright, lean: 0.1, feet: feet(0.22, -0.2), hands: hands(0.18, 0.26, 1.05) };
+	const finishes: Record<string, string> = { coat, gear: 'foot', skin: 'foot' };
+	return Array.from({ length: count }, (_, i) => {
+		const x = ((i - (count - 1) / 2) * (w - 0.9)) / count,
+			side = i % 2 === 0 ? 1 : -1;
+		return actionFigure(pose, false, x, y + side * 0.29, z, side * 1.47).map((g) => ({
+			...g,
+			slot: finishes[g.slot]
+		}));
+	}).flat();
+}
 function bridge(kind: 'open' | 'screen' | 'canopy' | 'arcade') {
 	return crossing(
 		'y-pier-' + kind + '-skywalk',
@@ -27,6 +42,7 @@ function bridge(kind: 'open' | 'screen' | 'canopy' | 'arcade') {
 			return [
 				...[-1, 1].flatMap((s) => pier(s * w * 0.31, h)),
 				panel(0, 0, h, w, 2.9, 0.3, 'slats'),
+				...travellers(w, 0, z, 'slats'),
 				...[-1, 1].map((s) =>
 					panel(
 						0,
@@ -81,6 +97,7 @@ function tube(stop: 'through' | 'platform' | 'exchange') {
 					ring([s * (w / 2 - 0.11), 0, z], r + 0.1, r - 0.13, 0.22, 'body')
 				),
 				panel(0, 0, h + 0.39, w, 1.9, 0.22, 'body'),
+				...travellers(w, stop === 'through' ? 0 : 2.02, h + 0.61, 'body'),
 				...(stop === 'through' ? [] : [block(0, 2.02, h, w, 2.24, 0.61, 'foot')]),
 				...(stop === 'exchange' ? [block(0, -2.02, h, w, 2.24, 0.61, 'foot')] : [])
 			];

@@ -83,11 +83,26 @@ function gesture(place: Place, i: number): Gesture {
 function visitor(place: Place, row: number, column: number, x: number, y: number, z: number) {
 	const active = row === 0 || place === 'lookout';
 	const pose = gesture(active ? place : 'stop', column % 3);
-	const members = crossingSlots(actionFigure(pose, place === 'play' && active, x, y, z));
+	const heading = active ? 0 : Math.PI * ([0.54, -0.46, 0.88][column % 3] + 0.16 * row);
+	const members = crossingSlots(actionFigure(pose, place === 'play' && active, x, y, z, heading));
 	if (place === 'reading' && active) members.push(panel(0.43, y, 0.91, 0.25, 0.42, 0.075, 'body'));
 	if (place === 'work' && active)
 		members.push(rod([0.46, y + 0.2, 1.08], [0.74, y + 0.14, 1.04], 0.065, 'frame'));
 	return members;
+}
+// The leading ankle rests on the upper tread. The trailing foot stays on the lower tread.
+function stairVisitor(row: number, col: number, w: number, y: number) {
+	const tread = (w - 0.3) / 3,
+		x = (row - 1) * tread,
+		z = 0.19 * (row + 1);
+	if (row === 2 || col % 2 === 0) return visitor('lookout', row, col, x, y, z);
+	const pose = gesture('stop', col);
+	pose.lean = 0.18;
+	pose.feet = [
+		[0.28, -0.14, 0.29],
+		[-0.24, 0.14, 0.1]
+	];
+	return crossingSlots(actionFigure(pose, false, x + tread / 2, y, z));
 }
 function scene(place: Place) {
 	return plaza(
@@ -104,9 +119,15 @@ function scene(place: Place) {
 					const rider = ride('skater', v);
 					return crossingSlots([...actionFigure(rider.pose, false), ...rider.props]);
 				}
-				if (place === 'lookout')
-					return visitor(place, row, column, ((row - 1) * (w - 0.3)) / 3, y, 0.19 * (row + 1));
-				return visitor(place, row, column, [0, -w * 0.35, w * 0.36][row], y, 0);
+				if (place === 'lookout') return stairVisitor(row, column, w, y);
+				return visitor(
+					place,
+					row,
+					column,
+					[0, -w * 0.33, w * 0.35][row],
+					y + Math.sin(row * column) * 0.2,
+					0
+				);
 			});
 			return [...furniture(place, w), ...crowd.flat()];
 		}
