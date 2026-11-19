@@ -59,6 +59,7 @@ function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) 
 		plainAccents: [] as Primitive[],
 		glaze: [] as Primitive[],
 		carriers: [] as Primitive[],
+		ceramics: [] as Primitive[],
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
 	};
@@ -157,6 +158,11 @@ export function populateStructures(
 	fill(plain.blatt, materials.sheet, false);
 	fill(plain.glas, materials.glass, false, false);
 
+	const fired = batch(parts.ceramics, (part) =>
+		part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
+	);
+	surface(fired.neu, materials.glaze, materials.hull, true);
+	lines(fired.kanten.neu, materials.detail);
 	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 	const accent = batch(
 		parts.accents.filter((part) => !isSheet(part)),

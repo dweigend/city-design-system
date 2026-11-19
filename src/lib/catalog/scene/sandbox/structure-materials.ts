@@ -5,6 +5,7 @@ import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../logic/params';
 import { neutral, type grammatik } from '../leitstil';
 import { outlinePosition } from '../surfaces';
+import { firedSlip } from './fired-slip';
 import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
 import { STRUCTURE_PARAMS, type StructureVariant } from './view-params';
 
@@ -148,6 +149,7 @@ export function structureMaterials() {
 			const color = colorOf(token);
 			return palette && shade ? color.clone().lerp(palette.ink, shade) : color;
 		},
+		modelWhite: solidColor.value,
 		setParams,
 		/** The stage supplies the validated style and a new palette when the theme changes. */
 		setStyle(
