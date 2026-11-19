@@ -1,4 +1,5 @@
-import { drum, bulb, rod } from '../parts';
+import { drum } from '../parts';
+import { serviceBend } from '../service-bend';
 import { panel } from '../objects/forms';
 import { series } from './series';
 import type { Vec3 } from '../../parametrik/types';
@@ -40,11 +41,10 @@ function service(type: Route) {
 				points = run(type, w / 2 - 0.32, 1.05 + 0.58 * v),
 				end = points[points.length - 1];
 			return [
-				panel(0, 0, 0, w, 2.16, 0.3, 'foot'),
-				...points.slice(1).map((p, i) => rod(points[i], p, r, 'body')),
-				...points.slice(1, -1).map((p) => bulb(p, r * 1.14, 1, 'brass')),
-				drum([points[0][0], points[0][1], 0.3], r + 0.07, 0.2, 'brass'),
-				drum([end[0], end[1], 0.3], 0.15, Math.max(0.15, end[2] - 0.3), 'foot')
+				panel(points[0][0], points[0][1], 0, 0.56, 0.56, 0.2, 'foot'),
+				serviceBend(points, r, 'body'),
+				drum([points[0][0], points[0][1], 0.2], r + 0.05, 0.2, 'brass'),
+				...(type === 'riser' ? [] : [drum([end[0], end[1], 0], 0.15, end[2], 'foot')])
 			];
 		}
 	);
