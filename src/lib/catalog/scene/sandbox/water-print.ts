@@ -16,19 +16,15 @@ export function travellingDash(distanceM: Node<'float'>, seconds: Node<'float'>)
  * A surveyed pier bends the field within its wake, on its downstream side only. */
 export function riverInk(
 	seconds: Node<'float'>,
-	wash: Node<'vec3'>,
+	wash: Node<'color'>,
 	paper: Node<'vec3'>,
-	blue: Node<'vec3'>
+	blue: Node<'color'>
 ) {
 	const chart = attribute('chart', 'vec2'),
-		wake = attribute('wake', 'vec2'),
+		swirl = attribute('wake', 'float'),
 		widthM = attribute('riverWidth', 'float');
 	const along = chart.x,
 		across = chart.y;
-	const downstream = wake.x.smoothstep(0, 2).mul(float(1).sub(wake.x.smoothstep(2, 15)));
-	const swirl = downstream
-		.mul(wake.y.mul(0.64).sin())
-		.mul(float(1).sub(wake.y.abs().smoothstep(1, 6)));
 	const field = across.mul(0.29).add(along.mul(0.042).sin().mul(0.23)).add(swirl.mul(0.6));
 	const lane = field.floor();
 	const advance = along.add(lane.mul(2.39996).sin().mul(13));

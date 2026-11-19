@@ -46,3 +46,19 @@ test('a wind sample moves the crown with its mesh and leaves the planted stem se
 	expect(crown.position.equals(position)).toBe(true);
 	expect(stem.position.length()).toBe(0);
 });
+
+test('a roof garden carries its fruit in the wind while the planter stays seated', () => {
+	const fruit: Primitive = {
+		id: 'roof:fruit0',
+		material: 'paper',
+		role: 'neu',
+		token: '--cat-nature',
+		kind: 'sphere',
+		position: [4, 5, 8],
+		radius: 1
+	};
+	const { batches, updates } = kineticGroups('house:1', [box('planter'), fruit], [], build);
+	updates[0](2);
+	expect(batches[0].position.length()).toBe(0);
+	expect(batches[1].position.length()).toBeGreaterThan(0);
+});

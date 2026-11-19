@@ -123,7 +123,14 @@ export function createSandboxStage(
 
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
-		if (!refreshTones && lastScale === scale && lastVariant === variant) return;
+		if (
+			!refreshTones &&
+			lastElevation === view.elevation() &&
+			lastScale === scale &&
+			lastVariant === variant
+		)
+			return;
+		lastElevation = view.elevation();
 		lastScale = scale;
 		lastVariant = variant;
 		light.invalidate();

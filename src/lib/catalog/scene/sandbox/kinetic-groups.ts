@@ -26,21 +26,19 @@ export function kineticGroups(
 				return x !== batch.position.x || y !== batch.position.y || z !== batch.position.z;
 			});
 	}
-	if (key.startsWith('forest:')) {
-		const crowns = parts.filter((p) => !p.id.includes(':trunk'));
-		const canopy = new Set(crowns);
-		add(parts.filter((p) => !canopy.has(p)));
-		const first = crowns.find((p) => 'position' in p);
-		const phase =
-			first && 'position' in first ? first.position[0] * 0.11 + first.position[1] * 0.07 : 0;
-		add(crowns, (g, s) => {
-			const gust = Math.sin(s * 1.7 + phase) + 0.35 * Math.sin(s * 3.1 + phase * 0.7);
-			g.position.set(0.12 * gust, -0.012 * gust * gust, 0.04 * gust);
-		});
-	} else if (placedAt !== undefined) {
+	const forest = key.startsWith('forest:');
+	const crowns = parts.filter((p) =>
+		forest
+			? !p.id.includes(':trunk')
+			: p.kind === 'sphere' && p.role === 'neu' && /:fruit\d+$/.test(p.id)
+	);
+	const canopy = new Set(crowns);
+	const rigid = crowns.length ? parts.filter((p) => !canopy.has(p)) : parts;
+	if (forest || placedAt === undefined) add(rigid);
+	else {
 		const known = new Set(previous.map((p) => p.id));
-		const fresh = new Set(parts.filter((p) => p.role !== 'bestand' && !known.has(p.id)));
-		add(parts.filter((p) => !fresh.has(p)));
+		const fresh = new Set(rigid.filter((p) => p.role !== 'bestand' && !known.has(p.id)));
+		add(rigid.filter((p) => !fresh.has(p)));
 		for (const capsule of [...fresh]) {
 			if (capsule.kind !== 'capsule') continue;
 			const companions = [...fresh].filter(
@@ -52,6 +50,15 @@ export function kineticGroups(
 		add([...fresh], (g, s) => {
 			g.position.y = seatingLift(s - placedAt);
 		});
-	} else add(parts);
+	}
+	const first = crowns.find((p) => 'position' in p);
+	if (first && 'position' in first) {
+		const phase = first.position[0] * 0.11 + first.position[1] * 0.07;
+		const strength = forest ? 0.12 : 0.045;
+		add(crowns, (g, s) => {
+			const gust = Math.sin(s * 1.7 + phase) + 0.35 * Math.sin(s * 3.1 + phase * 0.7);
+			g.position.set(strength * gust, -strength * 0.1 * gust * gust, (strength * gust) / 3);
+		});
+	} else add(crowns);
 	return { batches, updates };
 }

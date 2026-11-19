@@ -1,4 +1,12 @@
-import { MeshBasicNodeMaterial, InstancedBufferAttribute, type Node } from 'three/webgpu';
+import {
+	MeshBasicNodeMaterial,
+	InstancedBufferAttribute,
+	InstancedBufferGeometry,
+	Mesh,
+	type BufferGeometry,
+	type Material,
+	type Node
+} from 'three/webgpu';
 import {
 	attribute,
 	cameraProjectionMatrix,
@@ -15,10 +23,7 @@ import {
 import { MASSSTAB } from '../../data/leitstil';
 
 /** A guillotined paper edge and a single hard shadow, in CSS pixels. */
-export const cutOffsets = new InstancedBufferAttribute(
-	new Float32Array([1.5, -1.4, -0.55, 0.5]),
-	2
-);
+const cutOffsets = new InstancedBufferAttribute(new Float32Array([1.5, -1.4, -0.55, 0.5]), 2);
 
 /** Moves a paper shadow by a fixed CSS-pixel distance under either renderer backend. */
 export function shiftedPaper(offset: Node<'vec2'>) {
@@ -63,4 +68,15 @@ export function terrazzo(paper: Node<'color'>, scale: Node<'float'>) {
 		density.mul(scale.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
 	).mul(normalWorld.y.max(0).mul(0.13).add(0.87));
 	return material;
+}
+
+/** Two instances share the source vertices and register the light cut and dark offset in screen space. */
+export function paperEdge(source: BufferGeometry, material: Material) {
+	const backing = new InstancedBufferGeometry();
+	backing.setAttribute('position', source.getAttribute('position'));
+	backing.setAttribute('cutOffset', cutOffsets);
+	backing.instanceCount = cutOffsets.count;
+	const edge = new Mesh(backing, material);
+	edge.renderOrder = 1;
+	return edge;
 }

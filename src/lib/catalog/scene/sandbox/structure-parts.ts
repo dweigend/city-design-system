@@ -1,13 +1,13 @@
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
-import { isStructural, type Primitive, type Vec3 } from '../../logic/parametrik/types';
+import { type Primitive, type Vec3 } from '../../logic/parametrik/types';
 import { batch, geometryOf, type Batch } from '../batch';
 import type { StructureMaterials } from './structure-materials';
 import { conduitBatch } from './print-flow';
-import { cutOffsets } from './paper-inlay';
+import { paperEdge } from './paper-inlay';
 import { ceramicBatch } from './ceramic-batch';
-import { collageCut } from './collage-cut';
+import { partition } from './structure-layers';
 import { outlineOffsets } from './structure-outline';
 
 function memberTrace(part: Primitive): Primitive[] {
@@ -170,27 +170,30 @@ export function populateStructures(
 	const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
 	pipes?.geometry.setAttribute('stationM', conduit.axis);
 	const print = batch(parts.inlays, (p) =>
-		colorOf(
-			p.token === '--cat-business' && p.id.includes('deck')
-				? p.token
-				: p.token.replace(/-\d$/, '') + '-2'
-		)
+		colorOf(p.token === '--cat-business' ? p.token : p.token.replace(/-\d$/, '') + '-2')
 	);
 	const chips = batch(parts.inlays, (p) => colorOf(p.token.replace(/-\d$/, '')));
 	const inlay = mesh(print.neu, materials.inlay, true);
 	if (inlay) {
 		inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
 		inlay.castShadow = cast;
-		const backing = new THREE.InstancedBufferGeometry();
-		backing.setAttribute('position', inlay.geometry.getAttribute('position'));
-		backing.setAttribute('cutOffset', cutOffsets);
-		backing.instanceCount = cutOffsets.count;
-		const edge = new THREE.Mesh(backing, materials.cut);
-		edge.renderOrder = 1;
-		objects.add(edge);
+		objects.add(paperEdge(inlay.geometry, materials.cut));
+	}
+	const portal = mesh(batch(parts.portals, toColor).neu, materials.solid, true);
+	if (portal) {
+		portal.castShadow = cast;
+		objects.add(paperEdge(portal.geometry, materials.cut));
 	}
 	const pigments = new Map(
-		parts.ceramics.filter((p) => p.id.endsWith('/fitting')).map((p) => [p.id.slice(0, -8), p])
+		primitives
+			.filter(
+				(p) =>
+					p.role === 'neu' && p.token.startsWith('--cat-') && /\/(fitting|vessel|feed)$/.test(p.id)
+			)
+			.map((p) => [
+				p.id.endsWith('/fitting') ? p.id.slice(0, -8) : p.id.replace(/\/(vessel|feed)$/, '/module'),
+				p
+			])
 	);
 	const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
 		part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)

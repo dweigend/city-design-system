@@ -44,7 +44,8 @@ export function conduitBatch(parts: Primitive[], tone: (p: Primitive) => Color) 
 	const pieces = parts
 		.filter((p): p is Pipe => p.kind === 'pipe')
 		.map((p) => {
-			const faces = batch([p], tone).neu;
+			const baked = batch([p], tone);
+			const faces = p.glass ? baked.glas : baked.neu;
 			return { faces, axis: stations(p, faces.p) };
 		});
 	const faces: Batch['neu'] = {

@@ -144,32 +144,38 @@ export function waterGeometry(
 		valleyCoords(terrain, x, y)[0],
 		bankDistance(terrain, x, y)
 	];
-	const sources = piers.map((p) => ({ p, axis: riverChart(p[0], p[1]) }));
+	const sources = piers.map((p) => riverChart(p[0], p[1]));
+	const smooth = THREE.MathUtils.smoothstep;
+	function wakeAt(along: number, across: number) {
+		let bend = 0;
+		for (const [station, bank] of sources) {
+			const dx = along - station,
+				dy = across - bank;
+			if (dx <= 0 || dx >= 15 || Math.abs(dy) >= 6) continue;
+			bend +=
+				smooth(dx, 0, 2) *
+				(1 - smooth(dx, 2, 15)) *
+				Math.sin(dy * 0.64) *
+				(1 - smooth(Math.abs(dy), 1, 6));
+		}
+		return bend;
+	}
 	for (const cell of grid.cells) {
 		if (cell.corners.every((corner) => corner[2] > level)) continue;
-		let nearest: number[] | undefined,
-			best = 30 ** 2;
-		for (const { p, axis } of sources) {
-			const d = (p[0] - cell.center[0]) ** 2 + (p[1] - cell.center[1]) ** 2;
-			if (d < best) {
-				best = d;
-				nearest = axis;
-			}
-		}
 		for (const i of [0, 1, 2, 0, 2, 3]) {
 			const [x, y] = cell.corners[i],
 				[along, across] = riverChart(x, y);
 			pushThree(positions, [x, y, level]);
 			chart.push(along, across);
-			wake.push(nearest ? along - nearest[0] : 100, nearest ? across - nearest[1] : 100);
+			wake.push(wakeAt(along, across));
 		}
 	}
 	const geometry = chartedGeometry(positions, chart);
-	geometry.setAttribute('wake', new THREE.Float32BufferAttribute(wake, 2));
+	geometry.setAttribute('wake', new THREE.Float32BufferAttribute(wake, 1));
 	geometry.setAttribute(
 		'riverWidth',
 		new THREE.Float32BufferAttribute(
-			new Float32Array(wake.length / 2).fill(terrain.bands.riverEnd - terrain.bands.riverStart),
+			new Float32Array(wake.length).fill(terrain.bands.riverEnd - terrain.bands.riverStart),
 			1
 		)
 	);

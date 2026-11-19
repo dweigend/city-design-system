@@ -98,7 +98,7 @@ export function structureMaterials() {
 		pencilLine
 			.mul(flank)
 			.mul(float(1).sub(footprint.smoothstep(0.22, 0.56)))
-			.mul(0.38)
+			.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.nah).mul(0.18).add(0.065))
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.glaze.colorNode = solidColor;

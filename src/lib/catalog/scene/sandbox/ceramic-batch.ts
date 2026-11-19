@@ -2,6 +2,12 @@ import { Float32BufferAttribute, type Color } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import { batch, type Batch } from '../batch';
 
+const castingFamily = new Map<string, number>([
+	['sphere', 2],
+	['torus', 3],
+	['ring', 3]
+]);
+
 function shellChart(part: Primitive, coords: number[], coloured: boolean) {
 	let cx = 0,
 		cy = 0,
@@ -35,7 +41,7 @@ function shellChart(part: Primitive, coords: number[], coloured: boolean) {
 			half = radius = part.radius;
 		}
 	}
-	const family = !coloured ? 0 : part.kind === 'sphere' ? 2 : part.kind === 'torus' ? 3 : 1;
+	const family = coloured ? (castingFamily.get(part.kind) ?? 1) : 0;
 	const chart: number[] = [];
 	for (let i = 0; i < coords.length; i += 3) {
 		const x = coords[i] - cx,
