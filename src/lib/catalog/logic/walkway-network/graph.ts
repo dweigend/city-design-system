@@ -60,14 +60,21 @@ function nodesFor(edges: Edge[], plazas: Set<string>, input: NetworkInput, optio
 			degree.set(id, (degree.get(id) ?? 0) + 1);
 		}
 	for (const n of nodes.values()) if ((degree.get(n.id) ?? 0) > 2) n.kind = 'fork';
+	labelEntrances(nodes, degree, input);
+	if (option) labelFlight(nodes, option, input);
+	return [...nodes.values()];
+}
+function labelEntrances(
+	nodes: Map<string, Network['nodes'][number]>,
+	degree: Map<string, number>,
+	input: NetworkInput
+) {
 	for (const h of input.houses) {
 		const n = nodes.get(key([...h.entrance, input.terrain(...h.entrance)]));
 		if (!n) throw new RangeError('Entrance missing from network');
 		n.houses.push(h.id);
 		if (n.kind === 'bend') n.kind = degree.get(n.id) === 2 ? 'plaza' : 'entrance';
 	}
-	if (option) labelFlight(nodes, option, input);
-	return [...nodes.values()];
 }
 function labelFlight(nodes: Map<string, Network['nodes'][number]>, o: Option, input: NetworkInput) {
 	const foot = nodes.get(key([...o.foot, input.terrain(...o.foot)]));

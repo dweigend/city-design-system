@@ -29,16 +29,20 @@ export function shapeForks(tree: Segment[], input: NetworkInput, field: ReturnTy
 	for (const s of tree) for (const p of [s.a, s.b]) joins.set(p.join(','), p);
 	for (const [key, p] of joins) {
 		if (fixed.has(key)) continue;
-		const incident = tree.filter((s) => s.a === p || s.b === p);
-		if (incident.length !== 3) continue;
-		const arms = incident.map((s) => (s.a === p ? s.b : s.a));
-		const q = proposedFork(p, arms);
-		const others = tree.filter((s) => !incident.includes(s));
-		if (!arms.every((b) => field.clear(q, b) && unobstructed({ a: q, b }, others))) continue;
-		if (arms.reduce((sum, b) => sum + distance(q, b) - distance(p, b), 0) >= 0) continue;
-		for (const s of incident) {
-			if (s.a === p) s.a = q;
-			else s.b = q;
-		}
+		relaxFork(tree, p, field);
+	}
+}
+
+function relaxFork(tree: Segment[], p: Point, field: ReturnType<typeof survey>) {
+	const incident = tree.filter((s) => s.a === p || s.b === p);
+	if (incident.length !== 3) return;
+	const arms = incident.map((s) => (s.a === p ? s.b : s.a));
+	const q = proposedFork(p, arms);
+	const others = tree.filter((s) => !incident.includes(s));
+	if (!arms.every((b) => field.clear(q, b) && unobstructed({ a: q, b }, others))) return;
+	if (arms.reduce((sum, b) => sum + distance(q, b) - distance(p, b), 0) >= 0) return;
+	for (const s of incident) {
+		if (s.a === p) s.a = q;
+		else s.b = q;
 	}
 }

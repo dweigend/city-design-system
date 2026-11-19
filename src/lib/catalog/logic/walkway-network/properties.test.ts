@@ -77,9 +77,10 @@ function properties(input: NetworkInput, seed: number) {
 		).toBe(true);
 	}
 	for (const e of net.edges) {
-		expect(
-			Math.hypot(e.points[0][0] - e.points.at(-1)![0], e.points[0][1] - e.points.at(-1)![1])
-		).toBeLessThanOrEqual(25 + 1e-8);
+		const end = e.points[e.points.length - 1];
+		expect(Math.hypot(e.points[0][0] - end[0], e.points[0][1] - end[1])).toBeLessThanOrEqual(
+			25 + 1e-8
+		);
 		for (const p of e.points) safePoint(input, p);
 	}
 	expect(planNetwork(input, seed)).toEqual(net);

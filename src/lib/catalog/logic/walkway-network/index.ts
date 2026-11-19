@@ -22,13 +22,14 @@ function validate(input: NetworkInput, seed: number) {
 		throw new RangeError('Expected multiple houses with unique identifiers');
 	const datum = input.datum ?? 0;
 	if (!Number.isFinite(datum)) throw new RangeError('Invalid ensemble datum');
-	for (const h of input.houses) {
-		if (!h.entrance.every(Number.isFinite)) throw new RangeError('Invalid entrance');
-		for (const p of h.ports ?? []) {
-			const level = (p[2] - datum) / 2;
-			if (!p.every(Number.isFinite) || Math.abs(level - Math.round(level)) > epsilon)
-				throw new RangeError('Invalid port on the ensemble datum');
-		}
+	for (const h of input.houses) validateHouse(h, datum);
+}
+function validateHouse(h: NetworkInput['houses'][number], datum: number) {
+	if (!h.entrance.every(Number.isFinite)) throw new RangeError('Invalid entrance');
+	for (const p of h.ports ?? []) {
+		const level = (p[2] - datum) / 2;
+		if (!p.every(Number.isFinite) || Math.abs(level - Math.round(level)) > epsilon)
+			throw new RangeError('Invalid port on the ensemble datum');
 	}
 }
 function met(network: Omit<Network, 'geometry'>, area: number) {

@@ -32,22 +32,27 @@ function branch(start: Point, tree: Segment[], field: Field) {
 	const pending = new Set(points.keys());
 	cost[0] = 0;
 	let best: Target | undefined,
-		end = 0;
+		end = 0,
+		shortest = Infinity;
 	while (pending.size) {
 		const i = Array.from(pending).reduce((a, b) => (cost[a] <= cost[b] ? a : b));
-		if (cost[i] >= (best?.cost ?? Infinity)) break;
+		if (cost[i] >= shortest) break;
 		pending.delete(i);
 		const target = attachment(points[i], tree, field);
-		if (target && cost[i] + target.cost < (best?.cost ?? Infinity)) {
-			best = { ...target, cost: cost[i] + target.cost };
+		if (target && cost[i] + target.cost < shortest) {
+			best = target;
+			shortest = cost[i] + target.cost;
 			end = i;
 		}
 		relax(i, points, cost, prev, field);
 	}
 	if (!best) throw new RangeError('No clear route to an entrance');
-	const path = [best.point];
+	return { path: traceBranch(best.point, end, prev, points), target: best };
+}
+function traceBranch(target: Point, end: number, prev: number[], points: Point[]) {
+	const path = [target];
 	for (let i = end; i !== -1; i = prev[i]) path.push(points[i]);
-	return { path, target: best };
+	return path;
 }
 export function split(tree: Segment[], s: Segment, p: Point) {
 	if (distance(p, s.a) < epsilon) return s.a;
