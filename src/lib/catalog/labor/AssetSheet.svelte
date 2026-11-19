@@ -17,7 +17,7 @@
 		photos = {};
 		error = '';
 		async function draw() {
-			const { createAssetPlate } = await import('../scene/sandbox');
+			const { createAssetPlate } = await import('../scene/sandbox/asset-plate');
 			if (cancelled) return;
 			const plate = await createAssetPlate(host);
 			try {
