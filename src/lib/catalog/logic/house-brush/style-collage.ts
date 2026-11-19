@@ -4,7 +4,7 @@ import { collageFigure } from './collage-figure';
 import type { Site } from './form';
 import { body } from './body';
 import { profileOf } from './profile';
-import { flowToken } from '../../data/focus';
+import { BODY_TOKEN } from './body-token';
 import type { Mass, Story } from './massing';
 import { MAX_STORIES, storiesOf } from './stacks';
 
@@ -14,15 +14,6 @@ const COLLAGE_DEFAULTS = {
 	gardenDepth: 0.065
 };
 const CHANNEL = { figureSeat: 31, figureSide: 32 };
-
-/** Wall colour of each use. Housing takes the pale planning tint; paths alone stay pink. */
-const BODY_TOKEN = {
-	living: '--body-living',
-	water: flowToken.water,
-	energy: flowToken.energy,
-	food: flowToken.food,
-	material: flowToken.material
-} as const;
 
 /** A printed colour body: streamlined wall in the use colour, white plate and roof steps. */
 function printedBody(site: Site, mass: Mass): Primitive[] {

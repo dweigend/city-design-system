@@ -8,7 +8,7 @@ import * as THREE from 'three/webgpu';
 import { legacyRoleOf, type Primitive, type Vec3 } from '../logic/parametrik/types';
 import { build } from './primitive-geometry';
 
-type Faces = { p: number[]; n: number[]; c: number[] };
+type Faces = { p: number[]; n: number[]; c: number[]; seam?: number[] };
 export type Batch = {
 	/** Closed volumes of new additions (front faces). */
 	neu: Faces;
@@ -107,11 +107,12 @@ export function batch(
 						poly.map(([x, y]) => new THREE.Vector2(x, y)),
 						[]
 					);
+			const topColor = p.topToken && role === 'neu' ? colorOf({ ...p, token: p.topToken }) : color;
 			for (const [i, j, k] of idx) {
 				const a = poly[i];
 				let [b, c] = [poly[j], poly[k]];
 				if ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) < 0) [b, c] = [c, b];
-				tri(target, color, [a[0], a[1], z1], [b[0], b[1], z1], [c[0], c[1], z1], 0, 1, 0);
+				tri(target, topColor, [a[0], a[1], z1], [b[0], b[1], z1], [c[0], c[1], z1], 0, 1, 0);
 				tri(target, color, [a[0], a[1], z0], [c[0], c[1], z0], [b[0], b[1], z0], 0, -1, 0);
 			}
 			for (let i = 0; i < n; i++) {
@@ -219,12 +220,19 @@ export function batch(
 			normal = g.getAttribute('normal'),
 			target = p.glass ? out.glas : built.double ? out.blatt : out[role],
 			hull = built.outline && !p.glass && p.edges !== false ? out.hull[role] : undefined;
+		const band = p.kind === 'capsule' && p.printBand;
+		const seamZ =
+			band && p.kind === 'capsule'
+				? (p.from[2] + p.to[2]) / 2 + (2 * band.heightShare - 1) * p.radius
+				: 0;
+		if (band) target.seam ??= [];
 		const w = new THREE.Vector3();
 		for (let i = 0; i < position.count; i++) {
 			v.fromBufferAttribute(position, i).applyMatrix4(matrix);
 			w.fromBufferAttribute(normal, i).applyMatrix3(normalMatrix).normalize();
 			target.p.push(v.x, v.y, v.z);
 			target.n.push(w.x, w.y, w.z);
+			if (band) target.seam?.push(v.y - seamZ);
 			target.c.push(color.r, color.g, color.b);
 			if (hull) {
 				hull.p.push(v.x, v.y, v.z);
@@ -243,6 +251,8 @@ export function geometryOf(f: Faces): THREE.BufferGeometry {
 	const g = new THREE.BufferGeometry();
 	g.setAttribute('position', new THREE.Float32BufferAttribute(f.p, 3));
 	g.setAttribute('normal', new THREE.Float32BufferAttribute(f.n, 3));
+	if (f.seam?.length === f.p.length / 3 && f.seam.length)
+		g.setAttribute('printSeam', new THREE.Float32BufferAttribute(f.seam, 1));
 	if (f.c.length) g.setAttribute('color', new THREE.Float32BufferAttribute(f.c, 3));
 	return g;
 }

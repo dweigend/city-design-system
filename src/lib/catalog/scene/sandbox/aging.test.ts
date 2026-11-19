@@ -28,7 +28,12 @@ test('advancing redraws built houses and rail in pencil and undo restores their 
 		const freshHouse = parts(KEY.house);
 		const freshRail = parts(KEY.line);
 		const capsule = freshHouse.find((part) => part.kind === 'capsule');
-		expect(capsule).toMatchObject({ role: 'neu', edges: false });
+		expect(capsule).toMatchObject({
+			role: 'neu',
+			edges: false,
+			token: '--cat-health',
+			envelope: true
+		});
 		expect(freshHouse.some((part) => part.token === '--cat-health')).toBe(true);
 		expect(freshRail.some((part) => part.token === '--cat-business')).toBe(true);
 

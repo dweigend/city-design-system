@@ -17,14 +17,7 @@ export function gallery(bay: Bay, side: number, width: number): Primitive[] {
 		height: 0.09 * bay.gauge
 	});
 
-	return [
-		deck,
-		bay.piece(`main-${side}`, flowToken.energy, {
-			kind: 'pipe',
-			points: [along(bay, side, 0, 0, 0.69), along(bay, side, 1, 0, 0.69)],
-			radius: width * bay.gauge
-		})
-	];
+	return [deck];
 }
 
 /** Straight flight outside the frame. */
@@ -61,11 +54,15 @@ export function access(bay: Bay, side: number) {
 }
 
 /** Carries the supply independently of the access flight. */
-export function supply(bay: Bay, side: number) {
+export function supply(bay: Bay, side: number, token: Primitive['token']) {
 	const points: Vec3[] = [
 		along(bay, side, 0.16, -0.1, 0),
 		along(bay, side, 0.16, -0.1, 0.5),
 		along(bay, side, 0.16, 0.5, 0.5)
 	];
-	return bay.piece('supply', flowToken.water, { kind: 'pipe', points, radius: 0.14 * bay.gauge });
+	return {
+		...bay.piece('supply', token, { kind: 'pipe', points, radius: 0.06 }),
+		detail: true,
+		cityForm: false as const
+	};
 }

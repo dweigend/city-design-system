@@ -59,6 +59,11 @@ export function structureMaterials() {
 		pencil: new THREE.Line2NodeMaterial(),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
+		carrierInk: new THREE.Line2NodeMaterial(),
+		portalInk: new THREE.Line2NodeMaterial(),
+		braceInk: new THREE.Line2NodeMaterial(),
+		pod: new THREE.MeshBasicNodeMaterial(),
+		printHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		ghost: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
 			opacity: 0.16,
@@ -97,6 +102,18 @@ export function structureMaterials() {
 		mix(bodyColor.mul(0.93), bodyColor.mul(0.8), abs(normalWorld.x)),
 		mix(bodyColor.mul(0.66), lit, float(normalWorld.y.greaterThanEqual(0))),
 		abs(normalWorld.y)
+	);
+	const seamInk = uniform(new THREE.Color());
+	const seam = attribute('printSeam', 'float');
+	const seamWidth = seam.fwidth().mul(0.375);
+	const seamMask = float(1).sub(abs(seam).smoothstep(seamWidth.mul(0.5), seamWidth.mul(1.5)));
+	materials.pod.colorNode = mix(
+		mix(bodyColor, paperTone, float(seam.greaterThanEqual(0))),
+		seamInk,
+		seamMask
+	);
+	materials.printHull.vertexNode = outlinePositionAtOffset(
+		float(STRICHE.minimumTraeger * outlineExpansion)
 	);
 	const graphite = uniform(new THREE.Color());
 	const pencilField = positionLocal.x
@@ -166,6 +183,10 @@ export function structureMaterials() {
 		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);
+		seamInk.value.copy(g.ink);
+		materials.printHull.color.copy(g.ink);
+		for (const line of [materials.carrierInk, materials.portalInk, materials.braceInk])
+			line.color.copy(g.ink);
 	}
 
 	function setParams(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
@@ -180,6 +201,10 @@ export function structureMaterials() {
 		const ink = palette?.[traeger.token === '--ink' ? 'ink' : 'blei'];
 		const far = scale < MASSSTAB.quartier;
 		materials.bearing.visible = !far;
+		materials.carrierInk.linewidth = far ? STRICHE.bestand : 0.18 * scale;
+		materials.portalInk.linewidth = far ? STRICHE.bestand : 0.12 * scale;
+		materials.braceInk.linewidth = STRICHE.bestand;
+		materials.braceInk.visible = !far;
 		for (const [diameter, material] of [
 			[0.18, materials.primary],
 			[0.14, materials.rib],

@@ -87,9 +87,13 @@ test('stories recorded with three methods in the same year remain distinct when 
 		{ year: 2026, flows: ['water'] }
 	]);
 	expect(aged.state.storyParts.get(cellId)).toBe(parts);
-	for (const kind of ['sphere', 'capsule', 'polyline']) {
-		const piece = fresh.find((part) => part.kind === kind && part.role === 'neu');
-		expect(piece).toBeDefined();
+	for (const [suffix, kind] of [
+		[':wall', 'prism'],
+		['/body', 'prism'],
+		['/module', 'capsule']
+	]) {
+		const piece = fresh.find((part) => part.id.endsWith(suffix) && part.role === 'neu');
+		expect(piece).toMatchObject({ kind, token: '--cat-health', envelope: true });
 		expect(view(aged).find((part) => part.id === piece?.id)).toMatchObject({
 			kind,
 			role: 'bestand'

@@ -160,6 +160,9 @@ export function populateStructures(
 		if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
 	}
 	surface(body.neu, materials.solid, materials.hull, true);
+	surface(batch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
+	surface(batch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);
+	fill(batch(parts.plainPods, toColor).neu, materials.pod, true);
 	mesh(stock.alt, materials.stock, true);
 	mesh(stock.blatt, materials.stockSheet);
 	mesh(stock.glas, materials.stockSheet);
@@ -251,9 +254,17 @@ export function populateStructures(
 		materials.rib
 	);
 	const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
-	const main = current.filter((p) => !p.member || p.member === 'primary');
-	const ties = current.filter((p) => p.member === 'secondary' && !p.detail);
-	const rails = current.filter((p) => p.member === 'secondary' && p.detail);
+	const inkMembers = current.filter((p) => p.token === '--ink');
+	for (const [select, material] of [
+		[(p: Primitive) => p.detail, materials.braceInk],
+		[(p: Primitive) => !p.detail && p.sectionDiameter === 0.12, materials.portalInk],
+		[(p: Primitive) => !p.detail && p.sectionDiameter !== 0.12, materials.carrierInk]
+	] as const)
+		lines(batch(inkMembers.filter(select).flatMap(memberTrace), toColor).kanten.neu, material);
+	const legacy = current.filter((p) => p.token !== '--ink');
+	const main = legacy.filter((p) => !p.member || p.member === 'primary');
+	const ties = legacy.filter((p) => p.member === 'secondary' && !p.detail);
+	const rails = legacy.filter((p) => p.member === 'secondary' && p.detail);
 	lines(batch(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
 	lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
 	lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
@@ -269,7 +280,7 @@ export function populateStructures(
 	);
 	// Explicit bearing nodes with no axial member retain their existing ink mark.
 	const points = parts.carriers.flatMap((part) =>
-		part.kind === 'sphere' ? (part.bearings ?? []) : []
+		part.kind === 'sphere' || part.token === '--ink' ? (part.bearings ?? []) : []
 	);
 	if (details && points.length)
 		objects.add(bearingDots(points, bearingGeometry, materials.bearing));

@@ -32,8 +32,9 @@ export function bayOf(mass: Mass, { cell, level }: Story, corners: Vec3[]) {
 			(1 - v) * ((1 - u) * a[i] + u * b[i]) + v * ((1 - u) * d[i] + u * c[i]);
 		return [mix(0), mix(1), mass.floor + h * STORY];
 	};
-	const piece = (name: string, token: ColorToken, form: Form) => ({
+	const piece = <F extends Form>(name: string, token: ColorToken, form: F) => ({
 		...part(`${mass.id}/${cell.id}/${name}`, token, form),
+		...form,
 		material: 'glaze' as const,
 		edges: false
 	});

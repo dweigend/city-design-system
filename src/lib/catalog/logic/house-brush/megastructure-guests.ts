@@ -26,11 +26,18 @@ function salvage(b: Bay, z: number) {
 }
 
 /** Program-specific removable bodies hang from a short central hanger. */
-export function guest(b: Bay, use: HouseUse, side: number, exposed: boolean): Primitive[] {
+export function guest(
+	b: Bay,
+	use: HouseUse,
+	side: number,
+	exposed: boolean,
+	lift = 0
+): Primitive[] {
 	const r = b.gauge;
 	const mid = b.point(0.5, 0.18, 0.49);
+	mid[2] += lift;
 	const raisedTank = exposed && use === 'water';
-	if (raisedTank) mid[2] += STORY * 0.51 + 1.25 * b.radius;
+	if (raisedTank && !lift) mid[2] += STORY * 0.51 + 1.25 * b.radius;
 	const hanger = b.piece('hanger', '--paper', {
 		kind: 'pipe',
 		points: [mid, b.point(0.5, 0.5, 1)],
@@ -65,7 +72,11 @@ export function guest(b: Bay, use: HouseUse, side: number, exposed: boolean): Pr
 	return [
 		b.piece('feed', b.token, {
 			kind: 'pipe',
-			points: [b.point(0, 0, 0), b.point(0, 0, 1), b.point(side % 2, 1, 1)],
+			points: [
+				b.point(0, 0, lift / STORY),
+				b.point(0, 0, 1 + lift / STORY),
+				b.point(side % 2, 1, 1 + lift / STORY)
+			],
 			radius: r * 0.09
 		})
 	];

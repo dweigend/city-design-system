@@ -17,6 +17,7 @@ export type ColorToken =
 	| '--cat-nature-2'
 	| '--cat-hazard'
 	| '--paper'
+	| '--ink'
 	| '--cat-living'
 	| '--cat-health'
 	| '--cat-mobility'
@@ -105,6 +106,7 @@ export type Primitive = Base &
 				holes?: [number, number][][];
 				z: number;
 				height: number;
+				topToken?: ColorToken;
 		  }
 		/** Line only, no surface: grid edges, networks, plan lines. */
 		| MeshForm
@@ -114,7 +116,13 @@ export type Primitive = Base &
 		/** Half sphere on its base center. facets > 0 = geodesic (icosahedron detail), edges drawn. */
 		| { kind: 'dome'; position: Vec3; radius: number; height?: number; facets?: number }
 		/** Rounded tube between two points (tube capsule). */
-		| { kind: 'capsule'; from: Vec3; to: Vec3; radius: number }
+		| {
+				kind: 'capsule';
+				from: Vec3;
+				to: Vec3;
+				radius: number;
+				printBand?: { heightShare: number; upper: ColorToken };
+		  }
 		/** Box whose top falls along local x from full height to low × height. position = min corner. */
 		| { kind: 'wedge'; position: Vec3; size: Vec3; low?: number }
 		/**

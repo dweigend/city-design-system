@@ -6,52 +6,74 @@ import { kanal, kantenId } from '../traeger';
 import type { Site } from './form';
 import type { Mass } from './massing';
 import { along, bayOf, mountingGrid, type Bay } from './megastructure-bay';
-import { shellForms, dockedModule } from './style-totem';
+import { shellForms } from './style-totem';
 import { guest } from './megastructure-guests';
 import { access, gallery, supply } from './megastructure-services';
 import { storiesOf } from './stacks';
+import { STORY } from '../../data/grid';
+import { BODY_TOKEN } from './body-token';
+import { insetRing, ringArea } from './outline';
 
-const MEGASTRUCTURE_DEFAULTS = { emptyShare: 0.16, galleryWidth: 0.075 };
+const MEGASTRUCTURE_DEFAULTS = { emptyShare: 0.25, galleryWidth: 0.075 };
 const DRAW = { orientation: 21, occupancy: 22 };
 
-// Keep half the shared primary members, alternating posts and girders on successive pairs.
-function memberOf(i: number, primaryCount: number): Primitive['member'] {
-	if (i >= primaryCount) return i === primaryCount ? 'secondary' : 'alternate';
-	return i % 4 === 0 || i % 4 === 3 || (primaryCount % 2 === 1 && i === primaryCount - 1)
-		? undefined
-		: 'alternate';
-}
-
-/** One post per shared vertex and one girder per shared side at this level. */
-function skeleton(b: Bay, posts: Set<string>, girders: Set<string>, brace: number) {
-	const members: [Vec3, Vec3][] = [];
-	const feet = new Set<Vec3>();
+function skeleton(
+	b: Bay,
+	posts: Set<string>,
+	girders: Set<string>,
+	brace: number,
+	continued: ReadonlySet<string>
+) {
+	const members: Primitive[] = [];
+	const strut = (points: Vec3[], detail = false): Primitive => ({
+		...b.piece(`strut-${members.length}`, '--ink', { kind: 'polyline', points }),
+		role: 'traeger',
+		member: detail ? 'secondary' : 'primary',
+		sectionDiameter: 0.18,
+		detail
+	});
 	b.cell.vertexIds.forEach((id, i) => {
 		const top = along(b, i, 0, 0, 1);
 		if (!posts.has(id)) {
 			posts.add(id);
 			const foot = along(b, i, 0, 0, 0);
 			if (b.level === 0) foot[2] = Math.min(foot[2], b.cell.corners[i][2]);
-			members.push([foot, top]);
-			feet.add(foot);
+			const end: Vec3 = [top[0], top[1], top[2] + (continued.has(id) ? 0 : 1.2)];
+			members.push({ ...strut([foot, end]), bearings: [foot] });
 		}
 		const edge = kantenId(id, b.cell.vertexIds[(i + 1) % 4]);
 		if (!girders.has(edge)) {
 			girders.add(edge);
-			members.push([top, along(b, i, 1, 0, 1)]);
+			members.push(strut([top, along(b, i, 1, 0, 1)]));
 		}
 	});
-	const primaryCount = members.length;
-	members.push(
-		[along(b, brace, 0, 0, 0), along(b, brace, 1, 0, 1)],
-		[b.point(0, 0, 1), b.point(1, 1, 1)]
-	);
-	return members.map(([from, to], i): Primitive => ({
-		...b.piece(`strut-${i}`, '--paper', { kind: 'polyline', points: [from, to] }),
-		role: 'traeger',
-		member: memberOf(i, primaryCount),
-		...(feet.has(from) ? { bearings: [from] } : {})
-	}));
+	members.push(strut([along(b, brace, 0, 0, 0), along(b, brace, 1, 0, 1)], true));
+	return members;
+}
+
+function drawer(b: Bay, token: Primitive['token']): Primitive {
+	const corners = [
+		[0, 0],
+		[1, 0],
+		[1, 1],
+		[0, 1]
+	].map(([u, v]): [number, number] => {
+		const [x, y] = b.point(u, v, 0);
+		return [x, y];
+	});
+	if (ringArea(corners) < 0) corners.reverse();
+	return {
+		...b.piece('body', token, {
+			kind: 'prism',
+			polygon: insetRing(corners, 0.6),
+			z: b.point(0, 0, 0)[2] + 0.4,
+			height: 3,
+			topToken: '--paper'
+		}),
+		material: 'concrete',
+		envelope: true,
+		shade: 0
+	};
 }
 
 /** A bolted carrier follows each painted story. Its infill can be removed bay by bay. */
@@ -65,24 +87,35 @@ export function megastructureMass(
 		girders = new Set<string>();
 	const cornersOf = mountingGrid(mass);
 	const members = new Set(mass.stories.map((s) => s.cell.id));
-	const anchor = mass.stories[0];
 	const seed = kanal(site.seed, 'raumfachwerk', mass.id, 'scaffold');
-	const roof = mass.stories.find((s) => storiesOf(site.stacks, s.cell.id).length === s.level + 1);
-	return mass.stories.flatMap((story) => {
+	const bays = mass.stories.map((story, i) => {
 		const b = bayOf(mass, story, cornersOf(story.cell));
 		const key = kanal(seed, 'raumfachwerk', b.cell.id, 'guest');
 		const side = Math.floor(4 * hash(seed, key, DRAW.orientation));
+		return {
+			b,
+			side,
+			occupied: i === 0 || hash(seed, key, DRAW.occupancy) > p.emptyShare,
+			top: storiesOf(site.stacks, b.cell.id).length === b.level + 1
+		};
+	});
+	if (bays.length >= 4 && bays.every((bay) => bay.occupied)) bays[bays.length - 1].occupied = false;
+	const roof = bays.find((bay) => bay.top && bay.occupied);
+	const continued = new Set(bays.filter(({ top }) => !top).flatMap(({ b }) => b.cell.vertexIds));
+	return bays.flatMap((bay, i) => {
+		const { b, side, occupied } = bay;
 		const exterior = b.cell.neighbors.flatMap((id, i) =>
 			id === null || !members.has(id) ? [i] : []
 		);
-		const parts = skeleton(b, posts, girders, side);
-		if (story === anchor || hash(seed, key, DRAW.occupancy) > p.emptyShare)
-			parts.push(...dockedModule(b, side), ...guest(b, mass.use, side, story === roof));
+		const parts = skeleton(b, posts, girders, side, continued);
+		if (occupied) parts.push(drawer(b, BODY_TOKEN[mass.use]));
+		if (bay === roof) parts.push(...guest(b, mass.use, side, true, STORY));
+
 		const route = exterior.at(side % exterior.length);
-		if (story === anchor && route !== undefined) {
+		if (i === 0 && route !== undefined) {
 			parts.push(...gallery(b, route, p.galleryWidth));
 			if (accessFlight === 'own') parts.push(...access(b, route));
-			parts.push(supply(b, route));
+			parts.push(supply(b, route, BODY_TOKEN[mass.use]));
 		}
 		return parts;
 	});

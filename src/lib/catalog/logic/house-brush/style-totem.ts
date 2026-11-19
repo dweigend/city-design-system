@@ -1,3 +1,5 @@
+import { BODY_TOKEN } from './body-token';
+import { storiesOf } from './stacks';
 import { required } from '../required';
 import { ceramicFitting } from './ceramic-fitting';
 import type { ModuleRecipe } from './module-group';
@@ -12,11 +14,10 @@ import { guest } from './megastructure-guests';
 import { along, bayOf, mountingGrid, type Bay } from './megastructure-bay';
 
 const TOTEM_DEFAULTS = {
-	shoulder: 0.22,
-	seat: 0.6,
+	shoulder: 0.15,
+	seat: 0.5,
 	radius: 0.74,
-	clearance: 0.31,
-	glaze: 0.09,
+	clearance: 0.42,
 	seamSegments: 8
 };
 
@@ -31,58 +32,107 @@ function castingSeam(from: Vec3, to: Vec3, radius: number, segments: number): Ve
 	);
 }
 
-/** A single glazed cartridge hangs from the carrier's crossbeam. */
-export function dockedModule(b: Bay, side: number, p = TOTEM_DEFAULTS): Primitive[] {
-	const end = (t: number) => along(b, side, t, 0.5, p.seat);
-	const radius = Math.min(b.radius * p.radius, STORY * p.clearance);
-	const crown = b.point(0.5, 0.5, p.seat);
-	crown[2] += radius;
+type Pod = Extract<Primitive, { kind: 'capsule' }>;
+
+function porthole(b: Bay, pod: Pod): Primitive[] {
+	const { from, to, radius } = pod;
+	const turn = Math.atan2(to[1] - from[1], to[0] - from[0]);
+	const position: Vec3 = [to[0] + radius * Math.cos(turn), to[1] + radius * Math.sin(turn), to[2]];
+	const outer = Math.min(0.45, radius * 0.9);
+	const ring = {
+		kind: 'ring',
+		position,
+		rotation: turn,
+		radius: outer,
+		curvature: radius
+	} as const;
 	return [
-		b.piece('casting-seam', '--paper', {
-			kind: 'polyline',
-			points: castingSeam(end(p.shoulder), end(1 - p.shoulder), radius, p.seamSegments),
-			closed: true
-		}),
 		{
-			...b.piece('suspension', '--paper', {
-				kind: 'polyline',
-				points: [crown, b.point(0.5, 0.5, 1)]
+			...b.piece('module/porthole-ring', '--ink', {
+				...ring,
+				innerRadius: outer * 0.8,
+				depth: 0.05
 			}),
-			role: 'traeger',
-			legacyRole: 'neu',
-			member: 'secondary'
+			material: 'concrete'
 		},
 		{
-			...b.piece('module', '--paper', {
-				kind: 'capsule',
-				from: end(p.shoulder),
-				to: end(1 - p.shoulder),
-				radius
+			...b.piece('module/porthole-pane', '--paper', {
+				...ring,
+				radius: outer * 0.8,
+				innerRadius: 0,
+				depth: 0.03
 			}),
-			edges: false,
-			shade: p.glaze
+			material: 'concrete'
 		}
 	];
 }
 
-/** A portal frame follows each cell side and carries one white ceramic module. */
+/** Detached printed pod and hanger in metres, aligned with the given bay side (0–3). */
+export function dockedModule(
+	b: Bay,
+	side: number,
+	token: Primitive['token'],
+	p = TOTEM_DEFAULTS
+): Primitive[] {
+	const center = b.point(0.5, 0.5, p.seat);
+	const turn = (side * Math.PI) / 2;
+	const end = (t: number): Vec3 => {
+		const [a, d] = along(b, side, t, 0.5, p.seat);
+		const reach = Math.sign(t - 0.5) * Math.hypot(a - center[0], d - center[1]);
+		return [center[0] + reach * Math.cos(turn), center[1] + reach * Math.sin(turn), center[2]];
+	};
+	const radius = Math.min(b.radius * p.radius, STORY * p.clearance);
+	const pod: Pod = {
+		...b.piece('module', token, {
+			kind: 'capsule',
+			from: end(p.shoulder),
+			to: end(1 - p.shoulder),
+			radius
+		}),
+		material: 'concrete',
+		envelope: true,
+		edges: false,
+		shade: 0,
+		printBand: { heightShare: 0.62, upper: '--paper' }
+	};
+	const crown: Vec3 = [center[0], center[1], center[2] + radius];
+	return [
+		{
+			...b.piece('suspension', '--ink', {
+				kind: 'polyline',
+				points: [crown, b.point(0.5, 0.5, 1)]
+			}),
+			role: 'traeger',
+			sectionDiameter: 0.12
+		},
+		pod,
+		...porthole(b, pod)
+	];
+}
+
+/** One pencil portal and printed pod per story, ordered by the mass's cell order. */
 export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive[] {
 	const joints = mountingGrid(mass);
+	const baseSide = kanal(site.seed, 'raumfachwerk', 'town', 'module') % 4;
+	const roof = mass.stories.find(
+		({ cell, level }) => storiesOf(site.stacks, cell.id).length === level + 1
+	);
 	return mass.stories.flatMap((story) => {
 		const b = bayOf(mass, story, joints(story.cell));
-		const side = kanal(site.seed, 'raumfachwerk', story.cell.id, 'module') % 4;
+		const side = (baseSide + (story.level % 2)) % 4;
 		const pier = (end: number) => [along(b, side, 0.5, end, 0), along(b, side, 0.5, end, 1)];
 		return [
 			{
-				...b.piece('portal', '--paper', {
+				...b.piece('portal', '--ink', {
 					kind: 'polyline',
 					points: [...pier(0), ...pier(1).reverse()]
 				}),
 				role: 'traeger',
+				sectionDiameter: 0.12,
 				bearings: [pier(0)[0], pier(1)[0]]
 			},
-			...dockedModule(b, side, p),
-			...guest(b, mass.use, side, false)
+			...dockedModule(b, side, BODY_TOKEN[mass.use], p),
+			...(story === roof ? guest(b, mass.use, side, true, STORY) : [])
 		];
 	});
 }

@@ -113,7 +113,7 @@ describe('house brush', () => {
 		expect(Math.max(...xs)).toBeGreaterThan(seamX);
 		const key = ([x, y, z]: readonly number[]) => [x, y, z].map((v) => v.toFixed(3)).join(',');
 		const reached = new Set([key(rods[0].points[0])]);
-		for (let grew = true; grew; ) {
+		for (let grew = true; grew;) {
 			grew = false;
 			for (const { points } of rods) {
 				const keys = points.map(key);
@@ -218,4 +218,62 @@ test('raised water vessels respect the wall clearance of a skewed mounting bay',
 	const narrow = vessel(2);
 	expect(narrow.radius).toBeCloseTo(narrow.position[1], 10);
 	expect(narrow.radius).toBeLessThan(vessel(8).radius);
+});
+
+function printedParts(stacks: Stacks, style: 'megastructure' | 'totem') {
+	return houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, style, {
+		occupied: stacks,
+		blockOf: () => undefined,
+		olderRoof: () => false
+	});
+}
+
+test('Carrier insets the printed drawer in an ink frame with no roof diagonal', () => {
+	const list = printedParts(raise(EMPTY, '1/1', 'water'), 'megastructure');
+	const drawer = named(list, '/body')[0];
+	expect(drawer).toMatchObject({
+		kind: 'prism',
+		token: '--cat-health',
+		topToken: '--paper',
+		shade: 0,
+		envelope: true,
+		height: 3
+	});
+	if (drawer?.kind !== 'prism') throw new Error('Missing drawer');
+	const frame = list.filter((p) => p.id.includes('/strut-'));
+	expect(frame).toHaveLength(9);
+	expect(frame.every((p) => p.token === '--ink')).toBe(true);
+	const axes = frame.flatMap((p) => (p.kind === 'polyline' ? [p.points] : []));
+	expect(axes.some(([a, b]) => a[2] === b[2] && a[0] !== b[0] && a[1] !== b[1])).toBe(false);
+	const feet = frame.flatMap((p) => p.bearings ?? []);
+	for (const axis of [0, 1]) {
+		expect(Math.min(...drawer.polygon.map((p) => p[axis]))).toBeCloseTo(
+			Math.min(...feet.map((p) => p[axis])) + 0.6
+		);
+		expect(Math.max(...drawer.polygon.map((p) => p[axis]))).toBeCloseTo(
+			Math.max(...feet.map((p) => p[axis])) - 0.6
+		);
+	}
+	expect(drawer.z).toBeCloseTo(cellAt(1, 1).pad + 0.4);
+	expect(Math.max(...axes.flat().map((p) => p[2]))).toBeCloseTo(cellAt(1, 1).pad + STORY + 1.2);
+});
+
+test('Capsules print pigment below the paper seam and turn a quarter turn each level', () => {
+	const stacks = raise(raise(raise(EMPTY, '1/1', 'water'), '1/1', 'water'), '2/1', 'water');
+	const list = printedParts(stacks, 'totem');
+	const pods = list.filter((p) => p.kind === 'capsule');
+	expect(pods).toHaveLength(3);
+	for (const pod of pods)
+		expect(pod).toMatchObject({
+			token: '--cat-health',
+			printBand: { heightShare: 0.62, upper: '--paper' },
+			shade: 0,
+			envelope: true
+		});
+	const direction = (p: (typeof pods)[number]) => [p.to[0] - p.from[0], p.to[1] - p.from[1]];
+	const [a, b, c] = pods.map(direction);
+	expect(a[0] * b[1] - a[1] * b[0]).toBeCloseTo(0);
+	expect(a[0] * c[0] + a[1] * c[1]).toBeCloseTo(0);
+	expect(list.some((p) => p.token.startsWith('--cat-business'))).toBe(false);
+	expect(named(list, '/porthole-ring')).toHaveLength(3);
 });

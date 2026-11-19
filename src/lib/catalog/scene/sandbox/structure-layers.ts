@@ -25,6 +25,8 @@ function isCasting(part: Primitive) {
 	);
 }
 function newSurface(part: Primitive) {
+	if (part.kind === 'capsule' && part.printBand) return 'pods';
+	if (part.kind === 'prism' && part.topToken) return 'drawers';
 	if (part.kind === 'mesh' && part.material === 'glaze' && part.token === '--paper') return 'glaze';
 	if (isConduit(part)) return 'conduits';
 	if (isInlay(part) && isAccent(part)) return 'inlays';
@@ -44,6 +46,9 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 	const parts = {
 		finished: [] as Surface[],
 		regular: [] as Primitive[],
+		pods: [] as Primitive[],
+		plainPods: [] as Primitive[],
+		drawers: [] as Primitive[],
 		glaze: [] as Primitive[],
 		plain: [] as Primitive[],
 		plainAccents: [] as Primitive[],
@@ -63,7 +68,8 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		const part = collageCut(original);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
 		const layer = layerOf(part);
-		if (unoutlined.has(original) && !keepLayer.has(layer))
+		if (unoutlined.has(original) && layer === 'pods') parts.plainPods.push(body);
+		else if (unoutlined.has(original) && !keepLayer.has(layer))
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
 		else parts[part === original ? layer : 'portals'].push(body);
 	}

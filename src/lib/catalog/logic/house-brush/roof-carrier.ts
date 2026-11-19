@@ -4,6 +4,7 @@ import { part, type Site } from './form';
 import { floorOf, type Mass } from './massing';
 import { along, bayOf } from './megastructure-bay';
 import { storiesOf, type Stacks } from './stacks';
+import { BODY_TOKEN } from './body-token';
 import { dockedModule } from './style-totem';
 
 export type RoofContext = {
@@ -70,7 +71,7 @@ export function roofCarrier(site: Site, mass: Mass, context: RoofContext): Primi
 			parts.push(
 				trace('brace/' + i, [low[i - 1], high[i]], undefined, i % 2 ? 'secondary' : 'alternate')
 			);
-		if (c !== cell) parts.push(...dockedModule(bay, run.side));
+		if (c !== cell) parts.push(...dockedModule(bay, run.side, BODY_TOKEN[mass.use]));
 	}
 	const chord: Primitive = {
 		...part(carrier.id + '/lower', '--paper', {
