@@ -85,12 +85,8 @@ function infillStock(plan: Plan, i: number, bell: boolean, depth: number) {
 				'dome'
 			] as const)
 		: ([
-				'kit-capsule-' +
-					(i % 8 >= 4 ? 'porthole' : 'ribbon') +
-					'-' +
-					String(length).replace('.', 'p') +
-					'm',
-				'round-shoulder',
+				'kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm',
+				i % 8 >= 4 ? 'high-waist' : 'round-shoulder',
 				'capsule'
 			] as const);
 }

@@ -58,6 +58,10 @@ function fitAccess(section: Section, sign: number): Section {
 		}
 		return section;
 	}
+	return fitWinding(section, sign);
+}
+function fitWinding(section: Section, sign: number) {
+	const { composition } = section;
 	const axis = stairAxis(section, section.base[1] + sign * 0.15, sign);
 	if (axis) {
 		const winding = { ...section, stairAxis: axis, compact: false };

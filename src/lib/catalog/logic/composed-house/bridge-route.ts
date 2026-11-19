@@ -22,6 +22,7 @@ export function bridgeRoute(
 		dy = to[1] - from[1],
 		run = Math.hypot(dx, dy);
 	if (!Number.isFinite(run) || run < 0.01 || run > SPAN || rise > LEVEL) return;
+	const thresholds = [from[2], to[2]] as const;
 	const level = (from[2] + to[2]) / 2;
 	from = [from[0], from[1], level];
 	to = [to[0], to[1], level];
@@ -35,6 +36,6 @@ export function bridgeRoute(
 		const route = offset ? [from, mid, to] : [from, to];
 		const length = run * Math.hypot(1, 2 * offset);
 		if (length <= SPAN && clearRoute(route, obstacles, width))
-			return { from, to, rise, run: length, kind, route };
+			return { from, to, rise, run: length, kind, route, thresholds };
 	}
 }

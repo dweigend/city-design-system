@@ -1,3 +1,4 @@
+import { terraceFurniture } from './terrace-furniture';
 import { person, landingPeople } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
@@ -40,6 +41,7 @@ export function sectionParts(section: Section, palette = houseSurfaces) {
 	return [
 		...house,
 		...seats,
+		...terraceFurniture(section, house, surfaces),
 		...servicePipes(section, surfaces),
 		...walk,
 		...landingPeople(walk, house, section.id, section.seed, surfaces),

@@ -206,24 +206,37 @@ test('every typology exposes its specified catalogue finishes', () => {
 		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
 		const parts = sectionParts(s);
 		expect(new Set(parts.map((p) => p.finish)).size, type).toBeGreaterThanOrEqual(3);
-		for (const p of parts) {
-			if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
-			if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
-				expect(p.finish).toBe('perforated-metal');
-			if (
-				p.id.includes('/body/') &&
-				p.source.objectId.startsWith('kit-capsule') &&
-				p.source.slot === 'body'
-			)
-				expect(p.finish).toBe('acryl-matt');
-			if (p.id.endsWith('/deck')) expect(p.finish).toBe('beton-terrazzo');
-		}
-		for (const l of s.composition.levels) {
-			const b = l.bodies[0];
-			if (!b.band) continue;
-			const sill = parts.find((p) => p.id.startsWith(b.id + '/primitive-slab/sill'));
-			if (b.band.plinth) expect(sill?.finish).toBe('beton-schalung');
-			else if (b.use === 'food') expect(sill?.finish).toBe('holz-natur');
-		}
+		parts.forEach(checkFinish);
+		s.composition.levels.forEach((l) => checkBandFinish(l, parts));
 	}
+});
+function checkFinish(p: Part) {
+	if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
+	if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
+		expect(p.finish).toBe('perforated-metal');
+	if (
+		p.id.includes('/body/') &&
+		p.source.objectId.startsWith('kit-capsule') &&
+		p.source.slot === 'shell'
+	)
+		expect(p.finish).toBe('acryl-matt');
+	if (p.id.endsWith('/deck')) expect(p.finish).toBe('beton-terrazzo');
+}
+function checkBandFinish(
+	l: ReturnType<typeof specimen>['composition']['levels'][number],
+	parts: Part[]
+) {
+	const b = l.bodies[0];
+	if (!b.band) return;
+	const sill = parts.find((p) => p.id.startsWith(b.id + '/primitive-slab/sill'));
+	if (b.band.plinth) expect(sill?.finish).toBe('beton-schalung');
+	else if (b.use === 'food') expect(sill?.finish).toBe('holz-natur');
+}
+
+test('every inhabited storey has a registry terrace planter',()=>{
+ for(const type of typologies){
+ const s=specimen(type==='courtyard-house'?4:2,type);
+ const furniture=sectionParts(s).filter(p=>p.source.objectId==='rolled-lip-planter');
+ expect(furniture.length,type).toBe(s.decks.length);
+ }
 });

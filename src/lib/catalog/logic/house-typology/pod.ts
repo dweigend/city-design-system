@@ -22,7 +22,7 @@ export function podLevel(plan: Plan, i: number, use: HouseUse): Level {
 	const b = objectSlot(site.id + '/level/' + i + '/body/0', stock, use, plan.seed, 0);
 	const scale = Math.max(
 		0.85,
-		Math.min(span ? 1 : 1.065, site.width / b.nativeSize[0], (site.depth - 0.5) / b.nativeSize[1])
+		Math.min(span ? 1 : 1.065, site.width / b.nativeSize[0], (site.depth - (site.width>=7 && site.depth<4.5?0.3:0.5)) / b.nativeSize[1])
 	);
 	b.scale = scale;
 	b.size = b.nativeSize.map((v) => v * scale) as Point;

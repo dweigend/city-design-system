@@ -52,7 +52,7 @@ function drumPanels(b: Body, stock: ReturnType<typeof members>, surfaces: HouseS
 		b.variant,
 		b.seed,
 		b.id,
-		{ ...surfaces, pane: surfaces[b.use] },
+		{ ...surfaces, pane: roleSurface(surfaces[b.use],'capsule') },
 		b.use
 	);
 	return stock.flatMap((p, i): typeof stock => {
@@ -65,6 +65,7 @@ function drumPanels(b: Body, stock: ReturnType<typeof members>, surfaces: HouseS
 			{
 				...p,
 				position: [p.position[0], p.position[1], p.position[2] + sill],
+				radius: Math.max(0.12, p.radius - 0.35 / b.scale),
 				height: p.height - sill
 			}
 		];
@@ -79,7 +80,7 @@ export function bodyParts(b: Body, surfaces: HouseSurfaces) {
 			? drumPanels(b, stock, surfaces)
 			: stock;
 	return place(
-		painted.map((p) => weatherSkin(p, b.scale)),
+		painted.map((p) => weatherSkin(recess(p, b), b.scale)),
 		b.nativeCenter,
 		b.position,
 		[b.scale, b.scale, b.scale],
@@ -87,6 +88,20 @@ export function bodyParts(b: Body, surfaces: HouseSurfaces) {
 	);
 }
 
+function recess(p: ReturnType<typeof members>[number], b: Body) {
+	if (!b.objectId.includes('capsule-ribbon')) return p;
+	const inset = 0.35 / b.scale;
+	if (p.kind === 'prism' && p.source.slot === 'glass') {
+		const factor = (b.nativeSize[1] / 2 - inset) / (b.nativeSize[1] / 2 - 0.05);
+		return { ...p, polygon: p.polygon.map(([x, y]): [number, number] => [x, y * factor]) };
+	}
+	if (p.kind === 'box' && p.source.slot === 'edge') {
+		const position = [...p.position] as typeof p.position;
+		position[1] -= Math.sign(position[1]) * (inset - 0.05);
+		return { ...p, position };
+	}
+	return p;
+}
 function weatherSkin(p: ReturnType<typeof members>[number], scale: number) {
 	if (p.kind === 'pipe') return { ...p, radius: Math.max(0.06 / scale, p.radius) };
 	if (p.kind === 'box') {
