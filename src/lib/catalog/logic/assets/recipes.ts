@@ -1,3 +1,5 @@
+import { energyEquipment } from './energy-equipment';
+import { exchangeStations } from './exchange-stations';
 import { waterFeatures } from './water-features';
 import { rainFittings } from './rain-fittings';
 import { gardenBeds } from './garden-beds';
@@ -118,5 +120,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...gardenBeds,
 	...verticalGardens,
 	...waterFeatures,
-	...rainFittings
+	...rainFittings,
+	...energyEquipment,
+	...exchangeStations
 ];
