@@ -1,5 +1,6 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
+import { BLICK } from '../../data/leitstil';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import { deckParts } from '../../logic/walkway/span';
 import { distanceDrawing, sameDrawing } from './distance-drawing';
@@ -25,6 +26,28 @@ test('the city outline threshold uses the stop ring section in CSS pixels', () =
 	expect(threshold.unoutlined.has(ring)).toBe(false);
 	expect(sameDrawing(narrow, threshold)).toBe(false);
 	expect(distanceDrawing([ring], { ...city, block: false }).unoutlined.size).toBe(0);
+});
+
+test('a solid façade disc only keeps its contour when its projected width meets the threshold', () => {
+	const disc: Primitive = {
+		id: 'window',
+		kind: 'ring',
+		position: [0, 0, 0],
+		radius: 2,
+		innerRadius: 0,
+		depth: 0.2,
+		rotation: BLICK.azimutRad + Math.PI / 2,
+		role: 'neu',
+		material: 'concrete',
+		token: '--cat-nature'
+	};
+	const faceOn = distanceDrawing([disc], { ...city, elevation: 0 });
+	expect(faceOn.unoutlined.has(disc)).toBe(false);
+	const edgeOn = distanceDrawing([disc], city);
+	expect(edgeOn.parts).toEqual([disc]);
+	expect(edgeOn.unoutlined.has(disc)).toBe(true);
+	const horizontal = { ...disc, tilt: Math.PI / 2 };
+	expect(distanceDrawing([horizontal], city).unoutlined.has(horizontal)).toBe(false);
 });
 
 test('a narrow path keeps its fill when viewed diagonally in the plan', () => {

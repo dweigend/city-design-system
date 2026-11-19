@@ -54,7 +54,22 @@ function prismWidth(polygon: Point2[], height: number, camera: ReturnType<typeof
 	return Math.min(span(bottom, 1, 0), ...widths);
 }
 
-function sectionWidth(part: Primitive) {
+function ringWidth(
+	part: Extract<Primitive, { kind: 'ring' }>,
+	camera: ReturnType<typeof projection>
+) {
+	if (part.innerRadius > 0) return part.radius - part.innerRadius;
+	// Geometry extrudes along local x, tilts up, then turns in plan.
+	const tilt = part.tilt ?? 0;
+	const turn = part.rotation ?? 0;
+	const horizontal = Math.cos(tilt);
+	const axis: Vec3 = [horizontal * Math.cos(turn), horizontal * Math.sin(turn), Math.sin(tilt)];
+	const projectedAxis = Math.min(1, Math.hypot(...camera.point(axis)));
+	const projectedFace = Math.sqrt(1 - projectedAxis * projectedAxis);
+	return Math.min(2 * part.radius, 2 * part.radius * projectedFace + part.depth * projectedAxis);
+}
+
+function sectionWidth(part: Primitive, camera: ReturnType<typeof projection>) {
 	switch (part.kind) {
 		case 'torus':
 			return 2 * part.tube;
@@ -62,7 +77,7 @@ function sectionWidth(part: Primitive) {
 		case 'capsule':
 			return 2 * part.radius;
 		case 'ring':
-			return part.innerRadius ? part.radius - part.innerRadius : 2 * part.radius;
+			return ringWidth(part, camera);
 	}
 }
 
@@ -79,10 +94,10 @@ function roundWidth(part: Primitive, { depth, rise }: ReturnType<typeof projecti
 }
 
 /** Feature width in projected meters before CSS pixel scaling.
- * Rings and pipes use the width of their material section. */
+ * Hollow rings and pipes use the width of their material section. */
 export function contourWidthMeters(part: Primitive, elevation: number): number {
 	const camera = projection(elevation);
-	const round = sectionWidth(part) ?? roundWidth(part, camera);
+	const round = sectionWidth(part, camera) ?? roundWidth(part, camera);
 	if (round !== undefined) return round;
 	switch (part.kind) {
 		case 'prism':
