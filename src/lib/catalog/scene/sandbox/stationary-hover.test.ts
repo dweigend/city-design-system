@@ -80,11 +80,8 @@ async function exerciseHover() {
 		clock.draw();
 		return pointers.map((p) => p.check());
 	}
-	try {
-		frame(carrier);
-		stage.setPlan(true);
-		frame(carrier);
-		const forms = installationView(installed, 'all', true);
+	function aimAtLip(plan: boolean) {
+		const forms = installationView(installed, 'all', plan);
 		const lip = forms.find((p) => p.kind === 'mesh' && p.token === '--cat-health-3');
 		assert(lip?.kind === 'mesh');
 		const n = lip.points.length / 2,
@@ -101,6 +98,17 @@ async function exerciseHover() {
 			const s = new Vector3(wx, z, -wy).project(stage.view.camera);
 			pointers[i].move(((1 + s.x) * canvasWidth) / 2, ((1 - s.y) * canvasHeight) / 2);
 		}
+	}
+	try {
+		frame(carrier);
+		// Pitched camera: a stationary pointer picks the installed ceramic and falls back after removal.
+		aimAtLip(false);
+		const pitchedBackground = frame(carrier).slice(1, 2);
+		assert.deepEqual(frame(installed).slice(1, 2), ['90/40']);
+		assert.deepEqual(frame(carrier).slice(1, 2), pitchedBackground);
+		stage.setPlan(true);
+		frame(carrier);
+		aimAtLip(true);
 		const background = frame(carrier);
 		const before = pointers.map((p) => p.count());
 		const fitted = frame(installed);
