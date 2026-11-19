@@ -127,14 +127,20 @@ function placeBox(
 		rotation: (part.rotation ?? 0) + angle
 	};
 }
-function placeRectangular(part: HousePart, fit: Fit): HousePart {
+function placeAnnular(part: HousePart, fit: Fit): HousePart {
 	switch (part.kind) {
-		case 'prism':
-			return placePrism(part, fit);
 		case 'ring':
 			return placeRing(part, fit);
 		case 'torus':
 			return placeTorus(part, fit);
+		default:
+			throw new RangeError('Unsupported house fitting ' + part.kind);
+	}
+}
+function placeRectangular(part: HousePart, fit: Fit): HousePart {
+	switch (part.kind) {
+		case 'prism':
+			return placePrism(part, fit);
 		case 'vault':
 		case 'arch':
 		case 'halfpipe':
@@ -145,7 +151,7 @@ function placeRectangular(part: HousePart, fit: Fit): HousePart {
 		case 'wedge':
 			return placeBox(part, fit);
 		default:
-			throw new RangeError('Unsupported house fitting ' + part.kind);
+			return placeAnnular(part, fit);
 	}
 }
 

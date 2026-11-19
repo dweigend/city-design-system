@@ -4,9 +4,16 @@ import type { FitPart } from './types';
 import type { Point } from './types';
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 type Shape = FitPart | Primitive;
-type LinearShape = Extract<Shape, { kind: 'mesh' | 'polyline' | 'membrane' | 'prism' }>;
+type LinearShape = Extract<
+	Shape,
+	{ kind: 'mesh' | 'polyline' | 'membrane' | 'prism' | 'capsule' | 'pipe' }
+>;
 function edgeMeasures(p: LinearShape): number[] {
 	switch (p.kind) {
+		case 'capsule':
+			return [p.radius, distance(p.from, p.to)];
+		case 'pipe':
+			return [p.radius, ...p.points.slice(1).map((q, i) => distance(q, p.points[i]))];
 		case 'prism':
 			return [
 				p.height,
@@ -42,6 +49,11 @@ function curvedMeasures(p: CurvedShape | LinearShape): number[] {
 			return edgeMeasures(p);
 	}
 }
+function radialMeasures(p: Extract<Shape, { kind: 'sphere' | 'dome' | 'cone' | 'cylinder' }>) {
+	if (p.kind === 'sphere') return [p.radius, p.radius * (p.squash ?? 1)];
+	if (p.kind === 'dome') return [p.radius, p.height ?? p.radius];
+	return [p.radius, p.height];
+}
 function measures(p: Shape): number[] {
 	switch (p.kind) {
 		case 'box':
@@ -49,16 +61,10 @@ function measures(p: Shape): number[] {
 		case 'wedge':
 			return p.size;
 		case 'sphere':
-			return [p.radius, p.radius * (p.squash ?? 1)];
 		case 'dome':
-			return [p.radius, p.height ?? p.radius];
 		case 'cone':
 		case 'cylinder':
-			return [p.radius, p.height];
-		case 'capsule':
-			return [p.radius, distance(p.from, p.to)];
-		case 'pipe':
-			return [p.radius, ...p.points.slice(1).map((q, i) => distance(q, p.points[i]))];
+			return radialMeasures(p);
 		default:
 			return curvedMeasures(p);
 	}

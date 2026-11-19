@@ -54,15 +54,19 @@ function disc(p: FitPart) {
 }
 type Disc = ReturnType<typeof disc>;
 type Faces = Entry['faces'];
+function outsideFaces(disc: Disc, faces: Faces) {
+	return disc && faces && faces.every((face) => discDepth(disc, face) <= tolerance);
+}
+function bearingFaces(entry: Entry) {
+	return entry.faces ?? (entry.polygon ? [entry.polygon] : undefined);
+}
 function separatedDiscs(ac: Disc, bc: Disc, af: Faces, bf: Faces) {
 	if (ac && bc && circleDepth(ac, bc) <= tolerance) return true;
-	if (ac && bf && bf.every((f) => discDepth(ac, f) <= tolerance)) return true;
-	if (bc && af && af.every((f) => discDepth(bc, f) <= tolerance)) return true;
-	return false;
+	return outsideFaces(ac, bf) || outsideFaces(bc, af);
 }
 function contact(a: Entry, b: Entry): Finding['code'] | undefined {
-	const af = a.faces ?? (a.polygon ? [a.polygon] : undefined),
-		bf = b.faces ?? (b.polygon ? [b.polygon] : undefined);
+	const af = bearingFaces(a),
+		bf = bearingFaces(b);
 	const ac = disc(a.p),
 		bc = disc(b.p);
 	if (separatedDiscs(ac, bc, af, bf)) return;
