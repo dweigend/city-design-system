@@ -35,12 +35,12 @@ export const porthole: AssetRecipe = {
 	id: 'porthole',
 	category: 'facades',
 	variants: ['round', 'oval', 'ringed', 'shuttered'],
-	footprint: [0.48, 2.9],
+	footprint: [0.48, 3.2],
 	anchors: [mount('facade')],
 	draw(variant, sample) {
 		const r = 0.51 + 0.07 * sample;
 		if (variant === 1)
-			return [ellipse(0.06, r * 1.42, r, 0.09, white), ellipse(0.12, r * 1.21, r * 0.83, 0, pane)];
+			return [ellipse(0, r * 1.42, r, 0.09, white), ellipse(0.045, r * 1.21, r * 0.83, 0, pane)];
 		const parts = [
 			ring([0.09, 0, r], r, r * 0.82, 0.18),
 			ring([0.09, 0, r], r * 0.835, 0, 0.075, pane)
