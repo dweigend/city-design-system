@@ -10,39 +10,27 @@ type Child = { ring: string[]; parcel: string };
 /** Two frontage parcels of the actual source ring. Each quad leaf supplies two carrier slots. */
 function divide(face: Face, graph: Graph, seed: number, profile: Lattice['profile']) {
 	const polygon = face.ring.map((id) => get(graph.positions, id));
-	const fronts = face.ring.map((id, i) => ({
-		id: kern.edgeId(id, face.ring[(i + 1) % 4]),
-		a: polygon[i],
-		b: polygon[(i + 1) % 4],
-		width: profile.alleyWidth,
-		level: 0,
-		kind: 'alley' as const
-	}));
 	const [x, y] = coord(face.id);
 	const firstCut = kern.cutRatios[Math.floor(hash(seed, x, y) * kern.cutRatios.length)];
 	const minArea = profile.minParcelArea * 2;
 	if (kern.area(polygon) < 2 * minArea) return;
-	const result = kern.parcelize(face.id, polygon, fronts, {
-		firstCut,
-		minArea,
-		maxArea: kern.area(polygon) - minArea,
-		minFront: profile.alleyWidth,
-		minWidth: profile.alleyWidth,
-		level: 0,
-		maxDepth: 1
-	});
-	if (result.leaves.length !== 2 || result.leaves.some((p) => p.polygon.length !== 4)) return;
+	// The terrain circulation plan determines access after projection.
+	const leaves = Array.from(kern.parcelCuts(polygon, firstCut)).find((parts) =>
+		parts.every((p) => p.length === 4 && kern.area(p) >= minArea)
+	);
+	if (!leaves) return;
 	const points = new Map<string, kern.Vec>(),
 		children: Child[] = [];
 	const center = cellId(x + 1, y + 1);
-	for (const parcel of result.leaves) {
+	let seam: readonly [string, string] | undefined;
+	for (const [index, polygonLeaf] of leaves.entries()) {
 		// The two original corners identify the end of the leaf opposite its cut.
 		const corner = (v: kern.Vec) => polygon.findIndex((p) => p[0] === v[0] && p[1] === v[1]);
-		const end = parcel.polygon.findIndex(
-			(v, i) => corner(v) >= 0 && corner(parcel.polygon[(i + 1) % 4]) >= 0
+		const end = polygonLeaf.findIndex(
+			(v, i) => corner(v) >= 0 && corner(polygonLeaf[(i + 1) % 4]) >= 0
 		);
 		if (end < 0) return;
-		const [a, b, seamB, seamA] = Array.from({ length: 4 }, (_, i) => parcel.polygon[(end + i) % 4]);
+		const [a, b, seamB, seamA] = Array.from({ length: 4 }, (_, i) => polygonLeaf[(end + i) % 4]);
 		const i = corner(a),
 			left = face.ring[i],
 			right = face.ring[(i + 1) % 4];
@@ -50,15 +38,16 @@ function divide(face: Face, graph: Graph, seed: number, profile: Lattice['profil
 			lo = average(face.ring[(i + 3) % 4], left),
 			hi = average(right, face.ring[(i + 2) % 4]);
 		points.set(mid, kern.mix(a, b, 0.5));
+		seam = [lo, hi];
 		points.set(lo, seamA);
 		points.set(hi, seamB);
 		if (!points.has(center)) points.set(center, kern.mix(seamA, seamB, 0.5));
 		children.push(
-			{ ring: [left, mid, center, lo], parcel: parcel.id },
-			{ ring: [right, hi, center, mid], parcel: parcel.id }
+			{ ring: [left, mid, center, lo], parcel: kern.childId(face.id, 'parcel', index) },
+			{ ring: [right, hi, center, mid], parcel: kern.childId(face.id, 'parcel', index) }
 		);
 	}
-	return { points, children };
+	if (seam) return { points, children, center, seam };
 }
 
 /** Publish accepted leaf boundaries before neighbors are subdivided so both own the same seam. */
@@ -71,7 +60,8 @@ export function courtParcels(
 	enabled: boolean
 ) {
 	const points = new Map<string, kern.Vec>(),
-		blocks = new Map<string, Child[]>();
+		blocks = new Map<string, Child[]>(),
+		seams = new Map<string, readonly [string, string]>();
 	if (enabled)
 		for (const face of graph.faces.values()) {
 			const [x, y] = coord(face.id);
@@ -82,6 +72,7 @@ export function courtParcels(
 			if (!cut) continue;
 			for (const [id, p] of cut.points) points.set(id, p);
 			blocks.set(face.id, cut.children);
+			seams.set(cut.center, cut.seam);
 		}
-	return { points, blocks };
+	return { points, blocks, seams };
 }

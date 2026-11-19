@@ -93,7 +93,15 @@ function makePatch(
 			: undefined) ??
 		plain();
 	const projectVertex = (p: kern.Vec) => project(p, width, height, ground);
-	const positions = new Map([...proposal.positions].map(([id, p]) => [id, projectVertex(p)]));
+	const projectCorner = (chart: Template, id: string): kern.Vec => {
+		const point = (key: string) =>
+			projectVertex(required(chart.positions.get(key), 'chart vertex'));
+		const seam = chart.seams.get(id);
+		return seam ? kern.mix(point(seam[0]), point(seam[1]), 0.5) : point(id);
+	};
+	const positions = new Map(
+		[...proposal.positions.keys()].map((id) => [id, projectCorner(proposal, id)])
+	);
 	const regular = () => {
 		let value = regularTemplates.get(proposal);
 		if (!value) {
@@ -103,7 +111,7 @@ function makePatch(
 		return value;
 	};
 	let fitted = qualityFallback(() =>
-		fitBlocks(proposal, positions, profile.minParcelArea, regular, projectVertex)
+		fitBlocks(proposal, positions, profile.minParcelArea, regular, projectCorner)
 	);
 	if (!fitted) {
 		fitted = plain();

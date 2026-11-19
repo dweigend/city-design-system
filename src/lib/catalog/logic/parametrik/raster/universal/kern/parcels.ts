@@ -6,7 +6,7 @@ export type Front = {
 	b: Vec;
 	level: number;
 	width: number;
-	kind: 'alley' | 'highway';
+	kind: 'alley' | 'highway' | 'square';
 };
 export type Parcel = {
 	id: string;
@@ -42,7 +42,11 @@ function frontLength(a: Vec, b: Vec, c: Vec, d: Vec) {
 		Math.min(l, Math.max(project(c), project(d))) - Math.max(0, Math.min(project(c), project(d)))
 	);
 }
-export function frontage(p: Vec[], fronts: readonly Front[], o: ParcelOptions) {
+export function frontage(
+	p: Vec[],
+	fronts: readonly Front[],
+	o: ParcelOptions | Pick<ParcelOptions, 'level' | 'minWidth' | 'minFront'>
+) {
 	return fronts
 		.filter((f) => f.level === o.level && f.width >= o.minWidth)
 		.map((f) => ({
@@ -63,6 +67,37 @@ function clip(p: Vec[], n: Vec, limit: number, sign: number) {
 		if ((da < 0 && db > 0) || (da > 0 && db < 0)) out.push(mix(a, b, da / (da - db)));
 	}
 	return out;
+}
+/** Candidate OBB cuts, in preference order, before circulation and area checks. */
+export function* parcelCuts(p: Vec[], firstCut?: ParcelOptions['firstCut']) {
+	const boxes = p
+		.map((v, i) => {
+			const d = sub(p[(i + 1) % p.length], v),
+				l = length(d),
+				n: Vec = [d[0] / l, d[1] / l],
+				t: Vec = [-n[1], n[0]];
+			const bounds = (axis: Vec) => {
+				const vs = p.map((v) => v[0] * axis[0] + v[1] * axis[1]);
+				return [Math.min(...vs), Math.max(...vs)];
+			};
+			const x = bounds(n),
+				y = bounds(t);
+			return {
+				axes: [
+					{ n, b: x },
+					{ n: t, b: y }
+				],
+				area: (x[1] - x[0]) * (y[1] - y[0])
+			};
+		})
+		.sort((a, b) => a.area - b.area);
+	const ratios =
+		firstCut === undefined ? cutRatios : [firstCut, ...cutRatios.filter((r) => r !== firstCut)];
+	for (const { n, b } of boxes[0].axes.sort((a, b) => b.b[1] - b.b[0] - (a.b[1] - a.b[0])))
+		for (const ratio of ratios) {
+			const limit = b[0] + ratio * (b[1] - b[0]);
+			yield [clip(p, n, limit, 1), clip(p, n, limit, -1)];
+		}
 }
 /** P01: minimum-area oriented box, recursive cuts; both children must retain usable frontage.
  * Convex block only. Access is geometric frontage, not an inferred floorplan door.
@@ -109,42 +144,16 @@ export function parcelize(
 			leaves.push(node);
 			return;
 		}
-		const boxes = p
-			.map((v, i) => {
-				const d = sub(p[(i + 1) % p.length], v),
-					l = length(d),
-					n: Vec = [d[0] / l, d[1] / l],
-					t: Vec = [-n[1], n[0]];
-				const bounds = (axis: Vec) => {
-					const vs = p.map((v) => v[0] * axis[0] + v[1] * axis[1]);
-					return [Math.min(...vs), Math.max(...vs)];
-				};
-				const x = bounds(n),
-					y = bounds(t);
-				return {
-					axes: [
-						{ n, b: x },
-						{ n: t, b: y }
-					],
-					area: (x[1] - x[0]) * (y[1] - y[0])
-				};
-			})
-			.sort((a, b) => a.area - b.area);
 		if (depth < o.maxDepth)
-			for (const { n, b } of boxes[0].axes.sort((a, b) => b.b[1] - b.b[0] - (a.b[1] - a.b[0])))
-				for (const ratio of depth > 0 || o.firstCut === undefined
-					? cutRatios
-					: [o.firstCut, ...cutRatios.filter((r) => r !== o.firstCut)]) {
-					const limit = b[0] + ratio * (b[1] - b[0]),
-						parts = [clip(p, n, limit, 1), clip(p, n, limit, -1)];
-					if (
-						parts.some((q) => q.length < 3 || area(q) < o.minArea || !frontage(q, fronts, o).length)
-					)
-						continue;
-					node.children = parts.map((_, i) => childId(id, 'parcel', i));
-					parts.forEach((q, i) => split(node.children[i], id, q, depth + 1));
-					return;
-				}
+			for (const parts of parcelCuts(p, depth === 0 ? o.firstCut : undefined)) {
+				if (
+					parts.some((q) => q.length < 3 || area(q) < o.minArea || !frontage(q, fronts, o).length)
+				)
+					continue;
+				node.children = parts.map((_, i) => childId(id, 'parcel', i));
+				parts.forEach((q, i) => split(node.children[i], id, q, depth + 1));
+				return;
+			}
 		unresolved.push(id);
 		leaves.push(node);
 	}

@@ -11,7 +11,7 @@ export function fitBlocks(
 	positions: Map<string, kern.Vec>,
 	minArea: number,
 	regular: () => Template,
-	projectVertex: (p: kern.Vec) => kern.Vec
+	projectCorner: (chart: Template, id: string) => kern.Vec
 ) {
 	const limits = { ...kern.defaultLimits, minArea };
 	const groups = new Set<string>();
@@ -36,7 +36,7 @@ export function fitBlocks(
 		parents.set(id, block);
 		faces.set(id, face);
 		for (const v of face.ring) {
-			const next = projectVertex(required(fallback.positions.get(v), 'replacement corner'));
+			const next = projectCorner(fallback, v);
 			const old = positions.get(v);
 			// Do not displace a seam owned by a surviving kernel parcel.
 			if (template.cutVertices.has(v) && old && (old[0] !== next[0] || old[1] !== next[1]))

@@ -1,4 +1,5 @@
 export { passageClearance } from './frontage-lot';
+import { resolveCourtAccess } from './parcel-access';
 import { behindPassage } from './frontage-lot';
 import { blockPatches, type BlockCache } from './block-patch';
 import { required } from '../required';
@@ -222,6 +223,7 @@ function describeCell(
 		alley,
 		block: source.id,
 		parcel: source.parcel,
+		parcelAccess: source.parcel.includes('/parcel:') ? 'fronted' : undefined,
 		blockSides: source.sides,
 		lotCorners,
 		alleyEdges: source.mask,
@@ -277,10 +279,14 @@ function derive(
 	);
 	for (let c = first; c <= end; c++)
 		data.vertices[c] = columnVertices(lattice, c, patches, edits, data.vertices[c]);
-	for (let c = first; c <= last; c++)
-		data.cells[c] = Array.from({ length: rows }, (_, r) =>
+	const changed = Array.from({ length: last - first + 1 }, (_, i) => {
+		const c = first + i;
+		return Array.from({ length: rows }, (_, r) =>
 			makeCell(lattice, data.vertices, c, r, patches, data.cells[c]?.[r], edits)
 		);
+	});
+	resolveCourtAccess(changed, first, lattice.profile.alleyWidth);
+	for (const [i, column] of changed.entries()) data.cells[first + i] = column;
 	const result = assemble(lattice.terrain, lattice.profile, data, first, last, previous);
 	cachedShape.set(result, shape);
 	cachedFields.set(result, fields);

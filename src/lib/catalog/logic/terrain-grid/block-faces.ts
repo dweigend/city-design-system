@@ -139,5 +139,11 @@ export function blockTemplate(
 		{ ...intent, positions, faces, fixed },
 		settled ? profile.relaxPasses : 0
 	);
-	return { faces, positions: relaxed.positions, parents, cutVertices: new Set(cuts.points.keys()) };
+	return {
+		faces,
+		positions: relaxed.positions,
+		parents,
+		seams: cuts.seams,
+		cutVertices: new Set(cuts.points.keys())
+	};
 }
