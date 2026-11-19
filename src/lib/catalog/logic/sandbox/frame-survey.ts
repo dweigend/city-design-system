@@ -8,7 +8,7 @@ import {
 	type FrameSeam
 } from '../district-frame';
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
-import type { World } from './world';
+import type { World } from './world-contract';
 import type { Vec3 } from '../parametrik/types';
 import { insetRing, roofWalls } from '../house-brush';
 import { buildingPlots } from './building-plots';

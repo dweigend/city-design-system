@@ -1,6 +1,7 @@
 import { runTicks } from '../../core/planning';
 import { applyEdit, type World } from './world';
-import { initialTimeline, type PlanningControls } from './frame-planning';
+import type { PlanningControls } from './frame-state';
+import { initialTimeline } from './frame-planning';
 
 /** Forks from a committed seeded world and replans through the same advance action as the game. */
 export function runFrameTimeline(

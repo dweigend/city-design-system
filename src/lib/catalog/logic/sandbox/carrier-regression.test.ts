@@ -1,4 +1,4 @@
-import { savedCarrier } from './saved-carrier.fixture';
+import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import { expect, test } from 'bun:test';
 import { position } from './installation-parts';
 import { atSocket } from '../house-brush';

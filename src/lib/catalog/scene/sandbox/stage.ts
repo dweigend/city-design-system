@@ -34,7 +34,7 @@ import { createFrameLoop } from './frame-loop';
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
 	minInkAppliesTo?: MinimumInk;
-	onFrameFailure?: (reason:string)=>void;
+	onFrameFailure?: (reason: string) => void;
 	openingArea?: () => OpeningArea | undefined;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
@@ -112,10 +112,14 @@ export function createSandboxStage(
 	let shown: World | undefined;
 	let palette: Palette3D | undefined;
 	let planView = false;
-	const frames = createFrameLayer(structures, render, (detail) => {
-		canvas.dataset.frameFailure = detail;
-		study.onFrameFailure?.(detail);
-	});
+	const frames = createFrameLayer(
+		structures,
+		() => render(),
+		(detail) => {
+			canvas.dataset.frameFailure = detail;
+			study.onFrameFailure?.(detail);
+		}
+	);
 	let refreshTones = true;
 	let viewDirty = true;
 	const frameListeners = new Set<() => void>();
@@ -173,7 +177,7 @@ export function createSandboxStage(
 		const seating = structures.step(timeMs, reduced);
 		const transit = vehicles.step(transitMs);
 		renderImage(seating);
- frames.afterDraw();
+		frames.afterDraw();
 		for (const listener of frameListeners) listener();
 		return seating || (transit && !loop.paused);
 	});
@@ -307,7 +311,7 @@ export function createSandboxStage(
 	}
 
 	function worldShown(world: World, nextFocus: FocusId) {
- frames.show(world,nextFocus);
+		frames.show(world, nextFocus);
 		focus = nextFocus;
 		shown = world;
 		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
@@ -339,7 +343,7 @@ export function createSandboxStage(
 				frameListeners.delete(listener);
 			};
 		},
-		frameTimings:{worker:frames.timings,preview:frames.previewTimings},
+		frameTimings: { worker: frames.timings, preview: frames.previewTimings },
 		/** Keeps the camera fixed after the first drawing gesture. */
 		endOpening() {
 			opening = undefined;

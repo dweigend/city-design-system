@@ -1,4 +1,4 @@
-import { savedCarrier } from '../../logic/sandbox/saved-carrier.fixture';
+import { savedCarrier } from '../../logic/sandbox/fixtures/saved-carrier.fixture.test';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as T from 'three/webgpu';

@@ -3,7 +3,7 @@ import { position, rodOf, savedSocket } from './installation-parts';
 import { socketBounds } from '../house-brush';
 import { buildingPlots } from './building-plots';
 import { WALKWAY_WIDTH_M } from '../walkway';
-import type { World } from './world';
+import type { World } from './world-contract';
 import type { TerrainCell } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';
 

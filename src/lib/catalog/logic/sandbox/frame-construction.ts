@@ -1,11 +1,11 @@
-import { trimBay, type BaySurvey } from '../megastructure';
+import type { BaySurvey } from '../megastructure';
 import { planFrames, recordPlans, initialTimeline } from './frame-planning';
 import { advanceSeams, compileSeams, type BayState } from '../district-frame';
 import type { PartId, Owner, BuiltPart } from './installation-parts';
 import { frameSurvey } from './frame-survey';
-import type { World } from './world';
+import type { World } from './world-contract';
 
-export type FrameInstallation = { bay: BaySurvey; result: ReturnType<typeof trimBay> };
+import type { FrameInstallation } from './frame-state';
 
 function installMembers(
 	world: World,

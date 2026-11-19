@@ -20,10 +20,13 @@ const advance = (world: World) => applyEdit(world, { kind: 'advance', years: 1 }
 test('100 m contour regrid preserves every incidence address', () => {
 	const { grid } = carrier(11),
 		first = seamIncidence(grid);
+	const near = grid.cellsById.get('4/4');
+	if (!near) throw new Error('Missing basin parcel');
 	const next = regrid(grid, {
 		...grid.terrain,
-		edits: [{ kind: 'basin', center: [0, 0], radius: 9 }]
+		edits: [{ kind: 'basin', center: [near.center[0], near.center[1]], radius: 9 }]
 	});
+	expect(next.cellsById.get(near.id)?.corners).not.toEqual(near.corners);
 	expect([...first.values()].map((s) => [s.id, s.sides])).toEqual(
 		[...seamIncidence(next).values()].map((s) => [s.id, s.sides])
 	);

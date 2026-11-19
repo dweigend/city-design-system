@@ -1,33 +1,16 @@
 import {
 	planGoal,
-	type FrameGoal,
 	type Forecast,
 	type FrameSeam,
-	type PlanningContext,
-	type FrameEvent,
 	type FrameRole,
 	type BayState
 } from '../district-frame';
 import { trimBay } from '../megastructure';
 import type { frameSurvey } from './frame-survey';
-import type { World } from './world';
+import type { World } from './world-contract';
 
 type Survey = ReturnType<typeof frameSurvey>;
-export type PlanningControls = Pick<
-	PlanningContext,
-	'lookahead' | 'lookback' | 'search' | 'observations'
->;
-export type FrameTimeline = {
-	tick: number;
-	goals: readonly FrameGoal[];
-	events: readonly FrameEvent[];
-	results: readonly FrameTick[];
-	controls: PlanningControls;
-};
-export type FrameTick = Forecast & {
-	status: 'committed' | 'waiting' | 'blocked';
-	delta: { id: string; state: BayState }[];
-};
+import type { FrameTimeline, FrameTick } from './frame-state';
 export const initialTimeline: FrameTimeline = {
 	tick: 0,
 	goals: [],

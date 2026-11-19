@@ -4,7 +4,7 @@ import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
-import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
+import { routeLine, transitOverrides } from '../transit-line';
 import { advanceFrames } from './frame-construction';
 import { frameSurvey } from './frame-survey';
 import { seedTown, type TownOptions } from './old-town';
@@ -20,22 +20,8 @@ import {
 	type StoryPart
 } from './state';
 
-/**
- * A sandbox state together with everything derived from it: the terrain grid and the routed
- * lines. Derived parts are a cache with one owner, keyed by the state they came from.
- */
-export type World = Readonly<{
-	seed: number;
-	districtGrid?: TerrainGrid;
-	roofBuilder?: import('../building-envelope').RoofBuilder;
-	state: SandboxState;
-	grid: TerrainGrid;
-	/** Routes of `state.lines` on the current grid; a stroke too short to route is absent. */
-	lines: readonly BuiltLine[];
-}>;
-
-export type BuiltLine = TransitLine & { year: number };
-
+import type { World, BuiltLine } from './world-contract';
+export type { World, BuiltLine } from './world-contract';
 function route(grid: TerrainGrid, strokes: readonly LineStroke[]): BuiltLine[] {
 	return strokes.flatMap((stroke) => {
 		const line = routeLine(
@@ -104,7 +90,6 @@ export function createWorld(
 	const grid = deriveGrid(createTerrain({ seed }), options?.plan);
 	return {
 		seed: grid.terrain.seed,
-		districtGrid: grid,
 		state: seedTown(grid, options),
 		grid,
 		lines: []
@@ -123,7 +108,7 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 	const grid =
 		state.edits === world.state.edits
 			? world.grid
-			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
+			: regrid(world.grid, { ...world.grid.terrain, edits: state.edits });
 	if (source === 'restore') state = settleCover(grid, state);
 	else if (grid !== world.grid) {
 		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));
@@ -178,6 +163,26 @@ const isInside = (edit: TerrainEdit, cell: TerrainCell) =>
 	Math.hypot(cell.center[0] - edit.center[0], cell.center[1] - edit.center[1]) <= edit.radius;
 
 function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
+	if (state.frameBays?.size) {
+		const keys = cell.vertexIds.map((v, i) =>
+			JSON.stringify([v, cell.vertexIds[(i + 1) % 4]].sort())
+		);
+		const bays = new Map(state.frameBays),
+			intents = new Map(state.frameIntents);
+		for (const key of keys) if (bays.delete(key)) intents.set(key, 'gap');
+		if (bays.size < state.frameBays.size)
+			return {
+				...removeInstallations(
+					state,
+					(p) => p.kind === 'segment' && !!p.frame && keys.includes(p.frame.seam)
+				),
+				frameBays: bays,
+				frameIntents: intents,
+				frameInstallations: new Map(
+					[...(state.frameInstallations ?? [])].filter(([id]) => bays.has(id))
+				)
+			};
+	}
 	const cleared = clearInstallation(state, cell);
 	if (cleared !== state) return cleared;
 	const stories = storiesOf(state.stacks, cell.id);
@@ -226,7 +231,10 @@ export function digStroke(world: World, ids: readonly string[]): World {
 		return cell ? [basinAt(cell)] : [];
 	});
 	if (!basins.length) return world;
-	return replaceState(world, { ...world.state, edits: [...world.state.edits, ...basins] }, 'edit');
+	return settleFrameSites(
+		world,
+		replaceState(world, { ...world.state, edits: [...world.state.edits, ...basins] }, 'edit')
+	);
 }
 
 /** Clears traced anchors in order and settles all changed terrain in one regrid. */
@@ -236,7 +244,7 @@ export function eraseStroke(world: World, ids: readonly string[]): World {
 		const cell = world.grid.cellsById.get(id);
 		if (cell) state = clearCell(state, cell);
 	}
-	return replaceState(world, state, 'edit');
+	return settleFrameSites(world, replaceState(world, state, 'edit'));
 }
 
 function setLineProfile(state: SandboxState, edit: Extract<Edit, { kind: 'line-profile' }>) {
@@ -283,29 +291,6 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
 		if (next === state) return state;
 		return { ...next, ...advanceFrames(world, next.year) };
 	}
-	if (edit.kind === 'clear' && state.frameBays?.size) {
-		const cell = world.grid.cellsById.get(edit.cellId);
-		if (cell) {
-			const keys = cell.vertexIds.map((v, i) =>
-				JSON.stringify([v, cell.vertexIds[(i + 1) % 4]].sort())
-			);
-			const bays = new Map(state.frameBays),
-				intents = new Map(state.frameIntents);
-			for (const key of keys) if (bays.delete(key)) intents.set(key, 'gap');
-			if (bays.size < state.frameBays.size)
-				return {
-					...removeInstallations(
-						state,
-						(p) => p.kind === 'segment' && !!p.frame && keys.includes(p.frame.seam)
-					),
-					frameBays: bays,
-					frameIntents: intents,
-					frameInstallations: new Map(
-						[...(state.frameInstallations ?? [])].filter(([id]) => bays.has(id))
-					)
-				};
-		}
-	}
 	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
 	const cell = world.grid.cellsById.get(edit.cellId);
 	return cell ? cellEdit(state, cell, edit) : state;
@@ -323,6 +308,10 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
 export function applyEdit(world: World, edit: Edit): World {
 	if (edit.kind === 'line') return appendLine(world, edit);
 	const next = replaceState(world, nextState(world, edit), 'edit');
+	return settleFrameSites(world, next);
+}
+
+function settleFrameSites(world: World, next: World) {
 	if (next.grid === world.grid || !next.state.frameBays?.size) return next;
 	const { seams } = frameSurvey(next);
 	const bays = new Map(next.state.frameBays);

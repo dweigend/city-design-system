@@ -7,7 +7,7 @@ import type { FrameSeam, Character } from '../district-frame';
 import type { QuadGrid } from '../quad-grid';
 import type { TerrainCell } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';
-import type { World } from './world';
+import type { World } from './world-contract';
 
 /** Adds a transverse seam only when each end has a surveyed roof crown and the route rank permits a gate. */
 export function surveyGates(

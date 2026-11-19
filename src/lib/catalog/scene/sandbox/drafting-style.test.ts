@@ -105,9 +105,9 @@ test('distance redraws update seated pick targets and preserve an active drop', 
 		cityForm: false
 	};
 	const key = 'house:lod';
-	const variant = 'leitstil';
+	const minimum = 'all';
 	const style = (zoom: 'stadt' | 'nah') =>
-		sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal', thema: 'hell' }, variant);
+		sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal', thema: 'hell' });
 	try {
 		structures.set(key, [part], undefined, 0);
 		expect(structures.step(30, false)).toBe(true);
@@ -117,9 +117,9 @@ test('distance redraws update seated pick targets and preserve an active drop', 
 		expect(near.length).toBeGreaterThan(0);
 		expect(near.every((target) => target.position.y === 0)).toBe(true);
 
-		structures.setStyle([style('stadt'), variant, 2.5], Math.PI / 2);
+		structures.setStyle([style('stadt'), minimum, 2.5], Math.PI / 2);
 		expect(structures.solids(key)).toEqual([]);
-		structures.setStyle([style('nah'), variant, 40], Math.PI / 2);
+		structures.setStyle([style('nah'), minimum, 40], Math.PI / 2);
 		const returned = structures.solids(key);
 		expect(returned.length).toBe(near.length);
 		expect(returned[0]).not.toBe(near[0]);

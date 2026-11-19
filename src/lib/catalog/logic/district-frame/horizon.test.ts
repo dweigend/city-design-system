@@ -116,3 +116,32 @@ test('matched seam rollouts score delayed gains and expose bounded search effort
 		diagnostics: { expansions: 0, exhausted: true }
 	});
 });
+
+test('a newly announced court entrance revises the second phase across 64 seeded replays', () => {
+	let revisions = 0,
+		unchanged = 0;
+	for (let seed = 0; seed < 64; seed++) {
+		const stock = new Map([['run', { built: 'main' as const, builtTick: 0 }]]);
+		const initial = planGoal(goal, seams, stock, seed, ctx);
+		const action = initial.phases[0].seam;
+		const domain = seamSimulator(goal, seams, seed, ctx, () => true).domain;
+		const committed = domain.step(stock, action, ctx.tick);
+		if (!committed || !action) throw new Error('Missing committed first phase');
+		const tomorrow = {
+			...ctx,
+			tick: ctx.tick + 1,
+			events: [{ tick: ctx.tick, seam: action, goal: goal.id }]
+		};
+		const stable = planGoal(goal, seams, committed.state, seed, tomorrow);
+		const surprise = planGoal(goal, seams, committed.state, seed, {
+			...tomorrow,
+			observations: [{ seam: action, from: tomorrow.tick, reason: 'new-court-access' }]
+		});
+		if (stable.phases[0].seam === initial.phases[1].seam) unchanged++;
+		if (surprise.phases[0].seam !== initial.phases[1].seam) revisions++;
+		expect(committed.state.get('run')).toBe(stock.get('run'));
+	}
+	expect(revisions).toBe(64);
+	expect(unchanged).toBe(64);
+	console.info('STABILITY ' + JSON.stringify({ seeds: 64, revisions, unchanged }));
+});

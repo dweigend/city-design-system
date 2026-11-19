@@ -1,4 +1,4 @@
-import { savedCarrier } from './saved-carrier.fixture';
+import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import { expect, test, spyOn } from 'bun:test';
 import {
 	withState,

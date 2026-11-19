@@ -1,4 +1,4 @@
-import { savedCarrier } from './saved-carrier.fixture';
+import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';

@@ -78,7 +78,9 @@
 			canvas,
 			() => (error = '3D view unavailable.'),
 			{
-				onFrameFailure:reason=>{error=reason;},
+				onFrameFailure: (reason) => {
+					error = reason;
+				},
 				openingArea,
 				frameTown: true,
 				...session.opening

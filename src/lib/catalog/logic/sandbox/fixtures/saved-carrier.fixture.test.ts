@@ -1,6 +1,6 @@
-import { install } from './installation';
-import { withState, type World } from './world';
-import type { Anchor, Installation } from './installation-parts';
+import { install } from '../installation';
+import { withState, type World } from '../world';
+import type { Anchor, Installation } from '../installation-parts';
 
 // Historical installed wall seats used by the docking, picking and saved-stock regressions.
 const frames: Record<
