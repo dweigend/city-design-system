@@ -1,5 +1,4 @@
 import { actionFigure } from './activities/action-figure';
-import { feet, hands, upright } from './activities/props';
 import { shell } from '../assembly';
 import { drum, cap } from '../parts';
 import { panel } from '../objects/forms';
@@ -11,7 +10,8 @@ const stand = series(
 	'market-canopies',
 	'deck',
 	[3.75, 5, 7.5],
-	['single-bay', 'double-bay', 'triple-bay']
+	['single-bay', 'double-bay', 'triple-bay'],
+	'slats'
 );
 type Roof = 'awning' | 'vault' | 'lentil' | 'butterfly' | 'ribbon' | 'sawtooth' | 'scallop';
 function canopy(roof: Roof, x: number, w: number, d: number, h: number): ObjectGeometry[] {
@@ -66,32 +66,14 @@ function canopy(roof: Roof, x: number, w: number, d: number, h: number): ObjectG
 	}
 }
 function tradeBay(x: number, i: number) {
-	const slots: Record<string, string> = { coat: 'fabric', skin: 'slats', gear: 'foot' };
-	const arms = hands(0.38, 0.19, 1.04);
-	arms[1] = [0.52, 0.16, 1.12 + 0.08 * (i % 2)];
-	const vendor = actionFigure(
-		{ hip: upright, lean: 0.11, feet: feet(0.15, -0.1), hands: arms },
-		false,
-		x,
-		1.04,
-		0.18,
-		-Math.PI / 2
-	);
-	const customer = actionFigure(
-		{ hip: upright, lean: 0.05, feet: feet(0.12, -0.16), hands: hands(0.37, 0.2, 1.08) },
-		false,
-		x + 0.2,
-		-0.87,
-		0.18,
-		Math.PI / 2
-	);
-	return [...vendor, ...customer]
-		.map((p) => ({ ...p, slot: slots[p.slot] }))
-		.concat([
-			panel(x, 0.2, 1.18, 0.62, 0.48, 0.11, 'foot'),
-			cap([x - 0.13, 0.16, 1.29], 0.13, 0.16, 'fabric'),
-			cap([x + 0.14, 0.23, 1.29], 0.15, 0.17, 'fabric')
-		]);
+	return [
+		...actionFigure('stand', [x, 1.03, 0.18], { slot: 'slats', heading: -1.5, sample: i / 3 }),
+		...actionFigure('lean', [x + 0.12, -0.84, 0.18], {
+			slot: 'slats',
+			heading: 1.5,
+			sample: 1 - i / 3
+		})
+	];
 }
 function booth(roof: Roof) {
 	return stand(

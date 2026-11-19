@@ -15,8 +15,8 @@ test('the five cycle scenes change their pedal phase while keeping replaceable s
 			expect(new Set(base.geometry.map((p) => p.slot))).toEqual(new Set(['coat', 'gear', 'skin']));
 			for (const [i, g] of base.geometry.entries())
 				if (g.slot === 'coat') expect(recoloured.parts[i].finish).toBe('metall-messing');
-			const riders = base.geometry.filter((g) => g.kind === 'sphere');
-			expect(base.geometry.filter((g) => g.kind === 'ring')).toHaveLength(2 * riders.length);
+			expect(base.geometry.filter((g) => g.kind === 'sphere')).toHaveLength(3);
+			expect(base.geometry.filter((g) => g.kind === 'ring')).toHaveLength(2);
 			return JSON.stringify(base.geometry);
 		});
 		expect(new Set(signatures).size).toBe(3);

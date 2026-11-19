@@ -1,7 +1,6 @@
 import type { Vec3 } from '../../parametrik/types';
 import { surface } from '../parts';
 import { actionFigure } from './activities/action-figure';
-import { hands, upright } from './activities/props';
 
 const revolution = 2 * Math.PI;
 /** A continuous 0.30 m wide helical stringer under the outer nosings, sampled 48 times per turn. */
@@ -38,27 +37,13 @@ export function helicalStringer(radius: number, turns: number, height: number) {
 }
 /** Places the leading foot on the next tread in a clockwise ascending procession. */
 export function stairUsers(r: number, steps: number, rise: number) {
-	const pose = {
-		hip: upright - 0.04,
-		lean: 0.18,
-		feet: [
-			[0.19, -0.13, 0.1 + rise],
-			[-0.17, 0.13, 0.1]
-		] as [Vec3, Vec3],
-		hands: hands(0.25, 0.22, 1.05)
-	};
-	const slots: Record<string, string> = { coat: 'slats', gear: 'body', skin: 'body' };
 	return Array.from({ length: Math.floor(steps / 5) }, (_, i) => {
 		const step = i * 5 + 2,
-			angle = ((step + 1) * revolution) / 16,
-			rad = r * 0.67;
+			angle = ((step + 1) * revolution) / 16;
 		return actionFigure(
-			pose,
-			false,
-			rad * Math.cos(angle),
-			rad * Math.sin(angle),
-			step * rise + 0.22,
-			angle + Math.PI / 2
-		).map((p) => ({ ...p, slot: slots[p.slot] }));
+			'climb',
+			[r * 0.67 * Math.cos(angle), r * 0.67 * Math.sin(angle), step * rise + 0.22],
+			{ heading: angle + Math.PI / 2, slot: 'slats', sample: (i % 5) / 4 }
+		);
 	}).flat();
 }

@@ -1,3 +1,4 @@
+import { clay } from './activities/action-figure';
 import { finishCatalogue } from '../../material/surface';
 import type { Vec3, FinishId } from '../../parametrik/types';
 import { mount, type AssetCategory, type AssetRecipe, type Attachment } from '../definition';
@@ -42,7 +43,8 @@ export function series(
 	category: AssetCategory,
 	attachment: Attachment,
 	spans: readonly number[],
-	variants: readonly string[]
+	variants: readonly string[],
+	figureSlot?: Slot
 ) {
 	return (id: string, slots: Slot[], depth: (span: number) => number, draw: Draw): AssetRecipe[] =>
 		spans.map((span) => ({
@@ -52,7 +54,7 @@ export function series(
 			variants,
 			footprint: [span, depth(span)],
 			anchors: [mount(attachment)],
-			suggestions: finishes,
+			suggestions: figureSlot ? { ...finishes, [figureSlot]: clay } : finishes,
 			draw: (v, s) => draw(span, v, s)
 		}));
 }

@@ -1,5 +1,4 @@
 import { actionFigure } from './activities/action-figure';
-import { feet, hands, upright } from './activities/props';
 import { block, shell } from '../assembly';
 import { drum, ring, rod } from '../parts';
 import { panel } from '../objects/forms';
@@ -9,7 +8,8 @@ const crossing = series(
 	'transit-crossings',
 	'deck',
 	[5, 7.5, 10],
-	['low-pier', 'viaduct', 'high-line']
+	['low-pier', 'viaduct', 'high-line'],
+	'foot'
 );
 function pier(x: number, h: number) {
 	return [
@@ -17,18 +17,15 @@ function pier(x: number, h: number) {
 		...[-1, 1].map((s) => rod([x, 0, h * 0.52], [x, s * 0.96, h], 0.21, 'foot'))
 	];
 }
-function travellers(w: number, y: number, z: number, coat: string) {
-	const count = Math.floor(w / 1.65);
-	const pose = { hip: upright, lean: 0.1, feet: feet(0.22, -0.2), hands: hands(0.18, 0.26, 1.05) };
-	const finishes: Record<string, string> = { coat, gear: 'foot', skin: 'foot' };
-	return Array.from({ length: count }, (_, i) => {
-		const x = ((i - (count - 1) / 2) * (w - 0.9)) / count,
-			side = i % 2 === 0 ? 1 : -1;
-		return actionFigure(pose, false, x, y + side * 0.29, z, side * 1.47).map((g) => ({
-			...g,
-			slot: finishes[g.slot]
-		}));
-	}).flat();
+function travellers(w: number, y: number, z: number) {
+	const n = Math.floor(w / 1.65);
+	return Array.from({ length: n }, (_, i) =>
+		actionFigure(i % 2 ? 'walk' : 'stand', [(i - (n - 1) / 2) * 0.94, y + (i % 2) * 0.2, z], {
+			heading: i * 1.85,
+			slot: 'foot',
+			sample: (i + 1) / (n + 1)
+		})
+	).flat();
 }
 function bridge(kind: 'open' | 'screen' | 'canopy' | 'arcade') {
 	return crossing(
@@ -42,7 +39,7 @@ function bridge(kind: 'open' | 'screen' | 'canopy' | 'arcade') {
 			return [
 				...[-1, 1].flatMap((s) => pier(s * w * 0.31, h)),
 				panel(0, 0, h, w, 2.9, 0.3, 'slats'),
-				...travellers(w, 0, z, 'slats'),
+				...travellers(w, 0, z),
 				...[-1, 1].map((s) =>
 					panel(
 						0,
@@ -97,7 +94,7 @@ function tube(stop: 'through' | 'platform' | 'exchange') {
 					ring([s * (w / 2 - 0.11), 0, z], r + 0.1, r - 0.13, 0.22, 'body')
 				),
 				panel(0, 0, h + 0.39, w, 1.9, 0.22, 'body'),
-				...travellers(w, stop === 'through' ? 0 : 2.02, h + 0.61, 'body'),
+				...travellers(w, stop === 'through' ? 0 : 2.02, h + 0.61),
 				...(stop === 'through' ? [] : [block(0, 2.02, h, w, 2.24, 0.61, 'foot')]),
 				...(stop === 'exchange' ? [block(0, -2.02, h, w, 2.24, 0.61, 'foot')] : [])
 			];

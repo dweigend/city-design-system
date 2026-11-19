@@ -9,7 +9,8 @@ const tower = series(
 	'stair-towers',
 	'deck',
 	[3.75, 5, 6.25],
-	['one-turn', 'two-turn', 'three-turn']
+	['one-turn', 'two-turn', 'three-turn'],
+	'slats'
 );
 type Crown = 'lantern' | 'belvedere' | 'funnel' | 'parasol' | 'garden' | 'beacon' | 'open';
 function crown(shape: Crown, r: number, z: number): ObjectGeometry[] {

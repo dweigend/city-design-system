@@ -4,14 +4,14 @@ import { drum, cap } from '../parts';
 import { panel } from '../objects/forms';
 import type { ObjectGeometry } from '../object-geometry';
 import { actionFigure } from './activities/action-figure';
-import { feet, hands, sitting, upright } from './activities/props';
 import { series } from './series';
 
 const plug = series(
 	'inhabited-modules',
 	'deck',
 	[5, 7.5, 10],
-	['deep-porch', 'clerestory', 'winter-garden']
+	['deep-porch', 'clerestory', 'winter-garden'],
+	'slats'
 );
 const floor = 0.5;
 type Room = 'reading' | 'canteen' | 'nursery' | 'greenhouse' | 'studio' | 'lounge' | 'ticket';
@@ -87,18 +87,12 @@ function envelope(w: number, v: number) {
 }
 const seated = new Set<Room>(['reading', 'canteen', 'lounge']);
 function tenant(room: Room, x: number, i: number) {
-	const pose = seated.has(room)
-		? sitting(i % 3)
-		: { hip: upright, lean: 0.1, feet: feet(0.19, -0.16), hands: hands(0.29, 0.22, 1.15) };
-	if (room === 'nursery') {
-		pose.hip = 0.6;
-		pose.hands = hands(0.25, 0.17, 0.83);
-	}
-	const finish: Record<string, string> = { skin: 'slats', coat: 'body', gear: 'slats' };
-	return actionFigure(pose, room === 'nursery', x, 0.12, floor).map((p) => ({
-		...p,
-		slot: finish[p.slot]
-	}));
+	return actionFigure(seated.has(room) ? 'sit' : 'stand', [x, 0.12, floor], {
+		child: room === 'nursery',
+		heading: i * 0.87,
+		slot: 'slats',
+		sample: (i % 5) / 4
+	});
 }
 function moduleRoom(room: Room) {
 	return plug(

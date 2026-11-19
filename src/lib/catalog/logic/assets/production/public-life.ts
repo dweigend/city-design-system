@@ -1,39 +1,45 @@
-import { mount, type AssetRecipe, type AssetSurface } from '../definition';
-import { actionFigure } from './activities/action-figure';
-import type { Action } from './activities/props';
-import { craft } from './activities/craft';
-import { music } from './activities/music';
-import { ride } from './activities/ride';
-import { field } from './activities/field';
-const surfaces = {
-	skin: { finish: 'holz-natur', material: 'wood', token: '--cat-living' },
-	coat: { finish: 'membran-gewebe', material: 'membrane', token: '--body-living' },
-	gear: { finish: 'metall-graphit', material: 'metal', token: '--blueprint' }
-} satisfies Record<string, AssetSurface>;
-function character(type: string, variants: string[], pose: (v: number) => Action): AssetRecipe {
+import { mount, type AssetRecipe } from '../definition';
+import { panel } from '../objects/forms';
+import { actionFigure, clay, type Pose } from './activities/action-figure';
+const propSurface = { material: 'concrete', finish: 'beton-schalung', token: '--ink' } as const;
+export const figureSurfaces = { coat: clay, skin: propSurface, gear: propSurface };
+function character(id: string, variants: string[], poses: Pose[]): AssetRecipe {
 	return {
-		id: type === 'scooter' ? 'kick-scooter-child' : 'plaza-' + type,
+		id,
 		category: 'public-life',
-		footprint: type === 'bowler' ? [3.25, 1.75] : [2.75, 1.75],
-		anchors: [mount('deck')],
-		slotNames: ['skin', 'coat', 'gear'],
 		variants,
-		suggestions: surfaces,
-		draw(v) {
-			const a = pose(v);
-			return [...actionFigure(a.pose, type === 'scooter'), ...a.props];
+		anchors: [mount('deck')],
+		footprint: id === 'plaza-bowler' ? [3.25, 1.75] : [2.75, 1.75],
+		slotNames: ['skin', 'coat', 'gear'],
+		suggestions: figureSurfaces,
+		draw(v, s) {
+			const pose = poses[v];
+			return [
+				...actionFigure(pose, [0, 0, 0], {
+					sample: s,
+					child: id === 'kick-scooter-child',
+					heading: (v - 1) * 0.26,
+					phase: v
+				}),
+				...(pose === 'carry' ? [panel(0.27, 0, 0.83, 0.21, 0.28, 0.24, 'skin')] : []),
+				...(pose === 'sit' ? [panel(0, 0, 0, 0.34, 0.38, 0.45, 'gear')] : [])
+			];
 		}
 	};
 }
 export const publicLife = [
-	character('gardener', ['loosen', 'plant', 'pat'], (v) => craft('gardener', v)),
-	character('potter', ['open', 'raise', 'shape'], (v) => craft('potter', v)),
-	character('painter', ['low-stroke', 'mid-stroke', 'high-stroke'], (v) => craft('painter', v)),
-	character('drummer', ['left-beat', 'cross-beat', 'right-beat'], (v) => music('drummer', v)),
-	character('cellist', ['down-bow', 'mid-bow', 'up-bow'], (v) => music('cellist', v)),
-	character('skater', ['coast', 'carve', 'crouch'], (v) => ride('skater', v)),
-	character('scooter', ['plant-foot', 'push-off', 'coast'], (v) => ride('scooter', v)),
-	character('porter', ['carry', 'balance', 'lift'], (v) => field('porter', v)),
-	character('bowler', ['release', 'swing', 'draw-back'], (v) => field('bowler', v)),
-	character('photographer', ['kneel', 'brace', 'stand'], (v) => field('photographer', v))
+	character('plaza-gardener', ['loosen', 'plant', 'pat'], ['stand', 'walk', 'carry']),
+	character('plaza-potter', ['open', 'raise', 'shape'], ['sit', 'stand', 'carry']),
+	character(
+		'plaza-painter',
+		['low-stroke', 'mid-stroke', 'high-stroke'],
+		['stand', 'walk', 'stand']
+	),
+	character('plaza-drummer', ['left-beat', 'cross-beat', 'right-beat'], ['sit', 'stand', 'sit']),
+	character('plaza-cellist', ['down-bow', 'mid-bow', 'up-bow'], ['sit', 'stand', 'sit']),
+	character('plaza-skater', ['coast', 'carve', 'crouch'], ['walk', 'stand', 'walk']),
+	character('kick-scooter-child', ['plant-foot', 'push-off', 'coast'], ['stand', 'walk', 'walk']),
+	character('plaza-porter', ['carry', 'balance', 'lift'], ['carry', 'walk', 'carry']),
+	character('plaza-bowler', ['release', 'swing', 'draw-back'], ['walk', 'stand', 'walk']),
+	character('plaza-photographer', ['kneel', 'brace', 'stand'], ['sit', 'lean', 'stand'])
 ];
