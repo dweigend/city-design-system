@@ -1,4 +1,5 @@
 import { Float32BufferAttribute, type Color } from 'three/webgpu';
+import { flowToken } from '../../data/focus';
 import type { Primitive } from '../../logic/parametrik/types';
 import { batch, type Batch } from '../batch';
 
@@ -8,7 +9,7 @@ const castingFamily = new Map<string, number>([
 	['ring', 3]
 ]);
 
-function shellChart(part: Primitive, coords: number[], coloured: boolean) {
+function shellChart(part: Primitive, coords: number[], token: Primitive['token']) {
 	let cx = 0,
 		cy = 0,
 		cz = 0,
@@ -41,7 +42,8 @@ function shellChart(part: Primitive, coords: number[], coloured: boolean) {
 			half = radius = part.radius;
 		}
 	}
-	const family = coloured ? (castingFamily.get(part.kind) ?? 1) : 0;
+	const family = castingFamily.get(part.kind) ?? 1;
+	const finish = token === '--paper' ? 0 : family === 3 && token !== flowToken.energy ? 1 : family;
 	const chart: number[] = [];
 	for (let i = 0; i < coords.length; i += 3) {
 		const x = coords[i] - cx,
@@ -50,7 +52,7 @@ function shellChart(part: Primitive, coords: number[], coloured: boolean) {
 			(x * dx + z * dz) / half,
 			(coords[i + 1] - cy) / radius,
 			(z * dx - x * dz) / radius,
-			family
+			finish
 		);
 	}
 	return chart;
@@ -66,7 +68,7 @@ export function ceramicBatch(
 	const pieces = parts.map((part) => {
 		const accent = pigments.get(part.id) ?? part;
 		const faces = batch([part], () => tone(accent), false);
-		return { faces, chart: shellChart(part, faces.neu.p, accent.token !== '--paper') };
+		return { faces, chart: shellChart(part, faces.neu.p, accent.token) };
 	});
 	const faces: Batch['neu'] = {
 		p: pieces.flatMap((p) => p.faces.neu.p),
