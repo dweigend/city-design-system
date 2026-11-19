@@ -1,9 +1,9 @@
-import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three/webgpu';
+import { Box3, BufferGeometry, Float32BufferAttribute, Vector3 } from 'three/webgpu';
 
 /** Attaches metre coordinates and a continuous UV fallback before any transform or merge. */
 export function chartSurface(g: BufferGeometry) {
 	g.computeBoundingBox();
-	const bounds = g.boundingBox!;
+	const bounds = g.boundingBox ?? new Box3();
 	const size = bounds.getSize(new Vector3());
 	const pos = g.getAttribute('position');
 	const uv = [];

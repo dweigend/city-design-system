@@ -11,7 +11,7 @@ import { paperEdge } from './paper-inlay';
 import { ceramicBatch } from './ceramic-batch';
 import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
-import { finishedMeshes } from './finish-batch';
+import { finishedMeshes, type Surface } from './finish-batch';
 import { printBatch, printGeometry } from './print-batch';
 import { glazeContourMaterial, hasGlazeContour, silhouette } from './structure-outline';
 
@@ -124,13 +124,8 @@ export function populateStructures(
 		if (object) object.castShadow = shadows;
 	};
 	const parts = partition(primitives, unoutlined);
-	for (const face of finishedMeshes(parts.finished, finishes.explicit)) {
-		face.castShadow = cast;
-		objects.add(face);
-		if (hasGlazeContour(face.material.name))
-			objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
-		hits.push(face);
-	}
+	drawFinishes(parts.finished, { contour: true });
+	drawFinishes(parts.unoutlinedFinishes, { contour: false });
 	drawStockAndBodies();
 
 	drawSpecialSurfaces();
@@ -145,6 +140,16 @@ export function populateStructures(
 
 	objects.userData.hits = hits;
 	return objects;
+
+	function drawFinishes(surfaces: Surface[], { contour }: { contour: boolean }) {
+		for (const face of finishedMeshes(surfaces, finishes.explicit)) {
+			face.castShadow = cast;
+			objects.add(face);
+			if (contour && hasGlazeContour(face.material.name))
+				objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
+			hits.push(face);
+		}
+	}
 
 	function drawCarriers() {
 		const current = parts.carriers.filter(
@@ -274,19 +279,6 @@ export function populateStructures(
 			toColor
 		);
 		const sheets = printBatch(parts.regular.filter(isSheet), toColor);
-		for (const part of parts.glaze) {
-			if (part.kind !== 'mesh') continue;
-			const geometry = new THREE.BufferGeometry().setFromPoints(
-				part.points.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
-			);
-			geometry.setIndex(part.triangles);
-			geometry.computeVertexNormals();
-			const face = new THREE.Mesh(geometry, materials.glaze);
-			face.castShadow = cast;
-			hits.push(face);
-			objects.add(face);
-			if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
-		}
 		surface(body.neu, materials.solid, materials.hull, true);
 		surface(printBatch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
 		surface(printBatch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);

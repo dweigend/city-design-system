@@ -42,12 +42,12 @@ export function resolveFinish(id: FinishId, token: ColorToken): SurfaceRecipe {
 	const physical = materialAusfuehrungen.find((f) => f.id === id);
 	if (physical) {
 		const recipe = rezept(physical.familie, voreinstellung(physical.familie, 'neutral'));
-		recipe.farbe = { token, anteil: 1, papier: 0, tint: {} };
+		recipe.farbe.token = token;
 		return { kind: 'physical', id: physical.id, recipe };
 	}
 	const spec = materials.find((f) => f.id === id);
 	if (!spec) throw new RangeError('Unknown finish: ' + id);
-	return drawingSurface({ ...materialLook(spec.id, token), token, paper: 0, tint: {} });
+	return drawingSurface(materialLook(spec.id, token));
 }
 
 /** Preserves the authored family default and control offsets of an instructional recipe. */

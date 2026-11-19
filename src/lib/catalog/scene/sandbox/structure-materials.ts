@@ -68,8 +68,6 @@ export function structureMaterials() {
 				attribute('kilnChart', 'vec4')
 			]
 		}),
-		glaze: new THREE.MeshBasicNodeMaterial(),
-		ceramicHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		solid: new THREE.MeshBasicNodeMaterial({
 			polygonOffset: true,
@@ -188,8 +186,6 @@ export function structureMaterials() {
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = paperTone;
-	materials.glaze.colorNode = solidColor;
-	materials.ceramicHull.vertexNode = outlinePosition(outlinePx.negate());
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
 	materials.hull.vertexNode = outlinePositionAtOffset(outlinePx);
 	materials.sheetHull.vertexNode = outlinePositionAtOffset(outlinePx, sheetOffsetM);
@@ -221,7 +217,6 @@ export function structureMaterials() {
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
 		materials.hull.color.copy(g.kontur);
-		materials.ceramicHull.color.copy(g.kontur);
 		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);

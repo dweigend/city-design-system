@@ -3,6 +3,7 @@ import * as THREE from 'three/webgpu';
 import { attribute, mix, uniform, vec3 } from 'three/tsl';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Palette3D } from '../data/city3d';
+import { sceneSwatch } from './scene-palette';
 import { MASS, uvw, type Kiste, type Rolle, type V3 } from '../logic/modellierung/cage';
 
 /**
@@ -143,7 +144,10 @@ export function createCageScene(
 				new THREE.Color(palette.paper).lerp(new THREE.Color(palette.ink), 0.22).getHexString(),
 			linie: palette.ink
 		},
-		treppe: { flaeche: palette.categories.business, linie: palette.categories.business }
+		treppe: {
+			flaeche: sceneSwatch(palette, '--cat-business'),
+			linie: sceneSwatch(palette, '--cat-business')
+		}
 	});
 	let gebaut = false;
 	function setze(liste: Kiste[]) {
@@ -174,7 +178,7 @@ export function createCageScene(
 		const cage = kisten([{ id: 'cage', rolle: 'modul', min: [0, 0, 0], max: MASS }]);
 		const rahmen = new THREE.LineSegments(
 			cage.l,
-			linienMaterial(() => palette.categories['--signal'])
+			linienMaterial(() => sceneSwatch(palette, '--signal'))
 		);
 		rahmen.frustumCulled = false;
 		modell.add(rahmen);

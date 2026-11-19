@@ -18,8 +18,9 @@
 	let pigment = $state<ColorToken>('--cat-health');
 	let host: HTMLElement;
 	let rendered = $state(false);
-	let photos = $state<Record<string, string>>({});
+	let photos = $state<Record<string, string | null>>({});
 	let error = $state('');
+	let drawing = Promise.resolve();
 	const name = (id: string) => id.replaceAll('-', ' ');
 	const rows = $derived<SheetRow[]>(
 		category === 'materials'
@@ -41,31 +42,54 @@
 		const selected = rows;
 		void theme.mode;
 		let cancelled = false;
+		const urls: string[] = [];
 		rendered = false;
 		photos = {};
 		error = '';
 		async function draw() {
+			if (cancelled) return;
 			const { createAssetPlate } = await import('../scene/sandbox/asset-plate');
 			if (cancelled) return;
 			const plate = await createAssetPlate(host);
+			let failures = 0;
 			try {
 				for (const a of selected)
 					for (const sample of a.samples) {
 						if (cancelled) return;
-						photos[a.id + '/' + sample.id] = plate.photo(sample.parts());
-						await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+						const key = a.id + '/' + sample.id;
+						if (!(await drawSample(key, () => plate.photo(sample.parts())))) failures++;
 					}
-				if (!cancelled) rendered = true;
+				if (cancelled) return;
+				if (failures) error = 'Some previews could not be drawn.';
+				else rendered = true;
 			} finally {
-				plate.dispose();
+				await plate.dispose();
 			}
 		}
-		void draw().catch((cause) => {
+
+		async function drawSample(key: string, photo: () => Promise<Blob>) {
+			try {
+				const png = await photo();
+				if (cancelled) return false;
+				const url = URL.createObjectURL(png);
+				urls.push(url);
+				photos[key] = url;
+				return true;
+			} catch (cause) {
+				if (cancelled) return false;
+				console.error('Could not draw asset sample ' + key, cause);
+				photos[key] = null;
+				return false;
+			}
+		}
+
+		drawing = drawing.then(draw).catch((cause) => {
 			console.error(cause);
 			if (!cancelled) error = 'The 3D renderer could not draw this sheet.';
 		});
 		return () => {
 			cancelled = true;
+			for (const url of urls) URL.revokeObjectURL(url);
 		};
 	});
 </script>
@@ -76,7 +100,7 @@
 		<h1>Asset catalogue</h1>
 		<nav aria-label="Asset categories">
 			{#each groups as c (c)}<a
-					href={resolve(`/labor/assets?group=${c}`)}
+					href={resolve(`/labor/assets?group=${encodeURIComponent(c)}`)}
 					aria-current={category === c ? 'page' : undefined}>{c}</a
 				>{/each}
 		</nav>
@@ -104,13 +128,16 @@
 				{#if a.dimensions}<small>{a.dimensions}</small>{/if}
 			</div>
 			<div class="variants">
-				{#each a.samples as sample (sample.id)}<figure>
-						{#if photos[a.id + '/' + sample.id]}<img
+				{#each a.samples as sample (sample.id)}
+					{@const photo = photos[a.id + '/' + sample.id]}
+					<figure>
+						{#if photo}<img
 								width="440"
 								height="300"
-								src={photos[a.id + '/' + sample.id]}
+								src={photo}
 								alt={a.label + ' — ' + sample.label}
-							/>{:else}<div class="pending"></div>{/if}
+							/>{:else if photo === null}<p>Preview unavailable</p>
+						{:else}<div class="pending"></div>{/if}
 						<figcaption>{sample.label}</figcaption>
 					</figure>{/each}
 			</div>

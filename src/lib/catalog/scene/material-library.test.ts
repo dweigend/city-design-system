@@ -6,6 +6,7 @@ import { linearToHex, oklchToLinear } from '../logic/farbe/oklch';
 import { expect, test } from 'bun:test';
 import { Color, MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { finishCatalogue, resolveFinish } from '../logic/material/surface';
+import { oberflaechenWerte } from '../logic/material/ausfuehrung';
 import { tokenColor } from './material';
 import { createMaterialLibrary } from './material-library';
 import { forms } from '../logic/material/sample-forms';
@@ -37,8 +38,14 @@ test('flat, curved and indexed forms resolve every finish with use, ink and pape
 						return value;
 					})
 				).toBeDefined();
-				if (face instanceof MeshPhysicalNodeMaterial)
-					expect(face.color.toArray()).toEqual(pigment.toArray());
+				if (spec.kind === 'physical') {
+					const finish = oberflaechenWerte(spec.recipe, spec.id);
+					expect(face).toBeInstanceOf(MeshPhysicalNodeMaterial);
+					if (face instanceof MeshPhysicalNodeMaterial)
+						expect(face.color.toArray()).toEqual(
+							new Color(finish.grundton).lerp(pigment, finish.pigment).toArray()
+						);
+				}
 				const parts = [forms.box, forms.torus, forms.mesh].map((p) => ({
 					...p,
 					token,

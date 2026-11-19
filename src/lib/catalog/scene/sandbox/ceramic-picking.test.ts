@@ -40,11 +40,15 @@ function ceramicOutlined(layer: Awaited<ReturnType<typeof structureLayer>>, key:
 	assert(target instanceof T.Mesh);
 	assert.equal(target.parent, null);
 	assert.equal(target.userData.cellId, '90/40');
-	const matchingFaces = layer.group.children.flatMap((batch) =>
-		batch.children.filter((face) => face instanceof T.Mesh && face.geometry === target.geometry)
+	const meshes = layer.group.children
+		.flatMap((batch) => batch.children)
+		.filter((face) => face instanceof T.Mesh);
+	assert(meshes.some((face) => face.geometry === target.geometry));
+	return meshes.some(
+		(face) =>
+			face.geometry.hasAttribute('outlineOffset') &&
+			face.geometry.getAttribute('position') === target.geometry.getAttribute('position')
 	);
-	assert(matchingFaces.length > 0);
-	return matchingFaces.length > 1;
 }
 
 test('installation rays hit the exposed body and lip, traverse the bore and respect nearer geometry', async () => {

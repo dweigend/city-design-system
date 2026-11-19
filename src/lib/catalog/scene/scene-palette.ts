@@ -1,9 +1,9 @@
 import type { Palette3D } from '../data/city3d';
 
-import { surfaceTokens, type ColorToken } from '../logic/parametrik/types';
+import { surfaceTokens } from '../logic/parametrik/types';
 
-/** Resolves a primitive pigment to its theme swatch for both material shaders and the form lab. */
-export function sceneSwatch(palette: Palette3D, token: ColorToken) {
+/** Resolves a CSS scene token. Missing categories default to paper and a missing signal to ink. */
+export function sceneSwatch(palette: Palette3D, token: string, fallback = palette.paper): string {
 	switch (token) {
 		case '--paper':
 			return palette.paper;
@@ -14,7 +14,7 @@ export function sceneSwatch(palette: Palette3D, token: ColorToken) {
 		case '--signal':
 			return palette.categories[token] ?? palette.ink;
 		default:
-			return palette.categories[token.replace('--cat-', '')] ?? palette.paper;
+			return palette.categories[token.replace('--cat-', '')] ?? fallback;
 	}
 }
 

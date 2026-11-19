@@ -15,7 +15,7 @@ export async function createAssetPlate(host: HTMLElement) {
 	try {
 		await stage.ready;
 	} catch (error) {
-		stage.dispose();
+		await disposeStage();
 		throw error;
 	}
 	stage.resize(440, 300);
@@ -29,25 +29,33 @@ export async function createAssetPlate(host: HTMLElement) {
 
 	const finishes = structureMaterials();
 	finishes.explicit.setPalette(palette);
+	finishes.setStyle(style, 'all', 48, tones);
 	const dot = new THREE.SphereGeometry(0.04);
 	return {
-		photo(parts: Primitive[]) {
-			finishes.setStyle(style, 'all', 48, tones);
+		async photo(parts: Primitive[]) {
 			const group = populateStructures(parts, finishes, dot);
 			try {
-				return stage.snapshotDrawing(group, [1, -1.45, 0.55]);
+				return await stage.snapshotDrawing(group, [1, -1.45, 0.55]);
 			} finally {
 				const geometries = new Set<THREE.BufferGeometry>();
 				group.traverse((o) => {
+					if (o instanceof THREE.InstancedMesh) o.dispose();
 					if (o instanceof THREE.Mesh) geometries.add(o.geometry);
 				});
 				for (const g of geometries) if (g !== dot) g.dispose();
 			}
 		},
-		dispose() {
+		async dispose() {
 			dot.dispose();
 			finishes.dispose();
-			stage.dispose();
+			await disposeStage();
 		}
 	};
+
+	async function disposeStage() {
+		await stage.dispose();
+		// Three releases the WebGL context itself only when it created the canvas.
+		if (canvas.dataset.backend === 'webgl2')
+			canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+	}
 }
