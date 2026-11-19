@@ -135,9 +135,10 @@ export const materialAusfuehrungen: readonly Ausfuehrung[] = [
 		beschreibung: 'Smooth solid polymer with broad soft highlights.',
 		grundton: '#ded6ba',
 		pigment: 0.85,
-		rauheit: 0.3,
+		rauheit: 0.54,
 		metall: 0,
-		transmission: 0
+		transmission: 0,
+		deckkraft: 1
 	},
 	{
 		id: 'kunststoff-guss',

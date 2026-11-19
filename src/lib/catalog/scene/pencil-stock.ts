@@ -1,11 +1,11 @@
 import type { Node } from 'three/webgpu';
-import { float, mix, normalWorldGeometry, positionWorld } from 'three/tsl';
+import { float, mix, normalWorldGeometry, positionLocal } from 'three/tsl';
 
-/** Graphite strokes in world metres. Unresolved strokes fade into the paper at city scale. */
+/** Graphite strokes in object-local metres. Unresolved strokes fade into the paper at city scale. */
 export function pencilStock(paper: Node<'vec3'>, graphite: Node<'vec3'>) {
-	const phase = positionWorld.x
-		.add(positionWorld.z.mul(0.62))
-		.add(positionWorld.y.mul(0.68))
+	const phase = positionLocal.x
+		.add(positionLocal.z.mul(0.62))
+		.add(positionLocal.y.mul(0.68))
 		.mul(2.1);
 	const footprint = phase.fwidth().max(0.001);
 	const stroke = phase.fract().sub(0.5).abs().div(footprint).smoothstep(0, 0.72).oneMinus();
