@@ -6,6 +6,7 @@ import { bayWindow } from './bay-window';
 import { louvres } from './louvres';
 import { shippingContainer } from './shipping-container';
 import { livingCapsule } from './living-capsule';
+import { tankCapsule } from './tank-capsule';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -14,5 +15,6 @@ export const recipes: readonly AssetRecipe[] = [
 	bayWindow,
 	louvres,
 	shippingContainer,
-	livingCapsule
+	livingCapsule,
+	tankCapsule
 ];
