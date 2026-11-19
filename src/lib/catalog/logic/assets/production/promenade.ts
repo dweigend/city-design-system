@@ -1,3 +1,5 @@
+import { actionFigure } from './activities/action-figure';
+import { sitting } from './activities/props';
 import { circle, pipe, shell } from '../assembly';
 import { panel } from '../objects/forms';
 import { cap, drum, ring } from '../parts';
@@ -9,6 +11,17 @@ const furniture = series(
 	[2.5, 3.75, 5],
 	['one-place', 'two-place', 'three-place']
 );
+function chessPlayers(x: number, i: number) {
+	return [-1, 1].flatMap((side) => {
+		const pose = sitting(i % 3);
+		pose.hands[0] = [0.53, -0.12, 0.9];
+		const dress: Record<string, string> = { skin: 'slats', coat: 'body', gear: 'foot' };
+		return actionFigure(pose, false, x, side * 0.92, 0, (-side * Math.PI) / 2).map((p) => ({
+			...p,
+			slot: dress[p.slot]
+		}));
+	});
+}
 export const promenade = [
 	...furniture(
 		'switchback-sociable',
@@ -125,6 +138,7 @@ export const promenade = [
 						r = Math.min(0.29, (w / n) * 0.27);
 					return [
 						...[-1, 1].map((s) => drum([x, s * 0.92, 0], r, 0.43, 'body')),
+						...chessPlayers(x, i),
 						...circle(0.15, 4).map(([a, b]) => drum([x + a, b, 0.85], 0.06, 0.055, 'body'))
 					];
 				}).flat()
