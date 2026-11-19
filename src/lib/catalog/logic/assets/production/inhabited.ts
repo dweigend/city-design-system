@@ -55,7 +55,19 @@ function furnishings(room: Room, x: number): ObjectGeometry[] {
 			];
 	}
 }
-// The front glazing starts behind the structural lip. The rear is opaque for contrast.
+// The sash slides behind a fixed light, leaving a full-height opening on both long faces.
+function windowBay(w: number, v: number, y: number, slot: string) {
+	const span = w - 0.86,
+		side = y > 0 ? 1 : -1,
+		width = span * (0.26 + v * 0.05);
+	const x = side * (span / 2 - width / 2);
+	return [
+		panel(x, y, floor, width, 0.14, 1.98, slot),
+		panel(x - side * width * 0.27, y + side * 0.17, floor, width, 0.14, 1.98, 'glass'),
+		panel(x - side * width * 0.77, y + side * 0.17, floor, 0.13, 0.17, 1.98, 'body'),
+		panel(0, y, 2.47, span, 0.18, 0.2, 'body')
+	];
+}
 function envelope(w: number, v: number) {
 	const depth = 3.9,
 		rise = 0.78 + 0.19 * v,
@@ -63,12 +75,12 @@ function envelope(w: number, v: number) {
 		entry = depth / 2 - 0.32;
 	return [
 		castPlinth(w, depth, floor, 'body'),
-		panel(0, -entry, floor, w - 0.28, 0.36, spring - floor, 'body'),
+		...windowBay(w, v, -entry, 'body'),
 		...[-1, 1].map((side) =>
 			panel(side * (w / 2 - 0.28), 0, floor, 0.46, depth - 0.18, spring - floor, 'body')
 		),
 		shell('vault', 0, 0, spring, w - 0.08, depth - 0.18, rise, 0.31, 'body'),
-		panel(0, entry - 0.2, floor, w - 0.64, 0.12, spring - floor, 'glass'),
+		...windowBay(w, v, entry - 0.2, 'glass'),
 		shell('vault', 0, entry - 0.2, spring, w - 0.68, 0.14, rise - 0.18, 0.14, 'glass'),
 		panel(0, entry + 0.16, 2.43, w - 0.32, 0.34, 0.26, 'body')
 	];
