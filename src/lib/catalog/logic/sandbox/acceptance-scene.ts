@@ -30,7 +30,12 @@ const FRAME: readonly [Vec3, Vec3] = [
 
 function interventions(): Edit[] {
 	return [
-		...[...COLLAGE, ...COLLAGE].map((cellId): Edit => ({ kind: 'raise', cellId, use: 'living', style: 'collage' })),
+		...[...COLLAGE, ...COLLAGE].map((cellId): Edit => ({
+			kind: 'raise',
+			cellId,
+			use: 'living',
+			style: 'collage'
+		})),
 		{ kind: 'raise', cellId: CARRIER, use: 'living', style: 'megastructure' },
 		...CAPSULES.flatMap(({ use, cells }) =>
 			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use, style: 'totem' }))

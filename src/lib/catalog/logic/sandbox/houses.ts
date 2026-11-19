@@ -66,7 +66,13 @@ const newVolume = (part: Primitive): Primitive =>
 		: part;
 
 /** Projects each layer with its saved geometry and the selected view's current or stock style. */
-export function houseView(world: World, stacks: Stacks, chunk: string, focus: Focus, earliestFullYear = world.state.year) {
+export function houseView(
+	world: World,
+	stacks: Stacks,
+	chunk: string,
+	focus: Focus,
+	earliestFullYear = world.state.year
+) {
 	const { grid, state, seed } = world;
 	const phases = [...constructionPhases(state)];
 	const current =
@@ -83,6 +89,14 @@ export function houseView(world: World, stacks: Stacks, chunk: string, focus: Fo
 		});
 	return [
 		...present(stock.flatMap(project), focus.stock),
-		...present([...phases.filter(([phase]) => phase.built >= earliestFullYear && phase.built < state.year), ...current].flatMap(project).map(newVolume), focus.houses)
+		...present(
+			[
+				...phases.filter(([phase]) => phase.built >= earliestFullYear && phase.built < state.year),
+				...current
+			]
+				.flatMap(project)
+				.map(newVolume),
+			focus.houses
+		)
 	];
 }

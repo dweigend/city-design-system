@@ -95,7 +95,10 @@ export function populateStructures(
 	};
 	const parts = partition(primitives);
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
-	const stock = batch(parts.regular.filter((part) => part.role === 'bestand'), toColor);
+	const stock = batch(
+		parts.regular.filter((part) => part.role === 'bestand'),
+		toColor
+	);
 	const body = batch(
 		parts.regular.filter((part) => part.role !== 'bestand' && !isSheet(part)),
 		toColor

@@ -7,7 +7,7 @@ import { pruefeStil, stilFuer } from '../../logic/leitstil';
 import { tag } from '../../logic/ansicht/tags';
 import { forestChunk } from '../../logic/land-cover';
 import { explode, shiftZ, type Primitive } from '../../logic/parametrik/types';
-import { focuses } from '../../logic/presentation';
+import { focuses, present } from '../../logic/presentation';
 import { acceptanceScene, currentStacks, houseView } from '../../logic/sandbox';
 import { lineParts } from '../../logic/transit-line';
 import { nearestZoom, sandboxStyle } from './drafting-style';
@@ -44,16 +44,22 @@ test('the hairline exception is limited to the structural stroke and contrast', 
 	);
 });
 
-test('the fixed plate retains three eras, two rail stops, two walkway landings and a forest', () => {
+test('the fixed plate retains three methods in 2026, two rail stops, two walkway landings and a forest', () => {
 	const first = acceptanceScene();
 	const { world, additions } = first;
 	const stories = [...world.state.storyParts.values()].flat();
 	expect(world.seed).toBe(7);
-	expect(world.state.storyParts.get('79/44')?.map(({ built }) => built)).toEqual([2026, 2026]);
-	expect(world.state.storyParts.get('82/41')?.at(-1)?.built).toBe(2027);
-	expect(world.state.storyParts.get('83/44')?.at(-1)?.built).toBe(2028);
-	expect(stories.filter(({ built }) => built === 2026)).toHaveLength(10);
-	expect(stories.filter(({ built }) => built === 2028)).toHaveLength(6);
+	const current = stories.filter(({ built }) => built === world.state.year);
+	expect(world.state.year).toBe(2026);
+	expect(world.state.storyParts.get('79/44')?.map(({ style }) => style)).toEqual([
+		'collage',
+		'collage'
+	]);
+	expect(world.state.storyParts.get('82/41')?.at(-1)?.style).toBe('megastructure');
+	expect(world.state.storyParts.get('83/44')?.at(-1)?.style).toBe('totem');
+	expect(current.filter(({ style }) => style === 'collage')).toHaveLength(10);
+	expect(current.filter(({ style }) => style === 'megastructure')).toHaveLength(1);
+	expect(current.filter(({ style }) => style === 'totem')).toHaveLength(6);
 	expect(world.lines[0].stops).toHaveLength(2);
 	expect([...world.state.cover.values()].filter((kind) => kind === 'forest')).toHaveLength(9);
 	expect(additions.filter((part) => /^acceptance-walkway:[05]$/.test(part.id))).toHaveLength(2);
@@ -281,6 +287,24 @@ test('every shadow-casting form has a Leitstil contour in paper and in color', a
 		for (const part of samples)
 			expectFormContour(part, populateStructures([part], finishes, bearing), hulls);
 	} finally {
+		finishes.dispose();
+		bearing.dispose();
+	}
+});
+
+test('an aged sheet keeps its geometry without using the shadow-casting envelope material', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials();
+	const bearing = new SphereGeometry();
+	const parts = present([{ ...forms.membrane, envelope: true }], 'pencil');
+	const group = populateStructures(parts, finishes, bearing);
+	const meshes = group.children.filter((object) => object instanceof Mesh);
+	try {
+		expect(parts[0]).toMatchObject({ kind: 'membrane', role: 'bestand' });
+		expect(meshes.some(({ material }) => material === finishes.materials.stockSheet)).toBe(true);
+		expect(meshes.every(({ castShadow }) => !castShadow)).toBe(true);
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
 		finishes.dispose();
 		bearing.dispose();
 	}

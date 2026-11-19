@@ -60,10 +60,9 @@ export function present(parts: Primitive[], level: Representation): Primitive[] 
 	const lod = geometry[level];
 	if (!lod) return [];
 	if (lod === 'detail') return parts;
-	const visible = parts
-		.filter(
-			(p) => !p.detail || (level === 'pencil' && (p.role === 'bestand' || p.role === 'traeger'))
-		);
+	const visible = parts.filter(
+		(p) => !p.detail || (level === 'pencil' && (p.role === 'bestand' || p.role === 'traeger'))
+	);
 	const mass = level === 'pencil' ? visible : visible.map(massOf);
 	if (lod === 'mid') return mass;
 	return mass.map((p) => {
