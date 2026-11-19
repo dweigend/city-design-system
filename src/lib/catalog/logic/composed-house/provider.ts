@@ -23,7 +23,10 @@ export function members(
 		frame: finish,
 		body: finish,
 		shell: use ? finish : surfaces.shell,
-		glass: surfaces.pane,
+		glass: id.includes('solar-sail') ? finish : surfaces.pane,
+		edge: use ? finish : surfaces.frame,
+		liquid: finish,
+		fabric: finish,
 		planting: finish,
 		deck: use ? finish : surfaces.deck,
 		accent: surfaces[use ?? 'frame'],
@@ -35,14 +38,56 @@ export function members(
 	);
 	return houseObject(id, variant, seed, { instanceId: address + '/' + id, slots }).parts;
 }
+function drumPanels(b: Body, stock: ReturnType<typeof members>, surfaces: HouseSurfaces) {
+	const panels = members(
+		b.objectId,
+		b.variant,
+		b.seed,
+		b.id,
+		{ ...surfaces, pane: surfaces[b.use] },
+		b.use
+	);
+	return stock.flatMap((p, i): typeof stock => {
+		if (p.source.slot !== 'glass') return [p];
+		const panel = panels[i];
+		if (p.kind !== 'cylinder' || panel.kind !== 'cylinder') return [panel];
+		const sill = p.height * 0.72;
+		return [
+			{ ...panel, id: p.id + '/sill', height: sill },
+			{
+				...p,
+				position: [p.position[0], p.position[1], p.position[2] + sill],
+				height: p.height - sill
+			}
+		];
+	});
+}
 /** Uses the measured registry origin and the composition's single rigid transform. */
 export function bodyParts(b: Body, surfaces: HouseSurfaces) {
 	if (b.band) return bandParts(b, surfaces);
+	const stock = members(b.objectId, b.variant, b.seed, b.id, surfaces, b.use);
+	const painted =
+		b.objectId.includes('crown-lantern') || b.objectId === 'glass-bell'
+			? drumPanels(b, stock, surfaces)
+			: stock;
 	return place(
-		members(b.objectId, b.variant, b.seed, b.id, surfaces, b.use),
+		painted.map((p) => weatherSkin(p, b.scale)),
 		b.nativeCenter,
 		b.position,
 		[b.scale, b.scale, b.scale],
 		b.rotation
 	);
+}
+
+function weatherSkin(p: ReturnType<typeof members>[number], scale: number) {
+	if (p.kind === 'pipe') return { ...p, radius: Math.max(0.06 / scale, p.radius) };
+	if (p.kind === 'box') {
+		const size = p.size.map((d) => Math.max(d, 0.15)) as typeof p.size;
+		// Mullions thicken toward the glazing while their exterior plane stays on the registered envelope.
+		const position = p.position.map(
+			(v, k) => v - (v >= 0 ? size[k] - p.size[k] : 0)
+		) as typeof p.position;
+		return { ...p, size, position };
+	}
+	return p;
 }

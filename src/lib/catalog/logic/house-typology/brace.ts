@@ -27,7 +27,7 @@ export function brace(
 	reverse: boolean
 ): Solid {
 	const width = 0.3,
-		inset = plan.bar,
+		inset = plan.type === 'slab-house' ? 0.75 : plan.bar,
 		low = stations[0] + inset,
 		end = required(stations.at(-1), 'bearing station') - inset,
 		high = [
@@ -40,7 +40,7 @@ export function brace(
 		].includes(plan.type)
 			? Math.min(end, low + 1.25)
 			: end;
-	const y = plan.rear - plan.sign * (plan.type === 'slab-house' ? 0.45 : 0.15);
+	const y = plan.rear - plan.sign * 0.15;
 	const points: Point[] = [];
 	for (const [x, z] of [
 		[reverse ? high : low, bottom],

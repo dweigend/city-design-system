@@ -11,7 +11,16 @@ const bars: Partial<Record<Typology, number>> = {
 };
 
 function rearOffset(site: Survey, type: Typology) {
-	if (site.compact) return Math.min(site.depth, 3.6) - site.depth / 2;
+	if (site.compact)
+		return (
+			Math.min(
+				site.depth,
+				Math.min(site.width, site.depth) >= 3.75 && Math.max(site.width, site.depth) >= 7
+					? 5.094
+					: 3.763
+			) -
+			site.depth / 2
+		);
 	if (type === 'cluster-mast') return 0.15 - site.accessDepth / 2;
 	if (type === 'tree-house') return 0.15;
 	if (type === 'round-tower') return 0.41 * Math.min(site.width, site.depth, 20);

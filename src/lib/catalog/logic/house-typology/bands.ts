@@ -7,15 +7,15 @@ const full: Bay = (w, d) => [w, d];
 const shapes: Partial<Record<Plan['type'], Bay>> = {
 	'deck-tower': full,
 	'portal-house': (w, d) => [w, d * 0.88],
-	'lattice-head': (w, d) => [w * 0.72, d * 0.72],
+	'lattice-head': (w, d) => [w * 0.62, d * 0.64],
 	'courtyard-house': full,
 	'terrace-house': (w, d, t) => [w * (1 - t * 0.48), d * (1 - t * 0.34)],
-	'plinth-house': (w, d, t) => (t ? [w * 0.39, d * 0.58] : [w, d]),
-	rack: (w, d) => [w, Math.min(d, 5.1)],
-	'bridge-house': (w, d) => [w, Math.min(d, 3.75)],
+	'plinth-house': (w, d, t) => (t ? [w * 0.32, d * 0.5] : [w, d]),
+	rack: (w, d) => [0.88 * w, Math.min(d, 5.3)],
+	'bridge-house': (w, d) => [w, Math.min(d, 4.5)],
 	'twin-stack': (w, d) => [w * 0.62, d],
-	'slab-house': (w, d) => [w, Math.min(d, 3.45)],
-	'water-house': (w, d, t) => (t ? [w * 0.72, d * 0.7] : [w, d])
+	'slab-house': (w, d) => [w, Math.min(d, 3.25)],
+	'water-house': (w, d, t) => (t ? [w * 0.62, d * 0.64] : [w, d])
 };
 
 function corners([x, y, z]: Point, w: number, d: number): Point[] {
@@ -38,10 +38,14 @@ export function storeyBand(
 	if (!shape) return;
 	const { site, sign, rear } = plan;
 	const fraction = i / Math.max(1, site.programme.length - 1);
-	const [span, depth] = shape(site.width - 0.3, site.depth - site.accessDepth, fraction);
+	const [span, depth] = shape(
+		site.width - 0.3,
+		site.depth - site.accessDepth - (plan.type === 'water-house' ? 0.5 : 0),
+		fraction
+	);
 	const width = Math.max(5, span);
 	const shift = Math.min(1.25, Math.max(0.5, width * 0.065));
-	const gallery = Math.min(1.25, Math.max(plan.type === 'slab-house' ? 0.6 : 0.32, depth * 0.085));
+	const gallery = Math.min(1.25, Math.max(0.32, depth * 0.085));
 	const w = width - shift,
 		d = depth - gallery;
 	const x = site.center[0],
@@ -58,7 +62,10 @@ export function storeyBand(
 		objectId: 'primitive-slab',
 		variant: 'rounded',
 		seed: plan.seed,
-		band: { shell: false, court },
+		band: {
+			shell: false,
+			court: court && { ...court, center: [x, y + sign * 0.3, z], width: court.width + 0.6 }
+		},
 		position: bodyPosition,
 		size: [w, d, STORY - 0.3],
 		use,
@@ -82,7 +89,9 @@ export function storeyBand(
 		use,
 		bodies: [band],
 		court,
-		landing: [x, rear - (sign * gallery) / 2, z]
+		landing: court
+			? [x, court.center[1] + sign * (court.width / 2 + 0.15), z]
+			: [x, rear - (sign * gallery) / 2, z]
 	};
 }
 

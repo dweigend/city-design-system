@@ -41,6 +41,6 @@ export function bandParts(body: Body, surfaces: HouseSurfaces) {
 	return [
 		course('sill', 0, h - 1.35, 0, finish),
 		course('window', h - 1.35, 0.6, 0.15, surfaces.pane),
-		course('lintel', h - 0.75, 0.75, 0, finish)
+		course('lintel', h - 0.75, 0.75, 0, surfaces[body.use])
 	];
 }

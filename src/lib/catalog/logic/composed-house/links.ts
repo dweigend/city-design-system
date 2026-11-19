@@ -37,7 +37,7 @@ function link(
 	surfaces: HouseSurfaces
 ) {
 	const id = 'link/' + a.id + '~' + b.id;
-	const width = Math.max(0.5, Math.min(distance === 1 ? 2.8 : 1.5, a.width * 0.34, b.width * 0.34));
+	const width = 2.5;
 	const ends = new Set([...a.cells, ...b.cells].map((c) => c.id));
 	const obstacles = boxes.filter(
 		(box) => box.owner !== a.id && box.owner !== b.id && !(box.cell && ends.has(box.cell))

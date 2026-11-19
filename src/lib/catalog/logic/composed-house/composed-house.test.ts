@@ -1,3 +1,4 @@
+import { specimen } from '../house-typology/specimens';
 import { buildObject } from '../assets';
 import { expect, test } from 'bun:test';
 import { checkFit } from '../house-typology';
@@ -39,7 +40,7 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 				[...s.composition.levels].reverse().map((l) => l.landing)
 			);
 			expect(route.stops.length).toBe(s.decks.length + 2);
-			expect(s.composition.people.length).toBeGreaterThanOrEqual(2);
+			expect(s.composition.people.length).toBeGreaterThanOrEqual(3);
 			expect(s.composition.people.length).toBeLessThanOrEqual(6);
 			for (const [i, p] of s.composition.people.entries()) {
 				const feet = parts.filter((part) => part.id.startsWith(s.id + '/people/' + i + '/'));
@@ -53,7 +54,7 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 test('a continuous living programme stacks capsules by count and cell order preserves the composition', () => {
 	for (let n = 1; n <= 12; n++) {
 		const input = site(n, 12, true);
-		const capsules = planHouse(input).slots.filter((s) => s.kind === 'capsule');
+		const capsules = planHouse(input).slots.filter((s) => s.kind === 'capsule' || s.band);
 		expect(capsules.every((c) => c.scale >= 0.85 && c.scale <= 1.15)).toBe(true);
 		if (n >= 3) expect(new Set(capsules.map((c) => c.position[2])).size).toBeGreaterThanOrEqual(2);
 		expect(composedHouse(input)).toEqual(composedHouse({ ...input, cells: [...cells].reverse() }));
@@ -94,9 +95,9 @@ test('replacing every named surface changes no generated geometry', () => {
 });
 
 test('reassigning the capsule glass leaves its shell and the continuous frame untouched', () => {
-	const input = site(2, 7, true);
-	const before = composedHouse(input);
-	const after = composedHouse(input, {
+	const input = specimen(1, 'capsule-stack', 2);
+	const before = sectionParts(input);
+	const after = sectionParts(input, {
 		...houseSurfaces,
 		pane: { token: '--signal', finish: 'holz-natur' }
 	});
@@ -135,6 +136,7 @@ test('every house and bridge part traces to a colour-free registry member and it
 	});
 	const parts = [
 		...sectionParts(tower, palette),
+		...sectionParts(specimen(1, 'capsule-stack'), palette),
 		...houses.flatMap((h) => sectionParts(h, palette)),
 		...bridges.flatMap((b) => b.parts)
 	];

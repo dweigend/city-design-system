@@ -7,11 +7,13 @@ export function clusterLevel(plan: Plan, i: number, z: number, use: HouseUse): L
 	const { site } = plan,
 		[cx, middle] = site.center,
 		cy = middle - (plan.sign * site.accessDepth) / 2,
-		angle = (i * Math.PI) / 2;
+		angle = site.programme.length === 1 ? (-plan.sign * Math.PI) / 2 : (i * Math.PI) / 2;
 	const u = Math.round(Math.cos(angle)),
 		v = Math.round(Math.sin(angle));
 	const id = site.id + '/level/' + i + '/body/0';
-	const length = Math.min(site.width, site.depth) >= 12 ? 7.5 : 5;
+	const free =
+		site.programme.length === 1 ? site.width : Math.min(site.width, site.depth - site.accessDepth);
+	const length = free >= 10 ? 10 : free >= 6.375 ? 7.5 : 5;
 	const body = objectSlot(
 		id,
 		['kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm', 'round-shoulder', 'capsule'],
@@ -19,12 +21,12 @@ export function clusterLevel(plan: Plan, i: number, z: number, use: HouseUse): L
 		plan.seed,
 		angle + Math.PI / 2
 	);
-	const scale = length === 7.5 ? 1.05 : 1;
+	const scale = Math.min(1.15, free / length);
 	body.scale = scale;
 	body.size = body.nativeSize.map((v) => v * scale) as Point;
 	const span = u ? site.width : site.depth - site.accessDepth;
-	const reach = Math.min(3.25, span / 2 - 1.25 * scale);
-	body.position = [cx + u * reach, cy + v * reach, z + 0.12];
+	const reach = Math.min(3.25, span / 2 - 1.25 * scale, ((length * scale) / 0.6 - 2.5 * scale) / 2);
+	body.position = [cx + u * reach, cy + v * reach, z + 0.3];
 	body.facing = [-u, -v];
 	const [bw, bd] = worldSize(body);
 	const cradle = length === 7.5 ? 2.8 : 2.2;

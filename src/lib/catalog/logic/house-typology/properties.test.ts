@@ -40,16 +40,22 @@ function site(
 	};
 }
 const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
+function coverage(l: HouseComposition['levels'][number]) {
+	const [min, max] = l.bodies[0].band ? [0.8, 0.95] : [0.55, 0.85];
+	const hole = (l.bodies[0].band?.court?.width ?? l.court?.width ?? 0) ** 2;
+	const area = l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) - hole;
+	const share = area / l.deckArea;
+	if (share < min || share > max) return 'deck share ' + share + ' ' + l.bodies[0].objectId;
+}
 function auditLevels(h: HouseComposition) {
 	for (const l of h.levels) {
-		const band = l.bodies[0].band;
-		const hole = (l.court?.width ?? 0) ** 2;
-		const share = (l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) - hole) / l.deckArea;
 		if (
-			h.parts.some((p) => p.id === h.id + '/level/' + h.levels.indexOf(l) + '/deck') &&
-			!(share >= (band ? 0.8 : 0.55) && share <= (band ? 0.95 : 0.85))
-		)
-			return 'deck share ' + share + ' ' + l.bodies.map((b) => b.objectId);
+			l.bodies[0].band ||
+			h.parts.some((p) => p.id === h.id + '/level/' + h.levels.indexOf(l) + '/deck')
+		) {
+			const finding = coverage(l);
+			if (finding) return finding;
+		}
 		if ((l.position[2] - h.datum) % 2 !== 0) return 'off datum';
 	}
 }
@@ -61,8 +67,7 @@ function auditVolume(h: HouseComposition, bodies: Bodies) {
 		h.parts
 			.filter((p) => !['body', 'capsule', 'crown'].includes(p.joint))
 			.reduce((s, p) => s + vol(p.size), 0) / total;
-	if ((!bodies[0].band && structure < 0.2) || structure > 0.35)
-		return 'structure share ' + structure;
+	if ((h.compact && structure < 0.2) || structure > 0.35) return 'structure share ' + structure;
 }
 function auditCapsules(h: HouseComposition, bodies: Bodies) {
 	if (
@@ -88,8 +93,24 @@ function repeatedStorey(h: HouseComposition) {
 		previous = pattern;
 	}
 }
+function bandOffset(h: HouseComposition) {
+	let last = 0;
+	for (const [i, l] of h.levels.entries()) {
+		const b = l.bodies[0],
+			prev = h.levels[i - 1]?.bodies[0];
+		if (!b.band || !prev) continue;
+		const dx = b.position[0] - prev.position[0];
+		if (Math.abs(dx) < 0.5 - 1e-8 || Math.abs(dx) > 1.25 + 1e-8 || (dx * last >= 0 && i > 1))
+			return 'band offset ' + dx;
+		last = dx;
+	}
+}
+function inhabitants(h: HouseComposition) {
+	if (h.people.length < 3 || h.people.length > 15) return 'people count';
+	if (h.crown.anchor !== 'roof') return 'missing roof installation';
+}
 function audit(h: HouseComposition) {
-	const levelFinding = auditLevels(h);
+	const levelFinding = auditLevels(h) ?? bandOffset(h) ?? inhabitants(h);
 	if (levelFinding) return levelFinding;
 	const bodies = h.levels.flatMap((l) => l.bodies);
 	const volumeFinding = auditVolume(h, bodies);

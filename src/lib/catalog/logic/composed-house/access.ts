@@ -10,7 +10,8 @@ import { houseSurfaces, type HouseSurfaces } from './surfaces';
 
 type Route = ReturnType<typeof windingRoute>;
 type XY = [number, number];
-const { radius, width, rail, thickness } = houseStair;
+const { radius, width, rail } = houseStair;
+const thickness = 0.12;
 
 function circulationStock(s: Section, surfaces: HouseSurfaces) {
 	const id = s.id + '/stair/';
@@ -81,7 +82,13 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 		const x = linear ? (a[0] + b[0]) / 2 : a[0] + (c - n[0]) * radius;
 		const y = linear ? (a[1] + b[1]) / 2 : a[1] + (sin - n[1]) * radius;
 		const polygon = stock.polygon.map(([u, v]): XY => [x + u * c - v * sin, y + u * sin + v * c]);
-		return { ...stock, id: id + i + '/stairs/tread', polygon, z: b[2] - thickness };
+		return {
+			...stock,
+			id: id + i + '/stairs/tread',
+			polygon,
+			height: thickness,
+			z: b[2] - thickness
+		};
 	}
 	function walk(leg: Route['legs'][number], i: number): HousePart {
 		const { from: a, to: b, first, last } = leg;

@@ -8,17 +8,10 @@ const last: Course = (i, n) => i === n - 1;
 const upper: Course = (i, n) => i >= Math.min(n - 1, Math.max(1, n - 2));
 const ends: Course = (i, n) => first(i, n) || last(i, n);
 const none: Course = () => false;
-const sparse =
-	(count: number): Course =>
-	(i, n) =>
-		Array.from({ length: Math.min(count, n) }, (_, k) =>
-			Math.round((k * (n - 1)) / (Math.min(count, n) - 1 || 1))
-		).includes(i);
-
 const courses: Record<Typology, { occupied: Course; floor: Course }> = {
 	'capsule-stack': { occupied: every, floor: none },
 	'deck-tower': {
-		occupied: (i, n) => (n === 3 ? ends(i, n) : n <= 4 || sparse(3)(i, n)),
+		occupied: (i, n) => (n === 3 ? ends(i, n) : n <= 4 || i % 2 === 0 || last(i, n)),
 		floor: every
 	},
 	'round-tower': { occupied: every, floor: every },
@@ -34,7 +27,7 @@ const courses: Record<Typology, { occupied: Course; floor: Course }> = {
 	'twin-stack': { occupied: every, floor: ends },
 	'slab-house': { occupied: every, floor: none },
 	'water-house': { occupied: (i, n) => ends(i, n) || (n > 8 && i % 4 === 0), floor: first },
-	'tree-house': { occupied: (i, n) => i >= n - 3, floor: every }
+	'tree-house': { occupied: (i, n) => i >= n - (n === 3 ? 2 : 3), floor: every }
 };
 
 /** Selects the painted bands that carry bodies, preserving their vertical order. */

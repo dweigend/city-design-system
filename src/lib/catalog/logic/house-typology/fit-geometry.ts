@@ -63,7 +63,16 @@ function meshProfile(p: Extract<FitPart, { kind: 'mesh' }>, box: Bounds): Profil
 		}
 		return [];
 	};
-	return { bounds: box, bottom: face(box.min[2]), top: face(box.max[2]) };
+	const polygon: XY[] | undefined =
+		p.joint === 'brace'
+			? [
+					[box.min[0], box.min[1]],
+					[box.max[0], box.min[1]],
+					[box.max[0], box.max[1]],
+					[box.min[0], box.max[1]]
+				]
+			: undefined;
+	return { bounds: box, polygon, bottom: face(box.min[2]), top: face(box.max[2]) };
 }
 function capsuleProfile(p: Extract<FitPart, { kind: 'capsule' }>, box: Bounds): Profile {
 	const low = p.from[2] <= p.to[2] ? p.from : p.to,

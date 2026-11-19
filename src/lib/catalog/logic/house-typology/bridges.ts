@@ -40,7 +40,7 @@ function candidate(a: HouseComposition, b: HouseComposition): Bridge | undefined
 				to = q.position;
 			if (Math.abs(from[2] - to[2]) > 0.3 + 1e-9) continue;
 			const span = Math.hypot(from[0] - to[0], from[1] - to[1]);
-			if (span > 20 || (best && best.span <= span)) continue;
+			if (span > 14 || (best && best.span <= span)) continue;
 			best = bridge(a, b, p, q, span);
 		}
 	return best;

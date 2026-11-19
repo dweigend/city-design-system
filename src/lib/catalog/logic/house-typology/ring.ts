@@ -36,7 +36,7 @@ export function ringLevel(plan: Plan, i: number, z: number, use: HouseUse): Leve
 		return {
 			...body,
 			id: site.id + '/level/' + i + '/body/' + j,
-			position: [x + axis * Math.sin(angle), y + sign * axis * Math.cos(angle), z + 0.12] as Point
+			position: [x + axis * Math.sin(angle), y + sign * axis * Math.cos(angle), z + 0.3] as Point
 		};
 	});
 	return {

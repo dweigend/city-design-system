@@ -61,6 +61,8 @@ test('bridges are level, never stair bridges, and unequal deck levels stay apart
 		const degree = new Map<string, number>();
 		for (const link of links) {
 			expect(link.kind).not.toBe('stair-bridge');
+			expect(link.width).toBeGreaterThanOrEqual(2.5);
+			expect(link.run).toBeLessThanOrEqual(14);
 			expect(Math.abs(link.from[2] - link.to[2])).toBeLessThanOrEqual(0.3);
 			for (const p of link.route) expect(Math.abs(p[2] - link.from[2])).toBeLessThanOrEqual(0.3);
 			for (const id of [link.a, link.b]) degree.set(id, (degree.get(id) ?? 0) + 1);

@@ -21,7 +21,13 @@ function flightEdge(s: Section, sign: number) {
 						2
 			)
 		);
-		return sign * Math.min(sign * bay.y + bay.depth / 2 - 2 * width, Math.max(...edges) + 0.01);
+		return (
+			sign *
+			Math.min(
+				sign * bay.y + bay.depth / 2 - 2 * width,
+				Math.max(...edges, sign * s.composition.core.position[1] + 0.2) + 0.05
+			)
+		);
 	}
 	return roofLanding(s)[1];
 }

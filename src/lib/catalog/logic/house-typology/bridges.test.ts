@@ -15,8 +15,8 @@ test('level tolerance, span and intermediate bearing have inclusive limits', () 
 	for (const [span, count, pier] of [
 		[12, 1, false],
 		[12.01, 1, true],
-		[20, 1, true],
-		[20.01, 0, false]
+		[14, 1, true],
+		[14.01, 0, false]
 	] as const) {
 		const links = planBridges([a, house(1, span, 4.3)]);
 		expect(links).toHaveLength(count);

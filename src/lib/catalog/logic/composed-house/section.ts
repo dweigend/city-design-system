@@ -1,3 +1,5 @@
+import { accessShare } from './access-budget';
+import { sectionParts } from './projection';
 import { STORY } from '../../data/grid';
 import { stairAxis } from './stair-fit';
 import { composeHouse } from '../house-typology';
@@ -32,8 +34,12 @@ export function planHouse(site: HouseSite): Section {
 		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
+	return fitAccess(section, sign);
+}
+function fitAccess(section: Section, sign: number): Section {
+	const { composition, stories } = section;
 	const path = composition.path;
-	if (levels[0].well) {
+	if (composition.levels[0].well) {
 		section.compact = false;
 		section.stairAxis = [composition.bay.x, composition.bay.y];
 		return section;
@@ -45,13 +51,19 @@ export function planHouse(site: HouseSite): Section {
 	}
 	if (path !== 'spiral') {
 		section.compact = composition.compact;
+		if (!section.compact && stories === 1 && accessShare(sectionParts(section)) > 0.1) {
+			section.compact = true;
+			composition.path = 'ladder';
+			composition.signature.stair = 'ladder';
+		}
 		return section;
 	}
-	const axis = stairAxis(section, rear, sign);
-	if (!axis) composition.signature.stair = 'ladder';
+	const axis = stairAxis(section, section.base[1] + sign * 0.15, sign);
 	if (axis) {
-		section.stairAxis = axis;
-		section.compact = false;
+		const winding = { ...section, stairAxis: axis, compact: false };
+		if (!composition.compact || accessShare(sectionParts(winding)) <= 0.1) return winding;
 	}
+	composition.path = 'ladder';
+	composition.signature.stair = 'ladder';
 	return section;
 }

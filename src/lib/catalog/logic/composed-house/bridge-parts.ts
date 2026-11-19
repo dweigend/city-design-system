@@ -9,11 +9,11 @@ export function bridgeParts(route: Vec3[], id: string, width: number, surfaces: 
 		const { treads, rails } = spanSurvey(ring, id + ':' + i, width, undefined, true);
 		return [
 			...treads.map(({ id, polygon, z, height, ...display }) => ({
-				...tread(id, polygon, z, height, surfaces.access),
+				...tread(id, polygon, z + height - 0.3, 0.3, surfaces.access),
 				...display
 			})),
 			...rails.map(({ id, points, ...display }) => ({
-				...pipeBetween(id, points[0], points[1], 0.035, surfaces.frame),
+				...pipeBetween(id, points[0], points[1], 0.06, surfaces.frame),
 				...display
 			}))
 		];

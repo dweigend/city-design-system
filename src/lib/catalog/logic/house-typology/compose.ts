@@ -15,6 +15,7 @@ const spread: Partial<Record<Plan['type'], number>> = {
 	'deck-tower': 0.58,
 	'bell-house': 0.72,
 	'twin-stack': 0.58,
+	'slab-house': 0.48,
 	'lattice-head': 0.6
 };
 function commonAxis(levels: Level[]) {
@@ -23,7 +24,11 @@ function commonAxis(levels: Level[]) {
 	return (left + right) / 2;
 }
 function bearingAxes(plan: Plan, levels: Level[]) {
-	const x = plan.type === 'terrace-house' ? commonAxis(levels) : plan.site.center[0];
+	const x = plan.site.compact
+		? levels[0].position[0]
+		: plan.type === 'terrace-house'
+			? commonAxis(levels)
+			: plan.site.center[0];
 	const free = Math.min(...levels.map((l) => l.width / 2 - Math.abs(l.position[0] - x) - plan.bar));
 	const target = spread[plan.type];
 	const mast = plan.type === 'cluster-mast' && !plan.site.compact;
@@ -36,17 +41,29 @@ function bearingAxes(plan: Plan, levels: Level[]) {
 				: mast
 					? 0.3
 					: 0.625;
-	return [x - arm, x + arm];
+	const span = Math.min(arm, 6.5);
+	return [x - span, x + span];
 }
 function bridgePorts(levels: Level[]): Port[] {
 	return levels.flatMap((l, level) => {
 		const reach = l.round
 			? Math.sqrt((l.width / 2) ** 2 - (l.landing[1] - l.position[1]) ** 2)
 			: l.width / 2;
-		return [-1, 1].map((side) => ({
+		const flanks = [-1, 1].map((side) => ({
 			level,
 			position: [l.position[0] + side * reach, l.landing[1], l.landing[2]] as Point
 		}));
+		const outside = l.bodies[0].band;
+		if (!outside) return [...flanks, { level, position: l.landing }];
+		const edge =
+			l.position[0] + Math.sign(l.position[0] - l.bodies[0].position[0]) * (l.width / 2 - 0.25);
+		return [
+			...flanks,
+			...[-1, 1].map((side) => ({
+				level,
+				position: [edge, l.position[1] + (side * l.depth) / 2, l.landing[2]] as Point
+			}))
+		];
 	});
 }
 function peopleOnLandings(plan: Plan, levels: Level[]) {
@@ -59,7 +76,7 @@ function peopleOnLandings(plan: Plan, levels: Level[]) {
 	return Array.from({ length: groups }, (_, i) => {
 		const level = Math.floor((i * levels.length) / groups),
 			[x, y, z] = levels[level].landing;
-		const spacing = plan.site.compact ? 0.52 : 0.35;
+		const spacing = plan.site.compact ? 0.3 : 0.45;
 		return [-spacing, 0, spacing].map((dx) => ({
 			position: [x + dx, y, z] as Point,
 			height: 1.75,
@@ -76,10 +93,14 @@ export function composeHouse(
 	const { plan, role, accessSide } = layout(site, context);
 	const { type, sign, bar } = plan;
 	const levels = occupiedLevels(plan);
+	if (levels[0].court) plan.rear = levels[0].landing[1] + plan.sign * 0.15;
 
 	const stations = bearingAxes(plan, levels);
 	const { parts, crown, fittings } = assemble(plan, levels, role, stations, context.skyline);
-	const path = housePath(type, site.compact && context.houses.size === 1);
+	const path =
+		Math.min(site.width, site.depth) < 3.5
+			? 'ladder'
+			: housePath(type, site.compact && context.houses.size === 1);
 	const supports = parts.filter((p) =>
 		['foot', 'shaft', 'head', 'brace', 'beam'].includes(p.joint)
 	);
