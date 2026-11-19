@@ -1,3 +1,6 @@
+import { turnedWare } from './turned-ware';
+import { sculpturalWare } from './sculptural-ware';
+import { ceramicScreens } from './ceramic-screens';
 import { walkways } from './walkways';
 import { supports } from './supports';
 import { platforms } from './platforms';
@@ -98,5 +101,8 @@ export const recipes: readonly AssetRecipe[] = [
 	...roofShells,
 	...supports,
 	...platforms,
-	...walkways
+	...walkways,
+	...turnedWare,
+	...sculpturalWare,
+	...ceramicScreens
 ];
