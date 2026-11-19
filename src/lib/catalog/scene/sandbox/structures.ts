@@ -4,7 +4,7 @@ import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import { createJointLayer } from './joint-layer';
 import { kineticGroups } from './kinetic-groups';
-import { structureBatch } from './structure-batch';
+import { stockPickTargets, structureBatch } from './structure-batch';
 import { structureMaterials } from './structure-materials';
 import { placementGroups, placementOffset } from './placement-motion';
 import {
@@ -36,7 +36,7 @@ export function createStructures(quality?: StudioQuality, cityEdges = false) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials(quality, cityEdges);
-	const joints = createJointLayer(finishes.materials.bearing);
+	const joints = createJointLayer(finishes.materials.bearing, cityEdges);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();
 	const pending = new Map<
@@ -198,6 +198,7 @@ export function createStructures(quality?: StudioQuality, cityEdges = false) {
 
 	return {
 		group,
+		stockTargets: (parts: Primitive[]) => stockPickTargets(parts, finishes),
 		set,
 		/** Coalesces geometry changes until the camera and drawing style are ready. */
 		queue(this: void, key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {

@@ -135,6 +135,33 @@ function insideViewport(x: number, y: number) {
 	return !(x < 0 || x >= 1200 || y < 0 || y >= 800);
 }
 
+function checkTownRoof(
+	world: World,
+	scene: ReturnType<typeof setup>,
+	town: Awaited<ReturnType<typeof render>>
+) {
+	const { view, bounds, select } = scene;
+	view.frameBox(bounds, 1.1);
+	view.zoomAt(0.11, 600.6063, 438.9481);
+	const pick = (targets: THREE.Object3D[]) => world.grid.cells[select(321, 485, targets) ?? -1]?.id;
+	const close = pick(town.solids);
+	assert.equal(close, '81/38');
+	view.zoomAt(1 / 0.11, 321, 485);
+	const ground = pick([]);
+	assert.ok(ground && ground !== close);
+	assert.ok(town.overview(true) > 0);
+	const roof = pick(town.solids);
+	assert.equal(roof, close);
+	const erased = applyEdit(world, { kind: 'clear', cellId: roof });
+	assert.equal(
+		erased.state.stacks.get(roof)?.length ?? 0,
+		(world.state.stacks.get(roof)?.length ?? 0) - 1
+	);
+	assert.equal(erased.state.stacks.get(ground), world.state.stacks.get(ground));
+	assert.equal(town.overview(false), 0);
+	assert.equal(pick(town.solids), close);
+}
+
 async function compareRays() {
 	const { mock } = await import('bun:test');
 	mock.module('../themeBinding', () => ({ bindSceneTheme: () => {}, resolveTokens: () => ({}) }));
@@ -188,6 +215,7 @@ async function compareRays() {
 	for (const world of [seed, detailed]) {
 		const town = await render(world);
 		towns.push(town);
+		if (world.roofBuilder) checkTownRoof(world, scene, town);
 		checkTown(world, town);
 	}
 	// This probe already runs in an isolated process for the Svelte theme double.

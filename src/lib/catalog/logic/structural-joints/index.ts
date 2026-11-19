@@ -106,3 +106,6 @@ export function deriveStructuralJoints(contacts: readonly StructuralContact[]): 
 }
 
 export { sandboxStructuralContacts } from './sandbox-contacts';
+
+export { surveyGround } from './contact-seat';
+export { onFace, planarFaces } from './contact-surfaces';

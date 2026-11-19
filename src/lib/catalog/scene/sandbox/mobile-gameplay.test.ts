@@ -61,22 +61,19 @@ function visibleEdge(a: ScreenPoint, b: ScreenPoint) {
 	);
 }
 
-test('the portrait opening keeps the visible terrain rim away from the town anchor', () => {
+test('the tighter portrait opening crops the terrain rim outside the HUD opening', () => {
 	view.resize(390, 844);
 	frameOldTown(view, world, openingArea);
-	const anchor = new THREE.Vector3(195, 411, 0);
-	let visible = 0;
-	for (const { corners, neighbors } of world.grid.cells) {
-		neighbors.forEach((neighbor, i) => {
-			if (neighbor !== null) return;
-			const edge = visibleEdge(view.project(corners[i]), view.project(corners[(i + 1) % 4]));
-			if (!edge) return;
-			visible++;
-			const nearest = edge.closestPointToPoint(anchor, true, new THREE.Vector3());
-			expect(nearest.distanceTo(anchor)).toBeGreaterThan(100);
-		});
-	}
-	expect(visible).toBeGreaterThan(0);
+	const boundary = world.grid.cells.flatMap(({ corners, neighbors }) =>
+		neighbors.flatMap((neighbor, i) =>
+			neighbor === null ? [[corners[i], corners[(i + 1) % 4]]] : []
+		)
+	);
+	const visible = () =>
+		boundary.filter(([a, b]) => visibleEdge(view.project(a), view.project(b))).length;
+	expect(visible()).toBe(0);
+	view.zoomAt(1.4, 195, 411);
+	expect(visible()).toBeGreaterThan(0);
 });
 
 function visibleDesktopParcels(camera: ReturnType<typeof createView>) {

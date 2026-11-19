@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { keyboard } from '../ui/keyboard.svelte';
-	import { Toggle, ToggleGroup } from 'bits-ui';
+	import { Popover, Toggle, ToggleGroup } from 'bits-ui';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { flows } from '../data/focus';
 	import { Timeline } from '../interface';
@@ -44,6 +44,7 @@
 	 */
 	let { session, group = $bindable() }: { session: Session; group?: HTMLDivElement } = $props();
 
+	let sheetOpen = $state(false);
 	const narrow = new MediaQuery('(max-width: 640px)');
 	const methodIcons = {
 		terrace: House,
@@ -118,6 +119,9 @@
 	);
 	const advanceReport = $derived(advanceMessage(session.completion));
 	const failure = $derived(session.viewingPast ? undefined : session.failure);
+	$effect(() => {
+		if (failure && narrow.current) sheetOpen = true;
+	});
 	const hint = $derived(
 		session.viewingPast
 			? 'Return to the latest year to build.'
@@ -135,48 +139,93 @@
 	}
 </script>
 
+{#snippet pickers()}
+	<ToggleGroup.Root
+		type="single"
+		orientation={toolOrientation}
+		value={session.tool.kind}
+		class="cg-sandbox-tools"
+		aria-label="Tool"
+	>
+		{#each sandboxTools as tool (tool.id)}
+			<ToggleGroup.Item
+				value={tool.id}
+				class="cg-button"
+				data-variant="icon"
+				{...toolLabels(tool)}
+				{...activateChoice(() => pickTool(tool.id))}
+			>
+				<Icon icon={icons[tool.id]} size={24} />
+			</ToggleGroup.Item>
+		{/each}
+	</ToggleGroup.Root>
+
+	{#if options.length}
+		<div class="options">
+			<SandboxOptions
+				label={optionLabel}
+				horizontal={narrow.current}
+				{options}
+				value={option}
+				onpick={(entry) => commands.pickValue(session.tool.kind, entry.id, entry.name)}
+			/>
+			{#if session.tool.kind === 'house'}
+				<SandboxOptions
+					label="Building method"
+					options={methods}
+					value={session.method}
+					horizontal={narrow.current}
+					compact
+					onpick={(entry) => commands.pickMethod(entry.id)}
+				/>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet toolHint()}
+	<div class="hint" class:warning={Boolean(failure)}>
+		<span role="status">
+			{hint}
+			{#if failure && advanceReport}<span class="pending">{advanceReport}</span>{/if}
+			{#if session.requestedChoice}<span class="pending">Pending · {session.requestedChoice}</span
+				>{/if}
+		</span>
+		{#if failure}
+			<Button
+				variant="icon"
+				label="Dismiss survey warning"
+				title="Dismiss survey warning"
+				onclick={session.dismissRejection}
+			>
+				{#snippet icon()}<Icon icon={X} size={20} />{/snippet}
+			</Button>
+		{/if}
+	</div>
+{/snippet}
+
 <div class="hud-group" bind:this={group}>
 	<div class="hud">
-		<ToggleGroup.Root
-			type="single"
-			orientation={toolOrientation}
-			value={session.tool.kind}
-			class="cg-sandbox-tools"
-			aria-label="Tool"
-		>
-			{#each sandboxTools as tool (tool.id)}
-				<ToggleGroup.Item
-					value={tool.id}
-					class="cg-button"
-					data-variant="icon"
-					{...toolLabels(tool)}
-					{...activateChoice(() => pickTool(tool.id))}
+		{#if narrow.current}
+			<Popover.Root bind:open={sheetOpen}>
+				<Popover.Trigger class="cg-tool-sheet-trigger">
+					<Icon icon={icons[active.id]} size={20} />
+					{active.name} tools
+				</Popover.Trigger>
+				<Popover.Content
+					class="cg-tool-sheet"
+					side="top"
+					align="start"
+					sideOffset={8}
+					aria-label="Tools and options"
 				>
-					<Icon icon={icons[tool.id]} size={24} />
-				</ToggleGroup.Item>
-			{/each}
-		</ToggleGroup.Root>
-
-		{#if options.length}
-			<div class="options">
-				<SandboxOptions
-					label={optionLabel}
-					horizontal={narrow.current}
-					{options}
-					value={option}
-					onpick={(entry) => commands.pickValue(session.tool.kind, entry.id, entry.name)}
-				/>
-				{#if session.tool.kind === 'house'}
-					<SandboxOptions
-						label="Building method"
-						options={methods}
-						value={session.method}
-						horizontal={narrow.current}
-						compact
-						onpick={(entry) => commands.pickMethod(entry.id)}
-					/>
-				{/if}
-			</div>
+					{@render pickers()}
+					{@render toolHint()}
+					<Popover.Close class="cg-button">Done</Popover.Close>
+				</Popover.Content>
+			</Popover.Root>
+		{:else}
+			{@render pickers()}
 		{/if}
 
 		<div class="history">
@@ -240,24 +289,7 @@
 			onclick={session.advance}
 		/>
 	</div>
-	<div class="hint" class:warning={Boolean(failure)}>
-		<span role="status">
-			{hint}
-			{#if failure && advanceReport}<span class="pending">{advanceReport}</span>{/if}
-			{#if session.requestedChoice}<span class="pending">Pending · {session.requestedChoice}</span
-				>{/if}
-		</span>
-		{#if failure}
-			<Button
-				variant="icon"
-				label="Dismiss survey warning"
-				title="Dismiss survey warning"
-				onclick={session.dismissRejection}
-			>
-				{#snippet icon()}<Icon icon={X} size={20} />{/snippet}
-			</Button>
-		{/if}
-	</div>
+	{#if !narrow.current}{@render toolHint()}{/if}
 </div>
 
 <style>
@@ -299,6 +331,12 @@
 		gap: var(--space-2);
 	}
 	@media (min-width: 641px) {
+		.hud {
+			max-height: calc(100dvh - 2 * var(--sandbox-target) - 2 * var(--space-6));
+			overflow-y: auto;
+			overscroll-behavior: contain;
+			pointer-events: auto;
+		}
 		.options > :global(.cg-sandbox-options:not([data-compact])) {
 			justify-self: end;
 		}
@@ -386,14 +424,38 @@
 			bottom: max(var(--space-2), env(safe-area-inset-bottom));
 			display: grid;
 			grid-template-columns: auto 1fr;
-			grid-template-areas:
-				'hint hint'
-				'options options'
-				'tools tools'
-				'timeline timeline'
-				'. history';
+			grid-template-areas: 'trigger history' 'timeline timeline';
 			gap: var(--space-2);
 			pointer-events: none;
+		}
+		:global(.cg-tool-sheet-trigger) {
+			grid-area: trigger;
+			display: flex;
+			align-items: center;
+			gap: var(--space-2);
+			min-height: var(--sandbox-target);
+			padding-inline: var(--space-3);
+			background: var(--paper);
+			color: var(--ink);
+			border: var(--hair) solid var(--ink);
+			pointer-events: auto;
+		}
+		:global(.cg-tool-sheet) {
+			display: flex;
+			flex-direction: column;
+			align-items: start;
+			gap: var(--space-2);
+			padding: var(--space-2);
+			background: var(--paper);
+			color: var(--ink);
+			border: var(--hair) solid var(--line);
+			max-width: calc(100vw - 2 * var(--space-2));
+			max-height: min(65dvh, var(--bits-popover-content-available-height, 65dvh));
+			overflow: auto;
+			pointer-events: auto;
+		}
+		:global(.cg-tool-sheet) .hint {
+			text-align: start;
 		}
 		.hud {
 			display: contents;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three/webgpu';
 import { focuses } from '../../../logic/presentation';
 import type { Primitive } from '../../../logic/parametrik/types';
-import { projectChanges } from '../projection';
+import { housePickTargets, projectChanges, projectStockOverview } from '../projection';
 import { createTerrainMesh } from '../terrain-mesh';
 import { currentStacks, EMPTY_STATE, houseView, type World } from '../../../logic/sandbox';
 /** Builds independent Three.js reference solids and strokes from the same displayed primitives. */
@@ -54,7 +54,13 @@ export async function render(world: World, animate = false) {
 	const ordered = (parts: Primitive[]) => parts.map((part) => JSON.stringify(part)).sort();
 	assert.deepEqual(ordered(batches), ordered(referenceParts));
 	return {
-		solids: structures.solids('house:'),
+		get solids() {
+			return housePickTargets(terrain, structures);
+		},
+		overview(enabled: boolean) {
+			projectStockOverview(terrain, structures, enabled);
+			return structures.solids('visual:stock-overview').length;
+		},
 		move(timeMs: number) {
 			structures.step(timeMs, false);
 			structures.group.updateMatrixWorld(true);

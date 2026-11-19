@@ -1,5 +1,4 @@
 import type { Primitive } from '../../logic/parametrik/types';
-import { flowToken } from '../../data/focus';
 
 /** Open the stop platform and capsule chamber at their original surveyed seat and radius. */
 export function roundedStops(parts: Primitive[]): Primitive[] {
@@ -12,7 +11,6 @@ export function roundedStops(parts: Primitive[]): Primitive[] {
 			kind: 'torus',
 			axis: 'z',
 			position: [x, y, part.kind === 'cylinder' ? z + part.height / 2 : z],
-			token: flowToken.people,
 			radius: part.radius * 0.9,
 			tube: part.radius * 0.1,
 			edges: false
