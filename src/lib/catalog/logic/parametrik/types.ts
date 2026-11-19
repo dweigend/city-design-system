@@ -104,6 +104,8 @@ export type Primitive = Base &
 		 */
 		| {
 				kind: 'prism';
+				/** Horizontal plate eligible for a collar at a through-post. */
+				bearing?: 'slab';
 				polygon: [number, number][];
 				holes?: [number, number][][];
 				z: number;

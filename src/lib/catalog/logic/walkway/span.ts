@@ -58,6 +58,7 @@ export function deckParts(
 	const deck: Primitive = {
 		id,
 		kind: 'prism',
+		bearing: 'slab',
 		polygon: ring.map(([x, y]) => [x, y]),
 		z: a[2] - profile.thickness,
 		height: profile.thickness,

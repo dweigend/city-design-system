@@ -17,9 +17,16 @@ const column = (id: string, x: number): Primitive => ({
 const slab: Primitive = {
 	...base,
 	id: 'slab',
-	kind: 'box',
-	position: [-2, -1, 101],
-	size: [4, 2, 0.25]
+	kind: 'prism',
+	bearing: 'slab',
+	polygon: [
+		[-2, -1],
+		[2, -1],
+		[2, 1],
+		[-2, 1]
+	],
+	z: 101,
+	height: 0.25
 };
 const chord: Primitive = {
 	...base,

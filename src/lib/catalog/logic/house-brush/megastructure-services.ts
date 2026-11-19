@@ -12,6 +12,7 @@ export function gallery(bay: Bay, side: number, width: number): Primitive[] {
 	].map(([t, s]) => along(bay, side, t, s, 0.88));
 	const deck = bay.piece(`gallery-${side}`, flowToken.people, {
 		kind: 'prism',
+		bearing: 'slab',
 		polygon: outline.map(([x, y]) => [x, y]),
 		z: outline[0][2],
 		height: 0.09 * bay.gauge

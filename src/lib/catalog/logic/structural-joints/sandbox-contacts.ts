@@ -1,4 +1,4 @@
-import type { Primitive } from '../parametrik/types';
+import type { Primitive, Vec3 } from '../parametrik/types';
 import { MODULE, type TerrainGrid } from '../terrain-grid';
 import type { StructuralContact } from './index';
 import { surveySlabSeam } from './slab-seam';
@@ -76,8 +76,31 @@ function contact(
 	};
 }
 
+function withoutCoincidentSeams(contacts: StructuralContact[]) {
+	const fittings = new Map<string, Vec3[]>();
+	function record(id: string, point: Vec3) {
+		const points = fittings.get(id);
+		if (points) points.push(point);
+		else fittings.set(id, [point]);
+	}
+	for (const { member, support, seat, point } of contacts) {
+		if (seat === 'slab-seam') continue;
+		record(member.id, point);
+		record(support.id, point);
+	}
+	return contacts.filter(({ member, seat, point }) => {
+		if (seat !== 'slab-seam') return true;
+		const points = fittings.get(member.id);
+		if (points?.some((prior) => Math.hypot(...subtract(prior, point)) <= contactToleranceM))
+			return false;
+		record(member.id, point);
+		return true;
+	});
+}
+
 /** Surveys structural endpoints and post seams against visible parts in world metres.
- * A shared centreline node produces one fitting per part pair, even across drawing batches.
+ * Endpoint fittings retain their part-pair identity across batches and take priority over
+ * slab collars at the same point on a post.
  */
 export function sandboxStructuralContacts(
 	batches: Iterable<Parts>,
@@ -95,8 +118,7 @@ export function sandboxStructuralContacts(
 	const supports = indexSurfaces(
 		parts.flatMap(({ part, id, members, key }) => {
 			const rail = key.startsWith('line:') && part.id.endsWith('/deck');
-			// Historic wall and foundation solids also contribute endpoint bearing faces.
-			const slab = !/:(?:wall|foot)$/.test(part.id);
+			const slab = part.kind === 'prism' && part.bearing === 'slab' && !part.overprint;
 			return contactSurfaces(part, members, rail).map((surface) => ({ id, surface, rail, slab }));
 		})
 	);
@@ -109,9 +131,9 @@ export function sandboxStructuralContacts(
 			if (part.kind === 'cylinder') surveyPost(run, member, key, stroke);
 		}
 	}
-	return [...sites.entries()]
-		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-		.map(([, row]) => row);
+	return withoutCoincidentSeams(
+		[...sites.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, row]) => row)
+	);
 
 	function surveyEnd(
 		end: End,
@@ -144,7 +166,10 @@ export function sandboxStructuralContacts(
 	}
 
 	function store(row: StructuralContact) {
-		const key = JSON.stringify([[row.member.id, row.support.id].sort(), row.anchor]);
+		const pair = [row.member.id, row.support.id].sort();
+		const key = JSON.stringify(
+			row.seat === 'slab-seam' ? [pair, row.anchor, row.seat] : [pair, row.anchor]
+		);
 		const prior = sites.get(key);
 		// Prefer a stable support when both members can mount on one another at a shared node.
 		if (

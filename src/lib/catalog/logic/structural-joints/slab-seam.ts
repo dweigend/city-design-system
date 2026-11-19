@@ -1,12 +1,11 @@
 import type { End } from './contact-seat';
-import { contactToleranceM, onFace, type Face, type Round } from './contact-surfaces';
+import { onFace, type Face, type Round } from './contact-surfaces';
 
-/** Finds interior intersections of a vertical post with a slab face in world metres.
- * Endpoints are already handled by the endpoint survey. */
+/** Finds strict interior intersections of a vertical post with a slab face in world metres. */
 export function surveySlabSeam(run: Round, face: Face) {
 	const [x, y, bottom] = run.a;
 	const top = run.b[2];
-	if (face.z <= bottom + contactToleranceM || face.z >= top - contactToleranceM) return;
+	if (face.z <= bottom || face.z >= top) return;
 	const point: End['point'] = [x, y, face.z];
 	if (!onFace(face, point)) return;
 	const axis: End['axis'] = [0, 0, face.up];

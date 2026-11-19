@@ -4,6 +4,7 @@ import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
 import { acceptanceScene, createWorld, houseGroups, installationView } from '../sandbox';
 import { lineParts } from '../transit-line';
+import { contactToleranceM, subtract } from './contact-surfaces';
 import { deriveStructuralJoints, sandboxStructuralContacts } from './index';
 
 function acceptanceJoints(reverse = false) {
@@ -47,9 +48,17 @@ test('the seed-7 acceptance scene produces the same fittings on replay', () => {
 test('acceptance slab collars sit on slab planes and post axes without moving endpoint joints', () => {
 	const { contacts, parts, joints } = acceptanceJoints();
 	const seams = contacts.filter(({ seat }) => seat === 'slab-seam');
-	expect(seams.length).toBeGreaterThan(0);
+	expect(seams).toHaveLength(19);
+	const endpointContacts = contacts.filter(({ seat }) => seat !== 'slab-seam');
 	expect(acceptanceJoints(true).joints).toEqual(joints);
 	for (const { member, support, point, axis } of seams) {
+		expect(
+			endpointContacts.some(
+				(endpoint) =>
+					[endpoint.member.id, endpoint.support.id].includes(member.id) &&
+					Math.hypot(...subtract(endpoint.point, point)) <= contactToleranceM
+			)
+		).toBe(false);
 		const post = parts.get(member.id);
 		const slab = parts.get(support.id);
 		if (post?.kind !== 'cylinder' || slab?.kind !== 'prism') throw new Error('Expected post and slab');
@@ -58,12 +67,73 @@ test('acceptance slab collars sit on slab planes and post axes without moving en
 		expect(point[2]).toBeGreaterThan(post.position[2]);
 		expect(point[2]).toBeLessThan(post.position[2] + post.height);
 	}
-	const endpoints = deriveStructuralJoints(contacts.filter(({ seat }) => seat !== 'slab-seam'));
+	const endpoints = deriveStructuralJoints(endpointContacts);
 	expect(endpoints).toHaveLength(733);
 	// Digest of the seed-7 endpoint joint IDs and positions before surveying slab seams.
 	expect(Bun.hash(JSON.stringify(endpoints.map(({ partId, point }) => [partId, point])))).toBe(
 		1069928674048976998n
 	);
+});
+
+function postAt(position: Vec3, height: number): Primitive {
+	return {
+		id: 'post',
+		kind: 'cylinder',
+		role: 'traeger',
+		token: '--paper',
+		material: 'metal',
+		position,
+		height,
+		radius: 0.1
+	};
+}
+
+function slabAt([x, y, z]: Vec3): Extract<Primitive, { kind: 'prism' }> {
+	return {
+		id: 'plate',
+		kind: 'prism',
+		bearing: 'slab',
+		role: 'neu',
+		token: '--paper',
+		material: 'concrete',
+		polygon: [[x - 1, y - 1], [x + 1, y - 1], [x + 1, y + 1], [x - 1, y + 1]],
+		z,
+		height: 0.25
+	};
+}
+
+test('a flush slab face shares the terrain shoe on a post embedded below grade', () => {
+	const { grid } = createWorld(7);
+	const cell = grid.cellsById.get('89/36');
+	if (!cell) throw new Error('Expected terrain cell');
+	const [x, y, z] = cell.center;
+	const post = postAt([x, y, z - 5], 10);
+	const batches = (parts: Primitive[]) => [{ key: 'study', parts }];
+	const [ground] = sandboxStructuralContacts(batches([post]), grid, 2027);
+	expect(ground.seat).toBe('terrain');
+	const slab = slabAt(ground.point);
+	const contacts = sandboxStructuralContacts(batches([post, slab]), grid, 2027);
+	expect(contacts.map(({ seat }) => seat).sort()).toEqual(['slab-seam', 'terrain']);
+	expect(contacts.find(({ seat }) => seat === 'slab-seam')?.point[2]).toBe(slab.z + slab.height);
+});
+
+test('the underside receives a collar when the nearby post end faces away from it', () => {
+	const { grid } = createWorld(7);
+	const slab = slabAt([0, 0, 100]);
+	const post = postAt([0, 0, slab.z - 5e-6], 1);
+	const contacts = sandboxStructuralContacts([{ key: 'study', parts: [post, slab] }], grid, 2027);
+	expect(contacts.map(({ seat, point }) => [seat, point])).toContainEqual([
+		'slab-seam',
+		[0, 0, slab.z]
+	]);
+});
+
+test('a wall overprint prism supplies no through-post collars', () => {
+	const { grid } = createWorld(7);
+	const band = { ...slabAt([0, 0, 100]), id: 'body:wall:overprint:lap', overprint: '--ink' } as const;
+	const post = postAt([0, 0, 99], 2);
+	const contacts = sandboxStructuralContacts([{ key: 'study', parts: [post, band] }], grid, 2027);
+	expect(contacts.filter(({ seat }) => seat === 'slab-seam')).toEqual([]);
 });
 
 test('a rail saddle follows the curved deck between control points', () => {

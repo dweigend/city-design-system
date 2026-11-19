@@ -22,9 +22,9 @@ function slabOf(cells: readonly QuadCell[], fillet: Fillet) {
 	const rings = boundaryRings(cells, (id) => ids.has(id)).sort((a, b) => ringArea(b) - ringArea(a));
 	const [outer, ...inner] = rings;
 	const boundaries = [outer, ...inner.filter((ring) => ringArea(ring) < 0)];
-	return (inset: number, z: number, height: number): Form => {
+	return (inset: number, z: number, height: number, bearing?: 'slab'): Form => {
 		const [polygon, ...holes] = boundaries.map((ring) => roundRing(insetRing(ring, inset), fillet));
-		return { kind: 'prism', polygon, holes, z, height };
+		return { kind: 'prism', polygon, holes, z, height, ...(bearing && { bearing }) };
 	};
 }
 
@@ -55,7 +55,7 @@ function support(mass: Mass, fillet: Fillet): Primitive[] {
 		const foot = slab(FOOT.inset, mass.floor - FOOT.depth, FOOT.depth);
 		return [{ ...part(`${mass.id}:foot`, '--paper', foot), shade: FOOT.shade }];
 	}
-	const deck = slab(-DECK.overhang, mass.floor - DECK.thickness, DECK.thickness);
+	const deck = slab(-DECK.overhang, mass.floor - DECK.thickness, DECK.thickness, 'slab');
 	return [part(`${mass.id}:deck`, '--paper', deck), ...stilts(mass, grounded)];
 }
 
@@ -64,7 +64,7 @@ function roof(mass: Mass, slab: Slab, profile: Profile): Primitive[] {
 	return Array.from({ length: profile.tiers }, (_, tier) => {
 		const inset = profile.setback * (tier + 1);
 		const floor = mass.floor + STORY + tier * profile.rise;
-		return part(mass.id + ':tier' + tier, '--paper', slab(inset, floor, profile.rise));
+		return part(mass.id + ':tier' + tier, '--paper', slab(inset, floor, profile.rise, 'slab'));
 	});
 }
 
@@ -79,7 +79,7 @@ export function body(site: Site, mass: Mass, profile: Profile): Primitive[] {
 		part(
 			`${mass.id}:plate`,
 			'--paper',
-			slab(PLATE.inset, mass.floor + wallHeight, PLATE.thickness)
+			slab(PLATE.inset, mass.floor + wallHeight, PLATE.thickness, 'slab')
 		),
 		...roof(mass, slab, profile),
 		...(profile.arcade ? pilotis(mass, cells, wallHeight, profile.wallInset) : []),
