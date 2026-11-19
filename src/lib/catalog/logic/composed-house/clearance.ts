@@ -36,7 +36,7 @@ export function sectionObstacle(s: Section): HouseObstacle {
 		size: [
 			extent(0, 'width'),
 			extent(1, 'depth'),
-			s.top - s.base[2] + (s.typology === 'tower' ? 4 : 0.5)
+			s.top - s.base[2] + s.composition.crown.size[2]
 		]
 	};
 }

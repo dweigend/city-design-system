@@ -67,7 +67,7 @@ export function composeHouse(
 	const plan = {
 		site,
 		type,
-		seed: context.seed,
+		seed: input.seed,
 		sign,
 		datum: context.datum,
 		rear: site.center[1] + sign * 3,
@@ -78,7 +78,7 @@ export function composeHouse(
 	const { parts, crown } = assemble(plan, levels, role, stations, context.skyline);
 	const supports = parts.filter((p) => ['foot', 'shaft', 'head', 'brace'].includes(p.joint));
 	return {
-		id: site.id,
+		id: site.id, compact: site.compact, start: site.start, stories: site.programme.length,
 		role,
 		typology: type,
 		cells: site.cells,

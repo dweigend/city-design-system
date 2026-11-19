@@ -1,3 +1,4 @@
+import { footprintBay } from './footprint';
 import type { HouseSite } from '../composed-house';
 import { STORY } from '../../data/grid';
 /** Surveys stable site identity, actual painted storeys and the dominant ground-plane axis. */
@@ -11,19 +12,8 @@ export function survey(site: HouseSite) {
 		rows.map((r) => r[start + i]).filter(Boolean)
 	);
 	if (programme.some((p) => !p.length)) throw new RangeError('Unpainted interior storey');
-	const axis = (i: 0 | 1) => {
-		const a = cells.flatMap((c) => c.corners.map((p) => p[i]));
-		return Math.max(...a) - Math.min(...a);
-	};
-	const width = axis(0),
-		depth = axis(1);
-	const cx = cells.reduce((s, c) => s + c.center[0], 0) / cells.length,
-		cy = cells.reduce((s, c) => s + c.center[1], 0) / cells.length;
-	const anchor = cells.reduce((a, b) =>
-		Math.hypot(b.center[0] - cx, b.center[1] - cy) < Math.hypot(a.center[0] - cx, a.center[1] - cy)
-			? b
-			: a
-	);
+	const {width, depth, x, y} = footprintBay(cells);
+	const anchor = cells[0];
 	const ground = anchor.pad;
 	const living = new Set<number>();
 	for (const row of rows)
@@ -44,7 +34,7 @@ export function survey(site: HouseSite) {
 		width,
 		depth,
 		elongated: Math.max(width, depth) > 1.5 * Math.min(width, depth),
-		center: anchor.center,
+		compact: Math.min(width, depth) < 5.6, center: [x,y] as const,
 		district: site.district ?? 'infill',
 		seed: site.seed
 	};

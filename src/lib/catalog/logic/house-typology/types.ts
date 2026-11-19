@@ -52,7 +52,10 @@ export type Level = Deck & {
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
 	id: string;
-	role: HouseRole;
+ compact: boolean;
+ start: number;
+ stories: number;
+ role: HouseRole;
 	typology: Typology;
 	cells: HouseSite['cells'];
 	datum: number;

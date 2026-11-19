@@ -1,3 +1,4 @@
+import { planEnsemble } from '../house-typology';
 import { required } from '../required';
 import type { HouseObstacle } from './clearance';
 import type { Stacks } from '../../data/house-body';
@@ -42,14 +43,25 @@ function footprints(grid: QuadGrid, stacks: Stacks, joined: Survey['joined']) {
 }
 /** Plans connected painted footprints of equal stack height on a common bearing datum. */
 export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, survey: Survey = {}) {
-	return footprints(grid, stacks, survey.joined).map((cells) =>
-		planHouse({
+	const sites = footprints(grid, stacks, survey.joined).map((cells) => ({
 			cells,
 			stacks,
 			seed: survey.seedFor?.(cells[0].id) ?? seed,
 			district: survey.district?.(cells[0].id)
-		})
-	);
+		}));
+ const owner = new Map(sites.flatMap(s => s.cells.map(c => [c.id, s] as const)));
+ const pending = new Set(sites);
+ const sections = [];
+ for (const first of pending) {
+ const ensemble = [first]; pending.delete(first);
+ for (const site of ensemble) for (const cell of site.cells) for (const n of neighborsOf(grid, cell)) {
+ const next = owner.get(n.id);
+ if (next && ensemble.length < 8 && cell.pad === n.pad && pending.delete(next)) ensemble.push(next);
+ }
+ const context = planEnsemble(ensemble, seed);
+ sections.push(...ensemble.map(site => planHouse({...site, context})));
+ }
+ return sections;
 }
 /** Assigns each house and shared span to its anchor chunk once. */
 export function sectionGroups(

@@ -1,6 +1,7 @@
+import type { EnsembleContext, HouseComposition, Typology } from '../house-typology';
 import type { HouseUse, Stacks } from '../../data/house-body';
 import type {
-	houseAspect,
+	
 	CrownKind,
 	EnsembleDistrict,
 	HousePlan,
@@ -15,6 +16,7 @@ export type HouseSite = {
 	seed: number;
 	district?: EnsembleDistrict;
 	plan?: HousePlan;
+ context?: EnsembleContext;
 };
 export type AssetKind = Exclude<TierKind, 'void' | 'gallery'> | CrownKind | 'reservoir' | 'window';
 /** Position is the bottom centre in world metres. Size is local width, depth, height.
@@ -42,11 +44,9 @@ export type Section = {
 	stairAxis: [number, number];
 	id: string;
 	cells: readonly QuadCell[];
-	plan: HousePlan;
+	composition: HouseComposition;
 	seed: number;
-	typology: 'house' | 'tower';
-	aspect: ReturnType<typeof houseAspect>;
-	crown: CrownKind;
+	typology: Typology;
 	base: Vec3;
 	width: number;
 	depth: number;

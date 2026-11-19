@@ -21,11 +21,8 @@ type Dock = { station: Vec3; door: Vec3; index: number };
 export function windingRoute(s: Section) {
 	const roof = roofLanding(s),
 		axis = s.stairAxis;
-	roof[0] += Math.sign(axis[0] - roof[0]) * s.width * 0.3;
-	const direction = Math.atan2(s.base[1] - axis[1], s.base[0] - axis[0]);
-	const straight = s.aspect.reverse && s.plan !== 'round' ? 4 : 0;
-	const track = stairTrack(axis, Math.atan2(roof[1] - axis[1], roof[0] - axis[0]), straight);
-	const hand = s.aspect.reverse ? -1 : 1;
+	const track = stairTrack(axis, Math.atan2(roof[1] - axis[1], roof[0] - axis[0]), 0);
+	const hand = s.composition.accessSide === 'north' ? 1 : -1;
 	const at = (index: number) => ((index % track.length) + track.length) % track.length;
 	let index = 0,
 		z = s.top,
@@ -64,15 +61,10 @@ export function windingRoute(s: Section) {
 	}
 	dock(roof);
 	advance(0, 'landing');
-	for (const deck of [...s.decks].reverse()) {
+	for (const deck of [...s.composition.levels].reverse()) {
 		const target = deck.position[2];
 		descend(target, Math.max(1, Math.round((z - target) / houseStair.rise)));
-		const dx = -Math.cos(direction),
-			dy = -Math.sin(direction),
-			u = dx / deck.width,
-			v = dy / deck.depth;
-		const t = 0.48 / (deck.round ? Math.hypot(u, v) : Math.max(Math.abs(u), Math.abs(v)));
-		dock([deck.position[0] + dx * t, deck.position[1] + dy * t, target]);
+		dock(deck.landing);
 		flight++;
 	}
 	// The count determines the final station on the terrain. Survey each possible exit once.

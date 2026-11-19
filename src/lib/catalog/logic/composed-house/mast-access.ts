@@ -1,5 +1,5 @@
 import type { Vec3 } from '../parametrik/types';
-import { roofLanding, accessEdge } from './deck-plan';
+import { roofLanding } from './deck-plan';
 import { terrainHeight } from './ground';
 import { houseObject, type HousePart } from './house-object';
 import type { Section } from './types';
@@ -10,9 +10,8 @@ export function mastRoute(s: Section) {
 	const [x, y] = s.stairAxis;
 	const doors = [
 		roofLanding(s),
-		...[...s.decks].reverse().map((d): Vec3 => [d.position[0], accessEdge(d), d.position[2]])
+		...[...s.composition.levels].reverse().map(d => d.landing)
 	];
-	doors[0][0] += Math.min(s.width * 0.22, 0.45);
 	const stops = doors.map((d): Vec3 => [x, y, d[2]]);
 	stops.push([x, y, s.start ? s.base[2] : terrainHeight(s, [x, y, 0])]);
 	const legs = stops.slice(1).map((to, i) => ({
