@@ -105,7 +105,7 @@ export function tierParts(
 		id = site.id + '/level/' + i,
 		[x, y, z] = l.position;
 	const bodyVolume = l.bodies.reduce((sum, b) => sum + volume(b.size), 0);
-	const thickness = Math.min(0.55, (bodyVolume * ratio) / l.deckArea);
+	const thickness = Math.min(1.1, (bodyVolume * ratio) / l.deckArea);
 	const floor = solid(
 		id + '/deck',
 		'deck',
@@ -137,7 +137,7 @@ export function tierParts(
 				b.id + '/socket',
 				'socket',
 				[b.position[0], b.position[1], z],
-				[w * 0.75, d * 0.75, 0.12],
+				[Math.min(w * 0.75,l.width*0.7), Math.min(d * 0.75,l.depth*0.65), 0.12],
 				site.ground,
 				'frame'
 			),

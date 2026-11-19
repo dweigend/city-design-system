@@ -27,7 +27,7 @@ export function affinities(s: Survey, role: HouseRole): Record<Typology, number>
 	const living = uses.has('living'),
 		green = uses.has('food'),
 		tall = h >= 5;
-	return {
+	const weights = {
 		'capsule-stack': living && n <= 2 ? 14 : 1,
 		'deck-tower': uses.size > 1 && h >= 3 ? 12 : 2,
 		'round-tower': s.district === 'bank' && h >= 6 ? 25 : 0,
@@ -45,4 +45,6 @@ export function affinities(s: Survey, role: HouseRole): Record<Typology, number>
 		'water-house': uses.has('water') ? 12 : 0,
 		'tree-house': green && h >= 2 ? 10 : 0
 	};
+ if(s.compact) for(const type of typologies) if(type!=='capsule-stack' && type!=='cluster-mast') weights[type]=0;
+ return weights;
 }

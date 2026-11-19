@@ -5,7 +5,7 @@ import { collapse } from './collapse';
 import { affinities, typologies, type HouseRole, type Typology } from './families';
 import { survey, type Survey } from './survey';
 
-type Decision = { role: HouseRole; typology: Typology };
+type Decision = { role: HouseRole; typology: Typology; away:[number,number] };
 export type EnsembleContext = {
 	datum: number;
 	skyline: number;
@@ -44,8 +44,12 @@ function skyline(sites: Survey[], seed: number) {
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
 	const weights = sites.map((s) => affinities(s, required(roles.get(s.id), 'ensemble role')));
 	const houses = new Map<string, Decision>();
-	const assign = (i: number, typology: Typology) =>
-		houses.set(sites[i].id, { role: required(roles.get(sites[i].id), 'ensemble role'), typology });
+	const away = (site:Survey):[number,number] => {
+ const neighbors=sites.filter(other=>other!==site && site.cells.some(c=>other.cells.some(n=>c.neighbors.includes(n.id))));
+ return [0,1].map(k=>Math.sign(neighbors.reduce((sum,n)=>sum+site.center[k]-n.center[k],0))) as [number,number];
+ };
+ const assign = (i: number, typology: Typology) =>
+		houses.set(sites[i].id, { role: required(roles.get(sites[i].id), 'ensemble role'), typology, away:away(sites[i]) });
 	if (sites.length === 1) {
 		assign(
 			0,

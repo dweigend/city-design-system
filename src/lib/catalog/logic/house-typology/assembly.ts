@@ -25,8 +25,8 @@ function roof(
 		'deck',
 		[x, y, z - 0.25],
 		[
-			Math.max(w + 0.6, required(stations.at(-1), 'bearing station') - stations[0] + 0.4),
-			d + 0.6,
+			Math.min(site.width,Math.max(w + 0.6, required(stations.at(-1), 'bearing station') - stations[0] + 0.4)),
+			Math.min(site.depth,d + (site.compact ? 0 : 0.6)),
 			0.25
 		],
 		site.ground,
@@ -63,8 +63,8 @@ export function assemble(
 		top = below + STORY + (role === 'high' ? STORY / 2 : 0);
 	const roofs = [false, true]
 		.map((small) => roof(plan, below, top, stations, crownSpec(plan.type, small)))
-		.filter(({ crown }) => role === 'high' || top + crown.size[2] <= skyline);
-	roofs.push(roof(plan, below, top, stations, ['ring-beacon', 'compact', 'lantern']));
+		.filter(({ crown }) => crown.size[0] <= plan.site.width && crown.size[1] <= plan.site.depth && (role === 'high' || top + crown.size[2] <= skyline));
+	roofs.push(roof(plan, below, top, stations, ['charge-post', 'compact', 'lantern']));
 	const bodies = levels.flatMap((l) => l.bodies).reduce((s, b) => s + volume(b.size), 0);
 	for (const ratio of [0.3, 0.24, 0.36, 0.18, 0.42]) {
 		const frame = levels.flatMap((l, i) => tierParts(plan, l, i, levels[i - 1], stations, ratio));

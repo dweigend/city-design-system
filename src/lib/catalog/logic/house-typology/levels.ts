@@ -1,3 +1,4 @@
+import { podLevel } from './pod';
 import type { HouseSlot } from '../composed-house';
 import { STORY } from '../../data/grid';
 import { arrange, disc } from './figure';
@@ -122,7 +123,8 @@ function tierKind(kind: HouseSlot['kind']): Level['kind'] {
 function planLevel(plan: Plan, i: number): Level {
 	const { site, datum, sign, rear } = plan,
 		z = datum + i * STORY;
-	const row = arrange(plan, bodies(plan, i, z));
+	if(site.compact) return podLevel(plan,i,programme(plan,i).use);
+ const row = arrange(plan, bodies(plan, i, z));
 	const extents = (axis: 0 | 1, side: number) =>
 		row.map((b) => b.position[axis] + (side * worldSize(b)[axis]) / 2);
 	const left = Math.min(...extents(0, -1)),
@@ -156,7 +158,9 @@ function planLevel(plan: Plan, i: number): Level {
 		level.court = { center: [x, y - sign * 0.475, z], width };
 		level.deckArea -= width * width;
 	}
-	return plan.type === 'round-tower' ? disc(plan, level) : level;
+	const fitted = plan.type === 'round-tower' ? disc(plan, level) : level;
+ if(fitted.width+2*Math.abs(x-site.center[0])>site.width+1e-8 || fitted.depth>site.depth-0.3+1e-8) return podLevel(plan,i,level.use);
+ return fitted;
 }
 
 /** Groups painted bands for the sparse towers, retaining every required living stack and the common entry datum. */

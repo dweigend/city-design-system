@@ -9,6 +9,7 @@ export type Plan = {
 	sign: number;
 	datum: number;
 	rear: number;
+ away: [number,number];
 	bar: number;
 };
 export type FitPart = (ObjectGeometry | ReturnType<typeof buildObject>['parts'][number]) &

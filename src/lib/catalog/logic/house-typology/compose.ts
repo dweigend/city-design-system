@@ -57,7 +57,7 @@ export function composeHouse(
 		fixed = context.houses.get(site.id);
 	if (!fixed) throw new RangeError('Site outside ensemble: ' + site.id);
 	const { role, typology: type } = fixed;
-	const accessSide = collapse('part/side/' + site.id, context.seed, type, [
+	const accessSide = site.compact && fixed.away[1] ? (fixed.away[1]>0?'south':'north') : collapse('part/side/' + site.id, context.seed, type, [
 		['north', 1],
 		['south', 1]
 	] as const);
@@ -69,8 +69,8 @@ export function composeHouse(
 		seed: input.seed,
 		sign,
 		datum: context.datum,
-		rear: site.center[1] + sign * 3,
-		bar
+		rear: site.center[1] + sign * (site.depth / 2 - (site.compact ? 0 : 0.3)),
+ away:fixed.away, bar
 	};
 	const levels = occupiedLevels(plan);
 	const stations = bearingAxes(plan, levels);
