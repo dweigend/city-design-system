@@ -1,3 +1,4 @@
+import { scenePalette } from './scene-palette';
 import { onThemeChange } from '../theme';
 import type { Palette3D } from '../data/city3d';
 import { Color, type Scene, type ColorRepresentation } from 'three';
@@ -32,47 +33,9 @@ export function resolveTokens(host: HTMLElement, names: readonly string[]): Reco
 	return out;
 }
 
-const CATEGORIES = [
-	'living',
-	'health',
-	'mobility',
-	'business',
-	'nature',
-	'hazard',
-	'health-1',
-	'health-2',
-	'health-5',
-	'business-3',
-	'business-2',
-	'nature-2'
-];
-
+/** Resolves the active host theme into a detached scene palette. */
 export function readPalette(host: HTMLElement): Palette3D {
-	const names = [
-		'paper',
-		'ink',
-		'ink-3',
-		'blueprint',
-		'blueprint-soft',
-		'signal',
-		...CATEGORIES.map((c) => `cat-${c}`)
-	];
-	const t = resolveTokens(
-		host,
-		names.map((n) => `--${n}`)
-	);
-	const token = (name: string) => t[`--${name}`];
-	return {
-		paper: token('paper'),
-		ink: token('ink'),
-		ink3: token('ink-3'),
-		blueprint: token('blueprint'),
-		blueprintSoft: token('blueprint-soft'),
-		categories: {
-			...Object.fromEntries(CATEGORIES.map((name) => [name, token(`cat-${name}`)])),
-			'--signal': token('signal')
-		}
-	};
+	return scenePalette((names) => resolveTokens(host, names));
 }
 
 /** Bind once per renderer. CSS is read synchronously after theme/ projects its attributes.

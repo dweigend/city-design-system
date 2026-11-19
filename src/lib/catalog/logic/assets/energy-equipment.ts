@@ -7,12 +7,14 @@ export const energyEquipment = [
 		block(0, 0, 2.7 * factor, 4.8, 3.8, 0.16),
 		...row(5, (t) => block(t * 0.94 * 2, 0, 2.7 * factor + 0.16, 0.87, 3.59, 0.06, pane))
 	]),
-	asset('solar-tree', [4, 3], (factor) => [
+	asset('solar-tree', [4, 3], (factor, variant) => [
 		drum([0, 0, 0], 0.17, 3 * factor),
-		...row(4, (t, i) =>
+		...row(2 + variant, (t, i) =>
 			rod([0, 0, (1.4 + i * 0.33) * factor], [t * 1.42, 0, (2.2 + i * 0.32) * factor], 0.07)
 		),
-		...row(4, (t, i) => block(t * 1.42, 0, (2.2 + i * 0.32) * factor, 0.85, 2.6, 0.11, pane))
+		...row(2 + variant, (t, i) =>
+			block(t * 1.42, 0, (2.2 + i * 0.32) * factor, 0.85, 2.6, 0.11, pane)
+		)
 	]),
 	asset('charge-post', [1.4, 1], (factor) => [
 		block(-0.16, 0, 0, 0.78, 0.72, 1.82 * factor),

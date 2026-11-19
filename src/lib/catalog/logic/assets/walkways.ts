@@ -3,9 +3,9 @@ import { rod, ring, energy, path, living, pane } from './parts';
 const asset = family('access', 'deck');
 export const walkways = [
 	asset('beam-bridge', [10, 3], (factor) => [
-		...row(2, (t) => block(0, t * 0.98, 0, 9.8, 0.28, 0.52 * factor)),
-		block(0, 0, 0.52 * factor, 9.8, 2.7, 0.22, path),
-		...row(2, (t) => block(0, t * 1.27, 0.52 * factor + 0.22, 9.8, 0.12, 0.96, pane))
+		...row(2, (t) => block(0, t * 0.98, 0, 9.8 * factor, 0.28, 0.52 * factor)),
+		block(0, 0, 0.52 * factor, 9.8 * factor, 2.7, 0.22, path),
+		...row(2, (t) => block(0, t * 1.27, 0.52 * factor + 0.22, 9.8 * factor, 0.12, 0.96, pane))
 	]),
 	asset('viaduct-deck', [9, 3], (factor) => [
 		...legs(3.8, 1.15, 4.6 * factor),
@@ -63,12 +63,14 @@ export const walkways = [
 		block(0, 0, 7.6 * factor + 0.08, 3.4, 3.4, 0.3)
 	]),
 	asset('stop-platform', [8, 3], (factor) => [
-		block(0, 0, 0, 7.8, 2.8, 0.5 * factor),
-		block(0, -1.24, 0.5 * factor, 7.8, 0.24, 0.04, energy),
-		block(0, 1.28, 0.5 * factor, 7.8, 0.14, 0.92, pane)
+		block(0, 0, 0, 7.8 * factor, 2.8, 0.5 * factor),
+		block(0, -1.24, 0.5 * factor, 7.8 * factor, 0.24, 0.04, energy),
+		block(0, 1.28, 0.5 * factor, 7.8 * factor, 0.14, 0.92, pane)
 	]),
 	asset('cycle-hoops', [5, 2], (factor, variant) => [
-		...row(3 + variant, (t) => ring([t * 2.15, 0, 0.83], 0.8 * factor, 0.72 * factor, 0.1)),
+		...row(3 + variant, (t) =>
+			ring([t * 2.15, 0, 0.8 * factor + 0.16], 0.8 * factor, 0.72 * factor, 0.1)
+		),
 		...row(3 + variant, (t) => block(t * 2.15, 0, 0, 0.22, 0.6, 0.32))
 	]),
 	asset('vault-shelter', [4, 5], (factor) => [
@@ -76,10 +78,10 @@ export const walkways = [
 		block(-1.25, 0, 0.46, 0.5, 4 * factor, 0.13, energy),
 		...row(2, (t) => block(-1.25, t * 1.5 * factor, 0, 0.35, 0.18, 0.46))
 	]),
-	asset('cable-terminal', [6, 4], (factor) => [
-		...row(2, (t) => shell('arch', 0, t * 1.65, 0, 5.8, 0.32, 3.7 * factor, 0.38)),
-		block(0, 0, 3.7 * factor, 5.6, 3.6, 0.25),
+	asset('cable-terminal', [6, 4], (factor, variant) => [
+		...row(2 + variant, (t) => shell('arch', 0, t * 1.65, 0, 5.8, 0.32, 2.9 + 1.6 * factor, 0.38)),
+		block(0, 0, 2.9 + 1.6 * factor, 5.6, 3.6, 0.25),
 		block(0, 0, 0.55, 2.7, 2.5, 1.9, living),
-		rod([0, 0, 2.45], [0, 0, 3.7 * factor], 0.15)
+		rod([0, 0, 2.45], [0, 0, 2.9 + 1.6 * factor], 0.15)
 	])
 ];

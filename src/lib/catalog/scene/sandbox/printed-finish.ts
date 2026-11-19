@@ -84,6 +84,13 @@ function coarseChips() {
 	return { chip, pale: step(0.46, fract(random.mul(7.1))) };
 }
 
+/** Returns the fired body colour beneath the dip in the active palette's linear colour space. */
+export function firedBodyColor(palette: Palette3D, token: ColorToken) {
+	return new Color(palette.paper)
+		.lerp(tokenColor(palette, token), 0.36)
+		.lerp(new Color(palette.ink), 0.22);
+}
+
 /** Builds an opaque sandbox print in the selected flow pigment. Close views resolve
  * aggregate. Pigmented faces use the fine, hard-edged shadow screen at every distance. */
 export function printedFinish(
@@ -106,7 +113,9 @@ export function printedFinish(
 		const { chip, pale } = coarseChips();
 		result = mix(base, mix(mix(base, ink, 0.48), paper, pale), chip);
 	} else if (!aggregate) {
-		result = mix(paper, pigment, step(0, dip));
+		// A fired clay body remains visible below the coloured dip, including on paper-white tiles.
+		const clay = color(firedBodyColor(palette, token));
+		result = mix(clay, pigment, step(0, dip));
 		result = mix(result, ink, step(abs(dip), 0.009).mul(0.65));
 	}
 	if (token !== '--paper') {

@@ -40,10 +40,10 @@ export const plazaSeats = [
 			drum([t * 0.9, 0, (0.28 + i * 0.1) * factor], 0.27, (0.25 + i * 0.01) * factor, energy)
 		)
 	]),
-	asset('tree-seat', [4, 4], (factor) => [
-		crescent(1.88, 1.27, 0.38, 0.17, Math.PI * 1.8, living),
+	asset('tree-seat', [4, 4], (factor, variant) => [
+		crescent(1.88, 1.27, 0.38, 0.17, Math.PI * (0.8 + variant * 0.5), living),
 		...circle(1.6, 6)
-			.slice(0, 5)
+			.slice(0, 3 + variant)
 			.map(([x, y]) => drum([x, y, 0], 0.13 * factor, 0.38))
 	]),
 	asset('picnic-set', [3, 2.6], (factor) => [

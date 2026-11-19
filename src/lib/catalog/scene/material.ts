@@ -25,6 +25,7 @@ import {
 	viewportMipTexture
 } from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
+import { sceneSwatch } from './scene-palette';
 import { blatt, hoehe, strich } from './schraffur';
 import type { MaterialLook } from '../logic/parametrik/material';
 import type { ColorToken } from '../logic/parametrik/types';
@@ -33,13 +34,7 @@ const srgbMix = (a: THREE.Color, b: THREE.Color, t: number) =>
 	a.clone().convertLinearToSRGB().lerp(b.clone().convertLinearToSRGB(), t).convertSRGBToLinear();
 
 export function tokenColor(palette: Palette3D, token: ColorToken) {
-	const css =
-		token === '--paper'
-			? palette.paper
-			: token === '--blueprint'
-				? palette.blueprint
-				: palette.categories[token.replace('--cat-', '')];
-	return new THREE.Color(css ?? palette.paper);
+	return new THREE.Color(sceneSwatch(palette, token));
 }
 
 /** Base color: token, paper share, own tint (only on neutral surfaces), ink. */

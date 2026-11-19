@@ -17,8 +17,8 @@ export const rainFittings = [
 		pipe(
 			[
 				[0.1, 0, 1.1 * factor],
-				[0.8, 0, 1.1 * factor],
-				[1.36, 0, 0.83 * factor]
+				[0.8 * factor, 0, 1.1 * factor],
+				[1.36 * factor, 0, 0.83 * factor]
 			],
 			0.14,
 			water
