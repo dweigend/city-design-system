@@ -12,6 +12,7 @@ import { barrelVault } from './barrel-vault';
 import { sawtooth } from './sawtooth';
 import { solarRoof } from './solar-roof';
 import { greenRoof } from './green-roof';
+import { roofTerrace } from './roof-terrace';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -26,5 +27,6 @@ export const recipes: readonly AssetRecipe[] = [
 	barrelVault,
 	sawtooth,
 	solarRoof,
-	greenRoof
+	greenRoof,
+	roofTerrace
 ];
