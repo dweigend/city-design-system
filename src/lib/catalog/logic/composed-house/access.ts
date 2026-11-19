@@ -51,23 +51,23 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 			edge(track[b], inner)
 		];
 	}
-	function walk(leg: Route['legs'][number], i: number): HousePart {
-		const { from: a, to: b, first, last } = leg;
-		if (leg.kind === 'landing' || (leg.kind === 'ramp' && Math.abs(a[2] - b[2]) < 1e-8))
-			return platform(i + '/landing', sector(first, last, -width / 2, width), a[2]);
-		if (leg.kind === 'ramp') {
-			const [hi, lo] = a[2] >= b[2] ? [a, b] : [b, a],
-				dx = lo[0] - hi[0],
-				dy = lo[1] - hi[1],
-				run = Math.hypot(dx, dy);
-			return {
-				...ramp,
-				id: id + i + '/ramp',
-				position: [(hi[0] + lo[0] - run) / 2, (hi[1] + lo[1] - width) / 2, lo[2]],
-				size: [run, width, hi[2] - lo[2]],
-				rotation: Math.atan2(dy, dx)
-			};
-		}
+	function incline(a: Vec3, b: Vec3, i: number): HousePart {
+		const [hi, lo] = a[2] >= b[2] ? [a, b] : [b, a],
+			dx = lo[0] - hi[0],
+			dy = lo[1] - hi[1],
+			run = Math.hypot(dx, dy);
+		return {
+			...ramp,
+			id: id + i + '/ramp',
+			position: [(hi[0] + lo[0] - run) / 2, (hi[1] + lo[1] - width) / 2, lo[2]],
+			size: [run, width, hi[2] - lo[2]],
+			rotation: Math.atan2(dy, dx)
+		};
+	}
+	function stairTread(
+		{ from: a, to: b, first, last }: Route['legs'][number],
+		i: number
+	): HousePart {
 		const n = track[first].normal,
 			m = track[last].normal;
 		const linear = Math.hypot(n[0] - m[0], n[1] - m[1]) < 1e-7;
@@ -82,6 +82,14 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 		const polygon = stock.polygon.map(([u, v]): XY => [x + u * c - v * sin, y + u * sin + v * c]);
 		return { ...stock, id: id + i + '/stairs/tread', polygon, z: b[2] - thickness };
 	}
+	function walk(leg: Route['legs'][number], i: number): HousePart {
+		const { from: a, to: b, first, last } = leg;
+		if (leg.kind === 'landing' || (leg.kind === 'ramp' && Math.abs(a[2] - b[2]) < 1e-8))
+			return platform(i + '/landing', sector(first, last, -width / 2, width), a[2]);
+		if (leg.kind === 'ramp') return incline(a, b, i);
+		return stairTread(leg, i);
+	}
+
 	function frame(leg: Route['legs'][number], i: number) {
 		const line = (end: boolean, h: number): Vec3 => [
 			...edge(track[end ? leg.last : leg.first], -width / 2 + 0.035),

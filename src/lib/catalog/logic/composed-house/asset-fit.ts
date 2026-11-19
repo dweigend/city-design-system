@@ -40,73 +40,110 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 	}
 }
 
-function placeRectangular(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): HousePart {
+function placePrism(
+	part: Extract<HousePart, { kind: 'prism' }>,
+	{ point, scale: [, , sz] }: Fit
+): HousePart {
+	const ring = (polygon: [number, number][]) =>
+		polygon.map(([x, y]): [number, number] => {
+			const q = point([x, y, 0]);
+			return [q[0], q[1]];
+		});
+	return {
+		...part,
+		polygon: ring(part.polygon),
+		...(part.holes ? { holes: part.holes.map(ring) } : {}),
+		z: point([0, 0, part.z])[2],
+		height: part.height * sz
+	};
+}
+function placeRing(
+	part: Extract<HousePart, { kind: 'ring' }>,
+	{ point, scale: [sx, sy], angle }: Fit
+): HousePart {
 	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		radius: part.radius * radius,
+		innerRadius: part.innerRadius * radius,
+		depth: part.depth * radius,
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+function placeTorus(
+	part: Extract<HousePart, { kind: 'torus' }>,
+	{ point, scale: [sx, sy], angle }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		radius: part.radius * radius,
+		tube: part.tube * radius,
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+function placeVault(
+	part: Extract<HousePart, { kind: 'vault' | 'arch' | 'halfpipe' }>,
+	{ point, scale: [sx, sy, sz], angle }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		width: part.width * sx,
+		length: part.length * sy,
+		rise: part.rise * sz,
+		rotation: (part.rotation ?? 0) + angle,
+		thickness: part.thickness === undefined ? undefined : part.thickness * radius
+	};
+}
+function placeFrame(
+	part: Extract<HousePart, { kind: 'frame' }>,
+	{ point, scale: [sx, sy, sz] }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+
+	const [w, d, h] = part.size;
+	return {
+		...part,
+		position: point(part.position),
+		size: [w * sx, d * sy, h * sz],
+		bar: part.bar * radius
+	};
+}
+function placeBox(
+	part: Extract<HousePart, { kind: 'box' | 'wedge' }>,
+	{ point, scale: [sx, sy, sz], angle }: Fit
+): HousePart {
+	const [w, d, h] = part.size,
+		[x, y, z] = part.position;
+	const center = point([x + w / 2, y + d / 2, z]);
+	return {
+		...part,
+		position: [center[0] - (w * sx) / 2, center[1] - (d * sy) / 2, center[2]],
+		size: [w * sx, d * sy, h * sz],
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+function placeRectangular(part: HousePart, fit: Fit): HousePart {
 	switch (part.kind) {
-		case 'prism': {
-			const ring = (polygon: [number, number][]) =>
-				polygon.map(([x, y]): [number, number] => {
-					const q = point([x, y, 0]);
-					return [q[0], q[1]];
-				});
-			return {
-				...part,
-				polygon: ring(part.polygon),
-				...(part.holes ? { holes: part.holes.map(ring) } : {}),
-				z: point([0, 0, part.z])[2],
-				height: part.height * sz
-			};
-		}
+		case 'prism':
+			return placePrism(part, fit);
 		case 'ring':
-			return {
-				...part,
-				position: point(part.position),
-				radius: part.radius * radius,
-				innerRadius: part.innerRadius * radius,
-				depth: part.depth * radius,
-				rotation: (part.rotation ?? 0) + angle
-			};
+			return placeRing(part, fit);
 		case 'torus':
-			return {
-				...part,
-				position: point(part.position),
-				radius: part.radius * radius,
-				tube: part.tube * radius,
-				rotation: (part.rotation ?? 0) + angle
-			};
+			return placeTorus(part, fit);
 		case 'vault':
 		case 'arch':
 		case 'halfpipe':
-			return {
-				...part,
-				position: point(part.position),
-				width: part.width * sx,
-				length: part.length * sy,
-				rise: part.rise * sz,
-				rotation: (part.rotation ?? 0) + angle,
-				thickness: part.thickness === undefined ? undefined : part.thickness * radius
-			};
-		case 'frame': {
-			const [w, d, h] = part.size;
-			return {
-				...part,
-				position: point(part.position),
-				size: [w * sx, d * sy, h * sz],
-				bar: part.bar * radius
-			};
-		}
+			return placeVault(part, fit);
+		case 'frame':
+			return placeFrame(part, fit);
 		case 'box':
-		case 'wedge': {
-			const [w, d, h] = part.size,
-				[x, y, z] = part.position;
-			const center = point([x + w / 2, y + d / 2, z]);
-			return {
-				...part,
-				position: [center[0] - (w * sx) / 2, center[1] - (d * sy) / 2, center[2]],
-				size: [w * sx, d * sy, h * sz],
-				rotation: (part.rotation ?? 0) + angle
-			};
-		}
+		case 'wedge':
+			return placeBox(part, fit);
 		default:
 			throw new RangeError('Unsupported house fitting ' + part.kind);
 	}
