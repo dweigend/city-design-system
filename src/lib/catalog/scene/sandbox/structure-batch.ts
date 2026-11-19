@@ -1,7 +1,7 @@
 import type * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { DistanceDrawing } from './distance-drawing';
-import { roofPick } from './roof-pick';
+import { roofPick, seatedTargets } from './roof-pick';
 import { populateStructures } from './structure-parts';
 import type { StructureMaterials } from './structure-materials';
 
@@ -36,5 +36,5 @@ function roofWidth(part: Primitive, { materials }: StructureMaterials) {
 
 function detachedTargets(group: THREE.Group) {
 	const hits: THREE.Object3D[] = group.userData.hits;
-	return hits.map((solid) => solid.clone(false));
+	return seatedTargets(hits);
 }

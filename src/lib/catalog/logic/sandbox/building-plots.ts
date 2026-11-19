@@ -4,14 +4,24 @@ import { passageClearance, type TerrainGrid, type TerrainCell } from '../terrain
 const carriers = new WeakMap<TerrainGrid, QuadGrid>();
 type Cut = { id: string; point: QuadCell['corners'][number] };
 
+type OwnedCut = Cut & { owner: TerrainCell };
+
+function compatibleCut(candidate: OwnedCut, cell: TerrainCell, point: Cut['point']) {
+	if (passageClearance(cell.corners, cell.alleyEdges, candidate.point) >= cell.plan.width)
+		return candidate;
+	const { owner } = candidate;
+	if (passageClearance(owner.corners, owner.alleyEdges, point) < owner.plan.width) return;
+	candidate.point = point;
+	return candidate;
+}
+
 /** Cut points on the same directed parcel side may differ by a millimetre per metre of passage width. */
 function frontageVertices() {
-	const cuts = new Map<string, (Cut & { owner: TerrainCell })[]>();
-	const vertex = (cell: TerrainCell, i: number): Cut => {
-		const point = (cell.lotCorners ?? cell.corners)[i];
+	const cuts = new Map<string, OwnedCut[]>();
+	const vertex = (cell: TerrainCell, i: number, point: Cut['point']): Cut => {
 		const id = cell.vertexIds[i];
 		const front = cell.alleyEdges & 1 ? 0 : 2;
-		if (!cell.lotCorners || (i !== front && i !== (front + 1) % 4)) return { id, point };
+		if (i !== front && i !== (front + 1) % 4) return { id, point };
 		const back = cell.vertexIds[(i + (i === front ? 3 : 1)) % 4];
 		const key = id + '>' + back;
 		const list = cuts.get(key) ?? [];
@@ -20,15 +30,8 @@ function frontageVertices() {
 				Math.hypot(v.point[0] - point[0], v.point[1] - point[1], v.point[2] - point[2]) <=
 				cell.plan.width / 1000
 		);
-		if (candidate) {
-			if (passageClearance(cell.corners, cell.alleyEdges, candidate.point) >= cell.plan.width)
-				return candidate;
-			const { owner } = candidate;
-			if (passageClearance(owner.corners, owner.alleyEdges, point) >= owner.plan.width) {
-				candidate.point = point;
-				return candidate;
-			}
-		}
+		const reused = candidate && compatibleCut(candidate, cell, point);
+		if (reused) return reused;
 		const cut = { id: key + ':' + cell.id, point, owner: cell };
 		list.push(cut);
 		cuts.set(key, list);
@@ -40,9 +43,7 @@ function frontageVertices() {
 function plotCells(grid: TerrainGrid) {
 	const vertex = frontageVertices();
 	// Resolve both owners before materializing either immutable footprint.
-	const cuts = grid.cells.map((cell) =>
-		cell.lotCorners ? [0, 1, 2, 3].map((i) => vertex(cell, i)) : undefined
-	);
+	const cuts = grid.cells.map((cell) => cell.lotCorners?.map((point, i) => vertex(cell, i, point)));
 	return grid.cells.map((cell): QuadCell => {
 		const row = cuts[cell.index];
 		if (!row) return cell;
@@ -75,7 +76,9 @@ export function buildingPlots(grid: TerrainGrid) {
 				? id
 				: null;
 		};
-		const [a, b, c, d] = cell.neighbors.map(joinedSide);
+		const sides = cell.neighbors.map(joinedSide);
+		if (sides.every((id, i) => id === cell.neighbors[i])) return cell;
+		const [a, b, c, d] = sides;
 		return { ...cell, neighbors: [a, b, c, d] };
 	});
 	const carrier = quadGrid(cells);

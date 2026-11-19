@@ -29,6 +29,7 @@ export function createStructures() {
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials();
 	const entries = new Map<string, Entry>();
+	const hitLists = new Map<string, THREE.Object3D[]>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
 	function draw(primitives: Primitive[], drawing = distanceDrawing(primitives, distance)): Batch {
@@ -69,6 +70,7 @@ export function createStructures() {
 	/** Replaces one structure key, optionally seating its new parts from a clock time in ms. */
 	function set(key: string, primitives: Primitive[], startedMs?: number) {
 		const previous = entries.get(key);
+		hitLists.clear();
 		if (previous) release(previous);
 		entries.delete(key);
 		if (!primitives.length) return;
@@ -81,6 +83,7 @@ export function createStructures() {
 		const drawing = distanceDrawing(batch.primitives, distance);
 		if (!recolor && sameDrawing(batch.drawing, drawing)) return batch;
 		const next = draw(batch.primitives, drawing);
+		hitLists.clear();
 		next.group.position.copy(batch.group.position);
 		next.group.visible = batch.group.visible;
 		group.add(next.group);
@@ -139,14 +142,18 @@ export function createStructures() {
 		},
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,
-		/** Solid meshes of every key with the given prefix, for ray casting. */
+		/** Detached ray targets for the structure keys with the given prefix. */
 		solids(prefix: string): THREE.Object3D[] {
-			return [...entries]
+			const cached = hitLists.get(prefix);
+			if (cached) return cached;
+			const targets = [...entries]
 				.filter(([key]) => key.startsWith(prefix))
 				.flatMap(([, entry]) => [
 					...entry.objects.targets,
 					...entry.moving.flatMap((item) => item.objects.targets)
 				]);
+			hitLists.set(prefix, targets);
+			return targets;
 		},
 		/** Releases all geometry and materials. */
 		dispose() {

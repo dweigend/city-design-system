@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { keyboard } from '../ui/keyboard.svelte';
 	import { ToggleGroup } from 'bits-ui';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { flows } from '../data/focus';
@@ -41,7 +42,6 @@
 	let { session, group = $bindable() }: { session: Session; group?: HTMLDivElement } = $props();
 
 	const narrow = new MediaQuery('(max-width: 640px)');
-	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 	const methodIcons = { terrace: House, collage: Box, megastructure: Grid2X2, totem: Pill };
 	const methods = $derived(
 		session.methods
@@ -94,8 +94,8 @@
 	function toolLabels(tool: SandboxTool) {
 		return {
 			'aria-label': tool.name,
-			'aria-keyshortcuts': showsShortcuts.current ? tool.shortcut : undefined,
-			title: showsShortcuts.current ? `${tool.name} (${tool.shortcut})` : tool.name
+			'aria-keyshortcuts': keyboard.observed ? tool.shortcut : undefined,
+			title: keyboard.observed ? `${tool.name} (${tool.shortcut})` : tool.name
 		};
 	}
 

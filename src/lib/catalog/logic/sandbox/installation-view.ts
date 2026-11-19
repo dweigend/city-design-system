@@ -40,7 +40,9 @@ function segmentView(
 	}
 	return moduleBridge(a, end, p.id, { simplifyAtCity: true }).map((form) => ({
 		...form,
-		...(form.kind === 'polyline' ? { member: 'secondary' as const, detail: true } : {}),
+		...(form.kind === 'polyline'
+			? { member: 'secondary' as const, detail: true }
+			: { edges: false }),
 		token: p.recipe === 'stair' ? '--cat-business-3' : flowToken.people
 	}));
 }

@@ -19,6 +19,14 @@ function markFrontage(next: TerrainGrid, cell: TerrainCell, radius: number, occu
 			occupied[y * next.columns + x] = 1;
 }
 
+function builtSides(cell: TerrainCell, houses: ReadonlySet<string>) {
+	if (!houses.has(cell.id)) return 0;
+	return cell.neighbors.reduce(
+		(sides, id, side) => (id && houses.has(id) ? sides | (1 << side) : sides),
+		0
+	);
+}
+
 /** Fill the texture in place so removing the last frontage also erases its stair ink. */
 export function writeAlleyMask(
 	pixels: Uint8Array,
@@ -26,7 +34,8 @@ export function writeAlleyMask(
 	anchors: Iterable<string>,
 	radius: number
 ) {
-	const occupied = frontages(next, anchors, radius);
+	const houses = new Set(anchors);
+	const occupied = frontages(next, houses, radius);
 	for (const cell of next.cells) {
 		const { square, width, stairAlley } = cell.plan;
 		const band = Math.min(255, Math.round((255 * width) / MODULE));
@@ -38,7 +47,7 @@ export function writeAlleyMask(
 		const active = occupied[cell.index];
 		pixels[at] = channel('along');
 		pixels[at + 1] = channel('across');
-		pixels[at + 2] = (stairAlley ? 128 * active : 0) + 64 * active;
+		pixels[at + 2] = (stairAlley ? 128 * active : 0) + 64 * active + builtSides(cell, houses);
 		pixels[at + 3] = 255 * cell.plan.extent;
 	}
 }

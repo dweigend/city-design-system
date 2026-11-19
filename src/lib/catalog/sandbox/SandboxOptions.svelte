@@ -1,10 +1,9 @@
 <script lang="ts">
+	import { keyboard } from '../ui/keyboard.svelte';
 	import { ToggleGroup } from 'bits-ui';
-	import { MediaQuery } from 'svelte/reactivity';
 	import type { Box } from 'lucide-svelte';
 	import Icon from '../ui/Icon.svelte';
 	import Tooltip from '../ui/Tooltip.svelte';
-	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 	type Option = {
 		id: string;
 		name: string;
@@ -40,11 +39,11 @@
 		value={entry.id}
 		class="cg-sandbox-option"
 		aria-label={entry.name}
-		aria-keyshortcuts={showsShortcuts.current ? (entry.shortcut ?? String(index + 1)) : undefined}
+		aria-keyshortcuts={keyboard.observed ? (entry.shortcut ?? String(index + 1)) : undefined}
 	>
 		{#if entry.color}<span class="swatch" style:--swatch={entry.color}></span>{/if}
 		<span class="name">{horizontal ? (entry.shortName ?? entry.name) : entry.name}</span>
-		{#if showsShortcuts.current && entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
+		{#if keyboard.observed && entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
 		{#if entry.icon}
 			<span class="method-icon"><Icon icon={entry.icon} size={16} /></span>
 		{/if}

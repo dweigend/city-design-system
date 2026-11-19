@@ -1,5 +1,5 @@
 import { sandboxMotion, sandboxScale, sandboxSounds } from '../data/sandbox';
-import type { Completion } from './feedback';
+import type { Completion, StrokeRelease } from './feedback';
 
 type Cue = keyof typeof sandboxSounds;
 type Note = { cue: Cue; atMs: number; level?: number };
@@ -126,22 +126,37 @@ export function createSandboxSound() {
 		};
 	}
 
+	function schedule(requested: Note[]) {
+		if (!audio || !audible()) return;
+		const now = audio.context.currentTime;
+		starts = starts.filter((start) => start > now - 1);
+		for (const note of requested.slice(0, NOTES_PER_SECOND - starts.length)) {
+			const at = now + note.atMs / 1000;
+			starts.push(at);
+			playNote(audio, note, at);
+		}
+	}
+
+	const responseCue: Partial<Record<StrokeRelease['tool']['kind'], Cue>> = {
+		house: 'ceramic',
+		line: 'pillar',
+		cover: 'growth',
+		dig: 'dig',
+		erase: 'erase'
+	};
+
 	return {
 		unlock,
-		/** Schedules cues for a completed gesture with a rolling twelve-voice limit. */
+		/** Starts the tool's first cue during release, before deriving the new city. */
+		respond(tool: StrokeRelease['tool']) {
+			const carrier = tool.kind === 'house' && tool.style === 'megastructure';
+			const cue = carrier ? 'carrier' : responseCue[tool.kind];
+			if (cue) schedule([{ cue, atMs: 0 }]);
+		},
+		/** Schedules follow-up cues for a completed gesture with a rolling twelve-voice limit. */
 		play(completion: Completion) {
-			if (!audio || !audible()) return;
-			const now = audio.context.currentTime;
-			starts = starts.filter((start) => start > now - 1);
-			const notes = notesByTool[completion.kind](completion).slice(
-				0,
-				NOTES_PER_SECOND - starts.length
-			);
-			for (const note of notes) {
-				const at = now + note.atMs / 1000;
-				starts.push(at);
-				playNote(audio, note, at);
-			}
+			const notes = notesByTool[completion.kind](completion);
+			schedule(completion.kind === 'advance' ? notes : notes.slice(1));
 		},
 		/** Mutes immediately, including already scheduled notes. */
 		setMuted(next: boolean) {

@@ -1,14 +1,18 @@
 <script lang="ts">
 	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { createCanvasHover } from '../scene/sandbox/canvas-hover';
+	import { DIG_RADIUS_M } from '../data/sandbox';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
 	import type { OpeningArea } from '../scene/sandbox/view';
 	import { cursorTarget, strokePreview } from '../logic/sandbox';
-	import type { TerrainCell } from '../logic/terrain-grid';
+	import { MODULE, type TerrainCell } from '../logic/terrain-grid';
 	import type { Session } from './session.svelte';
 	import StoreFlight from './StoreFlight.svelte';
+	import StrokeResponse from './StrokeResponse.svelte';
+	import type { StrokeRelease } from './feedback';
 
 	let {
 		session,
@@ -17,6 +21,7 @@
 		openingArea,
 		storeTarget,
 		transitPaused = false,
+		onresponse,
 		onhover
 	}: {
 		session: Session;
@@ -26,6 +31,7 @@
 		openingArea?: () => OpeningArea | undefined;
 		storeTarget?: HTMLElement;
 		transitPaused?: boolean;
+		onresponse: (tool: StrokeRelease['tool']) => void;
 		onhover?: (cell: TerrainCell | undefined) => void;
 	} = $props();
 	let host: HTMLDivElement;
@@ -34,9 +40,39 @@
 	/** Id of the cell under the pointer; the cell itself is read from the current grid. */
 	let hoveredId = $state<string>();
 	let error = $state('');
+	let response = $state.raw<{
+		kind: StrokeRelease['tool']['kind'];
+		x: number;
+		y: number;
+		width: number;
+	}>();
+	const releaseFrames = new SvelteSet<number>();
 
 	const hovered = $derived(hoveredId ? session.world.grid.cellsById.get(hoveredId) : undefined);
 	let hover = $state.raw<ReturnType<typeof createCanvasHover>>();
+
+	function queueFrame(callback: () => void) {
+		const id = requestAnimationFrame(() => {
+			releaseFrames.delete(id);
+			callback();
+		});
+		releaseFrames.add(id);
+	}
+
+	function releaseStroke(view: SandboxStage['view'], releasedAt: number) {
+		const release = session.strokeRelease();
+		if (!release) return;
+		const kind = release.tool.kind;
+		const cell = session.world.grid.cellsById.get(release.cellIds[0]);
+		if (!cell) return;
+		const width = (kind === 'dig' ? 2 * DIG_RADIUS_M : MODULE) / view.metersPerPixel();
+		response = { kind, width, ...view.project(cell.center) };
+		onresponse(release.tool);
+		queueFrame(() => {
+			canvas.dataset.responseMs = String(performance.now() - releasedAt);
+			queueFrame(() => session.commitRelease(release));
+		});
+	}
 
 	onMount(() => {
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), {
@@ -63,7 +99,7 @@
 				const cell = target.move({ x, y });
 				if (cell) session.strokeMove(cell.id);
 			},
-			strokeEnd: session.strokeEnd,
+			strokeEnd: (releasedAt) => releaseStroke(current.view, releasedAt),
 			strokeCancel: session.strokeCancel,
 			viewChanged: (position) => {
 				current.viewChanged();
@@ -84,6 +120,7 @@
 		return () => {
 			mounted = false;
 			detach();
+			for (const id of releaseFrames) cancelAnimationFrame(id);
 			observer.disconnect();
 			current.dispose();
 		};
@@ -132,6 +169,7 @@
 
 <div class="host" bind:this={host}>
 	<canvas bind:this={canvas} tabindex="0" aria-label={label}></canvas>
+	<StrokeResponse {response} />
 	<StoreFlight
 		completion={session.completion}
 		destination={storeTarget}

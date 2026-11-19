@@ -81,7 +81,6 @@ export function createTerrainMesh(
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const peopleFocus = uniform(0);
-	const pathInk = mix(colors.ink, colors.people, peopleFocus);
 	const cover = coverTexture(grid);
 	const alleys = alleyOverlay(grid, profile, nodes);
 	const chart = attribute('chart', 'vec2');
@@ -159,7 +158,7 @@ export function createTerrainMesh(
 			.max(parcelLine.mul(nodes.parcel));
 		return alleys.shade(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
-			pathInk,
+			colors.ink,
 			colors.people,
 			paperColor,
 			peopleFocus,
@@ -186,7 +185,7 @@ export function createTerrainMesh(
 
 	const group = new THREE.Group();
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
-	deckMaterial.colorNode = mix(paperColor, pathInk, nodes.footbridgeTone);
+	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(surface, water, baseMesh, deck);
 

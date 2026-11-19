@@ -37,6 +37,8 @@ type StageOptions = {
 	frameTown?: boolean;
 	/** Seed the study additions belong to, if restricted to one terrain. */
 	additionSeed?: number;
+	/** Cell beside the opening intervention, on the frame seed. */
+	referenceCellId?: string;
 	/** Optional study window in world meters, from its low corner to its high corner. */
 	frame?: readonly [Vec3, Vec3];
 	/** Retain additions from these epochs in their full drafting treatment for comparison. */
@@ -272,6 +274,15 @@ export function createSandboxStage(
 		render();
 	}
 
+	function drawTarget(outline: readonly Vec3[]) {
+		removeLines(target);
+		target = polylineObject(outline.length ? [outline] : [], targetMaterial);
+		if (target) {
+			target.renderOrder = 11;
+			scene.add(target);
+		}
+	}
+
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, applyPalette);
 
@@ -345,12 +356,7 @@ export function createSandboxStage(
 			cursorTone = tone;
 			cursorMaterial.color.copy(swatches[tone]);
 			cursorMaterial.linewidth = tone === 'hazard' ? 2 : planned.strichPx;
-			removeLines(target);
-			target = polylineObject(outline.length ? [outline] : [], targetMaterial);
-			if (target) {
-				target.renderOrder = 11;
-				scene.add(target);
-			}
+			drawTarget(outline);
 			removeLines(cursor);
 			cursor = polylineObject(polylines, cursorMaterial);
 			if (cursor) {

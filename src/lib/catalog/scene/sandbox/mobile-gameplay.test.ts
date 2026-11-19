@@ -1,39 +1,58 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import * as THREE from 'three/webgpu';
-import { applyEdit, openingScene } from '../../logic/sandbox';
+import { STORY } from '../../data/grid';
+import { applyEdit, openingScene, EMPTY_STATE, withState } from '../../logic/sandbox';
 import { frameOldTown } from './opening-view';
 import { patchSurface, surfaceGeometry } from './terrain-geometry';
+import { seatedTargets } from './roof-pick';
 import { createTerrainPicker } from './terrain-pick';
 import { createView } from './view';
+import { createTerrainMesh } from './terrain-mesh';
+import { KEY, projectChanges } from './projection';
+import type { Primitive } from '../../logic/parametrik/types';
 
-const { world } = openingScene(7);
+const { world, referenceCellId } = openingScene(7);
 const view = createView();
 
-test('the portrait opening fits the town and leaves the near terrain rim below the frame', () => {
+test('the portrait reference is one finger wide and starts high in the free canvas', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world);
-	const rim = world.grid.cells
-		.filter(({ row }) => row === 0)
-		.flatMap(({ corners }) => corners.slice(0, 2).map(view.project))
-		.filter(({ x }) => x > -20 && x < 410);
-	expect(rim.length).toBeGreaterThan(0);
-	expect(Math.min(...rim.map(({ y }) => y))).toBeGreaterThan(844);
-	const north = world.grid.cells
-		.filter(({ row }) => row === world.grid.rows - 1)
-		.flatMap(({ corners }) => corners.slice(2).map(view.project))
-		.filter(({ x }) => x >= 0 && x <= 390);
-	expect(Math.max(...north.map(({ y }) => y))).toBeLessThan(0);
+	frameOldTown(view, world, referenceCellId);
+	const cell = world.grid.cellsById.get(referenceCellId ?? '');
+	if (!cell) throw new Error('Missing sample plot');
+	const points = cell.corners.map(view.project);
+	const xs = points.map(({ x }) => x);
+	const ys = points.map(({ y }) => y);
+	expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThanOrEqual(36);
+	expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(36);
+	const [x, y] = cell.center;
+	const roof = cell.pad + (world.state.stacks.get(cell.id)?.length ?? 0) * STORY;
+	expect(view.project([x, y, roof]).y).toBeLessThan(283);
+});
+
+test('the portrait opening keeps the terrain rim outside the canvas', () => {
+	view.resize(390, 844);
+	frameOldTown(view, world, referenceCellId);
+	const rim = world.grid.cells.filter(({ neighbors }) => neighbors.includes(null));
+	for (const { corners } of rim) {
+		for (const { x, y } of corners.map(view.project))
+			expect(x < 0 || x > 390 || y < 0 || y > 844).toBe(true);
+	}
+});
+
+test('the desktop opening retains half the width for the old town', () => {
+	view.resize(1440, 900);
+	frameOldTown(view, world, referenceCellId);
 	const town = [...world.state.stacks.keys()]
 		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
 		.map(view.project);
 	const xs = town.map(({ x }) => x);
-	expect((Math.max(...xs) - Math.min(...xs)) / 390).toBeCloseTo(0.89, 3);
+	expect((Math.max(...xs) - Math.min(...xs)) / 1440).toBeCloseTo(0.5, 3);
 });
 
 test('chunk picking selects the same terrain cell as the rendered triangles on phone', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world);
+	frameOldTown(view, world, referenceCellId);
 	const picker = createTerrainPicker();
 	picker.setGrid(world.grid);
 	const geometry = surfaceGeometry(world.grid);
@@ -55,7 +74,7 @@ test('chunk picking selects the same terrain cell as the rendered triangles on p
 
 test('panning follows a 30 × 45 pixel finger displacement and zoom keeps the anchor', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world);
+	frameOldTown(view, world, referenceCellId);
 	const pointer = view.target.clone();
 	const point: [number, number, number] = [pointer.x, -pointer.z, pointer.y];
 	const before = view.project(point);
@@ -80,4 +99,61 @@ test('updating a dug surface in place matches a full projection', () => {
 	}
 	patched.dispose();
 	fresh.dispose();
+});
+
+test('picking a house uses its seated geometry through the whole drop', () => {
+	const geometry = new THREE.BoxGeometry(3, 3, 3);
+	const material = new THREE.MeshBasicMaterial();
+	const house = new THREE.Mesh(geometry, material);
+	const dropping = new THREE.Group().add(house);
+	const proxies = seatedTargets([house]);
+	const ray = new THREE.Raycaster(new THREE.Vector3(-10, 1, -1), new THREE.Vector3(1, 0, 0));
+	dropping.position.y = 9;
+	dropping.updateMatrixWorld(true);
+	expect(ray.intersectObject(house)).toHaveLength(0);
+	const during = ray.intersectObjects(proxies);
+	expect(during[0]?.distance).toBe(8.5);
+	dropping.position.y = 0;
+	dropping.updateMatrixWorld(true);
+	expect(ray.intersectObject(house)[0]?.distance).toBe(during[0]?.distance);
+	expect(ray.intersectObjects(proxies)[0]?.distance).toBe(during[0]?.distance);
+	geometry.dispose();
+	material.dispose();
+});
+
+test('rebuilding the affected house groups after a dig equals drawing the whole town', () => {
+	const dug = applyEdit(world, { kind: 'dig', cellId: '76/41' });
+	const terrain = createTerrainMesh(world.grid);
+	const previous = { ...world, state: EMPTY_STATE, lines: [] };
+	const live = new Map<string, Primitive[]>();
+	const full = new Map<string, Primitive[]>();
+	const puts = (batches: Map<string, Primitive[]>) => ({
+		set(key: string, parts: Primitive[]) {
+			if (parts.length) batches.set(key, parts);
+			else batches.delete(key);
+		}
+	});
+	const houseBatches = (batches: Map<string, Primitive[]>) =>
+		[...batches]
+			.filter(([key]) => key.startsWith(KEY.house))
+			.sort(([a], [b]) => a.localeCompare(b));
+	try {
+		projectChanges({ terrain, structures: puts(live) }, previous, world, 'all', false);
+		const untouched = new Map(live);
+		projectChanges({ terrain, structures: puts(live) }, world, dug, 'all', false);
+		const independentlyDerived = withState(openingScene(7).world, dug.state);
+		projectChanges(
+			{ terrain, structures: puts(full) },
+			independentlyDerived,
+			independentlyDerived,
+			'all',
+			true
+		);
+		expect(houseBatches(live)).toEqual(houseBatches(full));
+		expect(
+			houseBatches(live).filter(([key, parts]) => untouched.get(key) === parts).length
+		).toBeGreaterThan(0);
+	} finally {
+		terrain.dispose();
+	}
 });

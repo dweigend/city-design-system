@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { focusModes } from '../data/focus';
+	import { keyboard } from '../ui/keyboard.svelte';
 	import { Toggle } from 'bits-ui';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { Map as MapIcon, Pause, Play, Volume2, VolumeX } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import Button from '../ui/Button.svelte';
@@ -38,8 +39,9 @@
 	$effect(() => {
 		if (session.completion) sound.play(session.completion);
 	});
-	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 
+	const pathsLabel = focusModes.find((mode) => mode.id === 'wege')?.name ?? 'Paths';
+	const focusLabel = $derived(session.focus === 'people' ? pathsLabel : session.focus);
 	const store = $derived(
 		sandboxUses
 			.map((use) => ({ ...use, count: session.world.state.store[use.id] }))
@@ -97,7 +99,8 @@
 		{openingArea}
 		{storeTarget}
 		{transitPaused}
-		label={showsShortcuts.current
+		onresponse={sound.respond}
+		label={keyboard.observed
 			? 'City sandbox. Arrow keys move the view, plus and minus zoom.'
 			: 'City sandbox. Pinch to zoom, drag with two fingers to move.'}
 		onhover={(cell) => (hovered = cell)}
@@ -115,19 +118,15 @@
 		<dl class="store" aria-label="Material store" aria-live="polite">
 			<dt bind:this={storeTarget}>Store</dt>
 			{#each store as entry (entry.id)}
-				<dd><span class="dot" style:--dot={entry.color}></span>{entry.count} {entry.name}</dd>
+				<dd class="inventory-detail">
+					<span class="dot" style:--dot={entry.color}></span>{entry.count}
+					{entry.name}
+				</dd>
 			{:else}
-				<dd>0</dd>
+				<dd class="inventory-detail">0</dd>
 			{/each}
+			<dd class="inventory-total">{store.reduce((count, entry) => count + entry.count, 0)}</dd>
 		</dl>
-		<div class="time">
-			<Button
-				variant="secondary"
-				label={'Focus · ' + session.focus}
-				shortcut="F"
-				onclick={session.cycleFocus}
-			/>
-		</div>
 	</header>
 	<div class="mode">
 		<Toggle.Root
@@ -135,8 +134,8 @@
 			class="cg-button"
 			data-variant="icon"
 			aria-label="Plan view"
-			aria-keyshortcuts={showsShortcuts.current ? 'P' : undefined}
-			title={showsShortcuts.current ? 'Plan view (P)' : 'Plan view'}
+			aria-keyshortcuts={keyboard.observed ? 'P' : undefined}
+			title={keyboard.observed ? 'Plan view (P)' : 'Plan view'}
 		>
 			<Icon icon={MapIcon} size={24} />
 		</Toggle.Root>
@@ -165,6 +164,14 @@
 			</Toggle.Root>
 		{/if}
 		<ThemeToggle />
+		<div class="time">
+			<Button
+				variant="secondary"
+				label={'Focus · ' + focusLabel}
+				shortcut="F"
+				onclick={session.cycleFocus}
+			/>
+		</div>
 	</div>
 	<SandboxHud bind:this={hud} bind:group={hudGroup} {session} />
 </main>
@@ -228,6 +235,9 @@
 		gap: var(--space-1);
 		margin: 0;
 	}
+	.store .inventory-total {
+		display: none;
+	}
 	.dot {
 		width: var(--space-2);
 		height: var(--space-2);
@@ -236,7 +246,6 @@
 		background: var(--dot);
 	}
 	.time {
-		margin-top: var(--space-2);
 		pointer-events: auto;
 		display: grid;
 		justify-items: start;
@@ -275,10 +284,25 @@
 		.mode :global(.cg-theme) {
 			margin-left: auto;
 		}
-		.brand {
-			display: inline-flex;
-			align-items: center;
-			min-height: var(--sandbox-target);
+		header {
+			display: flex;
+			align-items: baseline;
+			gap: var(--space-2);
+		}
+		.brand,
+		.readout,
+		.store .inventory-detail {
+			display: none;
+		}
+		.store {
+			margin-top: 0;
+			gap: var(--space-1);
+		}
+		.store .inventory-total {
+			display: inline;
+		}
+		.mode .time :global(.cg-button) {
+			min-width: var(--sandbox-target);
 		}
 	}
 </style>

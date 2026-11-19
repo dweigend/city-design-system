@@ -10,7 +10,7 @@ import { OPENING_VIEW_PARAMS } from './view-params';
 import { BLICK } from '../../data/leitstil';
 
 /** Visible image height in world meters: closest and widest zoom. */
-const SPAN_MIN = 45;
+const SPAN_MIN = 30;
 const SPAN_MAX = 1500;
 /** Distance of the camera from its target, meters; far enough to clear every building. */
 const CAMERA_DISTANCE = 1400;

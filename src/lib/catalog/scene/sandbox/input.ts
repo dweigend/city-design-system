@@ -16,7 +16,7 @@ export type InputHooks = {
 	hover: (position: { x: number; y: number } | undefined) => void;
 	strokeStart: (x: number, y: number) => void;
 	strokeMove: (x: number, y: number) => void;
-	strokeEnd: () => void;
+	strokeEnd: (releasedAt: number) => void;
 	strokeCancel?: () => void;
 	/** Called after every view change. */
 	viewChanged: (position?: { x: number; y: number }) => void;
@@ -37,19 +37,18 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, distance: Math.hypot(a.x - b.x, a.y - b.y) };
 	};
 	let drawFrame = 0;
-	let queued: { x: number; y: number } | undefined;
+	const queued: { x: number; y: number }[] = [];
 
 	function flushDraw() {
 		cancelAnimationFrame(drawFrame);
 		drawFrame = 0;
-		if (queued) hooks.strokeMove(queued.x, queued.y);
-		queued = undefined;
+		for (const { x, y } of queued.splice(0)) hooks.strokeMove(x, y);
 	}
 
 	function cancelDraw() {
 		cancelAnimationFrame(drawFrame);
 		drawFrame = 0;
-		queued = undefined;
+		queued.length = 0;
 		if (mode === 'draw') hooks.strokeCancel?.();
 		hooks.hover(undefined);
 	}
@@ -92,8 +91,9 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		hooks.viewChanged(position);
 	}
 
-	function queueDraw(position: { x: number; y: number }) {
-		queued = position;
+	function queueDraw(event: PointerEvent, position: { x: number; y: number }) {
+		for (const sample of event.getCoalescedEvents?.() ?? []) queued.push(local(sample));
+		queued.push(position);
 		if (!drawFrame) drawFrame = requestAnimationFrame(flushDraw);
 	}
 
@@ -105,7 +105,7 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 			return;
 		}
 		pointers.set(event.pointerId, position);
-		if (mode === 'draw') queueDraw(position);
+		if (mode === 'draw') queueDraw(event, position);
 		else
 			moveView(
 				position.x - previous.x,
@@ -117,9 +117,9 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 	function releaseStroke(event: PointerEvent) {
 		if (event.type !== 'pointerup') return cancelDraw();
 		const position = local(event);
-		queued = position;
+		queued.push(position);
 		flushDraw();
-		hooks.strokeEnd();
+		hooks.strokeEnd(event.timeStamp);
 		hooks.hover(event.pointerType === 'touch' ? undefined : position);
 	}
 

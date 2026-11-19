@@ -1,5 +1,5 @@
 import { sandboxGenerationYears, type BuildingMethod } from '../data/sandbox';
-import type { Completion } from './feedback';
+import type { Completion, StrokeRelease } from './feedback';
 import { focuses, type FocusId } from '../logic/presentation';
 import {
 	applyEdit,
@@ -23,7 +23,7 @@ import {
  * of logic/sandbox.
  */
 export function createSession(initialSeed: number, generationYears = sandboxGenerationYears) {
-	const { world: startingWorld, additions } = openingScene(initialSeed);
+	const { world: startingWorld, additions, referenceCellId } = openingScene(initialSeed);
 	/** The committed world; its derived grid is the session's cache (PT-14). */
 	let world = $state.raw(startingWorld);
 	let roofBuilder = $state.raw<typeof world.roofBuilder>();
@@ -34,6 +34,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	let history = $state.raw(startHistory(startingWorld.state));
 	let stroke = $state.raw<Pick<Stroke, 'cellIds' | 'lastPointerCellId'>>();
 	let strokeTool: Tool | undefined;
+	let pending: StrokeRelease[] = [];
 	let completion = $state.raw<Completion>();
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
 
@@ -47,6 +48,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	let rejection = $state.raw<Stroke['failure']>();
 	let focus = $state<FocusId>('all');
 	function restore(next: typeof history) {
+		pending = [];
 		rejection = undefined;
 		completion = undefined;
 		history = next;
@@ -64,7 +66,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get completion() {
 			return completion;
 		},
-		opening: { additions, additionSeed: initialSeed },
+		opening: { additions, additionSeed: initialSeed, referenceCellId },
 		get timelineWindow() {
 			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
 		},
@@ -79,7 +81,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			focus = keys[(keys.indexOf(focus) + 1) % keys.length];
 		},
 		advance() {
-			if (stroke) return;
+			if (stroke || pending.length) return;
 			rejection = undefined;
 			edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance');
 		},
@@ -110,7 +112,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			return stroke?.cellIds ?? [];
 		},
 		get failure() {
-			return stroke ? stroke.failure : rejection;
+			return stroke ? undefined : rejection;
 		},
 		get canUndo() {
 			return history.past.length > 0;
@@ -126,14 +128,24 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		strokeMove(cellId: string) {
 			if (stroke) stroke = traceStroke(world.grid, stroke, cellId);
 		},
-		strokeEnd() {
-			if (stroke && strokeTool) {
-				const result = applyStroke(world, strokeTool, stroke.cellIds);
-				rejection = result.failure;
-				edit(result.draft, strokeTool.kind, stroke.cellIds);
-			}
+		/** Detaches the completed gesture so that its first feedback can paint before the edit. */
+		strokeRelease(): StrokeRelease | undefined {
+			const release =
+				stroke?.cellIds.length && strokeTool
+					? { tool: strokeTool, cellIds: stroke.cellIds }
+					: undefined;
 			stroke = undefined;
 			strokeTool = undefined;
+			if (release) pending.push(release);
+			return release;
+		},
+		/** Applies a released gesture in input order. Restoring history discards pending releases. */
+		commitRelease(release: StrokeRelease) {
+			if (pending[0] !== release) return;
+			pending.shift();
+			const result = applyStroke(world, release.tool, release.cellIds);
+			rejection = result.failure;
+			edit(result.draft, release.tool.kind, release.cellIds);
 		},
 		strokeCancel() {
 			stroke = undefined;
@@ -143,6 +155,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		redo: () => restore(redo(history)),
 		/** New terrain from a seed; the built city starts with its seeded town. */
 		restart(seed: number) {
+			pending = [];
 			stroke = undefined;
 			rejection = undefined;
 			strokeTool = undefined;

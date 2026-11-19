@@ -32,7 +32,7 @@ export const focuses = {
 		paths: 'transparent',
 		terrain: 'pencil'
 	},
-	people: { ...all, houses: 'pencil', rail: 'transparent', forest: 'silhouette', terrain: 'pencil' }
+	people: { ...all, houses: 'pencil', forest: 'silhouette', terrain: 'pencil' }
 } as const satisfies Record<string, Focus>;
 export type FocusId = keyof typeof focuses;
 

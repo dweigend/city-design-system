@@ -57,15 +57,14 @@ function alleyOccupiesLot(cell: TerrainCell) {
 	return !!cell.alley && !cell.lotCorners;
 }
 
+function siteRestrictions(cell: TerrainCell) {
+	return [cell.plan.open, cell.zone === 'water', cell.plan.square, alleyOccupiesLot(cell)];
+}
+
 function lostHouseSite(before: TerrainCell, after: TerrainCell) {
 	if (after.buildable || before === after) return false;
-	return (
-		before.buildable ||
-		(after.plan.open && !before.plan.open) ||
-		(after.zone === 'water' && before.zone !== 'water') ||
-		(after.plan.square && !before.plan.square) ||
-		(alleyOccupiesLot(after) && !alleyOccupiesLot(before))
-	);
+	const previous = siteRestrictions(before);
+	return before.buildable || siteRestrictions(after).some((blocked, i) => blocked && !previous[i]);
 }
 
 /** Return storeys to the material store when an intervention takes away their site. */

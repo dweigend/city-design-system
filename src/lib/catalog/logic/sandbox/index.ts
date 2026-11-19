@@ -17,7 +17,7 @@ export {
 	type Tool
 } from './stroke';
 export { cursorFrame, cursorTarget, strokePreview } from './cursor';
-export { currentStacks, houseView } from './houses';
+export { currentStacks, houseView, houseGroups } from './houses';
 export { acceptanceScene, openingScene } from './acceptance-scene';
 export { timelineWindow } from './time-layers';
 export { buildingPlots } from './building-plots';
