@@ -38,7 +38,10 @@ function residents(network: Network, id: string, seed: number) {
 /** Dresses the planner's named surfaces and seats registry figures along the public tree. */
 export function networkParts(network: Network, id: string, seed: number): Primitive[] {
 	const deck = network.geometry.map(({ slot, ...shape }) => {
-		const surface = houseSurfaces[slot];
+		const surface =
+			slot === 'access' || slot === 'deck'
+				? { token: houseSurfaces.access.token, finish: 'kunststoff-formteil' as const }
+				: houseSurfaces[slot];
 		return {
 			...shape,
 			id: id + '/' + shape.id,

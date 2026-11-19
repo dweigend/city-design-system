@@ -1,4 +1,4 @@
-import { stockMasses } from './stock-masses';
+import { townStock } from './town-stock';
 import type { Object3D } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 
@@ -11,7 +11,6 @@ export function houseDistricts() {
 	const sources = new Map<string, Primitive[]>();
 	const targets = new WeakMap<Primitive[], Object3D[]>();
 	let overview = false;
-	let refreshMasses = false;
 
 	function remove(key: string) {
 		const old = locations.get(key);
@@ -21,13 +20,14 @@ export function houseDistricts() {
 		dirty.add(old);
 	}
 
-	function visibleParts(chunk: string, parts: Primitive[]) {
+	function visibleParts(chunk: string, parts: Primitive[], write: (parts: Primitive[]) => void) {
 		const stock = overview ? parts.filter((p) => p.role === 'bestand') : [];
 		if (!stock.length) {
-			sources.delete(chunk);
+			if (sources.delete(chunk)) write([]);
 			return parts;
 		}
 		sources.set(chunk, stock);
+		write(townStock(stock));
 		return parts.filter((p) => p.role !== 'bestand');
 	}
 
@@ -46,7 +46,6 @@ export function houseDistricts() {
 		setOverview(next: boolean) {
 			if (overview === next) return;
 			overview = next;
-			refreshMasses = true;
 			for (const chunk of districts.keys()) dirty.add(chunk);
 		},
 		set(chunk: string, key: string, parts: Primitive[]) {
@@ -58,18 +57,16 @@ export function houseDistricts() {
 			districts.set(chunk, members);
 			dirty.add(chunk);
 		},
-		flush(write: (chunk: string, parts: Primitive[]) => void) {
-			if ((overview && dirty.size) || refreshMasses) {
-				const parts = [...districts.values()].flatMap((members) => [...members.values()].flat());
-				write('stock-overview', overview ? stockMasses(parts) : []);
-				refreshMasses = false;
-			}
+		flush(write: (chunk: string, parts: Primitive[], visual?: boolean) => void) {
 			for (const chunk of dirty) {
 				const members = districts.get(chunk);
 				if (!members) continue;
 				const ordered = [...members].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 				const parts = ordered.flatMap(([, group]) => group);
-				write(chunk, visibleParts(chunk, parts));
+				write(
+					chunk,
+					visibleParts(chunk, parts, (stock) => write(chunk, stock, true))
+				);
 				if (!members.size) districts.delete(chunk);
 			}
 			dirty.clear();

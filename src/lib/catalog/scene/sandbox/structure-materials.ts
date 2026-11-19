@@ -50,7 +50,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
 		}),
-		stock: new THREE.MeshBasicNodeMaterial({
+		stock: new BodyMaterial({
 			polygonOffset: true,
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
@@ -116,7 +116,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		material.castShadowPositionNode = cityEdges ? positionLocal : positionLocal.add(localShift);
 	const graphite = uniform(new THREE.Color());
 	materials.stock.colorNode = cityEdges
-		? mix(paperTone.rgb, graphite.rgb, 0.09)
+		? mix(paperTone.rgb, graphite.rgb, 0.16)
 		: pencilStock(paperTone.rgb, graphite.rgb);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = paperTone;

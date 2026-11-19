@@ -49,7 +49,10 @@ export function createJointLayer(
 		contacts: ReturnType<typeof sandboxStructuralContacts>,
 		grid: TerrainGrid
 	) {
-		seams = wallContact(seated.flatMap((b) => b.parts));
+		seams = wallContact(
+			seated.flatMap((b) => b.parts),
+			grid
+		);
 		if (seams) group.add(seams);
 		const seats = contacts
 			.filter((c) => c.supportNormal || c.seat === 'slab-seam')

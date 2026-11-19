@@ -47,6 +47,7 @@
 		if (!parcel) throw new Error('Missing frame study parcel.');
 		const [x, y, z] = parcel.center;
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), {
+			showFrameStudy: true,
 			frame: [
 				[x - 16, y - 13, z],
 				[x + 16, y + 13, z + 6]

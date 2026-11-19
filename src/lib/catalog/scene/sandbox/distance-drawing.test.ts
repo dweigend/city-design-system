@@ -77,7 +77,7 @@ test('sloped walkways keep a continuous surface at city zoom', () => {
 	const parts = deckParts(corners, 'walk', 2, '--cat-nature', undefined, true);
 	const overview = distanceDrawing(parts, city);
 	expect(overview.details).toBe(false);
-	expect(overview.parts).toHaveLength(1);
+	expect(overview.parts.filter((p) => p.kind === 'polyline')).toHaveLength(2);
 	expect(overview.parts[0]).toMatchObject({ kind: 'membrane', corners, token: '--cat-nature' });
 	expect(overview.unoutlined.has(overview.parts[0])).toBe(true);
 	const closer = distanceDrawing(parts, { ...city, block: false });

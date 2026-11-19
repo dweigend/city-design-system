@@ -2,7 +2,7 @@ import { openCity } from './city-opening';
 import { TWO_SUNS_CELLS, TWO_SUNS_TURNING_DISC, twoSuns } from './two-suns';
 import { advanceFrames } from './frame-construction';
 import { planTownForms } from '../town-forms';
-import { walkwayParts, WALKWAY_WIDTH_M } from '../walkway';
+import { walkwayParts } from '../walkway';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { applyEdit, createWorld, type World } from './world';
 import type { Edit } from './state';
@@ -121,21 +121,21 @@ function elevatedWalkway({ grid }: World): Primitive[] {
 		return cell.center;
 	});
 	const groundZ = Math.min(...ground.map((point) => point[2]));
+	const entryZ = Math.max(ground[0][2], ground[1][2]) + 0.25;
+	const exitZ = Math.max(ground[ground.length - 1][2], ground[ground.length - 2][2]) + 0.25;
 	const deckZ = Math.max(...ground.map((point) => point[2])) + 6;
 	// Flat terminal spans are the landings. The next spans step up to the level deck.
 	const route = ground.map(([x, y], i): Vec3 => [
 		x,
 		y,
-		i < 2 || i >= ground.length - 2 ? groundZ + 0.35 : deckZ
+		i < 2 ? entryZ : i >= ground.length - 2 ? exitZ : deckZ
 	]);
 	return walkwayParts(route, {
 		id: 'acceptance-walkway',
-		width: WALKWAY_WIDTH_M,
+		width: 3.4,
 		groundZ,
 		simplifyAtCity: true
-	}).map((part) =>
-		part.kind === 'cylinder' ? { ...part, role: 'traeger', bearings: [part.position] } : part
-	);
+	}).map((part) => (part.kind === 'prism' ? { ...part, finish: 'kunststoff-formteil' } : part));
 }
 
 /** Projects two frame generations and the fixed drafting details over a supplied town. */

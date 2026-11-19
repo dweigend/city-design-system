@@ -206,7 +206,7 @@ export function populateStructures(
 		const points = parts.carriers.flatMap((part) =>
 			part.kind === 'sphere' || part.token === '--ink' ? (part.bearings ?? []) : []
 		);
-		if (details && points.length)
+		if (contours && details && points.length)
 			objects.add(bearingDots(points, bearingGeometry, materials.bearing));
 	}
 

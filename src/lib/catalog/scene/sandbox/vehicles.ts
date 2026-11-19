@@ -2,13 +2,14 @@ import * as THREE from 'three/webgpu';
 import { mix, normalLocal, positionLocal, uniform } from 'three/tsl';
 import type { Palette3D } from '../../data/city3d';
 import { focuses, type FocusId } from '../../logic/presentation';
-import type { World } from '../../logic/sandbox';
+import { houseObstacles, type World } from '../../logic/sandbox';
 import { kreisSegmente } from '../../logic/parametrik/rundung';
 import { VEHICLE, vehiclePoses } from '../../logic/transit-line';
 
 type Route = {
 	line: World['lines'][number];
 	cars: THREE.Mesh[];
+	clearance: THREE.Box3[];
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -52,35 +53,51 @@ export function createVehicles() {
 		}
 		const cars = vehiclePoses(line, 0).map(() => new THREE.Mesh(geometries[line.kind], material));
 		group.add(...cars);
-		routes.set(line.id, { line, cars });
+		routes.set(line.id, { line, cars, clearance: [] });
 	}
 
-	function setLines(lines: World['lines']) {
+	function setWorld(world: World) {
+		const lines = world.lines;
 		sampledMs = undefined;
 		const ids = new Set(lines.map(({ id }) => id));
 		for (const [id, route] of routes) if (!ids.has(id)) removeRoute(route);
 		for (const line of lines) setLine(line);
+		const stock = houseObstacles(world.grid, world.state).map(
+			({ position: [x, y, z], size: [w, d, h] }) =>
+				new THREE.Box3(
+					new THREE.Vector3(x - w / 2, z, -y - d / 2),
+					new THREE.Vector3(x + w / 2, z + h, -y + d / 2)
+				)
+		);
+		for (const route of routes.values()) {
+			const corridor = new THREE.Box3().setFromPoints(
+				route.line.path.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
+			);
+			corridor.expandByScalar(VEHICLE[route.line.kind].length);
+			route.clearance = stock.filter((box) => corridor.intersectsBox(box));
+		}
 	}
 
 	const swept = new THREE.Box3();
 	const bounds = new THREE.Box3();
-	function includeCar(car: THREE.Mesh) {
+	function carBounds(car: THREE.Mesh) {
 		const geometry = car.geometry;
 		if (!geometry.boundingBox) geometry.computeBoundingBox();
 		car.updateMatrix();
-		if (geometry.boundingBox)
-			swept.union(bounds.copy(geometry.boundingBox).applyMatrix4(car.matrix));
+		return geometry.boundingBox
+			? bounds.copy(geometry.boundingBox).applyMatrix4(car.matrix)
+			: bounds.makeEmpty();
 	}
 	let sampledMs: number | undefined;
 	function step(timeMs: number) {
 		swept.makeEmpty();
 		if (timeMs === sampledMs) return false;
 		sampledMs = timeMs;
-		for (const { line, cars } of routes.values()) {
+		for (const { line, cars, clearance } of routes.values()) {
 			const poses = vehiclePoses(line, timeMs / 1000);
 			poses.forEach(({ position: [x, y, z], headingRad, pitchRad }, index) => {
 				const car = cars[index];
-				if (car.visible) includeCar(car);
+				if (car.visible) swept.union(carBounds(car));
 				car.position.set(x, z, -y);
 				direction.set(
 					Math.cos(headingRad) * Math.cos(pitchRad),
@@ -88,7 +105,9 @@ export function createVehicles() {
 					-Math.sin(headingRad) * Math.cos(pitchRad)
 				);
 				car.quaternion.setFromUnitVectors(UP, direction);
-				if (car.visible) includeCar(car);
+				const box = carBounds(car);
+				car.visible = !clearance.some((stock) => stock.intersectsBox(box));
+				if (car.visible) swept.union(box);
 			});
 		}
 		return !swept.isEmpty();
@@ -96,7 +115,7 @@ export function createVehicles() {
 
 	return {
 		group,
-		setLines,
+		setWorld,
 		/** Updates car ink to match the selected rail focus. */
 		setFocus(focus: FocusId) {
 			const inks = { full: material, transparent: ghost };

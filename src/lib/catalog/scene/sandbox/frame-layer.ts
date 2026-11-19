@@ -184,6 +184,14 @@ export function createFrameLayer(
 		},
 		timings,
 		previewTimings,
+		/** Retires the engineering overlay when leaving the infrastructure drawing. */
+		clear() {
+			for (const id of rows.keys()) structures.set('tg/' + id, []);
+			rows.clear();
+			previous = undefined;
+			roles.clear();
+			awaitingDraw.clear();
+		},
 		dispose() {
 			stopped = true;
 			worker?.terminate();

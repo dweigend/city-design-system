@@ -57,7 +57,7 @@ function survey(world: World) {
 			] as const;
 		})
 	);
-	const stock = houseObstacles(plots, world.state);
+	const stock = houseObstacles(world.grid, world.state);
 	return [
 		...sectionGroups(world.grid, sections, world.seed, stock),
 		...networkGroups(world, sections, r3, stock)
