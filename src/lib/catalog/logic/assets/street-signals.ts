@@ -26,8 +26,8 @@ export const streetSignals = [
 	asset('street-clock', ['body', 'deck'], [1.4, 1.4], (factor) => [
 		...row(2, (t) => drum([0, t * 0.17, 0], 0.055, 2.9 * factor)),
 		ring([0, 0, 2.9 * factor + 0.39], 0.56, 0, 0.16),
-		rod([0.1, 0, 2.9 * factor + 0.39], [0.1, 0.23, 2.9 * factor + 0.52], 0.025, 'deck'),
-		rod([0.1, 0, 2.9 * factor + 0.39], [0.1, 0, 2.9 * factor + 0.75], 0.022, 'deck')
+		rod([0.1, 0, 2.9 * factor + 0.39], [0.1, 0.23, 2.9 * factor + 0.52], 0.06, 'deck'),
+		rod([0.1, 0, 2.9 * factor + 0.39], [0.1, 0, 2.9 * factor + 0.75], 0.06, 'deck')
 	]),
 	asset('poster-drum', ['body', 'glass'], [1.8, 1.8], (factor) => [
 		drum([0, 0, 0], 0.82, 0.16),
@@ -67,7 +67,7 @@ export const streetSignals = [
 				0,
 				(3.05 + 0.45 * ((i - 8) / 8) ** 2) * factor
 			]),
-			0.025
+			0.06
 		),
 		...row(5 + variant, (t) =>
 			bulb(
@@ -87,7 +87,7 @@ export const streetSignals = [
 					[0.75 - i * 0.12, -0.2, 0.065],
 					[0.75 - i * 0.12, 1.3 * factor, 0.065]
 				],
-				0.055,
+				0.06,
 				'highlight'
 			)
 		)

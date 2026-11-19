@@ -1,6 +1,6 @@
 import type { ObjectGeometry } from './object-geometry';
 import { mount, type AssetRecipe } from './definition';
-import { slab, ring, surface } from './parts';
+import { slab, ring, surface, bulb } from './parts';
 import type { Vec3 } from '../parametrik/types';
 function ellipse(
 	x: number,
@@ -71,6 +71,17 @@ export const porthole: AssetRecipe = {
 			ring([0.09, 0, r], r, r * 0.82, 0.18),
 			ring([0.09, 0, r], r * 0.835, 0, 0.075, 'glass')
 		];
+		for (let i = 0; i < 8; i++) {
+			const angle = ((i + 0.5) * Math.PI) / 4;
+			parts.push(
+				bulb(
+					[variant === 2 ? 0.22 : 0.18, r * 0.91 * Math.cos(angle), r + r * 0.91 * Math.sin(angle)],
+					0.021,
+					1,
+					'accent'
+				)
+			);
+		}
 		if (variant === 2) parts.push(ring([0.19, 0, r], r * 0.95, r * 0.86, 0.06, 'accent'));
 		if (variant === 3)
 			parts.push(

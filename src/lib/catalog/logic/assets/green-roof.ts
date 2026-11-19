@@ -1,5 +1,6 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, cap } from './parts';
+import { panel } from './objects/forms';
+import { cap } from './parts';
 
 export const greenRoof: AssetRecipe = {
 	id: 'green-roof',
@@ -11,11 +12,10 @@ export const greenRoof: AssetRecipe = {
 	draw(variant, sample) {
 		const w = 6,
 			l = 4.35,
-			parts = [slab([-w / 2, -l / 2, 0], [w, l, 0.2])];
-		if (variant === 0) parts.push(slab([-2.84, -2.02, 0.2], [5.68, 4.04, 0.18], 'planting'));
+			parts = [panel(0, 0, 0, w, l, 0.2, 'body')];
+		if (variant === 0) parts.push(panel(0, 0, 0.2, 5.68, 4.04, 0.18, 'planting'));
 		if (variant === 1)
-			for (const y of [-1.43, 0, 1.43])
-				parts.push(slab([-2.75, y - 0.46, 0.2], [5.5, 0.92, 0.22], 'planting'));
+			for (const y of [-1.43, 0, 1.43]) parts.push(panel(0, y, 0.2, 5.5, 0.92, 0.22, 'planting'));
 		if (variant === 2)
 			for (const [x, y, r] of [
 				[-1.5, -0.55, 1.12],

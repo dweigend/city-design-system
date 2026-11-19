@@ -30,7 +30,7 @@ export const bayWindow: AssetRecipe = {
 			section(0.18, h, 'glass'),
 			section(h + 0.18, 0.17, 'body'),
 			...[-1, 1].map((sign) =>
-				rod([d - 0.035, sign * w * 0.31, 0.18], [d - 0.035, sign * w * 0.31, h + 0.18], 0.035)
+				rod([d - 0.065, sign * w * 0.31, 0.18], [d - 0.065, sign * w * 0.31, h + 0.18], 0.065)
 			)
 		];
 	}

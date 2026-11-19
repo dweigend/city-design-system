@@ -16,7 +16,7 @@ export const roofPlanting: AssetRecipe = {
 			if (variant === 0) {
 				for (const sign of [-1, 1])
 					parts.push(
-						rod([x, y, 0.12], [x + 0.17 * sign, y + 0.1, 0.48 + 0.13 * sample], 0.038, 'planting')
+						rod([x, y, 0.12], [x + 0.17 * sign, y + 0.1, 0.48 + 0.13 * sample], 0.065, 'planting')
 					);
 			} else
 				parts.push(
