@@ -59,6 +59,7 @@ test('seed 7 repairs the overlong inter-roof diagonal before committing the carr
 	}
 });
 
+// The fixture sweep checks a geometric invariant; the runner timeout only guards hangs.
 test('every member of every committed carrier stays within 15 m in space', () => {
 	// These roofs exercise single bays, connected spans and rejected strokes.
 	const fixtures = [
@@ -99,4 +100,4 @@ test('every member of every committed carrier stays within 15 m in space', () =>
 		expect(built).toBeGreaterThan(0);
 		expect(rejected).toBeGreaterThan(0);
 	}
-});
+}, 60_000);

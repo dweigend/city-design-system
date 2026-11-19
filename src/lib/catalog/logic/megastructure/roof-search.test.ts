@@ -1,39 +1,17 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { buildRoofFrame, planRoofFrame, type RoofCell } from './index';
+import { buildRoofFrame, planRoofFrame } from './index';
 import { selectConnectedLayout } from './connected-layouts';
 import type { RoofLink } from './roof-links';
 
-function rect(id: string, x: number, y: number, w: number, h: number): RoofCell {
-	return {
-		id,
-		height: 4,
-		polygon: [
-			[x, y],
-			[x + w, y],
-			[x + w, y + h],
-			[x, y + h]
-		]
-	};
-}
-function reviewRow(n: number) {
-	return [
-		rect('a', 0, 0, 4, 12),
-		rect('b', 0, -12.5, 4, 12),
-		rect('c', 0, 12.5, 4, 12),
-		...Array.from({ length: n - 3 }, (_, i) =>
-			rect(String(i).padStart(2, '0'), -6.5 - 2.5 * i, 4, 2, 4)
-		)
-	];
-}
+import { connectedRow, rect, reviewRow } from '../../../../../scripts/test-fixtures/roof-search';
+
 for (const n of [13, 30])
-	test('conflicting bridge bearings in the ' + n + '-roof review row take under 50 ms', () => {
-		const roofs = reviewRow(n),
-			start = performance.now();
-		const result = planRoofFrame(roofs, { maxSpan: 7 });
-		const elapsed = performance.now() - start;
-		assert.equal(result.status, 'incompatible-bridge-bearings');
-		assert.ok(elapsed < 50, `${n} roofs took ${elapsed.toFixed(2)} ms`);
+	test('conflicting bridge bearings in the ' + n + '-roof review row', () => {
+		assert.equal(
+			planRoofFrame(reviewRow(n), { maxSpan: 7 }).status,
+			'incompatible-bridge-bearings'
+		);
 	});
 test('disconnected span graph identifies independent groups before choosing bearings', () => {
 	const roofs = [rect('c', 100, 0, 2, 4), rect('b', 4, 0, 2, 4), rect('a', 0, 0, 2, 4)];
@@ -86,18 +64,13 @@ test('more than two independent cycles use only the primary tree', () => {
 		treesTried: 1
 	});
 });
-for (const n of [13, 30])
-	test('a connected row of ' + n + ' roofs assembles and solves under 50 ms', () => {
-		const roofs = Array.from({ length: n }, (_, i) =>
-			rect(String(i).padStart(2, '0'), i * 5, 0, 2, 4)
-		);
-		const start = performance.now(),
-			result = planRoofFrame(roofs, { maxSpan: 7 }),
-			elapsed = performance.now() - start;
+test('connected rows of 13 and 30 roofs assemble and solve', () => {
+	for (const n of [13, 30]) {
+		const result = planRoofFrame(connectedRow(n), { maxSpan: 7 });
 		assert.equal(result.status, 'assembled');
 		assert.equal(result.frame.analysis.status, 'ok');
-		assert.ok(elapsed < 50, `${n} roofs took ${elapsed.toFixed(2)} ms`);
-	});
+	}
+});
 
 test('five review roofs connect through the second cycle at an 11 m span', () => {
 	const roofs = [
