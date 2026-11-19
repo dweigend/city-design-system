@@ -9,7 +9,6 @@ import type {
 import type { Vec3 } from '../parametrik/types';
 import type { EnsembleDistrict } from '../district-frame';
 import type { QuadCell } from '../quad-grid';
-export type { HouseSlot } from '../house-typology';
 export type HouseSite = Site & { context?: EnsembleContext };
 export type Section = {
 	compact: boolean;
