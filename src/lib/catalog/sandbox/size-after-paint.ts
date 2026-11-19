@@ -19,7 +19,7 @@ export function sizeAfterPaint(sites: Parameters<typeof sizeFrameSites>[0]) {
 					};
 					worker.postMessage(sites);
 				} catch (error) {
-					reject(error);
+					reject(error instanceof Error ? error : new Error(String(error)));
 				}
 			})
 		);
