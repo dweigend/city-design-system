@@ -127,11 +127,8 @@ export function moduleGroup<R extends ModuleRod>(
 	// Five stations cost at most 25 K2 calls per rod, including a ceramic-to-tank fallback.
 	const entries = candidates.map((rod) => {
 		const cell = site.cell(rod);
-		return {
-			rod,
-			seed: castingSeed(site.seed, cell),
-			preferred: use === 'water' ? waterFitting(site.seed, cell) : accents[use]
-		};
+		const preferred: ModuleRecipe = use === 'water' ? waterFitting(site.seed, cell) : accents[use];
+		return { rod, seed: castingSeed(site.seed, cell), preferred };
 	});
 	function survey(mode: 'shell' | 'preferred' | 'fallback') {
 		return entries.flatMap(({ rod, seed, preferred }) => {
