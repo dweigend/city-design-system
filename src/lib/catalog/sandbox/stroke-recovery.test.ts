@@ -6,6 +6,30 @@ import { gestureDriver } from './fixtures/serial-gesture';
 
 const house = { kind: 'house', use: 'living' } as const;
 
+test('Advance in the failing survey callback preserves the warning until an accepted stroke', () => {
+	const d = gestureDriver();
+	const planner = spyOn(sandbox, 'planStroke').mockImplementationOnce(() => {
+		throw new Error('Injected survey exception before Advance');
+	});
+	try {
+		d.stroke(house, '80/44');
+		d.session.advance();
+		d.finish();
+		expect(d.world().state.year).toBe(2051);
+		expect(d.session.failure?.reason).toBe('stroke-failed');
+		expect(d.events.map(({ kind }) => kind)).toEqual(['advance']);
+		d.session.togglePlan();
+		d.session.tool = { kind: 'dig' };
+		expect(d.session.failure?.reason).toBe('stroke-failed');
+		d.stroke(house, '81/44');
+		d.finish();
+		expect(d.session.failure).toBeUndefined();
+	} finally {
+		planner.mockRestore();
+		d.dispose();
+	}
+});
+
 for (const phase of ['survey', 'commit'] as const) {
 	test(`a ${phase} exception rejects the stroke and replays the buffered tap`, () => {
 		const d = gestureDriver();

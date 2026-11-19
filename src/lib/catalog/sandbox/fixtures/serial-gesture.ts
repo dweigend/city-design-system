@@ -15,7 +15,7 @@ class PointerCanvas extends EventTarget {
 }
 
 type Position = NonNullable<Parameters<InputHooks['hover']>[0]>;
-type PickCell = (world: World, x: number, y: number) => number | undefined;
+type PickCell = (world: World, x: number, y: number, plan: boolean) => number | undefined;
 type DriverOptions = {
 	record?: (event: Completion) => void;
 	checkProgress?: (step: string) => void;
@@ -48,7 +48,9 @@ export function gestureDriver(
 		{
 			show: (world) => (displayed = world),
 			pickCell: (x, y) =>
-				pick ? pick(displayed, x, y) : displayed.grid.cellsById.get(x + '/' + y)?.index
+				pick
+					? pick(displayed, x, y, session.plan)
+					: displayed.grid.cellsById.get(x + '/' + y)?.index
 		},
 		(id) => (hovered = id)
 	);

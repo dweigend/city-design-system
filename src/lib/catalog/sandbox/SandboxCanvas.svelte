@@ -19,7 +19,6 @@
 	let {
 		session,
 		label,
-		plan = false,
 		openingArea,
 		storeTarget,
 		transitPaused = false,
@@ -27,8 +26,6 @@
 	}: {
 		session: Session;
 		label: string;
-		/** True shows the plan from above instead of the axonometric view. */
-		plan?: boolean;
 		openingArea?: () => OpeningArea | undefined;
 		storeTarget?: HTMLElement;
 		transitPaused?: boolean;
@@ -58,7 +55,7 @@
 	function showCurrent() {
 		const { world, focus, completion } = session;
 		const place = completion?.after.state === world.state && completion.kind !== 'advance';
-		stage?.setPlan(plan);
+		stage?.setPlan(session.plan);
 		hover?.show(world, focus, place);
 	}
 
@@ -83,8 +80,7 @@
 			{
 				openingArea,
 				frameTown: true,
-				...session.opening,
-				onDrawingChanged: () => target.refresh()
+				...session.opening
 			}
 		);
 		void current.ready.catch(() => {});
@@ -145,6 +141,7 @@
 		return () => {
 			mounted = false;
 			detach();
+			target.dispose();
 			session.disposeInput();
 			unsubscribe();
 			for (const id of releaseFrames) cancelAnimationFrame(id);

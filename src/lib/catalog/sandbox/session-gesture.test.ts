@@ -5,6 +5,7 @@ import * as terrainGrid from '../logic/terrain-grid';
 import type { Tool } from '../logic/sandbox';
 import { gestureDriver } from './fixtures/serial-gesture';
 import { stateDigest } from './fixtures/state-digest';
+import { activateChoice, createHudCommands } from './hud-commands';
 
 const house = { kind: 'house', use: 'living' } as const;
 const material = { kind: 'house', use: 'material' } as const;
@@ -172,7 +173,51 @@ test('two digs, a multi-basin erase and Q each survey once from touchdown to dis
 	}
 });
 
+type HudInput =
+	| { kind: 'hud-tool'; id: 'house' | 'dig' }
+	| { kind: 'hud-use'; id: 'living' | 'water' }
+	| { kind: 'hud-method'; id: 'collage' | 'totem' }
+	| { kind: 'plan' };
+
+const click = () => new Event('click', { cancelable: true }) as MouseEvent;
+
+for (const delay of [0, 500]) {
+	for (const last of ['hud', 'keyboard'] as const) {
+		test(`tool choice survives keyboard/HUD order with ${delay} ms delay and ${last} last`, () => {
+			const d = gestureDriver(() => delay);
+			const hud = createHudCommands(d.session);
+			try {
+				d.stroke(house, '80/44');
+				const selectHouse = () => activateChoice(() => hud.pickTool('house')).onclick(click());
+				if (last === 'hud') {
+					hud.pickTool('dig');
+					selectHouse();
+				} else {
+					selectHouse();
+					hud.pickTool('dig');
+				}
+				expect(d.session.requestedChoice).toBe(
+					delay ? (last === 'hud' ? 'House' : 'Dig') : undefined
+				);
+				d.down('81/44');
+				d.up('81/44');
+				d.drain();
+				const expected = last === 'hud' ? 'house' : 'dig';
+				expect(d.events.map(({ kind }) => kind)).toEqual(['house', expected]);
+				expect(d.session.tool.kind).toBe(expected);
+				expect(d.session.requestedChoice).toBeUndefined();
+				expect(d.world().state.stacks.has('81/44')).toBe(expected === 'house');
+				expect(d.world().state.edits).toHaveLength(expected === 'dig' ? 1 : 0);
+			} finally {
+				d.dispose();
+			}
+		});
+	}
+}
+
 type RawInput =
+	| HudInput
+	| { kind: 'tap'; cell: string }
 	| { kind: 'stroke'; tool: Tool; cells: readonly [string, ...string[]] }
 	| { kind: 'advance' | 'undo' | 'redo' | 'restart' | 'kernel' };
 
@@ -187,28 +232,41 @@ const samples: RawInput[] = [
 	{ kind: 'undo' },
 	{ kind: 'redo' },
 	{ kind: 'advance' },
+	{ kind: 'hud-tool', id: 'dig' },
+	{ kind: 'hud-tool', id: 'house' },
+	{ kind: 'hud-use', id: 'water' },
+	{ kind: 'hud-use', id: 'living' },
+	{ kind: 'hud-method', id: 'totem' },
+	{ kind: 'hud-method', id: 'collage' },
+	{ kind: 'plan' },
+	{ kind: 'tap', cell: '81/44' },
 	{ kind: 'kernel' }
 ];
 
 function play(inputs: RawInput[], delays: number[], checkProgress: (step: string) => void) {
 	const events: unknown[] = [];
-	const d = gestureDriver((stroke) => delays[stroke % delays.length], undefined, {
-		checkProgress,
-		record: ({ kind, before, after, cellIds }) => {
-			events.push([
-				kind,
-				before.seed,
-				after.seed,
-				stateDigest(before.state),
-				stateDigest(after.state),
-				[...cellIds]
-			]);
+	const d = gestureDriver(
+		(stroke) => delays[stroke % delays.length],
+		(world, x, y, plan) => world.grid.cellsById.get(`${x + Number(plan)}/${y}`)?.index,
+		{
+			checkProgress,
+			record: ({ kind, before, after, cellIds }) => {
+				events.push([
+					kind,
+					before.seed,
+					after.seed,
+					stateDigest(before.state),
+					stateDigest(after.state),
+					[...cellIds]
+				]);
+			}
 		}
-	});
+	);
+	const hud = createHudCommands(d.session);
 	const snapshot = () => stateDigest(d.world().state);
 	const walk = (direction: 'undo' | 'redo') => {
 		const observed: string[] = [];
-		const available = () => direction === 'undo' ? d.session.canUndo : d.session.canRedo;
+		const available = () => (direction === 'undo' ? d.session.canUndo : d.session.canRedo);
 		while (available()) {
 			checkProgress(direction);
 			if (observed.length >= inputs.length) throw new Error(`Too many ${direction} steps`);
@@ -229,6 +287,22 @@ function play(inputs: RawInput[], delays: number[], checkProgress: (step: string
 				case 'kernel':
 					d.session.setRoofBuilder(roof);
 					break;
+				case 'hud-tool':
+					activateChoice(() => hud.pickTool(input.id)).onclick(click());
+					break;
+				case 'hud-use':
+					activateChoice(() => hud.pickValue('house', input.id, input.id)).onclick(click());
+					break;
+				case 'hud-method':
+					activateChoice(() => hud.pickMethod(input.id)).onclick(click());
+					break;
+				case 'tap':
+					d.down(input.cell);
+					d.up(input.cell);
+					break;
+				case 'plan':
+					d.session.togglePlan();
+					break;
 				default:
 					d.session[input.kind]();
 			}
@@ -240,7 +314,14 @@ function play(inputs: RawInput[], delays: number[], checkProgress: (step: string
 		if (d.waiting() || d.session.hasPendingStroke || d.session.gesture)
 			throw new Error('Input still active after draining the sequence');
 		const { reason, marks } = d.session.failure ?? {};
-		const final = { state: snapshot(), seed: d.world().seed, reason, marks };
+		const final = {
+			state: snapshot(),
+			seed: d.world().seed,
+			reason,
+			marks,
+			tool: d.session.tool,
+			plan: d.session.plan
+		};
 		const future = walk('redo');
 		const past = walk('undo');
 		return { final, future, past, events };
@@ -268,6 +349,14 @@ test('random raw input matches zero-latency execution in city, history and event
 		const inputs = Array.from({ length: 26 }, () => samples[pick(samples.length)]);
 		inputs.splice(12, 0, { kind: 'restart' });
 		inputs.splice(1, 0, { kind: 'kernel' });
+		inputs.push(
+			{ kind: 'hud-tool', id: 'dig' },
+			{ kind: 'hud-tool', id: 'house' },
+			{ kind: 'hud-use', id: 'water' },
+			{ kind: 'hud-method', id: 'collage' },
+			{ kind: 'plan' },
+			{ kind: 'tap', cell: '81/44' }
+		);
 		const timings = choices.map((_, i) => choices[(i + pick(4)) % 4]);
 		timings.push(0, 16, 32, 500);
 		expect(play(inputs, timings, checkProgress)).toEqual(play(inputs, [0], checkProgress));

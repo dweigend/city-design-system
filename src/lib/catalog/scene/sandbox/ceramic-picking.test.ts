@@ -11,7 +11,6 @@ import {
 } from '../../logic/sandbox';
 import { createCellPicker } from './house-picker';
 import { projectInstallations, KEY } from './projection';
-import { surfaceGeometry } from './terrain-geometry';
 import { createView } from './view';
 import { BLICK } from '../../data/leitstil';
 import { contourWidthMeters } from './contour-width';
@@ -34,10 +33,21 @@ const draw = (w: World, style: 'totem' | 'megastructure') =>
 const frame = draw(world, 'megastructure'),
 	installed = draw(frame, 'totem');
 
+function ceramicOutlined(layer: Awaited<ReturnType<typeof structureLayer>>, key: string) {
+	const [target] = layer.solids(key);
+	assert(target instanceof T.Mesh);
+	assert.equal(target.parent, null);
+	assert.equal(target.userData.cellId, '90/40');
+	const matchingFaces = layer.group.children.flatMap((batch) =>
+		batch.children.filter((face) => face instanceof T.Mesh && face.geometry === target.geometry)
+	);
+	assert(matchingFaces.length > 0);
+	return matchingFaces.length > 1;
+}
+
 test('installation rays hit the exposed body and lip, traverse the bore and respect nearer geometry', async () => {
 	const layer = await structureLayer();
-	const ground = new T.Mesh(surfaceGeometry(world.grid), new T.MeshBasicMaterial());
-	const cover = new T.Mesh(new T.BoxGeometry(4, 1, 4), ground.material);
+	const cover = new T.Mesh(new T.BoxGeometry(4, 1, 4), new T.MeshBasicMaterial());
 	try {
 		projectInstallations(layer, world, installed, 'all');
 		const forms = installationView(installed, 'all');
@@ -57,7 +67,7 @@ test('installation rays hit the exposed body and lip, traverse the bore and resp
 		const cell = (wx: number, wy: number, objects: T.Object3D[]) => {
 			const pos = new T.Vector3(wx, z, -wy).project(view.camera);
 			return world.grid.cells[
-				picker((1 + pos.x) * 400, (1 - pos.y) * 300, world.grid, ground, objects) ?? -1
+				picker((1 + pos.x) * 400, (1 - pos.y) * 300, world.grid, objects) ?? -1
 			]?.id;
 		};
 		cover.userData.cellId = '89/42';
@@ -78,9 +88,8 @@ test('installation rays hit the exposed body and lip, traverse the bore and resp
 		assert.equal(cell(lipX, lipY, layer.solids(KEY.installation)), cell(lipX, lipY, []));
 	} finally {
 		layer.dispose();
-		ground.geometry.dispose();
 		cover.geometry.dispose();
-		ground.material.dispose();
+		cover.material.dispose();
 	}
 });
 
@@ -180,17 +189,8 @@ test('city ceramic loses only its outline below six projected pixels', async () 
 			layer.setStyle([style, 'leitstil', scale], BLICK.hoeheRad);
 			assert.equal(width * scale >= 6, outlined);
 			for (const mesh of meshes) {
-				const [face] = layer.solids(mesh.id + '#');
-				assert(face instanceof T.Mesh && face.parent);
-				assert.equal(face.userData.cellId, '90/40');
-				if (mesh === body)
-					assert.equal(
-						face.parent.children.some(
-							(other) =>
-								other instanceof T.Mesh && other !== face && other.geometry === face.geometry
-						),
-						outlined
-					);
+				const visible = ceramicOutlined(layer, mesh.id + '#');
+				if (mesh === body) assert.equal(visible, outlined);
 			}
 		}
 	} finally {
@@ -213,13 +213,7 @@ test('the city ceramic switches once in each zoom direction and starts fresh aft
 			const boundary = 6 / contourWidthMeters(body, elevation);
 			const setScale = (ratio: number) =>
 				layer.setStyle([style, 'leitstil', boundary * ratio], elevation);
-			const visible = () => {
-				const [face] = layer.solids('body');
-				assert(face instanceof T.Mesh && face.parent && face.userData.cellId === '90/40');
-				return face.parent.children.some(
-					(o) => o instanceof T.Mesh && o !== face && o.geometry === face.geometry
-				);
-			};
+			const visible = () => ceramicOutlined(layer, 'body');
 			layer.clear();
 			setScale(1);
 			layer.set('body', [body], '90/40');

@@ -14,12 +14,13 @@ import {
 type Batch = ReturnType<typeof structureBatch> & {
 	primitives: Primitive[];
 	drawing: DistanceDrawing;
+	cellId?: string;
 };
 type Moving = ReturnType<typeof placementGroups>['groups'][number] & {
 	objects: Batch;
 	startedMs: number;
 };
-type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[] };
+type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[]; cellId?: string };
 
 export type Structures = ReturnType<typeof createStructures>;
 
@@ -29,11 +30,24 @@ export function createStructures() {
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials();
 	const entries = new Map<string, Entry>();
+	const pending = new Map<
+		string,
+		{ primitives: Primitive[]; cellId?: string; startedMs?: number }
+	>();
 	const hitLists = new Map<string, THREE.Object3D[]>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
-	function draw(primitives: Primitive[], drawing = distanceDrawing(primitives, distance)): Batch {
-		return { ...structureBatch(primitives, finishes, dot, drawing), primitives, drawing };
+	function draw(
+		primitives: Primitive[],
+		cellId?: string,
+		drawing = distanceDrawing(primitives, distance)
+	): Batch {
+		return {
+			...structureBatch(primitives, finishes, dot, drawing, cellId),
+			primitives,
+			drawing,
+			cellId
+		};
 	}
 
 	function releaseObjects({ group: batch }: Batch) {
@@ -53,35 +67,40 @@ export function createStructures() {
 		key: string,
 		primitives: Primitive[],
 		previous: Entry | undefined,
+		cellId?: string,
 		startedMs?: number
 	): Entry {
-		if (startedMs === undefined) return { primitives, objects: draw(primitives), moving: [] };
+		if (startedMs === undefined) {
+			const drawing = distanceDrawing(primitives, distance, previous?.objects.drawing.contours);
+			return { primitives, objects: draw(primitives, cellId, drawing), moving: [], cellId };
+		}
 		const { seated, groups } = placementGroups(key, primitives, previous?.primitives ?? []);
-		const objects = draw(seated);
+		const objects = draw(seated, cellId);
 		const moving = groups.map((item) => ({
 			...item,
-			objects: draw(item.parts),
+			objects: draw(item.parts, cellId),
 			startedMs
 		}));
-		return { primitives, objects, moving };
+		return { primitives, objects, moving, cellId };
 	}
 
 	/** Replaces one structure key, optionally seating its new parts from a clock time in ms. */
-	function set(key: string, primitives: Primitive[], startedMs?: number) {
+	function set(key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
 		const previous = entries.get(key);
+		if (previous?.primitives === primitives && previous.cellId === cellId) return;
 		hitLists.clear();
 		if (previous) release(previous);
 		entries.delete(key);
 		if (!primitives.length) return;
-		const entry = makeEntry(key, primitives, previous, startedMs);
+		const entry = makeEntry(key, primitives, previous, cellId, startedMs);
 		group.add(entry.objects.group, ...entry.moving.map((item) => item.objects.group));
 		entries.set(key, entry);
 	}
 
 	function redrawBatch(batch: Batch, recolor: boolean) {
-		const drawing = distanceDrawing(batch.primitives, distance);
+		const drawing = distanceDrawing(batch.primitives, distance, batch.drawing.contours);
 		if (!recolor && sameDrawing(batch.drawing, drawing)) return batch;
-		const next = draw(batch.primitives, drawing);
+		const next = draw(batch.primitives, batch.cellId, drawing);
 		hitLists.clear();
 		next.group.position.copy(batch.group.position);
 		next.group.visible = batch.group.visible;
@@ -91,7 +110,8 @@ export function createStructures() {
 	}
 
 	function redraw(recolor: boolean) {
-		for (const entry of entries.values()) {
+		for (const [key, entry] of entries) {
+			if (pending.has(key)) continue;
 			entry.objects = redrawBatch(entry.objects, recolor);
 			for (const item of entry.moving) item.objects = redrawBatch(item.objects, recolor);
 		}
@@ -99,6 +119,7 @@ export function createStructures() {
 
 	/** Removes every key. */
 	function clear() {
+		pending.clear();
 		for (const key of [...entries.keys()]) set(key, []);
 	}
 
@@ -114,6 +135,20 @@ export function createStructures() {
 	return {
 		group,
 		set,
+		/** Coalesces geometry changes until the camera and drawing style are ready. */
+		queue(key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
+			const previous = entries.get(key);
+			if (
+				!primitives.length ||
+				(previous?.primitives === primitives && previous.cellId === cellId)
+			) {
+				pending.delete(key);
+				if (!primitives.length) set(key, []);
+				return;
+			}
+			const prior = pending.get(key);
+			pending.set(key, { primitives, cellId, startedMs: startedMs ?? prior?.startedMs });
+		},
 		clear,
 		/** Updates pending drop offsets and reports whether another frame is needed. */
 		step(timeMs: number, reduced: boolean) {
@@ -138,6 +173,9 @@ export function createStructures() {
 				distance = { scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
+			for (const [key, { primitives, cellId, startedMs }] of pending)
+				set(key, primitives, cellId, startedMs);
+			pending.clear();
 		},
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,

@@ -4,7 +4,7 @@ import type { World } from '../../logic/sandbox';
 
 /** Keeps cursor picks on the installed world and remembers a stationary pointer across redraws. */
 export function createCanvasHover(
-	stage: Pick<SandboxStage, 'show' | 'pickCell'>,
+	stage: Pick<SandboxStage, 'show' | 'pickCell'> & Partial<Pick<SandboxStage, 'afterFrame'>>,
 	publish: (cellId: string | undefined) => void
 ) {
 	let shown: World | undefined;
@@ -25,6 +25,7 @@ export function createCanvasHover(
 	return {
 		cellAt,
 		refresh,
+		dispose: stage.afterFrame?.(refresh) ?? (() => {}),
 		move(position: typeof pointer) {
 			pointer = position;
 			return refresh();
@@ -34,7 +35,7 @@ export function createCanvasHover(
 			stage.show(world, nextFocus, place);
 			shown = world;
 			focus = nextFocus;
-			refresh();
+			if (!stage.afterFrame) refresh();
 		}
 	};
 }

@@ -54,10 +54,25 @@ export function createSession(
 	const selectedTool = $derived(tool.kind === 'house' ? { ...tool, style: method } : tool);
 
 	let focus = $state<FocusId>('all');
+	let plan = $state(false);
+	let request = $state.raw<{ label: string }>();
+
+	/** Publishes the latest requested choice until its command is replayed. */
+	function control(run: () => void, label?: string) {
+		const choice = label ? { label } : undefined;
+		if (choice) request = choice;
+		input.control(() => {
+			try {
+				run();
+			} finally {
+				if (request === choice) request = undefined;
+			}
+		});
+	}
 
 	/** Resolves options at replay time, after any preceding tool choices. */
-	function selectTool(choose: () => Tool) {
-		input.control(() => (tool = choose()));
+	function selectTool(choose: () => Tool, label?: string) {
+		control(() => (tool = choose()), label);
 	}
 
 	/** Shares one survey between the final preview and its commit. */
@@ -85,7 +100,14 @@ export function createSession(
 
 	return {
 		input: input.pointer,
-		control: input.control,
+		get plan() {
+			return plan;
+		},
+		/** Changes the picking projection at the same point as other queued controls. */
+		togglePlan: () => control(() => (plan = !plan), 'Plan view'),
+		get requestedChoice() {
+			return request?.label;
+		},
 		get completion() {
 			return completion;
 		},
@@ -107,12 +129,12 @@ export function createSession(
 			return focus;
 		},
 		cycleFocus() {
-			input.control(() => {
+			control(() => {
 				const keys = Object.keys(focuses) as FocusId[];
 				focus = keys[(keys.indexOf(focus) + 1) % keys.length];
-			});
+			}, 'Focus');
 		},
-		advance: () => input.control(actions.advance),
+		advance: () => control(actions.advance, 'Advance'),
 		get tool() {
 			return selectedTool;
 		},
@@ -123,11 +145,16 @@ export function createSession(
 			return method;
 		},
 		/** Changes the house method if it is available in this epoch. */
-		pickMethod(method: BuildingMethod | (() => BuildingMethod | undefined)) {
-			input.control(() => {
+		pickMethod(method: BuildingMethod | (() => BuildingMethod | undefined), label?: string) {
+			control(() => {
 				const next = typeof method === 'function' ? method() : method;
-				if (next && tool.kind === 'house' && methods.includes(next)) chosenMethod = next;
-			});
+				if (
+					next &&
+					methods.includes(next) &&
+					(typeof method !== 'function' || tool.kind === 'house')
+				)
+					chosenMethod = next;
+			}, label);
 		},
 		selectTool,
 		set tool(next: Tool) {
@@ -200,11 +227,12 @@ export function createSession(
 		/** Drops native input and pending work when the canvas is disposed. */
 		disposeInput() {
 			stroke = pending = surveyed = undefined;
+			request = undefined;
 			input.clear();
 		},
-		undo: () => input.control(actions.undo),
-		redo: () => input.control(actions.redo),
-		restart: () => input.control(actions.restart),
+		undo: () => control(actions.undo, 'Undo'),
+		redo: () => control(actions.redo, 'Redo'),
+		restart: () => control(actions.restart, 'New terrain'),
 		dismissRejection: () => input.control(actions.clearRejection)
 	};
 }

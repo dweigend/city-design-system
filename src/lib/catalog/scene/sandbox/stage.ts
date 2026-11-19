@@ -21,7 +21,7 @@ import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { KEY, projectChanges } from './projection';
+import { KEY, projectChanges, projectInstallations } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
@@ -33,7 +33,6 @@ import { createFrameLoop } from './frame-loop';
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
 	openingArea?: () => OpeningArea | undefined;
-	onDrawingChanged?: () => void;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
 	/** Seed the study additions belong to, if restricted to one terrain. */
@@ -68,6 +67,7 @@ export function createSandboxStage(
 	const view = createView();
 	const light = createLight();
 	const structures = createStructures();
+	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
 	scene.add(...light.objects, structures.group, vehicles.group);
@@ -112,7 +112,10 @@ export function createSandboxStage(
 	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
 	let refreshTones = true;
 	let viewDirty = true;
-	let drawingChanged = false;
+	const frameListeners = new Set<() => void>();
+	let coarse = false;
+	let viewScale = 0;
+	let viewElevation = 0;
 	let shadowsDirty = true;
 	const flushShadows = () => (shadowsDirty = true);
 	let opening: World | undefined;
@@ -121,6 +124,10 @@ export function createSandboxStage(
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
 		const zoom = nearestZoom(scale);
+		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
+		if (nextCoarse !== coarse && shown)
+			projectInstallations(nextFrame, shown, shown, focus, nextCoarse);
+		coarse = nextCoarse;
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context, variant);
@@ -134,12 +141,15 @@ export function createSandboxStage(
 	}
 
 	function prepareView() {
-		if (!viewDirty && !refreshTones) return;
+		const scale = view.metersPerPixel();
+		const elevation = view.elevation();
+		if (!viewDirty && !refreshTones && scale === viewScale && elevation === viewElevation) return;
+		viewScale = scale;
+		viewElevation = elevation;
 		light.aim(view.target, view.span());
 		pixelsPerMeter.value = 1 / view.metersPerPixel();
 		updateStyle();
 		viewDirty = false;
-		drawingChanged = true;
 	}
 
 	function renderImage(seating: boolean) {
@@ -151,13 +161,10 @@ export function createSandboxStage(
 
 	const loop = createFrameLoop(gpu.isLive, ({ timeMs, transitMs, reduced }) => {
 		prepareView();
-		if (drawingChanged) {
-			drawingChanged = false;
-			study.onDrawingChanged?.();
-		}
 		const seating = structures.step(timeMs, reduced);
 		const transit = vehicles.step(transitMs);
 		renderImage(seating);
+		for (const listener of frameListeners) listener();
 		return seating || (transit && !loop.paused);
 	});
 	const { render } = loop;
@@ -235,7 +242,7 @@ export function createSandboxStage(
 	function open(world: World): World {
 		structures.clear();
 		const additionSeed = study.additionSeed ?? world.seed;
-		if (additionSeed === world.seed) structures.set('study', studyAdditions);
+		if (additionSeed === world.seed) structures.queue('study', studyAdditions);
 		terrain = replaceTerrain(world);
 		opening = study.frameTown ? world : undefined;
 		frameTerrain(terrain);
@@ -264,10 +271,13 @@ export function createSandboxStage(
 	) {
 		const projection =
 			place && !loop.reduced.matches
-				? { set: (key: string, parts: Primitive[]) => structures.set(key, parts, loop.timeMs) }
-				: structures;
+				? {
+						set: (key: string, parts: Primitive[], cellId?: string) =>
+							structures.queue(key, parts, cellId, loop.timeMs)
+					}
+				: nextFrame;
 		projectChanges(
-			{ terrain: mesh, structures: projection, earliestFullYear: study.earliestFullYear },
+			{ terrain: mesh, structures: projection, coarse, earliestFullYear: study.earliestFullYear },
 			before,
 			after,
 			nextFocus,
@@ -286,12 +296,12 @@ export function createSandboxStage(
 		vehicles.setFocus(nextFocus, world.state.year);
 	}
 
-	function worldShown(world: World, nextFocus: FocusId, firstFrame: boolean) {
+	function worldShown(world: World, nextFocus: FocusId) {
 		focus = nextFocus;
 		shown = world;
 		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
 		shadowsDirty = true;
-		if (firstFrame) viewDirty = true;
+		viewDirty = true;
 		render();
 	}
 
@@ -310,6 +320,14 @@ export function createSandboxStage(
 	return {
 		ready: gpu.started,
 		view,
+		render,
+		/** Runs after the rendered camera and pick geometry are current. */
+		afterFrame(listener: () => void) {
+			frameListeners.add(listener);
+			return () => {
+				frameListeners.delete(listener);
+			};
+		},
 		/** Keeps the camera fixed after the first drawing gesture. */
 		endOpening() {
 			opening = undefined;
@@ -341,7 +359,7 @@ export function createSandboxStage(
 				place && before === shown && before.state !== world.state
 			);
 			updateVehicles(before, world, nextFocus);
-			worldShown(world, nextFocus, before.state === EMPTY_STATE);
+			worldShown(world, nextFocus);
 		},
 		/** Pauses vehicle simulation at its current pose. Other placement feedback continues. */
 		setTransitPaused: loop.setPaused,
@@ -371,6 +389,7 @@ export function createSandboxStage(
 			if (!terrain || !shown) return undefined;
 			prepareView();
 			return picker(x, y, shown.grid, [
+				...structures.solids(KEY.installation),
 				...structures.solids(KEY.house),
 				...structures.solids(KEY.forest)
 			]);
@@ -405,6 +424,7 @@ export function createSandboxStage(
 		},
 		dispose() {
 			stopTheme();
+			frameListeners.clear();
 			loop.reduced.removeEventListener('change', flushShadows);
 			loop.dispose();
 			vehicles.dispose();

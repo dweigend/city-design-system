@@ -32,7 +32,7 @@
 		type SandboxTool,
 		type SandboxToolId
 	} from '../data/sandbox';
-	import type { Tool } from '../logic/sandbox';
+	import { activateChoice, createHudCommands } from './hud-commands';
 	import SandboxOptions from './SandboxOptions.svelte';
 	import type { Session } from './session.svelte';
 
@@ -66,12 +66,7 @@
 	);
 
 	const icons = { look: Hand, house: House, line: Route, cover: Trees, dig: Shovel, erase: Eraser };
-	/** Last option per tool, so switching tools keeps the player's choice. */
-	let chosen = $state({
-		house: sandboxUses[0].id,
-		line: sandboxLines[0].id,
-		cover: sandboxCovers[0].id
-	});
+	const commands = $derived(createHudCommands(session));
 
 	const options = $derived.by((): SandboxOption<string>[] => {
 		if (session.tool.kind === 'house') return sandboxUses;
@@ -118,28 +113,13 @@
 					'The selected walls cannot support a continuous carrier.')
 			: (drawingHint ?? lineHint ?? active.hint)
 	);
-	function toolOf(id: SandboxToolId): Tool {
-		if (id === 'house') return { kind: 'house', use: chosen.house };
-		if (id === 'line') return { kind: 'line', transit: chosen.line };
-		if (id === 'cover') return { kind: 'cover', cover: chosen.cover };
-		return { kind: id };
-	}
-	/** Sets the tool by its id; the public entry for buttons and shortcuts. */
+	/** Sets the tool by its id for keyboard shortcuts. */
 	export function pickTool(id: SandboxToolId) {
-		session.selectTool(() => toolOf(id));
+		commands.pickTool(id);
 	}
-	function optionAt<Id extends string>(options: SandboxOption<Id>[], index: number, fallback: Id) {
-		return options[index]?.id ?? fallback;
-	}
-	/** Sets option n (0-based) of the active tool, if it has that many. */
+	/** Sets option n (0-based) for keyboard shortcuts. */
 	export function pickOption(index: number) {
-		session.selectTool(() => {
-			const kind = session.tool.kind;
-			if (kind === 'house') chosen.house = optionAt(sandboxUses, index, chosen.house);
-			if (kind === 'line') chosen.line = optionAt(sandboxLines, index, chosen.line);
-			if (kind === 'cover') chosen.cover = optionAt(sandboxCovers, index, chosen.cover);
-			return toolOf(kind);
-		});
+		commands.pickOption(index);
 	}
 </script>
 
@@ -149,7 +129,6 @@
 			type="single"
 			orientation={toolOrientation}
 			value={session.tool.kind}
-			onValueChange={(value) => value && pickTool(value as SandboxToolId)}
 			class="cg-sandbox-tools"
 			aria-label="Tool"
 		>
@@ -159,6 +138,7 @@
 					class="cg-button"
 					data-variant="icon"
 					{...toolLabels(tool)}
+					{...activateChoice(() => pickTool(tool.id))}
 				>
 					<Icon icon={icons[tool.id]} size={24} />
 				</ToggleGroup.Item>
@@ -172,7 +152,7 @@
 					horizontal={narrow.current}
 					{options}
 					value={option}
-					onpick={pickOption}
+					onpick={(entry) => commands.pickValue(session.tool.kind, entry.id, entry.name)}
 				/>
 				{#if session.tool.kind === 'house'}
 					<SandboxOptions
@@ -181,10 +161,7 @@
 						value={session.method}
 						horizontal
 						compact
-						onpick={(index) => {
-							const method = methods[index];
-							if (method) session.pickMethod(method.id);
-						}}
+						onpick={(entry) => commands.pickMethod(entry.id)}
 					/>
 				{/if}
 			</div>
@@ -222,7 +199,11 @@
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
 	<div class="hint" class:warning={Boolean(session.failure)}>
-		<span role="status">{hint}</span>
+		<span role="status">
+			{hint}
+			{#if session.requestedChoice}<span class="pending">Pending · {session.requestedChoice}</span
+				>{/if}
+		</span>
 		{#if session.failure}
 			<Button
 				variant="icon"
@@ -299,6 +280,10 @@
 		font-size: var(--text-s);
 		text-align: right;
 		pointer-events: none;
+	}
+	.pending {
+		display: block;
+		color: var(--ink);
 	}
 	.warning {
 		display: flex;

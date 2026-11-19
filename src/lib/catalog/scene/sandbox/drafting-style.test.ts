@@ -121,7 +121,7 @@ test('distance redraws update seated pick targets and preserve an active drop', 
 	const style = (zoom: 'stadt' | 'nah') =>
 		sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal', thema: 'hell' }, variant);
 	try {
-		structures.set(key, [part], 0);
+		structures.set(key, [part], undefined, 0);
 		expect(structures.step(30, false)).toBe(true);
 		const offset = Math.max(...structures.group.children.map((batch) => batch.position.y));
 		expect(offset).toBeGreaterThan(0);

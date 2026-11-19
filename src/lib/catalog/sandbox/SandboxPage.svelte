@@ -21,7 +21,6 @@
 	const session = createSession(7);
 	let hud = $state<SandboxHud>();
 	let hovered = $state.raw<TerrainCell>();
-	let plan = $state(false);
 	let header = $state<HTMLElement>();
 	let hudGroup = $state<HTMLDivElement>();
 
@@ -52,13 +51,10 @@
 		if (event.shiftKey) session.redo();
 		else session.undo();
 	}
-	function togglePlan() {
-		session.control(() => (plan = !plan));
-	}
 	const commands = new Map<string, () => void>([
 		['f', session.cycleFocus],
 		['y', session.advance],
-		['p', togglePlan],
+		['p', session.togglePlan],
 		['escape', session.dismissRejection],
 		...sandboxTools.map(({ shortcut, id }): [string, () => void] => [
 			shortcut.toLowerCase(),
@@ -72,8 +68,13 @@
 	function pick(key: string) {
 		const command = commands.get(key);
 		if (command) return command();
-		session.pickMethod(() =>
-			session.methods.find((id) => sandboxMethods[id].shortcut.toLowerCase() === key)
+		const methods = Object.values(sandboxMethods).filter(
+			(method) => method.shortcut.toLowerCase() === key
+		);
+		if (!methods.length) return;
+		session.pickMethod(
+			() => session.methods.find((id) => sandboxMethods[id].shortcut.toLowerCase() === key),
+			methods.length === 1 ? methods[0].name : 'Building method'
 		);
 	}
 	function pickOnce(event: KeyboardEvent, key: string) {
@@ -98,7 +99,6 @@
 <main>
 	<SandboxCanvas
 		{session}
-		{plan}
 		{openingArea}
 		{storeTarget}
 		{transitPaused}
@@ -132,8 +132,11 @@
 	</header>
 	<div class="mode">
 		<Toggle.Root
-			pressed={plan}
-			onPressedChange={togglePlan}
+			pressed={session.plan}
+			onclick={(event) => {
+				event.preventDefault();
+				session.togglePlan();
+			}}
 			class="cg-button"
 			data-variant="icon"
 			aria-label="Plan view"

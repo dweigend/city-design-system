@@ -26,7 +26,7 @@ export async function render(world: World, animate = false) {
 				set(key, parts) {
 					if (!key.startsWith('house:')) return;
 					batches.push(...parts);
-					structures.set(key, parts, animate ? 0 : undefined);
+					structures.set(key, parts, undefined, animate ? 0 : undefined);
 				}
 			}
 		},

@@ -1,11 +1,12 @@
-<script lang="ts">
+<script lang="ts" generics="Id extends string">
+	import { activateChoice } from './hud-commands';
 	import { keyboard } from '../ui/keyboard.svelte';
 	import { ToggleGroup } from 'bits-ui';
 	import type { Box } from 'lucide-svelte';
 	import Icon from '../ui/Icon.svelte';
 	import Tooltip from '../ui/Tooltip.svelte';
 	type Option = {
-		id: string;
+		id: Id;
 		name: string;
 		shortName?: string;
 		color?: string;
@@ -28,8 +29,8 @@
 		horizontal?: boolean;
 		compact?: boolean;
 		value: string;
-		/** Called with the 0-based index of the picked option. */
-		onpick: (index: number) => void;
+		/** Called with the activated item. */
+		onpick: (entry: Option) => void;
 	} = $props();
 </script>
 
@@ -37,6 +38,7 @@
 	<ToggleGroup.Item
 		{...props}
 		value={entry.id}
+		{...activateChoice(() => onpick(entry))}
 		class="cg-sandbox-option"
 		aria-label={entry.name}
 		aria-keyshortcuts={keyboard.observed ? (entry.shortcut ?? String(index + 1)) : undefined}
@@ -54,7 +56,6 @@
 	type="single"
 	orientation={horizontal ? 'horizontal' : 'vertical'}
 	{value}
-	onValueChange={(next) => next && onpick(options.findIndex((o) => o.id === next))}
 	class="cg-sandbox-options"
 	data-compact={compact || undefined}
 	aria-label={label}

@@ -4,18 +4,24 @@
  */
 import { focuses, present, levelFor, type FocusId } from '../../logic/presentation';
 import { forestChunk } from '../../logic/land-cover';
-import { installationView, houseGroups, changes, type World } from '../../logic/sandbox';
+import { installationPartView, houseGroups, changes, type World } from '../../logic/sandbox';
 import { lineParts } from '../../logic/transit-line';
 import type { Structures } from './structures';
 import type { TerrainMesh } from './terrain-mesh';
 
 /** Keys of the structure layer per kind of derived part. */
-export const KEY = { house: 'house:', forest: 'forest:', line: 'line:' };
+export const KEY = {
+	house: 'house:',
+	forest: 'forest:',
+	line: 'line:',
+	installation: 'installation:'
+};
 
 export type Target = Readonly<{
 	terrain: TerrainMesh;
 	structures: Pick<Structures, 'set'>;
 	earliestFullYear?: number;
+	coarse?: boolean;
 }>;
 
 function projectCover(target: Target, after: World, cellIds: readonly string[]) {
@@ -26,14 +32,22 @@ function projectCover(target: Target, after: World, cellIds: readonly string[]) 
 	if (cellIds.length) target.terrain.commitCover();
 }
 
-function projectInstallations(
+/** Updates the retained part batches, removing records erased or refunded by a regrid. */
+export function projectInstallations(
 	structures: Target['structures'],
+	before: World,
 	world: World,
 	focus: FocusId,
-	refocus: boolean,
-	dirty: boolean
+	coarse = false
 ) {
-	if (refocus || dirty) structures.set('installations', installationView(world, focus));
+	for (const id of before.state.parts.keys())
+		if (!world.state.parts.has(id)) structures.set(KEY.installation + id, []);
+	for (const p of world.state.parts.values())
+		structures.set(
+			KEY.installation + p.id,
+			installationPartView(world, p, focus, coarse),
+			p.anchor.cellId
+		);
 }
 
 function projectLines(
@@ -109,7 +123,8 @@ export function projectChanges(
 			present(forestChunk(grid, state.cover, chunk, seed), levels.forest)
 		);
 
-	projectInstallations(structures, after, focus, refocus, delta.installations);
+	if (refocus || delta.installations)
+		projectInstallations(structures, before, after, focus, target.coarse);
 	projectCover(target, after, delta.coverCells);
 	projectLines(structures, after, delta, focus, refocus);
 }

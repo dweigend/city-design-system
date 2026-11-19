@@ -10,7 +10,8 @@ export function structureBatch(
 	primitives: Primitive[],
 	finishes: StructureMaterials,
 	dot: THREE.BufferGeometry,
-	drawing?: DistanceDrawing
+	drawing?: DistanceDrawing,
+	cellId?: string
 ) {
 	const parts = drawing?.parts ?? primitives;
 	const roofs = parts.filter((part) => part.roofCell);
@@ -25,6 +26,7 @@ export function structureBatch(
 			if (proxy) targets.push(proxy);
 		}
 	}
+	if (cellId) for (const target of targets) target.userData.cellId = cellId;
 	return { group, targets };
 }
 

@@ -48,7 +48,7 @@ export function createSessionActions(
 		history = commit(history, next.state);
 		completion = event;
 		world = next;
-		rejection = undefined;
+		if (kind !== 'advance') rejection = undefined;
 		publish(snapshot());
 		for (const listener of [...listeners]) {
 			try {
@@ -64,7 +64,6 @@ export function createSessionActions(
 		world = withState(world, next.present);
 		history = next;
 		completion = undefined;
-		rejection = undefined;
 		publish(snapshot());
 	}
 
@@ -94,7 +93,6 @@ export function createSessionActions(
 			world = open(world.seed + 1);
 			history = startHistory(world.state);
 			completion = undefined;
-			rejection = undefined;
 			publish(snapshot());
 		},
 		/** Publishes a recoverable error for either the stroke or the detailed roof loader. */
