@@ -1,49 +1,22 @@
 import { required } from '../required';
-import type { HouseUse } from '../../data/house-body';
-import { defineRules, weightedForm, type NeighbourCell } from '../../core/neighbourhood';
+import { defineRules, type NeighbourCell } from '../../core/neighbourhood';
 import type { EnsembleDistrict } from './ensemble-policy';
 
-export type TierKind =
-	'solar' | 'capsule' | 'dome' | 'lookout' | 'gallery' | 'rack' | 'grove' | 'workshop' | 'void';
-export type HousePlan = 'rectangular' | 'round';
 export type LinkKind = 'skyway' | 'stair-bridge' | 'platform';
-export type CrownKind = 'panels' | 'lantern' | 'chimney';
-type Form = CrownKind | TierKind | HousePlan | LinkKind | 'deck' | 'pending';
+type Form = LinkKind | 'deck' | 'pending';
 type Node = { id: string; choices: readonly Form[] };
-const forms: Form[] = [
-	'solar',
-	'capsule',
-	'dome',
-	'rack',
-	'grove',
-	'workshop',
-	'void',
-	'gallery',
-	'rectangular',
-	'round',
-	'skyway',
-	'stair-bridge',
-	'platform',
-	'deck',
-	'pending',
-	'panels',
-	'lantern',
-	'chimney',
-	'lookout'
-];
+const forms: Form[] = ['skyway', 'platform', 'stair-bridge', 'deck', 'pending'];
 const links: Form[] = ['skyway', 'stair-bridge', 'platform'];
 const contacts = Object.fromEntries(
 	forms.map((form) => [
 		form,
-		forms.filter((other) =>
-			links.includes(form) ? other === 'deck' : form !== 'void' || other !== 'void'
-		)
+		forms.filter((other) => (links.includes(form) ? other === 'deck' : true))
 	])
 );
 const preferences: Record<EnsembleDistrict, Partial<Record<Form, number>>> = {
-	bank: { round: 4, grove: 3, skyway: 3 },
-	slope: { rectangular: 4, 'stair-bridge': 3 },
-	infill: { rectangular: 2, capsule: 2 }
+	bank: { skyway: 3 },
+	slope: { 'stair-bridge': 3 },
+	infill: {}
 };
 
 /** Collapses a vertical section in order, or a lateral span between two fixed deck nodes.
@@ -78,76 +51,6 @@ function solveHouseSection(nodes: Node[], district: EnsembleDistrict, seed: numb
 	});
 }
 
-/** Selects the single open terrace among eligible interior levels by stable house address. */
-function voidLevel(id: string, seed: number, count: number) {
-	const choices = Array.from({ length: Math.max(1, count - 2) }, (_, i) => ({
-		form: String(count === 2 ? 0 : i + 1),
-		end: i + 1
-	}));
-	return Number(weightedForm(choices, seed, id, 'composed-open-tier-v1'));
-}
-function domain(uses: HouseUse[], crown: boolean, low: boolean): TierKind[] {
-	const kinds: Record<HouseUse, TierKind[]> = {
-		living: ['capsule'],
-		water: [low ? 'rack' : 'lookout'],
-		energy: [crown ? 'solar' : 'workshop'],
-		material: [crown ? 'solar' : 'workshop'],
-		food: [crown ? 'dome' : 'grove']
-	};
-	return [...new Set(uses.flatMap((use) => kinds[use]))];
-}
-function tierUse(kind: TierKind, uses: HouseUse[]) {
-	return (
-		uses.find(
-			(use) =>
-				domain([use], true, false).includes(kind) || domain([use], false, true).includes(kind)
-		) ?? uses[0]
-	);
-}
-
-/** Compiles the painted tier domains, then solves the plan, vertical contacts and crown together. */
-export function houseProgramme(
-	id: string,
-	stories: number,
-	uses: HouseUse[][],
-	district: EnsembleDistrict,
-	seed: number
-) {
-	const open = stories >= 4 ? voidLevel(id, seed, uses.length) : -1;
-	const nodes = uses.map((u, i) => {
-		const crown = i === uses.length - 1;
-		// Consecutive bands of one painted use reserve a single occupied volume.
-		const repeated = !crown && new Set(u).size === 1 && uses[i + 1]?.every((use) => use === u[0]);
-		const choices: TierKind[] =
-			i === open ? ['void'] : repeated ? ['gallery'] : domain(u, crown, i === 0);
-		return { id: id + '/tier/' + i, choices };
-	});
-	const [variant, ...kinds] = solveHouseSection(
-		[
-			{ id: id + '/plan', choices: stories >= 6 ? ['rectangular', 'round'] : ['rectangular'] },
-			...nodes,
-			{
-				id: id + '/crown',
-				choices: required(uses.at(-1), 'crown programme').some(
-					(u) => u === 'energy' || u === 'material'
-				)
-					? ['panels', 'chimney']
-					: ['lantern', 'chimney']
-			}
-		],
-		district,
-		seed
-	);
-
-	return {
-		plan: variant as HousePlan,
-		crown: kinds.at(-1) as CrownKind,
-		kinds: uses.map((u, i) => {
-			const kind = kinds[i] as TierKind;
-			return { kind, use: tierUse(kind, u) };
-		})
-	};
-}
 /** Both fixed endpoint nodes must present a surveyed deck to the span node. */
 export function bridgeForm(
 	a: string,

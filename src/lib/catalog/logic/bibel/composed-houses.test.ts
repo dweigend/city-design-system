@@ -1,50 +1,56 @@
 import { expect, test } from 'bun:test';
 import { composedHousePlates } from './composed-houses';
+
 const plates = composedHousePlates();
-const ids = (i: number) => plates[i].primitives.map((p) => p.id);
-test('two-storey energy pavilion has one occupied deck and a solar crown', () => {
-	expect(plates.map((p) => p.id)).toEqual([
-		'pavilion',
-		'house',
-		'rectangular',
-		'round',
-		'ensemble'
+const decks = (i: number) =>
+	plates[i].primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/deck'));
+
+test('capsule stack carries four console landings', () => {
+	expect(plates.map((p) => p.title)).toEqual([
+		'Capsule stack',
+		'Deck tower',
+		'Round tower',
+		'Cluster mast',
+		'Portal house',
+		'Three neighbours',
+		'One public walkway'
 	]);
-	expect(ids(0).filter((id) => id.includes('/deck/'))).toHaveLength(1);
-	expect(ids(0)).toContain('0/0/tier/0/collector/solar-roof/0');
+	expect(decks(0)).toHaveLength(0);
+	expect(
+		plates[0].primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/landing'))
+	).toHaveLength(4);
+	expect(plates[0].primitives.some((p) => p.id.includes('kit-capsule-ribbon'))).toBe(true);
 });
-test('four-storey garden house frames an open lower terrace below its bell', () => {
-	expect(ids(1).filter((id) => id.includes('/deck/'))).toHaveLength(2);
-	expect(ids(1).some((id) => id.startsWith('0/0/tier/0/body/'))).toBe(false);
-	expect(plates[1].primitives.some((p) => p.kind === 'dome' && p.finish === 'glas-klar')).toBe(
-		true
+test('deck tower carries a solar crown and four recessed window bands', () => {
+	const parts = plates[1].primitives;
+	expect(parts.some((p) => p.id.includes('kit-crown-solar-sail'))).toBe(true);
+	expect(parts.filter((p) => p.id.includes('/window'))).toHaveLength(4);
+});
+test('round tower carries circular decks and glazed drums', () => {
+	expect(decks(2).every((p) => p.kind === 'prism' && p.polygon.length === 64)).toBe(true);
+	expect(
+		plates[2].primitives.some(
+			(p) => p.id.includes('/kit-crown-lantern-') && p.finish === 'glas-klar'
+		)
+	).toBe(true);
+});
+test('cluster mast carries inhabited capsules on alternating axes', () => {
+	const parts = plates[3].primitives.filter(
+		(p) => p.kind === 'box' && p.id.includes('/kit-capsule-ribbon-')
 	);
+	expect(new Set(parts.map((p) => p.rotation)).size).toBeGreaterThan(1);
 });
-test('eight-storey rectangular tower pairs a solar workshop with trees and a windowed capsule', () => {
-	const parts = plates[2].primitives;
-	expect(parts.find((p) => p.id === '0/0/core')?.kind).toBe('prism');
-	for (const fragment of [
-		'/lattice',
-		'/collector',
-		'/tree-trough/',
-		'/living-capsule/',
-		'/windows',
-		'/supply/water/pipe',
-		'/stairs/'
-	])
-		expect(parts.some((p) => p.id.includes(fragment))).toBe(true);
+test('three neighbours share two level spans', () => {
+	const spans = plates[5].primitives.filter((p) => p.id.startsWith('link/') && p.kind === 'prism');
+	expect(new Set(spans.map((p) => p.id.split('/').slice(0, 4).join('/'))).size).toBe(2);
+	expect(spans.some((p) => p.id.includes('stair-bridge'))).toBe(false);
 });
-test('twelve-storey round tower carries five circular decks around the cylindrical core', () => {
-	const parts = plates[3].primitives;
-	expect(parts.find((p) => p.id === '0/0/core')?.kind).toBe('cylinder');
-	expect(parts.filter((p) => p.id.includes('/deck/'))).toHaveLength(5);
-	expect(parts.some((p) => p.kind === 'dome' && p.finish === 'glas-klar')).toBe(true);
-});
-test('three different heights have one shared platform, one skyway and one stair bridge', () => {
-	const spans = ids(4)
-		.filter((id) => id.startsWith('link/'))
-		.map((id) => id.split(':')[0]);
-	expect(new Set(spans).size).toBe(3);
-	for (const kind of ['skyway', 'platform', 'stair-bridge'])
-		expect(spans.some((id) => id.endsWith('/' + kind))).toBe(true);
+
+test('five separate roofs share a branching public walkway and registry pedestrians', () => {
+	const parts = plates[6].primitives;
+	expect(parts.filter((p) => p.id.endsWith('/roof-walk'))).toHaveLength(5);
+	const walk = parts.filter((p) => p.id.startsWith('network/'));
+	expect(walk.some((p) => p.kind === 'mesh')).toBe(true);
+	expect(walk.some((p) => p.id.includes('/plaza/'))).toBe(true);
+	expect(walk.some((p) => p.id.includes('/person-'))).toBe(true);
 });

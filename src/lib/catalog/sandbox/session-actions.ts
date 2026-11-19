@@ -1,5 +1,6 @@
 import {
 	applyEdit,
+	regenerateHouse,
 	commit,
 	redo,
 	setFutureTarget,
@@ -113,6 +114,7 @@ export function createSessionActions(
 			completion = undefined;
 			publish(snapshot());
 		},
+		regenerate: (id: string) => edit(regenerateHouse(world, id), 'house'),
 		undo: () => restore(undo(history)),
 		redo: () => restore(redo(history)),
 		advanceFrom(snapshot: World, next: World) {

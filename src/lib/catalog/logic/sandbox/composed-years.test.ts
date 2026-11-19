@@ -6,17 +6,24 @@ import { applyEdit, beginStroke, extendStroke, createWorld, houseGroups, changes
 
 test('later paint extends one frame and links houses across construction years', () => {
 	const a = '30/30',
-		b = '32/30';
+		b = '31/30';
 	const initial = createWorld(7, { cells: 0 });
 	const earlier = applyEdit(initial, { kind: 'raise', cellId: a, use: 'energy' });
 	const aged = applyEdit(earlier, { kind: 'advance' });
-	const later = applyEdit(aged, { kind: 'raise', cellId: b, use: 'water' });
+	const begun = applyEdit(aged, { kind: 'raise', cellId: b, use: 'water' });
+	const later = applyEdit(begun, { kind: 'raise', cellId: b, use: 'food' });
 	const extended = applyEdit(later, { kind: 'raise', cellId: a, use: 'living' });
 	const chunk = required(extended.grid.cellsById.get(a), 'painted cell').chunk;
 	const draw = (w: typeof extended) => houseGroups(w, chunk, focuses.all);
 	const groups = draw(extended),
 		section = required(groups.get('composed/' + a), 'projected section');
-	expect(section.filter((p) => p.id.includes('/post/'))).toHaveLength(5);
+	expect(
+		[...groups.keys()].filter(
+			(id) => id === 'composed/' + a || id.startsWith('composed/' + a + '@')
+		)
+	).toEqual(['composed/' + a]);
+	for (const joint of ['foot', 'shaft', 'head'])
+		expect(section.some((p) => p.id.includes('/kit-column-' + joint + '-'))).toBe(true);
 	const roof = section.find((p) => p.id.endsWith('/roof-walk'));
 	if (roof?.kind !== 'prism') throw Error('Missing roof');
 	expect(roof.z + roof.height).toBeCloseTo(
@@ -26,9 +33,10 @@ test('later paint extends one frame and links houses across construction years',
 	const changed = changes(later, extended).houseGroups;
 	expect(changed.has('composed/' + a)).toBe(true);
 	expect(changed.has('composed/' + b)).toBe(false);
+	expect(draw(later).get('composed/' + b)).toEqual(groups.get('composed/' + b));
 });
 
-test('the fifth painted storey raises a continuous tower core', () => {
+test('successive painted storeys remain reachable in one living stack', () => {
 	const id = '30/30';
 	let world = createWorld(7, { cells: 0 });
 	for (let stories = 1; stories <= 5; stories++) {
@@ -44,6 +52,29 @@ test('the fifth painted storey raises a continuous tower core', () => {
 			).get('composed/' + id),
 			'painted house'
 		);
-		expect(group.some((p) => p.id === id + '/core')).toBe(stories === 5);
+		const decks = group.filter(
+			(p) =>
+				p.id.includes('/level/') &&
+				(p.id.endsWith('/deck') || p.id.endsWith('/landing')) &&
+				p.kind === 'prism'
+		);
+		expect(decks).toHaveLength(stories);
+		for (const deck of decks) {
+			if (deck.kind !== 'prism') throw new Error('Expected walking surface');
+			const z = deck.z + deck.height;
+			expect(
+				group.some(
+					(p) =>
+						p.kind === 'prism' && p.id.includes('/stair/') && Math.abs(p.z + p.height - z) < 0.02
+				)
+			).toBe(true);
+		}
+		if (stories >= 3)
+			expect(
+				group.filter(
+					(p) =>
+						p.id.includes('/body/') && p.id.includes('/kit-crown-lantern-') && p.kind === 'cylinder'
+				).length
+			).toBeGreaterThanOrEqual(2);
 	}
 });

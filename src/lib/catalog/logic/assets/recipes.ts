@@ -1,3 +1,14 @@
+import { streetTransport } from './objects/street-transport';
+import { streetWorkshop } from './objects/street-workshop';
+import { streetTerrace } from './objects/street-terrace';
+import { streetServices } from './objects/street-services';
+import { capsuleKit } from './objects/capsule-kit';
+import { structuralKit } from './objects/structural-kit';
+import { deckKit } from './objects/deck-kit';
+import { crownKit } from './objects/crown-kit';
+import { serviceKit } from './objects/service-kit';
+import { people } from './objects/people';
+import { circulationObjects } from './circulation';
 import { cycleScenes } from './production/cycle-scenes';
 import { parkTrees } from './production/park-trees';
 import { workFrames } from './production/work-frames';
@@ -166,6 +177,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...houseFittings,
 	...roofMachinery,
 	walkwayStop,
+	...circulationObjects,
 	...primitiveObjects,
 	...seating,
 	...tables,
@@ -182,6 +194,16 @@ export const recipes: readonly AssetRecipe[] = [
 	...publicArt,
 	...textiles,
 	...smallArchitecture,
+	...people,
+	...capsuleKit,
+	...structuralKit,
+	...deckKit,
+	...crownKit,
+	...serviceKit,
+	...streetTransport,
+	...streetWorkshop,
+	...streetTerrace,
+	...streetServices,
 	...habitats,
 	...crossings,
 	...towers,

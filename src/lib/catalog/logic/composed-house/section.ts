@@ -1,79 +1,91 @@
+import { accessShare } from './access-budget';
+import { sectionParts } from './projection';
 import { STORY } from '../../data/grid';
-import { deckPlan } from './deck-plan';
-import { houseAspect, houseProgramme } from '../district-frame';
-import { footprintBay } from './footprint';
-import type { Deck, HouseSite, Section } from './types';
-import { assetSlots } from './slots';
+import { stairAxis } from './stair-fit';
+import { composeHouse } from '../house-typology';
+import type { HouseSite, Section } from './types';
 
-function paintedBands(site: HouseSite) {
-	if (!site.cells.length) throw new RangeError('Empty painted footprint');
-	const cells = [...site.cells].sort((a, b) => a.id.localeCompare(b.id));
-	const rows = cells.map((c) => site.stacks.get(c.id) ?? []);
-	const start = Math.min(...rows.map((r) => r.findIndex(Boolean)).filter((i) => i >= 0));
-	const id = cells[0].id + (start > 0 ? '@' + start : '');
-	const end = Math.max(...rows.map((r) => r.length)),
-		stories = end - start;
-	if (!Number.isFinite(stories) || stories < 1) throw new RangeError('Empty painted footprint');
-	const count = stories <= 2 ? 1 : stories <= 5 ? 2 : Math.min(5, Math.ceil(stories / 2) + 1);
-	const levels = Array.from({ length: count }, (_, i) => start + Math.floor((i * stories) / count));
-	const uses = levels.map((lo, i) =>
-		rows.flatMap((r) => r.slice(lo, levels[i + 1] ?? end).filter(Boolean))
+function ladderOffset(h: Section['composition']) {
+	if (h.compact) return -0.04;
+	return h.typology === 'tree-house' ? 1.05 : 0.52;
+}
+/** Adapts the frozen composition to the painted-house and stair projection seam. */
+export function planHouse(site: HouseSite): Section {
+	const composition = composeHouse(site, site.context);
+	const { cells, levels, crown, core, start, stories } = composition;
+	const sign = composition.accessSide === 'north' ? 1 : -1;
+	const rear = core.position[1] + sign * 0.15;
+	const offset = ladderOffset(composition);
+	const section: Section = {
+		composition,
+		cells,
+		start,
+		stories,
+		compact: true,
+		id: composition.id,
+		seed: site.seed,
+		district: site.district ?? 'infill',
+		typology: composition.typology,
+		base: [core.position[0], core.position[1], composition.ground],
+		width: Math.max(...levels.map((l) => l.width)),
+		depth: Math.max(...levels.map((l) => l.depth)),
+		top: composition.ground + stories * STORY,
+		decks: levels,
+		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
+		stairAxis: [core.position[0], rear + sign * offset]
+	};
+	return fitAccess(section, sign);
+}
+function ladder(section: Section) {
+	section.compact = true;
+	if (section.typology === 'cluster-mast' && !section.composition.compact)
+		section.stairAxis = [
+			section.base[0],
+			section.base[1] + (section.composition.accessSide === 'north' ? 0.62 : -0.62)
+		];
+	section.composition.path = 'ladder';
+	section.composition.signature.stair = 'ladder';
+	return section;
+}
+function withinBudget(section: Section) {
+	const structure = sectionParts(section).filter(
+		(p) => !p.source.objectId.startsWith('person-') && !p.id.includes('/furniture/')
 	);
-	return { cells, rows, start, end, stories, levels, uses, id };
+	return accessShare(structure) <= 0.1;
+}
+function fitAccess(section: Section, sign: number): Section {
+	const { composition } = section;
+	const opening = composition.levels[0].well;
+	if (opening) return wellAccess(section, sign, opening);
+	if (composition.path === 'ladder') {
+		if (section.typology === 'tree-house' && !composition.compact)
+			section.stairAxis = [composition.bay.x, composition.bay.y - 1.85];
+		return section;
+	}
+	if (composition.path === 'spiral') return fitWinding(section, sign);
+	if (composition.compact || composition.flightWidth < 2.5) return ladder(section);
+	section.compact = false;
+	return withinBudget(section) ? section : ladder(section);
+}
+function fitWinding(section: Section, sign: number) {
+	const axis = stairAxis(section, section.base[1] + sign * 0.15, sign);
+	if (axis) {
+		const fitted = { ...section, stairAxis: axis, compact: false };
+		if (withinBudget(fitted)) return fitted;
+	}
+	return ladder(section);
 }
 
-/** Groups the painted programme into height bands and surveys the floor and roof datums. */
-export function planHouse(site: HouseSite): Section {
-	const { cells, rows, start, end, stories, levels, uses, id } = paintedBands(site);
-	const count = levels.length;
-	const district = site.district ?? 'infill';
-	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed);
-	const aspect = houseAspect(id, site.seed);
-	const bay = footprintBay(cells),
-		round = plan === 'round';
-	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * 0.94,
-		depth = round ? width : bay.depth * 0.94;
-	const pad = cells[0].pad,
-		base: Section['base'] = [bay.x, bay.y, pad + start * STORY];
-	const top = pad + end * STORY;
-	const decks = levels.map((lo, i): Deck => {
-		const crown = i === count - 1;
-		const bodyHeight = Math.min(
-			STORY * 1.42,
-			Math.min(width, depth) * 0.38,
-			(top - base[2]) * 0.68
-		);
-		const height = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
-		const { kind, use } = kinds[i];
-		const shape = deckPlan(i, count, round, aspect);
-		return {
-			position: [bay.x + width * shape.x, bay.y + depth * shape.y, height],
-			width: width * shape.width,
-			depth: depth * shape.depth,
-			round,
-			programme: uses[i],
-			kind,
-			use
-		};
-	});
-	const section: Section = {
-		id,
-		cells,
-		district,
-		aspect,
-		seed: site.seed,
-		typology: stories >= 5 ? 'tower' : 'house',
-		start,
-		base,
-		width,
-		depth,
-		top,
-		stories,
-		plan,
-		crown,
-		decks,
-		slots: []
-	};
-	section.slots = assetSlots(section, rows.flat().filter(Boolean));
-	return section;
+function wellAccess(
+	section: Section,
+	sign: number,
+	opening: Section['composition']['levels'][number]['outline']
+) {
+	const { composition } = section;
+	section.stairAxis = [composition.bay.x, composition.bay.y];
+	section.compact = false;
+	const radius = Math.hypot(opening[0][0] - composition.bay.x, opening[0][1] - composition.bay.y);
+	if (radius >= 2.55 && withinBudget(section)) return section;
+	section.stairAxis = [composition.bay.x, composition.bay.y + sign * (radius - 0.3)];
+	return ladder(section);
 }

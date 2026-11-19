@@ -1,3 +1,5 @@
+export { planPoints as housePartPlan } from './part-plan';
+export { circulation } from './circulation';
 import type { HouseSite } from './types';
 import type { HouseSurfaces } from './surfaces';
 import { planHouse } from './section';
@@ -15,3 +17,4 @@ export function composedHouse(site: HouseSite, surfaces?: HouseSurfaces) {
 export { composedGroups, paintedSections, sectionGroups } from './groups';
 
 export type { HouseObstacle } from './clearance';
+export { person } from './people';

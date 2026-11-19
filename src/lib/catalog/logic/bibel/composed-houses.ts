@@ -1,85 +1,106 @@
+import { ensembleNetwork } from '../sandbox';
 import { required } from '../required';
-import { planHouse, sectionParts, houseLinks } from '../composed-house';
+import { planEnsemble, type Typology } from '../house-typology';
+import { planHouse, sectionParts, houseLinks, paintedSections } from '../composed-house';
 import type { HouseUse } from '../house-brush';
-import { squareGrid, type QuadGrid } from '../quad-grid';
+import { squareGrid } from '../quad-grid';
 import type { RulePlate } from './hausregel';
 
-const programme = {
-	pavilion: ['energy', 'energy'],
-	house: ['living', 'living', 'food', 'living'],
-	rectangular: ['water', 'water', 'living', 'living', 'food', 'food', 'energy', 'energy'],
-	round: [
-		'water',
-		'water',
-		'material',
-		'living',
-		'living',
-		'food',
-		'food',
-		'living',
-		'food',
-		'food',
-		'food',
-		'food'
-	]
-} satisfies Record<string, HouseUse[]>;
-
-function house(grid: QuadGrid, id: string, uses: HouseUse[], seed: number) {
-	const cell = required(grid.cellsById.get(id), 'plate cell');
-	return planHouse({ cells: [cell], stacks: new Map([[id, uses]]), seed });
-}
+const mixed: HouseUse[] = ['water', 'living', 'food', 'energy'];
 function single(
-	id: keyof typeof programme,
+	id: string,
 	title: string,
 	text: string,
+	uses: HouseUse[],
 	seed: number,
-	span: number
+	typology: Typology
 ): RulePlate {
-	const section = house(squareGrid(1, 1, span), '0/0', programme[id], seed);
-	return { id, title, text, primitives: sectionParts(section) };
+	const cells = squareGrid(typology === 'portal-house' ? 2 : 1, 1, 10).cells;
+	const site = { cells, stacks: new Map(cells.map((c) => [c.id, uses])), seed };
+	const context = planEnsemble([site]);
+	const houses = new Map(
+		[...context.houses].map(([id, decision]) => [id, { ...decision, typology }])
+	);
+	const house = planHouse({ ...site, context: { ...context, houses } });
+	return { id, title, text, primitives: sectionParts(house) };
 }
 function ensemble(): RulePlate {
-	const grid = squareGrid(4, 3, 13);
-	const sites = [
-		house(grid, '0/0', programme.pavilion, 0),
-		house(grid, '1/0', programme.house, 0),
-		house(grid, '1/2', programme.rectangular, 0)
-	];
+	const grid = squareGrid(3, 1, 10);
+	const stacks = new Map(grid.cells.map((c, i) => [c.id, mixed.slice(0, i + 2)]));
+	const houses = paintedSections(grid, stacks, 0);
 	return {
 		id: 'ensemble',
 		title: 'Three neighbours',
-		text: 'A shared platform, a skyway and a stair bridge connect three painted footprints.',
+		text: 'Bridges connect the occupied decks at their shared two-metre datum.',
 		primitives: [
-			...sites.flatMap((s) => sectionParts(s)),
-			...houseLinks(grid, sites, 0).flatMap((l) => l.parts)
+			...houses.flatMap((h) => sectionParts(h)),
+			...houseLinks(grid, houses, 0).flatMap((b) => b.parts)
 		]
 	};
 }
-/** The five executable composition plates, from a two-storey pavilion to a linked ensemble. */
+function publicWalk(): RulePlate {
+	const seed = 7,
+		grid = squareGrid(3, 3, 12);
+	const ids = ['0/0', '1/0', '1/1', '2/1', '1/2'];
+	const stacks = new Map(ids.map((id, i) => [id, mixed.slice(0, [2, 4, 1, 3, 2][i])]));
+	const houses = paintedSections(grid, stacks, seed);
+	const site = { terrain: () => 0, blocked: () => [], stock: [] };
+	const path = required(ensembleNetwork(houses, site, seed), 'five-house public walkway');
+	return {
+		id: 'public-walk',
+		title: 'One public walkway',
+		text: 'A branching ground path meets the foot of each house stair. Small groups of people mark its scale.',
+		primitives: [
+			...houses.flatMap((h) => sectionParts(h)),
+			...houseLinks(grid, houses, seed).flatMap((b) => b.parts),
+			...path.parts()
+		]
+	};
+}
+/** Five single-house typologies and two ensembles with their shared circulation. */
 export function composedHousePlates(): RulePlate[] {
 	return [
 		single(
 			'pavilion',
-			'Energy pavilion',
-			'Two painted storeys carry a solar workshop above a service rack.',
-			2,
-			12
+			'Capsule stack',
+			'Four inhabited levels carry glazed capsules in cradles.',
+			Array<HouseUse>(4).fill('living'),
+			1,
+			'capsule-stack'
 		),
 		single(
 			'house',
-			'Garden house',
-			'Four storeys of housing and food share an open terrace.',
+			'Deck tower',
+			'Offset storeys alternate the house’s leading programme colour with pale shell. A recessed window band wraps each storey.',
+			mixed,
+			3,
+			'deck-tower'
+		),
+		single(
+			'round',
+			'Round tower',
+			'Circular decks carry drums above the waterfront.',
+			Array<HouseUse>(8).fill('water'),
 			0,
-			12
+			'round-tower'
 		),
 		single(
 			'rectangular',
-			'Rectangular tower',
-			'Eight mixed-use storeys on a continuous frame with projecting decks.',
-			2,
-			15
+			'Cluster mast',
+			'Capsules turn around a shared mast on successive levels.',
+			Array<HouseUse>(5).fill('living'),
+			1,
+			'cluster-mast'
 		),
-		single('round', 'Round tower', 'Twelve mixed-use storeys surround a cylindrical core.', 1, 19),
-		ensemble()
+		single(
+			'portal',
+			'Portal house',
+			'Two cores hold an inhabited bar above an open approach.',
+			mixed,
+			3,
+			'portal-house'
+		),
+		ensemble(),
+		publicWalk()
 	];
 }

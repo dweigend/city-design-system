@@ -8,10 +8,16 @@ export const ladder: AssetRecipe = {
 	slotNames: ['body'],
 	suggestions: { body: suggestions.frame },
 	category: 'infrastructure',
-	variants: ['service', 'roof-access', 'wide-rung'],
+	variants: ['service', 'roof-access', 'wide-rung', 'rung-bay'],
 	footprint: [0.64, 1.28],
 	anchors: [mount('facade')],
 	draw(variant, sample) {
+		if (variant === 3)
+			return [
+				rod([-0.31, 0, 0], [0.31, 0, 0], 0.022),
+				rod([-0.31, 0, 0], [-0.31, 0, 0.28], 0.028),
+				rod([0.31, 0, 0], [0.31, 0, 0.28], 0.028)
+			];
 		const n = [8, 16, 12][variant],
 			w = variant === 2 ? 0.96 : 0.62,
 			spacing = 0.28 + 0.016 * sample,

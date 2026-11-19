@@ -1,3 +1,4 @@
+import { bridgePair } from './people';
 import { required } from '../required';
 import { houseSurfaces, type HouseSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
@@ -36,23 +37,23 @@ function link(
 	surfaces: HouseSurfaces
 ) {
 	const id = 'link/' + a.id + '~' + b.id;
-	const width = Math.max(0.5, Math.min(distance === 1 ? 2.8 : 1.5, a.width * 0.34, b.width * 0.34));
+	const width = 2.5;
 	const ends = new Set([...a.cells, ...b.cells].map((c) => c.id));
 	const obstacles = boxes.filter(
 		(box) => box.owner !== a.id && box.owner !== b.id && !(box.cell && ends.has(box.cell))
 	);
-	const candidates = a.decks
+	const candidates = a.composition.ports
 		.flatMap((left) =>
-			b.decks.flatMap((right) => {
-				const route = bridgeRoute(left, right, distance === 1, obstacles, width);
+			b.composition.ports.flatMap((right) => {
+				const route = bridgeRoute(left.position, right.position, distance === 1, obstacles, width);
 				return route ? [route] : [];
 			})
 		)
-		.sort((l, r) => l.rise - r.rise || r.from[2] - l.from[2]);
+		.sort((l, r) => l.rise - r.rise || l.run - r.run || l.from[2] - r.from[2]);
 	if (!candidates.length) return;
 	const choices = [...new Set(candidates.map((c) => c.kind))];
 	const kind = bridgeForm(a.id, b.id, id, choices, district, seed);
-	const { from, to, route } = required(
+	const { from, to, route, run, thresholds } = required(
 		candidates.find((c) => c.kind === kind),
 		'surveyed bridge form'
 	);
@@ -65,10 +66,40 @@ function link(
 		to,
 		route,
 		width,
-		parts: bridgeParts(route, id + '/' + kind, width, surfaces.access)
+		distance,
+		run,
+		parts: bridgeParts(route, id + '/' + kind, width, surfaces, thresholds)
 	};
 }
-/** Connects visible deck pairs within three carrier sides, with stable undirected ownership. */
+type Span = NonNullable<ReturnType<typeof link>>;
+/** Most bridges one house may carry. */
+const DEGREE = 2;
+/** Houses per permitted closed ring in the bridge network. */
+const RING = 6;
+
+/** Keeps a spanning forest of the shortest spans, with one closed ring per six houses. */
+function budget(spans: Span[], houses: number) {
+	const root = new Map<string, string>(),
+		degree = new Map<string, number>();
+	const find = (id: string): string => {
+		const parent = root.get(id) ?? id;
+		return parent === id ? id : find(parent);
+	};
+	let rings = Math.floor(houses / RING);
+	return spans
+		.sort((l, r) => l.distance - r.distance || l.run - r.run || l.id.localeCompare(r.id))
+		.filter(({ a, b }) => {
+			const full = [a, b].some((id) => (degree.get(id) ?? 0) >= DEGREE);
+			const joined = find(a) === find(b);
+			if (full || (joined && rings-- <= 0)) return false;
+			root.set(find(a), find(b));
+			for (const id of [a, b]) degree.set(id, (degree.get(id) ?? 0) + 1);
+			return true;
+		})
+		.sort((l, r) => l.id.localeCompare(r.id));
+}
+/** Connects neighbouring houses at equal deck levels. Each house carries at most two bridges and
+ * the network stays a forest with one ring per six houses, with stable undirected ownership. */
 export function houseLinks(
 	grid: QuadGrid,
 	sections: Section[],
@@ -80,7 +111,7 @@ export function houseLinks(
 	for (const s of sections)
 		for (const cell of s.cells) owners.set(cell.id, [...(owners.get(cell.id) ?? []), s]);
 	const boxes = [...sections.map(sectionObstacle), ...stock];
-	return [...sections]
+	const spans = [...sections]
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.flatMap((a) =>
 			[...near(grid, a, owners)].flatMap(([b, distance]) => {
@@ -89,4 +120,12 @@ export function houseLinks(
 				return span ? [span] : [];
 			})
 		);
+	const occupied = new Set<string>();
+	return budget(spans, sections.length).map((span) => {
+		const owner = [span.a, span.b].find((id) => !occupied.has(id));
+		if (!owner) return span;
+		const pair = bridgePair(span.route, span.id, seed, surfaces);
+		if (pair.length) occupied.add(owner);
+		return { ...span, parts: [...span.parts, ...pair] };
+	});
 }

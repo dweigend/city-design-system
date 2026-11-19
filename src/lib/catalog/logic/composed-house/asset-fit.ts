@@ -1,40 +1,7 @@
-import { assetRegistry, type Attachment, type SlotAssignment } from '../assets';
-import { bounds, union } from '../ansicht/geometrie';
-import { required } from '../required';
-import { houseObject, type HousePart } from './house-object';
+import type { HousePart } from './house-object';
 import type { Vec3 } from '../parametrik/types';
-import { hashUnit } from '../../core/random';
-
-type Mount = { position: Vec3; size: Vec3; angle?: number };
 type Fit = { point: (p: Vec3) => Vec3; scale: Vec3; angle: number };
 
-/** Builds an addressed variant and locates its mounting plane in local metres. */
-export function fitting(
-	id: string,
-	instance: string,
-	seed: number,
-	attachment: Attachment,
-	assignments: Readonly<Record<string, SlotAssignment>>,
-	selected?: string
-) {
-	const asset = required(
-		assetRegistry.find((a) => a.id === id),
-		id
-	);
-
-	const variant =
-		selected ??
-		asset.variants[Math.floor(hashUnit(seed, instance, 'variant') * asset.variants.length)];
-	const slots = Object.fromEntries(
-		asset.slotNames.map((name) => [name, required(assignments[name], id + '/' + name)])
-	);
-	const object = houseObject(id, variant, seed, { instanceId: instance + '/' + id, slots });
-	const anchor = required(
-		object.anchors.find((a) => a.attachment === attachment),
-		id + ' ' + attachment
-	);
-	return { parts: object.parts, anchor, footprint: object.footprint };
-}
 function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): HousePart {
 	const radius = Math.min(sx, sy);
 	switch (part.kind) {
@@ -60,6 +27,7 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 				radius: part.radius * radius,
 				height: (part.height ?? part.radius) * sz
 			};
+		case 'cone':
 		case 'cylinder':
 			return {
 				...part,
@@ -72,61 +40,157 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 	}
 }
 
-function placeRectangular(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): HousePart {
+function placePrism(
+	part: Extract<HousePart, { kind: 'prism' }>,
+	{ point, scale: [, , sz] }: Fit
+): HousePart {
+	const ring = (polygon: [number, number][]) =>
+		polygon.map(([x, y]): [number, number] => {
+			const q = point([x, y, 0]);
+			return [q[0], q[1]];
+		});
+	return {
+		...part,
+		polygon: ring(part.polygon),
+		...(part.holes ? { holes: part.holes.map(ring) } : {}),
+		z: point([0, 0, part.z])[2],
+		height: part.height * sz
+	};
+}
+function placeRing(
+	part: Extract<HousePart, { kind: 'ring' }>,
+	{ point, scale: [sx, sy], angle }: Fit
+): HousePart {
 	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		radius: part.radius * radius,
+		innerRadius: part.innerRadius * radius,
+		depth: part.depth * radius,
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+function placeTorus(
+	part: Extract<HousePart, { kind: 'torus' }>,
+	{ point, scale: [sx, sy], angle }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		radius: part.radius * radius,
+		tube: part.tube * radius,
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+function placeVault(
+	part: Extract<HousePart, { kind: 'vault' | 'arch' | 'halfpipe' }>,
+	{ point, scale: [sx, sy, sz], angle }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		width: part.width * sx,
+		length: part.length * sy,
+		rise: part.rise * sz,
+		rotation: (part.rotation ?? 0) + angle,
+		thickness: part.thickness === undefined ? undefined : part.thickness * radius
+	};
+}
+function placeFrame(
+	part: Extract<HousePart, { kind: 'frame' }>,
+	{ point, scale: [sx, sy, sz] }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+
+	const [w, d, h] = part.size;
+	return {
+		...part,
+		position: point(part.position),
+		size: [w * sx, d * sy, h * sz],
+		bar: part.bar * radius
+	};
+}
+function placeBox(
+	part: Extract<HousePart, { kind: 'box' | 'wedge' }>,
+	{ point, scale: [sx, sy, sz], angle }: Fit
+): HousePart {
+	const [w, d, h] = part.size,
+		[x, y, z] = part.position;
+	const center = point([x + w / 2, y + d / 2, z]);
+	return {
+		...part,
+		position: [center[0] - (w * sx) / 2, center[1] - (d * sy) / 2, center[2]],
+		size: [w * sx, d * sy, h * sz],
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+function placeHelix(
+	part: Extract<HousePart, { kind: 'helix' }>,
+	{ point, scale: [sx, sy, sz], angle }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		radius: part.radius * radius,
+		innerRadius: part.innerRadius * radius,
+		height: part.height * sz,
+		thickness: part.thickness * sz,
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+/** Kinds defined by world points only: every point takes the fitted transform. */
+function placeAnnular(part: HousePart, fit: Fit): HousePart {
 	switch (part.kind) {
-		case 'frame': {
-			const [w, d, h] = part.size;
-			return {
-				...part,
-				position: point(part.position),
-				size: [w * sx, d * sy, h * sz],
-				bar: part.bar * radius
-			};
+		case 'mesh':
+		case 'polyline':
+			return { ...part, points: part.points.map(fit.point) };
+		case 'membrane': {
+			const [a, b, c, d] = part.corners.map(fit.point);
+			return { ...part, corners: [a, b, c, d] };
 		}
-		case 'box':
-		case 'wedge': {
-			const [w, d, h] = part.size,
-				[x, y, z] = part.position;
-			const center = point([x + w / 2, y + d / 2, z]);
-			return {
-				...part,
-				position: [center[0] - (w * sx) / 2, center[1] - (d * sy) / 2, center[2]],
-				size: [w * sx, d * sy, h * sz],
-				rotation: (part.rotation ?? 0) + angle
-			};
-		}
+		case 'helix':
+			return placeHelix(part, fit);
+		case 'ring':
+			return placeRing(part, fit);
+		case 'torus':
+			return placeTorus(part, fit);
 		default:
 			throw new RangeError('Unsupported house fitting ' + part.kind);
 	}
 }
+function placeRectangular(part: HousePart, fit: Fit): HousePart {
+	switch (part.kind) {
+		case 'prism':
+			return placePrism(part, fit);
+		case 'vault':
+		case 'arch':
+		case 'halfpipe':
+			return placeVault(part, fit);
+		case 'frame':
+			return placeFrame(part, fit);
+		case 'box':
+		case 'wedge':
+			return placeBox(part, fit);
+		default:
+			return placeAnnular(part, fit);
+	}
+}
 
-/** Fits an anchored kit to its reserved space. A stair's height is measured at its top tread. */
-export function mountFitting(asset: ReturnType<typeof fitting>, mount: Mount, flight = false) {
-	const { parts, anchor, footprint } = asset;
-	const box = union(parts.map(bounds));
-	const [w, d, h] = mount.size;
-	const height = flight
-		? Math.max(...parts.filter((p) => p.kind === 'box').map((p) => bounds(p).max[2]))
-		: box.max[2];
-	const rigid = parts.some((p) => p.kind === 'capsule');
-	const planScale = Math.min(w / footprint[0], d / footprint[1], rigid ? h / height : Infinity);
-	const rectangular = parts.every(
-		(p) => p.kind === 'box' || p.kind === 'pipe' || p.kind === 'wedge'
-	);
-	const scale: Vec3 = rectangular
-		? [w / (box.max[0] - box.min[0]), d / (box.max[1] - box.min[1]), h / height]
-		: [planScale, planScale, rigid ? planScale : h / height];
-	const angle = mount.angle ?? 0,
-		c = Math.cos(angle),
+/** Places registry members relative to their measured native origin. */
+export function place(parts: HousePart[], origin: Vec3, target: Vec3, scale: Vec3, angle: number) {
+	const c = Math.cos(angle),
 		s = Math.sin(angle);
 	const point = ([x, y, z]: Vec3): Vec3 => {
-		const dx = (x - anchor.position[0]) * scale[0],
-			dy = (y - anchor.position[1]) * scale[1];
+		const u = (x - origin[0]) * scale[0],
+			v = (y - origin[1]) * scale[1];
 		return [
-			mount.position[0] + dx * c - dy * s,
-			mount.position[1] + dx * s + dy * c,
-			mount.position[2] + (z - anchor.position[2]) * scale[2]
+			target[0] + u * c - v * s,
+			target[1] + u * s + v * c,
+			target[2] + (z - origin[2]) * scale[2]
 		];
 	};
 	return parts.map((p) => placed(p, { point, scale, angle }));
