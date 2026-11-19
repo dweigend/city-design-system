@@ -122,7 +122,11 @@ export function createTerrainMesh(
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
 		const hatchPhase = attribute('position', 'vec3').x.add(height).div(nodes.hatchSpacing);
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
-		ground = mix(ground, colors.ink, incision.mul(hatch).mul(nodes.ravineTone).mul(terrainWeight));
+		ground = mix(
+			ground,
+			colors.ink,
+			incision.mul(hatch).mul(1.28).mul(nodes.ravineTone).mul(terrainWeight)
+		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
 		const minor = hairline(height.div(nodes.minor), 1).mul(resolvable(height.div(nodes.minor)));

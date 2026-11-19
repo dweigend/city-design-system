@@ -65,7 +65,7 @@ export function ceramicBatch(
 ) {
 	const pieces = parts.map((part) => {
 		const accent = pigments.get(part.id) ?? part;
-		const faces = batch([part], () => tone(accent));
+		const faces = batch([part], () => tone(accent), false);
 		return { faces, chart: shellChart(part, faces.neu.p, accent.token !== '--paper') };
 	});
 	const faces: Batch['neu'] = {

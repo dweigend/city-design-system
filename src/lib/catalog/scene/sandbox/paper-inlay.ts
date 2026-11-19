@@ -8,6 +8,7 @@ import {
 	type Node
 } from 'three/webgpu';
 import {
+	atan,
 	attribute,
 	cameraProjectionMatrix,
 	float,
@@ -50,17 +51,26 @@ export function terrazzo(paper: Node<'color'>, scale: Node<'float'>) {
 	const material = new MeshBasicNodeMaterial();
 	const base = attribute('color', 'vec3'),
 		p = positionLocal;
-	const uv = vec2(p.x.add(p.y.mul(0.48)), p.z.add(p.y.mul(0.83))).mul(2.7);
-	const seed = uv.floor().dot(vec2(0.7548777, 0.5698403)).fract();
-	const jitter = vec2(seed, seed.mul(17.93).fract()).sub(0.5).mul(0.56);
-	const q = uv.fract().sub(0.5).sub(jitter);
-	const cut = q.x
+	// One candidate per 0.67 m cell versus W2's 0.37 m cell. Seed from the surface coordinates.
+	const plane = normalWorld.y
 		.abs()
-		.mul(0.7)
-		.add(q.y.add(q.x.mul(seed.sub(0.5))).abs());
-	const radius = seed.mul(0.12).add(0.07);
-	const aa = uv.fwidth().length().max(0.001).mul(0.5);
-	const density = float(1).sub(cut.smoothstep(radius.sub(aa), radius.add(aa)));
+		.greaterThan(0.65)
+		.select(p.xz, vec2(normalWorld.x.abs().greaterThan(normalWorld.z.abs()).select(p.z, p.x), p.y));
+	const uv = plane.mul(1.5);
+	const cell = uv.floor();
+	const seed = cell.dot(vec2(0.7548777, 0.5698403)).fract();
+	const noise = seed.mul(31.47).fract();
+	const q = uv
+		.fract()
+		.sub(0.5)
+		.sub(vec2(noise, seed.mul(71.63).fract()).sub(0.5).mul(0.66));
+	const sides = seed.mul(3).floor().add(3),
+		sector = float(2 * Math.PI).div(sides);
+	const theta = atan(q.y, q.x).add(noise.mul(2 * Math.PI));
+	const edge = theta.div(sector).add(0.5).fract().sub(0.5).mul(sector).cos().mul(q.length());
+	const radius = seed.mul(0.05).add(0.025).mul(1.5).mul(sector.mul(0.5).cos());
+	const aa = uv.fwidth().length().mul(0.42).max(0.0001);
+	const density = float(1).sub(edge.smoothstep(radius.sub(aa), radius.add(aa)));
 	const chip = mix(paper, attribute('chipColor', 'vec3'), float(seed.greaterThan(0.51)));
 	material.colorNode = mix(
 		base,

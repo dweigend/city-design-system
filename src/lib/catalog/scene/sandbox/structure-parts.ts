@@ -7,6 +7,7 @@ import type { StructureMaterials } from './structure-materials';
 import { conduitBatch } from './print-flow';
 import { paperEdge } from './paper-inlay';
 import { ceramicBatch } from './ceramic-batch';
+import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
 import { outlineOffsets } from './structure-outline';
 
@@ -159,6 +160,7 @@ export function populateStructures(
 	surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
 	surface(body.glas, materials.glass, materials.hull, false, false);
 	lines(stock.kanten.alt, materials.pencil);
+	if (details) lines(stockDetail(parts.regular), materials.stockDetail);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
 	const plain = batch(parts.plain, toColor);
@@ -169,8 +171,13 @@ export function populateStructures(
 	const conduit = conduitBatch(parts.conduits, toColor);
 	const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
 	pipes?.geometry.setAttribute('stationM', conduit.axis);
+	pipes?.geometry.setAttribute('railMark', conduit.rail);
 	const print = batch(parts.inlays, (p) =>
-		colorOf(p.token === '--cat-business' ? p.token : p.token.replace(/-\d$/, '') + '-2')
+		colorOf(
+			p.token === '--cat-business' && !p.id.includes(':figure:')
+				? p.token
+				: p.token.replace(/-\d$/, '') + '-2'
+		)
 	);
 	const chips = batch(parts.inlays, (p) => colorOf(p.token.replace(/-\d$/, '')));
 	const inlay = mesh(print.neu, materials.inlay, true);

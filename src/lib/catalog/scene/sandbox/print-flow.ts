@@ -2,7 +2,7 @@ import { attribute, float, mix } from 'three/tsl';
 import { Float32BufferAttribute, MeshBasicNodeMaterial, type Node } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import { batch, type Batch } from '../batch';
-import { travellingDash } from './water-print';
+
 import type { Color } from 'three/webgpu';
 
 type Pipe = Extract<Primitive, { kind: 'pipe' }>;
@@ -46,7 +46,11 @@ export function conduitBatch(parts: Primitive[], tone: (p: Primitive) => Color) 
 		.map((p) => {
 			const baked = batch([p], tone);
 			const faces = p.glass ? baked.glas : baked.neu;
-			return { faces, axis: stations(p, faces.p) };
+			return {
+				faces,
+				rail: Array(faces.p.length / 3).fill(Number(p.token === '--cat-business')),
+				axis: stations(p, faces.p)
+			};
 		});
 	const faces: Batch['neu'] = {
 		p: pieces.flatMap((p) => p.faces.p),
@@ -55,6 +59,10 @@ export function conduitBatch(parts: Primitive[], tone: (p: Primitive) => Color) 
 	};
 	return {
 		faces,
+		rail: new Float32BufferAttribute(
+			pieces.flatMap((p) => p.rail),
+			1
+		),
 		axis: new Float32BufferAttribute(
 			pieces.flatMap((p) => p.axis),
 			1
@@ -65,10 +73,14 @@ export function conduitBatch(parts: Primitive[], tone: (p: Primitive) => Color) 
 /** Paper dashes travel down the coloured service pipe at the river print's cadence. */
 export function conduitInk(seconds: Node<'float'>, paper: Node<'color'>) {
 	const material = new MeshBasicNodeMaterial();
+	const base = attribute('color', 'vec3');
+	const rail = attribute('railMark', 'float');
 	const axis = attribute('stationM', 'float');
-	const coverage = travellingDash(axis, seconds).mul(
-		float(1).sub(axis.fwidth().smoothstep(0.5, 1.5))
-	);
-	material.colorNode = mix(attribute('color', 'vec3'), paper, coverage.mul(0.76));
+	const phase = axis.mul(0.17).sub(seconds.mul(0.36)).fract().sub(0.5).abs();
+	const aa = axis.fwidth().mul(0.085).clamp(0.0001, 0.025);
+	const coverage = float(1)
+		.sub(phase.smoothstep(float(0.105).sub(aa), float(0.105).add(aa)))
+		.mul(float(1).sub(axis.fwidth().smoothstep(0.5, 1.5)));
+	material.colorNode = mix(base, mix(mix(base, float(1), 0.68), paper, rail), coverage);
 	return material;
 }

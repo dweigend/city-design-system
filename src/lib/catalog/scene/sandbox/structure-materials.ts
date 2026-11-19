@@ -28,6 +28,9 @@ export function structureMaterials() {
 	const seconds = uniform(0);
 	const paperTone = uniform(new THREE.Color());
 	const shadowTone = uniform(new THREE.Color());
+	const ceramicContour = uniform(new THREE.Color());
+	const night = uniform(0);
+	const markTone = uniform(new THREE.Color());
 	const scalePx = uniform(1);
 	const materials = {
 		glaze: new THREE.MeshBasicNodeMaterial(),
@@ -43,6 +46,7 @@ export function structureMaterials() {
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
 		}),
+		stockDetail: new THREE.Line2NodeMaterial(),
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
@@ -92,13 +96,23 @@ export function structureMaterials() {
 		pencilField.fract().sub(0.5).abs().div(footprint).smoothstep(0, 0.65)
 	);
 	const flank = float(1).sub(normalWorld.y.abs()).mul(normalWorld.x.mul(0.5).add(0.5));
+	const tile = positionLocal.y.mul(2.3);
+	const course = float(1).sub(
+		tile.fract().sub(0.5).abs().div(tile.fwidth().max(0.001)).smoothstep(0.0, 0.65)
+	);
+	const roofInk = course
+		.mul(normalWorld.y.smoothstep(0.3, 0.65))
+		.mul(float(1).sub(normalWorld.y.smoothstep(0.95, 1)))
+		.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
+		.mul(0.52);
 	materials.stock.colorNode = mix(
 		paperTone,
 		graphite,
 		pencilLine
 			.mul(flank)
 			.mul(float(1).sub(footprint.smoothstep(0.22, 0.56)))
-			.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.nah).mul(0.18).add(0.065))
+			.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus).mul(0.48).add(0.065))
+			.max(roofInk)
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.glaze.colorNode = solidColor;
@@ -115,7 +129,10 @@ export function structureMaterials() {
 		paperTone.value.copy(g.paper);
 		shadowTone.value.copy(g.schatten);
 
-		solidColor.value.copy(g.weiss);
+		solidColor.value.copy(neutral(g.modellL));
+		ceramicContour.value.copy(g.kontur);
+		night.value = Number(g.ink.r > g.paper.r);
+		markTone.value.copy(g.token('--cat-business-2'));
 		flankColor.value.copy(neutral(g.modellL + TOENE.vorn));
 		sideColor.value.copy(neutral(g.modellL + TOENE.rechts));
 		bottomColor.value.copy(neutral(g.modellL + TOENE.unten));
@@ -124,6 +141,7 @@ export function structureMaterials() {
 		materials.glass.color.copy(g.weiss);
 		materials.ghost.color.copy(g.blei);
 		materials.pencil.color.copy(g.blei);
+		materials.stockDetail.color.copy(g.blei);
 		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
@@ -190,6 +208,8 @@ export function structureMaterials() {
 			scalePx.value = scale;
 			const { bestand, huelle, kontext } = style.rollen;
 			materials.pencil.linewidth = bestand.strichPx;
+			materials.stockDetail.linewidth = bestand.strichPx;
+			materials.stockDetail.visible = style.kamera.pxProM >= MASSSTAB.haus;
 			pencilPx.value = bestand.strichPx / 2;
 			outlinePx.value = huelle.strichPx * outlineExpansion;
 			sheetOffsetM.value = (2 * outlinePx.value) / scale;

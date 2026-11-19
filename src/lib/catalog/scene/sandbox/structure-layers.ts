@@ -11,6 +11,7 @@ function isConduit(part: Primitive) {
 	);
 }
 function isInlay(part: Primitive) {
+	if (part.kind === 'prism' && /:figure:(step\d+|garden)$/.test(part.id)) return true;
 	if (part.kind === 'box')
 		return (
 			part.material !== 'glaze' && ['--cat-business-2', '--cat-business-3'].includes(part.token)

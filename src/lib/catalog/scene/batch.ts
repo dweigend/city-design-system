@@ -30,7 +30,11 @@ const faces = (): Faces => ({ p: [], n: [], c: [] });
 const EDGE = Math.cos((46 * Math.PI) / 180);
 
 /** Gathers triangle, edge and hull geometry for the scene materials. */
-export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.Color): Batch {
+export function batch(
+	primitives: Primitive[],
+	colorOf: (p: Primitive) => THREE.Color,
+	coarse = true
+): Batch {
 	const out: Batch = {
 		neu: faces(),
 		alt: faces(),
@@ -180,7 +184,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 				}
 			continue;
 		}
-		const built = build(p, true);
+		const built = build(p, coarse);
 		// Coplanar surfaces in existing stock (cornice on roof) flicker otherwise: darker ones sit higher.
 		if (role === 'alt' && p.kind !== 'mesh') built.position.y += (p.shade ?? 0) * 0.1;
 		matrix.compose(built.position, quat.setFromAxisAngle(up, built.rotation), one);

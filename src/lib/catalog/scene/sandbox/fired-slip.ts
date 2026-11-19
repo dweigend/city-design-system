@@ -1,8 +1,14 @@
-import { attribute, float, mix, normalWorld, vec3 } from 'three/tsl';
+import { attribute, float, mix, normalWorld, normalView, vec3 } from 'three/tsl';
 import { MeshBasicNodeMaterial, type Node } from 'three/webgpu';
 
 /** A matte clay body, one dipped cap, its pooled lip and a paper-white reflected shape. */
-export function firedSlip(clay: Node<'color'>, shade: Node<'color'>, seconds: Node<'float'>) {
+export function firedSlip(
+	clay: Node<'color'>,
+	shade: Node<'color'>,
+	seconds: Node<'float'>,
+	contour: Node<'color'>,
+	night: Node<'float'>
+) {
 	const material = new MeshBasicNodeMaterial();
 	const pigment = attribute('color', 'vec3'),
 		q = attribute('kilnChart', 'vec4');
@@ -20,9 +26,18 @@ export function firedSlip(clay: Node<'color'>, shade: Node<'color'>, seconds: No
 		.mul(seconds.mul(0.24).cos())
 		.add(q.z.mul(seconds.mul(0.24).sin()))
 		.smoothstep(0.89, 0.94);
-	const fixedFlash = normalWorld.dot(vec3(0.42, 0.75, 0.51)).smoothstep(0.921, 0.937);
+	const u = normalView.x.add(0.12);
+	const bow = normalView.y.sub(0.72).add(u.mul(u).mul(0.38));
+	const stroke = u
+		.mul(u)
+		.div(0.4356)
+		.add(bow.div(0.115).mul(bow.div(0.115)));
+	const fixedFlash = float(1).sub(stroke.smoothstep(0.85, 1.15));
 	const flash = ring.select(turning, fixedFlash);
 	const glaze = mix(pigment.mul(float(1).sub(lip.mul(0.37))), clay, flash.mul(0.92));
-	material.colorNode = mix(body, glaze, cap);
+	const rimInk = float(1).sub(
+		normalView.z.abs().smoothstep(0.06, normalView.z.fwidth().max(0.03).add(0.12))
+	);
+	material.colorNode = mix(mix(body, glaze, cap), contour, rimInk.mul(night));
 	return material;
 }

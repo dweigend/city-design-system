@@ -3,6 +3,7 @@ import { flowToken } from '../../data/focus';
 import type { Palette3D } from '../../data/city3d';
 import { levelFor, type FocusId } from '../../logic/presentation';
 import type { World } from '../../logic/sandbox';
+import { kreisSegmente } from '../../logic/parametrik/rundung';
 import { VEHICLE, vehiclePoses } from '../../logic/transit-line';
 
 type Route = {
@@ -26,7 +27,8 @@ export function createVehicles() {
 	const direction = new THREE.Vector3();
 
 	function vehicleGeometry({ length, radius }: (typeof VEHICLE)['viaduct']) {
-		return new THREE.CapsuleGeometry(radius, length - 2 * radius, 3, 8);
+		const segments = kreisSegmente(radius);
+		return new THREE.CapsuleGeometry(radius, length - 2 * radius, segments / 4, segments);
 	}
 
 	function removeRoute(route: Route) {
