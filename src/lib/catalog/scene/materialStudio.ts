@@ -1,6 +1,5 @@
 import { studioLights } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Palette3D } from '../data/city3d';
 import { flowToken } from '../data/focus';
 import { tokenColor } from './material';
@@ -11,7 +10,6 @@ const neutral = (r: number, g: number, b: number) =>
 const paper = neutral(0.979, 0.969, 0.945);
 const ink = neutral(0.23, 0.23, 0.22);
 const shadowColor = neutral(0.42, 0.39, 0.35);
-const REFLECTION = 0.24;
 const SHADOW = 0.66;
 /** Key from the right, slightly behind the stage: the right face is lit, the left one in shade. */
 const keyFromRight = new THREE.Vector3(0.94, 1.12, -0.35);
@@ -37,7 +35,6 @@ export function createMaterialStudio(
 ) {
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFShadowMap;
-	scene.environmentIntensity = REFLECTION;
 
 	const { key, fill } = studioLights();
 	const keyDirection = lichtVonRechts ? keyFromRight : key.position.clone();
@@ -55,21 +52,7 @@ export function createMaterialStudio(
 	floor.position.y = -0.006;
 	floor.receiveShadow = true;
 	scene.add(key, key.target, fill, floor);
-	let environment: ReturnType<THREE.PMREMGenerator['fromScene']> | undefined;
-
 	return {
-		/** Generate the reflection environment after the renderer is initialized. */
-		init() {
-			const room = new RoomEnvironment();
-			const generator = new THREE.PMREMGenerator(renderer);
-			try {
-				environment = generator.fromScene(room, 0.065, 0.1, 70, { size: 128 });
-				scene.environment = environment.texture;
-			} finally {
-				generator.dispose();
-				room.dispose();
-			}
-		},
 		/** Fit the shadow frustum to the model bounds in scene coordinates. */
 		frame(box: THREE.Box3) {
 			const center = box.getCenter(new THREE.Vector3());
@@ -93,8 +76,6 @@ export function createMaterialStudio(
 			key.shadow.dispose();
 			floor.geometry.dispose();
 			floor.material.dispose();
-			environment?.dispose();
-			scene.environment = null;
 		}
 	};
 }

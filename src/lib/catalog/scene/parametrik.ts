@@ -59,7 +59,7 @@ export function createParametrikScene(
 	scene.background = new THREE.Color(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 2000);
 	const pipeline = studioPipeline(renderer, scene, camera);
-	const light = createLight(pipeline.shadowSize);
+	const light = createLight(pipeline.shadowSize, 4);
 	renderer.shadowMap.enabled = true;
 	scene.add(...light.objects);
 	const model = new THREE.Group();

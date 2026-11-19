@@ -129,7 +129,6 @@ export function createMaterialBuehne(
 				return;
 			}
 			initialized = true;
-			studio?.init();
 			canvas.dataset.backend =
 				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
 					? 'webgpu'

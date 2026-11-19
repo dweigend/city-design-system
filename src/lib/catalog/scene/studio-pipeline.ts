@@ -1,3 +1,4 @@
+import { metallUmgebung } from './materialMetallUmgebung';
 import * as THREE from 'three/webgpu';
 import { mix, pass, vec4 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
@@ -22,6 +23,9 @@ export function studioPipeline(
 	renderer.toneMapping = THREE.NeutralToneMapping;
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 	renderer.shadowMap.type = THREE.PCFShadowMap;
+	const environment = metallUmgebung('studio');
+	scene.environment = environment;
+	scene.environmentIntensity = 0.32;
 	const beauty = pass(scene, camera);
 	const face = beauty.getTextureNode();
 	// @ts-expect-error GTAONode accepts null to reconstruct normals from depth (three r187).
@@ -39,6 +43,8 @@ export function studioPipeline(
 			pipeline.dispose();
 			contact.dispose();
 			beauty.dispose();
+			scene.environment = null;
+			environment.dispose();
 		}
 	};
 }

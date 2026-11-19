@@ -7,7 +7,7 @@ const SHADOW_MAP_SIZE = 4096;
 const SHADOW_REACH = { min: 120, perSpan: 1.1 };
 
 /** Fits a directional shadow to the scene without shading the paper with ambient light. */
-export function createLight(shadowSize = SHADOW_MAP_SIZE) {
+export function createLight(shadowSize = SHADOW_MAP_SIZE, minReach = SHADOW_REACH.min) {
 	const { key: sun, fill } = studioLights();
 	const direction = sun.position.clone().normalize();
 	sun.castShadow = true;
@@ -19,6 +19,8 @@ export function createLight(shadowSize = SHADOW_MAP_SIZE) {
 	sun.shadow.radius = 2.5;
 	// Three's depth-only shadow node returns a scalar, but its type omits the TSL scalar interface.
 	const shadowMask = shadow(sun) as ReturnType<typeof shadow> & THREE.Node<'float'>;
+	// Both physical receivers and the paper shader sample the same cached depth target.
+	Object.assign(sun.shadow, { shadowNode: shadowMask });
 	const shadowTone = uniform(new THREE.Vector3());
 	return {
 		objects: [sun, sun.target, fill],
@@ -26,7 +28,7 @@ export function createLight(shadowSize = SHADOW_MAP_SIZE) {
 		shade(this: void, color: THREE.Node<'vec3'>) {
 			return mix(color, shadowTone, float(shadowMask).oneMinus().mul(0.62));
 		},
-		/** Sets the opaque ground dot ink. The optional paper caps callers using the drawing shadow tone. */
+		/** Sets the ground shadow tint. The optional paper caps callers using the drawing shadow tone. */
 		setTone(color: THREE.Color, paper = color) {
 			shadowTone.value.set(
 				Math.min(color.r, paper.r),
@@ -40,9 +42,9 @@ export function createLight(shadowSize = SHADOW_MAP_SIZE) {
 		refresh() {
 			sun.shadow.needsUpdate = true;
 		},
-		/** Centers the shadow volume on the view target; sharp shadows at every zoom. */
+		/** Fits the shadow volume to the visible stage in metres. */
 		aim(target: THREE.Vector3, span: number) {
-			const reach = Math.max(SHADOW_REACH.min, span * SHADOW_REACH.perSpan);
+			const reach = Math.max(minReach, span * SHADOW_REACH.perSpan);
 			const shadowCamera = sun.shadow.camera;
 			if (shadowCamera.right === reach && target.equals(sun.target.position)) return;
 			sun.shadow.needsUpdate = true;
