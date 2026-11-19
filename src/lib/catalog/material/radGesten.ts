@@ -25,7 +25,7 @@ export function radGesten(schritt: (d: number) => void, zelleRem: number) {
 	let startX: number | undefined;
 	let gewischt = false;
 	return {
-		rad(e: WheelEvent) {
+		rad(this: void, e: WheelEvent) {
 			const d = radDelta(e);
 			if (d === 0) return;
 			e.preventDefault();
@@ -35,14 +35,14 @@ export function radGesten(schritt: (d: number) => void, zelleRem: number) {
 			rest = 0;
 			sperreBis = e.timeStamp + RAD_PAUSE_MS;
 		},
-		start(e: PointerEvent) {
+		start(this: void, e: PointerEvent) {
 			startX = e.clientX;
 			gewischt = false;
 		},
-		abbrechen() {
+		abbrechen(this: void) {
 			startX = undefined;
 		},
-		ende(e: PointerEvent) {
+		ende(this: void, e: PointerEvent) {
 			if (startX === undefined) return;
 			const dx = e.clientX - startX;
 			startX = undefined;
@@ -51,7 +51,7 @@ export function radGesten(schritt: (d: number) => void, zelleRem: number) {
 			const zellePx = zelleRem * parseFloat(getComputedStyle(document.documentElement).fontSize);
 			schritt(-Math.sign(dx) * Math.max(1, Math.round(Math.abs(dx) / zellePx)));
 		},
-		klick(e: MouseEvent) {
+		klick(this: void, e: MouseEvent) {
 			if (!gewischt) return;
 			gewischt = false;
 			e.preventDefault();

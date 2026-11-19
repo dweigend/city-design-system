@@ -32,6 +32,10 @@ const avg = (ps: Point2[]): Point2 => [
 	ps.reduce((s, q) => s + q[1], 0) / ps.length
 ];
 
+/**
+ * Stair form inside `t.outline` toward `t.toward`, reaching the exit height `t.z` (meters).
+ * Empty for `t.z <= 0.5`. Deterministic, no randomness; `t` is not mutated. New array.
+ */
 export function treppe(t: TreppenForm): Primitive[] {
 	const c = avg(t.outline),
 		dir = Math.atan2(t.toward[1] - c[1], t.toward[0] - c[0]);

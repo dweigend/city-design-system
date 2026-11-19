@@ -110,7 +110,6 @@
     "unused-export:src/lib/catalog/logic/parametrik/formen/zellen.ts:CELL_HEIGHT",
     "unused-export:src/lib/catalog/logic/parametrik/material.ts:legacyMaterials",
     "unused-export:src/lib/catalog/logic/parametrik/materialSzenen.ts:sampleForm",
-    "unused-export:src/lib/catalog/logic/parametrik/raster/geometry.ts:triangles",
     "unused-export:src/lib/catalog/logic/parametrik/raster/universal/index.ts:kern",
     "unused-export:src/lib/catalog/logic/parametrik/rundung.ts:SEHNENFEHLER_GROB_M",
     "unused-export:src/lib/catalog/logic/parametrik/style.ts:stylize",
@@ -192,9 +191,7 @@
   "deprecated_exports_in_use": [],
   "unused_dependencies": [],
   "unused_dev_dependencies": [],
-  "circular_dependencies": [
-    "circular-dependency:src/lib/catalog/logic/parametrik/raster/universal/index.ts|src/lib/catalog/logic/parametrik/raster/universal/update.ts"
-  ],
+  "circular_dependencies": [],
   "re_export_cycles": [],
   "package_cycles": [],
   "unused_optional_dependencies": [],

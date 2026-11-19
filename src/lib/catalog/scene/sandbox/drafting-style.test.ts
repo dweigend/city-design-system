@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import { Mesh, SphereGeometry, type Group, type Material } from 'three/webgpu';
 import { BLICK, MASSSTAB, STRICHE } from '../../data/leitstil';
@@ -181,7 +180,8 @@ test('translation moves the seed-7 bearing in all three axes', () => {
 	const moved = translate(bent, [2, -3, 4]);
 	const [x, y, z] = bent.points[0];
 	expect(moved).toMatchObject({ bearings: [[x + 2, y - 3, z + 4]] });
-	expect(moved.kind === 'polyline' && moved.points[0]).toEqual(moved.bearings?.[0]);
+	if (moved.kind !== 'polyline') throw new Error('Expected the same carrier geometry');
+	expect(moved.bearings?.[0]).toEqual(moved.points[0]);
 	expect(bent.bearings).toEqual([bent.points[0]]);
 });
 

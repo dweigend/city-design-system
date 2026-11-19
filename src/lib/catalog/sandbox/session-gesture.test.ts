@@ -1,9 +1,8 @@
-// @ts-expect-error Bun provides these test APIs at runtime.
 import { expect, spyOn, test } from 'bun:test';
 import * as sandbox from '../logic/sandbox';
 import * as terrainGrid from '../logic/terrain-grid';
 import type { Tool } from '../logic/sandbox';
-import { gestureDriver } from './fixtures/serial-gesture';
+import { gestureDriver } from './fixtures/serial-gesture.fixture.test';
 import { stateDigest } from './fixtures/state-digest';
 import { activateChoice, createHudCommands } from './hud-commands';
 
@@ -53,7 +52,7 @@ test('a held tool, year and displayed roof stay current until the stroke commits
 		d.session.tool = dig;
 		d.session.advance();
 		d.session.setRoofBuilder(roof);
-		expect(d.session.tool.kind).toBe('house');
+		expect<string>(d.session.tool.kind).toBe('house');
 		expect(d.world().state.year).toBe(2026);
 		expect(d.world().roofBuilder).toBeUndefined();
 		d.up('80/44');

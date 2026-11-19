@@ -1,7 +1,11 @@
-/** Workbench (page /interface): labels for focus, layers, construction phases and scenes. */
-import type { Schicht } from '../logic/ansicht/tags';
-import type { FokusArt } from '../logic/ansicht/fokus';
-import type { WerkbankSzene } from '../logic/ansicht/szenen';
+/**
+ * Workbench (page /interface) control options: readable labels for scenes, focus kinds, layers,
+ * construction phases and transparency steps. Each option table lives with the view vocabulary
+ * it labels.
+ */
+import type { Schicht } from './tags';
+import type { FokusArt } from './fokus';
+import type { WerkbankSzene } from './szenen';
 
 export const werkbankSzenen: { value: WerkbankSzene; label: string }[] = [
 	{ value: 'geruestturm', label: 'Frame tower' },

@@ -136,7 +136,7 @@ export function createStructures() {
 		group,
 		set,
 		/** Coalesces geometry changes until the camera and drawing style are ready. */
-		queue(key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
+		queue(this: void, key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
 			const previous = entries.get(key);
 			if (
 				!primitives.length ||

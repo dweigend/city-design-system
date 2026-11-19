@@ -139,20 +139,26 @@
 		stroke-linejoin: round;
 	}
 
-	/* Legend: steps and lines, nothing else */
+	/* Legend: steps and lines, nothing else. Two lists side by side; when narrow, the second moves below. */
 	.key {
 		display: flex;
-		gap: var(--space-16);
+		flex-wrap: wrap;
+		align-items: start;
+		gap: var(--space-4) var(--space-16);
 		margin-top: var(--space-8);
 	}
+	/* One column grid per list: the value column grows to its longest value ("400 px"), so no value wraps. */
 	ul {
+		display: grid;
+		grid-template-columns: var(--u10) var(--space-20) minmax(var(--u10), max-content);
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 	li {
 		display: grid;
-		grid-template-columns: var(--u10) var(--space-20) var(--u10);
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
 		align-items: center;
 		height: var(--ctl-s);
 		font-size: var(--text-s);
@@ -167,6 +173,7 @@
 		font-size: var(--text-xs);
 		color: var(--ink-2);
 		text-align: right;
+		white-space: nowrap;
 	}
 	.sample {
 		display: block;

@@ -31,7 +31,9 @@ export type UniversalBild = {
 
 export function rasterFuer(art: UniversalArt, saat: number): UniversalGrid {
 	if (art === 'organic') return organicGrid({}, saat);
-	const g = gridGenerators.find((x) => x.kind === art)!;
+	const g = gridGenerators.find((x) => x.kind === art);
+	// Every UniversalArt except 'organic' names a kind of `gridGenerators`.
+	if (!g) throw new Error(`rasterFuer: no grid generator for "${art}"`);
 	return g.generate(defaults(g), saat);
 }
 
@@ -60,9 +62,15 @@ export function universalBild(
 		const patch = toPatch({ ...raster, cells: zellen }, { iterations: 0 });
 		const ms = jetzt() - t0;
 		const punkt = new Map(patch.vertices.map((v) => [v.id, v.point]));
+		// `toPatch` faces reference only ids of `patch.vertices`; a miss lands in `fehler`.
+		const ecke = (id: (typeof patch.vertices)[number]['id']) => {
+			const p = punkt.get(id);
+			if (!p) throw new Error(`universalBild: face references unknown vertex ${id}`);
+			return p;
+		};
 		return {
 			...basis,
-			quads: patch.faces.map((f) => pfad(f.vertices.map((id) => punkt.get(id)!))).join(''),
+			quads: patch.faces.map((f) => pfad(f.vertices.map(ecke))).join(''),
 			anzahlQuads: patch.faces.length,
 			minWinkel: patch.quality.minAngle,
 			maxSeiten: patch.quality.maxAspect,

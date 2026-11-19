@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API.
 import { expect, spyOn, test } from 'bun:test';
 import * as hardware from '../megastructure';
 import { moduleGroup, type ModuleRod } from './module-group';

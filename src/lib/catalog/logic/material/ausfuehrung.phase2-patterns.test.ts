@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import type { AusfuehrungId } from '../../data/materialAusfuehrung';
 import type { FamilieId } from '../../data/materialSeite';

@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API.
 import { expect, test } from 'bun:test';
 import {
 	installationView,

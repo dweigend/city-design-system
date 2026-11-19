@@ -69,7 +69,7 @@ export function mountPlate(canvas: HTMLCanvasElement, kind: 'collage' | 'vessel'
 				draw();
 			}
 		},
-		dispose() {
+		dispose(this: void) {
 			observer.disconnect();
 			stopTheme();
 			disposeModel(group);

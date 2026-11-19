@@ -136,7 +136,7 @@ export function createSandboxSound() {
 	return {
 		unlock,
 		/** Schedules cues from a committed edit with a rolling twelve-voice limit. */
-		play(completion: Completion) {
+		play(this: void, completion: Completion) {
 			schedule(notesByTool[completion.kind](completion));
 		},
 		/** Mutes immediately, including already scheduled notes. */
@@ -146,7 +146,7 @@ export function createSandboxSound() {
 			if (!muted) unlock();
 		},
 		/** Releases the session's audio context. */
-		dispose() {
+		dispose(this: void) {
 			void audio?.context.close().catch(() => {});
 		}
 	};

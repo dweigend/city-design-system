@@ -39,6 +39,13 @@ export type Belegung = {
 	boden: Map<string, Boden>;
 };
 
+/**
+ * Occupancy of the layout `r`: existing stock first, then interventions and ground surfaces.
+ * Reads seed (`>>> 0`, stream `seed·31+5` plus per-block streams from `Block.seed`), dichte,
+ * hoehe and schwamm (clamped to [0, 1]) from `p`. Levels stay in 0 … MAX_LEVEL. Returns new maps
+ * and arrays; each `Eingriff.block` is the block object of `r` by reference. `r` and `p` are not
+ * mutated. `wege` later writes paths into `samples`.
+ */
 export function belegung(r: Lage, p: WeltParams): Belegung {
 	const rng = random((p.seed >>> 0) * 31 + 5),
 		dichte = clamp(p.dichte, 0, 1),

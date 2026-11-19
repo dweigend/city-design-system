@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, test, expect } from 'bun:test';
 import { createPatch } from './topology';
 import {

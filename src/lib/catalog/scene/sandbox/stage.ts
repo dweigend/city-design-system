@@ -333,7 +333,7 @@ export function createSandboxStage(
 			opening = undefined;
 		},
 		/** Retains the current camera position on resize after the player moves it. */
-		viewChanged() {
+		viewChanged(this: void) {
 			opening = undefined;
 			invalidateView();
 		},

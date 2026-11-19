@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API.
 import { expect, test, spyOn } from 'bun:test';
 import {
 	withState,
@@ -26,8 +25,9 @@ test('the seed-7 water inlet on 90/40 is one owned, seated ceramic fitting with 
 	expect(modules.every((p) => p.fit === 'profile-v1')).toBe(true);
 	const piece = modules[2];
 	const rod = group.state.parts.get(piece.attachedTo);
-	expect(piece.owner).toBe(rod?.owner);
-	expect(piece.anchor).toEqual(rod?.anchor);
+	if (!rod) throw new Error('Missing supporting chord part');
+	expect(piece.owner).toBe(rod.owner);
+	expect(piece.anchor).toEqual(rod.anchor);
 	const forms = installationView(group, 'all');
 	const meshes = forms.filter((p) => p.kind === 'mesh');
 	expect(meshes.map((p) => [p.id, p.token, p.material, p.shade])).toEqual([
@@ -35,7 +35,7 @@ test('the seed-7 water inlet on 90/40 is one owned, seated ceramic fitting with 
 		[piece.id + '/fitting/lip', '--cat-health-3', 'glaze', 0]
 	]);
 	const [body, lip] = meshes;
-	const support = forms.find((p) => p.id === rod?.id);
+	const support = forms.find((p) => p.id === rod.id);
 	if (support?.kind !== 'pipe') throw Error('Missing supporting chord');
 	const z = support.points[0][2] + support.radius;
 	expect(Math.min(...body.points.map((p) => p[2]))).toBeCloseTo(z, 8);
@@ -58,7 +58,7 @@ test('accent socket and recipe survive a shuffled parts table', () => {
 	for (const [from, to, recipe] of [
 		['83/47', '87/47', 'tank'],
 		['90/40', '94/40', 'ceramic']
-	]) {
+	] as const) {
 		const ids = [from, to];
 		const frame = ids.reduce(
 			extendStroke,

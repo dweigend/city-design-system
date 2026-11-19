@@ -324,7 +324,7 @@ export function kit(ctx: FormContext, familyId: string) {
 }
 export type Kit = ReturnType<typeof kit>;
 
-/** Fills defaults, clamps to the spec and rounds to the step. */
+/** Fills defaults for non-finite values, clamps to [min, max] and rounds when `step >= 1`. New object. */
 export function resolve(specs: ParamSpec[], params: Record<string, number>) {
 	const out: Record<string, number> = {};
 	for (const s of specs) {
@@ -335,6 +335,7 @@ export function resolve(specs: ParamSpec[], params: Record<string, number>) {
 	return out;
 }
 
+/** Parameter spec; `value` becomes the default. */
 export const spec = (
 	key: string,
 	label: string,

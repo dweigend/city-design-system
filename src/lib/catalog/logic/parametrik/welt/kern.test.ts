@@ -1,5 +1,4 @@
 import { required } from '../../required';
-// @ts-expect-error Bun test API is provided at runtime.
 import { expect, test } from 'bun:test';
 // main 502f60d: 27 outputs match with the kernel disabled. The historical research
 // hashes predate 7cf65bf: the author's removal of the separate cycle function

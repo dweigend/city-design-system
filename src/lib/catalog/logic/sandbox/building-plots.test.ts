@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import init from 'manifold-3d';
 import { createRoofBuilder } from '../building-envelope';

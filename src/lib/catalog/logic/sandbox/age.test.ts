@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import { applyEdit, createWorld, commit, startHistory, undo, withState, changes } from './index';
 import { currentStacks, houseView, styleForYear, stylesForYear } from './index';

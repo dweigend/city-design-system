@@ -123,7 +123,6 @@ function checkView(
 }
 
 async function compareRays() {
-	// @ts-expect-error Bun supplies its test API at runtime.
 	const { mock } = await import('bun:test');
 	mock.module('../themeBinding', () => ({ bindSceneTheme: () => {}, resolveTokens: () => ({}) }));
 	const kernel = await init();

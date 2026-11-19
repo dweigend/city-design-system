@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import type { ArchivItem, Herkunft } from '../data/archiv';
 import { verfuegbareHerkunft } from './archiv';
@@ -26,7 +25,7 @@ describe('verfuegbareHerkunft', () => {
 
 	test('keeps the label order regardless of the input order', () => {
 		const items = [archivItem('fremd'), archivItem('ui'), archivItem('roh'), archivItem('eigen')];
-		const erwartet = ['eigen', 'roh', 'ui', 'fremd'];
+		const erwartet: Herkunft[] = ['eigen', 'roh', 'ui', 'fremd'];
 		expect(verfuegbareHerkunft(items)).toEqual(erwartet);
 		expect(verfuegbareHerkunft([...items].reverse())).toEqual(erwartet);
 	});

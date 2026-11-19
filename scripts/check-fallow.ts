@@ -1,11 +1,12 @@
 import { existsSync, statSync } from 'node:fs';
+import { resolveBaselineBase } from './baseline-base';
 
 // Fallow gate: fails on findings absent from the committed baselines, on stale
-// baseline entries and on baseline growth against the base ref (C-64).
+// baseline entries and on baseline growth against the base ref (C-64); the
+// base ref comes from `resolveBaselineBase` (BASELINE_BASE or merge-base with main).
 // `--save` rewrites the baselines; allowed only to record a reduction or an
 // owner-approved exception. Identity mode tracks findings, not metric ceilings.
 const BASELINE_DIR = '.fallow-baselines';
-const BASE_REF = process.env.FALLOW_BASELINE_BASE ?? 'main';
 /** Fallow exits 1 for findings; anything higher is a tool failure. */
 const MAX_FINDINGS_EXIT = 1;
 
@@ -22,9 +23,9 @@ function baselinePath(name: string): string {
 }
 
 /** Compares one analysis against its baseline; returns true when the gate passes. */
-function compare({ name, args }: Analysis): boolean {
+function compare({ name, args }: Analysis, baseRef: string): boolean {
 	const gateArgs = ['--baseline', baselinePath(name), '--fail-on-stale-baseline'];
-	const growthArgs = ['--fail-on-baseline-growth', '--baseline-base', BASE_REF];
+	const growthArgs = ['--fail-on-baseline-growth', '--baseline-base', baseRef];
 	const failArgs = name === 'dupes' ? ['--fail-on-issues'] : [];
 	const command = ['bunx', 'fallow', name, ...args, ...failArgs, ...gateArgs, ...growthArgs];
 	const { exitCode } = Bun.spawnSync([...command, '--quiet'], {
@@ -52,8 +53,9 @@ function save({ name, args }: Analysis): boolean {
 }
 
 const saveMode = process.argv.includes('--save');
+const baseRef = saveMode ? '' : resolveBaselineBase();
 let passed = true;
 for (const analysis of analyses) {
-	passed = (saveMode ? save(analysis) : compare(analysis)) && passed;
+	passed = (saveMode ? save(analysis) : compare(analysis, baseRef)) && passed;
 }
 process.exitCode = passed ? 0 : 1;

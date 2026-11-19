@@ -5,7 +5,7 @@ import { createView } from '../../scene/sandbox/view';
 import { openingScene, type Tool, type World } from '../../logic/sandbox';
 import type { Completion, StrokeRelease } from '../feedback';
 import { scheduleStrokeRelease } from '../stroke-frames';
-import { createSession } from './client-session';
+import { createSession } from './client-session.fixture.test';
 
 class PointerCanvas extends EventTarget {
 	getBoundingClientRect() {

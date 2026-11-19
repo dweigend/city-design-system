@@ -21,7 +21,7 @@ export function createLight() {
 	return {
 		objects: [sun, sun.target],
 		/** The ground holds the paper palette outside the cast shadow. */
-		shade(color: THREE.Node<'vec3'>) {
+		shade(this: void, color: THREE.Node<'vec3'>) {
 			return mix(shadowTone, color, float(shadowMask));
 		},
 		/** Sets the Leitstil shadow tone, capped at the paper color so it cannot lighten it. */
