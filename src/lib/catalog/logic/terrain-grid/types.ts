@@ -14,6 +14,8 @@ export type TerrainCell = QuadCell &
 		alley: 'along' | 'across' | 'both' | null;
 		block: string;
 		blockSides: number;
+		/** Buildable remainder where an alley takes part of the terrain cell. */
+		lotCorners?: QuadCell['corners'];
 		alleyEdges: number;
 	}>;
 

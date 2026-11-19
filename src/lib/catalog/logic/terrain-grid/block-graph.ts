@@ -97,6 +97,27 @@ const depthCuts = ([0.5, 0.4, 0.6] as const).map((firstCut) => {
 	});
 	return Math.max(...cut.leaves[0].polygon.map((p) => p[1])) - 2;
 });
+function courtVertex(
+	c: number,
+	r: number,
+	width: number,
+	seed: number,
+	profile: Lattice['profile'],
+	interior: boolean
+): kern.Vec {
+	const drift = (channel: number, limit = profile.stagger) =>
+		interior ? (hash(seed, c + r * (width + 1), channel) * 2 - 1) * limit : 0;
+	// Alternate the cut axis in neighbouring four-module courts.
+	const transverse = (Math.floor(c / 4) + Math.floor(r / 4) + seed) % 2 === 0;
+	const cut = interior ? depthCuts[Math.floor(hash(seed, c, r) * depthCuts.length)] : 0;
+	return [
+		(c +
+			drift(1, Math.min(profile.stagger, profile.frontageShift)) +
+			(transverse && c % 4 === 2 ? cut : 0)) *
+			MODULE,
+		(r + drift(2) + (!transverse && r % 4 === 2 ? cut : 0)) * MODULE
+	];
+}
 /** Build a shared graph of terrace frontages before subdividing its faces. */
 export function sourceGraph(
 	width: number,
@@ -111,17 +132,7 @@ export function sourceGraph(
 	for (let r = 0; r <= height; r += 2)
 		for (let c = 0; c <= width; c += 2) {
 			const interior = settled && Math.min(c, width - c, r, height - r) > 0;
-			const drift = (channel: number, limit = profile.stagger) =>
-				interior ? (hash(seed, c + r * (width + 1), channel) * 2 - 1) * limit : 0;
-			positions.set(cellId(c, r), [
-				(c + drift(1, Math.min(profile.stagger, profile.frontageShift))) * MODULE,
-				(r +
-					drift(2) +
-					(interior && r % 4 === 2
-						? depthCuts[Math.floor(hash(seed, c, r) * depthCuts.length)]
-						: 0)) *
-					MODULE
-			]);
+			positions.set(cellId(c, r), courtVertex(c, r, width, seed, profile, interior));
 			if (c < width && r < height)
 				faces.set(cellId(c, r), {
 					id: cellId(c, r),

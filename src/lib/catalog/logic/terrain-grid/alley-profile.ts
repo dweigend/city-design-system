@@ -7,17 +7,17 @@ const schema = defineParams({
 	settlementWidth: numberParam('Settlement half-width', 'valley share', 0.34, [0.1, 0.48, 0.01]),
 	settlementReach: numberParam('Settlement half-depth', 'valley share', 0.39, [0.1, 0.45, 0.01]),
 	stagger: numberParam('Parcel stagger', 'cells', 0.18, [0, 0.4, 0.01]),
-	promenadeWidth: numberParam('Riverside promenade width', 'm', 3, [0.1, 5, 0.1]),
-	mainAlleyWidth: numberParam('Main alley width', 'm', 0.95, [0.1, 5, 0.1]),
-	alleyWidth: numberParam('Alley line width', 'm', 0.55, [0.1, 5, 0.05]),
-	passageShare: numberParam('Narrow passage width', 'ratio', 0.55, [0.25, 1, 0.05]),
+	promenadeWidth: numberParam('Riverside promenade width', 'm', 4, [3.7, 6, 0.1]),
+	mainAlleyWidth: numberParam('Main alley width', 'm', 3.6, [2.4, 3.6, 0.1]),
+	alleyWidth: numberParam('Alley line width', 'm', 1.8, [1.8, 2.3, 0.1]),
+	passageWidth: numberParam('Narrow passage width', 'm', 2.4, [2.4, 3.6, 0.1]),
 	landingGrade: numberParam('Terrace stair approach', 'grade', 0.035, [0.01, 0.15, 0.005]),
-	stairAlleyWidth: numberParam('Stair alley width', 'm', 1.25, [0.1, 5, 0.1]),
+	stairAlleyWidth: numberParam('Stair alley width', 'm', 1.8, [1.8, 2.3, 0.1]),
 	steepGrade: numberParam('Steep grade', 'grade', 0.18, [0.01, 1, 0.01]),
 	terraceRows: numberParam('Terrace rows', 'cells', 4, [2, 8, 1], 'integer'),
 	switchbackColumns: numberParam('Switchback columns', 'cells', 1, [0, 1, 0.05]),
 	squareRadius: numberParam('Square radius', 'cells', 1, [0, 3, 1], 'integer'),
-	footbridgeWidth: numberParam('Footbridge width', 'm', 1.6, [0.8, 3, 0.1]),
+	footbridgeWidth: numberParam('Footbridge width', 'm', 1.8, [1.8, 3, 0.1]),
 	footbridgeClearance: numberParam('Bridge clearance', 'm', 2, [0.2, 5, 0.1]),
 	bankSetback: numberParam('Bank setback', 'm', 15, [0, 35, 1]),
 	ravineDepth: numberParam('Ravine depth', 'm', 1.5, [0.1, 10, 0.1]),
@@ -31,6 +31,8 @@ export const parcelProfile = (overrides?: import('../params').ParamOverrides<typ
 	const profile = resolveParams(schema, undefined, overrides);
 	if (![2, 4, 8].includes(profile.terraceRows))
 		throw new RangeError('Terrace rows must be 2, 4 or 8');
+	if (profile.passageWidth > profile.mainAlleyWidth)
+		throw new RangeError('Passage exceeds main alley width');
 	return profile;
 };
 export const defaultAlleyPlan = parcelProfile();

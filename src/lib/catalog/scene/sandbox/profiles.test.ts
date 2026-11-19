@@ -2,6 +2,7 @@
 import { expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { UniformNode } from 'three/webgpu';
+import { writeAlleyMask } from './alley-mask';
 import { createTerrainMesh } from './terrain-mesh';
 import { STRUCTURE_PARAMS, TERRAIN_VIEW_PARAMS } from './view-params';
 import { forestChunk, LAND_COVER_PARAMS, type Cover } from '../../logic/land-cover';
@@ -33,8 +34,8 @@ test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b4
 
 const grid = deriveGrid(createTerrain({ seed: 7 }));
 const terrainRoutes = {
-	viaduct: 'a31ca5603a2667673ef80915aeffdb89719fbaa47b477da86aa652e4c0072ce7',
-	capsule: 'becfaf15bea05ca34fad838b41f753a9e7733afdecfcfebb3ad35283af766ad0'
+	viaduct: '4e5196d98bcd4481a0493cfc73bb3c35474f3d25716152157027757752efbbbb',
+	capsule: 'af8ee805ab481fb9d5d5b10b156e403bde91e505b919b262fcd29afbda4cda73'
 };
 const kinds = ['viaduct', 'capsule'] as const;
 for (const kind of kinds) {
@@ -114,4 +115,20 @@ test('terrain parameters update numeric uniforms on the existing surface shader'
 	} finally {
 		terrain.dispose();
 	}
+});
+
+test('removing the last nearby house clears only its local stair ink', () => {
+	const stairs = grid.cells.filter((c) => c.plan.stairAlley);
+	const first = stairs[0],
+		last = stairs[stairs.length - 1];
+	const pixels = new Uint8Array(grid.cells.length * 4);
+	const ink = (i: number) => pixels[i * 4 + 2] & 128;
+	writeAlleyMask(pixels, grid, [first.id, last.id], 1);
+	expect(ink(first.index)).toBe(128);
+	expect(ink(last.index)).toBe(128);
+	writeAlleyMask(pixels, grid, [last.id], 1);
+	expect(ink(first.index)).toBe(0);
+	expect(ink(last.index)).toBe(128);
+	writeAlleyMask(pixels, grid, [], 1);
+	expect(stairs.every((c) => ink(c.index) === 0)).toBe(true);
 });

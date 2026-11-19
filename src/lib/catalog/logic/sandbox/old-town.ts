@@ -40,7 +40,7 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 			const frontage = frontages.get(cell.id);
 			if (!frontage) return [];
 			const { lot, depth } = frontage;
-			if (hashUnit(seed, lot, 'garden') < settings.gardenShare) return [];
+			if (hashUnit(seed, cell.block, 'garden') < settings.gardenShare) return [];
 			const score =
 				Math.hypot(
 					(cell.column - center) / settings.alongScale,

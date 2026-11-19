@@ -1,3 +1,4 @@
+import { behindPassage } from './frontage-lot';
 import { blockPatches, type BlockCache } from './block-patch';
 import { required } from '../required';
 import { defaultAlleyPlan, parcelProfile } from './alley-profile';
@@ -208,6 +209,9 @@ function describeCell(
 		lattice.profile
 	);
 	const alley = plan.direction;
+	const lotCorners = plan.edgePassage
+		? behindPassage(corners, source.mask, plan.width, lattice.profile.minParcelArea)
+		: undefined;
 	return {
 		id: cellId(column, row),
 		pattern,
@@ -216,6 +220,7 @@ function describeCell(
 		ridgeSide: ((source.mask & 1) !== 0 ? 0 : 1) + ((column + row) % 2),
 		block: source.id,
 		blockSides: source.sides,
+		lotCorners,
 		alleyEdges: source.mask,
 		index: row * columns + column,
 		column,
@@ -227,7 +232,7 @@ function describeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable: !plan.open && !plan.square && (alley === null || plan.edgePassage),
+		buildable: !plan.open && !plan.square && (alley === null || !!lotCorners),
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }

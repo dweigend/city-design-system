@@ -1,7 +1,7 @@
 import { townDefaults } from '../../data/sandbox';
 import { hashUnit } from '../parzelle';
 import type { QuadCell } from '../quad-grid';
-import type { Terrain, TerrainZone } from '../terrain';
+import { bankDistance, type Terrain, type TerrainZone } from '../terrain';
 import { BLOCK, MODULE } from './contour-rows';
 import type { Pattern } from './patterns';
 
@@ -32,20 +32,17 @@ export function alleyPlan(
 	const bank = Math.round((terrain.bands.riverEnd + profile.bankSetback) / MODULE);
 	const footbridge = riverCrossing(terrain, column, row, bank, profile);
 	const steep = grade(d) >= profile.steepGrade;
-	const span = steep ? profile.terraceRows : BLOCK.rows;
-	const lane = column % BLOCK.columns;
-	const offset = lane >= BLOCK.columns / 3 && lane < (2 * BLOCK.columns) / 3 ? 1 : 0;
-	const landing = lane === BLOCK.columns / 3 || lane === (2 * BLOCK.columns) / 3;
-	const along = row === bank || row % span === offset || (landing && row % span <= 1);
-	const phase = row % BLOCK.rows;
-	const flight =
-		site.zone !== 'water' &&
-		row > bank &&
-		(grade(d) >= profile.landingGrade || (site.zone === 'lower-terrace' && phase <= 2)) &&
-		lane === (Math.floor(row / BLOCK.rows) % 2 ? BLOCK.columns / 3 : (2 * BLOCK.columns) / 3) &&
-		phase > 0 &&
-		phase <= profile.terraceRows;
-	const across = lane === 0 || flight;
+	const promenade = row <= bank + BLOCK.rows && onPromenade(terrain, site, profile);
+	const { along, across, flight, landing, phase } = terracePassages(
+		column,
+		row,
+		bank,
+		grade(d),
+		site,
+		steep,
+		promenade,
+		profile
+	);
 	const square = nodeSquare(site, column, phase, profile);
 	const open =
 		site.zone === 'water' || grade(b) > profile.ravineGrade || site.incision > profile.ravineDepth;
@@ -55,13 +52,13 @@ export function alleyPlan(
 	const kind = routeKind(
 		direction,
 		footbridge,
-		row === bank,
+		promenade,
 		along,
 		flight || (steep && across && column % (2 * BLOCK.columns) === 0)
 	);
 	const widths = {
 		riversidePromenade: profile.promenadeWidth,
-		mainAlley: profile.mainAlleyWidth * (square || landing ? 1 : profile.passageShare),
+		mainAlley: square || landing ? profile.mainAlleyWidth : profile.passageWidth,
 		alley: profile.alleyWidth,
 		stairAlley: profile.stairAlleyWidth,
 		footbridge: profile.footbridgeWidth
@@ -77,6 +74,62 @@ export function alleyPlan(
 		open,
 		stairAlley: kind === 'stairAlley'
 	};
+}
+
+function stairFlight(
+	zone: TerrainZone,
+	row: number,
+	bank: number,
+	lane: number,
+	slope: number,
+	phase: number,
+	profile: Profile
+) {
+	return (
+		zone !== 'water' &&
+		row > bank &&
+		(slope >= profile.landingGrade || (zone === 'lower-terrace' && phase <= 2)) &&
+		lane === (Math.floor(row / BLOCK.rows) % 2 ? BLOCK.columns / 3 : (2 * BLOCK.columns) / 3) &&
+		phase > 0 &&
+		phase <= profile.terraceRows
+	);
+}
+
+function landingAt(lane: number, phase: number, promenade: boolean) {
+	const offset = lane >= BLOCK.columns / 3 && lane < (2 * BLOCK.columns) / 3 ? 1 : 0;
+	const landing = lane === BLOCK.columns / 3 || lane === (2 * BLOCK.columns) / 3;
+
+	const along = promenade || phase === offset || (landing && phase <= 1);
+	return { along, landing };
+}
+
+function terracePassages(
+	column: number,
+	row: number,
+	bank: number,
+	slope: number,
+	site: Site,
+	steep: boolean,
+	promenade: boolean,
+	profile: Profile
+) {
+	const span = steep ? profile.terraceRows : BLOCK.rows;
+	const lane = column % BLOCK.columns;
+	const { along, landing } = landingAt(lane, row % span, promenade);
+	const phase = row % BLOCK.rows;
+	const flight = stairFlight(site.zone, row, bank, lane, slope, phase, profile);
+	// A transverse passage meets the next terrace at a different frontage.
+	const crossLane = row > bank ? (Math.floor(row / BLOCK.rows) % 3) * 2 : 0;
+	const across = lane === crossLane || flight;
+	return { along, across, flight, landing, phase };
+}
+
+function onPromenade(terrain: Terrain, site: Site, profile: Profile) {
+	const offsets = site.corners.map(([x, y]) => bankDistance(terrain, x, y) - profile.bankSetback);
+	return (
+		Math.min(...offsets) <= profile.promenadeWidth / 2 &&
+		Math.max(...offsets) >= -profile.promenadeWidth / 2
+	);
 }
 
 function directionAt(along: boolean, across: boolean): 'along' | 'across' | 'both' | null {

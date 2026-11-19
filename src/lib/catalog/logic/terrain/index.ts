@@ -145,6 +145,12 @@ function sway(terrain: Terrain, along: number, amplitude: number, id: number): n
 	);
 }
 
+/** Signed distance across the valley from its meandering near bank, in meters. */
+export function bankDistance(terrain: Terrain, x: number, y: number) {
+	const [along, across] = valleyCoords(terrain, x, y);
+	return across - (terrain.bands.riverEnd + sway(terrain, along, SWAY.bank, 0));
+}
+
 function crossProfile(terrain: Terrain, along: number, across: number): number {
 	const { bands } = terrain;
 	const bank = sway(terrain, along, SWAY.bank, 0);

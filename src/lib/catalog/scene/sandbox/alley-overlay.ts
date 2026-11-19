@@ -1,34 +1,20 @@
 import * as THREE from 'three/webgpu';
 import { attribute, float, mix, texture, vec2 } from 'three/tsl';
 import type { Node } from 'three/webgpu';
-import { MODULE, type TerrainCell, type TerrainGrid } from '../../logic/terrain-grid';
+import { type TerrainCell, type TerrainGrid } from '../../logic/terrain-grid';
+import { writeAlleyMask } from './alley-mask';
 import { pushThree } from '../world-space';
-
-function frontages(next: TerrainGrid, houses: Iterable<string>, radius: number) {
-	const occupied = new Set<number>();
-	for (const id of houses) {
-		const cell = next.cellsById.get(id);
-		if (!cell) continue;
-		markFrontage(next, cell, radius, occupied);
-	}
-	return occupied;
-}
-
-function markFrontage(next: TerrainGrid, cell: TerrainCell, radius: number, occupied: Set<number>) {
-	for (let y = Math.max(0, cell.row - radius); y <= Math.min(next.rows - 1, cell.row + radius); y++)
-		for (
-			let x = Math.max(0, cell.column - radius);
-			x <= Math.min(next.columns - 1, cell.column + radius);
-			x++
-		)
-			occupied.add(y * next.columns + x);
-}
 
 /** Nearest-cell mask for alley widths, stair treads and occupied frontages. */
 export function alleyOverlay(
 	grid: TerrainGrid,
 	profile: Readonly<Record<keyof typeof import('./view-params').TERRAIN_VIEW_PARAMS, number>>,
-	nodes: { treadsPerCell: Node<'float'>; cityInk: Node<'float'>; emptyInk: Node<'float'> }
+	nodes: {
+		treadsPerCell: Node<'float'>;
+		cityInk: Node<'float'>;
+		emptyInk: Node<'float'>;
+		embossWidth: Node<'float'>;
+	}
 ) {
 	const pixels = new Uint8Array(grid.cells.length * 4);
 	const map = new THREE.DataTexture(pixels, grid.columns, grid.rows);
@@ -37,26 +23,7 @@ export function alleyOverlay(
 	function update(next: TerrainGrid, houses: Iterable<string>) {
 		current = next;
 		anchors = [...houses];
-		const occupied = frontages(next, anchors, profile.cityRadiusCells);
-		for (const cell of next.cells) {
-			const { square, width, stairAlley } = cell.plan;
-			const band = Math.min(255, Math.round((255 * width) / MODULE));
-			const channel = (axis: 'along' | 'across') =>
-				cell.alley === axis || cell.alley === 'both' || square
-					? band
-					: Math.round((255 * next.profile.alleyWidth) / MODULE);
-			pixels.set(
-				[
-					channel('along'),
-					channel('across'),
-					(stairAlley ? 128 : 0) +
-						(occupied.has(cell.index) ? 64 : 0) +
-						(cell.plan.kind === 'riversidePromenade' ? 32 : 0),
-					255 * cell.plan.extent
-				],
-				cell.index * 4
-			);
-		}
+		writeAlleyMask(pixels, next, anchors, profile.cityRadiusCells);
 		map.needsUpdate = true;
 	}
 	update(grid, []);
@@ -85,33 +52,35 @@ export function alleyOverlay(
 					.mul(float(width.greaterThan(0)));
 			const uv = chart.fract(),
 				edges = attribute('frontages', 'vec4');
-			const along = band(uv.y.mul(2), mask.r)
+			const horizontal = mask.r.mul(nodes.embossWidth),
+				vertical = mask.g.mul(nodes.embossWidth);
+			const along = band(uv.y.mul(2), horizontal)
 				.mul(edges.x)
-				.max(band(float(1).sub(uv.y).mul(2), mask.r).mul(edges.z));
-			const across = band(uv.x.mul(2), mask.g)
+				.max(band(float(1).sub(uv.y).mul(2), horizontal).mul(edges.z));
+			const across = band(uv.x.mul(2), vertical)
 				.mul(edges.w)
-				.max(band(float(1).sub(uv.x).mul(2), mask.g).mul(edges.y));
+				.max(band(float(1).sub(uv.x).mul(2), vertical).mul(edges.y));
 			const code = mask.b.mul(255).round();
 			const stairs = float(code.greaterThanEqual(128));
 			const occupied = code.div(64).floor().mod(2);
-			const promenade = code.div(32).floor().mod(2);
+
 			const visibility = mask.a.mul(weight);
 			const pressure = mix(nodes.emptyInk, nodes.cityInk, occupied);
 			const coverage = along.max(across);
 			// Opposite lips of the same frontage catch light and cast a hairline.
-			const shadow = band(uv.y.mul(2), mask.r)
+			const shadow = band(uv.y.mul(2), horizontal)
 				.mul(edges.x)
-				.max(band(uv.x.mul(2), mask.g).mul(edges.w));
+				.max(band(uv.x.mul(2), vertical).mul(edges.w));
 			const light = mix(ground, paper, coverage.mul(visibility));
 			const emboss = mix(light, ink, shadow.mul(pressure).mul(visibility));
 			const focused = mix(emboss, people, coverage.mul(focus).mul(visibility));
-			const shore = band(dist.y, mask.r).mul(promenade).mul(visibility);
+			const bankDistance = attribute('shore', 'float');
+			const bankHalf = float(grid.profile.promenadeWidth / 2);
+			const shore = band(bankDistance.abs(), bankHalf).mul(visibility);
 			const bank = mix(focused, paper, shore);
-			const stitch = chart.x.mul(nodes.treadsPerCell).fract().smoothstep(0.75, 0.95);
-			const promenadeEdge = band(uv.y.mul(2).sub(mask.r).abs(), uv.y.fwidth().mul(2))
-				.mul(stitch.add(1).div(2))
-				.mul(promenade)
-				.mul(visibility);
+			const promenadeEdge = band(bankDistance.sub(bankHalf).abs(), bankDistance.fwidth()).mul(
+				visibility
+			);
 			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.3, 0.65);
 			const flight = band(dist.x, mask.g).mul(stairs).mul(tread).mul(visibility);
 			return mix(bank, people, flight.max(promenadeEdge));

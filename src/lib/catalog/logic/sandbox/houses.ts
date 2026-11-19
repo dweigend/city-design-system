@@ -1,3 +1,4 @@
+import { buildingPlots } from './building-plots';
 import { sandboxEpochs } from '../../data/sandbox';
 import { houseChunk, type HouseUse, type Stacks } from '../house-brush';
 import { present, type Focus } from '../presentation';
@@ -33,7 +34,7 @@ export const currentStacks = (state: SandboxState): Stacks =>
 export function houseView(world: World, stacks: Stacks, chunk: string, focus: Focus) {
 	const { grid, state, seed } = world;
 	const project = (floors: Stacks, built: number) =>
-		houseChunk(grid, floors, chunk, seed, styleForYear(built), {
+		houseChunk(buildingPlots(grid), floors, chunk, seed, styleForYear(built), {
 			occupied: state.stacks,
 			blockOf: (id) => grid.cellsById.get(id)?.block,
 			olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built

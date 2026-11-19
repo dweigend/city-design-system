@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three/webgpu';
 import type { TerrainGrid } from '../../logic/terrain-grid';
-import { ravineDepth } from '../../logic/terrain';
+import { bankDistance, ravineDepth } from '../../logic/terrain';
 import { pushThree } from '../world-space';
 
 /** Bottom of the model base, meters below mean water. */
@@ -26,11 +26,13 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 	const chart: number[] = [];
 	const indices: number[] = [];
 	const relief: number[] = [];
+	const shore: number[] = [];
 	const frontages: number[] = [];
 	for (const cell of grid.cells) {
 		const start = positions.length / 3;
 		for (const vertex of cell.corners) {
 			pushThree(positions, vertex);
+			shore.push(bankDistance(grid.terrain, vertex[0], vertex[1]) - grid.profile.bankSetback);
 			for (let side = 0; side < 4; side++) frontages.push((cell.alleyEdges >> side) & 1);
 			relief.push(vertex[2], ravineDepth(grid.terrain, vertex[0], vertex[1]));
 		}
@@ -39,6 +41,7 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
 	}
 	const geometry = chartedGeometry(positions, chart);
+	geometry.setAttribute('shore', new THREE.Float32BufferAttribute(shore, 1));
 	geometry.setAttribute('frontages', new THREE.Float32BufferAttribute(frontages, 4));
 	geometry.setAttribute('relief', new THREE.Float32BufferAttribute(relief, 2));
 	geometry.setIndex(indices);
