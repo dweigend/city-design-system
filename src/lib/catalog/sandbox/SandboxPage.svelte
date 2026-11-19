@@ -97,7 +97,6 @@
 		{openingArea}
 		{storeTarget}
 		{transitPaused}
-		onresponse={sound.respond}
 		label={keyboard.observed
 			? 'City sandbox. Arrow keys move the view, plus and minus zoom.'
 			: 'City sandbox. Pinch to zoom, drag with two fingers to move.'}

@@ -73,8 +73,10 @@ test('a queued stroke cannot build on a target changed by an earlier stroke', ()
 
 test('a basin invalidates a changed house plan and preserves the inland plan', () => {
 	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const raisedBank = stroke('75/38');
-	const inland = stroke('81/44');
+	// Only living stock is replenished by this basin. Keep the stock debit fixed in this geometry test.
+	const tool = { kind: 'house', style: 'collage', use: 'water' } as const;
+	const raisedBank = planStroke(world, tool, ['75/38']);
+	const inland = planStroke(world, tool, ['81/44']);
 	const dug = applyStroke(world, dig.tool, dig.cellIds).draft;
 	expect(dug.grid.cellsById.get('75/38')?.buildable).toBe(true);
 	expect(dug.grid.cellsById.get('75/38')).not.toBe(world.grid.cellsById.get('75/38'));
@@ -86,7 +88,7 @@ test('a basin invalidates a changed house plan and preserves the inland plan', (
 	actions.commitRelease(inland);
 	actions.commitRelease(dig);
 	expect(actions.snapshot().world.state.stacks.get('75/38')).toBeUndefined();
-	expect(actions.snapshot().world.state.stacks.get('81/44')).toEqual(['living']);
+	expect(actions.snapshot().world.state.stacks.get('81/44')).toEqual(['water']);
 	expect(actions.snapshot().world.state.edits).toEqual(dug.state.edits);
 });
 

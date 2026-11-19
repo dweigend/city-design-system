@@ -1,5 +1,5 @@
 import { sandboxMotion, sandboxScale, sandboxSounds } from '../data/sandbox';
-import type { Completion, StrokeRelease } from './feedback';
+import type { Completion } from './feedback';
 
 type Cue = keyof typeof sandboxSounds;
 type Note = { cue: Cue; atMs: number; level?: number };
@@ -9,34 +9,30 @@ function storyLevel(world: Completion['after'], id: string) {
 	return (world.state.stacks.get(id)?.length ?? 0) - 1;
 }
 
-function storyCue(
-	kind: Completion['kind'],
-	world: Completion['after'],
-	id: string,
-	level: number
-): Cue {
-	if (kind === 'erase') return 'erase';
-	const style = world.state.storyParts.get(id)?.[level]?.style;
-	return style === 'megastructure' ? 'carrier' : 'ceramic';
-}
-
 function houseNotes({ kind, before, after, cellIds }: Completion): Note[] {
-	return cellIds.flatMap((id, i) => {
+	const notes = cellIds.flatMap((id, i): Note[] => {
 		const level = storyLevel(after, id);
 		if (level === storyLevel(before, id)) return [];
 		return [
 			{
-				cue: storyCue(kind, after, id, level),
+				cue: kind === 'erase' ? 'erase' : 'ceramic',
 				level: Math.max(0, level),
 				atMs: Math.min(i * 24, sandboxMotion.seatMs)
 			}
 		];
 	});
+	if (notes.length) return notes;
+	if (kind === 'erase') return [{ cue: 'erase', atMs: 0 }];
+	const carrier = [...after.state.parts.values()].some(
+		(part) => part.recipe === 'chord' && !before.state.parts.has(part.id)
+	);
+	return [{ cue: carrier ? 'carrier' : 'ceramic', atMs: 0 }];
 }
 
 function railNotes({ before, after }: Completion): Note[] {
 	const lines = after.lines.filter((line) => !before.lines.includes(line));
 	const { seatMs, pillarStepMs, responseMs } = sandboxMotion;
+	if (!lines.length) return [{ cue: 'pillar', atMs: 0 }];
 	return lines.flatMap(({ pillars, stops }) => [
 		...pillars.map((_, i): Note => ({
 			cue: 'pillar',
@@ -137,26 +133,11 @@ export function createSandboxSound() {
 		}
 	}
 
-	const responseCue: Partial<Record<StrokeRelease['tool']['kind'], Cue>> = {
-		house: 'ceramic',
-		line: 'pillar',
-		cover: 'growth',
-		dig: 'dig',
-		erase: 'erase'
-	};
-
 	return {
 		unlock,
-		/** Starts the tool's first cue during release, before deriving the new city. */
-		respond(tool: StrokeRelease['tool']) {
-			const carrier = tool.kind === 'house' && tool.style === 'megastructure';
-			const cue = carrier ? 'carrier' : responseCue[tool.kind];
-			if (cue) schedule([{ cue, atMs: 0 }]);
-		},
-		/** Schedules follow-up cues for a completed gesture with a rolling twelve-voice limit. */
+		/** Schedules cues from a committed edit with a rolling twelve-voice limit. */
 		play(completion: Completion) {
-			const notes = notesByTool[completion.kind](completion);
-			schedule(completion.kind === 'advance' ? notes : notes.slice(1));
+			schedule(notesByTool[completion.kind](completion));
 		},
 		/** Mutes immediately, including already scheduled notes. */
 		setMuted(next: boolean) {

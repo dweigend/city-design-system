@@ -5,7 +5,7 @@ import {
 	planStroke,
 	redo,
 	startHistory,
-	strokePlanKey,
+	strokeDelta,
 	undo,
 	withState,
 	type Stroke,
@@ -52,9 +52,19 @@ export function createSessionActions(
 		};
 	}
 
+	function preserveTerrainPreviews(next: World) {
+		if (next.grid === world.grid) return;
+		for (const command of queue) {
+			if (command.kind !== 'stroke') continue;
+			const { release } = command;
+			if (release.tool.kind === 'dig' && release.base.grid === world.grid) release.outcome();
+		}
+	}
+
 	function edit(next: World, kind: Completion['kind'], cellIds: readonly string[] = []) {
 		if (next === world) return;
 		const event = { kind, before: world, after: next, cellIds };
+		preserveTerrainPreviews(next);
 		completion = event;
 		world = next;
 		history = commit(history, next.state);
@@ -63,7 +73,9 @@ export function createSessionActions(
 
 	function restore(next: typeof history) {
 		if (next === history) return;
-		world = withState(world, next.present);
+		const restored = withState(world, next.present);
+		preserveTerrainPreviews(restored);
+		world = restored;
 		history = next;
 		completion = undefined;
 	}
@@ -71,11 +83,13 @@ export function createSessionActions(
 	function place(release: StrokeRelease) {
 		const { base, tool, cellIds } = release;
 		if (base.seed !== world.seed) return;
-		const current = planStroke(world, tool, cellIds);
-		// The same immutable simulation inputs guarantee the same result.
-		const sameWorld = base.state === world.state && base.grid === world.grid;
-		if (!sameWorld && strokePlanKey(release) !== strokePlanKey(current)) return;
+		const current = planStroke(world, tool, cellIds, release.projectTerrain);
 		const { draft, failure } = current.outcome();
+		// The same immutable simulation inputs guarantee the same result.
+		const sameWorld =
+			base.state === world.state && base.grid === world.grid && base.lines === world.lines;
+		if (!sameWorld && strokeDelta(base, release.outcome().draft) !== strokeDelta(world, draft))
+			return;
 		rejection = failure;
 		edit(draft, tool.kind, cellIds);
 	}
@@ -132,6 +146,7 @@ export function createSessionActions(
 		release(release: StrokeRelease) {
 			if (release.base.seed !== world.seed) return false;
 			if (queue.some(({ kind }) => kind === 'restart')) return false;
+			if (release.tool.kind === 'dig' && release.base.grid !== world.grid) release.outcome();
 			queue.push({ kind: 'stroke', release, ready: false });
 			drain();
 			return true;

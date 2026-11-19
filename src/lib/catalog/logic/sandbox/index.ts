@@ -8,7 +8,7 @@ export { installationPartView, installationView } from './installation-view';
 export { applyEdit, createWorld, withState, type World } from './world';
 export { commit, redo, startHistory, undo } from './history';
 export { changes } from './changes';
-export { strokePlanKey } from './stroke-plan-key';
+export { strokeDelta } from './stroke-delta';
 export {
 	applyStroke,
 	beginStroke,

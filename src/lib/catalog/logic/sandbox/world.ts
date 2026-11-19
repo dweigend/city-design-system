@@ -3,11 +3,12 @@ import { clearInstallation, lostSeat, removeInstallations } from './installation
 import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
-import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
+import { deriveGrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
 import { seedTown, type TownOptions } from './old-town';
 import { migrateSnapshot } from './snapshot';
 import { constructionLayers } from './time-layers';
+import { projectTerrain } from './terrain-projection';
 import {
 	stylesForYear,
 	type Edit,
@@ -110,13 +111,16 @@ export function withState(world: World, snapshot: SandboxSnapshot): World {
 	return replaceState(world, migrateSnapshot(snapshot), 'restore');
 }
 
-function replaceState(world: World, state: SandboxState, source: 'edit' | 'restore'): World {
-	const grid =
-		state.edits === world.state.edits
-			? world.grid
-			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
+function replaceState(
+	world: World,
+	state: SandboxState,
+	source: 'edit' | 'restore',
+	project = projectTerrain
+): World {
+	const grid = state.edits === world.state.edits ? world.grid : project(world.grid, state.edits);
 	if (source === 'restore') state = settleCover(grid, state);
 	else if (grid !== world.grid) {
+		if (state.edits !== grid.terrain.edits) state = { ...state, edits: grid.terrain.edits };
 		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));
 		state = settleHouses(world.grid, grid, state);
 		state = settleCover(grid, state, world.grid);
@@ -200,17 +204,29 @@ function cellEdit(
 ) {
 	if (edit.kind === 'raise') return raiseStory(state, cell, edit);
 	if (edit.kind === 'clear') return clearCell(state, cell);
-	if (edit.kind === 'dig') {
-		const basin: TerrainEdit = {
-			kind: 'basin',
-			center: [cell.center[0], cell.center[1]],
-			radius: DIG_RADIUS_M
-		};
-		return { ...state, edits: [...state.edits, basin] };
-	}
+	if (edit.kind === 'dig') return { ...state, edits: [...state.edits, basinAt(cell)] };
 	if (!cell.plantable || storiesOf(state.stacks, cell.id).length) return state;
 	const cover = setCover(state.cover, cell.id, edit.cover);
 	return cover === state.cover ? state : { ...state, cover };
+}
+
+function basinAt({ center: [x, y] }: TerrainCell): TerrainEdit {
+	return { kind: 'basin', center: [x, y], radius: DIG_RADIUS_M };
+}
+
+/** Digs the surveyed basin centers and settles the completed terrain as one stroke. */
+export function digStroke(world: World, ids: readonly string[], project = projectTerrain): World {
+	const basins = ids.flatMap((id) => {
+		const cell = world.grid.cellsById.get(id);
+		return cell ? [basinAt(cell)] : [];
+	});
+	if (!basins.length) return world;
+	return replaceState(
+		world,
+		{ ...world.state, edits: [...world.state.edits, ...basins] },
+		'edit',
+		project
+	);
 }
 
 function setLineProfile(state: SandboxState, edit: Extract<Edit, { kind: 'line-profile' }>) {
@@ -268,6 +284,11 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
  * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
+	return applyEditWithProjection(world, edit);
+}
+
+/** Applies an edit using the terrain projection retained for a stroke. */
+export function applyEditWithProjection(world: World, edit: Edit, project = projectTerrain): World {
 	if (edit.kind === 'line') return appendLine(world, edit);
-	return replaceState(world, nextState(world, edit), 'edit');
+	return replaceState(world, nextState(world, edit), 'edit', project);
 }

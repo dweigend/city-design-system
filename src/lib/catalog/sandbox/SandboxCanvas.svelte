@@ -1,18 +1,17 @@
 <script lang="ts">
 	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { createCanvasHover } from '../scene/sandbox/canvas-hover';
-	import { DIG_RADIUS_M } from '../data/sandbox';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
 	import type { OpeningArea } from '../scene/sandbox/view';
 	import { cursorTarget, previewStrokePlan, strokePreview } from '../logic/sandbox';
-	import { MODULE, type TerrainCell } from '../logic/terrain-grid';
+	import type { TerrainCell } from '../logic/terrain-grid';
 	import type { Session } from './session.svelte';
 	import StoreFlight from './StoreFlight.svelte';
 	import StrokeResponse from './StrokeResponse.svelte';
-	import type { StrokeRelease } from './feedback';
+	import { placementResponse, type StrokeRelease } from './feedback';
 
 	let {
 		session,
@@ -21,7 +20,6 @@
 		openingArea,
 		storeTarget,
 		transitPaused = false,
-		onresponse,
 		onhover
 	}: {
 		session: Session;
@@ -31,7 +29,6 @@
 		openingArea?: () => OpeningArea | undefined;
 		storeTarget?: HTMLElement;
 		transitPaused?: boolean;
-		onresponse: (tool: StrokeRelease['tool']) => void;
 		onhover?: (cell: TerrainCell | undefined) => void;
 	} = $props();
 	let host: HTMLDivElement;
@@ -40,12 +37,7 @@
 	/** Id of the cell under the pointer; the cell itself is read from the current grid. */
 	let hoveredId = $state<string>();
 	let error = $state('');
-	let response = $state.raw<{
-		kind: StrokeRelease['tool']['kind'];
-		x: number;
-		y: number;
-		width: number;
-	}>();
+	let response = $state.raw<ReturnType<typeof placementResponse>>();
 	const releaseFrames = new SvelteSet<number>();
 	let releasedPlan = $state.raw<StrokeRelease>();
 
@@ -63,27 +55,13 @@
 		releaseFrames.add(id);
 	}
 
-	function showResponse(view: SandboxStage['view'], release: StrokeRelease) {
-		const kind = release.tool.kind;
-		const cell = release.base.grid.cellsById.get(release.cellIds[0]);
-		if (!cell) return;
-		const width = (kind === 'dig' ? 2 * DIG_RADIUS_M : MODULE) / view.metersPerPixel();
-		response = { kind, width, ...view.project(cell.center) };
-		onresponse(release.tool);
-	}
-
-	function releaseStroke(
-		view: SandboxStage['view'],
-		releasedAt: number,
-		target: ReturnType<typeof createCanvasHover>
-	) {
+	function releaseStroke(releasedAt: number, target: ReturnType<typeof createCanvasHover>) {
 		const release = session.strokeRelease();
 		if (!release) {
 			target.endStroke();
 			return;
 		}
 		releasedPlan = release;
-		showResponse(view, release);
 		queueFrame(() => {
 			canvas.dataset.responseMs = String(performance.now() - releasedAt);
 			queueFrame(() => {
@@ -125,7 +103,7 @@
 				const cell = target.move({ x, y });
 				if (cell) session.strokeMove(cell.id);
 			},
-			strokeEnd: (releasedAt) => releaseStroke(current.view, releasedAt, target),
+			strokeEnd: (releasedAt) => releaseStroke(releasedAt, target),
 			strokeCancel: cancelStroke,
 			viewChanged: (position) => {
 				cancelStroke();
@@ -136,6 +114,10 @@
 		});
 		stage = current;
 		hover = target;
+		const unsubscribe = session.onCompletion((event) => {
+			const next = placementResponse(event, current.view);
+			if (next) response = next;
+		});
 		let mounted = true;
 		void loadEnvelopeKernel()
 			.then((roofBuilder) => {
@@ -147,6 +129,7 @@
 		return () => {
 			mounted = false;
 			detach();
+			unsubscribe();
 			for (const id of releaseFrames) cancelAnimationFrame(id);
 			observer.disconnect();
 			current.dispose();
