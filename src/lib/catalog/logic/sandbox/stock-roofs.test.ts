@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createRoofBuilder } from '../building-envelope';
 import init from 'manifold-3d';
 import { focuses } from '../presentation';
 import { applyEdit, changes, createWorld, currentStacks, houseView, type World } from './index';
@@ -10,7 +11,12 @@ test('all 210 seeded roofs are stable and a stroke rebuilds only affected chunks
 async function checkTown() {
 	const kernel = await init();
 	kernel.setup();
-	const world = { ...createWorld(7), kernel };
+	const world = {
+		...createWorld(7),
+		roofBuilder: createRoofBuilder(kernel, (id, error) => {
+			throw new Error(id, { cause: error });
+		})
+	};
 	const roofs = (w: World, chunk: string) =>
 		houseView(w, currentStacks(w.state), chunk, focuses.all).filter((p) => p.kind === 'mesh');
 	const chunkKeys = [...world.grid.chunks.keys()];

@@ -1,5 +1,4 @@
-import type { ManifoldToplevel } from 'manifold-3d';
-import { envelopeForm, type Roof } from '../building-envelope';
+import type { RoofSeat, RoofBuilder, Roof } from '../building-envelope';
 import { hash } from '../hash-random';
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell } from '../quad-grid';
@@ -10,13 +9,14 @@ const fascia = 0.12;
 
 /** A closed roof seated on the last terrace. Ridge axes use the longest side and its cross axis. */
 export function stockRoof(
-	kernel: ManifoldToplevel,
+	builder: RoofBuilder,
+	seat: RoofSeat,
 	cell: QuadCell,
 	level: number,
 	seed: number,
 	top: number,
 	inset: number
-): Primitive[] {
+): Primitive | undefined {
 	const polygon = cell.corners.map(([x, y]): [number, number] => [x, y]);
 	const sides = polygon.map(([x, y], i) => {
 		const next = polygon[(i + 1) % 4];
@@ -32,21 +32,28 @@ export function stockRoof(
 	const across = polygon.map(([x, y]) => -x * Math.sin(direction) + y * Math.cos(direction));
 	const width = Math.max(...across) - Math.min(...across);
 	const pitch = Math.min(0.36, Math.atan((roof === 'shed' ? 0.85 : 2.4) / width));
-	const form = envelopeForm(kernel, {
-		polygon,
-		roof,
-		base: top,
-		storeys: [{ height: fascia, offset: -inset }],
-		params: { direction, teeth: 2, pitch }
-	});
-	if (!form.triangles.length) return [];
-	return [
-		{
-			id: cell.id + '@' + level + ':roof',
+	const id = cell.id + '@' + level + ':roof';
+	try {
+		const form = builder.build(
+			{
+				polygon,
+				roof,
+				base: top,
+				storeys: [{ height: fascia, offset: -inset }],
+				params: { direction, teeth: 2, pitch }
+			},
+			seat
+		);
+		if (!form.triangles.length) throw new Error('Empty roof mesh');
+		return {
+			id,
 			role: 'bestand',
 			token: '--paper',
 			material: 'paper',
 			...form
-		}
-	];
+		};
+	} catch (error) {
+		builder.reportFailure(id, error);
+		return undefined;
+	}
 }

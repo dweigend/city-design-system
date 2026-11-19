@@ -86,7 +86,7 @@ export function houseView(
 			// Plots already exclude passages; roof runs stay within the original lattice block.
 			blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
 			olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
-		}, world.kernel);
+		}, world.roofBuilder);
 	return [
 		...present(stock.flatMap(project), focus.stock),
 		...present(

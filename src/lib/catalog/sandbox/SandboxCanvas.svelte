@@ -56,8 +56,8 @@
 		stage = current;
 		let mounted = true;
 		void loadEnvelopeKernel()
-			.then((kernel) => {
-				if (mounted) session.setKernel(kernel);
+			.then((roofBuilder) => {
+				if (mounted) session.setRoofBuilder(roofBuilder);
 			})
 			.catch(() => {
 				if (mounted) error = 'Detailed roofs unavailable.';

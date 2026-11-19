@@ -22,15 +22,26 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 		token: '--paper',
 		shade: p.wash
 	}));
+	const seatId = mass.id + (profile.tiers ? ':tier' + (profile.tiers - 1) : ':plate');
+	const seat = solids.find((part) => part.id === seatId);
 	for (const { cell, level } of mass.stories) {
 		if (storiesOf(site.stacks, cell.id).length !== level + 1) continue;
 
 		const top = mass.floor + STORY + profile.tiers * profile.rise;
-		if (site.kernel) {
-			solids.push(
-				...stockRoof(site.kernel, cell, level, site.seed, top, profile.setback * profile.tiers)
+		if (site.roofBuilder && seat?.kind === 'prism') {
+			const roof = stockRoof(
+				site.roofBuilder,
+				seat,
+				cell,
+				level,
+				site.seed,
+				top,
+				profile.setback * profile.tiers
 			);
-			continue;
+			if (roof) {
+				solids.push(roof);
+				continue;
+			}
 		}
 		const height =
 			inradius(cell) * p.pitch * (1 + hash(site.seed, cell.index, level) * p.variation);

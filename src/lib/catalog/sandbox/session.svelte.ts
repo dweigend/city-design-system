@@ -25,10 +25,10 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	const startingWorld = createWorld(initialSeed);
 	/** The committed world; its derived grid is the session's cache (PT-14). */
 	let world = $state.raw(startingWorld);
-	let kernel = $state.raw<typeof world.kernel>();
+	let roofBuilder = $state.raw<typeof world.roofBuilder>();
 	const projected = $derived.by(() => {
 		const current = stroke?.draft ?? world;
-		return kernel ? { ...current, kernel } : current;
+		return roofBuilder ? { ...current, roofBuilder } : current;
 	});
 	let history = $state.raw(startHistory(startingWorld.state));
 	let stroke = $state.raw<Stroke>();
@@ -53,8 +53,8 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get timelineWindow() {
 			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
 		},
-		setKernel(value: NonNullable<typeof kernel>) {
-			kernel = value;
+		setRoofBuilder(value: NonNullable<typeof roofBuilder>) {
+			roofBuilder = value;
 		},
 		get focus() {
 			return focus;

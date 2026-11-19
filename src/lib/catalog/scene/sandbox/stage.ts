@@ -17,11 +17,11 @@ import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
-import { cellAtPoint } from '../../logic/terrain-grid';
+import { createCellPicker } from './terrain-geometry';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { KEY, projectChanges } from './projection';
+import { projectChanges } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { createView } from './view';
@@ -187,23 +187,6 @@ export function createSandboxStage(
 		if (before.grid !== after.grid) drawBaseLines(mesh);
 	}
 
-	const raycaster = new THREE.Raycaster();
-
-	function hitAt(surface: TerrainMesh['surface'], xPx: number, yPx: number) {
-		raycaster.setFromCamera(view.ndc(xPx, yPx), view.camera);
-		const built = [...structures.solids(KEY.house), ...structures.solids(KEY.forest)];
-		return raycaster.intersectObjects([surface, ...built], false)[0];
-	}
-
-	function cellIndexAtHit(
-		hit: THREE.Intersection,
-		surface: TerrainMesh['surface'],
-		grid: World['grid']
-	) {
-		if (hit.object === surface) return (hit.faceIndex ?? NaN) >> 1;
-		return cellAtPoint(grid, hit.point.x, -hit.point.z)?.index;
-	}
-
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, applyPalette);
 
@@ -245,15 +228,8 @@ export function createSandboxStage(
 			if (terrain) frameTerrain(terrain);
 			render();
 		},
-		/**
-		 * Index of the grid cell under a canvas pixel, or undefined off the terrain. A hit on a
-		 * house or a tree picks the cell it stands on.
-		 */
-		pickCell(xPx: number, yPx: number): number | undefined {
-			if (!terrain || !shown) return undefined;
-			const hit = hitAt(terrain.surface, xPx, yPx);
-			return hit && cellIndexAtHit(hit, terrain.surface, shown.grid);
-		},
+		/** The brush edits the terrain cell under the pointer, independently of roof detail. */
+		pickCell: createCellPicker(view, () => terrain?.surface),
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
 			terrain?.setLens(column, row, strength);

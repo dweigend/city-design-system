@@ -2,7 +2,7 @@ import { roofCarrier, type RoofContext } from './roof-carrier';
 import { totemMass } from './style-totem';
 import { megastructureMass } from './style-megastructure';
 import { profileOf } from './profile';
-import type { ManifoldToplevel } from 'manifold-3d';
+import type { RoofBuilder } from '../building-envelope';
 /**
  * House brush: the player paints stories onto grid cells, the grammar derives architecture.
  * The grammar reads only the quad carrier contract, so it works on every grid of quads.
@@ -31,7 +31,7 @@ export { HOUSE_STYLES, type HouseStyle } from './styles';
  * @param seed integer seed of the decor decisions (openings, crowns)
  * @param style look of the masses; the massing itself is the same in every style
  * @param context optional full occupancy and historic roof frontage of a layered town
- * @param kernel preloaded geometry kernel for historic roofs
+ * @param roofBuilder preloaded geometry roofBuilder for historic roofs
  * @returns detached primitives in world meters; empty for a chunk without masses
  */
 export function houseChunk(
@@ -41,9 +41,9 @@ export function houseChunk(
 	seed: number,
 	style: HouseStyle = 'terrace',
 	context?: RoofContext,
-	kernel?: ManifoldToplevel
+	roofBuilder?: RoofBuilder
 ): Primitive[] {
-	const site = { grid, stacks: context?.occupied ?? stacks, seed, kernel };
+	const site = { grid, stacks: context?.occupied ?? stacks, seed, roofBuilder };
 	// Old story records retain the grammar that built them. Q installations carry their own parts.
 	if (context && (style === 'megastructure' || style === 'totem')) {
 		const rule = style === 'totem' ? totemMass : megastructureMass;

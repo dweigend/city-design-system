@@ -1,4 +1,4 @@
-import type { ManifoldToplevel } from 'manifold-3d';
+import type { RoofBuilder } from '../building-envelope';
 import { houseChunk, type HouseUse } from '../house-brush';
 import { cell, grid } from '../parametrik/raster/geometry';
 import { toPatch } from '../parametrik/raster/universal';
@@ -36,7 +36,7 @@ const rings: Point2[][] = [
 ];
 
 /** Four free blocks share the universal quad subdivision, relaxation and historic roof rule. */
-export function roofBlocks(kernel?: ManifoldToplevel): RulePlate[] {
+export function roofBlocks(roofBuilder?: RoofBuilder): RulePlate[] {
 	const seed = 7;
 	const carrier = patchGrid(
 		toPatch(
@@ -89,7 +89,7 @@ export function roofBlocks(kernel?: ManifoldToplevel): RulePlate[] {
 			text: 'The same house brush on separated lots. Narrow quads and neighboring courtyards stay open.',
 			primitives: [
 				...plan,
-				...houseChunk(carrier, stacks, 'plate', seed, 'terrace', undefined, kernel)
+				...houseChunk(carrier, stacks, 'plate', seed, 'terrace', undefined, roofBuilder)
 			]
 		}
 	];

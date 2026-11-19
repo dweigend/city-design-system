@@ -1,7 +1,7 @@
-import type { ManifoldToplevel } from 'manifold-3d';
+import { createRoofBuilder, type RoofBuilder } from '../logic/building-envelope';
 import wasmUrl from 'manifold-3d/manifold.wasm?url';
 
-let pending: Promise<ManifoldToplevel> | undefined;
+let pending: Promise<RoofBuilder> | undefined;
 
 /** Starts one shared client kernel on demand. Failed starts can be retried on the next visit. */
 export function loadEnvelopeKernel() {
@@ -9,7 +9,9 @@ export function loadEnvelopeKernel() {
 		.then(async ({ default: init }) => {
 			const kernel = await init({ locateFile: () => wasmUrl });
 			kernel.setup();
-			return kernel;
+			return createRoofBuilder(kernel, (id, error) =>
+				console.warn('Using fallback roof for ' + id, error)
+			);
 		})
 		.catch((error) => {
 			pending = undefined;

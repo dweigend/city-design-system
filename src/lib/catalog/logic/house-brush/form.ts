@@ -1,4 +1,4 @@
-import type { ManifoldToplevel } from 'manifold-3d';
+import type { RoofBuilder } from '../building-envelope';
 import { flowToken } from '../../data/focus';
 import type { ColorToken, Primitive } from '../parametrik/types';
 import type { QuadGrid } from '../quad-grid';
@@ -13,7 +13,7 @@ export type Site = Readonly<{
 	grid: QuadGrid;
 	stacks: Stacks;
 	seed: number;
-	kernel?: ManifoldToplevel;
+	roofBuilder?: RoofBuilder;
 }>;
 
 /** One draw channel per decision of the grammar (PD-4). */

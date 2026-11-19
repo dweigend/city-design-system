@@ -10,8 +10,8 @@
 	onMount(() => {
 		let active = true;
 		void loadEnvelopeKernel()
-			.then((kernel) => {
-				if (active) roofs = roofBlocks(kernel);
+			.then((roofBuilder) => {
+				if (active) roofs = roofBlocks(roofBuilder);
 			})
 			.catch(() => {
 				if (active) message = 'Detailed roofs unavailable.';

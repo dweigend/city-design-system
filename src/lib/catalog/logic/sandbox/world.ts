@@ -27,7 +27,7 @@ const DIG_RADIUS = 9;
  */
 export type World = Readonly<{
 	seed: number;
-	kernel?: import('manifold-3d').ManifoldToplevel;
+	roofBuilder?: import('../building-envelope').RoofBuilder;
 	state: SandboxState;
 	grid: TerrainGrid;
 	/** Routes of `state.lines` on the current grid; a stroke too short to route is absent. */
