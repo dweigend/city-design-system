@@ -1,3 +1,5 @@
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { legacyRoleOf } from '../logic/parametrik/types';
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Primitive, Vec3 } from '../logic/parametrik/types';
@@ -137,14 +139,22 @@ function buildPrism(p: SolidOf<'prism'>, at: Placement) {
 	return at(new THREE.Vector3(), geometry);
 }
 
+// Round dressed bodies inside their authored envelope. Thin sections keep a flat land.
+function bevelRadius(part: Solid, smallestM: number, largestM: number) {
+	if (!part.finish || legacyRoleOf(part) === 'bestand' || part.section) return 0;
+	return Math.min(smallestM * 0.24, largestM >= 6 ? 0.45 : 0.15);
+}
+
 function buildBox(p: SolidOf<'box'>, at: Placement) {
+	const [w, d, h] = p.size;
+	const radius = bevelRadius(p, Math.min(w, d, h), Math.max(w, d, h));
 	return at(
 		vector([
 			p.position[0] + p.size[0] / 2,
 			p.position[1] + p.size[1] / 2,
 			p.position[2] + p.size[2] / 2
 		]),
-		new THREE.BoxGeometry(p.size[0], p.size[2], p.size[1])
+		radius ? new RoundedBoxGeometry(w, h, d, 2, radius) : new THREE.BoxGeometry(w, h, d)
 	);
 }
 
@@ -209,16 +219,34 @@ function buildRing(p: SolidOf<'ring'>, at: Placement, coarse: boolean) {
 }
 
 function buildCone(p: SolidOf<'cylinder' | 'cone'>, at: Placement, coarse: boolean) {
-	return at(
-		vector([p.position[0], p.position[1], p.position[2] + p.height / 2]),
-		new THREE.CylinderGeometry(
-			p.kind === 'cone' ? 0 : p.radius,
-			p.radius,
-			p.height,
-			circleSegments(p.radius, coarse)
-		),
-		{ outline: true }
-	);
+	const segments = circleSegments(p.radius, coarse);
+	const diameter = p.radius * 2;
+	const bevel = bevelRadius(p, Math.min(diameter, p.height), Math.max(diameter, p.height));
+	const geometry =
+		p.kind === 'cylinder' && bevel > 0
+			? roundedDrum(p.radius, p.height, bevel, segments)
+			: new THREE.CylinderGeometry(p.kind === 'cone' ? 0 : p.radius, p.radius, p.height, segments);
+	return at(vector([p.position[0], p.position[1], p.position[2] + p.height / 2]), geometry, {
+		outline: true
+	});
+}
+
+function roundedDrum(radius: number, height: number, bevel: number, segments: number) {
+	const half = height / 2;
+	const profile = [new THREE.Vector2(0, -half)];
+	for (const end of [-1, 1]) {
+		for (let i = 0; i <= 3; i++) {
+			const a = ((end < 0 ? i - 3 : i) * Math.PI) / 6;
+			profile.push(
+				new THREE.Vector2(
+					radius - bevel + bevel * Math.cos(a),
+					end * (half - bevel) + bevel * Math.sin(a)
+				)
+			);
+		}
+	}
+	profile.push(new THREE.Vector2(0, half));
+	return new THREE.LatheGeometry(profile, segments);
 }
 
 function buildSphere(p: SolidOf<'sphere'>, at: Placement, coarse: boolean) {
