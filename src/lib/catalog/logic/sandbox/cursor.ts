@@ -1,15 +1,14 @@
 import { DIG_RADIUS_M } from '../../data/sandbox';
-import { routeLine } from '../transit-line';
 import { editReach, terrainHeight } from '../terrain';
 import { STORY } from '../../data/grid';
-import { MAX_STORIES, stackTop, storiesOf } from '../house-brush';
+import { atSocket, MAX_STORIES, stackTop, storiesOf } from '../house-brush';
 import type { Vec3 } from '../parametrik/types';
 import type { QuadCell } from '../quad-grid';
 import type { SandboxState } from './state';
-import type { Tool } from './stroke';
+import { planStroke, type StrokePlan, type Tool } from './stroke';
 import type { World } from './world';
-import { propose } from './installation';
-import { position, type Installation } from './installation-parts';
+import { buildingPlots } from './building-plots';
+import { position, rodOf, type Installation } from './installation-parts';
 
 /** Lift of ground outlines above the terrain, meters; keeps the line readable on the surface. */
 const GROUND_LIFT = 0.15;
@@ -69,10 +68,7 @@ function areaBoundary(world: World, cells: QuadCell[]): Vec3[][] {
 	});
 }
 
-function walkwayMark(world: World, part: Installation): Vec3[] {
-	const a = position(world.grid, part.anchor);
-	if (part.kind === 'segment') return [a, position(world.grid, part.end)];
-	const [x, y, z] = a;
+function seatMark([x, y, z]: Vec3): Vec3[] {
 	const d = 0.75;
 	return [
 		[x - d, y - d, z],
@@ -82,32 +78,52 @@ function walkwayMark(world: World, part: Installation): Vec3[] {
 	];
 }
 
-function walkwayPreview(world: World, tool: Tool, ids: readonly string[], cells: QuadCell[]) {
-	const proposal = propose(world, tool, ids);
-	if (proposal && 'parts' in proposal)
-		return proposal.parts.map((part) => walkwayMark(world, part));
-	return cells.map(cursorTarget);
+function installationMarks(plan: StrokePlan, parts: readonly Installation[]): Vec3[][] {
+	const { base, tool } = plan;
+	const grid = tool.kind === 'house' ? buildingPlots(base.grid) : base.grid;
+	return parts.flatMap((part) => {
+		if (part.kind === 'module') {
+			const support = base.state.parts.get(part.attachedTo);
+			const rod = support && rodOf(grid, support);
+			const seat = rod && atSocket(rod, part.share, part.recipe, [], part.pitch);
+			if (!seat) return [];
+			const shell = seatMark(seat.shell.center);
+			return seat.accent ? [shell, seatMark(seat.accent.center)] : [shell];
+		}
+		const a = position(grid, part.anchor);
+		return [part.kind === 'segment' ? [a, position(grid, part.end)] : seatMark(a)];
+	});
 }
 
-function linePreview(
-	world: World,
-	tool: Extract<Tool, { kind: 'line' }>,
-	ids: readonly string[],
-	cells: QuadCell[]
-): Vec3[][] {
-	if (tool.transit === 'walkway') return walkwayPreview(world, tool, ids, cells);
+function linePreview(plan: StrokePlan, cells: QuadCell[]): Vec3[][] {
 	if (cells.length === 1) return [cursorTarget(cells[0])];
-	const line = routeLine(world.grid, { id: 'preview', kind: tool.transit, cellIds: ids });
+	const { draft } = plan.outcome();
+	const line = plan.base === draft ? undefined : draft.lines.at(-1);
 	const path = line?.path ?? cells.map(({ center: [x, y, z] }): Vec3 => [x, y, z + GROUND_LIFT]);
 	return path.slice(1).map((point, i) => [path[i], point]);
 }
 
+function lotFrames(world: World, tool: Tool, cells: QuadCell[]): Vec3[][] {
+	const plots = tool.kind === 'house' ? buildingPlots(world.grid) : undefined;
+	return cells.flatMap((cell) =>
+		cursorFrame(world.state, tool, plots?.cellsById.get(cell.id) ?? cell)
+	);
+}
+
 /** Projects a traced gesture as detached dashed contours before any cells are committed. */
 export function strokePreview(world: World, tool: Tool, ids: readonly string[]): Vec3[][] {
+	return previewStrokePlan(planStroke(world, tool, ids));
+}
+
+/** Draws the detached proposal kept with a traced gesture. */
+export function previewStrokePlan(plan: StrokePlan): Vec3[][] {
+	const { base: world, tool, cellIds: ids, proposal } = plan;
 	const cells = ids.flatMap((id) => world.grid.cellsById.get(id) ?? []);
 	if (tool.kind === 'look' || !cells.length) return [];
+	if (proposal && 'parts' in proposal) return installationMarks(plan, proposal.parts);
 	if (tool.kind === 'cover') return areaBoundary(world, cells);
 	if (tool.kind === 'dig') return cells.flatMap((cell) => basinContours(world, cell));
-	if (tool.kind === 'line') return linePreview(world, tool, ids, cells);
-	return cells.flatMap((cell) => cursorFrame(world.state, tool, cell));
+	if (tool.kind === 'line')
+		return tool.transit === 'walkway' ? cells.map(cursorTarget) : linePreview(plan, cells);
+	return lotFrames(world, tool, cells);
 }

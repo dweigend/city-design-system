@@ -7,7 +7,7 @@
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
 	import type { OpeningArea } from '../scene/sandbox/view';
-	import { cursorTarget, strokePreview } from '../logic/sandbox';
+	import { cursorTarget, previewStrokePlan, strokePreview } from '../logic/sandbox';
 	import { MODULE, type TerrainCell } from '../logic/terrain-grid';
 	import type { Session } from './session.svelte';
 	import StoreFlight from './StoreFlight.svelte';
@@ -47,9 +47,11 @@
 		width: number;
 	}>();
 	const releaseFrames = new SvelteSet<number>();
+	let releasedPlan = $state.raw<StrokeRelease>();
 
-	const previewWorld = $derived(session.gesture?.base ?? session.world);
-	const previewTool = $derived(session.gesture?.tool ?? session.tool);
+	const displayedPlan = $derived(session.gesture ? session.previewPlan : releasedPlan);
+	const previewWorld = $derived(displayedPlan?.base ?? session.world);
+	const previewTool = $derived(displayedPlan?.tool ?? session.tool);
 	const hovered = $derived(hoveredId ? previewWorld.grid.cellsById.get(hoveredId) : undefined);
 	let hover = $state.raw<ReturnType<typeof createCanvasHover>>();
 
@@ -80,11 +82,13 @@
 			target.endStroke();
 			return;
 		}
+		releasedPlan = release;
 		showResponse(view, release);
 		queueFrame(() => {
 			canvas.dataset.responseMs = String(performance.now() - releasedAt);
 			queueFrame(() => {
 				session.commitRelease(release);
+				if (releasedPlan === release) releasedPlan = undefined;
 				if (!session.gesture) target.endStroke();
 			});
 		});
@@ -167,7 +171,11 @@
 		else current.setLens(0, 0, 0);
 	}
 
-	const previewCells = $derived(session.gesture?.cellIds ?? (hovered ? [hovered.id] : []));
+	const marks = $derived(
+		displayedPlan
+			? previewStrokePlan(displayedPlan)
+			: strokePreview(previewWorld, previewTool, hovered ? [hovered.id] : [])
+	);
 
 	function updateCursor(current: SandboxStage) {
 		if (previewTool.kind === 'look') {
@@ -177,7 +185,7 @@
 		}
 		const target = hovered ? cursorTarget(hovered) : [];
 		updateLens(current);
-		current.setCursor(strokePreview(previewWorld, previewTool, previewCells), target);
+		current.setCursor(marks, target);
 	}
 
 	$effect(() => {

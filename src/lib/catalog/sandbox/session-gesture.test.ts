@@ -1,10 +1,12 @@
 // @ts-expect-error Bun provides these APIs at runtime.
-import { expect, test } from 'bun:test';
+import { expect, spyOn, test } from 'bun:test';
 // @ts-expect-error The app has no Bun runtime dependency.
 import { plugin, file } from 'bun';
 import { compileModule } from 'svelte/compiler';
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
-import { applyStroke, strokePreview } from '../logic/sandbox';
+import assert from 'node:assert/strict';
+import * as sandbox from '../logic/sandbox';
+import { applyStroke, previewStrokePlan } from '../logic/sandbox';
 import type { Completion } from './feedback';
 
 plugin({
@@ -42,17 +44,20 @@ function place(change?: 'tool' | 'method' | 'option') {
 	session.pickMethod('collage');
 	const start = session.world;
 	session.strokeStart(start, '80/44');
-	const gesture = session.gesture!;
-	const preview = strokePreview(gesture.base, gesture.tool, gesture.cellIds);
+	const gesture = session.gesture;
+	const plan = session.previewPlan;
+	assert.ok(plan);
+	const preview = previewStrokePlan(plan);
 	expect(preview.length).toBeGreaterThan(0);
 	if (change === 'tool') session.tool = { kind: 'dig' };
 	if (change === 'method') session.pickMethod('megastructure');
 	if (change === 'option') session.tool = { kind: 'house', use: 'water' };
-	const held = session.gesture!;
-	expect(held).toBe(gesture);
-	expect(strokePreview(held.base, held.tool, held.cellIds)).toEqual(preview);
-	const release = session.strokeRelease()!;
-	expect(release).toBe(gesture);
+	expect(session.gesture).toBe(gesture);
+	expect(session.previewPlan).toBe(plan);
+	expect(previewStrokePlan(plan)).toEqual(preview);
+	const release = session.strokeRelease();
+	assert.ok(release);
+	expect(release).toBe(plan);
 	expect(session.world).toBe(start);
 	session.commitRelease(release);
 	return session.world.state;
@@ -74,14 +79,16 @@ for (const gesture of ['tap', 'drag'] as const) {
 			const events: Completion[] = [];
 			session.onCompletion((event) => events.push(event));
 			session.strokeStart(opening, '80/44');
-			const first = session.strokeRelease()!;
+			const first = session.strokeRelease();
+			assert.ok(first);
 			if (timing === 'before') session.commitRelease(first);
 
 			// A held gesture keeps the projection it began on when the first commit lands.
 			session.strokeStart(session.world, '81/44');
 			if (timing === 'during') session.commitRelease(first);
 			if (gesture === 'drag') session.strokeMove('82/44');
-			const second = session.strokeRelease()!;
+			const second = session.strokeRelease();
+			assert.ok(second);
 			const cellIds = gesture === 'drag' ? ['81/44', '82/44'] : ['81/44'];
 			expect(second.cellIds).toEqual(cellIds);
 			session.commitRelease(second);
@@ -111,3 +118,102 @@ for (const gesture of ['tap', 'drag'] as const) {
 		});
 	}
 }
+
+const digScenarios = [
+	{ name: 'changed approach', digCell: '22/35', house: false, undo: false },
+	{ name: 'unchanged approach', digCell: '76/41', house: false, undo: false },
+	{ name: 'Undo restores the house plot', digCell: '76/41', house: true, undo: true }
+] as const;
+
+const commitStages = [
+	'before down',
+	'after down',
+	'after move',
+	'after preview',
+	'after release',
+	'after ready'
+] as const;
+
+for (const scenario of digScenarios) {
+	for (const stage of commitStages) {
+		test(`${scenario.name}, Dig commits ${stage}`, () => {
+			const session = createSession(7);
+			const opening = session.world;
+			const events: Completion[] = [];
+			session.onCompletion((event) => events.push(event));
+			session.tool = { kind: 'dig' };
+			session.strokeStart(opening, scenario.digCell);
+			const dig = session.strokeRelease();
+			assert.ok(dig);
+			if (scenario.undo) session.undo();
+			const completeDigAt = (at: typeof stage) => {
+				if (stage === at) session.commitRelease(dig);
+			};
+			completeDigAt('before down');
+
+			const kind = scenario.house ? 'house' : 'line';
+			session.tool = scenario.house
+				? { kind: 'house', use: 'living' }
+				: { kind: 'line', transit: 'walkway' };
+			session.strokeStart(session.world, scenario.house ? '75/38' : '30/35');
+			completeDigAt('after down');
+			if (!scenario.house) session.strokeMove('35/37');
+			completeDigAt('after move');
+			const plan = session.previewPlan;
+			assert.ok(plan);
+			const marks = previewStrokePlan(plan);
+			completeDigAt('after preview');
+			const release = session.strokeRelease();
+			assert.ok(release);
+			expect(release).toBe(plan);
+
+			const planning = spyOn(sandbox, 'planStroke');
+			try {
+				completeDigAt('after release');
+				session.commitRelease(release);
+				completeDigAt('after ready');
+				session.commitRelease(release);
+				const calls = planning.mock.calls.filter(
+					([, tool]: Parameters<typeof sandbox.planStroke>) => tool.kind === kind
+				);
+				expect(calls).toHaveLength(1);
+			} finally {
+				planning.mockRestore();
+			}
+
+			const changed = scenario.digCell === '22/35';
+			const fresh = stage === 'before down';
+			const builds = !changed || fresh;
+			expect(events.map((event) => event.kind)).toEqual(builds ? ['dig', kind] : ['dig']);
+			if (scenario.house) {
+				expect(session.world.state.stacks.get('75/38')).toEqual(['living']);
+				expect(session.world.state.edits).toEqual([]);
+				expect(marks).toHaveLength(6);
+				session.undo();
+				expect(session.world.state).toBe(opening.state);
+			} else {
+				expect(release.cellIds).toHaveLength(8);
+				expect(marks).toHaveLength(changed && fresh ? 33 : 29);
+				expect(session.world.state.parts.size).toBe(builds ? marks.length : 0);
+			}
+		});
+	}
+}
+
+test('a house captured before a dig at its shared frontage keeps its original plot plan', () => {
+	const session = createSession(7);
+	const opening = session.world;
+	session.tool = { kind: 'dig' };
+	session.strokeStart(opening, '76/38');
+	const dig = session.strokeRelease();
+	assert.ok(dig);
+	session.tool = { kind: 'house', use: 'living' };
+	session.strokeStart(opening, '72/40');
+	const house = session.strokeRelease();
+	assert.ok(house);
+	session.commitRelease(dig);
+	const dug = session.world;
+	expect(dug.grid.cellsById.get('72/40')).toBe(opening.grid.cellsById.get('72/40'));
+	session.commitRelease(house);
+	expect(session.world.state).toBe(dug.state);
+});

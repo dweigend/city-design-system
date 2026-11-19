@@ -5,6 +5,7 @@ import { focuses, type FocusId } from '../logic/presentation';
 import {
 	openingScene,
 	beginStroke,
+	planStroke,
 	traceStroke,
 	type Stroke,
 	type Tool,
@@ -26,6 +27,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	let roofBuilder = $state.raw<typeof startingWorld.roofBuilder>();
 	const projected = $derived(roofBuilder ? { ...world, roofBuilder } : world);
 	let stroke = $state.raw<Stroke>();
+	const previewPlan = $derived(stroke && planStroke(stroke.base, stroke.tool, stroke.cellIds));
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
 
 	const methods = $derived(stylesForYear(world.state.year));
@@ -83,6 +85,9 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get gesture() {
 			return stroke;
 		},
+		get previewPlan() {
+			return previewPlan;
+		},
 		get failure() {
 			return stroke ? undefined : state.rejection;
 		},
@@ -104,7 +109,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		},
 		/** Detaches the completed gesture so that its first feedback can paint before the edit. */
 		strokeRelease(): StrokeRelease | undefined {
-			const release = stroke;
+			const release = previewPlan;
 			stroke = undefined;
 			if (release?.cellIds.length && actions.release(release)) return release;
 		},

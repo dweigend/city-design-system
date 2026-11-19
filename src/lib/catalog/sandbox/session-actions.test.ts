@@ -1,16 +1,13 @@
 // @ts-expect-error Bun provides this test API at runtime.
 import { expect, test } from 'bun:test';
 import { sandboxGenerationYears } from '../data/sandbox';
-import { applyStroke, openingScene } from '../logic/sandbox';
+import { applyStroke, openingScene, planStroke } from '../logic/sandbox';
 import { storedModules, type Completion, type StrokeRelease } from './feedback';
 import { createSessionActions } from './session-actions';
 
 const { world } = openingScene(7);
-const stroke = (cellId: string, base = world): StrokeRelease => ({
-	base,
-	tool: { kind: 'house', style: 'collage', use: 'living' },
-	cellIds: [cellId]
-});
+const stroke = (cellId: string, base = world): StrokeRelease =>
+	planStroke(base, { kind: 'house', style: 'collage', use: 'living' }, [cellId]);
 
 test('Undo just after releasing B leaves A, and Redo restores B', () => {
 	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
@@ -33,7 +30,7 @@ test('Undo just after releasing B leaves A, and Redo restores B', () => {
 	expect(afterB.nextAction).toBe(afterA.nextAction + 1);
 });
 
-const dig: StrokeRelease = { base: world, tool: { kind: 'dig' }, cellIds: ['76/41'] };
+const dig = planStroke(world, { kind: 'dig' }, ['76/41']);
 
 test('New terrain waits for its earlier stroke and rejects a later dig on the old seed', () => {
 	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
@@ -67,12 +64,14 @@ test('a queued stroke cannot build on a target changed by an earlier stroke', ()
 	expect(actions.snapshot().world).toBe(world);
 	actions.commitRelease(a);
 	expect(actions.snapshot().world.state.stacks.get('80/44')).toEqual(['living']);
-	expect(actions.release(b)).toBe(false);
+	expect(actions.release(b)).toBe(true);
+	actions.commitRelease(b);
+	expect(actions.snapshot().world.state.stacks.get('80/44')).toEqual(['living']);
 	actions.undo();
 	expect(actions.snapshot().world.state).toBe(world.state);
 });
 
-test('a basin invalidates only strokes whose target cells changed on the grid', () => {
+test('a basin invalidates a changed house plan and preserves the inland plan', () => {
 	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
 	const raisedBank = stroke('75/38');
 	const inland = stroke('81/44');

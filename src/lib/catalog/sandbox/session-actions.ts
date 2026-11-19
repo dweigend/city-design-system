@@ -1,11 +1,11 @@
 import {
 	applyEdit,
-	applyStroke,
 	commit,
 	openingScene,
+	planStroke,
 	redo,
 	startHistory,
-	strokeTargetsUnchanged,
+	strokePlanKey,
 	undo,
 	withState,
 	type Stroke,
@@ -69,9 +69,13 @@ export function createSessionActions(
 	}
 
 	function place(release: StrokeRelease) {
-		if (!strokeTargetsUnchanged(release, world)) return;
-		const { tool, cellIds } = release;
-		const { draft, failure } = applyStroke(world, tool, cellIds);
+		const { base, tool, cellIds } = release;
+		if (base.seed !== world.seed) return;
+		const current = planStroke(world, tool, cellIds);
+		// The same immutable simulation inputs guarantee the same result.
+		const sameWorld = base.state === world.state && base.grid === world.grid;
+		if (!sameWorld && strokePlanKey(release) !== strokePlanKey(current)) return;
+		const { draft, failure } = current.outcome();
 		rejection = failure;
 		edit(draft, tool.kind, cellIds);
 	}
@@ -124,9 +128,9 @@ export function createSessionActions(
 				completionListeners.delete(listener);
 			};
 		},
-		/** Reserves a stroke if its targets still match and no restart is ahead of it. */
+		/** Reserves the shown plan; validation runs in command order after earlier edits. */
 		release(release: StrokeRelease) {
-			if (!strokeTargetsUnchanged(release, world)) return false;
+			if (release.base.seed !== world.seed) return false;
 			if (queue.some(({ kind }) => kind === 'restart')) return false;
 			queue.push({ kind: 'stroke', release, ready: false });
 			drain();

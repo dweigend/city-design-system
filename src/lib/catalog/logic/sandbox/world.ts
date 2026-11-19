@@ -232,21 +232,28 @@ function advance(state: SandboxState, years: number): SandboxState {
 	return { ...state, year, timeLayers };
 }
 
-function nextState(world: World, edit: Edit): SandboxState {
+function appendLine(world: World, edit: Extract<Edit, { kind: 'line' }>): World {
+	const { state } = world;
+	const stroke = {
+		year: state.year,
+		id: 'line' + state.nextAction,
+		transit: edit.transit,
+		cellIds: edit.cellIds
+	};
+	const [line] = route(world.grid, [stroke]);
+	return line
+		? {
+				...world,
+				state: { ...state, nextAction: state.nextAction + 1, lines: [...state.lines, stroke] },
+				lines: [...world.lines, line]
+			}
+		: world;
+}
+
+function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): SandboxState {
 	const { state } = world;
 	if (edit.kind === 'advance') return advance(state, edit.years ?? sandboxGenerationYears);
 	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
-	if (edit.kind === 'line') {
-		const stroke = {
-			year: state.year,
-			id: 'line' + state.nextAction,
-			transit: edit.transit,
-			cellIds: edit.cellIds
-		};
-		return route(world.grid, [stroke]).length
-			? { ...state, nextAction: state.nextAction + 1, lines: [...state.lines, stroke] }
-			: state;
-	}
 	const cell = world.grid.cellsById.get(edit.cellId);
 	return cell ? cellEdit(state, cell, edit) : state;
 }
@@ -261,5 +268,6 @@ function nextState(world: World, edit: Edit): SandboxState {
  * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
+	if (edit.kind === 'line') return appendLine(world, edit);
 	return replaceState(world, nextState(world, edit), 'edit');
 }

@@ -1,5 +1,5 @@
 import { propose, install } from './installation';
-import type { Failure } from './installation-parts';
+import type { Failure, Proposal } from './installation-parts';
 import { cellsBetween } from '../terrain-grid';
 import type { Edit, Tool } from './state';
 import { applyEdit, withState, type World } from './world';
@@ -47,7 +47,15 @@ export function extendStroke(stroke: Stroke, cellId: string): Stroke {
 	if (trace === stroke) return stroke;
 	const fresh = trace.cellIds.slice(stroke.cellIds.length);
 	if (!fresh.length) return { ...stroke, ...trace };
-	const result = evaluateStroke(stroke.base, stroke.tool, trace.cellIds, stroke.draft, fresh);
+	const proposal = propose(stroke.base, stroke.tool, trace.cellIds);
+	const result = evaluateStroke(
+		stroke.base,
+		stroke.tool,
+		trace.cellIds,
+		proposal,
+		stroke.draft,
+		fresh
+	);
 	return { ...stroke, ...trace, ...result };
 }
 
@@ -68,10 +76,10 @@ function evaluateStroke(
 	base: World,
 	tool: Tool,
 	ids: readonly string[],
+	proposal: Proposal | undefined,
 	previous: World,
 	fresh: readonly string[]
 ): Outcome {
-	const proposal = propose(base, tool, ids);
 	if (proposal) {
 		if ('failure' in proposal) return { draft: base, failure: proposal.failure };
 		return { draft: withState(base, install(base.state, proposal, tool)), failure: undefined };
@@ -86,9 +94,27 @@ function evaluateStroke(
 	return { draft, failure: undefined };
 }
 
+/** Surveys a trace once and retains the same proposal for drawing and applying it. */
+export function planStroke(base: World, tool: Tool, cellIds: readonly string[]) {
+	const ids: readonly string[] = [...new Set(cellIds)];
+	const proposal = ids.length ? propose(base, tool, ids) : undefined;
+	let result: Outcome | undefined;
+	return {
+		base,
+		tool,
+		cellIds: ids,
+		proposal,
+		outcome(): Outcome {
+			return (result ??= ids.length
+				? evaluateStroke(base, tool, ids, proposal, base, ids)
+				: { draft: base });
+		}
+	} as const;
+}
+
+export type StrokePlan = ReturnType<typeof planStroke>;
+
 /** Surveys or applies one complete trace to a detached snapshot. Each visited cell is edited once. */
 export function applyStroke(world: World, tool: Tool, cellIds: readonly string[]): Outcome {
-	const ids = [...new Set(cellIds)];
-	if (!ids.length) return { draft: world };
-	return evaluateStroke(world, tool, ids, world, ids);
+	return planStroke(world, tool, cellIds).outcome();
 }

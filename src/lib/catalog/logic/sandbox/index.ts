@@ -8,16 +8,18 @@ export { installationPartView, installationView } from './installation-view';
 export { applyEdit, createWorld, withState, type World } from './world';
 export { commit, redo, startHistory, undo } from './history';
 export { changes } from './changes';
-export { strokeTargetsUnchanged } from './stroke-targets';
+export { strokePlanKey } from './stroke-plan-key';
 export {
 	applyStroke,
 	beginStroke,
 	extendStroke,
+	planStroke,
 	traceStroke,
 	type Stroke,
+	type StrokePlan,
 	type Tool
 } from './stroke';
-export { cursorFrame, cursorTarget, strokePreview } from './cursor';
+export { cursorFrame, cursorTarget, previewStrokePlan, strokePreview } from './cursor';
 export { currentStacks, houseView, houseGroups } from './houses';
 export { acceptanceScene, openingScene } from './acceptance-scene';
 export { timelineWindow } from './time-layers';
