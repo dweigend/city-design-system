@@ -1,3 +1,6 @@
+import { chartSurface } from './surface-chart';
+import { resolveFinish, drawingSurface } from '../logic/material/surface';
+import { createMaterialLibrary } from './material-library';
 import { bindSceneTheme } from './themeBinding';
 import { legacyRoleOf } from '../logic/parametrik/types';
 import * as THREE from 'three/webgpu';
@@ -5,7 +8,7 @@ import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { surfaceColor, outlinePosition } from './surfaces';
-import { edgeColor, finishMaterial, lookColor } from './material';
+import { edgeColor, lookColor } from './material';
 import { pocheColor } from './schnitt';
 import { materialLook, resolveMaterial, usesMaterialSystem } from '../logic/parametrik/material';
 import { build, vector } from './primitive-geometry';
@@ -38,8 +41,14 @@ export function createParametrikScene(
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	const materials = new Map<string, THREE.Material>();
 	const usedMaterials = new Set<string>();
+	const usedSurfaces = new Set<THREE.Material>();
 	const painters: (() => void)[] = [];
 	const scene = new THREE.Scene();
+	const surfaces = createMaterialLibrary(palette, () => scene.environment);
+	const fill = new THREE.HemisphereLight(0xffffff, 0xd9d7cf, 1.5);
+	const keyLight = new THREE.DirectionalLight(0xffffff, 2);
+	keyLight.position.set(5, 10, 4);
+	scene.add(fill, keyLight);
 	scene.background = new THREE.Color(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 2000);
 	const model = new THREE.Group();
@@ -210,6 +219,7 @@ export function createParametrikScene(
 		groups.clear();
 		pickables.length = 0;
 		usedMaterials.clear();
+		usedSurfaces.clear();
 		fixed = view;
 		const groupFor = (key: string) => {
 			let g = groups.get(key);
@@ -322,7 +332,7 @@ export function createParametrikScene(
 				style.level !== 'hull' && usesMaterialSystem(p.material, style.materials)
 					? (({ material, token }) => materialLook(material, token))(resolveMaterial(p))
 					: undefined;
-			if (p.kind === 'frame' && built.rulings) {
+			if (!p.finish && p.kind === 'frame' && built.rulings) {
 				// Stabwerk as drawing: paper bars in ink, coloured bars as a broad coloured stroke.
 				const plain = p.token === '--paper' || role === 'bestand';
 				if (!plain)
@@ -345,20 +355,21 @@ export function createParametrikScene(
 				parent.add(proxy);
 				continue;
 			}
-			if (look) {
+			const surface = p.finish
+				? resolveFinish(p.finish, p.token)
+				: look
+					? drawingSurface(look)
+					: undefined;
+			if (surface) {
+				if (p.finish) chartSurface(geometry);
 				const mesh = paintedMesh(geometry, () => {
-					const key = `finish-${look.material}-${look.token}-${!!built.double}`;
-					usedMaterials.add(key);
-					let material = materials.get(key);
-					if (!material) {
-						material = finishMaterial(look, palette, !!built.double);
-						materials.set(key, material);
-					}
+					const material = surfaces.material(surface, !!built.double);
+					usedSurfaces.add(material);
 					return material;
 				});
 				mesh.position.copy(place.position);
 				mesh.rotation.copy(place.rotation);
-				mesh.renderOrder = look.renderOrder;
+				mesh.renderOrder = look?.renderOrder ?? 1;
 				mesh.userData.id = p.id;
 				pickables.push(mesh);
 				parent.add(mesh);
@@ -407,7 +418,7 @@ export function createParametrikScene(
 					if (p.emphasis === 'auswahl') segments(positions, place, false, strong, () => signal);
 					else if (edge && look)
 						segments(positions, place, existing, edge.width * strong, () =>
-							edgeColor(look, palette)
+							edgeColor(edge.paper, palette)
 						);
 					else segments(positions, place, existing, strong);
 					edges.dispose();
@@ -459,6 +470,7 @@ export function createParametrikScene(
 		}
 		parent = model;
 		applyOffsets();
+		surfaces.retain(usedSurfaces);
 		for (const [key, material] of materials)
 			if (!usedMaterials.has(key)) {
 				material.dispose();
@@ -468,6 +480,7 @@ export function createParametrikScene(
 	}
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (next) => {
 		palette = next;
+		surfaces.setPalette(next);
 		signal.set(next.categories['--signal'] || next.ink);
 		// The invisible proxy is palette-independent and keeps its material identity.
 		for (const [key, material] of materials)
@@ -476,6 +489,7 @@ export function createParametrikScene(
 				materials.delete(key);
 			}
 		usedMaterials.clear();
+		usedSurfaces.clear();
 		if (materials.has('proxy')) usedMaterials.add('proxy');
 		for (const paint of painters) paint();
 		render();
@@ -551,6 +565,7 @@ export function createParametrikScene(
 			controls?.dispose();
 			for (const material of materials.values()) material.dispose();
 			materials.clear();
+			surfaces.dispose();
 			if (initialized) renderer.dispose();
 		}
 	};

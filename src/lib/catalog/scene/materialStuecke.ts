@@ -5,8 +5,9 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import type { Palette3D } from '../data/city3d';
 import type { Stueck } from '../logic/material/formen';
 import type { Rezept } from '../logic/material/rezept';
-import { kantenfarbe, rezeptMaterial } from './materialRezept';
-import { createMaterialOberflaechen } from './materialOberflaeche';
+import { kantenfarbe } from './materialRezept';
+import { createMaterialLibrary } from './material-library';
+import { physicalRecipe } from '../logic/material/surface';
 import { studienGeometrie } from './materialStudienGeometrie';
 import { stueckGeometrie, stueckOrt, stueckRadius } from './materialStueckGeometrie';
 
@@ -140,20 +141,17 @@ export function createMaterialStuecke(
 ) {
 	const diagrammZeit = uniform(0);
 	const eintraege = new Map<string, Eintrag>();
-	const materialien = new Map<string, THREE.Material>();
-	const oberflaechen = studio ? createMaterialOberflaechen(umgebung) : undefined;
+	const library = createMaterialLibrary(undefined, umgebung, diagrammZeit);
 	const projektion = studio ? studioSchatten : diagrammReihenfolge;
 	let fleck: THREE.Material | undefined;
 
-	function materialFuer(s: Stueck, key: string, palette: Palette3D, bewegung: boolean) {
-		const alt = materialien.get(key);
-		if (alt) return alt;
-		const r = oberflaechen ? zeitRezept(s.rezept, bewegung) : s.rezept;
+	function materialFuer(s: Stueck, bewegung: boolean) {
+		const r = studio ? zeitRezept(s.rezept, bewegung) : s.rezept;
 		const doppelt = s.teil.art === 'kuppel';
-		const material = oberflaechen
-			? oberflaechen.material(r, palette, s.ausfuehrung, doppelt, s.variation)
-			: rezeptMaterial(r, palette, doppelt, diagrammZeit);
-		materialien.set(key, material);
+		const material = library.material(
+			studio ? physicalRecipe(r, s.ausfuehrung, s.variation) : { kind: 'diagram', recipe: r },
+			doppelt
+		);
 		return material;
 	}
 
@@ -173,7 +171,7 @@ export function createMaterialStuecke(
 
 	function leeren() {
 		limitiere(eintraege, new Set(), entsorge);
-		limitiere(materialien, new Set(), (material) => material.dispose());
+		library.dispose();
 		fleck?.dispose();
 		fleck = undefined;
 	}
@@ -194,16 +192,10 @@ export function createMaterialStuecke(
 		},
 		/** Update pieces and dispose the resources no longer referenced by them. */
 		zeige(stuecke: readonly Stueck[], palette: Palette3D, bewegung: boolean) {
-			const aktiv = new Set<string>();
+			library.setPalette(palette);
+			const aktiv = new Set<THREE.Material>();
 			for (const s of stuecke) {
-				const key = JSON.stringify([
-					s.rezept,
-					s.ausfuehrung,
-					s.variation,
-					s.teil.art === 'kuppel',
-					bewegung
-				]);
-				const material = materialFuer(s, key, palette, bewegung);
+				const material = materialFuer(s, bewegung);
 				const e = eintragFuer(s, material, palette);
 				e.mesh.material = material;
 				projektion(e.mesh, material, s.rezept.familie);
@@ -211,17 +203,16 @@ export function createMaterialStuecke(
 				const k = s.skala ?? 1;
 				e.gruppe.scale.setScalar(Math.max(0.0001, k * k * (3 - 2 * k)));
 				e.gruppe.visible = k > 0;
-				aktiv.add(key);
+				aktiv.add(material);
 			}
 			limitiere(eintraege, new Set(stuecke.map((s) => s.id)), entsorge);
-			limitiere(materialien, aktiv, (material) => material.dispose());
+			library.retain(aktiv);
 		},
 		/** Drop palette-dependent resources. The detached pieces are supplied again on redraw. */
 		leeren,
 		/** Release textures owned by this stage after its pieces have been removed. */
 		dispose() {
 			leeren();
-			oberflaechen?.dispose();
 		}
 	};
 }

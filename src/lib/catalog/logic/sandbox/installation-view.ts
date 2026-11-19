@@ -1,3 +1,4 @@
+import { applySurface } from '../material/surface';
 import { buildingPlots } from './building-plots';
 import { carrierForm, shellForms } from '../house-brush';
 import { FRAME_DIAMETER, LANDING_RADIUS_M, moduleBridge } from '../megastructure';
@@ -122,9 +123,9 @@ export function installationPartView(world: World, p: BuiltPart, focus: FocusId,
 		return cached.forms;
 	const generated = partView(world, p, coarse);
 	const parts =
-		p.finish === undefined
+		p.finish === undefined && p.token === undefined
 			? generated
-			: generated.map((part) => (part.kind === 'polyline' ? part : { ...part, finish: p.finish }));
+			: generated.map((part) => applySurface(part, p.finish, p.token));
 	const forms =
 		level === 'pencil'
 			? parts

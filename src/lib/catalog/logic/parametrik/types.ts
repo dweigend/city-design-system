@@ -9,27 +9,30 @@ export type Role = BuildingRole | 'traeger';
  * all others only through the material system (SceneStyle.materials or their own id).
  */
 export type { MaterialId } from '../../data/material';
-export type ColorToken =
-	| '--cat-health-3'
-	| '--cat-health-5'
-	| '--cat-business-3'
-	| '--cat-business-2'
-	| '--cat-nature-2'
-	| '--cat-hazard'
-	| '--paper'
-	| '--ink'
-	| '--cat-living'
-	| '--cat-health'
-	| '--cat-mobility'
-	| '--cat-business'
-	| '--cat-nature'
-	| '--blueprint'
-	/** Wall tint of new housing bodies. */
-	| '--body-living'
-	/** Memphis accent (ink or signal, never a flow color as accent; data/color.ts). */
-	| '--signal';
+export const surfaceTokens = [
+	'--cat-health-3',
+	'--cat-health-5',
+	'--cat-business-3',
+	'--cat-business-2',
+	'--cat-nature-2',
+	'--cat-hazard',
+	'--paper',
+	'--ink',
+	'--cat-living',
+	'--cat-health',
+	'--cat-mobility',
+	'--cat-business',
+	'--cat-nature',
+	'--blueprint',
+	'--body-living',
+	'--signal'
+] as const;
+export type ColorToken = (typeof surfaceTokens)[number];
 /** A surface selected independently of a generated solid or sheet. */
-export type FinishId = MaterialId | import('../../data/materialAusfuehrung').AusfuehrungId;
+export type FinishId =
+	| MaterialId
+	| import('../../data/materialAusfuehrung').AusfuehrungId
+	| import('../../data/materialPrint').PrintFinish;
 type Base = {
 	/** Explicit surface applied after generation. Omission keeps the original drafting treatment. */
 	finish?: FinishId;

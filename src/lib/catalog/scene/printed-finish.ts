@@ -1,15 +1,15 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
 import {
+	atan,
 	abs,
 	attribute,
 	color,
 	dot,
 	float,
-	floor,
-	fract,
 	mix,
 	normalView,
 	normalWorld,
+	positionLocal,
 	positionWorld,
 	select,
 	sin,
@@ -17,20 +17,20 @@ import {
 	vec2,
 	vec3
 } from 'three/tsl';
-import type { Palette3D } from '../../data/city3d';
-import type { ColorToken } from '../../logic/parametrik/types';
-import { LICHT } from '../../data/leitstil';
-import { isPathInk } from '../../logic/farbe/overprint';
+import type { Palette3D } from '../data/city3d';
+import type { ColorToken } from '../logic/parametrik/types';
+import { LICHT, MASSSTAB } from '../data/leitstil';
+
 import type { Node } from 'three/webgpu';
-import { tokenColor } from '../material';
+import { tokenColor } from './material';
 
 // Coordinates are attached before batching. XYZ is metres above the part's minimum;
 // W is its fraction of height. Crossing a face or UV seam never restarts the dip.
 const chart = attribute('finishChart', 'vec4');
-const plane = vec2(
-	chart.x.add(chart.z.mul(0.39)),
-	chart.z.sub(chart.x.mul(0.27)).add(chart.y.mul(0.81))
-);
+function printPlane(p: Node<'vec3'>) {
+	return vec2(p.x.add(p.z.mul(0.39)), p.z.sub(p.x.mul(0.27)).add(p.y.mul(0.81)));
+}
+const plane = printPlane(chart.xyz);
 const wave = sin(chart.x.mul(2.2).add(chart.z.mul(1.7))).mul(0.055);
 const drip = sin(chart.x.mul(4.2).sub(chart.z.mul(2.6)))
 	.mul(0.5)
@@ -69,50 +69,60 @@ export function castOffset(height: number) {
 	return Math.min(0.35 * height, 6);
 }
 
-function coarseChips() {
-	// One candidate per 0.86 m cell. Its angular section spans 0.20–0.40 m.
-	const cell = floor(plane.div(0.86));
-	const random = fract(sin(dot(cell, vec2(127.1, 311.7))).mul(43758.5453));
-	const p = fract(plane.div(0.86))
-		.sub(vec2(random.mul(0.32).add(0.34), fract(random.mul(13.7)).mul(0.38).add(0.31)))
-		.mul(0.86);
-	const angle = random.mul(6.28318);
-	const x = p.x.mul(angle.cos()).add(p.y.mul(angle.sin()));
-	const y = p.y.mul(angle.cos()).sub(p.x.mul(angle.sin()));
-	const radius = random.mul(0.1).add(0.1);
-	const chip = step(abs(x).add(abs(y.add(x.mul(0.43))).mul(1.45)), radius);
-	return { chip, pale: step(0.46, fract(random.mul(7.1))) };
+/** Angular 20–40 cm aggregate on printed panels. Reveal chips only at house scale. */
+export function aggregateCoverage(plane: Node<'vec2'>) {
+	const cellsPerMeter = 0.8;
+	const uv = plane.mul(cellsPerMeter);
+	const cell = uv.floor();
+	const seed = cell.dot(vec2(0.7548777, 0.5698403)).fract();
+	const noise = seed.mul(31.47).fract();
+	const q = uv
+		.fract()
+		.sub(0.5)
+		.sub(vec2(noise, seed.mul(71.63).fract()).sub(0.5).mul(0.66));
+	const sides = seed.mul(3).floor().add(3),
+		sector = float(2 * Math.PI).div(sides);
+	const theta = atan(q.y, q.x).add(noise.mul(2 * Math.PI));
+	const edge = theta.div(sector).add(0.5).fract().sub(0.5).mul(sector).cos().mul(q.length());
+	const radius = seed.mul(0.1).add(0.1).mul(cellsPerMeter).mul(sector.mul(0.5).cos());
+	const aa = uv.fwidth().length().mul(0.42).max(0.0001);
+	const density = float(1).sub(edge.smoothstep(radius.sub(aa), radius.add(aa)));
+	return { chip: density, pale: float(seed.lessThanEqual(0.51)) };
 }
-
 /** Builds an opaque sandbox print in the selected flow pigment. Close views resolve
  * aggregate. Pigmented faces use the fine, hard-edged shadow screen at every distance. */
 export function printedFinish(
-	aggregate: boolean,
+	id: 'glaze' | 'print-terrazzo' | 'halftone',
 	token: ColorToken,
 	palette: Palette3D,
-	close: boolean
+	close: boolean,
+	inlay?: { paper: Node<'color'>; scale: Node<'float'> }
 ) {
 	const ink = color(new Color(palette.ink)),
 		paper = color(new Color(palette.paper));
 	const pigment = color(tokenColor(palette, token));
 	const material = new MeshBasicNodeMaterial({ side: DoubleSide });
-	if (isPathInk(token)) {
-		material.colorNode = pigment;
+	const screen = shadow.mul(halftoneDots(plane, halftoneScreen(true).pitch));
+	if (id === 'halftone') {
+		material.colorNode = mix(pigment, ink, screen.mul(0.72));
 		return material;
 	}
-	const base = aggregate ? mix(paper, pigment, 0.58) : paper;
-	let result = base;
-	if (aggregate && close) {
-		const { chip, pale } = coarseChips();
-		result = mix(base, mix(mix(base, ink, 0.48), paper, pale), chip);
-	} else if (!aggregate) {
-		result = mix(paper, pigment, step(0, dip));
-		result = mix(result, ink, step(abs(dip), 0.009).mul(0.65));
+	if (id === 'print-terrazzo') {
+		const base = inlay ? attribute('color', 'vec3') : mix(paper, pigment, 0.58);
+		const dark = inlay ? attribute('chipColor', 'vec3') : mix(base, ink, 0.48);
+		const share = inlay
+			? inlay.scale
+					.smoothstep(MASSSTAB.quartier, MASSSTAB.haus)
+					.mul(attribute('printScreen', 'float'))
+			: float(Number(close));
+		const p = inlay ? positionLocal : chart.xyz;
+		const { chip, pale } = aggregateCoverage(printPlane(p));
+		material.colorNode = mix(base, mix(dark, inlay?.paper ?? paper, pale), chip.mul(share));
+		return material;
 	}
-	if (token !== '--paper') {
-		const inkCoverage = aggregate ? float(1) : step(0, dip);
-		result = mix(result, ink, faceHalftone(halftoneScreen(true).pitch).mul(inkCoverage));
-	}
+	let result = mix(paper, pigment, step(0, dip));
+	result = mix(result, ink, step(abs(dip), 0.009).mul(0.65));
+	result = mix(result, ink, screen.mul(step(0, dip)));
 	material.colorNode = mix(result, ink, step(abs(normalView.z), 0.055).mul(0.76));
 	return material;
 }

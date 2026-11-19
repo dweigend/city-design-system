@@ -1,9 +1,10 @@
+import { resolveFinish } from '../../logic/material/surface';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { SphereGeometry, type Mesh } from 'three/webgpu';
 import { materials } from '../../data/material';
 import { materialAusfuehrungen } from '../../data/materialAusfuehrung';
-import { forms } from './fixtures/primitive-forms';
+import { forms } from '../../logic/material/sample-forms';
 import { focuses } from '../../logic/presentation';
 import {
 	beginStroke,
@@ -29,7 +30,7 @@ test('every catalog surface reaches the new-build sandbox mesh for every surface
 				const hits: Mesh[] = group.userData.hits;
 				assert.equal(hits.length, 1);
 				const [mesh] = hits;
-				assert.equal(mesh.material, pool.explicit.material(finish, form.token));
+				assert.equal(mesh.material, pool.explicit.material(resolveFinish(finish, form.token)));
 				assert.equal(Array.isArray(mesh.material) ? '' : mesh.material.name, finish);
 				const coords = mesh.geometry.getAttribute('position').array;
 				assert.ok(
@@ -89,8 +90,11 @@ test('different forms share one draw mesh per selected finish', async () => {
 		const hits: Mesh[] = group.userData.hits;
 		assert.equal(hits.length, 2);
 		const [glaze, terrazzo] = hits;
-		assert.equal(glaze.material, pool.explicit.material('glaze', forms.mesh.token));
-		assert.equal(terrazzo.material, pool.explicit.material('beton-terrazzo', forms.mesh.token));
+		assert.equal(glaze.material, pool.explicit.material(resolveFinish('glaze', forms.mesh.token)));
+		assert.equal(
+			terrazzo.material,
+			pool.explicit.material(resolveFinish('beton-terrazzo', forms.mesh.token))
+		);
 		for (const attribute of ['position', 'normal', 'uv', 'finishChart']) {
 			const values = glaze.geometry.getAttribute(attribute).array;
 			assert.ok(values.length && values.every(Number.isFinite));

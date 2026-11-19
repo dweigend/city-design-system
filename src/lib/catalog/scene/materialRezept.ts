@@ -34,28 +34,12 @@ import type { Palette3D } from '../data/city3d';
 import { deckung, type Rezept } from '../logic/material/rezept';
 import { blatt, strich } from './schraffur';
 import { faceTone } from './surfaces';
-import { tokenColor } from './material';
+import { lookColor, edgeColor, patternInk } from './material';
+import type { PatternId } from '../data/material';
 
-const srgbMix = (a: THREE.Color, b: THREE.Color, t: number) =>
-	a.clone().convertLinearToSRGB().lerp(b.clone().convertLinearToSRGB(), t).convertSRGBToLinear();
-
-/** Base color: token, paper share, own tint (only on neutral surfaces), ink. */
-export function grundfarbe(r: Rezept, palette: Palette3D): THREE.Color {
-	const paper = new THREE.Color(palette.paper);
-	let c = srgbMix(tokenColor(palette, r.farbe.token), paper, r.farbe.papier);
-	if (r.farbe.tint.toward && r.farbe.token === '--paper')
-		c = srgbMix(c, tokenColor(palette, r.farbe.tint.toward), r.farbe.tint.amount ?? 0);
-	if (r.farbe.tint.ink) c = srgbMix(c, new THREE.Color(palette.ink), r.farbe.tint.ink);
-	return c;
-}
-
-/** Edge color: ink mixed toward paper. */
-export function kantenfarbe(r: Rezept, palette: Palette3D): THREE.Color {
-	return srgbMix(
-		new THREE.Color(palette.ink),
-		new THREE.Color(palette.paper),
-		r.kante?.papier ?? 0
-	);
+/** Edge color of the recipe, resolved against the same ink and paper as its surface. */
+export function kantenfarbe(r: Rezept, palette: Palette3D) {
+	return edgeColor(r.kante?.papier ?? 0, palette);
 }
 
 /** Noise around 0 (roughly −1 … 1): the grain of the material. */
@@ -145,7 +129,8 @@ export function rezeptMaterial(
 	r: Rezept,
 	palette: Palette3D,
 	doppelt = false,
-	zeit: Node<'float'> = time
+	zeit: Node<'float'> = time,
+	pattern: PatternId | null = null
 ) {
 	const paper = color(new THREE.Color(palette.paper));
 	const ink = color(new THREE.Color(palette.ink));
@@ -154,7 +139,11 @@ export function rezeptMaterial(
 	// 1 Tone: surface tone by direction, scaled by the contrast of the skin.
 	const ton = mix(float(1), faceTone(), r.ton.kontrast);
 	// 2 Color.
-	let c: Node<'vec3'> = color(grundfarbe(r, palette)).mul(ton);
+	let c: Node<'vec3'> = color(
+		lookColor({ token: r.farbe.token, paper: r.farbe.papier, tint: r.farbe.tint }, palette)
+	).mul(ton);
+	const mark = patternInk(pattern);
+	if (mark) c = mix(c, ink, mark.ink.mul(mark.strength));
 	// 3 Noise.
 	if (r.rauschen) c = c.mul(rauschen(r.rauschen, zeit).mul(r.rauschen.staerke).add(1));
 	// 4 Joints: water draws light lines, everything else dark ones.

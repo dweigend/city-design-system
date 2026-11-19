@@ -1,6 +1,7 @@
+import { compileSurface } from './material-library';
 import * as THREE from 'three/webgpu';
 import { bindSceneTheme } from './themeBinding';
-import { kantenfarbe, rezeptMaterial } from './materialRezept';
+import { kantenfarbe } from './materialRezept';
 import type { Palette3D } from '../data/city3d';
 import { BLICK, type MaterialModell } from '../logic/traeger/integration/material';
 import type { Vec3 } from '../logic/traeger';
@@ -227,13 +228,28 @@ export function createTraegerMaterialSzene(
 	function faerbe(m: MaterialModell, p: Palette3D) {
 		for (const g of m.flaechen) {
 			const mesh = flaechenMeshes.get(g.id);
-			if (mesh) setze(mesh, rezeptMaterial(g.rezept, p, true), g.rezept.haut.deckkraft < 1);
+			if (mesh)
+				setze(
+					mesh,
+					compileSurface({ kind: 'diagram', recipe: g.rezept }, p),
+					g.rezept.haut.deckkraft < 1
+				);
 		}
 		for (const g of m.staebe) {
 			const mesh = stabMeshes.get(g.id);
-			if (mesh) setze(mesh, rezeptMaterial(g.rezept, p), false);
+			if (mesh)
+				setze(
+					mesh,
+					compileSurface({ kind: 'diagram', recipe: g.rezept }, p, { double: false }),
+					false
+				);
 		}
-		if (nabenMesh && m.naben) setze(nabenMesh, rezeptMaterial(m.naben.rezept, p), false);
+		if (nabenMesh && m.naben)
+			setze(
+				nabenMesh,
+				compileSurface({ kind: 'diagram', recipe: m.naben.rezept }, p, { double: false }),
+				false
+			);
 		const tinte = m.flaechen[0] ? kantenfarbe(m.flaechen[0].rezept, p) : new THREE.Color(p.ink);
 		if (linien) (linien.material as THREE.LineDashedMaterial).color.copy(tinte);
 		for (const teil of figurTeile) (teil.material as THREE.MeshBasicMaterial).color.set(p.ink);

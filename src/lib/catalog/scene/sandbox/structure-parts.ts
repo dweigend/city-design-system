@@ -135,7 +135,7 @@ export function populateStructures(
 		if (object) object.castShadow = shadows;
 	};
 	const parts = partition(primitives, unoutlined);
-	for (const face of finishedMeshes(parts.finished, finishes.explicit.material)) {
+	for (const face of finishedMeshes(parts.finished, finishes.explicit)) {
 		face.castShadow = cast;
 		objects.add(face);
 		hits.push(face);

@@ -16,23 +16,22 @@ import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../core/params';
 import type { grammatik } from '../leitstil';
 import { neutral } from '../leitstil/tone';
-import { finishMaterials } from './finish-materials';
+import { compileSurface, createMaterialLibrary } from '../material-library';
 import { outlinePosition } from '../surfaces';
 import { conduitInk } from './print-flow';
-import { cutPaper, terrazzo } from './paper-inlay';
-import { firedSlip } from './fired-slip';
+import { cutPaper } from './paper-inlay';
 import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { Rgb } from '../../logic/farbe/oklch';
 import { overprintColor } from '../../logic/farbe/overprint';
-import { faceHalftone, halftoneScreen } from './printed-finish';
+import { faceHalftone, halftoneScreen } from '../printed-finish';
 import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
 export function structureMaterials() {
-	const explicit = finishMaterials();
+	const explicit = createMaterialLibrary();
 	const solidColor = uniform(neutral(TOENE.modellweiss));
 	const flankColor = uniform(neutral(TOENE.modellweiss + TOENE.vorn));
 	const sideColor = uniform(neutral(TOENE.modellweiss + TOENE.rechts));
@@ -53,9 +52,21 @@ export function structureMaterials() {
 	const scalePx = uniform(1);
 	const materials = {
 		conduit: conduitInk(seconds, markTone),
-		inlay: terrazzo(paperTone, scalePx),
+		inlay: compileSurface({ kind: 'print', id: 'print-terrazzo', token: '--paper' }, undefined, {
+			inlay: { paper: paperTone, scale: scalePx }
+		}),
 		cut: cutPaper(paperTone, shadowTone),
-		fired: firedSlip(solidColor, sideColor, seconds, ceramicContour, night),
+		fired: compileSurface({ kind: 'kiln', id: 'fired-slip', token: '--paper' }, undefined, {
+			kiln: [
+				solidColor,
+				sideColor,
+				seconds,
+				ceramicContour,
+				night,
+				attribute('color', 'vec3'),
+				attribute('kilnChart', 'vec4')
+			]
+		}),
 		glaze: new THREE.MeshBasicNodeMaterial(),
 		ceramicHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),

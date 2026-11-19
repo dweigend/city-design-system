@@ -1,5 +1,5 @@
 import { loadStructureModules } from './fixtures/structure-modules';
-import { forms } from './fixtures/primitive-forms';
+import { forms } from '../../logic/material/sample-forms';
 import { expect, test } from 'bun:test';
 import { Mesh, SphereGeometry, type Group, type Material } from 'three/webgpu';
 import { BLICK, MASSSTAB, STRICHE } from '../../data/leitstil';

@@ -1,3 +1,4 @@
+import { surfaceTokens } from '../logic/parametrik/types';
 import { onThemeChange } from '../theme';
 import type { Palette3D } from '../data/city3d';
 import { Color, type Scene, type ColorRepresentation } from 'three';
@@ -32,46 +33,22 @@ export function resolveTokens(host: HTMLElement, names: readonly string[]): Reco
 	return out;
 }
 
-const CATEGORIES = [
-	'living',
-	'health',
-	'mobility',
-	'business',
-	'nature',
-	'hazard',
-	'health-1',
-	'health-2',
-	'health-5',
-	'business-3',
-	'business-2',
-	'nature-2'
-];
-
 export function readPalette(host: HTMLElement): Palette3D {
 	const names = [
-		'paper',
-		'ink',
-		'ink-3',
-		'blueprint',
-		'blueprint-soft',
-		'signal',
-		...CATEGORIES.map((c) => `cat-${c}`)
+		...surfaceTokens,
+		'--ink-3',
+		'--blueprint-soft',
+		'--cat-health-1',
+		'--cat-health-2'
 	];
-	const t = resolveTokens(
-		host,
-		names.map((n) => `--${n}`)
-	);
-	const token = (name: string) => t[`--${name}`];
+	const t = resolveTokens(host, names);
 	return {
-		paper: token('paper'),
-		ink: token('ink'),
-		ink3: token('ink-3'),
-		blueprint: token('blueprint'),
-		blueprintSoft: token('blueprint-soft'),
-		categories: {
-			...Object.fromEntries(CATEGORIES.map((name) => [name, token(`cat-${name}`)])),
-			'--signal': token('signal')
-		}
+		paper: t['--paper'],
+		ink: t['--ink'],
+		ink3: t['--ink-3'],
+		blueprint: t['--blueprint'],
+		blueprintSoft: t['--blueprint-soft'],
+		categories: Object.fromEntries(names.map((name) => [name.replace('--cat-', ''), t[name]]))
 	};
 }
 

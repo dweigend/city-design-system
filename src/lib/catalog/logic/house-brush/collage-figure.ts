@@ -116,7 +116,7 @@ export function collageFigure(
 					})
 				];
 			});
-			return [{ ...planter, finish: 'beton-terrazzo' }, ...trees];
+			return [{ ...planter, finish: 'print-terrazzo' }, ...trees];
 		}
 		case 'material':
 			return [
