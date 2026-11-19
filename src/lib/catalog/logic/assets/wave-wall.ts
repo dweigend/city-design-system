@@ -39,9 +39,10 @@ function course(
 /** Models a solid wave relief with a projecting crest and recessed glazed bed. */
 export function waveWall(factor: number, variant: number) {
 	const cycles = 1 + variant * 0.5,
-		shoulder = 0.81 + factor * 0.16;
+		height = 0.55 + factor * 1.55,
+		shoulder = height * 0.72;
 	return [
 		course(0, shoulder, cycles, 0.25, 'glass'),
-		course(shoulder, 1.34 + 0.22 * factor, cycles, 0.37, 'channel', true)
+		course(shoulder, height, cycles, 0.37, 'channel', true)
 	];
 }
