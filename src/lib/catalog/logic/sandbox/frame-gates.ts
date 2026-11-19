@@ -71,12 +71,9 @@ export function surveyGates(
 		const id = JSON.stringify(vertices);
 		if (seams.has(id)) continue;
 		const district = world.grid.cellsById.get(a.id)?.block ?? road.block;
-		const crown = Math.max(
-			...[...road.corners, ...route.corners].map((p) => p[2] + HOCHWEG_M),
-			a.foot[2] + 2,
-			b.foot[2] + 2
-		);
-		const obstacle = gateBlocker(world, [road, route], crown);
+		const crown = Math.max(...[...road.corners, ...route.corners].map((p) => p[2])) + HOCHWEG_M;
+		const obstacle = gateBlocker(world, [road, route], crown, id);
+		const bearingTooHigh = Math.max(a.foot[2], b.foot[2]) >= crown;
 		seams.set(id, {
 			id,
 			vertices,
@@ -88,7 +85,7 @@ export function surveyGates(
 			gate: true,
 			transverse: kind,
 			adjacentCharacter: characters.get(world.grid.cellsById.get(b.id)?.block ?? road.block),
-			opening: obstacle ? 'gate-clearance' : undefined,
+			opening: obstacle ? 'gate-clearance' : bearingTooHigh ? 'gate-bearing-height' : undefined,
 			blocker: obstacle ?? road.id,
 			intent: world.state.frameIntents?.get(id)
 		});

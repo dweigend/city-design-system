@@ -1,3 +1,4 @@
+import { reservedFrameVolumes } from './gate-clearance';
 import { STORY } from '../../data/grid';
 import { buildingPlots } from './building-plots';
 import { type Bounds } from '../megastructure';
@@ -33,7 +34,7 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 	const rods = [...world.state.parts.values()].flatMap(
 		(p) => rodOf(buildingPlots(world.grid), p) ?? []
 	);
-	const occupied = roofObstacles(world);
+	const occupied = [...roofObstacles(world), ...reservedFrameVolumes(world)];
 	for (const p of world.state.parts.values()) {
 		if (p.kind !== 'module') continue;
 		const r = rods.find((r) => r.part.id === p.attachedTo);

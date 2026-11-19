@@ -15,7 +15,7 @@ function bounds(points: readonly Vec3[], margin: number): Bounds {
 	};
 }
 /** Conservative world boxes cover the full two approach cells up to the underside of a gate. */
-export function gateBlocker(world: World, roads: TerrainCell[], crown: number) {
+export function gateBlocker(world: World, roads: TerrainCell[], crown: number, seam: string) {
 	const volumes = roads.map((road) => {
 		const box = bounds(road.corners, 0);
 		box.max[2] = crown;
@@ -23,12 +23,16 @@ export function gateBlocker(world: World, roads: TerrainCell[], crown: number) {
 	});
 	const plots = buildingPlots(world.grid);
 	for (const part of world.state.parts.values()) {
+		if (part.kind === 'segment' && part.frame?.seam === seam) continue;
 		let boxes: Bounds[];
 		if (part.kind === 'module') {
 			const support = world.state.parts.get(part.attachedTo),
 				rod = support && rodOf(plots, support);
 			const seat = rod && savedSocket(rod, part, world.seed);
-			if (!seat) return part.id;
+			if (!seat) {
+				if (roads.some((road) => road.id === part.anchor.cellId)) return part.id;
+				continue;
+			}
 			boxes = socketBounds(seat);
 		} else {
 			const rod = rodOf(plots, part);
@@ -45,4 +49,19 @@ export function gateBlocker(world: World, roads: TerrainCell[], crown: number) {
 		if (volumes.some((volume) => boxes.some((box) => dockBoundsOverlap(volume, box))))
 			return part.id;
 	}
+}
+
+/** Returns conservative docking obstacles for the full clear volume under each installed span. */
+export function reservedFrameVolumes(world: World): Bounds[] {
+	return [...(world.state.frameInstallations?.values() ?? [])].flatMap(({ bay, result }) => {
+		if (result.status !== 'sized') return [];
+		return (bay.clearVolumes ?? []).map((v) => {
+			const box = bounds(
+				v.polygon.map(([x, y]) => [x, y, v.z]),
+				0
+			);
+			box.max[2] = v.z + v.hoeheM;
+			return box;
+		});
+	});
 }
