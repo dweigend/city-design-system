@@ -1,3 +1,4 @@
+import { clerestory } from './roof-lantern';
 import { family, block, legs, row, plate, circle, slope } from './assembly';
 import { drum, ring, cap, surface } from './parts';
 const asset = family('roof-pieces', 'roof');
@@ -75,10 +76,7 @@ export const roofShells = [
 		block(0, 0, 0, 2.8, 1.8, 1.55 * factor),
 		...row(5 + variant, (t) => block(t * 1.16, -0.92, 0.28, 0.12, 0.08, 1.05 * factor, 'glass'))
 	]),
-	asset('clerestory', ['glass', 'body'], [5, 3], (factor) => [
-		block(0, 0, 0, 4.8, 2.7, 0.55, 'glass'),
-		slope(0, 0, 0.55, 2.7, 4.8, 1.2 * factor, Math.PI / 2)
-	]),
+	asset('clerestory', ['glass', 'body'], [5, 3], clerestory),
 	asset('ridge-lantern', ['body', 'glass'], [3, 3], (factor) => [
 		plate(circle(1.4, 8), 0, 0.2),
 		plate(circle(1.13, 8), 0.2, 1.5 * factor, 'glass'),
