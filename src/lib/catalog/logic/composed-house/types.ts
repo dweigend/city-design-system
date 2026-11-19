@@ -14,6 +14,7 @@ export type HouseSite = {
 	stacks: Stacks;
 	seed: number;
 	district?: EnsembleDistrict;
+	plan?: HousePlan;
 };
 export type AssetKind = Exclude<TierKind, 'void' | 'gallery'> | CrownKind | 'reservoir' | 'window';
 /** Position is the bottom centre in world metres. Size is local width, depth, height.
@@ -37,6 +38,8 @@ export type Deck = {
 	use: HouseUse;
 };
 export type Section = {
+	compact: boolean;
+	stairAxis: [number, number];
 	id: string;
 	cells: readonly QuadCell[];
 	plan: HousePlan;

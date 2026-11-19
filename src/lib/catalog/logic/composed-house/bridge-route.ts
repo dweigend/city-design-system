@@ -15,7 +15,7 @@ function landing(deck: Deck, other: Deck): Vec3 {
 /** Largest datum difference in metres that still reads as one level walking surface. */
 const LEVEL = 0.3;
 /** Longest clear span in metres without an intermediate pier. */
-const SPAN = 12;
+const SPAN = 14;
 
 /** Surveys a level span between equal deck datums: straight first, then two symmetric doglegs
  * around intervening volumes. Unequal levels and overlong spans stay unconnected. */

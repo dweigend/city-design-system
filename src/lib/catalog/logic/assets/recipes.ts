@@ -8,6 +8,7 @@ import { deckKit } from './objects/deck-kit';
 import { crownKit } from './objects/crown-kit';
 import { serviceKit } from './objects/service-kit';
 import { people } from './objects/people';
+import { circulationObjects } from './circulation';
 import { smallArchitecture } from './objects/small-architecture';
 import { textiles } from './objects/textiles';
 import { publicArt } from './objects/public-art';
@@ -155,6 +156,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...houseFittings,
 	...roofMachinery,
 	walkwayStop,
+	...circulationObjects,
 	...primitiveObjects,
 	...seating,
 	...tables,

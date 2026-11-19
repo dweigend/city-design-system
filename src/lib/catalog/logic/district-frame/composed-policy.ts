@@ -111,7 +111,8 @@ export function houseProgramme(
 	stories: number,
 	uses: HouseUse[][],
 	district: EnsembleDistrict,
-	seed: number
+	seed: number,
+	fixedPlan?: HousePlan
 ) {
 	const open = stories >= 4 ? voidLevel(id, seed, uses.length) : -1;
 	const nodes = uses.map((u, i) => {
@@ -124,7 +125,10 @@ export function houseProgramme(
 	});
 	const [variant, ...kinds] = solveHouseSection(
 		[
-			{ id: id + '/plan', choices: stories >= 6 ? ['rectangular', 'round'] : ['rectangular'] },
+			{
+				id: id + '/plan',
+				choices: fixedPlan ? [fixedPlan] : stories >= 6 ? ['rectangular', 'round'] : ['rectangular']
+			},
 			...nodes,
 			{
 				id: id + '/crown',

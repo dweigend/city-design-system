@@ -4,7 +4,7 @@ import type { Deck, Section } from './types';
 
 /** Staggers the deck edges around the shared bearing axes. */
 export function deckPlan(level: number, count: number, round: boolean, aspect: Section['aspect']) {
-	if (count === 1) return { width: 1, depth: 0.88, x: 0, y: 0 };
+	if (count === 1) return { width: 1, depth: round ? 1 : 0.88, x: 0, y: 0 };
 	const crown = level === count - 1;
 	const width = crown ? 1.06 : level % 2 ? 0.88 : 1;
 	const depth = round ? width : crown ? 1 : 0.92;

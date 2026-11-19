@@ -1,7 +1,11 @@
+import { hashUnit } from '../../core/random';
 import { STORY } from '../../data/grid';
+import { sectionParts } from './projection';
+import { accessFits } from './access-budget';
+import { stairBay, ladderBay } from './stair-bay';
 import { deckPlan } from './deck-plan';
 import { houseAspect, houseProgramme } from '../district-frame';
-import { footprintBay } from './footprint';
+
 import type { Deck, HouseSite, Section } from './types';
 import { assetSlots } from './slots';
 
@@ -30,18 +34,19 @@ function deckDatum(pad: number, height: number, crown: boolean) {
 	return pad + Math.max(0.5, crown ? Math.floor(steps + 1e-6) : Math.round(steps)) * DATUM;
 }
 /** Groups the painted programme into height bands and surveys the floor and roof datums. */
-export function planHouse(site: HouseSite): Section {
+function sectionAt(site: HouseSite, bay: ReturnType<typeof stairBay>, compact: boolean): Section {
 	const { cells, rows, start, end, stories, levels, uses, id } = paintedBands(site);
 	const count = levels.length;
 	const district = site.district ?? 'infill';
-	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed);
+	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed, site.plan);
 	const aspect = houseAspect(id, site.seed);
-	const bay = footprintBay(cells),
-		round = plan === 'round';
-	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * 0.94,
-		depth = round ? width : bay.depth * 0.94;
+	const round = plan === 'round';
+	const bodyY = bay.y;
+	const fill = 0.8 + 0.04 * hashUnit(site.seed, id, 'bay-fill');
+	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * fill,
+		depth = round ? width : bay.depth * fill;
 	const pad = cells[0].pad,
-		base: Section['base'] = [bay.x, bay.y, pad + start * STORY];
+		base: Section['base'] = [bay.x, bodyY, pad + start * STORY];
 	const top = pad + end * STORY;
 	const decks = levels.map((lo, i): Deck => {
 		const crown = i === count - 1;
@@ -55,7 +60,7 @@ export function planHouse(site: HouseSite): Section {
 		const { kind, use } = kinds[i];
 		const shape = deckPlan(i, count, round, aspect);
 		return {
-			position: [bay.x + width * shape.x, bay.y + depth * shape.y, height],
+			position: [bay.x + width * shape.x, bodyY + depth * shape.y, height],
 			width: width * shape.width,
 			depth: depth * shape.depth,
 			round,
@@ -66,6 +71,8 @@ export function planHouse(site: HouseSite): Section {
 	});
 	const section: Section = {
 		id,
+		stairAxis: bay.axis,
+		compact,
 		cells,
 		district,
 		aspect,
@@ -84,4 +91,16 @@ export function planHouse(site: HouseSite): Section {
 	};
 	section.slots = assetSlots(section, rows.flat().filter(Boolean));
 	return section;
+}
+
+/** Plans the occupied bands and admits a full stair only when its measured mass and site fit. */
+export function planHouse(site: HouseSite): Section {
+	if (!site.cells.length) throw new RangeError('Empty painted footprint');
+	const cells = [...site.cells].sort((a, b) => a.id.localeCompare(b.id));
+	const bay = stairBay(cells);
+	if (Math.min(bay.width, bay.depth) >= 3) {
+		const section = sectionAt(site, bay, false);
+		if (accessFits(section, sectionParts(section))) return section;
+	}
+	return sectionAt(site, ladderBay(cells), true);
 }
