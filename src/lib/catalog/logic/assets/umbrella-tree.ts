@@ -18,7 +18,7 @@ export const umbrellaTree: AssetRecipe = {
 				y = reach * Math.sin(angle),
 				z = h + 0.86 + i * 0.15;
 			parts.push(
-				rod([0, 0, h - 0.5], [x, y, z], 0.1, 'trim'),
+				rod([0, 0, h - 0.5], [x, y, z], 0.15, 'trim'),
 				bulb([x, y, z], variant === 0 ? 1.66 : 1.4, 0.37, 'planting')
 			);
 		}

@@ -17,7 +17,7 @@ export const roundTree: AssetRecipe = {
 				y = sign * (0.35 + 0.12 * sample),
 				z = h + 0.7 + (sign + 1) * 0.19;
 			parts.push(
-				rod([0, 0, h * 0.65], [x, y, z], 0.09, 'trim'),
+				rod([0, 0, h * 0.65], [x, y, z], 0.15, 'trim'),
 				bulb([x, y, z], r, 0.91, 'planting')
 			);
 		}
