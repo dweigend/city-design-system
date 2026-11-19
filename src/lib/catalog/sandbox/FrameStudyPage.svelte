@@ -27,7 +27,7 @@
 		url.searchParams.set('tick', String(date));
 		if (entry) url.searchParams.set('entry', 'open');
 		else url.searchParams.delete('entry');
-		replaceState(url, {});
+		replaceState(resolve(`/sandbox/tragwerk?${url.searchParams}`), {});
 	}
 
 	function phaseLabel(seam: string | null) {
@@ -43,7 +43,9 @@
 		reserved = query.get('entry') === 'open';
 		study = replay;
 		const start = replay.at(0, false);
-		const [x, y, z] = start.grid.cellsById.get(replay.parcel)!.center;
+		const parcel = start.grid.cellsById.get(replay.parcel);
+		if (!parcel) throw new Error('Missing frame study parcel.');
+		const [x, y, z] = parcel.center;
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), {
 			frame: [
 				[x - 16, y - 13, z],
