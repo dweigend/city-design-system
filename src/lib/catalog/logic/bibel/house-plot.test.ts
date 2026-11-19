@@ -87,8 +87,7 @@ function checkFlights(s: Section, path: Path) {
 	expect(length).toBeLessThanOrEqual(2.2 * (s.top - path.stops[path.stops.length - 1][2]));
 }
 function inside(s: Section, x: number, y: number, margin: number) {
-	return;
-	s.cells.some((c) =>
+	return s.cells.some((c) =>
 		c.corners.every(([u, v], i) => {
 			const next = c.corners[(i + 1) % 4];
 			return (
