@@ -1,6 +1,7 @@
 import { isStructural, type Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';
 import { hasFinish, type Surface } from './finish-batch';
+import { hasGlazeContour } from './structure-outline';
 const isAccent = (part: Primitive) =>
 	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
 
@@ -83,13 +84,13 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 			parts.regular.push(original);
 			continue;
 		}
-		if (hasFinish(original)) {
-			parts.finished.push(original);
-			continue;
-		}
-		if (isPaperGlaze(original) && !original.overprint) {
-			const surfaces = unoutlined.has(original) ? parts.unoutlinedFinishes : parts.finished;
-			surfaces.push({ ...original, finish: 'glaze' });
+		const finish = finishedSurface(original);
+		if (finish) {
+			const surfaces =
+				unoutlined.has(original) && hasGlazeContour(finish.finish)
+					? parts.unoutlinedFinishes
+					: parts.finished;
+			surfaces.push(finish);
 			continue;
 		}
 
@@ -108,4 +109,9 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
 		else parts[part === original ? layer : 'portals'].push(body);
 	}
+}
+
+function finishedSurface(part: Primitive): Surface | undefined {
+	if (hasFinish(part)) return part;
+	if (isPaperGlaze(part) && !part.overprint) return { ...part, finish: 'glaze' };
 }

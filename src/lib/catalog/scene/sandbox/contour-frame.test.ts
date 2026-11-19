@@ -39,14 +39,17 @@ function outlined(scene: T.Scene, count: number) {
 		if (
 			o instanceof T.Mesh &&
 			o.parent?.userData.hits?.includes(o) &&
-			o.geometry.index?.count === count
+			o.geometry.getAttribute('position').count === count
 		)
 			body = o;
 	});
 	assert(body?.parent, 'missing ceramic fill');
 	const face = body;
 	return body.parent.children.some(
-		(o) => o !== face && o instanceof T.Mesh && o.geometry === face.geometry
+		(o) =>
+			o !== face &&
+			o instanceof T.Mesh &&
+			o.geometry.getAttribute('position') === face.geometry.getAttribute('position')
 	);
 }
 async function exerciseFrames() {
