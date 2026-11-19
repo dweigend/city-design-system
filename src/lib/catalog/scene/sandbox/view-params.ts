@@ -2,8 +2,15 @@ import { defineParams, numberParam } from '../../logic/params';
 
 /** Sandbox-specific materials. Drafting widths and tones belong to the bible's Leitstil. */
 export const STRUCTURE_PARAMS = defineParams({
+	minContourPx: numberParam('Minimum projected contour width', 'px', 6, [0, 16, 0.5]),
 	// Glazed components are outside the opaque envelope role.
 	glassOpacity: numberParam('Glass opacity', 'ratio', 0.34, [0, 1, 0.01])
+});
+
+/** Opening view scale and elevation on phones. */
+export const OPENING_VIEW_PARAMS = defineParams({
+	mobileCellWidthPx: numberParam('Mobile opening cell width', 'px', 50, [45, 55, 1]),
+	mobileElevationDeg: numberParam('Mobile opening elevation', 'deg', 11, [8, 26, 1])
 });
 
 /** Two interpretations of the same structure. The hairline is the 18 November comparison. */

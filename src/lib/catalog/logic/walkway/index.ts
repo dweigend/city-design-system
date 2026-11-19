@@ -12,7 +12,12 @@ export { deckCorners, spanEnd, deckParts, WALKWAY_WIDTH_M, WALKWAY_PARAMS } from
  * Invalid dimensions throw RangeError. Output is detached and inputs are read without mutation. */
 export function walkwayParts(
 	points: readonly Vec3[],
-	{ id = 'walkway', width, groundZ = 0 }: { id?: string; width?: number; groundZ?: number } = {},
+	{
+		id = 'walkway',
+		width,
+		groundZ = 0,
+		simplifyAtCity = false
+	}: { id?: string; width?: number; groundZ?: number; simplifyAtCity?: boolean } = {},
 	overrides?: ParamOverrides<typeof WALKWAY_PARAMS>
 ): Primitive[] {
 	if (!Number.isFinite(groundZ) || points.some((p) => !p.every(Number.isFinite)))
@@ -26,7 +31,7 @@ export function walkwayParts(
 		const a = points[i],
 			b = points[i + 1];
 		const key = `${id}:${i}`;
-		const parts = deckParts(ring, key, deckWidth, flowToken.people, profile);
+		const parts = deckParts(ring, key, deckWidth, flowToken.people, profile, simplifyAtCity);
 		const height = (a[2] + b[2]) / 2 - profile.thickness - groundZ;
 		if (height > 0)
 			parts.push({

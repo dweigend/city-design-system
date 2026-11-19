@@ -1,7 +1,7 @@
 import { STORY } from '../../data/grid';
 import { flowToken } from '../../data/focus';
 import { inradius, sideLength, type QuadCell } from '../quad-grid';
-import type { Primitive } from '../parametrik/types';
+import type { Primitive, Vec3 } from '../parametrik/types';
 import { bayOf, panel, type Bay } from './collage-bay';
 import { accentOf, part } from './form';
 import type { Mass } from './massing';
@@ -17,11 +17,26 @@ const FIXTURE = {
 
 /** A suspended flight climbing across the section to the roof landing. */
 function stairs(id: string, at: Bay, z: number, r: number): Primitive[] {
-	return Array.from({ length: 8 }, (_, i) =>
+	const steps = 8;
+	const start = -1.15;
+	const run = 0.2;
+	const tread = 0.201;
+	const width = 0.45;
+	const side = 0.1;
+	const stepZ = (i: number) => z + (i - 5) * r * 0.21;
+	const end = start + (steps - 1) * run + tread;
+	const city: [Vec3, Vec3, Vec3, Vec3] = [
+		at(start, side, stepZ(0)),
+		at(end, side, stepZ(steps - 1)),
+		at(end, side + width, stepZ(steps - 1)),
+		at(start, side + width, stepZ(0))
+	];
+	return Array.from({ length: steps }, (_, i) =>
 		part(id + ':step' + i, flowToken.people, {
 			kind: 'prism',
-			polygon: panel(at, -1.15 + i * 0.2, 0.1, 0.201, 0.45, z).map(([x, y]) => [x, y]),
-			z: z + (i - 5) * r * 0.21,
+			polygon: panel(at, start + i * run, side, tread, width, z).map(([x, y]) => [x, y]),
+			z: stepZ(i),
+			cityForm: i === 0 ? city : false,
 			height: r * 0.22,
 			edges: false
 		})

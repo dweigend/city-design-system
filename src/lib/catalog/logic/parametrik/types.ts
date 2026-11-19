@@ -38,6 +38,8 @@ type Base = {
 	token: ColorToken;
 	material: MaterialId;
 	detail?: boolean;
+	/** Sandbox block drawing: omit this detail, or replace its stair span with a continuous sheet. */
+	cityForm?: false | [Vec3, Vec3, Vec3, Vec3];
 	/** Owning house cell for a selectable roof surface or pencil ridge. */
 	roofCell?: string;
 	rank?: number;
@@ -168,7 +170,20 @@ export const count = (n: number, min: number, max: number) => Math.round(clamp(n
 
 /** Moves world-space attachments with the same point transform as their parent geometry. */
 export function transformAnchors(p: Primitive, point: (position: Vec3) => Vec3): Primitive {
-	const withBearings = p.bearings ? { ...p, bearings: p.bearings.map(point) } : p;
+	const positioned: Primitive = p.cityForm
+		? {
+				...p,
+				cityForm: [
+					point(p.cityForm[0]),
+					point(p.cityForm[1]),
+					point(p.cityForm[2]),
+					point(p.cityForm[3])
+				]
+			}
+		: p;
+	const withBearings = positioned.bearings
+		? { ...positioned, bearings: positioned.bearings.map(point) }
+		: positioned;
 	if (withBearings.kind !== 'frame' || !withBearings.members) return withBearings;
 	return {
 		...withBearings,

@@ -50,7 +50,8 @@ export function deckParts(
 	id: string,
 	width: number,
 	token: ColorToken,
-	profile: Pick<typeof WALKWAY_PROFILE, 'thickness' | 'treadRise'> = WALKWAY_PROFILE
+	profile: Pick<typeof WALKWAY_PROFILE, 'thickness' | 'treadRise'> = WALKWAY_PROFILE,
+	simplifyAtCity = false
 ): Primitive[] {
 	const [a, b, c, d] = ring;
 	const base = { token, role: 'neu' } as const;
@@ -67,6 +68,7 @@ export function deckParts(
 	const rail = (side: number, start: Vec3, end: Vec3): Primitive => ({
 		id: `${id}:${side}`,
 		kind: 'polyline',
+		...(simplifyAtCity ? { cityForm: false as const } : {}),
 		points: [raised(start), raised(end)],
 		...base,
 		material: 'metal'
@@ -80,6 +82,7 @@ export function deckParts(
 		return {
 			...deck,
 			id: `${id}:tread:${i}`,
+			...(simplifyAtCity ? { cityForm: i === 0 ? ring : (false as const) } : {}),
 			polygon: [edge(a, d, i), edge(b, c, i), edge(b, c, i + 1), edge(a, d, i + 1)],
 			z: a[2] + (d[2] - a[2]) * (i / (steps - 1)) - profile.thickness
 		};

@@ -19,6 +19,15 @@
 	let hud = $state<SandboxHud>();
 	let hovered = $state.raw<TerrainCell>();
 	let plan = $state(false);
+	let header = $state<HTMLElement>();
+	let hudGroup = $state<HTMLDivElement>();
+
+	function openingArea() {
+		if (!header || !hudGroup) return;
+		const top = header.getBoundingClientRect().bottom;
+		const bottom = hudGroup.getBoundingClientRect().top;
+		if (top < bottom) return { top, bottom };
+	}
 
 	const store = $derived(
 		sandboxUses
@@ -67,10 +76,11 @@
 	<SandboxCanvas
 		{session}
 		{plan}
+		{openingArea}
 		label="City sandbox: terrain with area grid. Arrow keys move the view, plus and minus zoom."
 		onhover={(cell) => (hovered = cell)}
 	/>
-	<header>
+	<header bind:this={header}>
 		<a class="brand" href={resolve('/')}>City Design System</a>
 		<h1>Sandbox</h1>
 		<p class="readout" aria-live="polite">
@@ -110,7 +120,7 @@
 		</Toggle.Root>
 		<ThemeToggle />
 	</div>
-	<SandboxHud bind:this={hud} {session} />
+	<SandboxHud bind:this={hud} bind:group={hudGroup} {session} />
 </main>
 
 <style>

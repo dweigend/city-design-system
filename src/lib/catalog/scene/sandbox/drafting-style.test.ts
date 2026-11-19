@@ -1,7 +1,7 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import { Mesh, SphereGeometry, type Group, type Material } from 'three/webgpu';
-import { MASSSTAB, STRICHE } from '../../data/leitstil';
+import { BLICK, MASSSTAB, STRICHE } from '../../data/leitstil';
 import { translate } from '../../logic/ansicht/geometrie';
 import { pruefeStil, stilFuer } from '../../logic/leitstil';
 import { tag } from '../../logic/ansicht/tags';
@@ -10,6 +10,7 @@ import { explode, shiftZ, type Primitive } from '../../logic/parametrik/types';
 import { focuses, present } from '../../logic/presentation';
 import { acceptanceScene, currentStacks, houseView } from '../../logic/sandbox';
 import { lineParts } from '../../logic/transit-line';
+import { distanceDrawing } from './distance-drawing';
 import { nearestZoom, sandboxStyle } from './drafting-style';
 
 const context = { zoom: 'quartier', modus: 'ansehen', situation: 'normal' } as const;
@@ -315,6 +316,34 @@ test('an aged sheet keeps its geometry without using the shadow-casting envelope
 		expect(parts[0]).toMatchObject({ kind: 'membrane', role: 'bestand' });
 		expect(meshes.some(({ material }) => material === finishes.materials.stockSheet)).toBe(true);
 		expect(meshes.every(({ castShadow }) => !castShadow)).toBe(true);
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
+		finishes.dispose();
+		bearing.dispose();
+	}
+});
+
+test('the city stop retains its colored shadow caster without an outline or bearing nodes', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials();
+	const bearing = new SphereGeometry();
+	const parts: Primitive[] = [
+		{ ...forms.torus, role: 'neu', token: '--cat-business-3' },
+		{ ...forms.polyline, role: 'traeger', bearings: [[0, 0, 2]] }
+	];
+	const drawing = distanceDrawing(parts, {
+		elevation: BLICK.hoeheRad,
+		block: true,
+		scale: 2.5,
+		minContourPx: 6
+	});
+	const group = populateStructures(drawing.parts, finishes, bearing, drawing);
+	const meshes = group.children.filter((object) => object instanceof Mesh);
+	try {
+		expect(meshes.filter(({ material }) => material === finishes.materials.signal)).toHaveLength(1);
+		expect(meshes.filter(({ castShadow }) => castShadow)).toHaveLength(1);
+		expect(meshes.some(({ material }) => material === finishes.materials.hull)).toBe(false);
+		expect(meshes.some(({ material }) => material === finishes.materials.bearing)).toBe(false);
 	} finally {
 		for (const mesh of meshes) mesh.geometry.dispose();
 		finishes.dispose();

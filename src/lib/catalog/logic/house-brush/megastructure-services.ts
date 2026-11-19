@@ -30,21 +30,32 @@ export function gallery(bay: Bay, side: number, width: number): Primitive[] {
 /** Straight flight outside the frame, with a riser tapped into the tank supply. */
 export function access(bay: Bay, side: number) {
 	const base = bay.level === 0 ? 0 : -0.12;
-	const stairs = Array.from({ length: 12 }, (_, i) => {
+	const count = 12;
+	const top = 0.88;
+	const inset = -0.18;
+	const first = base + (top - base) / count;
+	const city: [Vec3, Vec3, Vec3, Vec3] = [
+		along(bay, side, 0, inset, first),
+		along(bay, side, 1, inset, top),
+		along(bay, side, 1, 0, top),
+		along(bay, side, 0, 0, first)
+	];
+	const stairs = Array.from({ length: count }, (_, i) => {
 		const corners = [
-			[i / 12, -0.18],
-			[(i + 1) / 12, -0.18],
-			[(i + 1) / 12, 0],
-			[i / 12, 0]
+			[i / count, inset],
+			[(i + 1) / count, inset],
+			[(i + 1) / count, 0],
+			[i / count, 0]
 		];
 		const step = corners.map(([t, s]) =>
-			along(bay, side, t, s, base + ((i + 1) * (0.88 - base)) / 12)
+			along(bay, side, t, s, base + ((i + 1) * (top - base)) / count)
 		);
 		return bay.piece(`tread-${i}`, flowToken.people, {
 			kind: 'prism',
 			polygon: step.map(([x, y]) => [x, y]),
 			z: step[0][2] - 0.08 * bay.gauge,
-			height: 0.09 * bay.gauge
+			height: 0.09 * bay.gauge,
+			cityForm: i === 0 ? city : false
 		});
 	});
 	const points: Vec3[] = [

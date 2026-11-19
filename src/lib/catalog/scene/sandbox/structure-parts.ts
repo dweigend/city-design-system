@@ -45,16 +45,21 @@ function layerOf(part: Primitive) {
 	return isAccent(part) ? 'accents' : 'regular';
 }
 
-function partition(primitives: Primitive[]) {
+function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
 	const parts = {
 		regular: [] as Primitive[],
+		plain: [] as Primitive[],
+		plainAccents: [] as Primitive[],
 		carriers: [] as Primitive[],
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
 	};
 	for (const part of primitives) {
 		const layer = layerOf(part);
-		parts[layer].push(part.envelope ? { ...part, role: 'neu', glass: false } : part);
+		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
+		if (unoutlined.has(part) && (layer === 'regular' || layer === 'accents')) {
+			parts[layer === 'regular' ? 'plain' : 'plainAccents'].push({ ...body, edges: false });
+		} else parts[layer].push(body);
 	}
 	return parts;
 }
@@ -63,7 +68,14 @@ function partition(primitives: Primitive[]) {
 export function populateStructures(
 	primitives: Primitive[],
 	finishes: StructureMaterials,
-	bearingGeometry: THREE.BufferGeometry
+	bearingGeometry: THREE.BufferGeometry,
+	{
+		unoutlined = new Set<Primitive>(),
+		details = true
+	}: {
+		unoutlined?: ReadonlySet<Primitive>;
+		details?: boolean;
+	} = {}
 ) {
 	const { materials, colorOf, accentColor } = finishes;
 	const toColor = (part: Primitive) => colorOf(part.token);
@@ -93,7 +105,11 @@ export function populateStructures(
 		object.castShadow = shadows;
 		objects.add(silhouette(faces, contour));
 	};
-	const parts = partition(primitives);
+	const fill = (faces: Batch['neu'], material: THREE.Material, pick: boolean, shadows = cast) => {
+		const object = mesh(faces, material, pick);
+		if (object) object.castShadow = shadows;
+	};
+	const parts = partition(primitives, unoutlined);
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 	const stock = batch(
 		parts.regular.filter((part) => part.role === 'bestand'),
@@ -115,6 +131,10 @@ export function populateStructures(
 	lines(stock.kanten.alt, materials.pencil);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
+	const plain = batch(parts.plain, toColor);
+	fill(plain.neu, materials.solid, true);
+	fill(plain.blatt, materials.sheet, false);
+	fill(plain.glas, materials.glass, false, false);
 
 	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 	const accent = batch(
@@ -128,6 +148,9 @@ export function populateStructures(
 		surface(faces, materials.signal, materials.sheetHull, true);
 	lines(accent.kanten.neu, materials.detail);
 	lines(accentSheets.kanten.neu, materials.perimeter);
+	const plainAccents = batch(parts.plainAccents, toAccent);
+	for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
+		fill(faces, materials.signal, true);
 
 	const current = parts.carriers.filter((p) => p.role !== 'bestand');
 	const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
@@ -148,7 +171,8 @@ export function populateStructures(
 		materials.pencil
 	);
 	const points = parts.carriers.flatMap((part) => part.bearings ?? []);
-	if (points.length) objects.add(bearingDots(points, bearingGeometry, materials.bearing));
+	if (details && points.length)
+		objects.add(bearingDots(points, bearingGeometry, materials.bearing));
 
 	const ghost = batch(parts.ghosts, toColor);
 	for (const faces of [ghost.alt, ghost.blatt, ghost.neu, ghost.glas])

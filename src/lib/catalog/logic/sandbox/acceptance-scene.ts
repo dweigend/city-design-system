@@ -59,9 +59,13 @@ function elevatedWalkway({ grid }: World): Primitive[] {
 		y,
 		i < 2 || i >= ground.length - 2 ? groundZ + 0.35 : deckZ
 	]);
-	return walkwayParts(route, { id: 'acceptance-walkway', width: WALKWAY_WIDTH_M, groundZ }).map(
-		(part) =>
-			part.kind === 'cylinder' ? { ...part, role: 'traeger', bearings: [part.position] } : part
+	return walkwayParts(route, {
+		id: 'acceptance-walkway',
+		width: WALKWAY_WIDTH_M,
+		groundZ,
+		simplifyAtCity: true
+	}).map((part) =>
+		part.kind === 'cylinder' ? { ...part, role: 'traeger', bearings: [part.position] } : part
 	);
 }
 
