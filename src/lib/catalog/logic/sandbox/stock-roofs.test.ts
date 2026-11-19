@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createRoofBuilder } from '../building-envelope';
 import fixtures from './fixtures/clipped-hip-roofs.json';
-import type { BuildingCell, RoofSeat } from '../building-envelope';
+import type { Point2 } from '../parametrik/vocab';
 import init from 'manifold-3d';
 import { focuses } from '../presentation';
 import { applyEdit, changes, createWorld, currentStacks, houseView, type World } from './index';
@@ -42,7 +42,12 @@ test('near-coincident vertices on the seated hip roofs retain their closed K1 me
 	});
 	// The frontage layout changed these parcels. Keep their original clipping inputs.
 	for (const { id, spec, seat } of fixtures) {
-		const form = roofBuilder.build(spec as BuildingCell, seat as RoofSeat);
+		assert.ok(spec.roof === 'hip');
+		const ring = (coords: number[][]): Point2[] => coords.map(([x, y]) => [x, y]);
+		const form = roofBuilder.build(
+			{ ...spec, roof: spec.roof, polygon: ring(spec.polygon) },
+			{ polygon: ring(seat.polygon), holes: seat.holes.map(ring) }
+		);
 		assert.ok(form.triangles.length, id);
 	}
 });

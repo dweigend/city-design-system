@@ -23,8 +23,7 @@ export function reviewWorld(seed: World) {
 			pad: lot.pad,
 			center: [mean(0), mean(1), mean(2)],
 			raised: false,
-			lotCorners: undefined,
-			ridgeSide: undefined
+			lotCorners: undefined
 		};
 		if (!count) continue;
 		stacks.set(id, Array(count).fill('living'));
