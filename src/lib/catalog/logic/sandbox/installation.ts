@@ -1,3 +1,4 @@
+import { cellsBetween, type TerrainGrid } from '../terrain-grid';
 import { styleForYear } from './houses';
 import { dockStroke } from './dock-stroke';
 import { roofStroke } from './roof-stroke';
@@ -5,6 +6,7 @@ import { walkwayStroke } from './walkway-stroke';
 import {
 	rejected,
 	type BuiltPart,
+	type Installation,
 	type Owner,
 	type PartId,
 	type Proposal
@@ -12,6 +14,12 @@ import {
 import type { SandboxState } from './state';
 import type { Tool } from './state';
 import type { World } from './world';
+
+function occupiedCells(grid: TerrainGrid, part: Installation): string[] {
+	return part.kind === 'segment'
+		? cellsBetween(grid, part.anchor.cellId, part.end.cellId).map((c) => c.id)
+		: [part.anchor.cellId];
+}
 
 /** Selects the stroke-level planner for the active house epoch or elevated path. */
 export function propose(world: World, tool: Tool, ids: readonly string[]): Proposal | undefined {
@@ -22,13 +30,9 @@ export function propose(world: World, tool: Tool, ids: readonly string[]): Propo
 		const occupied = new Set(
 			[...world.state.parts.values()]
 				.filter((p) => world.state.compositions.get(p.owner)?.system === 'paths')
-				.map((p) => p.anchor.cellId)
+				.flatMap((p) => occupiedCells(world.grid, p))
 		);
-		if (
-			path.parts.some(
-				(p) => occupied.has(p.anchor.cellId) || (p.kind === 'segment' && occupied.has(p.end.cellId))
-			)
-		)
+		if (path.parts.some((p) => occupiedCells(world.grid, p).some((id) => occupied.has(id))))
 			return rejected('occupied-path', cells());
 		return path;
 	}
@@ -48,14 +52,17 @@ export function install(
 	const owner: Owner = proposal.owner ?? `c/${action}`;
 	const compositions = new Map(state.compositions).set(owner, { id: owner, system });
 	const parts = new Map(state.parts);
+	let available = state.store.material;
 	proposal.parts.forEach((spec, slot) => {
+		const debit = Math.min(1, available);
+		available -= debit;
 		const id: PartId = `p/${action}/${slot}`;
 		const p: BuiltPart = {
 			...spec,
 			id,
 			owner,
 			built: state.year,
-			materials: { material: Math.min(1, Math.max(0, state.store.material - slot)) }
+			materials: { material: debit }
 		};
 		parts.set(id, p);
 	});
@@ -64,6 +71,6 @@ export function install(
 		nextAction: action + 1,
 		compositions,
 		parts,
-		store: { ...state.store, material: Math.max(0, state.store.material - proposal.parts.length) }
+		store: { ...state.store, material: available }
 	};
 }

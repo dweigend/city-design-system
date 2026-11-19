@@ -135,5 +135,6 @@ export const surveyMessages: Readonly<Record<string, string>> = {
 	'buried-deck': 'The ground rises above this deck.',
 	'unsupported-span': 'Move the supports so each span measures 6 to 18 meters.',
 	'no-stair-route': 'The walkway needs a dry stair route at both ends.',
+	'wet-support': 'The walkway needs dry ground under each support.',
 	'occupied-path': 'A walkway already occupies this part of the route.'
 };

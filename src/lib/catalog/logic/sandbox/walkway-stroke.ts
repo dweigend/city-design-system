@@ -117,6 +117,7 @@ export function walkwayStroke(grid: TerrainGrid, cells: TerrainCell[]): Proposal
 	const z = seats[0].corners[0][2] + HOCHWEG_M;
 	const parts: Installation[] = [];
 	for (const [i, c] of seats.entries()) {
+		if (c.zone === 'water') return rejected('wet-support', [c]);
 		const anchor = address(c, 0, z);
 		if (z <= c.corners[0][2]) return rejected('buried-deck', [c]);
 		if (i) {
