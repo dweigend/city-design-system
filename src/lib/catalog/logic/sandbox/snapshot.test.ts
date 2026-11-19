@@ -1,6 +1,9 @@
 // @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
+import legacyTown from './fixtures/seed-7-c67d10e.json';
+import type { StoryPart } from './state';
+import type { CoverKind } from '../land-cover';
 import { applyEdit, createWorld, currentStacks, houseView, withState } from './index';
 
 test('old snapshots recover their historical methods once and can advance', () => {
@@ -98,4 +101,44 @@ test('loading legacy cover removes the main-alley forest immediately and keeps d
 	expect(withState(restored, restored.state)).toBe(restored);
 	const dug = applyEdit(restored, { kind: 'dig', cellId: '120/68' });
 	expect(dug.state.cover).toBe(restored.state.cover);
+});
+
+test('the c67d10e seed-7 save retains every occupied cell and construction record', () => {
+	const world = createWorld(7);
+	// The original town has consecutive part IDs and only 1900 terrace housing.
+	const stacks = new Map<string, 'living'[]>();
+	const storyParts = new Map<string, StoryPart[]>();
+	const { heights, meadows, ...header } = legacyTown;
+	let slot = 0;
+	for (const [cellId, height] of Object.entries(heights)) {
+		stacks.set(cellId, Array<'living'>(height).fill('living'));
+		storyParts.set(
+			cellId,
+			Array.from({ length: height }, (_, level) => ({
+				id: 'p/0/' + slot++,
+				anchor: { cellId, level },
+				built: 1900,
+				style: 'terrace'
+			}))
+		);
+	}
+	const cover = new Map<string, CoverKind>(meadows.map((id) => [id, 'meadow']));
+	const snapshot = {
+		...header,
+		timeLayers: [{ year: header.timeLayers[0].year, flows: ['people'] as const }],
+		stacks,
+		storyParts,
+		cover
+	};
+	expect(stacks.size).toBe(210);
+	expect(slot).toBe(444);
+	for (const saved of [snapshot, { ...snapshot, cover: new Map(cover).set('82/20', 'forest') }]) {
+		const restored = withState(world, saved);
+		expect(restored.state.stacks).toBe(stacks);
+		expect(restored.state.storyParts).toBe(storyParts);
+		expect(restored.state.store).toBe(saved.store);
+		expect(restored.state.cover.has('82/20')).toBe(false);
+		const dug = applyEdit(restored, { kind: 'dig', cellId: '120/68' });
+		expect(dug.state.stacks).toBe(stacks);
+	}
 });

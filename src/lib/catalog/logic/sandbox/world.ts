@@ -51,24 +51,41 @@ const stored = (store: Store, use: HouseUse, count: number): Store => ({
 	[use]: Math.max(0, store[use] + count)
 });
 
-/**
- * Gives way where the ground fell away: stories on cells that can no longer carry a house
- * go to the material store. Cover yields wherever the ground no longer supports planting.
- */
-function settle(grid: TerrainGrid, state: SandboxState): SandboxState {
-	state = removeInstallations(state, (p) => lostSeat(grid, p));
-	let { stacks, cover, store, storyParts } = state;
-	for (const cellId of state.stacks.keys()) {
-		if (grid.cellsById.get(cellId)?.buildable) continue;
-		for (const use of storiesOf(stacks, cellId)) store = stored(store, use, 1);
+function waterOrGroundRoute(cell: TerrainCell | undefined) {
+	return cell?.zone === 'water' || (!!cell?.alley && !cell.plan.footbridge);
+}
+
+function alleyOccupiesLot(cell: TerrainCell | undefined) {
+	return !!cell?.alley && !cell.lotCorners;
+}
+
+/** Existing houses yield only where a terrain edit floods the site or takes its lot for circulation. */
+function settleHouses(previous: TerrainGrid, grid: TerrainGrid, state: SandboxState): SandboxState {
+	let { stacks, store, storyParts } = state;
+	for (const [cellId, stories] of state.stacks) {
+		const before = previous.cellsById.get(cellId);
+		const after = grid.cellsById.get(cellId);
+		if (!after || before === after) continue;
+		const flooded = after.zone === 'water' && before?.zone !== 'water';
+		const takenByAlley = alleyOccupiesLot(after) && !alleyOccupiesLot(before);
+		if (!flooded && !takenByAlley) continue;
+		for (const use of stories) {
+			store = stored(store, use, 1);
+			stacks = lower(stacks, cellId);
+		}
 		storyParts = partsAt(storyParts, cellId, []);
-		while (storiesOf(stacks, cellId).length) stacks = lower(stacks, cellId);
 	}
-	for (const cellId of state.cover.keys())
-		if (!grid.cellsById.get(cellId)?.plantable) cover = setCover(cover, cellId, undefined);
-	return stacks === state.stacks && cover === state.cover
-		? state
-		: { ...state, stacks, cover, store, storyParts };
+	return stacks === state.stacks ? state : { ...state, stacks, store, storyParts };
+}
+
+function settleCover(grid: TerrainGrid, state: SandboxState, previous?: TerrainGrid): SandboxState {
+	let cover = state.cover;
+	for (const cellId of state.cover.keys()) {
+		const cell = grid.cellsById.get(cellId);
+		const lostPlantingGround = previous?.cellsById.get(cellId)?.plantable && !cell?.plantable;
+		if (waterOrGroundRoute(cell) || lostPlantingGround) cover = setCover(cover, cellId, undefined);
+	}
+	return cover === state.cover ? state : { ...state, cover };
 }
 
 /** A new world with a seeded old town on the terrain of a seed. */
@@ -82,7 +99,7 @@ export function createWorld(
 
 /**
  * Restores a snapshot on the same seed, migrating missing construction methods and time layers.
- * Houses and cover are checked against the restored terrain before the world is returned.
+ * Preserves existing houses and clears cover from water and ground routes.
  */
 export function withState(world: World, snapshot: SandboxSnapshot): World {
 	return replaceState(world, migrateSnapshot(snapshot), 'restore');
@@ -93,7 +110,12 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 		state.edits === world.state.edits
 			? world.grid
 			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
-	if (source === 'restore' || grid !== world.grid) state = settle(grid, state);
+	if (source === 'restore') state = settleCover(grid, state);
+	else if (grid !== world.grid) {
+		state = removeInstallations(state, (part) => lostSeat(grid, part));
+		state = settleHouses(world.grid, grid, state);
+		state = settleCover(grid, state, world.grid);
+	}
 	if (state === world.state) return world;
 	const sameRoutes = grid === world.grid && state.lines === world.state.lines;
 	return {
