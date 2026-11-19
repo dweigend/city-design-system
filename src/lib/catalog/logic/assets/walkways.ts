@@ -1,45 +1,64 @@
+import { panel } from './objects/forms';
+import { stairCheek } from './stair-cheek';
 import { family, block, legs, row, crescent, cage, shell } from './assembly';
 import { rod, ring } from './parts';
 const asset = family('access', 'deck');
 export const walkways = [
 	asset('beam-bridge', ['body', 'deck', 'glass'], [10, 3], (factor) => [
-		...row(2, (t) => block(0, t * 0.98, 0, 9.8 * factor, 0.28, 0.52 * factor)),
-		block(0, 0, 0.52 * factor, 9.8 * factor, 2.7, 0.22, 'deck'),
+		...row(2, (t) => block(0, t * 0.98, 0, 9.8 * factor, 0.34, 0.52 * factor)),
+		panel(0, 0, 0.52 * factor, 9.8 * factor, 2.7, 0.22, 'deck'),
 		...row(2, (t) => block(0, t * 1.27, 0.52 * factor + 0.22, 9.8 * factor, 0.12, 0.96, 'glass'))
 	]),
 	asset('viaduct-deck', ['body', 'deck', 'glass'], [9, 3], (factor) => [
 		...legs(3.8, 1.15, 4.6 * factor),
-		block(0, 0, 4.6 * factor, 8.8, 2.8, 0.32, 'deck'),
-		...row(2, (t) => block(0, t * 1.32, 4.6 * factor + 0.32, 8.8, 0.1, 0.95, 'glass'))
+		panel(0, 0, 4.6 * factor, 8.8, 2.8, 0.32, 'deck'),
+		...row(2, (t) => block(0, t * 1.32, 4.6 * factor + 0.32, 8.8, 0.15, 0.95, 'glass'))
 	]),
 	asset('turnback-walk', ['deck', 'glass'], [7, 7], (factor) => [
 		crescent(3.3, 1.7, 0, 0.26, Math.PI, 'deck'),
 		...row(2, (t) => block(t * 2.5, -1.6, 0, 1.6, 3.2, 0.26, 'deck')),
-		crescent(3.3, 3.19, 0.26, 1.05 * factor, Math.PI, 'glass'),
-		crescent(1.81, 1.7, 0.26, 1.05 * factor, Math.PI, 'glass')
+		crescent(3.3, 3.15, 0.26, 1.05 * factor, Math.PI, 'glass'),
+		crescent(1.85, 1.7, 0.26, 1.05 * factor, Math.PI, 'glass')
 	]),
 	asset('covered-bridge', ['deck', 'body', 'glass'], [4, 9], (factor, variant) => [
-		block(0, 0, 0, 3.6, 8.6, 0.25, 'deck'),
-		...row(5 + variant, (t) => shell('vault', 0, t * 4.1, 0.25, 3.5, 0.15, 2.9 * factor, 0.18)),
+		panel(0, 0, 0, 3.6, 8.6, 0.25, 'deck'),
+		...row(5 + variant, (t) => shell('vault', 0, t * 4.1, 0.25, 3.5, 0.3, 2.9 * factor, 0.3)),
 		shell('vault', 0, 0, 0.25, 3.42, 8.4, 2.85 * factor, 0.07, 'glass')
 	]),
 	asset('bowstring-bridge', ['deck', 'body'], [9, 3], (factor) => [
-		block(0, 0, 0, 8.8, 2.8, 0.26, 'deck'),
-		...row(2, (t) => shell('vault', 0, t * 1.28, 0.26, 8.5, 0.14, 2.8 * factor, 0.14)),
+		panel(0, 0, 0, 8.8, 2.8, 0.26, 'deck'),
+		...row(2, (t) => shell('vault', 0, t * 1.28, 0.26, 8.5, 0.32, 2.8 * factor, 0.3)),
 		...row(5, (t) =>
 			rod(
 				[t * 3.8, -1.28, 0.26],
 				[t * 3.8, -1.28, 0.26 + 2.8 * factor * Math.sqrt(1 - ((t * 3.8) / 4.25) ** 2)],
-				0.045
+				0.06
 			)
 		)
 	]),
 	asset('truss-bridge', ['deck', 'body'], [9, 3], (factor) => [
-		block(0, 0, 0, 8.8, 2.8, 0.28, 'deck'),
+		panel(0, 0, 0, 8.8, 2.8, 0.28, 'deck'),
 		...row(2, (t) => cage(0, t * 1.27, 0.28, 8.5, 0.12, 1.6 * factor, [5, 1, 1]))
 	]),
 	asset('stair-tower', ['body', 'deck'], [5, 5], (factor) => [
-		cage(0, 0, 0, 4.6, 4.6, 6 * factor, [1, 1, 3], false),
+		panel(0, 0, 0, 0.49, 1.05, 6 * factor, 'body'),
+		...Array.from({ length: 3 }, (_, i) => {
+			const y = i % 2 ? 1 : -1,
+				low = i * 2 * factor,
+				high = (i + 1) * 2 * factor;
+			return [-1, 1].map((side) =>
+				stairCheek(
+					-1.6,
+					1.6,
+					y + side * 0.78,
+					i % 2 ? high : low,
+					i % 2 ? low : high,
+					0.37,
+					0.3,
+					'body'
+				)
+			);
+		}).flat(),
 		...Array.from({ length: 3 }, (_, j) =>
 			row(11, (_, i) =>
 				block(
@@ -58,7 +77,8 @@ export const walkways = [
 		)
 	]),
 	asset('lift-tower', ['body', 'glass'], [4, 4], (factor) => [
-		cage(0, 0, 0, 2.8, 2.8, 7.6 * factor, [1, 1, 4], false),
+		panel(0, -1.15, 0, 3.24, 0.52, 7.6 * factor, 'body'),
+		...[-1, 1].map((s) => panel(s * 1.28, 0, 0, 0.44, 2.65, 7.6 * factor, 'body')),
 		block(0, 0, 2.5 * factor, 2.5, 2.5, 2.2, 'glass'),
 		block(0, 0, 7.6 * factor + 0.08, 3.4, 3.4, 0.3)
 	]),
@@ -69,7 +89,7 @@ export const walkways = [
 	]),
 	asset('cycle-hoops', ['body'], [5, 2], (factor, variant) => [
 		...row(3 + variant, (t) =>
-			ring([t * 2.15, 0, 0.8 * factor + 0.16], 0.8 * factor, 0.72 * factor, 0.1)
+			ring([t * 2.15, 0, 0.8 * factor + 0.16], 0.8 * factor, Math.max(0, 0.8 * factor - 0.13), 0.16)
 		),
 		...row(3 + variant, (t) => block(t * 2.15, 0, 0, 0.22, 0.6, 0.32))
 	]),
