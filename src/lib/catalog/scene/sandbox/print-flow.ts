@@ -1,3 +1,4 @@
+import { flowPhase } from './water-print';
 import { attribute, float, mix } from 'three/tsl';
 import { Float32BufferAttribute, MeshBasicNodeMaterial, type Node } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
@@ -76,7 +77,7 @@ export function conduitInk(seconds: Node<'float'>, paper: Node<'color'>) {
 	const base = attribute('color', 'vec3');
 	const rail = attribute('railMark', 'float');
 	const axis = attribute('stationM', 'float');
-	const phase = axis.mul(0.17).sub(seconds.mul(0.36)).fract().sub(0.5).abs();
+	const phase = flowPhase(axis, seconds).sub(0.5).abs();
 	const aa = axis.fwidth().mul(0.085).clamp(0.0001, 0.025);
 	const coverage = float(1)
 		.sub(phase.smoothstep(float(0.105).sub(aa), float(0.105).add(aa)))

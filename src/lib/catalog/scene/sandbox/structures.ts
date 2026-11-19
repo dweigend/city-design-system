@@ -18,7 +18,7 @@ type Batch = ReturnType<typeof structureBatch> & {
 	cellId?: string;
 	key: string;
 	dockAt?: number;
-	updates: ((s: number) => boolean)[];
+	motion: ReturnType<typeof kineticGroups>['motion'];
 };
 type Moving = ReturnType<typeof placementGroups>['groups'][number] & {
 	objects: Batch;
@@ -38,6 +38,9 @@ export function createStructures() {
 		string,
 		{ primitives: Primitive[]; cellId?: string; startedMs?: number }
 	>();
+	const animated = new Set<Entry>();
+	const swept = new THREE.Box3();
+	let shadowChanged = false;
 	const hitLists = new Map<string, THREE.Object3D[]>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
@@ -49,19 +52,27 @@ export function createStructures() {
 		dockAt?: number
 	): Batch {
 		const targets: THREE.Object3D[] = [];
-		const { batches, updates } = kineticGroups(
+		const { batches, motion } = kineticGroups(
 			key,
 			drawing.parts,
 			(parts) => {
 				const batch = structureBatch(parts, finishes, dot, { ...drawing, parts }, cellId);
+				for (const target of batch.targets) {
+					target.matrixWorldAutoUpdate = false;
+					target.matrixWorld = batch.group.matrix;
+				}
 				targets.push(...batch.targets);
 				return batch.group;
 			},
-			dockAt
+			dockAt,
+			drawing.details
 		);
-		const root = batches.length === 1 && !updates.length ? batches[0] : new THREE.Group();
+		const root =
+			batches.length === 1 && !motion.active && dockAt === undefined
+				? batches[0]
+				: new THREE.Group();
 		if (batches.length && root !== batches[0]) root.add(...batches);
-		return { group: root, targets, primitives, drawing, cellId, key, dockAt, updates };
+		return { group: root, targets, primitives, drawing, cellId, key, dockAt, motion };
 	}
 
 	function releaseObjects({ group: batch }: Batch) {
@@ -72,7 +83,13 @@ export function createStructures() {
 		});
 	}
 
+	function track(entry: Entry) {
+		if (entry.objects.motion.active || entry.moving.length) animated.add(entry);
+		else animated.delete(entry);
+	}
+
 	function release(entry: Entry) {
+		animated.delete(entry);
 		releaseObjects(entry.objects);
 		for (const { objects } of entry.moving) releaseObjects(objects);
 	}
@@ -92,13 +109,7 @@ export function createStructures() {
 		const objects = draw(key, seated, cellId);
 		const moving = groups.map((item) => ({
 			...item,
-			objects: draw(
-				key,
-				item.parts,
-				cellId,
-				undefined,
-				finishes.seconds.value + item.delayMs / 1000
-			),
+			objects: draw(key, item.parts, cellId, undefined, (startedMs + item.delayMs) / 1000),
 			startedMs
 		}));
 		return { primitives, objects, moving, cellId };
@@ -115,6 +126,7 @@ export function createStructures() {
 		const entry = makeEntry(key, primitives, previous, cellId, startedMs);
 		group.add(entry.objects.group, ...entry.moving.map((item) => item.objects.group));
 		entries.set(key, entry);
+		track(entry);
 	}
 
 	function redrawBatch(batch: Batch, recolor: boolean) {
@@ -134,6 +146,7 @@ export function createStructures() {
 			if (pending.has(key)) continue;
 			entry.objects = redrawBatch(entry.objects, recolor);
 			for (const item of entry.moving) item.objects = redrawBatch(item.objects, recolor);
+			track(entry);
 		}
 	}
 
@@ -144,8 +157,7 @@ export function createStructures() {
 	}
 
 	function place(item: Moving, timeMs: number, reduced: boolean) {
-		if (reduced) item.startedMs = Math.min(item.startedMs, timeMs - item.delayMs - item.durationMs);
-		const elapsed = timeMs - item.startedMs;
+		const elapsed = reduced ? item.delayMs + item.durationMs : timeMs - item.startedMs;
 		const offset = placementOffset(item, elapsed);
 		item.objects.group.position.y = offset;
 		item.objects.group.visible = elapsed >= item.delayMs;
@@ -170,18 +182,35 @@ export function createStructures() {
 			pending.set(key, { primitives, cellId, startedMs: startedMs ?? prior?.startedMs });
 		},
 		clear,
-		/** Updates pending drop offsets and reports whether another frame is needed. */
-		step(timeMs: number, reduced: boolean, seconds = timeMs / 1000) {
+		swept,
+		get shadowChanged() {
+			return shadowChanged;
+		},
+		/** Samples the seated drop and the inner pose at a single timeline coordinate. */
+		step(timeMs: number, reduced: boolean) {
+			const seconds = timeMs / 1000;
 			finishes.seconds.value = seconds;
-			let active = false;
-			for (const { objects, moving } of entries.values()) {
-				for (const update of objects.updates) active = update(seconds) || active;
+			swept.makeEmpty();
+			shadowChanged = false;
+			let changed = false;
+			const sample = ({ motion }: Batch) => {
+				if (!motion.active || !motion.sample(seconds)) return;
+				changed = true;
+				swept.union(motion.swept);
+				shadowChanged ||= motion.casts;
+			};
+			for (const { objects, moving } of animated) {
+				sample(objects);
 				for (const item of moving) {
-					active = place(item, timeMs, reduced) || active;
-					for (const update of item.objects.updates) active = update(seconds) || active;
+					const y = item.objects.group.position.y;
+					const shown = item.objects.group.visible;
+					changed = place(item, timeMs, reduced) || changed;
+					shadowChanged ||=
+						y !== item.objects.group.position.y || shown !== item.objects.group.visible;
+					sample(item.objects);
 				}
 			}
-			return active;
+			return changed;
 		},
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */
 		setStyle(args: Parameters<typeof finishes.setStyle>, elevation: number) {

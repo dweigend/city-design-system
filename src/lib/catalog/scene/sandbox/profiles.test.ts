@@ -216,3 +216,28 @@ test('river chart and wakes agree on shared survey vertices, including across be
 	expect(cracks).toBe(0);
 	water.dispose();
 });
+
+test('water shares terrain transparency, hides with the terrain and restores its depth policy', async () => {
+	const { focuses } = await import('../../logic/presentation');
+	const terrain = createTerrainMesh(grid);
+	try {
+		for (const level of [
+			'full',
+			'transparent',
+			'silhouette',
+			'pencil',
+			'hidden',
+			'full'
+		] as const) {
+			terrain.setPresentation({ ...focuses.all, terrain: level }, false);
+			expect(terrain.group.visible).toBe(level !== 'hidden');
+			for (const material of [terrain.water.material, terrain.surface.material]) {
+				expect(material.opacity).toBe(level === 'transparent' ? 0.14 : 1);
+				expect(material.transparent).toBe(level === 'transparent');
+				expect(material.depthWrite).toBe(level !== 'transparent');
+			}
+		}
+	} finally {
+		terrain.dispose();
+	}
+});

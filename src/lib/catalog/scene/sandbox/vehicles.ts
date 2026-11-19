@@ -9,7 +9,6 @@ import { VEHICLE, vehiclePoses } from '../../logic/transit-line';
 
 type Route = {
 	line: World['lines'][number];
-	startMs: number;
 	cars: THREE.Mesh[];
 };
 
@@ -47,29 +46,42 @@ export function createVehicles() {
 		routes.delete(route.line.id);
 	}
 
-	function setLine(line: Route['line'], timeMs: number) {
+	function setLine(line: Route['line']) {
 		const previous = routes.get(line.id);
-		const startMs = previous ? previous.startMs : timeMs;
 		if (previous) {
 			if (previous.line === line) return;
 			removeRoute(previous);
 		}
 		const cars = vehiclePoses(line, 0).map(() => new THREE.Mesh(geometries[line.kind], material));
 		group.add(...cars);
-		routes.set(line.id, { line, cars, startMs });
+		routes.set(line.id, { line, cars });
 	}
 
-	function setLines(lines: World['lines'], timeMs: number) {
+	function setLines(lines: World['lines']) {
+		sampledMs = undefined;
 		const ids = new Set(lines.map(({ id }) => id));
 		for (const [id, route] of routes) if (!ids.has(id)) removeRoute(route);
-		for (const line of lines) setLine(line, timeMs);
+		for (const line of lines) setLine(line);
 	}
 
+	const swept = new THREE.Box3();
+	const bounds = new THREE.Box3();
+	function includeCar(car: THREE.Mesh) {
+		const geometry = car.geometry;
+		if (!geometry.boundingBox) geometry.computeBoundingBox();
+		car.updateMatrix();
+		swept.union(bounds.copy(geometry.boundingBox!).applyMatrix4(car.matrix));
+	}
+	let sampledMs: number | undefined;
 	function step(timeMs: number) {
-		for (const { line, cars, startMs } of routes.values()) {
-			const poses = vehiclePoses(line, Math.max(0, timeMs - startMs) / 1000);
+		swept.makeEmpty();
+		if (timeMs === sampledMs) return false;
+		sampledMs = timeMs;
+		for (const { line, cars } of routes.values()) {
+			const poses = vehiclePoses(line, timeMs / 1000);
 			poses.forEach(({ position: [x, y, z], headingRad, pitchRad }, index) => {
 				const car = cars[index];
+				if (car.visible) includeCar(car);
 				car.position.set(x, z, -y);
 				direction.set(
 					Math.cos(headingRad) * Math.cos(pitchRad),
@@ -77,9 +89,10 @@ export function createVehicles() {
 					-Math.sin(headingRad) * Math.cos(pitchRad)
 				);
 				car.quaternion.setFromUnitVectors(UP, direction);
+				if (car.visible) includeCar(car);
 			});
 		}
-		return routes.size > 0;
+		return !swept.isEmpty();
 	}
 
 	return {
@@ -102,6 +115,7 @@ export function createVehicles() {
 				}
 			}
 		},
+		swept,
 		step,
 		/** Uses the current paper palette's people flow. */
 		setPalette(palette: Palette3D) {

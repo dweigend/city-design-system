@@ -113,7 +113,15 @@ export function createSandboxStage(
 	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
 	let refreshTones = true;
 	let viewDirty = true;
-	const frameListeners = new Set<() => void>();
+	let pickDirty = true;
+	type Affected = (x: number, y: number) => boolean;
+	const frameListeners = new Set<(affected?: Affected) => void>();
+	const hoverRay = new THREE.Raycaster();
+	function crossedPointer(x: number, y: number) {
+		hoverRay.setFromCamera(view.ndc(x, y), view.camera);
+		const crosses = (box: THREE.Box3) => !box.isEmpty() && hoverRay.ray.intersectsBox(box);
+		return crosses(structures.swept) || crosses(vehicles.swept);
+	}
 	let coarse = false;
 	let viewScale = 0;
 	let viewElevation = 0;
@@ -145,6 +153,7 @@ export function createSandboxStage(
 		const scale = view.metersPerPixel();
 		const elevation = view.elevation();
 		if (!viewDirty && !refreshTones && scale === viewScale && elevation === viewElevation) return;
+		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
 		light.aim(view.target, view.span());
@@ -153,22 +162,24 @@ export function createSandboxStage(
 		viewDirty = false;
 	}
 
-	function renderImage(seating: boolean) {
-		if (shadowsDirty || seating) light.refresh();
-		shadowsDirty = seating;
+	function renderImage(castersMoved: boolean) {
+		if (shadowsDirty || castersMoved) light.refresh();
+		shadowsDirty = false;
 		renderer.render(scene, view.camera);
 		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 	}
 
-	const loop = createFrameLoop(gpu.isLive, ({ timeMs, transitMs, reduced }) => {
+	const loop = createFrameLoop(gpu.isLive, ({ stamp, reduced }) => {
 		prepareView();
-		const seconds = timeline.sample(timeMs);
+		const seconds = timeline.sample(stamp);
 		terrain?.setTime(seconds);
-		const seating = structures.step(timeMs, reduced, seconds);
-		vehicles.step(study.frameTown ? transitMs : seconds * 1000);
-		renderImage(seating);
-		for (const listener of frameListeners) listener();
-		return seating || timeline.playing();
+		const seating = structures.step(seconds * 1000, reduced && !timeline.seeking);
+		const transit = vehicles.step(timeline.transitSeconds * 1000);
+		renderImage(structures.shadowChanged);
+		if (pickDirty || seating || transit)
+			for (const listener of frameListeners) listener(pickDirty ? undefined : crossedPointer);
+		pickDirty = false;
+		return timeline.playing();
 	});
 	const { render } = loop;
 	const timeline = createTimeline(canvas, render);
@@ -274,13 +285,17 @@ export function createSandboxStage(
 		nextFocus: FocusId,
 		place: boolean
 	) {
+		const placeAt =
+			place && (!loop.reduced.matches || timeline.seeking)
+				? timeline.sample(performance.now()) * 1000
+				: undefined;
 		const projection =
-			place && !loop.reduced.matches
-				? {
+			placeAt === undefined
+				? nextFrame
+				: {
 						set: (key: string, parts: Primitive[], cellId?: string) =>
-							structures.queue(key, parts, cellId, loop.timeMs)
-					}
-				: nextFrame;
+							structures.queue(key, parts, cellId, placeAt)
+					};
 		projectChanges(
 			{ terrain: mesh, structures: projection, coarse, earliestFullYear: study.earliestFullYear },
 			before,
@@ -296,8 +311,7 @@ export function createSandboxStage(
 	}
 
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
-		if (before.lines !== world.lines)
-			vehicles.setLines(world.lines, study.frameTown ? loop.transitMs : 0);
+		if (before.lines !== world.lines) vehicles.setLines(world.lines);
 		vehicles.setFocus(nextFocus, world.state.year);
 	}
 
@@ -331,7 +345,7 @@ export function createSandboxStage(
 		view,
 		render,
 		/** Runs after the rendered camera and pick geometry are current. */
-		afterFrame(listener: () => void) {
+		afterFrame(listener: (affected?: Affected) => void) {
 			frameListeners.add(listener);
 			return () => {
 				frameListeners.delete(listener);
@@ -371,7 +385,7 @@ export function createSandboxStage(
 			worldShown(world, nextFocus);
 		},
 		/** Pauses vehicle simulation at its current pose. Other placement feedback continues. */
-		setTransitPaused: loop.setPaused,
+		setTransitPaused: timeline.pauseTransit,
 		/** Canvas size in CSS pixels. */
 		resize(width: number, height: number) {
 			renderer.setSize(width, height, false);

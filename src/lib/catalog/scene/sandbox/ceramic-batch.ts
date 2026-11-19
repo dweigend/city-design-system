@@ -10,39 +10,33 @@ const castingFamily = new Map<string, number>([
 	['ring', 3]
 ]);
 
-function shellChart(part: Primitive, coords: ArrayLike<number>, token: Primitive['token']) {
-	let cx = 0,
-		cy = 0,
-		cz = 0,
-		dx = 1,
-		dz = 0,
-		radius = 1,
-		half = 1;
+function castingFrame(part: Primitive) {
+	const frame = { cx: 0, cy: 0, cz: 0, dx: 1, dz: 0, radius: 1, half: 1 };
 	if (part.kind === 'capsule') {
-		const { from: a, to: b } = part;
-		cx = (a[0] + b[0]) / 2;
-		cy = (a[2] + b[2]) / 2;
-		cz = -(a[1] + b[1]) / 2;
+		const { from: a, to: b, radius } = part;
 		const span = Math.hypot(b[0] - a[0], b[1] - a[1]);
-		if (span) {
-			dx = (b[0] - a[0]) / span;
-			dz = (a[1] - b[1]) / span;
-		}
-		radius = part.radius;
-		half = radius + span / 2;
-	} else if ('position' in part) {
-		[cx, cz, cy] = part.position;
-		cz = -cz;
-		if (part.kind === 'box') {
-			cx += part.size[0] / 2;
-			cz -= part.size[1] / 2;
-			cy += part.size[2] / 2;
-			radius = part.size[2] / 2;
-			half = part.size[0] / 2;
-		} else if ('radius' in part) {
-			half = radius = part.radius;
-		}
+		return {
+			cx: (a[0] + b[0]) / 2,
+			cy: (a[2] + b[2]) / 2,
+			cz: -(a[1] + b[1]) / 2,
+			dx: span ? (b[0] - a[0]) / span : 1,
+			dz: span ? (a[1] - b[1]) / span : 0,
+			radius,
+			half: radius + span / 2
+		};
 	}
+	if (!('position' in part)) return frame;
+	const [x, y, z] = part.position;
+	if (part.kind === 'box') {
+		const [w, d, h] = part.size;
+		return { ...frame, cx: x + w / 2, cy: z + h / 2, cz: -y - d / 2, half: w / 2, radius: h / 2 };
+	}
+	const radius = 'radius' in part ? part.radius : 1;
+	return { ...frame, cx: x, cy: z, cz: -y, half: radius, radius };
+}
+
+function shellChart(part: Primitive, coords: ArrayLike<number>, token: Primitive['token']) {
+	const { cx, cy, cz, dx, dz, radius, half } = castingFrame(part);
 	const family = castingFamily.get(part.kind) ?? 1;
 	const finish = token === '--paper' ? 0 : family === 3 && token !== flowToken.energy ? 1 : family;
 	const chart: number[] = [];

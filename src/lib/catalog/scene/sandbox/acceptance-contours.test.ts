@@ -1,3 +1,4 @@
+import type { Primitive } from '../../logic/parametrik/types';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BLICK } from '../../data/leitstil';
@@ -21,19 +22,26 @@ function chunk(world: World, id: string) {
 test('the portrait city tread retains its projected surface below the half-pixel outline limit', () => {
 	const id = '86/43',
 		w = applyEdit(createWorld(7), { kind: 'raise', style: 'collage', use: 'living', cellId: id });
-	const tread = chunk(w, id).find((p) => p.id === '86/43@3:roof/86/43/tread-0');
-	assert(tread);
-	const e = (11 * Math.PI) / 180,
-		drawing = distanceDrawing([tread], {
+	const forms = chunk(w, id);
+	const tread = forms.find((p) => p.id === id + '@3:figure:step0');
+	assert(tread?.kind === 'prism' && tread.cityForm);
+	assert(!forms.some((p) => p.id.startsWith(id + '@3:roof/') && p.id.includes('/tread-')));
+	const elevation = (11 * Math.PI) / 180;
+	const ramp: Primitive = { ...tread, kind: 'membrane', corners: tread.cityForm };
+	const width = contourWidthMeters(ramp, elevation);
+	assert(width > 0);
+	for (const pixels of [0.49, 0.51]) {
+		const drawing = distanceDrawing(forms, {
 			block: true,
-			elevation: e,
-			scale: 2.85,
+			elevation,
+			scale: pixels / width,
 			minContourPx: 0.5
 		});
-	const [surface] = drawing.parts;
-	assert(surface.kind === 'membrane');
-	assert(Math.abs(contourWidthMeters(surface, e) * 2.85 - 0.45542534) < 1e-6);
-	assert(drawing.unoutlined.has(surface));
+		const surface = drawing.parts.find((p) => p.id === tread.id);
+		assert(surface?.kind === 'membrane');
+		assert.deepEqual(surface.corners, tread.cityForm);
+		assert.equal(drawing.unoutlined.has(surface), pixels < 0.5);
+	}
 });
 test('water and greenhouse contours follow the fitted guest in each city projection', () => {
 	const vessels = [];

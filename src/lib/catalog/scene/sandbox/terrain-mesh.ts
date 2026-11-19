@@ -290,6 +290,15 @@ export function createTerrainMesh(
 				transparent: 0.14,
 				hidden: 0
 			};
+			const ghost = view.terrain === 'transparent';
+			for (const material of [waterMaterial, surfaceMaterial, baseMaterial]) {
+				if (material.transparent !== ghost) material.needsUpdate = true;
+				material.transparent = ghost;
+				material.depthWrite = !ghost;
+				material.opacity = ghost ? weights.transparent : 1;
+			}
+			water.renderOrder = ghost ? 1 : 0;
+			wakes.renderOrder = water.renderOrder + 1;
 			terrainWeight.value = weights[view.terrain];
 			forestWeight.value = weights[view.forest];
 			pathWeight.value = weights[view.paths];

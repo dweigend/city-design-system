@@ -1,5 +1,25 @@
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 
+type Stroke = (a: Vec3, b: Vec3) => void;
+
+function windowBars(p: Extract<Primitive, { kind: 'box' }>, stroke: Stroke) {
+	const [w, d, h] = p.size,
+		[x, y, z] = p.position,
+		angle = p.rotation ?? 0;
+	const point = (u: number, v: number, side: number): Vec3 => [
+		x + w / 2 + Math.cos(angle) * w * u - Math.sin(angle) * side,
+		y + d / 2 + Math.sin(angle) * w * u + Math.cos(angle) * side,
+		z + h * v
+	];
+	for (const face of [-1, 1]) {
+		const side = face * (d / 2 + 0.004);
+		const lights = Math.max(2, Math.round(w / 1.15));
+		for (let i = 1; i < lights; i++)
+			stroke(point(i / lights - 0.5, 0, side), point(i / lights - 0.5, 1, side));
+		stroke(point(-0.5, 0.72, side), point(0.5, 0.72, side));
+	}
+}
+
 /** Traces window subdivisions on the existing panels and cornices around surveyed plates. */
 export function stockDetail(parts: Primitive[]) {
 	const lines: number[] = [];
@@ -15,21 +35,7 @@ export function stockDetail(parts: Primitive[]) {
 			}
 		}
 		if (p.kind !== 'box' || !p.id.includes(':opening')) continue;
-		const [w, d, h] = p.size,
-			[x, y, z] = p.position,
-			angle = p.rotation ?? 0;
-		const point = (u: number, v: number, side: number): Vec3 => [
-			x + w / 2 + Math.cos(angle) * w * u - Math.sin(angle) * side,
-			y + d / 2 + Math.sin(angle) * w * u + Math.cos(angle) * side,
-			z + h * v
-		];
-		for (const face of [-1, 1]) {
-			const side = face * (d / 2 + 0.004);
-			const lights = Math.max(2, Math.round(w / 1.15));
-			for (let i = 1; i < lights; i++)
-				stroke(point(i / lights - 0.5, 0, side), point(i / lights - 0.5, 1, side));
-			stroke(point(-0.5, 0.72, side), point(0.5, 0.72, side));
-		}
+		windowBars(p, stroke);
 	}
 	return lines;
 }

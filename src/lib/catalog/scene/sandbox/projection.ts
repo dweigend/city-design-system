@@ -5,6 +5,7 @@
 import { focuses, present, levelFor, type FocusId } from '../../logic/presentation';
 import { forestChunk } from '../../logic/land-cover';
 import { installationPartView, houseGroups, changes, type World } from '../../logic/sandbox';
+import { houseDistricts } from './house-districts';
 import { roundedStops } from './station-rings';
 import { lineParts, TRANSIT_PARAMS } from '../../logic/transit-line';
 import type { Structures } from './structures';
@@ -73,6 +74,8 @@ function projectAlleys(
 	if (refocus || delta.terrain || delta.houseChunks.size)
 		target.terrain.setAlleys(world.grid, world.state.stacks.keys());
 }
+const houseLayers = new WeakMap<TerrainMesh, ReturnType<typeof houseDistricts>>();
+
 function projectHouses(
 	target: Target,
 	world: World,
@@ -80,6 +83,9 @@ function projectHouses(
 	focus: FocusId,
 	refocus: boolean
 ) {
+	const houses = houseLayers.get(target.terrain) ?? houseDistricts();
+	houseLayers.set(target.terrain, houses);
+	if (refocus) houses.reset();
 	const keys = new Set(delta.houseGroups.keys());
 	const chunks = refocus ? world.grid.chunks.keys() : delta.houseChunks;
 	for (const chunk of chunks) {
@@ -91,11 +97,12 @@ function projectHouses(
 			target.earliestFullYear
 		);
 		for (const [key, parts] of groups) {
-			target.structures.set(KEY.house + key, parts);
+			houses.set(chunk, key, parts);
 			keys.delete(key);
 		}
 	}
-	for (const removed of keys) target.structures.set(KEY.house + removed, []);
+	for (const removed of keys) houses.remove(removed);
+	houses.flush((chunk, parts) => target.structures.set(KEY.house + chunk, parts));
 }
 
 /**

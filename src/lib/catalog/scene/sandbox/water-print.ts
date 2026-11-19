@@ -1,15 +1,13 @@
 import { attribute, float, mix } from 'three/tsl';
 import type { Node } from 'three/webgpu';
 
-/** A tapered travelling dash, shared by the river engraving and service conduits. */
-export function travellingDash(distanceM: Node<'float'>, seconds: Node<'float'>) {
-	return distanceM
-		.mul(0.17)
-		.sub(seconds.mul(0.36))
-		.fract()
-		.mul(Math.PI)
-		.sin()
-		.smoothstep(0.44, 0.92);
+/** Shared world-metre phase for river marks and hard-edged conduit strokes. */
+export function flowPhase(distanceM: Node<'float'>, seconds: Node<'float'>) {
+	return distanceM.mul(0.17).sub(seconds.mul(0.36)).fract();
+}
+
+function travellingDash(distanceM: Node<'float'>, seconds: Node<'float'>) {
+	return flowPhase(distanceM, seconds).mul(Math.PI).sin().smoothstep(0.44, 0.92);
 }
 
 /** A smooth valley coordinate carries bank-side marks through grid turns and dug basins.

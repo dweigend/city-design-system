@@ -1,5 +1,5 @@
 import { isStructural, type Primitive } from '../../logic/parametrik/types';
-import { collageCut, printPortal } from './collage-cut';
+import { collageCut } from './collage-cut';
 const isAccent = (part: Primitive) =>
 	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
 
@@ -23,16 +23,21 @@ function isCasting(part: Primitive) {
 		['box', 'capsule', 'cylinder', 'sphere', 'torus', 'ring'].includes(part.kind)
 	);
 }
-function layerOf(part: Primitive) {
-	if (part.material === 'ghost') return 'ghosts';
-	if (isStructural(part)) return 'carriers';
-	if (part.role !== 'neu') return 'regular';
+function newSurface(part: Primitive) {
 	if (part.kind === 'mesh' && part.material === 'glaze' && part.token === '--paper') return 'glaze';
 	if (isConduit(part)) return 'conduits';
-	if (isAccent(part) && isInlay(part)) return 'inlays';
+	if (isInlay(part) && isAccent(part)) return 'inlays';
 	if (isCasting(part)) return 'ceramics';
 	return isAccent(part) ? 'accents' : 'regular';
 }
+
+function layerOf(part: Primitive) {
+	if (part.material === 'ghost') return 'ghosts';
+	if (isStructural(part)) return 'carriers';
+	return part.role === 'neu' ? newSurface(part) : 'regular';
+}
+
+const keepLayer = new Set(['carriers', 'ghosts', 'glaze']);
 /** Selects each projected surface and applies the city-scale contour threshold before batching. */
 export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
 	const parts = {
@@ -48,29 +53,13 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
 	};
-	const figures = new Map<string, Primitive['token']>();
-	for (const p of primitives)
-		if (p.role === 'neu' && p.id.includes(':figure') && p.token.startsWith('--cat-'))
-			figures.set(p.id.split(':figure')[0], p.token);
 	for (const original of primitives) {
 		const part = collageCut(original);
-		const layer = layerOf(part);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
-		if (
-			unoutlined.has(original) &&
-			layer !== 'carriers' &&
-			layer !== 'ghosts' &&
-			layer !== 'glaze'
-		) {
+		const layer = layerOf(part);
+		if (unoutlined.has(original) && !keepLayer.has(layer))
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
-		} else if (part !== original && part.kind === 'mesh') {
-			const pigment = figures.get(part.id.replace(/:stock$/, ''));
-			if (pigment) {
-				const panel = printPortal(part, pigment);
-				parts.inlays.push(panel.face);
-				parts.portals.push(panel.returns);
-			} else parts.portals.push(body);
-		} else parts[layer].push(body);
+		else parts[part === original ? layer : 'portals'].push(body);
 	}
 	return parts;
 }
