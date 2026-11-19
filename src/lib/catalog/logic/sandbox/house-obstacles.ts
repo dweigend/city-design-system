@@ -1,10 +1,12 @@
 import { STORY } from '../../data/grid';
 import type { HouseObstacle } from '../composed-house';
-import type { QuadGrid } from '../quad-grid';
+import type { TerrainGrid } from '../terrain-grid';
+import { buildingPlots } from './building-plots';
 import type { SandboxState } from './state';
 
 /** Conservative occupied boxes for consecutive historic or installed storeys on the cut plots. */
-export function houseObstacles(grid: QuadGrid, state: SandboxState): HouseObstacle[] {
+export function houseObstacles(terrain: TerrainGrid, state: SandboxState): HouseObstacle[] {
+	const grid = buildingPlots(terrain);
 	const obstacles: HouseObstacle[] = [];
 	for (const [id, stories] of state.storyParts) {
 		const cell = grid.cellsById.get(id);

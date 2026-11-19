@@ -118,9 +118,10 @@ const houseLayers = new WeakMap<TerrainMesh, ReturnType<typeof houseDistricts>>(
 function writeDistrict(
 	structures: Target['structures'],
 	chunk: string,
-	parts: Parameters<Structures['set']>[1]
+	parts: Parameters<Structures['set']>[1],
+	visual = false
 ) {
-	const key = chunk === 'stock-overview' ? 'visual:stock-overview' : KEY.house + chunk;
+	const key = (visual ? 'visual:stock-overview:' : KEY.house) + chunk;
 	structures.set(key, parts);
 }
 
@@ -138,7 +139,7 @@ export function projectStockOverview(
 ) {
 	const houses = mesh && houseLayers.get(mesh);
 	houses?.setOverview(overview);
-	houses?.flush((chunk, parts) => writeDistrict(structures, chunk, parts));
+	houses?.flush((chunk, parts, visual) => writeDistrict(structures, chunk, parts, visual));
 }
 
 function projectHouses(
@@ -167,7 +168,7 @@ function projectHouses(
 		}
 	}
 	for (const removed of keys) houses.remove(removed);
-	houses.flush((chunk, parts) => writeDistrict(target.structures, chunk, parts));
+	houses.flush((chunk, parts, visual) => writeDistrict(target.structures, chunk, parts, visual));
 }
 
 /**

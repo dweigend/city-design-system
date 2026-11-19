@@ -37,5 +37,9 @@ test('the sandbox draws pending rods, installed sections and the reopened entry 
 	expect(visible.get(key)).toEqual([]);
 	layer.show(study.at(1, false), 'all');
 	expect(visible.get(key)?.every((p) => p.planned)).toBe(true);
+	layer.clear();
+	expect([...visible.values()].flat()).toHaveLength(0);
+	layer.show(study.at(1, false), 'all');
+	expect(visible.get(key)).toHaveLength(3);
 	layer.dispose();
 });

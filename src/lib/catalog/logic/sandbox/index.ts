@@ -47,3 +47,5 @@ export { TWO_SUNS_MAST, TWO_SUNS_PERIOD_S, TWO_SUNS_TURNING_DISC } from './two-s
 
 export { composedHouseIds, regenerateHouse } from './composed-projection';
 export { ensembleNetwork } from './ensemble-network';
+
+export { houseObstacles } from './house-obstacles';

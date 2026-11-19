@@ -79,7 +79,7 @@ export function createTerrainMesh(
 	};
 	// Inverting a paper wash toward light ink would fill the night sheet with gray.
 	const daylight = floatUniform(1);
-	const warmPaper = mix(colors.paper, uniform(new THREE.Color(0xd4bc96)), daylight.mul(0.22));
+	const warmPaper = mix(colors.paper, uniform(new THREE.Color(0xd4bc96)), daylight.mul(0.3));
 	const paperColor = mix(warmPaper, colors.ink, nodes.paperWash.mul(daylight));
 	const terrainWeight = uniform(1),
 		forestWeight = uniform(1),
@@ -156,8 +156,13 @@ export function createTerrainMesh(
 			.mul(lens.mul(near).max(gridStrength))
 			.mul(nodes.cellInk)
 			.max(parcelLine.mul(nodes.parcel));
+		const plotted = mix(ground, colors.blueprint, plan.mul(terrainWeight));
+		const phase = attribute('position', 'vec3')
+			.x.add(attribute('position', 'vec3').z.mul(0.65))
+			.div(1.65);
+		const hatchWeight = hairline(phase, 1).mul(resolvable(phase)).mul(daylight);
 		return alleys.shade(
-			shadeGround(mix(ground, colors.blueprint, plan.mul(terrainWeight))),
+			mix(plotted, shadeGround(plotted), hatchWeight.mul(0.48).add(0.78)),
 			drawingInk,
 			colors.people,
 			paperColor,
@@ -188,7 +193,7 @@ export function createTerrainMesh(
 	water.receiveShadow = true;
 
 	const baseMaterial = new THREE.MeshBasicNodeMaterial();
-	baseMaterial.colorNode = mix(paperColor, colors.ink, 0.05);
+	baseMaterial.colorNode = mix(warmPaper, colors.ink, 0.28);
 	const base = baseGeometry(grid);
 	const baseMesh = new THREE.Mesh(base.geometry, baseMaterial);
 	const tableShadow = new THREE.MeshBasicNodeMaterial({

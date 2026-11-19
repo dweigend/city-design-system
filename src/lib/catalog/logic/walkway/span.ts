@@ -75,8 +75,7 @@ export function spanSurvey(
 	const raised = ([x, y, z]: Vec3): Vec3 => [x, y, z + 1];
 	const rail = (side: number, start: Vec3, end: Vec3) => ({
 		id: id + ':' + side,
-		points: [raised(start), raised(end)] as [Vec3, Vec3],
-		...(simplifyAtCity ? { cityForm: false as const } : {})
+		points: [raised(start), raised(end)] as [Vec3, Vec3]
 	});
 	return { treads, rails: [rail(-width / 2, a, d), rail(width / 2, b, c)] };
 }

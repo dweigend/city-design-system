@@ -5,7 +5,8 @@ import {
 	Mesh,
 	MeshBasicNodeMaterial
 } from 'three/webgpu';
-import { onFace, planarFaces } from '../../logic/structural-joints';
+import type { TerrainGrid } from '../../logic/terrain-grid';
+import { onFace, planarFaces, surveyGround } from '../../logic/structural-joints';
 import { uv } from 'three/tsl';
 import type { Primitive } from '../../logic/parametrik/types';
 
@@ -33,12 +34,49 @@ function verticalFaces(p: Primitive) {
 	return height >= 0.7 ? planarFaces(p) : [];
 }
 
+type Band = (
+	a: readonly number[],
+	b: readonly number[],
+	za: number,
+	zb: number,
+	rise: number
+) => void;
+
+function foundationBand(p: Extract<Primitive, { kind: 'prism' }>, grid: TerrainGrid, band: Band) {
+	const ground = p.polygon.map(
+		([x, y]) =>
+			surveyGround(grid, { point: [x, y, p.z - 0.05], axis: [0, 0, 1], length: p.height + 0.1 })
+				?.point[2]
+	);
+	p.polygon.forEach((a, i) => {
+		const j = (i + 1) % p.polygon.length;
+		const za = ground[i],
+			zb = ground[j];
+		if (za !== undefined && zb !== undefined)
+			band(a, p.polygon[j], za, zb, Math.max(0, Math.min(0.5, p.z + p.height - Math.max(za, zb))));
+	});
+}
+
 /** A 35 cm feather on the wall immediately above or below a touching slab. */
-export function wallContact(parts: Primitive[]) {
+export function wallContact(parts: Primitive[], grid?: TerrainGrid) {
 	const levels = slabLevels(parts);
 	const positions: number[] = [],
 		chart: number[] = [];
+	function band(a: readonly number[], b: readonly number[], za: number, zb: number, rise: number) {
+		for (const [q, z, fade] of [
+			[a, za, 0],
+			[b, zb, 0],
+			[b, zb, 1],
+			[a, za, 0],
+			[b, zb, 1],
+			[a, za, 1]
+		] as const) {
+			positions.push(q[0], z + rise * fade, -q[1]);
+			chart.push(0, fade);
+		}
+	}
 	for (const p of parts) {
+		if (grid && p.kind === 'prism' && p.id.endsWith(':foot')) foundationBand(p, grid, band);
 		for (const face of verticalFaces(p)) {
 			const z = face.z,
 				sign = -face.up;
@@ -50,17 +88,7 @@ export function wallContact(parts: Primitive[]) {
 				ring.forEach((a, i) => {
 					const b = ring[(i + 1) % ring.length];
 					if (!touching.some((s) => onFace(s, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z]))) return;
-					for (const [q, fade] of [
-						[a, 0],
-						[b, 0],
-						[b, 1],
-						[a, 0],
-						[b, 1],
-						[a, 1]
-					] as const) {
-						positions.push(q[0], z + sign * fade * 0.35, -q[1]);
-						chart.push(0, fade);
-					}
+					band(a, b, z, z, sign * 0.35);
 				});
 			}
 		}

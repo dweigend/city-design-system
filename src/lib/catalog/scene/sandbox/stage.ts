@@ -44,6 +44,7 @@ const OPENING_MARGIN = 1.1;
 type StageOptions = {
 	quality?: StudioQuality;
 	minInkAppliesTo?: MinimumInk;
+	showFrameStudy?: boolean;
 	onFrameFailure?: (reason: string) => void;
 	openingArea?: () => OpeningArea | undefined;
 	/** Opens an editable sandbox at the town scale. */
@@ -354,12 +355,18 @@ export function createSandboxStage(
 	}
 
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
-		if (before.lines !== world.lines) vehicles.setLines(world.lines);
+		if (
+			before.lines !== world.lines ||
+			before.grid !== world.grid ||
+			before.state.storyParts !== world.state.storyParts
+		)
+			vehicles.setWorld(world);
 		vehicles.setFocus(nextFocus);
 	}
 
 	function worldShown(world: World, nextFocus: FocusId) {
-		frames.show(world, nextFocus);
+		if (study.showFrameStudy || nextFocus === 'infrastructure') frames.show(world, nextFocus);
+		else frames.clear();
 		focus = nextFocus;
 		shown = world;
 		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);

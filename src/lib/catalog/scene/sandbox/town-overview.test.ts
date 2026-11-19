@@ -4,25 +4,33 @@ import { focuses } from '../../logic/presentation';
 import { houseDistricts } from './house-districts';
 import type { Primitive } from '../../logic/parametrik/types';
 
-test('seed 7 merges surveyed stock into six terraces and restores the original houses on zoom', () => {
+test('seed 7 keeps each surveyed stock wall and stepped roof and restores the original houses on zoom', () => {
 	const { world, earliestFullYear } = acceptanceScene();
 	const districts = houseDistricts();
 	for (const chunk of world.grid.chunks.keys())
 		for (const [key, parts] of houseGroups(world, chunk, focuses.all, undefined, earliestFullYear))
 			districts.set(chunk, key, parts);
 	const batches = new Map<string, Primitive[]>();
-	const flush = () => districts.flush((key, parts) => batches.set(key, parts));
+	const flush = () =>
+		districts.flush((key, parts, visual) => batches.set((visual ? 'visual:' : '') + key, parts));
 	flush();
 	const original = [...batches.values()].flat();
 	districts.setOverview(true);
 	flush();
-	const masses = batches.get('stock-overview') ?? [];
-	expect(masses).toHaveLength(6);
-	expect(masses.every((p) => p.kind === 'prism' && p.height > 0 && p.polygon.length >= 3)).toBe(
-		true
+	const shells = [...batches]
+		.filter(([key]) => key.startsWith('visual:'))
+		.flatMap(([, parts]) => parts);
+	const walls = (parts: Primitive[]) =>
+		parts.filter((p) => p.role === 'bestand' && p.kind === 'prism' && p.id.endsWith(':wall'));
+	expect(walls(original).length).toBeGreaterThan(6);
+	expect(walls(shells)).toEqual(walls(original));
+	const ends = original.filter((p) => p.role === 'bestand' && p.id.endsWith(':gable0'));
+	expect(ends.length).toBeGreaterThan(0);
+	expect(shells.filter((p) => p.kind === 'mesh' && p.roofCell).map((p) => p.roofCell)).toEqual(
+		ends.map((p) => p.roofCell)
 	);
+	expect(shells.every((p) => !p.detail && p.kind !== 'polyline')).toBe(true);
 	const current = [...batches.values()].flat();
-	expect(current.filter((p) => p.role === 'bestand')).toEqual(masses);
 	expect(current.filter((p) => p.role !== 'bestand')).toEqual(
 		original.filter((p) => p.role !== 'bestand')
 	);
@@ -92,4 +100,37 @@ test('the neutral rail is metal and the neutral tube retains its clear shell', a
 		kind: 'torus',
 		...custom.platform
 	});
+});
+
+test('a transit pod reappears when its route clears occupied stock', async () => {
+	const { createVehicles } = await import('./vehicles');
+	const { createWorld, houseObstacles } = await import('../../logic/sandbox');
+	const world = createWorld(7);
+	const obstacle = houseObstacles(world.grid, world.state)[0];
+	const [x, y, z] = obstacle.position;
+	const cars = createVehicles();
+	try {
+		for (const [height, visible] of [
+			[z + 1, false],
+			[z + 100, true]
+		] as const) {
+			const line: import('../../logic/transit-line').TransitLine = {
+				kind: 'capsule',
+				id: 'stock-crossing',
+				cellIds: [],
+				stops: [],
+				pillars: [],
+				length: 30,
+				path: [
+					[x, y, height],
+					[x + 30, y, height]
+				]
+			};
+			cars.setWorld({ ...world, lines: [{ ...line, year: world.state.year }] });
+			cars.step(0);
+			expect(cars.group.children[0].visible).toBe(visible);
+		}
+	} finally {
+		cars.dispose();
+	}
 });
