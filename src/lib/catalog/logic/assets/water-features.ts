@@ -28,7 +28,7 @@ export const waterFeatures = [
 			rod(
 				[t * 2.1, ((i % 3) - 1) * 0.79, 0.38],
 				[t * 2.18, ((i % 3) - 1) * 0.89, (0.91 + (i % 4) * 0.12) * factor],
-				0.045,
+				0.06,
 				'planting'
 			)
 		)
@@ -55,7 +55,7 @@ export const waterFeatures = [
 				[0.69, 0, 1.36 * factor],
 				[0.53, 0, 1.36 * factor]
 			],
-			0.052
+			0.06
 		)
 	]),
 	asset('spray-fan', ['glass', 'channel'], [3, 3], (factor) => [
@@ -64,7 +64,7 @@ export const waterFeatures = [
 			rod(
 				[t * 0.1, 0.04, 0.13],
 				[t * 1.14, 0.95, (0.62 + 0.42 * (1 - t * t)) * factor],
-				0.035,
+				0.06,
 				'channel'
 			)
 		)
@@ -81,7 +81,7 @@ export const waterFeatures = [
 			],
 			0.065
 		),
-		rod([-1.35, 0, 1.5 * factor], [-0.82, 0, 1.29 * factor], 0.045)
+		rod([-1.35, 0, 1.5 * factor], [-0.82, 0, 1.29 * factor], 0.06)
 	]),
 	asset('rain-funnel', ['funnel'], [3, 3], (factor) => [
 		vessel(
