@@ -275,6 +275,39 @@ export const materialAusfuehrungen: readonly Ausfuehrung[] = [
 		transmission: 0
 	},
 	{
+		id: 'perforated-metal',
+		familie: 'metall',
+		name: 'Perforated sheet',
+		beschreibung: 'Open round punches expose the body behind the sheet.',
+		grundton: '#b4b9bc',
+		pigment: 0.8,
+		rauheit: 0.38,
+		metall: 0.55,
+		transmission: 0
+	},
+	{
+		id: 'pressed-chipboard',
+		familie: 'holz',
+		name: 'Pressed chipboard',
+		beschreibung: 'Crossing timber flakes in a warm pressed binder.',
+		grundton: '#ccab81',
+		pigment: 0.35,
+		rauheit: 0.68,
+		metall: 0,
+		transmission: 0
+	},
+	{
+		id: 'clear-acrylic',
+		familie: 'kunststoff',
+		name: 'Clear acrylic',
+		beschreibung: 'Polished acrylic with a soft body tint and clear edges.',
+		grundton: '#cfe6e0',
+		pigment: 0.65,
+		rauheit: 0.095,
+		metall: 0,
+		transmission: 0.93
+	},
+	{
 		id: 'corrugated-metal',
 		familie: 'metall',
 		name: 'Corrugated sheet metal',

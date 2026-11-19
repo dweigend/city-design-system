@@ -1,3 +1,4 @@
+import { perforatedSheet } from './toy-surfaces';
 import * as THREE from 'three/webgpu';
 import {
 	color,
@@ -109,6 +110,13 @@ export function physicalSurface(
 		side: doppelt ? THREE.DoubleSide : THREE.FrontSide
 	});
 	projiziereMuster(m, w, base, r.haut.bewegt, variation, r.farbe.anteil === 1);
+	if (w.id === 'perforated-metal') m.maskNode = perforatedSheet();
+	if (w.id === 'acryl-matt' || w.id === 'clear-acrylic') {
+		m.ior = 1.49;
+		m.thickness = 0.32;
+		m.attenuationColor.copy(base);
+		m.attenuationDistance = 0.85;
+	}
 	physischeDetails(m, w);
 	spiegelung(m, w.id, umgebung);
 	m.name = w.id;
