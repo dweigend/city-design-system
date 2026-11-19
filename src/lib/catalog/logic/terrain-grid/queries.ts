@@ -1,4 +1,4 @@
-import type { QuadCell } from '../quad-grid';
+import { neighborsOf, type QuadCell } from '../quad-grid';
 import { valleyCoords } from '../terrain';
 import { MODULE, MAX_SHIFT, MAX_LEAN } from './contour-rows';
 import { cellId } from './types';
@@ -34,6 +34,29 @@ export function cellAtPoint(grid: TerrainGrid, x: number, y: number): TerrainCel
 	return undefined;
 }
 
+function connectedPath(grid: TerrainGrid, from: TerrainCell, to: TerrainCell) {
+	const dx = to.center[0] - from.center[0],
+		dy = to.center[1] - from.center[1];
+	const deviation = (c: TerrainCell) =>
+		Math.abs(dx * (c.center[1] - from.center[1]) - dy * (c.center[0] - from.center[0]));
+	const queue = [from],
+		parent = new Map<string, TerrainCell | undefined>([[from.id, undefined]]);
+	for (let i = 0; i < queue.length; i++) {
+		const cell = queue[i];
+		if (cell === to) break;
+		const next = neighborsOf(grid, cell)
+			.filter((c) => !parent.has(c.id))
+			.sort((a, b) => deviation(a) - deviation(b));
+		for (const n of next) {
+			parent.set(n.id, cell);
+			queue.push(n);
+		}
+	}
+	const path = [];
+	for (let c: TerrainCell | undefined = to; c; c = parent.get(c.id)) path.push(c);
+	return path.reverse();
+}
+
 /**
  * Cells on the straight lattice line from one cell to another, both ends included, each step
  * to a side neighbor. Specific to this column/row lattice; brush strokes use it to close the
@@ -60,7 +83,11 @@ export function cellsBetween(grid: TerrainGrid, fromId: string, toId: string): T
 			error += 2 * columns;
 		}
 		const next = grid.cellsById.get(cellId(column, row));
-		if (next) cells.push(next);
+		if (next) {
+			const last = cells[cells.length - 1];
+			if (last.neighbors.includes(next.id)) cells.push(next);
+			else cells.push(...connectedPath(grid, last, next).slice(1));
+		}
 	}
 	return cells;
 }

@@ -264,6 +264,14 @@ test('OBB parcels all have usable access; split/merge lineage and area preserved
 	expect(result.leaves.length).toBe(4);
 	expect(result.unresolved).toEqual([]);
 	for (const q of result.leaves) expect(q.access[0].length).toBeGreaterThanOrEqual(3);
+	for (const firstCut of [0.4, 0.5, 0.6] as const) {
+		const halves = parcelize('block', p, fronts, { ...o, maxArea: 500, firstCut });
+		expect(halves.unresolved).toEqual([]);
+		expect(halves.leaves.map((q) => q.access[0].length)).toEqual([
+			40 * firstCut,
+			40 * (1 - firstCut)
+		]);
+	}
 	const coarse = parcelize('block', p, fronts, { ...o, maxArea: 1000 });
 	expect(parcelRelations(coarse.leaves, result.leaves)[0].to.length).toBe(4);
 	expect(() => parcelize('block', p, fronts, { ...o, level: 1 })).toThrow('landlocked');

@@ -138,44 +138,78 @@ export function validateIntent(intent: Intent, changed?: ReadonlySet<string>) {
 				}
 		}
 }
+/** Validate incident quads while shifting only their common center inside its source polygon. */
+export function fitQuadCenter(
+	positions: Map<string, Vec>,
+	id: string,
+	faces: readonly Pick<SourceFace, 'ring'>[],
+	boundary: readonly Vec[],
+	limits: Intent['limits'],
+	candidates: Vec[]
+) {
+	const center = required(candidates.at(-1), 'face center');
+	for (const vertex of boundary)
+		for (const fraction of [0.125, 0.25, 0.5]) candidates.push(mix(center, vertex, fraction));
+	for (const p of candidates) {
+		positions.set(id, p);
+		if (
+			faces.every((f) =>
+				acceptable(
+					quadQuality(f.ring.map((v) => required(positions.get(v), 'quad corner'))),
+					limits
+				)
+			)
+		)
+			return p;
+	}
+	positions.set(id, center);
+	return undefined;
+}
+
+function deriveParts(
+	intent: Intent,
+	f: SourceFace,
+	parts: NonNullable<SourceFace['parts']>
+): Chunk {
+	const positions = new Map<string, Vec>(),
+		quality = new Map(),
+		provenance = new Map<string, Derivation>();
+	provenance.set(f.id, { id: f.id, parent: null, rule: 'source', children: [] });
+	const polygons: SourceFace[] = [];
+	for (const [j, ring] of parts.entries()) {
+		const id = childId('derived:' + encodeURIComponent(f.id), 'part', j);
+		const chunk = deriveChunk(intent, { id: f.id, ring, level: f.level }, id);
+		for (const [v, p] of chunk.geometry.positions) positions.set(v, p);
+		for (const [v, q] of chunk.geometry.quality) quality.set(v, q);
+		for (const node of chunk.provenance.values()) {
+			if (node.id === f.id) continue;
+			provenance.set(node.id, { ...node, parent: node.parent === f.id ? id : node.parent });
+		}
+		provenance.set(id, {
+			id,
+			parent: f.id,
+			rule: 'part',
+			children: required(chunk.provenance.get(f.id), 'chunk.provenance.get(f.id)').children
+		});
+		required(provenance.get(f.id), 'provenance.get(f.id)').children.push(id);
+		for (const q of chunk.topology.faces.values())
+			polygons.push({ id: q.id, ring: q.vertices, level: q.level });
+	}
+	return {
+		root: f.id,
+		topology: buildTopology(polygons),
+		geometry: { positions, quality },
+		provenance
+	};
+}
+
 /** Fixed boundary; repair only face centers, then triangulate this source face if needed. */
 export function deriveChunk(
 	intent: Intent,
 	f: SourceFace,
 	prefix = 'derived:' + encodeURIComponent(f.id)
 ): Chunk {
-	if (f.parts) {
-		const positions = new Map<string, Vec>(),
-			quality = new Map(),
-			provenance = new Map<string, Derivation>();
-		provenance.set(f.id, { id: f.id, parent: null, rule: 'source', children: [] });
-		const polygons: SourceFace[] = [];
-		for (const [j, ring] of f.parts.entries()) {
-			const id = childId('derived:' + encodeURIComponent(f.id), 'part', j);
-			const chunk = deriveChunk(intent, { id: f.id, ring, level: f.level }, id);
-			for (const [v, p] of chunk.geometry.positions) positions.set(v, p);
-			for (const [v, q] of chunk.geometry.quality) quality.set(v, q);
-			for (const node of chunk.provenance.values()) {
-				if (node.id === f.id) continue;
-				provenance.set(node.id, { ...node, parent: node.parent === f.id ? id : node.parent });
-			}
-			provenance.set(id, {
-				id,
-				parent: f.id,
-				rule: 'part',
-				children: required(chunk.provenance.get(f.id), 'chunk.provenance.get(f.id)').children
-			});
-			required(provenance.get(f.id), 'provenance.get(f.id)').children.push(id);
-			for (const q of chunk.topology.faces.values())
-				polygons.push({ id: q.id, ring: q.vertices, level: q.level });
-		}
-		return {
-			root: f.id,
-			topology: buildTopology(polygons),
-			geometry: { positions, quality },
-			provenance
-		};
-	}
+	if (f.parts) return deriveParts(intent, f, f.parts);
 	const initial = new Map(
 		f.ring.map((id) => [id, required(intent.positions.get(id), 'intent.positions.get(id)')])
 	);
@@ -197,98 +231,98 @@ export function deriveChunk(
 		? [[f.ring], triangulate(f.ring, initial)]
 		: [triangulate(f.ring, initial)];
 	for (const parts of attempts) {
-		const positions = new Map(initial),
-			provenance = new Map<string, Derivation>(),
-			polygons: SourceFace[] = [];
-		provenance.set(f.id, { id: f.id, parent: null, rule: 'source', children: [] });
-		let valid = true;
-		for (let j = 0; j < parts.length; j++) {
-			const ring = parts[j],
-				parent = childId(prefix, parts.length === 1 ? 'convex' : 'triangle', j),
-				centerId = childId(parent, 'center', 0);
-			required(provenance.get(f.id), 'provenance.get(f.id)').children.push(parent);
-			provenance.set(parent, {
-				id: parent,
-				parent: f.id,
-				rule: parts.length === 1 ? 'convex' : 'ear-clip',
-				children: []
-			});
-			const ps = ring.map((id) => required(positions.get(id), 'positions.get(id)'));
-			const center: Vec = [
-				ps.reduce((s, p) => s + p[0], 0) / ps.length,
-				ps.reduce((s, p) => s + p[1], 0) / ps.length
-			];
-			const mids = ring.map((id, i) => {
-				const b = ring[(i + 1) % ring.length],
-					mid = `mid:${edgeId(id, b)}`;
-				const ends = [id, b].sort();
-				positions.set(
-					mid,
-					mix(
-						required(positions.get(ends[0]), 'positions.get(ends[0])'),
-						required(positions.get(ends[1]), 'positions.get(ends[1])'),
-						0.5
-					)
-				);
-				return mid;
-			});
-			const qs = ring.map((v, i) => ({
-				id: childId(parent, 'quad', i),
-				ring: [v, mids[i], centerId, mids[(i + ring.length - 1) % ring.length]],
-				level: f.level
-			}));
-			const centroid: [number, number] = [0, 0];
-			const polygonArea = area(ps);
-			ps.forEach((v, i) => {
-				const w = ps[(i + 1) % ps.length],
-					c = v[0] * w[1] - w[0] * v[1];
-				centroid[0] += ((v[0] + w[0]) * c) / (6 * polygonArea);
-				centroid[1] += ((v[1] + w[1]) * c) / (6 * polygonArea);
-			});
-			const candidates = prefix.includes('/part:') ? [centroid, center] : [center];
-			// Deterministic bounded search inside the convex part; no remote vertex moves.
-			for (const p of ps) for (const t of [0.125, 0.25, 0.5]) candidates.push(mix(center, p, t));
-			let chosen: Vec | undefined;
-			for (const p of candidates) {
-				positions.set(centerId, p);
-				if (
-					qs.every((q) =>
-						acceptable(
-							quadQuality(q.ring.map((id) => required(positions.get(id), 'positions.get(id)'))),
-							intent.limits
-						)
-					)
-				) {
-					chosen = p;
-					break;
-				}
-			}
-			if (!chosen) {
-				valid = false;
-				break;
-			}
-			for (const q of qs) {
-				polygons.push(q);
-				required(provenance.get(parent), 'provenance.get(parent)').children.push(q.id);
-				provenance.set(q.id, { id: q.id, parent, rule: 'midpoint-quad', children: [] });
-			}
-		}
-		if (valid) {
-			const topology = buildTopology(polygons),
-				quality = new Map(
-					polygons.map((q) => [
-						q.id,
-						quadQuality(q.ring.map((v) => required(positions.get(v), 'positions.get(v)')))
-					])
-				);
-			const sum = [...quality.values()].reduce((s, q) => s + q.area, 0),
-				sourceArea = area(f.ring.map((id) => required(initial.get(id), 'initial.get(id)')));
-			if (Math.abs(sum - sourceArea) > 1e-9 * Math.max(1, sourceArea))
-				throw new InvariantError('coverage', [f.id]);
-			return { root: f.id, topology, geometry: { positions, quality }, provenance };
-		}
+		const chunk = derivePieces(intent, f, prefix, parts, initial);
+		if (chunk) return chunk;
 	}
 	throw new InvariantError('quality-unattainable', [f.id]);
+}
+function derivePieces(
+	intent: Intent,
+	f: SourceFace,
+	prefix: string,
+	parts: readonly (readonly string[])[],
+	initial: Map<string, Vec>
+): Chunk | undefined {
+	const positions = new Map(initial),
+		provenance = new Map<string, Derivation>(),
+		polygons: SourceFace[] = [];
+	provenance.set(f.id, { id: f.id, parent: null, rule: 'source', children: [] });
+	let valid = true;
+	for (let j = 0; j < parts.length; j++) {
+		const ring = parts[j],
+			parent = childId(prefix, parts.length === 1 ? 'convex' : 'triangle', j),
+			centerId = childId(parent, 'center', 0);
+		required(provenance.get(f.id), 'provenance.get(f.id)').children.push(parent);
+		provenance.set(parent, {
+			id: parent,
+			parent: f.id,
+			rule: parts.length === 1 ? 'convex' : 'ear-clip',
+			children: []
+		});
+		const ps = ring.map((id) => required(positions.get(id), 'positions.get(id)'));
+		const center: Vec = [
+			ps.reduce((s, p) => s + p[0], 0) / ps.length,
+			ps.reduce((s, p) => s + p[1], 0) / ps.length
+		];
+		const mids = ring.map((id, i) => {
+			const b = ring[(i + 1) % ring.length],
+				mid = `mid:${edgeId(id, b)}`;
+			const ends = [id, b].sort();
+			positions.set(
+				mid,
+				mix(
+					required(positions.get(ends[0]), 'positions.get(ends[0])'),
+					required(positions.get(ends[1]), 'positions.get(ends[1])'),
+					0.5
+				)
+			);
+			return mid;
+		});
+		const qs = ring.map((v, i) => ({
+			id: childId(parent, 'quad', i),
+			ring: [v, mids[i], centerId, mids[(i + ring.length - 1) % ring.length]],
+			level: f.level
+		}));
+		const centroid: [number, number] = [0, 0];
+		const polygonArea = area(ps);
+		ps.forEach((v, i) => {
+			const w = ps[(i + 1) % ps.length],
+				c = v[0] * w[1] - w[0] * v[1];
+			centroid[0] += ((v[0] + w[0]) * c) / (6 * polygonArea);
+			centroid[1] += ((v[1] + w[1]) * c) / (6 * polygonArea);
+		});
+		const chosen = fitQuadCenter(
+			positions,
+			centerId,
+			qs,
+			ps,
+			intent.limits,
+			prefix.includes('/part:') ? [centroid, center] : [center]
+		);
+		if (!chosen) {
+			valid = false;
+			break;
+		}
+		for (const q of qs) {
+			polygons.push(q);
+			required(provenance.get(parent), 'provenance.get(parent)').children.push(q.id);
+			provenance.set(q.id, { id: q.id, parent, rule: 'midpoint-quad', children: [] });
+		}
+	}
+	if (valid) {
+		const topology = buildTopology(polygons),
+			quality = new Map(
+				polygons.map((q) => [
+					q.id,
+					quadQuality(q.ring.map((v) => required(positions.get(v), 'positions.get(v)')))
+				])
+			);
+		const sum = [...quality.values()].reduce((s, q) => s + q.area, 0),
+			sourceArea = area(f.ring.map((id) => required(initial.get(id), 'initial.get(id)')));
+		if (Math.abs(sum - sourceArea) > 1e-9 * Math.max(1, sourceArea))
+			throw new InvariantError('coverage', [f.id]);
+		return { root: f.id, topology, geometry: { positions, quality }, provenance };
+	}
 }
 export function compile(input: Intent): Model {
 	const intent: Intent = structuredClone(input);
@@ -341,22 +375,25 @@ export function validateModel(model: Model) {
 	}
 }
 
-export function validateParts(intent: Intent, f: SourceFace) {
+function partArea(intent: Intent, f: SourceFace, ring: readonly string[]) {
+	if (
+		ring.length < 3 ||
+		new Set(ring).size !== ring.length ||
+		ring.some((v) => !intent.positions.has(v))
+	)
+		throw new InvariantError('invalid-parts', [f.id]);
+	try {
+		validateRing(ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
+	} catch {
+		throw new InvariantError('invalid-parts', [f.id]);
+	}
+	return area(ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
+}
+function validateParts(intent: Intent, f: SourceFace) {
 	const directed = new Set<string>();
 	let sum = 0;
 	for (const ring of f.parts ?? []) {
-		if (
-			ring.length < 3 ||
-			new Set(ring).size !== ring.length ||
-			ring.some((v) => !intent.positions.has(v))
-		)
-			throw new InvariantError('invalid-parts', [f.id]);
-		try {
-			validateRing(ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
-		} catch {
-			throw new InvariantError('invalid-parts', [f.id]);
-		}
-		sum += area(ring.map((v) => required(intent.positions.get(v), 'intent.positions.get(v)')));
+		sum += partArea(intent, f, ring);
 		ring.forEach((a, i) => {
 			const key = JSON.stringify([a, ring[(i + 1) % ring.length]]);
 			if (directed.has(key)) throw new InvariantError('parts-boundary', [f.id]);

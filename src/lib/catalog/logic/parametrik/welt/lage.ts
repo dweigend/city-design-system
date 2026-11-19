@@ -1,3 +1,4 @@
+import { perimeterHull } from '../perimeter-hull';
 /**
  * Layout of the world on an arbitrary quad patch (raster/universal → eckraster/topology).
  * Everything here is graph and geometry, no index: a block is the set of build cells of a
@@ -104,23 +105,6 @@ function zug(ids: string[], nb: (id: string) => string[], pt: (id: string) => Po
 		loop = [...ids].sort((a, b) => w(a) - w(b) || (a < b ? -1 : 1));
 	}
 	return flaeche(loop.map(pt)) < 0 ? loop.reverse() : loop;
-}
-
-/** Convex hull, counterclockwise. */
-function huelle(points: Point2[]): Point2[] {
-	const ps = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-	const cross = (o: Point2, a: Point2, b: Point2) =>
-		(a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-	const half = (list: Point2[]) => {
-		const out: Point2[] = [];
-		for (const q of list) {
-			while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], q) <= 1e-9)
-				out.pop();
-			out.push(q);
-		}
-		return out.slice(0, -1);
-	};
-	return [...half(ps), ...half([...ps].reverse())];
 }
 
 function block(
@@ -279,6 +263,46 @@ export function lage(p: LageParams): Lage {
 		...(n.feldRueckfall === undefined ? {} : { feldRueckfall: n.feldRueckfall })
 	};
 }
+function boundaryNeighbors(patch: Patch) {
+	// Outlines: close boundary edges (only one face) into loops.
+	const kanten = new Map<string, { a: string; b: string; n: number }>();
+	for (const f of patch.faces)
+		f.vertices.forEach((a, i) => {
+			const b = f.vertices[(i + 1) % 4],
+				k = a < b ? `${a}\n${b}` : `${b}\n${a}`,
+				e = kanten.get(k);
+			if (e) e.n++;
+			else kanten.set(k, { a, b, n: 1 });
+		});
+	const randNb = new Map<string, string[]>();
+	for (const { a, b, n } of kanten.values())
+		if (n === 1) {
+			randNb.set(a, [...(randNb.get(a) ?? []), b]);
+			randNb.set(b, [...(randNb.get(b) ?? []), a]);
+		}
+	return randNb;
+}
+
+function boundaryLoops(patch: Patch, point: Map<string, Point2>) {
+	const randNb = boundaryNeighbors(patch);
+	const umrisse: Point2[][] = [],
+		offen = new Set([...randNb.keys()].sort());
+	while (offen.size) {
+		const loop = [offen.values().next().value!];
+		offen.delete(loop[0]);
+		for (;;) {
+			const next = (randNb.get(loop[loop.length - 1]) ?? []).filter((v) => offen.has(v)).sort()[0];
+			if (!next) break;
+			offen.delete(next);
+			loop.push(next);
+		}
+		const poly = loop.map((v) => point.get(v)!);
+		if (poly.length > 2) umrisse.push(flaeche(poly) < 0 ? poly.reverse() : poly);
+	}
+	umrisse.sort((a, b) => flaeche(b) - flaeche(a));
+	return umrisse;
+}
+
 export function ausPatch(
 	patch: Patch,
 	groups: Map<string, string[]>,
@@ -307,40 +331,10 @@ export function ausPatch(
 	const blockOf = new Map<string, Block>();
 	for (const b of blocks) for (const c of b.cells) blockOf.set(c, b);
 
-	// Outlines: close boundary edges (only one face) into loops.
-	const kanten = new Map<string, { a: string; b: string; n: number }>();
-	for (const f of patch.faces)
-		f.vertices.forEach((a, i) => {
-			const b = f.vertices[(i + 1) % 4],
-				k = a < b ? `${a}\n${b}` : `${b}\n${a}`,
-				e = kanten.get(k);
-			if (e) e.n++;
-			else kanten.set(k, { a, b, n: 1 });
-		});
-	const randNb = new Map<string, string[]>();
-	for (const { a, b, n } of kanten.values())
-		if (n === 1) {
-			randNb.set(a, [...(randNb.get(a) ?? []), b]);
-			randNb.set(b, [...(randNb.get(b) ?? []), a]);
-		}
-	const umrisse: Point2[][] = [],
-		offen = new Set([...randNb.keys()].sort());
-	while (offen.size) {
-		const loop = [offen.values().next().value!];
-		offen.delete(loop[0]);
-		for (;;) {
-			const next = (randNb.get(loop[loop.length - 1]) ?? []).filter((v) => offen.has(v)).sort()[0];
-			if (!next) break;
-			offen.delete(next);
-			loop.push(next);
-		}
-		const poly = loop.map((v) => point.get(v)!);
-		if (poly.length > 2) umrisse.push(flaeche(poly) < 0 ? poly.reverse() : poly);
-	}
-	umrisse.sort((a, b) => flaeche(b) - flaeche(a));
+	const umrisse = boundaryLoops(patch, point);
 
 	// Railway: west flank of the convex hull, set 6 m outward.
-	const hull = huelle([...rand].map((v) => point.get(v)!)),
+	const hull = perimeterHull([...rand].map((v) => point.get(v)!)),
 		h = hull.length,
 		normal = (k: number): Point2 => {
 			const a = hull[k],

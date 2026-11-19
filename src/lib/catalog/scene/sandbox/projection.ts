@@ -35,15 +35,15 @@ function projectLines(
 		structures.set(KEY.line + line.id, present(lineParts(line), level));
 	}
 }
-function projectStreets(
+function projectAlleys(
 	target: Target,
 	world: World,
-	stacks: ReturnType<typeof currentStacks>,
+
 	delta: ReturnType<typeof changes>,
 	refocus: boolean
 ) {
 	if (refocus || delta.terrain || delta.houseChunks.size)
-		target.terrain.setStreets(world.grid, stacks.keys());
+		target.terrain.setAlleys(world.grid, world.state.stacks.keys());
 }
 /**
  * Redraws what differs between two worlds of the same seed: the terrain surface if the grid
@@ -61,9 +61,9 @@ export function projectChanges(
 	const delta = changes(before, after);
 	if (delta.terrain) target.terrain.setGrid(grid);
 	const levels = focuses[focus];
-	target.terrain.setPresentation(levels);
+	target.terrain.setPresentation(levels, focus === 'people');
 	const stacks = currentStacks(state);
-	projectStreets(target, after, stacks, delta, refocus);
+	projectAlleys(target, after, delta, refocus);
 	const chunks = (dirty: ReadonlySet<string>) => (refocus ? grid.chunks.keys() : dirty);
 	for (const chunk of chunks(delta.houseChunks))
 		structures.set(KEY.house + chunk, houseView(after, stacks, chunk, levels));

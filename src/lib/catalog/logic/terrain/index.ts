@@ -145,6 +145,12 @@ function sway(terrain: Terrain, along: number, amplitude: number, id: number): n
 	);
 }
 
+/** Signed distance across the valley from its meandering near bank, in meters. */
+export function bankDistance(terrain: Terrain, x: number, y: number) {
+	const [along, across] = valleyCoords(terrain, x, y);
+	return across - (terrain.bands.riverEnd + sway(terrain, along, SWAY.bank, 0));
+}
+
 function crossProfile(terrain: Terrain, along: number, across: number): number {
 	const { bands } = terrain;
 	const bank = sway(terrain, along, SWAY.bank, 0);
@@ -188,12 +194,8 @@ function creekCut(terrain: Terrain, along: number, across: number, height: numbe
 /** Incision of the tributary below the undisturbed valley profile, in meters. */
 export function ravineDepth(terrain: Terrain, x: number, y: number): number {
 	const [along, across] = valleyCoords(terrain, x, y);
-	return creekCut(
-		terrain,
-		along,
-		across,
-		crossProfile(terrain, along, across) + ridge(terrain, along, across)
-	);
+	const uncut = crossProfile(terrain, along, across) + ridge(terrain, along, across);
+	return Math.max(0, uncut - groundLevel(terrain, x, y));
 }
 
 /** Ground of the form rule alone, in valley coordinates. */

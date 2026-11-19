@@ -23,7 +23,7 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 	}));
 	for (const { cell, level } of mass.stories) {
 		if (storiesOf(site.stacks, cell.id).length !== level + 1) continue;
-		const at = bayOf(cell, mass.stories[0].cell.index % 4);
+		const at = bayOf(cell, cell.ridgeSide ?? mass.stories[0].cell.index % 4);
 		const top = mass.floor + STORY + profile.tiers * profile.rise;
 		const height =
 			inradius(cell) * p.pitch * (1 + hash(site.seed, cell.index, level) * p.variation);

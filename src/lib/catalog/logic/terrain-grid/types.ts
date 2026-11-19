@@ -6,18 +6,22 @@ import type { Pattern } from './patterns';
 export type TerrainCell = QuadCell &
 	Readonly<{
 		/** Lattice position; the id `column/row` is the stable anchor of everything painted. */
-		plan: ReturnType<typeof import('./street-plan').streetPlan>;
+		plan: ReturnType<typeof import('./alley-plan').alleyPlan>;
 		column: number;
 		row: number;
 		zone: TerrainZone;
 		pattern: Pattern;
-		street: 'along' | 'across' | 'both' | null;
+		alley: 'along' | 'across' | 'both' | null;
 		block: string;
+		blockSides: number;
+		/** Buildable remainder where an alley takes part of the terrain cell. */
+		lotCorners?: QuadCell['corners'];
+		alleyEdges: number;
 	}>;
 
 export type TerrainGrid = QuadGrid<TerrainCell> &
 	Readonly<{
-		profile: typeof import('./street-profile').defaultStreetPlan;
+		profile: typeof import('./alley-profile').defaultAlleyPlan;
 		terrain: Terrain;
 		columns: number;
 		rows: number;

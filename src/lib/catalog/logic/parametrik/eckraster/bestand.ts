@@ -1,3 +1,4 @@
+import { perimeterHull } from '../perimeter-hull';
 import { required } from '../../required';
 /**
  * Existing stock as a historic perimeter structure (logic). Every protected build cell is a house of the
@@ -22,7 +23,7 @@ export type Fassade = {
 };
 export type Dach = 'sattel' | 'traufe' | 'eckturm';
 export type Haus = {
-	/** Parcel: rim cell (street) plus the cell behind it, same height, one roof. */
+	/** Parcel: rim cell (alley) plus the cell behind it, same height, one roof. */
 	id: string;
 	cells: string[];
 	/** Convex hull of the cell outlines (roof plan). */
@@ -33,7 +34,7 @@ export type Haus = {
 	fassaden: Fassade[];
 	/** null: a rooftop extension or structural frame sits on top, no roof. */
 	dach: Dach | null;
-	/** Ridge direction in radians (eaves to the street: parallel to the street = patch edge). */
+	/** Ridge direction in radians (eaves to the alley: parallel to the alley = patch edge). */
 	first: number;
 	/** Outer corner point (rim cells), e.g. for the corner turret. */
 	corner?: Point2;
@@ -54,6 +55,14 @@ export const boundaryEdge = (p: Patch, a: string, b: string) => {
 		).length === 1
 	);
 };
+
+function faceAtVertex(p: Patch, id: string, fid: string) {
+	const byId = index(p).vertex;
+	const f = required(index(p).face.get(fid), 'incident face');
+	const i = f.vertices.indexOf(id);
+	const center = avg(f.vertices.map((w) => required(byId.get(w), 'face vertex').point));
+	return { center, previous: f.vertices[(i + 3) % 4], next: f.vertices[(i + 1) % 4] };
+}
 
 /** Dual edge between two mesh neighbors, averaged the same way as cellOutline. */
 export function grenze(p: Patch, c: string, n: string): [Point2, Point2][] {
@@ -83,44 +92,16 @@ export function cellOutline(p: Patch, id: string): Point2[] {
 		if (!pts.some((r) => Math.hypot(r[0] - q[0], r[1] - q[1]) < 1e-6)) pts.push(q);
 	};
 	for (const fid of v.faces) {
-		const f = required(index(p).face.get(fid), 'index(p).face.get(fid)');
-		const i = f.vertices.indexOf(id);
-		push(
-			mid(
-				v.point,
-				required(byId.get(f.vertices[(i + 1) % 4]), 'byId.get(f.vertices[(i + 1) % 4])').point
-			)
-		);
-		push(avg(f.vertices.map((w) => required(byId.get(w), 'byId.get(w)').point)));
-		push(
-			mid(
-				v.point,
-				required(byId.get(f.vertices[(i + 3) % 4]), 'byId.get(f.vertices[(i + 3) % 4])').point
-			)
-		);
+		const { center, previous, next } = faceAtVertex(p, id, fid);
+		push(mid(v.point, required(byId.get(next), 'next vertex').point));
+		push(center);
+		push(mid(v.point, required(byId.get(previous), 'previous vertex').point));
 	}
 	if (v.boundary) push(v.point);
 	const c = avg(pts);
 	return pts.sort(
 		(a, b) => Math.atan2(a[1] - c[1], a[0] - c[0]) - Math.atan2(b[1] - c[1], b[0] - c[0])
 	);
-}
-
-/** Convex hull (monotone chain), counterclockwise. */
-function hull(points: Point2[]): Point2[] {
-	const ps = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-	const cross = (o: Point2, a: Point2, b: Point2) =>
-		(a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-	const half = (list: Point2[]) => {
-		const out: Point2[] = [];
-		for (const q of list) {
-			while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], q) <= 1e-9)
-				out.pop();
-			out.push(q);
-		}
-		return out.slice(0, -1);
-	};
-	return [...half(ps), ...half([...ps].reverse())];
 }
 
 /** Open facade pieces of an existing-stock cell up to the eaves. */
@@ -143,13 +124,11 @@ function fassadenOf(p: Patch, o: Occupancy, id: string, levels: number): Fassade
 			(h) => other === null || !solid(o, other, h)
 		);
 	for (const fid of v.faces) {
-		const f = required(index(p).face.get(fid), 'index(p).face.get(fid)');
-		const i = f.vertices.indexOf(id);
-		const c = avg(f.vertices.map((w) => required(byId.get(w), 'byId.get(w)').point));
-		for (const w of [f.vertices[(i + 1) % 4], f.vertices[(i + 3) % 4]]) {
+		const { center: c, previous, next } = faceAtVertex(p, id, fid);
+		for (const w of [next, previous]) {
 			const m = mid(v.point, required(byId.get(w), 'byId.get(w)').point);
 			add(m, c, open(w));
-			// Patch edge: street facade from the vertex to the edge midpoint.
+			// Patch edge: alley facade from the vertex to the edge midpoint.
 			if (boundaryEdge(p, id, w)) add(v.point, m, open(null));
 		}
 	}
@@ -165,6 +144,27 @@ export type Parzelle = {
 	/** Outer corner point for the corner turret. */
 	corner?: Point2;
 };
+
+function clipFrontage(outline: Point2[], q: Point2, [a, b]: [Point2, Point2]) {
+	const normal: Point2 = [b[1] - a[1], a[0] - b[0]];
+	const limit = normal[0] * a[0] + normal[1] * a[1];
+	return normal[0] * q[0] + normal[1] * q[1] > limit
+		? clip(outline, [-normal[0], -normal[1]], -limit)
+		: clip(outline, normal, limit);
+}
+
+function parcelOutline(p: Patch, cells: string[], gasse?: (cell: string) => boolean) {
+	const original = perimeterHull(cells.flatMap((id) => cellOutline(p, id)));
+	if (!gasse) return original;
+	let outline = original;
+	for (const id of cells) {
+		const vertex = required(index(p).vertex.get(id), 'parcel vertex');
+		for (const neighbor of vertex.neighbors.filter(gasse))
+			for (const side of grenze(p, id, neighbor))
+				outline = clipFrontage(outline, vertex.point, side);
+	}
+	return outline.length >= 3 && area(outline) >= 0.4 * area(original) ? outline : original;
+}
 
 /**
  * Existing houses (parcels) with facade pieces and roof. Deterministic, from the occupancy only.
@@ -193,31 +193,15 @@ export function haeuser(
 			return n;
 		};
 		const levels = Math.min(...cells.map(height));
-		let outline = hull(cells.flatMap((id) => cellOutline(p, id)));
-		if (gasse) {
-			const original = outline;
-			for (const c of cells)
-				for (const n of required(byId.get(c), 'byId.get(c)').neighbors.filter(gasse))
-					for (const [a, b] of grenze(p, c, n)) {
-						let normal: Point2 = [b[1] - a[1], a[0] - b[0]],
-							limit = normal[0] * a[0] + normal[1] * a[1];
-						const q = required(byId.get(c), 'byId.get(c)').point;
-						if (normal[0] * q[0] + normal[1] * q[1] > limit) {
-							normal = [-normal[0], -normal[1]];
-							limit = -limit;
-						}
-						outline = clip(outline, normal, limit);
-					}
-			if (outline.length < 3 || area(outline) < 0.4 * area(original)) outline = original;
-		}
+		const outline = parcelOutline(p, cells, gasse);
 		const center = avg(outline);
-		const street = byId.get(key) ?? required(byId.get(cells[0]), 'byId.get(cells[0])'),
+		const alley = byId.get(key) ?? required(byId.get(cells[0]), 'byId.get(cells[0])'),
 			given = plan?.get(cells[0]);
-		// Eaves to the street: ridge parallel to the edge; a corner turret at the block corner.
-		const rand = street.neighbors
-			.filter((w) => boundaryEdge(p, street.id, w))
+		// Eaves to the alley: ridge parallel to the edge; a corner turret at the block corner.
+		const rand = alley.neighbors
+			.filter((w) => boundaryEdge(p, alley.id, w))
 			.map((w) => required(byId.get(w), 'byId.get(w)').point);
-		const dirs = rand.map((q) => Math.atan2(q[1] - street.point[1], q[0] - street.point[0]));
+		const dirs = rand.map((q) => Math.atan2(q[1] - alley.point[1], q[0] - alley.point[0]));
 		const straight =
 			dirs.length === 2 && Math.abs(Math.cos(dirs[0] - dirs[1])) > Math.cos((25 * Math.PI) / 180);
 		const covered = cells.some((id) => occupied(o, id, height(id)));
@@ -225,7 +209,7 @@ export function haeuser(
 			? null
 			: given?.dach
 				? given.dach
-				: !street.boundary
+				: !alley.boundary
 					? 'traufe'
 					: straight
 						? 'sattel'
@@ -239,11 +223,7 @@ export function haeuser(
 			fassaden: cells.flatMap((id) => fassadenOf(p, o, id, height(id))),
 			dach,
 			first: given?.first ?? dirs[0] ?? 0,
-			...(given?.corner
-				? { corner: given.corner }
-				: street.boundary
-					? { corner: street.point }
-					: {})
+			...(given?.corner ? { corner: given.corner } : alley.boundary ? { corner: alley.point } : {})
 		};
 	});
 }

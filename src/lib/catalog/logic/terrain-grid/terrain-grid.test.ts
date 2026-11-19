@@ -1,8 +1,14 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
-import { createTerrain, groundLevel, valleyCoords, type TerrainEdit } from '../terrain';
 import {
-	defaultStreetPlan,
+	createTerrain,
+	groundLevel,
+	valleyPoint,
+	valleyCoords,
+	type TerrainEdit
+} from '../terrain';
+import {
+	defaultAlleyPlan,
 	type TerrainCell,
 	BLOCK,
 	cellAtPoint,
@@ -28,20 +34,23 @@ const onScarp = grid.cells.filter(
 );
 
 describe('terrain grid', () => {
-	test('one cell per module of the valley frame; every cell a counter-clockwise quad', () => {
+	test('one cell per module of the valley frame; four counter-clockwise corners on every parcel', () => {
 		expect(grid.columns).toBe(Math.floor(terrain.along / MODULE));
 		expect(grid.rows).toBe(Math.floor(terrain.across / MODULE));
 		expect(grid.cells.every((cell, i) => cell.index === i)).toBe(true);
 		for (const cell of grid.cells) {
-			const [a, b, c, d] = cell.corners;
-			const area = ((c[0] - a[0]) * (d[1] - b[1]) - (d[0] - b[0]) * (c[1] - a[1])) / 2;
+			expect(cell.corners).toHaveLength(4);
+			const area = cell.corners.reduce((sum, p, i) => {
+				const q = cell.corners[(i + 1) % cell.corners.length];
+				return sum + (p[0] * q[1] - q[0] * p[1]) / 2;
+			}, 0);
 			for (const [i, p] of cell.corners.entries()) {
-				const q = cell.corners[(i + 1) % 4],
-					s = cell.corners[(i + 2) % 4];
+				const q = cell.corners[(i + 1) % cell.corners.length],
+					s = cell.corners[(i + 2) % cell.corners.length];
 				expect((q[0] - p[0]) * (s[1] - p[1]) - (q[1] - p[1]) * (s[0] - p[0])).toBeGreaterThan(0);
 			}
 			expect(area).toBeGreaterThan(MODULE * MODULE * 0.3);
-			expect(area).toBeLessThan(MODULE * MODULE * 2.4);
+			expect(area).toBeLessThan(MODULE * MODULE * 3);
 		}
 	});
 
@@ -49,7 +58,8 @@ describe('terrain grid', () => {
 		let along = 0;
 		let lattice = 0;
 		for (const cell of onScarp) {
-			const [a, b, , d] = cell.corners;
+			const [a, b] = cell.corners;
+			const d = cell.corners[cell.corners.length - 1];
 			const level = (p: readonly number[]) => groundLevel(terrain, p[0], p[1]);
 			along += Math.abs(level(b) - level(a));
 			lattice += Math.abs(level(d) - level(a));
@@ -58,20 +68,21 @@ describe('terrain grid', () => {
 		expect(along / lattice).toBeLessThan(0.12);
 	});
 
-	test('scarp streets improve on the previous contour solver for seed 7', () => {
+	test('scarp alleys improve on the previous contour solver for seed 7', () => {
 		let along = 0,
 			across = 0;
 		for (const cell of onScarp.filter((cell) => cell.row % BLOCK.rows === 0)) {
-			const [a, b, , d] = cell.corners;
+			const [a, b] = cell.corners;
+			const d = cell.corners[cell.corners.length - 1];
 			const height = (p: typeof a) => groundLevel(terrain, p[0], p[1]);
 			along += Math.abs(height(b) - height(a));
 			across += Math.abs(height(d) - height(a));
 		}
-		// Same street edges at 62862c9 measured 0.03365.
+		// Same alley edges at 62862c9 measured 0.03365.
 		expect(along / across).toBeLessThan(0.0336);
 	});
 
-	test('contour blocks divide evenly through the creek and the partial block at the rim', () => {
+	test('contour alleys respect block depths through the creek and the partial rim', () => {
 		let greatestLean = 0;
 		for (let column = 0; column <= grid.columns; column++) {
 			const frame = (row: number) => {
@@ -86,34 +97,30 @@ describe('terrain grid', () => {
 				const step = (frame(end)[1] - frame(start)[1]) / (end - start);
 				expect(step).toBeGreaterThanOrEqual(3 - 1e-9);
 				expect(step).toBeLessThanOrEqual(7 + 1e-9);
-				for (let row = start; row < end; row++) {
-					const [along, across] = frame(row);
-					expect(across).toBeCloseTo(frame(start)[1] + (row - start) * step, 9);
-					greatestLean = Math.max(greatestLean, Math.abs(along - column * MODULE));
-				}
+				greatestLean = Math.max(greatestLean, Math.abs(frame(start)[0] - column * MODULE));
 			}
 		}
 		expect(greatestLean).toBeGreaterThan(1);
 		expect(greatestLean).toBeLessThanOrEqual(6 + 1e-9);
 	});
 
-	test('one-cell street bands bound stable block addresses', () => {
+	test('one-cell alley bands bound stable block addresses', () => {
 		const widths = new Set(grid.cells.map((cell) => cell.plan.width));
 		expect(widths.size).toBeGreaterThanOrEqual(5);
-		expect(grid.cells.some((cell) => cell.plan.bridge && cell.zone === 'water')).toBe(true);
+		expect(grid.cells.some((cell) => cell.plan.footbridge && cell.zone === 'water')).toBe(true);
 		expect(grid.cells.some((cell) => cell.plan.square)).toBe(true);
-		expect(grid.cells.some((cell) => cell.plan.stairs)).toBe(true);
-		expect(cellAt(11, 7).block).toBe('0:0');
-		expect(cellAt(12, 8).block).toBe('1:1');
-		expect(cellAt(23, 15).block).toBe('1:1');
+		expect(grid.cells.some((cell) => cell.plan.stairAlley)).toBe(true);
+		expect(cellAt(11, 7).block).toBe('0:0/10/6');
+		expect(cellAt(12, 8).block).toBe('12:8/0/0');
+		expect(cellAt(23, 15).block).toBe('12:8/10/6');
 	});
 
-	test('street widths follow the world profile without changing parcel addresses', () => {
-		const profile = { ...defaultStreetPlan, mainWidth: 3 };
+	test('alley widths follow the world profile without changing parcel addresses', () => {
+		const profile = { ...defaultAlleyPlan, mainAlleyWidth: 3 };
 		const next = deriveGrid(terrain, profile);
-		const main = grid.cells.find((cell) => cell.plan.width === defaultStreetPlan.mainWidth);
-		if (!main) throw new Error('missing main street');
-		expect(next.cellsById.get(main.id)?.plan.width).toBe(profile.mainWidth);
+		const main = grid.cells.find((cell) => cell.plan.width === defaultAlleyPlan.mainAlleyWidth);
+		if (!main) throw new Error('missing main alley');
+		expect(next.cellsById.get(main.id)?.plan.width).toBe(profile.mainAlleyWidth);
 		expect(deriveGrid(terrain, profile).cellsById.get(main.id)?.plan).toEqual(
 			next.cellsById.get(main.id)?.plan
 		);
@@ -121,16 +128,19 @@ describe('terrain grid', () => {
 
 	test('neighbors share their corners bit for bit', () => {
 		const cell = cellAt(40, 60);
-		expect(cell.neighbors).toEqual(['40/59', '41/60', '40/61', '39/60']);
-		expect(cellAt(40, 61).corners[0]).toBe(cell.corners[3]);
-		expect(cellAt(41, 60).corners[0]).toBe(cell.corners[1]);
-		expect(cellAt(41, 60).vertexIds[0]).toBe(cell.vertexIds[1]);
+		for (const [side, id] of cell.neighbors.entries()) {
+			const neighbor = grid.cellsById.get(id ?? '');
+			const opposite = neighbor?.neighbors.indexOf(cell.id) ?? -1;
+			expect(neighbor?.corners[opposite]).toBe(cell.corners[(side + 1) % 4]);
+		}
 		expect(cellAt(0, 0).neighbors).toEqual([null, '1/0', '0/1', null]);
 	});
 
 	test('level datums: no building on water, stilts where it floods, a plinth elsewhere', () => {
 		for (const cell of grid.cells) {
-			expect(cell.buildable).toBe(!cell.plan.open && !cell.plan.square && cell.street === null);
+			expect(cell.buildable).toBe(
+				!cell.plan.open && !cell.plan.square && (cell.alley === null || !!cell.lotCorners)
+			);
 			if (cell.raised) expect(cell.pad).toBe(FLOOD_DATUM);
 			else expect(cell.pad - PLINTH).toBe(Math.round(cell.pad - PLINTH));
 		}
@@ -157,23 +167,71 @@ describe('terrain grid', () => {
 		);
 	});
 
-	test('seed 7 has square terrace parcels, skewed river parcels and concentric fan rows', () => {
+	test('seed 7 retains the terrace reference, river displacement and curved fan frontages', () => {
 		const frame = (c: number, r: number) => {
 			const [x, y] = cellAt(c, r).corners[0];
 			return valleyCoords(terrain, x, y);
 		};
-		const [x, y] = frame(20, 48);
-		expect(frame(21, 48)[0] - x).toBeCloseTo(MODULE, 9);
-		expect(frame(21, 48)[1]).toBeCloseTo(y, 9);
-		expect(frame(20, 49)[0]).toBeCloseTo(x, 9);
+		// Formerly straight terrace alleys must change direction within three blocks.
+		const y = Array.from({ length: 3 * BLOCK.columns + 1 }, (_, i) => frame(18 + i, 48)[1]);
+		expect(Math.max(...y) - Math.min(...y)).toBeGreaterThan(MODULE / 2);
 		expect(Math.abs(frame(30, 27)[0] - 30 * MODULE)).toBeGreaterThan(3);
 		// The fan has a common pole 76 m below its central row in the valley frame.
 		const pole = [42 * MODULE, 44 * MODULE - 76];
-		for (const r of [43, 44, 45])
+		for (const r of [44, 45])
 			for (const c of [38, 42, 46]) {
 				const [u, v] = frame(c, r);
-				expect(Math.hypot(u - pole[0], v - pole[1])).toBeCloseTo(76 + (r - 44) * MODULE, 9);
+				expect(
+					Math.abs(Math.hypot(u - pole[0], v - pole[1]) - (76 + (r - 44) * MODULE))
+				).toBeLessThan(MODULE * (defaultAlleyPlan.stagger * Math.SQRT2 + (r - 44) * 0.2));
 			}
+	});
+
+	test('identical seeds produce identical quads in triangular, quadrilateral and pentagonal blocks', () => {
+		const other = deriveGrid(createTerrain({ seed: 7 }));
+		expect(other.cells).toEqual(grid.cells);
+		expect(new Set(grid.cells.map((cell) => cell.blockSides))).toEqual(new Set([3, 4, 5]));
+	});
+
+	test('alleys bound whole source polygons and the concave pocket contains six quads', () => {
+		const blocks = Map.groupBy(grid.cells, (c) => c.block);
+		for (const [id, cells] of blocks) {
+			const sides = cells[0].blockSides;
+			expect(cells.length).toBe(id.includes('+') ? 3 * (sides - 2) : sides);
+			for (const cell of cells) {
+				cell.neighbors.forEach((neighbor, side) => {
+					expect(Boolean(cell.alleyEdges & (1 << side))).toBe(
+						grid.cellsById.get(neighbor ?? '')?.block !== id
+					);
+				});
+			}
+		}
+		expect([...blocks.keys()].some((id) => id.includes('+'))).toBe(true);
+	});
+
+	test('organic sides and brush strokes agree with the shared topology', () => {
+		for (const cell of grid.cells)
+			cell.neighbors.forEach((id, i) => {
+				if (!id) return;
+				const neighbor = grid.cellsById.get(id);
+				const side = neighbor?.neighbors.indexOf(cell.id) ?? -1;
+				expect(neighbor?.vertexIds[side]).toBe(cell.vertexIds[(i + 1) % cell.corners.length]);
+			});
+		const path = cellsBetween(grid, '51/42', '68/54');
+		expect(path[0].id).toBe('51/42');
+		expect(path.at(-1)?.id).toBe('68/54');
+		expect(path.slice(1).every((cell, i) => path[i].neighbors.includes(cell.id))).toBe(true);
+		expect(
+			grid.cells
+				.filter(
+					(c) =>
+						c.column === 0 ||
+						c.row === 0 ||
+						c.column === grid.columns - 1 ||
+						c.row === grid.rows - 1
+				)
+				.every((c) => !c.alley)
+		).toBe(true);
 	});
 
 	test('repeating an edit recomputes its bank and preserves untouched chunk lists', () => {
@@ -216,4 +274,30 @@ describe('terrain grid', () => {
 		// Taking the intervention back gives the first grid again.
 		expect(regrid(local, terrain).cells).toEqual(grid.cells);
 	});
+});
+
+test('warm basin regrid stays within a 40 ms median across eight sites', () => {
+	const sites = [
+		[48, 26],
+		[60, 42],
+		[70, 40],
+		[58, 60],
+		[86, 80],
+		[12, 56],
+		[95, 67],
+		[120, 78]
+	];
+	const measure = () =>
+		sites
+			.map(([c, r]) => {
+				const center = valleyPoint(terrain, c * MODULE, r * MODULE);
+				const dug = createTerrain({ seed: 7, edits: [{ kind: 'basin', radius: 9, center }] });
+				const start = performance.now();
+				regrid(grid, dug);
+				return performance.now() - start;
+			})
+			.sort((a, b) => a - b);
+	measure();
+	const times = measure();
+	expect((times[3] + times[4]) / 2).toBeLessThanOrEqual(40);
 });

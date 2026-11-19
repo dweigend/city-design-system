@@ -15,7 +15,10 @@ export type Parcel = {
 	access: { front: string; length: number; level: number }[];
 	children: string[];
 };
+const cutRatios = [0.5, 0.4, 0.6] as const;
 export type ParcelOptions = {
+	/** Preferred first cut; both children still need sufficient area and frontage. */
+	firstCut?: (typeof cutRatios)[number];
 	maxArea: number;
 	minArea: number;
 	minFront: number;
@@ -72,7 +75,8 @@ export function parcelize(
 ) {
 	validateRing(polygon);
 	if (
-		!Object.values(o).every(Number.isFinite) ||
+		(o.firstCut !== undefined && !cutRatios.includes(o.firstCut)) ||
+		!Object.values({ ...o, firstCut: o.firstCut ?? 0.5 }).every(Number.isFinite) ||
 		o.minArea <= 0 ||
 		o.maxArea < o.minArea ||
 		o.minFront <= 0 ||
@@ -128,7 +132,9 @@ export function parcelize(
 			.sort((a, b) => a.area - b.area);
 		if (depth < o.maxDepth)
 			for (const { n, b } of boxes[0].axes.sort((a, b) => b.b[1] - b.b[0] - (a.b[1] - a.b[0])))
-				for (const ratio of [0.5, 0.4, 0.6]) {
+				for (const ratio of depth > 0 || o.firstCut === undefined
+					? cutRatios
+					: [o.firstCut, ...cutRatios.filter((r) => r !== o.firstCut)]) {
 					const limit = b[0] + ratio * (b[1] - b[0]),
 						parts = [clip(p, n, limit, 1), clip(p, n, limit, -1)];
 					if (

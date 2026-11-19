@@ -74,14 +74,34 @@ export function patternOffsets(
 		rim *
 			bend *
 			Math.sin((Math.PI * c) / (2 * BLOCK.columns)) ** 2 *
-			smooth((y - bands.scarpStart) / 30) *
-			(1 - smooth((y - bands.scarpEnd) / 30));
+			smooth((y - bands.scarpStart) / lattice.profile.transitionWidth) *
+			(1 - smooth((y - bands.scarpEnd) / lattice.profile.transitionWidth));
 	const lateral = flood ? displacement : Math.max(-MAX_LEAN, Math.min(MAX_LEAN, displacement));
-	if (weight === 0) return [lateral, shift + rim * flood * jy];
+	// On flat terraces a contour alone gives a straight line. Offset adjoining
+	// crossings together, fading the transverse bend where the scarp sets the grade.
+	const phaseAngle = hash(seed, 0, 35) * 2 * Math.PI;
+	const strength =
+		rim *
+		(1 - flood) *
+		(1 - weight) *
+		lattice.profile.alleyBend *
+		smooth((Math.abs(c * MODULE - lattice.terrain.creekAlong) - 35) / 40);
+	const curvedX =
+		lateral +
+		strength *
+			Math.sin((r * Math.PI) / BLOCK.rows + c / BLOCK.columns + phaseAngle) *
+			(1 - contour);
+	const curvedY =
+		shift +
+		rim * flood * jy +
+		strength *
+			(1 - contour) *
+			Math.sin((c * Math.PI) / BLOCK.columns + r / BLOCK.rows + phaseAngle);
+	if (weight === 0) return [curvedX, curvedY];
 	const radius = 76 + dy,
 		angle = x / 76;
 	return [
-		lateral + weight * (radius * Math.sin(angle) - x),
-		shift + rim * flood * jy + weight * radius * (Math.cos(angle) - 1)
+		curvedX + weight * (radius * Math.sin(angle) - x),
+		curvedY + weight * radius * (Math.cos(angle) - 1)
 	];
 }
