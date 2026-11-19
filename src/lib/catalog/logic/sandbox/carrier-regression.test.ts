@@ -1,5 +1,6 @@
 // @ts-expect-error Bun supplies the test API.
 import { expect, test } from 'bun:test';
+import { position } from './installation-parts';
 import { atSocket } from '../house-brush';
 import { probeFrame } from '../megastructure';
 import type { Vec3 } from '../parametrik/types';
@@ -44,8 +45,8 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 		Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
 	const replacement = rods.find((rod) => rod.id === brace?.id);
 	if (!replacement) throw new Error('Missing replacement diagonal');
-	expect(length(replacement)).toBeCloseTo(10.758, 3);
-	expect(Math.max(...rods.map(length))).toBeCloseTo(13.422, 3);
+	expect(length(replacement)).toBeCloseTo(10.637, 3);
+	expect(Math.max(...rods.map(length))).toBeCloseTo(13.631, 3);
 	expect(probeFrame([...nodes.values()], bearings, rods).analysis.status).toBe('ok');
 	const postFeet = new Set(
 		rods.filter((r) => r.a.p[0] === r.b.p[0] && r.a.p[1] === r.b.p[1]).map((r) => r.a.id)
@@ -62,15 +63,29 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 	).toBe('mechanismus');
 });
 test('basin at 80/48 retires the tilted chord with its three capsules and refunds the owner', () => {
-	const cells = ['83/47', '88/45'];
+	const cells = ['82/46', '87/44'];
 	const built = stroke('totem', stroke('megastructure', town, cells), cells);
 	expect([...built.state.parts.values()].filter((p) => p.kind === 'module')).toHaveLength(3);
 	const credit = [...built.state.parts.values()].reduce((sum, p) => sum + p.materials.material, 0);
 	const dug = applyEdit(built, { kind: 'dig', cellId: '80/48' });
+	const parts = [...built.state.parts.values()];
+	for (const part of parts) {
+		const seats = part.kind === 'segment' ? [part.anchor, part.end] : [part.anchor];
+		for (const seat of seats) expect(dug.grid.cellsById.get(seat.cellId)?.buildable).toBe(true);
+	}
+	expect(
+		parts.some(
+			(part) =>
+				part.recipe === 'chord' &&
+				part.anchor.cellId !== part.end.cellId &&
+				Math.abs(position(dug.grid, part.anchor)[2] - position(dug.grid, part.end)[2]) > 1e-8
+		)
+	).toBe(true);
 	expect(dug.state.parts.size).toBe(0);
 	expect(dug.state.compositions.size).toBe(0);
 	const reference = applyEdit(town, { kind: 'dig', cellId: '80/48' });
-	expect(dug.state.store.material).toBe(reference.state.store.material);
+	expect(reference.state.store.living).toBeGreaterThan(town.state.store.living);
+	expect(dug.state.store).toEqual(reference.state.store);
 	expect(built.state.store.material + credit).toBe(town.state.store.material);
 });
 test('a socket interpolates height along the full rod axis', () => {
@@ -84,7 +99,7 @@ test('a socket interpolates height along the full rod axis', () => {
 test('an unstable wall layout cannot consume stock or reserve a roof', () => {
 	const attempt = extendStroke(
 		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, town),
-		'87/45'
+		'89/44'
 	);
 	expect(attempt.failure?.reason).toBe('unstable-frame');
 	expect(attempt.draft).toBe(town);
