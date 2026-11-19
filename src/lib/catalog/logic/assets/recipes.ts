@@ -1,3 +1,4 @@
+import { cycleScenes } from './production/cycle-scenes';
 import { parkTrees } from './production/park-trees';
 import { workFrames } from './production/work-frames';
 import { studioBlocks } from './production/studio-blocks';
@@ -196,5 +197,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...parkDecks,
 	...studioBlocks,
 	...workFrames,
-	...parkTrees
+	...parkTrees,
+	...cycleScenes
 ];
