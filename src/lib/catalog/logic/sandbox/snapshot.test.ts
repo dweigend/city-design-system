@@ -79,3 +79,23 @@ test('the seeded old town is the first layer and empty advances leave its marker
 	expect(aged.state.timeLayers).toEqual([...oldTown, { year: 2051, flows: ['water'] }]);
 	expect(applyEdit(aged, { kind: 'advance' }).state.timeLayers).toBe(aged.state.timeLayers);
 });
+
+test('loading legacy cover removes the main-alley forest immediately and keeps dry landlocked forest', () => {
+	const world = createWorld(7, { cells: 0 });
+	const cover = new Map([
+		['82/20', 'forest'],
+		['102/44', 'forest']
+	] as const);
+	const snapshot = { ...world.state, cover };
+	const restored = withState(world, snapshot);
+	expect(restored.grid.cellsById.get('82/20')).toMatchObject({
+		plan: { kind: 'mainAlley' },
+		plantable: false
+	});
+	expect(restored.state.cover).toEqual(new Map([['102/44', 'forest']]));
+	expect(restored.state.store).toBe(snapshot.store);
+	expect(snapshot.cover.has('82/20')).toBe(true);
+	expect(withState(restored, restored.state)).toBe(restored);
+	const dug = applyEdit(restored, { kind: 'dig', cellId: '120/68' });
+	expect(dug.state.cover).toBe(restored.state.cover);
+});

@@ -82,18 +82,19 @@ export function createWorld(
 
 /**
  * Restores a snapshot on the same seed, migrating missing construction methods and time layers.
- * The grid and routes are reused where their source data is unchanged.
+ * Houses and cover are checked against the restored terrain before the world is returned.
  */
 export function withState(world: World, snapshot: SandboxSnapshot): World {
-	return replaceState(world, migrateSnapshot(snapshot));
+	return replaceState(world, migrateSnapshot(snapshot), 'restore');
 }
 
-function replaceState(world: World, state: SandboxState): World {
-	if (state === world.state) return world;
+function replaceState(world: World, state: SandboxState, source: 'edit' | 'restore'): World {
 	const grid =
 		state.edits === world.state.edits
 			? world.grid
 			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
+	if (source === 'restore' || grid !== world.grid) state = settle(grid, state);
+	if (state === world.state) return world;
 	const sameRoutes = grid === world.grid && state.lines === world.state.lines;
 	return {
 		seed: world.seed,
@@ -233,6 +234,5 @@ function nextState(world: World, edit: Edit): SandboxState {
  * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
-	const next = replaceState(world, nextState(world, edit));
-	return next.grid === world.grid ? next : replaceState(next, settle(next.grid, next.state));
+	return replaceState(world, nextState(world, edit), 'edit');
 }
