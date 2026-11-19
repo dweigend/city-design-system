@@ -12,6 +12,11 @@ const town = createWorld(7);
 const tool = { kind: 'house', style: 'megastructure', use: 'water' } as const;
 const plots = buildingPlots(town.grid);
 const ids = ['83/47', '86/47', '87/47'];
+const templateCells = ids.map((id) => {
+	const cell = plots.cellsById.get(id);
+	if (!cell) throw new Error('Missing carrier plot ' + id);
+	return cell;
+});
 const frame = [ids[0], ids[2]].reduce(extendStroke, beginStroke(tool, town)).draft;
 const template = [...frame.state.parts.values()];
 const posts = template.filter((p) => p.recipe === 'chord' && p.anchor.cellId === p.end.cellId);
@@ -32,12 +37,11 @@ function singularCarrier(groups: number) {
 			y + i * (end[1] - start[1]),
 			z
 		];
-		for (const id of i === groups ? ids.slice(0, 1) : ids) {
-			const cell = plots.cellsById.get(id)!;
+		for (const cell of i === groups ? templateCells.slice(0, 1) : templateCells) {
 			const [a, b, c, d] = cell.corners;
 			cells.push({
 				...cell,
-				id: i + ':' + id,
+				id: i + ':' + cell.id,
 				index: cells.length,
 				center: shift(cell.center),
 				corners: [shift(a), shift(b), shift(c), shift(d)]
