@@ -1,5 +1,5 @@
 import { mount, type AssetRecipe } from './definition';
-import { drum, bulb } from './parts';
+import { treeCrown } from './production/tree-crown';
 
 import { panel } from './objects/forms';
 
@@ -21,10 +21,7 @@ export const treeTrough: AssetRecipe = {
 		for (let i = 0; i < n; i++) {
 			const x = (i - (n - 1) / 2) * 2.45,
 				r = 1.13 + 0.16 * sample;
-			parts.push(
-				drum([x, 0, 0.74], 0.11, 1.65, 'trim'),
-				bulb([x, 0, 2.65 + (i % 2) * 0.2], r, 0.76, 'planting')
-			);
+			parts.push(...treeCrown('blocks', [x, 0, 0.74], r, variant, sample, 'trim'));
 		}
 		return parts;
 	}

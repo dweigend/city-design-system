@@ -1,3 +1,4 @@
+import { treeCrown } from './tree-crown';
 import { circle, crescent, plate } from '../assembly';
 import { drum, bulb, cap } from '../parts';
 import { panel, collar } from '../objects/forms';
@@ -26,10 +27,7 @@ export const parkDecks = [
 						r = outer * 0.7,
 						x = r * Math.cos(a),
 						y = r * Math.sin(a);
-					return [
-						drum([x, y, 0.45], 0.15, 1.04, 'slats'),
-						bulb([x, y, 1.77], 0.49 + 0.07 * v, 0.87, 'planting')
-					];
+					return treeCrown('blocks', [x, y, 0.45], 0.57 + 0.075 * v, v, i / n, 'slats');
 				}).flat()
 			];
 		}
@@ -67,8 +65,7 @@ export const parkDecks = [
 				collar(0, 0, 0, r, r - inner, h, 'foot'),
 				collar(0, 0, h, r, 0.4, 0.13, 'slats'),
 				drum([0, 0, 0], inner * 0.98, 0.18, 'planting'),
-				drum([0, 0, 0.18], 0.22, h + 0.5, 'slats'),
-				bulb([0, 0, h + 1.14], inner * 0.88, 0.71, 'planting')
+				...treeCrown('clumps', [0, 0, 0.18], inner * 0.86, v, 0.56, 'slats')
 			];
 		}
 	),
