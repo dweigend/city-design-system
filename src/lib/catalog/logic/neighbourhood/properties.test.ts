@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides its test API at runtime.
 import { expect, test } from 'bun:test';
 import { required } from '../required';
 import { affectedRegion, defineRules, type NeighbourCell, type Snapshot } from './index';
@@ -45,8 +44,8 @@ test('a local intent edit restricts reads and reproduces full decisions and tick
 		const after = rules.solve(edited.keys(), edited, seed);
 		expect(new Map([...before, ...rules.solve(region, halo, seed)])).toEqual(after);
 		const full = rules.tick(edited.keys(), edited, seed);
-		expect(rules.tick(region, halo, seed)).toEqual(
-			new Map([...full].filter(([id]) => region.includes(id)))
+		expect([...rules.tick(region, halo, seed)]).toEqual(
+			[...full].filter(([id]) => region.includes(id))
 		);
 	}
 });
@@ -120,9 +119,11 @@ test('budget exhaustion and contradictory zoning hold stock across seeds and sid
 
 function checkContacts(next: Snapshot, original: Snapshot) {
 	for (const [id, cell] of next) {
-		if (cell.protected) expect(cell).toBe(original.get(id));
+		if (cell.protected) expect(cell).toBe(required(original.get(id), 'original cell'));
 		for (const n of cell.neighbors)
 			if (n !== null)
-				expect(contacts[cell.form as keyof typeof contacts]).toContain(next.get(n)?.form);
+				expect(contacts[cell.form as keyof typeof contacts]).toContain(
+					required(next.get(n), 'neighbour').form
+				);
 	}
 }

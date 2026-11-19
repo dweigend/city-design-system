@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies its test API at runtime.
 import { expect, test } from 'bun:test';
 import { hashUnit } from '../../core/random';
 import { defineRules } from '../../core/neighbourhood';
@@ -58,8 +57,8 @@ test('64 small polygon graphs preserve ordering, two-ring repair and monotonic b
 			const pack = tick < 4 ? rules : changed;
 			const prior = new Map(state);
 			const full = pack.tick(ids, state, seed, tick);
-			expect(pack.tick(halo, state, seed, tick)).toEqual(
-				new Map([...full].filter(([id]) => halo.includes(id)))
+			expect([...pack.tick(halo, state, seed, tick)]).toEqual(
+				[...full].filter(([id]) => halo.includes(id))
 			);
 			for (const [id, bay] of full) state.set(id, bay);
 			checkStock(prior, state);

@@ -1,6 +1,5 @@
-// @ts-expect-error Bun provides the test API.
 import { test, expect } from 'bun:test';
-import { createSession } from './fixtures/client-session';
+import { createSession } from './fixtures/client-session.fixture.test';
 import { createFrameStudy, sizeFrameSites, applyEdit } from '../logic/sandbox';
 
 test('the live advance publishes provisional axes while sizing is outstanding, then commits that snapshot once', async () => {

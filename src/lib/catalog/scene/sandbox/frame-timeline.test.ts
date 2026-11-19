@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API at runtime.
 import { expect, test } from 'bun:test';
 import { createFrameStudy } from '../../logic/sandbox';
 import type { Primitive } from '../../logic/parametrik/types';

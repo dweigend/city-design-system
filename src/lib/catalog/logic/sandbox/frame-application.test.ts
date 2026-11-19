@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API at runtime.
 import { expect, test } from 'bun:test';
 import { deriveGrid } from '../terrain-grid';
 import { createTerrain } from '../terrain';

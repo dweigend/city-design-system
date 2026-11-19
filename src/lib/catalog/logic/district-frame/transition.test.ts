@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API.
 import { test, expect } from 'bun:test';
 import { advanceSeams, compileSeams, type FrameSeam, type BayState } from './index';
 import { defineRules } from '../neighbourhood';

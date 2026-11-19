@@ -1,7 +1,6 @@
 import { seamSimulator } from './seam-simulator';
 import { searchSequences } from '../../core/planning';
 import type { BaySnapshot } from './seams';
-// @ts-expect-error Bun supplies the test API at runtime.
 import { expect, test } from 'bun:test';
 import { planGoal, type FrameGoal, type PlanningContext } from './horizon';
 import { type FrameSeam } from './seam-policy';

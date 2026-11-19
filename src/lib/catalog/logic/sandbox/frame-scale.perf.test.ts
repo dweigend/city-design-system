@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API at runtime.
 import { expect, test } from 'bun:test';
 import { resourceUsage } from 'node:process';
 import { warmMedian } from '../../fixtures/performance-sample.fixture.test';

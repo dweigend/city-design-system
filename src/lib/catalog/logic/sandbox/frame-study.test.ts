@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API at runtime.
 import { expect, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { createFrameStudy } from './frame-study';

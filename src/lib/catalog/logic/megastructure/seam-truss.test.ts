@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies its test API at runtime.
 import { expect, test } from 'bun:test';
 import { bayAxes, trimBay, type BaySurvey } from './index';
 const base: BaySurvey = { id: 'roof-1', a: [0, 0, 4], b: [4, 0, 4], back: [2, 3, 4] };

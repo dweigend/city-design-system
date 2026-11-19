@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides its test API at runtime.
 import { expect, test } from 'bun:test';
 import { defineRules, type NeighbourCell } from './index';
 import { districtFrame, frameRules } from '../district-frame';
