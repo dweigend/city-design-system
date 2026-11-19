@@ -68,6 +68,29 @@ function deckSpan(id: string, a: Position, b: Position, input: NetworkInput) {
 	}
 	return parts;
 }
+function flightPiers(edge: Edge, input: NetworkInput) {
+	const [a, b] = edge.points,
+		run = distance(plan(a), plan(b));
+	const count = Math.ceil(run / 12);
+	const piers: Network['geometry'] = [];
+	for (let i = 0; i < count; i++) {
+		const t = (i + 0.5) / count,
+			p = mix(plan(a), plan(b), t),
+			ground = input.terrain(...p);
+		const height = a[2] + t * (b[2] - a[2]) - ground;
+		if (height > 0)
+			piers.push({
+				kind: 'cylinder',
+				id: edge.id + '/pier/' + i,
+				slot: 'frame',
+				role: 'neu',
+				position: [...p, ground],
+				radius: width * 0.12,
+				height
+			});
+	}
+	return piers;
+}
 function projectedSpan(
 	e: Edge,
 	i: number,
@@ -90,6 +113,7 @@ function projectedSpan(
 			lines: [[0, 1, 2, 3, 0]]
 		});
 	if (e.kind !== 'ground') {
+		parts.push(...flightPiers(e, input));
 		const { rails } = spanSurvey(ring, id, width);
 		for (const rail of rails) parts.push({ ...rail, kind: 'polyline', role: 'neu', slot: 'frame' });
 	}

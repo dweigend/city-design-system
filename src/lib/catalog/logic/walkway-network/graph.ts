@@ -104,5 +104,5 @@ export function layout(input: NetworkInput, tree: Segment[], entranceMst: number
 	return { nodes, edges, entranceMst, length, planArea };
 }
 export function isPlaza(node: Network['nodes'][number]) {
-	return node.kind === 'fork' || node.kind === 'plaza' || node.kind === 'bend';
+	return node.kind !== 'entrance';
 }

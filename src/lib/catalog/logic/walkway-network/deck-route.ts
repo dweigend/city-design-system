@@ -66,6 +66,8 @@ function candidate(
 	const lead = { a: entry, b: flight.foot },
 		climb = { a: flight.foot, b: pair.span.a };
 	if (!aboveTerrain(input, climb, input.terrain(...flight.foot), pair.first.p[2])) return;
+	const exit = mix(climb.a, climb.b, Math.min(1, 3 / distance(climb.a, climb.b)));
+	if (tree.some((s) => separation(s, { a: exit, b: climb.b }) < 3 - epsilon)) return;
 	if (separation(lead, pair.span) < 3 - epsilon) return;
 	if (
 		tree.some((s) => separation(s, lead) < epsilon && distance(entry, nearest(entry, s)) > epsilon)
