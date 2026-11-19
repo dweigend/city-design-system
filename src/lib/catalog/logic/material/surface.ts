@@ -17,7 +17,7 @@ export type SurfaceRecipe =
 			recipe: Rezept;
 			pattern?: MaterialLook['pattern'];
 	  }
-	| { kind: 'kiln'; id: 'fired-slip'; token: ColorToken }
+	| { kind: 'kiln'; id: 'fired-slip'; token: ColorToken; casting?: number }
 	| { kind: 'print'; id: 'glaze' | 'print-terrazzo' | 'halftone'; token: ColorToken }
 	| { kind: 'pattern'; id: PrintPattern; token: ColorToken; translucent?: boolean };
 

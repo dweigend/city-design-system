@@ -1,3 +1,4 @@
+import { studioGround } from './studio-ground';
 import { studioPipeline } from './studio-pipeline';
 import {
 	createDrawingRenderer,
@@ -36,6 +37,7 @@ import {
 	modelViewMatrix,
 	normalGeometry,
 	normalize,
+	output,
 	positionGeometry,
 	screenDPR,
 	screenSize,
@@ -438,6 +440,8 @@ export function createFormlaborScene(
 	const scene = createPaperScene(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 4000);
 	const pipeline = studioPipeline(renderer, scene, camera);
+	const ground = studioGround(pipeline.light);
+	scene.add(ground.floor);
 	let pal = paletteAus(palette);
 	const farben = { ink: new THREE.Color(palette.ink), paper: new THREE.Color(palette.paper) };
 	let letzterStand: Bild | undefined;
@@ -448,6 +452,10 @@ export function createFormlaborScene(
 		umriss: material('umriss', farben, palette),
 		haut: material('haut', farben, palette)
 	};
+	for (const face of [stoffe.flaeche, stoffe.stab]) {
+		face.outputNode = vec4(pipeline.light.shade(output.rgb), output.a);
+	}
+
 	const schau = new THREE.Vector4(5, 0, 0, 0);
 	let alive = true,
 		initialized = false,
@@ -519,6 +527,8 @@ export function createFormlaborScene(
 			lager = {} as Einheit['lager'];
 		const haenge = (klasse: Klasse, stoff: THREE.Material, folge: number) => {
 			const mesh = new THREE.Mesh(netze[klasse], stoff);
+			mesh.castShadow = stoff === stoffe.flaeche || stoff === stoffe.stab;
+			mesh.receiveShadow = mesh.castShadow;
 			mesh.frustumCulled = false;
 			mesh.renderOrder = folge;
 			mesh.userData = daten;
@@ -606,6 +616,13 @@ export function createFormlaborScene(
 		const vorher = grenzen.clone();
 		grenzen.makeEmpty();
 		updateAssemblies(bild.staende);
+		ground.frame(grenzen);
+		if (!grenzen.isEmpty())
+			pipeline.light.aim(
+				grenzen.getCenter(new THREE.Vector3()),
+				grenzen.getSize(new THREE.Vector3()).length()
+			);
+		pipeline.light.refresh();
 		if (extentChanged(vorher)) fit();
 		else render();
 	}
@@ -692,6 +709,7 @@ export function createFormlaborScene(
 		/** Construction phase and explosion: uniforms only. */
 		schau(bau: number, explosion: number) {
 			schau.set(bau, explosion, 0, 0);
+			pipeline.light.refresh();
 			render();
 		},
 		reset() {
@@ -708,6 +726,7 @@ export function createFormlaborScene(
 			stopTheme();
 			if (wartet) cancelAnimationFrame(wartet);
 			controls.dispose();
+			ground.dispose();
 			pipeline.dispose();
 			disposeGeometry();
 			if (initialized) renderer.dispose();

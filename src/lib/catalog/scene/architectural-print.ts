@@ -1,4 +1,4 @@
-import { studioKeyDirection } from './studio-pipeline';
+import { studioKeyDirection } from './studio-light';
 import * as THREE from 'three/webgpu';
 import {
 	Fn,

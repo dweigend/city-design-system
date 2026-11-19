@@ -1,8 +1,9 @@
+import { studioGround } from './studio-ground';
 import { studioPipeline } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
 import { createMaterialKamera } from './materialKamera';
 import { bindSceneTheme } from './themeBinding';
-import { createMaterialStudio, studioPalette, studioFarbwechsel } from './materialStudio';
+import { studioPalette, studioFarbwechsel } from './materialStudio';
 import { createMaterialStuecke } from './materialStuecke';
 import { stueckHuelle } from './materialStueckGeometrie';
 import type { Palette3D } from '../data/city3d';
@@ -33,7 +34,6 @@ export type MaterialBuehne = {
 export type BuehnenOptionen = {
 	/** Use the fixed studio lighting and physical finish projection. */
 	studio?: boolean;
-	lichtVonRechts?: boolean;
 	drehen?: boolean;
 	/** View: elevation above the horizon and direction in degrees. */
 	hoeheDeg?: number;
@@ -55,10 +55,6 @@ export function createMaterialBuehne(
 	const scene = new THREE.Scene();
 	const welt = new THREE.Group();
 	scene.add(welt);
-	const studio = optionen.studio
-		? createMaterialStudio(scene, renderer, optionen.lichtVonRechts)
-		: undefined;
-	const projektion = createMaterialStuecke(welt, !!studio, () => scene.environment);
 	const bewegung =
 		optionen.bewegung !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -75,6 +71,9 @@ export function createMaterialBuehne(
 	const blick = createMaterialKamera(canvas, optionen, render);
 
 	const pipeline = studioPipeline(renderer, scene, blick.kamera);
+	const studio = optionen.studio ? studioGround(pipeline.light) : undefined;
+	if (studio) scene.add(studio.floor);
+	const projektion = createMaterialStuecke(welt, !!studio, () => scene.environment);
 
 	const bewegt = () => bewegung && aktiv && performance.now() < animiertBis && mitWasser;
 
@@ -110,13 +109,17 @@ export function createMaterialBuehne(
 		for (const s of letzte) stueckHuelle(s.teil, box);
 		if (box.isEmpty()) return;
 		studio?.frame(box);
+		pipeline.light.aim(
+			box.getCenter(new THREE.Vector3()),
+			box.getSize(new THREE.Vector3()).length()
+		);
 		blick.frame(box);
 	}
 
 	function zeichne() {
 		if (!palette) return;
 		projektion.zeige(letzte, palette, bewegung);
-		studio?.invalidate();
+		pipeline.light.refresh();
 		rahme();
 		render();
 	}

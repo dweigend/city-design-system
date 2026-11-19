@@ -36,7 +36,6 @@
 	<Buehne
 		{stuecke}
 		studio
-		lichtVonRechts
 		verhaeltnis="16 / 7"
 		hoeheDeg={24}
 		azimutDeg={30}

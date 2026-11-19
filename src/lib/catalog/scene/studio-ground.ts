@@ -1,15 +1,12 @@
-import { Box3, Mesh, PlaneGeometry, ShadowNodeMaterial, Vector3 } from 'three/webgpu';
+import type { createStudioLight } from './studio-light';
+import { Box3, Mesh, PlaneGeometry, MeshBasicNodeMaterial, Vector3 } from 'three/webgpu';
 
 /** Fits a shadow-only paper floor beneath a model without contributing to its camera fit. */
-export function studioGround() {
-	const floor = new Mesh(
-		new PlaneGeometry(1, 1),
-		new ShadowNodeMaterial({
-			color: 0x6b6359,
-			opacity: 0.55,
-			depthWrite: true
-		})
-	);
+export function studioGround(light: ReturnType<typeof createStudioLight>) {
+	const receiver = new MeshBasicNodeMaterial({ transparent: true, depthWrite: true });
+	receiver.colorNode = light.shadowTone;
+	receiver.opacityNode = light.opacity;
+	const floor = new Mesh(new PlaneGeometry(1, 1), receiver);
 	floor.rotation.x = -Math.PI / 2;
 	floor.receiveShadow = true;
 	floor.visible = false;

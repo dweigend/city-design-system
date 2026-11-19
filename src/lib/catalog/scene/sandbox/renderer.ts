@@ -12,7 +12,6 @@ export function startRenderer(
 	canvas: HTMLCanvasElement,
 	hooks: RendererHooks
 ) {
-	renderer.shadowMap.enabled = true;
 	let state: 'starting' | 'live' | 'disposed' = 'starting';
 
 	const started = renderer.init().then(

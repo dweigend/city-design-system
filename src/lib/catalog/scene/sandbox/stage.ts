@@ -22,7 +22,6 @@ import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { createCellPicker } from './house-picker';
 import { studioPipeline } from '../studio-pipeline';
 import { type StudioQuality } from '../studio-quality';
-import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
 import { KEY, projectChanges, projectInstallations } from './projection';
@@ -75,13 +74,13 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const pipeline = studioPipeline(renderer, scene, view.camera);
-	const light = createLight(pipeline.shadowSize);
+	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
+	const light = pipeline.light;
 	const structures = createStructures(study.quality);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
-	scene.add(...light.objects, structures.group, vehicles.group);
+	scene.add(structures.group, vehicles.group);
 
 	const ink = new THREE.Color();
 	const paper = new THREE.Color();
@@ -489,7 +488,6 @@ export function createSandboxStage(
 			if (terrain) terrain.dispose();
 			frames.dispose();
 			structures.dispose();
-			light.dispose();
 			pipeline.dispose();
 			baseOutline.dispose();
 			cursorMaterial.dispose();

@@ -12,12 +12,11 @@ import {
 	vec4,
 	modelWorldMatrixInverse
 } from 'three/tsl';
-import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
+import { LICHT, MASSSTAB, STRICHE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../core/params';
 import type { grammatik } from '../leitstil';
-import { neutral } from '../leitstil/tone';
-import { compileSurface, createMaterialLibrary } from '../material-library';
+import { createMaterialLibrary } from '../material-library';
 import { outlinePosition } from '../surfaces';
 import { conduitInk } from './print-flow';
 import { cutPaper } from './paper-inlay';
@@ -32,12 +31,7 @@ export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
 export function structureMaterials(quality?: StudioQuality) {
-	const explicit = createMaterialLibrary(undefined, undefined, undefined, quality);
 	const glazeContour: GlazeContour = { ink: new THREE.Color(0) };
-	const solidColor = uniform(neutral(TOENE.modellweiss));
-	const flankColor = uniform(neutral(TOENE.modellweiss + TOENE.vorn));
-	const sideColor = uniform(neutral(TOENE.modellweiss + TOENE.rechts));
-	const bottomColor = uniform(neutral(TOENE.modellweiss + TOENE.unten));
 	let envelopeShadows = true;
 	let minContourPx = STRUCTURE_PARAMS.minContourPx.default;
 	let palette: ReturnType<typeof grammatik> | undefined;
@@ -46,29 +40,13 @@ export function structureMaterials(quality?: StudioQuality) {
 	const paper = new THREE.Color();
 
 	const seconds = uniform(0);
+	const explicit = createMaterialLibrary(undefined, undefined, seconds, quality);
 	const paperTone = uniform(new THREE.Color());
 	const shadowTone = uniform(new THREE.Color());
-	const ceramicContour = uniform(new THREE.Color());
-	const night = uniform(0);
 	const markTone = uniform(new THREE.Color());
-	const scalePx = uniform(1);
 	const materials = {
 		conduit: conduitInk(seconds, markTone),
-		inlay: compileSurface({ kind: 'print', id: 'print-terrazzo', token: '--paper' }, undefined, {
-			inlay: { paper: paperTone, scale: scalePx }
-		}),
 		cut: cutPaper(paperTone, shadowTone),
-		fired: compileSurface({ kind: 'kiln', id: 'fired-slip', token: '--paper' }, undefined, {
-			kiln: [
-				solidColor,
-				sideColor,
-				seconds,
-				ceramicContour,
-				night,
-				attribute('color', 'vec3'),
-				attribute('kilnChart', 'vec4')
-			]
-		}),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		solid: new THREE.MeshBasicNodeMaterial({
 			polygonOffset: true,
@@ -171,13 +149,7 @@ export function structureMaterials(quality?: StudioQuality) {
 		paperTone.value.copy(g.paper);
 		shadowTone.value.copy(g.schatten);
 
-		solidColor.value.copy(neutral(g.modellL));
-		ceramicContour.value.copy(g.kontur);
-		night.value = Number(g.ink.r > g.paper.r);
 		markTone.value.copy(g.token('--cat-business-2'));
-		flankColor.value.copy(neutral(g.modellL + TOENE.vorn));
-		sideColor.value.copy(neutral(g.modellL + TOENE.rechts));
-		bottomColor.value.copy(neutral(g.modellL + TOENE.unten));
 		materials.stock.color.copy(paper);
 		materials.stockSheet.color.copy(paper);
 		materials.glass.color.copy(g.weiss);
@@ -286,8 +258,6 @@ export function structureMaterials(quality?: StudioQuality) {
 		materials,
 		envelopeShadows: () => envelopeShadows,
 		minContourPx: () => minContourPx,
-		/** Palette lookup for detached colored parts. */
-		colorOf,
 		surfaceColor: (part: Primitive) => ageColor(printColor(part), part),
 		/** Applies the primitive's ink share to a flow color without changing the cached token. */
 		accentColor(this: void, part: Primitive) {
@@ -295,7 +265,6 @@ export function structureMaterials(quality?: StudioQuality) {
 			const shaded = palette && part.shade ? color.clone().lerp(palette.ink, part.shade) : color;
 			return ageColor(shaded, part);
 		},
-		modelWhite: solidColor.value,
 		seconds,
 		setParams,
 		/** The stage supplies the validated style and a new palette when the theme changes. */
@@ -306,7 +275,6 @@ export function structureMaterials(quality?: StudioQuality) {
 			tones?: ReturnType<typeof grammatik>
 		) {
 			if (tones) applyTones(tones);
-			scalePx.value = scale;
 			const { bestand, huelle, kontext } = style.rollen;
 			materials.pencil.linewidth = bestand.strichPx;
 			materials.stockDetail.linewidth = bestand.strichPx;

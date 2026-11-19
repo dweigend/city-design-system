@@ -1,7 +1,6 @@
 import { studioGround } from './studio-ground';
 import { studioShadow } from './studio-shadow';
 import { studioPipeline } from './studio-pipeline';
-import { createLight } from './sandbox/light';
 import { color as colorNode } from 'three/tsl';
 import { pencilStock } from './pencil-stock';
 import {
@@ -60,10 +59,9 @@ export function createParametrikScene(
 	scene.background = new THREE.Color(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 2000);
 	const pipeline = studioPipeline(renderer, scene, camera);
-	const light = createLight(pipeline.shadowSize, 4);
-	renderer.shadowMap.enabled = true;
-	const ground = studioGround();
-	scene.add(...light.objects, ground.floor);
+	const light = pipeline.light;
+	const ground = studioGround(pipeline.light);
+	scene.add(ground.floor);
 	const model = new THREE.Group();
 	scene.add(model);
 	let alive = true,
@@ -612,7 +610,6 @@ export function createParametrikScene(
 			materials.clear();
 			surfaces.dispose();
 			ground.dispose();
-			light.dispose();
 			pipeline.dispose();
 			if (initialized) await renderer.dispose();
 		}

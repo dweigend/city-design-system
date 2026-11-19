@@ -1,4 +1,11 @@
-import { EdgesGeometry, Float32BufferAttribute, type Color } from 'three/webgpu';
+import type { SurfaceRecipe } from '../../logic/material/surface';
+import {
+	EdgesGeometry,
+	Float32BufferAttribute,
+	type BufferGeometry,
+	Mesh,
+	type Material
+} from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { flowToken } from '../../data/focus';
 import type { Primitive } from '../../logic/parametrik/types';
@@ -35,22 +42,35 @@ function castingFrame(part: Primitive) {
 	return { ...frame, cx: x, cy: z, cz: -y, half: radius, radius };
 }
 
-function shellChart(part: Primitive, coords: ArrayLike<number>, token: Primitive['token']) {
+function shellChart(part: Primitive, coords: ArrayLike<number>) {
 	const { cx, cy, cz, dx, dz, radius, half } = castingFrame(part);
-	const family = castingFamily.get(part.kind) ?? 1;
-	const finish = token === '--paper' ? 0 : family === 3 && token !== flowToken.energy ? 1 : family;
 	const chart: number[] = [];
 	for (let i = 0; i < coords.length; i += 3) {
 		const x = coords[i] - cx,
 			z = coords[i + 2] - cz;
-		chart.push(
-			(x * dx + z * dz) / half,
-			(coords[i + 1] - cy) / radius,
-			(z * dx - x * dz) / radius,
-			finish
-		);
+		chart.push((x * dx + z * dz) / half, (coords[i + 1] - cy) / radius, (z * dx - x * dz) / radius);
 	}
 	return chart;
+}
+
+function castingGeometry(part: Exclude<Primitive, { kind: 'polyline' }>, edges: number[]) {
+	const { geometry, position, rotation, edgeAngle } = build(part);
+	geometry.rotateY(rotation);
+	geometry.translate(position.x, position.y, position.z);
+	geometry.deleteAttribute('uv');
+	const vertices = geometry.getAttribute('position');
+	geometry.setAttribute(
+		'kilnChart',
+		new Float32BufferAttribute(shellChart(part, vertices.array), 3)
+	);
+	if (!geometry.index) geometry.setIndex(Array.from({ length: vertices.count }, (_, i) => i));
+	// Smooth castings have no crease edges. Their silhouette uses the indexed faces.
+	if (part.edges !== false && !['capsule', 'sphere', 'torus'].includes(part.kind)) {
+		const creases = new EdgesGeometry(geometry, edgeAngle);
+		for (const v of creases.getAttribute('position').array) edges.push(v);
+		creases.dispose();
+	}
+	return geometry;
 }
 
 /** Bakes the dip coordinates of each casting before joining it to the ceramic draw call.
@@ -58,34 +78,27 @@ function shellChart(part: Primitive, coords: ArrayLike<number>, token: Primitive
 export function ceramicBatch(
 	parts: Primitive[],
 	pigments: ReadonlyMap<string, Primitive>,
-	tone: (p: Primitive) => Color
+	materialFor: (slot: Extract<SurfaceRecipe, { kind: 'kiln' }>) => Material
 ) {
 	const edges: number[] = [];
-	const pieces = parts.flatMap((part) => {
-		if (part.kind === 'polyline') return [];
-		const accent = pigments.get(part.id) ?? part;
-		const color = tone(accent);
-		const { geometry, position, rotation, edgeAngle } = build(part);
-		geometry.rotateY(rotation);
-		geometry.translate(position.x, position.y, position.z);
-		geometry.deleteAttribute('uv');
-		const vertices = geometry.getAttribute('position');
-		const colors = new Float32Array(vertices.count * 3);
-		for (let i = 0; i < colors.length; i += 3) color.toArray(colors, i);
-		geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
-		const chart = shellChart(part, vertices.array, accent.token);
-		geometry.setAttribute('kilnChart', new Float32BufferAttribute(chart, 4));
-		if (!geometry.index) geometry.setIndex(Array.from({ length: vertices.count }, (_, i) => i));
-		// Smooth castings have no crease edges. Their silhouette uses the indexed faces.
-		if (part.edges !== false && !['capsule', 'sphere', 'torus'].includes(part.kind)) {
-			const creases = new EdgesGeometry(geometry, edgeAngle);
-			for (const v of creases.getAttribute('position').array) edges.push(v);
-			creases.dispose();
-		}
-		return [geometry];
+	const groups = new Map<Material, BufferGeometry[]>();
+	for (const part of parts) {
+		if (part.kind === 'polyline') continue;
+		const token = (pigments.get(part.id) ?? part).token;
+		const family = castingFamily.get(part.kind) ?? 1;
+		const finish =
+			token === '--paper' ? 0 : family === 3 && token !== flowToken.energy ? 1 : family;
+		const material = materialFor({ kind: 'kiln', id: 'fired-slip', token, casting: finish });
+		const geometry = castingGeometry(part, edges);
+		const group = groups.get(material) ?? [];
+		group.push(geometry);
+		groups.set(material, group);
+	}
+	const meshes = Array.from(groups, ([material, pieces]) => {
+		if (pieces.length === 1) return new Mesh(pieces[0], material);
+		const geometry = mergeGeometries(pieces);
+		for (const piece of pieces) piece.dispose();
+		return new Mesh(geometry, material);
 	});
-	if (pieces.length < 2) return { geometry: pieces[0], edges };
-	const geometry = mergeGeometries(pieces);
-	for (const piece of pieces) piece.dispose();
-	return { geometry, edges };
+	return { meshes, edges };
 }

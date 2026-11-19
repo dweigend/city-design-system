@@ -28,9 +28,30 @@ type SurfaceOptions = {
 	environment?: Texture | null;
 	time?: Node<'float'>;
 	print?: PrintInputs;
-	kiln?: Parameters<typeof firedSlip>;
-	inlay?: Parameters<typeof printedFinish>[4];
 };
+
+function kilnFinish(
+	s: Extract<SurfaceRecipe, { kind: 'kiln' }>,
+	palette: Palette3D,
+	time: Node<'float'> = float(0)
+) {
+	const q = attribute('finishChart', 'vec4');
+	const chart =
+		s.casting === undefined
+			? vec4(q.w.sub(0.45), q.y, q.z, 1)
+			: vec4(attribute('kilnChart', 'vec3'), s.casting);
+	const clay = new Color(palette.paper);
+	const contour = new Color(palette.ink);
+	return firedSlip(
+		color(clay),
+		color(clay.clone().lerp(contour, 0.22)),
+		time,
+		color(contour),
+		float(Number(contour.r > clay.r)),
+		color(tokenColor(palette, s.token)).rgb,
+		chart
+	);
+}
 
 /** Compiles a surface independently of its consumer. Instance buffers can supply interpolated print inputs. */
 export function compileSurface(
@@ -65,23 +86,10 @@ export function compileSurface(
 				);
 			}
 			return rezeptMaterial(s.recipe, palette, double, options.time, s.pattern);
-		case 'kiln': {
-			const paper = color(new Color(palette.paper));
-			const ink = color(new Color(palette.ink));
-			const q = attribute('finishChart', 'vec4');
-			const inputs: Parameters<typeof firedSlip> = options.kiln ?? [
-				paper,
-				ink,
-				float(0),
-				ink,
-				float(0),
-				color(tokenColor(palette, s.token)).rgb,
-				vec4(q.w.sub(0.45), q.y, q.z, 1)
-			];
-			return firedSlip(...inputs);
-		}
+		case 'kiln':
+			return kilnFinish(s, palette, options.time);
 		case 'print':
-			return printedFinish(s.id, s.token, palette, options.close ?? true, options.inlay);
+			return printedFinish(s.id, s.token, palette, options.close ?? true);
 		case 'pattern': {
 			const p = attribute('finishChart', 'vec4');
 			const inputs = options.print ?? {
