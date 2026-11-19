@@ -2,9 +2,21 @@
 	import { ToggleGroup } from 'bits-ui';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { flows } from '../data/focus';
-	import { hudZeit } from '../data/interface';
 	import { Timeline } from '../interface';
-	import { Dices, Eraser, Hand, House, Redo2, Route, Shovel, Trees, Undo2 } from 'lucide-svelte';
+	import {
+		Box,
+		Dices,
+		Eraser,
+		Grid2X2,
+		Hand,
+		House,
+		Pill,
+		Redo2,
+		Route,
+		Shovel,
+		Trees,
+		Undo2
+	} from 'lucide-svelte';
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
 	import {
@@ -27,21 +39,27 @@
 	let { session }: { session: Session } = $props();
 
 	const narrow = new MediaQuery('(max-width: 640px)');
+	const methodIcons = { terrace: House, collage: Box, megastructure: Grid2X2, totem: Pill };
 	const methods = $derived(
-		session.methods.map((id) => ({ id, ...sandboxMethods[id] })).sort((a, b) => a.phase - b.phase)
+		session.methods
+			.map((id) => ({ id, ...sandboxMethods[id], icon: methodIcons[id] }))
+			.sort((a, b) => a.phase - b.phase)
 	);
 	const { year, timeLayers } = $derived(session.world.state);
+	const range = $derived(session.timelineWindow);
+	const stockYear = $derived(timeLayers.find((layer) => layer.year < range.min)?.year);
 	const events = $derived(
-		timeLayers.map(({ year, flows: layerFlows }) => ({
-			year,
-			flows: layerFlows,
-			label: flows
-				.filter(({ id }) => layerFlows.includes(id))
-				.map(({ name }) => name)
-				.join(', ')
-		}))
+		timeLayers
+			.filter((layer) => layer.year >= range.min)
+			.map(({ year, flows: layerFlows }) => ({
+				year,
+				flows: layerFlows,
+				label: flows
+					.filter(({ id }) => layerFlows.includes(id))
+					.map(({ name }) => name)
+					.join(', ')
+			}))
 	);
-	const firstYear = $derived(Math.min(year, timeLayers[0]?.year ?? hudZeit.min));
 
 	const icons = { look: Hand, house: House, line: Route, cover: Trees, dig: Shovel, erase: Eraser };
 	/** Last option per tool, so switching tools keeps the player's choice. */
@@ -166,13 +184,7 @@
 	</div>
 	<div class="timeline" role="group" aria-label="Timeline">
 		<div class="scale" class:without-events={!events.length}>
-			<Timeline
-				{year}
-				{events}
-				min={firstYear}
-				max={Math.max(hudZeit.min + (hudZeit.max - hudZeit.min) * 2, year + hudZeit.major)}
-				labelEvery={false}
-			/>
+			<Timeline {year} {events} {stockYear} min={range.min} max={range.max} labelEvery={false} />
 		</div>
 		<output aria-label="World year">{year}</output>
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />

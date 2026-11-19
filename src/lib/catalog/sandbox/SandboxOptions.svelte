@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { ToggleGroup } from 'bits-ui';
+	import type { Box } from 'lucide-svelte';
+	import Icon from '../ui/Icon.svelte';
 	import Tooltip from '../ui/Tooltip.svelte';
-	type Option = { id: string; name: string; color?: string; figure?: string; shortcut?: string };
+	type Option = {
+		id: string;
+		name: string;
+		color?: string;
+		figure?: string;
+		shortcut?: string;
+		icon?: typeof Box;
+	};
 
 	/** Options of the active tool: swatch, name and the figure that carries the meaning. */
 	let {
@@ -33,6 +42,9 @@
 		{#if entry.color}<span class="swatch" style:--swatch={entry.color}></span>{/if}
 		<span class="name">{entry.name}</span>
 		{#if entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
+		{#if entry.icon}
+			<span class="method-icon"><Icon icon={entry.icon} size={16} /></span>
+		{/if}
 	</ToggleGroup.Item>
 {/snippet}
 
@@ -123,6 +135,10 @@
 		font-size: var(--text-xs);
 		opacity: 0.7;
 	}
+	.method-icon {
+		display: none;
+		grid-area: symbol;
+	}
 	/* Narrow screens: one row of swatches with their names. */
 	@media (max-width: 640px) {
 		:global(.cg-sandbox-options) {
@@ -141,11 +157,15 @@
 		}
 		:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
 			grid-template-columns: auto;
-			grid-template-areas: 'key';
+			grid-template-areas: 'symbol';
 			min-width: var(--space-8);
 		}
-		:global(.cg-sandbox-options[data-compact]) .name {
+		:global(.cg-sandbox-options[data-compact]) .name,
+		kbd {
 			display: none;
+		}
+		.method-icon {
+			display: inline-flex;
 		}
 	}
 </style>

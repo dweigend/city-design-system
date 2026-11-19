@@ -2,6 +2,7 @@
 	import { flowToken, type FlowId } from '../data/focus';
 	import { hudZeit } from '../data/interface';
 	import Scale from '../ui/Scale.svelte';
+	import Tooltip from '../ui/Tooltip.svelte';
 
 	type Event = { year: number; label: string; flows: readonly FlowId[] };
 
@@ -17,6 +18,7 @@
 		max = hudZeit.max,
 		year = hudZeit.value,
 		events = sample,
+		stockYear,
 		labelEvery = hudZeit.major
 	}: {
 		mode?: 'input' | 'readout';
@@ -25,6 +27,7 @@
 		max?: number;
 		year?: number;
 		events?: readonly Event[];
+		stockYear?: number;
 		labelEvery?: number | false;
 	} = $props();
 
@@ -43,16 +46,83 @@
 	);
 </script>
 
-<Scale
-	{mode}
-	{caption}
-	label={hudZeit.label}
-	{min}
-	{max}
-	value={year}
-	minor={hudZeit.major}
-	major={labelEvery || undefined}
-	{markers}
-	markerShape="dot"
-	detail={`${hudZeit.label} ${year}`}
-/>
+<div class="timeline">
+	{#if stockYear !== undefined}
+		<div class="stock">
+			<div class="stock-line">
+				<Tooltip text={`${stockYear} · Existing stock`}>
+					{#snippet trigger(props)}
+						<button {...props} type="button" aria-label={`${stockYear} · Existing stock`}></button>
+					{/snippet}
+				</Tooltip>
+			</div>
+			<span aria-hidden="true">{stockYear}</span>
+		</div>
+	{/if}
+	<div class="axis">
+		<Scale
+			{mode}
+			{caption}
+			label={hudZeit.label}
+			{min}
+			{max}
+			value={year}
+			minor={hudZeit.major}
+			major={labelEvery || undefined}
+			{markers}
+			markerShape="dot"
+			detail={`${hudZeit.label} ${year}`}
+		/>
+	</div>
+</div>
+
+<style>
+	.timeline {
+		display: flex;
+		align-items: end;
+	}
+	.axis {
+		flex: 1;
+		min-width: 0;
+	}
+	.stock {
+		width: var(--space-12);
+		height: calc(2 * var(--ctl-s));
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--ink-2);
+	}
+	.stock-line {
+		position: relative;
+		display: flex;
+		align-items: center;
+		height: var(--ctl-s);
+	}
+	.stock-line::before {
+		content: '';
+		width: 100%;
+		border-top: var(--hair) solid var(--ink-3);
+	}
+	.stock-line button {
+		position: absolute;
+		left: 0;
+		width: var(--space-6);
+		height: var(--space-6);
+		padding: 0;
+		border: none;
+		background: none;
+		cursor: help;
+	}
+	.stock-line button::after {
+		content: '';
+		display: block;
+		width: var(--space-2);
+		height: var(--space-2);
+		border-radius: 50%;
+		background: var(--ink-2);
+	}
+	.stock span {
+		display: block;
+		padding-top: 2px;
+	}
+</style>

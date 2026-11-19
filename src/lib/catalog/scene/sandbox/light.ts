@@ -23,9 +23,13 @@ export function createLight() {
 		shade(color: THREE.Node<'vec3'>) {
 			return mix(shadowTone, color, float(shadowMask));
 		},
-		/** Sets the Leitstil shadow tone for the current theme. */
-		setTone(color: THREE.Color) {
-			shadowTone.value.set(color.r, color.g, color.b);
+		/** Sets the Leitstil shadow tone, capped at the paper color so it cannot lighten it. */
+		setTone(color: THREE.Color, paper: THREE.Color) {
+			shadowTone.value.set(
+				Math.min(color.r, paper.r),
+				Math.min(color.g, paper.g),
+				Math.min(color.b, paper.b)
+			);
 		},
 		/** Releases the shadow render target. */
 		dispose: () => shadowMask.dispose(),
