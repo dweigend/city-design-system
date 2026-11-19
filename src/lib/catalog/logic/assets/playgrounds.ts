@@ -1,3 +1,4 @@
+import { skateTransition } from './skate-transition';
 import { family, block, legs, row, plate, circle, crescent, shell, slope, pipe } from './assembly';
 import { drum, rod, cap, surface } from './parts';
 const asset = family('playgrounds', 'deck');
@@ -66,11 +67,7 @@ export const playgrounds = [
 			axis: 'z'
 		}))
 	]),
-	asset('skate-ramp', ['body'], [5, 3], (factor) => [
-		slope(0, 0, 0, 4.4, 2.6, 1.65 * factor),
-		block(-2.32, 0, 0, 0.24, 2.6, 1.65 * factor),
-		rod([-2.18, -1.27, 1.65 * factor], [-2.18, 1.27, 1.65 * factor], 0.06)
-	]),
+	asset('skate-ramp', ['body'], [5, 3], skateTransition),
 	asset('jump-bed', ['body', 'highlight', 'deck'], [3, 3], (factor, variant) => [
 		plate(circle(1.4, 4 + 2 * variant), 0, 0.15, 'body', circle(1.1 * factor).reverse()),
 		...circle(1.22, 4 + 2 * variant).map(([x, y]) => drum([x, y, 0.15], 0.08, 0.08, 'highlight')),

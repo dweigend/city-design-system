@@ -1,6 +1,6 @@
 import { circle } from '../assembly';
 import { treeCrown, type TreeForm } from './tree-crown';
-import { surface } from '../parts';
+import { roofStone } from './roof-stone';
 import { panel } from '../objects/forms';
 import { series } from './series';
 
@@ -23,23 +23,20 @@ function grove(type: Plant) {
 			const r = w * (v === 0 ? 0.33 : 0.2),
 				n = v + 1,
 				centres = n === 1 ? [[0, 0]] : circle(w * 0.23, n);
+			if (type === 'rock')
+				return [
+					panel(0, 0, 0, w, w, 0.35, 'foot'),
+					...centres.flatMap(([x, y], i) => [
+						panel(x, y, 0.35, r * 1.95, r * 1.75, 0.12, 'planting'),
+						roofStone(x, y, r, s + i * 1.4)
+					])
+				];
 			return [
 				panel(0, 0, 0, w, w, 0.35, 'foot'),
 				panel(0, 0, 0.35, w - 0.32, w - 0.32, 0.22, 'planting'),
-				...centres.flatMap(([x, y], i) => {
-					return type === 'rock'
-						? [
-								{
-									...surface('foot'),
-									kind: 'dome' as const,
-									position: [x, y, 0.53] as [number, number, number],
-									radius: r,
-									height: 1.1 * r,
-									facets: 1 as const
-								}
-							]
-						: treeCrown(forms[type], [x, y, 0.56], r, v, (s + i * 0.2) % 1, 'slats');
-				})
+				...centres.flatMap(([x, y], i) =>
+					treeCrown(forms[type], [x, y, 0.56], r, v, (s + i * 0.2) % 1, 'slats')
+				)
 			];
 		}
 	);
