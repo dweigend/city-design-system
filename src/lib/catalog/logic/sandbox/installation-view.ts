@@ -80,7 +80,10 @@ function partView(world: World, p: BuiltPart, coarse: boolean): Primitive[] {
 		instanceId: p.id,
 		slots: p.slots
 	});
-	return object.parts.map((part) => ({ ...translate(part, [a[0], a[1], a[2] - 0.25]), id: p.id }));
+	return object.parts.map((part, i) => ({
+		...translate(part, [a[0], a[1], a[2] - 0.25]),
+		id: i === 0 ? p.id : part.id
+	}));
 }
 
 type CachedPart = {

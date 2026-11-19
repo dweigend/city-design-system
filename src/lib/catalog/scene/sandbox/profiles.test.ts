@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { Color, UniformNode, Vector3 } from 'three/webgpu';
 import { vec3 } from 'three/tsl';
-import { createLight } from './light';
+import { createStudioLight } from '../studio-light';
 import { writeAlleyMask } from './alley-mask';
 import { createTerrainMesh } from './terrain-mesh';
 import { STRUCTURE_PARAMS, TERRAIN_VIEW_PARAMS } from './view-params';
@@ -161,7 +161,7 @@ test('removing the last nearby house clears only its local stair ink', () => {
 });
 
 test('night shadows cannot brighten the paper while daytime still uses the drawing shadow tone', () => {
-	const light = createLight();
+	const light = createStudioLight();
 	const readTone = () => {
 		let tone: Vector3 | undefined;
 		light.shade(vec3(1)).traverse((node) => {

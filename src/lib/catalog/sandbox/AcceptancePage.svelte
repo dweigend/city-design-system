@@ -25,8 +25,13 @@
 		const query = new URLSearchParams(location.search);
 		const requested = Number(query.get('seed') ?? '7');
 		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
+		const { world, earliestFullYear, additions, landmark } = acceptanceScene(seed);
 		const study = {
-			...acceptanceScene(seed),
+			landmark,
+			world,
+			earliestFullYear,
+			additions,
+			frameTown: true,
 			onFrameFailure: (reason: string) => {
 				error = 'Frame survey: ' + reason;
 			},
@@ -101,18 +106,20 @@
 			tabindex="0"
 			aria-label="Seed {seed} acceptance scene. Arrow keys pan, plus and minus zoom."
 		></canvas>
-		<ul class="key" aria-label="Colour key">
-			{#each key as item (item.id)}
-				<li><span class="chip" style:--chip={item.color}></span>{item.name}</li>
-			{/each}
-			<li><span class="chip stock"></span>Stock</li>
-		</ul>
+
 		{#if error}<p role="alert">{error}</p>{/if}
 	</div>
+	<ul class="key" aria-label="Colour key">
+		{#each key as item (item.id)}
+			<li><span class="chip" style:--chip={item.color}></span>{item.name}</li>
+		{/each}
+		<li><span class="chip stock"></span>Stock</li>
+	</ul>
 </main>
 
 <style>
 	main {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		height: 100dvh;
@@ -222,5 +229,12 @@
 		inset: 50% 0 auto;
 		margin: 0;
 		text-align: center;
+	}
+	@media (max-width: 640px) {
+		.key {
+			position: static;
+			max-width: none;
+			border-width: var(--hair) 0 0;
+		}
 	}
 </style>

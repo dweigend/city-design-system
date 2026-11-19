@@ -1,39 +1,47 @@
-import * as THREE from 'three/webgpu';
+import { Vector3 } from 'three/webgpu';
 import { STORY } from '../../data/grid';
+import type { Vec3 } from '../../logic/parametrik/types';
 import type { World } from '../../logic/sandbox';
 import type { OpeningArea, View } from './view';
 
-function centralCell({ grid, state }: World) {
-	const cells = [...state.stacks.keys()].flatMap((id) => {
+// Use the central two thirds of occupied parcels. A distant installation cannot dictate the opening zoom.
+function townCluster({ grid, state }: World) {
+	const parcels = [...state.stacks].flatMap(([id, stories]) => {
 		const cell = grid.cellsById.get(id);
-		return cell ? [cell] : [];
+		return cell ? [{ cell, stories: stories.length }] : [];
 	});
-	if (!cells.length) return;
-	const [sumX, sumY] = cells.reduce(([x, y], { center }) => [x + center[0], y + center[1]], [0, 0]);
-	const distance = ({ center }: (typeof cells)[number]) =>
-		Math.hypot(center[0] - sumX / cells.length, center[1] - sumY / cells.length);
-	return cells.reduce((nearest, cell) => (distance(cell) < distance(nearest) ? cell : nearest));
+	if (!parcels.length) return;
+	const center = new Vector3();
+	for (const { cell } of parcels) center.add(new Vector3(...cell.center));
+	center.divideScalar(parcels.length);
+	const distance = ({ cell }: (typeof parcels)[number]) =>
+		Math.hypot(cell.center[0] - center.x, cell.center[1] - center.y);
+	parcels.sort((a, b) => distance(a) - distance(b));
+	const count = Math.ceil((parcels.length * 2) / 3);
+	const district = parcels.slice(0, count);
+	const points = district.flatMap(({ cell, stories }) =>
+		cell.corners.flatMap(([x, y, z]) => [
+			new Vector3(x, z, -y),
+			new Vector3(x, cell.pad + stories * STORY, -y)
+		])
+	);
+	const [x, y, z] = district[0].cell.center;
+	return { points, anchor: new Vector3(x, z, -y) };
 }
 
-/** Uses the occupied parcel nearest the town centroid as the portrait opening anchor. */
-export function frameOldTown(view: View, world: World, area?: OpeningArea) {
+/** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
+export function frameOldTown(view: View, world: World, area?: OpeningArea, landmark?: Vec3) {
 	if (!view.isPortrait()) return false;
-	const cell = centralCell(world);
-	return cell ? view.framePortrait(cell.center, cell.corners, area) : false;
+	const cluster = townCluster(world);
+	if (!cluster) return false;
+	view.frameSilhouette(cluster.points, cluster.anchor, area, landmark);
+	return true;
 }
 
-/** Frames the projected desktop town at half the canvas width. */
-export function frameTownSilhouette(view: View, { grid, state }: World) {
-	const points: THREE.Vector3[] = [];
-	for (const [id, stories] of state.stacks) {
-		const cell = grid.cellsById.get(id);
-		if (!cell) continue;
-		for (const [x, y, z] of cell.corners) {
-			points.push(new THREE.Vector3(x, z, -y));
-			points.push(new THREE.Vector3(x, cell.pad + stories.length * STORY, -y));
-		}
-	}
-	if (!points.length) return false;
-	view.frameSilhouette(points);
+/** Fits the central occupied town footprint, including its building heights. */
+export function frameTownSilhouette(view: View, world: World, landmark?: Vec3) {
+	const cluster = townCluster(world);
+	if (!cluster) return false;
+	view.frameSilhouette(cluster.points, undefined, undefined, landmark);
 	return true;
 }

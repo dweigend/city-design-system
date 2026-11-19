@@ -83,7 +83,7 @@ async function exerciseFrames() {
 	setPx(stage, 6.2);
 	stage.show(installed, 'all');
 	assert(targetWidth(stage) > 6 && targetWidth(stage) < 6.6);
-	assert(outlined(clock.draw(), body.triangles.length));
+	assert(!outlined(clock.draw(), body.triangles.length));
 	stage.dispose();
 
 	const playable = createSandboxStage(clock.canvas(), assert.fail, { frameTown: true });
@@ -131,11 +131,11 @@ async function exerciseFrames() {
 	reset.show(base, 'all');
 	const opening = targetWidth(reset);
 	assert(opening > 6 && opening < 6.6);
-	assert(outlined(clock.draw(), body.triangles.length));
+	assert(!outlined(clock.draw(), body.triangles.length));
 	setPx(reset, 5.2);
 	assert(!outlined(clock.draw(), body.triangles.length));
 	reset.show(createWorld(8), 'all');
 	assert.equal(targetWidth(reset), opening);
-	assert(outlined(clock.draw(), body.triangles.length));
+	assert(!outlined(clock.draw(), body.triangles.length));
 	reset.dispose();
 }

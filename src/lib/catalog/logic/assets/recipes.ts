@@ -17,6 +17,7 @@ import { toys } from './production/toys';
 import { towers } from './production/towers';
 import { crossings } from './production/crossings';
 import { habitats } from './production/habitats';
+import { scaleFigureAsset } from './scale-figure';
 import { smallArchitecture } from './objects/small-architecture';
 import { textiles } from './objects/textiles';
 import { publicArt } from './objects/public-art';
@@ -100,6 +101,7 @@ import { glass } from './glass';
 import { planted } from './planted';
 
 export const recipes: readonly AssetRecipe[] = [
+	scaleFigureAsset,
 	porthole,
 	windowBand,
 	balcony,

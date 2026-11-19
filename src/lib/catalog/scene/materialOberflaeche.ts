@@ -1,3 +1,6 @@
+import { creaseNormal } from './crease-normal';
+import type { StudioQuality } from './studio-quality';
+import { perforatedSheet } from './toy-surfaces';
 import * as THREE from 'three/webgpu';
 import {
 	color,
@@ -49,6 +52,7 @@ function projiziereMuster(
 	base: THREE.Color,
 	bewegt: boolean,
 	variation: MaterialVariation,
+	quality: StudioQuality,
 	explicitPigment: boolean
 ) {
 	const v = variationFaehig(w.id) ? variation : variationVorgabe;
@@ -76,9 +80,13 @@ function projiziereMuster(
 		if (pattern.metallVersatz)
 			m.metalnessNode = float(w.metall).add(pattern.metallVersatz).clamp(0, 1);
 		m.roughnessNode = float(w.rauheit)
-			.add((pattern.rauheitVersatz ?? pattern.hoehe.mul(0.025)).mul(intensitaet))
+			.add(
+				(pattern.rauheitVersatz ?? (quality === 'high' ? pattern.hoehe.mul(0.025) : float(0))).mul(
+					intensitaet
+				)
+			)
 			.clamp(0.025, 1);
-		if (pattern.relief > 0)
+		if (pattern.relief > (quality === 'phone' ? 0.005 : 0))
 			m.normalNode = reliefNormal(pattern.hoehe, pattern.relief * intensitaet);
 	}
 }
@@ -90,11 +98,14 @@ export function physicalSurface(
 	id: AusfuehrungId | undefined,
 	doppelt: boolean,
 	umgebung: THREE.Texture | null,
-	variation: MaterialVariation
+	variation: MaterialVariation,
+	quality: StudioQuality,
+	pigment?: THREE.Color
 ) {
 	const w = oberflaechenWerte(r, id);
 	const base = new THREE.Color(w.grundton);
-	if (w.pigment === 1) base.copy(tokenColor(palette, r.farbe.token));
+	if (pigment) base.copy(pigment);
+	else if (w.pigment === 1) base.copy(tokenColor(palette, r.farbe.token));
 	else if (w.pigment > 0) base.lerp(tokenColor(palette, r.farbe.token), w.pigment);
 	const m = new THREE.MeshPhysicalNodeMaterial({
 		color: base,
@@ -108,7 +119,10 @@ export function physicalSurface(
 		depthWrite: w.deckkraft === 1,
 		side: doppelt ? THREE.DoubleSide : THREE.FrontSide
 	});
-	projiziereMuster(m, w, base, r.haut.bewegt, variation, r.farbe.anteil === 1);
+	projiziereMuster(m, w, base, r.haut.bewegt, variation, quality, r.farbe.anteil === 1);
+	if (w.id === 'perforated-metal') m.maskNode = perforatedSheet();
+
+	m.normalNode = creaseNormal((m.normalNode ?? normalView) as THREE.Node<'vec3'>);
 	physischeDetails(m, w);
 	spiegelung(m, w.id, umgebung);
 	m.name = w.id;
@@ -134,7 +148,7 @@ function spiegelung(
 
 const daempfungsDistanzM: Partial<Record<OberflaechenWerte['familie'], number>> = {
 	wasser: 3,
-	glas: 12
+	glas: 1.8
 };
 
 const klarlackVon: Partial<Record<AusfuehrungId, number>> = {
@@ -161,9 +175,18 @@ function physischeDetails(m: THREE.MeshPhysicalNodeMaterial, w: OberflaechenWert
 		m.clearcoatNormalNode = m.normalNode;
 	}
 	if (w.familie === 'membran') membranOptik(m, w);
-	const distanzM = daempfungsDistanzM[w.familie];
+	transmissionVolume(m, w);
+}
+
+function transmissionVolume(m: THREE.MeshPhysicalNodeMaterial, w: OberflaechenWerte) {
+	const acrylic = w.id === 'acryl-matt' || w.id === 'clear-acrylic';
+	const distanzM = acrylic ? 0.85 : daempfungsDistanzM[w.familie];
+	if (acrylic || w.familie === 'glas') {
+		m.ior = acrylic ? 1.49 : 1.52;
+		m.thickness = acrylic ? 0.42 : 0.65;
+	}
 	if (distanzM !== undefined) {
-		m.attenuationColor = m.color.clone();
+		m.attenuationColor.copy(m.color);
 		m.attenuationDistance = distanzM;
 	}
 }

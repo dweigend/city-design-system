@@ -43,12 +43,18 @@ export function materialSheet(token: ColorToken): SheetRow[] {
 		{
 			id: 'sphere',
 			label: 'One sphere in every finish',
+			dimensions: '4 m diameter',
 			samples: finishCatalogue.map(({ id, name }) => ({
 				id,
 				label: name,
 				parts: () =>
-					buildObject('primitive-sphere', 'short', 17, { slots: { body: { finish: id, token } } })
-						.parts
+					buildObject('primitive-sphere', 'short', 17, {
+						slots: { body: { finish: id, token } }
+					}).parts.map((part): Primitive =>
+						part.kind === 'sphere'
+							? { ...part, radius: 2, squash: 1, position: [0, 0, 2], fine: true }
+							: part
+					)
 			}))
 		},
 		{

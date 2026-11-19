@@ -1,6 +1,5 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
 import {
-	atan,
 	abs,
 	attribute,
 	color,
@@ -9,7 +8,6 @@ import {
 	mix,
 	normalView,
 	normalWorld,
-	positionLocal,
 	positionWorld,
 	select,
 	sin,
@@ -19,9 +17,10 @@ import {
 } from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
 import type { ColorToken } from '../logic/parametrik/types';
-import { LICHT, MASSSTAB } from '../data/leitstil';
+import { LICHT } from '../data/leitstil';
 
 import type { Node } from 'three/webgpu';
+import { terrazzoChips } from './pattern-density';
 import { tokenColor } from './material';
 
 // Coordinates are attached before batching. XYZ is metres above the part's minimum;
@@ -48,7 +47,7 @@ export function halftoneScreen(close: boolean) {
 }
 
 /** Hard-edged dot mask on the supplied meter chart, where pitch is in meters. */
-export function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
+function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
 	const { angle, radius, pitch: reference } = halftoneScreen(false);
 	const c = Math.cos(angle);
 	const s = Math.sin(angle);
@@ -69,27 +68,6 @@ export function castOffset(height: number) {
 	return Math.min(0.35 * height, 6);
 }
 
-/** Angular 20–40 cm aggregate on printed panels. Reveal chips only at house scale. */
-function aggregateCoverage(plane: Node<'vec2'>) {
-	const cellsPerMeter = 0.8;
-	const uv = plane.mul(cellsPerMeter);
-	const cell = uv.floor();
-	const seed = cell.dot(vec2(0.7548777, 0.5698403)).fract();
-	const noise = seed.mul(31.47).fract();
-	const q = uv
-		.fract()
-		.sub(0.5)
-		.sub(vec2(noise, seed.mul(71.63).fract()).sub(0.5).mul(0.66));
-	const sides = seed.mul(3).floor().add(3),
-		sector = float(2 * Math.PI).div(sides);
-	const theta = atan(q.y, q.x).add(noise.mul(2 * Math.PI));
-	const edge = theta.div(sector).add(0.5).fract().sub(0.5).mul(sector).cos().mul(q.length());
-	const radius = seed.mul(0.1).add(0.1).mul(cellsPerMeter).mul(sector.mul(0.5).cos());
-	const aa = uv.fwidth().length().mul(0.42).max(0.0001);
-	const density = float(1).sub(edge.smoothstep(radius.sub(aa), radius.add(aa)));
-	return { chip: density, pale: float(seed.lessThanEqual(0.51)) };
-}
-
 /** Returns the fired body colour beneath the dip in the active palette's linear colour space. */
 export function firedBodyColor(palette: Palette3D, token: ColorToken) {
 	return new Color(palette.paper)
@@ -103,8 +81,7 @@ export function printedFinish(
 	id: 'glaze' | 'print-terrazzo' | 'halftone',
 	token: ColorToken,
 	palette: Palette3D,
-	close: boolean,
-	inlay?: { paper: Node<'color'>; scale: Node<'float'> }
+	close: boolean
 ) {
 	const ink = color(new Color(palette.ink)),
 		paper = color(new Color(palette.paper));
@@ -116,16 +93,10 @@ export function printedFinish(
 		return material;
 	}
 	if (id === 'print-terrazzo') {
-		const base = inlay ? attribute('color', 'vec3') : mix(paper, pigment, 0.58);
-		const dark = inlay ? attribute('chipColor', 'vec3') : mix(base, ink, 0.48);
-		const share = inlay
-			? inlay.scale
-					.smoothstep(MASSSTAB.quartier, MASSSTAB.haus)
-					.mul(attribute('printScreen', 'float'))
-			: float(Number(close));
-		const p = inlay ? positionLocal : chart.xyz;
-		const { chip, pale } = aggregateCoverage(printPlane(p));
-		material.colorNode = mix(base, mix(dark, inlay?.paper ?? paper, pale), chip.mul(share));
+		const base = mix(paper, pigment, 0.58);
+		const dark = mix(base, ink, 0.48);
+		const chips = terrazzoChips(positionWorld, close ? 1.25 : 1.7);
+		material.colorNode = mix(mix(base, dark, chips.negate().max(0)), paper, chips.max(0));
 		return material;
 	}
 	let result = mix(color(firedBodyColor(palette, token)), pigment, step(0, dip));

@@ -1,8 +1,9 @@
+import { studioShadow } from '../studio-shadow';
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { type Primitive, type Vec3 } from '../../logic/parametrik/types';
-import { batch, type Batch } from '../batch';
+import { batch, batchFaces, type Batch } from '../batch';
 import type { StructuralJoint } from '../../logic/structural-joints';
 import { pushThree } from '../world-space';
 import type { StructureMaterials } from './structure-materials';
@@ -88,12 +89,13 @@ export function populateStructures(
 		details?: boolean;
 	} = {}
 ) {
-	const { materials, colorOf, accentColor, surfaceColor: toColor } = finishes;
+	const { contours, materials, accentColor, surfaceColor: toColor } = finishes;
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
 	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
 		if (!faces.p.length) return;
 		const object = new THREE.Mesh(printGeometry(faces), material);
+		object.receiveShadow = material instanceof THREE.MeshStandardNodeMaterial;
 		objects.add(object);
 		if (pick) hits.push(object);
 		return object;
@@ -109,21 +111,24 @@ export function populateStructures(
 	const surface = (
 		faces: Batch['neu'],
 		material: THREE.Material,
-		contour: THREE.Material,
+		contour: THREE.Material | undefined,
 		pick: boolean,
 		shadows = cast
 	) => {
 		const object = mesh(faces, material, pick);
 		if (!object) return;
 		object.castShadow = shadows;
-		objects.add(silhouette(object.geometry, contour));
+		if (contour) objects.add(silhouette(object.geometry, contour));
 		return object;
 	};
 	const fill = (faces: Batch['neu'], material: THREE.Material, pick: boolean, shadows = cast) => {
 		const object = mesh(faces, material, pick);
 		if (object) object.castShadow = shadows;
 	};
-	const parts = partition(primitives, unoutlined);
+	const cityParts = contours
+		? primitives
+		: primitives.filter((p) => !(p.role === 'bestand' && p.detail));
+	const parts = partition(cityParts, unoutlined);
 	drawFinishes(parts.finished, { contour: true });
 	drawFinishes(parts.unoutlinedFinishes, { contour: false });
 	drawStockAndBodies();
@@ -133,7 +138,7 @@ export function populateStructures(
 
 	drawCarriers();
 
-	const ghost = batch(parts.ghosts, toColor);
+	const ghost = batchFaces(parts.ghosts, toColor);
 	for (const faces of [ghost.alt, ghost.blatt, ghost.neu, ghost.glas])
 		mesh(faces, materials.ghost, true);
 	lines(ghost.kanten.alt, materials.detail);
@@ -143,10 +148,11 @@ export function populateStructures(
 
 	function drawFinishes(surfaces: Surface[], { contour }: { contour: boolean }) {
 		for (const face of finishedMeshes(surfaces, finishes.explicit)) {
-			face.castShadow = cast;
+			studioShadow(face, face.material);
+			face.castShadow &&= cast;
 			objects.add(face);
-			if (contour && hasGlazeContour(face.material.name))
-				objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
+			if (contours && contour && hasGlazeContour(face.material.name))
+				objects.add(silhouette(face.geometry, glazeContourMaterial(contours.glaze)));
 			hits.push(face);
 		}
 	}
@@ -156,11 +162,11 @@ export function populateStructures(
 			(p) => p.role !== 'bestand' && !p.planned && p.sectionDiameter !== 0.14
 		);
 		lines(
-			batch(parts.carriers.filter((p) => p.planned).flatMap(memberTrace), toColor).kanten.neu,
+			batchFaces(parts.carriers.filter((p) => p.planned).flatMap(memberTrace), toColor).kanten.neu,
 			materials.planned
 		);
 		lines(
-			batch(
+			batchFaces(
 				parts.carriers
 					.filter((p) => !p.planned && p.role !== 'bestand' && p.sectionDiameter === 0.14)
 					.flatMap(memberTrace),
@@ -175,22 +181,25 @@ export function populateStructures(
 			[(p: Primitive) => !p.detail && p.sectionDiameter === 0.12, materials.portalInk],
 			[(p: Primitive) => !p.detail && p.sectionDiameter !== 0.12, materials.carrierInk]
 		] as const)
-			lines(batch(inkMembers.filter(select).flatMap(memberTrace), toColor).kanten.neu, material);
+			lines(
+				batchFaces(inkMembers.filter(select).flatMap(memberTrace), toColor).kanten.neu,
+				material
+			);
 		const legacy = current.filter((p) => p.token !== '--ink');
 		const main = legacy.filter((p) => !p.member || p.member === 'primary');
 		const ties = legacy.filter((p) => p.member === 'secondary' && !p.detail);
 		const rails = legacy.filter((p) => p.member === 'secondary' && p.detail);
-		lines(batch(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
-		lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
-		lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
+		lines(batchFaces(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
+		lines(batchFaces(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
+		lines(batchFaces(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
 		lines(
-			batch(agedMembers.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor).kanten
-				.neu,
+			batchFaces(agedMembers.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor)
+				.kanten.neu,
 			materials.stockPrimary
 		);
 		lines(
-			batch(agedMembers.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor).kanten
-				.neu,
+			batchFaces(agedMembers.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor)
+				.kanten.neu,
 			materials.pencil
 		);
 		// Explicit bearing nodes with no axial member retain their existing ink mark.
@@ -202,45 +211,40 @@ export function populateStructures(
 	}
 
 	function drawAccents() {
-		const accent = batch(
+		const accent = batchFaces(
 			parts.accents.filter((part) => !isSheet(part)),
 			accentColor
 		);
-		const accentSheets = batch(parts.accents.filter(isSheet), accentColor);
-		surface(accent.neu, materials.signal, materials.hull, true);
-		surface(accent.glas, materials.signal, materials.hull, true);
+		const accentSheets = batchFaces(parts.accents.filter(isSheet), accentColor);
+		surface(accent.neu, materials.signal, contours?.hull, true);
+		surface(accent.glas, materials.signal, contours?.hull, true);
 		for (const faces of [accent.blatt, accentSheets.blatt, accentSheets.glas])
-			surface(faces, materials.signal, materials.sheetHull, true);
+			surface(faces, materials.signal, contours?.sheet, true);
 		lines(accent.kanten.neu, materials.detail);
 		lines(accentSheets.kanten.neu, materials.perimeter);
-		const plainAccents = batch(parts.plainAccents, accentColor);
+		const plainAccents = batchFaces(parts.plainAccents, accentColor);
 		for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
 			fill(faces, materials.signal, true);
 	}
 
 	function drawSpecialSurfaces() {
 		const conduit = conduitBatch(parts.conduits, toColor);
-		const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
+		const pipes = surface(conduit.faces, materials.conduit, contours?.hull, true);
 		pipes?.geometry.setAttribute('stationM', conduit.axis);
 		pipes?.geometry.setAttribute('railMark', conduit.rail);
-		const print = printBatch(parts.inlays, (p) =>
-			p.token.startsWith('--cat-business')
-				? toColor(p)
-				: colorOf(p.token.replace(/-\d$/, '') + '-2')
+		const inlays = parts.inlays.flatMap((p) =>
+			p.kind === 'polyline' ? [] : [{ ...p, finish: 'print-terrazzo' as const }]
 		);
-		const chips = batch(parts.inlays, (p) =>
-			colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
-		);
-		const inlay = mesh(print.neu, materials.inlay, true);
-		if (inlay) {
-			inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
-			inlay.castShadow = cast;
-			objects.add(paperEdge(inlay.geometry, materials.cut));
+		for (const face of finishedMeshes(inlays, finishes.explicit)) {
+			face.castShadow = cast;
+			objects.add(face);
+			if (contours) objects.add(paperEdge(face.geometry, contours.cut));
+			hits.push(face);
 		}
 		const portal = mesh(printBatch(parts.portals, toColor).neu, materials.solid, true);
 		if (portal) {
 			portal.castShadow = cast;
-			objects.add(paperEdge(portal.geometry, materials.cut));
+			if (contours) objects.add(paperEdge(portal.geometry, contours.cut));
 		}
 		const pigments = new Map(
 			primitives
@@ -257,41 +261,45 @@ export function populateStructures(
 					p
 				])
 		);
-		const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
-			part.token === '--paper' ? finishes.modelWhite : accentColor(part)
+		const fired = ceramicBatch(parts.ceramics, pigments, (slot) =>
+			finishes.explicit.material(slot)
 		);
-		if (fired.geometry) {
-			const casting = new THREE.Mesh(fired.geometry, materials.fired);
+		for (const casting of fired.meshes) {
 			casting.castShadow = cast;
-			objects.add(casting, silhouette(fired.geometry, materials.hull));
+			objects.add(casting);
+			if (contours) objects.add(silhouette(casting.geometry, contours.hull));
 			hits.push(casting);
 		}
 		lines(fired.edges, materials.detail);
 	}
 
-	function drawStockAndBodies() {
-		const stock = batch(
+	function drawStock() {
+		const stock = (contours ? batch : batchFaces)(
 			parts.regular.filter((part) => part.role === 'bestand'),
 			toColor
 		);
+		fill(stock.alt, materials.stock, true, !contours);
+		mesh(stock.blatt, materials.stockSheet);
+		mesh(stock.glas, materials.stockSheet);
+		if (contours && stock.hull) mesh(stock.hull.alt, contours.pencil);
+		lines(stock.kanten.alt, materials.pencil);
+		if (contours && details) lines(stockDetail(parts.regular), materials.stockDetail);
+	}
+
+	function drawStockAndBodies() {
+		drawStock();
 		const body = printBatch(
 			parts.regular.filter((part) => part.role !== 'bestand' && !isSheet(part)),
 			toColor
 		);
 		const sheets = printBatch(parts.regular.filter(isSheet), toColor);
-		surface(body.neu, materials.solid, materials.hull, true);
-		surface(printBatch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
-		surface(printBatch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);
+		surface(body.neu, materials.solid, contours?.hull, true);
+		surface(printBatch(parts.drawers, toColor).neu, materials.solid, contours?.print, true);
+		surface(printBatch(parts.pods, toColor).neu, materials.pod, contours?.print, true);
 		fill(printBatch(parts.plainPods, toColor).neu, materials.pod, true);
-		mesh(stock.alt, materials.stock, true);
-		mesh(stock.blatt, materials.stockSheet);
-		mesh(stock.glas, materials.stockSheet);
-		mesh(stock.hull.alt, materials.pencilHull);
-		surface(body.blatt, materials.sheet, materials.sheetHull, false);
-		surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
-		surface(body.glas, materials.glass, materials.hull, false, false);
-		lines(stock.kanten.alt, materials.pencil);
-		if (details) lines(stockDetail(parts.regular), materials.stockDetail);
+		surface(body.blatt, materials.sheet, contours?.sheet, false);
+		surface(sheets.blatt, materials.sheet, contours?.sheet, false);
+		surface(body.glas, materials.glass, contours?.hull, false, false);
 		lines(body.kanten.neu, materials.detail);
 		lines(sheets.kanten.neu, materials.perimeter);
 		const plain = printBatch(parts.plain, toColor);

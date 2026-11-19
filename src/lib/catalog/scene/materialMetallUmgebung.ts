@@ -8,10 +8,11 @@ import {
 	MathUtils
 } from 'three/webgpu';
 
-export type MetallLicht = 'metall-messing' | 'metall-kupfer';
+export type MetallLicht = 'metall-messing' | 'metall-kupfer' | 'studio';
 
 const himmelFarbe: Record<MetallLicht, readonly [number, number, number]> = {
-	'metall-messing': [0.46, 1.14, 5.3],
+	studio: [1.05, 1.02, 0.96],
+	'metall-messing': [0.62, 0.7, 0.86],
 	'metall-kupfer': [0.86, 0.97, 1.13]
 };
 const breit = 192;
@@ -33,7 +34,12 @@ function spiegelFarben(phi: number, hoehe: number, farbe: readonly [number, numb
 		MathUtils.smoothstep(hoehe, -0.59, -0.43) *
 		(1 - MathUtils.smoothstep(hoehe, 0.09, 0.19));
 	const gold = lichtfeld(phi, -1.38, 0.55) * (1 - MathUtils.smoothstep(hoehe, 0.06, 0.26));
-	const licht = karte * 1.42 + fenster * 1.05;
+	// Linear HDR radiance of the overhead softbox and the tall strip reflected along bevels.
+	const softbox =
+		lichtfeld(phi, -2.38, 0.82) *
+		MathUtils.smoothstep(hoehe, 0.34, 0.48) *
+		(1 - MathUtils.smoothstep(hoehe, 0.82, 0.94));
+	const licht = karte * 2.8 + fenster * 1.65 + softbox * 5.2;
 	const boden =
 		(1 - MathUtils.smoothstep(hoehe, -0.6, 0.06)) *
 		(0.075 + 0.21 * Math.pow(0.5 + 0.5 * Math.cos(phi * 2 + 0.45), 2));

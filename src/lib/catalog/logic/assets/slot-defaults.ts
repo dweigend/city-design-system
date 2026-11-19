@@ -3,17 +3,18 @@ import type { ColorToken, FinishId } from '../parametrik/types';
 import type { AssetRecipe, AssetSurface } from './definition';
 
 const dress: Record<string, [FinishId, ColorToken]> = {
-	body: ['metall-lackiert', '--paper'],
+	body: ['kunststoff-formteil', '--paper'],
+	figure: ['keramik-ton', '--ink'],
 	plaza: ['beton-terrazzo', '--cat-business-2'],
 	accent: ['keramik-glasiert', '--body-living'],
-	glass: ['acryl-matt', '--cat-health-3'],
+	glass: ['clear-acrylic', '--cat-health-3'],
 	channel: ['metall-lackiert', '--cat-health'],
 	highlight: ['metall-messing', '--cat-mobility'],
 	planting: ['planted-mat', '--cat-nature'],
 	trim: ['metall-messing', '--cat-living'],
 	deck: ['holz-natur', '--cat-business'],
 	edge: ['metall-graphit', '--ink'],
-	frame: ['metall-gebuerstet', '--blueprint'],
+	frame: ['metall-lackiert', '--blueprint'],
 	basin: ['keramik-glasiert', '--cat-health-3'],
 	funnel: ['keramik-glasiert', '--cat-health']
 };
@@ -63,5 +64,9 @@ export function suggestedSurface(recipe: AssetRecipe, variant: string, slot: str
 	if (recipe.category === 'ceramics' || slot === 'basin' || slot === 'funnel')
 		return { token, material: 'glaze', finish: 'keramik-glasiert' };
 	const finish = categoryDress[recipe.category]?.[name] ?? standard;
-	return { token, material: finishMaterial(finish), finish };
+	return {
+		token,
+		material: name === 'glass' && finish === 'clear-acrylic' ? 'glass' : finishMaterial(finish),
+		finish
+	};
 }

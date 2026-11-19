@@ -20,7 +20,8 @@ import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { createCellPicker } from './house-picker';
-import { createLight } from './light';
+import { studioPipeline } from '../studio-pipeline';
+import { type StudioQuality } from '../studio-quality';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
 import { KEY, projectChanges, projectInstallations } from './projection';
@@ -35,11 +36,13 @@ import { createFrameLoop } from './frame-loop';
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
+	quality?: StudioQuality;
 	minInkAppliesTo?: MinimumInk;
 	onFrameFailure?: (reason: string) => void;
 	openingArea?: () => OpeningArea | undefined;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
+	landmark?: Vec3;
 	/** Seed the study additions belong to, if restricted to one terrain. */
 	additionSeed?: number;
 	/** Optional study window in world meters, from its low corner to its high corner. */
@@ -72,14 +75,22 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const light = createLight();
-	const structures = createStructures();
+	const pipeline = studioPipeline(
+		renderer,
+		scene,
+		view.camera,
+		study.quality,
+		view.camera.far - view.camera.near
+	);
+	const light = pipeline.light;
+	const structures = createStructures(study.quality, true);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
-	scene.add(...light.objects, structures.group, vehicles.group);
+	scene.add(structures.group, vehicles.group);
 
 	const ink = new THREE.Color();
+	const paper = new THREE.Color();
 	const hazardRole = stilFuer({ zoom: 'nah', modus: 'bauen', situation: 'stoerung' }).rollen.gefahr;
 	const swatches = { planned: new THREE.Color(), hazard: new THREE.Color() };
 	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STRICHE.kontur });
@@ -160,7 +171,7 @@ export function createSandboxStage(
 			view.elevation()
 		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
-		if (tones) light.setTone(tones.raster);
+		if (tones) light.setTone(tones.blei, paper);
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;
@@ -173,6 +184,7 @@ export function createSandboxStage(
 		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
+		pipeline.setTownFootprint(scale);
 		light.aim(view.target, view.span());
 		pixelsPerMeter.value = 1 / view.metersPerPixel();
 		updateStyle();
@@ -182,7 +194,7 @@ export function createSandboxStage(
 	function renderImage(castersMoved: boolean) {
 		if (shadowsDirty || castersMoved) light.refresh();
 		shadowsDirty = false;
-		renderer.render(scene, view.camera);
+		pipeline.render();
 		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 	}
 
@@ -205,7 +217,8 @@ export function createSandboxStage(
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
-		scene.background = new THREE.Color(next.paper).lerp(new THREE.Color(next.ink), 0.035);
+		paper.set(next.paper);
+		scene.background = paper.clone().lerp(new THREE.Color(next.ink), 0.025);
 		structures.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
@@ -244,7 +257,7 @@ export function createSandboxStage(
 	}
 
 	function framePortrait(world: World, area = study.openingArea?.()) {
-		if (planView || !frameOldTown(view, world, area)) return false;
+		if (planView || !frameOldTown(view, world, area, study.landmark)) return false;
 		framedArea = area;
 		return true;
 	}
@@ -258,7 +271,7 @@ export function createSandboxStage(
 			const framed =
 				view.isPortrait() && !planView
 					? framePortrait(opening)
-					: frameTownSilhouette(view, opening);
+					: frameTownSilhouette(view, opening, study.landmark);
 			if (framed) return;
 		}
 		view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
@@ -483,7 +496,7 @@ export function createSandboxStage(
 			if (terrain) terrain.dispose();
 			frames.dispose();
 			structures.dispose();
-			light.dispose();
+			pipeline.dispose();
 			baseOutline.dispose();
 			cursorMaterial.dispose();
 			gpu.dispose();

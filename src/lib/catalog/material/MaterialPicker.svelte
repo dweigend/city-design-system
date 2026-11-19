@@ -38,7 +38,6 @@
 		<Buehne
 			stuecke={szene.stuecke}
 			studio
-			lichtVonRechts
 			verhaeltnis="16 / 10"
 			hoeheDeg={26}
 			azimutDeg={34}
@@ -81,7 +80,6 @@
 			<Buehne
 				stuecke={lupe}
 				studio
-				lichtVonRechts
 				verhaeltnis="2 / 1"
 				hoeheDeg={14}
 				azimutDeg={30}
