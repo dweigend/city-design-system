@@ -1,3 +1,4 @@
+import { bridgePair } from './people';
 import { required } from '../required';
 import { houseSurfaces, type HouseSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
@@ -119,5 +120,12 @@ export function houseLinks(
 				return span ? [span] : [];
 			})
 		);
-	return budget(spans, sections.length);
+	const occupied = new Set<string>();
+	return budget(spans, sections.length).map(span=>{
+		const owner=[span.a,span.b].find(id=>!occupied.has(id));
+		if(!owner) return span;
+		const pair=bridgePair(span.route,span.id,seed,surfaces);
+		if(pair.length) occupied.add(owner);
+		return {...span,parts:[...span.parts,...pair]};
+	});
 }

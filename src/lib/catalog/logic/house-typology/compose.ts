@@ -39,8 +39,7 @@ function peopleOnLandings(plan: Plan, levels: Level[]) {
 	const groups = Number(
 		collapse('part/people/' + plan.site.id, plan.seed, plan.type, [
 			['1', 1],
-			['2', levels.length >= 2 ? 1 : 0],
-			['3', levels.length >= 3 ? 1 : 0]
+			['2', levels.length >= 2 ? 1 : 0]
 		])
 	);
 	return Array.from({ length: groups }, (_, i) => {
