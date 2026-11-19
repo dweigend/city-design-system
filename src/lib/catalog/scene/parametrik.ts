@@ -1,3 +1,5 @@
+import { color as colorNode } from 'three/tsl';
+import { pencilStock } from './pencil-stock';
 import {
 	createDrawingRenderer,
 	initializeDrawingRenderer,
@@ -246,7 +248,7 @@ export function createParametrikScene(
 			}
 		>();
 		for (const p of primitives) {
-			const role = legacyRoleOf(p);
+			const role = p.planned ? 'bestand' : legacyRoleOf(p);
 			const group = groupOf?.(p) ?? '';
 			parent = groupOf ? groupFor(group) : model;
 			if (p.kind === 'polyline') {
@@ -328,7 +330,7 @@ export function createParametrikScene(
 			const see = style.level === 'hull' || !!p.glass;
 			// Materialsystem (data/material.ts): only on opt-in or for the new material ids.
 			const look =
-				style.level !== 'hull' && usesMaterialSystem(p.material, style.materials)
+				role === 'neu' && style.level !== 'hull' && usesMaterialSystem(p.material, style.materials)
 					? (({ material, token }) => materialLook(material, token))(resolveMaterial(p))
 					: undefined;
 			const finish = style.level !== 'hull' && role === 'neu' ? p.finish : undefined;
@@ -389,13 +391,16 @@ export function createParametrikScene(
 							polygonOffsetFactor: 1,
 							polygonOffsetUnits: 1
 						});
-						material.colorNode = surfaceColor(
-							color,
-							p.material,
-							role === 'bestand' || p.glass ? 'flat' : style.material,
-							style.memphis ? p.pattern : undefined,
-							inkColor(false)
-						);
+						material.colorNode =
+							role === 'bestand' && !see
+								? pencilStock(colorNode(color).rgb, colorNode(inkColor(true)).rgb)
+								: surfaceColor(
+										color,
+										p.material,
+										role === 'bestand' || p.glass ? 'flat' : style.material,
+										style.memphis ? p.pattern : undefined,
+										inkColor(false)
+									);
 						materials.set(key, material);
 					}
 					return material;
@@ -411,7 +416,7 @@ export function createParametrikScene(
 			const edge = look && !(existing && look.material === 'paper') ? look.edge : undefined;
 			const drawEdges = !look || look.edge !== null;
 			if ((style.lines || style.level === 'hull') && drawEdges) {
-				if (built.edges !== false && p.edges !== false) {
+				if (!finish && built.edges !== false && p.edges !== false) {
 					const edges = new THREE.EdgesGeometry(geometry, built.edgeAngle);
 					const positions = Array.from(edges.getAttribute('position').array);
 					const strong = p.emphasis ? 2.6 : 1;
@@ -423,7 +428,7 @@ export function createParametrikScene(
 					else segments(positions, place, existing, strong);
 					edges.dispose();
 				}
-				if (built.rulings)
+				if (!finish && built.rulings)
 					segments(built.rulings, place, existing, built.edges === false ? 0.8 : 0.6);
 				// Glazed bodies use the shared screen-space silhouette.
 				if (hasGlazeContour(finish) && !see) {
@@ -431,7 +436,7 @@ export function createParametrikScene(
 					hull.position.copy(place.position);
 					hull.rotation.copy(place.rotation);
 					parent.add(hull);
-				} else if (built.outline && !see && !look?.transparent) {
+				} else if (!finish && built.outline && !see && !look?.transparent) {
 					const hull = paintedMesh(geometry.clone(), () => {
 						const outlineKey = `outline-${existing}`;
 						usedMaterials.add(outlineKey);

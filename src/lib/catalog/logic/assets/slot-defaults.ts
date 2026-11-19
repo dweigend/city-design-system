@@ -17,7 +17,14 @@ const pigments: Record<string, ColorToken> = {
 	funnel: '--cat-health'
 };
 
-/** Resolves a recipe's authored slot suggestion, including the original city drafting treatment. */
+const physicalDefaults: Record<string, Pick<AssetSurface, 'material' | 'finish'>> = {
+	frame: { material: 'metal', finish: 'metall-lackiert' },
+	glass: { material: 'glass', finish: 'clear-acrylic' },
+	deck: { material: 'wood', finish: 'holz-natur' },
+	plaza: { material: 'concrete', finish: 'beton-terrazzo' }
+};
+
+/** Resolves a recipe's authored slot suggestion, with physical defaults for unassigned bodies. */
 export function suggestedSurface(recipe: AssetRecipe, variant: string, slot: string): AssetSurface {
 	const preset = recipe.finishes?.[variant] ?? recipe.suggestions?.[slot];
 	if (preset) return { ...preset };
@@ -25,5 +32,8 @@ export function suggestedSurface(recipe: AssetRecipe, variant: string, slot: str
 	if (!token) throw new RangeError('Missing slot suggestion: ' + recipe.id + '/' + slot);
 	if (recipe.category === 'ceramics' || slot === 'basin' || slot === 'funnel')
 		return { token, material: 'glaze', finish: 'keramik-glasiert' };
-	return { token, material: 'metal', finish: slot === 'frame' ? 'metal' : 'city-drawing' };
+	return {
+		token,
+		...(physicalDefaults[slot] ?? { material: 'acrylic', finish: 'kunststoff-formteil' })
+	};
 }

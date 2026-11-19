@@ -144,6 +144,7 @@ export function populateStructures(
 	function drawFinishes(surfaces: Surface[], { contour }: { contour: boolean }) {
 		for (const face of finishedMeshes(surfaces, finishes.explicit)) {
 			face.castShadow = cast;
+			face.receiveShadow = true;
 			objects.add(face);
 			if (contour && hasGlazeContour(face.material.name))
 				objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));

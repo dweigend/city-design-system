@@ -1,10 +1,10 @@
+import { pencilStock } from '../pencil-stock';
 import * as THREE from 'three/webgpu';
 import {
 	abs,
 	attribute,
 	float,
 	mix,
-	normalWorld,
 	positionLocal,
 	uniform,
 	vec3,
@@ -153,37 +153,7 @@ export function structureMaterials() {
 		float(STRICHE.minimumTraeger * outlineExpansion)
 	);
 	const graphite = uniform(new THREE.Color());
-	const pencilField = positionLocal.x
-		.add(positionLocal.z.mul(0.62))
-		.add(positionLocal.y.mul(0.68))
-		.mul(2.1);
-	const footprint = pencilField.fwidth().max(0.001);
-	const pencilLine = float(1).sub(
-		pencilField.fract().sub(0.5).abs().div(footprint).smoothstep(0, 0.65)
-	);
-	const shadowSide = normalWorld.x
-		.mul(LICHT[0])
-		.sub(normalWorld.z.mul(LICHT[1]))
-		.smoothstep(-0.08, 0.22);
-	const flank = float(1).sub(normalWorld.y.abs()).mul(shadowSide);
-	const tile = positionLocal.y.mul(2.3);
-	const course = float(1).sub(
-		tile.fract().sub(0.5).abs().div(tile.fwidth().max(0.001)).smoothstep(0.0, 0.65)
-	);
-	const roofInk = course
-		.mul(normalWorld.y.smoothstep(0.3, 0.65))
-		.mul(float(1).sub(normalWorld.y.smoothstep(0.95, 1)))
-		.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
-		.mul(0.52);
-	materials.stock.colorNode = mix(
-		paperTone,
-		graphite,
-		pencilLine
-			.mul(flank)
-			.mul(float(1).sub(footprint.smoothstep(0.22, 0.56)))
-			.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus).mul(0.48).add(0.065))
-			.max(roofInk)
-	);
+	materials.stock.colorNode = pencilStock(paperTone.rgb, graphite.rgb);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = paperTone;
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);

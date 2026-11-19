@@ -80,8 +80,9 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 	};
 	const plainIds = new Set([...unoutlined].map((p) => p.id));
 	for (const original of primitives) {
-		if (original.role === 'bestand' && layerOf(original) === 'regular') {
-			parts.regular.push(original);
+		if (original.role === 'bestand' || original.planned) {
+			if (isStructural(original)) parts.carriers.push(original);
+			else parts.regular.push({ ...original, role: 'bestand' });
 			continue;
 		}
 		const finish = finishedSurface(original);
