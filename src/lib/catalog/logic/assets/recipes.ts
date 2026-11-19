@@ -37,6 +37,7 @@ import { escalator } from './escalator';
 import { ladder } from './ladder';
 import { spiralStair } from './spiral-stair';
 import { ceramicGlaze } from './ceramic-glaze';
+import { terrazzo } from './terrazzo';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -76,5 +77,6 @@ export const recipes: readonly AssetRecipe[] = [
 	escalator,
 	ladder,
 	spiralStair,
-	ceramicGlaze
+	ceramicGlaze,
+	terrazzo
 ];
