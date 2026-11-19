@@ -136,9 +136,9 @@ function surveyFrame(world: World, includeEmpty: boolean) {
 			const { vertices, id: key } = faceSeam(cell, side);
 			const returnSide = surveyBay(side, key);
 			const reason = opening(cell, other, grid, side) ?? bearingGap(wall.exposed[side], returnSide);
+			const houses = other && otherHeight !== undefined ? [id, other.id] : [id];
 			seams.set(key, features());
 			function features(): FrameSeam {
-				const houses = other && otherHeight !== undefined ? [id, other.id] : [id];
 				const roofDifference = otherHeight === undefined ? undefined : height - otherHeight;
 				return {
 					id: key,

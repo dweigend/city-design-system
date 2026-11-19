@@ -7,12 +7,7 @@ import { removeInstallations } from './installation-record';
 
 /** Erases one frontage and retires its goals and dated reservations in the same edit. */
 export function eraseFrontage(world: World, state: SandboxState, cell: TerrainCell) {
-	const keys = new Set(cell.vertexIds.map((_, i) => faceSeam(cell, i).id));
-	if (state.frameTimeline || state.frameBays?.size) {
-		for (const seam of frameSurvey(world).seams.values()) {
-			if (seam.gate && seam.houses.includes(cell.id)) keys.add(seam.id);
-		}
-	}
+	const keys = frontages(world, state, cell);
 	const timeline = state.frameTimeline;
 	const removed =
 		timeline?.goals.filter(
@@ -49,4 +44,14 @@ export function eraseFrontage(world: World, state: SandboxState, cell: TerrainCe
 			}
 		}
 	};
+}
+
+function frontages(world: World, state: SandboxState, cell: TerrainCell) {
+	const keys = new Set(cell.vertexIds.map((_, i) => faceSeam(cell, i).id));
+	if (state.frameTimeline || state.frameBays?.size) {
+		for (const seam of frameSurvey(world).seams.values()) {
+			if (seam.gate && seam.houses.includes(cell.id)) keys.add(seam.id);
+		}
+	}
+	return keys;
 }
