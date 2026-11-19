@@ -23,6 +23,7 @@ export function structureMaterials() {
 	const paper = new THREE.Color();
 
 	const materials = {
+		glaze: new THREE.MeshBasicNodeMaterial(),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		solid: new THREE.MeshBasicNodeMaterial({
 			polygonOffset: true,
@@ -74,6 +75,7 @@ export function structureMaterials() {
 		abs(normalWorld.y)
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
+	materials.glaze.colorNode = solidColor;
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
 	materials.hull.vertexNode = outlinePositionAtOffset(outlinePx);
 	materials.sheetHull.vertexNode = outlinePositionAtOffset(outlinePx, sheetOffsetM);

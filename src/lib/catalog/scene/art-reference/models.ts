@@ -79,8 +79,8 @@ function vesselModel(v: NonNullable<ReturnType<typeof buildVessel>>, ink: PlateM
 	const geometry = new T.BufferGeometry().setFromPoints(
 		body.points.map(([x, y, z]) => new T.Vector3(x, z, -y))
 	);
-	const indices = new Map(body.points.map((point, i) => [point, i]));
-	geometry.setIndex([...body.triangles, ...lip.triangles.map((i) => indices.get(lip.points[i])!)]);
+	const lipStart = body.points.indexOf(lip.points[0]);
+	geometry.setIndex([...body.triangles, ...lip.triangles.map((i) => lipStart + i)]);
 	geometry.computeVertexNormals();
 	geometry.addGroup(0, body.triangles.length, 0);
 	geometry.addGroup(body.triangles.length, lip.triangles.length, 1);

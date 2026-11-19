@@ -42,6 +42,13 @@ const isAccent = (part: Primitive) =>
 function layerOf(part: Primitive) {
 	if (part.material === 'ghost') return 'ghosts';
 	if (isStructural(part)) return 'carriers';
+	if (
+		part.kind === 'mesh' &&
+		part.material === 'glaze' &&
+		part.role === 'neu' &&
+		part.token === '--paper'
+	)
+		return 'glaze';
 	return isAccent(part) ? 'accents' : 'regular';
 }
 
@@ -50,6 +57,7 @@ function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) 
 		regular: [] as Primitive[],
 		plain: [] as Primitive[],
 		plainAccents: [] as Primitive[],
+		glaze: [] as Primitive[],
 		carriers: [] as Primitive[],
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
@@ -120,6 +128,9 @@ export function populateStructures(
 		toColor
 	);
 	const sheets = batch(parts.regular.filter(isSheet), toColor);
+	const glaze = batch(parts.glaze, toColor);
+	surface(glaze.neu, materials.glaze, materials.hull, true);
+	lines(glaze.kanten.neu, materials.detail);
 	surface(body.neu, materials.solid, materials.hull, true);
 	mesh(stock.alt, materials.stock, true);
 	mesh(stock.blatt, materials.stockSheet);

@@ -350,3 +350,23 @@ test('the city stop retains its colored shadow caster without an outline or bear
 		bearing.dispose();
 	}
 });
+
+test('a model-white ceramic mesh uses a flat glaze and keeps its silhouette', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials();
+	const bearing = new SphereGeometry();
+	const group = populateStructures(
+		[{ ...forms.mesh, material: 'glaze', token: '--paper' }],
+		finishes,
+		bearing
+	);
+	const meshes = group.children.filter((part) => part instanceof Mesh);
+	try {
+		expect(meshes.find((part) => part.castShadow)?.material).toBe(finishes.materials.glaze);
+		expect(meshes.some((part) => part.material === finishes.materials.hull)).toBe(true);
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
+		finishes.dispose();
+		bearing.dispose();
+	}
+});
