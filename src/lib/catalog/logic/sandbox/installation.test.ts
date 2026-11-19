@@ -56,10 +56,10 @@ test('a short walkway cannot leave an isolated landing', () => {
 });
 
 test('two neutral shells and one colored module touch their carrier and undo together', () => {
-	const frame = carrier(['96/47', '100/44'], withState(town, { ...town.state, year: 2027 })).draft;
+	const frame = carrier(['83/47', '87/47'], withState(town, { ...town.state, year: 2027 })).draft;
 	const w = withState(frame, { ...frame.state, year: 2028 });
 	for (const use of ['energy', 'water'] as const) {
-		const group = ['96/47', '100/44'].reduce(
+		const group = ['83/47', '87/47'].reduce(
 			extendStroke,
 			beginStroke({ kind: 'house', use, style: 'totem' }, w)
 		).draft;

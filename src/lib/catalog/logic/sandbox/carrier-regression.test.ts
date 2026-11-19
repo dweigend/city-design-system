@@ -14,7 +14,7 @@ import {
 
 const seed = createWorld(7);
 const town = withState(seed, { ...seed.state, store: { ...seed.state.store, material: 100 } });
-const stroke = (style: 'megastructure' | 'totem', world: typeof town, cells = ['87/47', '83/47']) =>
+const stroke = (style: 'megastructure' | 'totem', world: typeof town, cells = ['83/47', '87/47']) =>
 	cells.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world)).draft;
 const carrier = stroke('megastructure', town);
 
@@ -28,9 +28,24 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 	};
 	const bearings = forms.flatMap((p) => (p.kind === 'sphere' ? [joint(p.position)] : []));
 	const rods = forms.flatMap((p) =>
-		p.kind === 'pipe' ? [{ a: joint(p.points[0]), b: joint(p.points[1]), radius: p.radius }] : []
+		p.kind === 'pipe'
+			? [{ id: p.id, a: joint(p.points[0]), b: joint(p.points[1]), radius: p.radius }]
+			: []
 	);
-	expect(rods.length).toBeGreaterThan(7);
+	const brace = [...carrier.state.parts.values()].find(
+		(p) =>
+			p.recipe === 'brace' &&
+			p.anchor.cellId === '87/47' &&
+			p.anchor.face === 1 &&
+			p.end.cellId === '86/47'
+	);
+	expect(brace).toBeDefined();
+	const length = ({ a, b }: (typeof rods)[number]) =>
+		Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
+	const replacement = rods.find((rod) => rod.id === brace?.id);
+	if (!replacement) throw new Error('Missing replacement diagonal');
+	expect(length(replacement)).toBeCloseTo(11.254, 3);
+	expect(Math.max(...rods.map(length))).toBeCloseTo(13.422, 3);
 	expect(probeFrame([...nodes.values()], bearings, rods).analysis.status).toBe('ok');
 	const postFeet = new Set(
 		rods.filter((r) => r.a.p[0] === r.b.p[0] && r.a.p[1] === r.b.p[1]).map((r) => r.a.id)

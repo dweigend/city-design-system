@@ -1,4 +1,4 @@
-import { carrierProbe } from './carrier-probe';
+import { probeWallConnections } from './carrier-diagonals';
 import { buildingPlots } from './building-plots';
 import { roofWalls } from '../house-brush';
 import { required } from '../required';
@@ -119,7 +119,7 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 		walls.map((w) => w.sides),
 		layout.parts
 	);
-	return carrierProbe(grid, layout.parts, cells);
+	return probeWallConnections(grid, layout.parts, cells);
 }
 
 function braceWalls(
