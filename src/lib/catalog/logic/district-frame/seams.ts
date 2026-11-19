@@ -45,10 +45,10 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 		s.vertices.flatMap((v) => vertices.get(v) ?? []).filter((n) => n.id !== s.id);
 	function solve(ids: Iterable<string>, state: BaySnapshot, seed: number) {
 		const result = new Map<string, ReturnType<typeof seamProposal>>();
-		const proposals = new Map<string,ReturnType<typeof seamProposal>>();
-		function raw(s:FrameSeam) {
-			const value=proposals.get(s.id) ?? seamProposal(s,seed,policy);
-			proposals.set(s.id,value);
+		const proposals = new Map<string, ReturnType<typeof seamProposal>>();
+		function raw(s: FrameSeam) {
+			const value = proposals.get(s.id) ?? seamProposal(s, seed, policy);
+			proposals.set(s.id, value);
 			return value;
 		}
 		const priority = (s: FrameSeam) => hashUnit(seed, s.id, 'tg-seat-v1');
@@ -60,7 +60,14 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 		function eligible(s: FrameSeam) {
 			if (state.get(s.id)?.built === 'main') return true;
 			if (raw(s).role !== 'main') return false;
-			if (s.gate && adjacent(s).some((n) => n.gate && (state.get(n.id)?.built==='main' || (raw(n).role === 'main' && compare(n, s) < 0))))
+			if (
+				s.gate &&
+				adjacent(s).some(
+					(n) =>
+						n.gate &&
+						(state.get(n.id)?.built === 'main' || (raw(n).role === 'main' && compare(n, s) < 0))
+				)
+			)
 				return false;
 			return s.houses.every(
 				(h) =>
@@ -70,9 +77,17 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 					).length < policy.maxFramedSides
 			);
 		}
+		const main = new Map<string, boolean>();
+		function selectedMain(s: FrameSeam) {
+			const cached = main.get(s.id);
+			if (cached !== undefined) return cached;
+			const ok = state.get(s.id)?.built === 'main' || (eligible(s) && adjacent(s).some(eligible));
+			main.set(s.id, ok);
+			return ok;
+		}
 		function connected(s: FrameSeam) {
 			const ring = adjacent(s);
-			const isRoot = (n: FrameSeam) => state.get(n.id)?.built === 'main';
+			const isRoot = selectedMain;
 			return (
 				(policy.maxBranchSeams >= 1 && ring.some(isRoot)) ||
 				(policy.maxBranchSeams >= 2 &&
@@ -83,28 +98,48 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			const s = byId.get(id);
 			if (!s) throw new RangeError('Unknown seam: ' + id);
 			let proposal = raw(s);
-			if (!s.attachment && proposal.role==='gap' && s.vertices.every(v=>
-				(vertices.get(v)??[]).some(n=>n.id!==s.id && state.get(n.id)?.built==='main'))) {
-				const connector=seamProposal({...s,attachment:true},seed,policy);
-				if(connector.role==='secondary') proposal=connector;
+			if (
+				!s.attachment &&
+				proposal.role === 'gap' &&
+				s.vertices.every((v) =>
+					(vertices.get(v) ?? []).some((n) => n.id !== s.id && selectedMain(n))
+				)
+			) {
+				const connector = seamProposal({ ...s, attachment: true }, seed, policy);
+				if (connector.role === 'secondary') proposal = connector;
 			}
-			if (proposal.role === 'main' && (!eligible(s) || !adjacent(s).some(eligible)))
-				proposal = { role: 'gap', reason: 'unsupported-or-enclosed' };
+			if (proposal.role === 'main' && !selectedMain(s))
+				proposal = {
+					role: 'gap',
+					reason: eligible(s)
+						? 'isolated-main'
+						: s.gate
+							? 'gate-or-house-capacity'
+							: 'house-capacity'
+				};
 			if (proposal.role === 'secondary' && !connected(s))
 				proposal = { role: 'gap', reason: 'detached-spur' };
 			const built = state.get(id)?.built;
 			if (built && (built === 'main' || proposal.role === 'gap'))
-				proposal = { role: built, reason: s.intent && proposal.role !== s.intent ? proposal.reason : s.intent && s.intent !== built ? 'protected-stock' : 'built' };
+				proposal = {
+					role: built,
+					reason:
+						s.intent && proposal.role !== s.intent
+							? proposal.reason
+							: s.intent && s.intent !== built
+								? 'protected-stock'
+								: 'built'
+				};
 			result.set(id, proposal);
 		}
 		return result;
 	}
 	return {
-		/** Returns the two incident rings affected by an edit. Union both surveys on a topology change. */
+		/** Returns four rings for main arbitration and dependent two-hop spurs. Union both surveys on a topology change. */
 		affected(ids: Iterable<string>) {
 			const found = new Set(ids);
 			let frontier = [...found];
-			for (let ring = 0; ring < 2; ring++) {
+			for (let ring = 0; ring < 4; ring++) {
 				const next = new Set<string>();
 				for (const id of frontier) {
 					const seam = byId.get(id);
@@ -127,7 +162,7 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			return {
 				...decision,
 				ruleId: decision.reason,
- blocker: byId.get(id)?.blocker ?? id,
+				blocker: byId.get(id)?.blocker ?? id,
 				diagnostics: omissionMeasures.map((measure) => ({
 					measure,
 					value: evidence[measure] ?? null

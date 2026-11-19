@@ -155,3 +155,12 @@ export {
 	type FrameSeam,
 	type Character
 } from './seam-policy';
+export {
+	planGoal,
+	type FrameGoal,
+	type FrameEvent,
+	type Forecast,
+	type PlanningContext
+} from './horizon';
+
+export { transition as advanceSeams } from './transition';
