@@ -16,7 +16,7 @@ import type { Structures } from './structures';
 import type { TerrainMesh } from './terrain-mesh';
 
 /** Keys of the structure layer per kind of derived part. */
-const KEY = { house: 'house:', forest: 'forest:', line: 'line:' };
+export const KEY = { house: 'house:', forest: 'forest:', line: 'line:' };
 
 export type Target = Readonly<{
 	terrain: TerrainMesh;

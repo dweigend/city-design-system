@@ -55,6 +55,7 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 			];
 			solids.push({
 				...part(cell.id + '@' + level + ':gable' + i, '--paper', { kind: 'polyline', points }),
+				roofCell: cell.id,
 				role: 'bestand'
 			});
 		}
@@ -71,6 +72,7 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 					[...ends[1].peak, top + height]
 				]
 			}),
+			roofCell: cell.id,
 			role: 'bestand'
 		});
 	}

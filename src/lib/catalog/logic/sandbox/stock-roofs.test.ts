@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createRoofBuilder } from '../building-envelope';
+import fixtures from './fixtures/clipped-hip-roofs.json';
+import type { BuildingCell, RoofSeat } from '../building-envelope';
 import init from 'manifold-3d';
 import { focuses } from '../presentation';
 import { applyEdit, changes, createWorld, currentStacks, houseView, type World } from './index';
@@ -38,15 +40,9 @@ test('near-coincident vertices on the seated hip roofs retain their closed K1 me
 	const roofBuilder = createRoofBuilder(kernel, (id, cause) => {
 		throw new Error(id, { cause });
 	});
-	for (const [seed, id] of [
-		[31, '71/49@1:roof'],
-		[140, '83/49@2:roof']
-	] as const) {
-		const world = { ...createWorld(seed), roofBuilder };
-		const cell = world.grid.cellsById.get(id.split('@')[0]);
-		assert.ok(cell);
-		const chunk = cell.chunk;
-		const parts = houseView(world, currentStacks(world.state), chunk, focuses.all);
-		assert.ok(parts.some((p) => p.id === id && p.kind === 'mesh'));
+	// The frontage layout changed these parcels. Keep their original clipping inputs.
+	for (const { id, spec, seat } of fixtures) {
+		const form = roofBuilder.build(spec as BuildingCell, seat as RoofSeat);
+		assert.ok(form.triangles.length, id);
 	}
 });

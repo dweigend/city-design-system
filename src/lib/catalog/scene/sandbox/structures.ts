@@ -1,6 +1,7 @@
 /** Owns the GPU objects for each key of the sandbox's derived structures. */
 import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
+import { roofPick } from './roof-pick';
 import { populateStructures } from './structure-parts';
 import { structureMaterials } from './structure-materials';
 
@@ -27,14 +28,20 @@ export function createStructures() {
 		if (previous) release(previous.objects);
 		entries.delete(key);
 		if (!primitives.length) return;
-		// Reuse the inset walls and terrace slabs as pick surfaces. Roof detail shares
-		// their rendering style but cannot enlarge the kernel-independent target.
-		const detail = primitives.filter(part => part.pickable === false);
-		const body = detail.length ? primitives.filter(part => part.pickable !== false) : primitives;
+		const roofs = primitives.filter((p) => p.roofCell);
+		const body = roofs.length ? primitives.filter((p) => !p.roofCell) : primitives;
 		const objects = populateStructures(body, finishes, dot);
-		if (detail.length) {
-			const roof = populateStructures(detail, finishes, dot);
-			objects.add(...roof.children.slice());
+		if (roofs.length) {
+			const details = populateStructures(roofs, finishes, dot);
+			objects.add(...details.children.slice());
+			for (const part of roofs) {
+				const width = () =>
+					part.material === 'ghost' || part.role === 'neu'
+						? finishes.materials.detail.linewidth
+						: finishes.materials.pencil.linewidth;
+				const proxy = roofPick(part, width);
+				if (proxy) objects.userData.hits.push(proxy);
+			}
 		}
 		group.add(objects);
 		entries.set(key, { primitives, objects });
@@ -60,10 +67,10 @@ export function createStructures() {
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,
 		/** Solid meshes of every key with the given prefix, for ray casting. */
-		solids(prefix: string): THREE.Mesh[] {
+		solids(prefix: string): THREE.Object3D[] {
 			return [...entries]
 				.filter(([key]) => key.startsWith(prefix))
-				.flatMap(([, entry]) => entry.objects.userData.hits as THREE.Mesh[]);
+				.flatMap(([, entry]) => entry.objects.userData.hits as THREE.Object3D[]);
 		},
 		/** Releases all geometry and materials. */
 		dispose() {

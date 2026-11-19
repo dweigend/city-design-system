@@ -38,8 +38,8 @@ type Base = {
 	token: ColorToken;
 	material: MaterialId;
 	detail?: boolean;
-	/** False for visual detail above a stable brush target. */
-	pickable?: false;
+	/** Owning house cell for a selectable roof surface or pencil ridge. */
+	roofCell?: string;
 	rank?: number;
 	stretchRank?: number;
 	pattern?: string;

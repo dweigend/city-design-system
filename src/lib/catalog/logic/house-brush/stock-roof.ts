@@ -48,7 +48,7 @@ export function stockRoof(
 		return {
 			id,
 			role: 'bestand',
-			pickable: false,
+			roofCell: cell.id,
 			token: '--paper',
 			material: 'paper',
 			...form

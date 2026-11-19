@@ -229,10 +229,13 @@ export function createSandboxStage(
 			if (terrain) frameTerrain(terrain);
 			render();
 		},
-		/** The brush hits stable house volumes before falling back to the terrain. */
-		pickCell(x:number,y:number) {
+		/** Picks the nearest visible house, tree or terrain cell in the current view. */
+		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
-			return picker(x,y,shown.grid,terrain.surface,[...structures.solids(KEY.house),...structures.solids(KEY.forest)]);
+			return picker(x, y, shown.grid, terrain.surface, [
+				...structures.solids(KEY.house),
+				...structures.solids(KEY.forest)
+			]);
 		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
