@@ -94,6 +94,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		printInk,
 		screen.mul(canScreen).mul(float(paperFace.not()))
 	);
+	if (cityEdges) materials.solid.colorNode = bodyColor;
 	const seam = attribute('printSeam', 'float');
 	const upper = seam.greaterThanEqual(0);
 	const seamMask = abs(seam).lessThanEqual(seam.fwidth().mul(0.375));
@@ -106,6 +107,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		printInk,
 		float(seamMask)
 	);
+	if (cityEdges) materials.pod.colorNode = bodyColor;
 	const planLength = Math.hypot(LICHT[0], LICHT[1]);
 	const shift = attribute('printOffset', 'float');
 	const downLight = vec3(LICHT[0] / planLength, 0, -LICHT[1] / planLength).mul(shift);
@@ -222,7 +224,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 	}
 
 	function ageColor(color: THREE.Color, part: Primitive) {
-		return part.ageTint ? color.clone().lerp(paper, part.ageTint) : color;
+		return !cityEdges && part.ageTint ? color.clone().lerp(paper, part.ageTint) : color;
 	}
 
 	return {

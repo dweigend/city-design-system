@@ -42,6 +42,12 @@ export function studioPipeline(
 	pipeline.outputNode = vec4(fill, face.a);
 	return {
 		light,
+		/** Keeps contact visible across town blocks as the orthographic footprint grows. */
+		setTownFootprint(metersPerPixel: number) {
+			const radius = THREE.MathUtils.clamp(5 * metersPerPixel, 2.4, 10);
+			contact.radius.value = radius;
+			contact.thickness.value = radius * 0.375;
+		},
 		render: () => pipeline.render(),
 		dispose() {
 			pipeline.dispose();

@@ -1,3 +1,4 @@
+import { terrazzoChips } from './pattern-density';
 import type { Node } from 'three/webgpu';
 import {
 	color,
@@ -6,7 +7,6 @@ import {
 	mx_noise_float,
 	mx_worley_noise_float,
 	mx_worley_noise_vec2,
-	mx_worley_noise_vec3,
 	vec3
 } from 'three/tsl';
 
@@ -29,19 +29,9 @@ function guss(base: Node<'vec3'>, p: Node<'vec3'>) {
 }
 
 function zuschlag(base: Node<'vec3'>, p: Node<'vec3'>) {
-	// Warp angular chips and vary density in patches. The lit chip face has its own height.
-	const cluster = noise(p, 0.92);
-	const koordinaten = p.mul(1.45).add(feld(p, 3).mul(0.13));
-	const abstand = mx_worley_noise_vec3(koordinaten, 0.9, 2).x.sub(cluster.mul(0.21));
-	const korn = zone(abstand, 0.42, 0.455);
-	const farbwahl = noise(p, 1.8);
-	const mineral = mix(color('#33373a'), color('#ba8150'), farbwahl.smoothstep(-0.24, -0.03));
-	const stein = mix(mineral, color('#f1ead8'), farbwahl.smoothstep(0.05, 0.23));
-	return {
-		farbe: mix(base.mul(cluster.mul(0.1).add(1)), stein, korn),
-		hoehe: zone(abstand, 0.21, 0.58).mul(0.54).add(noise(p, 88).mul(0.12)),
-		relief: 0.0038
-	};
+	const chips = terrazzoChips(p, 1.7);
+	const ground = mix(base, color('#424348'), chips.negate().max(0));
+	return { farbe: mix(ground, color('#f5dfbb'), chips.max(0)), hoehe: chips, relief: 0 };
 }
 
 function bruchAbstand(p: Node<'vec3'>) {

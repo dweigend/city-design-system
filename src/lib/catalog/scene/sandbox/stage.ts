@@ -42,6 +42,7 @@ type StageOptions = {
 	openingArea?: () => OpeningArea | undefined;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
+	landmark?: Vec3;
 	/** Seed the study additions belong to, if restricted to one terrain. */
 	additionSeed?: number;
 	/** Optional study window in world meters, from its low corner to its high corner. */
@@ -170,7 +171,7 @@ export function createSandboxStage(
 			view.elevation()
 		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
-		if (tones) light.setTone(tones.raster, paper);
+		if (tones) light.setTone(tones.blei, paper);
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;
@@ -183,6 +184,7 @@ export function createSandboxStage(
 		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
+		pipeline.setTownFootprint(scale);
 		light.aim(view.target, view.span());
 		pixelsPerMeter.value = 1 / view.metersPerPixel();
 		updateStyle();
@@ -255,7 +257,7 @@ export function createSandboxStage(
 	}
 
 	function framePortrait(world: World, area = study.openingArea?.()) {
-		if (planView || !frameOldTown(view, world, area)) return false;
+		if (planView || !frameOldTown(view, world, area, study.landmark)) return false;
 		framedArea = area;
 		return true;
 	}
@@ -269,7 +271,7 @@ export function createSandboxStage(
 			const framed =
 				view.isPortrait() && !planView
 					? framePortrait(opening)
-					: frameTownSilhouette(view, opening);
+					: frameTownSilhouette(view, opening, study.landmark);
 			if (framed) return;
 		}
 		view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);

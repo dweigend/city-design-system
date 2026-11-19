@@ -121,18 +121,14 @@
 		text-transform: uppercase;
 	}
 	:global(.cg-sandbox-options[data-compact]) {
-		grid-auto-flow: column;
-		grid-auto-columns: 1fr;
+		justify-self: stretch;
 	}
 	:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
 		grid-template-columns: auto auto;
 		grid-template-areas: 'name key';
 		column-gap: var(--space-2);
 	}
-	:global(.cg-sandbox-options[data-compact] .cg-sandbox-option + .cg-sandbox-option) {
-		border-top: 0;
-		border-left: var(--hair) solid var(--line);
-	}
+
 	kbd {
 		grid-area: key;
 		font: inherit;

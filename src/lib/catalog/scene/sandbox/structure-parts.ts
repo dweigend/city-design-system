@@ -125,7 +125,10 @@ export function populateStructures(
 		const object = mesh(faces, material, pick);
 		if (object) object.castShadow = shadows;
 	};
-	const parts = partition(primitives, unoutlined);
+	const cityParts = contours
+		? primitives
+		: primitives.filter((p) => !(p.role === 'bestand' && p.detail));
+	const parts = partition(cityParts, unoutlined);
 	drawFinishes(parts.finished, { contour: true });
 	drawFinishes(parts.unoutlinedFinishes, { contour: false });
 	drawStockAndBodies();
@@ -275,12 +278,12 @@ export function populateStructures(
 			parts.regular.filter((part) => part.role === 'bestand'),
 			toColor
 		);
-		mesh(stock.alt, materials.stock, true);
+		fill(stock.alt, materials.stock, true, !contours);
 		mesh(stock.blatt, materials.stockSheet);
 		mesh(stock.glas, materials.stockSheet);
 		if (contours && stock.hull) mesh(stock.hull.alt, contours.pencil);
 		lines(stock.kanten.alt, materials.pencil);
-		if (details) lines(stockDetail(parts.regular), materials.stockDetail);
+		if (contours && details) lines(stockDetail(parts.regular), materials.stockDetail);
 	}
 
 	function drawStockAndBodies() {
