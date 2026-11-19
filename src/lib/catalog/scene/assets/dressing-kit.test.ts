@@ -3,9 +3,46 @@ import { Box3, Vector3 } from 'three/webgpu';
 import { assetRegistry, buildObject } from '../../logic/assets';
 import { build } from '../primitive-geometry';
 
-const groups = { 'kit-': 144, 'person-': 40 };
+const groups = { 'street-life-': 116, 'kit-': 144, 'person-': 40 };
 const seeds = [0, 1, 17, 2147483648, 4294967295];
 const override = { finish: 'holz-natur', token: '--signal' } as const;
+
+function projectedBounds(part: ReturnType<typeof buildObject>['parts'][number], reservation: Box3) {
+	if (part.kind === 'polyline') throw new Error('Expected a solid');
+	const { geometry, position, rotation } = build(part);
+	geometry.rotateY(rotation).translate(position.x, position.y, position.z);
+	geometry.computeBoundingBox();
+	const box = geometry.boundingBox;
+	if (!box || !reservation.containsBox(box))
+		throw new Error([part.id, JSON.stringify(box)].join(' '));
+
+	geometry.dispose();
+	return box;
+}
+
+test('a 2.5 m capsule seats between the cradle cheeks', () => {
+	const cabin = buildObject('kit-capsule-door-5m', 'round-shoulder', 17);
+	const cradle = buildObject('kit-capsule-cradle-5m', 'standard', 17);
+	const bed = cradle.geometry.find((p) => p.kind === 'prism');
+	const cheeks = cradle.geometry.filter((p) => p.kind === 'box');
+	expect(cheeks).toHaveLength(2);
+	expect(cheeks[1].position[1] - cheeks[0].position[1] - cheeks[0].size[1]).toBeCloseTo(
+		cabin.footprint[1]
+	);
+	expect(cheeks[0].position[2]).toBeCloseTo(bed?.height ?? NaN);
+});
+
+test('a three-bay rack keeps 5 m column centres and a 4 m deck bearing', () => {
+	const rack = buildObject('kit-rack-bay-15m', 'standard', 17);
+	const uprights = rack.geometry.filter(
+		(p) => p.kind === 'box' && p.size[2] > 2 && p.position[1] < 0
+	);
+	expect(uprights.map((p) => p.kind === 'box' && p.position[0] + p.size[0] / 2)).toEqual([
+		-7.5, -2.5, 2.5, 7.5
+	]);
+	const beam = rack.geometry.find((p) => p.kind === 'box' && p.position[2] === 3.7);
+	expect(beam && beam.kind === 'box' && beam.position[2] + beam.size[2]).toBe(4);
+});
 
 for (const [prefix, count] of Object.entries(groups)) {
 	const entries = assetRegistry.filter((entry) => entry.id.startsWith(prefix));
@@ -13,6 +50,12 @@ for (const [prefix, count] of Object.entries(groups)) {
 	for (const entry of entries)
 		test(entry.id + ' builds and dresses within its reservation', () => {
 			const [w, d] = entry.footprint;
+			expect(w % 1.25).toBe(0);
+			expect(d % 1.25).toBe(0);
+			const variants = entry.variants.map((v) =>
+				JSON.stringify(buildObject(entry.id, v, 0).geometry)
+			);
+			expect(new Set(variants).size).toBe(3);
 			const reservation = new Box3(
 				new Vector3(-w / 2 - 0.02, -0.00001, -d / 2 - 0.02),
 				new Vector3(w / 2 + 0.02, Infinity, d / 2 + 0.02)
@@ -43,15 +86,7 @@ for (const [prefix, count] of Object.entries(groups)) {
 							'printBand'
 						])
 							expect(member).not.toHaveProperty(field);
-						if (part.kind === 'polyline') throw new Error('Expected a solid');
-						const { geometry, position, rotation } = build(part);
-						geometry.rotateY(rotation).translate(position.x, position.y, position.z);
-						geometry.computeBoundingBox();
-						const box = geometry.boundingBox;
-						if (!box || !reservation.containsBox(box))
-							throw new Error([entry.id, variant, seed, part.id, JSON.stringify(box)].join(' '));
-						bounds.union(box);
-						geometry.dispose();
+						bounds.union(projectedBounds(part, reservation));
 					}
 					expect(Math.abs(bounds.min.y)).toBeLessThan(0.02);
 					if (prefix === 'person-') {

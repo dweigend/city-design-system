@@ -1,3 +1,7 @@
+import { streetTransport } from './objects/street-transport';
+import { streetWorkshop } from './objects/street-workshop';
+import { streetTerrace } from './objects/street-terrace';
+import { streetServices } from './objects/street-services';
 import { capsuleKit } from './objects/capsule-kit';
 import { structuralKit } from './objects/structural-kit';
 import { deckKit } from './objects/deck-kit';
@@ -172,5 +176,9 @@ export const recipes: readonly AssetRecipe[] = [
 	...structuralKit,
 	...deckKit,
 	...crownKit,
-	...serviceKit
+	...serviceKit,
+	...streetTransport,
+	...streetWorkshop,
+	...streetTerrace,
+	...streetServices
 ];
