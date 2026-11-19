@@ -9,7 +9,9 @@ export const exchangeStations = [
 		...row(3, (t) => block(t * 1.1, 0, 0.97, 0.91, 1.2, 0.25, food))
 	]),
 	asset('sort-station', [4, 2], (factor) => [
-		...row(3, (t, i) => block(t * 1.2, 0, 0, 1.12, 1.5, 1.15 * factor, [food, energy, water][i])),
+		...row(3, (t, i) =>
+			block(t * 1.2, 0, 0, 1.12, 1.5, 1.15 * factor, ([food, energy, water] as const)[i])
+		),
 		...row(3, (t) => block(t * 1.2, 0, 1.15 * factor, 1.17, 1.56, 0.14)),
 		...row(3, (t) => block(t * 1.2, 0, 1.15 * factor + 0.14, 0.63, 0.42, 0.02, path))
 	]),

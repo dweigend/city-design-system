@@ -113,7 +113,7 @@ export const turnedWare = [
 			0
 		)
 	]),
-	asset('square-flask', [2.48, 2.48], (factor, variant) => [
+	asset('square-flask', [2.48, 2.48], (factor) => [
 		vessel(
 			[
 				[0.75, 0],
@@ -122,7 +122,7 @@ export const turnedWare = [
 				[0.42, 1.96],
 				[0.42, 2.28]
 			],
-			4 + variant,
+			4,
 			factor,
 			pane,
 			0
@@ -168,10 +168,11 @@ export const turnedWare = [
 				[0.61, 2.04],
 				[0.64, 2.17]
 			],
-			10 + variant,
+			(10 + variant) * 2,
 			factor,
 			energy,
-			0.16
+			0.16,
+			0.08
 		)
 	]),
 	asset('hourglass-column', [2.44, 2.44], (factor, variant) => [

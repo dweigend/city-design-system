@@ -1,19 +1,18 @@
 import { family, block, row, pipe } from './assembly';
 import { drum, ring, water, energy, workshop, living, pane } from './parts';
-import { glaze } from './pottery';
+import { glaze, honeycombCell } from './pottery';
 const asset = family('ceramics', 'facade');
 export const ceramicScreens = [
 	asset('honeycomb-wall', [0.5, 5], (factor) => [
 		...Array.from({ length: 3 }, (_, i) =>
 			row(4, (_, j) =>
-				glaze(
-					ring(
-						[0.18, (j - 1.5) * 1.02 + ((i % 2) - 0.5) * 0.48, 0.6 + i * 0.91],
-						0.56,
-						0.4 * factor,
-						0.36,
-						energy
-					)
+				honeycombCell(
+					(j - 1.5 + ((i % 2) - 0.5) * 0.5) * Math.sqrt(3) * 0.59,
+					0.59 + i * 0.885,
+					0.59,
+					0.46 * factor,
+					0.36,
+					energy
 				)
 			)
 		).flat()

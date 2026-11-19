@@ -118,7 +118,7 @@ export function shell(
 	rise: number,
 	thickness: number,
 	token: ColorToken = white
-): Primitive {
+): Extract<Primitive, { kind: 'arch' | 'vault' | 'halfpipe' }> {
 	return { ...surface(token), kind, position: [x, y, z], width, length, rise, thickness };
 }
 
