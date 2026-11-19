@@ -1,3 +1,4 @@
+import { walkways } from './walkways';
 import { supports } from './supports';
 import { platforms } from './platforms';
 import { roofShells } from './roof-shells';
@@ -96,5 +97,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...houseProjections,
 	...roofShells,
 	...supports,
-	...platforms
+	...platforms,
+	...walkways
 ];

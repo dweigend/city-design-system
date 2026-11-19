@@ -10,7 +10,8 @@ export const assetCategories = [
 	'surfaces',
 	'house-bodies',
 	'roof-pieces',
-	'structure'
+	'structure',
+	'access'
 ] as const;
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';
