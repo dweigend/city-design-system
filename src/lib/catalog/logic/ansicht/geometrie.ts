@@ -35,6 +35,7 @@ export function bounds(p: Primitive): Bounds {
 				[poly[0][0], poly[0][1], p.z + p.height]
 			]);
 		}
+		case 'mesh':
 		case 'polyline':
 			return span(p.points);
 		case 'pipe':
@@ -101,6 +102,7 @@ export function translate(primitive: Primitive, [dx, dy, dz]: Vec3): Primitive {
 	const p = transformAnchors(primitive, move);
 	switch (p.kind) {
 		case 'pipe':
+		case 'mesh':
 		case 'polyline':
 			return { ...p, points: p.points.map(move) };
 		case 'prism':

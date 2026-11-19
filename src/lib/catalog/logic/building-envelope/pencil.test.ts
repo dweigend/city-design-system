@@ -1,3 +1,4 @@
+// @ts-expect-error Bun provides its test API at runtime.
 import { expect, test } from 'bun:test';
 import init from 'manifold-3d';
 import { envelopeForm, type Roof } from './index';

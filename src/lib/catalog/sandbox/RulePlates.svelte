@@ -12,7 +12,7 @@
 	<p>{text}</p>
 	<div class="plates">
 		{#each plates as plate (plate.id)}
-			<figure>
+			<figure class:block-study={plate.id === 'block-grid' || plate.id === 'roof-blocks'}>
 				<div class="view">
 					<PrimitiveView
 						primitives={plate.primitives}
@@ -52,6 +52,9 @@
 	.view {
 		height: 560px;
 		border: var(--hair) solid var(--line);
+	}
+	.block-study .view {
+		height: auto;
 	}
 	figcaption {
 		margin-top: var(--space-2);

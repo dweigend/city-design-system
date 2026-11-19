@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { onMount } from 'svelte';
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
@@ -53,7 +54,16 @@
 			viewChanged: () => current.render()
 		});
 		stage = current;
+		let mounted = true;
+		void loadEnvelopeKernel()
+			.then((kernel) => {
+				if (mounted) session.setKernel(kernel);
+			})
+			.catch(() => {
+				if (mounted) error = 'Detailed roofs unavailable.';
+			});
 		return () => {
+			mounted = false;
 			detach();
 			observer.disconnect();
 			current.dispose();

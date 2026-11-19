@@ -1,3 +1,4 @@
+import type { ManifoldToplevel } from 'manifold-3d';
 import { flowToken } from '../../data/focus';
 import type { ColorToken, Primitive } from '../parametrik/types';
 import type { QuadGrid } from '../quad-grid';
@@ -8,10 +9,23 @@ type Without<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 export type Form = Without<Primitive, 'id' | 'role' | 'token' | 'material'>;
 
 /** What every rule of the grammar reads: the grid, the painted stacks and the seed. */
-export type Site = Readonly<{ grid: QuadGrid; stacks: Stacks; seed: number }>;
+export type Site = Readonly<{
+	grid: QuadGrid;
+	stacks: Stacks;
+	seed: number;
+	kernel?: ManifoldToplevel;
+}>;
 
 /** One draw channel per decision of the grammar (PD-4). */
-export const CHANNEL = { opening: 11, crown: 12, crownTurn: 13, corner: 14, tiers: 15, ridge: 17 };
+export const CHANNEL = {
+	opening: 11,
+	crown: 12,
+	crownTurn: 13,
+	corner: 14,
+	tiers: 15,
+	roof: 16,
+	ridge: 17
+};
 
 /** Share of ink in the pane of a plain window: dark on a white wall. */
 const PANE_SHADE = 0.78;

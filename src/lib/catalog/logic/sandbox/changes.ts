@@ -25,7 +25,7 @@ function changedKeys<V>(before: ReadonlyMap<string, V>, after: ReadonlyMap<strin
 }
 
 function editedCells(before: World, after: World) {
-	if (before.state.year !== after.state.year)
+	if (before.state.year !== after.state.year || before.kernel !== after.kernel)
 		return [...new Set([...before.state.stacks.keys(), ...after.state.stacks.keys()])];
 	return [
 		...new Set([

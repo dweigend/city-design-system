@@ -54,6 +54,8 @@ type Base = {
 	/** View layer: cut face (poché) – new in ink, existing stock hatched gray. */
 	section?: BuildingRole;
 };
+/** Indexed CCW triangles and explicit pencil paths sharing world-space metre coordinates. */
+export type MeshForm = { kind: 'mesh'; points: Vec3[]; triangles: number[]; lines: number[][] };
 export type Primitive = Base &
 	(
 		| { kind: 'box'; position: Vec3; size: Vec3 }
@@ -86,6 +88,7 @@ export type Primitive = Base &
 				height: number;
 		  }
 		/** Line only, no surface: grid edges, networks, plan lines. */
+		| MeshForm
 		| { kind: 'polyline'; points: Vec3[]; closed?: boolean }
 		/** position = center. squash scales height (kissen, ufo). */
 		| { kind: 'sphere'; position: Vec3; radius: number; squash?: number; fine?: boolean }
@@ -172,6 +175,7 @@ export function shiftZ(primitive: Primitive, dz: number): Primitive {
 	const p = transformAnchors(primitive, up);
 	switch (p.kind) {
 		case 'pipe':
+		case 'mesh':
 		case 'polyline':
 			return { ...p, points: p.points.map(up) };
 		case 'prism':

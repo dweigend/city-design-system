@@ -10,15 +10,13 @@ export function heightBudget(c: Cell, grid: Grid): number {
 	return above.length ? (Math.min(...above.map((o) => o.level)) - c.level) * 4 - 0.12 : Infinity;
 }
 export function primitiveTop(p: Primitive): number {
+	if ('size' in p) return p.position[2] + p.size[2];
 	switch (p.kind) {
 		case 'prism':
 			return p.z + p.height;
-		case 'box':
-		case 'wedge':
-		case 'frame':
-			return p.position[2] + p.size[2];
 		case 'pipe':
 			return Math.max(...p.points.map((p) => p[2])) + p.radius;
+		case 'mesh':
 		case 'polyline':
 			return Math.max(...p.points.map((p) => p[2]));
 		case 'capsule':
@@ -77,6 +75,7 @@ export function scaleForm(primitives: Primitive[], center: Vec3, scale: number):
 					...(p.kind === 'frame' ? { bar: p.bar * scale } : {}),
 					...(p.kind === 'wedge' && p.low !== undefined ? { low: p.low * scale } : {})
 				};
+			case 'mesh':
 			case 'polyline':
 				return { ...p, points: p.points.map(point) };
 			case 'pipe':

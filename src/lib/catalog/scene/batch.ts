@@ -182,7 +182,7 @@ export function batch(primitives: Primitive[], colorOf: (p: Primitive) => THREE.
 		}
 		const built = build(p, true);
 		// Coplanar surfaces in existing stock (cornice on roof) flicker otherwise: darker ones sit higher.
-		if (role === 'alt') built.position.y += (p.shade ?? 0) * 0.1;
+		if (role === 'alt' && p.kind !== 'mesh') built.position.y += (p.shade ?? 0) * 0.1;
 		matrix.compose(built.position, quat.setFromAxisAngle(up, built.rotation), one);
 		normalMatrix.getNormalMatrix(matrix);
 		const pushSegments = (target: number[], source: ArrayLike<number>) => {

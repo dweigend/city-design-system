@@ -1,3 +1,4 @@
+import { pencilForm } from './pencil';
 import type { CrossSection, Manifold, ManifoldToplevel, Vec3, Vec2 } from 'manifold-3d';
 import { settings, type BuildingCell, type EnvelopeMesh } from './contract';
 import { normalizeRing } from './normalize-ring';
@@ -30,7 +31,11 @@ function groundPlane(cell: BuildingCell) {
 		throw new RangeError('Expected finite ground plane');
 	return { grade, baseHeight };
 }
-function storeys(s: Solids, cell: BuildingCell, base: CrossSection) {
+function appendSeam(seams: Vec3[][] | undefined, section: CrossSection, z: number) {
+	if (seams)
+		for (const polygon of section.toPolygons()) seams.push(polygon.map(([x, y]) => [x, y, z]));
+}
+function storeys(s: Solids, cell: BuildingCell, base: CrossSection, seams?: Vec3[][]) {
 	const floors = cell.storeys ?? [{}],
 		bodies: Manifold[] = [];
 	const { grade, baseHeight } = groundPlane(cell);
@@ -50,14 +55,15 @@ function storeys(s: Solids, cell: BuildingCell, base: CrossSection) {
 				: s.keep(section.extrude(p.height));
 		bodies.push(s.keep(body.translate([0, 0, z])));
 		z += p.height;
+		if (i < floors.length - 1) appendSeam(seams, section, z);
 	}
 	return bodies;
 }
-function cellBodies(s: Solids, cell: BuildingCell, origin: Vec3) {
+function cellBodies(s: Solids, cell: BuildingCell, origin: Vec3, seams?: Vec3[][]) {
 	if (!cell.polygon.length) return [];
 	const ring = cell.polygon.map(([x, y]): Vec2 => [x - origin[0], y - origin[1]]);
 	const base = s.keep(new s.kernel.CrossSection(ring, 'EvenOdd'));
-	return storeys(s, { ...cell, base: (cell.base ?? 0) - origin[2] }, base);
+	return storeys(s, { ...cell, base: (cell.base ?? 0) - origin[2] }, base, seams);
 }
 /** Builds one closed exterior for touching cells. Pass an initialized Manifold kernel.
  * Plan x/y, elevation z, metres and radians. Collapsed cells contribute no faces.
@@ -67,12 +73,20 @@ export function buildEnvelope(
 	kernel: ManifoldToplevel,
 	cells: readonly BuildingCell[]
 ): EnvelopeMesh {
+	return buildMesh(kernel, cells);
+}
+
+function buildMesh(
+	kernel: ManifoldToplevel,
+	cells: readonly BuildingCell[],
+	seams?: Vec3[][]
+): EnvelopeMesh {
 	const cleaned = cells.map((cell) => ({ ...cell, polygon: normalizeRing(cell.polygon) }));
 	return withSolids(kernel, (s) => {
 		const first = cleaned.find((c) => c.polygon.length);
 		const [x, y] = first?.polygon[0] ?? [0, 0];
 		const origin: Vec3 = [x, y, first?.base ?? 0];
-		const parts = cleaned.flatMap((cell) => cellBodies(s, cell, origin));
+		const parts = cleaned.flatMap((cell) => cellBodies(s, cell, origin, seams));
 		if (!parts.length)
 			return {
 				origin,
@@ -82,4 +96,14 @@ export function buildEnvelope(
 			};
 		return extractEnvelope(s, s.keep(kernel.Manifold.union(parts)), origin);
 	});
+}
+
+/** One building cell as an indexed drawable in world metres, including its storey joints. */
+export function envelopeForm(kernel: ManifoldToplevel, cell: BuildingCell) {
+	const seams: Vec3[][] = [];
+	const mesh = buildMesh(kernel, [cell], seams);
+	return pencilForm(
+		mesh,
+		seams.map((ring) => ring.map((p) => p.map((v, i) => v + mesh.origin[i]) as Vec3))
+	);
 }

@@ -27,6 +27,7 @@ const DIG_RADIUS = 9;
  */
 export type World = Readonly<{
 	seed: number;
+	kernel?: import('manifold-3d').ManifoldToplevel;
 	state: SandboxState;
 	grid: TerrainGrid;
 	/** Routes of `state.lines` on the current grid; a stroke too short to route is absent. */
@@ -127,7 +128,7 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 	if (state === world.state) return world;
 	const sameRoutes = grid === world.grid && state.lines === world.state.lines;
 	return {
-		seed: world.seed,
+		...world,
 		state,
 		grid,
 		lines: sameRoutes ? world.lines : route(grid, state.lines)
