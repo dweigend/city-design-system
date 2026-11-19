@@ -18,7 +18,7 @@ export const typologies = [
 	'tree-house'
 ] as const;
 export type Typology = (typeof typologies)[number];
-export type HouseRole = 'high' | 'medium' | 'low';
+export type HouseRole = 'high' | 'medium' | 'bar' | 'plinth';
 /** Relative typology suitability for the painted site and its fixed skyline role. */
 export function affinities(s: Survey, role: HouseRole): Record<Typology, number> {
 	const n = s.cells.length,
@@ -35,7 +35,7 @@ export function affinities(s: Survey, role: HouseRole): Record<Typology, number>
 		'lattice-head': tall && role === 'high' ? 18 : 0,
 		'courtyard-house': n >= 3 && !s.elongated && h <= 3 ? 20 : 0,
 		'terrace-house': s.district === 'slope' && n >= 2 ? 19 : 0,
-		'plinth-house': h <= 3 || role === 'low' ? 12 : 1,
+		'plinth-house': h <= 3 || role === 'plinth' ? 12 : 1,
 		'cluster-mast': living && h >= 3 ? 9 : 1,
 		rack: n >= 2 || uses.size > 1 ? 9 : 1,
 		'bridge-house': s.elongated ? 12 : 0,

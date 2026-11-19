@@ -1,5 +1,5 @@
-import type { Point, Solid } from './types';
-import type { Plan } from './levels';
+import { required } from '../required';
+import type { Point, Solid, Plan } from './types';
 
 /** A diagonal flat-ended strut between successive slabs, with its two actual horizontal bearing faces. */
 export function brace(
@@ -13,7 +13,7 @@ export function brace(
 	const width = Math.min(0.12, plan.bar),
 		inset = plan.bar,
 		low = stations[0] + inset,
-		high = stations.at(-1)! - inset;
+		high = required(stations.at(-1), 'bearing station') - inset;
 	const y = plan.rear - plan.sign * (plan.type === 'slab-house' ? 0.45 : 0.15);
 	const points: Point[] = [];
 	for (const [x, z] of [

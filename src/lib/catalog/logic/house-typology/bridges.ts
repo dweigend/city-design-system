@@ -1,3 +1,4 @@
+import { required } from '../required';
 import type { Bridge, HouseComposition, Point } from './types';
 
 function direct(a: HouseComposition, b: HouseComposition) {
@@ -82,7 +83,7 @@ export function planBridges(compositions: readonly HouseComposition[]): Bridge[]
 	for (let mask = 1; mask <= all; mask++) {
 		for (const p of options.values()) {
 			if ((mask & p.mask) !== p.mask) continue;
-			const rest = forests.get(mask ^ p.mask)!,
+			const rest = required(forests.get(mask ^ p.mask), 'path forest'),
 				best = forests.get(mask);
 			const count = rest.edges.length + p.edges.length,
 				length = rest.length + p.length;
@@ -94,5 +95,5 @@ export function planBridges(compositions: readonly HouseComposition[]): Bridge[]
 				forests.set(mask, { edges: [...rest.edges, ...p.edges], length });
 		}
 	}
-	return forests.get(all)!.edges;
+	return required(forests.get(all), 'path forest').edges;
 }

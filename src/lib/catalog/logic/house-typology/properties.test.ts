@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { test, expect } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import type { HouseSite } from '../composed-house';
@@ -29,7 +30,7 @@ function site(
 			cells.map((c, k) => [
 				c.id,
 				Array.from({ length: h }, (_, i) =>
-					mix === 0 ? 'living' : uses[(seed + i + k) % uses.length]
+					mix === 0 ? 'living' : uses[(mix === 1 ? seed + i + k : seed) % uses.length]
 				)
 			])
 		)
@@ -52,7 +53,10 @@ function audit(h: HouseComposition) {
 			.filter((p) => !['body', 'capsule', 'crown'].includes(p.joint))
 			.reduce((s, p) => s + vol(p.size), 0) / total;
 	if (structure < 0.2 || structure > 0.35) return 'structure share ' + structure;
-	if (h.levels.at(-1)!.position[2] - h.ground > 8 && !h.supports.some((p) => p.joint === 'brace'))
+	if (
+		required(h.levels.at(-1), 'upper datum').position[2] - h.ground > 8 &&
+		!h.supports.some((p) => p.joint === 'brace')
+	)
 		return 'missing brace';
 	const finding = checkFit(h.parts)[0];
 	if (finding) return JSON.stringify(finding);
@@ -70,7 +74,7 @@ test('mass, deck coverage, joints and finite coordinates across painted sites', 
 		for (let n = 1; n <= 9; n++)
 			for (let h = 1; h <= 10; h++)
 				for (const district of districts)
-					for (let mix = 0; mix < 2; mix++) {
+					for (let mix = 0; mix < 3; mix++) {
 						const result = composeHouse(site(seed, n, h, district, mix));
 						const error = audit(result);
 						if (error && !failures.has(result.typology))
@@ -92,7 +96,10 @@ test('128 ensembles retain their roles, palette and direct level spans under inp
 		}));
 		const context = planEnsemble(sites),
 			houses = sites.map((s) => composeHouse(s, context));
-		const high = houses.find((h) => h.role === 'high')!;
+		const high = required(
+			houses.find((h) => h.role === 'high'),
+			'ensemble house'
+		);
 		const top = (h: HouseComposition) => h.crown.position[2] + h.crown.size[2];
 		expect(houses.filter((h) => h !== high).every((h) => top(h) < top(high))).toBe(true);
 		expect(context).toEqual(planEnsemble([...sites].reverse()));
@@ -108,8 +115,14 @@ test('128 ensembles retain their roles, palette and direct level spans under inp
 		for (const h of houses)
 			expect(bridges.filter((b) => b.a === h.id || b.b === h.id).length).toBeLessThanOrEqual(2);
 		for (const b of bridges) {
-			const a = houses.find((h) => h.id === b.a)!,
-				other = houses.find((h) => h.id === b.b)!;
+			const a = required(
+					houses.find((h) => h.id === b.a),
+					'ensemble house'
+				),
+				other = required(
+					houses.find((h) => h.id === b.b),
+					'ensemble house'
+				);
 			expect(a.cells[0].neighbors).toContain(other.cells[0].id);
 			expect(b.span).toBeLessThanOrEqual(b.pier ? 20 : 12);
 			expect(b.from[2]).toEqual(b.to[2]);

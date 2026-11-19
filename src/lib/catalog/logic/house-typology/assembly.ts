@@ -1,14 +1,20 @@
+import { required } from '../required';
 import { STORY } from '../../data/grid';
 import { brace } from './brace';
 import { bearings, tierParts } from './frame';
 import { crownSpec, mounted, objectSlot, solid } from './objects';
-import type { Plan } from './levels';
-import type { Level, Point, Solid } from './types';
+import type { Level, Point, Solid, Plan } from './types';
 import type { HouseRole } from './families';
 const volume = ([w, d, h]: Point) => w * d * h;
-function roof(plan: Plan, below: number, z: number, stations: number[], small: boolean) {
-	const { site, seed, rear, type } = plan;
-	const crown = objectSlot(site.id + '/crown', crownSpec(type, small), 'energy', seed, 0);
+function roof(
+	plan: Plan,
+	below: number,
+	z: number,
+	stations: number[],
+	spec: ReturnType<typeof crownSpec>
+) {
+	const { site, seed, rear } = plan;
+	const crown = objectSlot(site.id + '/crown', spec, 'energy', seed, 0);
 	const [w, d] = crown.size,
 		x = site.center[0],
 		y = rear - (plan.sign * d) / 2;
@@ -18,7 +24,11 @@ function roof(plan: Plan, below: number, z: number, stations: number[], small: b
 		site.id + '/roof',
 		'deck',
 		[x, y, z - 0.25],
-		[Math.max(w + 0.6, stations.at(-1)! - stations[0] + 0.4), d + 0.6, 0.25],
+		[
+			Math.max(w + 0.6, required(stations.at(-1), 'bearing station') - stations[0] + 0.4),
+			d + 0.6,
+			0.25
+		],
 		site.ground,
 		'deck'
 	);
@@ -49,12 +59,12 @@ export function assemble(
 	stations: number[],
 	skyline: number
 ) {
-	const below = levels.at(-1)!.position[2],
+	const below = required(levels.at(-1), 'upper datum').position[2],
 		top = below + STORY + (role === 'high' ? STORY / 2 : 0);
 	const roofs = [false, true]
-		.map((small) => roof(plan, below, top, stations, small))
+		.map((small) => roof(plan, below, top, stations, crownSpec(plan.type, small)))
 		.filter(({ crown }) => role === 'high' || top + crown.size[2] <= skyline);
-	roofs.push(roof({ ...plan, type: 'capsule-stack' }, below, top, stations, true));
+	roofs.push(roof(plan, below, top, stations, ['ring-beacon', 'compact', 'lantern']));
 	const bodies = levels.flatMap((l) => l.bodies).reduce((s, b) => s + volume(b.size), 0);
 	for (const ratio of [0.3, 0.24, 0.36, 0.18, 0.42]) {
 		const frame = levels.flatMap((l, i) => tierParts(plan, l, i, levels[i - 1], stations, ratio));

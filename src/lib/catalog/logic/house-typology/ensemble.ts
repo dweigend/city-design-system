@@ -1,3 +1,4 @@
+import { required } from '../required';
 import type { HouseSite } from '../composed-house';
 import { STORY } from '../../data/grid';
 import { collapse } from './collapse';
@@ -15,7 +16,7 @@ export type EnsembleContext = {
 function skyline(sites: Survey[], seed: number) {
 	const roles = new Map<string, HouseRole>(sites.map((s) => [s.id, 'medium']));
 	const sorted = [...sites].sort((a, b) => a.programme.length - b.programme.length);
-	const top = sorted.at(-1)!;
+	const top = required(sorted.at(-1), 'upper datum');
 	const ties = sorted.filter((s) => s.programme.length === top.programme.length);
 	const high = collapse(
 		'ensemble/high',
@@ -33,27 +34,25 @@ function skyline(sites: Survey[], seed: number) {
 			'high/' + high,
 			lows.filter((s) => s.programme.length === h).map((s) => [s.id, 1])
 		);
-		roles.set(id, 'low');
-		lows.splice(
-			lows.findIndex((s) => s.id === id),
-			1
-		);
+		const index = lows.findIndex((s) => s.id === id);
+		roles.set(id, lows[index].elongated ? 'bar' : 'plinth');
+		lows.splice(index, 1);
 	}
 	return roles;
 }
 
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
-	const weights = sites.map((s) => affinities(s, roles.get(s.id)!));
+	const weights = sites.map((s) => affinities(s, required(roles.get(s.id), 'ensemble role')));
 	const houses = new Map<string, Decision>();
 	const assign = (i: number, typology: Typology) =>
-		houses.set(sites[i].id, { role: roles.get(sites[i].id)!, typology });
+		houses.set(sites[i].id, { role: required(roles.get(sites[i].id), 'ensemble role'), typology });
 	if (sites.length === 1) {
 		assign(
 			0,
 			collapse(
 				'house/' + sites[0].id,
 				seed,
-				roles.get(sites[0].id)!,
+				required(roles.get(sites[0].id), 'ensemble role'),
 				typologies.map((t) => [t, weights[0][t]])
 			)
 		);
@@ -80,7 +79,7 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 		sites.map((s) => roles.get(s.id)).join('|'),
 		[...palettes].map(([name, p]) => [name, p.weight])
 	);
-	palettes.get(key)!.forms.forEach((type, i) => assign(i, type));
+	required(palettes.get(key), 'chosen palette').forms.forEach((type, i) => assign(i, type));
 	return houses;
 }
 /** Solves one ensemble (one to eight houses) in stable site order. Datum is the first shared half-storey above all painted bases. */

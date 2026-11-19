@@ -4,18 +4,9 @@ import { arrange, disc } from './figure';
 import { collapse } from './collapse';
 import { bodySpec, objectSlot, worldSize } from './objects';
 import type { Typology } from './families';
-import type { Survey } from './survey';
-import type { Body, Level, Point } from './types';
 
-export type Plan = {
-	site: Survey;
-	type: Typology;
-	seed: number;
-	sign: number;
-	datum: number;
-	rear: number;
-	bar: number;
-};
+import type { Body, Level, Point, Plan } from './types';
+
 function offset(type: Typology, i: number, n: number) {
 	switch (type) {
 		case 'terrace-house':

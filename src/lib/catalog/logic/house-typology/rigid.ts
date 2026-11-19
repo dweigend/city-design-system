@@ -1,6 +1,6 @@
 import { buildObject } from '../assets';
 import type { Primitive } from '../parametrik/types';
-import type { FitPart } from './fit-geometry';
+import type { FitPart } from './types';
 import type { Point } from './types';
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 function measures(p: FitPart | Primitive): number[] {
@@ -52,12 +52,13 @@ const uniform = (s: number[]) =>
 	);
 /** Checks independent local metre dimensions or recovers them from a registered rigid member's source. */
 export function invalidScale(p: FitPart) {
-	if (p.scale || p.nativeSize) {
-		if (!p.scale || !uniform(p.scale)) return true;
+	const scale = p.scale;
+	if (scale || p.nativeSize) {
+		if (!scale || !uniform(scale)) return true;
 		return (
 			p.kind === 'box' &&
 			p.nativeSize?.some(
-				(d, i) => !Number.isFinite(d) || d <= 0 || Math.abs(p.size[i] - d * p.scale![i]) > 1e-8
+				(d, i) => !Number.isFinite(d) || d <= 0 || Math.abs(p.size[i] - d * scale[i]) > 1e-8
 			)
 		);
 	}

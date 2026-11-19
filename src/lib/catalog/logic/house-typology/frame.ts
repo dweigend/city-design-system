@@ -1,6 +1,6 @@
-import type { Level, Point, Solid } from './types';
-import type { Plan } from './levels';
+import type { Body, Level, Point, Solid, Plan } from './types';
 import { brace } from './brace';
+import { STORY } from '../../data/grid';
 import { solid, worldSize, mounted } from './objects';
 const volume = ([w, d, h]: Point) => w * d * h;
 
@@ -33,6 +33,17 @@ export function bearings(
 			member('head', top - collar, collar, size)
 		];
 	});
+}
+function bodySolid(b: Body, ground: number): Solid {
+	const occupied = mounted(b, ground, b.kind === 'capsule' ? 'capsule' : 'body');
+	if (b.objectId !== 'drum-house') return occupied;
+	return {
+		...occupied,
+		kind: 'cylinder',
+		position: b.position,
+		radius: b.size[0] / 2,
+		height: b.size[2]
+	};
 }
 function courtPlate(l: Level, plate: Solid): Solid {
 	if (!l.court || plate.kind !== 'box' || !l.court.width) return plate;
@@ -117,7 +128,7 @@ export function tierParts(
 		...posts,
 		...frontBearings(plan, id, l, prev, below, z - thickness, stations)
 	];
-	if (plan.datum + site.programme.length * 4 - site.ground >= 8)
+	if (plan.datum + site.programme.length * STORY - site.ground >= 8)
 		members.push(brace(plan, id + '/brace', stations, below, z - thickness, i % 2 === 1));
 	const pieces = l.bodies.flatMap((b) => {
 		const [w, d] = worldSize(b);
@@ -130,7 +141,7 @@ export function tierParts(
 				site.ground,
 				'frame'
 			),
-			mounted(b, site.ground, b.kind === 'capsule' ? 'capsule' : 'body')
+			bodySolid(b, site.ground)
 		];
 	});
 	return [...members, courtPlate(l, plate), ...pieces];

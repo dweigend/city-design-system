@@ -1,5 +1,5 @@
-import { profile, penetration, type FitPart } from './fit-geometry';
-import type { Joint } from './types';
+import { profile, penetration } from './fit-geometry';
+import type { FitPart, Joint } from './types';
 import { invalidScale } from './rigid';
 import { circleDepth, discDepth } from './circle';
 const tolerance = 0.02 + 1e-9;

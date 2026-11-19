@@ -78,6 +78,7 @@ export function objectSlot(
 		id,
 		objectId,
 		variant,
+		seed,
 		kind,
 		use,
 		nativeSize,

@@ -1,10 +1,8 @@
 import { bounds, rotated, type Bounds } from '../ansicht/geometrie';
 import { prismFaces } from './prism';
 import { enclose } from './curved-bounds';
-import type { ObjectGeometry } from '../assets';
 import type { Primitive } from '../parametrik/types';
-import type { FitMetadata } from './types';
-export type FitPart = (ObjectGeometry | Primitive) & FitMetadata;
+import type { FitPart } from './types';
 type XY = [number, number];
 export type Profile = { bounds: Bounds; polygon?: XY[]; faces?: XY[][]; bottom: XY[]; top: XY[] };
 const corners = [

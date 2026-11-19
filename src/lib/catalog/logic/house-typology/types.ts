@@ -1,6 +1,18 @@
+import type { Survey } from './survey';
 import type { HouseSite, HouseSlot, Section } from '../composed-house';
-import type { ObjectGeometry } from '../assets';
+import type { buildObject, ObjectGeometry } from '../assets';
 import type { Typology, HouseRole } from './families';
+export type Plan = {
+	site: Survey;
+	type: Typology;
+	seed: number;
+	sign: number;
+	datum: number;
+	rear: number;
+	bar: number;
+};
+export type FitPart = (ObjectGeometry | ReturnType<typeof buildObject>['parts'][number]) &
+	FitMetadata;
 export type Point = HouseSlot['position'];
 export type Deck = Section['decks'][number];
 export type Joint =
@@ -23,6 +35,7 @@ export type Block = Extract<Solid, { kind: 'box' }>;
 export type Body = HouseSlot & {
 	objectId: string;
 	variant: string;
+	seed: number;
 	rotation: number;
 	scale: number;
 	nativeSize: Point;

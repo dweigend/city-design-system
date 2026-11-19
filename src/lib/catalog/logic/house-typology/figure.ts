@@ -1,6 +1,5 @@
 import { worldSize } from './objects';
-import type { Body, Level, Point } from './types';
-import type { Plan } from './levels';
+import type { Body, Level, Point, Plan } from './types';
 
 function court(plan: Plan, row: Body[]) {
 	const first = row[0],
@@ -21,7 +20,7 @@ function court(plan: Plan, row: Body[]) {
 		position: [center + u, y + v, first.position[2]]
 	}));
 }
-/** Places four wings around an open court or alternating branches around the mast. */
+/** Places the four courtyard wings around their central opening. */
 export function arrange(plan: Plan, row: Body[]) {
 	if (plan.type === 'courtyard-house') return court(plan, row);
 	return row;
@@ -31,10 +30,11 @@ export function disc(plan: Plan, level: Level): Level {
 	const row = level.bodies,
 		w = Math.max(...row.map((b) => worldSize(b)[0])),
 		d = level.depth - 1.55;
+	const drum = row.length === 1 && row[0].objectId === 'drum-house';
 	const [x, , z] = level.position,
-		r = Math.max(Math.hypot(w / 2, d / 2) + 0.1, d / 2 + 1.25);
+		r = drum ? (d + 1.55) / 2 : Math.max(Math.hypot(w / 2, d / 2) + 0.1, d / 2 + 1.25);
 	const y = plan.rear - plan.sign * r;
-	for (const b of row) b.position[1] += y - (level.position[1] - 0.475 * plan.sign);
+	if (!drum) for (const b of row) b.position[1] += y - (level.position[1] - 0.475 * plan.sign);
 	const outline: Point[] = Array.from({ length: 64 }, (_, i) => [
 		x + r * Math.cos((i * Math.PI) / 32),
 		y + r * Math.sin((i * Math.PI) / 32),

@@ -1,5 +1,5 @@
 import type { Bounds } from '../ansicht/geometrie';
-import type { FitPart } from './fit-geometry';
+import type { FitPart } from './types';
 
 /** Extends drafting bounds where a fitted primitive can project beyond its declared footprint. */
 export function enclose(p: FitPart, box: Bounds): Bounds {

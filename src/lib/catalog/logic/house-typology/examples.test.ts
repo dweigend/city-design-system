@@ -13,7 +13,7 @@ const compose = () => {
 test('eight painted neighbours share one high point and two plinth or bar sites', () => {
 	const houses = compose();
 	expect(houses.filter((h) => h.role === 'high')).toHaveLength(1);
-	expect(houses.filter((h) => h.role === 'low')).toHaveLength(2);
+	expect(houses.filter((h) => h.role === 'bar' || h.role === 'plinth')).toHaveLength(2);
 });
 test('three living floors retain three inhabited decks', () => {
 	const [house] = compose();
