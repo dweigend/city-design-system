@@ -12,7 +12,13 @@ function canopy(type: Plant, x: number, y: number, z: number, r: number): Object
 			return [panel(x, y, z, 1.55 * r, 1.55 * r, 1.48 * r, 'planting')];
 		case 'cone':
 			return [
-				{ ...surface('planting'), kind: 'cone', position: [x, y, z], radius: r, height: 2 * r }
+				...Array.from({ length: 3 }, (_, i): ObjectGeometry => ({
+					...surface('planting'),
+					kind: 'cone',
+					position: [x, y, z + i * r * 0.54],
+					radius: r * (1 - i * 0.25),
+					height: r * (1.13 - i * 0.09)
+				}))
 			];
 		case 'cypress':
 			return [bulb([x, y, z + r], r * 0.55, 2.1, 'planting')];
@@ -25,7 +31,11 @@ function canopy(type: Plant, x: number, y: number, z: number, r: number): Object
 				bulb([x + s * r * 0.38, y, z + 0.62 * r], 0.53 * r, 1.45, 'planting')
 			]);
 		case 'umbrella':
-			return [cap([x, y, z], r, 0.45 * r, 'planting')];
+			return [
+				cap([x, y, z], r * 0.85, 0.43 * r, 'planting'),
+				cap([x + r * 0.32, y, z + r * 0.26], 0.62 * r, 0.4 * r, 'planting'),
+				cap([x - r * 0.38, y + r * 0.15, z + r * 0.1], 0.55 * r, 0.36 * r, 'planting')
+			];
 		case 'rock':
 			return [
 				{

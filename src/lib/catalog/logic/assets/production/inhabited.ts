@@ -1,3 +1,4 @@
+import { castPlinth } from './cast-panel';
 import { shell } from '../assembly';
 import { drum, cap } from '../parts';
 import { panel } from '../objects/forms';
@@ -61,7 +62,7 @@ function envelope(w: number, v: number) {
 		spring = 2.65,
 		entry = depth / 2 - 0.32;
 	return [
-		panel(0, 0, 0, w, depth, floor, 'body'),
+		castPlinth(w, depth, floor, 'body'),
 		panel(0, -entry, floor, w - 0.28, 0.36, spring - floor, 'body'),
 		...[-1, 1].map((side) =>
 			panel(side * (w / 2 - 0.28), 0, floor, 0.46, depth - 0.18, spring - floor, 'body')

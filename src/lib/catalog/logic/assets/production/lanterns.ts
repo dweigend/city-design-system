@@ -37,8 +37,8 @@ function punchedPanel(corners: Vec3[], slot: string) {
 		) as Vec3;
 	const points: Vec3[] = [],
 		triangles: number[] = [];
-	for (let i = 0; i < 16; i++) {
-		const a = (i * Math.PI) / 8 + Math.PI / 4,
+	for (let i = 0; i < 48; i++) {
+		const a = (i * Math.PI) / 24 + Math.PI / 4,
 			x = Math.cos(a),
 			y = Math.sin(a),
 			m = Math.max(Math.abs(x), Math.abs(y));
@@ -47,12 +47,12 @@ function punchedPanel(corners: Vec3[], slot: string) {
 			point(0.5 + 0.31 * x, 0.5 + 0.31 * y)
 		);
 		const j = 2 * i,
-			k = (j + 2) % 32;
+			k = (j + 2) % 96;
 		const quad = (a: number, b: number, c: number, d: number) => triangles.push(a, b, c, a, c, d);
 		quad(j, k, k + 1, j + 1);
-		quad(j + 32, j + 33, k + 33, k + 32);
-		quad(j + 1, k + 1, k + 33, j + 33);
-		quad(j, j + 32, k + 32, k);
+		quad(j + 96, j + 97, k + 97, k + 96);
+		quad(j + 1, k + 1, k + 97, j + 97);
+		quad(j, j + 96, k + 96, k);
 	}
 	points.push(
 		...points.map(([x, y, z]): Vec3 => {

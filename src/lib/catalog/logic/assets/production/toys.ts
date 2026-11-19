@@ -21,7 +21,7 @@ export const toys = [
 			h = w * (0.7 + 0.2 * v),
 			wall = plate(circle(r), 0.22, h, 'foot');
 		const holes = circle(r * 0.64, n).map(([x, y]) =>
-			circle(r * 0.17, 16)
+			circle(r * 0.17, 48)
 				.map(([a, b]): [number, number] => [x + a, y + b])
 				.reverse()
 		);
@@ -40,10 +40,10 @@ export const toys = [
 		const turns = 2 + v,
 			r = w * 0.36,
 			h = w * (0.65 + v * 0.22);
-		const points = Array.from({ length: turns * 20 + 1 }, (_, i): Vec3 => [
-			r * Math.cos((i * Math.PI) / 10),
-			r * Math.sin((i * Math.PI) / 10),
-			0.3 + (h * i) / (turns * 20)
+		const points = Array.from({ length: turns * 48 + 1 }, (_, i): Vec3 => [
+			r * Math.cos((i * Math.PI) / 24),
+			r * Math.sin((i * Math.PI) / 24),
+			0.3 + (h * i) / (turns * 48)
 		]);
 		return [
 			drum([0, 0, 0], r + 0.16, 0.32, 'foot'),

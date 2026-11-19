@@ -12,13 +12,13 @@ export function panel(
 	slot = 'slats'
 ) {
 	const r = Math.min(Math.min(w, d) >= 2.5 ? 0.45 : 0.15, w * 0.49, d * 0.49);
-	const corners = circle(1, 16).flatMap(([a, b], i): [number, number][] => {
-		const quadrant = Math.floor(i / 4);
+	const corners = circle(1, 48).flatMap(([a, b], i): [number, number][] => {
+		const quadrant = Math.floor(i / 12);
 		const cx = x + (quadrant === 0 || quadrant === 3 ? 1 : -1) * (w / 2 - r);
 		const cy = y + (quadrant < 2 ? 1 : -1) * (d / 2 - r);
 		const end = ((quadrant + 1) * Math.PI) / 2;
 		const p: [number, number] = [cx + a * r, cy + b * r];
-		return i % 4 === 3 ? [p, [cx + r * Math.cos(end), cy + r * Math.sin(end)]] : [p];
+		return i % 12 === 11 ? [p, [cx + r * Math.cos(end), cy + r * Math.sin(end)]] : [p];
 	});
 	return plate(corners, z, h, slot);
 }
