@@ -27,6 +27,7 @@ import { ringSculpture } from './ring-sculpture';
 import { facetedSculpture } from './faceted-sculpture';
 import { twoSuns } from './two-suns';
 import { memphis } from './memphis';
+import { waterTower } from './water-tower';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -56,5 +57,6 @@ export const recipes: readonly AssetRecipe[] = [
 	ringSculpture,
 	facetedSculpture,
 	twoSuns,
-	memphis
+	memphis,
+	waterTower
 ];
