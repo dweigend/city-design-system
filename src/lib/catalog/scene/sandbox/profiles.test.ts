@@ -173,7 +173,7 @@ test('the terrain shader switches off the wash only for the dark palette', () =>
 		blueprintSoft: '#7796cc',
 		categories: { health: '#497dbe', nature: '#378654', mobility: '#e9bf55', business: '#d46898' }
 	};
-	const uniforms = new Set<UniformNode<number>>();
+	const uniforms = new Set<{ value: number }>();
 	terrain.surface.material.colorNode?.traverse((node) => {
 		if (node instanceof UniformNode && typeof node.value === 'number') uniforms.add(node);
 	});
