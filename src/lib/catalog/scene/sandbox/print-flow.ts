@@ -2,7 +2,7 @@ import { flowPhase } from './water-print';
 import { attribute, float, mix } from 'three/tsl';
 import { Float32BufferAttribute, MeshBasicNodeMaterial, type Node } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
-import { batch, type Batch } from '../batch';
+import { batchFaces, type Batch } from '../batch';
 
 import type { Color } from 'three/webgpu';
 
@@ -45,7 +45,7 @@ export function conduitBatch(parts: Primitive[], tone: (p: Primitive) => Color) 
 	const pieces = parts
 		.filter((p): p is Pipe => p.kind === 'pipe')
 		.map((p) => {
-			const baked = batch([p], tone);
+			const baked = batchFaces([p], tone);
 			const faces = p.glass ? baked.glas : baked.neu;
 			return {
 				faces,

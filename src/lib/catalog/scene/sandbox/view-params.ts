@@ -9,7 +9,7 @@ export const STRUCTURE_PARAMS = defineParams({
 
 /** Opening view scale and elevation on phones. */
 export const OPENING_VIEW_PARAMS = defineParams({
-	mobileCellWidthPx: numberParam('Mobile opening cell width', 'px', 18, [10, 55, 1]),
+	clusterFill: numberParam('Opening cluster fill', 'ratio', 0.7, [0.5, 0.9, 0.01]),
 	mobileElevationDeg: numberParam('Mobile opening elevation', 'deg', 26, [8, 26, 1])
 });
 

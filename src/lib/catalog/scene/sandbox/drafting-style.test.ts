@@ -173,7 +173,8 @@ test('every shadow-casting form has a Leitstil contour in paper and in color', a
 			{ ...forms.membrane, sag: 0.5 },
 			{ ...forms.ring, glass: true }
 		];
-		const hulls = [finishes.materials.hull, finishes.materials.sheetHull];
+		if (!finishes.contours) throw Error('The illustrated plate needs its contour materials');
+		const hulls = [finishes.contours.hull, finishes.contours.sheet];
 		for (const part of samples)
 			expectFormContour(part, populateStructures([part], finishes, bearing), hulls);
 	} finally {
@@ -219,7 +220,7 @@ test('the city stop retains its colored shadow caster without an outline or bear
 	try {
 		expect(meshes.filter(({ material }) => material === finishes.materials.signal)).toHaveLength(1);
 		expect(meshes.filter(({ castShadow }) => castShadow)).toHaveLength(1);
-		expect(meshes.some(({ material }) => material === finishes.materials.hull)).toBe(false);
+		expect(meshes.some(({ material }) => material === finishes.contours?.hull)).toBe(false);
 		expect(meshes.some(({ material }) => material === finishes.materials.bearing)).toBe(false);
 	} finally {
 		for (const mesh of meshes) mesh.geometry.dispose();
@@ -245,7 +246,7 @@ for (const outline of [true, false])
 				expect(body?.material).toBe(finishes.explicit.material(resolveFinish('glaze', '--paper')));
 				expect(group.userData.hits).toContain(body);
 				expect(meshes.length).toBe(outline ? 2 : 1);
-				if (outline) expect(meshes[1].material).toBe(finishes.glazeContour.material);
+				if (outline) expect(meshes[1].material).toBe(finishes.contours?.glaze.material);
 			} finally {
 				for (const geometry of new Set(meshes.map((mesh) => mesh.geometry))) geometry.dispose();
 				finishes.dispose();

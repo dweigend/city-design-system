@@ -67,7 +67,8 @@ async function exerciseGlazeContour() {
 		stage.update([part]);
 		const bible = contourOf(clock.draw());
 		const sandbox = contourOf(group);
-		assert.equal(sandbox, glazeContourMaterial(finishes.glazeContour));
+		assert(finishes.contours);
+		assert.equal(sandbox, glazeContourMaterial(finishes.contours.glaze));
 		assert(bible.vertexNode);
 		assert.equal(bible.vertexNode, sandbox.vertexNode);
 		assert.equal(bible.side, BackSide);

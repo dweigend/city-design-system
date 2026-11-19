@@ -17,15 +17,8 @@ import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../core/params';
 import type { grammatik } from '../leitstil';
 import { createMaterialLibrary } from '../material-library';
-import { outlinePosition } from '../surfaces';
+import { plateContours } from './plate-contours';
 import { conduitInk } from './print-flow';
-import { cutPaper } from './paper-inlay';
-import {
-	glazeContourMaterial,
-	outlineExpansion,
-	outlinePositionAtOffset,
-	type GlazeContour
-} from './structure-outline';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { Rgb } from '../../logic/farbe/oklch';
 import { overprintColor } from '../../logic/farbe/overprint';
@@ -36,7 +29,7 @@ export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
 export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
-	const glazeContour: GlazeContour = { ink: new THREE.Color(0) };
+	const contours = cityEdges ? undefined : plateContours();
 	let envelopeShadows = true;
 	let minContourPx = STRUCTURE_PARAMS.minContourPx.default;
 	let palette: ReturnType<typeof grammatik> | undefined;
@@ -47,12 +40,10 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 	const seconds = uniform(0);
 	const explicit = createMaterialLibrary(undefined, undefined, seconds, quality);
 	const paperTone = uniform(new THREE.Color());
-	const shadowTone = uniform(new THREE.Color());
 	const markTone = uniform(new THREE.Color());
 	const BodyMaterial = cityEdges ? THREE.MeshStandardNodeMaterial : THREE.MeshBasicNodeMaterial;
 	const materials = {
 		conduit: conduitInk(seconds, markTone),
-		cut: cutPaper(paperTone, shadowTone),
 		sheet: new BodyMaterial({ side: THREE.DoubleSide }),
 		solid: new BodyMaterial({
 			polygonOffset: true,
@@ -66,7 +57,6 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		}),
 		stockDetail: new THREE.Line2NodeMaterial(),
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
-		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
@@ -74,7 +64,6 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		portalInk: new THREE.Line2NodeMaterial(),
 		braceInk: new THREE.Line2NodeMaterial(),
 		pod: new BodyMaterial(),
-		printHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		ghost: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
 			opacity: 0.16,
@@ -89,33 +78,12 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		planned: new THREE.Line2NodeMaterial({ dashed: true, dashSize: 0.6, gapSize: 0.4 }),
 		bearing: new THREE.MeshBasicNodeMaterial(),
 		perimeter: new THREE.Line2NodeMaterial(),
-		hull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
-		sheetHull: new THREE.MeshBasicNodeMaterial({
-			side: THREE.DoubleSide,
-			polygonOffset: true,
-			// Bias past the slope-dependent depth change of a shifted copy at up to 2× DPR.
-			polygonOffsetFactor: Math.ceil(STRICHE.kontur * outlineExpansion * 2 * Math.SQRT2),
-			polygonOffsetUnits: 1
-		}),
 		glass: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
 			depthWrite: false,
 			side: THREE.DoubleSide
 		})
 	};
-	if (cityEdges) {
-		for (const hull of [
-			materials.hull,
-			materials.printHull,
-			materials.sheetHull,
-			materials.pencilHull,
-			glazeContourMaterial(glazeContour)
-		])
-			hull.visible = false;
-	}
-	const outlinePx = uniform(STRICHE.kontur * outlineExpansion);
-	const sheetOffsetM = uniform(0);
-	const pencilPx = uniform(STRICHE.bestand / 2);
 	const bodyColor = attribute<'vec3'>('color', 'vec3');
 	const printInk = uniform(new THREE.Color());
 	const screen = faceHalftone(halftoneScreen(true).pitch);
@@ -144,26 +112,19 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 	const localShift = modelWorldMatrixInverse.mul(vec4(downLight, 0)).xyz;
 	for (const material of [materials.solid, materials.sheet, materials.pod])
 		material.castShadowPositionNode = cityEdges ? positionLocal : positionLocal.add(localShift);
-	materials.printHull.vertexNode = outlinePositionAtOffset(
-		float(STRICHE.minimumTraeger * outlineExpansion)
-	);
 	const graphite = uniform(new THREE.Color());
 	materials.stock.colorNode = pencilStock(paperTone.rgb, graphite.rgb);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = paperTone;
-	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
-	materials.hull.vertexNode = outlinePositionAtOffset(outlinePx);
-	materials.sheetHull.vertexNode = outlinePositionAtOffset(outlinePx, sheetOffsetM);
 
 	function applyTones(g: ReturnType<typeof grammatik>) {
 		palette = g;
 		colors.clear();
 		overprints.clear();
 		paper.copy(g.paper);
-		glazeContour.ink.copy(g.ink);
+		contours?.setTones(g);
 		graphite.value.copy(g.blei);
 		paperTone.value.copy(g.paper);
-		shadowTone.value.copy(g.schatten);
 
 		markTone.value.copy(g.token('--cat-business-2'));
 		materials.stock.color.copy(paper);
@@ -172,15 +133,11 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		materials.ghost.color.copy(g.blei);
 		materials.pencil.color.copy(g.blei);
 		materials.stockDetail.color.copy(g.blei);
-		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
-		materials.hull.color.copy(g.kontur);
-		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);
 		printInk.value.copy(g.token('--ink'));
-		materials.printHull.color.copy(g.ink);
 		for (const line of [materials.carrierInk, materials.portalInk, materials.braceInk])
 			line.color.copy(g.ink);
 	}
@@ -270,7 +227,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 
 	return {
 		explicit,
-		glazeContour,
+		contours,
 		materials,
 		envelopeShadows: () => envelopeShadows,
 		minContourPx: () => minContourPx,
@@ -292,12 +249,10 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		) {
 			if (tones) applyTones(tones);
 			const { bestand, huelle, kontext } = style.rollen;
+			contours?.setWidth(bestand.strichPx, huelle.strichPx, scale);
 			materials.pencil.linewidth = bestand.strichPx;
 			materials.stockDetail.linewidth = bestand.strichPx;
 			materials.stockDetail.visible = style.kamera.pxProM >= MASSSTAB.haus;
-			pencilPx.value = bestand.strichPx / 2;
-			outlinePx.value = huelle.strichPx * outlineExpansion;
-			sheetOffsetM.value = (2 * outlinePx.value) / scale;
 			materials.perimeter.linewidth = huelle.strichPx;
 			materials.detail.linewidth = kontext.strichPx;
 			materials.rail.linewidth = kontext.strichPx;
@@ -311,7 +266,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		/** Releases shared materials. Mesh geometry belongs to the structure layer. */
 		dispose() {
 			explicit.dispose();
-			glazeContour.material?.dispose();
+			contours?.dispose();
 			for (const material of Object.values(materials)) material.dispose();
 		}
 	};
