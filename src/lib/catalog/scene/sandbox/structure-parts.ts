@@ -128,9 +128,18 @@ export function populateStructures(
 		toColor
 	);
 	const sheets = batch(parts.regular.filter(isSheet), toColor);
-	const glaze = batch(parts.glaze, toColor);
-	surface(glaze.neu, materials.glaze, materials.hull, true);
-	lines(glaze.kanten.neu, materials.detail);
+	for (const part of parts.glaze) {
+		if (part.kind !== 'mesh') continue;
+		const geometry = new THREE.BufferGeometry().setFromPoints(
+			part.points.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
+		);
+		geometry.setIndex(part.triangles);
+		geometry.computeVertexNormals();
+		const face = new THREE.Mesh(geometry, materials.glaze);
+		face.castShadow = cast;
+		hits.push(face);
+		objects.add(face, new THREE.Mesh(geometry, materials.ceramicHull));
+	}
 	surface(body.neu, materials.solid, materials.hull, true);
 	mesh(stock.alt, materials.stock, true);
 	mesh(stock.blatt, materials.stockSheet);

@@ -1,0 +1,141 @@
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import * as T from 'three/webgpu';
+import {
+	beginStroke,
+	createWorld,
+	extendStroke,
+	installationView,
+	withState,
+	type World
+} from '../../logic/sandbox';
+import { createCellPicker } from './house-picker';
+import { projectInstallations, KEY } from './projection';
+import { surfaceGeometry } from './terrain-geometry';
+import { createView } from './view';
+
+async function structureLayer() {
+	const shim = !('$state' in globalThis);
+	if (shim)
+		Object.defineProperty(globalThis, '$state', { configurable: true, value: (x: unknown) => x });
+	try {
+		return (await import('./structures')).createStructures();
+	} finally {
+		if (shim) Reflect.deleteProperty(globalThis, '$state');
+	}
+}
+const world = createWorld(7);
+const draw = (w: World, style: 'totem' | 'megastructure') =>
+	['90/40', '94/40'].reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, w))
+		.draft;
+const frame = draw(world, 'megastructure'),
+	installed = draw(frame, 'totem');
+
+test('installation rays hit the exposed body and lip, traverse the bore and respect nearer geometry', async () => {
+	const layer = await structureLayer();
+	const ground = new T.Mesh(surfaceGeometry(world.grid), new T.MeshBasicMaterial());
+	const cover = new T.Mesh(new T.BoxGeometry(4, 1, 4), ground.material);
+	try {
+		projectInstallations(layer, world, installed, 'all');
+		const forms = installationView(installed, 'all');
+		const lip = forms.find((p) => p.kind === 'mesh' && p.token === '--cat-health-3');
+		assert(lip?.kind === 'mesh');
+		const n = lip.points.length / 2;
+		const [x, y, z] = lip.points[0],
+			opposite = lip.points[n / 2];
+		const cx = (x + opposite[0]) / 2,
+			cy = (y + opposite[1]) / 2;
+		const view = createView();
+		view.resize(800, 600);
+		view.target.set(cx, z, -cy);
+		view.setPlan(true);
+		const picker = createCellPicker(view);
+		const hits = layer.solids(KEY.installation);
+		const cell = (wx: number, wy: number, objects: T.Object3D[]) => {
+			const pos = new T.Vector3(wx, z, -wy).project(view.camera);
+			return world.grid.cells[
+				picker((1 + pos.x) * 400, (1 - pos.y) * 300, world.grid, ground, objects) ?? -1
+			]?.id;
+		};
+		cover.userData.cellId = '89/42';
+		cover.position.set(cx, z - 5, -cy);
+		cover.updateMatrixWorld();
+		const visible = [cover, ...hits];
+		const lipX = (x + lip.points[n][0]) / 2,
+			lipY = (y + lip.points[n][1]) / 2;
+		assert.equal(cell(lipX, lipY, visible), '90/40');
+		assert.equal(cell(cx + 1.13 * (x - cx), cy + 1.13 * (y - cy), visible), '90/40');
+		assert.equal(cell(cx, cy, visible), '89/42');
+		assert.equal(cell(lipX, lipY, [cover]), '89/42');
+		cover.position.set(cx, z + 2, -cy);
+		cover.updateMatrixWorld();
+		cover.userData.cellId = '89/42';
+		assert.equal(cell(lipX, lipY, [...hits, cover]), '89/42');
+		projectInstallations(layer, installed, frame, 'all');
+		assert.equal(cell(lipX, lipY, layer.solids(KEY.installation)), cell(lipX, lipY, []));
+	} finally {
+		layer.dispose();
+		ground.geometry.dispose();
+		cover.geometry.dispose();
+		ground.material.dispose();
+	}
+});
+
+test('a fresh ceramic group projection and batch fits the tank budget', async () => {
+	const layer = await structureLayer();
+	try {
+		const measure = (recipe: 'tank' | 'ceramic') => {
+			const times: number[] = [];
+			for (let i = 0; i < 21; i++) {
+				const parts = new Map(
+					[...installed.state.parts].map(
+						([id, p]) => [id, p.recipe === 'ceramic' ? { ...p, recipe } : { ...p }] as const
+					)
+				);
+				const w = withState(installed, { ...installed.state, parts });
+				const start = performance.now();
+				layer.set('sample', installationView(w, 'all'));
+				times.push(performance.now() - start);
+			}
+			return times.slice(4).sort((a, b) => a - b)[8];
+		};
+		const tank = measure('tank'),
+			ceramic = measure('ceramic');
+		console.info('CPU projection and batching median (ms)', { tank, ceramic });
+		assert(ceramic < 7);
+		assert(ceramic < tank);
+	} finally {
+		layer.dispose();
+	}
+});
+
+test('zoom exchanges only the ceramic batch; removing an unrelated module retains its pick targets', async () => {
+	const layer = await structureLayer();
+	try {
+		projectInstallations(layer, world, installed, 'all');
+		const ceramic = [...installed.state.parts.values()].find((p) => p.recipe === 'ceramic');
+		const capsule = [...installed.state.parts.values()].find((p) => p.recipe === 'capsule');
+		assert(ceramic && capsule);
+		const solids = (id: string) => layer.solids(KEY.installation + id);
+		const before = solids(ceramic.id);
+		const parts = new Map(installed.state.parts);
+		parts.delete(capsule.id);
+		const edited = withState(installed, { ...installed.state, parts });
+		projectInstallations(layer, installed, edited, 'all');
+		assert.equal(solids(ceramic.id)[0], before[0]);
+		assert.equal(solids(capsule.id).length, 0);
+		const near = installationView(edited, 'all').find(
+			(p) => p.kind === 'mesh' && p.token === '--paper'
+		);
+		const far = installationView(edited, 'all', true).find(
+			(p) => p.kind === 'mesh' && p.token === '--paper'
+		);
+		assert(
+			near?.kind === 'mesh' && far?.kind === 'mesh' && far.triangles.length < near.triangles.length
+		);
+		projectInstallations(layer, edited, edited, 'all', true);
+		assert.notEqual(solids(ceramic.id)[0], before[0]);
+	} finally {
+		layer.dispose();
+	}
+});

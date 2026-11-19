@@ -20,7 +20,7 @@ export function createStructures() {
 	const finishes = structureMaterials();
 	const entries = new Map<
 		string,
-		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group }
+		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group; cellId?: string }
 	>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
@@ -32,7 +32,7 @@ export function createStructures() {
 		}
 	}
 
-	function draw(drawing: DistanceDrawing) {
+	function draw(drawing: DistanceDrawing, cellId?: string) {
 		const roofs = drawing.parts.filter((p) => p.roofCell);
 		const body = roofs.length ? drawing.parts.filter((p) => !p.roofCell) : drawing.parts;
 		const objects = populateStructures(body, finishes, dot, drawing);
@@ -48,18 +48,20 @@ export function createStructures() {
 				if (proxy) objects.userData.hits.push(proxy);
 			}
 		}
+		if (cellId) for (const hit of objects.userData.hits) hit.userData.cellId = cellId;
 		group.add(objects);
 		return objects;
 	}
 
 	/** Replaces the primitives stored under a key; an empty list removes the key. */
-	function set(key: string, primitives: Primitive[]) {
+	function set(key: string, primitives: Primitive[], cellId?: string) {
 		const previous = entries.get(key);
+		if (previous?.primitives === primitives && previous.cellId === cellId) return;
 		if (previous) release(previous.objects);
 		entries.delete(key);
 		if (!primitives.length) return;
 		const drawing = distanceDrawing(primitives, distance);
-		entries.set(key, { primitives, drawing, objects: draw(drawing) });
+		entries.set(key, { primitives, drawing, cellId, objects: draw(drawing, cellId) });
 	}
 
 	function redraw(recolor: boolean) {
@@ -68,7 +70,7 @@ export function createStructures() {
 			if (!recolor && sameDrawing(entry.drawing, drawing)) continue;
 			release(entry.objects);
 			entry.drawing = drawing;
-			entry.objects = draw(drawing);
+			entry.objects = draw(drawing, entry.cellId);
 		}
 	}
 

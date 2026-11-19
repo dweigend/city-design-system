@@ -21,7 +21,7 @@ import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { KEY, projectChanges } from './projection';
+import { KEY, projectChanges, projectInstallations } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown } from './opening-view';
@@ -91,9 +91,17 @@ export function createSandboxStage(
 	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
 	let refreshTones = true;
 
+	let coarse = false;
+	function updateMeshDetail(zoom: ReturnType<typeof nearestZoom>) {
+		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
+		if (nextCoarse !== coarse && shown)
+			projectInstallations(structures, shown, shown, focus, nextCoarse);
+		coarse = nextCoarse;
+	}
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
 		const zoom = nearestZoom(scale);
+		updateMeshDetail(zoom);
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context, variant);
@@ -194,7 +202,7 @@ export function createSandboxStage(
 
 	function updateWorld(mesh: TerrainMesh, before: World, after: World, nextFocus: FocusId) {
 		projectChanges(
-			{ terrain: mesh, structures, earliestFullYear: study.earliestFullYear },
+			{ terrain: mesh, structures, coarse, earliestFullYear: study.earliestFullYear },
 			before,
 			after,
 			nextFocus,
@@ -249,6 +257,7 @@ export function createSandboxStage(
 		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
 			return picker(x, y, shown.grid, terrain.surface, [
+				...structures.solids(KEY.installation),
 				...structures.solids(KEY.house),
 				...structures.solids(KEY.forest)
 			]);

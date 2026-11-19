@@ -1,5 +1,5 @@
 import { buildRoofFrame } from '../megastructure';
-import { waterFitting, moduleGroup, type ModuleRod } from './module-group';
+import { moduleGroup, type ModuleRod } from './module-group';
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { kanal, kantenId } from '../traeger';
@@ -107,6 +107,7 @@ export function surveyedMass(mass: Mass, withModules: boolean, seed: number): Pr
 	const result = buildRoofFrame(roofs, { clearance: 4 }, 'leitstil');
 	if (result.status !== 'assembled') return [];
 	const rods = result.frame.rods.map((r) => ({
+		cellId: r.a.roofId,
 		a: r.a.p,
 		b: r.b.p,
 		radius: r.radius,
@@ -119,8 +120,8 @@ export function surveyedMass(mass: Mass, withModules: boolean, seed: number): Pr
 			rods.filter((r) => r.main && r.a[2] === r.b[2]),
 			mass.use,
 			[],
-			undefined,
-			waterFitting(seed, mass.stories[0].cell.id)
+			1.5,
+			{ seed, cell: (r) => r.cellId }
 		);
 		group?.forEach(({ recipe, seat }, i) =>
 			parts.push(...shellForms(mass.id + '/module/' + i, recipe, seat))

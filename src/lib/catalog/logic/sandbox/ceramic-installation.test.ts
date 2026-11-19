@@ -1,6 +1,7 @@
 // @ts-expect-error Bun supplies the test API.
-import { expect, test } from 'bun:test';
+import { expect, test, spyOn } from 'bun:test';
 import {
+	withState,
 	beginStroke,
 	commit,
 	createWorld,
@@ -49,4 +50,60 @@ test('the seed-7 water inlet on 90/40 is one owned, seated ceramic fitting with 
 	expect(
 		[...draw('energy').state.parts.values()].filter((p) => p.kind === 'module').map((p) => p.recipe)
 	).toEqual(['capsule', 'capsule', 'solar-ring']);
+});
+
+test('accent socket and recipe survive a shuffled parts table', () => {
+	const world = createWorld(7);
+	for (const [from, to, recipe] of [
+		['83/47', '87/47', 'tank'],
+		['90/40', '94/40', 'ceramic']
+	]) {
+		const ids = [from, to];
+		const frame = ids.reduce(
+			extendStroke,
+			beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, world)
+		).draft;
+		const draw = (parts: typeof frame.state.parts) =>
+			ids.reduce(
+				extendStroke,
+				beginStroke(
+					{ kind: 'house', style: 'totem', use: 'water' },
+					{ ...frame, state: { ...frame.state, parts } }
+				)
+			).draft;
+		const modules = (w: typeof world) =>
+			[...w.state.parts.values()].filter((p) => p.kind === 'module');
+		const first = modules(draw(frame.state.parts));
+		expect(first.map((p) => p.recipe)).toEqual(['capsule', 'capsule', recipe]);
+		expect(modules(draw(new Map([...frame.state.parts].reverse())))).toEqual(first);
+		const reordered = new Map([...frame.state.parts].sort(([a], [b]) => a.localeCompare(b)));
+		expect(modules(draw(reordered))).toEqual(first);
+	}
+});
+
+test('a rejected ten-roof docking survey remains bounded', async () => {
+	const hardware = await import('../megastructure');
+	const world = createWorld(7);
+	const ids = Array.from({ length: 10 }, (_, i) => 30 + 2 * i + '/40');
+	const town = withState(world, {
+		...world.state,
+		stacks: new Map(ids.map((id) => [id, ['living'] as const]))
+	});
+	const stroke = (w: typeof town, style: 'totem' | 'megastructure') =>
+		ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, w));
+	const frame = stroke(town, 'megastructure');
+	expect(frame.failure).toBeUndefined();
+	const probe = spyOn(hardware, 'dockModule');
+	try {
+		const result = [ids[0], ids[9]].reduce(
+			extendStroke,
+			beginStroke({ kind: 'house', use: 'water', style: 'totem' }, frame.draft)
+		);
+		expect(result.failure?.reason).toBe('no-dock-group');
+		expect(probe.mock.calls.length).toBeGreaterThan(0);
+		// At most two K2 docks per seat attempt, including the tank fallback.
+		expect(probe.mock.calls.length).toBeLessThanOrEqual(1024 * 2);
+	} finally {
+		probe.mockRestore();
+	}
 });

@@ -363,7 +363,7 @@ test('a model-white ceramic mesh uses a flat glaze and keeps its silhouette', as
 	const meshes = group.children.filter((part) => part instanceof Mesh);
 	try {
 		expect(meshes.find((part) => part.castShadow)?.material).toBe(finishes.materials.glaze);
-		expect(meshes.some((part) => part.material === finishes.materials.hull)).toBe(true);
+		expect(meshes.some((part) => part.material === finishes.materials.ceramicHull)).toBe(true);
 	} finally {
 		for (const mesh of meshes) mesh.geometry.dispose();
 		finishes.dispose();

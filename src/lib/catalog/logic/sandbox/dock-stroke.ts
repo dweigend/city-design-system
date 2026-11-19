@@ -5,7 +5,7 @@ import {
 	atSocket,
 	socketBounds,
 	capsulePitch,
-	waterFitting,
+	castingSeed,
 	ringArea,
 	moduleGroup,
 	stackTop,
@@ -39,12 +39,13 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 	for (const p of world.state.parts.values()) {
 		if (p.kind !== 'module') continue;
 		const r = rods.find((r) => r.part.id === p.attachedTo);
-		const m = r && atSocket(r, p.share, p.recipe, [], p.pitch);
+		const m =
+			r && atSocket(r, p.share, p.recipe, [], p.pitch, castingSeed(world.seed, p.anchor.cellId));
 		if (m) occupied.push(...socketBounds(m));
 	}
 	const ids = new Set(cells.map((c) => c.id));
 	const selected = rods.filter((r) => ids.has(r.part.anchor.cellId));
-	for (const owner of new Set(selected.map((r) => r.part.owner))) {
+	for (const owner of [...new Set(selected.map((r) => r.part.owner))].sort()) {
 		const candidates = selected.filter(
 			(r) => r.part.owner === owner && r.part.recipe === 'chord' && Math.abs(r.a[2] - r.b[2]) < 1e-8
 		);
@@ -56,15 +57,11 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 				return c ? Math.abs(ringArea(c.corners.map(([x, y]) => [x, y]))) : 0;
 			})
 		);
-		const waterPart = waterFitting(world.seed, candidates[0].part.anchor.cellId);
-		const group = moduleGroup(
-			rods,
-			candidates,
-			use,
-			occupied,
-			capsulePitch(area * STORY),
-			waterPart
-		);
+		candidates.sort((a, b) => a.part.id.localeCompare(b.part.id, 'en', { numeric: true }));
+		const group = moduleGroup(rods, candidates, use, occupied, capsulePitch(area * STORY), {
+			seed: world.seed,
+			cell: (r) => r.part.anchor.cellId
+		});
 		if (group)
 			return {
 				owner,

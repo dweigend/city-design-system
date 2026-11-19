@@ -1,3 +1,4 @@
+import { ceramicContact, castingSeed } from './ceramic-fitting';
 import { kanal } from '../traeger';
 import { dockModule, type Bounds, type ModuleKind, type DockedModule } from '../megastructure';
 import type { Vec3 } from '../parametrik/types';
@@ -22,11 +23,16 @@ const hardware: Record<Exclude<ModuleRecipe, 'capsule'>, ModuleKind> = {
 	access: 'garden'
 };
 type Obstacles = Parameters<typeof dockModule>[2];
-type Seat = { shell: DockedModule; accent?: DockedModule };
+type Seat = {
+	shell: DockedModule;
+	accent?: DockedModule;
+	profileSeed?: number;
+	contactRing?: number;
+};
 
 /** A carrier site keeps the same water fitting across previews and rebuilds. */
 export function waterFitting(seed: number, cellId: string) {
-	return kanal(seed, 'raumfachwerk', cellId, 'water-fitting') % 2 ? 'tank' : 'ceramic';
+	return kanal(seed, 'raumfachwerk', cellId, 'water-fitting/v1') % 2 ? 'tank' : 'ceramic';
 }
 
 /** Scale three round-ended shells to at least the given story volume in cubic meters. */
@@ -41,7 +47,8 @@ export function atSocket(
 	share: number,
 	recipe: ModuleRecipe,
 	occupied: Obstacles,
-	pitch = 1.5
+	pitch = 1.5,
+	profileSeed = 0
 ): Seat | undefined {
 	const dx = rod.b[0] - rod.a[0],
 		dy = rod.b[1] - rod.a[1],
@@ -65,9 +72,9 @@ export function atSocket(
 	const shell = dockModule('capsule', { point, normal, tangent }, occupied, { pitch });
 	if (!shell || recipe === 'capsule') return shell && { shell };
 	// The fitting rests directly on the chord. Its rim seats into the adjacent round side.
-	const radius = recipe === 'tank' ? 1 : 1.5;
-	const offset = 2 * Math.sqrt(radius * pitch) - 0.08;
 	const direction = share <= 0.5 ? 1 : -1;
+	const contact = recipe === 'ceramic' ? ceramicContact(profileSeed, pitch, direction) : undefined;
+	const offset = contact?.offset ?? fittingOffset(recipe, pitch);
 	const station = length * share + direction * offset;
 	if (station < 0 || station > length) return;
 	const joint: Vec3 = [
@@ -76,7 +83,13 @@ export function atSocket(
 		point[2] + (direction * offset * dz) / length
 	];
 	const accent = dockModule(hardware[recipe], { point: joint, normal, tangent }, occupied);
-	return accent && { shell, accent };
+	return accent && { shell, accent, profileSeed, contactRing: contact?.ring };
+}
+
+function fittingOffset(recipe: Exclude<ModuleRecipe, 'capsule'>, pitch: number) {
+	if (recipe === 'tank') return 2 * Math.sqrt(pitch) - 0.08;
+	if (recipe === 'solar-ring') return 1.25 + 2 * Math.sqrt(0.25 * pitch) - 0.008;
+	return 1.5 + Math.sqrt(0.5 * (2 * pitch - 0.5)) - 0.008;
 }
 
 /** Occupied volumes include both the shell and its optional fitting. */
@@ -90,31 +103,39 @@ export function moduleGroup<R extends ModuleRod>(
 	candidates: R[],
 	use: HouseUse,
 	stock: Bounds[],
-	pitch = 1.5,
-	waterPart: 'tank' | 'ceramic' = 'tank'
+	pitch: number,
+	site: { seed: number; cell: (rod: R) => string }
 ) {
-	const accent = use === 'water' ? waterPart : accents[use];
+	let attempts = 0;
 	const seats = candidates.flatMap((rod) =>
 		[0.5, 0.32, 0.68, 0.2, 0.8].map((share) => ({ rod, share }))
 	);
+	const accentFor = (rod: R, tankFallback: boolean) =>
+		use === 'water' && !tankFallback ? waterFitting(site.seed, site.cell(rod)) : accents[use];
 	const place = (s: (typeof seats)[number], recipe: ModuleRecipe, occupied: Bounds[]) => {
 		const seat = atSocket(
 			s.rod,
 			s.share,
 			recipe,
 			[...occupied, ...rods.filter((r) => r !== s.rod)],
-			pitch
+			pitch,
+			castingSeed(site.seed, site.cell(s.rod))
 		);
 		return seat && { ...s, recipe, seat, pitch };
 	};
 	const fit = (
 		group: NonNullable<ReturnType<typeof place>>[],
 		bounds: Bounds[],
-		fitting: ModuleRecipe
+		tankFallback: boolean
 	): typeof group | undefined => {
 		if (group.length === 3) return group;
 		for (const seat of seats) {
-			const next = place(seat, group.length === 2 ? fitting : 'capsule', bounds);
+			if (++attempts > 512) return;
+			const next = place(
+				seat,
+				group.length === 2 ? accentFor(seat.rod, tankFallback) : 'capsule',
+				bounds
+			);
 			if (!next) continue;
 			const [x, y] = next.seat.shell.center;
 			if (
@@ -123,9 +144,9 @@ export function moduleGroup<R extends ModuleRod>(
 				)
 			)
 				continue;
-			const result = fit([...group, next], [...bounds, ...socketBounds(next.seat)], fitting);
+			const result = fit([...group, next], [...bounds, ...socketBounds(next.seat)], tankFallback);
 			if (result) return result;
 		}
 	};
-	return fit([], stock, accent) ?? (accent === 'ceramic' ? fit([], stock, 'tank') : undefined);
+	return fit([], stock, false) ?? (use === 'water' ? fit([], stock, true) : undefined);
 }
