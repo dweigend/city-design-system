@@ -195,8 +195,35 @@ test('each band has a terrace guard and a recessed pane below its lintel', () =>
 				sill = courses.find((p) => p.id.includes('/sill'));
 			if (!pane || !sill) throw Error('Missing glazing or sill');
 			for (const axis of [0, 1])
-				expect(bounds(pane).min[axis] - bounds(sill).min[axis]).toBeCloseTo(0.15);
+				expect(bounds(pane).min[axis] - bounds(sill).min[axis]).toBeCloseTo(0.35);
 			expect(parts.some((p) => p.id.startsWith(b.id + '/terrace/kit-parapet-solid-'))).toBe(true);
+		}
+	}
+});
+
+test('every typology exposes its specified catalogue finishes', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
+		const parts = sectionParts(s);
+		expect(new Set(parts.map((p) => p.finish)).size, type).toBeGreaterThanOrEqual(3);
+		for (const p of parts) {
+			if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
+			if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
+				expect(p.finish).toBe('perforated-metal');
+			if (
+				p.id.includes('/body/') &&
+				p.source.objectId.startsWith('kit-capsule') &&
+				p.source.slot === 'body'
+			)
+				expect(p.finish).toBe('acryl-matt');
+			if (p.id.endsWith('/deck')) expect(p.finish).toBe('beton-terrazzo');
+		}
+		for (const l of s.composition.levels) {
+			const b = l.bodies[0];
+			if (!b.band) continue;
+			const sill = parts.find((p) => p.id.startsWith(b.id + '/primitive-slab/sill'));
+			if (b.band.plinth) expect(sill?.finish).toBe('beton-schalung');
+			else if (b.use === 'food') expect(sill?.finish).toBe('holz-natur');
 		}
 	}
 });

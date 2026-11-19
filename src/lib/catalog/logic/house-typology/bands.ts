@@ -64,6 +64,7 @@ export function storeyBand(
 		seed: plan.seed,
 		band: {
 			shell: false,
+			plinth: plan.type === 'plinth-house' && i === 0,
 			court: court && { ...court, center: [x, y + sign * 0.3, z], width: court.width + 0.6 }
 		},
 		position: bodyPosition,

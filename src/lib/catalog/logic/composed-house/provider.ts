@@ -1,5 +1,5 @@
 import { assetRegistry } from '../assets';
-import type { HouseSurfaces } from './surfaces';
+import { roleSurface, type HouseSurfaces, type Surface } from './surfaces';
 import { houseObject } from './house-object';
 import type { HouseUse } from '../../data/house-body';
 import type { Body } from '../house-typology';
@@ -7,6 +7,13 @@ import { bandParts } from './band-parts';
 import { place } from './asset-fit';
 
 const stock = new Map(assetRegistry.map((asset) => [asset.id, asset]));
+function stockCoating(id: string, address: string, paint: Surface) {
+	if (address.endsWith('/crown')) return roleSurface(paint, 'roof');
+	if (/parapet|screen|railing/.test(id)) return roleSurface(paint, 'screen');
+	if (/capsule|crown-lantern|glass-bell/.test(id)) return roleSurface(paint, 'capsule');
+	if (id.includes('column-foot')) return roleSurface(paint, 'base');
+	return paint;
+}
 /** Dresses every declared registry slot from the caller's palette. */
 export function members(
 	id: string,
@@ -18,13 +25,14 @@ export function members(
 ) {
 	const asset = stock.get(id);
 	if (!asset) throw new RangeError('Unknown house stock ' + id);
-	const finish = use ? surfaces[use] : surfaces.frame;
+	const paint = use ? surfaces[use] : surfaces.frame;
+	const finish = stockCoating(id, address, paint);
 	const roles = {
 		frame: finish,
 		body: finish,
 		shell: use ? finish : surfaces.shell,
 		glass: id.includes('solar-sail') ? finish : surfaces.pane,
-		edge: use ? finish : surfaces.frame,
+		edge: roleSurface(paint, 'fitting'),
 		liquid: finish,
 		fabric: finish,
 		planting: finish,

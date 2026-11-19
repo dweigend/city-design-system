@@ -5,7 +5,7 @@ import type { Vec3 } from '../parametrik/types';
 import { members } from './provider';
 import { place } from './asset-fit';
 import { houseObject, type HousePart } from './house-object';
-import type { HouseSurfaces } from './surfaces';
+import { roleSurface, type HouseSurfaces } from './surfaces';
 import { pipeBetween } from './parts';
 
 function bearingSurfaces(p: Solid, surfaces: HouseSurfaces) {
@@ -83,11 +83,17 @@ function floor(s: Section, p: Solid, surfaces: HouseSurfaces): HousePart {
 }
 function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
 	const painted = ['/roof', '/roof-walk', '/entry'].some((suffix) => p.id.endsWith(suffix));
-	const deck = floor(s, p, painted ? { ...surfaces, deck: surfaces.shell } : surfaces);
+	const deck = floor(
+		s,
+		p,
+		painted
+			? { ...surfaces, deck: roleSurface(surfaces.shell, p.id.endsWith('/roof') ? 'roof' : 'deck') }
+			: surfaces
+	);
 	if (deck.kind !== 'prism' || deck.height < 0.42) return [deck];
 	const level = s.decks.find((l) => Math.abs(l.position[2] - deck.z - deck.height) < 1e-7);
 	if (!level) return [deck];
-	const apron = floor(s, p, { ...surfaces, deck: surfaces[level.use] });
+	const apron = floor(s, p, { ...surfaces, deck: roleSurface(surfaces[level.use], 'deck') });
 	return [
 		{ ...deck, z: deck.z + deck.height - 0.12, height: 0.12 },
 		{ ...apron, id: p.id + '/apron', height: deck.height - 0.12 }
