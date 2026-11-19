@@ -32,6 +32,7 @@ import { tankFrame } from './tank-frame';
 import { windmill } from './windmill';
 import { chimney } from './chimney';
 import { pipeRun } from './pipe-run';
+import { stairs } from './stairs';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -66,5 +67,6 @@ export const recipes: readonly AssetRecipe[] = [
 	tankFrame,
 	windmill,
 	chimney,
-	pipeRun
+	pipeRun,
+	stairs
 ];
