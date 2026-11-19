@@ -17,7 +17,7 @@ import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
-import { createCellPicker } from './terrain-geometry';
+import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
@@ -80,6 +80,7 @@ export function createSandboxStage(
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
 	let terrain: TerrainMesh | undefined;
+	const picker = createCellPicker(view, () => terrain?.surface);
 	/** The world the stage currently shows; the next one is drawn as a difference to it. */
 	let focus: FocusId = 'all';
 	let shown: World | undefined;
@@ -204,6 +205,7 @@ export function createSandboxStage(
 			if (!terrain) return;
 			updateWorld(terrain, before, world, nextFocus);
 			focus = nextFocus;
+			picker.update(world);
 			shown = world;
 			canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
 			render();
@@ -228,8 +230,8 @@ export function createSandboxStage(
 			if (terrain) frameTerrain(terrain);
 			render();
 		},
-		/** The brush edits the terrain cell under the pointer, independently of roof detail. */
-		pickCell: createCellPicker(view, () => terrain?.surface),
+		/** The brush hits stable house volumes before falling back to the terrain. */
+		pickCell: picker.pick,
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
 			terrain?.setLens(column, row, strength);
@@ -251,6 +253,7 @@ export function createSandboxStage(
 		},
 		dispose() {
 			stopTheme();
+			picker.dispose();
 			cancelAnimationFrame(pending);
 			removeLines(baseLines);
 			removeLines(cursor);

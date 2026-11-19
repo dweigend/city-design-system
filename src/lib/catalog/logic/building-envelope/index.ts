@@ -127,7 +127,7 @@ function buildMesh(
 				shellIndexEnds: []
 			};
 		const solid = s.keep(kernel.Manifold.union(parts));
-		return extractEnvelope(s, solid, origin);
+		return extractEnvelope(s, solid, origin, seat !== undefined);
 	});
 }
 

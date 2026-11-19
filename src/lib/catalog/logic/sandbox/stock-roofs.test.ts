@@ -31,3 +31,22 @@ async function checkTown() {
 		if (!dirty.has(chunk)) assert.deepEqual(initial.get(chunk), roofs(edited, chunk));
 	}
 }
+
+test('near-coincident vertices on the seated hip roofs retain their closed K1 mesh', async () => {
+	const kernel = await init();
+	kernel.setup();
+	const roofBuilder = createRoofBuilder(kernel, (id, cause) => {
+		throw new Error(id, { cause });
+	});
+	for (const [seed, id] of [
+		[31, '71/49@1:roof'],
+		[140, '83/49@2:roof']
+	] as const) {
+		const world = { ...createWorld(seed), roofBuilder };
+		const cell = world.grid.cellsById.get(id.split('@')[0]);
+		assert.ok(cell);
+		const chunk = cell.chunk;
+		const parts = houseView(world, currentStacks(world.state), chunk, focuses.all);
+		assert.ok(parts.some((p) => p.id === id && p.kind === 'mesh'));
+	}
+});
