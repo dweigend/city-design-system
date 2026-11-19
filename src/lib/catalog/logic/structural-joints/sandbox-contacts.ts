@@ -1,6 +1,7 @@
 import type { Primitive } from '../parametrik/types';
 import { MODULE, type TerrainGrid } from '../terrain-grid';
 import type { StructuralContact } from './index';
+import { surveySlabSeam } from './slab-seam';
 import { surveyGround, surveySeat, type End } from './contact-seat';
 import {
 	memberRuns,
@@ -13,7 +14,7 @@ import {
 } from './contact-surfaces';
 
 type Parts = { key: string; parts: readonly Primitive[] };
-type Support = { id: string; rail: boolean; surface: Surface };
+type Support = { id: string; rail: boolean; slab: boolean; surface: Surface };
 
 function bucket(x: number, y: number) {
 	return Math.floor(x / MODULE) + '/' + Math.floor(y / MODULE);
@@ -75,7 +76,7 @@ function contact(
 	};
 }
 
-/** Surveys structural endpoints against visible parts and terrain in world metres.
+/** Surveys structural endpoints and post seams against visible parts in world metres.
  * A shared centreline node produces one fitting per part pair, even across drawing batches.
  */
 export function sandboxStructuralContacts(
@@ -94,16 +95,23 @@ export function sandboxStructuralContacts(
 	const supports = indexSurfaces(
 		parts.flatMap(({ part, id, members, key }) => {
 			const rail = key.startsWith('line:') && part.id.endsWith('/deck');
-			return contactSurfaces(part, members, rail).map((surface) => ({ id, surface, rail }));
+			// Historic wall and foundation solids also contribute endpoint bearing faces.
+			const slab = !/:(?:wall|foot)$/.test(part.id);
+			return contactSurfaces(part, members, rail).map((surface) => ({ id, surface, rail, slab }));
 		})
 	);
 	const sites = new Map<string, StructuralContact>();
 	for (const { part, key, id, members } of parts) {
 		const stroke = part.member === 'secondary' ? 'secondary' : 'main';
-		for (const run of members)
-			for (const end of ends(run)) surveyEnd(end, { id, diameter: run.radius * 2 }, key, stroke);
+		for (const run of members) {
+			const member = { id, diameter: run.radius * 2 };
+			for (const end of ends(run)) surveyEnd(end, member, key, stroke);
+			if (part.kind === 'cylinder') surveyPost(run, member, key, stroke);
+		}
 	}
-	return [...sites.values()];
+	return [...sites.entries()]
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+		.map(([, row]) => row);
 
 	function surveyEnd(
 		end: End,
@@ -119,6 +127,20 @@ export function sandboxStructuralContacts(
 		}
 		const ground = surveyGround(grid, end);
 		if (ground) store(contact(end, ground, member, ground.id, key, built, stroke));
+	}
+
+	function surveyPost(
+		run: Round,
+		member: StructuralContact['member'],
+		key: string,
+		stroke: StructuralContact['stroke']
+	) {
+		const candidates = supports.get(bucket(run.a[0], run.a[1])) ?? [];
+		for (const support of candidates) {
+			if (!support.slab || support.surface.kind !== 'face' || support.id === member.id) continue;
+			const seam = surveySlabSeam(run, support.surface);
+			if (seam) store(contact(seam.end, seam.site, member, support.id, key, built, stroke));
+		}
 	}
 
 	function store(row: StructuralContact) {

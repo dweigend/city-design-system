@@ -14,6 +14,13 @@ const column = (id: string, x: number): Primitive => ({
 	radius: 0.1,
 	height: 2
 });
+const slab: Primitive = {
+	...base,
+	id: 'slab',
+	kind: 'box',
+	position: [-2, -1, 101],
+	size: [4, 2, 0.25]
+};
 const chord: Primitive = {
 	...base,
 	id: 'chord',
@@ -51,6 +58,10 @@ test('separate structure keys share one close-zoom ink draw and clear with the s
 		structures.set('chord', []);
 		structures.step(0, true);
 		expect(fit()).toBeUndefined();
+		structures.set('slab', [slab]);
+		structures.step(0, true);
+		expect(fit()).toBeInstanceOf(Mesh);
+		structures.set('slab', []);
 		structures.set('chord', [chord], undefined, 0);
 		structures.step(0, false);
 		expect(fit()).toBeUndefined();
