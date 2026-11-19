@@ -29,7 +29,7 @@
 		type SandboxOption,
 		type SandboxToolId
 	} from '../data/sandbox';
-	import { styleForYear, type Tool } from '../logic/sandbox';
+	import type { Tool } from '../logic/sandbox';
 	import SandboxOptions from './SandboxOptions.svelte';
 	import type { Session } from './session.svelte';
 
@@ -88,7 +88,7 @@
 		totem: 'Drag along an existing carrier to dock a group of three.'
 	};
 	const drawingHint = $derived(
-		session.tool.kind === 'house' ? houseHints[styleForYear(session.world.state.year)] : undefined
+		session.tool.kind === 'house' ? houseHints[session.method] : undefined
 	);
 	const lineHint = $derived(
 		session.tool.kind === 'line' && session.tool.transit === 'walkway'

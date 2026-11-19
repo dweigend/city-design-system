@@ -72,7 +72,10 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		},
 		/** Changes the house method if it is available in this epoch. */
 		pickMethod(next: BuildingMethod) {
-			if (tool.kind === 'house' && methods.includes(next)) chosenMethod = next;
+			if (tool.kind === 'house' && methods.includes(next)) {
+				rejection = undefined;
+				chosenMethod = next;
+			}
 		},
 		set tool(next: Tool) {
 			rejection = undefined;

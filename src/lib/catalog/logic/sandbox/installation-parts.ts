@@ -1,3 +1,4 @@
+import type { FlowId } from '../../data/focus';
 import { boundaryRings, type ModuleRecipe } from '../house-brush';
 import { STORY } from '../../data/grid';
 import type { Vec3 } from '../parametrik/types';
@@ -29,6 +30,8 @@ export type BuiltPart = Installation & {
 	id: PartId;
 	owner: Owner;
 	built: number;
+	/** Construction flow for the timeline. Older installations predate flow records. */
+	flow?: FlowId;
 	materials: Readonly<Record<string, number>>;
 };
 export type Failure = { reason: string; marks: Vec3[][] };

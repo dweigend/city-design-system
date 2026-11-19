@@ -19,8 +19,8 @@ const base = withState(town, {
 	year: 2027,
 	stacks: new Map(roofs.map((id) => [id, ['living'] as const]))
 });
-const carrier = (ids: string[], world = base) =>
-	ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water' }, world));
+const carrier = (ids: string[], world = base, style: 'megastructure' | 'totem' = 'megastructure') =>
+	ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world));
 test('one stroke records one connected roof carrier with E identities and undoes it together', () => {
 	const built = carrier(roofs).draft.state;
 	expect(built.compositions.size).toBe(1);
@@ -45,7 +45,7 @@ test('a disconnected stroke marks the gap and commits nothing', () => {
 });
 test('totem without a supporting carrier leaves the survey intact', () => {
 	const w = withState(base, { ...base.state, year: 2028 });
-	const stroke = carrier(roofs, w);
+	const stroke = carrier(roofs, w, 'totem');
 	expect(stroke.draft).toBe(w);
 	expect(stroke.failure?.reason).toBe('no-dock-group');
 });
@@ -61,7 +61,7 @@ test('two neutral shells and one colored module touch their carrier and undo tog
 	for (const use of ['energy', 'water'] as const) {
 		const group = ['83/47', '87/47'].reduce(
 			extendStroke,
-			beginStroke({ kind: 'house', use }, w)
+			beginStroke({ kind: 'house', use, style: 'totem' }, w)
 		).draft;
 		const modules = [...group.state.parts.values()].filter((p) => p.kind === 'module');
 		expect(modules.map((p) => p.recipe)).toEqual([
@@ -118,7 +118,7 @@ test('one bay has one diagonal, one crown segment and one joint per supporting w
 });
 test('a seven-cell rejection has one perimeter', () => {
 	const empty = withState(base, { ...base.state, year: 2028 });
-	const stroke = carrier(['40/46', '46/46'], empty);
+	const stroke = carrier(['40/46', '46/46'], empty, 'totem');
 	expect(stroke.failure?.reason).toBe('no-dock-group');
 	expect(stroke.failure?.marks).toHaveLength(1);
 });
@@ -186,4 +186,31 @@ test('a wall bearing follows the inset lot along the alley at 89/41', () => {
 	expect(dot.position[0]).toBeCloseTo((a[0] + b[0]) / 2 - (offset * dy) / length, 8);
 	expect(dot.position[1]).toBeCloseTo((a[1] + b[1]) / 2 + (offset * dx) / length, 8);
 	expect([a, b]).not.toEqual(cell.corners.slice(1, 3));
+});
+
+test('same-year carrier and capsules retain their selected flows on the timeline', () => {
+	const ids = ['83/47', '87/47'];
+	const frame = ids.reduce(
+		extendStroke,
+		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, town)
+	).draft;
+	const group = ids.reduce(
+		extendStroke,
+		beginStroke({ kind: 'house', style: 'totem', use: 'water' }, frame)
+	).draft;
+	const aged = applyEdit(group, { kind: 'advance' });
+	expect(aged.state.timeLayers.find((layer) => layer.year === 2026)?.flows).toEqual([
+		'material',
+		'water'
+	]);
+	expect(
+		installationView(aged, 'all').filter((p) => p.kind === 'capsule' && p.role === 'bestand')
+	).toHaveLength(3);
+	const old = withState(town, { ...town.state, year: 1900 });
+	expect(
+		ids.reduce(
+			extendStroke,
+			beginStroke({ kind: 'house', style: 'megastructure', use: 'water' }, old)
+		).draft
+	).toBe(old);
 });

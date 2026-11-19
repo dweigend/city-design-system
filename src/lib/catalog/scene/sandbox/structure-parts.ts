@@ -130,7 +130,7 @@ export function populateStructures(
 	lines(accentSheets.kanten.neu, materials.perimeter);
 
 	const current = parts.carriers.filter((p) => p.role !== 'bestand');
-	const stock = parts.carriers.filter((p) => p.role === 'bestand');
+	const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
 	const main = current.filter((p) => !p.member || p.member === 'primary');
 	const ties = current.filter((p) => p.member === 'secondary' && !p.detail);
 	const rails = current.filter((p) => p.member === 'secondary' && p.detail);
@@ -138,11 +138,13 @@ export function populateStructures(
 	lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
 	lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
 	lines(
-		batch(stock.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor).kanten.neu,
+		batch(agedMembers.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor).kanten
+			.neu,
 		materials.stockPrimary
 	);
 	lines(
-		batch(stock.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor).kanten.neu,
+		batch(agedMembers.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor).kanten
+			.neu,
 		materials.pencil
 	);
 	const points = parts.carriers.flatMap((part) => part.bearings ?? []);

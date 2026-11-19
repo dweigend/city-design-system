@@ -1,5 +1,5 @@
 import { cellsBetween, type TerrainGrid } from '../terrain-grid';
-import { styleForYear } from './houses';
+import { stylesForYear, styleForYear } from './state';
 import { dockStroke } from './dock-stroke';
 import { roofStroke } from './roof-stroke';
 import { walkwayStroke } from './walkway-stroke';
@@ -37,6 +37,7 @@ export function propose(world: World, tool: Tool, ids: readonly string[]): Propo
 		return path;
 	}
 	if (tool.kind !== 'house') return;
+	if (tool.style && !stylesForYear(world.state.year).includes(tool.style)) return;
 	const style = tool.style ?? styleForYear(world.state.year);
 	if (style === 'megastructure') return roofStroke(world, cells());
 	if (style === 'totem') return dockStroke(world, cells(), tool.use);
@@ -46,8 +47,10 @@ export function propose(world: World, tool: Tool, ids: readonly string[]): Propo
 export function install(
 	state: SandboxState,
 	proposal: Extract<Proposal, { parts: unknown }>,
-	system: 'houses' | 'paths'
+	tool: Tool
 ): SandboxState {
+	const system = tool.kind === 'line' ? 'paths' : 'houses';
+	const flow = tool.kind === 'house' && tool.use !== 'living' ? tool.use : 'people';
 	const action = state.nextAction;
 	const owner: Owner = proposal.owner ?? `c/${action}`;
 	const compositions = new Map(state.compositions).set(owner, { id: owner, system });
@@ -62,6 +65,7 @@ export function install(
 			id,
 			owner,
 			built: state.year,
+			flow,
 			materials: { material: debit }
 		};
 		parts.set(id, p);

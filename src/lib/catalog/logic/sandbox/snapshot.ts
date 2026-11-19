@@ -68,7 +68,12 @@ function isNormalized(
 	storyParts: SandboxState['storyParts'],
 	timeLayers: SandboxState['timeLayers']
 ): snapshot is SandboxState {
-	return storyParts === snapshot.storyParts && timeLayers === snapshot.timeLayers;
+	return (
+		snapshot.parts !== undefined &&
+		snapshot.compositions !== undefined &&
+		storyParts === snapshot.storyParts &&
+		timeLayers === snapshot.timeLayers
+	);
 }
 
 /** Normalizes a restored snapshot without changing IDs, anchors, or already saved styles. */
@@ -76,5 +81,11 @@ export function migrateSnapshot(snapshot: SandboxSnapshot): SandboxState {
 	const storyParts = restoreParts(snapshot.storyParts);
 	const timeLayers = restoreLayers(snapshot);
 	if (isNormalized(snapshot, storyParts, timeLayers)) return snapshot;
-	return { ...snapshot, storyParts, timeLayers };
+	return {
+		...snapshot,
+		parts: snapshot.parts ?? EMPTY_STATE.parts,
+		compositions: snapshot.compositions ?? EMPTY_STATE.compositions,
+		storyParts,
+		timeLayers
+	};
 }

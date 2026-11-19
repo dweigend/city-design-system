@@ -49,8 +49,13 @@ export type SandboxState = Readonly<{
 }>;
 
 /** Accepted restore input, including snapshots saved before methods and time layers. */
-export type SandboxSnapshot = Omit<SandboxState, 'timeLayers' | 'storyParts'> &
+export type SandboxSnapshot = Omit<
+	SandboxState,
+	'timeLayers' | 'storyParts' | 'parts' | 'compositions'
+> &
 	Readonly<{
+		parts?: SandboxState['parts'];
+		compositions?: SandboxState['compositions'];
 		timeLayers?: SandboxState['timeLayers'];
 		storyParts: ReadonlyMap<string, readonly SnapshotStory[]>;
 	}>;
@@ -94,7 +99,7 @@ export const styleForYear = (year: number): BuildingMethod => stylesForYear(year
 /** The tool in the player's hand. `look` only moves the view. */
 export type Tool =
 	| { kind: 'look' }
-	| { kind: 'house'; use: HouseUse; style?: HouseStyle }
+	| { kind: 'house'; use: HouseUse; style?: BuildingMethod }
 	| { kind: 'line'; transit: TransitKind | 'walkway' }
 	| { kind: 'cover'; cover: CoverKind }
 	| { kind: 'dig' }

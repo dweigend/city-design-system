@@ -59,10 +59,7 @@ export function extendStroke(stroke: Stroke, cellId: string): Stroke {
 			'failure' in proposal
 				? { draft: stroke.base, failure: proposal.failure }
 				: {
-						draft: withState(
-							stroke.base,
-							install(stroke.base.state, proposal, stroke.tool.kind === 'line' ? 'paths' : 'houses')
-						),
+						draft: withState(stroke.base, install(stroke.base.state, proposal, stroke.tool)),
 						failure: undefined
 					};
 		return { ...stroke, cellIds, lastPointerCellId, ...result };
