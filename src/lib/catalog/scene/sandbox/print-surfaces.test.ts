@@ -134,3 +134,32 @@ test('rail dashes follow chainage around a bend for the viaduct and the capsule 
 		expect(Math.max(...axis.array)).toBeCloseTo(20);
 	}
 });
+
+test('fine casting tessellation preserves both cap seats and the outer radius', () => {
+	const coarse = batch([capsule], ink).neu.p;
+	const fine = ceramicBatch([capsule], new Map(), ink).faces.p;
+	const bounds = (p: number[]) =>
+		[0, 1, 2].flatMap((axis) => {
+			const values = p.filter((_, i) => i % 3 === axis);
+			return [Math.min(...values), Math.max(...values)];
+		});
+	expect(fine.length).toBeGreaterThan(coarse.length);
+	bounds(fine).forEach((v, i) => expect(v).toBeCloseTo(bounds(coarse)[i], 5));
+});
+
+test('pencil window bars follow a rotated stock opening and do not add ink to new construction', async () => {
+	const { stockDetail } = await import('./stock-detail');
+	const panel: Primitive = {
+		...blank,
+		role: 'bestand',
+		id: 'bay:opening0',
+		kind: 'box',
+		position: [0, 0, 3],
+		size: [3, 0.2, 1],
+		rotation: Math.PI / 2
+	};
+	const segments = stockDetail([panel]);
+	expect(segments.length).toBeGreaterThan(0);
+	expect(segments.filter((_, i) => i % 3 === 1).every((z) => z >= 3 && z <= 4)).toBe(true);
+	expect(stockDetail([{ ...panel, role: 'neu' }])).toEqual([]);
+});
