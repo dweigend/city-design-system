@@ -1,19 +1,22 @@
+import { elevatedWalk } from './elevated-walk';
 import { panel } from './objects/forms';
 import { stairCheek } from './stair-cheek';
-import { family, block, legs, row, crescent, cage, shell } from './assembly';
+import { family, block, row, crescent, cage, shell } from './assembly';
 import { rod, ring } from './parts';
 const asset = family('access', 'deck');
 export const walkways = [
 	asset('beam-bridge', ['body', 'deck', 'glass'], [10, 3], (factor) => [
-		...row(2, (t) => block(0, t * 0.98, 0, 9.8 * factor, 0.34, 0.52 * factor)),
-		panel(0, 0, 0.52 * factor, 9.8 * factor, 2.7, 0.22, 'deck'),
-		...row(2, (t) => block(0, t * 1.27, 0.52 * factor + 0.22, 9.8 * factor, 0.12, 0.96, 'glass'))
+		...row(2, (t) => panel(0, t * 0.96, 0, 9.8 * factor, 0.38, 0.48, 'body')),
+		...elevatedWalk(9.8 * factor, 2.76, 0.48)
 	]),
-	asset('viaduct-deck', ['body', 'deck', 'glass'], [9, 3], (factor) => [
-		...legs(3.8, 1.15, 4.6 * factor),
-		panel(0, 0, 4.6 * factor, 8.8, 2.8, 0.32, 'deck'),
-		...row(2, (t) => block(0, t * 1.32, 4.6 * factor + 0.32, 8.8, 0.15, 0.95, 'glass'))
-	]),
+	asset('viaduct-deck', ['body', 'deck', 'glass'], [9, 3], (factor) => {
+		const level = 4.6 * factor;
+		return [
+			...row(2, (t) => panel(t * 2.9, 0, 0, 0.5, 0.86, level - 0.24, 'body')),
+			...row(2, (t) => panel(t * 2.9, 0, level - 0.24, 0.68, 2.18, 0.24, 'body')),
+			...elevatedWalk(8.8, 2.8, level)
+		];
+	}),
 	asset('turnback-walk', ['deck', 'glass'], [7, 7], (factor) => [
 		crescent(3.3, 1.7, 0, 0.26, Math.PI, 'deck'),
 		...row(2, (t) => block(t * 2.5, -1.6, 0, 1.6, 3.2, 0.26, 'deck')),
