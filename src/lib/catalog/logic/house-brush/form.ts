@@ -4,6 +4,7 @@ import type { ColorToken, Primitive } from '../parametrik/types';
 import type { QuadGrid } from '../quad-grid';
 import type { PrintOrder } from './print-contact';
 import type { HouseUse, Stacks } from './stacks';
+import type { Ensembles } from './ensemble';
 
 type Without<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 /** Geometry of a primitive without identity, role and color. */
@@ -16,6 +17,7 @@ export type Site = Readonly<{
 	seed: number;
 	roofBuilder?: RoofBuilder;
 	printOrder?: PrintOrder;
+	ensembles?: Ensembles;
 }>;
 
 /** One draw channel per decision of the grammar (PD-4). */

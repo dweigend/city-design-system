@@ -24,10 +24,11 @@ export function profileOf(site: Site, mass: Mass) {
 		({ cell, level }) => storiesOf(site.stacks, cell.id).length === level + 1
 	);
 	const arcade =
+		!mass.volume &&
 		mass.stories.every((s) => s.level === 0) &&
 		mass.stories.some((s) => storiesOf(site.stacks, s.cell.id).length >= 3);
 	const extra = hash(site.seed, key, CHANNEL.tiers) < EXTRA_TIER_SHARE;
-	const tiers = open ? 2 + Number(extra && mass.stories.length >= BROAD_ROOF) : 0;
+	const tiers = open && !mass.volume ? 2 + Number(extra && mass.stories.length >= BROAD_ROOF) : 0;
 	return {
 		fillet: { convex, concave: convex * CONCAVE_SHARE },
 		arcade,

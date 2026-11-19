@@ -48,7 +48,7 @@ test('the seed-7 acceptance scene produces the same fittings on replay', () => {
 test('acceptance slab collars sit on slab planes and post axes without moving endpoint joints', () => {
 	const { contacts, parts, joints } = acceptanceJoints();
 	const seams = contacts.filter(({ seat }) => seat === 'slab-seam');
-	expect(seams).toHaveLength(19);
+	expect(seams).toHaveLength(21);
 	const endpointContacts = contacts.filter(({ seat }) => seat !== 'slab-seam');
 	expect(acceptanceJoints(true).joints).toEqual(joints);
 	for (const { member, support, point, axis } of seams) {
@@ -69,11 +69,11 @@ test('acceptance slab collars sit on slab planes and post axes without moving en
 		expect(point[2]).toBeLessThan(post.position[2] + post.height);
 	}
 	const endpoints = deriveStructuralJoints(endpointContacts);
-	expect(endpoints).toHaveLength(733);
-	// Digest of the seed-7 endpoint joint IDs and positions before surveying slab seams.
-	// Arc-length rail sampling moved three rail saddles and four pillar feet by at most 15 µm.
+	expect(endpoints).toHaveLength(745);
+	// The joined plinths and body roofs change house bearings and two shaft collars.
+	// The digest freezes the seed-7 endpoint joint IDs and positions in this projection.
 	expect(Bun.hash(JSON.stringify(endpoints.map(({ partId, point }) => [partId, point])))).toBe(
-		13973173229444513148n
+		18098608517002038666n
 	);
 });
 

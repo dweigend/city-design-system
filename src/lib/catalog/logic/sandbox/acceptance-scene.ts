@@ -68,6 +68,9 @@ const COVERS: readonly (readonly [Cover, Rect])[] = [
 	['meadow', [60, 22, 64, 25]]
 ];
 const OPENING_CELL = '79/44';
+// One painted crown starter per connected bank group gives the surrounding two-storey
+// parcels room to alternate within the two-storey surcharge limit.
+const BANK_CROWN_STARTERS = ['66/25', '78/25', '88/23', '106/24'];
 const FRAME: readonly [Vec3, Vec3] = [
 	[-30, -190, 1],
 	[165, -62, 30]
@@ -105,7 +108,8 @@ function interventions(start: World): Edit[] {
 		),
 		...townFormEdits(start),
 		{ kind: 'line', transit: 'capsule', cellIds: TUBE },
-		...COVERS.flatMap(([kind, rect]) => cover(kind, rect))
+		...COVERS.flatMap(([kind, rect]) => cover(kind, rect)),
+		...(start.seed === SEED ? BANK_CROWN_STARTERS.map((id) => collageStory(id, 'living')) : [])
 	];
 }
 

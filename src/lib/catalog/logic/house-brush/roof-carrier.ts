@@ -7,10 +7,12 @@ import { storiesOf, type Stacks } from './stacks';
 import type { PrintOrder } from './print-contact';
 import { BODY_TOKEN } from './body-token';
 import { dockedModule } from './style-totem';
+import type { Ensembles } from './ensemble';
 
 export type RoofContext = {
 	occupied: Stacks;
 	printOrder?: PrintOrder;
+	ensembles?: Ensembles;
 	blockOf: (id: string) => string | undefined;
 	olderRoof: (id: string) => boolean;
 };

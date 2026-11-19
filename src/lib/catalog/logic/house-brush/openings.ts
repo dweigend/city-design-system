@@ -9,7 +9,8 @@ import { cellKey } from './cell-key';
 import type { Primitive } from '../parametrik/types';
 import { sideLength, type QuadCell } from '../quad-grid';
 import { CHANNEL, detail, type Form, type Site } from './form';
-import { floorOf, type Mass, type Story } from './massing';
+import { wallMargin } from './ensemble-walls';
+import { floorOf, massStoreys, type Mass, type Story } from './massing';
 import { storiesOf, type HouseUse } from './stacks';
 
 /** Share of free walls that carry an opening. */
@@ -109,13 +110,14 @@ function isCovered(site: Site, neighborId: string, floor: number): boolean {
 
 function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string>, inset: number) {
 	const { cell, level } = story;
+	const floor = floorOf(cell, level);
 	const isOuter = (side: number) => {
 		const neighborId = cell.neighbors[side];
 		return neighborId === null || !members.has(neighborId);
 	};
 	const isFree = (side: number) => {
 		const neighborId = cell.neighbors[side];
-		return isOuter(side) && (neighborId === null || !isCovered(site, neighborId, mass.floor));
+		return isOuter(side) && (neighborId === null || !isCovered(site, neighborId, floor));
 	};
 	const parts: Primitive[] = [];
 	for (let side = 0; side < 4; side++) {
@@ -125,14 +127,11 @@ function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string
 		// A wall that ends in a rounded corner has less free length than one in a straight run.
 		const atCorner = isOuter((side + 1) % 4) || isOuter((side + 3) % 4);
 		const width = sideLength(cell, side) * (atCorner ? WALL_SHARE.corner : WALL_SHARE.run);
-		const frame = wallFrame(cell, side, inset);
-		figures(mass.use, level, width).forEach((figure, k) =>
+		const frame = wallFrame(cell, side, wallMargin(site, mass, story, side, inset));
+		const use = storiesOf(site.stacks, cell.id)[level] ?? mass.use;
+		figures(use, level, width).forEach((figure, k) =>
 			parts.push(
-				detail(
-					`${cell.id}@${level}:opening${side}.${k}`,
-					mass.use,
-					figureForm(figure, frame, mass.floor)
-				)
+				detail(`${cell.id}@${level}:opening${side}.${k}`, use, figureForm(figure, frame, floor))
 			)
 		);
 	}
@@ -145,5 +144,9 @@ function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string
  */
 export function openings(site: Site, mass: Mass, inset: number): Primitive[] {
 	const members = new Set(mass.stories.map((story) => story.cell.id));
-	return mass.stories.flatMap((story) => storyOpenings(site, mass, story, members, inset));
+	return mass.stories.flatMap(({ cell, level }) =>
+		Array.from({ length: massStoreys(mass) }, (_, offset) =>
+			storyOpenings(site, mass, { cell, level: level + offset }, members, inset)
+		).flat()
+	);
 }

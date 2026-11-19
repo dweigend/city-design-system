@@ -5,6 +5,8 @@ import {
 	houseMassParts,
 	massesOfChunk,
 	massAt,
+	massStoryKeys,
+	wallEnsembles,
 	storiesOf,
 	type HouseUse,
 	type Stacks
@@ -14,8 +16,9 @@ import type { Primitive } from '../parametrik/types';
 import { present, type Focus } from '../presentation';
 import type { SandboxState } from './state';
 import type { World } from './world';
+import { ensembleEditCells, ensembleFloors, houseEnsembles } from './house-ensembles';
 
-type Phase = Readonly<{ built: number; style: BuildingMethod }>;
+type Phase = Readonly<{ built: number; style: BuildingMethod; painted: boolean }>;
 type MutableStacks = Map<string, HouseUse[]>;
 
 const phasesByState = new WeakMap<SandboxState, ReadonlyMap<Phase, Stacks>>();
@@ -36,7 +39,7 @@ function groupPhases(state: SandboxState, stacks: Stacks, currentOnly = false) {
 			if (!part || (currentOnly && part.built !== state.year)) return;
 			const { built, style } = part;
 			const key = `${built}/${style}`;
-			const phase = keys.get(key) ?? { built, style };
+			const phase = keys.get(key) ?? { built, style, painted: !part.id.startsWith('p/0/') };
 			const floors = phases.get(phase) ?? new Map();
 			setFloor(floors, id, level, use);
 			keys.set(key, phase);
@@ -71,7 +74,7 @@ export function currentStacks(state: SandboxState): Stacks {
 // volume is new work in the sandbox; its drafted line details can keep their own weight.
 const newVolume = (part: Primitive): Primitive =>
 	part.role === 'bestand' && part.kind !== 'polyline'
-		? { ...part, role: 'neu', edges: true }
+		? { ...part, role: 'neu', edges: part.edges ?? true }
 		: part;
 
 function printOrder(state: SandboxState, firstFullYear: number) {
@@ -83,6 +86,23 @@ function printOrder(state: SandboxState, firstFullYear: number) {
 	};
 }
 
+const visualPhases = new WeakMap<ReturnType<typeof houseEnsembles>, WeakMap<Stacks, Stacks>>();
+
+function visualFloors(stacks: Stacks, occupied: Stacks, layout: ReturnType<typeof houseEnsembles>) {
+	const phases = visualPhases.get(layout) ?? new WeakMap<Stacks, Stacks>();
+	visualPhases.set(layout, phases);
+	const floors = phases.get(stacks) ?? ensembleFloors(stacks, occupied, layout);
+	phases.set(stacks, floors);
+	return floors;
+}
+
+function houseProjection(world: World) {
+	const plots = buildingPlots(world.grid);
+	const ensembles = houseEnsembles(world.grid, plots, world.state, world.seed);
+	const occupied = visualFloors(world.state.stacks, world.state.stacks, ensembles);
+	return { plots, ensembles, occupied };
+}
+
 /** Projects each layer with its saved geometry and the selected view's current or stock style. */
 export function houseView(
 	world: World,
@@ -92,21 +112,23 @@ export function houseView(
 	earliestFullYear = world.state.year
 ) {
 	const { grid, state, seed } = world;
+	const { plots, ensembles, occupied } = houseProjection(world);
 	const phases = [...constructionPhases(state)];
 	const current =
 		stacks === currentStacks(state)
 			? phases.filter(([phase]) => phase.built === state.year)
 			: [...groupPhases(state, stacks, true)];
 	const stock = phases.filter(([phase]) => phase.built < earliestFullYear);
-	const project = ([{ built, style }, floors]: (typeof phases)[number]) =>
+	const project = ([{ built, style, painted }, floors]: (typeof phases)[number]) =>
 		houseChunk(
-			buildingPlots(grid),
-			floors,
+			plots,
+			visualFloors(floors, state.stacks, ensembles),
 			chunk,
 			seed,
 			style,
 			{
-				occupied: state.stacks,
+				occupied,
+				ensembles: painted ? ensembles : undefined,
 				printOrder: printOrder(state, earliestFullYear),
 				// Plots already exclude passages; roof runs stay within the original lattice block.
 				blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
@@ -128,28 +150,28 @@ export function houseView(
 	];
 }
 
-function houseGroupKey({ built, style }: Phase, id: string) {
-	return `${built}/${style}/${id}`;
-}
+const houseGroupKey = ({ built, style }: Phase, id: string) => `${built}/${style}/${id}`;
 
 /** Mass addresses touching the supplied parcels or their facade neighbours. */
 export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Map<string, string> {
-	const plots = buildingPlots(world.grid);
+	const { plots, ensembles } = houseProjection(world);
 	const nearby = new Set<QuadCell>();
-	for (const id of cellIds) {
+	for (const id of ensembleEditCells(world.grid, ensembles, cellIds)) {
 		const cell = plots.cellsById.get(id);
 		if (!cell) continue;
 		nearby.add(cell);
 		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
 	}
 	const out = new Map<string, string>();
-	for (const [phase, stacks] of constructionPhases(world.state)) {
+	for (const [phase, painted] of constructionPhases(world.state)) {
+		const stacks = visualFloors(painted, world.state.stacks, ensembles);
+		const layout = phase.painted ? wallEnsembles(phase.style, { ensembles }) : undefined;
 		const visited = new Set<string>();
 		for (const cell of nearby) {
 			storiesOf(stacks, cell.id).forEach((_, level) => {
 				if (visited.has(`${cell.id}@${level}`)) return;
-				const mass = massAt(plots, stacks, cell, level);
-				for (const story of mass.stories) visited.add(`${story.cell.id}@${story.level}`);
+				const mass = massAt(plots, stacks, cell, level, layout);
+				for (const key of massStoryKeys(mass)) visited.add(key);
 				out.set(houseGroupKey(phase, mass.id), mass.stories[0].cell.chunk);
 			});
 		}
@@ -171,16 +193,18 @@ export function houseGroups(
 	firstFullYear = world.state.year
 ) {
 	const { grid, state, seed } = world;
-	const plots = buildingPlots(grid);
+	const { plots, ensembles, occupied } = houseProjection(world);
 	const groups = new Map<string, Primitive[]>();
-	for (const [phase, stacks] of constructionPhases(state)) {
+	for (const [phase, painted] of constructionPhases(state)) {
+		const stacks = visualFloors(painted, state.stacks, ensembles);
 		const context = {
-			occupied: state.stacks,
+			occupied,
+			ensembles: phase.painted ? ensembles : undefined,
 			printOrder: printOrder(state, firstFullYear),
 			blockOf: (id: string) => grid.cellsById.get(id)?.block.split('/')[0],
 			olderRoof: (id: string) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < phase.built
 		};
-		for (const mass of massesOfChunk(plots, stacks, chunk)) {
+		for (const mass of massesOfChunk(plots, stacks, chunk, wallEnsembles(phase.style, context))) {
 			const key = houseGroupKey(phase, mass.id);
 			if (keys && !keys.has(key)) continue;
 			const parts = houseMassParts(

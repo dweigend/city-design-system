@@ -47,12 +47,17 @@ export function houseChunk(
 	roofBuilder?: RoofBuilder
 ): Primitive[] {
 	const site = massSite(grid, stacks, seed, style, context, roofBuilder);
-	const parts = massesOfChunk(grid, stacks, chunk).flatMap((mass) =>
+	const parts = massesOfChunk(grid, stacks, chunk, wallEnsembles(style, context)).flatMap((mass) =>
 		massParts(site, mass, style, context)
 	);
 	return site.printOrder
 		? parts.filter((p) => !p.overprint).concat(parts.filter((p) => p.overprint))
 		: parts;
+}
+
+/** Continuous wall volumes use the body grammar of the painted wall styles. */
+export function wallEnsembles(style: HouseStyle, context?: Pick<RoofContext, 'ensembles'>) {
+	return style === 'collage' || style === 'terrace' ? context?.ensembles : undefined;
 }
 
 function massSite(
@@ -68,6 +73,7 @@ function massSite(
 		stacks: context?.occupied ?? stacks,
 		seed,
 		roofBuilder,
+		ensembles: wallEnsembles(style, context),
 		printOrder: style === 'collage' ? (context?.printOrder ?? stackPrintOrder(stacks)) : undefined
 	};
 }
@@ -95,6 +101,7 @@ function massParts(site: Site, mass: Mass, style: HouseStyle, context?: RoofCont
 }
 
 export { massAt, massesOfChunk, type Mass };
+export { massStoryKeys } from './massing';
 
 /** Height in meters of the top of a cell's stack: where the next story would stand. */
 export const stackTop = (stacks: Stacks, cell: QuadCell): number =>
@@ -119,3 +126,4 @@ export function roofWalls(grid: QuadGrid, stacks: Stacks, cell: QuadCell, seed: 
 	return { inset, exposed: cell.neighbors.map((n) => !n || !members.has(n)) };
 }
 export { boundaryRings, insetRing, ringArea } from './outline';
+export { planEnsembles, type Ensembles, type EnsembleCell } from './ensemble';

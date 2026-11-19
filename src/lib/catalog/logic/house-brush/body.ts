@@ -3,9 +3,17 @@ import { STORY } from '../../data/grid';
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell } from '../quad-grid';
 import { part, type Form, type Site } from './form';
-import type { Mass } from './massing';
+import { wallRing } from './ensemble-walls';
+import { massStoreys, type Mass } from './massing';
 import { openings } from './openings';
-import { boundaryRings, insetRing, ringArea, roundRing, type Fillet } from './outline';
+import {
+	boundaryRings,
+	boundaryRuns,
+	insetRing,
+	ringArea,
+	roundRing,
+	type Fillet
+} from './outline';
 import type { Profile } from './profile';
 import { pilotis } from './pilotis';
 
@@ -29,6 +37,18 @@ function slabOf(cells: readonly QuadCell[], fillet: Fillet) {
 }
 
 type Slab = ReturnType<typeof slabOf>;
+
+function joinedSlab(site: Site, mass: Mass, fillet: Fillet, fallback: Slab): Slab {
+	if (!mass.volume) return fallback;
+	const cells = mass.stories.map(({ cell }) => cell);
+	const ids = new Set(cells.map(({ id }) => id));
+	const runs = boundaryRuns(cells, (id) => ids.has(id));
+	return (inset, z, height, bearing) => {
+		const rings = runs.map((run) => roundRing(wallRing(site, mass, run, inset), fillet));
+		const [polygon, ...holes] = rings.sort((a, b) => ringArea(b) - ringArea(a));
+		return { kind: 'prism', polygon, holes, z, height, ...(bearing && { bearing }) };
+	};
+}
 
 /** One stilt under every grid corner of the raised cells, down into the ground. */
 function stilts(mass: Mass, cells: readonly QuadCell[]): Primitive[] {
@@ -72,15 +92,16 @@ function roof(mass: Mass, slab: Slab, profile: Profile): Primitive[] {
 export function body(site: Site, mass: Mass, profile: Profile): Primitive[] {
 	const cells = mass.stories.map((story) => story.cell);
 	const slab = slabOf(cells, profile.fillet);
-	const wallHeight = STORY - PLATE.thickness;
+	const walls = joinedSlab(site, mass, profile.fillet, slab);
+	const wallHeight = STORY * massStoreys(mass) - PLATE.thickness;
+	const plateInset = mass.volume ? profile.wallInset : PLATE.inset;
 
 	return [
-		part(`${mass.id}:wall`, '--paper', slab(profile.wallInset, mass.floor, wallHeight)),
-		part(
-			`${mass.id}:plate`,
-			'--paper',
-			slab(PLATE.inset, mass.floor + wallHeight, PLATE.thickness, 'slab')
-		),
+		part(`${mass.id}:wall`, '--paper', walls(profile.wallInset, mass.floor, wallHeight)),
+		part(`${mass.id}:plate`, '--paper', {
+			...walls(plateInset, mass.floor + wallHeight, PLATE.thickness, 'slab'),
+			...(mass.volume && { edges: false })
+		}),
 		...roof(mass, slab, profile),
 		...(profile.arcade ? pilotis(mass, cells, wallHeight, profile.wallInset) : []),
 		...support(mass, profile.fillet),

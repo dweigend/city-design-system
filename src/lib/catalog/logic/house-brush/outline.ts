@@ -130,6 +130,25 @@ export function insetRing(ring: readonly Point2[], margin: number): Point2[] {
 	});
 }
 
+/** Intersects adjacent offset sides with separate inward margins in meters. */
+export function insetSides(ring: readonly Point2[], margins: readonly number[]): Point2[] {
+	return ring.map(([x, y], i) => {
+		const previous = (i + ring.length - 1) % ring.length;
+		const [ax, ay] = direction(ring[previous], ring[i]);
+		const [bx, by] = direction(ring[i], ring[(i + 1) % ring.length]);
+		const before = margins[previous],
+			after = margins[i];
+		const cross = ax * by - ay * bx;
+		if (Math.abs(cross) < 0.1) return [x - by * after, y + bx * after];
+		const along = (before * (ax * bx + ay * by) - after) / cross;
+		const reach = Math.max(
+			-Math.abs(before - after) - Math.abs(before + after),
+			Math.min(Math.abs(before - after) + Math.abs(before + after), along)
+		);
+		return [x - ay * before + ax * reach, y + ax * before + ay * reach];
+	});
+}
+
 function arc(vertex: Point2, into: Point2, angle: number, radius: number): Point2[] {
 	const left = Math.sign(angle);
 	const reach = radius * Math.tan(Math.abs(angle) / 2);
