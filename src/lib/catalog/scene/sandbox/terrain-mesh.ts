@@ -272,7 +272,7 @@ export function createTerrainMesh(
 			colors.ink.value.set(palette.ink);
 			daylight.value = Number(colors.paper.value.r >= colors.ink.value.r);
 			colors.blueprint.value.set(palette.blueprint);
-			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
+			colors.water.value.set(palette.paper).lerp(category('health'), 0.55);
 			if (!daylight.value && palette.categories['health-1'])
 				colors.water.value.set(palette.categories['health-1']);
 			colors.waterStroke.value.set(palette.categories['health-2'] ?? palette.categories.health);

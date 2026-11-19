@@ -17,7 +17,7 @@ const CHANNEL = { figureSeat: 31, figureSide: 32 };
 
 /** Wall colour of each use. Housing takes the pale planning tint; paths alone stay pink. */
 const BODY_TOKEN = {
-	living: '--blueprint-2',
+	living: '--body-living',
 	water: flowToken.water,
 	energy: flowToken.energy,
 	food: flowToken.food,

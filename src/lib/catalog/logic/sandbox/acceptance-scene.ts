@@ -99,8 +99,8 @@ const FRAME: readonly [Vec3, Vec3] = [
 ];
 
 const PORTRAIT_FRAME: readonly [Vec3, Vec3] = [
-	[5, -195, 1],
-	[90, -60, 34]
+	[12, -185, 1],
+	[84, -72, 34]
 ];
 
 function interventions(): Edit[] {

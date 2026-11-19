@@ -23,7 +23,8 @@ export type ColorToken =
 	| '--cat-business'
 	| '--cat-nature'
 	| '--blueprint'
-	| '--blueprint-2'
+	/** Wall tint of new housing bodies. */
+	| '--body-living'
 	/** Memphis accent (ink or signal, never a flow color as accent; data/color.ts). */
 	| '--signal';
 /** A surface selected independently of a generated solid or sheet. */

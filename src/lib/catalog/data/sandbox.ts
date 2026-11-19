@@ -53,7 +53,7 @@ export type SandboxOption<T extends string> = {
 
 /** Uses of a house. Order = number keys 1–5. Paths and rail keep the people color. */
 export const sandboxUses: SandboxOption<'living' | 'water' | 'energy' | 'food' | 'material'>[] = [
-	{ id: 'living', name: 'Living', figure: 'Ribbon window, dome', color: 'var(--paper)' },
+	{ id: 'living', name: 'Living', figure: 'Ribbon window, dome', color: 'var(--body-living)' },
 	{ id: 'water', name: 'Water', figure: 'Porthole, tank', color: 'var(--cat-health)' },
 	{ id: 'energy', name: 'Energy', figure: 'Twin panels, sun dish', color: 'var(--cat-mobility)' },
 	{ id: 'food', name: 'Food', figure: 'Glazing, greenhouse', color: 'var(--cat-nature)' },

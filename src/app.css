@@ -17,6 +17,8 @@
 	--cat-business: oklch(0.7 0.13 355);
 	--cat-nature: oklch(0.7 0.12 152);
 	--blueprint: oklch(0.46 0.16 268);
+	/* Wall tint of new housing bodies in the sandbox; paths alone stay pink. */
+	--body-living: oklch(0.82 0.07 268);
 	/* Accent and hazard: only these are strong (5 %) */
 	--signal: oklch(0.575 0.18 33);
 	--cat-hazard: oklch(0.47 0.165 12);
@@ -128,6 +130,7 @@
 	--ink-2: oklch(0.74 0.008 85);
 	--ink: oklch(0.95 0.008 85);
 	--blueprint: oklch(0.545 0.16 268);
+	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;
 	--step-2: calc(l + (0.25 - l) * 0.7) calc(c * 0.5) h;

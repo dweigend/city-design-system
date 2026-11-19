@@ -6,6 +6,7 @@
 	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { onMount } from 'svelte';
 	import { acceptanceScene } from '../logic/sandbox';
+	import { sandboxUses } from '../data/sandbox';
 	import { attachInput } from '../scene/sandbox';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox';
 	import { ThemeToggle } from '../theme';
@@ -18,6 +19,7 @@
 	let plan = $state(false);
 	let paused = $state(false);
 	let error = $state('');
+	const key = [...sandboxUses, { id: 'paths', name: 'Paths', color: 'var(--cat-business)' }];
 
 	onMount(() => {
 		const query = new URLSearchParams(location.search);
@@ -71,8 +73,10 @@
 <main>
 	<header>
 		<div>
-			<h1>Acceptance scene</h1>
+			<a class="brand" href={resolve('/')}>City Design System</a>
+			<h1>Riverside town</h1>
 			<nav aria-label="Sandbox plates">
+				<a href={resolve('/sandbox')}>Open in sandbox</a>
 				<a href={resolve('/sandbox/regel')}>House rule</a>
 				<a href={resolve('/sandbox/stile')}>Style study</a>
 			</nav>
@@ -97,6 +101,12 @@
 			tabindex="0"
 			aria-label="Seed {seed} acceptance scene. Arrow keys pan, plus and minus zoom."
 		></canvas>
+		<ul class="key" aria-label="Colour key">
+			{#each key as item (item.id)}
+				<li><span class="chip" style:--chip={item.color}></span>{item.name}</li>
+			{/each}
+			<li><span class="chip stock"></span>Stock</li>
+		</ul>
 		{#if error}<p role="alert">{error}</p>{/if}
 	</div>
 </main>
@@ -120,6 +130,47 @@
 		margin: 0;
 		font-size: var(--text-l);
 		font-weight: 600;
+	}
+	.brand {
+		color: var(--ink-2);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs, 0.6875rem);
+		letter-spacing: 0.04em;
+		text-decoration: none;
+		text-transform: uppercase;
+	}
+	.key {
+		position: absolute;
+		inset: auto auto var(--space-3) var(--space-3);
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1) var(--space-3);
+		max-width: calc(100% - 2 * var(--space-3));
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		list-style: none;
+		border: var(--hair) solid var(--line);
+		background: var(--paper);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs, 0.6875rem);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.key li {
+		display: flex;
+		gap: var(--space-1);
+		align-items: center;
+	}
+	.chip {
+		width: 0.75rem;
+		height: 0.75rem;
+		border: var(--hair) solid var(--ink);
+		border-radius: 50%;
+		background: var(--chip);
+	}
+	.chip.stock {
+		border-color: var(--ink-3);
+		background: var(--paper);
 	}
 	nav,
 	.controls {
