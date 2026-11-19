@@ -2,7 +2,8 @@ import { preferredWallRing } from './wall-order';
 import type { RoofCell } from './footprints';
 import type { Vec3 } from '../traeger';
 export type Joint = { id: string; roofId: string; p: Vec3 };
-function length(a: Joint, b: Joint) {
+/** Spatial distance in meters between the ends of a frame member. */
+export function memberLength(a: Pick<Joint, 'p'>, b: Pick<Joint, 'p'>) {
 	return Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
 }
 function bay(roof: RoofCell, level: number, start: number, direction: number) {
@@ -43,14 +44,14 @@ export function bearingLayouts(roof: RoofCell, level: number, maxSpan: number) {
 	for (const direction of [1, -1])
 		for (let start = 0; start < ordered.polygon.length; start++) {
 			const layout = bay(ordered, level, start, direction);
-			if (layout && bayMembers(layout).every(([a, b]) => length(a, b) <= maxSpan))
+			if (layout && bayMembers(layout).every(([a, b]) => memberLength(a, b) <= maxSpan))
 				result.push(layout);
 		}
 	return result;
 }
 const REQUIRED_LINKS = 3;
 function allowedLength(a: Joint, b: Joint, maxSpan: number) {
-	const d = length(a, b);
+	const d = memberLength(a, b);
 	return d > 1e-8 && d <= maxSpan ? d : Infinity;
 }
 /** True once three noncoincident chords fit between the crowns; same test as assembly. */

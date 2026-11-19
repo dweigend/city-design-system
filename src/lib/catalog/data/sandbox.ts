@@ -124,6 +124,8 @@ export const townDefaults = {
 
 /** Player-facing explanations for rejected construction surveys. */
 export const surveyMessages: Readonly<Record<string, string>> = {
+	'member-too-long':
+		'This member exceeds the maximum length. Bring the wall bearings closer together.',
 	'unstable-frame': 'These walls cannot brace the carrier in every direction.',
 	'invalid-roof': 'These roof footprints cannot support a surveyed frame.',
 	'empty-survey': 'Drag across existing roofs to place a carrier.',

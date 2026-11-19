@@ -14,11 +14,8 @@ import {
 
 const seed = createWorld(7);
 const town = withState(seed, { ...seed.state, store: { ...seed.state.store, material: 100 } });
-const stroke = (style: 'megastructure' | 'totem', world: typeof town) =>
-	['83/47', '87/47'].reduce(
-		extendStroke,
-		beginStroke({ kind: 'house', use: 'water', style }, world)
-	).draft;
+const stroke = (style: 'megastructure' | 'totem', world: typeof town, cells = ['87/47', '83/47']) =>
+	cells.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world)).draft;
 const carrier = stroke('megastructure', town);
 
 test('projected rods and wall bearings pass the K2 load case with their installed sections', () => {
@@ -50,7 +47,8 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 	).toBe('mechanismus');
 });
 test('basin at 80/48 retires the tilted chord with its three capsules and refunds the owner', () => {
-	const built = stroke('totem', carrier);
+	const cells = ['83/47', '88/45'];
+	const built = stroke('totem', stroke('megastructure', town, cells), cells);
 	expect([...built.state.parts.values()].filter((p) => p.kind === 'module')).toHaveLength(3);
 	const credit = [...built.state.parts.values()].reduce((sum, p) => sum + p.materials.material, 0);
 	const dug = applyEdit(built, { kind: 'dig', cellId: '80/48' });

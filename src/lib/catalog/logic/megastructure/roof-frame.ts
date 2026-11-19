@@ -6,8 +6,10 @@ import { defineParams, numberParam, resolveParams, type ParamOverrides } from '.
 import { probeFrame } from './frame-probe';
 
 export type { RoofCell } from './footprints';
+/** Default K2 limit on a member axis in meters, including its vertical rise. */
+export const MAX_FRAME_SPAN_M = 15;
 const frameParams = defineParams({
-	maxSpan: numberParam('Maximum member length', 'm', 15, [1, 50, 0.5]),
+	maxSpan: numberParam('Maximum member length', 'm', MAX_FRAME_SPAN_M, [1, 50, 0.5]),
 	clearance: numberParam('Roof clearance', 'm', 2, [0.5, 10, 0.25])
 });
 export const FRAME_DIAMETER = { main: 0.18, brace: 0.1 } as const;

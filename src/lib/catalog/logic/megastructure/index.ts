@@ -5,3 +5,4 @@ export { moduleBridge } from './bridge';
 export { infrastructurePlate } from './plate';
 
 export { probeFrame } from './frame-probe';
+export { memberLength } from './bearing-layout';

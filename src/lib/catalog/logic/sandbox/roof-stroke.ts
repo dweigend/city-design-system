@@ -3,7 +3,7 @@ import { buildingPlots } from './building-plots';
 import { roofWalls } from '../house-brush';
 import { required } from '../required';
 import { STORY } from '../../data/grid';
-import { buildRoofFrame } from '../megastructure';
+import { buildRoofFrame, MAX_FRAME_SPAN_M } from '../megastructure';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 import type { Vec3 } from '../parametrik/types';
 import {
@@ -119,9 +119,7 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 		walls.map((w) => w.sides),
 		layout.parts
 	);
-	const parts = layout.parts;
-	if (carrierProbe(grid, parts) === 'ok') return { parts };
-	return rejected('unstable-frame', cells);
+	return carrierProbe(grid, layout.parts, cells);
 }
 
 function braceWalls(
@@ -179,7 +177,7 @@ function assembleSeats(grid: QuadGrid, seats: Anchor[], crown: number): Proposal
 			const prev = seats[i - 1];
 			const a = position(grid, prev),
 				b = position(grid, foot);
-			if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 15)
+			if (Math.hypot(a[0] - b[0], a[1] - b[1]) > MAX_FRAME_SPAN_M)
 				return { failure: { reason: 'span-disconnected', marks: [[a, b]] } };
 			parts.push(
 				{ kind: 'segment', recipe: 'chord', anchor: top(prev), end: top(foot) },
