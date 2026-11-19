@@ -18,7 +18,7 @@ export const sandboxTools: SandboxTool[] = [
 		id: 'house',
 		name: 'House',
 		shortcut: 'H',
-		hint: 'Drag to paint a house. Every stroke adds one story.'
+		hint: 'Drag to add a story to each plot below the height limit.'
 	},
 	{
 		id: 'line',

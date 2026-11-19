@@ -1,7 +1,8 @@
 import { frameIntent } from './frame-intent';
 import { styleForYear, stylesForYear } from './state';
 import { propose, install } from './installation';
-import type { Failure, Proposal } from './installation-parts';
+import { MAX_STORIES, storiesOf } from '../house-brush';
+import { rejected, type Failure, type Proposal } from './installation-parts';
 import { cellsBetween } from '../terrain-grid';
 import type { Edit, Tool } from './state';
 import { applyEdit, digStroke, eraseStroke, withState, type World } from './world';
@@ -89,7 +90,7 @@ function evaluateStroke(
 		return { draft: applyEdit(base, { kind: 'line', transit: tool.transit, cellIds: ids }) };
 	if (tool.kind === 'dig') return { draft: digStroke(base, ids) };
 	if (tool.kind === 'erase') return { draft: eraseStroke(base, ids) };
-	return applyCells(previous, tool, fresh);
+	return applyCells(base, previous, tool, ids, fresh);
 }
 
 /** Surveys a trace once and retains the same proposal for drawing and applying it. */
@@ -117,13 +118,31 @@ export function applyStroke(world: World, tool: Tool, cellIds: readonly string[]
 	return planStroke(world, tool, cellIds).outcome();
 }
 
-function applyCells(previous: World, tool: Tool, fresh: readonly string[]): Outcome {
+function heightLimit(world: World, tool: Extract<Tool, { kind: 'house' }>, ids: readonly string[]) {
+	const style = tool.style === 'collage' ? 'composed' : tool.style;
+	if (style && !stylesForYear(world.state.year).includes(style)) return;
+	const capped = ids.flatMap((id) => {
+		const cell = world.grid.cellsById.get(id);
+		return cell?.buildable && storiesOf(world.state.stacks, id).length >= MAX_STORIES ? [cell] : [];
+	});
+	return capped.length ? rejected('story-limit', capped).failure : undefined;
+}
+
+function applyCells(
+	base: World,
+	previous: World,
+	tool: Tool,
+	ids: readonly string[],
+	fresh: readonly string[]
+): Outcome {
 	let draft = previous;
 	for (const id of fresh) {
 		const edit = cellEdit(tool, id);
 		if (edit) draft = applyEdit(draft, edit);
 	}
-	return { draft, failure: undefined };
+	const failure =
+		draft === base && tool.kind === 'house' ? heightLimit(base, tool, ids) : undefined;
+	return { draft, failure };
 }
 
 function isFrameStroke(base: World, tool: Tool) {

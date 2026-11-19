@@ -9,6 +9,7 @@ import {
 	redo,
 	startHistory,
 	timelineWindow,
+	timelineYear,
 	undo,
 	withState
 } from './index';
@@ -123,4 +124,13 @@ test('the playable timeline keeps four generations in view through 2076 and the 
 	expect([at2076.state.year, at2101.state.year]).toEqual([2076, 2101]);
 	expect(timelineWindow(start.state.year, at2126.state.year, 25).max).toBe(2151);
 	expect(timelineWindow(start.state.year, start.state.year, 10).max).toBe(2066);
+});
+
+test('the ruler maps drag values to committed ticks in both directions through 2126', () => {
+	const values = [2000, 2040, 2082, 2126, 2150, 2090, 2026];
+	expect(values.map((value) => timelineYear(value, 2026, 2126, 25))).toEqual([
+		2026, 2051, 2076, 2126, 2126, 2101, 2026
+	]);
+	expect(timelineYear(2130, 2026, 2151, 25)).toBe(2126);
+	expect(timelineYear(2042, 2026, 2066, 10)).toBe(2046);
 });

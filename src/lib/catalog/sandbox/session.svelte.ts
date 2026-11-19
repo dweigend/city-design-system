@@ -13,7 +13,8 @@ import {
 	type StrokePlan,
 	type Tool,
 	stylesForYear,
-	timelineWindow
+	timelineWindow,
+	timelineYear
 } from '../logic/sandbox';
 
 /**
@@ -44,7 +45,7 @@ export function createSession(
 	const completion = $derived(state.completion);
 	let roofBuilder = $state.raw<typeof startingWorld.roofBuilder>();
 	let preview = $state.raw<typeof startingWorld>();
-	const shown = $derived(preview ?? world);
+	const shown = $derived(preview ?? state.reviewed ?? world);
 	const projected = $derived(roofBuilder ? { ...shown, roofBuilder } : shown);
 	let stroke = $state.raw<Pick<Stroke, 'cellIds' | 'lastPointerCellId'>>();
 	let pending = $state.raw<StrokeRelease>();
@@ -104,6 +105,7 @@ export function createSession(
 	}
 
 	function advance() {
+		if (state.reviewed) return;
 		if (!size) return actions.advance();
 		const source = world;
 		const work = prepareAdvance(source, generationYears);
@@ -136,7 +138,27 @@ export function createSession(
 		onCompletion: actions.onCompletion,
 		opening: { additions, additionSeed: initialSeed },
 		get timelineWindow() {
-			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
+			const year = world.state.year;
+			const range = timelineWindow(startingWorld.state.year, year, generationYears);
+			return year > range.min ? { min: range.min, max: year } : range;
+		},
+		get timelineState() {
+			return world.state;
+		},
+		get shownYear() {
+			return (state.reviewed ?? world).state.year;
+		},
+		get viewingPast() {
+			return state.reviewed !== undefined;
+		},
+		generationYears,
+		/** Selects a saved generation on the current branch in input order. */
+		reviewYear(this: void, value: number) {
+			control(() => {
+				actions.reviewYear(
+					timelineYear(value, startingWorld.state.year, world.state.year, generationYears)
+				);
+			});
 		},
 		setRoofBuilder(this: void, value: NonNullable<typeof roofBuilder>) {
 			input.control(() => (roofBuilder = value));
@@ -161,7 +183,10 @@ export function createSession(
 			return world.state.futureTarget === 'sponge-city';
 		},
 		/** Replays the target toggle in input order with advances and strokes. */
-		toggleSpongeCity: () => control(() => actions.toggleSpongeCity(), 'Sponge city'),
+		toggleSpongeCity: () =>
+			control(() => {
+				if (!state.reviewed) actions.toggleSpongeCity();
+			}, 'Sponge city'),
 		get tool() {
 			return selectedTool;
 		},
@@ -207,6 +232,7 @@ export function createSession(
 		},
 		/** Starts tracing on the current city and holds world controls until release. */
 		strokeStart(cellId: string | undefined) {
+			if (state.reviewed) return;
 			const empty = { cellIds: [], lastPointerCellId: undefined };
 			stroke = cellId ? traceStroke(world.grid, empty, cellId) : empty;
 			input.hold();

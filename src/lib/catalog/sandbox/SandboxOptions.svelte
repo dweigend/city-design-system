@@ -161,13 +161,12 @@
 		}
 		:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
 			grid-template-columns: auto;
-			grid-template-areas: 'symbol';
+			grid-template-areas: 'symbol' 'name';
 			min-width: var(--sandbox-target);
 		}
 		.name {
 			letter-spacing: 0;
 		}
-		:global(.cg-sandbox-options[data-compact]) .name,
 		kbd {
 			display: none;
 		}

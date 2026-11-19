@@ -27,7 +27,6 @@
 		sandboxCovers,
 		sandboxLines,
 		sandboxMethods,
-		surveyMessages,
 		sandboxTools,
 		sandboxUses,
 		type SandboxOption,
@@ -35,7 +34,7 @@
 		type SandboxToolId
 	} from '../data/sandbox';
 	import { activateChoice, createHudCommands } from './hud-commands';
-	import { advanceMessage } from './feedback';
+	import { advanceMessage, rejectionMessage } from './feedback';
 	import SandboxOptions from './SandboxOptions.svelte';
 	import type { Session } from './session.svelte';
 
@@ -58,7 +57,8 @@
 			.map((id) => ({ id, ...sandboxMethods[id], icon: methodIcons[id] }))
 			.sort((a, b) => a.phase - b.phase)
 	);
-	const { year, timeLayers } = $derived(session.world.state);
+	const year = $derived(session.shownYear);
+	const { year: currentYear, timeLayers } = $derived(session.timelineState);
 	const range = $derived(session.timelineWindow);
 	const stockYear = $derived(timeLayers.find((layer) => layer.year < range.min)?.year);
 	const events = $derived(
@@ -117,11 +117,13 @@
 			: undefined
 	);
 	const advanceReport = $derived(advanceMessage(session.completion));
+	const failure = $derived(session.viewingPast ? undefined : session.failure);
 	const hint = $derived(
-		session.failure
-			? (surveyMessages[session.failure.reason] ??
-					'The selected walls cannot support a continuous carrier.')
-			: (advanceReport ?? drawingHint ?? lineHint ?? active.hint)
+		session.viewingPast
+			? 'Return to the latest year to build.'
+			: failure
+				? rejectionMessage(failure.reason)
+				: (advanceReport ?? drawingHint ?? lineHint ?? active.hint)
 	);
 	/** Sets the tool by its id for keyboard shortcuts. */
 	export function pickTool(id: SandboxToolId) {
@@ -203,7 +205,17 @@
 	</div>
 	<div class="timeline" role="group" aria-label="Timeline">
 		<div class="scale" class:without-events={!events.length}>
-			<Timeline {year} {events} {stockYear} min={range.min} max={range.max} labelEvery={false} />
+			<Timeline
+				{year}
+				{events}
+				{stockYear}
+				min={range.min}
+				max={range.max}
+				labelEvery={false}
+				mode={currentYear > range.min ? 'input' : 'readout'}
+				step={session.generationYears}
+				onYearChange={currentYear > range.min ? session.reviewYear : undefined}
+			/>
 		</div>
 		<output aria-label="World year">{year}</output>
 		<Tooltip text="Sponge city">
@@ -214,21 +226,28 @@
 					class="cg-button"
 					data-variant="icon"
 					aria-label="Sponge city"
+					disabled={session.viewingPast}
 				>
 					<Icon icon={Droplets} size={20} />
 				</Toggle.Root>
 			{/snippet}
 		</Tooltip>
-		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
+		<Button
+			variant="secondary"
+			label="Advance"
+			shortcut="Y"
+			disabled={session.viewingPast}
+			onclick={session.advance}
+		/>
 	</div>
-	<div class="hint" class:warning={Boolean(session.failure)}>
+	<div class="hint" class:warning={Boolean(failure)}>
 		<span role="status">
 			{hint}
-			{#if session.failure && advanceReport}<span class="pending">{advanceReport}</span>{/if}
+			{#if failure && advanceReport}<span class="pending">{advanceReport}</span>{/if}
 			{#if session.requestedChoice}<span class="pending">Pending · {session.requestedChoice}</span
 				>{/if}
 		</span>
-		{#if session.failure}
+		{#if failure}
 			<Button
 				variant="icon"
 				label="Dismiss survey warning"
@@ -367,8 +386,12 @@
 			bottom: max(var(--space-2), env(safe-area-inset-bottom));
 			display: grid;
 			grid-template-columns: auto 1fr;
-			grid-template-areas: 'hint hint' 'options options' 'tools tools' 'timeline history';
-			grid-template-rows: auto auto auto auto;
+			grid-template-areas:
+				'hint hint'
+				'options options'
+				'tools tools'
+				'timeline timeline'
+				'. history';
 			gap: var(--space-2);
 			pointer-events: none;
 		}
@@ -390,17 +413,15 @@
 		.timeline {
 			position: static;
 			grid-area: timeline;
-			justify-self: start;
-			padding-left: var(--space-2);
+			min-width: 0;
 		}
 		.scale {
-			display: none;
+			flex: 1;
+			min-width: 0;
+			margin: 0 var(--space-2);
 		}
-		.timeline output {
-			position: static;
-			width: auto;
-			height: auto;
-			clip-path: none;
+		.scale.without-events {
+			padding-top: 0;
 		}
 		:global(.cg-sandbox-tools),
 		.history {
