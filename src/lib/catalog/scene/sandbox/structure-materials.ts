@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { abs, float, mix, normalWorld, positionLocal, uniform } from 'three/tsl';
-import { MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
+import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../logic/params';
 import { neutral, type grammatik } from '../leitstil';
@@ -95,7 +95,11 @@ export function structureMaterials() {
 	const pencilLine = float(1).sub(
 		pencilField.fract().sub(0.5).abs().div(footprint).smoothstep(0, 0.65)
 	);
-	const flank = float(1).sub(normalWorld.y.abs()).mul(normalWorld.x.mul(0.5).add(0.5));
+	const shadowSide = normalWorld.x
+		.mul(LICHT[0])
+		.sub(normalWorld.z.mul(LICHT[1]))
+		.smoothstep(-0.08, 0.22);
+	const flank = float(1).sub(normalWorld.y.abs()).mul(shadowSide);
 	const tile = positionLocal.y.mul(2.3);
 	const course = float(1).sub(
 		tile.fract().sub(0.5).abs().div(tile.fwidth().max(0.001)).smoothstep(0.0, 0.65)
