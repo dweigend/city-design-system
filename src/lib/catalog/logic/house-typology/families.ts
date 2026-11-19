@@ -19,6 +19,34 @@ export const typologies = [
 ] as const;
 export type Typology = (typeof typologies)[number];
 export type HouseRole = 'high' | 'medium' | 'bar' | 'plinth';
+type Suitability = {
+	site: Survey;
+	role: HouseRole;
+	n: number;
+	h: number;
+	uses: ReadonlySet<string>;
+	living: boolean;
+	green: boolean;
+	tall: boolean;
+};
+const suitability: Record<Typology, (factors: Suitability) => number> = {
+	'capsule-stack': ({ living, n }) => (living && n <= 2 ? 14 : 1),
+	'deck-tower': ({ uses, h }) => (uses.size > 1 && h >= 3 ? 12 : 2),
+	'round-tower': ({ site, h }) => (site.district === 'bank' && h >= 6 ? 25 : 0),
+	'portal-house': ({ site, n }) => (site.elongated && n >= 2 ? 12 : 0),
+	'lattice-head': ({ role, tall }) => (tall && role === 'high' ? 18 : 0),
+	'courtyard-house': ({ site, n, h }) => (n >= 3 && !site.elongated && h <= 3 ? 20 : 0),
+	'terrace-house': ({ site, n }) => (site.district === 'slope' && n >= 2 ? 19 : 0),
+	'plinth-house': ({ role, h }) => (h <= 3 || role === 'plinth' ? 12 : 1),
+	'cluster-mast': ({ living, h }) => (living && h >= 3 ? 9 : 1),
+	rack: ({ uses, n }) => (n >= 2 || uses.size > 1 ? 9 : 1),
+	'bridge-house': ({ site }) => (site.elongated ? 12 : 0),
+	'bell-house': ({ green }) => (green ? 13 : 2),
+	'twin-stack': ({ living, n }) => (living && n >= 2 ? 8 : 0),
+	'slab-house': ({ site, living }) => (living && site.elongated ? 10 : 1),
+	'water-house': ({ uses }) => (uses.has('water') ? 12 : 0),
+	'tree-house': ({ green, h }) => (green && h >= 2 ? 10 : 0)
+};
 /** Relative typology suitability for the painted site and its fixed skyline role. */
 export function affinities(s: Survey, role: HouseRole): Record<Typology, number> {
 	const n = s.cells.length,
@@ -27,26 +55,14 @@ export function affinities(s: Survey, role: HouseRole): Record<Typology, number>
 	const living = uses.has('living'),
 		green = uses.has('food'),
 		tall = h >= 5;
-	const weights = {
-		'capsule-stack': living && n <= 2 ? 14 : 1,
-		'deck-tower': uses.size > 1 && h >= 3 ? 12 : 2,
-		'round-tower': s.district === 'bank' && h >= 6 ? 25 : 0,
-		'portal-house': s.elongated && n >= 2 ? 12 : 0,
-		'lattice-head': tall && role === 'high' ? 18 : 0,
-		'courtyard-house': n >= 3 && !s.elongated && h <= 3 ? 20 : 0,
-		'terrace-house': s.district === 'slope' && n >= 2 ? 19 : 0,
-		'plinth-house': h <= 3 || role === 'plinth' ? 12 : 1,
-		'cluster-mast': living && h >= 3 ? 9 : 1,
-		rack: n >= 2 || uses.size > 1 ? 9 : 1,
-		'bridge-house': s.elongated ? 12 : 0,
-		'bell-house': green ? 13 : 2,
-		'twin-stack': living && n >= 2 ? 8 : 0,
-		'slab-house': living && s.elongated ? 10 : 1,
-		'water-house': uses.has('water') ? 12 : 0,
-		'tree-house': green && h >= 2 ? 10 : 0
+	const factors = { site: s, role, n, h, uses, living, green, tall };
+	const weight = (type: Typology) => {
+		if (s.compact && type !== 'capsule-stack' && type !== 'cluster-mast') return 0;
+		return suitability[type](factors);
 	};
-	if (s.compact)
-		for (const type of typologies)
-			if (type !== 'capsule-stack' && type !== 'cluster-mast') weights[type] = 0;
-	return weights;
+	// Every typology contributes one entry in the canonical order.
+	return Object.fromEntries(typologies.map((type) => [type, weight(type)])) as Record<
+		Typology,
+		number
+	>;
 }

@@ -47,6 +47,25 @@ function programme(plan: Plan, i: number) {
 		((((site.depth > site.width && type !== 'round-tower' ? 1 : 0) + spin) % 4) * Math.PI) / 2;
 	return { use, length, rotation };
 }
+const fixedCounts: Partial<Record<Typology, number>> = {
+	'twin-stack': 2,
+	rack: 2,
+	'bell-house': 1,
+	'courtyard-house': 1
+};
+function fixedCount({ site, type }: Plan, i: number, body: Body) {
+	const [w, d] = worldSize(body),
+		small = (w * d) / ((w + 0.6) * (d + 1.55)) < 0.55;
+	if (
+		site.ground - Math.min(...site.cells.flatMap((c) => c.corners.map((p) => p[2]))) > STORY &&
+		site.depth - site.accessDepth >= d * 2 + 1.55
+	)
+		return 2;
+	if (type === 'round-tower') return body.kind === 'capsule' ? 2 : 1;
+	if (type === 'lattice-head' && i === site.programme.length - 1) return 2;
+	if (small) return 2;
+	return fixedCounts[type];
+}
 function count(plan: Plan, i: number, body: Body) {
 	const { site, type, seed } = plan;
 	const [w, d] = worldSize(body),
@@ -68,10 +87,9 @@ function count(plan: Plan, i: number, body: Body) {
 		])
 	);
 }
-function bodies(plan: Plan, i: number, z: number) {
-	const { site, type, sign, seed, rear } = plan;
+function firstBody(plan: Plan, i: number, id: string) {
+	const { site, type, seed } = plan;
 	const { use, length, rotation } = programme(plan, i);
-	const id = site.id + '/level/' + i + '/body';
 	const spec = bodySpec(
 		type,
 		use,
@@ -86,6 +104,20 @@ function bodies(plan: Plan, i: number, z: number) {
 		rotation,
 		use === 'living' ? length : undefined
 	);
+	return { first, rotation };
+}
+function alignAcross(out: Body[], center: number, rear: number, sign: number, z: number) {
+	let edge = center - out.reduce((sum, b) => sum + worldSize(b)[0], 0) / 2;
+	for (const b of out) {
+		const [w, d] = worldSize(b);
+		b.position = [edge + w / 2, rear - sign * (1.25 + d / 2), z + 0.12];
+		edge += w;
+	}
+}
+function bodies(plan: Plan, i: number, z: number) {
+	const { site, type, sign, seed, rear } = plan;
+	const id = site.id + '/level/' + i + '/body';
+	const { first, rotation } = firstBody(plan, i, id);
 	const n = count(plan, i, first),
 		out: Body[] = [];
 	const dx = offset(type, i, site.programme.length);
@@ -103,12 +135,7 @@ function bodies(plan: Plan, i: number, z: number) {
 		out.push(b);
 	}
 	if (Math.abs(Math.sin(rotation)) > 0.5 && out.length > 1) {
-		let edge = site.center[0] + dx - out.reduce((sum, b) => sum + worldSize(b)[0], 0) / 2;
-		for (const b of out) {
-			const [w, d] = worldSize(b);
-			b.position = [edge + w / 2, rear - sign * (1.25 + d / 2), z + 0.12];
-			edge += w;
-		}
+		alignAcross(out, site.center[0] + dx, rear, sign, z);
 	}
 	return out;
 }
