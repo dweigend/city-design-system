@@ -7,6 +7,7 @@ import type { World } from './world';
 export type Changes = Readonly<{
 	/** True if the grid moved: the terrain surface has to be drawn again. */
 	terrain: boolean;
+	installations: boolean;
 	houseChunks: ReadonlySet<string>;
 	forestChunks: ReadonlySet<string>;
 	/** Cells whose cover differs. */
@@ -77,6 +78,10 @@ export function changes(before: World, after: World): Changes {
 	const afterLines = new Set(after.lines);
 	return {
 		terrain: moved.size > 0,
+		installations:
+			before.grid !== after.grid ||
+			before.state.parts !== after.state.parts ||
+			before.state.year !== after.state.year,
 		houseChunks: houseChunks(before, after, moved),
 		forestChunks: new Set([...forestChunks(before, after, coverCells), ...moved]),
 		coverCells,

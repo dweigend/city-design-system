@@ -1,4 +1,5 @@
 import { sandboxGenerationYears } from '../../data/sandbox';
+import { clearInstallation, lostSeat, removeInstallations } from './installation-record';
 import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
@@ -55,6 +56,7 @@ const stored = (store: Store, use: HouseUse, count: number): Store => ({
  * go to the material store, their cover goes. Returns the input if nothing has to yield.
  */
 function settle(grid: TerrainGrid, state: SandboxState): SandboxState {
+	state = removeInstallations(state, (p) => lostSeat(grid, p));
 	let { stacks, cover, store, storyParts } = state;
 	for (const cellId of [...stacks.keys(), ...cover.keys()]) {
 		if (grid.cellsById.get(cellId)?.buildable) continue;
@@ -138,6 +140,8 @@ const isInside = (edit: TerrainEdit, cell: TerrainCell) =>
 	Math.hypot(cell.center[0] - edit.center[0], cell.center[1] - edit.center[1]) <= edit.radius;
 
 function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
+	const cleared = clearInstallation(state, cell);
+	if (cleared !== state) return cleared;
 	const stories = storiesOf(state.stacks, cell.id);
 	if (stories.length) {
 		const use = stories[stories.length - 1];

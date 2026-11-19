@@ -36,8 +36,10 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	);
 	const selectedTool = $derived(tool.kind === 'house' ? { ...tool, style: method } : tool);
 
+	let rejection = $state.raw<Stroke['failure']>();
 	let focus = $state<FocusId>('all');
 	function restore(next: typeof history) {
+		rejection = undefined;
 		history = next;
 		world = withState(world, next.present);
 	}
@@ -55,6 +57,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		},
 		advance() {
 			if (stroke) return;
+			rejection = undefined;
 			world = applyEdit(world, { kind: 'advance', years: generationYears });
 			history = commit(history, world.state);
 		},
@@ -69,14 +72,21 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		},
 		/** Changes the house method if it is available in this epoch. */
 		pickMethod(next: BuildingMethod) {
-			if (tool.kind === 'house' && methods.includes(next)) chosenMethod = next;
+			if (tool.kind === 'house' && methods.includes(next)) {
+				rejection = undefined;
+				chosenMethod = next;
+			}
 		},
 		set tool(next: Tool) {
+			rejection = undefined;
 			tool = next;
 		},
 		/** The world to show: the draft of the running stroke, else the committed world. */
 		get world() {
 			return stroke?.draft ?? world;
+		},
+		get failure() {
+			return stroke ? stroke.failure : rejection;
 		},
 		get canUndo() {
 			return history.past.length > 0;
@@ -92,6 +102,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		},
 		strokeEnd() {
 			if (stroke) {
+				rejection = stroke.failure;
 				world = stroke.draft;
 				history = commit(history, world.state);
 			}
@@ -102,6 +113,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		/** New terrain from a seed; the built city starts with its seeded town. */
 		restart(seed: number) {
 			stroke = undefined;
+			rejection = undefined;
 			world = createWorld(seed);
 			history = startHistory(world.state);
 		}

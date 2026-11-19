@@ -1,5 +1,6 @@
 import type { FlowId } from '../../data/focus';
 import { sandboxEpochs, townDefaults, type BuildingMethod } from '../../data/sandbox';
+import type { BuiltPart, Composition, Owner, PartId } from './installation-parts';
 import type { HouseUse, Stacks } from '../house-brush';
 import type { Cover, CoverKind } from '../land-cover';
 import type { TerrainEdit } from '../terrain';
@@ -37,6 +38,8 @@ export type SandboxState = Readonly<{
 	year: number;
 	timeLayers: readonly TimeLayer[];
 	nextAction: number;
+	parts: ReadonlyMap<PartId, BuiltPart>;
+	compositions: ReadonlyMap<Owner, Composition>;
 	storyParts: ReadonlyMap<string, readonly StoryPart[]>;
 	edits: readonly TerrainEdit[];
 	stacks: Stacks;
@@ -46,8 +49,13 @@ export type SandboxState = Readonly<{
 }>;
 
 /** Accepted restore input, including snapshots saved before methods and time layers. */
-export type SandboxSnapshot = Omit<SandboxState, 'timeLayers' | 'storyParts'> &
+export type SandboxSnapshot = Omit<
+	SandboxState,
+	'timeLayers' | 'storyParts' | 'parts' | 'compositions'
+> &
 	Readonly<{
+		parts?: SandboxState['parts'];
+		compositions?: SandboxState['compositions'];
 		timeLayers?: SandboxState['timeLayers'];
 		storyParts: ReadonlyMap<string, readonly SnapshotStory[]>;
 	}>;
@@ -58,6 +66,8 @@ export const EMPTY_STATE: SandboxState = {
 	year: townDefaults.year,
 	timeLayers: [],
 	nextAction: 1,
+	parts: new Map(),
+	compositions: new Map(),
 	storyParts: new Map(),
 	edits: [],
 	stacks: new Map(),
@@ -86,3 +96,11 @@ export function stylesForYear(year: number): readonly [BuildingMethod, ...Buildi
 
 /** Default style when building in an epoch. */
 export const styleForYear = (year: number): BuildingMethod => stylesForYear(year)[0];
+/** The tool in the player's hand. `look` only moves the view. */
+export type Tool =
+	| { kind: 'look' }
+	| { kind: 'house'; use: HouseUse; style?: BuildingMethod }
+	| { kind: 'line'; transit: TransitKind | 'walkway' }
+	| { kind: 'cover'; cover: CoverKind }
+	| { kind: 'dig' }
+	| { kind: 'erase' };

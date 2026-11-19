@@ -4,6 +4,7 @@
  * change sets; they never write back (PP-2).
  */
 export { EMPTY_STATE, styleForYear, stylesForYear } from './state';
+export { installationView } from './installation-view';
 export { applyEdit, createWorld, withState, type World } from './world';
 export { commit, redo, startHistory, undo } from './history';
 export { changes } from './changes';

@@ -37,6 +37,7 @@ export function structureMaterials() {
 		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
 		detail: new THREE.Line2NodeMaterial(),
+		rail: new THREE.Line2NodeMaterial(),
 		ghost: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
 			opacity: 0.16,
@@ -45,6 +46,7 @@ export function structureMaterials() {
 		}),
 		signal: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide, vertexColors: true }),
 		primary: new THREE.Line2NodeMaterial(),
+		stockPrimary: new THREE.Line2NodeMaterial(),
 		secondary: new THREE.Line2NodeMaterial(),
 		bearing: new THREE.MeshBasicNodeMaterial(),
 		perimeter: new THREE.Line2NodeMaterial(),
@@ -91,6 +93,7 @@ export function structureMaterials() {
 		materials.pencil.color.copy(g.blei);
 		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
+		materials.rail.color.copy(g.detail);
 		materials.hull.color.copy(g.kontur);
 		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
@@ -107,11 +110,13 @@ export function structureMaterials() {
 		const fine = style.kamera.pxProM <= MASSSTAB.quartier;
 		const inInk = variant === 'leitstil';
 		materials.primary.linewidth = inInk ? strichbreite(0.18, scale) : traeger.strichPx;
+		materials.stockPrimary.linewidth = materials.primary.linewidth;
 		const secondary = fine ? kontext.strichPx : strichbreite(0.1, scale);
 		materials.secondary.linewidth = inInk ? secondary : traeger.strichPx;
 		if (palette) {
 			const ink = traeger.token === '--ink' ? palette.ink : palette.blei;
 			materials.primary.color.copy(ink);
+			materials.stockPrimary.color.copy(palette.blei).lerp(ink, 0.5);
 			materials.secondary.color.copy(inInk && fine ? palette.detail : ink);
 		}
 	}
@@ -150,6 +155,8 @@ export function structureMaterials() {
 			sheetOffsetM.value = (2 * outlinePx.value) / scale;
 			materials.perimeter.linewidth = huelle.strichPx;
 			materials.detail.linewidth = kontext.strichPx;
+			materials.rail.linewidth = kontext.strichPx;
+			materials.rail.visible = style.kamera.pxProM > MASSSTAB.quartier;
 			envelopeShadows = huelle.schatten;
 			applyStructuralStyle(style, variant, scale);
 			return Boolean(tones);

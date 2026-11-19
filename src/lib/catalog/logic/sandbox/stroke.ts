@@ -1,20 +1,10 @@
-import type { BuildingMethod } from '../../data/sandbox';
-import type { HouseUse } from '../house-brush';
-import type { CoverKind } from '../land-cover';
+import { propose, install } from './installation';
+import type { Failure } from './installation-parts';
 import { cellsBetween } from '../terrain-grid';
-import type { TransitKind } from '../transit-line';
-import type { Edit } from './state';
-import { applyEdit, type World } from './world';
+import type { Edit, Tool } from './state';
+import { applyEdit, withState, type World } from './world';
 
-/** The tool in the player's hand. `look` only moves the view. */
-export type Tool =
-	| { kind: 'look' }
-	| { kind: 'house'; use: HouseUse; style?: BuildingMethod }
-	| { kind: 'line'; transit: TransitKind }
-	| { kind: 'cover'; cover: CoverKind }
-	| { kind: 'dig' }
-	| { kind: 'erase' };
-
+export type { Tool } from './state';
 /**
  * One brush stroke in progress: from pointer down to pointer up. `draft` is the world the
  * player sees while drawing; its state becomes one undo step when the stroke ends.
@@ -23,6 +13,7 @@ export type Stroke = Readonly<{
 	tool: Tool;
 	base: World;
 	draft: World;
+	failure?: Failure;
 	/** Cells the stroke has passed, in order, each once. */
 	cellIds: readonly string[];
 	/** Most recent valid pointer cell, if the stroke has reached one. */
@@ -58,11 +49,22 @@ export function extendStroke(stroke: Stroke, cellId: string): Stroke {
 	const last = stroke.lastPointerCellId;
 	if (cellId === last || !grid.cellsById.has(cellId)) return stroke;
 	const reached = last ? cellsBetween(grid, last, cellId).map((cell) => cell.id) : [cellId];
-	const fresh = reached.filter((id) => !stroke.cellIds.includes(id));
+	const fresh = [...new Set(reached)].filter((id) => !stroke.cellIds.includes(id));
 	const lastPointerCellId = cellId;
 	if (!fresh.length) return { ...stroke, lastPointerCellId };
 	const cellIds = [...stroke.cellIds, ...fresh];
-	if (stroke.tool.kind === 'line') {
+	const proposal = propose(stroke.base, stroke.tool, cellIds);
+	if (proposal) {
+		const result =
+			'failure' in proposal
+				? { draft: stroke.base, failure: proposal.failure }
+				: {
+						draft: withState(stroke.base, install(stroke.base.state, proposal, stroke.tool)),
+						failure: undefined
+					};
+		return { ...stroke, cellIds, lastPointerCellId, ...result };
+	}
+	if (stroke.tool.kind === 'line' && stroke.tool.transit !== 'walkway') {
 		const edit: Edit = { kind: 'line', transit: stroke.tool.transit, cellIds };
 		return { ...stroke, lastPointerCellId, cellIds, draft: applyEdit(stroke.base, edit) };
 	}

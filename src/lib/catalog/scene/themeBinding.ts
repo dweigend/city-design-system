@@ -32,7 +32,18 @@ export function resolveTokens(host: HTMLElement, names: readonly string[]): Reco
 	return out;
 }
 
-const CATEGORIES = ['living', 'health', 'mobility', 'business', 'nature', 'hazard'];
+const CATEGORIES = [
+	'living',
+	'health',
+	'mobility',
+	'business',
+	'nature',
+	'hazard',
+	'health-5',
+	'business-3',
+	'business-2',
+	'nature-2'
+];
 
 export function readPalette(host: HTMLElement): Palette3D {
 	const names = [

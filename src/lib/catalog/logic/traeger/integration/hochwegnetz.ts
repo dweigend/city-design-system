@@ -6,6 +6,7 @@
  * `SPANNWEITE`); only the space frame carries the path farther than a footbridge reaches.
  * Dimensions in meters, x/y ground plane, z up. Headless, deterministic per seed.
  */
+import { HOCHWEG_M } from '../../../data/stadtHochwege';
 import { deckCorners, deckParts, WALKWAY_WIDTH_M } from '../../walkway';
 import { familie, loopZiel, planen, kantenId, type TraegerPlan, type Vec3 } from '../index';
 import type { TraegerFamilieText } from '../../../data/traeger';
@@ -14,7 +15,7 @@ import { bestandDetails } from '../../parametrik/formen/eckbestand';
 import { wegenetz, type Knoten } from '../../bibel/wege';
 
 /** Height of the elevated walkway level: two old-building floors. */
-export const HOCHWEG_M = 8;
+export { HOCHWEG_M } from '../../../data/stadtHochwege';
 /** Width of a footbridge. */
 export const STEG_BREITE_M = WALKWAY_WIDTH_M;
 

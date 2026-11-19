@@ -138,7 +138,7 @@ export function build(p: Exclude<Primitive, { kind: 'polyline' }>, coarse = fals
 				{ outline: true }
 			);
 		case 'sphere': {
-			const n = round(p.radius);
+			const n = p.fine ? kreisSegmente(p.radius, fein) : round(p.radius);
 			const geometry = new THREE.SphereGeometry(p.radius, n, n / 2);
 			geometry.scale(1, p.squash ?? 1, 1);
 			return at(vector(p.position), geometry, { outline: true });

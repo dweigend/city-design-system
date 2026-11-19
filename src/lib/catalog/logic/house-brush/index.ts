@@ -1,3 +1,7 @@
+import { roofCarrier, type RoofContext } from './roof-carrier';
+import { totemMass } from './style-totem';
+import { megastructureMass } from './style-megastructure';
+import { profileOf } from './profile';
 /**
  * House brush: the player paints stories onto grid cells, the grammar derives architecture.
  * The grammar reads only the quad carrier contract, so it works on every grid of quads.
@@ -9,14 +13,15 @@
  */
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
-import { roofCarrier, type RoofContext } from './roof-carrier';
-import { floorOf, massesOfChunk } from './massing';
+
+import { massAt, floorOf, massesOfChunk } from './massing';
 import { storiesOf, type Stacks } from './stacks';
 import { massRules, type HouseStyle } from './styles';
 
 export { MAX_STORIES, lower, raise, storiesOf, type HouseUse, type Stacks } from './stacks';
 export { chunksOfCells, touchedChunks } from './massing';
 
+export { shellForms } from './style-totem';
 export { HOUSE_STYLES, type HouseStyle } from './styles';
 
 /**
@@ -36,14 +41,37 @@ export function houseChunk(
 	context?: RoofContext
 ): Primitive[] {
 	const site = { grid, stacks: context?.occupied ?? stacks, seed };
+	// Old story records retain the grammar that built them. Q installations carry their own parts.
+	if (context && (style === 'megastructure' || style === 'totem')) {
+		const rule = style === 'totem' ? totemMass : megastructureMass;
+		return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
+			...rule(site, mass),
+			...roofCarrier(site, mass, context)
+		]);
+	}
 	const rule = massRules[style];
-	const spans = context && (style === 'megastructure' || style === 'totem');
-	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
-		...rule(site, mass),
-		...(spans ? roofCarrier(site, mass, context) : [])
-	]);
+	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => rule(site, mass));
 }
 
 /** Height in meters of the top of a cell's stack: where the next story would stand. */
 export const stackTop = (stacks: Stacks, cell: QuadCell): number =>
 	floorOf(cell, storiesOf(stacks, cell.id).length);
+
+export {
+	atSocket,
+	socketBounds,
+	capsulePitch,
+	moduleGroup,
+	type ModuleRecipe
+} from './module-group';
+export { carrierForm } from './style-megastructure';
+
+/** Actual wall setback and exposed faces of the roof story on a building plot. */
+export function roofWalls(grid: QuadGrid, stacks: Stacks, cell: QuadCell, seed: number) {
+	const level = storiesOf(stacks, cell.id).length - 1;
+	const mass = massAt(grid, stacks, cell, level);
+	const members = new Set(mass.stories.map((s) => s.cell.id));
+	const inset = profileOf({ grid, stacks, seed }, mass).wallInset;
+	return { inset, exposed: cell.neighbors.map((n) => !n || !members.has(n)) };
+}
+export { boundaryRings, ringArea } from './outline';

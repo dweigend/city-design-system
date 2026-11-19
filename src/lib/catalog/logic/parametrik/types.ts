@@ -10,6 +10,10 @@ export type Role = BuildingRole | 'traeger';
  */
 export type { MaterialId } from '../../data/material';
 export type ColorToken =
+	| '--cat-health-5'
+	| '--cat-business-3'
+	| '--cat-business-2'
+	| '--cat-nature-2'
 	| '--cat-hazard'
 	| '--paper'
 	| '--cat-living'
@@ -84,7 +88,7 @@ export type Primitive = Base &
 		/** Line only, no surface: grid edges, networks, plan lines. */
 		| { kind: 'polyline'; points: Vec3[]; closed?: boolean }
 		/** position = center. squash scales height (kissen, ufo). */
-		| { kind: 'sphere'; position: Vec3; radius: number; squash?: number }
+		| { kind: 'sphere'; position: Vec3; radius: number; squash?: number; fine?: boolean }
 		/** Half sphere on its base center. facets > 0 = geodesic (icosahedron detail), edges drawn. */
 		| { kind: 'dome'; position: Vec3; radius: number; height?: number; facets?: number }
 		/** Rounded tube between two points (tube capsule). */

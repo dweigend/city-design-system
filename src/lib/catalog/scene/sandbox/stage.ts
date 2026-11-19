@@ -63,10 +63,12 @@ export function createSandboxStage(
 	scene.add(...light.objects, structures.group);
 
 	const ink = new THREE.Color();
-	const blueprint = new THREE.Color();
+	const hazardRole = stilFuer({ zoom: 'nah', modus: 'bauen', situation: 'stoerung' }).rollen.gefahr;
+	const swatches = { planned: new THREE.Color(), hazard: new THREE.Color() };
+	let cursorTone: keyof typeof swatches = 'planned';
 	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STRICHE.kontur });
 	const cursorMaterial = new THREE.Line2NodeMaterial({
-		color: blueprint,
+		color: swatches.planned,
 		linewidth: planned.strichPx,
 		dashed: planned.gestrichelt,
 		depthWrite: false
@@ -118,9 +120,10 @@ export function createSandboxStage(
 		palette = next;
 		refreshTones = true;
 		ink.set(next.ink);
-		blueprint.set(next.blueprint);
+		swatches.planned.set(next.blueprint);
+		swatches.hazard.set(next.categories[hazardRole.token.replace('--cat-', '')]);
 		baseOutline.color.copy(ink);
-		cursorMaterial.color.copy(blueprint);
+		cursorMaterial.color.copy(swatches[cursorTone]);
 		terrain?.setPalette(next);
 
 		render();
@@ -257,7 +260,10 @@ export function createSandboxStage(
 			render();
 		},
 		/** Draws planned outlines in world meters. An empty list hides them. */
-		setCursor(polylines: readonly (readonly Vec3[])[]) {
+		setCursor(polylines: readonly (readonly Vec3[])[], tone: keyof typeof swatches = 'planned') {
+			cursorTone = tone;
+			cursorMaterial.color.copy(swatches[tone]);
+			cursorMaterial.linewidth = tone === 'hazard' ? 2 : planned.strichPx;
 			removeLines(cursor);
 			cursor = polylineObject(polylines, cursorMaterial);
 			if (cursor) {

@@ -23,6 +23,7 @@
 		sandboxCovers,
 		sandboxLines,
 		sandboxMethods,
+		surveyMessages,
 		sandboxTools,
 		sandboxUses,
 		type SandboxOption,
@@ -82,6 +83,24 @@
 	});
 	const active = $derived(sandboxTools.find((tool) => tool.id === session.tool.kind));
 
+	const houseHints: Partial<Record<string, string>> = {
+		megastructure: 'Drag across roofs to span them with a carrier.',
+		totem: 'Drag along an existing carrier to dock a group of three.'
+	};
+	const drawingHint = $derived(
+		session.tool.kind === 'house' ? houseHints[session.method] : undefined
+	);
+	const lineHint = $derived(
+		session.tool.kind === 'line' && session.tool.transit === 'walkway'
+			? 'Draw a footbridge with stairs and a square at each end.'
+			: undefined
+	);
+	const hint = $derived(
+		session.failure
+			? (surveyMessages[session.failure.reason] ??
+					'The selected walls cannot support a continuous carrier.')
+			: (drawingHint ?? lineHint ?? active?.hint)
+	);
 	function toolOf(id: SandboxToolId): Tool {
 		if (id === 'house') return { kind: 'house', use: chosen.house };
 		if (id === 'line') return { kind: 'line', transit: chosen.line };
@@ -189,7 +208,7 @@
 		<output aria-label="World year">{year}</output>
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
-	{#if active}<p class="hint">{active.hint}</p>{/if}
+	{#if active}<p class="hint" role="status">{hint}</p>{/if}
 </div>
 
 <style>

@@ -1,3 +1,5 @@
+/** Gallery walking height above its approach datum, meters. */
+export const HOCHWEG_M = 8;
 /** Nodes of the elevated walkway network in meters; level 2 = gallery walkway (8 m), level 4 = rooftop walkway (16 m). Same shape as logic/bibel/wege.ts. */
 export type HochwegKnoten = { id: string; x: number; y: number; ebene: number };
 

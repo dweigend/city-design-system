@@ -93,15 +93,16 @@ describe('house brush', () => {
 		expect(list.some((p) => p.pattern || p.token === '--signal')).toBe(false);
 	});
 
-	test('adjacent carrier bays share one stair landing and one access stair', () => {
+	test('adjacent roof quads produce connected physical rods in both sections', () => {
 		const stacks = raise(raise(EMPTY, '1/1', 'living'), '2/1', 'living');
 		const list = houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, 'megastructure');
-		expect(list.filter((p) => p.id.includes('/gallery-'))).toHaveLength(1);
-		expect(named(list, '/tread-0')).toHaveLength(1);
-		expect(named(list, '/module').length).toBeGreaterThan(0);
-		expect(list.some((p) => p.token === '--signal')).toBe(false);
+		expect(list.some((p) => p.kind === 'pipe' && p.radius === 0.09 && p.member === 'primary')).toBe(
+			true
+		);
+		expect(
+			list.some((p) => p.kind === 'pipe' && p.radius === 0.05 && p.member === 'secondary')
+		).toBe(true);
 	});
-
 	test('where it floods, the house stands on a deck with stilts', () => {
 		const wet = withCell('1/1', (cell) => ({ ...cell, raised: true, pad: 4.5 }));
 		const list = parts(raise(EMPTY, '1/1', 'living'), cellAt(1, 1), wet);

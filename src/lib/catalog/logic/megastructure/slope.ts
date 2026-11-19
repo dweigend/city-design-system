@@ -5,9 +5,10 @@ export type SurveyGraph = {
 	points: readonly (readonly [number, number, number])[];
 	links: readonly (readonly [number, number])[];
 };
+export const LANDING_RADIUS_M = 0.8;
 const slopeParams = defineParams({
 	maxGrade: numberParam('Maximum rise per run', '', 0.6, [0.01, 0.8, 0.01]),
-	landing: numberParam('Landing radius', 'm', 0.8, [0.5, 3, 0.1])
+	landing: numberParam('Landing radius', 'm', LANDING_RADIUS_M, [0.5, 3, 0.1])
 });
 type Flight = { a: Vec3; b: Vec3; run: number; count: number };
 function flight(

@@ -3,11 +3,9 @@ import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
 import {
 	applyEdit,
-	beginStroke,
 	commit,
 	createWorld,
 	currentStacks,
-	extendStroke,
 	houseView,
 	redo,
 	startHistory,
@@ -63,11 +61,10 @@ test('terrain projection can move beneath a story without changing its cell anch
 	expect(after.state.storyParts.get(cellId)?.[0]).toBe(part);
 });
 
-test('three methods build in the same year and remain distinct when time advances and is undone', () => {
+test('stories recorded with three methods in the same year remain distinct when time advances and is undone', () => {
 	const styles = ['collage', 'megastructure', 'totem'] as const;
 	const built = styles.reduce(
-		(world, style) =>
-			extendStroke(beginStroke({ kind: 'house', use: 'water', style }, world), cellId).draft,
+		(world, style) => applyEdit(world, { kind: 'raise', use: 'water', style, cellId }),
 		later
 	);
 	const parts = built.state.storyParts.get(cellId);

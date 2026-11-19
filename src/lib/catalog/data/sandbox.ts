@@ -59,9 +59,15 @@ export const sandboxUses: SandboxOption<'living' | 'water' | 'energy' | 'food' |
 	{ id: 'material', name: 'Workshop', figure: 'Gate, shed roof', color: 'var(--cat-living)' }
 ];
 
-export const sandboxLines: SandboxOption<'viaduct' | 'capsule'>[] = [
+export const sandboxLines: SandboxOption<'viaduct' | 'capsule' | 'walkway'>[] = [
 	{ id: 'viaduct', name: 'Elevated rail', figure: 'Beam, train', color: 'var(--cat-business)' },
-	{ id: 'capsule', name: 'Capsule tube', figure: 'Tube, pods', color: 'var(--cat-business-2)' }
+	{ id: 'capsule', name: 'Capsule tube', figure: 'Tube, pods', color: 'var(--cat-business-2)' },
+	{
+		id: 'walkway',
+		name: 'Walkway',
+		figure: 'Footbridge, stairs and square',
+		color: 'var(--cat-business)'
+	}
 ];
 
 export const sandboxCovers: SandboxOption<'forest' | 'field' | 'meadow'>[] = [
@@ -114,4 +120,25 @@ export const townDefaults = {
 	inlandRows: 7,
 	depthPenalty: 1.5,
 	maxFloors: 3
+};
+
+/** Player-facing explanations for rejected construction surveys. */
+export const surveyMessages: Readonly<Record<string, string>> = {
+	'member-too-long':
+		'This member exceeds the maximum length. Bring the wall bearings closer together.',
+	'wall-layout-unresolved': 'No stable wall connection was found. Try a shorter stroke.',
+	'unstable-frame': 'These walls cannot brace the carrier in every direction.',
+	'invalid-roof': 'These roof footprints cannot support a surveyed frame.',
+	'empty-survey': 'Drag across existing roofs to place a carrier.',
+	'occupied-roof': 'This roof already carries a frame.',
+	'span-disconnected': 'The gap between these roofs is too wide for a carrier.',
+	'no-local-bay': 'This roof has no suitable wall bearing.',
+	'no-dock-group': 'The carrier needs three clear capsule seats here.',
+	'short-span': 'Extend the walkway to reach a second support.',
+	'straight-three-blocks': 'Turn the walkway before it crosses a third block.',
+	'buried-deck': 'The ground rises above this deck.',
+	'unsupported-span': 'Move the supports so each span measures 6 to 18 meters.',
+	'no-stair-route': 'The walkway needs a dry stair route at both ends.',
+	'wet-support': 'The walkway needs dry ground under each support.',
+	'occupied-path': 'A walkway already occupies this part of the route.'
 };

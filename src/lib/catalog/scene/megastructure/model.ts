@@ -25,13 +25,7 @@ export function plateModel(p: Pigments) {
 	const plate = infrastructurePlate(),
 		group = new T.Group();
 	for (const roof of plate.roofs) group.add(stock(roof, p));
-	const axes = plate.rods.flatMap((r) => [new T.Vector3(...r.a), new T.Vector3(...r.b)]);
-	group.add(
-		new T.LineSegments(
-			new T.BufferGeometry().setFromPoints(axes),
-			new T.LineBasicMaterial({ color: p.steel })
-		)
-	);
+	for (const r of plate.rods) group.add(rod(r.a, r.b, r.radius, p.steel));
 	for (const m of plate.modules) group.add(moduleMesh(m, p));
 	addBridge(group, plate.bridge, p);
 	addTerraces(group, p);
