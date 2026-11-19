@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { Toggle, ToggleGroup } from 'bits-ui';
 	import { Map as MapIcon } from 'lucide-svelte';
+	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { onMount } from 'svelte';
 	import { acceptanceScene } from '../logic/sandbox';
 	import { attachInput } from '../scene/sandbox/input';
@@ -27,6 +28,12 @@
 		observer.observe(host);
 		current.resize(host.clientWidth, host.clientHeight);
 		current.show(study.world, 'all');
+		let mounted = true;
+		void loadEnvelopeKernel()
+			.then((roofBuilder) => {
+				if (mounted) current.show({ ...study.world, roofBuilder }, 'all');
+			})
+			.catch((cause) => console.warn('Detailed roofs unavailable.', cause));
 		const detach = attachInput(canvas, current.view, {
 			draws: () => false,
 			hover: () => {},
@@ -37,6 +44,7 @@
 		});
 		stage = current;
 		return () => {
+			mounted = false;
 			detach();
 			observer.disconnect();
 			current.dispose();

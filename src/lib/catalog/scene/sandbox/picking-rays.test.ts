@@ -144,7 +144,7 @@ async function compareRays() {
 	}
 	regression.ground.geometry.dispose();
 	regression.ground.material.dispose();
-	const position = { x: 319.9165555261334, y: 483.6328020318175 };
+	const position = { x: 321, y: 485 };
 	const targets = new Map<World, THREE.Object3D[]>();
 	let displayed: THREE.Object3D[] = [];
 	let marked: string | undefined;

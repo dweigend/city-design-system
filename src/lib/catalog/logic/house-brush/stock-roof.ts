@@ -1,7 +1,8 @@
 import type { RoofSeat, RoofBuilder, Roof } from '../building-envelope';
 import { hash } from '../hash-random';
 import type { Primitive } from '../parametrik/types';
-import type { QuadCell } from '../quad-grid';
+import { sideLength, type QuadCell } from '../quad-grid';
+import { stockRoofDirection } from './stock-roof-axis';
 import { CHANNEL } from './form';
 
 const roofs: readonly Roof[] = ['gable', 'hip', 'shed', 'sawtooth'];
@@ -18,15 +19,9 @@ export function stockRoof(
 	inset: number
 ): Primitive | undefined {
 	const polygon = cell.corners.map(([x, y]): [number, number] => [x, y]);
-	const sides = polygon.map(([x, y], i) => {
-		const next = polygon[(i + 1) % 4];
-		return [next[0] - x, next[1] - y];
-	});
-	const [dx, dy] = sides.reduce((a, b) => (Math.hypot(...a) >= Math.hypot(...b) ? a : b));
-	const direction =
-		Math.atan2(dy, dx) + (hash(seed, cell.index, CHANNEL.ridge) < 0.5 ? 0 : Math.PI / 2);
+	const direction = stockRoofDirection(cell, seed);
 	const chosen = roofs[Math.floor(hash(seed, cell.index, CHANNEL.roof) * roofs.length)];
-	const lengths = sides.map((side) => Math.hypot(...side));
+	const lengths = cell.corners.map((_, side) => sideLength(cell, side));
 	const elongated = Math.max(...lengths) > 1.2 * Math.min(...lengths);
 	const roof = chosen === 'sawtooth' && !elongated ? 'gable' : chosen;
 	const across = polygon.map(([x, y]) => -x * Math.sin(direction) + y * Math.cos(direction));
