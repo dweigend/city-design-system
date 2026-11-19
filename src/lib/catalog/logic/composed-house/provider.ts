@@ -17,12 +17,13 @@ export function members(
 ) {
 	const asset = stock.get(id);
 	if (!asset) throw new RangeError('Unknown house stock ' + id);
+	const finish = use ? surfaces[use] : surfaces.frame;
 	const roles = {
 		frame: id === 'kit-crown-lantern-2p5m' && use ? surfaces[use] : surfaces.frame,
-		body: use ? surfaces.shell : surfaces.frame,
-		shell: surfaces.shell,
+		body: finish,
+		shell: use ? finish : surfaces.shell,
 		glass: surfaces.pane,
-		planting: surfaces.food,
+		planting: finish,
 		deck: surfaces.deck,
 		accent: surfaces[use ?? 'frame'],
 		channel: surfaces[use ?? 'water'],

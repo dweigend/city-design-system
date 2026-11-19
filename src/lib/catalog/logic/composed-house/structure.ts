@@ -13,10 +13,18 @@ function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: House
 	const id = socket
 		? 'kit-capsule-cradle-2p5m'
 		: 'kit-column-' + p.joint + (p.joint === 'shaft' ? '-2m' : '-0p5m');
-	const stock = members(p.source?.objectId ?? id, p.source?.variant ?? (socket ? 'shallow' : 'light'), s.seed, p.id, surfaces);
+	const stock = members(
+		p.source?.objectId ?? id,
+		p.source?.variant ?? (socket ? 'shallow' : 'light'),
+		s.seed,
+		p.id,
+		surfaces
+	);
 	const box = union(stock.map(bounds));
 	const scale = p.size.map((v, i) => v / (box.max[i] - box.min[i])) as Vec3;
-	return place(stock, box.min, p.position, scale, 0);
+	return place(stock, box.min, p.position, scale, 0).map((part) =>
+		!socket && part.kind === 'cylinder' ? { ...part, radius: Math.max(0.15, part.radius) } : part
+	);
 }
 function floor(s: Section, p: Solid, surfaces: HouseSurfaces): HousePart {
 	const stock = houseObject('primitive-slab', 'square', s.seed, {
@@ -65,7 +73,7 @@ export function houseStructure(s: Section, surfaces: HouseSurfaces): HousePart[]
 			const at = (t: number): Vec3 => lower.map((v, k) => v + t * (upper[k] - v)) as Vec3;
 			return [pipeBetween(p.id, at(inset), at(1 - inset), radius, surfaces.frame)];
 		}
-		if (p.kind === 'box' && ['socket', 'foot', 'shaft', 'head','beam'].includes(p.joint))
+		if (p.kind === 'box' && ['socket', 'foot', 'shaft', 'head', 'beam'].includes(p.joint))
 			return bearing(s, p, surfaces);
 		return [];
 	});

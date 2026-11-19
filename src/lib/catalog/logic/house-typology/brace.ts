@@ -14,7 +14,16 @@ export function brace(
 		inset = plan.bar,
 		low = stations[0] + inset,
 		end = required(stations.at(-1), 'bearing station') - inset,
-		high = ['portal-house','bridge-house','rack','deck-tower','bell-house','twin-stack'].includes(plan.type) ? Math.min(end,low+1.25) : end;
+		high = [
+			'portal-house',
+			'bridge-house',
+			'rack',
+			'deck-tower',
+			'bell-house',
+			'twin-stack'
+		].includes(plan.type)
+			? Math.min(end, low + 1.25)
+			: end;
 	const y = plan.rear - plan.sign * (plan.type === 'slab-house' ? 0.45 : 0.15);
 	const points: Point[] = [];
 	for (const [x, z] of [

@@ -5,15 +5,19 @@ const plates = composedHousePlates();
 const decks = (i: number) =>
 	plates[i].primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/deck'));
 
-test('capsule stack carries four occupied decks', () => {
+test('capsule stack carries four console landings', () => {
 	expect(plates.map((p) => p.title)).toEqual([
 		'Capsule stack',
 		'Deck tower',
 		'Round tower',
 		'Cluster mast',
+		'Portal house',
 		'Three neighbours'
 	]);
-	expect(decks(0)).toHaveLength(4);
+	expect(decks(0)).toHaveLength(0);
+	expect(
+		plates[0].primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/landing'))
+	).toHaveLength(4);
 	expect(plates[0].primitives.some((p) => p.id.includes('kit-capsule-ribbon'))).toBe(true);
 });
 test('deck tower carries a solar crown and an articulated front frame', () => {
@@ -24,7 +28,9 @@ test('deck tower carries a solar crown and an articulated front frame', () => {
 test('round tower carries circular decks and glazed drums', () => {
 	expect(decks(2).every((p) => p.kind === 'prism' && p.polygon.length === 64)).toBe(true);
 	expect(
-		plates[2].primitives.some((p) => p.id.includes('/drum-house/') && p.finish === 'glas-klar')
+		plates[2].primitives.some(
+			(p) => p.id.includes('/kit-crown-lantern-') && p.finish === 'glas-klar'
+		)
 	).toBe(true);
 });
 test('cluster mast carries inhabited capsules on alternating axes', () => {
@@ -34,7 +40,7 @@ test('cluster mast carries inhabited capsules on alternating axes', () => {
 	expect(new Set(parts.map((p) => p.rotation)).size).toBeGreaterThan(1);
 });
 test('three neighbours share two level spans', () => {
-	const spans = plates[4].primitives.filter((p) => p.id.startsWith('link/') && p.kind === 'prism');
+	const spans = plates[5].primitives.filter((p) => p.id.startsWith('link/') && p.kind === 'prism');
 	expect(new Set(spans.map((p) => p.id.split('/').slice(0, 4).join('/'))).size).toBe(2);
 	expect(spans.some((p) => p.id.includes('stair-bridge'))).toBe(false);
 });

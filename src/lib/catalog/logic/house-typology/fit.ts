@@ -47,14 +47,14 @@ function attach(lower: Entry, upper: Entry) {
 }
 function bearing(lower: Entry, upper: Entry) {
 	if (Math.abs(lower.bounds.max[2] - upper.bounds.min[2]) > tolerance) return;
-	if(lower.p.kind==='box' && !lower.p.rotation && upper.p.kind==='box' && !upper.p.rotation) {
-		attach(lower,upper);
+	if (lower.p.kind === 'box' && !lower.p.rotation && upper.p.kind === 'box' && !upper.p.rotation) {
+		attach(lower, upper);
 		return;
 	}
 	const a = lower.faces ?? [lower.top],
 		b = upper.faces ?? [upper.bottom];
 	if (!a.some((f) => f.length && b.some((g) => g.length && penetration(f, g) >= -1e-9))) return;
-	attach(lower,upper);
+	attach(lower, upper);
 }
 function disc(p: FitPart) {
 	return p.kind === 'cylinder' || p.kind === 'dome' || p.kind === 'sphere' ? p : undefined;
@@ -81,11 +81,12 @@ function contact(a: Entry, b: Entry): Finding['code'] | undefined {
 	return (ac || af) && (bc || bf) ? 'intersects' : 'uncertain-contact';
 }
 function inspectPair(a: Entry, b: Entry, findings: Finding[]) {
-	const overlap=(i:number)=>Math.min(a.bounds.max[i]-b.bounds.min[i],b.bounds.max[i]-a.bounds.min[i]);
-	if (overlap(2)<-tolerance || overlap(0)<0 || overlap(1)<0) return;
+	const overlap = (i: number) =>
+		Math.min(a.bounds.max[i] - b.bounds.min[i], b.bounds.max[i] - a.bounds.min[i]);
+	if (overlap(2) < -tolerance || overlap(0) < 0 || overlap(1) < 0) return;
 	bearing(a, b);
 	bearing(b, a);
-	if (Math.min(overlap(0),overlap(1),overlap(2))<=tolerance) return;
+	if (Math.min(overlap(0), overlap(1), overlap(2)) <= tolerance) return;
 	const code = contact(a, b);
 	if (code) findings.push({ code, part: a.p.id, other: b.p.id });
 }

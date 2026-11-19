@@ -88,5 +88,7 @@ export function windingRoute(s: Section) {
 /** Returns the one circulation polyline selected by the available clear bay. */
 export function circulation(s: Section) {
 	if (s.compact) return mastRoute(s);
-	return housePath(s.typology) === 'spiral' ? windingRoute(s) : flightRoute(s);
+	return housePath(s.typology, s.composition.compact) === 'spiral'
+		? windingRoute(s)
+		: flightRoute(s);
 }

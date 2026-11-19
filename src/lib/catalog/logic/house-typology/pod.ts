@@ -9,7 +9,11 @@ export function podLevel(plan: Plan, i: number, use: HouseUse): Level {
 	const z = plan.datum + i * STORY;
 	const b = objectSlot(
 		site.id + '/level/' + i + '/body/0',
-		['kit-crown-lantern-2p5m', Math.floor(i/4)%2 ? 'standard' : 'low', use === 'living' ? 'capsule' : 'workshop'],
+		[
+			'kit-crown-lantern-2p5m',
+			Math.floor(i / 4) % 2 ? 'standard' : 'low',
+			use === 'living' ? 'capsule' : 'workshop'
+		],
 		use,
 		plan.seed,
 		0

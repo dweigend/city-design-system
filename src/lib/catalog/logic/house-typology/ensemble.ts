@@ -77,7 +77,10 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 					'house/' + sites[j].id,
 					seed,
 					required(roles.get(sites[j].id), 'ensemble role'),
-					typologies.map((t) => [t, sites.length === 2 && housePath(t) === 'spiral' ? 0 : weights[j][t]])
+					typologies.map((t) => [
+						t,
+						sites.length === 2 && housePath(t, sites[j].compact) === 'spiral' ? 0 : weights[j][t]
+					])
 				)
 			);
 		}

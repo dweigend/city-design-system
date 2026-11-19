@@ -14,10 +14,12 @@ function single(
 	typology: Typology
 ): RulePlate {
 	const cells = squareGrid(typology === 'portal-house' ? 2 : 1, 1, 10).cells;
-	const site = {cells, stacks:new Map(cells.map(c=>[c.id,uses])), seed};
+	const site = { cells, stacks: new Map(cells.map((c) => [c.id, uses])), seed };
 	const context = planEnsemble([site]);
-	const houses = new Map([...context.houses].map(([id, decision])=>[id,{...decision,typology}]));
-	const house = planHouse({...site,context:{...context,houses}});
+	const houses = new Map(
+		[...context.houses].map(([id, decision]) => [id, { ...decision, typology }])
+	);
+	const house = planHouse({ ...site, context: { ...context, houses } });
 	return { id, title, text, primitives: sectionParts(house) };
 }
 function ensemble(): RulePlate {
@@ -42,14 +44,16 @@ export function composedHousePlates(): RulePlate[] {
 			'Capsule stack',
 			'Four inhabited levels carry glazed capsules in cradles.',
 			Array<HouseUse>(4).fill('living'),
-			1,'capsule-stack'
+			1,
+			'capsule-stack'
 		),
 		single(
 			'house',
 			'Deck tower',
 			'Water, housing, planting and energy share a frame of articulated columns.',
 			mixed,
-			3,'deck-tower'
+			3,
+			'deck-tower'
 		),
 		single(
 			'round',
@@ -64,9 +68,17 @@ export function composedHousePlates(): RulePlate[] {
 			'Cluster mast',
 			'Capsules turn around a shared mast on successive levels.',
 			Array<HouseUse>(5).fill('living'),
-			1,'cluster-mast'
+			1,
+			'cluster-mast'
 		),
-		single('portal','Portal house','Two cores hold an inhabited bar above an open approach.',mixed,3,'portal-house'),
+		single(
+			'portal',
+			'Portal house',
+			'Two cores hold an inhabited bar above an open approach.',
+			mixed,
+			3,
+			'portal-house'
+		),
 		ensemble()
 	];
 }

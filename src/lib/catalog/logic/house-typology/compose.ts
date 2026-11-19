@@ -1,4 +1,4 @@
-import { layout } from "./layout";
+import { layout } from './layout';
 import { assemble } from './assembly';
 import type { HouseSite } from './site';
 import { planEnsemble, type EnsembleContext } from './ensemble';
@@ -6,17 +6,22 @@ import { survey } from './survey';
 import { collapse } from './collapse';
 import { occupiedLevels } from './levels';
 import type { HouseComposition, Point, Port, Plan, Level } from './types';
-const spread: Partial<Record<Plan["type"],number>> = {
-	"portal-house":0.72, "bridge-house":0.65, rack:0.82, "deck-tower":0.58,
-	"bell-house":0.72,"twin-stack":0.58,"lattice-head":0.60
+const spread: Partial<Record<Plan['type'], number>> = {
+	'portal-house': 0.72,
+	'bridge-house': 0.65,
+	rack: 0.82,
+	'deck-tower': 0.58,
+	'bell-house': 0.72,
+	'twin-stack': 0.58,
+	'lattice-head': 0.6
 };
 function bearingAxes(plan: Plan, levels: Level[]) {
-	const x=plan.site.center[0];
-	const free=Math.min(...levels.map(l=>l.width/2-Math.abs(l.position[0]-x)-plan.bar));
-	const target=spread[plan.type];
-	const mast = plan.type==='cluster-mast' && !plan.site.compact;
-	const arm=target ? Math.max(0.35,free*target) : mast ? 0.3 : 0.625;
-	return [x-arm,x+arm];
+	const x = plan.site.center[0];
+	const free = Math.min(...levels.map((l) => l.width / 2 - Math.abs(l.position[0] - x) - plan.bar));
+	const target = spread[plan.type];
+	const mast = plan.type === 'cluster-mast' && !plan.site.compact;
+	const arm = target ? Math.max(0.35, free * target) : mast ? 0.3 : 0.625;
+	return [x - arm, x + arm];
 }
 function bridgePorts(levels: Level[]): Port[] {
 	return levels.flatMap((l, level) => {
@@ -52,14 +57,16 @@ export function composeHouse(
 	input: HouseSite,
 	context: EnsembleContext = planEnsemble([input])
 ): HouseComposition {
-	const site=survey(input);
-	const {plan,role,accessSide}=layout(site,context);
-	const {type,sign,bar}=plan;
+	const site = survey(input);
+	const { plan, role, accessSide } = layout(site, context);
+	const { type, sign, bar } = plan;
 	const levels = occupiedLevels(plan);
-	if(levels[0].court) plan.rear=levels[0].landing[1];
+	if (levels[0].court) plan.rear = levels[0].landing[1];
 	const stations = bearingAxes(plan, levels);
 	const { parts, crown, fittings } = assemble(plan, levels, role, stations, context.skyline);
-	const supports = parts.filter((p) => ['foot', 'shaft', 'head', 'brace','beam'].includes(p.joint));
+	const supports = parts.filter((p) =>
+		['foot', 'shaft', 'head', 'brace', 'beam'].includes(p.joint)
+	);
 	return {
 		id: site.id,
 		compact: site.compact,
@@ -79,7 +86,11 @@ export function composeHouse(
 		parts,
 		supports,
 		fittings,
-		ports: bridgePorts(levels).concat(levels[0].position[2] > plan.datum ? [{level: -1,position:[site.center[0],plan.rear-sign*0.625,plan.datum]}] : []),
+		ports: bridgePorts(levels).concat(
+			levels[0].position[2] > plan.datum
+				? [{ level: -1, position: [site.center[0], plan.rear - sign * 0.625, plan.datum] }]
+				: []
+		),
 		crown
 	};
 }

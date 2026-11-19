@@ -32,7 +32,7 @@ export function bearings(
 			);
 		return [
 			member('foot', z, collar, size),
-			member('shaft', z + collar, rise - 2 * collar, size * 0.72),
+			member('shaft', z + collar, rise - 2 * collar, size),
 			member('head', top - collar, collar, size)
 		];
 	});
@@ -49,8 +49,23 @@ function bodySolid(b: Body, ground: number): Solid {
 	};
 }
 function courtPlate(l: Level, plate: Solid): Solid {
-	if (l.field) return {...plate,kind:'prism',polygon:l.outline.map(([x,y])=>[x,y]),z:l.position[2]-plate.size[2],height:plate.size[2]};
-	if (l.well) return {...plate,kind:'prism',polygon:l.outline.map(([x,y])=>[x,y]), holes:[l.well.map(([x,y])=>[x,y])],z:l.position[2]-plate.size[2],height:plate.size[2]};
+	if (l.field)
+		return {
+			...plate,
+			kind: 'prism',
+			polygon: l.outline.map(([x, y]) => [x, y]),
+			z: l.position[2] - plate.size[2],
+			height: plate.size[2]
+		};
+	if (l.well)
+		return {
+			...plate,
+			kind: 'prism',
+			polygon: l.outline.map(([x, y]) => [x, y]),
+			holes: [l.well.map(([x, y]) => [x, y])],
+			z: l.position[2] - plate.size[2],
+			height: plate.size[2]
+		};
 	if (!l.court || plate.kind !== 'box' || !l.court.width) return plate;
 	const {
 			center: [x, y],
@@ -82,15 +97,11 @@ function frontBearings(
 	top: number,
 	stations: number[]
 ) {
-	const frames = [
-		'bell-house',
-		'deck-tower',
-		'rack',
-		'twin-stack',
-		'plinth-house'
-	];
+	const frames = ['bell-house', 'deck-tower', 'rack', 'twin-stack', 'plinth-house'];
 	if (
-		l.field || prev?.field || prev?.bodies.some((b) => b.objectId === 'kit-crown-lantern-2p5m') ||
+		l.field ||
+		prev?.field ||
+		prev?.bodies.some((b) => b.objectId === 'kit-crown-lantern-2p5m') ||
 		!frames.includes(plan.type)
 	)
 		return [];
@@ -99,15 +110,27 @@ function frontBearings(
 	if (Math.abs(y - l.position[1]) + plan.bar / 2 > l.depth / 2 + 1e-9) return [];
 	return bearings(plan, id + '/front', bottom, top, stations, y);
 }
-function tierBearings(plan:Plan,l:Level,prev:Level|undefined,stations:number[],id:string,below:number,top:number,full:boolean,i:number) {
-	const members=bearings(plan,id,below,top,stations) as Solid[];
-	const base=prev ? hasFloor(plan,Math.round((below-plan.datum)/STORY)) : below===plan.site.ground;
-	if(full && base) members.push(...frontBearings(plan,id,l,prev,below,top,stations));
-	if(plan.datum+plan.site.programme.length*STORY-plan.site.ground>=8)
-		members.push(brace(plan,id+"/brace",stations,below,top,i%2===1));
+function tierBearings(
+	plan: Plan,
+	l: Level,
+	prev: Level | undefined,
+	stations: number[],
+	id: string,
+	below: number,
+	top: number,
+	full: boolean,
+	i: number
+) {
+	const members = bearings(plan, id, below, top, stations) as Solid[];
+	const base = prev
+		? hasFloor(plan, Math.round((below - plan.datum) / STORY))
+		: below === plan.site.ground;
+	if (full && base) members.push(...frontBearings(plan, id, l, prev, below, top, stations));
+	if (plan.datum + plan.site.programme.length * STORY - plan.site.ground >= 8)
+		members.push(brace(plan, id + '/brace', stations, below, top, i % 2 === 1));
 	return members;
 }
-function sockets(l:Level,z:number,ground:number) {
+function sockets(l: Level, z: number, ground: number) {
 	return l.bodies.flatMap((b) => {
 		const [w, d] = worldSize(b);
 		const socket = [Math.min(w * 0.75, l.width * 0.7), Math.min(d * 0.75, l.depth * 0.65)];
@@ -129,12 +152,18 @@ function sockets(l:Level,z:number,ground:number) {
 	});
 }
 
-function walkingPlate(plan:Plan,l:Level,full:boolean,plate:Solid,floor:ReturnType<typeof solid>) {
-	if(full) return courtPlate(l,plate);
-	const landing={...floor,id:floor.id.replace(/deck$/,'landing')};
-	if(l.court) return courtPlate(l,landing);
-	if(plan.type==='cluster-mast' && !plan.site.compact) return landing;
-	return consolePlate(plan,l,floor);
+function walkingPlate(
+	plan: Plan,
+	l: Level,
+	full: boolean,
+	plate: Solid,
+	floor: ReturnType<typeof solid>
+) {
+	if (full) return courtPlate(l, plate);
+	const landing = { ...floor, id: floor.id.replace(/deck$/, 'landing') };
+	if (l.court) return courtPlate(l, landing);
+	if (plan.type === 'cluster-mast' && !plan.site.compact) return landing;
+	return consolePlate(plan, l, floor);
 }
 /** Articulates a course from its bearings to its occupied plate or console. */
 export function tierParts(
@@ -144,7 +173,7 @@ export function tierParts(
 	prev: Level | undefined,
 	stations: number[],
 	ratio: number,
-	prefabricated=true
+	prefabricated = true
 ) {
 	const below = prev?.position[2] ?? (l.position[2] > plan.datum ? plan.datum : plan.site.ground);
 	const { site } = plan,
@@ -160,7 +189,7 @@ export function tierParts(
 		site.ground,
 		'deck'
 	);
-	
+
 	const plate: Solid = l.round
 		? {
 				...floor,
@@ -170,9 +199,9 @@ export function tierParts(
 				height: thickness
 			}
 		: floor;
-	const full = hasFloor(plan,Math.round((z-plan.datum)/STORY));
-	const core=!prev && prefabricated ? shaftCourses(plan,l,stations,z-thickness) : undefined;
-	const members=core ?? tierBearings(plan,l,prev,stations,id,below,z-thickness,full,i);
-	const pieces = sockets(l,z,site.ground);
-	return [...members, walkingPlate(plan,l,full,plate,floor), ...pieces];
+	const full = hasFloor(plan, Math.round((z - plan.datum) / STORY));
+	const core = !prev && prefabricated ? shaftCourses(plan, l, stations, z - thickness) : undefined;
+	const members = core ?? tierBearings(plan, l, prev, stations, id, below, z - thickness, full, i);
+	const pieces = sockets(l, z, site.ground);
+	return [...members, walkingPlate(plan, l, full, plate, floor), ...pieces];
 }

@@ -99,15 +99,13 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 		];
 		return rails.flatMap((p, j) => {
 			if (p.kind !== 'pipe') throw new Error('Expected rail stock');
-			// One inside handrail, a continuous stringer and a newel every four stations.
-			if (j === 2 && i % 4) return [];
+			// Drum-mounted steps carry one inside handrail on spaced newels.
+			if (j === 1 || (j === 2 && i % 4)) return [];
 			const points =
 				j === 0
 					? [line(false, rail), line(true, rail)]
-					: j === 1
-						? [line(false, -thickness), line(true, -thickness)]
-						: [line(false, -thickness), line(false, rail)];
-			return [{ ...p, id: id + i + '/frame/' + j, points }];
+					: [line(false, -thickness), line(false, rail)];
+			return [{ ...p, id: id + i + '/frame/' + j, radius: Math.max(0.06, p.radius), points }];
 		});
 	}
 	function connection(d: Route['docks'][number], i: number) {
@@ -148,7 +146,7 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 /** Places rigid registry treads on the walking line and fits stock to its level deck connections. */
 export function access(s: Section, surfaces: HouseSurfaces) {
 	if (s.compact) return mastAccess(s, surfaces);
-	if (housePath(s.typology) !== 'spiral') return flightAccess(s, surfaces);
+	if (housePath(s.typology, s.composition.compact) !== 'spiral') return flightAccess(s, surfaces);
 	const route = windingRoute(s),
 		draw = projection(route.track, s, surfaces);
 	return [
