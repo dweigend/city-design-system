@@ -14,6 +14,7 @@ import { florMuster, schaumMuster, spritzerMuster } from './materialZuschlagMust
 const musterVon: Partial<
 	Record<AusfuehrungId, (base: Node<'vec3'>, welt: Node<'vec3'>) => Muster>
 > = {
+	'corrugated-metal': rippenMuster,
 	'metall-messing': messingMuster,
 	'metall-kupfer': kupferMuster,
 	'keramik-schachbrett': schachbrettMuster,

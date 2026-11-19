@@ -39,6 +39,7 @@ import { spiralStair } from './spiral-stair';
 import { ceramicGlaze } from './ceramic-glaze';
 import { terrazzo } from './terrazzo';
 import { sheetMetal } from './sheet-metal';
+import { corrugated } from './corrugated';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -80,5 +81,6 @@ export const recipes: readonly AssetRecipe[] = [
 	spiralStair,
 	ceramicGlaze,
 	terrazzo,
-	sheetMetal
+	sheetMetal,
+	corrugated
 ];
