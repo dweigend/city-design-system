@@ -14,7 +14,7 @@ export function firedSlip(
 		q = attribute('kilnChart', 'vec4');
 	const tank = q.w.equal(2),
 		ring = q.w.equal(3);
-	const level = tank.select(q.y.add(seconds.mul(0.8).sin().mul(0.13)), q.x);
+	const level = tank.select(q.y.negate().add(seconds.mul(0.58).sin().mul(0.38)).add(0.28), q.x);
 	const rim = level.add(q.y.mul(7).add(q.z.mul(3)).sin().mul(0.033));
 	const feather = rim.fwidth().max(0.002);
 	const dip = rim.smoothstep(float(0.1).sub(feather), float(0.1).add(feather));
@@ -23,8 +23,8 @@ export function firedSlip(
 	const face = normalWorld.dot(vec3(-0.42, 0.82, 0.38));
 	const body = mix(shade, clay, face.smoothstep(0.17, face.fwidth().max(0.001).add(0.17)));
 	const turning = q.x
-		.mul(seconds.mul(0.24).cos())
-		.add(q.z.mul(seconds.mul(0.24).sin()))
+		.mul(seconds.mul(0.37).cos())
+		.add(q.z.mul(seconds.mul(0.37).sin()))
 		.smoothstep(0.89, 0.94);
 	const u = normalView.x.add(0.12);
 	const bow = normalView.y.sub(0.72).add(u.mul(u).mul(0.38));

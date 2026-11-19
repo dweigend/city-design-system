@@ -174,7 +174,7 @@ export function populateStructures(
 	pipes?.geometry.setAttribute('railMark', conduit.rail);
 	const print = batch(parts.inlays, (p) =>
 		colorOf(
-			p.token === '--cat-business' && !p.id.includes(':figure:')
+			p.token === '--cat-business' && !p.id.includes(':figure:') && p.kind !== 'mesh'
 				? p.token
 				: p.token.replace(/-\d$/, '') + '-2'
 		)

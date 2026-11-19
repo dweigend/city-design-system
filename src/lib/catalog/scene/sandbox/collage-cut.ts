@@ -60,3 +60,18 @@ export function collageCut(part: Primitive): Primitive {
 		lines: []
 	};
 }
+
+/** Separates the cut faces from the folded returns so the host bay can carry its figure's pigment. */
+export function printPortal(part: Extract<Primitive, { kind: 'mesh' }>, token: Primitive['token']) {
+	const printed: number[] = [],
+		clay: number[] = [];
+	for (let i = 0; i < part.triangles.length; i += 3) {
+		const tri = part.triangles.slice(i, i + 3);
+		const face = tri.every((v) => v < n) || tri.every((v) => v >= n);
+		(face ? printed : clay).push(...tri);
+	}
+	return {
+		face: { ...part, token, envelope: false, triangles: printed },
+		returns: { ...part, triangles: clay }
+	};
+}

@@ -18,7 +18,7 @@ export function dockPose(
 	elapsed: number
 ) {
 	const t = Math.max(0, elapsed),
-		angle = t >= 1.25 ? 0 : 0.09 * Math.exp(-5 * t) * Math.sin(12 * t);
+		angle = t >= 2 ? 0 : 0.13 * Math.exp(-2.6 * t) * Math.cos(5.2 * t) * (1 - t / 2);
 	const x = (capsule.from[0] + capsule.to[0]) / 2,
 		y = (capsule.from[2] + capsule.to[2]) / 2 + capsule.radius;
 	const c = Math.cos(angle),

@@ -1,5 +1,5 @@
 import { isStructural, type Primitive } from '../../logic/parametrik/types';
-import { collageCut } from './collage-cut';
+import { collageCut, printPortal } from './collage-cut';
 const isAccent = (part: Primitive) =>
 	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
 
@@ -53,14 +53,24 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
 	};
+	const figures = new Map<string, Primitive['token']>();
+	for (const p of primitives)
+		if (p.role === 'neu' && p.id.includes(':figure') && p.token.startsWith('--cat-'))
+			figures.set(p.id.split(':figure')[0], p.token);
 	for (const original of primitives) {
 		const part = collageCut(original);
 		const layer = layerOf(part);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
 		if (unoutlined.has(original) && layer !== 'carriers' && layer !== 'ghosts') {
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
-		} else if (part !== original) parts.portals.push(body);
-		else parts[layer].push(body);
+		} else if (part !== original && part.kind === 'mesh') {
+			const pigment = figures.get(part.id.replace(/:stock$/, ''));
+			if (pigment) {
+				const panel = printPortal(part, pigment);
+				parts.inlays.push(panel.face);
+				parts.portals.push(panel.returns);
+			} else parts.portals.push(body);
+		} else parts[layer].push(body);
 	}
 	return parts;
 }
