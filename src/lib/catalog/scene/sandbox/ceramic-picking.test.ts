@@ -13,6 +13,8 @@ import { createCellPicker } from './house-picker';
 import { projectInstallations, KEY } from './projection';
 import { surfaceGeometry } from './terrain-geometry';
 import { createView } from './view';
+import { BLICK } from '../../data/leitstil';
+import { contourWidthMeters } from './contour-width';
 import { sandboxStyle } from './drafting-style';
 
 async function structureLayer() {
@@ -145,6 +147,52 @@ test('zoom exchanges only the ceramic batch; removing an unrelated module retain
 		const redrawn = solids(ceramic.id);
 		assert(redrawn.length > 0 && redrawn[0] !== coarse[0]);
 		assert(redrawn.every((hit) => hit.userData.cellId === ceramic.anchor.cellId));
+	} finally {
+		layer.dispose();
+	}
+});
+
+test('city ceramic loses only its outline below six projected pixels', async () => {
+	const layer = await structureLayer();
+	try {
+		const meshes = installationView(installed, 'all', true).filter((p) => p.kind === 'mesh');
+		const body = meshes.find((p) => p.token === '--paper');
+		assert(body && meshes.length === 2);
+		const view = createView();
+		view.resize(800, 600);
+		const camera = view.camera;
+		const widthPerNdc = (camera.right - camera.left) / (2 * camera.zoom);
+		const screenX = body.points.map(
+			([x, y, z]) => new T.Vector3(x, z, -y).project(camera).x * widthPerNdc
+		);
+		const horizontal = Math.max(...screenX) - Math.min(...screenX);
+		const width = contourWidthMeters(body, BLICK.hoeheRad);
+		assert(width <= horizontal + 1e-9 && horizontal * 1.7 < 4.75);
+		const style = sandboxStyle(
+			{ zoom: 'stadt', modus: 'ansehen', situation: 'normal' },
+			'leitstil'
+		);
+		for (const mesh of meshes) layer.set(mesh.id + '#', [mesh], '90/40');
+		for (const [scale, outlined] of [
+			[1.7, false],
+			[2.5, true]
+		] as const) {
+			layer.setStyle([style, 'leitstil', scale], BLICK.hoeheRad);
+			assert.equal(width * scale >= 6, outlined);
+			for (const mesh of meshes) {
+				const [face] = layer.solids(mesh.id + '#');
+				assert(face instanceof T.Mesh && face.parent);
+				assert.equal(face.userData.cellId, '90/40');
+				if (mesh === body)
+					assert.equal(
+						face.parent.children.some(
+							(other) =>
+								other instanceof T.Mesh && other !== face && other.geometry === face.geometry
+						),
+						outlined
+					);
+			}
+		}
 	} finally {
 		layer.dispose();
 	}

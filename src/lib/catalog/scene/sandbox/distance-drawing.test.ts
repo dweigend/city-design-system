@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test';
 import { BLICK } from '../../data/leitstil';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import { deckParts } from '../../logic/walkway/span';
+import { contourWidthMeters } from './contour-width';
 import { distanceDrawing, sameDrawing } from './distance-drawing';
 
 const city = { elevation: Math.PI / 2, block: true, scale: 2.5, minContourPx: 6 };
@@ -41,6 +42,8 @@ test('a solid façade disc only keeps its contour when its projected width meets
 		material: 'concrete',
 		token: '--cat-nature'
 	};
+	expect(contourWidthMeters(disc, 0) * city.scale).toBeCloseTo(10, 8);
+	expect(contourWidthMeters(disc, city.elevation) * city.scale).toBeCloseTo(0.5, 8);
 	const faceOn = distanceDrawing([disc], { ...city, elevation: 0 });
 	expect(faceOn.unoutlined.has(disc)).toBe(false);
 	const edgeOn = distanceDrawing([disc], city);
@@ -82,4 +85,25 @@ test('sloped walkways keep a continuous surface at city zoom', () => {
 	expect(closer.details).toBe(true);
 	expect(closer.parts).toEqual(parts);
 	expect(closer.parts.filter(({ kind }) => kind === 'polyline')).toHaveLength(2);
+});
+
+test('oblique indexed panels use the minimum silhouette width and ignore unused vertices', () => {
+	const mesh: Primitive = {
+		id: 'panel',
+		material: 'concrete',
+		role: 'neu',
+		token: '--paper',
+		kind: 'mesh',
+		points: [
+			[0, 0, 0],
+			[4, 4, 0],
+			[3, 5, 0],
+			[-1, 1, 0],
+			[100, 0, 0]
+		],
+		triangles: [0, 1, 2, 0, 2, 3],
+		lines: []
+	};
+	expect(contourWidthMeters(mesh, Math.PI / 2)).toBeCloseTo(Math.SQRT2, 10);
+	expect(contourWidthMeters({ ...mesh, triangles: [0, 0, 0] }, Math.PI / 2)).toBe(0);
 });

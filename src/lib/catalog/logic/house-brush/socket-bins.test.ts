@@ -92,3 +92,15 @@ test('indexed and exhaustive searches select the same ordered seats on seeded ro
 	expect(accepted).toBeGreaterThan(0);
 	expect(accepted).toBeLessThan(384);
 });
+
+test('finite extreme translations terminate and preserve exhaustive survey order', () => {
+	for (const x of [1e15, 9 * 2 ** 52, 9 * 2 ** 53, -9 * 2 ** 54, 1e300, -1e300]) {
+		for (const vertical of [true, false]) {
+			const rods = [0, 10].map((offset) =>
+				rod(vertical ? x : offset, vertical ? offset : x, 4.5, vertical)
+			);
+			compare(rods);
+			compare([rod(0, 0, 4.5, vertical), ...rods]);
+		}
+	}
+});

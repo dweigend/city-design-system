@@ -15,18 +15,25 @@ function adjacent(a: Site, b: Site, reach: number) {
 function neighbors<T extends Site>(sites: T[], reach: number) {
 	const bins = new Map<string, number[]>();
 	const bin = (s: T) => s.seat.shell.center.slice(0, 2).map((v) => Math.floor(v / reach));
+	const safe = (coords: number[]) =>
+		coords.every((v) => Number.isSafeInteger(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER - 2);
+	const scan = (query: T) => sites.flatMap((site, i) => (adjacent(query, site, reach) ? [i] : []));
 	for (const [index, site] of sites.entries()) {
-		const key = bin(site).join('/');
+		const coords = bin(site);
+		if (!safe(coords)) return scan;
+		const key = coords.join('/');
 		const bucket = bins.get(key);
 		if (bucket) bucket.push(index);
 		else bins.set(key, [index]);
 	}
 	return (site: T) => {
-		const [x, y] = bin(site);
+		const coords = bin(site);
+		if (!safe(coords)) return scan(site);
+		const [x, y] = coords;
 		const found: number[] = [];
-		for (let i = x - 2; i <= x + 2; i++)
-			for (let j = y - 2; j <= y + 2; j++)
-				for (const k of bins.get(i + '/' + j) ?? [])
+		for (let i = -2; i <= 2; i++)
+			for (let j = -2; j <= 2; j++)
+				for (const k of bins.get(x + i + '/' + (y + j)) ?? [])
 					if (adjacent(site, sites[k], reach)) found.push(k);
 		return found.sort((a, b) => a - b);
 	};
