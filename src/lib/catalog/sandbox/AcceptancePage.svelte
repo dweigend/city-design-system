@@ -25,8 +25,12 @@
 		const query = new URLSearchParams(location.search);
 		const requested = Number(query.get('seed') ?? '7');
 		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
+		const { world, earliestFullYear, additions } = acceptanceScene(seed);
 		const study = {
-			...acceptanceScene(seed),
+			world,
+			earliestFullYear,
+			additions,
+			frameTown: true,
 			onFrameFailure: (reason: string) => {
 				error = 'Frame survey: ' + reason;
 			},

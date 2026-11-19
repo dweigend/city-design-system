@@ -1,5 +1,18 @@
 import * as T from 'three/webgpu';
 
+// The CPU fixture records the source scene of the beauty pass, before fullscreen composition.
+function sourcePass(root: T.Node) {
+	const pending = [root];
+	const seen = new Set<T.Node>();
+	for (let node = pending.pop(); node; node = pending.pop()) {
+		if (node instanceof T.PassNode) return node;
+		if (seen.has(node)) continue;
+		seen.add(node);
+		pending.push(...node.getChildren());
+	}
+	throw new Error('The studio pipeline has no scene pass.');
+}
+
 /** Manual presentation clock and CPU renderer for isolated stage tests. */
 export function frameClock() {
 	const noop = () => {};
@@ -25,6 +38,14 @@ export function frameClock() {
 		cancelAnimationFrame: (i: number) => callbacks.delete(i)
 	});
 	Object.assign(globalThis, { window: globalThis });
+	const passes = new WeakMap<T.RenderPipeline, T.PassNode>();
+	Object.assign(T.RenderPipeline.prototype, {
+		render(this: T.RenderPipeline) {
+			const pass = passes.get(this) ?? sourcePass(this.outputNode);
+			passes.set(this, pass);
+			this.renderer.render(pass.scene, pass.camera);
+		}
+	});
 	Object.assign(T.WebGPURenderer.prototype, {
 		init: async () => {},
 		setSize: noop,

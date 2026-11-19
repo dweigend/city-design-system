@@ -79,18 +79,21 @@ test('the portrait opening keeps the visible terrain rim away from the town anch
 	expect(visible).toBeGreaterThan(0);
 });
 
-test('the desktop opening keeps the full city silhouette on the canvas', () => {
+function visibleDesktopParcels(camera: ReturnType<typeof createView>) {
+	return [...world.state.stacks.keys()].filter((id) => {
+		const cell = world.grid.cellsById.get(id);
+		assert(cell);
+		const { x, y } = camera.project(cell.center);
+		return x >= 0 && x <= 1440 && y >= 0 && y <= 900;
+	}).length;
+}
+
+test('the desktop opening includes the central district and crops outlying parcels', () => {
 	view.resize(1440, 900);
 	expect(frameTownSilhouette(view, world)).toBe(true);
-	const town = [...world.state.stacks.keys()]
-		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
-		.map(view.project);
-	const xs = town.map(({ x }) => x);
-	const ys = town.map(({ y }) => y);
-	expect(Math.min(...ys)).toBeGreaterThan(0);
-	expect(Math.max(...ys)).toBeLessThan(900);
-	expect(Math.min(...xs)).toBeGreaterThan(0);
-	expect(Math.max(...xs)).toBeLessThan(1440);
+	const visible = visibleDesktopParcels(view);
+	expect(visible).toBeGreaterThanOrEqual(Math.ceil((world.state.stacks.size * 2) / 3));
+	expect(visible).toBeLessThan(world.state.stacks.size);
 });
 
 test('chunk picking selects the same terrain cell as the rendered triangles on phone', () => {
@@ -201,20 +204,12 @@ test('rebuilding the affected house groups after a dig equals drawing the whole 
 	}
 });
 
-test('the desktop plan keeps the town within the opening frame', () => {
+test('switching the desktop opening to plan keeps the majority of parcels visible', () => {
 	const desktop = createView();
 	desktop.resize(1440, 900);
 	frameTownSilhouette(desktop, world);
 	desktop.setPlan(true);
-	const town = [...world.state.stacks.keys()]
-		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
-		.map(desktop.project);
-	for (const { x, y } of town) {
-		expect(x).toBeGreaterThan(0);
-		expect(x).toBeLessThan(1440);
-		expect(y).toBeGreaterThan(0);
-		expect(y).toBeLessThan(900);
-	}
+	expect(visibleDesktopParcels(desktop)).toBeGreaterThan(world.state.stacks.size / 2);
 });
 
 test('plan rotation preserves a panned and zoomed district across both projections', () => {

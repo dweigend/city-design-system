@@ -21,7 +21,7 @@ import { createStudioLight } from '../studio-light';
 import { loadStructureModules } from './fixtures/structure-modules';
 import { present } from '../../logic/presentation';
 
-import { batch, geometryOf } from '../batch';
+import { batch, batchFaces, geometryOf } from '../batch';
 import { ceramicBatch } from './ceramic-batch';
 
 const blank = { id: 'socket', role: 'neu', material: 'glaze', token: '--paper' } as const;
@@ -282,5 +282,34 @@ test('pencil stock uses no face screen or cast shadow while new colour bodies us
 		for (const mesh of meshes) mesh.geometry.dispose();
 		finishes.dispose();
 		bearing.dispose();
+	}
+});
+
+test('city batches keep round stock and a glazed body without allocating drafting hulls', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials('desktop', true);
+	const dot = new SphereGeometry();
+	const round: Primitive = { ...blank, kind: 'sphere', position: [4, 4, 3], radius: 2 };
+	const group = populateStructures(
+		[
+			{ ...round, role: 'bestand' },
+			{ ...round, finish: 'keramik-glasiert' }
+		],
+		finishes,
+		dot
+	);
+	const meshes = group.children.filter((o) => o instanceof Mesh);
+	try {
+		expect(finishes.contours).toBeUndefined();
+		expect(batchFaces([round], ink).hull).toBeUndefined();
+		expect(meshes.some((m) => m.material === finishes.materials.stock)).toBe(true);
+		expect(meshes.some((m) => m.geometry.hasAttribute('outlineOffset'))).toBe(false);
+		expect(
+			meshes.some((m) => !Array.isArray(m.material) && m.material.name === 'keramik-glasiert')
+		).toBe(true);
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
+		dot.dispose();
+		finishes.dispose();
 	}
 });

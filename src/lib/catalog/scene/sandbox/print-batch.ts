@@ -1,7 +1,7 @@
 import { Float32BufferAttribute, type Color } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import { isPathInk } from '../../logic/farbe/overprint';
-import { batch, geometryOf, type Batch } from '../batch';
+import { batchFaces, geometryOf, type Batch } from '../batch';
 import { castOffset } from '../printed-finish';
 
 type Faces = Batch['neu'];
@@ -64,7 +64,7 @@ export function printBatch(parts: Primitive[], colorOf: (part: Primitive) => Col
 	const patches = parts.filter((p) => p.overprint);
 	const ordered = patches.length ? parts.filter((p) => !p.overprint).concat(patches) : parts;
 	const ranges = { neu: [] as Range[], blatt: [] as Range[], glas: [] as Range[] };
-	const result = batch(ordered, colorOf, true, (part, out) => {
+	const result = batchFaces(ordered, colorOf, true, (part, out) => {
 		for (const key of kinds) ranges[key].push({ start: out[key].p.length / 3, part });
 	});
 	for (const key of kinds) printAttributes(result[key], ranges[key]);

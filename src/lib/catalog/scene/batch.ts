@@ -29,23 +29,50 @@ export type Batch = {
 const faces = (): Faces => ({ p: [], n: [], c: [] });
 const EDGE = Math.cos((46 * Math.PI) / 180);
 
-/** Gathers triangle, edge and hull geometry for the scene materials. */
+type FaceBatch = Omit<Batch, 'hull'> & { hull?: Batch['hull'] };
+type BeforePart = (part: Primitive, out: FaceBatch) => void;
+
+/** Collects faces and lines without allocating inverted hull geometry. */
+export function batchFaces(
+	primitives: Primitive[],
+	colorOf: (p: Primitive) => THREE.Color,
+	coarse = true,
+	beforePart?: BeforePart
+) {
+	return batch(primitives, colorOf, coarse, beforePart, false);
+}
+
+/** Gathers triangle, edge and optional hull geometry for the scene materials. */
+export function batch(
+	primitives: Primitive[],
+	colorOf: (p: Primitive) => THREE.Color,
+	coarse?: boolean,
+	beforePart?: (part: Primitive, out: Batch) => void
+): Batch;
+export function batch(
+	primitives: Primitive[],
+	colorOf: (p: Primitive) => THREE.Color,
+	coarse: boolean,
+	beforePart: BeforePart | undefined,
+	withHulls: false
+): FaceBatch;
 export function batch(
 	primitives: Primitive[],
 	colorOf: (p: Primitive) => THREE.Color,
 	coarse = true,
-	beforePart?: (part: Primitive, out: Batch) => void
-): Batch {
-	const out: Batch = {
+	beforePart?: BeforePart | ((part: Primitive, out: Batch) => void),
+	withHulls = true
+): FaceBatch {
+	const out: FaceBatch = {
 		neu: faces(),
 		alt: faces(),
 		blatt: faces(),
 		glas: faces(),
-		hull: { neu: faces(), alt: faces() },
 		kanten: { neu: [], alt: [] },
 		staebe: { p: [], c: [] },
 		dreiecke: 0
 	};
+	if (withHulls) out.hull = { neu: faces(), alt: faces() };
 	const matrix = new THREE.Matrix4(),
 		normalMatrix = new THREE.Matrix3(),
 		quat = new THREE.Quaternion(),
@@ -74,7 +101,7 @@ export function batch(
 		target.push(a[0], a[2], -a[1], b[0], b[2], -b[1]);
 
 	for (const p of primitives) {
-		beforePart?.(p, out);
+		(beforePart as BeforePart | undefined)?.(p, out);
 		const role = legacyRoleOf(p) === 'neu' ? 'neu' : 'alt';
 		if (p.kind === 'polyline') {
 			const pts = p.closed ? [...p.points, p.points[0]] : p.points;
@@ -221,7 +248,7 @@ export function batch(
 		const position = g.getAttribute('position'),
 			normal = g.getAttribute('normal'),
 			target = p.glass ? out.glas : built.double ? out.blatt : out[role],
-			hull = built.outline && !p.glass && p.edges !== false ? out.hull[role] : undefined;
+			hull = built.outline && !p.glass && p.edges !== false ? out.hull?.[role] : undefined;
 		const band = p.kind === 'capsule' && p.printBand;
 		const seamZ =
 			band && p.kind === 'capsule'

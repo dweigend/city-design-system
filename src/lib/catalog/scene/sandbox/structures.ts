@@ -32,10 +32,10 @@ type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[]; cellId
 export type Structures = ReturnType<typeof createStructures>;
 
 /** Creates the structure layer. The caller adds the group to its scene and disposes it. */
-export function createStructures(quality?: StudioQuality) {
+export function createStructures(quality?: StudioQuality, cityEdges = false) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
-	const finishes = structureMaterials(quality);
+	const finishes = structureMaterials(quality, cityEdges);
 	const joints = createJointLayer(finishes.materials.bearing);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();
@@ -47,7 +47,13 @@ export function createStructures(quality?: StudioQuality) {
 	const swept = new THREE.Box3();
 	let shadowChanged = false;
 	const hitLists = new Map<string, THREE.Object3D[]>();
-	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
+	let distance: DrawingDistance = {
+		screenEdges: cityEdges,
+		scale: Infinity,
+		minContourPx: 0,
+		elevation: 0,
+		block: false
+	};
 
 	function draw(
 		key: string,
@@ -254,7 +260,7 @@ export function createStructures(quality?: StudioQuality) {
 				block !== distance.block ||
 				minContourPx !== distance.minContourPx
 			) {
-				distance = { scale, elevation, block, minContourPx };
+				distance = { screenEdges: cityEdges, scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
 			for (const [key, { primitives, cellId, startedMs }] of pending)

@@ -14,12 +14,12 @@ export function perforatedSheet() {
 	return tile.length().greaterThanEqual(0.3 / 1.25);
 }
 
-/** A half-metre corrugation with 55 mm crest-to-trough relief. */
+/** A half-metre corrugation with 95 mm crest-to-trough relief. */
 export function corrugation(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
 	const phase = sheetCoordinates(p).x.mul(4 * Math.PI);
 	const resolved = phase.fwidth().smoothstep(1, Math.PI).oneMinus();
 	const ridge = phase.cos().mul(resolved);
-	return { farbe: base, hoehe: ridge, relief: 0.0275, rauheitVersatz: ridge.mul(-0.045) };
+	return { farbe: base, hoehe: ridge, relief: 0.0475, rauheitVersatz: ridge.mul(-0.045) };
 }
 
 /** Two crossing layers of pressed timber flakes in a continuous metre-scale volume. */
