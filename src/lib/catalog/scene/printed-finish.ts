@@ -48,7 +48,7 @@ export function halftoneScreen(close: boolean) {
 }
 
 /** Hard-edged dot mask on the supplied meter chart, where pitch is in meters. */
-export function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
+function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
 	const { angle, radius, pitch: reference } = halftoneScreen(false);
 	const c = Math.cos(angle);
 	const s = Math.sin(angle);

@@ -20,6 +20,7 @@ import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { createCellPicker } from './house-picker';
+import { studioPipeline, type StudioQuality } from '../studio-pipeline';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
@@ -35,6 +36,7 @@ import { createFrameLoop } from './frame-loop';
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
+	quality?: StudioQuality;
 	minInkAppliesTo?: MinimumInk;
 	onFrameFailure?: (reason: string) => void;
 	openingArea?: () => OpeningArea | undefined;
@@ -72,7 +74,8 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const light = createLight();
+	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
+	const light = createLight(pipeline.shadowSize);
 	const structures = createStructures();
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
@@ -80,6 +83,7 @@ export function createSandboxStage(
 	scene.add(...light.objects, structures.group, vehicles.group);
 
 	const ink = new THREE.Color();
+	const paper = new THREE.Color();
 	const hazardRole = stilFuer({ zoom: 'nah', modus: 'bauen', situation: 'stoerung' }).rollen.gefahr;
 	const swatches = { planned: new THREE.Color(), hazard: new THREE.Color() };
 	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STRICHE.kontur });
@@ -160,7 +164,7 @@ export function createSandboxStage(
 			view.elevation()
 		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
-		if (tones) light.setTone(tones.raster);
+		if (tones) light.setTone(tones.raster, paper);
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;
@@ -182,7 +186,7 @@ export function createSandboxStage(
 	function renderImage(castersMoved: boolean) {
 		if (shadowsDirty || castersMoved) light.refresh();
 		shadowsDirty = false;
-		renderer.render(scene, view.camera);
+		pipeline.render();
 		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 	}
 
@@ -205,7 +209,8 @@ export function createSandboxStage(
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
-		scene.background = new THREE.Color(next.paper).lerp(new THREE.Color(next.ink), 0.035);
+		paper.set(next.paper);
+		scene.background = paper.clone().lerp(new THREE.Color(next.ink), 0.025);
 		structures.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
@@ -484,6 +489,7 @@ export function createSandboxStage(
 			frames.dispose();
 			structures.dispose();
 			light.dispose();
+			pipeline.dispose();
 			baseOutline.dispose();
 			cursorMaterial.dispose();
 			gpu.dispose();
