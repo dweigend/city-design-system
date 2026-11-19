@@ -21,7 +21,7 @@ import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { KEY, projectChanges } from './projection';
+import { KEY, projectChanges, projectInstallations } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown } from './opening-view';
@@ -61,6 +61,7 @@ export function createSandboxStage(
 	const view = createView();
 	const light = createLight();
 	const structures = createStructures();
+	const nextFrame = { set: structures.queue };
 	const studyAdditions = study.additions ?? [];
 	scene.add(...light.objects, structures.group);
 
@@ -91,9 +92,17 @@ export function createSandboxStage(
 	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
 	let refreshTones = true;
 
+	let coarse = false;
+	function updateMeshDetail(zoom: ReturnType<typeof nearestZoom>) {
+		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
+		if (nextCoarse !== coarse && shown)
+			projectInstallations(nextFrame, shown, shown, focus, nextCoarse);
+		coarse = nextCoarse;
+	}
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
 		const zoom = nearestZoom(scale);
+		updateMeshDetail(zoom);
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context, variant);
@@ -105,6 +114,7 @@ export function createSandboxStage(
 		canvas.dataset.structureVariant = variant;
 		refreshTones = false;
 	}
+	const frameListeners = new Set<() => void>();
 	let pending = 0;
 	/** At most one image per animation frame, however many inputs arrive. */
 	function render() {
@@ -116,6 +126,7 @@ export function createSandboxStage(
 			pixelsPerMeter.value = 1 / view.metersPerPixel();
 			updateStyle();
 			renderer.render(scene, view.camera);
+			for (const listener of frameListeners) listener();
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		});
 	}
@@ -175,7 +186,7 @@ export function createSandboxStage(
 			terrain.dispose();
 		}
 		structures.clear();
-		structures.set('study', studyAdditions);
+		nextFrame.set('study', studyAdditions);
 		terrain = createTerrainMesh(world.grid, undefined, light.shade);
 		scene.add(terrain.group);
 		terrain.setGridVisible(planView ? 1 : 0);
@@ -194,7 +205,7 @@ export function createSandboxStage(
 
 	function updateWorld(mesh: TerrainMesh, before: World, after: World, nextFocus: FocusId) {
 		projectChanges(
-			{ terrain: mesh, structures, earliestFullYear: study.earliestFullYear },
+			{ terrain: mesh, structures: nextFrame, coarse, earliestFullYear: study.earliestFullYear },
 			before,
 			after,
 			nextFocus,
@@ -208,6 +219,13 @@ export function createSandboxStage(
 
 	return {
 		ready: gpu.started,
+		/** Runs after the rendered camera, pick meshes and their world matrices are current. */
+		afterFrame(listener: () => void) {
+			frameListeners.add(listener);
+			return () => {
+				frameListeners.delete(listener);
+			};
+		},
 		view,
 		render,
 		/**
@@ -249,6 +267,7 @@ export function createSandboxStage(
 		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
 			return picker(x, y, shown.grid, terrain.surface, [
+				...structures.solids(KEY.installation),
 				...structures.solids(KEY.house),
 				...structures.solids(KEY.forest)
 			]);
@@ -275,6 +294,7 @@ export function createSandboxStage(
 		dispose() {
 			stopTheme();
 			cancelAnimationFrame(pending);
+			frameListeners.clear();
 			removeLines(baseLines);
 			removeLines(cursor);
 			if (terrain) terrain.dispose();

@@ -1,3 +1,6 @@
+import { required } from '../required';
+import { ceramicFitting } from './ceramic-fitting';
+import type { ModuleRecipe } from './module-group';
 import type { DockedModule } from '../megastructure';
 import { flowToken } from '../../data/focus';
 import { STORY } from '../../data/grid';
@@ -87,11 +90,12 @@ export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive
 /** Projects a K2 module in its solved socket basis, meters. */
 function dockedForms(
 	id: string,
-	recipe: 'capsule' | 'tank' | 'solar-ring' | 'garden' | 'workshop' | 'access',
+	recipe: Exclude<ModuleRecipe, 'ceramic'>,
 	m: DockedModule
 ): Primitive[] {
 	const [x, y, z] = m.center;
 	const b = { id, role: 'neu', material: 'glaze', token: '--paper' } as const;
+
 	if (recipe === 'tank')
 		return [
 			{
@@ -158,9 +162,23 @@ function dockedForms(
 /** Projects all solids belonging to one removable shell, including the function fitting. */
 export function shellForms(
 	id: string,
-	recipe: Parameters<typeof dockedForms>[1],
-	seat: { shell: DockedModule; accent?: DockedModule }
+	recipe: ModuleRecipe,
+	seat: { shell: DockedModule; accent?: DockedModule; profileSeed?: number; contactRing?: number },
+	coarse = false
 ) {
 	const shell = dockedForms(id, 'capsule', seat.shell);
-	return seat.accent ? [...shell, ...dockedForms(id + '/fitting', recipe, seat.accent)] : shell;
+	if (recipe === 'ceramic' && seat.accent)
+		return [
+			...shell,
+			...ceramicFitting(
+				id + '/fitting',
+				seat.accent,
+				required(seat.profileSeed, 'casting seed'),
+				coarse,
+				required(seat.contactRing, 'contact section')
+			)
+		];
+	return seat.accent && recipe !== 'ceramic'
+		? [...shell, ...dockedForms(id + '/fitting', recipe, seat.accent)]
+		: shell;
 }

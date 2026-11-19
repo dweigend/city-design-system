@@ -1,20 +1,24 @@
 import { buildingPlots } from './building-plots';
-import { atSocket, carrierForm, shellForms } from '../house-brush';
+import { carrierForm, shellForms } from '../house-brush';
 import { FRAME_DIAMETER, LANDING_RADIUS_M, moduleBridge } from '../megastructure';
 import { WALKWAY_WIDTH_M } from '../walkway';
 import { levelFor, present, type FocusId } from '../presentation';
 import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
-import { rodOf, position, type BuiltPart } from './installation-parts';
+import { savedSocket, rodOf, position, type BuiltPart } from './installation-parts';
 import type { World } from './world';
 
 const base = (id: string) => ({ id, token: '--paper', role: 'neu', material: 'metal' }) as const;
-function moduleView(world: World, p: Extract<BuiltPart, { kind: 'module' }>): Primitive[] {
+function moduleView(
+	world: World,
+	p: Extract<BuiltPart, { kind: 'module' }>,
+	coarse: boolean
+): Primitive[] {
 	const support = world.state.parts.get(p.attachedTo);
 	const rod = support && rodOf(buildingPlots(world.grid), support);
-	const m = rod && atSocket(rod, p.share, p.recipe, [], p.pitch);
+	const m = rod && savedSocket(rod, p, world.seed);
 	if (!m) return [];
-	return shellForms(p.id, p.recipe, m);
+	return shellForms(p.id, p.recipe, m, coarse);
 }
 
 function segmentView(
@@ -65,8 +69,8 @@ function pillarView(world: World, p: Extract<BuiltPart, { kind: 'pillar' }>, a: 
 	];
 }
 
-function partView(world: World, p: BuiltPart): Primitive[] {
-	if (p.kind === 'module') return moduleView(world, p);
+function partView(world: World, p: BuiltPart, coarse: boolean): Primitive[] {
+	if (p.kind === 'module') return moduleView(world, p, coarse);
 	const a = position(world.grid, p.anchor);
 	const b = base(p.id);
 	if (p.kind === 'segment') return segmentView(world, p, a);
@@ -83,22 +87,57 @@ function partView(world: World, p: BuiltPart): Primitive[] {
 	];
 }
 
-/** Projects each installed part from its saved address at its own construction date. */
-export function installationView(world: World, focus: FocusId): Primitive[] {
-	return [...world.state.parts.values()].flatMap((p) => {
-		const system = world.state.compositions.get(p.owner)?.system ?? 'houses';
-		const parts = partView(world, p);
-		const level = levelFor(focus, system, p.built, world.state.year);
-		if (level === 'pencil')
-			return parts
-				.filter((part) => !part.detail)
-				.flatMap((part) =>
-					present([part], level).map((styled) => ({
-						...styled,
-						member: part.member,
-						bearings: part.bearings
-					}))
-				);
-		return present(parts, level);
-	});
+type CachedPart = {
+	start?: World['grid']['cells'][number];
+	end?: World['grid']['cells'][number];
+	seed: number;
+	support?: BuiltPart;
+	level: ReturnType<typeof levelFor>;
+	coarse: boolean;
+	forms: Primitive[];
+};
+const projections = new WeakMap<BuiltPart, CachedPart>();
+
+/** Projects one immutable installation record at its current support, zoom and drawing level. */
+export function installationPartView(world: World, p: BuiltPart, focus: FocusId, coarse = false) {
+	const system = world.state.compositions.get(p.owner)?.system ?? 'houses';
+	const level = levelFor(focus, system, p.built, world.state.year);
+	const support = p.kind === 'module' ? world.state.parts.get(p.attachedTo) : undefined;
+	coarse = coarse && p.recipe === 'ceramic';
+	const anchors = support ?? p;
+	const start = world.grid.cellsById.get(anchors.anchor.cellId);
+	const end = anchors.kind === 'segment' ? world.grid.cellsById.get(anchors.end.cellId) : undefined;
+	const cached = projections.get(p);
+	if (
+		cached &&
+		cached.start === start &&
+		cached.end === end &&
+		cached.seed === world.seed &&
+		cached.support === support &&
+		cached.level === level &&
+		cached.coarse === coarse
+	)
+		return cached.forms;
+	const parts = partView(world, p, coarse);
+	const forms =
+		level === 'pencil'
+			? parts
+					.filter((part) => !part.detail)
+					.flatMap((part) =>
+						present([part], level).map((styled) => ({
+							...styled,
+							member: part.member,
+							bearings: part.bearings
+						}))
+					)
+			: present(parts, level);
+	projections.set(p, { start, end, seed: world.seed, support, level, coarse, forms });
+	return forms;
+}
+
+/** Projects all installed parts in the selected focus. */
+export function installationView(world: World, focus: FocusId, coarse = false) {
+	return [...world.state.parts.values()].flatMap((p) =>
+		installationPartView(world, p, focus, coarse)
+	);
 }

@@ -42,6 +42,13 @@ const isAccent = (part: Primitive) =>
 function layerOf(part: Primitive) {
 	if (part.material === 'ghost') return 'ghosts';
 	if (isStructural(part)) return 'carriers';
+	if (
+		part.kind === 'mesh' &&
+		part.material === 'glaze' &&
+		part.role === 'neu' &&
+		part.token === '--paper'
+	)
+		return 'glaze';
 	return isAccent(part) ? 'accents' : 'regular';
 }
 
@@ -50,6 +57,7 @@ function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) 
 		regular: [] as Primitive[],
 		plain: [] as Primitive[],
 		plainAccents: [] as Primitive[],
+		glaze: [] as Primitive[],
 		carriers: [] as Primitive[],
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
@@ -120,6 +128,19 @@ export function populateStructures(
 		toColor
 	);
 	const sheets = batch(parts.regular.filter(isSheet), toColor);
+	for (const part of parts.glaze) {
+		if (part.kind !== 'mesh') continue;
+		const geometry = new THREE.BufferGeometry().setFromPoints(
+			part.points.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
+		);
+		geometry.setIndex(part.triangles);
+		geometry.computeVertexNormals();
+		const face = new THREE.Mesh(geometry, materials.glaze);
+		face.castShadow = cast;
+		hits.push(face);
+		objects.add(face);
+		if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
+	}
 	surface(body.neu, materials.solid, materials.hull, true);
 	mesh(stock.alt, materials.stock, true);
 	mesh(stock.blatt, materials.stockSheet);

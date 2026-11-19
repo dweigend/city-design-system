@@ -41,7 +41,6 @@
 		const target = createCanvasHover(current, (id) => (hoveredId = id));
 		const resize = () => {
 			current.resize(host.clientWidth, host.clientHeight);
-			target.refresh();
 		};
 		const observer = new ResizeObserver(resize);
 		observer.observe(host);
@@ -61,7 +60,6 @@
 			viewChanged: (position) => {
 				current.render();
 				if (position) target.move(position);
-				else target.refresh();
 			}
 		});
 		stage = current;
@@ -77,16 +75,14 @@
 		return () => {
 			mounted = false;
 			detach();
+			target.dispose();
 			observer.disconnect();
 			current.dispose();
 		};
 	});
 
 	$effect(() => hover?.show(session.world, session.focus));
-	$effect(() => {
-		stage?.setPlan(plan);
-		hover?.refresh();
-	});
+	$effect(() => stage?.setPlan(plan));
 	$effect(() => onhover?.(hovered));
 
 	function updateCursor(current: SandboxStage) {

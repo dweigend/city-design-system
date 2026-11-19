@@ -22,6 +22,7 @@ import { massRules, type HouseStyle } from './styles';
 export { MAX_STORIES, lower, raise, storiesOf, type HouseUse, type Stacks } from './stacks';
 export { chunksOfCells, touchedChunks } from './massing';
 
+export { castingSeed } from './ceramic-fitting';
 export { shellForms } from './style-totem';
 export { HOUSE_STYLES, type HouseStyle } from './styles';
 
@@ -65,6 +66,7 @@ export {
 	socketBounds,
 	capsulePitch,
 	moduleGroup,
+	type SocketFit,
 	type ModuleRecipe
 } from './module-group';
 export { carrierForm } from './style-megastructure';

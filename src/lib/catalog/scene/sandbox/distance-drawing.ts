@@ -33,11 +33,24 @@ function widthOf(part: Primitive, elevation: number, cache: WeakMap<Primitive, n
 	return width;
 }
 
+// CSS pixel comparisons allow one part per million at the active boundary.
+// A fresh form keeps equality. An existing stroke crosses the outer 10% band strictly.
+function keepContour(width: number, cutoff: number, prior?: boolean) {
+	if (cutoff === 0) return true;
+	if (prior === false) return width > cutoff * 1.1 * (1 + 1e-6);
+	return width >= cutoff * (prior ? 0.9 : 1) * (1 - 1e-6);
+}
+
 /** Projects parts into the current detail level and selects their eligible envelope strokes. */
-export function distanceDrawing(primitives: Primitive[], distance: DrawingDistance) {
+export function distanceDrawing(
+	primitives: Primitive[],
+	distance: DrawingDistance,
+	previous?: ReadonlyMap<string, boolean>
+) {
 	const { block, elevation, scale, minContourPx } = distance;
 	const unoutlined = new Set<Primitive>();
-	if (!block) return { parts: primitives, unoutlined, details: true };
+	const contours = new Map<string, boolean>();
+	if (!block) return { parts: primitives, unoutlined, contours, details: true };
 	const parts: Primitive[] = [];
 	const cache = widths.get(elevation) ?? new WeakMap<Primitive, number>();
 	widths.set(elevation, cache);
@@ -45,15 +58,16 @@ export function distanceDrawing(primitives: Primitive[], distance: DrawingDistan
 		const part = atDistance(original);
 		if (!part) continue;
 		parts.push(part);
-		if (
-			part.role !== 'bestand' &&
-			part.material !== 'ghost' &&
-			!isStructural(part) &&
-			widthOf(part, elevation, cache) * scale < minContourPx
-		)
-			unoutlined.add(part);
+		if (part.role === 'bestand' || part.material === 'ghost' || isStructural(part)) continue;
+		const visible = keepContour(
+			widthOf(part, elevation, cache) * scale,
+			minContourPx,
+			previous?.get(part.id)
+		);
+		contours.set(part.id, visible);
+		if (!visible) unoutlined.add(part);
 	}
-	return { parts, unoutlined, details: false };
+	return { parts, unoutlined, contours, details: false };
 }
 
 export type DistanceDrawing = ReturnType<typeof distanceDrawing>;

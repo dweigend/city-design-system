@@ -1,6 +1,12 @@
 import { FRAME_DIAMETER } from '../megastructure';
 import type { FlowId } from '../../data/focus';
-import { boundaryRings, type ModuleRecipe } from '../house-brush';
+import {
+	atSocket,
+	castingSeed,
+	boundaryRings,
+	type SocketFit,
+	type ModuleRecipe
+} from '../house-brush';
 import { STORY } from '../../data/grid';
 import type { Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
@@ -22,6 +28,8 @@ type Fixture =
 type Module = {
 	kind: 'module';
 	recipe: ModuleRecipe;
+	/** Unversioned target fittings used a round proxy. Unversioned Q2 ceramic uses the profile fit. */
+	fit?: SocketFit;
 	attachedTo: PartId;
 	share: number;
 	pitch: number;
@@ -35,6 +43,15 @@ export type BuiltPart = Installation & {
 	flow?: FlowId;
 	materials: Readonly<Record<string, number>>;
 };
+/** Restores the original seat for both rendering and subsequent obstruction checks. */
+export function savedSocket(
+	rod: NonNullable<ReturnType<typeof rodOf>>,
+	p: Module & { anchor: Anchor },
+	seed: number
+) {
+	const fit = p.fit ?? (p.recipe === 'ceramic' ? 'profile-v1' : 'round-v0');
+	return atSocket(rod, p.share, p.recipe, [], p.pitch, castingSeed(seed, p.anchor.cellId), fit);
+}
 export type Failure = { reason: string; marks: Vec3[][] };
 export type Proposal = { parts: Installation[]; owner?: Owner } | { failure: Failure };
 

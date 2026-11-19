@@ -20,8 +20,9 @@ export function createStructures() {
 	const finishes = structureMaterials();
 	const entries = new Map<
 		string,
-		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group }
+		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group; cellId?: string }
 	>();
+	const pending = new Map<string, { primitives: Primitive[]; cellId?: string }>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
 	function release(objects: THREE.Group) {
@@ -32,7 +33,7 @@ export function createStructures() {
 		}
 	}
 
-	function draw(drawing: DistanceDrawing) {
+	function draw(drawing: DistanceDrawing, cellId?: string) {
 		const roofs = drawing.parts.filter((p) => p.roofCell);
 		const body = roofs.length ? drawing.parts.filter((p) => !p.roofCell) : drawing.parts;
 		const objects = populateStructures(body, finishes, dot, drawing);
@@ -48,38 +49,55 @@ export function createStructures() {
 				if (proxy) objects.userData.hits.push(proxy);
 			}
 		}
+		if (cellId) for (const hit of objects.userData.hits) hit.userData.cellId = cellId;
 		group.add(objects);
 		return objects;
 	}
 
 	/** Replaces the primitives stored under a key; an empty list removes the key. */
-	function set(key: string, primitives: Primitive[]) {
+	function set(key: string, primitives: Primitive[], cellId?: string) {
 		const previous = entries.get(key);
+		if (previous?.primitives === primitives && previous.cellId === cellId) return;
 		if (previous) release(previous.objects);
 		entries.delete(key);
 		if (!primitives.length) return;
-		const drawing = distanceDrawing(primitives, distance);
-		entries.set(key, { primitives, drawing, objects: draw(drawing) });
+		const drawing = distanceDrawing(primitives, distance, previous?.drawing.contours);
+		entries.set(key, { primitives, drawing, cellId, objects: draw(drawing, cellId) });
 	}
 
 	function redraw(recolor: boolean) {
-		for (const entry of entries.values()) {
-			const drawing = distanceDrawing(entry.primitives, distance);
+		for (const [key, entry] of entries) {
+			if (pending.has(key)) continue;
+			const drawing = distanceDrawing(entry.primitives, distance, entry.drawing.contours);
 			if (!recolor && sameDrawing(entry.drawing, drawing)) continue;
 			release(entry.objects);
 			entry.drawing = drawing;
-			entry.objects = draw(drawing);
+			entry.objects = draw(drawing, entry.cellId);
 		}
 	}
 
 	/** Removes every key. */
 	function clear() {
+		pending.clear();
 		for (const key of [...entries.keys()]) set(key, []);
 	}
 
 	return {
 		group,
 		set,
+		/** Coalesces stage edits until the camera and geometry for the next frame are known. */
+		queue(key: string, primitives: Primitive[], cellId?: string) {
+			const previous = entries.get(key);
+			if (
+				!primitives.length ||
+				(previous?.primitives === primitives && previous.cellId === cellId)
+			) {
+				pending.delete(key);
+				if (!primitives.length) set(key, []);
+				return;
+			}
+			pending.set(key, { primitives, cellId });
+		},
 		clear,
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */
 		setStyle(args: Parameters<typeof finishes.setStyle>, elevation: number) {
@@ -97,6 +115,8 @@ export function createStructures() {
 				distance = { scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
+			for (const [key, { primitives, cellId }] of pending) set(key, primitives, cellId);
+			pending.clear();
 		},
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,

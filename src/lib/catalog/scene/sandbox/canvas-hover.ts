@@ -4,7 +4,7 @@ import type { World } from '../../logic/sandbox';
 
 /** Keeps the cursor and brush tied to the same displayed world and canvas position. */
 export function createCanvasHover(
-	stage: Pick<SandboxStage, 'show' | 'pickCell'>,
+	stage: Pick<SandboxStage, 'show' | 'pickCell' | 'afterFrame'>,
 	publish: (cellId: string | undefined) => void
 ) {
 	let shown: World | undefined;
@@ -19,7 +19,7 @@ export function createCanvasHover(
 	}
 	return {
 		cellAt,
-		refresh,
+		dispose: stage.afterFrame(refresh),
 		move(position: typeof pointer) {
 			pointer = position;
 			refresh();
@@ -27,7 +27,6 @@ export function createCanvasHover(
 		show(world: World, focus: Parameters<SandboxStage['show']>[1]) {
 			stage.show(world, focus);
 			shown = world;
-			refresh();
 		}
 	};
 }

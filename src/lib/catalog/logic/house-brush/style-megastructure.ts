@@ -98,7 +98,7 @@ export function carrierForm(id: string, rod: ModuleRod, main: boolean): Primitiv
 }
 
 /** Survey used by both infrastructure styles on the standalone house brush plates. */
-export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
+export function surveyedMass(mass: Mass, withModules: boolean, seed: number): Primitive[] {
 	const roofs = mass.stories.map(({ cell }) => ({
 		id: cell.id,
 		height: mass.floor,
@@ -107,6 +107,7 @@ export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
 	const result = buildRoofFrame(roofs, { clearance: 4 }, 'leitstil');
 	if (result.status !== 'assembled') return [];
 	const rods = result.frame.rods.map((r) => ({
+		cellId: r.a.roofId,
 		a: r.a.p,
 		b: r.b.p,
 		radius: r.radius,
@@ -118,7 +119,9 @@ export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
 			rods,
 			rods.filter((r) => r.main && r.a[2] === r.b[2]),
 			mass.use,
-			[]
+			[],
+			1.5,
+			{ seed, cell: (r) => r.cellId }
 		);
 		group?.forEach(({ recipe, seat }, i) =>
 			parts.push(...shellForms(mass.id + '/module/' + i, recipe, seat))

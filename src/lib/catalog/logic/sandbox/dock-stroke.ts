@@ -2,7 +2,6 @@ import { STORY } from '../../data/grid';
 import { buildingPlots } from './building-plots';
 import { type Bounds } from '../megastructure';
 import {
-	atSocket,
 	socketBounds,
 	capsulePitch,
 	ringArea,
@@ -11,7 +10,7 @@ import {
 	type HouseUse
 } from '../house-brush';
 import type { QuadCell } from '../quad-grid';
-import { rodOf, rejected, type Proposal } from './installation-parts';
+import { savedSocket, rodOf, rejected, type Proposal } from './installation-parts';
 import type { World } from './world';
 
 function roofObstacles(world: World): Bounds[] {
@@ -38,12 +37,12 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 	for (const p of world.state.parts.values()) {
 		if (p.kind !== 'module') continue;
 		const r = rods.find((r) => r.part.id === p.attachedTo);
-		const m = r && atSocket(r, p.share, p.recipe, [], p.pitch);
+		const m = r && savedSocket(r, p, world.seed);
 		if (m) occupied.push(...socketBounds(m));
 	}
 	const ids = new Set(cells.map((c) => c.id));
 	const selected = rods.filter((r) => ids.has(r.part.anchor.cellId));
-	for (const owner of new Set(selected.map((r) => r.part.owner))) {
+	for (const owner of [...new Set(selected.map((r) => r.part.owner))].sort()) {
 		const candidates = selected.filter(
 			(r) => r.part.owner === owner && r.part.recipe === 'chord' && Math.abs(r.a[2] - r.b[2]) < 1e-8
 		);
@@ -55,12 +54,17 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 				return c ? Math.abs(ringArea(c.corners.map(([x, y]) => [x, y]))) : 0;
 			})
 		);
-		const group = moduleGroup(rods, candidates, use, occupied, capsulePitch(area * STORY));
+		candidates.sort((a, b) => a.part.id.localeCompare(b.part.id, 'en', { numeric: true }));
+		const group = moduleGroup(rods, candidates, use, occupied, capsulePitch(area * STORY), {
+			seed: world.seed,
+			cell: (r) => r.part.anchor.cellId
+		});
 		if (group)
 			return {
 				owner,
 				parts: group.map(({ rod, share, recipe, pitch }) => ({
 					kind: 'module',
+					fit: 'profile-v1',
 					recipe,
 					anchor: rod.part.anchor,
 					attachedTo: rod.part.id,

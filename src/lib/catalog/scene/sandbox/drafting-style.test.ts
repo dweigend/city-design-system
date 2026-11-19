@@ -350,3 +350,25 @@ test('the city stop retains its colored shadow caster without an outline or bear
 		bearing.dispose();
 	}
 });
+
+for (const outline of [true, false])
+	test('model-white ceramic remains pickable with outline ' + outline, async () => {
+		const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+		const finishes = structureMaterials();
+		const bearing = new SphereGeometry();
+		const part: Primitive = { ...forms.mesh, material: 'glaze', token: '--paper' };
+		const group = populateStructures([part], finishes, bearing, {
+			unoutlined: new Set(outline ? [] : [part])
+		});
+		const meshes = group.children.filter((part) => part instanceof Mesh);
+		try {
+			const body = meshes.find((part) => part.castShadow);
+			expect(body?.material).toBe(finishes.materials.glaze);
+			expect(group.userData.hits).toContain(body);
+			expect(meshes.some((part) => part.material === finishes.materials.ceramicHull)).toBe(outline);
+		} finally {
+			for (const geometry of new Set(meshes.map((mesh) => mesh.geometry))) geometry.dispose();
+			finishes.dispose();
+			bearing.dispose();
+		}
+	});
