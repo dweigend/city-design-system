@@ -1,3 +1,4 @@
+import { FRAME_DIAMETER } from '../../data/frame-sections';
 import { schneidet, type Prisma } from '../haus-tragwerk';
 import { crossesGap, interiorLength } from './clearance';
 import { type Aufgabe, type Vec3 } from '../statik';
@@ -31,12 +32,59 @@ export function bayAxes(bay: BaySurvey) {
 	};
 }
 
-/** Sizes one locally braced bay with the three bible sections under the 1 kN/joint K2 probe.
- * All candidate axes stay within the convex supporting roof prism. No remote bearing search.
- */
-export function trimBay(bay: BaySurvey) {
+/** Builds the surveyed pair of columns, chord and clear local braces. The service probe
+ * selects drawing diameters. A mechanism keeps the same geometry with nominal sections. */
+export function trimBay(bay: BaySurvey, drawing: 'service' | 'nominal' = 'service') {
 	const { a, b } = bayAxes(bay);
+	if (!validBearings(bay, a, b))
+		return {
+			status: 'rejected' as const,
+			reason: 'no-bearing',
+			geometry: bay,
+			element: bay.id,
+			loadCase: LOAD_CASE
+		};
 	const points = [bay.a, bay.b, bay.back, a, b];
+	if (bay.gateShoes) points.push(...bay.gateShoes);
+	const candidates=clearMembers(bay,points);
+	if (![0, 1, 2].every((i) => candidates.some((c) => c.id === String(i))))
+		return {
+			status: 'rejected' as const,
+			reason: 'clearance',
+			element: bay.id,
+			geometry: bay,
+			loadCase: LOAD_CASE
+		};
+	const result=drawing==='service' ? serviceSections(bay,points,candidates) : undefined;
+	const sections = new Map(
+		result?.status === 'ok' ? result.staebe.map((r) => [r.id, r.querschnitt.durchmesserM]) : []
+	);
+	return {
+		status: 'sized' as const,
+		sizing: result?.status ?? 'nominal',
+		candidates: candidates.length,
+		rods: candidates.map((r) => ({
+			id: r.id,
+			a: points[Number(r.a)],
+			b: points[Number(r.b)],
+			diameter: sections.get(r.id) ?? nominalDiameter(r.id)
+		}))
+	};
+}
+
+function validBearings(bay: BaySurvey, a: Vec3, b: Vec3) {
+	const points = [a, b, bay.a, bay.b, bay.back, ...(bay.gateShoes ?? [])];
+	if (!points.every((p) => p.every(Number.isFinite))) return false;
+	if (bay.gateShoes && bay.gateShoes.length !== 4) return false;
+	return Math.hypot(a[0] - b[0], a[1] - b[1]) > 0 && a[2] > bay.a[2] && b[2] > bay.b[2];
+}
+
+function nominalDiameter(id: string) {
+	if (id === '2') return FRAME_DIAMETER.main;
+	return Number(id) < 2 ? 0.14 : FRAME_DIAMETER.brace;
+}
+
+function clearMembers(bay:BaySurvey,points:Vec3[]) {
 	const edges = bay.gateShoes
 		? [
 				[0, 3],
@@ -53,12 +101,10 @@ export function trimBay(bay: BaySurvey) {
 				[3, 4],
 				[2, 3],
 				[2, 4],
-				[0, 4],
-				[1, 3]
+ [0, 4],
+ [1, 3]
 			];
-	if (bay.gateShoes) points.push(...bay.gateShoes);
-	const nodes = points.map((p, i) => ({ id: String(i), p }));
-	const candidates = edges.flatMap(([i, j], index) => {
+	return edges.flatMap(([i, j], index) => {
 		const span = Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]);
 		const p = points[i],
 			q = points[j];
@@ -82,18 +128,14 @@ export function trimBay(bay: BaySurvey) {
 				a: String(i),
 				b: String(j),
 				rolle: 'tragstab' as const,
-				bleibt: index < 3
+				bleibt: true
 			}
 		];
 	});
-	if (![0, 1, 2].every((i) => candidates.some((c) => c.id === String(i))))
-		return {
-			status: 'rejected' as const,
-			reason: 'clearance',
-			element: bay.id,
-			geometry: bay,
-			loadCase: LOAD_CASE
-		};
+}
+
+function serviceSections(bay:BaySurvey,points:Vec3[],candidates:Aufgabe["kandidaten"]) {
+	const nodes = points.map((p, i) => ({ id: String(i), p }));
 	const task: Omit<Aufgabe, 'werkstoff'> = {
 		knoten: nodes.filter((_, i) => !bay.gateShoes || i !== 2),
 		kandidaten: candidates,
@@ -107,23 +149,5 @@ export function trimBay(bay: BaySurvey) {
 			}
 		]
 	};
-	const result = sizeMembers(task);
-	if (result.status !== 'ok')
-		return {
-			status: 'rejected' as const,
-			reason: result.status,
-			element: result.elementId,
-			geometry: bay,
-			loadCase: LOAD_CASE
-		};
-	return {
-		status: 'sized' as const,
-		candidates: candidates.length,
-		rods: result.staebe.map((r) => ({
-			id: r.id,
-			a: points[Number(r.a)],
-			b: points[Number(r.b)],
-			diameter: r.querschnitt.durchmesserM
-		}))
-	};
+	return sizeMembers(task);
 }

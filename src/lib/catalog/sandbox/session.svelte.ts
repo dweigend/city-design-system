@@ -110,21 +110,14 @@ export function createSession(
 		preview = work.preview();
 		const publication = preview;
 		input.pause();
-		void size(work.sites)
-			.then((proofs) => {
-				if (preview !== publication) return;
-				input.finish(() => {
-					preview = undefined;
-					actions.advanceFrom(source, work.finish(proofs));
-				});
-			})
-			.catch((error) => {
-				if (preview !== publication) return;
-				input.finish(() => {
-					preview = undefined;
-					throw error;
-				});
+		function commit(proofs?: ReturnType<typeof sizeFrameSites>) {
+			if (preview !== publication) return;
+			input.finish(() => {
+				preview = undefined;
+				actions.advanceFrom(source, work.finish(proofs));
 			});
+		}
+		void size(work.sites).then(commit, () => commit());
 	}
 
 	return {

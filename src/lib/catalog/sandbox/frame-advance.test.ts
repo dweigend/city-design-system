@@ -29,3 +29,20 @@ test('the live advance publishes provisional axes while sizing is outstanding, t
 	expect(session.world.state).toEqual(applyEdit(start, { kind: 'advance' }).state);
 	session.disposeInput();
 });
+
+test('a failed sizing worker still commits the supported pair on the same date', async () => {
+	const study = createFrameStudy();
+	const start = study.at(1, false);
+	const session = createSession(
+		7,
+		25,
+		() => ({ world: start, additions: [], referenceCellId: undefined }),
+		() => Promise.reject(new Error('unavailable'))
+	);
+	session.advance();
+	await Promise.resolve();
+	expect(session.world.state.frameBays).toEqual(study.at(2, false).state.frameBays);
+	const result = session.world.state.frameInstallations?.get(study.entrance)?.result;
+	expect(result).toMatchObject({ status: 'sized', sizing: 'nominal' });
+	session.disposeInput();
+});

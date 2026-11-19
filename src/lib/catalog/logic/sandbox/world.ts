@@ -292,7 +292,7 @@ export function prepareAdvance(world: World, years = sandboxGenerationYears) {
 				if (role !== 'gap' && !prior.get(id)?.built) frameBays.set(id, { pending: role, ticks: 0 });
 			return { ...world, state: { ...world.state, frameBays } };
 		},
-		finish(proofs: ReturnType<typeof sizeFrameSites>): World {
+		finish(proofs = sizeFrameSites(sites, 'nominal')): World {
 			if (next === world.state) return world;
 			return {
 				...world,

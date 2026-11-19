@@ -1,20 +1,11 @@
 import { expect, test } from 'bun:test';
 import { resourceUsage } from 'node:process';
 import { warmMedian } from '../../fixtures/performance-sample.fixture.test';
-import { createTerrain } from '../terrain';
-import { deriveGrid, regrid } from '../terrain-grid';
+import { regrid } from '../terrain-grid';
 import { seamIncidence } from './seam-incidence';
-import { applyEdit, EMPTY_STATE, frameReport, type World } from './index';
+import { applyEdit, frameReport, type World } from './index';
 
-function carrier(seed: number): World {
-	const grid = deriveGrid({ ...createTerrain({ seed }), along: 100, across: 100 });
-	const stacks = new Map(
-		grid.cells
-			.filter((c) => c.buildable && (c.column + c.row) % 3 !== 0)
-			.map((c) => [c.id, ['living'] as const])
-	);
-	return { seed, grid, state: { ...EMPTY_STATE, stacks }, lines: [] };
-}
+import { frameCarrier as carrier } from './fixtures/frame-carrier.fixture.test';
 const advance = (world: World) => applyEdit(world, { kind: 'advance', years: 1 });
 
 test('100 m contour regrid preserves every incidence address', () => {

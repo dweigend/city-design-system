@@ -18,8 +18,11 @@ export function sizingSites(world: World) {
 }
 
 /** Sizes a detached batch. The worker and synchronous replay use this same calculation. */
-export function sizeFrameSites(sites: readonly BaySurvey[]) {
+export function sizeFrameSites(
+	sites: readonly BaySurvey[],
+	drawing: Parameters<typeof trimBay>[1] = 'service'
+) {
 	return new Map<string, FrameInstallation>(
-		sites.map((bay) => [bay.id, { bay, result: trimBay(bay) }])
+		sites.map((bay) => [bay.id, { bay, result: trimBay(bay, drawing) }])
 	);
 }

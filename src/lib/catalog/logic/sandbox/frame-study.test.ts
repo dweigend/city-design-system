@@ -4,6 +4,7 @@ import { createFrameStudy } from './frame-study';
 
 test('the sandbox timeline builds the forecast frontage, or reserves it from the first checkpoint', () => {
 	const study = createFrameStudy();
+	expect(study.parcel).toBe('11/5');
 	const first = study.at(1, false);
 	const planned = first.state.frameTimeline?.results[0];
 	assert(planned);
@@ -17,7 +18,8 @@ test('the sandbox timeline builds the forecast frontage, or reserves it from the
 	assert(change);
 	expect(change.goal).toBe(planned.goal);
 	expect(change.assumptions).toContainEqual({ seam: entrance, from: 3, reason: 'court-access' });
-	expect(change.phases[0].seam).toBe(first.state.frameTimeline?.goals[0].alternatives[0]);
+	expect(change.phases[0].seam).toBeNull();
+	expect(entrance).toBe(JSON.stringify(['11/5', '12/5']));
 	expect(original.state.frameBays?.get(entrance)?.built).toBe('main');
 	expect(study.at(4, true).state.frameBays?.get(entrance)?.built).toBeUndefined();
 	expect(original.state.parts.size).toBeGreaterThan(first.state.parts.size);

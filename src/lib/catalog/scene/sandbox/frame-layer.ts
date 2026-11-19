@@ -15,6 +15,10 @@ function forms(row: Display, result?: Result): Primitive[] {
 		result?.status === 'sized' && !planned
 			? result.rods
 			: axes.map(([a, b], i) => ({ a, b, id: String(i), diameter: 0.18 }));
+	// Each installed support runs from its surveyed foot to a chord joint.
+	const feet = new Map(
+		rods.filter((rod) => rod.id !== '2').map((rod) => [rod.a.join(','), rod.a] as const)
+	);
 	return rods.map((r): Primitive => ({
 		id: bay.id + '/' + r.id,
 		kind: 'pipe',
@@ -25,7 +29,7 @@ function forms(row: Display, result?: Result): Primitive[] {
 		sectionDiameter: r.diameter,
 		planned,
 		cityForm: r.diameter < 0.18 ? false : undefined,
-		bearings: r.id === '0' && !planned ? [bay.a, bay.b, bay.back] : undefined,
+		bearings: r.id === '0' && !planned ? [...feet.values()] : undefined,
 		token: planned ? '--blueprint' : '--paper',
 		material: 'metal',
 		edges: false

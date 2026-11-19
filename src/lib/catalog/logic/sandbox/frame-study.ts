@@ -12,11 +12,11 @@ export function createFrameStudy() {
 	const grid = deriveGrid({ ...createTerrain({ seed }), along: 100, across: 100 });
 	let painted: World = { seed, grid, state: EMPTY_STATE, lines: [] };
 	for (const cell of grid.cells) {
-		if (cell.column < 3 || cell.column > 18 || cell.row < 2 || cell.row > 14) continue;
+		if (cell.column < 3 || cell.column > 16 || cell.row < 4 || cell.row > 14) continue;
 		if (cell.buildable && (cell.column + cell.row) % 3 !== 0)
 			painted = applyEdit(painted, { kind: 'raise', cellId: cell.id, use: 'living' });
 	}
-	const parcel = '15/4';
+	const parcel = '11/5';
 	const brush = beginStroke({ kind: 'house', use: 'living', style: 'megastructure' }, painted);
 	const start = extendStroke(brush, parcel).draft;
 	const first = runFrameTimeline(start, 1);
