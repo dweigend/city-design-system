@@ -113,3 +113,24 @@ test('a water-only tick reuses the shadow map while panning or changing casters 
 	expect(sun.shadow.needsUpdate).toBe(true);
 	light.dispose();
 });
+
+test('rail dashes follow chainage around a bend for the viaduct and the capsule tube', async () => {
+	const { conduitBatch } = await import('./print-flow');
+	for (const glass of [false, true]) {
+		const pipe: Primitive = {
+			...blank,
+			kind: 'pipe',
+			points: [
+				[0, 0, 2],
+				[10, 0, 2],
+				[10, 10, 2]
+			],
+			radius: 0.2,
+			glass
+		};
+		const { axis, faces } = conduitBatch([pipe], ink);
+		expect(axis.count).toBe(faces.p.length / 3);
+		expect(Math.min(...axis.array)).toBeCloseTo(0);
+		expect(Math.max(...axis.array)).toBeCloseTo(20);
+	}
+});

@@ -190,3 +190,29 @@ test('the terrain shader switches off the wash only for the dark palette', () =>
 		terrain.dispose();
 	}
 });
+
+test('river chart and wakes agree on shared survey vertices, including across bends', async () => {
+	const { waterGeometry } = await import('./terrain-geometry');
+	const cell = grid.cells.find((c) => c.zone === 'water');
+	if (!cell) throw Error('Expected water on the seed-7 survey');
+	const [x, y] = cell.center;
+	const water = waterGeometry(grid, [[x - 1, y + 1]]);
+	const position = water.getAttribute('position'),
+		chart = water.getAttribute('chart'),
+		wake = water.getAttribute('wake');
+	const seen = new Map<string, string>();
+	let repeated = 0,
+		cracks = 0;
+	for (let i = 0; i < position.count; i++) {
+		const vertex = position.getX(i) + '/' + position.getZ(i);
+		const sample = [chart.getX(i), chart.getY(i), wake.getX(i)].join('/');
+		if (seen.has(vertex)) {
+			repeated++;
+			if (sample !== seen.get(vertex)) cracks++;
+		}
+		seen.set(vertex, sample);
+	}
+	expect(repeated).toBeGreaterThan(0);
+	expect(cracks).toBe(0);
+	water.dispose();
+});
