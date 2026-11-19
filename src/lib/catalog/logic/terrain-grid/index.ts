@@ -1,3 +1,4 @@
+import { roofSide } from './roof-side';
 import { behindPassage } from './frontage-lot';
 import { blockPatches, type BlockCache } from './block-patch';
 import { required } from '../required';
@@ -217,7 +218,7 @@ function describeCell(
 		pattern,
 		plan,
 		alley,
-		ridgeSide: ((source.mask & 1) !== 0 ? 0 : 1) + ((column + row) % 2),
+		ridgeSide: roofSide(lotCorners ?? corners, terrain.seed, row * columns + column),
 		block: source.id,
 		blockSides: source.sides,
 		lotCorners,

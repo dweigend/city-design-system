@@ -1,6 +1,15 @@
 import { concaveBlocks } from './concave-blocks';
 import { kern } from '../parametrik/raster/universal';
-import { corners, coord, get, average, sourceGraph, sourceIntent, type Face } from './block-graph';
+import {
+	corners,
+	coord,
+	get,
+	average,
+	frontageRatio,
+	sourceGraph,
+	sourceIntent,
+	type Face
+} from './block-graph';
 import { required } from '../required';
 import { cellId } from './types';
 import { type Lattice } from './contour-rows';
@@ -48,6 +57,31 @@ function parcelChildren(
 				back: q.vertices[3] === joined?.shared ? 0 : 1,
 				slot: slotFor(q.vertices[0], original, f.slots, available)
 			};
+		});
+}
+
+// Move a shared frontage point once, before relaxation fixes the alley edges.
+function cutFrontages(
+	positions: Map<string, kern.Vec>,
+	graph: ReturnType<typeof sourceGraph>,
+	seed: number,
+	width: number,
+	height: number
+) {
+	const visited = new Set<string>();
+	for (const face of graph.faces.values())
+		face.ring.forEach((id, i) => {
+			const next = face.ring[(i + 1) % face.ring.length],
+				mid = average(id, next);
+			const [c, r] = coord(mid);
+			if (c % 2 === r % 2 || c === 0 || r === 0 || c === width || r === height || visited.has(mid))
+				return;
+			const [first, last] = id < next ? [id, next] : [next, id];
+			positions.set(
+				mid,
+				kern.mix(get(graph.positions, first), get(graph.positions, last), frontageRatio(seed, c, r))
+			);
+			visited.add(mid);
 		});
 }
 
@@ -113,6 +147,7 @@ export function blockTemplate(
 			});
 		}
 	}
+	if (settled) cutFrontages(positions, graph, seed, width, height);
 	const fixed = fixedFrontages(parents, faces);
 	const relaxed = kern.relax(
 		{ ...intent, positions, faces, fixed },

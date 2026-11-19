@@ -97,6 +97,10 @@ const depthCuts = ([0.5, 0.4, 0.6] as const).map((firstCut) => {
 	});
 	return Math.max(...cut.leaves[0].polygon.map((p) => p[1])) - 2;
 });
+/** Seeded frontage cut measured from the first end of the shared edge. */
+export function frontageRatio(seed: number, c: number, r: number) {
+	return 0.5 + depthCuts[Math.floor(hash(seed, c, r) * depthCuts.length)] / 4;
+}
 function courtVertex(
 	c: number,
 	r: number,
