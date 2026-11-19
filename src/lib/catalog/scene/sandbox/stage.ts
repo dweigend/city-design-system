@@ -61,6 +61,7 @@ export function createSandboxStage(
 	const view = createView();
 	const light = createLight();
 	const structures = createStructures();
+	const nextFrame = { set: structures.queue };
 	const studyAdditions = study.additions ?? [];
 	scene.add(...light.objects, structures.group);
 
@@ -95,7 +96,7 @@ export function createSandboxStage(
 	function updateMeshDetail(zoom: ReturnType<typeof nearestZoom>) {
 		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
 		if (nextCoarse !== coarse && shown)
-			projectInstallations(structures, shown, shown, focus, nextCoarse);
+			projectInstallations(nextFrame, shown, shown, focus, nextCoarse);
 		coarse = nextCoarse;
 	}
 	function updateStyle() {
@@ -183,7 +184,7 @@ export function createSandboxStage(
 			terrain.dispose();
 		}
 		structures.clear();
-		structures.set('study', studyAdditions);
+		nextFrame.set('study', studyAdditions);
 		terrain = createTerrainMesh(world.grid, undefined, light.shade);
 		scene.add(terrain.group);
 		terrain.setGridVisible(planView ? 1 : 0);
@@ -202,7 +203,7 @@ export function createSandboxStage(
 
 	function updateWorld(mesh: TerrainMesh, before: World, after: World, nextFocus: FocusId) {
 		projectChanges(
-			{ terrain: mesh, structures, coarse, earliestFullYear: study.earliestFullYear },
+			{ terrain: mesh, structures: nextFrame, coarse, earliestFullYear: study.earliestFullYear },
 			before,
 			after,
 			nextFocus,

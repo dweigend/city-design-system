@@ -22,6 +22,7 @@ export function createStructures() {
 		string,
 		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group; cellId?: string }
 	>();
+	const pending = new Map<string, { primitives: Primitive[]; cellId?: string }>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
 	function release(objects: THREE.Group) {
@@ -65,7 +66,8 @@ export function createStructures() {
 	}
 
 	function redraw(recolor: boolean) {
-		for (const entry of entries.values()) {
+		for (const [key, entry] of entries) {
+			if (pending.has(key)) continue;
 			const drawing = distanceDrawing(entry.primitives, distance, entry.drawing.contours);
 			if (!recolor && sameDrawing(entry.drawing, drawing)) continue;
 			release(entry.objects);
@@ -76,12 +78,26 @@ export function createStructures() {
 
 	/** Removes every key. */
 	function clear() {
+		pending.clear();
 		for (const key of [...entries.keys()]) set(key, []);
 	}
 
 	return {
 		group,
 		set,
+		/** Coalesces stage edits until the camera and geometry for the next frame are known. */
+		queue(key: string, primitives: Primitive[], cellId?: string) {
+			const previous = entries.get(key);
+			if (
+				!primitives.length ||
+				(previous?.primitives === primitives && previous.cellId === cellId)
+			) {
+				pending.delete(key);
+				if (!primitives.length) set(key, []);
+				return;
+			}
+			pending.set(key, { primitives, cellId });
+		},
 		clear,
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */
 		setStyle(args: Parameters<typeof finishes.setStyle>, elevation: number) {
@@ -99,6 +115,8 @@ export function createStructures() {
 				distance = { scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
+			for (const [key, { primitives, cellId }] of pending) set(key, primitives, cellId);
+			pending.clear();
 		},
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,

@@ -26,21 +26,23 @@ function projection(elevation: number) {
 	};
 }
 
-// A convex silhouette has a minimum width normal to a hull edge. The opposite
-// supporting vertex advances monotonically as the edge turns (rotating calipers).
+// A minimum width is normal to a hull edge. Scan all vertices for its opposite
+// support: equal projected supports can precede a larger one after rounding.
 function narrowSpan(hull: readonly Point[]) {
-	const n = hull.length;
-	if (n < 3) return 0;
-	let opposite = 1,
-		minimum = Infinity;
-	for (let i = 0; i < n; i++) {
-		const [x, y] = hull[i],
-			[u, v] = hull[(i + 1) % n];
+	if (hull.length < 3) return 0;
+	let minimum = Infinity;
+	for (const [i, [x, y]] of hull.entries()) {
+		const [u, v] = hull[(i + 1) % hull.length];
 		const dx = u - x,
 			dy = v - y;
-		const area = (j: number) => dx * (hull[j % n][1] - y) - dy * (hull[j % n][0] - x);
-		while (opposite + 1 < i + n && area(opposite + 1) > area(opposite)) opposite++;
-		minimum = Math.min(minimum, area(opposite) / Math.hypot(dx, dy));
+		let low = 0,
+			high = 0;
+		for (const [px, py] of hull) {
+			const support = dx * (py - y) - dy * (px - x);
+			low = Math.min(low, support);
+			high = Math.max(high, support);
+		}
+		minimum = Math.min(minimum, (high - low) / Math.hypot(dx, dy));
 	}
 	return minimum;
 }
