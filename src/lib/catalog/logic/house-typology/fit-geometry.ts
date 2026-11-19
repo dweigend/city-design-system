@@ -30,65 +30,84 @@ function convex(p: XY[]) {
 		return (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) >= -EPS;
 	});
 }
+function boxProfile(p: Extract<FitPart, { kind: 'box' }>, box: Bounds): Profile {
+	const polygon = rectangle(p);
+	for (const axis of [0, 1] as const) {
+		box.min[axis] = Math.min(...polygon.map((v) => v[axis]));
+		box.max[axis] = Math.max(...polygon.map((v) => v[axis]));
+	}
+	return { bounds: box, polygon, bottom: polygon, top: polygon };
+}
+function discProfile(
+	p: Extract<FitPart, { kind: 'cylinder' | 'cone' | 'dome' | 'sphere' }>,
+	box: Bounds
+): Profile {
+	const [x, y] = p.position,
+		center: XY[] = [[x, y]];
+	const disk: XY[] = Array.from({ length: 48 }, (_, i) => [
+		x + p.radius * Math.cos((i * Math.PI) / 24),
+		y + p.radius * Math.sin((i * Math.PI) / 24)
+	]);
+	return {
+		bounds: box,
+		bottom: p.kind === 'sphere' ? center : disk,
+		top: p.kind === 'cylinder' ? disk : center
+	};
+}
+function meshProfile(p: Extract<FitPart, { kind: 'mesh' }>, box: Bounds): Profile {
+	const face = (z: number): XY[] => {
+		for (let i = 0; i < p.triangles.length; i += 3) {
+			const tri = p.triangles.slice(i, i + 3).map((j) => p.points[j]);
+			if (tri.length === 3 && tri.every((v) => Math.abs(v[2] - z) < EPS))
+				return tri.map(([x, y]) => [x, y]);
+		}
+		return [];
+	};
+	return { bounds: box, bottom: face(box.min[2]), top: face(box.max[2]) };
+}
+function capsuleProfile(p: Extract<FitPart, { kind: 'capsule' }>, box: Bounds): Profile {
+	const low = p.from[2] <= p.to[2] ? p.from : p.to,
+		high = low === p.from ? p.to : p.from;
+	const ends: XY[] = [
+		[low[0], low[1]],
+		[high[0], high[1]]
+	];
+	if (low[2] === high[2]) return { bounds: box, bottom: ends, top: ends };
+	return { bounds: box, bottom: [ends[0]], top: [ends[1]] };
+}
+function prismProfile(p: Extract<FitPart, { kind: 'prism' }>, box: Bounds): Profile {
+	if (!p.rotation && !p.holes?.length && convex(p.polygon))
+		return { bounds: box, polygon: p.polygon, bottom: p.polygon, top: p.polygon };
+	const unused: XY[] = [];
+	const faces = prismFaces([p.polygon, ...(p.holes ?? [])].map((r) => rotated(r, p.rotation ?? 0)));
+	return { bounds: box, faces, bottom: unused, top: unused };
+}
 /** Separates broad phase volume from actual bearing faces. Unknown contacts fail closed. */
 export function profile(p: FitPart): Profile {
-	const box = enclose(p, bounds(p as Primitive)),
-		unused: XY[] = [];
-	if (p.kind === 'box') {
-		const polygon = rectangle(p);
-		for (const axis of [0, 1] as const) {
-			box.min[axis] = Math.min(...polygon.map((v) => v[axis]));
-			box.max[axis] = Math.max(...polygon.map((v) => v[axis]));
+	const box = enclose(p, bounds(p as Primitive));
+	switch (p.kind) {
+		case 'box':
+			return boxProfile(p, box);
+		case 'prism':
+			return prismProfile(p, box);
+		case 'cone':
+		case 'sphere':
+		case 'cylinder':
+		case 'dome':
+			return discProfile(p, box);
+		case 'mesh':
+			return meshProfile(p, box);
+		case 'capsule':
+			return capsuleProfile(p, box);
+		case 'wedge': {
+			const polygon = rectangle(p);
+			return { bounds: box, bottom: polygon, top: [polygon[0], polygon[3]] };
 		}
-		return { bounds: box, polygon, bottom: polygon, top: polygon };
+		default: {
+			const unused: XY[] = [];
+			return { bounds: box, bottom: unused, top: unused };
+		}
 	}
-	if (p.kind === 'prism' && !p.rotation && !p.holes?.length && convex(p.polygon))
-		return { bounds: box, polygon: p.polygon, bottom: p.polygon, top: p.polygon };
-	if (p.kind === 'prism') {
-		const faces = prismFaces(
-			[p.polygon, ...(p.holes ?? [])].map((r) => rotated(r, p.rotation ?? 0))
-		);
-		return { bounds: box, faces, bottom: unused, top: unused };
-	}
-	if (p.kind === 'cylinder' || p.kind === 'cone' || p.kind === 'dome' || p.kind === 'sphere') {
-		const [x, y] = p.position,
-			center: XY[] = [[x, y]];
-		const disk: XY[] = Array.from({ length: 48 }, (_, i) => [
-			x + p.radius * Math.cos((i * Math.PI) / 24),
-			y + p.radius * Math.sin((i * Math.PI) / 24)
-		]);
-		return {
-			bounds: box,
-			bottom: p.kind === 'sphere' ? center : disk,
-			top: p.kind === 'cylinder' ? disk : center
-		};
-	}
-	if (p.kind === 'wedge') {
-		const polygon = rectangle(p);
-		return { bounds: box, bottom: polygon, top: [polygon[0], polygon[3]] };
-	}
-	if (p.kind === 'mesh') {
-		const face = (z: number): XY[] => {
-			for (let i = 0; i < p.triangles.length; i += 3) {
-				const tri = p.triangles.slice(i, i + 3).map((j) => p.points[j]);
-				if (tri.length === 3 && tri.every((v) => Math.abs(v[2] - z) < EPS))
-					return tri.map(([x, y]) => [x, y]);
-			}
-			return [];
-		};
-		return { bounds: box, bottom: face(box.min[2]), top: face(box.max[2]) };
-	}
-	if (p.kind === 'capsule') {
-		const low = p.from[2] <= p.to[2] ? p.from : p.to,
-			high = low === p.from ? p.to : p.from;
-		const ends: XY[] = [
-			[low[0], low[1]],
-			[high[0], high[1]]
-		];
-		if (low[2] === high[2]) return { bounds: box, bottom: ends, top: ends };
-		return { bounds: box, bottom: [ends[0]], top: [ends[1]] };
-	}
-	return { bounds: box, bottom: unused, top: unused };
 }
 function axes(poly: XY[]): XY[] {
 	if (poly.length < 2)

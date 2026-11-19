@@ -68,17 +68,8 @@ function fixedCount({ site, type }: Plan, i: number, body: Body) {
 }
 function count(plan: Plan, i: number, body: Body) {
 	const { site, type, seed } = plan;
-	const [w, d] = worldSize(body),
-		small = (w * d) / ((w + 0.6) * (d + 1.55)) < 0.55;
-	if (
-		site.ground - Math.min(...site.cells.flatMap((c) => c.corners.map((p) => p[2]))) > STORY &&
-		site.depth - site.accessDepth >= d * 2 + 1.55
-	)
-		return 2;
-	if (type === 'round-tower') return body.kind === 'capsule' ? 2 : 1;
-	if (type === 'lattice-head' && i === site.programme.length - 1) return 2;
-	if (small || type === 'twin-stack' || type === 'rack') return 2;
-	if (type === 'bell-house' || type === 'courtyard-house') return 1;
+	const fixed = fixedCount(plan, i, body);
+	if (fixed !== undefined) return fixed;
 	const max = site.cells.length > 1 || body.kind === 'capsule';
 	return Number(
 		collapse(site.id + '/part/count/' + i, seed, type, [

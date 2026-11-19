@@ -3,7 +3,46 @@ import type { Primitive } from '../parametrik/types';
 import type { FitPart } from './types';
 import type { Point } from './types';
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-function measures(p: FitPart | Primitive): number[] {
+type Shape = FitPart | Primitive;
+type LinearShape = Extract<Shape, { kind: 'mesh' | 'polyline' | 'membrane' | 'prism' }>;
+function edgeMeasures(p: LinearShape): number[] {
+	switch (p.kind) {
+		case 'prism':
+			return [
+				p.height,
+				...p.polygon.map(([x, y], i) => {
+					const b = p.polygon[(i + 1) % p.polygon.length];
+					return Math.hypot(b[0] - x, b[1] - y);
+				})
+			];
+		case 'mesh':
+		case 'polyline':
+			return p.points.slice(1).map((q, i) => distance(q, p.points[i]));
+		case 'membrane':
+			return p.corners.map((q, i) => distance(q, p.corners[(i + 1) % 4]));
+	}
+}
+type CurvedShape = Extract<
+	Shape,
+	{ kind: 'torus' | 'ring' | 'vault' | 'arch' | 'halfpipe' | 'helix' }
+>;
+function curvedMeasures(p: CurvedShape | LinearShape): number[] {
+	switch (p.kind) {
+		case 'torus':
+			return [p.radius, p.tube];
+		case 'ring':
+			return [p.radius, p.depth, p.innerRadius];
+		case 'vault':
+		case 'arch':
+		case 'halfpipe':
+			return [p.width, p.length, p.rise];
+		case 'helix':
+			return [p.radius, p.innerRadius, p.height, p.thickness];
+		default:
+			return edgeMeasures(p);
+	}
+}
+function measures(p: Shape): number[] {
 	switch (p.kind) {
 		case 'box':
 		case 'frame':
@@ -20,29 +59,8 @@ function measures(p: FitPart | Primitive): number[] {
 			return [p.radius, distance(p.from, p.to)];
 		case 'pipe':
 			return [p.radius, ...p.points.slice(1).map((q, i) => distance(q, p.points[i]))];
-		case 'torus':
-			return [p.radius, p.tube];
-		case 'ring':
-			return [p.radius, p.depth, p.innerRadius];
-		case 'vault':
-		case 'arch':
-		case 'halfpipe':
-			return [p.width, p.length, p.rise];
-		case 'helix':
-			return [p.radius, p.innerRadius, p.height, p.thickness];
-		case 'prism':
-			return [
-				p.height,
-				...p.polygon.map(([x, y], i) => {
-					const b = p.polygon[(i + 1) % p.polygon.length];
-					return Math.hypot(b[0] - x, b[1] - y);
-				})
-			];
-		case 'mesh':
-		case 'polyline':
-			return p.points.slice(1).map((q, i) => distance(q, p.points[i]));
-		case 'membrane':
-			return p.corners.map((q, i) => distance(q, p.corners[(i + 1) % 4]));
+		default:
+			return curvedMeasures(p);
 	}
 }
 const uniform = (s: number[]) =>
