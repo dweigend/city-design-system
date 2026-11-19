@@ -68,7 +68,7 @@ function link(
 		width,
 		distance,
 		run,
-		parts: bridgeParts(route, id + '/' + kind, width, surfaces.access)
+		parts: bridgeParts(route, id + '/' + kind, width, surfaces)
 	};
 }
 type Span = NonNullable<ReturnType<typeof link>>;

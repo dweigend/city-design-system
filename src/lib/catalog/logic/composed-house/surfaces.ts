@@ -10,9 +10,9 @@ export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
 const metal = (token: ColorToken): Surface => ({ token, finish: 'metal' });
 /** Default assignments for the game and bible. Geometry accepts the same slots with any palette. */
 export const houseSurfaces: HouseSurfaces = {
-	frame: metal('--paper'),
+	frame: { token: '--ink', finish: 'metall-gebuerstet' },
 	deck: metal('--paper'),
-	shell: metal('--paper'),
+	shell: { token: '--paper', finish: 'metall-lackiert' },
 	pane: { token: '--blueprint', finish: 'glas-klar' },
 	access: metal(flowToken.people),
 	living: metal(BODY_TOKEN.living),
