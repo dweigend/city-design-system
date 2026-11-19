@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { assetRegistry, assetCategories, buildAsset } from '../logic/assets';
+	import { assetRegistry, assetCategories, buildObject } from '../logic/assets';
 	import { materialSheet, type SheetRow } from '../logic/material/contact-sheet';
 	import type { ColorToken } from '../logic/parametrik/types';
 	import { flowToken } from '../data/focus';
@@ -34,7 +34,7 @@
 						samples: a.variants.map((v) => ({
 							id: v,
 							label: name(v),
-							parts: () => buildAsset(a.id, v, 17)
+							parts: () => buildObject(a.id, v, 17).parts
 						}))
 					}))
 	);

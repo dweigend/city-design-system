@@ -1,9 +1,11 @@
-import type { Primitive } from '../parametrik/types';
+import type { ObjectGeometry } from './object-geometry';
+
 import { mount, type AssetRecipe } from './definition';
-import { slab, drum, ring, surface, water } from './parts';
+import { slab, drum, ring, surface } from './parts';
 
 export const tankCapsule: AssetRecipe = {
 	id: 'tank-capsule',
+	slotNames: ['channel', 'body'],
 	category: 'capsules',
 	variants: ['cistern', 'pressure-vessel', 'header'],
 	footprint: [7.5, 3],
@@ -12,9 +14,9 @@ export const tankCapsule: AssetRecipe = {
 		const half = [1.15, 1.85, 2.65][variant],
 			r = [1.13, 1.23, 0.94][variant],
 			z = r + 0.4;
-		const parts: Primitive[] = [
+		const parts: ObjectGeometry[] = [
 			{
-				...surface(water),
+				...surface('channel'),
 				kind: 'capsule' as const,
 				from: [-half, 0, z] as [number, number, number],
 				to: [half, 0, z] as [number, number, number],

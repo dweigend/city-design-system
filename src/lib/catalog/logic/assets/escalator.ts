@@ -1,8 +1,10 @@
+import type { ObjectGeometry } from './object-geometry';
 import { mount, type AssetRecipe } from './definition';
-import { slab, rod, path, pane } from './parts';
-import type { Primitive } from '../parametrik/types';
+import { slab, rod } from './parts';
+
 export const escalator: AssetRecipe = {
 	id: 'escalator',
+	slotNames: ['body', 'deck', 'glass'],
 	category: 'infrastructure',
 	variants: ['compact', 'concourse', 'paired'],
 	footprint: [7.8, 4.5],
@@ -14,7 +16,7 @@ export const escalator: AssetRecipe = {
 			h = 0.177 + 0.009 * sample,
 			run = n * t,
 			l = run + 1.12;
-		const parts: Primitive[] = [];
+		const parts: ObjectGeometry[] = [];
 		for (let j = 0; j < tracks; j++) {
 			const y = (j - (tracks - 1) / 2) * 1.78;
 			parts.push(
@@ -22,7 +24,7 @@ export const escalator: AssetRecipe = {
 				slab([run / 2, y - 0.74, n * h], [0.56, 1.48, 0.12])
 			);
 			for (let i = 0; i < n; i++)
-				parts.push(slab([-run / 2 + i * t, y - 0.61, i * h], [t, 1.22, h + 0.12], path));
+				parts.push(slab([-run / 2 + i * t, y - 0.61, i * h], [t, 1.22, h + 0.12], 'deck'));
 			for (const side of [-0.69, 0.69]) {
 				const Y = y + side;
 				parts.push(
@@ -31,7 +33,7 @@ export const escalator: AssetRecipe = {
 				);
 				for (let i = 0; i <= n; i += 1) {
 					const x = -run / 2 + i * t;
-					parts.push(slab([x - 0.04, Y - 0.036, i * h + 0.12], [0.08, 0.072, 0.8], pane));
+					parts.push(slab([x - 0.04, Y - 0.036, i * h + 0.12], [0.08, 0.072, 0.8], 'glass'));
 				}
 			}
 		}

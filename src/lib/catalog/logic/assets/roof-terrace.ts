@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, rod, workshop } from './parts';
+import { slab, rod } from './parts';
 
 export const roofTerrace: AssetRecipe = {
 	id: 'roof-terrace',
+	slotNames: ['body', 'trim'],
 	category: 'roofs',
 	variants: ['square', 'promenade', 'lookout'],
 	footprint: [7.3, 4.9],
@@ -19,7 +20,7 @@ export const roofTerrace: AssetRecipe = {
 		}
 		for (const x of [-w / 2 + 0.06, w / 2 - 0.06])
 			parts.push(rod([x, -l / 2 + 0.06, z], [x, l / 2 - 0.06, z], 0.043));
-		if (variant === 2) parts.push(slab([-0.42, -1, 0.2], [0.84, 2, 0.38], workshop));
+		if (variant === 2) parts.push(slab([-0.42, -1, 0.2], [0.84, 2, 0.38], 'trim'));
 		return parts;
 	}
 };

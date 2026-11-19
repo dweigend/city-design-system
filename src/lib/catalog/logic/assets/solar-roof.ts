@@ -1,8 +1,10 @@
+import type { ObjectGeometry } from './object-geometry';
 import { mount, type AssetRecipe } from './definition';
-import { slab, rod, surface, water } from './parts';
-import type { Primitive } from '../parametrik/types';
+import { slab, rod, surface } from './parts';
+
 export const solarRoof: AssetRecipe = {
 	id: 'solar-roof',
+	slotNames: ['body', 'channel'],
 	category: 'roofs',
 	variants: ['single-rack', 'paired-array', 'power-canopy'],
 	footprint: [7.8, 4.9],
@@ -12,7 +14,7 @@ export const solarRoof: AssetRecipe = {
 			w = 2.4,
 			l = 4.5,
 			h = 1 + 0.12 * sample;
-		const parts: Primitive[] = [];
+		const parts: ObjectGeometry[] = [];
 		for (let i = 0; i < n; i++) {
 			const x = (i - n / 2) * 2.53;
 			for (const y of [-1.85, 1.85])
@@ -21,7 +23,7 @@ export const solarRoof: AssetRecipe = {
 					slab([x + w - 0.28, y, 0], [0.12, 0.12, 0.31])
 				);
 			parts.push({
-				...surface(water),
+				...surface('channel'),
 				kind: 'wedge',
 				position: [x, -l / 2, 0.28],
 				size: [w, l, h - 0.28],

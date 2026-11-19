@@ -1,11 +1,7 @@
-import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
+import type { ObjectGeometry } from './object-geometry';
+import type { Vec3 } from '../parametrik/types';
 import { joinRings } from '../profile-fit';
 import { surface } from './parts';
-
-/** Fires a completed primitive with the catalogue's glazed ceramic finish. */
-export function glaze(part: Primitive): Primitive {
-	return { ...part, material: 'glaze', finish: 'keramik-glasiert' };
-}
 
 /** Turns the outside profile, lip, inside wall and recessed well of a vessel.
  * Pairs are [radius, height] in metres, ordered from foot to mouth. Twist is radians per metre. */
@@ -13,10 +9,10 @@ export function vessel(
 	profile: [number, number][],
 	sides: number,
 	heightScale: number,
-	token: ColorToken,
+	slot: string,
 	twist = 0,
 	fluteDepth = 0
-): Primitive {
+): ObjectGeometry {
 	const wall = Math.min(0.09, ...profile.map(([r]) => r * 0.2));
 	const inside = profile
 		.map(([r, z]): [number, number] => [r - wall, Math.max(z, profile[0][1] + wall)])
@@ -39,8 +35,7 @@ export function vessel(
 	const end = (contour.length - 1) * sides;
 	for (let j = 1; j < sides - 1; j++) triangles.push(0, j + 1, j, end, end + j, end + j + 1);
 	return {
-		...surface(token, 'glaze'),
-		finish: 'keramik-glasiert',
+		...surface(slot),
 		kind: 'mesh',
 		points,
 		triangles,
@@ -55,8 +50,8 @@ export function honeycombCell(
 	outer: number,
 	inner: number,
 	depth: number,
-	token: ColorToken
-): Primitive {
+	slot: string
+): ObjectGeometry {
 	const points: Vec3[] = [],
 		triangles: number[] = [],
 		lines: number[][] = [];
@@ -75,8 +70,7 @@ export function honeycombCell(
 	}
 	for (let i = 0; i < 4; i++) joinRings(triangles, i * 6, ((i + 1) % 4) * 6, 6);
 	return {
-		...surface(token, 'glaze'),
-		finish: 'keramik-glasiert',
+		...surface(slot),
 		kind: 'mesh',
 		points,
 		triangles,

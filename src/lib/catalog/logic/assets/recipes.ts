@@ -1,3 +1,20 @@
+import { smallArchitecture } from './objects/small-architecture';
+import { textiles } from './objects/textiles';
+import { publicArt } from './objects/public-art';
+import { recycling } from './objects/recycling';
+import { fountains } from './objects/fountains';
+import { wayfinding } from './objects/wayfinding';
+import { cycleFurniture } from './objects/cycle-furniture';
+import { recreation } from './objects/recreation';
+import { shade } from './objects/shade';
+import { marketStands } from './objects/market-stands';
+import { display } from './objects/display';
+import { vessels } from './objects/vessels';
+import { lighting } from './objects/lighting';
+import { tables } from './objects/tables';
+import { seating } from './objects/seating';
+import { walkwayStop } from './walkway-stop';
+import { primitiveObjects } from './primitive-objects';
 import { houseFittings } from './house-fittings';
 import { roofMachinery } from './roof-machinery';
 import { energyEquipment } from './energy-equipment';
@@ -126,5 +143,22 @@ export const recipes: readonly AssetRecipe[] = [
 	...energyEquipment,
 	...exchangeStations,
 	...houseFittings,
-	...roofMachinery
+	...roofMachinery,
+	walkwayStop,
+	...primitiveObjects,
+	...seating,
+	...tables,
+	...lighting,
+	...vessels,
+	...display,
+	...marketStands,
+	...shade,
+	...recreation,
+	...cycleFurniture,
+	...wayfinding,
+	...fountains,
+	...recycling,
+	...publicArt,
+	...textiles,
+	...smallArchitecture
 ];

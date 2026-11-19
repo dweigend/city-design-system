@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, rod, path } from './parts';
+import { slab, rod } from './parts';
 
 export const stairs: AssetRecipe = {
 	id: 'stairs',
+	slotNames: ['deck', 'body'],
 	category: 'infrastructure',
 	variants: ['short-flight', 'wide-flight', 'landing-flight'],
 	footprint: [7.3, 3.3],
@@ -16,7 +17,7 @@ export const stairs: AssetRecipe = {
 			l = n * t + landing,
 			x0 = -l / 2;
 		const parts = Array.from({ length: n }, (_, i) =>
-			slab([x0 + i * t, -w / 2, 0], [t, w, (i + 1) * h], path)
+			slab([x0 + i * t, -w / 2, 0], [t, w, (i + 1) * h], 'deck')
 		);
 		parts.push(slab([x0 + n * t, -w / 2, 0], [landing, w, n * h]));
 		for (const y of [-w / 2 + 0.055, w / 2 - 0.055]) {

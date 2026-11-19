@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, drum, workshop } from './parts';
+import { slab, drum } from './parts';
 
 export const chimney: AssetRecipe = {
 	id: 'chimney',
+	slotNames: ['body', 'trim', 'edge'],
 	category: 'infrastructure',
 	variants: ['kiln-stack', 'banded-flue', 'twin-flue'],
 	footprint: [4.5, 3.3],
@@ -16,9 +17,9 @@ export const chimney: AssetRecipe = {
 				top = h - i * 0.65,
 				r = variant === 0 ? 0.74 : 0.58;
 			parts.push(
-				drum([x, 0, 0.42], r, top - 0.42, workshop),
+				drum([x, 0, 0.42], r, top - 0.42, 'trim'),
 				drum([x, 0, top], r + 0.12, 0.24),
-				drum([x, 0, top + 0.24], r * 0.74, 0.016, '--ink')
+				drum([x, 0, top + 0.24], r * 0.74, 0.016, 'edge')
 			);
 			if (variant === 1)
 				for (const z of [1.8, 3.6, 5.4]) parts.push(drum([x, 0, z], r + 0.045, 0.15));

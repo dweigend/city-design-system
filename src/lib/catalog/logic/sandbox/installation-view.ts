@@ -2,7 +2,8 @@ import { applySurface } from '../material/surface';
 import { buildingPlots } from './building-plots';
 import { carrierForm, shellForms } from '../house-brush';
 import { FRAME_DIAMETER, LANDING_RADIUS_M, moduleBridge } from '../megastructure';
-import { WALKWAY_WIDTH_M } from '../walkway';
+import { buildObject } from '../assets';
+import { translate } from '../ansicht/geometrie';
 import { focuses, present, type FocusId, type Representation } from '../presentation';
 import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
@@ -73,19 +74,13 @@ function pillarView(world: World, p: Extract<BuiltPart, { kind: 'pillar' }>, a: 
 function partView(world: World, p: BuiltPart, coarse: boolean): Primitive[] {
 	if (p.kind === 'module') return moduleView(world, p, coarse);
 	const a = position(world.grid, p.anchor);
-	const b = base(p.id);
 	if (p.kind === 'segment') return segmentView(world, p, a);
 	if (p.kind === 'pillar') return pillarView(world, p, a);
-	const width = p.recipe === 'plaza' ? 2 * WALKWAY_WIDTH_M : WALKWAY_WIDTH_M;
-	return [
-		{
-			...b,
-			kind: 'box',
-			position: [a[0] - width / 2, a[1] - width / 2, a[2] - 0.25],
-			size: [width, width, 0.25],
-			token: p.recipe === 'plaza' ? '--cat-business-2' : flowToken.people
-		}
-	];
+	const object = buildObject('walkway-stop', p.recipe, world.seed, {
+		instanceId: p.id,
+		slots: p.slots
+	});
+	return object.parts.map((part) => ({ ...translate(part, [a[0], a[1], a[2] - 0.25]), id: p.id }));
 }
 
 type CachedPart = {

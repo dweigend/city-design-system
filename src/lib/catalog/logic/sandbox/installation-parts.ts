@@ -1,3 +1,4 @@
+import type { SlotAssignment } from '../assets';
 import { FRAME_DIAMETER } from '../megastructure';
 import type { FlowId } from '../../data/focus';
 import {
@@ -29,7 +30,8 @@ type Segment = {
 	end: Anchor;
 };
 type Fixture =
-	{ kind: 'pillar'; recipe: 'support' | 'bearing' } | { kind: 'stop'; recipe: 'plaza' | 'landing' };
+	| { kind: 'pillar'; recipe: 'support' | 'bearing' }
+	| { kind: 'stop'; recipe: 'plaza' | 'landing'; slots?: Readonly<Record<string, SlotAssignment>> };
 type Module = {
 	kind: 'module';
 	recipe: ModuleRecipe;
