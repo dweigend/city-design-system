@@ -20,6 +20,26 @@ function shadowDistance(part: Primitive, positions: number[], start: number, end
 	return castOffset(high - low);
 }
 
+const plainInk = (part: Primitive) => part.token === '--ink' || isPathInk(part.token);
+
+/** Halftone dots only on new, non-ink bodies; overprint bands stay flat. */
+const screened = (part: Primitive) =>
+	Number(part.role === 'neu' && !part.overprint && !plainInk(part));
+
+/** A band casts with the body it is printed on; a body records its own cast for its bands. */
+function castShift(
+	part: Primitive,
+	bodyOffsets: Map<string, number>,
+	positions: number[],
+	start: number,
+	end: number
+) {
+	if (part.overprint) return bodyOffsets.get(part.id.split(':overprint:')[0]) ?? 0;
+	const shift = shadowDistance(part, positions, start, end);
+	bodyOffsets.set(part.id, shift);
+	return shift;
+}
+
 function printAttributes(faces: Faces, ranges: Range[]) {
 	const screen: number[] = [],
 		offset: number[] = [];
@@ -29,13 +49,8 @@ function printAttributes(faces: Faces, ranges: Range[]) {
 		const end = ranges[index + 1]?.start ?? faces.p.length / 3;
 		if (end === start) return;
 		if (part.overprint) outline = Math.min(outline, start);
-		const dots = Number(
-			part.role === 'neu' && !part.overprint && !isPathInk(part.token) && part.token !== '--ink'
-		);
-		const shift = part.overprint
-			? (bodyOffsets.get(part.id.split(':overprint:')[0]) ?? 0)
-			: shadowDistance(part, faces.p, start, end);
-		if (!part.overprint) bodyOffsets.set(part.id, shift);
+		const dots = screened(part);
+		const shift = castShift(part, bodyOffsets, faces.p, start, end);
 		for (let i = start; i < end; i++) {
 			screen.push(dots);
 			offset.push(shift);
