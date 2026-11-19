@@ -55,8 +55,7 @@ export function split(tree: Segment[], s: Segment, p: Point) {
 	tree.splice(tree.indexOf(s), 1, { a: s.a, b: p }, { a: p, b: s.b });
 	return p;
 }
-export function groundTree(input: NetworkInput, seed: number, field: Field) {
-	const houses = [...input.houses].sort((a, b) => (a.id < b.id ? -1 : 1));
+export function groundTree(houses: NetworkInput['houses'], seed: number, field: Field) {
 	const first = houses[0].entrance;
 	const tree: Segment[] = [{ a: first, b: first }];
 	const corners = [...field.corners].sort((a, b) => hashUnit(seed, ...a) - hashUnit(seed, ...b));
@@ -69,7 +68,8 @@ export function groundTree(input: NetworkInput, seed: number, field: Field) {
 	}
 	return tree.filter((s) => distance(s.a, s.b) > epsilon);
 }
-export function mst(points: Point[]) {
+export function entranceTree(points: Point[]) {
+	const order: number[] = [];
 	const costs = points.map(() => Infinity),
 		pending = new Set(points.keys());
 	let total = 0;
@@ -77,8 +77,9 @@ export function mst(points: Point[]) {
 	while (pending.size) {
 		const i = Array.from(pending).reduce((a, b) => (costs[a] <= costs[b] ? a : b));
 		pending.delete(i);
+		order.push(i);
 		total += costs[i];
 		for (const j of pending) costs[j] = Math.min(costs[j], distance(points[i], points[j]));
 	}
-	return total;
+	return { order, total };
 }

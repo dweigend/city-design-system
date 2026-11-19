@@ -3,7 +3,7 @@ import { deckOptions } from './deck-route';
 import { project } from './geometry';
 import { shapeForks } from './forks';
 import { layout } from './graph';
-import { groundTree, mst } from './ground-tree';
+import { groundTree, entranceTree } from './ground-tree';
 import { epsilon, type NetworkInput, type Network } from './types';
 
 export type { NetworkInput, Network };
@@ -60,12 +60,19 @@ export function planNetwork(input: NetworkInput, seed: number): Network {
 	const field = survey(checked);
 	if (input.houses.some((h) => !field.clear(h.entrance, h.entrance)))
 		throw new RangeError('Entrance lacks clearance');
-	const tree = groundTree(checked, seed, field);
-	shapeForks(tree, checked, field);
-	const reference = mst(input.houses.map((h) => h.entrance));
-	let network = layout(checked, tree, reference);
-	if (!met(network, input.ensembleArea))
-		throw new RangeError('Mandatory network exceeds ensemble budget');
+	const houses = [...input.houses].sort((a, b) => (a.id < b.id ? -1 : 1));
+	const { total: reference, order } = entranceTree(houses.map((h) => h.entrance));
+	const grow = (ordered: NetworkInput['houses']) => {
+		const tree = groundTree(ordered, seed, field);
+		shapeForks(tree, checked, field);
+		return { tree, network: layout(checked, tree, reference) };
+	};
+	let { tree, network } = grow(houses);
+	if (!met(network, input.ensembleArea)) {
+		({ tree, network } = grow(order.map((i) => houses[i])));
+		if (!met(network, input.ensembleArea))
+			throw new RangeError('Mandatory network exceeds ensemble budget');
+	}
 	for (const option of deckOptions(checked, tree, field)) {
 		const candidate = layout(checked, tree, reference, option);
 		if (met(candidate, input.ensembleArea)) {
