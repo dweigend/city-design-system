@@ -159,7 +159,7 @@ export function createSandboxStage(
 			view.elevation()
 		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
-		if (tones) light.setTone(tones.schatten, tones.paper);
+		if (tones) light.setTone(tones.raster);
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;

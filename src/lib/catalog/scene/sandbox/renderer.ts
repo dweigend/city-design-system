@@ -4,7 +4,7 @@ import * as THREE from 'three/webgpu';
 export type RendererHooks = { ready: () => void; failed: () => void };
 
 /**
- * Starts a renderer for the sandbox: flat output colors, soft shadows. The canvas reports its
+ * Starts a renderer for the sandbox: flat output colors and hard shadow masks. The canvas reports its
  * backend as `data-backend`. `isLive` turns false after `dispose`.
  */
 export function startRenderer(
@@ -16,7 +16,7 @@ export function startRenderer(
 	renderer.toneMapping = THREE.NoToneMapping;
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+	renderer.shadowMap.type = THREE.BasicShadowMap;
 	let state: 'starting' | 'live' | 'disposed' = 'starting';
 
 	const started = renderer.init().then(

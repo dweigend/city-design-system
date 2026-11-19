@@ -59,6 +59,7 @@ function massOf(part: Primitive): Primitive {
 export function present(parts: Primitive[], level: Representation): Primitive[] {
 	const lod = geometry[level];
 	if (!lod) return [];
+	if (level === 'pencil' || level === 'transparent') parts = parts.filter((p) => !p.overprint);
 	if (lod === 'detail') return parts;
 	const visible = parts.filter(
 		(p) => !p.detail || (level === 'pencil' && (p.role === 'bestand' || p.role === 'traeger'))

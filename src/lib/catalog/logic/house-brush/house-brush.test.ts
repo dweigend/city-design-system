@@ -277,3 +277,51 @@ test('Capsules print pigment below the paper seam and turn a quarter turn each l
 	expect(list.some((p) => p.token.startsWith('--cat-business'))).toBe(false);
 	expect(named(list, '/porthole-ring')).toHaveLength(3);
 });
+
+const printParts = (stacks: Stacks) =>
+	houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, 'collage');
+const overprints = (stacks: Stacks) => printParts(stacks).filter((p) => p.overprint);
+
+test('different stacked uses add a half-meter lap over the lower wall', () => {
+	const lower = raise(EMPTY, '1/1', 'water');
+	const mixed = raise(lower, '1/1', 'energy');
+	const bands = overprints(mixed);
+	expect(bands.length).toBeGreaterThan(0);
+	for (const band of bands) {
+		expect(band).toMatchObject({
+			kind: 'mesh',
+			token: '--cat-health',
+			overprint: '--cat-mobility',
+			edges: false,
+			lines: []
+		});
+		if (band.kind !== 'mesh') throw Error('Expected a wall patch');
+		expect(band.id).toStartWith('1/1@0:wall:overprint:');
+		const heights = band.points.map((point) => point[2]);
+		expect(Math.max(...heights) - Math.min(...heights)).toBeCloseTo(0.5);
+	}
+	expect(printParts(mixed).slice(-bands.length)).toEqual(bands);
+	expect(overprints(raise(lower, '1/1', 'water'))).toEqual([]);
+});
+
+test('different abutting uses leave a vertical strip on the later parcel only', () => {
+	const first = raise(EMPTY, '2/1', 'water');
+	const next = raise(first, '1/1', 'energy');
+	const bands = overprints(next);
+	expect(bands.length).toBeGreaterThan(0);
+	for (const band of bands) {
+		expect(band).toMatchObject({
+			kind: 'mesh',
+			token: '--cat-mobility',
+			overprint: '--cat-health',
+			edges: false
+		});
+		expect(band.id).toStartWith('1/1@0:wall:overprint:');
+		if (band.kind !== 'mesh') throw Error('Expected a wall patch');
+		expect(new Set(band.points.map((point) => point[2])).size).toBe(2);
+	}
+	const reversed = overprints(raise(raise(EMPTY, '1/1', 'energy'), '2/1', 'water'));
+	expect(reversed.length).toBeGreaterThan(0);
+	expect(reversed.every((band) => band.id.startsWith('2/1@0:wall:overprint:'))).toBe(true);
+	expect(overprints(raise(first, '1/1', 'water'))).toEqual([]);
+});

@@ -16,7 +16,15 @@ const MITER_LIMIT = 0.35;
 
 export type Fillet = Readonly<{ convex: number; concave: number }>;
 
-type Side = { from: Vec3; to: Vec3; fromId: string; toId: string; used: boolean };
+type Side = {
+	from: Vec3;
+	to: Vec3;
+	fromId: string;
+	toId: string;
+	cellId: string;
+	index: number;
+	used: boolean;
+};
 
 const direction = (a: Point2 | Vec3, b: Point2 | Vec3): Point2 => {
 	const dx = b[0] - a[0];
@@ -36,6 +44,8 @@ function boundarySides(cells: readonly QuadCell[], isMember: (cellId: string) =>
 			const next = (i + 1) % 4;
 			sides.push({
 				from: cell.corners[i],
+				cellId: cell.id,
+				index: i,
 				to: cell.corners[next],
 				fromId: cell.vertexIds[i],
 				toId: cell.vertexIds[next],
@@ -73,17 +83,22 @@ export function boundaryRings(
 	cells: readonly QuadCell[],
 	isMember: (cellId: string) => boolean
 ): Point2[][] {
+	return boundaryRuns(cells, isMember).map((run) => run.map(({ from: [x, y] }) => [x, y]));
+}
+
+/** Traces each boundary in cell order with the surveyed side address retained for every segment. */
+export function boundaryRuns(cells: readonly QuadCell[], isMember: (cellId: string) => boolean) {
 	const sides = boundarySides(cells, isMember);
 	const leaving = new Map<string, Side[]>();
 	for (const side of sides) leaving.set(side.fromId, [...(leaving.get(side.fromId) ?? []), side]);
-	const rings: Point2[][] = [];
+	const rings: Side[][] = [];
 	for (const start of sides) {
 		if (start.used) continue;
-		const ring: Point2[] = [];
+		const ring: Side[] = [];
 		let side: Side | undefined = start;
 		while (side) {
 			side.used = true;
-			ring.push([side.from[0], side.from[1]]);
+			ring.push(side);
 			side = nextSide(side, leaving.get(side.toId) ?? []);
 		}
 		rings.push(ring);
@@ -133,7 +148,12 @@ function arc(vertex: Point2, into: Point2, angle: number, radius: number): Point
  * of the solid. Radii in meters; a fillet shrinks where its sides are short.
  */
 export function roundRing(ring: readonly Point2[], fillet: Fillet): Point2[] {
-	return ring.flatMap((vertex, i) => {
+	return roundRingCorners(ring, fillet).flat();
+}
+
+/** Fillet samples grouped by the source vertices, in the original ring order. */
+export function roundRingCorners(ring: readonly Point2[], fillet: Fillet): Point2[][] {
+	return ring.map((vertex, i) => {
 		const before = ring[(i + ring.length - 1) % ring.length];
 		const after = ring[(i + 1) % ring.length];
 		const into = direction(before, vertex);

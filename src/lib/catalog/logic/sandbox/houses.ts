@@ -74,6 +74,15 @@ const newVolume = (part: Primitive): Primitive =>
 		? { ...part, role: 'neu', edges: true }
 		: part;
 
+function printOrder(state: SandboxState, firstFullYear: number) {
+	return (cell: QuadCell, level: number) => {
+		const story = state.storyParts.get(cell.id)?.[level];
+		if (story?.style !== 'collage' || story.built < firstFullYear) return;
+		const [, action, slot] = story.id.split('/');
+		return Number(action) + Number(slot) / (Number(slot) + 1) || 0;
+	};
+}
+
 /** Projects each layer with its saved geometry and the selected view's current or stock style. */
 export function houseView(
 	world: World,
@@ -98,6 +107,7 @@ export function houseView(
 			style,
 			{
 				occupied: state.stacks,
+				printOrder: printOrder(state, earliestFullYear),
 				// Plots already exclude passages; roof runs stay within the original lattice block.
 				blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
 				olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
@@ -166,6 +176,7 @@ export function houseGroups(
 	for (const [phase, stacks] of constructionPhases(state)) {
 		const context = {
 			occupied: state.stacks,
+			printOrder: printOrder(state, firstFullYear),
 			blockOf: (id: string) => grid.cellsById.get(id)?.block.split('/')[0],
 			olderRoof: (id: string) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < phase.built
 		};

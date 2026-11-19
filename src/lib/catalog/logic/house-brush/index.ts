@@ -1,6 +1,8 @@
 import { totemMass } from './style-totem';
 import { megastructureMass } from './style-megastructure';
 import { roofCarrier, type RoofContext } from './roof-carrier';
+import { stackPrintOrder } from './print-contact';
+import type { Site } from './form';
 import { profileOf } from './profile';
 import type { RoofBuilder } from '../building-envelope';
 /**
@@ -44,9 +46,30 @@ export function houseChunk(
 	context?: RoofContext,
 	roofBuilder?: RoofBuilder
 ): Primitive[] {
-	return massesOfChunk(grid, stacks, chunk).flatMap((mass) =>
-		houseMassParts(grid, stacks, mass, seed, style, context, roofBuilder)
+	const site = massSite(grid, stacks, seed, style, context, roofBuilder);
+	const parts = massesOfChunk(grid, stacks, chunk).flatMap((mass) =>
+		massParts(site, mass, style, context)
 	);
+	return site.printOrder
+		? parts.filter((p) => !p.overprint).concat(parts.filter((p) => p.overprint))
+		: parts;
+}
+
+function massSite(
+	grid: QuadGrid,
+	stacks: Stacks,
+	seed: number,
+	style: HouseStyle,
+	context?: RoofContext,
+	roofBuilder?: RoofBuilder
+): Site {
+	return {
+		grid,
+		stacks: context?.occupied ?? stacks,
+		seed,
+		roofBuilder,
+		printOrder: style === 'collage' ? (context?.printOrder ?? stackPrintOrder(stacks)) : undefined
+	};
 }
 
 /** Derives the detached world-meter geometry of one identified mass, retaining its part order. */
@@ -59,7 +82,10 @@ export function houseMassParts(
 	context?: RoofContext,
 	roofBuilder?: RoofBuilder
 ): Primitive[] {
-	const site = { grid, stacks: context?.occupied ?? stacks, seed, roofBuilder };
+	return massParts(massSite(grid, stacks, seed, style, context, roofBuilder), mass, style, context);
+}
+
+function massParts(site: Site, mass: Mass, style: HouseStyle, context?: RoofContext): Primitive[] {
 	// Q installations carry their own parts; older story records still use the saved house grammar.
 	if (context && (style === 'megastructure' || style === 'totem')) {
 		const rule = style === 'totem' ? totemMass : megastructureMass;

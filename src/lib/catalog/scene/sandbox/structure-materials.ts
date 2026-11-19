@@ -1,5 +1,16 @@
 import * as THREE from 'three/webgpu';
-import { abs, attribute, float, mix, normalWorld, positionLocal, uniform, vec3 } from 'three/tsl';
+import {
+	abs,
+	attribute,
+	float,
+	mix,
+	normalWorld,
+	positionLocal,
+	uniform,
+	vec3,
+	vec4,
+	modelWorldMatrixInverse
+} from 'three/tsl';
 import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../core/params';
@@ -11,6 +22,10 @@ import { conduitInk } from './print-flow';
 import { cutPaper, terrazzo } from './paper-inlay';
 import { firedSlip } from './fired-slip';
 import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
+import type { Primitive } from '../../logic/parametrik/types';
+import type { Rgb } from '../../logic/farbe/oklch';
+import { overprintColor } from '../../logic/farbe/overprint';
+import { faceHalftone, halftoneScreen } from './printed-finish';
 import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
@@ -26,6 +41,7 @@ export function structureMaterials() {
 	let minContourPx = STRUCTURE_PARAMS.minContourPx.default;
 	let palette: ReturnType<typeof grammatik> | undefined;
 	const colors = new Map<string, THREE.Color>();
+	const overprints = new Map<string, THREE.Color>();
 	const paper = new THREE.Color();
 
 	const seconds = uniform(0);
@@ -95,23 +111,32 @@ export function structureMaterials() {
 	const outlinePx = uniform(STRICHE.kontur * outlineExpansion);
 	const sheetOffsetM = uniform(0);
 	const pencilPx = uniform(STRICHE.bestand / 2);
-	// Printed colour body: the part colour in three flat tones by facing, lightest on top.
 	const bodyColor = attribute<'vec3'>('color', 'vec3');
-	const lit = mix(bodyColor, vec3(1), 0.16);
+	const printInk = uniform(new THREE.Color());
+	const stockInk = uniform(new THREE.Color());
+	const pitch = uniform(halftoneScreen(true).pitch);
+	const screen = faceHalftone(pitch);
+	const canScreen = attribute('printScreen', 'float');
+	const paperFace = bodyColor.sub(paperTone.rgb).length().lessThan(0.001);
 	materials.solid.colorNode = mix(
-		mix(bodyColor.mul(0.93), bodyColor.mul(0.8), abs(normalWorld.x)),
-		mix(bodyColor.mul(0.66), lit, float(normalWorld.y.greaterThanEqual(0))),
-		abs(normalWorld.y)
+		bodyColor,
+		paperFace.select(stockInk, printInk),
+		screen.mul(canScreen)
 	);
-	const seamInk = uniform(new THREE.Color());
 	const seam = attribute('printSeam', 'float');
-	const seamWidth = seam.fwidth().mul(0.375);
-	const seamMask = float(1).sub(abs(seam).smoothstep(seamWidth.mul(0.5), seamWidth.mul(1.5)));
+	const upper = seam.greaterThanEqual(0);
+	const seamMask = abs(seam).lessThanEqual(seam.fwidth().mul(0.375));
 	materials.pod.colorNode = mix(
-		mix(bodyColor, paperTone, float(seam.greaterThanEqual(0))),
-		seamInk,
-		seamMask
+		mix(upper.select(paperTone.rgb, bodyColor), upper.select(stockInk, printInk), screen),
+		printInk,
+		float(seamMask)
 	);
+	const planLength = Math.hypot(LICHT[0], LICHT[1]);
+	const shift = attribute('printOffset', 'float');
+	const downLight = vec3(LICHT[0] / planLength, 0, -LICHT[1] / planLength).mul(shift);
+	const localShift = modelWorldMatrixInverse.mul(vec4(downLight, 0)).xyz;
+	for (const material of [materials.solid, materials.sheet, materials.pod])
+		material.castShadowPositionNode = positionLocal.add(localShift);
 	materials.printHull.vertexNode = outlinePositionAtOffset(
 		float(STRICHE.minimumTraeger * outlineExpansion)
 	);
@@ -139,7 +164,7 @@ export function structureMaterials() {
 		.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
 		.mul(0.52);
 	materials.stock.colorNode = mix(
-		paperTone,
+		mix(paperTone, stockInk, screen),
 		graphite,
 		pencilLine
 			.mul(flank)
@@ -148,6 +173,7 @@ export function structureMaterials() {
 			.max(roofInk)
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
+	materials.stockSheet.colorNode = mix(paperTone, stockInk, screen);
 	materials.glaze.colorNode = solidColor;
 	materials.ceramicHull.vertexNode = outlinePosition(outlinePx.negate());
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
@@ -157,6 +183,7 @@ export function structureMaterials() {
 	function applyTones(g: ReturnType<typeof grammatik>) {
 		palette = g;
 		colors.clear();
+		overprints.clear();
 		paper.copy(g.paper);
 		graphite.value.copy(g.blei);
 		paperTone.value.copy(g.paper);
@@ -183,7 +210,8 @@ export function structureMaterials() {
 		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);
-		seamInk.value.copy(g.ink);
+		printInk.value.copy(g.token('--ink'));
+		stockInk.value.copy(g.raster);
 		materials.printHull.color.copy(g.ink);
 		for (const line of [materials.carrierInk, materials.portalInk, materials.braceInk])
 			line.color.copy(g.ink);
@@ -240,6 +268,25 @@ export function structureMaterials() {
 		return color;
 	}
 
+	/** Resolves a flat print patch against the same palette as its source pigments. */
+	function surfaceColor(part: Primitive) {
+		const base = colorOf(part.token);
+		if (!part.overprint || !palette) return base;
+		const key = part.token + '/' + part.overprint;
+		const cached = overprints.get(key);
+		if (cached) return cached;
+		const rgb = ({ r, g, b }: THREE.Color): Rgb => [r, g, b];
+		const pigment = overprintColor(
+			{ token: part.token, rgb: rgb(base) },
+			{ token: part.overprint, rgb: rgb(colorOf(part.overprint)) },
+			rgb(paper)
+		);
+		if (!pigment) return base;
+		const color = new THREE.Color(...pigment);
+		overprints.set(key, color);
+		return color;
+	}
+
 	return {
 		explicit,
 		materials,
@@ -247,6 +294,7 @@ export function structureMaterials() {
 		minContourPx: () => minContourPx,
 		/** Palette lookup for detached colored parts. */
 		colorOf,
+		surfaceColor,
 		/** Applies the primitive's ink share to a flow color without changing the cached token. */
 		accentColor(this: void, token: string, shade = 0) {
 			const color = colorOf(token);
@@ -277,7 +325,9 @@ export function structureMaterials() {
 			materials.rail.visible = style.kamera.pxProM > MASSSTAB.quartier;
 			envelopeShadows = huelle.schatten;
 			applyStructuralStyle(style, minimum, scale);
-			const detailChanged = explicit.setDetail(style.rollen.weg.level !== 'block');
+			const close = style.rollen.weg.level !== 'block';
+			pitch.value = halftoneScreen(close).pitch;
+			const detailChanged = explicit.setDetail(close);
 			return detailChanged || Boolean(tones);
 		},
 		/** Releases shared materials. Mesh geometry belongs to the structure layer. */

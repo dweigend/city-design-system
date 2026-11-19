@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
-import { float, mix, shadow, uniform } from 'three/tsl';
-import { LICHT } from '../../data/leitstil';
+import { float, mix, positionWorld, shadow, uniform } from 'three/tsl';
+import { halftoneDots, halftoneScreen } from './printed-finish';
 
 const SHADOW_MAP_SIZE = 4096;
 /** Smallest half width of the shadow volume, meters, and its factor of the visible span. */
@@ -8,14 +8,14 @@ const SHADOW_REACH = { min: 120, perSpan: 1.1 };
 
 /** Fits a directional shadow to the scene without shading the paper with ambient light. */
 export function createLight() {
-	const direction = new THREE.Vector3(-LICHT[0], -LICHT[2], LICHT[1]).normalize();
 	const sun = new THREE.DirectionalLight(0xffffff);
 	sun.castShadow = true;
 	sun.shadow.autoUpdate = false;
 	sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
 	sun.shadow.needsUpdate = true;
 	sun.shadow.bias = -0.0006;
-	sun.shadow.normalBias = 0.05;
+	sun.shadow.camera.up.set(0, 0, 1);
+	const dots = halftoneDots(positionWorld.xz, halftoneScreen(false).pitch);
 	// Three's depth-only shadow node returns a scalar, but its type omits the TSL scalar interface.
 	const shadowMask = shadow(sun) as ReturnType<typeof shadow> & THREE.Node<'float'>;
 	const shadowTone = uniform(new THREE.Vector3());
@@ -23,10 +23,10 @@ export function createLight() {
 		objects: [sun, sun.target],
 		/** The ground holds the paper palette outside the cast shadow. */
 		shade(this: void, color: THREE.Node<'vec3'>) {
-			return mix(shadowTone, color, float(shadowMask).step(0.5));
+			return mix(color, shadowTone, float(1).sub(float(shadowMask).step(0.5)).mul(dots));
 		},
-		/** Sets the Leitstil shadow tone, capped at the paper color so it cannot lighten it. */
-		setTone(color: THREE.Color, paper: THREE.Color) {
+		/** Sets the opaque ground dot ink. The optional paper caps callers using the drawing shadow tone. */
+		setTone(color: THREE.Color, paper = color) {
 			shadowTone.value.set(
 				Math.min(color.r, paper.r),
 				Math.min(color.g, paper.g),
@@ -46,7 +46,8 @@ export function createLight() {
 			if (shadowCamera.right === reach && target.equals(sun.target.position)) return;
 			sun.shadow.needsUpdate = true;
 			sun.target.position.copy(target);
-			sun.position.copy(target).addScaledVector(direction, 900);
+			sun.position.copy(target);
+			sun.position.y += 900;
 			shadowCamera.left = shadowCamera.bottom = -reach;
 			shadowCamera.right = shadowCamera.top = reach;
 			shadowCamera.near = 1;

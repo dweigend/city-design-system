@@ -76,7 +76,9 @@ export function terrazzo(paper: Node<'color'>, scale: Node<'float'>) {
 	material.colorNode = mix(
 		base,
 		chip,
-		density.mul(scale.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
+		density
+			.mul(scale.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
+			.mul(attribute('printScreen', 'float'))
 	);
 	return material;
 }

@@ -2,6 +2,7 @@ import type { RoofBuilder } from '../building-envelope';
 import { flowToken } from '../../data/focus';
 import type { ColorToken, Primitive } from '../parametrik/types';
 import type { QuadGrid } from '../quad-grid';
+import type { PrintOrder } from './print-contact';
 import type { HouseUse, Stacks } from './stacks';
 
 type Without<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -14,6 +15,7 @@ export type Site = Readonly<{
 	stacks: Stacks;
 	seed: number;
 	roofBuilder?: RoofBuilder;
+	printOrder?: PrintOrder;
 }>;
 
 /** One draw channel per decision of the grammar (PD-4). */

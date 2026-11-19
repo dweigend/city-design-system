@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { type Primitive, type Vec3 } from '../../logic/parametrik/types';
-import { batch, geometryOf, type Batch } from '../batch';
+import { batch, type Batch } from '../batch';
 import type { StructuralJoint } from '../../logic/structural-joints';
 import { pushThree } from '../world-space';
 import type { StructureMaterials } from './structure-materials';
@@ -12,6 +12,7 @@ import { ceramicBatch } from './ceramic-batch';
 import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
 import { finishedMeshes } from './finish-batch';
+import { printBatch, printGeometry } from './print-batch';
 import { outlineOffsets } from './structure-outline';
 
 /** Bakes the local fittings into one ink draw, leaving them out of the picking geometry. */
@@ -76,6 +77,8 @@ function silhouette(source: THREE.BufferGeometry, material: THREE.Material) {
 	const geometry = new THREE.InstancedBufferGeometry();
 	geometry.setAttribute('position', source.getAttribute('position'));
 	geometry.setIndex(source.index);
+	if (source.userData.outlineVertices !== undefined)
+		geometry.setDrawRange(0, source.userData.outlineVertices);
 	geometry.setAttribute('outlineOffset', outlineOffsets);
 	geometry.instanceCount = outlineOffsets.count;
 	return new THREE.Mesh(geometry, material);
@@ -94,13 +97,12 @@ export function populateStructures(
 		details?: boolean;
 	} = {}
 ) {
-	const { materials, colorOf, accentColor } = finishes;
-	const toColor = (part: Primitive) => colorOf(part.token);
+	const { materials, colorOf, accentColor, surfaceColor: toColor } = finishes;
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
 	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
 		if (!faces.p.length) return;
-		const object = new THREE.Mesh(geometryOf(faces), material);
+		const object = new THREE.Mesh(printGeometry(faces), material);
 		objects.add(object);
 		if (pick) hits.push(object);
 		return object;
@@ -141,11 +143,11 @@ export function populateStructures(
 		parts.regular.filter((part) => part.role === 'bestand'),
 		toColor
 	);
-	const body = batch(
+	const body = printBatch(
 		parts.regular.filter((part) => part.role !== 'bestand' && !isSheet(part)),
 		toColor
 	);
-	const sheets = batch(parts.regular.filter(isSheet), toColor);
+	const sheets = printBatch(parts.regular.filter(isSheet), toColor);
 	for (const part of parts.glaze) {
 		if (part.kind !== 'mesh') continue;
 		const geometry = new THREE.BufferGeometry().setFromPoints(
@@ -160,9 +162,9 @@ export function populateStructures(
 		if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
 	}
 	surface(body.neu, materials.solid, materials.hull, true);
-	surface(batch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
-	surface(batch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);
-	fill(batch(parts.plainPods, toColor).neu, materials.pod, true);
+	surface(printBatch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
+	surface(printBatch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);
+	fill(printBatch(parts.plainPods, toColor).neu, materials.pod, true);
 	mesh(stock.alt, materials.stock, true);
 	mesh(stock.blatt, materials.stockSheet);
 	mesh(stock.glas, materials.stockSheet);
@@ -174,7 +176,7 @@ export function populateStructures(
 	if (details) lines(stockDetail(parts.regular), materials.stockDetail);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
-	const plain = batch(parts.plain, toColor);
+	const plain = printBatch(parts.plain, toColor);
 	fill(plain.neu, materials.solid, true);
 	fill(plain.blatt, materials.sheet, false);
 	fill(plain.glas, materials.glass, false, false);
@@ -183,8 +185,8 @@ export function populateStructures(
 	const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
 	pipes?.geometry.setAttribute('stationM', conduit.axis);
 	pipes?.geometry.setAttribute('railMark', conduit.rail);
-	const print = batch(parts.inlays, (p) =>
-		p.token === '--cat-business' ? toColor(p) : colorOf(p.token.replace(/-\d$/, '') + '-2')
+	const print = printBatch(parts.inlays, (p) =>
+		p.token.startsWith('--cat-business') ? toColor(p) : colorOf(p.token.replace(/-\d$/, '') + '-2')
 	);
 	const chips = batch(parts.inlays, (p) =>
 		colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
@@ -195,7 +197,7 @@ export function populateStructures(
 		inlay.castShadow = cast;
 		objects.add(paperEdge(inlay.geometry, materials.cut));
 	}
-	const portal = mesh(batch(parts.portals, toColor).neu, materials.solid, true);
+	const portal = mesh(printBatch(parts.portals, toColor).neu, materials.solid, true);
 	if (portal) {
 		portal.castShadow = cast;
 		objects.add(paperEdge(portal.geometry, materials.cut));

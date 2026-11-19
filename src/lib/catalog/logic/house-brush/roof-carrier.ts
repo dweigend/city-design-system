@@ -4,11 +4,13 @@ import { part, type Site } from './form';
 import { floorOf, type Mass } from './massing';
 import { along, bayOf } from './megastructure-bay';
 import { storiesOf, type Stacks } from './stacks';
+import type { PrintOrder } from './print-contact';
 import { BODY_TOKEN } from './body-token';
 import { dockedModule } from './style-totem';
 
 export type RoofContext = {
 	occupied: Stacks;
+	printOrder?: PrintOrder;
 	blockOf: (id: string) => string | undefined;
 	olderRoof: (id: string) => boolean;
 };

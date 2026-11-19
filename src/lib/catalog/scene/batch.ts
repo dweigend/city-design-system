@@ -33,7 +33,8 @@ const EDGE = Math.cos((46 * Math.PI) / 180);
 export function batch(
 	primitives: Primitive[],
 	colorOf: (p: Primitive) => THREE.Color,
-	coarse = true
+	coarse = true,
+	beforePart?: (part: Primitive, out: Batch) => void
 ): Batch {
 	const out: Batch = {
 		neu: faces(),
@@ -73,6 +74,7 @@ export function batch(
 		target.push(a[0], a[2], -a[1], b[0], b[2], -b[1]);
 
 	for (const p of primitives) {
+		beforePart?.(p, out);
 		const role = legacyRoleOf(p) === 'neu' ? 'neu' : 'alt';
 		if (p.kind === 'polyline') {
 			const pts = p.closed ? [...p.points, p.points[0]] : p.points;

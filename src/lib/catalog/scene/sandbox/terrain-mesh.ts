@@ -155,7 +155,7 @@ export function createTerrainMesh(
 			.mul(nodes.cellInk)
 			.max(parcelLine.mul(nodes.parcel));
 		return alleys.shade(
-			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
+			shadeGround(mix(ground, colors.blueprint, plan.mul(terrainWeight))),
 			drawingInk,
 			colors.people,
 			paperColor,
@@ -166,7 +166,7 @@ export function createTerrainMesh(
 	}
 
 	const surfaceMaterial = new THREE.MeshBasicNodeMaterial();
-	surfaceMaterial.colorNode = shadeGround(groundColor());
+	surfaceMaterial.colorNode = groundColor();
 	const surface = new THREE.Mesh(surfaceGeometry(grid), surfaceMaterial);
 	surface.receiveShadow = true;
 

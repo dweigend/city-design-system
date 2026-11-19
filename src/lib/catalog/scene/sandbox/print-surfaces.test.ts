@@ -8,6 +8,10 @@ import {
 	Raycaster,
 	Vector3
 } from 'three/webgpu';
+import { overprintColor } from '../../logic/farbe/overprint';
+import { linearToOklch, type Rgb } from '../../logic/farbe/oklch';
+import { castOffset, halftoneScreen } from './printed-finish';
+import { printBatch, printGeometry } from './print-batch';
 import type { Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';
 import { roundedStops } from './station-rings';
@@ -157,4 +161,66 @@ test('pencil window bars follow a rotated stock opening and do not add ink to ne
 	expect(segments.length).toBeGreaterThan(0);
 	expect(segments.filter((_, i) => i % 3 === 1).every((z) => z >= 3 && z <= 4)).toBe(true);
 	expect(stockDetail([{ ...panel, role: 'neu' }])).toEqual([]);
+});
+
+test('overprint divides the linear ink product by the paper channels', () => {
+	const paper: Rgb = [0.8, 0.9, 1];
+	const a = { token: '--cat-health', rgb: [0.24, 0.56, 0.8] as Rgb };
+	const b = { token: '--cat-mobility', rgb: [0.64, 0.45, 0.2] as Rgb };
+	const result = overprintColor(a, b, paper);
+	expect(result?.[0]).toBeCloseTo(0.192);
+	expect(result?.[1]).toBeCloseTo(0.28);
+	expect(result?.[2]).toBeCloseTo(0.16);
+	expect(overprintColor(b, a, paper)).toEqual(result);
+});
+
+test('overprint floors dark pigments in OKLCH and excludes pink in either position', () => {
+	const ink = { token: '--cat-health', rgb: [0.01, 0.03, 0.02] as Rgb };
+	const paper: Rgb = [0.9, 0.9, 0.9];
+	const dark = overprintColor(ink, ink, paper);
+	if (!dark) throw Error('Expected a print pigment');
+	expect(linearToOklch(dark).l).toBeCloseTo(0.42, 6);
+	for (const token of ['--cat-business', '--cat-business-2']) {
+		const path = { ...ink, token };
+		expect(overprintColor(path, ink, paper)).toBeUndefined();
+		expect(overprintColor(ink, path, paper)).toBeUndefined();
+	}
+});
+
+test('close faces and town faces use the same angle and radius-to-pitch ratio', () => {
+	expect(halftoneScreen(true)).toEqual({ angle: Math.PI / 4, pitch: 0.5, radius: 0.18 });
+	expect(halftoneScreen(false)).toEqual({ angle: Math.PI / 4, pitch: 1.5, radius: 0.54 });
+	expect(castOffset(4)).toBeCloseTo(1.4);
+	expect(castOffset(20)).toBe(6);
+});
+
+test('overprint patches stay in the existing surface batch without extending its contour', () => {
+	const parent: Primitive = {
+		...blank,
+		kind: 'box',
+		position: [0, 0, 0],
+		size: [4, 4, 4],
+		envelope: true
+	};
+	const band: Primitive = {
+		...blank,
+		kind: 'mesh',
+		overprint: '--cat-mobility',
+		points: [
+			[0, 0, 3.5],
+			[4, 0, 3.5],
+			[4, 0, 4]
+		],
+		triangles: [0, 1, 2],
+		lines: []
+	};
+	const plain = printGeometry(printBatch([parent], ink).neu);
+	const printed = printGeometry(printBatch([band, parent], ink).neu);
+	const count = plain.getAttribute('position').count;
+	expect(printed.getAttribute('position').count).toBe(count + 3);
+	expect(printed.userData.outlineVertices).toBe(count);
+	expect(printed.getAttribute('printScreen').getX(count)).toBe(0);
+	expect(printed.getAttribute('printOffset').getX(0)).toBeCloseTo(1.4);
+	plain.dispose();
+	printed.dispose();
 });

@@ -10,6 +10,8 @@ import {
 	mix,
 	normalView,
 	normalWorld,
+	positionWorld,
+	select,
 	sin,
 	step,
 	vec2,
@@ -17,6 +19,9 @@ import {
 } from 'three/tsl';
 import type { Palette3D } from '../../data/city3d';
 import type { ColorToken } from '../../logic/parametrik/types';
+import { LICHT } from '../../data/leitstil';
+import { isPathInk } from '../../logic/farbe/overprint';
+import type { Node } from 'three/webgpu';
 import { tokenColor } from '../material';
 
 // Coordinates are attached before batching. XYZ is metres above the part's minimum;
@@ -33,7 +38,36 @@ const drip = sin(chart.x.mul(4.2).sub(chart.z.mul(2.6)))
 	.pow(8)
 	.mul(0.19);
 const dip = chart.w.sub(float(0.43).add(wave).sub(drip));
-const shadow = step(dot(normalWorld, vec3(-0.46, 0.78, 0.43)), 0.31);
+const sun = vec3(-LICHT[0], -LICHT[2], LICHT[1]).normalize();
+const shadow = step(dot(normalWorld, sun), 0.31);
+
+/** Detached 45 degree screen settings in radians and meters for the requested drawing distance. */
+export function halftoneScreen(close: boolean) {
+	const pitch = close ? 0.5 : 1.5;
+	return { angle: Math.PI / 4, pitch, radius: 0.36 * pitch };
+}
+
+/** Hard-edged dot mask on the supplied meter chart, where pitch is in meters. */
+export function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
+	const { angle, radius, pitch: reference } = halftoneScreen(false);
+	const c = Math.cos(angle);
+	const s = Math.sin(angle);
+	const screen = vec2(chart.x.mul(c).sub(chart.y.mul(s)), chart.x.mul(s).add(chart.y.mul(c)));
+	return step(screen.div(pitch).fract().sub(0.5).length(), radius / reference);
+}
+
+/** Ground uses world xz and vertical facades use the dominant horizontal axis and height. */
+export function faceHalftone(pitch: number | Node<'float'>) {
+	const p = positionWorld;
+	const horizontal = select(abs(normalWorld.x).greaterThan(abs(normalWorld.z)), p.z, p.x);
+	const chart = select(abs(normalWorld.y).greaterThan(0.65), p.xz, vec2(horizontal, p.y));
+	return shadow.mul(halftoneDots(chart, pitch));
+}
+
+/** The cast silhouette moves down-light by 35% of its nonnegative height in meters, capped at 6 m. */
+export function castOffset(height: number) {
+	return Math.min(0.35 * height, 6);
+}
 
 function coarseChips() {
 	// One candidate per 0.86 m cell. Its angular section spans 0.20–0.40 m.
@@ -51,7 +85,7 @@ function coarseChips() {
 }
 
 /** Builds an opaque sandbox print in the selected flow pigment. Close views resolve
- * aggregate and screen dots in metres. Distant views use the same cap with flat shadow ink. */
+ * aggregate, and both scales resolve the corresponding hard-edged shadow screen in meters. */
 export function printedFinish(
 	aggregate: boolean,
 	token: ColorToken,
@@ -61,6 +95,11 @@ export function printedFinish(
 	const ink = color(new Color(palette.ink)),
 		paper = color(new Color(palette.paper));
 	const pigment = color(tokenColor(palette, token));
+	const material = new MeshBasicNodeMaterial({ side: DoubleSide });
+	if (isPathInk(token)) {
+		material.colorNode = pigment;
+		return material;
+	}
 	const base = aggregate ? mix(paper, pigment, 0.58) : paper;
 	let result = base;
 	if (aggregate && close) {
@@ -70,13 +109,10 @@ export function printedFinish(
 		result = mix(paper, pigment, step(0, dip));
 		result = mix(result, ink, step(abs(dip), 0.009).mul(0.65));
 	}
-	let shading = shadow.mul(0.18);
-	if (close) {
-		const dotField = fract(plane.mul(12)).sub(0.5).length();
-		shading = shadow.mul(step(dotField, 0.22)).mul(0.55);
-	}
-	result = mix(result, ink, shading);
-	const material = new MeshBasicNodeMaterial({ side: DoubleSide });
+	const graphite = color(new Color(palette.ink3 ?? palette.ink));
+	const dotInk =
+		aggregate || token !== '--paper' ? mix(graphite, ink, aggregate ? 1 : step(0, dip)) : graphite;
+	result = mix(result, dotInk, faceHalftone(halftoneScreen(close).pitch));
 	material.colorNode = mix(result, ink, step(abs(normalView.z), 0.055).mul(0.76));
 	return material;
 }

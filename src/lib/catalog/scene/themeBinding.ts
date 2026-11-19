@@ -51,6 +51,7 @@ export function readPalette(host: HTMLElement): Palette3D {
 	const names = [
 		'paper',
 		'ink',
+		'ink-3',
 		'blueprint',
 		'blueprint-soft',
 		'signal',
@@ -64,6 +65,7 @@ export function readPalette(host: HTMLElement): Palette3D {
 	return {
 		paper: token('paper'),
 		ink: token('ink'),
+		ink3: token('ink-3'),
 		blueprint: token('blueprint'),
 		blueprintSoft: token('blueprint-soft'),
 		categories: {

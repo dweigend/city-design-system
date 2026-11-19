@@ -60,6 +60,7 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
 	};
+	const plainIds = new Set([...unoutlined].map((p) => p.id));
 	for (const original of primitives) {
 		if (hasFinish(original)) {
 			parts.finished.push(original);
@@ -68,7 +69,9 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		const part = collageCut(original);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
 		const layer = layerOf(part);
-		if (unoutlined.has(original) && layer === 'pods') parts.plainPods.push(body);
+		if (part.overprint)
+			parts[plainIds.has(part.id.split(':overprint:')[0]) ? 'plain' : 'regular'].push(body);
+		else if (unoutlined.has(original) && layer === 'pods') parts.plainPods.push(body);
 		else if (unoutlined.has(original) && !keepLayer.has(layer))
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
 		else parts[part === original ? layer : 'portals'].push(body);
