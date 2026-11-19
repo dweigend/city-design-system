@@ -1,3 +1,4 @@
+import { createCanvasHover } from './canvas-hover';
 import legacy from './fixtures/seed-7-pick-lots.json';
 import { reviewWorld } from './fixtures/review-world';
 import assert from 'node:assert/strict';
@@ -19,7 +20,7 @@ import { surfaceGeometry } from './terrain-geometry';
 if (process.env.HOUSE_RAY_PROBE === '1') await compareRays();
 else
 	test(
-		'brush rays agree with visible stock and open ground across views and zooms',
+		'brush rays follow visible stock across views and a stationary hover follows the roof swap',
 		{ timeout: 60000 },
 		() => {
 			const run = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
@@ -143,6 +144,23 @@ async function compareRays() {
 	}
 	regression.ground.geometry.dispose();
 	regression.ground.material.dispose();
+	const position = { x: 319.9165555261334, y: 483.6328020318175 };
+	const targets = new Map<World, THREE.Object3D[]>();
+	let displayed: THREE.Object3D[] = [];
+	let marked: string | undefined;
+	const hover = createCanvasHover(
+		{
+			show(world) {
+				const solids = targets.get(world);
+				assert.ok(solids);
+				displayed = solids;
+			},
+			pickCell: (x, y) => scene.select(x, y, displayed)
+		},
+		(id) => {
+			marked = id;
+		}
+	);
 	for (const world of [seed, { ...seed, roofBuilder }]) {
 		const town = await render(world);
 		for (const plan of [false, true])
@@ -150,8 +168,10 @@ async function compareRays() {
 		scene.view.setPlan(false);
 		scene.view.frameBox(scene.bounds, 1.1);
 		scene.view.zoomAt(0.11, 600.6063, 438.9481);
-		const x = 319.9165555261334,
-			y = 483.6328020318175;
+		const { x, y } = position;
+		targets.set(world, town.solids);
+		hover.show(world, 'all');
+		if (!world.roofBuilder) hover.move(position);
 		const ray = new THREE.Raycaster();
 		ray.params.Line.threshold = scene.view.metersPerPixel() / 2;
 		ray.setFromCamera(scene.view.ndc(x, y), scene.view.camera);
@@ -160,6 +180,14 @@ async function compareRays() {
 			hit.object.userData.cellId ?? cellAtPoint(world.grid, hit.point.x, -hit.point.z)?.id;
 		assert.equal(world.grid.cells[scene.select(x, y, town.solids) ?? -1]?.id, expected);
 		assert.equal(expected, world.roofBuilder ? '81/38' : '81/39');
+		assert.equal(marked, expected);
+		const clicked = hover.cellAt(x, y);
+		assert.ok(clicked);
+		assert.equal(clicked.id, marked);
+		const erased = applyEdit(world, { kind: 'clear', cellId: clicked.id });
+		assert.equal(erased.state.stacks.has(clicked.id), false);
+		const neighbor = expected === '81/38' ? '81/39' : '81/38';
+		assert.equal(erased.state.stacks.get(neighbor), world.state.stacks.get(neighbor));
 		town.dispose();
 	}
 	scene.ground.geometry.dispose();

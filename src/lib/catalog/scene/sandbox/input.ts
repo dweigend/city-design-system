@@ -18,7 +18,7 @@ export type InputHooks = {
 	strokeMove: (x: number, y: number) => void;
 	strokeEnd: () => void;
 	/** Called after every view change. */
-	viewChanged: () => void;
+	viewChanged: (position?: { x: number; y: number }) => void;
 };
 
 /** Attaches the listeners to a canvas. Returns the function that removes them again. */
@@ -51,6 +51,7 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		canvas.setPointerCapture(event.pointerId);
 		const position = local(event);
 		pointers.set(event.pointerId, position);
+		hooks.hover(position);
 		if (pointers.size === 2) {
 			endStroke();
 			mode = 'pinch';
@@ -66,14 +67,13 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		view.pan(dx / 2, dy / 2);
 		view.zoomAt(pinchDistance / Math.max(1, now.distance), now.x, now.y);
 		pinchDistance = now.distance;
-		hooks.viewChanged();
 	}
 
-	function moveView(dx: number, dy: number) {
+	function moveView(dx: number, dy: number, position: { x: number; y: number }) {
 		if (mode === 'pan') {
 			view.pan(dx, dy);
-			hooks.viewChanged();
 		} else if (mode === 'pinch') movePinch(dx, dy);
+		hooks.viewChanged(position);
 	}
 
 	function move(event: PointerEvent) {
@@ -84,7 +84,7 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		if (mode === 'draw') {
 			hooks.hover(position);
 			hooks.strokeMove(position.x, position.y);
-		} else moveView(position.x - previous.x, position.y - previous.y);
+		} else moveView(position.x - previous.x, position.y - previous.y, position);
 	}
 
 	function up(event: PointerEvent) {
@@ -97,7 +97,7 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		event.preventDefault();
 		const position = local(event);
 		view.zoomAt(Math.exp(event.deltaY * WHEEL_ZOOM), position.x, position.y);
-		hooks.viewChanged();
+		hooks.viewChanged(position);
 	}
 
 	function key(event: KeyboardEvent) {
