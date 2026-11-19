@@ -1,3 +1,4 @@
+import { publicLife } from './production/public-life';
 import { manifolds } from './production/manifolds';
 import { rooftops } from './production/rooftop';
 import { lanterns } from './production/lanterns';
@@ -180,5 +181,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...awnings,
 	...lanterns,
 	...rooftops,
-	...manifolds
+	...manifolds,
+	...publicLife
 ];
