@@ -1,3 +1,4 @@
+import { studioGround } from './studio-ground';
 import { studioShadow } from './studio-shadow';
 import { studioPipeline } from './studio-pipeline';
 import { createLight } from './sandbox/light';
@@ -61,7 +62,8 @@ export function createParametrikScene(
 	const pipeline = studioPipeline(renderer, scene, camera);
 	const light = createLight(pipeline.shadowSize, 4);
 	renderer.shadowMap.enabled = true;
-	scene.add(...light.objects);
+	const ground = studioGround();
+	scene.add(...light.objects, ground.floor);
 	const model = new THREE.Group();
 	scene.add(model);
 	let alive = true,
@@ -107,6 +109,8 @@ export function createParametrikScene(
 		model.clear();
 	}
 	function fit(reset = false, direction?: Vec3) {
+		const bounds = new THREE.Box3().setFromObject(model);
+		ground.frame(bounds);
 		if (moved && !reset) {
 			camera.left = (-camera.top * width) / height;
 			camera.right = -camera.left;
@@ -114,7 +118,6 @@ export function createParametrikScene(
 			render();
 			return;
 		}
-		const bounds = new THREE.Box3().setFromObject(model);
 		if (bounds.isEmpty() && !fixed) return;
 		const center = fixed ? vector(fixed.center) : bounds.getCenter(new THREE.Vector3());
 		light.aim(center, Math.max(3, bounds.getSize(new THREE.Vector3()).length()));
@@ -167,6 +170,7 @@ export function createParametrikScene(
 	}
 	let parent: THREE.Object3D = model;
 	const signal = new THREE.Color(sceneSwatch(palette, '--signal'));
+	const selection: GlazeContour = { ink: signal };
 	const groups = new Map<string, THREE.Group>();
 	const pickables: THREE.Mesh[] = [];
 	let offsets = new Map<string, Vec3>();
@@ -336,7 +340,9 @@ export function createParametrikScene(
 			const see = style.level === 'hull' || !!p.glass;
 			// Materialsystem (data/material.ts): only on opt-in or for the new material ids.
 			const look =
-				role === 'neu' && style.level !== 'hull' && usesMaterialSystem(p.material, style.materials)
+				(role === 'neu' || p.material === 'ghost') &&
+				style.level !== 'hull' &&
+				usesMaterialSystem(p.material, style.materials)
 					? (({ material, token }) => materialLook(material, token))(resolveMaterial(p))
 					: undefined;
 			const finish = style.level !== 'hull' && role === 'neu' ? p.finish : undefined;
@@ -438,8 +444,12 @@ export function createParametrikScene(
 				if (!finish && built.rulings)
 					segments(built.rulings, place, existing, built.edges === false ? 0.8 : 0.6);
 				// Glazed bodies use the shared screen-space silhouette.
-				if (hasGlazeContour(finish) && !see) {
-					const hull = silhouette(geometry, glazeContourMaterial(glazeContour));
+				const selected = !!finish && p.emphasis === 'auswahl';
+				if ((selected || hasGlazeContour(finish)) && !see) {
+					const hull = silhouette(
+						geometry,
+						glazeContourMaterial(selected ? selection : glazeContour)
+					);
 					hull.position.copy(place.position);
 					hull.rotation.copy(place.rotation);
 					parent.add(hull);
@@ -570,6 +580,7 @@ export function createParametrikScene(
 		},
 		/** Encodes one caller-owned drawing as a PNG before the stage can be reused. Eye is a world direction. */
 		async snapshotDrawing(drawing: THREE.Group, eye: Vec3): Promise<Blob> {
+			light.refresh();
 			model.add(drawing);
 			try {
 				fit(true, eye);
@@ -595,10 +606,12 @@ export function createParametrikScene(
 			alive = false;
 			clear();
 			glazeContour.material?.dispose();
+			selection.material?.dispose();
 			controls?.dispose();
 			for (const material of materials.values()) material.dispose();
 			materials.clear();
 			surfaces.dispose();
+			ground.dispose();
 			light.dispose();
 			pipeline.dispose();
 			if (initialized) await renderer.dispose();

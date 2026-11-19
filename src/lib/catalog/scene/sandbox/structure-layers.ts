@@ -58,6 +58,11 @@ function surfaceBody(part: Primitive): Primitive {
 	return part.envelope ? { ...part, role: 'neu', glass: false } : part;
 }
 
+function drawingLayer(part: Primitive) {
+	if (part.material === 'ghost') return 'ghosts';
+	if (part.role === 'bestand' || part.planned) return isStructural(part) ? 'carriers' : 'regular';
+}
+
 const keepLayer = new Set(['carriers', 'ghosts']);
 /** Selects each projected surface and applies the city-scale contour threshold before batching. */
 export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
@@ -80,9 +85,9 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 	};
 	const plainIds = new Set([...unoutlined].map((p) => p.id));
 	for (const original of primitives) {
-		if (original.role === 'bestand' || original.planned) {
-			if (isStructural(original)) parts.carriers.push(original);
-			else parts.regular.push({ ...original, role: 'bestand' });
+		const drawing = drawingLayer(original);
+		if (drawing) {
+			parts[drawing].push(drawing === 'regular' ? { ...original, role: 'bestand' } : original);
 			continue;
 		}
 		const finish = finishedSurface(original);

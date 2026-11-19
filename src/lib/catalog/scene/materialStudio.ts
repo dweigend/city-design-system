@@ -1,3 +1,4 @@
+import { studioGround } from './studio-ground';
 import { studioLights } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
 import type { Palette3D } from '../data/city3d';
@@ -9,8 +10,6 @@ const neutral = (r: number, g: number, b: number) =>
 
 const paper = neutral(0.979, 0.969, 0.945);
 const ink = neutral(0.23, 0.23, 0.22);
-const shadowColor = neutral(0.42, 0.39, 0.35);
-const SHADOW = 0.66;
 /** Key from the right, slightly behind the stage: the right face is lit, the left one in shade. */
 const keyFromRight = new THREE.Vector3(0.94, 1.12, -0.35);
 
@@ -44,17 +43,12 @@ export function createMaterialStudio(
 	key.shadow.normalBias = 0.02;
 	key.shadow.bias = -0.0002;
 	key.shadow.radius = 2;
-	const floor = new THREE.Mesh(
-		new THREE.PlaneGeometry(600, 600),
-		new THREE.ShadowNodeMaterial({ color: shadowColor, opacity: SHADOW, depthWrite: false })
-	);
-	floor.rotation.x = -Math.PI / 2;
-	floor.position.y = -0.006;
-	floor.receiveShadow = true;
-	scene.add(key, key.target, fill, floor);
+	const ground = studioGround();
+	scene.add(key, key.target, fill, ground.floor);
 	return {
 		/** Fit the shadow frustum to the model bounds in scene coordinates. */
 		frame(box: THREE.Box3) {
+			ground.frame(box);
 			const center = box.getCenter(new THREE.Vector3());
 			const extent = Math.max(box.getSize(new THREE.Vector3()).length() * 0.85, 2);
 			key.target.position.copy(center);
@@ -74,8 +68,7 @@ export function createMaterialStudio(
 		/** Release the studio's GPU resources. */
 		dispose() {
 			key.shadow.dispose();
-			floor.geometry.dispose();
-			floor.material.dispose();
+			ground.dispose();
 		}
 	};
 }
