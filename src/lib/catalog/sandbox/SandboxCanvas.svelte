@@ -144,6 +144,8 @@
 	$effect(() => {
 		if (session.gesture) return;
 		stage?.setPlan(plan);
+		const area = openingArea?.();
+		if (area) stage?.setOpeningArea(area);
 		hover?.refresh();
 	});
 	$effect(() => stage?.setTransitPaused(transitPaused));

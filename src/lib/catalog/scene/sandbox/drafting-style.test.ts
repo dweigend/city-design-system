@@ -75,7 +75,11 @@ async function loadStructureModules() {
 			configurable: true,
 			value: (value: unknown) => value
 		});
-	return Promise.all([import('./structure-materials'), import('./structure-parts')]).finally(() => {
+	return Promise.all([
+		import('./structure-materials'),
+		import('./structure-parts'),
+		import('./structures')
+	]).finally(() => {
 		if (shim) Reflect.deleteProperty(globalThis, '$state');
 	});
 }
@@ -96,6 +100,46 @@ test('the renderer applies role widths and switches both structural strokes', as
 		expect(materials.secondary.linewidth).toBe(STRICHE.bestand);
 	} finally {
 		finishes.dispose();
+	}
+});
+
+test('distance redraws update seated pick targets and preserve an active drop', async () => {
+	const [, , { createStructures }] = await loadStructureModules();
+	const structures = createStructures();
+	const part: Primitive = {
+		id: 'near-only-detail',
+		kind: 'box',
+		position: [0, 0, 0],
+		size: [3, 3, 3],
+		role: 'neu',
+		material: 'concrete',
+		token: '--cat-nature',
+		cityForm: false
+	};
+	const key = 'house:lod';
+	const variant = 'leitstil';
+	const style = (zoom: 'stadt' | 'nah') =>
+		sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal', thema: 'hell' }, variant);
+	try {
+		structures.set(key, [part], 0);
+		expect(structures.step(30, false)).toBe(true);
+		const offset = Math.max(...structures.group.children.map((batch) => batch.position.y));
+		expect(offset).toBeGreaterThan(0);
+		const near = structures.solids(key);
+		expect(near.length).toBeGreaterThan(0);
+		expect(near.every((target) => target.position.y === 0)).toBe(true);
+
+		structures.setStyle([style('stadt'), variant, 2.5], Math.PI / 2);
+		expect(structures.solids(key)).toEqual([]);
+		structures.setStyle([style('nah'), variant, 40], Math.PI / 2);
+		const returned = structures.solids(key);
+		expect(returned.length).toBe(near.length);
+		expect(returned[0]).not.toBe(near[0]);
+		expect(returned.every((target) => target.position.y === 0)).toBe(true);
+		expect(Math.max(...structures.group.children.map((batch) => batch.position.y))).toBe(offset);
+		expect(structures.step(1000, false)).toBe(false);
+	} finally {
+		structures.dispose();
 	}
 });
 

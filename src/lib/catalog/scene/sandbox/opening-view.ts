@@ -33,5 +33,7 @@ export function frameTownSilhouette(view: View, { grid, state }: World) {
 			points.push(new THREE.Vector3(x, cell.pad + stories.length * STORY, -y));
 		}
 	}
-	if (points.length) view.frameSilhouette(points);
+	if (!points.length) return false;
+	view.frameSilhouette(points);
+	return true;
 }

@@ -138,11 +138,13 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			elevationRad = (opening.mobileElevationDeg * Math.PI) / 180;
 			apply();
 			const middle = area ? (area.top + area.bottom) / 2 : height / 2;
-			pan(0, height / 2 - middle);
+			pan(0, middle - height / 2);
 			return true;
 		},
 		/** Centers the projected silhouette. Points are in three.js meters. */
 		frameSilhouette(points: THREE.Vector3[]) {
+			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
+			apply();
 			const bounds = new THREE.Box2();
 			const up = new THREE.Vector3().crossVectors(eye, right);
 			for (const point of points)

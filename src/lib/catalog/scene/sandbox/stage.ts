@@ -37,8 +37,6 @@ type StageOptions = {
 	frameTown?: boolean;
 	/** Seed the study additions belong to, if restricted to one terrain. */
 	additionSeed?: number;
-	/** Cell beside the opening intervention, on the frame seed. */
-	referenceCellId?: string;
 	/** Optional study window in world meters, from its low corner to its high corner. */
 	frame?: readonly [Vec3, Vec3];
 	/** Retain additions from these epochs in their full drafting treatment for comparison. */
@@ -108,6 +106,7 @@ export function createSandboxStage(
 	let shadowsDirty = true;
 	const flushShadows = () => (shadowsDirty = true);
 	let opening: World | undefined;
+	let framedArea: OpeningArea | undefined;
 
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
@@ -186,15 +185,21 @@ export function createSandboxStage(
 		return bounds;
 	}
 
-	function framePortrait(world?: World) {
-		return world && !planView && frameOldTown(view, world, study.openingArea?.());
+	function framePortrait(world: World, area = study.openingArea?.()) {
+		if (planView || !frameOldTown(view, world, area)) return false;
+		framedArea = area;
+		return true;
 	}
 
 	function frameTerrain(mesh: TerrainMesh) {
-		if (study.frame) view.frameBox(studyBounds(study.frame), OPENING_MARGIN);
-		else if (opening && framePortrait(opening)) return;
-		else if (opening && !view.isPortrait()) frameTownSilhouette(view, opening);
-		else view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
+		if (study.frame) return view.frameBox(studyBounds(study.frame), OPENING_MARGIN);
+		if (opening) {
+			const framed = view.isPortrait()
+				? framePortrait(opening)
+				: frameTownSilhouette(view, opening);
+			if (framed) return;
+		}
+		view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
 	}
 
 	function replaceTerrain(world: World) {
@@ -294,6 +299,12 @@ export function createSandboxStage(
 			opening = undefined;
 			invalidateView();
 		},
+		/** Re-centers the portrait opening once the HUD bounds are available. */
+		setOpeningArea(area: OpeningArea) {
+			if (!opening || study.frame) return;
+			if (framedArea?.top === area.top && framedArea.bottom === area.bottom) return;
+			if (framePortrait(opening, area)) invalidateView();
+		},
 		/**
 		 * Shows a world. A new seed starts over; otherwise only what differs from the world
 		 * shown before is drawn again.
@@ -328,10 +339,11 @@ export function createSandboxStage(
 		},
 		/** Axonometric view, or the plan seen from above. */
 		setPlan(plan: boolean) {
+			if (planView === plan) return;
 			planView = plan;
 			view.setPlan(plan);
 			terrain?.setGridVisible(Number(plan));
-			frameCurrent(!study.frameTown);
+			if (!plan || !study.frameTown) frameCurrent(!study.frameTown);
 			invalidateView();
 		},
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */

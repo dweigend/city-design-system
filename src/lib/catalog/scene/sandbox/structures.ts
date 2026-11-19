@@ -55,8 +55,7 @@ export function createStructures() {
 		previous: Entry | undefined,
 		startedMs?: number
 	): Entry {
-		if (startedMs === undefined)
-			return { primitives, objects: draw(primitives), moving: [] };
+		if (startedMs === undefined) return { primitives, objects: draw(primitives), moving: [] };
 		const { seated, groups } = placementGroups(key, primitives, previous?.primitives ?? []);
 		const objects = draw(seated);
 		const moving = groups.map((item) => ({

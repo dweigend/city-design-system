@@ -1,9 +1,8 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import * as THREE from 'three/webgpu';
-import { STORY } from '../../data/grid';
 import { applyEdit, openingScene, EMPTY_STATE, withState } from '../../logic/sandbox';
-import { frameOldTown } from './opening-view';
+import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { patchSurface, surfaceGeometry } from './terrain-geometry';
 import { seatedTargets } from './roof-pick';
 import { createTerrainPicker } from './terrain-pick';
@@ -12,37 +11,35 @@ import { createTerrainMesh } from './terrain-mesh';
 import { KEY, projectChanges } from './projection';
 import type { Primitive } from '../../logic/parametrik/types';
 
-const { world, referenceCellId } = openingScene(7);
+const { world } = openingScene(7);
 const view = createView();
+const openingArea = { top: 142, bottom: 680 };
 
-test('the portrait reference is one finger wide and starts high in the free canvas', () => {
+test('the playable town opens at 50 pixels per anchor parcel between the HUD edges', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world, referenceCellId);
-	const cell = world.grid.cellsById.get(referenceCellId ?? '');
+	expect(frameOldTown(view, world, openingArea)).toBe(true);
+	const cell = world.grid.cellsById.get('86/43');
 	if (!cell) throw new Error('Missing sample plot');
-	const points = cell.corners.map(view.project);
-	const xs = points.map(({ x }) => x);
-	const ys = points.map(({ y }) => y);
-	expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThanOrEqual(36);
-	expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(36);
-	const [x, y] = cell.center;
-	const roof = cell.pad + (world.state.stacks.get(cell.id)?.length ?? 0) * STORY;
-	expect(view.project([x, y, roof]).y).toBeLessThan(283);
+	const xs = cell.corners.map((corner) => view.project(corner).x);
+	expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(50);
+	const { x, y } = view.project(cell.center);
+	expect(x).toBeCloseTo(195);
+	expect(y).toBeCloseTo((openingArea.top + openingArea.bottom) / 2);
 });
 
-test('the portrait opening keeps the terrain rim outside the canvas', () => {
+test('the portrait opening keeps the terrain rim outside the playable area', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world, referenceCellId);
+	frameOldTown(view, world, openingArea);
 	const rim = world.grid.cells.filter(({ neighbors }) => neighbors.includes(null));
 	for (const { corners } of rim) {
 		for (const { x, y } of corners.map(view.project))
-			expect(x < 0 || x > 390 || y < 0 || y > 844).toBe(true);
+			expect(x < 0 || x > 390 || y < openingArea.top || y > openingArea.bottom).toBe(true);
 	}
 });
 
 test('the desktop opening retains half the width for the old town', () => {
 	view.resize(1440, 900);
-	frameOldTown(view, world, referenceCellId);
+	expect(frameTownSilhouette(view, world)).toBe(true);
 	const town = [...world.state.stacks.keys()]
 		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
 		.map(view.project);
@@ -52,7 +49,7 @@ test('the desktop opening retains half the width for the old town', () => {
 
 test('chunk picking selects the same terrain cell as the rendered triangles on phone', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world, referenceCellId);
+	frameOldTown(view, world, openingArea);
 	const picker = createTerrainPicker();
 	picker.setGrid(world.grid);
 	const geometry = surfaceGeometry(world.grid);
@@ -74,7 +71,7 @@ test('chunk picking selects the same terrain cell as the rendered triangles on p
 
 test('panning follows a 30 × 45 pixel finger displacement and zoom keeps the anchor', () => {
 	view.resize(390, 844);
-	frameOldTown(view, world, referenceCellId);
+	frameOldTown(view, world, openingArea);
 	const pointer = view.target.clone();
 	const point: [number, number, number] = [pointer.x, -pointer.z, pointer.y];
 	const before = view.project(point);

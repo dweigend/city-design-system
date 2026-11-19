@@ -19,7 +19,7 @@ import {
  * of logic/sandbox.
  */
 export function createSession(initialSeed: number, generationYears = sandboxGenerationYears) {
-	const { world: startingWorld, additions, referenceCellId } = openingScene(initialSeed);
+	const { world: startingWorld, additions } = openingScene(initialSeed);
 	const actions = createSessionActions(startingWorld, generationYears, (next) => (state = next));
 	let state = $state.raw(actions.snapshot());
 	const world = $derived(state.world);
@@ -44,7 +44,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			return completion;
 		},
 		onCompletion: actions.onCompletion,
-		opening: { additions, additionSeed: initialSeed, referenceCellId },
+		opening: { additions, additionSeed: initialSeed },
 		get timelineWindow() {
 			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
 		},
