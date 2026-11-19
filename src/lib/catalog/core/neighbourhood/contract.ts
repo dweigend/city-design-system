@@ -27,6 +27,8 @@ export type Policy = Readonly<{
 	city?: Weights;
 	districts?: Readonly<Record<string, Weights>>;
 	preferences?: DistrictPreferences;
+    revision?: Pick<PreferenceSnapshot, 'snapshotRevision' | 'profileRevision'>;
+    preferenceSnapshot?: PreferenceSnapshot;
 }>;
 
 export const neighbourhoodParams = defineParams({
@@ -74,11 +76,17 @@ export function compile(policy: Policy, options?: Options) {
 			([id, values]) => [id, weights(values, vocabulary)] as const
 		)
 	);
-	for (const [id, preference] of Object.entries(policy.preferences ?? {})) {
+	const revision = policy.revision;
+    const published = policy.preferenceSnapshot;
+    const matches = revision && published && revision.snapshotRevision === published.snapshotRevision && revision.profileRevision === published.profileRevision;
+    const preferences = revision || published ? (matches ? published.preferences : {}) : policy.preferences ?? {};
+    const preferredDistricts = new Set(Object.keys(preferences));
+    const status = !published ? 'missing' : matches ? 'current' : 'stale';
+    for (const [id, preference] of Object.entries(preferences)) {
 		const district = districts.get(id) ?? new Map<string, number>();
 		for (const [form, factor] of weights(preference.formMultipliers, vocabulary)) {
 			if (factor <= 0) throw new RangeError('Expected a positive preference');
-			district.set(form, (district.get(form) ?? 1) * factor);
+			district.set(form, Math.min(1e6, (district.get(form) ?? 1) * factor));
 		}
 		districts.set(id, district);
 	}
@@ -86,7 +94,8 @@ export function compile(policy: Policy, options?: Options) {
 	return {
 		...resolveParams(neighbourhoodParams, options),
 		forms,
-		vocabulary,
+        preferenceStatus: (id:string) => status === 'current' && !preferredDistricts.has(id) ? 'missing' as const : status,
+        vocabulary,
 		accepts,
 		sources,
 		city: weights(policy.city ?? {}, vocabulary),
@@ -99,7 +108,8 @@ export type Veto =
 	| { form: string; reason: 'city' | 'district' | 'growth-source' }
 	| { form: string; reason: 'contact'; neighbour: string };
 export type Decision = Readonly<{
-	target: string;
+	preferenceStatus?: 'missing'|'current'|'stale';
+ target: string;
 	reason: 'stock' | 'budget' | 'empty-domain' | 'intent' | 'weighted' | 'conflict';
 	vetoes: readonly Veto[];
 	evaluated: number;

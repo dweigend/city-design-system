@@ -40,7 +40,7 @@ export function defineRules(policy: Policy, options?: Options) {
 		/** Returns one decision with its candidate vetoes, evaluating the same halo as solve. */
 		explain(id: string, state: Snapshot, seed: number): Decision {
 			const [decision] = decisions([id], state, rules, seed).values();
-			return decision;
+			return { ...decision, preferenceStatus: rules.preferenceStatus(state.get(id)?.district ?? '') };
 		},
 		/** Advances one synchronous step and returns sparse replacements. Unchanged records stay owned by the caller. */
 		tick(ids: Iterable<string>, state: Snapshot, seed: number) {
