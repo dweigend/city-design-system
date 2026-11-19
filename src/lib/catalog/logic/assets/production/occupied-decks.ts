@@ -1,6 +1,7 @@
 import { cap } from '../parts';
 import { panel } from '../objects/forms';
-import { actionFigure, clay } from './activities/action-figure';
+import { suggestions } from '../objects/suggestions';
+import { actionFigure } from './activities/action-figure';
 import type { ObjectGeometry } from '../object-geometry';
 import { series } from './series';
 
@@ -106,7 +107,7 @@ function scene(place: Place) {
 	if (place === 'market' || place === 'work') {
 		return recipes.map((recipe) => ({
 			...recipe,
-			suggestions: { ...recipe.suggestions, slats: clay }
+			suggestions: { ...recipe.suggestions, frame: suggestions.slats }
 		}));
 	}
 	return recipes;

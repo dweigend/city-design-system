@@ -1,4 +1,5 @@
 import { clay, actionFigure } from './activities/action-figure';
+import { suggestions } from '../objects/suggestions';
 import { pipe, shell } from '../assembly';
 import { panel } from '../objects/forms';
 import { cap, drum, ring } from '../parts';
@@ -134,7 +135,7 @@ export const promenade = [
 					const x = ((i + 0.5) / n - 0.5) * w,
 						r = Math.min(0.29, (w / n) * 0.27);
 					return [
-						...[-1, 1].map((s) => drum([x, s * 0.92, 0], r, 0.43, 'body')),
+						...[-1, 1].map((s) => drum([x, s * 0.92, 0], r, 0.43, 'foot')),
 						...chessPlayers(x, i)
 					];
 				}).flat()
@@ -142,7 +143,7 @@ export const promenade = [
 		}
 	).map((recipe) => ({
 		...recipe,
-		suggestions: { ...recipe.suggestions, body: clay, slats: clay }
+		suggestions: { ...recipe.suggestions, body: clay, foot: suggestions.slats }
 	})),
 	...furniture(
 		'rain-pocket-seat',
