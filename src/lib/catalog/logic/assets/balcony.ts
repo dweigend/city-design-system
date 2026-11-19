@@ -1,5 +1,5 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, rod } from './parts';
+import { panel } from './objects/forms';
 
 export const balcony: AssetRecipe = {
 	id: 'balcony',
@@ -9,26 +9,27 @@ export const balcony: AssetRecipe = {
 	footprint: [1.85, 4.8],
 	anchors: [mount('facade')],
 	draw(variant, sample) {
-		const d = [0.42, 1.45, 1.74][variant],
-			w = [2.2, 4.6, 3.3][variant],
-			h = 1.15 + 0.05 * sample;
-		const parts = [slab([0, -w / 2, 0], [d, w, 0.16])];
-		for (const y of [-w / 2 + 0.06, w / 2 - 0.06]) {
-			parts.push(
-				rod([0.04, y, h], [d - 0.05, y, h], 0.07),
-				rod([d - 0.05, y, 0.16], [d - 0.05, y, h], 0.065)
-			);
-		}
-		parts.push(rod([d - 0.05, -w / 2 + 0.06, h], [d - 0.05, w / 2 - 0.06, h], 0.065));
-		for (let i = 1; i < variant + 3; i++)
-			parts.push(
-				rod(
-					[d - 0.05, -w / 2 + (i * w) / (variant + 3), 0.16],
-					[d - 0.05, -w / 2 + (i * w) / (variant + 3), h],
-					0.06
+		const depth = [0.42, 1.45, 1.74][variant],
+			width = [2.2, 4.6, 3.3][variant],
+			height = 0.84 + 0.06 * sample;
+		const face = depth - 0.12;
+		const parts = [
+			panel(depth / 2, 0, 0, depth, width, 0.24, 'body'),
+			panel(face, 0, 0.24, 0.24, width, height, 'body'),
+			panel(face, 0, height + 0.24, 0.24, width, 0.12, 'trim'),
+			...[-1, 1].map((side) =>
+				panel(
+					(depth - 0.21) / 2,
+					side * (width / 2 - 0.11),
+					0.24,
+					depth - 0.21,
+					0.22,
+					height,
+					'body'
 				)
-			);
-		if (variant === 2) parts.push(slab([0.16, -w / 2 + 0.12, 0.16], [0.55, 1.4, 0.35], 'trim'));
+			)
+		];
+		if (variant === 2) parts.push(panel(0.46, -width / 4, 0.24, 0.68, 1.32, 0.43, 'trim'));
 		return parts;
 	}
 };

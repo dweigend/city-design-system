@@ -1,11 +1,11 @@
 import { family, block, legs, row, plate, circle } from './assembly';
-import { drum, bulb } from './parts';
+import { drum } from './parts';
+import { panel } from './objects/forms';
+import { castPlinth } from './production/cast-panel';
+import { treeCrown } from './production/tree-crown';
 const asset = family('structure', 'deck');
 export const platforms = [
-	asset('floor-plate', ['body'], [8, 6], (factor, variant) => [
-		block(0, 0, 0, 7.8, 5.8, 0.48 * factor),
-		...row(4 + variant, (t) => block(t * 2.9, 0, 0.48 * factor, 0.15, 5.8, 0.055))
-	]),
+	asset('floor-plate', ['body'], [8, 6], (factor) => [castPlinth(7.8, 5.8, 0.7 * factor, 'body')]),
 	asset('stilt-table', ['body'], [8, 6], (factor) => [
 		...legs(3.4, 2.4, 4.8 * factor),
 		block(0, 0, 4.8 * factor, 7.8, 5.8, 0.35)
@@ -18,10 +18,19 @@ export const platforms = [
 		drum([0, 0, 1.5 * factor], 3.4, 0.35)
 	]),
 	asset('orchard-deck', ['body', 'planting'], [8, 6], (factor, variant) => [
-		block(0, 0, 0, 7.8, 5.8, 0.36),
-		...row(2 + variant, (t) => block(t * 2.55, 0, 0.36, 1.45, 4.8, 0.45, 'planting')),
-		...row(2 + variant, (t) => drum([t * 2.55, 0, 0.81], 0.14, 1.7 * factor)),
-		...row(2 + variant, (t) => bulb([t * 2.55, 0, 0.81 + 1.7 * factor], 0.74, 0.85, 'planting'))
+		castPlinth(7.8, 5.8, 0.44, 'body'),
+		panel(0, 0, 0.44, 7.32, 5.32, 0.22, 'planting'),
+		...Array.from({ length: 2 + variant }, (_, i) => {
+			const x = -2.34 + (4.68 * i) / (1 + variant);
+			return treeCrown(
+				'blocks',
+				[x, i % 2 ? 1.04 : -1.04, 0.66],
+				1.08 + 0.3 * factor,
+				variant,
+				i * 0.23,
+				'body'
+			);
+		}).flat()
 	]),
 	asset('fork-deck', ['deck'], [8, 6], (factor) => [
 		plate(
