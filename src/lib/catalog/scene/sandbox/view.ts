@@ -151,7 +151,10 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
 			const center = bounds.getCenter(new THREE.Vector2());
 			target.set(0, 0, 0).addScaledVector(right, center.x).addScaledVector(up, center.y);
-			const fit = ((bounds.max.x - bounds.min.x) * height) / (width * 0.74);
+			const fit = Math.max(
+				((bounds.max.x - bounds.min.x) * height) / (width * 0.74),
+				(bounds.max.y - bounds.min.y) / 0.84
+			);
 			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			apply();
 		},

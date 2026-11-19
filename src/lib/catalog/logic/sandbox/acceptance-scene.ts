@@ -1,3 +1,4 @@
+import { openCity } from './city-opening';
 import { TWO_SUNS_CELLS, twoSuns } from './two-suns';
 import { advanceFrames } from './frame-construction';
 import { planTownForms } from '../town-forms';
@@ -155,10 +156,14 @@ export function acceptanceScene(seed = SEED) {
 	};
 }
 
-/** Editable seed-7 opening: the drafting study's interventions on the stock town. */
+/** Opens the generated city. Seed 7 also retains the drafting study’s authored interventions. */
 export function openingScene(seed: number) {
 	const start = createWorld(seed);
-	if (seed !== SEED) return { world: start, additions: [], referenceCellId: undefined };
+	if (seed !== SEED) return { world: openCity(start), additions: [], referenceCellId: undefined };
 	const world = interventions(start).reduce(applyEdit, start);
-	return { world, additions: elevatedWalkway(world), referenceCellId: OPENING_CELL };
+	return {
+		world: openCity(world, [...WALKWAY, ...TWO_SUNS_CELLS, ...TUBE]),
+		additions: elevatedWalkway(world),
+		referenceCellId: OPENING_CELL
+	};
 }
