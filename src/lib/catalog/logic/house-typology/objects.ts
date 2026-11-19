@@ -12,19 +12,19 @@ const crowns: Record<Typology, ObjectSpec> = {
 	'lattice-head': ['kit-crown-greenhouse-3p75m', 'low', 'dome'],
 	'courtyard-house': ['green-roof', 'meadow-islands', 'grove'],
 	'terrace-house': ['kit-crown-greenhouse-3p75m', 'low', 'dome'],
-	'plinth-house': ['kit-crown-pergola-3p75m', 'low', 'workshop'],
+	'plinth-house': ['kit-crown-pergola-3p75m', 'tall', 'workshop'],
 	'cluster-mast': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
 	rack: ['shed-cap', 'compact', 'workshop'],
 	'bridge-house': ['garden-loggia', 'extended', 'grove'],
 	'bell-house': ['glass-bell', 'cloche', 'dome'],
 	'twin-stack': ['ridge-lantern', 'extended', 'lantern'],
-	'slab-house': ['shed-cap', 'compact', 'workshop'],
+	'slab-house': ['kit-crown-greenhouse-5m', 'low', 'dome'],
 	'water-house': ['water-tower', 'elevated-bowl', 'reservoir'],
 	'tree-house': ['grove-island', 'extended', 'grove']
 };
 export function crownSpec(type: Typology, small = false): ObjectSpec {
 	if (!small) return crowns[type];
-	if (type === 'water-house') return ['wall-cistern', 'compact', 'reservoir'];
+	if (type === 'water-house') return ['kit-crown-tank-3p75m', 'tall', 'reservoir'];
 	if (type === 'bell-house') return ['glass-bell', 'cloche', 'dome'];
 	if (type === 'plinth-house') return ['cowl-vent', 'compact', 'chimney'];
 	return ['ring-beacon', 'compact', 'lantern'];
@@ -50,6 +50,7 @@ const infill: Partial<Record<Typology, ObjectSpec>> = {
 };
 /** Selects the native body before the fitter chooses a module size and count. */
 export function bodySpec(type: Typology, use: HouseSlot['use'], level: number): ObjectSpec {
+	if (type === 'water-house' && level === 0) return ['kit-cistern-plinth-5m', 'heavy', 'reservoir'];
 	if (use === 'living') return bodiesByUse.living;
 	return (level === 0 ? baseStock[type] : undefined) ?? infill[type] ?? bodiesByUse[use];
 }

@@ -48,6 +48,7 @@ export function planHouse(site: HouseSite): Section {
 		return section;
 	}
 	const axis = stairAxis(section, rear, sign);
+	if (!axis) composition.signature.stair = 'ladder';
 	if (axis) {
 		section.stairAxis = axis;
 		section.compact = false;

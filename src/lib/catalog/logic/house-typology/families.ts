@@ -44,7 +44,7 @@ const suitability: Record<Typology, (factors: Suitability) => number> = {
 	rack: ({ uses, n }) => (n >= 2 || uses.size > 1 ? 9 : 1),
 	'bridge-house': ({ site, n, living, h }) =>
 		site.elongated && n <= 3 && !living && h <= 3 ? 12 : 0,
-	'bell-house': ({ green, living }) => (green ? 13 : living ? 0 : 2),
+	'bell-house': ({ green, living, h }) => (h > 12 ? 0 : green ? 13 : living ? 0 : 2),
 	'twin-stack': ({ living, n }) => (living && n >= 2 ? 8 : 0),
 	'slab-house': ({ site, living }) => (living && site.elongated ? 10 : 1),
 	'water-house': ({ uses }) => (uses.has('water') ? 12 : 0),

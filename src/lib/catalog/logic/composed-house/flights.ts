@@ -11,8 +11,19 @@ const { going, rise, width } = houseStair;
 
 function flightEdge(s: Section, sign: number) {
 	const bay = s.composition.bay;
-	if (s.typology === 'cluster-mast') return bay.y + sign * Math.min(4.6, bay.depth / 2 - 2 * width);
-	return roofLanding(s)[1] + sign * 0.04;
+	if (s.typology === 'cluster-mast') {
+		const edges = s.composition.levels.flatMap((l) =>
+			l.bodies.map(
+				(b) =>
+					sign * b.position[1] +
+					(Math.abs(Math.sin(b.rotation)) * b.size[0] +
+						Math.abs(Math.cos(b.rotation)) * b.size[1]) /
+						2
+			)
+		);
+		return sign * Math.min(sign * bay.y + bay.depth / 2 - 2 * width, Math.max(...edges) + 0.01);
+	}
+	return roofLanding(s)[1];
 }
 function stations(s: Section) {
 	const { x, width: bayWidth } = s.composition.bay;
@@ -96,7 +107,18 @@ function roofBypass(s: Section, station: Vec3, door: Vec3): Vec3[] {
 			(Math.abs(Math.cos(b.rotation)) * b.size[0] + Math.abs(Math.sin(b.rotation)) * b.size[1]) / 2;
 	const flank =
 		b.position[0] + (station[0] < b.position[0] ? -1 : 1) * (halfWidth + width / 2 + 0.02);
-	return [station, [flank, station[1], door[2]], [flank, door[1], door[2]], door];
+	const dy = door[1] - b.position[1],
+		halfDepth =
+			(Math.abs(Math.sin(b.rotation)) * b.size[0] + Math.abs(Math.cos(b.rotation)) * b.size[1]) / 2;
+	const cross =
+		b.position[1] + Math.sign(dy) * Math.max(Math.abs(dy), halfDepth + width / 2 + 0.02);
+	return [
+		station,
+		[flank, station[1], door[2]],
+		[flank, cross, door[2]],
+		[door[0], cross, door[2]],
+		door
+	];
 }
 /** Instantiates rigid straight treads and level connections to each landing. */
 export function flightAccess(s: Section, surfaces: HouseSurfaces) {

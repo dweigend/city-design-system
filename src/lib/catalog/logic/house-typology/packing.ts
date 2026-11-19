@@ -25,7 +25,7 @@ const envelopes: Record<Typology, Envelope> = {
 	'bridge-house': bar,
 	'bell-house': (w, d, i) => (i ? bay(w, d) : bay(Math.min(3.75, w), Math.min(3.75, d))),
 	'twin-stack': (w, d) => bay(w, Math.min(d, 6.25)),
-	'slab-house': (w, d, i) => bay(w * 0.75, Math.min(d, 5), (-1) ** i),
+	'slab-house': (w, d, i) => bay(w * (i ? 0.92 : 0.4), Math.min(d, 5.9), (-1) ** i),
 	'water-house': (w, d, i) => (i ? bay(w, Math.min(d, 3.75)) : bay(w, d)),
 	'tree-house': (w, d, i) => bay(Math.min(w, 7.5), Math.min(d, 5), [-1, 1, 0][i % 3])
 };
@@ -82,7 +82,7 @@ export function packedBodies(plan: Plan, i: number, first: Body, z: number) {
 	const w = Math.max(2.5, Math.min(width, shape.width)),
 		d = Math.max(2.5, Math.min(depth, shape.depth));
 	const twin = plan.type === 'twin-stack';
-	const single = plan.type === 'capsule-stack';
+	const single = plan.type === 'capsule-stack' || (plan.type === 'water-house' && i > 0);
 	const paired = twin || plan.type === 'rack';
 	const slotWidth = paired ? w * (twin ? 0.42 : 0.5) : w;
 	const body =

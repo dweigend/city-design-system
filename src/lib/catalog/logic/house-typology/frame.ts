@@ -2,7 +2,7 @@ import type { Body, Level, Point, Solid, Plan } from './types';
 import { shaftCourses } from './shafts';
 import { consolePlate } from './console';
 import { hasFloor } from './courses';
-import { brace } from './brace';
+import { braceBays } from './brace';
 import { STORY } from '../../data/grid';
 import { solid, worldSize, mounted } from './objects';
 const volume = ([w, d, h]: Point) => w * d * h;
@@ -57,12 +57,13 @@ function courtPlate(l: Level, plate: Solid): Solid {
 			z: l.position[2] - plate.size[2],
 			height: plate.size[2]
 		};
-	if (l.well)
+	const opening = l.well ?? l.void;
+	if (opening)
 		return {
 			...plate,
 			kind: 'prism',
 			polygon: l.outline.map(([x, y]) => [x, y]),
-			holes: [l.well.map(([x, y]) => [x, y])],
+			holes: [opening.map(([x, y]) => [x, y])],
 			z: l.position[2] - plate.size[2],
 			height: plate.size[2]
 		};
@@ -88,6 +89,10 @@ function courtPlate(l: Level, plate: Solid): Solid {
 		]
 	};
 }
+function inOpening(opening: Point[], x: number, y: number) {
+	const [a, , b] = opening;
+	return x >= a[0] - 0.15 && x <= b[0] + 0.15 && y >= a[1] - 0.15 && y <= b[1] + 0.15;
+}
 function frontBearings(
 	plan: Plan,
 	id: string,
@@ -108,7 +113,10 @@ function frontBearings(
 	const edge = (d: Level) => d.position[1] - plan.sign * (d.depth / 2 - 0.15);
 	const y = edge(prev ?? l);
 	if (Math.abs(y - l.position[1]) + plan.bar / 2 > l.depth / 2 + 1e-9) return [];
-	return bearings(plan, id + '/front', bottom, top, stations, y);
+	const seated = stations.filter((x) =>
+		[l, prev].every((level) => !level?.void || !inOpening(level.void, x, y))
+	);
+	return bearings(plan, id + '/front', bottom, top, seated, y);
 }
 function tierBearings(
 	plan: Plan,
@@ -127,7 +135,7 @@ function tierBearings(
 		: below === plan.site.ground;
 	if (full && base) members.push(...frontBearings(plan, id, l, prev, below, top, stations));
 	if (plan.datum + plan.site.programme.length * STORY - plan.site.ground >= 8)
-		members.push(brace(plan, id + '/brace', stations, below, top, i % 2 === 1));
+		members.push(...braceBays(plan, id + '/brace', stations, below, top, i % 2 === 1));
 	return members;
 }
 function sockets(l: Level, z: number, ground: number) {

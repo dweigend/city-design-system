@@ -36,7 +36,13 @@ function roof(
 	spec: ReturnType<typeof crownSpec>
 ) {
 	const { site, seed, rear } = plan;
-	const crown = objectSlot(site.id + '/crown', spec, 'energy', seed, 0);
+	const crown = objectSlot(
+		site.id + '/crown',
+		spec,
+		plan.type === 'water-house' ? 'water' : 'energy',
+		seed,
+		0
+	);
 	const [w, d] = crown.size,
 		x = (stations[0] + stations[stations.length - 1]) / 2,
 		y = rear - (plan.sign * d) / 2;
@@ -64,7 +70,7 @@ function roof(
 		[x, rear - plan.sign * (plan.type === 'slab-house' ? 0.3 : 0.15), walkZ - 0.12],
 		[
 			stations[stations.length - 1] - stations[0] + plan.bar,
-			plan.type === 'slab-house' ? 0.6 : 0.24,
+			plan.type === 'slab-house' ? 0.6 : 0.3,
 			0.12
 		],
 		site.ground,
@@ -79,6 +85,9 @@ function roof(
 		parts: [
 			...bearings(plan, site.id + '/walk', below, walkZ - 0.12, stations),
 			walk,
+			...(site.programme.length > 8
+				? [brace(plan, site.id + '/walk/brace', stations, below, walkZ - 0.12, true)]
+				: []),
 			...bearings(plan, site.id + '/roof', walkZ, z - 0.25, stations),
 			...braces,
 			deck,
@@ -129,7 +138,11 @@ export function assemble(
 						: plan.site.depth - plan.site.accessDepth) &&
 				(role === 'high' || top + crown.size[2] <= skyline)
 		);
-	roofs.push(roof(plan, below, top, stations, ['charge-post', 'compact', 'lantern']));
+	const fallback =
+		plan.type === 'water-house'
+			? (['kit-crown-tank-2p5m', 'low', 'reservoir'] as const)
+			: (['charge-post', 'compact', 'lantern'] as const);
+	roofs.push(roof(plan, below, top, stations, fallback));
 	const bodies = levels.flatMap((l) => l.bodies).reduce((s, b) => s + volume(b.size), 0);
 	const outlets = tankOutlet(plan, levels);
 	const fittings = outlets.map((o) => o.slot);

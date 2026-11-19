@@ -14,7 +14,9 @@ export function branchLevel(plan: Plan, i: number, use: HouseUse): Level {
 			[0, 1],
 			[-1, 0]
 		][arm];
-	const z = plan.datum + (n - 1) * STORY - ((Math.min(n, 3) - 1 - arm) * STORY) / 2;
+	const branches = Math.min(n, 3);
+	const spacing = 2 * Math.floor((n - 1) / 4) + 1;
+	const z = plan.datum + (n - 1) * STORY - ((branches - 1 - arm) * spacing * STORY) / 2;
 	const reach = Math.min(4.25, (u ? site.width : site.depth) / 2 - 1.6);
 	const at = (r: number, s: number, height = z): Point => [
 		cx + u * r - v * s,

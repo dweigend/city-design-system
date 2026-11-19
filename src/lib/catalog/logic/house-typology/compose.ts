@@ -1,3 +1,4 @@
+import { silhouette } from './signature';
 import { housePath } from './routes';
 import { layout } from './layout';
 import { assemble } from './assembly';
@@ -16,13 +17,25 @@ const spread: Partial<Record<Plan['type'], number>> = {
 	'twin-stack': 0.58,
 	'lattice-head': 0.6
 };
+function commonAxis(levels: Level[]) {
+	const left = Math.max(...levels.map((l) => l.position[0] - l.width / 2));
+	const right = Math.min(...levels.map((l) => l.position[0] + l.width / 2));
+	return (left + right) / 2;
+}
 function bearingAxes(plan: Plan, levels: Level[]) {
-	const x =
-		plan.type === 'terrace-house' ? levels[levels.length - 1].position[0] : plan.site.center[0];
+	const x = plan.type === 'terrace-house' ? commonAxis(levels) : plan.site.center[0];
 	const free = Math.min(...levels.map((l) => l.width / 2 - Math.abs(l.position[0] - x) - plan.bar));
 	const target = spread[plan.type];
 	const mast = plan.type === 'cluster-mast' && !plan.site.compact;
-	const arm = target ? Math.max(0.35, free * target) : mast ? 0.3 : 0.625;
+	const arm =
+		plan.site.programme.length > 8 &&
+		!['portal-house', 'bridge-house', 'twin-stack', 'slab-house'].includes(plan.type)
+			? Math.max(0.4, Math.min(0.8, free))
+			: target
+				? Math.max(0.35, free * target)
+				: mast
+					? 0.3
+					: 0.625;
 	return [x - arm, x + arm];
 }
 function bridgePorts(levels: Level[]): Port[] {
@@ -66,13 +79,15 @@ export function composeHouse(
 	if (levels[0].court) plan.rear = levels[0].landing[1];
 	const stations = bearingAxes(plan, levels);
 	const { parts, crown, fittings } = assemble(plan, levels, role, stations, context.skyline);
+	const path = housePath(type, site.compact && context.houses.size === 1);
 	const supports = parts.filter((p) =>
 		['foot', 'shaft', 'head', 'brace', 'beam'].includes(p.joint)
 	);
 	return {
 		id: site.id,
 		compact: site.compact,
-		path: housePath(type, site.compact && context.houses.size === 1),
+		path,
+		signature: silhouette(type, path, site.compact, site.programme.length > 8),
 		bay: { x: site.center[0], y: site.center[1], width: site.width, depth: site.depth },
 		start: site.start,
 		stories: site.programme.length,

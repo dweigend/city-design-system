@@ -33,7 +33,7 @@ const courses: Record<Typology, { occupied: Course; floor: Course }> = {
 	'bell-house': { occupied: ends, floor: last },
 	'twin-stack': { occupied: every, floor: ends },
 	'slab-house': { occupied: every, floor: none },
-	'water-house': { occupied: sparse(3), floor: first },
+	'water-house': { occupied: (i, n) => ends(i, n) || (n > 8 && i % 4 === 0), floor: first },
 	'tree-house': { occupied: (i, n) => i >= n - 3, floor: every }
 };
 

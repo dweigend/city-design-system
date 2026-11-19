@@ -19,12 +19,12 @@ export function members(
 	if (!asset) throw new RangeError('Unknown house stock ' + id);
 	const finish = use ? surfaces[use] : surfaces.frame;
 	const roles = {
-		frame: id === 'kit-crown-lantern-2p5m' && use ? surfaces[use] : surfaces.frame,
+		frame: finish,
 		body: finish,
 		shell: use ? finish : surfaces.shell,
 		glass: surfaces.pane,
 		planting: finish,
-		deck: surfaces.deck,
+		deck: use ? finish : surfaces.deck,
 		accent: surfaces[use ?? 'frame'],
 		channel: surfaces[use ?? 'water'],
 		highlight: surfaces[use ?? 'frame']

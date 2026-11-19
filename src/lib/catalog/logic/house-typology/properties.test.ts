@@ -108,7 +108,16 @@ test('mass, deck coverage, joints and finite coordinates across painted sites', 
 		failures = new Map<string, string>();
 	let cases = 0;
 	for (const [seed, n, h, district, mix] of paintedSites()) {
-		const result = composeHouse(site(seed, n, h, district, mix));
+		const input = site(seed, n, h, district, mix);
+		let result: HouseComposition;
+		try {
+			result = composeHouse(input);
+		} catch (error) {
+			const type = [...planEnsemble([input]).houses.values()][0].typology;
+			if (!failures.has(type))
+				failures.set(type, [seed, n, h, district, mix, String(error)].join(' '));
+			continue;
+		}
 		const error = audit(result);
 		if (error && !failures.has(result.typology))
 			failures.set(result.typology, [seed, n, h, district, mix, error].join(' '));
@@ -117,6 +126,7 @@ test('mass, deck coverage, joints and finite coordinates across painted sites', 
 	}
 	console.info('Surveyed houses', cases, Object.fromEntries([...counts].sort()));
 	expect(Object.fromEntries(failures)).toEqual({});
+	expect(cases).toBe(25920);
 	expect([...counts.keys()].sort()).toEqual([...typologies].sort());
 }, 180000);
 test('128 ensembles retain their roles, palette and direct level spans under input permutation', () => {

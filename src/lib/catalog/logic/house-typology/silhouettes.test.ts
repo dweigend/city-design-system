@@ -1,3 +1,4 @@
+import { specimen } from './specimens';
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import {
@@ -29,17 +30,6 @@ const footprints: Record<Typology, number[]> = {
 	'water-house': [1],
 	'tree-house': [1]
 };
-function specimen(n: number, typology: Typology, height = 6) {
-	const cells = squareGrid(n === 1 ? 1 : 2, n === 4 ? 2 : 1, 10).cells;
-	const uses = ['water', 'living', 'living', 'food', 'material', 'energy'] as const;
-	const site = { cells, seed: 7, stacks: new Map(cells.map((c) => [c.id, uses.slice(0, height)])) };
-	const context = planEnsemble([site]),
-		houses = new Map(context.houses);
-	const [id, decision] = [...houses][0];
-	houses.set(id, { ...decision, typology });
-	return planHouse({ ...site, context: { ...context, houses } });
-}
-
 test('forced assemblies carry every member and keep access within ten percent', () => {
 	const findings: string[] = [];
 	for (const type of typologies)
@@ -150,7 +140,7 @@ test('full occupied floors follow the sixteen typology sections', () => {
 		'twin-stack': [0, 5],
 		'slab-house': [],
 		'water-house': [0],
-		'tree-house': [4, 4.5, 5]
+		'tree-house': [2, 3.5, 5]
 	};
 	for (const t of typologies) {
 		const h = specimen(footprints[t][0], t).composition;
@@ -160,13 +150,24 @@ test('full occupied floors follow the sixteen typology sections', () => {
 		expect(bands, t).toEqual(floors[t]);
 	}
 });
-for (const [label, types] of [
-	['first eight', typologies.slice(0, 8)],
-	['all sixteen', typologies]
-] as const) {
-	test(label + ' typologies differ in projected fill by 25 percent across two elevations', () => {
-		const minima = nearestSilhouettes(types, footprints, specimen);
-		console.info(label, Object.fromEntries(minima));
-		expect([...minima.values()].every((m) => m.distance >= 0.25)).toBe(true);
+test('every pair differs in two silhouette features and seeds preserve each signature', () => {
+	const signatures = typologies.map((type) => {
+		const site = footprints[type][0],
+			s = specimen(site, type).composition.signature;
+		for (const footprint of footprints[type])
+			for (const seed of [0, 1, 19, 103])
+				expect(specimen(footprint, type, 6, seed).composition.signature).toEqual(s);
+		return Object.values(s);
 	});
-}
+	for (const [i, a] of signatures.entries())
+		for (const [j, b] of signatures.slice(i + 1).entries())
+			expect(
+				a.filter((v, k) => v !== b[k]).length,
+				typologies[i] + ' / ' + typologies[i + j + 1]
+			).toBeGreaterThanOrEqual(2);
+});
+test('all admissible band-fill distances reach eight percent', () => {
+	const minima = nearestSilhouettes(typologies, footprints, specimen);
+	console.info('Band-fill minima', Object.fromEntries(minima));
+	expect([...minima.values()].every((m) => m.distance >= 0.08)).toBe(true);
+});

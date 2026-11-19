@@ -60,10 +60,12 @@ export type Level = Deck & {
 	outline: Point[];
 	field?: boolean;
 	well?: Point[];
+	void?: Point[];
 	court?: { center: Point; width: number };
 };
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
+	signature: ReturnType<typeof import('./signature').silhouette>;
 	path: ReturnType<typeof import('./routes').housePath>;
 	id: string;
 	compact: boolean;

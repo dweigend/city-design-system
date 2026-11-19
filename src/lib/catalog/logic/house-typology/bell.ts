@@ -21,7 +21,7 @@ export function bellGarden(plan: Plan, i: number, z: number) {
 		seed,
 		0
 	);
-	const count = Math.max(1, Math.round(side / length));
+	const count = Math.max(1, Math.floor(side / (length * 0.85) + 1e-8));
 	const scale = Math.min(1.15, side / (count * length));
 	const pitch = length * scale,
 		breadth = 2.5 * scale;
