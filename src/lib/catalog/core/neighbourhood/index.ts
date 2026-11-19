@@ -42,6 +42,7 @@ export function defineRules(policy: Policy, options?: Options) {
 			const [decision] = decisions([id], state, rules, seed).values();
 			return {
 				...decision,
+				revision: rules.revision,
 				preferenceStatus: rules.preferenceStatus(state.get(id)?.district ?? '')
 			};
 		},

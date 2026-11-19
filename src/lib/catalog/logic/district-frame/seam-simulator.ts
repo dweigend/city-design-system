@@ -1,3 +1,4 @@
+import { goalPolicy } from './goal-policy';
 import { transition } from './transition';
 import type { Simulator } from '../../core/planning';
 import { hashUnit } from '../../core/random';
@@ -22,6 +23,7 @@ export function seamSimulator(
 	const history = ctx.events.filter(
 		(e) => e.goal === goal.id && e.tick < ctx.tick && e.tick >= ctx.tick - ctx.lookback
 	);
+	const score = goalPolicy(goal, history, ctx.observations);
 	const ids = [...new Set([goal.literal, ...goal.alternatives.slice(0, 1)])];
 	const options = [...ids, null].sort(
 		(a, b) => hashUnit(seed, goal.id, a ?? 'wait') - hashUnit(seed, goal.id, b ?? 'wait')
@@ -70,23 +72,7 @@ export function seamSimulator(
 				if (action === goal.literal && tick === ctx.tick) literalReason = 'structural-veto';
 				return;
 			}
-			let progress = 0,
-				continuity = 0,
-				opening = 0;
-			for (const id of ids) {
-				const bay = next.get(id);
-				if (!bay?.built && !bay?.pending) continue;
-				const weight = bay.built ? 2 : 0.25;
-				if (ctx.observations.some((o) => o.seam === id && o.from <= tick)) opening -= 16 * weight;
-				else {
-					progress += (id === goal.literal ? 4 : 3) * weight;
-					if (history.at(-1)?.seam === id) continuity += 3 * weight;
-				}
-			}
-			return {
-				state: next,
-				contributions: { progress, continuity, opening, effort: action ? -0.1 : 0 }
-			};
+			return { state: next, contributions: score(next, tick, action) };
 		}
 	};
 	return { domain, halo, ids, history, literalReason: () => literalReason };

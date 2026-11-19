@@ -45,6 +45,8 @@ export function planGoal(
 	return {
 		tick: ctx.tick,
 		goal: goal.id,
+		objective: 'frame-painted-frontage' as const,
+		created: goal.created,
 		literal: goal.literal,
 		reason,
 		lookback: ctx.lookback,

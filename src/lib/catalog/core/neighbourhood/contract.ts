@@ -111,6 +111,12 @@ export function compile(policy: Policy, options?: Options) {
 	return {
 		...resolveParams(neighbourhoodParams, options),
 		forms,
+		revision:
+			revision &&
+			Object.freeze({
+				snapshotRevision: revision.snapshotRevision,
+				profileRevision: revision.profileRevision
+			}),
 		preferenceStatus: (id: string) =>
 			status === 'current' && !preferredDistricts.has(id) ? ('missing' as const) : status,
 		vocabulary,
@@ -126,6 +132,7 @@ export type Veto =
 	| { form: string; reason: 'city' | 'district' | 'growth-source' }
 	| { form: string; reason: 'contact'; neighbour: string };
 export type Decision = Readonly<{
+	revision?: Policy['revision'];
 	preferenceStatus?: 'missing' | 'current' | 'stale';
 	target: string;
 	reason: 'stock' | 'budget' | 'empty-domain' | 'intent' | 'weighted' | 'conflict';
