@@ -1,4 +1,4 @@
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { Primitive, Vec3, FinishId, ColorToken, MaterialId } from '../parametrik/types';
 
 export const assetCategories = [
 	'facades',
@@ -12,7 +12,10 @@ export const assetCategories = [
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';
 export type AssetAnchor = { attachment: Attachment; position: Vec3; normal: Vec3 };
+export type AssetSurface = { finish: FinishId; token: ColorToken; material: MaterialId };
+
 export type AssetDefinition = {
+	finishes?: Readonly<Record<string, AssetSurface>>;
 	id: string;
 	category: AssetCategory;
 	variants: readonly string[];

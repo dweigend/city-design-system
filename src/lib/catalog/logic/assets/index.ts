@@ -7,6 +7,7 @@ export {
 	type AssetCategory,
 	type AssetDefinition,
 	type AssetAnchor,
+	type AssetSurface,
 	type Attachment
 } from './definition';
 /** Ordered descriptions for placement tools and the contact sheet. Dimensions are metres. */
@@ -24,4 +25,12 @@ export function buildAsset(id: string, variant: string, seed: number, instanceId
 	return recipe
 		.draw(index, hashUnit(seed, id, variant))
 		.map((part, i) => ({ ...part, id: instanceId + '/' + i }));
+}
+
+/** Returns the material fields to spread onto any existing surface-bearing primitive. */
+export function getAssetSurface(id: string, variant: string) {
+	const entry = assetRegistry.find((asset) => asset.id === id);
+	if (!entry?.finishes || !entry.variants.includes(variant))
+		throw new RangeError('Unknown surface: ' + id + '/' + variant);
+	return { ...entry.finishes[variant] };
 }
