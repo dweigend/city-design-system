@@ -17,6 +17,7 @@ import { glassBell } from './glass-bell';
 import { observatory } from './observatory';
 import { roundTree } from './round-tree';
 import { columnTree } from './column-tree';
+import { conifer } from './conifer';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -36,5 +37,6 @@ export const recipes: readonly AssetRecipe[] = [
 	glassBell,
 	observatory,
 	roundTree,
-	columnTree
+	columnTree,
+	conifer
 ];
