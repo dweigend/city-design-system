@@ -1,3 +1,4 @@
+import { awnings } from './production/awnings';
 import { gardens } from './production/gardens';
 import { pools } from './production/pools';
 import { toys } from './production/toys';
@@ -172,5 +173,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...towers,
 	...toys,
 	...pools,
-	...gardens
+	...gardens,
+	...awnings
 ];

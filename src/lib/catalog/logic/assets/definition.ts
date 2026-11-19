@@ -41,7 +41,8 @@ export const assetCategories = [
 	'stair-towers',
 	'memphis-blocks',
 	'water-terraces',
-	'roof-groves'
+	'roof-groves',
+	'market-canopies'
 ] as const;
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';
