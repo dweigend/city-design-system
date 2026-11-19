@@ -1,3 +1,5 @@
+import { houseFittings } from './house-fittings';
+import { roofMachinery } from './roof-machinery';
 import { energyEquipment } from './energy-equipment';
 import { exchangeStations } from './exchange-stations';
 import { waterFeatures } from './water-features';
@@ -122,5 +124,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...waterFeatures,
 	...rainFittings,
 	...energyEquipment,
-	...exchangeStations
+	...exchangeStations,
+	...houseFittings,
+	...roofMachinery
 ];
