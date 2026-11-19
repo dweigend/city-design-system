@@ -1,9 +1,13 @@
+import { suggestions } from './objects/suggestions';
 import { mount, type AssetRecipe } from './definition';
 import { slab, rod } from './parts';
+
+import { stairCheek } from './stair-cheek';
 
 export const stairs: AssetRecipe = {
 	id: 'stairs',
 	slotNames: ['deck', 'body'],
+	suggestions: { body: suggestions.frame, deck: suggestions.slats },
 	category: 'infrastructure',
 	variants: ['short-flight', 'wide-flight', 'landing-flight'],
 	footprint: [7.3, 3.3],
@@ -20,17 +24,18 @@ export const stairs: AssetRecipe = {
 			slab([x0 + i * t, -w / 2, 0], [t, w, (i + 1) * h], 'deck')
 		);
 		parts.push(slab([x0 + n * t, -w / 2, 0], [landing, w, n * h]));
-		for (const y of [-w / 2 + 0.055, w / 2 - 0.055]) {
+		for (const y of [-w / 2 + 0.15, w / 2 - 0.15]) {
 			parts.push(
-				rod([x0 + 0.05, y, h + 0.91], [x0 + (n - 1) * t + 0.05, y, n * h + 0.91], 0.044),
-				rod([x0 + (n - 1) * t + 0.05, y, n * h + 0.91], [l / 2 - 0.05, y, n * h + 0.91], 0.044)
+				stairCheek(x0, x0 + n * t, y, 0, n * h, 0.32, 0.3, 'body'),
+				rod([x0 + 0.05, y, h + 0.91], [x0 + (n - 1) * t + 0.05, y, n * h + 0.91], 0.075),
+				rod([x0 + (n - 1) * t + 0.05, y, n * h + 0.91], [l / 2 - 0.05, y, n * h + 0.91], 0.075)
 			);
 			for (const i of [0, Math.floor(n / 2), n - 1])
 				parts.push(
 					rod(
 						[x0 + i * t + 0.05, y, (i + 1) * h],
 						[x0 + i * t + 0.05, y, (i + 1) * h + 0.91],
-						0.035
+						0.062
 					)
 				);
 		}

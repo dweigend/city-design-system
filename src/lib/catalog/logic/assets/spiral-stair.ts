@@ -1,9 +1,11 @@
+import { suggestions } from './objects/suggestions';
 import { mount, type AssetRecipe } from './definition';
 import { drum, rod, surface } from './parts';
 import type { Vec3 } from '../parametrik/types';
 export const spiralStair: AssetRecipe = {
 	id: 'spiral-stair',
 	slotNames: ['body', 'deck'],
+	suggestions: { body: suggestions.shell, deck: suggestions.slats },
 	category: 'infrastructure',
 	variants: ['quarter-landing', 'full-turn', 'double-turn'],
 	footprint: [4.9, 4.9],
@@ -30,13 +32,13 @@ export const spiralStair: AssetRecipe = {
 				polar(r, a + angle),
 				polar(0.15, a + angle)
 			];
-			parts.push({ ...surface('deck'), kind: 'prism', polygon, z, height: 0.12 });
+			parts.push({ ...surface('deck'), kind: 'prism', polygon, z, height: 0.16 });
 			const [x, y] = polar(r - 0.07, a + 0.5 * angle);
 			if (i % 2 === 0 || i === steps - 1)
-				parts.push(rod([x, y, z + 0.12], [x, y, z + 1.04], 0.032));
+				parts.push(rod([x, y, z + 0.12], [x, y, z + 1.04], 0.065));
 			rail.push([x, y, z + 1.04]);
 		}
-		parts.push({ ...surface(), kind: 'pipe', points: rail, radius: 0.045 });
+		parts.push({ ...surface(), kind: 'pipe', points: rail, radius: 0.08 });
 		return parts;
 	}
 };
