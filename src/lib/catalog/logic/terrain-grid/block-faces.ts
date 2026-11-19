@@ -1,3 +1,4 @@
+import { courtParcels } from './court-parcels';
 import { concaveBlocks } from './concave-blocks';
 import { kern } from '../parametrik/raster/universal';
 import { corners, coord, get, average, sourceGraph, sourceIntent, type Face } from './block-graph';
@@ -20,11 +21,21 @@ function parcelChildren(
 	merged: ReturnType<typeof concaveBlocks>,
 	intent: kern.Intent,
 	positions: Map<string, kern.Vec>,
-	available: Set<string>
+	available: Set<string>,
+	cuts: ReturnType<typeof courtParcels>
 ) {
 	const [x, y] = coord(f.id),
 		original = corners(x, y, 2);
 	const joined = merged.get(f.id);
+	const cut = cuts.blocks.get(f.id);
+	if (cut)
+		return cut.map((child) => ({
+			...child,
+			parent: f,
+			front: 1,
+			back: 1,
+			slot: slotFor(child.ring[0], original, f.slots, available)
+		}));
 	const chunk = joined?.chunk ?? kern.deriveChunk(intent, { id: f.id, ring: f.ring, level: 0 });
 	const alias = new Map(f.ring.map((v) => [v, v]));
 	f.ring.forEach((v, i) => {
@@ -40,9 +51,12 @@ function parcelChildren(
 		.filter((q) => alias.has(q.vertices[0]) && alias.has(q.vertices[1]) && alias.has(q.vertices[3]))
 		.map((q) => {
 			const ring = q.vertices.map((v) => alias.get(v) ?? cellId(x + 1, y + 1));
-			q.vertices.forEach((v, i) => positions.set(ring[i], get(chunk.geometry.positions, v)));
+			q.vertices.forEach((v, i) =>
+				positions.set(ring[i], cuts.points.get(ring[i]) ?? get(chunk.geometry.positions, v))
+			);
 			return {
 				ring,
+				parcel: q.id,
 				parent: joined ?? f,
 				front: q.vertices[1] === joined?.shared ? 0 : 1,
 				back: q.vertices[3] === joined?.shared ? 0 : 1,
@@ -85,18 +99,23 @@ export function blockTemplate(
 	seed: number,
 	profile: Lattice['profile'],
 	settled: boolean,
-	exchanges = true
+	exchanges = true,
+	allowed?: ReadonlySet<string>
 ) {
 	const graph = sourceGraph(width, height, seed, profile, settled, exchanges),
 		intent = sourceIntent(seed, graph.positions);
-	const positions = new Map<string, kern.Vec>(),
+	const cuts = courtParcels(graph, width, height, seed, profile, settled, allowed);
+	const positions = new Map([...graph.positions, ...cuts.points]),
 		faces = new Map<string, kern.SourceFace>();
 	const merged = concaveBlocks(graph.faces.values(), intent);
-	const parents = new Map<string, { id: string; sides: number; mask: number; group: string }>();
+	const parents = new Map<
+		string,
+		{ id: string; sides: number; mask: number; group: string; parcel: string }
+	>();
 	for (const { group, c, r } of sourceGroups(graph.faces, width, height, settled)) {
 		const available = new Set(group.flatMap((f) => f.slots));
 		const children = group.flatMap((f) =>
-			parcelChildren(f, c, r, merged, intent, positions, available)
+			parcelChildren(f, c, r, merged, intent, positions, available, cuts)
 		);
 		for (const child of children) {
 			const id = child.slot ?? required(available.values().next().value, 'free parcel address');
@@ -108,15 +127,28 @@ export function blockTemplate(
 			parents.set(id, {
 				id: child.parent.id,
 				group: cellId(c, r),
+				parcel:
+					cuts.courts.has(child.parent.id) && !cuts.blocks.has(child.parent.id)
+						? child.parent.id
+						: child.parcel,
 				sides: child.parent.ring.length,
 				mask: (child.front << corner) | (child.back << ((corner + 3) % 4))
 			});
 		}
 	}
+
 	const fixed = fixedFrontages(parents, faces);
+	for (const id of cuts.points.keys()) fixed.add(id);
 	const relaxed = kern.relax(
 		{ ...intent, positions, faces, fixed },
 		settled ? profile.relaxPasses : 0
 	);
-	return { faces, positions: relaxed.positions, parents };
+	return {
+		faces,
+		positions: relaxed.positions,
+		parents,
+		candidates: cuts.candidates,
+		seams: cuts.seams,
+		cutVertices: new Set(cuts.points.keys())
+	};
 }

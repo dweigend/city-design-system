@@ -139,7 +139,10 @@ describe('terrain grid', () => {
 	test('level datums: no building on water, stilts where it floods, a plinth elsewhere', () => {
 		for (const cell of grid.cells) {
 			expect(cell.buildable).toBe(
-				!cell.plan.open && !cell.plan.square && (cell.alley === null || !!cell.lotCorners)
+				cell.parcelAccess !== 'landlocked' &&
+					!cell.plan.open &&
+					!cell.plan.square &&
+					(cell.alley === null || !!cell.lotCorners)
 			);
 			if (cell.raised) expect(cell.pad).toBe(FLOOD_DATUM);
 			else expect(cell.pad - PLINTH).toBe(Math.round(cell.pad - PLINTH));

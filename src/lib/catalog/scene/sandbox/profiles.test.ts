@@ -36,8 +36,8 @@ test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b4
 
 const grid = deriveGrid(createTerrain({ seed: 7 }));
 const terrainRoutes = {
-	viaduct: '4e5196d98bcd4481a0493cfc73bb3c35474f3d25716152157027757752efbbbb',
-	capsule: 'af8ee805ab481fb9d5d5b10b156e403bde91e505b919b262fcd29afbda4cda73'
+	viaduct: '4dfa2e37ade7eac468c402b861c5eae5727fa499ace97e125bacb8c0240e4ed5',
+	capsule: '42748c2bb65a139d2ec40c947b70dc5b468c478339cd3412548f626aba16983d'
 };
 const kinds = ['viaduct', 'capsule'] as const;
 for (const kind of kinds) {

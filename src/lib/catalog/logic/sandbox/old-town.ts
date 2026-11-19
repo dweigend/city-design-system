@@ -76,7 +76,7 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 	for (const { cell } of lots.slice(0, settings.cells)) {
 		for (const neighbor of neighborsOf(grid, cell)) {
 			if (
-				neighbor.buildable &&
+				neighbor.plantable &&
 				!stacks.has(neighbor.id) &&
 				hashUnit(seed, neighbor.id, 'planting') < settings.gardenShare
 			)

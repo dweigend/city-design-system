@@ -155,7 +155,7 @@ for (const material of [0, 3, 100]) {
 	});
 }
 test('explicit building methods override the date for both frame and docking', () => {
-	const ids = ['96/47', '100/44'];
+	const ids = ['83/47', '87/47'];
 	const build = (style: 'megastructure' | 'totem', w: typeof town) =>
 		ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, w)).draft;
 	const frame = build('megastructure', town);
@@ -196,7 +196,7 @@ test('a wall bearing follows the inset lot along the alley at 89/41', () => {
 });
 
 test('same-year carrier and capsules retain their selected flows on the timeline', () => {
-	const ids = ['96/47', '100/44'];
+	const ids = ['83/47', '87/47'];
 	const frame = ids.reduce(
 		extendStroke,
 		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, town)

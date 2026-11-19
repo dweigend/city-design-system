@@ -14,6 +14,7 @@ export function alleyOverlay(
 		embossInk: Node<'float'>;
 		emptyInk: Node<'float'>;
 		embossWidth: Node<'float'>;
+		promenadeWash: Node<'float'>;
 	}
 ) {
 	const pixels = new Uint8Array(grid.cells.length * 4);
@@ -77,8 +78,8 @@ export function alleyOverlay(
 			const bankDistance = attribute('shore', 'float');
 			const bankHalf = float(grid.profile.promenadeWidth / 2);
 			const shore = band(bankDistance.abs(), bankHalf).mul(visibility);
-			const bank = mix(focused, paper, shore);
-			const promenadeEdge = band(bankDistance.sub(bankHalf).abs(), bankDistance.fwidth()).mul(
+			const bank = mix(focused, mix(paper, people, nodes.promenadeWash), shore);
+			const promenadeEdge = band(bankDistance.abs().sub(bankHalf).abs(), bankDistance.fwidth()).mul(
 				visibility
 			);
 			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.3, 0.65);

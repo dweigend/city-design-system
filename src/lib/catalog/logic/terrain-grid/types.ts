@@ -13,7 +13,13 @@ export type TerrainCell = QuadCell &
 		pattern: Pattern;
 		alley: 'along' | 'across' | 'both' | null;
 		block: string;
+		/** Kernel parcel owning this addressable carrier cell. */
+		parcel: string;
+		/** Access of the accepted leaf or undivided court, shared by its carriers. */
+		parcelAccess?: 'fronted' | 'landlocked';
 		blockSides: number;
+		/** The full cell is dry and free of circulation reservations for land cover. */
+		plantable: boolean;
 		/** Buildable remainder where an alley takes part of the terrain cell. */
 		lotCorners?: QuadCell['corners'];
 		alleyEdges: number;

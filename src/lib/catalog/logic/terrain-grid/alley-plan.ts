@@ -1,13 +1,35 @@
 import { townDefaults } from '../../data/sandbox';
 import { hashUnit } from '../parzelle';
 import type { QuadCell } from '../quad-grid';
-import { bankDistance, type Terrain, type TerrainZone } from '../terrain';
+import { bankDistance, ravineDepth, terrainZone, type Terrain, type TerrainZone } from '../terrain';
 import { BLOCK, MODULE } from './contour-rows';
-import type { Pattern } from './patterns';
+import { patternAt, type Pattern } from './patterns';
+import type { Lattice } from './contour-rows';
 
 import { defaultAlleyPlan } from './alley-profile';
 type Profile = typeof defaultAlleyPlan;
 type Site = { corners: QuadCell['corners']; zone: TerrainZone; pattern: Pattern; incision: number };
+
+/** Circulation at the projected carrier, shared by parcel planning and the published cell. */
+export function carrierSite(
+	lattice: Lattice,
+	column: number,
+	row: number,
+	corners: Site['corners']
+) {
+	const x = (corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]) / 4;
+	const y = (corners[0][1] + corners[1][1] + corners[2][1] + corners[3][1]) / 4;
+	const zone = terrainZone(lattice.terrain, x, y);
+	const pattern = patternAt(lattice, column, row);
+	const plan = alleyPlan(
+		lattice.terrain,
+		column,
+		row,
+		{ corners, zone, pattern, incision: ravineDepth(lattice.terrain, x, y) },
+		lattice.profile
+	);
+	return { x, y, zone, pattern, plan };
+}
 
 /** Fraction of the seeded settlement envelope at a chart address. */
 export function settlementExtent(terrain: Terrain, column: number, row: number, profile: Profile) {

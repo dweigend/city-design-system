@@ -1,8 +1,9 @@
+export { passageClearance } from './frontage-lot';
 import { behindPassage } from './frontage-lot';
 import { blockPatches, type BlockCache } from './block-patch';
 import { required } from '../required';
 import { defaultAlleyPlan, parcelProfile } from './alley-profile';
-import { alleyPlan } from './alley-plan';
+import { carrierSite } from './alley-plan';
 export { defaultAlleyPlan };
 /**
  * Area grid derived from the terrain: quad cells of one module (5 m) with terrace, contour, floodplain
@@ -16,9 +17,7 @@ import {
 	editReach,
 	FLOOD_LINE,
 	groundLevel,
-	ravineDepth,
 	terrainHeight,
-	terrainZone,
 	valleyCoords,
 	valleyPoint,
 	type Terrain,
@@ -27,7 +26,7 @@ import {
 import { BLOCK, columnLeans, MODULE, REACH, rowShifts, type Lattice } from './contour-rows';
 
 import { assemble, columnStorage, CHUNK_CELLS } from './storage';
-import { patternAt, patternOffsets } from './patterns';
+import { patternOffsets } from './patterns';
 import { cellId, type TerrainGrid, type TerrainCell } from './types';
 export { cellId, type TerrainGrid, type TerrainCell } from './types';
 export { cellAtPoint, cellsBetween } from './queries';
@@ -84,7 +83,8 @@ function contourPatches(
 	to: number,
 	cache: BlockCache,
 	fields: Map<number, Float64Array>,
-	shape: Map<number, ShapeColumn>
+	shape: Map<number, ShapeColumn>,
+	edits: readonly TerrainEdit[]
 ) {
 	const shifts = rowShifts(lattice, from, to, fields);
 	const crossings = new Map<number, Float64Array>();
@@ -120,7 +120,8 @@ function contourPatches(
 			return valleyPoint(lattice.terrain, c * MODULE + dx, r * MODULE + dy);
 		},
 		cache,
-		unchanged
+		unchanged,
+		edits
 	);
 }
 
@@ -163,6 +164,8 @@ function makeCell(
 	const source = {
 		id: x + ':' + y + '/' + face.block.id,
 		sides: face.block.sides,
+		parcel: x + ':' + y + '/' + face.block.parcel,
+		access: patch.access.get(face.block.id),
 		mask: face.block.mask
 	};
 	const neighbors = [adjacent(0), adjacent(1), adjacent(2), adjacent(3)] as const;
@@ -172,13 +175,15 @@ function makeCell(
 
 function sameParcel(
 	old: TerrainCell,
-	source: { id: string; mask: number },
+	source: { access?: TerrainCell['parcelAccess']; id: string; parcel: string; mask: number },
 	corners: TerrainCell['corners'],
 	neighbors: TerrainCell['neighbors'],
 	edits: readonly TerrainEdit[]
 ) {
 	return (
+		old.parcelAccess === source.access &&
 		old.block === source.id &&
+		old.parcel === source.parcel &&
 		old.alleyEdges === source.mask &&
 		corners.every((p, i) => p === old.corners[i] && neighbors[i] === old.neighbors[i]) &&
 		!withinEdit(old.center, edits)
@@ -192,23 +197,20 @@ function describeCell(
 	row: number,
 	vertexIds: TerrainCell['vertexIds'],
 	neighbors: TerrainCell['neighbors'],
-	source: { id: string; sides: number; mask: number }
+	source: {
+		access?: TerrainCell['parcelAccess'];
+		id: string;
+		parcel: string;
+		sides: number;
+		mask: number;
+	}
 ): TerrainCell {
 	const { terrain, columns } = lattice;
-	const x = (corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]) / 4;
-	const y = (corners[0][1] + corners[1][1] + corners[2][1] + corners[3][1]) / 4;
+	const { x, y, zone, pattern, plan } = carrierSite(lattice, column, row, corners);
 	const level = groundLevel(terrain, x, y);
-	const zone = terrainZone(terrain, x, y);
 	const raised = level < FLOOD_LINE;
-	const pattern = patternAt(lattice, column, row);
-	const plan = alleyPlan(
-		terrain,
-		column,
-		row,
-		{ corners, zone, pattern, incision: ravineDepth(terrain, x, y) },
-		lattice.profile
-	);
 	const alley = plan.direction;
+	const available = !plan.open && !plan.square;
 	const lotCorners = plan.edgePassage
 		? behindPassage(corners, source.mask, plan.width, lattice.profile.minParcelArea)
 		: undefined;
@@ -217,8 +219,9 @@ function describeCell(
 		pattern,
 		plan,
 		alley,
-		ridgeSide: ((source.mask & 1) !== 0 ? 0 : 1) + ((column + row) % 2),
 		block: source.id,
+		parcel: source.parcel,
+		parcelAccess: source.access,
 		blockSides: source.sides,
 		lotCorners,
 		alleyEdges: source.mask,
@@ -232,7 +235,8 @@ function describeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable: !plan.open && !plan.square && (alley === null || !!lotCorners),
+		plantable: available && alley === null,
+		buildable: available && source.access !== 'landlocked' && (alley === null || !!lotCorners),
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }
@@ -270,7 +274,8 @@ function derive(
 		Math.min(columns, end + BLOCK.columns),
 		cache,
 		fields,
-		shape
+		shape,
+		edits
 	);
 	for (let c = first; c <= end; c++)
 		data.vertices[c] = columnVertices(lattice, c, patches, edits, data.vertices[c]);

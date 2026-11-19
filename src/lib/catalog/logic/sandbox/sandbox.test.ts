@@ -176,6 +176,44 @@ describe('sandbox', () => {
 		expect(applyEdit(empty, { kind: 'clear', cellId: a })).toBe(empty);
 	});
 
+	test('dry landlocked ground supports cover until it floods', () => {
+		let planted = empty;
+		for (const cellId of ['102/44', '103/44']) {
+			expect(empty.grid.cellsById.get(cellId)).toMatchObject({ plantable: true, buildable: false });
+			expect(paint(empty, [cellId])).toBe(empty);
+			for (const cover of ['field', 'meadow', 'forest'] as const) {
+				planted = applyEdit(planted, { kind: 'cover', cellId, cover });
+				expect(planted.state.cover.get(cellId)).toBe(cover);
+			}
+		}
+		const distant = applyEdit(planted, { kind: 'dig', cellId: site().id });
+		expect(distant.state.cover).toBe(planted.state.cover);
+		const flooded = applyEdit(distant, { kind: 'dig', cellId: '102/44' });
+		expect(flooded.grid.cellsById.get('102/44')?.plantable).toBe(false);
+		expect(flooded.state.cover.has('102/44')).toBe(false);
+	});
+
+	test('cover leaves public ways, squares, water and occupied cells clear', () => {
+		const cells = empty.grid.cells;
+		const reserved = [
+			cells.find((c) => c.plan.edgePassage && c.buildable),
+			cells.find((c) => c.plan.kind === 'alley'),
+			cells.find((c) => c.plan.stairAlley),
+			cells.find((c) => c.plan.kind === 'riversidePromenade'),
+			cells.find((c) => c.plan.square),
+			cells.find((c) => c.zone === 'water')
+		];
+		for (const cell of reserved) {
+			if (!cell) throw new Error('missing reserved site');
+			expect(cell.plantable).toBe(false);
+			expect(applyEdit(empty, { kind: 'cover', cellId: cell.id, cover: 'forest' })).toBe(empty);
+		}
+		const lot = cells.find((c) => c.buildable && c.plantable);
+		if (!lot) throw new Error('missing house site');
+		const built = paint(empty, [lot.id]);
+		expect(applyEdit(built, { kind: 'cover', cellId: lot.id, cover: 'field' })).toBe(built);
+	});
+
 	test('digging a basin: the grid follows, cells keep their ids, flooded houses go to the store', () => {
 		const cell = site();
 		const ids = [cell.id, `${cell.column + 1}/${cell.row}`, `${cell.column + 8}/${cell.row}`];

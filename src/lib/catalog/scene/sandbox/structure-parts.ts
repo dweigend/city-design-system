@@ -95,8 +95,11 @@ export function populateStructures(
 	};
 	const parts = partition(primitives);
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
+	const ridge = (part: Primitive) =>
+		part.role === 'bestand' && part.kind === 'polyline' && part.id.endsWith(':ridge');
+	const ridges = batch(parts.regular.filter(ridge), toColor);
 	const stock = batch(
-		parts.regular.filter((part) => part.role === 'bestand'),
+		parts.regular.filter((part) => part.role === 'bestand' && !ridge(part)),
 		toColor
 	);
 	const body = batch(
@@ -113,6 +116,7 @@ export function populateStructures(
 	surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
 	surface(body.glas, materials.glass, materials.hull, false, false);
 	lines(stock.kanten.alt, materials.pencil);
+	lines(ridges.kanten.alt, materials.ridge);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
 

@@ -51,23 +51,49 @@ const stored = (store: Store, use: HouseUse, count: number): Store => ({
 	[use]: Math.max(0, store[use] + count)
 });
 
-/**
- * Gives way where the ground fell away: stories on cells that can no longer carry a house
- * go to the material store, their cover goes. Returns the input if nothing has to yield.
- */
-function settle(grid: TerrainGrid, state: SandboxState): SandboxState {
-	state = removeInstallations(state, (p) => lostSeat(grid, p));
-	let { stacks, cover, store, storyParts } = state;
-	for (const cellId of [...stacks.keys(), ...cover.keys()]) {
-		if (grid.cellsById.get(cellId)?.buildable) continue;
-		for (const use of storiesOf(stacks, cellId)) store = stored(store, use, 1);
+function waterOrGroundRoute(cell: TerrainCell | undefined) {
+	return cell?.zone === 'water' || (!!cell?.alley && !cell.plan.footbridge);
+}
+
+function alleyOccupiesLot(cell: TerrainCell) {
+	return !!cell.alley && !cell.lotCorners;
+}
+
+function lostHouseSite(before: TerrainCell, after: TerrainCell) {
+	if (after.buildable || before === after) return false;
+	return (
+		before.buildable ||
+		(after.plan.open && !before.plan.open) ||
+		(after.zone === 'water' && before.zone !== 'water') ||
+		(after.plan.square && !before.plan.square) ||
+		(alleyOccupiesLot(after) && !alleyOccupiesLot(before))
+	);
+}
+
+/** Return storeys to the material store when an intervention takes away their site. */
+function settleHouses(previous: TerrainGrid, grid: TerrainGrid, state: SandboxState): SandboxState {
+	let { stacks, store, storyParts } = state;
+	for (const [cellId, stories] of state.stacks) {
+		const before = previous.cellsById.get(cellId);
+		const after = grid.cellsById.get(cellId);
+		if (!before || !after || !lostHouseSite(before, after)) continue;
+		for (const use of stories) {
+			store = stored(store, use, 1);
+			stacks = lower(stacks, cellId);
+		}
 		storyParts = partsAt(storyParts, cellId, []);
-		while (storiesOf(stacks, cellId).length) stacks = lower(stacks, cellId);
-		cover = setCover(cover, cellId, undefined);
 	}
-	return stacks === state.stacks && cover === state.cover
-		? state
-		: { ...state, stacks, cover, store, storyParts };
+	return stacks === state.stacks ? state : { ...state, stacks, store, storyParts };
+}
+
+function settleCover(grid: TerrainGrid, state: SandboxState, previous?: TerrainGrid): SandboxState {
+	let cover = state.cover;
+	for (const cellId of state.cover.keys()) {
+		const cell = grid.cellsById.get(cellId);
+		const lostPlantingGround = previous?.cellsById.get(cellId)?.plantable && !cell?.plantable;
+		if (waterOrGroundRoute(cell) || lostPlantingGround) cover = setCover(cover, cellId, undefined);
+	}
+	return cover === state.cover ? state : { ...state, cover };
 }
 
 /** A new world with a seeded old town on the terrain of a seed. */
@@ -81,18 +107,24 @@ export function createWorld(
 
 /**
  * Restores a snapshot on the same seed, migrating missing construction methods and time layers.
- * The grid and routes are reused where their source data is unchanged.
+ * Preserves existing houses and clears cover from water and ground routes.
  */
 export function withState(world: World, snapshot: SandboxSnapshot): World {
-	return replaceState(world, migrateSnapshot(snapshot));
+	return replaceState(world, migrateSnapshot(snapshot), 'restore');
 }
 
-function replaceState(world: World, state: SandboxState): World {
-	if (state === world.state) return world;
+function replaceState(world: World, state: SandboxState, source: 'edit' | 'restore'): World {
 	const grid =
 		state.edits === world.state.edits
 			? world.grid
 			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
+	if (source === 'restore') state = settleCover(grid, state);
+	else if (grid !== world.grid) {
+		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));
+		state = settleHouses(world.grid, grid, state);
+		state = settleCover(grid, state, world.grid);
+	}
+	if (state === world.state) return world;
 	const sameRoutes = grid === world.grid && state.lines === world.state.lines;
 	return {
 		seed: world.seed,
@@ -179,7 +211,7 @@ function cellEdit(
 		};
 		return { ...state, edits: [...state.edits, basin] };
 	}
-	if (!cell.buildable || storiesOf(state.stacks, cell.id).length) return state;
+	if (!cell.plantable || storiesOf(state.stacks, cell.id).length) return state;
 	const cover = setCover(state.cover, cell.id, edit.cover);
 	return cover === state.cover ? state : { ...state, cover };
 }
@@ -232,6 +264,5 @@ function nextState(world: World, edit: Edit): SandboxState {
  * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
-	const next = replaceState(world, nextState(world, edit));
-	return next.grid === world.grid ? next : replaceState(next, settle(next.grid, next.state));
+	return replaceState(world, nextState(world, edit), 'edit');
 }
