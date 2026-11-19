@@ -41,10 +41,10 @@ function link(
 	const obstacles = boxes.filter(
 		(box) => box.owner !== a.id && box.owner !== b.id && !(box.cell && ends.has(box.cell))
 	);
-	const candidates = a.decks
+	const candidates = a.composition.ports
 		.flatMap((left) =>
-			b.decks.flatMap((right) => {
-				const route = bridgeRoute(left, right, distance === 1, obstacles, width);
+			b.composition.ports.flatMap((right) => {
+				const route = bridgeRoute(left.position, right.position, distance === 1, obstacles, width);
 				return route ? [route] : [];
 			})
 		)
