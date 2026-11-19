@@ -4,6 +4,10 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import { isStructural, type Primitive, type Vec3 } from '../../logic/parametrik/types';
 import { batch, geometryOf, type Batch } from '../batch';
 import type { StructureMaterials } from './structure-materials';
+import { conduitBatch } from './print-flow';
+import { cutOffsets } from './paper-inlay';
+import { ceramicBatch } from './ceramic-batch';
+import { collageCut } from './collage-cut';
 import { outlineOffsets } from './structure-outline';
 
 function memberTrace(part: Primitive): Primitive[] {
@@ -60,10 +64,13 @@ function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) 
 		glaze: [] as Primitive[],
 		carriers: [] as Primitive[],
 		ceramics: [] as Primitive[],
+		inlays: [] as Primitive[],
+		conduits: [] as Primitive[],
 		accents: [] as Primitive[],
 		ghosts: [] as Primitive[]
 	};
-	for (const part of primitives) {
+	for (const original of primitives) {
+		const part = collageCut(original);
 		const layer = layerOf(part);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
 		if (unoutlined.has(part) && (layer === 'regular' || layer === 'accents')) {
@@ -113,6 +120,7 @@ export function populateStructures(
 		if (!object) return;
 		object.castShadow = shadows;
 		objects.add(silhouette(faces, contour));
+		return object;
 	};
 	const fill = (faces: Batch['neu'], material: THREE.Material, pick: boolean, shadows = cast) => {
 		const object = mesh(faces, material, pick);
@@ -158,11 +166,38 @@ export function populateStructures(
 	fill(plain.blatt, materials.sheet, false);
 	fill(plain.glas, materials.glass, false, false);
 
-	const fired = batch(parts.ceramics, (part) =>
+	const conduit = conduitBatch(parts.conduits, toColor);
+	const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
+	pipes?.geometry.setAttribute('stationM', conduit.axis);
+	const print = batch(parts.inlays, (p) =>
+		colorOf(
+			p.token === '--cat-business' && p.id.includes('deck')
+				? p.token
+				: p.token.replace(/-\d$/, '') + '-2'
+		)
+	);
+	const chips = batch(parts.inlays, (p) => colorOf(p.token.replace(/-\d$/, '')));
+	const inlay = mesh(print.neu, materials.inlay, true);
+	if (inlay) {
+		inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
+		inlay.castShadow = cast;
+		const backing = new THREE.InstancedBufferGeometry();
+		backing.setAttribute('position', inlay.geometry.getAttribute('position'));
+		backing.setAttribute('cutOffset', cutOffsets);
+		backing.instanceCount = cutOffsets.count;
+		const edge = new THREE.Mesh(backing, materials.cut);
+		edge.renderOrder = 1;
+		objects.add(edge);
+	}
+	const pigments = new Map(
+		parts.ceramics.filter((p) => p.id.endsWith('/fitting')).map((p) => [p.id.slice(0, -8), p])
+	);
+	const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
 		part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
 	);
-	surface(fired.neu, materials.glaze, materials.hull, true);
-	lines(fired.kanten.neu, materials.detail);
+	const casting = surface(fired.faces, materials.glaze, materials.hull, true);
+	casting?.geometry.setAttribute('kilnChart', fired.chart);
+	lines(fired.edges, materials.detail);
 	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 	const accent = batch(
 		parts.accents.filter((part) => !isSheet(part)),
