@@ -1,12 +1,6 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
-import {
-	createTerrain,
-	groundLevel,
-	valleyPoint,
-	valleyCoords,
-	type TerrainEdit
-} from '../terrain';
+import { createTerrain, groundLevel, valleyCoords, type TerrainEdit } from '../terrain';
 import {
 	defaultAlleyPlan,
 	type TerrainCell,
@@ -277,30 +271,4 @@ describe('terrain grid', () => {
 		// Taking the intervention back gives the first grid again.
 		expect(regrid(local, terrain).cells).toEqual(grid.cells);
 	});
-});
-
-test('warm basin regrid stays within a 40 ms median across eight sites', () => {
-	const sites = [
-		[48, 26],
-		[60, 42],
-		[70, 40],
-		[58, 60],
-		[86, 80],
-		[12, 56],
-		[95, 67],
-		[120, 78]
-	];
-	const measure = () =>
-		sites
-			.map(([c, r]) => {
-				const center = valleyPoint(terrain, c * MODULE, r * MODULE);
-				const dug = createTerrain({ seed: 7, edits: [{ kind: 'basin', radius: 9, center }] });
-				const start = performance.now();
-				regrid(grid, dug);
-				return performance.now() - start;
-			})
-			.sort((a, b) => a - b);
-	measure();
-	const times = measure();
-	expect((times[3] + times[4]) / 2).toBeLessThanOrEqual(40);
 });

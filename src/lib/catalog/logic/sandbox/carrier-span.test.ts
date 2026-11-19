@@ -34,7 +34,9 @@ test('seed 7 repairs the overlong inter-roof diagonal before committing the carr
 	try {
 		const stroke = paint(world, '83/47', '87/47');
 		expect(stroke.failure).toBeUndefined();
-		const proposal: Parameters<typeof diagonals.probeWallConnections> = survey.mock.lastCall!;
+		const proposal: Parameters<typeof diagonals.probeWallConnections> | undefined =
+			survey.mock.lastCall;
+		if (!proposal) throw new Error('Missing wall connection proposal');
 		const [grid, parts, cells] = proposal;
 		const longitudinal = parts.flatMap((part) => {
 			if (part.recipe !== 'brace' || part.anchor.cellId === part.end.cellId) return [];
@@ -58,12 +60,17 @@ test('seed 7 repairs the overlong inter-roof diagonal before committing the carr
 });
 
 test('every member of every committed carrier stays within 15 m in space', () => {
-	for (const seed of [3, 7, 11, 19]) {
+	// These roofs exercise single bays, connected spans and rejected strokes.
+	const fixtures = [
+		{ seed: 7, roofs: ['83/47', '87/44', '93/48', '95/40'] },
+		{ seed: 19, roofs: ['89/45', '89/40', '90/38', '79/51'] }
+	];
+	for (const { seed, roofs } of fixtures) {
 		const world = createWorld(seed);
-		const roofs = [...world.state.stacks.keys()];
 		let built = 0;
-		for (let i = 0; i < roofs.length; i += 5) {
-			const from = roofs[i];
+		let rejected = 0;
+		for (const from of roofs) {
+			expect(world.state.stacks.has(from)).toBe(true);
 			const [x, y] = from.split('/').map(Number);
 			for (const [dx, dy] of [
 				[0, 0],
@@ -74,6 +81,7 @@ test('every member of every committed carrier stays within 15 m in space', () =>
 				const stroke = paint(world, from, x + dx + '/' + (y + dy));
 				if (stroke.failure) {
 					expect(stroke.draft).toBe(world);
+					rejected++;
 					continue;
 				}
 				const rods = installationView(stroke.draft, 'all').filter((p) => p.kind === 'pipe');
@@ -89,5 +97,6 @@ test('every member of every committed carrier stays within 15 m in space', () =>
 			}
 		}
 		expect(built).toBeGreaterThan(0);
+		expect(rejected).toBeGreaterThan(0);
 	}
 });

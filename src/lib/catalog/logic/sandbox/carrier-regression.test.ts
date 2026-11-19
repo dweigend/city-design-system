@@ -93,7 +93,8 @@ test('a socket interpolates height along the full rod axis', () => {
 		b: Vec3 = [12, 0, 2];
 	const seat = atSocket({ a, b, radius: 0.09 }, 0.5, 'capsule', []);
 	const moved = atSocket({ a, b, radius: 0.09 }, 0.75, 'capsule', []);
-	expect(moved!.shell.center[2] - seat!.shell.center[2]).toBeCloseTo(0.25, 10);
+	if (!seat || !moved) throw new Error('Missing capsule socket on the tilted rod');
+	expect(moved.shell.center[2] - seat.shell.center[2]).toBeCloseTo(0.25, 10);
 });
 
 test('an unstable wall layout cannot consume stock or reserve a roof', () => {
