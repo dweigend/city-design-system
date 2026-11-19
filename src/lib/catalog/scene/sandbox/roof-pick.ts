@@ -96,7 +96,7 @@ function roofStroke(points: THREE.Vector3[], width: () => number) {
 
 /** CPU-only roof target. A mesh supplies planar outlines and a fallback line supplies a
  * stroke in CSS pixels. Both keep the identity of the cell that owns the visible roof. */
-export function roofPick(part: Primitive, width: () => number) {
+export function roofPick(part: Primitive, width: () => number, lift = () => 0) {
 	if (!part.roofCell || (part.kind !== 'mesh' && part.kind !== 'polyline')) return undefined;
 	const points = part.points.map(vector);
 	const bounds = new THREE.Box3().setFromPoints(points);
@@ -107,10 +107,16 @@ export function roofPick(part: Primitive, width: () => number) {
 			: roofStroke(points, width);
 	const object = new THREE.Object3D();
 	object.userData.cellId = part.roofCell;
+	const local = new THREE.Raycaster();
 	object.raycast = (caster, hits) => {
+		const offset = lift();
+		local.ray.copy(caster.ray);
+		local.ray.origin.y -= offset;
+		local.params = caster.params;
 		const radius = part.kind === 'polyline' ? caster.params.Line.threshold * width() : 0;
-		if (!caster.ray.intersectsBox(box.copy(bounds).expandByScalar(radius))) return;
-		const point = intersect(caster);
+		if (!local.ray.intersectsBox(box.copy(bounds).expandByScalar(radius))) return;
+		const point = intersect(local);
+		if (point) point.y += offset;
 		if (point) hits.push({ object, point, distance: caster.ray.origin.distanceTo(point) });
 	};
 	return object;

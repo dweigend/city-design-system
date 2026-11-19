@@ -172,6 +172,7 @@ export function createSandboxStage(
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
+		vehicles.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);
@@ -283,6 +284,8 @@ export function createSandboxStage(
 			nextFocus,
 			nextFocus !== focus || before.roofBuilder !== after.roofBuilder
 		);
+		vehicles.setLines(after.lines);
+		vehicles.setFocus(nextFocus, after.state.year);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
 	}
 
@@ -321,6 +324,8 @@ export function createSandboxStage(
 		ready: gpu.started,
 		/** Freeze the scene at a timeline coordinate in seconds, or resume playback with undefined. */
 		setTime: timeline.seek,
+		/** Hold playback at the displayed frame until resumed. */
+		setPaused: timeline.pause,
 		view,
 		render,
 		/** Runs after the rendered camera and pick geometry are current. */
@@ -393,7 +398,9 @@ export function createSandboxStage(
 			return picker(x, y, shown.grid, [
 				...structures.solids(KEY.installation),
 				...structures.solids(KEY.house),
-				...structures.solids(KEY.forest)
+				...structures.solids(KEY.forest),
+				...vehicles.group.children.filter((car) => car.visible),
+				terrain.water
 			]);
 		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
@@ -438,6 +445,7 @@ export function createSandboxStage(
 			targetMaterial.dispose();
 			rejectionMaterial.dispose();
 			if (terrain) terrain.dispose();
+			vehicles.dispose();
 			structures.dispose();
 			light.dispose();
 			baseOutline.dispose();

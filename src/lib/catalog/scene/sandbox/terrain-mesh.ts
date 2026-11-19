@@ -197,6 +197,7 @@ export function createTerrainMesh(
 		/** At block level, stair alleys retain their wash without individual treads. */
 		setCityOverview: alleys.setCityOverview,
 		surface,
+		water,
 		/** Replaces view overrides in schema units, restoring omitted fields to defaults.
 		 * Updates the shader uniforms in place. Invalid values throw RangeError.
 		 */

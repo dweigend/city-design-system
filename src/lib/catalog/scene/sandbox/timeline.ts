@@ -2,10 +2,12 @@
 export function createTimeline(canvas: HTMLCanvasElement, invalidate: () => void) {
 	const motion = matchMedia('(prefers-reduced-motion: reduce)');
 	let visible = false;
+	let paused = false;
 	let fixed: number | undefined;
 	let seconds = 0;
 	let previous: number | undefined;
-	const playing = () => visible && !document.hidden && !motion.matches && fixed === undefined;
+	const atRest = () => paused || motion.matches || fixed !== undefined;
+	const playing = () => visible && !document.hidden && !atRest();
 	function restart() {
 		previous = undefined;
 		invalidate();
@@ -19,6 +21,10 @@ export function createTimeline(canvas: HTMLCanvasElement, invalidate: () => void
 	motion.addEventListener('change', restart);
 	return {
 		playing,
+		pause(value: boolean) {
+			paused = value;
+			restart();
+		},
 		sample(stamp: number) {
 			if (playing() && previous !== undefined) seconds += (stamp - previous) / 1000;
 			previous = stamp;

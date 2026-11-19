@@ -1,4 +1,5 @@
 <script lang="ts">
+	import MotionToggle from './MotionToggle.svelte';
 	import { resolve } from '$app/paths';
 	import { Toggle, ToggleGroup } from 'bits-ui';
 	import { Map as MapIcon } from 'lucide-svelte';
@@ -15,6 +16,7 @@
 	let canvas: HTMLCanvasElement;
 	let stage = $state.raw<SandboxStage>();
 	let plan = $state(false);
+	let paused = $state(false);
 	let variant = $state<StructureVariant>('leitstil');
 	let error = $state(false);
 
@@ -51,6 +53,7 @@
 		};
 	});
 
+	$effect(() => stage?.setPaused(paused));
 	$effect(() => stage?.setPlan(plan));
 	$effect(() => stage?.setStructureVariant(variant));
 </script>
@@ -88,6 +91,7 @@
 			>
 				<Icon icon={MapIcon} size={20} />
 			</Toggle.Root>
+			<MotionToggle bind:paused />
 			<ThemeToggle />
 		</div>
 	</header>
