@@ -1,3 +1,4 @@
+import { helicalStringer, stairUsers } from './stair-flight';
 import { drum, cap, surface } from '../parts';
 import { plate, circle, pipe, crescent } from '../assembly';
 import { series } from './series';
@@ -89,6 +90,8 @@ function stair(shape: Crown) {
 			rail.push([...xy(turns * 2 * Math.PI, r - 0.1), h + 1.05]);
 			return [
 				...parts,
+				helicalStringer(r, turns, h),
+				...stairUsers(r, steps, rise),
 				pipe(rail, 0.075, 'body'),
 				crescent(r, r * 0.28, h, 0.3, Math.PI * 1.38, 'slats'),
 				...crown(shape, r, h + 0.3)
