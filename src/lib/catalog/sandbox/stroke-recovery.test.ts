@@ -32,6 +32,7 @@ test('Advance in the failing survey callback preserves the warning until an acce
 for (const phase of ['survey', 'commit'] as const) {
 	test(`a ${phase} exception rejects the stroke and replays the buffered tap`, () => {
 		const d = gestureDriver();
+		const before = d.world();
 		const planStroke = sandbox.planStroke;
 		const planner = spyOn(sandbox, 'planStroke').mockImplementationOnce(
 			(...args: Parameters<typeof planStroke>) => {
@@ -47,13 +48,15 @@ for (const phase of ['survey', 'commit'] as const) {
 			d.stroke(house, '81/44');
 			d.finish();
 			expect(d.session.failure?.reason).toBe('stroke-failed');
-			expect(d.world().state.stacks.has('80/44')).toBe(false);
+			expect(d.world()).toBe(before);
 			expect(d.waiting()?.cellIds).toEqual(['81/44']);
 			expect(d.events).toEqual([]);
 			d.finish();
 			expect(d.session.failure).toBeUndefined();
 			expect(d.session.hasPendingStroke).toBe(false);
-			expect(d.world().state.stacks.has('81/44')).toBe(true);
+			expect(d.world().state.stacks.get('81/44')?.length ?? 0).toBeGreaterThan(
+				before.state.stacks.get('81/44')?.length ?? 0
+			);
 			expect(d.events.map(({ cellIds }) => cellIds)).toEqual([['81/44']]);
 		} finally {
 			planner.mockRestore();
