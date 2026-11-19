@@ -15,6 +15,7 @@ test('every variant exposes deterministic bare geometry and independently replac
 		const used = new Set<string>();
 		for (const v of a.variants) {
 			const base = buildObject(a.id, v, 17);
+			expect(base.defaults).toEqual(a.slotDefaults[v]);
 			expect(base).toEqual(buildObject(a.id, v, 17));
 			expect(buildObject(a.id, v, 17, { slots: base.defaults }).parts).toEqual(base.parts);
 			for (const part of base.geometry) {

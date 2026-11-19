@@ -2,13 +2,12 @@ import { hashUnit } from '../../core/random';
 import type { Primitive, FinishId, ColorToken } from '../parametrik/types';
 import { finishMaterial } from '../material/surface';
 import { recipes } from './recipes';
-import type { AssetDefinition } from './definition';
+import type { AssetDefinition as Placement, AssetRecipe, AssetSurface } from './definition';
 import { suggestedSurface } from './slot-defaults';
 
 export {
 	assetCategories,
 	type AssetCategory,
-	type AssetDefinition,
 	type AssetAnchor,
 	type AssetSurface,
 	type Attachment
@@ -20,19 +19,39 @@ export type ObjectOptions = {
 	slots?: Readonly<Record<string, SlotAssignment>>;
 };
 
-const byId = new Map(recipes.map((recipe) => [recipe.id, recipe]));
-/** Placement descriptions in stable contact-sheet order. */
-export const assetRegistry: readonly AssetDefinition[] = recipes.map(
-	({ id, category, variants, footprint, anchors, slotNames, suggestions, finishes }) => ({
+type SlotDefaults = Readonly<Record<string, Readonly<AssetSurface>>>;
+export type AssetDefinition = Omit<Placement, 'suggestions'> & {
+	slotDefaults: Readonly<Record<string, SlotDefaults>>;
+};
+
+function describe(recipe: AssetRecipe): AssetDefinition {
+	const { id, category, variants, footprint, anchors, slotNames, finishes } = recipe;
+	const slotDefaults: Record<string, SlotDefaults> = {};
+	for (const variant of variants) {
+		const slots = slotNames.map(
+			(slot) => [slot, Object.freeze(suggestedSurface(recipe, variant, slot))] as const
+		);
+		slotDefaults[variant] = Object.freeze(Object.fromEntries(slots));
+	}
+	return {
 		id,
 		category,
 		variants,
 		footprint,
 		anchors,
 		slotNames,
-		suggestions,
-		finishes
-	})
+		finishes,
+		slotDefaults: Object.freeze(slotDefaults)
+	};
+}
+
+const byId = new Map(
+	recipes.map((recipe) => [recipe.id, { recipe, definition: describe(recipe) }])
+);
+if (byId.size !== recipes.length) throw new Error('Duplicate object ID in asset registry');
+/** Placement descriptions and suggested surfaces per variant and slot, in contact-sheet order. */
+export const assetRegistry: readonly AssetDefinition[] = [...byId.values()].map(
+	(entry) => entry.definition
 );
 
 /** Builds metre-space geometry and independently dressed primitives for the city and bible. */
@@ -42,15 +61,14 @@ export function buildObject(
 	seed: number,
 	options: ObjectOptions = {}
 ) {
-	const recipe = byId.get(id);
-	if (!recipe) throw new RangeError('Unknown asset: ' + id);
+	const entry = byId.get(id);
+	if (!entry) throw new RangeError('Unknown asset: ' + id);
+	const { recipe, definition } = entry;
 	const index = recipe.variants.indexOf(variant);
 	if (index < 0) throw new RangeError('Unknown ' + id + ' variant: ' + variant);
 	for (const key of Object.keys(options.slots ?? {}))
 		if (!recipe.slotNames.includes(key)) throw new RangeError('Unknown slot: ' + id + '/' + key);
-	const defaults = Object.fromEntries(
-		recipe.slotNames.map((slot) => [slot, suggestedSurface(recipe, variant, slot)])
-	);
+	const defaults = definition.slotDefaults[variant];
 	const geometry = recipe
 		.draw(index, hashUnit(seed, id, variant))
 		.map((part, i) => ({ ...part, id: (options.instanceId ?? id) + '/' + i }));
@@ -76,7 +94,7 @@ export function buildAsset(id: string, variant: string, seed: number, instanceId
 /** Returns the named folded sample's surface for dressing externally owned geometry. */
 export function getAssetSurface(id: string, variant: string) {
 	const entry = byId.get(id);
-	if (!entry?.finishes || !entry.variants.includes(variant))
+	if (!entry?.definition.finishes || !entry.definition.variants.includes(variant))
 		throw new RangeError('Unknown surface: ' + id + '/' + variant);
-	return { ...entry.finishes[variant] };
+	return { ...entry.definition.finishes[variant] };
 }
