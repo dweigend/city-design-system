@@ -1,3 +1,4 @@
+import { roofShells } from './roof-shells';
 import { houseVolumes } from './house-volumes';
 import { houseProjections } from './house-projections';
 import type { AssetRecipe } from './definition';
@@ -90,5 +91,6 @@ export const recipes: readonly AssetRecipe[] = [
 	glass,
 	planted,
 	...houseVolumes,
-	...houseProjections
+	...houseProjections,
+	...roofShells
 ];
