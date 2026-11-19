@@ -1,6 +1,9 @@
 import { buildVessel, vesselMeshes } from '../art-reference';
 import type { DockedModule } from '../megastructure';
 import type { Primitive, Vec3 } from '../parametrik/types';
+import { fitScale, roundProfileContact } from '../profile-fit';
+import { required } from '../required';
+import { STORY } from '../../data/grid';
 import { kanal } from '../traeger';
 
 const profiles = new Map<number, ReturnType<typeof makeProfile>>();
@@ -21,10 +24,16 @@ function makeProfile(seed: number) {
 		{ lobes: 1 + (seed % 2), height: 2.5 }
 	);
 	if (!v) throw new Error('Missing ceramic socket profile');
-	const scale = Math.min(
-		1.6 / v.base.radius,
-		3 / (2 * Math.max(...v.rings.map((r) => r.outer + Math.abs(r.offset)))),
-		4 / v.rings[v.rings.length - 1].z
+	// The radial bound admits all socket orientations; the vertical plane caps the story.
+	const radius = Math.max(...v.rings.map((r) => r.outer + Math.abs(r.offset)));
+	const height = v.rings[v.rings.length - 1].z;
+	const scale = fitScale(
+		[
+			{ normal: [1, 0, 0], distance: 1.5 },
+			{ normal: [0, 0, 1], distance: STORY }
+		],
+		([x, y, z]) => radius * Math.hypot(x, y) + height * Math.max(0, z),
+		1.6 / v.base.radius
 	);
 	return { v, scale };
 }
@@ -42,16 +51,15 @@ function profile(seed: number) {
 /** Tangency to the capsule's cylindrical side at the widest combined cross section. */
 export function ceramicContact(seed: number, pitch: number, direction: number) {
 	const { v, scale } = profile(seed);
-	const offsets = v.rings.map((r) => {
-		const z = scale * r.z;
-		if (z > 2 * pitch) return 0;
-		return (
-			Math.sqrt(z * (2 * pitch - z)) +
-			scale * (r.outer + direction * r.offset * Math.sin(v.base.angle))
-		);
-	});
-	const max = Math.max(...offsets);
-	return { offset: max - 0.008, ring: offsets.indexOf(max) };
+	const sections = v.rings.map((r) => ({
+		height: scale * r.z,
+		reach: scale * (r.outer + direction * r.offset * Math.sin(v.base.angle))
+	}));
+	const contact = required(
+		roundProfileContact(pitch, sections),
+		'capsule and casting share a vertical interval'
+	);
+	return { offset: contact.offset - 0.008, ring: contact.segment + contact.fraction };
 }
 
 /** Seats the profile used for the contact survey at the solved wall socket. */

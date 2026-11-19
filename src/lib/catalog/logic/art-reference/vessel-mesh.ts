@@ -1,3 +1,4 @@
+import { joinRings } from '../profile-fit';
 import type { MeshForm, Vec3 } from '../parametrik/types';
 import type { buildVessel } from './vessel';
 
@@ -13,23 +14,25 @@ function strips(rows: number, count: number) {
 		const current = rim ? 0 : i,
 			next = rim ? 1 : (i + 1) % (2 * rows);
 		const out = rim ? lip.triangles : body.triangles;
-		for (let j = 0; j < count; j++) {
-			const k = (j + 1) % count;
-			out.push(
-				current * count + j,
-				current * count + k,
-				next * count + j,
-				current * count + k,
-				next * count + k,
-				next * count + j
-			);
-		}
+		joinRings(out, current * count, next * count, count);
 	}
 	for (const i of [0, 1])
 		lip.lines.push(Array.from({ length: count + 1 }, (_, j) => i * count + (j % count)));
 	return { body, lip };
 }
 const topology = new Map<string, ReturnType<typeof strips>>();
+
+function sampledRings(vessel: Vessel, layout: Layout) {
+	const stations = vessel.rings.map((_, i) => i).filter((i) => i % layout.stride === 0);
+	const indices = [...new Set([...stations, layout.contactRing])].sort((a, b) => a - b);
+	return indices.map((i) => {
+		const a = vessel.rings[Math.floor(i)],
+			b = vessel.rings[Math.ceil(i)],
+			t = i - Math.floor(i);
+		const blend = (field: keyof typeof a) => a[field] + t * (b[field] - a[field]);
+		return { z: blend('z'), outer: blend('outer'), inner: blend('inner'), offset: blend('offset') };
+	});
+}
 
 /** Loft L's hollow profile. The reference plate retains all 65 sections and 48 radial segments. */
 export function vesselMeshes(
@@ -39,9 +42,7 @@ export function vesselMeshes(
 	scale = 1,
 	layout?: Layout
 ) {
-	const rings = layout
-		? vessel.rings.filter((_, i) => i % layout.stride === 0 || i === layout.contactRing)
-		: vessel.rings;
+	const rings = layout ? sampledRings(vessel, layout) : vessel.rings;
 	const count = layout?.count ?? 48,
 		key = rings.length + '/' + count;
 	const faces = topology.get(key) ?? strips(rings.length, count);

@@ -1,4 +1,6 @@
 import { ceramicContact, castingSeed } from './ceramic-fitting';
+import { roundPairContact, roundProfileContact } from '../profile-fit';
+import { required } from '../required';
 import { kanal } from '../traeger';
 import { dockModule, type Bounds, type ModuleKind, type DockedModule } from '../megastructure';
 import type { Vec3 } from '../parametrik/types';
@@ -31,7 +33,7 @@ type Seat = {
 };
 
 /** A carrier site keeps the same water fitting across previews and rebuilds. */
-export function waterFitting(seed: number, cellId: string) {
+function waterFitting(seed: number, cellId: string) {
 	return kanal(seed, 'raumfachwerk', cellId, 'water-fitting/v1') % 2 ? 'tank' : 'ceramic';
 }
 
@@ -87,9 +89,17 @@ export function atSocket(
 }
 
 function fittingOffset(recipe: Exclude<ModuleRecipe, 'capsule'>, pitch: number) {
-	if (recipe === 'tank') return 2 * Math.sqrt(pitch) - 0.08;
-	if (recipe === 'solar-ring') return 1.25 + 2 * Math.sqrt(0.25 * pitch) - 0.008;
-	return 1.5 + Math.sqrt(0.5 * (2 * pitch - 0.5)) - 0.008;
+	if (recipe === 'tank') return roundPairContact(pitch, 1) - 0.08;
+	if (recipe === 'solar-ring') return 1.25 + roundPairContact(pitch, 0.25) - 0.008;
+	return (
+		required(
+			roundProfileContact(pitch, [
+				{ height: 0, reach: 1.5 },
+				{ height: 0.5, reach: 1.5 }
+			]),
+			'side of docked tray'
+		).offset - 0.008
+	);
 }
 
 /** Occupied volumes include both the shell and its optional fitting. */

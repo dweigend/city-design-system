@@ -1,3 +1,4 @@
+import { fitScale, footprintPlanes } from '../profile-fit';
 import { STORY } from '../../data/grid';
 import type { Primitive } from '../parametrik/types';
 import type { Bay } from './megastructure-bay';
@@ -36,20 +37,30 @@ export function guest(b: Bay, use: HouseUse, side: number, exposed: boolean): Pr
 		radius: r * 0.11
 	});
 	if (use === 'material') return [hanger, ...salvage(b, mid[2])];
-	if (use === 'water' || use === 'food')
+	if (use === 'water' || use === 'food') {
+		const span = raisedTank ? b.radius * 0.68 : r * 0.48;
+		const squash = use === 'food' ? 0.73 : 1;
+		const footprint = [b.point(0, 0, 0), b.point(1, 0, 0), b.point(1, 1, 0), b.point(0, 1, 0)];
+		const radius = fitScale(
+			footprintPlanes(footprint, mid),
+			([nx, ny, nz]) => Math.hypot(nx, ny, nz * squash),
+			span
+		);
+		if (!radius) return [];
 		return [
 			hanger,
 			{
 				...b.piece('vessel', b.token, {
 					kind: 'sphere',
 					position: mid,
-					radius: raisedTank ? b.radius * 0.68 : r * 0.48,
-					squash: use === 'food' ? 0.73 : 1
+					radius,
+					squash
 				}),
 				material: use === 'food' ? 'greenhouse' : 'glaze',
 				glass: use === 'food'
 			}
 		];
+	}
 	if (use !== 'energy') return [];
 	return [
 		b.piece('feed', b.token, {

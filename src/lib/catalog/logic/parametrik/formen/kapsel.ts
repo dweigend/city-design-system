@@ -1,3 +1,5 @@
+import { capsuleSkin, surfaceBand } from '../../profile-fit';
+import { required } from '../../required';
 import type { Primitive } from '../types';
 import { family, spec } from './kit';
 import { bullaugen, type Kugel } from './bullauge';
@@ -29,15 +31,20 @@ export const kapsel = [
 						})
 					);
 			out.push(k.capsule([-half, 0, z], [half, 0, z], r, k.tone(0), { rank: 1 }));
-			// Portholes: rings on the front face (local −v).
+			// Space the trim on the available frontage. The front returns follow the
+			// cylindrical wall and continue onto the spherical ends of short capsules.
+			const frontage = Math.max(half * 0.8, r * 0.45);
+			const outer = Math.min(r * 0.32, (frontage * 0.9) / Math.max(1, p.bullaugen - 1));
 			for (let i = 0; i < p.bullaugen; i++) {
-				const u = p.bullaugen === 1 ? 0 : -half * 0.8 + (i * half * 1.6) / (p.bullaugen - 1);
-				out.push(
-					k.ring(u, -r * 0.97, z, r * 0.32, r * 0.2, 0.12, '--paper', {
-						rank: 1,
-						turn: Math.PI / 2
-					})
-				);
+				const station = p.bullaugen === 1 ? 0 : -frontage + (2 * frontage * i) / (p.bullaugen - 1);
+				const band = surfaceBand(outer * 0.625, outer, -0.015, 0.105, (u, h, offset) => {
+					const depth = required(
+						capsuleSkin(r, half, station + u, h),
+						'porthole within capsule skin'
+					);
+					return k.at(station + u, -depth - offset, z + h);
+				});
+				out.push({ ...k.base('--paper', { rank: 1 }), ...band });
 			}
 			return out;
 		}

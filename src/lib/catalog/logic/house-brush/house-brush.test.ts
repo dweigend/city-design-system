@@ -1,6 +1,8 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import { STORY } from '../../data/grid';
+import { bayOf } from './megastructure-bay';
+import { guest } from './megastructure-guests';
 import type { Primitive } from '../parametrik/types';
 import { quadGrid, squareGrid, type QuadCell } from '../quad-grid';
 import { houseChunk, lower, raise, stackTop, touchedChunks, type Stacks } from './index';
@@ -175,4 +177,24 @@ test('a carrier crosses the chunk seam only above older roofs in its block', () 
 		project((id) => (id === '4/2' ? 'next block' : 'one block')).some((p) => p.id.includes('/4/2/'))
 	).toBe(false);
 	expect(touchedChunks(grid, current, current, ['4/2']).has(anchor.chunk)).toBe(true);
+});
+
+test('raised water vessels respect the wall clearance of a skewed mounting bay', () => {
+	const cell = cellAt(1, 1);
+	const story = { cell, level: 0 };
+	const mass = { id: 'test', use: 'water' as const, floor: 0, raised: false, stories: [story] };
+	const vessel = (depth: number) => {
+		const bay = bayOf(mass, story, [
+			[0, 0, 0],
+			[8, 0, 0],
+			[9, depth, 0],
+			[1, depth, 0]
+		]);
+		const body = guest(bay, 'water', 0, true).find((p) => p.kind === 'sphere');
+		if (body?.kind !== 'sphere') throw new Error('Missing mounted vessel');
+		return body;
+	};
+	const narrow = vessel(2);
+	expect(narrow.radius).toBeCloseTo(narrow.position[1], 10);
+	expect(narrow.radius).toBeLessThan(vessel(8).radius);
 });
