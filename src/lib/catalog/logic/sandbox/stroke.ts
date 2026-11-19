@@ -1,3 +1,5 @@
+import { frameIntent } from './frame-intent';
+import { styleForYear, stylesForYear } from './state';
 import { propose, install } from './installation';
 import type { Failure, Proposal } from './installation-parts';
 import { cellsBetween } from '../terrain-grid';
@@ -78,6 +80,7 @@ function evaluateStroke(
 	previous: World,
 	fresh: readonly string[]
 ): Outcome {
+	if(tool.kind==='house' && (tool.style??styleForYear(base.state.year))==='megastructure' && stylesForYear(base.state.year).includes('megastructure')) return frameIntent(base,ids);
 	if (proposal) {
 		if ('failure' in proposal) return { draft: base, failure: proposal.failure };
 		return { draft: withState(base, install(base.state, proposal, tool)), failure: undefined };

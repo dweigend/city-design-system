@@ -1,4 +1,4 @@
-import { hashUnit } from '../../core/random';
+import { weightedForm } from './weighted';
 import type { Decision, NeighbourCell, Rules, Snapshot, Veto } from './contract';
 
 function readCell(id: string, state: Snapshot, rules: Rules) {
@@ -61,14 +61,16 @@ function propose(
 	const hold = { target: cell.form, evaluated: 0, vetoes: [] };
 	if (cell.protected) return { ...hold, reason: 'stock' };
 	if (rules.forms.length > rules.budget) return { ...hold, reason: 'budget' };
-	const { choices, vetoes, total } = domain(cell, adjacent, rules);
+	const { choices, vetoes } = domain(cell, adjacent, rules);
 	const trace = { evaluated: rules.forms.length, vetoes };
 	if (!choices.length) return { ...trace, target: cell.form, reason: 'empty-domain' };
 	if (cell.intent !== undefined && choices.some(({ form }) => form === cell.intent))
 		return { ...trace, target: cell.intent, reason: 'intent' };
-	const draw = hashUnit(seed, cell.id, 'neighbourhood-form-v1') * total;
-	const choice = choices.find(({ end }) => draw < end) ?? choices[choices.length - 1];
-	return { ...trace, target: choice.form, reason: 'weighted' };
+	return {
+		...trace,
+		target: weightedForm(choices, seed, cell.id, 'neighbourhood-form-v1'),
+		reason: 'weighted'
+	};
 }
 
 /** Queries independent proposals in a two-ring halo and resolves contested contacts by stable ID. */

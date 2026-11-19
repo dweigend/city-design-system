@@ -97,8 +97,11 @@ export function populateStructures(
 		return object;
 	};
 	const lines = (segments: number[], material: THREE.Line2NodeMaterial) => {
-		if (segments.length)
-			objects.add(new LineSegments2(new LineSegmentsGeometry().setPositions(segments), material));
+		if (segments.length) {
+			const line = new LineSegments2(new LineSegmentsGeometry().setPositions(segments), material);
+			if (material.dashed) line.computeLineDistances();
+			objects.add(line);
+		}
 	};
 	const cast = finishes.envelopeShadows();
 	const surface = (
@@ -173,7 +176,22 @@ export function populateStructures(
 	for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
 		fill(faces, materials.signal, true);
 
-	const current = parts.carriers.filter((p) => p.role !== 'bestand');
+	const current = parts.carriers.filter(
+		(p) => p.role !== 'bestand' && !p.planned && p.sectionDiameter !== 0.14
+	);
+	lines(
+		batch(parts.carriers.filter((p) => p.planned).flatMap(memberTrace), toColor).kanten.neu,
+		materials.planned
+	);
+	lines(
+		batch(
+			parts.carriers
+				.filter((p) => !p.planned && p.role !== 'bestand' && p.sectionDiameter === 0.14)
+				.flatMap(memberTrace),
+			toColor
+		).kanten.neu,
+		materials.rib
+	);
 	const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
 	const main = current.filter((p) => !p.member || p.member === 'primary');
 	const ties = current.filter((p) => p.member === 'secondary' && !p.detail);

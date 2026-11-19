@@ -1,3 +1,4 @@
+import { frameSurvey } from './frame-survey';
 import { walkwayParts, WALKWAY_WIDTH_M } from '../walkway';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { applyEdit, createWorld, type World } from './world';
@@ -5,7 +6,6 @@ import type { Edit } from './state';
 
 const SEED = 7;
 const COLLAGE = ['79/44', '80/44', '81/44', '80/45', '81/45'];
-const CARRIER = '82/41';
 const CAPSULES = [
 	{ use: 'water', cells: ['83/44', '84/44', '85/44'] },
 	{ use: 'energy', cells: ['92/45', '93/45', '94/45'] }
@@ -36,7 +36,6 @@ function interventions(): Edit[] {
 			use: 'living',
 			style: 'collage'
 		})),
-		{ kind: 'raise', cellId: CARRIER, use: 'living', style: 'megastructure' },
 		...CAPSULES.flatMap(({ use, cells }) =>
 			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use, style: 'totem' }))
 		),
@@ -70,9 +69,13 @@ function elevatedWalkway({ grid }: World): Primitive[] {
 }
 
 /** Replays the seed-7 interventions and returns the fixed drafting study in world meters. */
-export function acceptanceScene() {
-	const start = createWorld(SEED);
-	const world = interventions().reduce(applyEdit, start);
+export function acceptanceScene(seed = SEED) {
+	const start = createWorld(seed);
+	const placed = interventions().reduce(applyEdit, start);
+	const { rules, seams } = frameSurvey(placed);
+	const first = rules.tick(seams.keys(), new Map(), seed, start.state.year - 1);
+	const built = rules.tick(seams.keys(), first, seed, start.state.year);
+	const world = { ...placed, state: { ...placed.state, frameBays: new Map([...first, ...built]) } };
 	return {
 		world,
 		earliestFullYear: start.state.year,

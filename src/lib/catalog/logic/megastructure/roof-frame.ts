@@ -1,4 +1,5 @@
-import { FRAME_DIAMETER } from '../../data/frame-sections';
+import { sizeMembers } from './sections';
+import { loeseFachwerk, type Vec3 } from '../statik';
 import { bayMembers, bearingLayouts, crownLinks, type Joint, type Bay } from './bearing-layout';
 import { roofLinks } from './roof-links';
 import { selectConnectedLayout } from './connected-layouts';
@@ -18,8 +19,7 @@ type Sections = 'uniform' | 'leitstil';
 function solveLayout(bays: Bay[], maxSpan: number, sections: Sections) {
 	const rods: { a: Joint; b: Joint; radius: number; main: boolean }[] = [];
 	const add = (a: Joint, b: Joint, main: boolean) => {
-		const diameter = sections === 'uniform' ? 0.14 : FRAME_DIAMETER[main ? 'main' : 'brace'];
-		rods.push({ a, b, main, radius: diameter / 2 });
+		rods.push({ a, b, main, radius: 0.14 / 2 });
 	};
 
 	for (const layout of bays) {
@@ -34,13 +34,53 @@ function solveLayout(bays: Bay[], maxSpan: number, sections: Sections) {
 		for (const other of bays.slice(i + 1))
 			for (const { a, b } of crownLinks(bay, other, maxSpan)) add(a, b, true);
 	const nodes = bays.flatMap((b) => [...b.feet, ...b.crown]);
+	const feet = bays.flatMap((b) => b.feet);
+	const probe = probeFrame(nodes, feet, rods);
+	if (sections === 'uniform' || probe.analysis.status !== 'ok') return { rods, ...probe };
+	const fixed = new Set(feet.map((n) => n.id));
+	const result = sizeMembers({
+		knoten: nodes,
+		lager: probe.structure.lager,
+		kandidaten: rods.map((r, i) => ({ id: String(i), a: r.a.id, b: r.b.id, rolle: 'tragstab' })),
+		lastfaelle: [
+			{
+				id: 'service-probe',
+				lasten: nodes
+					.filter((n) => !fixed.has(n.id))
+					.map((n) => ({
+						knotenId: n.id,
+						kraftN: [0, 0, -1000] satisfies Vec3
+					}))
+			}
+		]
+	});
+	if (result.status !== 'ok') return { rods: [], structure: probe.structure, analysis: result };
+	const sized = result.staebe.map((r) => ({
+		...rods[Number(r.id)],
+		radius: r.querschnitt.durchmesserM / 2,
+		main: r.querschnitt.durchmesserM === 0.18
+	}));
+	const structure = {
+		...probe.structure,
+		staebe: result.staebe.map((r) => ({
+			id: r.id,
+			a: r.a,
+			b: r.b,
+			eModulPa: probe.structure.staebe[Number(r.id)].eModulPa,
+			flaecheM2: r.querschnitt.flaecheM2
+		}))
+	};
 	return {
-		rods,
-		...probeFrame(
-			nodes,
-			bays.flatMap((b) => b.feet),
-			rods
-		)
+		rods: sized,
+		structure,
+		analysis: loeseFachwerk(structure, [
+			{
+				id: 'service-probe',
+				lasten: nodes
+					.filter((n) => !fixed.has(n.id))
+					.map((n) => ({ knotenId: n.id, kraftN: [0, 0, -1000] }))
+			}
+		])
 	};
 }
 

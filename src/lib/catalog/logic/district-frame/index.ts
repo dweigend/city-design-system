@@ -138,3 +138,20 @@ export function districtFrame(
 	}
 	return [...edges.values()].sort((a, b) => (a.id < b.id ? -1 : 1));
 }
+
+export {
+	compileSeams,
+	omissionMeasures,
+	type BaySnapshot,
+	type BayState,
+	type OmissionEvidence
+} from './seams';
+export {
+	seamPolicy,
+	pairWeights,
+	characterWeights,
+	type EdgeUse,
+	type FrameRole,
+	type FrameSeam,
+	type Character
+} from './seam-policy';

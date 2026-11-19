@@ -92,4 +92,4 @@ export function roofWalls(grid: QuadGrid, stacks: Stacks, cell: QuadCell, seed: 
 	const inset = profileOf({ grid, stacks, seed }, mass).wallInset;
 	return { inset, exposed: cell.neighbors.map((n) => !n || !members.has(n)) };
 }
-export { boundaryRings, ringArea } from './outline';
+export { boundaryRings, insetRing, ringArea } from './outline';

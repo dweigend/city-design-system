@@ -13,9 +13,8 @@ export const OPENING_VIEW_PARAMS = defineParams({
 	mobileElevationDeg: numberParam('Mobile opening elevation', 'deg', 11, [8, 26, 1])
 });
 
-/** Two interpretations of the same structure. The hairline is the 18 November comparison. */
-export const STRUCTURE_VARIANTS = ['leitstil', 'hairline'] as const;
-export type StructureVariant = (typeof STRUCTURE_VARIANTS)[number];
+export type MinimumInk = 'primary' | 'all';
+export const defaultMinimumInk: MinimumInk = 'all';
 
 /** Terrain grid, cursor lens, alley ink and contour controls in cell units and ratios. */
 export const TERRAIN_VIEW_PARAMS = defineParams({

@@ -1,7 +1,6 @@
 import { cellsBetween, type TerrainGrid } from '../terrain-grid';
 import { stylesForYear, styleForYear } from './state';
 import { dockStroke } from './dock-stroke';
-import { roofStroke } from './roof-stroke';
 import { walkwayStroke } from './walkway-stroke';
 import {
 	rejected,
@@ -39,7 +38,6 @@ export function propose(world: World, tool: Tool, ids: readonly string[]): Propo
 	if (tool.kind !== 'house') return;
 	if (tool.style && !stylesForYear(world.state.year).includes(tool.style)) return;
 	const style = tool.style ?? styleForYear(world.state.year);
-	if (style === 'megastructure') return roofStroke(world, cells());
 	if (style === 'totem') return dockStroke(world, cells(), tool.use);
 }
 

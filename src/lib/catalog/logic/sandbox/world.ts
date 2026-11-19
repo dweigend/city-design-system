@@ -5,6 +5,7 @@ import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
+import { frameSurvey } from './frame-survey';
 import { seedTown, type TownOptions } from './old-town';
 import { migrateSnapshot } from './snapshot';
 import { constructionLayers } from './time-layers';
@@ -24,6 +25,7 @@ import {
  */
 export type World = Readonly<{
 	seed: number;
+	districtGrid?: TerrainGrid;
 	roofBuilder?: import('../building-envelope').RoofBuilder;
 	state: SandboxState;
 	grid: TerrainGrid;
@@ -99,7 +101,13 @@ export function createWorld(
 	options?: TownOptions & { plan?: Parameters<typeof deriveGrid>[1] }
 ): World {
 	const grid = deriveGrid(createTerrain({ seed }), options?.plan);
-	return { seed: grid.terrain.seed, state: seedTown(grid, options), grid, lines: [] };
+	return {
+		seed: grid.terrain.seed,
+		districtGrid: grid,
+		state: seedTown(grid, options),
+		grid,
+		lines: []
+	};
 }
 
 /**
@@ -269,7 +277,27 @@ function appendLine(world: World, edit: Extract<Edit, { kind: 'line' }>): World 
 
 function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): SandboxState {
 	const { state } = world;
-	if (edit.kind === 'advance') return advance(state, edit.years ?? sandboxGenerationYears);
+	if (edit.kind === 'advance') {
+		const next = advance(state, edit.years ?? sandboxGenerationYears);
+		if (next === state) return state;
+		const { rules, seams } = frameSurvey(world);
+		const previous = state.frameBays ?? new Map();
+		const patch = rules.tick(seams.keys(), previous, world.seed, next.year);
+		return patch.size ? { ...next, frameBays: new Map([...previous, ...patch]) } : next;
+	}
+	if (edit.kind === 'clear' && state.frameBays?.size) {
+		const cell = world.grid.cellsById.get(edit.cellId);
+		if (cell) {
+			const keys = cell.vertexIds.map((v, i) =>
+				JSON.stringify([v, cell.vertexIds[(i + 1) % 4]].sort())
+			);
+			const bays = new Map(state.frameBays),
+				intents = new Map(state.frameIntents);
+			for (const key of keys) if (bays.delete(key)) intents.set(key, 'gap');
+			if (bays.size < state.frameBays.size)
+				return { ...state, frameBays: bays, frameIntents: intents };
+		}
+	}
 	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
 	const cell = world.grid.cellsById.get(edit.cellId);
 	return cell ? cellEdit(state, cell, edit) : state;
@@ -286,5 +314,12 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
  */
 export function applyEdit(world: World, edit: Edit): World {
 	if (edit.kind === 'line') return appendLine(world, edit);
-	return replaceState(world, nextState(world, edit), 'edit');
+	const next = replaceState(world, nextState(world, edit), 'edit');
+	if (next.grid === world.grid || !next.state.frameBays?.size) return next;
+	const { seams } = frameSurvey(next);
+	const bays = new Map(next.state.frameBays);
+	for (const id of bays.keys()) if (!seams.has(id) || seams.get(id)?.opening) bays.delete(id);
+	return bays.size === next.state.frameBays.size
+		? next
+		: { ...next, state: { ...next.state, frameBays: bays } };
 }

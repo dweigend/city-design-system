@@ -34,3 +34,5 @@ export {
 	type Anchor,
 	type Installation
 } from './installation-parts';
+export { frameSurvey } from './frame-survey';
+export { frameReport } from './frame-report';

@@ -36,6 +36,8 @@ export type TimeLayer = Readonly<{ year: number; flows: readonly FlowId[] }>;
  */
 export type SandboxState = Readonly<{
 	year: number;
+	frameIntents?: ReadonlyMap<string, import('../district-frame').FrameRole>;
+	frameBays?: import('../district-frame').BaySnapshot;
 	timeLayers: readonly TimeLayer[];
 	nextAction: number;
 	parts: ReadonlyMap<PartId, BuiltPart>;
