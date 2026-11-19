@@ -1,8 +1,9 @@
+import { dockPose, seatingLift } from './docking';
 import { Group } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 
 type Build = (parts: Primitive[]) => Group;
-type Motion = (seconds: number) => void;
+type Motion = (seconds: number) => boolean;
 
 /** Builds separately moving crown and placement batches, retaining their actual ray targets. */
 export function kineticGroups(
@@ -18,7 +19,12 @@ export function kineticGroups(
 		if (!selected.length) return;
 		const batch = build(selected);
 		batches.push(batch);
-		if (move) updates.push((seconds) => move(batch, seconds));
+		if (move)
+			updates.push((seconds) => {
+				const { x, y, z } = batch.position;
+				move(batch, seconds);
+				return x !== batch.position.x || y !== batch.position.y || z !== batch.position.z;
+			});
 	}
 	if (key.startsWith('forest:')) {
 		const crowns = parts.filter((p) => !p.id.includes(':trunk'));
@@ -35,15 +41,16 @@ export function kineticGroups(
 		const known = new Set(previous.map((p) => p.id));
 		const fresh = new Set(parts.filter((p) => p.role !== 'bestand' && !known.has(p.id)));
 		add(parts.filter((p) => !fresh.has(p)));
+		for (const capsule of [...fresh]) {
+			if (capsule.kind !== 'capsule') continue;
+			const companions = [...fresh].filter(
+				(p) => p === capsule || p.id.startsWith(capsule.id + '/')
+			);
+			for (const part of companions) fresh.delete(part);
+			add(companions, (g, s) => dockPose(g, capsule, s - placedAt));
+		}
 		add([...fresh], (g, s) => {
-			// Gravity drop from 28 cm, then one damped elastic contact with the socket.
-			const t = Math.max(0, s - placedAt);
-			const impact = Math.sqrt(0.56 / 9.81);
-			const rebound = Math.max(0, t - impact);
-			g.position.y =
-				t < impact
-					? 0.28 - 4.905 * t * t
-					: 0.038 * Math.exp(-24 * rebound) * Math.abs(Math.sin(34 * rebound));
+			g.position.y = seatingLift(s - placedAt);
 		});
 	} else add(parts);
 	return { batches, updates };

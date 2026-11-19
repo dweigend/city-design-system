@@ -123,6 +123,10 @@ export function createSandboxStage(
 
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
+		if (!refreshTones && lastScale === scale && lastVariant === variant) return;
+		lastScale = scale;
+		lastVariant = variant;
+		light.invalidate();
 		const zoom = nearestZoom(scale);
 		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
 		if (nextCoarse !== coarse && shown)
@@ -173,6 +177,7 @@ export function createSandboxStage(
 	function applyPalette(next: Palette3D) {
 		palette = next;
 		vehicles.setPalette(next);
+		scene.background = new THREE.Color(next.paper).lerp(new THREE.Color(next.ink), 0.035);
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);
