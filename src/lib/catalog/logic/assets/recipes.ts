@@ -1,3 +1,4 @@
+import { occupiedDecks } from './production/occupied-decks';
 import { publicLife } from './production/public-life';
 import { manifolds } from './production/manifolds';
 import { rooftops } from './production/rooftop';
@@ -182,5 +183,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...lanterns,
 	...rooftops,
 	...manifolds,
-	...publicLife
+	...publicLife,
+	...occupiedDecks
 ];

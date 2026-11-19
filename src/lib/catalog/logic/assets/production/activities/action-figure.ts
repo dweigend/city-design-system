@@ -48,13 +48,13 @@ const junior = {
 	arm: 0.061
 };
 /** Builds a rigid adult or child around its hip and fixed hand/foot targets in metres, facing +x. */
-export function actionFigure(g: Gesture, child: boolean, x = 0, y = 0) {
+export function actionFigure(g: Gesture, child: boolean, x = 0, y = 0, elevation = 0) {
 	const { head, torso, waist, stance, shoulderWidth, thigh, forearm, leg, arm } = child
 		? junior
 		: adult;
 	const hip = g.hip;
 	const shoulderZ = hip + Math.sqrt(torso ** 2 - g.lean ** 2);
-	const point = (dx: number, dy: number, z: number): Vec3 => [x + dx, y + dy, z];
+	const point = (dx: number, dy: number, z: number): Vec3 => [x + dx, y + dy, elevation + z];
 	const parts: ObjectGeometry[] = [
 		limb(point(0, 0, hip), point(g.lean, 0, shoulderZ - 0.07), waist, 'coat'),
 		bulb(point(g.lean + 0.02, 0, shoulderZ + head * 0.98), head, 1, 'skin')
