@@ -40,9 +40,9 @@ function course(
 export function waveWall(factor: number, variant: number) {
 	const cycles = 1 + variant * 0.5,
 		height = 0.55 + factor * 1.55,
-		shoulder = height * 0.72;
+		shoulder = height * 0.86;
 	return [
-		course(0, shoulder, cycles, 0.25, 'glass'),
+		course(0, shoulder, cycles, 0.31, 'glass'),
 		course(shoulder, height, cycles, 0.37, 'channel', true)
 	];
 }
