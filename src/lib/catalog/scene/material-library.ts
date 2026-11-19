@@ -1,3 +1,4 @@
+import { studioQuality, type StudioQuality } from './studio-quality';
 import { Color, DoubleSide, type Material, type Node, type Texture } from 'three/webgpu';
 import { attribute, color, float, normalWorld, vec3, vec4 } from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
@@ -21,6 +22,7 @@ const neutralPalette: Palette3D = {
 };
 
 type SurfaceOptions = {
+	quality?: StudioQuality;
 	double?: boolean;
 	close?: boolean;
 	environment?: Texture | null;
@@ -45,7 +47,8 @@ export function compileSurface(
 				s.id,
 				double,
 				options.environment ?? null,
-				s.variation ?? variationVorgabe
+				s.variation ?? variationVorgabe,
+				options.quality ?? studioQuality()
 			);
 		case 'diagram':
 			return rezeptMaterial(s.recipe, palette, double, options.time, s.pattern);
@@ -90,7 +93,8 @@ export function compileSurface(
 export function createMaterialLibrary(
 	initial: Palette3D = neutralPalette,
 	environment: () => Texture | null = () => null,
-	time?: Node<'float'>
+	time?: Node<'float'>,
+	quality = studioQuality()
 ) {
 	let palette = initial;
 	let close = true;
@@ -116,7 +120,13 @@ export function createMaterialLibrary(
 			const key = JSON.stringify([s, double]);
 			const found = cache.get(key);
 			if (found) return found;
-			const face = compileSurface(s, palette, { double, close, environment: reflection(s), time });
+			const face = compileSurface(s, palette, {
+				double,
+				close,
+				environment: reflection(s),
+				time,
+				quality
+			});
 			face.name = s.kind === 'diagram' ? (s.id ?? s.recipe.familie) : s.id;
 			const release = () => {
 				face.removeEventListener('dispose', release);

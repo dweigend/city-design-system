@@ -1,3 +1,4 @@
+import { studioPipeline } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
 import { createMaterialKamera } from './materialKamera';
 import { bindSceneTheme } from './themeBinding';
@@ -50,7 +51,7 @@ export function createMaterialBuehne(
 	optionen: BuehnenOptionen = {}
 ): MaterialBuehne {
 	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
 	const scene = new THREE.Scene();
 	const welt = new THREE.Group();
 	scene.add(welt);
@@ -73,6 +74,8 @@ export function createMaterialBuehne(
 	let letzte: Stueck[] = [];
 	const blick = createMaterialKamera(canvas, optionen, render);
 
+	const pipeline = studioPipeline(renderer, scene, blick.kamera);
+
 	const bewegt = () => bewegung && aktiv && performance.now() < animiertBis && mitWasser;
 
 	function bewegungsImpuls() {
@@ -92,7 +95,7 @@ export function createMaterialBuehne(
 			pending = 0;
 			const laeuft = bewegt();
 			if (laeuft) wasserSchritt(zeit);
-			renderer.render(scene, blick.kamera);
+			pipeline.render();
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 			if (laeuft) render();
 		});
@@ -187,6 +190,7 @@ export function createMaterialBuehne(
 			blick.dispose();
 			projektion.dispose();
 			studio?.dispose();
+			pipeline.dispose();
 			if (initialized) renderer.dispose();
 		}
 	};

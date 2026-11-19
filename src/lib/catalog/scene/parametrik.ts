@@ -1,3 +1,5 @@
+import { studioPipeline } from './studio-pipeline';
+import { createLight } from './sandbox/light';
 import { color as colorNode } from 'three/tsl';
 import { pencilStock } from './pencil-stock';
 import {
@@ -53,11 +55,12 @@ export function createParametrikScene(
 	const painters: (() => void)[] = [];
 	const scene = new THREE.Scene();
 	const surfaces = createMaterialLibrary(palette, () => scene.environment);
-	const sun = new THREE.DirectionalLight(0xffffff, 2);
-	sun.position.set(5, 10, 4);
-	scene.add(new THREE.HemisphereLight(0xffffff, 0xd9d7cf, 2), sun);
 	scene.background = new THREE.Color(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 2000);
+	const pipeline = studioPipeline(renderer, scene, camera);
+	const light = createLight(pipeline.shadowSize);
+	renderer.shadowMap.enabled = true;
+	scene.add(...light.objects);
 	const model = new THREE.Group();
 	scene.add(model);
 	let alive = true,
@@ -77,7 +80,7 @@ export function createParametrikScene(
 	);
 	const render = () => {
 		if (alive && initialized) {
-			renderer.render(scene, camera);
+			pipeline.render();
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		}
 	};
@@ -113,6 +116,7 @@ export function createParametrikScene(
 		const bounds = new THREE.Box3().setFromObject(model);
 		if (bounds.isEmpty() && !fixed) return;
 		const center = fixed ? vector(fixed.center) : bounds.getCenter(new THREE.Vector3());
+		light.aim(center, Math.max(3, bounds.getSize(new THREE.Vector3()).length()));
 		const eyeDirection = direction ?? fixed?.eye;
 		const eye = eyeDirection
 			? vector(eyeDirection).normalize()
@@ -223,6 +227,7 @@ export function createParametrikScene(
 	) {
 		if (!alive) return;
 		clear();
+		light.refresh();
 		groups.clear();
 		pickables.length = 0;
 		usedMaterials.clear();
@@ -371,6 +376,7 @@ export function createParametrikScene(
 				});
 				mesh.position.copy(place.position);
 				mesh.rotation.copy(place.rotation);
+				mesh.castShadow = mesh.receiveShadow = true;
 				mesh.renderOrder = look?.renderOrder ?? 1;
 				mesh.userData.id = p.id;
 				pickables.push(mesh);
@@ -517,6 +523,7 @@ export function createParametrikScene(
 		},
 		/** Moves groups (see update groupOf) without rebuilding geometry; metres in world x/y/z. */
 		arrange(next: Map<string, Vec3>) {
+			light.refresh();
 			offsets = next;
 			applyOffsets();
 			render();
@@ -591,6 +598,8 @@ export function createParametrikScene(
 			for (const material of materials.values()) material.dispose();
 			materials.clear();
 			surfaces.dispose();
+			light.dispose();
+			pipeline.dispose();
 			if (initialized) await renderer.dispose();
 		}
 	};

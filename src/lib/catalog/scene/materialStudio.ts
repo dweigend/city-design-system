@@ -1,3 +1,4 @@
+import { studioLights } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Palette3D } from '../data/city3d';
@@ -7,24 +8,13 @@ import { tokenColor } from './material';
 const neutral = (r: number, g: number, b: number) =>
 	new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace);
 
-const paper = neutral(0.972, 0.974, 0.968);
+const paper = neutral(0.979, 0.969, 0.945);
 const ink = neutral(0.23, 0.23, 0.22);
-/** Warm key against a cool sky fill: lit faces read sunny, shade and cast shadow read blue. */
-const keyColor = neutral(1, 0.96, 0.89);
-const skyColor = neutral(0.56, 0.78, 1);
-const bounceColor = neutral(0.93, 0.9, 0.85);
-const shadowColor = neutral(0.25, 0.42, 0.58);
-/**
- * Intensities are balanced without tone mapping: a white upward face lands just below 1.0, and
- * key-shadowed surfaces keep about a third of it. Raising one requires lowering another.
- */
-const KEY = 2.8;
-const FILL = 0.7;
+const shadowColor = neutral(0.42, 0.39, 0.35);
 const REFLECTION = 0.24;
 const SHADOW = 0.66;
 /** Key from the right, slightly behind the stage: the right face is lit, the left one in shade. */
 const keyFromRight = new THREE.Vector3(0.94, 1.12, -0.35);
-const keyFromLeft = new THREE.Vector3(-0.57, 1, 0.69);
 
 /** Resolve the semantic colors once. Paper and ink belong to the fixed studio scene. */
 export function studioPalette(palette: Palette3D): Palette3D {
@@ -49,15 +39,14 @@ export function createMaterialStudio(
 	renderer.shadowMap.type = THREE.PCFShadowMap;
 	scene.environmentIntensity = REFLECTION;
 
-	const key = new THREE.DirectionalLight(keyColor, KEY);
-	const keyDirection = lichtVonRechts ? keyFromRight : keyFromLeft;
+	const { key, fill } = studioLights();
+	const keyDirection = lichtVonRechts ? keyFromRight : key.position.clone();
 	key.castShadow = true;
 	key.shadow.mapSize.set(2048, 2048);
 	key.shadow.autoUpdate = false;
 	key.shadow.normalBias = 0.02;
 	key.shadow.bias = -0.0002;
 	key.shadow.radius = 2;
-	const fill = new THREE.HemisphereLight(skyColor, bounceColor, FILL);
 	const floor = new THREE.Mesh(
 		new THREE.PlaneGeometry(600, 600),
 		new THREE.ShadowNodeMaterial({ color: shadowColor, opacity: SHADOW, depthWrite: false })

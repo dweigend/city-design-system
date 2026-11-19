@@ -20,7 +20,8 @@ import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { createCellPicker } from './house-picker';
-import { studioPipeline, type StudioQuality } from '../studio-pipeline';
+import { studioPipeline } from '../studio-pipeline';
+import { type StudioQuality } from '../studio-quality';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
@@ -74,9 +75,9 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
+	const pipeline = studioPipeline(renderer, scene, view.camera);
 	const light = createLight(pipeline.shadowSize);
-	const structures = createStructures();
+	const structures = createStructures(study.quality);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];

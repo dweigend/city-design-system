@@ -1,3 +1,4 @@
+import { studioPipeline } from './studio-pipeline';
 import {
 	createDrawingRenderer,
 	createPaperScene,
@@ -436,6 +437,7 @@ export function createFormlaborScene(
 	const renderer = createDrawingRenderer(canvas);
 	const scene = createPaperScene(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 4000);
+	const pipeline = studioPipeline(renderer, scene, camera);
 	let pal = paletteAus(palette);
 	const farben = { ink: new THREE.Color(palette.ink), paper: new THREE.Color(palette.paper) };
 	let letzterStand: Bild | undefined;
@@ -468,7 +470,7 @@ export function createFormlaborScene(
 	const zeichne = () => {
 		wartet = 0;
 		if (!alive || !initialized) return;
-		renderer.render(scene, camera);
+		pipeline.render();
 		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		canvas.dataset.uploads = String(uploads);
 	};
@@ -706,6 +708,7 @@ export function createFormlaborScene(
 			stopTheme();
 			if (wartet) cancelAnimationFrame(wartet);
 			controls.dispose();
+			pipeline.dispose();
 			disposeGeometry();
 			if (initialized) renderer.dispose();
 		}

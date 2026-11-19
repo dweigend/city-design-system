@@ -1,3 +1,4 @@
+import type { StudioQuality } from '../studio-quality';
 import { pencilStock } from '../pencil-stock';
 import * as THREE from 'three/webgpu';
 import {
@@ -30,8 +31,8 @@ import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
-export function structureMaterials() {
-	const explicit = createMaterialLibrary();
+export function structureMaterials(quality?: StudioQuality) {
+	const explicit = createMaterialLibrary(undefined, undefined, undefined, quality);
 	const glazeContour: GlazeContour = { ink: new THREE.Color(0) };
 	const solidColor = uniform(neutral(TOENE.modellweiss));
 	const flankColor = uniform(neutral(TOENE.modellweiss + TOENE.vorn));

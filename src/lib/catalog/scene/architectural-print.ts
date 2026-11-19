@@ -1,3 +1,4 @@
+import { studioKeyDirection } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
 import {
 	Fn,
@@ -129,8 +130,7 @@ export function architecturalPrint(
 			.add(ist(11).mul(bullauge))
 			.add(ist(12).mul(tor));
 	};
-	const ton = (n: V): F =>
-		dot(n.mul(n), mix(vec3(0.89, 0.61, 0.72), vec3(0.89, 1, 0.72), step(0, n.y)));
+	const ton = (n: V): F => dot(n, vec3(studioKeyDirection)).mul(0.32).add(0.77).clamp(0.54, 1.05);
 	const HALB = new THREE.Vector3(-0.42, 0.62, 0.66).normalize();
 
 	if (translucent) {

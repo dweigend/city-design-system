@@ -1,3 +1,4 @@
+import type { StudioQuality } from '../studio-quality';
 /** Owns the GPU objects for each key of the sandbox's derived structures. */
 import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
@@ -31,10 +32,10 @@ type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[]; cellId
 export type Structures = ReturnType<typeof createStructures>;
 
 /** Creates the structure layer. The caller adds the group to its scene and disposes it. */
-export function createStructures() {
+export function createStructures(quality?: StudioQuality) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
-	const finishes = structureMaterials();
+	const finishes = structureMaterials(quality);
 	const joints = createJointLayer(finishes.materials.bearing);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();
