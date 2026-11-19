@@ -61,7 +61,8 @@ test('acceptance slab collars sit on slab planes and post axes without moving en
 		).toBe(false);
 		const post = parts.get(member.id);
 		const slab = parts.get(support.id);
-		if (post?.kind !== 'cylinder' || slab?.kind !== 'prism') throw new Error('Expected post and slab');
+		if (post?.kind !== 'cylinder' || slab?.kind !== 'prism')
+			throw new Error('Expected post and slab');
 		expect(Math.hypot(point[0] - post.position[0], point[1] - post.position[1])).toBeLessThan(1e-5);
 		expect(Math.abs(point[2] - (slab.z + (axis[2] > 0 ? slab.height : 0)))).toBeLessThan(1e-5);
 		expect(point[2]).toBeGreaterThan(post.position[2]);
@@ -70,8 +71,9 @@ test('acceptance slab collars sit on slab planes and post axes without moving en
 	const endpoints = deriveStructuralJoints(endpointContacts);
 	expect(endpoints).toHaveLength(733);
 	// Digest of the seed-7 endpoint joint IDs and positions before surveying slab seams.
+	// Arc-length rail sampling moved three rail saddles and four pillar feet by at most 15 µm.
 	expect(Bun.hash(JSON.stringify(endpoints.map(({ partId, point }) => [partId, point])))).toBe(
-		1069928674048976998n
+		13973173229444513148n
 	);
 });
 
@@ -96,7 +98,12 @@ function slabAt([x, y, z]: Vec3): Extract<Primitive, { kind: 'prism' }> {
 		role: 'neu',
 		token: '--paper',
 		material: 'concrete',
-		polygon: [[x - 1, y - 1], [x + 1, y - 1], [x + 1, y + 1], [x - 1, y + 1]],
+		polygon: [
+			[x - 1, y - 1],
+			[x + 1, y - 1],
+			[x + 1, y + 1],
+			[x - 1, y + 1]
+		],
 		z,
 		height: 0.25
 	};
@@ -130,7 +137,11 @@ test('the underside receives a collar when the nearby post end faces away from i
 
 test('a wall overprint prism supplies no through-post collars', () => {
 	const { grid } = createWorld(7);
-	const band = { ...slabAt([0, 0, 100]), id: 'body:wall:overprint:lap', overprint: '--ink' } as const;
+	const band = {
+		...slabAt([0, 0, 100]),
+		id: 'body:wall:overprint:lap',
+		overprint: '--ink'
+	} as const;
 	const post = postAt([0, 0, 99], 2);
 	const contacts = sandboxStructuralContacts([{ key: 'study', parts: [post, band] }], grid, 2027);
 	expect(contacts.filter(({ seat }) => seat === 'slab-seam')).toEqual([]);
@@ -140,10 +151,12 @@ test('a rail saddle follows the curved deck between control points', () => {
 	const points: Vec3[] = [
 		[0, 0, 10],
 		[4, 0, 10],
-		[4, 4, 10]
+		[4, 9, 10]
 	];
 	const rendered = new CatmullRomCurve3(points.map(([x, y, z]) => new Vector3(x, y, z)));
-	const { x, y, z } = rendered.getPoint(0.25);
+	const centerline = rendered.getSpacedPoints(96);
+	const center = centerline[18].clone().lerp(centerline[19], 0.5);
+	const { x, y, z } = center;
 	const batches: { key: string; parts: Primitive[] }[] = [
 		{
 			key: 'line:curve',
@@ -178,5 +191,10 @@ test('a rail saddle follows the curved deck between control points', () => {
 	];
 	const seats = sandboxStructuralContacts(batches, createWorld(7).grid, 2027);
 	const saddle = seats.find(({ seat }) => seat === 'rail-saddle');
-	expect(saddle?.point[2]).toBeCloseTo(z - 0.1, 5);
+	if (!saddle?.supportNormal) throw new Error('Missing curved rail saddle normal');
+	const axisPoint = new Vector3(...saddle.point).addScaledVector(
+		new Vector3(...saddle.supportNormal),
+		-0.1
+	);
+	expect(axisPoint.distanceTo(center)).toBeLessThan(1e-5);
 });

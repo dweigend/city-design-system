@@ -35,15 +35,48 @@ test('the playable town centres an occupied parcel between the HUD edges', () =>
 	expect(y).toBeCloseTo(centerY);
 });
 
+type ScreenPoint = ReturnType<typeof view.project>;
+
+function visibleEdge(a: ScreenPoint, b: ScreenPoint) {
+	let start = 0;
+	let end = 1;
+	for (const [from, to, low, high] of [
+		[a.x, b.x, 0, 390],
+		[a.y, b.y, openingArea.top, openingArea.bottom]
+	]) {
+		if (from === to) {
+			if (from < low || from > high) return;
+			continue;
+		}
+		const first = (low - from) / (to - from);
+		const last = (high - from) / (to - from);
+		start = Math.max(start, Math.min(first, last));
+		end = Math.min(end, Math.max(first, last));
+	}
+	if (start > end) return;
+	const pointAt = (t: number) => new THREE.Vector2(a.x, a.y).lerp(new THREE.Vector2(b.x, b.y), t);
+	return new THREE.Line3(
+		new THREE.Vector3(...pointAt(start).toArray(), 0),
+		new THREE.Vector3(...pointAt(end).toArray(), 0)
+	);
+}
+
 test('the portrait opening keeps the visible terrain rim away from the town anchor', () => {
 	view.resize(390, 844);
 	frameOldTown(view, world, openingArea);
-	const rim = world.grid.cells.filter(({ neighbors }) => neighbors.includes(null));
-	const visible = rim
-		.flatMap(({ corners }) => corners.map(view.project))
-		.filter(({ x, y }) => x >= 0 && x <= 390 && y >= openingArea.top && y <= openingArea.bottom);
-	expect(visible.length).toBeGreaterThan(0);
-	expect(visible.every(({ x, y }) => Math.hypot(x - 195, y - 411) > 100)).toBe(true);
+	const anchor = new THREE.Vector3(195, 411, 0);
+	let visible = 0;
+	for (const { corners, neighbors } of world.grid.cells) {
+		neighbors.forEach((neighbor, i) => {
+			if (neighbor !== null) return;
+			const edge = visibleEdge(view.project(corners[i]), view.project(corners[(i + 1) % 4]));
+			if (!edge) return;
+			visible++;
+			const nearest = edge.closestPointToPoint(anchor, true, new THREE.Vector3());
+			expect(nearest.distanceTo(anchor)).toBeGreaterThan(100);
+		});
+	}
+	expect(visible).toBeGreaterThan(0);
 });
 
 test('the desktop opening fits the town horizontally', () => {

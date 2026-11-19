@@ -2,6 +2,7 @@ import type { Vec3 } from '../parametrik/types';
 
 // Match the centripetal Catmull–Rom curve in the Three.js tube renderer.
 const SAMPLES = 96;
+const ARC_DIVISIONS = 200;
 
 function extrapolate(a: Vec3, b: Vec3): Vec3 {
 	return a.map((value, i) => 2 * value - b[i]) as Vec3;
@@ -32,14 +33,37 @@ function span(points: Vec3[], index: number) {
 		}) as Vec3;
 }
 
-/** Samples the world-space pipe centerline in meters, keeping straight pipes exact. */
+function arcLengths(pointAt: (t: number) => Vec3) {
+	const lengths = [0];
+	let previous = pointAt(0);
+	for (let i = 1; i <= ARC_DIVISIONS; i++) {
+		const point = pointAt(i / ARC_DIVISIONS);
+		const [x, y, z] = point;
+		lengths.push(lengths[i - 1] + Math.hypot(x - previous[0], y - previous[1], z - previous[2]));
+		previous = point;
+	}
+	return lengths;
+}
+
+/** Samples the world-space pipe centerline at the rendered tube's arc-length intervals. */
 export function pipeCenterline(points: Vec3[]): Vec3[] {
 	if (points.length <= 2) return points;
 	const count = points.length - 1;
 	const spans = points.slice(1).map((_, i) => span(points, i));
-	return Array.from({ length: SAMPLES }, (_, i) => {
-		const at = (i * count) / SAMPLES;
+	const pointAt = (t: number): Vec3 => {
+		const at = t * count;
 		const index = Math.floor(at);
-		return spans[index](at - index);
+		return spans[index]?.(at - index) ?? points[count];
+	};
+	const lengths = arcLengths(pointAt);
+	const total = lengths[ARC_DIVISIONS];
+	if (total === 0) return [points[0]];
+	let index = 0;
+	return Array.from({ length: SAMPLES }, (_, i) => {
+		const distance = (i / SAMPLES) * total;
+		while (lengths[index + 1] < distance) index++;
+		const step = lengths[index + 1] - lengths[index];
+		const fraction = step === 0 ? 0 : (distance - lengths[index]) / step;
+		return pointAt((index + fraction) / ARC_DIVISIONS);
 	}).concat(points.slice(-1));
 }

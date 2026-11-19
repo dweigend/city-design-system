@@ -209,6 +209,8 @@ test('overprint patches stay in the existing surface batch without extending its
 	const band: Primitive = {
 		...blank,
 		kind: 'mesh',
+		id: parent.id + ':overprint:lap',
+		envelope: true,
 		overprint: '--cat-mobility',
 		points: [
 			[0, 0, 3.5],
@@ -224,7 +226,9 @@ test('overprint patches stay in the existing surface batch without extending its
 	expect(printed.getAttribute('position').count).toBe(count + 3);
 	expect(printed.userData.outlineVertices).toBe(count);
 	expect(printed.getAttribute('printScreen').getX(count)).toBe(0);
-	expect(printed.getAttribute('printOffset').getX(0)).toBeCloseTo(1.4);
+	const offset = printed.getAttribute('printOffset');
+	expect(offset.getX(0)).toBeCloseTo(1.4);
+	for (let i = count; i < offset.count; i++) expect(offset.getX(i)).toBe(offset.getX(0));
 	plain.dispose();
 	printed.dispose();
 });

@@ -24,6 +24,7 @@ function printAttributes(faces: Faces, ranges: Range[]) {
 	const screen: number[] = [],
 		offset: number[] = [];
 	let outline = faces.p.length / 3;
+	const bodyOffsets = new Map<string, number>();
 	ranges.forEach(({ start, part }, index) => {
 		const end = ranges[index + 1]?.start ?? faces.p.length / 3;
 		if (end === start) return;
@@ -31,7 +32,10 @@ function printAttributes(faces: Faces, ranges: Range[]) {
 		const dots = Number(
 			part.role === 'neu' && !part.overprint && !isPathInk(part.token) && part.token !== '--ink'
 		);
-		const shift = shadowDistance(part, faces.p, start, end);
+		const shift = part.overprint
+			? (bodyOffsets.get(part.id.split(':overprint:')[0]) ?? 0)
+			: shadowDistance(part, faces.p, start, end);
+		if (!part.overprint) bodyOffsets.set(part.id, shift);
 		for (let i = start; i < end; i++) {
 			screen.push(dots);
 			offset.push(shift);

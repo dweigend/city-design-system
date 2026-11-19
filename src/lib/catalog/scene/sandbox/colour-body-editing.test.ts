@@ -14,6 +14,7 @@ import { createCellPicker } from './house-picker';
 import { loadStructureModules } from './fixtures/structure-modules';
 import { projectChanges } from './projection';
 import { createTerrainMesh } from './terrain-mesh';
+import { createTerrainPicker } from './terrain-pick';
 import { createView } from './view';
 
 const cellId = '86/43';
@@ -93,7 +94,11 @@ test('a ray hits the coloured wall mesh and picks its parcel', async () => {
 		const point = view.project(pointOnWall);
 		const ray = new Raycaster();
 		ray.setFromCamera(view.ndc(point.x, point.y), view.camera);
-		expect(ray.intersectObjects(solids, false)[0]?.object).toBe(solid);
+		const [hit] = ray.intersectObjects(solids, false);
+		expect(hit?.object).toBe(solid);
+		const terrain = createTerrainPicker();
+		terrain.setGrid(base.grid);
+		expect(terrain.pick(ray.ray, hit.distance)).toBeUndefined();
 		expect(createCellPicker(view)(point.x, point.y, base.grid, solids)).toBe(cell.index);
 	} finally {
 		layer.dispose();
