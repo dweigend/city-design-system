@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { assetRegistry, assetCategories, buildAsset, type AssetCategory } from '../logic/assets';
+	import { assetRegistry, assetCategories, buildAsset } from '../logic/assets';
 	import { theme } from '../theme';
-	let { category }: { category: AssetCategory } = $props();
+	let { group }: { group: string | null } = $props();
+	const category = $derived(assetCategories.find((id) => id === group) ?? assetCategories[0]);
 	let host: HTMLElement;
+	let rendered = $state(false);
 	let photos = $state<Record<string, string>>({});
 	let error = $state('');
 	const assets = $derived(assetRegistry.filter((a) => a.category === category));
@@ -11,10 +13,11 @@
 		const selected = assets;
 		void theme.mode;
 		let cancelled = false;
+		rendered = false;
 		photos = {};
 		error = '';
 		async function draw() {
-			const { createAssetPlate } = await import('../scene/sandbox/asset-plate');
+			const { createAssetPlate } = await import('../scene/sandbox');
 			if (cancelled) return;
 			const plate = await createAssetPlate(host);
 			try {
@@ -24,11 +27,13 @@
 						photos[a.id + '/' + v] = plate.photo(buildAsset(a.id, v, 17));
 						await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 					}
+				if (!cancelled) rendered = true;
 			} finally {
 				plate.dispose();
 			}
 		}
-		void draw().catch(() => {
+		void draw().catch((cause) => {
+			console.error(cause);
 			if (!cancelled) error = 'The 3D renderer could not draw this sheet.';
 		});
 		return () => {
@@ -38,7 +43,7 @@
 </script>
 
 <svelte:head><title>Asset catalogue · City Design System</title></svelte:head>
-<main bind:this={host}>
+<main bind:this={host} data-render-done={rendered}>
 	<header>
 		<h1>Asset catalogue</h1>
 		<nav aria-label="Asset categories">
