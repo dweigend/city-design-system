@@ -11,7 +11,8 @@ test('capsule stack carries four occupied decks', () => {
 		'Deck tower',
 		'Round tower',
 		'Cluster mast',
-		'Three neighbours'
+		'Three neighbours',
+		'One public walkway'
 	]);
 	expect(decks(0)).toHaveLength(4);
 	expect(plates[0].primitives.some((p) => p.id.includes('kit-capsule-ribbon'))).toBe(true);
@@ -37,4 +38,13 @@ test('three neighbours share two level spans', () => {
 	const spans = plates[4].primitives.filter((p) => p.id.startsWith('link/') && p.kind === 'prism');
 	expect(new Set(spans.map((p) => p.id.split('/').slice(0, 4).join('/'))).size).toBe(2);
 	expect(spans.some((p) => p.id.includes('stair-bridge'))).toBe(false);
+});
+
+test('five separate roofs share a branching public walkway and registry pedestrians', () => {
+	const parts = plates[5].primitives;
+	expect(parts.filter((p) => p.id.endsWith('/roof-walk'))).toHaveLength(5);
+	const walk = parts.filter((p) => p.id.startsWith('network/'));
+	expect(walk.some((p) => p.kind === 'mesh')).toBe(true);
+	expect(walk.some((p) => p.id.includes('/plaza/'))).toBe(true);
+	expect(walk.some((p) => p.id.includes('/person-'))).toBe(true);
 });
