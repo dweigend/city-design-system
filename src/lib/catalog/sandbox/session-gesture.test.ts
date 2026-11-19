@@ -82,7 +82,7 @@ test('kernel readiness cannot retarget a stationary Erase during its gesture', (
 		const { before, after } = d.events[0];
 		const picked = before.state.stacks.get('81/39');
 		expect(picked?.length).toBeGreaterThan(0);
-		expect(after.state.stacks.get('81/39') ?? []).toEqual(picked?.slice(0, -1));
+		expect(after.state.stacks.get('81/39') ?? []).toEqual(picked?.slice(0, -1) ?? []);
 		expect(after.state.stacks.get('81/38')).toBe(before.state.stacks.get('81/38'));
 		d.pointer('pointermove', '321/485', 'mouse');
 		expect(d.hovered()).toBe('81/38');

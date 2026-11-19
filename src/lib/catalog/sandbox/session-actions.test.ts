@@ -23,7 +23,7 @@ test('the second viaduct and the buffered dig both commit in input order', () =>
 		expect(d.events.map(({ kind }) => kind)).toEqual(['line']);
 		d.finish();
 		const builtLines = d.world().state.lines;
-		expect(builtLines.slice(0, initialLines.length)).toEqual(initialLines);
+		expect(builtLines.slice(0, initialLines.length)).toEqual([...initialLines]);
 		expect(
 			builtLines.slice(initialLines.length).map(({ cellIds }) => [cellIds[0], cellIds.at(-1)])
 		).toEqual([
@@ -177,7 +177,7 @@ test('completion listeners receive Dig and its store credit before a reentrant A
 		const centers = storedModules(digEvent);
 		expect(credit).toBeGreaterThan(0);
 		expect(centers).toHaveLength(credit);
-		expect(centers).toEqual(
+		expect(centers.map((center) => [...center])).toEqual(
 			[...before.state.storyParts].flatMap(([id, stories]) => {
 				const cell = before.grid.cellsById.get(id);
 				if (!cell) throw new Error(`Missing story cell ${id}`);
