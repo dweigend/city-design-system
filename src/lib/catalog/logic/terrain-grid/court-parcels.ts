@@ -57,22 +57,35 @@ export function courtParcels(
 	height: number,
 	seed: number,
 	profile: Lattice['profile'],
-	enabled: boolean
+	enabled: boolean,
+	allowed?: ReadonlySet<string>
 ) {
 	const points = new Map<string, kern.Vec>(),
 		blocks = new Map<string, Child[]>(),
 		seams = new Map<string, readonly [string, string]>();
+	const courts = new Set<string>();
+	const candidates = new Map<string, Map<string, string[]>>();
 	if (enabled)
 		for (const face of graph.faces.values()) {
 			const [x, y] = coord(face.id);
 			if (face.ring.length !== 4 || x === 0 || y === 0 || x + 2 >= width || y + 2 >= height)
 				continue;
-			if (face.ring.some((v, i) => points.has(average(v, face.ring[(i + 1) % 4])))) continue;
+			courts.add(face.id);
 			const cut = divide(face, graph, seed, profile);
 			if (!cut) continue;
+			const leaves = new Map<string, string[]>();
+			for (const child of cut.children) {
+				const slot = face.slots[face.ring.indexOf(child.ring[0])];
+				const slots = leaves.get(child.parcel) ?? [];
+				slots.push(slot);
+				leaves.set(child.parcel, slots);
+			}
+			candidates.set(face.id, leaves);
+			if (face.ring.some((v, i) => points.has(average(v, face.ring[(i + 1) % 4])))) continue;
+			if (allowed && !allowed.has(face.id)) continue;
 			for (const [id, p] of cut.points) points.set(id, p);
 			blocks.set(face.id, cut.children);
 			seams.set(cut.center, cut.seam);
 		}
-	return { points, blocks, seams };
+	return { points, blocks, seams, candidates, courts };
 }

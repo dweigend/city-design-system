@@ -46,7 +46,14 @@ export function fitBlocks(
 	}
 	if (!repairCenters(faces, parents, groups, positions, limits, fallback.cutVertices))
 		return undefined;
-	return { ...template, faces, parents };
+	const candidates = new Map(template.candidates);
+	for (const [id, parent] of fallback.parents) {
+		if (id !== parent.id || !groups.has(parent.group)) continue;
+		const replacement = fallback.candidates.get(id);
+		if (replacement) candidates.set(id, replacement);
+		else candidates.delete(id);
+	}
+	return { ...template, faces, parents, candidates };
 }
 
 function repairCenters(

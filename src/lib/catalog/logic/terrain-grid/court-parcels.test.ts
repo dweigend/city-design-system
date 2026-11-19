@@ -1,5 +1,6 @@
 // @ts-expect-error Bun provides the test API.
-import { expect, test } from 'bun:test';
+import { expect, spyOn, test } from 'bun:test';
+import * as courts from './court-parcels';
 import { createTerrain } from '../terrain';
 import { deriveGrid } from './index';
 import { kern } from '../parametrik/raster/universal';
@@ -124,4 +125,38 @@ test('seed 7 rejects a cut with one inaccessible child and retains genuinely lan
 			parcelAccess: 'landlocked',
 			buildable: false
 		});
+});
+
+test('omitting the rejected seed-7 cut leaves the finished patch bit-identical', () => {
+	const terrain = createTerrain({ seed: 7 });
+	const grid = deriveGrid(terrain);
+	const seed = Math.floor(hash(terrain.seed, 16 * grid.columns + 60, 0) * 0xffffffff);
+	const propose = courts.courtParcels;
+	let skipped = false;
+	const control = spyOn(courts, 'courtParcels').mockImplementation(
+		(...args: Parameters<typeof propose>) => {
+			if (args[3] !== seed) return propose(...args);
+			// Allow every other proposal through the ordinary world pipeline.
+			const allowed = new Set(args[6] ?? args[0].faces.keys());
+			allowed.delete('8/4');
+			args[6] = allowed;
+			const result = propose(...args);
+			skipped = result.candidates.delete('8/4') || skipped;
+			return result;
+		}
+	);
+	try {
+		const without = deriveGrid(terrain);
+		expect(skipped).toBe(true);
+		for (let c = 60; c < 72; c++)
+			for (let r = 16; r < 24; r++) {
+				const id = c + '/' + r;
+				const actual = grid.cellsById.get(id);
+				const expected = without.cellsById.get(id);
+				if (!actual || !expected) throw new Error(id);
+				expect(actual).toStrictEqual(expected);
+			}
+	} finally {
+		control.mockRestore();
+	}
 });

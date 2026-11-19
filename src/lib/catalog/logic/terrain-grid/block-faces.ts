@@ -99,11 +99,12 @@ export function blockTemplate(
 	seed: number,
 	profile: Lattice['profile'],
 	settled: boolean,
-	exchanges = true
+	exchanges = true,
+	allowed?: ReadonlySet<string>
 ) {
 	const graph = sourceGraph(width, height, seed, profile, settled, exchanges),
 		intent = sourceIntent(seed, graph.positions);
-	const cuts = courtParcels(graph, width, height, seed, profile, settled);
+	const cuts = courtParcels(graph, width, height, seed, profile, settled, allowed);
 	const positions = new Map([...graph.positions, ...cuts.points]),
 		faces = new Map<string, kern.SourceFace>();
 	const merged = concaveBlocks(graph.faces.values(), intent);
@@ -126,7 +127,10 @@ export function blockTemplate(
 			parents.set(id, {
 				id: child.parent.id,
 				group: cellId(c, r),
-				parcel: child.parcel,
+				parcel:
+					cuts.courts.has(child.parent.id) && !cuts.blocks.has(child.parent.id)
+						? child.parent.id
+						: child.parcel,
 				sides: child.parent.ring.length,
 				mask: (child.front << corner) | (child.back << ((corner + 3) % 4))
 			});
@@ -143,6 +147,7 @@ export function blockTemplate(
 		faces,
 		positions: relaxed.positions,
 		parents,
+		candidates: cuts.candidates,
 		seams: cuts.seams,
 		cutVertices: new Set(cuts.points.keys())
 	};

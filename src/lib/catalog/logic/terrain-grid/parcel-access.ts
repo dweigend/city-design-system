@@ -1,8 +1,11 @@
 import { kern } from '../parametrik/raster/universal';
-import { coord } from './block-graph';
 import type { TerrainCell } from './types';
 
-function routeWidth(cell: TerrainCell, side: number) {
+type Site = Pick<TerrainCell, 'id' | 'corners' | 'alleyEdges' | 'plan'> & {
+	neighbors: readonly (string | null)[];
+};
+
+function routeWidth(cell: Site, side: number) {
 	const { plan } = cell;
 	if (plan.square) {
 		const a = cell.corners[side],
@@ -15,7 +18,8 @@ function routeWidth(cell: TerrainCell, side: number) {
 		: 0;
 }
 
-function hasFront(cell: TerrainCell, lookup: (id: string) => TerrainCell, minimum: number) {
+/** Measure only shared exterior edges reached by the circulation plan. */
+export function hasFront(cell: Site, lookup: (id: string) => Site, minimum: number) {
 	const polygon = cell.corners.map(([x, y]): kern.Vec => [x, y]);
 	const fronts: kern.Front[] = [];
 	for (const [side, id] of cell.neighbors.entries()) {
@@ -27,7 +31,7 @@ function hasFront(cell: TerrainCell, lookup: (id: string) => TerrainCell, minimu
 		);
 		if (width > 0)
 			fronts.push({
-				id: cell.vertexIds[side],
+				id: String(side),
 				a: polygon[side],
 				b: polygon[(side + 1) % 4],
 				width,
@@ -38,50 +42,4 @@ function hasFront(cell: TerrainCell, lookup: (id: string) => TerrainCell, minimu
 	return (
 		kern.frontage(polygon, fronts, { level: 0, minWidth: minimum, minFront: minimum }).length > 0
 	);
-}
-
-/** Publish the children only when each has access; otherwise all carriers belong to the parent. */
-export function resolveCourtAccess(
-	columns: TerrainCell[][],
-	first: number,
-	minimum: number,
-	candidateOf: (cell: TerrainCell) => string
-) {
-	const courts = new Map<string, Map<string, TerrainCell[]>>();
-	for (const column of columns)
-		for (const cell of column) {
-			if (!cell.parcelAccess) continue;
-			const children = courts.get(cell.block) ?? new Map<string, TerrainCell[]>();
-			courts.set(cell.block, children);
-			const candidate = cell.parcel === cell.block ? candidateOf(cell) : cell.parcel;
-			const members = children.get(candidate);
-			if (members) members.push(cell);
-			else children.set(candidate, [cell]);
-		}
-	const lookup = (id: string) => {
-		const [c, r] = coord(id);
-		return columns[c - first][r];
-	};
-	for (const children of courts.values()) {
-		const fronted = [...children.values()].filter((members) =>
-			members.some((cell) => hasFront(cell, lookup, minimum))
-		);
-		const split = fronted.length === children.size;
-		const access = fronted.length ? 'fronted' : 'landlocked';
-		for (const [candidate, members] of children)
-			for (const cell of members) {
-				const parcel = split ? candidate : cell.block;
-				if (cell.parcel === parcel && cell.parcelAccess === access) continue;
-				columns[cell.column - first][cell.row] = {
-					...cell,
-					parcel,
-					parcelAccess: access,
-					buildable:
-						access === 'fronted' &&
-						!cell.plan.open &&
-						!cell.plan.square &&
-						(!cell.alley || !!cell.lotCorners)
-				};
-			}
-	}
 }
