@@ -19,12 +19,14 @@ export function advanceMessage(event: Completion | undefined): string | undefine
 	if (event?.kind !== 'advance') return;
 	const {
 		bay,
+		house,
 		tank,
 		'retention-basin': basin,
 		'green-roof': roof,
 		'water-square': square
 	} = advanceAdditions(event.before, event.after);
 	const items = [
+		[house, 'house'],
 		[bay, 'frame bay'],
 		[tank, 'tank'],
 		[basin, 'retention basin'],

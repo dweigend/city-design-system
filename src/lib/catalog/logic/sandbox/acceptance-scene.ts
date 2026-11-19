@@ -1,3 +1,4 @@
+import { openCity } from './city-opening';
 import { TWO_SUNS_CELLS, twoSuns } from './two-suns';
 import { advanceFrames } from './frame-construction';
 import { planTownForms } from '../town-forms';
@@ -100,13 +101,13 @@ function townFormEdits({ grid, seed, state }: World): Edit[] {
 	];
 }
 
-function interventions(start: World): Edit[] {
+function interventions(start: World, townEdits: Edit[]): Edit[] {
 	return [
 		...[...TOWER, ...ADDITIONS].flatMap(([use, rect]) => story(use, rect)),
 		...CAPSULES.flatMap(({ use, cells }) =>
 			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use, style: 'totem' }))
 		),
-		...townFormEdits(start),
+		...townEdits,
 		{ kind: 'line', transit: 'capsule', cellIds: TUBE },
 		...COVERS.flatMap(([kind, rect]) => cover(kind, rect)),
 		...(start.seed === SEED ? BANK_CROWN_STARTERS.map((id) => composedStory(id, 'living')) : [])
@@ -137,28 +138,41 @@ function elevatedWalkway({ grid }: World): Primitive[] {
 	);
 }
 
-/** Replays the seed-7 interventions and returns the fixed drafting study in world meters. */
-export function acceptanceScene(seed = SEED) {
-	const start = createWorld(seed);
-	const placed = interventions(start).reduce(applyEdit, start);
+/** Projects two frame generations and the fixed drafting details over a supplied town. */
+export function draftingStudy(placed: World) {
 	const first = {
 		...placed,
-		state: { ...placed.state, ...advanceFrames(placed, start.state.year - 1) }
+		state: { ...placed.state, ...advanceFrames(placed, placed.state.year - 1) }
 	};
-	const world = { ...first, state: { ...first.state, ...advanceFrames(first, start.state.year) } };
+	const world = { ...first, state: { ...first.state, ...advanceFrames(first, placed.state.year) } };
 	return {
 		world,
-		earliestFullYear: start.state.year,
-		additions: [...elevatedWalkway(world), ...(seed === SEED ? twoSuns(world) : [])],
+		earliestFullYear: placed.state.year,
+		additions: [...elevatedWalkway(world), ...(world.seed === SEED ? twoSuns(world) : [])],
 		frame: FRAME,
 		portraitFrame: PORTRAIT_FRAME
 	};
 }
 
-/** Editable seed-7 opening: the drafting study's interventions on the stock town. */
+/** Builds the authored riverside stock before city expansion, including its first rail. */
+export function riversideStock(start: World) {
+	return interventions(start, townFormEdits(start)).reduce(applyEdit, start);
+}
+
+/** Opens the generated city. Seed 7 also retains the drafting study’s authored interventions. */
 export function openingScene(seed: number) {
 	const start = createWorld(seed);
-	if (seed !== SEED) return { world: start, additions: [], referenceCellId: undefined };
-	const world = interventions(start).reduce(applyEdit, start);
-	return { world, additions: elevatedWalkway(world), referenceCellId: OPENING_CELL };
+	if (seed !== SEED) return { world: openCity(start), additions: [], referenceCellId: undefined };
+	const world = riversideStock(start);
+	return {
+		world: openCity(world, [...WALKWAY, ...TWO_SUNS_CELLS, ...TUBE]),
+		additions: elevatedWalkway(world),
+		referenceCellId: OPENING_CELL
+	};
+}
+
+/** Frames the same city as the game, with the authored drafting details on alternate seeds. */
+export function acceptanceScene(seed = SEED) {
+	const { world } = openingScene(seed);
+	return draftingStudy(seed === SEED ? world : interventions(world, []).reduce(applyEdit, world));
 }

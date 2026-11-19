@@ -35,8 +35,9 @@ test('the seed-7 bank has four distinct, stepped ensembles through the sandbox p
 	const { grid, state, seed } = world;
 	const plots = buildingPlots(grid);
 	const layout = houseEnsembles(grid, plots, state, seed);
+	const expansion = new Set(state.city?.centres.flatMap((centre) => centre.lots));
 	const bank = [...layout.members.values()].filter((ids) =>
-		ids.some((id) => grid.cellsById.get(id)?.zone === 'floodplain')
+		ids.some((id) => !expansion.has(id) && grid.cellsById.get(id)?.zone === 'floodplain')
 	);
 	expect(bank).toHaveLength(4);
 	expect(
