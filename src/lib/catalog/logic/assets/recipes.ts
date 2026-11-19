@@ -20,6 +20,7 @@ import { columnTree } from './column-tree';
 import { conifer } from './conifer';
 import { umbrellaTree } from './umbrella-tree';
 import { shrub } from './shrub';
+import { treeTrough } from './tree-trough';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -42,5 +43,6 @@ export const recipes: readonly AssetRecipe[] = [
 	columnTree,
 	conifer,
 	umbrellaTree,
-	shrub
+	shrub,
+	treeTrough
 ];
