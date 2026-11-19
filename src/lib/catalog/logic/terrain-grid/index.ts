@@ -226,6 +226,7 @@ function describeCell(
 		lotCorners,
 		alleyEdges: source.mask,
 		index: row * columns + column,
+		latticeKey: row * columns + column,
 		column,
 		row,
 		corners,

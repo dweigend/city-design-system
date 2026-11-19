@@ -5,6 +5,7 @@
  */
 import { STORY } from '../../data/grid';
 import { hash } from '../hash-random';
+import { cellKey } from './cell-key';
 import type { Primitive } from '../parametrik/types';
 import { sideLength, type QuadCell } from '../quad-grid';
 import { CHANNEL, detail, type Form, type Site } from './form';
@@ -119,7 +120,7 @@ function storyOpenings(site: Site, mass: Mass, story: Story, members: Set<string
 	const parts: Primitive[] = [];
 	for (let side = 0; side < 4; side++) {
 		if (!isFree(side)) continue;
-		if (hash(site.seed, cell.index * 64 + level * 4 + side, CHANNEL.opening) >= OPENING_SHARE)
+		if (hash(site.seed, cellKey(cell) * 64 + level * 4 + side, CHANNEL.opening) >= OPENING_SHARE)
 			continue;
 		// A wall that ends in a rounded corner has less free length than one in a straight run.
 		const atCorner = isOuter((side + 1) % 4) || isOuter((side + 3) % 4);

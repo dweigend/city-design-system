@@ -1,4 +1,5 @@
 import { hash } from '../hash-random';
+import { cellKey } from './cell-key';
 import { inradius } from '../quad-grid';
 import { CHANNEL, type Site } from './form';
 import type { Mass } from './massing';
@@ -15,7 +16,7 @@ const WALL_SETBACK = { standard: 0.18, arcade: 0.56 };
 /** Derives one footprint profile from the anchor and its member cells. Distances in meters. */
 export function profileOf(site: Site, mass: Mass) {
 	const anchor = mass.stories[0];
-	const key = anchor.cell.index * MAX_STORIES + anchor.level;
+	const key = cellKey(anchor.cell) * MAX_STORIES + anchor.level;
 	const radius = mass.stories.reduce((r, story) => Math.min(r, inradius(story.cell)), Infinity);
 	const corner = hash(site.seed, key, CHANNEL.corner);
 	const convex = radius * CORNER_RADII[Math.floor(corner * CORNER_RADII.length)];

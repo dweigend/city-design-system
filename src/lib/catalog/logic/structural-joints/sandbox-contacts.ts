@@ -92,13 +92,10 @@ export function sandboxStructuralContacts(
 		}))
 	);
 	const supports = indexSurfaces(
-		parts.flatMap(({ part, id, members, key }) =>
-			contactSurfaces(part, members).map((surface) => ({
-				id,
-				surface,
-				rail: key.startsWith('line:') && part.id.endsWith('/deck')
-			}))
-		)
+		parts.flatMap(({ part, id, members, key }) => {
+			const rail = key.startsWith('line:') && part.id.endsWith('/deck');
+			return contactSurfaces(part, members, rail).map((surface) => ({ id, surface, rail }));
+		})
 	);
 	const sites = new Map<string, StructuralContact>();
 	for (const { part, key, id, members } of parts) {

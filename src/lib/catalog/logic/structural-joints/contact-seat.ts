@@ -58,11 +58,12 @@ function roundHit(end: End, center: Vec3, direction: Vec3, radius: number, squas
 }
 
 function endCap(end: End, surface: Round, direction: Vec3) {
-	const { a, b, radius, capped, squash } = surface;
+	const { a, b, radius, capped, capEnds, squash } = surface;
 	for (const [point, sign] of [
 		[a, -1],
 		[b, 1]
 	] as const) {
+		if (capEnds && !capEnds[sign === -1 ? 0 : 1]) continue;
 		const normal = along([0, 0, 0], direction, sign);
 		if (capped) {
 			const hit = roundHit(end, point, [0, 0, 0], radius, squash);

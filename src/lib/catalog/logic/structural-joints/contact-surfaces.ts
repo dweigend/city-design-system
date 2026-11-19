@@ -1,4 +1,5 @@
 import { FRAME_DIAMETER } from '../../data/frame-sections';
+import { pipeCenterline } from './pipe-centerline';
 import { isStructural, type Primitive, type Vec3 } from '../parametrik/types';
 
 export const contactToleranceM = 1e-5;
@@ -9,6 +10,7 @@ export type Round = {
 	b: Vec3;
 	radius: number;
 	capped: boolean;
+	capEnds?: readonly [start: boolean, end: boolean];
 	squash?: number;
 };
 export type Face = { kind: 'face'; ring: Point[]; holes: Point[][]; z: number; up: number };
@@ -81,9 +83,16 @@ function planarFaces(p: Primitive): Face[] {
 }
 
 /** Analytic bearing faces supplied by the same primitives used for drawing. */
-export function contactSurfaces(p: Primitive, members: Round[]): Surface[] {
+export function contactSurfaces(p: Primitive, members: Round[], rail: boolean): Surface[] {
 	if (p.planned || p.material === 'ghost') return [];
-	if (p.kind === 'pipe') return runs(p.points, p.radius);
+	if (p.kind === 'pipe') {
+		if (!rail || p.points.length <= 2) return runs(p.points, p.radius);
+		const segments = runs(pipeCenterline(p.points), p.radius);
+		return segments.map((run, i) => ({
+			...run,
+			capEnds: [i === 0, i === segments.length - 1]
+		}));
+	}
 	if (p.kind === 'capsule')
 		return runs([p.from, p.to], p.radius).map((run) => ({ ...run, capped: true }));
 	if (p.kind === 'sphere')

@@ -1,4 +1,5 @@
 import { hash } from '../hash-random';
+import { cellKey } from './cell-key';
 import type { Primitive } from '../parametrik/types';
 import { collageFigure } from './collage-figure';
 import type { Site } from './form';
@@ -42,7 +43,7 @@ export function collageMass(site: Site, mass: Mass, p = COLLAGE_DEFAULTS): Primi
 	const exposed = mass.stories.filter(
 		({ cell, level }) => storiesOf(site.stacks, cell.id).length === level + 1
 	);
-	const key = ({ cell, level }: Story) => cell.index * MAX_STORIES + level;
+	const key = ({ cell, level }: Story) => cellKey(cell) * MAX_STORIES + level;
 	const seat = exposed.reduce<Story | undefined>(
 		(best, story) =>
 			!best ||

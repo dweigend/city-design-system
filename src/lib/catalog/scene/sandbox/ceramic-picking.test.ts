@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import * as T from 'three/webgpu';
 import {
 	beginStroke,
+	applyEdit,
 	createWorld,
 	extendStroke,
 	installationView,
@@ -203,6 +204,65 @@ test('the city ceramic switches once in each zoom direction and starts fresh aft
 			layer.clear();
 			layer.set('body', [body], '90/40');
 			assert.equal(visible(), false);
+		}
+	} finally {
+		layer.dispose();
+	}
+});
+
+test('town eraser selects a skywalk podium before the stock roof below it', async () => {
+	const layer = await structureLayer();
+	const cellId = '30/35';
+	const houseId = '31/35';
+	const id = 'p/0/0';
+	const podium = withState(world, {
+		...world.state,
+		stacks: new Map([[houseId, ['living']]]),
+		parts: new Map([
+			[
+				id,
+				{
+					id,
+					owner: 'c/0',
+					kind: 'stop',
+					recipe: 'plaza',
+					built: world.state.year,
+					anchor: { cellId, level: 2, lift: 1 },
+					materials: {}
+				}
+			]
+		])
+	});
+	try {
+		projectInstallations(layer, world, podium, 'all');
+		const box = installationView(podium, 'all')[0];
+		assert(box.kind === 'box');
+		const [x, y, z] = box.position;
+		const view = createView();
+		view.resize(800, 600);
+		view.target.set(x + box.size[0] / 2, z + box.size[2], -y - box.size[1] / 2);
+		view.pan(0, 0);
+		const roof = new T.Mesh(new T.BoxGeometry(4, 0.2, 4), new T.MeshBasicMaterial());
+		try {
+			const ray = new T.Raycaster();
+			ray.setFromCamera(view.ndc(400, 300), view.camera);
+			roof.position.copy(
+				ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), 2 - z), new T.Vector3())!
+			);
+			roof.userData.cellId = houseId;
+			roof.updateMatrixWorld();
+			const picker = createCellPicker(view);
+			const pick = (targets: T.Object3D[]) =>
+				world.grid.cells[picker(400, 300, world.grid, targets) ?? -1]?.id;
+			assert.equal(pick([roof]), houseId);
+			const picked = pick([roof, ...layer.solids(KEY.installation)]);
+			assert.equal(picked, cellId);
+			const erased = applyEdit(podium, { kind: 'clear', cellId: picked });
+			assert.equal(erased.state.parts.has(id), false);
+			assert.equal(erased.state.stacks.get(houseId), podium.state.stacks.get(houseId));
+		} finally {
+			roof.geometry.dispose();
+			roof.material.dispose();
 		}
 	} finally {
 		layer.dispose();

@@ -1,6 +1,7 @@
 import { stockRoof } from './stock-roof';
 import { STORY } from '../../data/grid';
 import { hash } from '../hash-random';
+import { cellKey } from './cell-key';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { inradius } from '../quad-grid';
 import { body } from './body';
@@ -44,7 +45,7 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 			}
 		}
 		const height =
-			inradius(cell) * p.pitch * (1 + hash(site.seed, cell.index, level) * p.variation);
+			inradius(cell) * p.pitch * (1 + hash(site.seed, cellKey(cell), level) * p.variation);
 		const ends = pencilGables(cell, site.seed, profile.setback * profile.tiers);
 		if (ends.length !== 2) continue;
 		for (const [i, { a, b, peak }] of ends.entries()) {

@@ -53,6 +53,7 @@ export function squareGrid(
 			cells.push({
 				id: `${column}/${row}`,
 				index: row * columns + column,
+				latticeKey: row * columns + column,
 				corners: [
 					[x, y, 0],
 					[x + module, y, 0],

@@ -14,6 +14,7 @@
 	import { sizeAfterPaint } from './size-after-paint';
 	import { createSession } from './session.svelte';
 	import { createSandboxSound } from './sound';
+	import { watchStoreLayout } from './store-layout';
 
 	/**
 	 * The city sandbox as a full page: the terrain fills the window, a sparse HUD floats on
@@ -31,7 +32,18 @@
 		const bottom = hudGroup.getBoundingClientRect().top;
 		if (top < bottom) return { top, bottom };
 	}
-	let storeTarget = $state<HTMLElement>();
+	let desktopStoreLabel = $state<HTMLElement>();
+	let mobileStoreTrigger = $state<HTMLButtonElement | null>(null);
+	let mobileStore = $state(false);
+	let storeOpen = $state(false);
+	const storeTarget = $derived((mobileStore ? mobileStoreTrigger : desktopStoreLabel) ?? undefined);
+	$effect(() =>
+		watchStoreLayout(
+			matchMedia('(max-width: 640px)'),
+			(mobile) => (mobileStore = mobile),
+			() => (storeOpen = false)
+		)
+	);
 	let muted = $state(false);
 	let transitPaused = $state(false);
 	const sound = createSandboxSound();
@@ -126,14 +138,14 @@
 				<dd>0</dd>
 			{/each}
 		{/snippet}
-		<div class="store-target" bind:this={storeTarget}>
+		<div class="store-target">
 			<dl class="store desktop-store" aria-label="Material store" aria-live="polite">
-				<dt>Store</dt>
+				<dt bind:this={desktopStoreLabel}>Store</dt>
 				{@render inventory()}
 			</dl>
 			<div class="mobile-store">
-				<Popover.Root>
-					<Popover.Trigger class="cg-mobile-store">
+				<Popover.Root bind:open={storeOpen}>
+					<Popover.Trigger bind:ref={mobileStoreTrigger} class="cg-mobile-store">
 						Store {store.reduce((count, entry) => count + entry.count, 0)}
 					</Popover.Trigger>
 					<Popover.Portal>

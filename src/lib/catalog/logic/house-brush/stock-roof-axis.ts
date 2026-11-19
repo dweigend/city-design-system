@@ -1,5 +1,6 @@
 import type { QuadCell } from '../quad-grid';
 import { hash } from '../hash-random';
+import { cellKey } from './cell-key';
 import { CHANNEL } from './form';
 import { insetRing } from './outline';
 import type { Point2 } from '../parametrik/vocab';
@@ -11,7 +12,7 @@ export function stockRoofDirection(cell: QuadCell, seed: number) {
 		cell.corners[(i + 1) % 4][1] - y
 	]);
 	const [dx, dy] = sides.reduce((a, b) => (Math.hypot(...a) >= Math.hypot(...b) ? a : b));
-	return Math.atan2(dy, dx) + (hash(seed, cell.index, CHANNEL.ridge) < 0.5 ? 0 : Math.PI / 2);
+	return Math.atan2(dy, dx) + (hash(seed, cellKey(cell), CHANNEL.ridge) < 0.5 ? 0 : Math.PI / 2);
 }
 
 /** Intersect the ridge through the inset footprint centroid with its two gable ends. */

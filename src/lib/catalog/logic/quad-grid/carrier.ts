@@ -11,6 +11,8 @@ export type QuadCell = Readonly<{
 	id: string;
 	/** Dense label for hashing; not an identity. */
 	index: number;
+	/** Stable lattice address for preserving seeded details independently of dense ordering. */
+	latticeKey?: number;
 	/** World corners in meters, counter-clockwise seen from above; z is the ground height. */
 	corners: readonly [Vec3, Vec3, Vec3, Vec3];
 	/** Identities of the four corners; neighbors share them. Topology reads these, never positions. */

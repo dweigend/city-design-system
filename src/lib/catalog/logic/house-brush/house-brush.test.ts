@@ -325,3 +325,15 @@ test('different abutting uses leave a vertical strip on the later parcel only', 
 	expect(reversed.every((band) => band.id.startsWith('2/1@0:wall:overprint:'))).toBe(true);
 	expect(overprints(raise(first, '1/1', 'water'))).toEqual([]);
 });
+
+test('stock windows and roofs survive dense index changes after a remote regrid', () => {
+	const cell = cellAt(5, 5);
+	const stacks = raise(EMPTY, cell.id, 'living');
+	const regrid = quadGrid(grid.cells.slice(1).map((c, index) => ({ ...c, index })));
+	const details = (on: typeof grid) =>
+		parts(stacks, cell, on).filter((part) => part.roofCell || part.id.includes(':opening'));
+	const original = details(grid);
+	expect(original.some((part) => part.roofCell)).toBe(true);
+	expect(original.some((part) => part.id.includes(':opening'))).toBe(true);
+	expect(details(regrid)).toEqual(original);
+});

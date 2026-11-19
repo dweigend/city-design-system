@@ -1,5 +1,6 @@
 import type { RoofSeat, RoofBuilder, Roof } from '../building-envelope';
 import { hash } from '../hash-random';
+import { cellKey } from './cell-key';
 import type { Primitive } from '../parametrik/types';
 import { sideLength, type QuadCell } from '../quad-grid';
 import { stockRoofDirection } from './stock-roof-axis';
@@ -20,7 +21,7 @@ export function stockRoof(
 ): Primitive | undefined {
 	const polygon = cell.corners.map(([x, y]): [number, number] => [x, y]);
 	const direction = stockRoofDirection(cell, seed);
-	const chosen = roofs[Math.floor(hash(seed, cell.index, CHANNEL.roof) * roofs.length)];
+	const chosen = roofs[Math.floor(hash(seed, cellKey(cell), CHANNEL.roof) * roofs.length)];
 	const lengths = cell.corners.map((_, side) => sideLength(cell, side));
 	const elongated = Math.max(...lengths) > 1.2 * Math.min(...lengths);
 	const roof = chosen === 'sawtooth' && !elongated ? 'gable' : chosen;
