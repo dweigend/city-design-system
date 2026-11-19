@@ -93,7 +93,7 @@ test('the moving and vacated crown edges pick the same geometry as the screen, i
 			layer.step(t, false);
 			layer.group.updateMatrixWorld(true);
 			expect(wall.matrixWorld.equals(new Matrix4())).toBe(true);
-			expect(crown.matrixWorld.elements).toEqual(visible.matrixWorld.elements);
+			expect(crown.matrixWorld.equals(visible.matrixWorld)).toBe(true);
 			let entered = false,
 				vacated = false;
 			for (let mm = -160; mm <= 160; mm += 2) {
