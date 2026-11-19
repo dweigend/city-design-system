@@ -1,3 +1,8 @@
+import { capsuleKit } from './objects/capsule-kit';
+import { structuralKit } from './objects/structural-kit';
+import { deckKit } from './objects/deck-kit';
+import { crownKit } from './objects/crown-kit';
+import { serviceKit } from './objects/service-kit';
 import { people } from './objects/people';
 import { smallArchitecture } from './objects/small-architecture';
 import { textiles } from './objects/textiles';
@@ -162,5 +167,10 @@ export const recipes: readonly AssetRecipe[] = [
 	...publicArt,
 	...textiles,
 	...smallArchitecture,
-	...people
+	...people,
+	...capsuleKit,
+	...structuralKit,
+	...deckKit,
+	...crownKit,
+	...serviceKit
 ];
