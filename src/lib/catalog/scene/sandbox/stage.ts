@@ -10,7 +10,8 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import { STRICHE, type Kontext } from '../../data/leitstil';
 import { grammatik } from '../leitstil';
 import { nearestZoom, sandboxStyle } from './drafting-style';
-import { STRUCTURE_VARIANTS, type StructureVariant } from './view-params';
+import { defaultMinimumInk, type MinimumInk } from './view-params';
+import { createFrameLayer } from './frame-layer';
 import type { Palette3D } from '../../data/city3d';
 import { bindSceneTheme } from '../themeBinding';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
@@ -33,6 +34,8 @@ import { createFrameLoop } from './frame-loop';
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
+	minInkAppliesTo?: MinimumInk;
+	onFrameFailure?: (reason: string) => void;
 	openingArea?: () => OpeningArea | undefined;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
@@ -110,7 +113,14 @@ export function createSandboxStage(
 	let shown: World | undefined;
 	let palette: Palette3D | undefined;
 	let planView = false;
-	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
+	const frames = createFrameLayer(
+		structures,
+		() => render(),
+		(detail) => {
+			canvas.dataset.frameFailure = detail;
+			study.onFrameFailure?.(detail);
+		}
+	);
 	let refreshTones = true;
 	let viewDirty = true;
 	let pickDirty = true;
@@ -139,13 +149,16 @@ export function createSandboxStage(
 		coarse = nextCoarse;
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
-		const style = sandboxStyle(context, variant);
+		const style = sandboxStyle(context);
 		const tones = refreshTones ? grammatik(canvas, style) : undefined;
-		structures.setStyle([style, variant, scale, tones], view.elevation());
+		structures.setStyle(
+			[style, study.minInkAppliesTo ?? defaultMinimumInk, scale, tones],
+			view.elevation()
+		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
 		if (tones) light.setTone(tones.schatten, tones.paper);
 		canvas.dataset.zoom = zoom;
-		canvas.dataset.structureVariant = variant;
+
 		refreshTones = false;
 	}
 
@@ -176,6 +189,7 @@ export function createSandboxStage(
 		const seating = structures.step(seconds * 1000, reduced && !timeline.seeking);
 		const transit = vehicles.step(timeline.transitSeconds * 1000);
 		renderImage(structures.shadowChanged);
+		frames.afterDraw();
 		if (pickDirty || seating || transit)
 			for (const listener of frameListeners) listener(pickDirty ? undefined : crossedPointer);
 		pickDirty = false;
@@ -317,6 +331,7 @@ export function createSandboxStage(
 	}
 
 	function worldShown(world: World, nextFocus: FocusId) {
+		frames.show(world, nextFocus);
 		focus = nextFocus;
 		shown = world;
 		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
@@ -352,6 +367,7 @@ export function createSandboxStage(
 				frameListeners.delete(listener);
 			};
 		},
+		frameTimings: { worker: frames.timings, preview: frames.previewTimings },
 		/** Keeps the camera fixed after the first drawing gesture. */
 		endOpening() {
 			opening = undefined;
@@ -392,11 +408,6 @@ export function createSandboxStage(
 			renderer.setSize(width, height, false);
 			view.resize(width, height);
 			frameCurrent(Boolean(study.frame));
-			invalidateView();
-		},
-		/** Switches the structural line treatment without replaying interventions. */
-		setStructureVariant(next: StructureVariant) {
-			variant = next;
 			invalidateView();
 		},
 		/** Axonometric view, or the plan seen from above. */
@@ -462,6 +473,7 @@ export function createSandboxStage(
 			targetMaterial.dispose();
 			rejectionMaterial.dispose();
 			if (terrain) terrain.dispose();
+			frames.dispose();
 			structures.dispose();
 			light.dispose();
 			baseOutline.dispose();

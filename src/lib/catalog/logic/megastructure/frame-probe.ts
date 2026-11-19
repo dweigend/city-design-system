@@ -21,5 +21,6 @@ export function probeFrame(nodes: Node[], bearings: Node[], rods: Rod[]) {
 	const lasten = nodes
 		.filter((n) => !fixed.has(n.id))
 		.map((n) => ({ knotenId: n.id, kraftN: [0, 0, -1000] satisfies Vec3 }));
-	return { structure, analysis: loeseFachwerk(structure, [{ id: 'service-probe', lasten }]) };
+	const cases = [{ id: 'service-probe', lasten }];
+	return { structure, cases, analysis: loeseFachwerk(structure, cases) };
 }

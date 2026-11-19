@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test';
 import { cpuMilliseconds, warmMedian } from '../../fixtures/performance-sample.fixture.test';
-import { probeWallConnections } from './carrier-diagonals';
-import { singularCarrier, tenRoofStroke } from './fixtures/carrier-budget.fixture.test';
+import { tenRoofStroke } from './fixtures/carrier-budget.fixture.test';
 
 function fitsOneFrame(label: string, moves: (() => unknown)[]) {
 	for (let i = 0; i < 12; i++) for (const move of moves) move();
@@ -15,10 +14,6 @@ function fitsOneFrame(label: string, moves: (() => unknown)[]) {
 	console.info(label, 'median of batch maxima:', max.toFixed(2), 'ms CPU');
 }
 
-test('singular carrier repairs and ten-roof pointer moves fit one frame', () => {
-	for (const groups of [5, 6]) {
-		const { grid, cells, parts } = singularCarrier(groups);
-		fitsOneFrame(groups + ' groups', [() => probeWallConnections(grid, parts, cells)]);
-	}
+test('ten-roof pointer moves fit one frame', () => {
 	fitsOneFrame('ten roofs', tenRoofStroke().moves);
 });

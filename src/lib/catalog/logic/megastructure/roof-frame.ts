@@ -1,3 +1,5 @@
+import { sizeMembers } from './sections';
+import { loeseFachwerk } from '../statik';
 import { bayMembers, bearingLayouts, crownLinks, type Joint, type Bay } from './bearing-layout';
 import { roofLinks } from './roof-links';
 import { selectConnectedLayout } from './connected-layouts';
@@ -12,34 +14,40 @@ const frameParams = defineParams({
 	maxSpan: numberParam('Maximum member length', 'm', MAX_FRAME_SPAN_M, [1, 50, 0.5]),
 	clearance: numberParam('Roof clearance', 'm', 2, [0.5, 10, 0.25])
 });
-export const FRAME_DIAMETER = { main: 0.18, brace: 0.1 } as const;
+export { FRAME_DIAMETER } from '../../data/frame-sections';
 type Sections = 'uniform' | 'leitstil';
 function solveLayout(bays: Bay[], maxSpan: number, sections: Sections) {
-	const rods: { a: Joint; b: Joint; radius: number; main: boolean }[] = [];
-	const add = (a: Joint, b: Joint, main: boolean) => {
-		const diameter = sections === 'uniform' ? 0.14 : FRAME_DIAMETER[main ? 'main' : 'brace'];
-		rods.push({ a, b, main, radius: diameter / 2 });
-	};
-
-	for (const layout of bays) {
-		for (const [head, target] of bayMembers(layout))
-			add(
-				head,
-				target,
-				layout.crown.includes(target) || (head.p[0] === target.p[0] && head.p[1] === target.p[1])
-			);
-	}
-	for (const [i, bay] of bays.entries())
-		for (const other of bays.slice(i + 1))
-			for (const { a, b } of crownLinks(bay, other, maxSpan)) add(a, b, true);
+	const rods = layoutRods(bays, maxSpan);
 	const nodes = bays.flatMap((b) => [...b.feet, ...b.crown]);
+	const feet = bays.flatMap((b) => b.feet);
+	const probe = probeFrame(nodes, feet, rods);
+	if (sections === 'uniform' || probe.analysis.status !== 'ok') return { rods, ...probe };
+	const result = sizeMembers({
+		knoten: nodes,
+		lager: probe.structure.lager,
+		kandidaten: rods.map((r, i) => ({ id: String(i), a: r.a.id, b: r.b.id, rolle: 'tragstab' })),
+		lastfaelle: probe.cases
+	});
+	if (result.status !== 'ok') return { rods: [], structure: probe.structure, analysis: result };
+	const sized = result.staebe.map((r) => ({
+		...rods[Number(r.id)],
+		radius: r.querschnitt.durchmesserM / 2,
+		main: r.querschnitt.durchmesserM === 0.18
+	}));
+	const structure = {
+		...probe.structure,
+		staebe: result.staebe.map((r) => ({
+			id: r.id,
+			a: r.a,
+			b: r.b,
+			eModulPa: probe.structure.staebe[Number(r.id)].eModulPa,
+			flaecheM2: r.querschnitt.flaecheM2
+		}))
+	};
 	return {
-		rods,
-		...probeFrame(
-			nodes,
-			bays.flatMap((b) => b.feet),
-			rods
-		)
+		rods: sized,
+		structure,
+		analysis: loeseFachwerk(structure, probe.cases)
 	};
 }
 
@@ -89,3 +97,23 @@ export function planRoofFrame(
 }
 /** Builds a roof frame with the same tagged planning and load-probe result as planRoofFrame. */
 export const buildRoofFrame = planRoofFrame;
+
+function layoutRods(bays: Bay[], maxSpan: number) {
+	const rods: { a: Joint; b: Joint; radius: number; main: boolean }[] = [];
+	const add = (a: Joint, b: Joint, main: boolean) => {
+		rods.push({ a, b, main, radius: 0.14 / 2 });
+	};
+
+	for (const layout of bays) {
+		for (const [head, target] of bayMembers(layout))
+			add(
+				head,
+				target,
+				layout.crown.includes(target) || (head.p[0] === target.p[0] && head.p[1] === target.p[1])
+			);
+	}
+	for (const [i, bay] of bays.entries())
+		for (const other of bays.slice(i + 1))
+			for (const { a, b } of crownLinks(bay, other, maxSpan)) add(a, b, true);
+	return rods;
+}

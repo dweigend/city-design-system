@@ -5,7 +5,7 @@
  */
 export { EMPTY_STATE, styleForYear, stylesForYear } from './state';
 export { installationPartView, installationView } from './installation-view';
-export { applyEdit, createWorld, withState, type World } from './world';
+export { prepareAdvance, applyEdit, createWorld, withState, type World } from './world';
 export { commit, redo, startHistory, undo } from './history';
 export { changes } from './changes';
 export {
@@ -28,9 +28,8 @@ export {
 export { currentStacks, houseView, houseGroups } from './houses';
 export { acceptanceScene, openingScene } from './acceptance-scene';
 export { timelineWindow } from './time-layers';
-export { buildingPlots } from './building-plots';
-export {
-	position as installationPosition,
-	type Anchor,
-	type Installation
-} from './installation-parts';
+export { frameSurvey } from './frame-survey';
+export { frameReport } from './frame-report';
+export { runFrameTimeline } from './frame-runner';
+export { createFrameStudy } from './frame-study';
+export { sizeFrameSites } from './frame-sizing';

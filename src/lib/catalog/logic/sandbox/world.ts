@@ -1,10 +1,14 @@
+import { sizeFrameSites, sizingSites } from './frame-sizing';
+import { eraseFrontage } from './erase-frontage';
 import { DIG_RADIUS_M, sandboxGenerationYears } from '../../data/sandbox';
 import { clearInstallation, lostSeat, removeInstallations } from './installation-record';
 import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
-import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
+import { routeLine, transitOverrides } from '../transit-line';
+import { advanceFrames } from './frame-construction';
+import { frameSurvey } from './frame-survey';
 import { seedTown, type TownOptions } from './old-town';
 import { migrateSnapshot } from './snapshot';
 import { constructionLayers } from './time-layers';
@@ -18,21 +22,8 @@ import {
 	type StoryPart
 } from './state';
 
-/**
- * A sandbox state together with everything derived from it: the terrain grid and the routed
- * lines. Derived parts are a cache with one owner, keyed by the state they came from.
- */
-export type World = Readonly<{
-	seed: number;
-	roofBuilder?: import('../building-envelope').RoofBuilder;
-	state: SandboxState;
-	grid: TerrainGrid;
-	/** Routes of `state.lines` on the current grid; a stroke too short to route is absent. */
-	lines: readonly BuiltLine[];
-}>;
-
-export type BuiltLine = TransitLine & { year: number };
-
+import type { World, BuiltLine } from './world-contract';
+export type { World } from './world-contract';
 function route(grid: TerrainGrid, strokes: readonly LineStroke[]): BuiltLine[] {
 	return strokes.flatMap((stroke) => {
 		const line = routeLine(
@@ -99,7 +90,12 @@ export function createWorld(
 	options?: TownOptions & { plan?: Parameters<typeof deriveGrid>[1] }
 ): World {
 	const grid = deriveGrid(createTerrain({ seed }), options?.plan);
-	return { seed: grid.terrain.seed, state: seedTown(grid, options), grid, lines: [] };
+	return {
+		seed: grid.terrain.seed,
+		state: seedTown(grid, options),
+		grid,
+		lines: []
+	};
 }
 
 /**
@@ -114,7 +110,7 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 	const grid =
 		state.edits === world.state.edits
 			? world.grid
-			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
+			: regrid(world.grid, { ...world.grid.terrain, edits: state.edits });
 	if (source === 'restore') state = settleCover(grid, state);
 	else if (grid !== world.grid) {
 		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));
@@ -168,7 +164,9 @@ function raiseStory(
 const isInside = (edit: TerrainEdit, cell: TerrainCell) =>
 	Math.hypot(cell.center[0] - edit.center[0], cell.center[1] - edit.center[1]) <= edit.radius;
 
-function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
+function clearCell(world: World, state: SandboxState, cell: TerrainCell): SandboxState {
+	const erased = eraseFrontage(world, state, cell);
+	if (erased) return erased;
 	const cleared = clearInstallation(state, cell);
 	if (cleared !== state) return cleared;
 	const stories = storiesOf(state.stacks, cell.id);
@@ -196,10 +194,10 @@ function clearCell(state: SandboxState, cell: TerrainCell): SandboxState {
 function cellEdit(
 	state: SandboxState,
 	cell: TerrainCell,
-	edit: Exclude<Edit, { kind: 'line' | 'line-profile' | 'advance' }>
+	edit: Exclude<Edit, { kind: 'line' | 'line-profile' | 'advance' | 'clear' }>
 ) {
 	if (edit.kind === 'raise') return raiseStory(state, cell, edit);
-	if (edit.kind === 'clear') return clearCell(state, cell);
+
 	if (edit.kind === 'dig') return { ...state, edits: [...state.edits, basinAt(cell)] };
 	if (!cell.plantable || storiesOf(state.stacks, cell.id).length) return state;
 	const cover = setCover(state.cover, cell.id, edit.cover);
@@ -217,7 +215,10 @@ export function digStroke(world: World, ids: readonly string[]): World {
 		return cell ? [basinAt(cell)] : [];
 	});
 	if (!basins.length) return world;
-	return replaceState(world, { ...world.state, edits: [...world.state.edits, ...basins] }, 'edit');
+	return settleFrameSites(
+		world,
+		replaceState(world, { ...world.state, edits: [...world.state.edits, ...basins] }, 'edit')
+	);
 }
 
 /** Clears traced anchors in order and settles all changed terrain in one regrid. */
@@ -225,9 +226,9 @@ export function eraseStroke(world: World, ids: readonly string[]): World {
 	let state = world.state;
 	for (const id of ids) {
 		const cell = world.grid.cellsById.get(id);
-		if (cell) state = clearCell(state, cell);
+		if (cell) state = clearCell(world, state, cell);
 	}
-	return replaceState(world, state, 'edit');
+	return settleFrameSites(world, replaceState(world, state, 'edit'));
 }
 
 function setLineProfile(state: SandboxState, edit: Extract<Edit, { kind: 'line-profile' }>) {
@@ -267,12 +268,38 @@ function appendLine(world: World, edit: Extract<Edit, { kind: 'line' }>): World 
 		: world;
 }
 
-function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): SandboxState {
+function nextState(world: World, edit: Exclude<Edit, { kind: 'line' | 'advance' }>): SandboxState {
 	const { state } = world;
-	if (edit.kind === 'advance') return advance(state, edit.years ?? sandboxGenerationYears);
 	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
 	const cell = world.grid.cellsById.get(edit.cellId);
-	return cell ? cellEdit(state, cell, edit) : state;
+	if (!cell) return state;
+	if (edit.kind === 'clear') return clearCell(world, state, cell);
+	return cellEdit(state, cell, edit);
+}
+
+/** Captures the geometry and clock for one advance. Only finish applies its detached sizing results. */
+export function prepareAdvance(world: World, years = sandboxGenerationYears) {
+	const next = advance(world.state, years);
+	const sites = next === world.state ? [] : sizingSites(world);
+	return {
+		sites,
+		preview() {
+			const survey = frameSurvey(world);
+			const prior = world.state.frameBays ?? new Map();
+			const prospective = survey.rules.solve(survey.seams.keys(), prior, world.seed);
+			const frameBays = new Map(prior);
+			for (const [id, { role }] of prospective)
+				if (role !== 'gap' && !prior.get(id)?.built) frameBays.set(id, { pending: role, ticks: 0 });
+			return { ...world, state: { ...world.state, frameBays } };
+		},
+		finish(proofs = sizeFrameSites(sites, 'nominal')): World {
+			if (next === world.state) return world;
+			return {
+				...world,
+				state: { ...next, ...advanceFrames(world, next.year, undefined, proofs) }
+			};
+		}
+	};
 }
 
 /**
@@ -285,6 +312,36 @@ function nextState(world: World, edit: Exclude<Edit, { kind: 'line' }>): Sandbox
  * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
+	if (edit.kind === 'advance') {
+		const work = prepareAdvance(world, edit.years);
+		return work.finish(sizeFrameSites(work.sites));
+	}
 	if (edit.kind === 'line') return appendLine(world, edit);
-	return replaceState(world, nextState(world, edit), 'edit');
+	const next = replaceState(world, nextState(world, edit), 'edit');
+	return settleFrameSites(world, next);
+}
+
+function settleFrameSites(world: World, next: World) {
+	if (next.grid === world.grid || !next.state.frameBays?.size) return next;
+	const { seams } = frameSurvey(next);
+	const bays = new Map(next.state.frameBays);
+	for (const id of bays.keys()) {
+		const seam = seams.get(id);
+		if (!seam || seam.opening) bays.delete(id);
+	}
+	return bays.size === next.state.frameBays.size
+		? next
+		: {
+				...next,
+				state: {
+					...removeInstallations(
+						next.state,
+						(p) => p.kind === 'segment' && !!p.frame && !bays.has(p.frame.seam)
+					),
+					frameBays: bays,
+					frameInstallations: new Map(
+						[...(next.state.frameInstallations ?? [])].filter(([id]) => bays.has(id))
+					)
+				}
+			};
 }

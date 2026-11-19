@@ -36,15 +36,15 @@ function pair(i: number): Primitive[] {
 
 test('within a visible district the draw and motion counts are independent of the number of masses', () => {
 	for (const zoom of ['nah', 'stadt'] as const) {
-		const style = sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal' }, 'leitstil');
+		const style = sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal' });
 		const counts = [1, 32, 128].map((size) => {
 			const layer = createStructures(),
 				districts = houseDistricts();
 			try {
-				layer.setStyle([style, 'leitstil', zoom === 'nah' ? 40 : 2.5], Math.PI / 4);
+				layer.setStyle([style, 'all', zoom === 'nah' ? 40 : 2.5], Math.PI / 4);
 				for (let i = 0; i < size; i++) districts.set('2:3', 'mass-' + i, pair(i));
 				districts.flush((chunk, parts) => layer.queue('house:' + chunk, parts));
-				layer.setStyle([style, 'leitstil', zoom === 'nah' ? 40 : 2.5], Math.PI / 4);
+				layer.setStyle([style, 'all', zoom === 'nah' ? 40 : 2.5], Math.PI / 4);
 				let meshes = 0,
 					transforms = 0;
 				layer.group.traverse((o) => {

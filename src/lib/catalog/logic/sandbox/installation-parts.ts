@@ -19,10 +19,15 @@ export type Anchor = Readonly<{
 	vertex?: number;
 	lift: number;
 }>;
-export type PartId = `p/${number}/${number}`;
-export type Owner = `c/${number}`;
+export type PartId = `p/${number}/${number}` | `tg/${string}/${number}`;
+export type Owner = `c/${number}` | `tg/${string}`;
 export type Composition = { id: Owner; system: 'houses' | 'paths' };
-type Segment = { kind: 'segment'; recipe: 'chord' | 'brace' | 'walkway' | 'stair'; end: Anchor };
+type Segment = {
+	frame?: Readonly<{ seam: string; gate: boolean; member: { a: Vec3; b: Vec3; diameter: number } }>;
+	kind: 'segment';
+	recipe: 'chord' | 'brace' | 'walkway' | 'stair';
+	end: Anchor;
+};
 type Fixture =
 	{ kind: 'pillar'; recipe: 'support' | 'bearing' } | { kind: 'stop'; recipe: 'plaza' | 'landing' };
 type Module = {
@@ -90,8 +95,10 @@ export function rodOf<P extends Installation>(grid: QuadGrid, part: P) {
 	if (part.kind !== 'segment' || (part.recipe !== 'chord' && part.recipe !== 'brace')) return;
 	return {
 		part,
-		a: position(grid, part.anchor),
-		b: position(grid, part.end),
-		radius: FRAME_DIAMETER[part.recipe === 'chord' ? 'main' : 'brace'] / 2
+		a: part.frame?.member.a ?? position(grid, part.anchor),
+		b: part.frame?.member.b ?? position(grid, part.end),
+		radius:
+			(part.frame?.member.diameter ?? FRAME_DIAMETER[part.recipe === 'chord' ? 'main' : 'brace']) /
+			2
 	};
 }

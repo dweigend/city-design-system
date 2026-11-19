@@ -11,7 +11,7 @@ import { conduitInk } from './print-flow';
 import { cutPaper, terrazzo } from './paper-inlay';
 import { firedSlip } from './fired-slip';
 import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
-import { STRUCTURE_PARAMS, type StructureVariant } from './view-params';
+import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
@@ -69,6 +69,8 @@ export function structureMaterials() {
 		primary: new THREE.Line2NodeMaterial(),
 		stockPrimary: new THREE.Line2NodeMaterial(),
 		secondary: new THREE.Line2NodeMaterial(),
+		rib: new THREE.Line2NodeMaterial(),
+		planned: new THREE.Line2NodeMaterial({ dashed: true, dashSize: 0.6, gapSize: 0.4 }),
 		bearing: new THREE.MeshBasicNodeMaterial(),
 		perimeter: new THREE.Line2NodeMaterial(),
 		hull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
@@ -170,22 +172,32 @@ export function structureMaterials() {
 	}
 	setParams();
 
-	function applyStructuralStyle(style: Stil, variant: StructureVariant, scale: number) {
-		const { traeger, kontext } = style.rollen;
-		const fine = style.kamera.pxProM <= MASSSTAB.quartier;
-		const inInk = variant === 'leitstil';
-		materials.primary.linewidth = inInk ? strichbreite(0.18, scale) : traeger.strichPx;
-		materials.stockPrimary.linewidth = materials.primary.linewidth;
-		const secondary = fine ? kontext.strichPx : strichbreite(0.1, scale);
-		materials.secondary.linewidth = inInk ? secondary : traeger.strichPx;
-		if (palette) {
-			const ink = traeger.token === '--ink' ? palette.ink : palette.blei;
-			materials.primary.color.copy(ink);
-			materials.stockPrimary.color.copy(palette.blei).lerp(ink, 0.5);
-			materials.secondary.color.copy(inInk && fine ? palette.detail : ink);
+	function applyStructuralStyle(style: Stil, minimum: MinimumInk, scale: number) {
+		const { traeger } = style.rollen;
+		const ink = palette?.[traeger.token === '--ink' ? 'ink' : 'blei'];
+		for (const [diameter, material] of [
+			[0.18, materials.primary],
+			[0.14, materials.rib],
+			[0.1, materials.secondary]
+		] as const) {
+			const px = diameter * scale;
+			material.linewidth =
+				diameter === 0.18 || minimum === 'all' ? strichbreite(diameter, scale) : px;
+			const color = material.linewidth >= STRICHE.minimumTraeger ? ink : palette?.detail;
+			if (color) material.color.copy(color);
 		}
+		styleStock(style);
 	}
 
+	function styleStock(style: Stil) {
+		materials.planned.linewidth = style.rollen.geplant.strichPx;
+
+		materials.stockPrimary.linewidth = STRICHE.bestand;
+		if (palette) {
+			materials.planned.color.copy(palette.blei);
+			materials.stockPrimary.color.copy(palette.blei);
+		}
+	}
 	function colorOf(token: string) {
 		const cached = colors.get(token);
 		if (cached) return cached;
@@ -212,7 +224,7 @@ export function structureMaterials() {
 		/** The stage supplies the validated style and a new palette when the theme changes. */
 		setStyle(
 			style: Stil,
-			variant: StructureVariant,
+			minimum: MinimumInk,
 			scale: number,
 			tones?: ReturnType<typeof grammatik>
 		) {
@@ -230,7 +242,7 @@ export function structureMaterials() {
 			materials.rail.linewidth = kontext.strichPx;
 			materials.rail.visible = style.kamera.pxProM > MASSSTAB.quartier;
 			envelopeShadows = huelle.schatten;
-			applyStructuralStyle(style, variant, scale);
+			applyStructuralStyle(style, minimum, scale);
 			const detailChanged = explicit.setDetail(style.rollen.weg.level !== 'block');
 			return detailChanged || Boolean(tones);
 		},

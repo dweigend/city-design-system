@@ -1,0 +1,266 @@
+import { faceSeam } from '../district-frame';
+import { STORY } from '../../data/grid';
+import { hashUnit } from '../../core/random';
+import {
+	compileSeams,
+	seamPolicy,
+	type Character,
+	type EdgeUse,
+	type FrameSeam
+} from '../district-frame';
+import type { TerrainCell, TerrainGrid } from '../terrain-grid';
+import type { World } from './world-contract';
+import type { Vec3 } from '../parametrik/types';
+import { insetRing, roofWalls } from '../house-brush';
+import { buildingPlots } from './building-plots';
+
+import { surveyGates } from './frame-gates';
+
+import { courtOpenings } from './court-openings';
+import { seamIncidence } from './seam-incidence';
+const policy = seamPolicy();
+const districts = new WeakMap<TerrainGrid, Map<string, Character>>();
+function characters(grid: TerrainGrid) {
+	const cached = districts.get(grid);
+	if (cached) return cached;
+	const result = new Map<string, Character>();
+	for (const cell of grid.cells) {
+		const old = result.get(cell.block);
+		if (old === 'quiet' || old === 'shore') continue;
+		if (hashUnit(grid.terrain.seed, cell.block, 'tg-quiet') < policy.quietDistrictShare) {
+			result.set(cell.block, 'quiet');
+			continue;
+		}
+		classify(cell, old);
+	}
+	function classify(cell: TerrainCell, old: Character | undefined) {
+		const border = cell.neighbors.flatMap((id) => (id ? (grid.cellsById.get(id) ?? []) : []));
+		if (border.some((n) => n.plan.kind === 'riversidePromenade')) result.set(cell.block, 'shore');
+		else if (border.some((n) => n.zone === 'scarp')) result.set(cell.block, 'slope');
+		else if (
+			old !== 'slope' &&
+			(cell.neighbors.includes(null) || border.some((n) => n.zone === 'water'))
+		)
+			result.set(cell.block, 'neutral');
+		else if (!old) result.set(cell.block, 'core');
+	}
+	districts.set(grid, result);
+	return result;
+}
+
+function edgeUse(
+	house: TerrainCell,
+	other: TerrainCell | undefined,
+	roofStep: number | undefined
+): EdgeUse {
+	if (other?.plan.square) return 'court';
+	if (other?.plan.kind === 'riversidePromenade') return 'shore';
+	if (
+		other &&
+		(other.zone === 'scarp' || Math.abs(house.center[2] - other.center[2]) >= policy.groundStepMin)
+	)
+		return 'slope';
+	if (other?.plan.kind === 'mainAlley') return 'frontage';
+	if (roofStep === undefined) return 'land';
+	return roofStep >= policy.roofStepMin ? 'step' : 'houses';
+}
+function opening(
+	house: TerrainCell,
+	other: TerrainCell | undefined,
+	grid: TerrainGrid,
+	side: number
+) {
+	if (!other) return 'rim';
+	const court = courtOpenings(grid).get(faceSeam(house, side).id);
+	if (court) return court;
+	const terrain = terrainGap(house, other);
+	if (terrain) return terrain;
+	const rank = other.plan.kind ?? house.plan.kind;
+	if (rank && ['alley', 'stairAlley', 'footbridge'].includes(rank)) return 'passage';
+	if (house.plan.edgePassage && house.alleyEdges & (1 << side)) return 'reserved-frontage';
+}
+
+import type { BaySurvey } from '../megastructure';
+/** Surveys incident terrain seams and records the supporting wall and a return wall on the same roof. */
+function surveyFrame(world: World, includeEmpty: boolean) {
+	const { grid, state, seed } = world;
+	const plots = buildingPlots(grid);
+	const seams = new Map<string, FrameSeam>(),
+		bays = new Map<string, BaySurvey>();
+	const character = characters(grid);
+	const incidence = seamIncidence(grid);
+	const roads = new Map<string, TerrainCell>();
+	const attachments = new Set(
+		[...state.parts.values()].flatMap((p) =>
+			p.kind === 'module' || p.recipe === 'walkway' ? [p.anchor.cellId] : []
+		)
+	);
+	for (const id of state.stacks.keys()) surveyHouse(id);
+	function surveyHouse(id: string) {
+		const found = grid.cellsById.get(id),
+			plot = plots.cellsById.get(id);
+		const count = state.stacks.get(id)?.length ?? 0;
+		if (!found || !count || !plot) return;
+		const cell = found;
+		const height = cell.pad + count * STORY;
+		const wall = roofWalls(plots, state.stacks, plot, seed);
+		const ring = insetRing(
+			plot.corners.map(([x, y]) => [x, y]),
+			wall.inset
+		);
+		function surveyBay(side: number, key: string) {
+			const next = (side + 1) % 4;
+
+			const roofPoint = (i: number): Vec3 => [ring[i][0], ring[i][1], height];
+			const a = roofPoint(side),
+				b = roofPoint(next);
+			const returnSide = [(side + 2) % 4, (side + 1) % 4, (side + 3) % 4].find(
+				(i) => wall.exposed[i]
+			);
+			const rear0 = roofPoint(returnSide ?? side),
+				rear1 = roofPoint(((returnSide ?? side) + 1) % 4);
+			bays.set(key, {
+				id: key,
+				a,
+				b,
+				clearances: clearances(world, cell),
+				back: rear0.map((v, i) => (v + rear1[i]) / 2) as Vec3
+			});
+			return returnSide;
+		}
+		cell.neighbors.forEach((n, side) => {
+			const other = n ? grid.cellsById.get(n) : undefined;
+			if (other?.plan.kind) roads.set(other.id, other);
+			const otherHeight = roofHeight(world, other);
+			if (other && higherRoof(other, otherHeight, cell, height)) return;
+			const { vertices, id: key } = faceSeam(cell, side);
+			const returnSide = surveyBay(side, key);
+			const reason = opening(cell, other, grid, side) ?? bearingGap(wall.exposed[side], returnSide);
+			const houses = other && otherHeight !== undefined ? [id, other.id] : [id];
+			seams.set(key, features());
+			function features(): FrameSeam {
+				const roofDifference = otherHeight === undefined ? undefined : height - otherHeight;
+				return {
+					id: key,
+					vertices,
+					houses,
+					intent: state.frameIntents?.get(key),
+					...districtFeatures(cell, other, character),
+					higherSide: otherHeight === height ? undefined : id,
+					roofDifference,
+					frontage: other?.plan.kind ?? undefined,
+					use: edgeUse(cell, other, roofDifference),
+					opening: reason,
+					blocker: other?.id,
+					attachment: attachments.has(id) || attachments.has(other?.id ?? id)
+				};
+			}
+		});
+	}
+	surveyGates(world, roads.values(), plots, character, seams, bays);
+	if (includeEmpty) surveyEmpty();
+	function surveyEmpty() {
+		for (const edge of incidence.values()) {
+			if (seams.has(edge.id)) continue;
+			const [a, b] = edge.sides;
+			const cell = grid.cellsById.get(a.cellId),
+				other = b && grid.cellsById.get(b.cellId);
+			if (!cell) continue;
+			seams.set(edge.id, {
+				id: edge.id,
+				vertices: edge.vertices,
+				houses: [],
+				...districtFeatures(cell, other, character),
+				use: 'land',
+				opening: opening(cell, other, grid, a.side) ?? 'unoccupied',
+				blocker: other?.id
+			});
+		}
+	}
+	const sides = new Map<string, string[]>();
+	for (const s of seams.values())
+		for (const h of s.houses) {
+			const list = sides.get(h) ?? [];
+			list.push(s.id);
+			sides.set(h, list);
+		}
+	function supportedBay(id: string, roles: ReadonlyMap<string, { role: string }>) {
+		const bay = bays.get(id),
+			owner = seams.get(id);
+		if (!bay || !owner) return;
+		const gaps: [Vec3, Vec3][] = [];
+		for (const key of new Set(owner.houses.flatMap((h) => sides.get(h) ?? []))) {
+			const edge = bays.get(key);
+			if (key !== id && roles.get(key)?.role === 'gap' && edge) gaps.push([edge.a, edge.b]);
+		}
+		return { ...bay, gaps };
+	}
+	return {
+		incidence,
+		seams,
+		bays,
+		supportedBay,
+		characters: character,
+		rules: compileSeams(seams.values(), policy),
+		seed
+	};
+}
+
+const occupiedSurveys = new WeakMap<World, ReturnType<typeof surveyFrame>>();
+/** Shares the immutable occupied survey across pointer updates. Reports may request all carrier gaps. */
+export function frameSurvey(world: World, includeEmpty = false) {
+	if (includeEmpty) return surveyFrame(world, true);
+	const cached = occupiedSurveys.get(world);
+	if (cached) return cached;
+	const survey = surveyFrame(world, false);
+	occupiedSurveys.set(world, survey);
+	return survey;
+}
+
+function terrainGap(house: TerrainCell, other: TerrainCell) {
+	if (house.plan.square && other.plan.square) return 'square-interior';
+	if (other.zone === 'water' || house.zone === 'water') return 'water';
+	if (house.zone === 'scarp' && other.zone === 'scarp') return 'scarp-interior';
+}
+
+function roofHeight(world: World, cell: TerrainCell | undefined) {
+	if (!cell) return;
+	const levels = world.state.stacks.get(cell.id)?.length;
+	return levels ? cell.pad + levels * STORY : undefined;
+}
+function higherRoof(
+	other: TerrainCell,
+	elevation: number | undefined,
+	cell: TerrainCell,
+	height: number
+) {
+	return (
+		elevation !== undefined && (elevation > height || (elevation === height && other.id < cell.id))
+	);
+}
+function clearances({ grid, state }: World, cell: TerrainCell) {
+	return cell.neighbors.flatMap((n) => {
+		const near = n && grid.cellsById.get(n);
+		return near &&
+			(near.zone === 'water' || near.plan.square || near.plan.kind || state.stacks.has(near.id))
+			? [near.corners]
+			: [];
+	});
+}
+
+function bearingGap(exposed: boolean, returnSide: number | undefined) {
+	if (!exposed || returnSide === undefined) return 'no-wall-bearing';
+}
+
+function districtFeatures(
+	cell: TerrainCell,
+	other: TerrainCell | undefined,
+	characters: ReadonlyMap<string, Character>
+) {
+	return {
+		district: cell.block,
+		character: characters.get(cell.block) ?? ('neutral' as const),
+		adjacentCharacter: other && characters.get(other.block),
+		districtEdge: !!other && other.block !== cell.block
+	};
+}

@@ -87,6 +87,9 @@ export function createSessionActions(
 		},
 		undo: () => restore(undo(history)),
 		redo: () => restore(redo(history)),
+		advanceFrom(snapshot: World, next: World) {
+			if (world === snapshot) edit(next, 'advance');
+		},
 		advance: () => edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance'),
 		/** Opens the next seed and clears its history. */
 		restart(this: void) {

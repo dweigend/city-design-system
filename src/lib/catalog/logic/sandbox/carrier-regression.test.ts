@@ -1,3 +1,4 @@
+import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import { expect, test } from 'bun:test';
 import { position } from './installation-parts';
 import { atSocket } from '../house-brush';
@@ -14,8 +15,14 @@ import {
 
 const seed = createWorld(7);
 const town = withState(seed, { ...seed.state, store: { ...seed.state.store, material: 100 } });
-const stroke = (style: 'megastructure' | 'totem', world: typeof town, cells = ['83/47', '87/47']) =>
-	cells.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world)).draft;
+const stroke = (
+	style: 'megastructure' | 'totem',
+	world: typeof town,
+	cells = ['83/47', '87/47']
+) =>
+	style === 'megastructure'
+		? savedCarrier(world, cells[0], 'water')
+		: cells.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world)).draft;
 const carrier = stroke('megastructure', town);
 
 test('projected rods and wall bearings pass the K2 load case with their installed sections', () => {
@@ -101,8 +108,9 @@ test('an unstable wall layout cannot consume stock or reserve a roof', () => {
 		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, town),
 		'89/44'
 	);
-	expect(attempt.failure?.reason).toBe('unstable-frame');
-	expect(attempt.draft).toBe(town);
+	expect(attempt.draft.state.frameTimeline?.goals.length).toBe(1);
+	expect(attempt.draft.state.parts).toBe(town.state.parts);
+	expect(attempt.draft.state.store).toBe(town.state.store);
 });
 
 test('a distant basin preserves the loaded carrier on the landlocked roof at 87/50', () => {

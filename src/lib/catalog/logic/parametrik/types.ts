@@ -35,6 +35,8 @@ type Base = {
 	/** Previous drawing treatment for an existing bible plate. A carrier otherwise uses stock there. */
 	legacyRole?: BuildingRole;
 	/** Secondary members use the detail stroke. Alternate braces remain on the bible plates. */
+	sectionDiameter?: number;
+	planned?: boolean;
 	member?: 'primary' | 'secondary' | 'alternate';
 	/** New envelope in the sandbox when the bible plate uses cutaway hatching or glazing. */
 	envelope?: boolean;

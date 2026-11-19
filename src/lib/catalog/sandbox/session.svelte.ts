@@ -4,6 +4,8 @@ import { createSessionActions } from './session-actions';
 import { createSerialInput } from './serial-input';
 import { focuses, type FocusId } from '../logic/presentation';
 import {
+	prepareAdvance,
+	type sizeFrameSites,
 	openingScene,
 	planStroke,
 	traceStroke,
@@ -22,7 +24,8 @@ import {
 export function createSession(
 	initialSeed: number,
 	generationYears = sandboxGenerationYears,
-	open = openingScene
+	open = openingScene,
+	size?: (sites: Parameters<typeof sizeFrameSites>[0]) => Promise<ReturnType<typeof sizeFrameSites>>
 ) {
 	const { world: startingWorld, additions } = open(initialSeed);
 	const actions = createSessionActions(
@@ -40,7 +43,9 @@ export function createSession(
 	const world = $derived(state.world);
 	const completion = $derived(state.completion);
 	let roofBuilder = $state.raw<typeof startingWorld.roofBuilder>();
-	const projected = $derived(roofBuilder ? { ...world, roofBuilder } : world);
+	let preview = $state.raw<typeof startingWorld>();
+	const shown = $derived(preview ?? world);
+	const projected = $derived(roofBuilder ? { ...shown, roofBuilder } : shown);
 	let stroke = $state.raw<Pick<Stroke, 'cellIds' | 'lastPointerCellId'>>();
 	let pending = $state.raw<StrokeRelease>();
 	let surveyed: StrokePlan | undefined;
@@ -98,6 +103,23 @@ export function createSession(
 		});
 	}
 
+	function advance() {
+		if (!size) return actions.advance();
+		const source = world;
+		const work = prepareAdvance(source, generationYears);
+		preview = work.preview();
+		const publication = preview;
+		input.pause();
+		function commit(proofs?: ReturnType<typeof sizeFrameSites>) {
+			if (preview !== publication) return;
+			input.finish(() => {
+				preview = undefined;
+				actions.advanceFrom(source, work.finish(proofs));
+			});
+		}
+		void size(work.sites).then(commit, () => commit());
+	}
+
 	return {
 		input: input.pointer,
 		get plan() {
@@ -134,7 +156,7 @@ export function createSession(
 				focus = keys[(keys.indexOf(focus) + 1) % keys.length];
 			}, 'Focus');
 		},
-		advance: () => control(actions.advance, 'Advance'),
+		advance: () => control(advance, 'Advance'),
 		get tool() {
 			return selectedTool;
 		},
@@ -226,6 +248,7 @@ export function createSession(
 		},
 		/** Drops native input and pending work when the canvas is disposed. */
 		disposeInput() {
+			preview = undefined;
 			stroke = pending = surveyed = undefined;
 			request = undefined;
 			input.clear();

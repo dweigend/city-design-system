@@ -9,7 +9,7 @@ import { tag } from '../../logic/ansicht/tags';
 import { forestChunk } from '../../logic/land-cover';
 import { explode, shiftZ, type Primitive } from '../../logic/parametrik/types';
 import { focuses, present } from '../../logic/presentation';
-import { acceptanceScene, currentStacks, houseView } from '../../logic/sandbox';
+import { acceptanceScene, applyEdit, currentStacks, houseView } from '../../logic/sandbox';
 import { lineParts } from '../../logic/transit-line';
 import { distanceDrawing } from './distance-drawing';
 import { nearestZoom, sandboxStyle } from './drafting-style';
@@ -27,7 +27,7 @@ test('the sandbox uses the nearest bible zoom', () => {
 test('the Leitstil variant passes the style contract in both themes', () => {
 	for (const thema of ['hell', 'dunkel'] as const) {
 		const k = { ...context, thema };
-		const style = sandboxStyle(k, 'leitstil');
+		const style = sandboxStyle(k);
 		expect(style).toEqual(stilFuer(k));
 		expect(pruefeStil(style, k)).toEqual([]);
 		expect(style.rollen.huelle.strichPx).toBe(STRICHE.kontur);
@@ -35,18 +35,7 @@ test('the Leitstil variant passes the style contract in both themes', () => {
 	}
 });
 
-test('the hairline exception is limited to the structural stroke and contrast', () => {
-	const normal = sandboxStyle(context, 'leitstil');
-	const hairline = sandboxStyle(context, 'hairline');
-	const violations = pruefeStil(hairline, context).map((entry) => entry.id);
-	expect(violations.sort()).toEqual(['INV-02', 'INV-03', 'INV-09']);
-	expect(hairline.rollen.traeger.strichPx).toBe(STRICHE.bestand);
-	expect({ ...hairline, rollen: { ...hairline.rollen, traeger: normal.rollen.traeger } }).toEqual(
-		normal
-	);
-});
-
-test('the fixed plate retains three methods in 2026, two rail stops, two walkway landings and a forest', () => {
+test('the fixed plate retains growing seams in 2026, two rail stops, two walkway landings and a forest', () => {
 	const first = acceptanceScene();
 	const { world, additions } = first;
 	const stories = [...world.state.storyParts.values()].flat();
@@ -57,10 +46,10 @@ test('the fixed plate retains three methods in 2026, two rail stops, two walkway
 		'collage',
 		'collage'
 	]);
-	expect(world.state.storyParts.get('82/41')?.at(-1)?.style).toBe('megastructure');
+	expect([...(world.state.frameBays?.values() ?? [])].some((b) => b.built)).toBe(true);
 	expect(world.state.storyParts.get('83/44')?.at(-1)?.style).toBe('totem');
 	expect(current.filter(({ style }) => style === 'collage')).toHaveLength(10);
-	expect(current.filter(({ style }) => style === 'megastructure')).toHaveLength(1);
+	expect(current.filter(({ style }) => style === 'megastructure')).toHaveLength(0);
 	expect(current.filter(({ style }) => style === 'totem')).toHaveLength(6);
 	expect(world.lines[0].stops).toHaveLength(2);
 	expect([...world.state.cover.values()].filter((kind) => kind === 'forest')).toHaveLength(9);
@@ -74,14 +63,14 @@ test('the renderer applies role widths and switches both structural strokes', as
 	const { materials } = finishes;
 	const scale = MASSSTAB.quartier;
 	try {
-		finishes.setStyle(sandboxStyle(context, 'leitstil'), 'leitstil', scale);
+		finishes.setStyle(sandboxStyle(context), 'primary', scale);
 		expect(materials.pencil.linewidth).toBe(STRICHE.bestand);
 		expect(materials.perimeter.linewidth).toBe(STRICHE.kontur);
 		expect(materials.primary.linewidth).toBeCloseTo(0.18 * scale);
-		expect(materials.secondary.linewidth).toBe(STRICHE.detail);
-		finishes.setStyle(sandboxStyle(context, 'hairline'), 'hairline', scale);
-		expect(materials.primary.linewidth).toBe(STRICHE.bestand);
-		expect(materials.secondary.linewidth).toBe(STRICHE.bestand);
+		expect(materials.secondary.linewidth).toBeCloseTo(0.1 * scale);
+		finishes.setStyle(sandboxStyle(context), 'all', scale);
+		expect(materials.primary.linewidth).toBeCloseTo(0.18 * scale);
+		expect(materials.secondary.linewidth).toBe(STRICHE.minimumTraeger);
 	} finally {
 		finishes.dispose();
 	}
@@ -101,9 +90,9 @@ test('distance redraws update seated pick targets and preserve an active drop', 
 		cityForm: false
 	};
 	const key = 'house:lod';
-	const variant = 'leitstil';
+	const minimum = 'all';
 	const style = (zoom: 'stadt' | 'nah') =>
-		sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal', thema: 'hell' }, variant);
+		sandboxStyle({ zoom, modus: 'ansehen', situation: 'normal', thema: 'hell' });
 	try {
 		structures.set(key, [part], undefined, 0);
 		expect(structures.step(30, false)).toBe(true);
@@ -113,9 +102,9 @@ test('distance redraws update seated pick targets and preserve an active drop', 
 		expect(near.length).toBeGreaterThan(0);
 		expect(near.every((target) => target.position.y === 0)).toBe(true);
 
-		structures.setStyle([style('stadt'), variant, 2.5], Math.PI / 2);
+		structures.setStyle([style('stadt'), minimum, 2.5], Math.PI / 2);
 		expect(structures.solids(key)).toEqual([]);
-		structures.setStyle([style('nah'), variant, 40], Math.PI / 2);
+		structures.setStyle([style('nah'), minimum, 40], Math.PI / 2);
 		const returned = structures.solids(key);
 		expect(returned.length).toBe(near.length);
 		expect(returned[0]).not.toBe(near[0]);
@@ -128,7 +117,13 @@ test('distance redraws update seated pick targets and preserve an active drop', 
 });
 
 function seedRoofCarrier() {
-	const { world, earliestFullYear } = acceptanceScene();
+	const { world: base, earliestFullYear } = acceptanceScene();
+	const world = applyEdit(base, {
+		kind: 'raise',
+		cellId: '82/41',
+		use: 'living',
+		style: 'megastructure'
+	});
 	const chunk = world.grid.cellsById.get('82/41')?.chunk;
 	if (!chunk) throw new Error('Expected the roof carrier anchor');
 	const parts = houseView(world, currentStacks(world.state), chunk, focuses.all, earliestFullYear);

@@ -100,6 +100,8 @@ const projections = new WeakMap<BuiltPart, CachedPart>();
 
 /** Projects one immutable installation record at its current support, zoom and drawing level. */
 export function installationPartView(world: World, p: BuiltPart, focus: FocusId, coarse = false) {
+	// The frame layer projects each solved seam once, including its retained bearings.
+	if (p.kind === 'segment' && p.frame) return [];
 	const system = world.state.compositions.get(p.owner)?.system ?? 'houses';
 	const level = levelFor(focus, system, p.built, world.state.year);
 	const support = p.kind === 'module' ? world.state.parts.get(p.attachedTo) : undefined;

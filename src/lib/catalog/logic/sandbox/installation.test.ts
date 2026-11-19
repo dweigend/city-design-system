@@ -1,3 +1,4 @@
+import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import { expect, test } from 'bun:test';
 import {
 	installationView,
@@ -20,27 +21,21 @@ const base = withState(town, {
 });
 const carrier = (ids: string[], world = base, style: 'megastructure' | 'totem' = 'megastructure') =>
 	ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, world));
-test('one stroke records one connected roof carrier with E identities and undoes it together', () => {
+test('one stroke records one reversible frame goal across the painted houses', () => {
 	const built = carrier(roofs).draft.state;
-	expect(built.compositions.size).toBe(1);
-	expect(built.parts.size).toBeGreaterThan(3);
-	for (const p of built.parts.values()) {
-		expect(p.id).toMatch(/^p\/1\/\d+$/);
-		expect(p.owner).toBe('c/1');
-		expect(roofs).toContain(p.anchor.cellId);
-	}
+	expect(built.frameTimeline?.goals).toHaveLength(1);
+	expect(built.parts).toBe(base.state.parts);
 	expect(undo(commit(startHistory(base.state), built)).present).toBe(base.state);
 });
-test('a disconnected stroke marks the gap and commits nothing', () => {
+test('a disconnected stroke retains the frame goal without installing a span', () => {
 	const ids = ['30/40', '50/40'];
 	const w = withState(base, {
 		...base.state,
 		stacks: new Map(ids.map((id) => [id, ['living'] as const]))
 	});
 	const stroke = carrier(ids, w);
-	expect(stroke.draft).toBe(w);
-	expect(stroke.failure?.reason).toBe('span-disconnected');
-	expect(stroke.failure?.marks.length).toBeGreaterThan(0);
+	expect(stroke.draft.state.frameTimeline?.goals).toHaveLength(1);
+	expect(stroke.draft.state.parts).toBe(w.state.parts);
 });
 test('totem without a supporting carrier leaves the survey intact', () => {
 	const w = withState(base, { ...base.state, year: 2028 });
@@ -55,7 +50,7 @@ test('a short walkway cannot leave an isolated landing', () => {
 });
 
 test('two neutral shells and one colored module touch their carrier and undo together', () => {
-	const frame = carrier(['83/47', '87/47'], withState(town, { ...town.state, year: 2027 })).draft;
+	const frame = savedCarrier(withState(town, { ...town.state, year: 2027 }), '83/47');
 	const w = withState(frame, { ...frame.state, year: 2028 });
 	for (const use of ['energy', 'water'] as const) {
 		const group = ['83/47', '87/47'].reduce(
@@ -103,31 +98,6 @@ test('a walkway crossing three blocks in a straight line leaves the state intact
 	expect(stroke.draft).toBe(town);
 });
 
-test('one bay has one diagonal, one crown segment and one joint per supporting wall', () => {
-	const built = carrier(roofs).draft;
-	const parts = [...built.state.parts.values()];
-	expect(
-		parts.filter(
-			(p) => p.kind === 'segment' && p.recipe === 'brace' && p.anchor.cellId !== p.end.cellId
-		)
-	).toHaveLength(2);
-	expect(
-		parts.filter(
-			(p) => p.kind === 'segment' && p.recipe === 'chord' && p.anchor.cellId !== p.end.cellId
-		)
-	).toHaveLength(2);
-	const bearings = parts.filter((p) => p.recipe === 'bearing');
-	expect(bearings).toHaveLength(6);
-	expect(installationView(built, 'all').filter((p) => p.kind === 'sphere')).toHaveLength(
-		bearings.length
-	);
-});
-test('a seven-cell rejection has one perimeter', () => {
-	const empty = withState(base, { ...base.state, year: 2028 });
-	const stroke = carrier(['40/46', '46/46'], empty, 'totem');
-	expect(stroke.failure?.reason).toBe('no-dock-group');
-	expect(stroke.failure?.marks).toHaveLength(1);
-});
 const walkwayIds = ['30/35', '35/37'];
 const walkway = (world: typeof town) =>
 	walkwayIds.reduce(extendStroke, beginStroke({ kind: 'line', transit: 'walkway' }, world));
@@ -159,9 +129,11 @@ test('explicit building methods override the date for both frame and docking', (
 		ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, w)).draft;
 	const frame = build('megastructure', town);
 	expect(frame.state.year).toBe(town.state.year);
-	expect([...frame.state.parts.values()].some((p) => p.recipe === 'bearing')).toBe(true);
+	expect(frame.state.frameTimeline?.goals.length).toBe(1);
 	expect(
-		[...build('totem', frame).state.parts.values()].filter((p) => p.kind === 'module')
+		[...build('totem', savedCarrier(frame, ids[0])).state.parts.values()].filter(
+			(p) => p.kind === 'module'
+		)
 	).toHaveLength(3);
 });
 test('previous-format worlds project an empty installation layer', () => {
@@ -174,10 +146,7 @@ test('a wall bearing follows the inset lot along the alley at 89/41', () => {
 	const id = '89/41';
 	const cell = town.grid.cellsById.get(id);
 	if (!cell?.lotCorners) throw new Error('Expected a lot along a public alley');
-	const world = extendStroke(
-		beginStroke({ kind: 'house', style: 'megastructure', use: 'water' }, town),
-		id
-	).draft;
+	const world = savedCarrier(town, id, 'water');
 	const foot = [...world.state.parts.values()].find(
 		(p) => p.recipe === 'bearing' && p.anchor.face === 1
 	);
@@ -196,10 +165,7 @@ test('a wall bearing follows the inset lot along the alley at 89/41', () => {
 
 test('same-year carrier and capsules retain their selected flows on the timeline', () => {
 	const ids = ['83/47', '87/47'];
-	const frame = ids.reduce(
-		extendStroke,
-		beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, town)
-	).draft;
+	const frame = savedCarrier(town, ids[0]);
 	const group = ids.reduce(
 		extendStroke,
 		beginStroke({ kind: 'house', style: 'totem', use: 'water' }, frame)

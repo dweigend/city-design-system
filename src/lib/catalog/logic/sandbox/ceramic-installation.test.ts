@@ -1,3 +1,4 @@
+import { savedCarrier } from './fixtures/saved-carrier.fixture.test';
 import { expect, test, spyOn } from 'bun:test';
 import {
 	withState,
@@ -13,10 +14,7 @@ import {
 test('the seed-7 water inlet on 90/40 is one owned, seated ceramic fitting with a blue annular lip', () => {
 	const world = createWorld(7);
 	const ids = ['90/40', '94/40'];
-	const frame = ids.reduce(
-		extendStroke,
-		beginStroke({ kind: 'house', use: 'material', style: 'megastructure' }, world)
-	).draft;
+	const frame = savedCarrier(world, ids[0]);
 	const draw = (use: 'water' | 'energy') =>
 		ids.reduce(extendStroke, beginStroke({ kind: 'house', style: 'totem', use }, frame)).draft;
 	const group = draw('water');
@@ -60,10 +58,7 @@ test('accent socket and recipe survive a shuffled parts table', () => {
 		['90/40', '94/40', 'ceramic']
 	] as const) {
 		const ids = [from, to];
-		const frame = ids.reduce(
-			extendStroke,
-			beginStroke({ kind: 'house', style: 'megastructure', use: 'material' }, world)
-		).draft;
+		const frame = savedCarrier(world, ids[0]);
 		const draw = (parts: typeof frame.state.parts) =>
 			ids.reduce(
 				extendStroke,
@@ -90,15 +85,12 @@ test('a rejected ten-roof docking survey remains bounded', async () => {
 		...world.state,
 		stacks: new Map(ids.map((id) => [id, ['living'] as const]))
 	});
-	const stroke = (w: typeof town, style: 'totem' | 'megastructure') =>
-		ids.reduce(extendStroke, beginStroke({ kind: 'house', use: 'water', style }, w));
-	const frame = stroke(town, 'megastructure');
-	expect(frame.failure).toBeUndefined();
+	const frame = savedCarrier(town, ids[0]);
 	const probe = spyOn(hardware, 'dockModule');
 	try {
 		const result = [ids[0], ids[9]].reduce(
 			extendStroke,
-			beginStroke({ kind: 'house', use: 'water', style: 'totem' }, frame.draft)
+			beginStroke({ kind: 'house', use: 'water', style: 'totem' }, frame)
 		);
 		expect(result.failure?.reason).toBe('no-dock-group');
 		expect(probe.mock.calls.length).toBeGreaterThan(0);

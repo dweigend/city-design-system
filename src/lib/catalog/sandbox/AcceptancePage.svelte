@@ -1,28 +1,37 @@
 <script lang="ts">
 	import MotionToggle from './MotionToggle.svelte';
 	import { resolve } from '$app/paths';
-	import { Toggle, ToggleGroup } from 'bits-ui';
+	import { Toggle } from 'bits-ui';
 	import { Map as MapIcon } from 'lucide-svelte';
 	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { onMount } from 'svelte';
 	import { acceptanceScene } from '../logic/sandbox';
 	import { attachInput } from '../scene/sandbox';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox';
-	import type { StructureVariant } from '../scene/sandbox';
 	import { ThemeToggle } from '../theme';
 	import Icon from '../ui/Icon.svelte';
 
 	let host: HTMLDivElement;
 	let canvas: HTMLCanvasElement;
 	let stage = $state.raw<SandboxStage>();
+	let seed = $state(7);
 	let plan = $state(false);
 	let paused = $state(false);
-	let variant = $state<StructureVariant>('leitstil');
-	let error = $state(false);
+	let error = $state('');
 
 	onMount(() => {
-		const study = acceptanceScene();
-		const current = createSandboxStage(canvas, () => (error = true), study);
+		const query = new URLSearchParams(location.search);
+		const requested = Number(query.get('seed') ?? '7');
+		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
+		const study = {
+			...acceptanceScene(seed),
+			onFrameFailure: (reason: string) => {
+				error = 'Frame survey: ' + reason;
+			},
+			minInkAppliesTo:
+				query.get('minInkAppliesTo') === 'primary' ? ('primary' as const) : ('all' as const)
+		};
+		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), study);
 		void current.ready.catch(() => {});
 		const observer = new ResizeObserver(([entry]) => {
 			current.resize(entry.contentRect.width, entry.contentRect.height);
@@ -55,7 +64,6 @@
 
 	$effect(() => stage?.setPaused(paused));
 	$effect(() => stage?.setPlan(plan));
-	$effect(() => stage?.setStructureVariant(variant));
 </script>
 
 <svelte:head><title>Acceptance scene · City Design System</title></svelte:head>
@@ -70,18 +78,6 @@
 			</nav>
 		</div>
 		<div class="controls">
-			<ToggleGroup.Root
-				type="single"
-				value={variant}
-				onValueChange={(value) => {
-					if (value === 'leitstil' || value === 'hairline') variant = value;
-				}}
-				aria-label="Structure strokes"
-				class="variants"
-			>
-				<ToggleGroup.Item value="leitstil">Leitstil</ToggleGroup.Item>
-				<ToggleGroup.Item value="hairline">Gray hairline</ToggleGroup.Item>
-			</ToggleGroup.Root>
 			<Toggle.Root
 				bind:pressed={plan}
 				class="cg-button"
@@ -99,9 +95,9 @@
 		<canvas
 			bind:this={canvas}
 			tabindex="0"
-			aria-label="Seed 7 acceptance scene. Arrow keys pan, plus and minus zoom."
+			aria-label="Seed {seed} acceptance scene. Arrow keys pan, plus and minus zoom."
 		></canvas>
-		{#if error}<p role="alert">3D view unavailable.</p>{/if}
+		{#if error}<p role="alert">{error}</p>{/if}
 	</div>
 </main>
 
@@ -141,10 +137,6 @@
 	.controls {
 		flex-wrap: wrap;
 	}
-	.controls :global(.variants) {
-		display: inline-flex;
-	}
-	.controls :global(.variants > button),
 	.controls > :global(.cg-button) {
 		display: inline-grid;
 		place-items: center;
@@ -157,7 +149,6 @@
 		font-size: var(--text-s);
 		cursor: pointer;
 	}
-	.controls :global(.variants > button[data-state='on']),
 	.controls > :global(.cg-button[data-state='on']) {
 		background: var(--paper-3);
 	}

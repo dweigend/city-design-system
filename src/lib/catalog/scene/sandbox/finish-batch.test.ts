@@ -14,6 +14,7 @@ import {
 	installationPartView
 } from '../../logic/sandbox';
 import { loadStructureModules } from './fixtures/structure-modules';
+import { savedCarrier } from '../../logic/sandbox/fixtures/saved-carrier.fixture.test';
 
 test('every catalog surface reaches the sandbox mesh for every surface-bearing form', async () => {
 	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
@@ -103,11 +104,7 @@ test('different forms share one draw mesh per selected finish', async () => {
 });
 
 test('a finish on a saved installation slot applies after its socket geometry is restored', () => {
-	const world = createWorld(7);
-	const installed = extendStroke(
-		beginStroke({ kind: 'house', style: 'megastructure', use: 'water' }, world),
-		'89/41'
-	).draft;
+	const installed = savedCarrier(createWorld(7), '89/41', 'water');
 	const slot = [...installed.state.parts.values()].find((p) => p.recipe === 'bearing');
 	assert.ok(slot);
 	const original = installationPartView(installed, slot, 'all');
