@@ -1,3 +1,4 @@
+import { carrierProbe } from './carrier-probe';
 import { buildingPlots } from './building-plots';
 import { roofWalls } from '../house-brush';
 import { required } from '../required';
@@ -93,7 +94,7 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 		};
 	if (plan.status !== 'assembled') return rejected(plan.status, cells);
 	if (plan.frame.analysis.status !== 'ok') return rejected(plan.frame.analysis.status, cells);
-	const seats = roofs.flatMap((roof) => {
+	const walls = roofs.map((roof) => {
 		const cell = required(grid.cellsById.get(roof.id), 'building plot');
 		const level = required(levels.get(roof.id), 'roof stories').length;
 		const wall = roofWalls(grid, levels, cell, world.seed);
@@ -105,11 +106,62 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 			.filter((a) => wall.exposed[a.face ?? 0]);
 		// Prefer one consistent frontage along the stroke; never seat a post on an internal seam.
 		feet.sort((a, b) => (a.face ?? 0) - (b.face ?? 0));
-		return feet.slice(0, roofs.length === 1 ? 2 : 1);
+		return { feet, sides: wall.exposed.flatMap((exposed, face) => (exposed ? [face] : [])) };
 	});
+	const seats = walls.flatMap((w) => w.feet.slice(0, roofs.length === 1 ? 2 : 1));
 	if (seats.length < 2 || seats.length < roofs.length) return rejected('no-local-bay', cells);
 	const crown = Math.max(...roofs.map((r) => r.height)) + 6;
-	return assembleSeats(grid, seats, crown);
+	const layout = assembleSeats(grid, seats, crown);
+	if ('failure' in layout) return layout;
+	braceWalls(
+		grid,
+		seats,
+		walls.map((w) => w.sides),
+		layout.parts
+	);
+	const parts = layout.parts;
+	if (carrierProbe(grid, parts) === 'ok') return { parts };
+	return rejected('unstable-frame', cells);
+}
+
+function braceWalls(
+	grid: QuadGrid,
+	seats: Anchor[],
+	sidesByRoof: number[][],
+	parts: Installation[]
+) {
+	// Restrain out-of-plane motion with ties back to other exposed wall faces.
+	for (const [i, foot] of seats.entries()) {
+		const sides = sidesByRoof[sidesByRoof.length === 1 ? 0 : i];
+		const post = parts.find(
+			(p) => p.kind === 'segment' && p.anchor === foot && p.recipe === 'chord'
+		);
+		if (post?.kind !== 'segment') continue;
+		const toe = transverseSeat(grid, foot, seats[i === 0 ? 1 : i - 1], sides);
+		if (!toe) continue;
+		if (
+			!parts.some(
+				(p) =>
+					p.recipe === 'bearing' && p.anchor.cellId === toe.cellId && p.anchor.face === toe.face
+			)
+		)
+			parts.push({ kind: 'pillar', recipe: 'bearing', anchor: toe });
+		parts.push({ kind: 'segment', recipe: 'brace', anchor: toe, end: post.end });
+	}
+}
+
+// The most transverse available wall gives the tie its largest lever arm.
+function transverseSeat(grid: QuadGrid, foot: Anchor, neighbor: Anchor, sides: number[]) {
+	const [x, y] = position(grid, foot),
+		[nx, ny] = position(grid, neighbor);
+	const score = (anchor: Anchor) => {
+		const [ax, ay] = position(grid, anchor);
+		return Math.abs((nx - x) * (ay - y) - (ny - y) * (ax - x));
+	};
+	return sides
+		.filter((face) => face !== foot.face)
+		.map((face) => ({ ...foot, face }))
+		.sort((a, b) => score(b) - score(a))[0];
 }
 
 function assembleSeats(grid: QuadGrid, seats: Anchor[], crown: number): Proposal {

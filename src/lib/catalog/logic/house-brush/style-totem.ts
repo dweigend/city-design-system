@@ -94,7 +94,14 @@ function dockedForms(
 	const b = { id, role: 'neu', material: 'glaze', token: '--paper' } as const;
 	if (recipe === 'tank')
 		return [
-			{ ...b, kind: 'sphere', position: m.center, radius: m.size[0] / 2, token: flowToken.water }
+			{
+				...b,
+				kind: 'sphere',
+				fine: true,
+				position: m.center,
+				radius: m.size[0] / 2,
+				token: flowToken.water
+			}
 		];
 	if (recipe === 'solar-ring')
 		return [

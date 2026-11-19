@@ -107,14 +107,21 @@ test('a walkway crossing three blocks in a straight line leaves the state intact
 test('one bay has one diagonal, one crown segment and one joint per supporting wall', () => {
 	const built = carrier(roofs).draft;
 	const parts = [...built.state.parts.values()];
-	expect(parts.filter((p) => p.recipe === 'brace')).toHaveLength(2);
+	expect(
+		parts.filter(
+			(p) => p.kind === 'segment' && p.recipe === 'brace' && p.anchor.cellId !== p.end.cellId
+		)
+	).toHaveLength(2);
 	expect(
 		parts.filter(
 			(p) => p.kind === 'segment' && p.recipe === 'chord' && p.anchor.cellId !== p.end.cellId
 		)
 	).toHaveLength(2);
-	expect(parts.filter((p) => p.recipe === 'bearing')).toHaveLength(3);
-	expect(installationView(built, 'all').filter((p) => p.kind === 'sphere')).toHaveLength(3);
+	const bearings = parts.filter((p) => p.recipe === 'bearing');
+	expect(bearings).toHaveLength(6);
+	expect(installationView(built, 'all').filter((p) => p.kind === 'sphere')).toHaveLength(
+		bearings.length
+	);
 });
 test('a seven-cell rejection has one perimeter', () => {
 	const empty = withState(base, { ...base.state, year: 2028 });

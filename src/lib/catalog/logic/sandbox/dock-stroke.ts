@@ -1,6 +1,6 @@
 import { STORY } from '../../data/grid';
 import { buildingPlots } from './building-plots';
-import { FRAME_DIAMETER, type Bounds } from '../megastructure';
+import { type Bounds } from '../megastructure';
 import {
 	atSocket,
 	socketBounds,
@@ -10,22 +10,9 @@ import {
 	stackTop,
 	type HouseUse
 } from '../house-brush';
-import type { Vec3 } from '../parametrik/types';
-import type { QuadCell, QuadGrid } from '../quad-grid';
-import { position, rejected, type BuiltPart, type Proposal } from './installation-parts';
+import type { QuadCell } from '../quad-grid';
+import { rodOf, rejected, type Proposal } from './installation-parts';
 import type { World } from './world';
-
-type Rod = { part: BuiltPart; a: Vec3; b: Vec3; radius: number };
-/** Returns the physical axis and section used by the solver and the docking survey. */
-export function rodOf(grid: QuadGrid, part: BuiltPart): Rod | undefined {
-	if (part.kind !== 'segment' || (part.recipe !== 'chord' && part.recipe !== 'brace')) return;
-	return {
-		part,
-		a: position(grid, part.anchor),
-		b: position(grid, part.end),
-		radius: FRAME_DIAMETER[part.recipe === 'chord' ? 'main' : 'brace'] / 2
-	};
-}
 
 function roofObstacles(world: World): Bounds[] {
 	return [...world.state.stacks.keys()].flatMap((id) => {

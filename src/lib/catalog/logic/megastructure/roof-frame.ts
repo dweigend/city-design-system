@@ -3,8 +3,7 @@ import { roofLinks } from './roof-links';
 import { selectConnectedLayout } from './connected-layouts';
 import { surveyedRoofs, type RoofCell } from './footprints';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
-import { kantenId, type Vec3 } from '../traeger';
-import { loeseFachwerk, rohr, STAHL, type Fachwerk } from '../statik';
+import { probeFrame } from './frame-probe';
 
 export type { RoofCell } from './footprints';
 const frameParams = defineParams({
@@ -14,38 +13,32 @@ const frameParams = defineParams({
 export const FRAME_DIAMETER = { main: 0.18, brace: 0.1 } as const;
 type Sections = 'uniform' | 'leitstil';
 function solveLayout(bays: Bay[], maxSpan: number, sections: Sections) {
-	const structure: Fachwerk = { knoten: [], staebe: [], lager: [] };
 	const rods: { a: Joint; b: Joint; radius: number; main: boolean }[] = [];
 	const add = (a: Joint, b: Joint, main: boolean) => {
 		const diameter = sections === 'uniform' ? 0.14 : FRAME_DIAMETER[main ? 'main' : 'brace'];
 		rods.push({ a, b, main, radius: diameter / 2 });
-		structure.staebe.push({
-			id: kantenId(a.id, b.id),
-			a: a.id,
-			b: b.id,
-			eModulPa: STAHL.eModulPa,
-			flaecheM2: rohr(diameter).flaecheM2
-		});
 	};
 
 	for (const layout of bays) {
-		structure.knoten.push(...[...layout.feet, ...layout.crown].map(({ id, p }) => ({ id, p })));
 		for (const [head, target] of bayMembers(layout))
 			add(
 				head,
 				target,
 				layout.crown.includes(target) || (head.p[0] === target.p[0] && head.p[1] === target.p[1])
 			);
-		for (const foot of layout.feet)
-			structure.lager.push({ knotenId: foot.id, fest: [true, true, true] });
 	}
 	for (const [i, bay] of bays.entries())
 		for (const other of bays.slice(i + 1))
 			for (const { a, b } of crownLinks(bay, other, maxSpan)) add(a, b, true);
-	const lasten = bays.flatMap(({ crown }) =>
-		crown.map((n) => ({ knotenId: n.id, kraftN: [0, 0, -1000] satisfies Vec3 }))
-	);
-	return { rods, structure, analysis: loeseFachwerk(structure, [{ id: 'service-probe', lasten }]) };
+	const nodes = bays.flatMap((b) => [...b.feet, ...b.crown]);
+	return {
+		rods,
+		...probeFrame(
+			nodes,
+			bays.flatMap((b) => b.feet),
+			rods
+		)
+	};
 }
 
 type RoofFrameResult =

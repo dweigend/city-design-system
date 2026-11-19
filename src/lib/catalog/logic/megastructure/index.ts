@@ -3,3 +3,5 @@ export * from './dock';
 export * from './slope';
 export { moduleBridge } from './bridge';
 export { infrastructurePlate } from './plate';
+
+export { probeFrame } from './frame-probe';

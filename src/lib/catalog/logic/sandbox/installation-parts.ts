@@ -1,3 +1,4 @@
+import { FRAME_DIAMETER } from '../megastructure';
 import type { FlowId } from '../../data/focus';
 import { boundaryRings, type ModuleRecipe } from '../house-brush';
 import { STORY } from '../../data/grid';
@@ -65,4 +66,15 @@ export function rejected(reason: string, cells: readonly QuadCell[]): Proposal {
 		ring.map(([x, y]): Vec3 => [x, y, (heights.get(x + ',' + y) ?? 0) + 0.1])
 	);
 	return { failure: { reason, marks } };
+}
+
+/** Returns the physical axis and section used by the solver and the docking survey. */
+export function rodOf<P extends Installation>(grid: QuadGrid, part: P) {
+	if (part.kind !== 'segment' || (part.recipe !== 'chord' && part.recipe !== 'brace')) return;
+	return {
+		part,
+		a: position(grid, part.anchor),
+		b: position(grid, part.end),
+		radius: FRAME_DIAMETER[part.recipe === 'chord' ? 'main' : 'brace'] / 2
+	};
 }

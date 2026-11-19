@@ -37,12 +37,23 @@ export function atSocket(
 ): Seat | undefined {
 	const dx = rod.b[0] - rod.a[0],
 		dy = rod.b[1] - rod.a[1],
-		length = Math.hypot(dx, dy);
-	if (length < 1e-8) return;
+		dz = rod.b[2] - rod.a[2],
+		run = Math.hypot(dx, dy),
+		length = Math.hypot(run, dz);
+	if (run < 1e-8) return;
 	const sign = recipe === 'capsule' ? -1 : 1;
-	const point: Vec3 = [rod.a[0] + dx * share, rod.a[1] + dy * share, rod.a[2] + sign * rod.radius];
-	const normal: Vec3 = [0, 0, sign],
-		tangent: Vec3 = [-dy / length, dx / length, 0];
+	const tangent: Vec3 = [-dy / run, dx / run, 0];
+	const normal: Vec3 = [
+		(-sign * dx * dz) / (run * length),
+		(-sign * dy * dz) / (run * length),
+		(sign * run) / length
+	];
+	const point: Vec3 = [
+		rod.a[0] + dx * share + normal[0] * rod.radius,
+		rod.a[1] + dy * share + normal[1] * rod.radius,
+		rod.a[2] + dz * share + normal[2] * rod.radius
+	];
+
 	const shell = dockModule('capsule', { point, normal, tangent }, occupied, { pitch });
 	if (!shell || recipe === 'capsule') return shell && { shell };
 	// The fitting rests directly on the chord. Its rim seats into the adjacent round side.
@@ -54,7 +65,7 @@ export function atSocket(
 	const joint: Vec3 = [
 		point[0] + (direction * offset * dx) / length,
 		point[1] + (direction * offset * dy) / length,
-		point[2]
+		point[2] + (direction * offset * dz) / length
 	];
 	const accent = dockModule(hardware[recipe], { point: joint, normal, tangent }, occupied);
 	return accent && { shell, accent };

@@ -124,6 +124,7 @@ export const townDefaults = {
 
 /** Player-facing explanations for rejected construction surveys. */
 export const surveyMessages: Readonly<Record<string, string>> = {
+	'unstable-frame': 'These walls cannot brace the carrier in every direction.',
 	'invalid-roof': 'These roof footprints cannot support a surveyed frame.',
 	'empty-survey': 'Drag across existing roofs to place a carrier.',
 	'occupied-roof': 'This roof already carries a frame.',

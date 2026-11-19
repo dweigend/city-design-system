@@ -44,8 +44,17 @@ export function lostSeat(grid: TerrainGrid, part: BuiltPart) {
 			return true;
 	}
 	if (part.kind !== 'segment') return false;
+	return invalidSpan(grid, part);
+}
+
+function invalidSpan(grid: TerrainGrid, part: Extract<BuiltPart, { kind: 'segment' }>) {
 	const points = [position(grid, part.anchor), position(grid, part.end)];
-	if (part.recipe === 'walkway') return Math.abs(points[0][2] - points[1][2]) > 1e-8;
+	if (
+		part.recipe === 'walkway' ||
+		(part.recipe === 'chord' &&
+			(part.anchor.cellId !== part.end.cellId || part.anchor.face !== part.end.face))
+	)
+		return Math.abs(points[0][2] - points[1][2]) > 1e-8;
 	if (part.recipe === 'stair') return !routeSlope({ points, links: [[0, 1]] }, 0, 1);
 	return false;
 }

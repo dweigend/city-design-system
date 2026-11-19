@@ -13,7 +13,8 @@ test('old snapshots recover their historical methods once and can advance', () =
 		anchor: { cellId, level }
 	}));
 	const kept = { ...parts[4], id: 'p/6/0', anchor: { cellId, level: 5 }, style: 'totem' as const };
-	const { timeLayers, ...old } = world.state;
+	const { parts: oldParts, compositions: oldOwners, timeLayers, ...old } = world.state;
+	expect(oldParts.size + oldOwners.size).toBe(0);
 	expect(timeLayers).toEqual([]);
 	const snapshot = {
 		...old,
@@ -22,6 +23,7 @@ test('old snapshots recover their historical methods once and can advance', () =
 		stacks: new Map([[cellId, Array<'water'>(6).fill('water')]])
 	};
 	const restored = withState(world, snapshot);
+	expect(restored.state.parts.size + restored.state.compositions.size).toBe(0);
 	const stories = restored.state.storyParts.get(cellId);
 	expect(stories?.map((part) => part.style)).toEqual([
 		'terrace',

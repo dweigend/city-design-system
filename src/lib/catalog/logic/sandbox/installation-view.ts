@@ -5,8 +5,7 @@ import { WALKWAY_WIDTH_M } from '../walkway';
 import { levelFor, present, type FocusId } from '../presentation';
 import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
-import { position, type BuiltPart } from './installation-parts';
-import { rodOf } from './dock-stroke';
+import { rodOf, position, type BuiltPart } from './installation-parts';
 import type { World } from './world';
 
 const base = (id: string) => ({ id, token: '--paper', role: 'neu', material: 'metal' }) as const;
