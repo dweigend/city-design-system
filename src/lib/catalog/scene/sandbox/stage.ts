@@ -43,6 +43,8 @@ type StageOptions = {
 	additionSeed?: number;
 	/** Optional study window in world meters, from its low corner to its high corner. */
 	frame?: readonly [Vec3, Vec3];
+	/** Narrower study window for canvases taller than wide. */
+	portraitFrame?: readonly [Vec3, Vec3];
 	/** Retain additions from these epochs in their full drafting treatment for comparison. */
 	earliestFullYear?: number;
 	/** Fixed additions to the study outside the editable sandbox state. */
@@ -246,7 +248,10 @@ export function createSandboxStage(
 	}
 
 	function frameTerrain(mesh: TerrainMesh) {
-		if (study.frame) return view.frameBox(studyBounds(study.frame), OPENING_MARGIN);
+		if (study.frame) {
+			const frame = view.isPortrait() ? (study.portraitFrame ?? study.frame) : study.frame;
+			return view.frameBox(studyBounds(frame), view.isPortrait() ? 1 : OPENING_MARGIN);
+		}
 		if (opening) {
 			const framed = view.isPortrait()
 				? framePortrait(opening)

@@ -1,72 +1,51 @@
-import { STORY } from '../../data/grid';
 import { hash } from '../hash-random';
-import type { Primitive, Vec3 } from '../parametrik/types';
-import { inradius } from '../quad-grid';
-import { bayOf, panel } from './collage-bay';
+import type { Primitive } from '../parametrik/types';
 import { collageFigure } from './collage-figure';
-import { part, type Site } from './form';
-import { megastructureMass } from './style-megastructure';
+import type { Site } from './form';
+import { body } from './body';
+import { profileOf } from './profile';
+import { flowToken } from '../../data/focus';
 import type { Mass, Story } from './massing';
 import { MAX_STORIES, storiesOf } from './stacks';
 
 const COLLAGE_DEFAULTS = {
-	wash: 0.008,
-	ridge: 0.68,
-	glazingDepth: 0.56,
 	treeRadius: 0.36,
 	treeHeight: 0.94,
 	gardenDepth: 0.065
 };
 const CHANNEL = { figureSeat: 31, figureSide: 32 };
 
-function pencil(id: string, points: Vec3[], closed = false): Primitive {
-	return { ...part(id, '--paper', { kind: 'polyline', points, closed }), role: 'bestand' };
-}
+/** Wall colour of each use. Housing takes the pale planning tint; paths alone stay pink. */
+const BODY_TOKEN = {
+	living: '--blueprint-2',
+	water: flowToken.water,
+	energy: flowToken.energy,
+	food: flowToken.food,
+	material: flowToken.material
+} as const;
 
-function drawBay({ cell, level }: Story, floor: number, p: typeof COLLAGE_DEFAULTS): Primitive[] {
-	const at = bayOf(cell, 0);
-	const id = cell.id + '@' + level;
-	const base = level === 0;
-	const top = floor + STORY;
-	const corners = panel(at, 0.05, 0.05, 0.9, 0.9, top);
-	const skin = base ? corners : panel(at, 0.05, 0.95 - p.glazingDepth, 0.9, p.glazingDepth, top);
-	const shell = part(id + ':stock', '--paper', {
-		kind: 'prism',
-		polygon: skin.map(([x, y]) => [x, y]),
-		z: floor,
-		height: STORY,
-		glass: !base,
-		edges: false
-	});
-	const strokes = corners.map(([x, y, z], i) =>
-		pencil(id + ':post' + i, [
-			[x, y, floor],
-			[x, y, z]
-		])
+/** A printed colour body: streamlined wall in the use colour, white plate and roof steps. */
+function printedBody(site: Site, mass: Mass): Primitive[] {
+	const wall = BODY_TOKEN[mass.use];
+	// One roof step only: stacked contours close up to a black cap at town scale.
+	const pieces = body(site, mass, profileOf(site, mass)).filter(
+		(piece) => !/:tier[1-9]$/.test(piece.id)
 	);
-	if (base) {
-		const ridge = top + Math.min(inradius(cell) * p.ridge, STORY * 0.3);
-		strokes.push(
-			pencil(id + ':gable', [corners[0], at(0.5, 0.05, ridge), corners[1]]),
-			pencil(id + ':ridge', [at(0.5, 0.05, ridge), at(0.5, 0.95, ridge)])
-		);
-	}
-	return [
-		{
-			...shell,
+	return pieces.map((piece): Primitive => {
+		const coloured = /:(wall|foot|deck)$/.test(piece.id) || piece.id.includes(':stilt');
+		return {
+			...piece,
+			role: 'neu',
 			envelope: true,
-			role: base ? 'bestand' : 'neu',
-			material: 'paper',
-			shade: base ? p.wash : 0
-		},
-		pencil(id + ':cut', corners, true),
-		...strokes
-	];
+			token: coloured ? wall : '--paper',
+			shade: 0
+		};
+	});
 }
 
-/** Section drawing of the painted stories, with one use-bearing insertion on an exposed bay. */
+/** Colour body of the painted stories, with one use-bearing figure on an exposed roof. */
 export function collageMass(site: Site, mass: Mass, p = COLLAGE_DEFAULTS): Primitive[] {
-	const parts = mass.stories.flatMap((story) => drawBay(story, mass.floor, p));
+	const parts = printedBody(site, mass);
 	const exposed = mass.stories.filter(
 		({ cell, level }) => storiesOf(site.stacks, cell.id).length === level + 1
 	);
@@ -81,18 +60,9 @@ export function collageMass(site: Site, mass: Mass, p = COLLAGE_DEFAULTS): Primi
 		undefined
 	);
 	if (!seat) return parts;
+	const profile = profileOf(site, mass);
 	const side = Math.floor(hash(site.seed, key(seat), CHANNEL.figureSide) * 4);
-	parts.push(...collageFigure(mass, seat.cell, side, p));
-	if (mass.use === 'living') {
-		const neighbor = exposed.find((story) => seat.cell.neighbors.includes(story.cell.id));
-		const seats = neighbor ? [seat, neighbor] : [seat];
-		const carrier = {
-			...mass,
-			id: mass.id + ':roof',
-			floor: mass.floor + STORY,
-			stories: seats.map((story) => ({ ...story, level: story.level + 1 }))
-		};
-		parts.push(...megastructureMass(site, carrier, undefined, 'shared'));
-	}
+	const lifted = { ...mass, floor: mass.floor + Math.min(profile.tiers, 1) * profile.rise };
+	parts.push(...collageFigure(lifted, seat.cell, side, p));
 	return parts;
 }

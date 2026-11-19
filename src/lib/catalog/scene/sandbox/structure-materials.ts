@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { abs, float, mix, normalWorld, positionLocal, uniform } from 'three/tsl';
+import { abs, attribute, float, mix, normalWorld, positionLocal, uniform, vec3 } from 'three/tsl';
 import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../logic/params';
@@ -90,9 +90,12 @@ export function structureMaterials() {
 	const outlinePx = uniform(STRICHE.kontur * outlineExpansion);
 	const sheetOffsetM = uniform(0);
 	const pencilPx = uniform(STRICHE.bestand / 2);
+	// Printed colour body: the part colour in three flat tones by facing, lightest on top.
+	const bodyColor = attribute<'vec3'>('color', 'vec3');
+	const lit = mix(bodyColor, vec3(1), 0.16);
 	materials.solid.colorNode = mix(
-		mix(flankColor, sideColor, abs(normalWorld.x)),
-		mix(bottomColor, solidColor, float(normalWorld.y.greaterThanEqual(0))),
+		mix(bodyColor.mul(0.93), bodyColor.mul(0.8), abs(normalWorld.x)),
+		mix(bodyColor.mul(0.66), lit, float(normalWorld.y.greaterThanEqual(0))),
 		abs(normalWorld.y)
 	);
 	const graphite = uniform(new THREE.Color());
@@ -175,14 +178,20 @@ export function structureMaterials() {
 	function applyStructuralStyle(style: Stil, minimum: MinimumInk, scale: number) {
 		const { traeger } = style.rollen;
 		const ink = palette?.[traeger.token === '--ink' ? 'ink' : 'blei'];
+		const far = scale < MASSSTAB.quartier;
+		materials.bearing.visible = !far;
 		for (const [diameter, material] of [
 			[0.18, materials.primary],
 			[0.14, materials.rib],
 			[0.1, materials.secondary]
 		] as const) {
 			const px = diameter * scale;
-			material.linewidth =
-				diameter === 0.18 || minimum === 'all' ? strichbreite(diameter, scale) : px;
+			// At town scale carriers recede to a hairline, so the colour bodies carry the image.
+			material.linewidth = far
+				? STRICHE.detail * 0.7
+				: diameter === 0.18 || minimum === 'all'
+					? strichbreite(diameter, scale)
+					: px;
 			const color = material.linewidth >= STRICHE.minimumTraeger ? ink : palette?.detail;
 			if (color) material.color.copy(color);
 		}

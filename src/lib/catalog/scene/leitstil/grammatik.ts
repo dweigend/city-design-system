@@ -11,6 +11,8 @@ export function grammatik(host: HTMLElement, s: Stil) {
 		'--ink-2',
 		'--ink-3',
 		'--blueprint',
+		'--blueprint-2',
+		'--blueprint-3',
 		'--signal',
 		'--ana-zug',
 		'--ana-druck',

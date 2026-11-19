@@ -9,8 +9,8 @@ export const STRUCTURE_PARAMS = defineParams({
 
 /** Opening view scale and elevation on phones. */
 export const OPENING_VIEW_PARAMS = defineParams({
-	mobileCellWidthPx: numberParam('Mobile opening cell width', 'px', 50, [45, 55, 1]),
-	mobileElevationDeg: numberParam('Mobile opening elevation', 'deg', 11, [8, 26, 1])
+	mobileCellWidthPx: numberParam('Mobile opening cell width', 'px', 15, [10, 55, 1]),
+	mobileElevationDeg: numberParam('Mobile opening elevation', 'deg', 26, [8, 26, 1])
 });
 
 export type MinimumInk = 'primary' | 'all';

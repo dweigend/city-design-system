@@ -8,6 +8,8 @@ export type DrawingDistance = {
 	minContourPx: number;
 };
 
+/** Projected slab height in CSS pixels below which a contour hull hides the top face. */
+const THIN_SLAB_PX = 4;
 const widths = new Map<number, WeakMap<Primitive, number>>();
 const ramps = new WeakMap<Primitive, Primitive>();
 
@@ -59,6 +61,12 @@ export function distanceDrawing(
 		if (!part) continue;
 		parts.push(part);
 		if (part.role === 'bestand' || part.material === 'ghost' || isStructural(part)) continue;
+		// A slab thinner than its own contour offset would be covered by its shifted hull copies.
+		if (part.kind === 'prism' && part.height * scale < THIN_SLAB_PX) {
+			contours.set(part.id, false);
+			unoutlined.add(part);
+			continue;
+		}
 		const visible = keepContour(
 			widthOf(part, elevation, cache) * scale,
 			minContourPx,
