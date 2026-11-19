@@ -35,7 +35,7 @@ export function studioPipeline(
 	contact.radius.value = 2.4;
 	contact.thickness.value = 0.9;
 	const pipeline = new THREE.RenderPipeline(renderer);
-	const shaded = face.rgb.mul(mix(0.55, 1, contact.getTextureNode().r));
+	const shaded = face.rgb.mul(mix(cityDepthRangeM ? 0.26 : 0.55, 1, contact.getTextureNode().r));
 	const fill = cityDepthRangeM
 		? shaded.mul(cityEdge(beauty.getTextureNode('depth'), cityDepthRangeM).oneMinus())
 		: shaded;
@@ -44,7 +44,7 @@ export function studioPipeline(
 		light,
 		/** Keeps contact visible across town blocks as the orthographic footprint grows. */
 		setTownFootprint(metersPerPixel: number) {
-			const radius = THREE.MathUtils.clamp(5 * metersPerPixel, 2.4, 10);
+			const radius = THREE.MathUtils.clamp(2 * metersPerPixel, 0.3, 0.8);
 			contact.radius.value = radius;
 			contact.thickness.value = radius * 0.375;
 		},

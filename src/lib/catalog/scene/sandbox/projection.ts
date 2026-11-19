@@ -112,6 +112,17 @@ function projectAlleys(
 }
 const houseLayers = new WeakMap<TerrainMesh, ReturnType<typeof houseDistricts>>();
 
+/** Changes only the render representation of occupied historic lots at the town threshold. */
+export function projectStockOverview(
+	mesh: TerrainMesh | undefined,
+	structures: Target['structures'],
+	overview: boolean
+) {
+	const houses = mesh && houseLayers.get(mesh);
+	houses?.setOverview(overview);
+	houses?.flush((chunk, parts) => structures.set(KEY.house + chunk, parts));
+}
+
 function projectHouses(
 	target: Target,
 	world: World,

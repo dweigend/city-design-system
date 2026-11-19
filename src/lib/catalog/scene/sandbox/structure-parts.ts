@@ -128,7 +128,7 @@ export function populateStructures(
 	const cityParts = contours
 		? primitives
 		: primitives.filter((p) => !(p.role === 'bestand' && p.detail));
-	const parts = partition(cityParts, unoutlined);
+	const parts = partition(cityParts, unoutlined, !contours);
 	drawFinishes(parts.finished, { contour: true });
 	drawFinishes(parts.unoutlinedFinishes, { contour: false });
 	drawStockAndBodies();

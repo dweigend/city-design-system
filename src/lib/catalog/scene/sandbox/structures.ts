@@ -36,7 +36,7 @@ export function createStructures(quality?: StudioQuality, cityEdges = false) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials(quality, cityEdges);
-	const joints = createJointLayer(finishes.materials.bearing);
+	const joints = createJointLayer(finishes.materials.bearing, cityEdges);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();
 	const pending = new Map<

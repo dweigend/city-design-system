@@ -53,7 +53,8 @@ export function memberRuns(part: Primitive): Round[] {
 	return runs(part.points, diameter / 2);
 }
 
-function planarFaces(p: Primitive): Face[] {
+/** Horizontal bearing faces of a box or prism, including rotated walls and open courts. */
+export function planarFaces(p: Primitive): Face[] {
 	if (p.kind === 'prism')
 		return [1, -1].map((up) => ({
 			kind: 'face',

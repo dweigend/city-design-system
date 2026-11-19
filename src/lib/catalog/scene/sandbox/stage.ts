@@ -24,7 +24,7 @@ import { studioPipeline } from '../studio-pipeline';
 import { type StudioQuality } from '../studio-quality';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { KEY, projectChanges, projectInstallations } from './projection';
+import { projectStockOverview, KEY, projectChanges, projectInstallations } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
@@ -160,6 +160,7 @@ export function createSandboxStage(
 		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
 		if (nextCoarse !== coarse && shown)
 			projectInstallations(nextFrame, shown, shown, focus, nextCoarse);
+		projectStockOverview(terrain, nextFrame, nextCoarse);
 		coarse = nextCoarse;
 		if (shown) structures.setJointView(shown.grid, shown.state.year, !coarse);
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';

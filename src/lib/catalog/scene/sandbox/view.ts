@@ -57,6 +57,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		camera.updateMatrixWorld();
 	}
 
+	const clusterFill = () => (width < height ? opening.portraitFill : opening.clusterFill);
 	const metersPerPixel = () => span / height;
 	/** Ground meters per image meter along the image's vertical axis. */
 	const foreshortening = () => 1 / Math.sin(elevationRad);
@@ -152,7 +153,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
 			const room = area ? Math.max(1, area.bottom - area.top) : height;
 			const size = bounds.getSize(new THREE.Vector2());
-			const fit = (Math.max(size.x / width, size.y / room) * height) / opening.clusterFill;
+			const fit = (Math.max(size.x / width, size.y / room) * height) / clusterFill();
 			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			const center = bounds.getCenter(new THREE.Vector2());
 			const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);
