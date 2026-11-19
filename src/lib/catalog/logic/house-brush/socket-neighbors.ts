@@ -11,7 +11,7 @@ function adjacent(a: Site, b: Site, reach: number) {
 	);
 }
 
-/** Index survey order in bins one adjacency radius wide. Only nine bins can contain neighbours. */
+/** Index survey order in bins one adjacency radius wide. Include one extra bin because subtraction can round a separation down to the inclusive limit. */
 function neighbors<T extends Site>(sites: T[], reach: number) {
 	const bins = new Map<string, number[]>();
 	const bin = (s: T) => s.seat.shell.center.slice(0, 2).map((v) => Math.floor(v / reach));
@@ -24,8 +24,8 @@ function neighbors<T extends Site>(sites: T[], reach: number) {
 	return (site: T) => {
 		const [x, y] = bin(site);
 		const found: number[] = [];
-		for (let i = x - 1; i <= x + 1; i++)
-			for (let j = y - 1; j <= y + 1; j++)
+		for (let i = x - 2; i <= x + 2; i++)
+			for (let j = y - 2; j <= y + 2; j++)
 				for (const k of bins.get(i + '/' + j) ?? [])
 					if (adjacent(site, sites[k], reach)) found.push(k);
 		return found.sort((a, b) => a - b);
