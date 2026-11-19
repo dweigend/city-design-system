@@ -234,7 +234,7 @@ export const materials: MaterialSpec[] = [
 		color: 'pastell',
 		pigment: 0.65,
 		tint: {},
-		use: 'Envelopes only: domes, barrel vaults, cushions over gardens and squares',
+		use: 'Domes, barrel vaults and cushions over gardens and squares',
 		ref: '27, 140 (phenomenon: 63, 69, 77)'
 	},
 	{

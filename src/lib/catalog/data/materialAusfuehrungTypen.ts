@@ -9,6 +9,7 @@ export type AusfuehrungId =
 	| 'metall-kalkgruen'
 	| 'keramik-glasiert'
 	| 'keramik-ton'
+	| 'keramik-orange-blau'
 	| 'beton-schalung'
 	| 'beton-terrazzo'
 	| 'beton-geadert'

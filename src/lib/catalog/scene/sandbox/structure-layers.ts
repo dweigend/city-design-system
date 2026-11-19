@@ -1,5 +1,6 @@
 import { isStructural, type Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';
+import { hasFinish, type Surface } from './finish-batch';
 const isAccent = (part: Primitive) =>
 	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
 
@@ -41,6 +42,7 @@ const keepLayer = new Set(['carriers', 'ghosts', 'glaze']);
 /** Selects each projected surface and applies the city-scale contour threshold before batching. */
 export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
 	const parts = {
+		finished: [] as Surface[],
 		regular: [] as Primitive[],
 		glaze: [] as Primitive[],
 		plain: [] as Primitive[],
@@ -54,6 +56,10 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		ghosts: [] as Primitive[]
 	};
 	for (const original of primitives) {
+		if (hasFinish(original)) {
+			parts.finished.push(original);
+			continue;
+		}
 		const part = collageCut(original);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
 		const layer = layerOf(part);

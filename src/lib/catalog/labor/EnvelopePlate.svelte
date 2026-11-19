@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { EnvelopeMesh } from '../logic/building-envelope';
+	import type { EnvelopePlateMesh } from '../logic/envelope-plate';
 	import { renderEnvelopePlate } from '../scene/building-envelope';
 	import ChoiceControl from './ChoiceControl.svelte';
-	let { meshes }: { meshes: EnvelopeMesh[] } = $props();
+	let { meshes }: { meshes: EnvelopePlateMesh[] } = $props();
 	let view = $state('axonometric'),
 		host: HTMLElement,
 		canvas: HTMLCanvasElement;

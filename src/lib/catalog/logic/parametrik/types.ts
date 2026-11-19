@@ -25,7 +25,11 @@ export type ColorToken =
 	| '--blueprint'
 	/** Memphis accent (ink or signal, never a flow color as accent; data/color.ts). */
 	| '--signal';
+/** A surface selected independently of a generated solid or sheet. */
+export type FinishId = MaterialId | import('../../data/materialAusfuehrung').AusfuehrungId;
 type Base = {
+	/** Explicit surface applied after generation. Omission keeps the original drafting treatment. */
+	finish?: FinishId;
 	id: string;
 	role: Role;
 	/** Previous drawing treatment for an existing bible plate. A carrier otherwise uses stock there. */

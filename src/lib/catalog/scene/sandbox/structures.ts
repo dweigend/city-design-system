@@ -234,6 +234,7 @@ export function createStructures() {
 		},
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,
+		setPalette: finishes.explicit.setPalette,
 		/** Detached ray targets for the structure keys with the given prefix. */
 		solids(prefix: string): THREE.Object3D[] {
 			const cached = hitLists.get(prefix);

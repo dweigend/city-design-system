@@ -188,6 +188,7 @@ export function createSandboxStage(
 	function applyPalette(next: Palette3D) {
 		palette = next;
 		scene.background = new THREE.Color(next.paper).lerp(new THREE.Color(next.ink), 0.035);
+		structures.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);

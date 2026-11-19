@@ -1,26 +1,13 @@
 import * as THREE from 'three';
-import type { EnvelopeMesh } from '../../logic/building-envelope';
+import type { EnvelopePlateMesh } from '../../logic/envelope-plate';
 import { bindSceneTheme } from '../themeBinding';
 
-import { envelopeGeometry } from './geometry';
-function model(mesh: EnvelopeMesh, face: THREE.Material, line: THREE.Material) {
-	const geometry = envelopeGeometry(mesh);
-	geometry.center();
-	const solid = new THREE.Mesh(geometry, face);
-	const edges = new THREE.EdgesGeometry(geometry, 14);
-	solid.add(new THREE.LineSegments(edges, line));
-	return {
-		solid,
-		dispose() {
-			geometry.dispose();
-			edges.dispose();
-		}
-	};
-}
+import { plateModel } from './plate-model';
+
 /** Draws all specimens with a shared camera, light and scale. Releases GPU resources on teardown. */
 export function renderEnvelopePlate(
 	canvas: HTMLCanvasElement,
-	meshes: EnvelopeMesh[],
+	meshes: EnvelopePlateMesh[],
 	targets: HTMLCanvasElement[]
 ) {
 	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -40,7 +27,8 @@ export function renderEnvelopePlate(
 	const glaze = paper.clone();
 	glaze.roughness = 0.23;
 	const line = new THREE.LineBasicMaterial();
-	const models = meshes.map((mesh, i) => model(mesh, i >= 9 ? glaze : paper, line));
+	const finishes = { paper, glaze };
+	const models = meshes.map((mesh) => plateModel(mesh, finishes, line));
 	function draw(plan: boolean) {
 		if (plan) camera.position.set(0, 35, 0.001);
 		else camera.position.set(24, 21, 16);

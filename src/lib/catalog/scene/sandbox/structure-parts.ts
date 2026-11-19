@@ -9,6 +9,7 @@ import { paperEdge } from './paper-inlay';
 import { ceramicBatch } from './ceramic-batch';
 import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
+import { finishedMeshes } from './finish-batch';
 import { outlineOffsets } from './structure-outline';
 
 function memberTrace(part: Primitive): Primitive[] {
@@ -89,6 +90,11 @@ export function populateStructures(
 		if (object) object.castShadow = shadows;
 	};
 	const parts = partition(primitives, unoutlined);
+	for (const face of finishedMeshes(parts.finished, finishes.explicit.material)) {
+		face.castShadow = cast;
+		objects.add(face);
+		hits.push(face);
+	}
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 	const stock = batch(
 		parts.regular.filter((part) => part.role === 'bestand'),

@@ -17,6 +17,16 @@ test('the prerender entry generates twelve shells with renderer imports forbidde
  if(!graph.success)throw new Error(graph.logs.join('\\n'));
  const {load}=await import(route);
  const {meshes}=await load();
+ const assert = (await import('node:assert/strict')).default;
+ const hash = (await import('node:crypto')).createHash('sha256');
+ for (const mesh of meshes) {
+   hash.update(JSON.stringify(mesh.origin));
+   hash.update(mesh.positions);
+   hash.update(mesh.indices);
+   hash.update(JSON.stringify(mesh.shellIndexEnds));
+ }
+ assert.equal(hash.digest('hex'), '5be68745abe9c26f81a14c0426a6419a01df3b91850e6513c98d556debda6547');
+ assert.deepEqual(meshes.map(m=>m.material), [...Array(9).fill('paper'), ...Array(3).fill('glaze')]);
  if(meshes.length!==12 || meshes.some(m=>m.shellIndexEnds.length!==1 || !m.indices.length))throw new Error('Invalid comparison plate');
  `
 		],
