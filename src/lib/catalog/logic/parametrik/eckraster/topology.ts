@@ -17,6 +17,8 @@ export type Patch = { seed: number; vertices: Vertex[]; faces: Face[]; cells: Ce
 const edgeId = (a: string, b: string) => `edge:${[a, b].sort().join('/')}`;
 /** Fixed five-sector triangular fan, subdivided twice. IDs encode ancestry, never positions.
  * Positive xy winding is the local contract (the author's xz convention differs).
+ * Draws exactly five numbers from `random(seed)`: rim i lies at radius 17 + 1.3·uᵢ meters and
+ * plan angle i·2π/5. IDs and their order do not depend on the seed. Returns a new patch.
  */
 export function createPatch(seed = 42): Patch {
 	const rng = random(seed),
@@ -131,6 +133,13 @@ export function assemble(
 	});
 	return { seed, vertices, faces, cells };
 }
+/**
+ * Patch as a grid on one `level`: `dual` gives the build cells, `slots` the faces; cell IDs get
+ * the suffix `@level`, links are listed once per pair (smaller ID first). Order follows the
+ * patch. New grid, cell and link objects; `p` is not mutated. Not deep-detached: `dual` cells share
+ * `polygon` and `center` with `p.cells`, `slots` polygons are new arrays of the `p.vertices` point
+ * objects. Treat the result as read-only.
+ */
 export function projection(p: Patch, view: 'dual' | 'slots', level = 0): Grid {
 	const cells =
 		view === 'dual'
@@ -157,6 +166,10 @@ export function projection(p: Patch, view: 'dual' | 'slots', level = 0): Grid {
 		bounds: { min: [-19, -19], max: [19, 19] }
 	};
 }
+/**
+ * ID of the first build cell (patch order) containing `point` (meters, x/y), boundary included
+ * with a 1e-8 tolerance; assumes counter-clockwise convex cells. `undefined` outside the patch.
+ */
 export function cellAt(p: Patch, point: Point2): string | undefined {
 	return p.cells.find((c) =>
 		c.polygon.every((a, i) => {

@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import type { Primitive } from '../parametrik/types';
 import { present, focuses } from './index';

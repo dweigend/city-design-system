@@ -1,4 +1,3 @@
-// @ts-expect-error Bun test API is provided at runtime.
 import { expect, test } from 'bun:test';
 import { formFamilies } from '../formen';
 import { gridGenerators } from '../raster';

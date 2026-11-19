@@ -18,7 +18,17 @@ const variants: Record<string, KernTeile> = {
 	...Object.fromEntries(Object.keys(KERN_AUS).map((k) => [k, { ...KERN_AUS, [k]: true }]))
 };
 const median = (ns: number[]) => ns.sort((a, b) => a - b)[Math.floor(ns.length / 2)];
-const rows = [];
+const rows: (ReturnType<typeof kennzahlen> & {
+	raster: (typeof rasterarten)[number]['id'];
+	seed: number;
+	groesse: number;
+	variant: string;
+	hash: ReturnType<typeof hash>;
+	tLage?: number;
+	tBelegung?: number;
+	tWege?: number;
+	tWelt?: number;
+})[] = [];
 for (const { id: raster } of rasterarten)
 	for (const seed of [1, 19, 45])
 		for (const [variant, kern] of Object.entries(variants)) {

@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import { bullaugen, WOHNBAND, type Kugel } from './bullauge';
 import { formFamily } from './index';

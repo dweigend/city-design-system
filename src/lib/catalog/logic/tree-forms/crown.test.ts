@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime.
 import { test, expect } from 'bun:test';
 import { crownParts } from './index';
 const base = () => ({ id: 'crown', role: 'neu', token: '--cat-nature', material: 'wood' }) as const;

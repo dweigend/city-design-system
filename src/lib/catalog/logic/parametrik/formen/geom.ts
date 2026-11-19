@@ -6,6 +6,7 @@ export const rotate = ([x, y]: Point2, a: number): Point2 => [
 	x * Math.sin(a) + y * Math.cos(a)
 ];
 
+/** Signed area in m² (shoelace): positive for counter-clockwise rings, negative for clockwise. */
 export function area(poly: Point2[]) {
 	let s = 0;
 	for (let i = 0; i < poly.length; i++) {
@@ -16,6 +17,7 @@ export function area(poly: Point2[]) {
 	return s / 2;
 }
 
+/** Even-odd point-in-polygon test; points exactly on the boundary are not guaranteed either way. */
 export function contains(poly: Point2[], [x, y]: Point2) {
 	let inside = false;
 	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {

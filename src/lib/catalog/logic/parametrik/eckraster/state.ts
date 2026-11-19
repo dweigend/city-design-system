@@ -38,7 +38,9 @@ export type Intent = {
 	frame?: boolean;
 };
 export type History = { initial: Occupancy; intents: Intent[]; cursor: number };
+/** Occupancy key of build cell `id` on `level`: `${id}@${level}`. */
 export const address = (id: string, level: number) => `${id}@${level}`;
+/** Whether the cell has an occupied sample on `level` (any group, paths and frames included). */
 export const occupied = (o: Occupancy, id: string, level: number) =>
 	o[address(id, level)]?.occupied ?? false;
 /** Occupied and not hollow: carries a volume (existing stock, function, plug-in module). */
@@ -52,10 +54,13 @@ export const isWeg = (o: Occupancy, id: string, level: number) => {
 /** Occupied with building mass or frame, so not a path: counts as wall, roof and bearing. */
 export const built = (o: Occupancy, id: string, level: number) =>
 	occupied(o, id, level) && !isWeg(o, id, level);
+/** Whether the sample is protected existing stock (group `bestand`). */
 export const isBestand = (o: Occupancy, id: string, level: number) =>
 	o[address(id, level)]?.group === BESTAND;
+/** Whether the sample is an empty frame (occupied, group `geruest`). */
 export const isHollow = (o: Occupancy, id: string, level: number) =>
 	occupied(o, id, level) && o[address(id, level)].group === GERUEST;
+/** Whether the occupied sample stands in a frame (empty or with a plug-in module). */
 export const hasFrame = (o: Occupancy, id: string, level: number) =>
 	occupied(o, id, level) && !!o[address(id, level)].frame;
 /** Corner of the perimeter block; reference cell for tests and scenes. */
@@ -101,6 +106,7 @@ export function blockrand(p: Patch): { id: string; levels: number; parcel: strin
 	];
 }
 
+/** Protected perimeter block of `p` (group `bestand`) as a new occupancy; the start of every scene. */
 export function initialOccupancy(p: Patch): Occupancy {
 	return Object.fromEntries(
 		blockrand(p).flatMap(({ id, levels }) =>
@@ -108,6 +114,12 @@ export function initialOccupancy(p: Patch): Occupancy {
 		)
 	);
 }
+/**
+ * Applies one intent and returns a new occupancy; `o` is never mutated. Returns `o` itself
+ * (same reference) when the intent is rejected: non-integer level or outside 0 … MAX_LEVEL,
+ * group `bestand`, target is existing stock, or unknown vertex. Removing a plug-in module from a
+ * frame leaves the empty frame; removing again clears the cell.
+ */
 export function apply(p: Patch, o: Occupancy, i: Intent): Occupancy {
 	const key = address(i.vertexId, i.level),
 		before = o[key];
@@ -136,16 +148,24 @@ export function apply(p: Patch, o: Occupancy, i: Intent): Occupancy {
 	else delete next[key];
 	return next;
 }
+/** Empty edit history over `initial` (kept by reference). */
 export const history = (initial: Occupancy): History => ({ initial, intents: [], cursor: 0 });
+/** Occupancy at the cursor: `initial` with the first `cursor` intents replayed in order. */
 export const restore = (p: Patch, h: History) =>
 	h.intents.slice(0, h.cursor).reduce((o, i) => apply(p, o, i), h.initial);
+/**
+ * Records intent `i` at the cursor and drops the redo branch. Returns `h` itself when the intent
+ * changes nothing. Returns a new history; `h` and `i` are not mutated (the intent is copied).
+ */
 export function edit(p: Patch, h: History, i: Intent): History {
 	const before = restore(p, h),
 		after = apply(p, before, i);
 	if (JSON.stringify(before) === JSON.stringify(after)) return h;
 	return { ...h, intents: [...h.intents.slice(0, h.cursor), { ...i }], cursor: h.cursor + 1 };
 }
+/** Moves the cursor one intent back (not below 0); intents are kept for redo. New object. */
 export const undo = (h: History): History => ({ ...h, cursor: Math.max(0, h.cursor - 1) });
+/** Moves the cursor one intent forward (not beyond the recorded intents). New object. */
 export const redo = (h: History): History => ({
 	...h,
 	cursor: Math.min(h.intents.length, h.cursor + 1)

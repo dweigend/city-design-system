@@ -4,8 +4,8 @@ import { bindSceneTheme, resolveTokens } from './themeBinding';
  * Packets travel out and back on every path: the cycle is a property of every flow.
  * All boxes of a pass share one geometry (InstancedMesh): one call for opaque parts,
  * one for translucent parts, one for the background envelope, one for edges, one for packets. Colors arrive only as
- * resolved tokens (resolveTokens in data/city3d.ts); no color value lives here.
- * Axes as in city3d: model x → three x, model y → three z, model z → three y.
+ * resolved tokens (resolveTokens in scene/themeBinding.ts); no color value lives here.
+ * Own axis space (PE-3): model x → three x, model y → three z, model z → three y (determinant −1).
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -47,7 +47,7 @@ export function createFarbLabor(canvas: HTMLCanvasElement, modell: Modell): Farb
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	const scene = new THREE.Scene();
 
-	// Orthographic iso camera as in city3d (azimuth 45°, elevation 30°).
+	// Orthographic isometric camera (azimuth 45°, elevation 30°).
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -500, 1000);
 	const target = new THREE.Vector3(19, 27, 14);
 	const home = () => {

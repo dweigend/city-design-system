@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies its test API at runtime.
 import { expect, test } from 'bun:test';
 import { composeCollage, buildVessel } from './index';
 const cell = [

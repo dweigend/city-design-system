@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import { sandboxMotion } from '../data/sandbox';
 	import type { Vec3 } from '../logic/parametrik/types';
 	import { storedModules, type Completion } from './feedback';
@@ -19,7 +20,7 @@
 		points: { x: number; y: number }[];
 	};
 	let flights = $state.raw<Flight[]>([]);
-	const timers = new Set<ReturnType<typeof setTimeout>>();
+	const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
 
 	function startFlight(completion: Completion) {
 		if (completion.kind !== 'dig' && completion.kind !== 'erase') return;

@@ -89,7 +89,7 @@ if (browser) {
 		if (state.choice === 'system') apply('system');
 	});
 	// Choice made in another tab.
-	addEventListener('storage', (event) => {
+	window.addEventListener('storage', (event) => {
 		if (event.key === THEME_STORAGE_KEY || event.key === null) apply(storedChoice());
 	});
 }

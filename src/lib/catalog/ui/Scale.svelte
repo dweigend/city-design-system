@@ -153,6 +153,7 @@
 				{#each thumbItems as t (t.index)}<Slider.Thumb
 						index={t.index}
 						class="handle cg-tag"
+						style="--at: {p(raw)}"
 						aria-label={label}
 						aria-valuetext={format(shown)}
 						{onkeydown}>{format(shown)}</Slider.Thumb
@@ -163,8 +164,11 @@
 		<Meter.Root {value} {min} {max} class="row body" aria-label={label}>
 			{@render body()}
 			<Tooltip text={detail ?? `${format(value)} of ${format(max)}`}>
-				{#snippet trigger(props)}<button {...props} class="handle cg-tag" style:left="{p(value)}%"
-						>{format(value)}</button
+				{#snippet trigger(props)}<button
+						{...props}
+						class="handle cg-tag"
+						style:left="{p(value)}%"
+						style:--at={p(value)}>{format(value)}</button
 					>{/snippet}
 			</Tooltip>
 		</Meter.Root>
@@ -314,19 +318,28 @@
 		transform: translateX(-50%);
 	}
 
-	/* Thumb: value tag, 16 px high, centered in the 20 px row */
+	/*
+	 * Thumb: value tag, 16 px high, centered in the 20 px row.
+	 * The tag's anchor slides with the value (--at, 0–100): at the start its left edge,
+	 * at the end its right edge sits on the value, like the end numbers below. So the tag
+	 * never leaves the track. Bits centers its thumb (translate -50%); the readout tag does
+	 * the same, and the transform moves the anchor from the center to --at.
+	 */
 	.scale :global(.handle) {
 		--tag-h: var(--space-4);
 		position: absolute;
 		top: calc((var(--row) - var(--tag-h)) / 2);
+		translate: -50% 0;
+		transform: translateX(calc((50 - clamp(0, var(--at), 100)) * 1%));
 		cursor: inherit;
 	}
 	.scale[data-mode='readout'] :global(.handle) {
-		transform: translateX(-50%);
 		cursor: help;
 	}
 	.snapping :global(.handle) {
-		transition: left var(--fast) var(--ease);
+		transition:
+			left var(--fast) var(--ease),
+			transform var(--fast) var(--ease);
 	}
 	.snapping .fill {
 		transition: width var(--fast) var(--ease);

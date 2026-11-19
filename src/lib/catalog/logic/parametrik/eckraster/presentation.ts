@@ -100,6 +100,13 @@ function scholle(p: Patch): Point2[] {
 		r * Math.sin((i * Math.PI) / 24)
 	]);
 }
+/**
+ * Full scene of a patch as primitives (meters, x/y ground, z up), in this order: ground slab,
+ * `module` on every slot (slot order), existing-stock details, courtyard gardens per level,
+ * crowns (unless `zeigen.koepfe === false`), stairs (unless `zeigen.treppen === false`), then the
+ * dual cell outlines (`dual`) and the slot faces (`primal`). Crown forms are seeded with
+ * `p.seed + hash(vertexId)`. Returns a new array; `p`, `o` and `slots` are not mutated.
+ */
 export function presentation(
 	p: Patch,
 	o: Occupancy,

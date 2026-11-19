@@ -10,6 +10,10 @@ import { decks, index, LEVELS } from './derive';
 
 export type Head = { vertexId: string; level: number; group: string; size: number };
 
+/**
+ * Crowns of `o`, at most one per connected intervention, in discovery order (patch vertex order,
+ * then level). Ties on the top level break by neighbor count, then vertex ID. Pure; detached.
+ */
 export function heads(p: Patch, o: Occupancy): Head[] {
 	const deck = decks(p, o);
 	const byId = index(p).vertex;

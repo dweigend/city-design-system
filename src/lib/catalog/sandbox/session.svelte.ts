@@ -116,10 +116,10 @@ export function createSession(
 		get timelineWindow() {
 			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
 		},
-		setRoofBuilder(value: NonNullable<typeof roofBuilder>) {
+		setRoofBuilder(this: void, value: NonNullable<typeof roofBuilder>) {
 			input.control(() => (roofBuilder = value));
 		},
-		reportKernelFailure(error: unknown) {
+		reportKernelFailure(this: void, error: unknown) {
 			input.control(() => {
 				console.error('Sandbox detailed roofs unavailable', error);
 				actions.reject('kernel-start-failed');
@@ -128,7 +128,7 @@ export function createSession(
 		get focus() {
 			return focus;
 		},
-		cycleFocus() {
+		cycleFocus(this: void) {
 			control(() => {
 				const keys = Object.keys(focuses) as FocusId[];
 				focus = keys[(keys.indexOf(focus) + 1) % keys.length];
@@ -220,7 +220,7 @@ export function createSession(
 				beforeReplay
 			);
 		},
-		strokeCancel() {
+		strokeCancel(this: void) {
 			stroke = undefined;
 			input.cancel();
 		},

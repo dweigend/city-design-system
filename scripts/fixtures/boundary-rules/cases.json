@@ -1,0 +1,149 @@
+{
+	"negative": {
+		"headless-app": {
+			"rule": "headless-core",
+			"files": {
+				"src/lib/catalog/data/model.ts": "import { resolve } from '$app/paths';\nexport const link = resolve;"
+			}
+		},
+		"headless-bits-ui": {
+			"rule": "headless-core",
+			"files": {
+				"src/lib/catalog/logic/model.ts": "import { Checkbox } from 'bits-ui';\nexport const box = Checkbox;"
+			}
+		},
+		"headless-lucide-type-only": {
+			"rule": "headless-core",
+			"files": {
+				"src/lib/catalog/logic/model.ts": "import type { Icon } from 'lucide-svelte';\nexport type Glyph = Icon;"
+			}
+		},
+		"headless-route": {
+			"rule": "headless-core",
+			"files": {
+				"src/lib/catalog/data/model.ts": "import { page } from '../../../routes/page';\nexport const p = page;",
+				"src/routes/page.ts": "export const page = 1;"
+			}
+		},
+		"headless-component-module": {
+			"rule": "headless-core",
+			"files": {
+				"src/lib/catalog/logic/model.ts": "import { state } from '../ui/state.svelte';\nexport const s = state;",
+				"src/lib/catalog/ui/state.svelte.ts": "export const state = 1;"
+			}
+		},
+		"headless-transitive": {
+			"rule": "headless-core",
+			"files": {
+				"src/lib/catalog/logic/model.ts": "import { v } from '../helpers/util';\nexport const w = v;",
+				"src/lib/catalog/helpers/util.ts": "import { Vector2 } from 'three';\nexport const v = new Vector2();"
+			}
+		},
+		"data-transitive": {
+			"rule": "data-no-logic",
+			"files": {
+				"src/lib/catalog/data/model.ts": "import { r } from '../helpers/bridge';\nexport const m = r;",
+				"src/lib/catalog/helpers/bridge.ts": "export { r } from '../logic/rule';",
+				"src/lib/catalog/logic/rule.ts": "export const r = 1;"
+			}
+		},
+		"scene-component": {
+			"rule": "scene-no-ui",
+			"files": {
+				"src/lib/catalog/scene/stage.ts": "import View from '../ui/View.svelte';\nexport const v = View;",
+				"src/lib/catalog/ui/View.svelte": "<p>view</p>"
+			}
+		},
+		"scene-component-module": {
+			"rule": "scene-no-ui",
+			"files": {
+				"src/lib/catalog/scene/stage.ts": "import { state } from '../ui/state.svelte';\nexport const s = state;",
+				"src/lib/catalog/ui/state.svelte.ts": "export const state = 1;"
+			}
+		},
+		"scene-svelte": {
+			"rule": "scene-no-ui",
+			"files": {
+				"src/lib/catalog/scene/stage.ts": "import { tick } from 'svelte';\nexport const t = tick;"
+			}
+		},
+		"scene-app": {
+			"rule": "scene-no-ui",
+			"files": {
+				"src/lib/catalog/scene/stage.ts": "import { page } from '$app/state';\nexport const p = page;"
+			}
+		},
+		"scene-bits-ui": {
+			"rule": "scene-no-ui",
+			"files": {
+				"src/lib/catalog/scene/stage.ts": "import type { Checkbox } from 'bits-ui';\nexport type Box = typeof Checkbox;"
+			}
+		},
+		"scene-route": {
+			"rule": "scene-no-ui",
+			"files": {
+				"src/lib/catalog/scene/stage.ts": "import { page } from '../../../routes/page';\nexport const p = page;",
+				"src/routes/page.ts": "export const page = 1;"
+			}
+		},
+		"component-three": {
+			"rule": "component-no-three",
+			"files": {
+				"src/lib/catalog/ui/View.svelte": "<script lang=\"ts\">import { Vector3 } from 'three'; const v = new Vector3();</script>\n<p>{v.x}</p>"
+			}
+		},
+		"component-module-three": {
+			"rule": "component-no-three",
+			"files": {
+				"src/lib/catalog/ui/state.svelte.ts": "import { Vector3 } from 'three';\nexport const v = new Vector3();"
+			}
+		},
+		"route-data": {
+			"rule": "route-thin",
+			"files": {
+				"src/routes/x/+page.ts": "import { m } from '$lib/catalog/data/model';\nexport const load = () => ({ m });",
+				"src/lib/catalog/data/model.ts": "export const m = 1;"
+			}
+		},
+		"route-logic": {
+			"rule": "route-thin",
+			"files": {
+				"src/routes/x/+page.svelte": "<script lang=\"ts\">import { m } from '$lib/catalog/logic/model';</script>\n<p>{m}</p>",
+				"src/lib/catalog/logic/model.ts": "export const m = 1;"
+			}
+		},
+		"route-scene": {
+			"rule": "route-thin",
+			"files": {
+				"src/routes/x/+page.ts": "import { s } from '$lib/catalog/scene/stage';\nexport const load = () => ({ s });",
+				"src/lib/catalog/scene/stage.ts": "export const s = 1;"
+			}
+		},
+		"route-bits-ui": {
+			"rule": "route-thin",
+			"files": {
+				"src/routes/x/+page.svelte": "<script lang=\"ts\">import { Checkbox } from 'bits-ui';</script>\n<Checkbox.Root />"
+			}
+		},
+		"route-three": {
+			"rule": "route-thin",
+			"files": {
+				"src/routes/x/+page.ts": "import { Vector3 } from 'three';\nexport const load = () => ({ v: new Vector3().x });"
+			}
+		}
+	},
+	"allowed": {
+		"src/lib/catalog/data/model.ts": "export const m = 1;",
+		"src/lib/catalog/logic/model.ts": "import { m } from '../data/model';\nexport const n = m;",
+		"src/lib/catalog/scene/stage.ts": "import { Vector3 } from 'three';\nimport { n } from '../logic/model';\nexport const s = new Vector3(n);",
+		"src/lib/catalog/scene/Canvas.svelte": "<script lang=\"ts\">import { onMount } from 'svelte'; import { Checkbox } from 'bits-ui'; import { s } from './stage'; onMount(() => s);</script>\n<Checkbox.Root />",
+		"src/lib/catalog/ui/Page.svelte": "<script lang=\"ts\">import { page } from '$app/state'; import Canvas from '../scene/Canvas.svelte'; import { n } from '../logic/model';</script>\n<Canvas />{page.url}{n}",
+		"src/routes/+page.svelte": "<script lang=\"ts\">import { resolve } from '$app/paths'; import Page from '$lib/catalog/ui/Page.svelte'; import Canvas from '$lib/catalog/scene/Canvas.svelte';</script>\n<Page /><Canvas /><a href={resolve('/')}>home</a>",
+		"src/lib/catalog/logic/model.test.ts": "import { Vector3 } from 'three';\nimport { s } from '../scene/stage';\nexport const t = [new Vector3(), s];"
+	},
+	"reachableTypeEdge": {
+		"src/lib/catalog/data/model.ts": "import View from '../ui/View.svelte';\nexport const m = View;",
+		"src/lib/catalog/ui/View.svelte": "<script lang=\"ts\">import type { Rule } from '../logic/rule'; let r: Rule = 1;</script>\n<p>{r}</p>",
+		"src/lib/catalog/logic/rule.ts": "export type Rule = number;"
+	}
+}

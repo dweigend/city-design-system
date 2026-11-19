@@ -1,6 +1,6 @@
 import { assemble } from '../../eckraster/topology';
 import type { Point2 } from '../../vocab';
-import { quality } from './index';
+import { quality } from './quality';
 import type { UniversalPatch } from './types';
 /** Coordinate-only transaction. Fixed vertices cannot move; invalid proposals are rejected.
  * Evaluates only incident faces; derived dual polygons are currently rebuilt in O(V+F).

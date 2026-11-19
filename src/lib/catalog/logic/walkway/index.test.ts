@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime.
 import { expect, test } from 'bun:test';
 import { walkwayParts } from './index';
 import { flowToken } from '../../data/focus';

@@ -1,4 +1,3 @@
-// @ts-expect-error Bun supplies the test API.
 import { expect, spyOn, test } from 'bun:test';
 import * as diagonals from './carrier-diagonals';
 import { memberLength } from '../megastructure';

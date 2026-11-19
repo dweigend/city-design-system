@@ -1,8 +1,7 @@
-// @ts-expect-error Bun provides these test APIs at runtime.
 import { expect, test } from 'bun:test';
 import { sandboxGenerationYears } from '../data/sandbox';
 import { storedModules, type Completion } from './feedback';
-import { gestureDriver } from './fixtures/serial-gesture';
+import { gestureDriver } from './fixtures/serial-gesture.fixture.test';
 
 const house = { kind: 'house', use: 'living' } as const;
 const dig = { kind: 'dig' } as const;

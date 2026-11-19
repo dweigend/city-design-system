@@ -1,5 +1,4 @@
 import { strict as assert } from 'node:assert';
-// @ts-expect-error Bun provides its test API at runtime.
 import { expect, test } from 'bun:test';
 import { buildRoofFrame, dockModule, routeSlope, moduleBridge, type RoofCell } from './index';
 const roofs: RoofCell[] = [0, 8, 16].map((x, i) => ({

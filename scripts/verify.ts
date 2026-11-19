@@ -7,6 +7,7 @@ const steps = [
 	'check:boundaries',
 	'check:fallow',
 	'check:skills',
+	'check:baselines',
 	'build'
 ];
 const results: Array<{ name: string; exitCode: number }> = [];

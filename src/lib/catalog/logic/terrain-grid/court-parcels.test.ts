@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides the test API.
 import { expect, spyOn, test } from 'bun:test';
 import * as courts from './court-parcels';
 import { createTerrain } from '../terrain';

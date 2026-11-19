@@ -70,8 +70,8 @@ bun run check:boundaries   # Architecture and import boundaries (dependency-crui
 ## Branches and Local Working Files
 
 - `main` – stable primary branch on GitHub.
-- `experimente` – public experimental branch on GitHub (`main` plus ongoing experiments; rebased onto `main` after every merge into `main`).
-- `_lokal/` – local working directory excluded via `.gitignore` for process images, local originals, and internal records.
+- `experimente` – public experimental branch on GitHub (`main` plus ongoing experiments; rebased onto `main` after every merge into `main`, never merged into `main`).
+- Research notes, process images, local originals, and image-generation variants live in a separate private lab repository, not in this repository. Only accepted results move here.
 
 ## Images and Copyright
 

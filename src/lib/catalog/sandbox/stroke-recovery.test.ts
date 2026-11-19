@@ -1,8 +1,7 @@
-// @ts-expect-error Bun provides these test APIs at runtime.
 import { expect, spyOn, test } from 'bun:test';
 import * as sandbox from '../logic/sandbox';
 import { connectKernel } from './connect-kernel';
-import { gestureDriver } from './fixtures/serial-gesture';
+import { gestureDriver } from './fixtures/serial-gesture.fixture.test';
 
 const house = { kind: 'house', use: 'living' } as const;
 

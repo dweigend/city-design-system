@@ -70,7 +70,7 @@ export function createSessionActions(
 	return {
 		snapshot,
 		/** Subscribes to the successful results, in order. */
-		onCompletion(listener: (value: Completion) => void) {
+		onCompletion(this: void, listener: (value: Completion) => void) {
 			listeners.add(listener);
 			return () => {
 				listeners.delete(listener);
@@ -89,7 +89,7 @@ export function createSessionActions(
 		redo: () => restore(redo(history)),
 		advance: () => edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance'),
 		/** Opens the next seed and clears its history. */
-		restart() {
+		restart(this: void) {
 			world = open(world.seed + 1);
 			history = startHistory(world.state);
 			completion = undefined;
@@ -101,7 +101,7 @@ export function createSessionActions(
 			publish(snapshot());
 		},
 		/** Explicitly dismisses the current survey error. */
-		clearRejection() {
+		clearRejection(this: void) {
 			rejection = undefined;
 			publish(snapshot());
 		}

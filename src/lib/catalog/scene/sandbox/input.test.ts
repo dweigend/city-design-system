@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime.
 import { expect, test } from 'bun:test';
 import { traceStroke, createWorld } from '../../logic/sandbox';
 import { attachInput } from './input';

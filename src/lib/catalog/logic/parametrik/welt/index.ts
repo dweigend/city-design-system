@@ -256,6 +256,17 @@ export function layoutOccupancyAndNetwork(p: WeltParams) {
 	const netz = (p.kern.wege ? wegeKern : wege)(r, b, Math.max(1, Math.round(r.blocks.length / 6)));
 	return { r, b, netz };
 }
+
+/**
+ * The district as primitives, balance and walking tour; a pure function of `input` (meters,
+ * radians; x/y ground plane, z up). The seed is normalized with `>>> 0`; dichte, hoehe and
+ * schwamm are clamped to [0, 1]; the other sliders are bounded by the stages (netz, lage,
+ * belegung). Streams: netz `seed·7919+11`, lage `seed·7919+13`, belegung `seed·31+5`, figures
+ * `seed·131+3`. Primitive order: corner modules in slot order, existing stock, ornament, stairs,
+ * railway, figures, ground slab; IDs are unique. `input` is not mutated.
+ * The result is cached per structure and view (one structure at a time): repeated calls with the
+ * same parameters return the same shared object, so callers must treat it as read-only.
+ */
 export function welt(input: WeltParams): Welt {
 	const p = {
 		...input,

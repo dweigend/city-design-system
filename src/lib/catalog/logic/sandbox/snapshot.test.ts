@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
 import legacyTown from './fixtures/seed-7-c67d10e.json';
@@ -64,7 +63,7 @@ test('old snapshots recover their historical methods once and can advance', () =
 
 test('the seeded old town is the first layer and empty advances leave its markers alone', () => {
 	const town = createWorld(7);
-	const oldTown = [{ year: 1900, flows: ['people'] }];
+	const oldTown = [{ year: 1900, flows: ['people'] }] as const;
 	expect(town.state.timeLayers).toEqual(oldTown);
 	const emptyAdvance = applyEdit(town, { kind: 'advance' });
 	expect(emptyAdvance.state.year).toBe(2051);

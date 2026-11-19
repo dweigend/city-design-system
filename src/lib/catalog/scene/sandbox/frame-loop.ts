@@ -58,7 +58,7 @@ export function createFrameLoop(isLive: () => boolean, draw: (frame: Frame) => b
 			return paused;
 		},
 		/** Leaves the transit clock parked while placement continues. */
-		setPaused(next: boolean) {
+		setPaused(this: void, next: boolean) {
 			if (paused === next) return;
 			paused = next;
 			resetFrame();

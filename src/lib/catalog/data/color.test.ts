@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { flowColor, flowSteps, flowToken } from './focus';
@@ -18,7 +17,7 @@ const FEST = {
 
 describe('Meaning contract', () => {
 	test('flowToken matches the fixed table', () => {
-		expect({ ...flowToken }).toEqual(FEST);
+		expect<Record<string, string>>({ ...flowToken }).toEqual(FEST);
 	});
 
 	test('Every flow has its own color; none is signal or hazard', () => {
@@ -29,7 +28,8 @@ describe('Meaning contract', () => {
 	});
 
 	test('Functions, steps and contract table read the same source', () => {
-		for (const f of funktionen) if (f.token) expect(Object.values(flowToken)).toContain(f.token);
+		for (const f of funktionen)
+			if (f.token) expect<readonly string[]>(Object.values(flowToken)).toContain(f.token);
 		for (const r of reihen)
 			if (r.id !== 'grau') expect(r.tokens[3]).toBe(FEST[r.id as keyof typeof FEST]);
 		expect(flowColor('water')).toBe('var(--cat-health)');

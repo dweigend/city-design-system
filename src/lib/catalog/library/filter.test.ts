@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { describe, expect, test } from 'bun:test';
 import {
 	archiv,
@@ -146,7 +145,12 @@ describe('Curation and original adaptations', () => {
 			expect(a.datei).toMatch(/^img\/(adapt|uiref)-\d{3}-[a-z0-9-]+\.webp$/);
 			expect(typeof a.vorbild).toBe('string');
 			expect(a.zweck?.length).toBeGreaterThan(0);
-			expect(['Technik', 'Stil', 'Prinzip', 'UI-Layout']).toContain(a.zentrum);
+			expect<readonly (string | undefined)[]>([
+				'Technik',
+				'Stil',
+				'Prinzip',
+				'UI-Layout'
+			]).toContain(a.zentrum);
 		}
 	});
 

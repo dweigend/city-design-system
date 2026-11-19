@@ -79,6 +79,8 @@ function sectionWidth(part: Primitive, camera: ReturnType<typeof projection>) {
 			return 2 * part.radius;
 		case 'ring':
 			return ringWidth(part, camera);
+		default:
+			return undefined;
 	}
 }
 
@@ -90,6 +92,8 @@ function roundWidth(part: Primitive, { depth, rise }: ReturnType<typeof projecti
 			const vertical = Math.hypot(depth, (part.squash ?? 1) * rise);
 			return 2 * part.radius * Math.min(1, vertical);
 		}
+		default:
+			return undefined;
 	}
 }
 

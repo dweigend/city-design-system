@@ -18,7 +18,6 @@ else
 	});
 
 async function exerciseThemeBinding() {
-	// @ts-expect-error Bun supplies its test API at runtime.
 	const { mock, spyOn } = await import('bun:test');
 	let refresh: () => void = () => {
 		throw new Error('Theme callback was not registered');
