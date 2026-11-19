@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three/webgpu';
 import { focuses } from '../../../logic/presentation';
-import { currentStacks, houseView, type World } from '../../../logic/sandbox';
+import type { Primitive } from '../../../logic/parametrik/types';
+import { projectChanges } from '../projection';
+import { createTerrainMesh } from '../terrain-mesh';
+import { currentStacks, EMPTY_STATE, houseView, type World } from '../../../logic/sandbox';
 /** Builds independent Three.js reference solids and strokes from the same displayed primitives. */
-export async function render(world: World) {
+export async function render(world: World, animate = false) {
 	const { createStructures } = await import('../structures');
 	const { batch, geometryOf } = await import('../../batch');
 	const structures = createStructures();
@@ -13,10 +16,29 @@ export async function render(world: World) {
 	const geometry: THREE.BufferGeometry[] = [];
 	const strokeMaterial = new THREE.LineBasicMaterial();
 	const targets: THREE.Vector3[] = [];
+	const terrain = createTerrainMesh(world.grid);
+	const batches: Primitive[] = [];
+	const referenceParts: Primitive[] = [];
+	projectChanges(
+		{
+			terrain,
+			structures: {
+				set(key, parts) {
+					if (!key.startsWith('house:')) return;
+					batches.push(...parts);
+					structures.set(key, parts, animate ? 0 : undefined);
+				}
+			}
+		},
+		{ ...world, state: EMPTY_STATE, lines: [] },
+		world,
+		'all',
+		false
+	);
 	for (const chunk of world.grid.chunks.keys()) {
 		const parts = houseView(world, currentStacks(world.state), chunk, focuses.all);
 		if (!parts.length) continue;
-		structures.set('house:' + chunk, parts);
+		referenceParts.push(...parts);
 		const faces = batch(
 			parts.filter((p) => !p.roofCell),
 			() => color
@@ -49,12 +71,19 @@ export async function render(world: World) {
 				targets.push(new THREE.Vector3(cell.center[0], part.points[0][2], -cell.center[1]));
 		}
 	}
+	const ordered = (parts: Primitive[]) => parts.map((part) => JSON.stringify(part)).sort();
+	assert.deepEqual(ordered(batches), ordered(referenceParts));
 	return {
 		solids: structures.solids('house:'),
+		move(timeMs: number) {
+			structures.step(timeMs, false);
+			structures.group.updateMatrixWorld(true);
+		},
 		visible,
 		targets,
 		dispose() {
 			structures.dispose();
+			terrain.dispose();
 			for (const g of geometry) g.dispose();
 			material.dispose();
 			strokeMaterial.dispose();

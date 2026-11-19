@@ -137,7 +137,10 @@ async function compareRays() {
 	regression.bounds.set(new THREE.Vector3(xmin, zmin, -ymax), new THREE.Vector3(xmax, zmax, -ymin));
 	const scene = setup(seed);
 	for (const state of [base, { ...base, roofBuilder }]) {
-		const town = await render(state);
+		const town = await render(state, true);
+		town.move(0);
+		checkReported(state, regression, town.solids);
+		town.move(1000);
 		checkReported(state, regression, town.solids);
 		town.dispose();
 	}
