@@ -11,6 +11,7 @@ export function createLight() {
 	const direction = new THREE.Vector3(-LICHT[0], -LICHT[2], LICHT[1]).normalize();
 	const sun = new THREE.DirectionalLight(0xffffff);
 	sun.castShadow = true;
+	sun.shadow.autoUpdate = false;
 	sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
 	sun.shadow.bias = -0.0006;
 	sun.shadow.normalBias = 0.05;
@@ -33,6 +34,10 @@ export function createLight() {
 		},
 		/** Releases the shadow render target. */
 		dispose: () => shadowMask.dispose(),
+		/** Rebuilds the shadow map when its casters or its camera move. */
+		refresh() {
+			sun.shadow.needsUpdate = true;
+		},
 		/** Centers the shadow volume on the view target; sharp shadows at every zoom. */
 		aim(target: THREE.Vector3, span: number) {
 			const reach = Math.max(SHADOW_REACH.min, span * SHADOW_REACH.perSpan);

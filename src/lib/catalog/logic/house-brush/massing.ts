@@ -98,20 +98,3 @@ export function touchedChunks(
 	}
 	return chunks;
 }
-
-/**
- * Chunks that hold the anchor of any mass with a story on the given cells. After the grid
- * moved those cells, these are the house chunks to derive again.
- */
-export function chunksOfCells(
-	grid: QuadGrid,
-	stacks: Stacks,
-	cells: Iterable<QuadCell>
-): Set<string> {
-	const chunks = new Set<string>();
-	for (const cell of cells)
-		storiesOf(stacks, cell.id).forEach((_, level) =>
-			chunks.add(massAt(grid, stacks, cell, level).stories[0].cell.chunk)
-		);
-	return chunks;
-}

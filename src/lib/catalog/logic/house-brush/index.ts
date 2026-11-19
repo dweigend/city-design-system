@@ -1,6 +1,6 @@
-import { roofCarrier, type RoofContext } from './roof-carrier';
 import { totemMass } from './style-totem';
 import { megastructureMass } from './style-megastructure';
+import { roofCarrier, type RoofContext } from './roof-carrier';
 import { profileOf } from './profile';
 import type { RoofBuilder } from '../building-envelope';
 /**
@@ -15,12 +15,12 @@ import type { RoofBuilder } from '../building-envelope';
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 
-import { massAt, floorOf, massesOfChunk } from './massing';
+import { massAt, floorOf, massesOfChunk, type Mass } from './massing';
 import { storiesOf, type Stacks } from './stacks';
 import { massRules, type HouseStyle } from './styles';
 
 export { MAX_STORIES, lower, raise, storiesOf, type HouseUse, type Stacks } from './stacks';
-export { chunksOfCells, touchedChunks } from './massing';
+export { touchedChunks } from './massing';
 
 export { castingSeed } from './ceramic-fitting';
 export { shellForms } from './style-totem';
@@ -44,18 +44,31 @@ export function houseChunk(
 	context?: RoofContext,
 	roofBuilder?: RoofBuilder
 ): Primitive[] {
+	return massesOfChunk(grid, stacks, chunk).flatMap((mass) =>
+		houseMassParts(grid, stacks, mass, seed, style, context, roofBuilder)
+	);
+}
+
+/** Derives the detached world-meter geometry of one identified mass, retaining its part order. */
+export function houseMassParts(
+	grid: QuadGrid,
+	stacks: Stacks,
+	mass: Mass,
+	seed: number,
+	style: HouseStyle,
+	context?: RoofContext,
+	roofBuilder?: RoofBuilder
+): Primitive[] {
 	const site = { grid, stacks: context?.occupied ?? stacks, seed, roofBuilder };
-	// Old story records retain the grammar that built them. Q installations carry their own parts.
+	// Q installations carry their own parts; older story records still use the saved house grammar.
 	if (context && (style === 'megastructure' || style === 'totem')) {
 		const rule = style === 'totem' ? totemMass : megastructureMass;
-		return massesOfChunk(grid, stacks, chunk).flatMap((mass) => [
-			...rule(site, mass),
-			...roofCarrier(site, mass, context)
-		]);
+		return [...rule(site, mass), ...roofCarrier(site, mass, context)];
 	}
-	const rule = massRules[style];
-	return massesOfChunk(grid, stacks, chunk).flatMap((mass) => rule(site, mass));
+	return massRules[style](site, mass);
 }
+
+export { massAt, massesOfChunk, type Mass };
 
 /** Height in meters of the top of a cell's stack: where the next story would stand. */
 export const stackTop = (stacks: Stacks, cell: QuadCell): number =>

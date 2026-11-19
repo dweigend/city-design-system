@@ -40,7 +40,7 @@ export function alleyOverlay(
 		dispose: () => map.dispose(),
 		shade(
 			ground: Node<'vec3'>,
-			ink: Node<'vec3'>,
+			ink: Node<'color'>,
 			people: Node<'color'>,
 			paper: Node<'vec3'>,
 			focus: Node<'float'>,
@@ -57,26 +57,30 @@ export function alleyOverlay(
 				edges = attribute('frontages', 'vec4');
 			const horizontal = mask.r.mul(nodes.embossWidth),
 				vertical = mask.g.mul(nodes.embossWidth);
-			const along = band(uv.y.mul(2), horizontal)
-				.mul(edges.x)
-				.max(band(float(1).sub(uv.y).mul(2), horizontal).mul(edges.z));
-			const across = band(uv.x.mul(2), vertical)
-				.mul(edges.w)
-				.max(band(float(1).sub(uv.x).mul(2), vertical).mul(edges.y));
+			const south = band(uv.y.mul(2), horizontal).mul(edges.x);
+			const east = band(float(1).sub(uv.x).mul(2), vertical).mul(edges.y);
+			const north = band(float(1).sub(uv.y).mul(2), horizontal).mul(edges.z);
+			const west = band(uv.x.mul(2), vertical).mul(edges.w);
 			const code = mask.b.mul(255).round();
+			const built = (coverage: Node<'float'>, side: number) =>
+				coverage.mul(
+					code
+						.div(2 ** side)
+						.floor()
+						.mod(2)
+				);
+			const street = built(south, 0).max(built(east, 1)).max(built(north, 2)).max(built(west, 3));
 			const stairs = float(code.greaterThanEqual(128));
 			const occupied = code.div(64).floor().mod(2);
 
 			const visibility = mask.a.mul(weight);
 			const pressure = mix(nodes.emptyInk, nodes.embossInk, occupied);
-			const coverage = along.max(across);
+			const coverage = south.max(east).max(north).max(west);
 			// Opposite lips of the same frontage catch light and cast a hairline.
-			const shadow = band(uv.y.mul(2), horizontal)
-				.mul(edges.x)
-				.max(band(uv.x.mul(2), vertical).mul(edges.w));
+			const shadow = south.max(west);
 			const light = mix(ground, paper, coverage.mul(visibility));
 			const emboss = mix(light, ink, shadow.mul(pressure).mul(visibility));
-			const focused = mix(emboss, people, coverage.mul(focus).mul(visibility));
+			const focused = mix(emboss, people, street.mul(focus).mul(visibility));
 			const bankDistance = attribute('shore', 'float');
 			const bankHalf = float(grid.profile.promenadeWidth / 2);
 			const shore = band(bankDistance.abs(), bankHalf).mul(visibility);

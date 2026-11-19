@@ -1,15 +1,26 @@
 /** Owns the GPU objects for each key of the sandbox's derived structures. */
 import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
-import { roofPick } from './roof-pick';
-import { populateStructures } from './structure-parts';
+import { structureBatch } from './structure-batch';
+import { structureMaterials } from './structure-materials';
+import { placementGroups, placementOffset } from './placement-motion';
 import {
 	distanceDrawing,
 	sameDrawing,
 	type DistanceDrawing,
 	type DrawingDistance
 } from './distance-drawing';
-import { structureMaterials } from './structure-materials';
+
+type Batch = ReturnType<typeof structureBatch> & {
+	primitives: Primitive[];
+	drawing: DistanceDrawing;
+	cellId?: string;
+};
+type Moving = ReturnType<typeof placementGroups>['groups'][number] & {
+	objects: Batch;
+	startedMs: number;
+};
+type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[]; cellId?: string };
 
 export type Structures = ReturnType<typeof createStructures>;
 
@@ -18,61 +29,91 @@ export function createStructures() {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials();
-	const entries = new Map<
+	const entries = new Map<string, Entry>();
+	const pending = new Map<
 		string,
-		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group; cellId?: string }
+		{ primitives: Primitive[]; cellId?: string; startedMs?: number }
 	>();
-	const pending = new Map<string, { primitives: Primitive[]; cellId?: string }>();
+	const hitLists = new Map<string, THREE.Object3D[]>();
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
-	function release(objects: THREE.Group) {
-		group.remove(objects);
-		for (const object of objects.children) {
+	function draw(
+		primitives: Primitive[],
+		cellId?: string,
+		drawing = distanceDrawing(primitives, distance)
+	): Batch {
+		return {
+			...structureBatch(primitives, finishes, dot, drawing, cellId),
+			primitives,
+			drawing,
+			cellId
+		};
+	}
+
+	function releaseObjects({ group: batch }: Batch) {
+		group.remove(batch);
+		for (const object of batch.children) {
 			if (object instanceof THREE.InstancedMesh) object.dispose();
 			else if (object instanceof THREE.Mesh) object.geometry.dispose();
 		}
 	}
 
-	function draw(drawing: DistanceDrawing, cellId?: string) {
-		const roofs = drawing.parts.filter((p) => p.roofCell);
-		const body = roofs.length ? drawing.parts.filter((p) => !p.roofCell) : drawing.parts;
-		const objects = populateStructures(body, finishes, dot, drawing);
-		if (roofs.length) {
-			const details = populateStructures(roofs, finishes, dot, drawing);
-			objects.add(...details.children.slice());
-			for (const part of roofs) {
-				const width = () =>
-					part.material === 'ghost' || part.role === 'neu'
-						? finishes.materials.detail.linewidth
-						: finishes.materials.pencil.linewidth;
-				const proxy = roofPick(part, width);
-				if (proxy) objects.userData.hits.push(proxy);
-			}
-		}
-		if (cellId) for (const hit of objects.userData.hits) hit.userData.cellId = cellId;
-		group.add(objects);
-		return objects;
+	function release(entry: Entry) {
+		releaseObjects(entry.objects);
+		for (const { objects } of entry.moving) releaseObjects(objects);
 	}
 
-	/** Replaces the primitives stored under a key; an empty list removes the key. */
-	function set(key: string, primitives: Primitive[], cellId?: string) {
+	function makeEntry(
+		key: string,
+		primitives: Primitive[],
+		previous: Entry | undefined,
+		cellId?: string,
+		startedMs?: number
+	): Entry {
+		if (startedMs === undefined) {
+			const drawing = distanceDrawing(primitives, distance, previous?.objects.drawing.contours);
+			return { primitives, objects: draw(primitives, cellId, drawing), moving: [], cellId };
+		}
+		const { seated, groups } = placementGroups(key, primitives, previous?.primitives ?? []);
+		const objects = draw(seated, cellId);
+		const moving = groups.map((item) => ({
+			...item,
+			objects: draw(item.parts, cellId),
+			startedMs
+		}));
+		return { primitives, objects, moving, cellId };
+	}
+
+	/** Replaces one structure key, optionally seating its new parts from a clock time in ms. */
+	function set(key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
 		const previous = entries.get(key);
 		if (previous?.primitives === primitives && previous.cellId === cellId) return;
-		if (previous) release(previous.objects);
+		hitLists.clear();
+		if (previous) release(previous);
 		entries.delete(key);
 		if (!primitives.length) return;
-		const drawing = distanceDrawing(primitives, distance, previous?.drawing.contours);
-		entries.set(key, { primitives, drawing, cellId, objects: draw(drawing, cellId) });
+		const entry = makeEntry(key, primitives, previous, cellId, startedMs);
+		group.add(entry.objects.group, ...entry.moving.map((item) => item.objects.group));
+		entries.set(key, entry);
+	}
+
+	function redrawBatch(batch: Batch, recolor: boolean) {
+		const drawing = distanceDrawing(batch.primitives, distance, batch.drawing.contours);
+		if (!recolor && sameDrawing(batch.drawing, drawing)) return batch;
+		const next = draw(batch.primitives, batch.cellId, drawing);
+		hitLists.clear();
+		next.group.position.copy(batch.group.position);
+		next.group.visible = batch.group.visible;
+		group.add(next.group);
+		releaseObjects(batch);
+		return next;
 	}
 
 	function redraw(recolor: boolean) {
 		for (const [key, entry] of entries) {
 			if (pending.has(key)) continue;
-			const drawing = distanceDrawing(entry.primitives, distance, entry.drawing.contours);
-			if (!recolor && sameDrawing(entry.drawing, drawing)) continue;
-			release(entry.objects);
-			entry.drawing = drawing;
-			entry.objects = draw(drawing, entry.cellId);
+			entry.objects = redrawBatch(entry.objects, recolor);
+			for (const item of entry.moving) item.objects = redrawBatch(item.objects, recolor);
 		}
 	}
 
@@ -82,11 +123,20 @@ export function createStructures() {
 		for (const key of [...entries.keys()]) set(key, []);
 	}
 
+	function place(item: Moving, timeMs: number, reduced: boolean) {
+		if (reduced) item.startedMs = Math.min(item.startedMs, timeMs - item.delayMs - item.durationMs);
+		const elapsed = timeMs - item.startedMs;
+		const offset = placementOffset(item, elapsed);
+		item.objects.group.position.y = offset;
+		item.objects.group.visible = elapsed >= item.delayMs;
+		return offset > 0;
+	}
+
 	return {
 		group,
 		set,
-		/** Coalesces stage edits until the camera and geometry for the next frame are known. */
-		queue(key: string, primitives: Primitive[], cellId?: string) {
+		/** Coalesces geometry changes until the camera and drawing style are ready. */
+		queue(key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
 			const previous = entries.get(key);
 			if (
 				!primitives.length ||
@@ -96,9 +146,17 @@ export function createStructures() {
 				if (!primitives.length) set(key, []);
 				return;
 			}
-			pending.set(key, { primitives, cellId });
+			const prior = pending.get(key);
+			pending.set(key, { primitives, cellId, startedMs: startedMs ?? prior?.startedMs });
 		},
 		clear,
+		/** Updates pending drop offsets and reports whether another frame is needed. */
+		step(timeMs: number, reduced: boolean) {
+			let active = false;
+			for (const { moving } of entries.values())
+				for (const item of moving) active = place(item, timeMs, reduced) || active;
+			return active;
+		},
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */
 		setStyle(args: Parameters<typeof finishes.setStyle>, elevation: number) {
 			const [style, , scale] = args;
@@ -115,16 +173,24 @@ export function createStructures() {
 				distance = { scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
-			for (const [key, { primitives, cellId }] of pending) set(key, primitives, cellId);
+			for (const [key, { primitives, cellId, startedMs }] of pending)
+				set(key, primitives, cellId, startedMs);
 			pending.clear();
 		},
 		/** Updates sandbox-only material settings in schema units. */
 		setParams: finishes.setParams,
-		/** Solid meshes of every key with the given prefix, for ray casting. */
+		/** Detached ray targets for the structure keys with the given prefix. */
 		solids(prefix: string): THREE.Object3D[] {
-			return [...entries]
+			const cached = hitLists.get(prefix);
+			if (cached) return cached;
+			const targets = [...entries]
 				.filter(([key]) => key.startsWith(prefix))
-				.flatMap(([, entry]) => entry.objects.userData.hits as THREE.Object3D[]);
+				.flatMap(([, entry]) => [
+					...entry.objects.targets,
+					...entry.moving.flatMap((item) => item.objects.targets)
+				]);
+			hitLists.set(prefix, targets);
+			return targets;
 		},
 		/** Releases all geometry and materials. */
 		dispose() {

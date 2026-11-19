@@ -40,7 +40,7 @@
 			strokeStart: () => {},
 			strokeMove: () => {},
 			strokeEnd: () => {},
-			viewChanged: current.render
+			viewChanged: current.viewChanged
 		});
 		stage = current;
 		return () => {

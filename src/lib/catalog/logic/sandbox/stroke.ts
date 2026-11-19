@@ -1,24 +1,22 @@
 import { propose, install } from './installation';
-import type { Failure } from './installation-parts';
+import type { Failure, Proposal } from './installation-parts';
 import { cellsBetween } from '../terrain-grid';
 import type { Edit, Tool } from './state';
-import { applyEdit, withState, type World } from './world';
+import { applyEdit, digStroke, eraseStroke, withState, type World } from './world';
 
 export type { Tool } from './state';
 /**
  * One brush stroke in progress: from pointer down to pointer up. `draft` is the world the
  * player sees while drawing; its state becomes one undo step when the stroke ends.
  */
-export type Stroke = Readonly<{
-	tool: Tool;
-	base: World;
-	draft: World;
-	failure?: Failure;
+type Trace = Readonly<{
 	/** Cells the stroke has passed, in order, each once. */
 	cellIds: readonly string[];
 	/** Most recent valid pointer cell, if the stroke has reached one. */
 	lastPointerCellId: string | undefined;
 }>;
+
+export type Stroke = Trace & Readonly<{ tool: Tool; base: World; draft: World; failure?: Failure }>;
 
 /** Creates an empty stroke snapshot for the tool, sharing the given world as base and draft. */
 export const beginStroke = (tool: Tool, world: World): Stroke => ({
@@ -32,8 +30,6 @@ export const beginStroke = (tool: Tool, world: World): Stroke => ({
 function cellEdit(tool: Tool, cellId: string): Edit | undefined {
 	if (tool.kind === 'house') return { kind: 'raise', cellId, use: tool.use, style: tool.style };
 	if (tool.kind === 'cover') return { kind: 'cover', cellId, cover: tool.cover };
-	if (tool.kind === 'dig') return { kind: 'dig', cellId };
-	if (tool.kind === 'erase') return { kind: 'clear', cellId };
 	return undefined;
 }
 
@@ -45,33 +41,80 @@ function cellEdit(tool: Tool, cellId: string): Edit | undefined {
  * input stroke.
  */
 export function extendStroke(stroke: Stroke, cellId: string): Stroke {
-	const { grid } = stroke.draft;
-	const last = stroke.lastPointerCellId;
-	if (cellId === last || !grid.cellsById.has(cellId)) return stroke;
+	const trace = traceStroke(stroke.draft.grid, stroke, cellId);
+	if (trace === stroke) return stroke;
+	const fresh = trace.cellIds.slice(stroke.cellIds.length);
+	if (!fresh.length) return { ...stroke, ...trace };
+	const proposal = propose(stroke.base, stroke.tool, trace.cellIds);
+	const result = evaluateStroke(
+		stroke.base,
+		stroke.tool,
+		trace.cellIds,
+		proposal,
+		stroke.draft,
+		fresh
+	);
+	return { ...stroke, ...trace, ...result };
+}
+
+/** Traces the crossed cells without editing a world. IDs are ordered by first visit. */
+export function traceStroke(grid: World['grid'], trace: Trace, cellId: string): Trace {
+	const last = trace.lastPointerCellId;
+	if (cellId === last || !grid.cellsById.has(cellId)) return trace;
 	const reached = last ? cellsBetween(grid, last, cellId).map((cell) => cell.id) : [cellId];
-	const fresh = [...new Set(reached)].filter((id) => !stroke.cellIds.includes(id));
-	const lastPointerCellId = cellId;
-	if (!fresh.length) return { ...stroke, lastPointerCellId };
-	const cellIds = [...stroke.cellIds, ...fresh];
-	const proposal = propose(stroke.base, stroke.tool, cellIds);
+	const visited = new Set(trace.cellIds);
+	for (const id of reached) visited.add(id);
+	const cellIds = visited.size === trace.cellIds.length ? trace.cellIds : [...visited];
+	return { cellIds, lastPointerCellId: cellId };
+}
+
+type Outcome = Pick<Stroke, 'draft' | 'failure'>;
+
+function evaluateStroke(
+	base: World,
+	tool: Tool,
+	ids: readonly string[],
+	proposal: Proposal | undefined,
+	previous: World,
+	fresh: readonly string[]
+): Outcome {
 	if (proposal) {
-		const result =
-			'failure' in proposal
-				? { draft: stroke.base, failure: proposal.failure }
-				: {
-						draft: withState(stroke.base, install(stroke.base.state, proposal, stroke.tool)),
-						failure: undefined
-					};
-		return { ...stroke, cellIds, lastPointerCellId, ...result };
+		if ('failure' in proposal) return { draft: base, failure: proposal.failure };
+		return { draft: withState(base, install(base.state, proposal, tool)), failure: undefined };
 	}
-	if (stroke.tool.kind === 'line' && stroke.tool.transit !== 'walkway') {
-		const edit: Edit = { kind: 'line', transit: stroke.tool.transit, cellIds };
-		return { ...stroke, lastPointerCellId, cellIds, draft: applyEdit(stroke.base, edit) };
-	}
-	let draft = stroke.draft;
+	if (tool.kind === 'line' && tool.transit !== 'walkway')
+		return { draft: applyEdit(base, { kind: 'line', transit: tool.transit, cellIds: ids }) };
+	if (tool.kind === 'dig') return { draft: digStroke(base, ids) };
+	if (tool.kind === 'erase') return { draft: eraseStroke(base, ids) };
+	let draft = previous;
 	for (const id of fresh) {
-		const edit = cellEdit(stroke.tool, id);
+		const edit = cellEdit(tool, id);
 		if (edit) draft = applyEdit(draft, edit);
 	}
-	return { ...stroke, lastPointerCellId, cellIds, draft };
+	return { draft, failure: undefined };
+}
+
+/** Surveys a trace once and retains the same proposal for drawing and applying it. */
+export function planStroke(base: World, tool: Tool, cellIds: readonly string[]) {
+	const ids: readonly string[] = [...new Set(cellIds)];
+	const proposal = ids.length ? propose(base, tool, ids) : undefined;
+	let result: Outcome | undefined;
+	return {
+		base,
+		tool,
+		cellIds: ids,
+		proposal,
+		outcome(): Outcome {
+			return (result ??= ids.length
+				? evaluateStroke(base, tool, ids, proposal, base, ids)
+				: { draft: base });
+		}
+	} as const;
+}
+
+export type StrokePlan = ReturnType<typeof planStroke>;
+
+/** Surveys or applies one complete trace to a detached snapshot. Each visited cell is edited once. */
+export function applyStroke(world: World, tool: Tool, cellIds: readonly string[]): Outcome {
+	return planStroke(world, tool, cellIds).outcome();
 }

@@ -115,3 +115,8 @@ export function roofPick(part: Primitive, width: () => number) {
 	};
 	return object;
 }
+
+/** Detaches baked world-coordinate mesh hits from their render transforms, sharing resources. */
+export function seatedTargets<T extends THREE.Object3D>(solids: readonly T[]): T[] {
+	return solids.map((solid) => solid.clone(false));
+}

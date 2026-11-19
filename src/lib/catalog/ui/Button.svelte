@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { keyboard } from './keyboard.svelte';
 	import { Button } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
@@ -19,14 +20,16 @@
 	class="cg-button"
 	data-variant={variant}
 	aria-label={variant === 'icon' || variant === 'bare' ? label : undefined}
-	aria-keyshortcuts={shortcut}
+	aria-keyshortcuts={keyboard.observed ? shortcut : undefined}
 >
 	{#if (variant === 'icon' || variant === 'bare') && icon}
 		{@render icon()}
 	{:else}
 		<span class="cg-button-label">{label}</span>
 		{#if variant === 'text'}<span class="cg-button-arrow" aria-hidden="true">→</span>{/if}
-		{#if shortcut && variant !== 'text'}<kbd class="cg-button-key">{shortcut}</kbd>{/if}
+		{#if keyboard.observed && shortcut && variant !== 'text'}<kbd class="cg-button-key"
+				>{shortcut}</kbd
+			>{/if}
 	{/if}
 </Button.Root>
 

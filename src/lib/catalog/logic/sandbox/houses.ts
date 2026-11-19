@@ -1,6 +1,15 @@
 import type { BuildingMethod } from '../../data/sandbox';
 import { buildingPlots } from './building-plots';
-import { houseChunk, type HouseUse, type Stacks } from '../house-brush';
+import {
+	houseChunk,
+	houseMassParts,
+	massesOfChunk,
+	massAt,
+	storiesOf,
+	type HouseUse,
+	type Stacks
+} from '../house-brush';
+import { neighborsOf, type QuadCell } from '../quad-grid';
 import type { Primitive } from '../parametrik/types';
 import { present, type Focus } from '../presentation';
 import type { SandboxState } from './state';
@@ -38,7 +47,7 @@ function groupPhases(state: SandboxState, stacks: Stacks, currentOnly = false) {
 }
 
 /** Groups construction by year and saved style, retaining original floor indices. */
-export function constructionPhases(state: SandboxState): ReadonlyMap<Phase, Stacks> {
+function constructionPhases(state: SandboxState): ReadonlyMap<Phase, Stacks> {
 	const phases = phasesByState.get(state) ?? groupPhases(state, state.stacks);
 	phasesByState.set(state, phases);
 	return phases;
@@ -107,4 +116,73 @@ export function houseView(
 			focus.houses
 		)
 	];
+}
+
+function houseGroupKey({ built, style }: Phase, id: string) {
+	return `${built}/${style}/${id}`;
+}
+
+/** Mass addresses touching the supplied parcels or their facade neighbours. */
+export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Map<string, string> {
+	const plots = buildingPlots(world.grid);
+	const nearby = new Set<QuadCell>();
+	for (const id of cellIds) {
+		const cell = plots.cellsById.get(id);
+		if (!cell) continue;
+		nearby.add(cell);
+		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
+	}
+	const out = new Map<string, string>();
+	for (const [phase, stacks] of constructionPhases(world.state)) {
+		const visited = new Set<string>();
+		for (const cell of nearby) {
+			storiesOf(stacks, cell.id).forEach((_, level) => {
+				if (visited.has(`${cell.id}@${level}`)) return;
+				const mass = massAt(plots, stacks, cell, level);
+				for (const story of mass.stories) visited.add(`${story.cell.id}@${story.level}`);
+				out.set(houseGroupKey(phase, mass.id), mass.stories[0].cell.chunk);
+			});
+		}
+	}
+	return out;
+}
+
+function presentHouseGroup(parts: Primitive[], phase: Phase, firstFullYear: number, focus: Focus) {
+	if (phase.built < firstFullYear) return present(parts, focus.stock);
+	return present(parts.map(newVolume), focus.houses);
+}
+
+/** Projects mass batches per chunk. A key filter skips primitive generation of other masses. */
+export function houseGroups(
+	world: World,
+	chunk: string,
+	focus: Focus,
+	keys?: ReadonlySet<string>,
+	firstFullYear = world.state.year
+) {
+	const { grid, state, seed } = world;
+	const plots = buildingPlots(grid);
+	const groups = new Map<string, Primitive[]>();
+	for (const [phase, stacks] of constructionPhases(state)) {
+		const context = {
+			occupied: state.stacks,
+			blockOf: (id: string) => grid.cellsById.get(id)?.block.split('/')[0],
+			olderRoof: (id: string) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < phase.built
+		};
+		for (const mass of massesOfChunk(plots, stacks, chunk)) {
+			const key = houseGroupKey(phase, mass.id);
+			if (keys && !keys.has(key)) continue;
+			const parts = houseMassParts(
+				plots,
+				stacks,
+				mass,
+				seed,
+				phase.style,
+				context,
+				world.roofBuilder
+			);
+			groups.set(key, presentHouseGroup(parts, phase, firstFullYear, focus));
+		}
+	}
+	return groups;
 }

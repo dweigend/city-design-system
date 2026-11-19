@@ -11,10 +11,12 @@ export function frameClock() {
 		devicePixelRatio: 1,
 		document: {
 			documentElement: { dataset: {}, appendChild: noop },
+			addEventListener: noop,
+			removeEventListener: noop,
 			createElement: () => ({ style: {}, remove: noop, getContext: () => null })
 		},
 		getComputedStyle: () => ({ color: '#808080', getPropertyValue: () => '' }),
-		matchMedia: () => ({ matches: false, addEventListener: noop }),
+		matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
 		addEventListener: noop,
 		requestAnimationFrame: (fn: FrameRequestCallback) => {
 			callbacks.set(++id, fn);
@@ -22,6 +24,7 @@ export function frameClock() {
 		},
 		cancelAnimationFrame: (i: number) => callbacks.delete(i)
 	});
+	Object.assign(globalThis, { window: globalThis });
 	Object.assign(T.WebGPURenderer.prototype, {
 		init: async () => {},
 		setSize: noop,

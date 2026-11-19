@@ -2,31 +2,38 @@ import type { SandboxStage } from './stage';
 import type { InputHooks } from './input';
 import type { World } from '../../logic/sandbox';
 
-/** Keeps the cursor and brush tied to the same displayed world and canvas position. */
+/** Keeps cursor picks on the installed world and remembers a stationary pointer across redraws. */
 export function createCanvasHover(
 	stage: Pick<SandboxStage, 'show' | 'pickCell' | 'afterFrame'>,
 	publish: (cellId: string | undefined) => void
 ) {
 	let shown: World | undefined;
+	let focus: Parameters<SandboxStage['show']>[1] | undefined;
 	let pointer: Parameters<InputHooks['hover']>[0];
 
 	function cellAt(x: number, y: number) {
 		const index = stage.pickCell(x, y);
 		return index === undefined ? undefined : shown?.grid.cells[index];
 	}
+
 	function refresh() {
-		publish(pointer && cellAt(pointer.x, pointer.y)?.id);
+		const cell = pointer && cellAt(pointer.x, pointer.y);
+		publish(cell?.id);
+		return cell;
 	}
+
 	return {
 		cellAt,
 		dispose: stage.afterFrame(refresh),
 		move(position: typeof pointer) {
 			pointer = position;
-			refresh();
+			return refresh();
 		},
-		show(world: World, focus: Parameters<SandboxStage['show']>[1]) {
-			stage.show(world, focus);
+		show(world: World, nextFocus: Parameters<SandboxStage['show']>[1], place = false) {
+			if (shown === world && focus === nextFocus) return;
+			stage.show(world, nextFocus, place);
 			shown = world;
+			focus = nextFocus;
 		}
 	};
 }

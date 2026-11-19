@@ -80,3 +80,15 @@ export function acceptanceScene() {
 		frame: FRAME
 	};
 }
+
+/** Editable seed-7 opening, with a small example assembled from the drafting study. */
+export function openingScene(seed: number) {
+	const start = createWorld(seed);
+	if (seed !== SEED) return { world: start, additions: [], referenceCellId: undefined };
+	const sample = interventions().filter(
+		(edit) =>
+			edit.kind === 'raise' && (edit.cellId === COLLAGE[0] || edit.cellId === CAPSULES[0].cells[0])
+	);
+	const world = sample.reduce(applyEdit, start);
+	return { world, additions: elevatedWalkway(world), referenceCellId: COLLAGE[0] };
+}

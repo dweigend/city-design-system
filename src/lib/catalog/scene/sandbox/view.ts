@@ -10,7 +10,7 @@ import { OPENING_VIEW_PARAMS } from './view-params';
 import { BLICK } from '../../data/leitstil';
 
 /** Visible image height in world meters: closest and widest zoom. */
-const SPAN_MIN = 45;
+const SPAN_MIN = 30;
 const SPAN_MAX = 1500;
 /** Distance of the camera from its target, meters; far enough to clear every building. */
 const CAMERA_DISTANCE = 1400;
@@ -62,7 +62,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	function pan(dxPx: number, dyPx: number) {
 		const scale = metersPerPixel();
 		target.addScaledVector(right, -dxPx * scale);
-		target.addScaledVector(forward, -dyPx * scale * foreshortening());
+		target.addScaledVector(forward, dyPx * scale * foreshortening());
 		apply();
 	}
 
@@ -138,8 +138,27 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			elevationRad = (opening.mobileElevationDeg * Math.PI) / 180;
 			apply();
 			const middle = area ? (area.top + area.bottom) / 2 : height / 2;
-			pan(0, height / 2 - middle);
+			pan(0, middle - height / 2);
 			return true;
+		},
+		/** Centers the projected silhouette. Points are in three.js meters. */
+		frameSilhouette(points: THREE.Vector3[]) {
+			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
+			apply();
+			const bounds = new THREE.Box2();
+			const up = new THREE.Vector3().crossVectors(eye, right);
+			for (const point of points)
+				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
+			const center = bounds.getCenter(new THREE.Vector2());
+			target.set(0, 0, 0).addScaledVector(right, center.x).addScaledVector(up, center.y);
+			const fit = ((bounds.max.x - bounds.min.x) * height) / (width * 0.5);
+			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
+			apply();
+		},
+		/** World meters to the current canvas position in CSS pixels. */
+		project([x, y, z]: Vec3) {
+			const point = new THREE.Vector3(x, z, -y).project(camera);
+			return { x: ((point.x + 1) * width) / 2, y: ((1 - point.y) * height) / 2 };
 		},
 		/** Canvas pixel → normalized device coordinates for ray casting. */
 		ndc: (xPx: number, yPx: number) =>

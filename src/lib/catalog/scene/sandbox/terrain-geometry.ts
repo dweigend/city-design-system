@@ -3,7 +3,8 @@
  * World positions come from the grid; this file only arranges them for the GPU.
  */
 import * as THREE from 'three/webgpu';
-import type { TerrainGrid } from '../../logic/terrain-grid';
+import type { TerrainCell, TerrainGrid } from '../../logic/terrain-grid';
+import { changedChunks } from '../../logic/quad-grid';
 import { bankDistance, ravineDepth } from '../../logic/terrain';
 import { pushThree } from '../world-space';
 
@@ -17,36 +18,81 @@ function chartedGeometry(positions: number[], chart: number[]) {
 	return geometry;
 }
 
+function surfaceAttributes(count: number) {
+	return {
+		position: new THREE.BufferAttribute(new Float32Array(count * 3), 3),
+		shore: new THREE.BufferAttribute(new Float32Array(count), 1),
+		frontages: new THREE.BufferAttribute(new Float32Array(count * 4), 4),
+		relief: new THREE.BufferAttribute(new Float32Array(count * 2), 2)
+	};
+}
+
+function writeSurface(
+	attributes: Record<
+		keyof ReturnType<typeof surfaceAttributes>,
+		THREE.BufferAttribute | THREE.InterleavedBufferAttribute
+	>,
+	grid: TerrainGrid,
+	cell: TerrainCell
+) {
+	const { position, shore, relief, frontages } = attributes;
+	for (const [i, [x, y, z]] of cell.corners.entries()) {
+		const at = cell.index * 4 + i;
+		position.setXYZ(at, x, z, -y);
+		shore.setX(at, bankDistance(grid.terrain, x, y) - grid.profile.bankSetback);
+		relief.setXY(at, z, ravineDepth(grid.terrain, x, y));
+	}
+	const first = cell.index * 4;
+	const edge = (index: number) => (cell.alleyEdges >> index) & 1;
+	for (let i = 0; i < 4; i++) frontages.setXYZW(first + i, edge(0), edge(1), edge(2), edge(3));
+}
+
 /**
- * Terrain surface with one vertex per grid corner and the chart position (column, row) as
- * attribute `chart`. Two triangles per cell in index order: face index >> 1 is the cell index.
+ * Terrain surface with a vertex copy for each cell corner and its chart position.
+ * Two triangles per cell in index order: face index >> 1 is the cell index.
  */
 export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
-	const positions: number[] = [];
+	const attributes = surfaceAttributes(grid.cells.length * 4);
 	const chart: number[] = [];
 	const indices: number[] = [];
-	const relief: number[] = [];
-	const shore: number[] = [];
-	const frontages: number[] = [];
 	for (const cell of grid.cells) {
-		const start = positions.length / 3;
-		for (const vertex of cell.corners) {
-			pushThree(positions, vertex);
-			shore.push(bankDistance(grid.terrain, vertex[0], vertex[1]) - grid.profile.bankSetback);
-			for (let side = 0; side < 4; side++) frontages.push((cell.alleyEdges >> side) & 1);
-			relief.push(vertex[2], ravineDepth(grid.terrain, vertex[0], vertex[1]));
-		}
+		writeSurface(attributes, grid, cell);
+		const start = cell.index * 4;
 		const { column: c, row: r } = cell;
 		chart.push(c, r, c + 1, r, c + 1, r + 1, c, r + 1);
 		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
 	}
-	const geometry = chartedGeometry(positions, chart);
-	geometry.setAttribute('shore', new THREE.Float32BufferAttribute(shore, 1));
-	geometry.setAttribute('frontages', new THREE.Float32BufferAttribute(frontages, 4));
-	geometry.setAttribute('relief', new THREE.Float32BufferAttribute(relief, 2));
+	const geometry = new THREE.BufferGeometry();
+	for (const [name, attribute] of Object.entries(attributes))
+		geometry.setAttribute(name, attribute);
+	geometry.setAttribute('chart', new THREE.Float32BufferAttribute(chart, 2));
 	geometry.setIndex(indices);
 	geometry.computeVertexNormals();
 	return geometry;
+}
+
+/** Rewrites terrain vertices from the changed cells of a regrid with the same lattice. */
+export function patchSurface(
+	geometry: THREE.BufferGeometry,
+	previous: TerrainGrid,
+	grid: TerrainGrid
+) {
+	// The surface owns these non-interleaved BufferAttributes, installed by surfaceGeometry.
+	const attributes = {
+		position: geometry.attributes.position,
+		shore: geometry.attributes.shore,
+		frontages: geometry.attributes.frontages,
+		relief: geometry.attributes.relief
+	};
+	for (const key of changedChunks(previous, grid)) {
+		for (const cell of grid.chunks.get(key) ?? []) {
+			if (cell !== previous.cellsById.get(cell.id)) writeSurface(attributes, grid, cell);
+		}
+	}
+	for (const attribute of Object.values(attributes)) attribute.needsUpdate = true;
+	geometry.boundingSphere = null;
+	geometry.boundingBox = null;
+	geometry.computeVertexNormals();
 }
 
 /** Corner points along the grid rim, counter-clockwise, as world points. */

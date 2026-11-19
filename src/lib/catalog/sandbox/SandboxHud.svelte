@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { keyboard } from '../ui/keyboard.svelte';
 	import { ToggleGroup } from 'bits-ui';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { flows } from '../data/focus';
@@ -15,7 +16,8 @@
 		Route,
 		Shovel,
 		Trees,
-		Undo2
+		Undo2,
+		X
 	} from 'lucide-svelte';
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
@@ -27,9 +29,10 @@
 		sandboxTools,
 		sandboxUses,
 		type SandboxOption,
+		type SandboxTool,
 		type SandboxToolId
 	} from '../data/sandbox';
-	import type { Tool } from '../logic/sandbox';
+	import { activateChoice, createHudCommands } from './hud-commands';
 	import SandboxOptions from './SandboxOptions.svelte';
 	import type { Session } from './session.svelte';
 
@@ -63,12 +66,7 @@
 	);
 
 	const icons = { look: Hand, house: House, line: Route, cover: Trees, dig: Shovel, erase: Eraser };
-	/** Last option per tool, so switching tools keeps the player's choice. */
-	let chosen = $state({
-		house: sandboxUses[0].id,
-		line: sandboxLines[0].id,
-		cover: sandboxCovers[0].id
-	});
+	const commands = $derived(createHudCommands(session));
 
 	const options = $derived.by((): SandboxOption<string>[] => {
 		if (session.tool.kind === 'house') return sandboxUses;
@@ -81,7 +79,21 @@
 		if (tool.kind === 'line') return tool.transit;
 		return tool.kind === 'cover' ? tool.cover : '';
 	});
-	const active = $derived(sandboxTools.find((tool) => tool.id === session.tool.kind));
+	const active = $derived(
+		sandboxTools.find((tool) => tool.id === session.tool.kind) ?? sandboxTools[0]
+	);
+	const optionLabel = $derived(
+		session.tool.kind === 'house' ? 'House use' : `${active.name} options`
+	);
+	const toolOrientation = $derived(narrow.current ? 'horizontal' : 'vertical');
+
+	function toolLabels(tool: SandboxTool) {
+		return {
+			'aria-label': tool.name,
+			'aria-keyshortcuts': keyboard.observed ? tool.shortcut : undefined,
+			title: keyboard.observed ? `${tool.name} (${tool.shortcut})` : tool.name
+		};
+	}
 
 	const houseHints: Partial<Record<string, string>> = {
 		megastructure: 'Drag across roofs to span them with a carrier.',
@@ -99,28 +111,15 @@
 		session.failure
 			? (surveyMessages[session.failure.reason] ??
 					'The selected walls cannot support a continuous carrier.')
-			: (drawingHint ?? lineHint ?? active?.hint)
+			: (drawingHint ?? lineHint ?? active.hint)
 	);
-	function toolOf(id: SandboxToolId): Tool {
-		if (id === 'house') return { kind: 'house', use: chosen.house };
-		if (id === 'line') return { kind: 'line', transit: chosen.line };
-		if (id === 'cover') return { kind: 'cover', cover: chosen.cover };
-		return { kind: id };
-	}
-	/** Sets the tool by its id; the public entry for buttons and shortcuts. */
+	/** Sets the tool by its id for keyboard shortcuts. */
 	export function pickTool(id: SandboxToolId) {
-		session.tool = toolOf(id);
+		commands.pickTool(id);
 	}
-	function optionAt<Id extends string>(options: SandboxOption<Id>[], index: number, fallback: Id) {
-		return options[index]?.id ?? fallback;
-	}
-	/** Sets option n (0-based) of the active tool, if it has that many. */
+	/** Sets option n (0-based) for keyboard shortcuts. */
 	export function pickOption(index: number) {
-		const kind = session.tool.kind;
-		if (kind === 'house') chosen.house = optionAt(sandboxUses, index, chosen.house);
-		if (kind === 'line') chosen.line = optionAt(sandboxLines, index, chosen.line);
-		if (kind === 'cover') chosen.cover = optionAt(sandboxCovers, index, chosen.cover);
-		session.tool = toolOf(kind);
+		commands.pickOption(index);
 	}
 </script>
 
@@ -128,9 +127,8 @@
 	<div class="hud">
 		<ToggleGroup.Root
 			type="single"
-			orientation={narrow.current ? 'horizontal' : 'vertical'}
+			orientation={toolOrientation}
 			value={session.tool.kind}
-			onValueChange={(value) => value && pickTool(value as SandboxToolId)}
 			class="cg-sandbox-tools"
 			aria-label="Tool"
 		>
@@ -139,9 +137,8 @@
 					value={tool.id}
 					class="cg-button"
 					data-variant="icon"
-					aria-label={tool.name}
-					aria-keyshortcuts={tool.shortcut}
-					title="{tool.name} ({tool.shortcut})"
+					{...toolLabels(tool)}
+					{...activateChoice(() => pickTool(tool.id))}
 				>
 					<Icon icon={icons[tool.id]} size={24} />
 				</ToggleGroup.Item>
@@ -151,11 +148,11 @@
 		{#if options.length}
 			<div class="options">
 				<SandboxOptions
-					label={session.tool.kind === 'house' ? 'House use' : `${active?.name} options`}
+					label={optionLabel}
 					horizontal={narrow.current}
 					{options}
 					value={option}
-					onpick={pickOption}
+					onpick={(entry) => commands.pickValue(session.tool.kind, entry.id, entry.name)}
 				/>
 				{#if session.tool.kind === 'house'}
 					<SandboxOptions
@@ -164,10 +161,7 @@
 						value={session.method}
 						horizontal
 						compact
-						onpick={(index) => {
-							const method = methods[index];
-							if (method) session.pickMethod(method.id);
-						}}
+						onpick={(entry) => commands.pickMethod(entry.id)}
 					/>
 				{/if}
 			</div>
@@ -192,11 +186,7 @@
 			>
 				{#snippet icon()}<Icon icon={Redo2} size={24} />{/snippet}
 			</Button>
-			<Button
-				variant="icon"
-				label="New terrain"
-				onclick={() => session.restart(session.world.seed + 1)}
-			>
+			<Button variant="icon" label="New terrain" onclick={session.restart}>
 				{#snippet icon()}<Icon icon={Dices} size={24} />{/snippet}
 			</Button>
 		</div>
@@ -208,7 +198,23 @@
 		<output aria-label="World year">{year}</output>
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
-	{#if active}<p class="hint" role="status">{hint}</p>{/if}
+	<div class="hint" class:warning={Boolean(session.failure)}>
+		<span role="status">
+			{hint}
+			{#if session.requestedChoice}<span class="pending">Pending · {session.requestedChoice}</span
+				>{/if}
+		</span>
+		{#if session.failure}
+			<Button
+				variant="icon"
+				label="Dismiss survey warning"
+				title="Dismiss survey warning"
+				onclick={session.dismissRejection}
+			>
+				{#snippet icon()}<Icon icon={X} size={20} />{/snippet}
+			</Button>
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -221,7 +227,7 @@
 		right: var(--space-4);
 		translate: 0 -50%;
 		display: grid;
-		grid-template-columns: auto var(--ctl-m);
+		grid-template-columns: auto var(--sandbox-target);
 		grid-template-areas: 'options tools' '. history';
 		align-items: start;
 		gap: var(--space-4) var(--space-2);
@@ -275,6 +281,20 @@
 		text-align: right;
 		pointer-events: none;
 	}
+	.pending {
+		display: block;
+		color: var(--ink);
+	}
+	.warning {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.warning :global(.cg-button) {
+		min-width: var(--sandbox-target);
+		min-height: var(--sandbox-target);
+		pointer-events: auto;
+	}
 	.timeline {
 		position: absolute;
 		left: var(--space-4);
@@ -306,9 +326,9 @@
 		min-width: 0;
 		gap: var(--space-2);
 	}
-	@media (max-width: 980px) {
+	@media (min-width: 641px) and (max-width: 980px) {
 		.hint {
-			display: none;
+			bottom: calc(var(--sandbox-target) + var(--space-6));
 		}
 	}
 	/* Narrow screens: the tools lie along the bottom edge, options above them. */
@@ -317,20 +337,23 @@
 			position: absolute;
 			left: var(--space-2);
 			right: var(--space-2);
-			bottom: var(--space-2);
-			display: flex;
-			flex-direction: column-reverse;
-			align-items: stretch;
+			bottom: max(var(--space-2), env(safe-area-inset-bottom));
+			display: grid;
+			grid-template-columns: auto 1fr;
+			grid-template-areas: 'hint hint' 'options options' 'tools tools' 'timeline history';
+			grid-template-rows: auto auto auto auto;
 			gap: var(--space-2);
 			pointer-events: none;
 		}
 		.hud {
+			display: contents;
+		}
+		.hint {
 			position: static;
-			translate: none;
-			grid-template-columns: 1fr auto;
-			grid-template-areas: 'options options' 'tools history';
-			align-items: end;
-			column-gap: var(--space-1);
+			grid-area: hint;
+			justify-self: start;
+			max-width: 100%;
+			text-align: left;
 		}
 		.options {
 			display: flex;
@@ -339,7 +362,8 @@
 		}
 		.timeline {
 			position: static;
-			align-self: flex-start;
+			grid-area: timeline;
+			justify-self: start;
 			padding-left: var(--space-2);
 		}
 		.scale {
@@ -354,7 +378,10 @@
 		:global(.cg-sandbox-tools),
 		.history {
 			grid-auto-flow: column;
-			justify-content: start;
+			justify-self: start;
+		}
+		.history {
+			justify-self: end;
 		}
 		:global(.cg-sandbox-tools > .cg-button + .cg-button),
 		.history > :global(.cg-button + .cg-button) {

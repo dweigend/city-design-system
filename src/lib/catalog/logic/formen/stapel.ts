@@ -96,11 +96,19 @@ export type StapelLage = {
 	aus: number;
 };
 
+const unseated = (progress: number) => 1 - weich(progress);
+
+/** Vertical offset in meters while a part seats over a positive duration in milliseconds. */
+export function dropOffset(elapsedMs: number, durationMs: number): number {
+	return HUB.fall * unseated(elapsedMs / durationMs);
+}
+
 /** Position at time t. Inserting and pulling out each take 60 % of their step, then hold. */
 export function stapelLage(t: number): StapelLage {
 	const { index, u } = takt(stapelDauern, t);
 	const schritt = stapelSchritte[index].id;
-	const ein = 1 - weich(u / 0.6);
+	const ein = unseated(u / 0.6);
+	const drop = HUB.fall * ein;
 	const basis = { schritt, index, u, umgebaut: false, fall: null, aus: 0 };
 	switch (schritt) {
 		case 'bestand':
@@ -109,13 +117,13 @@ export function stapelLage(t: number): StapelLage {
 			return {
 				...basis,
 				sichtbar: ['bestand', 'geruest'],
-				fall: ein > 0 ? { schicht: 'geruest', z: HUB.fall * ein } : null
+				fall: ein > 0 ? { schicht: 'geruest', z: drop } : null
 			};
 		case 'einschub':
 			return {
 				...basis,
 				sichtbar: ['bestand', 'geruest', 'einschub', 'zutat'],
-				fall: ein > 0 ? { schicht: 'einschub', z: HUB.fall * ein } : null
+				fall: ein > 0 ? { schicht: 'einschub', z: drop } : null
 			};
 		case 'heraus':
 			return {

@@ -1,5 +1,4 @@
-import { constructionPhases } from './houses';
-import { chunksOfCells } from '../house-brush';
+import { affectedHouseGroups } from './houses';
 import { changedChunks, neighborsOf } from '../quad-grid';
 import type { World } from './world';
 
@@ -9,6 +8,7 @@ export type Changes = Readonly<{
 	terrain: boolean;
 	installations: boolean;
 	houseChunks: ReadonlySet<string>;
+	houseGroups: ReadonlyMap<string, string>;
 	forestChunks: ReadonlySet<string>;
 	/** Cells whose cover differs. */
 	coverCells: readonly string[];
@@ -35,21 +35,20 @@ function editedCells(before: World, after: World) {
 	];
 }
 
-function houseChunks(before: World, after: World, movedChunks: ReadonlySet<string>): Set<string> {
-	const cells = editedCells(before, after);
-	const chunks = new Set(movedChunks);
-	for (const world of [before, after]) {
-		const { grid, state } = world;
-		const moved = [...movedChunks].flatMap((chunk) => grid.chunks.get(chunk) ?? []);
-		const changed = cells.flatMap((id) => grid.cellsById.get(id) ?? []);
-		const affected = new Set(
-			[...moved, ...changed].flatMap((cell) => [cell, ...neighborsOf(grid, cell)])
-		);
-		for (const phase of constructionPhases(state).values()) {
-			for (const chunk of chunksOfCells(grid, phase, affected)) chunks.add(chunk);
+function movedCells(before: World, after: World, chunks: ReadonlySet<string>) {
+	const ids: string[] = [];
+	for (const chunk of chunks) {
+		for (const cell of after.grid.chunks.get(chunk) ?? []) {
+			if (before.grid.cellsById.get(cell.id) !== cell) ids.push(cell.id);
 		}
 	}
-	return chunks;
+	return ids;
+}
+
+function changedHouses(before: World, after: World, moved: ReadonlySet<string>) {
+	const ids = new Set([...editedCells(before, after), ...movedCells(before, after, moved)]);
+	if (!ids.size) return new Map<string, string>();
+	return new Map([...affectedHouseGroups(before, ids), ...affectedHouseGroups(after, ids)]);
 }
 
 function forestChunks(before: World, after: World, coverCells: readonly string[]): Set<string> {
@@ -73,6 +72,7 @@ export function changes(before: World, after: World): Changes {
 	const moved =
 		before.grid === after.grid ? new Set<string>() : changedChunks(before.grid, after.grid);
 	const coverCells = changedKeys(before.state.cover, after.state.cover);
+	const houseGroups = changedHouses(before, after, moved);
 	// Lines compare by reference: a re-routed line keeps its id but is a new route.
 	const beforeLines = new Set(before.lines);
 	const afterLines = new Set(after.lines);
@@ -82,7 +82,8 @@ export function changes(before: World, after: World): Changes {
 			before.grid !== after.grid ||
 			before.state.parts !== after.state.parts ||
 			before.state.year !== after.state.year,
-		houseChunks: houseChunks(before, after, moved),
+		houseChunks: new Set(houseGroups.values()),
+		houseGroups,
 		forestChunks: new Set([...forestChunks(before, after, coverCells), ...moved]),
 		coverCells,
 		removedLines: before.lines.filter((line) => !afterLines.has(line)).map((line) => line.id),

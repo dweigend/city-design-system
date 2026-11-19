@@ -1,3 +1,5 @@
+import * as THREE from 'three/webgpu';
+import { STORY } from '../../data/grid';
 import type { World } from '../../logic/sandbox';
 import type { OpeningArea, View } from './view';
 
@@ -18,4 +20,20 @@ export function frameOldTown(view: View, world: World, area?: OpeningArea) {
 	if (!view.isPortrait()) return false;
 	const cell = centralCell(world);
 	return cell ? view.framePortrait(cell.center, cell.corners, area) : false;
+}
+
+/** Frames the projected desktop town at half the canvas width. */
+export function frameTownSilhouette(view: View, { grid, state }: World) {
+	const points: THREE.Vector3[] = [];
+	for (const [id, stories] of state.stacks) {
+		const cell = grid.cellsById.get(id);
+		if (!cell) continue;
+		for (const [x, y, z] of cell.corners) {
+			points.push(new THREE.Vector3(x, z, -y));
+			points.push(new THREE.Vector3(x, cell.pad + stories.length * STORY, -y));
+		}
+	}
+	if (!points.length) return false;
+	view.frameSilhouette(points);
+	return true;
 }

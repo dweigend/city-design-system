@@ -15,7 +15,7 @@ import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
 import { WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
-import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
+import { baseGeometry, patchSurface, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
 
 /** A constant screen-space field has no resolvable contour. */
@@ -81,7 +81,6 @@ export function createTerrainMesh(
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const peopleFocus = uniform(0);
-	const pathInk = mix(colors.ink, colors.people, peopleFocus);
 	const cover = coverTexture(grid);
 	const alleys = alleyOverlay(grid, profile, nodes);
 	const chart = attribute('chart', 'vec2');
@@ -159,7 +158,7 @@ export function createTerrainMesh(
 			.max(parcelLine.mul(nodes.parcel));
 		return alleys.shade(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
-			pathInk,
+			colors.ink,
 			colors.people,
 			paperColor,
 			peopleFocus,
@@ -182,10 +181,11 @@ export function createTerrainMesh(
 	const base = baseGeometry(grid);
 	const baseMesh = new THREE.Mesh(base.geometry, baseMaterial);
 	let baseLines = base.lines;
+	let currentGrid = grid;
 
 	const group = new THREE.Group();
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
-	deckMaterial.colorNode = mix(paperColor, pathInk, nodes.footbridgeTone);
+	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(surface, water, baseMesh, deck);
 
@@ -219,7 +219,8 @@ export function createTerrainMesh(
 				mesh.geometry = geometry;
 			};
 			replace(deck, footbridgeGeometry(next));
-			replace(surface, surfaceGeometry(next));
+			patchSurface(surface.geometry, currentGrid, next);
+			currentGrid = next;
 			replace(water, waterGeometry(next));
 			replace(baseMesh, nextBase.geometry);
 			baseLines = nextBase.lines;

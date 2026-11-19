@@ -1,4 +1,5 @@
 import { createCanvasHover } from './canvas-hover';
+import { checkHeldErase } from './fixtures/held-erase';
 import legacy from './fixtures/seed-7-pick-lots.json';
 import { reviewWorld } from './fixtures/review-world';
 import assert from 'node:assert/strict';
@@ -20,7 +21,7 @@ import { surfaceGeometry } from './terrain-geometry';
 if (process.env.HOUSE_RAY_PROBE === '1') await compareRays();
 else
 	test(
-		'brush rays follow visible stock across views and a stationary hover follows the roof swap',
+		'brush rays follow visible stock across views and a roof swap preserves a held erase',
 		{ timeout: 60000 },
 		() => {
 			const run = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
@@ -37,8 +38,7 @@ function setup(world: World) {
 	const ground = new THREE.Mesh(surfaceGeometry(world.grid), new THREE.MeshBasicMaterial());
 	const bounds = new THREE.Box3().setFromObject(ground);
 	const pick = createCellPicker(view);
-	const select = (x: number, y: number, solids: THREE.Object3D[]) =>
-		pick(x, y, world.grid, ground, solids);
+	const select = (x: number, y: number, solids: THREE.Object3D[]) => pick(x, y, world.grid, solids);
 	return { ground, bounds, view, select };
 }
 
@@ -138,7 +138,10 @@ async function compareRays() {
 	regression.bounds.set(new THREE.Vector3(xmin, zmin, -ymax), new THREE.Vector3(xmax, zmax, -ymin));
 	const scene = setup(seed);
 	for (const state of [base, { ...base, roofBuilder }]) {
-		const town = await render(state);
+		const town = await render(state, true);
+		town.move(0);
+		checkReported(state, regression, town.solids);
+		town.move(1000);
 		checkReported(state, regression, town.solids);
 		town.dispose();
 	}
@@ -168,8 +171,11 @@ async function compareRays() {
 			marked = id;
 		}
 	);
-	for (const world of [seed, { ...seed, roofBuilder }]) {
+	const detailed = { ...seed, roofBuilder };
+	const towns = [];
+	for (const world of [seed, detailed]) {
 		const town = await render(world);
+		towns.push(town);
 		for (const plan of [false, true])
 			for (const zoom of [1, 0.4, 0.11]) checkView(world, scene, town, plan, zoom);
 		scene.view.setPlan(false);
@@ -196,8 +202,12 @@ async function compareRays() {
 		assert.equal(erased.state.stacks.has(clicked.id), false);
 		const neighbor = expected === '81/38' ? '81/39' : '81/38';
 		assert.equal(erased.state.stacks.get(neighbor), world.state.stacks.get(neighbor));
-		town.dispose();
 	}
+	// This probe already runs in an isolated process for the Svelte theme double.
+	Object.assign(globalThis, { window: new EventTarget(), cancelAnimationFrame() {} });
+	const uninterrupted = checkHeldErase(scene.view, hover, seed, seed, position);
+	assert.deepEqual(checkHeldErase(scene.view, hover, seed, detailed, position), uninterrupted);
+	for (const town of towns) town.dispose();
 	scene.ground.geometry.dispose();
 	scene.ground.material.dispose();
 }
