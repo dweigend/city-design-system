@@ -1,7 +1,5 @@
 # Coding Standards
 
-As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
-
 Owner for: priorities, readability, types, validation, state and effects, reference code, refactoring, completion. Applies to all code under `src/`: data, logic, scenes, components, tests.
 
 ## Priorities

@@ -26,6 +26,8 @@ The design bible moves from the whole to the detail and is organized into two se
 ### Workshop (derivation, simulation, and image archive)
 
 - **Lab** (`/labor`) – Full world simulation, procedural principles, and workbench studies
+- **Asset catalog** (`/labor/assets`) – Contact sheets for sandbox objects and materials
+- **Sandbox studies** – City simulation (`/sandbox`), acceptance studies (`/sandbox/abnahme`), and house study (`/sandbox/haus`)
 - **Archive** (`/archiv`) – Cataloged image collection of designs, raw material, and references
 - **Legacy redirects** – `/bibliothek`, `/design`, `/designs`, `/fokus`, `/icons`, `/modellierung`, and `/prinzipien` are only redirects to the corresponding chapter pages
 
@@ -49,16 +51,7 @@ bun install
 bun run dev                # Development server (http://localhost:5173)
 ```
 
-Mandatory verification commands before every delivery:
-
-```sh
-bun run test               # Behavior tests
-bun run test:perf          # Performance tests, one file at a time
-bun run check              # svelte-kit sync & svelte-check (type and Svelte check)
-bun run lint               # Prettier & ESLint (including CSS boundary checks)
-bun run build              # Production build
-bun run check:boundaries   # Architecture and import boundaries (dependency-cruiser & AST)
-```
+Run `bun run verify` before every delivery. For browser-facing changes, also run `bun run test:browser`.
 
 ## Architecture
 

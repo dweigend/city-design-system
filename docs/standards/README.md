@@ -1,7 +1,5 @@
 # Design Bible Standards
 
-As of 2026-11-14. **Draft.** Author sign-off remains open. These files establish rules. They do not serve as proof of implementation.
-
 The goal remains the design bible as a SvelteKit website. It generates a city procedurally. Therefore it requires binding rules for mathematics, code, architecture, and documentation. The foundation is the standards of the sister repository `city-library`. They apply here in full in their domain intent, translated to the catalog, bible pages, labs, demos, and scenes. The library is read-only and never modified.
 
 The derivation from the city library lives in the private design lab.
@@ -62,16 +60,12 @@ If two rules contradict each other, the conflict is reported and not resolved si
 
 ## Roles and Review
 
-Set by David (2026-11-12, extended 2026-11-17). Model assignment per task: local skill `model-routing`, which links here.
-
-- Implementer and reviewer are always different agents, from different model families. Self-review is not a sign-off.
-- Opus 5.5 orchestrates, designs and implements; GPT-6.1 Sol is the implementation workhorse; in the Sol loop it is the reviewer at fixed low reasoning, without automatic escalation, while the implementing agent answers its findings. A Sol review of Sol-built code is a same-family check, not the independent review; GPT-6 Luna takes routine chores. Never Haiku.
-- Critical changes (CI, workflows, build configuration, secrets): specialist review by Fable 5.2. Independent reviews and sign-off: GPT-6 Astra.
-- **Merge council for `main`:** two independent, mandatory reviews, one from a Claude model and one from a Codex model. A smaller Antigravity review is optional and never blocks. The Claude reviewer is never the implementing agent; for a change built by a Claude model the Codex review provides the different-family review. The council reports findings; merging stays David's decision (GW-02).
-- Quota exhaustion, timeouts or reaching a round limit are never an approval. Sign-off stays open.
-- Critical or ambiguous decisions go to David; no agent settles them.
-- No silent substitution. If a model is unavailable, sign-off remains open.
-- Independent browser sign-off on screenshots ([DS-71](DESIGN_STANDARDS.md#browser-and-screenshot-sign-off)) may be done by GPT-6.1 Sol.
+- The implementer and reviewer are always different agents.
+- Critical changes to CI, workflows, build configuration, or secrets require specialist review.
+- **Merge council for `main`:** two independent reviews are mandatory. Both reviewers must be independent of the implementer. The council reports findings. David authorizes merges (GW-02).
+- Approval requires a completed review. Sign-off remains open if a required reviewer is unavailable or a review ends early.
+- Critical or ambiguous decisions go to David.
+- Browser sign-off requires an independent review of current screenshots ([DS-71](DESIGN_STANDARDS.md#browser-and-screenshot-sign-off)).
 - Findings and responses are recorded separately from sign-off.
 - Reviews report only real issues (AGENTS.md, "Code Review Rules"). Size and complexity numbers are hints, not findings.
 
@@ -135,13 +129,13 @@ David decided on 2026-11-16 that all text, comments, documentation, and website 
 | Decision                                                                                                                                                                             | Evidence                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
 | Library standards apply here 100%, translated, not copied. Read-only access to the library.                                                                                          | Brief David, 2026-11-12          |
-| Review routing and separation of implementer and reviewer (above).                                                                                                                   | Brief David, 2026-11-12          |
+| Separation of implementer and reviewer (above).                                                                                                                                      | Brief David, 2026-11-12          |
 | Bits UI for UI, three.js for 3D, CSS only in `src/app.css` and catalog components.                                                                                                   | AG                               |
 | Color contract of the flows.                                                                                                                                                         | Code `data/focus.ts`, 2026-11-11 |
 | `*.test.ts` belongs to `dev` regardless of folder; runtime code must not import `dev` ([A-27](ARCHITECTURE.md#import-matrix)).                                                       | Brief David, 2026-11-16          |
 | Private skills are never tracked.                                                                                                                                                    | AG                               |
 | Two permanent branches; `experimente` is rebased onto `main` after every merge, never rebuilt and never merged into `main` ([GW-13–GW-16](../development/git-workflow.md#branches)). | Brief David, 2026-11-17          |
-| Review council, Sol loop (Sol reviews at fixed low reasoning), root-cause method, browser evidence (above).                                                                          | Brief David, 2026-11-17          |
+| Review council, root-cause method, browser evidence (above).                                                                                                                         | Brief David, 2026-11-17          |
 | CI `verify` on pull requests and `main`; ruleset after the first report ([GW-60–GW-62](../development/git-workflow.md#ci-and-branch-protection)).                                    | Brief David, 2026-11-17          |
 
 ## Local Skills

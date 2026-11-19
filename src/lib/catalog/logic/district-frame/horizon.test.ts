@@ -97,18 +97,10 @@ test('matched seam rollouts score delayed gains and expose bounded search effort
 			state = result.state;
 			utility += Object.values(result.contributions).reduce((a, b) => a + b, 0);
 		}
-		rows.push({
-			strategy,
-			first,
-			utility,
-			depth: plan.diagnostics.completedDepth,
-			expansions: plan.diagnostics.expansions,
-			pruned: plan.diagnostics.pruned
-		});
+		rows.push({ first, utility });
 	}
 	expect(rows[1].utility).toBe(rows[0].utility);
 	expect(rows[2].first).not.toBe(rows[0].first);
-	console.info('PLANNING ' + JSON.stringify(rows));
 	const exhausted = solve({ ...ctx, search: { budget: 0 } });
 	expect(exhausted).toMatchObject({
 		reason: 'budget',
@@ -142,5 +134,4 @@ test('a newly announced court entrance revises the second phase across 64 seeded
 	}
 	expect(revisions).toBe(64);
 	expect(unchanged).toBe(64);
-	console.info('STABILITY ' + JSON.stringify({ seeds: 64, revisions, unchanged }));
 });

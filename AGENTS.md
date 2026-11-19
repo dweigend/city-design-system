@@ -12,7 +12,7 @@ Design bible for a city-builder game as a SvelteKit website. TypeScript, bun. Al
 - One vocabulary: names follow [NAMING_CONVENTIONS](docs/standards/NAMING_CONVENTIONS.md) and [GLOSSARY](docs/standards/GLOSSARY.md). Document every public function (C-23).
 - CSS only in `src/app.css` (globals only, short) and in catalog components. None in `src/routes/**`: no `<style>`, no inline styles.
 - Procedural code: seed, draw sequence, units (meters, radians), tolerances and invariants follow [PROCEDURAL_PRINCIPLES](docs/standards/PROCEDURAL_PRINCIPLES.md). No performance or quality claim without measurement.
-- Research, ideas and side experiments happen in the private repo `city-design-lab` (sibling folder); `main` only gets accepted results. Code experiments that need the catalog stay on branch `experimente`, which is never merged into `main` ([GW-13–GW-16](docs/development/git-workflow.md#branches)).
+- Research, ideas and side experiments happen in the private lab repository (sibling folder); `main` only gets accepted results. Code experiments that need the catalog stay on branch `experimente`, which is never merged into `main` ([GW-13–GW-16](docs/development/git-workflow.md#branches)).
 - A new public contract phase starts with 4–5 accepted, executable examples. Refactors preserve behavior, identity, ordering and RNG continuation.
 - Root cause first; review roles, merge council and browser evidence: [Roles and Review](docs/standards/README.md#roles-and-review).
 

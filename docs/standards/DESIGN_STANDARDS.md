@@ -1,7 +1,5 @@
 # Design Standards
 
-As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
-
 Owner for: UI stack and precedence, tokens, technical color and material contract, CSS boundaries, component API, accessibility, browser and screenshot sign-off. The visual design statements themselves (vision, color rules, forms) belong to the Bible; their texts live in `src/lib/catalog/data/`.
 
 ## UI Stack and Precedence
@@ -73,7 +71,7 @@ Status of search on 2026-11-12: no CSS in routes. An ESLint rule is configured f
 | DS-63 | 3D views have a text alternative or caption. Their controls sit outside the canvas and are keyboard-operable. | Transfer addendum · V           |
 | DS-64 | Motion respects `prefers-reduced-motion`.                                                                     | Proposal of this file · V       |
 
-No audit conducted. Search status: `prefers-reduced-motion` does not appear in code.
+The global stylesheet sets transition and animation durations to zero when `prefers-reduced-motion: reduce` matches.
 
 ## Browser and Screenshot Sign-off
 
