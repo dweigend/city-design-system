@@ -17,3 +17,4 @@ export function composedHouse(site: HouseSite, surfaces?: HouseSurfaces) {
 export { composedGroups, paintedSections, sectionGroups } from './groups';
 
 export type { HouseObstacle } from './clearance';
+export { person } from './people';

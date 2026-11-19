@@ -48,7 +48,10 @@ function movedCells(before: World, after: World, chunks: ReadonlySet<string>) {
 
 function changedHouses(before: World, after: World, moved: ReadonlySet<string>) {
 	const ids = new Set([...editedCells(before, after), ...movedCells(before, after, moved)]);
-	if (!ids.size) return new Map<string, string>();
+	if (!ids.size)
+		return before.state.cover === after.state.cover
+			? new Map<string, string>()
+			: changedSpans(before, after);
 	return new Map([
 		...affectedHouseGroups(before, ids),
 		...affectedHouseGroups(after, ids),

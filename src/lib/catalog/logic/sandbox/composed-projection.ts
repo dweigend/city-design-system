@@ -1,3 +1,4 @@
+import { networkGroups } from './network-groups';
 import { nextSeed } from '../../core/random';
 import { required } from '../required';
 import { isPainted } from './house-phase-ink';
@@ -56,18 +57,20 @@ function survey(world: World) {
 			] as const;
 		})
 	);
-	return sectionGroups(world.grid, sections, world.seed, houseObstacles(plots, world.state)).map(
-		(g) => {
-			const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
-			return {
-				...g,
-				start: owners[0].start,
-				seed: owners[0].seed,
-				built: Math.max(...owners.map((p) => p.built)),
-				painted: owners.some((p) => p.painted)
-			};
-		}
-	);
+	const stock = houseObstacles(plots, world.state);
+	return [
+		...sectionGroups(world.grid, sections, world.seed, stock),
+		...networkGroups(world, sections, r3, stock)
+	].map((g) => {
+		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
+		return {
+			...g,
+			start: owners[0].start,
+			seed: owners[0].seed,
+			built: Math.max(...owners.map((p) => p.built)),
+			painted: owners.some((p) => p.painted)
+		};
+	});
 }
 const projections = new WeakMap<World, ReturnType<typeof survey>>();
 /** Surveys whole composed runs across build years, including links between different generations. */

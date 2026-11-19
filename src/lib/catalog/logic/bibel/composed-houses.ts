@@ -1,3 +1,5 @@
+import { ensembleNetwork } from '../sandbox';
+import { required } from '../required';
 import { planHouse, sectionParts, houseLinks, paintedSections } from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { squareGrid } from '../quad-grid';
@@ -35,7 +37,26 @@ function ensemble(): RulePlate {
 		]
 	};
 }
-/** Four reproducible single-house typologies and one connected painted ensemble. */
+function publicWalk(): RulePlate {
+	const seed = 7,
+		grid = squareGrid(3, 3, 12);
+	const ids = ['0/0', '1/0', '1/1', '2/1', '1/2'];
+	const stacks = new Map(ids.map((id, i) => [id, mixed.slice(0, [2, 4, 1, 3, 2][i])]));
+	const houses = paintedSections(grid, stacks, seed);
+	const site = { terrain: () => 0, blocked: () => [], stock: [] };
+	const path = required(ensembleNetwork(houses, site, seed), 'five-house public walkway');
+	return {
+		id: 'public-walk',
+		title: 'One public walkway',
+		text: 'A branching ground path meets the foot of each house stair. Small groups of people mark its scale.',
+		primitives: [
+			...houses.flatMap((h) => sectionParts(h)),
+			...houseLinks(grid, houses, seed).flatMap((b) => b.parts),
+			...path.parts()
+		]
+	};
+}
+/** Four single-house typologies and two ensembles with their shared circulation. */
 export function composedHousePlates(): RulePlate[] {
 	return [
 		single(
@@ -67,6 +88,7 @@ export function composedHousePlates(): RulePlate[] {
 			Array<HouseUse>(5).fill('living'),
 			1
 		),
-		ensemble()
+		ensemble(),
+		publicWalk()
 	];
 }
