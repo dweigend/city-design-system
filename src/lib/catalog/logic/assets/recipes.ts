@@ -1,3 +1,5 @@
+import { waterFeatures } from './water-features';
+import { rainFittings } from './rain-fittings';
 import { gardenBeds } from './garden-beds';
 import { verticalGardens } from './vertical-gardens';
 import { playgrounds } from './playgrounds';
@@ -114,5 +116,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...plazaSeats,
 	...playgrounds,
 	...gardenBeds,
-	...verticalGardens
+	...verticalGardens,
+	...waterFeatures,
+	...rainFittings
 ];
