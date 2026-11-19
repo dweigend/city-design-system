@@ -1,73 +1,51 @@
-import { flowToken } from '../../data/focus';
 import type { Vec3 } from '../parametrik/types';
-import { walkwayParts } from '../walkway';
-import { piece } from './parts';
-import type { Section } from './types';
+import { normal } from './deck-plan';
+import { slab } from './parts';
+import { accessRibbon } from './ribbon';
+import type { Section,Deck } from './types';
+import { flowToken } from '../../data/focus';
 
-function flight(id: string, a: Vec3, b: Vec3, width: number) {
-	const parts = walkwayParts(
-		[a, b],
-		{ id, width, groundZ: Math.max(a[2], b[2]), simplifyAtCity: true },
-		{ thickness: 0.12, treadRise: 0.32 }
-	);
-	const dx = b[0] - a[0],
-		dy = b[1] - a[1],
-		scale = (width * 0.46) / Math.hypot(dx, dy);
-	for (const side of [-1, 1]) {
-		const shift = ([x, y, z]: Vec3): Vec3 => [x - side * dy * scale, y + side * dx * scale, z];
-		parts.push(
-			piece(
-				id + '/stringer/' + side,
-				{ kind: 'pipe', points: [shift(a), shift(b)], radius: Math.min(width * 0.095, 0.115) },
-				flowToken.people
-			)
-		);
-	}
-	return parts;
+function end(d:Deck,s:Section,sign:number):Vec3{
+ const [nx,ny]=normal[s.aspect.stair];
+ return [d.position[0]+(nx*.47-ny*sign*.34)*d.width,d.position[1]+(ny*.47+nx*sign*.34)*d.depth,d.position[2]];
 }
-function perimeter(s: Section, angle: number, z: number): Vec3 {
-	const [x, y] = s.base;
-	return [x + Math.cos(angle) * s.width * 0.46, y + Math.sin(angle) * s.depth * 0.46, z];
+function switchbacks(s:Section){
+ const first=end(s.decks[0],s,-1);first[2]=s.base[2]+.18;
+ const points=[first,...s.decks.map((d,i)=>end(d,s,i%2?-1:1))];
+ const last=points[points.length-1],roof=roofLanding(s);
+ // Turn around the crown on the side face, landing on the rear roof walk.
+ const d=s.decks[s.decks.length-1],side=last[0]>=d.position[0]?1:-1;
+ const elbow:Vec3=[d.position[0]+side*d.width*.5,last[1],last[2]];
+ return [...points,elbow,[elbow[0],roof[1],s.top] as Vec3,roof].slice(1).map((to,i,ends)=>[i?ends[i-1]:first,to]).filter(([a,b])=>Math.hypot(b[0]-a[0],b[1]-a[1])>.01);
 }
-function spiral(s: Section) {
-	let angle = -Math.PI * 0.72,
-		z = s.base[2] + 0.15;
-	const route = [perimeter(s, angle, z)];
-	for (const d of s.decks) {
-		const rise = d.position[2] - z;
-		for (let j = 1; j <= 4; j++)
-			route.push(perimeter(s, angle + (j * Math.PI) / 9, z + (rise * j) / 4));
-		angle += (4 * Math.PI) / 9;
-		z = d.position[2];
-	}
-	const target = Math.PI * 0.25 + 2 * Math.PI * Math.ceil((angle - Math.PI * 0.25) / (2 * Math.PI));
-	const steps = Math.max(1, Math.ceil((target - angle) / (0.16 * Math.PI)));
-	for (let i = 1; i <= steps; i++)
-		route.push(perimeter(s, angle + ((target - angle) * i) / steps, z + ((s.top - z) * i) / steps));
-	return route;
+function roofLanding(s:Section):Vec3{return [s.base[0]+s.width*.2,s.base[1]+s.depth*.22,s.top];}
+function spiral(s:Section){
+ const [nx,ny]=normal[s.aspect.stair];
+ let angle=Math.atan2(ny,nx),radius=s.decks[0].width*.47,z=s.base[2]+.18;
+ const paths:Vec3[][]=[];
+ for(const d of s.decks){
+  const next=d.width*.47,rise=d.position[2]-z;
+  paths.push(Array.from({length:17},(_,i):Vec3=>{
+   const t=i/16,a=angle+Math.PI*t,r=radius+(next-radius)*t;
+   return [d.position[0]+Math.cos(a)*r,d.position[1]+Math.sin(a)*r,z+rise*t];
+  }));
+  z+=rise;angle+=Math.PI;radius=next;
+ }
+ const last=paths[paths.length-1][16];
+ const top=roofLanding(s),d=s.decks[s.decks.length-1];
+ const target=Math.atan2(top[1]-d.position[1],top[0]-d.position[0]);
+ const turn=((target-angle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+ paths.push(Array.from({length:17},(_,i):Vec3=>{
+  const t=i/16,a=angle+turn*t,r=radius+(Math.hypot(top[0]-d.position[0],top[1]-d.position[1])-radius)*t;
+  return [d.position[0]+Math.cos(a)*r,d.position[1]+Math.sin(a)*r,last[2]+(s.top-last[2])*t];
+ }));
+ return paths;
 }
-function switchback(s: Section) {
-	const [x, y, z] = s.base,
-		front = y - s.depth * 0.45;
-	const route: Vec3[] = [[x - s.width * 0.35, front, z + 0.15]];
-	for (const [i, d] of s.decks.entries())
-		route.push([d.position[0] + d.width * (i % 2 ? -0.37 : 0.37), front, d.position[2]]);
-	const last = route.at(-1)!,
-		side = last[0] > x ? 1 : -1;
-	const edge = s.decks.at(-1)!.position[0] + side * s.decks.at(-1)!.width * 0.455;
-	route.push(
-		[edge, front, last[2]],
-		[edge, y + s.depth * 0.29, s.top],
-		[x + side * s.width * 0.32, y + s.depth * 0.29, s.top]
-	);
-	return route;
-}
-/** Exterior switchbacks or a polygonal spiral connect every walking surface to the pad. */
-export function access(s: Section) {
-	const path = s.plan === 'round' ? spiral(s) : switchback(s);
-	return path
-		.slice(1)
-		.flatMap((p, i) =>
-			flight(s.id + '/stair/' + i, path[i], p, Math.max(0.5, Math.min(1.35, s.width * 0.1)))
-		);
+/** One solid flight and landing per tier, with a winding ribbon on circular plans. */
+export function access(s:Section){
+ const round=s.plan==='round',paths=round?spiral(s):switchbacks(s);
+ return paths.flatMap((path,i)=>{
+  const id=s.id+'/stair/'+i,p=path[path.length-1],width=1.6;
+  return [...accessRibbon(id,path,width,!round),slab(id+'/landing',[p[0],p[1],p[2]-.14],width,width,.14,.14,flowToken.people)];
+ });
 }

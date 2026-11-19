@@ -182,3 +182,5 @@ export {
 	type LinkKind,
 	type CrownKind
 } from './composed-policy';
+
+export { houseAspect, type HouseSide } from './house-aspect';

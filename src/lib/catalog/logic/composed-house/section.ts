@@ -1,5 +1,6 @@
 import { STORY } from '../../data/grid';
-import { houseProgramme } from '../district-frame';
+import { deckPlan } from './deck-plan';
+import { houseAspect, houseProgramme } from '../district-frame';
 import { footprintBay } from './footprint';
 import type { Deck, HouseSite, Section } from './types';
 import { assetSlots } from './slots';
@@ -21,7 +22,8 @@ export function planHouse(site: HouseSite): Section {
 	);
 	const district = site.district ?? 'infill';
 	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed);
-	const bay = footprintBay(cells),
+	const aspect=houseAspect(id,stories,uses,site.seed);
+ const bay = footprintBay(cells),
 		round = plan === 'round';
 	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * 0.94,
 		depth = round ? width : bay.depth * 0.94;
@@ -37,14 +39,9 @@ export function planHouse(site: HouseSite): Section {
 		);
 		const height = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
 		const { kind, use } = kinds[i];
+ const shape=deckPlan(i,count,round,aspect);
 		return {
-			position: [
-				bay.x + (round ? 0 : (i % 2 ? 1 : -1) * Math.min(width * 0.085, 0.85)),
-				bay.y,
-				height
-			],
-			width: width * (1 - (i % 2) * 0.035),
-			depth: depth * (1 - (i % 2) * 0.035),
+			position:[bay.x+width*shape.x,bay.y+depth*shape.y,height],width:width*shape.width,depth:depth*shape.depth,
 			round,
 			programme: uses[i],
 			kind,
@@ -54,7 +51,7 @@ export function planHouse(site: HouseSite): Section {
 	const section: Section = {
 		id,
 		cells,
-		district,
+		district,aspect,
 		start,
 		base,
 		width,
