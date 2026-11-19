@@ -16,19 +16,14 @@ const pigments: Record<string, ColorToken> = {
 	basin: '--cat-health-3',
 	funnel: '--cat-health'
 };
-export type SuggestedSurface = AssetSurface & { draft?: boolean };
 
 /** Resolves a recipe's authored slot suggestion, including the original city drafting treatment. */
-export function suggestedSurface(
-	recipe: AssetRecipe,
-	variant: string,
-	slot: string
-): SuggestedSurface {
+export function suggestedSurface(recipe: AssetRecipe, variant: string, slot: string): AssetSurface {
 	const preset = recipe.finishes?.[variant] ?? recipe.suggestions?.[slot];
 	if (preset) return { ...preset };
 	const token = pigments[slot];
 	if (!token) throw new RangeError('Missing slot suggestion: ' + recipe.id + '/' + slot);
 	if (recipe.category === 'ceramics' || slot === 'basin' || slot === 'funnel')
 		return { token, material: 'glaze', finish: 'keramik-glasiert' };
-	return { token, material: 'metal', finish: 'metal', draft: slot !== 'frame' };
+	return { token, material: 'metal', finish: slot === 'frame' ? 'metal' : 'city-drawing' };
 }

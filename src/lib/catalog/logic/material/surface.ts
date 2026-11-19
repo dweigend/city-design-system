@@ -16,6 +16,7 @@ export type SurfaceRecipe =
 	| { kind: 'pattern'; id: PrintPattern; token: ColorToken; translucent?: boolean };
 
 export const finishCatalogue: readonly { id: FinishId; name: string }[] = [
+	{ id: 'city-drawing', name: 'City drawing' },
 	...materials.map(({ id, name }) => ({ id, name: id === 'glaze' ? 'Dipped glaze print' : name })),
 	...materialAusfuehrungen.map(({ id, name }) => ({ id, name })),
 	{ id: 'fired-slip', name: 'Fired slip' },
@@ -29,6 +30,11 @@ export const finishCatalogue: readonly { id: FinishId; name: string }[] = [
 
 /** Resolves an explicit pigment and finish without consulting geometry, role or theme. */
 export function resolveFinish(id: FinishId, token: ColorToken): SurfaceRecipe {
+	if (id === 'city-drawing')
+		return {
+			...drawingSurface({ ...materialLook('metal', token), token, paper: 0, tint: {} }),
+			id
+		};
 	if (id === 'fired-slip') return { kind: 'kiln', id, token };
 	if (id === 'glaze' || id === 'print-terrazzo' || id === 'halftone')
 		return { kind: 'print', id, token };
@@ -56,7 +62,7 @@ export function physicalRecipe(
 }
 
 /** Translates the compact drawing vocabulary to the same six-node recipe as the bible diagram. */
-export function drawingSurface(look: MaterialLook): SurfaceRecipe {
+export function drawingSurface(look: MaterialLook): Extract<SurfaceRecipe, { kind: 'diagram' }> {
 	const spec = materialSpec(look.material);
 	const family = familien.find((f) => f.material === look.material)?.id ?? 'bestand';
 	const r = rezept(family);
@@ -84,11 +90,17 @@ export function drawingSurface(look: MaterialLook): SurfaceRecipe {
 /** Dresses a triangle-bearing part after generation; drawing strokes retain their original treatment. */
 export function applySurface(part: Primitive, finish?: FinishId, token?: ColorToken): Primitive {
 	if (part.kind === 'polyline' || (finish === undefined && token === undefined)) return part;
+	if (finish === 'city-drawing') {
+		const result = { ...part, token: token ?? part.token };
+		delete result.finish;
+		return result;
+	}
 	return { ...part, ...(finish === undefined ? {} : { finish }), token: token ?? part.token };
 }
 
 /** Returns the game material family for an externally selected finish. */
 export function finishMaterial(id: FinishId): MaterialId {
+	if (id === 'city-drawing') return 'metal';
 	const physical = materialAusfuehrungen.find((f) => f.id === id);
 	if (physical) return familie(physical.familie).material;
 	const material = materials.find((m) => m.id === id);

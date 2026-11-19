@@ -60,9 +60,9 @@ export function buildObject(
 		const { token, finish } = chosen ?? suggestion;
 		return {
 			...shape,
-			material: chosen ? finishMaterial(finish) : suggestion.material,
+			material: finish === suggestion.finish ? suggestion.material : finishMaterial(finish),
 			token,
-			...(chosen || !suggestion.draft ? { finish } : {})
+			...(finish === 'city-drawing' ? {} : { finish })
 		};
 	});
 	return { geometry, defaults, parts, footprint: recipe.footprint, anchors: recipe.anchors };

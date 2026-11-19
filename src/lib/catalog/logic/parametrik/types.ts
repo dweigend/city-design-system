@@ -30,6 +30,7 @@ export const surfaceTokens = [
 export type ColorToken = (typeof surfaceTokens)[number];
 /** A surface selected independently of a generated solid or sheet. */
 export type FinishId =
+	| 'city-drawing'
 	| MaterialId
 	| import('../../data/materialAusfuehrung').AusfuehrungId
 	| import('../../data/materialPrint').PrintFinish;
