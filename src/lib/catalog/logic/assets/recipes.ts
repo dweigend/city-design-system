@@ -29,6 +29,7 @@ import { twoSuns } from './two-suns';
 import { memphis } from './memphis';
 import { waterTower } from './water-tower';
 import { tankFrame } from './tank-frame';
+import { windmill } from './windmill';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -60,5 +61,6 @@ export const recipes: readonly AssetRecipe[] = [
 	twoSuns,
 	memphis,
 	waterTower,
-	tankFrame
+	tankFrame,
+	windmill
 ];
