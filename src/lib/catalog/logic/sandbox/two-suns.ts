@@ -2,6 +2,7 @@ import { storiesOf } from '../house-brush';
 import type { Primitive } from '../parametrik/types';
 import type { World } from './world';
 
+export const TWO_SUNS_CELLS = ['111/42', '110/43'] as const;
 export const TWO_SUNS_MAST = 'two-suns:mast';
 export const TWO_SUNS_TURNING_DISC = 'two-suns:disc-b';
 export const TWO_SUNS_PERIOD_S = 90;
@@ -19,7 +20,8 @@ function freeCell({ grid, state }: World, id: string) {
 
 /** Places the fixed landmark on the first free surveyed cell, without drawing randomness. */
 export function twoSuns(world: World): Primitive[] {
-	const cell = freeCell(world, '111/42') ?? freeCell(world, '110/43');
+	const [primary, fallback] = TWO_SUNS_CELLS;
+	const cell = freeCell(world, primary) ?? freeCell(world, fallback);
 	if (!cell) return [];
 	const [x, y, z] = cell.center;
 	const paper = { role: 'neu', material: 'paper' } as const;

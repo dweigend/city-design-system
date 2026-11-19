@@ -1,5 +1,6 @@
-import { twoSuns } from './two-suns';
+import { TWO_SUNS_CELLS, twoSuns } from './two-suns';
 import { advanceFrames } from './frame-construction';
+import { planTownForms } from '../town-forms';
 import { walkwayParts, WALKWAY_WIDTH_M } from '../walkway';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { applyEdit, createWorld, type World } from './world';
@@ -16,9 +17,13 @@ const cellsIn = ([i0, j0, i1, j1]: Rect) => {
 	for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) ids.push(`${i}/${j}`);
 	return ids;
 };
-/** One story of colour bodies on every buildable cell of the rectangle. */
-const story = (use: Use, rect: Rect): Edit[] =>
-	cellsIn(rect).map((cellId) => ({ kind: 'raise', cellId, use, style: 'collage' }));
+const collageStory = (cellId: string, use: Use): Edit => ({
+	kind: 'raise',
+	cellId,
+	use,
+	style: 'collage'
+});
+const story = (use: Use, rect: Rect): Edit[] => cellsIn(rect).map((id) => collageStory(id, use));
 const cover = (kind: Cover, rect: Rect): Edit[] =>
 	cellsIn(rect).map((cellId) => ({ kind: 'cover', cellId, cover: kind }));
 
@@ -33,28 +38,6 @@ const TOWER: readonly (readonly [Use, Rect])[] = [
 	['living', [80, 44, 80, 44]],
 	['water', [80, 44, 80, 44]]
 ];
-/** Riverside run on stilts along the bank, west to east; later entries stack on earlier ones. */
-const RUN: readonly (readonly [Use, Rect])[] = [
-	['water', [66, 24, 69, 25]],
-	['water', [66, 24, 67, 25]],
-	['living', [71, 23, 75, 24]],
-	['living', [72, 23, 74, 24]],
-	['energy', [73, 23, 73, 24]],
-	['food', [77, 23, 80, 25]],
-	['food', [78, 24, 79, 25]],
-	['energy', [82, 22, 84, 23]],
-	['living', [83, 22, 84, 23]],
-	['water', [83, 22, 83, 22]],
-	['living', [86, 22, 90, 23]],
-	['material', [87, 22, 89, 23]],
-	['material', [92, 22, 95, 24]],
-	['living', [93, 22, 94, 23]],
-	['water', [97, 23, 99, 24]],
-	['living', [101, 24, 105, 25]],
-	['food', [102, 24, 104, 25]],
-	['energy', [103, 24, 103, 25]],
-	['food', [107, 25, 109, 27]]
-];
 /** New stories on top of the stock, and infill on free town cells. */
 const ADDITIONS: readonly (readonly [Use, Rect])[] = [
 	['energy', [86, 46, 88, 47]],
@@ -68,19 +51,10 @@ const ADDITIONS: readonly (readonly [Use, Rect])[] = [
 	['energy', [81, 38, 83, 39]],
 	['water', [93, 38, 95, 39]]
 ];
-/** Satellite hamlet east of the town, reached by the rail. */
-const SATELLITE: readonly (readonly [Use, Rect])[] = [
-	['food', [116, 38, 119, 40]],
-	['living', [117, 38, 118, 39]],
-	['living', [121, 37, 123, 38]],
-	['energy', [121, 37, 121, 38]],
-	['material', [116, 42, 118, 43]]
-];
 const CAPSULES = [
 	{ use: 'water', cells: ['83/44', '84/44', '85/44'] },
 	{ use: 'energy', cells: ['92/45', '93/45', '94/45'] }
 ] as const;
-const RAIL = ['62/35', '126/35'];
 const TUBE = ['88/36', '88/25'];
 const WALKWAY = ['75/48', '76/48', '83/48', '84/46', '88/45', '91/44', '92/44'];
 const COVERS: readonly (readonly [Cover, Rect])[] = [
@@ -104,13 +78,32 @@ const PORTRAIT_FRAME: readonly [Vec3, Vec3] = [
 	[84, -72, 34]
 ];
 
-function interventions(): Edit[] {
+function townFormEdits({ grid, seed, state }: World): Edit[] {
+	const reserved = new Set([
+		...state.stacks.keys(),
+		...[...TOWER, ...ADDITIONS, ...COVERS].flatMap(([, rect]) => cellsIn(rect)),
+		...CAPSULES.flatMap(({ cells }) => cells),
+		...TUBE,
+		...WALKWAY,
+		...TWO_SUNS_CELLS
+	]);
+	const plan = planTownForms(grid, seed, reserved);
+	if (!plan) return [];
 	return [
-		...[...TOWER, ...RUN, ...ADDITIONS, ...SATELLITE].flatMap(([use, rect]) => story(use, rect)),
+		...[...plan.runs.flat(), ...plan.satellite].flatMap(({ cellId, stories }) =>
+			stories.map((use) => collageStory(cellId, use))
+		),
+		{ kind: 'line', transit: 'viaduct', cellIds: plan.railCellIds }
+	];
+}
+
+function interventions(start: World): Edit[] {
+	return [
+		...[...TOWER, ...ADDITIONS].flatMap(([use, rect]) => story(use, rect)),
 		...CAPSULES.flatMap(({ use, cells }) =>
 			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use, style: 'totem' }))
 		),
-		{ kind: 'line', transit: 'viaduct', cellIds: RAIL },
+		...townFormEdits(start),
 		{ kind: 'line', transit: 'capsule', cellIds: TUBE },
 		...COVERS.flatMap(([kind, rect]) => cover(kind, rect))
 	];
@@ -143,7 +136,7 @@ function elevatedWalkway({ grid }: World): Primitive[] {
 /** Replays the seed-7 interventions and returns the fixed drafting study in world meters. */
 export function acceptanceScene(seed = SEED) {
 	const start = createWorld(seed);
-	const placed = interventions().reduce(applyEdit, start);
+	const placed = interventions(start).reduce(applyEdit, start);
 	const first = {
 		...placed,
 		state: { ...placed.state, ...advanceFrames(placed, start.state.year - 1) }
@@ -162,6 +155,6 @@ export function acceptanceScene(seed = SEED) {
 export function openingScene(seed: number) {
 	const start = createWorld(seed);
 	if (seed !== SEED) return { world: start, additions: [], referenceCellId: undefined };
-	const world = interventions().reduce(applyEdit, start);
+	const world = interventions(start).reduce(applyEdit, start);
 	return { world, additions: elevatedWalkway(world), referenceCellId: OPENING_CELL };
 }
