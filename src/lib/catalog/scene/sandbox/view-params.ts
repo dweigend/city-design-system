@@ -1,4 +1,4 @@
-import { defineParams, numberParam } from '../../logic/params';
+import { defineParams, numberParam } from '../../core/params';
 
 /** Sandbox-specific materials. Drafting widths and tones belong to the bible's Leitstil. */
 export const STRUCTURE_PARAMS = defineParams({

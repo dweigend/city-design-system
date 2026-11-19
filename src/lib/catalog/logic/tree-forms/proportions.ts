@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams } from '../params';
+import { defineParams, numberParam, resolveParams } from '../../core/params';
 
 /** Shared proportions for the design bible and sandbox. */
 export const TREE_PARAMS = defineParams({

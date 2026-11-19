@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams } from '../params';
+import { defineParams, numberParam, resolveParams } from '../../core/params';
 import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
 
 /** Deck width, thickness and maximum tread rise in meters for elevated walkways. */

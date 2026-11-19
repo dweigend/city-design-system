@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { abs, attribute, float, mix, normalWorld, positionLocal, uniform, vec3 } from 'three/tsl';
 import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
-import { resolveParams, type ParamOverrides } from '../../logic/params';
+import { resolveParams, type ParamOverrides } from '../../core/params';
 import type { grammatik } from '../leitstil';
 import { neutral } from '../leitstil/tone';
 import { finishMaterials } from './finish-materials';

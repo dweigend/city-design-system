@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams } from '../params';
+import { defineParams, numberParam, resolveParams } from '../../core/params';
 const schema = defineParams({
 	alleyBend: numberParam('Terrace alley bend', 'm', 3.6, [0, 4, 0.1]),
 	minParcelArea: numberParam('Minimum parcel area', 'm²', 7.5, [0.5, 7.5, 0.5]),
@@ -27,7 +27,9 @@ const schema = defineParams({
 	approachCells: numberParam('Approach cells', 'cells', 3, [1, 8, 1], 'integer')
 });
 /** Validates the controls shared by the world and its projection. */
-export const parcelProfile = (overrides?: import('../params').ParamOverrides<typeof schema>) => {
+export const parcelProfile = (
+	overrides?: import('../../core/params').ParamOverrides<typeof schema>
+) => {
 	const profile = resolveParams(schema, undefined, overrides);
 	if (![2, 4, 8].includes(profile.terraceRows))
 		throw new RangeError('Terrace rows must be 2, 4 or 8');

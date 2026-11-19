@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { chainage } from '../transit-line';
 import type { Vec3 } from '../traeger';
 export type SurveyGraph = {

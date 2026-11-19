@@ -4,7 +4,7 @@
  * (A-53).
  */
 import * as THREE from 'three/webgpu';
-import { resolveParams, type ParamOverrides } from '../../logic/params';
+import { resolveParams, type ParamOverrides } from '../../core/params';
 import type { Vec3 } from '../../logic/parametrik/types';
 import { OPENING_VIEW_PARAMS } from './view-params';
 import { BLICK } from '../../data/leitstil';

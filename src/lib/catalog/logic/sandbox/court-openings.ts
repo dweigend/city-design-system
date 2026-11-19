@@ -20,7 +20,7 @@ function boundary(grid: TerrainGrid, start: TerrainCell, seen: Set<string>) {
 				b = cell.corners[(side + 1) % 4];
 			edges.push({
 				id: faceSeam(cell, side).id,
-				street: n?.plan.kind === 'alley' || n?.plan.kind === 'stairAlley',
+				alley: n?.plan.kind === 'alley' || n?.plan.kind === 'stairAlley',
 				river: n?.zone === 'water' || n?.plan.kind === 'riversidePromenade',
 				x: (a[0] + b[0]) / 2,
 				y: (a[1] + b[1]) / 2,
@@ -29,7 +29,7 @@ function boundary(grid: TerrainGrid, start: TerrainCell, seen: Set<string>) {
 			});
 		}
 	}
-	return edges.sort((a, b) => Number(b.street) - Number(a.street) || (a.id < b.id ? -1 : 1));
+	return edges.sort((a, b) => Number(b.alley) - Number(a.alley) || (a.id < b.id ? -1 : 1));
 }
 /** Reserves one deterministic access and an opposite river-facing side per connected court. */
 export function courtOpenings(grid: TerrainGrid) {

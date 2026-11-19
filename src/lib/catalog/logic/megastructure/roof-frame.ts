@@ -4,7 +4,7 @@ import { bayMembers, bearingLayouts, crownLinks, type Joint, type Bay } from './
 import { roofLinks } from './roof-links';
 import { selectConnectedLayout } from './connected-layouts';
 import { surveyedRoofs, type RoofCell } from './footprints';
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { probeFrame } from './frame-probe';
 
 export type { RoofCell } from './footprints';

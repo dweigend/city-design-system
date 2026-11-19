@@ -1,5 +1,5 @@
 import { hash } from '../hash-random';
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { composeCollage, type Cell } from './packing';
 const vesselParams = defineParams({
 	height: numberParam('Slenderness', 'height / radius', 2.4, [1, 4, 0.1]),

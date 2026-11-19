@@ -1,5 +1,5 @@
 import type { CrossSection, ManifoldToplevel, Vec2 } from 'manifold-3d';
-import { resolveParams } from '../params';
+import { resolveParams } from '../../core/params';
 import { envelopeParams, type Settings } from './contract';
 import { normalizeRing } from './normalize-ring';
 import { roundFootprint } from './footprint';

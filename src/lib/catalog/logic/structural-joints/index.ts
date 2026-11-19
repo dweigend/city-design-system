@@ -1,5 +1,5 @@
 import { styleForYear } from '../sandbox';
-import { defineParams, numberParam, resolveParams } from '../params';
+import { defineParams, numberParam, resolveParams } from '../../core/params';
 import type { Vec3 } from '../traeger';
 import { jointMeshes, type JointMesh } from './geometry';
 
@@ -119,7 +119,9 @@ export function deriveStructuralJoints(contacts: readonly StructuralContact[]): 
 		if (sites.has(id)) throw new RangeError('Duplicate structural contact: ' + id);
 		sites.set(id, c);
 	}
-	return [...sites.keys()].sort().map((id) => derive(sites.get(id)!, id));
+	return [...sites.entries()]
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+		.map(([id, contact]) => derive(contact, id));
 }
 
 export { sandboxStructuralContacts } from './sandbox-contacts';

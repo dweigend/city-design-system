@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import type { Point2 } from '../parametrik/vocab';
 
 export const envelopeParams = defineParams({

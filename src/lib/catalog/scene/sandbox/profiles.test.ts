@@ -13,7 +13,7 @@ import { deriveGrid } from '../../logic/terrain-grid';
 import { lineParts, routeLine, TRANSIT_PARAMS, vehiclePoses } from '../../logic/transit-line';
 import { TREE_PARAMS, trunkRadius } from '../../logic/tree-forms';
 import { walkwayParts, WALKWAY_PARAMS } from '../../logic/walkway';
-import { resolveParams } from '../../logic/params';
+import { resolveParams } from '../../core/params';
 
 const fingerprint = (value: unknown) =>
 	createHash('sha256').update(JSON.stringify(value)).digest('hex');

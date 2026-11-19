@@ -1,4 +1,4 @@
-import { resolveParams, type ParamOverrides } from '../params';
+import { resolveParams, type ParamOverrides } from '../../core/params';
 import { flowToken } from '../../data/focus';
 import type { Vec3, Primitive } from '../parametrik/types';
 import { routeDecks } from './route';

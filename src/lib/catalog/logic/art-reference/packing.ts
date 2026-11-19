@@ -1,5 +1,5 @@
 import { hash } from '../hash-random';
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { lengthTolerance, norm, sub } from '../parzelle';
 import { intersects, orient } from '../parametrik/raster/universal/kern';
 export type Cell = readonly (readonly [number, number])[];

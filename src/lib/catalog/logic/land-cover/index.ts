@@ -2,7 +2,7 @@
  * Land cover: the player plants areas, not objects. A cell carries at most one cover;
  * forests derive their trees from the cell, its neighbors and the seed.
  */
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';

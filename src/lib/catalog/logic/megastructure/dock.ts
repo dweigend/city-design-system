@@ -1,5 +1,5 @@
 import { STORY } from '../../data/grid';
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { rechteck, schneidet } from '../haus-tragwerk';
 import type { Vec3 } from '../traeger';
 type Direction = readonly [number, number, number];

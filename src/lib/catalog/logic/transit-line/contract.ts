@@ -1,4 +1,4 @@
-import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../params';
+import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import type { Vec3 } from '../parametrik/types';
 export type TransitKind = 'viaduct' | 'capsule';
 export type TransitStop = Readonly<{ position: Vec3; headingRad: number }>;

@@ -70,7 +70,7 @@ export function alleyOverlay(
 						.floor()
 						.mod(2)
 				);
-			const street = built(south, 0).max(built(east, 1)).max(built(north, 2)).max(built(west, 3));
+			const alley = built(south, 0).max(built(east, 1)).max(built(north, 2)).max(built(west, 3));
 			const stairs = float(code.greaterThanEqual(128));
 			const occupied = code.div(64).floor().mod(2);
 
@@ -81,7 +81,7 @@ export function alleyOverlay(
 			const shadow = south.max(west);
 			const light = mix(ground, paper, coverage.mul(visibility));
 			const emboss = mix(light, ink, shadow.mul(pressure).mul(visibility));
-			const focused = mix(emboss, people, street.mul(focus).mul(visibility));
+			const focused = mix(emboss, people, alley.mul(focus).mul(visibility));
 			const bankDistance = attribute('shore', 'float');
 			const bankHalf = float(grid.profile.promenadeWidth / 2);
 			const shore = band(bankDistance.abs(), bankHalf).mul(visibility);

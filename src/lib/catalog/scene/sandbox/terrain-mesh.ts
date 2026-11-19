@@ -7,7 +7,7 @@
 import * as THREE from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import { attribute, float, mix, texture, uniform, vec2 } from 'three/tsl';
-import { resolveParams, type ParamOverrides } from '../../logic/params';
+import { resolveParams, type ParamOverrides } from '../../core/params';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
 import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
