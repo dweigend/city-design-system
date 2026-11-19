@@ -1,5 +1,5 @@
 import type { Typology } from './families';
-import type { HouseComposition } from './types';
+import type { housePath } from './routes';
 
 const forms = {
 	'capsule-stack': ['mast', 'landings only', 'alternating', 'slim'],
@@ -33,7 +33,7 @@ const stairs = {
 /** Describes the support, floors, inhabited figure and access selected for this site. */
 export function silhouette(
 	type: Typology,
-	path: HouseComposition['path'],
+	path: ReturnType<typeof housePath>,
 	compact: boolean,
 	tall: boolean
 ) {
