@@ -81,9 +81,13 @@ test('walkway defaults retain the bent route and its thickness follows the profi
 		[12, 12, 4]
 	] as const;
 	const anchors = points.map(([x, y, z]): [number, number, number] => [x, y, z]);
-	expect(fingerprint(walkwayParts(anchors))).toBe(
+	const defaults = walkwayParts(anchors);
+	// Geometry, IDs and order are frozen; the slab bearing tag is checked on its own.
+	const untagged = (key: string, value: unknown) => (key === 'bearing' ? undefined : value);
+	expect(fingerprint(JSON.parse(JSON.stringify(defaults, untagged)))).toBe(
 		'dbce442e79df9af123efa1c7aeebb83ab3ad2d4088c786c80a72d7883ad5a23f'
 	);
+	expect(defaults.some((part) => part.kind === 'prism' && part.bearing === 'slab')).toBe(true);
 	const overrides = resolveParams(WALKWAY_PARAMS, { thickness: 0.5, treadRise: 0.5 });
 	const parts = walkwayParts(anchors, undefined, overrides);
 	expect(parts.filter((p) => p.id.includes(':tread:'))).toHaveLength(5);
