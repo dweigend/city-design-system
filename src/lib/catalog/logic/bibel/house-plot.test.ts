@@ -32,9 +32,9 @@ function touches(point: Vec3, ring: [number, number][]) {
 		return Math.hypot(point[0] - x - t * dx, point[1] - y - t * dy) <= 0.02;
 	});
 }
-function inspect(s: Section) {
-	const path = circulation(s),
-		parts = sectionParts(s, palette);
+type Path = ReturnType<typeof circulation>;
+type Parts = ReturnType<typeof sectionParts>;
+function checkDecks(s: Section, path: Path) {
 	const levels = new Set(path.stops.map((p) => Math.round(p[2] * 100)));
 	for (const d of s.decks) {
 		expect(levels.has(Math.round(d.position[2] * 100))).toBe(true);
@@ -43,7 +43,8 @@ function inspect(s: Section) {
 			true
 		);
 	}
-	const previous = new Map<number, number>();
+}
+function checkDocks(path: Path, parts: Parts) {
 	for (const dock of path.docks) {
 		expect(
 			parts.some(
@@ -55,6 +56,9 @@ function inspect(s: Section) {
 			)
 		).toBe(true);
 	}
+}
+function checkFlights(s: Section, path: Path) {
+	const previous = new Map<number, number>();
 	const flights = new Set(
 		path.legs.filter((l) => l.kind === 'stairs' || l.kind === 'ladder').map((l) => l.flight)
 	);
@@ -81,17 +85,21 @@ function inspect(s: Section) {
 		} else climb = 0;
 	}
 	expect(length).toBeLessThanOrEqual(2.2 * (s.top - path.stops[path.stops.length - 1][2]));
-	const inside = (x: number, y: number, margin: number) =>
-		s.cells.some((c) =>
-			c.corners.every(([u, v], i) => {
-				const next = c.corners[(i + 1) % 4];
-				return (
-					(next[0] - u) * (y - v) - (next[1] - v) * (x - u) >=
-					-margin * Math.hypot(next[0] - u, next[1] - v) - 1e-6
-				);
-			})
-		);
-	const occupied = parts
+}
+function inside(s: Section, x: number, y: number, margin: number) {
+	return;
+	s.cells.some((c) =>
+		c.corners.every(([u, v], i) => {
+			const next = c.corners[(i + 1) % 4];
+			return (
+				(next[0] - u) * (y - v) - (next[1] - v) * (x - u) >=
+				-margin * Math.hypot(next[0] - u, next[1] - v) - 1e-6
+			);
+		})
+	);
+}
+function occupiedBounds(parts: Parts) {
+	return parts
 		.filter((p) => p.id.includes('/body/') || p.id.includes('/post/'))
 		.map((p) => {
 			const b = bounds(p);
@@ -102,12 +110,44 @@ function inspect(s: Section) {
 			}
 			return { ...b, part: p };
 		});
+}
+function checkClearance(
+	p: Parts[number],
+	box: ReturnType<typeof bounds>,
+	occupied: ReturnType<typeof occupiedBounds>
+) {
+	expect(
+		occupied.every(
+			(b) =>
+				b.min.some((lo, i) => lo >= box.max[i] - 0.02 || b.max[i] <= box.min[i] + 0.02) ||
+				!partsIntersect(p, b.part)
+		),
+		p.id + ' clearance'
+	).toBe(true);
+}
+function checkStairSurface(p: Parts[number]) {
+	const source = p.source.objectId;
+	const surface =
+		source === 'stairs' || p.id.includes('/stair/rung/')
+			? palette.access
+			: source === 'railing' || source === 'ladder'
+				? palette.frame
+				: palette.deck;
+	expect(p.token).toBe(surface.token);
+	if (source === 'stairs' && p.kind === 'prism') {
+		const ring = p.polygon;
+		const j = p.source.variant === 'straight-tread' ? 3 : 1;
+		expect(Math.hypot(ring[0][0] - ring[j][0], ring[0][1] - ring[j][1])).toBeCloseTo(1.25, 8);
+	}
+}
+function checkParts(s: Section, parts: Parts) {
+	const occupied = occupiedBounds(parts);
 	let body = 0,
 		total = 0,
 		access = 0;
 	for (const p of parts) {
 		expect(
-			planPoints(p).every(([x, y]) => inside(x, y, p.id.includes('/stair/') ? 0.6 : 0)),
+			planPoints(p).every(([x, y]) => inside(s, x, y, p.id.includes('/stair/') ? 0.6 : 0)),
 			p.id + ' outside ' + s.id
 		).toBe(true);
 		const box = bounds(p);
@@ -117,31 +157,19 @@ function inspect(s: Section) {
 		if (p.id.includes('/body/') || p.id.includes('/planter/')) body += volume;
 		if (!p.id.includes('/stair/')) continue;
 		access += volume;
-		expect(
-			occupied.every(
-				(b) =>
-					b.min.some((lo, i) => lo >= box.max[i] - 0.02 || b.max[i] <= box.min[i] + 0.02) ||
-					!partsIntersect(p, b.part)
-			),
-			p.id + ' clearance'
-		).toBe(true);
-		const source = p.source.objectId;
-		const surface =
-			source === 'stairs' || p.id.includes('/stair/rung/')
-				? palette.access
-				: source === 'railing' || source === 'ladder'
-					? palette.frame
-					: palette.deck;
-		expect(p.token).toBe(surface.token);
-		if (source === 'stairs' && p.kind === 'prism') {
-			const ring = p.polygon;
-			const j = p.source.variant === 'straight-tread' ? 3 : 1;
-			expect(Math.hypot(ring[0][0] - ring[j][0], ring[0][1] - ring[j][1])).toBeCloseTo(1.25, 8);
-		}
+		checkClearance(p, box, occupied);
+		checkStairSurface(p);
 	}
 	expect(body).toBeGreaterThan(access);
 	expect(access / total).toBeLessThanOrEqual(0.1);
-	return path;
+}
+function inspect(s: Section) {
+	const path = circulation(s),
+		parts = sectionParts(s, palette);
+	checkDecks(s, path);
+	checkDocks(path, parts);
+	checkFlights(s, path);
+	checkParts(s, parts);
 }
 
 for (const shape of plotShapes)

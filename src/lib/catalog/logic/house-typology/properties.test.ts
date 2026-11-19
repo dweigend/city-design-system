@@ -40,14 +40,15 @@ function site(
 	};
 }
 const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
-function audit(h: HouseComposition) {
+function auditLevels(h: HouseComposition) {
 	for (const l of h.levels) {
 		const share = l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) / l.deckArea;
 		if (!(share >= 0.55 && share <= 0.85))
 			return 'deck share ' + share + ' ' + l.bodies.map((b) => b.objectId);
 		if ((l.position[2] - h.datum) % 2 !== 0) return 'off datum';
 	}
-	const bodies = h.levels.flatMap((l) => l.bodies);
+}
+function auditVolume(h: HouseComposition, bodies: Bodies) {
 	const volume = bodies.reduce((sum, b) => sum + vol(b.size), 0);
 	const total = h.parts.reduce((sum, p) => sum + vol(p.size), 0);
 	if (!(volume / total >= 0.55)) return 'body share ' + volume / total;
@@ -56,6 +57,21 @@ function audit(h: HouseComposition) {
 			.filter((p) => !['body', 'capsule', 'crown'].includes(p.joint))
 			.reduce((s, p) => s + vol(p.size), 0) / total;
 	if (structure < 0.2 || structure > 0.35) return 'structure share ' + structure;
+}
+function auditCapsules(h: HouseComposition, bodies: Bodies) {
+	if (h.levels.length >= 3 && h.levels.every((l) => l.programme.every((u) => u === 'living'))) {
+		const capsules = bodies.filter((b) => b.kind === 'capsule');
+		if (capsules.length < 2 || capsules[0].size[1] + capsules[1].size[1] <= h.core.width)
+			return 'capsule stack';
+	}
+}
+type Bodies = HouseComposition['levels'][number]['bodies'];
+function audit(h: HouseComposition) {
+	const levelFinding = auditLevels(h);
+	if (levelFinding) return levelFinding;
+	const bodies = h.levels.flatMap((l) => l.bodies);
+	const volumeFinding = auditVolume(h, bodies);
+	if (volumeFinding) return volumeFinding;
 	if (
 		required(h.levels.at(-1), 'upper datum').position[2] - h.ground > 8 &&
 		!h.supports.some((p) => p.joint === 'brace')
@@ -63,28 +79,27 @@ function audit(h: HouseComposition) {
 		return 'missing brace';
 	const finding = checkFit(h.parts)[0];
 	if (finding) return JSON.stringify(finding);
-	if (h.levels.length >= 3 && h.levels.every((l) => l.programme.every((u) => u === 'living'))) {
-		const capsules = bodies.filter((b) => b.kind === 'capsule');
-		if (capsules.length < 2 || capsules[0].size[1] + capsules[1].size[1] <= h.core.width)
-			return 'capsule stack';
-	}
+	return auditCapsules(h, bodies);
+}
+function* paintedSites() {
+	for (let seed = 0; seed < 32; seed++)
+		for (let n = 1; n <= 9; n++)
+			for (let h = 1; h <= 10; h++)
+				for (const district of districts)
+					for (let mix = 0; mix < 3; mix++) yield [seed, n, h, district, mix] as const;
 }
 test('mass, deck coverage, joints and finite coordinates across painted sites', () => {
 	const counts = new Map<string, number>(),
 		failures = new Map<string, string>();
 	let cases = 0;
-	for (let seed = 0; seed < 32; seed++)
-		for (let n = 1; n <= 9; n++)
-			for (let h = 1; h <= 10; h++)
-				for (const district of districts)
-					for (let mix = 0; mix < 3; mix++) {
-						const result = composeHouse(site(seed, n, h, district, mix));
-						const error = audit(result);
-						if (error && !failures.has(result.typology))
-							failures.set(result.typology, [seed, n, h, district, mix, error].join(' '));
-						counts.set(result.typology, (counts.get(result.typology) ?? 0) + 1);
-						cases++;
-					}
+	for (const [seed, n, h, district, mix] of paintedSites()) {
+		const result = composeHouse(site(seed, n, h, district, mix));
+		const error = audit(result);
+		if (error && !failures.has(result.typology))
+			failures.set(result.typology, [seed, n, h, district, mix, error].join(' '));
+		counts.set(result.typology, (counts.get(result.typology) ?? 0) + 1);
+		cases++;
+	}
 	console.info('Surveyed houses', cases, Object.fromEntries([...counts].sort()));
 	expect(Object.fromEntries(failures)).toEqual({});
 	expect([...counts.keys()].sort()).toEqual([...typologies].sort());
