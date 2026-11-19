@@ -17,6 +17,7 @@ export function structureMaterials() {
 	const sideColor = uniform(neutral(TOENE.modellweiss + TOENE.rechts));
 	const bottomColor = uniform(neutral(TOENE.modellweiss + TOENE.unten));
 	let envelopeShadows = true;
+	let minContourPx = STRUCTURE_PARAMS.minContourPx.default;
 	let palette: ReturnType<typeof grammatik> | undefined;
 	const colors = new Map<string, THREE.Color>();
 	const paper = new THREE.Color();
@@ -101,7 +102,9 @@ export function structureMaterials() {
 	}
 
 	function setParams(overrides?: ParamOverrides<typeof STRUCTURE_PARAMS>) {
-		materials.glass.opacity = resolveParams(STRUCTURE_PARAMS, undefined, overrides).glassOpacity;
+		const profile = resolveParams(STRUCTURE_PARAMS, undefined, overrides);
+		materials.glass.opacity = profile.glassOpacity;
+		minContourPx = profile.minContourPx;
 	}
 	setParams();
 
@@ -132,6 +135,7 @@ export function structureMaterials() {
 	return {
 		materials,
 		envelopeShadows: () => envelopeShadows,
+		minContourPx: () => minContourPx,
 		/** Palette lookup for detached colored parts. */
 		colorOf,
 		/** Applies the primitive's ink share to a flow color without changing the cached token. */

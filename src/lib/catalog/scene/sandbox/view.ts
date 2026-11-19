@@ -4,6 +4,9 @@
  * (A-53).
  */
 import * as THREE from 'three/webgpu';
+import { resolveParams, type ParamOverrides } from '../../logic/params';
+import type { Vec3 } from '../../logic/parametrik/types';
+import { OPENING_VIEW_PARAMS } from './view-params';
 import { BLICK } from '../../data/leitstil';
 
 /** Visible image height in world meters: closest and widest zoom. */
@@ -15,7 +18,8 @@ const CAMERA_DISTANCE = 1400;
 export type View = ReturnType<typeof createView>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
-export function createView() {
+export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
+	const opening = resolveParams(OPENING_VIEW_PARAMS, undefined, overrides);
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, CAMERA_DISTANCE * 2.5);
 	const target = new THREE.Vector3();
 	/** Image axes on the ground: to the right and away from the viewer. */
@@ -115,6 +119,19 @@ export function createView() {
 			const fit = Math.max(halfHeight * 2, (halfWidth * 2 * height) / width) * margin;
 			span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
 			apply();
+		},
+		/** Whether the canvas is taller than it is wide. */
+		isPortrait: () => width < height,
+		/** Frames an opening cell at the requested projected width on a portrait canvas. */
+		framePortrait([x, y, z]: Vec3, corners: readonly Vec3[]) {
+			if (width >= height) return false;
+			const offsets = corners.map(([px, py, pz]) => right.dot(new THREE.Vector3(px, pz, -py)));
+			const extent = Math.max(...offsets) - Math.min(...offsets);
+			if (!extent) return false;
+			target.set(x, z, -y);
+			span = (height * extent) / opening.mobileCellWidthPx;
+			pan(0, height * (0.5 - opening.mobileReferenceY));
+			return true;
 		},
 		/** Canvas pixel → normalized device coordinates for ray casting. */
 		ndc: (xPx: number, yPx: number) =>

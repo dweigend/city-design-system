@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { attribute, float, mix, texture, vec2 } from 'three/tsl';
+import { attribute, float, mix, texture, uniform, vec2 } from 'three/tsl';
 import type { Node } from 'three/webgpu';
 import { type TerrainCell, type TerrainGrid } from '../../logic/terrain-grid';
 import { writeAlleyMask } from './alley-mask';
@@ -17,6 +17,7 @@ export function alleyOverlay(
 		promenadeWash: Node<'float'>;
 	}
 ) {
+	const detailed = uniform(1);
 	const pixels = new Uint8Array(grid.cells.length * 4);
 	const map = new THREE.DataTexture(pixels, grid.columns, grid.rows);
 	let current = grid;
@@ -30,6 +31,7 @@ export function alleyOverlay(
 	update(grid, []);
 	return {
 		update,
+		setCityOverview: (enabled: boolean) => (detailed.value = Number(!enabled)),
 		setParams(next: typeof profile) {
 			const changed = next.cityRadiusCells !== profile.cityRadiusCells;
 			profile = next;
@@ -83,7 +85,10 @@ export function alleyOverlay(
 				visibility
 			);
 			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.3, 0.65);
-			const flight = band(dist.x, mask.g).mul(stairs).mul(tread).mul(visibility);
+			const flight = band(dist.x, mask.g)
+				.mul(stairs)
+				.mul(mix(1, tread, detailed))
+				.mul(visibility);
 			return mix(mix(bank, ink, promenadeEdge.mul(pressure)), people, flight);
 		}
 	};

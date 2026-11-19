@@ -34,7 +34,7 @@ function segmentView(
 		end[0] -= dx;
 		end[1] -= dy;
 	}
-	return moduleBridge(a, end, p.id).map((form) => ({
+	return moduleBridge(a, end, p.id, { simplifyAtCity: true }).map((form) => ({
 		...form,
 		...(form.kind === 'polyline' ? { member: 'secondary' as const, detail: true } : {}),
 		token: p.recipe === 'stair' ? '--cat-business-3' : flowToken.people
@@ -47,6 +47,7 @@ function pillarView(world: World, p: Extract<BuiltPart, { kind: 'pillar' }>, a: 
 	const dot: Primitive = {
 		...b,
 		id: p.id + '/joint',
+		cityForm: false,
 		member: 'primary',
 		bearings: [node],
 		kind: 'sphere',

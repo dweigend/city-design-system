@@ -24,6 +24,7 @@ import { polylineObject } from './polylines';
 import { KEY, projectChanges } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
+import { frameOldTown } from './opening-view';
 import { createView } from './view';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
@@ -96,7 +97,8 @@ export function createSandboxStage(
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context, variant);
 		const tones = refreshTones ? grammatik(canvas, style) : undefined;
-		structures.setStyle(style, variant, scale, tones);
+		structures.setStyle([style, variant, scale, tones], planView);
+		terrain?.setCityOverview(style.rollen.weg.level === 'block');
 		if (tones) light.setTone(tones.schatten, tones.paper);
 		canvas.dataset.zoom = zoom;
 		canvas.dataset.structureVariant = variant;
@@ -145,7 +147,8 @@ export function createSandboxStage(
 		scene.add(baseLines);
 	}
 
-	function frameTerrain(mesh: TerrainMesh) {
+	function frameTerrain(mesh: TerrainMesh, world = shown) {
+		if (!study.frame && !planView && world && frameOldTown(view, world)) return;
 		const bounds = new THREE.Box3();
 		if (study.frame) {
 			for (const [x, y, z] of study.frame) bounds.expandByPoint(new THREE.Vector3(x, z, -y));
@@ -165,7 +168,7 @@ export function createSandboxStage(
 		scene.add(terrain.group);
 		terrain.setGridVisible(planView ? 1 : 0);
 		drawBaseLines(terrain);
-		frameTerrain(terrain);
+		frameTerrain(terrain, world);
 		if (palette) terrain.setPalette(palette);
 		return { ...world, state: EMPTY_STATE, lines: [] };
 	}
