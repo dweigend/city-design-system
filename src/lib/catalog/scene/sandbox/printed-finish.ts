@@ -85,7 +85,7 @@ function coarseChips() {
 }
 
 /** Builds an opaque sandbox print in the selected flow pigment. Close views resolve
- * aggregate, and both scales resolve the corresponding hard-edged shadow screen in meters. */
+ * aggregate. Pigmented faces use the fine, hard-edged shadow screen at every distance. */
 export function printedFinish(
 	aggregate: boolean,
 	token: ColorToken,
@@ -109,10 +109,10 @@ export function printedFinish(
 		result = mix(paper, pigment, step(0, dip));
 		result = mix(result, ink, step(abs(dip), 0.009).mul(0.65));
 	}
-	const graphite = color(new Color(palette.ink3 ?? palette.ink));
-	const dotInk =
-		aggregate || token !== '--paper' ? mix(graphite, ink, aggregate ? 1 : step(0, dip)) : graphite;
-	result = mix(result, dotInk, faceHalftone(halftoneScreen(close).pitch));
+	if (token !== '--paper') {
+		const inkCoverage = aggregate ? float(1) : step(0, dip);
+		result = mix(result, ink, faceHalftone(halftoneScreen(true).pitch).mul(inkCoverage));
+	}
 	material.colorNode = mix(result, ink, step(abs(normalView.z), 0.055).mul(0.76));
 	return material;
 }

@@ -28,7 +28,9 @@ function printAttributes(faces: Faces, ranges: Range[]) {
 		const end = ranges[index + 1]?.start ?? faces.p.length / 3;
 		if (end === start) return;
 		if (part.overprint) outline = Math.min(outline, start);
-		const dots = Number(!part.overprint && !isPathInk(part.token) && part.token !== '--ink');
+		const dots = Number(
+			part.role === 'neu' && !part.overprint && !isPathInk(part.token) && part.token !== '--ink'
+		);
 		const shift = shadowDistance(part, faces.p, start, end);
 		for (let i = start; i < end; i++) {
 			screen.push(dots);

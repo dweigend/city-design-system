@@ -113,21 +113,23 @@ export function structureMaterials() {
 	const pencilPx = uniform(STRICHE.bestand / 2);
 	const bodyColor = attribute<'vec3'>('color', 'vec3');
 	const printInk = uniform(new THREE.Color());
-	const stockInk = uniform(new THREE.Color());
-	const pitch = uniform(halftoneScreen(true).pitch);
-	const screen = faceHalftone(pitch);
+	const screen = faceHalftone(halftoneScreen(true).pitch);
 	const canScreen = attribute('printScreen', 'float');
 	const paperFace = bodyColor.sub(paperTone.rgb).length().lessThan(0.001);
 	materials.solid.colorNode = mix(
 		bodyColor,
-		paperFace.select(stockInk, printInk),
-		screen.mul(canScreen)
+		printInk,
+		screen.mul(canScreen).mul(float(paperFace.not()))
 	);
 	const seam = attribute('printSeam', 'float');
 	const upper = seam.greaterThanEqual(0);
 	const seamMask = abs(seam).lessThanEqual(seam.fwidth().mul(0.375));
 	materials.pod.colorNode = mix(
-		mix(upper.select(paperTone.rgb, bodyColor), upper.select(stockInk, printInk), screen),
+		mix(
+			upper.select(paperTone.rgb, bodyColor),
+			printInk,
+			screen.mul(canScreen).mul(float(upper.or(paperFace).not()))
+		),
 		printInk,
 		float(seamMask)
 	);
@@ -164,7 +166,7 @@ export function structureMaterials() {
 		.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
 		.mul(0.52);
 	materials.stock.colorNode = mix(
-		mix(paperTone, stockInk, screen),
+		paperTone,
 		graphite,
 		pencilLine
 			.mul(flank)
@@ -173,7 +175,7 @@ export function structureMaterials() {
 			.max(roofInk)
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
-	materials.stockSheet.colorNode = mix(paperTone, stockInk, screen);
+	materials.stockSheet.colorNode = paperTone;
 	materials.glaze.colorNode = solidColor;
 	materials.ceramicHull.vertexNode = outlinePosition(outlinePx.negate());
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
@@ -211,7 +213,6 @@ export function structureMaterials() {
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);
 		printInk.value.copy(g.token('--ink'));
-		stockInk.value.copy(g.raster);
 		materials.printHull.color.copy(g.ink);
 		for (const line of [materials.carrierInk, materials.portalInk, materials.braceInk])
 			line.color.copy(g.ink);
@@ -326,7 +327,6 @@ export function structureMaterials() {
 			envelopeShadows = huelle.schatten;
 			applyStructuralStyle(style, minimum, scale);
 			const close = style.rollen.weg.level !== 'block';
-			pitch.value = halftoneScreen(close).pitch;
 			const detailChanged = explicit.setDetail(close);
 			return detailChanged || Boolean(tones);
 		},

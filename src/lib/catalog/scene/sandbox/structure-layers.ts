@@ -62,6 +62,10 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 	};
 	const plainIds = new Set([...unoutlined].map((p) => p.id));
 	for (const original of primitives) {
+		if (original.role === 'bestand' && layerOf(original) === 'regular') {
+			parts.regular.push(original);
+			continue;
+		}
 		if (hasFinish(original)) {
 			parts.finished.push(original);
 			continue;

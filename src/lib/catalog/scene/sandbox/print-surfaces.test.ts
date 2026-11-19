@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { positionWorld } from 'three/tsl';
 import {
 	Color,
 	DirectionalLight,
@@ -6,6 +7,7 @@ import {
 	Mesh,
 	MeshBasicMaterial,
 	Raycaster,
+	SphereGeometry,
 	Vector3
 } from 'three/webgpu';
 import { overprintColor } from '../../logic/farbe/overprint';
@@ -16,6 +18,8 @@ import type { Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';
 import { roundedStops } from './station-rings';
 import { createLight } from './light';
+import { loadStructureModules } from './fixtures/structure-modules';
+import { present } from '../../logic/presentation';
 
 import { batch, geometryOf } from '../batch';
 import { ceramicBatch } from './ceramic-batch';
@@ -187,7 +191,7 @@ test('overprint floors dark pigments in OKLCH and excludes pink in either positi
 	}
 });
 
-test('close faces and town faces use the same angle and radius-to-pitch ratio', () => {
+test('colour faces and ground shadows use the same angle and radius-to-pitch ratio', () => {
 	expect(halftoneScreen(true)).toEqual({ angle: Math.PI / 4, pitch: 0.5, radius: 0.18 });
 	expect(halftoneScreen(false)).toEqual({ angle: Math.PI / 4, pitch: 1.5, radius: 0.54 });
 	expect(castOffset(4)).toBeCloseTo(1.4);
@@ -223,4 +227,44 @@ test('overprint patches stay in the existing surface batch without extending its
 	expect(printed.getAttribute('printOffset').getX(0)).toBeCloseTo(1.4);
 	plain.dispose();
 	printed.dispose();
+});
+
+test('pencil stock uses no face screen or cast shadow while new colour bodies use both', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials();
+	const bearing = new SphereGeometry();
+	const body: Primitive = {
+		...blank,
+		kind: 'box',
+		material: 'paper',
+		token: '--cat-health',
+		position: [0, 0, 0],
+		size: [4, 4, 4],
+		envelope: true
+	};
+	const [pencil] = present([{ ...body, finish: 'beton-terrazzo' }], 'pencil');
+	const group = populateStructures([body, pencil], finishes, bearing);
+	const meshes = group.children.filter((object) => object instanceof Mesh);
+	const { stock, stockSheet, solid } = finishes.materials;
+	const usesWorldChart = (material: typeof solid) => {
+		let found = false;
+		material.colorNode?.traverse((node) => {
+			if (node === positionWorld) found = true;
+		});
+		return found;
+	};
+	try {
+		expect(pencil.role).toBe('bestand');
+		expect(meshes.find((mesh) => mesh.material === stock)?.castShadow).toBe(false);
+		const printed = meshes.find((mesh) => mesh.material === solid);
+		expect(printed?.castShadow).toBe(true);
+		expect(printed?.geometry.getAttribute('printScreen').getX(0)).toBe(1);
+		expect(usesWorldChart(stock)).toBe(false);
+		expect(usesWorldChart(stockSheet)).toBe(false);
+		expect(usesWorldChart(solid)).toBe(true);
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
+		finishes.dispose();
+		bearing.dispose();
+	}
 });
