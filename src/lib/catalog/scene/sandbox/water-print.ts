@@ -38,9 +38,15 @@ export function riverInk(
 		.sub(bank.smoothstep(2, 22))
 		.max(swirl.abs())
 		.max(float(lane.mod(3).equal(0)).mul(0.35));
+	const bankZone = float(1).sub(bank.smoothstep(4, 12));
+	const extra = float(1)
+		.sub(field.fract().min(float(1).sub(field.fract())).div(feather).smoothstep(0.15, 0.85))
+		.mul(travellingDash(advance.add(2.81), seconds))
+		.mul(bankZone);
 	const coverage = line
 		.mul(taper)
 		.mul(sparse)
+		.max(extra)
 		.mul(float(1).sub(feather.smoothstep(0.22, 0.54)));
 	return mix(wash, mix(paper, blue, float(lane.mod(5).equal(0))), coverage);
 }

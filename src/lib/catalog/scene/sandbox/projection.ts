@@ -115,7 +115,12 @@ export function projectChanges(
 	if (after.lines !== before.lines)
 		target.terrain.setPiers(
 			grid,
-			after.lines.flatMap((line) => line.pillars.map((p) => p.foot))
+			after.lines.flatMap((line) =>
+				line.pillars.map((p) => ({
+					foot: p.foot,
+					radius: line.profile?.supportRadius ?? TRANSIT_PARAMS[line.kind].supportRadius.default
+				}))
+			)
 		);
 	const levels = focuses[focus];
 	target.terrain.setPresentation(levels, focus === 'people');

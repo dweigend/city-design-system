@@ -173,7 +173,12 @@ export function createTerrainMesh(
 		riverInk(seconds, colors.water, paperColor, colors.waterStroke),
 		terrainWeight
 	);
-	let piers: readonly (readonly number[])[] = [];
+	let piers: readonly Pier[] = [];
+	const wakes = new THREE.Mesh(
+		wakeGeometry(grid, piers),
+		wakeInk(colors.waterStroke, seconds, terrainWeight)
+	);
+	wakes.renderOrder = 1;
 	const water = new THREE.Mesh(waterGeometry(grid), waterMaterial);
 	water.receiveShadow = true;
 
@@ -196,7 +201,7 @@ export function createTerrainMesh(
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
 	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
-	group.add(footprint, surface, water, baseMesh, deck);
+	group.add(footprint, surface, water, wakes, baseMesh, deck);
 
 	return {
 		group,
@@ -207,10 +212,15 @@ export function createTerrainMesh(
 		/** At block level, stair alleys retain their wash without individual treads. */
 		setCityOverview: alleys.setCityOverview,
 		/** Refit water wakes when the rail survey or wet terrain changes. */
-		setPiers(next: TerrainGrid, feet: readonly (readonly number[])[]) {
+		setPiers(next: TerrainGrid, feet: readonly Pier[]) {
 			piers = feet;
+			wakes.geometry.dispose();
+			wakes.geometry = wakeGeometry(next, piers);
 			water.geometry.dispose();
-			water.geometry = waterGeometry(next, piers);
+			water.geometry = waterGeometry(
+				next,
+				piers.map((p) => p.foot)
+			);
 		},
 		surface,
 		water,
@@ -237,6 +247,7 @@ export function createTerrainMesh(
 				mesh.geometry.dispose();
 				mesh.geometry = geometry;
 			};
+			replace(wakes, wakeGeometry(next, piers));
 			replace(deck, footbridgeGeometry(next));
 			patchSurface(surface.geometry, currentGrid, next);
 			currentGrid = next;
@@ -294,7 +305,7 @@ export function createTerrainMesh(
 			cover.map.needsUpdate = true;
 		},
 		dispose() {
-			for (const mesh of [surface, water, baseMesh, deck]) {
+			for (const mesh of [surface, water, wakes, baseMesh, deck]) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 			}
