@@ -319,6 +319,8 @@ export function createSandboxStage(
 
 	return {
 		ready: gpu.started,
+		/** Freeze the scene at a timeline coordinate in seconds, or resume playback with undefined. */
+		setTime: timeline.seek,
 		view,
 		render,
 		/** Runs after the rendered camera and pick geometry are current. */
@@ -423,6 +425,7 @@ export function createSandboxStage(
 			render();
 		},
 		dispose() {
+			timeline.dispose();
 			stopTheme();
 			frameListeners.clear();
 			loop.reduced.removeEventListener('change', flushShadows);

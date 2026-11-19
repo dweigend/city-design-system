@@ -87,12 +87,7 @@ export function createTerrainMesh(
 	const relief = attribute('relief', 'vec2');
 	const height = relief.x;
 
-	function waterColor(): Node<'vec3'> {
-		const flow = hairline(chart.y.mul(0.5), 1)
-			.mul(resolvable(chart.y.mul(0.5)))
-			.mul(0.5);
-		return mix(paperColor, mix(colors.water, paperColor, flow), terrainWeight);
-	}
+	const seconds = uniform(0);
 
 	function groundColor(): Node<'vec3'> {
 		const masks = texture(cover.map, chart.div(vec2(grid.columns, grid.rows)));
@@ -172,7 +167,11 @@ export function createTerrainMesh(
 	surface.receiveShadow = true;
 
 	const waterMaterial = new THREE.MeshBasicNodeMaterial();
-	waterMaterial.colorNode = waterColor();
+	waterMaterial.colorNode = mix(
+		paperColor,
+		mix(colors.water, paperColor, currentMarks(seconds).mul(0.82)),
+		terrainWeight
+	);
 	const water = new THREE.Mesh(waterGeometry(grid), waterMaterial);
 	water.receiveShadow = true;
 
@@ -191,6 +190,9 @@ export function createTerrainMesh(
 
 	return {
 		group,
+		setTime(timeS: number) {
+			seconds.value = timeS;
+		},
 		setAlleys: alleys.update,
 		/** At block level, stair alleys retain their wash without individual treads. */
 		setCityOverview: alleys.setCityOverview,

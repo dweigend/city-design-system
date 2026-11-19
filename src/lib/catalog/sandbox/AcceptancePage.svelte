@@ -5,9 +5,9 @@
 	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { onMount } from 'svelte';
 	import { acceptanceScene } from '../logic/sandbox';
-	import { attachInput } from '../scene/sandbox/input';
-	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
-	import type { StructureVariant } from '../scene/sandbox/view-params';
+	import { attachInput } from '../scene/sandbox';
+	import { createSandboxStage, type SandboxStage } from '../scene/sandbox';
+	import type { StructureVariant } from '../scene/sandbox';
 	import { ThemeToggle } from '../theme';
 	import Icon from '../ui/Icon.svelte';
 
