@@ -60,7 +60,7 @@ export const porthole: AssetRecipe = {
 				ellipse(0, r, r * 1.42, r, 0.85, white),
 				ellipse(0, r, r * 1.42 * 0.85, r * 0.85, 0, pane)
 			];
-		const parts = [
+		const parts: Primitive[] = [
 			ring([0.09, 0, r], r, r * 0.82, 0.18),
 			ring([0.09, 0, r], r * 0.835, 0, 0.075, pane)
 		];
