@@ -81,7 +81,8 @@ describe('bullaugen', () => {
 });
 
 test('tube porthole returns meet the actual capsule along both loops', () => {
-	const family = formFamily('kapsel-roehre')!;
+	const family = formFamily('kapsel-roehre');
+	if (!family) throw new Error('Missing tube capsule family');
 	const forms = formOnCell(family, 'square', { ...defaults(family), laenge: 0.4, bullaugen: 6 }, 7);
 	const host = forms.find((p) => p.kind === 'capsule');
 	if (!host || host.kind !== 'capsule') throw new Error('Missing tube capsule');
