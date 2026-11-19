@@ -74,12 +74,14 @@ for (const [seed, block, middle] of [
 		const grid = deriveGrid(createTerrain({ seed }));
 		const courts = new Map<string, (typeof grid.cells)[number][]>();
 		for (const cell of grid.cells) {
-			if (!cell.parcelAccess) continue;
+			if (!cell.parcelAccess || cell.parcel === cell.block) continue;
+			expect(cell.parcelAccess).toBe('fronted');
 			const members = courts.get(cell.block) ?? [];
 			members.push(cell);
 			courts.set(cell.block, members);
 		}
-		expect(courts.has(block)).toBe(true);
+		expect(courts.size).toBeGreaterThan(0);
+		expect(courts.has(block)).toBe(seed === 7);
 		for (const [id, members] of courts) {
 			const shared = new Map<string, Set<string>>();
 			for (const cell of members)
@@ -106,16 +108,20 @@ for (const [seed, block, middle] of [
 			const turn = Math.atan2(Math.abs(u[0] * v[1] - u[1] * v[0]), u[0] * v[0] + u[1] * v[1]);
 			expect(turn).toBeLessThan(1e-9);
 		}
-		if (seed === 7) {
-			const child = grid.cells.filter((c) => c.parcel === '84:16/6/2/parcel:0');
-			expect(child.map((c) => c.id)).toEqual(['90/18', '90/19']);
-			for (const cell of child) {
-				expect(cell.plan.kind).toBeNull();
-				for (const neighbor of cell.neighbors)
-					expect(grid.cellsById.get(neighbor ?? '')?.plan.kind).toBeNull();
-				expect(cell.parcelAccess).toBe('landlocked');
-				expect(cell.buildable).toBe(false);
-			}
-			expect(grid.cells.some((c) => c.parcelAccess === 'fronted' && c.buildable)).toBe(true);
-		}
 	});
+
+test('seed 7 rejects a cut with one inaccessible child and retains genuinely landlocked courts', () => {
+	const grid = deriveGrid(createTerrain({ seed: 7 }));
+	for (const id of ['68/20', '69/20', '68/21', '69/21'])
+		expect(grid.cellsById.get(id)).toMatchObject({
+			parcel: '60:16/8/4',
+			parcelAccess: 'fronted',
+			buildable: true
+		});
+	for (const id of ['90/18', '90/19', '91/18', '91/19'])
+		expect(grid.cellsById.get(id)).toMatchObject({
+			parcel: '84:16/6/2',
+			parcelAccess: 'landlocked',
+			buildable: false
+		});
+});

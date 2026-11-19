@@ -285,7 +285,10 @@ function derive(
 			makeCell(lattice, data.vertices, c, r, patches, data.cells[c]?.[r], edits)
 		);
 	});
-	resolveCourtAccess(changed, first, lattice.profile.alleyWidth);
+	resolveCourtAccess(changed, first, lattice.profile.alleyWidth, (cell) => {
+		const { patch, x, y, id } = patches(cell.column, cell.row);
+		return x + ':' + y + '/' + required(patch.faces.get(id), 'court carrier').block.parcel;
+	});
 	for (const [i, column] of changed.entries()) data.cells[first + i] = column;
 	const result = assemble(lattice.terrain, lattice.profile, data, first, last, previous);
 	cachedShape.set(result, shape);

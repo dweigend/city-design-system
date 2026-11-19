@@ -15,7 +15,7 @@ export type TerrainCell = QuadCell &
 		block: string;
 		/** Kernel parcel owning this addressable carrier cell. */
 		parcel: string;
-		/** Frontage of a cut leaf, shared across its carrier cells. */
+		/** Access of the accepted leaf or undivided court, shared by its carriers. */
 		parcelAccess?: 'fronted' | 'landlocked';
 		blockSides: number;
 		/** Buildable remainder where an alley takes part of the terrain cell. */
