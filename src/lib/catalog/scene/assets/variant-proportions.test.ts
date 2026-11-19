@@ -11,7 +11,9 @@ function measure(id: string, variant: string, seed: number) {
 		const { geometry, rotation, position } = build(p);
 		geometry.rotateY(rotation).translate(...position.toArray());
 		geometry.computeBoundingBox();
-		bounds.union(geometry.boundingBox!);
+		const box = geometry.boundingBox;
+		if (!box) throw new Error('missing bounds');
+		bounds.union(box);
 		geometry.dispose();
 	}
 	const size = bounds.getSize(new Vector3());

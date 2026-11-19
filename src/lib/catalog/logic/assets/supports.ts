@@ -1,4 +1,4 @@
-import { family, block, legs, row, plate, cage, shell, pipe } from './assembly';
+import { family, block, legs, row, cage, shell, pipe } from './assembly';
 import { bulb, rod, water, workshop } from './parts';
 const asset = family('structure', 'deck');
 export const supports = [

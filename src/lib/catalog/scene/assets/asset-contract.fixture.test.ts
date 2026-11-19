@@ -29,7 +29,9 @@ export function checkAssets(category: AssetCategory) {
 						const { geometry, position, rotation } = build(part);
 						geometry.rotateY(rotation).translate(position.x, position.y, position.z);
 						geometry.computeBoundingBox();
-						expect(reservation.containsBox(geometry.boundingBox!)).toBe(true);
+						const box = geometry.boundingBox;
+						if (!box) throw new Error('missing bounds');
+						expect(reservation.containsBox(box)).toBe(true);
 						geometry.dispose();
 					}
 				}
