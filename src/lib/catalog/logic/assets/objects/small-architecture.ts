@@ -73,6 +73,10 @@ export const smallArchitecture = [
 	asset('crescent-refuge', ['body', 'shell', 'slats'], [4.9, 4.9], (_span, variant) => [
 		band(2.11, 0.22, 0, 2.23, 1.65 + variant * 0.68, 'body'),
 		band(2.29, 1.35, 2.23, 0.14, 1.65 + variant * 0.68, 'shell'),
-		band(1.92, 0.48, 0, 0.45, 1.65 + variant * 0.68, 'slats')
+		...row(2 + variant, (t) => {
+			const angle = 0.12 + (t + 1) * 0.5 * (1.41 + variant * 0.68);
+			return post(1.68 * Math.cos(angle), 1.68 * Math.sin(angle), 0, 0.14, 0.38, 'body');
+		}),
+		band(1.92, 0.48, 0.38, 0.075, 1.65 + variant * 0.68, 'slats')
 	])
 ];

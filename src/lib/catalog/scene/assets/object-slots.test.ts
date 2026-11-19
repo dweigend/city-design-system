@@ -1,3 +1,4 @@
+import { materialSheet } from '../../logic/material/contact-sheet';
 import { expect, test } from 'bun:test';
 import { assetRegistry, buildObject, type SlotAssignment } from '../../logic/assets';
 import { resolveFinish } from '../../logic/material/surface';
@@ -40,3 +41,21 @@ test('every variant exposes deterministic bare geometry and independently replac
 		expect([...used].sort()).toEqual([...a.slotNames].sort());
 	}
 }, 120000);
+
+test('the three porthole samples keep the same geometry and assign different surfaces', () => {
+	const samples = materialSheet('--paper').find((row) => row.id === 'slot-assignments')?.samples;
+	if (!samples) throw new Error('Missing porthole material comparison');
+	expect(samples).toHaveLength(3);
+	const parts = samples.map((sample) => sample.parts());
+	const shapes = parts.map((group) =>
+		JSON.stringify(group, (key, value: unknown) =>
+			['token', 'material', 'finish'].includes(key) ? undefined : value
+		)
+	);
+	expect(shapes[1]).toEqual(shapes[0]);
+	expect(shapes[2]).toEqual(shapes[0]);
+	const surfaces = parts.map((group) =>
+		JSON.stringify(group.map((part) => [part.token, part.finish]))
+	);
+	expect(new Set(surfaces).size).toBe(3);
+});

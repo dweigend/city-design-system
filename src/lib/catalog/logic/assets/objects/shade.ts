@@ -52,7 +52,8 @@ export const shade = [
 	]),
 	asset('louvre-pergola', ['foot', 'slats'], [5, 3], (span, variant) => [
 		...row(2, (t) => panel(t * 2.04 * span, 0, 0, 0.12, 2.5, 2.35, 'foot')),
-		...row(4 + variant * 2, (t) => panel(t * 2.12 * span, 0, 2.35, 0.2, 2.7, 0.13))
+		...row(2, (t) => panel(0, t * 1.12, 2.35, 4.32 * span, 0.14, 0.12)),
+		...row(4 + variant * 2, (t) => panel(t * 2.12 * span, 0, 2.47, 0.2, 2.7, 0.13))
 	]),
 	asset('paired-shade', ['frame', 'fabric'], [4.9, 3], (span) => [
 		...row(2, (t) => post(t * 1.1 * span, 0, 0, 0.09, 2.2 + t * 0.16)),
@@ -100,9 +101,9 @@ export const shade = [
 		...row(2, (t) =>
 			rail(
 				[
-					[-1.95 * span, t * 1.38, 2.12],
-					[-1.95 * span, 0, 2.96],
-					[-1.95 * span, -t * 1.38, 2.12]
+					[t * 1.95 * span, 1.38, 2.12],
+					[t * 1.95 * span, 0, 2.96],
+					[t * 1.95 * span, -1.38, 2.12]
 				],
 				0.035
 			)
