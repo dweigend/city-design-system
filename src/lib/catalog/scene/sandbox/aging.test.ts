@@ -54,19 +54,29 @@ test('advancing redraws built houses and rail in pencil and undo restores their 
 	}
 });
 
-test('a newly painted ground-floor collage shell becomes pencil at the next year', () => {
+test('a newly painted ground-floor colour body becomes pencil at the next year', () => {
 	const before = createWorld(7, { cells: 0 });
 	const built = applyEdit(before, { kind: 'raise', cellId: '30/30', use: 'living' });
 	const aged = applyEdit(built, { kind: 'advance' });
 	const terrain = createTerrainMesh(before.grid);
 	const drawn = new Map<string, Primitive[]>();
 	const target = { terrain, structures: { set: drawn.set.bind(drawn) } };
-	const shell = () => [...drawn.values()].flat().find((part) => part.id === '30/30@0:stock');
+	const shell = () => [...drawn.values()].flat().find((part) => part.id === '30/30@0:wall');
 	try {
 		projectChanges(target, before, built, 'all', false);
-		expect(shell()).toMatchObject({ role: 'neu', kind: 'prism' });
+		expect(shell()).toMatchObject({
+			role: 'neu',
+			kind: 'prism',
+			token: '--body-living',
+			envelope: true
+		});
 		projectChanges(target, built, aged, 'all', false);
-		expect(shell()).toMatchObject({ role: 'bestand', kind: 'prism', material: 'paper' });
+		expect(shell()).toMatchObject({
+			role: 'bestand',
+			kind: 'prism',
+			material: 'paper',
+			token: '--paper'
+		});
 	} finally {
 		terrain.dispose();
 	}

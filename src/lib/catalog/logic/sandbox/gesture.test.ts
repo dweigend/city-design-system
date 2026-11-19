@@ -60,7 +60,11 @@ test('the shore dig credits exactly the storeys removed from the opening town', 
 	);
 	expect(after.state.edits).toHaveLength(1);
 	expect(removed.length).toBeGreaterThan(0);
-	expect(after.state.store.living - before.state.store.living).toBe(removed.length);
+	for (const use of ['living', 'water', 'material', 'food', 'energy'] as const)
+		expect(after.state.store[use] - before.state.store[use]).toBe(
+			removed.filter(({ anchor }) => before.state.stacks.get(anchor.cellId)?.[anchor.level] === use)
+				.length
+		);
 	for (const { anchor } of removed) {
 		expect(after.grid.cellsById.get(anchor.cellId)?.buildable).toBe(false);
 		expect(after.state.stacks.has(anchor.cellId)).toBe(false);

@@ -86,23 +86,32 @@ describe('house brush', () => {
 		expect(parts(two, cell).some((p) => p.id.includes(':piloti'))).toBe(false);
 	});
 
-	test('new living collage carries a white module and a pink access flight', () => {
+	test('new living collage has a housing-coloured wall, white roof and pink access flight', () => {
 		const cell = cellAt(1, 1);
 		const list = houseChunk(grid, raise(EMPTY, cell.id, 'living'), cell.chunk, SEED, 'collage');
-		expect(named(list, '/module')[0]).toMatchObject({ kind: 'capsule', token: '--paper' });
-		expect(list.some((p) => p.id.includes(':step'))).toBe(true);
+		expect(named(list, ':wall')[0]).toMatchObject({
+			kind: 'prism',
+			role: 'neu',
+			envelope: true,
+			token: '--body-living'
+		});
+		expect(named(list, ':plate')[0]).toMatchObject({ kind: 'prism', token: '--paper' });
+		expect(named(list, ':tier0')[0]).toMatchObject({ kind: 'prism', token: '--paper' });
+		expect(list.filter((p) => p.token === '--cat-business').map((p) => p.id)).toEqual(
+			Array.from({ length: 8 }, (_, i) => cell.id + '@0:figure:step' + i)
+		);
 		expect(list.some((p) => p.pattern || p.token === '--signal')).toBe(false);
 	});
 
-	test('adjacent roof quads produce connected physical rods in both sections', () => {
+	test('the surveyed frame covers both adjacent roof quads with sized secondary rods', () => {
 		const stacks = raise(raise(EMPTY, '1/1', 'living'), '2/1', 'living');
 		const list = houseChunk(grid, stacks, cellAt(1, 1).chunk, SEED, 'megastructure');
-		expect(list.some((p) => p.kind === 'pipe' && p.radius === 0.09 && p.member === 'primary')).toBe(
-			true
-		);
-		expect(
-			list.some((p) => p.kind === 'pipe' && p.radius === 0.05 && p.member === 'secondary')
-		).toBe(true);
+		const rods = list.filter((p) => p.kind === 'pipe');
+		const xs = rods.flatMap(({ points }) => points.map(([x]) => x));
+		const seamX = Math.max(...cellAt(1, 1).corners.map(([x]) => x));
+		expect(Math.min(...xs)).toBeLessThan(seamX);
+		expect(Math.max(...xs)).toBeGreaterThan(seamX);
+		expect(rods.every((rod) => rod.radius === 0.05 && rod.member === 'secondary')).toBe(true);
 	});
 	test('where it floods, the house stands on a deck with stilts', () => {
 		const wet = withCell('1/1', (cell) => ({ ...cell, raised: true, pad: 4.5 }));

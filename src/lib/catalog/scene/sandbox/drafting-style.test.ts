@@ -35,26 +35,36 @@ test('the Leitstil variant passes the style contract in both themes', () => {
 	}
 });
 
-test('the fixed plate retains growing seams in 2026, two rail stops, two walkway landings and a forest', () => {
+test('the fixed plate retains growing seams in 2026, three rail stops, two walkway landings and a forest', () => {
 	const first = acceptanceScene();
 	const { world, additions } = first;
 	const stories = [...world.state.storyParts.values()].flat();
 	expect(world.seed).toBe(7);
 	const current = stories.filter(({ built }) => built === world.state.year);
 	expect(world.state.year).toBe(2026);
+	expect(world.state.stacks.get('79/44')).toEqual(['living', 'material', 'water']);
 	expect(world.state.storyParts.get('79/44')?.map(({ style }) => style)).toEqual([
+		'collage',
 		'collage',
 		'collage'
 	]);
 	expect([...(world.state.frameBays?.values() ?? [])].some((b) => b.built)).toBe(true);
 	expect(world.state.storyParts.get('83/44')?.at(-1)?.style).toBe('totem');
-	expect(current.filter(({ style }) => style === 'collage')).toHaveLength(10);
+	expect(
+		new Set(
+			current
+				.filter(({ style }) => style === 'collage')
+				.map(({ anchor }) => world.state.stacks.get(anchor.cellId)?.[anchor.level])
+		)
+	).toEqual(new Set(['living', 'material', 'water', 'food', 'energy']));
 	expect(current.filter(({ style }) => style === 'megastructure')).toHaveLength(0);
 	expect(current.filter(({ style }) => style === 'totem')).toHaveLength(6);
-	expect(world.lines[0].stops).toHaveLength(2);
-	expect([...world.state.cover.values()].filter((kind) => kind === 'forest')).toHaveLength(9);
+	expect(world.lines[0].stops).toHaveLength(3);
+	expect([...world.state.cover.values()].filter((kind) => kind === 'forest')).toHaveLength(61);
 	expect(additions.filter((part) => /^acceptance-walkway:[05]$/.test(part.id))).toHaveLength(2);
-	expect(acceptanceScene().additions).toEqual(additions);
+	const replay = acceptanceScene();
+	expect(replay.additions).toEqual(additions);
+	expect(replay.world.state.storyParts).toEqual(world.state.storyParts);
 });
 
 test('the renderer applies role widths and switches both structural strokes', async () => {
@@ -175,7 +185,8 @@ test('the seed-7 rail pillars and station shafts are in the bible frame layer', 
 	const [line] = acceptanceScene().world.lines;
 	const parts = lineParts(line);
 	const supports = parts.filter(({ id }) => id.includes('/pillar/') || id.endsWith('/shaft'));
-	expect(supports).toHaveLength(6);
+	expect(supports.filter(({ id }) => id.includes('/pillar/'))).toHaveLength(14);
+	expect(supports.filter(({ id }) => id.endsWith('/shaft'))).toHaveLength(3);
 	for (const part of supports) expect(tag(part)).toMatchObject({ schicht: 'geruest', phase: 1 });
 	expect(tag(parts[0]).schicht).toBe('netz');
 });

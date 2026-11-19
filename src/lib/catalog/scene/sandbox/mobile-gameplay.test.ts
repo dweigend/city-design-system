@@ -14,36 +14,43 @@ const { world } = openingScene(7);
 const view = createView();
 const openingArea = { top: 142, bottom: 680 };
 
-test('the playable town opens at 50 pixels per anchor parcel between the HUD edges', () => {
+test('the playable town opens at 18 pixels per anchor parcel between the HUD edges', () => {
 	view.resize(390, 844);
 	expect(frameOldTown(view, world, openingArea)).toBe(true);
-	const cell = world.grid.cellsById.get('86/43');
+	const centerY = (openingArea.top + openingArea.bottom) / 2;
+	const cell = [...world.state.stacks.keys()]
+		.map((id) => world.grid.cellsById.get(id)!)
+		.find(({ center }) => {
+			const { x, y } = view.project(center);
+			return Math.hypot(x - 195, y - centerY) < 0.001;
+		});
 	if (!cell) throw new Error('Missing sample plot');
 	const xs = cell.corners.map((corner) => view.project(corner).x);
-	expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(50);
+	expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(18);
 	const { x, y } = view.project(cell.center);
 	expect(x).toBeCloseTo(195);
-	expect(y).toBeCloseTo((openingArea.top + openingArea.bottom) / 2);
+	expect(y).toBeCloseTo(centerY);
 });
 
-test('the portrait opening keeps the terrain rim outside the playable area', () => {
+test('the portrait opening keeps the visible terrain rim away from the town anchor', () => {
 	view.resize(390, 844);
 	frameOldTown(view, world, openingArea);
 	const rim = world.grid.cells.filter(({ neighbors }) => neighbors.includes(null));
-	for (const { corners } of rim) {
-		for (const { x, y } of corners.map(view.project))
-			expect(x < 0 || x > 390 || y < openingArea.top || y > openingArea.bottom).toBe(true);
-	}
+	const visible = rim
+		.flatMap(({ corners }) => corners.map(view.project))
+		.filter(({ x, y }) => x >= 0 && x <= 390 && y >= openingArea.top && y <= openingArea.bottom);
+	expect(visible.length).toBeGreaterThan(0);
+	expect(visible.every(({ x, y }) => Math.hypot(x - 195, y - 411) > 100)).toBe(true);
 });
 
-test('the desktop opening retains half the width for the old town', () => {
+test('the desktop opening retains 74 percent of the width for the old town', () => {
 	view.resize(1440, 900);
 	expect(frameTownSilhouette(view, world)).toBe(true);
 	const town = [...world.state.stacks.keys()]
 		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
 		.map(view.project);
 	const xs = town.map(({ x }) => x);
-	expect((Math.max(...xs) - Math.min(...xs)) / 1440).toBeCloseTo(0.5, 3);
+	expect((Math.max(...xs) - Math.min(...xs)) / 1440).toBeCloseTo(0.74, 3);
 });
 
 test('chunk picking selects the same terrain cell as the rendered triangles on phone', () => {

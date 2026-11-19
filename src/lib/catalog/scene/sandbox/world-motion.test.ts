@@ -114,7 +114,7 @@ test('the moving and vacated crown edges pick the same geometry as the screen, i
 	}
 });
 
-test('living stairs retain people pink and service colours stay on their own parts', () => {
+test('colour bodies retain use-coloured walls, white plates and pink stairs across drawing levels', () => {
 	for (const use of ['living', 'water'] as const) {
 		const id = '86/43';
 		const world = applyEdit(createWorld(7), { kind: 'raise', style: 'collage', use, cellId: id });
@@ -137,9 +137,21 @@ test('living stairs retain people pink and service colours stay on their own par
 			});
 			const layers = partition(drawing.parts, drawing.unoutlined);
 			const rendered = Object.values(layers).flat();
-			const stock = rendered.filter((p) => p.id === id + '@3:stock');
-			expect(stock.length).toBeGreaterThan(0);
-			expect(stock.every((p) => p.token === '--paper')).toBe(true);
+			const wall = rendered.find((p) => p.id === id + '@3:wall');
+			expect(wall).toMatchObject({
+				token: use === 'living' ? '--body-living' : '--cat-health',
+				role: 'neu',
+				envelope: true
+			});
+			expect(rendered.find((p) => p.id === id + '@3:plate')).toMatchObject({
+				token: '--paper',
+				envelope: true
+			});
+			expect(
+				rendered
+					.filter((p) => p.id.startsWith(id + '@3') && p.token === '--cat-business')
+					.every((p) => p.id.includes(':figure:step'))
+			).toBe(true);
 			if (use === 'water')
 				expect(rendered.some((p) => p.id.includes(':figure') && p.token === '--cat-health')).toBe(
 					true
