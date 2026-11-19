@@ -1,5 +1,5 @@
 import { suggestions } from './suggestions';
-import { family, row } from '../assembly';
+import { circle, family, row } from '../assembly';
 import { panel, post, bow, eye, lens, collar } from './forms';
 
 const asset = family('recycling', 'deck', suggestions);
@@ -9,10 +9,10 @@ export const recycling = [
 		...row(2 + variant, (t) => collar(t * 1.25, 0, 0.1, 0.38, 0.055, 0.8, 'shell')),
 		...row(2 + variant, (t) => collar(t * 1.25, 0, 0.9, 0.4, 0.19, 0.08, 'slats'))
 	]),
-	asset('slot-litter-bin', ['foot', 'shell', 'frame'], [1.6, 1.6], (span) => [
+	asset('slot-litter-bin', ['foot', 'shell', 'frame'], [1.6, 1.6], (span, variant) => [
 		post(0, 0, 0, 0.46, 0.13, 'foot'),
 		collar(0, 0, 0.13, 0.43, 0.06, 0.45 + 0.6 * span, 'shell'),
-		...row(2, (t) => post(t * 0.36, 0, 0.58 + 0.6 * span, 0.045, 0.2)),
+		...circle(0.39, 2 + variant).map(([x, y]) => post(x, y, 0.58 + 0.6 * span, 0.045, 0.2)),
 		lens(0, 0, 0.78 + 0.6 * span, 0.49, 0.14)
 	]),
 	asset('bottle-bank', ['foot', 'body', 'shell'], [2.3, 1.8], (span) => [
@@ -30,12 +30,15 @@ export const recycling = [
 		...row(2 + variant, (t) => collar(t * 1.24, 0, 0.11, 0.38, 0.07, 0.57, 'body')),
 		...row(2 + variant, (t) => collar(t * 1.24, 0, 0.68, 0.4, 0.085, 0.08, 'slats'))
 	]),
-	asset('pedal-drum', ['foot', 'shell', 'body', 'frame'], [1.7, 1.8], (span) => [
-		post(0, 0, 0, 0.41, 0.12, 'foot'),
-		collar(0, 0, 0.12, 0.41, 0.05, 0.38 + span * 0.7, 'shell'),
-		lens(0, 0, 0.5 + span * 0.7, 0.43, 0.1, 'body'),
-		panel(0, -0.41, 0.09, 0.25, 0.27, 0.055, 'frame')
-	]),
+	asset('pedal-drum', ['foot', 'shell', 'body', 'frame'], [1.7, 1.8], (span) => {
+		const rise = 1.3 * span - 0.3;
+		return [
+			post(0, 0, 0, 0.41, 0.12, 'foot'),
+			collar(0, 0, 0.12, 0.41, 0.05, 0.38 + rise, 'shell'),
+			lens(0, 0, 0.5 + rise, 0.43, 0.1, 'body'),
+			panel(0, -0.41, 0.09, 0.25, 0.27, 0.055, 'frame')
+		];
+	}),
 	asset('canopy-sorter', ['foot', 'shell', 'frame', 'slats'], [3.9, 1.7], (_span, variant) => [
 		panel(0, 0, 0, 3.5, 1.15, 0.13, 'foot'),
 		...row(2 + variant, (t) => collar(t * 1.27, 0, 0.13, 0.38, 0.065, 0.76, 'shell')),

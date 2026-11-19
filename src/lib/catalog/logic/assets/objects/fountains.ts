@@ -4,21 +4,24 @@ import { panel, post, rail, bow, band, collar } from './forms';
 
 const asset = family('fountains', 'deck', suggestions);
 export const fountains = [
-	asset('lip-drinking-bowl', ['foot', 'frame', 'body', 'liquid'], [1.8, 1.8], (span) => [
-		post(0, 0, 0, 0.32, 0.14, 'foot'),
-		post(0, 0, 0.14, 0.15, 0.5 + span * 0.45),
-		post(0, 0, 0.64 + span * 0.45, 0.43, 0.07, 'body'),
-		collar(0, 0, 0.71 + span * 0.45, 0.45, 0.06, 0.095),
-		post(0, 0, 0.71 + span * 0.45, 0.38, 0.025, 'liquid'),
-		rail(
-			[
-				[0, 0.34, 0.74 + span * 0.45],
-				[0, 0.34, 0.95 + span * 0.45],
-				[0, 0.17, 0.97 + span * 0.45]
-			],
-			0.035
-		)
-	]),
+	asset('lip-drinking-bowl', ['foot', 'frame', 'body', 'liquid'], [1.8, 1.8], (span) => {
+		const lift = 1.05 * span - 0.47;
+		return [
+			post(0, 0, 0, 0.32, 0.14, 'foot'),
+			post(0, 0, 0.14, 0.15, 0.5 + lift),
+			post(0, 0, 0.64 + lift, 0.43, 0.07, 'body'),
+			collar(0, 0, 0.71 + lift, 0.45, 0.06, 0.095),
+			post(0, 0, 0.71 + lift, 0.38, 0.025, 'liquid'),
+			rail(
+				[
+					[0, 0.34, 0.74 + lift],
+					[0, 0.34, 0.95 + lift],
+					[0, 0.17, 0.97 + lift]
+				],
+				0.035
+			)
+		];
+	}),
 	asset('court-rain-dish', ['foot', 'body', 'liquid', 'frame'], [2.8, 2.8], (span) => [
 		post(0, 0, 0, 1.22 * span, 0.1, 'foot'),
 		collar(0, 0, 0.1, 1.22 * span, 0.1, 0.28, 'body'),

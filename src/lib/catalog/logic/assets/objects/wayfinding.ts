@@ -11,18 +11,21 @@ export const wayfinding = [
 			panel(((i % 2) - 0.5) * 0.91, 0, 2.1 - i * 0.29, 1.14, 0.095, 0.19, 'shell')
 		)
 	]),
-	asset('roundel-marker', ['foot', 'frame', 'shell'], [1.6, 1.6], (span) => [
-		post(0, 0, 0, 0.21, 0.12, 'foot'),
-		post(0, 0, 0.12, 0.07, 0.96 + span),
-		eye(0, 0, 1.56 + span, 0.54, 0.09, 0.1, 'shell'),
-		rail(
-			[
-				[0, -0.37, 1.56 + span],
-				[0, 0.37, 1.56 + span]
-			],
-			0.065
-		)
-	]),
+	asset('roundel-marker', ['foot', 'frame', 'shell'], [1.6, 1.6], (span) => {
+		const lift = 2.4 * span - 0.6;
+		return [
+			post(0, 0, 0, 0.21, 0.12, 'foot'),
+			post(0, 0, 0.12, 0.07, 0.96 + lift),
+			eye(0, 0, 1.56 + lift, 0.54, 0.09, 0.1, 'shell'),
+			rail(
+				[
+					[0, -0.5, 1.56 + lift],
+					[0, 0.5, 1.56 + lift]
+				],
+				0.065
+			)
+		];
+	}),
 	asset('rail-map-board', ['frame', 'shell', 'slats'], [3.8, 1.2], (span, variant) => [
 		...row(2, (t) => post(t * 1.55 * span, 0, 0, 0.065, 1.95)),
 		panel(0, 0, 0.88, 3.08 * span, 0.09, 0.96, 'shell'),
@@ -35,28 +38,31 @@ export const wayfinding = [
 		post(0, 0, 0.1, 0.18, 0.48 * (2 + variant)),
 		...row(2 + variant, (_, i) => collar(0, 0, 0.32 + i * 0.48, 0.225, 0.06, 0.145, 'shell'))
 	]),
-	asset('trail-chevron', ['foot', 'frame', 'shell'], [1.9, 1.2], (span) => [
-		post(0, 0, 0, 0.24, 0.1, 'foot'),
-		post(0, 0, 0.1, 0.07, 0.7 + span),
-		rail(
-			[
-				[-0.65, 0, 1 + span],
-				[0, 0, 1 + span],
-				[0.61, 0, 1 + span]
-			],
-			0.065,
-			'shell'
-		),
-		rail(
-			[
-				[0.25, 0, 1.29 + span],
-				[0.62, 0, 1 + span],
-				[0.25, 0, 0.71 + span]
-			],
-			0.065,
-			'shell'
-		)
-	]),
+	asset('trail-chevron', ['foot', 'frame', 'shell'], [1.9, 1.2], (span) => {
+		const lift = 2 * span - 0.5;
+		return [
+			post(0, 0, 0, 0.24, 0.1, 'foot'),
+			post(0, 0, 0.1, 0.07, 0.9 + lift),
+			rail(
+				[
+					[-0.65, 0, 1 + lift],
+					[0, 0, 1 + lift],
+					[0.61, 0, 1 + lift]
+				],
+				0.065,
+				'shell'
+			),
+			rail(
+				[
+					[0.25, 0, 1.29 + lift],
+					[0.62, 0, 1 + lift],
+					[0.25, 0, 0.71 + lift]
+				],
+				0.065,
+				'shell'
+			)
+		];
+	}),
 	asset('route-tabs', ['foot', 'shell', 'frame'], [2.6, 1.2], (span, variant) => [
 		panel(0, 0, 0, 2.25 * span, 0.65, 0.12, 'foot'),
 		...row(2 + variant, (t, i) =>
@@ -71,13 +77,16 @@ export const wayfinding = [
 		panel(0, 0, 2.48, 4.05 * span, 0.2, 0.41, 'shell'),
 		...row(2 + variant, (t) => panel(t * 1.23 * span, -0.13, 2.59, 0.18, 0.07, 0.17))
 	]),
-	asset('directory-drum', ['foot', 'frame', 'shell', 'slats'], [1.8, 1.8], (span) => [
-		post(0, 0, 0, 0.54, 0.17, 'foot'),
-		post(0, 0, 0.17, 0.17, 0.46),
-		post(0, 0, 0.63, 0.63, 0.44 + 0.8 * span, 'shell'),
-		collar(0, 0, 0.63, 0.67, 0.065, 0.09, 'slats'),
-		lens(0, 0, 1.07 + 0.8 * span, 0.67, 0.14)
-	]),
+	asset('directory-drum', ['foot', 'frame', 'shell', 'slats'], [1.8, 1.8], (span) => {
+		const rise = 1.65 * span - 0.48;
+		return [
+			post(0, 0, 0, 0.54, 0.17, 'foot'),
+			post(0, 0, 0.17, 0.17, 0.46),
+			post(0, 0, 0.63, 0.63, 0.44 + rise, 'shell'),
+			collar(0, 0, 0.63, 0.67, 0.065, 0.09, 'slats'),
+			lens(0, 0, 1.07 + rise, 0.67, 0.14)
+		];
+	}),
 	asset('frame-noticeboard', ['frame', 'slats', 'screen', 'shell'], [3.4, 1.2], (span) => [
 		...row(2, (t) => post(t * 1.33 * span, 0, 0, 0.065, 2.17)),
 		panel(0, 0, 0.82, 2.7 * span, 0.11, 1.19, 'slats'),
