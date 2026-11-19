@@ -198,8 +198,8 @@
 	.controls > :global(.cg-button) {
 		display: inline-grid;
 		place-items: center;
-		min-width: var(--ctl-m);
-		min-height: var(--ctl-m);
+		min-width: max(44px, var(--ctl-m));
+		min-height: max(44px, var(--ctl-m));
 		padding: 0 var(--space-2);
 		border: var(--hair) solid var(--line);
 		color: var(--ink);

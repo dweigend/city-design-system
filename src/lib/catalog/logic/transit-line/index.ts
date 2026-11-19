@@ -20,6 +20,7 @@ export type {
 	TransitPose
 } from './contract';
 export { TRANSIT_PARAMS, VEHICLE, transitOverrides } from './contract';
+export { cityTransitSlots } from './slots';
 export { lineParts } from './parts';
 export { vehiclePoses } from './vehicles';
 

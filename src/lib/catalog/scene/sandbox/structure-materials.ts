@@ -57,7 +57,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		}),
 		stockDetail: new THREE.Line2NodeMaterial(),
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
-		pencil: new THREE.Line2NodeMaterial(),
+		pencil: new THREE.Line2NodeMaterial({ transparent: cityEdges, opacity: cityEdges ? 0.4 : 1 }),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
 		carrierInk: new THREE.Line2NodeMaterial(),
@@ -115,7 +115,9 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 	for (const material of [materials.solid, materials.sheet, materials.pod])
 		material.castShadowPositionNode = cityEdges ? positionLocal : positionLocal.add(localShift);
 	const graphite = uniform(new THREE.Color());
-	materials.stock.colorNode = pencilStock(paperTone.rgb, graphite.rgb);
+	materials.stock.colorNode = cityEdges
+		? mix(paperTone.rgb, graphite.rgb, 0.09)
+		: pencilStock(paperTone.rgb, graphite.rgb);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = paperTone;
 

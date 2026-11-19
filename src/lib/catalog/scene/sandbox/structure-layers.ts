@@ -65,7 +65,11 @@ function drawingLayer(part: Primitive) {
 
 const keepLayer = new Set(['carriers', 'ghosts']);
 /** Selects each projected surface and applies the city-scale contour threshold before batching. */
-export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
+export function partition(
+	primitives: Primitive[],
+	unoutlined: ReadonlySet<Primitive>,
+	city = false
+) {
 	const parts = {
 		finished: [] as Surface[],
 		unoutlinedFinishes: [] as Surface[],
@@ -90,7 +94,7 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 			parts[drawing].push(drawing === 'regular' ? { ...original, role: 'bestand' } : original);
 			continue;
 		}
-		const finish = finishedSurface(original);
+		const finish = finishedSurface(original, city);
 		if (finish) {
 			const surfaces =
 				unoutlined.has(original) && hasGlazeContour(finish.finish)
@@ -117,7 +121,18 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 	}
 }
 
-function finishedSurface(part: Primitive): Surface | undefined {
+function finishedSurface(part: Primitive, city: boolean): Surface | undefined {
 	if (hasFinish(part)) return part;
+	const fallback = city && citySurface(part);
+	if (fallback) return fallback;
 	if (isPaperGlaze(part) && !part.overprint) return { ...part, finish: 'glaze' };
+}
+
+function citySurface(part: Primitive): Surface | undefined {
+	if (part.kind === 'capsule') return { ...part, finish: 'acryl-matt' };
+	if (
+		(part.kind === 'membrane' && part.cityForm) ||
+		(part.kind === 'prism' && (part.bearing === 'slab' || part.id.endsWith(':deck')))
+	)
+		return { ...part, finish: 'print-terrazzo' };
 }

@@ -23,3 +23,20 @@ export function pressedFlakes(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
 	const chip = mix(first.mul(0.55), second, second.mul(0.72));
 	return { farbe: base.mul(chip.mul(0.8).add(0.65)), hoehe: chip, relief: 0.004 };
 }
+
+/** Translucent acrylic tooling leaves broad light and dark ribs across the shell. */
+export function flutedAcrylic(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
+	const ribs = townPattern(p, 1.6, (uv) =>
+		uv.x
+			.add(uv.y.mul(0.35))
+			.mul(2 * Math.PI)
+			.cos()
+	);
+	const face = ribs.smoothstep(0.15, 0.55);
+	return {
+		farbe: mix(base.mul(0.36), base, face),
+		hoehe: ribs,
+		relief: 0.045,
+		rauheitVersatz: face.mul(0.14)
+	};
+}
