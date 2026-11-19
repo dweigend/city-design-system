@@ -1,7 +1,9 @@
+import { studioGround } from './studio-ground';
+import { studioPipeline } from './studio-pipeline';
 import * as THREE from 'three/webgpu';
 import { createMaterialKamera } from './materialKamera';
 import { bindSceneTheme } from './themeBinding';
-import { createMaterialStudio, studioPalette, studioFarbwechsel } from './materialStudio';
+import { studioPalette, studioFarbwechsel } from './materialStudio';
 import { createMaterialStuecke } from './materialStuecke';
 import { stueckHuelle } from './materialStueckGeometrie';
 import type { Palette3D } from '../data/city3d';
@@ -32,7 +34,6 @@ export type MaterialBuehne = {
 export type BuehnenOptionen = {
 	/** Use the fixed studio lighting and physical finish projection. */
 	studio?: boolean;
-	lichtVonRechts?: boolean;
 	drehen?: boolean;
 	/** View: elevation above the horizon and direction in degrees. */
 	hoeheDeg?: number;
@@ -50,14 +51,10 @@ export function createMaterialBuehne(
 	optionen: BuehnenOptionen = {}
 ): MaterialBuehne {
 	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
 	const scene = new THREE.Scene();
 	const welt = new THREE.Group();
 	scene.add(welt);
-	const studio = optionen.studio
-		? createMaterialStudio(scene, renderer, optionen.lichtVonRechts)
-		: undefined;
-	const projektion = createMaterialStuecke(welt, !!studio, () => scene.environment);
 	const bewegung =
 		optionen.bewegung !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -72,6 +69,11 @@ export function createMaterialBuehne(
 	let palette: Palette3D | undefined;
 	let letzte: Stueck[] = [];
 	const blick = createMaterialKamera(canvas, optionen, render);
+
+	const pipeline = studioPipeline(renderer, scene, blick.kamera);
+	const studio = optionen.studio ? studioGround(pipeline.light) : undefined;
+	if (studio) scene.add(studio.floor);
+	const projektion = createMaterialStuecke(welt, !!studio, () => scene.environment);
 
 	const bewegt = () => bewegung && aktiv && performance.now() < animiertBis && mitWasser;
 
@@ -92,7 +94,7 @@ export function createMaterialBuehne(
 			pending = 0;
 			const laeuft = bewegt();
 			if (laeuft) wasserSchritt(zeit);
-			renderer.render(scene, blick.kamera);
+			pipeline.render();
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 			if (laeuft) render();
 		});
@@ -107,13 +109,17 @@ export function createMaterialBuehne(
 		for (const s of letzte) stueckHuelle(s.teil, box);
 		if (box.isEmpty()) return;
 		studio?.frame(box);
+		pipeline.light.aim(
+			box.getCenter(new THREE.Vector3()),
+			box.getSize(new THREE.Vector3()).length()
+		);
 		blick.frame(box);
 	}
 
 	function zeichne() {
 		if (!palette) return;
 		projektion.zeige(letzte, palette, bewegung);
-		studio?.invalidate();
+		pipeline.light.refresh();
 		rahme();
 		render();
 	}
@@ -126,7 +132,6 @@ export function createMaterialBuehne(
 				return;
 			}
 			initialized = true;
-			studio?.init();
 			canvas.dataset.backend =
 				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
 					? 'webgpu'
@@ -187,6 +192,7 @@ export function createMaterialBuehne(
 			blick.dispose();
 			projektion.dispose();
 			studio?.dispose();
+			pipeline.dispose();
 			if (initialized) renderer.dispose();
 		}
 	};

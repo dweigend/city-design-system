@@ -1,3 +1,4 @@
+import { studioQuality, type StudioQuality } from './studio-quality';
 import { Color, DoubleSide, type Material, type Node, type Texture } from 'three/webgpu';
 import { attribute, color, float, normalWorld, vec3, vec4 } from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
@@ -6,7 +7,7 @@ import type { SurfaceRecipe } from '../logic/material/surface';
 import { variationVorgabe } from '../logic/material/variation';
 import { firedSlip } from './fired-slip';
 import { architecturalPrint, type PrintInputs } from './architectural-print';
-import { tokenColor } from './material';
+import { lookColor, tokenColor } from './material';
 import { metallUmgebung, type MetallLicht } from './materialMetallUmgebung';
 import { physicalSurface } from './materialOberflaeche';
 import { rezeptMaterial } from './materialRezept';
@@ -21,14 +22,36 @@ const neutralPalette: Palette3D = {
 };
 
 type SurfaceOptions = {
+	quality?: StudioQuality;
 	double?: boolean;
 	close?: boolean;
 	environment?: Texture | null;
 	time?: Node<'float'>;
 	print?: PrintInputs;
-	kiln?: Parameters<typeof firedSlip>;
-	inlay?: Parameters<typeof printedFinish>[4];
 };
+
+function kilnFinish(
+	s: Extract<SurfaceRecipe, { kind: 'kiln' }>,
+	palette: Palette3D,
+	time: Node<'float'> = float(0)
+) {
+	const q = attribute('finishChart', 'vec4');
+	const chart =
+		s.casting === undefined
+			? vec4(q.w.sub(0.45), q.y, q.z, 1)
+			: vec4(attribute('kilnChart', 'vec3'), s.casting);
+	const clay = new Color(palette.paper);
+	const contour = new Color(palette.ink);
+	return firedSlip(
+		color(clay),
+		color(clay.clone().lerp(contour, 0.22)),
+		time,
+		color(contour),
+		float(Number(contour.r > clay.r)),
+		color(tokenColor(palette, s.token)).rgb,
+		chart
+	);
+}
 
 /** Compiles a surface independently of its consumer. Instance buffers can supply interpolated print inputs. */
 export function compileSurface(
@@ -45,27 +68,28 @@ export function compileSurface(
 				s.id,
 				double,
 				options.environment ?? null,
-				s.variation ?? variationVorgabe
+				s.variation ?? variationVorgabe,
+				options.quality ?? studioQuality()
 			);
 		case 'diagram':
+			if (s.coating) {
+				const { token, papier: paper, tint } = s.recipe.farbe;
+				return physicalSurface(
+					s.recipe,
+					palette,
+					s.coating,
+					double,
+					options.environment ?? null,
+					variationVorgabe,
+					options.quality ?? studioQuality(),
+					lookColor({ token, paper, tint }, palette)
+				);
+			}
 			return rezeptMaterial(s.recipe, palette, double, options.time, s.pattern);
-		case 'kiln': {
-			const paper = color(new Color(palette.paper));
-			const ink = color(new Color(palette.ink));
-			const q = attribute('finishChart', 'vec4');
-			const inputs: Parameters<typeof firedSlip> = options.kiln ?? [
-				paper,
-				ink,
-				float(0),
-				ink,
-				float(0),
-				color(tokenColor(palette, s.token)).rgb,
-				vec4(q.w.sub(0.45), q.y, q.z, 1)
-			];
-			return firedSlip(...inputs);
-		}
+		case 'kiln':
+			return kilnFinish(s, palette, options.time);
 		case 'print':
-			return printedFinish(s.id, s.token, palette, options.close ?? true, options.inlay);
+			return printedFinish(s.id, s.token, palette, options.close ?? true);
 		case 'pattern': {
 			const p = attribute('finishChart', 'vec4');
 			const inputs = options.print ?? {
@@ -90,7 +114,8 @@ export function compileSurface(
 export function createMaterialLibrary(
 	initial: Palette3D = neutralPalette,
 	environment: () => Texture | null = () => null,
-	time?: Node<'float'>
+	time?: Node<'float'>,
+	quality = studioQuality()
 ) {
 	let palette = initial;
 	let close = true;
@@ -116,7 +141,13 @@ export function createMaterialLibrary(
 			const key = JSON.stringify([s, double]);
 			const found = cache.get(key);
 			if (found) return found;
-			const face = compileSurface(s, palette, { double, close, environment: reflection(s), time });
+			const face = compileSurface(s, palette, {
+				double,
+				close,
+				environment: reflection(s),
+				time,
+				quality
+			});
 			face.name = s.kind === 'diagram' ? (s.id ?? s.recipe.familie) : s.id;
 			const release = () => {
 				face.removeEventListener('dispose', release);

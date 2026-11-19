@@ -9,7 +9,6 @@ import {
 	mix,
 	normalView,
 	normalWorld,
-	positionLocal,
 	positionWorld,
 	select,
 	sin,
@@ -19,7 +18,7 @@ import {
 } from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
 import type { ColorToken } from '../logic/parametrik/types';
-import { LICHT, MASSSTAB } from '../data/leitstil';
+import { LICHT } from '../data/leitstil';
 
 import type { Node } from 'three/webgpu';
 import { tokenColor } from './material';
@@ -48,7 +47,7 @@ export function halftoneScreen(close: boolean) {
 }
 
 /** Hard-edged dot mask on the supplied meter chart, where pitch is in meters. */
-export function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
+function halftoneDots(chart: Node<'vec2'>, pitch: number | Node<'float'>) {
 	const { angle, radius, pitch: reference } = halftoneScreen(false);
 	const c = Math.cos(angle);
 	const s = Math.sin(angle);
@@ -103,8 +102,7 @@ export function printedFinish(
 	id: 'glaze' | 'print-terrazzo' | 'halftone',
 	token: ColorToken,
 	palette: Palette3D,
-	close: boolean,
-	inlay?: { paper: Node<'color'>; scale: Node<'float'> }
+	close: boolean
 ) {
 	const ink = color(new Color(palette.ink)),
 		paper = color(new Color(palette.paper));
@@ -116,16 +114,10 @@ export function printedFinish(
 		return material;
 	}
 	if (id === 'print-terrazzo') {
-		const base = inlay ? attribute('color', 'vec3') : mix(paper, pigment, 0.58);
-		const dark = inlay ? attribute('chipColor', 'vec3') : mix(base, ink, 0.48);
-		const share = inlay
-			? inlay.scale
-					.smoothstep(MASSSTAB.quartier, MASSSTAB.haus)
-					.mul(attribute('printScreen', 'float'))
-			: float(Number(close));
-		const p = inlay ? positionLocal : chart.xyz;
-		const { chip, pale } = aggregateCoverage(printPlane(p));
-		material.colorNode = mix(base, mix(dark, inlay?.paper ?? paper, pale), chip.mul(share));
+		const base = mix(paper, pigment, 0.58);
+		const dark = mix(base, ink, 0.48);
+		const { chip, pale } = aggregateCoverage(plane);
+		material.colorNode = mix(base, mix(dark, paper, pale), chip.mul(Number(close)));
 		return material;
 	}
 	let result = mix(color(firedBodyColor(palette, token)), pigment, step(0, dip));

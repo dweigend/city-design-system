@@ -8,9 +8,10 @@ import {
 	MathUtils
 } from 'three/webgpu';
 
-export type MetallLicht = 'metall-messing' | 'metall-kupfer';
+export type MetallLicht = 'metall-messing' | 'metall-kupfer' | 'studio';
 
 const himmelFarbe: Record<MetallLicht, readonly [number, number, number]> = {
+	studio: [1.05, 1.02, 0.96],
 	'metall-messing': [0.46, 1.14, 5.3],
 	'metall-kupfer': [0.86, 0.97, 1.13]
 };

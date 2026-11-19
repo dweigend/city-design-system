@@ -17,7 +17,7 @@ import { printBatch, printGeometry } from './print-batch';
 import type { Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';
 import { roundedStops } from './station-rings';
-import { createLight } from './light';
+import { createStudioLight } from '../studio-light';
 import { loadStructureModules } from './fixtures/structure-modules';
 import { present } from '../../logic/presentation';
 
@@ -40,13 +40,23 @@ test('the fitting gives only its own casting a dip coordinate and the plain neig
 	const result = ceramicBatch(
 		[capsule, { ...capsule, id: 'other' }, blue],
 		new Map([['socket', blue]]),
-		ink
+		(slot) => Object.assign(new MeshBasicMaterial(), { userData: slot })
 	);
-	const chart = result.geometry.getAttribute('kilnChart');
-	expect(chart.count).toBe(result.geometry.getAttribute('position').count);
-	const families = Array.from({ length: chart.count }, (_, i) => chart.getW(i));
-	expect([...new Set(families)]).toEqual([1, 0, 2]);
-	result.geometry.dispose();
+	expect(
+		result.meshes.map((m) => [m.material.userData.token, m.material.userData.casting])
+	).toEqual([
+		['--cat-health', 1],
+		['--paper', 0],
+		['--cat-health', 2]
+	]);
+	const charts = result.meshes.map((m) => m.geometry.getAttribute('kilnChart'));
+	expect(charts[0].array).toEqual(charts[1].array);
+	for (const m of result.meshes) {
+		expect(m.geometry.hasAttribute('color')).toBe(false);
+		expect(m.geometry.getAttribute('kilnChart').itemSize).toBe(3);
+		m.geometry.dispose();
+		m.material.dispose();
+	}
 });
 
 test('a picking ray passes through the cut and hits the shoulder on both footprint windings', () => {
@@ -99,7 +109,7 @@ test('both stop families have a physical aperture centred on the surveyed platfo
 });
 
 test('a water-only tick reuses the shadow map while panning or changing casters invalidates it', () => {
-	const light = createLight(),
+	const light = createStudioLight(),
 		sun = light.objects[0];
 	if (!(sun instanceof DirectionalLight)) throw Error('Expected sun');
 	const target = new Vector3(2, 1, 3);
@@ -138,7 +148,9 @@ test('rail dashes follow chainage around a bend for the viaduct and the capsule 
 
 test('fine casting tessellation preserves both cap seats and the outer radius', () => {
 	const coarse = batch([capsule], ink).neu.p;
-	const { geometry } = ceramicBatch([capsule], new Map(), ink);
+	const material = new MeshBasicMaterial();
+	const [{ geometry }] = ceramicBatch([capsule], new Map(), () => material).meshes;
+	material.dispose();
 	const fine = Array.from(geometry.getAttribute('position').array);
 	const bounds = (p: number[]) =>
 		[0, 1, 2].flatMap((axis) => {

@@ -10,8 +10,14 @@ import type { MaterialVariation } from './variation';
 
 export type SurfaceRecipe =
 	| { kind: 'physical'; id: AusfuehrungId; recipe: Rezept; variation?: MaterialVariation }
-	| { kind: 'diagram'; id?: FinishId; recipe: Rezept; pattern?: MaterialLook['pattern'] }
-	| { kind: 'kiln'; id: 'fired-slip'; token: ColorToken }
+	| {
+			kind: 'diagram';
+			id?: FinishId;
+			coating?: AusfuehrungId;
+			recipe: Rezept;
+			pattern?: MaterialLook['pattern'];
+	  }
+	| { kind: 'kiln'; id: 'fired-slip'; token: ColorToken; casting?: number }
 	| { kind: 'print'; id: 'glaze' | 'print-terrazzo' | 'halftone'; token: ColorToken }
 	| { kind: 'pattern'; id: PrintPattern; token: ColorToken; translucent?: boolean };
 
@@ -38,6 +44,14 @@ export function resolveFinish(id: FinishId, token: ColorToken, ageTint = 0): Sur
 	return surface;
 }
 
+// Older installations save a material family in their named slot. Its authored pigment recipe
+// stays intact while the fitted part uses the same studio finish as a newly dressed body.
+const legacyCoatings: Partial<Record<MaterialId, AusfuehrungId>> = {
+	metal: 'metall-lackiert',
+	wood: 'holz-natur',
+	concrete: 'beton-terrazzo'
+};
+
 function baseFinish(id: FinishId, token: ColorToken): SurfaceRecipe {
 	if (id === 'city-drawing')
 		return {
@@ -56,7 +70,7 @@ function baseFinish(id: FinishId, token: ColorToken): SurfaceRecipe {
 	}
 	const spec = materials.find((f) => f.id === id);
 	if (!spec) throw new RangeError('Unknown finish: ' + id);
-	return drawingSurface(materialLook(spec.id, token));
+	return { ...drawingSurface(materialLook(spec.id, token)), coating: legacyCoatings[spec.id] };
 }
 
 /** Preserves the authored family default and control offsets of an instructional recipe. */

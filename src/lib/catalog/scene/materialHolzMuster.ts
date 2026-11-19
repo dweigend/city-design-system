@@ -4,7 +4,11 @@ import {
 	mix,
 	mx_noise_float,
 	mx_worley_noise_float,
-	normalLocal,
+	Fn,
+	attribute,
+	modelWorldMatrix,
+	normalWorldGeometry,
+	vec4,
 	sin,
 	vec3
 } from 'three/tsl';
@@ -33,8 +37,27 @@ function wachstum(p: Node<'vec3'>, aufrecht: boolean) {
 
 /** Projects long fibers and cut rings from a shared 3D grain in meters. Upright stock runs up Y. */
 export function holzMuster(base: Node<'vec3'>, aufrecht: boolean, raum: MusterRaum) {
-	const p = aufrecht ? raum.welt.yxz : raum.lokal;
-	const end = (aufrecht ? normalLocal.y : normalLocal.x).abs().smoothstep(0.57, 0.92);
+	const axis = Fn((builder) => {
+		const local = builder.geometry.hasAttribute('grainAxis')
+			? attribute('grainAxis', 'vec3')
+			: vec3(1, 0, 0);
+		return modelWorldMatrix.mul(vec4(local, 0)).xyz.normalize();
+	})();
+	const up = axis.y
+		.abs()
+		.greaterThan(0.9)
+		.select(vec3(0, 0, 1), vec3(0, 1, 0));
+	const across = axis.cross(up).normalize();
+	const p = aufrecht
+		? raum.welt.yxz
+		: vec3(
+				raum.welt.dot(axis),
+				raum.welt.dot(up.sub(axis.mul(up.dot(axis))).normalize()),
+				raum.welt.dot(across)
+			);
+	const end = (aufrecht ? normalWorldGeometry.y : normalWorldGeometry.dot(axis))
+		.abs()
+		.smoothstep(0.57, 0.92);
 	const { ring, ast, drift } = wachstum(p, aufrecht);
 	const astkern = ast.smoothstep(0.63, 0.98);
 	const fasern = mx_noise_float(p.add(saatVektor).mul(vec3(3.6, 78, 78)));

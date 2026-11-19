@@ -35,6 +35,9 @@ export type AusfuehrungId =
 	| 'kunststoff-marmoriert'
 	| 'glas-photovoltaik'
 	| 'membran-goldfolie'
+	| 'perforated-metal'
+	| 'pressed-chipboard'
+	| 'clear-acrylic'
 	| 'corrugated-metal'
 	| 'planted-mat'
 	| 'membran-flor';

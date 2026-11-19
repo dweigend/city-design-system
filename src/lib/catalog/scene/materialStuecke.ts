@@ -1,3 +1,4 @@
+import { studioShadow } from './studio-shadow';
 import * as THREE from 'three/webgpu';
 import { float, uniform, uv } from 'three/tsl';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
@@ -106,19 +107,9 @@ function entsorge(e: Eintrag | undefined) {
 	e.gruppe.removeFromParent();
 }
 
-function optischDurchlaessig(m: THREE.Material): boolean {
-	return m instanceof THREE.MeshPhysicalNodeMaterial && m.transmission > 0;
-}
-
 function zeitRezept(r: Rezept, bewegung: boolean): Rezept {
 	if (bewegung || !r.haut.bewegt) return r;
 	return { ...r, haut: { ...r.haut, bewegt: false } };
-}
-
-function studioSchatten(mesh: THREE.Mesh, material: THREE.Material, familie: Rezept['familie']) {
-	const transmission = optischDurchlaessig(material);
-	mesh.castShadow = !material.transparent && (!transmission || familie === 'membran');
-	mesh.receiveShadow = !transmission;
 }
 
 function diagrammReihenfolge(mesh: THREE.Mesh, material: THREE.Material) {
@@ -142,7 +133,7 @@ export function createMaterialStuecke(
 	const diagrammZeit = uniform(0);
 	const eintraege = new Map<string, Eintrag>();
 	const library = createMaterialLibrary(undefined, umgebung, diagrammZeit);
-	const projektion = studio ? studioSchatten : diagrammReihenfolge;
+	const projektion = studio ? studioShadow : diagrammReihenfolge;
 	let fleck: THREE.Material | undefined;
 
 	function materialFuer(s: Stueck, bewegung: boolean) {
