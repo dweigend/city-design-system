@@ -1,9 +1,9 @@
 import type { ManifoldToplevel } from 'manifold-3d';
-import { houseChunk, type Stacks } from '../house-brush';
+import { houseChunk, type HouseUse } from '../house-brush';
 import { cell, grid } from '../parametrik/raster/geometry';
 import { toPatch } from '../parametrik/raster/universal';
 import type { Point2 } from '../parametrik/vocab';
-import { patchGrid } from '../quad-grid';
+import { patchGrid, inradius } from '../quad-grid';
 import type { RulePlate } from './hausregel';
 
 const rings: Point2[][] = [
@@ -47,7 +47,12 @@ export function roofBlocks(kernel?: ManifoldToplevel): RulePlate[] {
 			{ seed }
 		)
 	);
-	const stacks: Stacks = new Map(carrier.cells.map((c) => [c.id, ['living']]));
+	// Paint separated lots, largest clear radius first; narrow quads remain courtyards.
+	const stacks = new Map<string, HouseUse[]>();
+	for (const c of [...carrier.cells].sort((a, b) => inradius(b) - inradius(a))) {
+		if (inradius(c) >= 1.5 && c.neighbors.every((id) => !id || !stacks.has(id)))
+			stacks.set(c.id, ['living']);
+	}
 	const outlines = carrier.cells.map((c) => ({
 		id: c.id + ':outline',
 		kind: 'polyline' as const,
@@ -57,31 +62,35 @@ export function roofBlocks(kernel?: ManifoldToplevel): RulePlate[] {
 		points: [...c.corners],
 		closed: true
 	}));
+	const plan = [
+		...rings.map((polygon, i) => ({
+			id: 'ground' + i,
+			kind: 'prism' as const,
+			polygon,
+			z: -0.25,
+			height: 0.2,
+			role: 'bestand' as const,
+			token: '--paper' as const,
+			material: 'paper' as const,
+			edges: false
+		})),
+		...outlines
+	];
 	return [
 		{
 			id: 'block-grid',
 			title: 'Block subdivision',
 			text: 'Shared edge midpoints and relaxed quads. The concave ring is triangulated first.',
-			primitives: [
-				...rings.map((polygon, i) => ({
-					id: 'ground' + i,
-					kind: 'prism' as const,
-					polygon,
-					z: -0.25,
-					height: 0.2,
-					role: 'bestand' as const,
-					token: '--paper' as const,
-					material: 'paper' as const,
-					edges: false
-				})),
-				...outlines
-			]
+			primitives: plan
 		},
 		{
 			id: 'roof-blocks',
 			title: 'Historic roofs',
-			text: 'Triangle, quadrilateral, pentagon and concave block. Each roof occupies one relaxed quad.',
-			primitives: [...houseChunk(carrier, stacks, 'plate', seed, 'terrace', undefined, kernel)]
+			text: 'The same house brush on separated lots. Narrow quads and neighboring courtyards stay open.',
+			primitives: [
+				...plan,
+				...houseChunk(carrier, stacks, 'plate', seed, 'terrace', undefined, kernel)
+			]
 		}
 	];
 }

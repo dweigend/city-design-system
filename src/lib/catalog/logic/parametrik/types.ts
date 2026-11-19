@@ -55,7 +55,13 @@ type Base = {
 	section?: BuildingRole;
 };
 /** Indexed CCW triangles and explicit pencil paths sharing world-space metre coordinates. */
-export type MeshForm = { kind: 'mesh'; points: Vec3[]; triangles: number[]; lines: number[][] };
+export type MeshForm = {
+	kind: 'mesh';
+	rotation?: never;
+	points: Vec3[];
+	triangles: number[];
+	lines: number[][];
+};
 export type Primitive = Base &
 	(
 		| { kind: 'box'; position: Vec3; size: Vec3 }
