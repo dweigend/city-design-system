@@ -76,7 +76,7 @@
 		<h1>Asset catalogue</h1>
 		<nav aria-label="Asset categories">
 			{#each groups as c (c)}<a
-					href={resolve('/labor/assets') + '?group=' + c}
+					href={resolve(`/labor/assets?group=${c}`)}
 					aria-current={category === c ? 'page' : undefined}>{c}</a
 				>{/each}
 		</nav>

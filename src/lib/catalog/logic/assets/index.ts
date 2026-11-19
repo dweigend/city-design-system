@@ -23,7 +23,16 @@ export type ObjectOptions = {
 const byId = new Map(recipes.map((recipe) => [recipe.id, recipe]));
 /** Placement descriptions in stable contact-sheet order. */
 export const assetRegistry: readonly AssetDefinition[] = recipes.map(
-	({ draw: _draw, ...entry }) => entry
+	({ id, category, variants, footprint, anchors, slotNames, suggestions, finishes }) => ({
+		id,
+		category,
+		variants,
+		footprint,
+		anchors,
+		slotNames,
+		suggestions,
+		finishes
+	})
 );
 
 /** Builds metre-space geometry and independently dressed primitives for the city and bible. */

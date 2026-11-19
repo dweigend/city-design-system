@@ -39,7 +39,14 @@ const forms = {
 		innerRadius: 0.32,
 		depth: s / 3
 	}),
-	torus: (s) => ({ ...body, kind: 'torus', position: [0, 0, 0.08], radius: s / 2, tube: 0.08 }),
+	torus: (s) => ({
+		...body,
+		kind: 'torus',
+		axis: 'z',
+		position: [0, 0, 0.08],
+		radius: s / 2,
+		tube: 0.08
+	}),
 	capsule: (s) => ({
 		...body,
 		kind: 'capsule',
