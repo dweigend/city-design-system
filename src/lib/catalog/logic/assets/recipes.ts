@@ -1,3 +1,5 @@
+import { houseVolumes } from './house-volumes';
+import { houseProjections } from './house-projections';
 import type { AssetRecipe } from './definition';
 import { porthole } from './porthole';
 import { windowBand } from './window-band';
@@ -86,5 +88,7 @@ export const recipes: readonly AssetRecipe[] = [
 	sheetMetal,
 	corrugated,
 	glass,
-	planted
+	planted,
+	...houseVolumes,
+	...houseProjections
 ];
