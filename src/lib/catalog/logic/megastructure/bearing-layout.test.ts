@@ -144,7 +144,7 @@ test('rigid rotations and reflections carry the bearings with an asymmetric roof
 		const original = assembled(buildRoofFrame([cell(ring)], { maxSpan }));
 		if (original) solved++;
 		for (const transform of maps) {
-			const outline = subdivide(ring.map(transform), seed).reverse();
+			const outline = subdivide(ring.map(transform), seed).toReversed();
 			const i = seed % outline.length;
 			const result = assembled(
 				buildRoofFrame([cell([...outline.slice(i), ...outline.slice(0, i)])], {
