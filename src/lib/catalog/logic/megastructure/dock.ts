@@ -16,9 +16,12 @@ function validateObstacle(b: Obstacle) {
 	} else if (!finitePoint(b.a) || !finitePoint(b.b) || !Number.isFinite(b.radius) || b.radius < 0)
 		throw new RangeError('Invalid obstacle segment');
 }
+/** Tests two world-space docking bounds for penetration, allowing touching faces. */
+export function dockBoundsOverlap(bounds: Bounds, b: Bounds) {
+	return bounds.min.every((v, i) => v < b.max[i] - 1e-9 && bounds.max[i] > b.min[i] + 1e-9);
+}
 function intersects(bounds: Bounds, b: Obstacle) {
-	if ('min' in b)
-		return bounds.min.every((v, i) => v < b.max[i] - 1e-9 && bounds.max[i] > b.min[i] + 1e-9);
+	if ('min' in b) return dockBoundsOverlap(bounds, b);
 	const [x, y, z] = bounds.min,
 		[X, Y, Z] = bounds.max,
 		r = b.radius;

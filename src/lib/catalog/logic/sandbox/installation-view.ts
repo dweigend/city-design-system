@@ -1,11 +1,11 @@
 import { buildingPlots } from './building-plots';
-import { castingSeed, atSocket, carrierForm, shellForms } from '../house-brush';
+import { carrierForm, shellForms } from '../house-brush';
 import { FRAME_DIAMETER, LANDING_RADIUS_M, moduleBridge } from '../megastructure';
 import { WALKWAY_WIDTH_M } from '../walkway';
 import { levelFor, present, type FocusId } from '../presentation';
 import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
-import { rodOf, position, type BuiltPart } from './installation-parts';
+import { savedSocket, rodOf, position, type BuiltPart } from './installation-parts';
 import type { World } from './world';
 
 const base = (id: string) => ({ id, token: '--paper', role: 'neu', material: 'metal' }) as const;
@@ -16,8 +16,7 @@ function moduleView(
 ): Primitive[] {
 	const support = world.state.parts.get(p.attachedTo);
 	const rod = support && rodOf(buildingPlots(world.grid), support);
-	const m =
-		rod && atSocket(rod, p.share, p.recipe, [], p.pitch, castingSeed(world.seed, p.anchor.cellId));
+	const m = rod && savedSocket(rod, p, world.seed);
 	if (!m) return [];
 	return shellForms(p.id, p.recipe, m, coarse);
 }

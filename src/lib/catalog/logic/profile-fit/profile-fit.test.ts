@@ -59,6 +59,7 @@ test('the same body fits a rotated, translated and reversed bay, and rejects an 
 	assert.equal(radius(corners, anchor), 0.75);
 	assert.equal(radius(corners.map(turn).reverse(), turn(anchor)), 0.75);
 	assert.equal(radius(corners, [-12, 0, 0]), 0);
+	assert.equal(radius(corners, [3, 0, 0]), 0);
 });
 test('trim samples lie on the cylinder and its end cap; every edge of the annulus has two faces', () => {
 	const mesh = surfaceBand(0.2, 0.4, 0, 0.08, (u, v, offset) => {

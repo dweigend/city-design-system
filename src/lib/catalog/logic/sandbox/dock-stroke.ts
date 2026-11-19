@@ -2,17 +2,15 @@ import { STORY } from '../../data/grid';
 import { buildingPlots } from './building-plots';
 import { type Bounds } from '../megastructure';
 import {
-	atSocket,
 	socketBounds,
 	capsulePitch,
-	castingSeed,
 	ringArea,
 	moduleGroup,
 	stackTop,
 	type HouseUse
 } from '../house-brush';
 import type { QuadCell } from '../quad-grid';
-import { rodOf, rejected, type Proposal } from './installation-parts';
+import { savedSocket, rodOf, rejected, type Proposal } from './installation-parts';
 import type { World } from './world';
 
 function roofObstacles(world: World): Bounds[] {
@@ -39,8 +37,7 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 	for (const p of world.state.parts.values()) {
 		if (p.kind !== 'module') continue;
 		const r = rods.find((r) => r.part.id === p.attachedTo);
-		const m =
-			r && atSocket(r, p.share, p.recipe, [], p.pitch, castingSeed(world.seed, p.anchor.cellId));
+		const m = r && savedSocket(r, p, world.seed);
 		if (m) occupied.push(...socketBounds(m));
 	}
 	const ids = new Set(cells.map((c) => c.id));
@@ -67,6 +64,7 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 				owner,
 				parts: group.map(({ rod, share, recipe, pitch }) => ({
 					kind: 'module',
+					fit: 'profile-v1',
 					recipe,
 					anchor: rod.part.anchor,
 					attachedTo: rod.part.id,

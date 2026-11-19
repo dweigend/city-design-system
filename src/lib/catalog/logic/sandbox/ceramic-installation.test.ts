@@ -23,6 +23,7 @@ test('the seed-7 water inlet on 90/40 is one owned, seated ceramic fitting with 
 	const group = draw('water');
 	const modules = [...group.state.parts.values()].filter((p) => p.kind === 'module');
 	expect(modules.map((p) => p.recipe)).toEqual(['capsule', 'capsule', 'ceramic']);
+	expect(modules.every((p) => p.fit === 'profile-v1')).toBe(true);
 	const piece = modules[2];
 	const rod = group.state.parts.get(piece.attachedTo);
 	expect(piece.owner).toBe(rod?.owner);
@@ -101,7 +102,7 @@ test('a rejected ten-roof docking survey remains bounded', async () => {
 		);
 		expect(result.failure?.reason).toBe('no-dock-group');
 		expect(probe.mock.calls.length).toBeGreaterThan(0);
-		// At most two K2 docks per seat attempt, including the tank fallback.
+		// Two stroke extensions, including the preferred and fallback fitting surveys.
 		expect(probe.mock.calls.length).toBeLessThanOrEqual(1024 * 2);
 	} finally {
 		probe.mockRestore();

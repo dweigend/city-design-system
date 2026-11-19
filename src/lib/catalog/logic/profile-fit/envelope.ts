@@ -20,7 +20,7 @@ export function fitScale(
 		if (!Number.isFinite(extent)) throw new RangeError('Invalid support extent');
 		if (extent > 0) scale = Math.min(scale, distance / extent);
 	}
-	return scale;
+	return Math.max(0, scale);
 }
 
 /** Vertical boundary planes of an ordered convex footprint relative to a world-space anchor. */

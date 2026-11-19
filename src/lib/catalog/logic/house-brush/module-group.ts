@@ -1,3 +1,4 @@
+import { compatibleGroup } from './socket-neighbors';
 import { ceramicContact, castingSeed } from './ceramic-fitting';
 import { roundPairContact, roundProfileContact } from '../profile-fit';
 import { required } from '../required';
@@ -7,6 +8,7 @@ import type { Vec3 } from '../parametrik/types';
 import type { HouseUse } from './stacks';
 
 export type ModuleRod = { a: Vec3; b: Vec3; radius: number };
+export type SocketFit = 'profile-v1' | 'round-v0';
 export type ModuleRecipe =
 	'capsule' | 'ceramic' | 'tank' | 'solar-ring' | 'garden' | 'workshop' | 'access';
 const accents = {
@@ -50,7 +52,8 @@ export function atSocket(
 	recipe: ModuleRecipe,
 	occupied: Obstacles,
 	pitch = 1.5,
-	profileSeed = 0
+	profileSeed = 0,
+	fit: SocketFit = 'profile-v1'
 ): Seat | undefined {
 	const dx = rod.b[0] - rod.a[0],
 		dy = rod.b[1] - rod.a[1],
@@ -76,7 +79,10 @@ export function atSocket(
 	// The fitting rests directly on the chord. Its rim seats into the adjacent round side.
 	const direction = share <= 0.5 ? 1 : -1;
 	const contact = recipe === 'ceramic' ? ceramicContact(profileSeed, pitch, direction) : undefined;
-	const offset = contact?.offset ?? fittingOffset(recipe, pitch);
+	const offset =
+		fit === 'round-v0'
+			? roundPairContact(pitch, recipe === 'tank' ? 1 : 1.5) - 0.08
+			: (contact?.offset ?? fittingOffset(recipe, pitch));
 	const station = length * share + direction * offset;
 	if (station < 0 || station > length) return;
 	const joint: Vec3 = [
@@ -116,47 +122,33 @@ export function moduleGroup<R extends ModuleRod>(
 	pitch: number,
 	site: { seed: number; cell: (rod: R) => string }
 ) {
-	let attempts = 0;
-	const seats = candidates.flatMap((rod) =>
-		[0.5, 0.32, 0.68, 0.2, 0.8].map((share) => ({ rod, share }))
+	const stations = [0.5, 0.32, 0.68, 0.2, 0.8];
+	// Survey geometry once per station and recipe. The matching step only compares saved bounds.
+	// Five stations cost at most 25 K2 calls per rod, including a ceramic-to-tank fallback.
+	const entries = candidates.map((rod) => {
+		const cell = site.cell(rod);
+		return {
+			rod,
+			seed: castingSeed(site.seed, cell),
+			preferred: use === 'water' ? waterFitting(site.seed, cell) : accents[use]
+		};
+	});
+	function survey(mode: 'shell' | 'preferred' | 'fallback') {
+		return entries.flatMap(({ rod, seed, preferred }) => {
+			if (mode === 'fallback' && preferred !== 'ceramic') return [];
+			const recipe: ModuleRecipe =
+				mode === 'shell' ? 'capsule' : mode === 'preferred' ? preferred : 'tank';
+			const obstacles = [...stock, ...rods.filter((other) => other !== rod)];
+			return stations.flatMap((share) => {
+				const seat = atSocket(rod, share, recipe, obstacles, pitch, seed);
+				return seat ? [{ rod, share, pitch, recipe, seat, bounds: socketBounds(seat) }] : [];
+			});
+		});
+	}
+	const shells = survey('shell');
+	if (shells.length < 2) return;
+	return (
+		compatibleGroup(shells, survey('preferred'), pitch) ??
+		(use === 'water' ? compatibleGroup(shells, survey('fallback'), pitch) : undefined)
 	);
-	const accentFor = (rod: R, tankFallback: boolean) =>
-		use === 'water' && !tankFallback ? waterFitting(site.seed, site.cell(rod)) : accents[use];
-	const place = (s: (typeof seats)[number], recipe: ModuleRecipe, occupied: Bounds[]) => {
-		const seat = atSocket(
-			s.rod,
-			s.share,
-			recipe,
-			[...occupied, ...rods.filter((r) => r !== s.rod)],
-			pitch,
-			castingSeed(site.seed, site.cell(s.rod))
-		);
-		return seat && { ...s, recipe, seat, pitch };
-	};
-	const fit = (
-		group: NonNullable<ReturnType<typeof place>>[],
-		bounds: Bounds[],
-		tankFallback: boolean
-	): typeof group | undefined => {
-		if (group.length === 3) return group;
-		for (const seat of seats) {
-			if (++attempts > 512) return;
-			const next = place(
-				seat,
-				group.length === 2 ? accentFor(seat.rod, tankFallback) : 'capsule',
-				bounds
-			);
-			if (!next) continue;
-			const [x, y] = next.seat.shell.center;
-			if (
-				group.some(
-					(g) => Math.hypot(g.seat.shell.center[0] - x, g.seat.shell.center[1] - y) > pitch * 6
-				)
-			)
-				continue;
-			const result = fit([...group, next], [...bounds, ...socketBounds(next.seat)], tankFallback);
-			if (result) return result;
-		}
-	};
-	return fit([], stock, false) ?? (use === 'water' ? fit([], stock, true) : undefined);
 }

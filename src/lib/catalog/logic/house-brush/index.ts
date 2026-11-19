@@ -66,6 +66,7 @@ export {
 	socketBounds,
 	capsulePitch,
 	moduleGroup,
+	type SocketFit,
 	type ModuleRecipe
 } from './module-group';
 export { carrierForm } from './style-megastructure';
