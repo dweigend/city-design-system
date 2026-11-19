@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { applyEdit, createWorld, commit, startHistory, undo, withState, changes } from './index';
 import { currentStacks, houseView, styleForYear, stylesForYear } from './index';
-import { focuses, levelFor } from '../presentation';
+import { focuses } from '../presentation';
 const town = createWorld(7);
 test('the old town occupies a reproducible set of lower terrace building sites', () => {
 	expect(town.state.stacks).toEqual(createWorld(7).state.stacks);
@@ -12,7 +12,7 @@ test('the old town occupies a reproducible set of lower terrace building sites',
 		expect(town.state.storyParts.get(id)?.every((part) => part.built < town.state.year)).toBe(true);
 	}
 });
-test('stock takes a new floor, ages alongside a line and undo restores both', () => {
+test('advancing records the painted years and keeps the existing route', () => {
 	const id = [...town.state.stacks.keys()][0];
 	const raised = applyEdit(town, { kind: 'raise', cellId: id, use: 'water' });
 	const built = applyEdit(raised, {
@@ -24,10 +24,11 @@ test('stock takes a new floor, ages alongside a line and undo restores both', ()
 	expect(built.state.storyParts.get(id)?.at(-1)?.built).toBe(year);
 	expect(built.state.lines[0].year).toBe(year);
 	const aged = applyEdit(built, { kind: 'advance' });
-	expect(levelFor('all', 'houses', year, aged.state.year)).toBe('pencil');
-	expect(changes(built, aged).addedLines).toHaveLength(1);
+	expect(aged.state.storyParts).toBe(built.state.storyParts);
+	expect(aged.lines).toBe(built.lines);
+	expect(changes(built, aged).addedLines).toHaveLength(0);
 	const back = withState(aged, undo(commit(startHistory(built.state), aged.state)).present);
-	expect(levelFor('all', 'rail', year, back.state.year)).toBe('full');
+	expect(back.state).toBe(built.state);
 });
 
 test('an erased story returns one unit and rebuilding at its anchor creates a fresh ID', () => {
@@ -92,7 +93,8 @@ test('a new collage floor covers the old ridge and keeps its silhouette when it 
 	const aged = view(applyEdit(painted, { kind: 'advance' }));
 	expect(aged.find((p) => p.id === tank?.id)).toMatchObject({
 		kind: 'sphere',
-		role: 'bestand',
-		token: '--paper'
+		role: 'neu',
+		token: '--cat-health',
+		ageTint: 0.06
 	});
 });

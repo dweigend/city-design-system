@@ -12,7 +12,7 @@ import {
 } from 'three/webgpu';
 import { overprintColor } from '../../logic/farbe/overprint';
 import { linearToOklch, type Rgb } from '../../logic/farbe/oklch';
-import { castOffset, halftoneScreen } from './printed-finish';
+import { castOffset, halftoneScreen } from '../printed-finish';
 import { printBatch, printGeometry } from './print-batch';
 import type { Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';

@@ -2,7 +2,7 @@ import { STORY } from '../data/grid';
 import { DIG_RADIUS_M } from '../data/sandbox';
 import { MODULE } from '../logic/terrain-grid';
 import type { Vec3 } from '../logic/parametrik/types';
-import type { Tool, World } from '../logic/sandbox';
+import { advanceAdditions, type Tool, type World } from '../logic/sandbox';
 
 export type StrokeRelease = Readonly<{ cellIds: readonly string[] }>;
 
@@ -12,6 +12,29 @@ export type Completion = Readonly<{
 	after: World;
 	cellIds: readonly string[];
 }>;
+
+/** Formats the committed additions for the Advance status message. */
+export function advanceMessage(event: Completion | undefined): string | undefined {
+	if (event?.kind !== 'advance') return;
+	const {
+		bay,
+		tank,
+		'retention-basin': basin,
+		'green-roof': roof,
+		'water-square': square
+	} = advanceAdditions(event.before, event.after);
+	const items = [
+		[bay, 'frame bay'],
+		[tank, 'tank'],
+		[basin, 'retention basin'],
+		[roof, 'green roof'],
+		[square, 'water square']
+	] as const;
+	const additions = items.flatMap(([count, name]) =>
+		count ? [`${count} ${name}${count === 1 ? '' : 's'}`] : []
+	);
+	return additions.length ? `Added ${additions.join(', ')}.` : 'No construction this advance.';
+}
 
 type Projector = {
 	metersPerPixel(): number;

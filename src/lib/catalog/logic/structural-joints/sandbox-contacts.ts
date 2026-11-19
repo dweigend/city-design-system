@@ -1,6 +1,6 @@
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { MODULE, type TerrainGrid } from '../terrain-grid';
-import type { StructuralContact } from './index';
+import type { StructuralContact } from './contract';
 import { surveySlabSeam } from './slab-seam';
 import { surveyGround, surveySeat, type End } from './contact-seat';
 import {

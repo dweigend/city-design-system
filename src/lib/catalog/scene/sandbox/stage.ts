@@ -14,6 +14,7 @@ import { defaultMinimumInk, type MinimumInk } from './view-params';
 import { createFrameLayer } from './frame-layer';
 import type { Palette3D } from '../../data/city3d';
 import { bindSceneTheme } from '../themeBinding';
+import { sceneSwatch } from '../scene-palette';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
@@ -210,11 +211,11 @@ export function createSandboxStage(
 		shadowsDirty = true;
 		ink.set(next.ink);
 		swatches.planned.set(next.blueprint);
-		swatches.hazard.set(next.categories[hazardRole.token.replace('--cat-', '')]);
+		swatches.hazard.set(sceneSwatch(next, hazardRole.token));
 		baseOutline.color.copy(ink);
 		cursorMaterial.color.copy(swatches.planned);
 		rejectionMaterial.color.copy(swatches.hazard);
-		targetMaterial.color.set(next.categories['--signal']);
+		targetMaterial.color.set(sceneSwatch(next, '--signal'));
 		terrain?.setPalette(next);
 		vehicles.setPalette(next);
 
@@ -333,7 +334,7 @@ export function createSandboxStage(
 
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
 		if (before.lines !== world.lines) vehicles.setLines(world.lines);
-		vehicles.setFocus(nextFocus, world.state.year);
+		vehicles.setFocus(nextFocus);
 	}
 
 	function worldShown(world: World, nextFocus: FocusId) {

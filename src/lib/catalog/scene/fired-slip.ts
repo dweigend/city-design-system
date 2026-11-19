@@ -1,4 +1,4 @@
-import { atan, attribute, float, mix, normalWorld, normalView, vec3 } from 'three/tsl';
+import { atan, float, mix, normalWorld, normalView, vec3 } from 'three/tsl';
 import { MeshBasicNodeMaterial, type Node } from 'three/webgpu';
 
 /** A matte clay body, one dipped cap, its pooled lip and a paper-white reflected shape. */
@@ -7,11 +7,11 @@ export function firedSlip(
 	shade: Node<'color'>,
 	seconds: Node<'float'>,
 	contour: Node<'color'>,
-	night: Node<'float'>
+	night: Node<'float'>,
+	pigment: Node<'vec3'>,
+	q: Node<'vec4'>
 ) {
 	const material = new MeshBasicNodeMaterial();
-	const pigment = attribute('color', 'vec3'),
-		q = attribute('kilnChart', 'vec4');
 	const tank = q.w.equal(2),
 		ring = q.w.equal(3);
 	const level = tank.select(q.y.negate().add(seconds.mul(0.58).sin().mul(0.76)).add(0.28), q.x);

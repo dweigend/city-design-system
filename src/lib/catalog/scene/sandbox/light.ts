@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { float, mix, positionWorld, shadow, uniform } from 'three/tsl';
-import { halftoneDots, halftoneScreen } from './printed-finish';
+import { halftoneDots, halftoneScreen } from '../printed-finish';
 
 const SHADOW_MAP_SIZE = 4096;
 /** Smallest half width of the shadow volume, meters, and its factor of the visible span. */

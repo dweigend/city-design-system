@@ -24,14 +24,19 @@ function isCasting(part: Primitive) {
 		['box', 'capsule', 'cylinder', 'sphere', 'torus', 'ring'].includes(part.kind)
 	);
 }
-function isPaperGlaze(part: Primitive) {
-	return part.kind === 'mesh' && part.material === 'glaze' && part.token === '--paper';
+function isPaperGlaze(part: Primitive): part is Extract<Primitive, { kind: 'mesh' }> {
+	return (
+		part.kind === 'mesh' &&
+		part.role === 'neu' &&
+		!isStructural(part) &&
+		part.material === 'glaze' &&
+		part.token === '--paper'
+	);
 }
 
 function newSurface(part: Primitive) {
 	if (part.kind === 'capsule' && part.printBand) return 'pods';
 	if (part.kind === 'prism' && part.topToken) return 'drawers';
-	if (isPaperGlaze(part)) return 'glaze';
 	return accentSurface(part);
 }
 
@@ -52,16 +57,16 @@ function surfaceBody(part: Primitive): Primitive {
 	return part.envelope ? { ...part, role: 'neu', glass: false } : part;
 }
 
-const keepLayer = new Set(['carriers', 'ghosts', 'glaze']);
+const keepLayer = new Set(['carriers', 'ghosts']);
 /** Selects each projected surface and applies the city-scale contour threshold before batching. */
 export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
 	const parts = {
 		finished: [] as Surface[],
+		unoutlinedFinishes: [] as Surface[],
 		regular: [] as Primitive[],
 		pods: [] as Primitive[],
 		plainPods: [] as Primitive[],
 		drawers: [] as Primitive[],
-		glaze: [] as Primitive[],
 		plain: [] as Primitive[],
 		plainAccents: [] as Primitive[],
 		carriers: [] as Primitive[],
@@ -80,6 +85,11 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		}
 		if (hasFinish(original)) {
 			parts.finished.push(original);
+			continue;
+		}
+		if (isPaperGlaze(original) && !original.overprint) {
+			const surfaces = unoutlined.has(original) ? parts.unoutlinedFinishes : parts.finished;
+			surfaces.push({ ...original, finish: 'glaze' });
 			continue;
 		}
 

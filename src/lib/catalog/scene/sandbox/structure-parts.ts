@@ -11,9 +11,9 @@ import { paperEdge } from './paper-inlay';
 import { ceramicBatch } from './ceramic-batch';
 import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
-import { finishedMeshes } from './finish-batch';
+import { finishedMeshes, type Surface } from './finish-batch';
 import { printBatch, printGeometry } from './print-batch';
-import { outlineOffsets } from './structure-outline';
+import { glazeContourMaterial, hasGlazeContour, silhouette } from './structure-outline';
 
 /** Bakes the local fittings into one ink draw, leaving them out of the picking geometry. */
 export function jointMesh(joints: readonly StructuralJoint[], material: THREE.Material) {
@@ -73,17 +73,6 @@ function bearingDots(points: Vec3[], geometry: THREE.BufferGeometry, material: T
 	return dots;
 }
 
-function silhouette(source: THREE.BufferGeometry, material: THREE.Material) {
-	const geometry = new THREE.InstancedBufferGeometry();
-	geometry.setAttribute('position', source.getAttribute('position'));
-	geometry.setIndex(source.index);
-	if (source.userData.outlineVertices !== undefined)
-		geometry.setDrawRange(0, source.userData.outlineVertices);
-	geometry.setAttribute('outlineOffset', outlineOffsets);
-	geometry.instanceCount = outlineOffsets.count;
-	return new THREE.Mesh(geometry, material);
-}
-
 const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 
 /** Projects one structure key into pickable surfaces and independent drafting marks. */
@@ -135,11 +124,8 @@ export function populateStructures(
 		if (object) object.castShadow = shadows;
 	};
 	const parts = partition(primitives, unoutlined);
-	for (const face of finishedMeshes(parts.finished, finishes.explicit.material)) {
-		face.castShadow = cast;
-		objects.add(face);
-		hits.push(face);
-	}
+	drawFinishes(parts.finished, { contour: true });
+	drawFinishes(parts.unoutlinedFinishes, { contour: false });
 	drawStockAndBodies();
 
 	drawSpecialSurfaces();
@@ -154,6 +140,16 @@ export function populateStructures(
 
 	objects.userData.hits = hits;
 	return objects;
+
+	function drawFinishes(surfaces: Surface[], { contour }: { contour: boolean }) {
+		for (const face of finishedMeshes(surfaces, finishes.explicit)) {
+			face.castShadow = cast;
+			objects.add(face);
+			if (contour && hasGlazeContour(face.material.name))
+				objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
+			hits.push(face);
+		}
+	}
 
 	function drawCarriers() {
 		const current = parts.carriers.filter(
@@ -206,19 +202,18 @@ export function populateStructures(
 	}
 
 	function drawAccents() {
-		const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 		const accent = batch(
 			parts.accents.filter((part) => !isSheet(part)),
-			toAccent
+			accentColor
 		);
-		const accentSheets = batch(parts.accents.filter(isSheet), toAccent);
+		const accentSheets = batch(parts.accents.filter(isSheet), accentColor);
 		surface(accent.neu, materials.signal, materials.hull, true);
 		surface(accent.glas, materials.signal, materials.hull, true);
 		for (const faces of [accent.blatt, accentSheets.blatt, accentSheets.glas])
 			surface(faces, materials.signal, materials.sheetHull, true);
 		lines(accent.kanten.neu, materials.detail);
 		lines(accentSheets.kanten.neu, materials.perimeter);
-		const plainAccents = batch(parts.plainAccents, toAccent);
+		const plainAccents = batch(parts.plainAccents, accentColor);
 		for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
 			fill(faces, materials.signal, true);
 	}
@@ -263,7 +258,7 @@ export function populateStructures(
 				])
 		);
 		const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
-			part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
+			part.token === '--paper' ? finishes.modelWhite : accentColor(part)
 		);
 		if (fired.geometry) {
 			const casting = new THREE.Mesh(fired.geometry, materials.fired);
@@ -284,19 +279,6 @@ export function populateStructures(
 			toColor
 		);
 		const sheets = printBatch(parts.regular.filter(isSheet), toColor);
-		for (const part of parts.glaze) {
-			if (part.kind !== 'mesh') continue;
-			const geometry = new THREE.BufferGeometry().setFromPoints(
-				part.points.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
-			);
-			geometry.setIndex(part.triangles);
-			geometry.computeVertexNormals();
-			const face = new THREE.Mesh(geometry, materials.glaze);
-			face.castShadow = cast;
-			hits.push(face);
-			objects.add(face);
-			if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
-		}
 		surface(body.neu, materials.solid, materials.hull, true);
 		surface(printBatch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
 		surface(printBatch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);

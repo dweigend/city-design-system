@@ -1,8 +1,9 @@
+import { applySurface } from '../material/surface';
 import { buildingPlots } from './building-plots';
 import { carrierForm, shellForms } from '../house-brush';
 import { FRAME_DIAMETER, LANDING_RADIUS_M, moduleBridge } from '../megastructure';
 import { WALKWAY_WIDTH_M } from '../walkway';
-import { levelFor, present, type FocusId } from '../presentation';
+import { focuses, present, type FocusId, type Representation } from '../presentation';
 import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { savedSocket, rodOf, position, type BuiltPart } from './installation-parts';
@@ -92,7 +93,7 @@ type CachedPart = {
 	end?: World['grid']['cells'][number];
 	seed: number;
 	support?: BuiltPart;
-	level: ReturnType<typeof levelFor>;
+	level: Representation;
 	coarse: boolean;
 	forms: Primitive[];
 };
@@ -103,7 +104,7 @@ export function installationPartView(world: World, p: BuiltPart, focus: FocusId,
 	// The frame layer projects each solved seam once, including its retained bearings.
 	if (p.kind === 'segment' && p.frame) return [];
 	const system = world.state.compositions.get(p.owner)?.system ?? 'houses';
-	const level = levelFor(focus, system, p.built, world.state.year);
+	const level = focuses[focus][system];
 	const support = p.kind === 'module' ? world.state.parts.get(p.attachedTo) : undefined;
 	coarse = coarse && p.recipe === 'ceramic';
 	const anchors = support ?? p;
@@ -122,9 +123,9 @@ export function installationPartView(world: World, p: BuiltPart, focus: FocusId,
 		return cached.forms;
 	const generated = partView(world, p, coarse);
 	const parts =
-		p.finish === undefined
+		p.finish === undefined && p.token === undefined
 			? generated
-			: generated.map((part) => (part.kind === 'polyline' ? part : { ...part, finish: p.finish }));
+			: generated.map((part) => applySurface(part, p.finish, p.token));
 	const forms =
 		level === 'pencil'
 			? parts

@@ -1,3 +1,13 @@
+import { chartSurface } from './surface-chart';
+import { resolveFinish, drawingSurface } from '../logic/material/surface';
+import { createMaterialLibrary } from './material-library';
+import {
+	glazeContourMaterial,
+	hasGlazeContour,
+	silhouette,
+	type GlazeContour
+} from './sandbox/structure-outline';
+import { sceneSwatch } from './scene-palette';
 import { bindSceneTheme } from './themeBinding';
 import { legacyRoleOf } from '../logic/parametrik/types';
 import * as THREE from 'three/webgpu';
@@ -5,7 +15,7 @@ import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { surfaceColor, outlinePosition } from './surfaces';
-import { edgeColor, finishMaterial, lookColor } from './material';
+import { edgeColor, lookColor } from './material';
 import { pocheColor } from './schnitt';
 import { materialLook, resolveMaterial, usesMaterialSystem } from '../logic/parametrik/material';
 import { build, vector } from './primitive-geometry';
@@ -37,9 +47,15 @@ export function createParametrikScene(
 	renderer.toneMapping = THREE.NoToneMapping;
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	const materials = new Map<string, THREE.Material>();
+	const glazeContour: GlazeContour = { ink: new THREE.Color(palette.ink) };
 	const usedMaterials = new Set<string>();
+	const usedSurfaces = new Set<THREE.Material>();
 	const painters: (() => void)[] = [];
 	const scene = new THREE.Scene();
+	const surfaces = createMaterialLibrary(palette, () => scene.environment);
+	const sun = new THREE.DirectionalLight(0xffffff, 2);
+	sun.position.set(5, 10, 4);
+	scene.add(new THREE.HemisphereLight(0xffffff, 0xd9d7cf, 2), sun);
 	scene.background = new THREE.Color(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 2000);
 	const model = new THREE.Group();
@@ -91,7 +107,7 @@ export function createParametrikScene(
 		});
 		model.clear();
 	}
-	function fit(reset = false) {
+	function fit(reset = false, direction?: Vec3) {
 		if (moved && !reset) {
 			camera.left = (-camera.top * width) / height;
 			camera.right = -camera.left;
@@ -102,8 +118,9 @@ export function createParametrikScene(
 		const bounds = new THREE.Box3().setFromObject(model);
 		if (bounds.isEmpty() && !fixed) return;
 		const center = fixed ? vector(fixed.center) : bounds.getCenter(new THREE.Vector3());
-		const eye = fixed?.eye
-			? vector(fixed.eye).normalize()
+		const eyeDirection = direction ?? fixed?.eye;
+		const eye = eyeDirection
+			? vector(eyeDirection).normalize()
 			: new THREE.Vector3(-Math.sqrt(3 / 8), 0.5, Math.sqrt(3 / 8));
 		camera.up.set(0, 1, 0);
 		if (Math.abs(eye.y) > 0.99) camera.up.set(0, 0, -1);
@@ -114,20 +131,24 @@ export function createParametrikScene(
 		controls?.update();
 		fitting = false;
 		camera.updateMatrixWorld(true);
-		const projected = new THREE.Box3();
+		// Batched drawings include screen-space lines and instances. Their world bounds cover both.
+		const projected = direction
+			? bounds.clone().applyMatrix4(camera.matrixWorldInverse)
+			: new THREE.Box3();
 		model.updateMatrixWorld(true);
 		const point = new THREE.Vector3();
-		model.traverse((o) => {
-			if (!(o instanceof THREE.Mesh) || o instanceof LineSegments2) return;
-			const positions = o.geometry.getAttribute('position');
-			for (let i = 0; i < positions.count; i++)
-				projected.expandByPoint(
-					point
-						.fromBufferAttribute(positions, i)
-						.applyMatrix4(o.matrixWorld)
-						.applyMatrix4(camera.matrixWorldInverse)
-				);
-		});
+		if (!direction)
+			model.traverse((o) => {
+				if (!(o instanceof THREE.Mesh) || o instanceof LineSegments2) return;
+				const positions = o.geometry.getAttribute('position');
+				for (let i = 0; i < positions.count; i++)
+					projected.expandByPoint(
+						point
+							.fromBufferAttribute(positions, i)
+							.applyMatrix4(o.matrixWorld)
+							.applyMatrix4(camera.matrixWorldInverse)
+					);
+			});
 		const span = fixed
 			? fixed.span
 			: Math.max(
@@ -145,7 +166,7 @@ export function createParametrikScene(
 		render();
 	}
 	let parent: THREE.Object3D = model;
-	const signal = new THREE.Color(palette.categories['--signal'] || palette.ink);
+	const signal = new THREE.Color(sceneSwatch(palette, '--signal'));
 	const groups = new Map<string, THREE.Group>();
 	const pickables: THREE.Mesh[] = [];
 	let offsets = new Map<string, Vec3>();
@@ -210,6 +231,7 @@ export function createParametrikScene(
 		groups.clear();
 		pickables.length = 0;
 		usedMaterials.clear();
+		usedSurfaces.clear();
 		fixed = view;
 		const groupFor = (key: string) => {
 			let g = groups.get(key);
@@ -255,20 +277,14 @@ export function createParametrikScene(
 			place.rotation.y = built.rotation;
 			// Patterns need no UV: they lie on the drawing sheet (schraffur.ts), seamless on curves.
 			const surfaceTone = () => {
-				const category = p.token.replace('--cat-', '');
-				const base =
-					p.token === '--paper'
-						? palette.paper
-						: p.token === '--blueprint'
-							? palette.blueprint
-							: palette.categories[category];
+				const base = sceneSwatch(palette, p.token);
 				const color =
 					role === 'bestand'
 						? new THREE.Color(palette.paper)
 								.convertLinearToSRGB()
 								.lerp(new THREE.Color(palette.ink).convertLinearToSRGB(), p.shade ?? 0.06)
 								.convertSRGBToLinear()
-						: new THREE.Color(base ?? palette.paper)
+						: new THREE.Color(base)
 								.convertLinearToSRGB()
 								.lerp(new THREE.Color(palette.paper).convertLinearToSRGB(), style.memphis ? 0 : 0.5)
 								.convertSRGBToLinear();
@@ -322,7 +338,8 @@ export function createParametrikScene(
 				style.level !== 'hull' && usesMaterialSystem(p.material, style.materials)
 					? (({ material, token }) => materialLook(material, token))(resolveMaterial(p))
 					: undefined;
-			if (p.kind === 'frame' && built.rulings) {
+			const finish = style.level !== 'hull' && role === 'neu' ? p.finish : undefined;
+			if (!finish && p.kind === 'frame' && built.rulings) {
 				// Stabwerk as drawing: paper bars in ink, coloured bars as a broad coloured stroke.
 				const plain = p.token === '--paper' || role === 'bestand';
 				if (!plain)
@@ -345,20 +362,21 @@ export function createParametrikScene(
 				parent.add(proxy);
 				continue;
 			}
-			if (look) {
+			const surface = finish
+				? resolveFinish(finish, p.token)
+				: look
+					? drawingSurface(look)
+					: undefined;
+			if (surface) {
+				if (finish) chartSurface(geometry);
 				const mesh = paintedMesh(geometry, () => {
-					const key = `finish-${look.material}-${look.token}-${!!built.double}`;
-					usedMaterials.add(key);
-					let material = materials.get(key);
-					if (!material) {
-						material = finishMaterial(look, palette, !!built.double);
-						materials.set(key, material);
-					}
+					const material = surfaces.material(surface, !!built.double);
+					usedSurfaces.add(material);
 					return material;
 				});
 				mesh.position.copy(place.position);
 				mesh.rotation.copy(place.rotation);
-				mesh.renderOrder = look.renderOrder;
+				mesh.renderOrder = look?.renderOrder ?? 1;
 				mesh.userData.id = p.id;
 				pickables.push(mesh);
 				parent.add(mesh);
@@ -407,15 +425,20 @@ export function createParametrikScene(
 					if (p.emphasis === 'auswahl') segments(positions, place, false, strong, () => signal);
 					else if (edge && look)
 						segments(positions, place, existing, edge.width * strong, () =>
-							edgeColor(look, palette)
+							edgeColor(edge.paper, palette)
 						);
 					else segments(positions, place, existing, strong);
 					edges.dispose();
 				}
 				if (built.rulings)
 					segments(built.rulings, place, existing, built.edges === false ? 0.8 : 0.6);
-				// Inverted hull: screen-space normal extrusion, only on curved primitives.
-				if (built.outline && !see && !look?.transparent) {
+				// Glazed bodies use the shared screen-space silhouette.
+				if (hasGlazeContour(finish) && !see) {
+					const hull = silhouette(geometry, glazeContourMaterial(glazeContour));
+					hull.position.copy(place.position);
+					hull.rotation.copy(place.rotation);
+					parent.add(hull);
+				} else if (built.outline && !see && !look?.transparent) {
 					const hull = paintedMesh(geometry.clone(), () => {
 						const outlineKey = `outline-${existing}`;
 						usedMaterials.add(outlineKey);
@@ -459,6 +482,7 @@ export function createParametrikScene(
 		}
 		parent = model;
 		applyOffsets();
+		surfaces.retain(usedSurfaces);
 		for (const [key, material] of materials)
 			if (!usedMaterials.has(key)) {
 				material.dispose();
@@ -468,7 +492,9 @@ export function createParametrikScene(
 	}
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (next) => {
 		palette = next;
-		signal.set(next.categories['--signal'] || next.ink);
+		surfaces.setPalette(next);
+		glazeContour.ink.set(next.ink);
+		signal.set(sceneSwatch(next, '--signal'));
 		// The invisible proxy is palette-independent and keeps its material identity.
 		for (const [key, material] of materials)
 			if (key !== 'proxy') {
@@ -476,6 +502,7 @@ export function createParametrikScene(
 				materials.delete(key);
 			}
 		usedMaterials.clear();
+		usedSurfaces.clear();
 		if (materials.has('proxy')) usedMaterials.add('proxy');
 		for (const paint of painters) paint();
 		render();
@@ -535,6 +562,21 @@ export function createParametrikScene(
 			camera.zoom = 1;
 			fit(true);
 		},
+		/** Encodes one caller-owned drawing as a PNG before the stage can be reused. Eye is a world direction. */
+		async snapshotDrawing(drawing: THREE.Group, eye: Vec3): Promise<Blob> {
+			model.add(drawing);
+			try {
+				fit(true, eye);
+				return await new Promise<Blob>((resolve, reject) => {
+					canvas.toBlob((png) => {
+						if (png) resolve(png);
+						else reject(new Error('The canvas could not encode this drawing.'));
+					}, 'image/png');
+				});
+			} finally {
+				model.remove(drawing);
+			}
+		},
 		/** PNG of the last frame (preserveDrawingBuffer). */
 		snapshot: () => canvas.toDataURL('image/png'),
 		resize(w: number, h: number) {
@@ -543,15 +585,17 @@ export function createParametrikScene(
 			renderer.setSize(width, height, false);
 			fit();
 		},
-		dispose() {
+		async dispose() {
 			if (!alive) return;
 			stopTheme();
 			alive = false;
 			clear();
+			glazeContour.material?.dispose();
 			controls?.dispose();
 			for (const material of materials.values()) material.dispose();
 			materials.clear();
-			if (initialized) renderer.dispose();
+			surfaces.dispose();
+			if (initialized) await renderer.dispose();
 		}
 	};
 }

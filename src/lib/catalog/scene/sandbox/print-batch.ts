@@ -2,7 +2,7 @@ import { Float32BufferAttribute, type Color } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 import { isPathInk } from '../../logic/farbe/overprint';
 import { batch, geometryOf, type Batch } from '../batch';
-import { castOffset } from './printed-finish';
+import { castOffset } from '../printed-finish';
 
 type Faces = Batch['neu'];
 type Range = { start: number; part: Primitive };

@@ -23,7 +23,7 @@ import {
 } from '../logic/material/variation';
 import type { MusterRaum } from './materialMuster';
 import { tokenColor } from './material';
-import { metallUmgebung, type MetallLicht } from './materialMetallUmgebung';
+
 import { oberflaechenMuster } from './materialOberflaecheMuster';
 
 // Surface-gradient bump for analytic height. UV offsets do not resample local-position nodes.
@@ -48,15 +48,28 @@ function projiziereMuster(
 	w: OberflaechenWerte,
 	base: THREE.Color,
 	bewegt: boolean,
-	variation: MaterialVariation
+	variation: MaterialVariation,
+	explicitPigment: boolean
 ) {
 	const v = variationFaehig(w.id) ? variation : variationVorgabe;
 	const intensitaet = rauschStaerke[v.noise];
 	const grund = color(base).rgb;
-	const pattern = oberflaechenMuster(w, grund, bewegt, musterRaum(v.seed));
-	m.colorNode =
-		intensitaet === 1 ? pattern.farbe : mix(grund, pattern.farbe, 0.74 + 0.26 * intensitaet);
-	if (pattern.licht) m.emissiveNode = pattern.licht;
+	const native = new THREE.Color(w.grundton);
+	const pattern = oberflaechenMuster(
+		w,
+		explicitPigment ? color(native).rgb : grund,
+		bewegt,
+		musterRaum(v.seed)
+	);
+	// Preserve light/dark variation of authored inclusions while the selected pigment supplies the hue.
+	const weights = vec3(0.2126, 0.7152, 0.0722);
+	const level = Math.max(0.001, 0.2126 * native.r + 0.7152 * native.g + 0.0722 * native.b);
+	const paint = explicitPigment
+		? grund.mul(pattern.farbe.dot(weights).div(level).clamp(0.12, 3))
+		: pattern.farbe;
+	m.colorNode = intensitaet === 1 ? paint : mix(grund, paint, 0.74 + 0.26 * intensitaet);
+	if (pattern.licht)
+		m.emissiveNode = explicitPigment ? grund.mul(pattern.licht.dot(weights)) : pattern.licht;
 	if (pattern.metallVersatz)
 		m.metalnessNode = float(w.metall).add(pattern.metallVersatz).clamp(0, 1);
 	m.roughnessNode = float(w.rauheit)
@@ -65,7 +78,8 @@ function projiziereMuster(
 	if (pattern.relief > 0) m.normalNode = reliefNormal(pattern.hoehe, pattern.relief * intensitaet);
 }
 
-function baueMaterial(
+/** Creates the physical surface nodes for one resolved recipe. */
+export function physicalSurface(
 	r: Rezept,
 	palette: Palette3D,
 	id: AusfuehrungId | undefined,
@@ -75,7 +89,8 @@ function baueMaterial(
 ) {
 	const w = oberflaechenWerte(r, id);
 	const base = new THREE.Color(w.grundton);
-	if (w.pigment > 0) base.lerp(tokenColor(palette, r.farbe.token), w.pigment);
+	if (w.pigment === 1) base.copy(tokenColor(palette, r.farbe.token));
+	else if (w.pigment > 0) base.lerp(tokenColor(palette, r.farbe.token), w.pigment);
 	const m = new THREE.MeshPhysicalNodeMaterial({
 		color: base,
 		roughness: w.rauheit,
@@ -88,7 +103,7 @@ function baueMaterial(
 		depthWrite: w.deckkraft === 1,
 		side: doppelt ? THREE.DoubleSide : THREE.FrontSide
 	});
-	projiziereMuster(m, w, base, r.haut.bewegt, variation);
+	projiziereMuster(m, w, base, r.haut.bewegt, variation, r.farbe.anteil === 1);
 	physischeDetails(m, w);
 	spiegelung(m, w.id, umgebung);
 	m.name = w.id;
@@ -143,7 +158,7 @@ function physischeDetails(m: THREE.MeshPhysicalNodeMaterial, w: OberflaechenWert
 	if (w.familie === 'membran') membranOptik(m, w);
 	const distanzM = daempfungsDistanzM[w.familie];
 	if (distanzM !== undefined) {
-		m.attenuationColor = new THREE.Color(w.grundton);
+		m.attenuationColor = m.color.clone();
 		m.attenuationDistance = distanzM;
 	}
 }
@@ -164,54 +179,4 @@ function membranOptik(m: THREE.MeshPhysicalNodeMaterial, w: OberflaechenWerte) {
 	m.iridescenceThicknessMaximum = 410;
 	m.clearcoat = 0.38;
 	m.clearcoatRoughness = 0.28;
-}
-
-/**
- * Creates a stage-owned pool of physical TSL surfaces (WebGPU / WebGL2). `material` accepts
- * a detached legacy recipe, fixed studio palette, optional family finish, back-face flag and validated material variation.
- * Native finish is default; foreign finish falls back to native. Repeated calls reuse identity.
- * Spatial coordinates are metres; time is renderer-owned. No DOM, image assets or I/O.
- * `dispose` releases every retained material and can be called repeatedly; call it when
- * replacing the stage recipe set. Individually disposed materials leave the pool immediately.
- * Do not share pools across stages. The optional studio texture remains owned by the stage.
- */
-export function createMaterialOberflaechen(umgebung: () => THREE.Texture | null = () => null): {
-	material(
-		r: Rezept,
-		palette: Palette3D,
-		id?: AusfuehrungId,
-		doppelt?: boolean,
-		variation?: MaterialVariation
-	): THREE.Material;
-	dispose(): void;
-} {
-	const materials = new Map<string, THREE.MeshPhysicalNodeMaterial>();
-	const metallLicht = new Map<MetallLicht, THREE.DataTexture>();
-
-	function spiegeltextur(r: Rezept, id: AusfuehrungId | undefined) {
-		if (r.familie !== 'metall' || (id !== 'metall-messing' && id !== 'metall-kupfer'))
-			return umgebung();
-		const vorhanden = metallLicht.get(id);
-		if (vorhanden) return vorhanden;
-		const textur = metallUmgebung(id);
-		metallLicht.set(id, textur);
-		return textur;
-	}
-	return {
-		material(r, palette, id, doppelt = false, variation = variationVorgabe) {
-			const key = JSON.stringify([r, palette, id, doppelt, variation.noise, variation.seed]);
-			const cached = materials.get(key);
-			if (cached) return cached;
-			const m = baueMaterial(r, palette, id, doppelt, spiegeltextur(r, id), variation);
-			materials.set(key, m);
-			m.addEventListener('dispose', () => materials.delete(key));
-			return m;
-		},
-		dispose() {
-			for (const m of materials.values()) m.dispose();
-			materials.clear();
-			for (const textur of metallLicht.values()) textur.dispose();
-			metallLicht.clear();
-		}
-	};
 }

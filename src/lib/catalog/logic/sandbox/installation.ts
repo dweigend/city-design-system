@@ -59,7 +59,7 @@ export function install(
 		available -= debit;
 		const id: PartId = `p/${action}/${slot}`;
 		const p: BuiltPart = {
-			...(spec.recipe === 'plaza' ? { finish: 'beton-terrazzo' as const } : {}),
+			...(spec.recipe === 'plaza' ? { finish: 'print-terrazzo' as const } : {}),
 			...spec,
 			id,
 			owner,

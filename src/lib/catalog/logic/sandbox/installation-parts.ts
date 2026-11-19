@@ -8,7 +8,7 @@ import {
 	type ModuleRecipe
 } from '../house-brush';
 import { STORY } from '../../data/grid';
-import type { FinishId, Vec3 } from '../parametrik/types';
+import type { ColorToken, FinishId, Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 
 export type Anchor = Readonly<{
@@ -39,7 +39,11 @@ type Module = {
 	share: number;
 	pitch: number;
 };
-export type Installation = (Segment | Fixture | Module) & { anchor: Anchor; finish?: FinishId };
+export type Installation = (Segment | Fixture | Module) & {
+	anchor: Anchor;
+	finish?: FinishId;
+	token?: ColorToken;
+};
 export type BuiltPart = Installation & {
 	id: PartId;
 	owner: Owner;

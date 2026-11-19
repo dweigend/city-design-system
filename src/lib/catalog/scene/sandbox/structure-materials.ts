@@ -16,23 +16,23 @@ import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../core/params';
 import type { grammatik } from '../leitstil';
 import { neutral } from '../leitstil/tone';
-import { finishMaterials } from './finish-materials';
+import { compileSurface, createMaterialLibrary } from '../material-library';
 import { outlinePosition } from '../surfaces';
 import { conduitInk } from './print-flow';
-import { cutPaper, terrazzo } from './paper-inlay';
-import { firedSlip } from './fired-slip';
-import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
+import { cutPaper } from './paper-inlay';
+import { outlineExpansion, outlinePositionAtOffset, type GlazeContour } from './structure-outline';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { Rgb } from '../../logic/farbe/oklch';
 import { overprintColor } from '../../logic/farbe/overprint';
-import { faceHalftone, halftoneScreen } from './printed-finish';
+import { faceHalftone, halftoneScreen } from '../printed-finish';
 import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
 export function structureMaterials() {
-	const explicit = finishMaterials();
+	const explicit = createMaterialLibrary();
+	const glazeContour: GlazeContour = { ink: new THREE.Color(0) };
 	const solidColor = uniform(neutral(TOENE.modellweiss));
 	const flankColor = uniform(neutral(TOENE.modellweiss + TOENE.vorn));
 	const sideColor = uniform(neutral(TOENE.modellweiss + TOENE.rechts));
@@ -53,11 +53,21 @@ export function structureMaterials() {
 	const scalePx = uniform(1);
 	const materials = {
 		conduit: conduitInk(seconds, markTone),
-		inlay: terrazzo(paperTone, scalePx),
+		inlay: compileSurface({ kind: 'print', id: 'print-terrazzo', token: '--paper' }, undefined, {
+			inlay: { paper: paperTone, scale: scalePx }
+		}),
 		cut: cutPaper(paperTone, shadowTone),
-		fired: firedSlip(solidColor, sideColor, seconds, ceramicContour, night),
-		glaze: new THREE.MeshBasicNodeMaterial(),
-		ceramicHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
+		fired: compileSurface({ kind: 'kiln', id: 'fired-slip', token: '--paper' }, undefined, {
+			kiln: [
+				solidColor,
+				sideColor,
+				seconds,
+				ceramicContour,
+				night,
+				attribute('color', 'vec3'),
+				attribute('kilnChart', 'vec4')
+			]
+		}),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		solid: new THREE.MeshBasicNodeMaterial({
 			polygonOffset: true,
@@ -176,8 +186,6 @@ export function structureMaterials() {
 	);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = paperTone;
-	materials.glaze.colorNode = solidColor;
-	materials.ceramicHull.vertexNode = outlinePosition(outlinePx.negate());
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
 	materials.hull.vertexNode = outlinePositionAtOffset(outlinePx);
 	materials.sheetHull.vertexNode = outlinePositionAtOffset(outlinePx, sheetOffsetM);
@@ -187,6 +195,7 @@ export function structureMaterials() {
 		colors.clear();
 		overprints.clear();
 		paper.copy(g.paper);
+		glazeContour.ink.copy(g.ink);
 		graphite.value.copy(g.blei);
 		paperTone.value.copy(g.paper);
 		shadowTone.value.copy(g.schatten);
@@ -208,7 +217,6 @@ export function structureMaterials() {
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
 		materials.hull.color.copy(g.kontur);
-		materials.ceramicHull.color.copy(g.kontur);
 		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);
@@ -279,7 +287,7 @@ export function structureMaterials() {
 	}
 
 	/** Resolves a flat print patch against the same palette as its source pigments. */
-	function surfaceColor(part: Primitive) {
+	function printColor(part: Primitive) {
 		const base = colorOf(part.token);
 		if (!part.overprint || !palette) return base;
 		const key = part.token + '/' + part.overprint;
@@ -297,18 +305,24 @@ export function structureMaterials() {
 		return color;
 	}
 
+	function ageColor(color: THREE.Color, part: Primitive) {
+		return part.ageTint ? color.clone().lerp(paper, part.ageTint) : color;
+	}
+
 	return {
 		explicit,
+		glazeContour,
 		materials,
 		envelopeShadows: () => envelopeShadows,
 		minContourPx: () => minContourPx,
 		/** Palette lookup for detached colored parts. */
 		colorOf,
-		surfaceColor,
+		surfaceColor: (part: Primitive) => ageColor(printColor(part), part),
 		/** Applies the primitive's ink share to a flow color without changing the cached token. */
-		accentColor(this: void, token: string, shade = 0) {
-			const color = colorOf(token);
-			return palette && shade ? color.clone().lerp(palette.ink, shade) : color;
+		accentColor(this: void, part: Primitive) {
+			const color = colorOf(part.token);
+			const shaded = palette && part.shade ? color.clone().lerp(palette.ink, part.shade) : color;
+			return ageColor(shaded, part);
 		},
 		modelWhite: solidColor.value,
 		seconds,
@@ -342,6 +356,7 @@ export function structureMaterials() {
 		/** Releases shared materials. Mesh geometry belongs to the structure layer. */
 		dispose() {
 			explicit.dispose();
+			glazeContour.material?.dispose();
 			for (const material of Object.values(materials)) material.dispose();
 		}
 	};

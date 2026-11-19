@@ -4,7 +4,8 @@ import { materialAusfuehrungen } from '../data/materialAusfuehrung';
 import { familien } from '../data/materialSeite';
 import { ausfuehrungenVon } from '../logic/material/ausfuehrung';
 import { rezept, voreinstellung } from '../logic/material/rezept';
-import { createMaterialOberflaechen } from './materialOberflaeche';
+import { createMaterialLibrary } from './material-library';
+import { physicalRecipe } from '../logic/material/surface';
 
 const palette = {
 	paper: '#f4f0e8',
@@ -15,15 +16,15 @@ const palette = {
 };
 
 test('all finishes produce physical node materials with distinct identities and disposal', () => {
-	const pool = createMaterialOberflaechen();
+	const pool = createMaterialLibrary(palette);
 	let disposed = 0;
 	for (const f of familien)
 		for (const finish of ausfuehrungenVon(f.id)) {
 			const r = rezept(f.id, voreinstellung(f.id, 'neutral'));
-			const m = pool.material(r, palette, finish.id);
+			const m = pool.material(physicalRecipe(r, finish.id));
 			expect(m).toBeInstanceOf(THREE.MeshPhysicalNodeMaterial);
 			expect(m.name).toBe(finish.id);
-			expect(pool.material(r, palette, finish.id)).toBe(m);
+			expect(pool.material(physicalRecipe(r, finish.id))).toBe(m);
 			m.addEventListener('dispose', () => disposed++);
 		}
 	pool.dispose();
@@ -33,9 +34,9 @@ test('all finishes produce physical node materials with distinct identities and 
 });
 
 test('transparent optics refract without alpha-erasing their highlights; stock remains pale', () => {
-	const pool = createMaterialOberflaechen();
-	const glass = pool.material(rezept('glas'), palette);
-	const stock = pool.material(rezept('bestand'), palette);
+	const pool = createMaterialLibrary(palette);
+	const glass = pool.material(physicalRecipe(rezept('glas')));
+	const stock = pool.material(physicalRecipe(rezept('bestand')));
 	if (
 		!(glass instanceof THREE.MeshPhysicalNodeMaterial) ||
 		!(stock instanceof THREE.MeshPhysicalNodeMaterial)

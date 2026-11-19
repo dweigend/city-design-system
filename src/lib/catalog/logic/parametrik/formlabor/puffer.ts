@@ -1,3 +1,4 @@
+import { printPatterns } from '../../../data/materialPrint';
 /**
  * Instance buffer: one component = one row of 28 numbers. The scene uploads the rows
  * unchanged as instance attributes; geometry is never rebuilt.
@@ -37,19 +38,19 @@ export const phasen = ['Existing stock', 'Frame', 'Core', 'Modules', 'Networks',
 
 /** Pattern ids (shader: scene/formlabor.ts). */
 export const MUSTER = {
-	keins: 0,
-	streifen: 1,
-	baender: 2,
-	punkte: 3,
-	raster: 4,
-	schach: 5,
-	diagonal: 6,
-	fenster: 7,
-	dreieck: 8,
-	terrazzo: 9,
-	zickzack: 10,
-	bullauge: 11,
-	tor: 12
+	keins: printPatterns['print-plain'],
+	streifen: printPatterns['print-stripes'],
+	baender: printPatterns['print-bands'],
+	punkte: printPatterns['print-dots'],
+	raster: printPatterns['print-grid'],
+	schach: printPatterns['print-checker'],
+	diagonal: printPatterns['print-diagonal'],
+	fenster: printPatterns['print-windows'],
+	dreieck: printPatterns['print-triangles'],
+	terrazzo: printPatterns['print-granules'],
+	zickzack: printPatterns['print-zigzag'],
+	bullauge: printPatterns['print-porthole'],
+	tor: printPatterns['print-arch']
 } as const;
 
 export type Puffer = { daten: Float32Array; anzahl: number; platz: number };

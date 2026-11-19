@@ -1,6 +1,6 @@
 import type { Vec3 } from '../parametrik/types';
 import { cellAtPoint, MODULE, type TerrainGrid } from '../terrain-grid';
-import type { StructuralContact } from './index';
+import type { StructuralContact } from './contract';
 import {
 	along,
 	contactToleranceM,

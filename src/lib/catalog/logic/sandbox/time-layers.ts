@@ -1,6 +1,12 @@
 import type { FlowId } from '../../data/focus';
 import type { SandboxSnapshot, TimeLayer } from './state';
 
+function addSiteFlows(state: SandboxSnapshot, add: (built: number, flow: FlowId) => void) {
+	for (const part of state.parts?.values() ?? []) if (part.flow) add(part.built, part.flow);
+	for (const work of state.spongeWorks ?? []) add(work.built, 'water');
+	for (const { year } of state.lines) add(year, 'people');
+}
+
 /** Construction flows grouped by included build year in chronological order. */
 export function constructionLayers(
 	state: SandboxSnapshot,
@@ -20,8 +26,7 @@ export function constructionLayers(
 			if (use) add(built, use === 'living' ? 'people' : use);
 		}
 	}
-	for (const part of state.parts?.values() ?? []) if (part.flow) add(part.built, part.flow);
-	for (const { year } of state.lines) add(year, 'people');
+	addSiteFlows(state, add);
 	return [...byYear]
 		.sort(([a], [b]) => a - b)
 		.map(([year, flows]) => ({ year, flows: [...flows] }));

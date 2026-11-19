@@ -36,18 +36,6 @@ export const focuses = {
 } as const satisfies Record<string, Focus>;
 export type FocusId = keyof typeof focuses;
 
-/** Resolves the subsystem view, including the infrastructure focus override for historic rail. */
-export function levelFor(
-	focus: FocusId,
-	system: Subsystem,
-	built: number,
-	year: number
-): Representation {
-	if (built < year && !(system === 'rail' && focus === 'infrastructure'))
-		return focuses[focus].stock;
-	return focuses[focus][system];
-}
-
 /** The primary volume of an open frame or coil at mid distance. */
 function massOf(part: Primitive): Primitive {
 	if (part.kind === 'frame') return { ...part, kind: 'box' };

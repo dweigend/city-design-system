@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test';
 import { createSession } from './fixtures/client-session.fixture.test';
-import { createFrameStudy, sizeFrameSites, applyEdit } from '../logic/sandbox';
+import { createFrameStudy, sizeFrameSites, applyEdit, setFutureTarget } from '../logic/sandbox';
+import { advanceMessage } from './feedback';
 
 test('the live advance publishes provisional axes while sizing is outstanding, then commits that snapshot once', async () => {
 	const start = createFrameStudy().at(0, false);
@@ -53,5 +54,22 @@ test('a failed sizing worker still commits the supported pair on the same date',
 	expect(session.world.state.frameBays).toEqual(study.at(2, false).state.frameBays);
 	const result = session.world.state.frameInstallations?.get(study.entrance)?.result;
 	expect(result).toMatchObject({ status: 'sized', sizing: 'nominal' });
+	session.disposeInput();
+});
+
+test('the advance message counts only the works committed by the latest advance', () => {
+	const start = setFutureTarget(createFrameStudy().at(0, false), 'sponge-city');
+	const session = createSession(7, 25, () => ({
+		world: start,
+		additions: [],
+		referenceCellId: undefined
+	}));
+	expect(advanceMessage(session.completion)).toBeUndefined();
+	session.advance();
+	expect(advanceMessage(session.completion)).toContain(
+		'1 tank, 1 retention basin, 1 green roof, 1 water square'
+	);
+	session.undo();
+	expect(advanceMessage(session.completion)).toBeUndefined();
 	session.disposeInput();
 });

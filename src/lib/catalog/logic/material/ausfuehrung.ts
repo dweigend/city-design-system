@@ -33,7 +33,7 @@ export function oberflaechenWerte(r: Rezept, id?: AusfuehrungId): OberflaechenWe
 		Math.min(1, (1 - r.haut.deckkraft) / Math.max(0.01, 1 - native.haut.deckkraft));
 	return {
 		...finish,
-		pigment: r.farbe.token === '--paper' ? 0 : (r.farbe.anteil ?? finish.pigment),
+		pigment: r.farbe.anteil ?? (r.farbe.token === '--paper' ? 0 : finish.pigment),
 		rauheit: Math.max(0.025, Math.min(0.99, finish.rauheit + roughnessDelta + glossDelta)),
 		transmission,
 		deckkraft: finish.deckkraft ?? (finish.transmission > 0 ? 1 : r.haut.deckkraft)

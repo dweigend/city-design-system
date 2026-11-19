@@ -16,6 +16,7 @@ import { flowToken } from '../../data/focus';
 import { neutral } from '../leitstil/tone';
 import { PROJEKTION_TOENE, WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
+import { sceneSwatch } from '../scene-palette';
 import { shiftedPaper } from './paper-inlay';
 import { wakeGeometry, wakeInk, type Pier } from './pier-wakes';
 import { riverInk } from './water-print';
@@ -267,18 +268,23 @@ export function createTerrainMesh(
 		},
 		/** Applies theme colors; no geometry changes. */
 		setPalette(palette: Palette3D) {
-			const category = (name: string) => new THREE.Color(palette.categories[name]);
+			const category = (token: string) => new THREE.Color(sceneSwatch(palette, token));
 			colors.paper.value.set(palette.paper);
 			colors.ink.value.set(palette.ink);
 			daylight.value = Number(colors.paper.value.r >= colors.ink.value.r);
 			colors.blueprint.value.set(palette.blueprint);
-			colors.water.value.set(palette.paper).lerp(category('health'), 0.55);
-			if (!daylight.value && palette.categories['health-1'])
-				colors.water.value.set(palette.categories['health-1']);
-			colors.waterStroke.value.set(palette.categories['health-2'] ?? palette.categories.health);
-			colors.nature.value.copy(category('nature'));
-			colors.people.value.copy(category(flowToken[WEG_STROM].slice('--cat-'.length)));
-			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
+			colors.water.value.set(palette.paper).lerp(category('--cat-health'), 0.55);
+			const nightWater = sceneSwatch(palette, '--cat-health-1', '');
+			if (!daylight.value && nightWater) colors.water.value.set(nightWater);
+			const waterStroke = sceneSwatch(
+				palette,
+				'--cat-health-2',
+				sceneSwatch(palette, '--cat-health')
+			);
+			colors.waterStroke.value.set(waterStroke);
+			colors.nature.value.copy(category('--cat-nature'));
+			colors.people.value.copy(category(flowToken[WEG_STROM]));
+			colors.food.value.copy(category('--cat-nature')).lerp(category('--cat-mobility'), 0.45);
 		},
 		/** Shows every cell line (strength 1) instead of only those under the lens (0). */
 		setPresentation(view: Focus, highlightPeople: boolean) {

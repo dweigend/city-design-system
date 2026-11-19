@@ -6,7 +6,6 @@ export type Palette3D = {
 	ink3?: string;
 	blueprint: string;
 	blueprintSoft: string;
-	/** Categories by short name (living …) and --signal under its full name: scenes resolve
-	 *  tokens via categories[token.replace('--cat-', '')], so signal comes along too. */
+	/** Category swatches by short name, with --signal and --body-living under their full names. */
 	categories: Record<string, string>;
 };

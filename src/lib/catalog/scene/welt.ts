@@ -18,6 +18,7 @@ import { contains } from '../logic/parametrik/formen/geom';
 import { random } from '../logic/parametrik/random';
 import { faceTone, outlinePosition } from './surfaces';
 import { batch, geometryOf } from './batch';
+import { sceneSwatch } from './scene-palette';
 
 export type WeltMode = 'plan' | 'gehen' | 'rundgang';
 export type WeltEbene = 'boden' | 'hochweg';
@@ -124,13 +125,8 @@ export function createWeltScene(
 
 	function colorOf(p: Primitive) {
 		if (p.role === 'bestand') return srgbMix(paper, ink, (p.shade ?? 0.05) * 0.6);
-		const base =
-			p.token === '--paper'
-				? paper
-				: p.token === '--blueprint'
-					? new THREE.Color(palette.blueprint)
-					: new THREE.Color(palette.categories[p.token.replace('--cat-', '')] ?? palette.paper);
-		const c = p.token === '--paper' ? base.clone() : srgbMix(base, paper, PASTELL);
+		const base = new THREE.Color(sceneSwatch(palette, p.token));
+		const c = p.token === '--paper' ? base : srgbMix(base, paper, PASTELL);
 		return p.shade ? srgbMix(c, ink, p.shade) : c;
 	}
 

@@ -1,4 +1,4 @@
-import type { Primitive } from '../../../logic/parametrik/types';
+import type { Primitive } from '../parametrik/types';
 const base = { role: 'neu', token: '--cat-nature', material: 'wood', edges: false } as const;
 const origin = [0, 0, 2] as const;
 export const forms = {

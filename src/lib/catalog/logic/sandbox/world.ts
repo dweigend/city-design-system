@@ -13,6 +13,7 @@ import { frameSurvey } from './frame-survey';
 import { seedTown, type TownOptions } from './old-town';
 import { migrateSnapshot } from './snapshot';
 import { constructionLayers } from './time-layers';
+import { removeSpongeWork, growSpongeCity, settleSpongeWorks } from './sponge-growth';
 import {
 	stylesForYear,
 	type Edit,
@@ -129,6 +130,7 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));
 		state = settleHouses(world.grid, grid, state);
 		state = settleCover(grid, state, world.grid);
+		state = settleSpongeWorks(grid, state);
 	}
 	if (state === world.state) return world;
 	const sameRoutes = grid === world.grid && state.lines === world.state.lines;
@@ -157,7 +159,7 @@ function raiseStory(
 	if (stacks === state.stacks) return state;
 	// A house replaces what grew on its cell and takes its module from the store first.
 	return {
-		...state,
+		...removeSpongeWork(state, cell.id),
 		nextAction: state.nextAction + 1,
 		storyParts: partsAt(state.storyParts, cell.id, [
 			...(state.storyParts.get(cell.id) ?? []),
@@ -198,6 +200,8 @@ function clearCell(world: World, state: SandboxState, cell: TerrainCell): Sandbo
 	}
 	if (state.cover.has(cell.id))
 		return { ...state, cover: setCover(state.cover, cell.id, undefined) };
+	const dry = removeSpongeWork(state, cell.id);
+	if (dry !== state) return dry;
 	const lines = state.lines.filter((line) => !line.cellIds.includes(cell.id));
 	if (lines.length !== state.lines.length) return { ...state, lines };
 	const edits = state.edits.filter((edit) => !isInside(edit, cell));
@@ -214,7 +218,7 @@ function cellEdit(
 	if (edit.kind === 'dig') return { ...state, edits: [...state.edits, basinAt(cell)] };
 	if (!cell.plantable || storiesOf(state.stacks, cell.id).length) return state;
 	const cover = setCover(state.cover, cell.id, edit.cover);
-	return cover === state.cover ? state : { ...state, cover };
+	return cover === state.cover ? state : { ...removeSpongeWork(state, cell.id), cover };
 }
 
 function basinAt({ center: [x, y] }: TerrainCell): TerrainEdit {
@@ -307,10 +311,11 @@ export function prepareAdvance(world: World, years = sandboxGenerationYears) {
 		},
 		finish(proofs = sizeFrameSites(sites, 'nominal')): World {
 			if (next === world.state) return world;
-			return {
+			const committed = {
 				...world,
 				state: { ...next, ...advanceFrames(world, next.year, undefined, proofs) }
 			};
+			return growSpongeCity(committed);
 		}
 	};
 }

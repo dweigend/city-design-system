@@ -7,6 +7,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { resolveTokens, bindSceneTheme } from './themeBinding';
 import { build, type View } from './parametrik';
 import { bildpunkt } from './projektion';
+import { sceneSwatch } from './scene-palette';
 import type { Palette3D } from '../data/city3d';
 import type { Primitive } from '../logic/parametrik/types';
 import { flowToken, type FlowId } from '../data/focus';
@@ -333,7 +334,7 @@ export function createTraegerSzene(
 			const transparent = role === 'glas' || role === 'membran';
 			const color = () =>
 				mode === 'belegt' && flow !== 'leer' && !(entry.haus && flow === 'food')
-					? palette.categories[flowToken[flow as FlowId].replace('--cat-', '')]
+					? sceneSwatch(palette, flowToken[flow as FlowId])
 					: palette.paper;
 			const m = material(color, transparent ? 0.25 : 1, role === 'paneel');
 			const geometry = new T.BufferGeometry();
@@ -386,12 +387,12 @@ export function createTraegerSzene(
 			if (floors.length) {
 				const beds = new T.InstancedMesh(
 					new T.BoxGeometry(1, 0.18, 1),
-					material(() => palette.categories.nature),
+					material(() => sceneSwatch(palette, '--cat-nature')),
 					floors.length * 2
 				);
 				const trees = new T.InstancedMesh(
 					new T.SphereGeometry(0.45, 10, 6),
-					material(() => palette.categories.nature),
+					material(() => sceneSwatch(palette, '--cat-nature')),
 					floors.length * 3
 				);
 				group.add(beds, trees);
@@ -475,7 +476,7 @@ export function createTraegerSzene(
 							const mesh = new T.Mesh(
 								bed,
 								// In the analysis view no flow colour is shown (124 A-01).
-								material(() => (analyse ? palette.paper : palette.categories.nature))
+								material(() => (analyse ? palette.paper : sceneSwatch(palette, '--cat-nature')))
 							);
 							group.add(mesh, new T.LineSegments(new T.EdgesGeometry(bed), lineMaterial()));
 							visibility.push(() => {
@@ -524,9 +525,7 @@ export function createTraegerSzene(
 					geometry.translate(b.position.x, b.position.y, b.position.z);
 				}
 				const color = () =>
-					mode === 'belegt'
-						? palette.categories[flowToken[einbau.nutzung].replace('--cat-', '')]
-						: palette.paper;
+					mode === 'belegt' ? sceneSwatch(palette, flowToken[einbau.nutzung]) : palette.paper;
 				const mesh = new T.Mesh(geometry, material(color));
 				const lines = new T.LineSegments(new T.EdgesGeometry(geometry, 30), lineMaterial());
 				group.add(mesh, lines);
@@ -827,8 +826,8 @@ export function createTraegerSzene(
 				const context = p.token === '--paper' || plaene.some((e) => !e.fokus);
 				const m = context
 					? lineMaterial(false, true)
-					: new T.LineBasicMaterial({ color: palette.categories.business });
-				if (!context) painters.push(() => m.color.set(palette.categories.business));
+					: new T.LineBasicMaterial({ color: sceneSwatch(palette, '--cat-business') });
+				if (!context) painters.push(() => m.color.set(sceneSwatch(palette, '--cat-business')));
 				const line = new T.Line(g, m);
 				model.add(line);
 				fitExtras.push(line);

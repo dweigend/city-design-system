@@ -92,11 +92,15 @@ test('stories recorded with three methods in the same year remain distinct when 
 		['/body', 'prism'],
 		['/module', 'capsule']
 	]) {
-		const piece = fresh.find((part) => part.id.endsWith(suffix) && part.role === 'neu');
+		const piece = fresh.find(
+			(part) => part.id.endsWith(suffix) && part.role === 'neu' && part.token === '--cat-health'
+		);
 		expect(piece).toMatchObject({ kind, token: '--cat-health', envelope: true });
 		expect(view(aged).find((part) => part.id === piece?.id)).toMatchObject({
 			kind,
-			role: 'bestand'
+			role: 'neu',
+			token: '--cat-health',
+			ageTint: 0.06
 		});
 	}
 	const history = commit(startHistory(built.state), aged.state);

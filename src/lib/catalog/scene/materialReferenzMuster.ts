@@ -9,11 +9,18 @@ import {
 } from './materialBeschichtungMuster';
 import type { Muster } from './materialMuster';
 import { schachbrettMuster, solarMuster } from './materialRasterMuster';
-import { florMuster, schaumMuster, spritzerMuster } from './materialZuschlagMuster';
+import {
+	plantedMatPattern,
+	florMuster,
+	schaumMuster,
+	spritzerMuster
+} from './materialZuschlagMuster';
 
 const musterVon: Partial<
 	Record<AusfuehrungId, (base: Node<'vec3'>, welt: Node<'vec3'>) => Muster>
 > = {
+	'corrugated-metal': rippenMuster,
+	'planted-mat': plantedMatPattern,
 	'metall-messing': messingMuster,
 	'metall-kupfer': kupferMuster,
 	'keramik-schachbrett': schachbrettMuster,

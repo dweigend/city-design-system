@@ -1,9 +1,11 @@
+import { resolveFinish } from '../../logic/material/surface';
+import { rezept, voreinstellung } from '../../logic/material/rezept';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { SphereGeometry, type Mesh } from 'three/webgpu';
 import { materials } from '../../data/material';
 import { materialAusfuehrungen } from '../../data/materialAusfuehrung';
-import { forms } from './fixtures/primitive-forms';
+import { forms } from '../../logic/material/sample-forms';
 import { focuses } from '../../logic/presentation';
 import {
 	beginStroke,
@@ -29,7 +31,7 @@ test('every catalog surface reaches the new-build sandbox mesh for every surface
 				const hits: Mesh[] = group.userData.hits;
 				assert.equal(hits.length, 1);
 				const [mesh] = hits;
-				assert.equal(mesh.material, pool.explicit.material(finish, form.token));
+				assert.equal(mesh.material, pool.explicit.material(resolveFinish(finish, form.token)));
 				assert.equal(Array.isArray(mesh.material) ? '' : mesh.material.name, finish);
 				const coords = mesh.geometry.getAttribute('position').array;
 				assert.ok(
@@ -89,8 +91,11 @@ test('different forms share one draw mesh per selected finish', async () => {
 		const hits: Mesh[] = group.userData.hits;
 		assert.equal(hits.length, 2);
 		const [glaze, terrazzo] = hits;
-		assert.equal(glaze.material, pool.explicit.material('glaze', forms.mesh.token));
-		assert.equal(terrazzo.material, pool.explicit.material('beton-terrazzo', forms.mesh.token));
+		assert.equal(glaze.material, pool.explicit.material(resolveFinish('glaze', forms.mesh.token)));
+		assert.equal(
+			terrazzo.material,
+			pool.explicit.material(resolveFinish('beton-terrazzo', forms.mesh.token))
+		);
 		for (const attribute of ['position', 'normal', 'uv', 'finishChart']) {
 			const values = glaze.geometry.getAttribute(attribute).array;
 			assert.ok(values.length && values.every(Number.isFinite));
@@ -114,4 +119,37 @@ test('a finish on a saved installation slot applies after its socket geometry is
 		finished,
 		original.map((part) => ({ ...part, finish: 'beton-terrazzo' }))
 	);
+});
+
+test('saved installation finishes keep authored paper, tint and pigment defaults', () => {
+	const installed = savedCarrier(createWorld(7), '89/41', 'water');
+	const slot = [...installed.state.parts.values()].find((p) => p.recipe === 'bearing');
+	assert.ok(slot);
+	for (const [finish, color] of [
+		[
+			'wood',
+			{ token: '--paper', papier: 1, tint: { toward: '--cat-living', amount: 0.26, ink: 0.06 } }
+		],
+		[
+			'water',
+			{ token: '--cat-health', papier: 0.55, tint: { toward: '--cat-health', amount: 0.45 } }
+		]
+	] as const) {
+		const [part] = installationPartView(installed, { ...slot, finish }, 'all');
+		assert.equal(part.finish, finish);
+		const surface = resolveFinish(part.finish, part.token);
+		assert.equal(surface.kind, 'diagram');
+		assert.deepEqual(surface.recipe.farbe, color);
+	}
+	for (const [finish, family] of [
+		['metall-lackiert', 'metall'],
+		['glas-klar', 'glas']
+	] as const) {
+		const [part] = installationPartView(installed, { ...slot, finish }, 'all');
+		assert.equal(part.finish, finish);
+		const surface = resolveFinish(part.finish, part.token);
+		assert.equal(surface.kind, 'physical');
+		const authored = rezept(family, voreinstellung(family, 'neutral'));
+		assert.deepEqual(surface.recipe.farbe, { ...authored.farbe, token: part.token });
+	}
 });
