@@ -49,7 +49,8 @@ export const assetCategories = [
 	'public-life',
 	'occupied-decks',
 	'inhabited-modules',
-	'promenade-furniture'
+	'promenade-furniture',
+	'planted-terraces'
 ] as const;
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';
