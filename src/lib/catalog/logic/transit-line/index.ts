@@ -101,3 +101,6 @@ export function routeLine(
 		pillars: supports(grid, path, distances, profile)
 	};
 }
+
+/** Cumulative spatial length in meters, in path order, starting at zero. */
+export { chainage };
