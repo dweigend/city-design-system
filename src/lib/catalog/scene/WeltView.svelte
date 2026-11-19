@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { observeSceneVisibility, observeSceneSize } from './scene-visibility.svelte';
 	import { readPalette } from '../scene/themeBinding';
 	import { createWeltScene, type WeltEbene, type WeltInput, type WeltMode } from './welt';
 	let {
@@ -22,17 +22,13 @@
 	let mounted = $state(false),
 		error = $state('');
 	let scene = $state<ReturnType<typeof createWeltScene>>();
-	onMount(() => {
-		// Build only once the section scrolls into view: the world is the largest scene on the page.
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (entry.isIntersecting) mounted = true;
-			},
-			{ rootMargin: '300px' }
-		);
-		observer.observe(host);
-		return () => observer.disconnect();
-	});
+	observeSceneVisibility(
+		() => host,
+		'300px',
+		(visible) => {
+			if (visible) mounted = true;
+		}
+	);
 	$effect(() => {
 		if (!mounted || !canvas) return;
 		error = '';
@@ -40,18 +36,12 @@
 			const current = createWeltScene(canvas, readPalette(host), () => {
 				error = '3D view unavailable.';
 			});
-			void current.ready.catch(() => {});
-			const resize = () => current.resize(canvas!.clientWidth, canvas!.clientHeight);
-			const observer = new ResizeObserver(resize);
-			observer.observe(host);
-			resize();
+			const stopResize = observeSceneSize(host, canvas, current);
 			scene = current;
 			return () => {
-				observer.disconnect();
+				stopResize();
 				current.dispose();
-				untrack(() => {
-					scene = undefined;
-				});
+				scene = undefined;
 			};
 		} catch (cause) {
 			console.error(cause);

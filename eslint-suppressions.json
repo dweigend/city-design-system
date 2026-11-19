@@ -194,16 +194,6 @@
 			"count": 6
 		}
 	},
-	"src/lib/catalog/scene/PrimitiveView.svelte": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 2
-		}
-	},
-	"src/lib/catalog/scene/WeltView.svelte": {
-		"@typescript-eslint/no-non-null-assertion": {
-			"count": 2
-		}
-	},
 	"src/lib/catalog/werkbank/WerkbankView.svelte": {
 		"@typescript-eslint/no-non-null-assertion": {
 			"count": 2

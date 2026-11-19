@@ -1,3 +1,4 @@
+import { interpolatePoint } from '../parametrik/types';
 /**
  * Section: horizontal plane (floor) and vertical plane (a line in plan).
  * Prisms and boxes are cut exactly and receive closed cut faces (poché, 40); lines are
@@ -100,11 +101,7 @@ function cutLine(p: Extract<Primitive, { kind: 'polyline' }>, s: Schnitt): Primi
 		...(s.hoehe === null ? [] : [q[2] - s.hoehe]),
 		...(s.vertikal ? [sideOf(s.vertikal, q[0], q[1])] : [])
 	];
-	const lerp = (a: Vec3, b: Vec3, t: number): Vec3 => [
-		a[0] + (b[0] - a[0]) * t,
-		a[1] + (b[1] - a[1]) * t,
-		a[2] + (b[2] - a[2]) * t
-	];
+
 	for (let i = 1; i < pts.length; i++) {
 		const a = pts[i - 1],
 			b = pts[i],
@@ -124,8 +121,8 @@ function cutLine(p: Extract<Primitive, { kind: 'polyline' }>, s: Schnitt): Primi
 		}
 		if (t0 > 0 || t1 < 1) clipped = true;
 		if (t1 - t0 < 1e-6) continue;
-		const from = lerp(a, b, t0),
-			to = lerp(a, b, t1);
+		const from = interpolatePoint(a, b, t0),
+			to = interpolatePoint(a, b, t1);
 		const run = runs.at(-1);
 		const last = run?.at(-1);
 		if (

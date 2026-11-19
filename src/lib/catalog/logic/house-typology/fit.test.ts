@@ -1,7 +1,7 @@
 import { buildObject } from '../assets';
 import { test, expect } from 'bun:test';
 import { checkFit, type FitPart } from './index';
-import type { HouseSlot } from '../composed-house';
+import type { HouseSlot } from './index';
 type Point = HouseSlot['position'];
 const box = (id: string, position: Point, size: Point = [1, 1, 1]): FitPart => ({
 	id,

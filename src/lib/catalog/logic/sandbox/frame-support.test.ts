@@ -71,13 +71,10 @@ function checkFrame(world: World) {
 }
 
 test('64 terrain seeds build seated columns and attached members beside real main partners', () => {
-	let bays = 0;
 	for (let seed = 0; seed < 64; seed++) {
 		let world = frameCarrier(seed);
 		for (let i = 0; i < 2; i++) world = applyEdit(world, { kind: 'advance', years: 1 });
 		const count = checkFrame(world);
 		expect(count).toBeGreaterThan(0);
-		bays += count;
 	}
-	console.info('SUPPORT ' + JSON.stringify({ seeds: 64, bays, ticks: 2 }));
 }, 60_000);

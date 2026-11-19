@@ -4,6 +4,7 @@
 	import { materialSheet, type SheetRow } from '../logic/material/contact-sheet';
 	import type { ColorToken } from '../logic/parametrik/types';
 	import { flowToken } from '../data/focus';
+	import AssetSheetRow from './AssetSheetRow.svelte';
 	import ChoiceControl from './ChoiceControl.svelte';
 	import { theme } from '../theme';
 	let { group }: { group: string | null } = $props();
@@ -47,24 +48,38 @@
 		photos = {};
 		error = '';
 		async function draw() {
-			if (cancelled) return;
-			const { createAssetPlate } = await import('../scene/sandbox/asset-plate');
-			if (cancelled) return;
-			const plate = await createAssetPlate(host);
-			let failures = 0;
+			const plate = await openPlate();
+			if (!plate) return;
 			try {
-				for (const a of selected)
-					for (const sample of a.samples) {
-						if (cancelled) return;
-						const key = a.id + '/' + sample.id;
-						if (!(await drawSample(key, () => plate.photo(sample.parts())))) failures++;
-					}
-				if (cancelled) return;
-				if (failures) error = 'Some previews could not be drawn.';
-				else rendered = true;
+				publish(await drawSamples(plate));
 			} finally {
 				await plate.dispose();
 			}
+		}
+
+		async function openPlate() {
+			if (cancelled) return;
+			const { createAssetPlate } = await import('../scene/sandbox/asset-plate');
+			if (!cancelled) return createAssetPlate(host);
+		}
+
+		function publish(failures: number) {
+			if (cancelled) return;
+			if (failures) error = 'Some previews could not be drawn.';
+			else rendered = true;
+		}
+
+		async function drawSamples(
+			plate: Awaited<ReturnType<typeof import('../scene/sandbox/asset-plate').createAssetPlate>>
+		) {
+			let failures = 0;
+			for (const a of selected)
+				for (const sample of a.samples) {
+					if (cancelled) return failures;
+					const key = a.id + '/' + sample.id;
+					failures += Number(!(await drawSample(key, () => plate.photo(sample.parts()))));
+				}
+			return failures;
 		}
 
 		async function drawSample(key: string, photo: () => Promise<Blob>) {
@@ -122,26 +137,7 @@
 	{/if}
 	{#if error}<p role="alert">{error}</p>{/if}
 	{#each rows as a (a.id)}
-		<section aria-busy={!rendered && !error}>
-			<div class="label">
-				<h3>{a.label}</h3>
-				{#if a.dimensions}<small>{a.dimensions}</small>{/if}
-			</div>
-			<div class="variants">
-				{#each a.samples as sample (sample.id)}
-					{@const photo = photos[a.id + '/' + sample.id]}
-					<figure>
-						{#if photo}<img
-								width="440"
-								height="300"
-								src={photo}
-								alt={a.label + ' — ' + sample.label}
-							/>{:else if photo === null}<p>Preview unavailable</p>
-						{:else}<div class="pending"></div>{/if}
-						<figcaption>{sample.label}</figcaption>
-					</figure>{/each}
-			</div>
-		</section>
+		<AssetSheetRow {a} {photos} busy={!rendered && !error} />
 	{/each}
 </main>
 
@@ -153,8 +149,7 @@
 		color: var(--ink);
 	}
 	header,
-	nav,
-	.label {
+	nav {
 		display: flex;
 		align-items: baseline;
 		gap: 1rem;
@@ -175,62 +170,15 @@
 		font-weight: 650;
 	}
 	h1,
-	h2,
-	h3,
-	figure {
+	h2 {
 		margin: 0;
 	}
-	h1,
-	h3 {
+	h1 {
 		font: 600 1rem var(--font-sans);
 	}
 	h2 {
 		margin: 1.5rem 0;
 		font: 500 2.5rem var(--font-sans);
 		text-transform: capitalize;
-	}
-	h3,
-	figcaption {
-		text-transform: capitalize;
-	}
-	section {
-		display: grid;
-		grid-template-columns: minmax(8rem, 1fr) 5fr;
-		gap: 1rem;
-		border-top: 1px solid var(--line);
-		padding: 1rem 0;
-	}
-	.label {
-		align-content: start;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	small,
-	figcaption {
-		font: 400 0.82rem var(--font-mono);
-		color: var(--ink-2);
-	}
-	.variants {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
-		gap: 1rem;
-	}
-	img,
-	.pending {
-		width: 100%;
-		aspect-ratio: 22/15;
-		height: auto;
-		display: block;
-	}
-	@media (max-width: 640px) {
-		section {
-			grid-template-columns: 1fr;
-		}
-		.label {
-			flex-direction: row;
-		}
-		.variants {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
 	}
 </style>

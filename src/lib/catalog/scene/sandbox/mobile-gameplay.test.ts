@@ -197,3 +197,59 @@ test('rebuilding the affected house groups after a dig equals drawing the whole 
 		terrain.dispose();
 	}
 });
+
+test('the desktop plan keeps the town within the opening frame', () => {
+	const desktop = createView();
+	desktop.resize(1440, 900);
+	frameTownSilhouette(desktop, world);
+	desktop.setPlan(true);
+	const town = [...world.state.stacks.keys()]
+		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
+		.map(desktop.project);
+	for (const { x, y } of town) {
+		expect(x).toBeGreaterThan(0);
+		expect(x).toBeLessThan(1440);
+		expect(y).toBeGreaterThan(0);
+		expect(y).toBeLessThan(900);
+	}
+});
+
+test('plan rotation preserves a panned and zoomed district across both projections', () => {
+	const district = createView();
+	district.resize(1440, 900);
+	frameTownSilhouette(district, world);
+	district.pan(165, -80);
+	district.zoomAt(0.3, 500, 350);
+	const { x, y, z } = district.target;
+	const point: [number, number, number] = [x, -z, y];
+	const scale = district.metersPerPixel();
+	for (const plan of [true, false]) {
+		district.setPlan(plan);
+		expect(district.project(point).x).toBeCloseTo(720);
+		expect(district.project(point).y).toBeCloseTo(450);
+		expect(district.metersPerPixel()).toBe(scale);
+	}
+});
+
+test('the portrait plan and return preserve the opening parcel between the HUD edges', () => {
+	const phone = createView();
+	phone.resize(390, 844);
+	frameOldTown(phone, world, openingArea);
+	const focusY = (openingArea.top + openingArea.bottom) / 2;
+	const anchor = [...world.state.stacks.keys()]
+		.map((id) => world.grid.cellsById.get(id)?.center)
+		.find(
+			(center) =>
+				center &&
+				Math.abs(phone.project(center).y - focusY) < 0.001 &&
+				Math.abs(phone.project(center).x - 195) < 0.001
+		);
+	if (!anchor) throw new Error('Missing opening focus');
+	const elevation = phone.elevation();
+	for (const plan of [true, false]) {
+		phone.setPlan(plan);
+		expect(phone.project(anchor).x).toBeCloseTo(195);
+		expect(phone.project(anchor).y).toBeCloseTo(focusY);
+	}
+	expect(phone.elevation()).toBe(elevation);
+});

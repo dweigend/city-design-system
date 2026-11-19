@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { gridGenerators, contourGrid, voronoiGrid } from './index';
-import { area, cross } from './geometry';
+import { shoelaceArea, turnCross } from './geometry';
 import { divide, field, occupy, path, shortestPath } from './operatoren';
 import { compose, compositionRules, placeholder } from '../komposition';
 const generate = (kind: string) => gridGenerators.find((g) => g.kind === kind)!.generate({}, 42);
@@ -15,13 +15,13 @@ for (const generator of gridGenerators)
 				expect(byId.size).toBe(g.cells.length);
 				for (const c of g.cells) {
 					expect(c.polygon.length).toBeGreaterThanOrEqual(3);
-					expect(area(c.polygon)).toBeGreaterThan(0);
-					expect(c.area).toBeCloseTo(area(c.polygon), 6);
+					expect(shoelaceArea(c.polygon)).toBeGreaterThan(0);
+					expect(c.area).toBeCloseTo(shoelaceArea(c.polygon), 6);
 					expect(c.center.every(Number.isFinite)).toBe(true);
 					expect(Number.isFinite(c.orientation)).toBe(true);
 					expect(
 						c.polygon.every(
-							(p, i) => cross(p, c.polygon[(i + 1) % c.polygon.length], c.center) >= -1e-5
+							(p, i) => turnCross(p, c.polygon[(i + 1) % c.polygon.length], c.center) >= -1e-5
 						)
 					).toBe(true);
 					for (const id of c.neighbors) {

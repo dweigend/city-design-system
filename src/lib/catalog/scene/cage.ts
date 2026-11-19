@@ -1,3 +1,4 @@
+import { createDrawingRenderer, createPaperScene } from './drawing-renderer';
 import { bindSceneTheme } from './themeBinding';
 import * as THREE from 'three/webgpu';
 import { attribute, mix, uniform, vec3 } from 'three/tsl';
@@ -17,12 +18,8 @@ export function createCageScene(
 	palette: Palette3D,
 	onError: () => void
 ) {
-	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.toneMapping = THREE.NoToneMapping;
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-	const scene = new THREE.Scene();
-	scene.background = new THREE.Color(palette.paper);
+	const renderer = createDrawingRenderer(canvas);
+	const scene = createPaperScene(palette.paper);
 	const camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 500);
 	const controls = new OrbitControls(camera, canvas);
 	controls.enablePan = false;

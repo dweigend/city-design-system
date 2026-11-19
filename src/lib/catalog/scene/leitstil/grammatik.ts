@@ -28,7 +28,7 @@ export function grammatik(host: HTMLElement, s: Stil) {
 	);
 	const token = (name: string) => new Color(tokens[name]);
 	const dunkel = s.thema === 'dunkel';
-	// In dark mode, model white is dimmed to L=0.80 per Opus INV-09. Ink and pencil invert their contrast order against the paper.
+	// In dark mode, model white is dimmed to L=0.80 per INV-09. Ink and pencil invert their contrast order against the paper.
 	return {
 		token,
 		paper: token('--paper'),

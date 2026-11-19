@@ -25,7 +25,7 @@ const DIRECTIONS = 12;
 export const outlineExpansion = 1 / Math.cos(Math.PI / DIRECTIONS);
 
 /** Translations of the body in screen space, independent of its face normals and camera. */
-export const outlineOffsets = new InstancedBufferAttribute(
+const outlineOffsets = new InstancedBufferAttribute(
 	new Float32Array(
 		Array.from({ length: DIRECTIONS }, (_, i) => {
 			const angle = (2 * Math.PI * i) / DIRECTIONS;

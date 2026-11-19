@@ -1,3 +1,4 @@
+import { initializeDrawingRenderer } from './drawing-renderer';
 import { BLICK } from '../logic/traeger/integration/material';
 import type { Analyse, Bauplan } from '../logic/haus-tragwerk';
 import * as T from 'three/webgpu';
@@ -82,21 +83,16 @@ export function createTraegerSzene(
 		if (!fitting) moved = true;
 		render();
 	});
-	const ready = renderer
-		.init()
-		.then(() => {
+	const ready = initializeDrawingRenderer(
+		renderer,
+		canvas,
+		() => alive,
+		() => {
 			initialized = true;
-			canvas.dataset.backend =
-				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
-					? 'webgpu'
-					: 'webgl2';
-			if (alive) render();
-			else renderer.dispose();
-		})
-		.catch((e) => {
-			if (alive) onError();
-			throw e;
-		});
+			render();
+		},
+		onError
+	);
 	function applyPalette(p: Palette3D) {
 		palette = p;
 		for (const paint of painters) paint();

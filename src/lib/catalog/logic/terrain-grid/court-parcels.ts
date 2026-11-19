@@ -65,27 +65,40 @@ export function courtParcels(
 		seams = new Map<string, readonly [string, string]>();
 	const courts = new Set<string>();
 	const candidates = new Map<string, Map<string, string[]>>();
-	if (enabled)
+	if (enabled) survey();
+	return { points, blocks, seams, candidates, courts };
+
+	function survey() {
 		for (const face of graph.faces.values()) {
-			const [x, y] = coord(face.id);
-			if (face.ring.length !== 4 || x === 0 || y === 0 || x + 2 >= width || y + 2 >= height)
-				continue;
+			if (!interiorQuad(face, width, height)) continue;
 			courts.add(face.id);
 			const cut = divide(face, graph, seed, profile);
 			if (!cut) continue;
-			const leaves = new Map<string, string[]>();
-			for (const child of cut.children) {
-				const slot = face.slots[face.ring.indexOf(child.ring[0])];
-				const slots = leaves.get(child.parcel) ?? [];
-				slots.push(slot);
-				leaves.set(child.parcel, slots);
-			}
-			candidates.set(face.id, leaves);
-			if (face.ring.some((v, i) => points.has(average(v, face.ring[(i + 1) % 4])))) continue;
-			if (allowed && !allowed.has(face.id)) continue;
+			candidates.set(face.id, slotsByParcel(face, cut.children));
+			if (!canPublish(face)) continue;
 			for (const [id, p] of cut.points) points.set(id, p);
 			blocks.set(face.id, cut.children);
 			seams.set(cut.center, cut.seam);
 		}
-	return { points, blocks, seams, candidates, courts };
+	}
+	function canPublish(face: Face) {
+		if (face.ring.some((v, i) => points.has(average(v, face.ring[(i + 1) % 4])))) return false;
+		return !allowed || allowed.has(face.id);
+	}
+}
+
+function slotsByParcel(face: Face, children: Child[]) {
+	const leaves = new Map<string, string[]>();
+	for (const child of children) {
+		const slot = face.slots[face.ring.indexOf(child.ring[0])];
+		const slots = leaves.get(child.parcel) ?? [];
+		slots.push(slot);
+		leaves.set(child.parcel, slots);
+	}
+	return leaves;
+}
+
+function interiorQuad(face: Face, width: number, height: number) {
+	const [x, y] = coord(face.id);
+	return face.ring.length === 4 && x !== 0 && y !== 0 && x + 2 < width && y + 2 < height;
 }

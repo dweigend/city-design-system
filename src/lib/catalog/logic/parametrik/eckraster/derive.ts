@@ -221,22 +221,8 @@ export function slots(p: Patch, o: Occupancy, farben?: Farben): Slot[] {
 			const bestand = bits(f.vertices, h, (id, l) => isBestand(o, id, l));
 			const weg = anyWeg && m ? bits(f.vertices, h, (id, l) => isWeg(o, id, l)) : 0;
 			// Flight upward from the upper path bit: to the neighboring corner one level higher, without a level connection.
-			let wegQuer = 0;
-			for (const d of [0, 1]) {
-				const a = f.vertices[d],
-					c = f.vertices[d + 2];
-				if (isWeg(o, a, h + 1) && isWeg(o, c, h + 1) && o[address(a, h + 1)].quer?.includes(c))
-					wegQuer |= 1 << d;
-			}
-			let wegAuf = 0;
-			if (weg >> 4)
-				f.vertices.forEach((id, i) => {
-					if (!((weg >> (i + 4)) & 1) || isWeg(o, id, h + 2)) return;
-					[f.vertices[(i + 1) % 4], f.vertices[(i + 3) % 4]].forEach((w, d) => {
-						if (isWeg(o, w, h + 2) && !isWeg(o, w, h + 1) && group(w, h + 2) === group(id, h + 1))
-							wegAuf |= 1 << (2 * i + d);
-					});
-				});
+			const wegQuer = diagonalBits(f.vertices, h);
+			const wegAuf = stairBits(f.vertices, h, weg);
 			return {
 				id: `${f.id}@${h}`,
 				corners: f.vertices.map((id) => ix.vertex.get(id)!.point) as Slot['corners'],
@@ -283,6 +269,30 @@ export function slots(p: Patch, o: Occupancy, farben?: Farben): Slot[] {
 			};
 		});
 	});
+
+	function diagonalBits(vertices: string[], h: number) {
+		let wegQuer = 0;
+		for (const d of [0, 1]) {
+			const a = vertices[d],
+				c = vertices[d + 2];
+			if (isWeg(o, a, h + 1) && isWeg(o, c, h + 1) && o[address(a, h + 1)].quer?.includes(c))
+				wegQuer |= 1 << d;
+		}
+		return wegQuer;
+	}
+
+	function stairBits(vertices: string[], h: number, weg: number) {
+		let wegAuf = 0;
+		if (weg >> 4)
+			vertices.forEach((id, i) => {
+				if (!((weg >> (i + 4)) & 1) || isWeg(o, id, h + 2)) return;
+				[vertices[(i + 1) % 4], vertices[(i + 3) % 4]].forEach((w, d) => {
+					if (isWeg(o, w, h + 2) && !isWeg(o, w, h + 1) && group(w, h + 2) === group(id, h + 1))
+						wegAuf |= 1 << (2 * i + d);
+				});
+			});
+		return wegAuf;
+	}
 }
 /** Short English explanation of which corner-module rule a slot follows (for labels). Pure. */
 export const reason = (s: Slot) =>

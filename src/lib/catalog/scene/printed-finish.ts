@@ -70,7 +70,7 @@ export function castOffset(height: number) {
 }
 
 /** Angular 20–40 cm aggregate on printed panels. Reveal chips only at house scale. */
-export function aggregateCoverage(plane: Node<'vec2'>) {
+function aggregateCoverage(plane: Node<'vec2'>) {
 	const cellsPerMeter = 0.8;
 	const uv = plane.mul(cellsPerMeter);
 	const cell = uv.floor();

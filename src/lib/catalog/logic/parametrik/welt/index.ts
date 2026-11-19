@@ -1,3 +1,4 @@
+import { centralSquare } from './ziele';
 /**
  * L11 · World, round 3 "District on existing stock". One system: the world is an occupancy on
  * a quad grid (raster.ts → belegung.ts → wege.ts); every volume, every frame and
@@ -249,7 +250,7 @@ function band(line: Point2[], w: number): Point2[][] {
 }
 
 /** Derives the layout, occupancy and path network from world parameters. */
-export function layoutOccupancyAndNetwork(p: WeltParams) {
+function layoutOccupancyAndNetwork(p: WeltParams) {
 	const r = lageOf(p),
 		b = belegung(r, p);
 	if (p.kern.zugang) zugangSichern(r, b);
@@ -460,9 +461,7 @@ export function welt(input: WeltParams): Welt {
 	);
 
 	// Standpoint for walking: on the square, looking at the nearest core.
-	const platz = [...r.blocks]
-			.filter((x) => b.arten.get(x.id) === 'platz')
-			.sort((x, y) => y.naehe - x.naehe || y.cells.length - x.cells.length)[0],
+	const platz = centralSquare(r, b),
 		kerne = b.eingriffe.filter((e) => e.kern).map((e) => cellOf.get(e.kern!)!.center),
 		ziel = kerne.sort(
 			(a, c) =>

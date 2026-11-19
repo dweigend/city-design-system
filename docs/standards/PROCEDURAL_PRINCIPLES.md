@@ -1,7 +1,5 @@
 # Procedural Principles
 
-As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
-
 Owner for: determinism, units and coordinate systems, numerics, topology and embedding, projection, budgets, and measurement duty. Applies to all generators and rules under `src/lib/catalog/logic/` and their projection in `scene/`.
 
 **Reading guide.** Every rule is formulated to be testable. The "Evidence" column states what is documented today. "open" means: the rule applies, its compliance has not been measured. No rule counts as satisfied merely by appearing in this file. Measurements belong to the linked reports; only references appear here. Tests from 95 were not re-run for this file.

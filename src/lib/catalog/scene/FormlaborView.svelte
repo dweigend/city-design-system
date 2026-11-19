@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Button from '../ui/Button.svelte';
-	import { onMount, untrack } from 'svelte';
+	import { observeSceneVisibility, observeSceneSize } from './scene-visibility.svelte';
+	import DrawingCanvas from './DrawingCanvas.svelte';
+	import { untrack } from 'svelte';
 	import { readPalette } from './themeBinding';
 	import { createFormlaborScene } from './formlabor';
 	import type { Stand } from '../logic/parametrik/formlabor';
@@ -19,16 +20,11 @@
 	let mounted = $state(false),
 		error = $state('');
 	let scene = $state<ReturnType<typeof createFormlaborScene>>();
-	onMount(() => {
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				mounted = entry.isIntersecting;
-			},
-			{ rootMargin: '100px' }
-		);
-		observer.observe(host);
-		return () => observer.disconnect();
-	});
+	observeSceneVisibility(
+		() => host,
+		'100px',
+		(visible) => (mounted = visible)
+	);
 	$effect(() => {
 		if (!mounted || !canvas) return;
 		const surface = canvas;
@@ -38,17 +34,11 @@
 				error = '3D view unavailable.';
 			});
 			scene = current;
-			void current.ready.catch(() => {});
-			const resize = () => current.resize(surface.clientWidth, surface.clientHeight);
-			const observer = new ResizeObserver(resize);
-			observer.observe(host);
-			resize();
+			const stopResize = observeSceneSize(host, surface, current);
 			return () => {
-				observer.disconnect();
+				stopResize();
 				current.dispose();
-				untrack(() => {
-					scene = undefined;
-				});
+				scene = undefined;
 			};
 		} catch (cause) {
 			console.error(cause);
@@ -70,14 +60,7 @@
 </script>
 
 <div class="view" bind:this={host}>
-	<canvas
-		bind:this={canvas}
-		aria-label={label + '. Drag: rotate; right-drag: pan; mouse wheel: zoom.'}
-		tabindex="0"
-	></canvas>
-	<div class="tools">
-		<Button variant="secondary" label="Reset view" onclick={() => scene?.reset()} />
-	</div>
+	<DrawingCanvas bind:canvas {label} touch reset={() => scene?.reset()} />
 	{#if error}<p role="status">{error}</p>{/if}
 </div>
 
@@ -87,21 +70,6 @@
 		min-width: 0;
 		height: 760px;
 		border: var(--hair) solid var(--line);
-	}
-	.tools {
-		position: absolute;
-		top: var(--space-2);
-		right: var(--space-2);
-	}
-	canvas:focus-visible {
-		outline: 2px solid var(--ink);
-		outline-offset: -3px;
-	}
-	canvas {
-		display: block;
-		width: 100%;
-		height: 100%;
-		touch-action: none;
 	}
 	p {
 		position: absolute;

@@ -2,6 +2,9 @@
 
 Visual design bible for a city-builder game, built as a SvelteKit application that translates the procedural logic of its sister library [city-library](https://github.com/dweigend/city-library) into visual design, 3D geometry, and interface.
 
+> ❗ **AI slop meter: 85%** `█████████████████░░░` — a tongue-in-cheek estimate: most of this project and parts of the library are still AI-generated, and yes, the code shows it!
+> 🧪 I’m currently experimenting with individual features; cleanup and a proper structure are next on the list.
+
 ## Guiding Vision
 
 We are designing a sustainable, self-sufficient city of the future with closed material cycles — drawn somewhere between art, architectural drafting, and built utopia rather than as a conventional city builder.
@@ -26,6 +29,8 @@ The design bible moves from the whole to the detail and is organized into two se
 ### Workshop (derivation, simulation, and image archive)
 
 - **Lab** (`/labor`) – Full world simulation, procedural principles, and workbench studies
+- **Asset catalog** (`/labor/assets`) – Contact sheets for sandbox objects and materials
+- **Sandbox studies** – City simulation (`/sandbox`), acceptance studies (`/sandbox/abnahme`), and house study (`/sandbox/haus`)
 - **Archive** (`/archiv`) – Cataloged image collection of designs, raw material, and references
 - **Legacy redirects** – `/bibliothek`, `/design`, `/designs`, `/fokus`, `/icons`, `/modellierung`, and `/prinzipien` are only redirects to the corresponding chapter pages
 
@@ -49,16 +54,7 @@ bun install
 bun run dev                # Development server (http://localhost:5173)
 ```
 
-Mandatory verification commands before every delivery:
-
-```sh
-bun run test               # Behavior tests
-bun run test:perf          # Performance tests, one file at a time
-bun run check              # svelte-kit sync & svelte-check (type and Svelte check)
-bun run lint               # Prettier & ESLint (including CSS boundary checks)
-bun run build              # Production build
-bun run check:boundaries   # Architecture and import boundaries (dependency-cruiser & AST)
-```
+Run `bun run verify` before every delivery. For browser-facing changes, also run `bun run test:browser`.
 
 ## Architecture
 

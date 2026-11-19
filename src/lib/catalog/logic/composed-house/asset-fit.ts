@@ -35,6 +35,14 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 				radius: part.radius * radius,
 				height: part.height * sz
 			};
+		default:
+			return placeRectangular(part, { point, scale: [sx, sy, sz], angle });
+	}
+}
+
+function placeRectangular(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): HousePart {
+	const radius = Math.min(sx, sy);
+	switch (part.kind) {
 		case 'prism': {
 			const ring = (polygon: [number, number][]) =>
 				polygon.map(([x, y]): [number, number] => {

@@ -83,32 +83,47 @@ for (const [seed, block, middle] of [
 		expect(courts.size).toBeGreaterThan(0);
 		expect(courts.has(block)).toBe(seed === 7);
 		for (const [id, members] of courts) {
-			const shared = new Map<string, Set<string>>();
-			for (const cell of members)
-				for (const [side, neighbor] of cell.neighbors.entries()) {
-					if (!members.some((other) => other.id === neighbor && other.parcel !== cell.parcel))
-						continue;
-					const a = cell.vertexIds[side],
-						b = cell.vertexIds[(side + 1) % 4];
-					const links = shared.get(a) ?? new Set();
-					links.add(b);
-					shared.set(a, links);
-				}
-			const center = [...shared].find(([, links]) => links.size === 2);
-			if (!center) throw new Error('missing seam in ' + id);
-			if (id === block) expect(center[0]).toBe(middle);
-			const point = (key: string) => {
-				const [c, r] = key.split('/').map(Number);
-				return grid.vertices[r * (grid.columns + 1) + c];
-			};
-			const [a, b] = [...center[1]].map(point),
-				m = point(center[0]);
-			const u = [m[0] - a[0], m[1] - a[1]],
-				v = [b[0] - m[0], b[1] - m[1]];
-			const turn = Math.atan2(Math.abs(u[0] * v[1] - u[1] * v[0]), u[0] * v[0] + u[1] * v[1]);
-			expect(turn).toBeLessThan(1e-9);
+			checkCourtSeam(grid, members, id, block, middle);
 		}
 	});
+
+type CourtGrid = ReturnType<typeof deriveGrid>;
+function checkCourtSeam(
+	grid: CourtGrid,
+	members: CourtGrid['cells'][number][],
+	id: string,
+	block: string,
+	middle: string
+) {
+	const shared = sharedSeam(members);
+	const center = [...shared].find(([, links]) => links.size === 2);
+	if (!center) throw new Error('missing seam in ' + id);
+	if (id === block) expect(center[0]).toBe(middle);
+	const point = (key: string) => {
+		const [c, r] = key.split('/').map(Number);
+		return grid.vertices[r * (grid.columns + 1) + c];
+	};
+	const [a, b] = [...center[1]].map(point),
+		m = point(center[0]);
+	const u = [m[0] - a[0], m[1] - a[1]],
+		v = [b[0] - m[0], b[1] - m[1]];
+	const turn = Math.atan2(Math.abs(u[0] * v[1] - u[1] * v[0]), u[0] * v[0] + u[1] * v[1]);
+	expect(turn).toBeLessThan(1e-9);
+}
+
+function sharedSeam(members: CourtGrid['cells'][number][]) {
+	const shared = new Map<string, Set<string>>();
+	for (const cell of members)
+		for (const [side, neighbor] of cell.neighbors.entries()) {
+			if (!members.some((other) => other.id === neighbor && other.parcel !== cell.parcel)) continue;
+			const a = cell.vertexIds[side],
+				b = cell.vertexIds[(side + 1) % 4];
+			const links = shared.get(a) ?? new Set();
+			links.add(b);
+			shared.set(a, links);
+		}
+	return shared;
+}
 
 test('seed 7 rejects a cut with one inaccessible child and retains genuinely landlocked courts', () => {
 	const grid = deriveGrid(createTerrain({ seed: 7 }));

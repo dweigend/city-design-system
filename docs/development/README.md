@@ -10,7 +10,7 @@ How this repository is built and delivered. Not the design bible itself (that li
 
 ## What does not
 
-- Research notes, explorations, comparison plates and raw data: the private lab repo `city-design-lab`. Only condensed findings go to `docs/research/`.
+- Research notes, explorations, comparison plates and raw data: the private lab repository. Only condensed findings go to `docs/research/`.
 - Agent templates, prompts and checklists: local skills (`git-delivery`, `model-routing`), never tracked.
 - Notes, process images and originals for local use only: the private lab repository, never this one.
 

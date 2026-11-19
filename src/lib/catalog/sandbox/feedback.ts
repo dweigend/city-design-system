@@ -1,5 +1,6 @@
 import { STORY } from '../data/grid';
-import { DIG_RADIUS_M } from '../data/sandbox';
+import { DIG_RADIUS_M, surveyMessages } from '../data/sandbox';
+import { MAX_STORIES } from '../logic/house-brush';
 import { MODULE } from '../logic/terrain-grid';
 import type { Vec3 } from '../logic/parametrik/types';
 import { advanceAdditions, type Tool, type World } from '../logic/sandbox';
@@ -34,6 +35,13 @@ export function advanceMessage(event: Completion | undefined): string | undefine
 		count ? [`${count} ${name}${count === 1 ? '' : 's'}`] : []
 	);
 	return additions.length ? `Added ${additions.join(', ')}.` : 'No construction this advance.';
+}
+
+/** Explains a rejected stroke in the HUD. */
+export function rejectionMessage(reason: string): string {
+	if (reason === 'story-limit')
+		return `Height limit reached. Each plot can hold ${MAX_STORIES} stories.`;
+	return surveyMessages[reason] ?? 'The selected walls cannot support a continuous carrier.';
 }
 
 type Projector = {

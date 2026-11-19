@@ -148,31 +148,28 @@ function crossings(a: Streamline, b: Streamline): Vec[] {
 	const out: Vec[] = [];
 	for (let i = 1; i < a.points.length; i++)
 		for (let j = 1; j < b.points.length; j++) {
-			if (
-				Math.max(a.points[i - 1][0], a.points[i][0]) <
-					Math.min(b.points[j - 1][0], b.points[j][0]) ||
-				Math.max(b.points[j - 1][0], b.points[j][0]) <
-					Math.min(a.points[i - 1][0], a.points[i][0]) ||
-				Math.max(a.points[i - 1][1], a.points[i][1]) <
-					Math.min(b.points[j - 1][1], b.points[j][1]) ||
-				Math.max(b.points[j - 1][1], b.points[j][1]) < Math.min(a.points[i - 1][1], a.points[i][1])
-			)
-				continue;
-			const p = a.points[i - 1],
-				q = b.points[j - 1],
-				u = sub(a.points[i], p),
-				v = sub(b.points[j], q),
-				den = cross(u, v);
-			if (Math.abs(den) < 1e-12) continue;
-			const w = sub(q, p),
-				t = cross(w, v) / den,
-				s = cross(w, u) / den;
-			if (t >= 0 && t <= 1 && s >= 0 && s <= 1) {
-				const c = mix(p, a.points[i], t);
-				if (!out.some((o) => length(sub(o, c)) < 1e-8)) out.push(c);
-			}
+			const c = segmentCrossing(a.points[i - 1], a.points[i], b.points[j - 1], b.points[j]);
+			if (c && !out.some((o) => length(sub(o, c)) < 1e-8)) out.push(c);
 		}
 	return out;
+}
+function segmentCrossing(a: Vec, b: Vec, c: Vec, d: Vec) {
+	if (separateOnAxis(a, b, c, d, 0) || separateOnAxis(a, b, c, d, 1)) return;
+	const u = sub(b, a),
+		v = sub(d, c),
+		den = cross(u, v);
+	if (Math.abs(den) < 1e-12) return;
+	const w = sub(c, a),
+		t = cross(w, v) / den,
+		s = cross(w, u) / den;
+	if (t >= 0 && t <= 1 && s >= 0 && s <= 1) return mix(a, b, t);
+}
+
+function separateOnAxis(a: Vec, b: Vec, c: Vec, d: Vec, axis: 0 | 1) {
+	return (
+		Math.max(a[axis], b[axis]) < Math.min(c[axis], d[axis]) ||
+		Math.max(c[axis], d[axis]) < Math.min(a[axis], b[axis])
+	);
 }
 /** Restricted chart: each primary/secondary line pair must cross exactly once.
  * Singularities, recirculation and incomplete charts reject instead of inventing connections.
@@ -191,36 +188,7 @@ export function fieldChart(
 	if (!Number.isInteger(count) || count < 2 || count > 100)
 		throw new InvariantError('invalid-line-count');
 	const lines: [Streamline[], Streamline[]] = [[], []];
-	for (const family of [0, 1] as const)
-		for (let i = 0; i < count; i++) {
-			const target = (i + 1) / (count + 1);
-			const weights = Array.from({ length: 100 }, (_, k) => {
-				const t = (k + 0.5) / 100;
-				const p: Vec =
-					family === 0
-						? [bounds.min[0], bounds.min[1] + t * (bounds.max[1] - bounds.min[1])]
-						: [bounds.min[0] + t * (bounds.max[0] - bounds.min[0]), bounds.min[1]];
-				return Math.sqrt(sampleField(field, p).density);
-			});
-			const total = weights.reduce((a, b) => a + b, 0);
-			let cumulative = 0,
-				seedFraction = target;
-			for (let k = 0; k < weights.length; k++) {
-				if (cumulative + weights[k] >= target * total) {
-					seedFraction = (k + (target * total - cumulative) / weights[k]) / 100;
-					break;
-				}
-				cumulative += weights[k];
-			}
-			const t = seedFraction,
-				start: Vec =
-					family === 0
-						? [bounds.min[0], bounds.min[1] + t * (bounds.max[1] - bounds.min[1])]
-						: [bounds.min[0] + t * (bounds.max[0] - bounds.min[0]), bounds.min[1]];
-			const line = trace(field, start, family, bounds, step);
-			if (line.stop !== 'boundary') throw new InvariantError(`chart-${line.stop}`);
-			lines[family].push(line);
-		}
+	traceFamilies();
 	const positions = new Map<string, Vec>(),
 		faces = new Map<string, SourceFace>();
 	for (let i = 0; i < count; i++)
@@ -244,7 +212,45 @@ export function fieldChart(
 			});
 		}
 	return { positions, faces, lines };
+
+	function traceFamilies() {
+		for (const family of [0, 1] as const)
+			for (let i = 0; i < count; i++) {
+				const start = seedPoint(field, bounds, family, (i + 1) / (count + 1));
+				const line = trace(field, start, family, bounds, step);
+				if (line.stop !== 'boundary') throw new InvariantError(`chart-${line.stop}`);
+				lines[family].push(line);
+			}
+	}
 }
+function seedPoint(
+	field: CrossField,
+	bounds: { min: Vec; max: Vec },
+	family: 0 | 1,
+	target: number
+): Vec {
+	const weights = Array.from({ length: 100 }, (_, k) =>
+		Math.sqrt(sampleField(field, atBoundary((k + 0.5) / 100)).density)
+	);
+	const total = weights.reduce((a, b) => a + b, 0);
+	let cumulative = 0,
+		seedFraction = target;
+	for (let k = 0; k < weights.length; k++) {
+		if (cumulative + weights[k] >= target * total) {
+			seedFraction = (k + (target * total - cumulative) / weights[k]) / 100;
+			break;
+		}
+		cumulative += weights[k];
+	}
+	return atBoundary(seedFraction);
+
+	function atBoundary(t: number): Vec {
+		return family === 0
+			? [bounds.min[0], bounds.min[1] + t * (bounds.max[1] - bounds.min[1])]
+			: [bounds.min[0] + t * (bounds.max[0] - bounds.min[0]), bounds.min[1]];
+	}
+}
+
 export function fieldGrid(field: CrossField, bounds: { min: Vec; max: Vec }, count = 6, seed = 42) {
 	const { positions, faces, lines } = fieldChart(field, bounds, count);
 

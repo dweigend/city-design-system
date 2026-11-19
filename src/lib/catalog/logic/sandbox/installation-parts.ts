@@ -85,7 +85,7 @@ export function position(grid: QuadGrid, anchor: Anchor): Vec3 {
 }
 
 /** Marks a rejected survey in the same coordinate system as the cursor. */
-export function rejected(reason: string, cells: readonly QuadCell[]): Proposal {
+export function rejected(reason: string, cells: readonly QuadCell[]): { failure: Failure } {
 	const ids = new Set(cells.map((c) => c.id));
 	const heights = new Map(
 		cells.flatMap((c) => c.corners.map((p) => [p[0] + ',' + p[1], p[2]] as const))

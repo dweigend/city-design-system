@@ -33,24 +33,7 @@ export function absicht(
 	const positions = new Map<string, Vec>(),
 		weld = new Map<string, string>(),
 		groups = new Map<string, string[][]>();
-	for (const c of [...n.grid.cells].sort((a, b) => (a.id < b.id ? -1 : 1))) {
-		let ring = c.polygon.map((p, i) => {
-			const key = p.map((v) => Math.round(v * 1e4)).join(',');
-			let id = weld.get(key);
-			if (!id) {
-				id = `v:${c.id}:${i}`;
-				weld.set(key, id);
-				positions.set(id, p);
-			}
-			return id;
-		});
-		ring = ring.filter((id, i) => id !== ring[(i + ring.length - 1) % ring.length]);
-		if (ring.length < 3) continue;
-		if (area(ring.map((v) => required(positions.get(v), 'positions.get(v)'))) < 0) ring.reverse();
-		const id = c.id.split('/')[0];
-		if (!groups.has(id)) groups.set(id, []);
-		required(groups.get(id), 'groups.get(id)').push(ring);
-	}
+	weldCorners();
 
 	// Uniform search index. The segment rectangle is expanded by the snap tolerance.
 	const lengths = [...groups.values()].flatMap((parts) =>
@@ -85,19 +68,7 @@ export function absicht(
 					dy = B[1] - A[1],
 					l2 = dx * dx + dy * dy;
 				const hits: { v: string; t: number }[] = [];
-				const margin = 1e-6 * Math.sqrt(l2),
-					candidates: [string, Vec][] = [];
-				for (
-					let x = Math.floor((Math.min(A[0], B[0]) - margin) / size);
-					x <= Math.floor((Math.max(A[0], B[0]) + margin) / size);
-					x++
-				)
-					for (
-						let y = Math.floor((Math.min(A[1], B[1]) - margin) / size);
-						y <= Math.floor((Math.max(A[1], B[1]) + margin) / size);
-						y++
-					)
-						candidates.push(...(buckets.get(`${x}:${y}`) ?? []));
+				const candidates = nearbyCorners(A, B, l2);
 				for (const [v, q] of candidates) {
 					if (v === a || v === b) continue;
 					const t = ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / l2;
@@ -121,24 +92,7 @@ export function absicht(
 				];
 			})
 		);
-		const edges = new Map<string, [string, string]>();
-		for (const ring of expanded)
-			ring.forEach((a, i) => {
-				const b = ring[(i + 1) % ring.length];
-				edges.set(JSON.stringify([a, b]), [a, b]);
-			});
-		const boundary = [...edges.values()].filter(([a, b]) => !edges.has(JSON.stringify([b, a]))),
-			next = new Map(boundary);
-		if (next.size !== boundary.length) throw new InvariantError('parts-boundary', [id]);
-		const first = [...next.keys()].sort()[0],
-			ring = [first];
-		let v = next.get(first);
-		while (v && v !== first && ring.length <= boundary.length) {
-			ring.push(v);
-			v = next.get(v);
-		}
-		if (v !== first || ring.length !== boundary.length)
-			throw new InvariantError('parts-boundary', [id]);
+		const ring = outerRing(id, expanded);
 		faces.set(id, { id, ring, parts: expanded, level: 0 });
 	}
 	return {
@@ -153,7 +107,67 @@ export function absicht(
 			semantics: new Map([...faces.keys()].map((id) => [id, { ...emptyMeaning(), role: 'block' }]))
 		}
 	};
+
+	function nearbyCorners(A: Vec, B: Vec, l2: number) {
+		const margin = 1e-6 * Math.sqrt(l2),
+			candidates: [string, Vec][] = [];
+		for (
+			let x = Math.floor((Math.min(A[0], B[0]) - margin) / size);
+			x <= Math.floor((Math.max(A[0], B[0]) + margin) / size);
+			x++
+		)
+			for (
+				let y = Math.floor((Math.min(A[1], B[1]) - margin) / size);
+				y <= Math.floor((Math.max(A[1], B[1]) + margin) / size);
+				y++
+			)
+				candidates.push(...(buckets.get(`${x}:${y}`) ?? []));
+		return candidates;
+	}
+
+	function weldCorners() {
+		for (const c of [...n.grid.cells].sort((a, b) => (a.id < b.id ? -1 : 1))) {
+			let ring = c.polygon.map((p, i) => {
+				const key = p.map((v) => Math.round(v * 1e4)).join(',');
+				let id = weld.get(key);
+				if (!id) {
+					id = `v:${c.id}:${i}`;
+					weld.set(key, id);
+					positions.set(id, p);
+				}
+				return id;
+			});
+			ring = ring.filter((id, i) => id !== ring[(i + ring.length - 1) % ring.length]);
+			if (ring.length < 3) continue;
+			if (area(ring.map((v) => required(positions.get(v), 'positions.get(v)'))) < 0) ring.reverse();
+			const id = c.id.split('/')[0];
+			if (!groups.has(id)) groups.set(id, []);
+			required(groups.get(id), 'groups.get(id)').push(ring);
+		}
+	}
 }
+function outerRing(id: string, expanded: string[][]) {
+	const edges = new Map<string, [string, string]>();
+	for (const ring of expanded)
+		ring.forEach((a, i) => {
+			const b = ring[(i + 1) % ring.length];
+			edges.set(JSON.stringify([a, b]), [a, b]);
+		});
+	const boundary = [...edges.values()].filter(([a, b]) => !edges.has(JSON.stringify([b, a]))),
+		next = new Map(boundary);
+	if (next.size !== boundary.length) throw new InvariantError('parts-boundary', [id]);
+	const first = [...next.keys()].sort()[0],
+		ring = [first];
+	let v = next.get(first);
+	while (v && v !== first && ring.length <= boundary.length) {
+		ring.push(v);
+		v = next.get(v);
+	}
+	if (v !== first || ring.length !== boundary.length)
+		throw new InvariantError('parts-boundary', [id]);
+	return ring;
+}
+
 export function lageKern(p: LageParams): Lage {
 	const n = netz(p),
 		fehler: string[] = [];

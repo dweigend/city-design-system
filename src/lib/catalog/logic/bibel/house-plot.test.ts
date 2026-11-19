@@ -3,11 +3,12 @@ import { plotHouse, plotShapes } from './house-plot';
 import {
 	circulation,
 	sectionParts,
-	type Section,
 	houseSurfaces,
 	housePartPlan as planPoints
 } from '../composed-house';
 import type { Vec3 } from '../parametrik/types';
+
+type Section = Parameters<typeof sectionParts>[0];
 import { bounds } from '../ansicht/geometrie';
 import { partsIntersect } from '../house-typology';
 import { buildObject } from '../assets';

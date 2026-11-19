@@ -2,12 +2,13 @@ import { hashUnit } from '../../core/random';
 import type { Primitive, FinishId, ColorToken } from '../parametrik/types';
 import { finishMaterial } from '../material/surface';
 import { recipes } from './recipes';
-import type { AssetDefinition as Placement, AssetRecipe, AssetSurface } from './definition';
+import type { AssetPlacement, AssetRecipe, AssetSurface } from './definition';
 import { suggestedSurface } from './slot-defaults';
 
 export {
 	assetCategories,
 	type AssetCategory,
+	type Attachment,
 	type AssetAnchor,
 	type AssetSurface
 } from './definition';
@@ -19,7 +20,7 @@ export type ObjectOptions = {
 };
 
 type SlotDefaults = Readonly<Record<string, Readonly<AssetSurface>>>;
-export type AssetDefinition = Omit<Placement, 'suggestions'> & {
+export type AssetDefinition = Omit<AssetPlacement, 'suggestions'> & {
 	slotDefaults: Readonly<Record<string, SlotDefaults>>;
 };
 

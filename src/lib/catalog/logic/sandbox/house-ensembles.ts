@@ -104,11 +104,16 @@ export function ensembleEditCells(grid: TerrainGrid, layout: Ensembles, edits: I
 		if (!cell) continue;
 		cells.add(id);
 		visit(id);
+		visitNeighbors(cell);
+	}
+	for (const group of groups) for (const id of layout.members.get(group) ?? []) cells.add(id);
+	return cells;
+
+	function visitNeighbors(cell: TerrainGrid['cells'][number]) {
+		const id = cell.id;
 		for (const next of neighborsOf(grid, cell)) {
 			visit(next.id);
 			if (!layout.cells.has(id)) for (const far of neighborsOf(grid, next)) visit(far.id);
 		}
 	}
-	for (const group of groups) for (const id of layout.members.get(group) ?? []) cells.add(id);
-	return cells;
 }

@@ -1,7 +1,5 @@
 # Naming Conventions
 
-As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
-
 Owner for: language, glossary, casing, verbs, units in names, type roles, names of variants and sources. One concept carries the same name everywhere: in API, code, tests, UI, Bible, and docs (NC Intro · N).
 
 ## Language
@@ -16,7 +14,7 @@ Owner for: language, glossary, casing, verbs, units in names, type roles, names 
 
 ## Glossary
 
-As of 2026-11-12, compiled from code and 95. The full English–German terminology table lives in [GLOSSARY.md](GLOSSARY.md). The glossary grows along with the codebase; a new domain term is entered here before appearing across multiple modules.
+The full English–German terminology table lives in [GLOSSARY.md](GLOSSARY.md). The glossary grows along with the codebase; a new domain term is entered here before appearing across multiple modules.
 
 | Term                         | Code Identifier         | Meaning and Distinction                                                         |
 | ---------------------------- | ----------------------- | ------------------------------------------------------------------------------- |

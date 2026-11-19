@@ -24,6 +24,11 @@ function ellipse(
 			}
 			lines.push([...loop, loop[0]]);
 		}
+	triangulateEllipse(triangles, n, inner);
+
+	return { ...surface(slot), kind: 'mesh', points, triangles, lines };
+}
+function triangulateEllipse(triangles: number[], n: number, inner: number) {
 	const front = inner ? 2 * n : n;
 	for (let i = 0; i < n; i++) {
 		const j = (i + 1) % n;
@@ -46,8 +51,8 @@ function ellipse(
 			);
 		} else if (i > 0 && i < n - 1) triangles.push(0, j, i, front, front + i, front + j);
 	}
-	return { ...surface(slot), kind: 'mesh', points, triangles, lines };
 }
+
 export const porthole: AssetRecipe = {
 	id: 'porthole',
 	slotNames: ['body', 'glass', 'accent'],

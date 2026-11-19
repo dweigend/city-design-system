@@ -1,13 +1,8 @@
 import { required } from '../required';
 import { test, expect } from 'bun:test';
 import { squareGrid } from '../quad-grid';
-import {
-	planHouse,
-	sectionParts,
-	circulation,
-	type HouseSite,
-	type HouseSlot
-} from '../composed-house';
+import { planHouse, sectionParts, circulation, type HouseSite } from '../composed-house';
+import type { HouseSlot } from './index';
 import { bounds } from '../ansicht/geometrie';
 import { accessShare } from '../composed-house/access-budget';
 import type { HouseUse } from '../../data/house-body';

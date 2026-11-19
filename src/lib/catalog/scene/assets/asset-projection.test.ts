@@ -37,30 +37,34 @@ test('glazed profiles form closed oriented shells, including the lip, well and f
 		for (const variant of entry.variants) {
 			for (const part of buildAsset(entry.id, variant, 17)) {
 				if (part.kind !== 'mesh') continue;
-				const edges = new Map<string, number>();
-				let volume = 0;
-				for (let i = 0; i < part.triangles.length; i += 3) {
-					const [a, b, c] = part.triangles.slice(i, i + 3);
-					for (const [from, to] of [
-						[a, b],
-						[b, c],
-						[c, a]
-					]) {
-						const key = from + '/' + to;
-						edges.set(key, (edges.get(key) ?? 0) + 1);
-					}
-					const [p, q, r] = [a, b, c].map((j) => new Vector3(...part.points[j]));
-					volume += p.dot(q.cross(r)) / 6;
-				}
-				expect(volume).toBeGreaterThan(0);
-				const closed = [...edges].every(
-					([edge, count]) => count === 1 && edges.get(edge.split('/').reverse().join('/')) === 1
-				);
-				expect(closed).toBe(true);
+				checkClosedShell(part);
 			}
 		}
 	}
 });
+
+function checkClosedShell(part: Extract<ReturnType<typeof buildAsset>[number], { kind: 'mesh' }>) {
+	const edges = new Map<string, number>();
+	let volume = 0;
+	for (let i = 0; i < part.triangles.length; i += 3) {
+		const [a, b, c] = part.triangles.slice(i, i + 3);
+		for (const [from, to] of [
+			[a, b],
+			[b, c],
+			[c, a]
+		]) {
+			const key = from + '/' + to;
+			edges.set(key, (edges.get(key) ?? 0) + 1);
+		}
+		const [p, q, r] = [a, b, c].map((j) => new Vector3(...part.points[j]));
+		volume += p.dot(q.cross(r)) / 6;
+	}
+	expect(volume).toBeGreaterThan(0);
+	const closed = [...edges].every(
+		([edge, count]) => count === 1 && edges.get(edge.split('/').reverse().join('/')) === 1
+	);
+	expect(closed).toBe(true);
+}
 
 test('paper-backed ceramic glaze has a continuous contour and frame bars have solid faces', async () => {
 	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();

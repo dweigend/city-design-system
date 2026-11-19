@@ -15,32 +15,44 @@ test('every variant exposes deterministic bare geometry and independently replac
 		expect(a.slotNames.length).toBeGreaterThan(0);
 		const used = new Set<string>();
 		for (const v of a.variants) {
-			const base = buildObject(a.id, v, 17);
-			expect(base.defaults).toEqual(a.slotDefaults[v]);
-			expect(base).toEqual(buildObject(a.id, v, 17));
-			expect(buildObject(a.id, v, 17, { slots: base.defaults }).parts).toEqual(base.parts);
-			for (const part of base.geometry) {
-				used.add(part.slot);
-				expect(base.defaults[part.slot]).toBeDefined();
-				for (const field of ['token', 'finish', 'material', 'topToken', 'overprint', 'printBand'])
-					expect(part).not.toHaveProperty(field);
-			}
-			for (const [i, assignment] of assignments.entries()) {
-				const slots = Object.fromEntries(
-					a.slotNames.map((slot, j) => [slot, assignments[(i + j) % assignments.length]])
-				);
-				const dressed = buildObject(a.id, v, 17, { slots });
-				expect(dressed.geometry).toEqual(base.geometry);
-				for (const [k, p] of dressed.parts.entries()) {
-					const expected = slots[base.geometry[k].slot];
-					expect([p.token, p.finish]).toEqual([expected.token, expected.finish]);
-				}
-				expect(resolveFinish(assignment.finish, assignment.token)).toBeDefined();
-			}
+			checkVariant(a, v, used);
 		}
 		expect([...used].sort()).toEqual([...a.slotNames].sort());
 	}
 }, 120000);
+
+function checkVariant(a: (typeof assetRegistry)[number], v: string, used: Set<string>) {
+	const base = buildObject(a.id, v, 17);
+	expect(base.defaults).toEqual(a.slotDefaults[v]);
+	expect(base).toEqual(buildObject(a.id, v, 17));
+	expect(buildObject(a.id, v, 17, { slots: base.defaults }).parts).toEqual(base.parts);
+	for (const part of base.geometry) {
+		used.add(part.slot);
+		expect(base.defaults[part.slot]).toBeDefined();
+		for (const field of ['token', 'finish', 'material', 'topToken', 'overprint', 'printBand'])
+			expect(part).not.toHaveProperty(field);
+	}
+	checkAssignments(a, v, base);
+}
+
+function checkAssignments(
+	a: (typeof assetRegistry)[number],
+	v: string,
+	base: ReturnType<typeof buildObject>
+) {
+	for (const [i, assignment] of assignments.entries()) {
+		const slots = Object.fromEntries(
+			a.slotNames.map((slot, j) => [slot, assignments[(i + j) % assignments.length]])
+		);
+		const dressed = buildObject(a.id, v, 17, { slots });
+		expect(dressed.geometry).toEqual(base.geometry);
+		for (const [k, p] of dressed.parts.entries()) {
+			const expected = slots[base.geometry[k].slot];
+			expect([p.token, p.finish]).toEqual([expected.token, expected.finish]);
+		}
+		expect(resolveFinish(assignment.finish, assignment.token)).toBeDefined();
+	}
+}
 
 test('the three porthole samples keep the same geometry and assign different surfaces', () => {
 	const samples = materialSheet('--paper').find((row) => row.id === 'slot-assignments')?.samples;

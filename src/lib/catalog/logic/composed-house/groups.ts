@@ -2,7 +2,7 @@ import type { HouseSite } from './types';
 import { planEnsemble } from '../house-typology';
 import { required } from '../required';
 import type { HouseObstacle } from './clearance';
-import type { Stacks } from '../../data/house-body';
+import type { HouseUse, Stacks } from '../../data/house-body';
 import type { EnsembleDistrict } from '../district-frame';
 import { neighborsOf, type QuadGrid } from '../quad-grid';
 import { planHouse } from './section';
@@ -25,22 +25,28 @@ function footprints(grid: QuadGrid, stacks: Stacks, joined: Survey['joined']) {
 		pending.delete(id);
 		for (const cell of cells)
 			for (const n of neighborsOf(grid, cell)) {
-				const floors = stacks.get(n.id);
-				if (
-					!pending.has(n.id) ||
-					n.pad !== cell.pad ||
-					floors?.findIndex(Boolean) !== level ||
-					floors[level] !== row[level] ||
-					floors.length !== row.length ||
-					(joined && !joined(cell.id, n.id))
-				)
-					continue;
+				if (!pending.has(n.id) || !sameFootprint(n, cell, row, level)) continue;
 				pending.delete(n.id);
 				cells.push(n);
 			}
 		result.push(cells);
 	}
 	return result;
+
+	function sameFootprint(
+		neighbor: QuadGrid['cells'][number],
+		cell: QuadGrid['cells'][number],
+		row: readonly HouseUse[],
+		level: number
+	) {
+		const floors = stacks.get(neighbor.id);
+		if (neighbor.pad !== cell.pad || floors?.findIndex(Boolean) !== level) return false;
+		return (
+			floors[level] === row[level] &&
+			floors.length === row.length &&
+			(!joined || joined(cell.id, neighbor.id))
+		);
+	}
 }
 function connectedEnsembles(grid: QuadGrid, sites: HouseSite[]) {
 	const owner = new Map(sites.flatMap((s) => s.cells.map((c) => [c.id, s] as const)));

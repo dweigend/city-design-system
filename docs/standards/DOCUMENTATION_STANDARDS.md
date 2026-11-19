@@ -1,7 +1,5 @@
 # Documentation Standards
 
-As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
-
 Owner for: single source of truth, status labeling, bible pages, labs, research, experiments with tables and plates, sources and licenses, frozen evidence.
 
 ## Single Source of Truth and Status
@@ -25,7 +23,7 @@ Owner by document type:
 | Contract comment | on the public function                                        | Units, mutation, copy semantics, errors ([C-23](CODING_STANDARDS.md#types-and-contracts)) |
 | Tests            | `*.test.ts`                                                   | executable expectations                                                                   |
 | Research         | `docs/research/` (six one-page docs; only condensed outcomes) | Evidence, measurements, history                                                           |
-| Private lab repo | private sibling repo `city-design-lab`                        | Ideas, side quests, raw assets, prototypes; never linked from here                        |
+| Private lab repo | the private lab repository                                    | Ideas, side quests, raw assets, prototypes; never linked from here                        |
 
 ## Bible Pages
 
@@ -45,14 +43,14 @@ Translation of the library model pattern (question, visible mechanism, targeted 
 | ID     | Rule                                                                                                                                 | Source · Auth.        |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
 | DOC-20 | A lab (`labor/L*.svelte`, route `/labor`) is an interactive part of the product. It uses public contracts and follows all standards. | Transfer addendum · V |
-| DOC-21 | Visual evidence of a lab lives in the private repo `city-design-lab`, with seed, camera, and status.                                 | Transfer addendum · V |
+| DOC-21 | Visual evidence of a lab lives in the private lab repository, with seed, camera, and status.                                         | Transfer addendum · V |
 
 ## Research
 
 | ID     | Rule                                                                                                                                                                                                                                    | Source · Auth.                                  |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | DOC-30 | Header of each report: date/status, type (research, synthesis, measurement, review), author, authority. Contents: question, hypothesis, method, revision and environment, inputs and seeds, metrics, result, limits, decision, sources. | Transfer addendum · V                           |
-| DOC-31 | Public research docs are one page per topic, named `NN-topic.md` (`01`–`06`). Numbered reports and measurement notes live in `city-design-lab`.                                                                                         | Current practice; NC §Spelling · V              |
+| DOC-31 | Public research docs are one page per topic, named `NN-topic.md` (`01`–`06`). Numbered reports and measurement notes live in the private lab repository.                                                                                | Current practice; NC §Spelling · V              |
 | DOC-32 | "The source says" and "our adaptation" stand separately. A claimed scientific algorithm requires an accurate source and verified implementation. Otherwise it is called "own simplified rule."                                          | 96 Reading key; PR §Model pattern; Transfer · V |
 | DOC-33 | A report states what it did not check. Unexecuted tests and browser checks are stated explicitly.                                                                                                                                       | CS §Refactoring 6; LA · N                       |
 
@@ -61,7 +59,7 @@ Translation of the library model pattern (question, visible mechanism, targeted 
 | ID     | Rule                                                                                                                                                                                           | Source · Auth.                                |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | DOC-40 | Throwaway code lives outside the product tree: temporary directory or throwaway worktree. Scope, end, and deletion time are set upfront. No new dependency in the repo.                        | 100 §5 · V                                    |
-| DOC-41 | Experiments, plates, raw data, and profiles live in `city-design-lab`. Only an accepted result enters this repo, as a condensed metric table and the verdict.                                  | 100 §5 · V                                    |
+| DOC-41 | Experiments, plates, raw data, and profiles live in the private lab repository. Only an accepted result enters this repo, as a condensed metric table and the verdict.                         | 100 §5 · V                                    |
 | DOC-42 | The report includes the measurement contract per [PB-3](PROCEDURAL_PRINCIPLES.md#6-budgets-and-measurement-duty).                                                                              | KE Measurement contract · V                   |
 | DOC-43 | **Plates** hold seed, model time, camera, and scale constant. Every deviation is labeled. No cherry-picking the best seed. The caption states what the plate shows and what it does not prove. | PR §Rules learned in review; Transfer; KE · V |
 | DOC-44 | Blocked evidence remains open and is marked blocked in the report.                                                                                                                             | KE E3 · V                                     |

@@ -1,3 +1,9 @@
+import {
+	createDrawingRenderer,
+	createPaperScene,
+	initializeDrawingRenderer,
+	resizeDrawingRenderer
+} from './drawing-renderer';
 import { compileSurface } from './material-library';
 import { bindSceneTheme } from './themeBinding';
 /**
@@ -72,41 +78,53 @@ type F = Node<'float'>;
 
 /** Cube mesh in unit coordinates: |s| ≤ 0.5 is the flat zone, beyond it the arc zone. */
 function urnetz(flach: number, bogen: number): THREE.BufferGeometry {
-	const werte: number[] = [];
-	for (let i = 0; i < bogen; i++) werte.push(-1 + (0.5 * i) / bogen);
-	for (let i = 0; i <= flach; i++) werte.push(-0.5 + i / flach);
-	for (let i = 1; i <= bogen; i++) werte.push(0.5 + (0.5 * i) / bogen);
+	const werte = meshStations(flach, bogen);
 	const n = werte.length,
 		ort: number[] = [],
 		normale: number[] = [],
 		index: number[] = [];
-	for (let achse = 0; achse < 3; achse++)
-		for (const seite of [1, -1]) {
-			const u = (achse + (seite > 0 ? 1 : 2)) % 3,
-				v = (achse + (seite > 0 ? 2 : 1)) % 3,
-				start = ort.length / 3;
-			for (let j = 0; j < n; j++)
-				for (let i = 0; i < n; i++) {
-					const p = [0, 0, 0];
-					p[achse] = seite;
-					p[u] = werte[i];
-					p[v] = werte[j];
-					ort.push(p[0], p[1], p[2]);
-					const m = [0, 0, 0];
-					m[achse] = seite;
-					normale.push(m[0], m[1], m[2]);
-				}
-			for (let j = 0; j < n - 1; j++)
-				for (let i = 0; i < n - 1; i++) {
-					const a = start + j * n + i;
-					index.push(a, a + 1, a + n + 1, a, a + n + 1, a + n);
-				}
-		}
+	for (let achse = 0; achse < 3; achse++) for (const seite of [1, -1]) zeichneSeite(achse, seite);
+
 	const g = new THREE.BufferGeometry();
 	g.setAttribute('position', new THREE.Float32BufferAttribute(ort, 3));
 	g.setAttribute('normal', new THREE.Float32BufferAttribute(normale, 3));
 	g.setIndex(index);
 	return g;
+
+	function zeichneSeite(achse: number, seite: number) {
+		const first = seite > 0 ? 1 : 2;
+		const u = (achse + first) % 3,
+			v = (achse + 3 - first) % 3,
+			start = ort.length / 3;
+		addVertices(achse, seite, u, v);
+		for (let j = 0; j < n - 1; j++)
+			for (let i = 0; i < n - 1; i++) {
+				const a = start + j * n + i;
+				index.push(a, a + 1, a + n + 1, a, a + n + 1, a + n);
+			}
+	}
+
+	function addVertices(achse: number, seite: number, u: number, v: number) {
+		for (let j = 0; j < n; j++)
+			for (let i = 0; i < n; i++) {
+				const p = [0, 0, 0];
+				p[achse] = seite;
+				p[u] = werte[i];
+				p[v] = werte[j];
+				ort.push(p[0], p[1], p[2]);
+				const m = [0, 0, 0];
+				m[achse] = seite;
+				normale.push(m[0], m[1], m[2]);
+			}
+	}
+}
+
+function meshStations(flach: number, bogen: number) {
+	const werte: number[] = [];
+	for (let i = 0; i < bogen; i++) werte.push(-1 + (0.5 * i) / bogen);
+	for (let i = 0; i <= flach; i++) werte.push(-0.5 + i / flach);
+	for (let i = 1; i <= bogen; i++) werte.push(0.5 + (0.5 * i) / bogen);
+	return werte;
 }
 
 const srgb = (css: string): [number, number, number] => {
@@ -415,12 +433,8 @@ export function createFormlaborScene(
 	palette: Palette3D,
 	onError: () => void
 ) {
-	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.toneMapping = THREE.NoToneMapping;
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-	const scene = new THREE.Scene();
-	scene.background = new THREE.Color(palette.paper);
+	const renderer = createDrawingRenderer(canvas);
+	const scene = createPaperScene(palette.paper);
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 4000);
 	let pal = paletteAus(palette);
 	const farben = { ink: new THREE.Color(palette.ink), paper: new THREE.Color(palette.paper) };
@@ -440,21 +454,16 @@ export function createFormlaborScene(
 		moved = false,
 		fitting = false,
 		uploads = 0;
-	const ready = renderer
-		.init()
-		.then(() => {
+	const ready = initializeDrawingRenderer(
+		renderer,
+		canvas,
+		() => alive,
+		() => {
 			initialized = true;
-			canvas.dataset.backend =
-				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
-					? 'webgpu'
-					: 'webgl2';
-			if (alive) render();
-			else renderer.dispose();
-		})
-		.catch((cause) => {
-			if (alive) onError();
-			throw cause;
-		});
+			render();
+		},
+		onError
+	);
 	let wartet = 0;
 	const zeichne = () => {
 		wartet = 0;
@@ -513,13 +522,9 @@ export function createFormlaborScene(
 			mesh.userData = daten;
 			gruppe.add(mesh);
 		};
-		for (const klasse of ['gross', 'mittel', 'grob', 'haut'] as Klasse[]) {
-			if (klasse === 'haut' && !mitHaut) continue;
-			[netze[klasse], lager[klasse]] = netz(
-				klasse === 'haut' ? urformen.gross : urformen[klasse],
-				p[klasse]
-			);
-		}
+		for (const klasse of ['gross', 'mittel', 'grob'] as const)
+			[netze[klasse], lager[klasse]] = netz(urformen[klasse], p[klasse]);
+		if (mitHaut) [netze.haut, lager.haut] = netz(urformen.gross, p.haut);
 		haenge('gross', stoffe.flaeche, 0);
 		haenge('gross', stoffe.umriss, 0);
 		haenge('mittel', stoffe.flaeche, 0);
@@ -569,18 +574,8 @@ export function createFormlaborScene(
 		controls.update();
 		fitting = false;
 		camera.updateMatrixWorld(true);
-		let span = 1;
-		const p = new THREE.Vector3(),
-			seiten = width / height;
-		for (let i = 0; i < 8; i++) {
-			p.set(
-				i & 1 ? grenzen.max.x : grenzen.min.x,
-				i & 2 ? grenzen.max.y : grenzen.min.y,
-				i & 4 ? grenzen.max.z : grenzen.min.z
-			).applyMatrix4(camera.matrixWorldInverse);
-			span = Math.max(span, Math.abs(p.y), Math.abs(p.x) / seiten);
-		}
-		span *= 1.04;
+		const seiten = width / height;
+		const span = cameraSpan(seiten) * 1.04;
 		camera.left = -span * seiten;
 		camera.right = span * seiten;
 		camera.top = span;
@@ -588,6 +583,16 @@ export function createFormlaborScene(
 		camera.zoom = 1;
 		camera.updateProjectionMatrix();
 		render();
+
+		function cameraSpan(seiten: number) {
+			let span = 1;
+			const p = new THREE.Vector3();
+			for (let i = 0; i < 8; i++) {
+				p.set(...boxCorner(grenzen, i)).applyMatrix4(camera.matrixWorldInverse);
+				span = Math.max(span, Math.abs(p.y), Math.abs(p.x) / seiten);
+			}
+			return span;
+		}
 	}
 
 	/** New state. Writes only what changed: rows, uniforms or nothing. */
@@ -598,48 +603,71 @@ export function createFormlaborScene(
 		while (tuerme.length < bild.staende.length) tuerme.push(einheit());
 		const vorher = grenzen.clone();
 		grenzen.makeEmpty();
-		const angeschlossen: Angeschlossen[] = [];
-		tuerme.forEach((e, i) => {
-			const stand = bild.staende[i];
-			e.gruppe.visible = !!stand;
-			if (!stand) return;
-			// World x/y/z → three x/z/−y.
-			e.gruppe.position.set(stand.ort[0], stand.ort[2], -stand.ort[1]);
-			const g = stand.genom,
-				schluessel = JSON.stringify([
-					stand.saat,
-					(Object.keys(g) as (keyof Genom)[]).filter((k) => !NUR_LAGE.has(k)).map((k) => g[k])
-				]);
-			leere(e.puffer);
-			const t = turm(g, stand.saat, pal, e.puffer, stand.richtung);
-			if (schluessel !== e.schluessel) {
-				e.schluessel = schluessel;
-				lade(e, ['gross', 'mittel', 'grob', 'haut']);
-			}
-			e.lage1.set(t.lage.hoehe, t.lage.rund, t.lage.verjuengung, t.lage.bauch);
-			e.lage2.set(t.lage.drall, t.lage.biegung, t.lage.richtung, 0);
-			angeschlossen.push({ stand, lage: t.lage, mikrokosmen: t.mikrokosmen });
-			// Camera framing: base plate on the ground, the deformed tower above it (sample points).
-			const fasse = (x: number, y: number, z: number) =>
-				grenzen.expandByPoint(punkt.set(stand.ort[0] + x, z, -(stand.ort[1] + y)));
-			for (const [x, y] of ECKEN) {
-				fasse(x * t.radius, y * t.radius, -0.5);
-				for (let i = 1; i <= 4; i++) {
-					const z = (t.hoehe * i) / 4,
-						p = verformen([x * g.breite * 1.5, y * g.breite * 1.5, z], t.lage);
-					fasse(p[0], p[1], p[2]);
-				}
-			}
-		});
+		updateAssemblies(bild.staende);
+		if (extentChanged(vorher)) fit();
+		else render();
+	}
+
+	function extentChanged(vorher: THREE.Box3) {
+		// Refit the camera only when the extent changes noticeably (no pumping while morphing).
+		const a = vorher.getSize(new THREE.Vector3()),
+			b = grenzen.getSize(new THREE.Vector3());
+		return vorher.isEmpty() || Math.abs(a.x - b.x) > 14 || Math.abs(a.y - b.y) > 9;
+	}
+
+	function updateAssemblies(staende: Stand[]) {
+		const angeschlossen = updateTowers(staende);
 		leere(welt.puffer);
 		if (angeschlossen.length > 1 && angeschlossen.length < 5)
 			bruecken(angeschlossen, pal, welt.puffer.grob);
 		lade(welt, ['grob'], false);
-		// Refit the camera only when the extent changes noticeably (no pumping while morphing).
-		const a = vorher.getSize(new THREE.Vector3()),
-			b = grenzen.getSize(new THREE.Vector3());
-		if (vorher.isEmpty() || Math.abs(a.x - b.x) > 14 || Math.abs(a.y - b.y) > 9) fit();
-		else render();
+	}
+
+	function updateTowers(staende: Stand[]) {
+		const angeschlossen: Angeschlossen[] = [];
+		tuerme.forEach((e, i) => {
+			const stand = staende[i];
+			const t = updateTower(e, stand);
+			if (!t) return;
+			angeschlossen.push({ stand, lage: t.lage, mikrokosmen: t.mikrokosmen });
+			expandTowerBounds(stand, t);
+		});
+		return angeschlossen;
+	}
+
+	function updateTower(e: Einheit, stand: Stand | undefined) {
+		e.gruppe.visible = !!stand;
+		if (!stand) return;
+		// World x/y/z → three x/z/−y.
+		e.gruppe.position.set(stand.ort[0], stand.ort[2], -stand.ort[1]);
+		const g = stand.genom,
+			schluessel = JSON.stringify([
+				stand.saat,
+				(Object.keys(g) as (keyof Genom)[]).filter((k) => !NUR_LAGE.has(k)).map((k) => g[k])
+			]);
+		leere(e.puffer);
+		const t = turm(g, stand.saat, pal, e.puffer, stand.richtung);
+		if (schluessel !== e.schluessel) {
+			e.schluessel = schluessel;
+			lade(e, ['gross', 'mittel', 'grob', 'haut']);
+		}
+		e.lage1.set(t.lage.hoehe, t.lage.rund, t.lage.verjuengung, t.lage.bauch);
+		e.lage2.set(t.lage.drall, t.lage.biegung, t.lage.richtung, 0);
+		return t;
+	}
+
+	function expandTowerBounds(stand: Stand, t: ReturnType<typeof turm>) {
+		// Camera framing: base plate on the ground, the deformed tower above it (sample points).
+		const fasse = (x: number, y: number, z: number) =>
+			grenzen.expandByPoint(punkt.set(stand.ort[0] + x, z, -(stand.ort[1] + y)));
+		for (const [x, y] of ECKEN) {
+			fasse(x * t.radius, y * t.radius, -0.5);
+			for (let i = 1; i <= 4; i++) {
+				const z = (t.hoehe * i) / 4,
+					p = verformen([x * stand.genom.breite * 1.5, y * stand.genom.breite * 1.5, z], t.lage);
+				fasse(p[0], p[1], p[2]);
+			}
+		}
 	}
 
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (next) => {
@@ -650,6 +678,12 @@ export function createFormlaborScene(
 		if (letzterStand) update(letzterStand);
 		else render();
 	});
+	function disposeGeometry() {
+		for (const e of [...tuerme, welt]) Object.values(e.netze).forEach((g) => g.dispose());
+		for (const u of Object.values(urformen)) u.dispose();
+		for (const s of Object.values(stoffe)) s.dispose();
+	}
+
 	return {
 		ready,
 		update,
@@ -663,9 +697,7 @@ export function createFormlaborScene(
 			fit(true);
 		},
 		resize(w: number, h: number) {
-			width = Math.max(w, 1);
-			height = Math.max(h, 1);
-			renderer.setSize(width, height, false);
+			[width, height] = resizeDrawingRenderer(renderer, w, h);
 			fit();
 		},
 		dispose() {
@@ -674,10 +706,16 @@ export function createFormlaborScene(
 			stopTheme();
 			if (wartet) cancelAnimationFrame(wartet);
 			controls.dispose();
-			for (const e of [...tuerme, welt]) for (const g of Object.values(e.netze)) g.dispose();
-			for (const u of Object.values(urformen)) u.dispose();
-			for (const s of Object.values(stoffe)) s.dispose();
+			disposeGeometry();
 			if (initialized) renderer.dispose();
 		}
 	};
+}
+
+function boxCorner(box: THREE.Box3, index: number): [number, number, number] {
+	return [
+		index & 1 ? box.max.x : box.min.x,
+		index & 2 ? box.max.y : box.min.y,
+		index & 4 ? box.max.z : box.min.z
+	];
 }

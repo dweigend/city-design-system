@@ -14,12 +14,7 @@ export function fitBlocks(
 	projectCorner: (chart: Template, id: string) => kern.Vec
 ) {
 	const limits = { ...kern.defaultLimits, minArea };
-	const groups = new Set<string>();
-	for (const [id, face] of template.faces) {
-		const points = face.ring.map((v) => required(positions.get(v), 'projected corner'));
-		if (!kern.acceptable(kern.quadQuality(points), limits))
-			groups.add(required(template.parents.get(id), 'block').group);
-	}
+	const groups = rejectedGroups();
 	if (!groups.size) return template;
 	// A concave source can cross the two proposal groups that supplied its ears.
 	const affectedParents = new Set(
@@ -30,30 +25,50 @@ export function fitBlocks(
 	const fallback = regular(),
 		faces = new Map(template.faces),
 		parents = new Map(template.parents);
-	for (const [id, block] of fallback.parents) {
-		if (!groups.has(block.group)) continue;
-		const face = required(fallback.faces.get(id), 'replacement parcel');
-		parents.set(id, block);
-		faces.set(id, face);
-		for (const v of face.ring) {
-			const next = projectCorner(fallback, v);
-			const old = positions.get(v);
-			// Do not displace a seam owned by a surviving kernel parcel.
-			if (template.cutVertices.has(v) && old && (old[0] !== next[0] || old[1] !== next[1]))
-				return undefined;
-			positions.set(v, next);
-		}
-	}
+	if (!replaceFaces()) return undefined;
 	if (!repairCenters(faces, parents, groups, positions, limits, fallback.cutVertices))
 		return undefined;
-	const candidates = new Map(template.candidates);
-	for (const [id, parent] of fallback.parents) {
-		if (id !== parent.id || !groups.has(parent.group)) continue;
-		const replacement = fallback.candidates.get(id);
-		if (replacement) candidates.set(id, replacement);
-		else candidates.delete(id);
-	}
+	const candidates = replaceCandidates();
 	return { ...template, faces, parents, candidates };
+
+	function rejectedGroups() {
+		const groups = new Set<string>();
+		for (const [id, face] of template.faces) {
+			const points = face.ring.map((v) => required(positions.get(v), 'projected corner'));
+			if (!kern.acceptable(kern.quadQuality(points), limits))
+				groups.add(required(template.parents.get(id), 'block').group);
+		}
+		return groups;
+	}
+
+	function replaceFaces() {
+		for (const [id, block] of fallback.parents) {
+			if (!groups.has(block.group)) continue;
+			const face = required(fallback.faces.get(id), 'replacement parcel');
+			parents.set(id, block);
+			faces.set(id, face);
+			for (const v of face.ring) {
+				const next = projectCorner(fallback, v);
+				const old = positions.get(v);
+				// Do not displace a seam owned by a surviving kernel parcel.
+				if (template.cutVertices.has(v) && old && (old[0] !== next[0] || old[1] !== next[1]))
+					return false;
+				positions.set(v, next);
+			}
+		}
+		return true;
+	}
+
+	function replaceCandidates() {
+		const candidates = new Map(template.candidates);
+		for (const [id, parent] of fallback.parents) {
+			if (id !== parent.id || !groups.has(parent.group)) continue;
+			const replacement = fallback.candidates.get(id);
+			if (replacement) candidates.set(id, replacement);
+			else candidates.delete(id);
+		}
+		return candidates;
+	}
 }
 
 function repairCenters(

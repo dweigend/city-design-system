@@ -1,7 +1,5 @@
 # Architecture
 
-As of 2026-11-12. Draft; legend, source abbreviations, and status are in [README](README.md).
-
 Owner for: layers, import matrix, public contracts, autonomous modules and composition, ownership of state and resources, known current deviations. This file describes the **target state**. The current state deviates; those deviations are listed [below](#current-deviations).
 
 ## Principles

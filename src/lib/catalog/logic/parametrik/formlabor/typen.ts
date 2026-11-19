@@ -2,7 +2,7 @@
  * Genome: all dimensions of a tower as continuous numbers. A type is a point in this space,
  * a morph is the path between two points. There is no type switch in the code.
  */
-import { clamp, lerp } from './hash';
+import { clampMorph, lerp } from './hash';
 
 export type Genom = {
 	/* Carrier */
@@ -512,7 +512,7 @@ function mischeGenom(a: Genom, b: Genom, t: number): Genom {
 /** Point on the morph path: t = 0 … typen.length − 1, piecewise linear. */
 export function strecke(t: number): Genom {
 	const max = typen.length - 1,
-		c = clamp(t, 0, max),
+		c = clampMorph(t, 0, max),
 		i = Math.min(max - 1, Math.floor(c));
 	return mischeGenom(typen[i].genom, typen[i + 1].genom, c - i);
 }

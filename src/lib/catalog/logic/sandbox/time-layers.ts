@@ -39,3 +39,9 @@ export function timelineWindow(startYear: number, year: number, generationYears:
 		max: Math.max(startYear + 4 * generationYears, year + generationYears)
 	};
 }
+
+/** Selects the closest committed generation to a ruler value, clamped to the playable range. */
+export function timelineYear(value: number, min: number, max: number, generationYears: number) {
+	const offset = Math.round((value - min) / generationYears) * generationYears;
+	return Math.min(max, Math.max(min, min + offset));
+}

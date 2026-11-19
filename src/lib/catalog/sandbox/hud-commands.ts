@@ -39,11 +39,9 @@ export function createHudCommands(session: Pick<Session, 'tool' | 'selectTool' |
 	}
 
 	function select(kind: SandboxToolId, value: string | number) {
-		const match = <T extends { id: string }>(entries: readonly T[]) =>
-			typeof value === 'number' ? entries[value] : entries.find(({ id }) => id === value);
-		if (kind === 'house') house = match(sandboxUses)?.id ?? house;
-		if (kind === 'line') line = match(sandboxLines)?.id ?? line;
-		if (kind === 'cover') cover = match(sandboxCovers)?.id ?? cover;
+		if (kind === 'house') house = selectedId(sandboxUses, value, house);
+		if (kind === 'line') line = selectedId(sandboxLines, value, line);
+		if (kind === 'cover') cover = selectedId(sandboxCovers, value, cover);
 		return toolOf(kind);
 	}
 
@@ -65,4 +63,13 @@ export function createHudCommands(session: Pick<Session, 'tool' | 'selectTool' |
 			session.pickMethod(id, sandboxMethods[id].name);
 		}
 	};
+}
+
+function selectedId<T extends string>(
+	entries: readonly { id: T }[],
+	value: string | number,
+	current: T
+) {
+	const match = typeof value === 'number' ? entries[value] : entries.find(({ id }) => id === value);
+	return match?.id ?? current;
 }

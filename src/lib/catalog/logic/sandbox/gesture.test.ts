@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { MAX_STORIES } from '../house-brush';
 import {
 	applyStroke,
 	createWorld,
@@ -82,4 +83,22 @@ test('release routes Q’s walkway through its survey and preserves both plazas'
 	expect([...draft.state.parts.values()].filter(({ recipe }) => recipe === 'plaza')).toHaveLength(
 		2
 	);
+});
+
+test('a Body stroke at the story cap explains the rejection and leaves the world intact', () => {
+	const body = { ...tool, style: 'composed' } as const;
+	let built = world;
+	for (let story = 0; story < MAX_STORIES; story++) {
+		built = applyStroke(built, body, [first]).draft;
+	}
+	expect(built.state.stacks.get(first)).toHaveLength(MAX_STORIES);
+	const blocked = applyStroke(built, body, [first]);
+	expect(blocked.draft).toBe(built);
+	expect(blocked.failure?.reason).toBe('story-limit');
+	expect(blocked.failure?.marks.length).toBeGreaterThan(0);
+
+	const mixed = applyStroke(built, body, [first, last]);
+	expect(mixed.failure).toBeUndefined();
+	expect(mixed.draft.state.stacks.get(first)).toBe(built.state.stacks.get(first));
+	expect(mixed.draft.state.stacks.get(last)).not.toBe(built.state.stacks.get(last));
 });

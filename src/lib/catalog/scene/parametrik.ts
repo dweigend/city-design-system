@@ -1,3 +1,8 @@
+import {
+	createDrawingRenderer,
+	initializeDrawingRenderer,
+	resizeDrawingRenderer
+} from './drawing-renderer';
 import { chartSurface } from './surface-chart';
 import { resolveFinish, drawingSurface } from '../logic/material/surface';
 import { createMaterialLibrary } from './material-library';
@@ -19,7 +24,7 @@ import { edgeColor, lookColor } from './material';
 import { pocheColor } from './schnitt';
 import { materialLook, resolveMaterial, usesMaterialSystem } from '../logic/parametrik/material';
 import { build, vector } from './primitive-geometry';
-export { build, type Built } from './primitive-geometry';
+export { build } from './primitive-geometry';
 import type { Palette3D } from '../data/city3d';
 import type { Primitive, Vec3 } from '../logic/parametrik/types';
 import { defaultStyle, type SceneStyle } from '../logic/parametrik/style';
@@ -38,14 +43,7 @@ export function createParametrikScene(
 	onError: () => void,
 	interactive = true
 ) {
-	const renderer = new THREE.WebGPURenderer({
-		canvas,
-		antialias: true,
-		alpha: false
-	});
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.toneMapping = THREE.NoToneMapping;
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+	const renderer = createDrawingRenderer(canvas);
 	const materials = new Map<string, THREE.Material>();
 	const glazeContour: GlazeContour = { ink: new THREE.Color(palette.ink) };
 	const usedMaterials = new Set<string>();
@@ -65,21 +63,16 @@ export function createParametrikScene(
 		height = 1,
 		fixed: View | undefined;
 	let initialized = false;
-	const ready = renderer
-		.init()
-		.then(() => {
+	const ready = initializeDrawingRenderer(
+		renderer,
+		canvas,
+		() => alive,
+		() => {
 			initialized = true;
-			canvas.dataset.backend =
-				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
-					? 'webgpu'
-					: 'webgl2';
-			if (alive) render();
-			else renderer.dispose();
-		})
-		.catch((cause) => {
-			if (alive) onError();
-			throw cause;
-		});
+			render();
+		},
+		onError
+	);
 	const render = () => {
 		if (alive && initialized) {
 			renderer.render(scene, camera);
@@ -580,9 +573,7 @@ export function createParametrikScene(
 		/** PNG of the last frame (preserveDrawingBuffer). */
 		snapshot: () => canvas.toDataURL('image/png'),
 		resize(w: number, h: number) {
-			width = Math.max(w, 1);
-			height = Math.max(h, 1);
-			renderer.setSize(width, height, false);
+			[width, height] = resizeDrawingRenderer(renderer, w, h);
 			fit();
 		},
 		async dispose() {

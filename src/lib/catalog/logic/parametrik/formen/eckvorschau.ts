@@ -1,5 +1,5 @@
 /**
- * Test bench for eckModul without Astra's topology: single slots per mask class on a
+ * Topology fixtures for eckModul use one slot per mask class on a
  * square and a skewed quad, plus three small clusters on a slightly
  * distorted quad mesh (the three L10 scenes in miniature). Preview fixtures only.
  */
@@ -177,7 +177,7 @@ export const slotView = { center: [0, 0, 4.5] as [number, number, number], span:
 
 /**
  * Mini patch: (n+1)² vertices, slightly distorted; occupancy per vertex and level 0/1.
- * Masks, neighbors and context are computed in a simplified way here (Astra does it properly).
+ * The preview computes masks, neighbors and context from the patch occupancy.
  */
 type Patch = {
 	key: string;

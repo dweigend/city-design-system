@@ -23,9 +23,12 @@
 	const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
 
 	function startFlight(completion: Completion) {
-		if (completion.kind !== 'dig' && completion.kind !== 'erase') return;
+		if (completion.kind === 'dig' || completion.kind === 'erase') showTransfer(completion);
+	}
+
+	function showTransfer(completion: Completion) {
 		if (!destination || !overlay) return;
-		const points = storedModules(completion).flatMap((point) => project(point) ?? []);
+		const points = projectedModules(completion);
 		if (!points.length) return;
 		const target = destination.getBoundingClientRect();
 		const local = overlay.getBoundingClientRect();
@@ -35,6 +38,14 @@
 			points
 		};
 		flights = [...flights, flight];
+		expireFlight(flight);
+	}
+
+	function projectedModules(completion: Completion) {
+		return storedModules(completion).flatMap((point) => project(point) ?? []);
+	}
+
+	function expireFlight(flight: Flight) {
 		const timer = setTimeout(() => {
 			timers.delete(timer);
 			flights = flights.filter((active) => active !== flight);

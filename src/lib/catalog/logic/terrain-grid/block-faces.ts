@@ -113,6 +113,25 @@ export function blockTemplate(
 		{ id: string; sides: number; mask: number; group: string; parcel: string }
 	>();
 	for (const { group, c, r } of sourceGroups(graph.faces, width, height, settled)) {
+		addGroup(group, c, r);
+	}
+
+	const fixed = fixedFrontages(parents, faces);
+	for (const id of cuts.points.keys()) fixed.add(id);
+	const relaxed = kern.relax(
+		{ ...intent, positions, faces, fixed },
+		settled ? profile.relaxPasses : 0
+	);
+	return {
+		faces,
+		positions: relaxed.positions,
+		parents,
+		candidates: cuts.candidates,
+		seams: cuts.seams,
+		cutVertices: new Set(cuts.points.keys())
+	};
+
+	function addGroup(group: Face[], c: number, r: number) {
 		const available = new Set(group.flatMap((f) => f.slots));
 		const children = group.flatMap((f) =>
 			parcelChildren(f, c, r, merged, intent, positions, available, cuts)
@@ -136,19 +155,4 @@ export function blockTemplate(
 			});
 		}
 	}
-
-	const fixed = fixedFrontages(parents, faces);
-	for (const id of cuts.points.keys()) fixed.add(id);
-	const relaxed = kern.relax(
-		{ ...intent, positions, faces, fixed },
-		settled ? profile.relaxPasses : 0
-	);
-	return {
-		faces,
-		positions: relaxed.positions,
-		parents,
-		candidates: cuts.candidates,
-		seams: cuts.seams,
-		cutVertices: new Set(cuts.points.keys())
-	};
 }

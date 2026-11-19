@@ -70,12 +70,17 @@ function projiziereMuster(
 	m.colorNode = intensitaet === 1 ? paint : mix(grund, paint, 0.74 + 0.26 * intensitaet);
 	if (pattern.licht)
 		m.emissiveNode = explicitPigment ? grund.mul(pattern.licht.dot(weights)) : pattern.licht;
-	if (pattern.metallVersatz)
-		m.metalnessNode = float(w.metall).add(pattern.metallVersatz).clamp(0, 1);
-	m.roughnessNode = float(w.rauheit)
-		.add((pattern.rauheitVersatz ?? pattern.hoehe.mul(0.025)).mul(intensitaet))
-		.clamp(0.025, 1);
-	if (pattern.relief > 0) m.normalNode = reliefNormal(pattern.hoehe, pattern.relief * intensitaet);
+	projectPhysicalChannels();
+
+	function projectPhysicalChannels() {
+		if (pattern.metallVersatz)
+			m.metalnessNode = float(w.metall).add(pattern.metallVersatz).clamp(0, 1);
+		m.roughnessNode = float(w.rauheit)
+			.add((pattern.rauheitVersatz ?? pattern.hoehe.mul(0.025)).mul(intensitaet))
+			.clamp(0.025, 1);
+		if (pattern.relief > 0)
+			m.normalNode = reliefNormal(pattern.hoehe, pattern.relief * intensitaet);
+	}
 }
 
 /** Creates the physical surface nodes for one resolved recipe. */

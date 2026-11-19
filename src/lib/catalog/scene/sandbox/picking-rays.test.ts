@@ -95,7 +95,7 @@ function checkView(
 			.project(view.camera);
 		const x = (projected.x + 1) * 600 + ((hash(7, i, 1) - 0.5) * 22) / zoom;
 		const y = (1 - projected.y) * 400 + ((hash(7, i, 2) - 0.5) * 22) / zoom;
-		if (x < 0 || x >= 1200 || y < 0 || y >= 800) continue;
+		if (!insideViewport(x, y)) continue;
 		ray.setFromCamera(view.ndc(x, y), view.camera);
 		const hit = ray.intersectObjects(visible, false)[0];
 		if (!hit) continue;
@@ -107,19 +107,32 @@ function checkView(
 		}
 		const expected = owner(hit);
 
-		if (expected !== actual) {
-			const near = Array.from({ length: 16 }, (_, k) => (k * Math.PI) / 8);
-			const onEdge = near.some((a) => {
-				ray.setFromCamera(view.ndc(x + 2 * Math.cos(a), y + 2 * Math.sin(a)), view.camera);
-				const neighbor = ray.intersectObjects(visible, false)[0];
-				return !neighbor || neighbor.object === ground || owner(neighbor) !== expected;
-			});
-			assert.ok(onEdge, JSON.stringify({ plan, zoom, x, y, expected, actual }));
-		}
+		if (expected !== actual) checkEdge(x, y, expected, actual);
 		occupied++;
 		if (hit.object.userData.cellId) roofs++;
 	}
-	assert.ok(free > 0 && occupied > 0 && roofs > 0, String([plan, zoom, free, occupied, roofs]));
+	assert.ok(
+		[free, occupied, roofs].every((count) => count > 0),
+		String([plan, zoom, free, occupied, roofs])
+	);
+	function checkEdge(
+		x: number,
+		y: number,
+		expected: number | undefined,
+		actual: number | undefined
+	) {
+		const near = Array.from({ length: 16 }, (_, k) => (k * Math.PI) / 8);
+		const onEdge = near.some((a) => {
+			ray.setFromCamera(view.ndc(x + 2 * Math.cos(a), y + 2 * Math.sin(a)), view.camera);
+			const neighbor = ray.intersectObjects(visible, false)[0];
+			return !neighbor || neighbor.object === ground || owner(neighbor) !== expected;
+		});
+		assert.ok(onEdge, JSON.stringify({ plan, zoom, x, y, expected, actual }));
+	}
+}
+
+function insideViewport(x: number, y: number) {
+	return !(x < 0 || x >= 1200 || y < 0 || y >= 800);
 }
 
 async function compareRays() {
@@ -175,8 +188,17 @@ async function compareRays() {
 	for (const world of [seed, detailed]) {
 		const town = await render(world);
 		towns.push(town);
-		for (const plan of [false, true])
-			for (const zoom of [1, 0.4, 0.11]) checkView(world, scene, town, plan, zoom);
+		checkTown(world, town);
+	}
+	// This probe already runs in an isolated process for the Svelte theme double.
+	Object.assign(globalThis, { window: new EventTarget(), cancelAnimationFrame() {} });
+	const uninterrupted = checkHeldErase(scene.view, hover, seed, seed, position);
+	assert.deepEqual(checkHeldErase(scene.view, hover, seed, detailed, position), uninterrupted);
+	for (const town of towns) town.dispose();
+	scene.ground.geometry.dispose();
+	scene.ground.material.dispose();
+	function checkTown(world: World, town: Awaited<ReturnType<typeof render>>) {
+		checkAllViews(world, scene, town);
 		scene.view.setPlan(false);
 		scene.view.frameBox(scene.bounds, 1.1);
 		scene.view.zoomAt(0.11, 600.6063, 438.9481);
@@ -202,11 +224,13 @@ async function compareRays() {
 		const neighbor = expected === '81/38' ? '81/39' : '81/38';
 		assert.equal(erased.state.stacks.get(neighbor), world.state.stacks.get(neighbor));
 	}
-	// This probe already runs in an isolated process for the Svelte theme double.
-	Object.assign(globalThis, { window: new EventTarget(), cancelAnimationFrame() {} });
-	const uninterrupted = checkHeldErase(scene.view, hover, seed, seed, position);
-	assert.deepEqual(checkHeldErase(scene.view, hover, seed, detailed, position), uninterrupted);
-	for (const town of towns) town.dispose();
-	scene.ground.geometry.dispose();
-	scene.ground.material.dispose();
+}
+
+function checkAllViews(
+	world: World,
+	scene: ReturnType<typeof setup>,
+	town: Awaited<ReturnType<typeof render>>
+) {
+	for (const plan of [false, true])
+		for (const zoom of [1, 0.4, 0.11]) checkView(world, scene, town, plan, zoom);
 }

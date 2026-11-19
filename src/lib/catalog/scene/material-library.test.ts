@@ -26,41 +26,50 @@ test('flat, curved and indexed forms resolve every finish with use, ink and pape
 			const pigment = tokenColor(palette, token);
 			expect(pigment).toEqual(new Color(hex(token)));
 			for (const { id } of finishCatalogue) {
-				const spec = resolveFinish(id, token);
-				expect(resolveFinish(id, token)).toEqual(spec);
-				const face = library.material(spec);
-				expect(library.material(resolveFinish(id, token))).toBe(face);
-				expect(face.name).toBe(id);
-				expect(
-					JSON.stringify(spec, (_key, value: unknown) => {
-						if (typeof value === 'number' && !Number.isFinite(value))
-							throw Error('Non-finite material parameter');
-						return value;
-					})
-				).toBeDefined();
-				if (spec.kind === 'physical') {
-					const finish = oberflaechenWerte(spec.recipe, spec.id);
-					expect(face).toBeInstanceOf(MeshPhysicalNodeMaterial);
-					if (face instanceof MeshPhysicalNodeMaterial)
-						expect(face.color.toArray()).toEqual(
-							new Color(finish.grundton).lerp(pigment, finish.pigment).toArray()
-						);
-				}
-				const parts = [forms.box, forms.torus, forms.mesh].map((p) => ({
-					...p,
-					token,
-					finish: id
-				}));
-				const [mesh] = finishedMeshes(parts, library);
-				expect(mesh.material).toBe(face);
-				for (const attribute of Object.values(mesh.geometry.attributes))
-					expect(attribute.array.every(Number.isFinite)).toBe(true);
-				mesh.geometry.dispose();
+				checkFinish(library, token, id, pigment);
 			}
 		}
 		library.dispose();
 	}
 });
+
+function checkFinish(
+	library: ReturnType<typeof createMaterialLibrary>,
+	token: (typeof surfaceTokens)[number],
+	id: (typeof finishCatalogue)[number]['id'],
+	pigment: Color
+) {
+	const spec = resolveFinish(id, token);
+	expect(resolveFinish(id, token)).toEqual(spec);
+	const face = library.material(spec);
+	expect(library.material(resolveFinish(id, token))).toBe(face);
+	expect(face.name).toBe(id);
+	expect(
+		JSON.stringify(spec, (_key, value: unknown) => {
+			if (typeof value === 'number' && !Number.isFinite(value))
+				throw Error('Non-finite material parameter');
+			return value;
+		})
+	).toBeDefined();
+	if (spec.kind === 'physical') {
+		const finish = oberflaechenWerte(spec.recipe, spec.id);
+		expect(face).toBeInstanceOf(MeshPhysicalNodeMaterial);
+		if (face instanceof MeshPhysicalNodeMaterial)
+			expect(face.color.toArray()).toEqual(
+				new Color(finish.grundton).lerp(pigment, finish.pigment).toArray()
+			);
+	}
+	const parts = [forms.box, forms.torus, forms.mesh].map((p) => ({
+		...p,
+		token,
+		finish: id
+	}));
+	const [mesh] = finishedMeshes(parts, library);
+	expect(mesh.material).toBe(face);
+	for (const attribute of Object.values(mesh.geometry.attributes))
+		expect(attribute.array.every(Number.isFinite)).toBe(true);
+	mesh.geometry.dispose();
+}
 
 test('painted steel shares an age-specific material across geometries', () => {
 	const library = createMaterialLibrary();

@@ -1,3 +1,9 @@
+import { srgbMix } from './material';
+import {
+	createDrawingRenderer,
+	initializeDrawingRenderer,
+	resizeDrawingRenderer
+} from './drawing-renderer';
 import { bindSceneTheme } from './themeBinding';
 /**
  * Scene for L11 · World. Same pipeline as parametrik.ts: WebGPU renderer (WebGL 2
@@ -34,18 +40,13 @@ export type WeltInput = {
 const PASTELL = 0.5;
 const AUGE = 1.7;
 const vector = ([x, y, z]: Vec3) => new THREE.Vector3(x, z, -y);
-const srgbMix = (a: THREE.Color, b: THREE.Color, t: number) =>
-	a.clone().convertLinearToSRGB().lerp(b.clone().convertLinearToSRGB(), t).convertSRGBToLinear();
 
 export function createWeltScene(
 	canvas: HTMLCanvasElement,
 	palette: Palette3D,
 	onError: () => void
 ) {
-	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.toneMapping = THREE.NoToneMapping;
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+	const renderer = createDrawingRenderer(canvas);
 	const paper = new THREE.Color(palette.paper),
 		ink = new THREE.Color(palette.ink),
 		inkAlt = srgbMix(ink, paper, 0.62);
@@ -96,21 +97,16 @@ export function createWeltScene(
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		});
 	};
-	const ready = renderer
-		.init()
-		.then(() => {
+	const ready = initializeDrawingRenderer(
+		renderer,
+		canvas,
+		() => alive,
+		() => {
 			initialized = true;
-			canvas.dataset.backend =
-				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
-					? 'webgpu'
-					: 'webgl2';
-			if (alive) render();
-			else renderer.dispose();
-		})
-		.catch((cause) => {
-			if (alive) onError();
-			throw cause;
-		});
+			render();
+		},
+		onError
+	);
 	orbit.addEventListener('change', render);
 
 	function clear(group: THREE.Group) {
@@ -612,9 +608,7 @@ export function createWeltScene(
 			setMode(mode);
 		},
 		resize(w: number, h: number) {
-			width = Math.max(w, 1);
-			height = Math.max(h, 1);
-			renderer.setSize(width, height, false);
+			[width, height] = resizeDrawingRenderer(renderer, w, h);
 			strich();
 			frustum();
 			place();

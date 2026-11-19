@@ -1,7 +1,6 @@
 /**
  * Copy for the Forms simulation "Tower on the cell" and its explainer loops.
  * Building zones (public plinth, crown, open space) came from data/icons.ts.
- * Designer's draft; the editors (Fable/Argon) write the final version.
  */
 
 type Zone = 'sockel' | 'stapel' | 'kopf';

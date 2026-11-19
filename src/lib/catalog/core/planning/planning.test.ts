@@ -31,16 +31,6 @@ test('a finite store trades immediate revenue for the peak and exposes beam prun
 	});
 	expect(fork.series).toContain('charge');
 	expect(fork.checkpoints.at(-1)).toBe(0);
-	console.info(
-		'STORAGE ' +
-			JSON.stringify({
-				oracle: oracle.score,
-				beam: beam.score,
-				gap: oracle.score - beam.score,
-				oracleWork: oracle.diagnostics.expansions,
-				beamWork: beam.diagnostics.expansions
-			})
-	);
 });
 test('exhaustion retains the best completed depth and no legal transition leaves the initial checkpoint', () => {
 	const short = searchSequences(0, 0, battery, { ...settings, budget: 5 });

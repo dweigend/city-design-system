@@ -6,7 +6,7 @@
  * Coordinates: x/y plan, z height, tower axis at the origin.
  */
 import type { Vec3 } from '../types';
-import { clamp } from './hash';
+import { clampMorph } from './hash';
 
 export type Lage = {
 	/** Tower height in meters (reference for all operators). */
@@ -37,7 +37,7 @@ export const ruhe = (hoehe: number): Lage => ({
 
 /** Radial scale at height w = z / hoehe. */
 function profil(w: number, l: Lage): number {
-	const c = clamp(w);
+	const c = clampMorph(w);
 	return Math.max(0.12, (1 - l.verjuengung * c) * (1 + l.bauch * Math.sin(Math.PI * c)));
 }
 
@@ -54,7 +54,7 @@ export function verformen([x, y, z]: Vec3, l: Lage): Vec3 {
 	x *= s;
 	y *= s;
 	// 3 Twist
-	const a = l.drall * clamp(w, -0.2, 1.4),
+	const a = l.drall * clampMorph(w, -0.2, 1.4),
 		ca = Math.cos(a),
 		sa = Math.sin(a);
 	[x, y] = [x * ca - y * sa, x * sa + y * ca];

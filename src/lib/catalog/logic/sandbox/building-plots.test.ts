@@ -45,16 +45,7 @@ test('a physical step between two passage footprints keeps their walls separate'
 
 test('snapping preserves the full perpendicular width on both owners of every seed-7 passage', () => {
 	for (const cell of terrain.cells.filter((c) => c.lotCorners)) {
-		const side = cell.alleyEdges & 1 ? 0 : 2,
-			a = cell.corners[side],
-			b = cell.corners[(side + 1) % 4];
-		const dx = b[0] - a[0],
-			dy = b[1] - a[1];
-		for (const p of plots.cells[cell.index].corners) {
-			expect((dx * (p[1] - a[1]) - dy * (p[0] - a[0])) / Math.hypot(dx, dy)).toBeGreaterThanOrEqual(
-				cell.plan.width
-			);
-		}
+		checkPassageWidth(cell);
 	}
 	for (const id of ['114/89', '106/72', '107/72'])
 		expect(terrain.cellsById.get(id)?.lotCorners).toBeDefined();
@@ -63,6 +54,19 @@ test('snapping preserves the full perpendicular width on both owners of every se
 	expect(a?.neighbors).toContain(b?.id);
 	expect(b?.neighbors).toContain(a?.id);
 });
+
+function checkPassageWidth(cell: (typeof terrain.cells)[number]) {
+	const side = cell.alleyEdges & 1 ? 0 : 2,
+		a = cell.corners[side],
+		b = cell.corners[(side + 1) % 4];
+	const dx = b[0] - a[0],
+		dy = b[1] - a[1];
+	for (const p of plots.cells[cell.index].corners) {
+		expect((dx * (p[1] - a[1]) - dy * (p[0] - a[0])) / Math.hypot(dx, dy)).toBeGreaterThanOrEqual(
+			cell.plan.width
+		);
+	}
+}
 
 test('pencil and K1 share the transverse axis on the final inset lot 106/72', async () => {
 	const cell = plots.cellsById.get('106/72');

@@ -110,7 +110,7 @@
 					run();
 				}),
 			pointerFeedback: (position) => (touch = position),
-			draws: () => session.tool.kind !== 'look',
+			draws: () => !session.viewingPast && session.tool.kind !== 'look',
 			hover: target.move,
 			strokeStart: (x, y) => {
 				current.endOpening();
@@ -168,16 +168,18 @@
 	}
 
 	const marks = $derived(
-		releasedMarks ??
-			tracePreview(
-				session.world,
-				session.tool,
-				session.gesture?.cellIds ?? (hovered ? [hovered.id] : [])
-			)
+		session.viewingPast
+			? []
+			: (releasedMarks ??
+					tracePreview(
+						session.world,
+						session.tool,
+						session.gesture?.cellIds ?? (hovered ? [hovered.id] : [])
+					))
 	);
 
 	function updateCursor(current: SandboxStage) {
-		if (session.tool.kind === 'look') {
+		if (session.viewingPast || session.tool.kind === 'look') {
 			current.setLens(0, 0, 0);
 			current.setCursor([]);
 			return;
@@ -190,7 +192,7 @@
 	$effect(() => {
 		if (stage) updateCursor(stage);
 	});
-	$effect(() => stage?.setRejection(session.failure?.marks ?? []));
+	$effect(() => stage?.setRejection(session.viewingPast ? [] : (session.failure?.marks ?? [])));
 </script>
 
 <div class="host" bind:this={host}>

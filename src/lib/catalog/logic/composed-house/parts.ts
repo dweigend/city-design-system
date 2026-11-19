@@ -1,3 +1,4 @@
+import { interpolatePoint } from '../parametrik/types';
 import { houseObject } from './house-object';
 import type { Surface } from './surfaces';
 import type { Vec3 } from '../parametrik/types';
@@ -15,10 +16,7 @@ export function pipeBetween(id: string, a: Vec3, b: Vec3, radius: number, surfac
 	if (p.kind !== 'pipe') throw new Error('Expected pipe');
 	const start = p.points[0][0],
 		run = p.points[p.points.length - 1][0] - start;
-	const points = p.points.map(([x]): Vec3 => {
-		const t = (x - start) / run;
-		return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-	});
+	const points = p.points.map(([x]) => interpolatePoint(a, b, (x - start) / run));
 	return { ...p, radius, points };
 }
 
