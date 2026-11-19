@@ -46,7 +46,8 @@ export function createParametrikScene(
 	canvas: HTMLCanvasElement,
 	palette: Palette3D,
 	onError: () => void,
-	interactive = true
+	interactive = true,
+	backdrop = false
 ) {
 	const renderer = createDrawingRenderer(canvas);
 	const materials = new Map<string, THREE.Material>();
@@ -60,7 +61,7 @@ export function createParametrikScene(
 	const camera = new THREE.OrthographicCamera(-30, 30, 30, -30, 0.1, 2000);
 	const pipeline = studioPipeline(renderer, scene, camera);
 	const light = pipeline.light;
-	const ground = studioGround(pipeline.light);
+	const ground = studioGround(pipeline.light, backdrop);
 	scene.add(ground.floor);
 	const model = new THREE.Group();
 	scene.add(model);

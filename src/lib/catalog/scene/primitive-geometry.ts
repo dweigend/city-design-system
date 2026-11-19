@@ -251,7 +251,7 @@ function roundedDrum(radius: number, height: number, bevel: number, segments: nu
 }
 
 function buildSphere(p: SolidOf<'sphere'>, at: Placement, coarse: boolean) {
-	const n = p.fine ? kreisSegmente(p.radius, fein) : circleSegments(p.radius, coarse);
+	const n = p.fine ? Math.max(64, kreisSegmente(p.radius, fein)) : circleSegments(p.radius, coarse);
 	const geometry = new THREE.SphereGeometry(p.radius, n, n / 2);
 	geometry.scale(1, p.squash ?? 1, 1);
 	return at(vector(p.position), geometry, { outline: true });

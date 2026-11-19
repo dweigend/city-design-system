@@ -21,6 +21,7 @@
 	let rendered = $state(false);
 	let photos = $state<Record<string, string | null>>({});
 	let error = $state('');
+	let completed = $state(0);
 	let drawing = Promise.resolve();
 	const name = (id: string) => id.replaceAll('-', ' ');
 	const rows = $derived<SheetRow[]>(
@@ -39,6 +40,7 @@
 						}))
 					}))
 	);
+	const total = $derived(rows.reduce((sum, row) => sum + row.samples.length, 0));
 	$effect(() => {
 		const selected = rows;
 		void theme.mode;
@@ -46,6 +48,7 @@
 		const urls: string[] = [];
 		rendered = false;
 		photos = {};
+		completed = 0;
 		error = '';
 		async function draw() {
 			const plate = await openPlate();
@@ -85,10 +88,13 @@
 		async function drawSample(key: string, photo: () => Promise<Blob>) {
 			try {
 				const png = await photo();
+				const preview = await createImageBitmap(png);
+				preview.close();
 				if (cancelled) return false;
 				const url = URL.createObjectURL(png);
 				urls.push(url);
 				photos[key] = url;
+				completed++;
 				return true;
 			} catch (cause) {
 				if (cancelled) return false;
@@ -135,6 +141,7 @@
 			}
 		/>
 	{/if}
+	{#if !rendered && !error}<p role="status">Rendering previews · {completed} / {total}</p>{/if}
 	{#if error}<p role="alert">{error}</p>{/if}
 	{#each rows as a (a.id)}
 		<AssetSheetRow {a} {photos} busy={!rendered && !error} />
