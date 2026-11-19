@@ -1,16 +1,10 @@
 import { sandboxGenerationYears, type BuildingMethod } from '../data/sandbox';
-import type { Completion, StrokeRelease } from './feedback';
+import type { StrokeRelease } from './feedback';
+import { createSessionActions } from './session-actions';
 import { focuses, type FocusId } from '../logic/presentation';
 import {
-	applyEdit,
-	applyStroke,
-	commit,
 	openingScene,
 	traceStroke,
-	redo,
-	startHistory,
-	undo,
-	withState,
 	type Stroke,
 	type Tool,
 	stylesForYear,
@@ -24,18 +18,14 @@ import {
  */
 export function createSession(initialSeed: number, generationYears = sandboxGenerationYears) {
 	const { world: startingWorld, additions, referenceCellId } = openingScene(initialSeed);
-	/** The committed world; its derived grid is the session's cache (PT-14). */
-	let world = $state.raw(startingWorld);
-	let roofBuilder = $state.raw<typeof world.roofBuilder>();
-	const projected = $derived.by(() => {
-		const current = world;
-		return roofBuilder ? { ...current, roofBuilder } : current;
-	});
-	let history = $state.raw(startHistory(startingWorld.state));
+	const actions = createSessionActions(startingWorld, generationYears, (next) => (state = next));
+	let state = $state.raw(actions.snapshot());
+	const world = $derived(state.world);
+	const completion = $derived(state.completion);
+	let roofBuilder = $state.raw<typeof startingWorld.roofBuilder>();
+	const projected = $derived(roofBuilder ? { ...world, roofBuilder } : world);
 	let stroke = $state.raw<Pick<Stroke, 'cellIds' | 'lastPointerCellId'>>();
 	let strokeTool: Tool | undefined;
-	let pending: StrokeRelease[] = [];
-	let completion = $state.raw<Completion>();
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
 
 	const methods = $derived(stylesForYear(world.state.year));
@@ -45,22 +35,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	);
 	const selectedTool = $derived(tool.kind === 'house' ? { ...tool, style: method } : tool);
 
-	let rejection = $state.raw<Stroke['failure']>();
 	let focus = $state<FocusId>('all');
-	function restore(next: typeof history) {
-		pending = [];
-		rejection = undefined;
-		completion = undefined;
-		history = next;
-		world = withState(world, next.present);
-	}
-
-	function edit(next: typeof world, kind: Completion['kind'], cellIds: readonly string[] = []) {
-		if (next === world) return;
-		completion = { kind, before: world, after: next, cellIds };
-		world = next;
-		history = commit(history, world.state);
-	}
 
 	return {
 		get completion() {
@@ -81,9 +56,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			focus = keys[(keys.indexOf(focus) + 1) % keys.length];
 		},
 		advance() {
-			if (stroke || pending.length) return;
-			rejection = undefined;
-			edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance');
+			if (!stroke) actions.advance();
 		},
 		get tool() {
 			return selectedTool;
@@ -97,12 +70,12 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		/** Changes the house method if it is available in this epoch. */
 		pickMethod(next: BuildingMethod) {
 			if (tool.kind === 'house' && methods.includes(next)) {
-				rejection = undefined;
+				actions.clearRejection();
 				chosenMethod = next;
 			}
 		},
 		set tool(next: Tool) {
-			rejection = undefined;
+			actions.clearRejection();
 			tool = next;
 		},
 		get world() {
@@ -112,13 +85,13 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			return stroke?.cellIds ?? [];
 		},
 		get failure() {
-			return stroke ? undefined : rejection;
+			return stroke ? undefined : state.rejection;
 		},
 		get canUndo() {
-			return history.past.length > 0;
+			return state.canUndo;
 		},
 		get canRedo() {
-			return history.future.length > 0;
+			return state.canRedo;
 		},
 		strokeStart(cellId: string | undefined) {
 			strokeTool = selectedTool;
@@ -136,32 +109,21 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 					: undefined;
 			stroke = undefined;
 			strokeTool = undefined;
-			if (release) pending.push(release);
+			if (release) actions.release(release);
 			return release;
 		},
-		/** Applies a released gesture in input order. Restoring history discards pending releases. */
-		commitRelease(release: StrokeRelease) {
-			if (pending[0] !== release) return;
-			pending.shift();
-			const result = applyStroke(world, release.tool, release.cellIds);
-			rejection = result.failure;
-			edit(result.draft, release.tool.kind, release.cellIds);
-		},
+		commitRelease: actions.commitRelease,
 		strokeCancel() {
 			stroke = undefined;
 			strokeTool = undefined;
 		},
-		undo: () => restore(undo(history)),
-		redo: () => restore(redo(history)),
+		undo: actions.undo,
+		redo: actions.redo,
 		/** New terrain from a seed; the built city starts with its seeded town. */
 		restart(seed: number) {
-			pending = [];
 			stroke = undefined;
-			rejection = undefined;
 			strokeTool = undefined;
-			completion = undefined;
-			world = openingScene(seed).world;
-			history = startHistory(world.state);
+			actions.restart(seed);
 		}
 	};
 }

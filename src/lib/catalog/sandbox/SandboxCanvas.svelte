@@ -59,15 +59,19 @@
 		releaseFrames.add(id);
 	}
 
-	function releaseStroke(view: SandboxStage['view'], releasedAt: number) {
-		const release = session.strokeRelease();
-		if (!release) return;
+	function showResponse(view: SandboxStage['view'], release: StrokeRelease) {
 		const kind = release.tool.kind;
 		const cell = session.world.grid.cellsById.get(release.cellIds[0]);
 		if (!cell) return;
 		const width = (kind === 'dig' ? 2 * DIG_RADIUS_M : MODULE) / view.metersPerPixel();
 		response = { kind, width, ...view.project(cell.center) };
 		onresponse(release.tool);
+	}
+
+	function releaseStroke(view: SandboxStage['view'], releasedAt: number) {
+		const release = session.strokeRelease();
+		if (!release) return;
+		showResponse(view, release);
 		queueFrame(() => {
 			canvas.dataset.responseMs = String(performance.now() - releasedAt);
 			queueFrame(() => session.commitRelease(release));
