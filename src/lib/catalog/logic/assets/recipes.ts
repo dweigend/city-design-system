@@ -1,3 +1,4 @@
+import { publicArt } from './objects/public-art';
 import { recycling } from './objects/recycling';
 import { fountains } from './objects/fountains';
 import { wayfinding } from './objects/wayfinding';
@@ -154,5 +155,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...cycleFurniture,
 	...wayfinding,
 	...fountains,
-	...recycling
+	...recycling,
+	...publicArt
 ];
