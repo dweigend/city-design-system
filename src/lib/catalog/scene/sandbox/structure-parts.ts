@@ -1,3 +1,4 @@
+import { studioShadow } from '../studio-shadow';
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
@@ -143,8 +144,8 @@ export function populateStructures(
 
 	function drawFinishes(surfaces: Surface[], { contour }: { contour: boolean }) {
 		for (const face of finishedMeshes(surfaces, finishes.explicit)) {
-			face.castShadow = cast;
-			face.receiveShadow = true;
+			studioShadow(face, face.material);
+			face.castShadow &&= cast;
 			objects.add(face);
 			if (contour && hasGlazeContour(face.material.name))
 				objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));

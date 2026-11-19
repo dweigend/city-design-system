@@ -1,3 +1,4 @@
+import { studioShadow } from './studio-shadow';
 import { studioPipeline } from './studio-pipeline';
 import { createLight } from './sandbox/light';
 import { color as colorNode } from 'three/tsl';
@@ -376,7 +377,7 @@ export function createParametrikScene(
 				});
 				mesh.position.copy(place.position);
 				mesh.rotation.copy(place.rotation);
-				mesh.castShadow = mesh.receiveShadow = true;
+				studioShadow(mesh, mesh.material);
 				mesh.renderOrder = look?.renderOrder ?? 1;
 				mesh.userData.id = p.id;
 				pickables.push(mesh);

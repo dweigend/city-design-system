@@ -7,7 +7,7 @@ import type { SurfaceRecipe } from '../logic/material/surface';
 import { variationVorgabe } from '../logic/material/variation';
 import { firedSlip } from './fired-slip';
 import { architecturalPrint, type PrintInputs } from './architectural-print';
-import { tokenColor } from './material';
+import { lookColor, tokenColor } from './material';
 import { metallUmgebung, type MetallLicht } from './materialMetallUmgebung';
 import { physicalSurface } from './materialOberflaeche';
 import { rezeptMaterial } from './materialRezept';
@@ -51,6 +51,19 @@ export function compileSurface(
 				options.quality ?? studioQuality()
 			);
 		case 'diagram':
+			if (s.coating) {
+				const { token, papier: paper, tint } = s.recipe.farbe;
+				return physicalSurface(
+					s.recipe,
+					palette,
+					s.coating,
+					double,
+					options.environment ?? null,
+					variationVorgabe,
+					options.quality ?? studioQuality(),
+					lookColor({ token, paper, tint }, palette)
+				);
+			}
 			return rezeptMaterial(s.recipe, palette, double, options.time, s.pattern);
 		case 'kiln': {
 			const paper = color(new Color(palette.paper));

@@ -99,11 +99,13 @@ export function physicalSurface(
 	doppelt: boolean,
 	umgebung: THREE.Texture | null,
 	variation: MaterialVariation,
-	quality: StudioQuality
+	quality: StudioQuality,
+	pigment?: THREE.Color
 ) {
 	const w = oberflaechenWerte(r, id);
 	const base = new THREE.Color(w.grundton);
-	if (w.pigment === 1) base.copy(tokenColor(palette, r.farbe.token));
+	if (pigment) base.copy(pigment);
+	else if (w.pigment === 1) base.copy(tokenColor(palette, r.farbe.token));
 	else if (w.pigment > 0) base.lerp(tokenColor(palette, r.farbe.token), w.pigment);
 	const m = new THREE.MeshPhysicalNodeMaterial({
 		color: base,
