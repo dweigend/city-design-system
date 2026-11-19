@@ -31,7 +31,8 @@ export const assetCategories = [
 	'recreation',
 	'cycle-furniture',
 	'wayfinding',
-	'fountains'
+	'fountains',
+	'recycling'
 ] as const;
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';
