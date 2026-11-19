@@ -1,5 +1,6 @@
 // @ts-expect-error Bun supplies the test API at runtime.
 import { expect, test } from 'bun:test';
+import { resourceUsage } from 'node:process';
 import { warmMedian } from '../../fixtures/performance-sample.fixture.test';
 import { createTerrain } from '../terrain';
 import { deriveGrid, regrid } from '../terrain-grid';
@@ -91,7 +92,13 @@ test('replanning one painted goal fits the contour tick budget', () => {
 	);
 	console.info(
 		'PLAN_TICK ' +
-			JSON.stringify({ medianMs, warmup: 3, repeats: 9, ...sample().series[0][0].diagnostics })
+			JSON.stringify({
+				medianMs,
+				processPeakRssKiB: resourceUsage().maxRSS,
+				warmup: 3,
+				repeats: 9,
+				...sample().series[0][0].diagnostics
+			})
 	);
 	expect(medianMs).toBeLessThan(100);
 });

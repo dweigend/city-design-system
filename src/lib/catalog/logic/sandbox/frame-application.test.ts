@@ -71,14 +71,15 @@ test('a painted goal survives forecast error, fork and replay on the actual cont
 
 import { advanceFrames } from './frame-construction';
 test('64 seeded integrated planning ticks agree on regional stock, pending durations and installed sections', () => {
-	const grid = deriveGrid({ ...createTerrain({ seed: 11 }), along: 100, across: 100 });
-	const row = grid.cells.filter((c) => c.buildable).slice(0, 10);
-	const stacks = new Map(row.map((c) => [c.id, ['living'] as const]));
 	for (let seed = 0; seed < 64; seed++) {
+		const grid = deriveGrid({ ...createTerrain({ seed }), along: 100, across: 100 });
+		const row = grid.cells.filter((c) => c.buildable).slice(0, 10);
+		const stacks = new Map(row.map((c) => [c.id, ['living'] as const]));
 		let world = frameIntent({ seed, grid, state: { ...EMPTY_STATE, stacks }, lines: [] }, [
 			row[0].id,
 			row[1].id
 		]).draft;
+		const replay = runFrameTimeline(world, 3);
 		for (let t = 1; t <= 3; t++) {
 			const survey = frameSurvey(world);
 			const region = [...survey.seams.keys()].filter((_, i) => i % 3 === seed % 3);
@@ -88,7 +89,11 @@ test('64 seeded integrated planning ticks agree on regional stock, pending durat
 				expect(local.frameBays.get(id)).toEqual(full.frameBays.get(id));
 				expect(local.frameInstallations.get(id)).toEqual(full.frameInstallations.get(id));
 			}
-			world = { ...world, state: { ...world.state, ...full } };
+			world = applyEdit(world, { kind: 'advance', years: 1 });
+			expect(world.state.frameTimeline).toEqual(replay.checkpoints[t].state.frameTimeline);
+			expect(world.state.frameBays).toEqual(replay.checkpoints[t].state.frameBays);
+			expect(world.state.parts).toEqual(replay.checkpoints[t].state.parts);
+			expect(world.state.stacks).toBe(stacks);
 		}
 	}
 }, 60_000);
