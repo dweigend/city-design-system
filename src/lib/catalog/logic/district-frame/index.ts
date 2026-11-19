@@ -174,13 +174,4 @@ export {
 	type StoreySurcharge
 } from './ensemble-policy';
 
-export {
-	houseProgramme,
-	bridgeForm,
-	type HousePlan,
-	type TierKind,
-	type LinkKind,
-	type CrownKind
-} from './composed-policy';
-
-export { houseAspect } from './house-aspect';
+export { bridgeForm, type LinkKind } from './composed-policy';
