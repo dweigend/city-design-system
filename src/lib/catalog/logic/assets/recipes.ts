@@ -1,3 +1,4 @@
+import { tables } from './objects/tables';
 import { seating } from './objects/seating';
 import { walkwayStop } from './walkway-stop';
 import { primitiveObjects } from './primitive-objects';
@@ -132,5 +133,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...roofMachinery,
 	walkwayStop,
 	...primitiveObjects,
-	...seating
+	...seating,
+	...tables
 ];
