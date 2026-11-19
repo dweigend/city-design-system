@@ -127,10 +127,33 @@ function placeBox(
 		rotation: (part.rotation ?? 0) + angle
 	};
 }
+function placeHelix(
+	part: Extract<HousePart, { kind: 'helix' }>,
+	{ point, scale: [sx, sy, sz], angle }: Fit
+): HousePart {
+	const radius = Math.min(sx, sy);
+	return {
+		...part,
+		position: point(part.position),
+		radius: part.radius * radius,
+		innerRadius: part.innerRadius * radius,
+		height: part.height * sz,
+		thickness: part.thickness * sz,
+		rotation: (part.rotation ?? 0) + angle
+	};
+}
+/** Kinds defined by world points only: every point takes the fitted transform. */
 function placeAnnular(part: HousePart, fit: Fit): HousePart {
 	switch (part.kind) {
 		case 'mesh':
+		case 'polyline':
 			return { ...part, points: part.points.map(fit.point) };
+		case 'membrane': {
+			const [a, b, c, d] = part.corners.map(fit.point);
+			return { ...part, corners: [a, b, c, d] };
+		}
+		case 'helix':
+			return placeHelix(part, fit);
 		case 'ring':
 			return placeRing(part, fit);
 		case 'torus':

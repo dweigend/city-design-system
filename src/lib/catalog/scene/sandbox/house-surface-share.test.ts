@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 import { Color } from 'three';
-import { batch } from '../../scene/batch';
-import { typologies } from '../house-typology';
-import { specimen } from '../house-typology/specimens';
-import { houseSurfaces, sectionParts } from './index';
+import { batch } from '../batch';
+import { typologies } from '../../logic/house-typology';
+import { specimen } from '../../logic/house-typology/specimens';
+import { houseSurfaces, sectionParts } from '../../logic/composed-house';
 
 type XY = [number, number, number];
 const density = 8;
