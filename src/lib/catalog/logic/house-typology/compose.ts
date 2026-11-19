@@ -60,7 +60,7 @@ function peopleOnLandings(plan: Plan, levels: Level[]) {
 		const level = Math.floor((i * levels.length) / groups),
 			[x, y, z] = levels[level].landing;
 		const spacing = plan.site.compact ? 0.52 : 0.35;
-		return [-spacing, spacing].map((dx) => ({
+		return [-spacing, 0, spacing].map((dx) => ({
 			position: [x + dx, y, z] as Point,
 			height: 1.75,
 			level
@@ -76,7 +76,7 @@ export function composeHouse(
 	const { plan, role, accessSide } = layout(site, context);
 	const { type, sign, bar } = plan;
 	const levels = occupiedLevels(plan);
-	if (levels[0].court) plan.rear = levels[0].landing[1];
+
 	const stations = bearingAxes(plan, levels);
 	const { parts, crown, fittings } = assemble(plan, levels, role, stations, context.skyline);
 	const path = housePath(type, site.compact && context.houses.size === 1);

@@ -81,20 +81,18 @@ const programmeTokens = new Set([
 	houseSurfaces.water.token,
 	houseSurfaces.food.token
 ]);
-test('each body carries one programme finish drawn from at most three per house', () => {
+test('each body carries its painted programme or its alternating shell finish', () => {
 	for (const type of typologies) {
 		const s = specimen(footprints[type][0], type),
-			parts = sectionParts(s),
-			tokens = new Set();
+			parts = sectionParts(s);
 		for (const body of s.slots) {
 			const used = parts.filter(
 				(p) => p.id.startsWith(body.id + '/' + body.objectId + '/') && programmeTokens.has(p.token)
 			);
 			const finishes = new Set(used.map((p) => p.token));
 			expect(finishes.size).toBeLessThanOrEqual(1);
-			for (const token of finishes) tokens.add(token);
+			for (const token of finishes) expect(token).toBe(houseSurfaces[body.use].token);
 		}
-		expect(tokens.size).toBeLessThanOrEqual(3);
 	}
 });
 test('alternating capsule bands shift by half a metre to one and a quarter metres', () => {
@@ -130,16 +128,16 @@ test('full occupied floors follow the sixteen typology sections', () => {
 		'round-tower': [0, 1, 2, 3, 4, 5],
 		'portal-house': [4, 5],
 		'lattice-head': [4, 5],
-		'courtyard-house': [5],
+		'courtyard-house': [0, 1, 2, 3, 4, 5],
 		'terrace-house': [0, 1, 2, 3, 4, 5],
-		'plinth-house': [0],
+		'plinth-house': [0, 1, 2, 3, 4, 5],
 		'cluster-mast': [],
 		rack: [0, 1, 2, 3, 4, 5],
 		'bridge-house': [5],
 		'bell-house': [5],
-		'twin-stack': [0, 5],
-		'slab-house': [],
-		'water-house': [0],
+		'twin-stack': [0, 1, 2, 3, 4, 5],
+		'slab-house': [0, 1, 2, 3, 4, 5],
+		'water-house': [0, 5],
 		'tree-house': [2, 3.5, 5]
 	};
 	for (const t of typologies) {

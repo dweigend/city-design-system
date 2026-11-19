@@ -3,6 +3,7 @@ import type { HouseSurfaces } from './surfaces';
 import { houseObject } from './house-object';
 import type { HouseUse } from '../../data/house-body';
 import type { Body } from '../house-typology';
+import { bandParts } from './band-parts';
 import { place } from './asset-fit';
 
 const stock = new Map(assetRegistry.map((asset) => [asset.id, asset]));
@@ -36,6 +37,7 @@ export function members(
 }
 /** Uses the measured registry origin and the composition's single rigid transform. */
 export function bodyParts(b: Body, surfaces: HouseSurfaces) {
+	if (b.band) return bandParts(b, surfaces);
 	return place(
 		members(b.objectId, b.variant, b.seed, b.id, surfaces, b.use),
 		b.nativeCenter,

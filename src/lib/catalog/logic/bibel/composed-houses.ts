@@ -71,7 +71,7 @@ export function composedHousePlates(): RulePlate[] {
 		single(
 			'house',
 			'Deck tower',
-			'Water, housing, planting and energy share a frame of articulated columns.',
+			'Offset bands carry the colours of water, housing, planting and energy. Recessed glazing divides each facade.',
 			mixed,
 			3,
 			'deck-tower'

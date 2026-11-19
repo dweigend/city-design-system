@@ -3,6 +3,7 @@ import { shaftCourses } from './shafts';
 import { consolePlate } from './console';
 import { hasFloor } from './courses';
 import { braceBays } from './brace';
+import { bandSolid } from './bands';
 import { STORY } from '../../data/grid';
 import { solid, worldSize, mounted } from './objects';
 const volume = ([w, d, h]: Point) => w * d * h;
@@ -187,6 +188,23 @@ export function tierParts(
 	const { site } = plan,
 		id = site.id + '/level/' + i,
 		[x, y, z] = l.position;
+	const body = l.bodies[0];
+	if (body.band) {
+		const floor = solid(
+			id + '/deck',
+			'deck',
+			[x, y, z - 0.3],
+			[l.width, l.depth, 0.3],
+			site.ground,
+			'deck'
+		);
+		const members = tierBearings(plan, l, prev, stations, id, below, z - 0.3, false, i);
+		return [
+			...members,
+			bandSolid(floor, l.court),
+			bandSolid(solid(body.id, 'body', body.position, body.size, site.ground, body.use), l.court)
+		];
+	}
 	const bodyVolume = l.bodies.reduce((sum, b) => sum + volume(b.size), 0);
 	const thickness = Math.min(1.1, (bodyVolume * ratio) / l.deckArea);
 	const floor = solid(

@@ -52,6 +52,7 @@ export type Body = HouseSlot & {
 	nativeSize: Point;
 	nativeCenter: Point;
 	bay?: [number, number];
+	band?: { shell: boolean; court?: { center: Point; width: number } };
 };
 export type Level = Deck & {
 	bodies: Body[];

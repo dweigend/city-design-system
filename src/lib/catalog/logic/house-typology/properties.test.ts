@@ -42,10 +42,12 @@ function site(
 const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
 function auditLevels(h: HouseComposition) {
 	for (const l of h.levels) {
-		const share = l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) / l.deckArea;
+		const band = l.bodies[0].band;
+		const hole = (l.court?.width ?? 0) ** 2;
+		const share = (l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) - hole) / l.deckArea;
 		if (
 			h.parts.some((p) => p.id === h.id + '/level/' + h.levels.indexOf(l) + '/deck') &&
-			!(share >= 0.55 && share <= 0.85)
+			!(share >= (band ? 0.8 : 0.55) && share <= (band ? 0.95 : 0.85))
 		)
 			return 'deck share ' + share + ' ' + l.bodies.map((b) => b.objectId);
 		if ((l.position[2] - h.datum) % 2 !== 0) return 'off datum';
@@ -59,10 +61,15 @@ function auditVolume(h: HouseComposition, bodies: Bodies) {
 		h.parts
 			.filter((p) => !['body', 'capsule', 'crown'].includes(p.joint))
 			.reduce((s, p) => s + vol(p.size), 0) / total;
-	if (structure < 0.2 || structure > 0.35) return 'structure share ' + structure;
+	if ((!bodies[0].band && structure < 0.2) || structure > 0.35)
+		return 'structure share ' + structure;
 }
 function auditCapsules(h: HouseComposition, bodies: Bodies) {
-	if (h.levels.length >= 3 && h.levels.every((l) => l.programme.every((u) => u === 'living'))) {
+	if (
+		!bodies[0].band &&
+		h.levels.length >= 3 &&
+		h.levels.every((l) => l.programme.every((u) => u === 'living'))
+	) {
 		const capsules = bodies.filter((b) => b.kind === 'capsule');
 		if (capsules.length < 2 || capsules[0].size[1] + capsules[1].size[1] <= h.core.width)
 			return 'capsule stack';

@@ -15,7 +15,7 @@ export const houseSurfaces: HouseSurfaces = {
 	shell: { token: '--paper', finish: 'metall-lackiert' },
 	pane: { token: '--blueprint', finish: 'glas-klar' },
 	access: metal(flowToken.people),
-	living: metal(BODY_TOKEN.living),
+	living: { token: BODY_TOKEN.living, finish: 'metall-lackiert' },
 	energy: metal(BODY_TOKEN.energy),
 	water: metal(BODY_TOKEN.water),
 	food: metal(BODY_TOKEN.food),

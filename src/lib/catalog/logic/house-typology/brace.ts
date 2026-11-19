@@ -26,7 +26,7 @@ export function brace(
 	top: number,
 	reverse: boolean
 ): Solid {
-	const width = plan.site.programme.length > 8 ? 0.3 : 0.12,
+	const width = 0.3,
 		inset = plan.bar,
 		low = stations[0] + inset,
 		end = required(stations.at(-1), 'bearing station') - inset,

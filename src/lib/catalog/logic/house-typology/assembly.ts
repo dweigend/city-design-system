@@ -112,10 +112,10 @@ function entryLanding(plan: Plan, stations: number[]) {
 		plate
 	];
 }
-function balanced(parts: Solid[], bodies: number, crown: number) {
+function balanced(parts: Solid[], bodies: number, crown: number, band: boolean) {
 	const total = parts.reduce((s, p) => s + volume(p.size), 0);
 	const frame = (total - bodies - crown) / total;
-	return bodies / total >= 0.55 && frame >= 0.2 && frame <= 0.35;
+	return bodies / total >= 0.55 && (band || frame >= 0.2) && frame <= 0.35;
 }
 /** Selects a stock crown and a slab section satisfying the mass budget with every joint included. */
 export function assemble(
@@ -154,7 +154,8 @@ export function assemble(
 			);
 			for (const { crown, parts: cap } of roofs) {
 				const parts = [...entry, ...frame, ...cap, ...outlets.map((o) => o.solid)];
-				if (balanced(parts, bodies, volume(crown.size))) return { parts, crown, fittings };
+				if (balanced(parts, bodies, volume(crown.size), !!levels[0].bodies[0].band))
+					return { parts, crown, fittings };
 			}
 		}
 	throw new RangeError('No balanced assembly for ' + plan.site.id + ' ' + plan.type);

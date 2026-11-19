@@ -141,7 +141,11 @@ test('four-cell housing exposes programme stock and an open bay, terrace or cour
 		for (const level of h.levels)
 			expect(
 				level.bodies.some((b) =>
-					parts.some((p) => p.id.startsWith(b.id + '/' + b.objectId + '/') && uses.has(p.token))
+					parts.some(
+						(p) =>
+							p.id.startsWith(b.id + '/' + b.objectId + '/') &&
+							(uses.has(p.token) || (b.band?.shell && p.token === houseSurfaces.shell.token))
+					)
 				),
 				type
 			).toBe(true);
