@@ -38,7 +38,7 @@ function roof(
 	const { site, seed, rear } = plan;
 	const crown = objectSlot(site.id + '/crown', spec, 'energy', seed, 0);
 	const [w, d] = crown.size,
-		x = site.center[0],
+		x = (stations[0] + stations[stations.length - 1]) / 2,
 		y = rear - (plan.sign * d) / 2;
 	crown.position = [x, y, z];
 	crown.anchor = 'roof';
@@ -93,7 +93,7 @@ function entryLanding(plan: Plan, stations: number[]) {
 	const plate = solid(
 		plan.site.id + '/entry',
 		'deck',
-		[plan.site.center[0], y, plan.datum - 0.25],
+		[(stations[0] + stations[stations.length - 1]) / 2, y, plan.datum - 0.25],
 		[width, 1.25, 0.25],
 		plan.site.ground,
 		'deck'

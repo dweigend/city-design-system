@@ -28,6 +28,6 @@ export function housePath(type: Typology, drum = false) {
 /** Allocates the spiral allowance before selecting the ensemble palette. */
 export function paletteCount(a: Typology, b: Typology, size: number) {
 	const allowance = Math.floor(size / 3);
-	if (housePath(a, true) === 'spiral') return housePath(b, true) === 'spiral' ? 0 : allowance;
-	return housePath(b, true) === 'spiral' ? size - allowance : Math.ceil(size / 2);
+	if (housePath(a) === 'spiral') return housePath(b) === 'spiral' ? 0 : allowance;
+	return housePath(b) === 'spiral' ? size - allowance : Math.ceil(size / 2);
 }

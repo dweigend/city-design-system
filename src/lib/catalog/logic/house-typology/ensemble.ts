@@ -44,14 +44,7 @@ function skyline(sites: Survey[], seed: number) {
 }
 
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
-	const weights = sites.map((s) => {
-		const weights = affinities(s, required(roles.get(s.id), 'ensemble role'));
-		if (sites.length > 1 && s.compact) {
-			weights['bell-house'] = 1;
-			weights['tree-house'] = 1;
-		}
-		return weights;
-	});
+	const weights = sites.map((s) => affinities(s, required(roles.get(s.id), 'ensemble role')));
 	const houses = new Map<string, Decision>();
 	const away = (site: Survey): [number, number] => {
 		const neighbors = sites.filter(
@@ -79,7 +72,7 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 					required(roles.get(sites[j].id), 'ensemble role'),
 					typologies.map((t) => [
 						t,
-						sites.length === 2 && housePath(t, sites[j].compact) === 'spiral' ? 0 : weights[j][t]
+						sites.length === 2 && housePath(t) === 'spiral' ? 0 : weights[j][t]
 					])
 				)
 			);

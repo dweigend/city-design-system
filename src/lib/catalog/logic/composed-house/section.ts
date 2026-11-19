@@ -1,6 +1,6 @@
 import { STORY } from '../../data/grid';
 import { stairAxis } from './stair-fit';
-import { composeHouse, housePath } from '../house-typology';
+import { composeHouse } from '../house-typology';
 import type { HouseSite, Section } from './types';
 
 function ladderOffset(h: Section['composition']) {
@@ -32,7 +32,7 @@ export function planHouse(site: HouseSite): Section {
 		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
-	const path = housePath(section.typology, composition.compact);
+	const path = composition.path;
 	if (levels[0].well) {
 		section.compact = false;
 		section.stairAxis = [composition.bay.x, composition.bay.y];

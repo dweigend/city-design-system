@@ -1,5 +1,4 @@
 import { houseStair } from '../../data/house-stair';
-import { housePath } from '../house-typology';
 import type { Vec3 } from '../parametrik/types';
 import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
@@ -19,11 +18,12 @@ function stations(s: Section) {
 	const { x, width: bayWidth } = s.composition.bay;
 	const court = s.composition.levels[0].court;
 	const span = court?.width ?? bayWidth;
-	const path = housePath(s.typology, s.composition.compact);
+	const path = s.composition.path;
 	const count = Math.min(17, Math.floor((span - width) / going));
 	const flank = ['core', 'cascade', 'external'].includes(path);
 	const length = count * going;
-	const left = x - (flank ? span - width : length) / 2;
+	const left =
+		path === 'cascade' ? x + (span - width) / 2 - length : x - (flank ? span - width : length) / 2;
 	const sign = s.composition.accessSide === 'north' ? 1 : -1;
 	const rear = court ? court.center[1] - (sign * court.width) / 2 : flightEdge(s, sign);
 	return [0, 1].flatMap((lane) =>
@@ -89,6 +89,15 @@ function rectangle(a: Vec3, b: Vec3): [number, number][] {
 	];
 }
 
+function roofBypass(s: Section, station: Vec3, door: Vec3): Vec3[] {
+	const bodies = s.composition.levels[s.composition.levels.length - 1].bodies;
+	const b = bodies[0],
+		halfWidth =
+			(Math.abs(Math.cos(b.rotation)) * b.size[0] + Math.abs(Math.sin(b.rotation)) * b.size[1]) / 2;
+	const flank =
+		b.position[0] + (station[0] < b.position[0] ? -1 : 1) * (halfWidth + width / 2 + 0.02);
+	return [station, [flank, station[1], door[2]], [flank, door[1], door[2]], door];
+}
 /** Instantiates rigid straight treads and level connections to each landing. */
 export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 	const route = flightRoute(s),
@@ -139,6 +148,19 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 	return [
 		...parts,
 		...stringers,
-		...route.docks.map(({ station, door }, i) => platform(station, door, 'dock/' + i))
+		...route.docks.flatMap(({ station, door }, i) => {
+			const knee: Vec3 = [door[0], station[1], door[2]];
+			const path =
+				i === 0 && s.typology === 'cluster-mast'
+					? roofBypass(s, station, door)
+					: [station, knee, door];
+			return path
+				.slice(1)
+				.flatMap((b, j) =>
+					Math.hypot(b[0] - path[j][0], b[1] - path[j][1]) > 0.01
+						? [platform(path[j], b, 'dock/' + i + '/' + j)]
+						: []
+				);
+		})
 	];
 }

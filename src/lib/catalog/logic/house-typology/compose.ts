@@ -1,3 +1,4 @@
+import { housePath } from './routes';
 import { layout } from './layout';
 import { assemble } from './assembly';
 import type { HouseSite } from './site';
@@ -16,7 +17,8 @@ const spread: Partial<Record<Plan['type'], number>> = {
 	'lattice-head': 0.6
 };
 function bearingAxes(plan: Plan, levels: Level[]) {
-	const x = plan.site.center[0];
+	const x =
+		plan.type === 'terrace-house' ? levels[levels.length - 1].position[0] : plan.site.center[0];
 	const free = Math.min(...levels.map((l) => l.width / 2 - Math.abs(l.position[0] - x) - plan.bar));
 	const target = spread[plan.type];
 	const mast = plan.type === 'cluster-mast' && !plan.site.compact;
@@ -70,6 +72,7 @@ export function composeHouse(
 	return {
 		id: site.id,
 		compact: site.compact,
+		path: housePath(type, site.compact && context.houses.size === 1),
 		bay: { x: site.center[0], y: site.center[1], width: site.width, depth: site.depth },
 		start: site.start,
 		stories: site.programme.length,
@@ -81,7 +84,10 @@ export function composeHouse(
 		accessSide,
 		people: peopleOnLandings(plan, levels),
 		family: { bar, radius: bar === 0.3 ? 0.45 : 0.15, parapet: bar === 0.3 ? 'panel' : 'rail' },
-		core: { position: [site.center[0], plan.rear - sign * 0.15, site.ground], width: 1.25 + bar },
+		core: {
+			position: [(stations[0] + stations[1]) / 2, plan.rear - sign * 0.15, site.ground],
+			width: 1.25 + bar
+		},
 		levels,
 		parts,
 		supports,

@@ -15,8 +15,12 @@ const envelopes: Record<Typology, Envelope> = {
 	'portal-house': (w, d) => bay(w, d),
 	'lattice-head': (w, d) => bay(w / 2, Math.min(d, w / 2)),
 	'courtyard-house': bar,
-	'terrace-house': (w, d, i) => bay(Math.max(5, w - i * 10), Math.max(5, d - i * 10), 1),
-	'plinth-house': (w, d, i) => (i ? bay(w * 0.65, d * 0.65, (-1) ** i) : bay(w, d)),
+	'terrace-house': (w, d, i) =>
+		w > 1.6 * d
+			? bay(Math.max(Math.min(w, 8.9), w - i * 10), d, 1)
+			: bay(w, Math.max(Math.min(d, 5.9), d - i * 10), 1),
+	'plinth-house': (w, d, i) =>
+		i ? bay(Math.max(5, w * 0.38), Math.max(3.25, d * 0.42), (-1) ** i) : bay(w, d),
 	rack: (w, d) => bay(w, Math.min(d, 6)),
 	'bridge-house': bar,
 	'bell-house': (w, d, i) => (i ? bay(w, d) : bay(Math.min(3.75, w), Math.min(3.75, d))),
@@ -116,7 +120,10 @@ function fillGrid(
 	const { cols, rows } = gridDimensions(single, paired, plan.type === 'rack', w, d, bw, bd);
 	const spread = paired ? w : cols === 1 ? bw : Math.min(w, (cols * bw) / 0.87);
 	const travel = Math.min(site.width - spread - 0.6, 1.25);
-	const dx = (direction || (-1) ** i) * Math.max(0, travel / 2);
+	const dx =
+		plan.type === 'terrace-house'
+			? (site.width - spread - 0.6) / 2
+			: (direction || (-1) ** i) * Math.max(0, travel / 2);
 	const pitch = (spread - bw) / (cols - 1 || 1);
 	const units = Array.from({ length: cols * rows }, (_, k): Body => ({
 		...body,

@@ -1,7 +1,13 @@
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
-import { housePartPlan, planHouse, sectionParts } from '../composed-house';
-import { bounds } from '../ansicht/geometrie';
+import {
+	circulation,
+	houseSurfaces,
+	housePartPlan,
+	planHouse,
+	sectionParts
+} from '../composed-house';
+import { nearestSilhouettes } from './silhouette-measure';
 import { accessShare } from '../composed-house/access-budget';
 import { checkFit, planEnsemble, typologies, type Typology } from './index';
 
@@ -62,6 +68,54 @@ test('bearing sections and exposed circulation meet their minimum diameters', ()
 	for (const type of typologies)
 		for (const cells of footprints[type]) checkHardware(specimen(cells, type));
 });
+test('full-height spiral count stays within the ensemble allowance on both bay widths', () => {
+	for (const size of [4, 10])
+		for (const count of [2, 3, 5, 8]) {
+			const sites = squareGrid(count, 1, size).cells.map((cell, i) => ({
+				cells: [cell],
+				seed: i + 3,
+				district: 'bank' as const,
+				stacks: new Map([[cell.id, Array<'living'>(6 + (i % 3)).fill('living')]])
+			}));
+			const context = planEnsemble(sites);
+			const windings = sites
+				.map((site) => circulation(planHouse({ ...site, context })))
+				.filter((route) => 'track' in route);
+			expect(windings.length).toBeLessThanOrEqual(Math.floor(count / 3));
+		}
+});
+const programmeTokens = new Set([
+	houseSurfaces.living.token,
+	houseSurfaces.energy.token,
+	houseSurfaces.material.token,
+	houseSurfaces.water.token,
+	houseSurfaces.food.token
+]);
+test('each body carries one programme finish drawn from at most three per house', () => {
+	for (const type of typologies) {
+		const s = specimen(footprints[type][0], type),
+			parts = sectionParts(s),
+			tokens = new Set();
+		for (const body of s.slots) {
+			const used = parts.filter(
+				(p) => p.id.startsWith(body.id + '/' + body.objectId + '/') && programmeTokens.has(p.token)
+			);
+			const finishes = new Set(used.map((p) => p.token));
+			expect(finishes.size).toBeLessThanOrEqual(1);
+			for (const token of finishes) tokens.add(token);
+		}
+		expect(tokens.size).toBeLessThanOrEqual(3);
+	}
+});
+test('alternating capsule bands shift by half a metre to one and a quarter metres', () => {
+	const levels = specimen(1, 'capsule-stack').composition.levels;
+	const shifts = levels.slice(1).map((l, i) => l.position[0] - levels[i].position[0]);
+	for (const [i, shift] of shifts.entries()) {
+		expect(Math.abs(shift)).toBeGreaterThanOrEqual(0.5 - 1e-8);
+		expect(Math.abs(shift)).toBeLessThanOrEqual(1.25 + 1e-8);
+		if (i) expect(shift * shifts[i - 1]).toBeLessThan(0);
+	}
+});
 test('occupied outlines span at least four fifths of the painted bay', () => {
 	const exempt = ['capsule-stack', 'cluster-mast', 'lattice-head', 'twin-stack'];
 	const failures: string[] = [];
@@ -106,90 +160,13 @@ test('full occupied floors follow the sixteen typology sections', () => {
 		expect(bands, t).toEqual(floors[t]);
 	}
 });
-function coverage(intervals: number[][]) {
-	let end = -Infinity,
-		covered = 0;
-	for (const [a, b] of intervals.sort((a, b) => a[0] - b[0])) {
-		covered += Math.max(0, b - Math.max(a, end));
-		end = Math.max(end, b);
-	}
-	return covered;
-}
-function signature(n: number, type: Typology, height: number) {
-	const s = specimen(n, type, height);
-	const boxes = sectionParts(s).map((p) => {
-		const b = bounds(p),
-			outline = housePartPlan(p);
-		for (const axis of [0, 1] as const) {
-			b.min[axis] = Math.min(...outline.map((q) => q[axis]));
-			b.max[axis] = Math.max(...outline.map((q) => q[axis]));
-		}
-		return b;
+for (const [label, types] of [
+	['first eight', typologies.slice(0, 8)],
+	['all sixteen', typologies]
+] as const) {
+	test(label + ' typologies differ in projected fill by 25 percent across two elevations', () => {
+		const minima = nearestSilhouettes(types, footprints, specimen);
+		console.info(label, Object.fromEntries(minima));
+		expect([...minima.values()].every((m) => m.distance >= 0.25)).toBe(true);
 	});
-	const bands = Math.ceil((Math.max(...boxes.map((b) => b.max[2])) - s.base[2]) / 2);
-	const shares = [0, 1].flatMap((axis) =>
-		Array.from({ length: bands }, (_, i) => {
-			const start = s.base[2] + 2 * i;
-			const slice = boxes.filter((b) => b.min[2] < start + 2 && b.max[2] > start);
-			const edges = [
-				...new Set([
-					start,
-					start + 2,
-					...slice.flatMap((b) => [Math.max(start, b.min[2]), Math.min(start + 2, b.max[2])])
-				])
-			].sort((a, b) => a - b);
-			return (
-				edges.slice(1).reduce((area, z, j) => {
-					const active = slice.filter((b) => b.min[2] < z && b.max[2] > edges[j]);
-					return area + (z - edges[j]) * coverage(active.map((b) => [b.min[axis], b.max[axis]]));
-				}, 0) /
-				(2 * (axis ? s.composition.bay.depth : s.composition.bay.width))
-			);
-		})
-	);
-	return [shares.slice(0, bands), shares.slice(bands)];
 }
-
-function distance(a: number[][], b: number[][]) {
-	const n = Math.max(a[0].length, b[0].length);
-	return (
-		a.reduce(
-			(sum, view, k) =>
-				sum +
-				Array.from({ length: n }, (_, i) => Math.abs((view[i] ?? 0) - (b[k][i] ?? 0))).reduce(
-					(x, y) => x + y,
-					0
-				),
-			0
-		) /
-		(2 * n)
-	);
-}
-
-function admits(type: Typology, height: number) {
-	if (['courtyard-house', 'plinth-house', 'bridge-house'].includes(type)) return height <= 3;
-	if (type === 'round-tower') return height >= 6;
-	if (type === 'lattice-head') return height >= 5;
-	return true;
-}
-test('forced typologies differ in projected fill by 25 percent across two elevations', () => {
-	const minima = new Map<
-		Typology,
-		{ distance: number; other: Typology; cells: number; height: number }
-	>();
-	for (const height of [3, 6])
-		for (const cells of [1, 2, 4]) {
-			const samples = typologies
-				.filter((t) => footprints[t].includes(cells) && admits(t, height))
-				.map((type) => ({ type, fill: signature(cells, type, height) }));
-			for (const a of samples)
-				for (const b of samples) {
-					if (a === b) continue;
-					const d = distance(a.fill, b.fill);
-					if (d < (minima.get(a.type)?.distance ?? Infinity))
-						minima.set(a.type, { distance: d, other: b.type, cells, height });
-				}
-		}
-	console.info('Nearest silhouette by typology', Object.fromEntries(minima));
-	expect([...minima.values()].every((m) => m.distance >= 0.25)).toBe(true);
-});

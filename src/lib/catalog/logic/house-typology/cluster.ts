@@ -19,8 +19,11 @@ export function clusterLevel(plan: Plan, i: number, z: number, use: HouseUse): L
 		plan.seed,
 		angle + Math.PI / 2
 	);
+	const scale = length === 7.5 ? 1.05 : 1;
+	body.scale = scale;
+	body.size = body.nativeSize.map((v) => v * scale) as Point;
 	const span = u ? site.width : site.depth - site.accessDepth;
-	const reach = Math.min(3.25, span / 2 - 1.25);
+	const reach = Math.min(3.25, span / 2 - 1.25 * scale);
 	body.position = [cx + u * reach, cy + v * reach, z + 0.12];
 	body.facing = [-u, -v];
 	const [bw, bd] = worldSize(body);

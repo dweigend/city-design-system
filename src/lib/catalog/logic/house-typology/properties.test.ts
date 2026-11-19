@@ -7,7 +7,6 @@ import { bounds } from '../ansicht/geometrie';
 import { accessShare } from '../composed-house/access-budget';
 import type { HouseUse } from '../../data/house-body';
 import {
-	housePath,
 	composeHouse,
 	planBridges,
 	planEnsemble,
@@ -139,9 +138,9 @@ test('128 ensembles retain their roles, palette and direct level spans under inp
 		expect(context).toEqual(planEnsemble([...sites].reverse()));
 		expect(houses[0]).toEqual(composeHouse(sites[0], context));
 		for (const h of houses) expect(audit(h)).toBeUndefined();
-		expect(
-			houses.filter((h) => housePath(h.typology, h.compact) === 'spiral').length
-		).toBeLessThanOrEqual(Math.floor(houses.length / 3));
+		expect(houses.filter((h) => h.path === 'spiral').length).toBeLessThanOrEqual(
+			Math.floor(houses.length / 3)
+		);
 		const counts = new Map<string, number>();
 		for (const h of houses) counts.set(h.typology, (counts.get(h.typology) ?? 0) + 1);
 		expect([...counts.values()].filter((n) => n > 1)).toHaveLength(2);

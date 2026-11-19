@@ -64,6 +64,7 @@ export type Level = Deck & {
 };
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
+	path: ReturnType<typeof import('./routes').housePath>;
 	id: string;
 	compact: boolean;
 	bay: { x: number; y: number; width: number; depth: number };

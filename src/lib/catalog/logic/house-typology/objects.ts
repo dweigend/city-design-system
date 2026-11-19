@@ -6,13 +6,13 @@ import type { Typology } from './families';
 type ObjectSpec = readonly [string, string, HouseSlot['kind']];
 const crowns: Record<Typology, ObjectSpec> = {
 	'capsule-stack': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
-	'deck-tower': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
+	'deck-tower': ['kit-crown-solar-sail-5m', 'four-panel', 'panels'],
 	'round-tower': ['observatory', 'slit-dome', 'lookout'],
 	'portal-house': ['green-roof', 'strip-garden', 'grove'],
 	'lattice-head': ['kit-crown-greenhouse-3p75m', 'low', 'dome'],
 	'courtyard-house': ['green-roof', 'meadow-islands', 'grove'],
 	'terrace-house': ['kit-crown-greenhouse-3p75m', 'low', 'dome'],
-	'plinth-house': ['shed-cap', 'standard', 'workshop'],
+	'plinth-house': ['kit-crown-pergola-3p75m', 'low', 'workshop'],
 	'cluster-mast': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
 	rack: ['shed-cap', 'compact', 'workshop'],
 	'bridge-house': ['garden-loggia', 'extended', 'grove'],
@@ -43,6 +43,7 @@ const baseStock: Partial<Record<Typology, ObjectSpec>> = {
 };
 const infill: Partial<Record<Typology, ObjectSpec>> = {
 	'capsule-stack': bodiesByUse.living,
+	'deck-tower': ['kit-crown-watch-cabin-5m', 'standard', 'workshop'],
 	'bridge-house': ['gallery-bar', 'standard', 'workshop'],
 	'portal-house': ['gallery-bar', 'standard', 'workshop'],
 	'bell-house': ['glass-bell', 'hothouse', 'dome']
