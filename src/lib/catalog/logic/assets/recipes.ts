@@ -35,6 +35,7 @@ import { pipeRun } from './pipe-run';
 import { stairs } from './stairs';
 import { escalator } from './escalator';
 import { ladder } from './ladder';
+import { spiralStair } from './spiral-stair';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -72,5 +73,6 @@ export const recipes: readonly AssetRecipe[] = [
 	pipeRun,
 	stairs,
 	escalator,
-	ladder
+	ladder,
+	spiralStair
 ];
