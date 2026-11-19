@@ -14,10 +14,40 @@ function slot(
 ): HouseSlot {
 	return { id, anchor, kind, position, size, use, facing: [0, -1] };
 }
+/** Clear height in metres one capsule needs, including its cradle. */
+const CAPSULE = 3.2;
+/** Fills a living tier by count: one or two rows of capsules, stacked while the clearance allows.
+ * Upper capsules shift sideways so the stack reads as plugged-in units, not as one block. */
+function capsuleStack(s: Section, i: number): HouseSlot[] {
+	const deck = s.decks[i],
+		[x, y, z] = deck.position;
+	const clearance = ((s.decks[i + 1]?.position[2] ?? s.top + CAPSULE) - z) * 0.92;
+	const tiers = Math.max(1, Math.min(3, Math.floor(clearance / CAPSULE)));
+	const w = deck.width * (deck.round ? 0.71 : 0.86),
+		d = deck.depth * (deck.round ? 0.67 : 0.74);
+	const rows = !deck.round && d >= 2 * CAPSULE ? 2 : 1,
+		back = deck.round ? 0 : deck.depth * 0.06,
+		shift = tiers > 1 ? w * 0.07 : 0;
+	return Array.from({ length: tiers * rows }, (_, n) => {
+		const tier = Math.floor(n / rows),
+			row = n % rows;
+		const side = (tier + row) % 2 ? -1 : 1;
+		return slot(
+			s.id + '/tier/' + i + '/body' + (n ? '/' + n : ''),
+			'deck',
+			'capsule',
+			[x + side * shift, y - back + (row - (rows - 1) / 2) * (d / rows), z + tier * CAPSULE],
+			[w - 2 * shift, d / rows, CAPSULE],
+			'living'
+		);
+	});
+}
 function tierSlots(s: Section, i: number): HouseSlot[] {
 	const deck = s.decks[i],
 		[x, y, z] = deck.position,
 		id = s.id + '/tier/' + i;
+	if (deck.kind === 'capsule' || (deck.kind === 'gallery' && deck.use === 'living'))
+		return capsuleStack(s, i);
 	if (deck.kind === 'void' || deck.kind === 'gallery') {
 		if (i !== s.decks.findIndex((d) => d.kind === 'void' || d.kind === 'gallery')) return [];
 		return [

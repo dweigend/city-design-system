@@ -28,6 +28,12 @@ function objectSlots(slot: HouseSlot, surfaces: HouseSurfaces) {
 		edge: surfaces.frame
 	};
 }
+/** Picks the unit that fits the reserved length at near-nominal scale; other kinds draw by seed. */
+function variantFor(slot: HouseSlot) {
+	if (slot.kind === 'reservoir') return 'single-vessel';
+	if (slot.kind !== 'capsule') return undefined;
+	return slot.size[0] >= 7.6 ? 'longhouse' : slot.size[0] >= 5.8 ? 'twin' : 'studio';
+}
 /** Mounts a registered object and assigns its named surfaces after geometry generation. */
 export function registryElements(slot: HouseSlot, seed: number, surfaces: HouseSurfaces) {
 	const id = fittings[slot.kind],
@@ -38,7 +44,7 @@ export function registryElements(slot: HouseSlot, seed: number, surfaces: HouseS
 		seed,
 		attachment,
 		objectSlots(slot, surfaces),
-		slot.kind === 'reservoir' ? 'single-vessel' : undefined
+		variantFor(slot)
 	);
 	const angle =
 		attachment === 'facade'

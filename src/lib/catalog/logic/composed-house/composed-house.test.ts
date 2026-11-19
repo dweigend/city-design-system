@@ -63,18 +63,24 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 						expect(
 							inside(body.position[0] + u * body.size[0], body.position[1] + v * body.size[1])
 						).toBe(true);
+				const row = s.slots.filter(
+					(a) => a.id.startsWith(body.id) && a.position[2] === d.position[2]
+				);
 				const area =
-					(body.size[0] * body.size[1]) / (d.width * d.depth * (d.round ? Math.PI / 4 : 1));
+					row.reduce((sum, a) => sum + a.size[0] * a.size[1], 0) /
+					(d.width * d.depth * (d.round ? Math.PI / 4 : 1));
 				expect(area).toBeGreaterThanOrEqual(0.5);
 				expect(area).toBeLessThanOrEqual(0.8);
 			}
 			expect(levels.has(Math.round(s.top * 1000))).toBe(true);
 		}
 });
-test('a continuous living programme reserves one volume and cell order preserves the composition', () => {
+test('a continuous living programme stacks capsules by count and cell order preserves the composition', () => {
 	for (let n = 1; n <= 12; n++) {
 		const input = site(n, 12, true);
-		expect(planHouse(input).slots.filter((s) => s.id.endsWith('/body'))).toHaveLength(1);
+		const capsules = planHouse(input).slots.filter((s) => s.kind === 'capsule');
+		expect(capsules.every((c) => c.size[2] === capsules[0].size[2])).toBe(true);
+		if (n >= 3) expect(new Set(capsules.map((c) => c.position[2])).size).toBeGreaterThanOrEqual(2);
 		expect(composedHouse(input)).toEqual(composedHouse({ ...input, cells: [...cells].reverse() }));
 	}
 });

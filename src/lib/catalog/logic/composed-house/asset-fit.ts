@@ -102,7 +102,10 @@ export function mountFitting(asset: ReturnType<typeof fitting>, mount: Mount, fl
 		? Math.max(...parts.filter((p) => p.kind === 'box').map((p) => bounds(p).max[2]))
 		: box.max[2];
 	const rigid = parts.some((p) => p.kind === 'capsule');
-	const planScale = Math.min(w / footprint[0], d / footprint[1], rigid ? h / height : Infinity);
+	// A rigid unit keeps its proportions: it fits its own extent and never grows beyond 15 %.
+	const planScale = rigid
+		? Math.min(w / (box.max[0] - box.min[0]), d / (box.max[1] - box.min[1]), h / height, 1.15)
+		: Math.min(w / footprint[0], d / footprint[1]);
 	const rectangular = parts.every(
 		(p) => p.kind === 'box' || p.kind === 'pipe' || p.kind === 'wedge'
 	);
