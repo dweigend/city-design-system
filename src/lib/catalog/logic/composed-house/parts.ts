@@ -1,4 +1,4 @@
-import type { Surface } from './surfaces';
+import { structuralSurface, type Surface } from './surfaces';
 import type { Primitive, Vec3 } from '../parametrik/types';
 type Strip<T> = T extends unknown
 	? Omit<T, 'id' | 'role' | 'material' | 'token' | 'finish'>
@@ -8,7 +8,7 @@ type Form = Strip<Primitive>;
 export const piece = (id: string, form: Form, surface: Surface): Primitive => ({
 	id,
 	role: 'neu',
-	...surface,
+	...structuralSurface(surface),
 	...form
 });
 function rounded(x: number, y: number, w: number, d: number, r: number): [number, number][] {

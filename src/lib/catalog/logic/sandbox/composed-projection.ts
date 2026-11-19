@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { isPainted } from './house-phase-ink';
 import { houseObstacles } from './house-obstacles';
 import { paintedSections, sectionGroups } from '../composed-house';
@@ -17,7 +18,7 @@ function paintedRuns(world: World) {
 			}
 			const level = runs.get(start) ?? new Map<string, HouseUse[]>(),
 				floors = level.get(id) ?? [];
-			floors[i] = world.state.stacks.get(id)![i];
+			floors[i] = required(world.state.stacks.get(id), 'painted stack')[i];
 			level.set(id, floors);
 			runs.set(start, level);
 		});
@@ -31,13 +32,16 @@ function survey(world: World) {
 		paintedSections(plots, stacks, world.seed, {
 			// The shared-wall graph limits bodies. R3's lateral graph also includes across-alley neighbours.
 			joined: (a, b) => r3.cells.get(a)?.neighbors.includes(b) ?? false,
-			district: (id) => houseDistrict(world.grid.cellsById.get(id)!)
+			district: (id) => houseDistrict(required(world.grid.cellsById.get(id), 'painted cell'))
 		})
 	);
 	const phases = new Map(
 		sections.map((s) => {
 			const stories = s.cells.flatMap((c) =>
-				world.state.storyParts.get(c.id)!.slice(s.start, s.start + s.stories)
+				required(world.state.storyParts.get(c.id), 'construction phase').slice(
+					s.start,
+					s.start + s.stories
+				)
 			);
 			return [
 				s.id,
@@ -50,7 +54,7 @@ function survey(world: World) {
 	);
 	return sectionGroups(world.grid, sections, world.seed, houseObstacles(plots, world.state)).map(
 		(g) => {
-			const owners = g.owners.map((id) => phases.get(id)!);
+			const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
 			return {
 				...g,
 				built: Math.max(...owners.map((p) => p.built)),

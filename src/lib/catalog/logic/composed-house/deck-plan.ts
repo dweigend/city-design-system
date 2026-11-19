@@ -1,3 +1,4 @@
+import { required } from '../required';
 import type { Vec3 } from '../parametrik/types';
 import type { Deck, Section } from './types';
 
@@ -18,6 +19,6 @@ export function accessEdge(deck: Deck) {
 
 /** Centre of the roof walk at the last flight's upper datum in world metres. */
 export function roofLanding(s: Section): Vec3 {
-	const deck = s.decks.at(-1)!;
+	const deck = required(s.decks.at(-1), 'upper deck');
 	return [deck.position[0], accessEdge(deck), s.top];
 }

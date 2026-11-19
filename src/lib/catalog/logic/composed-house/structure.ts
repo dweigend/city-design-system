@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { roofLanding } from './deck-plan';
 import type { HouseSurfaces } from './surfaces';
 import type { Primitive, Vec3 } from '../parametrik/types';
@@ -23,7 +24,7 @@ function columns(s: Section, surfaces: HouseSurfaces) {
 				kind: 'cylinder',
 				position: [x + u * s.width, y + v * s.depth, z],
 				radius: r,
-				height: (v < 0 ? s.decks.at(-1)!.position[2] : s.top) - z + 0.25
+				height: (v < 0 ? required(s.decks.at(-1), 'upper deck').position[2] : s.top) - z + 0.25
 			},
 			surfaces.frame
 		)
@@ -38,7 +39,7 @@ function towers(s: Section, surfaces: HouseSurfaces): Primitive[] {
 		s.id + '/lattice',
 		[x - s.width * 0.31 - side / 2, y - s.depth * 0.27, z + 0.08],
 		side,
-		s.decks.at(-1)!.position[2] - z + 0.35,
+		required(s.decks.at(-1), 'upper deck').position[2] - z + 0.35,
 		surfaces.frame
 	);
 	if (s.typology !== 'tower') return [mast];

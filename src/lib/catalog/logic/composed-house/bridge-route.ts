@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { STORY } from '../../data/grid';
 import type { LinkKind } from '../district-frame';
 import type { Vec3 } from '../parametrik/types';
@@ -16,10 +17,10 @@ function landing(deck: Deck, other: Deck): Vec3 {
 function levelReturn(route: Vec3[]) {
 	// Keep the skyway level across the gap, with a short flight at the lower end.
 	const points = route.map((p): Vec3 => [...p]),
-		reverse = points[0][2] > points.at(-1)![2];
+		reverse = points[0][2] > required(points.at(-1), 'bridge endpoint')[2];
 	if (reverse) points.reverse();
 	const [a, b] = points,
-		top = points.at(-1)![2];
+		top = required(points.at(-1), 'bridge endpoint')[2];
 	for (const point of points.slice(1)) point[2] = top;
 	points.splice(1, 0, [a[0] + (b[0] - a[0]) * 0.33, a[1] + (b[1] - a[1]) * 0.33, top]);
 	return reverse ? points.reverse() : points;

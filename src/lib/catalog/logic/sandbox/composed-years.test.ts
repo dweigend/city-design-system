@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
 import { STORY } from '../../data/grid';
@@ -11,14 +12,16 @@ test('later paint extends one frame and links houses across construction years',
 	const aged = applyEdit(earlier, { kind: 'advance' });
 	const later = applyEdit(aged, { kind: 'raise', cellId: b, use: 'water' });
 	const extended = applyEdit(later, { kind: 'raise', cellId: a, use: 'living' });
-	const chunk = extended.grid.cellsById.get(a)!.chunk;
+	const chunk = required(extended.grid.cellsById.get(a), 'painted cell').chunk;
 	const draw = (w: typeof extended) => houseGroups(w, chunk, focuses.all);
 	const groups = draw(extended),
-		section = groups.get('composed/' + a)!;
+		section = required(groups.get('composed/' + a), 'projected section');
 	expect(section.filter((p) => p.id.includes('/post/'))).toHaveLength(5);
 	const roof = section.find((p) => p.id.endsWith('/roof-walk'));
 	if (roof?.kind !== 'prism') throw Error('Missing roof');
-	expect(roof.z + roof.height).toBeCloseTo(extended.grid.cellsById.get(a)!.pad + 2 * STORY);
+	expect(roof.z + roof.height).toBeCloseTo(
+		required(extended.grid.cellsById.get(a), 'painted cell').pad + 2 * STORY
+	);
 	expect([...groups.keys()].some((k) => k.startsWith('composed/link/'))).toBe(true);
 	const changed = changes(later, extended).houseGroups;
 	expect(changed.has('composed/' + a)).toBe(true);
@@ -33,9 +36,14 @@ test('the fifth painted storey raises a continuous tower core', () => {
 			beginStroke({ kind: 'house', style: 'composed', use: 'living' }, world),
 			id
 		).draft;
-		const group = houseGroups(world, world.grid.cellsById.get(id)!.chunk, focuses.all).get(
-			'composed/' + id
-		)!;
+		const group = required(
+			houseGroups(
+				world,
+				required(world.grid.cellsById.get(id), 'stroke cell').chunk,
+				focuses.all
+			).get('composed/' + id),
+			'painted house'
+		);
 		expect(group.some((p) => p.id === id + '/core')).toBe(stories === 5);
 	}
 });

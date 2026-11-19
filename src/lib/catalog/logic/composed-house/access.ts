@@ -28,10 +28,11 @@ export function access(s: Section, surfaces: HouseSurfaces) {
 			size: [Math.hypot(dx, dy), width, end[2] - a[2]] as Vec3,
 			angle: Math.atan2(dy, dx)
 		};
-		const flight = mountFitting(fitting('stairs', id, s.seed, 'deck'), mount, true).map((p) => ({
-			...p,
-			...surfaces.access
-		}));
+		const stairs = fitting('stairs', id, s.seed, 'deck', {
+			deck: surfaces.access,
+			body: surfaces.frame
+		});
+		const flight = mountFitting(stairs, mount, true);
 		return [
 			...flight,
 			slab(

@@ -114,14 +114,29 @@ test('the same mixed paint allows distinct WFC compositions by seed', () => {
 });
 
 test('replacing every named surface changes no generated geometry', () => {
-	const replacement = { finish: 'wood', token: '--signal', material: 'wood' } as const;
-	const palette = Object.fromEntries(
-		Object.keys(houseSurfaces).map((k) => [k, replacement])
-	) as HouseSurfaces;
+	const replacement = { finish: 'wood', token: '--signal' } as const;
+	const palette = { ...houseSurfaces };
+	for (const slot of Object.keys(palette) as (keyof HouseSurfaces)[]) palette[slot] = replacement;
 	for (const seed of [0, 1, 2, 3, 4]) {
 		const section = planHouse(site(9, seed));
 		expect(sectionParts(section, undefined, palette)).toEqual(
-			sectionParts(section).map((p) => ({ ...p, ...replacement }))
+			sectionParts(section).map((p) => ({ ...p, ...replacement, material: 'wood' }))
 		);
+	}
+});
+
+test('reassigning the capsule glass leaves its shell and the continuous frame untouched', () => {
+	const input = site(2, 7, true);
+	const before = composedHouse(input);
+	const after = composedHouse(input, undefined, {
+		...houseSurfaces,
+		pane: { token: '--signal', finish: 'holz-natur' }
+	});
+	const glass = before.filter((p) => p.id.includes('/living-capsule/') && p.finish === 'glas-klar');
+	expect(glass.length).toBeGreaterThan(0);
+	for (const [i, part] of before.entries()) {
+		if (part.finish === 'glas-klar')
+			expect(after[i]).toMatchObject({ id: part.id, finish: 'holz-natur', token: '--signal' });
+		else expect(after[i]).toEqual(part);
 	}
 });

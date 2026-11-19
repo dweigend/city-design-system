@@ -1,3 +1,4 @@
+import { required } from '../required';
 import type { HouseUse } from '../../data/house-body';
 import { defineRules, weightedForm, type NeighbourCell } from '../../core/neighbourhood';
 import type { EnsembleDistrict } from './ensemble-policy';
@@ -68,9 +69,10 @@ function solveHouseSection(nodes: Node[], district: EnsembleDistrict, seed: numb
 	);
 	const rules = defineRules({ contacts, districts: domains }, { budget: forms.length });
 	return nodes.map(({ id }) => {
-		const cell = state.get(id)!;
+		const cell = required(state.get(id), 'section node');
 		state.set(id, { ...cell, protected: false });
-		const form = rules.solve([id], state, seed).get(id)!.target as Form;
+		const form = required(rules.solve([id], state, seed).get(id), 'section decision')
+			.target as Form;
 		state.set(id, { ...cell, form });
 		return form;
 	});
@@ -126,7 +128,9 @@ export function houseProgramme(
 			...nodes,
 			{
 				id: id + '/crown',
-				choices: uses.at(-1)!.some((u) => u === 'energy' || u === 'material')
+				choices: required(uses.at(-1), 'crown programme').some(
+					(u) => u === 'energy' || u === 'material'
+				)
 					? ['panels', 'chimney']
 					: ['lantern', 'chimney']
 			}

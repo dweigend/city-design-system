@@ -1,4 +1,5 @@
-import { houseSurfaces, type HouseSurfaces } from './surfaces';
+import { required } from '../required';
+import { structuralSurface, houseSurfaces, type HouseSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
 import { sectionObstacle, type HouseObstacle } from './clearance';
 import { bridgeForm, type EnsembleDistrict } from '../district-frame';
@@ -51,7 +52,10 @@ function link(
 	if (!candidates.length) return;
 	const choices = [...new Set(candidates.map((c) => c.kind))];
 	const kind = bridgeForm(a.id, b.id, id, choices, district, seed);
-	const { from, to, route } = candidates.find((c) => c.kind === kind)!;
+	const { from, to, route } = required(
+		candidates.find((c) => c.kind === kind),
+		'surveyed bridge form'
+	);
 	return {
 		id,
 		kind,
@@ -66,7 +70,7 @@ function link(
 			width,
 			groundZ: Math.max(from[2], to[2]),
 			simplifyAtCity: true
-		}).map((p) => ({ ...p, ...surfaces.access }))
+		}).map((p) => ({ ...p, ...structuralSurface(surfaces.access) }))
 	};
 }
 /** Connects visible deck pairs within three carrier sides, with stable undirected ownership. */

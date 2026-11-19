@@ -1,3 +1,4 @@
+import { required } from '../required';
 import type { HouseObstacle } from './clearance';
 import type { Stacks } from '../../data/house-body';
 import type { EnsembleDistrict } from '../district-frame';
@@ -14,10 +15,10 @@ function footprints(grid: QuadGrid, stacks: Stacks, joined: Survey['joined']) {
 	const pending = new Set([...stacks.keys()].filter((id) => grid.cellsById.has(id)).sort());
 	const result = [];
 	for (const id of pending) {
-		const row = stacks.get(id)!,
+		const row = required(stacks.get(id), 'painted stack'),
 			level = row.findIndex(Boolean);
 		if (level < 0) continue;
-		const cells = [grid.cellsById.get(id)!];
+		const cells = [required(grid.cellsById.get(id), 'painted cell')];
 		pending.delete(id);
 		for (const cell of cells)
 			for (const n of neighborsOf(grid, cell)) {
@@ -61,8 +62,8 @@ export function sectionGroups(
 		parts: () => sectionParts(h)
 	}));
 	for (const link of houseLinks(grid, houses, seed, stock)) {
-		const a = byId.get(link.a)!,
-			b = byId.get(link.b)!;
+		const a = required(byId.get(link.a), 'first bridge owner'),
+			b = required(byId.get(link.b), 'second bridge owner');
 		groups.push({
 			id: link.id,
 			owners: [a.id, b.id],

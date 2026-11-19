@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { planHouse, sectionParts, houseLinks } from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { squareGrid, type QuadGrid } from '../quad-grid';
@@ -24,7 +25,7 @@ const programme = {
 } satisfies Record<string, HouseUse[]>;
 
 function house(grid: QuadGrid, id: string, uses: HouseUse[], seed: number) {
-	const cell = grid.cellsById.get(id)!;
+	const cell = required(grid.cellsById.get(id), 'plate cell');
 	return planHouse({ cells: [cell], stacks: new Map([[id, uses]]), seed });
 }
 function single(

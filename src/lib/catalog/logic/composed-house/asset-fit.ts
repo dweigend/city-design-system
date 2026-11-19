@@ -1,4 +1,4 @@
-import { assetRegistry, buildAsset, type Attachment } from '../assets';
+import { assetRegistry, buildObject, type Attachment, type SlotAssignment } from '../assets';
 import { bounds, union } from '../ansicht/geometrie';
 import { required } from '../required';
 import type { Primitive, Vec3 } from '../parametrik/types';
@@ -13,21 +13,26 @@ export function fitting(
 	instance: string,
 	seed: number,
 	attachment: Attachment,
+	assignments: Readonly<Record<string, SlotAssignment>>,
 	selected?: string
 ) {
 	const asset = required(
 		assetRegistry.find((a) => a.id === id),
 		id
 	);
-	const anchor = required(
-		asset.anchors.find((a) => a.attachment === attachment),
-		id + ' ' + attachment
-	);
+
 	const variant =
 		selected ??
 		asset.variants[Math.floor(hashUnit(seed, instance, 'variant') * asset.variants.length)];
-	const parts = buildAsset(id, variant, seed, instance + '/' + id);
-	return { parts, anchor, footprint: asset.footprint };
+	const slots = Object.fromEntries(
+		asset.slotNames.map((name) => [name, required(assignments[name], id + '/' + name)])
+	);
+	const object = buildObject(id, variant, seed, { instanceId: instance + '/' + id, slots });
+	const anchor = required(
+		object.anchors.find((a) => a.attachment === attachment),
+		id + ' ' + attachment
+	);
+	return { parts: object.parts, anchor, footprint: object.footprint };
 }
 function placed(part: Primitive, { point, scale: [sx, sy, sz], angle }: Fit): Primitive {
 	const radius = Math.min(sx, sy);
