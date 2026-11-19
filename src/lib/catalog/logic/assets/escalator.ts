@@ -26,7 +26,7 @@ export const escalator: AssetRecipe = {
 			for (const side of [-0.69, 0.69]) {
 				const Y = y + side;
 				parts.push(
-					rod([-run / 2, Y, 0.08], [run / 2, Y, n * h + 0.08], 0.11),
+					rod([-run / 2, Y, 0.12], [run / 2, Y, n * h + 0.12], 0.11),
 					rod([-run / 2, Y, 0.93], [run / 2, Y, n * h + 0.93], 0.077)
 				);
 				for (let i = 0; i <= n; i += 1) {
