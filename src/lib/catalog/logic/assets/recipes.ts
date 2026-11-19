@@ -1,3 +1,4 @@
+import { studioBlocks } from './production/studio-blocks';
 import { parkDecks } from './production/park-decks';
 import { promenade } from './production/promenade';
 import { inhabited } from './production/inhabited';
@@ -190,5 +191,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...occupiedDecks,
 	...inhabited,
 	...promenade,
-	...parkDecks
+	...parkDecks,
+	...studioBlocks
 ];
