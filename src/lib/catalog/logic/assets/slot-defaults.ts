@@ -55,7 +55,10 @@ function defaultSlot(recipe: AssetRecipe, slot: string) {
 
 /** Resolves a recipe's authored slot suggestion, using each component's physical finish. */
 export function suggestedSurface(recipe: AssetRecipe, variant: string, slot: string): AssetSurface {
-	const name = recipe.slotNames.length > 3 ? defaultSlot(recipe, slot) : slot;
+	const name =
+		recipe.slotNames.length > 3 && !recipe.id.startsWith('person-')
+			? defaultSlot(recipe, slot)
+			: slot;
 	const preset = recipe.finishes?.[variant] ?? recipe.suggestions?.[name];
 	if (preset) return { ...preset };
 	const surface = dress[name];

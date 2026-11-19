@@ -1,133 +1,139 @@
-import { block } from '../assembly';
-import { rod, bulb } from '../parts';
-import { bicycle, pushcart, wheel } from './deck-vehicles';
-import { capsule, kitRecipe, rounded } from './kit-recipe';
-import { figure, type Pose } from './figure';
-import type { ObjectGeometry } from '../object-geometry';
-
-type Prop = (variant: number) => ObjectGeometry[];
-function person(
+import { mount, type AssetRecipe } from '../definition';
+import { figureSurfaces } from '../production/public-life';
+import { panel } from './forms';
+import { capsule } from './kit-recipe';
+import { ring } from '../parts';
+import { actionFigure, clay, type Pose } from '../production/activities/action-figure';
+function accessory(id: string, v: number) {
+	const hardware = v === 1 ? 'frame' : 'accent';
+	if (id.includes('bicycle') || id.startsWith('cargo'))
+		return [
+			...[-1, 1].map((s) => ({
+				...ring([s * 0.36, 0, 0.26], 0.26, 0.215, 0.055, 'trim'),
+				rotation: Math.PI / 2
+			})),
+			capsule([-0.36, 0, 0.26], [0.36, 0, 0.53], 0.06, hardware)
+		];
+	if (id === 'crate-carrier')
+		return [panel(0.26, 0, 0.88, 0.28, 0.35, 0.25, v === 1 ? 'trim' : 'accent')];
+	if (id === 'wheelchair-user')
+		return [
+			panel(0, 0, 0.35, 0.41, 0.44, 0.1, hardware),
+			...[-1, 1].map((s) => ({
+				...ring([0, s * 0.24, 0.26], 0.26, 0.215, 0.055, 'trim'),
+				rotation: Math.PI / 2
+			}))
+		];
+	if (id.includes('pusher'))
+		return [
+			panel(0.46, 0, 0.25, 0.53, 0.44, 0.43, hardware),
+			{ ...ring([0.49, 0, 0.17], 0.17, 0.12, 0.09, 'trim'), rotation: Math.PI / 2 }
+		];
+	return [];
+}
+function furniture(x: number, y: number, seated: boolean, support: boolean) {
+	const seat = seated
+		? [panel(x, y, 0, 0.26, 0.25, 0.36, 'trim'), panel(x, y, 0.36, 0.33, 0.33, 0.09, 'accent')]
+		: [];
+	if (support) seat.push(panel(x + 0.38, y, 0, 0.18, 0.4, 0.88, 'frame'));
+	return seat;
+}
+function entry(
 	id: string,
-	pose: Pose,
-	child = false,
-	prop?: Prop,
-	space: [number, number] = [1.25, 1.25],
-	vehicle = false
-) {
-	return kitRecipe(
-		'person-' + id,
-		'neighbourhood-services',
-		space,
-		vehicle ? ['body', 'trim', 'accent', 'frame'] : ['body', 'trim', 'accent'],
-		['relaxed', 'lifted-hand', 'broad-coat'],
-		(v) => [...figure(pose, 0, 0, v, child), ...(prop?.(v) ?? [])]
-	);
+	footprint: [number, number],
+	slotNames: string[],
+	poses: Pose[],
+	child: boolean
+): AssetRecipe {
+	const members = poses.length === 2 ? [...poses, 'stand' as const] : poses;
+	return {
+		id: 'person-' + id,
+		category: 'neighbourhood-services',
+		footprint,
+		anchors: [mount('deck')],
+		variants: ['relaxed', 'lifted-hand', 'broad-coat'],
+		slotNames,
+		suggestions: {
+			body: { ...clay, token: '--body-living' },
+			trim: figureSurfaces.gear,
+			accent: figureSurfaces.skin,
+			frame: figureSurfaces.gear
+		},
+		draw(v, s) {
+			const props = accessory(id, v);
+			const workstation = slotNames.includes('frame') && props.length === 0;
+			return members.flatMap((pose, i) => {
+				const x = members.length > 1 ? [0.27, -0.28, 0.15][i] : 0,
+					y = (i - (members.length - 1) / 2) * 0.76;
+				const seated = props.length === 0 && (v === 2 || pose === 'sit');
+				const posture = seated ? 'sit' : i === 1 && pose === 'stand' ? 'walk' : pose;
+				const seat = furniture(x, y, seated, workstation && v === 1);
+				return [
+					...actionFigure(posture, [x, y, 0], {
+						sample: (s + i * 0.37) % 1,
+						slot: 'body',
+						phase: v,
+						heading: (v - 1) * 0.33 + i * 1.78,
+						child: child && i === poses.length - 1
+					}),
+					...seat,
+					...props
+				];
+			});
+		}
+	};
 }
-function group(id: string, poses: Pose[], childLast = false, spacing = 0.8) {
-	return kitRecipe(
-		'person-' + id,
-		'neighbourhood-services',
-		[1.25, poses.length === 3 ? 3.75 : 2.5],
-		['body', 'accent', 'trim'],
-		['relaxed', 'lifted-hand', 'broad-coat'],
-		(v) =>
-			poses.flatMap((p, i) =>
-				figure(p, 0, (i - (poses.length - 1) / 2) * spacing, v, childLast && i === poses.length - 1)
-			)
-	);
-}
-function dog() {
-	return [
-		capsule([0.35, 0.4, 0.35], [0.7, 0.4, 0.35], 0.15, 'accent'),
-		bulb([0.8, 0.4, 0.5], 0.15, 1, 'trim'),
-		...[0.35, 0.7].flatMap((x) =>
-			[0.3, 0.5].map((y) => capsule([x, y, 0.3], [x, y, 0.1], 0.1, 'body'))
-		),
-		rod([0, 0.2, 0.95], [0.65, 0.4, 0.45], 0.06, 'trim')
-	];
-}
-function chair() {
-	return [
-		wheel(0, 0.35, 0.35),
-		wheel(0, -0.35, 0.35),
-		wheel(0.45, 0.25, 0.15),
-		wheel(0.45, -0.25, 0.15),
-		rounded(0.1, 0, 0.35, 0.6, 0.6, 0.1, 'frame'),
-		block(-0.2, 0, 0.45, 0.12, 0.6, 0.55, 'frame'),
-		...[-0.25, 0.25].map((y) => rod([0, y, 0.35], [0.45, y, 0.15], 0.06, 'frame'))
-	];
-}
-function ladder() {
-	return [
-		...[-0.25, 0.25].map((y) => block(0.45, y, 0, 0.12, 0.12, 1.8, 'frame')),
-		...[0.3, 0.6, 0.9, 1.2, 1.5].map((z) => block(0.45, 0, z, 0.12, 0.4, 0.12, 'frame'))
-	];
-}
-
 export const people = [
-	person('standing', 'stand'),
-	person('waving', 'wave'),
-	person('pointing', 'point'),
-	person('looking-out', 'look'),
-	person('walking-left', 'walk-left'),
-	person('walking-right', 'walk-right'),
-	person('running', 'run'),
-	person('sitting', 'sit'),
-	person('sitting-reading', 'sit', false, () => [block(0.3, 0, 0.67, 0.25, 0.4, 0.05, 'accent')]),
-	person('railing-lean', 'lean'),
-	person('stair-climb', 'step'),
-	person(
-		'crate-carrier',
-		'carry',
-		false,
-		() => [block(0.4, 0, 1.05, 0.45, 0.45, 0.35, 'accent')],
-		[2.5, 1.25]
+	entry('standing', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], false),
+	entry('waving', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], false),
+	entry('pointing', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], false),
+	entry('looking-out', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], false),
+	entry('walking-left', [1.25, 1.25], ['body', 'trim', 'accent'], ['walk'], false),
+	entry('walking-right', [1.25, 1.25], ['body', 'trim', 'accent'], ['walk'], false),
+	entry('running', [1.25, 1.25], ['body', 'trim', 'accent'], ['walk'], false),
+	entry('sitting', [1.25, 1.25], ['body', 'trim', 'accent'], ['sit'], false),
+	entry('sitting-reading', [1.25, 1.25], ['body', 'trim', 'accent'], ['sit'], false),
+	entry('railing-lean', [1.25, 1.25], ['body', 'trim', 'accent'], ['lean'], false),
+	entry('stair-climb', [1.25, 1.25], ['body', 'trim', 'accent'], ['climb'], false),
+	entry('crate-carrier', [2.5, 1.25], ['body', 'trim', 'accent'], ['carry'], false),
+	entry('cart-pusher', [3.75, 1.25], ['body', 'trim', 'accent', 'frame'], ['lean'], false),
+	entry('watering', [2.5, 1.25], ['body', 'trim', 'accent'], ['carry'], false),
+	entry('ladder-repair', [1.25, 1.25], ['body', 'trim', 'accent', 'frame'], ['lean'], false),
+	entry('at-workbench', [2.5, 1.25], ['body', 'trim', 'accent', 'frame'], ['carry'], false),
+	entry('bicycle-rider', [2.5, 1.25], ['body', 'trim', 'accent', 'frame'], ['cycle'], false),
+	entry('bicycle-walker', [2.5, 2.5], ['body', 'trim', 'accent', 'frame'], ['lean'], false),
+	entry('cargo-rider', [3.75, 1.25], ['body', 'trim', 'accent', 'frame'], ['cycle'], false),
+	entry('cargo-walker', [3.75, 2.5], ['body', 'trim', 'accent', 'frame'], ['lean'], false),
+	entry('pram-pusher', [3.75, 1.25], ['body', 'trim', 'accent', 'frame'], ['lean'], false),
+	entry('wheelchair-user', [2.5, 1.25], ['body', 'trim', 'accent', 'frame'], ['sit'], false),
+	entry('dog-walker', [2.5, 1.25], ['body', 'trim', 'accent'], ['walk'], false),
+	entry('reading', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], false),
+	entry('child-standing', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], true),
+	entry('child-waving', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], true),
+	entry('child-walking', [1.25, 1.25], ['body', 'trim', 'accent'], ['walk'], true),
+	entry('child-running', [1.25, 1.25], ['body', 'trim', 'accent'], ['walk'], true),
+	entry('child-climbing', [1.25, 1.25], ['body', 'trim', 'accent'], ['climb'], true),
+	entry('child-pointing', [1.25, 1.25], ['body', 'trim', 'accent'], ['stand'], true),
+	entry('walking-pair', [1.25, 2.5], ['body', 'accent', 'trim'], ['walk', 'walk'], false),
+	entry('waiting-pair', [1.25, 2.5], ['body', 'accent', 'trim'], ['stand', 'stand'], false),
+	entry('greeting-pair', [1.25, 2.5], ['body', 'accent', 'trim'], ['stand', 'stand'], false),
+	entry('seated-pair', [1.25, 2.5], ['body', 'accent', 'trim'], ['sit', 'sit'], false),
+	entry('holding-child-hand', [1.25, 2.5], ['body', 'accent', 'trim'], ['stand', 'stand'], true),
+	entry('family-walk', [1.25, 3.75], ['body', 'accent', 'trim'], ['walk', 'walk', 'walk'], true),
+	entry(
+		'waiting-trio',
+		[1.25, 3.75],
+		['body', 'accent', 'trim'],
+		['stand', 'stand', 'stand'],
+		false
 	),
-	person('cart-pusher', 'push', false, () => pushcart(1.05, 0, false), [3.75, 1.25], true),
-	person(
-		'watering',
-		'carry',
-		false,
-		() => [
-			rounded(0.45, 0, 0.85, 0.4, 0.3, 0.35, 'accent'),
-			rod([0.6, 0, 0.95], [0.9, 0, 1.15], 0.06, 'trim')
-		],
-		[2.5, 1.25]
-	),
-	person('ladder-repair', 'reach', false, ladder, [1.25, 1.25], true),
-	person(
-		'at-workbench',
-		'carry',
-		false,
-		() => [
-			block(0.55, 0, 0.95, 0.6, 1, 0.15, 'frame'),
-			...[-0.35, 0.35].map((y) => block(0.55, y, 0, 0.3, 0.3, 0.95, 'frame'))
-		],
-		[2.5, 1.25],
-		true
-	),
-	person('bicycle-rider', 'ride', false, () => bicycle(0.15, 0, false), [2.5, 1.25], true),
-	person('bicycle-walker', 'push', false, () => bicycle(0, 0.4, false), [2.5, 2.5], true),
-	person('cargo-rider', 'ride', false, () => bicycle(0.15, 0, true), [3.75, 1.25], true),
-	person('cargo-walker', 'push', false, () => bicycle(0, 0.4, true), [3.75, 2.5], true),
-	person('pram-pusher', 'push', false, () => pushcart(1.05, 0, true), [3.75, 1.25], true),
-	person('wheelchair-user', 'sit', false, chair, [2.5, 1.25], true),
-	person('dog-walker', 'walk-left', false, dog, [2.5, 1.25]),
-	person('reading', 'read', false, () => [block(0.3, 0, 1.25, 0.25, 0.4, 0.05, 'accent')]),
-	person('child-standing', 'stand', true),
-	person('child-waving', 'wave', true),
-	person('child-walking', 'walk-left', true),
-	person('child-running', 'run', true),
-	person('child-climbing', 'step', true),
-	person('child-pointing', 'point', true),
-	group('walking-pair', ['walk-left', 'walk-right']),
-	group('waiting-pair', ['stand', 'look']),
-	group('greeting-pair', ['wave', 'stand']),
-	group('seated-pair', ['sit', 'sit']),
-	group('holding-child-hand', ['hand', 'hand'], true, 0.7),
-	group('family-walk', ['walk-left', 'walk-right', 'walk-left'], true),
-	group('waiting-trio', ['stand', 'look', 'stand']),
-	group('tour-trio', ['point', 'look', 'look']),
-	group('walking-trio', ['walk-left', 'walk-right', 'walk-left']),
-	group('greeting-trio', ['wave', 'stand', 'wave'])
+	entry('tour-trio', [1.25, 3.75], ['body', 'accent', 'trim'], ['stand', 'stand', 'stand'], false),
+	entry('walking-trio', [1.25, 3.75], ['body', 'accent', 'trim'], ['walk', 'walk', 'walk'], false),
+	entry(
+		'greeting-trio',
+		[1.25, 3.75],
+		['body', 'accent', 'trim'],
+		['stand', 'stand', 'stand'],
+		false
+	)
 ];
