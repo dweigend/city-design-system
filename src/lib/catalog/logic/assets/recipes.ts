@@ -1,3 +1,4 @@
+import { shade } from './objects/shade';
 import { marketStands } from './objects/market-stands';
 import { display } from './objects/display';
 import { vessels } from './objects/vessels';
@@ -142,5 +143,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...lighting,
 	...vessels,
 	...display,
-	...marketStands
+	...marketStands,
+	...shade
 ];
