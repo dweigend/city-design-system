@@ -1,3 +1,4 @@
+import { vessels } from './objects/vessels';
 import { lighting } from './objects/lighting';
 import { tables } from './objects/tables';
 import { seating } from './objects/seating';
@@ -136,5 +137,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...primitiveObjects,
 	...seating,
 	...tables,
-	...lighting
+	...lighting,
+	...vessels
 ];
