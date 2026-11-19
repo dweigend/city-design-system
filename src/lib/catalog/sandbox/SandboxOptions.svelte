@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { ToggleGroup } from 'bits-ui';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { Box } from 'lucide-svelte';
 	import Icon from '../ui/Icon.svelte';
 	import Tooltip from '../ui/Tooltip.svelte';
+	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 	type Option = {
 		id: string;
 		name: string;
+		shortName?: string;
 		color?: string;
 		figure?: string;
 		shortcut?: string;
@@ -37,11 +40,11 @@
 		value={entry.id}
 		class="cg-sandbox-option"
 		aria-label={entry.name}
-		aria-keyshortcuts={entry.shortcut ?? String(index + 1)}
+		aria-keyshortcuts={showsShortcuts.current ? (entry.shortcut ?? String(index + 1)) : undefined}
 	>
 		{#if entry.color}<span class="swatch" style:--swatch={entry.color}></span>{/if}
-		<span class="name">{entry.name}</span>
-		{#if entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
+		<span class="name">{horizontal ? (entry.shortName ?? entry.name) : entry.name}</span>
+		{#if showsShortcuts.current && entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
 		{#if entry.icon}
 			<span class="method-icon"><Icon icon={entry.icon} size={16} /></span>
 		{/if}
@@ -79,7 +82,8 @@
 		position: relative;
 		column-gap: var(--space-3);
 		align-items: center;
-		min-height: var(--ctl-m);
+		min-width: var(--sandbox-target);
+		min-height: var(--sandbox-target);
 		padding: var(--space-1) var(--space-3);
 		border: 0;
 		background: none;
@@ -149,7 +153,7 @@
 			grid-template-columns: auto;
 			grid-template-areas: 'swatch' 'name';
 			justify-items: center;
-			padding: var(--space-2) var(--space-1);
+			padding: var(--space-2) calc(var(--space-1) / 2);
 		}
 		:global(.cg-sandbox-option + .cg-sandbox-option) {
 			border-top: 0;
@@ -158,7 +162,10 @@
 		:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
 			grid-template-columns: auto;
 			grid-template-areas: 'symbol';
-			min-width: var(--space-8);
+			min-width: var(--sandbox-target);
+		}
+		.name {
+			letter-spacing: 0;
 		}
 		:global(.cg-sandbox-options[data-compact]) .name,
 		kbd {

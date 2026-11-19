@@ -15,7 +15,7 @@ import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
 import { WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
-import { baseGeometry, surfaceGeometry, waterGeometry } from './terrain-geometry';
+import { baseGeometry, patchSurface, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
 
 /** A constant screen-space field has no resolvable contour. */
@@ -182,6 +182,7 @@ export function createTerrainMesh(
 	const base = baseGeometry(grid);
 	const baseMesh = new THREE.Mesh(base.geometry, baseMaterial);
 	let baseLines = base.lines;
+	let currentGrid = grid;
 
 	const group = new THREE.Group();
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
@@ -219,7 +220,8 @@ export function createTerrainMesh(
 				mesh.geometry = geometry;
 			};
 			replace(deck, footbridgeGeometry(next));
-			replace(surface, surfaceGeometry(next));
+			patchSurface(surface.geometry, currentGrid, next);
+			currentGrid = next;
 			replace(water, waterGeometry(next));
 			replace(baseMesh, nextBase.geometry);
 			baseLines = nextBase.lines;

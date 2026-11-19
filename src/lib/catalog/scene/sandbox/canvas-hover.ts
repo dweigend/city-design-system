@@ -15,17 +15,19 @@ export function createCanvasHover(
 		return index === undefined ? undefined : shown?.grid.cells[index];
 	}
 	function refresh() {
-		publish(pointer && cellAt(pointer.x, pointer.y)?.id);
+		const cell = pointer && cellAt(pointer.x, pointer.y);
+		publish(cell?.id);
+		return cell;
 	}
 	return {
 		cellAt,
 		dispose: stage.afterFrame(refresh),
 		move(position: typeof pointer) {
 			pointer = position;
-			refresh();
+			return refresh();
 		},
-		show(world: World, focus: Parameters<SandboxStage['show']>[1]) {
-			stage.show(world, focus);
+		show(world: World, focus: Parameters<SandboxStage['show']>[1], place = false) {
+			stage.show(world, focus, place);
 			shown = world;
 		}
 	};

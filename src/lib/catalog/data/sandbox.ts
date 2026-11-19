@@ -44,6 +44,7 @@ export const sandboxTools: SandboxTool[] = [
 export type SandboxOption<T extends string> = {
 	id: T;
 	name: string;
+	shortName?: string;
 	/** The figure that carries the meaning besides color (second channel). */
 	figure: string;
 	/** CSS color of the swatch. */
@@ -56,7 +57,13 @@ export const sandboxUses: SandboxOption<'living' | 'water' | 'energy' | 'food' |
 	{ id: 'water', name: 'Water', figure: 'Porthole, tank', color: 'var(--cat-health)' },
 	{ id: 'energy', name: 'Energy', figure: 'Twin panels, sun dish', color: 'var(--cat-mobility)' },
 	{ id: 'food', name: 'Food', figure: 'Glazing, greenhouse', color: 'var(--cat-nature)' },
-	{ id: 'material', name: 'Workshop', figure: 'Gate, shed roof', color: 'var(--cat-living)' }
+	{
+		id: 'material',
+		name: 'Workshop',
+		shortName: 'Work',
+		figure: 'Gate, shed roof',
+		color: 'var(--cat-living)'
+	}
 ];
 
 export const sandboxLines: SandboxOption<'viaduct' | 'capsule' | 'walkway'>[] = [
@@ -142,3 +149,25 @@ export const surveyMessages: Readonly<Record<string, string>> = {
 	'wet-support': 'The walkway needs dry ground under each support.',
 	'occupied-path': 'A walkway already occupies this part of the route.'
 };
+
+/** Radius of a dug basin around its cell, meters. */
+export const DIG_RADIUS_M = 9;
+
+/** Maximum response times and accent spacing in milliseconds. */
+export const sandboxMotion = { seatMs: 120, pillarStepMs: 30, responseMs: 300 };
+
+/** Browser-synthesized cues. Frequencies are in Hz, durations in seconds, gains are linear. */
+export const sandboxSounds = {
+	ceramic: { wave: 'sine', hz: 392, seconds: 0.12, gain: 0.08 },
+	carrier: { wave: 'triangle', hz: 740, seconds: 0.075, gain: 0.035 },
+	pillar: { wave: 'triangle', hz: 520, seconds: 0.085, gain: 0.045 },
+	stop: { wave: 'sine', hz: 195, seconds: 0.16, gain: 0.06 },
+	growth: { wave: 'noise', hz: 1900, seconds: 0.16, gain: 0.024 },
+	dig: { wave: 'noise', hz: 280, seconds: 0.2, gain: 0.033 },
+	water: { wave: 'sine', hz: 173, seconds: 0.18, gain: 0.045 },
+	erase: { wave: 'sine', hz: 392, seconds: 0.12, gain: 0.08, reverse: true },
+	advance: { wave: 'noise', hz: 1100, seconds: 0.24, gain: 0.028 }
+} as const;
+
+/** A five-note scale in equal-tempered semitones, ordered from the first story. */
+export const sandboxScale = [0, 2, 4, 7, 9] as const;

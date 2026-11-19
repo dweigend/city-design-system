@@ -8,10 +8,17 @@ export { installationPartView, installationView } from './installation-view';
 export { applyEdit, createWorld, withState, type World } from './world';
 export { commit, redo, startHistory, undo } from './history';
 export { changes } from './changes';
-export { beginStroke, extendStroke, type Stroke, type Tool } from './stroke';
-export { cursorFrame } from './cursor';
+export {
+	applyStroke,
+	beginStroke,
+	extendStroke,
+	traceStroke,
+	type Stroke,
+	type Tool
+} from './stroke';
+export { cursorFrame, cursorTarget, strokePreview } from './cursor';
 export { currentStacks, houseView } from './houses';
-export { acceptanceScene } from './acceptance-scene';
+export { acceptanceScene, openingScene } from './acceptance-scene';
 export { timelineWindow } from './time-layers';
 export { buildingPlots } from './building-plots';
 export {

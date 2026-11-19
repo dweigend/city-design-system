@@ -21,16 +21,22 @@ import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { KEY, projectChanges, projectInstallations } from './projection';
+import { KEY, projectChanges } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
-import { frameOldTown } from './opening-view';
+import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { createView, type OpeningArea } from './view';
+import { createVehicles } from './vehicles';
+import { createFrameLoop } from './frame-loop';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
 	openingArea?: () => OpeningArea | undefined;
+	/** Opens an editable sandbox at the town scale. */
+	frameTown?: boolean;
+	/** Seed the study additions belong to, if restricted to one terrain. */
+	additionSeed?: number;
 	/** Optional study window in world meters, from its low corner to its high corner. */
 	frame?: readonly [Vec3, Vec3];
 	/** Retain additions from these epochs in their full drafting treatment for comparison. */
@@ -55,15 +61,15 @@ export function createSandboxStage(
 	study: StageOptions = {}
 ) {
 	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	const gpu = startRenderer(renderer, canvas, { ready: () => render(), failed: onError });
+	const gpu = startRenderer(renderer, canvas, { ready: () => loop.render(), failed: onError });
 
 	const scene = new THREE.Scene();
 	const view = createView();
 	const light = createLight();
 	const structures = createStructures();
-	const nextFrame = { set: structures.queue };
+	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
-	scene.add(...light.objects, structures.group);
+	scene.add(...light.objects, structures.group, vehicles.group);
 
 	const ink = new THREE.Color();
 	const hazardRole = stilFuer({ zoom: 'nah', modus: 'bauen', situation: 'stoerung' }).rollen.gefahr;
@@ -82,6 +88,11 @@ export function createSandboxStage(
 	cursorMaterial.gapSizeNode = uniform(CURSOR_GAP_PX);
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
+	let target: LineSegments2 | undefined;
+	const targetMaterial = new THREE.Line2NodeMaterial({
+		linewidth: STRICHE.kontur,
+		depthWrite: false
+	});
 	let terrain: TerrainMesh | undefined;
 	const picker = createCellPicker(view);
 	/** The world the stage currently shows; the next one is drawn as a difference to it. */
@@ -91,18 +102,14 @@ export function createSandboxStage(
 	let planView = false;
 	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
 	let refreshTones = true;
+	let viewDirty = true;
+	let shadowsDirty = true;
+	const flushShadows = () => (shadowsDirty = true);
+	let opening: World | undefined;
 
-	let coarse = false;
-	function updateMeshDetail(zoom: ReturnType<typeof nearestZoom>) {
-		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
-		if (nextCoarse !== coarse && shown)
-			projectInstallations(nextFrame, shown, shown, focus, nextCoarse);
-		coarse = nextCoarse;
-	}
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
 		const zoom = nearestZoom(scale);
-		updateMeshDetail(zoom);
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context, variant);
@@ -114,32 +121,44 @@ export function createSandboxStage(
 		canvas.dataset.structureVariant = variant;
 		refreshTones = false;
 	}
-	const frameListeners = new Set<() => void>();
-	let pending = 0;
-	/** At most one image per animation frame, however many inputs arrive. */
-	function render() {
-		if (!gpu.isLive() || pending) return;
-		pending = requestAnimationFrame(() => {
-			pending = 0;
-			if (!gpu.isLive()) return;
-			light.aim(view.target, view.span());
-			pixelsPerMeter.value = 1 / view.metersPerPixel();
-			updateStyle();
-			renderer.render(scene, view.camera);
-			for (const listener of frameListeners) listener();
-			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
-		});
+
+	function prepareView() {
+		if (!viewDirty && !refreshTones) return;
+		light.aim(view.target, view.span());
+		pixelsPerMeter.value = 1 / view.metersPerPixel();
+		updateStyle();
+		viewDirty = false;
 	}
+
+	function renderImage(seating: boolean) {
+		if (shadowsDirty || seating) light.refresh();
+		shadowsDirty = seating;
+		renderer.render(scene, view.camera);
+		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
+	}
+
+	const loop = createFrameLoop(gpu.isLive, ({ timeMs, transitMs, reduced }) => {
+		prepareView();
+		const seating = structures.step(timeMs, reduced);
+		const transit = vehicles.step(transitMs);
+		renderImage(seating);
+		return seating || (transit && !loop.paused);
+	});
+	const { render } = loop;
+	loop.reduced.addEventListener('change', flushShadows);
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
 		refreshTones = true;
+		shadowsDirty = true;
 		ink.set(next.ink);
 		swatches.planned.set(next.blueprint);
 		swatches.hazard.set(next.categories[hazardRole.token.replace('--cat-', '')]);
 		baseOutline.color.copy(ink);
 		cursorMaterial.color.copy(swatches[cursorTone]);
+		targetMaterial.color.set(next.categories['--signal']);
 		terrain?.setPalette(next);
+		vehicles.setPalette(next);
 
 		render();
 	}
@@ -169,31 +188,41 @@ export function createSandboxStage(
 		return world && !planView && frameOldTown(view, world, study.openingArea?.());
 	}
 
-	function frameTerrain(mesh: TerrainMesh, world = shown) {
+	function frameTerrain(mesh: TerrainMesh) {
 		if (study.frame) view.frameBox(studyBounds(study.frame), OPENING_MARGIN);
-		else if (!framePortrait(world))
-			view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
+		else if (opening && framePortrait(opening)) return;
+		else if (opening && !view.isPortrait()) frameTownSilhouette(view, opening);
+		else view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
 	}
 
-	function shouldReframe(wasPortrait: boolean) {
-		return study.frame || wasPortrait !== view.isPortrait();
-	}
-
-	/** Starts over on a new terrain: fresh surface, nothing built, opening view. */
-	function open(world: World): World {
+	function replaceTerrain(world: World) {
 		if (terrain) {
 			scene.remove(terrain.group);
 			terrain.dispose();
 		}
+		const mesh = createTerrainMesh(world.grid, undefined, light.shade);
+		scene.add(mesh.group);
+		mesh.setGridVisible(Number(planView));
+		drawBaseLines(mesh);
+		if (palette) mesh.setPalette(palette);
+		return mesh;
+	}
+
+	/** Starts over on a new terrain: fresh surface, nothing built, opening view. */
+	function open(world: World): World {
 		structures.clear();
-		nextFrame.set('study', studyAdditions);
-		terrain = createTerrainMesh(world.grid, undefined, light.shade);
-		scene.add(terrain.group);
-		terrain.setGridVisible(planView ? 1 : 0);
-		drawBaseLines(terrain);
-		frameTerrain(terrain, world);
-		if (palette) terrain.setPalette(palette);
+		const additionSeed = study.additionSeed ?? world.seed;
+		if (additionSeed === world.seed) structures.set('study', studyAdditions);
+		terrain = replaceTerrain(world);
+		opening = study.frameTown ? world : undefined;
+		frameTerrain(terrain);
 		return { ...world, state: EMPTY_STATE, lines: [] };
+	}
+
+	function invalidateView() {
+		viewDirty = true;
+		shadowsDirty = true;
+		render();
 	}
 
 	function alreadyShown(world: World, nextFocus: FocusId) {
@@ -203,15 +232,44 @@ export function createSandboxStage(
 		return shown && shown.seed === world.seed ? shown : open(world);
 	}
 
-	function updateWorld(mesh: TerrainMesh, before: World, after: World, nextFocus: FocusId) {
+	function updateWorld(
+		mesh: TerrainMesh,
+		before: World,
+		after: World,
+		nextFocus: FocusId,
+		place: boolean
+	) {
+		const projection =
+			place && !loop.reduced.matches
+				? { set: (key: string, parts: Primitive[]) => structures.set(key, parts, loop.timeMs) }
+				: structures;
 		projectChanges(
-			{ terrain: mesh, structures: nextFrame, coarse, earliestFullYear: study.earliestFullYear },
+			{ terrain: mesh, structures: projection, earliestFullYear: study.earliestFullYear },
 			before,
 			after,
 			nextFocus,
-			nextFocus !== focus
+			nextFocus !== focus || before.roofBuilder !== after.roofBuilder
 		);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
+	}
+
+	function frameCurrent(force: boolean) {
+		if (terrain && (force || opening)) frameTerrain(terrain);
+	}
+
+	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
+		if (!study.frameTown) return;
+		if (before.lines !== world.lines) vehicles.setLines(world.lines, loop.transitMs);
+		vehicles.setFocus(nextFocus, world.state.year);
+	}
+
+	function worldShown(world: World, nextFocus: FocusId, firstFrame: boolean) {
+		focus = nextFocus;
+		shown = world;
+		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
+		shadowsDirty = true;
+		if (firstFrame) viewDirty = true;
+		render();
 	}
 
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
@@ -219,55 +277,56 @@ export function createSandboxStage(
 
 	return {
 		ready: gpu.started,
-		/** Runs after the rendered camera, pick meshes and their world matrices are current. */
-		afterFrame(listener: () => void) {
-			frameListeners.add(listener);
-			return () => {
-				frameListeners.delete(listener);
-			};
-		},
 		view,
-		render,
+		/** Retains the current camera position on resize after the player moves it. */
+		viewChanged() {
+			opening = undefined;
+			invalidateView();
+		},
 		/**
 		 * Shows a world. A new seed starts over; otherwise only what differs from the world
 		 * shown before is drawn again.
 		 */
-		show(world: World, nextFocus: FocusId) {
+		show(world: World, nextFocus: FocusId, place = false) {
 			if (alreadyShown(world, nextFocus)) return;
 			const before = previousWorld(world);
 			if (!terrain) return;
-			updateWorld(terrain, before, world, nextFocus);
-			focus = nextFocus;
-			shown = world;
-			canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
-			render();
+			updateWorld(
+				terrain,
+				before,
+				world,
+				nextFocus,
+				place && before === shown && before.state !== world.state
+			);
+			updateVehicles(before, world, nextFocus);
+			worldShown(world, nextFocus, before.state === EMPTY_STATE);
 		},
+		/** Pauses vehicle simulation at its current pose. Other placement feedback continues. */
+		setTransitPaused: loop.setPaused,
 		/** Canvas size in CSS pixels. */
 		resize(width: number, height: number) {
 			renderer.setSize(width, height, false);
-			const wasPortrait = view.isPortrait();
 			view.resize(width, height);
-			if (terrain && shouldReframe(wasPortrait)) frameTerrain(terrain);
-			render();
+			frameCurrent(Boolean(study.frame));
+			invalidateView();
 		},
 		/** Switches the structural line treatment without replaying interventions. */
 		setStructureVariant(next: StructureVariant) {
 			variant = next;
-			render();
+			invalidateView();
 		},
 		/** Axonometric view, or the plan seen from above. */
 		setPlan(plan: boolean) {
 			planView = plan;
 			view.setPlan(plan);
-			terrain?.setGridVisible(plan ? 1 : 0);
-			if (terrain) frameTerrain(terrain);
-			render();
+			terrain?.setGridVisible(Number(plan));
+			frameCurrent(!study.frameTown);
+			invalidateView();
 		},
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */
 		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
-			return picker(x, y, shown.grid, terrain.surface, [
-				...structures.solids(KEY.installation),
+			return picker(x, y, shown.grid, [
 				...structures.solids(KEY.house),
 				...structures.solids(KEY.forest)
 			]);
@@ -278,10 +337,20 @@ export function createSandboxStage(
 			render();
 		},
 		/** Draws planned outlines in world meters. An empty list hides them. */
-		setCursor(polylines: readonly (readonly Vec3[])[], tone: keyof typeof swatches = 'planned') {
+		setCursor(
+			polylines: readonly (readonly Vec3[])[],
+			outline: readonly Vec3[] = [],
+			tone: keyof typeof swatches = 'planned'
+		) {
 			cursorTone = tone;
 			cursorMaterial.color.copy(swatches[tone]);
 			cursorMaterial.linewidth = tone === 'hazard' ? 2 : planned.strichPx;
+			removeLines(target);
+			target = polylineObject(outline.length ? [outline] : [], targetMaterial);
+			if (target) {
+				target.renderOrder = 11;
+				scene.add(target);
+			}
 			removeLines(cursor);
 			cursor = polylineObject(polylines, cursorMaterial);
 			if (cursor) {
@@ -293,10 +362,13 @@ export function createSandboxStage(
 		},
 		dispose() {
 			stopTheme();
-			cancelAnimationFrame(pending);
-			frameListeners.clear();
+			loop.reduced.removeEventListener('change', flushShadows);
+			loop.dispose();
+			vehicles.dispose();
 			removeLines(baseLines);
 			removeLines(cursor);
+			removeLines(target);
+			targetMaterial.dispose();
 			if (terrain) terrain.dispose();
 			structures.dispose();
 			light.dispose();

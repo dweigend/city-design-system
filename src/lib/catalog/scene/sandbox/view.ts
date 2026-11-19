@@ -62,7 +62,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	function pan(dxPx: number, dyPx: number) {
 		const scale = metersPerPixel();
 		target.addScaledVector(right, -dxPx * scale);
-		target.addScaledVector(forward, -dyPx * scale * foreshortening());
+		target.addScaledVector(forward, dyPx * scale * foreshortening());
 		apply();
 	}
 
@@ -140,6 +140,23 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			const middle = area ? (area.top + area.bottom) / 2 : height / 2;
 			pan(0, height / 2 - middle);
 			return true;
+		},
+		/** Centers the projected silhouette. Points are in three.js meters. */
+		frameSilhouette(points: THREE.Vector3[]) {
+			const bounds = new THREE.Box2();
+			const up = new THREE.Vector3().crossVectors(eye, right);
+			for (const point of points)
+				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
+			const center = bounds.getCenter(new THREE.Vector2());
+			target.set(0, 0, 0).addScaledVector(right, center.x).addScaledVector(up, center.y);
+			const fit = ((bounds.max.x - bounds.min.x) * height) / (width * 0.5);
+			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
+			apply();
+		},
+		/** World meters to the current canvas position in CSS pixels. */
+		project([x, y, z]: Vec3) {
+			const point = new THREE.Vector3(x, z, -y).project(camera);
+			return { x: ((point.x + 1) * width) / 2, y: ((1 - point.y) * height) / 2 };
 		},
 		/** Canvas pixel → normalized device coordinates for ray casting. */
 		ndc: (xPx: number, yPx: number) =>

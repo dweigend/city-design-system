@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Toggle } from 'bits-ui';
-	import { Map as MapIcon } from 'lucide-svelte';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { Map as MapIcon, Pause, Play, Volume2, VolumeX } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
@@ -10,6 +11,7 @@
 	import SandboxCanvas from './SandboxCanvas.svelte';
 	import SandboxHud from './SandboxHud.svelte';
 	import { createSession } from './session.svelte';
+	import { createSandboxSound } from './sound';
 
 	/**
 	 * The city sandbox as a full page: the terrain fills the window, a sparse HUD floats on
@@ -28,6 +30,15 @@
 		const bottom = hudGroup.getBoundingClientRect().top;
 		if (top < bottom) return { top, bottom };
 	}
+	let storeTarget = $state<HTMLElement>();
+	let muted = $state(false);
+	let transitPaused = $state(false);
+	const sound = createSandboxSound();
+	$effect(() => sound.dispose);
+	$effect(() => {
+		if (session.completion) sound.play(session.completion);
+	});
+	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 
 	const store = $derived(
 		sandboxUses
@@ -71,13 +82,24 @@
 </script>
 
 <svelte:head><title>Sandbox · City Design System</title></svelte:head>
-<svelte:window onkeydown={shortcut} />
+<svelte:window
+	onpointerdown={sound.unlock}
+	onpointerup={sound.unlock}
+	onkeydown={(event) => {
+		sound.unlock();
+		shortcut(event);
+	}}
+/>
 <main>
 	<SandboxCanvas
 		{session}
 		{plan}
 		{openingArea}
-		label="City sandbox: terrain with area grid. Arrow keys move the view, plus and minus zoom."
+		{storeTarget}
+		{transitPaused}
+		label={showsShortcuts.current
+			? 'City sandbox. Arrow keys move the view, plus and minus zoom.'
+			: 'City sandbox. Pinch to zoom, drag with two fingers to move.'}
 		onhover={(cell) => (hovered = cell)}
 	/>
 	<header bind:this={header}>
@@ -90,14 +112,14 @@
 				Terrain {session.world.seed}
 			{/if}
 		</p>
-		{#if store.length}
-			<dl class="store" aria-label="Material store">
-				<dt>Store</dt>
-				{#each store as entry (entry.id)}
-					<dd><span class="dot" style:--dot={entry.color}></span>{entry.count} {entry.name}</dd>
-				{/each}
-			</dl>
-		{/if}
+		<dl class="store" aria-label="Material store" aria-live="polite">
+			<dt bind:this={storeTarget}>Store</dt>
+			{#each store as entry (entry.id)}
+				<dd><span class="dot" style:--dot={entry.color}></span>{entry.count} {entry.name}</dd>
+			{:else}
+				<dd>0</dd>
+			{/each}
+		</dl>
 		<div class="time">
 			<Button
 				variant="secondary"
@@ -113,11 +135,35 @@
 			class="cg-button"
 			data-variant="icon"
 			aria-label="Plan view"
-			aria-keyshortcuts="P"
-			title="Plan view (P)"
+			aria-keyshortcuts={showsShortcuts.current ? 'P' : undefined}
+			title={showsShortcuts.current ? 'Plan view (P)' : 'Plan view'}
 		>
 			<Icon icon={MapIcon} size={24} />
 		</Toggle.Root>
+		<Toggle.Root
+			pressed={muted}
+			onPressedChange={(next) => {
+				muted = next;
+				sound.setMuted(next);
+			}}
+			class="cg-button"
+			data-variant="icon"
+			aria-label="Mute sound"
+			title="Mute sound"
+		>
+			<Icon icon={muted ? VolumeX : Volume2} size={24} />
+		</Toggle.Root>
+		{#if session.world.lines.length}
+			<Toggle.Root
+				bind:pressed={transitPaused}
+				class="cg-button"
+				data-variant="icon"
+				aria-label="Pause vehicles"
+				title="Pause vehicles"
+			>
+				<Icon icon={transitPaused ? Play : Pause} size={24} />
+			</Toggle.Root>
+		{/if}
 		<ThemeToggle />
 	</div>
 	<SandboxHud bind:this={hud} bind:group={hudGroup} {session} />
@@ -125,6 +171,8 @@
 
 <style>
 	main {
+		--sandbox-target: max(44px, var(--ctl-m));
+		--steuer-knopf: var(--sandbox-target);
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
@@ -202,6 +250,10 @@
 		align-items: center;
 		gap: var(--space-2);
 	}
+	.mode :global(.cg-theme-item) {
+		width: var(--sandbox-target);
+		height: var(--sandbox-target);
+	}
 	.mode > :global(*) {
 		background: var(--paper);
 	}
@@ -209,5 +261,24 @@
 		background: var(--paper);
 		color: var(--ink);
 		box-shadow: inset 0 calc(-1 * var(--stroke)) var(--signal);
+	}
+	@media (max-width: 640px) {
+		.mode {
+			top: var(--space-2);
+			right: var(--space-2);
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: end;
+			max-width: calc(3 * var(--sandbox-target) + 2 * var(--space-1) + 2 * var(--hair));
+			gap: var(--space-1);
+		}
+		.mode :global(.cg-theme) {
+			margin-left: auto;
+		}
+		.brand {
+			display: inline-flex;
+			align-items: center;
+			min-height: var(--sandbox-target);
+		}
 	}
 </style>

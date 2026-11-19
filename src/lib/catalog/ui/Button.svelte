@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from 'bits-ui';
 	import type { Snippet } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { ButtonVariant } from '../data/system';
 
@@ -12,6 +13,7 @@
 		icon?: Snippet;
 	};
 	let { variant = 'primary', label, shortcut, icon, ...rest }: Props = $props();
+	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 </script>
 
 <Button.Root
@@ -19,14 +21,16 @@
 	class="cg-button"
 	data-variant={variant}
 	aria-label={variant === 'icon' || variant === 'bare' ? label : undefined}
-	aria-keyshortcuts={shortcut}
+	aria-keyshortcuts={showsShortcuts.current ? shortcut : undefined}
 >
 	{#if (variant === 'icon' || variant === 'bare') && icon}
 		{@render icon()}
 	{:else}
 		<span class="cg-button-label">{label}</span>
 		{#if variant === 'text'}<span class="cg-button-arrow" aria-hidden="true">→</span>{/if}
-		{#if shortcut && variant !== 'text'}<kbd class="cg-button-key">{shortcut}</kbd>{/if}
+		{#if showsShortcuts.current && shortcut && variant !== 'text'}<kbd class="cg-button-key"
+				>{shortcut}</kbd
+			>{/if}
 	{/if}
 </Button.Root>
 

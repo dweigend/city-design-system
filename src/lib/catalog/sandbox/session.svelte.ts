@@ -1,11 +1,12 @@
 import { sandboxGenerationYears, type BuildingMethod } from '../data/sandbox';
+import type { Completion } from './feedback';
 import { focuses, type FocusId } from '../logic/presentation';
 import {
 	applyEdit,
-	beginStroke,
+	applyStroke,
 	commit,
-	createWorld,
-	extendStroke,
+	openingScene,
+	traceStroke,
 	redo,
 	startHistory,
 	undo,
@@ -22,16 +23,18 @@ import {
  * of logic/sandbox.
  */
 export function createSession(initialSeed: number, generationYears = sandboxGenerationYears) {
-	const startingWorld = createWorld(initialSeed);
+	const { world: startingWorld, additions } = openingScene(initialSeed);
 	/** The committed world; its derived grid is the session's cache (PT-14). */
 	let world = $state.raw(startingWorld);
 	let roofBuilder = $state.raw<typeof world.roofBuilder>();
 	const projected = $derived.by(() => {
-		const current = stroke?.draft ?? world;
+		const current = world;
 		return roofBuilder ? { ...current, roofBuilder } : current;
 	});
 	let history = $state.raw(startHistory(startingWorld.state));
-	let stroke = $state.raw<Stroke>();
+	let stroke = $state.raw<Pick<Stroke, 'cellIds' | 'lastPointerCellId'>>();
+	let strokeTool: Tool | undefined;
+	let completion = $state.raw<Completion>();
 	let tool = $state.raw<Tool>({ kind: 'house', use: 'living' });
 
 	const methods = $derived(stylesForYear(world.state.year));
@@ -45,11 +48,23 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 	let focus = $state<FocusId>('all');
 	function restore(next: typeof history) {
 		rejection = undefined;
+		completion = undefined;
 		history = next;
 		world = withState(world, next.present);
 	}
 
+	function edit(next: typeof world, kind: Completion['kind'], cellIds: readonly string[] = []) {
+		if (next === world) return;
+		completion = { kind, before: world, after: next, cellIds };
+		world = next;
+		history = commit(history, world.state);
+	}
+
 	return {
+		get completion() {
+			return completion;
+		},
+		opening: { additions, additionSeed: initialSeed },
 		get timelineWindow() {
 			return timelineWindow(startingWorld.state.year, world.state.year, generationYears);
 		},
@@ -66,8 +81,7 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		advance() {
 			if (stroke) return;
 			rejection = undefined;
-			world = applyEdit(world, { kind: 'advance', years: generationYears });
-			history = commit(history, world.state);
+			edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance');
 		},
 		get tool() {
 			return selectedTool;
@@ -89,9 +103,11 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 			rejection = undefined;
 			tool = next;
 		},
-		/** The world to show: the draft of the running stroke, else the committed world. */
 		get world() {
 			return projected;
+		},
+		get previewCells() {
+			return stroke?.cellIds ?? [];
 		},
 		get failure() {
 			return stroke ? stroke.failure : rejection;
@@ -102,19 +118,26 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get canRedo() {
 			return history.future.length > 0;
 		},
-		strokeStart(cellId: string) {
-			stroke = extendStroke(beginStroke(selectedTool, world), cellId);
+		strokeStart(cellId: string | undefined) {
+			strokeTool = selectedTool;
+			stroke = { cellIds: [], lastPointerCellId: undefined };
+			if (cellId) stroke = traceStroke(world.grid, stroke, cellId);
 		},
 		strokeMove(cellId: string) {
-			if (stroke) stroke = extendStroke(stroke, cellId);
+			if (stroke) stroke = traceStroke(world.grid, stroke, cellId);
 		},
 		strokeEnd() {
-			if (stroke) {
-				rejection = stroke.failure;
-				world = stroke.draft;
-				history = commit(history, world.state);
+			if (stroke && strokeTool) {
+				const result = applyStroke(world, strokeTool, stroke.cellIds);
+				rejection = result.failure;
+				edit(result.draft, strokeTool.kind, stroke.cellIds);
 			}
 			stroke = undefined;
+			strokeTool = undefined;
+		},
+		strokeCancel() {
+			stroke = undefined;
+			strokeTool = undefined;
 		},
 		undo: () => restore(undo(history)),
 		redo: () => restore(redo(history)),
@@ -122,7 +145,9 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		restart(seed: number) {
 			stroke = undefined;
 			rejection = undefined;
-			world = createWorld(seed);
+			strokeTool = undefined;
+			completion = undefined;
+			world = openingScene(seed).world;
 			history = startHistory(world.state);
 		}
 	};

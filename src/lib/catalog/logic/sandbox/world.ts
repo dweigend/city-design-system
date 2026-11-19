@@ -1,4 +1,4 @@
-import { sandboxGenerationYears } from '../../data/sandbox';
+import { DIG_RADIUS_M, sandboxGenerationYears } from '../../data/sandbox';
 import { clearInstallation, lostSeat, removeInstallations } from './installation-record';
 import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
@@ -17,9 +17,6 @@ import {
 	type Store,
 	type StoryPart
 } from './state';
-
-/** Radius of a dug basin around its cell, meters. */
-const DIG_RADIUS = 9;
 
 /**
  * A sandbox state together with everything derived from it: the terrain grid and the routed
@@ -208,7 +205,7 @@ function cellEdit(
 		const basin: TerrainEdit = {
 			kind: 'basin',
 			center: [cell.center[0], cell.center[1]],
-			radius: DIG_RADIUS
+			radius: DIG_RADIUS_M
 		};
 		return { ...state, edits: [...state.edits, basin] };
 	}

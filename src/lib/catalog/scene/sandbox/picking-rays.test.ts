@@ -37,8 +37,7 @@ function setup(world: World) {
 	const ground = new THREE.Mesh(surfaceGeometry(world.grid), new THREE.MeshBasicMaterial());
 	const bounds = new THREE.Box3().setFromObject(ground);
 	const pick = createCellPicker(view);
-	const select = (x: number, y: number, solids: THREE.Object3D[]) =>
-		pick(x, y, world.grid, ground, solids);
+	const select = (x: number, y: number, solids: THREE.Object3D[]) => pick(x, y, world.grid, solids);
 	return { ground, bounds, view, select };
 }
 

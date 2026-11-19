@@ -5,15 +5,18 @@
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
 	import type { OpeningArea } from '../scene/sandbox/view';
-	import { cursorFrame } from '../logic/sandbox';
+	import { cursorTarget, strokePreview } from '../logic/sandbox';
 	import type { TerrainCell } from '../logic/terrain-grid';
 	import type { Session } from './session.svelte';
+	import StoreFlight from './StoreFlight.svelte';
 
 	let {
 		session,
 		label,
 		plan = false,
 		openingArea,
+		storeTarget,
+		transitPaused = false,
 		onhover
 	}: {
 		session: Session;
@@ -21,6 +24,8 @@
 		/** True shows the plan from above instead of the axonometric view. */
 		plan?: boolean;
 		openingArea?: () => OpeningArea | undefined;
+		storeTarget?: HTMLElement;
+		transitPaused?: boolean;
 		onhover?: (cell: TerrainCell | undefined) => void;
 	} = $props();
 	let host: HTMLDivElement;
@@ -35,12 +40,15 @@
 
 	onMount(() => {
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), {
-			openingArea
+			openingArea,
+			frameTown: true,
+			...session.opening
 		});
 		void current.ready.catch(() => {});
 		const target = createCanvasHover(current, (id) => (hoveredId = id));
 		const resize = () => {
 			current.resize(host.clientWidth, host.clientHeight);
+			target.refresh();
 		};
 		const observer = new ResizeObserver(resize);
 		observer.observe(host);
@@ -49,17 +57,18 @@
 			draws: () => session.tool.kind !== 'look',
 			hover: target.move,
 			strokeStart: (x, y) => {
-				const cell = target.cellAt(x, y);
-				if (cell) session.strokeStart(cell.id);
+				session.strokeStart(target.move({ x, y })?.id);
 			},
 			strokeMove: (x, y) => {
-				const cell = target.cellAt(x, y);
+				const cell = target.move({ x, y });
 				if (cell) session.strokeMove(cell.id);
 			},
-			strokeEnd: () => session.strokeEnd(),
+			strokeEnd: session.strokeEnd,
+			strokeCancel: session.strokeCancel,
 			viewChanged: (position) => {
-				current.render();
+				current.viewChanged();
 				if (position) target.move(position);
+				else target.refresh();
 			}
 		});
 		stage = current;
@@ -75,37 +84,59 @@
 		return () => {
 			mounted = false;
 			detach();
-			target.dispose();
 			observer.disconnect();
 			current.dispose();
 		};
 	});
 
-	$effect(() => hover?.show(session.world, session.focus));
-	$effect(() => stage?.setPlan(plan));
+	$effect(() => {
+		const { world, focus, completion } = session;
+		const place = completion?.after.state === world.state && completion.kind !== 'advance';
+		hover?.show(world, focus, place);
+	});
+	$effect(() => {
+		stage?.setPlan(plan);
+		hover?.refresh();
+	});
+	$effect(() => stage?.setTransitPaused(transitPaused));
 	$effect(() => onhover?.(hovered));
 
+	function updateLens(current: SandboxStage) {
+		if (hovered) current.setLens(hovered.column + 0.5, hovered.row + 0.5, 1);
+		else current.setLens(0, 0, 0);
+	}
+
+	const previewCells = $derived(
+		session.previewCells.length ? session.previewCells : hovered ? [hovered.id] : []
+	);
+
 	function updateCursor(current: SandboxStage) {
-		if (!hovered || session.tool.kind === 'look') {
+		if (session.tool.kind === 'look') {
 			current.setLens(0, 0, 0);
 			current.setCursor([]);
 			return;
 		}
-		current.setLens(hovered.column + 0.5, hovered.row + 0.5, 1);
-		current.setCursor(cursorFrame(session.world.state, session.tool, hovered));
+		const target = hovered ? cursorTarget(hovered) : [];
+		updateLens(current);
+		current.setCursor(strokePreview(session.world, session.tool, previewCells), target);
 	}
 
 	$effect(() => {
 		if (!stage) return;
 		if (session.failure) {
 			stage.setLens(0, 0, 0);
-			stage.setCursor(session.failure.marks, 'hazard');
+			stage.setCursor(session.failure.marks, [], 'hazard');
 		} else updateCursor(stage);
 	});
 </script>
 
 <div class="host" bind:this={host}>
 	<canvas bind:this={canvas} tabindex="0" aria-label={label}></canvas>
+	<StoreFlight
+		completion={session.completion}
+		destination={storeTarget}
+		project={(point) => stage?.view.project(point)}
+	/>
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
 </div>
 
@@ -121,6 +152,10 @@
 		width: 100%;
 		height: 100%;
 		touch-action: none;
+		user-select: none;
+	}
+	canvas:focus-visible {
+		outline-offset: -2px;
 	}
 	.error {
 		position: absolute;

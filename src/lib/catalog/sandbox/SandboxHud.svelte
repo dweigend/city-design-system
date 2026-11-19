@@ -27,6 +27,7 @@
 		sandboxTools,
 		sandboxUses,
 		type SandboxOption,
+		type SandboxTool,
 		type SandboxToolId
 	} from '../data/sandbox';
 	import type { Tool } from '../logic/sandbox';
@@ -40,6 +41,7 @@
 	let { session, group = $bindable() }: { session: Session; group?: HTMLDivElement } = $props();
 
 	const narrow = new MediaQuery('(max-width: 640px)');
+	const showsShortcuts = new MediaQuery('(any-hover: hover) and (any-pointer: fine)');
 	const methodIcons = { terrace: House, collage: Box, megastructure: Grid2X2, totem: Pill };
 	const methods = $derived(
 		session.methods
@@ -81,7 +83,21 @@
 		if (tool.kind === 'line') return tool.transit;
 		return tool.kind === 'cover' ? tool.cover : '';
 	});
-	const active = $derived(sandboxTools.find((tool) => tool.id === session.tool.kind));
+	const active = $derived(
+		sandboxTools.find((tool) => tool.id === session.tool.kind) ?? sandboxTools[0]
+	);
+	const optionLabel = $derived(
+		session.tool.kind === 'house' ? 'House use' : `${active.name} options`
+	);
+	const toolOrientation = $derived(narrow.current ? 'horizontal' : 'vertical');
+
+	function toolLabels(tool: SandboxTool) {
+		return {
+			'aria-label': tool.name,
+			'aria-keyshortcuts': showsShortcuts.current ? tool.shortcut : undefined,
+			title: showsShortcuts.current ? `${tool.name} (${tool.shortcut})` : tool.name
+		};
+	}
 
 	const houseHints: Partial<Record<string, string>> = {
 		megastructure: 'Drag across roofs to span them with a carrier.',
@@ -99,7 +115,7 @@
 		session.failure
 			? (surveyMessages[session.failure.reason] ??
 					'The selected walls cannot support a continuous carrier.')
-			: (drawingHint ?? lineHint ?? active?.hint)
+			: (drawingHint ?? lineHint ?? active.hint)
 	);
 	function toolOf(id: SandboxToolId): Tool {
 		if (id === 'house') return { kind: 'house', use: chosen.house };
@@ -128,7 +144,7 @@
 	<div class="hud">
 		<ToggleGroup.Root
 			type="single"
-			orientation={narrow.current ? 'horizontal' : 'vertical'}
+			orientation={toolOrientation}
 			value={session.tool.kind}
 			onValueChange={(value) => value && pickTool(value as SandboxToolId)}
 			class="cg-sandbox-tools"
@@ -139,9 +155,7 @@
 					value={tool.id}
 					class="cg-button"
 					data-variant="icon"
-					aria-label={tool.name}
-					aria-keyshortcuts={tool.shortcut}
-					title="{tool.name} ({tool.shortcut})"
+					{...toolLabels(tool)}
 				>
 					<Icon icon={icons[tool.id]} size={24} />
 				</ToggleGroup.Item>
@@ -151,7 +165,7 @@
 		{#if options.length}
 			<div class="options">
 				<SandboxOptions
-					label={session.tool.kind === 'house' ? 'House use' : `${active?.name} options`}
+					label={optionLabel}
 					horizontal={narrow.current}
 					{options}
 					value={option}
@@ -208,7 +222,7 @@
 		<output aria-label="World year">{year}</output>
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
-	{#if active}<p class="hint" role="status">{hint}</p>{/if}
+	<p class="hint" role="status">{hint}</p>
 </div>
 
 <style>
@@ -221,7 +235,7 @@
 		right: var(--space-4);
 		translate: 0 -50%;
 		display: grid;
-		grid-template-columns: auto var(--ctl-m);
+		grid-template-columns: auto var(--sandbox-target);
 		grid-template-areas: 'options tools' '. history';
 		align-items: start;
 		gap: var(--space-4) var(--space-2);
@@ -306,9 +320,9 @@
 		min-width: 0;
 		gap: var(--space-2);
 	}
-	@media (max-width: 980px) {
+	@media (min-width: 641px) and (max-width: 980px) {
 		.hint {
-			display: none;
+			bottom: calc(var(--sandbox-target) + var(--space-6));
 		}
 	}
 	/* Narrow screens: the tools lie along the bottom edge, options above them. */
@@ -317,20 +331,23 @@
 			position: absolute;
 			left: var(--space-2);
 			right: var(--space-2);
-			bottom: var(--space-2);
-			display: flex;
-			flex-direction: column-reverse;
-			align-items: stretch;
+			bottom: max(var(--space-2), env(safe-area-inset-bottom));
+			display: grid;
+			grid-template-columns: auto 1fr;
+			grid-template-areas: 'hint hint' 'options options' 'tools tools' 'timeline history';
+			grid-template-rows: auto auto auto auto;
 			gap: var(--space-2);
 			pointer-events: none;
 		}
 		.hud {
+			display: contents;
+		}
+		.hint {
 			position: static;
-			translate: none;
-			grid-template-columns: 1fr auto;
-			grid-template-areas: 'options options' 'tools history';
-			align-items: end;
-			column-gap: var(--space-1);
+			grid-area: hint;
+			justify-self: start;
+			max-width: 100%;
+			text-align: left;
 		}
 		.options {
 			display: flex;
@@ -339,7 +356,8 @@
 		}
 		.timeline {
 			position: static;
-			align-self: flex-start;
+			grid-area: timeline;
+			justify-self: start;
 			padding-left: var(--space-2);
 		}
 		.scale {
@@ -354,7 +372,10 @@
 		:global(.cg-sandbox-tools),
 		.history {
 			grid-auto-flow: column;
-			justify-content: start;
+			justify-self: start;
+		}
+		.history {
+			justify-self: end;
 		}
 		:global(.cg-sandbox-tools > .cg-button + .cg-button),
 		.history > :global(.cg-button + .cg-button) {

@@ -20,10 +20,7 @@ test('terrain occludes a house solid farther along the camera ray', () => {
 	buried.position.copy(terrainHit.point).addScaledVector(ray.ray.direction, 12);
 	buried.updateMatrixWorld();
 	assert.ok(ray.intersectObject(buried, false)[0].distance > terrainHit.distance);
-	assert.equal(
-		createCellPicker(view)(560, 443, world.grid, ground, [buried]),
-		terrainHit.faceIndex >> 1
-	);
+	assert.equal(createCellPicker(view)(560, 443, world.grid, [buried]), terrainHit.faceIndex >> 1);
 	buried.geometry.dispose();
 	ground.geometry.dispose();
 	ground.material.dispose();
