@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { Box3, Vector3 } from 'three/webgpu';
-import { build } from '../scene/primitive-geometry';
-import { assetRegistry, buildAsset, type AssetCategory } from '../logic/assets';
+import { build } from '../primitive-geometry';
+import { assetRegistry, buildAsset, type AssetCategory } from '../../logic/assets';
 
 /** Exercises every registered asset in one category, including its projected metre reservation. */
 export function checkAssets(category: AssetCategory) {
