@@ -1,12 +1,14 @@
-import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
-type Strip<T> = T extends unknown ? Omit<T, 'id' | 'role' | 'material' | 'token'> : never;
+import type { Surface } from './surfaces';
+import type { Primitive, Vec3 } from '../parametrik/types';
+type Strip<T> = T extends unknown
+	? Omit<T, 'id' | 'role' | 'material' | 'token' | 'finish'>
+	: never;
 type Form = Strip<Primitive>;
-/** Gives a primitive its stable name and neutral drafting surface. */
-export const piece = (id: string, form: Form, token: ColorToken = '--paper'): Primitive => ({
+/** Gives a primitive its stable name and assigned surface. */
+export const piece = (id: string, form: Form, surface: Surface): Primitive => ({
 	id,
 	role: 'neu',
-	material: 'metal',
-	token,
+	...surface,
 	...form
 });
 function rounded(x: number, y: number, w: number, d: number, r: number): [number, number][] {
@@ -31,11 +33,11 @@ export function slab(
 	d: number,
 	height: number,
 	r: number,
-	token: ColorToken = '--paper'
+	surface: Surface
 ) {
 	return piece(
 		id,
 		{ kind: 'prism', polygon: rounded(p[0], p[1], w, d, r), z: p[2], height, bearing: 'slab' },
-		token
+		surface
 	);
 }

@@ -1,3 +1,4 @@
+import { houseSurfaces, type HouseSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
 import { sectionObstacle, type HouseObstacle } from './clearance';
 import { bridgeForm, type EnsembleDistrict } from '../district-frame';
@@ -30,7 +31,8 @@ function link(
 	distance: number,
 	boxes: HouseObstacle[],
 	seed: number,
-	district: EnsembleDistrict
+	district: EnsembleDistrict,
+	surfaces: HouseSurfaces
 ) {
 	const id = 'link/' + a.id + '~' + b.id;
 	const width = Math.max(0.5, Math.min(distance === 1 ? 2.8 : 1.5, a.width * 0.34, b.width * 0.34));
@@ -64,7 +66,7 @@ function link(
 			width,
 			groundZ: Math.max(from[2], to[2]),
 			simplifyAtCity: true
-		})
+		}).map((p) => ({ ...p, ...surfaces.access }))
 	};
 }
 /** Connects visible deck pairs within three carrier sides, with stable undirected ownership. */
@@ -72,7 +74,8 @@ export function houseLinks(
 	grid: QuadGrid,
 	sections: Section[],
 	seed: number,
-	stock: HouseObstacle[] = []
+	stock: HouseObstacle[] = [],
+	surfaces = houseSurfaces
 ) {
 	const owners = new Map<string, Section[]>();
 	for (const s of sections)
@@ -83,7 +86,7 @@ export function houseLinks(
 		.flatMap((a) =>
 			[...near(grid, a, owners)].flatMap(([b, distance]) => {
 				if (a.id >= b.id) return [];
-				const span = link(a, b, distance, boxes, seed, a.district);
+				const span = link(a, b, distance, boxes, seed, a.district, surfaces);
 				return span ? [span] : [];
 			})
 		);

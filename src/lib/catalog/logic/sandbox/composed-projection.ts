@@ -1,3 +1,4 @@
+import { isPainted } from './house-phase-ink';
 import { houseObstacles } from './house-obstacles';
 import { paintedSections, sectionGroups } from '../composed-house';
 import type { HouseUse } from '../house-brush';
@@ -33,21 +34,29 @@ function survey(world: World) {
 			district: (id) => houseDistrict(world.grid.cellsById.get(id)!)
 		})
 	);
-	const years = new Map(
-		sections.map((s) => [
-			s.id,
-			Math.max(
-				...s.cells.flatMap((c) =>
-					world.state.storyParts
-						.get(c.id)!
-						.slice(s.start, s.start + s.stories)
-						.map((p) => p.built)
-				)
-			)
-		])
+	const phases = new Map(
+		sections.map((s) => {
+			const stories = s.cells.flatMap((c) =>
+				world.state.storyParts.get(c.id)!.slice(s.start, s.start + s.stories)
+			);
+			return [
+				s.id,
+				{
+					built: Math.max(...stories.map((p) => p.built)),
+					painted: stories.some((p) => isPainted(p.id))
+				}
+			] as const;
+		})
 	);
 	return sectionGroups(world.grid, sections, world.seed, houseObstacles(plots, world.state)).map(
-		(g) => ({ ...g, built: Math.max(...g.owners.map((id) => years.get(id)!)) })
+		(g) => {
+			const owners = g.owners.map((id) => phases.get(id)!);
+			return {
+				...g,
+				built: Math.max(...owners.map((p) => p.built)),
+				painted: owners.some((p) => p.painted)
+			};
+		}
 	);
 }
 const projections = new WeakMap<World, ReturnType<typeof survey>>();

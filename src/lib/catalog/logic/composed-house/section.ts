@@ -5,8 +5,7 @@ import { footprintBay } from './footprint';
 import type { Deck, HouseSite, Section } from './types';
 import { assetSlots } from './slots';
 
-/** Groups the painted programme into height bands and surveys the floor and roof datums. */
-export function planHouse(site: HouseSite): Section {
+function paintedBands(site: HouseSite) {
 	if (!site.cells.length) throw new RangeError('Empty painted footprint');
 	const cells = [...site.cells].sort((a, b) => a.id.localeCompare(b.id));
 	const rows = cells.map((c) => site.stacks.get(c.id) ?? []);
@@ -20,10 +19,17 @@ export function planHouse(site: HouseSite): Section {
 	const uses = levels.map((lo, i) =>
 		rows.flatMap((r) => r.slice(lo, levels[i + 1] ?? end).filter(Boolean))
 	);
+	return { cells, rows, start, end, stories, levels, uses, id };
+}
+
+/** Groups the painted programme into height bands and surveys the floor and roof datums. */
+export function planHouse(site: HouseSite): Section {
+	const { cells, rows, start, end, stories, levels, uses, id } = paintedBands(site);
+	const count = levels.length;
 	const district = site.district ?? 'infill';
 	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed);
-	const aspect=houseAspect(id,stories,uses,site.seed);
- const bay = footprintBay(cells),
+	const aspect = houseAspect(id, site.seed);
+	const bay = footprintBay(cells),
 		round = plan === 'round';
 	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * 0.94,
 		depth = round ? width : bay.depth * 0.94;
@@ -39,9 +45,11 @@ export function planHouse(site: HouseSite): Section {
 		);
 		const height = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
 		const { kind, use } = kinds[i];
- const shape=deckPlan(i,count,round,aspect);
+		const shape = deckPlan(i, count, round, aspect);
 		return {
-			position:[bay.x+width*shape.x,bay.y+depth*shape.y,height],width:width*shape.width,depth:depth*shape.depth,
+			position: [bay.x + width * shape.x, bay.y + depth * shape.y, height],
+			width: width * shape.width,
+			depth: depth * shape.depth,
 			round,
 			programme: uses[i],
 			kind,
@@ -51,7 +59,10 @@ export function planHouse(site: HouseSite): Section {
 	const section: Section = {
 		id,
 		cells,
-		district,aspect,
+		district,
+		aspect,
+		seed: site.seed,
+		typology: stories >= 5 ? 'tower' : 'house',
 		start,
 		base,
 		width,

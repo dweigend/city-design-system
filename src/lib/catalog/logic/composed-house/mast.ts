@@ -1,7 +1,14 @@
+import type { Surface } from './surfaces';
 import type { Vec3 } from '../parametrik/types';
 import { piece } from './parts';
 /** One space frame with continuous chords and opposing diagonals in each face panel. */
-export function lattice(id: string, position: Vec3, side: number, height: number) {
+export function lattice(
+	id: string,
+	position: Vec3,
+	side: number,
+	height: number,
+	surface: Surface
+) {
 	const [x, y, z] = position,
 		n = Math.max(2, Math.round(height / (side * 1.8)));
 	const at = (i: number, k: number): Vec3 => [
@@ -20,13 +27,16 @@ export function lattice(id: string, position: Vec3, side: number, height: number
 				[at(face, k), at(next, k)]
 			);
 	}
-	return piece(id, {
-		kind: 'frame',
-		position,
-		size: [side, side, height],
-		cells: [1, 1, n],
-		members,
-		bar: side * 0.073,
-		shade: 0.3
-	});
+	return piece(
+		id,
+		{
+			kind: 'frame',
+			position,
+			size: [side, side, height],
+			cells: [1, 1, n],
+			members,
+			bar: side * 0.073
+		},
+		surface
+	);
 }

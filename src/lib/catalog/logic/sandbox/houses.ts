@@ -146,7 +146,7 @@ export function houseView(
 			.filter(
 				(g) => g.chunk === chunk && (g.built !== state.year || g.cells.some((id) => stacks.has(id)))
 			)
-			.flatMap((g) => presentHouseGroup(g.parts(), {built:g.built,painted:true}, state.year, focus, earliestFullYear)),
+			.flatMap((g) => presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear)),
 		...present(stock.flatMap(project), focus.stock),
 		...colour.flatMap((entry) =>
 			presentHouseGroup(project(entry), entry[0], state.year, focus, earliestFullYear)
@@ -201,7 +201,7 @@ export function houseGroups(
 	for (const g of composedProjection(world)) {
 		const key = 'composed/' + g.id;
 		if (g.chunk === chunk && (!keys || keys.has(key)))
-			groups.set(key, presentHouseGroup(g.parts(), {built:g.built,painted:true}, state.year, focus, earliestFullYear));
+			groups.set(key, presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear));
 	}
 	for (const [phase, painted] of constructionPhases(state)) {
 		if (phase.style === 'composed') continue;

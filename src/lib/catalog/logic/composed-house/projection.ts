@@ -1,7 +1,17 @@
 import { houseStructure } from './structure';
-import { placeholderElements } from './provider';
+import { registryElements } from './provider';
+import { houseSurfaces } from './surfaces';
 import type { ElementProvider, Section } from './types';
-/** Fills the surveyed asset slots after drawing the continuous structural members. */
-export function sectionParts(section: Section, provide: ElementProvider = placeholderElements) {
-	return [...houseStructure(section), ...section.slots.flatMap(provide)];
+/** Projects the frame and fits the selected assets with caller-supplied slot assignments. */
+export function sectionParts(
+	section: Section,
+	provide?: ElementProvider,
+	surfaces = houseSurfaces
+) {
+	return [
+		...houseStructure(section, surfaces),
+		...section.slots.flatMap((slot) =>
+			provide ? provide(slot) : registryElements(slot, section.seed, surfaces)
+		)
+	];
 }

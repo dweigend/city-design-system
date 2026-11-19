@@ -25,11 +25,19 @@ function crosses(a: Vec3, b: Vec3, box: HouseObstacle, margin: number) {
 }
 /** Bounds the full frame and occupied decks when surveying another house’s span. */
 export function sectionObstacle(s: Section): HouseObstacle {
-	const dx = Math.max(...s.decks.map((d) => Math.abs(d.position[0] - s.base[0])));
+	const extent = (axis: 0 | 1, span: 'width' | 'depth') =>
+		Math.max(
+			s[span],
+			...s.decks.map((d) => 2 * Math.abs(d.position[axis] - s.base[axis]) + d[span])
+		);
 	return {
 		owner: s.id,
 		position: s.base,
-		size: [s.width + 2 * dx, s.depth, s.top - s.base[2] + (s.stories >= 5 ? 4 : 0.5)]
+		size: [
+			extent(0, 'width'),
+			extent(1, 'depth'),
+			s.top - s.base[2] + (s.typology === 'tower' ? 4 : 0.5)
+		]
 	};
 }
 /** Checks every walking segment against the occupied volumes, accounting for its width. */

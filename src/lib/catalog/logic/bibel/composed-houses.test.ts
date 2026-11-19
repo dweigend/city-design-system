@@ -11,12 +11,14 @@ test('two-storey energy pavilion has one occupied deck and a solar crown', () =>
 		'ensemble'
 	]);
 	expect(ids(0).filter((id) => id.includes('/deck/'))).toHaveLength(1);
-	expect(ids(0)).toContain('0/0/tier/0/collector0');
+	expect(ids(0)).toContain('0/0/tier/0/collector/solar-roof/0');
 });
 test('four-storey garden house frames an open lower terrace below its bell', () => {
 	expect(ids(1).filter((id) => id.includes('/deck/'))).toHaveLength(2);
-	expect(ids(1)).not.toContain('0/0/tier/0/body');
-	expect(plates[1].primitives.some((p) => p.kind === 'dome' && p.glass)).toBe(true);
+	expect(ids(1).some((id) => id.startsWith('0/0/tier/0/body/'))).toBe(false);
+	expect(plates[1].primitives.some((p) => p.kind === 'dome' && p.finish === 'glas-klar')).toBe(
+		true
+	);
 });
 test('eight-storey rectangular tower pairs a solar workshop with trees and a windowed capsule', () => {
 	const parts = plates[2].primitives;
@@ -24,10 +26,11 @@ test('eight-storey rectangular tower pairs a solar workshop with trees and a win
 	for (const fragment of [
 		'/lattice',
 		'/collector',
-		'/canopy/',
+		'/tree-trough/',
+		'/living-capsule/',
 		'/windows',
 		'/supply/water/pipe',
-		'/stringer/'
+		'/stairs/'
 	])
 		expect(parts.some((p) => p.id.includes(fragment))).toBe(true);
 });
@@ -35,7 +38,7 @@ test('twelve-storey round tower carries five circular decks around the cylindric
 	const parts = plates[3].primitives;
 	expect(parts.find((p) => p.id === '0/0/core')?.kind).toBe('cylinder');
 	expect(parts.filter((p) => p.id.includes('/deck/'))).toHaveLength(5);
-	expect(parts.some((p) => p.kind === 'dome' && p.glass)).toBe(true);
+	expect(parts.some((p) => p.kind === 'dome' && p.finish === 'glas-klar')).toBe(true);
 });
 test('three different heights have one shared platform, one skyway and one stair bridge', () => {
 	const spans = ids(4)

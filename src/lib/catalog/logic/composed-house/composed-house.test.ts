@@ -2,7 +2,15 @@ import { expect, test } from 'bun:test';
 import { STORY } from '../../data/grid';
 import { squareGrid } from '../quad-grid';
 import type { HouseUse } from '../../data/house-body';
-import { composedGroups, composedHouse, planHouse, sectionParts, type HouseSlot } from './index';
+import {
+	houseSurfaces,
+	type HouseSurfaces,
+	composedGroups,
+	composedHouse,
+	planHouse,
+	sectionParts,
+	type HouseSlot
+} from './index';
 
 const grid = squareGrid(9, 3, 12);
 const cells = [grid.cells[0], grid.cells[1]];
@@ -89,4 +97,31 @@ test('an edit keeps independent houses and their mutual link byte-identical', ()
 	for (const old of before.filter((g) => !g.cells.includes('0/0')))
 		expect(after.find((g) => g.id === old.id)?.parts()).toEqual(old.parts());
 	expect(before.some((g) => g.id === 'link/2/0~4/0')).toBe(true);
+});
+
+test('the same mixed paint allows distinct WFC compositions by seed', () => {
+	const paint = site(9, 2);
+	const compositions = new Set(
+		Array.from({ length: 32 }, (_, seed) =>
+			planHouse({ ...paint, seed })
+				.decks.map((d) => d.kind)
+				.join('/')
+		)
+	);
+	expect(compositions.size).toBeGreaterThan(1);
+	expect(planHouse(site(4, 2)).typology).toBe('house');
+	expect(planHouse(site(5, 2)).typology).toBe('tower');
+});
+
+test('replacing every named surface changes no generated geometry', () => {
+	const replacement = { finish: 'wood', token: '--signal', material: 'wood' } as const;
+	const palette = Object.fromEntries(
+		Object.keys(houseSurfaces).map((k) => [k, replacement])
+	) as HouseSurfaces;
+	for (const seed of [0, 1, 2, 3, 4]) {
+		const section = planHouse(site(9, seed));
+		expect(sectionParts(section, undefined, palette)).toEqual(
+			sectionParts(section).map((p) => ({ ...p, ...replacement }))
+		);
+	}
 });

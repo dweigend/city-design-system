@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
 import { STORY } from '../../data/grid';
-import { applyEdit, createWorld, houseGroups, changes } from './index';
+import { applyEdit, beginStroke, extendStroke, createWorld, houseGroups, changes } from './index';
 
 test('later paint extends one frame and links houses across construction years', () => {
 	const a = '30/30',
@@ -23,4 +23,19 @@ test('later paint extends one frame and links houses across construction years',
 	const changed = changes(later, extended).houseGroups;
 	expect(changed.has('composed/' + a)).toBe(true);
 	expect(changed.has('composed/' + b)).toBe(false);
+});
+
+test('the fifth painted storey raises a continuous tower core', () => {
+	const id = '30/30';
+	let world = createWorld(7, { cells: 0 });
+	for (let stories = 1; stories <= 5; stories++) {
+		world = extendStroke(
+			beginStroke({ kind: 'house', style: 'composed', use: 'living' }, world),
+			id
+		).draft;
+		const group = houseGroups(world, world.grid.cellsById.get(id)!.chunk, focuses.all).get(
+			'composed/' + id
+		)!;
+		expect(group.some((p) => p.id === id + '/core')).toBe(stories === 5);
+	}
 });

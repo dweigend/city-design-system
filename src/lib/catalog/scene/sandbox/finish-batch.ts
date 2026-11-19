@@ -33,10 +33,10 @@ export function finishedMeshes(
 	const groups = new Map<Material, BufferGeometry[]>();
 	const faces = new Map<string, Material>();
 	for (const part of parts) {
-		const key = part.finish + '/' + part.token;
+		const key = part.finish + '/' + part.token + '/' + (part.ageTint ?? 0);
 		let face = faces.get(key);
 		if (!face) {
-			face = library.material(resolveFinish(part.finish, part.token));
+			face = library.material(resolveFinish(part.finish, part.token, part.ageTint));
 			faces.set(key, face);
 		}
 		const group = groups.get(face) ?? [];

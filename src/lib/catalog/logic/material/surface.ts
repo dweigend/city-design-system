@@ -28,7 +28,16 @@ export const finishCatalogue: readonly { id: FinishId; name: string }[] = [
 ];
 
 /** Resolves an explicit pigment and finish without consulting geometry, role or theme. */
-export function resolveFinish(id: FinishId, token: ColorToken): SurfaceRecipe {
+export function resolveFinish(id: FinishId, token: ColorToken, ageTint = 0): SurfaceRecipe {
+	const surface = baseFinish(id, token);
+	if (ageTint && (surface.kind === 'diagram' || surface.kind === 'physical')) {
+		const color = surface.recipe.farbe;
+		color.papier += (1 - color.papier) * ageTint;
+	}
+	return surface;
+}
+
+function baseFinish(id: FinishId, token: ColorToken): SurfaceRecipe {
 	if (id === 'fired-slip') return { kind: 'kiln', id, token };
 	if (id === 'glaze' || id === 'print-terrazzo' || id === 'halftone')
 		return { kind: 'print', id, token };

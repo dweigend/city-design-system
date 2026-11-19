@@ -74,7 +74,7 @@ test('advancing tints painted houses gradually and preserves path and rail ink e
 	}
 });
 
-test('a painted ground-floor body keeps its colour and envelope in later years', () => {
+test('a painted ground-floor body keeps its shell and receives the shared age tint in later years', () => {
 	const before = createWorld(7, { cells: 0 });
 	const built = applyEdit(before, { kind: 'raise', cellId: '30/30', use: 'living' });
 	const aged = applyEdit(built, { kind: 'advance' });
@@ -82,7 +82,9 @@ test('a painted ground-floor body keeps its colour and envelope in later years',
 	const drawn = new Map<string, Primitive[]>();
 	const target = { terrain, structures: { set: drawn.set.bind(drawn) } };
 	const shell = () =>
-		[...drawn.values()].flat().find((part) => part.kind === 'capsule' && part.id.startsWith('30/30/tier/0/body/'));
+		[...drawn.values()]
+			.flat()
+			.find((part) => part.kind === 'capsule' && part.id.startsWith('30/30/tier/0/body/'));
 	try {
 		projectChanges(target, before, built, 'all', false);
 		expect(shell()).toMatchObject({

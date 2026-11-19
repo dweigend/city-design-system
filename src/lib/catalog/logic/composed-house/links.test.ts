@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
-import { houseLinks, planHouse, type HouseObstacle } from './index';
+import { houseSurfaces, houseLinks, planHouse, type HouseObstacle } from './index';
 
 const grid = squareGrid(7, 5, 10);
 const house = (id: string, n: number) =>
@@ -40,4 +40,12 @@ test('every member of a three-house line has a link, in either input order', () 
 		reverse = houseLinks(grid, [...houses].reverse(), 5);
 	expect(new Set(forward.flatMap((l) => [l.a, l.b])).size).toBe(3);
 	expect(reverse).toEqual(forward);
+});
+
+test('the bridge uses the external access surface for every span member', () => {
+	const sites = [house('0/0', 3), house('2/0', 5)];
+	const access = { finish: 'wood', token: '--signal', material: 'wood' } as const;
+	const [link] = houseLinks(grid, sites, 11);
+	const [changed] = houseLinks(grid, sites, 11, [], { ...houseSurfaces, access });
+	expect(changed.parts).toEqual(link.parts.map((p) => ({ ...p, ...access })));
 });

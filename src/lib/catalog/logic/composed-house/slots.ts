@@ -1,3 +1,4 @@
+import { roofLanding } from './deck-plan';
 import { STORY } from '../../data/grid';
 import type { HouseUse } from '../../data/house-body';
 import type { Vec3 } from '../parametrik/types';
@@ -17,7 +18,23 @@ function tierSlots(s: Section, i: number): HouseSlot[] {
 	const deck = s.decks[i],
 		[x, y, z] = deck.position,
 		id = s.id + '/tier/' + i;
-	if (deck.kind === 'void' || deck.kind === 'gallery') return [];
+	if (deck.kind === 'void' || deck.kind === 'gallery') {
+		if (i !== s.decks.findIndex((d) => d.kind === 'void' || d.kind === 'gallery')) return [];
+		return [
+			slot(
+				id + '/planter',
+				'deck',
+				'grove',
+				[x, y - deck.depth * 0.24, z],
+				[
+					deck.width * 0.55,
+					deck.depth * 0.25,
+					Math.min(STORY, (s.decks[i + 1].position[2] - z) * 0.55)
+				],
+				'food'
+			)
+		];
+	}
 	const crown = i === s.decks.length - 1,
 		round = deck.round;
 	const w = deck.width * (round ? 0.71 : 0.81),
@@ -29,35 +46,25 @@ function tierSlots(s: Section, i: number): HouseSlot[] {
 	const bx = x + (deck.kind === 'grove' && !round ? -deck.width * 0.08 : 0);
 	const body = slot(
 		id + '/body',
-		'deck',
+		deck.kind === 'dome' ? 'roof' : 'deck',
 		deck.kind,
 		[bx, y - (deck.kind === 'grove' && !round ? deck.depth * 0.12 : 0), z],
 		[w, d, h],
 		deck.use
 	);
 	const parts = [body];
-	if (deck.kind === 'capsule')
-		parts.push(
-			slot(
+	if (deck.kind === 'solar' || deck.kind === 'workshop')
+		parts.push({
+			...slot(
 				id + '/windows',
 				'facade',
 				'window',
-				[bx, y - d * 0.48, z + h * 0.28],
-				[w * 0.78, d * 0.06, h * 0.33],
+				[bx + w * 0.5, y, z + h * 0.28],
+				[0.14, d * 0.6, h * 0.38],
 				deck.use
-			)
-		);
-	if (deck.kind === 'solar' || deck.kind === 'workshop')
-		parts.push(
-			slot(
-				id + '/hatch',
-				'facade',
-				'hatch',
-				[bx + w * 0.18, y - d * 0.5, z],
-				[w * 0.24, 0.09, h * 0.58],
-				deck.use
-			)
-		);
+			),
+			facing: [1, 0]
+		});
 	if (deck.kind === 'solar')
 		parts.push(
 			slot(
@@ -75,23 +82,11 @@ function tierSlots(s: Section, i: number): HouseSlot[] {
 				id + '/lantern',
 				'roof',
 				s.crown,
-				[bx + w * 0.37, y + d * 0.15, z + h],
+				roofLanding(s),
 				[w * 0.12, d * 0.16, Math.min(1.25, clearance - h)],
 				deck.use
 			)
 		);
-	const px = round ? 0.22 : 0.32,
-		py = round ? -0.4 : -0.44;
-	parts.push(
-		slot(
-			id + '/figure',
-			'deck',
-			'person',
-			[x + px * deck.width, y + py * deck.depth, z],
-			[0.4, 0.4, Math.min(1.65, clearance * 0.65)],
-			'living'
-		)
-	);
 	return parts;
 }
 

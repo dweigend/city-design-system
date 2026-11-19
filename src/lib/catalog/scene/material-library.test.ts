@@ -61,3 +61,20 @@ test('flat, curved and indexed forms resolve every finish with use, ink and pape
 		library.dispose();
 	}
 });
+
+test('painted steel shares an age-specific material across geometries', () => {
+	const library = createMaterialLibrary();
+	const fresh = { ...forms.box, token: '--cat-health', finish: 'metal' } as const;
+	const aged = { ...fresh, ageTint: 0.06 };
+	const meshes = finishedMeshes([fresh, aged, { ...aged, id: 'second' }], library);
+	try {
+		expect(meshes).toHaveLength(2);
+		const recipe = resolveFinish('metal', fresh.token, 0.06);
+		if (recipe.kind !== 'diagram') throw Error('Expected painted steel');
+		expect(recipe.recipe.farbe.papier).toBeGreaterThan(0);
+		expect(meshes[1].material).toBe(library.material(recipe));
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
+		library.dispose();
+	}
+});

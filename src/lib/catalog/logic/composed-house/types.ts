@@ -1,5 +1,11 @@
 import type { HouseUse, Stacks } from '../../data/house-body';
-import type { houseAspect, CrownKind, EnsembleDistrict, HousePlan, TierKind } from '../district-frame';
+import type {
+	houseAspect,
+	CrownKind,
+	EnsembleDistrict,
+	HousePlan,
+	TierKind
+} from '../district-frame';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import type { QuadCell } from '../quad-grid';
 
@@ -9,8 +15,7 @@ export type HouseSite = {
 	seed: number;
 	district?: EnsembleDistrict;
 };
-export type AssetKind = 'trough' |
-	Exclude<TierKind, 'void' | 'gallery'> | CrownKind | 'reservoir' | 'window' | 'hatch' | 'person';
+export type AssetKind = Exclude<TierKind, 'void' | 'gallery'> | CrownKind | 'reservoir' | 'window';
 /** Position is the bottom centre in world metres. Size is local width, depth, height.
  * Facing is the outward horizontal unit vector. */
 export type HouseSlot = {
@@ -36,7 +41,9 @@ export type Section = {
 	id: string;
 	cells: readonly QuadCell[];
 	plan: HousePlan;
- aspect: ReturnType<typeof houseAspect>;
+	seed: number;
+	typology: 'house' | 'tower';
+	aspect: ReturnType<typeof houseAspect>;
 	crown: CrownKind;
 	base: Vec3;
 	width: number;
