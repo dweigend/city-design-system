@@ -13,7 +13,8 @@ import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
-import { WEG_STROM } from '../../data/leitstil';
+import { neutral } from '../leitstil';
+import { PROJEKTION_TOENE, WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
 import { baseGeometry, patchSurface, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
@@ -124,7 +125,7 @@ export function createTerrainMesh(
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
 		ground = mix(
 			ground,
-			colors.ink,
+			drawingInk,
 			incision.mul(hatch).mul(1.28).mul(nodes.ravineTone).mul(terrainWeight)
 		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
@@ -134,11 +135,8 @@ export function createTerrainMesh(
 		const contour = minor.mul(nodes.contourMinor).max(major.mul(nodes.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
 		const weighted = contour.mul(gridStrength.mul(planContourGain).add(1));
-		ground = mix(
-			ground,
-			colors.ink,
-			weighted.mul(terrainWeight).max(outline.mul(nodes.outline).mul(forestWeight))
-		);
+		ground = mix(ground, drawingInk, weighted.mul(terrainWeight));
+		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(forestWeight));
 
 		const lens = float(1)
 			.sub(chart.sub(cursor).length().smoothstep(lensInnerCells, lensCells))
@@ -158,7 +156,8 @@ export function createTerrainMesh(
 			colors.people,
 			paperColor,
 			peopleFocus,
-			pathWeight
+			pathWeight,
+			daylight
 		);
 	}
 
