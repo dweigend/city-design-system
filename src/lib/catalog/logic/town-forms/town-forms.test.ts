@@ -20,7 +20,12 @@ const cell = (id: string) => {
 };
 
 test('seed 7 reproduces the same ordered construction plan', () => {
-	expect(example()).toEqual(example());
+	const bytes = JSON.stringify(example());
+	expect(JSON.stringify(example())).toBe(bytes);
+	// SHA-256 of the ordered JSON captured before relaxing the layout constraints.
+	expect(new Bun.CryptoHasher('sha256').update(bytes).digest('hex')).toBe(
+		'6f1299597dfed55ff89ced70f6f4fd1ec7b77ea69a85c30cb937bb638f84603d'
+	);
 });
 
 test('open land separates the connected satellite from the town and rail reaches both', () => {
@@ -90,3 +95,16 @@ test('a different seed changes the layout on the same grid', () => {
 		plan.runs.map((run) => run.map(({ cellId }) => cellId));
 	expect(footprints(alternate)).not.toEqual(footprints(example()));
 });
+
+test('seeds 0 through 9 yield bank runs and an overland rail-linked satellite', () => {
+	for (let seed = 0; seed < 10; seed++) {
+		const grid = deriveGrid(createTerrain({ seed }));
+		const plan = planTownForms(grid, seed, reserved);
+		assert(plan, `Expected a town plan for seed ${seed}`);
+		expect(plan.runs.length).toBeGreaterThan(0);
+		expect(plan.satellite.length).toBeGreaterThan(0);
+		const line = routeLine(grid, { id: 'example', kind: 'viaduct', cellIds: plan.railCellIds });
+		assert(line, `Expected a rail link for seed ${seed}`);
+		expect(line.path.every(([x, y]) => terrainZone(grid.terrain, x, y) !== 'water')).toBe(true);
+	}
+}, 30_000);

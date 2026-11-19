@@ -83,15 +83,6 @@ function bankRuns(grid: TerrainGrid, land: TerrainCell[], seed: number) {
 	return runs;
 }
 
-function bankStep(grid: TerrainGrid, runs: TerrainCell[][]) {
-	const offsets = runs.map(
-		(sites) =>
-			sites.reduce((sum, { center: [x, y] }) => sum + bankDistance(grid.terrain, x, y), 0) /
-			sites.length
-	);
-	return Math.max(...offsets) - Math.min(...offsets);
-}
-
 function runHouses(sites: TerrainCell[], use: HouseUse): HouseSite[] {
 	const center = sites[Math.floor(sites.length / 2)];
 	return sites.map(({ id, column }) => ({
@@ -158,6 +149,53 @@ function satelliteLink(
 	}
 }
 
+function preferredLayout(grid: TerrainGrid, land: TerrainCell[], seed: number) {
+	const runs = bankRuns(grid, land, seed);
+	if (!runs.length) return;
+	const first = Math.min(...runs[0].map(({ column }) => column));
+	const east = Math.max(...runs.flat().map(({ column }) => column));
+	const link = satelliteLink(grid, land, first, east + OPEN_COLUMNS, seed);
+	if (link) return { runs, ...link };
+}
+
+function compactLayout(grid: TerrainGrid, land: TerrainCell[]) {
+	const available = new Set(land.map(({ id }) => id));
+	const stops = land
+		.map((stop) => ({
+			stop,
+			lots: neighborsOf(grid, stop).filter(({ id }) => available.has(id))
+		}))
+		.filter(({ lots }) => lots.length);
+	const towns = [...stops].sort(
+		(a, b) => Number(b.stop.zone === 'floodplain') - Number(a.stop.zone === 'floodplain')
+	);
+	const satellites = stops.sort(
+		(a, b) =>
+			Number(b.stop.zone === 'lower-terrace') - Number(a.stop.zone === 'lower-terrace') ||
+			b.stop.column - a.stop.column
+	);
+	for (const town of towns) {
+		for (const satellite of satellites) {
+			const layout = connectedLots(grid, town, satellite);
+			if (layout) return layout;
+		}
+	}
+}
+
+type StopLots = { stop: TerrainCell; lots: TerrainCell[] };
+
+function connectedLots(grid: TerrainGrid, town: StopLots, satellite: StopLots) {
+	if (town.stop === satellite.stop) return;
+	const railCellIds = [town.stop.id, satellite.stop.id] as const;
+	for (const lot of town.lots) {
+		if (lot === satellite.stop) continue;
+		const site = satellite.lots.find((cell) => cell !== town.stop && cell !== lot);
+		if (site && isOverland(grid, railCellIds)) {
+			return { runs: [[lot]], sites: [site], railCellIds };
+		}
+	}
+}
+
 function hamletHouses(sites: TerrainCell[]): HouseSite[] {
 	return sites.map(({ id }, index) => ({
 		cellId: id,
@@ -169,7 +207,8 @@ function hamletHouses(sites: TerrainCell[]): HouseSite[] {
  * Plans a bank town and one rail-linked hamlet on a valley TerrainGrid. Unordered reserved
  * IDs (empty by default) exclude occupied or protected sites. Widths and gaps are in grid
  * columns, bank offsets in world meters. Returns detached construction data, or undefined
- * if the grid cannot fit three stepped runs and an overland link to a separated hamlet.
+ * if no two stops can each serve a distinct adjacent lot and support an overland viaduct.
+ * If the preferred bank runs and separated hamlet do not fit, a single lot per stop can suffice.
  *
  * Hashing reads the seed as u32. Addresses are the ascending run slot and the named decision
  * channel (step phase, use phase and hamlet size use slot 0); there is no shared draw cursor. Runs emit
@@ -183,16 +222,13 @@ export function planTownForms(
 	reserved: ReadonlySet<string> = new Set()
 ): TownForms | undefined {
 	const land = buildableLand(grid, reserved);
-	const runs = bankRuns(grid, land, seed);
-	if (runs.length < 3 || bankStep(grid, runs) < MODULE) return;
-	const first = Math.min(...runs[0].map(({ column }) => column));
-	const east = Math.max(...runs.flat().map(({ column }) => column));
-	const link = satelliteLink(grid, land, first, east + OPEN_COLUMNS, seed);
-	if (!link) return;
+	const layout = preferredLayout(grid, land, seed) ?? compactLayout(grid, land);
+	if (!layout) return;
+	const { runs, sites, railCellIds } = layout;
 	const usePhase = Math.floor(hash(seed, 0, CHANNEL.use) * USES.length);
 	return {
 		runs: runs.map((run, index) => runHouses(run, USES[(usePhase + index) % USES.length])),
-		satellite: hamletHouses(link.sites),
-		railCellIds: link.railCellIds
+		satellite: hamletHouses(sites),
+		railCellIds
 	};
 }
