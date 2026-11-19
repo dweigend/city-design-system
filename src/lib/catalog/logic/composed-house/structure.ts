@@ -3,6 +3,7 @@ import type { HousePart } from './house-object';
 import { roofLanding } from './deck-plan';
 import type { HouseSurfaces } from './surfaces';
 import type { Vec3 } from '../parametrik/types';
+import { plotDeck } from './plot-deck';
 import { access } from './access';
 import { fitting, mountFitting } from './asset-fit';
 import { column, pipeBetween, beam, slab } from './parts';
@@ -78,6 +79,14 @@ function towers(s: Section, surfaces: HouseSurfaces): HousePart[] {
 }
 function deckParts(s: Section, surfaces: HouseSurfaces) {
 	return s.decks.flatMap(({ position: [x, y, z], width: w, depth: d, round }, i) => {
+		if (
+			i === 0 &&
+			(s.cells.length > 1 ||
+				s.cells[0].corners.some(
+					([x, y], j, c) => x !== c[(j + 1) % 4][0] && y !== c[(j + 1) % 4][1]
+				))
+		)
+			return plotDeck(s, surfaces.deck);
 		const t = Math.min(0.38, w * 0.04, d * 0.055),
 			radius = round ? w / 2 : Math.min(w, d) * 0.12;
 		return [

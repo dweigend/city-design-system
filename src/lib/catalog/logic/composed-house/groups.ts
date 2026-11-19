@@ -8,6 +8,7 @@ import { houseLinks } from './links';
 import { sectionParts } from './projection';
 
 type Survey = {
+	seedFor?: (id: string) => number | undefined;
 	district?: (id: string) => EnsembleDistrict;
 	joined?: (a: string, b: string) => boolean;
 };
@@ -42,7 +43,12 @@ function footprints(grid: QuadGrid, stacks: Stacks, joined: Survey['joined']) {
 /** Plans connected painted footprints of equal stack height on a common bearing datum. */
 export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, survey: Survey = {}) {
 	return footprints(grid, stacks, survey.joined).map((cells) =>
-		planHouse({ cells, stacks, seed, district: survey.district?.(cells[0].id) })
+		planHouse({
+			cells,
+			stacks,
+			seed: survey.seedFor?.(cells[0].id) ?? seed,
+			district: survey.district?.(cells[0].id)
+		})
 	);
 }
 /** Assigns each house and shared span to its anchor chunk once. */

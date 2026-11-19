@@ -1,4 +1,6 @@
 <script lang="ts">
+	import HouseChoice from './HouseChoice.svelte';
+	import { composedHouseIds } from '../logic/sandbox';
 	import { focusModes } from '../data/focus';
 	import { keyboard } from '../ui/keyboard.svelte';
 	import { Popover, Toggle } from 'bits-ui';
@@ -21,6 +23,8 @@
 	 * top. Starts with a small old town; the terrain comes from the seed.
 	 */
 	const session = createSession(7, undefined, undefined, sizeAfterPaint);
+	let houseId = $state('');
+	const houses = $derived(session.tool.kind === 'look' ? composedHouseIds(session.world) : []);
 	let hud = $state<SandboxHud>();
 	let hovered = $state.raw<TerrainCell>();
 	let header = $state<HTMLElement>();
@@ -161,6 +165,19 @@
 		</div>
 	</header>
 	<div class="mode">
+		{#if houses.length}
+			<HouseChoice
+				label="House"
+				value={houses.includes(houseId) ? houseId : ''}
+				options={houses}
+				onpick={(v) => (houseId = v)}
+			/>
+			<Button
+				label="Regenerate"
+				disabled={!houses.includes(houseId)}
+				onclick={() => session.regenerate(houseId)}
+			/>
+		{/if}
 		<Toggle.Root
 			pressed={session.plan}
 			onclick={(event) => {

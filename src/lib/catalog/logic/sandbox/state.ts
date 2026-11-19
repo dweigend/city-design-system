@@ -13,6 +13,7 @@ export type StoryPart = Readonly<{
 	anchor: Readonly<{ cellId: string; level: number }>;
 	built: number;
 	style: BuildingMethod;
+	houseSeed?: number;
 }>;
 
 /** A line as the player drew it: the cells of the stroke. Its route is derived from the grid. */

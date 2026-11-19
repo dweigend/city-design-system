@@ -156,6 +156,7 @@ export function createSession(
 				focus = keys[(keys.indexOf(focus) + 1) % keys.length];
 			}, 'Focus');
 		},
+		regenerate: (id: string) => control(() => actions.regenerate(id), 'Regenerate house'),
 		advance: () => control(advance, 'Advance'),
 		get spongeCity() {
 			return world.state.futureTarget === 'sponge-city';

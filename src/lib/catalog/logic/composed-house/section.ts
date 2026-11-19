@@ -1,3 +1,4 @@
+import { hashUnit } from '../../core/random';
 import { STORY } from '../../data/grid';
 import { circulationWidth, returnCourt } from './circulation';
 import { deckPlan } from './deck-plan';
@@ -28,15 +29,16 @@ export function planHouse(site: HouseSite): Section {
 	const { cells, rows, start, end, stories, levels, uses, id } = paintedBands(site);
 	const count = levels.length;
 	const district = site.district ?? 'infill';
-	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed);
+	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed, site.plan);
 	const aspect = houseAspect(id, site.seed);
 	const bay = footprintBay(cells),
 		round = plan === 'round';
 	const lane = circulationWidth(bay) * 2.6;
 	const court = returnCourt(bay, aspect.reverse);
 	const bodyY = bay.y - court / 2;
-	const width = ((round ? Math.min(bay.width, bay.depth - court) : bay.width) - lane) * 0.82,
-		depth = round ? width : (bay.depth - court - lane) * 0.82;
+	const fill = 0.8 + 0.04 * hashUnit(site.seed, id, 'bay-fill');
+	const width = ((round ? Math.min(bay.width, bay.depth - court) : bay.width) - lane) * fill,
+		depth = round ? width : (bay.depth - court - lane) * fill;
 	const pad = cells[0].pad,
 		base: Section['base'] = [bay.x, bodyY, pad + start * STORY];
 	const top = pad + end * STORY;

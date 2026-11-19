@@ -1,3 +1,4 @@
+import { nextSeed } from '../../core/random';
 import { required } from '../required';
 import { isPainted } from './house-phase-ink';
 import { houseObstacles } from './house-obstacles';
@@ -28,8 +29,9 @@ function paintedRuns(world: World) {
 function survey(world: World) {
 	const plots = buildingPlots(world.grid),
 		r3 = houseEnsembles(world.grid, plots, world.state, world.seed);
-	const sections = [...paintedRuns(world)].flatMap(([, stacks]) =>
+	const sections = [...paintedRuns(world)].flatMap(([start, stacks]) =>
 		paintedSections(plots, stacks, world.seed, {
+			seedFor: (id) => world.state.storyParts.get(id)?.[start]?.houseSeed,
 			// The shared-wall graph limits bodies. R3's lateral graph also includes across-alley neighbours.
 			joined: (a, b) => r3.cells.get(a)?.neighbors.includes(b) ?? false,
 			district: (id) => houseDistrict(required(world.grid.cellsById.get(id), 'painted cell'))
@@ -46,6 +48,8 @@ function survey(world: World) {
 			return [
 				s.id,
 				{
+					start: s.start,
+					seed: s.seed,
 					built: Math.max(...stories.map((p) => p.built)),
 					painted: stories.some((p) => isPainted(p.id))
 				}
@@ -57,6 +61,8 @@ function survey(world: World) {
 			const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
 			return {
 				...g,
+				start: owners[0].start,
+				seed: owners[0].seed,
 				built: Math.max(...owners.map((p) => p.built)),
 				painted: owners.some((p) => p.painted)
 			};
@@ -89,4 +95,27 @@ export function changedSpans(before: World, after: World) {
 	for (const [id, g] of next)
 		if (g.span !== old.get(id)?.span) changes.set('composed/' + id, g.chunk);
 	return changes;
+}
+
+/** Lists stable house addresses available for individual regeneration. */
+export function composedHouseIds(world: World) {
+	return composedProjection(world)
+		.filter((g) => !g.span)
+		.map((g) => g.id);
+}
+
+/** Draws the next house seed on its supporting stories, preserving paint, height and neighbours. */
+export function regenerateHouse(world: World, id: string): World {
+	const house = composedProjection(world).find((g) => !g.span && g.id === id);
+	if (!house) return world;
+	const seed = nextSeed(house.seed),
+		storyParts = new Map(world.state.storyParts);
+	for (const cell of house.cells) {
+		const parts = required(storyParts.get(cell), 'painted house');
+		storyParts.set(
+			cell,
+			parts.map((p, i) => (i === house.start ? { ...p, houseSeed: seed } : p))
+		);
+	}
+	return { ...world, state: { ...world.state, storyParts } };
 }

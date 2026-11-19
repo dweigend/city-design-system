@@ -43,3 +43,5 @@ export { runFrameTimeline } from './frame-runner';
 export { createFrameStudy } from './frame-study';
 export { sizeFrameSites } from './frame-sizing';
 export { TWO_SUNS_MAST, TWO_SUNS_PERIOD_S, TWO_SUNS_TURNING_DISC } from './two-suns';
+
+export { composedHouseIds, regenerateHouse } from './composed-projection';

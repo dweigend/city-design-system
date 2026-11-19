@@ -7,14 +7,22 @@
 		title,
 		text,
 		plates,
+		controls,
 		fitView = false
-	}: { title: string; text: string; plates: RulePlate[]; fitView?: boolean } = $props();
+	}: {
+		title: string;
+		text: string;
+		plates: RulePlate[];
+		controls?: import('svelte').Snippet;
+		fitView?: boolean;
+	} = $props();
 </script>
 
 <svelte:head><title>{title} · City Design System</title></svelte:head>
 <main>
 	<h1>{title}</h1>
 	<p>{text}</p>
+	{@render controls?.()}
 	<div class="plates">
 		{#each plates as plate (plate.id)}
 			<figure
