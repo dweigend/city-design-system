@@ -95,7 +95,11 @@ export function populateStructures(
 	} = {}
 ) {
 	const { materials, colorOf, accentColor } = finishes;
-	const toColor = (part: Primitive) => colorOf(part.token);
+	const pigment = (part: Primitive) =>
+		part.kind === 'pipe' && part.id.endsWith('/deck') && part.token === '--cat-business'
+			? '--cat-business-5'
+			: part.token;
+	const toColor = (part: Primitive) => colorOf(pigment(part));
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
 	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
@@ -208,7 +212,7 @@ export function populateStructures(
 	const casting = surface(fired.faces, materials.glaze, materials.hull, true);
 	casting?.geometry.setAttribute('kilnChart', fired.chart);
 	lines(fired.edges, materials.detail);
-	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
+	const toAccent = (part: Primitive) => accentColor(pigment(part), part.shade);
 	const accent = batch(
 		parts.accents.filter((part) => !isSheet(part)),
 		toAccent
