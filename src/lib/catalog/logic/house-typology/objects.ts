@@ -5,8 +5,8 @@ import type { Body, Point, Joint, Block } from './types';
 import type { Typology } from './families';
 type ObjectSpec = readonly [string, string, HouseSlot['kind']];
 const crowns: Record<Typology, ObjectSpec> = {
-	'capsule-stack': ['ridge-lantern', 'standard', 'lantern'],
-	'deck-tower': ['solar-roof', 'single-rack', 'panels'],
+	'capsule-stack': ['kit-crown-lantern-2p5m', 'standard', 'lantern'],
+	'deck-tower': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
 	'round-tower': ['observatory', 'slit-dome', 'lookout'],
 	'portal-house': ['green-roof', 'strip-garden', 'grove'],
 	'lattice-head': ['lattice-mast', 'compact', 'lookout'],
@@ -37,8 +37,8 @@ export function bodySpec(
 ): ObjectSpec {
 	if (use === 'living')
 		return [
-			'living-capsule',
-			length === 5 ? 'studio' : length === 7.5 ? 'twin' : 'longhouse',
+			('kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm'),
+			'round-shoulder',
 			'capsule'
 		];
 	if (type === 'round-tower') return ['drum-house', 'extended', 'lookout'];

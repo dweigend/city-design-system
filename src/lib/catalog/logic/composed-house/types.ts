@@ -1,4 +1,4 @@
-import type { EnsembleContext, HouseComposition, Typology } from '../house-typology';
+import type { Body, EnsembleContext, HouseComposition, Typology } from '../house-typology';
 import type { HouseUse, Stacks } from '../../data/house-body';
 import type {
 	
@@ -55,5 +55,5 @@ export type Section = {
 	stories: number;
 	top: number;
 	decks: Deck[];
-	slots: HouseSlot[];
+	slots: Body[];
 };

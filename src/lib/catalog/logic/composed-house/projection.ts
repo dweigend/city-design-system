@@ -1,11 +1,10 @@
 import { houseStructure } from './structure';
-import { registryElements } from './provider';
+import { bodyParts } from './provider';
 import { houseSurfaces } from './surfaces';
 import type { Section } from './types';
-/** Projects the frame and fits the selected assets with caller-supplied slot assignments. */
+import { access } from './access';
+
+/** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, surfaces = houseSurfaces) {
-	return [
-		...houseStructure(section, surfaces),
-		...section.slots.flatMap((slot) => registryElements(slot, section.seed, surfaces))
-	];
+	return [...houseStructure(section,surfaces), ...section.slots.flatMap(b => bodyParts(b,surfaces)), ...access(section,surfaces)];
 }

@@ -1,55 +1,25 @@
-import { fitting, mountFitting } from './asset-fit';
-import type { AssetKind, HouseSlot } from './types';
+import { assetRegistry } from '../assets';
 import type { HouseSurfaces } from './surfaces';
+import { houseObject } from './house-object';
+import type { HouseUse } from '../../data/house-body';
+import type { Body } from '../house-typology';
+import { place } from './asset-fit';
 
-const fittings: Record<AssetKind, string> = {
-	solar: 'plug-box',
-	workshop: 'plug-box',
-	capsule: 'living-capsule',
-	dome: 'glass-bell',
-	lookout: 'drum-house',
-	grove: 'tree-trough',
-	rack: 'tank-frame',
-	reservoir: 'tank-frame',
-	panels: 'solar-roof',
-	window: 'window-band',
-	chimney: 'chimney',
-	lantern: 'observatory'
-};
-function objectSlots(slot: HouseSlot, surfaces: HouseSurfaces) {
-	const programme = surfaces[slot.use];
-	return {
-		body: slot.kind === 'capsule' ? surfaces.shell : surfaces.frame,
-		accent: programme,
-		glass: surfaces.pane,
-		channel: slot.kind === 'panels' ? surfaces.pane : programme,
-		planting: surfaces.food,
-		trim: surfaces.frame,
-		edge: surfaces.frame
+const stock = new Map(assetRegistry.map(asset => [asset.id, asset]));
+/** Dresses every declared registry slot from the caller's palette. */
+export function members(id: string, variant: string, seed: number, address: string, surfaces: HouseSurfaces, use?: HouseUse) {
+	const asset = stock.get(id);
+	if (!asset) throw new RangeError('Unknown house stock ' + id);
+	const roles = {
+		body: use ? surfaces.shell : surfaces.frame, shell: surfaces.shell,
+		glass: surfaces.pane, planting: surfaces.food, deck: surfaces.deck,
+		accent: surfaces[use ?? 'frame'], channel: surfaces[use ?? 'water'],
+		highlight: surfaces[use ?? 'frame']
 	};
+	const slots = Object.fromEntries(asset.slotNames.map(slot => [slot, roles[slot as keyof typeof roles] ?? surfaces.frame]));
+	return houseObject(id, variant, seed, {instanceId: address + '/' + id, slots}).parts;
 }
-/** Picks the unit that fits the reserved length at near-nominal scale; other kinds draw by seed. */
-function variantFor(slot: HouseSlot) {
-	if (slot.kind === 'reservoir') return 'single-vessel';
-	if (slot.kind !== 'capsule') return undefined;
-	return slot.size[0] >= 7.6 ? 'longhouse' : slot.size[0] >= 5.8 ? 'twin' : 'studio';
-}
-/** Mounts a registered object and assigns its named surfaces after geometry generation. */
-export function registryElements(slot: HouseSlot, seed: number, surfaces: HouseSurfaces) {
-	const id = fittings[slot.kind],
-		attachment = slot.anchor === 'ground' ? 'deck' : slot.anchor;
-	const asset = fitting(
-		id,
-		slot.id,
-		seed,
-		attachment,
-		objectSlots(slot, surfaces),
-		variantFor(slot)
-	);
-	const angle =
-		attachment === 'facade'
-			? Math.atan2(slot.facing[1], slot.facing[0]) -
-				Math.atan2(asset.anchor.normal[1], asset.anchor.normal[0])
-			: 0;
-	return mountFitting(asset, { position: slot.position, size: slot.size, angle });
+/** Uses the measured registry origin and the composition's single rigid transform. */
+export function bodyParts(b: Body, surfaces: HouseSurfaces) {
+	return place(members(b.objectId,b.variant,b.seed,b.id,surfaces,b.use), b.nativeCenter,b.position,[b.scale,b.scale,b.scale],b.rotation);
 }
