@@ -1,3 +1,4 @@
+import { stilFuer } from '../../logic/leitstil';
 /**
  * Stage of the sandbox: one renderer per canvas, the view, light, the terrain and everything
  * built on it. Owns every GPU resource it creates (A-52) and renders on demand. The stage

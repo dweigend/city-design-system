@@ -23,6 +23,7 @@
 		sandboxCovers,
 		sandboxLines,
 		sandboxMethods,
+		surveyMessages,
 		sandboxTools,
 		sandboxUses,
 		type SandboxOption,
@@ -94,7 +95,12 @@
 			? 'Draw a footbridge with stairs and a square at each end.'
 			: undefined
 	);
-	const hint = $derived(session.failure?.reason ?? drawingHint ?? lineHint ?? active?.hint);
+	const hint = $derived(
+		session.failure
+			? (surveyMessages[session.failure.reason] ??
+					'The selected walls cannot support a continuous carrier.')
+			: (drawingHint ?? lineHint ?? active?.hint)
+	);
 	function toolOf(id: SandboxToolId): Tool {
 		if (id === 'house') return { kind: 'house', use: chosen.house };
 		if (id === 'line') return { kind: 'line', transit: chosen.line };

@@ -64,7 +64,7 @@ export const sandboxLines: SandboxOption<'viaduct' | 'capsule' | 'walkway'>[] = 
 	{ id: 'capsule', name: 'Capsule tube', figure: 'Tube, pods', color: 'var(--cat-business-2)' },
 	{
 		id: 'walkway',
-		name: 'Elevated walkway',
+		name: 'Walkway',
 		figure: 'Footbridge, stairs and square',
 		color: 'var(--cat-business)'
 	}
@@ -120,4 +120,20 @@ export const townDefaults = {
 	inlandRows: 7,
 	depthPenalty: 1.5,
 	maxFloors: 3
+};
+
+/** Player-facing explanations for rejected construction surveys. */
+export const surveyMessages: Readonly<Record<string, string>> = {
+	'invalid-roof': 'These roof footprints cannot support a surveyed frame.',
+	'empty-survey': 'Drag across existing roofs to place a carrier.',
+	'occupied-roof': 'This roof already carries a frame.',
+	'span-disconnected': 'The gap between these roofs is too wide for a carrier.',
+	'no-local-bay': 'This roof has no suitable wall bearing.',
+	'no-dock-group': 'The carrier needs three clear capsule seats here.',
+	'short-span': 'Extend the walkway to reach a second support.',
+	'straight-three-blocks': 'Turn the walkway before it crosses a third block.',
+	'buried-deck': 'The ground rises above this deck.',
+	'unsupported-span': 'Move the supports so each span measures 6 to 18 meters.',
+	'no-stair-route': 'The walkway needs a dry stair route at both ends.',
+	'occupied-path': 'A walkway already occupies this part of the route.'
 };

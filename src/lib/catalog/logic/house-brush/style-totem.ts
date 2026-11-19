@@ -60,7 +60,7 @@ export function dockedForms(
 	const b = { id, role: 'neu', material: 'glaze', token: '--paper' } as const;
 	if (recipe === 'tank')
 		return [
-			{ ...b, kind: 'sphere', position: m.center, radius: m.size[0] / 2, token: '--cat-health-5' }
+			{ ...b, kind: 'sphere', position: m.center, radius: m.size[0] / 2, token: flowToken.water }
 		];
 	if (recipe === 'solar-ring')
 		return [
@@ -112,4 +112,14 @@ export function dockedForms(
 			token: token[recipe]
 		}
 	];
+}
+
+/** Projects all solids belonging to one removable shell, including the function fitting. */
+export function shellForms(
+	id: string,
+	recipe: Parameters<typeof dockedForms>[1],
+	seat: { shell: DockedModule; accent?: DockedModule }
+) {
+	const shell = dockedForms(id, 'capsule', seat.shell);
+	return seat.accent ? [...shell, ...dockedForms(id + '/fitting', recipe, seat.accent)] : shell;
 }

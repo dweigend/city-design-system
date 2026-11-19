@@ -6,7 +6,7 @@ import { kanal, kantenId } from '../traeger';
 import type { Site } from './form';
 import type { Mass } from './massing';
 import { along, bayOf, mountingGrid, type Bay } from './megastructure-bay';
-import { dockedForms, dockedModule } from './style-totem';
+import { shellForms, dockedModule } from './style-totem';
 import { guest } from './megastructure-guests';
 import { access, gallery } from './megastructure-services';
 import { storiesOf } from './stacks';
@@ -119,8 +119,8 @@ export function surveyedMass(mass: Mass, withModules: boolean): Primitive[] {
 			mass.use,
 			[]
 		);
-		group?.forEach(({ recipe, m }, i) =>
-			parts.push(...dockedForms(mass.id + '/module/' + i, recipe, m))
+		group?.forEach(({ recipe, seat }, i) =>
+			parts.push(...shellForms(mass.id + '/module/' + i, recipe, seat))
 		);
 	}
 	return parts;

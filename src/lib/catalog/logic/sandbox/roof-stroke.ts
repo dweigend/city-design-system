@@ -1,9 +1,17 @@
+import { buildingPlots } from './building-plots';
+import { roofWalls } from '../house-brush';
 import { required } from '../required';
 import { STORY } from '../../data/grid';
 import { buildRoofFrame } from '../megastructure';
 import type { QuadCell } from '../quad-grid';
 import type { Vec3 } from '../parametrik/types';
-import { rejected, type Anchor, type Proposal } from './installation-parts';
+import {
+	position,
+	rejected,
+	type Installation,
+	type Anchor,
+	type Proposal
+} from './installation-parts';
 import type { World } from './world';
 
 function wallAnchor(cell: QuadCell, level: number, p: Vec3): Anchor {
@@ -37,6 +45,8 @@ function gap(components: string[][], centers: Map<string, Vec3>): Vec3[][] {
 
 /** Surveys each painted roof separately, retaining the K2 wall seats in the installation record. */
 export function roofStroke(world: World, cells: QuadCell[]): Proposal {
+	const grid = buildingPlots(world.grid);
+	cells = cells.map((c) => required(grid.cellsById.get(c.id), 'building plot'));
 	const levels = world.state.stacks;
 	const roofs = cells.flatMap((c) => {
 		const level = levels.get(c.id)?.length;
@@ -56,7 +66,13 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 		)
 	)
 		return rejected('occupied-roof', cells);
-	const plan = buildRoofFrame(roofs, { clearance: 4 }, 'leitstil');
+	let plan: ReturnType<typeof buildRoofFrame>;
+	try {
+		plan = buildRoofFrame(roofs, { clearance: 6 }, 'leitstil');
+	} catch (error) {
+		if (error instanceof RangeError) return rejected('invalid-roof', cells);
+		throw error;
+	}
 	if (plan.status === 'span-disconnected') {
 		const centers = new Map(
 			cells.map((c) => [
@@ -77,18 +93,43 @@ export function roofStroke(world: World, cells: QuadCell[]): Proposal {
 		};
 	if (plan.status !== 'assembled') return rejected(plan.status, cells);
 	if (plan.frame.analysis.status !== 'ok') return rejected(plan.frame.analysis.status, cells);
-	const anchor = (joint: { roofId: string; p: Vec3 }) =>
-		wallAnchor(
-			required(world.grid.cellsById.get(joint.roofId), 'surveyed cell'),
-			required(levels.get(joint.roofId), 'roof stories').length,
-			joint.p
+	const seats = roofs.flatMap((roof) => {
+		const cell = required(grid.cellsById.get(roof.id), 'building plot');
+		const level = required(levels.get(roof.id), 'roof stories').length;
+		const wall = roofWalls(grid, levels, cell, world.seed);
+		const feet = plan.frame.rods
+			.filter(
+				(r) => r.main && r.a.roofId === roof.id && r.a.p[0] === r.b.p[0] && r.a.p[1] === r.b.p[1]
+			)
+			.map((r) => ({ ...wallAnchor(cell, level, r.b.p), inset: wall.inset }))
+			.filter((a) => wall.exposed[a.face ?? 0]);
+		// Prefer one consistent frontage along the stroke; never seat a post on an internal seam.
+		feet.sort((a, b) => (a.face ?? 0) - (b.face ?? 0));
+		return feet.slice(0, roofs.length === 1 ? 2 : 1);
+	});
+	if (seats.length < 2 || seats.length < roofs.length) return rejected('no-local-bay', cells);
+	const crown = Math.max(...roofs.map((r) => r.height)) + 6;
+	const parts: Installation[] = [];
+	const top = (a: Anchor) => ({
+		...a,
+		lift: crown - required(grid.cellsById.get(a.cellId), 'plot').pad - a.level * STORY
+	});
+	for (const [i, foot] of seats.entries()) {
+		parts.push(
+			{ kind: 'pillar', recipe: 'bearing', anchor: foot },
+			{ kind: 'segment', recipe: 'chord', anchor: foot, end: top(foot) }
 		);
-	return {
-		parts: plan.frame.rods.map((r) => ({
-			kind: 'segment',
-			recipe: r.main ? 'chord' : 'brace',
-			anchor: anchor(r.a),
-			end: anchor(r.b)
-		}))
-	};
+		if (i) {
+			const prev = seats[i - 1];
+			const a = position(grid, prev),
+				b = position(grid, foot);
+			if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 15)
+				return { failure: { reason: 'span-disconnected', marks: [[a, b]] } };
+			parts.push(
+				{ kind: 'segment', recipe: 'chord', anchor: top(prev), end: top(foot) },
+				{ kind: 'segment', recipe: 'brace', anchor: prev, end: top(foot) }
+			);
+		}
+	}
+	return { parts };
 }

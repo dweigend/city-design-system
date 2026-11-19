@@ -37,7 +37,7 @@ function memberLevel(stacks: Stacks, cell: QuadCell, like: Like) {
  * The mass that contains story `level` of `cell`. The story must exist.
  * Cost: one flood fill over the mass. Order-independent: stories come sorted by cell index.
  */
-function massAt(grid: QuadGrid, stacks: Stacks, cell: QuadCell, level: number): Mass {
+export function massAt(grid: QuadGrid, stacks: Stacks, cell: QuadCell, level: number): Mass {
 	const like: Like = {
 		use: storiesOf(stacks, cell.id)[level],
 		floor: floorOf(cell, level),

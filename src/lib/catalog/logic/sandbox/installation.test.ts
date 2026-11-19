@@ -2,6 +2,7 @@
 import { expect, test } from 'bun:test';
 import {
 	installationView,
+	applyEdit,
 	beginStroke,
 	commit,
 	createWorld,
@@ -55,10 +56,10 @@ test('a short walkway cannot leave an isolated landing', () => {
 });
 
 test('two neutral shells and one colored module touch their carrier and undo together', () => {
-	const frame = carrier(['86/49', '92/49'], withState(town, { ...town.state, year: 2027 })).draft;
+	const frame = carrier(['83/47', '87/47'], withState(town, { ...town.state, year: 2027 })).draft;
 	const w = withState(frame, { ...frame.state, year: 2028 });
 	for (const use of ['energy', 'water'] as const) {
-		const group = ['86/49', '92/49'].reduce(
+		const group = ['83/47', '87/47'].reduce(
 			extendStroke,
 			beginStroke({ kind: 'house', use }, w)
 		).draft;
@@ -69,8 +70,9 @@ test('two neutral shells and one colored module touch their carrier and undo tog
 			use === 'water' ? 'tank' : 'solar-ring'
 		]);
 		const view = installationView(group, 'all');
+		expect(view.filter((p) => p.kind === 'capsule')).toHaveLength(3);
 		const top = view.at(-1);
-		expect(top?.token).toBe(use === 'water' ? '--cat-health-5' : '--cat-mobility');
+		expect(top?.token).toBe(use === 'water' ? '--cat-health' : '--cat-mobility');
 		if (top?.kind === 'sphere') {
 			expect(top.radius).toBe(1);
 			const rod = view.find((p) => p.id === modules[2].attachedTo);
@@ -81,7 +83,7 @@ test('two neutral shells and one colored module touch their carrier and undo tog
 	}
 });
 test('a surveyed walkway has supported decks, stairs and a square at both ends', () => {
-	const built = ['40/46', '46/46'].reduce(
+	const built = ['30/35', '35/37'].reduce(
 		extendStroke,
 		beginStroke({ kind: 'line', transit: 'walkway' }, town)
 	).draft;
@@ -100,4 +102,40 @@ test('a walkway crossing three blocks in a straight line leaves the state intact
 	);
 	expect(stroke.failure?.reason).toBe('straight-three-blocks');
 	expect(stroke.draft).toBe(town);
+});
+
+test('one bay has one diagonal, one crown segment and one joint per supporting wall', () => {
+	const built = carrier(roofs).draft;
+	const parts = [...built.state.parts.values()];
+	expect(parts.filter((p) => p.recipe === 'brace')).toHaveLength(2);
+	expect(
+		parts.filter(
+			(p) => p.kind === 'segment' && p.recipe === 'chord' && p.anchor.cellId !== p.end.cellId
+		)
+	).toHaveLength(2);
+	expect(parts.filter((p) => p.recipe === 'bearing')).toHaveLength(3);
+	expect(installationView(built, 'all').filter((p) => p.kind === 'sphere')).toHaveLength(3);
+});
+test('a seven-cell rejection has one perimeter', () => {
+	const empty = withState(base, { ...base.state, year: 2028 });
+	const stroke = carrier(['40/46', '46/46'], empty);
+	expect(stroke.failure?.reason).toBe('no-dock-group');
+	expect(stroke.failure?.marks).toHaveLength(1);
+});
+test('repeating a walkway shares its base and erasing refunds only stock spent', () => {
+	const ids = ['30/35', '35/37'];
+	const start = withState(town, { ...town.state, store: { ...town.state.store, material: 3 } });
+	const draw = (w: typeof town) =>
+		ids.reduce(extendStroke, beginStroke({ kind: 'line', transit: 'walkway' }, w));
+	const built = draw(start).draft;
+	expect(built.state.store.material).toBe(0);
+	expect(draw(built).failure?.reason).toBe('occupied-path');
+	expect(draw(built).draft).toBe(built);
+	expect(applyEdit(built, { kind: 'clear', cellId: ids[0] }).state.store.material).toBe(3);
+	expect(applyEdit(built, { kind: 'dig', cellId: ids[0] }).state.parts.size).toBe(0);
+});
+test('previous-format worlds project an empty installation layer', () => {
+	const { parts, compositions, ...legacy } = town.state;
+	expect(installationView(withState(town, legacy), 'all')).toEqual([]);
+	expect(parts.size + compositions.size).toBe(0);
 });

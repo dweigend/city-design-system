@@ -1,5 +1,15 @@
+import { STORY } from '../../data/grid';
+import { buildingPlots } from './building-plots';
 import { FRAME_DIAMETER, type Bounds } from '../megastructure';
-import { atSocket, moduleGroup, stackTop, type HouseUse } from '../house-brush';
+import {
+	atSocket,
+	socketBounds,
+	capsulePitch,
+	ringArea,
+	moduleGroup,
+	stackTop,
+	type HouseUse
+} from '../house-brush';
 import type { Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 import { position, rejected, type BuiltPart, type Proposal } from './installation-parts';
@@ -19,7 +29,7 @@ export function rodOf(grid: QuadGrid, part: BuiltPart): Rod | undefined {
 
 function roofObstacles(world: World): Bounds[] {
 	return [...world.state.stacks.keys()].flatMap((id) => {
-		const c = world.grid.cellsById.get(id);
+		const c = buildingPlots(world.grid).cellsById.get(id);
 		if (!c) return [];
 		const xs = c.corners.map((p) => p[0]),
 			ys = c.corners.map((p) => p[1]);
@@ -34,13 +44,15 @@ function roofObstacles(world: World): Bounds[] {
 
 /** Places two suspended shells and one accent on the same carrier, or rejects the entire group. */
 export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Proposal {
-	const rods = [...world.state.parts.values()].flatMap((p) => rodOf(world.grid, p) ?? []);
+	const rods = [...world.state.parts.values()].flatMap(
+		(p) => rodOf(buildingPlots(world.grid), p) ?? []
+	);
 	const occupied = roofObstacles(world);
 	for (const p of world.state.parts.values()) {
 		if (p.kind !== 'module') continue;
 		const r = rods.find((r) => r.part.id === p.attachedTo);
-		const m = r && atSocket(r, p.share, p.recipe, []);
-		if (m) occupied.push(m.bounds);
+		const m = r && atSocket(r, p.share, p.recipe, [], p.pitch);
+		if (m) occupied.push(...socketBounds(m));
 	}
 	const ids = new Set(cells.map((c) => c.id));
 	const selected = rods.filter((r) => ids.has(r.part.anchor.cellId));
@@ -49,15 +61,23 @@ export function dockStroke(world: World, cells: QuadCell[], use: HouseUse): Prop
 			(r) => r.part.owner === owner && r.part.recipe === 'chord' && Math.abs(r.a[2] - r.b[2]) < 1e-8
 		);
 		if (!candidates.length) continue;
-		const group = moduleGroup(rods, candidates, use, occupied);
+		const plots = buildingPlots(world.grid);
+		const area = Math.max(
+			...candidates.map((r) => {
+				const c = plots.cellsById.get(r.part.anchor.cellId);
+				return c ? Math.abs(ringArea(c.corners.map(([x, y]) => [x, y]))) : 0;
+			})
+		);
+		const group = moduleGroup(rods, candidates, use, occupied, capsulePitch(area * STORY));
 		if (group)
 			return {
 				owner,
-				parts: group.map(({ rod, share, recipe }) => ({
+				parts: group.map(({ rod, share, recipe, pitch }) => ({
 					kind: 'module',
 					recipe,
 					anchor: rod.part.anchor,
 					attachedTo: rod.part.id,
+					pitch,
 					share
 				}))
 			};

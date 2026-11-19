@@ -1,3 +1,4 @@
+import { profileOf } from './profile';
 /**
  * House brush: the player paints stories onto grid cells, the grammar derives architecture.
  * The grammar reads only the quad carrier contract, so it works on every grid of quads.
@@ -10,14 +11,14 @@
 import type { Primitive } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 
-import { floorOf, massesOfChunk } from './massing';
+import { massAt, floorOf, massesOfChunk } from './massing';
 import { storiesOf, type Stacks } from './stacks';
 import { massRules, type HouseStyle } from './styles';
 
 export { MAX_STORIES, lower, raise, storiesOf, type HouseUse, type Stacks } from './stacks';
 export { chunksOfCells, touchedChunks } from './massing';
 
-export { dockedForms } from './style-totem';
+export { shellForms } from './style-totem';
 export { HOUSE_STYLES, type HouseStyle } from './styles';
 
 /**
@@ -45,5 +46,21 @@ export function houseChunk(
 export const stackTop = (stacks: Stacks, cell: QuadCell): number =>
 	floorOf(cell, storiesOf(stacks, cell.id).length);
 
-export { atSocket, moduleGroup, type ModuleRecipe } from './module-group';
+export {
+	atSocket,
+	socketBounds,
+	capsulePitch,
+	moduleGroup,
+	type ModuleRecipe
+} from './module-group';
 export { carrierForm } from './style-megastructure';
+
+/** Actual wall setback and exposed faces of the roof story on a building plot. */
+export function roofWalls(grid: QuadGrid, stacks: Stacks, cell: QuadCell, seed: number) {
+	const level = storiesOf(stacks, cell.id).length - 1;
+	const mass = massAt(grid, stacks, cell, level);
+	const members = new Set(mass.stories.map((s) => s.cell.id));
+	const inset = profileOf({ grid, stacks, seed }, mass).wallInset;
+	return { inset, exposed: cell.neighbors.map((n) => !n || !members.has(n)) };
+}
+export { boundaryRings, ringArea } from './outline';

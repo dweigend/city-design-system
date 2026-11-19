@@ -2,7 +2,13 @@ import { styleForYear } from './houses';
 import { dockStroke } from './dock-stroke';
 import { roofStroke } from './roof-stroke';
 import { walkwayStroke } from './walkway-stroke';
-import type { BuiltPart, Owner, PartId, Proposal } from './installation-parts';
+import {
+	rejected,
+	type BuiltPart,
+	type Owner,
+	type PartId,
+	type Proposal
+} from './installation-parts';
 import type { SandboxState } from './state';
 import type { Tool } from './state';
 import type { World } from './world';
@@ -10,9 +16,24 @@ import type { World } from './world';
 /** Selects the stroke-level planner for the active house epoch or elevated path. */
 export function propose(world: World, tool: Tool, ids: readonly string[]): Proposal | undefined {
 	const cells = () => ids.flatMap((id) => world.grid.cellsById.get(id) ?? []);
-	if (tool.kind === 'line' && tool.transit === 'walkway') return walkwayStroke(world.grid, cells());
+	if (tool.kind === 'line' && tool.transit === 'walkway') {
+		const path = walkwayStroke(world.grid, cells());
+		if ('failure' in path) return path;
+		const occupied = new Set(
+			[...world.state.parts.values()]
+				.filter((p) => world.state.compositions.get(p.owner)?.system === 'paths')
+				.map((p) => p.anchor.cellId)
+		);
+		if (
+			path.parts.some(
+				(p) => occupied.has(p.anchor.cellId) || (p.kind === 'segment' && occupied.has(p.end.cellId))
+			)
+		)
+			return rejected('occupied-path', cells());
+		return path;
+	}
 	if (tool.kind !== 'house') return;
-	const style = styleForYear(world.state.year);
+	const style = tool.style ?? styleForYear(world.state.year);
 	if (style === 'megastructure') return roofStroke(world, cells());
 	if (style === 'totem') return dockStroke(world, cells(), tool.use);
 }
@@ -29,7 +50,13 @@ export function install(
 	const parts = new Map(state.parts);
 	proposal.parts.forEach((spec, slot) => {
 		const id: PartId = `p/${action}/${slot}`;
-		const p: BuiltPart = { ...spec, id, owner, built: state.year, materials: { material: 1 } };
+		const p: BuiltPart = {
+			...spec,
+			id,
+			owner,
+			built: state.year,
+			materials: { material: Math.min(1, Math.max(0, state.store.material - slot)) }
+		};
 		parts.set(id, p);
 	});
 	return {

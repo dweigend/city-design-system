@@ -49,7 +49,7 @@ export function extendStroke(stroke: Stroke, cellId: string): Stroke {
 	const last = stroke.lastPointerCellId;
 	if (cellId === last || !grid.cellsById.has(cellId)) return stroke;
 	const reached = last ? cellsBetween(grid, last, cellId).map((cell) => cell.id) : [cellId];
-	const fresh = reached.filter((id) => !stroke.cellIds.includes(id));
+	const fresh = [...new Set(reached)].filter((id) => !stroke.cellIds.includes(id));
 	const lastPointerCellId = cellId;
 	if (!fresh.length) return { ...stroke, lastPointerCellId };
 	const cellIds = [...stroke.cellIds, ...fresh];

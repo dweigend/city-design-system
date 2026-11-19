@@ -78,7 +78,7 @@
 		if (!stage) return;
 		if (session.failure) {
 			stage.setLens(0, 0, 0);
-			stage.setCursor(session.failure.marks, 'signal');
+			stage.setCursor(session.failure.marks, 'hazard');
 		} else updateCursor(stage);
 	});
 </script>

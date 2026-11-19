@@ -94,7 +94,7 @@ export const styleForYear = (year: number): BuildingMethod => stylesForYear(year
 /** The tool in the player's hand. `look` only moves the view. */
 export type Tool =
 	| { kind: 'look' }
-	| { kind: 'house'; use: HouseUse }
+	| { kind: 'house'; use: HouseUse; style?: HouseStyle }
 	| { kind: 'line'; transit: TransitKind | 'walkway' }
 	| { kind: 'cover'; cover: CoverKind }
 	| { kind: 'dig' }
