@@ -37,7 +37,9 @@ test('the portrait city tread retains its projected surface below the half-pixel
 			scale: pixels / width,
 			minContourPx: 0.5
 		});
-		const surface = drawing.parts.find((p) => p.id === tread.id);
+		const surface: (typeof drawing.parts)[number] | undefined = drawing.parts.find(
+			(p) => p.id === tread.id
+		);
 		assert(surface?.kind === 'membrane');
 		assert.deepEqual(surface.corners, tread.cityForm);
 		assert.equal(drawing.unoutlined.has(surface), pixels < 0.5);

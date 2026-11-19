@@ -106,7 +106,7 @@ test('the moving and vacated crown edges pick the same geometry as the screen, i
 			}
 			expect(entered && vacated).toBe(true);
 			expect(crown.userData.cellId).toBe('0/0');
-			if (t === 5000 && first.length) expect(crown.matrixWorld.elements).toEqual(first);
+			if (t === 5000 && first.length) expect([...crown.matrixWorld.elements]).toEqual(first);
 			if (!first.length) first = [...crown.matrixWorld.elements];
 		}
 	} finally {
