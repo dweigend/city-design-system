@@ -1,219 +1,248 @@
-// @ts-expect-error Bun provides these APIs at runtime.
+// @ts-expect-error Bun provides these test APIs at runtime.
 import { expect, spyOn, test } from 'bun:test';
-// @ts-expect-error The app has no Bun runtime dependency.
-import { plugin, file } from 'bun';
-import { compileModule } from 'svelte/compiler';
-import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
-import assert from 'node:assert/strict';
 import * as sandbox from '../logic/sandbox';
-import { applyStroke, previewStrokePlan } from '../logic/sandbox';
-import type { Completion } from './feedback';
+import * as terrainGrid from '../logic/terrain-grid';
+import type { Tool } from '../logic/sandbox';
+import { gestureDriver } from './fixtures/serial-gesture';
 
-plugin({
-	name: 'sandbox-session-runes',
-	setup(build: {
-		onLoad: (
-			filter: { filter: RegExp },
-			load: (input: { path: string }) => Promise<unknown>
-		) => void;
-	}) {
-		build.onLoad({ filter: /\/session\.svelte\.ts$/ }, async ({ path }) => {
-			const source: string = await file(path).text();
-			const { outputText } = transpileModule(source, {
-				compilerOptions: {
-					target: ScriptTarget.ESNext,
-					module: ModuleKind.ESNext,
-					verbatimModuleSyntax: true
-				}
-			});
-			return {
-				contents: compileModule(outputText, { filename: path, generate: 'client' }).js.code,
-				loader: 'js'
-			};
-		});
+const house = { kind: 'house', use: 'living' } as const;
+const material = { kind: 'house', use: 'material' } as const;
+const dig = { kind: 'dig' } as const;
+const erase = { kind: 'erase' } as const;
+const walkway = { kind: 'line', transit: 'walkway' } as const;
+const viaduct = { kind: 'line', transit: 'viaduct' } as const;
+const roof: NonNullable<sandbox.World['roofBuilder']> = {
+	build() {
+		throw new Error('Roof geometry belongs to the scene fixtures');
+	},
+	reportFailure() {}
+};
+
+test('pending input acknowledges touch immediately and replays the entire buffered bend', () => {
+	const d = gestureDriver(() => 500);
+	try {
+		d.stroke(house, '80/44');
+		d.stroke(dig, '87/35', '90/35', '90/38');
+		expect(d.rings).toEqual([
+			{ x: 80, y: 44 },
+			{ x: 87, y: 35 }
+		]);
+		expect(d.session.gesture).toBeUndefined();
+		expect(d.events).toEqual([]);
+		d.tick(499);
+		expect(d.world().state.edits).toEqual([]);
+		d.tick(1);
+		expect(d.events.map(({ kind }) => kind)).toEqual(['house']);
+		expect(d.waiting()?.cellIds).toContain('90/35');
+		d.tick(500);
+		expect(d.events.map(({ kind }) => kind)).toEqual(['house', 'dig']);
+		expect(d.events[1].cellIds).toHaveLength(7);
+		expect(d.world().state.edits).toHaveLength(7);
+	} finally {
+		d.dispose();
 	}
 });
 
-const { createSession } = await import('./session.svelte');
-
-function place(change?: 'tool' | 'method' | 'option') {
-	const session = createSession(7);
-	session.advance();
-	session.advance();
-	session.advance();
-	session.pickMethod('collage');
-	const start = session.world;
-	session.strokeStart(start, '80/44');
-	const gesture = session.gesture;
-	const plan = session.previewPlan;
-	assert.ok(plan);
-	const preview = previewStrokePlan(plan);
-	expect(preview.length).toBeGreaterThan(0);
-	if (change === 'tool') session.tool = { kind: 'dig' };
-	if (change === 'method') session.pickMethod('megastructure');
-	if (change === 'option') session.tool = { kind: 'house', use: 'water' };
-	expect(session.gesture).toBe(gesture);
-	expect(session.previewPlan).toBe(plan);
-	expect(previewStrokePlan(plan)).toEqual(preview);
-	const release = session.strokeRelease();
-	assert.ok(release);
-	expect(release).toBe(plan);
-	expect(session.world).toBe(start);
-	session.commitRelease(release);
-	return session.world.state;
-}
-
-test('a held house preview and delayed placement keep their chosen tool and method', () => {
-	const uninterrupted = place();
-	expect(uninterrupted.storyParts.get('80/44')?.at(-1)?.style).toBe('collage');
-	expect(place('tool')).toEqual(uninterrupted);
-	expect(place('method')).toEqual(uninterrupted);
-	expect(place('option')).toEqual(uninterrupted);
+test('a held tool, year and displayed roof stay current until the stroke commits', () => {
+	const d = gestureDriver();
+	try {
+		d.session.tool = house;
+		d.down('80/44');
+		d.session.tool = dig;
+		d.session.advance();
+		d.session.setRoofBuilder(roof);
+		expect(d.session.tool.kind).toBe('house');
+		expect(d.world().state.year).toBe(2026);
+		expect(d.world().roofBuilder).toBeUndefined();
+		d.up('80/44');
+		d.finish();
+		expect(d.events.map(({ kind }) => kind)).toEqual(['house', 'advance']);
+		expect(d.world().state.storyParts.get('80/44')?.at(-1)?.built).toBe(2026);
+		expect(d.world().state.year).toBe(2051);
+		expect(d.session.tool.kind).toBe('dig');
+		expect(d.world().roofBuilder).toBe(roof);
+	} finally {
+		d.dispose();
+	}
 });
 
-for (const gesture of ['tap', 'drag'] as const) {
-	for (const timing of ['before', 'during', 'after'] as const) {
-		test(`both edits enter history when the first tap commits ${timing} the second ${gesture}`, () => {
-			const session = createSession(7);
-			const opening = session.world;
-			const events: Completion[] = [];
-			session.onCompletion((event) => events.push(event));
-			session.strokeStart(opening, '80/44');
-			const first = session.strokeRelease();
-			assert.ok(first);
-			if (timing === 'before') session.commitRelease(first);
+test('kernel readiness cannot retarget a stationary Erase during its gesture', () => {
+	const d = gestureDriver(
+		() => 16,
+		(world) => world.grid.cellsById.get(world.roofBuilder ? '81/38' : '81/39')?.index
+	);
+	try {
+		d.session.tool = erase;
+		d.down('321/485');
+		d.session.setRoofBuilder(roof);
+		d.up('321/485');
+		d.finish();
+		expect(d.events[0].cellIds).toEqual(['81/39']);
+		expect(d.world().state.stacks.has('81/39')).toBe(false);
+		expect(d.world().state.stacks.has('81/38')).toBe(true);
+		d.pointer('pointermove', '321/485', 'mouse');
+		expect(d.hovered()).toBe('81/38');
+	} finally {
+		d.dispose();
+	}
+});
 
-			// A held gesture keeps the projection it began on when the first commit lands.
-			session.strokeStart(session.world, '81/44');
-			if (timing === 'during') session.commitRelease(first);
-			if (gesture === 'drag') session.strokeMove('82/44');
-			const second = session.strokeRelease();
-			assert.ok(second);
-			const cellIds = gesture === 'drag' ? ['81/44', '82/44'] : ['81/44'];
-			expect(second.cellIds).toEqual(cellIds);
-			session.commitRelease(second);
-			if (timing === 'after') {
-				expect(events).toEqual([]);
-				session.commitRelease(first);
+test('held zoom cancels the stroke and a redraw repicks the stationary pointer', () => {
+	let city = false;
+	const d = gestureDriver(
+		() => 16,
+		(world) => world.grid.cellsById.get(city ? '80/44' : '81/44')?.index
+	);
+	try {
+		d.pointer('pointerdown', '600/400', 'mouse');
+		expect(d.hovered()).toBe('81/44');
+		d.canvas.dispatchEvent(
+			Object.assign(new Event('wheel', { cancelable: true }), {
+				clientX: 600,
+				clientY: 400,
+				deltaY: 800
+			})
+		);
+		expect(d.session.gesture).toBeUndefined();
+		city = true;
+		d.hover.refresh(); // The stage calls the shared refresh after installing the drawing.
+		expect(d.hovered()).toBe('80/44');
+		d.pointer('pointerup', '600/400', 'mouse');
+		expect(d.waiting()).toBeUndefined();
+		d.stroke(house, '600/400');
+		d.finish();
+		expect(d.events.map(({ cellIds }) => cellIds)).toEqual([['80/44']]);
+	} finally {
+		d.dispose();
+	}
+});
+
+test('buffered picks run on the new city, including its updated stock and year', () => {
+	const d = gestureDriver();
+	try {
+		d.stroke(material, '80/44');
+		d.finish();
+		d.stroke(erase, '80/44');
+		d.session.advance();
+		d.stroke(walkway, '30/35', '35/37');
+		d.drain();
+		expect(d.events.map(({ kind }) => kind)).toEqual(['house', 'erase', 'advance', 'line']);
+		const parts = [...d.world().state.parts.values()];
+		expect(parts).toHaveLength(29);
+		expect(parts.every(({ built }) => built === 2051)).toBe(true);
+		expect(parts.reduce((sum, part) => sum + (part.materials.material ?? 0), 0)).toBe(1);
+	} finally {
+		d.dispose();
+	}
+});
+
+test('two digs, a multi-basin erase and Q each survey once from touchdown to disposal', () => {
+	const d = gestureDriver();
+	const planner = spyOn(sandbox, 'planStroke');
+	const grid = spyOn(terrainGrid, 'regrid');
+	try {
+		d.stroke(dig, '22/35');
+		d.stroke(dig, '76/41');
+		expect(planner).toHaveBeenCalledTimes(0);
+		expect(grid).toHaveBeenCalledTimes(0);
+		d.finish();
+		expect(planner).toHaveBeenCalledTimes(1);
+		expect(grid).toHaveBeenCalledTimes(1);
+		d.finish();
+		expect(planner).toHaveBeenCalledTimes(2);
+		expect(grid).toHaveBeenCalledTimes(2);
+		d.stroke(dig, '30/35');
+		d.stroke(dig, '39/35');
+		d.drain();
+		expect(d.world().state.edits).toHaveLength(4);
+		d.stroke(erase, '30/35', '39/35');
+		d.finish();
+		expect(planner).toHaveBeenCalledTimes(5);
+		expect(grid).toHaveBeenCalledTimes(5);
+		expect(d.world().state.edits).toHaveLength(2);
+		d.stroke(walkway, '30/35', '35/37');
+		d.finish();
+		expect(planner).toHaveBeenCalledTimes(6);
+		expect(grid).toHaveBeenCalledTimes(5);
+	} finally {
+		grid.mockRestore();
+		planner.mockRestore();
+		d.dispose();
+	}
+});
+
+type RawInput =
+	| { kind: 'stroke'; tool: Tool; cells: readonly [string, ...string[]] }
+	| { kind: 'advance' | 'undo' | 'redo' | 'restart' | 'kernel' };
+
+const samples: RawInput[] = [
+	{ kind: 'stroke', tool: house, cells: ['80/44', '81/44'] },
+	{ kind: 'stroke', tool: material, cells: ['82/44'] },
+	{ kind: 'stroke', tool: erase, cells: ['80/44', '82/44'] },
+	{ kind: 'stroke', tool: dig, cells: ['76/41'] },
+	{ kind: 'stroke', tool: dig, cells: ['90/35'] },
+	{ kind: 'stroke', tool: walkway, cells: ['30/35', '35/37'] },
+	{ kind: 'stroke', tool: viaduct, cells: ['87/35', '96/35'] },
+	{ kind: 'undo' },
+	{ kind: 'redo' },
+	{ kind: 'advance' },
+	{ kind: 'kernel' }
+];
+
+function play(inputs: RawInput[], delays: number[]) {
+	const d = gestureDriver((stroke) => delays[stroke % delays.length]);
+	try {
+		for (const input of inputs) {
+			switch (input.kind) {
+				case 'stroke':
+					d.stroke(input.tool, ...input.cells);
+					break;
+				case 'kernel':
+					d.session.setRoofBuilder(roof);
+					break;
+				default:
+					d.session[input.kind]();
 			}
-
-			expect(events.map(({ kind, cellIds }) => [kind, cellIds])).toEqual([
-				['house', ['80/44']],
-				['house', cellIds]
-			]);
-			const expectedFirst = applyStroke(opening, first.tool, first.cellIds).draft;
-			const expectedBoth = applyStroke(expectedFirst, second.tool, cellIds).draft;
-			expect(events[0].after.state).toEqual(expectedFirst.state);
-			expect(events[1].before).toBe(events[0].after);
-			const built = session.world.state;
-			expect(built).toEqual(expectedBoth.state);
-			session.undo();
-			expect(session.world.state).toBe(events[0].after.state);
-			session.undo();
-			expect(session.world.state).toBe(opening.state);
-			session.redo();
-			expect(session.world.state).toBe(events[0].after.state);
-			session.redo();
-			expect(session.world.state).toBe(built);
-		});
+			d.tick(8);
+		}
+		d.drain();
+		const final = { state: d.world().state, seed: d.world().seed, failure: d.session.failure };
+		const history = [];
+		while (d.session.canUndo) {
+			d.session.undo();
+			history.push(d.world().state);
+		}
+		const redo = [];
+		while (d.session.canRedo) {
+			d.session.redo();
+			redo.push(d.world().state);
+		}
+		const events = d.events.map(({ kind, before, after, cellIds }) => ({
+			kind,
+			before: before.state,
+			after: after.state,
+			seed: after.seed,
+			cellIds
+		}));
+		return { final, history, redo, events };
+	} finally {
+		d.dispose();
 	}
 }
 
-const digScenarios = [
-	{ name: 'changed approach', digCell: '22/35', house: false, undo: false },
-	{ name: 'unchanged approach', digCell: '76/41', house: false, undo: false },
-	{ name: 'Undo restores the house plot', digCell: '76/41', house: true, undo: true }
-] as const;
-
-const commitStages = [
-	'before down',
-	'after down',
-	'after move',
-	'after preview',
-	'after release',
-	'after ready'
-] as const;
-
-for (const scenario of digScenarios) {
-	for (const stage of commitStages) {
-		test(`${scenario.name}, Dig commits ${stage}`, () => {
-			const session = createSession(7);
-			const opening = session.world;
-			const events: Completion[] = [];
-			session.onCompletion((event) => events.push(event));
-			session.tool = { kind: 'dig' };
-			session.strokeStart(opening, scenario.digCell);
-			const dig = session.strokeRelease();
-			assert.ok(dig);
-			if (scenario.undo) session.undo();
-			const completeDigAt = (at: typeof stage) => {
-				if (stage === at) session.commitRelease(dig);
-			};
-			completeDigAt('before down');
-
-			const kind = scenario.house ? 'house' : 'line';
-			session.tool = scenario.house
-				? { kind: 'house', use: 'living' }
-				: { kind: 'line', transit: 'walkway' };
-			session.strokeStart(session.world, scenario.house ? '75/38' : '30/35');
-			completeDigAt('after down');
-			if (!scenario.house) session.strokeMove('35/37');
-			completeDigAt('after move');
-			const plan = session.previewPlan;
-			assert.ok(plan);
-			const marks = previewStrokePlan(plan);
-			completeDigAt('after preview');
-			const release = session.strokeRelease();
-			assert.ok(release);
-			expect(release).toBe(plan);
-
-			const planning = spyOn(sandbox, 'planStroke');
-			try {
-				completeDigAt('after release');
-				session.commitRelease(release);
-				completeDigAt('after ready');
-				session.commitRelease(release);
-				const calls = planning.mock.calls.filter(
-					([, tool]: Parameters<typeof sandbox.planStroke>) => tool.kind === kind
-				);
-				expect(calls).toHaveLength(1);
-			} finally {
-				planning.mockRestore();
-			}
-
-			const changed = scenario.digCell === '22/35';
-			const fresh = stage === 'before down';
-			const builds = !changed || fresh;
-			expect(events.map((event) => event.kind)).toEqual(builds ? ['dig', kind] : ['dig']);
-			if (scenario.house) {
-				expect(session.world.state.stacks.get('75/38')).toEqual(['living']);
-				expect(session.world.state.edits).toEqual([]);
-				expect(marks).toHaveLength(6);
-				session.undo();
-				expect(session.world.state).toBe(opening.state);
-			} else {
-				expect(release.cellIds).toHaveLength(8);
-				expect(marks).toHaveLength(changed && fresh ? 33 : 29);
-				expect(session.world.state.parts.size).toBe(builds ? marks.length : 0);
-			}
-		});
+test('random raw input matches zero-latency execution in city, history and event order', () => {
+	for (const seed of [103, 491, 2026, 3341]) {
+		let state = seed;
+		const pick = (n: number) => {
+			state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+			return Math.floor((state / 0x100000000) * n);
+		};
+		const choices = [0, 16, 32, 500];
+		const inputs = Array.from({ length: 26 }, () => samples[pick(samples.length)]);
+		inputs.splice(12, 0, { kind: 'restart' });
+		inputs.splice(1, 0, { kind: 'kernel' });
+		const timings = choices.map((_, i) => choices[(i + pick(4)) % 4]);
+		timings.push(0, 16, 32, 500);
+		expect(play(inputs, timings)).toEqual(play(inputs, [0]));
 	}
-}
-
-test('a house captured before a dig at its shared frontage keeps its original plot plan', () => {
-	const session = createSession(7);
-	const opening = session.world;
-	session.tool = { kind: 'dig' };
-	session.strokeStart(opening, '76/38');
-	const dig = session.strokeRelease();
-	assert.ok(dig);
-	session.tool = { kind: 'house', use: 'living' };
-	session.strokeStart(opening, '72/40');
-	const house = session.strokeRelease();
-	assert.ok(house);
-	session.commitRelease(dig);
-	const dug = session.world;
-	expect(dug.grid.cellsById.get('72/40')).toBe(opening.grid.cellsById.get('72/40'));
-	session.commitRelease(house);
-	expect(session.world.state).toBe(dug.state);
-});
+}, 60000);

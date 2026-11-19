@@ -55,7 +55,8 @@
 	const commands = new Map<string, () => void>([
 		['f', session.cycleFocus],
 		['y', session.advance],
-		['p', () => (plan = !plan)],
+		['p', () => session.control(() => (plan = !plan))],
+		['escape', session.dismissRejection],
 		...sandboxTools.map(({ shortcut, id }): [string, () => void] => [
 			shortcut.toLowerCase(),
 			() => hud?.pickTool(id)
@@ -68,8 +69,9 @@
 	function pick(key: string) {
 		const command = commands.get(key);
 		if (command) return command();
-		const method = session.methods.find((id) => sandboxMethods[id].shortcut.toLowerCase() === key);
-		if (method) session.pickMethod(method);
+		session.pickMethod(() =>
+			session.methods.find((id) => sandboxMethods[id].shortcut.toLowerCase() === key)
+		);
 	}
 	function pickOnce(event: KeyboardEvent, key: string) {
 		if (!event.repeat) pick(key);

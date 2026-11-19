@@ -33,6 +33,7 @@ import { createFrameLoop } from './frame-loop';
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
 	openingArea?: () => OpeningArea | undefined;
+	onDrawingChanged?: () => void;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
 	/** Seed the study additions belong to, if restricted to one terrain. */
@@ -74,7 +75,6 @@ export function createSandboxStage(
 	const ink = new THREE.Color();
 	const hazardRole = stilFuer({ zoom: 'nah', modus: 'bauen', situation: 'stoerung' }).rollen.gefahr;
 	const swatches = { planned: new THREE.Color(), hazard: new THREE.Color() };
-	let cursorTone: keyof typeof swatches = 'planned';
 	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STRICHE.kontur });
 	const cursorMaterial = new THREE.Line2NodeMaterial({
 		color: swatches.planned,
@@ -89,6 +89,15 @@ export function createSandboxStage(
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
 	let target: LineSegments2 | undefined;
+	let rejection: LineSegments2 | undefined;
+	const rejectionMaterial = new THREE.Line2NodeMaterial({
+		linewidth: 2,
+		depthWrite: false,
+		dashed: planned.gestrichelt
+	});
+	rejectionMaterial.dashScaleNode = pixelsPerMeter;
+	rejectionMaterial.dashSizeNode = cursorMaterial.dashSizeNode;
+	rejectionMaterial.gapSizeNode = cursorMaterial.gapSizeNode;
 	const targetMaterial = new THREE.Line2NodeMaterial({
 		linewidth: STRICHE.kontur,
 		depthWrite: false
@@ -103,6 +112,7 @@ export function createSandboxStage(
 	let variant: StructureVariant = STRUCTURE_VARIANTS[0];
 	let refreshTones = true;
 	let viewDirty = true;
+	let drawingChanged = false;
 	let shadowsDirty = true;
 	const flushShadows = () => (shadowsDirty = true);
 	let opening: World | undefined;
@@ -129,6 +139,7 @@ export function createSandboxStage(
 		pixelsPerMeter.value = 1 / view.metersPerPixel();
 		updateStyle();
 		viewDirty = false;
+		drawingChanged = true;
 	}
 
 	function renderImage(seating: boolean) {
@@ -140,6 +151,10 @@ export function createSandboxStage(
 
 	const loop = createFrameLoop(gpu.isLive, ({ timeMs, transitMs, reduced }) => {
 		prepareView();
+		if (drawingChanged) {
+			drawingChanged = false;
+			study.onDrawingChanged?.();
+		}
 		const seating = structures.step(timeMs, reduced);
 		const transit = vehicles.step(transitMs);
 		renderImage(seating);
@@ -156,7 +171,8 @@ export function createSandboxStage(
 		swatches.planned.set(next.blueprint);
 		swatches.hazard.set(next.categories[hazardRole.token.replace('--cat-', '')]);
 		baseOutline.color.copy(ink);
-		cursorMaterial.color.copy(swatches[cursorTone]);
+		cursorMaterial.color.copy(swatches.planned);
+		rejectionMaterial.color.copy(swatches.hazard);
 		targetMaterial.color.set(next.categories['--signal']);
 		terrain?.setPalette(next);
 		vehicles.setPalette(next);
@@ -294,6 +310,10 @@ export function createSandboxStage(
 	return {
 		ready: gpu.started,
 		view,
+		/** Keeps the camera fixed after the first drawing gesture. */
+		endOpening() {
+			opening = undefined;
+		},
 		/** Retains the current camera position on resize after the player moves it. */
 		viewChanged() {
 			opening = undefined;
@@ -349,6 +369,7 @@ export function createSandboxStage(
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */
 		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
+			prepareView();
 			return picker(x, y, shown.grid, [
 				...structures.solids(KEY.house),
 				...structures.solids(KEY.forest)
@@ -360,14 +381,7 @@ export function createSandboxStage(
 			render();
 		},
 		/** Draws planned outlines in world meters. An empty list hides them. */
-		setCursor(
-			polylines: readonly (readonly Vec3[])[],
-			outline: readonly Vec3[] = [],
-			tone: keyof typeof swatches = 'planned'
-		) {
-			cursorTone = tone;
-			cursorMaterial.color.copy(swatches[tone]);
-			cursorMaterial.linewidth = tone === 'hazard' ? 2 : planned.strichPx;
+		setCursor(polylines: readonly (readonly Vec3[])[], outline: readonly Vec3[] = []) {
 			drawTarget(outline);
 			removeLines(cursor);
 			cursor = polylineObject(polylines, cursorMaterial);
@@ -375,6 +389,17 @@ export function createSandboxStage(
 				cursor.computeLineDistances();
 				cursor.renderOrder = 10;
 				scene.add(cursor);
+			}
+			render();
+		},
+		/** Keeps the rejected survey visible alongside a later brush guide. */
+		setRejection(marks: readonly (readonly Vec3[])[]) {
+			removeLines(rejection);
+			rejection = polylineObject(marks, rejectionMaterial);
+			if (rejection) {
+				rejection.computeLineDistances();
+				rejection.renderOrder = 12;
+				scene.add(rejection);
 			}
 			render();
 		},
@@ -386,7 +411,9 @@ export function createSandboxStage(
 			removeLines(baseLines);
 			removeLines(cursor);
 			removeLines(target);
+			removeLines(rejection);
 			targetMaterial.dispose();
+			rejectionMaterial.dispose();
 			if (terrain) terrain.dispose();
 			structures.dispose();
 			light.dispose();

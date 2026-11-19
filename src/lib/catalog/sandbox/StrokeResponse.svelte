@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { sandboxMotion } from '../data/sandbox';
-	import type { StrokeRelease } from './feedback';
+	import type { placementResponse } from './feedback';
 
 	let {
 		response
 	}: {
-		response?: { kind: StrokeRelease['tool']['kind']; x: number; y: number; width: number };
+		response?: ReturnType<typeof placementResponse>;
 	} = $props();
 </script>
 

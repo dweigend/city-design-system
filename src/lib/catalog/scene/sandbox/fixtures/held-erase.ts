@@ -20,7 +20,6 @@ export function checkHeldErase(
 	position: { x: number; y: number }
 ) {
 	const canvas = new PointerCanvas();
-	let target: ReturnType<typeof hover.startStroke>;
 	let trace: Parameters<typeof traceStroke>[1] = { cellIds: [], lastPointerCellId: undefined };
 	const commits: (() => World)[] = [];
 	const detach: () => void = Reflect.apply(attachInput, undefined, [
@@ -30,22 +29,20 @@ export function checkHeldErase(
 			draws: () => true,
 			hover: hover.move,
 			strokeStart(x: number, y: number) {
-				target = hover.startStroke({ x, y });
-				assert.ok(target?.cell);
-				trace = traceStroke(target.world.grid, trace, target.cell.id);
+				const cell = hover.move({ x, y });
+				assert.ok(cell);
+				trace = traceStroke(base.grid, trace, cell.id);
 			},
 			strokeMove(x: number, y: number) {
 				const cell = hover.move({ x, y });
-				assert.ok(target && cell);
-				trace = traceStroke(target.world.grid, trace, cell.id);
+				assert.ok(cell);
+				trace = traceStroke(base.grid, trace, cell.id);
 			},
 			strokeEnd() {
-				assert.ok(target);
-				const { world } = target;
 				const { cellIds } = trace;
 				commits.push(() => {
-					const result = applyStroke(world, { kind: 'erase' }, cellIds).draft;
-					hover.endStroke();
+					const result = applyStroke(base, { kind: 'erase' }, cellIds).draft;
+					hover.show(next, 'all');
 					return result;
 				});
 			},
@@ -56,7 +53,6 @@ export function checkHeldErase(
 	try {
 		hover.show(base, 'all');
 		touch(canvas, 'pointerdown', position);
-		hover.show(next, 'all');
 		assert.equal(commits.length, 0);
 		touch(canvas, 'pointerup', position);
 		assert.deepEqual(trace.cellIds, ['81/39']);

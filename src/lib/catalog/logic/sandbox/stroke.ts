@@ -2,8 +2,7 @@ import { propose, install } from './installation';
 import type { Failure, Proposal } from './installation-parts';
 import { cellsBetween } from '../terrain-grid';
 import type { Edit, Tool } from './state';
-import { applyEdit, applyEditWithProjection, digStroke, withState, type World } from './world';
-import { shareTerrainProjection } from './terrain-projection';
+import { applyEdit, digStroke, eraseStroke, withState, type World } from './world';
 
 export type { Tool } from './state';
 /**
@@ -31,7 +30,6 @@ export const beginStroke = (tool: Tool, world: World): Stroke => ({
 function cellEdit(tool: Tool, cellId: string): Edit | undefined {
 	if (tool.kind === 'house') return { kind: 'raise', cellId, use: tool.use, style: tool.style };
 	if (tool.kind === 'cover') return { kind: 'cover', cellId, cover: tool.cover };
-	if (tool.kind === 'erase') return { kind: 'clear', cellId };
 	return undefined;
 }
 
@@ -78,8 +76,7 @@ function evaluateStroke(
 	ids: readonly string[],
 	proposal: Proposal | undefined,
 	previous: World,
-	fresh: readonly string[],
-	projectTerrain?: ReturnType<typeof shareTerrainProjection>
+	fresh: readonly string[]
 ): Outcome {
 	if (proposal) {
 		if ('failure' in proposal) return { draft: base, failure: proposal.failure };
@@ -87,22 +84,18 @@ function evaluateStroke(
 	}
 	if (tool.kind === 'line' && tool.transit !== 'walkway')
 		return { draft: applyEdit(base, { kind: 'line', transit: tool.transit, cellIds: ids }) };
-	if (tool.kind === 'dig') return { draft: digStroke(base, ids, projectTerrain) };
+	if (tool.kind === 'dig') return { draft: digStroke(base, ids) };
+	if (tool.kind === 'erase') return { draft: eraseStroke(base, ids) };
 	let draft = previous;
 	for (const id of fresh) {
 		const edit = cellEdit(tool, id);
-		if (edit) draft = applyEditWithProjection(draft, edit, projectTerrain);
+		if (edit) draft = applyEdit(draft, edit);
 	}
 	return { draft, failure: undefined };
 }
 
 /** Surveys a trace once and retains the same proposal for drawing and applying it. */
-export function planStroke(
-	base: World,
-	tool: Tool,
-	cellIds: readonly string[],
-	projectTerrain = shareTerrainProjection()
-) {
+export function planStroke(base: World, tool: Tool, cellIds: readonly string[]) {
 	const ids: readonly string[] = [...new Set(cellIds)];
 	const proposal = ids.length ? propose(base, tool, ids) : undefined;
 	let result: Outcome | undefined;
@@ -111,10 +104,9 @@ export function planStroke(
 		tool,
 		cellIds: ids,
 		proposal,
-		projectTerrain,
 		outcome(): Outcome {
 			return (result ??= ids.length
-				? evaluateStroke(base, tool, ids, proposal, base, ids, projectTerrain)
+				? evaluateStroke(base, tool, ids, proposal, base, ids)
 				: { draft: base });
 		}
 	} as const;

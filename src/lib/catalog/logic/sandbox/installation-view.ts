@@ -68,7 +68,7 @@ function pillarView(world: World, p: Extract<BuiltPart, { kind: 'pillar' }>, a: 
 }
 
 /** Projects an installed part at its physical seats without presentation styling. */
-export function installationGeometry(world: World, p: BuiltPart): Primitive[] {
+function installationGeometry(world: World, p: BuiltPart): Primitive[] {
 	if (p.kind === 'module') return moduleView(world, p);
 	const a = position(world.grid, p.anchor);
 	const b = base(p.id);

@@ -10,6 +10,10 @@ const KEY_ZOOM = 1.25;
 const WHEEL_ZOOM = 0.0015;
 
 export type InputHooks = {
+	/** Receives raw input before interpreting its gesture or picking. */
+	dispatch?: (run: () => void) => void;
+	/** Immediate acknowledgement, even while a previous commit is pending. */
+	pointerFeedback?: (position: { x: number; y: number }) => void;
 	/** True if the primary pointer draws; false if it pans the view. */
 	draws: () => boolean;
 	/** Pointer position over the canvas in CSS pixels, or undefined when it leaves. */
@@ -24,12 +28,12 @@ export type InputHooks = {
 
 /** Attaches the listeners to a canvas. Returns the function that removes them again. */
 export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputHooks): () => void {
+	const dispatch = hooks.dispatch ?? ((run: () => void) => run());
 	const pointers = new Map<number, { x: number; y: number }>();
 	let mode: 'idle' | 'draw' | 'pan' | 'pinch' = 'idle';
 	let pinchDistance = 0;
 
-	const local = (event: PointerEvent | WheelEvent) => {
-		const box = canvas.getBoundingClientRect();
+	const local = (event: PointerEvent | WheelEvent, box = canvas.getBoundingClientRect()) => {
 		return { x: event.clientX - box.left, y: event.clientY - box.top };
 	};
 	const center = () => {
@@ -45,16 +49,15 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		for (const { x, y } of queued.splice(0)) hooks.strokeMove(x, y);
 	}
 
-	function cancelDraw() {
+	function cancelDraw(clearHover = true) {
 		cancelAnimationFrame(drawFrame);
 		drawFrame = 0;
 		queued.length = 0;
 		if (mode === 'draw') hooks.strokeCancel?.();
-		hooks.hover(undefined);
+		if (clearHover) hooks.hover(undefined);
 	}
 
-	function startSinglePointer(event: PointerEvent, position: { x: number; y: number }) {
-		const primary = event.button === 0 && !event.shiftKey;
+	function startSinglePointer(primary: boolean, position: { x: number; y: number }) {
 		if (primary && hooks.draws()) {
 			mode = 'draw';
 			hooks.strokeStart(position.x, position.y);
@@ -64,11 +67,9 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		}
 	}
 
-	function down(event: PointerEvent) {
-		canvas.setPointerCapture(event.pointerId);
-		const position = local(event);
-		pointers.set(event.pointerId, position);
-		if (pointers.size === 1) startSinglePointer(event, position);
+	function down(id: number, position: { x: number; y: number }, primary: boolean) {
+		pointers.set(id, position);
+		if (pointers.size === 1) startSinglePointer(primary, position);
 		if (pointers.size === 2) {
 			cancelDraw();
 			mode = 'pinch';
@@ -91,36 +92,28 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		hooks.viewChanged(position);
 	}
 
-	function queueDraw(event: PointerEvent, position: { x: number; y: number }) {
-		for (const sample of event.getCoalescedEvents?.() ?? []) queued.push(local(sample));
-		queued.push(position);
+	function queueDraw(samples: { x: number; y: number }[]) {
+		queued.push(...samples);
 		if (!drawFrame) drawFrame = requestAnimationFrame(flushDraw);
 	}
 
-	function move(event: PointerEvent) {
-		const position = local(event);
-		const previous = pointers.get(event.pointerId);
+	function move(id: number, touch: boolean, samples: { x: number; y: number }[]) {
+		const position = samples[samples.length - 1];
+		const previous = pointers.get(id);
 		if (!previous) {
-			if (event.pointerType !== 'touch') hooks.hover(position);
+			if (!touch) hooks.hover(position);
 			return;
 		}
-		pointers.set(event.pointerId, position);
-		if (mode === 'draw') queueDraw(event, position);
-		else
-			moveView(
-				position.x - previous.x,
-				position.y - previous.y,
-				event.pointerType === 'touch' ? undefined : position
-			);
+		pointers.set(id, position);
+		if (mode === 'draw') queueDraw(samples);
+		else moveView(position.x - previous.x, position.y - previous.y, touch ? undefined : position);
 	}
 
-	function releaseStroke(event: PointerEvent) {
-		if (event.type !== 'pointerup') return cancelDraw();
-		const position = local(event);
+	function releaseStroke(position: { x: number; y: number }, touch: boolean, at: number) {
 		queued.push(position);
 		flushDraw();
-		hooks.strokeEnd(event.timeStamp);
-		hooks.hover(event.pointerType === 'touch' ? undefined : position);
+		hooks.strokeEnd(at);
+		hooks.hover(touch ? undefined : position);
 	}
 
 	function remainingMode() {
@@ -132,23 +125,66 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 		}
 	}
 
-	function finish(event: PointerEvent) {
-		if (!pointers.delete(event.pointerId)) return;
-		if (mode === 'draw') releaseStroke(event);
+	function finish(id: number, position: { x: number; y: number }, touch: boolean, at?: number) {
+		if (!pointers.delete(id)) return;
+		if (mode === 'draw') {
+			if (at === undefined) cancelDraw();
+			else releaseStroke(position, touch, at);
+		}
 		remainingMode();
 	}
 
-	function outsideDown(event: PointerEvent) {
-		if (event.pointerType !== 'touch' || event.target === canvas || mode !== 'draw') return;
-		cancelDraw();
+	function onDown(event: PointerEvent) {
+		const { pointerId, pointerType, button, shiftKey } = event;
+		const position = local(event);
+		const primary = button === 0 && !shiftKey;
+		// Pointer capture is only available while the native pointer is active.
+		canvas.setPointerCapture(pointerId);
+		if (primary && pointerType !== 'mouse' && event.isPrimary !== false)
+			hooks.pointerFeedback?.(position);
+		dispatch(() => down(pointerId, position, primary));
+	}
+
+	function onMove(event: PointerEvent) {
+		const { pointerId, pointerType } = event;
+		const box = canvas.getBoundingClientRect();
+		const samples = (event.getCoalescedEvents?.() ?? []).map((sample) => local(sample, box));
+		samples.push(local(event, box));
+		dispatch(() => move(pointerId, pointerType === 'touch', samples));
+	}
+
+	function onFinish(event: PointerEvent) {
+		const { pointerId, pointerType, timeStamp, type } = event;
+		const position = local(event);
+		dispatch(() =>
+			finish(
+				pointerId,
+				position,
+				pointerType === 'touch',
+				type === 'pointerup' ? timeStamp : undefined
+			)
+		);
+	}
+
+	function stopDrawing(clearHover = true) {
+		if (mode !== 'draw') return;
+		cancelDraw(clearHover);
 		mode = 'idle';
+	}
+
+	function outsideDown(event: PointerEvent) {
+		if (event.pointerType === 'touch' && event.target !== canvas) dispatch(stopDrawing);
 	}
 
 	function wheel(event: WheelEvent) {
 		event.preventDefault();
 		const position = local(event);
-		view.zoomAt(Math.exp(event.deltaY * WHEEL_ZOOM), position.x, position.y);
-		hooks.viewChanged(position);
+		const factor = Math.exp(event.deltaY * WHEEL_ZOOM);
+		dispatch(() => {
+			stopDrawing(false);
+			view.zoomAt(factor, position.x, position.y);
+			hooks.viewChanged(position);
+		});
 	}
 
 	function key(event: KeyboardEvent) {
@@ -159,34 +195,39 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 			ArrowDown: [0, -KEY_PAN_PX]
 		};
 		const zooms: Record<string, number> = { '+': 1 / KEY_ZOOM, '=': 1 / KEY_ZOOM, '-': KEY_ZOOM };
-		const box = canvas.getBoundingClientRect();
-		if (pans[event.key]) view.pan(...pans[event.key]);
-		else if (zooms[event.key]) view.zoomAt(zooms[event.key], box.width / 2, box.height / 2);
-		else return;
+		const pan = pans[event.key];
+		const zoom = zooms[event.key];
+		if (!pan && !zoom) return;
 		event.preventDefault();
-		hooks.viewChanged();
+		dispatch(() => {
+			stopDrawing(false);
+			const box = canvas.getBoundingClientRect();
+			if (pan) view.pan(...pan);
+			else view.zoomAt(zoom, box.width / 2, box.height / 2);
+			hooks.viewChanged();
+		});
 	}
 
-	const leave = () => hooks.hover(undefined);
+	const leave = () => dispatch(() => hooks.hover(undefined));
 	const menu = (event: Event) => event.preventDefault();
 	window.addEventListener('pointerdown', outsideDown, true);
-	canvas.addEventListener('pointerdown', down);
-	canvas.addEventListener('pointermove', move);
-	canvas.addEventListener('pointerup', finish);
-	canvas.addEventListener('pointercancel', finish);
-	canvas.addEventListener('lostpointercapture', finish);
+	canvas.addEventListener('pointerdown', onDown);
+	canvas.addEventListener('pointermove', onMove);
+	canvas.addEventListener('pointerup', onFinish);
+	canvas.addEventListener('pointercancel', onFinish);
+	canvas.addEventListener('lostpointercapture', onFinish);
 	canvas.addEventListener('pointerleave', leave);
 	canvas.addEventListener('wheel', wheel, { passive: false });
 	canvas.addEventListener('keydown', key);
 	canvas.addEventListener('contextmenu', menu);
 	return () => {
 		window.removeEventListener('pointerdown', outsideDown, true);
-		canvas.removeEventListener('pointerdown', down);
-		canvas.removeEventListener('pointermove', move);
+		canvas.removeEventListener('pointerdown', onDown);
+		canvas.removeEventListener('pointermove', onMove);
 		cancelAnimationFrame(drawFrame);
-		canvas.removeEventListener('pointerup', finish);
-		canvas.removeEventListener('pointercancel', finish);
-		canvas.removeEventListener('lostpointercapture', finish);
+		canvas.removeEventListener('pointerup', onFinish);
+		canvas.removeEventListener('pointercancel', onFinish);
+		canvas.removeEventListener('lostpointercapture', onFinish);
 		canvas.removeEventListener('pointerleave', leave);
 		canvas.removeEventListener('wheel', wheel);
 		canvas.removeEventListener('keydown', key);

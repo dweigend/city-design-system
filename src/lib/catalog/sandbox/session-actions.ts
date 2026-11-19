@@ -2,23 +2,15 @@ import {
 	applyEdit,
 	commit,
 	openingScene,
-	planStroke,
 	redo,
 	startHistory,
-	strokeDelta,
 	undo,
 	withState,
+	type StrokePlan,
 	type Stroke,
 	type World
 } from '../logic/sandbox';
-import type { Completion, StrokeRelease } from './feedback';
-
-type Command =
-	| { kind: 'stroke'; release: StrokeRelease; ready: boolean }
-	| {
-			kind: 'undo' | 'redo' | 'advance';
-	  }
-	| { kind: 'restart' };
+import type { Completion } from './feedback';
 
 type SessionState = Readonly<{
 	world: World;
@@ -28,7 +20,7 @@ type SessionState = Readonly<{
 	canRedo: boolean;
 }>;
 
-/** Owns the committed world, history and FIFO for released strokes and edit commands. */
+/** Owns the committed city and publishes each successful edit to presentation subscribers. */
 export function createSessionActions(
 	initial: World,
 	generationYears: number,
@@ -38,133 +30,68 @@ export function createSessionActions(
 	let history = startHistory(initial.state);
 	let completion: Completion | undefined;
 	let rejection: Stroke['failure'];
-	const queue: Command[] = [];
-	const completionListeners = new Set<(value: Completion) => void>();
-	let draining = false;
+	const listeners = new Set<(value: Completion) => void>();
 
 	function snapshot(): SessionState {
 		return {
 			world,
 			completion,
 			rejection,
-			canUndo: history.past.length > 0 || queue.some(({ kind }) => kind === 'stroke'),
-			canRedo: history.future.length > 0 || queue.some(({ kind }) => kind === 'undo')
+			canUndo: history.past.length > 0,
+			canRedo: history.future.length > 0
 		};
-	}
-
-	function preserveTerrainPreviews(next: World) {
-		if (next.grid === world.grid) return;
-		for (const command of queue) {
-			if (command.kind !== 'stroke') continue;
-			const { release } = command;
-			if (release.tool.kind === 'dig' && release.base.grid === world.grid) release.outcome();
-		}
 	}
 
 	function edit(next: World, kind: Completion['kind'], cellIds: readonly string[] = []) {
 		if (next === world) return;
 		const event = { kind, before: world, after: next, cellIds };
-		preserveTerrainPreviews(next);
 		completion = event;
 		world = next;
 		history = commit(history, next.state);
-		for (const listener of [...completionListeners]) listener(event);
+		rejection = undefined;
+		publish(snapshot());
+		for (const listener of [...listeners]) listener(event);
 	}
 
 	function restore(next: typeof history) {
 		if (next === history) return;
-		const restored = withState(world, next.present);
-		preserveTerrainPreviews(restored);
-		world = restored;
+		world = withState(world, next.present);
 		history = next;
 		completion = undefined;
-	}
-
-	function place(release: StrokeRelease) {
-		const { base, tool, cellIds } = release;
-		if (base.seed !== world.seed) return;
-		const current = planStroke(world, tool, cellIds, release.projectTerrain);
-		const { draft, failure } = current.outcome();
-		// The same immutable simulation inputs guarantee the same result.
-		const sameWorld =
-			base.state === world.state && base.grid === world.grid && base.lines === world.lines;
-		if (!sameWorld && strokeDelta(base, release.outcome().draft) !== strokeDelta(world, draft))
-			return;
-		rejection = failure;
-		edit(draft, tool.kind, cellIds);
-	}
-
-	function execute(command: Command) {
 		rejection = undefined;
-		switch (command.kind) {
-			case 'stroke':
-				return place(command.release);
-			case 'undo':
-				return restore(undo(history));
-			case 'redo':
-				return restore(redo(history));
-			case 'advance':
-				return edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance');
-			case 'restart':
-				world = openingScene(world.seed + 1).world;
-				history = startHistory(world.state);
-				completion = undefined;
-		}
-	}
-
-	function drain() {
-		if (draining) return;
-		draining = true;
-		try {
-			while (queue.length) {
-				const command = queue[0];
-				if (command.kind === 'stroke' && !command.ready) break;
-				queue.shift();
-				execute(command);
-			}
-		} finally {
-			draining = false;
-		}
 		publish(snapshot());
-	}
-
-	function enqueue(command: Exclude<Command, { kind: 'stroke' }>) {
-		queue.push(command);
-		drain();
 	}
 
 	return {
 		snapshot,
-		/** Delivers each completed edit before the next queued command executes. */
+		/** Subscribes to the successful results, in order. */
 		onCompletion(listener: (value: Completion) => void) {
-			completionListeners.add(listener);
+			listeners.add(listener);
 			return () => {
-				completionListeners.delete(listener);
+				listeners.delete(listener);
 			};
 		},
-		/** Reserves the shown plan; validation runs in command order after earlier edits. */
-		release(release: StrokeRelease) {
-			if (release.base.seed !== world.seed) return false;
-			if (queue.some(({ kind }) => kind === 'restart')) return false;
-			if (release.tool.kind === 'dig' && release.base.grid !== world.grid) release.outcome();
-			queue.push({ kind: 'stroke', release, ready: false });
-			drain();
-			return true;
-		},
-		/** Marks this stroke ready to commit after feedback. Earlier commands still go first. */
-		commitRelease(release: StrokeRelease) {
-			for (const command of queue) {
-				if (command.kind !== 'stroke' || command.release !== release) continue;
-				command.ready = true;
-				drain();
-				return;
+		/** Applies the one surveyed plan while the input buffer still owns the city. */
+		place(plan: StrokePlan) {
+			const { draft, failure } = plan.outcome();
+			if (draft !== world) edit(draft, plan.tool.kind, plan.cellIds);
+			else if (failure && !rejection) {
+				rejection = failure;
+				publish(snapshot());
 			}
 		},
-		undo: () => enqueue({ kind: 'undo' }),
-		redo: () => enqueue({ kind: 'redo' }),
-		advance: () => enqueue({ kind: 'advance' }),
-		restart: () => enqueue({ kind: 'restart' }),
-		/** Clears the last survey mark when switching tools or construction methods. */
+		undo: () => restore(undo(history)),
+		redo: () => restore(redo(history)),
+		advance: () => edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance'),
+		/** Opens the next seed and clears its history. */
+		restart() {
+			world = openingScene(world.seed + 1).world;
+			history = startHistory(world.state);
+			completion = undefined;
+			rejection = undefined;
+			publish(snapshot());
+		},
+		/** Explicitly dismisses the current survey error. */
 		clearRejection() {
 			rejection = undefined;
 			publish(snapshot());

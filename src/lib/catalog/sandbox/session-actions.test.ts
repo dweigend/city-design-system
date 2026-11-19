@@ -1,170 +1,154 @@
-// @ts-expect-error Bun provides this test API at runtime.
+// @ts-expect-error Bun provides these test APIs at runtime.
 import { expect, test } from 'bun:test';
 import { sandboxGenerationYears } from '../data/sandbox';
-import { applyStroke, openingScene, planStroke } from '../logic/sandbox';
-import { storedModules, type Completion, type StrokeRelease } from './feedback';
-import { createSessionActions } from './session-actions';
+import { storedModules, type Completion } from './feedback';
+import { gestureDriver } from './fixtures/serial-gesture';
 
-const { world } = openingScene(7);
-const stroke = (cellId: string, base = world): StrokeRelease =>
-	planStroke(base, { kind: 'house', style: 'collage', use: 'living' }, [cellId]);
+const house = { kind: 'house', use: 'living' } as const;
+const dig = { kind: 'dig' } as const;
+const erase = { kind: 'erase' } as const;
+const walkway = { kind: 'line', transit: 'walkway' } as const;
+const viaduct = { kind: 'line', transit: 'viaduct' } as const;
 
-test('Undo just after releasing B leaves A, and Redo restores B', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const a = stroke('80/44');
-	actions.release(a);
-	actions.commitRelease(a);
-	const baseB = actions.snapshot().world;
-	const afterA = baseB.state;
-	const b = stroke('81/44', baseB);
-	actions.release(b);
-	actions.undo();
-	expect(actions.snapshot().world.state).toBe(afterA);
-	actions.commitRelease(b);
-	expect(actions.snapshot().world.state).toBe(afterA);
-	expect(actions.snapshot().canRedo).toBe(true);
-	actions.redo();
-	const afterB = actions.snapshot().world.state;
-	expect(afterB.stacks.get('80/44')).toEqual(['living']);
-	expect(afterB.stacks.get('81/44')).toEqual(['living']);
-	expect(afterB.nextAction).toBe(afterA.nextAction + 1);
-});
-
-const dig = planStroke(world, { kind: 'dig' }, ['76/41']);
-
-test('New terrain waits for its earlier stroke and rejects a later dig on the old seed', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const commits: number[] = [];
-	actions.onCompletion(({ after }) => commits.push(after.seed));
-	const a = stroke('80/44');
-	expect(actions.release(a)).toBe(true);
-	actions.restart();
-	expect(actions.snapshot().world).toBe(world);
-	expect(actions.release(dig)).toBe(false);
-	actions.commitRelease(dig);
-	expect(actions.snapshot().world).toBe(world);
-	actions.commitRelease(a);
-	expect(commits).toEqual([7]);
-	const fresh = openingScene(8).world;
-	expect(actions.snapshot().world.seed).toBe(8);
-	expect(actions.snapshot().world.state).toEqual(fresh.state);
-	expect(actions.release(dig)).toBe(false);
-	actions.commitRelease(dig);
-	expect(actions.snapshot().world.state).toEqual(fresh.state);
-	expect(actions.snapshot().canUndo).toBe(false);
-});
-
-test('a queued stroke cannot build on a target changed by an earlier stroke', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const a = stroke('80/44');
-	const b = stroke('80/44');
-	actions.release(a);
-	expect(actions.release(b)).toBe(true);
-	actions.commitRelease(b);
-	expect(actions.snapshot().world).toBe(world);
-	actions.commitRelease(a);
-	expect(actions.snapshot().world.state.stacks.get('80/44')).toEqual(['living']);
-	expect(actions.release(b)).toBe(true);
-	actions.commitRelease(b);
-	expect(actions.snapshot().world.state.stacks.get('80/44')).toEqual(['living']);
-	actions.undo();
-	expect(actions.snapshot().world.state).toBe(world.state);
-});
-
-test('a basin invalidates a changed house plan and preserves the inland plan', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	// Only living stock is replenished by this basin. Keep the stock debit fixed in this geometry test.
-	const tool = { kind: 'house', style: 'collage', use: 'water' } as const;
-	const raisedBank = planStroke(world, tool, ['75/38']);
-	const inland = planStroke(world, tool, ['81/44']);
-	const dug = applyStroke(world, dig.tool, dig.cellIds).draft;
-	expect(dug.grid.cellsById.get('75/38')?.buildable).toBe(true);
-	expect(dug.grid.cellsById.get('75/38')).not.toBe(world.grid.cellsById.get('75/38'));
-	expect(dug.state.stacks.get('75/38')).toBe(world.state.stacks.get('75/38'));
-	actions.release(dig);
-	actions.release(raisedBank);
-	actions.release(inland);
-	actions.commitRelease(raisedBank);
-	actions.commitRelease(inland);
-	actions.commitRelease(dig);
-	expect(actions.snapshot().world.state.stacks.get('75/38')).toBeUndefined();
-	expect(actions.snapshot().world.state.stacks.get('81/44')).toEqual(['water']);
-	expect(actions.snapshot().world.state.edits).toEqual(dug.state.edits);
-});
-
-test('repeated New terrain requests resolve to successive seeds behind a paused stroke', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const a = stroke('80/44');
-	actions.release(a);
-	actions.restart();
-	actions.restart();
-	expect(actions.snapshot().world.seed).toBe(7);
-	actions.commitRelease(a);
-	expect(actions.snapshot().world.seed).toBe(9);
-	expect(actions.snapshot().world.state).toEqual(openingScene(9).world.state);
-});
-
-test('dig delivers its store flight and follow-up sound before a queued Advance', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const feedback: string[] = [];
-	actions.onCompletion((value) => {
-		if (value.kind === 'dig') feedback.push(`flight:${storedModules(value).length}`);
-	});
-	actions.onCompletion(({ kind }) => feedback.push(`sound:${kind}`));
-	actions.release(dig);
-	actions.advance();
-	expect(feedback).toEqual([]);
-	actions.commitRelease(dig);
-	expect(feedback).toEqual(['flight:30', 'sound:dig', 'sound:advance']);
-	const after = actions.snapshot().world.state;
-	expect(after.year).toBe(world.state.year + sandboxGenerationYears);
-	expect(after.store.living - world.state.store.living).toBe(30);
-	actions.undo();
-	expect(actions.snapshot().world.state.year).toBe(world.state.year);
-	expect(actions.snapshot().world.state.store).toEqual(after.store);
-	actions.undo();
-	expect(actions.snapshot().world.state).toBe(world.state);
-});
-
-test('Advance just after release runs once and the stroke keeps its earlier year', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const a = stroke('80/44');
-	const year = world.state.year;
-	actions.release(a);
-	actions.advance();
-	expect(actions.snapshot().world.state).toBe(world.state);
-	actions.commitRelease(a);
-	const advanced = actions.snapshot().world.state;
-	expect(advanced.year).toBe(year + sandboxGenerationYears);
-	expect(advanced.storyParts.get('80/44')?.at(-1)?.built).toBe(year);
-	expect(advanced.nextAction).toBe(world.state.nextAction + 1);
-	actions.undo();
-	const placed = actions.snapshot().world.state;
-	expect(placed.year).toBe(year);
-	expect(placed.stacks.get('80/44')).toEqual(['living']);
-});
-
-test('all completion listeners receive the same events before a listener-enqueued edit runs', () => {
-	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
-	const records: Completion[][] = [[], [], []];
-	actions.onCompletion((event) => records[0].push(event));
-	actions.onCompletion((event) => {
-		records[1].push(event);
-		if (event.kind === 'house') {
-			actions.advance();
-			expect(actions.snapshot().world).toBe(event.after);
-		}
-	});
-	actions.onCompletion((event) => records[2].push(event));
-	const a = stroke('80/44');
-	actions.release(a);
-	actions.commitRelease(a);
-	actions.commitRelease(a);
-	for (const events of records) {
-		expect(events.map(({ kind }) => kind)).toEqual(['house', 'advance']);
-		expect(events[0]).toBe(records[0][0]);
-		expect(events[1]).toBe(records[0][1]);
-		expect(events[0].after).toBe(events[1].before);
+test('the second viaduct and the buffered dig both commit in input order', () => {
+	const d = gestureDriver();
+	try {
+		d.stroke(viaduct, '87/35', '96/35');
+		d.finish();
+		d.stroke(viaduct, '30/35', '38/35');
+		d.stroke(dig, '90/35');
+		expect(d.rings).toHaveLength(3);
+		expect(d.events.map(({ kind }) => kind)).toEqual(['line']);
+		d.finish();
+		expect(d.world().lines).toHaveLength(2);
+		d.finish();
+		expect(d.events.map(({ kind }) => kind)).toEqual(['line', 'line', 'dig']);
+		expect(d.world().state.edits).toHaveLength(1);
+		expect(d.world().lines).toHaveLength(2);
+	} finally {
+		d.dispose();
 	}
-	expect(actions.snapshot().world.state.year).toBe(world.state.year + sandboxGenerationYears);
+});
+
+test('Undo pressed during Erase waits until the floor under the brush has been erased', () => {
+	const d = gestureDriver();
+	try {
+		d.stroke(house, '80/44');
+		d.finish();
+		const original = d.world().state.storyParts.get('80/44')?.at(-1)?.id;
+		d.stroke(erase, '80/44');
+		d.finish();
+		d.stroke(house, '80/44');
+		d.finish();
+		const rebuilt = d.world().state.storyParts.get('80/44')?.at(-1)?.id;
+		expect(rebuilt).toBeDefined();
+		expect(rebuilt).not.toBe(original);
+
+		d.session.tool = erase;
+		d.down('80/44');
+		d.session.undo();
+		d.session.undo();
+		expect(d.world().state.storyParts.get('80/44')?.at(-1)?.id).toBe(rebuilt);
+		d.up('80/44');
+		d.finish();
+		const event = d.events.at(-1);
+		expect(event?.kind).toBe('erase');
+		expect(event?.before.state.storyParts.get('80/44')?.at(-1)?.id).toBe(rebuilt);
+		expect(event?.after.state.storyParts.has('80/44')).toBe(false);
+		expect(d.session.canRedo).toBe(true);
+	} finally {
+		d.dispose();
+	}
+});
+
+test('a short-span warning survives a later rejected survey and clears on dismissal or success', () => {
+	const d = gestureDriver();
+	try {
+		d.stroke(walkway, '30/35', '35/37');
+		d.stroke(walkway, '75/38');
+		d.stroke(walkway, '30/35', '35/37');
+		d.finish();
+		d.finish();
+		const warning = d.session.failure;
+		expect(warning?.reason).toBe('short-span');
+		expect(warning?.marks).toHaveLength(1);
+		const built = d.world();
+		d.finish();
+		expect(d.world()).toBe(built);
+		expect(d.session.failure).toBe(warning);
+		expect(d.events.map(({ kind }) => kind)).toEqual(['line']);
+
+		d.session.dismissRejection();
+		expect(d.session.failure).toBeUndefined();
+		d.stroke(walkway, '75/38');
+		d.finish();
+		expect(d.session.failure?.reason).toBe('short-span');
+		d.stroke(house, '80/44');
+		d.finish();
+		expect(d.session.failure).toBeUndefined();
+	} finally {
+		d.dispose();
+	}
+});
+
+test('Undo and Redo directly after a second release replay behind both placements', () => {
+	const d = gestureDriver();
+	try {
+		d.stroke(house, '80/44');
+		d.stroke(house, '81/44');
+		d.session.undo();
+		d.drain();
+		expect(d.world().state.stacks.has('80/44')).toBe(true);
+		expect(d.world().state.stacks.has('81/44')).toBe(false);
+		d.session.redo();
+		expect(d.world().state.stacks.has('81/44')).toBe(true);
+	} finally {
+		d.dispose();
+	}
+});
+
+test('New terrain and subsequent raw input target the new seed in order', () => {
+	const d = gestureDriver();
+	try {
+		d.stroke(house, '80/44');
+		d.session.restart();
+		d.stroke(dig, '76/41');
+		d.session.restart();
+		d.drain();
+		expect(d.events.map(({ kind, after }) => [kind, after.seed])).toEqual([
+			['house', 7],
+			['dig', 8]
+		]);
+		expect(d.world().seed).toBe(9);
+		expect(d.world().state.edits).toEqual([]);
+		expect(d.session.canUndo).toBe(false);
+	} finally {
+		d.dispose();
+	}
+});
+
+test('completion listeners receive Dig and its store credit before a reentrant Advance', () => {
+	const d = gestureDriver();
+	try {
+		const records: Completion[][] = [[], [], []];
+		d.session.onCompletion((event) => records[0].push(event));
+		d.session.onCompletion((event) => {
+			records[1].push(event);
+			if (event.kind === 'dig') d.session.advance();
+		});
+		d.session.onCompletion((event) => records[2].push(event));
+		const year = d.world().state.year;
+		d.stroke(dig, '76/41');
+		d.drain();
+		for (const record of records) {
+			expect(record.map(({ kind }) => kind)).toEqual(['dig', 'advance']);
+			expect(record[0]).toBe(d.events[0]);
+			expect(record[1]).toBe(d.events[1]);
+			expect(record[0].after).toBe(record[1].before);
+		}
+		expect(storedModules(records[0][0])).toHaveLength(30);
+		expect(d.world().state.year).toBe(year + sandboxGenerationYears);
+	} finally {
+		d.dispose();
+	}
 });

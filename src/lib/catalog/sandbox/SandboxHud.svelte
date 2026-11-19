@@ -16,7 +16,8 @@
 		Route,
 		Shovel,
 		Trees,
-		Undo2
+		Undo2,
+		X
 	} from 'lucide-svelte';
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
@@ -125,18 +126,20 @@
 	}
 	/** Sets the tool by its id; the public entry for buttons and shortcuts. */
 	export function pickTool(id: SandboxToolId) {
-		session.tool = toolOf(id);
+		session.selectTool(() => toolOf(id));
 	}
 	function optionAt<Id extends string>(options: SandboxOption<Id>[], index: number, fallback: Id) {
 		return options[index]?.id ?? fallback;
 	}
 	/** Sets option n (0-based) of the active tool, if it has that many. */
 	export function pickOption(index: number) {
-		const kind = session.tool.kind;
-		if (kind === 'house') chosen.house = optionAt(sandboxUses, index, chosen.house);
-		if (kind === 'line') chosen.line = optionAt(sandboxLines, index, chosen.line);
-		if (kind === 'cover') chosen.cover = optionAt(sandboxCovers, index, chosen.cover);
-		session.tool = toolOf(kind);
+		session.selectTool(() => {
+			const kind = session.tool.kind;
+			if (kind === 'house') chosen.house = optionAt(sandboxUses, index, chosen.house);
+			if (kind === 'line') chosen.line = optionAt(sandboxLines, index, chosen.line);
+			if (kind === 'cover') chosen.cover = optionAt(sandboxCovers, index, chosen.cover);
+			return toolOf(kind);
+		});
 	}
 </script>
 
@@ -218,7 +221,19 @@
 		<output aria-label="World year">{year}</output>
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
-	<p class="hint" role="status">{hint}</p>
+	<div class="hint" class:warning={Boolean(session.failure)}>
+		<span role="status">{hint}</span>
+		{#if session.failure}
+			<Button
+				variant="icon"
+				label="Dismiss survey warning"
+				title="Dismiss survey warning"
+				onclick={session.dismissRejection}
+			>
+				{#snippet icon()}<Icon icon={X} size={20} />{/snippet}
+			</Button>
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -284,6 +299,16 @@
 		font-size: var(--text-s);
 		text-align: right;
 		pointer-events: none;
+	}
+	.warning {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.warning :global(.cg-button) {
+		min-width: var(--sandbox-target);
+		min-height: var(--sandbox-target);
+		pointer-events: auto;
 	}
 	.timeline {
 		position: absolute;

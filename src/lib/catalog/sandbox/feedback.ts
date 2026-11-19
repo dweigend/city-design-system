@@ -2,9 +2,9 @@ import { STORY } from '../data/grid';
 import { DIG_RADIUS_M } from '../data/sandbox';
 import { MODULE } from '../logic/terrain-grid';
 import type { Vec3 } from '../logic/parametrik/types';
-import type { StrokePlan, Tool, World } from '../logic/sandbox';
+import type { Tool, World } from '../logic/sandbox';
 
-export type StrokeRelease = StrokePlan;
+export type StrokeRelease = Readonly<{ cellIds: readonly string[] }>;
 
 export type Completion = Readonly<{
 	kind: Tool['kind'] | 'advance';

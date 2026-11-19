@@ -8,7 +8,6 @@ export { installationPartView, installationView } from './installation-view';
 export { applyEdit, createWorld, withState, type World } from './world';
 export { commit, redo, startHistory, undo } from './history';
 export { changes } from './changes';
-export { strokeDelta } from './stroke-delta';
 export {
 	applyStroke,
 	beginStroke,
@@ -19,7 +18,13 @@ export {
 	type StrokePlan,
 	type Tool
 } from './stroke';
-export { cursorFrame, cursorTarget, previewStrokePlan, strokePreview } from './cursor';
+export {
+	cursorFrame,
+	cursorTarget,
+	previewStrokePlan,
+	strokePreview,
+	tracePreview
+} from './cursor';
 export { currentStacks, houseView, houseGroups } from './houses';
 export { acceptanceScene, openingScene } from './acceptance-scene';
 export { timelineWindow } from './time-layers';

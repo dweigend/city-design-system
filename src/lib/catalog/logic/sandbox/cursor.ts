@@ -96,6 +96,7 @@ function installationMarks(plan: StrokePlan, parts: readonly Installation[]): Ve
 }
 
 function linePreview(plan: StrokePlan, cells: QuadCell[]): Vec3[][] {
+	if (!cells.length) return [];
 	if (cells.length === 1) return [cursorTarget(cells[0])];
 	const { draft } = plan.outcome();
 	const line = plan.base === draft ? undefined : draft.lines.at(-1);
@@ -118,12 +119,21 @@ export function strokePreview(world: World, tool: Tool, ids: readonly string[]):
 /** Draws the detached proposal kept with a traced gesture. */
 export function previewStrokePlan(plan: StrokePlan): Vec3[][] {
 	const { base: world, tool, cellIds: ids, proposal } = plan;
+	if (proposal && 'parts' in proposal) return installationMarks(plan, proposal.parts);
+	if (tool.kind === 'line' && tool.transit !== 'walkway')
+		return linePreview(
+			plan,
+			ids.flatMap((id) => world.grid.cellsById.get(id) ?? [])
+		);
+	return tracePreview(world, tool, ids);
+}
+
+/** Draws the live brush guide without running a survey or terrain edit for every sample. */
+export function tracePreview(world: World, tool: Tool, ids: readonly string[]): Vec3[][] {
 	const cells = ids.flatMap((id) => world.grid.cellsById.get(id) ?? []);
 	if (tool.kind === 'look' || !cells.length) return [];
-	if (proposal && 'parts' in proposal) return installationMarks(plan, proposal.parts);
 	if (tool.kind === 'cover') return areaBoundary(world, cells);
 	if (tool.kind === 'dig') return cells.flatMap((cell) => basinContours(world, cell));
-	if (tool.kind === 'line')
-		return tool.transit === 'walkway' ? cells.map(cursorTarget) : linePreview(plan, cells);
+	if (tool.kind === 'line') return cells.map(cursorTarget);
 	return lotFrames(world, tool, cells);
 }
