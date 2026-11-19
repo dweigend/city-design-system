@@ -13,6 +13,7 @@
 	let {
 		mode = 'input',
 		live = false,
+		onValueChange,
 		label,
 		caption = true,
 		value = $bindable(0),
@@ -30,6 +31,7 @@
 	}: {
 		mode?: 'input' | 'readout';
 		live?: boolean;
+		onValueChange?: (value: number) => void;
 		label: string;
 		/** Show a heading above the scale (aria-label always stays). */
 		caption?: boolean;
@@ -95,6 +97,7 @@
 	class="scale"
 	data-track={track}
 	data-mode={mode}
+	data-live={live || undefined}
 	data-marker-shape={markerShape}
 	class:snapping
 >
@@ -141,9 +144,11 @@
 			{max}
 			step={live ? step : (max - min) / 1000}
 			onValueChange={(v) => {
-				if (live) value = snap(v);
+				if (!live) return;
+				value = snap(v);
+				onValueChange?.(value);
 			}}
-			onValueCommit={commit}
+			onValueCommit={live ? undefined : commit}
 			thumbPositioning="exact"
 			class="row body"
 			aria-label={label}
@@ -156,7 +161,7 @@
 						style="--at: {p(raw)}"
 						aria-label={label}
 						aria-valuetext={format(shown)}
-						{onkeydown}>{format(shown)}</Slider.Thumb
+						onkeydown={live ? undefined : onkeydown}>{format(shown)}</Slider.Thumb
 					>{/each}
 			{/snippet}
 		</Slider.Root>
@@ -233,7 +238,7 @@
 		box-shadow: inset 0 0 0 var(--hair) var(--c);
 	}
 
-	[data-marker-shape='dot'] .marks {
+	[data-marker-shape='dot']:not([data-live]) .marks {
 		z-index: 1;
 		transform: translateY(var(--row));
 		pointer-events: none;
@@ -268,8 +273,12 @@
 		height: var(--row);
 		touch-action: none;
 	}
+	.scale[data-live] :global(.body) {
+		--row: var(--scale-input-height, var(--ctl-s));
+	}
 	.scale[data-mode='input'] :global(.body) {
 		cursor: pointer;
+		user-select: none;
 	}
 	.line {
 		position: absolute;

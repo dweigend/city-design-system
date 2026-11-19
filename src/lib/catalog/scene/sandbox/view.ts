@@ -30,6 +30,9 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	/** Unit vector from the target toward the camera, three.js axes. */
 	const eye = new THREE.Vector3();
 	let elevationRad = BLICK.hoeheRad;
+	let axonElevationRad = elevationRad;
+	// Vertical canvas fraction reserved for the focus, including the portrait HUD offset.
+	let focusY = 0.5;
 	let width = 1;
 	let height = 1;
 	let span = 400;
@@ -94,9 +97,14 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		elevation: () => elevationRad,
 		/** Visible image height in meters. */
 		span: () => span,
-		/** Switches between the axonometric view and the plan seen from above. */
+		/** Rotates between axonometric and plan around the focused point on the target plane. */
 		setPlan(plan: boolean) {
-			elevationRad = plan ? Math.PI / 2 : BLICK.hoeheRad;
+			if (plan === (elevationRad === Math.PI / 2)) return;
+			const focus = groundPoint(width / 2, height * focusY);
+			if (plan) axonElevationRad = elevationRad;
+			elevationRad = plan ? Math.PI / 2 : axonElevationRad;
+			apply();
+			target.add(focus.sub(groundPoint(width / 2, height * focusY)));
 			apply();
 		},
 		/** Canvas size in CSS pixels. */
@@ -107,6 +115,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		},
 		/** Frames a three.js box: its center in the image center, `margin` ≥ 1 around its silhouette. */
 		frameBox(box: THREE.Box3, margin: number) {
+			focusY = 0.5;
 			box.getCenter(target);
 			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
@@ -137,8 +146,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			span = (height * extent) / opening.mobileCellWidthPx;
 			elevationRad = (opening.mobileElevationDeg * Math.PI) / 180;
 			apply();
-			const middle = area ? (area.top + area.bottom) / 2 : height / 2;
-			pan(0, middle - height / 2);
+			focusY = area ? (area.top + area.bottom) / (2 * height) : 0.5;
+			pan(0, (focusY - 0.5) * height);
 			return true;
 		},
 		/** Centers the projected silhouette. Points are in three.js meters. */
@@ -150,7 +159,11 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			for (const point of points)
 				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
 			const center = bounds.getCenter(new THREE.Vector2());
-			target.set(0, 0, 0).addScaledVector(right, center.x).addScaledVector(up, center.y);
+			// The 2D silhouette fixes the image center. Keep its depth at the town, too.
+			const depth = new THREE.Box3().setFromPoints(points).getCenter(target).dot(eye);
+			target.copy(eye).multiplyScalar(depth);
+			target.addScaledVector(right, center.x).addScaledVector(up, center.y);
+			focusY = 0.5;
 			const fit = Math.max(
 				((bounds.max.x - bounds.min.x) * height) / (width * 0.74),
 				(bounds.max.y - bounds.min.y) / 0.84

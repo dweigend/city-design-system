@@ -255,9 +255,10 @@ export function createSandboxStage(
 			return view.frameBox(studyBounds(frame), view.isPortrait() ? 1 : OPENING_MARGIN);
 		}
 		if (opening) {
-			const framed = view.isPortrait()
-				? framePortrait(opening)
-				: frameTownSilhouette(view, opening);
+			const framed =
+				view.isPortrait() && !planView
+					? framePortrait(opening)
+					: frameTownSilhouette(view, opening);
 			if (framed) return;
 		}
 		view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
@@ -423,7 +424,7 @@ export function createSandboxStage(
 			planView = plan;
 			view.setPlan(plan);
 			terrain?.setGridVisible(Number(plan));
-			if (!plan || !study.frameTown) frameCurrent(!study.frameTown);
+			opening = undefined;
 			invalidateView();
 		},
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */

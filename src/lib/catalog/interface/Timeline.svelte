@@ -19,6 +19,8 @@
 		year = hudZeit.value,
 		events = sample,
 		stockYear,
+		step = 1,
+		onYearChange,
 		labelEvery = hudZeit.major
 	}: {
 		mode?: 'input' | 'readout';
@@ -28,6 +30,8 @@
 		year?: number;
 		events?: readonly Event[];
 		stockYear?: number;
+		step?: number;
+		onYearChange?: (year: number) => void;
 		labelEvery?: number | false;
 	} = $props();
 
@@ -46,7 +50,7 @@
 	);
 </script>
 
-<div class="timeline">
+<div class="timeline" class:scrubber={mode === 'input' && Boolean(onYearChange)}>
 	{#if stockYear !== undefined}
 		<div class="stock">
 			<div class="stock-line">
@@ -67,7 +71,10 @@
 			{min}
 			{max}
 			value={year}
-			minor={hudZeit.major}
+			{step}
+			live={Boolean(onYearChange)}
+			onValueChange={onYearChange}
+			minor={labelEvery === false ? step : hudZeit.major}
 			major={labelEvery || undefined}
 			{markers}
 			markerShape="dot"
@@ -80,6 +87,15 @@
 	.timeline {
 		display: flex;
 		align-items: end;
+	}
+	.scrubber {
+		--scale-input-height: var(--sandbox-target, 44px);
+	}
+	.scrubber .stock {
+		height: calc(var(--scale-input-height) + var(--ctl-s));
+	}
+	.scrubber .stock-line {
+		height: var(--scale-input-height);
 	}
 	.axis {
 		flex: 1;
