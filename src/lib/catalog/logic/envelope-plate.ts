@@ -1,4 +1,5 @@
 import type { ManifoldToplevel, Vec2 } from 'manifold-3d';
+import type { MaterialId } from '../data/material';
 import { envelopeParams, buildEnvelope, type BuildingCell, type Roof } from './building-envelope';
 // Frozen first cells from the seed-42 corner-grid dual and organic grids.
 const corner: Vec2[] = [
@@ -32,26 +33,37 @@ const square: Vec2[] = [
 	[12, 12],
 	[0, 12]
 ];
-const roofs: Roof[] = ['hip', 'gable', 'sawtooth', 'shed'];
-function specimen(roof: Roof, polygon: Vec2[]): BuildingCell {
-	const ceramic = roof === 'shed';
-	return {
-		polygon,
-		roof,
-		params: { direction: 0.24, pitch: ceramic ? 0.18 : 0.67 },
-		grade: [0.08, 0.02],
-		storeys: ceramic
-			? [
-					{ radius: 1.3, height: 2.4 },
-					{ radius: 2, offset: 0.65, height: 2 }
-				]
-			: [{ height: envelopeParams.height.default }]
-	};
-}
-/** Builds the same four roof rules on three reference cells normalized to a 12 m span. */
+const standard = { pitch: 0.67, storeys: [{ height: envelopeParams.height.default }] };
+const cantilever = {
+	pitch: 0.18,
+	storeys: [
+		{ radius: 1.3, height: 2.4 },
+		{ radius: 2, offset: 0.65, height: 2 }
+	]
+};
+const specimens = [
+	{ roof: 'hip', material: 'paper', ...standard },
+	{ roof: 'gable', material: 'paper', ...standard },
+	{ roof: 'sawtooth', material: 'paper', ...standard },
+	{ roof: 'shed', material: 'glaze', ...cantilever }
+] as const satisfies readonly {
+	roof: Roof;
+	material: MaterialId;
+	pitch: number;
+	storeys: BuildingCell['storeys'];
+}[];
+
+/** Builds twelve shells in roof-row and footprint-column order with their displayed finishes. */
 export function envelopePlate(kernel: ManifoldToplevel) {
 	const rings = [square, corner, organic].map(fitCell);
-	return roofs.flatMap((roof) =>
-		rings.map((polygon) => buildEnvelope(kernel, [specimen(roof, polygon)]))
+	return specimens.flatMap(({ roof, material, pitch, storeys }) =>
+		rings.map((polygon) => ({
+			...buildEnvelope(kernel, [
+				{ polygon, roof, params: { direction: 0.24, pitch }, grade: [0.08, 0.02], storeys }
+			]),
+			material
+		}))
 	);
 }
+
+export type EnvelopePlateMesh = ReturnType<typeof envelopePlate>[number];
