@@ -1,6 +1,7 @@
 /** Owns the GPU objects for each key of the sandbox's derived structures. */
 import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
+import { kineticGroups } from './kinetic-groups';
 import { structureBatch } from './structure-batch';
 import { structureMaterials } from './structure-materials';
 import { placementGroups, placementOffset } from './placement-motion';
@@ -15,6 +16,9 @@ type Batch = ReturnType<typeof structureBatch> & {
 	primitives: Primitive[];
 	drawing: DistanceDrawing;
 	cellId?: string;
+	key: string;
+	dockAt?: number;
+	updates: ((s: number) => boolean)[];
 };
 type Moving = ReturnType<typeof placementGroups>['groups'][number] & {
 	objects: Batch;
@@ -38,24 +42,34 @@ export function createStructures() {
 	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
 	function draw(
+		key: string,
 		primitives: Primitive[],
 		cellId?: string,
-		drawing = distanceDrawing(primitives, distance)
+		drawing = distanceDrawing(primitives, distance),
+		dockAt?: number
 	): Batch {
-		return {
-			...structureBatch(primitives, finishes, dot, drawing, cellId),
-			primitives,
-			drawing,
-			cellId
-		};
+		const targets: THREE.Object3D[] = [];
+		const { batches, updates } = kineticGroups(
+			key,
+			drawing.parts,
+			(parts) => {
+				const batch = structureBatch(parts, finishes, dot, { ...drawing, parts }, cellId);
+				targets.push(...batch.targets);
+				return batch.group;
+			},
+			dockAt
+		);
+		const root = batches.length === 1 && !updates.length ? batches[0] : new THREE.Group();
+		if (batches.length && root !== batches[0]) root.add(...batches);
+		return { group: root, targets, primitives, drawing, cellId, key, dockAt, updates };
 	}
 
 	function releaseObjects({ group: batch }: Batch) {
 		group.remove(batch);
-		for (const object of batch.children) {
+		batch.traverse((object) => {
 			if (object instanceof THREE.InstancedMesh) object.dispose();
 			else if (object instanceof THREE.Mesh) object.geometry.dispose();
-		}
+		});
 	}
 
 	function release(entry: Entry) {
@@ -72,13 +86,19 @@ export function createStructures() {
 	): Entry {
 		if (startedMs === undefined) {
 			const drawing = distanceDrawing(primitives, distance, previous?.objects.drawing.contours);
-			return { primitives, objects: draw(primitives, cellId, drawing), moving: [], cellId };
+			return { primitives, objects: draw(key, primitives, cellId, drawing), moving: [], cellId };
 		}
 		const { seated, groups } = placementGroups(key, primitives, previous?.primitives ?? []);
-		const objects = draw(seated, cellId);
+		const objects = draw(key, seated, cellId);
 		const moving = groups.map((item) => ({
 			...item,
-			objects: draw(item.parts, cellId),
+			objects: draw(
+				key,
+				item.parts,
+				cellId,
+				undefined,
+				finishes.seconds.value + item.delayMs / 1000
+			),
 			startedMs
 		}));
 		return { primitives, objects, moving, cellId };
@@ -100,7 +120,7 @@ export function createStructures() {
 	function redrawBatch(batch: Batch, recolor: boolean) {
 		const drawing = distanceDrawing(batch.primitives, distance, batch.drawing.contours);
 		if (!recolor && sameDrawing(batch.drawing, drawing)) return batch;
-		const next = draw(batch.primitives, batch.cellId, drawing);
+		const next = draw(batch.key, batch.primitives, batch.cellId, drawing, batch.dockAt);
 		hitLists.clear();
 		next.group.position.copy(batch.group.position);
 		next.group.visible = batch.group.visible;
@@ -151,10 +171,16 @@ export function createStructures() {
 		},
 		clear,
 		/** Updates pending drop offsets and reports whether another frame is needed. */
-		step(timeMs: number, reduced: boolean) {
+		step(timeMs: number, reduced: boolean, seconds = timeMs / 1000) {
+			finishes.seconds.value = seconds;
 			let active = false;
-			for (const { moving } of entries.values())
-				for (const item of moving) active = place(item, timeMs, reduced) || active;
+			for (const { objects, moving } of entries.values()) {
+				for (const update of objects.updates) active = update(seconds) || active;
+				for (const item of moving) {
+					active = place(item, timeMs, reduced) || active;
+					for (const update of item.objects.updates) active = update(seconds) || active;
+				}
+			}
 			return active;
 		},
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */

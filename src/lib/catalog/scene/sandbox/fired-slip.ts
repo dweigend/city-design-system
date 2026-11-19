@@ -23,10 +23,13 @@ export function firedSlip(
 	const face = normalWorld.dot(vec3(-0.42, 0.82, 0.38));
 	const body = face.greaterThanEqual(0.17).select(clay, shade);
 	// An asymmetric painted sector makes a ten-second revolution readable on the circular rim.
-	const turn = atan(q.z, q.x).div(2 * Math.PI).sub(seconds.div(10)).fract();
+	const turn = atan(q.z, q.x)
+		.div(2 * Math.PI)
+		.sub(seconds.div(10))
+		.fract();
 	const panel = turn.lessThan(0.22);
 	const stripe = turn.greaterThan(0.26).and(turn.lessThan(0.3));
-	const ringInk = panel.select(pigment.mul(0.48), stripe.select(clay, pigment));
+	const ringInk = panel.select(pigment.mul(0.48), stripe.select(clay.rgb, pigment));
 	const u = normalView.x.add(0.12);
 	const bow = normalView.y.sub(0.72).add(u.mul(u).mul(0.38));
 	const stroke = u

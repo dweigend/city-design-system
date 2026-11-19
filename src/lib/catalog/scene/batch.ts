@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three/webgpu';
 import { legacyRoleOf, type Primitive, type Vec3 } from '../logic/parametrik/types';
-import { build } from './parametrik';
+import { build } from './primitive-geometry';
 
 type Faces = { p: number[]; n: number[]; c: number[] };
 export type Batch = {

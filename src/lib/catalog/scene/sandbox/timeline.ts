@@ -12,11 +12,14 @@ export function createTimeline(canvas: HTMLCanvasElement, invalidate: () => void
 		previous = undefined;
 		invalidate();
 	}
-	const observer = new IntersectionObserver(([entry]) => {
-		visible = entry.isIntersecting;
-		restart();
-	});
-	observer.observe(canvas);
+	const observer =
+		typeof IntersectionObserver === 'undefined'
+			? undefined
+			: new IntersectionObserver(([entry]) => {
+					visible = entry.isIntersecting;
+					restart();
+				});
+	observer?.observe(canvas);
 	document.addEventListener('visibilitychange', restart);
 	motion.addEventListener('change', restart);
 	return {
@@ -37,7 +40,7 @@ export function createTimeline(canvas: HTMLCanvasElement, invalidate: () => void
 			restart();
 		},
 		dispose() {
-			observer.disconnect();
+			observer?.disconnect();
 			document.removeEventListener('visibilitychange', restart);
 			motion.removeEventListener('change', restart);
 		}

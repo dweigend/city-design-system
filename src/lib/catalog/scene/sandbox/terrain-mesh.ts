@@ -13,9 +13,12 @@ import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
-import { neutral } from '../leitstil';
+import { neutral } from '../leitstil/tone';
 import { PROJEKTION_TOENE, WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
+import { shiftedPaper } from './paper-inlay';
+import { wakeGeometry, wakeInk, type Pier } from './pier-wakes';
+import { riverInk } from './water-print';
 import { baseGeometry, patchSurface, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
 
@@ -83,6 +86,7 @@ export function createTerrainMesh(
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const peopleFocus = uniform(0);
+	const drawingInk = mix(uniform(neutral(PROJEKTION_TOENE.dunkel.bleistift)), colors.ink, daylight);
 	const cover = coverTexture(grid);
 	const alleys = alleyOverlay(grid, profile, nodes);
 	const chart = attribute('chart', 'vec2');
@@ -152,7 +156,7 @@ export function createTerrainMesh(
 			.max(parcelLine.mul(nodes.parcel));
 		return alleys.shade(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
-			colors.ink,
+			drawingInk,
 			colors.people,
 			paperColor,
 			peopleFocus,
@@ -250,7 +254,13 @@ export function createTerrainMesh(
 			replace(deck, footbridgeGeometry(next));
 			patchSurface(surface.geometry, currentGrid, next);
 			currentGrid = next;
-			replace(water, waterGeometry(next));
+			replace(
+				water,
+				waterGeometry(
+					next,
+					piers.map((p) => p.foot)
+				)
+			);
 			replace(baseMesh, nextBase.geometry);
 			footprint.geometry = baseMesh.geometry;
 			baseLines = nextBase.lines;

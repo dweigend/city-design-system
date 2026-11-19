@@ -3,7 +3,8 @@ import { abs, float, mix, normalWorld, positionLocal, uniform } from 'three/tsl'
 import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../logic/params';
-import { neutral, type grammatik } from '../leitstil';
+import type { grammatik } from '../leitstil';
+import { neutral } from '../leitstil/tone';
 import { outlinePosition } from '../surfaces';
 import { conduitInk } from './print-flow';
 import { cutPaper, terrazzo } from './paper-inlay';
@@ -33,6 +34,10 @@ export function structureMaterials() {
 	const markTone = uniform(new THREE.Color());
 	const scalePx = uniform(1);
 	const materials = {
+		conduit: conduitInk(seconds, markTone),
+		inlay: terrazzo(paperTone, scalePx),
+		cut: cutPaper(paperTone, shadowTone),
+		fired: firedSlip(solidColor, sideColor, seconds, ceramicContour, night),
 		glaze: new THREE.MeshBasicNodeMaterial(),
 		ceramicHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),

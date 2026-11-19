@@ -1,4 +1,3 @@
-// @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import {
 	Color,
@@ -14,16 +13,8 @@ import { collageCut } from './collage-cut';
 import { roundedStops } from './station-rings';
 import { createLight } from './light';
 
-// The generic scene batch imports the Svelte theme outside the compiled client.
-const shim = !('$state' in globalThis);
-if (shim)
-	Object.defineProperty(globalThis, '$state', { configurable: true, value: (v: unknown) => v });
-const [{ batch, geometryOf }, { ceramicBatch }] = await Promise.all([
-	import('../batch'),
-	import('./ceramic-batch')
-]).finally(() => {
-	if (shim) Reflect.deleteProperty(globalThis, '$state');
-});
+import { batch, geometryOf } from '../batch';
+import { ceramicBatch } from './ceramic-batch';
 
 const blank = { id: 'socket', role: 'neu', material: 'glaze', token: '--paper' } as const;
 const capsule: Primitive = { ...blank, kind: 'capsule', from: [0, 0, 2], to: [3, 0, 2], radius: 1 };
@@ -43,9 +34,11 @@ test('the fitting gives only its own casting a dip coordinate and the plain neig
 		new Map([['socket', blue]]),
 		ink
 	);
-	expect(result.chart.count).toBe(result.faces.p.length / 3);
-	const families = Array.from({ length: result.chart.count }, (_, i) => result.chart.getW(i));
+	const chart = result.geometry.getAttribute('kilnChart');
+	expect(chart.count).toBe(result.geometry.getAttribute('position').count);
+	const families = Array.from({ length: chart.count }, (_, i) => chart.getW(i));
 	expect([...new Set(families)]).toEqual([1, 0, 2]);
+	result.geometry.dispose();
 });
 
 test('a picking ray passes through the cut and hits the shoulder on both footprint windings', () => {
@@ -109,7 +102,7 @@ test('a water-only tick reuses the shadow map while panning or changing casters 
 	light.aim(target.clone().addScalar(1), 150);
 	expect(sun.shadow.needsUpdate).toBe(true);
 	sun.shadow.needsUpdate = false;
-	light.invalidate();
+	light.refresh();
 	expect(sun.shadow.needsUpdate).toBe(true);
 	light.dispose();
 });
@@ -137,13 +130,15 @@ test('rail dashes follow chainage around a bend for the viaduct and the capsule 
 
 test('fine casting tessellation preserves both cap seats and the outer radius', () => {
 	const coarse = batch([capsule], ink).neu.p;
-	const fine = ceramicBatch([capsule], new Map(), ink).faces.p;
+	const { geometry } = ceramicBatch([capsule], new Map(), ink);
+	const fine = Array.from(geometry.getAttribute('position').array);
 	const bounds = (p: number[]) =>
 		[0, 1, 2].flatMap((axis) => {
 			const values = p.filter((_, i) => i % 3 === axis);
 			return [Math.min(...values), Math.max(...values)];
 		});
-	expect(fine.length).toBeGreaterThan(coarse.length);
+	expect(geometry.index!.count).toBeGreaterThan(coarse.length / 3);
+	geometry.dispose();
 	bounds(fine).forEach((v, i) => expect(v).toBeCloseTo(bounds(coarse)[i], 5));
 });
 

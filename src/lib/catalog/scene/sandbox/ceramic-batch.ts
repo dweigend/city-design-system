@@ -1,7 +1,8 @@
-import { Float32BufferAttribute, type Color } from 'three/webgpu';
+import { EdgesGeometry, Float32BufferAttribute, type Color } from 'three/webgpu';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { flowToken } from '../../data/focus';
 import type { Primitive } from '../../logic/parametrik/types';
-import { batch, type Batch } from '../batch';
+import { build } from '../primitive-geometry';
 
 const castingFamily = new Map<string, number>([
 	['sphere', 2],
@@ -9,7 +10,7 @@ const castingFamily = new Map<string, number>([
 	['ring', 3]
 ]);
 
-function shellChart(part: Primitive, coords: number[], token: Primitive['token']) {
+function shellChart(part: Primitive, coords: ArrayLike<number>, token: Primitive['token']) {
 	let cx = 0,
 		cy = 0,
 		cz = 0,
@@ -65,22 +66,32 @@ export function ceramicBatch(
 	pigments: ReadonlyMap<string, Primitive>,
 	tone: (p: Primitive) => Color
 ) {
-	const pieces = parts.map((part) => {
+	const edges: number[] = [];
+	const pieces = parts.flatMap((part) => {
+		if (part.kind === 'polyline') return [];
 		const accent = pigments.get(part.id) ?? part;
-		const faces = batch([part], () => tone(accent), false);
-		return { faces, chart: shellChart(part, faces.neu.p, accent.token) };
+		const color = tone(accent);
+		const { geometry, position, rotation, edgeAngle } = build(part);
+		geometry.rotateY(rotation);
+		geometry.translate(position.x, position.y, position.z);
+		geometry.deleteAttribute('uv');
+		const vertices = geometry.getAttribute('position');
+		const colors = new Float32Array(vertices.count * 3);
+		for (let i = 0; i < colors.length; i += 3) color.toArray(colors, i);
+		geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+		const chart = shellChart(part, vertices.array, accent.token);
+		geometry.setAttribute('kilnChart', new Float32BufferAttribute(chart, 4));
+		if (!geometry.index) geometry.setIndex(Array.from({ length: vertices.count }, (_, i) => i));
+		// Smooth castings have no crease edges. Their silhouette uses the indexed faces.
+		if (part.edges !== false && !['capsule', 'sphere', 'torus'].includes(part.kind)) {
+			const creases = new EdgesGeometry(geometry, edgeAngle);
+			for (const v of creases.getAttribute('position').array) edges.push(v);
+			creases.dispose();
+		}
+		return [geometry];
 	});
-	const faces: Batch['neu'] = {
-		p: pieces.flatMap((p) => p.faces.neu.p),
-		n: pieces.flatMap((p) => p.faces.neu.n),
-		c: pieces.flatMap((p) => p.faces.neu.c)
-	};
-	return {
-		faces,
-		edges: pieces.flatMap((p) => p.faces.kanten.neu),
-		chart: new Float32BufferAttribute(
-			pieces.flatMap((p) => p.chart),
-			4
-		)
-	};
+	if (pieces.length < 2) return { geometry: pieces[0], edges };
+	const geometry = mergeGeometries(pieces);
+	for (const piece of pieces) piece.dispose();
+	return { geometry, edges };
 }

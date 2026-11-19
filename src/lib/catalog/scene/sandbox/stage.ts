@@ -27,6 +27,7 @@ import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { createView, type OpeningArea } from './view';
 import { createVehicles } from './vehicles';
+import { createTimeline } from './timeline';
 import { createFrameLoop } from './frame-loop';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
@@ -123,17 +124,6 @@ export function createSandboxStage(
 
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
-		if (
-			!refreshTones &&
-			lastElevation === view.elevation() &&
-			lastScale === scale &&
-			lastVariant === variant
-		)
-			return;
-		lastElevation = view.elevation();
-		lastScale = scale;
-		lastVariant = variant;
-		light.invalidate();
 		const zoom = nearestZoom(scale);
 		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
 		if (nextCoarse !== coarse && shown)
@@ -172,18 +162,20 @@ export function createSandboxStage(
 
 	const loop = createFrameLoop(gpu.isLive, ({ timeMs, transitMs, reduced }) => {
 		prepareView();
-		const seating = structures.step(timeMs, reduced);
-		const transit = vehicles.step(transitMs);
+		const seconds = timeline.sample(timeMs);
+		terrain?.setTime(seconds);
+		const seating = structures.step(timeMs, reduced, seconds);
+		vehicles.step(study.frameTown ? transitMs : seconds * 1000);
 		renderImage(seating);
 		for (const listener of frameListeners) listener();
-		return seating || (transit && !loop.paused);
+		return seating || timeline.playing();
 	});
 	const { render } = loop;
+	const timeline = createTimeline(canvas, render);
 	loop.reduced.addEventListener('change', flushShadows);
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
-		vehicles.setPalette(next);
 		scene.background = new THREE.Color(next.paper).lerp(new THREE.Color(next.ink), 0.035);
 		refreshTones = true;
 		shadowsDirty = true;
@@ -296,8 +288,6 @@ export function createSandboxStage(
 			nextFocus,
 			nextFocus !== focus || before.roofBuilder !== after.roofBuilder
 		);
-		vehicles.setLines(after.lines);
-		vehicles.setFocus(nextFocus, after.state.year);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
 	}
 
@@ -306,8 +296,8 @@ export function createSandboxStage(
 	}
 
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
-		if (!study.frameTown) return;
-		if (before.lines !== world.lines) vehicles.setLines(world.lines, loop.transitMs);
+		if (before.lines !== world.lines)
+			vehicles.setLines(world.lines, study.frameTown ? loop.transitMs : 0);
 		vehicles.setFocus(nextFocus, world.state.year);
 	}
 
@@ -457,7 +447,6 @@ export function createSandboxStage(
 			targetMaterial.dispose();
 			rejectionMaterial.dispose();
 			if (terrain) terrain.dispose();
-			vehicles.dispose();
 			structures.dispose();
 			light.dispose();
 			baseOutline.dispose();

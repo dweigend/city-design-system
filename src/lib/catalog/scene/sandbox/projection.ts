@@ -5,7 +5,8 @@
 import { focuses, present, levelFor, type FocusId } from '../../logic/presentation';
 import { forestChunk } from '../../logic/land-cover';
 import { installationPartView, houseGroups, changes, type World } from '../../logic/sandbox';
-import { lineParts } from '../../logic/transit-line';
+import { roundedStops } from './station-rings';
+import { lineParts, TRANSIT_PARAMS } from '../../logic/transit-line';
 import type { Structures } from './structures';
 import type { TerrainMesh } from './terrain-mesh';
 

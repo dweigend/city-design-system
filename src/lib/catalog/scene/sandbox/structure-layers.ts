@@ -27,6 +27,7 @@ function layerOf(part: Primitive) {
 	if (part.material === 'ghost') return 'ghosts';
 	if (isStructural(part)) return 'carriers';
 	if (part.role !== 'neu') return 'regular';
+	if (part.kind === 'mesh' && part.material === 'glaze' && part.token === '--paper') return 'glaze';
 	if (isConduit(part)) return 'conduits';
 	if (isAccent(part) && isInlay(part)) return 'inlays';
 	if (isCasting(part)) return 'ceramics';
@@ -36,6 +37,7 @@ function layerOf(part: Primitive) {
 export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
 	const parts = {
 		regular: [] as Primitive[],
+		glaze: [] as Primitive[],
 		plain: [] as Primitive[],
 		plainAccents: [] as Primitive[],
 		carriers: [] as Primitive[],
@@ -54,7 +56,12 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 		const part = collageCut(original);
 		const layer = layerOf(part);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
-		if (unoutlined.has(original) && layer !== 'carriers' && layer !== 'ghosts') {
+		if (
+			unoutlined.has(original) &&
+			layer !== 'carriers' &&
+			layer !== 'ghosts' &&
+			layer !== 'glaze'
+		) {
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
 		} else if (part !== original && part.kind === 'mesh') {
 			const pigment = figures.get(part.id.replace(/:stock$/, ''));

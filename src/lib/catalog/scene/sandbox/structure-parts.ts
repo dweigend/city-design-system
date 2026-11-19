@@ -33,52 +33,13 @@ function bearingDots(points: Vec3[], geometry: THREE.BufferGeometry, material: T
 	return dots;
 }
 
-function silhouette(faces: Batch['neu'], material: THREE.Material) {
+function silhouette(source: THREE.BufferGeometry, material: THREE.Material) {
 	const geometry = new THREE.InstancedBufferGeometry();
-	geometry.setAttribute('position', new THREE.Float32BufferAttribute(faces.p, 3));
+	geometry.setAttribute('position', source.getAttribute('position'));
+	geometry.setIndex(source.index);
 	geometry.setAttribute('outlineOffset', outlineOffsets);
 	geometry.instanceCount = outlineOffsets.count;
 	return new THREE.Mesh(geometry, material);
-}
-
-const isAccent = (part: Primitive) =>
-	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
-
-function layerOf(part: Primitive) {
-	if (part.material === 'ghost') return 'ghosts';
-	if (isStructural(part)) return 'carriers';
-	if (
-		part.kind === 'mesh' &&
-		part.material === 'glaze' &&
-		part.role === 'neu' &&
-		part.token === '--paper'
-	)
-		return 'glaze';
-	return isAccent(part) ? 'accents' : 'regular';
-}
-
-function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
-	const parts = {
-		regular: [] as Primitive[],
-		plain: [] as Primitive[],
-		plainAccents: [] as Primitive[],
-		glaze: [] as Primitive[],
-		carriers: [] as Primitive[],
-		ceramics: [] as Primitive[],
-		inlays: [] as Primitive[],
-		conduits: [] as Primitive[],
-		accents: [] as Primitive[],
-		ghosts: [] as Primitive[]
-	};
-	for (const original of primitives) {
-		const part = collageCut(original);
-		const layer = layerOf(part);
-		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
-		if (unoutlined.has(part) && (layer === 'regular' || layer === 'accents')) {
-			parts[layer === 'regular' ? 'plain' : 'plainAccents'].push({ ...body, edges: false });
-		} else parts[layer].push(body);
-	}
-	return parts;
 }
 
 /** Projects one structure key into pickable surfaces and independent drafting marks. */
@@ -120,7 +81,7 @@ export function populateStructures(
 		const object = mesh(faces, material, pick);
 		if (!object) return;
 		object.castShadow = shadows;
-		objects.add(silhouette(faces, contour));
+		objects.add(silhouette(object.geometry, contour));
 		return object;
 	};
 	const fill = (faces: Batch['neu'], material: THREE.Material, pick: boolean, shadows = cast) => {
@@ -203,8 +164,12 @@ export function populateStructures(
 	const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
 		part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
 	);
-	const casting = surface(fired.faces, materials.glaze, materials.hull, true);
-	casting?.geometry.setAttribute('kilnChart', fired.chart);
+	if (fired.geometry) {
+		const casting = new THREE.Mesh(fired.geometry, materials.fired);
+		casting.castShadow = cast;
+		objects.add(casting, silhouette(fired.geometry, materials.hull));
+		hits.push(casting);
+	}
 	lines(fired.edges, materials.detail);
 	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 	const accent = batch(

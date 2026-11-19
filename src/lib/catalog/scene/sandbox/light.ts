@@ -13,7 +13,6 @@ export function createLight() {
 	sun.castShadow = true;
 	sun.shadow.autoUpdate = false;
 	sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
-	sun.shadow.autoUpdate = false;
 	sun.shadow.needsUpdate = true;
 	sun.shadow.bias = -0.0006;
 	sun.shadow.normalBias = 0.05;
@@ -22,13 +21,9 @@ export function createLight() {
 	const shadowTone = uniform(new THREE.Vector3());
 	return {
 		objects: [sun, sun.target],
-		/** Refresh depth after geometry or a casting material changes. */
-		invalidate() {
-			sun.shadow.needsUpdate = true;
-		},
 		/** The ground holds the paper palette outside the cast shadow. */
 		shade(this: void, color: THREE.Node<'vec3'>) {
-			return mix(shadowTone, color, float(shadowMask));
+			return mix(shadowTone, color, float(shadowMask).step(0.5));
 		},
 		/** Sets the Leitstil shadow tone, capped at the paper color so it cannot lighten it. */
 		setTone(color: THREE.Color, paper: THREE.Color) {

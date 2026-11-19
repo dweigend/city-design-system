@@ -1,18 +1,12 @@
-import { dockPose, seatingLift } from './docking';
+import { dockPose } from './docking';
 import { Group } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
 
 type Build = (parts: Primitive[]) => Group;
 type Motion = (seconds: number) => boolean;
 
-/** Builds separately moving crown and placement batches, retaining their actual ray targets. */
-export function kineticGroups(
-	key: string,
-	parts: Primitive[],
-	previous: Primitive[],
-	build: Build,
-	placedAt?: number
-) {
+/** Builds crown and capsule batches inside the placement group that owns the vertical drop. */
+export function kineticGroups(key: string, parts: Primitive[], build: Build, placedAt?: number) {
 	const batches: Group[] = [];
 	const updates: Motion[] = [];
 	function add(selected: Primitive[], move?: (group: Group, seconds: number) => void) {
@@ -36,20 +30,14 @@ export function kineticGroups(
 	const rigid = crowns.length ? parts.filter((p) => !canopy.has(p)) : parts;
 	if (forest || placedAt === undefined) add(rigid);
 	else {
-		const known = new Set(previous.map((p) => p.id));
-		const fresh = new Set(rigid.filter((p) => p.role !== 'bestand' && !known.has(p.id)));
-		add(rigid.filter((p) => !fresh.has(p)));
-		for (const capsule of [...fresh]) {
+		const remaining = new Set(rigid);
+		for (const capsule of rigid) {
 			if (capsule.kind !== 'capsule') continue;
-			const companions = [...fresh].filter(
-				(p) => p === capsule || p.id.startsWith(capsule.id + '/')
-			);
-			for (const part of companions) fresh.delete(part);
+			const companions = rigid.filter((p) => p === capsule || p.id.startsWith(capsule.id + '/'));
+			for (const part of companions) remaining.delete(part);
 			add(companions, (g, s) => dockPose(g, capsule, s - placedAt));
 		}
-		add([...fresh], (g, s) => {
-			g.position.y = seatingLift(s - placedAt);
-		});
+		add([...remaining]);
 	}
 	const first = crowns.find((p) => 'position' in p);
 	if (first && 'position' in first) {

@@ -5,7 +5,7 @@
 import * as THREE from 'three/webgpu';
 import type { TerrainCell, TerrainGrid } from '../../logic/terrain-grid';
 import { changedChunks } from '../../logic/quad-grid';
-import { bankDistance, ravineDepth } from '../../logic/terrain';
+import { bankDistance, ravineDepth, valleyCoords } from '../../logic/terrain';
 import { pushThree } from '../world-space';
 
 /** Bottom of the model base, meters below mean water. */

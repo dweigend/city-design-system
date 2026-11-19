@@ -40,7 +40,7 @@ export function alleyOverlay(
 		dispose: () => map.dispose(),
 		shade(
 			ground: Node<'vec3'>,
-			ink: Node<'color'>,
+			ink: Node<'vec3'>,
 			people: Node<'color'>,
 			paper: Node<'vec3'>,
 			focus: Node<'float'>,
