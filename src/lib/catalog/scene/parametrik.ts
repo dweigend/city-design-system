@@ -368,7 +368,7 @@ export function createParametrikScene(
 					? drawingSurface(look)
 					: undefined;
 			if (surface) {
-				if (finish) chartSurface(geometry);
+				if (finish) chartSurface(geometry, p.kind);
 				const mesh = paintedMesh(geometry, () => {
 					const material = surfaces.material(surface, !!built.double);
 					usedSurfaces.add(material);

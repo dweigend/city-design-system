@@ -1,3 +1,4 @@
+import { creaseNormal } from './crease-normal';
 import type { StudioQuality } from './studio-quality';
 import { perforatedSheet } from './toy-surfaces';
 import * as THREE from 'three/webgpu';
@@ -124,6 +125,7 @@ export function physicalSurface(
 		m.attenuationColor.copy(base);
 		m.attenuationDistance = 0.85;
 	}
+	m.normalNode = creaseNormal((m.normalNode ?? normalView) as THREE.Node<'vec3'>);
 	physischeDetails(m, w);
 	spiegelung(m, w.id, umgebung);
 	m.name = w.id;

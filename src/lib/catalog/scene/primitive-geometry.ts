@@ -1,3 +1,4 @@
+import { modelBevel } from './convex-creases';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { legacyRoleOf } from '../logic/parametrik/types';
 import * as THREE from 'three/webgpu';
@@ -142,7 +143,7 @@ function buildPrism(p: SolidOf<'prism'>, at: Placement) {
 // Round dressed bodies inside their authored envelope. Thin sections keep a flat land.
 function bevelRadius(part: Solid, smallestM: number, largestM: number) {
 	if (!part.finish || legacyRoleOf(part) === 'bestand' || part.section) return 0;
-	return Math.min(smallestM * 0.24, largestM >= 6 ? 0.45 : 0.15);
+	return modelBevel(smallestM, largestM);
 }
 
 function buildBox(p: SolidOf<'box'>, at: Placement) {

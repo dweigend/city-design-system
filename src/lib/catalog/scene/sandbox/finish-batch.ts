@@ -19,7 +19,7 @@ function surfaceGeometry(part: Surface) {
 	const source = built.geometry;
 	const g = source.index ? source.toNonIndexed() : source;
 	if (source !== g) source.dispose();
-	chartSurface(g, built.rotation);
+	chartSurface(g, part.kind, built.rotation);
 	g.rotateY(built.rotation);
 	g.translate(...built.position.toArray());
 	return g;
