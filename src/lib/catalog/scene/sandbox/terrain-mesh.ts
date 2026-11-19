@@ -13,8 +13,12 @@ import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
-import { WEG_STROM } from '../../data/leitstil';
+import { neutral } from '../leitstil/tone';
+import { PROJEKTION_TOENE, WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
+import { shiftedPaper } from './paper-inlay';
+import { wakeGeometry, wakeInk, type Pier } from './pier-wakes';
+import { riverInk } from './water-print';
 import { baseGeometry, patchSurface, surfaceGeometry, waterGeometry } from './terrain-geometry';
 import { TERRAIN_VIEW_PARAMS } from './view-params';
 
@@ -67,6 +71,7 @@ export function createTerrainMesh(
 		ink: uniform(new THREE.Color()),
 		blueprint: uniform(new THREE.Color()),
 		water: uniform(new THREE.Color()),
+		waterStroke: uniform(new THREE.Color()),
 		nature: uniform(new THREE.Color()),
 		food: uniform(new THREE.Color()),
 		people: uniform(new THREE.Color())
@@ -81,18 +86,14 @@ export function createTerrainMesh(
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const peopleFocus = uniform(0);
+	const drawingInk = mix(uniform(neutral(PROJEKTION_TOENE.dunkel.bleistift)), colors.ink, daylight);
 	const cover = coverTexture(grid);
 	const alleys = alleyOverlay(grid, profile, nodes);
 	const chart = attribute('chart', 'vec2');
 	const relief = attribute('relief', 'vec2');
 	const height = relief.x;
 
-	function waterColor(): Node<'vec3'> {
-		const flow = hairline(chart.y.mul(0.5), 1)
-			.mul(resolvable(chart.y.mul(0.5)))
-			.mul(0.5);
-		return mix(paperColor, mix(colors.water, paperColor, flow), terrainWeight);
-	}
+	const seconds = uniform(0);
 
 	function groundColor(): Node<'vec3'> {
 		const masks = texture(cover.map, chart.div(vec2(grid.columns, grid.rows)));
@@ -128,8 +129,8 @@ export function createTerrainMesh(
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
 		ground = mix(
 			ground,
-			colors.ink,
-			incision.mul(hatch.add(1)).mul(nodes.ravineTone).mul(terrainWeight)
+			drawingInk,
+			incision.mul(hatch).mul(1.28).mul(nodes.ravineTone).mul(terrainWeight)
 		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
@@ -138,11 +139,8 @@ export function createTerrainMesh(
 		const contour = minor.mul(nodes.contourMinor).max(major.mul(nodes.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
 		const weighted = contour.mul(gridStrength.mul(planContourGain).add(1));
-		ground = mix(
-			ground,
-			colors.ink,
-			weighted.mul(terrainWeight).max(outline.mul(nodes.outline).mul(forestWeight))
-		);
+		ground = mix(ground, drawingInk, weighted.mul(terrainWeight));
+		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(forestWeight));
 
 		const lens = float(1)
 			.sub(chart.sub(cursor).length().smoothstep(lensInnerCells, lensCells))
@@ -158,11 +156,12 @@ export function createTerrainMesh(
 			.max(parcelLine.mul(nodes.parcel));
 		return alleys.shade(
 			mix(ground, colors.blueprint, plan.mul(terrainWeight)),
-			colors.ink,
+			drawingInk,
 			colors.people,
 			paperColor,
 			peopleFocus,
-			pathWeight
+			pathWeight,
+			daylight
 		);
 	}
 
@@ -172,7 +171,17 @@ export function createTerrainMesh(
 	surface.receiveShadow = true;
 
 	const waterMaterial = new THREE.MeshBasicNodeMaterial();
-	waterMaterial.colorNode = waterColor();
+	waterMaterial.colorNode = mix(
+		paperColor,
+		riverInk(seconds, colors.water, paperColor, colors.waterStroke),
+		terrainWeight
+	);
+	let piers: readonly Pier[] = [];
+	const wakes = new THREE.Mesh(
+		wakeGeometry(grid, piers),
+		wakeInk(mix(colors.waterStroke, colors.paper, daylight.mul(0.92)), seconds, terrainWeight)
+	);
+	wakes.renderOrder = 1;
 	const water = new THREE.Mesh(waterGeometry(grid), waterMaterial);
 	water.receiveShadow = true;
 
@@ -180,6 +189,14 @@ export function createTerrainMesh(
 	baseMaterial.colorNode = mix(paperColor, colors.ink, 0.05);
 	const base = baseGeometry(grid);
 	const baseMesh = new THREE.Mesh(base.geometry, baseMaterial);
+	const tableShadow = new THREE.MeshBasicNodeMaterial({
+		side: THREE.DoubleSide,
+		depthWrite: false
+	});
+	tableShadow.vertexNode = shiftedPaper(vec2(1.6, -1.6));
+	tableShadow.colorNode = mix(paperColor, colors.ink, 0.14);
+	const footprint = new THREE.Mesh(base.geometry, tableShadow);
+	footprint.renderOrder = -2;
 	let baseLines = base.lines;
 	let currentGrid = grid;
 
@@ -187,14 +204,29 @@ export function createTerrainMesh(
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
 	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
-	group.add(surface, water, baseMesh, deck);
+	group.add(footprint, surface, water, wakes, baseMesh, deck);
 
 	return {
 		group,
+		setTime(timeS: number) {
+			seconds.value = timeS;
+		},
 		setAlleys: alleys.update,
 		/** At block level, stair alleys retain their wash without individual treads. */
 		setCityOverview: alleys.setCityOverview,
+		/** Refit water wakes when the rail survey or wet terrain changes. */
+		setPiers(next: TerrainGrid, feet: readonly Pier[]) {
+			piers = feet;
+			wakes.geometry.dispose();
+			wakes.geometry = wakeGeometry(next, piers);
+			water.geometry.dispose();
+			water.geometry = waterGeometry(
+				next,
+				piers.map((p) => p.foot)
+			);
+		},
 		surface,
+		water,
 		/** Replaces view overrides in schema units, restoring omitted fields to defaults.
 		 * Updates the shader uniforms in place. Invalid values throw RangeError.
 		 */
@@ -218,11 +250,19 @@ export function createTerrainMesh(
 				mesh.geometry.dispose();
 				mesh.geometry = geometry;
 			};
+			replace(wakes, wakeGeometry(next, piers));
 			replace(deck, footbridgeGeometry(next));
 			patchSurface(surface.geometry, currentGrid, next);
 			currentGrid = next;
-			replace(water, waterGeometry(next));
+			replace(
+				water,
+				waterGeometry(
+					next,
+					piers.map((p) => p.foot)
+				)
+			);
 			replace(baseMesh, nextBase.geometry);
+			footprint.geometry = baseMesh.geometry;
 			baseLines = nextBase.lines;
 		},
 		/** Applies theme colors; no geometry changes. */
@@ -233,6 +273,9 @@ export function createTerrainMesh(
 			daylight.value = Number(colors.paper.value.r >= colors.ink.value.r);
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
+			if (!daylight.value && palette.categories['health-1'])
+				colors.water.value.set(palette.categories['health-1']);
+			colors.waterStroke.value.set(palette.categories['health-2'] ?? palette.categories.health);
 			colors.nature.value.copy(category('nature'));
 			colors.people.value.copy(category(flowToken[WEG_STROM].slice('--cat-'.length)));
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
@@ -247,6 +290,15 @@ export function createTerrainMesh(
 				transparent: 0.14,
 				hidden: 0
 			};
+			const ghost = view.terrain === 'transparent';
+			for (const material of [waterMaterial, surfaceMaterial, baseMaterial]) {
+				if (material.transparent !== ghost) material.needsUpdate = true;
+				material.transparent = ghost;
+				material.depthWrite = !ghost;
+				material.opacity = ghost ? weights.transparent : 1;
+			}
+			water.renderOrder = ghost ? 1 : 0;
+			wakes.renderOrder = water.renderOrder + 1;
 			terrainWeight.value = weights[view.terrain];
 			forestWeight.value = weights[view.forest];
 			pathWeight.value = weights[view.paths];
@@ -271,10 +323,11 @@ export function createTerrainMesh(
 			cover.map.needsUpdate = true;
 		},
 		dispose() {
-			for (const mesh of [surface, water, baseMesh, deck]) {
+			for (const mesh of [surface, water, wakes, baseMesh, deck]) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 			}
+			tableShadow.dispose();
 			alleys.dispose();
 			cover.map.dispose();
 		}

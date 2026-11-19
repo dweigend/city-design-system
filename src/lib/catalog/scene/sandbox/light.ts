@@ -13,6 +13,7 @@ export function createLight() {
 	sun.castShadow = true;
 	sun.shadow.autoUpdate = false;
 	sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+	sun.shadow.needsUpdate = true;
 	sun.shadow.bias = -0.0006;
 	sun.shadow.normalBias = 0.05;
 	// Three's depth-only shadow node returns a scalar, but its type omits the TSL scalar interface.
@@ -22,7 +23,7 @@ export function createLight() {
 		objects: [sun, sun.target],
 		/** The ground holds the paper palette outside the cast shadow. */
 		shade(this: void, color: THREE.Node<'vec3'>) {
-			return mix(shadowTone, color, float(shadowMask));
+			return mix(shadowTone, color, float(shadowMask).step(0.5));
 		},
 		/** Sets the Leitstil shadow tone, capped at the paper color so it cannot lighten it. */
 		setTone(color: THREE.Color, paper: THREE.Color) {
@@ -41,9 +42,11 @@ export function createLight() {
 		/** Centers the shadow volume on the view target; sharp shadows at every zoom. */
 		aim(target: THREE.Vector3, span: number) {
 			const reach = Math.max(SHADOW_REACH.min, span * SHADOW_REACH.perSpan);
+			const shadowCamera = sun.shadow.camera;
+			if (shadowCamera.right === reach && target.equals(sun.target.position)) return;
+			sun.shadow.needsUpdate = true;
 			sun.target.position.copy(target);
 			sun.position.copy(target).addScaledVector(direction, 900);
-			const shadowCamera = sun.shadow.camera;
 			shadowCamera.left = shadowCamera.bottom = -reach;
 			shadowCamera.right = shadowCamera.top = reach;
 			shadowCamera.near = 1;

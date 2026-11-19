@@ -40,11 +40,12 @@ export function alleyOverlay(
 		dispose: () => map.dispose(),
 		shade(
 			ground: Node<'vec3'>,
-			ink: Node<'color'>,
+			ink: Node<'vec3'>,
 			people: Node<'color'>,
 			paper: Node<'vec3'>,
 			focus: Node<'float'>,
-			weight: Node<'float'>
+			weight: Node<'float'>,
+			daylight: Node<'float'>
 		) {
 			const chart = attribute('chart', 'vec2');
 			const mask = texture(map, chart.div(vec2(grid.columns, grid.rows)));
@@ -84,16 +85,20 @@ export function alleyOverlay(
 			const bankDistance = attribute('shore', 'float');
 			const bankHalf = float(grid.profile.promenadeWidth / 2);
 			const shore = band(bankDistance.abs(), bankHalf).mul(visibility);
-			const bank = mix(focused, mix(paper, people, nodes.promenadeWash), shore);
-			const promenadeEdge = band(bankDistance.abs().sub(bankHalf).abs(), bankDistance.fwidth()).mul(
-				visibility
-			);
+			const bank = mix(focused, mix(paper, people, nodes.promenadeWash), shore.mul(daylight));
+			const edgeWidth = bankDistance.fwidth().max(0.001);
+			const lip = (offset: Node<'float'>) =>
+				band(bankDistance.sub(offset).abs(), edgeWidth).mul(visibility);
+			const lowerLip = lip(bankHalf.negate());
+			const upperLip = lip(bankHalf);
+			const rim = mix(bank, ink, lowerLip.mul(pressure));
+			const promenade = mix(rim, mix(paper, ink, daylight), upperLip.mul(pressure));
 			const tread = chart.y.mul(nodes.treadsPerCell).fract().smoothstep(0.3, 0.65);
 			const flight = band(dist.x, mask.g)
 				.mul(stairs)
 				.mul(mix(1, tread, detailed))
 				.mul(visibility);
-			return mix(mix(bank, ink, promenadeEdge.mul(pressure)), people, flight);
+			return mix(promenade, people, flight);
 		}
 	};
 }

@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import * as T from 'three/webgpu';
 import { BLICK } from '../../data/leitstil';
 import {
+	applyEdit,
 	beginStroke,
 	createWorld,
 	extendStroke,
@@ -50,7 +51,11 @@ function outlined(scene: T.Scene, count: number) {
 async function exerciseFrames() {
 	const clock = frameClock();
 	const { createSandboxStage } = await import('./stage');
-	const base = createWorld(7);
+	const base = applyEdit(createWorld(7), {
+		kind: 'line',
+		transit: 'viaduct',
+		cellIds: ['74/35', '96/35']
+	});
 	const stroke = (w: World, style: 'megastructure' | 'totem') =>
 		['90/40', '94/40'].reduce(extendStroke, beginStroke({ kind: 'house', style, use: 'water' }, w))
 			.draft;
@@ -76,6 +81,35 @@ async function exerciseFrames() {
 	assert(targetWidth(stage) > 6 && targetWidth(stage) < 6.6);
 	assert(outlined(clock.draw(), body.triangles.length));
 	stage.dispose();
+
+	const playable = createSandboxStage(clock.canvas(), assert.fail, { frameTown: true });
+	playable.resize(1200, 800);
+	await playable.ready;
+	playable.show(carrier, 'all');
+	playable.setTime(4.9);
+	clock.draw(1000);
+	playable.show(installed, 'all', true);
+	const sample = (seconds: number, stamp: number) => {
+		playable.setTime(seconds);
+		const scene = clock.draw(stamp);
+		const poses: number[][] = [];
+		const cars: number[][] = [];
+		scene.traverseVisible((object) => {
+			if (!(object instanceof T.Mesh)) return;
+			poses.push(object.matrixWorld.elements.slice());
+			if (object.geometry instanceof T.CapsuleGeometry)
+				cars.push(object.matrixWorld.elements.slice());
+		});
+		assert(cars.length);
+		return { poses, cars };
+	};
+	const first = sample(5, 2000);
+	playable.render();
+	clock.draw(4000);
+	playable.setTransitPaused(true);
+	assert.notDeepEqual(sample(5.5, 6000).cars, first.cars);
+	assert.deepEqual(sample(5, 7000), first);
+	playable.dispose();
 
 	function targetWidth(s: SandboxStage) {
 		return width / s.view.metersPerPixel();

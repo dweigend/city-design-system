@@ -44,10 +44,10 @@ export function frameClock() {
 				addEventListener: noop,
 				removeEventListener: noop
 			}) as unknown as HTMLCanvasElement,
-		draw: () => {
+		draw: (stamp = 0) => {
 			const frame = [...callbacks.values()];
 			callbacks.clear();
-			for (const fn of frame) fn(0);
+			for (const fn of frame) fn(stamp);
 			return scene;
 		}
 	};

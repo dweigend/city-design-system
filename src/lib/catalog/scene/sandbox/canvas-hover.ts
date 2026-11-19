@@ -24,7 +24,9 @@ export function createCanvasHover(
 
 	return {
 		cellAt,
-		dispose: stage.afterFrame(refresh),
+		dispose: stage.afterFrame((affected) => {
+			if (pointer && (!affected || affected(pointer.x, pointer.y))) refresh();
+		}),
 		move(this: void, position: typeof pointer) {
 			pointer = position;
 			return refresh();

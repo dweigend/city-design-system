@@ -27,7 +27,7 @@ export function gallery(bay: Bay, side: number, width: number): Primitive[] {
 	];
 }
 
-/** Straight flight outside the frame, with a riser tapped into the tank supply. */
+/** Straight flight outside the frame. */
 export function access(bay: Bay, side: number) {
 	const base = bay.level === 0 ? 0 : -0.12;
 	const count = 12;
@@ -40,7 +40,7 @@ export function access(bay: Bay, side: number) {
 		along(bay, side, 1, 0, top),
 		along(bay, side, 0, 0, first)
 	];
-	const stairs = Array.from({ length: count }, (_, i) => {
+	return Array.from({ length: count }, (_, i) => {
 		const corners = [
 			[i / count, inset],
 			[(i + 1) / count, inset],
@@ -58,13 +58,14 @@ export function access(bay: Bay, side: number) {
 			cityForm: i === 0 ? city : false
 		});
 	});
+}
+
+/** Carries the supply independently of the access flight. */
+export function supply(bay: Bay, side: number) {
 	const points: Vec3[] = [
 		along(bay, side, 0.16, -0.1, 0),
 		along(bay, side, 0.16, -0.1, 0.5),
 		along(bay, side, 0.16, 0.5, 0.5)
 	];
-	return [
-		...stairs,
-		bay.piece('supply', flowToken.water, { kind: 'pipe', points, radius: 0.14 * bay.gauge })
-	];
+	return bay.piece('supply', flowToken.water, { kind: 'pipe', points, radius: 0.14 * bay.gauge });
 }

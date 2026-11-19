@@ -1,9 +1,14 @@
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
-import { isStructural, type Primitive, type Vec3 } from '../../logic/parametrik/types';
+import { type Primitive, type Vec3 } from '../../logic/parametrik/types';
 import { batch, geometryOf, type Batch } from '../batch';
 import type { StructureMaterials } from './structure-materials';
+import { conduitBatch } from './print-flow';
+import { paperEdge } from './paper-inlay';
+import { ceramicBatch } from './ceramic-batch';
+import { stockDetail } from './stock-detail';
+import { partition } from './structure-layers';
 import { outlineOffsets } from './structure-outline';
 
 function memberTrace(part: Primitive): Primitive[] {
@@ -28,48 +33,13 @@ function bearingDots(points: Vec3[], geometry: THREE.BufferGeometry, material: T
 	return dots;
 }
 
-function silhouette(faces: Batch['neu'], material: THREE.Material) {
+function silhouette(source: THREE.BufferGeometry, material: THREE.Material) {
 	const geometry = new THREE.InstancedBufferGeometry();
-	geometry.setAttribute('position', new THREE.Float32BufferAttribute(faces.p, 3));
+	geometry.setAttribute('position', source.getAttribute('position'));
+	geometry.setIndex(source.index);
 	geometry.setAttribute('outlineOffset', outlineOffsets);
 	geometry.instanceCount = outlineOffsets.count;
 	return new THREE.Mesh(geometry, material);
-}
-
-const isAccent = (part: Primitive) =>
-	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
-
-function layerOf(part: Primitive) {
-	if (part.material === 'ghost') return 'ghosts';
-	if (isStructural(part)) return 'carriers';
-	if (
-		part.kind === 'mesh' &&
-		part.material === 'glaze' &&
-		part.role === 'neu' &&
-		part.token === '--paper'
-	)
-		return 'glaze';
-	return isAccent(part) ? 'accents' : 'regular';
-}
-
-function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
-	const parts = {
-		regular: [] as Primitive[],
-		plain: [] as Primitive[],
-		plainAccents: [] as Primitive[],
-		glaze: [] as Primitive[],
-		carriers: [] as Primitive[],
-		accents: [] as Primitive[],
-		ghosts: [] as Primitive[]
-	};
-	for (const part of primitives) {
-		const layer = layerOf(part);
-		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
-		if (unoutlined.has(part) && (layer === 'regular' || layer === 'accents')) {
-			parts[layer === 'regular' ? 'plain' : 'plainAccents'].push({ ...body, edges: false });
-		} else parts[layer].push(body);
-	}
-	return parts;
 }
 
 /** Projects one structure key into pickable surfaces and independent drafting marks. */
@@ -111,7 +81,8 @@ export function populateStructures(
 		const object = mesh(faces, material, pick);
 		if (!object) return;
 		object.castShadow = shadows;
-		objects.add(silhouette(faces, contour));
+		objects.add(silhouette(object.geometry, contour));
+		return object;
 	};
 	const fill = (faces: Batch['neu'], material: THREE.Material, pick: boolean, shadows = cast) => {
 		const object = mesh(faces, material, pick);
@@ -150,6 +121,7 @@ export function populateStructures(
 	surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
 	surface(body.glas, materials.glass, materials.hull, false, false);
 	lines(stock.kanten.alt, materials.pencil);
+	if (details) lines(stockDetail(parts.regular), materials.stockDetail);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
 	const plain = batch(parts.plain, toColor);
@@ -157,6 +129,48 @@ export function populateStructures(
 	fill(plain.blatt, materials.sheet, false);
 	fill(plain.glas, materials.glass, false, false);
 
+	const conduit = conduitBatch(parts.conduits, toColor);
+	const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
+	pipes?.geometry.setAttribute('stationM', conduit.axis);
+	pipes?.geometry.setAttribute('railMark', conduit.rail);
+	const print = batch(parts.inlays, (p) =>
+		p.token === '--cat-business' ? toColor(p) : colorOf(p.token.replace(/-\d$/, '') + '-2')
+	);
+	const chips = batch(parts.inlays, (p) =>
+		colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
+	);
+	const inlay = mesh(print.neu, materials.inlay, true);
+	if (inlay) {
+		inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
+		inlay.castShadow = cast;
+		objects.add(paperEdge(inlay.geometry, materials.cut));
+	}
+	const portal = mesh(batch(parts.portals, toColor).neu, materials.solid, true);
+	if (portal) {
+		portal.castShadow = cast;
+		objects.add(paperEdge(portal.geometry, materials.cut));
+	}
+	const pigments = new Map(
+		primitives
+			.filter(
+				(p) =>
+					p.role === 'neu' && p.token.startsWith('--cat-') && /\/(fitting|vessel|feed)$/.test(p.id)
+			)
+			.map((p) => [
+				p.id.endsWith('/fitting') ? p.id.slice(0, -8) : p.id.replace(/\/(vessel|feed)$/, '/module'),
+				p
+			])
+	);
+	const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
+		part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
+	);
+	if (fired.geometry) {
+		const casting = new THREE.Mesh(fired.geometry, materials.fired);
+		casting.castShadow = cast;
+		objects.add(casting, silhouette(fired.geometry, materials.hull));
+		hits.push(casting);
+	}
+	lines(fired.edges, materials.detail);
 	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 	const accent = batch(
 		parts.accents.filter((part) => !isSheet(part)),

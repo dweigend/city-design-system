@@ -41,7 +41,7 @@ function segmentView(
 	return moduleBridge(a, end, p.id, { simplifyAtCity: true }).map((form) => ({
 		...form,
 		...(form.kind === 'polyline' ? { member: 'secondary' as const, detail: true } : {}),
-		token: p.recipe === 'stair' ? '--cat-business-3' : flowToken.people
+		token: flowToken.people
 	}));
 }
 
@@ -82,7 +82,7 @@ function partView(world: World, p: BuiltPart, coarse: boolean): Primitive[] {
 			kind: 'box',
 			position: [a[0] - width / 2, a[1] - width / 2, a[2] - 0.25],
 			size: [width, width, 0.25],
-			token: p.recipe === 'plaza' ? '--cat-business-2' : '--cat-business-3'
+			token: p.recipe === 'plaza' ? '--cat-business-2' : flowToken.people
 		}
 	];
 }

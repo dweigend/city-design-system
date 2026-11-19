@@ -1,10 +1,14 @@
 import * as THREE from 'three/webgpu';
-import { abs, float, mix, normalWorld, uniform } from 'three/tsl';
-import { MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
+import { abs, float, mix, normalWorld, positionLocal, uniform } from 'three/tsl';
+import { LICHT, MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../logic/params';
-import { neutral, type grammatik } from '../leitstil';
+import type { grammatik } from '../leitstil';
+import { neutral } from '../leitstil/tone';
 import { outlinePosition } from '../surfaces';
+import { conduitInk } from './print-flow';
+import { cutPaper, terrazzo } from './paper-inlay';
+import { firedSlip } from './fired-slip';
 import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
 import { STRUCTURE_PARAMS, type StructureVariant } from './view-params';
 
@@ -22,7 +26,18 @@ export function structureMaterials() {
 	const colors = new Map<string, THREE.Color>();
 	const paper = new THREE.Color();
 
+	const seconds = uniform(0);
+	const paperTone = uniform(new THREE.Color());
+	const shadowTone = uniform(new THREE.Color());
+	const ceramicContour = uniform(new THREE.Color());
+	const night = uniform(0);
+	const markTone = uniform(new THREE.Color());
+	const scalePx = uniform(1);
 	const materials = {
+		conduit: conduitInk(seconds, markTone),
+		inlay: terrazzo(paperTone, scalePx),
+		cut: cutPaper(paperTone, shadowTone),
+		fired: firedSlip(solidColor, sideColor, seconds, ceramicContour, night),
 		glaze: new THREE.MeshBasicNodeMaterial(),
 		ceramicHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
@@ -36,6 +51,7 @@ export function structureMaterials() {
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
 		}),
+		stockDetail: new THREE.Line2NodeMaterial(),
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
@@ -75,6 +91,38 @@ export function structureMaterials() {
 		mix(bottomColor, solidColor, float(normalWorld.y.greaterThanEqual(0))),
 		abs(normalWorld.y)
 	);
+	const graphite = uniform(new THREE.Color());
+	const pencilField = positionLocal.x
+		.add(positionLocal.z.mul(0.62))
+		.add(positionLocal.y.mul(0.68))
+		.mul(2.1);
+	const footprint = pencilField.fwidth().max(0.001);
+	const pencilLine = float(1).sub(
+		pencilField.fract().sub(0.5).abs().div(footprint).smoothstep(0, 0.65)
+	);
+	const shadowSide = normalWorld.x
+		.mul(LICHT[0])
+		.sub(normalWorld.z.mul(LICHT[1]))
+		.smoothstep(-0.08, 0.22);
+	const flank = float(1).sub(normalWorld.y.abs()).mul(shadowSide);
+	const tile = positionLocal.y.mul(2.3);
+	const course = float(1).sub(
+		tile.fract().sub(0.5).abs().div(tile.fwidth().max(0.001)).smoothstep(0.0, 0.65)
+	);
+	const roofInk = course
+		.mul(normalWorld.y.smoothstep(0.3, 0.65))
+		.mul(float(1).sub(normalWorld.y.smoothstep(0.95, 1)))
+		.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus))
+		.mul(0.52);
+	materials.stock.colorNode = mix(
+		paperTone,
+		graphite,
+		pencilLine
+			.mul(flank)
+			.mul(float(1).sub(footprint.smoothstep(0.22, 0.56)))
+			.mul(scalePx.smoothstep(MASSSTAB.quartier, MASSSTAB.haus).mul(0.48).add(0.065))
+			.max(roofInk)
+	);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.glaze.colorNode = solidColor;
 	materials.ceramicHull.vertexNode = outlinePosition(outlinePx.negate());
@@ -86,8 +134,14 @@ export function structureMaterials() {
 		palette = g;
 		colors.clear();
 		paper.copy(g.paper);
+		graphite.value.copy(g.blei);
+		paperTone.value.copy(g.paper);
+		shadowTone.value.copy(g.schatten);
 
-		solidColor.value.copy(g.weiss);
+		solidColor.value.copy(neutral(g.modellL));
+		ceramicContour.value.copy(g.kontur);
+		night.value = Number(g.ink.r > g.paper.r);
+		markTone.value.copy(g.token('--cat-business-2'));
 		flankColor.value.copy(neutral(g.modellL + TOENE.vorn));
 		sideColor.value.copy(neutral(g.modellL + TOENE.rechts));
 		bottomColor.value.copy(neutral(g.modellL + TOENE.unten));
@@ -96,6 +150,7 @@ export function structureMaterials() {
 		materials.glass.color.copy(g.weiss);
 		materials.ghost.color.copy(g.blei);
 		materials.pencil.color.copy(g.blei);
+		materials.stockDetail.color.copy(g.blei);
 		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
@@ -148,6 +203,8 @@ export function structureMaterials() {
 			const color = colorOf(token);
 			return palette && shade ? color.clone().lerp(palette.ink, shade) : color;
 		},
+		modelWhite: solidColor.value,
+		seconds,
 		setParams,
 		/** The stage supplies the validated style and a new palette when the theme changes. */
 		setStyle(
@@ -157,8 +214,11 @@ export function structureMaterials() {
 			tones?: ReturnType<typeof grammatik>
 		) {
 			if (tones) applyTones(tones);
+			scalePx.value = scale;
 			const { bestand, huelle, kontext } = style.rollen;
 			materials.pencil.linewidth = bestand.strichPx;
+			materials.stockDetail.linewidth = bestand.strichPx;
+			materials.stockDetail.visible = style.kamera.pxProM >= MASSSTAB.haus;
 			pencilPx.value = bestand.strichPx / 2;
 			outlinePx.value = huelle.strichPx * outlineExpansion;
 			sheetOffsetM.value = (2 * outlinePx.value) / scale;

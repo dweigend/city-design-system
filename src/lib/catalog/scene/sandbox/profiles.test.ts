@@ -190,3 +190,54 @@ test('the terrain shader switches off the wash only for the dark palette', () =>
 		terrain.dispose();
 	}
 });
+
+test('river chart and wakes agree on shared survey vertices, including across bends', async () => {
+	const { waterGeometry } = await import('./terrain-geometry');
+	const cell = grid.cells.find((c) => c.zone === 'water');
+	if (!cell) throw Error('Expected water on the seed-7 survey');
+	const [x, y] = cell.center;
+	const water = waterGeometry(grid, [[x - 1, y + 1]]);
+	const position = water.getAttribute('position'),
+		chart = water.getAttribute('chart'),
+		wake = water.getAttribute('wake');
+	const seen = new Map<string, string>();
+	let repeated = 0,
+		cracks = 0;
+	for (let i = 0; i < position.count; i++) {
+		const vertex = position.getX(i) + '/' + position.getZ(i);
+		const sample = [chart.getX(i), chart.getY(i), wake.getX(i)].join('/');
+		if (seen.has(vertex)) {
+			repeated++;
+			if (sample !== seen.get(vertex)) cracks++;
+		}
+		seen.set(vertex, sample);
+	}
+	expect(repeated).toBeGreaterThan(0);
+	expect(cracks).toBe(0);
+	water.dispose();
+});
+
+test('water shares terrain transparency, hides with the terrain and restores its depth policy', async () => {
+	const { focuses } = await import('../../logic/presentation');
+	const terrain = createTerrainMesh(grid);
+	try {
+		for (const level of [
+			'full',
+			'transparent',
+			'silhouette',
+			'pencil',
+			'hidden',
+			'full'
+		] as const) {
+			terrain.setPresentation({ ...focuses.all, terrain: level }, false);
+			expect(terrain.group.visible).toBe(level !== 'hidden');
+			for (const material of [terrain.water.material, terrain.surface.material]) {
+				expect(material.opacity).toBe(level === 'transparent' ? 0.14 : 1);
+				expect(material.transparent).toBe(level === 'transparent');
+				expect(material.depthWrite).toBe(level !== 'transparent');
+			}
+		}
+	} finally {
+		terrain.dispose();
+	}
+});
