@@ -121,12 +121,7 @@ export function physicalSurface(
 	});
 	projiziereMuster(m, w, base, r.haut.bewegt, variation, quality, r.farbe.anteil === 1);
 	if (w.id === 'perforated-metal') m.maskNode = perforatedSheet();
-	if (w.id === 'acryl-matt' || w.id === 'clear-acrylic') {
-		m.ior = 1.49;
-		m.thickness = 0.32;
-		m.attenuationColor.copy(base);
-		m.attenuationDistance = 0.85;
-	}
+
 	m.normalNode = creaseNormal((m.normalNode ?? normalView) as THREE.Node<'vec3'>);
 	physischeDetails(m, w);
 	spiegelung(m, w.id, umgebung);
@@ -153,7 +148,7 @@ function spiegelung(
 
 const daempfungsDistanzM: Partial<Record<OberflaechenWerte['familie'], number>> = {
 	wasser: 3,
-	glas: 12
+	glas: 1.8
 };
 
 const klarlackVon: Partial<Record<AusfuehrungId, number>> = {
@@ -180,9 +175,18 @@ function physischeDetails(m: THREE.MeshPhysicalNodeMaterial, w: OberflaechenWert
 		m.clearcoatNormalNode = m.normalNode;
 	}
 	if (w.familie === 'membran') membranOptik(m, w);
-	const distanzM = daempfungsDistanzM[w.familie];
+	transmissionVolume(m, w);
+}
+
+function transmissionVolume(m: THREE.MeshPhysicalNodeMaterial, w: OberflaechenWerte) {
+	const acrylic = w.id === 'acryl-matt' || w.id === 'clear-acrylic';
+	const distanzM = acrylic ? 0.85 : daempfungsDistanzM[w.familie];
+	if (acrylic || w.familie === 'glas') {
+		m.ior = acrylic ? 1.49 : 1.52;
+		m.thickness = acrylic ? 0.42 : 0.65;
+	}
 	if (distanzM !== undefined) {
-		m.attenuationColor = m.color.clone();
+		m.attenuationColor.copy(m.color);
 		m.attenuationDistance = distanzM;
 	}
 }
