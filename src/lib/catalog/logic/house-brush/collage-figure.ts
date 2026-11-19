@@ -1,3 +1,4 @@
+import { drapedRoof } from './draped-roof';
 import { STORY } from '../../data/grid';
 import { flowToken } from '../../data/focus';
 import { inradius, sideLength, type QuadCell } from '../quad-grid';
@@ -68,6 +69,10 @@ export function collageFigure(
 			return stairs(id, at, z, span);
 		case 'water':
 			return [
+				{
+					...part(id + ':canopy', token, drapedRoof(at, z, Math.min(r * 0.4, STORY * 0.35))),
+					finish: 'keramik-orange-blau'
+				},
 				pedestal,
 				part(id, token, {
 					kind: 'sphere',

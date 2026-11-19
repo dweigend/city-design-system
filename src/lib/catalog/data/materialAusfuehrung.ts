@@ -263,5 +263,16 @@ export const materialAusfuehrungen: readonly Ausfuehrung[] = [
 		metall: 0,
 		transmission: 0
 	},
+	{
+		id: 'keramik-orange-blau',
+		familie: 'keramik',
+		name: 'Amber and cobalt glaze',
+		beschreibung: 'Two fired pigments meet across a glossy surface.',
+		grundton: '#ed812b',
+		pigment: 0,
+		rauheit: 0.18,
+		metall: 0,
+		transmission: 0
+	},
 	...referenzAusfuehrungen
 ];

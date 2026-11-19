@@ -21,8 +21,6 @@ export const legacyMaterials: MaterialId[] = ['concrete', 'wood', 'metal'];
 export const usesMaterialSystem = (material: MaterialId, enabled = false) =>
 	enabled || !legacyMaterials.includes(material);
 
-const hulls: Primitive['kind'][] = ['dome', 'vault', 'sphere', 'capsule', 'membrane', 'cylinder'];
-
 /** Rules color × material × role. Returns the material and color actually drawn. */
 export function resolveMaterial(p: {
 	material: MaterialId;
@@ -40,8 +38,6 @@ export function resolveMaterial(p: {
 	}
 	// Flow color never on clear glass.
 	if (material === 'glass' && colored) material = 'acrylic';
-	// Membrane only as a hull; otherwise frosted acrylic.
-	if (material === 'membrane' && p.kind && !hulls.includes(p.kind)) material = 'acrylic';
 	// Water takes its color from the water flow.
 	if (material === 'water') token = '--cat-health';
 	return { material, token };

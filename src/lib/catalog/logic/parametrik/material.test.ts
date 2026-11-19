@@ -47,10 +47,10 @@ describe('Rules color × material', () => {
 			expect(r.token).toBe('--paper');
 		}
 	});
-	test('membrane only for hulls', () => {
+	test('membrane keeps its finish on blocks and hulls', () => {
 		expect(
 			resolveMaterial({ material: 'membrane', token: '--paper', role: 'neu', kind: 'box' }).material
-		).toBe('acrylic');
+		).toBe('membrane');
 		expect(
 			resolveMaterial({ material: 'membrane', token: '--paper', role: 'neu', kind: 'dome' })
 				.material

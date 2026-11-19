@@ -118,7 +118,11 @@ export function installationPartView(world: World, p: BuiltPart, focus: FocusId,
 		cached.coarse === coarse
 	)
 		return cached.forms;
-	const parts = partView(world, p, coarse);
+	const generated = partView(world, p, coarse);
+	const parts =
+		p.finish === undefined
+			? generated
+			: generated.map((part) => (part.kind === 'polyline' ? part : { ...part, finish: p.finish }));
 	const forms =
 		level === 'pencil'
 			? parts

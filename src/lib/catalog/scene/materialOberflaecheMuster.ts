@@ -147,6 +147,11 @@ export function oberflaechenMuster(
 			// Water motion is projected by the heightfield. Generic vertical faces retain fine surface relief.
 			return wasserMuster(base, bewegt, p);
 		case 'keramik':
+			if (w.id === 'keramik-orange-blau') {
+				const grain = noise(p, 22);
+				const cobalt = uv().x.add(grain.mul(0.08)).smoothstep(0.45, 0.67);
+				return { farbe: mix(base, color('#234bb0'), cobalt), hoehe: grain, relief: 0.0004 };
+			}
 			return feineOberflaeche(base, w.id, 27, 0.0004, 0.025, p);
 		case 'kunststoff':
 			return polymerMuster(base, w.id, p);

@@ -4,6 +4,7 @@ import { MASSSTAB, STRICHE, TOENE } from '../../data/leitstil';
 import { strichbreite, type Stil } from '../../logic/leitstil';
 import { resolveParams, type ParamOverrides } from '../../logic/params';
 import { neutral, type grammatik } from '../leitstil';
+import { finishMaterials } from './finish-materials';
 import { outlinePosition } from '../surfaces';
 import { outlineExpansion, outlinePositionAtOffset } from './structure-outline';
 import { STRUCTURE_PARAMS, type StructureVariant } from './view-params';
@@ -12,6 +13,7 @@ export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
 export function structureMaterials() {
+	const explicit = finishMaterials();
 	const solidColor = uniform(neutral(TOENE.modellweiss));
 	const flankColor = uniform(neutral(TOENE.modellweiss + TOENE.vorn));
 	const sideColor = uniform(neutral(TOENE.modellweiss + TOENE.rechts));
@@ -138,6 +140,7 @@ export function structureMaterials() {
 	}
 
 	return {
+		explicit,
 		materials,
 		envelopeShadows: () => envelopeShadows,
 		minContourPx: () => minContourPx,
@@ -172,6 +175,7 @@ export function structureMaterials() {
 		},
 		/** Releases shared materials. Mesh geometry belongs to the structure layer. */
 		dispose() {
+			explicit.dispose();
 			for (const material of Object.values(materials)) material.dispose();
 		}
 	};

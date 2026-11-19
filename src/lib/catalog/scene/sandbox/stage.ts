@@ -172,6 +172,7 @@ export function createSandboxStage(
 
 	function applyPalette(next: Palette3D) {
 		palette = next;
+		structures.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);

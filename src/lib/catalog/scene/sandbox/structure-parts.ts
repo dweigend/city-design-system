@@ -4,6 +4,7 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import { isStructural, type Primitive, type Vec3 } from '../../logic/parametrik/types';
 import { batch, geometryOf, type Batch } from '../batch';
 import type { StructureMaterials } from './structure-materials';
+import { finishedMeshes, hasFinish, type Surface } from './finish-batch';
 import { outlineOffsets } from './structure-outline';
 
 function memberTrace(part: Primitive): Primitive[] {
@@ -54,6 +55,7 @@ function layerOf(part: Primitive) {
 
 function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) {
 	const parts = {
+		finished: [] as Surface[],
 		regular: [] as Primitive[],
 		plain: [] as Primitive[],
 		plainAccents: [] as Primitive[],
@@ -63,6 +65,10 @@ function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primitive>) 
 		ghosts: [] as Primitive[]
 	};
 	for (const part of primitives) {
+		if (hasFinish(part)) {
+			parts.finished.push(part);
+			continue;
+		}
 		const layer = layerOf(part);
 		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
 		if (unoutlined.has(part) && (layer === 'regular' || layer === 'accents')) {
@@ -118,6 +124,11 @@ export function populateStructures(
 		if (object) object.castShadow = shadows;
 	};
 	const parts = partition(primitives, unoutlined);
+	for (const face of finishedMeshes(parts.finished, finishes.explicit.material)) {
+		face.castShadow = cast;
+		objects.add(face);
+		hits.push(face);
+	}
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 	const stock = batch(
 		parts.regular.filter((part) => part.role === 'bestand'),
