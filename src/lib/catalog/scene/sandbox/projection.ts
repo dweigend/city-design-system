@@ -60,7 +60,7 @@ function projectLines(
 	for (const id of delta.removedLines) structures.set(KEY.line + id, []);
 	for (const line of refocus ? world.lines : delta.addedLines) {
 		const level = levelFor(focus, 'rail', line.year, world.state.year);
-		structures.set(KEY.line + line.id, present(lineParts(line), level));
+		structures.set(KEY.line + line.id, present(roundedStops(lineParts(line)), level));
 	}
 }
 function projectAlleys(
@@ -112,6 +112,11 @@ export function projectChanges(
 	const { grid, state, seed } = after;
 	const delta = changes(before, after);
 	if (delta.terrain) target.terrain.setGrid(grid);
+	if (after.lines !== before.lines)
+		target.terrain.setPiers(
+			grid,
+			after.lines.flatMap((line) => line.pillars.map((p) => p.foot))
+		);
 	const levels = focuses[focus];
 	target.terrain.setPresentation(levels, focus === 'people');
 	projectAlleys(target, after, delta, refocus);

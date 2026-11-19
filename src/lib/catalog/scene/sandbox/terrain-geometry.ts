@@ -131,19 +131,48 @@ export function baseGeometry(grid: TerrainGrid) {
 }
 
 /** Flat water surface over every cell that reaches below mean water. */
-export function waterGeometry(grid: TerrainGrid): THREE.BufferGeometry {
-	const positions: number[] = [];
-	const chart: number[] = [];
-	const level = grid.terrain.waterLevel;
+export function waterGeometry(
+	grid: TerrainGrid,
+	piers: readonly (readonly number[])[] = []
+): THREE.BufferGeometry {
+	const positions: number[] = [],
+		chart: number[] = [],
+		wake: number[] = [];
+	const terrain = grid.terrain,
+		level = terrain.waterLevel;
+	const riverChart = (x: number, y: number) => [
+		valleyCoords(terrain, x, y)[0],
+		bankDistance(terrain, x, y)
+	];
+	const sources = piers.map((p) => ({ p, axis: riverChart(p[0], p[1]) }));
 	for (const cell of grid.cells) {
 		if (cell.corners.every((corner) => corner[2] > level)) continue;
-		const [a, b, c, d] = cell.corners.map((p): [number, number, number] => [p[0], p[1], level]);
-		for (const p of [a, b, c, a, c, d]) pushThree(positions, p);
-		const { column, row } = cell;
-		chart.push(column, row, column + 1, row, column + 1, row + 1);
-		chart.push(column, row, column + 1, row + 1, column, row + 1);
+		let nearest: number[] | undefined,
+			best = 30 ** 2;
+		for (const { p, axis } of sources) {
+			const d = (p[0] - cell.center[0]) ** 2 + (p[1] - cell.center[1]) ** 2;
+			if (d < best) {
+				best = d;
+				nearest = axis;
+			}
+		}
+		for (const i of [0, 1, 2, 0, 2, 3]) {
+			const [x, y] = cell.corners[i],
+				[along, across] = riverChart(x, y);
+			pushThree(positions, [x, y, level]);
+			chart.push(along, across);
+			wake.push(nearest ? along - nearest[0] : 100, nearest ? across - nearest[1] : 100);
+		}
 	}
 	const geometry = chartedGeometry(positions, chart);
+	geometry.setAttribute('wake', new THREE.Float32BufferAttribute(wake, 2));
+	geometry.setAttribute(
+		'riverWidth',
+		new THREE.Float32BufferAttribute(
+			new Float32Array(wake.length / 2).fill(terrain.bands.riverEnd - terrain.bands.riverStart),
+			1
+		)
+	);
 	geometry.computeVertexNormals();
 	return geometry;
 }

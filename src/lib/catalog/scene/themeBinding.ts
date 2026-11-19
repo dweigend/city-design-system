@@ -39,6 +39,8 @@ const CATEGORIES = [
 	'business',
 	'nature',
 	'hazard',
+	'health-1',
+	'health-2',
 	'health-5',
 	'business-3',
 	'business-2',

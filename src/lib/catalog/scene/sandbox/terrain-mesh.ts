@@ -67,6 +67,7 @@ export function createTerrainMesh(
 		ink: uniform(new THREE.Color()),
 		blueprint: uniform(new THREE.Color()),
 		water: uniform(new THREE.Color()),
+		waterStroke: uniform(new THREE.Color()),
 		nature: uniform(new THREE.Color()),
 		food: uniform(new THREE.Color()),
 		people: uniform(new THREE.Color())
@@ -121,11 +122,7 @@ export function createTerrainMesh(
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
 		const hatchPhase = attribute('position', 'vec3').x.add(height).div(nodes.hatchSpacing);
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
-		ground = mix(
-			ground,
-			colors.ink,
-			incision.mul(hatch.add(1)).mul(nodes.ravineTone).mul(terrainWeight)
-		);
+		ground = mix(ground, colors.ink, incision.mul(hatch).mul(nodes.ravineTone).mul(terrainWeight));
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
 		const minor = hairline(height.div(nodes.minor), 1).mul(resolvable(height.div(nodes.minor)));
@@ -169,9 +166,10 @@ export function createTerrainMesh(
 	const waterMaterial = new THREE.MeshBasicNodeMaterial();
 	waterMaterial.colorNode = mix(
 		paperColor,
-		mix(colors.water, paperColor, currentMarks(seconds).mul(0.82)),
+		riverInk(seconds, colors.water, paperColor, colors.waterStroke),
 		terrainWeight
 	);
+	let piers: readonly (readonly number[])[] = [];
 	const water = new THREE.Mesh(waterGeometry(grid), waterMaterial);
 	water.receiveShadow = true;
 
@@ -179,6 +177,14 @@ export function createTerrainMesh(
 	baseMaterial.colorNode = mix(paperColor, colors.ink, 0.05);
 	const base = baseGeometry(grid);
 	const baseMesh = new THREE.Mesh(base.geometry, baseMaterial);
+	const tableShadow = new THREE.MeshBasicNodeMaterial({
+		side: THREE.DoubleSide,
+		depthWrite: false
+	});
+	tableShadow.vertexNode = shiftedPaper(vec2(1.6, -1.6));
+	tableShadow.colorNode = mix(paperColor, colors.ink, 0.14);
+	const footprint = new THREE.Mesh(base.geometry, tableShadow);
+	footprint.renderOrder = -2;
 	let baseLines = base.lines;
 	let currentGrid = grid;
 
@@ -186,7 +192,7 @@ export function createTerrainMesh(
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
 	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
-	group.add(surface, water, baseMesh, deck);
+	group.add(footprint, surface, water, baseMesh, deck);
 
 	return {
 		group,
@@ -196,6 +202,12 @@ export function createTerrainMesh(
 		setAlleys: alleys.update,
 		/** At block level, stair alleys retain their wash without individual treads. */
 		setCityOverview: alleys.setCityOverview,
+		/** Refit water wakes when the rail survey or wet terrain changes. */
+		setPiers(next: TerrainGrid, feet: readonly (readonly number[])[]) {
+			piers = feet;
+			water.geometry.dispose();
+			water.geometry = waterGeometry(next, piers);
+		},
 		surface,
 		water,
 		/** Replaces view overrides in schema units, restoring omitted fields to defaults.
@@ -226,6 +238,7 @@ export function createTerrainMesh(
 			currentGrid = next;
 			replace(water, waterGeometry(next));
 			replace(baseMesh, nextBase.geometry);
+			footprint.geometry = baseMesh.geometry;
 			baseLines = nextBase.lines;
 		},
 		/** Applies theme colors; no geometry changes. */
@@ -236,6 +249,9 @@ export function createTerrainMesh(
 			daylight.value = Number(colors.paper.value.r >= colors.ink.value.r);
 			colors.blueprint.value.set(palette.blueprint);
 			colors.water.value.set(palette.paper).lerp(category('health'), 0.42);
+			if (!daylight.value && palette.categories['health-1'])
+				colors.water.value.set(palette.categories['health-1']);
+			colors.waterStroke.value.set(palette.categories['health-2'] ?? palette.categories.health);
 			colors.nature.value.copy(category('nature'));
 			colors.people.value.copy(category(flowToken[WEG_STROM].slice('--cat-'.length)));
 			colors.food.value.copy(category('nature')).lerp(category('mobility'), 0.45);
@@ -278,6 +294,7 @@ export function createTerrainMesh(
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 			}
+			tableShadow.dispose();
 			alleys.dispose();
 			cover.map.dispose();
 		}
