@@ -126,6 +126,7 @@ export const townDefaults = {
 export const surveyMessages: Readonly<Record<string, string>> = {
 	'member-too-long':
 		'This member exceeds the maximum length. Bring the wall bearings closer together.',
+	'wall-layout-unresolved': 'No stable wall connection was found. Try a shorter stroke.',
 	'unstable-frame': 'These walls cannot brace the carrier in every direction.',
 	'invalid-roof': 'These roof footprints cannot support a surveyed frame.',
 	'empty-survey': 'Drag across existing roofs to place a carrier.',

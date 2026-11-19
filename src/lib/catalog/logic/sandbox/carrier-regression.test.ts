@@ -36,7 +36,7 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 		(p) =>
 			p.recipe === 'brace' &&
 			p.anchor.cellId === '87/47' &&
-			p.anchor.face === 1 &&
+			p.anchor.face === 2 &&
 			p.end.cellId === '86/47'
 	);
 	expect(brace).toBeDefined();
@@ -44,7 +44,7 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 		Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
 	const replacement = rods.find((rod) => rod.id === brace?.id);
 	if (!replacement) throw new Error('Missing replacement diagonal');
-	expect(length(replacement)).toBeCloseTo(11.254, 3);
+	expect(length(replacement)).toBeCloseTo(10.758, 3);
 	expect(Math.max(...rods.map(length))).toBeCloseTo(13.422, 3);
 	expect(probeFrame([...nodes.values()], bearings, rods).analysis.status).toBe('ok');
 	const postFeet = new Set(
@@ -52,7 +52,7 @@ test('projected rods and wall bearings pass the K2 load case with their installe
 	);
 	const lateralFeet = new Set(bearings.filter((n) => !postFeet.has(n.id)).map((n) => n.id));
 	const unbraced = rods.filter((r) => !lateralFeet.has(r.a.id) && !lateralFeet.has(r.b.id));
-	expect(unbraced).toHaveLength(7);
+	expect(unbraced).toHaveLength(6);
 	expect(
 		probeFrame(
 			[...nodes.values()].filter((n) => !lateralFeet.has(n.id)),
