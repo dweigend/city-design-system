@@ -47,12 +47,15 @@ test('the hairline exception is limited to the structural stroke and contrast', 
 test('the fixed plate retains three eras, two rail stops, two walkway landings and a forest', () => {
 	const first = acceptanceScene();
 	const { world, additions } = first;
+	const stories = [...world.state.storyParts.values()].flat();
 	expect(world.seed).toBe(7);
-	expect(world.state.storyParts.get('78/43')?.map(({ built }) => built)).toEqual([2026, 2026]);
-	expect(world.state.storyParts.get('81/41')?.at(-1)?.built).toBe(2027);
-	expect(world.state.storyParts.get('86/44')?.at(-1)?.built).toBe(2028);
+	expect(world.state.storyParts.get('79/44')?.map(({ built }) => built)).toEqual([2026, 2026]);
+	expect(world.state.storyParts.get('82/41')?.at(-1)?.built).toBe(2027);
+	expect(world.state.storyParts.get('83/44')?.at(-1)?.built).toBe(2028);
+	expect(stories.filter(({ built }) => built === 2026)).toHaveLength(10);
+	expect(stories.filter(({ built }) => built === 2028)).toHaveLength(6);
 	expect(world.lines[0].stops).toHaveLength(2);
-	expect(world.state.cover.size).toBe(9);
+	expect([...world.state.cover.values()].filter((kind) => kind === 'forest')).toHaveLength(9);
 	expect(additions.filter((part) => /^acceptance-walkway:[05]$/.test(part.id))).toHaveLength(2);
 	expect(acceptanceScene().additions).toEqual(additions);
 });
@@ -91,23 +94,23 @@ test('the renderer applies role widths and switches both structural strokes', as
 
 function seedRoofCarrier() {
 	const { world, earliestFullYear } = acceptanceScene();
-	const chunk = world.grid.cellsById.get('81/41')?.chunk;
+	const chunk = world.grid.cellsById.get('82/41')?.chunk;
 	if (!chunk) throw new Error('Expected the roof carrier anchor');
 	const parts = houseView(world, currentStacks(world.state), chunk, focuses.all, earliestFullYear);
-	return parts.filter((part) => part.id.startsWith('81/41@1:span/') && part.role === 'traeger');
+	return parts.filter((part) => part.id.startsWith('82/41@1:span/') && part.role === 'traeger');
 }
 
 test('the seed-7 roof carrier is in the bible frame layer', () => {
 	const frame = seedRoofCarrier();
 	expect(frame.filter(({ id }) => id.includes('/bent/'))).toHaveLength(3);
-	expect(frame.map(({ id }) => id)).toContain('81/41@1:span/upper');
-	expect(frame.map(({ id }) => id)).toContain('81/41@1:span/lower');
+	expect(frame.map(({ id }) => id)).toContain('82/41@1:span/upper');
+	expect(frame.map(({ id }) => id)).toContain('82/41@1:span/lower');
 	for (const part of frame) expect(tag(part)).toMatchObject({ schicht: 'geruest', phase: 1 });
 });
 
 function seedCarrierBent() {
-	const bent = seedRoofCarrier().find((part) => part.id === '81/41@1:span/bent/82/41');
-	if (bent?.kind !== 'polyline') throw new Error('Expected the carrier bent over roof 82/41');
+	const bent = seedRoofCarrier().find((part) => part.id === '82/41@1:span/bent/82/40');
+	if (bent?.kind !== 'polyline') throw new Error('Expected the carrier bent over roof 82/40');
 	return bent;
 }
 
@@ -263,9 +266,9 @@ test('every shadow-casting form has a Leitstil contour in paper and in color', a
 	const bearing = new SphereGeometry();
 	try {
 		const { world } = acceptanceScene();
-		const chunk = world.grid.cellsById.get('98/43')?.chunk ?? '';
+		const chunk = world.grid.cellsById.get('103/42')?.chunk ?? '';
 		const spiral = forestChunk(world.grid, world.state.cover, chunk, world.seed).find(
-			(part) => part.id === '98/43:tree0'
+			(part) => part.id === '103/42:tree0'
 		);
 		if (spiral?.kind !== 'helix') throw new Error('Expected the seed-7 spiral crown');
 		const samples: Primitive[] = [

@@ -4,17 +4,28 @@ import { applyEdit, createWorld, type World } from './world';
 import type { Edit } from './state';
 
 const SEED = 7;
-const COLLAGE = ['78/43', '79/43', '80/43', '78/44', '79/44'];
-const CARRIER = '81/41';
+const COLLAGE = ['79/44', '80/44', '81/44', '80/45', '81/45'];
+const CARRIER = '82/41';
 const CAPSULES = [
-	{ use: 'water', cells: ['86/44', '87/44', '88/44'] },
+	{ use: 'water', cells: ['83/44', '84/44', '85/44'] },
 	{ use: 'energy', cells: ['92/45', '93/45', '94/45'] }
 ] as const;
-const RAIL = ['74/37', '96/37'];
-const WALKWAY = ['76/48', '77/48', '83/48', '84/46', '87/45', '89/45', '90/45'];
+const RAIL = ['74/35', '96/35'];
+const WALKWAY = ['75/48', '76/48', '83/48', '84/46', '88/45', '91/44', '92/44'];
+const FOREST = [
+	'101/42',
+	'102/42',
+	'103/42',
+	'101/43',
+	'102/43',
+	'103/43',
+	'104/43',
+	'102/44',
+	'103/44'
+];
 const FRAME: readonly [Vec3, Vec3] = [
 	[-20, -134, 1],
-	[108, -56, 30]
+	[145, -56, 30]
 ];
 
 function interventions(): Edit[] {
@@ -27,11 +38,7 @@ function interventions(): Edit[] {
 			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use }))
 		),
 		{ kind: 'line', transit: 'viaduct', cellIds: RAIL },
-		...Array.from({ length: 9 }, (_, i): Edit => ({
-			kind: 'cover',
-			cellId: `${97 + (i % 3)}/${43 + Math.floor(i / 3)}`,
-			cover: 'forest'
-		}))
+		...FOREST.map((cellId): Edit => ({ kind: 'cover', cellId, cover: 'forest' }))
 	];
 }
 

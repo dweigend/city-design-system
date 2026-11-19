@@ -43,9 +43,14 @@ for (const kind of kinds) {
 		const stroke = { id: 'test', kind, cellIds: ['40/35', '80/35', '80/75'] };
 		const line = routeLine(grid, stroke);
 		if (!line) throw new Error('Expected the default route');
-		expect(fingerprint([line.path, lineParts(line), vehiclePoses(line, 10)])).toBe(
-			terrainRoutes[kind]
-		);
+		// The I reference pins route geometry; O adds independent drafting metadata.
+		const geometry = lineParts(line).map((part) => {
+			const copy = { ...part };
+			delete copy.member;
+			delete copy.bearings;
+			return copy;
+		});
+		expect(fingerprint([line.path, geometry, vehiclePoses(line, 10)])).toBe(terrainRoutes[kind]);
 		// Defaults written out give the same route as no overrides: independent of the terrain.
 		const defaults = Object.fromEntries(
 			Object.entries(TRANSIT_PARAMS[kind]).map(([name, param]) => [name, param.default])
@@ -105,8 +110,14 @@ test('terrain parameters update numeric uniforms on the existing surface shader'
 		});
 		const values = () => [...uniforms].map((uniform) => uniform.value);
 		const defaults = values();
-		terrain.setParams({ parcelCells: 23, lensCells: 17, planContourGain: 0.63 });
-		expect(values()).toEqual(expect.arrayContaining([23, 17, 17 * 0.35, 0.63]));
+		terrain.setParams({
+			parcelCells: 23,
+			lensCells: 17,
+			planContourGain: 0.63,
+			embossInk: 0.31,
+			embossWidth: 0.7
+		});
+		expect(values()).toEqual(expect.arrayContaining([23, 17, 17 * 0.35, 0.63, 0.31, 0.7]));
 		expect(terrain.surface.material.colorNode).toBe(shader);
 		expect(() => terrain.setParams({ parcelCells: 2.5 })).toThrow(RangeError);
 		terrain.setParams();
