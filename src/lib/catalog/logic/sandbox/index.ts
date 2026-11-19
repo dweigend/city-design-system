@@ -13,3 +13,9 @@ export { cursorFrame } from './cursor';
 export { currentStacks, houseView } from './houses';
 export { acceptanceScene } from './acceptance-scene';
 export { timelineWindow } from './time-layers';
+export { buildingPlots } from './building-plots';
+export {
+	position as installationPosition,
+	type Anchor,
+	type Installation
+} from './installation-parts';

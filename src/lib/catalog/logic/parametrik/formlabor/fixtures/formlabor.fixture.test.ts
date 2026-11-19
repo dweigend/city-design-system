@@ -1,4 +1,4 @@
-import type { Palette } from '../../src/lib/catalog/logic/parametrik/formlabor/index';
+import type { Palette } from '../index';
 
 /** Fixed palette for form laboratory test buffers. */
 export const pal: Palette = {

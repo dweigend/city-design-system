@@ -1,7 +1,7 @@
 // @ts-expect-error Bun supplies the test API.
 import { expect, test } from 'bun:test';
-import { cpuMilliseconds, warmMedian } from '../../../../../../scripts/performance-sample';
-import { pal } from '../../../../../../scripts/test-fixtures/formlabor';
+import { cpuMilliseconds, warmMedian } from '../../../fixtures/performance-sample.fixture.test';
+import { pal } from './fixtures/formlabor.fixture.test';
 import { leere, strecke, turm, turmpuffer } from './index';
 
 test('the plan stays within the budget of one frame', () => {

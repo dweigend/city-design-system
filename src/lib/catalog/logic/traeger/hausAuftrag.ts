@@ -1,7 +1,7 @@
 /**
  * One house as a job: serializable input, serializable result, deterministic cache key. The same
  * pure function serves both modes of operation:
- * - development: `scripts/statik-vorberechnen.ts` runs it ahead of time and stores the results in
+ * - development: the `precompute:statik` command runs it ahead of time and stores the results in
  *   `data/vorberechnet/haengehaus.json`;
  * - runtime: a web worker runs it behind the queue of `logic/statik/warteschlange.ts`.
  * Headless; no worker, clock or cache lives here.

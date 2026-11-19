@@ -74,20 +74,21 @@ Set by David (2026-11-12):
 
 Authoritative is `package.json`. `bun run verify` runs all gates.
 
-| Purpose                       | Command                                                           | Role                                                                                                          |
-| ----------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Behavior tests                | `bun test <path>` or `bun run test`                               | Gate                                                                                                          |
-| Svelte and type check         | `bun run check`                                                   | Gate; checks types and Svelte only                                                                            |
-| Format and lint               | `bun run lint`                                                    | Gate; includes the "no CSS in routes" rule                                                                    |
-| Build                         | `bun run build`                                                   | Gate                                                                                                          |
-| Import boundaries             | `bun run check:boundaries`                                        | Both gates: original graph with baseline and AST extension for Svelte type edges                              |
-| Svelte type edges separately  | `bun run check:boundaries:types`                                  | Additional violations against existing rules; no new baseline                                                 |
-| Fallow gate                   | `bun run check:fallow`                                            | Gate; dead code, complexity, duplication against `.fallow-baselines/`; only new findings fail                 |
-| Health, dead code, duplicates | `bun run analyze:health`, `analyze:unused`, `analyze:duplication` | report only, full stock; not proof of deletion                                                                |
-| Private skills untracked      | `bun run check:skills`                                            | Gate; fails if `git ls-files .agents/skills .claude/skills` prints anything                                   |
-| Quality gate                  | `bun run verify`                                                  | All gates: lint, check, test, boundaries, Fallow, private skills, build. Every step runs; any failure exits 1 |
-| Reports plus gate             | `bun run review`                                                  | Fallow full-stock reports, then `verify`                                                                      |
-| Format Markdown               | `bunx prettier --write <files>`                                   | —                                                                                                             |
+| Purpose                       | Command                                                           | Role                                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Behavior tests                | `bun test <path>` or `bun run test`                               | Gate                                                                                                                     |
+| Performance tests             | `bun run test:perf`                                               | Gate. Runs one file at a time.                                                                                           |
+| Svelte and type check         | `bun run check`                                                   | Gate; checks types and Svelte only                                                                                       |
+| Format and lint               | `bun run lint`                                                    | Gate; includes the "no CSS in routes" rule                                                                               |
+| Build                         | `bun run build`                                                   | Gate                                                                                                                     |
+| Import boundaries             | `bun run check:boundaries`                                        | Both gates: original graph with baseline and AST extension for Svelte type edges                                         |
+| Svelte type edges separately  | `bun run check:boundaries:types`                                  | Additional violations against existing rules; no new baseline                                                            |
+| Fallow gate                   | `bun run check:fallow`                                            | Gate; dead code, complexity, duplication against `.fallow-baselines/`; only new findings fail                            |
+| Health, dead code, duplicates | `bun run analyze:health`, `analyze:unused`, `analyze:duplication` | report only, full stock; not proof of deletion                                                                           |
+| Private skills untracked      | `bun run check:skills`                                            | Gate; fails if `git ls-files .agents/skills .claude/skills` prints anything                                              |
+| Quality gate                  | `bun run verify`                                                  | All gates: lint, check, test, test:perf, boundaries, Fallow, private skills, build. Every step runs; any failure exits 1 |
+| Reports plus gate             | `bun run review`                                                  | Fallow full-stock reports, then `verify`                                                                                 |
+| Format Markdown               | `bunx prettier --write <files>`                                   | —                                                                                                                        |
 
 Only executed checks are reported. A tool only counts as a gate for a rule once a negative probe demonstrably fails. Which rows of the import matrix the tool covers today is documented in [ARCHITECTURE](ARCHITECTURE.md#import-matrix).
 

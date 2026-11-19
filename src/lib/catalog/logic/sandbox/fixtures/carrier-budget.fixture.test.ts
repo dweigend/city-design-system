@@ -1,17 +1,14 @@
-import type { Vec3 } from '../../src/lib/catalog/logic/parametrik/types';
-import { quadGrid, type QuadCell } from '../../src/lib/catalog/logic/quad-grid';
-import { buildingPlots } from '../../src/lib/catalog/logic/sandbox/building-plots';
+import { quadGrid, type QuadCell } from '../../quad-grid';
 import {
 	beginStroke,
+	buildingPlots,
 	createWorld,
 	extendStroke,
-	withState
-} from '../../src/lib/catalog/logic/sandbox/index';
-import {
-	position,
+	installationPosition,
+	withState,
 	type Anchor,
 	type Installation
-} from '../../src/lib/catalog/logic/sandbox/installation-parts';
+} from '../index';
 
 const town = createWorld(7);
 const tool = { kind: 'house', style: 'megastructure', use: 'water' } as const;
@@ -29,8 +26,8 @@ const crowns = posts.map((p) => {
 	if (p.kind !== 'segment') throw new Error('Missing crown');
 	return p.end;
 });
-const start = position(plots, crowns[0]),
-	end = position(plots, crowns[2]);
+const start = installationPosition(plots, crowns[0]),
+	end = installationPosition(plots, crowns[2]);
 
 /** Builds the review fixture with one unresolved group at the final bearing. */
 export function singularCarrier(groups: number) {
@@ -38,7 +35,7 @@ export function singularCarrier(groups: number) {
 		parts: Installation[] = [];
 	const anchor = (a: Anchor, i: number) => ({ ...a, cellId: i + ':' + a.cellId });
 	for (let i = 0; i <= groups; i++) {
-		const shift = ([x, y, z]: Vec3): Vec3 => [
+		const shift = ([x, y, z]: QuadCell['center']): QuadCell['center'] => [
 			x + i * (end[0] - start[0] + 5),
 			y + i * (end[1] - start[1]),
 			z

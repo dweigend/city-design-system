@@ -1,11 +1,8 @@
 // @ts-expect-error Bun supplies the test API.
 import { expect, test } from 'bun:test';
-import { cpuMilliseconds, warmMedian } from '../../../../../scripts/performance-sample';
+import { cpuMilliseconds, warmMedian } from '../../fixtures/performance-sample.fixture.test';
 import { probeWallConnections } from './carrier-diagonals';
-import {
-	singularCarrier,
-	tenRoofStroke
-} from '../../../../../scripts/test-fixtures/carrier-budget';
+import { singularCarrier, tenRoofStroke } from './fixtures/carrier-budget.fixture.test';
 
 function fitsOneFrame(label: string, moves: (() => unknown)[]) {
 	for (let i = 0; i < 12; i++) for (const move of moves) move();
