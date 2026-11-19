@@ -33,7 +33,7 @@ function projectCover(target: Target, after: World, cellIds: readonly string[]) 
 }
 
 function projectInstallations(
-	structures: Structures,
+	structures: Target['structures'],
 	world: World,
 	focus: FocusId,
 	refocus: boolean,
