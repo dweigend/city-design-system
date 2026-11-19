@@ -1,3 +1,4 @@
+import { growCity } from './city-growth';
 import { sizeFrameSites, sizingSites } from './frame-sizing';
 import { eraseFrontage } from './erase-frontage';
 import { DIG_RADIUS_M, sandboxGenerationYears } from '../../data/sandbox';
@@ -315,7 +316,7 @@ export function prepareAdvance(world: World, years = sandboxGenerationYears) {
 				...world,
 				state: { ...next, ...advanceFrames(world, next.year, undefined, proofs) }
 			};
-			return growSpongeCity(committed);
+			return growCity(growSpongeCity(committed), applyEdit);
 		}
 	};
 }

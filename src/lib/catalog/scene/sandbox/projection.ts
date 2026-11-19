@@ -6,6 +6,7 @@ import { focuses, present, type FocusId } from '../../logic/presentation';
 import { forestChunk } from '../../logic/land-cover';
 import {
 	installationPartView,
+	cityCentreView,
 	spongeWorkView,
 	houseGroups,
 	changes,
@@ -57,6 +58,22 @@ export function projectInstallations(
 			installationPartView(world, p, focus, coarse),
 			p.anchor.cellId
 		);
+}
+
+function projectCentres(
+	structures: Target['structures'],
+	before: World,
+	after: World,
+	focus: FocusId,
+	refocus: boolean
+) {
+	if (
+		refocus ||
+		before.grid !== after.grid ||
+		before.lines !== after.lines ||
+		before.state.city !== after.state.city
+	)
+		structures.set('city-centres', cityCentreView(after, focus));
 }
 
 function projectLines(
@@ -163,6 +180,7 @@ export function projectChanges(
 	if (refocus || delta.installations)
 		projectInstallations(structures, before, after, focus, target.coarse);
 	projectSpongeWorks(target, before, after, refocus || delta.terrain);
+	projectCentres(structures, before, after, focus, refocus);
 	projectCover(target, after, delta.coverCells);
 	projectLines(structures, after, delta, focus, refocus);
 }

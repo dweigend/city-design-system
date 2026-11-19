@@ -41,6 +41,8 @@ export type SpongeWork = Readonly<{
  * and never stored. Plain immutable data; one authority per sandbox (A-51).
  */
 export type SandboxState = Readonly<{
+	city?: import('../city-plan').CityPlan;
+	cityStages?: readonly number[];
 	year: number;
 	futureTarget?: FutureTarget;
 	/** Completed water works. Older snapshots and worlds without the target omit the field. */

@@ -79,13 +79,16 @@ test('the portrait opening keeps the visible terrain rim away from the town anch
 	expect(visible).toBeGreaterThan(0);
 });
 
-test('the desktop opening fits the town horizontally', () => {
+test('the desktop opening keeps the full city silhouette on the canvas', () => {
 	view.resize(1440, 900);
 	expect(frameTownSilhouette(view, world)).toBe(true);
 	const town = [...world.state.stacks.keys()]
 		.flatMap((id) => world.grid.cellsById.get(id)?.corners ?? [])
 		.map(view.project);
 	const xs = town.map(({ x }) => x);
+	const ys = town.map(({ y }) => y);
+	expect(Math.min(...ys)).toBeGreaterThan(0);
+	expect(Math.max(...ys)).toBeLessThan(900);
 	expect(Math.min(...xs)).toBeGreaterThan(0);
 	expect(Math.max(...xs)).toBeLessThan(1440);
 });

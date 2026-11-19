@@ -164,7 +164,10 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			target.copy(eye).multiplyScalar(depth);
 			target.addScaledVector(right, center.x).addScaledVector(up, center.y);
 			focusY = 0.5;
-			const fit = ((bounds.max.x - bounds.min.x) * height) / (width * 0.74);
+			const fit = Math.max(
+				((bounds.max.x - bounds.min.x) * height) / (width * 0.74),
+				(bounds.max.y - bounds.min.y) / 0.84
+			);
 			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			apply();
 		},

@@ -15,12 +15,13 @@ function fittedTanks(before: World, after: World) {
 	return count;
 }
 
-/** Counts newly built bays and water works between the start and finish of one advance. */
+/** Counts newly occupied house lots, built bays and water works between the start and finish of one advance. */
 export function advanceAdditions(
 	before: World,
 	after: World
-): Record<SpongeWork['kind'] | 'bay', number> {
+): Record<SpongeWork['kind'] | 'bay' | 'house', number> {
 	const added = {
+		house: after.state.stacks.size - before.state.stacks.size,
 		bay: addedBays(before, after),
 		tank: fittedTanks(before, after),
 		'retention-basin': 0,

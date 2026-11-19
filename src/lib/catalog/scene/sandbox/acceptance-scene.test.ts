@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { expect, test } from 'bun:test';
 import { Group, Vector3 } from 'three/webgpu';
-import { acceptanceScene, TWO_SUNS_TURNING_DISC } from '../../logic/sandbox';
+import { acceptanceScene, openingScene, TWO_SUNS_TURNING_DISC } from '../../logic/sandbox';
 import { kineticGroups } from './kinetic-groups';
 
 test('Two Suns stands on the surveyed cell and only the blue disc orbits in 90 seconds', () => {
@@ -34,4 +34,13 @@ test('Two Suns stands on the surveyed cell and only the blue disc orbits in 90 s
 	expect(rigid.matrix.equals(staticPose)).toBe(true);
 	motion.sample(90);
 	expect(orbit.matrix.equals(original)).toBe(true);
+});
+
+test('the bible and game open seed 7 with the same city plan and growth areas', () => {
+	const game = openingScene(7).world.state;
+	const bible = acceptanceScene(7).world.state;
+	assert(game.city && game.city.centres.length >= 2);
+	expect(bible.city).toEqual(game.city);
+	expect(bible.cityStages).toEqual(game.cityStages);
+	expect(bible.stacks).toEqual(game.stacks);
 });

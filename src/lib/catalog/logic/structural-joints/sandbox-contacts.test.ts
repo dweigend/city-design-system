@@ -2,13 +2,22 @@ import { CatmullRomCurve3, Vector3 } from 'three/webgpu';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
-import { acceptanceScene, createWorld, houseGroups, installationView } from '../sandbox';
+import {
+	acceptanceScene,
+	createWorld,
+	draftingStudy,
+	houseGroups,
+	installationView,
+	riversideStock
+} from '../sandbox';
 import { lineParts } from '../transit-line';
 import { contactToleranceM, subtract } from './contact-surfaces';
 import { deriveStructuralJoints, sandboxStructuralContacts } from './index';
 
-function acceptanceJoints(reverse = false) {
-	const { world, additions, earliestFullYear } = acceptanceScene(7);
+function acceptanceJoints(
+	{ world, additions, earliestFullYear } = acceptanceScene(7),
+	reverse = false
+) {
 	const { grid, state } = world;
 	const houses = [...grid.chunks.keys()].flatMap((chunk) =>
 		[...houseGroups(world, chunk, focuses.all, undefined, earliestFullYear)].map(
@@ -46,11 +55,13 @@ test('the seed-7 acceptance scene produces the same fittings on replay', () => {
 });
 
 test('acceptance slab collars sit on slab planes and post axes without moving endpoint joints', () => {
-	const { contacts, parts, joints } = acceptanceJoints();
+	// The frozen joint IDs describe the authored riverside stock before city expansion.
+	const riverside = draftingStudy(riversideStock(createWorld(7)));
+	const { contacts, parts, joints } = acceptanceJoints(riverside);
 	const seams = contacts.filter(({ seat }) => seat === 'slab-seam');
 	expect(seams).toHaveLength(19);
 	const endpointContacts = contacts.filter(({ seat }) => seat !== 'slab-seam');
-	expect(acceptanceJoints(true).joints).toEqual(joints);
+	expect(acceptanceJoints(riverside, true).joints).toEqual(joints);
 	for (const { member, support, point, axis } of seams) {
 		expect(
 			endpointContacts.some(

@@ -5,6 +5,7 @@
  */
 export { EMPTY_STATE, styleForYear, stylesForYear } from './state';
 export { installationPartView, installationView } from './installation-view';
+export { cityCentreView } from './city-view';
 export { spongeWorkView } from './sponge-view';
 export { advanceAdditions } from './advance-additions';
 export {
@@ -35,7 +36,7 @@ export {
 	tracePreview
 } from './cursor';
 export { currentStacks, houseView, houseGroups } from './houses';
-export { acceptanceScene, openingScene } from './acceptance-scene';
+export { acceptanceScene, draftingStudy, openingScene, riversideStock } from './acceptance-scene';
 export { timelineWindow, timelineYear } from './time-layers';
 export { frameSurvey } from './frame-survey';
 export { frameReport } from './frame-report';
