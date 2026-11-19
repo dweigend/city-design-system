@@ -138,7 +138,8 @@ export function populateStructures(
 		const face = new THREE.Mesh(geometry, materials.glaze);
 		face.castShadow = cast;
 		hits.push(face);
-		objects.add(face, new THREE.Mesh(geometry, materials.ceramicHull));
+		objects.add(face);
+		if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
 	}
 	surface(body.neu, materials.solid, materials.hull, true);
 	mesh(stock.alt, materials.stock, true);

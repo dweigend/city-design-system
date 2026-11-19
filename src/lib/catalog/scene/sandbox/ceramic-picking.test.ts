@@ -13,6 +13,7 @@ import { createCellPicker } from './house-picker';
 import { projectInstallations, KEY } from './projection';
 import { surfaceGeometry } from './terrain-geometry';
 import { createView } from './view';
+import { sandboxStyle } from './drafting-style';
 
 async function structureLayer() {
 	const shim = !('$state' in globalThis);
@@ -134,7 +135,16 @@ test('zoom exchanges only the ceramic batch; removing an unrelated module retain
 			near?.kind === 'mesh' && far?.kind === 'mesh' && far.triangles.length < near.triangles.length
 		);
 		projectInstallations(layer, edited, edited, 'all', true);
-		assert.notEqual(solids(ceramic.id)[0], before[0]);
+		const coarse = solids(ceramic.id);
+		assert.notEqual(coarse[0], before[0]);
+		const style = sandboxStyle(
+			{ zoom: 'stadt', modus: 'ansehen', situation: 'normal' },
+			'leitstil'
+		);
+		layer.setStyle([style, 'leitstil', 1], Math.PI / 4);
+		const redrawn = solids(ceramic.id);
+		assert(redrawn.length > 0 && redrawn[0] !== coarse[0]);
+		assert(redrawn.every((hit) => hit.userData.cellId === ceramic.anchor.cellId));
 	} finally {
 		layer.dispose();
 	}

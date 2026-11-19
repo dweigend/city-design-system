@@ -77,7 +77,11 @@ for (const [recipe, flow, from, to, seats, hash] of fixtures)
 			});
 		}
 		const restored = withState(world, { ...frame.state, parts });
-		const geometry = JSON.stringify(installationView(restored, 'all'));
+		// Z marks bearing dots as hidden in city view. The original hashes predate this display flag.
+		const geometry = JSON.stringify(installationView(restored, 'all'), function (key, value) {
+			if (key === 'cityForm' && value === false && this.id?.endsWith('/joint')) return undefined;
+			return value;
+		});
 		assert.equal(createHash('sha256').update(geometry).digest('hex'), hash);
 		const fresh = [from, to].reduce(
 			extendStroke,
@@ -92,5 +96,5 @@ for (const [recipe, flow, from, to, seats, hash] of fixtures)
 			current
 		);
 		if (recipe === 'solar-ring' || recipe === 'garden')
-			assert.notEqual(JSON.stringify(current), geometry);
+			assert.notDeepEqual(current, installationView(restored, 'all'));
 	});
