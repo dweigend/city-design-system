@@ -1,5 +1,5 @@
 import { houseStair } from '../../data/house-stair';
-import { buildObject, type ObjectGeometry } from '../assets';
+import { buildObject } from '../assets';
 import { routeDecks, spanSurvey, walkwayParts } from '../walkway';
 import { distance, mix } from './clearance';
 import { plan } from './deck-route';
@@ -32,11 +32,41 @@ function stairTreads(edge: Edge, seed: number) {
 		]);
 		return {
 			...stock,
-			slot: 'access',
+			slot: 'access' as const,
 			polygon,
 			z: a[2] + ((b[2] - a[2]) * (i + 1)) / count - stock.height
 		};
 	});
+}
+function deckSpan(id: string, a: Position, b: Position, input: NetworkInput) {
+	const parts: Network['geometry'] = [];
+	const midpoint = mix(plan(a), plan(b), 0.5);
+	for (const part of walkwayParts([a, b], { id, width, groundZ: input.terrain(...midpoint) })) {
+		const { id: partId, role } = part;
+		if (part.kind === 'cylinder')
+			parts.push({
+				id: partId,
+				role,
+				kind: part.kind,
+				slot: 'frame',
+				position: part.position,
+				radius: part.radius,
+				height: part.height
+			});
+		if (part.kind === 'prism')
+			parts.push({
+				id: partId,
+				role,
+				kind: part.kind,
+				slot: 'access',
+				polygon: part.polygon,
+				z: part.z,
+				height: part.height
+			});
+		if (part.kind === 'polyline')
+			parts.push({ id: partId, role, kind: part.kind, slot: 'frame', points: part.points });
+	}
+	return parts;
 }
 function projectedSpan(
 	e: Edge,
@@ -47,36 +77,8 @@ function projectedSpan(
 	const id = e.id + '/' + i,
 		a = e.points[i],
 		b = e.points[i + 1];
-	const parts: ObjectGeometry[] = [];
-	if (e.kind === 'deck') {
-		const midpoint = mix(plan(a), plan(b), 0.5);
-		for (const part of walkwayParts([a, b], { id, width, groundZ: input.terrain(...midpoint) })) {
-			const { id: partId, role } = part;
-			if (part.kind === 'cylinder')
-				parts.push({
-					id: partId,
-					role,
-					kind: part.kind,
-					slot: 'frame',
-					position: part.position,
-					radius: part.radius,
-					height: part.height
-				});
-			if (part.kind === 'prism')
-				parts.push({
-					id: partId,
-					role,
-					kind: part.kind,
-					slot: 'access',
-					polygon: part.polygon,
-					z: part.z,
-					height: part.height
-				});
-			if (part.kind === 'polyline')
-				parts.push({ id: partId, role, kind: part.kind, slot: 'frame', points: part.points });
-		}
-		return parts;
-	}
+	const parts: Network['geometry'] = [];
+	if (e.kind === 'deck') return deckSpan(id, a, b, input);
 	if (e.kind !== 'stair')
 		parts.push({
 			id,

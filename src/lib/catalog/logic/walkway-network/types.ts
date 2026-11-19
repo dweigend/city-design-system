@@ -36,7 +36,7 @@ export type Network = {
 		houses: string[];
 	}[];
 	edges: Edge[];
-	geometry: ObjectGeometry[];
+	geometry: (ObjectGeometry & { slot: 'frame' | 'access' | 'deck' })[];
 	length: number;
 	planArea: number;
 	entranceMst: number;

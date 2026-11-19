@@ -1,3 +1,4 @@
+import { WALKWAY_PARAMS } from '../walkway';
 import { houseStair } from '../../data/house-stair';
 import { distance, mix, nearest, separation, survey } from './clearance';
 import { epsilon, type NetworkInput, type Point, type Position, type Segment } from './types';
@@ -115,7 +116,12 @@ export function deckOptions(input: NetworkInput, tree: Segment[], field: Field) 
 	const links = pairs(input, field).filter(
 		({ span, first }) =>
 			tree.every((s) => separation(s, span) >= 3 - epsilon) &&
-			aboveTerrain(input, span, first.p[2] - 0.25, first.p[2] - 0.25)
+			aboveTerrain(
+				input,
+				span,
+				first.p[2] - WALKWAY_PARAMS.thickness.default,
+				first.p[2] - WALKWAY_PARAMS.thickness.default
+			)
 	);
 	for (const pair of links)
 		for (const segment of tree) {
