@@ -4,6 +4,7 @@ import * as sandbox from '../logic/sandbox';
 import * as terrainGrid from '../logic/terrain-grid';
 import type { Tool } from '../logic/sandbox';
 import { gestureDriver } from './fixtures/serial-gesture';
+import { stateDigest } from './fixtures/state-digest';
 
 const house = { kind: 'house', use: 'living' } as const;
 const material = { kind: 'house', use: 'material' } as const;
@@ -189,10 +190,38 @@ const samples: RawInput[] = [
 	{ kind: 'kernel' }
 ];
 
-function play(inputs: RawInput[], delays: number[]) {
-	const d = gestureDriver((stroke) => delays[stroke % delays.length]);
+function play(inputs: RawInput[], delays: number[], checkProgress: (step: string) => void) {
+	const events: unknown[] = [];
+	const d = gestureDriver((stroke) => delays[stroke % delays.length], undefined, {
+		checkProgress,
+		record: ({ kind, before, after, cellIds }) => {
+			events.push([
+				kind,
+				before.seed,
+				after.seed,
+				stateDigest(before.state),
+				stateDigest(after.state),
+				[...cellIds]
+			]);
+		}
+	});
+	const snapshot = () => stateDigest(d.world().state);
+	const walk = (direction: 'undo' | 'redo') => {
+		const observed: string[] = [];
+		const available = () => direction === 'undo' ? d.session.canUndo : d.session.canRedo;
+		while (available()) {
+			checkProgress(direction);
+			if (observed.length >= inputs.length) throw new Error(`Too many ${direction} steps`);
+			const before = d.world().state;
+			d.session[direction]();
+			if (d.world().state === before) throw new Error(`${direction} made no progress`);
+			observed.push(snapshot());
+		}
+		return observed;
+	};
 	try {
-		for (const input of inputs) {
+		for (const [index, input] of inputs.entries()) {
+			checkProgress(`input ${index} (${input.kind})`);
 			switch (input.kind) {
 				case 'stroke':
 					d.stroke(input.tool, ...input.cells);
@@ -204,34 +233,32 @@ function play(inputs: RawInput[], delays: number[]) {
 					d.session[input.kind]();
 			}
 			d.tick(8);
+			if (d.session.failure?.reason === 'stroke-failed')
+				throw new Error(`Unexpected stroke exception after input ${index}`);
 		}
 		d.drain();
-		const final = { state: d.world().state, seed: d.world().seed, failure: d.session.failure };
-		const history = [];
-		while (d.session.canUndo) {
-			d.session.undo();
-			history.push(d.world().state);
-		}
-		const redo = [];
-		while (d.session.canRedo) {
-			d.session.redo();
-			redo.push(d.world().state);
-		}
-		const events = d.events.map(({ kind, before, after, cellIds }) => ({
-			kind,
-			before: before.state,
-			after: after.state,
-			seed: after.seed,
-			cellIds
-		}));
-		return { final, history, redo, events };
+		if (d.waiting() || d.session.hasPendingStroke || d.session.gesture)
+			throw new Error('Input still active after draining the sequence');
+		const { reason, marks } = d.session.failure ?? {};
+		const final = { state: snapshot(), seed: d.world().seed, reason, marks };
+		const future = walk('redo');
+		const past = walk('undo');
+		return { final, future, past, events };
 	} finally {
 		d.dispose();
 	}
 }
 
 test('random raw input matches zero-latency execution in city, history and event order', () => {
-	for (const seed of [103, 491, 2026, 3341]) {
+	const seeds = [103, 491, 2026, 3341].slice(0, 200);
+	for (const seed of seeds) {
+		console.info(`Serial input seed ${seed}`);
+		const deadline = performance.now() + 30000;
+		let steps = 0;
+		const checkProgress = (step: string) => {
+			if (++steps > 512 || performance.now() > deadline)
+				throw new Error(`Serial input seed ${seed} exceeded its budget at ${step}`);
+		};
 		let state = seed;
 		const pick = (n: number) => {
 			state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
@@ -243,6 +270,7 @@ test('random raw input matches zero-latency execution in city, history and event
 		inputs.splice(1, 0, { kind: 'kernel' });
 		const timings = choices.map((_, i) => choices[(i + pick(4)) % 4]);
 		timings.push(0, 16, 32, 500);
-		expect(play(inputs, timings)).toEqual(play(inputs, [0]));
+		expect(play(inputs, timings, checkProgress)).toEqual(play(inputs, [0], checkProgress));
+		checkProgress('compare');
 	}
-}, 60000);
+}, 125000);

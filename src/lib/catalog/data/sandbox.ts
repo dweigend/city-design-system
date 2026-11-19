@@ -131,6 +131,8 @@ export const townDefaults = {
 
 /** Player-facing explanations for rejected construction surveys. */
 export const surveyMessages: Readonly<Record<string, string>> = {
+	'stroke-failed': 'The edit could not finish. Try the stroke again.',
+	'kernel-start-failed': 'Detailed roofs are unavailable. You can keep building.',
 	'member-too-long':
 		'This member exceeds the maximum length. Bring the wall bearings closer together.',
 	'wall-layout-unresolved': 'No stable wall connection was found. Try a shorter stroke.',

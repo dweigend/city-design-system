@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { attachInput, type InputHooks } from '../../scene/sandbox/input';
 import { createCanvasHover } from '../../scene/sandbox/canvas-hover';
 import { createView } from '../../scene/sandbox/view';
-import { previewStrokePlan, type Tool, type World } from '../../logic/sandbox';
+import { openingScene, type Tool, type World } from '../../logic/sandbox';
 import type { Completion, StrokeRelease } from '../feedback';
+import { scheduleStrokeRelease } from '../stroke-frames';
 import { createSession } from './client-session';
 
 class PointerCanvas extends EventTarget {
@@ -15,14 +16,32 @@ class PointerCanvas extends EventTarget {
 
 type Position = NonNullable<Parameters<InputHooks['hover']>[0]>;
 type PickCell = (world: World, x: number, y: number) => number | undefined;
+type DriverOptions = {
+	record?: (event: Completion) => void;
+	checkProgress?: (step: string) => void;
+};
+const openings = new Map<number, ReturnType<typeof openingScene>>();
+
+function sharedOpening(seed: number) {
+	let opening = openings.get(seed);
+	if (!opening) {
+		opening = openingScene(seed);
+		openings.set(seed, opening);
+	}
+	return { ...opening, world: { ...opening.world } };
+}
 
 /** Drives the production input handler and client session with controlled release callbacks. */
-export function gestureDriver(latency: (stroke: number) => number = () => 16, pick?: PickCell) {
-	const session = createSession(7);
+export function gestureDriver(
+	latency: (stroke: number) => number = () => 16,
+	pick?: PickCell,
+	options: DriverOptions = {}
+) {
+	const session = createSession(7, undefined, sharedOpening);
 	const view = createView();
 	view.resize(1200, 800);
 	const events: Completion[] = [];
-	const unsubscribe = session.onCompletion((event) => events.push(event));
+	const unsubscribe = session.onCompletion(options.record ?? ((event) => events.push(event)));
 	let displayed = session.world;
 	let hovered: string | undefined;
 	const hover = createCanvasHover(
@@ -84,12 +103,23 @@ export function gestureDriver(latency: (stroke: number) => number = () => 16, pi
 
 	function finish() {
 		if (!waiting) return;
+		options.checkProgress?.('finish');
 		const { release } = waiting;
 		waiting = undefined;
-		const plan = session.surveyRelease(release);
-		if (plan) previewStrokePlan(plan);
-		session.surveyRelease(release);
-		session.commitRelease(release, show);
+		const callbacks: (() => void)[] = [];
+		scheduleStrokeRelease(session, release, {
+			frame: (run) => callbacks.push(run),
+			acknowledge: () => {},
+			preview: () => {},
+			finish: show
+		});
+		for (let i = 0; i < callbacks.length; i++) {
+			assert.ok(i < 2, 'A release schedules at most two frames');
+			callbacks[i]();
+			if (options.checkProgress)
+				assert.notEqual(session.failure?.reason, 'stroke-failed', 'Unexpected stroke exception');
+		}
+		assert.ok(waiting || !session.hasPendingStroke, 'A release must settle or arm its successor');
 		session.commitRelease(release, show);
 	}
 
@@ -149,6 +179,8 @@ export function gestureDriver(latency: (stroke: number) => number = () => 16, pi
 			detach();
 			unsubscribe();
 			session.disposeInput();
+			waiting = undefined;
+			frames.clear();
 			for (const key of Object.keys(globals)) {
 				if (prior[key]) Object.defineProperty(globalThis, key, prior[key]);
 				else Reflect.deleteProperty(globalThis, key);

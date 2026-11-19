@@ -19,10 +19,23 @@ import {
  * history. View state for the components; every change of the world goes through the actions
  * of logic/sandbox.
  */
-export function createSession(initialSeed: number, generationYears = sandboxGenerationYears) {
-	const { world: startingWorld, additions } = openingScene(initialSeed);
-	const actions = createSessionActions(startingWorld, generationYears, (next) => (state = next));
-	const input = createSerialInput();
+export function createSession(
+	initialSeed: number,
+	generationYears = sandboxGenerationYears,
+	open = openingScene
+) {
+	const { world: startingWorld, additions } = open(initialSeed);
+	const actions = createSessionActions(
+		startingWorld,
+		generationYears,
+		(next) => (state = next),
+		(seed) => open(seed).world
+	);
+	const input = createSerialInput((error) => {
+		stroke = pending = surveyed = undefined;
+		console.error('Sandbox stroke failed', error);
+		actions.reject('stroke-failed');
+	});
 	let state = $state.raw(actions.snapshot());
 	const world = $derived(state.world);
 	const completion = $derived(state.completion);
@@ -53,6 +66,23 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		return (surveyed ??= planStroke(world, selectedTool, release.cellIds));
 	}
 
+	function settleRelease(
+		release: StrokeRelease,
+		work: (plan: StrokePlan | undefined) => void,
+		beforeReplay?: () => void
+	) {
+		if (pending !== release) return;
+		const plan = surveyed;
+		pending = surveyed = undefined;
+		input.finish(() => {
+			try {
+				work(plan);
+			} finally {
+				beforeReplay?.();
+			}
+		});
+	}
+
 	return {
 		input: input.pointer,
 		control: input.control,
@@ -66,6 +96,12 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		},
 		setRoofBuilder(value: NonNullable<typeof roofBuilder>) {
 			input.control(() => (roofBuilder = value));
+		},
+		reportKernelFailure(error: unknown) {
+			input.control(() => {
+				console.error('Sandbox detailed roofs unavailable', error);
+				actions.reject('kernel-start-failed');
+			});
 		},
 		get focus() {
 			return focus;
@@ -103,6 +139,9 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		get gesture() {
 			return stroke;
 		},
+		get hasPendingStroke() {
+			return Boolean(pending);
+		},
 		get failure() {
 			return state.rejection;
 		},
@@ -138,13 +177,21 @@ export function createSession(initialSeed: number, generationYears = sandboxGene
 		surveyRelease,
 		/** Commits the retained plan, then resumes raw input. */
 		commitRelease(release: StrokeRelease, beforeReplay?: () => void) {
-			const plan = surveyRelease(release);
-			if (!plan) return;
-			input.finish(() => {
-				pending = surveyed = undefined;
-				actions.place(plan);
-				beforeReplay?.();
-			});
+			settleRelease(
+				release,
+				(plan) => actions.place(plan ?? planStroke(world, selectedTool, release.cellIds)),
+				beforeReplay
+			);
+		},
+		/** Rejects a failed preview and releases the same input lock as a commit. */
+		rejectRelease(release: StrokeRelease, error: unknown, beforeReplay?: () => void) {
+			settleRelease(
+				release,
+				() => {
+					throw error;
+				},
+				beforeReplay
+			);
 		},
 		strokeCancel() {
 			stroke = undefined;

@@ -52,10 +52,13 @@
 		if (event.shiftKey) session.redo();
 		else session.undo();
 	}
+	function togglePlan() {
+		session.control(() => (plan = !plan));
+	}
 	const commands = new Map<string, () => void>([
 		['f', session.cycleFocus],
 		['y', session.advance],
-		['p', () => session.control(() => (plan = !plan))],
+		['p', togglePlan],
 		['escape', session.dismissRejection],
 		...sandboxTools.map(({ shortcut, id }): [string, () => void] => [
 			shortcut.toLowerCase(),
@@ -129,7 +132,8 @@
 	</header>
 	<div class="mode">
 		<Toggle.Root
-			bind:pressed={plan}
+			pressed={plan}
+			onPressedChange={togglePlan}
 			class="cg-button"
 			data-variant="icon"
 			aria-label="Plan view"

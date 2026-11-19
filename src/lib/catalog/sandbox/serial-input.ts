@@ -1,7 +1,7 @@
 type Input = { run: () => void; control: boolean };
 
 /** Replays raw input in order between commits. Controls wait for a held gesture to finish. */
-export function createSerialInput() {
+export function createSerialInput(onFailure: (error: unknown) => void) {
 	const queued: Input[] = [];
 	let held = false;
 	let pending = false;
@@ -14,7 +14,12 @@ export function createSerialInput() {
 			while (!pending && queued.length) {
 				const index = held ? queued.findIndex((input) => !input.control) : 0;
 				if (index < 0) break;
-				queued.splice(index, 1)[0].run();
+				try {
+					queued.splice(index, 1)[0].run();
+				} catch (error) {
+					held = pending = false;
+					onFailure(error);
+				}
 			}
 		} finally {
 			draining = false;
@@ -49,6 +54,8 @@ export function createSerialInput() {
 		finish(commit: () => void) {
 			try {
 				commit();
+			} catch (error) {
+				onFailure(error);
 			} finally {
 				pending = false;
 				drain();

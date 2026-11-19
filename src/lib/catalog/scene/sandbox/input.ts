@@ -94,7 +94,7 @@ export function attachInput(canvas: HTMLCanvasElement, view: View, hooks: InputH
 
 	function queueDraw(samples: { x: number; y: number }[]) {
 		queued.push(...samples);
-		if (!drawFrame) drawFrame = requestAnimationFrame(flushDraw);
+		if (!drawFrame) drawFrame = requestAnimationFrame(() => dispatch(flushDraw));
 	}
 
 	function move(id: number, touch: boolean, samples: { x: number; y: number }[]) {

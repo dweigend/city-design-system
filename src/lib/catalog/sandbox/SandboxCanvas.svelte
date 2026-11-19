@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { loadEnvelopeKernel } from './envelope-kernel';
+	import { connectKernel } from './connect-kernel';
+	import { scheduleStrokeRelease } from './stroke-frames';
 	import { createCanvasHover } from '../scene/sandbox/canvas-hover';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
 	import type { OpeningArea } from '../scene/sandbox/view';
-	import { cursorTarget, previewStrokePlan, tracePreview, type StrokePlan } from '../logic/sandbox';
+	import { cursorTarget, tracePreview } from '../logic/sandbox';
+	import type { Vec3 } from '../logic/parametrik/types';
 	import type { TerrainCell } from '../logic/terrain-grid';
 	import type { Session } from './session.svelte';
 	import StoreFlight from './StoreFlight.svelte';
@@ -39,7 +42,7 @@
 	let error = $state('');
 	let response = $state.raw<ReturnType<typeof placementResponse>>();
 	const releaseFrames = new SvelteSet<number>();
-	let releasedPlan = $state.raw<StrokePlan>();
+	let releasedMarks = $state.raw<Vec3[][]>();
 	let touch = $state.raw<{ x: number; y: number }>();
 	const hovered = $derived(hoveredId ? session.world.grid.cellsById.get(hoveredId) : undefined);
 	let hover = $state.raw<ReturnType<typeof createCanvasHover>>();
@@ -62,15 +65,14 @@
 	function releaseStroke(releasedAt: number) {
 		const release = session.strokeRelease();
 		if (!release) return;
-		queueFrame(() => {
-			canvas.dataset.responseMs = String(performance.now() - releasedAt);
-			releasedPlan = session.surveyRelease(release);
-			queueFrame(() => {
-				session.commitRelease(release, () => {
-					releasedPlan = undefined;
-					showCurrent();
-				});
-			});
+		scheduleStrokeRelease(session, release, {
+			frame: queueFrame,
+			acknowledge: () => (canvas.dataset.responseMs = String(performance.now() - releasedAt)),
+			preview: (marks) => (releasedMarks = marks),
+			finish: () => {
+				releasedMarks = undefined;
+				showCurrent();
+			}
 		});
 	}
 
@@ -134,13 +136,12 @@
 			showCurrent();
 		});
 		let mounted = true;
-		void loadEnvelopeKernel()
-			.then((roofBuilder) => {
-				if (mounted) session.setRoofBuilder(roofBuilder);
-			})
-			.catch(() => {
-				if (mounted) error = 'Detailed roofs unavailable.';
-			});
+		void connectKernel(
+			loadEnvelopeKernel,
+			() => mounted,
+			session.setRoofBuilder,
+			session.reportKernelFailure
+		);
 		return () => {
 			mounted = false;
 			detach();
@@ -167,13 +168,12 @@
 	}
 
 	const marks = $derived(
-		releasedPlan
-			? previewStrokePlan(releasedPlan)
-			: tracePreview(
-					session.world,
-					session.tool,
-					session.gesture?.cellIds ?? (hovered ? [hovered.id] : [])
-				)
+		releasedMarks ??
+			tracePreview(
+				session.world,
+				session.tool,
+				session.gesture?.cellIds ?? (hovered ? [hovered.id] : [])
+			)
 	);
 
 	function updateCursor(current: SandboxStage) {

@@ -1,7 +1,6 @@
 import {
 	applyEdit,
 	commit,
-	openingScene,
 	redo,
 	startHistory,
 	undo,
@@ -24,7 +23,8 @@ type SessionState = Readonly<{
 export function createSessionActions(
 	initial: World,
 	generationYears: number,
-	publish: (state: SessionState) => void
+	publish: (state: SessionState) => void,
+	open: (seed: number) => World
 ) {
 	let world = initial;
 	let history = startHistory(initial.state);
@@ -45,12 +45,18 @@ export function createSessionActions(
 	function edit(next: World, kind: Completion['kind'], cellIds: readonly string[] = []) {
 		if (next === world) return;
 		const event = { kind, before: world, after: next, cellIds };
+		history = commit(history, next.state);
 		completion = event;
 		world = next;
-		history = commit(history, next.state);
 		rejection = undefined;
 		publish(snapshot());
-		for (const listener of [...listeners]) listener(event);
+		for (const listener of [...listeners]) {
+			try {
+				listener(event);
+			} catch (error) {
+				console.error('Sandbox completion listener failed', error);
+			}
+		}
 	}
 
 	function restore(next: typeof history) {
@@ -85,10 +91,15 @@ export function createSessionActions(
 		advance: () => edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance'),
 		/** Opens the next seed and clears its history. */
 		restart() {
-			world = openingScene(world.seed + 1).world;
+			world = open(world.seed + 1);
 			history = startHistory(world.state);
 			completion = undefined;
 			rejection = undefined;
+			publish(snapshot());
+		},
+		/** Publishes a recoverable error for either the stroke or the detailed roof loader. */
+		reject(reason: 'stroke-failed' | 'kernel-start-failed') {
+			rejection = { reason, marks: [] };
 			publish(snapshot());
 		},
 		/** Explicitly dismisses the current survey error. */
