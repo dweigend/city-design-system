@@ -3,7 +3,10 @@ import { mount } from './definition';
 import { slab } from './parts';
 
 /** A folded sample shows the same finish on a horizontal and a vertical face. */
-export function surfaceRecipe(id: string, finishes: Record<string, AssetSurface>): AssetRecipe {
+export function surfaceRecipe(
+	id: string,
+	finishes: Record<string, AssetSurface>
+): AssetRecipe & { finishes: Record<string, AssetSurface> } {
 	const variants = Object.keys(finishes);
 	return {
 		id,

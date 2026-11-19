@@ -1,11 +1,15 @@
 import type { ObjectGeometry } from './object-geometry';
-import type { AssetCategory, AssetRecipe, Attachment } from './definition';
+import type { AssetCategory, AssetRecipe, AssetSurface, Attachment } from './definition';
 import { mount } from './definition';
 import { drum, slab, surface } from './parts';
 import type { Vec3 } from '../parametrik/types';
 
 /** Defines three dimensional settings and a small seeded tolerance on the tuned dimension. */
-export function family(category: AssetCategory, attachment: Attachment) {
+export function family(
+	category: AssetCategory,
+	attachment: Attachment,
+	suggestions?: Readonly<Record<string, AssetSurface>>
+) {
 	return (
 		id: string,
 		slotNames: readonly string[],
@@ -14,6 +18,7 @@ export function family(category: AssetCategory, attachment: Attachment) {
 	): AssetRecipe => ({
 		id,
 		slotNames,
+		suggestions,
 		category,
 		footprint,
 		anchors: [mount(attachment)],
