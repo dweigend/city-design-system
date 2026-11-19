@@ -17,7 +17,10 @@ export const marketStands = [
 		(_span, variant) => [
 			band(1.65, 0.18, 0, 1, 2.15 + variant * 1.1, 'body'),
 			band(1.78, 0.52, 1, 0.09, 2.15 + variant * 1.1, 'slats'),
-			post(0, 0, 0, 0.12, 2.45),
+			...row(2 + variant, (t) => {
+				const angle = (t + 1) * 0.5 * (2.15 + variant * 1.1);
+				return post(1.52 * Math.cos(angle), 1.52 * Math.sin(angle), 1.09, 0.055, 1.36);
+			}),
 			lens(0, 0, 2.45, 1.83, 0.34)
 		]
 	),

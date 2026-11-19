@@ -36,16 +36,16 @@ export const recreation = [
 	]),
 	asset('basket-post', ['foot', 'frame', 'shell'], [2.7, 2.2], (span) => [
 		post(-0.6, 0, 0, 0.35, 0.12, 'foot'),
-		post(-0.6, 0, 0.12, 0.09, 1.45 + span),
+		post(-0.6, 0, 0.12, 0.09, 1.45 + 2.6 * span - 0.68),
 		rail(
 			[
-				[-0.6, 0, 1.4 + span],
-				[0.18, 0, 1.73 + span]
+				[-0.6, 0, 1.4 + 2.6 * span - 0.68],
+				[0.18, 0, 1.73 + 2.6 * span - 0.68]
 			],
 			0.065
 		),
-		panel(0.18, 0, 1.61 + span, 0.085, 1.15, 0.65, 'shell'),
-		collar(0.46, 0, 1.65 + span, 0.28, 0.04, 0.055, 'frame')
+		panel(0.18, 0, 1.61 + 2.6 * span - 0.68, 0.085, 1.15, 0.65, 'shell'),
+		collar(0.46, 0, 1.65 + 2.6 * span - 0.68, 0.28, 0.04, 0.055, 'frame')
 	]),
 	asset('jump-gates', ['shell'], [4.8, 2.2], (span, variant) => [
 		...row(2 + variant, (t) => bow(0, t * 0.78, 0, 3.7 * span, 0.09, 0.56, 'shell'))
