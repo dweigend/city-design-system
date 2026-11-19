@@ -1,3 +1,4 @@
+import { fitBlocks } from './fit-block';
 import { hash } from '../hash-random';
 import { kern } from '../parametrik/raster/universal';
 import { required } from '../required';
@@ -22,75 +23,15 @@ function project(p: kern.Vec, width: number, height: number, ground: Ground): ke
 type Template = ReturnType<typeof blockTemplate>;
 const regularTemplates = new WeakMap<Template, Template>();
 
-function fitBlocks(
-	template: Template,
-	positions: Map<string, kern.Vec>,
-	minArea: number,
-	regular: () => Template,
-	projectVertex: (p: kern.Vec) => kern.Vec
-) {
-	const limits = { ...kern.defaultLimits, minArea };
-	const groups = new Set<string>();
-	for (const [id, face] of template.faces) {
-		const points = face.ring.map((v) => required(positions.get(v), 'projected corner'));
-		if (!kern.acceptable(kern.quadQuality(points), limits))
-			groups.add(required(template.parents.get(id), 'block').group);
-	}
-	if (!groups.size) return template;
-	// A concave source can cross the two proposal groups that supplied its ears.
-	const affectedParents = new Set(
-		[...template.parents.values()].filter((p) => groups.has(p.group)).map((p) => p.id)
-	);
-	for (const parent of template.parents.values())
-		if (affectedParents.has(parent.id)) groups.add(parent.group);
-	const fallback = regular(),
-		faces = new Map(template.faces),
-		parents = new Map(template.parents);
-	for (const [id, block] of fallback.parents) {
-		if (!groups.has(block.group)) continue;
-		const face = required(fallback.faces.get(id), 'replacement parcel');
-		parents.set(id, block);
-		faces.set(id, face);
-		for (const v of face.ring)
-			positions.set(v, projectVertex(required(fallback.positions.get(v), 'replacement corner')));
-	}
-	repairCenters(faces, parents, groups, positions, limits);
-	return { ...template, faces, parents };
-}
-
-function repairCenters(
-	faces: Template['faces'],
-	parents: Template['parents'],
-	groups: Set<string>,
-	positions: Map<string, kern.Vec>,
-	limits: kern.Limits
-) {
-	const blocks = new Set([...parents.values()].filter((p) => groups.has(p.group)).map((p) => p.id));
-	for (const id of blocks) {
-		const [x, y] = id.split('/').map(Number),
-			center = cellId(x + 1, y + 1);
-		const children = [...faces.values()].filter((f) => parents.get(f.id)?.id === id);
-		const corners = [
-			[x, y],
-			[x + 2, y],
-			[x + 2, y + 2],
-			[x, y + 2]
-		].map(([c, r]) => required(positions.get(cellId(c, r)), 'block boundary'));
-		const original = required(positions.get(center), 'block center');
-		const attempts = corners
-			.flatMap((corner, i) => [corner, kern.mix(corner, corners[(i + 1) % 4], 0.5)])
-			.flatMap((p) => [1 / 32, 1 / 16, 1 / 8, 1 / 4].map((share) => kern.mix(original, p, share)));
-		if (
-			!kern.fitQuadCenter(positions, center, children, corners, limits, [
-				original,
-				...attempts,
-				original
-			])
-		)
-			throw new kern.InvariantError('quality-unattainable', [id]);
+function qualityFallback<T>(derive: () => T) {
+	try {
+		return derive();
+	} catch (error) {
+		if (error instanceof kern.InvariantError && error.code === 'quality-unattainable')
+			return undefined;
+		throw error;
 	}
 }
-
 function parcelTopology(fitted: Template) {
 	const topology = kern.buildTopology([...fitted.faces.values()]);
 	const address = (id: string): Address => {
@@ -121,23 +62,18 @@ function parcelTopology(fitted: Template) {
 }
 const faceCache = new WeakMap<Template, ReturnType<typeof parcelTopology>>();
 
-// Beyond the settlement only the dimensions of the partial rim affect the chart.
-const emptyTemplates = new Map<string, Template>();
-function templateFor(
-	width: number,
-	height: number,
-	seed: number,
-	profile: Lattice['profile'],
-	settled: boolean
-) {
-	if (settled) return blockTemplate(width, height, seed, profile, true);
-	const key = cellId(width, height);
-	let result = emptyTemplates.get(key);
-	if (!result) {
-		result = blockTemplate(width, height, seed, profile, false);
-		emptyTemplates.set(key, result);
+// Profiles are retained only for the lifetime of a world and its edit history.
+const emptyTemplates = new WeakMap<Lattice['profile'], Map<string, Template>>();
+function regularChart(width: number, height: number, lattice: Lattice) {
+	const charts = emptyTemplates.get(lattice.profile) ?? new Map<string, Template>();
+	emptyTemplates.set(lattice.profile, charts);
+	const key = lattice.terrain.seed + ':' + cellId(width, height);
+	let chart = charts.get(key);
+	if (!chart) {
+		chart = blockTemplate(width, height, lattice.terrain.seed, lattice.profile, false);
+		charts.set(key, chart);
 	}
-	return result;
+	return chart;
 }
 
 function makePatch(
@@ -147,25 +83,38 @@ function makePatch(
 	profile: Lattice['profile'],
 	ground: Ground,
 	settled: boolean,
-	template = templateFor(width, height, seed, profile, settled)
+	plain: () => Template,
+	template?: Template
 ) {
+	const proposal =
+		template ??
+		(settled
+			? qualityFallback(() => blockTemplate(width, height, seed, profile, true))
+			: undefined) ??
+		plain();
 	const projectVertex = (p: kern.Vec) => project(p, width, height, ground);
-	const positions = new Map([...template.positions].map(([id, p]) => [id, projectVertex(p)]));
+	const positions = new Map([...proposal.positions].map(([id, p]) => [id, projectVertex(p)]));
 	const regular = () => {
-		let value = regularTemplates.get(template);
+		let value = regularTemplates.get(proposal);
 		if (!value) {
 			value = blockTemplate(width, height, seed, profile, settled, false);
-			regularTemplates.set(template, value);
+			regularTemplates.set(proposal, value);
 		}
 		return value;
 	};
-	const fitted = fitBlocks(template, positions, profile.minParcelArea, regular, projectVertex);
+	let fitted = qualityFallback(() =>
+		fitBlocks(proposal, positions, profile.minParcelArea, regular, projectVertex)
+	);
+	if (!fitted) {
+		fitted = plain();
+		for (const [id, p] of fitted.positions) positions.set(id, projectVertex(p));
+	}
 	let faces = faceCache.get(fitted);
 	if (!faces) {
 		faces = parcelTopology(fitted);
 		faceCache.set(fitted, faces);
 	}
-	return { positions, faces, template };
+	return { positions, faces, template: proposal };
 }
 
 type CachedBlock = { patch: ReturnType<typeof makePatch> };
@@ -207,6 +156,7 @@ export function blockPatches(
 						y + BLOCK.rows / 2,
 						lattice.profile
 					) > 0,
+					() => regularChart(width, height, lattice),
 					old?.patch.template
 				);
 				cache.set(key, { patch });
