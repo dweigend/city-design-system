@@ -82,14 +82,14 @@ test('an edit keeps independent houses and their mutual link byte-identical', ()
 	const stacks = new Map<string, HouseUse[]>([
 		['0/0', ['water']],
 		['2/0', ['food', 'living']],
-		['4/0', ['material']],
+		['3/0', ['material', 'living']],
 		['8/0', ['water']]
 	]);
 	const before = composedGroups(grid, stacks, 17);
 	const after = composedGroups(grid, new Map(stacks).set('0/0', ['water', 'energy']), 17);
 	for (const old of before.filter((g) => !g.cells.includes('0/0')))
 		expect(after.find((g) => g.id === old.id)?.parts()).toEqual(old.parts());
-	expect(before.some((g) => g.id === 'link/2/0~4/0')).toBe(true);
+	expect(before.some((g) => g.id === 'link/2/0~3/0')).toBe(true);
 });
 
 test('the same mixed paint allows distinct WFC compositions by seed', () => {

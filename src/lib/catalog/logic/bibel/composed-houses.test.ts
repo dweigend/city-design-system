@@ -40,11 +40,12 @@ test('twelve-storey round tower carries five circular decks around the cylindric
 	expect(parts.filter((p) => p.id.includes('/deck/'))).toHaveLength(5);
 	expect(parts.some((p) => p.kind === 'dome' && p.finish === 'glas-klar')).toBe(true);
 });
-test('three different heights have one shared platform, one skyway and one stair bridge', () => {
+test('three neighbours share one platform and one level skyway, without a stair bridge', () => {
 	const spans = ids(4)
 		.filter((id) => id.startsWith('link/'))
 		.map((id) => id.split(':')[0]);
-	expect(new Set(spans).size).toBe(3);
-	for (const kind of ['skyway', 'platform', 'stair-bridge'])
+	expect(new Set(spans).size).toBe(2);
+	for (const kind of ['skyway', 'platform'])
 		expect(spans.some((id) => id.endsWith('/' + kind))).toBe(true);
+	expect(spans.some((id) => id.endsWith('/stair-bridge'))).toBe(false);
 });

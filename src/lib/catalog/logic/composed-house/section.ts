@@ -22,6 +22,13 @@ function paintedBands(site: HouseSite) {
 	return { cells, rows, start, end, stories, levels, uses, id };
 }
 
+/** Vertical step in metres shared by every deck, so neighbours meet at equal levels. */
+const DATUM = STORY / 2;
+/** Snaps a deck to the shared datum above its pad. The crown rounds down to keep its body height. */
+function deckDatum(pad: number, height: number, crown: boolean) {
+	const steps = (height - pad) / DATUM;
+	return pad + Math.max(0.5, crown ? Math.floor(steps + 1e-6) : Math.round(steps)) * DATUM;
+}
 /** Groups the painted programme into height bands and surveys the floor and roof datums. */
 export function planHouse(site: HouseSite): Section {
 	const { cells, rows, start, end, stories, levels, uses, id } = paintedBands(site);
@@ -43,7 +50,8 @@ export function planHouse(site: HouseSite): Section {
 			Math.min(width, depth) * 0.38,
 			(top - base[2]) * 0.68
 		);
-		const height = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
+		const free = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
+		const height = deckDatum(pad, free, crown);
 		const { kind, use } = kinds[i];
 		const shape = deckPlan(i, count, round, aspect);
 		return {

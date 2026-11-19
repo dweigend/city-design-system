@@ -6,11 +6,12 @@ import { applyEdit, beginStroke, extendStroke, createWorld, houseGroups, changes
 
 test('later paint extends one frame and links houses across construction years', () => {
 	const a = '30/30',
-		b = '32/30';
+		b = '31/30';
 	const initial = createWorld(7, { cells: 0 });
 	const earlier = applyEdit(initial, { kind: 'raise', cellId: a, use: 'energy' });
 	const aged = applyEdit(earlier, { kind: 'advance' });
-	const later = applyEdit(aged, { kind: 'raise', cellId: b, use: 'water' });
+	const begun = applyEdit(aged, { kind: 'raise', cellId: b, use: 'water' });
+	const later = applyEdit(begun, { kind: 'raise', cellId: b, use: 'food' });
 	const extended = applyEdit(later, { kind: 'raise', cellId: a, use: 'living' });
 	const chunk = required(extended.grid.cellsById.get(a), 'painted cell').chunk;
 	const draw = (w: typeof extended) => houseGroups(w, chunk, focuses.all);

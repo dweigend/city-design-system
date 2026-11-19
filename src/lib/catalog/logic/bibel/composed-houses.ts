@@ -39,16 +39,16 @@ function single(
 	return { id, title, text, primitives: sectionParts(section) };
 }
 function ensemble(): RulePlate {
-	const grid = squareGrid(4, 3, 13);
+	const grid = squareGrid(4, 3, 10);
 	const sites = [
-		house(grid, '0/0', programme.pavilion, 0),
+		house(grid, '0/0', programme.house, 0),
 		house(grid, '1/0', programme.house, 0),
 		house(grid, '1/2', programme.rectangular, 0)
 	];
 	return {
 		id: 'ensemble',
 		title: 'Three neighbours',
-		text: 'A shared platform, a skyway and a stair bridge connect three painted footprints.',
+		text: 'A shared platform and a level skyway join three painted footprints at equal deck heights.',
 		primitives: [
 			...sites.flatMap((s) => sectionParts(s)),
 			...houseLinks(grid, sites, 0).flatMap((l) => l.parts)
