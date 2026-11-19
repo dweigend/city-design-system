@@ -62,7 +62,20 @@ export function roofBlocks(kernel?: ManifoldToplevel): RulePlate[] {
 			id: 'block-grid',
 			title: 'Block subdivision',
 			text: 'Shared edge midpoints and relaxed quads. The concave ring is triangulated first.',
-			primitives: outlines
+			primitives: [
+				...rings.map((polygon, i) => ({
+					id: 'ground' + i,
+					kind: 'prism' as const,
+					polygon,
+					z: -0.25,
+					height: 0.2,
+					role: 'bestand' as const,
+					token: '--paper' as const,
+					material: 'paper' as const,
+					edges: false
+				})),
+				...outlines
+			]
 		},
 		{
 			id: 'roof-blocks',
