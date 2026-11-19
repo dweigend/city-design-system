@@ -1,4 +1,5 @@
-import { bulb, ring, drum } from '../parts';
+import { portShell } from './port-shell';
+import { bulb, drum } from '../parts';
 import { panel } from '../objects/forms';
 import { series, pillow } from './series';
 
@@ -28,25 +29,8 @@ function cabin(nose: (typeof noses)[number], twin: boolean) {
 						frontY = y * 1.18,
 						front = half - (y < 0 ? 0.6 : 0);
 					const frontZ = z + 0.26 * v;
+					if (nose === 'port') return portShell([-half, rearY, z], [front, frontY, frontZ], radius);
 					const skin = pillow([-half, rearY, z], [front, frontY, frontZ], radius, 'body');
-					if (nose === 'port')
-						return [
-							skin,
-							{
-								...ring([front + radius + 0.035, frontY, frontZ], radius * 0.69, 0, 0.14, 'glass'),
-								curvature: radius
-							},
-							{
-								...ring(
-									[front + radius + 0.042, frontY, frontZ],
-									radius * 0.78,
-									radius * 0.69,
-									0.16,
-									'foot'
-								),
-								curvature: radius
-							}
-						];
 					const glazing =
 						nose === 'bubble'
 							? bulb([front + 0.2, frontY, frontZ + radius * 0.43], radius * 0.95, 0.88, 'glass')
