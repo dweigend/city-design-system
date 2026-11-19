@@ -1,3 +1,4 @@
+import { display } from './objects/display';
 import { vessels } from './objects/vessels';
 import { lighting } from './objects/lighting';
 import { tables } from './objects/tables';
@@ -138,5 +139,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...seating,
 	...tables,
 	...lighting,
-	...vessels
+	...vessels,
+	...display
 ];

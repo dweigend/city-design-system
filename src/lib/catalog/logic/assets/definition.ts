@@ -24,7 +24,8 @@ export const assetCategories = [
 	'seating',
 	'tables',
 	'lighting',
-	'vessels'
+	'vessels',
+	'display'
 ] as const;
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';
