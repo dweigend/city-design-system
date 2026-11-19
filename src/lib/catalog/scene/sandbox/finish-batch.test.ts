@@ -16,7 +16,7 @@ import {
 import { loadStructureModules } from './fixtures/structure-modules';
 import { savedCarrier } from '../../logic/sandbox/fixtures/saved-carrier.fixture.test';
 
-test('every catalog surface reaches the sandbox mesh for every surface-bearing form', async () => {
+test('every catalog surface reaches the new-build sandbox mesh for every surface-bearing form', async () => {
 	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
 	const pool = structureMaterials();
 	const bearing = new SphereGeometry();
@@ -25,7 +25,7 @@ test('every catalog surface reaches the sandbox mesh for every surface-bearing f
 			if (form.kind === 'polyline') continue;
 			let positions: ArrayLike<number> | undefined;
 			for (const { id: finish } of [...materials, ...materialAusfuehrungen]) {
-				const group = populateStructures([{ ...form, role: 'bestand', finish }], pool, bearing);
+				const group = populateStructures([{ ...form, finish }], pool, bearing);
 				const hits: Mesh[] = group.userData.hits;
 				assert.equal(hits.length, 1);
 				const [mesh] = hits;
