@@ -5,6 +5,7 @@ import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { bindSceneTheme, resolveTokens } from './themeBinding';
 import { batch, geometryOf } from './batch';
+import { sceneSwatch } from './scene-palette';
 import { faceTone, outlinePosition } from './surfaces';
 import type { Palette3D } from '../data/city3d';
 import type { Primitive } from '../logic/parametrik/types';
@@ -337,13 +338,8 @@ export function createRasterBuehne(
 		const paper = farbe('--paper'),
 			ink = farbe('--ink');
 		if (q.role === 'bestand') return srgbMix(paper, ink, (q.shade ?? 0.05) * 0.6);
-		const base =
-			q.token === '--paper'
-				? paper
-				: q.token === '--blueprint'
-					? farbe('--blueprint')
-					: new THREE.Color(palette?.categories[q.token.replace('--cat-', '')] ?? palette?.paper);
-		const c = q.token === '--paper' ? base.clone() : srgbMix(base, paper, PASTELL);
+		const base = palette ? new THREE.Color(sceneSwatch(palette, q.token)) : paper;
+		const c = q.token === '--paper' ? base : srgbMix(base, paper, PASTELL);
 		return q.shade ? srgbMix(c, ink, q.shade) : c;
 	}
 

@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { BackSide, Color, Mesh, MeshBasicNodeMaterial, Object3D, SphereGeometry } from 'three/webgpu';
+import {
+	BackSide,
+	Color,
+	Mesh,
+	MeshBasicNodeMaterial,
+	Object3D,
+	SphereGeometry
+} from 'three/webgpu';
+import type { Group } from 'three/webgpu';
 import { scenePalette } from './scene-palette';
 import { sandboxStyle } from './sandbox/drafting-style';
 import { frameClock } from './sandbox/fixtures/frame-clock';
@@ -70,6 +78,7 @@ async function exerciseGlazeContour() {
 		finishes.setStyle(style, 'all', 48, { ...tones, ink });
 		assert.equal(contourOf(group), sandbox);
 		assert(sandbox.color.equals(ink));
+		await exerciseSnapshot(stage, canvas, group);
 	} finally {
 		stage.dispose();
 		finishes.dispose();
@@ -78,4 +87,26 @@ async function exerciseGlazeContour() {
 			if (object instanceof Mesh) object.geometry.dispose();
 		});
 	}
+}
+
+async function exerciseSnapshot(
+	stage: Pick<ReturnType<typeof import('./parametrik').createParametrikScene>, 'snapshotDrawing'>,
+	canvas: HTMLCanvasElement,
+	drawing: Group
+) {
+	let encode: BlobCallback = () => assert.fail('The stage did not request a PNG.');
+	canvas.toBlob = (callback) => {
+		encode = callback;
+		assert(drawing.parent);
+	};
+	const failed = stage.snapshotDrawing(drawing, [1, -1, 1]);
+	encode(null);
+	await assert.rejects(failed, /could not encode/);
+	assert.equal(drawing.parent, null);
+
+	const capture = stage.snapshotDrawing(drawing, [1, -1, 1]);
+	const png = new Blob(['image'], { type: 'image/png' });
+	encode(png);
+	assert.equal(await capture, png);
+	assert.equal(drawing.parent, null);
 }

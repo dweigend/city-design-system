@@ -166,7 +166,7 @@ export function createParametrikScene(
 		render();
 	}
 	let parent: THREE.Object3D = model;
-	const signal = new THREE.Color(palette.categories['--signal'] || palette.ink);
+	const signal = new THREE.Color(sceneSwatch(palette, '--signal'));
 	const groups = new Map<string, THREE.Group>();
 	const pickables: THREE.Mesh[] = [];
 	let offsets = new Map<string, Vec3>();
@@ -494,7 +494,7 @@ export function createParametrikScene(
 		palette = next;
 		surfaces.setPalette(next);
 		glazeContour.ink.set(next.ink);
-		signal.set(next.categories['--signal'] || next.ink);
+		signal.set(sceneSwatch(next, '--signal'));
 		// The invisible proxy is palette-independent and keeps its material identity.
 		for (const [key, material] of materials)
 			if (key !== 'proxy') {
@@ -562,12 +562,17 @@ export function createParametrikScene(
 			camera.zoom = 1;
 			fit(true);
 		},
-		/** Photographs a caller-owned drawing on an empty vignette stage. World eye points toward the camera. */
-		snapshotDrawing(drawing: THREE.Group, eye: Vec3) {
+		/** Encodes one caller-owned drawing as a PNG before the stage can be reused. Eye is a world direction. */
+		async snapshotDrawing(drawing: THREE.Group, eye: Vec3): Promise<Blob> {
 			model.add(drawing);
 			try {
 				fit(true, eye);
-				return canvas.toDataURL('image/png');
+				return await new Promise<Blob>((resolve, reject) => {
+					canvas.toBlob((png) => {
+						if (png) resolve(png);
+						else reject(new Error('The canvas could not encode this drawing.'));
+					}, 'image/png');
+				});
 			} finally {
 				model.remove(drawing);
 			}
@@ -580,7 +585,7 @@ export function createParametrikScene(
 			renderer.setSize(width, height, false);
 			fit();
 		},
-		dispose() {
+		async dispose() {
 			if (!alive) return;
 			stopTheme();
 			alive = false;
@@ -590,7 +595,7 @@ export function createParametrikScene(
 			for (const material of materials.values()) material.dispose();
 			materials.clear();
 			surfaces.dispose();
-			if (initialized) renderer.dispose();
+			if (initialized) await renderer.dispose();
 		}
 	};
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { mix, normalLocal, positionLocal, uniform } from 'three/tsl';
 import { flowToken } from '../../data/focus';
 import type { Palette3D } from '../../data/city3d';
+import { sceneSwatch } from '../scene-palette';
 import { focuses, type FocusId } from '../../logic/presentation';
 import type { World } from '../../logic/sandbox';
 import { kreisSegmente } from '../../logic/parametrik/rundung';
@@ -109,7 +110,7 @@ export function createVehicles() {
 		/** Uses the current paper palette's people flow. */
 		setPalette(palette: Palette3D) {
 			ivory.value.set(palette.paper);
-			livery.value.set(palette.categories[flowToken.people.slice('--cat-'.length)]);
+			livery.value.set(sceneSwatch(palette, flowToken.people));
 			ghost.color.set(palette.ink);
 		},
 		/** Releases the shared mesh resources. */
