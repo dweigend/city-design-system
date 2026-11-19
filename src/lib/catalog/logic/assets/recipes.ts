@@ -1,3 +1,5 @@
+import { gardenBeds } from './garden-beds';
+import { verticalGardens } from './vertical-gardens';
 import { playgrounds } from './playgrounds';
 import { streetSignals } from './street-signals';
 import { plazaSeats } from './plaza-seats';
@@ -110,5 +112,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...ceramicScreens,
 	...streetSignals,
 	...plazaSeats,
-	...playgrounds
+	...playgrounds,
+	...gardenBeds,
+	...verticalGardens
 ];
