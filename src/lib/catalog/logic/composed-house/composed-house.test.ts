@@ -36,7 +36,10 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 			if (n >= 4) expect(s.decks.filter((d) => d.kind === 'void')).toHaveLength(1);
 			const levels = new Set<number>();
 			for (const p of parts) {
-				if (p.kind === 'prism') expect(p.z).toBeGreaterThanOrEqual(s.base[2] - 1e-8);
+				if (p.kind === 'prism') {
+					const bearing = p.source.objectId === 'landing' ? p.z + p.height : p.z;
+					expect(bearing).toBeGreaterThanOrEqual(s.base[2] - 1e-8);
+				}
 				if (p.id.includes('/stair/') && p.kind === 'prism')
 					levels.add(Math.round((p.z + p.height) * 1000));
 			}

@@ -5,10 +5,11 @@ export const stairs: AssetRecipe = {
 	id: 'stairs',
 	slotNames: ['deck', 'body'],
 	category: 'infrastructure',
-	variants: ['short-flight', 'wide-flight', 'landing-flight'],
+	variants: ['short-flight', 'wide-flight', 'landing-flight', 'single-tread'],
 	footprint: [7.3, 3.3],
 	anchors: [mount('deck')],
 	draw(variant, sample) {
+		if (variant === 3) return [slab([-0.145, -0.5, 0], [0.29, 1, 0.17], 'deck')];
 		const n = [8, 12, 15][variant],
 			w = [1.38, 2.86, 1.72][variant],
 			t = 0.29 + 0.02 * sample,

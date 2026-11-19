@@ -1,49 +1,97 @@
-import { accessEdge, roofLanding } from './deck-plan';
 import type { Vec3 } from '../parametrik/types';
-import { fitting, mountFitting } from './asset-fit';
-import { slab } from './parts';
+import { circulation } from './circulation';
+import { houseObject, type HousePart } from './house-object';
 import type { Section } from './types';
 import type { HouseSurfaces } from './surfaces';
 
-/** Alternating flights meet at the surveyed rear deck edge and finish on the roof walk. */
-export function access(s: Section, surfaces: HouseSurfaces) {
-	const sign = s.aspect.reverse ? -1 : 1;
-	const stops = s.decks.map((d, i): Vec3 => [
-		d.position[0] + sign * (i % 2 ? -1 : 1) * d.width * 0.22,
-		accessEdge(d),
-		d.position[2]
-	]);
-	const [x, y] = roofLanding(s);
-	const z = s.base[2];
-	const start: Vec3 = [s.decks[0].position[0] - sign * s.decks[0].width * 0.22, stops[0][1], z];
-	stops.push([x + sign * (stops.length % 2 ? -1 : 1) * s.width * 0.22, y, s.top]);
-	return stops.flatMap((end, i) => {
-		const a = stops[i - 1] ?? start,
-			id = s.id + '/stair/' + i;
-		const dx = end[0] - a[0],
-			dy = end[1] - a[1],
-			width = Math.min(1.4, s.depth * 0.15, s.width * 0.15);
-		const mount = {
-			position: [(a[0] + end[0]) / 2, (a[1] + end[1]) / 2, a[2]] as Vec3,
-			size: [Math.hypot(dx, dy), width, end[2] - a[2]] as Vec3,
-			angle: Math.atan2(dy, dx)
-		};
-		const stairs = fitting('stairs', id, s.seed, 'deck', {
-			deck: surfaces.access,
-			body: surfaces.frame
-		});
-		const flight = mountFitting(stairs, mount, true);
-		return [
-			...flight,
-			slab(
-				id + '/landing',
-				[end[0], end[1], end[2] - 0.12],
-				width,
-				width,
-				0.12,
-				0.08,
-				surfaces.access
+type Leg = ReturnType<typeof circulation>['legs'][number];
+
+function projectLeg(
+	leg: Leg,
+	id: string,
+	width: number,
+	seed: number,
+	surfaces: HouseSurfaces
+): HousePart[] {
+	const [a, b] = leg.from[2] >= leg.to[2] ? [leg.from, leg.to] : [leg.to, leg.from];
+	const dx = b[0] - a[0],
+		dy = b[1] - a[1],
+		dz = b[2] - a[2],
+		length = Math.hypot(dx, dy);
+	if (length < 1e-8) return [];
+	const angle = Math.atan2(dy, dx);
+	const point = (t: number, offset = 0, up = 0): Vec3 => [
+		a[0] + dx * t - (dy * offset) / length,
+		a[1] + dy * t + (dx * offset) / length,
+		a[2] + dz * t + up
+	];
+	const slots = { deck: surfaces.access, frame: surfaces.frame, body: surfaces.frame };
+	const object = (name: string, variant = 'standard') =>
+		houseObject(name, variant, seed, {
+			instanceId: id + '/' + name,
+			slots: Object.fromEntries(
+				(name === 'stairs' ? ['deck', 'body'] : name === 'railing' ? ['frame'] : ['deck']).map(
+					(k) => [k, slots[k as keyof typeof slots]]
+				)
 			)
+		}).parts;
+	if (leg.kind === 'landing' || (leg.kind === 'ramp' && Math.abs(dz) < 1e-8)) {
+		const p = object('landing')[0];
+		if (p.kind !== 'prism') throw new Error('Expected landing plate');
+		return [
+			{
+				...p,
+				polygon: p.polygon.map(([x, y]) => {
+					const [u, v] = point(x + 0.5, y * width);
+					return [u, v];
+				}),
+				z: a[2] - p.height
+			}
 		];
+	}
+	const rails = [-1, 1].flatMap((side) =>
+		object('railing').map((p) => {
+			if (p.kind !== 'pipe') throw new Error('Expected rail');
+			return {
+				...p,
+				id: p.id + '/' + side,
+				points: p.points.map(([t, , h]) => point(t, side * width * 0.46, h))
+			};
+		})
+	);
+	if (leg.kind === 'ramp') {
+		const p = object('ramp')[0];
+		if (p.kind !== 'wedge') throw new Error('Expected ramp');
+		const [x, y] = point(0.5);
+		return [
+			{
+				...p,
+				position: [x - length / 2, y - width / 2, b[2]],
+				size: [length, width, -dz],
+				rotation: angle
+			},
+			...rails
+		];
+	}
+	const p = object('stairs', 'single-tread')[0];
+	if (p.kind !== 'box') throw new Error('Expected stair tread');
+	const run = length / leg.steps,
+		rise = -dz / leg.steps;
+	const steps = Array.from({ length: leg.steps }, (_, i): HousePart => {
+		const [x, y] = point((i + 0.5) / leg.steps);
+		return {
+			...p,
+			id: p.id + '/' + i,
+			position: [x - run / 2, y - width / 2, a[2] - (i + 1) * rise],
+			size: [run, width, rise],
+			rotation: angle
+		};
 	});
+	return [...steps, ...rails];
+}
+
+/** Fits registered circulation members to each segment of the surveyed route. */
+export function access(s: Section, surfaces: HouseSurfaces) {
+	const { legs, width } = circulation(s);
+	return legs.flatMap((leg, i) => projectLeg(leg, s.id + '/stair/' + i, width, s.seed, surfaces));
 }

@@ -1,4 +1,5 @@
 import { STORY } from '../../data/grid';
+import { circulationWidth, returnCourt } from './circulation';
 import { deckPlan } from './deck-plan';
 import { houseAspect, houseProgramme } from '../district-frame';
 import { footprintBay } from './footprint';
@@ -31,10 +32,13 @@ export function planHouse(site: HouseSite): Section {
 	const aspect = houseAspect(id, site.seed);
 	const bay = footprintBay(cells),
 		round = plan === 'round';
-	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * 0.94,
-		depth = round ? width : bay.depth * 0.94;
+	const lane = circulationWidth(bay) * 2.6;
+	const court = returnCourt(bay, aspect.reverse);
+	const bodyY = bay.y - court / 2;
+	const width = ((round ? Math.min(bay.width, bay.depth - court) : bay.width) - lane) * 0.82,
+		depth = round ? width : (bay.depth - court - lane) * 0.82;
 	const pad = cells[0].pad,
-		base: Section['base'] = [bay.x, bay.y, pad + start * STORY];
+		base: Section['base'] = [bay.x, bodyY, pad + start * STORY];
 	const top = pad + end * STORY;
 	const decks = levels.map((lo, i): Deck => {
 		const crown = i === count - 1;
@@ -47,7 +51,7 @@ export function planHouse(site: HouseSite): Section {
 		const { kind, use } = kinds[i];
 		const shape = deckPlan(i, count, round, aspect);
 		return {
-			position: [bay.x + width * shape.x, bay.y + depth * shape.y, height],
+			position: [bay.x + width * shape.x, bodyY + depth * shape.y, height],
 			width: width * shape.width,
 			depth: depth * shape.depth,
 			round,
