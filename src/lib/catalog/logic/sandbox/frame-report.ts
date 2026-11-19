@@ -1,3 +1,4 @@
+import { physicalRuns } from './frame-runs';
 import { squareShares } from './frame-clearance';
 import { bayAxes, interiorLength } from '../megastructure';
 import type { OmissionEvidence } from '../district-frame';
@@ -88,30 +89,11 @@ export function frameReport(world: World) {
 			node.set(v, list);
 		}
 	}
-	// Split runs at forks and ends; a remaining degree-two cycle is one run.
-	const seen = new Set<string>();
-	let longestRun = 0;
-	function trace(first: string, vertex: string) {
-		let id = first;
-		const chain: string[] = [];
-		while (!seen.has(id)) {
-			const seam = seams.get(id);
-			if (!seam) break;
-			seen.add(id);
-			chain.push(id);
-			vertex = seam.vertices[0] === vertex ? seam.vertices[1] : seam.vertices[0];
-			const exits = node.get(vertex) ?? [];
-			if (exits.length !== 2) break;
-			id = exits[0] === id ? exits[1] : exits[0];
-		}
-		longestRun = Math.max(longestRun, chain.length);
-		for (const key of chain) {
-			const d = diagnostics.get(key);
-			if (d) d['run-length'] = chain.length;
-		}
+	const { lengths, longestRun } = physicalRuns(main, world.state.frameInstallations);
+	for (const [id, n] of lengths) {
+		const row = diagnostics.get(id);
+		if (row) row['run-length'] = n;
 	}
-	for (const [v, edges] of node) if (edges.length !== 2) for (const id of edges) trace(id, v);
-	for (const [v, edges] of node) for (const id of edges) if (!seen.has(id)) trace(id, v);
 	for (const [id, s] of seams) {
 		const d = diagnostics.get(id),
 			bay = bays.get(id);
@@ -166,11 +148,7 @@ export function frameReport(world: World) {
 	}
 	const blocks = new Set(world.grid.cells.map((c) => c.block));
 	return {
-		longestRun: [...main].every(
-			(id) => world.state.frameInstallations?.get(id)?.result.status === 'sized'
-		)
-			? longestRun
-			: null,
+		longestRun,
 		quiet: [...blocks].filter((id) => survey.characters.get(id) === 'quiet').length,
 		total: blocks.size,
 		unclassified: [...blocks].filter((id) => survey.characters.get(id) === 'neutral'),
