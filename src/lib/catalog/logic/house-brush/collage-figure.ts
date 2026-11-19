@@ -1,7 +1,7 @@
 import { STORY } from '../../data/grid';
 import { flowToken } from '../../data/focus';
 import { inradius, sideLength, type QuadCell } from '../quad-grid';
-import type { Primitive } from '../parametrik/types';
+import type { Primitive, Vec3 } from '../parametrik/types';
 import { bayOf, panel, type Bay } from './collage-bay';
 import { accentOf, part } from './form';
 import type { Mass } from './massing';

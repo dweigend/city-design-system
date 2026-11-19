@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
+	import type { OpeningArea } from '../scene/sandbox/view';
 	import { cursorFrame } from '../logic/sandbox';
 	import type { TerrainCell } from '../logic/terrain-grid';
 	import type { Session } from './session.svelte';
@@ -12,12 +13,14 @@
 		session,
 		label,
 		plan = false,
+		openingArea,
 		onhover
 	}: {
 		session: Session;
 		label: string;
 		/** True shows the plan from above instead of the axonometric view. */
 		plan?: boolean;
+		openingArea?: () => OpeningArea | undefined;
 		onhover?: (cell: TerrainCell | undefined) => void;
 	} = $props();
 	let host: HTMLDivElement;
@@ -31,7 +34,9 @@
 	let hover = $state.raw<ReturnType<typeof createCanvasHover>>();
 
 	onMount(() => {
-		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'));
+		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), {
+			openingArea
+		});
 		void current.ready.catch(() => {});
 		const target = createCanvasHover(current, (id) => (hoveredId = id));
 		const resize = () => {

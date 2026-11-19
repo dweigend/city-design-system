@@ -25,11 +25,12 @@ import { KEY, projectChanges } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown } from './opening-view';
-import { createView } from './view';
+import { createView, type OpeningArea } from './view';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
 type StageOptions = {
+	openingArea?: () => OpeningArea | undefined;
 	/** Optional study window in world meters, from its low corner to its high corner. */
 	frame?: readonly [Vec3, Vec3];
 	/** Retain additions from these epochs in their full drafting treatment for comparison. */
@@ -97,7 +98,7 @@ export function createSandboxStage(
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context, variant);
 		const tones = refreshTones ? grammatik(canvas, style) : undefined;
-		structures.setStyle([style, variant, scale, tones], planView);
+		structures.setStyle([style, variant, scale, tones], view.elevation());
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
 		if (tones) light.setTone(tones.schatten, tones.paper);
 		canvas.dataset.zoom = zoom;
@@ -147,13 +148,24 @@ export function createSandboxStage(
 		scene.add(baseLines);
 	}
 
-	function frameTerrain(mesh: TerrainMesh, world = shown) {
-		if (!study.frame && !planView && world && frameOldTown(view, world)) return;
+	function studyBounds(frame: readonly [Vec3, Vec3]) {
 		const bounds = new THREE.Box3();
-		if (study.frame) {
-			for (const [x, y, z] of study.frame) bounds.expandByPoint(new THREE.Vector3(x, z, -y));
-		} else bounds.setFromObject(mesh.surface);
-		view.frameBox(bounds, OPENING_MARGIN);
+		for (const [x, y, z] of frame) bounds.expandByPoint(new THREE.Vector3(x, z, -y));
+		return bounds;
+	}
+
+	function framePortrait(world?: World) {
+		return world && !planView && frameOldTown(view, world, study.openingArea?.());
+	}
+
+	function frameTerrain(mesh: TerrainMesh, world = shown) {
+		if (study.frame) view.frameBox(studyBounds(study.frame), OPENING_MARGIN);
+		else if (!framePortrait(world))
+			view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
+	}
+
+	function shouldReframe(wasPortrait: boolean) {
+		return study.frame || wasPortrait !== view.isPortrait();
 	}
 
 	/** Starts over on a new terrain: fresh surface, nothing built, opening view. */
@@ -215,8 +227,9 @@ export function createSandboxStage(
 		/** Canvas size in CSS pixels. */
 		resize(width: number, height: number) {
 			renderer.setSize(width, height, false);
+			const wasPortrait = view.isPortrait();
 			view.resize(width, height);
-			if (study.frame && terrain) frameTerrain(terrain);
+			if (terrain && shouldReframe(wasPortrait)) frameTerrain(terrain);
 			render();
 		},
 		/** Switches the structural line treatment without replaying interventions. */

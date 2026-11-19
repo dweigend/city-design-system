@@ -1,5 +1,5 @@
 /**
- * View of the sandbox: parallel projection at the catalog's viewing angles, or straight down
+ * View of the sandbox: parallel projection in axonometric view, or straight down
  * as a plan. Only pan and zoom move; the view is never an authority for world coordinates
  * (A-53).
  */
@@ -14,6 +14,8 @@ const SPAN_MIN = 45;
 const SPAN_MAX = 1500;
 /** Distance of the camera from its target, meters; far enough to clear every building. */
 const CAMERA_DISTANCE = 1400;
+
+export type OpeningArea = { top: number; bottom: number };
 
 export type View = ReturnType<typeof createView>;
 
@@ -40,7 +42,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		camera.top = halfHeight;
 		camera.bottom = -halfHeight;
 		// The plan looks straight down with north up; the axonometric view turns by the azimuth.
-		const plan = elevationRad > 1.5;
+		const plan = elevationRad === Math.PI / 2;
 		const azimuthRad = plan ? 0 : BLICK.azimutRad;
 		right.set(Math.cos(azimuthRad), 0, -Math.sin(azimuthRad));
 		forward.set(-Math.sin(azimuthRad), 0, -Math.cos(azimuthRad));
@@ -88,6 +90,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		pan,
 		zoomAt,
 		metersPerPixel,
+		/** Camera elevation in radians, including the vertical plan. */
+		elevation: () => elevationRad,
 		/** Visible image height in meters. */
 		span: () => span,
 		/** Switches between the axonometric view and the plan seen from above. */
@@ -104,6 +108,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Frames a three.js box: its center in the image center, `margin` ≥ 1 around its silhouette. */
 		frameBox(box: THREE.Box3, margin: number) {
 			box.getCenter(target);
+			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
 			const up = new THREE.Vector3().crossVectors(eye, right);
 			const corner = new THREE.Vector3();
@@ -123,14 +128,17 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Whether the canvas is taller than it is wide. */
 		isPortrait: () => width < height,
 		/** Frames an opening cell at the requested projected width on a portrait canvas. */
-		framePortrait([x, y, z]: Vec3, corners: readonly Vec3[]) {
+		framePortrait([x, y, z]: Vec3, corners: readonly Vec3[], area?: OpeningArea) {
 			if (width >= height) return false;
 			const offsets = corners.map(([px, py, pz]) => right.dot(new THREE.Vector3(px, pz, -py)));
 			const extent = Math.max(...offsets) - Math.min(...offsets);
 			if (!extent) return false;
 			target.set(x, z, -y);
 			span = (height * extent) / opening.mobileCellWidthPx;
-			pan(0, height * (0.5 - opening.mobileReferenceY));
+			elevationRad = (opening.mobileElevationDeg * Math.PI) / 180;
+			apply();
+			const middle = area ? (area.top + area.bottom) / 2 : height / 2;
+			pan(0, height / 2 - middle);
 			return true;
 		},
 		/** Canvas pixel → normalized device coordinates for ray casting. */

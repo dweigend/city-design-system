@@ -1,5 +1,5 @@
 import type { World } from '../../logic/sandbox';
-import type { View } from './view';
+import type { OpeningArea, View } from './view';
 
 function centralCell({ grid, state }: World) {
 	const cells = [...state.stacks.keys()].flatMap((id) => {
@@ -14,8 +14,8 @@ function centralCell({ grid, state }: World) {
 }
 
 /** Uses the occupied parcel nearest the town centroid as the portrait opening anchor. */
-export function frameOldTown(view: View, world: World) {
+export function frameOldTown(view: View, world: World, area?: OpeningArea) {
 	if (!view.isPortrait()) return false;
 	const cell = centralCell(world);
-	return cell ? view.framePortrait(cell.center, cell.corners) : false;
+	return cell ? view.framePortrait(cell.center, cell.corners, area) : false;
 }

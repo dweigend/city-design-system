@@ -22,7 +22,7 @@ export function createStructures() {
 		string,
 		{ primitives: Primitive[]; drawing: DistanceDrawing; objects: THREE.Group }
 	>();
-	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, plan: false, block: false };
+	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
 
 	function release(objects: THREE.Group) {
 		group.remove(objects);
@@ -82,7 +82,7 @@ export function createStructures() {
 		set,
 		clear,
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */
-		setStyle(args: Parameters<typeof finishes.setStyle>, plan: boolean) {
+		setStyle(args: Parameters<typeof finishes.setStyle>, elevation: number) {
 			const [style, , scale] = args;
 			const block = style.rollen.weg.level === 'block';
 			const minContourPx = finishes.minContourPx();
@@ -90,11 +90,11 @@ export function createStructures() {
 			if (
 				recolor ||
 				scale !== distance.scale ||
-				plan !== distance.plan ||
+				elevation !== distance.elevation ||
 				block !== distance.block ||
 				minContourPx !== distance.minContourPx
 			) {
-				distance = { scale, plan, block, minContourPx };
+				distance = { scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
 		},

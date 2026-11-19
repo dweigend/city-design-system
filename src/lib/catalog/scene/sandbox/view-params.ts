@@ -7,10 +7,10 @@ export const STRUCTURE_PARAMS = defineParams({
 	glassOpacity: numberParam('Glass opacity', 'ratio', 0.34, [0, 1, 0.01])
 });
 
-/** Opening view measurements in CSS pixels and a share of canvas height. */
+/** Opening view scale and elevation on phones. */
 export const OPENING_VIEW_PARAMS = defineParams({
 	mobileCellWidthPx: numberParam('Mobile opening cell width', 'px', 50, [45, 55, 1]),
-	mobileReferenceY: numberParam('Mobile reference height', 'ratio', 0.4, [0, 1, 0.01])
+	mobileElevationDeg: numberParam('Mobile opening elevation', 'deg', 11, [8, 26, 1])
 });
 
 /** Two interpretations of the same structure. The hairline is the 18 November comparison. */

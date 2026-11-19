@@ -1,7 +1,7 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
 import { Mesh, SphereGeometry, type Group, type Material } from 'three/webgpu';
-import { MASSSTAB, STRICHE } from '../../data/leitstil';
+import { BLICK, MASSSTAB, STRICHE } from '../../data/leitstil';
 import { translate } from '../../logic/ansicht/geometrie';
 import { pruefeStil, stilFuer } from '../../logic/leitstil';
 import { tag } from '../../logic/ansicht/tags';
@@ -331,7 +331,12 @@ test('the city stop retains its colored shadow caster without an outline or bear
 		{ ...forms.torus, role: 'neu', token: '--cat-business-3' },
 		{ ...forms.polyline, role: 'traeger', bearings: [[0, 0, 2]] }
 	];
-	const drawing = distanceDrawing(parts, { plan: false, block: true, scale: 2.5, minContourPx: 6 });
+	const drawing = distanceDrawing(parts, {
+		elevation: BLICK.hoeheRad,
+		block: true,
+		scale: 2.5,
+		minContourPx: 6
+	});
 	const group = populateStructures(drawing.parts, finishes, bearing, drawing);
 	const meshes = group.children.filter((object) => object instanceof Mesh);
 	try {

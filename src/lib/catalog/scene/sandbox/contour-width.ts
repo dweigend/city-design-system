@@ -4,16 +4,24 @@ import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 
 const cosAzimuth = Math.cos(BLICK.azimutRad);
 const sinAzimuth = Math.sin(BLICK.azimutRad);
-const sinElevation = Math.sin(BLICK.hoeheRad);
-const cosElevation = Math.cos(BLICK.hoeheRad);
-
-const project = ([x, y, z]: Vec3, plan: boolean): Point2 =>
-	plan
-		? [x, y]
-		: [
-				x * cosAzimuth + y * sinAzimuth,
-				(-x * sinAzimuth + y * cosAzimuth) * sinElevation + z * cosElevation
-			];
+function projection(elevation: number) {
+	if (elevation === Math.PI / 2)
+		return {
+			depth: 1,
+			rise: 0,
+			point: ([x, y]: Vec3): Point2 => [x, y]
+		};
+	const depth = Math.sin(elevation);
+	const rise = Math.cos(elevation);
+	return {
+		depth,
+		rise,
+		point: ([x, y, z]: Vec3): Point2 => [
+			x * cosAzimuth + y * sinAzimuth,
+			(-x * sinAzimuth + y * cosAzimuth) * depth + z * rise
+		]
+	};
+}
 
 function span(points: Point2[], dx: number, dy: number) {
 	const dots = points.map(([x, y]) => x * dx + y * dy);
@@ -31,9 +39,9 @@ function narrowSpan(points: Point2[]) {
 	}, Infinity);
 }
 
-function prismWidth(polygon: Point2[], height: number, plan: boolean) {
-	const bottom = polygon.map(([x, y]) => project([x, y, 0], plan));
-	const rise = plan ? 0 : height * cosElevation;
+function prismWidth(polygon: Point2[], height: number, camera: ReturnType<typeof projection>) {
+	const bottom = polygon.map(([x, y]) => camera.point([x, y, 0]));
+	const rise = height * camera.rise;
 	// Each candidate normal comes from the footprint sides or the extrusion direction.
 	const widths = bottom.map(([x, y], i) => {
 		const [a, b] = bottom[(i + 1) % bottom.length];
@@ -46,7 +54,7 @@ function prismWidth(polygon: Point2[], height: number, plan: boolean) {
 	return Math.min(span(bottom, 1, 0), ...widths);
 }
 
-function roundWidth(part: Primitive, [depth, rise]: Point2) {
+function sectionWidth(part: Primitive) {
 	switch (part.kind) {
 		case 'torus':
 			return 2 * part.tube;
@@ -55,6 +63,11 @@ function roundWidth(part: Primitive, [depth, rise]: Point2) {
 			return 2 * part.radius;
 		case 'ring':
 			return part.innerRadius ? part.radius - part.innerRadius : 2 * part.radius;
+	}
+}
+
+function roundWidth(part: Primitive, { depth, rise }: ReturnType<typeof projection>) {
+	switch (part.kind) {
 		case 'cylinder':
 		case 'cone':
 			return Math.min(2 * part.radius, 2 * part.radius * depth + part.height * rise);
@@ -67,23 +80,24 @@ function roundWidth(part: Primitive, [depth, rise]: Point2) {
 
 /** Feature width in projected meters before CSS pixel scaling.
  * Rings and pipes use the width of their material section. */
-export function contourWidthMeters(part: Primitive, plan: boolean): number {
-	const round = roundWidth(part, plan ? [1, 0] : [sinElevation, cosElevation]);
+export function contourWidthMeters(part: Primitive, elevation: number): number {
+	const camera = projection(elevation);
+	const round = sectionWidth(part) ?? roundWidth(part, camera);
 	if (round !== undefined) return round;
 	switch (part.kind) {
 		case 'prism':
-			return prismWidth(rotated(part.polygon, part.rotation ?? 0), part.height, plan);
+			return prismWidth(rotated(part.polygon, part.rotation ?? 0), part.height, camera);
 		case 'box':
 		case 'wedge':
-			return prismWidth(boxPolygon(part.position, part.size, part.rotation), part.size[2], plan);
+			return prismWidth(boxPolygon(part.position, part.size, part.rotation), part.size[2], camera);
 		case 'membrane':
-			return narrowSpan(part.corners.map((point) => project(point, plan)));
+			return narrowSpan(part.corners.map(camera.point));
 		case 'polyline':
 			return Infinity;
 		default: {
 			const { min, max } = bounds(part);
 			const size: Vec3 = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
-			return prismWidth(boxPolygon(min, size), size[2], plan);
+			return prismWidth(boxPolygon(min, size), size[2], camera);
 		}
 	}
 }

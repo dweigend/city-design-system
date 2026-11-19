@@ -37,7 +37,7 @@
 	 * Tools of the sandbox: one tool bar, the options of the active tool beside it, undo and a
 	 * new terrain below. Thin: it only sets the session's tool and calls its actions.
 	 */
-	let { session }: { session: Session } = $props();
+	let { session, group = $bindable() }: { session: Session; group?: HTMLDivElement } = $props();
 
 	const narrow = new MediaQuery('(max-width: 640px)');
 	const methodIcons = { terrace: House, collage: Box, megastructure: Grid2X2, totem: Pill };
@@ -124,7 +124,7 @@
 	}
 </script>
 
-<div class="hud-group">
+<div class="hud-group" bind:this={group}>
 	<div class="hud">
 		<ToggleGroup.Root
 			type="single"

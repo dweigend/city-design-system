@@ -3,12 +3,12 @@ import { contourWidthMeters } from './contour-width';
 
 export type DrawingDistance = {
 	scale: number;
-	plan: boolean;
+	elevation: number;
 	block: boolean;
 	minContourPx: number;
 };
 
-const widths = [new WeakMap<Primitive, number>(), new WeakMap<Primitive, number>()] as const;
+const widths = new Map<number, WeakMap<Primitive, number>>();
 const ramps = new WeakMap<Primitive, Primitive>();
 
 function atDistance(part: Primitive): Primitive | undefined {
@@ -25,21 +25,22 @@ function atDistance(part: Primitive): Primitive | undefined {
 	return ramp;
 }
 
-function widthOf(part: Primitive, plan: boolean) {
-	const cache = widths[plan ? 1 : 0];
+function widthOf(part: Primitive, elevation: number, cache: WeakMap<Primitive, number>) {
 	const cached = cache.get(part);
 	if (cached !== undefined) return cached;
-	const width = contourWidthMeters(part, plan);
+	const width = contourWidthMeters(part, elevation);
 	cache.set(part, width);
 	return width;
 }
 
 /** Projects parts into the current detail level and selects their eligible envelope strokes. */
 export function distanceDrawing(primitives: Primitive[], distance: DrawingDistance) {
-	const { block, plan, scale, minContourPx } = distance;
+	const { block, elevation, scale, minContourPx } = distance;
 	const unoutlined = new Set<Primitive>();
 	if (!block) return { parts: primitives, unoutlined, details: true };
 	const parts: Primitive[] = [];
+	const cache = widths.get(elevation) ?? new WeakMap<Primitive, number>();
+	widths.set(elevation, cache);
 	for (const original of primitives) {
 		const part = atDistance(original);
 		if (!part) continue;
@@ -48,7 +49,7 @@ export function distanceDrawing(primitives: Primitive[], distance: DrawingDistan
 			part.role !== 'bestand' &&
 			part.material !== 'ghost' &&
 			!isStructural(part) &&
-			widthOf(part, plan) * scale < minContourPx
+			widthOf(part, elevation, cache) * scale < minContourPx
 		)
 			unoutlined.add(part);
 	}

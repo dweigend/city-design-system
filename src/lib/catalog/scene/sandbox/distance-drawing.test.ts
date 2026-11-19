@@ -4,7 +4,7 @@ import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import { deckParts } from '../../logic/walkway/span';
 import { distanceDrawing, sameDrawing } from './distance-drawing';
 
-const city = { plan: true, block: true, scale: 2.5, minContourPx: 6 };
+const city = { elevation: Math.PI / 2, block: true, scale: 2.5, minContourPx: 6 };
 const ring: Primitive = {
 	id: 'stop',
 	kind: 'torus',
@@ -12,6 +12,7 @@ const ring: Primitive = {
 	radius: 10,
 	tube: 0.2,
 	role: 'neu',
+	material: 'concrete',
 	token: '--cat-nature'
 };
 
@@ -34,6 +35,7 @@ test('a narrow path keeps its fill when viewed diagonally in the plan', () => {
 		size: [20, 2, 1],
 		rotation: Math.PI / 4,
 		role: 'neu',
+		material: 'concrete',
 		token: '--cat-nature'
 	};
 	expect(distanceDrawing([path], city).unoutlined.has(path)).toBe(true);
