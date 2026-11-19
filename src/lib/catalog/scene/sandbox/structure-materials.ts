@@ -171,7 +171,8 @@ export function structureMaterials() {
 			materials.rail.visible = style.kamera.pxProM > MASSSTAB.quartier;
 			envelopeShadows = huelle.schatten;
 			applyStructuralStyle(style, variant, scale);
-			return Boolean(tones);
+			const detailChanged = explicit.setDetail(style.rollen.weg.level !== 'block');
+			return detailChanged || Boolean(tones);
 		},
 		/** Releases shared materials. Mesh geometry belongs to the structure layer. */
 		dispose() {

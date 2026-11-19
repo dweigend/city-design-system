@@ -5,11 +5,13 @@ import { materialAusfuehrungen } from '../../data/materialAusfuehrung';
 import { rezept, voreinstellung } from '../../logic/material/rezept';
 import { materialLook } from '../../logic/parametrik/material';
 import type { ColorToken, FinishId } from '../../logic/parametrik/types';
+import { printedFinish } from './printed-finish';
 import { finishMaterial } from '../material';
 import { createMaterialOberflaechen } from '../materialOberflaeche';
 
 /** Stage-owned materials for explicitly finished surfaces. Changing palette releases cached finishes. */
 export function finishMaterials() {
+	let close = true;
 	const studio = createMaterialOberflaechen();
 	const cache = new Map<string, Material>();
 	let palette: Palette3D = {
@@ -32,7 +34,9 @@ export function finishMaterials() {
 		if (cached) return cached;
 		const spec = materials.find((m) => m.id === id);
 		let face: Material;
-		if (spec) {
+		if (id === 'glaze' || id === 'keramik-glasiert' || id === 'beton-terrazzo') {
+			face = printedFinish(id === 'beton-terrazzo', token, palette, close);
+		} else if (spec) {
 			face = finishMaterial(materialLook(spec.id, token), palette, true);
 		} else {
 			const finish = materialAusfuehrungen.find((m) => m.id === id);
@@ -48,6 +52,12 @@ export function finishMaterials() {
 	return {
 		material,
 		dispose,
+		setDetail(next: boolean) {
+			if (close === next) return false;
+			close = next;
+			dispose();
+			return true;
+		},
 		setPalette(next: Palette3D) {
 			dispose();
 			palette = next;

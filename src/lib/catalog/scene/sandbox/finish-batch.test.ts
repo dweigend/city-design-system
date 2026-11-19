@@ -58,7 +58,7 @@ test('painting a water collage builds a closed draped roof with an independent g
 		p.id.endsWith(':canopy')
 	);
 	assert.ok(roof?.kind === 'mesh');
-	assert.equal(roof.finish, 'keramik-orange-blau');
+	assert.equal(roof.finish, 'glaze');
 	const edges = new Map<string, number>();
 	for (let i = 0; i < roof.triangles.length; i += 3) {
 		const tri = roof.triangles.slice(i, i + 3);
@@ -79,7 +79,7 @@ test('different forms share one draw mesh per selected finish', async () => {
 		const parts = Object.values(forms).filter((p) => p.kind !== 'polyline');
 		const group = populateStructures(
 			parts.flatMap((p) => [
-				{ ...p, finish: 'keramik-orange-blau' as const },
+				{ ...p, finish: 'glaze' as const },
 				{ ...p, finish: 'beton-terrazzo' as const }
 			]),
 			pool,
@@ -88,9 +88,9 @@ test('different forms share one draw mesh per selected finish', async () => {
 		const hits: Mesh[] = group.userData.hits;
 		assert.equal(hits.length, 2);
 		const [glaze, terrazzo] = hits;
-		assert.equal(glaze.material, pool.explicit.material('keramik-orange-blau', forms.mesh.token));
+		assert.equal(glaze.material, pool.explicit.material('glaze', forms.mesh.token));
 		assert.equal(terrazzo.material, pool.explicit.material('beton-terrazzo', forms.mesh.token));
-		for (const attribute of ['position', 'normal', 'uv']) {
+		for (const attribute of ['position', 'normal', 'uv', 'finishChart']) {
 			const values = glaze.geometry.getAttribute(attribute).array;
 			assert.ok(values.length && values.every(Number.isFinite));
 			assert.deepEqual(values, terrazzo.geometry.getAttribute(attribute).array);

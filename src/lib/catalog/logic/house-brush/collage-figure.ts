@@ -71,7 +71,7 @@ export function collageFigure(
 			return [
 				{
 					...part(id + ':canopy', token, drapedRoof(at, z, Math.min(r * 0.4, STORY * 0.35))),
-					finish: 'keramik-orange-blau'
+					finish: 'glaze'
 				},
 				pedestal,
 				part(id, token, {
@@ -116,7 +116,7 @@ export function collageFigure(
 					})
 				];
 			});
-			return [planter, ...trees];
+			return [{ ...planter, finish: 'beton-terrazzo' }, ...trees];
 		}
 		case 'material':
 			return [
