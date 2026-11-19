@@ -1,5 +1,6 @@
 import { Group } from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
+import { TWO_SUNS_MAST, TWO_SUNS_PERIOD_S, TWO_SUNS_TURNING_DISC } from '../../logic/sandbox';
 import { dockPose } from './docking';
 
 import { poseSampler, type Pose } from './pose-sampler';
@@ -26,6 +27,17 @@ function canopyPose(crowns: Primitive[], strength: number): Pose | undefined {
 			-strength * 0.1 * gust * gust,
 			(strength * gust) / 3 + cz * (1 - c) + cx * sin
 		);
+	};
+}
+
+function orbitPose([x, y]: readonly number[]): Pose {
+	const z = -y;
+	return (group, seconds) => {
+		const angle = ((seconds % TWO_SUNS_PERIOD_S) / TWO_SUNS_PERIOD_S) * 2 * Math.PI;
+		const c = Math.cos(angle);
+		const s = Math.sin(angle);
+		group.rotation.y = angle;
+		group.position.set(x * (1 - c) - z * s, 0, z * (1 - c) + x * s);
 	};
 }
 
@@ -67,9 +79,13 @@ export function kineticGroups(
 			? !p.id.includes(':trunk')
 			: p.kind === 'sphere' && p.role === 'neu' && /:fruit\d+$/.test(p.id);
 	const crowns = wind ? parts.filter(isCrown) : [];
-	const rigid = crowns.length ? parts.filter((p) => !isCrown(p)) : parts;
+	const mast = parts.find((p) => p.id === TWO_SUNS_MAST && p.kind === 'cylinder');
+	const disc = mast && parts.find((p) => p.id === TWO_SUNS_TURNING_DISC);
+	const rigid =
+		crowns.length || disc ? parts.filter((p) => p !== disc && !(wind && isCrown(p))) : parts;
 	if (placedAt === undefined || forest) add(rigid);
 	else splitDocked(rigid, placedAt, add);
 	add(crowns, canopyPose(crowns, forest ? 0.12 : 0.045));
+	if (mast?.kind === 'cylinder' && disc) add([disc], orbitPose(mast.position));
 	return { batches, motion };
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { focusModes } from '../data/focus';
 	import { keyboard } from '../ui/keyboard.svelte';
-	import { Toggle } from 'bits-ui';
+	import { Popover, Toggle } from 'bits-ui';
 	import { Map as MapIcon, Pause, Play, Volume2, VolumeX } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import Button from '../ui/Button.svelte';
@@ -119,18 +119,34 @@
 				Terrain {session.world.seed}
 			{/if}
 		</p>
-		<dl class="store" aria-label="Material store" aria-live="polite">
-			<dt bind:this={storeTarget}>Store</dt>
+		{#snippet inventory()}
 			{#each store as entry (entry.id)}
-				<dd class="inventory-detail">
-					<span class="dot" style:--dot={entry.color}></span>{entry.count}
-					{entry.name}
-				</dd>
+				<dd><span class="dot" style:--dot={entry.color}></span>{entry.count} {entry.name}</dd>
 			{:else}
-				<dd class="inventory-detail">0</dd>
+				<dd>0</dd>
 			{/each}
-			<dd class="inventory-total">{store.reduce((count, entry) => count + entry.count, 0)}</dd>
-		</dl>
+		{/snippet}
+		<div class="store-target" bind:this={storeTarget}>
+			<dl class="store desktop-store" aria-label="Material store" aria-live="polite">
+				<dt>Store</dt>
+				{@render inventory()}
+			</dl>
+			<div class="mobile-store">
+				<Popover.Root>
+					<Popover.Trigger class="cg-mobile-store">
+						Store {store.reduce((count, entry) => count + entry.count, 0)}
+					</Popover.Trigger>
+					<Popover.Portal>
+						<Popover.Content class="cg-store-popover" aria-label="Material store" align="start">
+							<dl class="store" aria-live="polite">
+								<dt>Store</dt>
+								{@render inventory()}
+							</dl>
+						</Popover.Content>
+					</Popover.Portal>
+				</Popover.Root>
+			</div>
+		</div>
 	</header>
 	<div class="mode">
 		<Toggle.Root
@@ -248,7 +264,7 @@
 		gap: var(--space-1);
 		margin: 0;
 	}
-	.store .inventory-total {
+	.mobile-store {
 		display: none;
 	}
 	.dot {
@@ -284,6 +300,16 @@
 		color: var(--ink);
 		box-shadow: inset 0 calc(-1 * var(--stroke)) var(--signal);
 	}
+	:global(.cg-store-popover) {
+		z-index: 2;
+		max-width: calc(100vw - 2 * var(--space-2));
+		padding: var(--space-2);
+		background: var(--paper);
+		border: var(--hair) solid var(--line);
+	}
+	:global(.cg-store-popover) .store {
+		margin: 0;
+	}
 	@media (max-width: 640px) {
 		.mode {
 			top: var(--space-2);
@@ -298,21 +324,27 @@
 			margin-left: auto;
 		}
 		header {
-			display: flex;
-			align-items: baseline;
-			gap: var(--space-2);
+			max-width: calc(100% - 3 * var(--sandbox-target) - 5 * var(--space-2));
+			justify-items: start;
 		}
 		.brand,
 		.readout,
-		.store .inventory-detail {
+		.desktop-store {
 			display: none;
 		}
-		.store {
-			margin-top: 0;
-			gap: var(--space-1);
+		.mobile-store {
+			display: block;
+			pointer-events: auto;
 		}
-		.store .inventory-total {
-			display: inline;
+		.mobile-store :global(.cg-mobile-store) {
+			min-width: var(--sandbox-target);
+			min-height: var(--sandbox-target);
+			padding: 0 var(--space-2);
+			background: var(--paper);
+			border: var(--hair) solid var(--line);
+			color: var(--ink);
+			font: inherit;
+			cursor: pointer;
 		}
 		.mode .time :global(.cg-button) {
 			min-width: var(--sandbox-target);

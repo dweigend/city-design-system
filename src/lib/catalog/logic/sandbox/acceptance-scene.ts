@@ -1,3 +1,4 @@
+import { twoSuns } from './two-suns';
 import { advanceFrames } from './frame-construction';
 import { walkwayParts, WALKWAY_WIDTH_M } from '../walkway';
 import type { Primitive, Vec3 } from '../parametrik/types';
@@ -151,7 +152,7 @@ export function acceptanceScene(seed = SEED) {
 	return {
 		world,
 		earliestFullYear: start.state.year,
-		additions: elevatedWalkway(world),
+		additions: [...elevatedWalkway(world), ...(seed === SEED ? twoSuns(world) : [])],
 		frame: FRAME,
 		portraitFrame: PORTRAIT_FRAME
 	};
