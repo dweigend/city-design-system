@@ -24,23 +24,11 @@ import {
 	typen,
 	verformen,
 	type Genom,
-	type Palette,
 	type Puffer,
 	type Turmpuffer
 } from './index';
 
-const pal: Palette = {
-	papier: [1, 1, 1],
-	tinte: [0.07, 0.07, 0.07],
-	signal: [0.88, 0.19, 0.12],
-	strom: [
-		[0.9, 0.28, 0.6],
-		[0.18, 0.61, 0.88],
-		[0.95, 0.82, 0.18],
-		[0.21, 0.66, 0.33],
-		[0.95, 0.55, 0.16]
-	]
-};
+import { pal } from '../../../../../../scripts/test-fixtures/formlabor';
 const klassen = ['gross', 'mittel', 'grob', 'haut'] as const;
 const baue = (g: Genom, saat: number, in_ = turmpuffer()) => {
 	leere(in_);
@@ -229,13 +217,6 @@ describe('L14 Morph', () => {
 		let gemeinsam = 0;
 		for (const id of a.keys()) if (b.has(id)) gemeinsam++;
 		expect(gemeinsam / a.size).toBeGreaterThan(0.97);
-	});
-	test('the plan stays within the budget of one frame', () => {
-		const p = turmpuffer();
-		for (let i = 0; i < 20; i++) baue(strecke(i * 0.3), 19, p);
-		const start = performance.now();
-		for (let i = 0; i < 100; i++) baue(strecke((i * 0.07) % 7), 19, p);
-		expect((performance.now() - start) / 100).toBeLessThan(4);
 	});
 });
 

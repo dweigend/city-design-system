@@ -3,6 +3,7 @@ const steps = [
 	'lint',
 	'check',
 	'test',
+	'test:perf',
 	'check:boundaries',
 	'check:fallow',
 	'check:skills',

@@ -407,7 +407,7 @@ test('H10: deformation classes follow the span; an empty house states its dead l
 	assert.ok(leer.lager.reduce((s, l) => s + l.druckN, 0) >= eigengewichtN(leer));
 });
 
-test('H11: the upper chord stays continuous and mirrored in all 81 seed classes', () => {
+function assertUpperChordSeedClasses() {
 	const klassen = new Map<string, number>();
 	for (let saat = 0; saat < 10000; saat++) {
 		const key = JSON.stringify(hausParameter(saat));
@@ -438,7 +438,14 @@ test('H11: the upper chord stays continuous and mirrored in all 81 seed classes'
 			}
 		assert.ok(statik.kennzahlen.ausnutzungMax <= 1 + 1e-9);
 	}
-});
+}
+
+// The full seed sweep checks geometry and statics. Its runner timeout only guards hangs.
+test(
+	'H11: the upper chord stays continuous and mirrored in all 81 seed classes',
+	{ timeout: 60_000 },
+	assertUpperChordSeedClasses
+);
 
 test('H12: the footbridge reserve used by the generator detects a strut through its middle', () => {
 	for (const saat of [42, 7, 1234]) {

@@ -1,5 +1,6 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
+import { cpuMilliseconds, median, warmMedian } from '../../../../../scripts/performance-sample';
 import { createTerrain, valleyPoint } from '../terrain';
 import { deriveGrid, MODULE, regrid } from './index';
 
@@ -20,12 +21,6 @@ const sites = [
 	[120, 78]
 ];
 
-function median(times: number[]) {
-	times.sort((a, b) => a - b);
-	const middle = Math.floor(times.length / 2);
-	return times.length % 2 === 0 ? (times[middle - 1] + times[middle]) / 2 : times[middle];
-}
-
 test(
 	'performance: warm basin regrid stays within a 40 ms median across eight sites',
 	() => {
@@ -38,17 +33,9 @@ test(
 				edits: [{ kind: 'basin', radius: BASIN_RADIUS_METERS, center }]
 			});
 		});
-		const measureRun = () =>
-			median(
-				basins.map((dug) => {
-					const start = performance.now();
-					regrid(grid, dug);
-					return performance.now() - start;
-				})
-			);
-		for (let run = 0; run < WARMUP_RUNS; run++) measureRun();
-		const medianMs = median(Array.from({ length: MEASURED_RUNS }, measureRun));
-		console.info('Warm basin regrid median:', medianMs.toFixed(2), 'ms');
+		const measureRun = () => median(basins.map((dug) => cpuMilliseconds(() => regrid(grid, dug))));
+		const medianMs = warmMedian(measureRun, WARMUP_RUNS, MEASURED_RUNS);
+		console.info('Warm basin regrid median:', medianMs.toFixed(2), 'ms CPU');
 		expect(medianMs).toBeLessThanOrEqual(REGRID_BUDGET_MS);
 	},
 	TEST_TIMEOUT_MS
