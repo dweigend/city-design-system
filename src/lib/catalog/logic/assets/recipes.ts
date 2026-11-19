@@ -1,3 +1,4 @@
+import { fountains } from './objects/fountains';
 import { wayfinding } from './objects/wayfinding';
 import { cycleFurniture } from './objects/cycle-furniture';
 import { recreation } from './objects/recreation';
@@ -150,5 +151,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...shade,
 	...recreation,
 	...cycleFurniture,
-	...wayfinding
+	...wayfinding,
+	...fountains
 ];
