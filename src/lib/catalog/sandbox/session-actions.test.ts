@@ -1,8 +1,8 @@
 // @ts-expect-error Bun provides this test API at runtime.
 import { expect, test } from 'bun:test';
 import { sandboxGenerationYears } from '../data/sandbox';
-import { openingScene } from '../logic/sandbox';
-import { storedModules, type StrokeRelease } from './feedback';
+import { applyStroke, openingScene } from '../logic/sandbox';
+import { storedModules, type Completion, type StrokeRelease } from './feedback';
 import { createSessionActions } from './session-actions';
 
 const { world } = openingScene(7);
@@ -57,17 +57,38 @@ test('New terrain waits for its earlier stroke and rejects a later dig on the ol
 	expect(actions.snapshot().canUndo).toBe(false);
 });
 
-test('a queued stroke is discarded if the committed city changed since its first hit', () => {
+test('a queued stroke cannot build on a target changed by an earlier stroke', () => {
 	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
 	const a = stroke('80/44');
+	const b = stroke('80/44');
 	actions.release(a);
-	actions.release(dig);
-	actions.commitRelease(dig);
+	expect(actions.release(b)).toBe(true);
+	actions.commitRelease(b);
 	expect(actions.snapshot().world).toBe(world);
 	actions.commitRelease(a);
 	expect(actions.snapshot().world.state.stacks.get('80/44')).toEqual(['living']);
-	expect(actions.snapshot().world.state.edits).toEqual(world.state.edits);
-	expect(actions.snapshot().world.state.store).toEqual(world.state.store);
+	expect(actions.release(b)).toBe(false);
+	actions.undo();
+	expect(actions.snapshot().world.state).toBe(world.state);
+});
+
+test('a basin invalidates only strokes whose target cells changed on the grid', () => {
+	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
+	const raisedBank = stroke('75/38');
+	const inland = stroke('81/44');
+	const dug = applyStroke(world, dig.tool, dig.cellIds).draft;
+	expect(dug.grid.cellsById.get('75/38')?.buildable).toBe(true);
+	expect(dug.grid.cellsById.get('75/38')).not.toBe(world.grid.cellsById.get('75/38'));
+	expect(dug.state.stacks.get('75/38')).toBe(world.state.stacks.get('75/38'));
+	actions.release(dig);
+	actions.release(raisedBank);
+	actions.release(inland);
+	actions.commitRelease(raisedBank);
+	actions.commitRelease(inland);
+	actions.commitRelease(dig);
+	expect(actions.snapshot().world.state.stacks.get('75/38')).toBeUndefined();
+	expect(actions.snapshot().world.state.stacks.get('81/44')).toEqual(['living']);
+	expect(actions.snapshot().world.state.edits).toEqual(dug.state.edits);
 });
 
 test('repeated New terrain requests resolve to successive seeds behind a paused stroke', () => {
@@ -120,4 +141,29 @@ test('Advance just after release runs once and the stroke keeps its earlier year
 	const placed = actions.snapshot().world.state;
 	expect(placed.year).toBe(year);
 	expect(placed.stacks.get('80/44')).toEqual(['living']);
+});
+
+test('all completion listeners receive the same events before a listener-enqueued edit runs', () => {
+	const actions = createSessionActions(world, sandboxGenerationYears, () => {});
+	const records: Completion[][] = [[], [], []];
+	actions.onCompletion((event) => records[0].push(event));
+	actions.onCompletion((event) => {
+		records[1].push(event);
+		if (event.kind === 'house') {
+			actions.advance();
+			expect(actions.snapshot().world).toBe(event.after);
+		}
+	});
+	actions.onCompletion((event) => records[2].push(event));
+	const a = stroke('80/44');
+	actions.release(a);
+	actions.commitRelease(a);
+	actions.commitRelease(a);
+	for (const events of records) {
+		expect(events.map(({ kind }) => kind)).toEqual(['house', 'advance']);
+		expect(events[0]).toBe(records[0][0]);
+		expect(events[1]).toBe(records[0][1]);
+		expect(events[0].after).toBe(events[1].before);
+	}
+	expect(actions.snapshot().world.state.year).toBe(world.state.year + sandboxGenerationYears);
 });

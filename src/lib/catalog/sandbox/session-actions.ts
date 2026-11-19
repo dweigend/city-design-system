@@ -5,6 +5,7 @@ import {
 	openingScene,
 	redo,
 	startHistory,
+	strokeTargetsUnchanged,
 	undo,
 	withState,
 	type Stroke,
@@ -39,6 +40,7 @@ export function createSessionActions(
 	let rejection: Stroke['failure'];
 	const queue: Command[] = [];
 	const completionListeners = new Set<(value: Completion) => void>();
+	let draining = false;
 
 	function snapshot(): SessionState {
 		return {
@@ -52,10 +54,11 @@ export function createSessionActions(
 
 	function edit(next: World, kind: Completion['kind'], cellIds: readonly string[] = []) {
 		if (next === world) return;
-		completion = { kind, before: world, after: next, cellIds };
+		const event = { kind, before: world, after: next, cellIds };
+		completion = event;
 		world = next;
 		history = commit(history, next.state);
-		for (const listener of completionListeners) listener(completion);
+		for (const listener of [...completionListeners]) listener(event);
 	}
 
 	function restore(next: typeof history) {
@@ -65,12 +68,8 @@ export function createSessionActions(
 		completion = undefined;
 	}
 
-	function matches({ base }: StrokeRelease) {
-		return base.seed === world.seed && base.state === world.state;
-	}
-
 	function place(release: StrokeRelease) {
-		if (!matches(release)) return;
+		if (!strokeTargetsUnchanged(release, world)) return;
 		const { tool, cellIds } = release;
 		const { draft, failure } = applyStroke(world, tool, cellIds);
 		rejection = failure;
@@ -96,11 +95,17 @@ export function createSessionActions(
 	}
 
 	function drain() {
-		while (queue.length) {
-			const command = queue[0];
-			if (command.kind === 'stroke' && !command.ready) break;
-			queue.shift();
-			execute(command);
+		if (draining) return;
+		draining = true;
+		try {
+			while (queue.length) {
+				const command = queue[0];
+				if (command.kind === 'stroke' && !command.ready) break;
+				queue.shift();
+				execute(command);
+			}
+		} finally {
+			draining = false;
 		}
 		publish(snapshot());
 	}
@@ -119,12 +124,12 @@ export function createSessionActions(
 				completionListeners.delete(listener);
 			};
 		},
-		/** Reserves a stroke only if its displayed world still belongs at the end of the queue. */
+		/** Reserves a stroke if its targets still match and no restart is ahead of it. */
 		release(release: StrokeRelease) {
-			if (!matches(release)) return false;
+			if (!strokeTargetsUnchanged(release, world)) return false;
 			if (queue.some(({ kind }) => kind === 'restart')) return false;
 			queue.push({ kind: 'stroke', release, ready: false });
-			publish(snapshot());
+			drain();
 			return true;
 		},
 		/** Marks this stroke ready to commit after feedback. Earlier commands still go first. */
