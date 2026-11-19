@@ -23,6 +23,7 @@ import { shrub } from './shrub';
 import { treeTrough } from './tree-trough';
 import { roofPlanting } from './roof-planting';
 import { discSculpture } from './disc-sculpture';
+import { ringSculpture } from './ring-sculpture';
 
 export const recipes: readonly AssetRecipe[] = [
 	porthole,
@@ -48,5 +49,6 @@ export const recipes: readonly AssetRecipe[] = [
 	shrub,
 	treeTrough,
 	roofPlanting,
-	discSculpture
+	discSculpture,
+	ringSculpture
 ];
