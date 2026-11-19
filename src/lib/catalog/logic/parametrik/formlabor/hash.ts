@@ -6,11 +6,11 @@
  */
 export { hash } from '../../hash-random';
 
-export const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+export const clampMorph = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
 /** Exact at both ends (t = 0 and t = 1), so the path hits every type bit for bit. */
 export const lerp = (a: number, b: number, t: number) => a * (1 - t) + b * t;
 export const smooth = (a: number, b: number, v: number) => {
-	const t = clamp((v - a) / (b - a));
+	const t = clampMorph((v - a) / (b - a));
 	return t * t * (3 - 2 * t);
 };
 /** Soft threshold: 0 below the random number, 1 above it. Turns “present / absent” into growth. */

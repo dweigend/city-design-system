@@ -62,6 +62,15 @@ export function connectTerminals(
 					return false;
 		return true;
 	};
+	function canTraverse(edge: Connection, to: number, tree: boolean) {
+		if (tree) return chosen.has(edge.id);
+		return (!blocked.has(edge.id) || chosen.has(edge.id)) && allowed(to);
+	}
+
+	function doublesBack(to: number, from: number) {
+		return from >= 0 && ports[to].owner === ports[from].owner;
+	}
+
 	function search(
 		sources: number[],
 		target: (k: number) => boolean,
@@ -81,21 +90,16 @@ export function connectTerminals(
 			const [cost, k] = heap.pop();
 			if (cost !== d[k] || cost > limit) continue;
 			if (target(k)) {
-				const path = [k],
-					edges: Connection[] = [];
-				while (prev[path[0]] >= 0) {
-					edges.unshift(via[path[0]]);
-					path.unshift(prev[path[0]]);
-				}
+				const { path, edges } = retrace(k, prev, via);
 				if (compatible(path, edges)) return { path, edges, cost };
 			}
+			advance(k, cost);
+		}
+		return undefined;
+
+		function advance(k: number, cost: number) {
 			for (const { to, e } of adj[k]) {
-				if (
-					(tree && !chosen.has(e.id)) ||
-					(!tree && ((blocked.has(e.id) && !chosen.has(e.id)) || !allowed(to)))
-				)
-					continue;
-				if (prev[k] >= 0 && ports[to].owner === ports[prev[k]].owner) continue;
+				if (!canTraverse(e, to, tree) || doublesBack(to, prev[k])) continue;
 				const nd = cost + e.cost;
 				if (nd < d[to]) {
 					d[to] = nd;
@@ -105,7 +109,6 @@ export function connectTerminals(
 				}
 			}
 		}
-		return undefined;
 	}
 	const add = (path: number[], edges: Connection[]) => {
 		for (const k of path) used.add(k);
@@ -113,32 +116,67 @@ export function connectTerminals(
 		for (const id of [...path.map((k) => ports[k].id), ...edges.map((e) => e.id)])
 			for (const p of partners.get(id) ?? []) blocked.add(p);
 	};
-	for (const [i, t] of terminals.entries()) {
-		const candidates = t.ports
-			.map((id) => ix.get(id))
-			.filter((k): k is number => k !== undefined && allowed(k));
-		if (i === 0) {
-			if (candidates.length) {
-				add([candidates[0]], []);
-				anchors.set(t.id, ports[candidates[0]].id);
-			} else unreachable.push(t.id);
-			continue;
+	joinTerminals();
+	const loops = addLoops();
+	return {
+		ports: [...used].map((k) => ports[k].id).sort(),
+		edges: [...chosen.values()],
+		anchors,
+		unreachable,
+		rejected: rejected.sort(),
+		loops
+	};
+
+	function joinTerminals() {
+		for (const [i, t] of terminals.entries()) {
+			const candidates = t.ports
+				.map((id) => ix.get(id))
+				.filter((k): k is number => k !== undefined && allowed(k));
+			if (i === 0) {
+				if (candidates.length) {
+					add([candidates[0]], []);
+					anchors.set(t.id, ports[candidates[0]].id);
+				} else unreachable.push(t.id);
+				continue;
+			}
+			const hit = candidates.find((k) => used.has(k));
+			if (hit !== undefined) {
+				anchors.set(t.id, ports[hit].id);
+				continue;
+			}
+			const found = search(candidates, (k) => used.has(k));
+			if (!found) {
+				unreachable.push(t.id);
+				continue;
+			}
+			add(found.path, found.edges);
+			anchors.set(t.id, ports[found.path[0]].id);
 		}
-		const hit = candidates.find((k) => used.has(k));
-		if (hit !== undefined) {
-			anchors.set(t.id, ports[hit].id);
-			continue;
-		}
-		const found = search(candidates, (k) => used.has(k));
-		if (!found) {
-			unreachable.push(t.id);
-			continue;
-		}
-		add(found.path, found.edges);
-		anchors.set(t.id, ports[found.path[0]].id);
 	}
-	let loops = 0;
-	for (; loops < options.loops; loops++) {
+
+	function addLoops() {
+		let loops = 0;
+		for (; loops < options.loops; loops++) {
+			const pairs = rankAnchorPairs();
+			let best: ReturnType<typeof search>,
+				gain = options.ratio;
+			for (const p of pairs.slice(0, options.pairs)) {
+				const f = search([p.a], (k) => k === p.b, p.cost / options.ratio);
+				if (
+					f &&
+					f.path.filter((k) => !used.has(k)).length >= options.fresh &&
+					p.cost / f.cost > gain
+				) {
+					gain = p.cost / f.cost;
+					best = f;
+				}
+			}
+			if (!best) break;
+			add(best.path, best.edges);
+		}
+		return loops;
+	}
+	function rankAnchorPairs() {
 		const as = [...new Set(anchors.values())].sort(),
 			pairs: { a: number; b: number; cost: number; rank: number }[] = [];
 		for (let i = 0; i < as.length; i++)
@@ -158,28 +196,16 @@ export function connectTerminals(
 				});
 			}
 		pairs.sort((a, b) => b.rank - a.rank || a.a - b.a || a.b - b.b);
-		let best: ReturnType<typeof search>,
-			gain = options.ratio;
-		for (const p of pairs.slice(0, options.pairs)) {
-			const f = search([p.a], (k) => k === p.b, p.cost / options.ratio);
-			if (
-				f &&
-				f.path.filter((k) => !used.has(k)).length >= options.fresh &&
-				p.cost / f.cost > gain
-			) {
-				gain = p.cost / f.cost;
-				best = f;
-			}
-		}
-		if (!best) break;
-		add(best.path, best.edges);
+		return pairs;
 	}
-	return {
-		ports: [...used].map((k) => ports[k].id).sort(),
-		edges: [...chosen.values()],
-		anchors,
-		unreachable,
-		rejected: rejected.sort(),
-		loops
-	};
+}
+
+function retrace(k: number, prev: Int32Array, via: Connection[]) {
+	const path = [k],
+		edges: Connection[] = [];
+	while (prev[path[0]] >= 0) {
+		edges.unshift(via[path[0]]);
+		path.unshift(prev[path[0]]);
+	}
+	return { path, edges };
 }

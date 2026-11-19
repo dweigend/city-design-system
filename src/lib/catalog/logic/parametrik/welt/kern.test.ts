@@ -53,36 +53,7 @@ for (const { id: raster } of rasterarten)
 			const b = belegung(r, p),
 				before = Object.entries(b.samples).filter(([, s]) => s.group === 'bestand'),
 				n = wegeKern(r, b, 2);
-			const adj = n.knoten.map(() => [] as number[]);
-			for (const [a, c] of n.kanten) {
-				adj[a].push(c);
-				adj[c].push(a);
-				const [v, l] = n.knoten[a],
-					[w, m] = n.knoten[c],
-					A = required(r.point.get(v), 'r.point.get(v)'),
-					B = required(r.point.get(w), 'r.point.get(w)'),
-					d = Math.hypot(A[0] - B[0], A[1] - B[1]);
-				if (l || m) expect(d).toBeLessThanOrEqual(SPANNWEITE + 1e-6);
-				if (l !== m) {
-					expect(Math.abs(l - m)).toBe(1);
-					expect(d).toBeGreaterThanOrEqual(LAUF_MIN);
-					expect(d).toBeLessThanOrEqual(LAUF_MAX);
-					expect(r.nb.get(v)).toContain(w);
-				} else
-					expect(
-						required(r.nb.get(v), 'r.nb.get(v)').includes(w) ||
-							r.patch.faces.some((f) => f.vertices.includes(v) && f.vertices.includes(w))
-					).toBe(true);
-			}
-			const seen = new Set([n.start]),
-				q = [n.start];
-			for (let i = 0; i < q.length; i++)
-				for (const w of adj[q[i]])
-					if (!seen.has(w)) {
-						seen.add(w);
-						q.push(w);
-					}
-			expect(seen.size).toBe(n.knoten.length);
+			checkNetwork(r, n);
 			for (const [v, l] of n.knoten) {
 				expect(b.samples[address(v, l + 1)]?.group).not.toBe(WEG);
 			}
@@ -97,6 +68,49 @@ for (const { id: raster } of rasterarten)
 			expect(n.tour.length).toBeGreaterThanOrEqual(2);
 			expect(n.tour.flat().every(Number.isFinite)).toBe(true);
 		});
+
+function checkNetwork(r: ReturnType<typeof lageKern>, n: ReturnType<typeof wegeKern>) {
+	const adj = n.knoten.map(() => [] as number[]);
+	for (const [a, c] of n.kanten) {
+		adj[a].push(c);
+		adj[c].push(a);
+		checkEdge(r, n, a, c);
+	}
+	const seen = new Set([n.start]),
+		q = [n.start];
+	for (let i = 0; i < q.length; i++)
+		for (const w of adj[q[i]])
+			if (!seen.has(w)) {
+				seen.add(w);
+				q.push(w);
+			}
+	expect(seen.size).toBe(n.knoten.length);
+}
+
+function checkEdge(
+	r: ReturnType<typeof lageKern>,
+	n: ReturnType<typeof wegeKern>,
+	a: number,
+	c: number
+) {
+	const [v, l] = n.knoten[a],
+		[w, m] = n.knoten[c],
+		A = required(r.point.get(v), 'r.point.get(v)'),
+		B = required(r.point.get(w), 'r.point.get(w)'),
+		d = Math.hypot(A[0] - B[0], A[1] - B[1]);
+	if (l || m) expect(d).toBeLessThanOrEqual(SPANNWEITE + 1e-6);
+	if (l !== m) {
+		expect(Math.abs(l - m)).toBe(1);
+		expect(d).toBeGreaterThanOrEqual(LAUF_MIN);
+		expect(d).toBeLessThanOrEqual(LAUF_MAX);
+		expect(r.nb.get(v)).toContain(w);
+	} else
+		expect(
+			required(r.nb.get(v), 'r.nb.get(v)').includes(w) ||
+				r.patch.faces.some((f) => f.vertices.includes(v) && f.vertices.includes(w))
+		).toBe(true);
+}
+
 for (const raster of ['quadrat', 'achsen', 'dreieck', 'sechseck'] as const)
 	test(`kernel preserves cell sets ${raster}`, () => {
 		const p = { ...weltDefaults, raster, relax: 0 },

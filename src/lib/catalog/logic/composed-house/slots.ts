@@ -15,44 +15,100 @@ function slot(
 	return { id, anchor, kind, position, size, use, facing: [0, -1] };
 }
 function tierSlots(s: Section, i: number): HouseSlot[] {
-	const deck = s.decks[i],
-		[x, y, z] = deck.position,
-		id = s.id + '/tier/' + i;
-	if (deck.kind === 'void' || deck.kind === 'gallery') {
-		if (i !== s.decks.findIndex((d) => d.kind === 'void' || d.kind === 'gallery')) return [];
-		return [
-			slot(
-				id + '/planter',
-				'deck',
-				'grove',
-				[x, y - deck.depth * 0.24, z],
-				[
-					deck.width * 0.55,
-					deck.depth * 0.25,
-					Math.min(STORY, (s.decks[i + 1].position[2] - z) * 0.55)
-				],
-				'food'
-			)
-		];
-	}
+	const deck = s.decks[i];
+	const id = s.id + '/tier/' + i;
+	if (deck.kind === 'void' || deck.kind === 'gallery') return planterSlots(s, i, id);
+	return occupiedSlots(s, i, id, deck.kind);
+}
+
+function planterSlots(s: Section, i: number, id: string): HouseSlot[] {
+	const deck = s.decks[i];
+	const [x, y, z] = deck.position;
+	if (i !== s.decks.findIndex((d) => d.kind === 'void' || d.kind === 'gallery')) return [];
+	return [
+		slot(
+			id + '/planter',
+			'deck',
+			'grove',
+			[x, y - deck.depth * 0.24, z],
+			[
+				deck.width * 0.55,
+				deck.depth * 0.25,
+				Math.min(STORY, (s.decks[i + 1].position[2] - z) * 0.55)
+			],
+			'food'
+		)
+	];
+}
+
+function occupiedSlots(
+	s: Section,
+	i: number,
+	id: string,
+	kind: Exclude<Section['decks'][number]['kind'], 'gallery' | 'void'>
+): HouseSlot[] {
+	const deck = s.decks[i];
+	const [x, y, z] = deck.position;
 	const crown = i === s.decks.length - 1,
 		round = deck.round;
-	const w = deck.width * (round ? 0.71 : 0.81),
-		d = deck.depth * (round ? 0.67 : deck.kind === 'grove' ? 0.66 : 0.74);
+	const [w, d] = tierDimensions(deck);
 	const clearance = (s.decks[i + 1]?.position[2] ?? s.top) - z;
 	const h = crown
 		? clearance * 0.87
 		: Math.min(clearance * 0.68, Math.max(1.2, Math.min(w, d) * 0.48), STORY * 1.15);
-	const bx = x + (deck.kind === 'grove' && !round ? -deck.width * 0.08 : 0);
+	const setBackGrove = deck.kind === 'grove' && !round;
+	const bx = x + (setBackGrove ? -deck.width * 0.08 : 0);
 	const body = slot(
 		id + '/body',
-		deck.kind === 'dome' ? 'roof' : 'deck',
-		deck.kind,
-		[bx, y - (deck.kind === 'grove' && !round ? deck.depth * 0.12 : 0), z],
+		kind === 'dome' ? 'roof' : 'deck',
+		kind,
+		[bx, y - (setBackGrove ? deck.depth * 0.12 : 0), z],
 		[w, d, h],
 		deck.use
 	);
 	const parts = [body];
+	addTierAttachments(parts, s, i, id, { bx, y, z, w, d, h, clearance });
+	return parts;
+}
+
+/** Reserves equipment and facade attachments independently of the primitive provider. */
+export function assetSlots(s: Section, uses: HouseUse[]) {
+	const slots = s.decks.flatMap((_, i) => tierSlots(s, i));
+	const services = [...new Set(uses)].filter((use) => use !== 'living').sort();
+	services.forEach((use, i) => {
+		const [x, y, z] = s.base;
+		const size = Math.min((s.width / (services.length + 1)) * 0.72, s.depth * 0.19, 2);
+		slots.push(
+			slot(
+				s.id + '/supply/' + use,
+				'ground',
+				'reservoir',
+				[x + s.width * 0.42, y + s.depth * ((i + 0.5) / services.length - 0.5) * 0.8, z],
+				[size, size, Math.min(2.4, s.decks[0].position[2] - z - 0.2)],
+				use
+			)
+		);
+	});
+	return slots;
+}
+
+function addTierAttachments(
+	parts: HouseSlot[],
+	s: Section,
+	i: number,
+	id: string,
+	{
+		bx,
+		y,
+		z,
+		w,
+		d,
+		h,
+		clearance
+	}: { bx: number; y: number; z: number; w: number; d: number; h: number; clearance: number }
+) {
+	const deck = s.decks[i];
+	const crown = i === s.decks.length - 1;
 	if (deck.kind === 'solar' || deck.kind === 'workshop')
 		parts.push({
 			...slot(
@@ -87,26 +143,11 @@ function tierSlots(s: Section, i: number): HouseSlot[] {
 				deck.use
 			)
 		);
-	return parts;
 }
 
-/** Reserves equipment and facade attachments independently of the primitive provider. */
-export function assetSlots(s: Section, uses: HouseUse[]) {
-	const slots = s.decks.flatMap((_, i) => tierSlots(s, i));
-	const services = [...new Set(uses)].filter((use) => use !== 'living').sort();
-	services.forEach((use, i) => {
-		const [x, y, z] = s.base;
-		const size = Math.min((s.width / (services.length + 1)) * 0.72, s.depth * 0.19, 2);
-		slots.push(
-			slot(
-				s.id + '/supply/' + use,
-				'ground',
-				'reservoir',
-				[x + s.width * 0.42, y + s.depth * ((i + 0.5) / services.length - 0.5) * 0.8, z],
-				[size, size, Math.min(2.4, s.decks[0].position[2] - z - 0.2)],
-				use
-			)
-		);
-	});
-	return slots;
+function tierDimensions(deck: Section['decks'][number]) {
+	return [
+		deck.width * (deck.round ? 0.71 : 0.81),
+		deck.depth * (deck.round ? 0.67 : deck.kind === 'grove' ? 0.66 : 0.74)
+	];
 }

@@ -143,12 +143,7 @@ describe('L14 tower plan', () => {
 				const d = p[k].daten,
 					phase = d[o + FELD.phase];
 				phasen.add(phase);
-				if (phase === PHASE.bestand) {
-					expect(d[o + FELD.traeger]).toBe(0);
-					for (let c = 0; c < 3; c++) expect(d[o + FELD.farbe + c]).toBeGreaterThan(0.9);
-				}
-				if (phase === PHASE.rahmen)
-					for (let c = 0; c < 3; c++) expect(d[o + FELD.farbe + c]).toBeCloseTo(pal.signal[c], 5);
+				checkPhaseColor(d, o, phase);
 			}
 		expect([...phasen].sort()).toEqual([0, 1, 2, 3, 4, 5]);
 	});
@@ -281,3 +276,16 @@ describe('L14 position layer and ports', () => {
 		}
 	});
 });
+
+function checkPhaseColor(
+	d: ReturnType<typeof baue>['p']['gross']['daten'],
+	o: number,
+	phase: number
+) {
+	if (phase === PHASE.bestand) {
+		expect(d[o + FELD.traeger]).toBe(0);
+		for (let c = 0; c < 3; c++) expect(d[o + FELD.farbe + c]).toBeGreaterThan(0.9);
+	}
+	if (phase === PHASE.rahmen)
+		for (let c = 0; c < 3; c++) expect(d[o + FELD.farbe + c]).toBeCloseTo(pal.signal[c], 5);
+}

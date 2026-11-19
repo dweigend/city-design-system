@@ -1,6 +1,16 @@
 import type { GridGenerator, GridKind, ParamSpec, Point2 } from '../vocab';
 import { random } from '../random';
-import { area, cell, clip, convexParts, cross, grid, intersect, key, subdivide } from './geometry';
+import {
+	shoelaceArea,
+	cell,
+	clip,
+	convexParts,
+	turnCross,
+	grid,
+	intersect,
+	key,
+	subdivide
+} from './geometry';
 const param = (
 	key: string,
 	label: string,
@@ -77,7 +87,9 @@ function irregular(n: number, s: number, seed: number, iterations: number) {
 					Math.atan2(a[1] - center[1], a[0] - center[0]) -
 					Math.atan2(b[1] - center[1], b[0] - center[0])
 			);
-			if (vertices.every((v, k) => cross(v, vertices[(k + 1) % 4], vertices[(k + 2) % 4]) > 1e-8)) {
+			if (
+				vertices.every((v, k) => turnCross(v, vertices[(k + 1) % 4], vertices[(k + 2) % 4]) > 1e-8)
+			) {
 				polys.push(vertices);
 				used.add(j);
 				merged = true;
@@ -116,7 +128,9 @@ function irregular(n: number, s: number, seed: number, iterations: number) {
 			);
 		}
 		const candidate = quads.map((p) => p.map((v) => moved.get(key(v))!));
-		if (candidate.every((p) => p.every((v, i) => cross(v, p[(i + 1) % 4], p[(i + 2) % 4]) > 1e-8)))
+		if (
+			candidate.every((p) => p.every((v, i) => turnCross(v, p[(i + 1) % 4], p[(i + 2) % 4]) > 1e-8))
+		)
 			quads = candidate;
 	}
 	return grid(
@@ -125,12 +139,16 @@ function irregular(n: number, s: number, seed: number, iterations: number) {
 	);
 }
 function validateBoundary(p: Point2[]) {
-	if (p.length < 3 || p.some((v) => v.some((n) => !Number.isFinite(n))) || Math.abs(area(p)) < 1e-7)
+	if (
+		p.length < 3 ||
+		p.some((v) => v.some((n) => !Number.isFinite(n))) ||
+		Math.abs(shoelaceArea(p)) < 1e-7
+	)
 		throw new Error('A nondegenerate simple polygon is required');
 }
 /** Drops duplicate and collinear vertices; returns a CCW polygon. */
 function tidy(p: Point2[]): Point2[] {
-	const q = area(p) > 0 ? [...p] : [...p].reverse();
+	const q = shoelaceArea(p) > 0 ? [...p] : [...p].reverse();
 	for (let changed = true; changed && q.length > 3;) {
 		changed = false;
 		for (let i = 0; i < q.length; i++) {
@@ -138,7 +156,7 @@ function tidy(p: Point2[]): Point2[] {
 				b = q[i],
 				c = q[(i + 1) % q.length];
 			const len = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1;
-			if (key(a) === key(b) || Math.abs(cross(a, b, c)) < 1e-7 * len) {
+			if (key(a) === key(b) || Math.abs(turnCross(a, b, c)) < 1e-7 * len) {
 				q.splice(i, 1);
 				changed = true;
 				break;
@@ -153,12 +171,12 @@ function loops(p: Point2[]): Point2[][] {
 		for (let j = i + 1; j < p.length; j++)
 			if (key(p[i]) === key(p[j]))
 				return [...loops(p.slice(i, j)), ...loops([...p.slice(j), ...p.slice(0, i)])];
-	return p.length >= 3 && area(p) > 1e-7 ? [tidy(p)] : [];
+	return p.length >= 3 && shoelaceArea(p) > 1e-7 ? [tidy(p)] : [];
 }
 /** Every edge sees the centroid on its left: no fans, no folded cells. */
 const starShaped = (p: Point2[]) => {
 	const c = cell(p, '').center;
-	return p.every((v, i) => cross(v, p[(i + 1) % p.length], c) >= -1e-6);
+	return p.every((v, i) => turnCross(v, p[(i + 1) % p.length], c) >= -1e-6);
 };
 /**
  * Inward offset by d (mitred). Null when an edge would flip or vanish, i.e. the band
@@ -190,7 +208,7 @@ function offset(p: Point2[], d: number): Point2[] | null {
 			w = [q[(i + 1) % n][0] - q[i][0], q[(i + 1) % n][1] - q[i][1]];
 		if (o[0] * w[0] + o[1] * w[1] <= 1e-6 * Math.hypot(o[0], o[1])) return null;
 	}
-	return area(q) > 0 ? q : null;
+	return shoelaceArea(q) > 0 ? q : null;
 }
 const perimeter = (p: Point2[]) =>
 	p.reduce(
@@ -211,7 +229,7 @@ function contourBand(outer: Point2[], band: number, s: number): Point2[][] | nul
 		return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
 	};
 	const add = (p: Point2, d: Point2, t: number): Point2 => [p[0] + d[0] * t, p[1] + d[1] * t];
-	const convex = (i: number) => cross(outer[(i + n - 1) % n], outer[i], outer[(i + 1) % n]) > 0;
+	const convex = (i: number) => turnCross(outer[(i + n - 1) % n], outer[i], outer[(i + 1) % n]) > 0;
 	/** Outer and inner end of edge i's strip at its corner k (k = i start, k = i + 1 end). */
 	const end = (i: number, k: number): [Point2, Point2] => {
 		const a = outer[i],
@@ -245,7 +263,7 @@ function contourBand(outer: Point2[], band: number, s: number): Point2[][] | nul
 		const corner = outer[(i + 1) % n];
 		cells.push(convex((i + 1) % n) ? [e0, corner, n0, e1] : [corner, n1, inner[(i + 1) % n], e1]);
 	}
-	return cells.map((c) => (area(c) < 0 ? c.reverse() : c));
+	return cells.map((c) => (shoelaceArea(c) < 0 ? c.reverse() : c));
 }
 /** Inserts the vertices of b that lie inside the edges of a (T-junctions). */
 function splitBy(a: Point2[], b: Point2[]): Point2[] {
@@ -255,7 +273,7 @@ function splitBy(a: Point2[], b: Point2[]): Point2[] {
 		const t = (v: Point2) =>
 			((v[0] - p[0]) * (q[0] - p[0]) + (v[1] - p[1]) * (q[1] - p[1])) / len ** 2;
 		const inner = b
-			.filter((v) => Math.abs(cross(p, q, v)) < 1e-6 * len && t(v) > 1e-6 && t(v) < 1 - 1e-6)
+			.filter((v) => Math.abs(turnCross(p, q, v)) < 1e-6 * len && t(v) > 1e-6 && t(v) < 1 - 1e-6)
 			.sort((u, v) => t(u) - t(v));
 		return [p, ...inner];
 	});
@@ -324,7 +342,7 @@ export function contourGrid(boundary: Point2[], s = 5, angle = 0) {
 	const cut = (p: Point2[], depth = 0): Point2[][] => {
 		if (starShaped(p) || depth > 3) return [p];
 		const i = p.findIndex(
-			(v, k) => cross(p[(k + p.length - 1) % p.length], v, p[(k + 1) % p.length]) < -1e-9
+			(v, k) => turnCross(p[(k + p.length - 1) % p.length], v, p[(k + 1) % p.length]) < -1e-9
 		);
 		// Cut along the line of an edge at the reflex corner; keep the first cut that
 		// splits the cell into two pieces without losing area.
@@ -340,8 +358,8 @@ export function contourGrid(boundary: Point2[], s = 5, angle = 0) {
 			const pieces = [clip(p, normal, limit), clip(p, [-normal[0], -normal[1]], -limit)].flatMap(
 				loops
 			);
-			const lost = Math.abs(pieces.reduce((t, q) => t + area(q), 0) - area(p));
-			if (pieces.length >= 2 && lost < 1e-6 * Math.max(1, area(p)))
+			const lost = Math.abs(pieces.reduce((t, q) => t + shoelaceArea(q), 0) - shoelaceArea(p));
+			if (pieces.length >= 2 && lost < 1e-6 * Math.max(1, shoelaceArea(p)))
 				return pieces.flatMap((q) => cut(q, depth + 1));
 		}
 		return [p];
@@ -354,8 +372,8 @@ export function contourGrid(boundary: Point2[], s = 5, angle = 0) {
 	for (let changed = true; changed;) {
 		changed = false;
 		const order = [...sliver]
-			.filter((i) => area(all[i]) < s * s * 0.34)
-			.sort((i, j) => area(all[i]) - area(all[j]));
+			.filter((i) => shoelaceArea(all[i]) < s * s * 0.34)
+			.sort((i, j) => shoelaceArea(all[i]) - shoelaceArea(all[j]));
 		for (const i of order) {
 			// Prefer a full neighbor, then the longest shared edge (perimeter saved).
 			const options = all
@@ -363,7 +381,7 @@ export function contourGrid(boundary: Point2[], s = 5, angle = 0) {
 				.filter((o): o is { j: number; u: Point2[] } => !!o.u && starShaped(o.u))
 				.map((o) => ({
 					...o,
-					small: area(all[o.j]) < s * s * 0.34,
+					small: shoelaceArea(all[o.j]) < s * s * 0.34,
 					shared: perimeter(all[i]) + perimeter(all[o.j]) - perimeter(o.u)
 				}))
 				.sort((a, b) => Number(a.small) - Number(b.small) || b.shared - a.shared);
@@ -405,7 +423,7 @@ export function voronoiGrid(boundary: Point2[], number = 30, seed = 42, iteratio
 			Math.min(...xs) + rng() * (Math.max(...xs) - Math.min(...xs)),
 			Math.min(...ys) + rng() * (Math.max(...ys) - Math.min(...ys))
 		];
-		if (parts.some((q) => q.every((v, i) => cross(v, q[(i + 1) % q.length], p) >= 0)))
+		if (parts.some((q) => q.every((v, i) => turnCross(v, q[(i + 1) % q.length], p) >= 0)))
 			sites.push(p);
 	}
 	const regions = () =>
@@ -424,7 +442,7 @@ export function voronoiGrid(boundary: Point2[], number = 30, seed = 42, iteratio
 						part
 					)
 				)
-				.filter((p) => p.length >= 3 && area(p) > 1e-7)
+				.filter((p) => p.length >= 3 && shoelaceArea(p) > 1e-7)
 		);
 	for (let t = 0; t < iterations; t++) {
 		sites = regions().map((ps, i) => {

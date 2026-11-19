@@ -42,7 +42,7 @@ export type Attachment = 'facade' | 'roof' | 'deck';
 export type AssetAnchor = { attachment: Attachment; position: Vec3; normal: Vec3 };
 export type AssetSurface = { finish: FinishId; token: ColorToken; material: MaterialId };
 
-export type AssetDefinition = {
+export type AssetPlacement = {
 	slotNames: readonly string[];
 	suggestions?: Readonly<Record<string, AssetSurface>>;
 	finishes?: Readonly<Record<string, AssetSurface>>;
@@ -53,7 +53,7 @@ export type AssetDefinition = {
 	footprint: readonly [number, number];
 	anchors: readonly AssetAnchor[];
 };
-export type AssetRecipe = AssetDefinition & {
+export type AssetRecipe = AssetPlacement & {
 	draw: (variant: number, sample: number) => ObjectGeometry[];
 };
 

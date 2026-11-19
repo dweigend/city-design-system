@@ -489,26 +489,7 @@ export function netz(p: RasterParams): Netz {
 		s = 30 * Math.max(0.8, Math.min(1.3, p.mass)),
 		verzug = Math.max(0, Math.min(1, p.verzug));
 	const feld = p.raster === 'organisch' && p.feld ? organischFeld(g, s, rng) : undefined;
-	const roh =
-		p.raster === 'achsen'
-			? achsen(g, s, rng)
-			: p.raster === 'dreieck'
-				? dreieck(g, s)
-				: p.raster === 'sechseck'
-					? sechseck(g, s)
-					: p.raster === 'polar'
-						? polarnetz(g, s)
-						: p.raster === 'kontur'
-							? kontur(g, s, rng)
-							: p.raster === 'voronoi'
-								? voronoinetz(g, s, rng)
-								: p.raster === 'viereck'
-									? viereck(g, s, rng)
-									: p.raster === 'organisch'
-										? p.feld
-											? (feld ?? organisch(g, s, rng))
-											: organisch(g, s, rng)
-										: quadrat(g, s);
+	const roh = feld ?? macroGrid(p.raster, g, s, rng);
 	// The organic grid is always curved; all others only with the slider.
 	const staerke = p.raster === 'organisch' && !p.feld ? 0.55 + 0.45 * verzug : verzug;
 	const r = Math.max(1, ...roh.flatMap((m) => m.polygon.map((q) => Math.hypot(q[0], q[1])))),
@@ -554,6 +535,29 @@ export function netz(p: RasterParams): Netz {
 	};
 }
 
+function macroGrid(raster: RasterId, g: number, s: number, rng: () => number) {
+	switch (raster) {
+		case 'achsen':
+			return achsen(g, s, rng);
+		case 'dreieck':
+			return dreieck(g, s);
+		case 'sechseck':
+			return sechseck(g, s);
+		case 'polar':
+			return polarnetz(g, s);
+		case 'kontur':
+			return kontur(g, s, rng);
+		case 'voronoi':
+			return voronoinetz(g, s, rng);
+		case 'viereck':
+			return viereck(g, s, rng);
+		case 'organisch':
+			return organisch(g, s, rng);
+		default:
+			return quadrat(g, s);
+	}
+}
+
 /** Field chart, grouped into 3×3 pre-cells per block. */
 function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefined {
 	const b = g + 1,
@@ -595,94 +599,124 @@ function organischFeld(g: number, s: number, rng: () => number): Roh[] | undefin
 				3 * b + 1,
 				(2 * R) / 60
 			);
-			const at = (i: number, j: number): Point2 => {
-				const p = required(
-					chart.positions.get(`cross:${i}:${j}`),
-					'chart.positions.get(`cross:${i}:${j}`)'
-				);
-				return [p[0], p[1]];
-			};
-			const blocks = new Map<string, { i: number; j: number; roh: Roh; dist: number }>();
-			for (let i = 0; i < b; i++)
-				for (let j = 0; j < b; j++) {
-					const teile: Point2[][] = [];
-					for (let u = 0; u < 3; u++)
-						for (let v = 0; v < 3; v++)
-							teile.push(
-								required(
-									chart.faces.get(`field:${3 * i + u}:${3 * j + v}`),
-									'chart.faces.get(`field:${3 * i + u}:${3 * j + v}`)'
-								).ring.map((id) => {
-									const p = required(chart.positions.get(id), 'chart.positions.get(id)');
-									return [p[0], p[1]];
-								})
-							);
-					const polygon: Point2[] = [];
-					for (let n = 0; n < 3; n++) polygon.push(at(3 * i, 3 * j + n));
-					for (let n = 0; n < 3; n++) polygon.push(at(3 * i + n, 3 * j + 3));
-					for (let n = 0; n < 3; n++) polygon.push(at(3 * i + 3, 3 * j + 3 - n));
-					for (let n = 0; n < 3; n++) polygon.push(at(3 * i + 3 - n, 3 * j));
-					const m = mittel(polygon),
-						a = Math.atan2(m[1], m[0]),
-						dist = Math.hypot(...m);
-					blocks.set(`${i}:${j}`, { i, j, roh: { polygon, teile }, dist });
-					if (!(dist < R * (0.95 + 0.14 * Math.sin(2 * a + ph0) + 0.1 * Math.sin(3 * a + ph1))))
-						continue;
-				}
-			const keep = new Set(
-				[...blocks]
-					.filter(([, v]) => {
-						const m = mittel(v.roh.polygon),
-							a = Math.atan2(m[1], m[0]);
-						return v.dist < R * (0.95 + 0.14 * Math.sin(2 * a + ph0) + 0.1 * Math.sin(3 * a + ph1));
-					})
-					.map(([id]) => id)
-			);
-			const root = [...keep].sort(
-					(a, b) =>
-						required(blocks.get(a), 'blocks.get(a)').dist -
-						required(blocks.get(b), 'blocks.get(b)').dist
-				)[0],
-				queue = [root],
-				seen = new Set([root]);
-			for (let n = 0; n < queue.length; n++) {
-				const v = required(blocks.get(queue[n]), 'blocks.get(queue[n])');
-				for (const [di, dj] of [
-					[1, 0],
-					[-1, 0],
-					[0, 1],
-					[0, -1]
-				]) {
-					const id = `${v.i + di}:${v.j + dj}`;
-					if (keep.has(id) && !seen.has(id)) {
-						seen.add(id);
-						queue.push(id);
-					}
-				}
-			}
-			let changed = true;
-			while (changed) {
-				changed = false;
-				for (let i = 0; i < b - 1; i++)
-					for (let j = 0; j < b - 1; j++) {
-						const ids = [`${i}:${j}`, `${i + 1}:${j}`, `${i + 1}:${j + 1}`, `${i}:${j + 1}`],
-							bits = ids.map((id) => seen.has(id));
-						if (bits[0] === bits[2] && bits[1] === bits[3] && bits[0] !== bits[1]) {
-							const id = ids
-								.filter((id) => !seen.has(id))
-								.sort(
-									(a, b) =>
-										required(blocks.get(a), 'blocks.get(a)').dist -
-										required(blocks.get(b), 'blocks.get(b)').dist
-								)[0];
-							seen.add(id);
-							changed = true;
-						}
-					}
-			}
-			return [...blocks].filter(([id]) => seen.has(id)).map(([, v]) => v.roh);
+			return selectFieldBlocks(fieldBlocks(chart, b), b, R, ph0, ph1);
 		} catch (e) {
 			if (!(e instanceof InvariantError)) throw e;
 		}
 	return undefined;
+}
+
+type Chart = ReturnType<typeof fieldChart>;
+type FieldBlock = { i: number; j: number; roh: Roh; dist: number };
+
+function fieldBlocks(chart: Chart, b: number) {
+	const at = (i: number, j: number): Point2 => {
+		const p = required(
+			chart.positions.get(`cross:${i}:${j}`),
+			'chart.positions.get(`cross:${i}:${j}`)'
+		);
+		return [p[0], p[1]];
+	};
+	const blocks = new Map<string, FieldBlock>();
+	for (let i = 0; i < b; i++)
+		for (let j = 0; j < b; j++) {
+			const { polygon, teile } = chartTile(chart, at, i, j);
+			const dist = Math.hypot(...mittel(polygon));
+			blocks.set(`${i}:${j}`, { i, j, roh: { polygon, teile }, dist });
+		}
+	return blocks;
+}
+
+function chartTile(chart: Chart, at: (i: number, j: number) => Point2, i: number, j: number) {
+	const teile: Point2[][] = [];
+	for (let u = 0; u < 3; u++)
+		for (let v = 0; v < 3; v++)
+			teile.push(
+				required(
+					chart.faces.get(`field:${3 * i + u}:${3 * j + v}`),
+					'chart.faces.get(`field:${3 * i + u}:${3 * j + v}`)'
+				).ring.map((id) => {
+					const p = required(chart.positions.get(id), 'chart.positions.get(id)');
+					return [p[0], p[1]];
+				})
+			);
+	const polygon: Point2[] = [];
+	for (let n = 0; n < 3; n++) polygon.push(at(3 * i, 3 * j + n));
+	for (let n = 0; n < 3; n++) polygon.push(at(3 * i + n, 3 * j + 3));
+	for (let n = 0; n < 3; n++) polygon.push(at(3 * i + 3, 3 * j + 3 - n));
+	for (let n = 0; n < 3; n++) polygon.push(at(3 * i + 3 - n, 3 * j));
+	return { polygon, teile };
+}
+
+function selectFieldBlocks(
+	blocks: Map<string, FieldBlock>,
+	b: number,
+	R: number,
+	ph0: number,
+	ph1: number
+) {
+	const keep = new Set(
+		[...blocks]
+			.filter(([, v]) => {
+				const m = mittel(v.roh.polygon),
+					a = Math.atan2(m[1], m[0]);
+				return v.dist < R * (0.95 + 0.14 * Math.sin(2 * a + ph0) + 0.1 * Math.sin(3 * a + ph1));
+			})
+			.map(([id]) => id)
+	);
+	const seen = connectedFieldBlocks(blocks, keep);
+	fillDiagonalGaps(blocks, seen, b);
+	return [...blocks].filter(([id]) => seen.has(id)).map(([, v]) => v.roh);
+}
+
+function nearestFieldBlock(blocks: Map<string, FieldBlock>, ids: Iterable<string>) {
+	const distance = (id: string) => required(blocks.get(id), 'field block').dist;
+	return [...ids].sort((a, b) => distance(a) - distance(b))[0];
+}
+
+function connectedFieldBlocks(blocks: Map<string, FieldBlock>, keep: Set<string>) {
+	const root = nearestFieldBlock(blocks, keep),
+		queue = [root],
+		seen = new Set([root]);
+	for (let n = 0; n < queue.length; n++) {
+		const v = required(blocks.get(queue[n]), 'blocks.get(queue[n])');
+		for (const [di, dj] of [
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		]) {
+			const id = `${v.i + di}:${v.j + dj}`;
+			if (keep.has(id) && !seen.has(id)) {
+				seen.add(id);
+				queue.push(id);
+			}
+		}
+	}
+	return seen;
+}
+
+function fillDiagonalGaps(blocks: Map<string, FieldBlock>, seen: Set<string>, b: number) {
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (let i = 0; i < b - 1; i++)
+			for (let j = 0; j < b - 1; j++) {
+				if (fillDiagonalGap(blocks, seen, i, j)) changed = true;
+			}
+	}
+}
+
+function fillDiagonalGap(blocks: Map<string, FieldBlock>, seen: Set<string>, i: number, j: number) {
+	const ids = [`${i}:${j}`, `${i + 1}:${j}`, `${i + 1}:${j + 1}`, `${i}:${j + 1}`],
+		bits = ids.map((id) => seen.has(id));
+	if (bits[0] === bits[2] && bits[1] === bits[3] && bits[0] !== bits[1]) {
+		const id = nearestFieldBlock(
+			blocks,
+			ids.filter((id) => !seen.has(id))
+		);
+		seen.add(id);
+		return true;
+	}
+	return false;
 }

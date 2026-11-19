@@ -4,7 +4,7 @@
  * (lage.ts). The bridge reads only the two port points, never the form of the towers (101 §2).
  */
 import type { Vec3 } from '../types';
-import { clamp, hash, lerp } from './hash';
+import { clampMorph, hash, lerp } from './hash';
 import { verformen, type Lage } from './lage';
 import { PHASE, entlang, mal, setze, umZ, type Puffer, type Quat } from './puffer';
 import { HF, G_MAX, SOCKEL, versatzBei, type Mikrokosmos, type Palette } from './turm';
@@ -31,7 +31,7 @@ export function aufstellen(art: Aufstellung, genom: Genom, saat: number, t: numb
 			max = typen.length - 1,
 			weite = 47;
 		return Array.from({ length: n }, (_, i) => {
-			const ti = clamp(t + (i - 2) * 0.5, 0, max);
+			const ti = clampMorph(t + (i - 2) * 0.5, 0, max);
 			return {
 				// The middle station carries the slider values, the others the pure path point.
 				ort: [(i - (n - 1) / 2) * weite, 0, 0] as Vec3,
@@ -51,7 +51,7 @@ export function aufstellen(art: Aufstellung, genom: Genom, saat: number, t: numb
 			ort,
 			genom: {
 				...genom,
-				geschosse: clamp(genom.geschosse * [1, 0.72, 1.18][i], SOCKEL + 2, G_MAX),
+				geschosse: clampMorph(genom.geschosse * [1, 0.72, 1.18][i], SOCKEL + 2, G_MAX),
 				breite: genom.breite * lerp(0.8, 1, u),
 				kopf: Math.min(5, (genom.kopf + i * 2) % 6),
 				drall: genom.drall * (i === 1 ? -1 : 1)
@@ -66,7 +66,7 @@ export function aufstellen(art: Aufstellung, genom: Genom, saat: number, t: numb
 /** Port point in rest space: on the stair ring facing the neighbor, with twist factored out. */
 function port(lage: Lage, mk: Mikrokosmos[], breite: number, z: number, winkel: number): Vec3 {
 	const v = versatzBei(z, mk),
-		a = winkel - lage.drall * clamp(z / lage.hoehe, -0.2, 1.4),
+		a = winkel - lage.drall * clampMorph(z / lage.hoehe, -0.2, 1.4),
 		c = Math.cos(a),
 		s = Math.sin(a),
 		rho = (breite * v.mass + 2.1) / Math.max(Math.abs(c), Math.abs(s));
@@ -90,7 +90,7 @@ export function bruecken(tuerme: Angeschlossen[], pal: Palette, out: Puffer) {
 				b = tuerme[j],
 				niedrig = Math.min(a.stand.genom.geschosse, b.stand.genom.geschosse),
 				// Continuous height: the bridge rises with the towers without snapping to floors.
-				z = HF * clamp(niedrig * (0.45 + 0.2 * (i + j - 1)), SOCKEL + 1, niedrig - 0.5),
+				z = HF * clampMorph(niedrig * (0.45 + 0.2 * (i + j - 1)), SOCKEL + 1, niedrig - 0.5),
 				w = Math.atan2(b.stand.ort[1] - a.stand.ort[1], b.stand.ort[0] - a.stand.ort[0]),
 				pa = verformen(port(a.lage, a.mikrokosmen, a.stand.genom.breite, z, w), a.lage),
 				pb = verformen(port(b.lage, b.mikrokosmen, b.stand.genom.breite, z, w + Math.PI), b.lage),

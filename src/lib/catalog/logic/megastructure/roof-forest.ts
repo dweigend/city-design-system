@@ -38,6 +38,11 @@ export function rootForest(count: number, tree: RoofLink[]) {
 		incoming: (RoofLink | undefined)[] = [];
 	for (let root = 0; root < count; root++) {
 		if (parent[root] !== -1) continue;
+		visitComponent(root);
+	}
+	return { parent, incoming, order };
+
+	function visitComponent(root: number) {
 		parent[root] = root;
 		const queue = [root];
 		for (const i of queue) {
@@ -51,7 +56,6 @@ export function rootForest(count: number, tree: RoofLink[]) {
 			}
 		}
 	}
-	return { parent, incoming, order };
 }
 // A non-tree link plus the unique tree path between its endpoints is a fundamental cycle.
 function pathEdges(a: number, b: number, forest: ReturnType<typeof rootForest>) {

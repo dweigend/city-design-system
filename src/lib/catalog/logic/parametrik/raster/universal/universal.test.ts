@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { gridGenerators } from '../index';
-import { area, cross } from '../geometry';
+import { shoelaceArea, turnCross } from '../geometry';
 import {
 	toPatch,
 	strukturen,
@@ -22,8 +22,10 @@ for (const generator of generators)
 			const edges = new Map<string, number>();
 			for (const f of patch.faces) {
 				const p = f.vertices.map((id) => vertices.get(id)!.point);
-				expect(area(p)).toBeGreaterThan(0);
-				p.forEach((a, i) => expect(cross(a, p[(i + 1) % 4], p[(i + 2) % 4])).toBeGreaterThan(0));
+				expect(shoelaceArea(p)).toBeGreaterThan(0);
+				p.forEach((a, i) =>
+					expect(turnCross(a, p[(i + 1) % 4], p[(i + 2) % 4])).toBeGreaterThan(0)
+				);
 				f.vertices.forEach((a, i) => {
 					const k = [a, f.vertices[(i + 1) % 4]].sort().join('|');
 					edges.set(k, (edges.get(k) ?? 0) + 1);

@@ -1,6 +1,6 @@
 import { assemble } from '../../eckraster/topology';
 import type { Point2 } from '../../vocab';
-import { cell, convexParts, cross, key, midpoint } from '../geometry';
+import { cell, convexParts, turnCross, key, midpoint } from '../geometry';
 import { quality } from './quality';
 import type { Origin, PatchOptions, UniversalGrid, UniversalPatch } from './types';
 export * from './types';
@@ -61,7 +61,9 @@ export function toPatch(grid: UniversalGrid, opts: PatchOptions = {}): Universal
 					.map(([id, p]) => ({ id, p, t: ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2 }))
 					.filter(
 						(v) =>
-							v.t >= -1e-7 && v.t < 1 - 1e-7 && Math.abs(cross(a, b, v.p)) < 1e-6 * Math.sqrt(l2)
+							v.t >= -1e-7 &&
+							v.t < 1 - 1e-7 &&
+							Math.abs(turnCross(a, b, v.p)) < 1e-6 * Math.sqrt(l2)
 					)
 					.sort((u, v) => u.t - v.t)
 					.map((v) => v.id);
@@ -87,7 +89,7 @@ export function toPatch(grid: UniversalGrid, opts: PatchOptions = {}): Universal
 			addCenter(center, ring);
 			const collinear = ring.some(
 				(v, i) =>
-					cross(
+					turnCross(
 						points.get(v)!,
 						points.get(ring[(i + 1) % ring.length])!,
 						points.get(ring[(i + 2) % ring.length])!

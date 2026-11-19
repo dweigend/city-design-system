@@ -8,7 +8,8 @@ import { farbcodes, rasterarten, welt, weltDefaults } from './index';
 import { belegung } from './belegung';
 import { lage as lageOf } from './lage';
 import { netz as blocknetz } from './netze';
-import { KLASSEN, LAUF_MAX, LAUF_MIN, SPANNWEITE, wege } from './wege';
+import { KLASSEN } from './ziele';
+import { LAUF_MAX, LAUF_MIN, SPANNWEITE, wege } from './wege';
 
 const seeds = [1, 19, 45, 4294967295];
 const lage = (seed: number, more = {}) => {

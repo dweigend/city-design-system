@@ -16,17 +16,27 @@ function treeChoices(sizes: number[], tree: RoofLink[]) {
 		const i = parent[child],
 			choices = new Int32Array(sizes[i]).fill(-1);
 		witness[child] = choices;
-		for (let p = 0; p < sizes[i]; p++) {
-			if (!reachable[i][p]) continue;
-			choices[p] = reachable[child].findIndex((ok, c) => ok === 1 && supports(edge, i, p, c));
-			if (choices[p] === -1) reachable[i][p] = 0;
-		}
+		filterBays(reachable[i], reachable[child], choices, edge, i);
 		if (!reachable[i].includes(1)) return;
 	}
 	const selected: number[] = [];
 	for (const i of order)
 		selected[i] = parent[i] === i ? reachable[i].indexOf(1) : witness[i][selected[parent[i]]];
 	return selected;
+}
+
+function filterBays(
+	parentBays: Uint8Array,
+	childBays: Uint8Array,
+	choices: Int32Array,
+	edge: RoofLink,
+	i: number
+) {
+	for (let p = 0; p < parentBays.length; p++) {
+		if (!parentBays[p]) continue;
+		choices[p] = childBays.findIndex((ok, c) => ok === 1 && supports(edge, i, p, c));
+		if (choices[p] === -1) parentBays[p] = 0;
+	}
 }
 
 type Selection =

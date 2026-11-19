@@ -198,11 +198,7 @@ export function houseGroups(
 	const { grid, state, seed } = world;
 	const { plots, ensembles, occupied } = houseProjection(world);
 	const groups = new Map<string, Primitive[]>();
-	for (const g of composedProjection(world)) {
-		const key = 'composed/' + g.id;
-		if (g.chunk === chunk && (!keys || keys.has(key)))
-			groups.set(key, presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear));
-	}
+	addComposedGroups();
 	for (const [phase, painted] of constructionPhases(state)) {
 		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, state.stacks, ensembles);
@@ -229,4 +225,12 @@ export function houseGroups(
 		}
 	}
 	return groups;
+
+	function addComposedGroups() {
+		for (const g of composedProjection(world)) {
+			const key = 'composed/' + g.id;
+			if (g.chunk === chunk && (!keys || keys.has(key)))
+				groups.set(key, presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear));
+		}
+	}
 }

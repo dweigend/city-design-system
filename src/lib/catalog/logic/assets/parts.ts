@@ -36,11 +36,6 @@ export function ring(
 	return { ...surface(slot), kind: 'ring', position, radius, innerRadius, depth };
 }
 /** Hemisphere or shallow dome on a horizontal seating plane. */
-export function cap(
-	position: Vec3,
-	radius: number,
-	height: number,
-	slot = 'body'
-): ObjectGeometry {
+export function cap(position: Vec3, radius: number, height: number, slot = 'body'): ObjectGeometry {
 	return { ...surface(slot), kind: 'dome', position, radius, height };
 }

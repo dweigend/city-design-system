@@ -66,33 +66,26 @@ export function alleyPlan(
 		profile
 	);
 	const square = nodeSquare(site, column, phase, profile);
-	const open =
-		site.zone === 'water' || grade(b) > profile.ravineGrade || site.incision > profile.ravineDepth;
+	const open = openGround(site, grade(b), profile);
 	const extent = settlementExtent(terrain, column, row, profile);
-	const direction =
-		footbridge || (!open && extent > 0) ? directionAt(along, across || footbridge) : null;
+	const occupied = !open && extent > 0;
+	const direction = footbridge || occupied ? directionAt(along, across || footbridge) : null;
 	const kind = routeKind(
 		direction,
 		footbridge,
 		promenade,
 		along,
-		flight || (steep && across && column % (2 * BLOCK.columns) === 0)
+		isStairRoute(flight, steep, across, column)
 	);
-	const widths = {
-		riversidePromenade: profile.promenadeWidth,
-		mainAlley: square || landing ? profile.mainAlleyWidth : profile.passageWidth,
-		alley: profile.alleyWidth,
-		stairAlley: profile.stairAlleyWidth,
-		footbridge: profile.footbridgeWidth
-	};
+
 	return {
 		direction,
 		kind,
-		width: kind ? widths[kind] : 0,
-		edgePassage: kind === 'mainAlley' && !square && !landing && !across,
+		width: alleyWidth(kind, square || landing, profile),
+		edgePassage: kind === 'mainAlley' && sidePassage(square, landing, across),
 		extent,
 		footbridge,
-		square: square && !open && extent > 0,
+		square: square && occupied,
 		open,
 		stairAlley: kind === 'stairAlley'
 	};
@@ -193,4 +186,29 @@ function routeKind(
 	if (stair) return 'stairAlley';
 	if (bank) return 'riversidePromenade';
 	return along ? 'mainAlley' : 'alley';
+}
+
+function openGround(site: Site, slope: number, profile: Profile) {
+	return (
+		site.zone === 'water' || slope > profile.ravineGrade || site.incision > profile.ravineDepth
+	);
+}
+
+function isStairRoute(flight: boolean, steep: boolean, across: boolean, column: number) {
+	return flight || (steep && across && column % (2 * BLOCK.columns) === 0);
+}
+
+function sidePassage(square: boolean, landing: boolean, across: boolean) {
+	return !square && !landing && !across;
+}
+
+function alleyWidth(kind: ReturnType<typeof routeKind>, landing: boolean, profile: Profile) {
+	if (!kind) return 0;
+	return {
+		riversidePromenade: profile.promenadeWidth,
+		mainAlley: landing ? profile.mainAlleyWidth : profile.passageWidth,
+		alley: profile.alleyWidth,
+		stairAlley: profile.stairAlleyWidth,
+		footbridge: profile.footbridgeWidth
+	}[kind];
 }

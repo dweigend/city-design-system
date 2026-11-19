@@ -152,26 +152,9 @@ export function validateCandidates(
 	for (const e of candidates) {
 		const a = byId.get(e.a),
 			b = byId.get(e.b);
-		if (
-			!a ||
-			!b ||
-			a.id === b.id ||
-			![e.cost, e.width, e.capacity, e.span, e.maxSpan].every(Number.isFinite) ||
-			e.cost <= 0 ||
-			e.width <= 0 ||
-			e.capacity <= 0 ||
-			e.span < 0 ||
-			e.maxSpan < 0 ||
-			!['horizontal', 'stair', 'lift', 'ramp'].includes(e.kind)
-		)
+		if (!a || !b || a.id === b.id || !wellFormed(e))
 			throw new InvariantError('invalid-connection', [e.id]);
-		if (
-			!e.clear ||
-			e.width < minWidth ||
-			e.span > e.maxSpan ||
-			a.channel !== b.channel ||
-			(e.kind === 'horizontal' && a.level !== b.level)
-		) {
+		if (!passable(e, a, b, minWidth)) {
 			rejected.push(e.id);
 			continue;
 		}
@@ -179,4 +162,26 @@ export function validateCandidates(
 	}
 
 	return { valid, rejected };
+}
+
+function wellFormed(e: Connection) {
+	return (
+		[e.cost, e.width, e.capacity, e.span, e.maxSpan].every(Number.isFinite) &&
+		e.cost > 0 &&
+		e.width > 0 &&
+		e.capacity > 0 &&
+		e.span >= 0 &&
+		e.maxSpan >= 0 &&
+		['horizontal', 'stair', 'lift', 'ramp'].includes(e.kind)
+	);
+}
+
+function passable(e: Connection, a: Port, b: Port, minWidth: number) {
+	return (
+		e.clear &&
+		e.width >= minWidth &&
+		e.span <= e.maxSpan &&
+		a.channel === b.channel &&
+		(e.kind !== 'horizontal' || a.level === b.level)
+	);
 }

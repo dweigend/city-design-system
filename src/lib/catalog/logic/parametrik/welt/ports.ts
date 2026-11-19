@@ -9,8 +9,8 @@ import {
 import { address, HEIGHT_STEP, WEG } from '../eckraster/state';
 import type { Lage } from './lage';
 import type { Belegung } from './belegung';
-import { auswertung, DACH, EBENE, LAUF, LAUF_MIN, LAUF_MAX, SPANNWEITE, TOP } from './wege';
-import { wegZiele } from './ziele';
+import { auswertung, DACH, EBENE, LAUF, LAUF_MIN, LAUF_MAX, SPANNWEITE } from './wege';
+import { TOP, wegZiele } from './ziele';
 type Wegeplan = {
 	net: PortNetwork;
 	terminals: Terminal[];
@@ -25,19 +25,6 @@ function wegeplan(r: Lage, b: Belegung): Wegeplan {
 		hint = new Map<string, [number, number, number]>(),
 		exists = new Set<string>();
 	const sample = (v: string, l: number) => b.samples[address(v, l)];
-	for (const v of r.patch.vertices)
-		for (let l = 0; l <= TOP; l++)
-			if (
-				!v.boundary &&
-				!sample(v.id, l) &&
-				!sample(v.id, l + 1) &&
-				(l > 0 || b.boden.get(v.id) !== 'wasser')
-			) {
-				const id = address(v.id, l);
-				ports.push({ id, owner: v.id, level: l, channel: 'walk' });
-				exists.add(id);
-				hint.set(id, [...v.point, l * HEIGHT_STEP]);
-			}
 	const len = (a: string, c: string) =>
 		Math.hypot(
 			required(r.point.get(a), 'r.point.get(a)')[0] - required(r.point.get(c), 'r.point.get(c)')[0],
@@ -68,43 +55,9 @@ function wegeplan(r: Lage, b: Belegung): Wegeplan {
 		edges.push(e);
 		return e.id;
 	};
-	for (const v of r.patch.vertices) {
-		for (let l = 0; l < TOP; l++)
-			if (exists.has(address(v.id, l)) && exists.has(address(v.id, l + 1)))
-				exclusive.push([address(v.id, l), address(v.id, l + 1)]);
-		for (const w of v.neighbors) {
-			if (v.id < w) for (let l = 0; l <= TOP; l++) add(v.id, l, w, l, 2.4);
-			const d = len(v.id, w);
-			if (d >= LAUF_MIN && d <= LAUF_MAX)
-				for (let l = 0; l < TOP; l++)
-					if (!sample(w, l) && !sample(v.id, l + 1)) {
-						const id = add(v.id, l, w, l + 1, 1.2);
-						if (id) exclusive.push([id, address(w, l)], [id, address(v.id, l + 1)]);
-					}
-		}
-	}
-	for (const f of r.patch.faces)
-		for (let l = 0; l <= TOP; l++) {
-			const ds: (string | undefined)[] = [];
-			for (let i = 0; i < 2; i++) {
-				const [a, c, d, e] = [
-					f.vertices[i],
-					f.vertices[i + 2],
-					f.vertices[(i + 1) % 4],
-					f.vertices[(i + 3) % 4]
-				];
-				if (
-					!sample(d, l) &&
-					!sample(d, l + 1) &&
-					!sample(e, l) &&
-					!sample(e, l + 1) &&
-					len(a, c) <= 0.8 * Math.min(len(a, d) + len(d, c), len(a, e) + len(e, c))
-				)
-					ds.push(add(a, l, c, l, 1.7));
-				else ds.push(undefined);
-			}
-			if (ds[0] && ds[1]) exclusive.push([ds[0], ds[1]]);
-		}
+	addPorts();
+	addNeighborLinks();
+	addDiagonals();
 	return {
 		net: { ports, edges },
 		terminals: wegZiele(r, b, (v, l) => exists.has(address(v, l))),
@@ -112,6 +65,68 @@ function wegeplan(r: Lage, b: Belegung): Wegeplan {
 		hint,
 		pitch
 	};
+	function addPorts() {
+		for (const v of r.patch.vertices)
+			for (let l = 0; l <= TOP; l++)
+				if (
+					!v.boundary &&
+					!sample(v.id, l) &&
+					!sample(v.id, l + 1) &&
+					(l > 0 || b.boden.get(v.id) !== 'wasser')
+				) {
+					const id = address(v.id, l);
+					ports.push({ id, owner: v.id, level: l, channel: 'walk' });
+					exists.add(id);
+					hint.set(id, [...v.point, l * HEIGHT_STEP]);
+				}
+	}
+
+	function addNeighborLinks() {
+		for (const v of r.patch.vertices) {
+			for (let l = 0; l < TOP; l++)
+				if (exists.has(address(v.id, l)) && exists.has(address(v.id, l + 1)))
+					exclusive.push([address(v.id, l), address(v.id, l + 1)]);
+			for (const w of v.neighbors) connectNeighbors(v.id, w);
+		}
+	}
+
+	function connectNeighbors(v: string, w: string) {
+		if (v < w) for (let l = 0; l <= TOP; l++) add(v, l, w, l, 2.4);
+		const d = len(v, w);
+		if (d >= LAUF_MIN && d <= LAUF_MAX)
+			for (let l = 0; l < TOP; l++)
+				if (!sample(w, l) && !sample(v, l + 1)) {
+					const id = add(v, l, w, l + 1, 1.2);
+					if (id) exclusive.push([id, address(w, l)], [id, address(v, l + 1)]);
+				}
+	}
+
+	function addDiagonals() {
+		for (const f of r.patch.faces)
+			for (let l = 0; l <= TOP; l++) {
+				const ds: (string | undefined)[] = [];
+				for (let i = 0; i < 2; i++) {
+					const [a, c, d, e] = [
+						f.vertices[i],
+						f.vertices[i + 2],
+						f.vertices[(i + 1) % 4],
+						f.vertices[(i + 3) % 4]
+					];
+					if (clearDiagonal(a, c, d, e, l)) ds.push(add(a, l, c, l, 1.7));
+					else ds.push(undefined);
+				}
+				if (ds[0] && ds[1]) exclusive.push([ds[0], ds[1]]);
+			}
+	}
+	function clearDiagonal(a: string, c: string, d: string, e: string, level: number) {
+		return (
+			!sample(d, level) &&
+			!sample(d, level + 1) &&
+			!sample(e, level) &&
+			!sample(e, level + 1) &&
+			len(a, c) <= 0.8 * Math.min(len(a, d) + len(d, c), len(a, e) + len(e, c))
+		);
+	}
 }
 export function wegeKern(r: Lage, b: Belegung, schleifen: number) {
 	const p = wegeplan(r, b),

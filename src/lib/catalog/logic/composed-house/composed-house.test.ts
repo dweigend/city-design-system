@@ -25,52 +25,68 @@ function site(n: number, seed: number, mono = false) {
 test('frame bearings, supported volumes, walking surfaces and roof datum through every height', () => {
 	for (let n = 1; n <= 12; n++)
 		for (let seed = 0; seed < 5; seed++) {
-			const s = planHouse(site(n, seed)),
-				parts = sectionParts(s),
-				posts = parts.filter((p) => p.id.includes('/post/') && p.kind === 'cylinder');
-			expect(s.top).toBe(cells[0].pad + n * STORY);
-			const roof = parts.find((p) => p.id.endsWith('/roof-walk'));
-			if (roof?.kind !== 'prism') throw Error('Missing roof walk');
-			expect(roof.z + roof.height).toBeCloseTo(s.top);
-			expect(s.decks.length).toBe(n <= 2 ? 1 : n <= 5 ? 2 : s.decks.length);
-			if (n >= 4) expect(s.decks.filter((d) => d.kind === 'void')).toHaveLength(1);
-			const levels = new Set<number>();
-			for (const p of parts) {
-				if (p.kind === 'prism') expect(p.z).toBeGreaterThanOrEqual(s.base[2] - 1e-8);
-				if (p.id.includes('/stair/') && p.kind === 'prism')
-					levels.add(Math.round((p.z + p.height) * 1000));
-			}
-			for (const [i, d] of s.decks.entries()) {
-				expect(levels.has(Math.round(d.position[2] * 1000))).toBe(true);
-				const inside = (x: number, y: number) => {
-					const u = (2 * (x - d.position[0])) / d.width,
-						v = (2 * (y - d.position[1])) / d.depth;
-					return (d.round ? Math.hypot(u, v) : Math.max(Math.abs(u), Math.abs(v))) <= 1.000001;
-				};
-				expect(
-					posts.filter(
-						(p) =>
-							p.kind === 'cylinder' &&
-							inside(p.position[0], p.position[1]) &&
-							p.position[2] + p.height >= d.position[2]
-					)
-				).toHaveLength(5);
-				const body = s.slots.find((a) => a.id === s.id + '/tier/' + i + '/body');
-				if (!body) continue;
-				expect(body.position[2]).toBe(d.position[2]);
-				for (const u of [-0.5, 0.5])
-					for (const v of [-0.5, 0.5])
-						expect(
-							inside(body.position[0] + u * body.size[0], body.position[1] + v * body.size[1])
-						).toBe(true);
-				const area =
-					(body.size[0] * body.size[1]) / (d.width * d.depth * (d.round ? Math.PI / 4 : 1));
-				expect(area).toBeGreaterThanOrEqual(0.5);
-				expect(area).toBeLessThanOrEqual(0.8);
-			}
-			expect(levels.has(Math.round(s.top * 1000))).toBe(true);
+			checkSectionBearings(n, seed);
 		}
 });
+
+function checkSectionBearings(n: number, seed: number) {
+	const s = planHouse(site(n, seed)),
+		parts = sectionParts(s),
+		posts = parts.filter((p) => p.id.includes('/post/') && p.kind === 'cylinder');
+	expect(s.top).toBe(cells[0].pad + n * STORY);
+	const roof = parts.find((p) => p.id.endsWith('/roof-walk'));
+	if (roof?.kind !== 'prism') throw Error('Missing roof walk');
+	expect(roof.z + roof.height).toBeCloseTo(s.top);
+	expect(s.decks.length).toBe(n <= 2 ? 1 : n <= 5 ? 2 : s.decks.length);
+	if (n >= 4) expect(s.decks.filter((d) => d.kind === 'void')).toHaveLength(1);
+	const levels = walkingLevels(parts, s.base[2]);
+	for (const [i, d] of s.decks.entries()) {
+		expect(levels.has(Math.round(d.position[2] * 1000))).toBe(true);
+		checkDeckSupport(s, i, posts);
+	}
+
+	expect(levels.has(Math.round(s.top * 1000))).toBe(true);
+}
+
+type Section = ReturnType<typeof planHouse>;
+function walkingLevels(parts: ReturnType<typeof sectionParts>, base: number) {
+	const levels = new Set<number>();
+	for (const p of parts) {
+		if (p.kind === 'prism') expect(p.z).toBeGreaterThanOrEqual(base - 1e-8);
+		if (p.id.includes('/stair/') && p.kind === 'prism')
+			levels.add(Math.round((p.z + p.height) * 1000));
+	}
+	return levels;
+}
+
+function checkDeckSupport(s: Section, i: number, posts: ReturnType<typeof sectionParts>) {
+	const d = s.decks[i];
+	const inside = (x: number, y: number) => {
+		const u = (2 * (x - d.position[0])) / d.width,
+			v = (2 * (y - d.position[1])) / d.depth;
+		return (d.round ? Math.hypot(u, v) : Math.max(Math.abs(u), Math.abs(v))) <= 1.000001;
+	};
+	expect(
+		posts.filter(
+			(p) =>
+				p.kind === 'cylinder' &&
+				inside(p.position[0], p.position[1]) &&
+				p.position[2] + p.height >= d.position[2]
+		)
+	).toHaveLength(5);
+	const body = s.slots.find((a) => a.id === s.id + '/tier/' + i + '/body');
+	if (!body) return;
+	expect(body.position[2]).toBe(d.position[2]);
+	for (const u of [-0.5, 0.5])
+		for (const v of [-0.5, 0.5])
+			expect(inside(body.position[0] + u * body.size[0], body.position[1] + v * body.size[1])).toBe(
+				true
+			);
+	const area = (body.size[0] * body.size[1]) / (d.width * d.depth * (d.round ? Math.PI / 4 : 1));
+	expect(area).toBeGreaterThanOrEqual(0.5);
+	expect(area).toBeLessThanOrEqual(0.8);
+}
+
 test('a continuous living programme reserves one volume and cell order preserves the composition', () => {
 	for (let n = 1; n <= 12; n++) {
 		const input = site(n, 12, true);

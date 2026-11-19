@@ -1,3 +1,4 @@
+import { routeTargets, TOP, type Ziel } from './ziele';
 import { required } from '../../required';
 /**
  * Path network of the world as occupancy (group `weg`): nodes are build cells on one level,
@@ -18,10 +19,6 @@ import type { Belegung } from './belegung';
 import type { Lage } from './lage';
 import { AUGE } from './typen';
 
-/** Height classes: gallery and rooftop walkway. */
-export const KLASSEN = [2, 4];
-/** Highest path level. */
-export const TOP = 5;
 /** Cost per level: ground only for arriving, classes cheap, intermediate levels expensive. */
 export const EBENE = [3.2, 2.4, 1, 2.4, 1.05, 2.8];
 export const LAUF = 2;
@@ -199,57 +196,8 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 	}
 
 	/* ── Targets ── */
-	type Ziel = { id: string; kandidaten: number[]; anker?: number };
-	const ziele: Ziel[] = [];
 	const vOf = (id: string) => required(vOfId.get(id), 'vOfId.get(id)');
-	const neben = (cells: [string, number][], level: number) => [
-		...new Set(
-			cells
-				.filter(([, l]) => l === level)
-				.flatMap(([id]) => nb[vOf(id)])
-				.filter((v) => usable(v, level))
-				.map((v) => node(v, level))
-		)
-	];
-	for (const e of b.eingriffe) {
-		if (e.art === 'hofhaus') continue;
-		const stufen = e.art === 'aufstockung' ? [e.base] : KLASSEN.filter((l) => l <= e.top);
-		for (const l of stufen) {
-			const kern = e.kern ? nb[vOf(e.kern)].filter((v) => usable(v, l)).map((v) => node(v, l)) : [];
-			const kandidaten = kern.length ? kern : neben(e.cells, l);
-			if (kandidaten.length) ziele.push({ id: `${e.id}@${l}`, kandidaten });
-		}
-	}
-	// Ground: square, platform, gardens and basins.
-	const boden = (id: string, vs: number[]) => {
-		const kandidaten = vs.filter((v) => usable(v, 0)).map((v) => node(v, 0));
-		if (kandidaten.length) ziele.push({ id, kandidaten });
-	};
-	// The square is the free block nearest to the center.
-	const platz = [...r.blocks]
-		.filter((x) => b.arten.get(x.id) === 'platz')
-		.sort((x, y) => y.naehe - x.naehe || y.cells.length - x.cells.length)[0];
-	const zur = (x: typeof platz, id: string) =>
-		Math.hypot(
-			required(r.point.get(id), 'r.point.get(id)')[0] - x.center[0],
-			required(r.point.get(id), 'r.point.get(id)')[1] - x.center[1]
-		);
-	const mitte = (x: typeof platz) =>
-		vOf([...x.cells].sort((p, q) => zur(x, p) - zur(x, q) || (p < q ? -1 : 1))[0]);
-	const start = node(mitte(platz), 0);
-	boden('bahnsteig', r.bahnsteig.map(vOf));
-	for (const x of r.blocks) {
-		const art = b.arten.get(x.id);
-		if (art === 'garten') boden(`garten-${x.id}`, [mitte(x)]);
-		// Basins: two spots on the shore, facing each other.
-		if (art === 'wasser') {
-			const ufer = x.cells.filter((id) => x.tiefe.get(id) === 1).sort(),
-				gegen = [...ufer].sort(
-					(p, q) => lang(vOf(q), vOf(ufer[0])) - lang(vOf(p), vOf(ufer[0])) || (p < q ? -1 : 1)
-				)[0];
-			if (ufer.length) boden(`becken-${x.id}`, [vOf(ufer[0]), vOf(gegen)]);
-		}
-	}
+	const { start, ziele } = routeTargets(r, b, { vOf, nb, usable, lang, node });
 
 	/* ── Spanning tree ── */
 	lege([start]);
@@ -282,20 +230,7 @@ export function wege(r: Lage, b: Belegung, schleifen: number): Netz {
 		}
 		return adj;
 	};
-	/** Edge count in the network from `from` to all nodes. */
-	const schritte = (adj: Map<number, number[]>, from: number) => {
-		const d = new Map([[from, 0]]),
-			prev = new Map<number, number>(),
-			queue = [from];
-		for (let i = 0; i < queue.length; i++)
-			for (const w of adj.get(queue[i]) ?? [])
-				if (!d.has(w)) {
-					d.set(w, required(d.get(queue[i]), 'd.get(queue[i])') + 1);
-					prev.set(w, queue[i]);
-					queue.push(w);
-				}
-		return { d, prev };
-	};
+
 	const anker = [
 		...new Set(ziele.filter((z) => z.anker !== undefined).map((z) => required(z.anker, 'z.anker')))
 	];
@@ -370,19 +305,7 @@ export function auswertung(
 		adj.set(a, [...(adj.get(a) ?? []), c]);
 		adj.set(c, [...(adj.get(c) ?? []), a]);
 	}
-	const schritte = (adj: Map<number, number[]>, from: number) => {
-		const d = new Map([[from, 0]]),
-			prev = new Map<number, number>(),
-			queue = [from];
-		for (let i = 0; i < queue.length; i++)
-			for (const w of adj.get(queue[i]) ?? [])
-				if (!d.has(w)) {
-					d.set(w, required(d.get(queue[i]), 'd.get(queue[i])') + 1);
-					prev.set(w, queue[i]);
-					queue.push(w);
-				}
-		return { d, prev };
-	};
+
 	/** Farthest node in the network, on the ground if there is one: the walkthrough starts and ends below. */
 	const weit = (from: number, boden: boolean) => {
 		const { d, prev } = schritte(adj, from);
@@ -411,19 +334,7 @@ export function auswertung(
 			l = cells[k][1];
 		return [q[0], q[1], l * HEIGHT_STEP + (l ? WEG_D : 0.08) + AUGE];
 	});
-	let laenge = 0,
-		laeufe = 0,
-		dachwege = 0;
-	for (const [a, c] of kanten.values()) {
-		const [la, lc] = [cells[a][1], cells[c][1]];
-		if (la !== lc) laeufe++;
-		if (la > 0 || lc > 0) laenge += luft(a, c);
-	}
-	for (const k of knoten) {
-		const v = cells[k][0],
-			l = cells[k][1];
-		if (l > 0 && sample(v, l - 1) && !isWeg(v, l - 1)) dachwege++;
-	}
+	const { laenge, laeufe, dachwege } = summarizeEdges();
 	return {
 		start,
 		ziele,
@@ -437,4 +348,36 @@ export function auswertung(
 		dachwege,
 		ebenen: [...new Set(cells.map(([, l]) => l).filter((l) => l > 0))].sort((a, b) => a - b)
 	};
+
+	function summarizeEdges() {
+		let laenge = 0,
+			laeufe = 0,
+			dachwege = 0;
+		for (const [a, c] of kanten.values()) {
+			const [la, lc] = [cells[a][1], cells[c][1]];
+			if (la !== lc) laeufe++;
+			if (la > 0 || lc > 0) laenge += luft(a, c);
+		}
+		for (const k of knoten) {
+			const v = cells[k][0],
+				l = cells[k][1];
+			if (l > 0 && sample(v, l - 1) && !isWeg(v, l - 1)) dachwege++;
+		}
+		return { laenge, laeufe, dachwege };
+	}
+}
+
+/** Edge count in the network from `from` to all nodes. */
+function schritte(adj: Map<number, number[]>, from: number) {
+	const d = new Map([[from, 0]]),
+		prev = new Map<number, number>(),
+		queue = [from];
+	for (let i = 0; i < queue.length; i++)
+		for (const w of adj.get(queue[i]) ?? [])
+			if (!d.has(w)) {
+				d.set(w, required(d.get(queue[i]), 'd.get(queue[i])') + 1);
+				prev.set(w, queue[i]);
+				queue.push(w);
+			}
+	return { d, prev };
 }

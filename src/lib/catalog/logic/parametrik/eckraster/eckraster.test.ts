@@ -12,7 +12,7 @@ import {
 } from './state';
 import { slots, courtyards, spans } from './derive';
 import { fixture, gate } from './fixtures';
-import { area } from '../raster/geometry';
+import { shoelaceArea } from '../raster/geometry';
 const p = createPatch();
 const put = (o: ReturnType<typeof initialOccupancy>, id: string, h = 0, on = true) =>
 	apply(p, o, { vertexId: id, level: h, occupied: on, group: 'test' });
@@ -26,7 +26,7 @@ describe('L10 topology and intent', () => {
 		);
 		for (const f of p.faces) {
 			expect(
-				area(f.vertices.map((id) => p.vertices.find((v) => v.id === id)!.point))
+				shoelaceArea(f.vertices.map((id) => p.vertices.find((v) => v.id === id)!.point))
 			).toBeGreaterThan(0);
 			for (const id of f.vertices)
 				expect(p.vertices.find((v) => v.id === id)!.faces).toContain(f.id);
@@ -104,7 +104,8 @@ test('protected body is unchanged by additions, removals and scene selection', a
 });
 test('dual cells cover the primal domain and neighbor-filled follows shared sides', () => {
 	const primalArea = p.faces.reduce(
-		(sum, f) => sum + area(f.vertices.map((id) => p.vertices.find((v) => v.id === id)!.point)),
+		(sum, f) =>
+			sum + shoelaceArea(f.vertices.map((id) => p.vertices.find((v) => v.id === id)!.point)),
 		0
 	);
 	expect(p.cells.reduce((sum, c) => sum + c.area, 0)).toBeCloseTo(primalArea, 8);

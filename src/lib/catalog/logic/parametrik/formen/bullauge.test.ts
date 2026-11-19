@@ -87,20 +87,25 @@ test('tube porthole returns meet the actual capsule along both loops', () => {
 	if (!host || host.kind !== 'capsule') throw new Error('Missing tube capsule');
 	const bands = forms.filter((p) => p.kind === 'mesh');
 	expect(bands.length).toBe(6);
+	for (const band of bands) checkTubeBand(host, band);
+});
+
+function checkTubeBand(
+	host: Extract<ReturnType<typeof formOnCell>[number], { kind: 'capsule' }>,
+	band: Extract<ReturnType<typeof formOnCell>[number], { kind: 'mesh' }>
+) {
 	const [a, b] = [host.from, host.to];
 	const dx = b[0] - a[0],
 		dy = b[1] - a[1];
-	for (const band of bands) {
-		const count = band.points.length / 4;
-		for (const [i, [x, y, z]] of band.points.entries()) {
-			const t = Math.max(
-				0,
-				Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1))
-			);
-			const gap = Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy, z - a[2]) - host.radius;
-			const front = i >= count && i < 3 * count;
-			expect(gap).toBeGreaterThan(front ? 0.07 : -0.016);
-			expect(gap).toBeLessThan(front ? 0.106 : 0);
-		}
+	const count = band.points.length / 4;
+	for (const [i, [x, y, z]] of band.points.entries()) {
+		const t = Math.max(
+			0,
+			Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1))
+		);
+		const gap = Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy, z - a[2]) - host.radius;
+		const front = i >= count && i < 3 * count;
+		expect(gap).toBeGreaterThan(front ? 0.07 : -0.016);
+		expect(gap).toBeLessThan(front ? 0.106 : 0);
 	}
-});
+}
