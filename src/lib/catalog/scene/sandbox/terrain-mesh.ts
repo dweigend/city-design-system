@@ -176,7 +176,7 @@ export function createTerrainMesh(
 	let piers: readonly Pier[] = [];
 	const wakes = new THREE.Mesh(
 		wakeGeometry(grid, piers),
-		wakeInk(colors.waterStroke, seconds, terrainWeight)
+		wakeInk(mix(colors.waterStroke, colors.paper, daylight.mul(0.92)), seconds, terrainWeight)
 	);
 	wakes.renderOrder = 1;
 	const water = new THREE.Mesh(waterGeometry(grid), waterMaterial);

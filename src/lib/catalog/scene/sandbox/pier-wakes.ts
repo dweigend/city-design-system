@@ -45,7 +45,7 @@ export function wakeGeometry(grid: TerrainGrid, piers: readonly Pier[]) {
 }
 
 /** Two diverging strokes run 3.6 support diameters downstream with short companion ripples. */
-export function wakeInk(ink: Node<'color'>, seconds: Node<'float'>, visibility: Node<'float'>) {
+export function wakeInk(ink: Node<'vec3'>, seconds: Node<'float'>, visibility: Node<'float'>) {
 	const m = new MeshBasicNodeMaterial({
 		transparent: true,
 		depthWrite: false,
@@ -70,7 +70,7 @@ export function wakeInk(ink: Node<'color'>, seconds: Node<'float'>, visibility: 
 			.smoothstep(0.17, 0.23)
 	);
 	const ripple = float(1)
-		.sub(lane.smoothstep(0.018, 0.018 + 0.1))
+		.sub(lane.smoothstep(0.018, 0.118))
 		.mul(dash)
 		.mul(float(1).sub(q.length().smoothstep(1.8, 3)));
 	m.colorNode = ink;
