@@ -95,11 +95,7 @@ export function populateStructures(
 	} = {}
 ) {
 	const { materials, colorOf, accentColor } = finishes;
-	const pigment = (part: Primitive) =>
-		part.kind === 'pipe' && part.id.endsWith('/deck') && part.token === '--cat-business'
-			? '--cat-business-5'
-			: part.token;
-	const toColor = (part: Primitive) => colorOf(pigment(part));
+	const toColor = (part: Primitive) => colorOf(part.token);
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
 	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
@@ -177,13 +173,11 @@ export function populateStructures(
 	pipes?.geometry.setAttribute('stationM', conduit.axis);
 	pipes?.geometry.setAttribute('railMark', conduit.rail);
 	const print = batch(parts.inlays, (p) =>
-		colorOf(
-			p.token === '--cat-business' && !p.id.includes(':figure:') && p.kind !== 'mesh'
-				? p.token
-				: p.token.replace(/-\d$/, '') + '-2'
-		)
+		p.token === '--cat-business' ? toColor(p) : colorOf(p.token.replace(/-\d$/, '') + '-2')
 	);
-	const chips = batch(parts.inlays, (p) => colorOf(p.token.replace(/-\d$/, '')));
+	const chips = batch(parts.inlays, (p) =>
+		colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
+	);
 	const inlay = mesh(print.neu, materials.inlay, true);
 	if (inlay) {
 		inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
@@ -212,7 +206,7 @@ export function populateStructures(
 	const casting = surface(fired.faces, materials.glaze, materials.hull, true);
 	casting?.geometry.setAttribute('kilnChart', fired.chart);
 	lines(fired.edges, materials.detail);
-	const toAccent = (part: Primitive) => accentColor(pigment(part), part.shade);
+	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
 	const accent = batch(
 		parts.accents.filter((part) => !isSheet(part)),
 		toAccent

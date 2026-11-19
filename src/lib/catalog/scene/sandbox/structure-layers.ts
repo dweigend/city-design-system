@@ -11,16 +11,9 @@ function isConduit(part: Primitive) {
 	);
 }
 function isInlay(part: Primitive) {
-	if (part.kind === 'prism' && /:figure:(step\d+|garden)$/.test(part.id)) return true;
-	if (part.kind === 'box')
-		return (
-			part.material !== 'glaze' && ['--cat-business-2', '--cat-business-3'].includes(part.token)
-		);
 	return (
-		part.kind === 'prism' &&
-		part.material === 'concrete' &&
-		part.token === '--cat-business' &&
-		!part.id.includes(':tread:')
+		(part.kind === 'prism' && part.id.endsWith(':figure:garden')) ||
+		(part.kind === 'box' && part.material !== 'glaze' && part.token === '--cat-business-2')
 	);
 }
 function isCasting(part: Primitive) {
