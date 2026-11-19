@@ -38,6 +38,8 @@ type Base = {
 	token: ColorToken;
 	material: MaterialId;
 	detail?: boolean;
+	/** False for visual detail above a stable brush target. */
+	pickable?: false;
 	rank?: number;
 	stretchRank?: number;
 	pattern?: string;

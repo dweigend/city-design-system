@@ -27,7 +27,15 @@ export function createStructures() {
 		if (previous) release(previous.objects);
 		entries.delete(key);
 		if (!primitives.length) return;
-		const objects = populateStructures(primitives, finishes, dot);
+		// Reuse the inset walls and terrace slabs as pick surfaces. Roof detail shares
+		// their rendering style but cannot enlarge the kernel-independent target.
+		const detail = primitives.filter(part => part.pickable === false);
+		const body = detail.length ? primitives.filter(part => part.pickable !== false) : primitives;
+		const objects = populateStructures(body, finishes, dot);
+		if (detail.length) {
+			const roof = populateStructures(detail, finishes, dot);
+			objects.add(...roof.children.slice());
+		}
 		group.add(objects);
 		entries.set(key, { primitives, objects });
 	}

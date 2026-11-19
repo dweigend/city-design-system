@@ -21,7 +21,7 @@ import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
-import { projectChanges } from './projection';
+import { KEY, projectChanges } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { createView } from './view';
@@ -80,7 +80,7 @@ export function createSandboxStage(
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
 	let terrain: TerrainMesh | undefined;
-	const picker = createCellPicker(view, () => terrain?.surface);
+	const picker = createCellPicker(view);
 	/** The world the stage currently shows; the next one is drawn as a difference to it. */
 	let focus: FocusId = 'all';
 	let shown: World | undefined;
@@ -205,7 +205,6 @@ export function createSandboxStage(
 			if (!terrain) return;
 			updateWorld(terrain, before, world, nextFocus);
 			focus = nextFocus;
-			picker.update(world);
 			shown = world;
 			canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
 			render();
@@ -231,7 +230,10 @@ export function createSandboxStage(
 			render();
 		},
 		/** The brush hits stable house volumes before falling back to the terrain. */
-		pickCell: picker.pick,
+		pickCell(x:number,y:number) {
+			if (!terrain || !shown) return undefined;
+			return picker(x,y,shown.grid,terrain.surface,[...structures.solids(KEY.house),...structures.solids(KEY.forest)]);
+		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
 			terrain?.setLens(column, row, strength);
@@ -253,7 +255,6 @@ export function createSandboxStage(
 		},
 		dispose() {
 			stopTheme();
-			picker.dispose();
 			cancelAnimationFrame(pending);
 			removeLines(baseLines);
 			removeLines(cursor);
