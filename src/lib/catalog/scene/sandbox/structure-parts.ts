@@ -1,3 +1,4 @@
+import { studioShadow } from '../studio-shadow';
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
@@ -88,7 +89,7 @@ export function populateStructures(
 		details?: boolean;
 	} = {}
 ) {
-	const { materials, colorOf, accentColor, surfaceColor: toColor } = finishes;
+	const { materials, accentColor, surfaceColor: toColor } = finishes;
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
 	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
@@ -143,7 +144,8 @@ export function populateStructures(
 
 	function drawFinishes(surfaces: Surface[], { contour }: { contour: boolean }) {
 		for (const face of finishedMeshes(surfaces, finishes.explicit)) {
-			face.castShadow = cast;
+			studioShadow(face, face.material);
+			face.castShadow &&= cast;
 			objects.add(face);
 			if (contour && hasGlazeContour(face.material.name))
 				objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
@@ -223,19 +225,13 @@ export function populateStructures(
 		const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
 		pipes?.geometry.setAttribute('stationM', conduit.axis);
 		pipes?.geometry.setAttribute('railMark', conduit.rail);
-		const print = printBatch(parts.inlays, (p) =>
-			p.token.startsWith('--cat-business')
-				? toColor(p)
-				: colorOf(p.token.replace(/-\d$/, '') + '-2')
+		const inlays = parts.inlays.flatMap((p) =>
+			p.kind === 'polyline' ? [] : [{ ...p, finish: 'print-terrazzo' as const }]
 		);
-		const chips = batch(parts.inlays, (p) =>
-			colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
-		);
-		const inlay = mesh(print.neu, materials.inlay, true);
-		if (inlay) {
-			inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
-			inlay.castShadow = cast;
-			objects.add(paperEdge(inlay.geometry, materials.cut));
+		for (const face of finishedMeshes(inlays, finishes.explicit)) {
+			face.castShadow = cast;
+			objects.add(face, paperEdge(face.geometry, materials.cut));
+			hits.push(face);
 		}
 		const portal = mesh(printBatch(parts.portals, toColor).neu, materials.solid, true);
 		if (portal) {
@@ -257,13 +253,12 @@ export function populateStructures(
 					p
 				])
 		);
-		const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
-			part.token === '--paper' ? finishes.modelWhite : accentColor(part)
+		const fired = ceramicBatch(parts.ceramics, pigments, (slot) =>
+			finishes.explicit.material(slot)
 		);
-		if (fired.geometry) {
-			const casting = new THREE.Mesh(fired.geometry, materials.fired);
+		for (const casting of fired.meshes) {
 			casting.castShadow = cast;
-			objects.add(casting, silhouette(fired.geometry, materials.hull));
+			objects.add(casting, silhouette(casting.geometry, materials.hull));
 			hits.push(casting);
 		}
 		lines(fired.edges, materials.detail);

@@ -1,31 +1,37 @@
 import * as THREE from 'three/webgpu';
-import { float, mix, positionWorld, shadow, uniform } from 'three/tsl';
-import { halftoneDots, halftoneScreen } from '../printed-finish';
+import { float, mix, shadow, uniform } from 'three/tsl';
+import { studioConfig } from './studio-quality';
 
-const SHADOW_MAP_SIZE = 4096;
-/** Smallest half width of the shadow volume, meters, and its factor of the visible span. */
-const SHADOW_REACH = { min: 120, perSpan: 1.1 };
+export const studioKeyDirection = new THREE.Vector3(-0.85, 0.85, 0.25).normalize();
 
 /** Fits a directional shadow to the scene without shading the paper with ambient light. */
-export function createLight() {
-	const sun = new THREE.DirectionalLight(0xffffff);
+export function createStudioLight(config = studioConfig()) {
+	const sun = new THREE.DirectionalLight(config.key, config.intensity);
+	const fill = new THREE.HemisphereLight(config.sky, config.ground, config.bounce);
+	sun.position.copy(studioKeyDirection);
 	sun.castShadow = true;
 	sun.shadow.autoUpdate = false;
-	sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+	sun.shadow.mapSize.set(config.shadowSize, config.shadowSize);
 	sun.shadow.needsUpdate = true;
-	sun.shadow.bias = -0.0006;
+	sun.shadow.bias = config.bias;
 	sun.shadow.camera.up.set(0, 0, 1);
-	const dots = halftoneDots(positionWorld.xz, halftoneScreen(false).pitch);
+	sun.shadow.radius = config.radius;
 	// Three's depth-only shadow node returns a scalar, but its type omits the TSL scalar interface.
 	const shadowMask = shadow(sun) as ReturnType<typeof shadow> & THREE.Node<'float'>;
-	const shadowTone = uniform(new THREE.Vector3());
+	// Both physical receivers and the paper shader sample the same cached depth target.
+	Object.assign(sun.shadow, { shadowNode: shadowMask });
+	const tint = new THREE.Color(config.shadowTint);
+	const shadowTone = uniform(new THREE.Vector3(tint.r, tint.g, tint.b));
+	const opacity = float(shadowMask).oneMinus().mul(config.shadowOpacity);
 	return {
-		objects: [sun, sun.target],
+		shadowTone,
+		opacity,
+		objects: [sun, sun.target, fill],
 		/** The ground holds the paper palette outside the cast shadow. */
 		shade(this: void, color: THREE.Node<'vec3'>) {
-			return mix(color, shadowTone, float(1).sub(float(shadowMask).step(0.5)).mul(dots));
+			return mix(color, shadowTone, opacity);
 		},
-		/** Sets the opaque ground dot ink. The optional paper caps callers using the drawing shadow tone. */
+		/** Sets the ground shadow tint. The optional paper caps callers using the drawing shadow tone. */
 		setTone(color: THREE.Color, paper = color) {
 			shadowTone.value.set(
 				Math.min(color.r, paper.r),
@@ -39,19 +45,18 @@ export function createLight() {
 		refresh() {
 			sun.shadow.needsUpdate = true;
 		},
-		/** Centers the shadow volume on the view target; sharp shadows at every zoom. */
+		/** Fits the shadow volume to the visible stage in metres. */
 		aim(target: THREE.Vector3, span: number) {
-			const reach = Math.max(SHADOW_REACH.min, span * SHADOW_REACH.perSpan);
+			const reach = Math.max(2, span * 1.1);
 			const shadowCamera = sun.shadow.camera;
 			if (shadowCamera.right === reach && target.equals(sun.target.position)) return;
 			sun.shadow.needsUpdate = true;
 			sun.target.position.copy(target);
-			sun.position.copy(target);
-			sun.position.y += 900;
+			sun.position.copy(target).addScaledVector(studioKeyDirection, 2 * reach + 2);
 			shadowCamera.left = shadowCamera.bottom = -reach;
 			shadowCamera.right = shadowCamera.top = reach;
 			shadowCamera.near = 1;
-			shadowCamera.far = 2400;
+			shadowCamera.far = 4 * reach + 4;
 			shadowCamera.updateProjectionMatrix();
 		}
 	};

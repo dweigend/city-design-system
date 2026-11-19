@@ -1,9 +1,10 @@
+import { scaleFigure } from './scale-figure';
 import { mount, type AssetRecipe } from './definition';
 import { slab, rod } from './parts';
 
 export const roofTerrace: AssetRecipe = {
 	id: 'roof-terrace',
-	slotNames: ['body', 'trim'],
+	slotNames: ['body', 'trim', 'figure'],
 	category: 'roofs',
 	variants: ['square', 'promenade', 'lookout'],
 	footprint: [7.3, 4.9],
@@ -21,6 +22,8 @@ export const roofTerrace: AssetRecipe = {
 		for (const x of [-w / 2 + 0.06, w / 2 - 0.06])
 			parts.push(rod([x, -l / 2 + 0.06, z], [x, l / 2 - 0.06, z], 0.043));
 		if (variant === 2) parts.push(slab([-0.42, -1, 0.2], [0.84, 2, 0.38], 'trim'));
+		parts.push(...scaleFigure([w * 0.28, l * 0.27, 0.2], 2, 0.5));
+		if (variant === 1) parts.push(...scaleFigure([-w * 0.24, -l * 0.15, 0.2], 1, 2.4));
 		return parts;
 	}
 };

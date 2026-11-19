@@ -9,6 +9,7 @@ import { crownKit } from './objects/crown-kit';
 import { serviceKit } from './objects/service-kit';
 import { people } from './objects/people';
 import { circulationObjects } from './circulation';
+import { scaleFigureAsset } from './scale-figure';
 import { smallArchitecture } from './objects/small-architecture';
 import { textiles } from './objects/textiles';
 import { publicArt } from './objects/public-art';
@@ -92,6 +93,7 @@ import { glass } from './glass';
 import { planted } from './planted';
 
 export const recipes: readonly AssetRecipe[] = [
+	scaleFigureAsset,
 	porthole,
 	windowBand,
 	balcony,

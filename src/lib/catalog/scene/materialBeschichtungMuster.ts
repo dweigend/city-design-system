@@ -12,9 +12,10 @@ import type { Muster } from './materialMuster';
 
 const rauschen = (p: Node<'vec3'>, skala: number) => mx_noise_float(p.mul(skala));
 
-/** A smooth mirror face leaves the directional contrast to the reflected environment. */
-export function messingMuster(base: Node<'vec3'>): Muster {
-	return { farbe: base, hoehe: float(0), relief: 0 };
+/** Fine directional brushing spreads the reflection across the brass face. */
+export function messingMuster(base: Node<'vec3'>, welt: Node<'vec3'>): Muster {
+	const brush = mx_noise_float(welt.mul(vec3(1.4, 35, 35)));
+	return { farbe: base, hoehe: brush, relief: 0.00035, rauheitVersatz: brush.mul(0.08) };
 }
 
 /** Copper darkens and grows matte in irregular oxidized patches; the height is in metres. */

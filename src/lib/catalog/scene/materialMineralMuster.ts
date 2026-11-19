@@ -31,10 +31,10 @@ function guss(base: Node<'vec3'>, p: Node<'vec3'>) {
 function zuschlag(base: Node<'vec3'>, p: Node<'vec3'>) {
 	// Warp angular chips and vary density in patches. The lit chip face has its own height.
 	const cluster = noise(p, 0.92);
-	const koordinaten = p.mul(6.4).add(feld(p, 14).mul(0.25));
+	const koordinaten = p.mul(1.45).add(feld(p, 3).mul(0.13));
 	const abstand = mx_worley_noise_vec3(koordinaten, 0.9, 2).x.sub(cluster.mul(0.21));
 	const korn = zone(abstand, 0.37, 0.54);
-	const farbwahl = noise(p, 10);
+	const farbwahl = noise(p, 1.8);
 	const mineral = mix(color('#33373a'), color('#ba8150'), farbwahl.smoothstep(-0.24, -0.03));
 	const stein = mix(mineral, color('#f1ead8'), farbwahl.smoothstep(0.05, 0.23));
 	return {

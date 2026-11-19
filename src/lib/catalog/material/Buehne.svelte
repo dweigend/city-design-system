@@ -19,7 +19,6 @@
 		rahmen = true,
 		bewegung = true,
 		studio = false,
-		lichtVonRechts = false,
 		diagrammZeitS
 	}: {
 		stuecke: Stueck[];
@@ -36,7 +35,6 @@
 		bewegung?: boolean;
 		/** Fixed physical studio lighting; diagram rendering remains the default. */
 		studio?: boolean;
-		lichtVonRechts?: boolean;
 		diagrammZeitS?: number;
 	} = $props();
 
@@ -74,7 +72,6 @@
 						rand,
 						bewegung,
 						studio,
-						lichtVonRechts,
 						onError: () => (fehler = '3D view unavailable.')
 					});
 					void aktuell.ready.catch(() => {});
