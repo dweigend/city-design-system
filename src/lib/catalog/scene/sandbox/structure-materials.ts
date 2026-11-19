@@ -36,7 +36,6 @@ export function structureMaterials() {
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
 		pencilHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		pencil: new THREE.Line2NodeMaterial(),
-		ridge: new THREE.Line2NodeMaterial(),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
 		ghost: new THREE.MeshBasicNodeMaterial({
@@ -92,7 +91,6 @@ export function structureMaterials() {
 		materials.glass.color.copy(g.weiss);
 		materials.ghost.color.copy(g.blei);
 		materials.pencil.color.copy(g.blei);
-		materials.ridge.color.copy(g.blei);
 		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
@@ -152,7 +150,6 @@ export function structureMaterials() {
 			if (tones) applyTones(tones);
 			const { bestand, huelle, kontext } = style.rollen;
 			materials.pencil.linewidth = bestand.strichPx;
-			materials.ridge.linewidth = huelle.strichPx;
 			pencilPx.value = bestand.strichPx / 2;
 			outlinePx.value = huelle.strichPx * outlineExpansion;
 			sheetOffsetM.value = (2 * outlinePx.value) / scale;

@@ -29,6 +29,12 @@ export type EnvelopeMesh = {
 	indices: Uint32Array;
 	shellIndexEnds: number[];
 };
+export type RoofSeat = { polygon: Point2[]; holes?: Point2[][] };
+/** Synchronous roof projection and its application-owned diagnostic sink. */
+export type RoofBuilder = {
+	build(cell: BuildingCell, seat: RoofSeat): import('../parametrik/types').MeshForm;
+	reportFailure(id: string, error: unknown): void;
+};
 export type Settings = ReturnType<typeof settings>;
 /** Resolves a cell roof and one storey against the shared schema. */
 export function settings(cell: BuildingCell, floor: NonNullable<BuildingCell['storeys']>[number]) {

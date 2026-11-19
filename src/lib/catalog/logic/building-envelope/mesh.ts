@@ -1,3 +1,4 @@
+import { weldShell } from './weld';
 import type { Manifold, Vec3 } from 'manifold-3d';
 import type { EnvelopeMesh } from './contract';
 import type { Solids } from './solids';
@@ -45,21 +46,30 @@ function validateShell(p: Float32Array, indices: Uint32Array) {
 		throw new RangeError('Open envelope shell');
 }
 /** Serializes separately owned shell ranges. Edge and point contacts retain independent vertices. */
-export function extractEnvelope(s: Solids, body: Manifold, origin: Vec3): EnvelopeMesh {
+export function extractEnvelope(
+	s: Solids,
+	body: Manifold,
+	origin: Vec3,
+	clipped = false
+): EnvelopeMesh {
 	if (body.status() !== 'NoError')
 		throw new RangeError('Building envelope failed: ' + body.status());
 	const positions: number[] = [],
 		indices: number[] = [],
 		shellIndexEnds: number[] = [];
 	for (const part of body.decompose().map(s.keep)) {
-		const solid = s.keep(s.keep(part.asOriginal()).simplify(extractionTolerance(part)));
+		const tolerance = extractionTolerance(part);
+		const solid = s.keep(s.keep(part.asOriginal()).simplify(tolerance));
 		const mesh = solid.getMesh();
-		if (!mesh.triVerts.length)
+		const shell = clipped
+			? weldShell(mesh.vertProperties, mesh.triVerts, tolerance)
+			: { positions: mesh.vertProperties, indices: mesh.triVerts };
+		if (!shell.indices.length)
 			throw new RangeError('Shell collapsed at local extraction precision');
-		validateShell(mesh.vertProperties, mesh.triVerts);
+		validateShell(shell.positions, shell.indices);
 		const offset = positions.length / 3;
-		for (const value of mesh.vertProperties) positions.push(value);
-		for (const id of mesh.triVerts) indices.push(id + offset);
+		for (const value of shell.positions) positions.push(value);
+		for (const id of shell.indices) indices.push(id + offset);
 		shellIndexEnds.push(indices.length);
 	}
 	return {

@@ -17,7 +17,7 @@ import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
-import { cellAtPoint } from '../../logic/terrain-grid';
+import { createCellPicker } from './house-picker';
 import { createLight } from './light';
 import { startRenderer } from './renderer';
 import { polylineObject } from './polylines';
@@ -80,6 +80,7 @@ export function createSandboxStage(
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
 	let terrain: TerrainMesh | undefined;
+	const picker = createCellPicker(view);
 	/** The world the stage currently shows; the next one is drawn as a difference to it. */
 	let focus: FocusId = 'all';
 	let shown: World | undefined;
@@ -187,23 +188,6 @@ export function createSandboxStage(
 		if (before.grid !== after.grid) drawBaseLines(mesh);
 	}
 
-	const raycaster = new THREE.Raycaster();
-
-	function hitAt(surface: TerrainMesh['surface'], xPx: number, yPx: number) {
-		raycaster.setFromCamera(view.ndc(xPx, yPx), view.camera);
-		const built = [...structures.solids(KEY.house), ...structures.solids(KEY.forest)];
-		return raycaster.intersectObjects([surface, ...built], false)[0];
-	}
-
-	function cellIndexAtHit(
-		hit: THREE.Intersection,
-		surface: TerrainMesh['surface'],
-		grid: World['grid']
-	) {
-		if (hit.object === surface) return (hit.faceIndex ?? NaN) >> 1;
-		return cellAtPoint(grid, hit.point.x, -hit.point.z)?.index;
-	}
-
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, applyPalette);
 
@@ -245,14 +229,13 @@ export function createSandboxStage(
 			if (terrain) frameTerrain(terrain);
 			render();
 		},
-		/**
-		 * Index of the grid cell under a canvas pixel, or undefined off the terrain. A hit on a
-		 * house or a tree picks the cell it stands on.
-		 */
-		pickCell(xPx: number, yPx: number): number | undefined {
+		/** Picks the nearest visible house, tree or terrain cell in the current view. */
+		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
-			const hit = hitAt(terrain.surface, xPx, yPx);
-			return hit && cellIndexAtHit(hit, terrain.surface, shown.grid);
+			return picker(x, y, shown.grid, terrain.surface, [
+				...structures.solids(KEY.house),
+				...structures.solids(KEY.forest)
+			]);
 		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {

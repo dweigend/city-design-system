@@ -54,6 +54,21 @@ export function build(p: Exclude<Primitive, { kind: 'polyline' }>, coarse = fals
 		...more
 	});
 	switch (p.kind) {
+		case 'mesh': {
+			const geometry = new THREE.BufferGeometry();
+			const points = p.points.map(vector);
+			geometry.setFromPoints(p.triangles.map((i) => points[i]));
+			geometry.computeVertexNormals();
+			const rulings =
+				p.edges === false
+					? []
+					: p.lines.flatMap((path) =>
+							path
+								.slice(1)
+								.flatMap((end, i) => [...points[path[i]].toArray(), ...points[end].toArray()])
+						);
+			return at(new THREE.Vector3(), geometry, { edges: false, rulings });
+		}
 		case 'prism': {
 			const shape = new THREE.Shape(p.polygon.map(([x, y]) => new THREE.Vector2(x, y)));
 			for (const hole of p.holes ?? [])

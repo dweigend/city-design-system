@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { loadEnvelopeKernel } from './envelope-kernel';
+	import { createCanvasHover } from '../scene/sandbox/canvas-hover';
 	import { onMount } from 'svelte';
 	import { attachInput } from '../scene/sandbox/input';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox/stage';
@@ -26,42 +28,60 @@
 	let error = $state('');
 
 	const hovered = $derived(hoveredId ? session.world.grid.cellsById.get(hoveredId) : undefined);
-	const cellAt = (x: number, y: number) => {
-		const index = stage?.pickCell(x, y);
-		return index === undefined ? undefined : session.world.grid.cells[index];
-	};
+	let hover = $state.raw<ReturnType<typeof createCanvasHover>>();
 
 	onMount(() => {
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'));
 		void current.ready.catch(() => {});
-		const resize = () => current.resize(host.clientWidth, host.clientHeight);
+		const target = createCanvasHover(current, (id) => (hoveredId = id));
+		const resize = () => {
+			current.resize(host.clientWidth, host.clientHeight);
+			target.refresh();
+		};
 		const observer = new ResizeObserver(resize);
 		observer.observe(host);
 		resize();
 		const detach = attachInput(canvas, current.view, {
 			draws: () => session.tool.kind !== 'look',
-			hover: (position) => (hoveredId = position && cellAt(position.x, position.y)?.id),
+			hover: target.move,
 			strokeStart: (x, y) => {
-				const cell = cellAt(x, y);
+				const cell = target.cellAt(x, y);
 				if (cell) session.strokeStart(cell.id);
 			},
 			strokeMove: (x, y) => {
-				const cell = cellAt(x, y);
+				const cell = target.cellAt(x, y);
 				if (cell) session.strokeMove(cell.id);
 			},
 			strokeEnd: () => session.strokeEnd(),
-			viewChanged: () => current.render()
+			viewChanged: (position) => {
+				current.render();
+				if (position) target.move(position);
+				else target.refresh();
+			}
 		});
 		stage = current;
+		hover = target;
+		let mounted = true;
+		void loadEnvelopeKernel()
+			.then((roofBuilder) => {
+				if (mounted) session.setRoofBuilder(roofBuilder);
+			})
+			.catch(() => {
+				if (mounted) error = 'Detailed roofs unavailable.';
+			});
 		return () => {
+			mounted = false;
 			detach();
 			observer.disconnect();
 			current.dispose();
 		};
 	});
 
-	$effect(() => stage?.show(session.world, session.focus));
-	$effect(() => stage?.setPlan(plan));
+	$effect(() => hover?.show(session.world, session.focus));
+	$effect(() => {
+		stage?.setPlan(plan);
+		hover?.refresh();
+	});
 	$effect(() => onhover?.(hovered));
 
 	function updateCursor(current: SandboxStage) {

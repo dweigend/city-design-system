@@ -5,11 +5,18 @@ import { normalizeRing } from './normalize-ring';
 import { roundFootprint } from './footprint';
 import { withSolids, type Solids } from './solids';
 /** Applies the signed offset before tangent corner fillets. */
-export function sectionAt(s: Solids, base: CrossSection, p: Settings) {
+function sectionAt(s: Solids, base: CrossSection, p: Settings) {
 	const outline = p.offset ? s.keep(base.offset(p.offset, 'Miter', 2)) : base;
 	if (!p.radius || outline.isEmpty()) return outline;
 	const rounded = outline.toPolygons().map((r) => roundFootprint(r, p.radius));
 	return s.keep(new s.kernel.CrossSection(rounded, 'EvenOdd'));
+}
+
+/** Applies the same storey footprint, constrained to a supporting slab when drawing a roof. */
+export function seatedSection(s: Solids, base: CrossSection, p: Settings, seat?: CrossSection) {
+	const footprint = sectionAt(s, base, p);
+	// Coincident inset and slab edges can leave micrometre slivers after the planar boolean.
+	return seat ? s.keep(s.keep(footprint.intersect(seat)).simplify(1e-5)) : footprint;
 }
 
 /** Returns every surviving storey contour, outer rings CCW and holes CW. Distances are in metres. */

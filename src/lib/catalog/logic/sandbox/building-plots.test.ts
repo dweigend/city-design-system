@@ -1,5 +1,7 @@
 // @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
+import init from 'manifold-3d';
+import { createRoofBuilder } from '../building-envelope';
 import { houseChunk, type HouseUse } from '../house-brush';
 import { createTerrain } from '../terrain';
 import { deriveGrid } from '../terrain-grid';
@@ -63,10 +65,11 @@ test('snapping preserves the full perpendicular width on both owners of every se
 	expect(b?.neighbors).toContain(a?.id);
 });
 
-test('the pencil ridge on 106/72 follows the P1 angle on its final inset footprint', () => {
+test('pencil and K1 share the transverse axis on the final inset lot 106/72', async () => {
 	const cell = plots.cellsById.get('106/72');
 	if (!cell) throw new Error('missing lot');
-	const parts = houseChunk(plots, new Map([[cell.id, ['living']]]), cell.chunk, 7);
+	const stacks = new Map<string, HouseUse[]>([[cell.id, ['living']]]);
+	const parts = houseChunk(plots, stacks, cell.chunk, 7);
 	const ridge = parts.find((p) => p.id.endsWith(':ridge'));
 	if (ridge?.kind !== 'polyline') throw new Error('missing ridge');
 	const [a, , b] = ridge.points;
@@ -77,6 +80,19 @@ test('the pencil ridge on 106/72 follows the P1 angle on its final inset footpri
 	]);
 	const [x, y] = sides.reduce((a, b) => (Math.hypot(...a) >= Math.hypot(...b) ? a : b));
 	const angle = Math.atan2(y, x) + Math.PI / 2;
+	const kernel = await init();
+	kernel.setup();
+	const builder = createRoofBuilder(kernel, (_id, error) => {
+		throw error;
+	});
+	const meshParts = houseChunk(plots, stacks, cell.chunk, 7, 'terrace', undefined, {
+		...builder,
+		build(spec, seat) {
+			expect(spec.params?.direction).toBeCloseTo(angle, 12);
+			return builder.build(spec, seat);
+		}
+	});
+	expect(meshParts.some((part) => part.kind === 'mesh' && part.roofCell === cell.id)).toBe(true);
 	const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
 	expect(length).toBeGreaterThan(0);
 	expect(((b[0] - a[0]) * Math.sin(angle) - (b[1] - a[1]) * Math.cos(angle)) / length).toBeCloseTo(

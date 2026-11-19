@@ -202,6 +202,18 @@ const forms = {
 		radius: 0.5
 	},
 	pipe: { ...base, id: 'pipe', kind: 'pipe', points: [[...origin], [0, 2, 2]], radius: 0.3 },
+	mesh: {
+		...base,
+		id: 'mesh',
+		kind: 'mesh',
+		points: [
+			[0, 0, 0],
+			[2, 0, 0],
+			[0, 2, 2]
+		],
+		triangles: [0, 1, 2],
+		lines: [[0, 1, 2, 0]]
+	},
 	polyline: { ...base, id: 'polyline', kind: 'polyline', points: [[...origin], [0, 2, 2]] },
 	arch: { ...base, id: 'arch', kind: 'arch', position: [...origin], width: 2, length: 2, rise: 1 },
 	vault: {

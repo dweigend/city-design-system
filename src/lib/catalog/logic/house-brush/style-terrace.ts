@@ -1,3 +1,4 @@
+import { stockRoof } from './stock-roof';
 import { STORY } from '../../data/grid';
 import { hash } from '../hash-random';
 import type { Primitive, Vec3 } from '../parametrik/types';
@@ -21,10 +22,27 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 		token: '--paper',
 		shade: p.wash
 	}));
+	const seatId = mass.id + (profile.tiers ? ':tier' + (profile.tiers - 1) : ':plate');
+	const seat = solids.find((part) => part.id === seatId);
 	for (const { cell, level } of mass.stories) {
 		if (storiesOf(site.stacks, cell.id).length !== level + 1) continue;
 
 		const top = mass.floor + STORY + profile.tiers * profile.rise;
+		if (site.roofBuilder && seat?.kind === 'prism') {
+			const roof = stockRoof(
+				site.roofBuilder,
+				seat,
+				cell,
+				level,
+				site.seed,
+				top,
+				profile.setback * profile.tiers
+			);
+			if (roof) {
+				solids.push(roof);
+				continue;
+			}
+		}
 		const height =
 			inradius(cell) * p.pitch * (1 + hash(site.seed, cell.index, level) * p.variation);
 		const ends = pencilGables(cell, site.seed, profile.setback * profile.tiers);
@@ -37,6 +55,7 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 			];
 			solids.push({
 				...part(cell.id + '@' + level + ':gable' + i, '--paper', { kind: 'polyline', points }),
+				roofCell: cell.id,
 				role: 'bestand'
 			});
 		}
@@ -53,6 +72,7 @@ export function terraceMass(site: Site, mass: Mass, p = TERRACE_DEFAULTS): Primi
 					[...ends[1].peak, top + height]
 				]
 			}),
+			roofCell: cell.id,
 			role: 'bestand'
 		});
 	}

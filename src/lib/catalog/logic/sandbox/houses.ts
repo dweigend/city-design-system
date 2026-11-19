@@ -81,12 +81,20 @@ export function houseView(
 			: [...groupPhases(state, stacks, true)];
 	const stock = phases.filter(([phase]) => phase.built < earliestFullYear);
 	const project = ([{ built, style }, floors]: (typeof phases)[number]) =>
-		houseChunk(buildingPlots(grid), floors, chunk, seed, style, {
-			occupied: state.stacks,
-			// Plots already exclude passages; roof runs stay within the original lattice block.
-			blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
-			olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
-		});
+		houseChunk(
+			buildingPlots(grid),
+			floors,
+			chunk,
+			seed,
+			style,
+			{
+				occupied: state.stacks,
+				// Plots already exclude passages; roof runs stay within the original lattice block.
+				blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
+				olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
+			},
+			world.roofBuilder
+		);
 	return [
 		...present(stock.flatMap(project), focus.stock),
 		...present(
