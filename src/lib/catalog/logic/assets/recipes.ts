@@ -1,3 +1,5 @@
+import { walkwayStop } from './walkway-stop';
+import { primitiveObjects } from './primitive-objects';
 import { houseFittings } from './house-fittings';
 import { roofMachinery } from './roof-machinery';
 import { energyEquipment } from './energy-equipment';
@@ -126,5 +128,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...energyEquipment,
 	...exchangeStations,
 	...houseFittings,
-	...roofMachinery
+	...roofMachinery,
+	walkwayStop,
+	...primitiveObjects
 ];

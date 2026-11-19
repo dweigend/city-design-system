@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { assetRegistry, assetCategories, buildAsset } from '../logic/assets';
+	import { resolve } from '$app/paths';
+	import { assetRegistry, assetCategories, buildObject } from '../logic/assets';
 	import { materialSheet, type SheetRow } from '../logic/material/contact-sheet';
 	import type { ColorToken } from '../logic/parametrik/types';
 	import { flowToken } from '../data/focus';
@@ -32,7 +33,7 @@
 						samples: a.variants.map((v) => ({
 							id: v,
 							label: name(v),
-							parts: () => buildAsset(a.id, v, 17)
+							parts: () => buildObject(a.id, v, 17).parts
 						}))
 					}))
 	);
@@ -75,7 +76,7 @@
 		<h1>Asset catalogue</h1>
 		<nav aria-label="Asset categories">
 			{#each groups as c (c)}<a
-					href={'?group=' + c}
+					href={resolve('/labor/assets') + '?group=' + c}
 					aria-current={category === c ? 'page' : undefined}>{c}</a
 				>{/each}
 		</nav>

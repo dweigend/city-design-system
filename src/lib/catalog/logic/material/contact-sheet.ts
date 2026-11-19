@@ -1,7 +1,6 @@
-import { assetRegistry, buildAsset } from '../assets';
+import { assetRegistry, buildObject, type SlotAssignment } from '../assets';
 import type { ColorToken, Primitive } from '../parametrik/types';
-import { forms } from './sample-forms';
-import { applySurface, finishCatalogue } from './surface';
+import { finishCatalogue } from './surface';
 
 export type SheetRow = {
 	id: string;
@@ -10,35 +9,61 @@ export type SheetRow = {
 	samples: { id: string; label: string; parts(): Primitive[] }[];
 };
 
-/** Compares finishes on the same sphere and corrugation on primitive and assembled forms. */
+const windowAssignments: Record<string, Record<string, SlotAssignment>> = {
+	porcelain: {
+		body: { finish: 'keramik-glasiert', token: '--paper' },
+		glass: { finish: 'glas-klar', token: '--cat-nature-2' }
+	},
+	timber: {
+		body: { finish: 'holz-natur', token: '--body-living' },
+		glass: { finish: 'glas-matt', token: '--paper' }
+	},
+	enamel: {
+		body: { finish: 'metall-lackiert', token: '--cat-health' },
+		glass: { finish: 'acryl-matt', token: '--cat-mobility' }
+	}
+};
+
+/** Compares finishes on registered geometry with the same slot binding used for placed objects. */
 export function materialSheet(token: ColorToken): SheetRow[] {
-	const corrugate = (parts: Primitive[]) =>
-		parts.map((p) => applySurface(p, 'corrugated-metal', token));
-	const solids = Object.values(forms).filter((p) => p.kind !== 'polyline');
+	const solids = assetRegistry.filter((a) => a.category === 'primitive-forms');
 	const assemblies = assetRegistry.filter(
 		(a) => a.id === 'ridge-house' || a.id === 'living-capsule'
 	);
 	return [
+		{
+			id: 'slot-assignments',
+			label: 'One porthole, three surface assignments',
+			samples: Object.entries(windowAssignments).map(([id, slots]) => ({
+				id,
+				label: id,
+				parts: () => buildObject('porthole', 'round', 17, { slots }).parts
+			}))
+		},
 		{
 			id: 'sphere',
 			label: 'One sphere in every finish',
 			samples: finishCatalogue.map(({ id, name }) => ({
 				id,
 				label: name,
-				parts: () => [applySurface(forms.sphere, id, token)]
+				parts: () =>
+					buildObject('primitive-sphere', 'short', 17, { slots: { body: { finish: id, token } } })
+						.parts
 			}))
 		},
 		{
 			id: 'corrugated',
 			label: 'Corrugated sheet on every form',
-			samples: [
-				...solids.map((p) => ({ id: p.kind, label: p.kind, parts: () => corrugate([p]) })),
-				...assemblies.map((a) => ({
-					id: a.id,
-					label: a.id.replaceAll('-', ' '),
-					parts: () => corrugate(buildAsset(a.id, a.variants[0], 17))
-				}))
-			]
+			samples: [...solids, ...assemblies].map((a) => ({
+				id: a.id,
+				label: a.id.replace('primitive-', '').replaceAll('-', ' '),
+				parts: () =>
+					buildObject(a.id, a.variants[0], 17, {
+						slots: Object.fromEntries(
+							a.slotNames.map((slot) => [slot, { finish: 'corrugated-metal', token }])
+						)
+					}).parts
+			}))
 		}
 	];
 }

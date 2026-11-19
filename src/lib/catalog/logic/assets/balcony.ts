@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, rod, workshop } from './parts';
+import { slab, rod } from './parts';
 
 export const balcony: AssetRecipe = {
 	id: 'balcony',
+	slotNames: ['body', 'trim'],
 	category: 'facades',
 	variants: ['juliet', 'gallery', 'corner-seat'],
 	footprint: [1.85, 4.8],
@@ -23,7 +24,7 @@ export const balcony: AssetRecipe = {
 			parts.push(
 				rod([d - 0.05, -w / 2 + (i * w) / 6, 0.16], [d - 0.05, -w / 2 + (i * w) / 6, h], 0.027)
 			);
-		if (variant === 2) parts.push(slab([0.16, -w / 2 + 0.12, 0.16], [0.55, 1.4, 0.35], workshop));
+		if (variant === 2) parts.push(slab([0.16, -w / 2 + 0.12, 0.16], [0.55, 1.4, 0.35], 'trim'));
 		return parts;
 	}
 };

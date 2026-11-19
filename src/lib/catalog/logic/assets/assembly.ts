@@ -1,16 +1,19 @@
+import type { ObjectGeometry } from './object-geometry';
 import type { AssetCategory, AssetRecipe, Attachment } from './definition';
 import { mount } from './definition';
-import { drum, slab, surface, white } from './parts';
-import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
+import { drum, slab, surface } from './parts';
+import type { Vec3 } from '../parametrik/types';
 
 /** Defines three dimensional settings and a small seeded tolerance on the tuned dimension. */
 export function family(category: AssetCategory, attachment: Attachment) {
 	return (
 		id: string,
+		slotNames: readonly string[],
 		footprint: [number, number],
-		draw: (factor: number, variant: number) => Primitive[]
+		draw: (factor: number, variant: number) => ObjectGeometry[]
 	): AssetRecipe => ({
 		id,
+		slotNames,
 		category,
 		footprint,
 		anchors: [mount(attachment)],
@@ -27,9 +30,9 @@ export function block(
 	w: number,
 	d: number,
 	h: number,
-	token: ColorToken = white
+	slot = 'body'
 ) {
-	return slab([x - w / 2, y - d / 2, z], [w, d, h], token);
+	return slab([x - w / 2, y - d / 2, z], [w, d, h], slot);
 }
 
 /** Four columns inset from the specified corner axes. */
@@ -38,7 +41,7 @@ export function legs(x: number, y: number, h: number, r = 0.12) {
 }
 
 /** Repeats a detail in stable left-to-right order; t spans −1 to 1. */
-export function row(count: number, draw: (t: number, i: number) => Primitive) {
+export function row(count: number, draw: (t: number, i: number) => ObjectGeometry) {
 	return Array.from({ length: count }, (_, i) => draw((2 * i) / (count - 1) - 1, i));
 }
 
@@ -47,11 +50,11 @@ export function plate(
 	polygon: [number, number][],
 	z: number,
 	height: number,
-	token: ColorToken = white,
+	slot = 'body',
 	hole?: [number, number][]
-): Primitive {
+): ObjectGeometry {
 	return {
-		...surface(token),
+		...surface(slot),
 		kind: 'prism',
 		polygon,
 		z,
@@ -75,14 +78,14 @@ export function crescent(
 	z: number,
 	h: number,
 	angle: number,
-	token: ColorToken = white
+	slot = 'body'
 ) {
 	const edge = (r: number) =>
 		Array.from({ length: 33 }, (_, i): [number, number] => [
 			r * Math.cos((angle * i) / 32),
 			r * Math.sin((angle * i) / 32)
 		]);
-	return plate([...edge(outer), ...edge(inner).reverse()], z, h, token);
+	return plate([...edge(outer), ...edge(inner).reverse()], z, h, slot);
 }
 
 /** Space frame with outer members set above the mounting plane. */
@@ -95,7 +98,7 @@ export function cage(
 	h: number,
 	cells: Vec3,
 	braced = true
-): Primitive {
+): ObjectGeometry {
 	return {
 		...surface(),
 		kind: 'frame',
@@ -117,9 +120,9 @@ export function shell(
 	length: number,
 	rise: number,
 	thickness: number,
-	token: ColorToken = white
-): Extract<Primitive, { kind: 'arch' | 'vault' | 'halfpipe' }> {
-	return { ...surface(token), kind, position: [x, y, z], width, length, rise, thickness };
+	slot = 'body'
+): Extract<ObjectGeometry, { kind: 'arch' | 'vault' | 'halfpipe' }> {
+	return { ...surface(slot), kind, position: [x, y, z], width, length, rise, thickness };
 }
 
 /** Mono-pitched roof or ramp running down the x axis. */
@@ -131,10 +134,10 @@ export function slope(
 	d: number,
 	h: number,
 	rotation = 0,
-	token: ColorToken = white
-): Primitive {
+	slot = 'body'
+): ObjectGeometry {
 	return {
-		...surface(token),
+		...surface(slot),
 		kind: 'wedge',
 		position: [x - w / 2, y - d / 2, z],
 		size: [w, d, h],
@@ -144,6 +147,6 @@ export function slope(
 }
 
 /** Continuous pipe through a series of centre-line points. */
-export function pipe(points: Vec3[], radius: number, token: ColorToken = white): Primitive {
-	return { ...surface(token), kind: 'pipe', points, radius };
+export function pipe(points: Vec3[], radius: number, slot = 'body'): ObjectGeometry {
+	return { ...surface(slot), kind: 'pipe', points, radius };
 }

@@ -1,14 +1,15 @@
+import type { ObjectGeometry } from './object-geometry';
 import { mount, type AssetRecipe } from './definition';
-import { surface, white, living } from './parts';
-import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
+import { surface } from './parts';
+import type { Vec3 } from '../parametrik/types';
 function crystal(
 	x: number,
 	y: number,
 	r: number,
 	h: number,
 	lean: number,
-	token: ColorToken
-): Primitive {
+	slot: string
+): ObjectGeometry {
 	const points: Vec3[] = [
 			[x, y, 0],
 			[x + lean, y, h]
@@ -25,10 +26,11 @@ function crystal(
 		triangles.push(0, k, j, 1, j, k);
 		lines.push([0, j, 1], [j, k]);
 	}
-	return { ...surface(token), kind: 'mesh', points, triangles, lines };
+	return { ...surface(slot), kind: 'mesh', points, triangles, lines };
 }
 export const facetedSculpture: AssetRecipe = {
 	id: 'faceted-sculpture',
+	slotNames: ['accent', 'body'],
 	category: 'landmarks',
 	variants: ['spire', 'fold', 'split-crystal'],
 	footprint: [4.6, 4.6],
@@ -42,10 +44,10 @@ export const facetedSculpture: AssetRecipe = {
 				variant === 2 ? 0.88 : 1.42,
 				h,
 				variant === 1 ? 0.7 : 0.28,
-				living
+				'accent'
 			)
 		];
-		if (variant === 2) parts.push(crystal(0.77, 0.12, 0.76, h * 0.71, -0.14, white));
+		if (variant === 2) parts.push(crystal(0.77, 0.12, 0.76, h * 0.71, -0.14, 'body'));
 		return parts;
 	}
 };

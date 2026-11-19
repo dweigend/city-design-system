@@ -1,9 +1,9 @@
 import { alphaSteps, diffusionSteps, materialSpec, materials } from '../../data/material';
 import { materialAusfuehrungen, type AusfuehrungId } from '../../data/materialAusfuehrung';
-import { familien } from '../../data/materialSeite';
+import { familie, familien } from '../../data/materialSeite';
 import { printPatterns, type PrintPattern } from '../../data/materialPrint';
 import { materialLook, type MaterialLook } from '../parametrik/material';
-import type { ColorToken, FinishId, Primitive } from '../parametrik/types';
+import type { ColorToken, FinishId, MaterialId, Primitive } from '../parametrik/types';
 import { ausfuehrungenVon } from './ausfuehrung';
 import { rezept, voreinstellung, type Rezept } from './rezept';
 import type { MaterialVariation } from './variation';
@@ -85,4 +85,14 @@ export function drawingSurface(look: MaterialLook): SurfaceRecipe {
 export function applySurface(part: Primitive, finish?: FinishId, token?: ColorToken): Primitive {
 	if (part.kind === 'polyline' || (finish === undefined && token === undefined)) return part;
 	return { ...part, ...(finish === undefined ? {} : { finish }), token: token ?? part.token };
+}
+
+/** Returns the game material family for an externally selected finish. */
+export function finishMaterial(id: FinishId): MaterialId {
+	const physical = materialAusfuehrungen.find((f) => f.id === id);
+	if (physical) return familie(physical.familie).material;
+	const material = materials.find((m) => m.id === id);
+	if (material) return material.id;
+	if (id === 'fired-slip') return 'glaze';
+	return id === 'print-terrazzo' ? 'concrete' : 'paper';
 }

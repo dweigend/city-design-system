@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { rod, surface, white, pane } from './parts';
+import { rod, surface } from './parts';
 
 export const bayWindow: AssetRecipe = {
 	id: 'bay-window',
+	slotNames: ['body', 'glass'],
 	category: 'facades',
 	variants: ['canted', 'wide', 'deep'],
 	footprint: [1.6, 4.8],
@@ -17,17 +18,17 @@ export const bayWindow: AssetRecipe = {
 			[d, w * 0.31],
 			[0, w / 2]
 		];
-		const section = (z: number, height: number, token: typeof white | typeof pane) => ({
-			...surface(token),
+		const section = (z: number, height: number, slot: string) => ({
+			...surface(slot),
 			kind: 'prism' as const,
 			polygon,
 			z,
 			height
 		});
 		return [
-			section(0, 0.18, white),
-			section(0.18, h, pane),
-			section(h + 0.18, 0.17, white),
+			section(0, 0.18, 'body'),
+			section(0.18, h, 'glass'),
+			section(h + 0.18, 0.17, 'body'),
 			...[-1, 1].map((sign) =>
 				rod([d - 0.035, sign * w * 0.31, 0.18], [d - 0.035, sign * w * 0.31, h + 0.18], 0.035)
 			)

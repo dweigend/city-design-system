@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { drum, rod, surface, path } from './parts';
+import { drum, rod, surface } from './parts';
 import type { Vec3 } from '../parametrik/types';
 export const spiralStair: AssetRecipe = {
 	id: 'spiral-stair',
+	slotNames: ['body', 'deck'],
 	category: 'infrastructure',
 	variants: ['quarter-landing', 'full-turn', 'double-turn'],
 	footprint: [4.9, 4.9],
@@ -29,7 +30,7 @@ export const spiralStair: AssetRecipe = {
 				polar(r, a + angle),
 				polar(0.15, a + angle)
 			];
-			parts.push({ ...surface(path), kind: 'prism', polygon, z, height: 0.12 });
+			parts.push({ ...surface('deck'), kind: 'prism', polygon, z, height: 0.12 });
 			const [x, y] = polar(r - 0.07, a + 0.5 * angle);
 			if (i % 2 === 0 || i === steps - 1)
 				parts.push(rod([x, y, z + 0.12], [x, y, z + 1.04], 0.032));

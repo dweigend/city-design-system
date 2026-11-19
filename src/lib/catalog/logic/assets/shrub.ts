@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { cap, food } from './parts';
+import { cap } from './parts';
 
 export const shrub: AssetRecipe = {
 	id: 'shrub',
+	slotNames: ['planting'],
 	category: 'planting',
 	variants: ['cushion', 'hedge', 'cluster'],
 	footprint: [3.9, 2.6],
@@ -13,7 +14,7 @@ export const shrub: AssetRecipe = {
 		return Array.from({ length: n }, (_, i) => {
 			const x = (i - (n - 1) / 2) * 0.73,
 				y = variant === 2 ? ((i % 2) - 0.5) * 0.72 : 0;
-			return cap([x, y, 0], r, r * (variant === 1 ? 1.48 : 0.86), food);
+			return cap([x, y, 0], r, r * (variant === 1 ? 1.48 : 0.86), 'planting');
 		});
 	}
 };

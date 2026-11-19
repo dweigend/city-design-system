@@ -1,6 +1,9 @@
 import { hashUnit } from '../../core/random';
+import type { Primitive, FinishId, ColorToken } from '../parametrik/types';
+import { finishMaterial } from '../material/surface';
 import { recipes } from './recipes';
 import type { AssetDefinition } from './definition';
+import { suggestedSurface } from './slot-defaults';
 
 export {
 	assetCategories,
@@ -10,28 +13,60 @@ export {
 	type AssetSurface,
 	type Attachment
 } from './definition';
-/** Ordered descriptions for placement tools and the contact sheet. Dimensions are metres. */
-export const assetRegistry: readonly AssetDefinition[] = recipes.map((recipe) => {
-	const entry: Partial<typeof recipe> = { ...recipe };
-	delete entry.draw;
-	return entry as AssetDefinition;
-});
+export type { ObjectGeometry } from './object-geometry';
+export type SlotAssignment = { token: ColorToken; finish: FinishId };
+export type ObjectOptions = {
+	instanceId?: string;
+	slots?: Readonly<Record<string, SlotAssignment>>;
+};
 
-/** Builds detached local primitives for a named variant. Seed is read as u32.
- * Supply a unique instanceId when composing multiple instances into one structure batch. */
-export function buildAsset(id: string, variant: string, seed: number, instanceId = id) {
-	const recipe = recipes.find((entry) => entry.id === id);
+const byId = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+/** Placement descriptions in stable contact-sheet order. */
+export const assetRegistry: readonly AssetDefinition[] = recipes.map(
+	({ draw: _draw, ...entry }) => entry
+);
+
+/** Builds metre-space geometry and independently dressed primitives for the city and bible. */
+export function buildObject(
+	id: string,
+	variant: string,
+	seed: number,
+	options: ObjectOptions = {}
+) {
+	const recipe = byId.get(id);
 	if (!recipe) throw new RangeError('Unknown asset: ' + id);
 	const index = recipe.variants.indexOf(variant);
 	if (index < 0) throw new RangeError('Unknown ' + id + ' variant: ' + variant);
-	return recipe
+	for (const key of Object.keys(options.slots ?? {}))
+		if (!recipe.slotNames.includes(key)) throw new RangeError('Unknown slot: ' + id + '/' + key);
+	const defaults = Object.fromEntries(
+		recipe.slotNames.map((slot) => [slot, suggestedSurface(recipe, variant, slot)])
+	);
+	const geometry = recipe
 		.draw(index, hashUnit(seed, id, variant))
-		.map((part, i) => ({ ...part, id: instanceId + '/' + i }));
+		.map((part, i) => ({ ...part, id: (options.instanceId ?? id) + '/' + i }));
+	const parts = geometry.map(({ slot, ...shape }): Primitive => {
+		const suggestion = defaults[slot];
+		const chosen = options.slots?.[slot];
+		const { token, finish } = chosen ?? suggestion;
+		return {
+			...shape,
+			material: chosen ? finishMaterial(finish) : suggestion.material,
+			token,
+			...(chosen || !suggestion.draft ? { finish } : {})
+		};
+	});
+	return { geometry, defaults, parts, footprint: recipe.footprint, anchors: recipe.anchors };
 }
 
-/** Returns the material fields to spread onto any existing surface-bearing primitive. */
+/** Compatibility entry point for callers consuming dressed primitives only. */
+export function buildAsset(id: string, variant: string, seed: number, instanceId = id) {
+	return buildObject(id, variant, seed, { instanceId }).parts;
+}
+
+/** Returns the named folded sample's surface for dressing externally owned geometry. */
 export function getAssetSurface(id: string, variant: string) {
-	const entry = assetRegistry.find((asset) => asset.id === id);
+	const entry = byId.get(id);
 	if (!entry?.finishes || !entry.variants.includes(variant))
 		throw new RangeError('Unknown surface: ' + id + '/' + variant);
 	return { ...entry.finishes[variant] };

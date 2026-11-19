@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, surface, living, pane } from './parts';
+import { slab, surface } from './parts';
 
 export const livingCapsule: AssetRecipe = {
 	id: 'living-capsule',
+	slotNames: ['accent', 'body', 'glass'],
 	category: 'capsules',
 	variants: ['studio', 'twin', 'longhouse'],
 	footprint: [9.1, 3.1],
@@ -12,7 +13,7 @@ export const livingCapsule: AssetRecipe = {
 			r = 1.34 + 0.045 * sample,
 			z = r + 0.23;
 		const parts = [
-			slab([-half, -0.83, 0], [half * 2, 1.66, 0.54], living),
+			slab([-half, -0.83, 0], [half * 2, 1.66, 0.54], 'accent'),
 			{
 				...surface(),
 				kind: 'capsule' as const,
@@ -23,7 +24,7 @@ export const livingCapsule: AssetRecipe = {
 		];
 		for (const side of [-1, 1]) {
 			const y = side < 0 ? -r - 0.012 : r - 0.12;
-			parts.push(slab([-half - 0.13, y, z - 0.26], [2 * half + 0.26, 0.132, 0.58], pane));
+			parts.push(slab([-half - 0.13, y, z - 0.26], [2 * half + 0.26, 0.132, 0.58], 'glass'));
 			for (let i = 0; i < variant + 2; i++)
 				parts.push(
 					slab(

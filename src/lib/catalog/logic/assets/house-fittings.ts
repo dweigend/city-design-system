@@ -1,24 +1,24 @@
 import { family, block, legs, row, circle, shell } from './assembly';
-import { drum, ring, surface, workshop, path, living } from './parts';
+import { drum, ring, surface } from './parts';
 const asset = family('house-fittings', 'deck');
 export const houseFittings = [
-	asset('twin-outlet', [4, 3], (factor) => [
+	asset('twin-outlet', ['body'], [4, 3], (factor) => [
 		...row(2, (t) => ring([0, t * 0.75, 0.65], 0.64, 0.46 * factor, 3.8 * factor)),
 		block(0, 0, 0, 0.48, 2.85, 0.26)
 	]),
-	asset('capsule-cradle', [5, 3], (factor) => [
+	asset('capsule-cradle', ['body'], [5, 3], (factor) => [
 		...row(2, (t) => ({
 			...shell('halfpipe', 0, t * 1.25, 0.15, 2.75, 0.35, 1.17 * factor, 0.16),
 			rotation: 0
 		})),
 		...row(2, (t) => block(t * 0.72, 0, 0, 0.34, 2.95, 0.3))
 	]),
-	asset('return-landing', [4, 3], (factor) => [
-		block(0, 0, 0, 3.8, 2.65, 0.25, path),
-		...row(2, (t) => block(t * 1.82, 0, 0.25, 0.14, 2.6, 1.03 * factor, living)),
-		block(0, 1.24, 0.25, 3.72, 0.15, 1.03 * factor, living)
+	asset('return-landing', ['deck', 'accent'], [4, 3], (factor) => [
+		block(0, 0, 0, 3.8, 2.65, 0.25, 'deck'),
+		...row(2, (t) => block(t * 1.82, 0, 0.25, 0.14, 2.6, 1.03 * factor, 'accent')),
+		block(0, 1.24, 0.25, 3.72, 0.15, 1.03 * factor, 'accent')
 	]),
-	asset('ring-balustrade', [8, 8], (factor, variant) => [
+	asset('ring-balustrade', ['body'], [8, 8], (factor, variant) => [
 		...circle(3.83, 16 + variant * 4).map(([x, y]) => drum([x, y, 0], 0.035, 1.15 * factor)),
 		{
 			...surface(),
@@ -37,9 +37,9 @@ export const houseFittings = [
 			tube: 0.032
 		}
 	]),
-	asset('helical-walk', [7, 7], (factor, variant) => [
+	asset('helical-walk', ['deck', 'body'], [7, 7], (factor, variant) => [
 		{
-			...surface(path),
+			...surface('deck'),
 			kind: 'helix',
 			position: [0, 0, 0],
 			radius: 3.32,
@@ -59,10 +59,10 @@ export const houseFittings = [
 			thickness: 0.95
 		}
 	]),
-	asset('service-bench', [3, 1.6], (factor) => [
+	asset('service-bench', ['body', 'trim', 'deck'], [3, 1.6], (factor) => [
 		...legs(1.14 * factor, 0.52, 0.89, 0.065),
 		block(0, 0, 0.89, 2.72 * factor, 1.35, 0.12),
-		block(-0.8 * factor, 0.16, 1.01, 0.42, 0.49, 0.23, workshop),
-		...row(2, (t) => block(-0.8 * factor + t * 0.15, 0.16, 1.24, 0.08, 0.47, 0.16 * factor, path))
+		block(-0.8 * factor, 0.16, 1.01, 0.42, 0.49, 0.23, 'trim'),
+		...row(2, (t) => block(-0.8 * factor + t * 0.15, 0.16, 1.24, 0.08, 0.47, 0.16 * factor, 'deck'))
 	])
 ];

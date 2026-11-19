@@ -1,9 +1,9 @@
 import { family } from './assembly';
-import { water, energy, food, workshop, path, living, pane } from './parts';
+
 import { vessel } from './pottery';
 const asset = family('ceramics', 'deck');
 export const turnedWare = [
-	asset('moon-flask', [2.48, 2.48], (factor, variant) => [
+	asset('moon-flask', ['channel'], [2.48, 2.48], (factor, variant) => [
 		vessel(
 			[
 				[0.42, 0],
@@ -15,11 +15,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			water,
+			'channel',
 			0
 		)
 	]),
-	asset('trumpet-vase', [2.68, 2.68], (factor, variant) => [
+	asset('trumpet-vase', ['accent'], [2.68, 2.68], (factor, variant) => [
 		vessel(
 			[
 				[0.65, 0],
@@ -30,11 +30,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			living,
+			'accent',
 			0
 		)
 	]),
-	asset('carinated-bowl', [2.88, 2.88], (factor, variant) => [
+	asset('carinated-bowl', ['trim'], [2.88, 2.88], (factor, variant) => [
 		vessel(
 			[
 				[0.32 + variant * 0.24, 0],
@@ -44,11 +44,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			workshop,
+			'trim',
 			0
 		)
 	]),
-	asset('incense-cup', [1.68, 1.68], (factor, variant) => [
+	asset('incense-cup', ['deck'], [1.68, 1.68], (factor, variant) => [
 		vessel(
 			[
 				[0.57, 0],
@@ -60,11 +60,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			path,
+			'deck',
 			0
 		)
 	]),
-	asset('shoulder-jar', [2.48, 2.48], (factor, variant) => [
+	asset('shoulder-jar', ['highlight'], [2.48, 2.48], (factor, variant) => [
 		vessel(
 			[
 				[0.77, 0],
@@ -76,11 +76,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			energy,
+			'highlight',
 			0
 		)
 	]),
-	asset('stacked-bottle', [1.96, 1.96], (factor, variant) => [
+	asset('stacked-bottle', ['channel'], [1.96, 1.96], (factor, variant) => [
 		vessel(
 			[
 				[0.48, 0],
@@ -94,11 +94,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			water,
+			'channel',
 			0
 		)
 	]),
-	asset('lotus-basin', [3.28, 3.28], (factor, variant) => [
+	asset('lotus-basin', ['planting'], [3.28, 3.28], (factor, variant) => [
 		vessel(
 			[
 				[0.7, 0],
@@ -109,11 +109,11 @@ export const turnedWare = [
 			],
 			6 + variant * 4,
 			factor,
-			food,
+			'planting',
 			0
 		)
 	]),
-	asset('square-flask', [2.48, 2.48], (factor, variant) => [
+	asset('square-flask', ['glass'], [2.48, 2.48], (factor, variant) => [
 		vessel(
 			[
 				[0.75, 0],
@@ -124,11 +124,11 @@ export const turnedWare = [
 			],
 			4,
 			factor,
-			pane,
+			'glass',
 			0
 		)
 	]),
-	asset('crystal-bud', [2.78, 2.78], (factor, variant) => [
+	asset('crystal-bud', ['trim'], [2.78, 2.78], (factor, variant) => [
 		vessel(
 			[
 				[0.48, 0],
@@ -139,11 +139,11 @@ export const turnedWare = [
 			],
 			4 + variant * 2,
 			factor,
-			workshop,
+			'trim',
 			0.27
 		)
 	]),
-	asset('twisted-chalice', [2.6, 2.6], (factor, variant) => [
+	asset('twisted-chalice', ['accent'], [2.6, 2.6], (factor, variant) => [
 		vessel(
 			[
 				[0.68, 0],
@@ -155,11 +155,11 @@ export const turnedWare = [
 			],
 			6 + variant,
 			factor,
-			living,
+			'accent',
 			0.22 + variant * 0.32
 		)
 	]),
-	asset('fluted-urn', [2.08, 2.08], (factor, variant) => [
+	asset('fluted-urn', ['highlight'], [2.08, 2.08], (factor, variant) => [
 		vessel(
 			[
 				[0.63, 0],
@@ -170,12 +170,12 @@ export const turnedWare = [
 			],
 			12 + 8 * variant,
 			factor,
-			energy,
+			'highlight',
 			0.16,
 			0.08
 		)
 	]),
-	asset('hourglass-column', [2.44, 2.44], (factor, variant) => [
+	asset('hourglass-column', ['channel'], [2.44, 2.44], (factor, variant) => [
 		vessel(
 			[
 				[0.94, 0],
@@ -187,11 +187,11 @@ export const turnedWare = [
 			],
 			8 + variant,
 			factor,
-			water,
+			'channel',
 			0
 		)
 	]),
-	asset('lotus-capital', [2.88, 2.88], (factor, variant) => [
+	asset('lotus-capital', ['planting'], [2.88, 2.88], (factor, variant) => [
 		vessel(
 			[
 				[0.54, 0],
@@ -202,11 +202,11 @@ export const turnedWare = [
 			],
 			6 + variant * 4,
 			factor,
-			food,
+			'planting',
 			0
 		)
 	]),
-	asset('cushion-capital', [2.52, 2.52], (factor, variant) => [
+	asset('cushion-capital', ['accent'], [2.52, 2.52], (factor, variant) => [
 		vessel(
 			[
 				[0.5, 0],
@@ -216,11 +216,11 @@ export const turnedWare = [
 			],
 			4 + variant * 2,
 			factor,
-			living,
+			'accent',
 			0
 		)
 	]),
-	asset('reed-column', [1.68, 1.68], (factor, variant) => [
+	asset('reed-column', ['deck'], [1.68, 1.68], (factor, variant) => [
 		vessel(
 			[
 				[0.78, 0],
@@ -232,11 +232,11 @@ export const turnedWare = [
 			],
 			9 + variant,
 			factor,
-			path,
+			'deck',
 			0.12 + 0.25 * variant
 		)
 	]),
-	asset('bell-finial', [2.08, 2.08], (factor, variant) => [
+	asset('bell-finial', ['highlight'], [2.08, 2.08], (factor, variant) => [
 		vessel(
 			[
 				[0.95, 0],
@@ -247,11 +247,11 @@ export const turnedWare = [
 			],
 			32,
 			factor,
-			energy,
+			'highlight',
 			0
 		)
 	]),
-	asset('pleated-dish', [3.18, 3.18], (factor, variant) => [
+	asset('pleated-dish', ['trim'], [3.18, 3.18], (factor, variant) => [
 		vessel(
 			[
 				[0.68, 0],
@@ -261,7 +261,7 @@ export const turnedWare = [
 			],
 			8 + variant * 6,
 			factor,
-			workshop,
+			'trim',
 			0.5
 		)
 	])

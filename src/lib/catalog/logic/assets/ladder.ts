@@ -1,8 +1,10 @@
+import type { ObjectGeometry } from './object-geometry';
 import { mount, type AssetRecipe } from './definition';
 import { rod } from './parts';
-import type { Primitive } from '../parametrik/types';
+
 export const ladder: AssetRecipe = {
 	id: 'ladder',
+	slotNames: ['body'],
 	category: 'infrastructure',
 	variants: ['service', 'roof-access', 'wide-rung'],
 	footprint: [0.64, 1.28],
@@ -12,7 +14,7 @@ export const ladder: AssetRecipe = {
 			w = variant === 2 ? 0.96 : 0.62,
 			spacing = 0.28 + 0.016 * sample,
 			h = (n + 1) * spacing;
-		const parts: Primitive[] = [];
+		const parts: ObjectGeometry[] = [];
 		for (const sign of [-1, 1]) {
 			const y = (sign * w) / 2;
 			parts.push(rod([0.34, y, 0], [0.34, y, h], 0.045));

@@ -1,8 +1,9 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, drum, rod, cap, water } from './parts';
+import { slab, drum, rod, cap } from './parts';
 
 export const tankFrame: AssetRecipe = {
 	id: 'tank-frame',
+	slotNames: ['body', 'channel'],
 	category: 'infrastructure',
 	variants: ['single-vessel', 'paired-vessels', 'filter-bank'],
 	footprint: [8.3, 3.2],
@@ -21,7 +22,7 @@ export const tankFrame: AssetRecipe = {
 			}
 		for (let i = 0; i < n; i++) {
 			const x = (i - (n - 1) / 2) * 2.64;
-			parts.push(drum([x, 0, h + 0.18], r, 2.23, water), cap([x, 0, h + 2.41], r, 0.29));
+			parts.push(drum([x, 0, h + 0.18], r, 2.23, 'channel'), cap([x, 0, h + 2.41], r, 0.29));
 		}
 		return parts;
 	}
