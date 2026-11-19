@@ -1,85 +1,28 @@
-import { required } from '../required';
-import { planHouse, sectionParts, houseLinks } from '../composed-house';
+import { planHouse, sectionParts, houseLinks, paintedSections } from '../composed-house';
 import type { HouseUse } from '../house-brush';
-import { squareGrid, type QuadGrid } from '../quad-grid';
+import { squareGrid } from '../quad-grid';
 import type { RulePlate } from './hausregel';
 
-const programme = {
-	pavilion: ['energy', 'energy'],
-	house: ['living', 'living', 'food', 'living'],
-	rectangular: ['water', 'water', 'living', 'living', 'food', 'food', 'energy', 'energy'],
-	round: [
-		'water',
-		'water',
-		'material',
-		'living',
-		'living',
-		'food',
-		'food',
-		'living',
-		'food',
-		'food',
-		'food',
-		'food'
-	]
-} satisfies Record<string, HouseUse[]>;
-
-function house(grid: QuadGrid, id: string, uses: HouseUse[], seed: number) {
-	const cell = required(grid.cellsById.get(id), 'plate cell');
-	return planHouse({ cells: [cell], stacks: new Map([[id, uses]]), seed });
+const mixed: HouseUse[] = ['water','living','food','energy'];
+function single(id:string,title:string,text:string,uses:HouseUse[],seed:number,bank=false):RulePlate {
+	const cell=squareGrid(1,1,19).cells[0];
+	const house=planHouse({cells:[cell],stacks:new Map([[cell.id,uses]]),district:bank?'bank':'infill',seed});
+	return {id,title,text,primitives:sectionParts(house)};
 }
-function single(
-	id: keyof typeof programme,
-	title: string,
-	text: string,
-	seed: number,
-	span: number
-): RulePlate {
-	const section = house(squareGrid(1, 1, span), '0/0', programme[id], seed);
-	return { id, title, text, primitives: sectionParts(section) };
+function ensemble():RulePlate {
+	const grid=squareGrid(3,1,10);
+	const stacks=new Map(grid.cells.map((c,i)=>[c.id,mixed.slice(0,i+2)]));
+	const houses=paintedSections(grid,stacks,0);
+	return {id:'ensemble',title:'Three neighbours',text:'Bridges connect the occupied decks at their shared two-metre datum.',
+	primitives:[...houses.flatMap(h=>sectionParts(h)),...houseLinks(grid,houses,0).flatMap(b=>b.parts)]};
 }
-function ensemble(): RulePlate {
-	const grid = squareGrid(4, 3, 10);
-	const sites = [
-		house(grid, '0/0', programme.house, 0),
-		house(grid, '1/0', programme.house, 0),
-		house(grid, '1/2', programme.rectangular, 0)
-	];
-	return {
-		id: 'ensemble',
-		title: 'Three neighbours',
-		text: 'A shared platform and a level skyway join three painted footprints at equal deck heights.',
-		primitives: [
-			...sites.flatMap((s) => sectionParts(s)),
-			...houseLinks(grid, sites, 0).flatMap((l) => l.parts)
-		]
-	};
-}
-/** The five executable composition plates, from a two-storey pavilion to a linked ensemble. */
-export function composedHousePlates(): RulePlate[] {
+/** Four reproducible single-house typologies and one connected painted ensemble. */
+export function composedHousePlates():RulePlate[] {
 	return [
-		single(
-			'pavilion',
-			'Energy pavilion',
-			'Two painted storeys carry a solar workshop above a service rack.',
-			2,
-			12
-		),
-		single(
-			'house',
-			'Garden house',
-			'Four storeys of housing and food share an open terrace.',
-			0,
-			12
-		),
-		single(
-			'rectangular',
-			'Rectangular tower',
-			'Eight mixed-use storeys on a continuous frame with projecting decks.',
-			2,
-			15
-		),
-		single('round', 'Round tower', 'Twelve mixed-use storeys surround a cylindrical core.', 1, 19),
+		single('pavilion','Capsule stack','Four inhabited levels carry glazed capsules in cradles.',Array<HouseUse>(4).fill('living'),1),
+		single('house','Deck tower','Water, housing, planting and energy share a frame of articulated columns.',mixed,3),
+		single('round','Round tower','Circular decks carry drums above the waterfront.',Array<HouseUse>(8).fill('water'),0,true),
+		single('rectangular','Cluster mast','Capsules turn around a shared mast on successive levels.',Array<HouseUse>(5).fill('living'),1),
 		ensemble()
 	];
 }
