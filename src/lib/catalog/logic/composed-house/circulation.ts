@@ -1,3 +1,5 @@
+import { housePath } from '../house-typology';
+import { flightRoute } from './flights';
 import { mastRoute } from './mast-access';
 import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
@@ -85,5 +87,6 @@ export function windingRoute(s: Section) {
 
 /** Returns the one circulation polyline selected by the available clear bay. */
 export function circulation(s: Section) {
-	return s.compact ? mastRoute(s) : windingRoute(s);
+	if (s.compact) return mastRoute(s);
+	return housePath(s.typology) === 'spiral' ? windingRoute(s) : flightRoute(s);
 }

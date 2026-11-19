@@ -1,3 +1,5 @@
+import { housePath } from '../house-typology';
+import { flightAccess } from './flights';
 import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
 import { edge } from './stair-track';
@@ -146,6 +148,7 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 /** Places rigid registry treads on the walking line and fits stock to its level deck connections. */
 export function access(s: Section, surfaces: HouseSurfaces) {
 	if (s.compact) return mastAccess(s, surfaces);
+	if (housePath(s.typology) !== 'spiral') return flightAccess(s, surfaces);
 	const route = windingRoute(s),
 		draw = projection(route.track, s, surfaces);
 	return [

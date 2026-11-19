@@ -1,6 +1,6 @@
 import { STORY } from '../../data/grid';
 import { stairAxis } from './stair-fit';
-import { composeHouse } from '../house-typology';
+import { composeHouse, housePath } from '../house-typology';
 import type { HouseSite, Section } from './types';
 
 /** Adapts the frozen composition to the painted-house and stair projection seam. */
@@ -28,6 +28,12 @@ export function planHouse(site: HouseSite): Section {
 		slots: levels.flatMap((l) => l.bodies).concat(crown),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
+	const path = housePath(section.typology);
+	if (path === 'ladder') return section;
+	if (path !== 'spiral') {
+		section.compact = composition.compact;
+		return section;
+	}
 	const axis = stairAxis(section, rear, sign);
 	if (axis) {
 		section.stairAxis = axis;

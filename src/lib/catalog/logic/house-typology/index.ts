@@ -1,4 +1,5 @@
 export { planEnsemble, type EnsembleContext } from './ensemble';
+export { housePath } from './routes';
 export { composeHouse } from './compose';
 export { planBridges } from './bridges';
 export { checkFit, partsIntersect } from './fit';

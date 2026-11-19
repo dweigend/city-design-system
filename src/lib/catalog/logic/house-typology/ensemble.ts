@@ -1,3 +1,4 @@
+import { paletteCount, housePath } from './routes';
 import { required } from '../required';
 import type { HouseSite } from './site';
 import { STORY } from '../../data/grid';
@@ -43,7 +44,14 @@ function skyline(sites: Survey[], seed: number) {
 }
 
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
-	const weights = sites.map((s) => affinities(s, required(roles.get(s.id), 'ensemble role')));
+	const weights = sites.map((s) => {
+		const weights = affinities(s, required(roles.get(s.id), 'ensemble role'));
+		if (sites.length > 1 && s.compact) {
+			weights['bell-house'] = 1;
+			weights['tree-house'] = 1;
+		}
+		return weights;
+	});
 	const houses = new Map<string, Decision>();
 	const away = (site: Survey): [number, number] => {
 		const neighbors = sites.filter(
@@ -69,7 +77,7 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 					'house/' + sites[j].id,
 					seed,
 					required(roles.get(sites[j].id), 'ensemble role'),
-					typologies.map((t) => [t, weights[j][t]])
+					typologies.map((t) => [t, sites.length === 2 && housePath(t) === 'spiral' ? 0 : weights[j][t]])
 				)
 			);
 		}
@@ -79,11 +87,13 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 	for (const [i, a] of typologies.entries())
 		for (const b of typologies.slice(i + 1)) {
 			// With a fixed count, exchanging two houses improves the product iff their affinity ratios are out of order.
+			const count = paletteCount(a, b, sites.length);
+			if (!count) continue;
 			const order = sites
 				.map((_, j) => j)
 				.sort((j, k) => weights[k][a] * weights[j][b] - weights[j][a] * weights[k][b]);
 			const forms: Typology[] = sites.map(() => b);
-			for (const j of order.slice(0, Math.ceil(order.length / 2))) forms[j] = a;
+			for (const j of order.slice(0, count)) forms[j] = a;
 			const weight = Math.pow(
 				forms.reduce((product, t, j) => product * weights[j][t], 1),
 				2 / sites.length
