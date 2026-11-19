@@ -5,7 +5,7 @@ export const gardenBeds = [
 	asset('tree-grate', ['deck', 'body'], [3, 3], (factor, variant) => [
 		plate(circle(1.42), 0, 0.09, 'deck', circle(0.51 * factor).reverse()),
 		...circle(1.33, 8 + 8 * variant).map(([x, y]) =>
-			rod([x * 0.47, y * 0.47, 0.095], [x, y, 0.095], 0.017)
+			rod([x * 0.47, y * 0.47, 0.095], [x, y, 0.095], 0.06)
 		)
 	]),
 	asset('grove-island', ['planting', 'body'], [6, 4], (factor) => [
@@ -36,7 +36,7 @@ export const gardenBeds = [
 			rod(
 				[t * 1.71, ((i % 3) - 1) * 0.26, 0.54],
 				[t * 1.81, ((i % 3) - 1) * 0.37, 0.54 + (0.44 + (i % 4) * 0.12) * factor],
-				0.035,
+				0.06,
 				'planting'
 			)
 		)
@@ -62,12 +62,12 @@ export const gardenBeds = [
 		)
 	]),
 	asset('fan-trellis', ['body', 'planting'], [3, 1], (factor) => [
-		...row(7, (t) => rod([t * 0.13, 0, 0.08], [t * 1.37, 0, (2.5 - 0.4 * t * t) * factor], 0.045)),
+		...row(7, (t) => rod([t * 0.13, 0, 0.08], [t * 1.37, 0, (2.5 - 0.4 * t * t) * factor], 0.06)),
 		...row(3, (_, i) =>
 			rod(
 				[-(i + 1) * 0.38, 0, (i + 1) * 0.6 * factor],
 				[(i + 1) * 0.38, 0, (i + 1) * 0.6 * factor],
-				0.04,
+				0.06,
 				'planting'
 			)
 		)

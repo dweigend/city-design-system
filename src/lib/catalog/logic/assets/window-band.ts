@@ -17,7 +17,7 @@ export const windowBand: AssetRecipe = {
 			slab([0.15, -w / 2 + 0.08, 0.08], [0.06, w - 0.16, h - 0.16], 'glass')
 		];
 		for (let i = 1; i < bays; i++)
-			parts.push(slab([0.2, -w / 2 + (i * w) / bays - 0.025, 0.07], [0.055, 0.05, h - 0.14]));
+			parts.push(slab([0.2, -w / 2 + (i * w) / bays - 0.06, 0.07], [0.1, 0.12, h - 0.14]));
 		return parts;
 	}
 };

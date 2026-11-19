@@ -9,6 +9,25 @@ import { crownKit } from './objects/crown-kit';
 import { serviceKit } from './objects/service-kit';
 import { people } from './objects/people';
 import { circulationObjects } from './circulation';
+import { cycleScenes } from './production/cycle-scenes';
+import { parkTrees } from './production/park-trees';
+import { workFrames } from './production/work-frames';
+import { studioBlocks } from './production/studio-blocks';
+import { parkDecks } from './production/park-decks';
+import { promenade } from './production/promenade';
+import { inhabited } from './production/inhabited';
+import { occupiedDecks } from './production/occupied-decks';
+import { publicLife } from './production/public-life';
+import { manifolds } from './production/manifolds';
+import { rooftops } from './production/rooftop';
+import { lanterns } from './production/lanterns';
+import { awnings } from './production/awnings';
+import { gardens } from './production/gardens';
+import { pools } from './production/pools';
+import { toys } from './production/toys';
+import { towers } from './production/towers';
+import { crossings } from './production/crossings';
+import { habitats } from './production/habitats';
 import { scaleFigureAsset } from './scale-figure';
 import { smallArchitecture } from './objects/small-architecture';
 import { textiles } from './objects/textiles';
@@ -184,5 +203,24 @@ export const recipes: readonly AssetRecipe[] = [
 	...streetTransport,
 	...streetWorkshop,
 	...streetTerrace,
-	...streetServices
+	...streetServices,
+	...habitats,
+	...crossings,
+	...towers,
+	...toys,
+	...pools,
+	...gardens,
+	...awnings,
+	...lanterns,
+	...rooftops,
+	...manifolds,
+	...publicLife,
+	...occupiedDecks,
+	...inhabited,
+	...promenade,
+	...parkDecks,
+	...studioBlocks,
+	...workFrames,
+	...parkTrees,
+	...cycleScenes
 ];

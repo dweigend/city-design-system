@@ -27,7 +27,7 @@ export const energyEquipment = [
 				[0.29, 0, 0.54],
 				[0.26, 0, 0.88 * factor]
 			],
-			0.043
+			0.06
 		)
 	]),
 	asset('utility-cabinet', ['body', 'glass'], [2, 1.6], (factor) => [

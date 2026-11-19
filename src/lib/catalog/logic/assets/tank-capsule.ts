@@ -25,10 +25,12 @@ export const tankCapsule: AssetRecipe = {
 		];
 		for (const x of [-half * 0.8, half * 0.8])
 			parts.push(
-				slab([x - 0.13, -r * 0.62, 0], [0.26, 1.24 * r, 0.79]),
-				ring([x, 0, z], r + 0.05, r - 0.02, 0.13)
+				slab([x - 0.17, -r * 0.62, 0], [0.34, 1.24 * r, 0.79]),
+				ring([x, 0, z], r + 0.08, r - 0.04, 0.18)
 			);
 		parts.push(drum([half * (sample - 0.5), 0, z + r - 0.07], 0.22, 0.2));
+		if (variant === 1) parts.push(ring([0, 0, z], r + 0.13, r - 0.035, 0.22));
+		if (variant === 2) parts.push(drum([half * 0.63, 0, z + r - 0.05], 0.25, 0.46, 'channel'));
 		return parts;
 	}
 };

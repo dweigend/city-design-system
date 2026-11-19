@@ -1,10 +1,12 @@
 import type { ObjectGeometry } from './object-geometry';
+import { suggestions } from './objects/suggestions';
 import { mount, type AssetRecipe } from './definition';
 import { rod } from './parts';
 
 export const ladder: AssetRecipe = {
 	id: 'ladder',
 	slotNames: ['body'],
+	suggestions: { body: suggestions.frame },
 	category: 'infrastructure',
 	variants: ['service', 'roof-access', 'wide-rung', 'rung-bay'],
 	footprint: [0.64, 1.28],
@@ -23,11 +25,11 @@ export const ladder: AssetRecipe = {
 		const parts: ObjectGeometry[] = [];
 		for (const sign of [-1, 1]) {
 			const y = (sign * w) / 2;
-			parts.push(rod([0.34, y, 0], [0.34, y, h], 0.045));
-			for (const z of [0.16, h - 0.15]) parts.push(rod([0, y, z], [0.34, y, z], 0.04));
+			parts.push(rod([0.34, y, 0], [0.34, y, h], 0.075));
+			for (const z of [0.16, h - 0.15]) parts.push(rod([0, y, z], [0.34, y, z], 0.065));
 		}
 		for (let i = 1; i <= n; i++)
-			parts.push(rod([0.34, -w / 2, i * spacing], [0.34, w / 2, i * spacing], 0.032));
+			parts.push(rod([0.34, -w / 2, i * spacing], [0.34, w / 2, i * spacing], 0.06));
 		return parts;
 	}
 };

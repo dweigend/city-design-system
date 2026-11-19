@@ -11,26 +11,26 @@ export function panel(
 	h: number,
 	slot = 'slats'
 ) {
-	const r = Math.min(0.075, w / 2, d / 2) * 0.99;
-	const corners = circle(1, 16).flatMap(([a, b], i): [number, number][] => {
-		const quadrant = Math.floor(i / 4);
+	const r = Math.min(Math.min(w, d) >= 2.5 ? 0.45 : 0.15, w * 0.49, d * 0.49);
+	const corners = circle(1, 48).flatMap(([a, b], i): [number, number][] => {
+		const quadrant = Math.floor(i / 12);
 		const cx = x + (quadrant === 0 || quadrant === 3 ? 1 : -1) * (w / 2 - r);
 		const cy = y + (quadrant < 2 ? 1 : -1) * (d / 2 - r);
 		const end = ((quadrant + 1) * Math.PI) / 2;
 		const p: [number, number] = [cx + a * r, cy + b * r];
-		return i % 4 === 3 ? [p, [cx + r * Math.cos(end), cy + r * Math.sin(end)]] : [p];
+		return i % 12 === 11 ? [p, [cx + r * Math.cos(end), cy + r * Math.sin(end)]] : [p];
 	});
 	return plate(corners, z, h, slot);
 }
 
 /** Turned upright member measured from its bottom face. */
 export function post(x: number, y: number, z: number, r: number, h: number, slot = 'frame') {
-	return drum([x, y, z], r, h, slot);
+	return drum([x, y, z], slot === 'frame' ? Math.max(r, 0.15) : r, h, slot);
 }
 
 /** Bent or straight round stock following its centre line. */
-export function rail(points: Vec3[], radius = 0.035, slot = 'frame') {
-	return pipe(points, radius, slot);
+export function rail(points: Vec3[], radius = 0.06, slot = 'frame') {
+	return pipe(points, Math.max(radius, 0.06), slot);
 }
 
 /** Elliptical roof or cradle; the clear span runs across x. */
@@ -44,7 +44,17 @@ export function bow(
 	slot = 'shell',
 	up = true
 ) {
-	return shell(up ? 'vault' : 'halfpipe', x, y, z, w, d, h, Math.min(0.065, h * 0.25), slot);
+	return shell(
+		up ? 'vault' : 'halfpipe',
+		x,
+		y,
+		z,
+		w,
+		d,
+		h,
+		Math.min(0.15, h * 0.4, w * 0.22),
+		slot
+	);
 }
 
 /** Vertical circular opening, viewed along x. */
