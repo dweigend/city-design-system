@@ -1,9 +1,16 @@
+import { pleatedGlass } from './pleat-art';
 import { suggestions } from './suggestions';
 import { family, row } from '../assembly';
-import { panel, post, rail, bow, eye, bead, band } from './forms';
+import { panel, post, rail, bow, eye, bead, band, collar } from './forms';
 import { vessel } from '../pottery';
 
 const asset = family('public-art', 'deck', suggestions);
+const glassArt = family('public-art', 'deck', { ...suggestions, body: suggestions.screen });
+const stoneArt = family('public-art', 'deck', {
+	...suggestions,
+	body: suggestions.foot,
+	frame: suggestions.slats
+});
 export const publicArt = [
 	asset('counterweight-orbit', ['foot', 'shell', 'body'], [2.8, 2.8], (span) => [
 		post(0, 0, 0, 0.65, 0.22, 'foot'),
@@ -59,20 +66,7 @@ export const publicArt = [
 		eye(-1.28 * span, 0, 1.55, 0.23, 0.075, 0.08),
 		bead(1.23 * span, 0, 2.45, 0.21, 1, 'body')
 	]),
-	asset('pleat-monolith', ['foot', 'body'], [2.8, 1.5], (span, variant) => [
-		panel(0, 0, 0, 2.46 * span, 1, 0.18, 'foot'),
-		...row(3 + variant * 2, (t, i) =>
-			panel(
-				t * 1.01 * span,
-				((i % 2) - 0.5) * 0.22,
-				0.18,
-				0.18,
-				0.48,
-				1.55 + (1 - Math.abs(t)) * 0.92,
-				'body'
-			)
-		)
-	]),
+	glassArt('pleat-monolith', ['foot', 'body'], [2.8, 1.5], pleatedGlass),
 	asset('loop-cairn', ['foot', 'shell'], [2.2, 2.4], (_span, variant) => [
 		post(0, 0, 0, 0.61, 0.17, 'foot'),
 		...row(2 + variant, (_, i) =>
@@ -105,22 +99,13 @@ export const publicArt = [
 			'slats'
 		)
 	]),
-	asset('quiet-spindle', ['foot', 'frame', 'body'], [1.9, 1.9], (span, variant) => [
-		post(0, 0, 0, 0.46, 0.14, 'foot'),
-		post(0, 0, 0.14, 0.12, 0.45),
-		vessel(
-			[
-				[0.18, 0.59],
-				[0.55, 0.59 + span * 0.32],
-				[0.22, 0.59 + span * 0.63],
-				[0.65, 0.59 + span * 1.2],
-				[0.19, 0.59 + span * 1.92],
-				[0.41, 0.59 + span * 2.36]
-			],
-			6 + variant * 4,
-			1,
-			'body',
-			0.25 + span
-		)
-	])
+	stoneArt('quiet-spindle', ['foot', 'frame', 'body'], [1.9, 1.9], (factor) => {
+		const height = 0.65 + 2.8 * factor,
+			radius = 0.68;
+		return [
+			post(0, 0, 0, radius, 0.18, 'foot'),
+			collar(0, 0, 0.18, radius, 0.21, height, 'body'),
+			post(0, 0, 0.18, radius * 0.46, height * 1.2, 'frame')
+		];
+	})
 ];
