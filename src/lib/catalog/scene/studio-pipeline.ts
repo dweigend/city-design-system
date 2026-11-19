@@ -1,3 +1,4 @@
+import { cityEdge } from './city-edges';
 import { metallUmgebung } from './materialMetallUmgebung';
 import * as THREE from 'three/webgpu';
 import { mix, pass, vec4 } from 'three/tsl';
@@ -11,7 +12,8 @@ export function studioPipeline(
 	renderer: THREE.WebGPURenderer,
 	scene: THREE.Scene,
 	camera: THREE.Camera,
-	quality = studioQuality()
+	quality = studioQuality(),
+	cityDepthRangeM?: number
 ) {
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 	renderer.toneMapping = THREE.NeutralToneMapping;
@@ -33,7 +35,11 @@ export function studioPipeline(
 	contact.radius.value = 2.4;
 	contact.thickness.value = 0.9;
 	const pipeline = new THREE.RenderPipeline(renderer);
-	pipeline.outputNode = vec4(face.rgb.mul(mix(0.55, 1, contact.getTextureNode().r)), face.a);
+	const shaded = face.rgb.mul(mix(0.55, 1, contact.getTextureNode().r));
+	const fill = cityDepthRangeM
+		? shaded.mul(cityEdge(beauty.getTextureNode('depth'), cityDepthRangeM).oneMinus())
+		: shaded;
+	pipeline.outputNode = vec4(fill, face.a);
 	return {
 		light,
 		render: () => pipeline.render(),

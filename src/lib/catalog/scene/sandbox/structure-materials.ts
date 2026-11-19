@@ -20,7 +20,12 @@ import { createMaterialLibrary } from '../material-library';
 import { outlinePosition } from '../surfaces';
 import { conduitInk } from './print-flow';
 import { cutPaper } from './paper-inlay';
-import { outlineExpansion, outlinePositionAtOffset, type GlazeContour } from './structure-outline';
+import {
+	glazeContourMaterial,
+	outlineExpansion,
+	outlinePositionAtOffset,
+	type GlazeContour
+} from './structure-outline';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { Rgb } from '../../logic/farbe/oklch';
 import { overprintColor } from '../../logic/farbe/overprint';
@@ -30,7 +35,7 @@ import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
-export function structureMaterials(quality?: StudioQuality) {
+export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 	const glazeContour: GlazeContour = { ink: new THREE.Color(0) };
 	let envelopeShadows = true;
 	let minContourPx = STRUCTURE_PARAMS.minContourPx.default;
@@ -44,11 +49,12 @@ export function structureMaterials(quality?: StudioQuality) {
 	const paperTone = uniform(new THREE.Color());
 	const shadowTone = uniform(new THREE.Color());
 	const markTone = uniform(new THREE.Color());
+	const BodyMaterial = cityEdges ? THREE.MeshStandardNodeMaterial : THREE.MeshBasicNodeMaterial;
 	const materials = {
 		conduit: conduitInk(seconds, markTone),
 		cut: cutPaper(paperTone, shadowTone),
-		sheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
-		solid: new THREE.MeshBasicNodeMaterial({
+		sheet: new BodyMaterial({ side: THREE.DoubleSide }),
+		solid: new BodyMaterial({
 			polygonOffset: true,
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
@@ -67,7 +73,7 @@ export function structureMaterials(quality?: StudioQuality) {
 		carrierInk: new THREE.Line2NodeMaterial(),
 		portalInk: new THREE.Line2NodeMaterial(),
 		braceInk: new THREE.Line2NodeMaterial(),
-		pod: new THREE.MeshBasicNodeMaterial(),
+		pod: new BodyMaterial(),
 		printHull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
 		ghost: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
@@ -75,7 +81,7 @@ export function structureMaterials(quality?: StudioQuality) {
 			depthWrite: false,
 			side: THREE.DoubleSide
 		}),
-		signal: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide, vertexColors: true }),
+		signal: new BodyMaterial({ side: THREE.DoubleSide, vertexColors: true }),
 		primary: new THREE.Line2NodeMaterial(),
 		stockPrimary: new THREE.Line2NodeMaterial(),
 		secondary: new THREE.Line2NodeMaterial(),
@@ -97,6 +103,16 @@ export function structureMaterials(quality?: StudioQuality) {
 			side: THREE.DoubleSide
 		})
 	};
+	if (cityEdges) {
+		for (const hull of [
+			materials.hull,
+			materials.printHull,
+			materials.sheetHull,
+			materials.pencilHull,
+			glazeContourMaterial(glazeContour)
+		])
+			hull.visible = false;
+	}
 	const outlinePx = uniform(STRICHE.kontur * outlineExpansion);
 	const sheetOffsetM = uniform(0);
 	const pencilPx = uniform(STRICHE.bestand / 2);
@@ -127,7 +143,7 @@ export function structureMaterials(quality?: StudioQuality) {
 	const downLight = vec3(LICHT[0] / planLength, 0, -LICHT[1] / planLength).mul(shift);
 	const localShift = modelWorldMatrixInverse.mul(vec4(downLight, 0)).xyz;
 	for (const material of [materials.solid, materials.sheet, materials.pod])
-		material.castShadowPositionNode = positionLocal.add(localShift);
+		material.castShadowPositionNode = cityEdges ? positionLocal : positionLocal.add(localShift);
 	materials.printHull.vertexNode = outlinePositionAtOffset(
 		float(STRICHE.minimumTraeger * outlineExpansion)
 	);
@@ -286,7 +302,7 @@ export function structureMaterials(quality?: StudioQuality) {
 			materials.detail.linewidth = kontext.strichPx;
 			materials.rail.linewidth = kontext.strichPx;
 			materials.rail.visible = style.kamera.pxProM > MASSSTAB.quartier;
-			envelopeShadows = huelle.schatten;
+			envelopeShadows = cityEdges || huelle.schatten;
 			applyStructuralStyle(style, minimum, scale);
 			const close = style.rollen.weg.level !== 'block';
 			const detailChanged = explicit.setDetail(close);

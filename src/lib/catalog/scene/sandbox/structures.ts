@@ -32,10 +32,10 @@ type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[]; cellId
 export type Structures = ReturnType<typeof createStructures>;
 
 /** Creates the structure layer. The caller adds the group to its scene and disposes it. */
-export function createStructures(quality?: StudioQuality) {
+export function createStructures(quality?: StudioQuality, cityEdges = false) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
-	const finishes = structureMaterials(quality);
+	const finishes = structureMaterials(quality, cityEdges);
 	const joints = createJointLayer(finishes.materials.bearing);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();

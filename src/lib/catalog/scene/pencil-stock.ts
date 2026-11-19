@@ -12,5 +12,5 @@ export function pencilStock(paper: Node<'vec3'>, graphite: Node<'vec3'>) {
 	const flank = normalWorldGeometry.x.sub(normalWorldGeometry.z.mul(0.3)).smoothstep(-0.25, 0.85);
 	const slope = float(1).sub(normalWorldGeometry.y.abs());
 	const ink = stroke.mul(footprint.smoothstep(0.2, 0.6).oneMinus()).mul(0.42).add(0.065);
-	return mix(paper, graphite, ink.mul(slope).mul(flank));
+	return mix(paper, graphite, ink.mul(slope).mul(flank).add(slope.mul(0.12)).add(0.13));
 }

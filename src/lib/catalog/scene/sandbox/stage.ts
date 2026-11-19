@@ -74,9 +74,15 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
+	const pipeline = studioPipeline(
+		renderer,
+		scene,
+		view.camera,
+		study.quality,
+		view.camera.far - view.camera.near
+	);
 	const light = pipeline.light;
-	const structures = createStructures(study.quality);
+	const structures = createStructures(study.quality, true);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
