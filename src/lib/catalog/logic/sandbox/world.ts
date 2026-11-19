@@ -53,18 +53,19 @@ const stored = (store: Store, use: HouseUse, count: number): Store => ({
 
 /**
  * Gives way where the ground fell away: stories on cells that can no longer carry a house
- * go to the material store, their cover goes. Returns the input if nothing has to yield.
+ * go to the material store. Cover yields wherever the ground no longer supports planting.
  */
 function settle(grid: TerrainGrid, state: SandboxState): SandboxState {
 	state = removeInstallations(state, (p) => lostSeat(grid, p));
 	let { stacks, cover, store, storyParts } = state;
-	for (const cellId of [...stacks.keys(), ...cover.keys()]) {
+	for (const cellId of state.stacks.keys()) {
 		if (grid.cellsById.get(cellId)?.buildable) continue;
 		for (const use of storiesOf(stacks, cellId)) store = stored(store, use, 1);
 		storyParts = partsAt(storyParts, cellId, []);
 		while (storiesOf(stacks, cellId).length) stacks = lower(stacks, cellId);
-		cover = setCover(cover, cellId, undefined);
 	}
+	for (const cellId of state.cover.keys())
+		if (!grid.cellsById.get(cellId)?.plantable) cover = setCover(cover, cellId, undefined);
 	return stacks === state.stacks && cover === state.cover
 		? state
 		: { ...state, stacks, cover, store, storyParts };
@@ -179,7 +180,7 @@ function cellEdit(
 		};
 		return { ...state, edits: [...state.edits, basin] };
 	}
-	if (!cell.buildable || storiesOf(state.stacks, cell.id).length) return state;
+	if (!cell.plantable || storiesOf(state.stacks, cell.id).length) return state;
 	const cover = setCover(state.cover, cell.id, edit.cover);
 	return cover === state.cover ? state : { ...state, cover };
 }

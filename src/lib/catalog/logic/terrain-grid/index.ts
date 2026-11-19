@@ -210,6 +210,7 @@ function describeCell(
 	const level = groundLevel(terrain, x, y);
 	const raised = level < FLOOD_LINE;
 	const alley = plan.direction;
+	const available = !plan.open && !plan.square;
 	const lotCorners = plan.edgePassage
 		? behindPassage(corners, source.mask, plan.width, lattice.profile.minParcelArea)
 		: undefined;
@@ -234,11 +235,8 @@ function describeCell(
 		zone,
 		pad: raised ? terrain.waterLevel + FLOOD_DATUM : Math.round(level) + PLINTH,
 		raised,
-		buildable:
-			source.access !== 'landlocked' &&
-			!plan.open &&
-			!plan.square &&
-			(alley === null || !!lotCorners),
+		plantable: available && alley === null,
+		buildable: available && source.access !== 'landlocked' && (alley === null || !!lotCorners),
 		chunk: `${Math.floor(column / CHUNK_CELLS)}:${Math.floor(row / CHUNK_CELLS)}`
 	};
 }
