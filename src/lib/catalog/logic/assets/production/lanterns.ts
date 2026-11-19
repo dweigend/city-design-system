@@ -1,5 +1,6 @@
 import type { Vec3 } from '../../parametrik/types';
-import { surface, drum } from '../parts';
+import { drum } from '../parts';
+import { punchedFacade } from './punched-facade';
 import { series } from './series';
 
 const lantern = series(
@@ -27,41 +28,6 @@ function radiusAt(shape: Profile, t: number) {
 			return 0.65 + 0.33 * (1 - t) * (1 - t);
 	}
 }
-// A panel has an actual opening. Its four corners follow adjacent rotated floor plates.
-function punchedPanel(corners: Vec3[], slot: string) {
-	const point = (u: number, v: number): Vec3 =>
-		[0, 1, 2].map(
-			(k) =>
-				(1 - v) * ((1 - u) * corners[0][k] + u * corners[1][k]) +
-				v * ((1 - u) * corners[3][k] + u * corners[2][k])
-		) as Vec3;
-	const points: Vec3[] = [],
-		triangles: number[] = [];
-	for (let i = 0; i < 48; i++) {
-		const a = (i * Math.PI) / 24 + Math.PI / 4,
-			x = Math.cos(a),
-			y = Math.sin(a),
-			m = Math.max(Math.abs(x), Math.abs(y));
-		points.push(
-			point(0.5 + (0.5 * x) / m, 0.5 + (0.5 * y) / m),
-			point(0.5 + 0.31 * x, 0.5 + 0.31 * y)
-		);
-		const j = 2 * i,
-			k = (j + 2) % 96;
-		const quad = (a: number, b: number, c: number, d: number) => triangles.push(a, b, c, a, c, d);
-		quad(j, k, k + 1, j + 1);
-		quad(j + 96, j + 97, k + 97, k + 96);
-		quad(j + 1, k + 1, k + 97, j + 97);
-		quad(j, j + 96, k + 96, k);
-	}
-	points.push(
-		...points.map(([x, y, z]): Vec3 => {
-			const scale = 1 - 0.15 / Math.hypot(x, y);
-			return [x * scale, y * scale, z];
-		})
-	);
-	return { ...surface(slot), kind: 'mesh' as const, points, triangles, lines: [] };
-}
 function sculpt(shape: Profile) {
 	return lantern(
 		shape + '-pierced-lantern',
@@ -82,13 +48,11 @@ function sculpt(shape: Profile) {
 				];
 			};
 			return [
-				drum([0, 0, 0], r * 0.92, 0.3, 'foot'),
+				drum([0, 0, 0], r * 0.89, 0.19, 'foot'),
+				drum([0, 0, 0.19], r * 0.92, 0.12, 'brass'),
 				...Array.from({ length: n }, (_, i) =>
 					Array.from({ length: faces }, (_, j) =>
-						punchedPanel(
-							[corner(i, j), corner(i, j + 1), corner(i + 1, j + 1), corner(i + 1, j)],
-							j % 2 ? 'brass' : 'punched'
-						)
+						punchedFacade([corner(i, j), corner(i, j + 1), corner(i + 1, j + 1), corner(i + 1, j)])
 					)
 				).flat()
 			];
