@@ -47,7 +47,13 @@ export function createStructures(quality?: StudioQuality, cityEdges = false) {
 	const swept = new THREE.Box3();
 	let shadowChanged = false;
 	const hitLists = new Map<string, THREE.Object3D[]>();
-	let distance: DrawingDistance = { scale: Infinity, minContourPx: 0, elevation: 0, block: false };
+	let distance: DrawingDistance = {
+		screenEdges: cityEdges,
+		scale: Infinity,
+		minContourPx: 0,
+		elevation: 0,
+		block: false
+	};
 
 	function draw(
 		key: string,
@@ -254,7 +260,7 @@ export function createStructures(quality?: StudioQuality, cityEdges = false) {
 				block !== distance.block ||
 				minContourPx !== distance.minContourPx
 			) {
-				distance = { scale, elevation, block, minContourPx };
+				distance = { screenEdges: cityEdges, scale, elevation, block, minContourPx };
 				redraw(recolor);
 			}
 			for (const [key, { primitives, cellId, startedMs }] of pending)

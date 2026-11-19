@@ -136,40 +136,33 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		},
 		/** Whether the canvas is taller than it is wide. */
 		isPortrait: () => width < height,
-		/** Frames an opening cell at the requested projected width on a portrait canvas. */
-		framePortrait([x, y, z]: Vec3, corners: readonly Vec3[], area?: OpeningArea) {
-			if (width >= height) return false;
-			const offsets = corners.map(([px, py, pz]) => right.dot(new THREE.Vector3(px, pz, -py)));
-			const extent = Math.max(...offsets) - Math.min(...offsets);
-			if (!extent) return false;
-			target.set(x, z, -y);
-			span = (height * extent) / opening.mobileCellWidthPx;
-			elevationRad = (opening.mobileElevationDeg * Math.PI) / 180;
-			apply();
-			focusY = area ? (area.top + area.bottom) / (2 * height) : 0.5;
-			pan(0, (focusY - 0.5) * height);
-			return true;
-		},
 		/** Centers the projected silhouette. Points are in three.js meters. */
-		frameSilhouette(points: THREE.Vector3[]) {
-			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
+		frameSilhouette(points: THREE.Vector3[], anchor?: THREE.Vector3, area?: OpeningArea) {
+			if (elevationRad !== Math.PI / 2)
+				elevationRad = anchor ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
 			apply();
 			const bounds = new THREE.Box2();
 			const up = new THREE.Vector3().crossVectors(eye, right);
 			for (const point of points)
 				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
+			const room = area ? Math.max(1, area.bottom - area.top) : height;
+			const size = bounds.getSize(new THREE.Vector2());
+			const fit = (Math.max(size.x / width, size.y / room) * height) / opening.clusterFill;
+			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			const center = bounds.getCenter(new THREE.Vector2());
-			// The 2D silhouette fixes the image center. Keep its depth at the town, too.
-			const depth = new THREE.Box3().setFromPoints(points).getCenter(target).dot(eye);
+			const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);
+			if (anchor) {
+				// Center the editable parcel while keeping the whole cluster between the controls.
+				const margin = new THREE.Vector2(width, room).multiplyScalar(span / (2 * height));
+				center
+					.set(anchor.dot(right), anchor.dot(up))
+					.clamp(bounds.max.clone().sub(margin), bounds.min.clone().add(margin));
+			}
 			target.copy(eye).multiplyScalar(depth);
 			target.addScaledVector(right, center.x).addScaledVector(up, center.y);
-			focusY = 0.5;
-			const fit = Math.max(
-				((bounds.max.x - bounds.min.x) * height) / (width * 0.74),
-				(bounds.max.y - bounds.min.y) / 0.84
-			);
-			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			apply();
+			focusY = area ? (area.top + area.bottom) / (2 * height) : 0.5;
+			pan(0, (focusY - 0.5) * height);
 		},
 		/** World meters to the current canvas position in CSS pixels. */
 		project([x, y, z]: Vec3) {

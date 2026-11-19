@@ -2,6 +2,7 @@ import { isStructural, type Primitive } from '../../logic/parametrik/types';
 import { contourWidthMeters } from './contour-width';
 
 export type DrawingDistance = {
+	screenEdges?: boolean;
 	scale: number;
 	elevation: number;
 	block: boolean;
@@ -53,6 +54,10 @@ export function distanceDrawing(
 	const unoutlined = new Set<Primitive>();
 	const contours = new Map<string, boolean>();
 	if (!block) return { parts: primitives, unoutlined, contours, details: true };
+	if (distance.screenEdges) {
+		const parts = primitives.map(atDistance).filter((p): p is Primitive => p !== undefined);
+		return { parts, unoutlined, contours, details: false };
+	}
 	const parts: Primitive[] = [];
 	const cache = widths.get(elevation) ?? new WeakMap<Primitive, number>();
 	widths.set(elevation, cache);
