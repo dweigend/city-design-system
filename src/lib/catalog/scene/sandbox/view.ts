@@ -137,7 +137,12 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Whether the canvas is taller than it is wide. */
 		isPortrait: () => width < height,
 		/** Centers the projected silhouette. Points are in three.js meters. */
-		frameSilhouette(points: THREE.Vector3[], anchor?: THREE.Vector3, area?: OpeningArea) {
+		frameSilhouette(
+			points: THREE.Vector3[],
+			anchor?: THREE.Vector3,
+			area?: OpeningArea,
+			landmark?: Vec3
+		) {
 			if (elevationRad !== Math.PI / 2)
 				elevationRad = anchor ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
 			apply();
@@ -157,6 +162,13 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 				center
 					.set(anchor.dot(right), anchor.dot(up))
 					.clamp(bounds.max.clone().sub(margin), bounds.min.clone().add(margin));
+			}
+			if (landmark) {
+				const [x, y, z] = landmark;
+				const mark = new THREE.Vector3(x, z, -y);
+				const projected = new THREE.Vector2(mark.dot(right), mark.dot(up));
+				const inset = new THREE.Vector2(width, room).multiplyScalar(metersPerPixel() * 0.36);
+				center.clamp(projected.clone().sub(inset), projected.clone().add(inset));
 			}
 			target.copy(eye).multiplyScalar(depth);
 			target.addScaledVector(right, center.x).addScaledVector(up, center.y);

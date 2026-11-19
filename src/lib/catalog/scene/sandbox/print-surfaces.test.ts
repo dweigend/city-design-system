@@ -293,6 +293,7 @@ test('city batches keep round stock and a glazed body without allocating draftin
 	const group = populateStructures(
 		[
 			{ ...round, role: 'bestand' },
+			{ ...round, id: 'window', role: 'bestand', detail: true, position: [100, 0, 0] },
 			{ ...round, finish: 'keramik-glasiert' }
 		],
 		finishes,
@@ -302,7 +303,10 @@ test('city batches keep round stock and a glazed body without allocating draftin
 	try {
 		expect(finishes.contours).toBeUndefined();
 		expect(batchFaces([round], ink).hull).toBeUndefined();
-		expect(meshes.some((m) => m.material === finishes.materials.stock)).toBe(true);
+		const stock = meshes.find((m) => m.material === finishes.materials.stock);
+		expect(stock?.castShadow).toBe(true);
+		stock?.geometry.computeBoundingBox();
+		expect(stock?.geometry.boundingBox?.max.x).toBeLessThan(10);
 		expect(meshes.some((m) => m.geometry.hasAttribute('outlineOffset'))).toBe(false);
 		expect(
 			meshes.some((m) => !Array.isArray(m.material) && m.material.name === 'keramik-glasiert')

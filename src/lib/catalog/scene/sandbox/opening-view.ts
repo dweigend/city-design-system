@@ -1,5 +1,6 @@
 import { Vector3 } from 'three/webgpu';
 import { STORY } from '../../data/grid';
+import type { Vec3 } from '../../logic/parametrik/types';
 import type { World } from '../../logic/sandbox';
 import type { OpeningArea, View } from './view';
 
@@ -29,18 +30,18 @@ function townCluster({ grid, state }: World) {
 }
 
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
-export function frameOldTown(view: View, world: World, area?: OpeningArea) {
+export function frameOldTown(view: View, world: World, area?: OpeningArea, landmark?: Vec3) {
 	if (!view.isPortrait()) return false;
 	const cluster = townCluster(world);
 	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, cluster.anchor, area);
+	view.frameSilhouette(cluster.points, cluster.anchor, area, landmark);
 	return true;
 }
 
 /** Fits the central occupied town footprint, including its building heights. */
-export function frameTownSilhouette(view: View, world: World) {
+export function frameTownSilhouette(view: View, world: World, landmark?: Vec3) {
 	const cluster = townCluster(world);
 	if (!cluster) return false;
-	view.frameSilhouette(cluster.points);
+	view.frameSilhouette(cluster.points, undefined, undefined, landmark);
 	return true;
 }

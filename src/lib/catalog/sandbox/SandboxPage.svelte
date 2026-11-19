@@ -30,11 +30,22 @@
 	let header = $state<HTMLElement>();
 	let hudGroup = $state<HTMLDivElement>();
 
+	let modeControls = $state<HTMLDivElement>();
+	let area = $state<{ top: number; bottom: number }>();
+	$effect(() => {
+		if (!header || !modeControls || !hudGroup) return;
+		const controls = [header, modeControls, hudGroup];
+		const observer = new ResizeObserver(() => {
+			const [title, modes, tools] = controls.map((el) => el.getBoundingClientRect());
+			const top = Math.max(title.bottom, modes.bottom);
+			area = top < tools.top ? { top, bottom: tools.top } : undefined;
+		});
+		controls.forEach((el) => observer.observe(el));
+		return () => observer.disconnect();
+	});
+
 	function openingArea() {
-		if (!header || !hudGroup) return;
-		const top = header.getBoundingClientRect().bottom;
-		const bottom = hudGroup.getBoundingClientRect().top;
-		if (top < bottom) return { top, bottom };
+		return area;
 	}
 	let desktopStoreLabel = $state<HTMLElement>();
 	let mobileStoreTrigger = $state<HTMLButtonElement | null>(null);
@@ -164,7 +175,7 @@
 			</div>
 		</div>
 	</header>
-	<div class="mode">
+	<div class="mode" bind:this={modeControls}>
 		{#if houses.length}
 			<HouseChoice
 				label="House"

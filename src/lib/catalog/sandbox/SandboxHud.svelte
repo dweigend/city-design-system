@@ -171,7 +171,7 @@
 						label="Building method"
 						options={methods}
 						value={session.method}
-						horizontal
+						horizontal={narrow.current}
 						compact
 						onpick={(entry) => commands.pickMethod(entry.id)}
 					/>

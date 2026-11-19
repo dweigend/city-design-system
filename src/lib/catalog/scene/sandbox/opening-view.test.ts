@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { Vector3 } from 'three/webgpu';
 import type { Vec3 } from '../../logic/parametrik/types';
-import { createWorld } from '../../logic/sandbox';
+import { acceptanceScene, createWorld, TWO_SUNS_TURNING_DISC } from '../../logic/sandbox';
 import { STORY } from '../../data/grid';
 import { frameTownSilhouette, frameOldTown } from './opening-view';
 import { createView } from './view';
@@ -61,4 +61,29 @@ test('two central parcels fill 70 percent of the desktop opening despite a dista
 		range(points.map((point) => point.y)) / 900
 	);
 	expect(fill).toBeCloseTo(0.7, 3);
+});
+
+test('the acceptance landmark stays inside the crop without widening the district', () => {
+	const { world, additions } = acceptanceScene(7);
+	const disc = additions.find((p) => p.id === TWO_SUNS_TURNING_DISC);
+	if (disc?.kind !== 'ring') throw new Error('Seed 7 requires the coloured disc');
+	const mark = disc.position;
+	for (const [width, height] of [
+		[1440, 900],
+		[390, 640]
+	]) {
+		const view = createView();
+		view.resize(width, height);
+		const fit = (landmark?: Vec3) =>
+			width < height
+				? frameOldTown(view, world, undefined, landmark)
+				: frameTownSilhouette(view, world, landmark);
+		fit();
+		const span = view.span();
+		fit(mark);
+		expect(view.span()).toBe(span);
+		const pixel = view.project(mark);
+		expect(Math.abs(pixel.x / width - 0.5)).toBeLessThan(0.37);
+		expect(Math.abs(pixel.y / height - 0.5)).toBeLessThan(0.37);
+	}
 });

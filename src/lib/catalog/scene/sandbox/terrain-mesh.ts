@@ -79,7 +79,8 @@ export function createTerrainMesh(
 	};
 	// Inverting a paper wash toward light ink would fill the night sheet with gray.
 	const daylight = floatUniform(1);
-	const paperColor = mix(colors.paper, colors.ink, nodes.paperWash.mul(daylight));
+	const warmPaper = mix(colors.paper, uniform(new THREE.Color(0xd4bc96)), daylight.mul(0.22));
+	const paperColor = mix(warmPaper, colors.ink, nodes.paperWash.mul(daylight));
 	const terrainWeight = uniform(1),
 		forestWeight = uniform(1),
 		pathWeight = uniform(1);
@@ -109,17 +110,17 @@ export function createTerrainMesh(
 		const dots = float(1).sub(chart.mul(2).fract().sub(0.5).length().smoothstep(0.1, 0.16));
 		let ground: Node<'vec3'> = mix(
 			paperColor,
-			mix(paperColor, colors.nature, 0.3),
+			mix(paperColor, colors.nature, 0.48),
 			inside(masks.r)
 		);
 		const field = mix(
-			mix(paperColor, colors.food, 0.16),
+			mix(paperColor, colors.food, 0.29),
 			mix(paperColor, colors.food, 0.5),
 			furrows
 		);
 		ground = mix(ground, field, inside(masks.g));
 		const meadow = mix(
-			mix(paperColor, colors.nature, 0.12),
+			mix(paperColor, colors.nature, 0.32),
 			colors.nature,
 			dots.mul(resolvable(chart.x.mul(2))).mul(0.7)
 		);
