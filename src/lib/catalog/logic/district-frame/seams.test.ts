@@ -58,8 +58,10 @@ test('64 small polygon graphs preserve ordering, two-ring repair and monotonic b
 			const pack = tick < 4 ? rules : changed;
 			const prior = new Map(state);
 			const full = pack.tick(ids, state, seed, tick);
-            expect(pack.tick(halo, state, seed, tick)).toEqual(new Map([...full].filter(([id]) => halo.includes(id))));
-            for (const [id, bay] of full) state.set(id, bay);
+			expect(pack.tick(halo, state, seed, tick)).toEqual(
+				new Map([...full].filter(([id]) => halo.includes(id)))
+			);
+			for (const [id, bay] of full) state.set(id, bay);
 			for (const [id, bay] of prior) {
 				if (bay.built) expect(state.get(id)?.built).toBeTruthy();
 				if (bay.built === 'main') expect(state.get(id)?.built).toBe('main');

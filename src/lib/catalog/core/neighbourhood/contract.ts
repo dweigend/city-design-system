@@ -13,13 +13,26 @@ export type NeighbourCell = Readonly<{
 export type Snapshot = ReadonlyMap<string, NeighbourCell>;
 export type Weights = Readonly<Record<string, number>>;
 /** Sparse positive multipliers compiled from a single immutable planning snapshot. */
-export type DistrictPreferences = Readonly<Record<string, Readonly<{
-	formMultipliers: Weights;
-	evidenceRefs?: Readonly<Record<string,readonly string[]>>;
-	suggestions?: readonly {readonly targetId:string; readonly intervention:string; readonly evidenceRefs:readonly string[]}[];
-}>>>;
+export type DistrictPreferences = Readonly<
+	Record<
+		string,
+		Readonly<{
+			formMultipliers: Weights;
+			evidenceRefs?: Readonly<Record<string, readonly string[]>>;
+			suggestions?: readonly {
+				readonly targetId: string;
+				readonly intervention: string;
+				readonly evidenceRefs: readonly string[];
+			}[];
+		}>
+	>
+>;
 /** The planner freezes this envelope before deriving policy.preferences for a synchronous tick. */
-export type PreferenceSnapshot = Readonly<{ snapshotRevision:string; profileRevision:string; preferences: DistrictPreferences }>;
+export type PreferenceSnapshot = Readonly<{
+	snapshotRevision: string;
+	profileRevision: string;
+	preferences: DistrictPreferences;
+}>;
 export type Policy = Readonly<{
 	contacts: Readonly<Record<string, readonly string[]>>;
 	/** A conversion to this form needs at least one listed current neighbour form. */
@@ -27,8 +40,8 @@ export type Policy = Readonly<{
 	city?: Weights;
 	districts?: Readonly<Record<string, Weights>>;
 	preferences?: DistrictPreferences;
-    revision?: Pick<PreferenceSnapshot, 'snapshotRevision' | 'profileRevision'>;
-    preferenceSnapshot?: PreferenceSnapshot;
+	revision?: Pick<PreferenceSnapshot, 'snapshotRevision' | 'profileRevision'>;
+	preferenceSnapshot?: PreferenceSnapshot;
 }>;
 
 export const neighbourhoodParams = defineParams({
@@ -77,12 +90,16 @@ export function compile(policy: Policy, options?: Options) {
 		)
 	);
 	const revision = policy.revision;
-    const published = policy.preferenceSnapshot;
-    const matches = revision && published && revision.snapshotRevision === published.snapshotRevision && revision.profileRevision === published.profileRevision;
-    const preferences = revision || published ? (matches ? published.preferences : {}) : policy.preferences ?? {};
-    const preferredDistricts = new Set(Object.keys(preferences));
-    const status = !published ? 'missing' : matches ? 'current' : 'stale';
-    for (const [id, preference] of Object.entries(preferences)) {
+	const published = policy.preferenceSnapshot;
+	const matches =
+		revision &&
+		published &&
+		revision.snapshotRevision === published.snapshotRevision &&
+		revision.profileRevision === published.profileRevision;
+	const preferences = matches ? published.preferences : {};
+	const preferredDistricts = new Set(Object.keys(preferences));
+	const status = !published ? 'missing' : matches ? 'current' : 'stale';
+	for (const [id, preference] of Object.entries(preferences)) {
 		const district = districts.get(id) ?? new Map<string, number>();
 		for (const [form, factor] of weights(preference.formMultipliers, vocabulary)) {
 			if (factor <= 0) throw new RangeError('Expected a positive preference');
@@ -94,8 +111,9 @@ export function compile(policy: Policy, options?: Options) {
 	return {
 		...resolveParams(neighbourhoodParams, options),
 		forms,
-        preferenceStatus: (id:string) => status === 'current' && !preferredDistricts.has(id) ? 'missing' as const : status,
-        vocabulary,
+		preferenceStatus: (id: string) =>
+			status === 'current' && !preferredDistricts.has(id) ? ('missing' as const) : status,
+		vocabulary,
 		accepts,
 		sources,
 		city: weights(policy.city ?? {}, vocabulary),
@@ -108,8 +126,8 @@ export type Veto =
 	| { form: string; reason: 'city' | 'district' | 'growth-source' }
 	| { form: string; reason: 'contact'; neighbour: string };
 export type Decision = Readonly<{
-	preferenceStatus?: 'missing'|'current'|'stale';
- target: string;
+	preferenceStatus?: 'missing' | 'current' | 'stale';
+	target: string;
 	reason: 'stock' | 'budget' | 'empty-domain' | 'intent' | 'weighted' | 'conflict';
 	vetoes: readonly Veto[];
 	evaluated: number;

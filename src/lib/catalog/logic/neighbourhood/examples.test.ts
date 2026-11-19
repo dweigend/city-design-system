@@ -93,42 +93,83 @@ test('district seam, court, inter-house secondary and intentional gap share one 
 import { compileSeams, type FrameSeam } from '../district-frame';
 
 function court(id: string, a: string, b: string): FrameSeam {
- return { id, vertices:[a,b], houses:[id], district:'d', character:'core', use:'court', districtEdge:false, intent:'main' };
+	return {
+		id,
+		vertices: [a, b],
+		houses: [id],
+		district: 'd',
+		character: 'core',
+		use: 'court',
+		districtEdge: false,
+		intent: 'main'
+	};
 }
-const entrance = {...court('entry','a','b'), opening:'square-access', blocker:'path'};
+const entrance = { ...court('entry', 'a', 'b'), opening: 'square-access', blocker: 'path' };
 
-test('court run ends at both entry jambs',()=>{
- const ring=[entrance,court('east','b','c'),court('north','c','d'),court('west','d','a')];
- const roles=compileSeams(ring).solve(ring.map(s=>s.id),new Map(),7);
- expect([...roles.values()].filter(d=>d.role==='main')).toHaveLength(3);
- expect(roles.get('entry')?.reason).toBe('square-access');
+test('court run ends at both entry jambs', () => {
+	const ring = [
+		entrance,
+		court('east', 'b', 'c'),
+		court('north', 'c', 'd'),
+		court('west', 'd', 'a')
+	];
+	const roles = compileSeams(ring).solve(
+		ring.map((s) => s.id),
+		new Map(),
+		7
+	);
+	expect([...roles.values()].filter((d) => d.role === 'main')).toHaveLength(3);
+	expect(roles.get('entry')?.reason).toBe('square-access');
 });
 
-test('transverse gate requires a promenade or main alley',()=>{
- for(const transverse of ['alley','riversidePromenade','mainAlley'] as const){
- const gate={...court('gate','a','b'),gate:true,transverse};
- const result=compileSeams([gate,court('run','b','c')]).explain('gate',new Map(),7);
- expect(result.role).toBe(transverse==='alley'?'gap':'main');
- }
+test('transverse gate requires a promenade or main alley', () => {
+	for (const transverse of ['alley', 'riversidePromenade', 'mainAlley'] as const) {
+		const gate = { ...court('gate', 'a', 'b'), gate: true, transverse };
+		const result = compileSeams([gate, court('run', 'b', 'c')]).explain('gate', new Map(), 7);
+		expect(result.role).toBe(transverse === 'alley' ? 'gap' : 'main');
+	}
 });
 
-test('a third spur cannot be supported by two secondary neighbours',()=>{
- const chain=Array.from({length:4},(_,i)=>({...court(String(i),String(i),String(i+1)),use:'houses' as const,intent:'secondary' as const,attachment:true}));
- const stock=new Map([['0',{built:'main' as const}],['1',{built:'secondary' as const}],['2',{built:'secondary' as const}]]);
- expect(compileSeams(chain).explain('3',stock,11).reason).toBe('detached-spur');
+test('a third spur cannot be supported by two secondary neighbours', () => {
+	const chain = Array.from({ length: 4 }, (_, i) => ({
+		...court(String(i), String(i), String(i + 1)),
+		use: 'houses' as const,
+		intent: 'secondary' as const,
+		attachment: true
+	}));
+	const stock = new Map([
+		['0', { built: 'main' as const }],
+		['1', { built: 'secondary' as const }],
+		['2', { built: 'secondary' as const }]
+	]);
+	expect(compileSeams(chain).explain('3', stock, 11).reason).toBe('detached-spur');
 });
 
-test('a blocked intervention names the opening and keeps its built section',()=>{
- const pack=compileSeams([entrance]);
- const stock=new Map([['entry',{built:'secondary' as const,builtTick:1}]]);
- expect(pack.explain('entry',stock,7)).toMatchObject({role:'secondary',reason:'square-access',blocker:'path'});
- expect(pack.tick(['entry'],stock,7,3).size).toBe(0);
+test('a blocked intervention names the opening and keeps its built section', () => {
+	const pack = compileSeams([entrance]);
+	const stock = new Map([['entry', { built: 'secondary' as const, builtTick: 1 }]]);
+	expect(pack.explain('entry', stock, 7)).toMatchObject({
+		role: 'secondary',
+		reason: 'square-access',
+		blocker: 'path'
+	});
+	expect(pack.tick(['entry'], stock, 7, 3).size).toBe(0);
 });
 
-test('stale district preferences retain the base draw and explain the revision mismatch',()=>{
- const state=pair(cell('a','b'),cell('b','a'));
- const revision={snapshotRevision:'2',profileRevision:'p'};
- const rules=defineRules({contacts,revision,preferenceSnapshot:{...revision,snapshotRevision:'1',preferences:{valley:{formMultipliers:{grove:1000}}}}});
- expect(rules.explain('a',state,7).target).toBe(defineRules({contacts}).explain('a',state,7).target);
- expect(rules.explain('a',state,7).preferenceStatus).toBe('stale');
+test('stale district preferences retain the base draw and explain the revision mismatch', () => {
+	const state = pair(cell('a', 'b'), cell('b', 'a'));
+	const revision = { snapshotRevision: '2', profileRevision: 'p' };
+	const rules = defineRules({
+		contacts,
+		revision,
+		preferenceSnapshot: {
+			...revision,
+			snapshotRevision: '1',
+			preferences: { valley: { formMultipliers: { grove: 1000 } } }
+		}
+	});
+	expect(rules.explain('a', state, 7).target).toBe(
+		defineRules({ contacts }).explain('a', state, 7).target
+	);
+	expect(rules.explain('a', state, 7).preferenceStatus).toBe('stale');
 });

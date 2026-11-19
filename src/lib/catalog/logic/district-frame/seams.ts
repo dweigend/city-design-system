@@ -57,26 +57,25 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			Number(b.intent === 'main') - Number(a.intent === 'main') ||
 			priority(a) - priority(b) ||
 			(a.id < b.id ? -1 : Number(a.id !== b.id));
-		function eligible(s: FrameSeam) {
-			if (state.get(s.id)?.built === 'main') return true;
-			if (raw(s).role !== 'main') return false;
-			if (
-				s.gate &&
-				adjacent(s).some(
-					(n) =>
-						n.gate &&
-						(state.get(n.id)?.built === 'main' || (raw(n).role === 'main' && compare(n, s) < 0))
-				)
-			)
-				return false;
-			return s.houses.every(
-				(h) =>
-					(houses.get(h) ?? []).filter(
-						(n) =>
-							(state.get(n.id)?.built === 'main' || raw(n).role === 'main') && compare(n, s) < 0
-					).length < policy.maxFramedSides
-			);
+		function capacity(s: FrameSeam) {
+			const outranks = (n: FrameSeam) =>
+				(state.get(n.id)?.built === 'main' || raw(n).role === 'main') && compare(n, s) < 0;
+			if (s.gate) {
+				const other = adjacent(s)
+					.filter((n) => n.gate && outranks(n))
+					.sort(compare)[0];
+				if (other) return { reason: 'adjacent-gate', blocker: other.id };
+			}
+			for (const h of s.houses) {
+				const occupied = (houses.get(h) ?? []).filter(outranks).sort(compare);
+				if (occupied.length >= policy.maxFramedSides)
+					return { reason: 'house-capacity', blocker: occupied[0].id };
+			}
 		}
+		function eligible(s: FrameSeam) {
+			return state.get(s.id)?.built === 'main' || (raw(s).role === 'main' && !capacity(s));
+		}
+
 		const main = new Map<string, boolean>();
 		function selectedMain(s: FrameSeam) {
 			const cached = main.get(s.id);
@@ -111,17 +110,14 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			if (proposal.role === 'main' && !selectedMain(s))
 				proposal = {
 					role: 'gap',
-					reason: eligible(s)
-						? 'isolated-main'
-						: s.gate
-							? 'gate-or-house-capacity'
-							: 'house-capacity'
+					...(capacity(s) ?? { reason: 'isolated-main', blocker: s.id })
 				};
 			if (proposal.role === 'secondary' && !connected(s))
 				proposal = { role: 'gap', reason: 'detached-spur' };
 			const built = state.get(id)?.built;
 			if (built && (built === 'main' || proposal.role === 'gap'))
 				proposal = {
+					...proposal,
 					role: built,
 					reason:
 						s.intent && proposal.role !== s.intent
@@ -162,7 +158,7 @@ export function compileSeams(seams: Iterable<FrameSeam>, policy = seamPolicy()) 
 			return {
 				...decision,
 				ruleId: decision.reason,
-				blocker: byId.get(id)?.blocker ?? id,
+				blocker: decision.blocker ?? byId.get(id)?.blocker ?? id,
 				diagnostics: omissionMeasures.map((measure) => ({
 					measure,
 					value: evidence[measure] ?? null

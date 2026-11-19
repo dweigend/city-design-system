@@ -17,7 +17,7 @@ export const pairWeights: RoleTable<EdgeUse> = {
 };
 export const characterWeights: RoleTable<Character | 'coreCourt' | 'quietCourt'> = {
 	neutral: [1, 1],
- shore: [1, 0.5],
+	shore: [1, 0.5],
 	slope: [1, 0.5],
 	core: [0.5, 1],
 	coreCourt: [1, 1],
@@ -25,8 +25,8 @@ export const characterWeights: RoleTable<Character | 'coreCourt' | 'quietCourt'>
 	quietCourt: [0.5, 0]
 };
 export const seamParams = defineParams({
-	districtMainWeight: numberParam('Occupied district boundary', '', 1, [0,100,0.1]),
- quietDistrictShare: numberParam('Quiet district tendency', 'fraction', 0.33, [0, 1, 0.01]),
+	districtMainWeight: numberParam('Occupied district boundary', '', 1, [0, 100, 0.1]),
+	quietDistrictShare: numberParam('Quiet district tendency', 'fraction', 0.33, [0, 1, 0.01]),
 	spineWeight: numberParam('Shore and slope spine weight', '', 2, [0, 100, 0.1]),
 	gateWeight: numberParam('Transverse gate weight', '', 0.15, [0, 100, 0.05]),
 	gapWeight: numberParam('Unbuilt alternative', '', 0.25, [0, 100, 0.05]),
@@ -42,11 +42,11 @@ export type FrameSeam = Readonly<{
 	houses: readonly string[];
 	district: string;
 	character: Character;
-    adjacentCharacter?: Character;
-    transverse?: string;
-    frontage?: string;
- higherSide?: string;
- roofDifference?:number;
+	adjacentCharacter?: Character;
+	transverse?: string;
+	frontage?: string;
+	higherSide?: string;
+	roofDifference?: number;
 	use: EdgeUse;
 	districtEdge: boolean;
 	opening?: string;
@@ -84,21 +84,28 @@ export function seamProposal(
 	s: FrameSeam,
 	seed: number,
 	policy: SeamPolicy
-): { role: FrameRole; reason: string } {
+): { role: FrameRole; reason: string; blocker?: string } {
 	if (s.opening || !s.houses.length) return { role: 'gap', reason: s.opening ?? 'unoccupied' };
-	if (s.gate && s.transverse !== 'mainAlley' && s.transverse !== 'riversidePromenade') return {role:'gap',reason:'gate-rank'};
-    const factors = (character:Character) => {
-    const key =
-		s.use === 'court' && (character === 'quiet' || character === 'core')
-			? (`${character}Court` as const)
-			: character;
- return policy.characters.get(key) ?? [1,1];
- };
-	const [am,as] = factors(s.character), [bm,bs]=factors(s.adjacentCharacter ?? s.character);
- const dm=Math.min(am,bm),ds=Math.min(as,bs);
+	if (s.gate && s.transverse !== 'mainAlley' && s.transverse !== 'riversidePromenade')
+		return { role: 'gap', reason: 'gate-rank' };
+	const factors = (character: Character) => {
+		const key =
+			s.use === 'court' && (character === 'quiet' || character === 'core')
+				? (`${character}Court` as const)
+				: character;
+		return policy.characters.get(key) ?? [1, 1];
+	};
+	const [am, as] = factors(s.character),
+		[bm, bs] = factors(s.adjacentCharacter ?? s.character);
+	const dm = Math.min(am, bm),
+		ds = Math.min(as, bs);
 	const [pm, ps] = policy.pairs.get(s.use) ?? [0, 0];
 	const spine = s.use === 'shore' || s.use === 'slope' ? policy.spineWeight : 1;
-	const main = (s.districtEdge ? policy.districtMainWeight : pm) * dm * spine * (s.gate ? policy.gateWeight : 1);
+	const main =
+		(s.districtEdge ? policy.districtMainWeight : pm) *
+		dm *
+		spine *
+		(s.gate ? policy.gateWeight : 1);
 	const secondary = s.attachment ? ps * ds : 0;
 	if (s.intent) {
 		const allowed = s.intent === 'gap' || (s.intent === 'main' ? main : secondary) > 0;
