@@ -1,6 +1,10 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
-import { cpuMilliseconds, median, warmMedian } from '../../../../../scripts/performance-sample';
+import {
+	cpuMilliseconds,
+	median,
+	warmMedian
+} from '../../fixtures/performance-sample.fixture.test';
 import { createTerrain, valleyPoint } from '../terrain';
 import { deriveGrid, MODULE, regrid } from './index';
 

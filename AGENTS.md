@@ -17,7 +17,7 @@ Design bible for a city-builder game as a SvelteKit website. TypeScript, bun. Al
 
 ## Verification
 
-- Run `bun run verify` before reporting any code change as done. It must exit 0: lint, check, test, boundaries, Fallow, private skills, build.
+- Run `bun run verify` before reporting any code change as done. It must exit 0: lint, check, test, test:perf, boundaries, Fallow, private skills, build.
 - Fallow and boundary gates block new findings. Never extend a baseline (`.fallow-baselines/`, `.dependency-cruiser-baseline.json`, `eslint-suppressions.json`) to pass; fix the code.
 - Single test file: `bun test <path>`.
 - Browser-facing changes: operate them in a real browser; an independent agent signs off on current screenshots.

@@ -1,4 +1,4 @@
-import type { RoofCell } from '../../src/lib/catalog/logic/megastructure/index';
+import type { RoofCell } from '../index';
 
 /** A rectangular roof in the search fixture, in world meters. */
 export function rect(id: string, x: number, y: number, w: number, h: number): RoofCell {

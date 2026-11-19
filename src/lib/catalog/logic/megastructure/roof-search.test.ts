@@ -4,7 +4,7 @@ import { buildRoofFrame, planRoofFrame } from './index';
 import { selectConnectedLayout } from './connected-layouts';
 import type { RoofLink } from './roof-links';
 
-import { connectedRow, rect, reviewRow } from '../../../../../scripts/test-fixtures/roof-search';
+import { connectedRow, rect, reviewRow } from './fixtures/roof-search.fixture.test';
 
 for (const n of [13, 30])
 	test('conflicting bridge bearings in the ' + n + '-roof review row', () => {

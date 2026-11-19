@@ -2,10 +2,7 @@
 import { expect, spyOn, test } from 'bun:test';
 import { probeWallConnections } from './carrier-diagonals';
 import * as finalValidator from './carrier-probe';
-import {
-	singularCarrier,
-	tenRoofStroke
-} from '../../../../../scripts/test-fixtures/carrier-budget';
+import { singularCarrier, tenRoofStroke } from './fixtures/carrier-budget.fixture.test';
 
 test('bounded repair of singular five- and six-group carriers', () => {
 	for (const groups of [5, 6]) {

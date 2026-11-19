@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { cpuMilliseconds, warmMedian } from '../../../../../scripts/performance-sample';
-import { connectedRow, reviewRow } from '../../../../../scripts/test-fixtures/roof-search';
+import { cpuMilliseconds, warmMedian } from '../../fixtures/performance-sample.fixture.test';
+import { connectedRow, reviewRow } from './fixtures/roof-search.fixture.test';
 import { planRoofFrame } from './index';
 
 test('conflicting and connected roof rows each plan in under 50 ms', () => {

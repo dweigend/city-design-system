@@ -28,7 +28,7 @@ import {
 	type Turmpuffer
 } from './index';
 
-import { pal } from '../../../../../../scripts/test-fixtures/formlabor';
+import { pal } from './fixtures/formlabor.fixture.test';
 const klassen = ['gross', 'mittel', 'grob', 'haut'] as const;
 const baue = (g: Genom, saat: number, in_ = turmpuffer()) => {
 	leere(in_);

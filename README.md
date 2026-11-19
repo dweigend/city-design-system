@@ -52,7 +52,8 @@ bun run dev                # Development server (http://localhost:5173)
 Mandatory verification commands before every delivery:
 
 ```sh
-bun run test               # Behavior tests (bun test)
+bun run test               # Behavior tests
+bun run test:perf          # Performance tests, one file at a time
 bun run check              # svelte-kit sync & svelte-check (type and Svelte check)
 bun run lint               # Prettier & ESLint (including CSS boundary checks)
 bun run build              # Production build
