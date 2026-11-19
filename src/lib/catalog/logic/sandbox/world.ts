@@ -120,7 +120,7 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 			: regrid(world.grid, createTerrain({ seed: world.seed, edits: state.edits }));
 	if (source === 'restore') state = settleCover(grid, state);
 	else if (grid !== world.grid) {
-		state = removeInstallations(state, (part) => lostSeat(grid, part));
+		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));
 		state = settleHouses(world.grid, grid, state);
 		state = settleCover(grid, state, world.grid);
 	}

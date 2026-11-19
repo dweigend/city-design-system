@@ -104,3 +104,18 @@ test('an unstable wall layout cannot consume stock or reserve a roof', () => {
 	expect(attempt.failure?.reason).toBe('unstable-frame');
 	expect(attempt.draft).toBe(town);
 });
+
+test('a distant basin preserves the loaded carrier on the landlocked roof at 87/50', () => {
+	const roof = '87/50';
+	const stacks = new Map(town.state.stacks).set(roof, ['living', 'living', 'living']);
+	const stock = withState(town, { ...town.state, stacks });
+	const saved = stroke('megastructure', stock, [roof]).state;
+	const loaded = withState(town, saved);
+	expect(loaded.grid.cellsById.get(roof)?.parcelAccess).toBe('landlocked');
+	expect(loaded.state.parts.size).toBe(9);
+	const dug = applyEdit(loaded, { kind: 'dig', cellId: '120/68' });
+	expect(dug.grid.cellsById.get(roof)).toBe(loaded.grid.cellsById.get(roof));
+	expect(dug.state.parts).toBe(loaded.state.parts);
+	expect(dug.state.compositions).toBe(loaded.state.compositions);
+	expect(dug.state.store.material).toBe(loaded.state.store.material);
+});

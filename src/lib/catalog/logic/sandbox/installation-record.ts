@@ -32,10 +32,13 @@ export function clearInstallation(state: SandboxState, cell: TerrainCell) {
 	);
 }
 
-/** Rechecks the saved wall, level deck and stair seats after terrain intervention. */
-export function lostSeat(grid: TerrainGrid, part: BuiltPart) {
+/** Recheck changed seats and the spans they carry against the edited terrain. */
+export function lostSeat(previous: TerrainGrid, grid: TerrainGrid, part: BuiltPart) {
+	let changed = false;
 	for (const anchor of part.kind === 'segment' ? [part.anchor, part.end] : [part.anchor]) {
 		const cell = grid.cellsById.get(anchor.cellId);
+		if (cell === previous.cellsById.get(anchor.cellId)) continue;
+		changed = true;
 		if (!cell || (anchor.level > 0 ? !cell.buildable : cell.zone === 'water')) return true;
 		if (
 			part.recipe === 'support' &&
@@ -43,8 +46,7 @@ export function lostSeat(grid: TerrainGrid, part: BuiltPart) {
 		)
 			return true;
 	}
-	if (part.kind !== 'segment') return false;
-	return invalidSpan(grid, part);
+	return changed && part.kind === 'segment' && invalidSpan(grid, part);
 }
 
 function invalidSpan(grid: TerrainGrid, part: Extract<BuiltPart, { kind: 'segment' }>) {
