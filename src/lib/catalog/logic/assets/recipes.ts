@@ -1,3 +1,4 @@
+import { lanterns } from './production/lanterns';
 import { awnings } from './production/awnings';
 import { gardens } from './production/gardens';
 import { pools } from './production/pools';
@@ -174,5 +175,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...toys,
 	...pools,
 	...gardens,
-	...awnings
+	...awnings,
+	...lanterns
 ];
