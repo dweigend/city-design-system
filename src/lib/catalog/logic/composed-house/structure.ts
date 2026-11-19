@@ -77,6 +77,27 @@ function towers(s: Section, surfaces: HouseSurfaces): HousePart[] {
 		)
 	];
 }
+function mastBearings(s: Section, surfaces: HouseSurfaces) {
+	if (!s.compact) return [];
+	const [x, y] = s.stairAxis,
+		centerY = y - 0.38;
+	const mast = beam(
+		s.id + '/access-mast',
+		[x, centerY, s.base[2]],
+		[0.5, 0.38, s.top - s.base[2]],
+		surfaces.frame
+	);
+	const arms = s.decks.map((d, i) => {
+		const reach = centerY - d.position[1];
+		return beam(
+			s.id + '/mast-arm/' + i,
+			[x, centerY - reach / 2, d.position[2] - 0.18],
+			[Math.min(0.18, d.width * 0.15), Math.abs(reach), 0.14],
+			surfaces.frame
+		);
+	});
+	return [mast, ...arms];
+}
 function deckParts(s: Section, surfaces: HouseSurfaces) {
 	return s.decks.flatMap(({ position: [x, y, z], width: w, depth: d, round }, i) => {
 		if (
@@ -163,6 +184,7 @@ export function houseStructure(s: Section, surfaces: HouseSurfaces) {
 	);
 	return [
 		...columns(s, surfaces),
+		...mastBearings(s, surfaces),
 		...towers(s, surfaces),
 		...deckParts(s, surfaces),
 		...beams,

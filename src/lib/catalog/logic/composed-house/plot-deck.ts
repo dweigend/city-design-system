@@ -1,5 +1,6 @@
 import { area, clipPolygon, type HalfPlane, type Point2 } from '../ansicht/geometrie';
-import { circulation } from './circulation';
+import { windingRoute } from './circulation';
+import { edge } from './stair-track';
 import { houseObject } from './house-object';
 import type { Section } from './types';
 import type { Surface } from './surfaces';
@@ -21,31 +22,25 @@ function cut(outline: Point2[], opening: HalfPlane[]) {
 
 /** Follows the painted footprint at the first deck, leaving openings above ascending flights. */
 export function plotDeck(s: Section, surface: Surface) {
-	const { legs, width } = circulation(s);
-	const z = s.decks[0].position[2];
-	const openings = legs.flatMap(({ from: a, to: b }) => {
-		if (Math.min(a[2], b[2]) > z + 0.18 || Math.max(a[2], b[2]) + 2 < z) return [];
-		const dx = b[0] - a[0],
-			dy = b[1] - a[1],
-			len = Math.hypot(dx, dy);
-		if (len < 1e-8) return [];
-		const u = dx / len,
-			v = dy / len;
-		return [
-			[
-				{ normal: [-u, -v], d: -u * a[0] - v * a[1] },
-				{ normal: [u, v], d: u * b[0] + v * b[1] },
-				{ normal: [-v, u], d: -v * a[0] + u * a[1] + width / 2 },
-				{ normal: [v, -u], d: v * a[0] - u * a[1] + width / 2 }
-			] satisfies HalfPlane[]
-		];
-	});
+	const [x, y] = s.stairAxis,
+		z = s.decks[0].position[2];
+
+	// Remove the full swept headroom even where the flight is vertical.
+	const opening: HalfPlane[] = s.compact
+		? [
+				{ normal: [1, 0], d: x + 0.36 },
+				{ normal: [-1, 0], d: -x + 0.36 },
+				{ normal: [0, 1], d: y + 0.3 },
+				{ normal: [0, -1], d: -y + 0.3 }
+			]
+		: windingRoute(s).track.map((p) => {
+				const [u, v] = p.normal,
+					[a, b] = edge(p, 0.625);
+				return { normal: [u, v], d: u * a + v * b };
+			});
 	return s.cells.flatMap((cell) => {
 		const outline = cell.corners.map(([x, y]): Point2 => [x, y]);
-		const pieces = openings.reduce(
-			(rings, opening) => rings.flatMap((r) => cut(r, opening)),
-			[outline]
-		);
+		const pieces = cut(outline, opening);
 		const p = houseObject('landing', 'standard', s.seed, {
 			instanceId: s.id + '/platform/' + cell.id,
 			slots: { deck: surface }

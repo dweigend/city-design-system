@@ -1,3 +1,5 @@
+import { houseStair } from '../../data/house-stair';
+import { plate } from './assembly';
 import { mount, type AssetRecipe } from './definition';
 import { slab, rod } from './parts';
 
@@ -5,11 +7,35 @@ export const stairs: AssetRecipe = {
 	id: 'stairs',
 	slotNames: ['deck', 'body'],
 	category: 'infrastructure',
-	variants: ['short-flight', 'wide-flight', 'landing-flight', 'single-tread'],
+	variants: ['short-flight', 'wide-flight', 'landing-flight', 'winding-tread', 'straight-tread'],
 	footprint: [7.3, 3.3],
 	anchors: [mount('deck')],
 	draw(variant, sample) {
-		if (variant === 3) return [slab([-0.145, -0.5, 0], [0.29, 1, 0.17], 'deck')];
+		if (variant === 4)
+			return [
+				plate(
+					[
+						[-houseStair.going / 2, -houseStair.width / 2],
+						[houseStair.going / 2, -houseStair.width / 2],
+						[houseStair.going / 2, houseStair.width / 2],
+						[-houseStair.going / 2, houseStair.width / 2]
+					],
+					0,
+					houseStair.thickness,
+					'deck'
+				)
+			];
+		if (variant === 3) {
+			const { width, radius, going, thickness } = houseStair;
+			const angle = Math.asin(going / (2 * radius));
+			const ring = ([-1, 1] as const).flatMap((sign) =>
+				(sign < 0 ? [1, -1] : [-1, 1]).map((side) => {
+					const r = radius + (side * width) / 2;
+					return [r * Math.cos(angle) - radius, sign * r * Math.sin(angle)] as [number, number];
+				})
+			);
+			return [plate(ring, 0, thickness, 'deck')];
+		}
 		const n = [8, 12, 15][variant],
 			w = [1.38, 2.86, 1.72][variant],
 			t = 0.29 + 0.02 * sample,

@@ -58,7 +58,7 @@ export function plotHouse(stories: number, squareMetres: number, shape: PlotShap
 			...c,
 			corners: [point(a), point(b), point(d), point(e)] as const,
 			center: point(c.center),
-			pad: (c.pad - cz) * scale
+			pad: shape === 'Irregular' ? (c.pad - cz) * scale : c.pad
 		};
 	});
 	const programme: HouseUse[] = ['living', 'energy', 'water', 'food', 'material'];

@@ -1,97 +1,147 @@
+import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
-import { circulation } from './circulation';
+import { edge } from './stair-track';
+import { mastAccess } from './mast-access';
+import { windingRoute } from './circulation';
 import { houseObject, type HousePart } from './house-object';
 import type { Section } from './types';
 import type { HouseSurfaces } from './surfaces';
 
-type Leg = ReturnType<typeof circulation>['legs'][number];
+type Route = ReturnType<typeof windingRoute>;
+type XY = [number, number];
+const { radius, width, rail, thickness } = houseStair;
 
-function projectLeg(
-	leg: Leg,
-	id: string,
-	width: number,
-	seed: number,
-	surfaces: HouseSurfaces
-): HousePart[] {
-	const [a, b] = leg.from[2] >= leg.to[2] ? [leg.from, leg.to] : [leg.to, leg.from];
-	const dx = b[0] - a[0],
-		dy = b[1] - a[1],
-		dz = b[2] - a[2],
-		length = Math.hypot(dx, dy);
-	if (length < 1e-8) return [];
-	const angle = Math.atan2(dy, dx);
-	const point = (t: number, offset = 0, up = 0): Vec3 => [
-		a[0] + dx * t - (dy * offset) / length,
-		a[1] + dy * t + (dx * offset) / length,
-		a[2] + dz * t + up
-	];
-	const slots = { deck: surfaces.access, frame: surfaces.frame, body: surfaces.frame };
-	const object = (name: string, variant = 'standard') =>
-		houseObject(name, variant, seed, {
-			instanceId: id + '/' + name,
-			slots: Object.fromEntries(
-				(name === 'stairs' ? ['deck', 'body'] : name === 'railing' ? ['frame'] : ['deck']).map(
-					(k) => [k, slots[k as keyof typeof slots]]
-				)
-			)
-		}).parts;
-	if (leg.kind === 'landing' || (leg.kind === 'ramp' && Math.abs(dz) < 1e-8)) {
-		const p = object('landing')[0];
-		if (p.kind !== 'prism') throw new Error('Expected landing plate');
+function circulationStock(s: Section, surfaces: HouseSurfaces) {
+	const id = s.id + '/stair/';
+	const stock = (
+		name: string,
+		variant: string,
+		slots: Parameters<typeof houseObject>[3]['slots']
+	) => houseObject(name, variant, s.seed, { instanceId: id + name, slots }).parts;
+	const tread = stock('stairs', 'winding-tread', {
+		deck: surfaces.access,
+		body: surfaces.frame
+	})[0];
+	const straight = stock('stairs', 'straight-tread', {
+		deck: surfaces.access,
+		body: surfaces.frame
+	})[0];
+	const landing = stock('landing', 'standard', { deck: surfaces.deck })[0];
+	const ramp = stock('ramp', 'standard', { deck: surfaces.deck })[0];
+	const rails = stock('railing', 'standard', { frame: surfaces.frame });
+	if (
+		straight.kind !== 'prism' ||
+		tread.kind !== 'prism' ||
+		landing.kind !== 'prism' ||
+		ramp.kind !== 'wedge'
+	)
+		throw new Error('Expected circulation stock');
+	return { id, straight, tread, landing, ramp, rails };
+}
+function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) {
+	const { id, straight, tread, landing, ramp, rails } = circulationStock(s, surfaces);
+	function platform(key: string, polygon: XY[], z: number) {
+		return { ...landing, id: id + key, polygon, z: z - landing.height };
+	}
+	function sector(a: number, b: number, inner: number, w: number): XY[] {
 		return [
-			{
-				...p,
-				polygon: p.polygon.map(([x, y]) => {
-					const [u, v] = point(x + 0.5, y * width);
-					return [u, v];
-				}),
-				z: a[2] - p.height
-			}
+			edge(track[a], inner),
+			edge(track[a], inner + w),
+			edge(track[b], inner + w),
+			edge(track[b], inner)
 		];
 	}
-	const rails = [-1, 1].flatMap((side) =>
-		object('railing').map((p) => {
-			if (p.kind !== 'pipe') throw new Error('Expected rail');
+	function walk(leg: Route['legs'][number], i: number): HousePart {
+		const { from: a, to: b, first, last } = leg;
+		if (leg.kind === 'landing' || (leg.kind === 'ramp' && Math.abs(a[2] - b[2]) < 1e-8))
+			return platform(i + '/landing', sector(first, last, -width / 2, width), a[2]);
+		if (leg.kind === 'ramp') {
+			const [hi, lo] = a[2] >= b[2] ? [a, b] : [b, a],
+				dx = lo[0] - hi[0],
+				dy = lo[1] - hi[1],
+				run = Math.hypot(dx, dy);
 			return {
-				...p,
-				id: p.id + '/' + side,
-				points: p.points.map(([t, , h]) => point(t, side * width * 0.46, h))
+				...ramp,
+				id: id + i + '/ramp',
+				position: [(hi[0] + lo[0] - run) / 2, (hi[1] + lo[1] - width) / 2, lo[2]],
+				size: [run, width, hi[2] - lo[2]],
+				rotation: Math.atan2(dy, dx)
 			};
-		})
-	);
-	if (leg.kind === 'ramp') {
-		const p = object('ramp')[0];
-		if (p.kind !== 'wedge') throw new Error('Expected ramp');
-		const [x, y] = point(0.5);
-		return [
-			{
-				...p,
-				position: [x - length / 2, y - width / 2, b[2]],
-				size: [length, width, -dz],
-				rotation: angle
-			},
-			...rails
-		];
+		}
+		const n = track[first].normal,
+			m = track[last].normal;
+		const linear = Math.hypot(n[0] - m[0], n[1] - m[1]) < 1e-7;
+		const stock = linear ? straight : tread;
+		const angle = linear
+			? Math.atan2(b[1] - a[1], b[0] - a[0])
+			: Math.atan2(n[1] + m[1], n[0] + m[0]);
+		const c = Math.cos(angle),
+			sin = Math.sin(angle);
+		const x = linear ? (a[0] + b[0]) / 2 : a[0] + (c - n[0]) * radius;
+		const y = linear ? (a[1] + b[1]) / 2 : a[1] + (sin - n[1]) * radius;
+		const polygon = stock.polygon.map(([u, v]): XY => [x + u * c - v * sin, y + u * sin + v * c]);
+		return { ...stock, id: id + i + '/stairs/tread', polygon, z: b[2] - thickness };
 	}
-	const p = object('stairs', 'single-tread')[0];
-	if (p.kind !== 'box') throw new Error('Expected stair tread');
-	const run = length / leg.steps,
-		rise = -dz / leg.steps;
-	const steps = Array.from({ length: leg.steps }, (_, i): HousePart => {
-		const [x, y] = point((i + 0.5) / leg.steps);
-		return {
-			...p,
-			id: p.id + '/' + i,
-			position: [x - run / 2, y - width / 2, a[2] - (i + 1) * rise],
-			size: [run, width, rise],
-			rotation: angle
-		};
-	});
-	return [...steps, ...rails];
+	function frame(leg: Route['legs'][number], i: number) {
+		const line = (end: boolean, h: number): Vec3 => [
+			...edge(track[end ? leg.last : leg.first], -width / 2 + 0.035),
+			(end ? leg.to : leg.from)[2] + h
+		];
+		return rails.flatMap((p, j) => {
+			if (p.kind !== 'pipe') throw new Error('Expected rail stock');
+			// One inside handrail, a continuous stringer and a newel every four stations.
+			if (j === 2 && i % 4) return [];
+			const points =
+				j === 0
+					? [line(false, rail), line(true, rail)]
+					: j === 1
+						? [line(false, -thickness), line(true, -thickness)]
+						: [line(false, -thickness), line(false, rail)];
+			return [{ ...p, id: id + i + '/frame/' + j, points }];
+		});
+	}
+	function connection(d: Route['docks'][number], i: number) {
+		const distance = (i: number) =>
+			Math.hypot(track[i].xy[0] - d.door[0], track[i].xy[1] - d.door[1]);
+		const exit = track.reduce((best, _, j) => (distance(j) < distance(best) ? j : best), 0);
+		const size = track.length,
+			forward = (exit - d.index + size) % size,
+			sign = forward <= size / 2 ? 1 : -1;
+		const steps = Math.min(forward, size - forward),
+			z = d.door[2];
+		const pieces = Array.from({ length: steps }, (_, j) => {
+			const a = (d.index + size + sign * j) % size,
+				b = (a + size + sign) % size;
+			return platform('dock/' + i + '/' + j, sector(a, b, width / 2, width / 2), z);
+		});
+		const [x, y] = edge(track[exit], width / 2);
+		const [nx, ny] = track[exit].normal,
+			u = (-ny * width) / 2,
+			v = (nx * width) / 2;
+		pieces.push(
+			platform(
+				'dock/' + i + '/door',
+				[
+					[x - u, y - v],
+					[x + u, y + v],
+					[d.door[0] + u, d.door[1] + v],
+					[d.door[0] - u, d.door[1] - v]
+				],
+				z
+			)
+		);
+		return pieces;
+	}
+	return { walk, frame, connection };
 }
 
-/** Fits registered circulation members to each segment of the surveyed route. */
+/** Places rigid registry treads on the walking line and fits stock to its level deck connections. */
 export function access(s: Section, surfaces: HouseSurfaces) {
-	const { legs, width } = circulation(s);
-	return legs.flatMap((leg, i) => projectLeg(leg, s.id + '/stair/' + i, width, s.seed, surfaces));
+	if (s.compact) return mastAccess(s, surfaces);
+	const route = windingRoute(s),
+		draw = projection(route.track, s, surfaces);
+	return [
+		...route.legs.flatMap((leg, i) => [draw.walk(leg, i), ...draw.frame(leg, i)]),
+		...route.docks.flatMap(draw.connection)
+	];
 }

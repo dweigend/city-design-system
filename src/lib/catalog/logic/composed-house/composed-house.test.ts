@@ -37,8 +37,11 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 			const levels = new Set<number>();
 			for (const p of parts) {
 				if (p.kind === 'prism') {
-					const bearing = p.source.objectId === 'landing' ? p.z + p.height : p.z;
-					expect(bearing).toBeGreaterThanOrEqual(s.base[2] - 1e-8);
+					const bearing = ['landing', 'stairs'].includes(p.source.objectId) ? p.z + p.height : p.z;
+					const support = p.id.includes('/stair/')
+						? Math.min(...s.cells.flatMap((c) => c.corners.map((p) => p[2])))
+						: s.base[2];
+					expect(bearing).toBeGreaterThanOrEqual(support - 1e-8);
 				}
 				if (p.id.includes('/stair/') && p.kind === 'prism')
 					levels.add(Math.round((p.z + p.height) * 1000));
@@ -151,7 +154,16 @@ test('every house and bridge part traces to a colour-free registry member and it
 	for (const slot of Object.keys(palette) as (keyof HouseSurfaces)[]) palette[slot] = assignment;
 	const bridges = houseLinks(grid, houses, 17, [], palette);
 	expect(bridges.length).toBeGreaterThan(0);
+	const plate = squareGrid(1, 1, 15).cells[0];
+	const tower = planHouse({
+		cells: [plate],
+		stacks: new Map([
+			[plate.id, ['water', 'water', 'living', 'living', 'food', 'food', 'energy', 'energy']]
+		]),
+		seed: 2
+	});
 	const parts = [
+		...sectionParts(tower, palette),
 		...houses.flatMap((h) => sectionParts(h, palette)),
 		...bridges.flatMap((b) => b.parts)
 	];

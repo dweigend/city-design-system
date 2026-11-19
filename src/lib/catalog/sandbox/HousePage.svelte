@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Label } from 'bits-ui';
 	import RulePlates from './RulePlates.svelte';
 	import HouseChoice from './HouseChoice.svelte';
 	import Button from '../ui/Button.svelte';
@@ -8,9 +9,12 @@
 	import { sectionParts } from '../logic/composed-house';
 	const examples = composedHousePlates();
 	let shape = $state<PlotShape>('Rectangle'),
-		height = $state('4'),
-		area = $state('240'),
+		height = $state(4),
+		area = $state(240),
 		seed = $state(7);
+	let requestedShape = $state<PlotShape>('Rectangle');
+	let requestedHeight = $state(4),
+		requestedArea = $state(240);
 	const plates = $derived([
 		{
 			id: 'generated',
@@ -29,31 +33,57 @@
 	fitView
 >
 	{#snippet controls()}
-		<div class="controls">
-			<HouseChoice
-				label="Storeys"
-				value={height}
-				options={Array.from({ length: 32 }, (_, i) => String(i + 1))}
-				onpick={(v) => (height = v)}
+		<form
+			class="controls"
+			onsubmit={(event) => {
+				event.preventDefault();
+				shape = requestedShape;
+				height = requestedHeight;
+				area = requestedArea;
+				seed = nextSeed(seed);
+			}}
+		>
+			<Label.Root for="house-height">Storeys</Label.Root>
+			<input
+				id="house-height"
+				name="storeys"
+				type="number"
+				required
+				min="1"
+				step="1"
+				bind:value={requestedHeight}
 			/>
-			<HouseChoice
-				label="Plot area (m²)"
-				value={area}
-				options={['64', '120', '240', '480', '960']}
-				onpick={(v) => (area = v)}
+			<Label.Root for="house-area">Plot area (m²)</Label.Root>
+			<input
+				id="house-area"
+				name="area"
+				type="number"
+				required
+				min="0.01"
+				step="any"
+				bind:value={requestedArea}
 			/>
 			<HouseChoice
 				label="Footprint"
-				value={shape}
+				value={requestedShape}
 				options={plotShapes}
-				onpick={(v) => (shape = v as PlotShape)}
+				onpick={(v) => (requestedShape = v as PlotShape)}
 			/>
-			<Button label="Regenerate" onclick={() => (seed = nextSeed(seed))} />
-		</div>
+			<Button label="Regenerate" type="submit" />
+		</form>
 	{/snippet}
 </RulePlates>
 
 <style>
+	input {
+		width: 7ch;
+		box-sizing: content-box;
+		font: inherit;
+		color: var(--ink);
+		background: var(--paper);
+		padding: var(--space-2);
+		border: var(--hair) solid var(--ink);
+	}
 	.controls {
 		display: flex;
 		align-items: center;

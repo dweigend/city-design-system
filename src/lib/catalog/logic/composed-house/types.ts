@@ -38,6 +38,8 @@ export type Deck = {
 	use: HouseUse;
 };
 export type Section = {
+	compact: boolean;
+	stairAxis: [number, number];
 	id: string;
 	cells: readonly QuadCell[];
 	plan: HousePlan;

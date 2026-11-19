@@ -12,8 +12,9 @@ export const circulationObjects: AssetRecipe[] = [
 	{
 		...stock,
 		id: 'landing',
+		variants: ['standard', 'mast-platform'],
 		slotNames: ['deck'],
-		draw: () => [
+		draw: (variant) => [
 			plate(
 				[
 					[-0.5, -0.5],
@@ -22,7 +23,7 @@ export const circulationObjects: AssetRecipe[] = [
 					[-0.5, 0.5]
 				],
 				0,
-				0.12,
+				variant === 1 ? 0.035 : 0.12,
 				'deck'
 			)
 		]

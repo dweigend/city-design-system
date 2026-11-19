@@ -1,9 +1,11 @@
 import { hashUnit } from '../../core/random';
 import { STORY } from '../../data/grid';
-import { circulationWidth, returnCourt } from './circulation';
+import { sectionParts } from './projection';
+import { accessFits } from './access-budget';
+import { stairBay, ladderBay } from './stair-bay';
 import { deckPlan } from './deck-plan';
 import { houseAspect, houseProgramme } from '../district-frame';
-import { footprintBay } from './footprint';
+
 import type { Deck, HouseSite, Section } from './types';
 import { assetSlots } from './slots';
 
@@ -24,21 +26,25 @@ function paintedBands(site: HouseSite) {
 	return { cells, rows, start, end, stories, levels, uses, id };
 }
 
+/** Vertical step in metres shared by every deck, so neighbours meet at equal levels. */
+const DATUM = STORY / 2;
+/** Snaps a deck to the shared datum above its pad. The crown rounds down to keep its body height. */
+function deckDatum(pad: number, height: number, crown: boolean) {
+	const steps = (height - pad) / DATUM;
+	return pad + Math.max(0.5, crown ? Math.floor(steps + 1e-6) : Math.round(steps)) * DATUM;
+}
 /** Groups the painted programme into height bands and surveys the floor and roof datums. */
-export function planHouse(site: HouseSite): Section {
+function sectionAt(site: HouseSite, bay: ReturnType<typeof stairBay>, compact: boolean): Section {
 	const { cells, rows, start, end, stories, levels, uses, id } = paintedBands(site);
 	const count = levels.length;
 	const district = site.district ?? 'infill';
 	const { plan, crown, kinds } = houseProgramme(id, stories, uses, district, site.seed, site.plan);
 	const aspect = houseAspect(id, site.seed);
-	const bay = footprintBay(cells),
-		round = plan === 'round';
-	const lane = circulationWidth(bay) * 2.6;
-	const court = returnCourt(bay, aspect.reverse);
-	const bodyY = bay.y - court / 2;
+	const round = plan === 'round';
+	const bodyY = bay.y;
 	const fill = 0.8 + 0.04 * hashUnit(site.seed, id, 'bay-fill');
-	const width = ((round ? Math.min(bay.width, bay.depth - court) : bay.width) - lane) * fill,
-		depth = round ? width : (bay.depth - court - lane) * fill;
+	const width = (round ? Math.min(bay.width, bay.depth) : bay.width) * fill,
+		depth = round ? width : bay.depth * fill;
 	const pad = cells[0].pad,
 		base: Section['base'] = [bay.x, bodyY, pad + start * STORY];
 	const top = pad + end * STORY;
@@ -49,7 +55,8 @@ export function planHouse(site: HouseSite): Section {
 			Math.min(width, depth) * 0.38,
 			(top - base[2]) * 0.68
 		);
-		const height = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
+		const free = crown ? top - bodyHeight : pad + (lo + Math.min(1, (end - lo) * 0.32)) * STORY;
+		const height = deckDatum(pad, free, crown);
 		const { kind, use } = kinds[i];
 		const shape = deckPlan(i, count, round, aspect);
 		return {
@@ -64,6 +71,8 @@ export function planHouse(site: HouseSite): Section {
 	});
 	const section: Section = {
 		id,
+		stairAxis: bay.axis,
+		compact,
 		cells,
 		district,
 		aspect,
@@ -82,4 +91,16 @@ export function planHouse(site: HouseSite): Section {
 	};
 	section.slots = assetSlots(section, rows.flat().filter(Boolean));
 	return section;
+}
+
+/** Plans the occupied bands and admits a full stair only when its measured mass and site fit. */
+export function planHouse(site: HouseSite): Section {
+	if (!site.cells.length) throw new RangeError('Empty painted footprint');
+	const cells = [...site.cells].sort((a, b) => a.id.localeCompare(b.id));
+	const bay = stairBay(cells);
+	if (Math.min(bay.width, bay.depth) >= 3) {
+		const section = sectionAt(site, bay, false);
+		if (accessFits(section, sectionParts(section))) return section;
+	}
+	return sectionAt(site, ladderBay(cells), true);
 }

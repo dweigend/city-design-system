@@ -1,3 +1,4 @@
+export { planPoints as housePartPlan } from './part-plan';
 export { circulation } from './circulation';
 import type { HouseSite } from './types';
 import type { HouseSurfaces } from './surfaces';
