@@ -1,5 +1,6 @@
 import type { FlowId } from '../../data/focus';
 import { sandboxEpochs, townDefaults, type BuildingMethod } from '../../data/sandbox';
+import type { FutureTarget } from '../district-frame';
 import type { BuiltPart, Composition, Owner, PartId } from './installation-parts';
 import type { HouseUse, Stacks } from '../house-brush';
 import type { Cover, CoverKind } from '../land-cover';
@@ -36,6 +37,7 @@ export type TimeLayer = Readonly<{ year: number; flows: readonly FlowId[] }>;
  */
 export type SandboxState = Readonly<{
 	year: number;
+	futureTarget?: FutureTarget;
 	frameTimeline?: import('./frame-state').FrameTimeline;
 	frameInstallations?: ReadonlyMap<string, import('./frame-state').FrameInstallation>;
 	frameIntents?: ReadonlyMap<string, import('../district-frame').FrameRole>;

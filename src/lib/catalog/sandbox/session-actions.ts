@@ -2,6 +2,7 @@ import {
 	applyEdit,
 	commit,
 	redo,
+	setFutureTarget,
 	startHistory,
 	undo,
 	withState,
@@ -84,6 +85,14 @@ export function createSessionActions(
 				rejection = failure;
 				publish(snapshot());
 			}
+		},
+		/** Saves the planning target as a history step without a construction event. */
+		toggleSpongeCity() {
+			const next = setFutureTarget(world, world.state.futureTarget ? undefined : 'sponge-city');
+			world = next;
+			history = commit(history, next.state);
+			completion = undefined;
+			publish(snapshot());
 		},
 		undo: () => restore(undo(history)),
 		redo: () => restore(redo(history)),

@@ -157,6 +157,11 @@ export function createSession(
 			}, 'Focus');
 		},
 		advance: () => control(advance, 'Advance'),
+		get spongeCity() {
+			return world.state.futureTarget === 'sponge-city';
+		},
+		/** Replays the target toggle in input order with advances and strokes. */
+		toggleSpongeCity: () => control(actions.toggleSpongeCity, 'Sponge city'),
 		get tool() {
 			return selectedTool;
 		},

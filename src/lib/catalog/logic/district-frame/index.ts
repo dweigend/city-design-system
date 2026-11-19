@@ -135,6 +135,8 @@ export {
 	type PlanningContext
 } from './horizon';
 
+export { frameInfill, type FutureTarget } from './infill-policy';
+
 export { transition as advanceSeams } from './transition';
 export { faceSeam, seamAddress } from './address';
 

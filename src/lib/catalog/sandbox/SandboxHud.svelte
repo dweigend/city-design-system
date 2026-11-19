@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { keyboard } from '../ui/keyboard.svelte';
-	import { ToggleGroup } from 'bits-ui';
+	import { Toggle, ToggleGroup } from 'bits-ui';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { flows } from '../data/focus';
 	import { Timeline } from '../interface';
 	import {
 		Box,
 		Dices,
+		Droplets,
 		Eraser,
 		Grid2X2,
 		Hand,
@@ -21,6 +22,7 @@
 	} from 'lucide-svelte';
 	import Button from '../ui/Button.svelte';
 	import Icon from '../ui/Icon.svelte';
+	import Tooltip from '../ui/Tooltip.svelte';
 	import {
 		sandboxCovers,
 		sandboxLines,
@@ -196,6 +198,19 @@
 			<Timeline {year} {events} {stockYear} min={range.min} max={range.max} labelEvery={false} />
 		</div>
 		<output aria-label="World year">{year}</output>
+		<Tooltip text="Sponge city">
+			{#snippet trigger(props)}
+				<Toggle.Root
+					{...props}
+					bind:pressed={() => session.spongeCity, session.toggleSpongeCity}
+					class="cg-button"
+					data-variant="icon"
+					aria-label="Sponge city"
+				>
+					<Icon icon={Droplets} size={20} />
+				</Toggle.Root>
+			{/snippet}
+		</Tooltip>
 		<Button variant="secondary" label="Advance" shortcut="Y" onclick={session.advance} />
 	</div>
 	<div class="hint" class:warning={Boolean(session.failure)}>
@@ -325,6 +340,9 @@
 	.timeline :global(.cg-button) {
 		min-width: 0;
 		gap: var(--space-2);
+	}
+	.timeline :global(.cg-button[data-variant='icon']) {
+		min-width: var(--sandbox-target);
 	}
 	@media (min-width: 641px) and (max-width: 980px) {
 		.hint {

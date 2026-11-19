@@ -7,6 +7,7 @@ import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { routeLine, transitOverrides } from '../transit-line';
+import type { FutureTarget } from '../district-frame';
 import { advanceFrames } from './frame-construction';
 import { frameSurvey } from './frame-survey';
 import { seedTown, type TownOptions } from './old-town';
@@ -104,6 +105,18 @@ export function createWorld(
  */
 export function withState(world: World, snapshot: SandboxSnapshot): World {
 	return replaceState(world, migrateSnapshot(snapshot), 'restore');
+}
+
+/**
+ * Sets the target for subsequent advances. Omit it to restore default planning.
+ * Returns a new world sharing the existing stock, or the input if the target already matches.
+ */
+export function setFutureTarget(world: World, target?: FutureTarget): World {
+	if (world.state.futureTarget === target) return world;
+	const state = { ...world.state };
+	if (target) state.futureTarget = target;
+	else delete state.futureTarget;
+	return { ...world, state };
 }
 
 function replaceState(world: World, state: SandboxState, source: 'edit' | 'restore'): World {

@@ -3,6 +3,7 @@ import type { BaySurvey } from '../megastructure';
 import { planFrames, recordPlans, initialTimeline } from './frame-planning';
 import { advanceSeams, compileSeams, type BayState } from '../district-frame';
 import type { PartId, Owner, BuiltPart } from './installation-parts';
+import { installFrameInfill } from './frame-infill';
 import { frameSurvey } from './frame-survey';
 import type { World } from './world-contract';
 
@@ -67,7 +68,9 @@ export function advanceFrames(
 			return proof?.result.status === 'sized';
 		}
 	);
+	const newBays: string[] = [];
 	for (const id of region ?? survey.seams.keys()) install(id);
+	installFrameInfill(world, newBays, year, parts, installations);
 	function install(id: string) {
 		const role = stock.get(id)?.built;
 		if (!role || role === prior.get(id)?.built) return;
@@ -86,6 +89,7 @@ export function advanceFrames(
 			parts
 		);
 		compositions.set(owner, { id: owner, system: 'houses' });
+		if (!prior.get(id)?.built && world.state.futureTarget) newBays.push(id);
 	}
 	const frameIntents = new Map(world.state.frameIntents);
 	for (const seam of planning.seams) if (seam.intent) frameIntents.set(seam.id, seam.intent);

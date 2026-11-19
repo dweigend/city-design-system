@@ -19,6 +19,8 @@ test('the live advance publishes provisional axes while sizing is outstanding, t
 	const events: string[] = [];
 	session.onCompletion((e) => events.push(e.kind));
 	session.advance();
+	session.toggleSpongeCity();
+	expect(session.spongeCity).toBe(false);
 	expect(events).toEqual([]);
 	expect(session.world.state.year).toBe(start.state.year);
 	expect(session.world.state.parts).toBe(start.state.parts);
@@ -26,7 +28,14 @@ test('the live advance publishes provisional axes while sizing is outstanding, t
 	finish();
 	await Promise.resolve();
 	expect(events).toEqual(['advance']);
-	expect(session.world.state).toEqual(applyEdit(start, { kind: 'advance' }).state);
+	const advanced = applyEdit(start, { kind: 'advance' }).state;
+	expect(session.spongeCity).toBe(true);
+	expect(session.world.state).toEqual({ ...advanced, futureTarget: 'sponge-city' });
+	session.undo();
+	expect(session.spongeCity).toBe(false);
+	expect(session.world.state).toEqual(advanced);
+	session.redo();
+	expect(session.spongeCity).toBe(true);
 	session.disposeInput();
 });
 
