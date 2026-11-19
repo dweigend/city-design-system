@@ -173,3 +173,12 @@ export {
 	type EnsembleRole,
 	type StoreySurcharge
 } from './ensemble-policy';
+
+export {
+	houseProgramme,
+	bridgeForm,
+	type HousePlan,
+	type TierKind,
+	type LinkKind,
+	type CrownKind
+} from './composed-policy';

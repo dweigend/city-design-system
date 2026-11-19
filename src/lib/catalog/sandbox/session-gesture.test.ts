@@ -179,7 +179,7 @@ test('two digs, a multi-basin erase and Q each survey once from touchdown to dis
 type HudInput =
 	| { kind: 'hud-tool'; id: 'house' | 'dig' }
 	| { kind: 'hud-use'; id: 'living' | 'water' }
-	| { kind: 'hud-method'; id: 'collage' | 'totem' }
+	| { kind: 'hud-method'; id: 'composed' | 'totem' }
 	| { kind: 'plan' };
 
 const click = () => new Event('click', { cancelable: true }) as MouseEvent;
@@ -240,7 +240,7 @@ const samples: RawInput[] = [
 	{ kind: 'hud-use', id: 'water' },
 	{ kind: 'hud-use', id: 'living' },
 	{ kind: 'hud-method', id: 'totem' },
-	{ kind: 'hud-method', id: 'collage' },
+	{ kind: 'hud-method', id: 'composed' },
 	{ kind: 'plan' },
 	{ kind: 'tap', cell: '81/44' },
 	{ kind: 'kernel' }
@@ -356,7 +356,7 @@ test('random raw input matches zero-latency execution in city, history and event
 			{ kind: 'hud-tool', id: 'dig' },
 			{ kind: 'hud-tool', id: 'house' },
 			{ kind: 'hud-use', id: 'water' },
-			{ kind: 'hud-method', id: 'collage' },
+			{ kind: 'hud-method', id: 'composed' },
 			{ kind: 'plan' },
 			{ kind: 'tap', cell: '81/44' }
 		);

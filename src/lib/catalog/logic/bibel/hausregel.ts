@@ -137,6 +137,7 @@ const STYLE_TITLES: Record<HouseStyle, string> = {
 	terrace: 'Terrace',
 	totem: 'Totem',
 	megastructure: 'Megastructure',
+	composed: 'Composed',
 	collage: 'Collage'
 };
 

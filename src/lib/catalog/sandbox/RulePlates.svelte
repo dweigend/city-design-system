@@ -3,7 +3,12 @@
 	import type { RulePlate } from '../logic/bibel/hausregel';
 
 	/** Plates of the house rule side by side, drawn by the bible's own primitive view. */
-	let { title, text, plates }: { title: string; text: string; plates: RulePlate[] } = $props();
+	let {
+		title,
+		text,
+		plates,
+		fitView = false
+	}: { title: string; text: string; plates: RulePlate[]; fitView?: boolean } = $props();
 </script>
 
 <svelte:head><title>{title} · City Design System</title></svelte:head>
@@ -12,7 +17,9 @@
 	<p>{text}</p>
 	<div class="plates">
 		{#each plates as plate (plate.id)}
-			<figure class:block-study={plate.id === 'block-grid' || plate.id === 'roof-blocks'}>
+			<figure
+				class:block-study={fitView || plate.id === 'block-grid' || plate.id === 'roof-blocks'}
+			>
 				<div class="view">
 					<PrimitiveView
 						primitives={plate.primitives}

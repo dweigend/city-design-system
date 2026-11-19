@@ -1,4 +1,4 @@
-import { BODY_TOKEN } from './body-token';
+import { BODY_TOKEN } from '../../data/house-body';
 import { storiesOf } from './stacks';
 import { required } from '../required';
 import { ceramicFitting } from './ceramic-fitting';

@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test';
 import type { EnsembleCell } from '../house-brush';
 import { STORY } from '../../data/grid';
 import { focuses } from '../presentation';
+import { composedProjection } from './composed-projection';
 import { buildingPlots } from './building-plots';
 import { houseEnsembles } from './house-ensembles';
 import { acceptanceScene, applyEdit, changes, houseGroups, type World } from './index';
@@ -13,19 +14,20 @@ function required<T>(value: T | undefined): T {
 }
 
 function expectPeakVolume(world: World, earliestFullYear: number, peak: EnsembleCell) {
+	const group = required(
+		composedProjection(world).find((g) => g.owners.length === 1 && g.cells.includes(peak.body))
+	);
+	const parts = required(
+		houseGroups(world, group.chunk, focuses.all, undefined, earliestFullYear).get(
+			'composed/' + group.id
+		)
+	);
+	const roof = parts.find((p) => p.id.endsWith('/roof-walk'));
+	if (roof?.kind !== 'prism') throw Error('Missing roof walk');
 	const cell = required(world.grid.cellsById.get(peak.body));
-	const view = [
-		...houseGroups(world, cell.chunk, focuses.all, undefined, earliestFullYear).values()
-	].flat();
-	const base = view.find((p) => p.id === peak.body + '@1:wall');
-	const crown = view.find((p) => p.id === peak.body + '@' + (peak.height - 2) + ':wall');
-	expect(base?.kind).toBe('prism');
-	expect(crown?.kind).toBe('prism');
-	if (base?.kind !== 'prism' || crown?.kind !== 'prism') throw Error('Missing joined walls');
-	expect(crown.height + 0.32).toBeCloseTo(2 * STORY);
-	expect(crown.z - base.z).toBeCloseTo(base.height + 0.32);
-	for (const level of [2, 4])
-		expect(view.some(({ id }) => id === peak.body + '@' + level + ':plate')).toBe(false);
+	expect(roof.z + roof.height).toBeCloseTo(
+		cell.pad + required(world.state.stacks.get(peak.body)).length * STORY
+	);
 }
 
 test('the seed-7 bank has four distinct, stepped ensembles through the sandbox projection', () => {
@@ -37,6 +39,9 @@ test('the seed-7 bank has four distinct, stepped ensembles through the sandbox p
 		ids.some((id) => grid.cellsById.get(id)?.zone === 'floodplain')
 	);
 	expect(bank).toHaveLength(4);
+	expect(
+		composedProjection(world).filter((g) => g.owners.length === 2).length
+	).toBeGreaterThanOrEqual(3);
 	for (const ids of bank) {
 		const parcels = ids.map((id) => required(layout.cells.get(id)));
 		const peaks = parcels.filter(({ role }) => role === 'turm');

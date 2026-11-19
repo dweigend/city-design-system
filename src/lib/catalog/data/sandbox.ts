@@ -96,17 +96,18 @@ export const sandboxZones = {
 /** Ordered building styles available from each inclusive epoch boundary. */
 export const sandboxEpochs = [
 	{ from: 1900, houseStyles: ['terrace'] },
-	{ from: 2026, houseStyles: ['collage', 'megastructure', 'totem'] }
+	{ from: 2026, houseStyles: ['composed', 'megastructure', 'totem'] }
 ] as const;
 
-export type BuildingMethod = (typeof sandboxEpochs)[number]['houseStyles'][number];
+export type BuildingMethod = (typeof sandboxEpochs)[number]['houseStyles'][number] | 'collage';
 
 export const sandboxMethods: Record<
 	BuildingMethod,
 	{ name: string; shortcut: string; phase: number }
 > = {
 	terrace: { name: 'Terrace', shortcut: 'C', phase: 0 },
-	collage: { name: 'Body', shortcut: 'C', phase: 2 },
+	collage: { name: 'Collage', shortcut: 'C', phase: 2 },
+	composed: { name: 'Body', shortcut: 'C', phase: 2 },
 	megastructure: { name: 'Carrier', shortcut: 'M', phase: 1 },
 	totem: { name: 'Capsules', shortcut: 'T', phase: 3 }
 };

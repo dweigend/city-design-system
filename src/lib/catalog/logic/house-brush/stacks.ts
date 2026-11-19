@@ -1,20 +1,8 @@
-import type { FlowId } from '../../data/focus';
-
-/**
- * Use of a story. `living` is the plain house without a flow color; the other uses carry
- * the color of their flow. People and paths keep their own color for walkways and rail.
- */
-export type HouseUse = 'living' | Exclude<FlowId, 'people'>;
+import type { HouseUse, Stacks } from '../../data/house-body';
+export type { HouseUse, Stacks } from '../../data/house-body';
 
 /** Most stories one cell carries. */
 export const MAX_STORIES = 12;
-
-/**
- * Painted stories per grid cell: the use of every story from the ground up. A cell without
- * stories has no entry. Stacks are contiguous; the level of a story is its index. The cell
- * id is the stable anchor: it survives every re-derivation of the grid.
- */
-export type Stacks = ReadonlyMap<string, readonly HouseUse[]>;
 
 const NONE: readonly HouseUse[] = [];
 

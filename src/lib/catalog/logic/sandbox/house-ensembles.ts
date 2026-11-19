@@ -22,6 +22,11 @@ function frontage(grid: TerrainGrid, cell: TerrainCell) {
 	);
 }
 
+/** Maps the surveyed terrain zone to its house composition policy. */
+export function houseDistrict(cell: TerrainCell) {
+	return cell.zone === 'floodplain' ? 'bank' : cell.zone === 'lower-terrace' ? 'infill' : 'slope';
+}
+
 function placements(grid: TerrainGrid, state: SandboxState) {
 	return new Map(
 		[...state.storyParts].flatMap(([id, stories]) => {
@@ -30,8 +35,7 @@ function placements(grid: TerrainGrid, state: SandboxState) {
 				.find((action) => action > 0);
 			const cell = grid.cellsById.get(id);
 			if (placed === undefined || !cell) return [];
-			const district =
-				cell.zone === 'floodplain' ? 'bank' : cell.zone === 'lower-terrace' ? 'infill' : 'slope';
+			const district = houseDistrict(cell);
 			const top = stories.at(-1);
 			return [
 				[

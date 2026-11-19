@@ -1,3 +1,4 @@
+import { composedProjection } from './composed-projection';
 import type { BuildingMethod } from '../../data/sandbox';
 import { buildingPlots } from './building-plots';
 import {
@@ -120,23 +121,30 @@ export function houseView(
 			: [...groupPhases(state, stacks, true)];
 	const stock = phases.filter(([phase]) => phase.built < earliestFullYear);
 	const project = ([{ built, style, painted }, floors]: (typeof phases)[number]) =>
-		houseChunk(
-			plots,
-			visualFloors(floors, state.stacks, ensembles),
-			chunk,
-			seed,
-			style,
-			{
-				occupied,
-				ensembles: painted ? ensembles : undefined,
-				printOrder: printOrder(state, earliestFullYear),
-				// Plots already exclude passages; roof runs stay within the original lattice block.
-				blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
-				olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
-			},
-			world.roofBuilder
-		);
+		style === 'composed'
+			? []
+			: houseChunk(
+					plots,
+					visualFloors(floors, state.stacks, ensembles),
+					chunk,
+					seed,
+					style,
+					{
+						occupied,
+						ensembles: painted ? ensembles : undefined,
+						printOrder: printOrder(state, earliestFullYear),
+						// Plots already exclude passages; roof runs stay within the original lattice block.
+						blockOf: (id) => grid.cellsById.get(id)?.block.split('/')[0],
+						olderRoof: (id) => (state.storyParts.get(id)?.at(-1)?.built ?? Infinity) < built
+					},
+					world.roofBuilder
+				);
 	return [
+		...composedProjection(world)
+			.filter(
+				(g) => g.chunk === chunk && (g.built !== state.year || g.cells.some((id) => stacks.has(id)))
+			)
+			.flatMap((g) => present(g.parts(), g.built < earliestFullYear ? focus.stock : focus.houses)),
 		...present(stock.flatMap(project), focus.stock),
 		...present(
 			[
@@ -155,15 +163,19 @@ const houseGroupKey = ({ built, style }: Phase, id: string) => `${built}/${style
 /** Mass addresses touching the supplied parcels or their facade neighbours. */
 export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Map<string, string> {
 	const { plots, ensembles } = houseProjection(world);
+	const edits = new Set(cellIds);
 	const nearby = new Set<QuadCell>();
-	for (const id of ensembleEditCells(world.grid, ensembles, cellIds)) {
+	for (const id of ensembleEditCells(world.grid, ensembles, edits)) {
 		const cell = plots.cellsById.get(id);
 		if (!cell) continue;
 		nearby.add(cell);
 		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
 	}
 	const out = new Map<string, string>();
+	for (const g of composedProjection(world))
+		if (g.cells.some((id) => edits.has(id))) out.set('composed/' + g.id, g.chunk);
 	for (const [phase, painted] of constructionPhases(world.state)) {
+		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, world.state.stacks, ensembles);
 		const layout = phase.painted ? wallEnsembles(phase.style, { ensembles }) : undefined;
 		const visited = new Set<string>();
@@ -195,7 +207,13 @@ export function houseGroups(
 	const { grid, state, seed } = world;
 	const { plots, ensembles, occupied } = houseProjection(world);
 	const groups = new Map<string, Primitive[]>();
+	for (const g of composedProjection(world)) {
+		const key = 'composed/' + g.id;
+		if (g.chunk === chunk && (!keys || keys.has(key)))
+			groups.set(key, present(g.parts(), g.built < firstFullYear ? focus.stock : focus.houses));
+	}
 	for (const [phase, painted] of constructionPhases(state)) {
+		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, state.stacks, ensembles);
 		const context = {
 			occupied,

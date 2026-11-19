@@ -152,7 +152,7 @@ function raiseStory(
 	{ use, style }: Extract<Edit, { kind: 'raise' }>
 ): SandboxState {
 	const styles = stylesForYear(state.year);
-	if (style && !styles.includes(style)) return state;
+	if (style && !styles.includes(style === 'collage' ? 'composed' : style)) return state;
 	const stacks = cell.buildable ? raise(state.stacks, cell.id, use) : state.stacks;
 	if (stacks === state.stacks) return state;
 	// A house replaces what grew on its cell and takes its module from the store first.

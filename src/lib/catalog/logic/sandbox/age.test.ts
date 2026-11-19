@@ -48,9 +48,9 @@ test('an erased story returns one unit and rebuilding at its anchor creates a fr
 test('only the historic and modern epoch boundaries change the available methods', () => {
 	expect(stylesForYear(1900)).toEqual(['terrace']);
 	expect(stylesForYear(2025)).toEqual(['terrace']);
-	expect(styleForYear(2026)).toBe('collage');
+	expect(styleForYear(2026)).toBe('composed');
 	for (const year of [2026, 2027, 2028, 2029, 2051])
-		expect(stylesForYear(year)).toEqual(['collage', 'megastructure', 'totem']);
+		expect(stylesForYear(year)).toEqual(['composed', 'megastructure', 'totem']);
 });
 
 test('most occupied seed-7 parcels have a visibly oblique corner', () => {
@@ -84,7 +84,7 @@ test('a new collage floor covers the old ridge and keeps its silhouette when it 
 	const initial = view(town);
 	expect(initial.find((p) => p.id === roof)).toMatchObject({ kind: 'polyline', role: 'bestand' });
 	expect(initial.some((p) => p.detail && p.id.includes(':opening'))).toBe(true);
-	const painted = applyEdit(town, { kind: 'raise', use: 'water', cellId });
+	const painted = applyEdit(town, { kind: 'raise', use: 'water', style: 'collage', cellId });
 	const fresh = view(painted);
 	expect(fresh.some((p) => p.id === roof)).toBe(false);
 	const tank = fresh.find((p) => p.kind === 'sphere' && p.role === 'neu');

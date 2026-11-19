@@ -5,7 +5,7 @@ import { floorOf, type Mass } from './massing';
 import { along, bayOf } from './megastructure-bay';
 import { storiesOf, type Stacks } from './stacks';
 import type { PrintOrder } from './print-contact';
-import { BODY_TOKEN } from './body-token';
+import { BODY_TOKEN } from '../../data/house-body';
 import { dockedModule } from './style-totem';
 import type { Ensembles } from './ensemble';
 

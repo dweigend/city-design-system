@@ -1,0 +1,132 @@
+import { BODY_TOKEN } from '../../data/house-body';
+import type { Primitive, Vec3 } from '../parametrik/types';
+import { access } from './access';
+import { lattice } from './mast';
+import { piece, slab } from './parts';
+import type { Section } from './types';
+
+function columns(s: Section) {
+	const [x, y, z] = s.base,
+		r = Math.min(s.width, s.depth) * 0.029;
+	const posts = [
+		[-0.3, -0.29],
+		[0.3, -0.29],
+		[-0.3, 0.29],
+		[0, 0.29],
+		[0.3, 0.29]
+	];
+	return posts.map(([u, v], i) =>
+		piece(s.id + '/post/' + i, {
+			kind: 'cylinder',
+			position: [x + u * s.width, y + v * s.depth, z],
+			radius: r,
+			height: (v < 0 ? s.decks.at(-1)!.position[2] : s.top) - z + 0.25,
+			shade: 0.23
+		})
+	);
+}
+function towers(s: Section): Primitive[] {
+	if (s.stories < 3) return [];
+	const [x, y, z] = s.base,
+		h = s.top - z,
+		side = Math.min(1.7, s.width * 0.14, s.depth * 0.15);
+	const mast = lattice(
+		s.id + '/lattice',
+		[x - s.width * 0.31 - side / 2, y - s.depth * 0.27, z + 0.08],
+		side,
+		s.decks.at(-1)!.position[2] - z + 0.35
+	);
+	if (s.stories < 5) return [mast];
+	const round = s.plan === 'round',
+		cx = x + (round ? 0 : s.width * 0.27),
+		cy = y + (round ? 0 : s.depth * 0.26);
+	const rise = h + Math.min(2.2, side * 1.3);
+	const core = round
+		? piece(s.id + '/core', {
+				kind: 'cylinder',
+				position: [cx, cy, z],
+				radius: side * 0.85,
+				height: rise,
+				shade: 0.25
+			})
+		: slab(s.id + '/core', [cx, cy, z], side * 1.5, side * 1.4, rise, 0.04);
+	return [
+		mast,
+		{ ...core, shade: 0.25 },
+		slab(
+			s.id + '/watch',
+			[cx, cy, z + rise],
+			side * 1.65,
+			side * 1.55,
+			side * 0.45,
+			0.12,
+			'--blueprint'
+		),
+		slab(s.id + '/watch-cap', [cx, cy, z + rise + side * 0.45], side * 1.8, side * 1.7, 0.12, 0.13)
+	];
+}
+function deckParts(s: Section) {
+	return s.decks.flatMap(({ position: [x, y, z], width: w, depth: d, round }, i) => {
+		const t = Math.min(0.38, w * 0.04, d * 0.055),
+			radius = round ? w / 2 : Math.min(w, d) * 0.12;
+		return [
+			slab(s.id + '/soffit/' + i, [x, y, z - t], w * 0.98, d * 0.98, t * 0.58, radius),
+			{
+				...slab(s.id + '/deck/' + i, [x, y, z - t * 0.42], w, d, t * 0.42, radius),
+				roofCell: s.cells[0].id
+			}
+		];
+	});
+}
+function supplies(s: Section) {
+	return s.slots
+		.filter((slot) => slot.kind === 'reservoir')
+		.flatMap((slot, i) => {
+			const [x, y, z] = slot.position,
+				h = slot.size[2],
+				[cx, cy] = s.base;
+			const deck =
+				s.decks.findLast((d) => d.use === slot.use) ??
+				s.decks.findLast((d) => d.programme.includes(slot.use)) ??
+				s.decks[0];
+			const px = cx + s.width * (0.42 + i * 0.023),
+				py = cy + s.depth * (-0.23 + i * 0.032),
+				zz = deck.position[2] + 0.25;
+			const points: Vec3[] = [
+				[x, y, z + h],
+				[x, y, z + h + 0.1],
+				[px, py, z + h + 0.1],
+				[px, py, zz],
+				[px, cy + s.depth * 0.2, zz]
+			];
+			return points
+				.slice(1)
+				.map((p, j) =>
+					piece(
+						slot.id + '/pipe/' + j,
+						{ kind: 'pipe', points: [points[j], p], radius: Math.min(0.21, s.width * 0.023) },
+						BODY_TOKEN[slot.use]
+					)
+				);
+		});
+}
+/** Projects the continuous frame, tier slabs, access flights and service runs in metres. */
+export function houseStructure(s: Section) {
+	const [x, y] = s.base;
+	const roof = slab(
+		s.id + '/roof-walk',
+		[x, y + s.depth * 0.29, s.top - 0.18],
+		s.width * 0.72,
+		s.depth * 0.14,
+		0.18,
+		0.18
+	);
+	return [
+		...columns(s),
+		...towers(s),
+		...deckParts(s),
+		{ ...roof, roofCell: s.cells[0].id },
+		...access(s),
+		...supplies(s)
+	];
+}

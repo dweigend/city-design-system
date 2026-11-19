@@ -8,7 +8,7 @@ import { body } from './body';
 import { isPlinth } from './ensemble-walls';
 import { profileOf } from './profile';
 import { printBands } from './print-bands';
-import { BODY_TOKEN } from './body-token';
+import { BODY_TOKEN } from '../../data/house-body';
 import { massStoreys, type Mass, type Story } from './massing';
 import { MAX_STORIES, storiesOf } from './stacks';
 

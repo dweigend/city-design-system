@@ -45,7 +45,13 @@
 	let { session, group = $bindable() }: { session: Session; group?: HTMLDivElement } = $props();
 
 	const narrow = new MediaQuery('(max-width: 640px)');
-	const methodIcons = { terrace: House, collage: Box, megastructure: Grid2X2, totem: Pill };
+	const methodIcons = {
+		terrace: House,
+		composed: Box,
+		collage: Box,
+		megastructure: Grid2X2,
+		totem: Pill
+	};
 	const methods = $derived(
 		session.methods
 			.map((id) => ({ id, ...sandboxMethods[id], icon: methodIcons[id] }))

@@ -17,13 +17,13 @@ const cellsIn = ([i0, j0, i1, j1]: Rect) => {
 	for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) ids.push(`${i}/${j}`);
 	return ids;
 };
-const collageStory = (cellId: string, use: Use): Edit => ({
+const composedStory = (cellId: string, use: Use): Edit => ({
 	kind: 'raise',
 	cellId,
 	use,
-	style: 'collage'
+	style: 'composed'
 });
-const story = (use: Use, rect: Rect): Edit[] => cellsIn(rect).map((id) => collageStory(id, use));
+const story = (use: Use, rect: Rect): Edit[] => cellsIn(rect).map((id) => composedStory(id, use));
 const cover = (kind: Cover, rect: Rect): Edit[] =>
 	cellsIn(rect).map((cellId) => ({ kind: 'cover', cellId, cover: kind }));
 
@@ -94,7 +94,7 @@ function townFormEdits({ grid, seed, state }: World): Edit[] {
 	if (!plan) return [];
 	return [
 		...[...plan.runs.flat(), ...plan.satellite].flatMap(({ cellId, stories }) =>
-			stories.map((use) => collageStory(cellId, use))
+			stories.map((use) => composedStory(cellId, use))
 		),
 		{ kind: 'line', transit: 'viaduct', cellIds: plan.railCellIds }
 	];
@@ -109,7 +109,7 @@ function interventions(start: World): Edit[] {
 		...townFormEdits(start),
 		{ kind: 'line', transit: 'capsule', cellIds: TUBE },
 		...COVERS.flatMap(([kind, rect]) => cover(kind, rect)),
-		...(start.seed === SEED ? BANK_CROWN_STARTERS.map((id) => collageStory(id, 'living')) : [])
+		...(start.seed === SEED ? BANK_CROWN_STARTERS.map((id) => composedStory(id, 'living')) : [])
 	];
 }
 

@@ -1,6 +1,6 @@
 import type { Primitive, Vec3 } from '../parametrik/types';
 import type { Point2 } from '../parametrik/vocab';
-import { BODY_TOKEN } from './body-token';
+import { BODY_TOKEN } from '../../data/house-body';
 import type { Site } from './form';
 import type { Mass, Story } from './massing';
 import { boundaryRuns, insetRing, roundRingCorners } from './outline';

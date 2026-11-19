@@ -1,3 +1,4 @@
+import { composedGroups } from '../composed-house';
 import { totemMass } from './style-totem';
 import { megastructureMass } from './style-megastructure';
 import { roofCarrier, type RoofContext } from './roof-carrier';
@@ -46,6 +47,10 @@ export function houseChunk(
 	context?: RoofContext,
 	roofBuilder?: RoofBuilder
 ): Primitive[] {
+	if (style === 'composed')
+		return composedGroups(grid, stacks, seed)
+			.filter((g) => g.chunk === chunk)
+			.flatMap((g) => g.parts());
 	const site = massSite(grid, stacks, seed, style, context, roofBuilder);
 	const parts = massesOfChunk(grid, stacks, chunk, wallEnsembles(style, context)).flatMap((mass) =>
 		massParts(site, mass, style, context)
@@ -88,10 +93,25 @@ export function houseMassParts(
 	context?: RoofContext,
 	roofBuilder?: RoofBuilder
 ): Primitive[] {
+	if (style === 'composed') {
+		const anchors = new Set(
+			mass.stories
+				.filter(({ cell, level }) => level === stacks.get(cell.id)?.findIndex(Boolean))
+				.map(({ cell }) => cell.id)
+		);
+		return composedGroups(grid, stacks, seed)
+			.filter((g) => anchors.has(g.cells[0]))
+			.flatMap((g) => g.parts());
+	}
 	return massParts(massSite(grid, stacks, seed, style, context, roofBuilder), mass, style, context);
 }
 
-function massParts(site: Site, mass: Mass, style: HouseStyle, context?: RoofContext): Primitive[] {
+function massParts(
+	site: Site,
+	mass: Mass,
+	style: Exclude<HouseStyle, 'composed'>,
+	context?: RoofContext
+): Primitive[] {
 	// Q installations carry their own parts; older story records still use the saved house grammar.
 	if (context && (style === 'megastructure' || style === 'totem')) {
 		const rule = style === 'totem' ? totemMass : megastructureMass;

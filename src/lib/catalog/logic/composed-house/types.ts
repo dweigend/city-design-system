@@ -1,0 +1,49 @@
+import type { HouseUse, Stacks } from '../../data/house-body';
+import type { CrownKind, EnsembleDistrict, HousePlan, TierKind } from '../district-frame';
+import type { Primitive, Vec3 } from '../parametrik/types';
+import type { QuadCell } from '../quad-grid';
+
+export type HouseSite = {
+	cells: readonly QuadCell[];
+	stacks: Stacks;
+	seed: number;
+	district?: EnsembleDistrict;
+};
+export type AssetKind =
+	Exclude<TierKind, 'void' | 'gallery'> | CrownKind | 'reservoir' | 'window' | 'hatch' | 'person';
+/** Position is the bottom centre in world metres. Size is local width, depth, height.
+ * Facing is the outward horizontal unit vector. */
+export type HouseSlot = {
+	id: string;
+	anchor: 'deck' | 'roof' | 'facade' | 'ground';
+	kind: AssetKind;
+	position: Vec3;
+	size: Vec3;
+	facing: [number, number];
+	use: HouseUse;
+};
+export type ElementProvider = (slot: HouseSlot) => Primitive[];
+export type Deck = {
+	position: Vec3;
+	width: number;
+	depth: number;
+	round: boolean;
+	programme: HouseUse[];
+	kind: TierKind;
+	use: HouseUse;
+};
+export type Section = {
+	id: string;
+	cells: readonly QuadCell[];
+	plan: HousePlan;
+	crown: CrownKind;
+	base: Vec3;
+	width: number;
+	depth: number;
+	district: EnsembleDistrict;
+	start: number;
+	stories: number;
+	top: number;
+	decks: Deck[];
+	slots: HouseSlot[];
+};

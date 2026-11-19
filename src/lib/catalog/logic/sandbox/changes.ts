@@ -1,3 +1,4 @@
+import { changedSpans } from './composed-projection';
 import { affectedHouseGroups } from './houses';
 import { changedChunks, neighborsOf } from '../quad-grid';
 import type { World } from './world';
@@ -48,7 +49,11 @@ function movedCells(before: World, after: World, chunks: ReadonlySet<string>) {
 function changedHouses(before: World, after: World, moved: ReadonlySet<string>) {
 	const ids = new Set([...editedCells(before, after), ...movedCells(before, after, moved)]);
 	if (!ids.size) return new Map<string, string>();
-	return new Map([...affectedHouseGroups(before, ids), ...affectedHouseGroups(after, ids)]);
+	return new Map([
+		...affectedHouseGroups(before, ids),
+		...affectedHouseGroups(after, ids),
+		...changedSpans(before, after)
+	]);
 }
 
 function forestChunks(before: World, after: World, coverCells: readonly string[]): Set<string> {

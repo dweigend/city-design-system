@@ -11,7 +11,7 @@ import { guest } from './megastructure-guests';
 import { access, gallery, supply } from './megastructure-services';
 import { storiesOf } from './stacks';
 import { STORY } from '../../data/grid';
-import { BODY_TOKEN } from './body-token';
+import { BODY_TOKEN } from '../../data/house-body';
 import { insetRing, ringArea } from './outline';
 
 const MEGASTRUCTURE_DEFAULTS = { emptyShare: 0.25, galleryWidth: 0.075 };
