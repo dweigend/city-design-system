@@ -14,6 +14,7 @@ import type { Completion } from './feedback';
 
 type SessionState = Readonly<{
 	world: World;
+	reviewed: World | undefined;
 	completion: Completion | undefined;
 	rejection: Stroke['failure'];
 	canUndo: boolean;
@@ -28,6 +29,8 @@ export function createSessionActions(
 	open: (seed: number) => World
 ) {
 	let world = initial;
+	const checkpoints = new Map<number, World>();
+	let reviewed: World | undefined;
 	let history = startHistory(initial.state);
 	let completion: Completion | undefined;
 	let rejection: Stroke['failure'];
@@ -36,6 +39,7 @@ export function createSessionActions(
 	function snapshot(): SessionState {
 		return {
 			world,
+			reviewed,
 			completion,
 			rejection,
 			canUndo: history.past.length > 0,
@@ -45,6 +49,11 @@ export function createSessionActions(
 
 	function edit(next: World, kind: Completion['kind'], cellIds: readonly string[] = []) {
 		if (next === world) return;
+		if (kind === 'advance') {
+			for (const year of checkpoints.keys()) if (year > world.state.year) checkpoints.delete(year);
+			checkpoints.set(world.state.year, world);
+		}
+		reviewed = undefined;
 		const event = { kind, before: world, after: next, cellIds };
 		history = commit(history, next.state);
 		completion = event;
@@ -62,6 +71,7 @@ export function createSessionActions(
 
 	function restore(next: typeof history) {
 		if (next === history) return;
+		reviewed = undefined;
 		world = withState(world, next.present);
 		history = next;
 		completion = undefined;
@@ -70,6 +80,14 @@ export function createSessionActions(
 
 	return {
 		snapshot,
+		/** Shows a completed generation without changing the editable city or undo history. */
+		reviewYear(year: number) {
+			const next = year < world.state.year ? checkpoints.get(year) : undefined;
+			if (reviewed === next) return;
+			reviewed = next;
+			completion = undefined;
+			publish(snapshot());
+		},
 		/** Subscribes to the successful results, in order. */
 		onCompletion(this: void, listener: (value: Completion) => void) {
 			listeners.add(listener);
@@ -89,6 +107,7 @@ export function createSessionActions(
 		/** Saves the planning target as a history step without a construction event. */
 		toggleSpongeCity() {
 			const next = setFutureTarget(world, world.state.futureTarget ? undefined : 'sponge-city');
+			reviewed = undefined;
 			world = next;
 			history = commit(history, next.state);
 			completion = undefined;
@@ -102,6 +121,8 @@ export function createSessionActions(
 		advance: () => edit(applyEdit(world, { kind: 'advance', years: generationYears }), 'advance'),
 		/** Opens the next seed and clears its history. */
 		restart(this: void) {
+			reviewed = undefined;
+			checkpoints.clear();
 			world = open(world.seed + 1);
 			history = startHistory(world.state);
 			completion = undefined;

@@ -36,7 +36,7 @@ export {
 } from './cursor';
 export { currentStacks, houseView, houseGroups } from './houses';
 export { acceptanceScene, openingScene } from './acceptance-scene';
-export { timelineWindow } from './time-layers';
+export { timelineWindow, timelineYear } from './time-layers';
 export { frameSurvey } from './frame-survey';
 export { frameReport } from './frame-report';
 export { runFrameTimeline } from './frame-runner';
