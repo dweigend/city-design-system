@@ -3,3 +3,4 @@ export { default as HudDemo } from './HudDemo.svelte';
 export { default as HudBild } from './HudBild.svelte';
 export { default as IconAtlas } from './IconAtlas.svelte';
 export { default as Bedientafel } from './Bedientafel.svelte';
+export { default as Timeline } from './Timeline.svelte';

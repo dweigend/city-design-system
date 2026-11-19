@@ -14,7 +14,7 @@ export const KEY = { house: 'house:', forest: 'forest:', line: 'line:' };
 
 export type Target = Readonly<{
 	terrain: TerrainMesh;
-	structures: Structures;
+	structures: Pick<Structures, 'set'>;
 	earliestFullYear?: number;
 }>;
 
@@ -27,7 +27,7 @@ function projectCover(target: Target, after: World, cellIds: readonly string[]) 
 }
 
 function projectLines(
-	structures: Structures,
+	structures: Target['structures'],
 	world: World,
 	delta: ReturnType<typeof changes>,
 	focus: FocusId,

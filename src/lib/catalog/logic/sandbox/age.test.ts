@@ -1,7 +1,7 @@
 // @ts-expect-error Bun provides the test API.
 import { expect, test } from 'bun:test';
 import { applyEdit, createWorld, commit, startHistory, undo, withState, changes } from './index';
-import { currentStacks, houseView, styleForYear } from './index';
+import { currentStacks, houseView, styleForYear, stylesForYear } from './index';
 import { focuses, levelFor } from '../presentation';
 const town = createWorld(7);
 test('the old town occupies a reproducible set of lower terrace building sites', () => {
@@ -44,15 +44,14 @@ test('an erased story returns one unit and rebuilding at its anchor creates a fr
 	expect(undo(commit(startHistory(built.state), cleared.state)).present.store).toEqual(
 		built.state.store
 	);
-	expect([1900, 1979, 1980, 2026, 2027, 2028, 2029].map(styleForYear)).toEqual([
-		'terrace',
-		'terrace',
-		'collage',
-		'collage',
-		'megastructure',
-		'totem',
-		'collage'
-	]);
+});
+
+test('only the historic and modern epoch boundaries change the available methods', () => {
+	expect(stylesForYear(1900)).toEqual(['terrace']);
+	expect(stylesForYear(2025)).toEqual(['terrace']);
+	expect(styleForYear(2026)).toBe('collage');
+	for (const year of [2026, 2027, 2028, 2029, 2051])
+		expect(stylesForYear(year)).toEqual(['collage', 'megastructure', 'totem']);
 });
 
 test('most occupied seed-7 parcels have a visibly oblique corner', () => {

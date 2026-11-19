@@ -2,6 +2,7 @@
 	import { Building2, Layers, MousePointer2, Route, Trees } from 'lucide-svelte';
 	import Paper from '../foundations/Paper.svelte';
 	import Icon from '../ui/Icon.svelte';
+	import Timeline from './Timeline.svelte';
 	import { boxFaces, project, viewBoxOf, type Box } from '../data/iso';
 	import { flowToken, focusModes, type FlowId, type FocusModeId } from '../data/focus';
 	import { stromIcons } from '../data/icons';
@@ -11,7 +12,6 @@
 		hudHaus,
 		hudQuartier,
 		hudWerkzeuge,
-		hudZeit,
 		type HudModus,
 		type HudWerkzeugId
 	} from '../data/interface';
@@ -79,12 +79,6 @@
 					: strom
 						? 'hinten'
 						: 'kontext';
-
-	const anteil = (jahr: number) => ((jahr - hudZeit.min) / (hudZeit.max - hudZeit.min)) * 100;
-	const ticks = Array.from(
-		{ length: (hudZeit.max - hudZeit.min) / hudZeit.major + 1 },
-		(_, i) => hudZeit.min + i * hudZeit.major
-	);
 </script>
 
 {#snippet marke(id: string)}
@@ -174,22 +168,7 @@
 				{/each}
 			</div>
 
-			<div class="zeit">
-				<div class="achse">
-					{#each hudZeit.ereignisse as e (e.jahr)}
-						<span
-							class="ereignis"
-							style:left="{anteil(e.jahr)}%"
-							style:background="var({flowToken[e.strom]})"
-							title={e.text}
-						></span>
-					{/each}
-					<span class="jetzt" style:left="{anteil(hudZeit.value)}%">{hudZeit.value}</span>
-				</div>
-				<div class="jahre">
-					{#each ticks as t (t)}<span style:left="{anteil(t)}%">{t}</span>{/each}
-				</div>
-			</div>
+			<div class="zeit"><Timeline /></div>
 
 			<div class="ecke">
 				{#if modus === 'play'}
@@ -411,45 +390,7 @@
 		background: var(--paper);
 		border: var(--hair) solid var(--ink);
 	}
-	.achse {
-		position: relative;
-		height: 14px;
-		border-bottom: var(--hair) solid var(--ink);
-	}
-	.ereignis {
-		position: absolute;
-		bottom: 3px;
-		width: 6px;
-		height: 6px;
-		transform: translateX(-50%);
-		outline: var(--hair) solid var(--ink);
-	}
-	.jetzt {
-		position: absolute;
-		bottom: -8px;
-		transform: translateX(-50%);
-		padding: 0 4px;
-		background: var(--ink);
-		color: var(--paper);
-		font-family: var(--font-mono);
-	}
-	.jahre {
-		position: relative;
-		height: 16px;
-		margin-top: 6px;
-		color: var(--ink-2);
-		font-family: var(--font-mono);
-	}
-	.jahre span {
-		position: absolute;
-		transform: translateX(-50%);
-	}
-	.jahre span:first-child {
-		transform: none;
-	}
-	.jahre span:last-child {
-		transform: translateX(-100%);
-	}
+
 	.ecke {
 		position: absolute;
 		right: var(--space-4);
@@ -536,8 +477,7 @@
 			transform: translateX(-50%);
 		}
 		.schild > span:not(.marke),
-		.modus:not([data-aktiv='true']),
-		.jahre span:nth-child(2n) {
+		.modus:not([data-aktiv='true']) {
 			display: none;
 		}
 		.zeit {

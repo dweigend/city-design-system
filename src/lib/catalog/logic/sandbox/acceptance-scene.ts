@@ -30,12 +30,15 @@ const FRAME: readonly [Vec3, Vec3] = [
 
 function interventions(): Edit[] {
 	return [
-		...[...COLLAGE, ...COLLAGE].map((cellId): Edit => ({ kind: 'raise', cellId, use: 'living' })),
-		{ kind: 'advance' },
-		{ kind: 'raise', cellId: CARRIER, use: 'living' },
-		{ kind: 'advance' },
+		...[...COLLAGE, ...COLLAGE].map((cellId): Edit => ({
+			kind: 'raise',
+			cellId,
+			use: 'living',
+			style: 'collage'
+		})),
+		{ kind: 'raise', cellId: CARRIER, use: 'living', style: 'megastructure' },
 		...CAPSULES.flatMap(({ use, cells }) =>
-			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use }))
+			cells.map((cellId): Edit => ({ kind: 'raise', cellId, use, style: 'totem' }))
 		),
 		{ kind: 'line', transit: 'viaduct', cellIds: RAIL },
 		...FOREST.map((cellId): Edit => ({ kind: 'cover', cellId, cover: 'forest' }))

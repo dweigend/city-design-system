@@ -1,10 +1,21 @@
+import { sandboxGenerationYears } from '../../data/sandbox';
 import { lower, raise, storiesOf, type HouseUse } from '../house-brush';
 import { setCover } from '../land-cover';
 import { createTerrain, type TerrainEdit } from '../terrain';
 import { deriveGrid, regrid, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { routeLine, transitOverrides, type TransitLine } from '../transit-line';
 import { seedTown, type TownOptions } from './old-town';
-import { type Edit, type LineStroke, type SandboxState, type Store, type StoryPart } from './state';
+import { migrateSnapshot } from './snapshot';
+import { constructionLayers } from './time-layers';
+import {
+	stylesForYear,
+	type Edit,
+	type LineStroke,
+	type SandboxSnapshot,
+	type SandboxState,
+	type Store,
+	type StoryPart
+} from './state';
 
 /** Radius of a dug basin around its cell, meters. */
 const DIG_RADIUS = 9;
@@ -67,10 +78,14 @@ export function createWorld(
 }
 
 /**
- * The world of another state on the same seed, e.g. after undo. The grid is derived again
- * only where the interventions differ; lines are routed again on the result.
+ * Restores a snapshot on the same seed, migrating missing construction methods and time layers.
+ * The grid and routes are reused where their source data is unchanged.
  */
-export function withState(world: World, state: SandboxState): World {
+export function withState(world: World, snapshot: SandboxSnapshot): World {
+	return replaceState(world, migrateSnapshot(snapshot));
+}
+
+function replaceState(world: World, state: SandboxState): World {
 	if (state === world.state) return world;
 	const grid =
 		state.edits === world.state.edits
@@ -91,7 +106,13 @@ function partsAt(source: SandboxState['storyParts'], id: string, parts: readonly
 	else next.delete(id);
 	return next;
 }
-function raiseStory(state: SandboxState, cell: TerrainCell, use: HouseUse): SandboxState {
+function raiseStory(
+	state: SandboxState,
+	cell: TerrainCell,
+	{ use, style }: Extract<Edit, { kind: 'raise' }>
+): SandboxState {
+	const styles = stylesForYear(state.year);
+	if (style && !styles.includes(style)) return state;
 	const stacks = cell.buildable ? raise(state.stacks, cell.id, use) : state.stacks;
 	if (stacks === state.stacks) return state;
 	// A house replaces what grew on its cell and takes its module from the store first.
@@ -103,7 +124,8 @@ function raiseStory(state: SandboxState, cell: TerrainCell, use: HouseUse): Sand
 			{
 				id: 'p/' + state.nextAction + '/0',
 				anchor: { cellId: cell.id, level: storiesOf(state.stacks, cell.id).length },
-				built: state.year
+				built: state.year,
+				style: style ?? styles[0]
 			}
 		]),
 		stacks,
@@ -143,7 +165,7 @@ function cellEdit(
 	cell: TerrainCell,
 	edit: Exclude<Edit, { kind: 'line' | 'line-profile' | 'advance' }>
 ) {
-	if (edit.kind === 'raise') return raiseStory(state, cell, edit.use);
+	if (edit.kind === 'raise') return raiseStory(state, cell, edit);
 	if (edit.kind === 'clear') return clearCell(state, cell);
 	if (edit.kind === 'dig') {
 		const basin: TerrainEdit = {
@@ -169,9 +191,17 @@ function setLineProfile(state: SandboxState, edit: Extract<Edit, { kind: 'line-p
 	return { ...state, lines };
 }
 
+function advance(state: SandboxState, years: number): SandboxState {
+	const year = state.year + years;
+	if (!Number.isSafeInteger(years) || years <= 0 || !Number.isSafeInteger(year)) return state;
+	const [layer] = constructionLayers(state, (built) => built === state.year);
+	const timeLayers = layer ? [...state.timeLayers, layer] : state.timeLayers;
+	return { ...state, year, timeLayers };
+}
+
 function nextState(world: World, edit: Edit): SandboxState {
 	const { state } = world;
-	if (edit.kind === 'advance') return { ...state, year: state.year + 1 };
+	if (edit.kind === 'advance') return advance(state, edit.years ?? sandboxGenerationYears);
 	if (edit.kind === 'line-profile') return setLineProfile(state, edit);
 	if (edit.kind === 'line') {
 		const stroke = {
@@ -192,10 +222,12 @@ function nextState(world: World, edit: Edit): SandboxState {
  * Applies one edit. Pure: returns a new world, or the input itself when nothing changes
  * (unknown cell, full stack, open water, a line too short to route). After an intervention
  * in the terrain the grid follows, and houses on ground that fell away go to the store.
+ * Time advances by the supplied positive whole years (25 by default). Unavailable
+ * house styles and invalid advances leave the world unchanged.
  * A line profile replaces its overrides in schema units, or resets them when omitted.
  * An unknown line is a no-op. Invalid overrides throw RangeError before a new world is returned.
  */
 export function applyEdit(world: World, edit: Edit): World {
-	const next = withState(world, nextState(world, edit));
-	return next.grid === world.grid ? next : withState(next, settle(next.grid, next.state));
+	const next = replaceState(world, nextState(world, edit));
+	return next.grid === world.grid ? next : replaceState(next, settle(next.grid, next.state));
 }

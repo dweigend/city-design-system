@@ -1,40 +1,56 @@
 <script lang="ts">
 	import { ToggleGroup } from 'bits-ui';
-	import type { SandboxOption } from '../data/sandbox';
+	import Tooltip from '../ui/Tooltip.svelte';
+	type Option = { id: string; name: string; color?: string; figure?: string; shortcut?: string };
 
 	/** Options of the active tool: swatch, name and the figure that carries the meaning. */
 	let {
 		label,
 		options,
 		value,
+		horizontal = false,
+		compact = false,
 		onpick
 	}: {
 		label: string;
-		options: SandboxOption<string>[];
+		options: readonly Option[];
+		horizontal?: boolean;
+		compact?: boolean;
 		value: string;
 		/** Called with the 0-based index of the picked option. */
 		onpick: (index: number) => void;
 	} = $props();
 </script>
 
+{#snippet option(entry: Option, index: number, props: Record<string, unknown> = {})}
+	<ToggleGroup.Item
+		{...props}
+		value={entry.id}
+		class="cg-sandbox-option"
+		aria-label={entry.name}
+		aria-keyshortcuts={entry.shortcut ?? String(index + 1)}
+	>
+		{#if entry.color}<span class="swatch" style:--swatch={entry.color}></span>{/if}
+		<span class="name">{entry.name}</span>
+		{#if entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}
+	</ToggleGroup.Item>
+{/snippet}
+
 <ToggleGroup.Root
 	type="single"
-	orientation="vertical"
+	orientation={horizontal ? 'horizontal' : 'vertical'}
 	{value}
 	onValueChange={(next) => next && onpick(options.findIndex((o) => o.id === next))}
 	class="cg-sandbox-options"
+	data-compact={compact || undefined}
 	aria-label={label}
 >
 	{#each options as entry, index (entry.id)}
-		<ToggleGroup.Item
-			value={entry.id}
-			class="cg-sandbox-option"
-			aria-keyshortcuts={String(index + 1)}
-		>
-			<span class="swatch" style:--swatch={entry.color}></span>
-			<span class="name">{entry.name}</span>
-			<span class="figure">{entry.figure}</span>
-		</ToggleGroup.Item>
+		<Tooltip text={entry.figure ?? entry.name}>
+			{#snippet trigger(props)}
+				{@render option(entry, index, props)}
+			{/snippet}
+		</Tooltip>
 	{/each}
 </ToggleGroup.Root>
 
@@ -47,7 +63,8 @@
 	:global(.cg-sandbox-option) {
 		display: grid;
 		grid-template-columns: var(--space-4) auto;
-		grid-template-areas: 'swatch name' 'swatch figure';
+		grid-template-areas: 'swatch name';
+		position: relative;
 		column-gap: var(--space-3);
 		align-items: center;
 		min-height: var(--ctl-m);
@@ -64,9 +81,12 @@
 	:global(.cg-sandbox-option:hover) {
 		background: var(--paper-2);
 	}
-	:global(.cg-sandbox-option[data-state='on']) {
-		background: var(--ink);
-		color: var(--paper);
+	:global(.cg-sandbox-option[data-state='on'])::after {
+		content: '';
+		position: absolute;
+		inset: auto var(--space-1) 0;
+		border-bottom: var(--stroke) solid var(--signal);
+		pointer-events: none;
 	}
 	.swatch {
 		grid-area: swatch;
@@ -76,9 +96,6 @@
 		border-radius: 50%;
 		background: var(--swatch);
 	}
-	:global(.cg-sandbox-option[data-state='on']) .swatch {
-		border-color: var(--paper);
-	}
 	.name {
 		grid-area: name;
 		font-family: var(--font-mono);
@@ -87,8 +104,22 @@
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 	}
-	.figure {
-		grid-area: figure;
+	:global(.cg-sandbox-options[data-compact]) {
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+	}
+	:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
+		grid-template-columns: auto auto;
+		grid-template-areas: 'name key';
+		column-gap: var(--space-2);
+	}
+	:global(.cg-sandbox-options[data-compact] .cg-sandbox-option + .cg-sandbox-option) {
+		border-top: 0;
+		border-left: var(--hair) solid var(--line);
+	}
+	kbd {
+		grid-area: key;
+		font: inherit;
 		font-size: var(--text-xs);
 		opacity: 0.7;
 	}
@@ -96,7 +127,7 @@
 	@media (max-width: 640px) {
 		:global(.cg-sandbox-options) {
 			grid-auto-flow: column;
-			grid-auto-columns: 1fr;
+			grid-auto-columns: minmax(var(--ctl-m), auto);
 		}
 		:global(.cg-sandbox-option) {
 			grid-template-columns: auto;
@@ -108,7 +139,12 @@
 			border-top: 0;
 			border-left: var(--hair) solid var(--line);
 		}
-		.figure {
+		:global(.cg-sandbox-options[data-compact] .cg-sandbox-option) {
+			grid-template-columns: auto;
+			grid-template-areas: 'key';
+			min-width: var(--space-8);
+		}
+		:global(.cg-sandbox-options[data-compact]) .name {
 			display: none;
 		}
 	}

@@ -60,11 +60,10 @@ export function present(parts: Primitive[], level: Representation): Primitive[] 
 	const lod = geometry[level];
 	if (!lod) return [];
 	if (lod === 'detail') return parts;
-	const mass = parts
-		.filter(
-			(p) => !p.detail || (level === 'pencil' && (p.role === 'bestand' || p.role === 'traeger'))
-		)
-		.map(massOf);
+	const visible = parts.filter(
+		(p) => !p.detail || (level === 'pencil' && (p.role === 'bestand' || p.role === 'traeger'))
+	);
+	const mass = level === 'pencil' ? visible : visible.map(massOf);
 	if (lod === 'mid') return mass;
 	return mass.map((p) => {
 		const styled = look(p, lod === 'block' ? 'context' : 'background') ?? p;
@@ -76,6 +75,7 @@ export function present(parts: Primitive[], level: Representation): Primitive[] 
 			bearings: undefined,
 			token: '--paper',
 			glass: false,
+			edges: level === 'pencil' && p.role === 'neu' && p.edges === false ? true : p.edges,
 			shade: 0,
 			material: lod === 'block' ? 'paper' : 'ghost'
 		};

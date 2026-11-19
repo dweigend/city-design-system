@@ -4,6 +4,7 @@
  * projects sandbox worlds; it never changes them (PP-2).
  */
 import * as THREE from 'three/webgpu';
+import { uniform } from 'three/tsl';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { STRICHE, type Kontext } from '../../data/leitstil';
@@ -14,6 +15,7 @@ import type { Palette3D } from '../../data/city3d';
 import { bindSceneTheme } from '../themeBinding';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
+import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { cellAtPoint } from '../../logic/terrain-grid';
 import { createLight } from './light';
@@ -35,10 +37,10 @@ type StageOptions = {
 	additions?: Primitive[];
 };
 
-/** The cursor is an interaction target, separate from the drafting roles. */
-const CURSOR_PX = 2;
+const CURSOR_DASH_PX = 4;
+const CURSOR_GAP_PX = 3;
+const planned = stilFuer({ zoom: 'nah', modus: 'bauen', situation: 'normal' }).rollen.geplant;
 
-export type CursorTone = 'signal' | 'ink';
 export type SandboxStage = ReturnType<typeof createSandboxStage>;
 
 /**
@@ -61,15 +63,20 @@ export function createSandboxStage(
 	scene.add(...light.objects, structures.group);
 
 	const ink = new THREE.Color();
-	const signal = new THREE.Color();
+	const blueprint = new THREE.Color();
 	const baseOutline = new THREE.Line2NodeMaterial({ color: ink, linewidth: STRICHE.kontur });
 	const cursorMaterial = new THREE.Line2NodeMaterial({
-		color: signal,
-		linewidth: CURSOR_PX
+		color: blueprint,
+		linewidth: planned.strichPx,
+		dashed: planned.gestrichelt,
+		depthWrite: false
 	});
+	const pixelsPerMeter = uniform(1);
+	cursorMaterial.dashScaleNode = pixelsPerMeter;
+	cursorMaterial.dashSizeNode = uniform(CURSOR_DASH_PX);
+	cursorMaterial.gapSizeNode = uniform(CURSOR_GAP_PX);
 	let baseLines: LineSegments2 | undefined;
 	let cursor: LineSegments2 | undefined;
-	let cursorTone: CursorTone = 'signal';
 	let terrain: TerrainMesh | undefined;
 	/** The world the stage currently shows; the next one is drawn as a difference to it. */
 	let focus: FocusId = 'all';
@@ -100,6 +107,7 @@ export function createSandboxStage(
 			pending = 0;
 			if (!gpu.isLive()) return;
 			light.aim(view.target, view.span());
+			pixelsPerMeter.value = 1 / view.metersPerPixel();
 			updateStyle();
 			renderer.render(scene, view.camera);
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
@@ -110,9 +118,9 @@ export function createSandboxStage(
 		palette = next;
 		refreshTones = true;
 		ink.set(next.ink);
-		signal.set(next.categories['--signal']);
+		blueprint.set(next.blueprint);
 		baseOutline.color.copy(ink);
-		cursorMaterial.color.copy(cursorTone === 'signal' ? signal : ink);
+		cursorMaterial.color.copy(blueprint);
 		terrain?.setPalette(next);
 
 		render();
@@ -248,13 +256,12 @@ export function createSandboxStage(
 			terrain?.setLens(column, row, strength);
 			render();
 		},
-		/** Draws polylines in world meters as the cursor; an empty list hides it. */
-		setCursor(polylines: readonly (readonly Vec3[])[], tone: CursorTone = 'signal') {
+		/** Draws planned outlines in world meters. An empty list hides them. */
+		setCursor(polylines: readonly (readonly Vec3[])[]) {
 			removeLines(cursor);
-			cursorTone = tone;
-			cursorMaterial.color.copy(tone === 'signal' ? signal : ink);
 			cursor = polylineObject(polylines, cursorMaterial);
 			if (cursor) {
+				cursor.computeLineDistances();
 				cursor.renderOrder = 10;
 				scene.add(cursor);
 			}

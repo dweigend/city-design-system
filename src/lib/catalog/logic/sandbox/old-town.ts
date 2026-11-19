@@ -4,7 +4,7 @@ import { hashUnit } from '../parzelle';
 import { type TerrainGrid } from '../terrain-grid';
 import { neighborsOf } from '../quad-grid';
 import type { HouseUse } from '../house-brush';
-import { EMPTY_STATE } from './state';
+import { EMPTY_STATE, styleForYear } from './state';
 
 export type TownOptions = Partial<typeof townDefaults>;
 
@@ -58,6 +58,7 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 		.sort((a, b) => a.score - b.score);
 	const stacks = new Map<string, HouseUse[]>(),
 		storyParts = new Map<string, StoryPart[]>();
+	const built = Math.min(settings.stockYear, settings.year - 1);
 	let slot = 0;
 	for (const { cell, height } of lots.slice(0, settings.cells)) {
 		stacks.set(cell.id, Array<HouseUse>(height).fill('living'));
@@ -66,7 +67,8 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 			Array.from({ length: height }, (_, level) => ({
 				id: 'p/0/' + slot++,
 				anchor: { cellId: cell.id, level },
-				built: Math.min(settings.stockYear, settings.year - 1)
+				built,
+				style: styleForYear(built)
 			}))
 		);
 	}
@@ -81,5 +83,8 @@ export function seedTown(grid: TerrainGrid, options: TownOptions = {}) {
 				cover.set(neighbor.id, 'meadow');
 		}
 	}
-	return { ...EMPTY_STATE, year: settings.year, stacks, storyParts, cover };
+	const timeLayers = stacks.size
+		? [{ year: built, flows: ['people'] as const }]
+		: EMPTY_STATE.timeLayers;
+	return { ...EMPTY_STATE, year: settings.year, stacks, storyParts, cover, timeLayers };
 }

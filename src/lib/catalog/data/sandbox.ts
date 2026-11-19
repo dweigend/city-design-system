@@ -80,14 +80,26 @@ export const sandboxZones = {
 	ridge: 'Ridge'
 } as const;
 
-/** Ascending inclusive boundaries of the sandbox's architectural epochs. */
+/** Ordered building styles available from each inclusive epoch boundary. */
 export const sandboxEpochs = [
-	{ from: 1900, style: 'terrace', label: 'Historic pencil stock' },
-	{ from: 1980, style: 'collage', label: 'Collage additions' },
-	{ from: 2027, style: 'megastructure', label: 'Infrastructure carriers' },
-	{ from: 2028, style: 'totem', label: 'Docked modules' },
-	{ from: 2029, style: 'collage', label: 'Collage additions' }
+	{ from: 1900, houseStyles: ['terrace'] },
+	{ from: 2026, houseStyles: ['collage', 'megastructure', 'totem'] }
 ] as const;
+
+export type BuildingMethod = (typeof sandboxEpochs)[number]['houseStyles'][number];
+
+export const sandboxMethods: Record<
+	BuildingMethod,
+	{ name: string; shortcut: string; phase: number }
+> = {
+	terrace: { name: 'Terrace', shortcut: 'C', phase: 0 },
+	collage: { name: 'Body', shortcut: 'C', phase: 2 },
+	megastructure: { name: 'Carrier', shortcut: 'M', phase: 1 },
+	totem: { name: 'Capsules', shortcut: 'T', phase: 3 }
+};
+
+/** Default generation length of the sandbox timeline, in years. */
+export const sandboxGenerationYears = 25;
 
 /** Starter town parameters. Distances in the carrier chart are in cells. */
 export const townDefaults = {
