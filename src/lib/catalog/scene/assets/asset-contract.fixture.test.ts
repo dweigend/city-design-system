@@ -19,22 +19,26 @@ export function checkAssets(category: AssetCategory) {
 			}
 			for (const variant of entry.variants)
 				for (const seed of [0, 17, 4294967295]) {
-					const parts = buildAsset(entry.id, variant, seed);
-					expect(parts.length).toBeGreaterThan(0);
-					expect(parts).toEqual(buildAsset(entry.id, variant, seed));
-					expect(new Set(parts.map((p) => p.id)).size).toBe(parts.length);
-					for (const part of parts) {
-						expect(JSON.stringify(part)).not.toContain('null');
-						if (part.kind === 'polyline') continue;
-						const { geometry, position, rotation } = build(part);
-						geometry.rotateY(rotation).translate(position.x, position.y, position.z);
-						geometry.computeBoundingBox();
-						const box = geometry.boundingBox;
-						if (!box) throw new Error('missing bounds');
-						expect(reservation.containsBox(box)).toBe(true);
-						geometry.dispose();
-					}
+					checkFit(entry.id, variant, seed, reservation);
 				}
 		});
+	}
+}
+
+function checkFit(id: string, variant: string, seed: number, reservation: Box3) {
+	const parts = buildAsset(id, variant, seed);
+	expect(parts.length).toBeGreaterThan(0);
+	expect(parts).toEqual(buildAsset(id, variant, seed));
+	expect(new Set(parts.map((p) => p.id)).size).toBe(parts.length);
+	for (const part of parts) {
+		expect(JSON.stringify(part)).not.toContain('null');
+		if (part.kind === 'polyline') continue;
+		const { geometry, position, rotation } = build(part);
+		geometry.rotateY(rotation).translate(position.x, position.y, position.z);
+		geometry.computeBoundingBox();
+		const box = geometry.boundingBox;
+		if (!box) throw new Error('missing bounds');
+		expect(reservation.containsBox(box)).toBe(true);
+		geometry.dispose();
 	}
 }

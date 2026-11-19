@@ -49,27 +49,7 @@ export async function render(world: World, animate = false) {
 				geometry.push(g);
 				visible.push(new THREE.Mesh(g, material));
 			}
-		for (const part of parts) {
-			if (!part.roofCell) continue;
-			const cell = world.grid.cellsById.get(part.roofCell);
-			assert.ok(cell);
-			if (part.kind !== 'mesh' && part.kind !== 'polyline') continue;
-			const pos = part.points.flatMap(([x, y, z]) => [x, z, -y]);
-			const g = new THREE.BufferGeometry().setAttribute(
-				'position',
-				new THREE.Float32BufferAttribute(pos, 3)
-			);
-			geometry.push(g);
-			let reference: THREE.Object3D;
-			if (part.kind === 'mesh') {
-				g.setIndex(part.triangles);
-				reference = new THREE.Mesh(g, material);
-			} else reference = new THREE.Line(g, strokeMaterial);
-			reference.userData.cellId = cell.id;
-			visible.push(reference);
-			if (part.kind === 'mesh' || part.id.endsWith(':ridge'))
-				targets.push(new THREE.Vector3(cell.center[0], part.points[0][2], -cell.center[1]));
-		}
+		for (const part of parts) addRoofReference(part);
 	}
 	const ordered = (parts: Primitive[]) => parts.map((part) => JSON.stringify(part)).sort();
 	assert.deepEqual(ordered(batches), ordered(referenceParts));
@@ -89,4 +69,25 @@ export async function render(world: World, animate = false) {
 			strokeMaterial.dispose();
 		}
 	};
+	function addRoofReference(part: Primitive) {
+		if (!part.roofCell) return;
+		const cell = world.grid.cellsById.get(part.roofCell);
+		assert.ok(cell);
+		if (part.kind !== 'mesh' && part.kind !== 'polyline') return;
+		const pos = part.points.flatMap(([x, y, z]) => [x, z, -y]);
+		const g = new THREE.BufferGeometry().setAttribute(
+			'position',
+			new THREE.Float32BufferAttribute(pos, 3)
+		);
+		geometry.push(g);
+		let reference: THREE.Object3D;
+		if (part.kind === 'mesh') {
+			g.setIndex(part.triangles);
+			reference = new THREE.Mesh(g, material);
+		} else reference = new THREE.Line(g, strokeMaterial);
+		reference.userData.cellId = cell.id;
+		visible.push(reference);
+		if (part.kind === 'mesh' || part.id.endsWith(':ridge'))
+			targets.push(new THREE.Vector3(cell.center[0], part.points[0][2], -cell.center[1]));
+	}
 }

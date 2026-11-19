@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { observeSceneVisibility } from './scene-visibility.svelte';
 	import { RadioGroup } from 'bits-ui';
 	import { readPalette } from '../scene/themeBinding';
 	import { theme } from '../theme';
@@ -32,16 +32,11 @@
 	let mounted = $state(false);
 	let images = $state<Record<string, string>>({});
 	let cached = '';
-	onMount(() => {
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				mounted = entry.isIntersecting;
-			},
-			{ rootMargin: '100px' }
-		);
-		observer.observe(host);
-		return () => observer.disconnect();
-	});
+	observeSceneVisibility(
+		() => host,
+		'100px',
+		(visible) => (mounted = visible)
+	);
 	$effect(() => {
 		if (!mounted) return;
 		void theme.mode;

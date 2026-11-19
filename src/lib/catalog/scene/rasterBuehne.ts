@@ -1,3 +1,5 @@
+import { srgbMix } from './material';
+import { createDrawingRenderer, initializeDrawingRenderer } from './drawing-renderer';
 import * as THREE from 'three/webgpu';
 import { attribute, mix, float } from 'three/tsl';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -73,8 +75,7 @@ export type RasterBuehne = {
 
 const PASTELL = 0.5;
 const v3 = (x: number, y: number, z = 0) => new THREE.Vector3(x, z, -y);
-const srgbMix = (a: THREE.Color, b: THREE.Color, t: number) =>
-	a.clone().convertLinearToSRGB().lerp(b.clone().convertLinearToSRGB(), t).convertSRGBToLinear();
+
 const sanft = (x: number) => x * x * (3 - 2 * x);
 
 export function createRasterBuehne(
@@ -82,10 +83,7 @@ export function createRasterBuehne(
 	start: Blick,
 	optionen: { drehen?: boolean; onError?: () => void } = {}
 ): RasterBuehne {
-	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.toneMapping = THREE.NoToneMapping;
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+	const renderer = createDrawingRenderer(canvas);
 	const scene = new THREE.Scene();
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -4000, 4000);
 	const host = canvas.parentElement ?? document.documentElement;
@@ -417,21 +415,16 @@ export function createRasterBuehne(
 		return [...namen];
 	};
 
-	const ready = renderer
-		.init()
-		.then(() => {
+	const ready = initializeDrawingRenderer(
+		renderer,
+		canvas,
+		() => alive,
+		() => {
 			initialized = true;
-			canvas.dataset.backend =
-				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
-					? 'webgpu'
-					: 'webgl2';
-			if (alive) render();
-			else renderer.dispose();
-		})
-		.catch((cause) => {
-			if (alive) optionen.onError?.();
-			throw cause;
-		});
+			render();
+		},
+		optionen.onError
+	);
 
 	kamera(true);
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (p) => {

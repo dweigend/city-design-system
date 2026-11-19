@@ -13,8 +13,14 @@ import { blatt, hoehe, strich } from './schraffur';
 import type { MaterialLook } from '../logic/parametrik/material';
 import type { ColorToken } from '../logic/parametrik/types';
 
-const srgbMix = (a: THREE.Color, b: THREE.Color, t: number) =>
-	a.clone().convertLinearToSRGB().lerp(b.clone().convertLinearToSRGB(), t).convertSRGBToLinear();
+/** Mixes two linear scene colours in sRGB, returning a new linear colour. */
+export function srgbMix(a: THREE.Color, b: THREE.Color, t: number) {
+	return a
+		.clone()
+		.convertLinearToSRGB()
+		.lerp(b.clone().convertLinearToSRGB(), t)
+		.convertSRGBToLinear();
+}
 
 /** Resolves a semantic colour against the scene palette. */
 export function tokenColor(palette: Palette3D, token: ColorToken) {

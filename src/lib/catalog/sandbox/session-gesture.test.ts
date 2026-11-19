@@ -283,32 +283,7 @@ function play(inputs: RawInput[], delays: number[], checkProgress: (step: string
 	try {
 		for (const [index, input] of inputs.entries()) {
 			checkProgress(`input ${index} (${input.kind})`);
-			switch (input.kind) {
-				case 'stroke':
-					d.stroke(input.tool, ...input.cells);
-					break;
-				case 'kernel':
-					d.session.setRoofBuilder(roof);
-					break;
-				case 'hud-tool':
-					activateChoice(() => hud.pickTool(input.id)).onclick(click());
-					break;
-				case 'hud-use':
-					activateChoice(() => hud.pickValue('house', input.id, input.id)).onclick(click());
-					break;
-				case 'hud-method':
-					activateChoice(() => hud.pickMethod(input.id)).onclick(click());
-					break;
-				case 'tap':
-					d.down(input.cell);
-					d.up(input.cell);
-					break;
-				case 'plan':
-					d.session.togglePlan();
-					break;
-				default:
-					d.session[input.kind]();
-			}
+			replayInput(input, d, hud);
 			d.tick(8);
 			if (d.session.failure?.reason === 'stroke-failed')
 				throw new Error(`Unexpected stroke exception after input ${index}`);
@@ -330,6 +305,39 @@ function play(inputs: RawInput[], delays: number[], checkProgress: (step: string
 		return { final, future, past, events };
 	} finally {
 		d.dispose();
+	}
+}
+
+function replayInput(
+	input: RawInput,
+	d: ReturnType<typeof gestureDriver>,
+	hud: ReturnType<typeof createHudCommands>
+) {
+	switch (input.kind) {
+		case 'stroke':
+			d.stroke(input.tool, ...input.cells);
+			break;
+		case 'kernel':
+			d.session.setRoofBuilder(roof);
+			break;
+		case 'hud-tool':
+			activateChoice(() => hud.pickTool(input.id)).onclick(click());
+			break;
+		case 'hud-use':
+			activateChoice(() => hud.pickValue('house', input.id, input.id)).onclick(click());
+			break;
+		case 'hud-method':
+			activateChoice(() => hud.pickMethod(input.id)).onclick(click());
+			break;
+		case 'tap':
+			d.down(input.cell);
+			d.up(input.cell);
+			break;
+		case 'plan':
+			d.session.togglePlan();
+			break;
+		default:
+			d.session[input.kind]();
 	}
 }
 

@@ -1,3 +1,4 @@
+import { createDrawingRenderer, initializeDrawingRenderer } from './drawing-renderer';
 import { compileSurface } from './material-library';
 import * as THREE from 'three/webgpu';
 import { bindSceneTheme } from './themeBinding';
@@ -30,10 +31,7 @@ export function createTraegerMaterialSzene(
 	canvas: HTMLCanvasElement,
 	onError: () => void
 ): TraegerMaterialSzene {
-	const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.toneMapping = THREE.NoToneMapping;
-	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+	const renderer = createDrawingRenderer(canvas);
 	const scene = new THREE.Scene(),
 		gruppe = new THREE.Group();
 	scene.add(gruppe);
@@ -274,21 +272,16 @@ export function createTraegerMaterialSzene(
 		render();
 	}
 
-	const ready = renderer
-		.init()
-		.then(() => {
+	const ready = initializeDrawingRenderer(
+		renderer,
+		canvas,
+		() => alive,
+		() => {
 			initialized = true;
-			canvas.dataset.backend =
-				'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend
-					? 'webgpu'
-					: 'webgl2';
-			if (alive) render();
-			else renderer.dispose();
-		})
-		.catch((cause) => {
-			if (alive) onError();
-			throw cause;
-		});
+			render();
+		},
+		onError
+	);
 
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (p) => {
 		palette = p;

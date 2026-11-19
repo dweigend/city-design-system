@@ -62,19 +62,37 @@
 
 	// State from the URL (shareable, and this is how the contact sheets are made).
 	onMount(() => {
-		const q = page.url.searchParams,
-			num = (name: string) => (q.has(name) ? Number(q.get(name)) : NaN);
-		if (Number.isFinite(num('t'))) t = Math.max(0, Math.min(MAX, num('t')));
-		if (Number.isFinite(num('saat'))) saat = Math.max(0, Math.round(num('saat')));
-		if (Number.isFinite(num('bau'))) bau = Math.max(0, Math.min(5, num('bau')));
-		if (Number.isFinite(num('explosion'))) explosion = Math.max(0, Math.min(1, num('explosion')));
-		const art = q.get('szene');
-		if (art === 'solo' || art === 'trio' || art === 'reihe') aufstellung = art;
-		const vor: Partial<Genom> = {};
-		for (const r of regler)
-			if (Number.isFinite(num(r.key))) vor[r.key] = Math.max(r.min, Math.min(r.max, num(r.key)));
-		if (Object.keys(vor).length) eingriff = vor;
+		const q = page.url.searchParams;
+		const num = (name: string) => {
+			const value = q.get(name);
+			return value === null ? NaN : Number(value);
+		};
+		t = initialNumber(num('t'), t, 0, MAX);
+		const seed = num('saat');
+		saat = initialNumber(Math.round(seed), saat, 0, Infinity);
+		bau = initialNumber(num('bau'), bau, 0, 5);
+		explosion = initialNumber(num('explosion'), explosion, 0, 1);
+		applyArrangement(q.get('szene'));
+		const overrides = genomeOverrides(num);
+		if (Object.keys(overrides).length) eingriff = overrides;
 	});
+
+	function initialNumber(value: number, previous: number, min: number, max: number) {
+		return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : previous;
+	}
+
+	function applyArrangement(art: string | null) {
+		if (art === 'solo' || art === 'trio' || art === 'reihe') aufstellung = art;
+	}
+
+	function genomeOverrides(num: (name: string) => number) {
+		const overrides: Partial<Genom> = {};
+		for (const r of regler) {
+			const value = num(r.key);
+			if (Number.isFinite(value)) overrides[r.key] = Math.max(r.min, Math.min(r.max, value));
+		}
+		return overrides;
+	}
 
 	let lauf = 0;
 	function spiele(dauer: number, schritt: (k: number) => void) {
