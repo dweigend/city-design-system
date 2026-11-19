@@ -3,6 +3,8 @@ import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { type Primitive, type Vec3 } from '../../logic/parametrik/types';
 import { batch, geometryOf, type Batch } from '../batch';
+import type { StructuralJoint } from '../../logic/structural-joints';
+import { pushThree } from '../world-space';
 import type { StructureMaterials } from './structure-materials';
 import { conduitBatch } from './print-flow';
 import { paperEdge } from './paper-inlay';
@@ -11,6 +13,42 @@ import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
 import { finishedMeshes } from './finish-batch';
 import { outlineOffsets } from './structure-outline';
+
+/** Bakes the local fittings into one ink draw, leaving them out of the picking geometry. */
+export function jointMesh(joints: readonly StructuralJoint[], material: THREE.Material) {
+	if (!joints.length) return;
+	const positions: number[] = [];
+	const indices: number[] = [];
+	const axis = new THREE.Vector3(),
+		tangent = new THREE.Vector3(),
+		bitangent = new THREE.Vector3();
+	const point = new THREE.Vector3(),
+		origin = new THREE.Vector3();
+	for (const joint of joints) {
+		axis.fromArray(joint.axis);
+		tangent.fromArray(joint.tangent);
+		bitangent.crossVectors(axis, tangent);
+		origin.fromArray(joint.point);
+		for (const feature of joint.geometry) {
+			const start = positions.length / 3;
+			for (const [x, y, z] of feature.points) {
+				point
+					.copy(origin)
+					.addScaledVector(tangent, x)
+					.addScaledVector(bitangent, y)
+					.addScaledVector(axis, z);
+				pushThree(positions, [point.x, point.y, point.z]);
+			}
+			for (const index of feature.triangles) indices.push(start + index);
+		}
+	}
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	geometry.setIndex(indices);
+	const mesh = new THREE.Mesh(geometry, material);
+	mesh.name = 'Structural joints';
+	return mesh;
+}
 
 function memberTrace(part: Primitive): Primitive[] {
 	if (part.kind === 'polyline') return [{ ...part, role: 'neu' }];
@@ -229,7 +267,10 @@ export function populateStructures(
 			.neu,
 		materials.pencil
 	);
-	const points = parts.carriers.flatMap((part) => part.bearings ?? []);
+	// Explicit bearing nodes with no axial member retain their existing ink mark.
+	const points = parts.carriers.flatMap((part) =>
+		part.kind === 'sphere' ? (part.bearings ?? []) : []
+	);
 	if (details && points.length)
 		objects.add(bearingDots(points, bearingGeometry, materials.bearing));
 

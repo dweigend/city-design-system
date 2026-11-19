@@ -1,6 +1,7 @@
 /** Owns the GPU objects for each key of the sandbox's derived structures. */
 import * as THREE from 'three/webgpu';
 import type { Primitive } from '../../logic/parametrik/types';
+import { createJointLayer } from './joint-layer';
 import { kineticGroups } from './kinetic-groups';
 import { structureBatch } from './structure-batch';
 import { structureMaterials } from './structure-materials';
@@ -23,6 +24,7 @@ type Batch = ReturnType<typeof structureBatch> & {
 type Moving = ReturnType<typeof placementGroups>['groups'][number] & {
 	objects: Batch;
 	startedMs: number;
+	settled: boolean;
 };
 type Entry = { primitives: Primitive[]; objects: Batch; moving: Moving[]; cellId?: string };
 
@@ -33,6 +35,8 @@ export function createStructures() {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials();
+	const joints = createJointLayer(finishes.materials.bearing);
+	group.add(joints.group);
 	const entries = new Map<string, Entry>();
 	const pending = new Map<
 		string,
@@ -110,7 +114,8 @@ export function createStructures() {
 		const moving = groups.map((item) => ({
 			...item,
 			objects: draw(key, item.parts, cellId, undefined, (startedMs + item.delayMs) / 1000),
-			startedMs
+			startedMs,
+			settled: false
 		}));
 		return { primitives, objects, moving, cellId };
 	}
@@ -119,6 +124,7 @@ export function createStructures() {
 	function set(key: string, primitives: Primitive[], cellId?: string, startedMs?: number) {
 		const previous = entries.get(key);
 		if (previous?.primitives === primitives && previous.cellId === cellId) return;
+		if (!key.startsWith('forest:')) joints.invalidate();
 		hitLists.clear();
 		if (previous) release(previous);
 		entries.delete(key);
@@ -153,6 +159,7 @@ export function createStructures() {
 	/** Removes every key. */
 	function clear() {
 		pending.clear();
+		joints.clear();
 		for (const key of [...entries.keys()]) set(key, []);
 	}
 
@@ -162,6 +169,24 @@ export function createStructures() {
 		item.objects.group.position.y = offset;
 		item.objects.group.visible = elapsed >= item.delayMs;
 		return offset > 0;
+	}
+
+	function* seatedParts() {
+		for (const [key, entry] of entries) {
+			if (key.startsWith('forest:')) continue;
+			yield { key, parts: entry.objects.primitives };
+			for (const item of entry.moving) if (item.settled) yield { key, parts: item.parts };
+		}
+	}
+
+	function updateJointSeating(item: Moving) {
+		const root = item.objects.group;
+		const settled =
+			root.visible &&
+			root.position.y === 0 &&
+			root.children.every((child) => child.rotation.z === 0);
+		if (settled !== item.settled) joints.invalidate();
+		item.settled = settled;
 	}
 
 	return {
@@ -182,6 +207,7 @@ export function createStructures() {
 			pending.set(key, { primitives, cellId, startedMs: startedMs ?? prior?.startedMs });
 		},
 		clear,
+		setJointView: joints.setView,
 		swept,
 		get shadowChanged() {
 			return shadowChanged;
@@ -208,8 +234,10 @@ export function createStructures() {
 					shadowChanged ||=
 						y !== item.objects.group.position.y || shown !== item.objects.group.visible;
 					sample(item.objects);
+					if (!objects.key.startsWith('forest:')) updateJointSeating(item);
 				}
 			}
+			joints.draw(seatedParts);
 			return changed;
 		},
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */

@@ -121,3 +121,5 @@ export function deriveStructuralJoints(contacts: readonly StructuralContact[]): 
 	}
 	return [...sites.keys()].sort().map((id) => derive(sites.get(id)!, id));
 }
+
+export { sandboxStructuralContacts } from './sandbox-contacts';

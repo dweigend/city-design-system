@@ -149,6 +149,7 @@ export function createSandboxStage(
 		if (nextCoarse !== coarse && shown)
 			projectInstallations(nextFrame, shown, shown, focus, nextCoarse);
 		coarse = nextCoarse;
+		if (shown) structures.setJointView(shown.grid, shown.state.year, !coarse);
 		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
 		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
 		const style = sandboxStyle(context);
