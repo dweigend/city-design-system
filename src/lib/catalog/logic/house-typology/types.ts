@@ -17,7 +17,7 @@ export type FitPart = (ObjectGeometry | ReturnType<typeof buildObject>['parts'][
 export type Point = HouseSlot['position'];
 export type { Deck } from './site';
 export type Joint =
-	'deck' | 'body' | 'capsule' | 'socket' | 'foot' | 'shaft' | 'head' | 'brace' | 'beam' | 'crown';
+	'deck' | 'service' | 'body' | 'capsule' | 'socket' | 'foot' | 'shaft' | 'head' | 'brace' | 'beam' | 'crown';
 export type FitMetadata = {
 	joint?: Joint;
 	ground?: number;
@@ -48,6 +48,8 @@ export type Level = Deck & {
 	landing: Point;
 	deckArea: number;
 	outline: Point[];
+	field?: boolean;
+	well?: Point[];
 	court?: { center: Point; width: number };
 };
 export type Port = { level: number; position: Point };
@@ -69,6 +71,7 @@ export type HouseComposition = {
 	supports: Solid[];
 	parts: Solid[];
 	crown: Body;
+	fittings: Body[];
 	ports: Port[];
 	people: { position: Point; height: number; level: number }[];
 };

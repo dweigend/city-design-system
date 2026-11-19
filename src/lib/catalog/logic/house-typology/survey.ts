@@ -1,4 +1,3 @@
-import { houseStair } from '../../data/house-stair';
 import { footprintBay } from './footprint';
 import type { HouseSite } from './site';
 import { STORY } from '../../data/grid';
@@ -16,7 +15,7 @@ export function survey(site: HouseSite) {
 	const { width, depth, x, y } = footprintBay(cells);
 	const anchor = cells[0];
 	const compact = width < 5.6 || depth < 8;
-	const accessDepth = compact ? 0 : 2 * (houseStair.radius + houseStair.width) + 0.02;
+	const accessDepth = compact ? 0 : 2.55;
 	const ground = anchor.pad + start * STORY;
 	const living = new Set<number>();
 	for (const row of rows)

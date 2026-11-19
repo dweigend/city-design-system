@@ -10,87 +10,80 @@ import type { Section } from './types';
 type Leg = { from: Vec3; to: Vec3; kind: 'stairs' | 'landing'; steps: number; flight: number };
 const { going, rise, width } = houseStair;
 
-function footprint(s: Section) {
-	const { x, width: span } = s.composition.bay;
+function stations(s: Section) {
+	const { x, width: bayWidth } = s.composition.bay;
+	const court = s.composition.levels[0].court;
+	const span = court?.width ?? bayWidth;
 	const path = housePath(s.typology);
-	const run = Math.min(path === 'core' ? 3.5 : 7, span - width);
-	const flank = path === 'cascade' || path === 'external' || path === 'core';
-	const center = flank ? x - (span - width - run) / 2 : x;
-	return { run, center };
+	const count = Math.min(17, Math.floor((span - width) / going));
+	const flank = ['core','cascade','external'].includes(path);
+	const length = count * going;
+	const left = x - (flank ? span - width : length) / 2;
+	const sign = s.composition.accessSide === 'north' ? 1 : -1;
+	const rear = court ? court.center[1] - sign*court.width/2 : roofLanding(s)[1];
+	return [0,1].flatMap(lane => Array.from({length: count+1}, (_,i) => ({
+		x: left + (lane ? count-i : i)*going,
+		y: rear + sign * (0.5 + lane)*width,
+		turn: i === count
+	})));
 }
 
-function descend(from: Vec3, target: number, flight: number, run: number, sign: number, side: number) {
-	const count = Math.max(1, Math.round((from[2] - target) / rise));
-	const flights = Math.ceil(count / Math.max(1, Math.floor(run / going)));
-	const legs: Leg[] = [];
-	let at = from;
-	for (let i = 0; i < flights; i++) {
-		const steps = Math.round((i + 1) * count / flights) - Math.round(i * count / flights);
-		const direction = sign * (-1) ** i;
-		const to: Vec3 = [at[0] + direction * steps * going, at[1], at[2] - steps * (from[2] - target) / count];
-		legs.push({ from: at, to, steps, flight, kind: 'stairs' });
-		at = to;
-		if (i + 1 < flights) {
-			at = [to[0], to[1] + side * (-1) ** i * width, to[2]];
-			legs.push({ from: to, to: at, steps: 0, flight, kind: 'landing' });
+/** Surveys a continuous switchback of rigid treads and level half-landings. */
+export function flightRoute(s: Section) {
+	const track = stations(s), legs: Leg[] = [], stops: Vec3[] = [];
+	const doors = [roofLanding(s), ...s.composition.levels.map(l => l.landing).reverse()];
+	let index = 0, z = s.top;
+	const point = (): Vec3 => [track[index].x,track[index].y,z];
+	function advance(drop: number, flight: number) {
+		const from = point();
+		index = (index+1) % track.length;
+		z -= drop;
+		legs.push({from, to: point(), flight, steps: Number(drop !== 0), kind: drop ? 'stairs' : 'landing'});
+	}
+	function descend(target: number, flight: number) {
+		const count = Math.max(1, Math.round((z-target)/rise));
+		const step = (z-target)/count;
+		for (let i=0;i<count;i++) {
+			if (track[index].turn) advance(0, flight);
+			advance(step, flight);
 		}
 	}
-	return legs;
-}
-
-/** Surveys straight runs between the actual rear landing doors. */
-export function flightRoute(s: Section) {
-	const { run, center } = footprint(s);
-	const doors = [roofLanding(s), ...s.composition.levels.map(l => l.landing).reverse()];
-	const sign = s.composition.accessSide === 'north' ? 1 : -1;
-	const y = roofLanding(s)[1] + sign * width / 2;
-	const ground = s.start ? s.base[2] : terrainHeight(s, [center, y, 0]);
-	const stops: Vec3[] = [];
-	const legs: Leg[] = [];
-	let at: Vec3 = [center - run / 2, y, s.top];
-	const docks = doors.map((door, flight) => {
-		const direction = (-1) ** flight;
-		const station: Vec3 = [center - direction * run / 2, y, door[2]];
-		if (flight && Math.hypot(at[0] - station[0], at[1] - station[1]) > 1e-8)
-			legs.push({ from: at, to: station, kind: 'landing', steps: 0, flight });
+	const docks = doors.map((door, i) => {
+		if (i) descend(door[2],i-1);
+		const station = point();
 		stops.push(station);
-		const pieces = descend(station, doors[flight + 1]?.[2] ?? ground, flight, run, direction, sign);
-		legs.push(...pieces);
-		at = pieces[pieces.length - 1].to;
-		return { station, door };
+		return {station,door};
 	});
-	stops.push(at);
+	descend(s.start ? s.base[2] : terrainHeight(s, point()), doors.length-1);
+	stops.push(point());
 	return { axis: s.stairAxis, width, legs, docks, stops };
 }
 
-function rectangle(a: Vec3, b: Vec3, w: number): [number, number][] {
+function rectangle(a: Vec3, b: Vec3): [number, number][] {
 	const dx = b[0] - a[0], dy = b[1] - a[1];
 	const length = Math.hypot(dx, dy) || 1;
-	const u = -dy * w / (2 * length), v = dx * w / (2 * length);
+	const u = -dy * width / (2 * length), v = dx * width / (2 * length);
 	return [[a[0]+u,a[1]+v],[a[0]-u,a[1]-v],[b[0]-u,b[1]-v],[b[0]+u,b[1]+v]];
 }
 
-/** Instantiates rigid straight treads and cuts level landings between each stair and its door. */
+/** Instantiates rigid straight treads and level connections to each landing. */
 export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 	const route = flightRoute(s), id = s.id + '/stair/';
 	const stock = (name: string, variant: string, deck: HouseSurfaces['deck']) => {
-		const p = houseObject(name, variant, s.seed, { instanceId: id, slots: { deck, body: surfaces.frame } }).parts[0];
+		const p = houseObject(name, variant, s.seed, { instanceId: id, slots: { deck, ...(name === 'stairs' ? { body: surfaces.frame } : {}) } }).parts[0];
 		if (p.kind !== 'prism') throw Error('Expected stair plate');
 		return p;
 	};
 	const tread = stock('stairs', 'straight-tread', surfaces.access);
 	const plate = stock('landing', 'mast-platform', surfaces.deck);
 	const platform = (from: Vec3, to: Vec3, key: string) => ({
-		...plate, id: id + key, polygon: rectangle(from, to, width), z: from[2] - plate.height
+		...plate, id: id + key, polygon: rectangle(from, to), z: from[2] - plate.height
 	});
-	const parts = route.legs.flatMap(({ from, to, steps, kind }, i) => {
-		if (kind === 'landing') return [platform(from, to, i + '/landing')];
-		return Array.from({ length: steps }, (_, j) => {
-			const x = from[0] + (to[0] - from[0]) * (j + 0.5) / steps;
-			const z = from[2] + (to[2] - from[2]) * (j + 1) / steps;
-			return { ...tread, id: id + i + '/tread/' + j, z: z - tread.height,
-				polygon: tread.polygon.map(([u,v]): [number,number] => [x+u, from[1]+v]) };
-		});
+	const parts = route.legs.map(({ from, to, kind }, i) => {
+		if (kind === 'landing') return platform(from, to, i + '/landing');
+		const x = (to[0]+from[0])/2;
+		return { ...tread, id: id + i + '/tread', z: to[2] - tread.height,
+			polygon: tread.polygon.map(([u,v]): [number,number] => [x+u, from[1]+v]) };
 	});
 	return parts.concat(route.docks.map(({ station, door }, i) => platform(station, door, 'dock/' + i)));
 }

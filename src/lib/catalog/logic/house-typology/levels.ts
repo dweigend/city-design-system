@@ -1,213 +1,66 @@
-import { podLevel } from './pod';
-import type { HouseSlot } from './site';
 import { STORY } from '../../data/grid';
-import { arrange, disc } from './figure';
+import { fieldLevel } from './fields';
+import { branchLevel } from './branches';
+import { bellGarden } from './bell';
+import { clusterLevel } from './cluster';
+import { courtLevel } from './court';
+import { ringLevel } from './ring';
+import { packedBodies } from './packing';
+import { courseIndices, hasFloor } from './courses';
+import { podLevel } from './pod';
 import { collapse } from './collapse';
-import { bodySpec, objectSlot, worldSize } from './objects';
-import type { Typology } from './families';
+import { bodySpec,objectSlot,worldSize } from './objects';
+import type { Body,Level,Plan,Point } from './types';
 
-import type { Body, Level, Point, Plan } from './types';
-
-function offset(type: Typology, i: number, n: number) {
-	switch (type) {
-		case 'terrace-house':
-			return (i / (n - 1 || 1) - 0.5) * 1.25;
-		case 'cluster-mast':
-			return 0.625 * Math.cos((i * Math.PI) / 2);
-		case 'tree-house':
-			return [-0.625, 0, 0.625][i % 3];
-		case 'capsule-stack':
-		case 'plinth-house':
-		case 'slab-house':
-			return ((i % 2) - 0.5) * 1.25;
-		default:
-			return 0;
-	}
+function useAt({site,type,seed}:Plan,i:number) {
+	const paint=site.programme[i];
+	const domain = site.living.has(i)?['living' as const]:[...new Set(paint)];
+	return collapse(site.id+'/part/use/'+i,seed,type,domain.map(u=>[u,paint.filter(p=>p===u).length]));
 }
-function programme(plan: Plan, i: number) {
-	const { site, type, seed } = plan,
-		paint = site.programme[i];
-	const domain = site.living.has(i) ? ['living' as const] : [...new Set(paint)];
-	const use = collapse(
-		site.id + '/part/use/' + i,
-		seed,
-		type,
-		domain.map((u) => [u, paint.filter((p) => p === u).length])
-	);
-	const run = Math.max(site.width, site.depth);
-	const length = Number(
-		collapse(site.id + '/part/bay/' + i, seed, type, [
-			['5', type === 'round-tower' && run >= 8.1 ? 0 : 1],
-			['7.5', run >= 8.1 ? 3 : 0],
-			['10', run >= 10.6 ? 4 : 0]
-		])
-	);
-	const spin = type === 'cluster-mast' ? i : 0;
-	const rotation =
-		((((site.depth > site.width && type !== 'round-tower' ? 1 : 0) + spin) % 4) * Math.PI) / 2;
-	return { use, length, rotation };
-}
-const fixedCounts: Partial<Record<Typology, number>> = {
-	'twin-stack': 2,
-	rack: 2,
-	'bell-house': 1,
-	'courtyard-house': 1
+const kinds: Partial<Record<Body['kind'],Level['kind']>> = {
+	reservoir:'rack',capsule:'capsule',solar:'solar',grove:'grove',dome:'dome',lookout:'lookout'
 };
-function fixedCount({ site, type }: Plan, i: number, body: Body) {
-	const [w, d] = worldSize(body),
-		small = (w * d) / ((w + 0.6) * (d + 1.55)) < 0.55;
-	if (
-		site.ground - Math.min(...site.cells.flatMap((c) => c.corners.map((p) => p[2]))) > STORY &&
-		site.depth - site.accessDepth >= d * 2 + 1.55
-	)
-		return 2;
-	if (type === 'round-tower') return body.kind === 'capsule' ? 2 : 1;
-	if (type === 'lattice-head' && i === site.programme.length - 1) return 2;
-	if (small) return 2;
-	return fixedCounts[type];
+function rectangular(plan:Plan,row:Body[],i:number,z:number):Level {
+	const {site,sign,rear}=plan;
+	const edges=(axis:0|1,side:number) => row.map(b=>b.position[axis]+side*worldSize(b)[axis]/2);
+	const left=Math.min(...edges(0,-1)),right=Math.max(...edges(0,1));
+	const inner=sign>0 ? Math.min(...edges(1,-1)):Math.max(...edges(1,1));
+	const width=right-left+0.6,depth=Math.abs(rear-inner)+0.3;
+	const x=(left+right)/2,y=rear-sign*depth/2;
+	const outline:Point[]=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>[x+u*width/2,y+v*depth/2,z]);
+	return {position:[x,y,z],width,depth,round:false,deckArea:width*depth,outline,
+		programme:site.programme[i],use:row[0].use,kind:kinds[row[0].kind]??'workshop',
+		bodies:row,landing:[x,rear-sign*0.625,z]};
 }
-function count(plan: Plan, i: number, body: Body) {
-	const { site, type, seed } = plan;
-	const fixed = fixedCount(plan, i, body);
-	if (fixed !== undefined) return fixed;
-	const max = site.cells.length > 1 || body.kind === 'capsule';
-	return Number(
-		collapse(site.id + '/part/count/' + i, seed, type, [
-			['1', 2],
-			['2', max ? 1 : 0]
-		])
-	);
+function covered(level: Level) {
+	const area=level.bodies.reduce((sum,b)=>sum+b.size[0]*b.size[1],0);
+	const share=area/level.deckArea;
+	return share>=0.55 && share<=0.85;
 }
-function firstBody(plan: Plan, i: number, id: string) {
-	const { site, type, seed } = plan;
-	const { use, length, rotation } = programme(plan, i);
-	const spec = bodySpec(
-		type,
-		use,
-		length,
-		type === 'bell-house' && site.programme.length === 1 ? 1 : i
-	);
-	const first = objectSlot(
-		id + '/0',
-		spec,
-		use,
-		seed,
-		rotation,
-		use === 'living' ? length : undefined
-	);
-	return { first, rotation };
+const special:Partial<Record<Plan['type'],typeof ringLevel>>={'cluster-mast':clusterLevel,'round-tower':ringLevel,'courtyard-house':courtLevel};
+function planLevel(plan:Plan,i:number):Level {
+	const {site,type}=plan,use=useAt(plan,i),z=plan.datum+i*STORY;
+	if(site.compact) return podLevel(plan,i,use);
+	if(type==='tree-house') return branchLevel(plan,i,use);
+	const build=special[type];
+	if(build) return build(plan,i,z,use);
+	return infillLevel(plan,i,z,use);
 }
-function alignAcross(out: Body[], center: number, rear: number, sign: number, z: number) {
-	let edge = center - out.reduce((sum, b) => sum + worldSize(b)[0], 0) / 2;
-	for (const b of out) {
-		const [w, d] = worldSize(b);
-		b.position = [edge + w / 2, rear - sign * (1.25 + d / 2), z + 0.12];
-		edge += w;
-	}
-}
-function bodies(plan: Plan, i: number, z: number) {
-	const { site, type, sign, seed, rear } = plan;
-	const id = site.id + '/level/' + i + '/body';
-	const { first, rotation } = firstBody(plan, i, id);
-	const n = count(plan, i, first),
-		out: Body[] = [];
-	const dx = offset(type, i, site.programme.length);
-	for (let j = 0; j < n; j++) {
-		const garden = type === 'rack' && j === 1 && i % 2 === 0;
-		const b = garden
-			? objectSlot(id + '/' + j, ['grove-island', 'extended', 'grove'], 'food', seed, rotation)
-			: { ...first, id: id + '/' + j };
-		const d = worldSize(b)[1];
-		const used =
-			out.reduce((sum, other) => sum + worldSize(other)[1], 0) +
-			(type === 'twin-stack' ? 0.3 * j : 0);
-		b.position = [site.center[0] + dx, rear - sign * (1.25 + used + d / 2), z + 0.12];
-		b.facing = [0, sign];
-		out.push(b);
-	}
-	if (Math.abs(Math.sin(rotation)) > 0.5 && out.length > 1) {
-		alignAcross(out, site.center[0] + dx, rear, sign, z);
-	}
-	return out;
-}
-function tierKind(kind: HouseSlot['kind']): Level['kind'] {
-	if (kind === 'reservoir') return 'rack';
-	if (
-		kind === 'capsule' ||
-		kind === 'solar' ||
-		kind === 'grove' ||
-		kind === 'dome' ||
-		kind === 'lookout'
-	)
-		return kind;
-	return 'workshop';
-}
-/** Places occupied decks inward from one continuous landing line. */
-function planLevel(plan: Plan, i: number): Level {
-	const { site, datum, sign, rear } = plan,
-		z = datum + i * STORY;
-	if (site.compact) return podLevel(plan, i, programme(plan, i).use);
-	const row = arrange(plan, bodies(plan, i, z));
-	const extents = (axis: 0 | 1, side: number) =>
-		row.map((b) => b.position[axis] + (side * worldSize(b)[axis]) / 2);
-	const left = Math.min(...extents(0, -1)),
-		right = Math.max(...extents(0, 1));
-	const inner = sign > 0 ? Math.min(...extents(1, -1)) : Math.max(...extents(1, 1));
-	const w = right - left + 0.6,
-		d = Math.abs(rear - inner) + 0.3;
-	const x = (right + left) / 2,
-		y = rear - (sign * d) / 2;
-	const outline: Point[] = [
-		[-1, -1],
-		[1, -1],
-		[1, 1],
-		[-1, 1]
-	].map(([a, b]) => [x + (a * w) / 2, y + (b * d) / 2, z]);
-	const level: Level = {
-		position: [x, y, z],
-		width: w,
-		depth: d,
-		round: false,
-		deckArea: w * d,
-		outline,
-		programme: site.programme[i],
-		use: row[0].use,
-		kind: tierKind(row[0].kind),
-		bodies: row,
-		landing: [x, rear - sign * 0.625, z]
-	};
-	if (plan.type === 'courtyard-house') {
-		const width = Math.max(0, Math.abs(row[0].size[0] - row[0].size[1]) - 0.6);
-		level.court = { center: [x, y - sign * 0.475, z], width };
-		level.deckArea -= width * width;
-	}
-	const fitted = plan.type === 'round-tower' ? disc(plan, level) : level;
-	if (
-		row.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) / fitted.deckArea < 0.55 ||
-		fitted.width + 2 * Math.abs(x - site.center[0]) > site.width + 1e-8 ||
-		fitted.depth > site.depth - site.accessDepth + 1e-8
-	)
-		return podLevel(plan, i, level.use);
-	return fitted;
+function infillLevel(plan:Plan,i:number,z:number,use:Body['use']):Level {
+	const {site,type}=plan;
+	const spec=bodySpec(type,use,i);
+	const first=objectSlot(site.id+'/level/'+i+'/body/0',spec,use,plan.seed,0);
+	const row=type==='bell-house' && i===site.programme.length-1 ? bellGarden(plan,i,z) : packedBodies(plan,i,first,z);
+	if (!row.length) return podLevel(plan,i,use);
+	const level=rectangular(plan,row,i,z);
+	const fitted=['rack','twin-stack'].includes(type) ? fieldLevel(plan,level) : level;
+	return !hasFloor(plan,i) || covered(fitted) ? fitted : podLevel(plan,i,use);
 }
 
-/** Groups painted bands for the sparse towers, retaining every required living stack and the common entry datum. */
+/** Groups the complete painted programme onto the occupied courses of this typology. */
 export function occupiedLevels(plan: Plan) {
-	const { site, type } = plan,
-		n = site.programme.length;
-	const desired = type === 'deck-tower' ? 4 : type === 'bell-house' ? 2 : n;
-	const limit = Math.max(desired, 1 + Math.ceil((n - 1) / 4));
-	const indices = new Set(
-		Array.from({ length: Math.min(limit, n) }, (_, i) =>
-			Math.round((i * (n - 1)) / (Math.min(limit, n) - 1 || 1))
-		)
-	);
-	for (const i of site.living) indices.add(i);
-	if (site.programme.every((row) => row.every((u) => u === 'living')))
-		for (let i = 0; i < n; i++) indices.add(i);
-	const ordered = [...indices].sort((a, b) => a - b);
-	return ordered.map((i, k) => ({
-		...planLevel(plan, i),
-		programme: site.programme.slice(i, ordered[k + 1] ?? n).flat()
+	const ordered = courseIndices(plan), rows = plan.site.programme;
+	return ordered.map((i,k) => ({
+		...planLevel(plan,i), programme: rows.slice(k ? i : 0, ordered[k+1] ?? rows.length).flat()
 	}));
 }

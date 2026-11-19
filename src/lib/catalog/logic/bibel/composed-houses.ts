@@ -1,3 +1,4 @@
+import { planEnsemble, type Typology } from '../house-typology';
 import { planHouse, sectionParts, houseLinks, paintedSections } from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { squareGrid } from '../quad-grid';
@@ -10,15 +11,13 @@ function single(
 	text: string,
 	uses: HouseUse[],
 	seed: number,
-	bank = false
+	typology: Typology
 ): RulePlate {
-	const cell = squareGrid(1, 1, 19).cells[0];
-	const house = planHouse({
-		cells: [cell],
-		stacks: new Map([[cell.id, uses]]),
-		district: bank ? 'bank' : 'infill',
-		seed
-	});
+	const cells = squareGrid(typology === 'portal-house' ? 2 : 1, 1, 10).cells;
+	const site = {cells, stacks:new Map(cells.map(c=>[c.id,uses])), seed};
+	const context = planEnsemble([site]);
+	const houses = new Map([...context.houses].map(([id, decision])=>[id,{...decision,typology}]));
+	const house = planHouse({...site,context:{...context,houses}});
 	return { id, title, text, primitives: sectionParts(house) };
 }
 function ensemble(): RulePlate {
@@ -35,7 +34,7 @@ function ensemble(): RulePlate {
 		]
 	};
 }
-/** Four reproducible single-house typologies and one connected painted ensemble. */
+/** Five reproducible single-house typologies and one connected painted ensemble. */
 export function composedHousePlates(): RulePlate[] {
 	return [
 		single(
@@ -43,14 +42,14 @@ export function composedHousePlates(): RulePlate[] {
 			'Capsule stack',
 			'Four inhabited levels carry glazed capsules in cradles.',
 			Array<HouseUse>(4).fill('living'),
-			1
+			1,'capsule-stack'
 		),
 		single(
 			'house',
 			'Deck tower',
 			'Water, housing, planting and energy share a frame of articulated columns.',
 			mixed,
-			3
+			3,'deck-tower'
 		),
 		single(
 			'round',
@@ -58,15 +57,16 @@ export function composedHousePlates(): RulePlate[] {
 			'Circular decks carry drums above the waterfront.',
 			Array<HouseUse>(8).fill('water'),
 			0,
-			true
+			'round-tower'
 		),
 		single(
 			'rectangular',
 			'Cluster mast',
 			'Capsules turn around a shared mast on successive levels.',
 			Array<HouseUse>(5).fill('living'),
-			1
+			1,'cluster-mast'
 		),
+		single('portal','Portal house','Two cores hold an inhabited bar above an open approach.',mixed,3,'portal-house'),
 		ensemble()
 	];
 }

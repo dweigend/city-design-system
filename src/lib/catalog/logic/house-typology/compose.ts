@@ -1,3 +1,4 @@
+import { layout } from "./layout";
 import { assemble } from './assembly';
 import type { HouseSite } from './site';
 import { planEnsemble, type EnsembleContext } from './ensemble';
@@ -5,24 +6,17 @@ import { survey } from './survey';
 import { collapse } from './collapse';
 import { occupiedLevels } from './levels';
 import type { HouseComposition, Point, Port, Plan, Level } from './types';
+const spread: Partial<Record<Plan["type"],number>> = {
+	"portal-house":0.72, "bridge-house":0.65, rack:0.82, "deck-tower":0.58,
+	"bell-house":0.72,"twin-stack":0.58,"lattice-head":0.60
+};
 function bearingAxes(plan: Plan, levels: Level[]) {
-	const x = plan.site.center[0],
-		wide = [
-			'portal-house',
-			'bridge-house',
-			'rack',
-			'deck-tower',
-			'bell-house',
-			'twin-stack'
-		].includes(plan.type);
-	const axis =
-		wide &&
-		levels.every(
-			(l) => Math.min(x - (l.position[0] - l.width / 2), l.position[0] + l.width / 2 - x) > 2.7
-		)
-			? 2.5
-			: 0.625;
-	return [x - axis, x + axis];
+	const x=plan.site.center[0];
+	const free=Math.min(...levels.map(l=>l.width/2-Math.abs(l.position[0]-x)-plan.bar));
+	const target=spread[plan.type];
+	const mast = plan.type==='cluster-mast' && !plan.site.compact;
+	const arm=target ? Math.max(0.35,free*target) : mast ? 0.3 : 0.625;
+	return [x-arm,x+arm];
 }
 function bridgePorts(levels: Level[]): Port[] {
 	return levels.flatMap((l, level) => {
@@ -58,39 +52,14 @@ export function composeHouse(
 	input: HouseSite,
 	context: EnsembleContext = planEnsemble([input])
 ): HouseComposition {
-	const site = survey(input),
-		fixed = context.houses.get(site.id);
-	if (!fixed) throw new RangeError('Site outside ensemble: ' + site.id);
-	const { role, typology: type } = fixed;
-	const accessSide =
-		site.compact && fixed.away[1]
-			? fixed.away[1] > 0
-				? 'south'
-				: 'north'
-			: collapse('part/side/' + site.id, context.seed, type, [
-					['north', 1],
-					['south', 1]
-				] as const);
-	const sign = accessSide === 'north' ? 1 : -1,
-		bar = type === 'lattice-head' || type === 'portal-house' ? 0.3 : 0.12;
-	const plan = {
-		site,
-		type,
-		seed: input.seed,
-		sign,
-		datum: context.datum,
-		rear:
-			site.center[1] +
-			sign *
-				((site.compact ? Math.min(site.depth, 3.6) : site.depth - site.accessDepth) -
-					site.depth / 2),
-		away: fixed.away,
-		bar
-	};
+	const site=survey(input);
+	const {plan,role,accessSide}=layout(site,context);
+	const {type,sign,bar}=plan;
 	const levels = occupiedLevels(plan);
+	if(levels[0].court) plan.rear=levels[0].landing[1];
 	const stations = bearingAxes(plan, levels);
-	const { parts, crown } = assemble(plan, levels, role, stations, context.skyline);
-	const supports = parts.filter((p) => ['foot', 'shaft', 'head', 'brace'].includes(p.joint));
+	const { parts, crown, fittings } = assemble(plan, levels, role, stations, context.skyline);
+	const supports = parts.filter((p) => ['foot', 'shaft', 'head', 'brace','beam'].includes(p.joint));
 	return {
 		id: site.id,
 		compact: site.compact,
@@ -109,7 +78,8 @@ export function composeHouse(
 		levels,
 		parts,
 		supports,
-		ports: bridgePorts(levels),
+		fittings,
+		ports: bridgePorts(levels).concat(levels[0].position[2] > plan.datum ? [{level: -1,position:[site.center[0],plan.rear-sign*0.625,plan.datum]}] : []),
 		crown
 	};
 }
