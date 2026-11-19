@@ -1,16 +1,43 @@
 <script lang="ts">
 	import { assetRegistry, assetCategories, buildAsset } from '../logic/assets';
+	import { materialSheet, type SheetRow } from '../logic/material/contact-sheet';
+	import type { ColorToken } from '../logic/parametrik/types';
+	import { flowToken } from '../data/focus';
+	import ChoiceControl from './ChoiceControl.svelte';
 	import { theme } from '../theme';
 	let { group }: { group: string | null } = $props();
-	const category = $derived(assetCategories.find((id) => id === group) ?? assetCategories[0]);
+	const groups = [...assetCategories, 'materials'];
+	const category = $derived(groups.includes(group ?? '') ? group : assetCategories[0]);
+	const pigments = [
+		{ value: '--paper', label: 'Paper' },
+		{ value: '--ink', label: 'Ink' },
+		{ value: '--body-living', label: 'Housing' },
+		...Object.entries(flowToken).map(([label, value]) => ({ label, value }))
+	];
+	let pigment = $state<ColorToken>('--cat-health');
 	let host: HTMLElement;
 	let rendered = $state(false);
 	let photos = $state<Record<string, string>>({});
 	let error = $state('');
-	const assets = $derived(assetRegistry.filter((a) => a.category === category));
 	const name = (id: string) => id.replaceAll('-', ' ');
+	const rows = $derived<SheetRow[]>(
+		category === 'materials'
+			? materialSheet(pigment)
+			: assetRegistry
+					.filter((a) => a.category === category)
+					.map((a) => ({
+						id: a.id,
+						label: name(a.id),
+						dimensions: a.footprint.join(' × ') + ' m',
+						samples: a.variants.map((v) => ({
+							id: v,
+							label: name(v),
+							parts: () => buildAsset(a.id, v, 17)
+						}))
+					}))
+	);
 	$effect(() => {
-		const selected = assets;
+		const selected = rows;
 		void theme.mode;
 		let cancelled = false;
 		rendered = false;
@@ -22,9 +49,9 @@
 			const plate = await createAssetPlate(host);
 			try {
 				for (const a of selected)
-					for (const v of a.variants) {
+					for (const sample of a.samples) {
 						if (cancelled) return;
-						photos[a.id + '/' + v] = plate.photo(buildAsset(a.id, v, 17));
+						photos[a.id + '/' + sample.id] = plate.photo(sample.parts());
 						await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 					}
 				if (!cancelled) rendered = true;
@@ -47,29 +74,43 @@
 	<header>
 		<h1>Asset catalogue</h1>
 		<nav aria-label="Asset categories">
-			{#each assetCategories as c (c)}<a
+			{#each groups as c (c)}<a
 					href={'?group=' + c}
 					aria-current={category === c ? 'page' : undefined}>{c}</a
 				>{/each}
 		</nav>
 	</header>
 	<h2>{category}</h2>
+	{#if category === 'materials'}
+		<ChoiceControl
+			id="sheet-pigment"
+			label="Pigment"
+			items={pigments}
+			bind:value={
+				() => pigment,
+				(value) => {
+					const choice = pigments.find((p) => p.value === value);
+					if (choice) pigment = choice.value as ColorToken;
+				}
+			}
+		/>
+	{/if}
 	{#if error}<p role="alert">{error}</p>{/if}
-	{#each assets as a (a.id)}
-		<section>
+	{#each rows as a (a.id)}
+		<section aria-busy={!rendered && !error}>
 			<div class="label">
-				<h3>{name(a.id)}</h3>
-				<small>{a.footprint.join(' × ')} m</small>
+				<h3>{a.label}</h3>
+				{#if a.dimensions}<small>{a.dimensions}</small>{/if}
 			</div>
 			<div class="variants">
-				{#each a.variants as v (v)}<figure>
-						{#if photos[a.id + '/' + v]}<img
+				{#each a.samples as sample (sample.id)}<figure>
+						{#if photos[a.id + '/' + sample.id]}<img
 								width="440"
 								height="300"
-								src={photos[a.id + '/' + v]}
-								alt={name(a.id) + ' — ' + name(v)}
+								src={photos[a.id + '/' + sample.id]}
+								alt={a.label + ' — ' + sample.label}
 							/>{:else}<div class="pending"></div>{/if}
-						<figcaption>{name(v)}</figcaption>
+						<figcaption>{sample.label}</figcaption>
 					</figure>{/each}
 			</div>
 		</section>
