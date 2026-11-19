@@ -274,5 +274,29 @@ export const materialAusfuehrungen: readonly Ausfuehrung[] = [
 		metall: 0,
 		transmission: 0
 	},
+	{
+		id: 'corrugated-metal',
+		familie: 'metall',
+		name: 'Corrugated sheet metal',
+		beschreibung: 'Pressed parallel ribs at a 0.39 metre pitch run across a satin metal skin.',
+		grundton: '#b8bdbc',
+		pigment: 0.72,
+		rauheit: 0.52,
+		metall: 0.27,
+		transmission: 0,
+		deckkraft: 1
+	},
+	{
+		id: 'planted-mat',
+		familie: 'membran',
+		name: 'Planted roof mat',
+		beschreibung: 'Low leaves form irregular patches across a backed planting blanket.',
+		grundton: '#769266',
+		pigment: 0.64,
+		rauheit: 0.92,
+		metall: 0,
+		transmission: 0,
+		deckkraft: 1
+	},
 	...referenzAusfuehrungen
 ];
