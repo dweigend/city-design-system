@@ -1,3 +1,4 @@
+import type { Primitive } from '../parametrik/types';
 import { mount, type AssetRecipe } from './definition';
 import { slab, drum, ring, surface, water } from './parts';
 
@@ -11,7 +12,7 @@ export const tankCapsule: AssetRecipe = {
 		const half = [1.15, 1.85, 2.65][variant],
 			r = [1.13, 1.23, 0.94][variant],
 			z = r + 0.4;
-		const parts = [
+		const parts: Primitive[] = [
 			{
 				...surface(water),
 				kind: 'capsule' as const,

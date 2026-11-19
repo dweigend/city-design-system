@@ -1,33 +1,49 @@
 import { mount, type AssetRecipe } from './definition';
 import { slab, ring, surface, white, living, pane } from './parts';
 import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
-function ellipse(x: number, w: number, h: number, rim: number, token: ColorToken): Primitive {
+function ellipse(
+	x: number,
+	z: number,
+	w: number,
+	h: number,
+	inner: number,
+	token: ColorToken
+): Primitive {
 	const points: Vec3[] = [],
 		triangles: number[] = [],
 		lines: number[][] = [];
 	const n = 48;
-	for (const depth of [0, 0.06])
-		for (const inset of [0, rim || Math.min(w, h) * 0.99]) {
+	for (const depth of [0, 0.07])
+		for (const scale of inner ? [1, inner] : [1]) {
 			const loop: number[] = [];
 			for (let i = 0; i < n; i++) {
 				const angle = (i * 2 * Math.PI) / n;
 				loop.push(points.length);
-				points.push([x + depth, (w - inset) * Math.cos(angle), h + (h - inset) * Math.sin(angle)]);
+				points.push([x + depth, w * scale * Math.cos(angle), z + h * scale * Math.sin(angle)]);
 			}
 			lines.push([...loop, loop[0]]);
 		}
+	const front = inner ? 2 * n : n;
 	for (let i = 0; i < n; i++) {
 		const j = (i + 1) % n;
-		for (const [a, b] of [
-			[0, 2],
-			[2, 3],
-			[3, 1],
-			[1, 0]
-		])
-			triangles.push(a * n + i, a * n + j, b * n + j, a * n + i, b * n + j, b * n + i);
-	}
-	if (!rim) {
-		for (let i = 1; i < n - 1; i++) triangles.push(3 * n, 3 * n + i, 3 * n + i + 1);
+		triangles.push(i, j, front + j, i, front + j, front + i);
+		if (inner) {
+			triangles.push(front + i, front + j, front + n + j, front + i, front + n + j, front + n + i);
+			triangles.push(
+				i,
+				n + j,
+				j,
+				i,
+				n + i,
+				n + j,
+				n + i,
+				front + n + i,
+				front + n + j,
+				n + i,
+				front + n + j,
+				n + j
+			);
+		} else if (i > 0 && i < n - 1) triangles.push(0, j, i, front, front + i, front + j);
 	}
 	return { ...surface(token), kind: 'mesh', points, triangles, lines };
 }
@@ -40,7 +56,10 @@ export const porthole: AssetRecipe = {
 	draw(variant, sample) {
 		const r = 0.51 + 0.07 * sample;
 		if (variant === 1)
-			return [ellipse(0, r * 1.42, r, 0.09, white), ellipse(0.045, r * 1.21, r * 0.83, 0, pane)];
+			return [
+				ellipse(0, r, r * 1.42, r, 0.85, white),
+				ellipse(0, r, r * 1.42 * 0.85, r * 0.85, 0, pane)
+			];
 		const parts = [
 			ring([0.09, 0, r], r, r * 0.82, 0.18),
 			ring([0.09, 0, r], r * 0.835, 0, 0.075, pane)

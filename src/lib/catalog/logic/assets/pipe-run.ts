@@ -1,5 +1,5 @@
 import { mount, type AssetRecipe } from './definition';
-import { drum, bulb, rod, water, energy, workshop, path } from './parts';
+import { drum, bulb, rod, water, energy, workshop } from './parts';
 import type { Primitive, Vec3 } from '../parametrik/types';
 export const pipeRun: AssetRecipe = {
 	id: 'pipe-run',
@@ -8,7 +8,7 @@ export const pipeRun: AssetRecipe = {
 	footprint: [6.7, 4.7],
 	anchors: [mount('deck'), mount('roof')],
 	draw(variant, sample) {
-		const token = [water, energy, workshop][variant],
+		const token = ([water, energy, workshop] as const)[variant],
 			r = 0.17 + 0.035 * sample,
 			top = [1.1, 2.38, 1.7][variant];
 		const path: Vec3[] = [
