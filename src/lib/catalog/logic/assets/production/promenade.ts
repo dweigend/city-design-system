@@ -140,7 +140,10 @@ export const promenade = [
 				}).flat()
 			];
 		}
-	).map((recipe) => ({ ...recipe, suggestions: { ...recipe.suggestions, body: clay } })),
+	).map((recipe) => ({
+		...recipe,
+		suggestions: { ...recipe.suggestions, body: clay, slats: clay }
+	})),
 	...furniture(
 		'rain-pocket-seat',
 		['foot', 'slats', 'ribbed'],

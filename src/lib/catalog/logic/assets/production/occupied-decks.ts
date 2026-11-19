@@ -1,6 +1,6 @@
 import { cap } from '../parts';
 import { panel } from '../objects/forms';
-import { actionFigure } from './activities/action-figure';
+import { actionFigure, clay } from './activities/action-figure';
 import type { ObjectGeometry } from '../object-geometry';
 import { series } from './series';
 
@@ -76,7 +76,7 @@ const positions = [
 	[-0.12, 0.94, -0.41]
 ];
 function scene(place: Place) {
-	return plaza(
+	const recipes = plaza(
 		place + '-public-deck',
 		['frame', 'slats', 'body'],
 		(w) => w,
@@ -103,6 +103,13 @@ function scene(place: Place) {
 			return [...furniture(place, w), ...crowd];
 		}
 	);
+	if (place === 'market' || place === 'work') {
+		return recipes.map((recipe) => ({
+			...recipe,
+			suggestions: { ...recipe.suggestions, slats: clay }
+		}));
+	}
+	return recipes;
 }
 export const occupiedDecks = (
 	['reading', 'stop', 'skate', 'work', 'play', 'lookout', 'market'] as const

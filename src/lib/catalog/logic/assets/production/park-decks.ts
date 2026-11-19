@@ -20,8 +20,8 @@ export const parkDecks = [
 				angle = (1.08 + 0.24 * v) * Math.PI,
 				n = 3 + v;
 			return [
-				crescent(outer, 0.54 * outer, 0, 0.45, angle, 'foot'),
-				crescent(outer * 0.98, 0.84 * outer, 0.45, 0.12, angle, 'slats'),
+				crescent(outer, 0.54 * outer, 0, 0.45, angle, 'planting'),
+				crescent(outer * 0.98, 0.84 * outer, 0.45, 0.12, angle, 'foot'),
 				...Array.from({ length: n }, (_, i) => {
 					const a = (angle * (i + 0.5)) / n,
 						r = outer * 0.7,
@@ -62,8 +62,8 @@ export const parkDecks = [
 				inner = r * 0.5,
 				h = 0.48 + v * 0.32;
 			return [
-				collar(0, 0, 0, r, r - inner, h, 'foot'),
-				collar(0, 0, h, r, 0.4, 0.13, 'slats'),
+				collar(0, 0, 0, r, r - inner, h, 'planting'),
+				collar(0, 0, h, r, 0.4, 0.13, 'foot'),
 				drum([0, 0, 0], inner * 0.98, 0.18, 'planting'),
 				...treeCrown('clumps', [0, 0, 0.18], inner * 0.86, v, 0.56, 'slats')
 			];
