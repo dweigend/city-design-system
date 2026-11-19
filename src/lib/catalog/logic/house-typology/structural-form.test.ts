@@ -2,10 +2,47 @@ import { expect, test } from 'bun:test';
 import { bounds } from '../ansicht/geometrie';
 import { circulation, housePartPlan, houseSurfaces, sectionParts } from '../composed-house';
 import { specimen } from './specimens';
-import type { Typology } from './families';
+import { typologies, type Typology } from './families';
 
 type Part = ReturnType<typeof sectionParts>[number];
 type XY = [number, number];
+
+function stockThickness(p: Part) {
+	switch (p.kind) {
+		case 'prism':
+			return p.height;
+		case 'box':
+			return Math.min(...p.size);
+		case 'cylinder':
+			return Math.min(p.radius * 2, p.height);
+		case 'pipe':
+		case 'capsule':
+			return p.radius * 2;
+	}
+}
+test('stock gauges and service pipe runs hold across the sixteen typologies', () => {
+	for (const type of typologies)
+		for (const cells of type === 'courtyard-house' ? [4] : [1, 2, 4]) {
+			checkStockGauges(specimen(cells, type));
+		}
+});
+function checkStockGauges(section: ReturnType<typeof specimen>) {
+	const parts = sectionParts(section);
+	for (const p of parts.filter((p) => !p.source.objectId.startsWith('person-'))) {
+		const thickness = stockThickness(p);
+		if (thickness !== undefined) expect(thickness, p.id).toBeGreaterThanOrEqual(0.12 - 1e-8);
+	}
+	const pipes = parts.filter((p) => p.id.includes('/service/pipe/'));
+	expect(pipes.length).toBeLessThanOrEqual(2);
+	for (const p of pipes) {
+		if (p.kind !== 'pipe') throw Error('Expected a supply pipe');
+		expect(p.radius * 2).toBeWithin(0.3, 0.5);
+		const length = p.points
+			.slice(1)
+			.reduce((sum, b, i) => sum + Math.hypot(...b.map((v, k) => v - p.points[i][k])), 0);
+		expect(length).toBeLessThanOrEqual(section.top - section.base[2]);
+	}
+}
 function edgeDistance(a: XY, b: XY, p: XY) {
 	const dx = b[0] - a[0],
 		dy = b[1] - a[1];
@@ -83,12 +120,12 @@ test('every floor and roof exit meets its physical deck within two centimetres',
 });
 test('switchback half-landings meet a building member, directly or through an attached deck seat', () => {
 	for (const type of ['deck-tower', 'rack', 'cluster-mast', 'plinth-house'] as const) {
-		const parts = sectionParts(specimen(1, type));
+		const parts = sectionParts(specimen(type === 'cluster-mast' ? 4 : 1, type));
 		const building = parts.filter(
 			(p) =>
 				!p.id.includes('/stair/') && !p.id.includes('/landing-seat/') && !p.id.includes('/people/')
 		);
-		const track = parts.filter((p) => p.id.endsWith('/tread')).flatMap(housePartPlan);
+		const track = parts.filter((p) => /\/tread(?:\/outer)?$/.test(p.id)).flatMap(housePartPlan);
 		const envelope = building.flatMap(housePartPlan);
 		for (const axis of [0, 1] as const) {
 			const coords = (points: XY[]) => points.map((p) => p[axis]);
@@ -141,7 +178,11 @@ test('four-cell housing exposes programme stock and an open bay, terrace or cour
 		for (const level of h.levels)
 			expect(
 				level.bodies.some((b) =>
-					parts.some((p) => p.id.startsWith(b.id + '/' + b.objectId + '/') && uses.has(p.token))
+					parts.some(
+						(p) =>
+							p.id.startsWith(b.id + '/' + b.objectId + '/') &&
+							(uses.has(p.token) || (b.band?.shell && p.token === houseSurfaces.shell.token))
+					)
 				),
 				type
 			).toBe(true);
@@ -154,5 +195,109 @@ test('four-cell housing exposes programme stock and an open bay, terrace or cour
 				l.width * l.depth < h.bay.width * h.bay.depth * 0.75
 		);
 		expect(open, type).toBe(true);
+	}
+});
+
+test('registry groups have unscaled feet on terraces, landings or roofs', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type),
+			parts = sectionParts(s);
+		const floors = parts.filter(
+			(p): p is Extract<Part, { kind: 'prism' }> =>
+				p.kind === 'prism' && (p.roofCell !== undefined || p.id.endsWith('/landing'))
+		);
+		const groups = Map.groupBy(
+			parts.filter((p) => p.source.objectId.startsWith('person-')),
+			(p) => p.id.split('/person-')[0]
+		);
+		expect(groups.size, type).toBeGreaterThanOrEqual(3);
+		expect(groups.size, type).toBeLessThanOrEqual(15);
+		for (const [id, figure] of groups) {
+			const feet = figure.map(bounds).sort((a, b) => a.min[2] - b.min[2])[0];
+			const point: XY = [(feet.min[0] + feet.max[0]) / 2, (feet.min[1] + feet.max[1]) / 2];
+			expect(
+				floors.some((p) => Math.abs(feet.min[2] - p.z - p.height) < 0.02 && onDeck(point, p)),
+				type + ' ' + id
+			).toBe(true);
+		}
+	}
+});
+test('each band has a terrace guard and a recessed pane below its lintel', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type),
+			parts = sectionParts(s);
+		for (const b of s.slots.filter((b) => b.band)) {
+			const courses = parts.filter((p) => p.id.startsWith(b.id + '/primitive-slab/'));
+			const pane = courses.find((p) => p.id.includes('/window')),
+				sill = courses.find((p) => p.id.includes('/sill'));
+			if (!pane || !sill) throw Error('Missing glazing or sill');
+			for (const axis of [0, 1])
+				expect(bounds(pane).min[axis] - bounds(sill).min[axis]).toBeCloseTo(0.35);
+			expect(parts.some((p) => p.id.startsWith(b.id + '/terrace/kit-parapet-solid-'))).toBe(true);
+		}
+	}
+});
+
+test('every typology exposes its specified catalogue finishes', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
+		const parts = sectionParts(s);
+		expect(new Set(parts.map((p) => p.finish)).size, type).toBeGreaterThanOrEqual(3);
+		parts.forEach(checkFinish);
+		s.composition.levels.forEach((l) => checkBandFinish(l, parts));
+	}
+});
+function checkFinish(p: Part) {
+	if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
+	if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
+		expect(p.finish).toBe('perforated-metal');
+	if (
+		p.id.includes('/body/') &&
+		p.source.objectId.startsWith('kit-capsule') &&
+		p.source.slot === 'shell'
+	)
+		expect(p.finish).toBe('acryl-matt');
+	if (p.id.endsWith('/deck')) expect(p.finish).toBe('beton-terrazzo');
+}
+function checkBandFinish(
+	l: ReturnType<typeof specimen>['composition']['levels'][number],
+	parts: Part[]
+) {
+	const b = l.bodies[0];
+	if (!b.band) return;
+	const sill = parts.find((p) => p.id.startsWith(b.id + '/primitive-slab/sill'));
+	if (b.band.plinth) expect(sill?.finish).toBe('beton-schalung');
+	else if (b.use === 'food') expect(sill?.finish).toBe('holz-natur');
+}
+
+test('every inhabited storey has a registry terrace planter', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
+		const furniture = sectionParts(s).filter(
+			(p) => p.source.objectId === 'rolled-lip-planter' && p.id.includes('/level/')
+		);
+		expect(furniture.length, type).toBe(s.decks.length);
+	}
+});
+
+test('public flights span two 1.25 m stock plates at each riser', () => {
+	for (const type of typologies) {
+		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
+		if (s.compact) continue;
+		expect(circulation(s).width, type).toBe(2.5);
+		const parts = sectionParts(s),
+			halves = parts.filter((p) => p.id.includes('/stair/') && p.id.endsWith('/tread/outer'));
+		expect(halves.length, type).toBeGreaterThan(0);
+		for (const second of halves) {
+			if (second.kind !== 'prism') throw Error('Expected a second registered tread');
+			expect(second.height).toBeLessThanOrEqual(0.25);
+			const first = parts.find((p) => p.id === second.id.slice(0, -6));
+			if (first?.kind !== 'prism') throw Error('Missing inside tread');
+			const span = Math.hypot(
+				first.polygon[0][0] - second.polygon[3][0],
+				first.polygon[0][1] - second.polygon[3][1]
+			);
+			expect(span).toBeCloseTo(2.5);
+		}
 	}
 });

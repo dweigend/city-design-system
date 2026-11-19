@@ -21,10 +21,10 @@ test('capsule stack carries four console landings', () => {
 	).toHaveLength(4);
 	expect(plates[0].primitives.some((p) => p.id.includes('kit-capsule-ribbon'))).toBe(true);
 });
-test('deck tower carries a solar crown and an articulated front frame', () => {
+test('deck tower carries a solar crown and four recessed window bands', () => {
 	const parts = plates[1].primitives;
 	expect(parts.some((p) => p.id.includes('kit-crown-solar-sail'))).toBe(true);
-	expect(parts.some((p) => p.id.includes('/front/post/'))).toBe(true);
+	expect(parts.filter((p) => p.id.includes('/window'))).toHaveLength(4);
 });
 test('round tower carries circular decks and glazed drums', () => {
 	expect(decks(2).every((p) => p.kind === 'prism' && p.polygon.length === 64)).toBe(true);

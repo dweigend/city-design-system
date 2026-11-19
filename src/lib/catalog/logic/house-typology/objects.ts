@@ -2,57 +2,20 @@ import { buildObject } from '../assets';
 import { bounds, union } from '../ansicht/geometrie';
 import type { HouseSlot } from './site';
 import type { Body, Point, Joint, Block } from './types';
-import type { Typology } from './families';
 type ObjectSpec = readonly [string, string, HouseSlot['kind']];
-const crowns: Record<Typology, ObjectSpec> = {
-	'capsule-stack': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
-	'deck-tower': ['kit-crown-solar-sail-5m', 'four-panel', 'panels'],
-	'round-tower': ['observatory', 'slit-dome', 'lookout'],
-	'portal-house': ['green-roof', 'strip-garden', 'grove'],
-	'lattice-head': ['kit-crown-greenhouse-3p75m', 'low', 'dome'],
-	'courtyard-house': ['green-roof', 'meadow-islands', 'grove'],
-	'terrace-house': ['kit-crown-greenhouse-3p75m', 'low', 'dome'],
-	'plinth-house': ['kit-crown-pergola-3p75m', 'tall', 'workshop'],
-	'cluster-mast': ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels'],
-	rack: ['shed-cap', 'compact', 'workshop'],
-	'bridge-house': ['garden-loggia', 'extended', 'grove'],
-	'bell-house': ['glass-bell', 'cloche', 'dome'],
-	'twin-stack': ['ridge-lantern', 'extended', 'lantern'],
-	'slab-house': ['kit-crown-greenhouse-5m', 'low', 'dome'],
-	'water-house': ['water-tower', 'elevated-bowl', 'reservoir'],
-	'tree-house': ['grove-island', 'extended', 'grove']
+const crowns: Record<Body['use'], ObjectSpec> = {
+	living: ['dome', 'saucer', 'dome'],
+	energy: ['kit-crown-solar-sail-5m', 'four-panel', 'panels'],
+	water: ['stepped-pools', 'compact', 'reservoir'],
+	food: ['grove-island', 'compact', 'grove'],
+	material: ['kit-crown-pergola-3p75m', 'low', 'workshop']
 };
-export function crownSpec(type: Typology, small = false): ObjectSpec {
-	if (!small) return crowns[type];
-	if (type === 'water-house') return ['kit-crown-tank-3p75m', 'tall', 'reservoir'];
-	if (type === 'bell-house') return ['glass-bell', 'cloche', 'dome'];
-	if (type === 'plinth-house') return ['cowl-vent', 'compact', 'chimney'];
-	return ['ring-beacon', 'compact', 'lantern'];
-}
-const bodiesByUse: Record<HouseSlot['use'], ObjectSpec> = {
-	living: ['kit-capsule-ribbon-5m', 'round-shoulder', 'capsule'],
-	water: ['tank-capsule', 'pressure-vessel', 'reservoir'],
-	energy: ['plug-box', 'extended', 'solar'],
-	material: ['plug-box', 'extended', 'workshop'],
-	food: ['grove-island', 'extended', 'grove']
-};
-const baseStock: Partial<Record<Typology, ObjectSpec>> = {
-	'water-house': ['kit-cistern-plinth-5m', 'standard', 'reservoir'],
-	'plinth-house': ['kit-terrace-plinth-5m', 'heavy', 'workshop'],
-	'bell-house': ['tank-capsule', 'cistern', 'reservoir']
-};
-const infill: Partial<Record<Typology, ObjectSpec>> = {
-	'capsule-stack': bodiesByUse.living,
-	'deck-tower': ['kit-crown-watch-cabin-5m', 'standard', 'workshop'],
-	'bridge-house': ['gallery-bar', 'standard', 'workshop'],
-	'portal-house': ['gallery-bar', 'standard', 'workshop'],
-	'bell-house': ['glass-bell', 'hothouse', 'dome']
-};
-/** Selects the native body before the fitter chooses a module size and count. */
-export function bodySpec(type: Typology, use: HouseSlot['use'], level: number): ObjectSpec {
-	if (type === 'water-house' && level === 0) return ['kit-cistern-plinth-5m', 'heavy', 'reservoir'];
-	if (use === 'living') return bodiesByUse.living;
-	return (level === 0 ? baseStock[type] : undefined) ?? infill[type] ?? bodiesByUse[use];
+/** Chooses the roof installation by its upper painted use. */
+export function crownSpec(use: Body['use'], small = false): ObjectSpec {
+	if (!small) return crowns[use];
+	return use === 'energy'
+		? ['kit-crown-solar-sail-2p5m', 'two-panel', 'panels']
+		: ['primitive-dome', 'long', 'dome'];
 }
 /** Measures the selected registry variant before fitting. The resulting transform is a translation, yaw and one scalar. */
 export function objectSlot(

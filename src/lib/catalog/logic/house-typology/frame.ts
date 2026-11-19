@@ -3,6 +3,7 @@ import { shaftCourses } from './shafts';
 import { consolePlate } from './console';
 import { hasFloor } from './courses';
 import { braceBays } from './brace';
+import { bandSolid } from './bands';
 import { STORY } from '../../data/grid';
 import { solid, worldSize, mounted } from './objects';
 const volume = ([w, d, h]: Point) => w * d * h;
@@ -17,7 +18,7 @@ export function bearings(
 	y = plan.rear - plan.sign * 0.15
 ) {
 	const rise = top - z,
-		collar = Math.min(0.16, rise / 4);
+		collar = Math.min(0.3, rise / 4);
 	return stations.flatMap((x, i) => {
 		const address = id + '/post/' + i;
 		const size = plan.bar;
@@ -26,7 +27,7 @@ export function bearings(
 				address + '/' + name,
 				name,
 				[x, y, at],
-				[plan.type === 'slab-house' ? 1.1 : width, width, height],
+				[plan.type === 'slab-house' && name === 'shaft' ? 1.1 : width, width, height],
 				plan.site.ground,
 				'frame'
 			);
@@ -102,12 +103,11 @@ function frontBearings(
 	top: number,
 	stations: number[]
 ) {
-	const frames = ['bell-house', 'deck-tower', 'rack', 'twin-stack', 'plinth-house'];
 	if (
 		l.field ||
 		prev?.field ||
 		prev?.bodies.some((b) => b.objectId === 'kit-crown-lantern-2p5m') ||
-		!frames.includes(plan.type)
+		plan.type !== 'bell-house'
 	)
 		return [];
 	const edge = (d: Level) => d.position[1] - plan.sign * (d.depth / 2 - 0.15);
@@ -141,7 +141,8 @@ function tierBearings(
 function sockets(l: Level, z: number, ground: number) {
 	return l.bodies.flatMap((b) => {
 		const [w, d] = worldSize(b);
-		const socket = [Math.min(w * 0.75, l.width * 0.7), Math.min(d * 0.75, l.depth * 0.65)];
+		const bearing = b.objectId.startsWith('kit-crown-lantern-') ? 0.5 : 0.75;
+		const socket = [Math.min(w * bearing, l.width * 0.7), Math.min(d * bearing, l.depth * 0.65)];
 		const center = (k: 0 | 1, span: number) =>
 			l.position[k] +
 			Math.sign(b.position[k] - l.position[k]) *
@@ -151,7 +152,7 @@ function sockets(l: Level, z: number, ground: number) {
 				b.id + '/socket',
 				'socket',
 				[center(0, l.width), center(1, l.depth), z],
-				[socket[0], socket[1], 0.12],
+				[socket[0], socket[1], 0.3],
 				ground,
 				'frame'
 			),
@@ -187,8 +188,29 @@ export function tierParts(
 	const { site } = plan,
 		id = site.id + '/level/' + i,
 		[x, y, z] = l.position;
+	const body = l.bodies[0];
+	if (body.band) {
+		const floor = solid(
+			id + '/deck',
+			'deck',
+			[x, y, z - 0.3],
+			[l.width, l.depth, 0.3],
+			site.ground,
+			'deck'
+		);
+		const members = tierBearings(plan, l, prev, stations, id, below, z - 0.3, false, i);
+		return [
+			...members,
+			bandSolid(floor, l.court),
+			bandSolid(
+				solid(body.id, 'body', body.position, body.size, site.ground, body.use),
+				body.band.court
+			)
+		];
+	}
 	const bodyVolume = l.bodies.reduce((sum, b) => sum + volume(b.size), 0);
-	const thickness = Math.min(1.1, (bodyVolume * ratio) / l.deckArea);
+	const clearance = prev ? z - Math.max(...prev.bodies.map((b) => b.position[2] + b.size[2])) : 1.1;
+	const thickness = Math.min(1.1, clearance, Math.max(0.3, (bodyVolume * ratio) / l.deckArea));
 	const floor = solid(
 		id + '/deck',
 		'deck',

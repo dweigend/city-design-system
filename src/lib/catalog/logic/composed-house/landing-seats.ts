@@ -24,7 +24,7 @@ function seat(a: XY, b: XY, z: number, id: string, surface: Surface) {
 	const length = distance(a, b),
 		u = ((a[1] - b[1]) * 0.15) / length,
 		v = ((b[0] - a[0]) * 0.15) / length;
-	return tread(
+	const plate = tread(
 		id,
 		[
 			[a[0] + u, a[1] + v],
@@ -36,6 +36,8 @@ function seat(a: XY, b: XY, z: number, id: string, surface: Surface) {
 		0.12,
 		surface
 	);
+	const [s1, e1, e2, s2] = plate.polygon;
+	return { ...plate, polygon: [s1, e1, b, e2, s2, a] };
 }
 function facesOf(p: HousePart) {
 	if (p.kind === 'prism') return [p.polygon, ...(p.holes ?? [])];

@@ -40,14 +40,22 @@ function site(
 	};
 }
 const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
+function coverage(l: HouseComposition['levels'][number]) {
+	const [min, max] = l.bodies[0].band ? [0.8, 0.95] : [0.55, 0.85];
+	const hole = (l.bodies[0].band?.court?.width ?? l.court?.width ?? 0) ** 2;
+	const area = l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) - hole;
+	const share = area / l.deckArea;
+	if (share < min || share > max) return 'deck share ' + share + ' ' + l.bodies[0].objectId;
+}
 function auditLevels(h: HouseComposition) {
 	for (const l of h.levels) {
-		const share = l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) / l.deckArea;
 		if (
-			h.parts.some((p) => p.id === h.id + '/level/' + h.levels.indexOf(l) + '/deck') &&
-			!(share >= 0.55 && share <= 0.85)
-		)
-			return 'deck share ' + share + ' ' + l.bodies.map((b) => b.objectId);
+			l.bodies[0].band ||
+			h.parts.some((p) => p.id === h.id + '/level/' + h.levels.indexOf(l) + '/deck')
+		) {
+			const finding = coverage(l);
+			if (finding) return finding;
+		}
 		if ((l.position[2] - h.datum) % 2 !== 0) return 'off datum';
 	}
 }
@@ -59,10 +67,14 @@ function auditVolume(h: HouseComposition, bodies: Bodies) {
 		h.parts
 			.filter((p) => !['body', 'capsule', 'crown'].includes(p.joint))
 			.reduce((s, p) => s + vol(p.size), 0) / total;
-	if (structure < 0.2 || structure > 0.35) return 'structure share ' + structure;
+	if ((h.compact && structure < 0.2) || structure > 0.35) return 'structure share ' + structure;
 }
 function auditCapsules(h: HouseComposition, bodies: Bodies) {
-	if (h.levels.length >= 3 && h.levels.every((l) => l.programme.every((u) => u === 'living'))) {
+	if (
+		!bodies[0].band &&
+		h.levels.length >= 3 &&
+		h.levels.every((l) => l.programme.every((u) => u === 'living'))
+	) {
 		const capsules = bodies.filter((b) => b.kind === 'capsule');
 		if (capsules.length < 2 || capsules[0].size[1] + capsules[1].size[1] <= h.core.width)
 			return 'capsule stack';
@@ -81,8 +93,24 @@ function repeatedStorey(h: HouseComposition) {
 		previous = pattern;
 	}
 }
+function bandOffset(h: HouseComposition) {
+	let last = 0;
+	for (const [i, l] of h.levels.entries()) {
+		const b = l.bodies[0],
+			prev = h.levels[i - 1]?.bodies[0];
+		if (!b.band || !prev) continue;
+		const dx = b.position[0] - prev.position[0];
+		if (Math.abs(dx) < 0.5 - 1e-8 || Math.abs(dx) > 1.25 + 1e-8 || (dx * last >= 0 && i > 1))
+			return 'band offset ' + dx;
+		last = dx;
+	}
+}
+function inhabitants(h: HouseComposition) {
+	if (h.people.length < 3 || h.people.length > 15) return 'people count';
+	if (h.crown.anchor !== 'roof') return 'missing roof installation';
+}
 function audit(h: HouseComposition) {
-	const levelFinding = auditLevels(h);
+	const levelFinding = auditLevels(h) ?? bandOffset(h) ?? inhabitants(h);
 	if (levelFinding) return levelFinding;
 	const bodies = h.levels.flatMap((l) => l.bodies);
 	const volumeFinding = auditVolume(h, bodies);
@@ -223,6 +251,9 @@ function auditNarrow(input: HouseSite, mix: number, height: number) {
 	const body = h.levels.flatMap((l) => l.bodies).reduce((sum, b) => sum + vol(b.size), 0);
 	expect(body / h.parts.reduce((sum, p) => sum + vol(p.size), 0)).toBeGreaterThanOrEqual(0.55);
 	const parts = sectionParts(house);
+	expect(
+		parts.filter((p) => p.id.includes('/level/') && p.source.objectId === 'rolled-lip-planter')
+	).toHaveLength(h.levels.length);
 	expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
 	expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
 	expect(route.docks.slice(1).map((d) => d.door)).toEqual(

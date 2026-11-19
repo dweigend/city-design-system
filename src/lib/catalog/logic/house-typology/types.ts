@@ -52,6 +52,7 @@ export type Body = HouseSlot & {
 	nativeSize: Point;
 	nativeCenter: Point;
 	bay?: [number, number];
+	band?: { plinth?: boolean; shell: boolean; court?: { center: Point; width: number } };
 };
 export type Level = Deck & {
 	bodies: Body[];
@@ -65,6 +66,7 @@ export type Level = Deck & {
 };
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
+	flightWidth: number;
 	signature: ReturnType<typeof import('./signature').silhouette>;
 	path: ReturnType<typeof import('./routes').housePath>;
 	id: string;
@@ -97,5 +99,5 @@ export type Bridge = {
 	to: Point;
 	span: number;
 	pier?: Point;
-	kind: 'walkway' | 'tube' | 'platform' | 'bridge-house';
+	kind: 'walkway' | 'platform' | 'bridge-house';
 };

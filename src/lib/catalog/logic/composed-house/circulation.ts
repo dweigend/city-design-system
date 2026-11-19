@@ -5,7 +5,7 @@ import type { Vec3 } from '../parametrik/types';
 import type { Section } from './types';
 import { terrainHeight } from './ground';
 import { roofLanding } from './roof-landing';
-import { stairTrack } from './stair-track';
+import { stairTrack, publicStair } from './stair-track';
 
 type Leg = {
 	from: Vec3;
@@ -22,7 +22,12 @@ type Dock = { station: Vec3; door: Vec3; index: number };
 export function windingRoute(s: Section) {
 	const roof = roofLanding(s),
 		axis = s.stairAxis;
-	const track = stairTrack(axis, Math.atan2(roof[1] - axis[1], roof[0] - axis[0]), 0);
+	const track = stairTrack(
+		axis,
+		Math.atan2(roof[1] - axis[1], roof[0] - axis[0]),
+		0,
+		publicStair.half
+	);
 	const hand = s.composition.accessSide === 'north' ? 1 : -1;
 	const at = (index: number) => ((index % track.length) + track.length) % track.length;
 	let index = 0,
@@ -81,7 +86,7 @@ export function windingRoute(s: Section) {
 	descend(exit.drop, exit.steps, false);
 	advance(s.start ? 0 : 0.025, 'ramp');
 	stops.push(point());
-	return { width: houseStair.width, axis, track, legs, stops, docks };
+	return { width: publicStair.width, axis, track, legs, stops, docks };
 }
 
 /** Returns the one circulation polyline selected by the available clear bay. */

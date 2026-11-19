@@ -16,11 +16,12 @@ export function ringLevel(plan: Plan, i: number, z: number, use: HouseUse): Leve
 		[x, y] = site.center;
 	const span = Math.min(site.width, site.depth, 20);
 	const module = span >= 18 ? 5 : span >= 14 ? 3.75 : 2.5;
-	const radius = span * (0.44 + (0.055 * i) / Math.max(1, site.programme.length - 1));
-	const diameter = module * 1.1;
-	const axis = radius - diameter / 2 - 0.12;
+	const radius = span * (0.49 + (0.009 * i) / Math.max(1, site.programme.length - 1));
+	const scale = span < 12 ? 0.85 : 1.1;
+	const diameter = module * scale;
+	const axis = radius - diameter / 2 - 0.095;
 	const count = Math.floor(Math.PI / Math.asin((diameter + 0.04) / (2 * axis)));
-	const hole = Math.max(0.4, axis - diameter / 2 - 0.12);
+	const hole = Math.max(0.4, axis - diameter / 2 - 0.095);
 	const spec = 'kit-crown-lantern-' + String(module).replace('.', 'p') + 'm';
 	const body = objectSlot(
 		site.id + '/level/' + i + '/body/0',
@@ -29,14 +30,14 @@ export function ringLevel(plan: Plan, i: number, z: number, use: HouseUse): Leve
 		plan.seed,
 		0
 	);
-	body.scale = 1.1;
-	body.size = body.nativeSize.map((v) => v * 1.1) as Point;
+	body.scale = scale;
+	body.size = body.nativeSize.map((v) => v * scale) as Point;
 	const bodies = Array.from({ length: count - 1 }, (_, j) => {
 		const angle = (2 * Math.PI * (j + 1)) / count;
 		return {
 			...body,
 			id: site.id + '/level/' + i + '/body/' + j,
-			position: [x + axis * Math.sin(angle), y + sign * axis * Math.cos(angle), z + 0.12] as Point
+			position: [x + axis * Math.sin(angle), y + sign * axis * Math.cos(angle), z + 0.3] as Point
 		};
 	});
 	return {

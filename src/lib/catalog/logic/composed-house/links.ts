@@ -37,7 +37,7 @@ function link(
 	surfaces: HouseSurfaces
 ) {
 	const id = 'link/' + a.id + '~' + b.id;
-	const width = Math.max(0.5, Math.min(distance === 1 ? 2.8 : 1.5, a.width * 0.34, b.width * 0.34));
+	const width = 2.5;
 	const ends = new Set([...a.cells, ...b.cells].map((c) => c.id));
 	const obstacles = boxes.filter(
 		(box) => box.owner !== a.id && box.owner !== b.id && !(box.cell && ends.has(box.cell))
@@ -53,7 +53,7 @@ function link(
 	if (!candidates.length) return;
 	const choices = [...new Set(candidates.map((c) => c.kind))];
 	const kind = bridgeForm(a.id, b.id, id, choices, district, seed);
-	const { from, to, route, run } = required(
+	const { from, to, route, run, thresholds } = required(
 		candidates.find((c) => c.kind === kind),
 		'surveyed bridge form'
 	);
@@ -68,7 +68,7 @@ function link(
 		width,
 		distance,
 		run,
-		parts: bridgeParts(route, id + '/' + kind, width, surfaces)
+		parts: bridgeParts(route, id + '/' + kind, width, surfaces, thresholds)
 	};
 }
 type Span = NonNullable<ReturnType<typeof link>>;

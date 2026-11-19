@@ -5,26 +5,57 @@ import type { Vec3 } from '../parametrik/types';
 import { members } from './provider';
 import { place } from './asset-fit';
 import { houseObject, type HousePart } from './house-object';
-import type { HouseSurfaces } from './surfaces';
+import { roleSurface, type HouseSurfaces } from './surfaces';
 import { pipeBetween } from './parts';
 
-function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
+function bearingSurfaces(p: Solid, surfaces: HouseSurfaces) {
+	return ['socket', 'shaft'].includes(p.joint) ? { ...surfaces, frame: surfaces.living } : surfaces;
+}
+function bearingStock(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
 	const socket = p.joint === 'socket';
 	const id = socket
 		? 'kit-capsule-cradle-2p5m'
 		: 'kit-column-' + p.joint + (p.joint === 'shaft' ? '-2m' : '-0p5m');
-	const stock = members(
+	return members(
 		p.source?.objectId ?? id,
 		p.source?.variant ?? (socket ? 'shallow' : 'light'),
 		s.seed,
 		p.id,
-		surfaces
+		bearingSurfaces(p, surfaces)
 	);
+}
+function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
+	const socket = p.joint === 'socket';
+	const stock = bearingStock(s, p, surfaces);
 	const box = union(stock.map(bounds));
 	const scale = p.size.map((v, i) => v / (box.max[i] - box.min[i])) as Vec3;
-	return place(stock, box.min, p.position, scale, 0).map((part) =>
-		!socket && part.kind === 'cylinder' ? { ...part, radius: Math.max(0.15, part.radius) } : part
-	);
+	const fitted = place(stock, box.min, p.position, scale, 0);
+	if (socket) return fitted.map((m) => socketLip(m, p));
+	return p.joint === 'beam' ? fitted : columnSections(fitted, p);
+}
+function socketLip(member: HousePart, p: Extract<Solid, { kind: 'box' }>): HousePart {
+	if (member.kind !== 'box') return member;
+	const size = member.size.map((d) => Math.max(d, 0.12)) as Vec3;
+	const position = member.position.map((v, k) =>
+		Math.min(v, p.position[k] + p.size[k] - size[k])
+	) as Vec3;
+	return { ...member, position, size };
+}
+function columnSections(stock: HousePart[], p: Extract<Solid, { kind: 'box' }>): HousePart[] {
+	const lip = Math.max(0.12, Math.min(p.size[2] / 2, 0.15));
+	return stock.flatMap((part, i): HousePart[] => {
+		if (part.kind !== 'cylinder') return [part];
+		if (p.size[2] < 0.24 && i) return [];
+		const h = p.size[2] < 0.24 ? p.size[2] : i ? lip : p.size[2] - lip;
+		return [
+			{
+				...part,
+				radius: Math.max(0.15, part.radius),
+				height: h,
+				position: [part.position[0], part.position[1], p.position[2] + (i ? p.size[2] - lip : 0)]
+			}
+		];
+	});
 }
 function floor(s: Section, p: Solid, surfaces: HouseSurfaces): HousePart {
 	const stock = houseObject('primitive-slab', 'square', s.seed, {
@@ -59,10 +90,28 @@ function floor(s: Section, p: Solid, surfaces: HouseSurfaces): HousePart {
 				];
 	return { ...stock, id: p.id, polygon, z, height: h, roofCell: s.cells[0].id };
 }
+function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
+	const painted = ['/roof', '/roof-walk', '/entry'].some((suffix) => p.id.endsWith(suffix));
+	const deck = floor(
+		s,
+		p,
+		painted
+			? { ...surfaces, deck: roleSurface(surfaces.shell, p.id.endsWith('/roof') ? 'roof' : 'deck') }
+			: surfaces
+	);
+	if (deck.kind !== 'prism' || deck.height < 0.42) return [deck];
+	const level = s.decks.find((l) => Math.abs(l.position[2] - deck.z - deck.height) < 1e-7);
+	if (!level) return [deck];
+	const apron = floor(s, p, { ...surfaces, deck: roleSurface(surfaces[level.use], 'deck') });
+	return [
+		{ ...deck, z: deck.z + deck.height - 0.12, height: 0.12 },
+		{ ...apron, id: p.id + '/apron', height: deck.height - 0.12 }
+	];
+}
 /** Fits manufactured columns and sockets to their surveyed joints, and cuts plates to their outlines. */
 export function houseStructure(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	return s.composition.parts.flatMap((p): HousePart[] => {
-		if (p.joint === 'deck') return [floor(s, p, surfaces)];
+		if (p.joint === 'deck') return deckParts(s, p, surfaces);
 		if (p.joint === 'brace' && p.kind === 'mesh') {
 			const centre = (i: number): Vec3 =>
 				p.points[i].map((v, k) => (v + p.points[i + 2][k]) / 2) as Vec3;

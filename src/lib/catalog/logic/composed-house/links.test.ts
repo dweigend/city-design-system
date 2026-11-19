@@ -61,6 +61,8 @@ test('bridges are level, never stair bridges, and unequal deck levels stay apart
 		const degree = new Map<string, number>();
 		for (const link of links) {
 			expect(link.kind).not.toBe('stair-bridge');
+			expect(link.width).toBeGreaterThanOrEqual(2.5);
+			expect(link.run).toBeLessThanOrEqual(14);
 			expect(Math.abs(link.from[2] - link.to[2])).toBeLessThanOrEqual(0.3);
 			for (const p of link.route) expect(Math.abs(p[2] - link.from[2])).toBeLessThanOrEqual(0.3);
 			for (const id of [link.a, link.b]) degree.set(id, (degree.get(id) ?? 0) + 1);
@@ -80,4 +82,22 @@ test('only bridge decking receives the external access surface', () => {
 	expect(changed.parts).toEqual(
 		link.parts.map((p) => (p.kind === 'prism' ? { ...p, ...access, material: 'wood' } : p))
 	);
+});
+
+test('house bridge thresholds step onto the two decks and carry a 1.1 m handrail', () => {
+	const a = house('0/2', 3),
+		b = house('2/2', 3);
+	b.composition.ports = b.composition.ports.map((p) => ({
+		...p,
+		position: [p.position[0], p.position[1], p.position[2] + 0.2]
+	}));
+	const [link] = houseLinks(grid, [a, b], 11);
+	const plates = link.parts.filter((p) => p.kind === 'prism');
+	const datums = plates.map((p) => p.z + p.height);
+	expect(Math.max(...datums) - Math.min(...datums)).toBeCloseTo(0.2);
+	expect(plates.every((p) => p.height <= 0.25)).toBe(true);
+	const newel = link.parts.find((p) => p.id.includes('/post/'));
+	if (newel?.kind !== 'pipe') throw Error('Missing handrail bearing');
+	expect(newel.radius * 2).toBeCloseTo(0.12);
+	expect(newel.points[newel.points.length - 1][2] - newel.points[0][2]).toBeCloseTo(1.1);
 });
