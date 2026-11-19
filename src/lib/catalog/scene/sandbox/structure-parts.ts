@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
-import type { Primitive, Vec3 } from '../../logic/parametrik/types';
+import { isStructural, type Primitive, type Vec3 } from '../../logic/parametrik/types';
 import { batch, geometryOf, type Batch } from '../batch';
 import type { StructureMaterials } from './structure-materials';
 import { outlineOffsets } from './structure-outline';
@@ -36,13 +36,12 @@ function silhouette(faces: Batch['neu'], material: THREE.Material) {
 	return new THREE.Mesh(geometry, material);
 }
 
-const isCarrier = (part: Primitive) => part.role === 'traeger' || Boolean(part.member);
 const isAccent = (part: Primitive) =>
 	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
 
 function layerOf(part: Primitive) {
 	if (part.material === 'ghost') return 'ghosts';
-	if (isCarrier(part)) return 'carriers';
+	if (isStructural(part)) return 'carriers';
 	return isAccent(part) ? 'accents' : 'regular';
 }
 
@@ -70,22 +69,30 @@ export function populateStructures(
 	const toColor = (part: Primitive) => colorOf(part.token);
 	const objects = new THREE.Group();
 	const hits: THREE.Mesh[] = [];
-	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false, cast = false) => {
+	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
 		if (!faces.p.length) return;
 		const object = new THREE.Mesh(geometryOf(faces), material);
-		object.castShadow = cast;
 		objects.add(object);
 		if (pick) hits.push(object);
+		return object;
 	};
 	const lines = (segments: number[], material: THREE.Line2NodeMaterial) => {
 		if (segments.length)
 			objects.add(new LineSegments2(new LineSegmentsGeometry().setPositions(segments), material));
 	};
-	const outlines = (parts: Batch) => {
-		for (const faces of [parts.neu, parts.glas])
-			if (faces.p.length) objects.add(silhouette(faces, materials.hull));
-	};
 	const cast = finishes.envelopeShadows();
+	const surface = (
+		faces: Batch['neu'],
+		material: THREE.Material,
+		contour: THREE.Material,
+		pick: boolean,
+		shadows = cast
+	) => {
+		const object = mesh(faces, material, pick);
+		if (!object) return;
+		object.castShadow = shadows;
+		objects.add(silhouette(faces, contour));
+	};
 	const parts = partition(primitives);
 	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
 	const body = batch(
@@ -93,13 +100,12 @@ export function populateStructures(
 		toColor
 	);
 	const sheets = batch(parts.regular.filter(isSheet), toColor);
-	mesh(body.neu, materials.solid, true, cast);
+	surface(body.neu, materials.solid, materials.hull, true);
 	mesh(body.alt, materials.stock, true);
 	mesh(body.hull.alt, materials.pencilHull);
-	mesh(body.blatt, materials.sheet, false, cast);
-	mesh(sheets.blatt, materials.sheet, false, cast);
-	mesh(body.glas, materials.glass);
-	outlines(body);
+	surface(body.blatt, materials.sheet, materials.sheetHull, false);
+	surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
+	surface(body.glas, materials.glass, materials.hull, false, false);
 	lines(body.kanten.alt, materials.pencil);
 	lines(body.kanten.neu, materials.detail);
 	lines(sheets.kanten.neu, materials.perimeter);
@@ -110,9 +116,10 @@ export function populateStructures(
 		toAccent
 	);
 	const accentSheets = batch(parts.accents.filter(isSheet), toAccent);
-	for (const faces of [accent.neu, accent.blatt, accent.glas, accentSheets.blatt])
-		mesh(faces, materials.signal, true, cast);
-	outlines(accent);
+	surface(accent.neu, materials.signal, materials.hull, true);
+	surface(accent.glas, materials.signal, materials.hull, true);
+	for (const faces of [accent.blatt, accentSheets.blatt, accentSheets.glas])
+		surface(faces, materials.signal, materials.sheetHull, true);
 	lines(accent.kanten.neu, materials.detail);
 	lines(accentSheets.kanten.neu, materials.perimeter);
 

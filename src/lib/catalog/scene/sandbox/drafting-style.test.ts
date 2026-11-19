@@ -1,11 +1,15 @@
 // @ts-expect-error Bun provides this test API at runtime; the app only includes Node types.
 import { expect, test } from 'bun:test';
+import { Mesh, SphereGeometry, type Group, type Material } from 'three/webgpu';
 import { MASSSTAB, STRICHE } from '../../data/leitstil';
+import { translate } from '../../logic/ansicht/geometrie';
 import { pruefeStil, stilFuer } from '../../logic/leitstil';
 import { tag } from '../../logic/ansicht/tags';
-import { shiftZ } from '../../logic/parametrik/types';
+import { forestChunk } from '../../logic/land-cover';
+import { explode, shiftZ, type Primitive } from '../../logic/parametrik/types';
 import { focuses } from '../../logic/presentation';
 import { acceptanceScene, currentStacks, houseView } from '../../logic/sandbox';
+import { lineParts } from '../../logic/transit-line';
 import { nearestZoom, sandboxStyle } from './drafting-style';
 
 const context = { zoom: 'quartier', modus: 'ansehen', situation: 'normal' } as const;
@@ -53,7 +57,7 @@ test('the fixed plate retains three eras, two rail stops, two walkway landings a
 	expect(acceptanceScene().additions).toEqual(additions);
 });
 
-test('the renderer applies role widths and switches both structural strokes', async () => {
+async function loadStructureModules() {
 	// Bun loads the Leitstil entry point without compiling the theme's Svelte rune.
 	const shim = !('$state' in globalThis);
 	if (shim)
@@ -61,9 +65,13 @@ test('the renderer applies role widths and switches both structural strokes', as
 			configurable: true,
 			value: (value: unknown) => value
 		});
-	const { structureMaterials } = await import('./structure-materials').finally(() => {
+	return Promise.all([import('./structure-materials'), import('./structure-parts')]).finally(() => {
 		if (shim) Reflect.deleteProperty(globalThis, '$state');
 	});
+}
+
+test('the renderer applies role widths and switches both structural strokes', async () => {
+	const [{ structureMaterials }] = await loadStructureModules();
 	const finishes = structureMaterials();
 	const { materials } = finishes;
 	const scale = MASSSTAB.quartier;
@@ -97,9 +105,14 @@ test('the seed-7 roof carrier is in the bible frame layer', () => {
 	for (const part of frame) expect(tag(part)).toMatchObject({ schicht: 'geruest', phase: 1 });
 });
 
-test('a vertical shift keeps the seed-7 bearing on its carrier', () => {
+function seedCarrierBent() {
 	const bent = seedRoofCarrier().find((part) => part.id === '81/41@1:span/bent/82/41');
 	if (bent?.kind !== 'polyline') throw new Error('Expected the carrier bent over roof 82/41');
+	return bent;
+}
+
+test('a vertical shift keeps the seed-7 bearing on its carrier', () => {
+	const bent = seedCarrierBent();
 	const raised = shiftZ(bent, 4);
 	if (raised.kind !== 'polyline') throw new Error('Expected the same carrier geometry');
 	expect(bent.bearings).toEqual([bent.points[0]]);
@@ -107,4 +120,165 @@ test('a vertical shift keeps the seed-7 bearing on its carrier', () => {
 	expect(raised.bearings).toEqual([raised.points[0]]);
 	expect(raised.bearings?.[0][2]).toBe(14.5);
 	expect(shiftZ(bent, 0)).toBe(bent);
+});
+
+test('translation moves the seed-7 bearing in all three axes', () => {
+	const bent = seedCarrierBent();
+	const moved = translate(bent, [2, -3, 4]);
+	const [x, y, z] = bent.points[0];
+	expect(moved).toMatchObject({ bearings: [[x + 2, y - 3, z + 4]] });
+	expect(moved.kind === 'polyline' && moved.points[0]).toEqual(moved.bearings?.[0]);
+	expect(bent.bearings).toEqual([bent.points[0]]);
+});
+
+test('explosion raises the carrier bearing by its rank', () => {
+	const bent = seedCarrierBent();
+	const [x, y, z] = bent.points[0];
+	expect(explode([{ ...bent, rank: 2 }], 3)[0].bearings).toEqual([[x, y, z + 6]]);
+});
+
+test('the seed-7 rail pillars and station shafts are in the bible frame layer', () => {
+	const [line] = acceptanceScene().world.lines;
+	const parts = lineParts(line);
+	const supports = parts.filter(({ id }) => id.includes('/pillar/') || id.endsWith('/shaft'));
+	expect(supports).toHaveLength(6);
+	for (const part of supports) expect(tag(part)).toMatchObject({ schicht: 'geruest', phase: 1 });
+	expect(tag(parts[0]).schicht).toBe('netz');
+});
+
+const base = { role: 'neu', token: '--cat-nature', material: 'wood', edges: false } as const;
+const origin = [0, 0, 2] as const;
+const forms = {
+	box: { ...base, id: 'box', kind: 'box', position: [...origin], size: [2, 2, 2] },
+	prism: {
+		...base,
+		id: 'prism',
+		kind: 'prism',
+		polygon: [
+			[0, 0],
+			[2, 0],
+			[0, 2]
+		],
+		z: 2,
+		height: 2
+	},
+	wedge: { ...base, id: 'wedge', kind: 'wedge', position: [...origin], size: [2, 2, 2] },
+	cylinder: {
+		...base,
+		id: 'cylinder',
+		kind: 'cylinder',
+		position: [...origin],
+		radius: 1,
+		height: 2
+	},
+	cone: { ...base, id: 'cone', kind: 'cone', position: [...origin], radius: 1, height: 2 },
+	sphere: { ...base, id: 'sphere', kind: 'sphere', position: [...origin], radius: 1 },
+	dome: { ...base, id: 'dome', kind: 'dome', position: [...origin], radius: 1 },
+	ring: {
+		...base,
+		id: 'ring',
+		kind: 'ring',
+		position: [...origin],
+		radius: 1,
+		innerRadius: 0.5,
+		depth: 0.2
+	},
+	torus: { ...base, id: 'torus', kind: 'torus', position: [...origin], radius: 1, tube: 0.2 },
+	capsule: {
+		...base,
+		id: 'capsule',
+		kind: 'capsule',
+		from: [...origin],
+		to: [0, 2, 2],
+		radius: 0.5
+	},
+	pipe: { ...base, id: 'pipe', kind: 'pipe', points: [[...origin], [0, 2, 2]], radius: 0.3 },
+	polyline: { ...base, id: 'polyline', kind: 'polyline', points: [[...origin], [0, 2, 2]] },
+	arch: { ...base, id: 'arch', kind: 'arch', position: [...origin], width: 2, length: 2, rise: 1 },
+	vault: {
+		...base,
+		id: 'vault',
+		kind: 'vault',
+		position: [...origin],
+		width: 2,
+		length: 2,
+		rise: 1
+	},
+	halfpipe: {
+		...base,
+		id: 'halfpipe',
+		kind: 'halfpipe',
+		position: [...origin],
+		width: 2,
+		length: 2,
+		rise: 1
+	},
+	frame: {
+		...base,
+		id: 'frame',
+		kind: 'frame',
+		position: [...origin],
+		size: [2, 2, 2],
+		cells: [1, 1, 1],
+		bar: 0.1
+	},
+	helix: {
+		...base,
+		id: 'helix',
+		kind: 'helix',
+		position: [...origin],
+		radius: 1,
+		innerRadius: 0.2,
+		height: 3,
+		turns: 1,
+		thickness: 0.2
+	},
+	membrane: {
+		...base,
+		id: 'membrane',
+		kind: 'membrane',
+		corners: [[...origin], [2, 0, 2], [2, 2, 3], [0, 2, 2]]
+	}
+} satisfies Record<Primitive['kind'], Primitive>;
+
+function expectFormContour(part: Primitive, group: Group, hulls: Material[]) {
+	const meshes = group.children.filter((object) => object instanceof Mesh);
+	const casters = meshes.filter((mesh) => mesh.castShadow);
+	const contours = meshes.filter((mesh) => hulls.some((hull) => hull === mesh.material));
+	const count = part.kind === 'frame' || part.kind === 'polyline' ? 0 : 1;
+	try {
+		expect(casters, part.id).toHaveLength(count);
+		expect(contours, part.id).toHaveLength(count);
+		expect(contours[0]?.geometry.getAttribute('position').array, part.id).toEqual(
+			casters[0]?.geometry.getAttribute('position').array
+		);
+	} finally {
+		for (const mesh of meshes) mesh.geometry.dispose();
+	}
+}
+
+test('every shadow-casting form has a Leitstil contour in paper and in color', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials();
+	const bearing = new SphereGeometry();
+	try {
+		const { world } = acceptanceScene();
+		const chunk = world.grid.cellsById.get('98/43')?.chunk ?? '';
+		const spiral = forestChunk(world.grid, world.state.cover, chunk, world.seed).find(
+			(part) => part.id === '98/43:tree0'
+		);
+		if (spiral?.kind !== 'helix') throw new Error('Expected the seed-7 spiral crown');
+		const samples: Primitive[] = [
+			...Object.values(forms).flatMap((part) => [part, { ...part, token: '--paper' as const }]),
+			spiral,
+			{ ...forms.membrane, sag: 0.5 },
+			{ ...forms.ring, glass: true }
+		];
+		const hulls = [finishes.materials.hull, finishes.materials.sheetHull];
+		for (const part of samples)
+			expectFormContour(part, populateStructures([part], finishes, bearing), hulls);
+	} finally {
+		finishes.dispose();
+		bearing.dispose();
+	}
 });

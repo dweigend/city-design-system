@@ -48,6 +48,13 @@ export function structureMaterials() {
 		bearing: new THREE.MeshBasicNodeMaterial(),
 		perimeter: new THREE.Line2NodeMaterial(),
 		hull: new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide }),
+		sheetHull: new THREE.MeshBasicNodeMaterial({
+			side: THREE.DoubleSide,
+			polygonOffset: true,
+			// Bias past the slope-dependent depth change of a shifted copy at up to 2× DPR.
+			polygonOffsetFactor: Math.ceil(STRICHE.kontur * outlineExpansion * 2 * Math.SQRT2),
+			polygonOffsetUnits: 1
+		}),
 		glass: new THREE.MeshBasicNodeMaterial({
 			transparent: true,
 			depthWrite: false,
@@ -55,6 +62,7 @@ export function structureMaterials() {
 		})
 	};
 	const outlinePx = uniform(STRICHE.kontur * outlineExpansion);
+	const sheetOffsetM = uniform(0);
 	const pencilPx = uniform(STRICHE.bestand / 2);
 	materials.solid.colorNode = mix(
 		mix(flankColor, sideColor, abs(normalWorld.x)),
@@ -64,6 +72,7 @@ export function structureMaterials() {
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.pencilHull.vertexNode = outlinePosition(pencilPx);
 	materials.hull.vertexNode = outlinePositionAtOffset(outlinePx);
+	materials.sheetHull.vertexNode = outlinePositionAtOffset(outlinePx, sheetOffsetM);
 
 	function applyTones(g: ReturnType<typeof grammatik>) {
 		palette = g;
@@ -81,6 +90,7 @@ export function structureMaterials() {
 		materials.pencilHull.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.hull.color.copy(g.kontur);
+		materials.sheetHull.color.copy(g.kontur);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(g.ink);
 	}
@@ -135,6 +145,7 @@ export function structureMaterials() {
 			materials.pencil.linewidth = bestand.strichPx;
 			pencilPx.value = bestand.strichPx / 2;
 			outlinePx.value = huelle.strichPx * outlineExpansion;
+			sheetOffsetM.value = (2 * outlinePx.value) / scale;
 			materials.perimeter.linewidth = huelle.strichPx;
 			materials.detail.linewidth = kontext.strichPx;
 			envelopeShadows = huelle.schatten;

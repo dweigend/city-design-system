@@ -24,9 +24,12 @@ export const outlineOffsets = new InstancedBufferAttribute(
 	2
 );
 
-/** Projects one translated backface copy. Together they form a continuous exterior stroke. */
-export function outlinePositionAtOffset(thicknessPx: Node<'float'>) {
-	const clip = cameraProjectionMatrix.mul(vec4(positionView, 1));
+/** Projects an outline copy, with optional depth separation for double-sided geometry. */
+export function outlinePositionAtOffset(
+	thicknessPx: Node<'float'>,
+	depthM: number | Node<'float'> = 0
+) {
+	const clip = cameraProjectionMatrix.mul(vec4(positionView.xy, positionView.z.sub(depthM), 1));
 	const offset = attribute('outlineOffset', 'vec2')
 		.mul(thicknessPx)
 		.mul(screenDPR)

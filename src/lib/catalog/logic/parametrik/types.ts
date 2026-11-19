@@ -150,18 +150,23 @@ export function box(
 export const clamp = (n: number, min: number, max: number) =>
 	Math.max(min, Math.min(max, Number.isFinite(n) ? n : min));
 export const count = (n: number, min: number, max: number) => Math.round(clamp(n, min, max));
+
+/** Moves world-space attachments with the same point transform as their parent geometry. */
+export function transformAnchors(p: Primitive, point: (position: Vec3) => Vec3): Primitive {
+	const withBearings = p.bearings ? { ...p, bearings: p.bearings.map(point) } : p;
+	if (withBearings.kind !== 'frame' || !withBearings.members) return withBearings;
+	return {
+		...withBearings,
+		members: withBearings.members.map(([a, b]): [Vec3, Vec3] => [point(a), point(b)])
+	};
+}
+
 /** Moves any primitive vertically; used by explosion (rank × gap) and stacking. */
 export function shiftZ(primitive: Primitive, dz: number): Primitive {
 	if (!dz) return primitive;
 	const up = ([x, y, z]: Vec3): Vec3 => [x, y, z + dz];
-	const p = primitive.bearings ? { ...primitive, bearings: primitive.bearings.map(up) } : primitive;
+	const p = transformAnchors(primitive, up);
 	switch (p.kind) {
-		case 'frame':
-			return {
-				...p,
-				position: up(p.position),
-				...(p.members ? { members: p.members.map(([a, b]): [Vec3, Vec3] => [up(a), up(b)]) } : {})
-			};
 		case 'pipe':
 		case 'polyline':
 			return { ...p, points: p.points.map(up) };
@@ -178,6 +183,11 @@ export function shiftZ(primitive: Primitive, dz: number): Primitive {
 /** Explosion: each primitive rises by its rank × gap (40-grammatik §3.4). */
 export const explode = (primitives: Primitive[], gap: number) =>
 	primitives.map((p) => shiftZ(p, gap * Math.max(0, p.rank ?? 0)));
+
+/** Structural strokes and frame layers share the same primitive classification. */
+export function isStructural(p: Primitive): boolean {
+	return p.role === 'traeger' || Boolean(p.member);
+}
 
 /** Preserves the role used by renderers that predate the sandbox structural system. */
 export function legacyRoleOf(primitive: Primitive): BuildingRole {
