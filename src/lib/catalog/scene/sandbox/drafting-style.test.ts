@@ -6,7 +6,6 @@ import { BLICK, MASSSTAB, STRICHE } from '../../data/leitstil';
 import { translate } from '../../logic/ansicht/geometrie';
 import { pruefeStil, stilFuer } from '../../logic/leitstil';
 import { tag } from '../../logic/ansicht/tags';
-import { forestChunk } from '../../logic/land-cover';
 import { explode, shiftZ, type Primitive } from '../../logic/parametrik/types';
 import { present } from '../../logic/presentation';
 import { acceptanceScene, applyEdit, createWorld } from '../../logic/sandbox';

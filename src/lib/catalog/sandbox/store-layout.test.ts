@@ -4,7 +4,7 @@ import { watchStoreLayout } from './store-layout';
 test('widening closes the Store popover before the mobile trigger returns', () => {
 	const breakpoint = Object.assign(new EventTarget(), { matches: true });
 	let mobile = false;
-	let open = false;
+	let open: boolean;
 	const stop = watchStoreLayout(
 		breakpoint,
 		(matches) => (mobile = matches),

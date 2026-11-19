@@ -84,6 +84,8 @@ function silhouette(source: THREE.BufferGeometry, material: THREE.Material) {
 	return new THREE.Mesh(geometry, material);
 }
 
+const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
+
 /** Projects one structure key into pickable surfaces and independent drafting marks. */
 export function populateStructures(
 	primitives: Primitive[],
@@ -138,154 +140,12 @@ export function populateStructures(
 		objects.add(face);
 		hits.push(face);
 	}
-	const isSheet = (part: Primitive) => part.kind === 'membrane' && part.role === 'neu';
-	const stock = batch(
-		parts.regular.filter((part) => part.role === 'bestand'),
-		toColor
-	);
-	const body = printBatch(
-		parts.regular.filter((part) => part.role !== 'bestand' && !isSheet(part)),
-		toColor
-	);
-	const sheets = printBatch(parts.regular.filter(isSheet), toColor);
-	for (const part of parts.glaze) {
-		if (part.kind !== 'mesh') continue;
-		const geometry = new THREE.BufferGeometry().setFromPoints(
-			part.points.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
-		);
-		geometry.setIndex(part.triangles);
-		geometry.computeVertexNormals();
-		const face = new THREE.Mesh(geometry, materials.glaze);
-		face.castShadow = cast;
-		hits.push(face);
-		objects.add(face);
-		if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
-	}
-	surface(body.neu, materials.solid, materials.hull, true);
-	surface(printBatch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
-	surface(printBatch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);
-	fill(printBatch(parts.plainPods, toColor).neu, materials.pod, true);
-	mesh(stock.alt, materials.stock, true);
-	mesh(stock.blatt, materials.stockSheet);
-	mesh(stock.glas, materials.stockSheet);
-	mesh(stock.hull.alt, materials.pencilHull);
-	surface(body.blatt, materials.sheet, materials.sheetHull, false);
-	surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
-	surface(body.glas, materials.glass, materials.hull, false, false);
-	lines(stock.kanten.alt, materials.pencil);
-	if (details) lines(stockDetail(parts.regular), materials.stockDetail);
-	lines(body.kanten.neu, materials.detail);
-	lines(sheets.kanten.neu, materials.perimeter);
-	const plain = printBatch(parts.plain, toColor);
-	fill(plain.neu, materials.solid, true);
-	fill(plain.blatt, materials.sheet, false);
-	fill(plain.glas, materials.glass, false, false);
+	drawStockAndBodies();
 
-	const conduit = conduitBatch(parts.conduits, toColor);
-	const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
-	pipes?.geometry.setAttribute('stationM', conduit.axis);
-	pipes?.geometry.setAttribute('railMark', conduit.rail);
-	const print = printBatch(parts.inlays, (p) =>
-		p.token.startsWith('--cat-business') ? toColor(p) : colorOf(p.token.replace(/-\d$/, '') + '-2')
-	);
-	const chips = batch(parts.inlays, (p) =>
-		colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
-	);
-	const inlay = mesh(print.neu, materials.inlay, true);
-	if (inlay) {
-		inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
-		inlay.castShadow = cast;
-		objects.add(paperEdge(inlay.geometry, materials.cut));
-	}
-	const portal = mesh(printBatch(parts.portals, toColor).neu, materials.solid, true);
-	if (portal) {
-		portal.castShadow = cast;
-		objects.add(paperEdge(portal.geometry, materials.cut));
-	}
-	const pigments = new Map(
-		primitives
-			.filter(
-				(p) =>
-					p.role === 'neu' && p.token.startsWith('--cat-') && /\/(fitting|vessel|feed)$/.test(p.id)
-			)
-			.map((p) => [
-				p.id.endsWith('/fitting') ? p.id.slice(0, -8) : p.id.replace(/\/(vessel|feed)$/, '/module'),
-				p
-			])
-	);
-	const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
-		part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
-	);
-	if (fired.geometry) {
-		const casting = new THREE.Mesh(fired.geometry, materials.fired);
-		casting.castShadow = cast;
-		objects.add(casting, silhouette(fired.geometry, materials.hull));
-		hits.push(casting);
-	}
-	lines(fired.edges, materials.detail);
-	const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
-	const accent = batch(
-		parts.accents.filter((part) => !isSheet(part)),
-		toAccent
-	);
-	const accentSheets = batch(parts.accents.filter(isSheet), toAccent);
-	surface(accent.neu, materials.signal, materials.hull, true);
-	surface(accent.glas, materials.signal, materials.hull, true);
-	for (const faces of [accent.blatt, accentSheets.blatt, accentSheets.glas])
-		surface(faces, materials.signal, materials.sheetHull, true);
-	lines(accent.kanten.neu, materials.detail);
-	lines(accentSheets.kanten.neu, materials.perimeter);
-	const plainAccents = batch(parts.plainAccents, toAccent);
-	for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
-		fill(faces, materials.signal, true);
+	drawSpecialSurfaces();
+	drawAccents();
 
-	const current = parts.carriers.filter(
-		(p) => p.role !== 'bestand' && !p.planned && p.sectionDiameter !== 0.14
-	);
-	lines(
-		batch(parts.carriers.filter((p) => p.planned).flatMap(memberTrace), toColor).kanten.neu,
-		materials.planned
-	);
-	lines(
-		batch(
-			parts.carriers
-				.filter((p) => !p.planned && p.role !== 'bestand' && p.sectionDiameter === 0.14)
-				.flatMap(memberTrace),
-			toColor
-		).kanten.neu,
-		materials.rib
-	);
-	const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
-	const inkMembers = current.filter((p) => p.token === '--ink');
-	for (const [select, material] of [
-		[(p: Primitive) => p.detail, materials.braceInk],
-		[(p: Primitive) => !p.detail && p.sectionDiameter === 0.12, materials.portalInk],
-		[(p: Primitive) => !p.detail && p.sectionDiameter !== 0.12, materials.carrierInk]
-	] as const)
-		lines(batch(inkMembers.filter(select).flatMap(memberTrace), toColor).kanten.neu, material);
-	const legacy = current.filter((p) => p.token !== '--ink');
-	const main = legacy.filter((p) => !p.member || p.member === 'primary');
-	const ties = legacy.filter((p) => p.member === 'secondary' && !p.detail);
-	const rails = legacy.filter((p) => p.member === 'secondary' && p.detail);
-	lines(batch(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
-	lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
-	lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
-	lines(
-		batch(agedMembers.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor).kanten
-			.neu,
-		materials.stockPrimary
-	);
-	lines(
-		batch(agedMembers.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor).kanten
-			.neu,
-		materials.pencil
-	);
-	// Explicit bearing nodes with no axial member retain their existing ink mark.
-	const points = parts.carriers.flatMap((part) =>
-		part.kind === 'sphere' || part.token === '--ink' ? (part.bearings ?? []) : []
-	);
-	if (details && points.length)
-		objects.add(bearingDots(points, bearingGeometry, materials.bearing));
+	drawCarriers();
 
 	const ghost = batch(parts.ghosts, toColor);
 	for (const faces of [ghost.alt, ghost.blatt, ghost.neu, ghost.glas])
@@ -294,4 +154,167 @@ export function populateStructures(
 
 	objects.userData.hits = hits;
 	return objects;
+
+	function drawCarriers() {
+		const current = parts.carriers.filter(
+			(p) => p.role !== 'bestand' && !p.planned && p.sectionDiameter !== 0.14
+		);
+		lines(
+			batch(parts.carriers.filter((p) => p.planned).flatMap(memberTrace), toColor).kanten.neu,
+			materials.planned
+		);
+		lines(
+			batch(
+				parts.carriers
+					.filter((p) => !p.planned && p.role !== 'bestand' && p.sectionDiameter === 0.14)
+					.flatMap(memberTrace),
+				toColor
+			).kanten.neu,
+			materials.rib
+		);
+		const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
+		const inkMembers = current.filter((p) => p.token === '--ink');
+		for (const [select, material] of [
+			[(p: Primitive) => p.detail, materials.braceInk],
+			[(p: Primitive) => !p.detail && p.sectionDiameter === 0.12, materials.portalInk],
+			[(p: Primitive) => !p.detail && p.sectionDiameter !== 0.12, materials.carrierInk]
+		] as const)
+			lines(batch(inkMembers.filter(select).flatMap(memberTrace), toColor).kanten.neu, material);
+		const legacy = current.filter((p) => p.token !== '--ink');
+		const main = legacy.filter((p) => !p.member || p.member === 'primary');
+		const ties = legacy.filter((p) => p.member === 'secondary' && !p.detail);
+		const rails = legacy.filter((p) => p.member === 'secondary' && p.detail);
+		lines(batch(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
+		lines(batch(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
+		lines(batch(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
+		lines(
+			batch(agedMembers.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor).kanten
+				.neu,
+			materials.stockPrimary
+		);
+		lines(
+			batch(agedMembers.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor).kanten
+				.neu,
+			materials.pencil
+		);
+		// Explicit bearing nodes with no axial member retain their existing ink mark.
+		const points = parts.carriers.flatMap((part) =>
+			part.kind === 'sphere' || part.token === '--ink' ? (part.bearings ?? []) : []
+		);
+		if (details && points.length)
+			objects.add(bearingDots(points, bearingGeometry, materials.bearing));
+	}
+
+	function drawAccents() {
+		const toAccent = (part: Primitive) => accentColor(part.token, part.shade);
+		const accent = batch(
+			parts.accents.filter((part) => !isSheet(part)),
+			toAccent
+		);
+		const accentSheets = batch(parts.accents.filter(isSheet), toAccent);
+		surface(accent.neu, materials.signal, materials.hull, true);
+		surface(accent.glas, materials.signal, materials.hull, true);
+		for (const faces of [accent.blatt, accentSheets.blatt, accentSheets.glas])
+			surface(faces, materials.signal, materials.sheetHull, true);
+		lines(accent.kanten.neu, materials.detail);
+		lines(accentSheets.kanten.neu, materials.perimeter);
+		const plainAccents = batch(parts.plainAccents, toAccent);
+		for (const faces of [plainAccents.neu, plainAccents.blatt, plainAccents.glas])
+			fill(faces, materials.signal, true);
+	}
+
+	function drawSpecialSurfaces() {
+		const conduit = conduitBatch(parts.conduits, toColor);
+		const pipes = surface(conduit.faces, materials.conduit, materials.hull, true);
+		pipes?.geometry.setAttribute('stationM', conduit.axis);
+		pipes?.geometry.setAttribute('railMark', conduit.rail);
+		const print = printBatch(parts.inlays, (p) =>
+			p.token.startsWith('--cat-business')
+				? toColor(p)
+				: colorOf(p.token.replace(/-\d$/, '') + '-2')
+		);
+		const chips = batch(parts.inlays, (p) =>
+			colorOf(p.token === '--cat-business' ? '--cat-business-2' : p.token.replace(/-\d$/, ''))
+		);
+		const inlay = mesh(print.neu, materials.inlay, true);
+		if (inlay) {
+			inlay.geometry.setAttribute('chipColor', new THREE.Float32BufferAttribute(chips.neu.c, 3));
+			inlay.castShadow = cast;
+			objects.add(paperEdge(inlay.geometry, materials.cut));
+		}
+		const portal = mesh(printBatch(parts.portals, toColor).neu, materials.solid, true);
+		if (portal) {
+			portal.castShadow = cast;
+			objects.add(paperEdge(portal.geometry, materials.cut));
+		}
+		const pigments = new Map(
+			primitives
+				.filter(
+					(p) =>
+						p.role === 'neu' &&
+						p.token.startsWith('--cat-') &&
+						/\/(fitting|vessel|feed)$/.test(p.id)
+				)
+				.map((p) => [
+					p.id.endsWith('/fitting')
+						? p.id.slice(0, -8)
+						: p.id.replace(/\/(vessel|feed)$/, '/module'),
+					p
+				])
+		);
+		const fired = ceramicBatch(parts.ceramics, pigments, (part) =>
+			part.token === '--paper' ? finishes.modelWhite : accentColor(part.token, part.shade)
+		);
+		if (fired.geometry) {
+			const casting = new THREE.Mesh(fired.geometry, materials.fired);
+			casting.castShadow = cast;
+			objects.add(casting, silhouette(fired.geometry, materials.hull));
+			hits.push(casting);
+		}
+		lines(fired.edges, materials.detail);
+	}
+
+	function drawStockAndBodies() {
+		const stock = batch(
+			parts.regular.filter((part) => part.role === 'bestand'),
+			toColor
+		);
+		const body = printBatch(
+			parts.regular.filter((part) => part.role !== 'bestand' && !isSheet(part)),
+			toColor
+		);
+		const sheets = printBatch(parts.regular.filter(isSheet), toColor);
+		for (const part of parts.glaze) {
+			if (part.kind !== 'mesh') continue;
+			const geometry = new THREE.BufferGeometry().setFromPoints(
+				part.points.map(([x, y, z]) => new THREE.Vector3(x, z, -y))
+			);
+			geometry.setIndex(part.triangles);
+			geometry.computeVertexNormals();
+			const face = new THREE.Mesh(geometry, materials.glaze);
+			face.castShadow = cast;
+			hits.push(face);
+			objects.add(face);
+			if (!unoutlined.has(part)) objects.add(new THREE.Mesh(geometry, materials.ceramicHull));
+		}
+		surface(body.neu, materials.solid, materials.hull, true);
+		surface(printBatch(parts.drawers, toColor).neu, materials.solid, materials.printHull, true);
+		surface(printBatch(parts.pods, toColor).neu, materials.pod, materials.printHull, true);
+		fill(printBatch(parts.plainPods, toColor).neu, materials.pod, true);
+		mesh(stock.alt, materials.stock, true);
+		mesh(stock.blatt, materials.stockSheet);
+		mesh(stock.glas, materials.stockSheet);
+		mesh(stock.hull.alt, materials.pencilHull);
+		surface(body.blatt, materials.sheet, materials.sheetHull, false);
+		surface(sheets.blatt, materials.sheet, materials.sheetHull, false);
+		surface(body.glas, materials.glass, materials.hull, false, false);
+		lines(stock.kanten.alt, materials.pencil);
+		if (details) lines(stockDetail(parts.regular), materials.stockDetail);
+		lines(body.kanten.neu, materials.detail);
+		lines(sheets.kanten.neu, materials.perimeter);
+		const plain = printBatch(parts.plain, toColor);
+		fill(plain.neu, materials.solid, true);
+		fill(plain.blatt, materials.sheet, false);
+		fill(plain.glas, materials.glass, false, false);
+	}
 }

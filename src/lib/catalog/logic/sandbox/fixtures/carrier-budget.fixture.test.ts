@@ -1,9 +1,4 @@
-import {
-	beginStroke,
-	createWorld,
-	extendStroke,
-	withState
-} from '../index';
+import { beginStroke, createWorld, extendStroke, withState } from '../index';
 const town = createWorld(7);
 const tool = { kind: 'house', style: 'megastructure', use: 'water' } as const;
 /** Prepares each pointer move from its previous stroke state. */

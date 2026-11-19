@@ -4,6 +4,7 @@ import { STORY } from '../../data/grid';
 import { insetRing, roofWalls } from '../house-brush';
 import type { Vec3 } from '../parametrik/types';
 import { buildingPlots } from './building-plots';
+import type { FrameInstallation } from './frame-state';
 import { applyEdit, frameSurvey, type World } from './index';
 import { frameCarrier } from './fixtures/frame-carrier.fixture.test';
 
@@ -29,6 +30,25 @@ function onCrown(world: World, house: string, p: Vec3) {
 	});
 }
 
+type Rods = Extract<FrameInstallation['result'], { status: 'sized' }>['rods'];
+
+function checkMembers(world: World, id: string, houses: readonly string[], rods: Rods) {
+	const chord = rods.find((r) => r.id === '2');
+	assert(chord);
+	for (const rod of rods) {
+		if (rod.id === '2') continue;
+		expect(houses.some((h) => onCrown(world, h, rod.a))).toBe(true);
+		expect([chord.a, chord.b]).toContainEqual(rod.b);
+		const part = world.state.parts.get(`tg/${id}/${Number(rod.id)}`);
+		assert(part?.kind === 'segment');
+		expect(part.frame?.member).toEqual(rod);
+	}
+	expect(rods.filter((r) => r.id === '0' || r.id === '1').map((r) => r.b)).toEqual([
+		chord.a,
+		chord.b
+	]);
+}
+
 function checkFrame(world: World) {
 	const survey = frameSurvey(world);
 	const mains = [...survey.seams.values()].filter(
@@ -44,20 +64,7 @@ function checkFrame(world: World) {
 		const site = survey.seams.get(id),
 			result = world.state.frameInstallations?.get(id)?.result;
 		assert(site && result?.status === 'sized');
-		const chord = result.rods.find((r) => r.id === '2');
-		assert(chord);
-		for (const rod of result.rods) {
-			if (rod.id === '2') continue;
-			expect(site.houses.some((h) => onCrown(world, h, rod.a))).toBe(true);
-			expect([chord.a, chord.b]).toContainEqual(rod.b);
-			const part = world.state.parts.get(`tg/${id}/${Number(rod.id)}`);
-			assert(part?.kind === 'segment');
-			expect(part.frame?.member).toEqual(rod);
-		}
-		expect(result.rods.filter((r) => r.id === '0' || r.id === '1').map((r) => r.b)).toEqual([
-			chord.a,
-			chord.b
-		]);
+		checkMembers(world, id, site.houses, result.rods);
 		count++;
 	}
 	return count;

@@ -27,11 +27,12 @@ export function houseDistricts() {
 		},
 		flush(write: (chunk: string, parts: Primitive[]) => void) {
 			for (const chunk of dirty) {
-				const members = districts.get(chunk)!;
-				const ordered = [...members.keys()].sort();
+				const members = districts.get(chunk);
+				if (!members) continue;
+				const ordered = [...members].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 				write(
 					chunk,
-					ordered.flatMap((key) => members.get(key)!)
+					ordered.flatMap(([, parts]) => parts)
 				);
 				if (!members.size) districts.delete(chunk);
 			}

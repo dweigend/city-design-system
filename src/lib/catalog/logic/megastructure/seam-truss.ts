@@ -46,7 +46,7 @@ export function trimBay(bay: BaySurvey, drawing: 'service' | 'nominal' = 'servic
 		};
 	const points = [bay.a, bay.b, bay.back, a, b];
 	if (bay.gateShoes) points.push(...bay.gateShoes);
-	const candidates=clearMembers(bay,points);
+	const candidates = clearMembers(bay, points);
 	if (![0, 1, 2].every((i) => candidates.some((c) => c.id === String(i))))
 		return {
 			status: 'rejected' as const,
@@ -55,7 +55,7 @@ export function trimBay(bay: BaySurvey, drawing: 'service' | 'nominal' = 'servic
 			geometry: bay,
 			loadCase: LOAD_CASE
 		};
-	const result=drawing==='service' ? serviceSections(bay,points,candidates) : undefined;
+	const result = drawing === 'service' ? serviceSections(bay, points, candidates) : undefined;
 	const sections = new Map(
 		result?.status === 'ok' ? result.staebe.map((r) => [r.id, r.querschnitt.durchmesserM]) : []
 	);
@@ -84,7 +84,7 @@ function nominalDiameter(id: string) {
 	return Number(id) < 2 ? 0.14 : FRAME_DIAMETER.brace;
 }
 
-function clearMembers(bay:BaySurvey,points:Vec3[]) {
+function clearMembers(bay: BaySurvey, points: Vec3[]) {
 	const edges = bay.gateShoes
 		? [
 				[0, 3],
@@ -101,8 +101,8 @@ function clearMembers(bay:BaySurvey,points:Vec3[]) {
 				[3, 4],
 				[2, 3],
 				[2, 4],
- [0, 4],
- [1, 3]
+				[0, 4],
+				[1, 3]
 			];
 	return edges.flatMap(([i, j], index) => {
 		const span = Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]);
@@ -134,7 +134,7 @@ function clearMembers(bay:BaySurvey,points:Vec3[]) {
 	});
 }
 
-function serviceSections(bay:BaySurvey,points:Vec3[],candidates:Aufgabe["kandidaten"]) {
+function serviceSections(bay: BaySurvey, points: Vec3[], candidates: Aufgabe['kandidaten']) {
 	const nodes = points.map((p, i) => ({ id: String(i), p }));
 	const task: Omit<Aufgabe, 'werkstoff'> = {
 		knoten: nodes.filter((_, i) => !bay.gateShoes || i !== 2),

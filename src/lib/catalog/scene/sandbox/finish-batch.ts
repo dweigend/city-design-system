@@ -23,6 +23,13 @@ function surfaceGeometry(part: Surface) {
 	const source = built.geometry;
 	const g = source.index ? source.toNonIndexed() : source;
 	if (source !== g) source.dispose();
+	chartSurface(g);
+	g.rotateY(built.rotation);
+	g.translate(...built.position.toArray());
+	return g;
+}
+
+function chartSurface(g: BufferGeometry) {
 	g.computeBoundingBox();
 	const bounds = g.boundingBox ?? new Box3();
 	const size = bounds.getSize(new Vector3());
@@ -45,9 +52,6 @@ function surfaceGeometry(part: Surface) {
 	}
 	g.setAttribute('finishChart', new Float32BufferAttribute(chart, 4));
 	g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
-	g.rotateY(built.rotation);
-	g.translate(...built.position.toArray());
-	return g;
 }
 
 /** Batches generated triangles by their assigned material. Caller owns returned geometry. */

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, test } from 'bun:test';
 import { Group, Vector3 } from 'three/webgpu';
 import { acceptanceScene, TWO_SUNS_TURNING_DISC } from '../../logic/sandbox';
@@ -5,7 +6,9 @@ import { kineticGroups } from './kinetic-groups';
 
 test('Two Suns stands on the surveyed cell and only the blue disc orbits in 90 seconds', () => {
 	const { world, additions } = acceptanceScene();
-	const center = world.grid.cellsById.get('111/42')!.center;
+	const cell = world.grid.cellsById.get('111/42');
+	assert(cell);
+	const { center } = cell;
 	const parts = additions.filter(({ id }) => id.startsWith('two-suns:'));
 	const [plinth, mast, finial, fixed, turning] = parts;
 	expect(parts).toHaveLength(5);

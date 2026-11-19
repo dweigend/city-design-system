@@ -246,9 +246,12 @@ test('town eraser selects a skywalk podium before the stock roof below it', asyn
 		try {
 			const ray = new T.Raycaster();
 			ray.setFromCamera(view.ndc(400, 300), view.camera);
-			roof.position.copy(
-				ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), 2 - z), new T.Vector3())!
+			const point = ray.ray.intersectPlane(
+				new T.Plane(new T.Vector3(0, 1, 0), 2 - z),
+				new T.Vector3()
 			);
+			assert(point);
+			roof.position.copy(point);
 			roof.userData.cellId = houseId;
 			roof.updateMatrixWorld();
 			const picker = createCellPicker(view);

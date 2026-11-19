@@ -361,9 +361,9 @@ export function createSandboxStage(
 	return {
 		ready: gpu.started,
 		/** Freeze the scene at a timeline coordinate in seconds, or resume playback with undefined. */
-		setTime: timeline.seek,
+		setTime: timeline.seek.bind(timeline),
 		/** Hold playback at the displayed frame until resumed. */
-		setPaused: timeline.pause,
+		setPaused: timeline.pause.bind(timeline),
 		view,
 		render,
 		/** Runs after the rendered camera and pick geometry are current. */
@@ -408,7 +408,7 @@ export function createSandboxStage(
 			worldShown(world, nextFocus);
 		},
 		/** Pauses vehicle simulation at its current pose. Other placement feedback continues. */
-		setTransitPaused: timeline.pauseTransit,
+		setTransitPaused: timeline.pauseTransit.bind(timeline),
 		/** Canvas size in CSS pixels. */
 		resize(width: number, height: number) {
 			renderer.setSize(width, height, false);

@@ -70,7 +70,8 @@ export function createVehicles() {
 		const geometry = car.geometry;
 		if (!geometry.boundingBox) geometry.computeBoundingBox();
 		car.updateMatrix();
-		swept.union(bounds.copy(geometry.boundingBox!).applyMatrix4(car.matrix));
+		if (geometry.boundingBox)
+			swept.union(bounds.copy(geometry.boundingBox).applyMatrix4(car.matrix));
 	}
 	let sampledMs: number | undefined;
 	function step(timeMs: number) {

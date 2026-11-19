@@ -55,9 +55,8 @@ const dimensions = defineParams({
 const current = resolveParams(dimensions);
 const historic = resolveParams(dimensions, { width: 0.24 });
 
-function derive(c: StructuralContact, partId: string): StructuralJoint {
-	const { member, support, axis, point } = c;
-
+function validateContact(c: StructuralContact) {
+	const { member, support, point } = c;
 	if (
 		![member.diameter, support.diameter].every((n) => Number.isFinite(n) && n > 0) ||
 		!point.every((n) => Number.isFinite(Math.fround(n))) ||
@@ -66,25 +65,35 @@ function derive(c: StructuralContact, partId: string): StructuralJoint {
 		member.id === support.id
 	)
 		throw new RangeError('Invalid structural contact');
+}
+
+function validateShoe(c: StructuralContact, shoe: boolean) {
+	if (shoe && !c.supportNormal)
+		throw new RangeError('Terrain and wall-crest shoes require a surveyed supportNormal');
+	if (shoe && c.supportProfile?.kind === 'round')
+		throw new RangeError('A shoe requires a planar bearing patch');
+}
+
+function bearingAxis(c: StructuralContact, normal: Vec3) {
+	const round = c.seat === 'frame-corner' || c.seat === 'chord' || c.seat === 'rail-saddle';
+	if (c.supportProfile?.kind === 'round') return c.supportProfile.axis;
+	return !c.supportProfile && round ? seatTangent(normal) : undefined;
+}
+
+function derive(c: StructuralContact, partId: string): StructuralJoint {
+	validateContact(c);
+	const { member, support, axis, point } = c;
+
 	const width = Math.min(
 		(styleForYear(c.built) === 'terrace' ? historic : current).width,
 		member.diameter / 4,
 		support.diameter / 4
 	);
 	const shoe = c.seat === 'terrain' || c.seat === 'wall-crest';
-	if (shoe && !c.supportNormal)
-		throw new RangeError('Terrain and wall-crest shoes require a surveyed supportNormal');
-	if (shoe && c.supportProfile?.kind === 'round')
-		throw new RangeError('A shoe requires a planar bearing patch');
+	validateShoe(c, shoe);
 	const direction = unit(axis);
 	const normal = c.supportNormal ? unit(c.supportNormal) : direction;
-	const round = c.seat === 'frame-corner' || c.seat === 'chord' || c.seat === 'rail-saddle';
-	const roundAxis =
-		c.supportProfile?.kind === 'round'
-			? c.supportProfile.axis
-			: !c.supportProfile && round
-				? seatTangent(normal)
-				: undefined;
+	const roundAxis = bearingAxis(c, normal);
 	const geometry = jointMeshes(shoe, member.diameter / 2, width);
 	const tangent = fitSeat(
 		geometry,

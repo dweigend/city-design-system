@@ -145,7 +145,7 @@ test('fine casting tessellation preserves both cap seats and the outer radius', 
 			const values = p.filter((_, i) => i % 3 === axis);
 			return [Math.min(...values), Math.max(...values)];
 		});
-	expect(geometry.index!.count).toBeGreaterThan(coarse.length / 3);
+	expect(geometry.index?.count ?? 0).toBeGreaterThan(coarse.length / 3);
 	geometry.dispose();
 	bounds(fine).forEach((v, i) => expect(v).toBeCloseTo(bounds(coarse)[i], 5));
 });

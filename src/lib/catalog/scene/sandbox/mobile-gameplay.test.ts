@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, test } from 'bun:test';
 import * as THREE from 'three/webgpu';
 import { applyEdit, openingScene, EMPTY_STATE, withState } from '../../logic/sandbox';
@@ -19,7 +20,11 @@ test('the playable town centres an occupied parcel between the HUD edges', () =>
 	expect(frameOldTown(view, world, openingArea)).toBe(true);
 	const centerY = (openingArea.top + openingArea.bottom) / 2;
 	const cell = [...world.state.stacks.keys()]
-		.map((id) => world.grid.cellsById.get(id)!)
+		.map((id) => {
+			const parcel = world.grid.cellsById.get(id);
+			assert(parcel);
+			return parcel;
+		})
 		.find(({ center }) => {
 			const { x, y } = view.project(center);
 			return Math.hypot(x - 195, y - centerY) < 0.001;

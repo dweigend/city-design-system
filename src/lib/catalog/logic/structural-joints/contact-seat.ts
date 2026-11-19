@@ -57,6 +57,22 @@ function roundHit(end: End, center: Vec3, direction: Vec3, radius: number, squas
 	return { point: along(end.point, end.axis, t), normal };
 }
 
+function flatCap(end: End, point: Vec3, normal: Vec3, radius: number) {
+	const hit = plane(end, point, normal);
+	if (
+		hit &&
+		Math.abs(hit.t) <= contactToleranceM &&
+		Math.hypot(...subtract(point, hit.point)) <= radius + contactToleranceM
+	)
+		return {
+			seat: 'block-transition',
+			point: hit.point,
+			supportNormal: normal,
+			supportProfile: { kind: 'plane' },
+			diameter: radius * 2
+		} satisfies Seat;
+}
+
 function endCap(end: End, surface: Round, direction: Vec3) {
 	const { a, b, radius, capped, capEnds, squash } = surface;
 	for (const [point, sign] of [
@@ -77,19 +93,8 @@ function endCap(end: End, surface: Round, direction: Vec3) {
 				} satisfies Seat;
 			continue;
 		}
-		const hit = plane(end, point, normal);
-		if (
-			hit &&
-			Math.abs(hit.t) <= contactToleranceM &&
-			Math.hypot(...subtract(point, hit.point)) <= radius + contactToleranceM
-		)
-			return {
-				seat: 'block-transition',
-				point: hit.point,
-				supportNormal: normal,
-				supportProfile: { kind: 'plane' },
-				diameter: radius * 2
-			} satisfies Seat;
+		const flat = flatCap(end, point, normal, radius);
+		if (flat) return flat;
 	}
 }
 

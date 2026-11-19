@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, test } from 'bun:test';
 import { Group, Matrix4, Mesh, Raycaster, Vector3 } from 'three/webgpu';
 import { focuses, present } from '../../logic/presentation';
@@ -68,6 +69,25 @@ test('within a visible district the draw and motion counts are independent of th
 	}
 });
 
+function checkCrownEdges(
+	hits: (x: number, z: number, target: Mesh) => boolean,
+	visible: Mesh,
+	seated: Mesh,
+	crown: Mesh
+) {
+	let entered = false,
+		vacated = false;
+	for (let mm = -160; mm <= 160; mm += 2) {
+		const x = mm / 1000;
+		const now = hits(x, 0, visible);
+		const before = hits(x, 0, seated);
+		expect(hits(x, 0, crown)).toBe(now);
+		entered ||= now && !before;
+		vacated ||= before && !now;
+	}
+	expect(entered && vacated).toBe(true);
+}
+
 test('the moving and vacated crown edges pick the same geometry as the screen, including after seek', () => {
 	const layer = createStructures();
 	try {
@@ -94,17 +114,7 @@ test('the moving and vacated crown edges pick the same geometry as the screen, i
 			layer.group.updateMatrixWorld(true);
 			expect(wall.matrixWorld.equals(new Matrix4())).toBe(true);
 			expect(crown.matrixWorld.equals(visible.matrixWorld)).toBe(true);
-			let entered = false,
-				vacated = false;
-			for (let mm = -160; mm <= 160; mm += 2) {
-				const x = mm / 1000;
-				const now = hits(x, 0, visible);
-				const before = hits(x, 0, seated);
-				expect(hits(x, 0, crown)).toBe(now);
-				entered ||= now && !before;
-				vacated ||= before && !now;
-			}
-			expect(entered && vacated).toBe(true);
+			checkCrownEdges(hits, visible, seated, crown);
 			expect(crown.userData.cellId).toBe('0/0');
 			if (t === 5000 && first.length) expect([...crown.matrixWorld.elements]).toEqual(first);
 			if (!first.length) first = [...crown.matrixWorld.elements];
@@ -114,16 +124,42 @@ test('the moving and vacated crown edges pick the same geometry as the screen, i
 	}
 });
 
+function checkHouseColors(
+	rendered: Primitive[],
+	id: string,
+	use: 'living' | 'water',
+	coarse: boolean
+) {
+	const wall = rendered.find((p) => p.id === id + '@3:wall');
+	expect(wall).toMatchObject({
+		token: use === 'living' ? '--body-living' : '--cat-health',
+		role: 'neu',
+		envelope: true
+	});
+	expect(rendered.find((p) => p.id === id + '@3:plate')).toMatchObject({
+		token: '--paper',
+		envelope: true
+	});
+	expect(
+		rendered
+			.filter((p) => p.id.startsWith(id + '@3') && p.token === '--cat-business')
+			.every((p) => p.id.includes(':figure:step'))
+	).toBe(true);
+	if (use === 'water')
+		expect(rendered.some((p) => p.id.includes(':figure') && p.token === '--cat-health')).toBe(true);
+	if (use === 'living')
+		expect(
+			rendered.filter((p) => p.id.startsWith(id + '@3:figure:step') && p.token === '--cat-business')
+		).toHaveLength(coarse ? 1 : 8);
+}
+
 test('colour bodies retain use-coloured walls, white plates and pink stairs across drawing levels', () => {
 	for (const use of ['living', 'water'] as const) {
 		const id = '86/43';
 		const world = applyEdit(createWorld(7), { kind: 'raise', style: 'collage', use, cellId: id });
-		const parts = houseView(
-			world,
-			currentStacks(world.state),
-			world.grid.cellsById.get(id)!.chunk,
-			focuses.all
-		);
+		const cell = world.grid.cellsById.get(id);
+		assert(cell);
+		const parts = houseView(world, currentStacks(world.state), cell.chunk, focuses.all);
 		for (const [level, coarse] of [
 			['full', false],
 			['silhouette', false],
@@ -137,31 +173,7 @@ test('colour bodies retain use-coloured walls, white plates and pink stairs acro
 			});
 			const layers = partition(drawing.parts, drawing.unoutlined);
 			const rendered = Object.values(layers).flat();
-			const wall = rendered.find((p) => p.id === id + '@3:wall');
-			expect(wall).toMatchObject({
-				token: use === 'living' ? '--body-living' : '--cat-health',
-				role: 'neu',
-				envelope: true
-			});
-			expect(rendered.find((p) => p.id === id + '@3:plate')).toMatchObject({
-				token: '--paper',
-				envelope: true
-			});
-			expect(
-				rendered
-					.filter((p) => p.id.startsWith(id + '@3') && p.token === '--cat-business')
-					.every((p) => p.id.includes(':figure:step'))
-			).toBe(true);
-			if (use === 'water')
-				expect(rendered.some((p) => p.id.includes(':figure') && p.token === '--cat-health')).toBe(
-					true
-				);
-			if (use === 'living')
-				expect(
-					rendered.filter(
-						(p) => p.id.startsWith(id + '@3:figure:step') && p.token === '--cat-business'
-					)
-				).toHaveLength(coarse ? 1 : 8);
+			checkHouseColors(rendered, id, use, coarse);
 		}
 	}
 });

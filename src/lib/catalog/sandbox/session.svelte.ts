@@ -161,7 +161,7 @@ export function createSession(
 			return world.state.futureTarget === 'sponge-city';
 		},
 		/** Replays the target toggle in input order with advances and strokes. */
-		toggleSpongeCity: () => control(actions.toggleSpongeCity, 'Sponge city'),
+		toggleSpongeCity: () => control(() => actions.toggleSpongeCity(), 'Sponge city'),
 		get tool() {
 			return selectedTool;
 		},

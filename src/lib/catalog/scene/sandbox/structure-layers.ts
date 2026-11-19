@@ -24,10 +24,18 @@ function isCasting(part: Primitive) {
 		['box', 'capsule', 'cylinder', 'sphere', 'torus', 'ring'].includes(part.kind)
 	);
 }
+function isPaperGlaze(part: Primitive) {
+	return part.kind === 'mesh' && part.material === 'glaze' && part.token === '--paper';
+}
+
 function newSurface(part: Primitive) {
 	if (part.kind === 'capsule' && part.printBand) return 'pods';
 	if (part.kind === 'prism' && part.topToken) return 'drawers';
-	if (part.kind === 'mesh' && part.material === 'glaze' && part.token === '--paper') return 'glaze';
+	if (isPaperGlaze(part)) return 'glaze';
+	return accentSurface(part);
+}
+
+function accentSurface(part: Primitive) {
 	if (isConduit(part)) return 'conduits';
 	if (isInlay(part) && isAccent(part)) return 'inlays';
 	if (isCasting(part)) return 'ceramics';
@@ -38,6 +46,10 @@ function layerOf(part: Primitive) {
 	if (part.material === 'ghost') return 'ghosts';
 	if (isStructural(part)) return 'carriers';
 	return part.role === 'neu' ? newSurface(part) : 'regular';
+}
+
+function surfaceBody(part: Primitive): Primitive {
+	return part.envelope ? { ...part, role: 'neu', glass: false } : part;
 }
 
 const keepLayer = new Set(['carriers', 'ghosts', 'glaze']);
@@ -70,8 +82,14 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 			parts.finished.push(original);
 			continue;
 		}
+
+		addSurface(original);
+	}
+	return parts;
+
+	function addSurface(original: Primitive) {
 		const part = collageCut(original);
-		const body: Primitive = part.envelope ? { ...part, role: 'neu', glass: false } : part;
+		const body = surfaceBody(part);
 		const layer = layerOf(part);
 		if (part.overprint)
 			parts[plainIds.has(part.id.split(':overprint:')[0]) ? 'plain' : 'regular'].push(body);
@@ -80,5 +98,4 @@ export function partition(primitives: Primitive[], unoutlined: ReadonlySet<Primi
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
 		else parts[part === original ? layer : 'portals'].push(body);
 	}
-	return parts;
 }

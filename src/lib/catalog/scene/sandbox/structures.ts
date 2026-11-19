@@ -207,7 +207,7 @@ export function createStructures() {
 			pending.set(key, { primitives, cellId, startedMs: startedMs ?? prior?.startedMs });
 		},
 		clear,
-		setJointView: joints.setView,
+		setJointView: joints.setView.bind(joints),
 		swept,
 		get shadowChanged() {
 			return shadowChanged;
@@ -261,8 +261,8 @@ export function createStructures() {
 			pending.clear();
 		},
 		/** Updates sandbox-only material settings in schema units. */
-		setParams: finishes.setParams,
-		setPalette: finishes.explicit.setPalette,
+		setParams: finishes.setParams.bind(finishes),
+		setPalette: finishes.explicit.setPalette.bind(finishes.explicit),
 		/** Detached ray targets for the structure keys with the given prefix. */
 		solids(prefix: string): THREE.Object3D[] {
 			const cached = hitLists.get(prefix);

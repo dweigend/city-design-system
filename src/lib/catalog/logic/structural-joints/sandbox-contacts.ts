@@ -101,19 +101,25 @@ export function sandboxStructuralContacts(
 	for (const { part, key, id, members } of parts) {
 		const stroke = part.member === 'secondary' ? 'secondary' : 'main';
 		for (const run of members)
-			for (const end of ends(run)) {
-				const member = { id, diameter: run.radius * 2 };
-				const candidates = supports.get(bucket(end.point[0], end.point[1])) ?? [];
-				for (const support of candidates) {
-					if (support.id === id) continue;
-					const site = surveySeat(end, support.surface, member.diameter, support.rail);
-					if (site) store(contact(end, site, member, support.id, key, built, stroke));
-				}
-				const ground = surveyGround(grid, end);
-				if (ground) store(contact(end, ground, member, ground.id, key, built, stroke));
-			}
+			for (const end of ends(run)) surveyEnd(end, { id, diameter: run.radius * 2 }, key, stroke);
 	}
 	return [...sites.values()];
+
+	function surveyEnd(
+		end: End,
+		member: StructuralContact['member'],
+		key: string,
+		stroke: StructuralContact['stroke']
+	) {
+		const candidates = supports.get(bucket(end.point[0], end.point[1])) ?? [];
+		for (const support of candidates) {
+			if (support.id === member.id) continue;
+			const site = surveySeat(end, support.surface, member.diameter, support.rail);
+			if (site) store(contact(end, site, member, support.id, key, built, stroke));
+		}
+		const ground = surveyGround(grid, end);
+		if (ground) store(contact(end, ground, member, ground.id, key, built, stroke));
+	}
 
 	function store(row: StructuralContact) {
 		const key = JSON.stringify([[row.member.id, row.support.id].sort(), row.anchor]);

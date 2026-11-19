@@ -123,7 +123,11 @@ function bandsOfRun(
 	stories: Map<string, Story>
 ) {
 	const ring = run.map(({ from: [x, y] }): Point2 => [x, y]);
-	const sides = run.map(({ cellId, index }) => ({ story: stories.get(cellId)!, index }));
+	const sides = run.map(({ cellId, index }) => {
+		const story = stories.get(cellId);
+		if (!story) throw Error('Missing story on print boundary');
+		return { story, index };
+	});
 	const abuts = sides.map((side) => contacts(site, mass, side, order));
 	return wallSides(ring, profile).flatMap((line, index) => {
 		const lap = lapInk(site.stacks, mass, sides[index].story, order);

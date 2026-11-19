@@ -234,6 +234,16 @@ export function structureMaterials() {
 		materials.portalInk.linewidth = far ? STRICHE.bestand : 0.12 * scale;
 		materials.braceInk.linewidth = STRICHE.bestand;
 		materials.braceInk.visible = !far;
+		styleCarrierStrokes(scale, minimum, far, ink);
+		styleStock(style);
+	}
+
+	function styleCarrierStrokes(
+		scale: number,
+		minimum: MinimumInk,
+		far: boolean,
+		ink: NonNullable<typeof palette>['ink'] | undefined
+	) {
 		for (const [diameter, material] of [
 			[0.18, materials.primary],
 			[0.14, materials.rib],
@@ -249,7 +259,6 @@ export function structureMaterials() {
 			const color = material.linewidth >= STRICHE.minimumTraeger ? ink : palette?.detail;
 			if (color) material.color.copy(color);
 		}
-		styleStock(style);
 	}
 
 	function styleStock(style: Stil) {

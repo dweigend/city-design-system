@@ -227,6 +227,29 @@ test('each split jaw bears on the cylinder in the frame-corner repro', () => {
 	expect(minima.slice(0, 2).every((m) => m <= r + 1e-6)).toBe(true);
 });
 
+function checkBearing(
+	j: ReturnType<typeof deriveStructuralJoints>[number],
+	c: StructuralContact,
+	round: boolean,
+	azimuth: number
+) {
+	if (round) {
+		const r = c.support.diameter / 2,
+			minima = minimumCylinderRadius(j, r, azimuth);
+		expect(minima.every((m) => m >= r - 1e-12)).toBe(true);
+		expect(minima.slice(0, 2).every((m) => m <= r + 1e-6)).toBe(true);
+	} else {
+		const yz = j.axis[0] * j.tangent[1] - j.axis[1] * j.tangent[0];
+		for (const mesh of j.geometry) {
+			const bottom = Math.min(
+				...mesh.points.map(([x, y, z]) => x * j.tangent[2] + y * yz + z * j.axis[2])
+			);
+			expect(bottom).toBeGreaterThanOrEqual(-1e-12);
+			if (mesh.feature === 'jaw') expect(bottom).toBeLessThan(1e-6);
+		}
+	}
+}
+
 test('random surveyed angles and profiles yield a bearing or a boundary error', () => {
 	for (let seed = 0; seed < 120; seed++) {
 		const c = contact(seed, 3);
@@ -250,20 +273,6 @@ test('random surveyed angles and profiles yield a bearing or a boundary error', 
 			expect(
 				mesh.points.every((p) => p.every((n) => Number.isFinite(n) && n === Math.fround(n)))
 			).toBe(true);
-		if (round) {
-			const r = c.support.diameter / 2,
-				minima = minimumCylinderRadius(j, r, azimuth);
-			expect(minima.every((m) => m >= r - 1e-12)).toBe(true);
-			expect(minima.slice(0, 2).every((m) => m <= r + 1e-6)).toBe(true);
-		} else {
-			const yz = j.axis[0] * j.tangent[1] - j.axis[1] * j.tangent[0];
-			for (const mesh of j.geometry) {
-				const bottom = Math.min(
-					...mesh.points.map(([x, y, z]) => x * j.tangent[2] + y * yz + z * j.axis[2])
-				);
-				expect(bottom).toBeGreaterThanOrEqual(-1e-12);
-				if (mesh.feature === 'jaw') expect(bottom).toBeLessThan(1e-6);
-			}
-		}
+		checkBearing(j, c, round, azimuth);
 	}
 });

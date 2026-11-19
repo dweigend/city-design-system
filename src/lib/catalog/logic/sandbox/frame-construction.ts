@@ -72,8 +72,9 @@ export function advanceFrames(
 	for (const id of region ?? survey.seams.keys()) install(id);
 	installFrameInfill(world, newBays, year, parts, installations);
 	function install(id: string) {
+		const previous = prior.get(id)?.built;
 		const role = stock.get(id)?.built;
-		if (!role || role === prior.get(id)?.built) return;
+		if (!role || role === previous) return;
 		const installation = proofs.get(id);
 		if (installation?.result.status !== 'sized') return;
 		installations.set(id, installation);
@@ -89,7 +90,7 @@ export function advanceFrames(
 			parts
 		);
 		compositions.set(owner, { id: owner, system: 'houses' });
-		if (!prior.get(id)?.built && world.state.futureTarget) newBays.push(id);
+		if (!previous && world.state.futureTarget) newBays.push(id);
 	}
 	const frameIntents = new Map(world.state.frameIntents);
 	for (const seam of planning.seams) if (seam.intent) frameIntents.set(seam.id, seam.intent);

@@ -28,7 +28,7 @@ test('seed 7 court at 47/40 retains a clear jamb and reports the join between it
 		assert(result?.status === 'sized');
 		const chord = result.rods.find((r) => r.id === '2');
 		assert(chord);
-		return {...chord,sizing:result.sizing};
+		return { ...chord, sizing: result.sizing };
 	});
 	const [a, b] = chords;
 	const closest = Math.min(
@@ -52,8 +52,8 @@ test('seed 7 court at 47/40 retains a clear jamb and reports the join between it
 				main: court.size,
 				longestRun,
 				joinGapM: closest,
-				crownHeightDifferenceM: Math.abs(a.a[2]-b.a[2]),
-				sizing: chords.map(r=>r.sizing),
+				crownHeightDifferenceM: Math.abs(a.a[2] - b.a[2]),
+				sizing: chords.map((r) => r.sizing),
 				chordDiametersM: chords.map((r) => r.diameter)
 			})
 	);
