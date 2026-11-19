@@ -17,7 +17,7 @@ export function accessShare(parts: HousePart[]) {
 		}
 		const volume = b.max.reduce((v, end, i) => v * (end - b.min[i]), 1);
 		total += volume;
-		if (p.id.includes('/stair/')) access += volume;
+		if (p.id.includes('/stair/') || p.id.includes('/landing-seat/')) access += volume;
 	}
 	return access / total;
 }

@@ -9,7 +9,11 @@ export function podLevel(plan: Plan, i: number, use: HouseUse): Level {
 	const z = plan.datum + i * STORY;
 	const b = objectSlot(
 		site.id + '/level/' + i + '/body/0',
-		['kit-crown-lantern-2p5m', 'low', use === 'living' ? 'capsule' : 'workshop'],
+		[
+			'kit-crown-lantern-2p5m',
+			Math.floor(i / 4) % 2 ? 'standard' : 'low',
+			use === 'living' ? 'capsule' : 'workshop'
+		],
 		use,
 		plan.seed,
 		0
@@ -25,7 +29,9 @@ export function podLevel(plan: Plan, i: number, use: HouseUse): Level {
 			: Math.max(1, Math.min(4, Math.floor((site.width - 0.6) / (w + 0.05))));
 	const width = Math.min(site.width, count * (w + 0.05) + 0.55);
 	const depth = Math.min(site.depth - site.accessDepth, d + 1.1);
-	const [cx] = site.center;
+	const cx =
+		site.center[0] +
+		(plan.type === 'terrace-house' && !site.compact ? (site.width - width) / 2 : 0);
 	const y = rear - (sign * depth) / 2;
 	const band = Math.min(0.9, Math.max(0.25, depth - d));
 	const overhang = Math.max(0, (w - site.width) / 2);

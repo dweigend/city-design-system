@@ -3,13 +3,17 @@ import { stairAxis } from './stair-fit';
 import { composeHouse } from '../house-typology';
 import type { HouseSite, Section } from './types';
 
+function ladderOffset(h: Section['composition']) {
+	if (h.compact) return -0.04;
+	return h.typology === 'tree-house' ? 1.05 : 0.2;
+}
 /** Adapts the frozen composition to the painted-house and stair projection seam. */
 export function planHouse(site: HouseSite): Section {
 	const composition = composeHouse(site, site.context);
 	const { cells, levels, crown, core, start, stories } = composition;
 	const sign = composition.accessSide === 'north' ? 1 : -1;
 	const rear = core.position[1] + sign * 0.15;
-	const offset = composition.compact ? -0.04 : 0.2;
+	const offset = ladderOffset(composition);
 	const section: Section = {
 		composition,
 		cells,
@@ -25,10 +29,26 @@ export function planHouse(site: HouseSite): Section {
 		depth: Math.max(...levels.map((l) => l.depth)),
 		top: composition.ground + stories * STORY,
 		decks: levels,
-		slots: levels.flatMap((l) => l.bodies).concat(crown),
+		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
+	const path = composition.path;
+	if (levels[0].well) {
+		section.compact = false;
+		section.stairAxis = [composition.bay.x, composition.bay.y];
+		return section;
+	}
+	if (path === 'ladder') {
+		if (section.typology === 'tree-house' && !composition.compact)
+			section.stairAxis = [composition.bay.x, composition.bay.y - 1.85];
+		return section;
+	}
+	if (path !== 'spiral') {
+		section.compact = composition.compact;
+		return section;
+	}
 	const axis = stairAxis(section, rear, sign);
+	if (!axis) composition.signature.stair = 'ladder';
 	if (axis) {
 		section.stairAxis = axis;
 		section.compact = false;

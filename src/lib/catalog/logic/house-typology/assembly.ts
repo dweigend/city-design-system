@@ -1,11 +1,33 @@
 import { required } from '../required';
 import { STORY } from '../../data/grid';
+import { tankOutlet } from './service';
 import { brace } from './brace';
 import { bearings, tierParts } from './frame';
 import { crownSpec, mounted, objectSlot, solid } from './objects';
 import type { Level, Point, Solid, Plan } from './types';
 import type { HouseRole } from './families';
 const volume = ([w, d, h]: Point) => w * d * h;
+function parapet(plan: Plan, plate: ReturnType<typeof solid>) {
+	if (plan.site.compact) return [];
+	const [w, d, h] = plate.size,
+		[x, y, z] = plate.position;
+	const n = Math.floor(w / 2.5);
+	return Array.from({ length: n }, (_, i) => {
+		const rail = objectSlot(
+			plate.id + '/rail/' + i,
+			['kit-parapet-rail-2p5m', 'two-post', 'workshop'],
+			'material',
+			plan.seed,
+			0
+		);
+		rail.position = [
+			x + w / 2 + (i - (n - 1) / 2) * 2.5,
+			y + (plan.sign > 0 ? 0.06 : d - 0.06),
+			z + h
+		];
+		return mounted(rail, plan.site.ground, 'beam');
+	});
+}
 function roof(
 	plan: Plan,
 	below: number,
@@ -14,9 +36,15 @@ function roof(
 	spec: ReturnType<typeof crownSpec>
 ) {
 	const { site, seed, rear } = plan;
-	const crown = objectSlot(site.id + '/crown', spec, 'energy', seed, 0);
+	const crown = objectSlot(
+		site.id + '/crown',
+		spec,
+		plan.type === 'water-house' ? 'water' : 'energy',
+		seed,
+		0
+	);
 	const [w, d] = crown.size,
-		x = site.center[0],
+		x = (stations[0] + stations[stations.length - 1]) / 2,
 		y = rear - (plan.sign * d) / 2;
 	crown.position = [x, y, z];
 	crown.anchor = 'roof';
@@ -42,7 +70,7 @@ function roof(
 		[x, rear - plan.sign * (plan.type === 'slab-house' ? 0.3 : 0.15), walkZ - 0.12],
 		[
 			stations[stations.length - 1] - stations[0] + plan.bar,
-			plan.type === 'slab-house' ? 0.6 : 0.24,
+			plan.type === 'slab-house' ? 0.6 : 0.3,
 			0.12
 		],
 		site.ground,
@@ -57,12 +85,32 @@ function roof(
 		parts: [
 			...bearings(plan, site.id + '/walk', below, walkZ - 0.12, stations),
 			walk,
+			...(site.programme.length > 8
+				? [brace(plan, site.id + '/walk/brace', stations, below, walkZ - 0.12, true)]
+				: []),
 			...bearings(plan, site.id + '/roof', walkZ, z - 0.25, stations),
 			...braces,
 			deck,
+			...parapet(plan, deck),
 			mounted(crown, site.ground, 'crown')
 		]
 	};
+}
+function entryLanding(plan: Plan, stations: number[]) {
+	const y = plan.rear - plan.sign * 0.625;
+	const width = stations[stations.length - 1] - stations[0] + 0.6;
+	const plate = solid(
+		plan.site.id + '/entry',
+		'deck',
+		[(stations[0] + stations[stations.length - 1]) / 2, y, plan.datum - 0.25],
+		[width, 1.25, 0.25],
+		plan.site.ground,
+		'deck'
+	);
+	return [
+		...bearings(plan, plan.site.id + '/entry', plan.site.ground, plan.datum - 0.25, stations),
+		plate
+	];
 }
 function balanced(parts: Solid[], bodies: number, crown: number) {
 	const total = parts.reduce((s, p) => s + volume(p.size), 0);
@@ -90,14 +138,24 @@ export function assemble(
 						: plan.site.depth - plan.site.accessDepth) &&
 				(role === 'high' || top + crown.size[2] <= skyline)
 		);
-	roofs.push(roof(plan, below, top, stations, ['charge-post', 'compact', 'lantern']));
+	const fallback =
+		plan.type === 'water-house'
+			? (['kit-crown-tank-2p5m', 'low', 'reservoir'] as const)
+			: (['charge-post', 'compact', 'lantern'] as const);
+	roofs.push(roof(plan, below, top, stations, fallback));
 	const bodies = levels.flatMap((l) => l.bodies).reduce((s, b) => s + volume(b.size), 0);
-	for (const ratio of [0.3, 0.24, 0.36, 0.18, 0.42]) {
-		const frame = levels.flatMap((l, i) => tierParts(plan, l, i, levels[i - 1], stations, ratio));
-		for (const { crown, parts: cap } of roofs) {
-			const parts = [...frame, ...cap];
-			if (balanced(parts, bodies, volume(crown.size))) return { parts, crown };
+	const outlets = tankOutlet(plan, levels);
+	const fittings = outlets.map((o) => o.slot);
+	for (const prefabricated of [true, false])
+		for (const ratio of [0.3, 0.24, 0.36, 0.18, 0.42, 0.1, 0.5, 0.04]) {
+			const entry = levels[0].position[2] > plan.datum ? entryLanding(plan, stations) : [];
+			const frame = levels.flatMap((l, i) =>
+				tierParts(plan, l, i, levels[i - 1], stations, ratio, prefabricated)
+			);
+			for (const { crown, parts: cap } of roofs) {
+				const parts = [...entry, ...frame, ...cap, ...outlets.map((o) => o.solid)];
+				if (balanced(parts, bodies, volume(crown.size))) return { parts, crown, fittings };
+			}
 		}
-	}
 	throw new RangeError('No balanced assembly for ' + plan.site.id + ' ' + plan.type);
 }

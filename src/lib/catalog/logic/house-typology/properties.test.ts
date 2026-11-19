@@ -43,7 +43,10 @@ const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
 function auditLevels(h: HouseComposition) {
 	for (const l of h.levels) {
 		const share = l.bodies.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) / l.deckArea;
-		if (!(share >= 0.55 && share <= 0.85))
+		if (
+			h.parts.some((p) => p.id === h.id + '/level/' + h.levels.indexOf(l) + '/deck') &&
+			!(share >= 0.55 && share <= 0.85)
+		)
 			return 'deck share ' + share + ' ' + l.bodies.map((b) => b.objectId);
 		if ((l.position[2] - h.datum) % 2 !== 0) return 'off datum';
 	}
@@ -66,6 +69,18 @@ function auditCapsules(h: HouseComposition, bodies: Bodies) {
 	}
 }
 type Bodies = HouseComposition['levels'][number]['bodies'];
+function repeatedStorey(h: HouseComposition) {
+	let previous = '',
+		count = 0;
+	for (const l of h.levels) {
+		const pattern = JSON.stringify(
+			l.bodies.map((b) => [b.objectId, b.variant, b.rotation, b.scale, b.position.slice(0, 2)])
+		);
+		count = l.use === 'living' && pattern === previous ? count + 1 : 1;
+		if (count > 4) return 'repeated living storey';
+		previous = pattern;
+	}
+}
 function audit(h: HouseComposition) {
 	const levelFinding = auditLevels(h);
 	if (levelFinding) return levelFinding;
@@ -79,7 +94,7 @@ function audit(h: HouseComposition) {
 		return 'missing brace';
 	const finding = checkFit(h.parts)[0];
 	if (finding) return JSON.stringify(finding);
-	return auditCapsules(h, bodies);
+	return auditCapsules(h, bodies) ?? repeatedStorey(h);
 }
 function* paintedSites() {
 	for (let seed = 0; seed < 32; seed++)
@@ -93,7 +108,16 @@ test('mass, deck coverage, joints and finite coordinates across painted sites', 
 		failures = new Map<string, string>();
 	let cases = 0;
 	for (const [seed, n, h, district, mix] of paintedSites()) {
-		const result = composeHouse(site(seed, n, h, district, mix));
+		const input = site(seed, n, h, district, mix);
+		let result: HouseComposition;
+		try {
+			result = composeHouse(input);
+		} catch (error) {
+			const type = [...planEnsemble([input]).houses.values()][0].typology;
+			if (!failures.has(type))
+				failures.set(type, [seed, n, h, district, mix, String(error)].join(' '));
+			continue;
+		}
 		const error = audit(result);
 		if (error && !failures.has(result.typology))
 			failures.set(result.typology, [seed, n, h, district, mix, error].join(' '));
@@ -102,6 +126,7 @@ test('mass, deck coverage, joints and finite coordinates across painted sites', 
 	}
 	console.info('Surveyed houses', cases, Object.fromEntries([...counts].sort()));
 	expect(Object.fromEntries(failures)).toEqual({});
+	expect(cases).toBe(25920);
 	expect([...counts.keys()].sort()).toEqual([...typologies].sort());
 }, 180000);
 test('128 ensembles retain their roles, palette and direct level spans under input permutation', () => {
@@ -123,6 +148,9 @@ test('128 ensembles retain their roles, palette and direct level spans under inp
 		expect(context).toEqual(planEnsemble([...sites].reverse()));
 		expect(houses[0]).toEqual(composeHouse(sites[0], context));
 		for (const h of houses) expect(audit(h)).toBeUndefined();
+		expect(houses.filter((h) => h.path === 'spiral').length).toBeLessThanOrEqual(
+			Math.floor(houses.length / 3)
+		);
 		const counts = new Map<string, number>();
 		for (const h of houses) counts.set(h.typology, (counts.get(h.typology) ?? 0) + 1);
 		expect([...counts.values()].filter((n) => n > 1)).toHaveLength(2);

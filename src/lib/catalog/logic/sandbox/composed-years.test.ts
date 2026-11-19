@@ -53,7 +53,10 @@ test('successive painted storeys remain reachable in one living stack', () => {
 			'painted house'
 		);
 		const decks = group.filter(
-			(p) => p.id.includes('/level/') && p.id.endsWith('/deck') && p.kind === 'prism'
+			(p) =>
+				p.id.includes('/level/') &&
+				(p.id.endsWith('/deck') || p.id.endsWith('/landing')) &&
+				p.kind === 'prism'
 		);
 		expect(decks).toHaveLength(stories);
 		for (const deck of decks) {

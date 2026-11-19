@@ -1,6 +1,22 @@
 import { required } from '../required';
 import type { Point, Solid, Plan } from './types';
 
+/** Subdivides tall shaft spans into alternating triangulated bays no higher than a storey. */
+export function braceBays(
+	plan: Plan,
+	id: string,
+	stations: number[],
+	bottom: number,
+	top: number,
+	reverse: boolean
+) {
+	if (plan.site.programme.length <= 8) return [brace(plan, id, stations, bottom, top, reverse)];
+	const count = Math.max(1, Math.ceil((top - bottom) / 4));
+	const at = (k: number) => bottom + ((top - bottom) * k) / count;
+	return Array.from({ length: count }, (_, k) =>
+		brace(plan, id + '/lattice/' + k, stations, at(k), at(k + 1), k % 2 ? !reverse : reverse)
+	);
+}
 /** A diagonal flat-ended strut between successive slabs, with its two actual horizontal bearing faces. */
 export function brace(
 	plan: Plan,
@@ -10,10 +26,20 @@ export function brace(
 	top: number,
 	reverse: boolean
 ): Solid {
-	const width = Math.min(0.12, plan.bar),
+	const width = plan.site.programme.length > 8 ? 0.3 : 0.12,
 		inset = plan.bar,
 		low = stations[0] + inset,
-		high = required(stations.at(-1), 'bearing station') - inset;
+		end = required(stations.at(-1), 'bearing station') - inset,
+		high = [
+			'portal-house',
+			'bridge-house',
+			'rack',
+			'deck-tower',
+			'bell-house',
+			'twin-stack'
+		].includes(plan.type)
+			? Math.min(end, low + 1.25)
+			: end;
 	const y = plan.rear - plan.sign * (plan.type === 'slab-house' ? 0.45 : 0.15);
 	const points: Point[] = [];
 	for (const [x, z] of [

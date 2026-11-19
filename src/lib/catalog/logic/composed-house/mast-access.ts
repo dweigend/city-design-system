@@ -15,7 +15,12 @@ export function mastRoute(s: Section) {
 	const legs = stops.slice(1).flatMap((end, flight) => {
 		const start = stops[flight];
 		const count = Math.max(1, Math.ceil(Math.abs(end[2] - start[2]) / 4));
-		const station = (i: number): Vec3 => [x, y, start[2] + ((end[2] - start[2]) * i) / count];
+		const station = (i: number): Vec3 =>
+			i === 0
+				? start
+				: i === count
+					? end
+					: (start.map((v, k) => v + ((end[k] - v) * i) / count) as Vec3);
 		return Array.from({ length: count }, (_, i) => {
 			const from = station(i),
 				to = station(i + 1);
@@ -36,8 +41,7 @@ export function mastRoute(s: Section) {
 /** Fits rigid rungs between continuous stiles, with a side landing at each deck opening. */
 export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	const id = s.id + '/stair/',
-		route = mastRoute(s),
-		[x, y] = route.axis;
+		route = mastRoute(s);
 	const stock = houseObject('ladder', 'rung-bay', s.seed, {
 		instanceId: id + 'ladder',
 		slots: { body: surfaces.frame }
@@ -48,8 +52,11 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	}).parts[0];
 	if (plate.kind !== 'prism') throw new Error('Expected ladder landing');
 	const sign = s.composition.accessSide === 'north' ? 1 : -1;
-	const extra = route.rests.map(([x, y, z]) => ({ door: [x, y - sign * 0.6, z] as Vec3 }));
-	const landings = [...route.docks, ...extra].map(({ door: [dx, dy, z] }, i) => ({
+	const extra = route.rests.map(([x, y, z]) => ({
+		door: [x, y - (s.typology === 'tree-house' ? 1 : sign) * 0.6, z] as Vec3,
+		station: [x, y, z] as Vec3
+	}));
+	const landings = [...route.docks, ...extra].map(({ door: [dx, dy, z], station: [x, y] }, i) => ({
 		...plate,
 		id: id + 'landing/' + i,
 		z: z - plate.height,
@@ -70,10 +77,11 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 			const copies = j === 0 ? count : 1;
 			return Array.from({ length: copies }, (_, k) => ({
 				...(j === 0 ? rung : p),
+				radius: 0.06,
 				id: id + (j === 0 ? 'rung/' : 'ladder/') + i + '/' + j + '/' + k,
 				points: p.points.map(([u, , v]): Vec3 => [
-					x + u,
-					y,
+					to[0] + u + (from[0] - to[0]) * (j === 0 ? (k + 1) / count : v / 0.28),
+					to[1],
 					to[2] + (j === 0 ? (k + 1) / count : v / 0.28) * height
 				])
 			}));
@@ -86,12 +94,12 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 		return Array.from({ length: n }, (_, j) => ({
 			...rail,
 			id: id + 'cage/' + i + '/' + j,
-			radius: 0.016,
+			radius: 0.06,
 			points: Array.from({ length: 9 }, (_, k): Vec3 => {
 				const angle = (k * Math.PI) / 8;
 				return [
-					x + 0.34 * Math.cos(angle),
-					y + sign * 0.34 * Math.sin(angle),
+					to[0] + ((from[0] - to[0]) * (j + 0.5)) / n + 0.34 * Math.cos(angle),
+					to[1] + sign * 0.34 * Math.sin(angle),
 					to[2] + ((from[2] - to[2]) * (j + 0.5)) / n
 				];
 			})
