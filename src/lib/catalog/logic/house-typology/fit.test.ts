@@ -73,11 +73,15 @@ test('courtyard holes and a rotated narrow beam cannot create fictitious bearing
 	).toEqual(['floating']);
 });
 test('a stretched registry member can be diagnosed from its source address alone', () => {
-	const member = buildObject('living-capsule', 'studio', 41).parts[0];
-	if (member.kind !== 'box') throw Error('Expected a capsule base');
-	const source = { objectId: 'living-capsule', variant: 'studio', seed: 41, member: 0 };
-	expect(checkFit([{ ...member, source }])).toEqual([]);
-	expect(
-		checkFit([{ ...member, source, size: [10, member.size[1], member.size[2]] }]).map((f) => f.code)
-	).toContain('rigid-scale');
+	const parts = buildObject('living-capsule', 'studio', 41).parts;
+	const index = parts.findIndex((p) => p.kind === 'capsule');
+	const member = parts[index];
+	if (member?.kind !== 'capsule') throw Error('Expected a capsule shell');
+	const source = { objectId: 'living-capsule', variant: 'studio', seed: 41, member: index };
+	const { from, to } = member;
+	const stretched = from.map((v, k) => v + 3 * (to[k] - v)) as typeof to;
+	expect(checkFit([{ ...member, source }]).map((f) => f.code)).not.toContain('rigid-scale');
+	expect(checkFit([{ ...member, source, to: stretched }]).map((f) => f.code)).toContain(
+		'rigid-scale'
+	);
 });
