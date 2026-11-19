@@ -1,10 +1,14 @@
 import type { ObjectGeometry } from './object-geometry';
+import { suggestions } from './objects/suggestions';
 import { mount, type AssetRecipe } from './definition';
 import { slab, rod } from './parts';
+
+import { stairCheek } from './stair-cheek';
 
 export const escalator: AssetRecipe = {
 	id: 'escalator',
 	slotNames: ['body', 'deck', 'glass'],
+	suggestions: { body: suggestions.frame, deck: suggestions.shell, glass: suggestions.screen },
 	category: 'infrastructure',
 	variants: ['compact', 'concourse', 'paired'],
 	footprint: [7.8, 4.5],
@@ -28,13 +32,10 @@ export const escalator: AssetRecipe = {
 			for (const side of [-0.69, 0.69]) {
 				const Y = y + side;
 				parts.push(
-					rod([-run / 2, Y, 0.12], [run / 2, Y, n * h + 0.12], 0.11),
+					rod([-run / 2, Y, 0.16], [run / 2, Y, n * h + 0.16], 0.15),
 					rod([-run / 2, Y, 0.93], [run / 2, Y, n * h + 0.93], 0.077)
 				);
-				for (let i = 0; i <= n; i += 1) {
-					const x = -run / 2 + i * t;
-					parts.push(slab([x - 0.04, Y - 0.036, i * h + 0.12], [0.08, 0.072, 0.8], 'glass'));
-				}
+				parts.push(stairCheek(-run / 2, run / 2, Y, 0.12, n * h + 0.12, 0.81, 0.13, 'glass'));
 			}
 		}
 		return parts;

@@ -6,6 +6,9 @@ export const solarRoof: AssetRecipe = {
 	id: 'solar-roof',
 	slotNames: ['body', 'channel'],
 	category: 'roofs',
+	suggestions: {
+		channel: { material: 'greenhouse', finish: 'glas-photovoltaik', token: '--blueprint' }
+	},
 	variants: ['single-rack', 'paired-array', 'power-canopy'],
 	footprint: [7.8, 4.9],
 	anchors: [mount('roof')],
@@ -19,8 +22,8 @@ export const solarRoof: AssetRecipe = {
 			const x = (i - n / 2) * 2.53;
 			for (const y of [-1.85, 1.85])
 				parts.push(
-					slab([x + 0.15, y, 0], [0.12, 0.12, 0.72]),
-					slab([x + w - 0.28, y, 0], [0.12, 0.12, 0.31])
+					slab([x + 0.15, y, 0], [0.3, 0.3, 0.72]),
+					slab([x + w - 0.44, y, 0], [0.3, 0.3, 0.31])
 				);
 			parts.push({
 				...surface('channel'),
@@ -29,12 +32,12 @@ export const solarRoof: AssetRecipe = {
 				size: [w, l, h - 0.28],
 				low: 0.09
 			});
-			for (let j = 1; j < 6; j++)
+			for (let j = 1; j < 3; j++)
 				parts.push(
 					rod(
-						[x, -l / 2 + (j * l) / 6, h + 0.018],
-						[x + w, -l / 2 + (j * l) / 6, 0.28 + 0.09 * (h - 0.28) + 0.018],
-						0.018
+						[x, -l / 2 + (j * l) / 3, h + 0.06],
+						[x + w, -l / 2 + (j * l) / 3, 0.28 + 0.09 * (h - 0.28) + 0.06],
+						0.06
 					)
 				);
 		}

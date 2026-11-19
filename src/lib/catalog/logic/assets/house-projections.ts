@@ -4,7 +4,7 @@ const asset = family('house-bodies', 'facade');
 export const houseProjections = [
 	asset('cantilever-room', ['accent', 'body', 'glass'], [4, 5], (factor) => [
 		block(1.9, 0, 0.65, 3.8, 4.8 * factor, 2.5, 'accent'),
-		...row(2, (t) => rod([0.1, t * 1.7 * factor, 0.1], [3.65, t * 1.7 * factor, 0.65], 0.08)),
+		...row(2, (t) => rod([0.18, t * 1.7 * factor, 0.18], [3.65, t * 1.7 * factor, 0.65], 0.15)),
 		block(3.82, 0, 1.4, 0.08, 3.9 * factor, 1, 'glass')
 	]),
 	asset('display-bay', ['body', 'glass'], [1.8, 4], (factor) => [

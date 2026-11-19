@@ -1,11 +1,26 @@
+import { panel } from './objects/forms';
 import { family, block, row, plate, circle, shell, slope } from './assembly';
 import { drum } from './parts';
 const asset = family('house-bodies', 'deck');
 export const houseVolumes = [
-	asset('plug-box', ['accent', 'glass'], [5, 4], (factor) => [
-		block(0, 0, 0, 4.8 * factor, 3.6, 2.8, 'accent'),
-		block(0, -1.81, 1.1, 3.8 * factor, 0.08, 1, 'glass')
-	]),
+	asset('plug-box', ['accent', 'glass'], [5, 4], (factor, v) => {
+		const w = 4.8 * factor,
+			h = 2.8,
+			sill = 0.64;
+		return [
+			panel(0, 0, 0, w, 3.6, sill, 'accent'),
+			panel(0, 0, h - 0.42, w, 3.6, 0.42, 'accent'),
+			panel(0, 1.58, sill, w - 0.2, 0.36, h - 0.42 - sill, 'accent'),
+			...[-1, 1].map((side) =>
+				panel(side * (w / 2 - 0.18), 0, sill, 0.36, 3.4, h - 0.42 - sill, 'accent')
+			),
+			panel(0, -1.38, sill, w - 0.5, 0.14, h - 0.42 - sill, 'glass'),
+			...row(2 + v, (t) =>
+				panel(t * (w / 2 - 0.23), -1.52, sill, 0.13, 0.2, h - 0.42 - sill, 'accent')
+			),
+			panel(0, 0.58, sill, w - 0.75, 0.68, 0.43, 'accent')
+		];
+	}),
 	asset('court-block', ['accent'], [8, 8], (factor) => [
 		plate(
 			[
@@ -37,19 +52,19 @@ export const houseVolumes = [
 	]),
 	asset('terraced-body', ['accent', 'body', 'planting'], [8, 6], (factor, variant) => [
 		...row(3 + variant, (_, i) =>
-			block(-i * 0.45, 0, i * 2, 8 - i * 0.95, 5.8, 2, i % 2 ? 'body' : 'accent')
+			panel(-i * 0.45, 0, i * 2, 8 - i * 0.95, 5.8, 2, i % 2 ? 'body' : 'accent')
 		),
 		block(-1.1, 0, (3 + variant) * 2, 2 * factor, 3, 0.15, 'planting')
 	]),
 	asset('offset-stack', ['body', 'accent'], [7, 5], (factor, variant) => [
 		...row(3 + variant, (_, i) =>
-			block(((i % 2) - 0.5) * 1.4, 0, i * 2.5, 5.5 * factor, 4.8, 2.5, i % 2 ? 'accent' : 'body')
+			panel(((i % 2) - 0.5) * 1.4, 0, i * 2.5, 5.5 * factor, 4.8, 2.5, i % 2 ? 'accent' : 'body')
 		)
 	]),
 	asset('gallery-bar', ['accent', 'body'], [10, 4], (factor, variant) => [
 		block(0, 0.5, 0, 9.6 * factor, 2.8, 3, 'accent'),
 		block(0, -1.4, 0, 10 * factor, 1, 0.22),
-		...row(4 + variant, (t) => drum([t * 4.7 * factor, -1.8, 0.22], 0.07, 2.8)),
+		...row(4 + variant, (t) => drum([t * 4.7 * factor, -1.76, 0.22], 0.15, 2.8)),
 		block(0, -1.4, 3, 10 * factor, 1, 0.14)
 	]),
 	asset('tube-house', ['accent', 'body'], [4, 7], (factor) => [
@@ -58,7 +73,7 @@ export const houseVolumes = [
 	]),
 	asset('setback-storey', ['body', 'accent', 'glass'], [7, 5], (factor) => [
 		block(0, 0, 0, 6.8 * factor, 4.8, 0.26),
-		block(-0.45 * factor, 0.45, 0.26, 5.5 * factor, 3.7, 2.8, 'accent'),
+		panel(-0.45 * factor, 0.45, 0.26, 5.5 * factor, 3.7, 2.8, 'accent'),
 		block(-0.45 * factor, -1.42, 1.1, 4.7 * factor, 0.08, 0.95, 'glass')
 	]),
 	asset('lantern-head', ['body', 'glass', 'highlight'], [6, 6], (factor, variant) => [

@@ -15,14 +15,18 @@ export const balcony: AssetRecipe = {
 		const parts = [slab([0, -w / 2, 0], [d, w, 0.16])];
 		for (const y of [-w / 2 + 0.06, w / 2 - 0.06]) {
 			parts.push(
-				rod([0.04, y, h], [d - 0.05, y, h], 0.04),
-				rod([d - 0.05, y, 0.16], [d - 0.05, y, h], 0.045)
+				rod([0.04, y, h], [d - 0.05, y, h], 0.07),
+				rod([d - 0.05, y, 0.16], [d - 0.05, y, h], 0.065)
 			);
 		}
-		parts.push(rod([d - 0.05, -w / 2 + 0.06, h], [d - 0.05, w / 2 - 0.06, h], 0.045));
-		for (let i = 1; i < 6; i++)
+		parts.push(rod([d - 0.05, -w / 2 + 0.06, h], [d - 0.05, w / 2 - 0.06, h], 0.065));
+		for (let i = 1; i < variant + 3; i++)
 			parts.push(
-				rod([d - 0.05, -w / 2 + (i * w) / 6, 0.16], [d - 0.05, -w / 2 + (i * w) / 6, h], 0.027)
+				rod(
+					[d - 0.05, -w / 2 + (i * w) / (variant + 3), 0.16],
+					[d - 0.05, -w / 2 + (i * w) / (variant + 3), h],
+					0.06
+				)
 			);
 		if (variant === 2) parts.push(slab([0.16, -w / 2 + 0.12, 0.16], [0.55, 1.4, 0.35], 'trim'));
 		return parts;

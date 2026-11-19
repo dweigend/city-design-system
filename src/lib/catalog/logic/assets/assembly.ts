@@ -41,8 +41,8 @@ export function block(
 }
 
 /** Four columns inset from the specified corner axes. */
-export function legs(x: number, y: number, h: number, r = 0.12) {
-	return [-x, x].flatMap((a) => [-y, y].map((b) => drum([a, b, 0], r, h)));
+export function legs(x: number, y: number, h: number, r = 0.16) {
+	return [-x, x].flatMap((a) => [-y, y].map((b) => drum([a, b, 0], Math.max(0.15, r), h)));
 }
 
 /** Repeats a detail in stable left-to-right order; t spans −1 to 1. */

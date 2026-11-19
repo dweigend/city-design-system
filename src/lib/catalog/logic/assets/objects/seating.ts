@@ -45,10 +45,10 @@ export const seating = [
 		...circle(0.28 + 0.24 * span, 3 + variant).map(([x, y]) =>
 			rail(
 				[
-					[x, y, 0.03],
+					[x, y, 0.15],
 					[x * 0.55, y * 0.55, 0.37]
 				],
-				0.04
+				0.15
 			)
 		),
 		post(0, 0, 0.37, 0.34 + 0.2 * span, 0.08, 'slats')

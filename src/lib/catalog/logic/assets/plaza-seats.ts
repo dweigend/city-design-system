@@ -61,7 +61,7 @@ export const plazaSeats = [
 	]),
 	asset('swing-seat', ['body', 'accent'], [4, 2], (factor) => [
 		shell('vault', 0, 0, 0, 3.8, 0.32, 3 * factor, 0.21),
-		...row(2, (t) => rod([t * 0.78, 0, 0.64], [t * 0.78, 0, 2.59 * factor], 0.03)),
+		...row(2, (t) => rod([t * 0.78, 0, 0.64], [t * 0.78, 0, 2.59 * factor], 0.06)),
 		block(0, 0, 0.49, 1.88, 0.85, 0.18, 'accent')
 	]),
 	asset('crescent-seat', ['highlight'], [4, 4], (factor) => [

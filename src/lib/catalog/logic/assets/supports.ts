@@ -62,7 +62,7 @@ export const supports = [
 		},
 		rod([-1.1, 0, 5 * factor], [2.7, 0, 6 * factor], 0.14),
 		rod([-1.1, 0, 3.4 * factor], [2.7, 0, 6 * factor], 0.11),
-		rod([2.7, 0, 6 * factor], [2.7, 0, 3 * factor], 0.04)
+		rod([2.7, 0, 6 * factor], [2.7, 0, 3 * factor], 0.06)
 	]),
 	asset('pipe-rack', ['body', 'channel'], [6, 3], (factor, variant) => [
 		...legs(2.7, 1.2, 2.2),

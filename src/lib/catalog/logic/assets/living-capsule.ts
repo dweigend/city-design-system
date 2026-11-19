@@ -1,41 +1,41 @@
 import { mount, type AssetRecipe } from './definition';
-import { slab, surface } from './parts';
+import { panel } from './objects/forms';
+import { suggestions } from './objects/suggestions';
+import { ring, surface } from './parts';
+import type { ObjectGeometry } from './object-geometry';
 
 export const livingCapsule: AssetRecipe = {
 	id: 'living-capsule',
 	slotNames: ['accent', 'body', 'glass'],
+	suggestions: { accent: suggestions.foot, body: suggestions.body, glass: suggestions.diffuser },
 	category: 'capsules',
 	variants: ['studio', 'twin', 'longhouse'],
 	footprint: [9.1, 3.1],
 	anchors: [mount('deck')],
 	draw(variant, sample) {
-		const half = [1.25, 2.0, 3][variant],
-			r = 1.34 + 0.045 * sample,
-			z = r + 0.23;
-		const parts = [
-			slab([-half, -0.83, 0], [half * 2, 1.66, 0.54], 'accent'),
-			{
-				...surface(),
-				kind: 'capsule' as const,
-				from: [-half, 0, z] as [number, number, number],
-				to: [half, 0, z] as [number, number, number],
-				radius: r
-			}
+		const half = [1.25, 2, 3][variant],
+			r = 1.32 + 0.045 * sample,
+			z = r + 0.22;
+		const parts: ObjectGeometry[] = [
+			panel(0, 0, 0, half * 2 + 0.9, 2, 0.55, 'accent'),
+			{ ...surface(), kind: 'capsule', from: [-half, 0, z], to: [half, 0, z], radius: r }
 		];
 		for (const side of [-1, 1]) {
-			const y = side < 0 ? -r - 0.012 : r - 0.12;
-			parts.push(slab([-half - 0.13, y, z - 0.26], [2 * half + 0.26, 0.132, 0.58], 'glass'));
-			for (let i = 0; i < variant + 2; i++)
+			for (let bay = 0; bay <= variant; bay++) {
+				const x = half * ((2 * bay + 1) / (variant + 1) - 1);
+				const bezel = ring([x, side * (r + 0.025), z], 0.66, 0.5, 0.26, 'accent');
 				parts.push(
-					slab(
-						[
-							-half + ((i + 0.5) * 2 * half) / (variant + 2),
-							side < 0 ? y - 0.02 : y + 0.11,
-							z - 0.26
-						],
-						[0.055, 0.045, 0.58]
-					)
+					{ ...bezel, rotation: Math.PI / 2 },
+					{
+						...bezel,
+						slot: 'glass',
+						radius: 0.51,
+						innerRadius: 0,
+						depth: 0.15,
+						rotation: Math.PI / 2
+					}
 				);
+			}
 		}
 		return parts;
 	}

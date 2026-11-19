@@ -18,7 +18,7 @@ export const tankFrame: AssetRecipe = {
 			for (let i = 0; i <= n; i++) {
 				const x = -w / 2 + 0.15 + (i * (w - 0.3)) / n;
 				parts.push(drum([x, y, 0], 0.085, h));
-				if (i < n) parts.push(rod([x, y, 0.14], [x + (w - 0.3) / n, y, h], 0.048));
+				if (i < n) parts.push(rod([x, y, 0.14], [x + (w - 0.3) / n, y, h], 0.06));
 			}
 		for (let i = 0; i < n; i++) {
 			const x = (i - (n - 1) / 2) * 2.64;

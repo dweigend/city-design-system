@@ -35,7 +35,26 @@ export const assetCategories = [
 	'recycling',
 	'public-art',
 	'textiles',
-	'small-architecture'
+	'small-architecture',
+	'habitat-pods',
+	'transit-crossings',
+	'stair-towers',
+	'memphis-blocks',
+	'water-terraces',
+	'roof-groves',
+	'market-canopies',
+	'folded-lanterns',
+	'rooftop-equipment',
+	'service-manifolds',
+	'public-life',
+	'occupied-decks',
+	'inhabited-modules',
+	'promenade-furniture',
+	'planted-terraces',
+	'studio-sculptures',
+	'scaffold-yards',
+	'park-specimens',
+	'cycling-life'
 ] as const;
 export type AssetCategory = (typeof assetCategories)[number];
 export type Attachment = 'facade' | 'roof' | 'deck';

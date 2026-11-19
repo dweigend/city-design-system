@@ -26,7 +26,7 @@ export const playgrounds = [
 			rod(
 				[[-1.28, -0.54, 0.54, 1.28][i], 0, 0.59],
 				[[-1.28, -0.54, 0.54, 1.28][i], 0, 2.8 * factor],
-				0.024
+				0.06
 			)
 		)
 	]),
@@ -49,7 +49,7 @@ export const playgrounds = [
 	asset('play-bars', ['highlight', 'body'], [4, 2], (factor) => [
 		...row(2, (t) => drum([t * 1.55, 0, 0], 0.11, 2.55 * factor, 'highlight')),
 		...row(4, (_, i) =>
-			rod([-1.55, 0, (0.52 + i * 0.64) * factor], [1.55, 0, (0.52 + i * 0.64) * factor], 0.045)
+			rod([-1.55, 0, (0.52 + i * 0.64) * factor], [1.55, 0, (0.52 + i * 0.64) * factor], 0.06)
 		)
 	]),
 	asset('rope-dome', ['highlight', 'body'], [5, 5], (factor) => [
@@ -69,7 +69,7 @@ export const playgrounds = [
 	asset('skate-ramp', ['body'], [5, 3], (factor) => [
 		slope(0, 0, 0, 4.4, 2.6, 1.65 * factor),
 		block(-2.32, 0, 0, 0.24, 2.6, 1.65 * factor),
-		rod([-2.18, -1.27, 1.65 * factor], [-2.18, 1.27, 1.65 * factor], 0.055)
+		rod([-2.18, -1.27, 1.65 * factor], [-2.18, 1.27, 1.65 * factor], 0.06)
 	]),
 	asset('jump-bed', ['body', 'highlight', 'deck'], [3, 3], (factor, variant) => [
 		plate(circle(1.4, 4 + 2 * variant), 0, 0.15, 'body', circle(1.1 * factor).reverse()),
