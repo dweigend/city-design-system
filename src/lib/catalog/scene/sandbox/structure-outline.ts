@@ -1,14 +1,18 @@
 import {
+	BackSide,
 	BufferGeometry,
+	type Color,
 	InstancedBufferGeometry,
 	InstancedBufferAttribute,
 	Material,
 	Mesh,
+	MeshBasicNodeMaterial,
 	type Node
 } from 'three/webgpu';
 import {
 	attribute,
 	cameraProjectionMatrix,
+	float,
 	positionView,
 	screenDPR,
 	screenSize,
@@ -34,6 +38,20 @@ export const outlineOffsets = new InstancedBufferAttribute(
 /** Identifies the ceramic finishes with a continuous ink contour. */
 export function hasGlazeContour(finish: string | undefined) {
 	return finish === 'keramik-glasiert' || finish === 'glaze';
+}
+
+export type GlazeContour = { ink: Color; material?: MeshBasicNodeMaterial };
+const glazeContourPosition = outlinePositionAtOffset(float(1.1));
+
+/** Caches the 1.1 CSS px glaze contour per scene. Mutating its live ink refreshes the palette. */
+export function glazeContourMaterial(contour: GlazeContour): MeshBasicNodeMaterial {
+	if (!contour.material) {
+		const material = new MeshBasicNodeMaterial({ side: BackSide });
+		material.color = contour.ink;
+		material.vertexNode = glazeContourPosition;
+		contour.material = material;
+	}
+	return contour.material;
 }
 
 /** Creates a screen-space contour sharing the face positions. Caller owns the returned geometry. */

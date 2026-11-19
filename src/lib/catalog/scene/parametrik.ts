@@ -1,6 +1,10 @@
 import { finishMaterials } from './sandbox/finish-materials';
-import { hasGlazeContour, outlinePositionAtOffset, silhouette } from './sandbox/structure-outline';
-import { float } from 'three/tsl';
+import {
+	glazeContourMaterial,
+	hasGlazeContour,
+	silhouette,
+	type GlazeContour
+} from './sandbox/structure-outline';
 import { sceneSwatch } from './scene-palette';
 import { chartSurface } from './sandbox/finish-batch';
 import { bindSceneTheme } from './themeBinding';
@@ -42,6 +46,7 @@ export function createParametrikScene(
 	renderer.toneMapping = THREE.NoToneMapping;
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	const materials = new Map<string, THREE.Material>();
+	const glazeContour: GlazeContour = { ink: new THREE.Color(palette.ink) };
 	let explicit: ReturnType<typeof finishMaterials> | undefined;
 	const usedMaterials = new Set<string>();
 	const painters: (() => void)[] = [];
@@ -436,27 +441,9 @@ export function createParametrikScene(
 				}
 				if (built.rulings)
 					segments(built.rulings, place, existing, built.edges === false ? 0.8 : 0.6);
-				// Inverted hull: screen-space normal extrusion, only on curved primitives.
+				// Glazed bodies use the shared screen-space silhouette.
 				if (hasGlazeContour(finish) && !see) {
-					const contour = () => {
-						const key = 'glaze-contour';
-						usedMaterials.add(key);
-						let material = materials.get(key);
-						if (!material) {
-							const ink = new THREE.MeshBasicNodeMaterial({
-								side: THREE.BackSide,
-								color: inkColor(false)
-							});
-							ink.vertexNode = outlinePositionAtOffset(float(1.1));
-							materials.set(key, ink);
-							material = ink;
-						}
-						return material;
-					};
-					const hull = silhouette(geometry, contour());
-					painters.push(() => {
-						hull.material = contour();
-					});
+					const hull = silhouette(geometry, glazeContourMaterial(glazeContour));
 					hull.position.copy(place.position);
 					hull.rotation.copy(place.rotation);
 					parent.add(hull);
@@ -514,6 +501,7 @@ export function createParametrikScene(
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (next) => {
 		palette = next;
 		explicit?.setPalette(next);
+		glazeContour.ink.set(next.ink);
 		signal.set(next.categories['--signal'] || next.ink);
 		// The invisible proxy is palette-independent and keeps its material identity.
 		for (const [key, material] of materials)
@@ -605,6 +593,7 @@ export function createParametrikScene(
 			alive = false;
 			clear();
 			explicit?.dispose();
+			glazeContour.material?.dispose();
 			controls?.dispose();
 			for (const material of materials.values()) material.dispose();
 			materials.clear();

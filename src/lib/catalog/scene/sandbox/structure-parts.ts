@@ -13,7 +13,7 @@ import { stockDetail } from './stock-detail';
 import { partition } from './structure-layers';
 import { finishedMeshes } from './finish-batch';
 import { printBatch, printGeometry } from './print-batch';
-import { hasGlazeContour, silhouette } from './structure-outline';
+import { glazeContourMaterial, hasGlazeContour, silhouette } from './structure-outline';
 
 /** Bakes the local fittings into one ink draw, leaving them out of the picking geometry. */
 export function jointMesh(joints: readonly StructuralJoint[], material: THREE.Material) {
@@ -127,7 +127,8 @@ export function populateStructures(
 	for (const face of finishedMeshes(parts.finished, finishes.explicit.material)) {
 		face.castShadow = cast;
 		objects.add(face);
-		if (hasGlazeContour(face.material.name)) objects.add(silhouette(face.geometry, materials.hull));
+		if (hasGlazeContour(face.material.name))
+			objects.add(silhouette(face.geometry, glazeContourMaterial(finishes.glazeContour)));
 		hits.push(face);
 	}
 	drawStockAndBodies();
