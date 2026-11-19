@@ -148,8 +148,15 @@ async function compareRays() {
 	const targets = new Map<World, THREE.Object3D[]>();
 	let displayed: THREE.Object3D[] = [];
 	let marked: string | undefined;
+	let frameDrawn: (() => void) | undefined;
 	const hover = createCanvasHover(
 		{
+			afterFrame(listener) {
+				frameDrawn = listener;
+				return () => {
+					frameDrawn = undefined;
+				};
+			},
 			show(world) {
 				const solids = targets.get(world);
 				assert.ok(solids);
@@ -171,6 +178,7 @@ async function compareRays() {
 		const { x, y } = position;
 		targets.set(world, town.solids);
 		hover.show(world, 'all');
+		frameDrawn?.();
 		if (!world.roofBuilder) hover.move(position);
 		const ray = new THREE.Raycaster();
 		ray.params.Line.threshold = scene.view.metersPerPixel() / 2;

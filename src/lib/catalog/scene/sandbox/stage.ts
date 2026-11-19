@@ -114,6 +114,7 @@ export function createSandboxStage(
 		canvas.dataset.structureVariant = variant;
 		refreshTones = false;
 	}
+	const frameListeners = new Set<() => void>();
 	let pending = 0;
 	/** At most one image per animation frame, however many inputs arrive. */
 	function render() {
@@ -125,6 +126,7 @@ export function createSandboxStage(
 			pixelsPerMeter.value = 1 / view.metersPerPixel();
 			updateStyle();
 			renderer.render(scene, view.camera);
+			for (const listener of frameListeners) listener();
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		});
 	}
@@ -217,6 +219,13 @@ export function createSandboxStage(
 
 	return {
 		ready: gpu.started,
+		/** Runs after the rendered camera, pick meshes and their world matrices are current. */
+		afterFrame(listener: () => void) {
+			frameListeners.add(listener);
+			return () => {
+				frameListeners.delete(listener);
+			};
+		},
 		view,
 		render,
 		/**
@@ -285,6 +294,7 @@ export function createSandboxStage(
 		dispose() {
 			stopTheme();
 			cancelAnimationFrame(pending);
+			frameListeners.clear();
 			removeLines(baseLines);
 			removeLines(cursor);
 			if (terrain) terrain.dispose();

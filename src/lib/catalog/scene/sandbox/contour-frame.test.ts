@@ -12,6 +12,7 @@ import {
 	type World
 } from '../../logic/sandbox';
 import { contourWidthMeters } from './contour-width';
+import { frameClock } from './fixtures/frame-clock';
 import type { SandboxStage } from './stage';
 
 // Isolate the renderer prototype and the manual animation clock from the other scene tests.
@@ -30,53 +31,6 @@ else
 		}
 	);
 
-function frameClock() {
-	const noop = () => {};
-	const callbacks = new Map<number, FrameRequestCallback>();
-	let id = 0,
-		scene: T.Scene;
-	Object.assign(globalThis, {
-		$state: (value: unknown) => value,
-		devicePixelRatio: 1,
-		document: {
-			documentElement: { dataset: {}, appendChild: noop },
-			createElement: () => ({ style: {}, remove: noop, getContext: () => null })
-		},
-		getComputedStyle: () => ({ color: '#808080', getPropertyValue: () => '' }),
-		matchMedia: () => ({ matches: false, addEventListener: noop }),
-		addEventListener: noop,
-		requestAnimationFrame: (fn: FrameRequestCallback) => {
-			callbacks.set(++id, fn);
-			return id;
-		},
-		cancelAnimationFrame: (i: number) => callbacks.delete(i)
-	});
-	Object.assign(T.WebGPURenderer.prototype, {
-		init: async () => {},
-		setSize: noop,
-		setPixelRatio: noop,
-		dispose: noop,
-		render: (s: T.Scene) => {
-			scene = s;
-		}
-	});
-	return {
-		canvas: () =>
-			({
-				dataset: {},
-				style: {},
-				appendChild: noop,
-				addEventListener: noop,
-				removeEventListener: noop
-			}) as unknown as HTMLCanvasElement,
-		draw: () => {
-			const frame = [...callbacks.values()];
-			callbacks.clear();
-			for (const fn of frame) fn(0);
-			return scene;
-		}
-	};
-}
 function outlined(scene: T.Scene, count: number) {
 	let body: T.Mesh | undefined;
 	scene.traverse((o) => {
