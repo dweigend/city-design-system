@@ -121,11 +121,11 @@ export function houseLinks(
 			})
 		);
 	const occupied = new Set<string>();
-	return budget(spans, sections.length).map(span=>{
-		const owner=[span.a,span.b].find(id=>!occupied.has(id));
-		if(!owner) return span;
-		const pair=bridgePair(span.route,span.id,seed,surfaces);
-		if(pair.length) occupied.add(owner);
-		return {...span,parts:[...span.parts,...pair]};
+	return budget(spans, sections.length).map((span) => {
+		const owner = [span.a, span.b].find((id) => !occupied.has(id));
+		if (!owner) return span;
+		const pair = bridgePair(span.route, span.id, seed, surfaces);
+		if (pair.length) occupied.add(owner);
+		return { ...span, parts: [...span.parts, ...pair] };
 	});
 }

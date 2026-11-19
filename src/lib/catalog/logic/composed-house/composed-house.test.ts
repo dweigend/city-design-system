@@ -1,10 +1,14 @@
 import { buildObject } from '../assets';
 import { expect, test } from 'bun:test';
+import { checkFit } from '../house-typology';
+import { accessShare } from './access-budget';
+import { bounds } from '../ansicht/geometrie';
 import { STORY } from '../../data/grid';
 import { squareGrid } from '../quad-grid';
 import type { HouseUse } from '../../data/house-body';
 import {
 	houseLinks,
+	circulation,
 	houseSurfaces,
 	type HouseSurfaces,
 	composedGroups,
@@ -27,65 +31,30 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 		for (let seed = 0; seed < 5; seed++) {
 			const s = planHouse(site(n, seed)),
 				parts = sectionParts(s),
-				posts = parts.filter((p) => p.id.includes('/post/') && p.kind === 'cylinder');
+				route = circulation(s);
 			expect(s.top).toBe(cells[0].pad + n * STORY);
-			const roof = parts.find((p) => p.id.endsWith('/roof-walk'));
-			if (roof?.kind !== 'prism') throw Error('Missing roof walk');
-			expect(roof.z + roof.height).toBeCloseTo(s.top);
-			expect(s.decks.length).toBe(n <= 2 ? 1 : n <= 5 ? 2 : s.decks.length);
-			if (n >= 4) expect(s.decks.filter((d) => d.kind === 'void')).toHaveLength(1);
-			const levels = new Set<number>();
-			for (const p of parts) {
-				if (p.kind === 'prism') {
-					const bearing = ['landing', 'stairs'].includes(p.source.objectId) ? p.z + p.height : p.z;
-					const support = p.id.includes('/stair/')
-						? Math.min(...s.cells.flatMap((c) => c.corners.map((p) => p[2])))
-						: s.base[2];
-					expect(bearing).toBeGreaterThanOrEqual(support - 1e-8);
-				}
-				if (p.id.includes('/stair/') && p.kind === 'prism')
-					levels.add(Math.round((p.z + p.height) * 1000));
-			}
-			for (const [i, d] of s.decks.entries()) {
-				expect(levels.has(Math.round(d.position[2] * 1000))).toBe(true);
-				const inside = (x: number, y: number) => {
-					const u = (2 * (x - d.position[0])) / d.width,
-						v = (2 * (y - d.position[1])) / d.depth;
-					return (d.round ? Math.hypot(u, v) : Math.max(Math.abs(u), Math.abs(v))) <= 1.000001;
-				};
-				expect(
-					posts.filter(
-						(p) =>
-							p.kind === 'cylinder' &&
-							inside(p.position[0], p.position[1]) &&
-							p.position[2] + p.height >= d.position[2]
-					)
-				).toHaveLength(5);
-				const body = s.slots.find((a) => a.id === s.id + '/tier/' + i + '/body');
-				if (!body) continue;
-				expect(body.position[2]).toBe(d.position[2]);
-				for (const u of [-0.5, 0.5])
-					for (const v of [-0.5, 0.5])
-						expect(
-							inside(body.position[0] + u * body.size[0], body.position[1] + v * body.size[1])
-						).toBe(true);
-				const row = s.slots.filter(
-					(a) => a.id.startsWith(body.id) && a.position[2] === d.position[2]
+			expect(checkFit(s.composition.parts)).toEqual([]);
+			expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
+			expect(route.docks.map((d) => d.door).slice(1)).toEqual(
+				[...s.composition.levels].reverse().map((l) => l.landing)
+			);
+			expect(route.stops.length).toBe(s.decks.length + 2);
+			expect(s.composition.people.length).toBeGreaterThanOrEqual(2);
+			expect(s.composition.people.length).toBeLessThanOrEqual(6);
+			for (const [i, p] of s.composition.people.entries()) {
+				const feet = parts.filter((part) => part.id.startsWith(s.id + '/people/' + i + '/'));
+				expect(Math.min(...feet.map((f) => bounds(f).min[2]))).toBeCloseTo(
+					s.decks[p.level].position[2]
 				);
-				const area =
-					row.reduce((sum, a) => sum + a.size[0] * a.size[1], 0) /
-					(d.width * d.depth * (d.round ? Math.PI / 4 : 1));
-				expect(area).toBeGreaterThanOrEqual(0.5);
-				expect(area).toBeLessThanOrEqual(0.8);
 			}
-			expect(levels.has(Math.round(s.top * 1000))).toBe(true);
+			expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
 		}
 });
 test('a continuous living programme stacks capsules by count and cell order preserves the composition', () => {
 	for (let n = 1; n <= 12; n++) {
 		const input = site(n, 12, true);
 		const capsules = planHouse(input).slots.filter((s) => s.kind === 'capsule');
-		expect(capsules.every((c) => c.size[2] === capsules[0].size[2])).toBe(true);
+		expect(capsules.every((c) => c.scale >= 0.85 && c.scale <= 1.15)).toBe(true);
 		if (n >= 3) expect(new Set(capsules.map((c) => c.position[2])).size).toBeGreaterThanOrEqual(2);
 		expect(composedHouse(input)).toEqual(composedHouse({ ...input, cells: [...cells].reverse() }));
 	}
@@ -107,15 +76,9 @@ test('an edit keeps independent houses and their mutual link byte-identical', ()
 test('the same mixed paint allows distinct WFC compositions by seed', () => {
 	const paint = site(9, 2);
 	const compositions = new Set(
-		Array.from({ length: 32 }, (_, seed) =>
-			planHouse({ ...paint, seed })
-				.decks.map((d) => d.kind)
-				.join('/')
-		)
+		Array.from({ length: 32 }, (_, seed) => planHouse({ ...paint, seed }).typology)
 	);
 	expect(compositions.size).toBeGreaterThan(1);
-	expect(planHouse(site(4, 2)).typology).toBe('house');
-	expect(planHouse(site(5, 2)).typology).toBe('tower');
 });
 
 test('replacing every named surface changes no generated geometry', () => {
@@ -137,7 +100,9 @@ test('reassigning the capsule glass leaves its shell and the continuous frame un
 		...houseSurfaces,
 		pane: { token: '--signal', finish: 'holz-natur' }
 	});
-	const glass = before.filter((p) => p.id.includes('/living-capsule/') && p.finish === 'glas-klar');
+	const glass = before.filter(
+		(p) => p.source.objectId.startsWith('kit-capsule') && p.finish === 'glas-klar'
+	);
 	expect(glass.length).toBeGreaterThan(0);
 	for (const [i, part] of before.entries()) {
 		if (part.finish === 'glas-klar')
@@ -184,12 +149,56 @@ test('every house and bridge part traces to a colour-free registry member and it
 		objects.add(objectId);
 	}
 	for (const id of [
-		'primitive-cylinder',
-		'primitive-box',
+		'kit-column-foot-0p5m',
+		'kit-column-head-0p5m',
+		'kit-column-shaft-2m',
+		'kit-capsule-cradle-2p5m',
 		'primitive-slab',
-		'primitive-pipe',
-		'lattice-mast',
 		'stairs'
 	])
 		expect(objects.has(id)).toBe(true);
+});
+
+test('a seated pod takes a stair in a clear elongated bay and a caged ladder with four-metre rests on a square', () => {
+	const unit = squareGrid(1, 1, 1).cells[0];
+	function house(depth: number, width = 4, pad = 8) {
+		const corners = unit.corners.map(
+			([x, y, z]) => [x * width, y * depth, z] as [number, number, number]
+		);
+		const [a, b, c, d] = corners;
+		const cell = { ...unit, pad, corners: [a, b, c, d] as const };
+		return planHouse({
+			cells: [cell],
+			stacks: new Map([[cell.id, Array(4).fill('living')]]),
+			seed: 2
+		});
+	}
+	let stair = false;
+	for (let depth = 4; depth <= 12; depth += 0.25) {
+		const h = house(depth),
+			route = circulation(h);
+		if (stair) expect(h.compact).toBe(false);
+		if (depth === 4) expect(h.compact).toBe(true);
+		if (h.compact) {
+			expect(
+				route.legs.every((l) => l.kind === 'ladder' && Math.abs(l.to[2] - l.from[2]) <= 4)
+			).toBe(true);
+			const parts = sectionParts(h);
+			expect(parts.some((p) => p.id.includes('/stair/cage/'))).toBe(true);
+			for (const l of route.legs.slice(0, -1))
+				expect(
+					parts.some(
+						(p) =>
+							p.kind === 'prism' &&
+							p.id.includes('/stair/landing/') &&
+							Math.abs(p.z + p.height - l.to[2]) < 0.001
+					)
+				).toBe(true);
+		} else {
+			stair = true;
+			expect(route.legs.some((l) => l.kind === 'ladder')).toBe(false);
+		}
+	}
+	expect(stair).toBe(true);
+	expect(house(4, 12, 0).compact).toBe(false);
 });

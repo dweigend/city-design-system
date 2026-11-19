@@ -56,8 +56,10 @@ function inspectPair(a: Entry, b: Entry, findings: Finding[]) {
 	if (Math.min(...overlap) <= tolerance) return;
 	const af = a.faces ?? (a.polygon ? [a.polygon] : undefined),
 		bf = b.faces ?? (b.polygon ? [b.polygon] : undefined);
-	const ac = a.p.kind === 'cylinder' ? a.p : undefined,
-		bc = b.p.kind === 'cylinder' ? b.p : undefined;
+	const disc = (p: FitPart) =>
+		p.kind === 'cylinder' || p.kind === 'dome' || p.kind === 'sphere' ? p : undefined;
+	const ac = disc(a.p),
+		bc = disc(b.p);
 	if (ac && bc && circleDepth(ac, bc) <= tolerance) return;
 	if (ac && bf && bf.every((f) => discDepth(ac, f) <= tolerance)) return;
 	if (bc && af && af.every((f) => discDepth(bc, f) <= tolerance)) return;
@@ -67,6 +69,12 @@ function inspectPair(a: Entry, b: Entry, findings: Finding[]) {
 		part: a.p.id,
 		other: b.p.id
 	});
+}
+/** Tests two world-space parts at the same two-centimetre tolerance as the assembly audit. */
+export function partsIntersect(a: FitPart, b: FitPart) {
+	const findings: Finding[] = [];
+	inspectPair(describe(a), describe(b), findings);
+	return findings.length > 0;
 }
 function inspectJoint(e: Entry, grounded: Set<FitPart>, findings: Finding[]) {
 	const { p, joint: j, above, below } = e;

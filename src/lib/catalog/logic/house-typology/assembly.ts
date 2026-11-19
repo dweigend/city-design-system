@@ -25,21 +25,39 @@ function roof(
 		'deck',
 		[x, y, z - 0.25],
 		[
-			Math.min(site.width,Math.max(w + 0.6, required(stations.at(-1), 'bearing station') - stations[0] + 0.4)),
-			Math.min(site.depth,d + (site.compact ? 0 : 0.6)),
+			Math.min(
+				site.width,
+				Math.max(w + 0.6, required(stations.at(-1), 'bearing station') - stations[0] + 0.4)
+			),
+			Math.min(site.depth, d + (site.compact ? 0 : 0.6)),
 			0.25
+		],
+		site.ground,
+		'deck'
+	);
+	const walkZ = site.base + site.programme.length * STORY;
+	const walk = solid(
+		site.id + '/roof-walk',
+		'deck',
+		[x, rear - plan.sign * (plan.type === 'slab-house' ? 0.3 : 0.15), walkZ - 0.12],
+		[
+			stations[stations.length - 1] - stations[0] + plan.bar,
+			plan.type === 'slab-house' ? 0.6 : 0.24,
+			0.12
 		],
 		site.ground,
 		'deck'
 	);
 	const braces =
 		z + crown.size[2] - site.ground >= 8
-			? [brace(plan, site.id + '/roof/brace', stations, below, z - 0.25, false)]
+			? [brace(plan, site.id + '/roof/brace', stations, walkZ, z - 0.25, false)]
 			: [];
 	return {
 		crown,
 		parts: [
-			...bearings(plan, site.id + '/roof', below, z - 0.25, stations),
+			...bearings(plan, site.id + '/walk', below, walkZ - 0.12, stations),
+			walk,
+			...bearings(plan, site.id + '/roof', walkZ, z - 0.25, stations),
 			...braces,
 			deck,
 			mounted(crown, site.ground, 'crown')
@@ -63,7 +81,15 @@ export function assemble(
 		top = below + STORY + (role === 'high' ? STORY / 2 : 0);
 	const roofs = [false, true]
 		.map((small) => roof(plan, below, top, stations, crownSpec(plan.type, small)))
-		.filter(({ crown }) => crown.size[0] <= plan.site.width && crown.size[1] <= plan.site.depth && (role === 'high' || top + crown.size[2] <= skyline));
+		.filter(
+			({ crown }) =>
+				crown.size[0] <= plan.site.width &&
+				crown.size[1] + (plan.site.compact ? 0 : 0.3) <=
+					(plan.site.compact
+						? Math.min(3.6, plan.site.depth)
+						: plan.site.depth - plan.site.accessDepth) &&
+				(role === 'high' || top + crown.size[2] <= skyline)
+		);
 	roofs.push(roof(plan, below, top, stations, ['charge-post', 'compact', 'lantern']));
 	const bodies = levels.flatMap((l) => l.bodies).reduce((s, b) => s + volume(b.size), 0);
 	for (const ratio of [0.3, 0.24, 0.36, 0.18, 0.42]) {

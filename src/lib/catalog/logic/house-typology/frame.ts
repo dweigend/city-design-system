@@ -36,7 +36,7 @@ export function bearings(
 }
 function bodySolid(b: Body, ground: number): Solid {
 	const occupied = mounted(b, ground, b.kind === 'capsule' ? 'capsule' : 'body');
-	if (b.objectId !== 'drum-house') return occupied;
+	if (b.objectId !== 'drum-house' && b.objectId !== 'kit-crown-lantern-2p5m') return occupied;
 	return {
 		...occupied,
 		kind: 'cylinder',
@@ -86,7 +86,11 @@ function frontBearings(
 		'twin-stack',
 		'plinth-house'
 	];
-	if (!frames.includes(plan.type)) return [];
+	if (
+		prev?.bodies.some((b) => b.objectId === 'kit-crown-lantern-2p5m') ||
+		!frames.includes(plan.type)
+	)
+		return [];
 	const edge = (d: Level) => d.position[1] - plan.sign * (d.depth / 2 - 0.15);
 	const y = edge(prev ?? l);
 	if (Math.abs(y - l.position[1]) + plan.bar / 2 > l.depth / 2 + 1e-9) return [];
@@ -132,12 +136,17 @@ export function tierParts(
 		members.push(brace(plan, id + '/brace', stations, below, z - thickness, i % 2 === 1));
 	const pieces = l.bodies.flatMap((b) => {
 		const [w, d] = worldSize(b);
+		const socket = [Math.min(w * 0.75, l.width * 0.7), Math.min(d * 0.75, l.depth * 0.65)];
+		const center = (k: 0 | 1, span: number) =>
+			l.position[k] +
+			Math.sign(b.position[k] - l.position[k]) *
+				Math.min(Math.abs(b.position[k] - l.position[k]), (span - socket[k]) / 2);
 		return [
 			solid(
 				b.id + '/socket',
 				'socket',
-				[b.position[0], b.position[1], z],
-				[Math.min(w * 0.75,l.width*0.7), Math.min(d * 0.75,l.depth*0.65), 0.12],
+				[center(0, l.width), center(1, l.depth), z],
+				[socket[0], socket[1], 0.12],
 				site.ground,
 				'frame'
 			),

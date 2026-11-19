@@ -9,6 +9,7 @@ import {
 } from '../composed-house';
 import type { Vec3 } from '../parametrik/types';
 import { bounds } from '../ansicht/geometrie';
+import { partsIntersect } from '../house-typology';
 import { buildObject } from '../assets';
 
 const palette = {
@@ -78,23 +79,34 @@ function inspect(s: Section) {
 			expect(climb).toBeLessThanOrEqual(3.02);
 		} else climb = 0;
 	}
-	expect(length).toBeLessThanOrEqual(2.2 * (s.top - s.base[2]));
-	const inside = (x: number, y: number) =>
+	expect(length).toBeLessThanOrEqual(2.2 * (s.top - path.stops[path.stops.length - 1][2]));
+	const inside = (x: number, y: number, margin: number) =>
 		s.cells.some((c) =>
 			c.corners.every(([u, v], i) => {
 				const next = c.corners[(i + 1) % 4];
-				return (next[0] - u) * (y - v) - (next[1] - v) * (x - u) >= -1e-6;
+				return (
+					(next[0] - u) * (y - v) - (next[1] - v) * (x - u) >=
+					-margin * Math.hypot(next[0] - u, next[1] - v) - 1e-6
+				);
 			})
 		);
 	const occupied = parts
 		.filter((p) => p.id.includes('/body/') || p.id.includes('/post/'))
-		.map(bounds);
+		.map((p) => {
+			const b = bounds(p);
+			const points = planPoints(p);
+			for (const k of [0, 1] as const) {
+				b.min[k] = Math.min(...points.map((q) => q[k]));
+				b.max[k] = Math.max(...points.map((q) => q[k]));
+			}
+			return { ...b, part: p };
+		});
 	let body = 0,
 		total = 0,
 		access = 0;
 	for (const p of parts) {
 		expect(
-			planPoints(p).every(([x, y]) => inside(x, y)),
+			planPoints(p).every(([x, y]) => inside(x, y, p.id.includes('/stair/') ? 0.6 : 0)),
 			p.id + ' outside ' + s.id
 		).toBe(true);
 		const box = bounds(p);
@@ -105,14 +117,16 @@ function inspect(s: Section) {
 		if (!p.id.includes('/stair/')) continue;
 		access += volume;
 		expect(
-			occupied.every((b) =>
-				b.min.some((lo, i) => lo >= box.max[i] - 0.02 || b.max[i] <= box.min[i] + 0.02)
+			occupied.every(
+				(b) =>
+					b.min.some((lo, i) => lo >= box.max[i] - 0.02 || b.max[i] <= box.min[i] + 0.02) ||
+					!partsIntersect(p, b.part)
 			),
 			p.id + ' clearance'
 		).toBe(true);
 		const source = p.source.objectId;
 		const surface =
-			source === 'stairs'
+			source === 'stairs' || p.id.includes('/stair/rung/')
 				? palette.access
 				: source === 'railing' || source === 'ladder'
 					? palette.frame
@@ -148,9 +162,9 @@ test('regeneration changes geometry with the programme and painted carrier held 
 		const a = plotHouse(5, 240, shape, 11),
 			b = plotHouse(5, 240, shape, 12);
 		expect(sectionParts(a)).toEqual(sectionParts(plotHouse(5, 240, shape, 11)));
-		expect(a.width === b.width && a.depth === b.depth).toBe(false);
+		expect(sectionParts(a).map(bounds)).not.toEqual(sectionParts(b).map(bounds));
 		expect(a.cells).toEqual(b.cells);
-		expect(a.decks.map((d) => d.programme)).toEqual(b.decks.map((d) => d.programme));
+		expect(a.decks.flatMap((d) => d.programme)).toEqual(b.decks.flatMap((d) => d.programme));
 		const seen = new Set<string>();
 		for (const p of sectionParts(a)) {
 			const { objectId, variant, seed, member, slot } = p.source,

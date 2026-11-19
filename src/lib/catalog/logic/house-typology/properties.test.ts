@@ -1,7 +1,15 @@
 import { required } from '../required';
 import { test, expect } from 'bun:test';
 import { squareGrid } from '../quad-grid';
-import type { HouseSite } from '../composed-house';
+import {
+	planHouse,
+	sectionParts,
+	circulation,
+	type HouseSite,
+	type HouseSlot
+} from '../composed-house';
+import { bounds } from '../ansicht/geometrie';
+import { accessShare } from '../composed-house/access-budget';
 import type { HouseUse } from '../../data/house-body';
 import {
 	composeHouse,
@@ -137,3 +145,87 @@ test('new seeds can change the fixed house and part decisions', () => {
 		).size
 	).toBeGreaterThan(1);
 });
+
+function narrowSite(
+	width: number,
+	height: number,
+	seed: number,
+	district: HouseSite['district'],
+	mix: number
+) {
+	const cell = squareGrid(1, 1, width).cells[0];
+	const stretch = (p: HouseSlot['position']): HouseSlot['position'] => [
+		p[0],
+		(p[1] * 3.3) / width,
+		p[2]
+	];
+	const [a, b, c, d] = cell.corners.map(stretch);
+	const plot = { ...cell, corners: [a, b, c, d] as const };
+	const input = {
+		cells: [plot],
+		stacks: new Map([
+			[
+				plot.id,
+				Array.from({ length: height }, (_, i) =>
+					mix === 0 ? ('living' as const) : uses[(seed + (mix === 1 ? i : 0)) % uses.length]
+				)
+			]
+		]),
+		district,
+		seed
+	};
+	return input;
+}
+function auditNarrow(input: HouseSite, mix: number, height: number) {
+	const house = planHouse(input),
+		h = house.composition,
+		route = circulation(house);
+
+	expect(checkFit(h.parts)).toEqual([]);
+	const body = h.levels.flatMap((l) => l.bodies).reduce((sum, b) => sum + vol(b.size), 0);
+	expect(body / h.parts.reduce((sum, p) => sum + vol(p.size), 0)).toBeGreaterThanOrEqual(0.55);
+	const parts = sectionParts(house);
+	expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
+	expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
+	expect(route.docks.slice(1).map((d) => d.door)).toEqual(
+		[...h.levels].reverse().map((l) => l.landing)
+	);
+	expect(
+		route.legs.every(
+			(leg, i) => !i || leg.from.every((v, k) => Math.abs(v - route.legs[i - 1].to[k]) < 1e-7)
+		)
+	).toBe(true);
+	if (mix === 0 && height >= 3)
+		expect(
+			new Set(
+				h.levels.flatMap((l) =>
+					l.bodies.filter((b) => b.kind === 'capsule').map((b) => b.position[2])
+				)
+			).size
+		).toBeGreaterThanOrEqual(2);
+	for (const [i, p] of h.people.entries()) {
+		const feet = parts.filter((part) => part.id.startsWith(h.id + '/people/' + i + '/'));
+		const level = h.levels[p.level];
+		expect(Math.min(...feet.map((f) => bounds(f).min[2]))).toBeCloseTo(level.position[2]);
+		expect(Math.abs(p.position[0] - level.position[0])).toBeLessThanOrEqual(level.width / 2);
+		expect(Math.abs(p.position[1] - level.position[1])).toBeLessThanOrEqual(level.depth / 2);
+	}
+	return h.typology;
+}
+test('1,350 narrow painted houses keep their pods, access route and people on the surveyed assembly', () => {
+	const counts = new Map<string, number>();
+	const bays = [1.8, 2.5, 3, 4, 5].flatMap((width) =>
+		Array.from({ length: 10 }, (_, i) => ({ width, height: i + 1 }))
+	);
+	for (const { width, height } of bays)
+		for (const seed of [2, 7, 19])
+			for (const { district, mix } of districts.flatMap((district) =>
+				[0, 1, 2].map((mix) => ({ district, mix }))
+			)) {
+				const input = narrowSite(width, height, seed, district, mix);
+				const type = auditNarrow(input, mix, height);
+				counts.set(type, (counts.get(type) ?? 0) + 1);
+				if (height === 1 && seed === 2) expect(planHouse(input)).toEqual(planHouse(input));
+			}
+	console.info('Narrow houses', Object.fromEntries(counts));
+}, 120000);

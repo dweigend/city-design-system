@@ -11,7 +11,7 @@ const metal = (token: ColorToken): Surface => ({ token, finish: 'metal' });
 /** Default assignments for the game and bible. Geometry accepts the same slots with any palette. */
 export const houseSurfaces: HouseSurfaces = {
 	frame: { token: '--ink', finish: 'metall-gebuerstet' },
-	deck: metal('--paper'),
+	deck: { token: '--paper', finish: 'paper' },
 	shell: { token: '--paper', finish: 'metall-lackiert' },
 	pane: { token: '--blueprint', finish: 'glas-klar' },
 	access: metal(flowToken.people),

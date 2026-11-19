@@ -1,4 +1,5 @@
-import { houseStair } from '../../data/house-stair';
+import { STORY } from '../../data/grid';
+import { stairAxis } from './stair-fit';
 import { composeHouse } from '../house-typology';
 import type { HouseSite, Section } from './types';
 
@@ -8,14 +9,29 @@ export function planHouse(site: HouseSite): Section {
 	const { cells, levels, crown, core, start, stories } = composition;
 	const sign = composition.accessSide === 'north' ? 1 : -1;
 	const rear = core.position[1] + sign * 0.15;
-	const compact = composition.compact;
-	const offset = compact ? 0.16 : houseStair.radius + houseStair.width;
-	return {
-		composition, cells, start, stories, compact,
-		id: composition.id, seed: site.seed, district: site.district ?? 'infill',
-		typology: composition.typology, base: [core.position[0], core.position[1], composition.ground],
-		width: Math.max(...levels.map(l => l.width)), depth: Math.max(...levels.map(l => l.depth)),
-		top: crown.position[2], decks: levels, slots: levels.flatMap(l => l.bodies).concat(crown),
+	const offset = composition.compact ? -0.04 : 0.2;
+	const section: Section = {
+		composition,
+		cells,
+		start,
+		stories,
+		compact: true,
+		id: composition.id,
+		seed: site.seed,
+		district: site.district ?? 'infill',
+		typology: composition.typology,
+		base: [core.position[0], core.position[1], composition.ground],
+		width: Math.max(...levels.map((l) => l.width)),
+		depth: Math.max(...levels.map((l) => l.depth)),
+		top: composition.ground + stories * STORY,
+		decks: levels,
+		slots: levels.flatMap((l) => l.bodies).concat(crown),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
+	const axis = stairAxis(section, rear, sign);
+	if (axis) {
+		section.stairAxis = axis;
+		section.compact = false;
+	}
+	return section;
 }

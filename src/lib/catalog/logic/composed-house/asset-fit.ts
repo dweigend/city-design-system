@@ -28,7 +28,7 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 				height: (part.height ?? part.radius) * sz
 			};
 		case 'cone':
- case 'cylinder':
+		case 'cylinder':
 			return {
 				...part,
 				position: point(part.position),
@@ -36,13 +36,49 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 				height: part.height * sz
 			};
 		case 'prism': {
- const ring = (polygon: [number,number][]) => polygon.map(([x,y]):[number,number] => {const q=point([x,y,0]); return [q[0],q[1]];});
- return {...part,polygon:ring(part.polygon),...(part.holes ? {holes:part.holes.map(ring)}:{}),z:point([0,0,part.z])[2],height:part.height*sz};
- }
- case 'ring': return {...part,position:point(part.position),radius:part.radius*radius,innerRadius:part.innerRadius*radius,depth:part.depth*radius,rotation:(part.rotation??0)+angle};
- case 'torus': return {...part,position:point(part.position),radius:part.radius*radius,tube:part.tube*radius,rotation:(part.rotation??0)+angle};
- case 'vault': case 'arch': case 'halfpipe': return {...part,position:point(part.position),width:part.width*sx,length:part.length*sy,rise:part.rise*sz,rotation:(part.rotation??0)+angle,thickness:part.thickness===undefined?undefined:part.thickness*radius};
- case 'frame': {
+			const ring = (polygon: [number, number][]) =>
+				polygon.map(([x, y]): [number, number] => {
+					const q = point([x, y, 0]);
+					return [q[0], q[1]];
+				});
+			return {
+				...part,
+				polygon: ring(part.polygon),
+				...(part.holes ? { holes: part.holes.map(ring) } : {}),
+				z: point([0, 0, part.z])[2],
+				height: part.height * sz
+			};
+		}
+		case 'ring':
+			return {
+				...part,
+				position: point(part.position),
+				radius: part.radius * radius,
+				innerRadius: part.innerRadius * radius,
+				depth: part.depth * radius,
+				rotation: (part.rotation ?? 0) + angle
+			};
+		case 'torus':
+			return {
+				...part,
+				position: point(part.position),
+				radius: part.radius * radius,
+				tube: part.tube * radius,
+				rotation: (part.rotation ?? 0) + angle
+			};
+		case 'vault':
+		case 'arch':
+		case 'halfpipe':
+			return {
+				...part,
+				position: point(part.position),
+				width: part.width * sx,
+				length: part.length * sy,
+				rise: part.rise * sz,
+				rotation: (part.rotation ?? 0) + angle,
+				thickness: part.thickness === undefined ? undefined : part.thickness * radius
+			};
+		case 'frame': {
 			const [w, d, h] = part.size;
 			return {
 				...part,
@@ -69,11 +105,17 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 }
 
 /** Places registry members relative to their measured native origin. */
-export function place(parts:HousePart[], origin:Vec3, target:Vec3, scale:Vec3, angle:number) {
- const c=Math.cos(angle), s=Math.sin(angle);
- const point=([x,y,z]:Vec3):Vec3 => {
- const u=(x-origin[0])*scale[0],v=(y-origin[1])*scale[1];
- return [target[0]+u*c-v*s,target[1]+u*s+v*c,target[2]+(z-origin[2])*scale[2]];
- };
- return parts.map(p=>placed(p,{point,scale,angle}));
+export function place(parts: HousePart[], origin: Vec3, target: Vec3, scale: Vec3, angle: number) {
+	const c = Math.cos(angle),
+		s = Math.sin(angle);
+	const point = ([x, y, z]: Vec3): Vec3 => {
+		const u = (x - origin[0]) * scale[0],
+			v = (y - origin[1]) * scale[1];
+		return [
+			target[0] + u * c - v * s,
+			target[1] + u * s + v * c,
+			target[2] + (z - origin[2]) * scale[2]
+		];
+	};
+	return parts.map((p) => placed(p, { point, scale, angle }));
 }

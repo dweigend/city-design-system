@@ -1,11 +1,11 @@
 import { required } from '../required';
-import type { HouseSite } from '../composed-house';
+import type { HouseSite } from './site';
 import { STORY } from '../../data/grid';
 import { collapse } from './collapse';
 import { affinities, typologies, type HouseRole, type Typology } from './families';
 import { survey, type Survey } from './survey';
 
-type Decision = { role: HouseRole; typology: Typology; away:[number,number] };
+type Decision = { role: HouseRole; typology: Typology; away: [number, number] };
 export type EnsembleContext = {
 	datum: number;
 	skyline: number;
@@ -15,6 +15,7 @@ export type EnsembleContext = {
 
 function skyline(sites: Survey[], seed: number) {
 	const roles = new Map<string, HouseRole>(sites.map((s) => [s.id, 'medium']));
+	if (sites.length < 3) return new Map<string, HouseRole>(sites.map((s) => [s.id, 'high']));
 	const sorted = [...sites].sort((a, b) => a.programme.length - b.programme.length);
 	const top = required(sorted.at(-1), 'upper datum');
 	const ties = sorted.filter((s) => s.programme.length === top.programme.length);
@@ -44,22 +45,34 @@ function skyline(sites: Survey[], seed: number) {
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
 	const weights = sites.map((s) => affinities(s, required(roles.get(s.id), 'ensemble role')));
 	const houses = new Map<string, Decision>();
-	const away = (site:Survey):[number,number] => {
- const neighbors=sites.filter(other=>other!==site && site.cells.some(c=>other.cells.some(n=>c.neighbors.includes(n.id))));
- return [0,1].map(k=>Math.sign(neighbors.reduce((sum,n)=>sum+site.center[k]-n.center[k],0))) as [number,number];
- };
- const assign = (i: number, typology: Typology) =>
-		houses.set(sites[i].id, { role: required(roles.get(sites[i].id), 'ensemble role'), typology, away:away(sites[i]) });
-	if (sites.length === 1) {
-		assign(
-			0,
-			collapse(
-				'house/' + sites[0].id,
-				seed,
-				required(roles.get(sites[0].id), 'ensemble role'),
-				typologies.map((t) => [t, weights[0][t]])
-			)
+	const away = (site: Survey): [number, number] => {
+		const neighbors = sites.filter(
+			(other) =>
+				other !== site &&
+				site.cells.some((c) => other.cells.some((n) => c.neighbors.includes(n.id)))
 		);
+		return [0, 1].map((k) =>
+			Math.sign(neighbors.reduce((sum, n) => sum + site.center[k] - n.center[k], 0))
+		) as [number, number];
+	};
+	const assign = (i: number, typology: Typology) =>
+		houses.set(sites[i].id, {
+			role: required(roles.get(sites[i].id), 'ensemble role'),
+			typology,
+			away: away(sites[i])
+		});
+	if (sites.length < 3) {
+		for (let j = 0; j < sites.length; j++) {
+			assign(
+				j,
+				collapse(
+					'house/' + sites[j].id,
+					seed,
+					required(roles.get(sites[j].id), 'ensemble role'),
+					typologies.map((t) => [t, weights[j][t]])
+				)
+			);
+		}
 		return houses;
 	}
 	const palettes = new Map<string, { forms: Typology[]; weight: number }>();

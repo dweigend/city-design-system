@@ -1,5 +1,5 @@
 import type { Survey } from './survey';
-import type { HouseSite, HouseSlot, Section } from '../composed-house';
+import type { HouseSite, HouseSlot, Deck } from './site';
 import type { buildObject, ObjectGeometry } from '../assets';
 import type { Typology, HouseRole } from './families';
 export type Plan = {
@@ -9,13 +9,13 @@ export type Plan = {
 	sign: number;
 	datum: number;
 	rear: number;
- away: [number,number];
+	away: [number, number];
 	bar: number;
 };
 export type FitPart = (ObjectGeometry | ReturnType<typeof buildObject>['parts'][number]) &
 	FitMetadata;
 export type Point = HouseSlot['position'];
-export type Deck = Section['decks'][number];
+export type { Deck } from './site';
 export type Joint =
 	'deck' | 'body' | 'capsule' | 'socket' | 'foot' | 'shaft' | 'head' | 'brace' | 'beam' | 'crown';
 export type FitMetadata = {
@@ -53,10 +53,11 @@ export type Level = Deck & {
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
 	id: string;
- compact: boolean;
- start: number;
- stories: number;
- role: HouseRole;
+	compact: boolean;
+	bay: { x: number; y: number; width: number; depth: number };
+	start: number;
+	stories: number;
+	role: HouseRole;
 	typology: Typology;
 	cells: HouseSite['cells'];
 	datum: number;

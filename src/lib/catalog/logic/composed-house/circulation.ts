@@ -3,7 +3,7 @@ import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
 import type { Section } from './types';
 import { terrainHeight } from './ground';
-import { roofLanding } from './deck-plan';
+import { roofLanding } from './roof-landing';
 import { stairTrack } from './stair-track';
 
 type Leg = {
@@ -51,13 +51,13 @@ export function windingRoute(s: Section) {
 		docks.push({ station, door, index });
 		stops.push(station);
 	}
-	function descend(target: number, steps: number) {
+	function descend(target: number, steps: number, landing = true) {
 		const drop = (z - target) / steps;
 		for (let i = 0; i < steps; i++) {
 			if (i && i % 17 === 0) advance(0, 'landing');
 			advance(drop, 'stairs');
 		}
-		advance(0, 'landing');
+		if (landing) advance(0, 'landing');
 	}
 	dock(roof);
 	advance(0, 'landing');
@@ -71,19 +71,19 @@ export function windingRoute(s: Section) {
 	const exits = track.map((p) => {
 		const ground = s.start ? s.base[2] : terrainHeight(s, [...p.xy, 0]);
 		const steps = Math.max(1, Math.round((z - ground) / houseStair.rise));
-		const end = at(index + hand * (steps + Math.floor((steps - 1) / 17) + 2));
+		const end = at(index + hand * (steps + Math.floor((steps - 1) / 17) + 1));
 		const actual = s.start ? s.base[2] : terrainHeight(s, [...track[end].xy, 0]);
 		const drop = actual + (s.start ? 0 : 0.025);
 		return { steps, drop, error: Math.abs((z - drop) / steps - houseStair.rise) };
 	});
 	const exit = exits.reduce((a, b) => (a.error <= b.error ? a : b));
-	descend(exit.drop, exit.steps);
+	descend(exit.drop, exit.steps, false);
 	advance(s.start ? 0 : 0.025, 'ramp');
 	stops.push(point());
 	return { width: houseStair.width, axis, track, legs, stops, docks };
 }
 
-/** Returns the one circulation polyline selected by the site and mass budgets. */
+/** Returns the one circulation polyline selected by the available clear bay. */
 export function circulation(s: Section) {
 	return s.compact ? mastRoute(s) : windingRoute(s);
 }

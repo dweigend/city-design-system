@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import { houseSurfaces, houseLinks, planHouse, type HouseObstacle } from './index';
 
-const grid = squareGrid(7, 5, 10);
+const grid = squareGrid(7, 5, 8);
 const house = (id: string, n: number) =>
 	planHouse({
 		cells: [required(grid.cellsById.get(id), 'test cell')],
@@ -15,9 +15,10 @@ test('a nearby occupied plot diverts the walking surface while a distant neighbo
 	const a = house('0/2', 4),
 		b = house('2/2', 4),
 		far = house('4/2', 4);
-	const [ax, ay] = a.base,
-		[bx] = b.base;
-	const obstacle: HouseObstacle = { position: [(ax + bx) / 2, ay, 0], size: [2, 3, 30] };
+	const [direct] = houseLinks(grid, [a, b], 11);
+	const [ax, ay] = direct.from,
+		[bx, by] = direct.to;
+	const obstacle: HouseObstacle = { position: [(ax + bx) / 2, (ay + by) / 2, 0], size: [1, 1, 30] };
 	const [link] = houseLinks(grid, [a, b], 11, [obstacle]);
 	expect(link.route.length).toBeGreaterThan(2);
 	for (let i = 1; i < link.route.length; i++) {
@@ -28,8 +29,8 @@ test('a nearby occupied plot diverts the walking surface while a distant neighbo
 				x = start[0] + t * (end[0] - start[0]),
 				y = start[1] + t * (end[1] - start[1]);
 			expect(
-				Math.abs(x - obstacle.position[0]) > 1 + link.width / 2 ||
-					Math.abs(y - ay) > 1.5 + link.width / 2
+				Math.abs(x - obstacle.position[0]) > 0.5 + link.width / 2 ||
+					Math.abs(y - obstacle.position[1]) > 0.5 + link.width / 2
 			).toBe(true);
 		}
 	}
@@ -44,7 +45,12 @@ test('a line of three houses forms one chain at a shared deck level, in either i
 	expect(reverse).toEqual(forward);
 });
 test('bridges are level, never stair bridges, and unequal deck levels stay apart', () => {
-	expect(houseLinks(grid, [house('0/2', 1), house('1/2', 9)], 5)).toHaveLength(0);
+	const elevated = house('1/2', 9);
+	elevated.composition.ports = elevated.composition.ports.map((p) => ({
+		...p,
+		position: [p.position[0], p.position[1], p.position[2] + 1]
+	}));
+	expect(houseLinks(grid, [house('0/2', 1), elevated], 5)).toHaveLength(0);
 	const block = ['1/1', '2/1', '3/1', '1/2', '2/2', '3/2', '1/3', '2/3', '3/3'];
 	for (const seed of [1, 5, 11, 23]) {
 		const links = houseLinks(
@@ -66,10 +72,12 @@ test('bridges are level, never stair bridges, and unequal deck levels stay apart
 	}
 });
 
-test('the bridge uses the external access surface for every span member', () => {
+test('only bridge decking receives the external access surface', () => {
 	const sites = [house('0/0', 3), house('2/0', 5)];
 	const access = { finish: 'wood', token: '--signal' } as const;
 	const [link] = houseLinks(grid, sites, 11);
 	const [changed] = houseLinks(grid, sites, 11, [], { ...houseSurfaces, access });
-	expect(changed.parts).toEqual(link.parts.map((p) => ({ ...p, ...access, material: 'wood' })));
+	expect(changed.parts).toEqual(
+		link.parts.map((p) => (p.kind === 'prism' ? { ...p, ...access, material: 'wood' } : p))
+	);
 });

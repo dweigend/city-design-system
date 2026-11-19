@@ -1,5 +1,5 @@
 import { podLevel } from './pod';
-import type { HouseSlot } from '../composed-house';
+import type { HouseSlot } from './site';
 import { STORY } from '../../data/grid';
 import { arrange, disc } from './figure';
 import { collapse } from './collapse';
@@ -51,6 +51,11 @@ function count(plan: Plan, i: number, body: Body) {
 	const { site, type, seed } = plan;
 	const [w, d] = worldSize(body),
 		small = (w * d) / ((w + 0.6) * (d + 1.55)) < 0.55;
+	if (
+		site.ground - Math.min(...site.cells.flatMap((c) => c.corners.map((p) => p[2]))) > STORY &&
+		site.depth - site.accessDepth >= d * 2 + 1.55
+	)
+		return 2;
 	if (type === 'round-tower') return body.kind === 'capsule' ? 2 : 1;
 	if (type === 'lattice-head' && i === site.programme.length - 1) return 2;
 	if (small || type === 'twin-stack' || type === 'rack') return 2;
@@ -66,7 +71,7 @@ function count(plan: Plan, i: number, body: Body) {
 function bodies(plan: Plan, i: number, z: number) {
 	const { site, type, sign, seed, rear } = plan;
 	const { use, length, rotation } = programme(plan, i);
-	const id = site.id + '/level/' + i;
+	const id = site.id + '/level/' + i + '/body';
 	const spec = bodySpec(
 		type,
 		use,
@@ -123,8 +128,8 @@ function tierKind(kind: HouseSlot['kind']): Level['kind'] {
 function planLevel(plan: Plan, i: number): Level {
 	const { site, datum, sign, rear } = plan,
 		z = datum + i * STORY;
-	if(site.compact) return podLevel(plan,i,programme(plan,i).use);
- const row = arrange(plan, bodies(plan, i, z));
+	if (site.compact) return podLevel(plan, i, programme(plan, i).use);
+	const row = arrange(plan, bodies(plan, i, z));
 	const extents = (axis: 0 | 1, side: number) =>
 		row.map((b) => b.position[axis] + (side * worldSize(b)[axis]) / 2);
 	const left = Math.min(...extents(0, -1)),
@@ -159,15 +164,21 @@ function planLevel(plan: Plan, i: number): Level {
 		level.deckArea -= width * width;
 	}
 	const fitted = plan.type === 'round-tower' ? disc(plan, level) : level;
- if(fitted.width+2*Math.abs(x-site.center[0])>site.width+1e-8 || fitted.depth>site.depth-0.3+1e-8) return podLevel(plan,i,level.use);
- return fitted;
+	if (
+		row.reduce((sum, b) => sum + b.size[0] * b.size[1], 0) / fitted.deckArea < 0.55 ||
+		fitted.width + 2 * Math.abs(x - site.center[0]) > site.width + 1e-8 ||
+		fitted.depth > site.depth - site.accessDepth + 1e-8
+	)
+		return podLevel(plan, i, level.use);
+	return fitted;
 }
 
 /** Groups painted bands for the sparse towers, retaining every required living stack and the common entry datum. */
 export function occupiedLevels(plan: Plan) {
 	const { site, type } = plan,
 		n = site.programme.length;
-	const limit = type === 'deck-tower' ? 4 : type === 'bell-house' ? 2 : n;
+	const desired = type === 'deck-tower' ? 4 : type === 'bell-house' ? 2 : n;
+	const limit = Math.max(desired, 1 + Math.ceil((n - 1) / 4));
 	const indices = new Set(
 		Array.from({ length: Math.min(limit, n) }, (_, i) =>
 			Math.round((i * (n - 1)) / (Math.min(limit, n) - 1 || 1))

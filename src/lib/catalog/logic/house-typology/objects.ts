@@ -1,6 +1,6 @@
 import { buildObject } from '../assets';
 import { bounds, union } from '../ansicht/geometrie';
-import type { HouseSlot } from '../composed-house';
+import type { HouseSlot } from './site';
 import type { Body, Point, Joint, Block } from './types';
 import type { Typology } from './families';
 type ObjectSpec = readonly [string, string, HouseSlot['kind']];
@@ -37,7 +37,7 @@ export function bodySpec(
 ): ObjectSpec {
 	if (use === 'living')
 		return [
-			('kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm'),
+			'kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm',
 			'round-shoulder',
 			'capsule'
 		];

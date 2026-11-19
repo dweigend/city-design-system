@@ -5,7 +5,7 @@ import { mastAccess } from './mast-access';
 import { windingRoute } from './circulation';
 import { houseObject, type HousePart } from './house-object';
 import type { Section } from './types';
-import type { HouseSurfaces } from './surfaces';
+import { houseSurfaces, type HouseSurfaces } from './surfaces';
 
 type Route = ReturnType<typeof windingRoute>;
 type XY = [number, number];
@@ -26,7 +26,7 @@ function circulationStock(s: Section, surfaces: HouseSurfaces) {
 		deck: surfaces.access,
 		body: surfaces.frame
 	})[0];
-	const landing = stock('landing', 'standard', { deck: surfaces.deck })[0];
+	const landing = stock('landing', 'mast-platform', { deck: surfaces.deck })[0];
 	const ramp = stock('ramp', 'standard', { deck: surfaces.deck })[0];
 	const rails = stock('railing', 'standard', { frame: surfaces.frame });
 	if (
@@ -144,4 +144,24 @@ export function access(s: Section, surfaces: HouseSurfaces) {
 		...route.legs.flatMap((leg, i) => [draw.walk(leg, i), ...draw.frame(leg, i)]),
 		...route.docks.flatMap(draw.connection)
 	];
+}
+
+/** Surveys the horizontal profile once for each distinct stock position, including every door connection. */
+export function fitsWinding(
+	s: Section,
+	contains: (p: HousePart) => boolean,
+	clear: (p: HousePart) => boolean
+) {
+	const route = windingRoute(s),
+		draw = projection(route.track, s, houseSurfaces);
+	for (const [i, dock] of route.docks.entries())
+		if (!draw.connection(dock, i).every((p) => contains(p) && clear(p))) return false;
+	const seen = new Set<string>();
+	for (const [i, leg] of route.legs.entries()) {
+		const key = leg.first + '/' + leg.kind;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		if (!contains(draw.walk(leg, i))) return false;
+	}
+	return true;
 }

@@ -5,7 +5,12 @@ import { recipes } from './recipes';
 import type { AssetDefinition as Placement, AssetRecipe, AssetSurface } from './definition';
 import { suggestedSurface } from './slot-defaults';
 
-export { assetCategories, type AssetCategory, type AssetAnchor, type AssetSurface } from './definition';
+export {
+	assetCategories,
+	type AssetCategory,
+	type AssetAnchor,
+	type AssetSurface
+} from './definition';
 export type { ObjectGeometry } from './object-geometry';
 export type SlotAssignment = { token: ColorToken; finish: FinishId };
 export type ObjectOptions = {

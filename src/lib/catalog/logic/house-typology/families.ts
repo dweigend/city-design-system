@@ -45,6 +45,8 @@ export function affinities(s: Survey, role: HouseRole): Record<Typology, number>
 		'water-house': uses.has('water') ? 12 : 0,
 		'tree-house': green && h >= 2 ? 10 : 0
 	};
- if(s.compact) for(const type of typologies) if(type!=='capsule-stack' && type!=='cluster-mast') weights[type]=0;
- return weights;
+	if (s.compact)
+		for (const type of typologies)
+			if (type !== 'capsule-stack' && type !== 'cluster-mast') weights[type] = 0;
+	return weights;
 }

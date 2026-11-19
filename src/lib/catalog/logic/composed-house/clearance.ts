@@ -33,11 +33,7 @@ export function sectionObstacle(s: Section): HouseObstacle {
 	return {
 		owner: s.id,
 		position: s.base,
-		size: [
-			extent(0, 'width'),
-			extent(1, 'depth'),
-			s.top - s.base[2] + s.composition.crown.size[2]
-		]
+		size: [extent(0, 'width'), extent(1, 'depth'), s.top - s.base[2] + s.composition.crown.size[2]]
 	};
 }
 /** Checks every walking segment against the occupied volumes, accounting for its width. */

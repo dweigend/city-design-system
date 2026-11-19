@@ -1,5 +1,5 @@
 import { assemble } from './assembly';
-import type { HouseSite } from '../composed-house';
+import type { HouseSite } from './site';
 import { planEnsemble, type EnsembleContext } from './ensemble';
 import { survey } from './survey';
 import { collapse } from './collapse';
@@ -45,7 +45,12 @@ function peopleOnLandings(plan: Plan, levels: Level[]) {
 	return Array.from({ length: groups }, (_, i) => {
 		const level = Math.floor((i * levels.length) / groups),
 			[x, y, z] = levels[level].landing;
-		return [-0.35, 0.35].map((dx) => ({ position: [x + dx, y, z] as Point, height: 1.75, level }));
+		const spacing = plan.site.compact ? 0.52 : 0.35;
+		return [-spacing, spacing].map((dx) => ({
+			position: [x + dx, y, z] as Point,
+			height: 1.75,
+			level
+		}));
 	}).flat();
 }
 /** Composes one painted site against the frozen ensemble; a singleton uses the same three layers. */
@@ -57,10 +62,15 @@ export function composeHouse(
 		fixed = context.houses.get(site.id);
 	if (!fixed) throw new RangeError('Site outside ensemble: ' + site.id);
 	const { role, typology: type } = fixed;
-	const accessSide = site.compact && fixed.away[1] ? (fixed.away[1]>0?'south':'north') : collapse('part/side/' + site.id, context.seed, type, [
-		['north', 1],
-		['south', 1]
-	] as const);
+	const accessSide =
+		site.compact && fixed.away[1]
+			? fixed.away[1] > 0
+				? 'south'
+				: 'north'
+			: collapse('part/side/' + site.id, context.seed, type, [
+					['north', 1],
+					['south', 1]
+				] as const);
 	const sign = accessSide === 'north' ? 1 : -1,
 		bar = type === 'lattice-head' || type === 'portal-house' ? 0.3 : 0.12;
 	const plan = {
@@ -69,15 +79,24 @@ export function composeHouse(
 		seed: input.seed,
 		sign,
 		datum: context.datum,
-		rear: site.center[1] + sign * (site.depth / 2 - (site.compact ? 0 : 0.3)),
- away:fixed.away, bar
+		rear:
+			site.center[1] +
+			sign *
+				((site.compact ? Math.min(site.depth, 3.6) : site.depth - site.accessDepth) -
+					site.depth / 2),
+		away: fixed.away,
+		bar
 	};
 	const levels = occupiedLevels(plan);
 	const stations = bearingAxes(plan, levels);
 	const { parts, crown } = assemble(plan, levels, role, stations, context.skyline);
 	const supports = parts.filter((p) => ['foot', 'shaft', 'head', 'brace'].includes(p.joint));
 	return {
-		id: site.id, compact: site.compact, start: site.start, stories: site.programme.length,
+		id: site.id,
+		compact: site.compact,
+		bay: { x: site.center[0], y: site.center[1], width: site.width, depth: site.depth },
+		start: site.start,
+		stories: site.programme.length,
 		role,
 		typology: type,
 		cells: site.cells,

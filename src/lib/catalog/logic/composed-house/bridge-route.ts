@@ -22,6 +22,9 @@ export function bridgeRoute(
 		dy = to[1] - from[1],
 		run = Math.hypot(dx, dy);
 	if (!Number.isFinite(run) || run < 0.01 || run > SPAN || rise > LEVEL) return;
+	const level = (from[2] + to[2]) / 2;
+	from = [from[0], from[1], level];
+	to = [to[0], to[1], level];
 	const kind: LinkKind = adjacent ? 'platform' : 'skyway';
 	for (const offset of run > 4 * width ? [0, 0.45, -0.45] : [0]) {
 		const mid: Vec3 = [
