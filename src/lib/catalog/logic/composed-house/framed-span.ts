@@ -38,7 +38,8 @@ function survey(h: HouseComposition, shell: Shell, index: number, start: number,
 type Survey = NonNullable<ReturnType<typeof survey>>;
 function fitBay(
 	s: Survey,
-	shell: Shell,
+	frame: NonNullable<Shell['frame']>,
+	fabric: NonNullable<Shell['fabric']>,
 	bottom: number,
 	top: number,
 	start: number,
@@ -57,7 +58,7 @@ function fitBay(
 			d = clamp(-dx * s.y + dy * s.x, 0, s.depth + 2 * margin);
 		return [...s.xy(start + u, d), clamp(z, bottom, top)];
 	};
-	return textileBay(shell.frame!, shell.fabric!, place, confine);
+	return textileBay(frame, fabric, place, confine);
 }
 
 /** Finds space inside a surveyed wall for feet, projecting rods and the membranes they carry. */
@@ -86,7 +87,15 @@ export function framedSpan(
 		const width = s.width - 2 * s.trim;
 		const bays = Math.max(1, Math.round(width / Math.max(7, (top - bottom) * 0.95)));
 		for (let i = 0; i < bays; i++) {
-			const span = fitBay(s, shell, bottom, top, s.trim + (i * width) / bays, width / bays);
+			const span = fitBay(
+				s,
+				shell.frame,
+				shell.fabric,
+				bottom,
+				top,
+				s.trim + (i * width) / bays,
+				width / bays
+			);
 			const base = points.length;
 			points.push(...span.points);
 			triangles.push(...span.triangles.map((n) => base + n));
