@@ -48,7 +48,9 @@ export function planHouse(site: HouseSite): Section {
 		top:
 			composition.typology === 'block' ? crown.position[2] : composition.ground + stories * STORY,
 		decks: levels,
-		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
+		slots: levels
+			.flatMap((l) => l.bodies)
+			.concat(composition.sharedRoof === 'terrace' ? [] : [crown], composition.fittings),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
 	if (levels[0].bodies[0].band?.footprint) {

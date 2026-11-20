@@ -1,3 +1,4 @@
+import { wingRim, type UpperWing } from './upper-wings';
 import { entranceCell, entranceRooms, entranceWidth } from './entrance';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
@@ -99,7 +100,12 @@ function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
 }
-function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: number) {
+function courses(
+	plan: Plan,
+	frontage: ReadonlySet<string>,
+	galleryCourse?: number,
+	wing?: UpperWing
+) {
 	const access = accessBay(plan, frontage),
 		{ bay, axis, opening } = access;
 	const { cells, programme, ground, id } = plan.site;
@@ -107,6 +113,19 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 	const full = { polygon: plot.polygon, holes: [...plot.holes, opening] };
 	const span = galleryPlot(cells, frontage, access.anchor);
 	const bridge = { ...span, holes: [...span.holes, opening] };
+	const pier = {
+		polygon: rectangle(
+			axis[0],
+			axis[1],
+			Math.max(entranceWidth + 0.2, Math.min(bay.width * 0.48, 3)),
+			Math.max(1.12, Math.min(bay.depth * 0.46, 2.8))
+		),
+		holes: [opening]
+	};
+	const wingShape =
+		wing && cells.length === 1
+			? { polygon: wingRim(cells[0], wing, pier.polygon), holes: [opening] }
+			: bridge;
 	const rooms = cells.flatMap((c) =>
 		c === access.anchor
 			? entranceRooms(c, axis, plan.sign)
@@ -125,20 +144,29 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 			polygon: rectangle(bay.x, bay.y, bay.width * setback, bay.depth * setback),
 			holes: [opening]
 		};
-		const shape = i < 2 ? full : gallery ? bridge : tower;
+		const under = wing && i + 1 === wing.level;
+		const onWing = wing && i === wing.level;
+		const shape = under ? pier : onWing ? wingShape : i < 2 ? full : gallery ? bridge : tower;
+		const underGround = i === 0 && under;
+		const baseTop = underGround ? z + (ceiling - z) * 0.46 : ceiling - rim;
 		const shells = i === 0 ? rooms : [shape];
 		const bodies = shells.map((shell, k) => {
-			const body = makeBody(
-				plan,
-				id + '/level/' + i + '/body/' + k,
-				shell,
-				z,
-				ceiling - rim - z,
-				i
-			);
+			const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
 			parts.push(bodySolid(body, shell, ground));
 			return body;
 		});
+		if (underGround) {
+			const upper = makeBody(
+				plan,
+				id + '/level/0/body/pier',
+				pier,
+				baseTop,
+				ceiling - rim - baseTop,
+				i
+			);
+			bodies.push(upper);
+			parts.push(bodySolid(upper, pier, ground));
+		}
 		const [x, y] = extent(shape),
 			use = bodies[0].use;
 		levels.push({
@@ -169,7 +197,12 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access } = courses(plan, frontage, context.houses.get(site.id)?.galleryCourse);
+		{ levels, parts, access } = courses(
+			plan,
+			frontage,
+			context.houses.get(site.id)?.galleryCourse,
+			context.houses.get(site.id)?.upperWing
+		);
 	const { bay, axis } = access,
 		top = site.ground + site.programme.length * STORY;
 	const use = levels[levels.length - 1].use;
@@ -186,10 +219,12 @@ export function perimeterHouse(
 		crowns[crowns.length - 1];
 	crown.position = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5), top];
 	crown.anchor = 'roof';
-	parts.push(mounted(crown, site.ground, 'crown'));
+	const sharedRoof = context.houses.get(site.id)?.upperWing?.roof;
+	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
 	return {
 		id: site.id,
 		ensembleSize: context.houses.size,
+		sharedRoof,
 		compact: true,
 		flightWidth: 1.25,
 		path: 'ladder',

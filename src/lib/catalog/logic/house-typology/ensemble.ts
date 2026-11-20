@@ -1,3 +1,4 @@
+import { upperWings, type UpperWing } from './upper-wings';
 import { frontages, galleryCourses } from './gallery';
 import { paletteCount, housePath } from './routes';
 import { required } from '../required';
@@ -10,6 +11,7 @@ import { survey, type Survey } from './survey';
 type Decision = {
 	frontage?: ReadonlySet<string>;
 	galleryCourse?: number;
+	upperWing?: UpperWing;
 	role: HouseRole;
 	typology: Typology;
 	away: [number, number];
@@ -102,6 +104,7 @@ function wideForms(sites: Survey[], roles: Map<string, HouseRole>, seed: number)
 }
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
 	const streets = frontages(sites);
+	const wings = upperWings(sites, streets);
 	const galleries = galleryCourses(sites, streets);
 	const wide = sites.filter((s) => !s.compact && !streets.get(s.id));
 	const chosen = wideForms(wide, roles, seed);
@@ -114,7 +117,8 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 				typology: forms.get(s.id) ?? 'block',
 				away: away(s, sites),
 				frontage: streets.get(s.id),
-				galleryCourse: galleries.get(s.id)
+				galleryCourse: galleries.get(s.id),
+				upperWing: wings.get(s.id)
 			}
 		])
 	);
