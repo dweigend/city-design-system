@@ -4,6 +4,7 @@ export type Palette3D = {
 	paper: string;
 	ink: string;
 	ink3?: string;
+	terrainSoil?: string;
 	blueprint: string;
 	blueprintSoft: string;
 	/** Category swatches by short name, with --signal and --body-living under their full names. */

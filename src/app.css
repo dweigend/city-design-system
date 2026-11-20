@@ -17,6 +17,7 @@
 	--cat-business: oklch(0.7 0.13 355);
 	--cat-nature: oklch(0.7 0.12 152);
 	--cat-foliage: oklch(0.68 0.056 118);
+	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
 	/* Wall tint of new housing bodies in the sandbox; paths alone stay pink. */
 	--ground-stone: oklch(0.76 0.025 240);

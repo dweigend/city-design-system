@@ -14,8 +14,7 @@ import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
-import { neutral } from '../leitstil/tone';
-import { PROJEKTION_TOENE, WEG_STROM } from '../../data/leitstil';
+import { WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
 import { sceneSwatch } from '../scene-palette';
 import { shiftedPaper } from './paper-inlay';
@@ -72,6 +71,8 @@ export function createTerrainMesh(
 		paper,
 		ink: uniform(new THREE.Color()),
 		blueprint: uniform(new THREE.Color()),
+		soil: uniform(new THREE.Color()),
+		pencil: uniform(new THREE.Color()),
 		water: uniform(new THREE.Color()),
 		waterStroke: uniform(new THREE.Color()),
 		nature: uniform(new THREE.Color()),
@@ -80,7 +81,7 @@ export function createTerrainMesh(
 	};
 	// Inverting a paper wash toward light ink would fill the night sheet with gray.
 	const daylight = floatUniform(1);
-	const warmPaper = mix(colors.paper, uniform(new THREE.Color(0xd4bc96)), daylight.mul(0.3));
+	const warmPaper = mix(colors.paper, colors.soil, daylight.mul(0.3));
 	const paperColor = mix(warmPaper, colors.ink, nodes.paperWash.mul(daylight));
 	const terrainWeight = uniform(1),
 		forestWeight = uniform(1),
@@ -89,7 +90,7 @@ export function createTerrainMesh(
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const peopleFocus = uniform(0);
-	const drawingInk = mix(uniform(neutral(PROJEKTION_TOENE.dunkel.bleistift)), colors.ink, daylight);
+	const drawingInk = mix(colors.pencil, colors.ink, daylight);
 	const cover = coverTexture(grid);
 	const alleys = alleyOverlay(grid, profile, nodes);
 	const chart = attribute('chart', 'vec2');
@@ -128,6 +129,10 @@ export function createTerrainMesh(
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(paperColor, ground, forestWeight);
 		ground = mix(ground, drawingInk, attribute('bankShade', 'float').mul(terrainWeight));
+		const slots = attribute('landform', 'vec3');
+		ground = mix(ground, colors.soil, slots.x.mul(terrainWeight).mul(0.28));
+		ground = mix(ground, colors.nature, slots.y.mul(forestWeight).mul(0.64));
+		ground = mix(ground, colors.waterStroke, slots.z.mul(terrainWeight).mul(0.52));
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
 		const hatchPhase = attribute('position', 'vec3').x.add(height).div(nodes.hatchSpacing);
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
@@ -276,6 +281,8 @@ export function createTerrainMesh(
 		/** Applies theme colors; no geometry changes. */
 		setPalette(palette: Palette3D) {
 			const category = (token: string) => new THREE.Color(sceneSwatch(palette, token));
+			colors.soil.value.set(palette.terrainSoil ?? palette.paper);
+			colors.pencil.value.set(palette.ink3 ?? palette.ink);
 			colors.paper.value.set(palette.paper);
 			colors.ink.value.set(palette.ink);
 			daylight.value = Number(colors.paper.value.r >= colors.ink.value.r);

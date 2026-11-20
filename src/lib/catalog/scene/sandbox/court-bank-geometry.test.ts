@@ -65,3 +65,34 @@ test('the seed-seven hillside court meets a fill bank and cuts into the opposite
 	expect(section(1, 2) - section(1, 0)).toBeGreaterThan(0.4);
 	expect(section(1, 4.5)).toBeGreaterThan(section(1, 0));
 }, 60000);
+
+test('the terrain material receives matching landform slots on coarse and refined parcels', () => {
+	const { grid } = acceptanceScene(7).world;
+	const scene = createTerrainMesh(grid);
+	try {
+		const attributes = scene.surface.geometry.attributes;
+		let planted = 0;
+		for (const cell of grid.cells) {
+			if (!cell.landform) continue;
+			for (const [i, slot] of cell.landform.entries()) {
+				const id = 4 * cell.index + i;
+				expect(attributes.landform.getX(id)).toBeCloseTo(slot[0], 6);
+				expect(attributes.landform.getY(id)).toBeCloseTo(slot[1], 6);
+				expect(attributes.landform.getZ(id)).toBeCloseTo(slot[2], 6);
+				if (slot[1] > 0.5) planted++;
+			}
+		}
+		expect(planted).toBeGreaterThan(0);
+		const banks = scene.group.children.find(
+			(p) => p instanceof Mesh && p !== scene.surface && p.material === scene.surface.material
+		);
+		if (!(banks instanceof Mesh)) throw Error('Missing court bank mesh');
+		const weights = banks.geometry.getAttribute('landform');
+		expect(weights.count).toBe(banks.geometry.getAttribute('position').count);
+		expect(weights.array.some((v: number) => v > 0.5)).toBe(true);
+		scene.setGrid(createWorld(7).grid);
+		expect(attributes.landform.array.every((x) => x === 0)).toBe(true);
+	} finally {
+		scene.dispose();
+	}
+}, 60000);
