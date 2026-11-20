@@ -1,3 +1,4 @@
+import { frontages, galleryCourses } from './gallery';
 import { paletteCount, housePath } from './routes';
 import { required } from '../required';
 import type { HouseSite } from './site';
@@ -6,7 +7,13 @@ import { collapse } from './collapse';
 import { affinities, typologies, type HouseRole, type Typology } from './families';
 import { survey, type Survey } from './survey';
 
-type Decision = { role: HouseRole; typology: Typology; away: [number, number] };
+type Decision = {
+	frontage?: ReadonlySet<string>;
+	galleryCourse?: number;
+	role: HouseRole;
+	typology: Typology;
+	away: [number, number];
+};
 export type EnsembleContext = {
 	datum: number;
 	skyline: number;
@@ -94,7 +101,9 @@ function wideForms(sites: Survey[], roles: Map<string, HouseRole>, seed: number)
 	return required(palettes.get(key), 'chosen palette').forms;
 }
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
-	const wide = sites.filter((s) => !s.compact);
+	const streets = frontages(sites);
+	const galleries = galleryCourses(sites, streets);
+	const wide = sites.filter((s) => !s.compact && !streets.get(s.id));
 	const chosen = wideForms(wide, roles, seed);
 	const forms = new Map(wide.map((s, i) => [s.id, chosen[i]]));
 	return new Map<string, Decision>(
@@ -103,7 +112,9 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 			{
 				role: required(roles.get(s.id), 'ensemble role'),
 				typology: forms.get(s.id) ?? 'block',
-				away: away(s, sites)
+				away: away(s, sites),
+				frontage: streets.get(s.id),
+				galleryCourse: galleries.get(s.id)
 			}
 		])
 	);

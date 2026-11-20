@@ -68,6 +68,9 @@ export function members(
 	const roles = stockSurfaces(id, paint, finish, surfaces, use);
 	if (body) {
 		roles.shell = surfaces.shell === houseSurfaces.shell ? body : surfaces.shell;
+		roles.edge = roleSurface(paint, 'rim', body.token);
+		roles.accent = body;
+		roles.highlight = body;
 		roles.body = body;
 		roles.frame = body;
 		roles.glass = pane;

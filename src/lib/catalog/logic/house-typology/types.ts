@@ -59,6 +59,7 @@ export type Body = HouseSlot & {
 	bay?: [number, number];
 	band?: {
 		wellX?: number;
+		footprint?: { polygon: [number, number][]; holes: [number, number][][] };
 		modules?: Point;
 		plinth?: boolean;
 		shell: boolean;

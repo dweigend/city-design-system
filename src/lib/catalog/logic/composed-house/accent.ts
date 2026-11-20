@@ -14,7 +14,9 @@ const bodyCount = (section: Section) =>
 	section.composition.levels.reduce((n, l) => n + l.bodies.length, 0);
 /** The one body of a house that carries its programme colour: the first body of the accent storey. */
 export function accentBody(section: Section) {
-	return section.composition.levels[accentStorey(section)].bodies[0];
+	const levels = section.composition.levels;
+	if (ensembleAnchor(section)) return levels[levels.length - 1].bodies[0];
+	return levels[accentStorey(section)].bodies[0];
 }
 /** True for the high point of an ensemble of at least two houses. A standalone house is not one. */
 export function ensembleAnchor(section: Section) {

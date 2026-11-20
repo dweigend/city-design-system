@@ -10,6 +10,15 @@ type Point = NetworkInput['houses'][number]['entrance'];
 export function bodyObstacles(section: Section): HouseObstacle[] {
 	return section.composition.parts.flatMap((part) => {
 		if (part.joint !== 'body' && part.joint !== 'capsule') return [];
+		if (part.kind === 'prism') {
+			const b = planBounds(part.polygon);
+			const position: HouseObstacle['position'] = [
+				(b.left + b.right) / 2,
+				(b.bottom + b.top) / 2,
+				part.z
+			];
+			return [{ position, size: part.size, owner: section.id }];
+		}
 		if (part.kind !== 'box' && part.kind !== 'cylinder') return [];
 		const [u, v, z] = part.position,
 			[w, d] = part.size;
@@ -27,6 +36,11 @@ export function networkHouse(section: Section) {
 	const obstacles: HouseObstacle[] = [],
 		overhangs: Point[][] = [];
 	for (const body of bodyObstacles(section)) {
+		if (
+			section.composition.levels[0].bodies[0].band?.footprint &&
+			body.position[2] - ground >= 2.1 + houseStair.thickness
+		)
+			continue;
 		const exclusion = entranceApron(body, entrance, ground);
 		if (exclusion) overhangs.push(exclusion);
 		else obstacles.push(body);
