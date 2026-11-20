@@ -34,11 +34,27 @@ test('later paint extends one frame and links houses across construction years',
 		bounds(crown).max[2] - required(extended.grid.cellsById.get(a), 'painted cell').pad
 	).toBeGreaterThanOrEqual(6);
 	expect(extended.state.stacks.get(a)).toHaveLength(2);
-	expect([...groups.keys()].some((k) => k.startsWith('composed/link/'))).toBe(true);
+	// Adjacent houses on a shared podium connect through the ground network instead of a bridge link.
+	expect(
+		[...groups.keys()].some(
+			(k) => k.startsWith('composed/link/') || k.startsWith('composed/network/')
+		)
+	).toBe(true);
 	const changed = changes(later, extended).houseGroups;
 	expect(changed.has('composed/' + a)).toBe(true);
-	expect(changed.has('composed/' + b)).toBe(false);
-	expect(draw(later).get('composed/' + b)).toEqual(groups.get('composed/' + b));
+	expect(changed.has('composed/' + b)).toBe(true);
+	const prior = draw(later);
+	expect(prior.get('composed/' + b)).not.toEqual(groups.get('composed/' + b));
+	for (const [from, to] of [
+		[later, extended],
+		[extended, later]
+	]) {
+		const keys = new Set(changes(from, to).houseGroups.keys());
+		const incremental = new Map([...draw(from)].filter(([key]) => !keys.has(key)));
+		for (const [key, parts] of houseGroups(to, chunk, focuses.all, keys))
+			incremental.set(key, parts);
+		expect(incremental).toEqual(draw(to));
+	}
 });
 
 test('successive painted storeys remain reachable in one living stack', () => {
