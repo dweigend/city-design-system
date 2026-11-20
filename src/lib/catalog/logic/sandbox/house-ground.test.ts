@@ -23,6 +23,8 @@ for (const seed of [7, 13, 29])
 					const walls = plates.filter((w) => w.id.startsWith(p.id + '/foundation/'));
 					expect(walls.length, p.id).toBeGreaterThan(0);
 					for (const wall of walls) {
+						expect(wall.buildingSurface?.slot).toBe('shell');
+						expect(wall.buildingSurface).toEqual(p.buildingSurface);
 						expect(wall.z + wall.height).toBeCloseTo(p.z, 8);
 						expect(wall.polygon.every(([x, y]) => wall.z <= ground(x, y))).toBe(true);
 					}

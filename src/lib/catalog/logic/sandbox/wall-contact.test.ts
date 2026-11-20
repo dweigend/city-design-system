@@ -1,3 +1,6 @@
+import { translate } from '../ansicht/geometrie';
+import { sectionParts, fieldUse } from '../composed-house';
+import { seatedHouse } from './house-ground';
 import { required } from '../required';
 import { expect, test } from 'bun:test';
 import { wallContact, wallContacts, chartPoint, type TerrainGrid } from '../terrain-grid';
@@ -155,4 +158,31 @@ test('the town grid locates court ends and shared faces without a caller supplyi
 	expect(side.frontage?.retainingFaces).toEqual([]);
 	const away = wallContacts(grid, { ...span, a: point(0.3, 0.5), b: point(0.7, 0.5) });
 	expect(away.some((r) => r.kind === 'surveyed' && r.frontage?.relation === 'setback')).toBe(true);
+}, 60000);
+
+test('an exposed shell follows the hillside beneath its cut panels', () => {
+	const { world } = openingScene(7);
+	const house = required(
+		townSections(world).sections.find((s) => s.id === '114/41'),
+		'hillside house'
+	);
+	const shell = required(house.composition.exterior, 'layered shell');
+	const cells = house.cells.map((c) => required(world.grid.cellsById.get(c.id), 'hillside parcel'));
+	// Raise the example seat to expose the bank that buries this shell in the opening town.
+	const rise = 3;
+	const parts = sectionParts(house).map((p) => translate(p, [0, 0, rise]));
+	const field = { slot: 'shell' as const, use: fieldUse(house), ensemble: house.ensemble };
+	const seated = seatedHouse(parts, cells, world.grid, shell.bottom + rise, field);
+	const panels = seated.filter((p) => p.kind === 'mesh' && p.id.endsWith('/ground'));
+	expect(panels.length).toBeGreaterThan(0);
+	for (const p of panels) {
+		if (p.kind !== 'mesh') throw Error('Expected wall sheet');
+		expect(p.buildingSurface).toEqual(field);
+		for (let i = 0; i < p.points.length; i += 4) {
+			const [a, b, top] = p.points.slice(i, i + 3);
+			expect(top[2]).toBeCloseTo(shell.bottom + rise, 8);
+			const ground = walkingHeight(world.grid, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+			expect((a[2] + b[2]) / 2).toBeLessThanOrEqual(ground + 1e-7);
+		}
+	}
 }, 60000);
