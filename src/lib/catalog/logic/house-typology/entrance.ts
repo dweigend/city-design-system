@@ -3,6 +3,8 @@ import type { QuadCell } from '../quad-grid';
 
 // Two offset 0.48 m ladder lanes, 0.06 m stiles and 0.05 m clear on each side.
 export const entranceWidth = 1.18;
+export const landingDepth = 0.41;
+export const approachDepth = houseStair.width / 2 + 0.02;
 
 type XY = [number, number];
 /** Keeps the part of a convex ring on the positive side of a signed line. */
@@ -19,7 +21,7 @@ function clip(ring: XY[], distance: (point: XY) => number) {
 }
 
 /** Opens the entrance cell from its exterior face to the ladder, retaining two piers and the rear room. */
-export function entranceRooms(cell: QuadCell, axis: XY, sign: number) {
+export function entranceRooms(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
 	const ring = cell.corners.map(([x, y]): XY => [x, y]);
 	// The public approach reaches either staggered ladder foot with its full walking width.
 	const half = houseStair.width / 2 + 0.24 + 0.02;
@@ -32,7 +34,7 @@ export function entranceRooms(cell: QuadCell, axis: XY, sign: number) {
 	return [
 		clip(ring, ([x]) => left - x),
 		clip(ring, ([x]) => x - right),
-		clip(middle, ([, y]) => sign * (axis[1] - y) - houseStair.width / 2 - 0.02)
+		clip(middle, ([, y]) => sign * (axis[1] - y) - rearDepth)
 	]
 		.filter((r) => r.length >= 3)
 		.map((polygon) => ({ polygon, holes: [] as XY[][] }));

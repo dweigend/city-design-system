@@ -1,7 +1,13 @@
 import { serviceGallery } from './service-gallery';
 import { convexHull } from '../parzelle';
 import { wingRim, type UpperWing } from './upper-wings';
-import { entranceCell, entranceRooms, entranceWidth } from './entrance';
+import {
+	entranceCell,
+	entranceRooms,
+	entranceWidth,
+	landingDepth,
+	approachDepth
+} from './entrance';
 import { courseDatums } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior } from './parcel-section';
@@ -137,11 +143,12 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 		wing && cells.length === 1
 			? { polygon: wingRim(cells[0], wing.walls, pier.polygon), holes: [opening] }
 			: bridge;
-	const rooms = cells.flatMap((c) =>
-		!frontage.size || c === access.anchor
-			? entranceRooms(c, axis, plan.sign)
-			: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
-	);
+	const groundRooms = (depth: number) =>
+		cells.flatMap((c) =>
+			!frontage.size || c === access.anchor
+				? entranceRooms(c, axis, plan.sign, depth)
+				: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
+		);
 	return {
 		access,
 		axis,
@@ -151,7 +158,8 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 		bridge,
 		pier,
 		wingShape,
-		rooms,
+		rooms: groundRooms(approachDepth),
+		foundation: groundRooms(landingDepth),
 		envelope,
 		joined: frontage.size > 0
 	};
@@ -228,10 +236,10 @@ function courses(
 	wing?: UpperWing
 ) {
 	const shapes = courseShapes(plan, frontage, wing);
-	const { access, axis, opening, plot, rooms, envelope } = shapes;
+	const { access, axis, opening, plot, foundation, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
 	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
-	const parts: Solid[] = rooms.map((room, k) =>
+	const parts: Solid[] = foundation.map((room, k) =>
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
 	);
 	const levels: Level[] = [];
@@ -252,7 +260,7 @@ function courses(
 			use,
 			programme: programme[i],
 			bodies,
-			landing: [axis[0], axis[1] - plan.sign * 0.41, z],
+			landing: [axis[0], axis[1] - plan.sign * landingDepth, z],
 			deckArea:
 				ringArea(shape.polygon) - shape.holes.reduce((a, h) => a + Math.abs(ringArea(h)), 0),
 			outline: shape.polygon.map(([u, v]) => [u, v, z])
