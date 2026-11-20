@@ -1,11 +1,12 @@
-import { flightRun, gradeWalkLinks, townStairs } from './link-grades';
+import { flightRun, gradeWalkLinks } from './link-grades';
+import { walkingProfile } from './walking-profile';
 import { required } from '../required';
 import { interpolatePoint, type Vec3 } from '../parametrik/types';
 
 type Center = (id: string) => Vec3;
 type Station = { position: Vec3; arms: string[] };
 type Stations = Map<string, Station>;
-export type TownSpan = { id: string; a: Vec3; b: Vec3 };
+export type TownSpan = { id: string; a: Vec3; b: Vec3; fromFork?: string; toFork?: string };
 
 /** Seats junctions on the surveyed route and draws the three arms
  * towards their common bisector. Each court keeps its surveyed landing. */
@@ -68,15 +69,28 @@ function breakLongRuns(path: string[], stations: Stations) {
 	}
 }
 
-function landing(s: Station, other: Station) {
+function landing(s: Station, other: Station, stations: Stations) {
 	if (s.arms.length !== 3) return s.position;
 	const p = s.position,
 		q = other.position,
 		d = Math.hypot(q[0] - p[0], q[1] - p[1]);
-	const requiredRun = flightRun(p[2] - q[2], townStairs);
+	const heading = Math.atan2(q[1] - p[1], q[0] - p[0]);
+	const turns = s.arms
+		.map((id) => required(stations.get(id), 'junction arm'))
+		.filter((arm) => arm !== other)
+		.map(({ position: r }) =>
+			Math.abs(
+				Math.atan2(
+					Math.sin(Math.atan2(r[1] - p[1], r[0] - p[0]) - heading),
+					Math.cos(Math.atan2(r[1] - p[1], r[0] - p[0]) - heading)
+				)
+			)
+		);
+	const setback = walkingProfile.width / 2 / Math.tan(Math.min(...turns) / 2) + 0.32;
+	const requiredRun = flightRun(q[2] - p[2], walkingProfile);
 	const share = other.arms.length === 3 ? 0.5 : 1;
-	const setback = Math.max(0.1, (d - requiredRun) * share);
-	const end = interpolatePoint(p, q, Math.min(0.24, 1.8 / d, setback / d));
+	const reserve = p[2] === q[2] ? setback : Math.max(0.1, (d - requiredRun) * share);
+	const end = interpolatePoint(p, q, Math.min(0.49, setback / d, reserve / d));
 	end[2] = p[2];
 	return end;
 }
@@ -92,10 +106,10 @@ export function townLinkSurvey(
 			const from = path[i];
 			const start = required(stations.get(from), 'from station');
 			const end = required(stations.get(to), 'to station');
-			return { from, to, a: landing(start, end), b: landing(end, start) };
+			return { from, to, a: landing(start, end, stations), b: landing(end, start, stations) };
 		})
 	);
-	return gradeWalkLinks(mouths, ends, townStairs);
+	return gradeWalkLinks(mouths, ends, walkingProfile);
 }
 
 /** Ends each flight on level decking and leaves three open mouths at a fork. */
@@ -104,7 +118,7 @@ export function townSpans(
 	stations: Stations,
 	ends: ReadonlyMap<string, Vec3>
 ): TownSpan[] {
-	return links.flatMap(({ from, to, a: first, b: last, requiredRun, availableRun }) => {
+	return links.flatMap<TownSpan>(({ from, to, a: first, b: last, requiredRun, availableRun }) => {
 		const start = required(stations.get(from), 'from station');
 		const end = required(stations.get(to), 'to station');
 		start.position[2] = first[2];
@@ -112,20 +126,30 @@ export function townSpans(
 		const a = start.arms.length === 3 ? first : start.position;
 		const b = end.arms.length === 3 ? last : end.position;
 		const key = 'town-walk/' + from + '>' + to;
-		if (a[2] === b[2] || ends.has(from)) return [{ id: key, a, b }];
-		const rising = b[2] > a[2];
-		const share = Math.min(rising ? 0.55 : 0.45, 1 - requiredRun / availableRun);
-		if (share * availableRun < 0.01) return [{ id: key, a, b }];
-		const middle = interpolatePoint(a, b, rising ? 1 - share : share);
-		middle[2] = Math.max(a[2], b[2]);
-		return rising
-			? [
-					{ id: key + '/stair', a, b: middle },
-					{ id: key, a: middle, b }
-				]
-			: [
-					{ id: key, a, b: middle },
-					{ id: key + '/stair', a: middle, b }
-				];
+		const fromFork = start.arms.length === 3 ? from : undefined,
+			toFork = end.arms.length === 3 ? to : undefined;
+		if (a[2] === b[2] || ends.has(from)) return [{ id: key, a, b, fromFork, toFork }];
+		return levelLead({ id: key, a, b, fromFork, toFork }, requiredRun, availableRun);
 	});
+}
+function levelLead(
+	{ id, a, b, fromFork, toFork }: TownSpan,
+	requiredRun: number,
+	availableRun: number
+): TownSpan[] {
+	const rising = b[2] > a[2];
+	const share = Math.min(rising ? 0.55 : 0.45, 1 - requiredRun / availableRun);
+	if (share * availableRun < walkingProfile.width / 2 + 0.15)
+		return [{ id, a, b, fromFork, toFork }];
+	const middle = interpolatePoint(a, b, rising ? 1 - share : share);
+	middle[2] = Math.max(a[2], b[2]);
+	return rising
+		? [
+				{ id: id + '/stair', a, b: middle, fromFork },
+				{ id, a: middle, b, toFork }
+			]
+		: [
+				{ id, a, b: middle, fromFork },
+				{ id: id + '/stair', a: middle, b, toFork }
+			];
 }

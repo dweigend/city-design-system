@@ -107,7 +107,7 @@ export type Primitive = Base &
 				tilt?: number;
 				curvature?: number;
 		  }
-		| { kind: 'pipe'; points: Vec3[]; radius: number }
+		| { kind: 'pipe'; points: Vec3[]; radius: number; sampled?: boolean }
 		/**
 		 * Extruded ground polygon (x/y in meters) from z to z + height; for irregular cells and parcels.
 		 * holes: inner rings cut out of the polygon (courtyards); they do not touch the outer ring.

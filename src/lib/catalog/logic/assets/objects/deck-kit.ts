@@ -1,3 +1,6 @@
+import { profileSolid } from '../../linear-path';
+import type { Vec3 } from '../../parametrik/types';
+import { surface } from '../parts';
 import { block } from '../assembly';
 import { rod, drum } from '../parts';
 import { pavedDeck, rounded } from './kit-recipe';
@@ -59,7 +62,19 @@ function walk(type: 'gallery' | 'plank' | 'truss') {
 		(l, v) => {
 			const w = type === 'gallery' ? 1.25 : 2.5;
 			const parts = [
-				block(0, 0, 0, l, w, 0.3, type === 'gallery' ? 'deck' : 'access'),
+				{
+					...surface(type === 'gallery' ? 'deck' : 'access'),
+					...profileSolid(
+						[-l / 2, l / 2].map((x) =>
+							[
+								[-w / 2, 0],
+								[w / 2, 0],
+								[w / 2, 0.3],
+								[-w / 2, 0.3]
+							].map(([y, z]): Vec3 => [x, y, z])
+						)
+					)
+				},
 				...barrier(l, w / 2 - 0.06, 0.3, v)
 			];
 			if (type !== 'gallery') parts.push(...barrier(l, -w / 2 + 0.06, 0.3, v));

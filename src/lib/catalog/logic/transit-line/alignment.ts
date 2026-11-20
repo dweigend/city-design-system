@@ -1,26 +1,9 @@
+import { chainage, segment } from '../linear-path';
+export { chainage, segment };
 import type { Vec3 } from '../parametrik/types';
 const SAMPLE = 2;
 const MIN_SEGMENT = 1e-8; // Meters. Coincident samples can mask a reversal.
 const SMOOTHING_PASSES = 8;
-export function chainage(path: readonly Vec3[]) {
-	const distances = [0];
-	for (let i = 1; i < path.length; i++) {
-		const a = path[i - 1],
-			b = path[i];
-		distances.push(distances[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]));
-	}
-	return distances;
-}
-export function segment(distances: readonly number[], s: number) {
-	let lo = 0,
-		hi = distances.length - 1;
-	while (hi - lo > 1) {
-		const mid = Math.floor((lo + hi) / 2);
-		if (distances[mid] <= s) lo = mid;
-		else hi = mid;
-	}
-	return lo;
-}
 function interpolate(a: Vec3, b: Vec3, t: number): Vec3 {
 	if (t >= 1) return [...b];
 	return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2])];

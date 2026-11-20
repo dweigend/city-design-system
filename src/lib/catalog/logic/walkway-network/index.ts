@@ -3,7 +3,7 @@ export { separation as segmentSeparation } from './clearance';
 export { greenCircuit, greenApproaches } from './green-circuit';
 export { privateSurface } from './town-palette';
 export { courtLanding } from './court-landing';
-export { townDeck, publicFlight } from './town-deck';
+export { townDeck, publicFlight, surveyTownWalk } from './town-deck';
 export { townRoutes, linkCentres } from './town-routes';
 import { survey } from './clearance';
 import { deckOptions } from './deck-route';
@@ -90,3 +90,4 @@ export function planNetwork(input: NetworkInput, seed: number): Network {
 	}
 	return { ...network, geometry: project(network, checked, seed) };
 }
+export { fitWalkingFlights } from './flight-fit';

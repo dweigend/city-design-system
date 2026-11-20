@@ -1,130 +1,121 @@
+import { required } from '../required';
+import { contours, pathSupports, pathTube } from '../linear-path';
+import { townPath } from './town-path';
+import { rampSurface } from './walking-profile';
 import { houseStair } from '../../data/house-stair';
 import { buildObject } from '../assets';
-import { routeDecks, spanSurvey, walkwayParts } from '../walkway';
+import { routeDecks, WALKWAY_PARAMS } from '../walkway';
 import { distance, mix } from './clearance';
 import { plan } from './deck-route';
 import { isPlaza } from './graph';
-import {
-	width,
-	type Edge,
-	type Network,
-	type NetworkInput,
-	type Point,
-	type Position
-} from './types';
+import { width, type Edge, type Network, type NetworkInput, type Position } from './types';
 
-function stairTreads(edge: Edge, seed: number) {
-	const [a, b] = edge.points,
-		from = plan(a),
-		to = plan(b);
-	const run = distance(from, to),
-		count = Math.round(run / houseStair.going);
-	const cos = (b[0] - a[0]) / run,
-		sin = (b[1] - a[1]) / run;
-	return Array.from({ length: count }, (_, i) => {
-		const id = edge.id + '/tread/' + i;
+type Band = ReturnType<typeof townPath>['bands'][number];
+function flightParts(
+	{ span: { id, a, b }, right, left }: Band,
+	kind: Edge['kind'],
+	ground: NetworkInput['terrain'],
+	seed: number
+): Network['geometry'] {
+	const parts: Network['geometry'] = [];
+	const ring = [right[0], left[0], left[left.length - 1], right[right.length - 1]];
+	if (kind === 'stair') {
+		const count = Math.round(distance(plan(a), plan(b)) / houseStair.going);
 		const [stock] = buildObject('stairs', 'straight-tread', seed, { instanceId: id }).geometry;
 		if (stock.kind !== 'prism') throw new Error('Expected registry tread plate');
-		const [x, y] = mix(from, to, (i + 0.5) / count);
-		const polygon = stock.polygon.map(([u, v]): Point => [
-			x + u * cos - v * sin,
-			y + u * sin + v * cos
-		]);
-		return {
-			...stock,
-			slot: 'access' as const,
-			polygon,
-			z: a[2] + ((b[2] - a[2]) * (i + 1)) / count - stock.height
-		};
-	});
-}
-function deckSpan(id: string, a: Position, b: Position, input: NetworkInput) {
-	const parts: Network['geometry'] = [];
-	const midpoint = mix(plan(a), plan(b), 0.5);
-	for (const part of walkwayParts([a, b], { id, width, groundZ: input.terrain(...midpoint) })) {
-		const { id: partId, role } = part;
-		if (part.kind === 'cylinder')
+		const at = (i: number, side: number) => mix(plan(ring[side]), plan(ring[3 - side]), i / count);
+		for (let i = 0; i < count; i++)
 			parts.push({
-				id: partId,
-				role,
-				kind: part.kind,
-				slot: 'frame',
-				position: part.position,
-				radius: part.radius,
-				height: part.height
-			});
-		if (part.kind === 'prism')
-			parts.push({
-				id: partId,
-				role,
-				kind: part.kind,
+				...stock,
+				id: id + '/tread/' + i,
 				slot: 'access',
-				polygon: part.polygon,
-				z: part.z,
-				height: part.height
+				polygon: [at(i, 0), at(i, 1), at(i + 1, 1), at(i + 1, 0)],
+				z: a[2] + ((b[2] - a[2]) * (i + 1)) / count - stock.height
 			});
-		if (part.kind === 'polyline')
-			parts.push({ id: partId, role, kind: part.kind, slot: 'frame', points: part.points });
-	}
-	return parts;
-}
-function flightPiers(edge: Edge, input: NetworkInput) {
-	const [a, b] = edge.points,
-		run = distance(plan(a), plan(b));
-	const count = Math.ceil(run / 12);
-	const piers: Network['geometry'] = [];
-	for (let i = 0; i < count; i++) {
-		const t = (i + 0.5) / count,
-			p = mix(plan(a), plan(b), t),
-			ground = input.terrain(...p);
-		const height = a[2] + t * (b[2] - a[2]) - ground;
+	} else if (kind === 'deck') {
+		parts.push({
+			id: id + '/deck',
+			kind: 'prism',
+			slot: 'access',
+			role: 'neu',
+			z: a[2] - WALKWAY_PARAMS.thickness.default,
+			height: WALKWAY_PARAMS.thickness.default,
+			polygon: [...left, ...right.toReversed()].map(plan)
+		});
+	} else parts.push({ ...rampSurface(right, left), id: id + '/ramp', slot: 'access', role: 'neu' });
+	for (const [i, p] of pathSupports([a, b], 12).entries()) {
+		const base = ground(p[0], p[1]),
+			height = p[2] - base - (kind === 'deck' ? WALKWAY_PARAMS.thickness.default : 0);
 		if (height > 0)
-			piers.push({
+			parts.push({
 				kind: 'cylinder',
-				id: edge.id + '/pier/' + i,
+				id: id + '/pier/' + i,
 				slot: 'frame',
 				role: 'neu',
-				position: [...p, ground],
-				radius: width * 0.12,
-				height
+				position: [p[0], p[1], base],
+				height,
+				radius: width * 0.12
 			});
-	}
-	return piers;
-}
-function projectedSpan(
-	e: Edge,
-	i: number,
-	ring: ReturnType<typeof routeDecks>[number],
-	input: NetworkInput
-) {
-	const id = e.id + '/' + i,
-		a = e.points[i],
-		b = e.points[i + 1];
-	const parts: Network['geometry'] = [];
-	if (e.kind === 'deck') return deckSpan(id, a, b, input);
-	if (e.kind !== 'stair')
-		parts.push({
-			id,
-			kind: 'mesh',
-			role: 'neu',
-			slot: 'access',
-			points: ring,
-			triangles: [0, 2, 1, 0, 3, 2],
-			lines: [[0, 1, 2, 3, 0]]
-		});
-	if (e.kind !== 'ground') {
-		parts.push(...flightPiers(e, input));
-		const { rails } = spanSurvey(ring, id, width);
-		for (const rail of rails) parts.push({ ...rail, kind: 'polyline', role: 'neu', slot: 'frame' });
 	}
 	return parts;
 }
+function raisedPaths(edges: Edge[], input: NetworkInput, seed: number): Network['geometry'] {
+	const kinds = new Map(edges.map((e) => [e.id, e.kind]));
+	const { bands } = townPath(
+		edges.map((e) => ({ id: e.id, a: e.points[0], b: e.points[e.points.length - 1] })),
+		new Map(),
+		width
+	);
+	const parts = bands.flatMap((b) =>
+		flightParts(b, required(kinds.get(b.span.id), 'flight kind'), input.terrain, seed)
+	);
+	const sides = contours(bands.flatMap((b) => [b.left, b.right]));
+	for (const [i, side] of sides.entries()) {
+		const id = 'guard/' + i;
+		parts.push({
+			...pathTube(
+				side.map(([x, y, z]) => [x, y, z + 1]),
+				0.06
+			),
+			id,
+			role: 'neu',
+			slot: 'frame'
+		});
+		for (const [j, p] of pathSupports(side, 3).entries())
+			parts.push({
+				kind: 'cylinder',
+				id: id + '/post/' + j,
+				role: 'neu',
+				slot: 'frame',
+				position: p,
+				height: 1,
+				radius: 0.06
+			});
+	}
+	return parts;
+}
+/** Projects the shared network stations in walking metres and assigns material slots. */
 export function project(network: Omit<Network, 'geometry'>, input: NetworkInput, seed: number) {
-	const parts = network.edges.flatMap((e) => {
-		const rings = routeDecks(e.points, width);
-		const spans = rings.flatMap((ring, i) => projectedSpan(e, i, ring, input));
-		return e.kind === 'stair' ? [...spans, ...stairTreads(e, seed)] : spans;
-	});
+	const parts: Network['geometry'] = network.edges
+		.filter((e) => e.kind === 'ground')
+		.flatMap((e) =>
+			routeDecks(e.points, width).map((points, i) => ({
+				id: e.id + '/' + i,
+				kind: 'mesh' as const,
+				role: 'neu' as const,
+				slot: 'access' as const,
+				points,
+				triangles: [0, 2, 1, 0, 3, 2],
+				lines: [[0, 1, 2, 3, 0]]
+			}))
+		);
+	parts.push(
+		...raisedPaths(
+			network.edges.filter((e) => e.kind !== 'ground'),
+			input,
+			seed
+		)
+	);
 	for (const n of network.nodes.filter(isPlaza)) {
 		const position: Position = [n.position[0], n.position[1], n.position[2] - 0.08];
 		parts.push({

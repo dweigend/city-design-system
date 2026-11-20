@@ -1,3 +1,4 @@
+import { chainage } from '../linear-path';
 import { access as projectAccess } from '../composed-house/access';
 import { bodyParts } from '../composed-house/provider';
 import { houseStructure } from '../composed-house/structure';
@@ -188,11 +189,10 @@ function inspect(s: Section) {
 				(p) => p.id.includes('/rail/' + r.flight + '/' + r.side + '/') && p.source.member === 0
 			);
 			const chord = tops.reduce(
-				(v, p) =>
-					p.kind === 'pipe' ? v + Math.hypot(...p.points[1].map((n, k) => n - p.points[0][k])) : v,
+				(v, p) => (p.kind === 'pipe' ? v + (chainage(p.points).at(-1) ?? 0) : v),
 				0
 			);
-			expect(chord).toBeGreaterThanOrEqual(r.covered * 0.96 - 1e-8);
+			expect(chord).toBeCloseTo(r.covered, 8);
 		}
 	}
 	checkDocks(path, walk);

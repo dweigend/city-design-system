@@ -1,3 +1,5 @@
+import { pathTube } from '../linear-path';
+import type { Vec3 } from '../parametrik/types';
 import { block, plate, row } from './assembly';
 import { mount, type AssetRecipe } from './definition';
 import { rod, surface } from './parts';
@@ -43,10 +45,14 @@ function railing(variant: number) {
 	const span = variant < 3 ? 2.38 : variant % 2 ? 0.72 : 0.18;
 	const half = (span * Math.cos(pitch)) / 2,
 		rise = span * Math.sin(pitch);
+	const edge: Vec3[] = [
+		[-half, 0, 0],
+		[half, 0, rise]
+	];
+	const handrail = edge.map(([x, y, z]): Vec3 => [x, y, z + 0.92]);
 	return [
-		rod([-half, 0, 0.92], [half, 0, 0.92 + rise], 0.06, 'frame'),
-		rod([-half, 0, 0], [-half, 0, 0.92], 0.06, 'frame'),
-		rod([half, 0, rise], [half, 0, 0.92 + rise], 0.06, 'frame')
+		{ ...surface('frame'), ...pathTube(handrail, 0.06) },
+		...edge.map((foot, i) => rod(foot, handrail[i], 0.06, 'frame'))
 	];
 }
 

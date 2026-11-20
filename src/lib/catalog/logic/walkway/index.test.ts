@@ -1,3 +1,5 @@
+import type { Vec3 } from '../parametrik/types';
+import { sweepProfile } from '../linear-path';
 import { expect, test } from 'bun:test';
 import { walkwayParts } from './index';
 import { flowToken } from '../../data/focus';
@@ -40,8 +42,9 @@ test('a bent route joins both rails and keeps span identities distinct', () => {
 		{ id: 'route' }
 	);
 	const rails = parts.filter((p) => p.kind === 'polyline');
-	expect(rails[0].points[1]).toEqual(rails[2].points[0]);
-	expect(rails[1].points[1]).toEqual(rails[3].points[0]);
+	expect(rails).toHaveLength(2);
+	for (const rail of rails) expect(rail.points).toHaveLength(3);
+	expect(rails[0].points[1]).toEqual([7.1, 0.8999999999999999, 5]);
 	expect(new Set(parts.map((p) => p.id)).size).toBe(parts.length);
 	expect(parts.every((p) => p.id.startsWith('route:'))).toBe(true);
 });
@@ -52,3 +55,34 @@ test('vertical runs have no horizontal space for treads', () =>
 			[0, 0, 5]
 		])
 	).toThrow(RangeError));
+
+test('sampled profiles follow sloping, vertical and horizontal 3D paths at their authored radius', () => {
+	const section = [
+		[0.2, 0],
+		[0, 0.2],
+		[-0.2, 0],
+		[0, -0.2]
+	] as const;
+	for (const path of [
+		[
+			[0, 0, 0],
+			[0, 0, 3]
+		],
+		[
+			[0, 0, 0],
+			[1, 0, 0],
+			[2, 1, 0.4]
+		],
+		[
+			[0, 0, 2],
+			[2, 0, 0]
+		]
+	] satisfies Vec3[][]) {
+		const { points, triangles } = sweepProfile(path, section);
+		expect(triangles.length).toBe((path.length - 1) * 24);
+		for (const [i, p] of points.entries()) {
+			const center = path[Math.floor(i / 4)];
+			expect(Math.hypot(...p.map((v, k) => v - center[k]))).toBeCloseTo(0.2, 10);
+		}
+	}
+});

@@ -1,3 +1,4 @@
+import type { Primitive } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import {
 	applyEdit,
@@ -39,7 +40,32 @@ function neighbours(face: Face, next: Face) {
 		!separated(next, face)
 	);
 }
-function components(faces: Face[]) {
+function rampConnections(parts: Primitive[], faces: Face[]) {
+	const links = new Map<Face, Set<Face>>();
+	for (const part of parts) {
+		if (part.kind !== 'mesh' || !part.id.endsWith('/ramp')) continue;
+		const contacts = [0, 4].map((i) => {
+			const edge = [part.points[i + 2], part.points[i + 3]];
+			const polygon = edge.map(([x, y]): Vertex => [x, y]);
+			return faces.filter(
+				(f) => Math.abs(f.z + f.height - edge[0][2]) < 1e-7 && !separated(f, { ...f, polygon })
+			);
+		});
+		for (const group of contacts) expect(group.length, part.id).toBeGreaterThan(0);
+		for (const a of contacts[0])
+			for (const b of contacts[1]) {
+				const add = (u: Face, v: Face) => {
+					const row = links.get(u) ?? new Set<Face>();
+					row.add(v);
+					links.set(u, row);
+				};
+				add(a, b);
+				add(b, a);
+			}
+	}
+	return links;
+}
+function components(faces: Face[], ramps: Map<Face, Set<Face>>) {
 	const pending = new Set(faces);
 	const groups: Face[][] = [];
 	for (const start of pending) {
@@ -47,7 +73,7 @@ function components(faces: Face[]) {
 		pending.delete(start);
 		for (const face of group) {
 			for (const next of pending) {
-				if (!neighbours(face, next)) continue;
+				if (!ramps.get(face)?.has(next) && !neighbours(face, next)) continue;
 				pending.delete(next);
 				group.push(next);
 			}
@@ -75,8 +101,9 @@ function checkFootprints(world: World, reserved: Set<string>) {
 }
 function inspect(world: World) {
 	const city = required(world.state.city, 'town');
-	const faces = walkingPlates(cityCentreView(world));
-	const groups = components(faces);
+	const parts = cityCentreView(world),
+		faces = walkingPlates(parts);
+	const groups = components(faces, rampConnections(parts, faces));
 	expect(
 		groups.map((g) => g[0].id),
 		groups.map((g) => g.length + ' at ' + g[0].id).join(', ')

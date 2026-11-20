@@ -7,7 +7,7 @@ import type { Vec3 } from '../parametrik/types';
 export function groundDeck(network: Network, terrain: NetworkInput['terrain']) {
 	const top = (x: number, y: number) => terrain(x, y) + houseStair.thickness;
 	const geometry = network.geometry.map((shape) => {
-		if (shape.kind === 'mesh') {
+		if (shape.kind === 'mesh' && !shape.id.endsWith('/ramp')) {
 			const points = shape.points.map(([x, y]): Vec3 => [x, y, top(x, y)]);
 			return {
 				...shape,

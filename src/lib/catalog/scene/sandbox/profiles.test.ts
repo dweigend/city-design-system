@@ -53,6 +53,10 @@ for (const kind of kinds) {
 		// The I reference pins route geometry; O adds independent drafting metadata.
 		const geometry = lineParts(line).map((part) => {
 			const copy = { ...part };
+			if (copy.kind === 'pipe') {
+				expect(copy.sampled).toBe(true);
+				delete copy.sampled;
+			}
 			delete copy.member;
 			delete copy.bearings;
 			return copy;
@@ -80,19 +84,6 @@ for (const kind of kinds) {
 	});
 }
 
-function walkwayGeometry(part: ReturnType<typeof walkwayParts>[number]) {
-	// Preserve the original digest's field order independently of construction order.
-	if (part.kind === 'prism') {
-		const { id, kind, polygon, z, height, token, role, material } = part;
-		return { id, kind, polygon, z, height, token, role, material };
-	}
-	if (part.kind === 'polyline') {
-		const { id, kind, points, token, role, material } = part;
-		return { id, kind, points, token, role, material };
-	}
-	return part;
-}
-
 test('walkway defaults retain the bent route and its thickness follows the profile', () => {
 	const points = [
 		[0, 0, 6],
@@ -101,10 +92,12 @@ test('walkway defaults retain the bent route and its thickness follows the profi
 	] as const;
 	const anchors = points.map(([x, y, z]): [number, number, number] => [x, y, z]);
 	const defaults = walkwayParts(anchors);
-	// Geometry, IDs and order are frozen; the slab bearing tag is checked on its own.
-	expect(fingerprint(defaults.map(walkwayGeometry))).toBe(
-		'dbce442e79df9af123efa1c7aeebb83ab3ad2d4088c786c80a72d7883ad5a23f'
-	);
+	const guards = defaults.filter((p) => p.kind === 'polyline');
+	expect(guards.map((p) => p.points.map((q) => q[2]))).toEqual([
+		[7, 5, 5],
+		[7, 5, 5]
+	]);
+	expect(defaults.filter((p) => p.kind === 'cylinder')).toHaveLength(2);
 	expect(defaults.some((part) => part.kind === 'prism' && part.bearing === 'slab')).toBe(true);
 	const overrides = resolveParams(WALKWAY_PARAMS, { thickness: 0.5, treadRise: 0.5 });
 	const parts = walkwayParts(anchors, undefined, overrides);

@@ -1,3 +1,4 @@
+import { convexParts } from '../parametrik/raster/geometry';
 import { area, clipPolygon, type HalfPlane, type Point2 } from '../ansicht/geometrie';
 import { finishMaterial } from '../material/surface';
 import type { Primitive } from '../parametrik/types';
@@ -69,18 +70,26 @@ function isSurface(p: Primitive): p is Plate | Disc {
 		(p.kind === 'prism' || p.kind === 'cylinder') &&
 		!p.id.includes('/meeting/') &&
 		!p.id.includes('/pier') &&
+		!p.id.includes('/post/') &&
 		!/\/(right|left)\//.test(p.id)
 	);
 }
 type Seat = { bounds: number[]; edge: HalfPlane[] };
+function apart(b: number[], q: number[]) {
+	return b[0] >= q[1] || b[1] <= q[0] || b[2] >= q[3] || b[3] <= q[2];
+}
 function fit(p: Plate, taken: Seat[]) {
 	const b = box(p.polygon);
-	let pieces = [p.polygon];
+	const convex = convexParts(p.polygon);
+	let pieces = convex;
 	for (const { bounds: q, edge } of taken) {
-		if (b[0] >= q[1] || b[1] <= q[0] || b[2] >= q[3] || b[3] <= q[2]) continue;
-		pieces = pieces.flatMap((poly) => subtract(poly, edge));
+		if (apart(b, q)) continue;
+		const remaining = pieces.flatMap((poly) => subtract(poly, edge));
+		if (remaining.length !== pieces.length || remaining.some((poly, i) => poly !== pieces[i]))
+			pieces = remaining;
 	}
-	taken.push({ bounds: b, edge: perimeter(p.polygon) });
+	for (const polygon of convex) taken.push({ bounds: box(polygon), edge: perimeter(polygon) });
+	if (pieces === convex) return [p];
 	return pieces.map((polygon, i) => ({ ...p, polygon, id: i ? p.id + '/panel/' + i : p.id }));
 }
 /** Gives each square metre of a level walking plane one owner, including at bends

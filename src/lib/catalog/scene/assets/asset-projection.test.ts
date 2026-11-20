@@ -1,3 +1,5 @@
+import { pipeGeometry } from '../pipe-geometry';
+import type { Vec3 } from '../../logic/parametrik/types';
 import { expect, test } from 'bun:test';
 import { Color, Mesh, SphereGeometry, Vector3 } from 'three/webgpu';
 import { assetRegistry, buildAsset } from '../../logic/assets';
@@ -98,4 +100,39 @@ test('paper-backed ceramic glaze has a continuous contour and frame bars have so
 		dot.dispose();
 		finishes.dispose();
 	}
+});
+
+test('the shared pipe renderer closes the section and texture seam on every inclined and vertical station', () => {
+	const path: Vec3[] = [
+		[0, 0, 0],
+		[0, 0, 2],
+		[2, 0, 4],
+		[3, 1, 4]
+	];
+	const sides = 12,
+		radius = 0.06;
+	const geometry = pipeGeometry(path, radius, sides);
+	const positions = geometry.getAttribute('position'),
+		normals = geometry.getAttribute('normal'),
+		uv = geometry.getAttribute('uv');
+	expect(geometry.getIndex()?.count).toBe(6 * sides * (path.length - 1));
+	for (const [i, [x, y, z]] of path.entries()) {
+		const start = i * (sides + 1),
+			end = start + sides;
+		expect(uv.getY(start)).toBe(0);
+		expect(uv.getY(end)).toBe(1);
+		for (const index of [start, start + 1, end]) {
+			expect(
+				Math.hypot(positions.getX(index) - x, positions.getY(index) - z, positions.getZ(index) + y)
+			).toBeCloseTo(radius, 6);
+			expect(Math.hypot(normals.getX(index), normals.getY(index), normals.getZ(index))).toBeCloseTo(
+				1,
+				6
+			);
+		}
+		expect(positions.getX(start)).toBe(positions.getX(end));
+		expect(positions.getY(start)).toBe(positions.getY(end));
+		expect(positions.getZ(start)).toBe(positions.getZ(end));
+	}
+	geometry.dispose();
 });

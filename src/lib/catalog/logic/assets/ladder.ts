@@ -1,3 +1,5 @@
+import { chainage, pathPoint } from '../linear-path';
+import type { Vec3 } from '../parametrik/types';
 import type { ObjectGeometry } from './object-geometry';
 import { suggestions } from './objects/suggestions';
 import { mount, type AssetRecipe } from './definition';
@@ -28,8 +30,15 @@ export const ladder: AssetRecipe = {
 			parts.push(rod([0.34, y, 0], [0.34, y, h], 0.075));
 			for (const z of [0.16, h - 0.15]) parts.push(rod([0, y, z], [0.34, y, z], 0.065));
 		}
-		for (let i = 1; i <= n; i++)
-			parts.push(rod([0.34, -w / 2, i * spacing], [0.34, w / 2, i * spacing], 0.06));
+		const axis: Vec3[] = [
+				[0.34, 0, 0],
+				[0.34, 0, h]
+			],
+			distances = chainage(axis);
+		for (let i = 1; i <= n; i++) {
+			const [x, y, z] = pathPoint(axis, distances, i * spacing);
+			parts.push(rod([x, y - w / 2, z], [x, y + w / 2, z], 0.06));
+		}
 		return parts;
 	}
 };

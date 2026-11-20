@@ -1,3 +1,4 @@
+import { surveyTownWalk } from '../walkway-network';
 import { houseStair } from '../../data/house-stair';
 import { area } from '../ansicht/geometrie';
 import type { Primitive } from '../parametrik/types';
@@ -42,18 +43,20 @@ function checkWalk(parts: Primitive[], ground: (x: number, y: number) => number)
 	expect(grounded).toBeGreaterThan(total / 2);
 }
 
-function checkTreadGoing(parts: Primitive[]) {
-	const rails = parts.filter(
-		(p) => p.kind === 'pipe' && p.id.startsWith('town-walk/') && p.id.endsWith('/right')
+function checkTreadGoing(world: World) {
+	const site = required(cityCorridorSite(world), 'city walk');
+	const { spans, unresolved } = surveyTownWalk(...site, (x, y) =>
+		walkingHeight(surveyedGrid(world.grid), x, y)
 	);
-	expect(rails.length).toBeGreaterThan(0);
-	for (const rail of rails) {
-		if (rail.kind !== 'pipe') continue;
-		const [a, b] = rail.points;
+	expect(unresolved).toEqual([]);
+	const flights = spans.filter(
+		({ a, b }) => Math.abs(b[2] - a[2]) > 0.08 * Math.hypot(a[0] - b[0], a[1] - b[1])
+	);
+	expect(flights.length).toBeGreaterThan(0);
+	for (const { a, b, id } of flights) {
 		const rise = Math.abs(b[2] - a[2]);
-		if (rise < 1e-8) continue;
-		const count = 1 + Math.ceil((rise - 1e-9) / houseStair.rise);
-		expect(Math.hypot(a[0] - b[0], a[1] - b[1]) / count, rail.id).toBeGreaterThanOrEqual(
+		const count = 1 + Math.ceil(rise / houseStair.rise);
+		expect(Math.hypot(a[0] - b[0], a[1] - b[1]) / count, id).toBeGreaterThanOrEqual(
 			houseStair.going - 1e-8
 		);
 	}
@@ -90,7 +93,7 @@ for (const [seed, terraceRows] of [
 			const ground = (x: number, y: number) => walkingHeight(world.grid, x, y);
 			const parts = cityCentreView(world);
 			checkWalk(parts, ground);
-			checkTreadGoing(parts);
+			checkTreadGoing(world);
 			const groups = city.centres.flatMap((c) => c.ensembles);
 			expect(groups.length).toBeGreaterThan(0);
 			for (const g of groups) {
