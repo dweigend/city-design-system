@@ -1,3 +1,4 @@
+import { contourRoute } from './contour-route';
 import { required } from '../required';
 import type { TerrainGrid } from '../terrain-grid';
 
@@ -20,7 +21,7 @@ function connection(
 		const cell = required(grid.cellsById.get(id), 'surveyed site');
 		for (const next of cell.neighbors) {
 			if (!next || parent.has(next) || grid.cellsById.get(next)?.zone === 'water') continue;
-			if (joins(next)) return trace(next, id, parent);
+			if (joins(next)) return contourRoute(grid, trace(next, id, parent), blocked);
 			if (blocked.has(next)) continue;
 			parent.set(next, id);
 			queue.push(next);

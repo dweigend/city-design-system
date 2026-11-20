@@ -1,3 +1,4 @@
+import { guardRuns } from './guard-runs';
 import { retainingHeight, retainingFoot } from './retaining-foot';
 import { outline } from './level-runs';
 import { walkingProfile, rampSurface, treadSeat, needsTreads } from './walking-profile';
@@ -39,6 +40,17 @@ function piers(id: string, path: Vec3[], ground: Ground): Primitive[] {
 			: [];
 	});
 }
+function exposed(
+	edge: Vec3[],
+	ground: (x: number, y: number, z: number) => number,
+	stepped: boolean
+) {
+	return guardRuns(
+		edge,
+		ground,
+		(p) => (stepped ? treadSeat(edge[0], edge[edge.length - 1], p) : undefined) ?? p[2]
+	);
+}
 function handrail(path: Vec3[], id: string, stairs: Vec3[][]): Primitive[] {
 	const top = path.map(([x, y, z]): Vec3 => [x, y, z + railHeight]);
 	return [
@@ -59,9 +71,13 @@ function handrail(path: Vec3[], id: string, stairs: Vec3[][]): Primitive[] {
 		})
 	];
 }
-function strip({ span: { a, b, id }, right, left }: Band, ground: Ground): Primitive[] {
+function strip(
+	{ span: { a, b, id }, right, left }: Band,
+	ground: Ground,
+	marked: boolean
+): Primitive[] {
 	const supports = piers(id, [a, b], ground),
-		surface = supports.length ? deck : { ...deck, ...publicPaving };
+		surface = marked || supports.length ? deck : { ...deck, ...publicPaving };
 	const ring = [right[0], left[0], left[left.length - 1], right[right.length - 1]] as [
 		Vec3,
 		Vec3,
@@ -84,22 +100,24 @@ function strip({ span: { a, b, id }, right, left }: Band, ground: Ground): Primi
 	return seated(
 		faces.map((p) => ({ ...deck, ...p, kind: 'prism' })),
 		supports,
-		ground
+		ground,
+		marked
 	);
 }
 function seated(
 	plates: Extract<Primitive, { kind: 'prism' }>[],
 	supports: Primitive[],
-	ground: Ground
+	ground: Ground,
+	marked: boolean
 ): Primitive[] {
 	if (
 		supports.length &&
 		!plates.every((p) => p.polygon.every(([x, y]) => p.z - ground(x, y) <= retainingHeight))
 	)
 		return [...plates, ...supports];
-	return plates.flatMap((p) => [{ ...p, ...publicPaving }, retainingFoot(p, ground)]);
+	return plates.flatMap((p) => [marked ? p : { ...p, ...publicPaving }, retainingFoot(p, ground)]);
 }
-function fork({ id, position, rim }: Junction, ground: Ground): Primitive[] {
+function fork({ id, position, rim }: Junction, ground: Ground, marked: boolean): Primitive[] {
 	const [x, y, z] = position,
 		base = ground(x, y),
 		height = z - thickness - base;
@@ -129,7 +147,8 @@ function fork({ id, position, rim }: Junction, ground: Ground): Primitive[] {
 			}
 		],
 		support,
-		ground
+		ground,
+		marked
 	);
 }
 /** Projects the swept deck and its continuous exposed edges, including fork fillets. */
@@ -137,7 +156,15 @@ export function pathDeck(
 	bands: Band[],
 	junctions: Junction[],
 	ground: Ground,
-	railId = 'town-walk/rail'
+	{
+		railId = 'town-walk/rail',
+		marked = true,
+		guardGround = ground
+	}: {
+		railId?: string;
+		marked?: boolean;
+		guardGround?: (x: number, y: number, z: number) => number;
+	} = {}
 ) {
 	const edges = [
 		...bands.flatMap((b) => [b.right, b.left]),
@@ -147,9 +174,11 @@ export function pathDeck(
 		.filter((b) => needsTreads(b.span.a, b.span.b))
 		.flatMap((b) => [b.left, b.right]);
 	return [
-		...bands.flatMap((b) => strip(b, ground)),
-		...junctions.flatMap((j) => fork(j, ground)),
-		...contours(edges).flatMap((path, i) => handrail(path, railId + '/' + i, stairs))
+		...bands.flatMap((b) => strip(b, ground, marked)),
+		...junctions.flatMap((j) => fork(j, ground, marked)),
+		...contours(edges.flatMap((edge) => exposed(edge, guardGround, stairs.includes(edge)))).flatMap(
+			(path, i) => handrail(path, railId + '/' + i, stairs)
+		)
 	];
 }
 /** Projects a standalone public flight from the same profile as the town walk. */
@@ -160,14 +189,20 @@ export function publicFlight(span: TownSpan, ground: Ground, reservation?: Fligh
 	);
 	if (spans.length !== 1) {
 		const path = townPath(spans, new Map());
-		return pathDeck(path.bands, path.junctions, ground, span.id + '/rail');
+		return pathDeck(path.bands, path.junctions, ground, {
+			railId: span.id + '/rail',
+			marked: false
+		});
 	}
 	const [a, b, c, d] = deckCorners(span.a, span.b, width);
 	const band = { span, right: [a, d], left: [b, c] };
 	const stairs = needsTreads(span.a, span.b) ? [band.right, band.left] : [];
 	return [
-		...strip(band, ground),
-		...handrail(band.right, span.id + '/right', stairs),
-		...handrail(band.left, span.id + '/left', stairs)
+		...strip(band, ground, false),
+		...(['right', 'left'] as const).flatMap((side) =>
+			exposed(band[side], ground, stairs.length > 0).flatMap((run, i) =>
+				handrail(run, span.id + '/' + side + (i ? '/' + i : ''), stairs)
+			)
+		)
 	];
 }

@@ -1,3 +1,4 @@
+import { landingGround } from './guard-runs';
 import { courtTerrace } from './court-terrace';
 import { fitWalkingFlights, type FlightReservation } from './flight-fit';
 import { levelRuns } from './level-runs';
@@ -129,7 +130,11 @@ export function townDeck(
 	const meetings = meetingPlatforms(sites, taken, seed, ground);
 	return [
 		...levelRuns(
-			flushDecks([...plazas, ...pathDeck(bands, junctions, ground), ...meetings]),
+			flushDecks([
+				...plazas,
+				...pathDeck(bands, junctions, ground, { guardGround: landingGround(meetings, ground) }),
+				...meetings
+			]),
 			bands
 		),
 		...planting,

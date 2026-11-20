@@ -203,3 +203,28 @@ test('short flights report their deficit or fold inside the reserved side with a
 		expect(fit.spans.every((s) => (side === 'left' ? s.a[1] >= 0 : s.a[1] <= 0))).toBe(true);
 	}
 });
+
+test('guards stop at the exposed stretch of the downhill edge and omit the bank side', () => {
+	const span = { id: 'bank', a: [0, 0, 2] as Vec3, b: [12, 0, 2] as Vec3 };
+	const parts = publicFlight(span, (x, y) => (y < 0 && x >= 3 && x < 8 ? 0 : 1.9));
+	const rails = parts.filter((p) => p.kind === 'pipe');
+	expect(rails).toHaveLength(1);
+	expect(rails[0].points).toEqual([
+		[3, -1.25, 3.04],
+		[8, -1.25, 3.04]
+	]);
+	expect(parts.filter((p) => p.id.includes('/post/'))).toHaveLength(2);
+});
+test('the public route keeps its walking finish across a low bank and a raised span', () => {
+	const { bands, junctions } = townPath(
+		[
+			{ id: 'low', a: [0, 0, 2], b: [6, 0, 2] },
+			{ id: 'high', a: [6, 0, 2], b: [12, 0, 2] }
+		],
+		new Map()
+	);
+	const parts = pathDeck(bands, junctions, (x) => (x <= 6 ? 1.8 : 0));
+	for (const id of ['low', 'high'])
+		expect(parts.find((p) => p.id === id)?.token).toBe(houseSurfaces.access.token);
+	expect(parts.find((p) => p.id === 'low/pier/foot')?.token).toBe('--paper');
+});
