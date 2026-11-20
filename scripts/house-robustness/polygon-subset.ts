@@ -6,8 +6,8 @@ import { accessShare } from '../../src/lib/catalog/logic/composed-house/access-b
 import { massGraph } from './masses';
 import { ringArea } from '../../src/lib/catalog/logic/quad-grid';
 /** Exercises every section/outline pair on one surveyed exterior ring. */
-export function polygonSubset(name: string) {
-	for (const item of polygonCases(name))
+export function polygonSubset(name: string, allPrinciples = false) {
+	for (const item of polygonCases(name, allPrinciples))
 		test(item.id, () => {
 			const { ring, seed } = item;
 			const site = item.site();

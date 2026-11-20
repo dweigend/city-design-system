@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import { planHouse, sectionParts } from '../composed-house';
+import { sections } from './section-insets';
 import { houseEnvelope, type HouseEnvelope } from './envelope';
 
 function build(request: Partial<HouseEnvelope>) {
@@ -17,15 +18,8 @@ function outlines(request: Partial<HouseEnvelope>) {
 		.composition.levels.slice(2)
 		.map((l) => l.bodies[0].band?.footprint);
 }
-test('six sections give different occupied elevations on the same lot', () => {
-	const sections: HouseEnvelope['section'][] = [
-		'terrace-fan',
-		'lantern-neck',
-		'cross-stack',
-		'lightwell',
-		'gable',
-		'vessel'
-	];
+test('twenty section rules give different occupied elevations on the same lot', () => {
+	expect(sections.length).toBeGreaterThanOrEqual(20);
 	const profiles = sections.map((section) =>
 		JSON.stringify(outlines({ section, outline: 'oval' }))
 	);

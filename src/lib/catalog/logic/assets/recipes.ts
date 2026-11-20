@@ -71,6 +71,7 @@ import { houseVolumes } from './house-volumes';
 import { houseProjections } from './house-projections';
 import type { AssetRecipe } from './definition';
 import { porthole } from './porthole';
+import { envelopePanel } from './envelope-panel';
 import { windowBand } from './window-band';
 import { balcony } from './balcony';
 import { bayWindow } from './bay-window';
@@ -118,6 +119,7 @@ export const recipes: readonly AssetRecipe[] = [
 	scaleFigureAsset,
 	porthole,
 	windowBand,
+	envelopePanel,
 	balcony,
 	bayWindow,
 	louvres,

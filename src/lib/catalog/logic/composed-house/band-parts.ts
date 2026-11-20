@@ -137,10 +137,7 @@ export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccen
 				holes: p.holes
 			};
 		});
-	const screen =
-		band?.skin && band.skin !== 'plain'
-			? envelopeScreen(body, course('screen', 0, h, 0, wall), wall)
-			: [];
+	const screen = envelopeScreen(body, wall);
 	if (d < 1.6 || h < 1.5) return [...screen, course('body', 0, h, 0, wall)];
 	const cuts = [0, h];
 	for (let sill = 1; sill < h; sill += 4) {

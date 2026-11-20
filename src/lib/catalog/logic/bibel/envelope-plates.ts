@@ -43,7 +43,21 @@ const studies: Study[] = [
 	['Fluted lantern', 'cove', 'lightwell', 'fluted', 'cushioned', 'glas-matt'],
 	['Framed street house', 'pentagon', 'cross-stack', 'orthogonal', 'framed', 'metall-lackiert'],
 	['Timber gable', 'triangle', 'gable', 'orthogonal', 'woven', 'holz-natur'],
-	['Pillow envelope', 'cove', 'vessel', 'faceted', 'cushioned', 'membran-opal']
+	['Pillow envelope', 'cove', 'vessel', 'faceted', 'cushioned', 'membran-opal'],
+	['Orbital chambers', 'pentagon', 'orbital-nodes', 'oval', 'framed', 'metall-gebuerstet'],
+	['Mushroom canopy', 'cove', 'canopy-cap', 'fluted', 'woven', 'holz-natur'],
+	['Counterweight', 'triangle', 'counterweight', 'orthogonal', 'plain', 'beton-schalung'],
+	['Spiral terraces', 'pentagon', 'spiral-terrace', 'oval', 'framed', 'keramik-glasiert'],
+	['Buttressed spire', 'triangle', 'buttressed-spire', 'fluted', 'woven', 'metall-gebuerstet'],
+	['Diagonal sail', 'cove', 'diagonal-sail', 'faceted', 'cushioned', 'metall-gebuerstet'],
+	['Saddle section', 'pentagon', 'saddle', 'oval', 'woven', 'membran-gewebe'],
+	['Folded fan', 'cove', 'folded-fan', 'faceted', 'plain', 'metall-lackiert'],
+	['Table house', 'triangle', 'table-house', 'orthogonal', 'framed', 'beton-schalung'],
+	['Inhabited outcrop', 'cove', 'outcrop', 'faceted', 'plain', 'beton-schalung'],
+	['Ziggurat', 'pentagon', 'tiered-ziggurat', 'orthogonal', 'plain', 'keramik-glasiert'],
+	['Waisted shell', 'triangle', 'waisted-shell', 'oval', 'woven', 'membran-gewebe'],
+	['Corbelled bowl', 'cove', 'corbelled-bowl', 'fluted', 'cushioned', 'glas-matt'],
+	['Longhouse', 'triangle', 'longhouse', 'orthogonal', 'woven', 'holz-natur']
 ];
 
 /** Published combinations use the same carrier, seeded levels, finishes and screen geometry as town lots. */

@@ -1,32 +1,9 @@
+import { sectionInsets } from './section-insets';
 import { convexHull } from '../parzelle';
 import type { HouseEnvelope } from './envelope';
 
 type XY = [number, number];
 type Bay = { x: number; y: number; width: number; depth: number };
-function limits(
-	profile: HouseEnvelope['section'],
-	fraction: number,
-	floor: number
-): [number, number, number, number] {
-	switch (profile) {
-		case 'gable':
-			return [0.42 * fraction, 0.42 * fraction, 0.02, 0.02];
-		case 'vessel': {
-			const inset = 0.08 + 0.24 * Math.abs(2 * fraction - 1);
-			return [inset, inset, inset, inset];
-		}
-		case 'terrace-fan':
-			return [0.02, 0.02 + fraction * 0.55, 0.02, 0.02];
-		case 'lantern-neck': {
-			const inset = fraction >= 0.75 ? 0.04 : 0.27;
-			return [inset, inset, inset, inset];
-		}
-		case 'cross-stack':
-			return floor % 2 ? [0.29, 0.29, 0.04, 0.04] : [0.04, 0.04, 0.29, 0.29];
-		case 'lightwell':
-			return [0.025, 0.025, 0.025, 0.025];
-	}
-}
 function rectangle(left: number, right: number, bottom: number, top: number): XY[] {
 	return [
 		[left, bottom],
@@ -90,7 +67,11 @@ export function upperFootprint(
 	stories: number
 ) {
 	const profile = envelope.section;
-	const [west, east, south, north] = limits(profile, floor / Math.max(1, stories - 1), floor);
+	const [west, east, south, north] = sectionInsets(
+		profile,
+		floor / Math.max(1, stories - 1),
+		floor
+	);
 	const wall = 0.16;
 	const [x0, y0] = opening[0],
 		[x1, y1] = opening[2];

@@ -1,14 +1,7 @@
+import { sections } from './section-insets';
 import { hashUnit } from '../../core/random';
 import type { FinishId } from '../parametrik/types';
 
-const sections = [
-	'terrace-fan',
-	'lantern-neck',
-	'cross-stack',
-	'lightwell',
-	'gable',
-	'vessel'
-] as const;
 const skins = ['plain', 'woven', 'framed', 'cushioned'] as const;
 const outlines = ['orthogonal', 'faceted', 'oval', 'fluted'] as const;
 const finishes = [

@@ -1,4 +1,5 @@
 import { polygonHouseSite, type HouseEnvelope } from '../../src/lib/catalog/logic/house-typology';
+import { sections as principles } from '../../src/lib/catalog/logic/house-typology/section-insets';
 import type { Point2 } from '../../src/lib/catalog/logic/parametrik/vocab';
 const forms: Record<string, Point2[]> = {
 	triangle: [
@@ -36,17 +37,24 @@ const sections: HouseEnvelope['section'][] = [
 	'vessel'
 ];
 /** Enumerates one boundary with each section and outline. */
-export function* polygonCases(name: string) {
+export function* polygonCases(name: string, allPrinciples = false) {
 	const ring = forms[name];
 	const outlines: HouseEnvelope['outline'][] = ['oval', 'orthogonal', 'faceted', 'fluted'];
-	for (const [i, section] of sections.entries())
+	for (const [i, section] of (allPrinciples ? principles : sections).entries())
 		for (const [j, outline] of outlines.entries()) {
-			const seed = 209 + i * 4 + j;
+			if (allPrinciples && j !== i % outlines.length) continue;
+			const seed = (allPrinciples ? 401 : 209) + i * 4 + j;
 			const site = () =>
-				polygonHouseSite(name, ring, Array(3 + ((i + j) % 6)).fill('living'), seed, {
-					section,
-					outline
-				});
+				polygonHouseSite(
+					name,
+					ring,
+					Array((allPrinciples ? 6 : 3) + ((i + j) % 6)).fill('living'),
+					seed,
+					{
+						section,
+						outline
+					}
+				);
 			yield { id: [name, section, outline].join('/'), ring, seed, site };
 		}
 }
