@@ -4,7 +4,8 @@ import type { SlotAssignment } from '../assets';
 import type { ColorToken } from '../parametrik/types';
 
 export type Surface = SlotAssignment;
-export type BandAccent = 'none' | 'window' | 'wall' | 'storey';
+/** `anchor` paints the whole accent body, also on kit bodies: one colour body per ensemble. */
+export type BandAccent = 'none' | 'window' | 'wall' | 'storey' | 'anchor';
 export type SurfaceSlot = HouseUse | 'frame' | 'deck' | 'pane' | 'access' | 'shell';
 export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
 
@@ -28,6 +29,7 @@ const finishes = {
 	base: 'beton-terrazzo',
 	deck: walkingFinish,
 	roof: 'corrugated-metal',
+	terrace: 'beton-schalung',
 	screen: 'perforated-metal',
 	capsule: 'acryl-matt',
 	glazing: 'glas-klar',
@@ -41,7 +43,7 @@ const finishes = {
  * heavy dark masses at town scale. */
 const bandFinishes = {
 	living: 'metall-lackiert',
-	food: 'holz-natur',
+	food: 'keramik-glasiert',
 	energy: 'beton-schalung',
 	material: 'metall-lackiert',
 	water: 'beton-terrazzo'

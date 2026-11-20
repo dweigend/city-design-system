@@ -111,7 +111,12 @@ function floorRing(s: Section, p: Extract<Solid, { kind: 'box' | 'cylinder' | 'c
 function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
 	if (p.slot === 'base')
 		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces.deck, 'base') })];
-	const coat = /\/roof(-walk)?$/.test(p.id) ? roleSurface(surfaces.shell, 'roof') : surfaces.deck;
+	// A walkable roof plate is a smooth terrace; corrugation is for roofs nobody stands on.
+	const coat = p.id.endsWith('/roof-walk')
+		? roleSurface(surfaces.shell, 'terrace')
+		: p.id.endsWith('/roof')
+			? roleSurface(surfaces.shell, 'roof')
+			: surfaces.deck;
 	const deck = floor(s, p, { ...surfaces, deck: coat });
 	if (deck.kind !== 'prism' || deck.height < 0.42) return [deck];
 	const level = s.decks.find((l) => Math.abs(l.position[2] - deck.z - deck.height) < 1e-7);

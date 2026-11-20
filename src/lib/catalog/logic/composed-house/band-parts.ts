@@ -48,8 +48,13 @@ function ring(x: number, y: number, w: number, d: number, r: number): XY[] {
 	});
 }
 
+const WALL_ACCENTS: BandAccent[] = ['wall', 'storey', 'anchor'];
 function paintsWall(accent: BandAccent) {
-	return accent === 'wall' || accent === 'storey';
+	return WALL_ACCENTS.includes(accent);
+}
+/** A kit body keeps its neutral wall unless it is the ensemble's one colour body. */
+function wallPainted(accent: BandAccent, fitted: boolean) {
+	return accent === 'anchor' || (!fitted && paintsWall(accent));
 }
 
 function wallSurface(body: Body, surfaces: HouseSurfaces, painted: boolean) {
@@ -66,7 +71,7 @@ function wallSurface(body: Body, surfaces: HouseSurfaces, painted: boolean) {
 function bandCoatings(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	const panel = surfaces[body.use];
 	const fitted = body.band?.wellX !== undefined || !!body.band?.modules;
-	const paintedWall = !fitted && paintsWall(accent);
+	const paintedWall = wallPainted(accent, fitted);
 	const tintedPane = accent !== 'none' && (fitted || accent !== 'wall');
 	return {
 		wall: wallSurface(body, surfaces, paintedWall),

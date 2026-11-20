@@ -33,12 +33,20 @@ function accentStorey(section: Section) {
 	if (levels.length > 3) return levels.length - 1;
 	return Math.floor(levels.length / 2);
 }
+/** The ensemble's high point carries the one fully coloured body; other houses keep a small accent. */
+function accentKind(section: Section): BandAccent {
+	const levels = section.composition.levels.length;
+	// With fewer than four bodies one painted body would exceed the 30 % accent budget.
+	if (section.composition.role === 'high' && levels > 3) return 'anchor';
+	if (levels === 1) return 'window';
+	return levels > 3 ? 'storey' : 'wall';
+}
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
 	const surfaces = programmeSurfaces(section, palette);
 	const levels = section.composition.levels;
 	const accentLevel = levels[accentStorey(section)];
-	const accent: BandAccent = levels.length === 1 ? 'window' : levels.length > 3 ? 'storey' : 'wall';
+	const accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
 		...shaftHousing(section, surfaces).map(cantilever),
