@@ -1,3 +1,4 @@
+import { seatedHouse } from './house-ground';
 import { plannedPlots } from './planned-ensembles';
 import { networkGroups } from './network-groups';
 import { nextSeed } from '../../core/random';
@@ -76,8 +77,11 @@ function survey(world: World) {
 		...networkGroups(world, sections, r3, stock).map((g) => ({ ...g, planningCells: g.cells }))
 	].map((g) => {
 		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
+		const onGround = !g.span && owners[0].start === 0;
+		const cells = g.cells.map((id) => required(world.grid.cellsById.get(id), 'foundation parcel'));
 		return {
 			...g,
+			parts: onGround ? () => seatedHouse(g.parts(), cells, world.grid) : g.parts,
 			signature: g.span || owners[0].appearance,
 			start: owners[0].start,
 			seed: owners[0].seed,

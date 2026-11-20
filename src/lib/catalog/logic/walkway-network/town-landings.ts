@@ -1,3 +1,4 @@
+import { landingBase } from './retaining-foot';
 import { publicPaving } from './town-floor';
 import { houseSurfaces } from '../composed-house';
 import { bounds, union } from '../ansicht/geometrie';
@@ -61,18 +62,21 @@ export function meetingPlatforms(
 		taken.push(box);
 		const [x, y, z] = p;
 		const key = 'town-walk/platform/' + id;
+		const reach = Math.max(radius, r + Math.hypot(box.w, box.d) / 2 + 0.06);
+		const foot = landingBase(p, reach, ground);
+		const bottom = foot ?? z - 0.2;
 		const plate: Primitive = {
 			kind: 'cylinder',
 			id: key,
 			role: 'neu',
 			...publicPaving,
-			position: [x, y, z - 0.2],
-			height: 0.2,
-			radius: Math.max(radius, r + Math.hypot(box.w, box.d) / 2 + 0.06)
+			position: [x, y, bottom],
+			height: z - bottom,
+			radius: reach
 		};
 		const base = ground(x, y);
 		const pier: Primitive[] =
-			base < z - 0.2
+			foot === undefined && base < z - 0.2
 				? [
 						{
 							kind: 'cylinder',

@@ -6,7 +6,7 @@ type Station = { position: Vec3; arms: string[] };
 type Stations = Map<string, Station>;
 export type TownSpan = { id: string; a: Vec3; b: Vec3 };
 
-/** Seats junctions on the two-metre level grid and draws the three arms
+/** Seats junctions on the surveyed route and draws the three arms
  * towards their common bisector. Each court keeps its surveyed landing. */
 export function townStations(
 	routes: readonly string[][],
@@ -17,7 +17,7 @@ export function townStations(
 	const add = (id: string, next: string) => {
 		const [x, y, z] = center(id);
 		const station: Station = stations.get(id) ?? {
-			position: ends.get(id) ?? [x, y, 2 * Math.ceil((z + 1) / 2)],
+			position: ends.get(id) ?? [x, y, z],
 			arms: []
 		};
 		station.arms.push(next);
@@ -92,7 +92,12 @@ export function townSpans(
 			const key = 'town-walk/' + path[i] + '>' + id;
 			if (a[2] === b[2] || ends.has(path[i])) return [{ id: key, a, b }];
 			const middle = interpolatePoint(a, b, 0.45);
-			middle[2] = a[2];
+			middle[2] = Math.max(a[2], b[2]);
+			if (b[2] > a[2])
+				return [
+					{ id: key + '/stair', a, b: middle },
+					{ id: key, a: middle, b }
+				];
 			return [
 				{ id: key, a, b: middle },
 				{ id: key + '/stair', a: middle, b }

@@ -1,3 +1,5 @@
+import { courtTerrace } from './court-terrace';
+import { landingBase, retainingFoot, retainingHeight } from './retaining-foot';
 import { interpolatePoint, type Primitive, type Vec3 } from '../parametrik/types';
 import { deckCorners, spanSurvey } from '../walkway';
 import { houseSurfaces } from '../composed-house';
@@ -57,6 +59,13 @@ function flight(span: TownSpan): Primitive[] {
 export function publicFlight(span: TownSpan, ground: (x: number, y: number) => number) {
 	const { a, b, id } = span;
 	const parts = flight(span);
+	const slabs = parts.filter((p) => p.kind === 'prism');
+	const paved = () => [
+		...parts.map((p) => (p.kind === 'prism' ? { ...p, ...publicPaving } : p)),
+		...slabs.map((p) => retainingFoot(p, ground))
+	];
+	if (slabs.every((p) => p.polygon.every(([x, y]) => p.z - ground(x, y) <= retainingHeight)))
+		return paved();
 	const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 12);
 	for (let i = 0; i < n; i++) {
 		const [x, y, z] = interpolatePoint(a, b, (i + 0.5) / n),
@@ -71,9 +80,7 @@ export function publicFlight(span: TownSpan, ground: (x: number, y: number) => n
 				radius: 0.2
 			});
 	}
-	return parts.some((p) => p.id.startsWith(id + '/pier/'))
-		? parts
-		: parts.map((p) => (p.kind === 'prism' ? { ...p, ...publicPaving } : p));
+	return parts.some((p) => p.id.startsWith(id + '/pier/')) ? parts : paved();
 }
 
 type Court = {
@@ -125,21 +132,28 @@ function plazaParts(
 	}
 	return parts;
 }
-/** Projects horizontal 2.5 m spans and matching steps between even-metre
+/** Projects 2.5 m public walks, sitting steps and planted terraces between surveyed
  * landings. Terminals descend into courts. Degree-three junctions have an open plaza. */
 export function townDeck(
 	routes: readonly string[][],
 	center: (id: string) => Vec3,
-	courts: Court[],
+	survey: Court[],
 	ground: (x: number, y: number) => number,
-	seed: number
+	seed: number,
+	relief = ground
 ) {
+	const terraces = survey.map((c) =>
+		c.aprons?.length === 0 ? courtTerrace(c, relief, ground) : { court: c, steps: [] }
+	);
+	const courts = terraces.map(({ court }, i) => ({ ...survey[i], ...court }));
 	const mouths = new Map(routes.map((path) => [path[0], center(path[1])]));
-	const gardens = courts.map((c) => courtGarden(c, mouths.get(c.id) ?? c.position, seed));
+	const gardens = courts.map((c) =>
+		courtGarden(c, mouths.get(c.id) ?? c.position, seed, ground, relief)
+	);
 	const ends = new Map(courts.map((c, i) => [c.id, gardens[i].landing]));
 	const stations = townStations(routes, center, ends);
 	const spans = townSpans(routes, stations, ends);
-	const plazas: Primitive[] = [],
+	const plazas: Primitive[] = terraces.flatMap((t) => t.steps),
 		joints: Primitive[] = [];
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
 	const sites = meetingSites(spans, [...ends.values()]);
@@ -147,7 +161,10 @@ export function townDeck(
 		if (arms.length < 2 || sites.some((s) => s.position === position)) continue;
 		const [x, y, z] = position;
 		const base = ground(x, y);
-		const carried = z - thickness > base;
+		const radius = arms.length === 3 ? width : width / 2;
+		const foot = landingBase(position, radius, ground);
+		const bottom = foot ?? z - thickness;
+		const carried = bottom > base;
 		if (carried)
 			joints.push({
 				...frame,
@@ -161,16 +178,19 @@ export function townDeck(
 			...(carried ? deck : { role: 'neu' as const, ...publicPaving }),
 			id: 'town-walk/joint/' + id,
 			kind: 'cylinder',
-			position: [x, y, z - thickness],
-			height: thickness,
-			radius: arms.length === 3 ? width : width / 2
+			position: [x, y, bottom],
+			height: z - bottom,
+			radius
 		});
 	}
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries())
 		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));
 	const planting = gardens.flatMap((g) => g.parts);
-	const taken = reservations([...visitors, ...planting.filter((p) => !p.id.endsWith('/bed'))]);
+	const taken = reservations([
+		...visitors,
+		...planting.filter((p) => !p.id.endsWith('/bed') && !p.id.includes('/garden/soil/'))
+	]);
 	const meetings = meetingPlatforms(sites, taken, seed, ground);
 	return [
 		...flushDecks([

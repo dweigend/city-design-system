@@ -33,7 +33,13 @@ function edge(court: PublicSpace, mouth: Vec3, side = false) {
 }
 
 /** Projects the planted mouth edge and locates the stair on the clear side. */
-export function courtGarden(court: PublicSpace, mouth: Vec3, seed: number) {
+export function courtGarden(
+	court: PublicSpace,
+	mouth: Vec3,
+	seed: number,
+	ground: (x: number, y: number) => number,
+	relief: (x: number, y: number) => number
+) {
 	const open = edge(court, mouth);
 	const { landing } = open;
 	const { a, b, width, point } = edge(court, mouth, court.area >= 144);
@@ -42,24 +48,47 @@ export function courtGarden(court: PublicSpace, mouth: Vec3, seed: number) {
 	const id =
 		trees[Math.floor(hashUnit(seed, court.id, 'garden-tree') * trees.length)] + '-park-tree-2p5m';
 	const count = court.area >= 144 ? 3 + Math.floor(2 * hashUnit(seed, court.id, 'tree-count')) : 1;
-	const planting = Array.from({ length: count }, (_, i) => {
-		const tree: Vec3 = [...point(-width / 2 + ((i + 0.5) * width) / count, 1.6), z - 0.3];
-		return mountFitting(id, 'low-crown', tree, court.id + '/garden/' + i, seed);
+	const beds = Array.from({ length: count }, (_, i) => {
+		const left = width * (i / count - 0.5),
+			right = left + width / count;
+		const polygon = [point(left, 0.9), point(right, 0.9), point(right, 3.2), point(left, 3.2)];
+		const at = point((left + right) / 2, 1.6);
+		const base = Math.min(...polygon.map((p) => ground(...p))) - 0.04;
+		const target = relief(...at) + 0.15;
+		const level = Math.max(
+			ground(...at) + 0.05,
+			z + 0.15 * Math.max(-3, Math.min(3, Math.round((target - z) / 0.15)))
+		);
+		const tree: Vec3 = [...at, level];
+		const soil: Primitive = {
+			kind: 'prism',
+			role: 'neu',
+			id: court.id + '/garden/soil/' + i,
+			...houseSurfaces.food,
+			material: 'concrete',
+			finish: 'planted-mat',
+			polygon,
+			z: base,
+			height: level - base
+		};
+		return [soil, ...mountFitting(id, 'low-crown', tree, court.id + '/garden/' + i, seed)];
 	}).flat();
+	const rim = [a, b, point(width / 2, 0.9), point(-width / 2, 0.9)];
+	const bottom = Math.min(z - 0.6, ...rim.map((p) => ground(...p))) - 0.04;
 	const bed: Primitive = {
 		kind: 'prism',
 		id: court.id + '/garden/bed',
 		role: 'neu',
 		...houseSurfaces.food,
 		material: 'concrete',
-		finish: 'planted-mat',
-		polygon: [a, b, point(width / 2, 3.2), point(-width / 2, 3.2)],
-		z: z - 0.6,
-		height: 0.3
+		finish: 'beton-terrazzo',
+		polygon: rim,
+		z: bottom,
+		height: z - 0.15 - bottom
 	};
 	return {
 		landing,
 		point: open.point,
-		parts: [bed, ...planting]
+		parts: [bed, ...beds]
 	};
 }
