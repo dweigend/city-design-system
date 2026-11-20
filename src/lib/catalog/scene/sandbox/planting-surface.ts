@@ -2,12 +2,7 @@ import type { forestChunk } from '../../logic/land-cover';
 import type { bankPlanting } from '../../logic/sandbox';
 import type { Primitive } from '../../logic/parametrik/types';
 
-/** Shared surface selection for planted solids and the terrain foliage uniform. */
-export const plantingSurfaces = {
-	foliage: { role: 'neu', material: 'wood', token: '--cat-foliage' },
-	stem: { role: 'neu', material: 'wood', token: '--paper' }
-} as const;
-
+import { plantingSurfaces } from '../../data/planting-surfaces';
 type PlantedPart = ReturnType<typeof forestChunk>[number] | ReturnType<typeof bankPlanting>[number];
 
 /** Resolves a forest or bank planting slot while retaining its seeded tone and geometry. */
