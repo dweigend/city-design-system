@@ -1,3 +1,4 @@
+import { HOUSE_FRAME } from '../../data/house-body';
 import type { BayState } from '../../logic/district-frame';
 import { bayAxes, type BaySurvey, type trimBay } from '../../logic/megastructure';
 import { frameSurvey, type World } from '../../logic/sandbox';
@@ -29,7 +30,7 @@ function forms(row: Display, result?: Result): Primitive[] {
 		planned,
 		cityForm: r.diameter < 0.18 ? false : undefined,
 		bearings: r.id === '0' && !planned ? [...feet.values()] : undefined,
-		token: planned ? '--blueprint' : '--paper',
+		token: planned ? '--blueprint' : HOUSE_FRAME.token,
 		material: 'metal',
 		edges: false
 	}));

@@ -5,7 +5,7 @@ import { floorOf, type Mass } from './massing';
 import { along, bayOf } from './megastructure-bay';
 import { storiesOf, type Stacks } from './stacks';
 import type { PrintOrder } from './print-contact';
-import { BODY_TOKEN } from '../../data/house-body';
+import { BODY_TOKEN, HOUSE_FRAME } from '../../data/house-body';
 import { dockedModule } from './style-totem';
 import type { Ensembles } from './ensemble';
 
@@ -20,8 +20,7 @@ const CARRIER = {
 	clearance: 1.45,
 	girderDepth: 0.32,
 	pierInset: 0.12,
-	chordRadius: 0.04,
-	graphite: 0.55
+	chordRadius: 0.04
 };
 
 /** Straightest local run in the grid topology, bounded by the anchor's two side neighbors. */
@@ -58,7 +57,7 @@ export function roofCarrier(site: Site, mass: Mass, context: RoofContext): Primi
 		bearings?: Vec3[],
 		member?: Primitive['member']
 	): Primitive => ({
-		...part(carrier.id + '/' + suffix, '--paper', { kind: 'polyline', points }),
+		...part(carrier.id + '/' + suffix, HOUSE_FRAME.token, { kind: 'polyline', points }),
 		role: 'traeger',
 		bearings,
 		member
@@ -78,12 +77,11 @@ export function roofCarrier(site: Site, mass: Mass, context: RoofContext): Primi
 		if (c !== cell) parts.push(...dockedModule(bay, run.side, BODY_TOKEN[mass.use]));
 	}
 	const chord: Primitive = {
-		...part(carrier.id + '/lower', '--paper', {
+		...part(carrier.id + '/lower', HOUSE_FRAME.token, {
 			kind: 'pipe',
 			points: low,
 			radius: Math.min(...run.cells.map(inradius)) * CARRIER.chordRadius,
-			edges: false,
-			shade: CARRIER.graphite
+			edges: false
 		}),
 		role: 'traeger',
 		legacyRole: 'neu'

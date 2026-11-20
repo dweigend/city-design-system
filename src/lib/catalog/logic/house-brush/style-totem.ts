@@ -1,4 +1,4 @@
-import { BODY_TOKEN } from '../../data/house-body';
+import { BODY_TOKEN, HOUSE_FRAME } from '../../data/house-body';
 import { storiesOf } from './stacks';
 import { required } from '../required';
 import { ceramicFitting } from './ceramic-fitting';
@@ -98,7 +98,7 @@ export function dockedModule(
 	const crown: Vec3 = [center[0], center[1], center[2] + radius];
 	return [
 		{
-			...b.piece('suspension', '--ink', {
+			...b.piece('suspension', HOUSE_FRAME.token, {
 				kind: 'polyline',
 				points: [crown, b.point(0.5, 0.5, 1)]
 			}),
@@ -123,7 +123,7 @@ export function totemMass(site: Site, mass: Mass, p = TOTEM_DEFAULTS): Primitive
 		const pier = (end: number) => [along(b, side, 0.5, end, 0), along(b, side, 0.5, end, 1)];
 		return [
 			{
-				...b.piece('portal', '--ink', {
+				...b.piece('portal', HOUSE_FRAME.token, {
 					kind: 'polyline',
 					points: [...pier(0), ...pier(1).reverse()]
 				}),

@@ -1,5 +1,8 @@
 import { flowToken, type FlowId } from './focus';
 
+/** Token and drawn sections (meters) for house and rooftop frames. */
+export const HOUSE_FRAME = { token: '--ink-3', primary: 0.12, secondary: 0.08 } as const;
+
 /** Wall colour of each use. Housing takes the pale planning tint; paths alone stay pink. */
 export const BODY_TOKEN = {
 	living: '--body-living',

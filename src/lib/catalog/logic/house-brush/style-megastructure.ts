@@ -11,7 +11,7 @@ import { guest } from './megastructure-guests';
 import { access, gallery, supply } from './megastructure-services';
 import { storiesOf } from './stacks';
 import { STORY } from '../../data/grid';
-import { BODY_TOKEN } from '../../data/house-body';
+import { BODY_TOKEN, HOUSE_FRAME } from '../../data/house-body';
 import { insetRing, ringArea } from './outline';
 
 const MEGASTRUCTURE_DEFAULTS = { emptyShare: 0.25, galleryWidth: 0.075 };
@@ -26,10 +26,10 @@ function skeleton(
 ) {
 	const members: Primitive[] = [];
 	const strut = (points: Vec3[], detail = false): Primitive => ({
-		...b.piece(`strut-${members.length}`, '--ink', { kind: 'polyline', points }),
+		...b.piece(`strut-${members.length}`, HOUSE_FRAME.token, { kind: 'polyline', points }),
 		role: 'traeger',
 		member: detail ? 'secondary' : 'primary',
-		sectionDiameter: 0.18,
+		sectionDiameter: detail ? HOUSE_FRAME.secondary : HOUSE_FRAME.primary,
 		detail
 	});
 	b.cell.vertexIds.forEach((id, i) => {
@@ -127,14 +127,13 @@ export function carrierForm(id: string, rod: ModuleRod, main: boolean): Primitiv
 		id,
 		role: 'traeger',
 		legacyRole: 'neu',
-		token: '--paper',
+		token: HOUSE_FRAME.token,
 		material: 'metal',
 		kind: 'pipe',
 		points: [rod.a, rod.b],
 		radius: rod.radius,
 		member: main ? 'primary' : 'secondary',
-		edges: false,
-		shade: 1
+		edges: false
 	};
 }
 

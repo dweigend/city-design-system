@@ -1,3 +1,4 @@
+import { HOUSE_FRAME } from '../../data/house-body';
 import { studioShadow } from '../studio-shadow';
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
@@ -60,6 +61,28 @@ function memberTrace(part: Primitive): Primitive[] {
 	return [
 		{ ...part, role: 'neu', kind: 'polyline', points: [part.position, [x, y, z + part.height]] }
 	];
+}
+
+function carrierStroke(p: Primitive, materials: StructureMaterials['materials']) {
+	if (p.planned) return materials.planned;
+	if (p.role === 'bestand')
+		return p.member === 'primary' ? materials.stockPrimary : materials.pencil;
+	if (p.token === HOUSE_FRAME.token) {
+		if (p.member === 'alternate') return;
+		return p.detail || p.member === 'secondary' ? materials.houseSecondary : materials.housePrimary;
+	}
+	return draftingStroke(p, materials);
+}
+
+function draftingStroke(p: Primitive, materials: StructureMaterials['materials']) {
+	if (p.sectionDiameter === 0.14) return materials.rib;
+	if (p.token === '--ink') {
+		if (p.detail) return materials.braceInk;
+		return p.sectionDiameter === 0.12 ? materials.portalInk : materials.carrierInk;
+	}
+	if (p.member === 'alternate') return;
+	if (p.member === 'secondary') return p.detail ? materials.rail : materials.secondary;
+	return materials.primary;
 }
 
 function bearingDots(points: Vec3[], geometry: THREE.BufferGeometry, material: THREE.Material) {
@@ -161,50 +184,15 @@ export function populateStructures(
 	}
 
 	function drawCarriers() {
-		const current = parts.carriers.filter(
-			(p) => p.role !== 'bestand' && !p.planned && p.sectionDiameter !== 0.14
-		);
-		lines(
-			batchFaces(parts.carriers.filter((p) => p.planned).flatMap(memberTrace), toColor).kanten.neu,
-			materials.planned
-		);
-		lines(
-			batchFaces(
-				parts.carriers
-					.filter((p) => !p.planned && p.role !== 'bestand' && p.sectionDiameter === 0.14)
-					.flatMap(memberTrace),
-				toColor
-			).kanten.neu,
-			materials.rib
-		);
-		const agedMembers = parts.carriers.filter((p) => p.role === 'bestand');
-		const inkMembers = current.filter((p) => p.token === '--ink');
-		for (const [select, material] of [
-			[(p: Primitive) => p.detail, materials.braceInk],
-			[(p: Primitive) => !p.detail && p.sectionDiameter === 0.12, materials.portalInk],
-			[(p: Primitive) => !p.detail && p.sectionDiameter !== 0.12, materials.carrierInk]
-		] as const)
-			lines(
-				batchFaces(inkMembers.filter(select).flatMap(memberTrace), toColor).kanten.neu,
-				material
-			);
-		const legacy = current.filter((p) => p.token !== '--ink');
-		const main = legacy.filter((p) => !p.member || p.member === 'primary');
-		const ties = legacy.filter((p) => p.member === 'secondary' && !p.detail);
-		const rails = legacy.filter((p) => p.member === 'secondary' && p.detail);
-		lines(batchFaces(main.flatMap(memberTrace), toColor).kanten.neu, materials.primary);
-		lines(batchFaces(ties.flatMap(memberTrace), toColor).kanten.neu, materials.secondary);
-		lines(batchFaces(rails.flatMap(memberTrace), toColor).kanten.neu, materials.rail);
-		lines(
-			batchFaces(agedMembers.filter((p) => p.member === 'primary').flatMap(memberTrace), toColor)
-				.kanten.neu,
-			materials.stockPrimary
-		);
-		lines(
-			batchFaces(agedMembers.filter((p) => p.member !== 'primary').flatMap(memberTrace), toColor)
-				.kanten.neu,
-			materials.pencil
-		);
+		const groups = new Map<THREE.Line2NodeMaterial, Primitive[]>();
+		for (const part of parts.carriers) {
+			const stroke = carrierStroke(part, materials);
+			if (!stroke) continue;
+			const traces = groups.get(stroke) ?? [];
+			traces.push(...memberTrace(part));
+			groups.set(stroke, traces);
+		}
+		for (const [stroke, traces] of groups) lines(batchFaces(traces, toColor).kanten.neu, stroke);
 		// Explicit bearing nodes with no axial member retain their existing ink mark.
 		const points = parts.carriers.flatMap((part) =>
 			part.kind === 'sphere' || part.token === '--ink' ? (part.bearings ?? []) : []

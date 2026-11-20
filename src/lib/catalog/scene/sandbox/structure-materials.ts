@@ -1,3 +1,4 @@
+import { HOUSE_FRAME } from '../../data/house-body';
 import type { StudioQuality } from '../studio-quality';
 import { pencilStock } from '../pencil-stock';
 import * as THREE from 'three/webgpu';
@@ -64,6 +65,8 @@ export function structureMaterials(
 		pencil: new THREE.Line2NodeMaterial({ transparent: cityEdges, opacity: cityEdges ? 0.56 : 1 }),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
+		housePrimary: new THREE.Line2NodeMaterial(),
+		houseSecondary: new THREE.Line2NodeMaterial(),
 		carrierInk: new THREE.Line2NodeMaterial(),
 		portalInk: new THREE.Line2NodeMaterial(),
 		braceInk: new THREE.Line2NodeMaterial(),
@@ -144,6 +147,8 @@ export function structureMaterials(
 		materials.rail.color.copy(g.detail);
 		materials.perimeter.color.copy(g.kontur);
 		materials.bearing.color.copy(cityEdges ? g.blei : g.ink);
+		for (const line of [materials.housePrimary, materials.houseSecondary])
+			line.color.copy(g.token(HOUSE_FRAME.token));
 		printInk.value.copy(g.token('--ink'));
 		for (const line of [materials.carrierInk, materials.portalInk, materials.braceInk])
 			line.color.copy(g.ink);
@@ -161,6 +166,11 @@ export function structureMaterials(
 		const ink = palette?.[traeger.token === '--ink' ? 'ink' : 'blei'];
 		const far = scale < MASSSTAB.quartier;
 		materials.bearing.visible = !far;
+		materials.housePrimary.linewidth = Math.max(STRICHE.detail, HOUSE_FRAME.primary * scale);
+		materials.houseSecondary.linewidth = Math.max(
+			STRICHE.detail * 0.7,
+			HOUSE_FRAME.secondary * scale
+		);
 		materials.carrierInk.linewidth = far ? STRICHE.bestand : 0.18 * scale;
 		materials.portalInk.linewidth = far ? STRICHE.bestand : 0.12 * scale;
 		materials.braceInk.linewidth = STRICHE.bestand;
