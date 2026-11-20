@@ -2,6 +2,7 @@ import { roomOnDeck } from '../house-typology';
 import type { Section } from './types';
 import type { StockPart } from './house-object';
 import type { SectionSurfaces } from './surfaces';
+import { roofGarden } from './roof-garden';
 import { members } from './provider';
 import { place } from './asset-fit';
 import type { Vec3 } from '../parametrik/types';
@@ -59,7 +60,9 @@ export function terraceFurniture(s: Section, house: StockPart[], surfaces: Secti
 		return planter(s, surfaces, base, l.use, spot, floor);
 	});
 	const roof = house.find((p): p is Floor => p.kind === 'prism' && p.id.endsWith('/roof-walk'));
-	if (s.composition.sharedRoof === 'terrace' || !roof || !roof.polygon.length) return planted;
+	if (!roof || !roof.polygon.length) return planted;
+	const garden = roofGarden(s, roof, surfaces);
+	if (garden.length || s.composition.sharedRoof === 'terrace') return planted.concat(garden);
 	const xs = roof.polygon.map((p) => p[0]),
 		ys = roof.polygon.map((p) => p[1]);
 	const left = Math.min(...xs),

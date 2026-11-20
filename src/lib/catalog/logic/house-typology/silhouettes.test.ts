@@ -1,4 +1,4 @@
-import { BODY_TOKEN } from '../../data/house-body';
+import { buildingPalette } from '../material/building-palette';
 import { projectBuildingSurface } from '../../scene/building-surface';
 import { minimumGauge } from './specimens';
 import { expect, test } from 'bun:test';
@@ -81,7 +81,7 @@ test('full-height spiral count stays within the ensemble allowance on both bay w
 			expect(windings.length).toBeLessThanOrEqual(Math.floor(count / 3));
 		}
 });
-test('each occupied body projects its own programme pigment on shell and screen surfaces', () => {
+test('each occupied body projects its programme palette on shell and screen surfaces', () => {
 	for (const system of shellSystems) {
 		const house = paintedHouse(1, system);
 		const parts = sectionParts(house);
@@ -94,7 +94,11 @@ test('each occupied body projects its own programme pigment on shell and screen 
 			expect(surfaces.length, body.id).toBeGreaterThan(0);
 			for (const p of surfaces) {
 				expect(p.buildingSurface?.use, p.id).toBe(body.use);
-				expect(projectBuildingSurface(p).token, p.id).toBe(BODY_TOKEN[body.use]);
+				const surface = p.buildingSurface;
+				if (!surface) throw Error('Missing building surface');
+				expect(projectBuildingSurface(p).token, p.id).toBe(
+					buildingPalette(body.use, surface.ensemble)[surface.slot].token
+				);
 			}
 		}
 	}

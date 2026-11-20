@@ -1,4 +1,5 @@
 import { required } from '../required';
+import { podCourse } from './pod-course';
 import { roomOnDeck } from './deck-outline';
 import { prismFaces } from './prism';
 import { partyFaces } from './party-faces';
@@ -259,6 +260,33 @@ function floorBodies(
 	}
 	return bodies;
 }
+function podBodies(
+	plan: Plan,
+	pod: NonNullable<ReturnType<typeof podCourse>>,
+	floor: number,
+	z: number,
+	ceiling: number,
+	parts: Solid[]
+) {
+	const base = plan.site.id + '/level/' + floor + '/body/';
+	const collar = z + (ceiling - rim - z) * 0.32;
+	const neck = makeBody(plan, base + 'neck', pod.neck, z, collar - z, floor, true);
+	const chamber = makeBody(
+		plan,
+		base + '0',
+		pod.chamber,
+		collar,
+		ceiling - rim - collar,
+		floor,
+		true
+	);
+	chamber.kind = 'capsule';
+	parts.push(
+		bodySolid(neck, pod.neck, plan.site.ground),
+		bodySolid(chamber, pod.chamber, plan.site.ground)
+	);
+	return [chamber, neck];
+}
 function courseDeck(
 	i: number,
 	courseCount: number,
@@ -300,13 +328,30 @@ function courses(
 	);
 	const levels: Level[] = [];
 	const floors: Parameters<typeof layeredStructure>[0]['floors'] = [];
+	const pod = podCourse(plan, opening, galleryCourse, wing?.level);
+	function assembleCourse(i: number, z: number, ceiling: number) {
+		const gallery = i === galleryCourse;
+		const chamber = i === programme.length - 1 ? pod : undefined;
+		const shape =
+			chamber?.chamber ?? floorOutline(plan, shapes, i, gallery, exterior.stations[i].turn, wing);
+		const bodies = chamber
+			? podBodies(plan, chamber, i, z, ceiling, parts)
+			: floorBodies(plan, shapes, shape, i, z, ceiling, gallery, parts, wing);
+		const { name, deck } = courseDeck(
+			i,
+			programme.length,
+			gallery || !!chamber,
+			wing?.level,
+			shape,
+			exterior
+		);
+		return { shape, bodies, name, deck };
+	}
 	let roofWalk = shapes.full;
 	for (let i = 0; i < programme.length; i++) {
 		const z = i ? datums[i] : seat + slab;
 		const ceiling = datums[i + 1];
-		const gallery = i === galleryCourse;
-		const shape = floorOutline(plan, shapes, i, gallery, exterior.stations[i].turn, wing);
-		const bodies = floorBodies(plan, shapes, shape, i, z, ceiling, gallery, parts, wing);
+		const { shape, bodies, name, deck } = assembleCourse(i, z, ceiling);
 		const [x, y] = extent(shape),
 			use = programme[i][0];
 		floors.push({
@@ -332,7 +377,6 @@ function courses(
 				ringArea(shape.polygon) - shape.holes.reduce((a, h) => a + Math.abs(ringArea(h)), 0),
 			outline: shape.polygon.map(([u, v]) => [u, v, z])
 		});
-		const { name, deck } = courseDeck(i, programme.length, gallery, wing?.level, shape, exterior);
 		parts.push(plate(id + '/' + name, deck, ceiling - rim, rim, ground, 'deck'));
 		roofWalk = deck;
 	}
