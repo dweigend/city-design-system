@@ -13,11 +13,12 @@ import {
 	vec3
 } from 'three/tsl';
 
+import { grainVisibility } from './pattern-density';
 import type { MusterRaum } from './materialMuster';
 
 const saatVektor = vec3(7.31, 2.19, 5.73);
 
-function wachstum(p: Node<'vec3'>, aufrecht: boolean) {
+function wachstum(p: Node<'vec3'>, aufrecht: boolean, pitch: number) {
 	const drift = mx_noise_float(p.mul(vec3(0.58, 1.4, 1.4)).add(saatVektor));
 	// The upright study cuts off-center stock, giving long grain across the exposed walls.
 	const mark = aufrecht ? vec3(-1.61, -1.82, 0) : vec3(0.31, -0.47, 0);
@@ -29,10 +30,10 @@ function wachstum(p: Node<'vec3'>, aufrecht: boolean) {
 	const astAbstand = mx_worley_noise_float(p.mul(vec3(0.46, 1.88, 1.74)).add(saatVektor));
 	const ast = float(1).sub(astAbstand.smoothstep(0.035, 0.38));
 	const phase = radius
-		.mul(aufrecht ? 19 : 26)
+		.mul((2 * Math.PI) / pitch)
 		.add(drift.mul(5.5))
 		.add(ast.mul(2.75));
-	return { ring: sin(phase).mul(0.5).add(0.5).smoothstep(0.39, 0.96), ast, drift };
+	return { ring: sin(phase).mul(0.5).add(0.5).smoothstep(0.39, 0.96), ast };
 }
 
 /** Projects long fibers and cut rings from a shared 3D grain in meters. Upright stock runs up Y. */
@@ -58,15 +59,18 @@ export function holzMuster(base: Node<'vec3'>, aufrecht: boolean, raum: MusterRa
 	const end = (aufrecht ? normalWorldGeometry.y : normalWorldGeometry.dot(axis))
 		.abs()
 		.smoothstep(0.57, 0.92);
-	const { ring, ast, drift } = wachstum(p, aufrecht);
-	const astkern = ast.smoothstep(0.63, 0.98);
-	const fasern = mx_noise_float(p.add(saatVektor).mul(vec3(3.6, 78, 78)));
-	const spaetholz = ring.mul(mix(0.37, 0.48, end)).mul(drift.mul(0.24).add(1));
-	const hell = float(1.055).sub(spaetholz).sub(astkern.mul(0.14)).add(fasern.mul(0.07));
-	const schnitt = mix(vec3(1), vec3(0.86, 0.84, 0.78), end);
+	const pitch = aufrecht ? 0.065 : 0.05;
+	const { ring, ast } = wachstum(p, aufrecht, pitch);
+	const visible = grainVisibility(p.div(vec3(0.25, pitch, pitch)));
+	const grain = ring
+		.sub(0.5)
+		.mul(mix(0.12, 0.16, end))
+		.add(ast.mul(0.02))
+		.mul(visible);
+	const cut = mix(vec3(1), vec3(0.97, 0.96, 0.94), end);
 	return {
-		farbe: base.mul(schnitt).mul(hell),
-		hoehe: fasern.mul(0.17).sub(ring.mul(0.21)).sub(astkern.mul(0.08)),
-		relief: 0.0016
+		farbe: base.mul(cut).mul(grain.oneMinus()),
+		hoehe: ring.mul(-0.14).sub(ast.mul(0.02)),
+		relief: 0.001
 	};
 }

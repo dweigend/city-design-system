@@ -1,6 +1,12 @@
 import type { Node } from 'three/webgpu';
 import { float, mix, normalWorldGeometry } from 'three/tsl';
 
+/** Attenuates fixed-volume grain as its narrowest projected repeat approaches two pixels. */
+export function grainVisibility(chart: Node<'vec3'>) {
+	const footprint = chart.fwidth();
+	return footprint.x.max(footprint.y).max(footprint.z).smoothstep(0.22, 0.5).oneMinus();
+}
+
 /** Projects a repeating motif onto its dominant face plane and blends neighbouring world-space pitches. */
 export function townPattern(
 	p: Node<'vec3'>,
