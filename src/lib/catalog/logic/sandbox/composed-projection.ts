@@ -1,3 +1,4 @@
+import { courtHouseFloor } from './court-house-floor';
 import { seatedHouse } from './house-ground';
 import { plannedPlots } from './planned-ensembles';
 import { networkGroups } from './network-groups';
@@ -36,6 +37,10 @@ export function townSections(world: World) {
 	const planned = plannedPlots(world.state);
 	const sections = [...paintedRuns(world)].flatMap(([start, stacks]) =>
 		paintedSections(plots, stacks, world.seed, {
+			floorFor: (cell) => {
+				const court = planned.has(cell.id) && r3.cells.get(cell.id)?.id;
+				return start === 0 && court ? courtHouseFloor(world.grid, cell, court) : undefined;
+			},
 			courtFor: (id) => (planned.has(id) ? r3.cells.get(id)?.id : undefined),
 			seedFor: (id) => world.state.storyParts.get(id)?.[start]?.houseSeed,
 			// The shared-wall graph limits bodies. R3's lateral graph also includes across-alley neighbours.
@@ -66,6 +71,7 @@ function survey(world: World) {
 						s.composition.exterior?.system,
 						s.composition.shellUse,
 						s.composition.exterior?.seams,
+						s.composition.ground,
 						accentKind(s),
 						accentBody(s).id
 					]),

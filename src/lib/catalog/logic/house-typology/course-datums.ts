@@ -16,3 +16,12 @@ export function courseDatums(plan: Plan, ensembleSeed: number, gallery?: number)
 		courseDatum(ground, id, ensembleSeed, i, gallery)
 	);
 }
+
+/** Keeps the common ceiling and upper gallery level while seating the first floor on the finished approach. */
+export function groundCourse(site: Plan['site'], ceiling: number) {
+	const floor = site.finishedFloor;
+	// Where the cut would consume the first room, retain the planned entrance and its access flight.
+	if (floor === undefined || !Number.isFinite(floor) || floor > ceiling - 2.1)
+		return { seat: site.ground, slab: 0.6, surveyed: false };
+	return { seat: floor - 0.16, slab: 0.16, surveyed: true };
+}

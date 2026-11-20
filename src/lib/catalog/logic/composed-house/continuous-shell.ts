@@ -107,7 +107,7 @@ function exposedPanel(
 export function continuousShell(
 	h: HouseComposition,
 	seed: number,
-	surface: Surface & { colourRole?: 'ensemble-ground' },
+	surface: Surface,
 	frame: Surface
 ): HousePart[] {
 	const shell = h.exterior;

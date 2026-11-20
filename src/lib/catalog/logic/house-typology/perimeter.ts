@@ -12,7 +12,7 @@ import {
 	landingDepth,
 	approachDepth
 } from './entrance';
-import { courseDatums } from './course-datums';
+import { courseDatums, groundCourse } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior, roomLining } from './parcel-section';
 import { galleryPlot } from './gallery';
@@ -216,7 +216,8 @@ function floorBodies(
 		envelope.system === 'service-risers' || envelope.system === 'helical-services'
 			? serviceGallery(shape, shapes.opening, plan.sign)
 			: shape;
-	const shells = i === 0 && shapes.joined ? rooms : [occupied];
+	const shells =
+		i === 0 && (shapes.joined || groundCourse(plan.site, ceiling).surveyed) ? rooms : [occupied];
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(
 			plan,
@@ -260,20 +261,22 @@ function courses(
 	const { access, axis, opening, plot, foundation, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
 	const datums = courseDatums(plan, context.seed, galleryCourse);
+	const { seat, slab, surveyed } = groundCourse(plan.site, datums[1]);
+	datums[0] = seat;
 	const exterior = parcelExterior(
 		plot,
 		cells,
 		opening,
 		envelope,
 		datums,
-		partyFaces(cells, frontage, context.podiums, [ground, datums[Math.min(2, programme.length)]])
+		partyFaces(cells, frontage, context.podiums, [seat, datums[Math.min(2, programme.length)]])
 	);
-	const parts: Solid[] = foundation.map((room, k) =>
-		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
+	const parts: Solid[] = (surveyed ? shapes.rooms : foundation).map((room, k) =>
+		plate(id + (k ? '/plinth/' + k : '/plinth'), room, seat, slab, seat, 'base')
 	);
 	const levels: Level[] = [];
 	for (let i = 0; i < programme.length; i++) {
-		const z = i ? datums[i] : ground + 0.6;
+		const z = i ? datums[i] : seat + slab;
 		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
 		const shape = floorOutline(plan, shapes, i, gallery, exterior.stations[i].turn, wing);
@@ -376,7 +379,7 @@ export function perimeterHouse(
 		typology: 'block',
 		cells: site.cells,
 		datum: plan.datum,
-		ground: site.ground,
+		ground: exterior.bottom,
 		accessSide,
 		family: { bar: 0.3, radius: 0.15, parapet: 'rail' },
 		core: { position: [axis[0], axis[1], site.ground], width: entranceWidth },
