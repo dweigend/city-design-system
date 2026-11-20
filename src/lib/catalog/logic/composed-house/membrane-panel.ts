@@ -1,11 +1,16 @@
-import { membraneResponse } from '../membrane';
+import {
+	clothIntervals as subdivisions,
+	clothOpening,
+	clothColumns,
+	simulateCloth,
+	membraneResponse
+} from '../membrane';
 import type { HouseComposition } from '../house-typology';
 import type { Vec3 } from '../parametrik/types';
 import { stationAt } from './shell-station';
 type Shell = NonNullable<HouseComposition['exterior']>;
 type Fabric = NonNullable<Shell['fabric']>;
 
-const subdivisions = 8;
 function sample(shell: Shell, index: number, u: number, z: number) {
 	const next = (index + 1) % shell.ring.length;
 	const tuck = Math.sin((Math.PI * (z - shell.bottom)) / (shell.top - shell.bottom));
@@ -40,12 +45,21 @@ function loadedPoint(
 	u: number,
 	v: number,
 	low: number,
-	high: number
+	high: number,
+	displacement: number
 ): Vec3 {
 	const span = high - low;
 	const z = low + span * v;
 	const { rest, delta, clearance } = at(u, z);
-	const { fraction: share, sag } = membraneResponse(fabric, width, span, u, v, clearance);
+	const { fraction: share, sag } = membraneResponse(
+		fabric,
+		width,
+		span,
+		u,
+		v,
+		clearance,
+		displacement
+	);
 	return [rest[0] + share * delta[0], rest[1] + share * delta[1], z - sag];
 }
 function clothFaces(cols: number, rows: number) {
@@ -53,7 +67,7 @@ function clothFaces(cols: number, rows: number) {
 	for (let j = 0; j < rows; j++)
 		for (let i = 0; i < cols; i++) {
 			// A vertical slit between paired welds exposes the occupied glazing behind the membrane.
-			if (i % subdivisions === 3 && j % subdivisions >= 2 && j % subdivisions <= 5) continue;
+			if (clothOpening(i, j)) continue;
 			const a = j * (cols + 1) + i,
 				b = a + cols + 1;
 			triangles.push(a, a + 1, b + 1, a, b + 1, b);
@@ -91,16 +105,28 @@ export function courtyardPanel(shell: Shell, wall: Shell['courtWalls'][number], 
 	});
 }
 function clothMesh(shell: Shell, fabric: Fabric, width: number, at: SurfaceAt) {
-	const cols = subdivisions * Math.max(1, Math.round(width / (fabric.restraint === 'net' ? 6 : 9)));
+	const cols = clothColumns(width, fabric.restraint);
 	const anchors = courses(shell, fabric.restraint);
 	const rows = (anchors.length - 1) * subdivisions,
 		points: Vec3[] = [];
+	const cloth = anchors.slice(1).map((z, i) => simulateCloth(fabric, cols, width, z - anchors[i]));
 	for (let j = 0; j <= rows; j++) {
 		const course = Math.min(anchors.length - 2, Math.floor(j / subdivisions));
 		const v = j / subdivisions - course;
 		for (let i = 0; i <= cols; i++) {
 			const local = i / cols;
-			points.push(loadedPoint(at, fabric, width, local, v, anchors[course], anchors[course + 1]));
+			points.push(
+				loadedPoint(
+					at,
+					fabric,
+					width,
+					local,
+					v,
+					anchors[course],
+					anchors[course + 1],
+					cloth[course][(j - course * subdivisions) * (cols + 1) + i]
+				)
+			);
 		}
 	}
 	return { points, triangles: clothFaces(cols, rows) };

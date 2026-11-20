@@ -1,4 +1,4 @@
-import { membraneResponse } from '../membrane';
+import { clothIntervals, clothOpening, membraneResponse } from '../membrane';
 import { shellSystems, type ShellSystem } from '../../data/house-shells';
 import { mount, type AssetRecipe } from './definition';
 import { surface } from './parts';
@@ -68,8 +68,8 @@ const draw: Record<ShellSystem, Draw> = {
 	'inflated-cushion': (m) =>
 		fabric(
 			m,
-			12,
-			16,
+			clothIntervals,
+			2 * clothIntervals,
 			(u, v) =>
 				membraneResponse(
 					{ pressure: 2, tension: 1, restraint: 'net' },
@@ -79,7 +79,7 @@ const draw: Record<ShellSystem, Draw> = {
 					(v * 2) % 1,
 					0.65
 				).fraction * 0.65,
-			(i, j) => (i === 5 || i === 6) && j % 8 > 0 && j % 8 < 7
+			clothOpening
 		),
 	'pleated-sheet': (m) =>
 		fabric(
