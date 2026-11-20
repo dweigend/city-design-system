@@ -168,8 +168,8 @@ export function createTerrainMesh(
 
 		ground = mix(
 			ground,
-			mix(paperColor, colors.nature, 0.38),
-			attribute('lawn', 'float').mul(forestWeight)
+			mix(paperColor, colors.nature, bankLight.oneMinus().clamp(0, 1).mul(0.3).add(0.22)),
+			attribute('lawn', 'float').mul(terrainWeight)
 		);
 
 		const lens = float(1)

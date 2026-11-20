@@ -3,7 +3,7 @@
  * World positions come from the grid; this file only arranges them for the GPU.
  */
 import * as THREE from 'three/webgpu';
-import type { TerrainCell, TerrainGrid } from '../../logic/terrain-grid';
+import { bankHeight, type TerrainCell, type TerrainGrid } from '../../logic/terrain-grid';
 import { changedChunks } from '../../logic/quad-grid';
 import { bankDistance, ravineDepth, valleyCoords } from '../../logic/terrain';
 import { poolWaterTriangles } from './pool-water';
@@ -159,7 +159,8 @@ export function waterGeometry(
 ): THREE.BufferGeometry {
 	const positions: number[] = [],
 		chart: number[] = [],
-		wake: number[] = [];
+		wake: number[] = [],
+		poolDepth: number[] = [];
 	const terrain = grid.terrain,
 		level = terrain.waterLevel;
 	const riverChart = (x: number, y: number) => [
@@ -188,6 +189,7 @@ export function waterGeometry(
 			pushThree(positions, p);
 			chart.push(along, across);
 			wake.push(0);
+			poolDepth.push(Math.max(0, p[2] - bankHeight(cell, p[0], p[1])));
 		}
 		if (cell.corners.every((corner) => corner[2] > level)) continue;
 		for (const i of [0, 1, 2, 0, 2, 3]) {
@@ -196,9 +198,11 @@ export function waterGeometry(
 			pushThree(positions, [x, y, level]);
 			chart.push(along, across);
 			wake.push(wakeAt(along, across));
+			poolDepth.push(0);
 		}
 	}
 	const geometry = chartedGeometry(positions, chart);
+	geometry.setAttribute('poolDepth', new THREE.Float32BufferAttribute(poolDepth, 1));
 	geometry.setAttribute('wake', new THREE.Float32BufferAttribute(wake, 1));
 	geometry.setAttribute(
 		'riverWidth',

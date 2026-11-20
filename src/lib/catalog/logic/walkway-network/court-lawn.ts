@@ -14,8 +14,8 @@ export function courtLawn(plate: Primitive): Primitive[] {
 		...ring.map(([x, y], i) => Math.hypot(x - ring[(i + 1) % 4][0], y - ring[(i + 1) % 4][1]))
 	);
 	const lawn = roundFootprint(
-		ring.map(([a, b]) => [a + (x - a) * 0.035, b + (y - b) * 0.035]),
-		Math.min(3, width * 0.17)
+		ring.map(([a, b]) => [a + (x - a) * 0.023, b + (y - b) * 0.023]),
+		Math.min(5.5, width * 0.32)
 	);
 	return [
 		{ ...plate, holes: [lawn], edges: false },

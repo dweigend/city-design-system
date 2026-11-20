@@ -17,6 +17,7 @@
 	--cat-business: oklch(0.7 0.13 355);
 	--cat-nature: oklch(0.7 0.12 152);
 	--cat-foliage: oklch(0.68 0.056 118);
+	--cat-lawn: color-mix(in oklab, var(--cat-foliage) 38%, var(--paper));
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
 	/* Wall tint of new housing bodies in the sandbox; paths alone stay pink. */

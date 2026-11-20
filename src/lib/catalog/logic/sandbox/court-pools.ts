@@ -23,13 +23,14 @@ function inlet(grid: TerrainGrid, centre: Centre) {
 	const run = Math.hypot(dx, dy);
 	const ux = run ? dx / run : 1,
 		uy = run ? dy / run : 0;
-	const length = Math.min(27, 14 + run / 2);
+	const length = Math.min(38, 22 + run * 0.65);
+	const width = Math.min(17, 12 + run * 0.24);
 	const cx = x + dx * 0.47,
 		cy = y + dy * 0.47;
 	const radius = ([px, py]: Point) => {
 		const along = ((px - cx) * ux + (py - cy) * uy) / length;
-		const across = (-(px - cx) * uy + (py - cy) * ux) / 10;
-		return Math.hypot(along, across + 0.22 * (1 - along * along));
+		const across = (-(px - cx) * uy + (py - cy) * ux) / width;
+		return Math.hypot(along, across + 0.3 * Math.cos(along * 2.1));
 	};
 	return { radius, cx, cy, length };
 }
@@ -70,16 +71,20 @@ function bedSurvey(cell: TerrainCell, pool: Basin, weights: number[], u: number,
 		source = cell.bank;
 	const z = source ? bankHeight(cell, p[0], p[1]) : p[2];
 	const r = pool.radius(p);
-	const blend = smooth((1.22 - r) / 0.39) * chartScalar(weights, u, v);
-	const bed = pool.level - 0.85 + 0.55 * Math.min(1, r * r);
-	const height = z + Math.min(0, bed - z) * blend;
+	// One section runs around the whole inlet. A shallow underwater ledge rises
+	// into a broad lawn shelf, then a short outer bank rejoins the hillside.
+	const margin = smooth((1.44 - r) / 0.19) * chartScalar(weights, u, v);
+	const littoral = smooth((r - 0.76) / 0.24);
+	const terrace = pool.level - 1.15 + 1.52 * littoral + 0.12 * smooth((r - 1) / 0.25);
+	const height = z + Math.min(0, terrace - z) * margin;
+	const turf = smooth((r - 0.94) / 0.045) * margin;
 	const slot = (values?: number[]) =>
-		values && source ? sampleSlot(values, source.divisions, u, v) * (1 - blend) : 0;
+		values && source ? sampleSlot(values, source.divisions, u, v) * (1 - margin) : 0;
 	return {
 		point: [p[0], p[1], height] as Vec3,
 		cut: height < z - 1e-8,
 		shade: slot(source?.shade),
-		lawn: slot(source?.lawn)
+		lawn: Math.max(turf, slot(source?.lawn))
 	};
 }
 
