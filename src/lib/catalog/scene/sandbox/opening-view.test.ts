@@ -1,3 +1,5 @@
+import { phoneOpeningArea } from './opening-area';
+import { openingHeadingLimit } from './landmark-opening';
 import { expect, test } from 'bun:test';
 import { Box2, Vector2, Vector3 } from 'three/webgpu';
 import type { Vec3 } from '../../logic/parametrik/types';
@@ -82,9 +84,9 @@ test.each([
 		const box = new Box2().setFromPoints(courts.flat().map((p) => new Vector2(p.x, p.y)));
 		const center = box.getCenter(new Vector2()),
 			size = box.getSize(new Vector2());
-		expect(center.x).toBeCloseTo(right / 2);
-		expect(center.y).toBeCloseTo((top + bottom) / 2);
-		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(0.98);
+		expect(Math.abs(center.x - right / 2)).toBeLessThan(right * 0.14);
+		expect(Math.abs(center.y - (top + bottom) / 2)).toBeLessThan((bottom - top) * 0.07);
+		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeWithin(0.63, 0.99);
 		expect(box.max.y).toBeLessThan(bottom);
 	}
 );
@@ -121,4 +123,37 @@ test('occupied parcels and central water share the legacy portrait HUD opening',
 	});
 	expect(visible.some((c) => c.zone === 'water')).toBe(true);
 	expect(visible.some((c) => world.state.stacks.has(c.id))).toBe(true);
+});
+
+test('opening projection work stays bounded on a populated town', () => {
+	const { world, additions } = openingScene(7);
+	const view = createView();
+	view.resize(1280, 640);
+	let headings = 0;
+	const project = view.frameSilhouette;
+	view.frameSilhouette = (...args) => {
+		if (args[0].length === 1) headings++;
+		project(...args);
+	};
+	expect(frameTownSilhouette(view, world, undefined, additions)).toBe(true);
+	expect(headings).toBeGreaterThan(0);
+	expect(headings).toBeLessThanOrEqual(openingHeadingLimit);
+	expect(openingHeadingLimit).toBeLessThanOrEqual(8);
+});
+
+test('overlapping phone controls retain their rectangles and frame houses in the side opening', () => {
+	const reserved = [
+		{ left: 0, right: 40, top: 0, bottom: 430 },
+		{ left: 0, right: 40, top: 400, bottom: 844 }
+	];
+	const area = phoneOpeningArea(390, 844, 430, 400, reserved);
+	expect(area.reserved).toEqual(reserved);
+	expect(area.left).toBe(40);
+	const view = createView();
+	view.resize(390, 844);
+	const { world, additions } = openingScene(7);
+	expect(frameOldTown(view, world, area, additions)).toBe(true);
+	const roofs = visibleCourts(world, view, area);
+	expect(roofs.length).toBeGreaterThan(0);
+	expect(roofs.flat().every((p) => p.x > 40 && p.x <= 390)).toBe(true);
 });

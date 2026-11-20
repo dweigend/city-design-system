@@ -6,8 +6,30 @@ export type OpeningProjection = {
 	houses: Box2[][];
 	landmarks: Box2[];
 	stock: Box2[];
+	landscape: Box2[];
 };
-type OpeningScreen = { canvas: Box2; safe: Box2; foreground: Box2; reserved: Box2[] };
+export type OpeningScreen = { canvas: Box2; safe: Box2; foreground: Box2; reserved: Box2[] };
+
+const desktopSizes = {
+	min: 140,
+	max: 320,
+	low: 180,
+	high: 220,
+	ideal: 200,
+	samples: [140.1, 181, 200, 219]
+};
+const phoneSizes = {
+	min: 110,
+	max: Infinity,
+	low: 110,
+	high: 155,
+	ideal: 135,
+	samples: [110.1, 120, 135]
+};
+/** Projected house heights in CSS pixels, shared by the crop search and its final clearance check. */
+export function houseSizes(portrait: boolean) {
+	return portrait ? phoneSizes : desktopSizes;
+}
 
 function obstructed(
 	phone: boolean,
@@ -38,35 +60,23 @@ function coverage(boxes: Box2[]) {
 	return boxes.reduce((sum, b) => sum.union(b), new Box2());
 }
 
-function separation(boxes: Box2[]) {
-	let worst = 0;
-	for (const [i, box] of boxes.entries())
-		for (const next of boxes.slice(i + 1)) {
-			const overlap = box.clone().intersect(next).getSize(new Vector2());
-			const a = box.getSize(new Vector2()),
-				b = next.getSize(new Vector2());
-			worst = Math.max(
-				worst,
-				(overlap.x * overlap.y) / Math.max(1e-8, Math.min(a.x * a.y, b.x * b.y))
-			);
-		}
-	return worst;
+function separated(boxes: Box2[], gap: number) {
+	return boxes.every((box, i) => {
+		const padded = box.clone().expandByScalar(gap);
+		return boxes.slice(i + 1).every((other) => !padded.intersectsBox(other));
+	});
 }
 
-/** Ranks unobstructed crops by house size, separation, margins and ensemble count. */
-export function cameraScore(
+/** Applies the same clearance and house-size limits to a fitted or a fallback camera. */
+export function scoreCrop(
 	view: View,
 	screen: OpeningScreen,
-	indices: number[],
-	data: OpeningProjection
+	data: OpeningProjection,
+	scale: number,
+	origin: Vector2,
+	mode: 'context' | 'rank' | 'clearance' = 'context'
 ) {
-	const fit = coverage(indices.map((i) => data.courts[i]));
-	const size = fit.getSize(new Vector2()),
-		room = screen.safe.getSize(new Vector2());
-	const scale = view.courtScale(size.x, size.y, room.x, room.y);
-	const origin = fit
-		.getCenter(new Vector2())
-		.sub(screen.safe.getCenter(new Vector2()).divideScalar(scale));
+	const room = screen.safe.getSize(new Vector2());
 	const inverse = (b: Box2) =>
 		new Box2(
 			b.min.clone().divideScalar(scale).add(origin),
@@ -77,7 +87,68 @@ export function cameraScore(
 		foreground = inverse(screen.foreground);
 	const hud = screen.reserved.map(inverse);
 	if (obstructed(view.isPortrait(), data, canvas, safe, foreground, hud)) return;
-	return readableCourts(data, safe, scale, room, view.isPortrait() ? 110 : 140);
+	return readableCourts(data, safe, scale, room, hud, houseSizes(view.isPortrait()), mode);
+}
+
+function corners(box: Box2) {
+	return [box.min, box.max, new Vector2(box.min.x, box.max.y), new Vector2(box.max.x, box.min.y)];
+}
+
+// A house can obscure the centre of a stock roof while its eaves still show beside it.
+function exposedContext(
+	boxes: Box2[],
+	safe: Box2,
+	obstacles: Box2[],
+	spread: Box2,
+	interior: Box2
+) {
+	let exposed = false;
+	for (const box of boxes) {
+		if (!box.intersectsBox(safe)) continue;
+		const patch = box.clone().intersect(safe);
+		for (const point of corners(patch)) {
+			if (obstacles.some((b) => b.containsPoint(point))) continue;
+			exposed = true;
+			spread.expandByPoint(point);
+			if (spread.containsBox(interior)) return true;
+		}
+	}
+	return exposed;
+}
+
+function surroundings(
+	data: OpeningProjection,
+	homes: Box2[],
+	hud: Box2[],
+	safe: Box2,
+	spread: Box2
+) {
+	const obstacles = [...homes, ...hud];
+	const interior = safe.clone().expandByVector(safe.getSize(new Vector2()).multiplyScalar(-0.15));
+	if (data.stock.length && !exposedContext(data.stock, safe, obstacles, spread, interior))
+		return false;
+	return (
+		!data.landscape.length || exposedContext(data.landscape, safe, obstacles, spread, interior)
+	);
+}
+
+function readableGroup(
+	data: OpeningProjection,
+	bodies: Box2[],
+	height: number,
+	scale: number,
+	min: number
+) {
+	return (
+		height >= min &&
+		bodies.length >= Math.min(2, data.courts.length) &&
+		separated(bodies, 12 / scale)
+	);
+}
+
+function apparentHeight(data: OpeningProjection, homes: Box2[], safe: Box2, scale: number) {
+	const measured = !data.courts.length ? data.stock.filter((b) => safe.containsBox(b)) : homes;
+	return median(measured.map((b) => (b.max.y - b.min.y) * scale));
 }
 
 function readableCourts(
@@ -85,24 +156,57 @@ function readableCourts(
 	safe: Box2,
 	scale: number,
 	room: Vector2,
-	target: number
+	hud: Box2[],
+	sizes: typeof desktopSizes,
+	mode: 'context' | 'rank' | 'clearance'
 ) {
 	const visible = data.courts.flatMap((b, i) => (safe.containsBox(b) ? [i] : []));
 	const homes = visible.flatMap((i) => data.houses[i]);
-	const height = median(homes.map((b) => (b.max.y - b.min.y) * scale));
+	const height = apparentHeight(data, homes, safe, scale);
+	if (height > sizes.max) return;
+	if (mode === 'clearance') return [];
+	if (data.courts.length && !visible.length) return;
 	const bodies = visible.map((i) => coverage(data.houses[i]));
+	if (mode === 'rank' && !readableGroup(data, bodies, height, scale, sizes.min)) return;
 	const spread = coverage(bodies);
+	if (!surroundings(data, homes, hud, safe, spread)) return;
+	if (mode === 'context') return [];
+	const courtBox = coverage(visible.map((i) => data.courts[i]));
+	return rankComposition({ safe, spread, bodies, courtBox, height, scale, room, sizes });
+}
+
+function rankComposition({
+	safe,
+	spread,
+	bodies,
+	courtBox,
+	height,
+	scale,
+	room,
+	sizes
+}: {
+	safe: Box2;
+	spread: Box2;
+	bodies: Box2[];
+	courtBox: Box2;
+	height: number;
+	scale: number;
+	room: Vector2;
+	sizes: typeof desktopSizes;
+}) {
 	const margin = (Math.max(spread.min.x - safe.min.x, safe.max.x - spread.max.x) * scale) / room.x;
 	const verticalMargin =
 		(Math.max(spread.min.y - safe.min.y, safe.max.y - spread.max.y) * scale) / room.y;
-	const overlap = separation(bodies.map((b) => b.clone().expandByScalar(8 / scale)));
-
+	if (Math.max(margin, verticalMargin) > 0.15) return;
+	const centerOffset =
+		(Math.abs(courtBox.getCenter(new Vector2()).y - safe.getCenter(new Vector2()).y) * scale) /
+		room.y;
+	const distance = Math.max(0, sizes.low - height, height - sizes.high);
 	return [
-		Math.min(1, height / target),
-		Number(visible.length >= 2),
-		-overlap,
-		-Math.max(0, margin - 0.15, verticalMargin - 0.15),
-		visible.length,
-		height
+		Number(separated(bodies, 16 / scale)),
+		-distance,
+		Number(centerOffset <= 0.065),
+		bodies.length,
+		-Math.abs(height - sizes.ideal)
 	];
 }

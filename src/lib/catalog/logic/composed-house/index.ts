@@ -3,9 +3,10 @@ export { circulation } from './circulation';
 import type { HouseSite } from './types';
 import type { HouseSurfaces } from './surfaces';
 import { planHouse } from './section';
+import { accentBody, ensembleAnchor } from './accent';
 import { sectionParts } from './projection';
 export { houseSurfaces, type HouseSurfaces } from './surfaces';
-export { planHouse, sectionParts };
+export { accentBody, ensembleAnchor, planHouse, sectionParts };
 export type { HouseSite } from './types';
 export { houseLinks } from './links';
 

@@ -4,7 +4,7 @@ import type { SlotAssignment } from '../assets';
 import type { ColorToken } from '../parametrik/types';
 
 export type Surface = SlotAssignment;
-/** `anchor` paints the whole accent body, also on kit bodies: one colour body per ensemble. */
+/** `anchor` paints the whole accent body, also on kit bodies: the one colour body of an ensemble. */
 export type BandAccent = 'none' | 'window' | 'wall' | 'storey' | 'anchor';
 export type SurfaceSlot = HouseUse | 'frame' | 'deck' | 'pane' | 'access' | 'shell';
 export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;

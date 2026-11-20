@@ -1,4 +1,5 @@
 import type { Primitive } from '../../logic/parametrik/types';
+import { clearTownOpening } from './opening-clearance';
 import { frameOccupiedCourts } from './landmark-opening';
 import { courtOpening } from './court-opening';
 import { Vector3 } from 'three/webgpu';
@@ -45,15 +46,28 @@ function townCluster({ grid, state }: World, portrait = false) {
 	return { points, water, anchor: new Vector3(x, z, -y) };
 }
 
-function frameCourts(
+function frameTown(
 	view: View,
 	world: World,
+	portrait: boolean,
 	area?: OpeningArea,
 	additions?: readonly Primitive[]
 ) {
 	const courts = courtOpening(world);
-	if (!courts.length) return false;
-	return frameOccupiedCourts(view, world, courts, area, additions);
+	if (courts.length && frameOccupiedCourts(view, world, courts, area, additions)) return true;
+	const cluster = townCluster(world, portrait);
+	if (cluster)
+		view.frameSilhouette(
+			cluster.points,
+			portrait ? cluster.anchor : undefined,
+			area,
+			cluster.water
+		);
+	else {
+		const terrain = world.grid.cells.map(({ center: [x, y, z] }) => new Vector3(x, z, -y));
+		view.frameSilhouette(terrain, undefined, area);
+	}
+	return clearTownOpening(view, world, courts, area, additions);
 }
 
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
@@ -63,12 +77,7 @@ export function frameOldTown(
 	area?: OpeningArea,
 	additions?: readonly Primitive[]
 ) {
-	if (!view.isPortrait()) return false;
-	if (frameCourts(view, world, area, additions)) return true;
-	const cluster = townCluster(world, true);
-	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, cluster.anchor, area, cluster.water);
-	return true;
+	return view.isPortrait() && frameTown(view, world, true, area, additions);
 }
 
 /** Fits the central occupied town footprint, including its building heights. */
@@ -78,9 +87,5 @@ export function frameTownSilhouette(
 	area?: OpeningArea,
 	additions?: readonly Primitive[]
 ) {
-	if (frameCourts(view, world, area, additions)) return true;
-	const cluster = townCluster(world);
-	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, undefined, area, cluster.water);
-	return true;
+	return frameTown(view, world, false, area, additions);
 }

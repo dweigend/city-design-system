@@ -87,6 +87,8 @@ export type HouseComposition = {
 	start: number;
 	stories: number;
 	role: HouseRole;
+	/** Number of houses planned together; a standalone house is an ensemble of one. */
+	ensembleSize: number;
 	typology: Typology;
 	cells: HouseSite['cells'];
 	datum: number;

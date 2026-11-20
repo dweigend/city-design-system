@@ -19,9 +19,16 @@ export type OpeningArea = {
 	top: number;
 	bottom: number;
 	right?: number;
+	left?: number;
 	reserved?: readonly Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>[];
 };
 
+export type CourtFit = {
+	heading: number;
+	pitchOffset: number;
+	fill: number;
+	offset: THREE.Vector2;
+};
 export type View = ReturnType<typeof createView>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
@@ -43,7 +50,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let width = 1;
 	let height = 1;
 	let span = 400;
-	let openingFit: { points: THREE.Vector3[]; area?: OpeningArea; heading: number } | undefined;
+	let openingFit: { points: THREE.Vector3[]; area?: OpeningArea; fit: CourtFit } | undefined;
 
 	function apply() {
 		const halfHeight = span / 2;
@@ -65,14 +72,15 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		camera.updateMatrixWorld();
 	}
 
-	function orientOpening(courtHeading?: number) {
-		heading = courtHeading ?? BLICK.azimutRad;
-		if (elevationRad !== Math.PI / 2)
-			elevationRad = width < height ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
+	function orientOpening(fit?: CourtFit) {
+		heading = fit?.heading ?? BLICK.azimutRad;
+		if (elevationRad !== Math.PI / 2) {
+			const base = width < height ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
+			elevationRad = Math.max(Math.PI / 30, base + (fit?.pitchOffset ?? 0));
+		}
 		apply();
 	}
 
-	const courtFill = 0.98;
 	const clusterFill = () => (width < height ? opening.portraitFill : opening.clusterFill);
 	const metersPerPixel = () => span / height;
 	/** Ground meters per image meter along the image's vertical axis. */
@@ -138,18 +146,19 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			SPAN_MAX
 		);
 	}
-	function fitOpening(bounds: THREE.Box2, area?: OpeningArea, heading?: number) {
+	function fitOpening(bounds: THREE.Box2, area?: OpeningArea, fill = clusterFill()) {
 		const room = area ? Math.max(1, area.bottom - area.top) : height;
-		const usableWidth = Math.max(1, Math.min(width, area?.right ?? width));
+		const usableWidth = Math.max(1, Math.min(width, area?.right ?? width) - (area?.left ?? 0));
 		const size = bounds.getSize(new THREE.Vector2());
-		span = fittedSpan(
-			size.x,
-			size.y,
-			usableWidth,
-			room,
-			heading !== undefined ? courtFill : clusterFill()
-		);
+		span = fittedSpan(size.x, size.y, usableWidth, room, fill);
 		return { room, usableWidth };
+	}
+
+	function alignOpening(area: OpeningArea | undefined, usableWidth: number, fit?: CourtFit) {
+		focusY = area ? (area.top + area.bottom) / (2 * height) : 0.5;
+		focusX = ((area?.left ?? 0) + usableWidth / 2) / width;
+		const offset = fit?.offset ?? new THREE.Vector2();
+		pan((focusX - 0.5) * width + offset.x, (focusY - 0.5) * height + offset.y);
 	}
 
 	/** Centers the projected silhouette. Points are in three.js meters. */
@@ -158,14 +167,14 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		anchor?: THREE.Vector3,
 		area?: OpeningArea,
 		water: Vec3[] = [],
-		heading?: number
+		fit?: CourtFit
 	) {
-		orientOpening(heading);
+		orientOpening(fit);
 		const bounds = new THREE.Box2();
 		const up = new THREE.Vector3().crossVectors(eye, right);
 		for (const point of points)
 			bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
-		const { room, usableWidth } = fitOpening(bounds, area, heading);
+		const { room, usableWidth } = fitOpening(bounds, area, fit?.fill);
 
 		const center = bounds.getCenter(new THREE.Vector2());
 		const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);
@@ -174,10 +183,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		target.copy(eye).multiplyScalar(depth);
 		target.addScaledVector(right, center.x).addScaledVector(up, center.y);
 		apply();
-		focusY = area ? (area.top + area.bottom) / (2 * height) : 0.5;
-		focusX = usableWidth / (2 * width);
-		pan((focusX - 0.5) * width, (focusY - 0.5) * height);
-		openingFit = heading !== undefined && width >= height ? { points, area, heading } : undefined;
+		alignOpening(area, usableWidth, fit);
+		openingFit = fit && width >= height ? { points, area, fit } : undefined;
 	}
 
 	return {
@@ -197,7 +204,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			if (plan) axonElevationRad = elevationRad;
 			elevationRad = plan ? Math.PI / 2 : axonElevationRad;
 			if (openingFit) {
-				frameSilhouette(openingFit.points, undefined, openingFit.area, [], openingFit.heading);
+				frameSilhouette(openingFit.points, undefined, openingFit.area, [], openingFit.fit);
 				return;
 			}
 			apply();
@@ -238,8 +245,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Canvas dimensions in CSS pixels. */
 		viewport: () => [width, height] as const,
 		/** CSS pixels per metre after fitting a projected court envelope to the available room. */
-		courtScale: (w: number, h: number, usableWidth: number, room: number) =>
-			height / fittedSpan(w, h, usableWidth, room, courtFill),
+		courtScale: (w: number, h: number, usableWidth: number, room: number, fill: number) =>
+			height / fittedSpan(w, h, usableWidth, room, fill),
 		frameSilhouette,
 		/** World meters to the current canvas position in CSS pixels. */
 		project([x, y, z]: Vec3) {

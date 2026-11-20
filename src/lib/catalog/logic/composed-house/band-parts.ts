@@ -76,7 +76,8 @@ function bandCoatings(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	return {
 		wall: wallSurface(body, surfaces, paintedWall),
 		glass: roleSurface(surfaces.pane, 'glazing', tintedPane ? panel.token : surfaces.pane.token),
-		trim: roleSurface(panel, 'trim'),
+		// Door and window trim take the programme colour on the accent body only.
+		trim: roleSurface(panel, 'trim', accent === 'none' ? '--paper' : panel.token),
 		sill: roleSurface(panel, 'trim', paintsWall(accent) ? panel.token : '--paper')
 	};
 }
