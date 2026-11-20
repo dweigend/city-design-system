@@ -1,3 +1,4 @@
+export { bankPlanting } from './bank-planting';
 /**
  * Sandbox: the composition point of the city game. It combines terrain, grid, house brush,
  * land cover and transit lines into one world with strokes and undo. Views read worlds and

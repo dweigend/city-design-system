@@ -5,6 +5,7 @@ import { courtLanding } from '../walkway-network';
 import { courtBench } from './town-grading';
 import { required } from '../required';
 
+import { shelfDivisions, terraceShelf } from './terrace-shelf';
 import { setbackGrade } from './court-setback';
 
 type Point = readonly number[];
@@ -12,7 +13,7 @@ type Height = (x: number, y: number) => number;
 type Court = CityPlan['centres'][number]['ensembles'][number];
 type Section = ReturnType<typeof edge>;
 const reach = 4.5;
-const divisions = 12;
+const courtDivisions = 12;
 
 function edge(a: Point, b: Point, centre: Point, ground: Height, lots: TerrainCell[]) {
 	const dx = b[0] - a[0],
@@ -106,15 +107,13 @@ function bankSlope(
 
 // Evaluate shared bank vertices in one direction. Reversed chart arithmetic can otherwise
 // put the same frontage vertex on opposite sides of a cut or setback boundary.
-function bankPoint(cell: TerrainCell, i: number, j: number): Vec3 {
-	const n = divisions;
+function bankPoint(cell: TerrainCell, i: number, j: number, n: number): Vec3 {
 	if (i > 0 && i < n && j > 0 && j < n) return chartPoint(cell.corners, i / n, j / n);
 	const [side, k] = j === 0 ? [0, i] : i === n ? [1, j] : j === n ? [2, n - i] : [3, n - j];
-	return sidePoint(cell, side, k);
+	return sidePoint(cell, side, k, n);
 }
 
-function sidePoint(cell: TerrainCell, side: number, k: number): Vec3 {
-	const n = divisions;
+function sidePoint(cell: TerrainCell, side: number, k: number, n: number): Vec3 {
 	const next = (side + 1) % 4;
 	const forward = cell.vertexIds[side] < cell.vertexIds[next];
 	const a = cell.corners[forward ? side : next],
@@ -125,28 +124,46 @@ function sidePoint(cell: TerrainCell, side: number, k: number): Vec3 {
 	return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 
+function finishedBank(platforms: Platform[], p: Vec3, survey: number, fill: number) {
+	let height = p[2] + fill,
+		tone = 0;
+	for (const platform of platforms) {
+		const [z, ink] = section(platform, p, survey);
+		if (z > height) {
+			height = z;
+			tone = ink;
+		}
+	}
+	return { height, tone };
+}
+
 function bankSurface(cell: TerrainCell, raw: TerrainCell, platforms: Platform[]) {
+	const shelf = terraceShelf(cell);
+	if (!platforms.length && !shelf) return;
+	const divisions = platforms.length ? courtDivisions : shelfDivisions;
 	const points: Vec3[] = [],
 		shade: number[] = [],
 		raised: boolean[] = [];
 	for (let j = 0; j <= divisions; j++) {
 		for (let i = 0; i <= divisions; i++) {
-			const p = bankPoint(cell, i, j),
-				survey = bankPoint(raw, i, j)[2];
-			let height = p[2],
-				tone = 0;
-			for (const platform of platforms) {
-				const [z, ink] = section(platform, p, survey);
-				if (z > height) {
-					height = z;
-					tone = ink;
-				}
-			}
+			const p = bankPoint(cell, i, j, divisions),
+				survey = bankPoint(raw, i, j, divisions)[2];
+			const { height, tone } = finishedBank(
+				platforms,
+				p,
+				survey,
+				shelf?.(i / divisions, j / divisions) ?? 0
+			);
 			points.push([p[0], p[1], height]);
 			shade.push(tone);
 			raised.push(height > p[2]);
 		}
 	}
+	const indices = raisedFaces(raised, divisions);
+	return indices.length ? ({ points, indices, shade, divisions } satisfies BankSurface) : undefined;
+}
+
+function raisedFaces(raised: boolean[], divisions: number) {
 	const indices: number[] = [];
 	const face = (a: number, b: number, c: number) => {
 		if (raised[a] || raised[b] || raised[c]) indices.push(a, b, c);
@@ -158,7 +175,7 @@ function bankSurface(cell: TerrainCell, raw: TerrainCell, platforms: Platform[])
 			face(a, a + 1, d + 1);
 			face(a, d + 1, d);
 		}
-	return indices.length ? ({ points, indices, shade, divisions } satisfies BankSurface) : undefined;
+	return indices;
 }
 
 function platform(raw: TerrainGrid, group: Court, ground: Height) {
@@ -218,8 +235,8 @@ function bankParcels(raw: TerrainGrid, group: Court, site: Platform) {
 	return parcels;
 }
 
-/** Refines only parcels in reach of a public court. Adjoining parcels evaluate the
- * same cross-section at their shared edge. The entrance slopes away into the walk. */
+/** Refines public court earthworks and planted terraces on a shared parcel chart.
+ * Adjoining parcels evaluate the same cross-section at their common edge. */
 export function courtEarthworks(raw: TerrainGrid, city: CityPlan, ground: Height) {
 	const fronts: NonNullable<TerrainGrid['courtFronts']>[number][] = [];
 	const platforms = new Map<string, Platform[]>();
@@ -234,8 +251,12 @@ export function courtEarthworks(raw: TerrainGrid, city: CityPlan, ground: Height
 	}
 	const grade = (cell: TerrainCell) => {
 		const sites = platforms.get(cell.id);
-		if (!sites || cell.zone === 'water') return cell;
-		const bank = bankSurface(cell, required(raw.cellsById.get(cell.id), 'surveyed bank'), sites);
+		if (cell.zone === 'water' || (!sites && !cell.landform)) return cell;
+		const bank = bankSurface(
+			cell,
+			required(raw.cellsById.get(cell.id), 'surveyed bank'),
+			sites ?? []
+		);
 		return bank ? { ...cell, bank } : cell;
 	};
 	return { grade, fronts };

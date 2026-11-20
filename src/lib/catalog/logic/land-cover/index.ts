@@ -18,6 +18,11 @@ import {
 export const COVER_KINDS = ['forest', 'field', 'meadow'] as const;
 export type CoverKind = (typeof COVER_KINDS)[number];
 
+/** Scene surface assigned to the live foliage slot on forest and planted bank crowns. */
+export const plantingSurfaces = {
+	foliage: { role: 'neu', material: 'wood', token: '--cat-foliage' }
+} as const;
+
 /** Cover per cell id; a cell without cover has no entry. */
 export type Cover = ReadonlyMap<string, CoverKind>;
 
@@ -91,7 +96,7 @@ function tree(
 		(i) => ({
 			...common,
 			id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`,
-			token: '--cat-foliage'
+			...plantingSurfaces.foliage
 		}),
 		undefined,
 		formProfile

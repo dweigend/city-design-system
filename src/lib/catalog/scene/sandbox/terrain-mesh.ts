@@ -7,9 +7,18 @@ import { courtBankGeometry } from './court-bank-geometry';
  */
 import * as THREE from 'three/webgpu';
 import type { Node } from 'three/webgpu';
-import { attribute, float, mix, texture, uniform, vec2 } from 'three/tsl';
+import {
+	attribute,
+	float,
+	mix,
+	normalWorldGeometry,
+	texture,
+	uniform,
+	vec2,
+	vec3
+} from 'three/tsl';
 import { resolveParams, type ParamOverrides } from '../../core/params';
-import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
+import { COVER_KINDS, plantingSurfaces, type CoverKind } from '../../logic/land-cover';
 import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { Focus, Representation } from '../../logic/presentation';
@@ -133,6 +142,9 @@ export function createTerrainMesh(
 		ground = mix(ground, colors.soil, slots.x.mul(terrainWeight).mul(0.28));
 		ground = mix(ground, colors.nature, slots.y.mul(forestWeight).mul(0.64));
 		ground = mix(ground, colors.waterStroke, slots.z.mul(terrainWeight).mul(0.52));
+		const bankLight = normalWorldGeometry.dot(vec3(-0.42, 0.82, 0.38));
+		const riser = bankLight.oneMinus().smoothstep(0.22, 0.72).mul(slots.x);
+		ground = mix(ground, drawingInk, riser.mul(0.33).mul(terrainWeight));
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
 		const hatchPhase = attribute('position', 'vec3').x.add(height).div(nodes.hatchSpacing);
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
@@ -296,7 +308,7 @@ export function createTerrainMesh(
 				sceneSwatch(palette, '--cat-health')
 			);
 			colors.waterStroke.value.set(waterStroke);
-			colors.nature.value.copy(category('--cat-foliage'));
+			colors.nature.value.copy(category(plantingSurfaces.foliage.token));
 			colors.people.value.copy(category(flowToken[WEG_STROM]));
 			colors.food.value.copy(category('--cat-nature')).lerp(category('--cat-mobility'), 0.45);
 		},
