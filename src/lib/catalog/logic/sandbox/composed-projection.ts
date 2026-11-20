@@ -62,6 +62,7 @@ function survey(world: World) {
 					appearance: JSON.stringify([
 						s.composition.role,
 						s.composition.sharedRoof,
+						s.composition.exterior?.system,
 						accentKind(s),
 						accentBody(s).id
 					]),

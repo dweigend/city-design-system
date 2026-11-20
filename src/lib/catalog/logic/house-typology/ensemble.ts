@@ -1,3 +1,4 @@
+import { houseEnvelope } from './envelope';
 import { roofOwners } from './roof-owners';
 import { upperWings } from './upper-wings';
 import { frontages, galleryCourses } from './gallery';
@@ -129,6 +130,7 @@ export function planEnsemble(sites: readonly HouseSite[], seed?: number): Ensemb
 		seed: selectedSeed,
 		datum,
 		skyline: ceiling,
+		leadingSystem: houseEnvelope(sorted[0].id, selectedSeed, sorted[0].envelope).system,
 		houses: houseLayer(sorted, skyline(sorted, selectedSeed), selectedSeed)
 	};
 	if (sorted.length > 1) {

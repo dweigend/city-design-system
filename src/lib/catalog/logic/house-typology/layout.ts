@@ -40,6 +40,8 @@ export function layout(site: Survey, context: EnsembleContext) {
 	const fixed = context.houses.get(site.id);
 	if (!fixed) throw new RangeError('Site outside ensemble: ' + site.id);
 	const { role, away } = fixed;
+	if (context.houses.size > 1 && !site.envelope?.system)
+		site = { ...site, envelope: { ...site.envelope, system: context.leadingSystem } };
 	const type = site.compact ? 'block' : fixed.typology;
 	const route = housePath(type);
 	const broad =

@@ -204,3 +204,23 @@ test('compact and broad carriers retain the specified form independently of the 
 			]);
 		}
 });
+
+test('each seeded ensemble shares a structural system and retains individual occupied sections', () => {
+	const cells = squareGrid(5, 1, 10).cells;
+	const systems = new Set<string>();
+	const outlines = new Set<string>();
+	for (const seed of [1, 7, 11, 23, 41, 59]) {
+		const sites = cells.map((cell) => ({
+			cells: [cell],
+			seed,
+			stacks: new Map([[cell.id, Array<'living'>(6).fill('living')]])
+		}));
+		const context = planEnsemble(sites, seed);
+		const houses = sites.map((site) => planHouse({ ...site, context }).composition);
+		expect(houses.every((h) => h.exterior?.system === context.leadingSystem)).toBe(true);
+		systems.add(context.leadingSystem);
+		for (const h of houses) outlines.add(h.signature.body);
+	}
+	expect(systems.size).toBeGreaterThan(1);
+	expect(outlines.size).toBeGreaterThan(1);
+});
