@@ -66,8 +66,11 @@ test('a narrow one-storey house keeps a clear approach to one continuous side la
 		expect(rails).toHaveLength(2);
 		for (const rail of rails) {
 			if (rail.kind !== 'pipe') throw Error('Missing ladder stile');
-			expect(rail.points[0][2]).toBeCloseTo(walk.stops.at(-1)![2]);
-			expect(rail.points.at(-1)![2]).toBeCloseTo(house.top);
+			const stop = walk.stops.at(-1);
+			const head = rail.points.at(-1);
+			if (!stop || !head) throw Error('Missing ladder end');
+			expect(rail.points[0][2]).toBeCloseTo(stop[2]);
+			expect(head[2]).toBeCloseTo(house.top);
 		}
 		for (const part of parts.filter((p) => p.id.includes('/stair/')))
 			expect(plotCovers(cells, footprint(part), 0), part.id).toBe(true);
