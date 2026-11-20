@@ -10,7 +10,7 @@ import {
 	groundApproach,
 	crossesApproach,
 	entranceRooms,
-	entranceWidth,
+	entranceLayout,
 	entranceHeadroom,
 	landingDepth,
 	approachDepth
@@ -132,8 +132,9 @@ function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const anchor = entranceCell(plan.site.cells, frontage, plan.sign),
 		bay = frontage.size ? footprintBay([anchor]) : footprintBay(plan.site.cells);
 	const axis: XY = [bay.x, bay.y + plan.sign * Math.min(bay.depth * 0.2, 1.4)];
-	const opening = rectangle(...axis, entranceWidth, 0.82);
-	return { anchor, bay, axis, opening };
+	const layout = entranceLayout(bay.width, plan.site.programme.length);
+	const opening = rectangle(...axis, layout.wellWidth, layout.wellDepth);
+	return { anchor, bay, axis, opening, layout };
 }
 function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWing) {
 	const access = accessBay(plan, frontage),
@@ -160,8 +161,10 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 			: bridge;
 	const groundRooms = (depth: number) =>
 		cells.flatMap((c) =>
-			!frontage.size || c === access.anchor || crossesApproach(c, axis, plan.sign, depth)
-				? entranceRooms(c, axis, plan.sign, depth)
+			!frontage.size ||
+			c === access.anchor ||
+			crossesApproach(c, axis, plan.sign, depth, access.layout.approachHalfWidth)
+				? entranceRooms(c, axis, plan.sign, depth, access.layout.approachHalfWidth)
 				: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 		);
 	return {
@@ -306,7 +309,9 @@ function courses(
 			use,
 			programme: programme[i],
 			bodies,
-			landing: [axis[0], axis[1] - plan.sign * landingDepth, z],
+			landing: access.layout.sideLadder
+				? [axis[0] - plan.sign * access.layout.approachHalfWidth, axis[1], z]
+				: [axis[0], axis[1] - plan.sign * landingDepth, z],
 			deckArea:
 				ringArea(shape.polygon) - shape.holes.reduce((a, h) => a + Math.abs(ringArea(h)), 0),
 			outline: shape.polygon.map(([u, v]) => [u, v, z])
@@ -320,7 +325,16 @@ function courses(
 		roofWalk = deck;
 	}
 	const top = datums[programme.length];
-	const openings = [groundApproach(cells, axis, plan.sign, seat, levels[0].landing[2])];
+	const openings = [
+		groundApproach(
+			cells,
+			axis,
+			plan.sign,
+			seat,
+			levels[0].landing[2],
+			access.layout.approachHalfWidth
+		)
+	];
 	const occupancy = { floors, roofWalk, parcel: { polygon: plot.polygon, holes: plot.holes } };
 	return { levels, parts, access, envelope, top, exterior: { ...exterior, openings }, occupancy };
 }
@@ -411,7 +425,11 @@ export function perimeterHouse(
 		ground: exterior.bottom,
 		accessSide,
 		family: { bar: 0.3, radius: 0.15, parapet: 'rail' },
-		core: { position: [axis[0], axis[1], site.ground], width: entranceWidth },
+		core: {
+			position: [axis[0], axis[1], site.ground],
+			width: access.layout.wellWidth,
+			...(access.layout.sideLadder && { sideLadder: true })
+		},
 		levels,
 		parts,
 		supports: [],

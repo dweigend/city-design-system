@@ -1,13 +1,23 @@
 import { houseStair } from '../../data/house-stair';
 import type { QuadCell } from '../quad-grid';
 
-// Two offset 0.48 m ladder lanes, 0.06 m stiles and 0.05 m clear on each side.
 export const entranceHeadroom = 2.1;
-export const entranceWidth = 1.18;
 export const landingDepth = 0.41;
 export const approachDepth = houseStair.width / 2 + 0.02;
+const ladderLane = houseStair.compactLadderWidth;
 
-const approachHalfWidth = houseStair.width / 2 + 0.24 + 0.02;
+/** Fits a single straight ladder in a one-storey bay too narrow for two separate approaches. */
+export function entranceLayout(width: number, stories: number) {
+	const sideLadder = stories === 1 && width < 2 * (houseStair.width + ladderLane);
+	const laneOffset = sideLadder ? 0 : ladderLane / 2;
+	const clearance = ladderLane + 2 * (laneOffset + 0.06 + 0.05);
+	return {
+		sideLadder,
+		wellWidth: sideLadder ? 2 * landingDepth : clearance,
+		wellDepth: sideLadder ? clearance : 2 * landingDepth,
+		approachHalfWidth: houseStair.width / 2 + laneOffset + 0.02
+	};
+}
 
 type XY = [number, number];
 /** Keeps the part of a convex ring on the positive side of a signed line. */
@@ -24,7 +34,13 @@ function clip(ring: XY[], distance: (point: XY) => number) {
 }
 
 /** Whether a neighbouring cell can cross the same ground approach on an oblique parcel. */
-export function crossesApproach(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
+export function crossesApproach(
+	cell: QuadCell,
+	axis: XY,
+	sign: number,
+	rearDepth: number,
+	approachHalfWidth: number
+) {
 	const xs = cell.corners.map((p) => p[0]);
 	return (
 		Math.max(...xs) > axis[0] - approachHalfWidth &&
@@ -34,12 +50,16 @@ export function crossesApproach(cell: QuadCell, axis: XY, sign: number, rearDept
 }
 
 /** Opens the entrance cell from its exterior face to the ladder, retaining two piers and the rear room. */
-export function entranceRooms(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
+export function entranceRooms(
+	cell: QuadCell,
+	axis: XY,
+	sign: number,
+	rearDepth: number,
+	approachHalfWidth: number
+) {
 	const ring = cell.corners.map(([x, y]): XY => [x, y]);
-	// The public approach reaches either staggered ladder foot with its full walking width.
-	const half = approachHalfWidth;
-	const left = axis[0] - half,
-		right = axis[0] + half;
+	const left = axis[0] - approachHalfWidth,
+		right = axis[0] + approachHalfWidth;
 	const middle = clip(
 		clip(ring, ([x]) => x - left),
 		([x]) => right - x
@@ -74,13 +94,14 @@ export function entranceCell(
 	return cells.reduce((best, c) => (exposure(c) > exposure(best) ? c : best));
 }
 
-/** Reserves the ground approach from the parcel face to both ladder lanes, in world metres. */
+/** Reserves the ground approach from the parcel face to the ladder feet, in world metres. */
 export function groundApproach(
 	cells: readonly QuadCell[],
 	axis: XY,
 	sign: number,
 	bottom: number,
-	floor: number
+	floor: number,
+	approachHalfWidth: number
 ) {
 	const half = approachHalfWidth;
 	const outer = sign * Math.max(...cells.flatMap((c) => c.corners.map((p) => sign * p[1])));

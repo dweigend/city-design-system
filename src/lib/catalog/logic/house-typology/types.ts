@@ -108,7 +108,7 @@ export type HouseComposition = {
 	ground: number;
 	accessSide: 'north' | 'south';
 	family: { radius: number; bar: number; parapet: 'rail' | 'panel' };
-	core: { position: Point; width: number };
+	core: { position: Point; width: number; sideLadder?: boolean };
 	levels: Level[];
 	supports: Solid[];
 	parts: Solid[];
