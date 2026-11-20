@@ -19,7 +19,7 @@ import {
 	vec3
 } from 'three/tsl';
 import { resolveParams, type ParamOverrides } from '../../core/params';
-import { plantingSurfaces } from './planting-surface';
+import { plantingSurfaces } from '../../data/planting-surfaces';
 import { COVER_KINDS, type CoverKind } from '../../logic/land-cover';
 import { footbridgeGeometry, alleyOverlay } from './alley-overlay';
 import type { TerrainGrid } from '../../logic/terrain-grid';

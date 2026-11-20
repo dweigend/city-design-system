@@ -89,7 +89,12 @@ test('planted shoulders carry overlapping canopy volumes rooted on refined terra
 	expect(shrubs.length).toBeGreaterThan(30);
 	let tallest = 0;
 	for (const crown of shrubs) {
-		if (crown.kind !== 'dome') throw Error('missing planted volume');
+		if (crown.kind !== 'dome') {
+			const parcel = crown.id.split('/').slice(1, 3).join('/');
+			expect(reserved.has(parcel) || world.state.stacks.has(parcel)).toBe(false);
+			expect(crown.edges).toBe(false);
+			continue;
+		}
 		expect(crown).not.toHaveProperty('facets');
 		const [x, y, z] = crown.position;
 		const r = crown.radius;
@@ -108,12 +113,15 @@ test('planted shoulders carry overlapping canopy volumes rooted on refined terra
 		tallest = Math.max(tallest, z + (crown.height ?? 0) - ground(x, y));
 	}
 	expect(tallest).toBeGreaterThan(2.5);
+	const trees = shrubs.filter((p) => p.kind === 'sphere');
+	expect(trees.length).toBeGreaterThan(10);
+	expect(new Set(trees.map((p) => p.radius)).size).toBeGreaterThan(5);
 	const parcel = shrubs[0].id.split('/').slice(1, 3).join('/');
 	const occupied = {
 		...world,
 		state: { ...world.state, stacks: new Map(world.state.stacks).set(parcel, ['food' as const]) }
 	};
-	expect(bankPlanting(occupied).some((p) => p.id.startsWith('bank-coppice/' + parcel + '/'))).toBe(
+	expect(bankPlanting(occupied).some((p) => p.id.split('/').slice(1, 3).join('/') === parcel)).toBe(
 		false
 	);
 }, 60000);
