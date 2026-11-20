@@ -17,8 +17,6 @@ const CAMERA_DISTANCE = 1400;
 
 export type OpeningArea = { top: number; bottom: number; right?: number };
 
-type CourtFrame = { heading: number; landmarks: THREE.Vector3[][]; feature: THREE.Vector3[] };
-
 export type View = ReturnType<typeof createView>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
@@ -125,56 +123,17 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		else center.y += nearest - THREE.MathUtils.clamp(nearest, -margin, margin);
 	}
 
-	function fitLandmark(center: THREE.Vector2, up: THREE.Vector3, room: number, landmark?: Vec3) {
-		if (!landmark) return;
-		const [x, y, z] = landmark;
-		const mark = new THREE.Vector3(x, z, -y);
-		const projected = new THREE.Vector2(mark.dot(right), mark.dot(up));
-		const inset = new THREE.Vector2(width, room).multiplyScalar(metersPerPixel() * 0.36);
-		center.clamp(projected.clone().sub(inset), projected.clone().add(inset));
-	}
-
-	function fitOpening(bounds: THREE.Box2, area?: OpeningArea, court?: CourtFrame) {
+	function fitOpening(bounds: THREE.Box2, area?: OpeningArea, heading?: number) {
 		const room = area ? Math.max(1, area.bottom - area.top) : height;
 		const usableWidth = Math.max(1, Math.min(width, area?.right ?? width));
 		const size = bounds.getSize(new THREE.Vector2());
-		const fill = court ? courtFill() : clusterFill();
+		const fill = heading !== undefined ? courtFill() : clusterFill();
 		span = THREE.MathUtils.clamp(
 			(Math.max(size.x / usableWidth, size.y / room) * height) / fill,
 			SPAN_MIN,
 			SPAN_MAX
 		);
 		return { room, usableWidth };
-	}
-
-	function fitCourtLandmarks(
-		frame: CourtFrame,
-		bounds: THREE.Box2,
-		center: THREE.Vector2,
-		up: THREE.Vector3,
-		w: number,
-		h: number
-	) {
-		const project = (points: THREE.Vector3[]) =>
-			new THREE.Box2().setFromPoints(points.map((p) => new THREE.Vector2(p.dot(right), p.dot(up))));
-		const required = bounds.clone().union(project(frame.feature));
-		const remaining = new Set(frame.landmarks.map(project));
-		for (;;) {
-			const size = required.getSize(new THREE.Vector2());
-			span = Math.max(span, (height * Math.max(size.x / w, size.y / h)) / 0.96);
-			const half = new THREE.Vector2(w, h).multiplyScalar(metersPerPixel() / 2);
-			const inset = half.clone().multiplyScalar(0.96);
-			center.clamp(required.max.clone().sub(inset), required.min.clone().add(inset));
-			const crop = new THREE.Box2(center.clone().sub(half), center.clone().add(half));
-			const clipped = [...remaining].filter(
-				(box) => crop.intersectsBox(box) && !crop.containsBox(box)
-			);
-			if (!clipped.length) return;
-			for (const box of clipped) {
-				remaining.delete(box);
-				required.union(box);
-			}
-		}
 	}
 
 	return {
@@ -232,23 +191,20 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			points: THREE.Vector3[],
 			anchor?: THREE.Vector3,
 			area?: OpeningArea,
-			landmark?: Vec3,
 			water: Vec3[] = [],
-			court?: CourtFrame
+			heading?: number
 		) {
-			orientOpening(court?.heading);
+			orientOpening(heading);
 			const bounds = new THREE.Box2();
 			const up = new THREE.Vector3().crossVectors(eye, right);
 			for (const point of points)
 				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
-			const { room, usableWidth } = fitOpening(bounds, area, court);
+			const { room, usableWidth } = fitOpening(bounds, area, heading);
 
 			const center = bounds.getCenter(new THREE.Vector2());
 			const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);
 			if (anchor) center.set(anchor.dot(right), anchor.dot(up));
 			fitWaterfront(center, up, room, water, Boolean(anchor));
-			fitLandmark(center, up, room, landmark);
-			if (court) fitCourtLandmarks(court, bounds, center, up, usableWidth, room);
 			target.copy(eye).multiplyScalar(depth);
 			target.addScaledVector(right, center.x).addScaledVector(up, center.y);
 			apply();

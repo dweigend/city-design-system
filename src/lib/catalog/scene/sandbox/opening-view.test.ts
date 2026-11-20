@@ -4,7 +4,6 @@ import type { Vec3 } from '../../logic/parametrik/types';
 import { acceptanceScene, createWorld, openingScene } from '../../logic/sandbox';
 import { STORY } from '../../data/grid';
 import { frameTownSilhouette, frameOldTown } from './opening-view';
-import { boxCorners, openingLandmarks } from './opening-landmarks';
 import { courtOpening } from './court-opening';
 import { createView } from './view';
 
@@ -66,36 +65,35 @@ test('two central parcels fill 77 percent of the desktop opening despite a dista
 });
 
 test.each([
-	[1440, 900, 1050],
-	[390, 844, 390]
+	[1440, 900, 1050, 0, 820],
+	[390, 844, 390, 142, 680]
 ])(
-	'whole landmarks and courts fit the %d by %d viewport with right edge %d',
-	(width, height, right) => {
-		const { world, landmark, landmarkBounds } = acceptanceScene(7);
-		if (!landmark || !landmarkBounds) throw Error('Missing landmark geometry');
+	'acceptance frames the whole occupied ensemble above the timeline at %d by %d',
+	(width, height, right, top, bottom) => {
+		const { world, additions } = acceptanceScene(7);
+		const disc = additions.find((p) => p.kind === 'ring');
+		if (disc?.kind !== 'ring') throw Error('Missing acceptance landmark');
 		const view = createView();
 		view.resize(width, height);
-		const phone = width < height;
-		const area = phone ? { top: 142, bottom: 680, right } : { top: 0, bottom: height, right };
-		if (phone) frameOldTown(view, world, area, landmark, landmarkBounds);
-		else frameTownSilhouette(view, world, landmark, area, landmarkBounds);
-		const courts = courtOpening(world, phone, landmark);
+		const phone = width < height,
+			area = { top, bottom, right };
+		if (phone) frameOldTown(view, world, area);
+		else frameTownSilhouette(view, world, area);
+		const courts = courtOpening(world, phone);
 		if (!courts) throw Error('Missing occupied courts');
-		for (const p of [...courts.points, ...boxCorners(landmarkBounds)]) {
-			const pixel = view.project([p.x, -p.z, p.y]);
-			expect(pixel.x).toBeWithin(0, right);
-			expect(pixel.y).toBeWithin(area.top, area.bottom);
-		}
-		for (const group of openingLandmarks(world)) {
-			const crop = new Box2(new Vector2(0, area.top), new Vector2(right, area.bottom));
-			const box = new Box2().setFromPoints(
-				group.map((p) => {
-					const { x, y } = view.project([p.x, -p.z, p.y]);
-					return new Vector2(x, y);
-				})
-			);
-			expect(crop.containsBox(box) || !crop.intersectsBox(box)).toBe(true);
-		}
+		const box = new Box2().setFromPoints(
+			courts.points.map((p) => {
+				const q = view.project([p.x, -p.z, p.y]);
+				return new Vector2(q.x, q.y);
+			})
+		);
+		const center = box.getCenter(new Vector2()),
+			size = box.getSize(new Vector2());
+		expect(center.x).toBeCloseTo(right / 2);
+		expect(center.y).toBeCloseTo((top + bottom) / 2);
+		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(phone ? 0.6 : 0.64);
+		expect(box.max.y).toBeLessThan(bottom);
+		expect(view.project(disc.position).x).toBeGreaterThan(right);
 	}
 );
 

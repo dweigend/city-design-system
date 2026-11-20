@@ -1,11 +1,25 @@
 import { Vector3 } from 'three/webgpu';
 import { BLICK } from '../../data/leitstil';
 import { STORY } from '../../data/grid';
-import type { Vec3 } from '../../logic/parametrik/types';
-import type { World } from '../../logic/sandbox';
+import { bounds, union } from '../../logic/ansicht/geometrie';
+import { composedProjection, type World } from '../../logic/sandbox';
+
+function houseCorners(world: World, lots: Set<string>) {
+	const points: Vector3[] = [];
+	for (const house of composedProjection(world)) {
+		if (house.span || !house.cells.some((id) => lots.has(id))) continue;
+		const parts = house.parts();
+		if (!parts.length) continue;
+		const { min, max } = union(parts.map(bounds));
+		for (const x of [min[0], max[0]])
+			for (const y of [min[1], max[1]])
+				for (const z of [min[2], max[2]]) points.push(new Vector3(x, z, -y));
+	}
+	return points;
+}
 
 /** Frames occupied lots around neighbouring courts. Empty expansion land adds no camera extent. */
-export function courtOpening(world: World, portrait: boolean, landmark?: Vec3) {
+export function courtOpening(world: World, portrait: boolean) {
 	const { grid, state } = world;
 	const districts = state.city?.centres
 		.map((centre) =>
@@ -17,14 +31,11 @@ export function courtOpening(world: World, portrait: boolean, landmark?: Vec3) {
 		)
 		.filter((d) => d.length);
 	if (!districts?.length) return;
-	const distance = (p: Vec3) => (landmark ? Math.hypot(p[0] - landmark[0], p[1] - landmark[1]) : 0);
-	const rank = (d: (typeof districts)[number]) =>
-		landmark
-			? Math.min(...d.map((g) => distance(g.court.center)))
-			: -d.reduce((n, g) => n + g.lots.length, 0);
-	const district = districts.reduce((a, b) => (rank(a) <= rank(b) ? a : b));
+	const count = (district: (typeof districts)[number]) =>
+		district.reduce((sum, g) => sum + g.lots.length, 0);
+	const district = districts.reduce((a, b) => (count(a) >= count(b) ? a : b));
 	const courts = portrait
-		? [district.reduce((a, b) => (distance(a.court.center) <= distance(b.court.center) ? a : b))]
+		? [district.reduce((a, b) => (a.lots.length >= b.lots.length ? a : b))]
 		: district;
 	const points = courts.flatMap(({ court, lots }) =>
 		[court.id, ...lots].flatMap((id) => {
@@ -34,6 +45,7 @@ export function courtOpening(world: World, portrait: boolean, landmark?: Vec3) {
 			return cell.corners.flatMap(([x, y, z]) => [new Vector3(x, z, -y), new Vector3(x, roof, -y)]);
 		})
 	);
+	points.push(...houseCorners(world, new Set(courts.flatMap((c) => c.lots))));
 	const first = courts[0].court.center;
 	const last = courts[courts.length - 1].court.center;
 	let heading = BLICK.azimutRad;

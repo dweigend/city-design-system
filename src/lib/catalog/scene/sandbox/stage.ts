@@ -49,8 +49,6 @@ type StageOptions = {
 	openingArea?: () => OpeningArea | undefined;
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
-	landmark?: Vec3;
-	landmarkBounds?: import('../../logic/ansicht/geometrie').Bounds;
 	/** Seed the study additions belong to, if restricted to one terrain. */
 	additionSeed?: number;
 	/** Optional study window in world meters, from its low corner to its high corner. */
@@ -261,8 +259,8 @@ export function createSandboxStage(
 	function frameOpening(world: World, area = study.openingArea?.()) {
 		framedArea = area;
 		return view.isPortrait() && !planView
-			? frameOldTown(view, world, area, study.landmark, study.landmarkBounds)
-			: frameTownSilhouette(view, world, study.landmark, area, study.landmarkBounds);
+			? frameOldTown(view, world, area)
+			: frameTownSilhouette(view, world, area);
 	}
 
 	function frameTerrain(mesh: TerrainMesh) {
