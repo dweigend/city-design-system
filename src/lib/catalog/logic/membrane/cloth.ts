@@ -1,5 +1,11 @@
 import { Body, Spring, Vec3 } from 'cannon-es';
-import type { Membrane } from './index';
+
+/** Uniform gauge pressure in kPa, in-plane tension in kN/m, and the lines restraining the cloth. */
+export type Membrane = {
+	pressure: number;
+	tension: number;
+	restraint: 'straps' | 'net' | 'hoops';
+};
 
 // Eight intervals put both crossed ties and the cut opening on mesh vertices.
 export const clothIntervals = 8;

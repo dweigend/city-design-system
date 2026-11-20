@@ -1,11 +1,4 @@
-import { clothIntervals, simulateCloth } from './cloth';
-
-/** Uniform gauge pressure in kPa, in-plane tension in kN/m, and the lines restraining the cloth. */
-export type Membrane = {
-	pressure: number;
-	tension: number;
-	restraint: 'straps' | 'net' | 'hoops';
-};
+import { clothIntervals, simulateCloth, type Membrane } from './cloth';
 
 const parabola = (u: number) => 4 * u * (1 - u);
 
@@ -58,3 +51,5 @@ export function membraneResponse(
 }
 
 export { clothIntervals, clothOpening, simulateCloth } from './cloth';
+
+export type { Membrane } from './cloth';
