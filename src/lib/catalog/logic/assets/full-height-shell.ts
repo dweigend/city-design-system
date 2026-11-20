@@ -3,7 +3,7 @@ import { mount, type AssetRecipe } from './definition';
 import { surface } from './parts';
 import type { Vec3 } from '../parametrik/types';
 
-import { face, rod, fabric, curve, tau, type Mesh } from './shell-mesh';
+import { face, sweepRib, fabric, curve, tau, type Mesh } from './shell-mesh';
 import { foldedWall, foldedSkins } from './folded-wall';
 
 type Draw = (m: Mesh) => void;
@@ -84,12 +84,12 @@ const draw: Record<ShellSystem, Draw> = {
 		for (let k = -4; k <= 4; k++)
 			for (const sign of [-1, 1]) {
 				const p = curve((t) => [k / 4 + t * sign, t], 24).filter(([u]) => u >= 0 && u <= 1);
-				rod(m, p, 0.013);
+				sweepRib(m, p, 0.013);
 			}
 	},
 	diagrid: (m) => {
 		for (let j = 0; j < 2; j++) {
-			rod(
+			sweepRib(
 				m,
 				[
 					[0, j / 2],
@@ -97,7 +97,7 @@ const draw: Record<ShellSystem, Draw> = {
 				],
 				0.032
 			);
-			rod(
+			sweepRib(
 				m,
 				[
 					[1, j / 2],
@@ -108,7 +108,7 @@ const draw: Record<ShellSystem, Draw> = {
 		}
 	},
 	'branching-frame': (m) => {
-		rod(
+		sweepRib(
 			m,
 			[
 				[0.5, 0],
@@ -117,7 +117,7 @@ const draw: Record<ShellSystem, Draw> = {
 			0.06
 		);
 		for (const u of [0.2, 0.8]) {
-			rod(
+			sweepRib(
 				m,
 				[
 					[0.5, 0.38],
@@ -126,7 +126,7 @@ const draw: Record<ShellSystem, Draw> = {
 				0.039
 			);
 			for (const dx of [-0.18, 0.18])
-				rod(
+				sweepRib(
 					m,
 					[
 						[u, 0.7],
@@ -139,7 +139,7 @@ const draw: Record<ShellSystem, Draw> = {
 	'lamella-vault': (m) => {
 		for (let i = 0; i < 5; i++)
 			for (const s of [-1, 1])
-				rod(
+				sweepRib(
 					m,
 					curve((t) => [i / 5 + 0.1 + s * 0.09 * Math.sin(Math.PI * t), t]),
 					0.016
@@ -154,7 +154,7 @@ const draw: Record<ShellSystem, Draw> = {
 			(i, j) => i % 6 === 3 && j > 0 && j < 7
 		);
 		for (const u of [0.15, 0.85])
-			rod(
+			sweepRib(
 				m,
 				[
 					[u, 0.08],
@@ -166,7 +166,7 @@ const draw: Record<ShellSystem, Draw> = {
 	'service-risers': (m) => {
 		for (let i = 0; i < 3; i++) {
 			const u = 0.14 + i * 0.24;
-			rod(
+			sweepRib(
 				m,
 				[
 					[u, 0],
@@ -183,7 +183,7 @@ const draw: Record<ShellSystem, Draw> = {
 	},
 	'helical-services': (m) => {
 		for (const phase of [0, 0.5])
-			rod(
+			sweepRib(
 				m,
 				curve((t) => [0.5 + 0.4 * Math.sin(tau * (t + phase)), t], 24),
 				0.034,
@@ -192,7 +192,7 @@ const draw: Record<ShellSystem, Draw> = {
 	},
 	'fan-truss': (m) => {
 		for (let i = 0; i <= 6; i++)
-			rod(
+			sweepRib(
 				m,
 				[
 					[0.12, 0],
@@ -200,7 +200,7 @@ const draw: Record<ShellSystem, Draw> = {
 				],
 				0.017
 			);
-		rod(
+		sweepRib(
 			m,
 			[
 				[0.12, 0],
@@ -212,7 +212,7 @@ const draw: Record<ShellSystem, Draw> = {
 	},
 	'arch-ribs': (m) => {
 		for (const z of [0.66, 0.98])
-			rod(
+			sweepRib(
 				m,
 				curve((t) => [t, z * (1 - (2 * t - 1) ** 2)]),
 				0.034
@@ -228,7 +228,7 @@ const draw: Record<ShellSystem, Draw> = {
 			]);
 	},
 	'cable-harp': (m) => {
-		rod(
+		sweepRib(
 			m,
 			[
 				[0.08, 0],
@@ -237,7 +237,7 @@ const draw: Record<ShellSystem, Draw> = {
 			0.042
 		);
 		for (let i = 1; i < 9; i++)
-			rod(
+			sweepRib(
 				m,
 				[
 					[i / 10, 0],
@@ -256,7 +256,7 @@ const draw: Record<ShellSystem, Draw> = {
 		),
 	'bundled-columns': (m) => {
 		for (const u of [0.22, 0.39, 0.61, 0.78])
-			rod(
+			sweepRib(
 				m,
 				curve((t) => [0.5 + (u - 0.5) * (0.42 + 2 * (2 * t - 1) ** 2), t]),
 				0.032

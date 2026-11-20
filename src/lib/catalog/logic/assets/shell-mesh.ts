@@ -10,7 +10,7 @@ export function face(m: Mesh, points: Vec3[]) {
 	for (let j = 1; j < points.length - 1; j++) m.triangles.push(k, k + j, k + j + 1);
 }
 /** Sweeps a triangular member along a normalized elevation path. */
-export function rod(m: Mesh, path: UV[], width: number, relief = 0.06) {
+export function sweepRib(m: Mesh, path: UV[], width: number, relief = 0.06) {
 	for (let i = 1; i < path.length; i++) {
 		const [u, v] = path[i - 1],
 			[a, b] = path[i],
