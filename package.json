@@ -34,7 +34,9 @@
 		"bootstrap": "bun scripts/bootstrap-worktree.ts",
 		"verify": "bun scripts/verify.ts",
 		"precompute:statik": "bun scripts/statik-vorberechnen.ts && prettier --write src/lib/catalog/data/vorberechnet/haengehaus.json",
-		"review": "bun scripts/review.ts"
+		"review": "bun scripts/review.ts",
+		"shot": "bun scripts/shot.ts",
+		"ship": "bun scripts/ship.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
