@@ -32,6 +32,12 @@ test('the sandbox draws pending rods, installed sections and the reopened entry 
 			?.filter((p) => p.kind === 'pipe')
 			.map((p) => p.sectionDiameter)
 	).toEqual(installed.rods.map((r) => r.diameter));
+	expect(
+		visible
+			.get(key)
+			?.filter((p) => p.kind === 'pipe')
+			.map((p) => p.token)
+	).toEqual(installed.rods.map(() => '--ink-3'));
 	const shoes = visible.get(key)?.flatMap((part) => part.bearings ?? []) ?? [];
 	const feet = installed.rods.filter((rod) => rod.id !== '2').map((rod) => rod.a);
 	expect(new Set(shoes.map((p) => p.join(',')))).toEqual(new Set(feet.map((p) => p.join(','))));

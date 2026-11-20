@@ -254,3 +254,34 @@ for (const outline of [true, false])
 			}
 		}
 	);
+
+test('tower polylines and installed roof pipes share the neutral frame strokes', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const finishes = structureMaterials(undefined, true);
+	const bearing = new SphereGeometry();
+	const group = populateStructures(
+		[
+			{ ...forms.polyline, role: 'traeger', token: '--ink-3', member: 'primary' },
+			{
+				...forms.pipe,
+				role: 'traeger',
+				token: '--ink-3',
+				member: 'secondary',
+				sectionDiameter: 0.14
+			}
+		],
+		finishes,
+		bearing
+	);
+	try {
+		finishes.setStyle(sandboxStyle(context), 'all', 10);
+		const strokes = group.children.filter((p) => p instanceof Mesh).map((p) => p.material);
+		expect(strokes).toEqual([finishes.materials.housePrimary, finishes.materials.houseSecondary]);
+		expect(finishes.materials.housePrimary.linewidth).toBeCloseTo(1.2);
+		expect(finishes.materials.houseSecondary.linewidth).toBeCloseTo(0.8);
+	} finally {
+		for (const p of group.children) if (p instanceof Mesh) p.geometry.dispose();
+		bearing.dispose();
+		finishes.dispose();
+	}
+});

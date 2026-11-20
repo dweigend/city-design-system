@@ -228,7 +228,7 @@ function printedParts(stacks: Stacks, style: 'megastructure' | 'totem') {
 	});
 }
 
-test('Carrier insets the printed drawer in an ink frame with no roof diagonal', () => {
+test('Carrier insets the printed drawer in a neutral frame with no roof diagonal', () => {
 	const list = printedParts(raise(EMPTY, '1/1', 'water'), 'megastructure');
 	const drawer = named(list, '/body')[0];
 	expect(drawer).toMatchObject({
@@ -242,7 +242,8 @@ test('Carrier insets the printed drawer in an ink frame with no roof diagonal', 
 	if (drawer?.kind !== 'prism') throw new Error('Missing drawer');
 	const frame = list.filter((p) => p.id.includes('/strut-'));
 	expect(frame).toHaveLength(9);
-	expect(frame.every((p) => p.token === '--ink')).toBe(true);
+	expect(list.filter((p) => p.role === 'traeger').every((p) => p.token === '--ink-3')).toBe(true);
+	expect(frame.map((p) => p.sectionDiameter)).toEqual([...Array(8).fill(0.12), 0.08]);
 	const axes = frame.flatMap((p) => (p.kind === 'polyline' ? [p.points] : []));
 	expect(axes.some(([a, b]) => a[2] === b[2] && a[0] !== b[0] && a[1] !== b[1])).toBe(false);
 	const feet = frame.flatMap((p) => p.bearings ?? []);
