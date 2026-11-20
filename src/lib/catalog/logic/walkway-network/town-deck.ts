@@ -140,10 +140,19 @@ export function projectTownWalk(
 	seed: number
 ) {
 	const plazas: Primitive[] = [];
-	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries()) plazas.push(...plazaParts(court, i + parity));
 	const courtMouths = new Map(courts.map((court, i) => ['court/' + court.id, gardens[i]]));
+	const surfaces = flushDecks(plazas).flatMap((plate) =>
+		courtLawn(plate, courtMouths.get(plate.id))
+	);
+	const footprints = new Map(
+		surfaces.flatMap((p) => (p.kind === 'prism' ? [[p.id, p.polygon] as const] : []))
+	);
+	const visitors = courts.flatMap((court, i) => {
+		const polygon = footprints.get('court/' + court.id);
+		return polygon ? courtLife({ ...court, polygon }, seed, true, gardens[i].landing) : [];
+	});
 	const planting = gardens.flatMap((g) => g.parts);
 	const deck = ribbonDeck(graph, ground, plazas);
 	const ports = new Map(graph.ports.map((p) => [p.id, p]));
@@ -154,11 +163,5 @@ export function projectTownWalk(
 		gardens.map((g) => g.landing),
 		seed
 	);
-	return [
-		...flushDecks(plazas).flatMap((plate) => courtLawn(plate, courtMouths.get(plate.id))),
-		...deck,
-		...walkers,
-		...planting,
-		...visitors
-	];
+	return [...surfaces, ...deck, ...walkers, ...planting, ...visitors];
 }
