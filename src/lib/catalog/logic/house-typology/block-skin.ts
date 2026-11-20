@@ -11,8 +11,8 @@ function windows(course: Course, body: Body): Course[] {
 	const inset = (ring: XY[]) =>
 		ring.map(([u, v]): XY => [
 			u -
-				(Math.sign(u - x) * 0.35 * Math.max(0, Math.abs(u - x) - 0.4)) /
-					Math.max(0.01, w / 2 - 0.4),
+				(Math.sign(u - x) * 0.35 * Math.max(0, Math.abs(u - x) - 0.58)) /
+					Math.max(0.01, w / 2 - 0.58),
 			v + (body.facing[1] * 0.35 * Math.max(0, Math.abs(rear - v) - 0.7)) / Math.max(0.01, d - 0.7)
 		]);
 	const ends = [course.z, course.z + course.height];
@@ -40,8 +40,8 @@ export function blockSkin(body: Body, ground: number): Solid[] {
 		rear = y + (sign * d) / 2;
 	const axis = body.band?.wellX ?? x;
 	const local = (u: number, v: number): XY => [u, rear - sign * v];
-	const a = axis - 0.39,
-		b = axis + 0.39;
+	const a = axis - 0.58,
+		b = axis + 0.58;
 	const ring = (p: number[][]) => p.map(([u, v]) => local(u, v));
 	const hole = ring([
 		[a, 0.12],
@@ -73,7 +73,7 @@ export function blockSkin(body: Body, ground: number): Solid[] {
 			w,
 			d,
 			sign,
-			open ? { x: axis, halfWidth: 0.39, depth: 0.65 } : undefined,
+			open ? { x: axis, halfWidth: 0.58, depth: 0.65 } : undefined,
 			true
 		),
 		holes: open ? undefined : [hole]

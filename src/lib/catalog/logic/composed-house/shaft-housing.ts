@@ -24,14 +24,14 @@ export function shaftHousing(s: Section, surfaces: HouseSurfaces) {
 		}).parts[0];
 		if (p.kind !== 'prism') throw Error('Expected folded wall profile');
 		const polygon: [number, number][] = [
-			[x - 0.4, facade],
-			[x - 0.4, outer],
-			[x + 0.4, outer],
-			[x + 0.4, facade],
-			[x + 0.32, facade],
-			[x + 0.32, inner],
-			[x - 0.32, inner],
-			[x - 0.32, facade]
+			[x - 0.64, facade],
+			[x - 0.64, outer],
+			[x + 0.64, outer],
+			[x + 0.64, facade],
+			[x + 0.56, facade],
+			[x + 0.56, inner],
+			[x - 0.56, inner],
+			[x - 0.56, facade]
 		];
 		return {
 			...p,

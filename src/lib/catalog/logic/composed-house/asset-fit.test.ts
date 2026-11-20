@@ -35,19 +35,25 @@ function pipe<T extends { kind: string }>(p: T) {
 }
 
 function expectRailBays(rails: HousePart[]) {
-	const local = buildObject('railing', 'standard', 17).parts.map(pipe);
+	const stock = (variant: string) => buildObject('railing', variant, 17).parts.map(pipe);
 	const members = rails.map(pipe);
-	expect(members.length).toBeGreaterThan(local.length);
-	const length = (points: (typeof local)[number]['points']) =>
+	expect(members.length).toBeGreaterThan(3);
+	const length = (points: (typeof members)[number]['points']) =>
 		Math.hypot(...points[1].map((v, k) => v - points[0][k]));
-	for (let i = 0; i < members.length; i += local.length) {
+	for (let i = 0; i < members.length; i += 3) {
 		const top = members[i];
+		const local = stock(top.source.variant);
 		const scale = top.radius / local[0].radius;
 		expect(scale).toBeWithin(0.85, 1.15);
 		const bayIndex = (id: string) => Number(id.split('/').at(-2));
-		if (i && bayIndex(top.id) === bayIndex(members[i - local.length].id) + 1)
+		if (
+			i &&
+			top.id.split('/').slice(0, -2).join('/') ===
+				members[i - 3].id.split('/').slice(0, -2).join('/') &&
+			bayIndex(top.id) === bayIndex(members[i - 3].id) + 1
+		)
 			for (const k of [0, 1, 2])
-				expect(top.points[0][k]).toBeCloseTo(members[i - local.length].points[1][k], 9);
+				expect(top.points[0][k]).toBeCloseTo(members[i - 3].points[1][k], 9);
 		for (const [j, stock] of local.entries()) {
 			const p = members[i + j];
 			expect(p.source.member).toBe(j);
