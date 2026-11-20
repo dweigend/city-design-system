@@ -9,6 +9,7 @@ import { houseObstacles } from './house-obstacles';
 import { accentBody, accentKind, paintedSections, sectionGroups } from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { buildingPlots } from './building-plots';
+import { houseThreshold } from '../house-structure';
 import { houseEnsembles, houseDistrict } from './house-ensembles';
 import type { World } from './world';
 
@@ -51,6 +52,13 @@ export function townSections(world: World) {
 	);
 	return { sections, layout: r3 };
 }
+type Layout = ReturnType<typeof townSections>;
+/** The court a ground house stands on and the threshold it opens to that court. */
+function courtDoor(house: Layout['sections'][number] | undefined, layout: Layout['layout']) {
+	const court = house && !house.start && layout.cells.get(house.cells[0].id)?.id;
+	const port = house && houseThreshold(house.composition.structure);
+	return court && port ? { court, port } : undefined;
+}
 function survey(world: World) {
 	const { sections, layout: r3 } = townSections(world);
 	const phases = new Map(
@@ -84,6 +92,7 @@ function survey(world: World) {
 	);
 	const planned = plannedPlots(world.state);
 	const stock = houseObstacles(world.grid, world.state);
+	const houses = new Map(sections.map((s) => [s.id, s]));
 	return [
 		...sectionGroups(world.grid, sections, world.seed, stock).filter(
 			(g) => !g.span || !g.cells.some((id) => planned.has(id))
@@ -97,8 +106,10 @@ function survey(world: World) {
 		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
 		const onGround = !g.span && owners[0].start === 0;
 		const cells = g.cells.map((id) => required(world.grid.cellsById.get(id), 'foundation parcel'));
+		const house = !g.span && planned.has(g.cells[0]) ? houses.get(g.id) : undefined;
 		return {
 			...g,
+			door: courtDoor(house, r3),
 			parts: onGround ? () => seatedHouse(g.parts(), cells, world.grid) : g.parts,
 			signature: g.span || owners[0].appearance,
 			start: owners[0].start,
