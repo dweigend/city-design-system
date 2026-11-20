@@ -1,3 +1,5 @@
+import type { Primitive } from '../../logic/parametrik/types';
+import { frameDesktopCourts } from './desktop-opening';
 import { courtOpening } from './court-opening';
 import { Vector3 } from 'three/webgpu';
 import { bankDistance, valleyCoords, valleyPoint } from '../../logic/terrain';
@@ -43,10 +45,16 @@ function townCluster({ grid, state }: World, portrait = false) {
 	return { points, water, anchor: new Vector3(x, z, -y) };
 }
 
-function frameCourts(view: View, world: World, area?: OpeningArea) {
+function frameCourts(
+	view: View,
+	world: World,
+	area?: OpeningArea,
+	additions?: readonly Primitive[]
+) {
 	const courts = courtOpening(world, view.isPortrait());
 	if (!courts) return false;
-	view.frameSilhouette(courts.points, undefined, area, [], courts.heading);
+	if (view.isPortrait()) view.frameSilhouette(courts.points, undefined, area, [], courts.heading);
+	else frameDesktopCourts(view, world, courts, area, additions);
 	return true;
 }
 
@@ -61,8 +69,13 @@ export function frameOldTown(view: View, world: World, area?: OpeningArea) {
 }
 
 /** Fits the central occupied town footprint, including its building heights. */
-export function frameTownSilhouette(view: View, world: World, area?: OpeningArea) {
-	if (frameCourts(view, world, area)) return true;
+export function frameTownSilhouette(
+	view: View,
+	world: World,
+	area?: OpeningArea,
+	additions?: readonly Primitive[]
+) {
+	if (frameCourts(view, world, area, additions)) return true;
 	const cluster = townCluster(world);
 	if (!cluster) return false;
 	view.frameSilhouette(cluster.points, undefined, area, cluster.water);

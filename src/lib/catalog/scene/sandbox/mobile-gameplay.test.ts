@@ -99,7 +99,7 @@ test('the desktop opening includes the central district and crops outlying parce
 		expect(p.y).toBeWithin(0, 900);
 	}
 	expect(Math.max(...bounds.map((p) => p.x)) - Math.min(...bounds.map((p) => p.x))).toBeCloseTo(
-		1440 * 0.64
+		1440 * 0.78
 	);
 	expect(visible).toBeGreaterThan(0);
 	expect(visible).toBeLessThan(world.state.stacks.size);

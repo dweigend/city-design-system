@@ -13,6 +13,7 @@
 	import Icon from '../ui/Icon.svelte';
 
 	let host: HTMLDivElement;
+	let legend: HTMLUListElement;
 	let canvas: HTMLCanvasElement;
 	let stage = $state.raw<SandboxStage>();
 	let seed = $state(7);
@@ -26,7 +27,13 @@
 		const requested = Number(query.get('seed') ?? '7');
 		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
 		const { world, earliestFullYear, additions } = acceptanceScene(seed);
+		const openingArea = () => {
+			const rect = host.getBoundingClientRect();
+			const top = legend.getBoundingClientRect().top - rect.top;
+			return top > 0 && top < rect.height ? { top: 0, bottom: top } : undefined;
+		};
 		const study = {
+			openingArea,
 			world,
 			earliestFullYear,
 			additions,
@@ -39,10 +46,11 @@
 		};
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), study);
 		void current.ready.catch(() => {});
-		const observer = new ResizeObserver(([entry]) => {
-			current.resize(entry.contentRect.width, entry.contentRect.height);
+		const observer = new ResizeObserver(() => {
+			current.resize(host.clientWidth, host.clientHeight);
 		});
 		observer.observe(host);
+		observer.observe(legend);
 		current.resize(host.clientWidth, host.clientHeight);
 		current.show(study.world, 'all');
 		let mounted = true;
@@ -108,7 +116,7 @@
 
 		{#if error}<p role="alert">{error}</p>{/if}
 	</div>
-	<ul class="key" aria-label="Colour key">
+	<ul bind:this={legend} class="key" aria-label="Colour key">
 		{#each key as item (item.id)}
 			<li><span class="chip" style:--chip={item.color}></span>{item.name}</li>
 		{/each}

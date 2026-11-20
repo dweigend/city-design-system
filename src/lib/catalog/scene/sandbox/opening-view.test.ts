@@ -78,7 +78,7 @@ test.each([
 		const phone = width < height,
 			area = { top, bottom, right };
 		if (phone) frameOldTown(view, world, area);
-		else frameTownSilhouette(view, world, area);
+		else frameTownSilhouette(view, world, area, additions);
 		const courts = courtOpening(world, phone);
 		if (!courts) throw Error('Missing occupied courts');
 		const box = new Box2().setFromPoints(
@@ -93,7 +93,7 @@ test.each([
 		expect(center.y).toBeCloseTo((top + bottom) / 2);
 		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(phone ? 0.6 : 0.64);
 		expect(box.max.y).toBeLessThan(bottom);
-		expect(view.project(disc.position).x).toBeGreaterThan(right);
+		if (phone) expect(view.project(disc.position).x).toBeGreaterThan(right);
 	}
 );
 
@@ -130,3 +130,24 @@ test('occupied parcels and central water share the legacy portrait HUD opening',
 	expect(visible.some((c) => c.zone === 'water')).toBe(true);
 	expect(visible.some((c) => world.state.stacks.has(c.id))).toBe(true);
 });
+
+test.each([
+	[900, 1075, 826],
+	[600, 1075, 530],
+	[807, 1440, 760]
+])(
+	'desktop transit landmarks clear the lower-left foreground at height %d',
+	(height, right, bottom) => {
+		const study = right === 1440 ? acceptanceScene(7) : openingScene(7);
+		const view = createView();
+		view.resize(1440, height);
+		frameTownSilhouette(view, study.world, { right, bottom, top: 0 }, study.additions);
+		const stops = study.world.lines.flatMap((line) =>
+			line.stops.map((stop) => view.project(stop.position))
+		);
+		expect(stops.length).toBeGreaterThan(0);
+		expect(
+			stops.filter((p) => p.x >= 0 && p.x < right * 0.55 && p.y > bottom * 0.55 && p.y < height)
+		).toHaveLength(0);
+	}
+);

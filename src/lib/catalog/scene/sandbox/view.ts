@@ -66,7 +66,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		apply();
 	}
 
-	const courtFill = () => (width < height ? 0.6 : 0.64);
+	const courtFill = (usableWidth: number) =>
+		width < height ? 0.6 : usableWidth < width ? 0.64 : 0.78;
 	const clusterFill = () => (width < height ? opening.portraitFill : opening.clusterFill);
 	const metersPerPixel = () => span / height;
 	/** Ground meters per image meter along the image's vertical axis. */
@@ -127,7 +128,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		const room = area ? Math.max(1, area.bottom - area.top) : height;
 		const usableWidth = Math.max(1, Math.min(width, area?.right ?? width));
 		const size = bounds.getSize(new THREE.Vector2());
-		const fill = heading !== undefined ? courtFill() : clusterFill();
+		const fill = heading !== undefined ? courtFill(usableWidth) : clusterFill();
 		span = THREE.MathUtils.clamp(
 			(Math.max(size.x / usableWidth, size.y / room) * height) / fill,
 			SPAN_MIN,
@@ -186,6 +187,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		},
 		/** Whether the canvas is taller than it is wide. */
 		isPortrait: () => width < height,
+		/** Canvas dimensions in CSS pixels. */
+		viewport: () => [width, height] as const,
 		/** Centers the projected silhouette. Points are in three.js meters. */
 		frameSilhouette(
 			points: THREE.Vector3[],
