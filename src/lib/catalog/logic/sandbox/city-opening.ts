@@ -47,7 +47,11 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 	}
 	const cityStages = city.centres.map(() => 0);
 	return growCity(
-		{ ...world, grid: townGrid(world.grid, city.walk), state: { ...world.state, city, cityStages } },
+		{
+			...world,
+			grid: townGrid(world.grid, city.walk),
+			state: { ...world.state, city, cityStages }
+		},
 		applyEdit,
 		true
 	);
