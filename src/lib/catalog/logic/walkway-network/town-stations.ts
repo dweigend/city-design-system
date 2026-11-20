@@ -1,3 +1,4 @@
+import { flightRun, gradeWalkLinks, townStairs } from './link-grades';
 import { required } from '../required';
 import { interpolatePoint, type Vec3 } from '../parametrik/types';
 
@@ -6,7 +7,7 @@ type Station = { position: Vec3; arms: string[] };
 type Stations = Map<string, Station>;
 export type TownSpan = { id: string; a: Vec3; b: Vec3 };
 
-/** Seats junctions on the two-metre level grid and draws the three arms
+/** Seats junctions on the surveyed route and draws the three arms
  * towards their common bisector. Each court keeps its surveyed landing. */
 export function townStations(
 	routes: readonly string[][],
@@ -17,7 +18,7 @@ export function townStations(
 	const add = (id: string, next: string) => {
 		const [x, y, z] = center(id);
 		const station: Station = stations.get(id) ?? {
-			position: ends.get(id) ?? [x, y, 2 * Math.ceil((z + 1) / 2)],
+			position: ends.get(id) ?? [x, y, z],
 			arms: []
 		};
 		station.arms.push(next);
@@ -72,31 +73,59 @@ function landing(s: Station, other: Station) {
 	const p = s.position,
 		q = other.position,
 		d = Math.hypot(q[0] - p[0], q[1] - p[1]);
-	const end = interpolatePoint(p, q, Math.min(0.24, 1.8 / d));
+	const requiredRun = flightRun(p[2] - q[2], townStairs);
+	const share = other.arms.length === 3 ? 0.5 : 1;
+	const setback = Math.max(0.1, (d - requiredRun) * share);
+	const end = interpolatePoint(p, q, Math.min(0.24, 1.8 / d, setback / d));
 	end[2] = p[2];
 	return end;
 }
 
-/** Ends each flight on level decking and leaves three open mouths at a fork. */
-export function townSpans(
+/** Surveys the clear run after fork setbacks and grades each shared landing once. */
+export function townLinkSurvey(
 	routes: readonly string[][],
 	stations: Stations,
 	ends: ReadonlyMap<string, Vec3>
-): TownSpan[] {
-	return routes.flatMap((path) =>
-		path.slice(1).flatMap((id, i) => {
-			const from = required(stations.get(path[i]), 'surveyed site'),
-				to = required(stations.get(id), 'surveyed site');
-			const a = landing(from, to),
-				b = landing(to, from);
-			const key = 'town-walk/' + path[i] + '>' + id;
-			if (a[2] === b[2] || ends.has(path[i])) return [{ id: key, a, b }];
-			const middle = interpolatePoint(a, b, 0.45);
-			middle[2] = a[2];
-			return [
-				{ id: key, a, b: middle },
-				{ id: key + '/stair', a: middle, b }
-			];
+) {
+	const mouths = routes.flatMap((path) =>
+		path.slice(1).map((to, i) => {
+			const from = path[i];
+			const start = required(stations.get(from), 'from station');
+			const end = required(stations.get(to), 'to station');
+			return { from, to, a: landing(start, end), b: landing(end, start) };
 		})
 	);
+	return gradeWalkLinks(mouths, ends, townStairs);
+}
+
+/** Ends each flight on level decking and leaves three open mouths at a fork. */
+export function townSpans(
+	links: ReturnType<typeof townLinkSurvey>,
+	stations: Stations,
+	ends: ReadonlyMap<string, Vec3>
+): TownSpan[] {
+	return links.flatMap(({ from, to, a: first, b: last, requiredRun, availableRun }) => {
+		const start = required(stations.get(from), 'from station');
+		const end = required(stations.get(to), 'to station');
+		start.position[2] = first[2];
+		end.position[2] = last[2];
+		const a = start.arms.length === 3 ? first : start.position;
+		const b = end.arms.length === 3 ? last : end.position;
+		const key = 'town-walk/' + from + '>' + to;
+		if (a[2] === b[2] || ends.has(from)) return [{ id: key, a, b }];
+		const rising = b[2] > a[2];
+		const share = Math.min(rising ? 0.55 : 0.45, 1 - requiredRun / availableRun);
+		if (share * availableRun < 0.01) return [{ id: key, a, b }];
+		const middle = interpolatePoint(a, b, rising ? 1 - share : share);
+		middle[2] = Math.max(a[2], b[2]);
+		return rising
+			? [
+					{ id: key + '/stair', a, b: middle },
+					{ id: key, a: middle, b }
+				]
+			: [
+					{ id: key, a, b: middle },
+					{ id: key + '/stair', a: middle, b }
+				];
+	});
 }

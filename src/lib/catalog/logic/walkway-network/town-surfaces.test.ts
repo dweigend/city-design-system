@@ -14,6 +14,18 @@ test('an unsupported ground span uses plain cast paving', () => {
 		material: 'concrete'
 	});
 });
+
+test('a tread crossing the grid edge has finite retaining faces up to its soffit', () => {
+	const parts = publicFlight({ id: 'edge', a: [0, 0, 0.2], b: [5, 0, 0.2] }, (_, y) =>
+		y < 0 ? NaN : 0
+	);
+	const foot = parts.find((p) => p.kind === 'mesh' && p.id === 'edge/pier/foot');
+	if (foot?.kind !== 'mesh') throw Error('Missing retaining face at the grid edge');
+	expect(foot.points.flat().every(Number.isFinite)).toBe(true);
+	expect(foot.points.filter(([, y]) => y < 0).every(([, , z]) => z === 0)).toBe(true);
+	expect(foot.points.some(([, y, z]) => y > 0 && z < 0)).toBe(true);
+});
+
 for (const seed of [7, 13, 29])
 	test(
 		'single flush walking surfaces on ' + seed,

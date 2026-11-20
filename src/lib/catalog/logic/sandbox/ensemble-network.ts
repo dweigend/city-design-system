@@ -1,3 +1,5 @@
+import { courtBench } from './town-grading';
+import { surveyedGrid } from './town-grid';
 import type { planHouse, HouseObstacle } from '../composed-house';
 import { courtLanding, publicFlight, type NetworkInput } from '../walkway-network';
 import { required } from '../required';
@@ -100,7 +102,7 @@ export function courtFlights(world: World, sections: Sections) {
 		.filter((court) => court.openingPlots === undefined)
 		.flatMap((court) => {
 			const cell = required(world.grid.cellsById.get(court.court), 'public court');
-			const a = courtLanding(cell).position;
+			const a = courtLanding(cell, courtBench(surveyedGrid(world.grid), court)).position;
 			const options = court.lots
 				.slice(0, 3)
 				.flatMap((id) => courtPorts(byCell.get(id), a))
