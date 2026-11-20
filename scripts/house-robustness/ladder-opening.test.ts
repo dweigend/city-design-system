@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test';
-import { paintedSections, sectionParts } from '../../src/lib/catalog/logic/composed-house';
+import { checkExteriorEntrance } from './exterior-entrance';
+import { footprint, plotCovers } from '../../src/lib/catalog/logic/composed-house/parcel-footprint';
+import {
+	circulation,
+	planHouse,
+	paintedSections,
+	sectionParts
+} from '../../src/lib/catalog/logic/composed-house';
 import { ensembleAnchor } from '../../src/lib/catalog/logic/composed-house/accent';
 import { squareGrid } from '../../src/lib/catalog/logic/quad-grid';
 
@@ -45,5 +52,34 @@ test('both ladder lanes clear the occupied floors of a six- and seven-storey pai
 		const rails = ladderRails(house);
 		expect(rails.length).toBeGreaterThan(0);
 		for (const span of openingSpans(house)) expectInside(rails, span);
+	}
+});
+
+test('a narrow one-storey house keeps a clear approach to one continuous side ladder', () => {
+	const cells = squareGrid(1, 1, 1.8).cells;
+	for (const seed of [2, 19]) {
+		const house = planHouse({ cells, seed, stacks: new Map([[cells[0].id, ['living']]]) });
+		const parts = sectionParts(house);
+		checkExteriorEntrance(house, parts);
+		const walk = circulation(house);
+		const rails = parts.filter((p) => p.id.includes('/stair/ladder/'));
+		expect(rails).toHaveLength(2);
+		for (const rail of rails) {
+			if (rail.kind !== 'pipe') throw Error('Missing ladder stile');
+			expect(rail.points[0][2]).toBeCloseTo(walk.stops.at(-1)![2]);
+			expect(rail.points.at(-1)![2]).toBeCloseTo(house.top);
+		}
+		for (const part of parts.filter((p) => p.id.includes('/stair/')))
+			expect(plotCovers(cells, footprint(part), 0), part.id).toBe(true);
+		for (const { door } of walk.docks) {
+			const plate = parts.find(
+				(p) =>
+					p.kind === 'prism' &&
+					p.id.includes('/stair/landing/') &&
+					Math.abs(p.z + p.height - door[2]) < 1e-8
+			);
+			if (plate?.kind !== 'prism') throw Error('Missing exit landing');
+			expect(plate.polygon.some(([x]) => Math.abs(x - door[0]) < 1e-8)).toBe(true);
+		}
 	}
 });

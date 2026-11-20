@@ -1,3 +1,4 @@
+import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
 import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
@@ -36,7 +37,7 @@ export function mastRoute(s: Section) {
 	const groundY =
 		s.typology === 'block' && !s.composition.levels[0].bodies[0].band?.footprint ? blockFoot(s) : y;
 	stops.push([x, groundY, s.start ? s.base[2] : terrainHeight(s, [x, groundY, 0])]);
-	const width = s.typology === 'block' ? 0.48 : 0.62;
+	const width = s.typology === 'block' ? houseStair.compactLadderWidth : 0.62;
 	const flights = stops.slice(1).flatMap((end, flight) => {
 		const start = stops[flight];
 		const count = Math.max(1, Math.ceil(Math.abs(end[2] - start[2]) / 4));
@@ -50,12 +51,12 @@ export function mastRoute(s: Section) {
 		}));
 	});
 	for (const [i, l] of flights.entries()) {
-		const offset = ((i % 2 ? 1 : -1) * width) / 2;
+		const offset = s.composition.core.sideLadder ? 0 : ((i % 2 ? 1 : -1) * width) / 2;
 		l.from[0] += offset;
 		l.to[0] += offset;
 	}
 	const legs = flights.flatMap((l, i) =>
-		i
+		i && !s.composition.core.sideLadder
 			? [
 					{
 						from: flights[i - 1].to,
@@ -97,12 +98,13 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	}).parts[0];
 	if (plate.kind !== 'prism') throw new Error('Expected ladder landing');
 	const sign = s.composition.accessSide === 'north' ? 1 : -1;
-	// Each break has one deck that meets both ladder lanes and, at occupied levels, the doorway.
+	const straight = s.composition.core.sideLadder;
+	// Each break has one deck connecting the ladder to the doorway.
 	const landings = route.flights.map((leg, i) => {
 		const [, y, z] = leg.from;
 		const axis = s.stairAxis[0];
 		const dock = route.docks.find((d) => d.station === leg.from);
-		const dx = dock?.door[0] ?? axis;
+		const dx = dock?.door[0] ?? (straight ? axis - (sign * s.composition.core.width) / 2 : axis);
 		const dy =
 			dock?.door[1] ??
 			y -
@@ -120,34 +122,41 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 			id: id + 'landing/' + i,
 			height: 0.12,
 			z: z - 0.12,
-			polygon: plate.polygon.map(([u, v]): [number, number] => [
-				v < 0 ? dx + (Math.sign(u) * route.width) / 2 : axis + (Math.sign(u) * route.width) / 2,
-				v < 0 ? dy : y
-			])
+			polygon: plate.polygon.map(([u, v]): [number, number] => {
+				const x = v < 0 ? dx : axis;
+				const across = (Math.sign(u) * route.width) / 2;
+				return straight ? [x, y - across] : [x + across, v < 0 ? dy : y];
+			})
 		};
 	});
 	const rung = houseObject('ladder', 'rung-bay', s.seed, {
 		instanceId: id + 'rung',
 		slots: { body: surfaces.access }
 	}).parts[0];
+
+	const foot = route.flights[route.flights.length - 1].to;
 	const flights = route.flights.flatMap(({ from, to }, i) => {
 		const height = from[2] - to[2],
 			count = Math.max(1, Math.round(height / 0.28));
 		return stock.flatMap((p, j) => {
 			if (p.kind !== 'pipe') throw new Error('Expected ladder rail');
+			if (straight && j > 0 && i > 0) return [];
+			const bottom = straight && j > 0 ? foot : to;
 			const copies = j === 0 ? count : 1;
 			return Array.from({ length: copies }, (_, k) => ({
 				...(j === 0 ? rung : p),
 				structuralRole: 'cantilever' as const,
-				radius: 0.06,
+				radius: straight ? p.radius : 0.06,
 				id: id + (j === 0 ? 'rung/' : 'ladder/') + i + '/' + j + '/' + k,
-				points: p.points.map(([, u, v]): Vec3 => [
-					to[0] +
-						u * (route.width / 0.62) +
-						(from[0] - to[0]) * (j === 0 ? (k + 1) / count : v / 0.28),
-					to[1] + (from[1] - to[1]) * (j === 0 ? (k + 1) / count : v / 0.28),
-					to[2] + (j === 0 ? (k + 1) / count : v / 0.28) * height
-				])
+				points: p.points.map(([, u, v]): Vec3 => {
+					const t = j === 0 ? (k + 1) / count : v / 0.28;
+					const across = u * (route.width / 0.62);
+					return [
+						bottom[0] + (from[0] - bottom[0]) * t + (straight ? 0 : across),
+						bottom[1] + (from[1] - bottom[1]) * t + (straight ? across : 0),
+						bottom[2] + (from[2] - bottom[2]) * t
+					];
+				})
 			}));
 		});
 	});
