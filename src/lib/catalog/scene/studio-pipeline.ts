@@ -1,10 +1,10 @@
 import { metallUmgebung } from './materialMetallUmgebung';
 import * as THREE from 'three/webgpu';
-import { mix, pass, vec4 } from 'three/tsl';
+import { color, mix, mrt, normalWorldGeometry, output, pass, uniform, vec3, vec4 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 
 import { createStudioLight } from './studio-light';
-import { studioConfig, studioQuality } from './studio-quality';
+import { contactInk, studioConfig, studioQuality } from './studio-quality';
 
 /** Owns color conversion, multisampled scene depth and contact shading in scene metres. */
 export function studioPipeline(
@@ -26,6 +26,15 @@ export function studioPipeline(
 	scene.environmentIntensity = 0.32;
 	const beauty = pass(scene, camera);
 	const face = beauty.getTextureNode();
+	// Scaffold lines and joint hardware have no receiving surface. Carry the receiver
+	// flag with the beauty sample so a nearby occluder cannot darken their pixels.
+	const receiver = uniform(0).onObjectUpdate(({ object }) => (object?.receiveShadow ? 1 : 0));
+	const mask = receiver.mul(normalWorldGeometry.y.smoothstep(0.45, 0.8));
+	const outputs = mrt({ output, bearing: vec4(vec3(mask), output.a) });
+	outputs.setBlendMode('bearing', outputs.getBlendMode('output'));
+	beauty.setMRT(outputs);
+	beauty.getTexture('bearing').type = THREE.UnsignedByteType;
+	const bearing = beauty.getTextureNode('bearing');
 	// @ts-expect-error GTAONode accepts null to reconstruct normals from depth (three r187).
 	const contact = ao(beauty.getTextureNode('depth'), null, camera);
 	contact.resolutionScale = config.aoScale;
@@ -35,7 +44,8 @@ export function studioPipeline(
 	contact.thickness.value = 0.7;
 	const pipeline = new THREE.RenderPipeline(renderer);
 	const buffer = new THREE.Vector2();
-	const shaded = face.rgb.mul(mix(0.22, 1, contact.getTextureNode().r));
+	const opacity = contact.getTextureNode().r.oneMinus().mul(bearing.r).mul(contactInk.opacity);
+	const shaded = mix(face.rgb, face.rgb.mul(color(contactInk.color)), opacity);
 	pipeline.outputNode = vec4(shaded, face.a);
 	return {
 		light,

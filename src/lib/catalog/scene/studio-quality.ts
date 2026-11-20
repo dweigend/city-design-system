@@ -8,6 +8,9 @@ export function studioQuality(): StudioQuality {
 	return matchMedia('(pointer: coarse)').matches ? 'phone' : 'desktop';
 }
 
+/** Shared contact pigment and maximum opacity for the studio and surveyed bearing patches. */
+export const contactInk = { color: 0x82776c, opacity: 0.25 } as const;
+
 const lighting = {
 	key: 0xfff1de,
 	intensity: 2.2,

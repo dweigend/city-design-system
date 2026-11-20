@@ -42,7 +42,11 @@
 	 * Tools of the sandbox: one tool bar, the options of the active tool beside it, undo and a
 	 * new terrain below. Thin: it only sets the session's tool and calls its actions.
 	 */
-	let { session, group = $bindable() }: { session: Session; group?: HTMLDivElement } = $props();
+	let {
+		session,
+		group = $bindable(),
+		rail = $bindable()
+	}: { session: Session; group?: HTMLDivElement; rail?: HTMLDivElement } = $props();
 
 	let sheetOpen = $state(false);
 	const narrow = new MediaQuery('(max-width: 640px)');
@@ -205,7 +209,7 @@
 {/snippet}
 
 <div class="hud-group" bind:this={group}>
-	<div class="hud">
+	<div class="hud" bind:this={rail}>
 		{#if narrow.current}
 			<Popover.Root bind:open={sheetOpen}>
 				<Popover.Trigger class="cg-tool-sheet-trigger">
