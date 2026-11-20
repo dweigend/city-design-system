@@ -20,14 +20,16 @@ const TENT_RISE = 5;
 type Site = { id: string; seed: number; cells: readonly unknown[]; programme: unknown[] };
 
 /**
- * Chooses how a house carries itself. A house on one convex cell with two to six storeys and
- * no face hidden by a neighbour (`joined` false) may be a tent mast, a brim mast, a fanned
- * truss or an exoskeleton; every other house stays layered. The draw is a stateless hash of the house seed
- * and id.
+ * Chooses how a house carries itself. A house on one convex cell with two to six storeys may
+ * be a tent mast, a brim mast, a fanned truss or an exoskeleton. A house stays layered when a
+ * neighbour hides one of its faces (`joined`) or when it is the high point of an ensemble
+ * (`anchor`), whose upper body carries the ensemble's accent. The draw is a stateless hash of
+ * the house seed and id.
  */
-export function housePrinciple(site: Site, joined: boolean) {
+export function housePrinciple(site: Site, joined: boolean, anchor: boolean) {
 	const storeys = site.programme.length;
-	if (joined || site.cells.length !== 1 || storeys < 2 || storeys > 6) return 'layers';
+	if (joined || anchor) return 'layers';
+	if (site.cells.length !== 1 || storeys < 2 || storeys > 6) return 'layers';
 	const draw = hashUnit(site.seed, site.id, 'house/principle');
 	if (draw < LAYERED_SHARE) return 'layers';
 	const share = (draw - LAYERED_SHARE) / (1 - LAYERED_SHARE);

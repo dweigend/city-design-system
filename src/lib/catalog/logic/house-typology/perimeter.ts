@@ -397,7 +397,8 @@ export function perimeterHouse(
 	// The structure stands on the seated ground course, which may differ from the surveyed pad.
 	const seat = exterior.stations[0].z;
 	const ensemble = [...context.houses.keys()].sort()[0];
-	const principle = housePrinciple(site, !exterior.faces.every(Boolean));
+	const highPoint = role === 'high' && context.houses.size > 1;
+	const principle = housePrinciple(site, !exterior.faces.every(Boolean), highPoint);
 	const layered = layeredStructure({
 		...occupancy,
 		id: site.id,
