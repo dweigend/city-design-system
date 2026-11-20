@@ -1,7 +1,7 @@
 import { buildingPalette } from './building-palette';
 import type { HouseUse } from '../../data/house-body';
 import { buildObject, type SlotAssignment } from '../assets';
-import type { ColorToken, Primitive } from '../parametrik/types';
+import type { BuildingSurface, ColorToken, Primitive } from '../parametrik/types';
 import { finishCatalogue } from './surface';
 
 export type SheetRow = {
@@ -40,7 +40,11 @@ export function materialSheet(token: ColorToken): SheetRow[] {
 					label: use + ' · ' + finishName(family.shell.finish),
 					parts: () =>
 						buildObject('living-capsule', 'twin', 17, {
-							slots: { body: family.shell, glass: family.pane, accent: family.fitting }
+							building: {
+								use,
+								ensemble: use,
+								slots: { body: 'shell', glass: 'pane', accent: 'fitting' }
+							}
 						}).parts
 				};
 			})
@@ -79,30 +83,30 @@ function finishName(id: SlotAssignment['finish']) {
 }
 
 function constructionDetails() {
-	const family = buildingPalette('water', 'water');
 	const sample = (
 		id: string,
 		variant: string,
 		label: string,
-		slots: Record<string, SlotAssignment>
+		slots: Record<string, BuildingSurface['slot']>
 	) => ({
 		id,
 		label,
-		parts: () => buildObject(id, variant, 17, { slots }).parts
+		parts: () =>
+			buildObject(id, variant, 17, { building: { use: 'water', ensemble: 'water', slots } }).parts
 	});
 	return [
 		sample('kit-gallery-walk-5m', 'three-post', 'Terrazzo gallery', {
-			deck: family.deck,
-			frame: family.frame
+			deck: 'deck',
+			frame: 'frame'
 		}),
 		sample('kit-parapet-solid-5m', 'medium', 'Punched screen · brass cap', {
-			deck: family.screen,
-			edge: family.fitting
+			deck: 'screen',
+			edge: 'fitting'
 		}),
 		sample('porthole', 'ringed', 'Frosted acrylic · brass bezel', {
-			glass: family.pane,
-			body: family.fitting,
-			accent: family.frame
+			glass: 'pane',
+			body: 'fitting',
+			accent: 'frame'
 		})
 	];
 }

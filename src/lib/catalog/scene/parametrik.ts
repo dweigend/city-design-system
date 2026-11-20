@@ -1,3 +1,4 @@
+import { projectBuildingSurface } from './building-surface';
 import { studioGround } from './studio-ground';
 import { studioShadow } from './studio-shadow';
 import { studioPipeline } from './studio-pipeline';
@@ -298,9 +299,10 @@ export function createParametrikScene(
 				positions: number[];
 			}
 		>();
-		for (const p of primitives) {
+		for (const source of primitives) {
+			const p = projectBuildingSurface(source);
 			const role = p.planned ? 'bestand' : legacyRoleOf(p);
-			const group = groupOf?.(p) ?? '';
+			const group = groupOf?.(source) ?? '';
 			parent = groupOf ? groupFor(group) : model;
 			if (p.kind === 'polyline') {
 				const key = `${group}\u0000${role}\u0000${p.emphasis ?? ''}`;

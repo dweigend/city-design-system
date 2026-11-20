@@ -1,3 +1,4 @@
+import { projectBuildingSurface } from '../building-surface';
 import { isStructural, type Primitive } from '../../logic/parametrik/types';
 import { collageCut } from './collage-cut';
 import { hasFinish, type Surface } from './finish-batch';
@@ -88,7 +89,8 @@ export function partition(
 		ghosts: [] as Primitive[]
 	};
 	const plainIds = new Set([...unoutlined].map((p) => p.id));
-	for (const original of primitives) {
+	for (const source of primitives) {
+		const original = projectBuildingSurface(source);
 		const drawing = drawingLayer(original);
 		if (drawing) {
 			parts[drawing].push(drawing === 'regular' ? { ...original, role: 'bestand' } : original);
@@ -97,25 +99,25 @@ export function partition(
 		const finish = finishedSurface(original, city);
 		if (finish) {
 			const surfaces =
-				unoutlined.has(original) && hasGlazeContour(finish.finish)
+				unoutlined.has(source) && hasGlazeContour(finish.finish)
 					? parts.unoutlinedFinishes
 					: parts.finished;
 			surfaces.push(finish);
 			continue;
 		}
 
-		addSurface(original);
+		addSurface(original, unoutlined.has(source));
 	}
 	return parts;
 
-	function addSurface(original: Primitive) {
+	function addSurface(original: Primitive, plain: boolean) {
 		const part = collageCut(original);
 		const body = surfaceBody(part);
 		const layer = layerOf(part);
 		if (part.overprint)
 			parts[plainIds.has(part.id.split(':overprint:')[0]) ? 'plain' : 'regular'].push(body);
-		else if (unoutlined.has(original) && layer === 'pods') parts.plainPods.push(body);
-		else if (unoutlined.has(original) && !keepLayer.has(layer))
+		else if (plain && layer === 'pods') parts.plainPods.push(body);
+		else if (plain && !keepLayer.has(layer))
 			parts[isAccent(part) ? 'plainAccents' : 'plain'].push({ ...body, edges: false });
 		else parts[part === original ? layer : 'portals'].push(body);
 	}

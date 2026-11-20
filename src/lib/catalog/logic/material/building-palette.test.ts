@@ -24,9 +24,20 @@ test('installed materials are shown on assembled parts before the finish catalog
 	for (const sample of shells.samples) {
 		const parts = sample.parts();
 		expect(parts.some((p) => p.kind === 'capsule')).toBe(true);
-		expect(parts.some((p) => p.finish === 'metall-messing')).toBe(true);
+		expect(parts.some((p) => p.buildingSurface?.slot === 'fitting')).toBe(true);
 	}
-	const finishes = new Set(construction.samples.flatMap((s) => s.parts().map((p) => p.finish)));
+	const finishes = new Set(
+		construction.samples.flatMap((s) =>
+			s
+				.parts()
+				.map(
+					({ buildingSurface }) =>
+						buildingSurface &&
+						buildingPalette(buildingSurface.use, buildingSurface.ensemble)[buildingSurface.slot]
+							.finish
+				)
+		)
+	);
 	for (const finish of [
 		'perforated-metal',
 		'beton-terrazzo',

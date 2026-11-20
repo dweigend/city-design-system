@@ -1,0 +1,23 @@
+import { expect, test } from 'bun:test';
+import { materialSheet } from '../logic/material/contact-sheet';
+import { applySurface } from '../logic/material/surface';
+import { projectBuildingSurface } from './building-surface';
+import { partition } from './sandbox/structure-layers';
+
+test('the bible shell and city batch receive the same projected ensemble finish', () => {
+	const [shells] = materialSheet('--paper');
+	for (const sample of shells.samples) {
+		const parts = sample.parts();
+		const shell = parts.find((p) => p.buildingSurface?.slot === 'shell')!;
+		const expected = projectBuildingSurface(shell);
+		expect(shell.finish).toBeUndefined();
+		expect(expected.colourRole).toBe('ensemble-ground');
+		expect([expected]).toEqual(partition([shell], new Set(), true).finished);
+		expect(projectBuildingSurface(applySurface(shell, undefined, '--signal')).token).toBe(
+			'--signal'
+		);
+		const painted = applySurface(shell, 'holz-natur', '--ink-3');
+		expect(projectBuildingSurface(painted)).toBe(painted);
+		expect(projectBuildingSurface(applySurface(shell, 'city-drawing')).finish).toBeUndefined();
+	}
+});
