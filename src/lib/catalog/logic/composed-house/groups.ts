@@ -1,3 +1,5 @@
+import { houseMovementPorts } from './bridge-movement';
+import type { MovementElement } from '../movement-network';
 import type { StockPart } from './house-object';
 import type { HouseSite } from './types';
 import { planEnsemble } from '../house-typology';
@@ -108,6 +110,7 @@ export function sectionGroups(
 	const groups = houses.map((h) => ({
 		id: h.id,
 		owners: [h.id],
+		movement: { ports: houseMovementPorts(h), edges: [] as MovementElement[] },
 		planningCells: h.planningCells,
 		span: '',
 		chunk: h.cells[0].chunk,
@@ -120,6 +123,7 @@ export function sectionGroups(
 		groups.push({
 			id: link.id,
 			owners: [a.id, b.id],
+			movement: { ports: [], edges: link.graph.edges },
 			planningCells: [...new Set([...a.planningCells, ...b.planningCells])],
 			span: JSON.stringify([link.kind, link.width, link.route]),
 			chunk: a.cells[0].chunk,

@@ -10,7 +10,8 @@ export type MovementKind =
 	| 'station'
 	| 'stair'
 	| 'ramp'
-	| 'bridge';
+	| 'bridge'
+	| 'junction';
 export type MovementPort = {
 	id: string;
 	kind: MovementKind;
@@ -20,6 +21,8 @@ export type MovementPort = {
 	width: number;
 	headroom: number;
 	accepts: readonly MovementKind[];
+	/** Boundary arcs between the mouths of a surveyed common landing, in plan metres. */
+	rim?: readonly (readonly (readonly [number, number])[])[];
 };
 /** A surveyed bidirectional element. Intermediate samples preserve bends and slopes. */
 export type MovementElement = {
@@ -31,6 +34,10 @@ export type MovementElement = {
 	/** Travellers per minute, supplied by the generator. */
 	capacity: number;
 	via?: readonly Position[];
+	width?: number;
+	/** Unit plan normals at each centreline sample preserve the analytic sweep at bends. */
+	normals?: readonly (readonly [number, number])[];
+	guardGroup?: string;
 };
 export type DockRequest = {
 	/** Defaults to a walking connection. Stations may expose either mode. */
@@ -43,7 +50,9 @@ export type DockRequest = {
 		headroom: number;
 		rampGrade: number;
 		stairGrade: number;
+		/** Minimum horizontal depth per tread in metres when fitting stock stairs. */
+		treadGoing?: number;
 		capacity: number;
 	};
 };
-export type MovementEdge = MovementElement & { length: number; grade: number };
+export type MovementEdge = MovementElement & { length: number; grade: number; width: number };

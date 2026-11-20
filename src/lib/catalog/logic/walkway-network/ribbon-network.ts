@@ -1,11 +1,11 @@
 import { required } from '../required';
-import { contours } from '../linear-path';
+import { routeChains } from './route-chains';
 import { type Vec3 } from '../parametrik/types';
 import { ribbonCurve } from './ribbon-curve';
 import { ribbonProfile } from './ribbon-column';
 type Station = { position: Vec3; arms: string[] };
 type Port = { centre: Vec3; left: Vec3; right: Vec3; dx: number; dy: number };
-const key = (p: Vec3) => p.join(',');
+
 function ports(stations: Map<string, Station>, id: string, s: Station) {
 	const arms = s.arms
 		.map((neighbour) => {
@@ -66,7 +66,7 @@ export function ribbonNetwork(routes: readonly string[][], stations: Map<string,
 			const arms = ports(stations, id, s);
 			for (const p of arms) {
 				mouths.set(p.id, p);
-				hubs.set(key(p.centre), id);
+				hubs.set(p.id, id);
 			}
 			return {
 				id,
@@ -74,22 +74,23 @@ export function ribbonNetwork(routes: readonly string[][], stations: Map<string,
 				rim: arms.map((p, i) => fillet(p, arms[(i + 1) % arms.length]))
 			};
 		});
-	const names = new Map<string, string>();
-	const edges = routes.flatMap((path) =>
-		path.slice(1).map((b, i) => {
-			const a = path[i],
-				p = mouths.get(a + '>' + b)?.centre ?? required(stations.get(a), 'ribbon station').position,
-				q = mouths.get(b + '>' + a)?.centre ?? required(stations.get(b), 'ribbon station').position;
-			names.set(key(p) + '>' + key(q), 'town-walk/' + a + '>' + b);
-			names.set(key(q) + '>' + key(p), 'town-walk/' + b + '>' + a);
-			return [p, q];
-		})
+	const name = (a: string, b: string) => (mouths.has(a + '>' + b) ? a + '>' + b : a);
+	const links = routes.flatMap((path) =>
+		path.slice(1).map((to, i) => [name(path[i], to), name(to, path[i])] as const)
 	);
-	const reaches = contours(edges).map((path) => ({
-		id: required(names.get(key(path[0]) + '>' + key(path[1])), 'ribbon reach'),
-		sections: ribbonCurve(path),
-		ends: [path[0], path[path.length - 1]],
-		hubs: [hubs.get(key(path[0])), hubs.get(key(path[path.length - 1]))]
-	}));
+	const point = (id: string) =>
+		mouths.get(id)?.centre ?? required(stations.get(id), 'ribbon station').position;
+	const reaches = routeChains(links).map((chain) => {
+		const path = chain.map(point),
+			terminals = [chain[0], chain[chain.length - 1]];
+		const station = (id: string) => hubs.get(id) ?? id;
+		return {
+			id: 'town-walk/' + station(chain[0]) + '>' + station(chain[1]),
+			terminals,
+			sections: ribbonCurve(path, ribbonProfile.width, terminals[0] === terminals[1]),
+			ends: [path[0], path[path.length - 1]],
+			hubs: terminals.map((id) => hubs.get(id))
+		};
+	});
 	return { reaches, forks };
 }

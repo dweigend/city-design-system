@@ -12,6 +12,7 @@ import {
 	type TransitKind,
 	type TransitPillar
 } from './contract';
+import { railAlignment, trackPoints } from './movement';
 import { elevate, groundAt } from './elevation';
 export type {
 	TransitLine,
@@ -41,8 +42,14 @@ function stopSamples(distances: number[]) {
 			return samples;
 	}
 }
-function stations(grid: TerrainGrid, path: Vec3[], distances: number[], shaftOffset: number) {
-	return stopSamples(distances).map((i) => {
+function stations(
+	grid: TerrainGrid,
+	path: Vec3[],
+	distances: number[],
+	shaftOffset: number,
+	samples: number[]
+) {
+	return samples.map((i) => {
 		const { position, headingRad } = poseAt(path, distances, distances[i]);
 		// Keep the offset shaft's surveyed elevation through plain-data serialization.
 		const groundZ = groundAt(
@@ -93,15 +100,29 @@ export function routeLine(
 	if ((chainage(plan).at(-1) ?? 0) < MIN_LENGTH) return;
 	const path = elevate(grid, plan, grade, clearance),
 		distances = chainage(path);
-	return {
+	const samples = stopSamples(distances);
+	const surveyed = {
 		id,
 		kind,
 		...(stored ? { profile: stored } : {}),
 		cellIds,
 		path,
 		length: distances[distances.length - 1],
-		stops: stations(grid, path, distances, profile.shaftOffset),
+		stops: stations(grid, path, distances, profile.shaftOffset, samples),
 		pillars: supports(grid, path, distances, profile)
+	};
+	// Unit flow is the default scenario until the simulation supplies passenger demand.
+	const movement = railAlignment(surveyed, 1, samples);
+	const track = trackPoints(movement, profile.platformDrop);
+	return {
+		...surveyed,
+		movement,
+		path: track,
+		stops: surveyed.stops.map((stop, i) => ({
+			...stop,
+			position: track[samples[i]],
+			headingRad: movement.ports[i].heading - Math.PI / 2
+		}))
 	};
 }
 

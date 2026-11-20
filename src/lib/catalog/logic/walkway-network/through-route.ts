@@ -1,3 +1,4 @@
+import { walkingLink } from './walking-connection';
 import type { Vec3 } from '../parametrik/types';
 import { needsTreads } from './walking-profile';
 import type { TownSpan } from './town-stations';
@@ -26,13 +27,17 @@ function spans(points: readonly Vec3[], prefix: string): TownSpan[] {
 }
 function descent(exit: Threshold, ground: Ground, clear: Clear, id: string) {
 	const start = outside(exit, width);
+	let fallback: TownSpan[] | undefined;
 	for (let run = width + 2; run <= 32; run += 1) {
 		const foot = outside(exit, run);
 		foot[2] = ground(foot[0], foot[1]);
-		if (!Number.isFinite(foot[2]) || !clear(start, foot)) return;
+		if (!Number.isFinite(foot[2]) || !clear(start, foot)) break;
 		const flight = spans([start, foot], id + '/descent');
 		if (!needsTreads(start, foot)) return flight;
+		if (!fallback && walkingLink(flight[0].id, start, foot, 'entrance', 'path').edges.length)
+			fallback = [{ ...flight[0], adapter: true }];
 	}
+	return fallback;
 }
 function crossing(terminal: Vec3, passage: CourtPassage, ground: Ground, clear: Clear) {
 	const { entry, exit } = passage;
@@ -58,7 +63,7 @@ function crossing(terminal: Vec3, passage: CourtPassage, ground: Ground, clear: 
 		...spans([exit.position, outsideExit], id + '/threshold'),
 		...down
 	];
-	return route.some((s) => needsTreads(s.a, s.b)) ? [] : route;
+	return route.some((s) => !s.adapter && needsTreads(s.a, s.b)) ? [] : route;
 }
 
 function aligned(passage: CourtPassage) {

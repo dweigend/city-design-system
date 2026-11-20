@@ -1,130 +1,187 @@
 import {
 	movementNetwork,
 	type DockRequest,
-	type MovementPort,
 	type MovementElement,
+	type MovementPort,
 	type MovementKind
 } from '../movement-network';
 import type { Vec3 } from '../parametrik/types';
-import type { TownSpan } from './town-stations';
-import { ribbonProfile } from './ribbon-column';
-import { walkingConnectionProfile } from './walking-connection';
 import { required } from '../required';
-
-type Station = { position: Vec3; arms: string[] };
+import type { ribbonNetwork } from './ribbon-network';
+import { fitApproaches } from './ribbon-fit';
+import { ribbonProfile } from './ribbon-column';
+import { walkingLink, walkingConnectionProfile as profile } from './walking-connection';
+import { seatMouth } from './ribbon-mouth';
+import { passageReaches } from './passage-reaches';
+import type { TownSpan } from './town-stations';
+type Layout = ReturnType<typeof ribbonNetwork>;
+type Reach = Layout['reaches'][number];
 type Mouth = { landing: Vec3; heading: number };
-const profile = {
-	...walkingConnectionProfile,
-	width: ribbonProfile.width,
-	capacity:
-		(walkingConnectionProfile.capacity * ribbonProfile.width) / walkingConnectionProfile.width
+type Ground = (x: number, y: number) => number;
+type Survey = {
+	ports: Map<string, MovementPort>;
+	elements: MovementElement[];
+	requests: DockRequest[];
 };
-type Survey = { ports: MovementPort[]; elements: MovementElement[]; requests: DockRequest[] };
-const port = (
+function port(
 	id: string,
 	kind: MovementKind,
 	position: Vec3,
 	heading: number,
-	accepts: MovementKind[]
-): MovementPort => ({
-	id,
-	kind,
-	position,
-	heading,
-	accepts,
-	width: profile.width,
-	headroom: profile.headroom
-});
-const element = (id: string, from: string, to: string, kind: MovementKind): MovementElement => ({
-	id,
-	from,
-	to,
-	kind,
-	capacity: profile.capacity,
-	mode: 'walk'
-});
-const bearing = (a: Vec3, b: Vec3) => Math.atan2(b[1] - a[1], b[0] - a[0]);
-
-function courtMouth(survey: Survey, id: string, { landing, heading }: Mouth) {
-	const approach = id + '/approach';
-	survey.ports.push(
-		port(id, 'court', landing, heading, ['walkway']),
-		port(approach, 'walkway', landing, heading + Math.PI, ['court'])
-	);
-	survey.requests.push({ id: id + '/dock', from: id, to: approach, profile });
-	return approach;
+	width: number
+): MovementPort {
+	return {
+		id,
+		kind,
+		position,
+		heading,
+		width,
+		headroom: profile.headroom,
+		accepts: [
+			'walkway',
+			'path',
+			'court',
+			'station',
+			'bridge',
+			'ramp',
+			'stair',
+			'entrance',
+			'tunnel'
+		]
+	};
 }
+function element(
+	id: string,
+	kind: MovementKind,
+	from: string,
+	to: string,
+	width: number
+): MovementElement {
+	return {
+		id,
+		kind,
+		from,
+		to,
+		width,
+		capacity: (profile.capacity * width) / profile.width,
+		mode: 'walk'
+	};
+}
+function registerEnd(
+	s: Survey,
+	r: Reach,
+	side: number,
+	width: number,
+	mouths: ReadonlyMap<string, Mouth>
+) {
+	const end = r.terminals[side],
+		hub = r.hubs[side],
+		mouth = mouths.get(end);
+	const sections = r.sections,
+		i = side ? sections.length - 1 : 0;
+	const position = sections[i].centre,
+		next = sections[i + (side ? -1 : 1)].centre;
+	const heading = mouth
+		? mouth.heading + Math.PI
+		: Math.atan2(position[1] - next[1], position[0] - next[0]);
+	const id = mouth ? end + '/approach' : end;
+	if (!s.ports.has(id)) s.ports.set(id, port(id, 'walkway', position, heading, width));
+	if (hub) s.elements.push(element(id + '/landing', 'junction', hub, id, width));
 
-function passage(survey: Survey, court: string, spans: TownSpan[]) {
+	if (mouth) {
+		registerCourt(s, end, id, mouth, width);
+		seatMouth(side ? sections.toReversed() : sections, mouth.heading);
+	}
+	return id;
+}
+function registerCourt(s: Survey, end: string, id: string, mouth: Mouth, width: number) {
+	if (!s.ports.has(end)) {
+		s.ports.set(end, port(end, 'court', mouth.landing, mouth.heading, width));
+		s.requests.push({
+			id: end + '/dock',
+			from: end,
+			to: id,
+			profile: { ...profile, width, capacity: (profile.capacity * width) / profile.width }
+		});
+	}
+}
+function registerReach(
+	s: Survey,
+	r: Reach,
+	from: string,
+	to: string,
+	kind: MovementKind,
+	width: number,
+	guardGroup?: string
+) {
+	const samples = r.sections;
+	s.elements.push({
+		...element(r.id, kind, from, to, width),
+		guardGroup,
+		via: samples.slice(1, -1).map((p) => p.centre),
+		normals: samples.map(({ left, centre }) => [
+			((left[0] - centre[0]) * 2) / width,
+			((left[1] - centre[1]) * 2) / width
+		])
+	});
+}
+function registerPassage(s: Survey, court: string, spans: TownSpan[], ground: Ground) {
 	let from = court;
-	for (const [i, s] of spans.entries()) {
-		const sill = !!s.inside !== !!spans[i + 1]?.inside;
-		const to = s.id + '/end';
-		survey.ports.push(
-			port(to, sill ? 'entrance' : 'path', s.b, bearing(s.a, s.b), ['path', 'walkway'])
+	for (const { reach, adapter, inside, last } of passageReaches(spans, ground)) {
+		const to = reach.id + '/end',
+			p = required(reach.sections.at(-1), 'passage endpoint').centre;
+		const q = required(reach.sections.at(-2), 'passage heading').centre;
+		if (adapter) {
+			const start = required(s.ports.get(from), 'passage landing').position;
+			const flight = walkingLink(reach.id, [...start], p, 'entrance', 'path');
+			for (const port of flight.ports) s.ports.set(port.id, port);
+			s.elements.push(
+				element(reach.id + '/landing', 'junction', from, flight.ports[0].id, profile.width),
+				...flight.edges
+			);
+			from = flight.ports[1].id;
+			continue;
+		}
+		s.ports.set(
+			to,
+			port(to, last ? 'path' : 'entrance', p, Math.atan2(p[1] - q[1], p[0] - q[0]), profile.width)
 		);
-		survey.elements.push(element(s.id, from, to, s.inside ? 'walkway' : 'path'));
+		registerReach(
+			s,
+			reach,
+			from,
+			to,
+			inside ? 'tunnel' : 'path',
+			profile.width,
+			reach.id + '/rail'
+		);
 		from = to;
 	}
 }
-
-/** Assembles surveyed town routes, oriented court approaches and certified house passages.
- * Both owners share the same oriented mouth on the finished edge. */
+/** Solves alignment and elevation once. The emitted edges carry the complete walking
+ * centreline, cross-section bearings and their two named ports. */
 export function townMovement(
-	routes: readonly string[][],
-	stations: Map<string, Station>,
-	mouths: Map<string, Mouth>,
-	passages: { court: string; spans: TownSpan[] }[]
+	layout: Layout,
+	mouths: ReadonlyMap<string, Mouth>,
+	passages: { court: string; spans: TownSpan[] }[],
+	ground: Ground,
+	clear?: (a: Vec3, b: Vec3) => boolean,
+	water?: Ground
 ) {
-	const survey: Survey = { ports: [], elements: [], requests: [] };
-	const nodes = new Map<string, string>();
-	for (const [id, s] of stations) {
-		const mouth = mouths.get(id);
-		if (mouth) nodes.set(id, courtMouth(survey, id, mouth));
-		else {
-			const next = required(stations.get(s.arms[0]), 'adjacent station').position;
-			survey.ports.push(
-				port(id, 'walkway', s.position, bearing(s.position, next), [
-					'walkway',
-					'station',
-					'bridge',
-					'tunnel'
-				])
-			);
-			nodes.set(id, id);
-		}
+	const survey: Survey = { ports: new Map(), elements: [], requests: [] };
+	fitApproaches(layout, ground, clear, water);
+	const width = ribbonProfile.width;
+	for (const f of layout.forks)
+		survey.ports.set(f.id, {
+			...port(f.id, 'junction', f.position, 0, width),
+			rim: f.rim.map((arc) => arc.map(([x, y]) => [x, y]))
+		});
+	for (const r of layout.reaches) {
+		const from = registerEnd(survey, r, 0, width, mouths),
+			to = registerEnd(survey, r, 1, width, mouths);
+		const crosses = water && r.sections.some(({ centre: [x, y] }) => Number.isFinite(water(x, y)));
+		registerReach(survey, r, from, to, crosses ? 'bridge' : 'walkway', width);
 	}
-	for (const path of routes)
-		for (const [i, to] of path.slice(1).entries()) {
-			const from = path[i];
-			survey.elements.push(
-				element(
-					'town-walk/' + from + '>' + to,
-					required(nodes.get(from), 'route start'),
-					required(nodes.get(to), 'route end'),
-					'walkway'
-				)
-			);
-		}
-	for (const p of passages) passage(survey, p.court, p.spans);
-	const graph = movementNetwork(survey.ports, survey.elements, survey.requests);
-	return { graph, ...ribbonLinks(graph, nodes, mouths) };
-}
-
-function ribbonLinks(
-	graph: ReturnType<typeof movementNetwork>,
-	nodes: Map<string, string>,
-	mouths: Map<string, Mouth>
-) {
-	const ids = new Map([...nodes].map(([id, port]) => [port, id]));
-
-	const approaches = new Map<string, number>();
-	const links = graph.edges.flatMap((e) => {
-		const a = ids.get(e.from),
-			b = ids.get(e.to),
-			mouth = mouths.get(e.from);
-		if (mouth && b === e.from) approaches.set(mouth.landing.join(','), mouth.heading);
-		return a && b ? [[a, b]] : [];
-	});
-	return { links, approaches };
+	for (const p of passages) registerPassage(survey, p.court, p.spans, ground);
+	return movementNetwork([...survey.ports.values()], survey.elements, survey.requests);
 }

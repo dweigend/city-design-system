@@ -194,3 +194,14 @@ test('a stroke traced exactly back to its origin collapses without a singular tu
 		routeLine(grid, { id: 'backtrack', kind: 'viaduct', cellIds: ['40/40', '40/80', '40/40'] })
 	).toBeUndefined();
 });
+
+test('rail rendering and vehicle motion read the same station-to-station graph', () => {
+	const line = route('capsule', straight);
+	const serialized = structuredClone(line);
+	const withStalePath = { ...serialized, path: [], length: 0 };
+	expect(lineParts(withStalePath)).toEqual(lineParts(line));
+	expect(vehiclePoses(withStalePath, 40)).toEqual(vehiclePoses(line, 40));
+	const legacy = { ...serialized, movement: undefined };
+	expect(lineParts(legacy)).toEqual(lineParts(line));
+	expect(vehiclePoses(legacy, 40)).toEqual(vehiclePoses(line, 40));
+});

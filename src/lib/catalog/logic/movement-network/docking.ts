@@ -1,3 +1,4 @@
+import { treadCount } from '../walkway';
 import type { DockRequest, MovementElement, MovementPort } from './types';
 
 type Adapter = 'stair' | 'ramp';
@@ -32,10 +33,14 @@ function walkingAdapter(
 	kind: Adapter
 ) {
 	if (r.mode === 'rail' || run <= epsilon || rise < epsilon) return;
+	if (kind === 'stair' && !fitsTreads(r.profile, rise, run)) return;
 	if (rise <= r.profile.stairGrade * run + epsilon && ports.every((p) => p.accepts.includes(kind)))
 		return kind;
 }
 
+function fitsTreads({ treadGoing, stairGrade }: DockRequest['profile'], rise: number, run: number) {
+	return !treadGoing || treadCount(rise, stairGrade * treadGoing) * treadGoing <= run + epsilon;
+}
 function adapterPort(id: string, kind: Adapter, partner: MovementPort): MovementPort {
 	return { ...partner, id, kind, heading: partner.heading + Math.PI, accepts: [partner.kind] };
 }
@@ -56,6 +61,7 @@ function build(
 		to: to.id,
 		kind,
 		mode: r.mode ?? 'walk',
+		width: r.profile.width,
 		capacity: r.profile.capacity
 	});
 	if (kind !== 'stair' && kind !== 'ramp') return { ports: [], edges: [edge(r.id, a, b, kind)] };

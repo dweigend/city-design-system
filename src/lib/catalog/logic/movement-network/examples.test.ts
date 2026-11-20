@@ -23,6 +23,7 @@ test('a house exit reaches the path within walking grade', () => {
 	expect(graph.edges.map((e) => e.kind)).toEqual(['path']);
 	expect(graph.edges[0].grade).toBeCloseTo(-0.08);
 	expect(graph.edges[0].capacity).toBe(40);
+	expect(graph.edges[0].width).toBe(profile.width);
 	const ramp = connection(
 		{ ...exit, accepts: ['ramp'], position: [0, 0, 0.4] },
 		{ ...path, accepts: ['ramp'] }

@@ -92,6 +92,12 @@ test('house bridge thresholds step onto the two decks and carry a 1.1 m handrail
 		position: [p.position[0], p.position[1], p.position[2] + 0.2]
 	}));
 	const [link] = houseLinks(grid, [a, b], 11);
+	const [edge] = link.graph.edges;
+	expect(edge.kind).toBe('bridge');
+	expect(Math.abs(link.graph.ports[1].position[2] - link.graph.ports[0].position[2])).toBeCloseTo(
+		0.2
+	);
+	expect(edge.via?.length).toBeGreaterThan(0);
 	const plates = link.parts.filter((p) => p.kind === 'prism');
 	const datums = plates.map((p) => p.z + p.height);
 	expect(Math.max(...datums) - Math.min(...datums)).toBeCloseTo(0.2);

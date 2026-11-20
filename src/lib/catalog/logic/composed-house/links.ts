@@ -1,3 +1,4 @@
+import { bridgeWidth, bridgeMovement, houseMovementPorts } from './bridge-movement';
 import { bridgePair } from './people';
 import { required } from '../required';
 import { houseSurfaces, type HouseSurfaces } from './surfaces';
@@ -44,29 +45,38 @@ function link(
 	)
 		return;
 	const id = 'link/' + a.id + '~' + b.id;
-	const width = 2.5;
+	const width = bridgeWidth;
 	const ends = new Set([...a.cells, ...b.cells].map((c) => c.id));
 	const obstacles = boxes.filter(
 		(box) => box.owner !== a.id && box.owner !== b.id && !(box.cell && ends.has(box.cell))
 	);
-	const candidates = a.composition.ports
+	const otherPorts = houseMovementPorts(b);
+	const candidates = houseMovementPorts(a)
 		.flatMap((left) =>
-			b.composition.ports.flatMap((right) => {
-				const route = bridgeRoute(left.position, right.position, distance === 1, obstacles, width);
-				return route ? [route] : [];
+			otherPorts.flatMap((right) => {
+				const route = bridgeRoute(
+					[...left.position],
+					[...right.position],
+					distance === 1,
+					obstacles,
+					width
+				);
+				return route ? [{ ...route, left, right }] : [];
 			})
 		)
 		.sort((l, r) => l.rise - r.rise || l.run - r.run || l.from[2] - r.from[2]);
 	if (!candidates.length) return;
 	const choices = [...new Set(candidates.map((c) => c.kind))];
 	const kind = bridgeForm(a.id, b.id, id, choices, district, seed);
-	const { from, to, route, run, thresholds } = required(
+	const { from, to, route, run, left, right } = required(
 		candidates.find((c) => c.kind === kind),
 		'surveyed bridge form'
 	);
+	const bridge = bridgeMovement(id, route, left, right);
 	return {
 		id,
 		kind,
+		graph: bridge.graph,
 		a: a.id,
 		b: b.id,
 		from,
@@ -75,7 +85,7 @@ function link(
 		width,
 		distance,
 		run,
-		parts: bridgeParts(route, id + '/' + kind, width, surfaces, thresholds)
+		parts: bridgeParts(bridge.path, id + '/' + kind, width, surfaces)
 	};
 }
 type Span = NonNullable<ReturnType<typeof link>>;
