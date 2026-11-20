@@ -1,5 +1,8 @@
 import type { QuadCell } from '../quad-grid';
 
+// Two offset 0.48 m ladder lanes, 0.06 m stiles and 0.05 m clear on each side.
+export const entranceWidth = 1.18;
+
 type XY = [number, number];
 /** Keeps the part of a convex ring on the positive side of a signed line. */
 function clip(ring: XY[], distance: (point: XY) => number) {
@@ -17,8 +20,8 @@ function clip(ring: XY[], distance: (point: XY) => number) {
 /** Opens the entrance cell from its exterior face to the ladder, retaining two piers and the rear room. */
 export function entranceRooms(cell: QuadCell, axis: XY, sign: number) {
 	const ring = cell.corners.map(([x, y]): XY => [x, y]);
-	const left = axis[0] - 0.42,
-		right = axis[0] + 0.42;
+	const left = axis[0] - entranceWidth / 2,
+		right = axis[0] + entranceWidth / 2;
 	const middle = clip(
 		clip(ring, ([x]) => x - left),
 		([x]) => right - x

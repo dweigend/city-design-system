@@ -1,4 +1,4 @@
-import { entranceCell, entranceRooms } from './entrance';
+import { entranceCell, entranceRooms, entranceWidth } from './entrance';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { STORY } from '../../data/grid';
@@ -96,7 +96,7 @@ function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const anchor = entranceCell(plan.site.cells, frontage, plan.sign),
 		bay = footprintBay([anchor]);
 	const axis: XY = [bay.x, bay.y + plan.sign * Math.min(bay.depth * 0.2, 1.4)];
-	const opening = rectangle(...axis, 0.84, 0.82);
+	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
 }
 function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: number) {
@@ -204,7 +204,7 @@ export function perimeterHouse(
 		ground: site.ground,
 		accessSide,
 		family: { bar: 0.3, radius: 0.15, parapet: 'rail' },
-		core: { position: [axis[0], axis[1], site.ground], width: 0.84 },
+		core: { position: [axis[0], axis[1], site.ground], width: entranceWidth },
 		levels,
 		parts,
 		supports: [],
