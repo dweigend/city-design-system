@@ -117,11 +117,14 @@
 	:global(.cg-principle[data-state='open']) .arrow {
 		transform: rotate(90deg);
 	}
-	:global(.cg-principle-body) {
+	/* Closed content keeps the `hidden` attribute of Bits UI: the layout applies only when open. */
+	:global(.cg-principle-body[data-state='open']) {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--space-2);
+	}
+	:global(.cg-principle-body) {
 		/* Aligned with the rule text: id column plus gap. */
 		padding: 0 var(--space-6) var(--space-4) calc(9ch + var(--space-3));
 		font-size: var(--text-s);
