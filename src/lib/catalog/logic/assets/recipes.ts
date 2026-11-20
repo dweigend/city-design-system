@@ -119,7 +119,6 @@ export const recipes: readonly AssetRecipe[] = [
 	scaleFigureAsset,
 	porthole,
 	windowBand,
-	envelopePanel,
 	balcony,
 	bayWindow,
 	louvres,
@@ -230,5 +229,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...studioBlocks,
 	...workFrames,
 	...parkTrees,
-	...cycleScenes
+	...cycleScenes,
+	envelopePanel
 ];
