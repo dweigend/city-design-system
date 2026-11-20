@@ -409,7 +409,16 @@ export function perimeterHouse(
 		access: { axis, kind: 'ladder' },
 		...(sharedRoof === 'terrace' ? {} : { crownUse: crown.use })
 	});
-	const structure =
+	const mouth = exterior.openings[0],
+		floor = levels[0].landing[2];
+	const face: Level['landing'] = [axis[0], plan.sign > 0 ? mouth.max[1] : mouth.min[1], floor];
+	const threshold = {
+		position: face,
+		heading: (plan.sign * Math.PI) / 2,
+		width: mouth.max[0] - mouth.min[0],
+		headroom: mouth.max[2] - floor
+	};
+	const built =
 		principle === 'layers'
 			? layered
 			: framedStructure(
@@ -421,9 +430,10 @@ export function perimeterHouse(
 						ground: seat,
 						parcel: { polygon: exterior.ring, holes: [] }
 					},
-					[...occupancy.floors.map((floor) => floor.datum), top],
-					axis
+					[...occupancy.floors.map((course) => course.datum), top],
+					[threshold.position[0], threshold.position[1]]
 				);
+	const structure = { ...built, threshold };
 	return {
 		structure,
 		id: site.id,

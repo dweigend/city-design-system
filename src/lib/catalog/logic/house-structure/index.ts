@@ -1,6 +1,7 @@
 export type { Access, HouseStructure, Parcel, Platform, SkinPatch } from './contract';
 export { skinFrame, supportedNodes } from './graph';
 export { checkHouseStructure } from './check';
+export { houseThreshold } from './threshold';
 export { structureParts, type SkinSolver, type StructurePart } from './projection';
 export { climb, columns, type Plot } from './plot';
 export { mastHouse } from './mast';

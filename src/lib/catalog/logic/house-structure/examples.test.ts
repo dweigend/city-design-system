@@ -8,6 +8,7 @@ import {
 	checkHouseStructure,
 	exoskeletonHouse,
 	fannedTrussHouse,
+	houseThreshold,
 	mastHouse,
 	tentMastHouse,
 	scaffoldHouse,
@@ -147,8 +148,17 @@ test('every painted house states a buildable structure on its own parcel', () =>
 	}));
 	const context = planEnsemble(sites);
 	for (const site of sites) {
-		const { structure } = composeHouse(site, context);
+		const { structure, levels, accessSide } = composeHouse(site, context);
 		expect(checkHouseStructure(structure)).toEqual([]);
+		// The threshold is a movement port on the access face at entrance floor level.
+		const port = houseThreshold(structure);
+		if (!port) throw new Error('Missing threshold');
+		expect(port.id).toBe(structure.id + '/threshold');
+		expect(port.kind).toBe('entrance');
+		expect(port.position[2]).toBe(levels[0].landing[2]);
+		expect(port.heading).toBe(((accessSide === 'north' ? 1 : -1) * Math.PI) / 2);
+		expect(port.width).toBeGreaterThan(1);
+		expect(port.headroom).toBeGreaterThan(2);
 		expect(structure.ensemble).toBe(sites[0].cells[0].id);
 	}
 });
