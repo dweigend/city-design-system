@@ -4,7 +4,7 @@ import { pipeBetween } from './parts';
 import { stationAt } from './shell-station';
 import { cutPartyWall } from './party-wall-cut';
 import type { HouseComposition } from '../house-typology';
-import type { Vec3 } from '../parametrik/types';
+import type { Primitive, Vec3 } from '../parametrik/types';
 import { houseObject, type HousePart } from './house-object';
 import type { Surface } from './surfaces';
 
@@ -107,7 +107,7 @@ function exposedPanel(
 export function continuousShell(
 	h: HouseComposition,
 	seed: number,
-	surface: Surface & { colourRole?: 'ensemble-ground' },
+	surface: Surface & { colourRole?: Primitive['colourRole'] },
 	frame: Surface
 ): HousePart[] {
 	const shell = h.exterior;
