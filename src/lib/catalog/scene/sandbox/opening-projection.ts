@@ -73,9 +73,7 @@ export function projectScene(
 	const project = projector(view);
 	const houses = courts.map((c) => (c.houses.length ? c.houses.map(project) : [project(c.points)]));
 	return {
-		courts: courts.map((c, i) =>
-			houses[i].reduce((box, h) => box.union(h), view.isPortrait() ? project(c.points) : new Box2())
-		),
+		courts: houses.map((group) => group.reduce((box, house) => box.union(house), new Box2())),
 		houses,
 		landmarks: surroundings.landmarks.map(project),
 		stock: surroundings.stock.map(project),

@@ -72,6 +72,29 @@ function consider(
 		search.best = { group, fit, rank };
 }
 
+// Orthographic screen area grows with the square of the camera scale.
+function areaFit(fit: CourtFit, size: Vector2, room: Vector2, portrait: boolean) {
+	const portion = portrait ? 0.45 : 0.5;
+	const scale = Math.sqrt((portion * room.x * room.y) / (size.x * size.y));
+	const fill = scale * Math.max(size.x / room.x, size.y / room.y);
+	return fill <= 0.98 ? [{ ...fit, fill }] : [];
+}
+
+function fitSizes(
+	fits: CourtFit[],
+	size: Vector2,
+	room: Vector2,
+	median: number,
+	portrait: boolean
+) {
+	const sizes = houseSizes(portrait);
+	const ideal = [sizes.ideal, ...sizes.samples.filter((h) => h !== sizes.ideal)]
+		.map((px) => ({ ...fits[0], fill: (px / median) * Math.max(size.x / room.x, size.y / room.y) }))
+		.filter((f) => f.fill <= 0.98);
+	const subject = areaFit(fits[0], size, room, portrait);
+	return portrait ? [...subject, ...ideal, ...fits] : [...ideal, ...fits, ...subject];
+}
+
 function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit[]) {
 	const { view, screen, data } = search;
 	const size = box.getSize(new Vector2()),
@@ -83,10 +106,8 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 	const median =
 		(heights[Math.floor(heights.length / 2)] + heights[Math.floor((heights.length - 1) / 2)]) / 2;
 	const sizes = houseSizes(view.isPortrait());
-	const ideal = [sizes.ideal, ...sizes.samples.filter((h) => h !== sizes.ideal)]
-		.map((px) => ({ ...fits[0], fill: (px / median) * Math.max(size.x / room.x, size.y / room.y) }))
-		.filter((f) => f.fill <= 0.98);
-	for (const fit of [...ideal, ...fits]) {
+	const candidates = fitSizes(fits, size, room, median, view.isPortrait());
+	for (const fit of candidates) {
 		if (meetsTarget(search.best)) return;
 
 		const scale = view.courtScale(size.x, size.y, room.x, room.y, fit.fill);
@@ -109,31 +130,22 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 }
 
 // Studio sightlines cover both directions along the waterfront and a cross-town view.
-const phoneAngles = [
-	[78, -20],
-	[0, 0],
-	[249, -20],
-	[2, -18],
-	[0, -20],
-	[39, -20],
-	[150, 0],
-	[270, -10]
-] as const;
-const desktopHeadings = [210, 144, 124, 180, 108, 240, 90, 0] as const;
+const portraitHeadings = [172, 170, 180, 124, 144, 108, 90, 0] as const;
+const landscapeHeadings = [210, 144, 124, 180, 108, 240, 90, 0] as const;
 
 /** Maximum number of projected town orientations in a single opening fit. */
-export const openingHeadingLimit = Math.max(phoneAngles.length, desktopHeadings.length);
+export const openingHeadingLimit = Math.max(portraitHeadings.length, landscapeHeadings.length);
 
 function sightlines(view: View, screen: OpeningScreen) {
-	if (view.isPortrait()) return phoneAngles;
 	const room = screen.safe.getSize(new Vector2());
 	const ratio = room.x / room.y;
-	const first = ratio >= 1.65 ? 124 : 144;
-	return [first, ...desktopHeadings.filter((h) => h !== first)].map((h) => [h, -1] as const);
+	if (view.isPortrait()) return portraitHeadings.map((h) => [h, 0] as const);
+	const first = ratio >= 1.65 ? 90 : 108;
+	return [first, ...landscapeHeadings.filter((h) => h !== first)].map((h) => [h, -1] as const);
 }
 
-function searchPairs(search: FrameSearch, groups: number[][], fits: CourtFit[]) {
-	for (const translate of search.view.isPortrait() ? [true] : [false, true]) {
+function searchGroups(search: FrameSearch, groups: number[][], fits: CourtFit[]) {
+	for (const translate of [false, true]) {
 		search.translate = translate;
 		for (const { group, box } of distinctCrops(groups, search.data.courts)) {
 			tryCrop(search, group, box, fits);
@@ -166,7 +178,7 @@ export function frameOccupiedCourts(
 		view.frameSilhouette([new Vector3()], undefined, undefined, [], fits[0]);
 		const data = orientedProjection(view, courts, surroundings, heading);
 		const search: FrameSearch = { view, screen, data, best: previous };
-		searchPairs(search, groups, fits);
+		searchGroups(search, groups, fits);
 		best = search.best;
 		if (meetsTarget(best)) break;
 	}
@@ -174,7 +186,7 @@ export function frameOccupiedCourts(
 	view.frameSilhouette(
 		best.group.flatMap((i) => {
 			const { points, houses } = courts[i];
-			return view.isPortrait() || !houses.length ? [...points, ...houses.flat()] : houses.flat();
+			return houses.length ? houses.flat() : points;
 		}),
 		undefined,
 		area,
