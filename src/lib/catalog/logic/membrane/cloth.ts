@@ -8,27 +8,27 @@ export type Membrane = {
 };
 
 // Eight intervals put both crossed ties and the cut opening on mesh vertices.
-export const clothIntervals = 8;
+export const yarnIntervals = 8;
 const dt = 1 / 60;
 const iterations = 64;
 const cache = new Map<string, Float64Array>();
 
 function fixed(i: number, j: number, cols: number, restraint: Membrane['restraint']) {
-	if (!i || i === cols || !j || j === clothIntervals) return true;
-	if (restraint === 'straps') return i % clothIntervals === 0;
+	if (!i || i === cols || !j || j === yarnIntervals) return true;
+	if (restraint === 'straps') return i % yarnIntervals === 0;
 	return restraint === 'net' && ((2 * i + j) % 16 === 0 || (2 * i - j) % 16 === 0);
 }
 
 /** A welded slit removes these quads from both the pressure load and the visible cloth. */
-export function clothOpening(i: number, j: number) {
-	return i % clothIntervals === 3 && j % clothIntervals >= 2 && j % clothIntervals <= 5;
+export function yarnOpening(i: number, j: number) {
+	return i % yarnIntervals === 3 && j % yarnIntervals >= 2 && j % yarnIntervals <= 5;
 }
 
 function lattice(fabric: Membrane, cols: number, dx: number, dy: number) {
 	const bodies: Body[] = [];
 	// Relaxation mass bounds acceleration along the stiffest yarn for the fixed time step.
 	const mass = 8 * dt ** 2 * fabric.tension * (dx / dy + dy / dx);
-	for (let j = 0; j <= clothIntervals; j++)
+	for (let j = 0; j <= yarnIntervals; j++)
 		for (let i = 0; i <= cols; i++)
 			bodies.push(
 				new Body({
@@ -49,9 +49,9 @@ function patch(fabric: Membrane, cols: number, dx: number, dy: number, bodies: B
 		spring.damping = 0;
 		springs.push(spring);
 	}
-	for (let j = 0; j < clothIntervals; j++)
+	for (let j = 0; j < yarnIntervals; j++)
 		for (let i = 0; i < cols; i++) {
-			if (clothOpening(i, j)) continue;
+			if (yarnOpening(i, j)) continue;
 			const a = j * (cols + 1) + i,
 				b = a + cols + 1;
 			// Adjacent quads each supply half the yarn across a shared edge.
@@ -67,12 +67,12 @@ function patch(fabric: Membrane, cols: number, dx: number, dy: number, bodies: B
 }
 
 /** Bakes the pressure-loaded yarn network in metres at one course between pinned seam rows. */
-export function simulateCloth(fabric: Membrane, cols: number, width: number, height: number) {
+export function solveYarns(fabric: Membrane, cols: number, width: number, height: number) {
 	const key = [fabric.restraint, fabric.pressure, fabric.tension, cols, width, height].join('/');
 	const saved = cache.get(key);
 	if (saved) return saved;
 	const dx = width / cols,
-		dy = height / clothIntervals;
+		dy = height / yarnIntervals;
 	const bodies = lattice(fabric, cols, dx, dy);
 	const { springs, loads } = patch(fabric, cols, dx, dy, bodies);
 	for (let step = 0; step < iterations; step++) {

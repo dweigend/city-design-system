@@ -1,10 +1,10 @@
-import { clothIntervals, simulateCloth, type Membrane } from './cloth';
+import { clothIntervals, simulateCloth, type Membrane } from './inflation';
 
 const parabola = (u: number) => 4 * u * (1 - u);
 
 function cableSpan(u: number, z: number, width: number, fabric: Membrane) {
 	if (fabric.restraint === 'hoops') return width * width * parabola(u);
-	const ribs = Math.max(1, Math.round(width / (fabric.restraint === 'net' ? 6 : 9)));
+	const ribs = clothColumns(width, fabric.restraint) / clothIntervals;
 	// Diagonal ties cross between hoop levels. Boundary seams always remain pinned.
 	const phase = fabric.restraint === 'net' ? 0.5 * z : 0;
 	const wave = (u * ribs + phase) % 1;
@@ -13,7 +13,7 @@ function cableSpan(u: number, z: number, width: number, fabric: Membrane) {
 }
 /** Number of horizontal cloth intervals across one surveyed panel. */
 export function clothColumns(width: number, restraint: Membrane['restraint']) {
-	return clothIntervals * Math.max(1, Math.round(width / (restraint === 'net' ? 6 : 9)));
+	return clothIntervals * Math.max(1, Math.round(width / (restraint === 'hoops' ? 9 : 12)));
 }
 
 function sampleDisplacement(fabric: Membrane, width: number, span: number, u: number, v: number) {
@@ -50,7 +50,7 @@ export function membraneResponse(
 	return { fraction, sag };
 }
 
-export { clothIntervals, clothOpening, simulateCloth } from './cloth';
+export { clothIntervals, clothOpening, simulateCloth } from './inflation';
 
 export type { Membrane } from './cloth';
 
