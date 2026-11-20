@@ -1,4 +1,3 @@
-import { GROUND_TOKEN, type HouseUse } from '../../data/house-body';
 import {
 	structureParts,
 	type HouseStructure,
@@ -9,12 +8,6 @@ import { houseObject, type HousePart, type StockPart } from './house-object';
 import { pipeBetween, slabOver } from './parts';
 import { tensionSkin } from './structure-skin';
 import { houseSurfaces, roleSurface, type HouseSurfaces, type Surface } from './surfaces';
-
-/** A skin takes the calm ground tone of its use unless the caller supplies a shell surface. */
-function shellSurface(surfaces: HouseSurfaces, use: HouseUse): Surface {
-	if (surfaces.shell !== houseSurfaces.shell) return surfaces.shell;
-	return { colourRole: 'ensemble-ground', token: GROUND_TOKEN[use], finish: surfaces.shell.finish };
-}
 
 /** Assigns the palette surface of one colour-agnostic role slot. */
 function slotSurface(part: StructurePart, surfaces: HouseSurfaces): Surface {
@@ -28,7 +21,7 @@ function slotSurface(part: StructurePart, surfaces: HouseSurfaces): Surface {
 		deck: surfaces.deck,
 		screen: roleSurface(surfaces.shell, 'screen'),
 		pane: surfaces.pane,
-		shell: shellSurface(surfaces, use)
+		shell: roleSurface(surfaces.shell, 'shell')
 	};
 	return bySlot[slot];
 }

@@ -18,9 +18,10 @@ const ROOM_SHARE = 0.62;
 const STAIR_SHARE = 0.8;
 
 /**
- * An outer frame of posts, a head ring and tie braces. Rooms hang clear inside it on brackets
- * at `datums`, metres above ground in ascending order below `height`. Screens are tensioned
- * between the posts from the first datum to the head, and a cloth closes the head ring.
+ * An outer frame of posts, a head ring and tie braces. Platforms hang clear inside it on
+ * brackets at `datums`, metres above ground in ascending order below `height`; every second
+ * one, starting with the lowest, encloses a room. Screens are tensioned over every second face
+ * from the first datum to the head, and a cloth closes the head ring.
  * Convex parcel required.
  */
 export function exoskeletonHouse(
@@ -69,20 +70,25 @@ export function exoskeletonHouse(
 			outline: inner,
 			bearers,
 			programme: [plot.use],
-			room: { height: heights[k + 2] - datum - ROOM_CLEARANCE }
+			...(k % 2 ? {} : { room: { height: heights[k + 2] - datum - ROOM_CLEARANCE } })
 		};
 	});
-	const screens: SkinPatch[] = ring.map((_, corner) => ({
-		id: plot.id + '/screen/' + corner,
-		slot: 'screen',
-		use: plot.use,
-		boundary: [
-			{ node: frame.name(corner, 1) },
-			{ node: frame.name(next(corner), 1) },
-			{ node: frame.name(next(corner), top) },
-			{ node: frame.name(corner, top) }
-		]
-	}));
+	const screens = ring.flatMap((_, corner): SkinPatch[] => {
+		if (corner % 2) return [];
+		return [
+			{
+				id: plot.id + '/screen/' + corner,
+				slot: 'screen',
+				use: plot.use,
+				boundary: [
+					{ node: frame.name(corner, 1) },
+					{ node: frame.name(next(corner), 1) },
+					{ node: frame.name(next(corner), top) },
+					{ node: frame.name(corner, top) }
+				]
+			}
+		];
+	});
 	const cover: SkinPatch = {
 		id: plot.id + '/cover',
 		slot: 'shell',

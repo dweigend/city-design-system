@@ -5,13 +5,14 @@ import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
-import { houseSurfaces, sectionSurfaces, type BandAccent } from './surfaces';
+import { houseSurfaces, sectionSurfaces, type BandAccent, type HouseSurfaces } from './surfaces';
 import { accentBody, accentKind } from './accent';
 import type { Section } from './types';
 import { servicePipes } from './service-pipes';
 import { landingSeats } from './landing-seats';
 import type { HousePart, StockPart } from './house-object';
 import { access } from './access';
+import { structureHouse } from './structure-house';
 
 function leadingUse(section: Section) {
 	const counts = new Map<HouseUse, number>();
@@ -35,6 +36,7 @@ function accentParts(parts: HousePart[], kind: BandAccent, use: HouseUse) {
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
 	const surfaces = sectionSurfaces(section, palette);
+	if (section.composition.structure.principle !== 'layers') return framedParts(section, surfaces);
 	const target = accentBody(section),
 		accent = accentKind(section);
 	const house = [
@@ -72,12 +74,24 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 		...terraceFurniture(section, house, surfaces),
 		...servicePipes(section, surfaces).map(cantilever),
 		...walk,
-		...section.composition.people.flatMap((p, i) =>
-			person(p.position, section.id + '/people/' + i, section.seed, surfaces, 0, p.count).map(
-				(member) => ({ ...member, structuralRole: p.structuralRole, carrier: p.carrier })
-			)
-		)
+		...occupants(section, surfaces)
 	];
+}
+
+function occupants(section: Section, surfaces: HouseSurfaces): HousePart[] {
+	return section.composition.people.flatMap((p, i) =>
+		person(p.position, section.id + '/people/' + i, section.seed, surfaces, 0, p.count).map(
+			(member) => ({ ...member, structuralRole: p.structuralRole, carrier: p.carrier })
+		)
+	);
+}
+
+/** A house that is not layered draws its structure contract; its stair and people stay. */
+function framedParts(section: Section, surfaces: HouseSurfaces): HousePart[] {
+	const frame = structureHouse(section.composition.structure, surfaces).filter(
+		(part) => !part.id.endsWith('/access')
+	);
+	return [...frame, ...access(section, surfaces), ...occupants(section, surfaces)];
 }
 
 function cantilever(p: StockPart): HousePart {

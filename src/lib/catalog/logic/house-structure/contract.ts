@@ -72,6 +72,13 @@ export type Access = {
 	head: Vec3;
 };
 
+/**
+ * Where a ground route meets the house: the centre of the surveyed approach mouth on the parcel
+ * face at entrance floor level, the outward plan angle in radians counterclockwise from +x, and
+ * the clear width and headroom in metres.
+ */
+export type Threshold = { position: Vec3; heading: number; width: number; headroom: number };
+
 /** The weather cover, when the house has one. */
 export type Roof =
 	| { kind: 'terrace'; platform: string }
@@ -101,4 +108,5 @@ export type HouseStructure = {
 	skins: SkinPatch[];
 	access: Access[];
 	roof?: Roof;
+	threshold?: Threshold;
 };

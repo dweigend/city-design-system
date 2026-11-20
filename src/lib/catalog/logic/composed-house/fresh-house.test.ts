@@ -33,9 +33,11 @@ test('a freshly painted house of 3, 8 and 16 storeys is one figure with one stai
 				expect(checkFit(section.composition.parts)).toEqual([]);
 				expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
 				expect(circulation(section).stops.length).toBe(section.decks.length + 2);
-				expect(bodies.reduce((sum, p) => sum + volume(p), 0) / total).toBeGreaterThan(
-					accessShare(parts) * 3
-				);
+				// Only a layered house owes its mass to stacked bodies.
+				if (section.composition.structure.principle === 'layers')
+					expect(bodies.reduce((sum, p) => sum + volume(p), 0) / total).toBeGreaterThan(
+						accessShare(parts) * 3
+					);
 				expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
 			}
 });

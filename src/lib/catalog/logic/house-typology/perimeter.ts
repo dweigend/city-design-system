@@ -19,6 +19,7 @@ import { courseDatums, groundCourse } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior, roomLining } from './parcel-section';
 import { layeredStructure } from './layered-structure';
+import { framedStructure, housePrinciple } from './principle';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
@@ -393,17 +394,47 @@ export function perimeterHouse(
 	crown.anchor = 'roof';
 	const sharedRoof = context.houses.get(site.id)?.roof;
 	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
-	const structure = layeredStructure({
+	// The structure stands on the seated ground course, which may differ from the surveyed pad.
+	const seat = exterior.stations[0].z;
+	const ensemble = [...context.houses.keys()].sort()[0];
+	const highPoint = role === 'high' && context.houses.size > 1;
+	const principle = housePrinciple(site, !exterior.faces.every(Boolean), highPoint);
+	const layered = layeredStructure({
 		...occupancy,
 		id: site.id,
-		ensemble: [...context.houses.keys()].sort()[0],
+		ensemble,
 		shellUse: context.shellUse,
-		ground: site.ground,
+		ground: seat,
 		plate: rim,
 		exterior,
 		access: { axis, kind: 'ladder' },
 		...(sharedRoof === 'terrace' ? {} : { crownUse: crown.use })
 	});
+	const mouth = exterior.openings[0],
+		floor = levels[0].landing[2];
+	const face: Level['landing'] = [axis[0], plan.sign > 0 ? mouth.max[1] : mouth.min[1], floor];
+	const threshold = {
+		position: face,
+		heading: (plan.sign * Math.PI) / 2,
+		width: mouth.max[0] - mouth.min[0],
+		headroom: mouth.max[2] - floor
+	};
+	const built =
+		principle === 'layers'
+			? layered
+			: framedStructure(
+					principle,
+					{
+						id: site.id,
+						ensemble,
+						use: layered.use,
+						ground: seat,
+						parcel: { polygon: exterior.ring, holes: [] }
+					},
+					[...occupancy.floors.map((course) => course.datum), top],
+					[threshold.position[0], threshold.position[1]]
+				);
+	const structure = { ...built, threshold };
 	return {
 		structure,
 		id: site.id,

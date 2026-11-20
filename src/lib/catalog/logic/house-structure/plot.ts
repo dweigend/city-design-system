@@ -8,7 +8,7 @@ import type { Access, HouseStructure, Parcel, Platform, Rod, StructureNode, XY }
 export type Plot = { id: string; ensemble: string; use: HouseUse; ground: number; parcel: Parcel };
 
 /** Section radii in metres. */
-export const MAST_RADIUS = 0.18;
+const MAST_RADIUS = 0.18;
 export const POST_RADIUS = 0.09;
 export const TIE_RADIUS = 0.02;
 /** Plate depth of a light platform in metres. */
@@ -58,6 +58,35 @@ export function posts(id: string, ring: XY[], heights: number[]) {
 		heights.map((z) => ({ z, ring })),
 		POST_RADIUS
 	);
+}
+
+/** One central column through `heights`, world metres ascending; the lowest node is founded. */
+export function trunk(id: string, at: XY, heights: number[]) {
+	const column = columns(
+		id,
+		heights.map((z) => ({ z, ring: [at] })),
+		MAST_RADIUS
+	);
+	return { ...column, collar: (level: number) => column.name(0, level) };
+}
+
+/** An open deck on a shrunk parcel ring with one seat node under every corner. */
+export function seatedDeck(plot: Plot, index: number, datum: number, share: number) {
+	const id = plot.id + '/deck/' + index,
+		outline = shrink(plot.parcel.polygon, share);
+	const seats: StructureNode[] = outline.map(([x, y], corner) => ({
+		id: id + '/seat/' + corner,
+		position: [x, y, datum]
+	}));
+	const platform: Platform = {
+		id,
+		datum,
+		thickness: PLATE,
+		outline,
+		bearers: seats.map((seat) => seat.id),
+		programme: [plot.use]
+	};
+	return { platform, seats };
 }
 
 /**

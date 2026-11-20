@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { houseSurfaces, planHouse, structureHouse } from '../composed-house';
+import { bounds } from '../ansicht/geometrie';
+import { houseSurfaces, planHouse, sectionParts, structureHouse } from '../composed-house';
 import { composeHouse, planEnsemble } from '../house-typology';
 import { squareGrid } from '../quad-grid';
 import type { HouseUse } from '../../data/house-body';
@@ -7,7 +8,9 @@ import {
 	checkHouseStructure,
 	exoskeletonHouse,
 	fannedTrussHouse,
+	houseThreshold,
 	mastHouse,
+	tentMastHouse,
 	scaffoldHouse,
 	skinFrame,
 	structureParts,
@@ -45,11 +48,11 @@ function painted(storeys: number, seed: number, span = 10) {
 }
 
 test('example 1: a layered block is one case of the contract and keeps every body', () => {
-	const section = planHouse(painted(3, 7));
+	const section = planHouse(painted(8, 7));
 	const { structure, levels, crown } = section.composition;
 	expect(structure.principle).toBe('layers');
 	expect(checkHouseStructure(structure)).toEqual([]);
-	expect(structure.platforms.filter((p) => p.room)).toHaveLength(3);
+	expect(structure.platforms.filter((p) => p.room)).toHaveLength(8);
 	expect(structure.platforms.map((p) => p.datum)).toEqual([
 		...levels.map((l) => l.position[2]),
 		section.top
@@ -57,46 +60,65 @@ test('example 1: a layered block is one case of the contract and keeps every bod
 	expect(section.slots).toEqual([...levels.flatMap((l) => l.bodies), crown]);
 });
 
-test('example 2: a single mast carries two decks under one tensioned tent', () => {
+test('example 2: a single mast hangs two decks under one tent pulled over its brim rods', () => {
 	const house = mastHouse(plot, { height: 12, datums: [3, 6] });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 3, GROUND + 6]);
 	expect(elements(house, 'room')).toHaveLength(0);
-	expect(elements(house, 'strut')).toHaveLength(3);
+	expect(house.nodes.filter((n) => n.founded)).toHaveLength(1);
 	const tent = skinFrame(house, house.skins[0].id);
 	expect(tent.interior).toEqual([[6, 5, GROUND + 12]]);
-	expect(tent.boundary.every((p) => p[2] === GROUND)).toBe(true);
+	expect(tent.boundary.every((p) => p[2] === GROUND + 12 - 2.2)).toBe(true);
 	expect(tent.edges).toEqual(['cable', 'cable', 'cable', 'cable']);
 	expect(house.roof).toEqual({ kind: 'skin', patches: [house.skins[0].id] });
+	// Small sails drop from every second brim edge to the first raised deck.
+	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(2);
+	expect(elements(house, 'tie')).toHaveLength(8);
 });
 
-test('example 3: an exoskeleton hangs rooms at two datums clear inside its frame', () => {
+test('a free-standing mast holds one high lookout under cloth pulled to ground anchors', () => {
+	const house = tentMastHouse(plot, { height: 13, lookout: 8, open: 1 });
+	expect(checkHouseStructure(house)).toEqual([]);
+	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 8]);
+	// Nothing but the mast and the ladder stands between the ground and the lookout.
+	expect(elements(house, 'room')).toHaveLength(0);
+	expect(house.skins.map((s) => s.id)).toEqual(['plot/gore/0', 'plot/gore/2', 'plot/gore/3']);
+	for (const gore of house.skins) {
+		const { boundary } = skinFrame(house, gore.id);
+		expect(boundary.map((p) => p[2])).toEqual([GROUND, GROUND, GROUND + 13]);
+	}
+});
+
+test('example 3: an exoskeleton hangs platforms at two datums clear inside its frame', () => {
 	const house = exoskeletonHouse(plot, { height: 12, datums: [4, 8] });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 4, GROUND + 8]);
-	expect(elements(house, 'room')).toHaveLength(2);
+	expect(house.platforms.map((p) => Boolean(p.room))).toEqual([true, false]);
 	const posts = house.nodes.filter((n) => n.founded).map((n) => n.position);
 	const reach = (p: number[]) => Math.hypot(p[0] - 6, p[1] - 5);
 	for (const platform of house.platforms)
 		for (const [i, corner] of platform.outline.entries())
 			expect(reach(corner)).toBeLessThan(reach(posts[i]) - 1);
-	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(4);
+	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(2);
 });
 
 test('example 4: a fanned truss throws rods outward and tensions a sail between each pair', () => {
-	const house = fannedTrussHouse(plot, { datum: 5, height: 11 });
+	const house = fannedTrussHouse(plot, { datums: [3, 6], height: 11 });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.roof).toBeUndefined();
-	expect(house.platforms).toHaveLength(1);
+	expect(house.platforms).toHaveLength(2);
 	expect(house.skins).toHaveLength(4);
 	for (const sail of house.skins) {
 		const { boundary, pull } = skinFrame(house, sail.id);
-		// Two rod tips above and outside the deck, tied down to the trunk below it.
+		// Two rod tips above and outside the decks, tied back to the hub on the trunk.
 		expect(boundary[0][2]).toBe(GROUND + 11);
 		expect(boundary[1][2]).toBe(GROUND + 11);
-		expect(boundary[2]).toEqual([6, 5, GROUND + 5 * 0.55]);
-		expect(pull[2]).toEqual([0, 0, 1]);
+		expect(boundary[2]).toEqual([6, 5, GROUND + 11 - 2.6]);
+		expect(Math.hypot(boundary[0][0] - 6, boundary[0][1] - 5)).toBeGreaterThan(5);
+		expect(pull[0][2]).toBeLessThan(0);
 	}
+	// Under every deck four struts fan from the collar below.
+	expect(house.rods.filter((r) => r.id.endsWith('/fan'))).toHaveLength(8);
 });
 
 test('example 5: a scaffold occupies only the datums it is told to', () => {
@@ -112,7 +134,7 @@ test('example 5: a scaffold occupies only the datums it is told to', () => {
 	expect(checkHouseStructure(tower)).toEqual([]);
 });
 
-test('every layered house states a buildable structure on its own parcel', () => {
+test('every painted house states a buildable structure on its own parcel', () => {
 	for (const span of [4.5, 10])
 		for (const storeys of [1, 3, 8, 16])
 			for (const seed of [1, 7, 23, 41])
@@ -126,10 +148,43 @@ test('every layered house states a buildable structure on its own parcel', () =>
 	}));
 	const context = planEnsemble(sites);
 	for (const site of sites) {
-		const { structure } = composeHouse(site, context);
+		const { structure, levels, accessSide } = composeHouse(site, context);
 		expect(checkHouseStructure(structure)).toEqual([]);
+		// The threshold is a movement port on the access face at entrance floor level.
+		const port = houseThreshold(structure);
+		if (!port) throw new Error('Missing threshold');
+		expect(port.id).toBe(structure.id + '/threshold');
+		expect(port.kind).toBe('entrance');
+		expect(port.position[2]).toBe(levels[0].landing[2]);
+		expect(port.heading).toBe(((accessSide === 'north' ? 1 : -1) * Math.PI) / 2);
+		expect(port.width).toBeGreaterThan(1);
+		expect(port.headroom).toBeGreaterThan(2);
 		expect(structure.ensemble).toBe(sites[0].cells[0].id);
 	}
+});
+
+test('free-standing painted houses take every principle and draw no solid storeys', () => {
+	const seen = new Set<string>();
+	let lookouts = 0;
+	for (let seed = 1; seed <= 40; seed++) {
+		const section = planHouse(painted(3, seed));
+		const { structure } = section.composition;
+		seen.add(structure.principle);
+		if (structure.principle === 'layers') continue;
+		const parts = sectionParts(section);
+		expect(parts.some((p) => p.id.includes('/body/'))).toBe(false);
+		expect(parts.some((p) => p.kind === 'mesh' && p.buildingSurface)).toBe(true);
+		// Every platform lies on a storey datum the stair serves, and the highest is the roof datum.
+		const served = [...section.decks.map((d) => d.position[2]), section.top];
+		const datums = structure.platforms.map((p) => p.datum);
+		expect(datums.every((z) => served.includes(z))).toBe(true);
+		expect(datums[datums.length - 1]).toBe(section.top);
+		expect(checkHouseStructure(structure)).toEqual([]);
+		lookouts += Number(datums.length === 1);
+		expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
+	}
+	expect(seen).toEqual(new Set(['layers', 'mast', 'fanned-truss', 'exoskeleton']));
+	expect(lookouts).toBeGreaterThan(0);
 });
 
 test('a tie carries only what hangs below a supported node', () => {
@@ -183,7 +238,7 @@ test('one engine draws every principle from registry stock in role slots', () =>
 	const houses = [
 		mastHouse(plot, { height: 12, datums: [3, 6] }),
 		exoskeletonHouse(plot, { height: 12, datums: [4, 8] }),
-		fannedTrussHouse(plot, { datum: 5, height: 11 }),
+		fannedTrussHouse(plot, { datums: [3, 6], height: 11 }),
 		scaffoldHouse(plot, { bay: 3, bays: 5, occupied: [2, 4], rooms: [4] })
 	];
 	for (const house of houses) {
