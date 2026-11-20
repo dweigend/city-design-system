@@ -18,6 +18,7 @@ import {
 import { courseDatums, groundCourse } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior, roomLining } from './parcel-section';
+import { layeredStructure } from './layered-structure';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
@@ -280,6 +281,8 @@ function courses(
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, seat, slab, seat, 'base')
 	);
 	const levels: Level[] = [];
+	const floors: Parameters<typeof layeredStructure>[0]['floors'] = [];
+	let roofWalk = shapes.full;
 	for (let i = 0; i < programme.length; i++) {
 		const z = i ? datums[i] : seat + slab;
 		const ceiling = datums[i + 1];
@@ -287,7 +290,14 @@ function courses(
 		const shape = floorOutline(plan, shapes, i, gallery, exterior.stations[i].turn, wing);
 		const bodies = floorBodies(plan, shapes, shape, i, z, ceiling, gallery, parts, wing);
 		const [x, y] = extent(shape),
-			use = bodies[0].use;
+			use = programme[i][0];
+		floors.push({
+			polygon: shape.polygon,
+			holes: shape.holes,
+			datum: z,
+			programme: programme[i],
+			height: ceiling - rim - z
+		});
 		levels.push({
 			position: [x.center, y.center, z],
 			width: x.length,
@@ -308,10 +318,12 @@ function courses(
 				? { ...shape, polygon: exterior.stations[programme.length].ring }
 				: shape;
 		parts.push(plate(id + '/' + name, deck, ceiling - rim, rim, ground, 'deck'));
+		roofWalk = deck;
 	}
 	const top = datums[programme.length];
 	const openings = [groundApproach(cells, axis, plan.sign, seat, levels[0].landing[2])];
-	return { levels, parts, access, envelope, top, exterior: { ...exterior, openings } };
+	const occupancy = { floors, roofWalk, parcel: { polygon: plot.polygon, holes: plot.holes } };
+	return { levels, parts, access, envelope, top, exterior: { ...exterior, openings }, occupancy };
 }
 /** Returns the same bearing solids used by the composer, before placing roof furniture. */
 export function bearingCourses(plan: Plan, context: EnsembleContext) {
@@ -347,7 +359,7 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access, envelope, top, exterior } = bearingCourses(plan, context);
+		{ levels, parts, access, envelope, top, exterior, occupancy } = bearingCourses(plan, context);
 	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
 	const options = [
@@ -368,7 +380,19 @@ export function perimeterHouse(
 	crown.anchor = 'roof';
 	const sharedRoof = context.houses.get(site.id)?.roof;
 	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
+	const structure = layeredStructure({
+		...occupancy,
+		id: site.id,
+		ensemble: [...context.houses.keys()].sort()[0],
+		shellUse: context.shellUse,
+		ground: site.ground,
+		plate: rim,
+		exterior,
+		access: { axis, kind: 'ladder' },
+		...(sharedRoof === 'terrace' ? {} : { crownUse: crown.use })
+	});
 	return {
+		structure,
 		id: site.id,
 		ensembleSize: context.houses.size,
 		shellUse: context.shellUse,

@@ -25,10 +25,24 @@ function ladderOffset(h: Section['composition']) {
 			: -0.39;
 	return h.typology === 'tree-house' ? 1.05 : 0.52;
 }
+/** The roof platform's walking surface; without a roof, the nominal storey height. */
+function roofDatum({ structure, ground, stories }: Section['composition']) {
+	const { roof, platforms } = structure;
+	const walk = roof && roof.kind !== 'skin' && platforms.find((p) => p.id === roof.platform);
+	return walk ? walk.datum : ground + stories * STORY;
+}
+/** Bodies exist only where the structure declares a room, and a crown only where it roofs. */
+function occupiedBodies({ structure, levels, crown, fittings }: Section['composition']) {
+	const rooms = structure.platforms.filter((platform) => platform.room);
+	const bodies = levels
+		.filter((level) => rooms.some((room) => room.datum === level.position[2]))
+		.flatMap((level) => level.bodies);
+	return bodies.concat(structure.roof?.kind === 'crown' ? [crown] : [], fittings);
+}
 /** Adapts the frozen composition to the painted-house and stair projection seam. */
 export function planHouse(site: HouseSite): Section {
 	const composition = composeHouse(site, site.context);
-	const { cells, levels, crown, core, start, stories } = composition;
+	const { cells, levels, core, start, stories } = composition;
 	const sign = composition.accessSide === 'north' ? 1 : -1;
 	const rear = core.position[1] + sign * 0.15;
 	const offset = ladderOffset(composition);
@@ -45,12 +59,9 @@ export function planHouse(site: HouseSite): Section {
 		base: [core.position[0], core.position[1], composition.ground],
 		width: Math.max(...levels.map((l) => l.width)),
 		depth: Math.max(...levels.map((l) => l.depth)),
-		top:
-			composition.typology === 'block' ? crown.position[2] : composition.ground + stories * STORY,
+		top: roofDatum(composition),
 		decks: levels,
-		slots: levels
-			.flatMap((l) => l.bodies)
-			.concat(composition.sharedRoof === 'terrace' ? [] : [crown], composition.fittings),
+		slots: occupiedBodies(composition),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
 	if (levels[0].bodies[0].band?.footprint) {

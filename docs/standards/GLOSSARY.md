@@ -134,32 +134,38 @@ This glossary defines the binding English (US) terminology for the design bible,
 
 ## 4. Structural Systems & Structural Analysis
 
-| EN                                       | DE                          | Note                                                                                               |
-| :--------------------------------------- | :-------------------------- | :------------------------------------------------------------------------------------------------- |
-| structural system / structure            | Tragwerk                    | Load-bearing construction of a building (`tragwerke`, `haus-tragwerk`).                            |
-| structural family / construction type    | Trägerfamilie / Bauweise    | One of the five structural families on the Forms page (`TraegerFamilieText`).                      |
-| folded plate structure / folded plate    | Faltwerk                    | Family 1: folded surface structure following the Miura principle (`faltwerk`).                     |
-| mountain fold / valley fold / fold line  | Bergfalte / Talfalte / Falz | Fold edges of a folded plate (`falz`).                                                             |
-| geodesic dome / dome                     | Kuppel (Geodätische Kuppel) | Family 2: strut dome derived from a subdivided icosahedron (`kuppel`).                             |
-| honeycomb skin / hex-pent Goldberg shell | Wabenhaut                   | Dual dome skin of hexagons and twelve pentagons.                                                   |
-| honeycomb structure / hex cluster        | Wabe                        | Family 3: stacked hexagonal prisms around an open shaft (`wabe`).                                  |
-| central shaft / core shaft               | Schacht                     | Open interior shaft in the honeycomb structure.                                                    |
-| space frame / octet truss                | Raumfachwerk                | Family 4: strut truss assembled from tetrahedra and octahedra (`raumfachwerk`).                    |
-| gridshell                                | Gitterschale                | Family 5: shell determined by form finding (inverted hanging form) (`gitterschale`).               |
-| hanging form / funicular form            | Hängeform                   | Mesh hanging under self-weight before inversion.                                                   |
-| force density                            | Kraftdichte                 | Ratio of member force to member length during form finding.                                        |
-| strut / secondary strut / rib            | Stab / Nebenstab / Rippe    | Linear load-bearing members in the structural layout (`stab`, `nebenstab`, `rippe`).               |
-| node / hub                               | Knoten / Nabe               | Connection point of struts in a space frame or dome (`nabe`).                                      |
-| post and beam / mullion and transom      | Pfosten und Riegel          | Vertical and horizontal timber members of the honeycomb structure.                                 |
-| span                                     | Spannweite                  | Freely bridged distance in meters (e.g., 13 m for elevated walkways, 36 m for structural systems). |
-| structural analysis / force analysis     | Kräfteanalyse / Analyse     | Structural evaluation view (`analyse`, `statikSkala.ts`).                                          |
-| full candidate grid                      | Vollgitter                  | Stage 1 of topology optimization: full starting grid (`block`).                                    |
-| sizing / structural sizing               | Bemessung                   | Stage 2 of structural simulation: cross-section sizing by load (`kraefte`).                        |
-| pruning / load-path reduction            | Abtrag (Topologie-Abtrag)   | Stage 3 of structural simulation: removal of lightly loaded struts (`abtrag`).                     |
-| axial force                              | Normalkraft                 | Longitudinal force in a member in newtons or `kN` (`klassenNormalkraft`).                          |
-| tension / compression                    | Zug / Druck                 | Positive axial force (teal, solid) vs. negative axial force (violet, hollow).                      |
-| utilization                              | Ausnutzung                  | Ratio of actual to allowable stress in `%` (`klassenAusnutzung`).                                  |
-| deflection / deformation                 | Durchbiegung / Verformung   | Static displacement under load in `mm` (`klassenVerformung`).                                      |
+| EN                                       | DE                           | Note                                                                                                         |
+| :--------------------------------------- | :--------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| structural system / structure            | Tragwerk                     | Load-bearing construction of a building (`tragwerke`, `haus-tragwerk`).                                      |
+| structural family / construction type    | Trägerfamilie / Bauweise     | One of the five structural families on the Forms page (`TraegerFamilieText`).                                |
+| folded plate structure / folded plate    | Faltwerk                     | Family 1: folded surface structure following the Miura principle (`faltwerk`).                               |
+| mountain fold / valley fold / fold line  | Bergfalte / Talfalte / Falz  | Fold edges of a folded plate (`falz`).                                                                       |
+| geodesic dome / dome                     | Kuppel (Geodätische Kuppel)  | Family 2: strut dome derived from a subdivided icosahedron (`kuppel`).                                       |
+| honeycomb skin / hex-pent Goldberg shell | Wabenhaut                    | Dual dome skin of hexagons and twelve pentagons.                                                             |
+| honeycomb structure / hex cluster        | Wabe                         | Family 3: stacked hexagonal prisms around an open shaft (`wabe`).                                            |
+| central shaft / core shaft               | Schacht                      | Open interior shaft in the honeycomb structure.                                                              |
+| space frame / octet truss                | Raumfachwerk                 | Family 4: strut truss assembled from tetrahedra and octahedra (`raumfachwerk`).                              |
+| gridshell                                | Gitterschale                 | Family 5: shell determined by form finding (inverted hanging form) (`gitterschale`).                         |
+| hanging form / funicular form            | Hängeform                    | Mesh hanging under self-weight before inversion.                                                             |
+| force density                            | Kraftdichte                  | Ratio of member force to member length during form finding.                                                  |
+| strut / secondary strut / rib            | Stab / Nebenstab / Rippe     | Linear load-bearing members in the structural layout (`stab`, `nebenstab`, `rippe`).                         |
+| node / hub                               | Knoten / Nabe                | Connection point of struts in a space frame or dome (`nabe`).                                                |
+| post and beam / mullion and transom      | Pfosten und Riegel           | Vertical and horizontal timber members of the honeycomb structure.                                           |
+| house principle                          | Hausprinzip                  | The way a house carries itself: layers, scaffold, exoskeleton, mast, tower, fanned truss (`HousePrinciple`). |
+| rod / strut / tie                        | Stange / Druckstab / Zugstab | Straight member between two nodes of a house; a tie only pulls (`Rod`).                                      |
+| grip                                     | Zugpunkt                     | Point at which a skin holds a node or a rod (`Grip`).                                                        |
+| skin patch                               | Hüllfeld                     | One cloth tensioned between grips (`SkinPatch`).                                                             |
+| platform                                 | Plattform                    | Occupied level at one datum; a room only where declared (`Platform`).                                        |
+| datum                                    | Höhenlage                    | Height of a walking surface in meters (`datum`).                                                             |
+| span                                     | Spannweite                   | Freely bridged distance in meters (e.g., 13 m for elevated walkways, 36 m for structural systems).           |
+| structural analysis / force analysis     | Kräfteanalyse / Analyse      | Structural evaluation view (`analyse`, `statikSkala.ts`).                                                    |
+| full candidate grid                      | Vollgitter                   | Stage 1 of topology optimization: full starting grid (`block`).                                              |
+| sizing / structural sizing               | Bemessung                    | Stage 2 of structural simulation: cross-section sizing by load (`kraefte`).                                  |
+| pruning / load-path reduction            | Abtrag (Topologie-Abtrag)    | Stage 3 of structural simulation: removal of lightly loaded struts (`abtrag`).                               |
+| axial force                              | Normalkraft                  | Longitudinal force in a member in newtons or `kN` (`klassenNormalkraft`).                                    |
+| tension / compression                    | Zug / Druck                  | Positive axial force (teal, solid) vs. negative axial force (violet, hollow).                                |
+| utilization                              | Ausnutzung                   | Ratio of actual to allowable stress in `%` (`klassenAusnutzung`).                                            |
+| deflection / deformation                 | Durchbiegung / Verformung    | Static displacement under load in `mm` (`klassenVerformung`).                                                |
 
 ---
 
