@@ -8,11 +8,15 @@ test('both stringers support a flight of separate treads', () => {
 		expect(cheeks).toHaveLength(2);
 		for (const p of cheeks) {
 			if (p.kind !== 'mesh') throw Error('Expected solid cheeks');
+			expect(p.points[3][2] - p.points[0][2]).toBeCloseTo(0.6);
 			const across = p.points.map((q) => q[1]);
 			expect(Math.max(...across) - Math.min(...across)).toBeCloseTo(0.3);
 		}
 		const treads = geometry.filter((g) => g.kind === 'box' && g.slot === 'deck');
-		expect(treads.some((g) => g.kind === 'box' && g.position[2] > 1)).toBe(true);
+		const lower = treads[0],
+			next = treads[1];
+		if (lower.kind !== 'box' || next.kind !== 'box') throw Error('Expected closed risers');
+		expect(lower.position[2] + lower.size[2] - next.position[2]).toBeCloseTo(0.12);
 	}
 });
 test('bench and planter retain a walking strip on a 1.5 m terrace', () => {
