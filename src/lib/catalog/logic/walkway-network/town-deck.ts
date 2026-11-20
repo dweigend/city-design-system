@@ -1,21 +1,19 @@
+import { townLife } from './town-life';
+import { ribbonDeck } from './ribbon-deck';
+import { ribbonEntry } from './ribbon-entry';
+import { ribbonNetwork } from './ribbon-network';
 import { walkingProfile } from './walking-profile';
 import { throughRoute, type CourtPassage } from './through-route';
-import { landingGround } from './guard-runs';
 import { courtTerrace } from './court-terrace';
 import { fitWalkingFlights, type FlightReservation } from './flight-fit';
-import { levelRuns } from './level-runs';
 import { type Primitive, type Vec3 } from '../parametrik/types';
-import { pathDeck } from './path-deck';
 export { publicFlight } from './path-deck';
-import { townPath } from './town-path';
 import { houseSurfaces } from '../composed-house';
 import { flushDecks } from './town-floor';
 import { courtLife } from './court-life';
 import { courtGarden } from './court-garden';
-import { meetingPlatforms, meetingSites, reservations } from './town-landings';
 import { finishMaterial } from '../material/surface';
 import { hashUnit } from '../../core/random';
-import { townLife } from './town-life';
 
 import { townLinkSurvey, townStations, townSpans } from './town-stations';
 const frame = { role: 'neu', material: 'metal', ...houseSurfaces.frame } as const;
@@ -96,8 +94,7 @@ export function surveyTownWalk(
 	);
 	return { ends, stations, spans, gardens, unresolved, terraces, courts };
 }
-/** Projects 2.5 m paths and matching steps between surveyed
- * landings. Terminals descend into courts. Degree-three junctions have an open plaza. */
+/** Sweeps the shared public ribbon between finished court edges, forks and surveyed building openings. */
 export function townDeck(
 	routes: readonly string[][],
 	center: (id: string) => Vec3,
@@ -105,9 +102,10 @@ export function townDeck(
 	ground: (x: number, y: number) => number,
 	seed: number,
 	relief = ground,
-	reservationsByLink: ReadonlyMap<string, FlightReservation> = new Map()
+	reservationsByLink: ReadonlyMap<string, FlightReservation> = new Map(),
+	clear?: (a: Vec3, b: Vec3) => boolean
 ) {
-	const { ends, stations, spans, gardens, terraces, courts } = surveyTownWalk(
+	const { stations, gardens, terraces, courts } = surveyTownWalk(
 		routes,
 		center,
 		survey,
@@ -118,10 +116,6 @@ export function townDeck(
 	);
 	const plazas: Primitive[] = terraces.flatMap((t) => t.steps);
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
-	const sites = meetingSites(spans, [...ends.values()]);
-	const forks = new Map(
-		[...stations].filter(([, s]) => s.arms.length === 3).map(([id, s]) => [id, s.position])
-	);
 	const passages = courts.flatMap((c, i) => {
 		for (const p of c.passages ?? []) {
 			if (!p.clearApproach) continue;
@@ -129,33 +123,24 @@ export function townDeck(
 			const route = throughRoute(gardens[i].landing, p, ground, (a, b) =>
 				clear(a, b, walkingProfile.width)
 			);
-			if (route.length) return route;
+			if (route.length) return [route];
 		}
 		return [];
 	});
-	const { bands, junctions } = townPath([...spans, ...passages], forks);
+
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries())
 		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));
 	const planting = gardens.flatMap((g) => g.parts);
-	const taken = reservations([
-		...visitors,
-		...planting.filter((p) => !p.id.endsWith('/bed') && !p.id.includes('/garden/soil/'))
-	]);
-	const meetings = meetingPlatforms(sites, taken, seed, ground);
-	return [
-		...levelRuns(
-			flushDecks([
-				...plazas,
-				...pathDeck(bands, junctions, ground, {
-					guardGround: landingGround([...plazas, ...meetings], ground)
-				}),
-				...meetings
-			]),
-			bands
-		),
-		...planting,
-		...townLife(spans, seed, taken),
-		...visitors
-	];
+	const network = ribbonNetwork(routes, stations);
+	const entries = passages.flatMap((route) => ribbonEntry(route, ground, plazas));
+	const deck = ribbonDeck(network, ground, plazas, { clear });
+	const walkers = network.reaches.flatMap((r) =>
+		townLife(
+			r.sections.map((s) => s.centre),
+			r.id,
+			seed
+		)
+	);
+	return [...flushDecks(plazas), ...deck, ...entries, ...walkers, ...planting, ...visitors];
 }

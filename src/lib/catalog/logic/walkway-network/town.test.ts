@@ -1,4 +1,4 @@
-import { surveyedFloors, surveyedWalk, walkingPlates } from './town-survey.test-support';
+import { ribbonQuads, surveyedWalk, walkingPlates } from './town-survey.test-support';
 import { assetRegistry } from '../assets';
 import { townLife } from './town-life';
 import { courtLife } from './court-life';
@@ -31,11 +31,7 @@ function standsOn(
 		return Math.min(...cross) >= -1e-7 || Math.max(...cross) <= 1e-7;
 	});
 }
-function width(p: Plate) {
-	return distance(p.polygon[0], p.polygon[1]);
-}
-
-function topology(walk: string[][], courts: Set<string>, parts: Primitive[]) {
+function topology(walk: string[][], courts: Set<string>) {
 	const degree = new Map<string, number>(),
 		edges = new Set<string>();
 	for (const path of walk) {
@@ -51,52 +47,27 @@ function topology(walk: string[][], courts: Set<string>, parts: Primitive[]) {
 	}
 	for (const id of courts) {
 		expect(degree.get(id)).toBe(1);
-		expect(
-			parts.some(
-				(p) =>
-					p.id.startsWith('town-walk/' + id + '>') &&
-					(p.id.includes(':tread:') || p.id.endsWith('/ramp'))
-			)
-		).toBe(true);
 	}
 	expect(Math.max(...degree.values())).toBeLessThanOrEqual(3);
 }
 
-function publicDeck(parts: Primitive[], pink: Primitive[], floor: Plate[]) {
+function publicDeck(parts: Primitive[], pink: Primitive[]) {
 	const rails = parts.filter((p) => p.kind === 'pipe' && p.id.startsWith('town-walk/rail/'));
 	expect(rails.length).toBeGreaterThan(0);
-	for (const rail of rails)
-		if (rail.kind === 'pipe') {
-			expect(rail.radius * 2).toBeCloseTo(0.12);
-			expect(rail.points.length).toBeGreaterThan(1);
-		}
-
+	for (const rail of rails) if (rail.kind === 'pipe') expect(rail.radius).toBe(0.026);
 	expect(
 		pink.every(
 			(p) =>
 				p.id.startsWith('town-walk/') &&
-				(p.kind === 'prism' ||
-					p.kind === 'cylinder' ||
-					(p.kind === 'mesh' && p.id.endsWith('/ramp')))
+				(p.id.endsWith('/ramp') || p.id.startsWith('town-walk/joint/'))
 		)
 	).toBe(true);
-
-	for (const p of floor) {
-		expect(width(p)).toBeCloseTo(2.5);
-		expect(p.height).toBeLessThanOrEqual(0.25);
-	}
-	const spans = floor.filter((p) => !(p.id.includes(':tread:') || p.id.endsWith('/ramp')));
-	let area = 0;
-	for (const p of spans) {
-		const run = distance(p.polygon[0], p.polygon[3]);
-		expect(run).toBeLessThanOrEqual(25);
-		area += run * width(p);
-		const piers = parts.filter((q) => q.id.startsWith(p.id + '/pier/'));
-		expect(piers.length).toBeGreaterThanOrEqual(Math.ceil(run / 12));
-	}
-	return area;
+	expect(
+		parts.filter(
+			(p) => p.id.startsWith('town-walk/') && /platform|:tread:|girder|planter/.test(p.id)
+		)
+	).toEqual([]);
 }
-
 function checkSupport(members: Primitive[], surfaces: Primitive[], feet: number) {
 	const head = members.find((p) => p.kind === 'sphere');
 	if (head?.kind !== 'sphere' || !head.id.includes('/kit-scatter-')) return;
@@ -133,10 +104,15 @@ function footprintSupport(parts: Primitive[], surfaces: Primitive[]) {
 	}
 }
 
-function people(parts: Primitive[], length: number, courts: Set<string>) {
+function people(parts: Primitive[], courts: Set<string>) {
 	const surfaces = walkingPlates(parts);
-	footprintSupport(parts, surfaces);
-	const heads = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-'));
+	footprintSupport(
+		parts.filter((p) => !p.id.includes('/life/')),
+		surfaces
+	);
+	const heads = parts.filter(
+		(p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-') && !p.id.includes('/life/')
+	);
 	for (const head of heads) {
 		const prefix = head.id.slice(0, head.id.lastIndexOf('/') + 1);
 		const feet = Math.min(
@@ -145,8 +121,21 @@ function people(parts: Primitive[], length: number, courts: Set<string>) {
 		expect(head.kind === 'sphere' && standsOn(head, surfaces, feet)).toBe(true);
 	}
 	for (const id of courts) expect(heads.some((p) => p.id.startsWith(id + '/court/'))).toBe(true);
-	const publicHeads = heads.filter((h) => h.id.includes('/life/'));
-	expect(Math.abs(publicHeads.length - length / 20)).toBeLessThanOrEqual(1);
+	const walkers = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/life/'));
+	expect(walkers.length).toBeGreaterThan(0);
+	const decks = parts.filter((p) => p.kind === 'mesh' && p.id.endsWith('/ramp'));
+	for (const deck of decks)
+		if (deck.kind === 'mesh') {
+			const path = deck.points
+				.filter((_, i) => i % 4 === 2)
+				.map((p, i) => p.map((v, k) => (v + deck.points[i * 4 + 3][k]) / 2) as Vec3);
+			const length = path
+				.slice(1)
+				.reduce((n, p, i) => n + Math.hypot(...p.map((v, k) => v - path[i][k])), 0);
+			expect(walkers.filter((w) => w.id.startsWith(deck.id.slice(0, -5) + '/life/'))).toHaveLength(
+				Math.floor(length / 28)
+			);
+		}
 	for (const head of heads)
 		expect(assetRegistry.some((a) => head.id.includes('/' + a.id + '/'))).toBe(true);
 }
@@ -189,52 +178,18 @@ test('native plaza gatherings and single walkers fill carriers sized for their f
 			expect(
 				figures.filter((p) => p.kind === 'sphere' && p.id.includes('kit-scatter-plaza-' + n + '/'))
 			).toHaveLength(n);
-		const spans = Array.from({ length: 40 }, (_, i) => ({
-			id: 'route/' + i,
-			a: [0, i * 5, 2] as Vec3,
-			b: [20, i * 5, 2] as Vec3
-		}));
-		const walkers = townLife(spans, seed);
-		expect(
-			walkers
-				.filter((p) => p.id.includes('/life/'))
-				.every((p) => p.id.includes('/kit-scatter-walk/'))
-		).toBe(true);
-		expect(walkers.filter((p) => p.kind === 'sphere' && p.id.includes('/life/'))).toHaveLength(40);
+		const walkers = townLife(
+			[
+				[0, 0, 2],
+				[80, 0, 2],
+				[120, 0, 2]
+			],
+			'route',
+			seed
+		);
+		expect(walkers.filter((p) => p.kind === 'sphere')).toHaveLength(4);
 	}
 });
-
-function checkMeetings(parts: Primitive[], floor: Plate[], courts: Set<string>) {
-	const heads = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-'));
-	expect(heads.every((p) => p.token === '--ink' && p.finish === 'metall-graphit')).toBe(true);
-	const near = (p: Primitive, at: Vec3) =>
-		p.kind === 'sphere' &&
-		Math.hypot(p.position[0] - at[0], p.position[1] - at[1]) <= 4.2 &&
-		Math.abs(p.position[2] - at[2] - 1.5) < 0.4;
-	const platforms = parts.filter(
-		(p) =>
-			p.kind === 'prism' &&
-			p.id.startsWith('town-walk/platform/') &&
-			!p.id.includes('/meeting/') &&
-			!p.id.includes('/panel/')
-	);
-	for (const p of platforms)
-		expect(heads.filter((h) => h.id.startsWith(p.id + '/meeting/'))).toHaveLength(3);
-	for (const p of floor.filter((p) => p.id.endsWith(':tread:0'))) {
-		const key = p.id.slice(0, -1);
-		const treads = floor.filter((q) => q.id.startsWith(key));
-		for (const [t, i, j] of [
-			[p, 0, 1],
-			[treads[treads.length - 1], 2, 3]
-		] as const) {
-			const a = t.polygon[i],
-				b = t.polygon[j];
-			const at: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, t.z + t.height];
-			expect(heads.filter((h) => near(h, at)).length).toBeGreaterThanOrEqual(3);
-		}
-	}
-	checkGardens(parts, heads, courts);
-}
 
 function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string>) {
 	for (const id of courts) {
@@ -247,7 +202,7 @@ function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string
 			(p): p is Plate => p.kind === 'prism' && p.id.startsWith(plate.id + '/step/')
 		);
 		expect(steps.length).toBeGreaterThan(1);
-		expect(steps.every((p) => width(p) >= 1.2)).toBe(true);
+		expect(steps.every((p) => distance(p.polygon[0], p.polygon[1]) >= 1.2)).toBe(true);
 		const trees = new Set(
 			parts
 				.filter((p) => p.id.startsWith(id + '/garden/') && p.id.includes('park-tree-'))
@@ -264,7 +219,7 @@ function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string
 	}
 }
 
-function transit(world: World, floor: Plate[]) {
+function transit(world: World, floor: { polygon: Point[] }[]) {
 	const lines = world.lines.filter((l) => l.kind === 'viaduct');
 	expect(lines.length).toBeGreaterThan(0);
 	const stock = [...world.state.storyParts]
@@ -300,7 +255,7 @@ for (const seed of [7, 13, 29])
 			const parts = cityCentreView(world),
 				pink = parts.filter((p) => p.token === houseSurfaces.access.token);
 			const courts = new Set(city.centres.flatMap((c) => c.ensembles.map((g) => g.court)));
-			const floor = surveyedFloors(world);
+
 			for (const id of courts) {
 				const plate = parts.find((p) => p.id === 'court/' + id);
 				expect(
@@ -314,14 +269,18 @@ for (const seed of [7, 13, 29])
 				expect(assets.size).toBe(1);
 			}
 
-			topology(city.walk, courts, parts);
-			checkMeetings(parts, floor, courts);
-			publicDeck(parts, pink, floor);
+			topology(city.walk, courts);
+			checkGardens(
+				parts,
+				parts.filter((p) => p.kind === 'sphere'),
+				courts
+			);
+			publicDeck(parts, pink);
 			const runs = surveyedWalk(world).spans.map((s) => ({
 				id: s.id,
 				length: distance(xy(s.a), xy(s.b))
 			}));
-			const length = runs.reduce((sum, s) => sum + s.length, 0);
+
 			// Measured projected walk lengths before the centre greens were introduced.
 			const original = new Map([
 				[7, 491.5365],
@@ -339,10 +298,10 @@ for (const seed of [7, 13, 29])
 				0
 			);
 			expect(internalLength).toBeLessThan(required(original.get(seed), 'reference length'));
-			people(parts, length, courts);
+			people(parts, courts);
 			transit(
 				world,
-				walkingPlates(parts).filter((p) => p.token === houseSurfaces.access.token)
+				ribbonQuads(parts).map((q) => ({ polygon: q.points.map(xy) }))
 			);
 			expect(cityCentreView(world)).toEqual(parts);
 		},

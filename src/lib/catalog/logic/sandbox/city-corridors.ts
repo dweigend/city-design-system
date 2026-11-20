@@ -1,10 +1,10 @@
-import { cityPassages } from './city-passages';
+import { cityPassages, cityRibbonClearance } from './city-passages';
 import { courtBench } from './town-grading';
 import { surveyedGrid } from './town-grid';
 import { area } from '../ansicht/geometrie';
 import { required } from '../required';
 import { townDeck, courtLanding } from '../walkway-network';
-import { walkingHeight, surfaceHeight } from './network-terrain';
+import { walkingHeight, walkingSampler, surfaceHeight } from './network-terrain';
 import type { Vec3 } from '../parametrik/types';
 import { bankHeight, type TerrainCell } from '../terrain-grid';
 import type { World } from './world-contract';
@@ -29,7 +29,7 @@ export function cityCorridorSite(world: World) {
 	const city = world.state.city;
 	if (!city?.walk) return;
 	const cell = (id: string) => required(world.grid.cellsById.get(id), 'surveyed site');
-	const ground = (x: number, y: number) => walkingHeight(world.grid, x, y);
+	const ground = walkingSampler(world.grid);
 	const courts = city.centres.flatMap((c) =>
 		(c.ensembles ?? []).map((group) => {
 			const inset = courtLanding(cell(group.court), courtBench(surveyedGrid(world.grid), group));
@@ -73,6 +73,8 @@ export function cityCorridorPaths(
 		courts.map((c) => ({ ...c, passages: openings?.get(c.id) })),
 		ground,
 		seed,
-		(x, y) => walkingHeight(relief, x, y)
+		(x, y) => walkingHeight(relief, x, y),
+		undefined,
+		cityRibbonClearance(world)
 	);
 }

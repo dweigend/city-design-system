@@ -23,6 +23,23 @@ export function walkingHeight(grid: TerrainGrid, x: number, y: number) {
 	return cell.bank ? bankHeight(cell, x, y) : surfaceHeight(cell.corners, x, y);
 }
 
+/** Samples nearby route stations using the last triangle parcel when the point is strictly inside. */
+export function walkingSampler(grid: TerrainGrid) {
+	let cell: ReturnType<typeof cellAtPoint>;
+	return (x: number, y: number) => {
+		const corners = cell?.corners;
+		if (
+			!corners?.every(([u, v], i) => {
+				const next = corners[(i + 1) % 4];
+				return (next[0] - u) * (y - v) - (next[1] - v) * (x - u) > 1e-9;
+			})
+		)
+			cell = cellAtPoint(grid, x, y);
+		if (!cell) return NaN;
+		return cell.bank ? bankHeight(cell, x, y) : surfaceHeight(cell.corners, x, y);
+	};
+}
+
 /** Interpolates a surveyed quad on its rendered diagonal. */
 export function surfaceHeight(corners: readonly Vec3[], x: number, y: number) {
 	const [a, b, c, d] = corners;

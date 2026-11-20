@@ -31,14 +31,3 @@ export function retainingFoot(p: Plate, ground: Ground): Primitive {
 		lines: [top.map((_, i) => i + n).concat(n)]
 	};
 }
-
-/** Extends a low circular landing into the bank down to the lowest perimeter sample. */
-export function landingBase(position: Vec3, radius: number, ground: Ground) {
-	const [x, y, z] = position;
-	const levels = Array.from({ length: 16 }, (_, i) => {
-		const a = (i * Math.PI) / 8;
-		return ground(x + radius * Math.cos(a), y + radius * Math.sin(a));
-	});
-	const base = Math.min(...levels, ground(x, y)) - 0.04;
-	return z - base <= retainingHeight ? Math.min(z - 0.2, base) : undefined;
-}

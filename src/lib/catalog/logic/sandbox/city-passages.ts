@@ -30,6 +30,11 @@ function clearApproach(lots: ReturnType<typeof occupied>, a: Vec3, b: Vec3, widt
 		(lot) => !overlaps(lot.bounds, bounds) || area(intersect(deck, lot.polygon)) <= 1e-7
 	);
 }
+/** Tests the complete walking width of a candidate contour approach against occupied plots. */
+export function cityRibbonClearance(world: World) {
+	const lots = occupied(world);
+	return (a: Vec3, b: Vec3) => clearApproach(lots, a, b, 2.5);
+}
 /** Associates each measured through-opening with its served ensemble. External approaches
  * must clear every other built or reserved plot at the full walking width. */
 export function cityPassages(world: World, survey: Survey) {

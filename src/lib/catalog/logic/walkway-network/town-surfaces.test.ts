@@ -1,4 +1,5 @@
-import { meetingSites } from './town-landings';
+import { ribbonNetwork } from './ribbon-network';
+import { ribbonDeck } from './ribbon-deck';
 import { throughRoute } from './through-route';
 import { required } from '../required';
 import { fitWalkingFlights } from './index';
@@ -162,7 +163,9 @@ test('rolling terrain stays a continuous ribbon across a bend without stair plat
 	);
 	const spans = townSpans(townLinkSurvey(route, stations, new Map()), stations, new Map());
 	expect(spans).toHaveLength(2);
-	expect(meetingSites(spans, [])).toEqual([]);
+	expect(
+		ribbonDeck(ribbonNetwork(route, stations), () => 0, []).some((p) => p.id.includes('/platform/'))
+	).toBe(false);
 	const { bands, junctions } = townPath(spans, new Map());
 	const ramps = pathDeck(bands, junctions, () => 0).filter(
 		(p) => p.kind === 'mesh' && p.id.endsWith('/ramp')
@@ -289,39 +292,46 @@ test('level court and apron paving open both sides of a walk over low terrain', 
 		rails
 			.filter((points) => points.every((p) => p[1] === y))
 			.map((points) => [points[0][0], points.at(-1)?.[0]]);
-	expect(ranges(-1.25)).toEqual([
-		[0, 3],
-		[8, 25]
-	]);
-	expect(ranges(1.25)).toEqual([
-		[0, 8],
-		[22, 25]
-	]);
-});
-
-test('a raised bridge has a closed structural section seated on flared ground-bearing piers', () => {
-	const parts = publicFlight(
-		{ id: 'bridge', a: [0, 0, 4], b: [20, 0, 4] },
-		(x, y) => 0.05 * x + 0.02 * y
-	);
-	const girder = parts.find((p) => p.id === 'bridge/girder');
-	if (girder?.kind !== 'mesh') throw Error('missing box girder');
-	expect(Math.max(...girder.points.map((p) => p[2]))).toBeCloseTo(3.8);
-	const soffit = Math.min(...girder.points.map((p) => p[2]));
-	expect(soffit).toBeCloseTo(3.38);
-	const piers = parts.filter((p) => p.kind === 'mesh' && p.id.startsWith('bridge/pier/'));
-	expect(piers).toHaveLength(2);
-	for (const pier of piers) {
-		if (pier.kind !== 'mesh') throw Error('missing pier');
-		for (const [x, y, z] of pier.points.slice(0, 4))
-			expect(z).toBeCloseTo(0.05 * x + 0.02 * y - 0.04);
-		expect(pier.points.slice(-4).every((p) => Math.abs(p[2] - soffit) < 1e-8)).toBe(true);
+	for (const [side, targets] of [
+		[
+			-1.25,
+			[
+				[0, 3],
+				[8, 25]
+			]
+		],
+		[
+			1.25,
+			[
+				[0, 8],
+				[22, 25]
+			]
+		]
+	] as const) {
+		const actual = ranges(side);
+		expect(actual).toHaveLength(targets.length);
+		for (const [i, pair] of targets.entries())
+			for (const [j, x] of pair.entries()) expect(actual[i][j]).toBeCloseTo(x, 6);
 	}
 });
 
+test('bridge columns seat against the sloping ground and terminate at the deck soffit', () => {
+	const ground = (x: number, y: number) => 0.05 * x + 0.02 * y;
+	const parts = publicFlight({ id: 'bridge', a: [0, 0, 4], b: [20, 0, 4] }, ground);
+	const columns = parts.filter((p) => p.kind === 'cylinder' && p.id.startsWith('bridge/pier/'));
+	expect(columns).toHaveLength(3);
+	for (const c of columns)
+		if (c.kind === 'cylinder') {
+			const [x, y, z] = c.position;
+			expect(z).toBeCloseTo(ground(x, y), 10);
+			expect(z + c.height).toBeCloseTo(3.8, 10);
+			expect(c.radius).toBe(0.12);
+		}
+});
+
 test('a court bridge enters and leaves surveyed openings on different floors and meets ground', () => {
-	const entry: Vec3 = [16, 0, 4],
-		exit: Vec3 = [26, 0, 2],
+	const entry: Vec3 = [16, 0, 1.4],
+		exit: Vec3 = [26, 0, 0.8],
 		terminal: Vec3 = [0, 0, 1];
 	const passage = {
 		id: 'test-house',
@@ -362,8 +372,8 @@ test('a court bridge enters and leaves surveyed openings on different floors and
 
 test('a public court terminal and its furnished house passage use one swept deck', () => {
 	const centre: Vec3 = [0, 0, 1],
-		entry: Vec3 = [11, 4, 4],
-		exit: Vec3 = [21, 4, 2];
+		entry: Vec3 = [11, 4, 1.2],
+		exit: Vec3 = [21, 4, 0.65];
 	const site = {
 		id: 'court',
 		position: centre,
@@ -395,11 +405,11 @@ test('a public court terminal and its furnished house passage use one swept deck
 	);
 	const member = (part: Primitive) => part.id.startsWith('town-walk/passage/house/');
 	expect(
-		parts.some((p) => member(p) && p.id.includes('/approach/') && p.id.endsWith('/girder'))
+		parts.some((p) => member(p) && p.id.includes('/approach/') && p.id.endsWith('/ramp'))
 	).toBe(true);
-	expect(
-		parts.some((p) => member(p) && p.id.includes('/inside/') && p.id.includes(':tread:'))
-	).toBe(true);
+	expect(parts.some((p) => member(p) && p.id.includes('/inside/') && p.id.endsWith('/ramp'))).toBe(
+		true
+	);
 	expect(parts.some((p) => member(p) && p.id.includes('/inside/') && p.id.includes('/pier/'))).toBe(
 		false
 	);
@@ -408,8 +418,104 @@ test('a public court terminal and its furnished house passage use one swept deck
 			(p) =>
 				member(p) &&
 				p.id.includes('/descent/') &&
-				p.kind === 'prism' &&
-				Math.abs(p.z + p.height) < 1e-7
+				p.kind === 'mesh' &&
+				p.id.endsWith('/ramp') &&
+				Math.abs(p.points[p.points.length - 1][2]) < 1e-7
 		)
 	).toBe(true);
+});
+
+test('a smooth public ribbon carries a constant section on slender equally spaced columns', () => {
+	for (const points of [
+		[
+			[0, 0, 5],
+			[10, 0, 5],
+			[10, 12, 5],
+			[20, 15, 5]
+		],
+		[
+			[0, 0, 5],
+			[12, 0, 5],
+			[18, -9, 5],
+			[30, -10, 5]
+		]
+	] as Vec3[][]) {
+		const ids = points.map((_, i) => String(i)),
+			stations = new Map(
+				ids.map((id, i) => [
+					id,
+					{ position: points[i], arms: ids.filter((_, j) => Math.abs(i - j) === 1) }
+				])
+			);
+		const network = ribbonNetwork([ids], stations),
+			parts = ribbonDeck(network, () => 0, []);
+		const sections = network.reaches[0].sections,
+			c = sections.map((s) => s.centre);
+		const ds = chainage(c),
+			columns = parts.filter((p) => p.kind === 'cylinder' && p.id.includes('/pier/'));
+		const bay = ds[ds.length - 1] / columns.length;
+		expect(bay).toBeLessThanOrEqual(8);
+		for (const [i, p] of columns.entries())
+			if (p.kind === 'cylinder') {
+				const seat = pathPoint(c, ds, (i + 0.5) * bay);
+				expect(p.radius * 2).toBe(0.24);
+				expect(
+					Math.hypot(p.position[0] - seat[0], p.position[1] - seat[1], p.position[2])
+				).toBeLessThan(1e-9);
+				expect(p.height).toBeCloseTo(4.85, 8);
+			}
+		const mesh = parts.find((p) => p.kind === 'mesh' && p.id.endsWith('/ramp'));
+		if (mesh?.kind !== 'mesh') throw Error('missing ribbon');
+		for (let i = 0; i < mesh.points.length; i += 4) {
+			expect(mesh.points[i + 3][2] - mesh.points[i][2]).toBeCloseTo(0.15, 10);
+			expect(
+				Math.hypot(...mesh.points[i + 2].map((v, k) => v - mesh.points[i + 3][k]))
+			).toBeCloseTo(2.5, 8);
+		}
+		let lastK = 0;
+		for (let i = 1; i < c.length - 1; i++) {
+			const a = c[i].map((v, k) => v - c[i - 1][k]),
+				b = c[i + 1].map((v, k) => v - c[i][k]),
+				la = Math.hypot(...a),
+				lb = Math.hypot(...b);
+			const angle = Math.acos(
+				Math.min(1, Math.max(-1, a.reduce((n, v, k) => n + v * b[k], 0) / (la * lb)))
+			);
+			const curvature = angle / (0.5 * (la + lb));
+			expect(angle).toBeLessThan(Math.PI / 72);
+			expect(Math.abs(curvature - lastK)).toBeLessThan(0.15);
+			lastK = curvature;
+		}
+		expect(parts.filter((p) => /platform|girder|:tread:/.test(p.id))).toEqual([]);
+	}
+});
+
+test('a closed ribbon welds its last section to its first without an end cap', () => {
+	const points: Vec3[] = [
+		[0, 0, 3],
+		[14, 0, 3],
+		[14, 14, 3],
+		[0, 14, 3]
+	];
+	const ids = points.map((_, i) => String(i)),
+		ring = [...ids, ids[0]];
+	const stations = new Map(
+		ids.map((id, i) => [id, { position: points[i], arms: [ids[(i + 3) % 4], ids[(i + 1) % 4]] }])
+	);
+	const network = ribbonNetwork([ring], stations);
+	expect(network.reaches).toHaveLength(1);
+	const deck = ribbonDeck(network, () => 0, []).find(
+		(p) => p.kind === 'mesh' && p.id.endsWith('/ramp')
+	);
+	if (deck?.kind !== 'mesh') throw Error('missing loop');
+	const edges = new Map<string, number>();
+	for (let i = 0; i < deck.triangles.length; i += 3) {
+		const tri = deck.triangles.slice(i, i + 3);
+		for (let j = 0; j < 3; j++) {
+			const key = [tri[j], tri[(j + 1) % 3]].sort((a, b) => a - b).join(',');
+			edges.set(key, (edges.get(key) ?? 0) + 1);
+		}
+	}
+	expect([...edges.values()].every((count) => count === 2)).toBe(true);
+	expect(deck.triangles.length).toBe(6 * deck.points.length);
 });

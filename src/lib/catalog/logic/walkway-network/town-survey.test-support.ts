@@ -1,7 +1,5 @@
 import { surveyedGrid } from '../sandbox/town-grid';
 import { walkingHeight } from '../sandbox/network-terrain';
-import { needsTreads } from './walking-profile';
-import { spanSurvey, deckCorners } from '../walkway';
 import type { Primitive } from '../parametrik/types';
 import type { World } from '../sandbox';
 import { cityCorridorSite } from '../sandbox/city-corridors';
@@ -15,21 +13,19 @@ export function surveyedWalk(world: World) {
 	const relief = surveyedGrid(world.grid);
 	return surveyTownWalk(...site, (x, y) => walkingHeight(relief, x, y));
 }
-/** Samples flat deck stations and stair treads for dimensional checks. */
-export function surveyedFloors(world: World) {
-	return surveyedWalk(world)
-		.spans.filter((s) => s.a[2] === s.b[2] || needsTreads(s.a, s.b))
-		.flatMap(({ id, a, b }) =>
-			spanSurvey(deckCorners(a, b, 2.5), id, 2.5, { thickness: 0.2, treadRise: 0.17 }).treads.map(
-				(t) => ({
-					...t,
-					kind: 'prism' as const,
-					token: '--paper' as const,
-					role: 'neu' as const,
-					material: 'concrete' as const
+/** Reads the upper quads in the renderer's indexed sweep. */
+export function ribbonQuads(parts: Primitive[]) {
+	return parts.flatMap((p) =>
+		p.kind !== 'mesh' || !p.id.startsWith('town-walk/') || !p.id.endsWith('/ramp')
+			? []
+			: Array.from({ length: p.points.length / 4 - 1 }, (_, i) => {
+					const j = i * 4;
+					return {
+						id: p.id,
+						points: [p.points[j + 2], p.points[j + 3], p.points[j + 7], p.points[j + 6]]
+					};
 				})
-			)
-		);
+	);
 }
 /** Identifies projected upper walking faces independently of the palette. */
 export function walkingPlates(parts: Primitive[]) {
