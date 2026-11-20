@@ -22,6 +22,9 @@ function rect(x: number, y: number, right: number, bottom: number) {
 	return new Box2(new Vector2(x, y), new Vector2(right, bottom));
 }
 
+export type OpeningProjection = ReturnType<typeof projectScene>;
+export type OpeningScreen = ReturnType<typeof screenBounds>;
+
 export type Courts = ReturnType<typeof courtOpening>;
 
 // All candidate crops at a heading are affine transforms of one orthographic projection.
@@ -70,7 +73,9 @@ export function projectScene(
 	const project = projector(view);
 	const houses = courts.map((c) => (c.houses.length ? c.houses.map(project) : [project(c.points)]));
 	return {
-		courts: courts.map((c, i) => houses[i].reduce((box, h) => box.union(h), project(c.points))),
+		courts: courts.map((c, i) =>
+			houses[i].reduce((box, h) => box.union(h), view.isPortrait() ? project(c.points) : new Box2())
+		),
 		houses,
 		landmarks: surroundings.landmarks.map(project),
 		stock: surroundings.stock.map(project),
@@ -107,10 +112,7 @@ export function surveyContext(world: World, additions: readonly Primitive[]) {
 	contexts.set(world, { additions, geometry });
 	return geometry;
 }
-const oriented = new WeakMap<
-	ReturnType<typeof surveyContext>,
-	Map<string, ReturnType<typeof projectScene>>
->();
+const oriented = new WeakMap<ReturnType<typeof surveyContext>, Map<string, OpeningProjection>>();
 /** Caches per-orientation silhouettes for fixed world-origin camera axes, independent of HUD and zoom. */
 export function orientedProjection(
 	view: View,
@@ -118,8 +120,8 @@ export function orientedProjection(
 	geometry: ReturnType<typeof surveyContext>,
 	heading: number
 ) {
-	const key = heading + '/' + view.elevation();
-	const cache = oriented.get(geometry) ?? new Map<string, ReturnType<typeof projectScene>>();
+	const key = heading + '/' + view.elevation() + '/' + view.isPortrait();
+	const cache = oriented.get(geometry) ?? new Map<string, OpeningProjection>();
 	const existing = cache.get(key);
 	if (existing) return existing;
 	const data = projectScene(view, courts, geometry);

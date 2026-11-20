@@ -72,7 +72,7 @@ function survey(world: World) {
 		...sectionGroups(world.grid, sections, world.seed, stock).filter(
 			(g) => !g.span || !g.cells.some((id) => planned.has(id))
 		),
-		...networkGroups(world, sections, r3, stock)
+		...networkGroups(world, sections, r3, stock).map((g) => ({ ...g, planningCells: g.cells }))
 	].map((g) => {
 		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
 		return {

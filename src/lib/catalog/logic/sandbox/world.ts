@@ -1,3 +1,4 @@
+import { surveyedGrid, townGrid } from './town-grid';
 import { growCity } from './city-growth';
 import { sizeFrameSites, sizingSites } from './frame-sizing';
 import { eraseFrontage } from './erase-frontage';
@@ -122,10 +123,12 @@ export function setFutureTarget(world: World, target?: FutureTarget): World {
 }
 
 function replaceState(world: World, state: SandboxState, source: 'edit' | 'restore'): World {
-	const grid =
+	const previous = surveyedGrid(world.grid);
+	const terrain =
 		state.edits === world.state.edits
-			? world.grid
-			: regrid(world.grid, { ...world.grid.terrain, edits: state.edits });
+			? previous
+			: regrid(previous, { ...world.grid.terrain, edits: state.edits });
+	const grid = state.city?.walk ? townGrid(terrain, state.city.walk) : terrain;
 	if (source === 'restore') state = settleCover(grid, state);
 	else if (grid !== world.grid) {
 		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));

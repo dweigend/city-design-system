@@ -147,14 +147,7 @@ export function houseView(
 				(g) => g.chunk === chunk && (g.built !== state.year || g.cells.some((id) => stacks.has(id)))
 			)
 			.flatMap((g) =>
-				presentHouseGroup(
-					g.parts(),
-					g,
-					state.year,
-					focus,
-					earliestFullYear,
-					!!state.city?.walk && !g.id.startsWith('network/')
-				)
+				presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear, !!state.city?.walk)
 			),
 		...present(stock.flatMap(project), focus.stock),
 		...colour.flatMap((entry) =>
@@ -175,9 +168,9 @@ const houseGroupKey = ({ built, style }: Phase, id: string) => `${built}/${style
 /** Mass addresses touching the supplied parcels or their facade neighbours. */
 export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Map<string, string> {
 	const { plots, ensembles } = houseProjection(world);
-	const edits = new Set(cellIds);
+	const edits = ensembleEditCells(world.grid, ensembles, cellIds);
 	const nearby = new Set<QuadCell>();
-	for (const id of ensembleEditCells(world.grid, ensembles, edits)) {
+	for (const id of edits) {
 		const cell = plots.cellsById.get(id);
 		if (!cell) continue;
 		nearby.add(cell);
@@ -185,7 +178,7 @@ export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Ma
 	}
 	const out = new Map<string, string>();
 	for (const g of composedProjection(world))
-		if (g.cells.some((id) => edits.has(id))) out.set('composed/' + g.id, g.chunk);
+		if (g.planningCells.some((id) => edits.has(id))) out.set('composed/' + g.id, g.chunk);
 	for (const [phase, painted] of constructionPhases(world.state)) {
 		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, world.state.stacks, ensembles);
@@ -251,14 +244,7 @@ export function houseGroups(
 			if (g.chunk === chunk && (!keys || keys.has(key)))
 				groups.set(
 					key,
-					presentHouseGroup(
-						g.parts(),
-						g,
-						state.year,
-						focus,
-						earliestFullYear,
-						!!state.city?.walk && !g.id.startsWith('network/')
-					)
+					presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear, !!state.city?.walk)
 				);
 		}
 	}

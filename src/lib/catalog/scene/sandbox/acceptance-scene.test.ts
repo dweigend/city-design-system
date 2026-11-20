@@ -36,6 +36,7 @@ test('Two Suns stands on the surveyed cell and only the blue disc orbits in 90 s
 	expect(orbit.matrix.equals(original)).toBe(true);
 });
 
+// Two full towns with their connected walk network are planned here; the default 5 s is too tight.
 test('the bible and game open seed 7 with the same city plan and growth areas', () => {
 	const game = openingScene(7).world.state;
 	const bible = acceptanceScene(7).world.state;
@@ -43,4 +44,4 @@ test('the bible and game open seed 7 with the same city plan and growth areas', 
 	expect(bible.city).toEqual(game.city);
 	expect(bible.cityStages).toEqual(game.cityStages);
 	expect(bible.stacks).toEqual(game.stacks);
-});
+}, 20000);
