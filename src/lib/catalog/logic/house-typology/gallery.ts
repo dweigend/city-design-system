@@ -32,21 +32,31 @@ export function frontages(sites: Survey[]) {
 	);
 }
 
+function galleryNeighbours(
+	first: Survey,
+	pending: Set<Survey>,
+	walls: ReturnType<typeof frontages>
+) {
+	const group = [first];
+	pending.delete(first);
+	for (const site of group) {
+		const edges = walls.get(site.id);
+		for (const next of pending) {
+			if (!Number.isInteger((next.ground - first.ground) / STORY)) continue;
+			if (!next.cells.some((cell) => edges?.has(cell.id))) continue;
+			pending.delete(next);
+			group.push(next);
+		}
+	}
+	return group;
+}
+
 /** Selects a common walking elevation for opposing upper galleries on compatible foundations. */
 export function galleryCourses(sites: Survey[], walls: ReturnType<typeof frontages>) {
-	const tall = sites.filter((s) => s.programme.length >= 5 && walls.get(s.id)?.size);
+	const pending = new Set(sites.filter((s) => s.programme.length >= 5 && walls.get(s.id)?.size));
 	const courses = new Map<string, number>();
-	for (const first of tall) {
-		if (courses.has(first.id)) continue;
-		const group = [first];
-		for (const site of group) {
-			const edges = walls.get(site.id);
-			for (const next of tall) {
-				const offset = (next.ground - first.ground) / STORY;
-				if (!Number.isInteger(offset) || group.includes(next)) continue;
-				if (next.cells.some((cell) => edges?.has(cell.id))) group.push(next);
-			}
-		}
+	for (const first of pending) {
+		const group = galleryNeighbours(first, pending, walls);
 		if (group.length < 2) continue;
 		const low = Math.max(...group.map((s) => s.ground + 3 * STORY));
 		const top = Math.min(...group.map((s) => s.ground + (s.programme.length - 1) * STORY));
