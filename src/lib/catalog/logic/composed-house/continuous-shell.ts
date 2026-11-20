@@ -90,14 +90,6 @@ function clearRod(pair: [Vec3, Vec3], shell: Shell) {
 		[pair]
 	);
 }
-// The return opposite the approach keeps its full height. The other exposed faces open
-// above the entry podium onto the occupied courses, including their cantilevers and glazing.
-function openUpperBay(h: HouseComposition, shell: Shell, index: number) {
-	const back = h.accessSide === 'north' ? 1 : -1;
-	const a = shell.ring[index],
-		b = shell.ring[(index + 1) % shell.ring.length];
-	return h.ensembleSize > 1 && back * (b[0] - a[0]) <= 0.5 * Math.hypot(b[0] - a[0], b[1] - a[1]);
-}
 function exposedPanel(
 	h: HouseComposition,
 	shell: Shell,
@@ -109,18 +101,7 @@ function exposedPanel(
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	const spanAt = (start: number, end: number, hidden: Shell['seams'][number][number]['hidden']) => {
-		if (slotted) {
-			const pod = h.levels.at(-1)?.bodies[0].kind === 'capsule';
-			// A narrow return above a party wall leaves the pod visible from its neighbour.
-			const right = pod && hidden ? start + (end - start) * 0.12 : end;
-			return slottedWall(
-				shell,
-				index,
-				start,
-				right,
-				!hidden && (pod || openUpperBay(h, shell, index))
-			);
-		}
+		if (slotted) return slottedWall(shell, index, start, end, h.ensembleSize > 1);
 		const framed = framedSpan(h, shell, index, start, end, hidden);
 		framed?.rods.flatMap((pair) => clearRod(pair, shell)).forEach(([a, b]) => rod(a, b));
 		return framed ?? wallSpan(shell, index, source, start, end);

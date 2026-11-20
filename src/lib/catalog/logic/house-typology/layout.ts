@@ -1,3 +1,4 @@
+import { ensembleProfile } from './ensemble-profiles';
 import type { EnsembleContext } from './ensemble-context';
 import type { Survey } from './survey';
 import { collapse } from './collapse';
@@ -45,7 +46,12 @@ export function layout(site: Survey, context: EnsembleContext) {
 	if (context.houses.size > 1 && !site.envelope?.system)
 		site = {
 			...site,
-			envelope: { frame: context.leadingFrame, ...site.envelope, system: context.leadingSystem }
+			envelope: {
+				...ensembleProfile(context.seed, [...context.houses.keys()].indexOf(site.id)),
+				frame: context.leadingFrame,
+				...site.envelope,
+				system: context.leadingSystem
+			}
 		};
 	const type = site.compact ? 'block' : fixed.typology;
 	const route = housePath(type);

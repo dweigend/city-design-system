@@ -1,3 +1,4 @@
+import { windowPiers } from './window-piers';
 import { envelopeScreen } from './envelope-screen';
 import { blockSkin } from '../house-typology';
 import type { Body } from '../house-typology';
@@ -74,7 +75,10 @@ export function bandParts(body: Body, surfaces: SectionSurfaces, accent: BandAcc
 			z: z + base,
 			height,
 			polygon:
-				band?.lining ?? band?.footprint?.polygon ?? ring(x, y, w - inset * 2, d - inset * 2, 0.45),
+				(inset ? band?.paneRing : undefined) ??
+				band?.lining ??
+				band?.footprint?.polygon ??
+				ring(x, y, w - inset * 2, d - inset * 2, 0.45),
 			holes: band?.footprint?.holes ?? holes
 		};
 	}
@@ -110,17 +114,20 @@ export function bandParts(body: Body, surfaces: SectionSurfaces, accent: BandAcc
 	cuts.sort((a, b) => a - b);
 	return [
 		...screen,
-		...cuts.slice(1).map((end, i) => {
+		...cuts.slice(1).flatMap((end, i) => {
 			const at = cuts[i],
 				phase = ((at + end) / 2) % 4,
 				window = phase >= 1 && phase < 2;
-			return course(
+			const layer = course(
 				(window ? 'window' : i ? 'lintel' : 'sill') + '-' + i,
 				at,
 				end - at,
 				window ? 0.35 : 0,
 				window ? glass : wall
 			);
+			if (!window || !band?.lining || !band.paneRing) return [layer];
+			const pier = course('pier-' + i, at, end - at, 0, wall);
+			return [layer, ...windowPiers(band.lining, band.paneRing, pier)];
 		})
 	];
 }

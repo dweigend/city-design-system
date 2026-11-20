@@ -69,9 +69,8 @@ function wallCorners(polygon: XY[]) {
 	});
 }
 /** Fits the inner weather line behind the outer load-bearing wall without closing a court. */
-export function roomLining(parcel: Parcel): XY[] {
-	return fittedSection(parcel, parcel.holes, 'orthogonal', wallCorners(parcel.polygon), () => 0.45)
-		.polygon;
+export function roomLining(parcel: Parcel, setback = 0.45): XY[] {
+	return fittedSection(parcel, parcel.holes, 'orthogonal', parcel.polygon, () => setback).polygon;
 }
 
 /** Offsets the original surveyed walls; backs off at re-entrant corners, courtyards and the stair. */
