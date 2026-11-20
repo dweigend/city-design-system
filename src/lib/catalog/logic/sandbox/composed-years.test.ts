@@ -34,7 +34,12 @@ test('later paint extends one frame and links houses across construction years',
 		bounds(crown).max[2] - required(extended.grid.cellsById.get(a), 'painted cell').pad
 	).toBeGreaterThanOrEqual(6);
 	expect(extended.state.stacks.get(a)).toHaveLength(2);
-	expect([...groups.keys()].some((k) => k.startsWith('composed/link/'))).toBe(true);
+	// Adjacent houses on a shared podium connect through the ground network instead of a bridge link.
+	expect(
+		[...groups.keys()].some(
+			(k) => k.startsWith('composed/link/') || k.startsWith('composed/network/')
+		)
+	).toBe(true);
 	const changed = changes(later, extended).houseGroups;
 	expect(changed.has('composed/' + a)).toBe(true);
 	expect(changed.has('composed/' + b)).toBe(false);
