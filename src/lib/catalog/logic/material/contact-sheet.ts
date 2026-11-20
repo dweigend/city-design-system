@@ -1,5 +1,7 @@
-import { assetRegistry, buildObject, type SlotAssignment } from '../assets';
-import type { ColorToken, Primitive } from '../parametrik/types';
+import { buildingPalette } from './building-palette';
+import type { HouseUse } from '../../data/house-body';
+import { buildObject, type SlotAssignment } from '../assets';
+import type { BuildingSurface, ColorToken, Primitive } from '../parametrik/types';
 import { finishCatalogue } from './surface';
 
 export type SheetRow = {
@@ -26,11 +28,32 @@ const windowAssignments: Record<string, Record<string, SlotAssignment>> = {
 
 /** Compares finishes on registered geometry with the same slot binding used for placed objects. */
 export function materialSheet(token: ColorToken): SheetRow[] {
-	const solids = assetRegistry.filter((a) => a.category === 'primitive-forms');
-	const assemblies = assetRegistry.filter(
-		(a) => a.id === 'ridge-house' || a.id === 'living-capsule'
-	);
+	const programmes: HouseUse[] = ['living', 'water', 'energy', 'food', 'material'];
 	return [
+		{
+			id: 'town-palette',
+			label: 'Ensemble shells',
+			samples: programmes.map((use) => {
+				const family = buildingPalette(use, use);
+				return {
+					id: use,
+					label: use + ' · ' + finishName(family.shell.finish),
+					parts: () =>
+						buildObject('living-capsule', 'twin', 17, {
+							building: {
+								use,
+								ensemble: use,
+								slots: { body: 'shell', glass: 'pane', accent: 'fitting' }
+							}
+						}).parts
+				};
+			})
+		},
+		{
+			id: 'construction',
+			label: 'Construction details',
+			samples: constructionDetails()
+		},
 		{
 			id: 'slot-assignments',
 			label: 'One porthole, three surface assignments',
@@ -41,35 +64,49 @@ export function materialSheet(token: ColorToken): SheetRow[] {
 			}))
 		},
 		{
-			id: 'sphere',
-			label: 'One sphere in every finish',
-			dimensions: '4 m diameter',
+			id: 'finishes',
+			label: 'Facade finishes',
 			samples: finishCatalogue.map(({ id, name }) => ({
 				id,
 				label: name,
 				parts: () =>
-					buildObject('primitive-sphere', 'short', 17, {
+					buildObject('envelope-panel', 'cushioned', 17, {
 						slots: { body: { finish: id, token } }
-					}).parts.map((part): Primitive =>
-						part.kind === 'sphere'
-							? { ...part, radius: 2, squash: 1, position: [0, 0, 2], fine: true }
-							: part
-					)
-			}))
-		},
-		{
-			id: 'corrugated',
-			label: 'Corrugated sheet on every form',
-			samples: [...solids, ...assemblies].map((a) => ({
-				id: a.id,
-				label: a.id.replace('primitive-', '').replaceAll('-', ' '),
-				parts: () =>
-					buildObject(a.id, a.variants[0], 17, {
-						slots: Object.fromEntries(
-							a.slotNames.map((slot) => [slot, { finish: 'corrugated-metal', token }])
-						)
 					}).parts
 			}))
 		}
+	];
+}
+
+function finishName(id: SlotAssignment['finish']) {
+	return finishCatalogue.find((f) => f.id === id)?.name ?? id;
+}
+
+function constructionDetails() {
+	const sample = (
+		id: string,
+		variant: string,
+		label: string,
+		slots: Record<string, BuildingSurface['slot']>
+	) => ({
+		id,
+		label,
+		parts: () =>
+			buildObject(id, variant, 17, { building: { use: 'water', ensemble: 'water', slots } }).parts
+	});
+	return [
+		sample('kit-gallery-walk-5m', 'three-post', 'Terrazzo gallery', {
+			deck: 'deck',
+			frame: 'frame'
+		}),
+		sample('kit-parapet-solid-5m', 'medium', 'Punched screen · brass cap', {
+			deck: 'screen',
+			edge: 'fitting'
+		}),
+		sample('porthole', 'ringed', 'Frosted acrylic · brass bezel', {
+			glass: 'pane',
+			body: 'fitting',
+			accent: 'frame'
+		})
 	];
 }

@@ -36,7 +36,15 @@ export type FinishId =
 	| MaterialId
 	| import('../../data/materialAusfuehrung').AusfuehrungId
 	| import('../../data/materialPrint').PrintFinish;
+export type BuildingSurface = {
+	slot: 'shell' | 'base' | 'deck' | 'screen' | 'pane' | 'fitting' | 'frame';
+	use: import('../../data/house-body').HouseUse;
+	ensemble: string;
+	pigment?: ColorToken;
+};
 type Base = {
+	/** Semantic construction slot. The shared scene assigns its surface at projection time. */
+	buildingSurface?: BuildingSurface;
 	/** Explicit surface applied after generation. Omission keeps the original drafting treatment. */
 	finish?: FinishId;
 	/** Solid pigmented substrate under this finish. Openings are cut in the mesh. */

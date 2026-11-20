@@ -127,23 +127,24 @@
 		</nav>
 	</header>
 	<h2>{category}</h2>
-	{#if category === 'materials'}
-		<ChoiceControl
-			id="sheet-pigment"
-			label="Pigment"
-			items={pigments}
-			bind:value={
-				() => pigment,
-				(value) => {
-					const choice = pigments.find((p) => p.value === value);
-					if (choice) pigment = choice.value as ColorToken;
-				}
-			}
-		/>
-	{/if}
+
 	{#if !rendered && !error}<p role="status">Rendering previews · {completed} / {total}</p>{/if}
 	{#if error}<p role="alert">{error}</p>{/if}
 	{#each rows as a (a.id)}
+		{#if category === 'materials' && a.id === 'finishes'}
+			<ChoiceControl
+				id="sheet-pigment"
+				label="Facade sample pigment"
+				items={pigments}
+				bind:value={
+					() => pigment,
+					(value) => {
+						const choice = pigments.find((p) => p.value === value);
+						if (choice) pigment = choice.value as ColorToken;
+					}
+				}
+			/>
+		{/if}
 		<AssetSheetRow {a} {photos} busy={!rendered && !error} />
 	{/each}
 </main>

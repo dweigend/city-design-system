@@ -1,5 +1,5 @@
 import { hashUnit } from '../../core/random';
-import type { Primitive, FinishId, ColorToken } from '../parametrik/types';
+import type { Primitive, FinishId, ColorToken, BuildingSurface } from '../parametrik/types';
 import { finishMaterial } from '../material/surface';
 import { recipes } from './recipes';
 import type { AssetPlacement, AssetRecipe, AssetSurface } from './definition';
@@ -7,10 +7,18 @@ import { suggestedSurface } from './slot-defaults';
 
 export { assetCategories, type AssetCategory } from './definition';
 export type { ObjectGeometry } from './object-geometry';
-export type SlotAssignment = { token: ColorToken; finish: FinishId };
+export type SlotAssignment = {
+	token: ColorToken;
+	finish: FinishId;
+	colourRole?: Primitive['colourRole'];
+};
 export type ObjectOptions = {
 	instanceId?: string;
 	slots?: Readonly<Record<string, SlotAssignment>>;
+};
+
+type BuildingSlots = Pick<BuildingSurface, 'use' | 'ensemble'> & {
+	slots: Readonly<Record<string, BuildingSurface['slot']>>;
 };
 
 type SlotDefaults = Readonly<Record<string, Readonly<AssetSurface>>>;
@@ -53,7 +61,7 @@ export function buildObject(
 	id: string,
 	variant: string,
 	seed: number,
-	options: ObjectOptions = {}
+	options: ObjectOptions & { building?: BuildingSlots } = {}
 ) {
 	const entry = byId.get(id);
 	if (!entry) throw new RangeError('Unknown asset: ' + id);
@@ -73,15 +81,29 @@ export function buildObject(
 				? recipe.legacyFigureSlot
 				: slot;
 		const chosen = options.slots?.[key];
-		const { token, finish } = chosen ?? suggestion;
-		return {
-			...shape,
-			material: finish === suggestion.finish ? suggestion.material : finishMaterial(finish),
-			token,
-			...(finish === 'city-drawing' ? {} : { finish })
-		};
+		const building = options.building;
+		const role = building?.slots[key];
+		if (building && role && !chosen) {
+			return {
+				...shape,
+				token: suggestion.token,
+				material: suggestion.material,
+				buildingSurface: { use: building.use, ensemble: building.ensemble, slot: role }
+			};
+		}
+		return { ...shape, ...assignedSurface(suggestion, chosen) };
 	});
 	return { geometry, defaults, parts, footprint: recipe.footprint, anchors: recipe.anchors };
+}
+
+function assignedSurface(suggestion: AssetSurface, chosen?: SlotAssignment) {
+	const { token, finish } = chosen ?? suggestion;
+	return {
+		...(chosen?.colourRole && { colourRole: chosen.colourRole }),
+		material: finish === suggestion.finish ? suggestion.material : finishMaterial(finish),
+		token,
+		...(finish === 'city-drawing' ? {} : { finish })
+	};
 }
 
 /** Compatibility entry point for callers consuming dressed primitives only. */

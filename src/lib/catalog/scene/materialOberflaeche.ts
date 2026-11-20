@@ -86,8 +86,12 @@ function projiziereMuster(
 				)
 			)
 			.clamp(0.025, 1);
-		if (pattern.relief > (quality === 'phone' ? 0.005 : 0))
-			m.normalNode = reliefNormal(pattern.hoehe, pattern.relief * intensitaet);
+		if (pattern.relief > (quality === 'phone' ? 0.005 : 0)) {
+			const raised = reliefNormal(pattern.hoehe, pattern.relief * intensitaet);
+			m.normalNode = pattern.reliefCoverage
+				? mix(normalView, raised, pattern.reliefCoverage).normalize()
+				: raised;
+		}
 	}
 }
 

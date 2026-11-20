@@ -7,6 +7,12 @@ export function grainVisibility(chart: Node<'vec3'>) {
 	return footprint.x.max(footprint.y).max(footprint.z).smoothstep(0.22, 0.5).oneMinus();
 }
 
+/** Planar metre coordinates on the dominant face for analytic, derivative-free relief. */
+export function faceChart(p: Node<'vec3'>) {
+	const n = normalWorldGeometry.abs();
+	return n.y.greaterThanEqual(n.x.max(n.z)).select(p.xz, n.x.greaterThan(n.z).select(p.zy, p.xy));
+}
+
 /** Projects a repeating motif onto its dominant face plane and blends neighbouring world-space pitches. */
 export function townPattern(
 	p: Node<'vec3'>,
@@ -15,9 +21,7 @@ export function townPattern(
 	mode: 'blend' | 'fixed' | 'grid' = 'blend'
 ) {
 	const n = normalWorldGeometry.abs();
-	const uv = n.y
-		.greaterThanEqual(n.x.max(n.z))
-		.select(p.xz, n.x.greaterThan(n.z).select(p.zy, p.xy));
+	const uv = faceChart(p);
 	if (mode === 'fixed') {
 		const chart = uv.div(pitch);
 		return motif(chart).mul(float(1).sub(chart.fwidth().length().smoothstep(0.18, 0.52)));

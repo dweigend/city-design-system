@@ -4,6 +4,7 @@ export type Muster = {
 	farbe: Node<'vec3'>;
 	hoehe: Node<'float'>;
 	relief: number;
+	reliefCoverage?: Node<'float'>;
 	rauheitVersatz?: Node<'float'>;
 	metallVersatz?: Node<'float'>;
 	licht?: Node<'vec3'>;

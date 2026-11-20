@@ -51,7 +51,7 @@ export function resolveFinish(
 	if (colourRole === 'ensemble-ground' && surface.kind === 'physical') {
 		surface.recipe.haut.deckkraft = 1;
 		surface.recipe.farbe.anteil = 1;
-		surface.recipe.farbe.papier = 0.42;
+		surface.recipe.farbe.papier = 0.14;
 		surface.groundCoat = true;
 	}
 	if (ageTint && (surface.kind === 'diagram' || surface.kind === 'physical')) {
@@ -133,9 +133,16 @@ export function applySurface(part: Primitive, finish?: FinishId, token?: ColorTo
 	if (finish === 'city-drawing') {
 		const result = { ...part, token: token ?? part.token };
 		delete result.finish;
+		delete result.buildingSurface;
 		return result;
 	}
-	return { ...part, ...(finish === undefined ? {} : { finish }), token: token ?? part.token };
+	return {
+		...part,
+		...(finish === undefined ? {} : { finish }),
+		token: token ?? part.token,
+		...(part.buildingSurface &&
+			token && { buildingSurface: { ...part.buildingSurface, pigment: token } })
+	};
 }
 
 /** Returns the game material family for an externally selected finish. */
