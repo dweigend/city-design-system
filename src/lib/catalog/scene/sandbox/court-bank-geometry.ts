@@ -12,6 +12,7 @@ export function courtBankGeometry(grid: TerrainGrid) {
 		frontages: number[] = [],
 		shade: number[] = [],
 		landform: number[] = [],
+		lawn: number[] = [],
 		indices: number[] = [];
 	for (const cell of grid.cells) {
 		const bank = cell.bank;
@@ -37,6 +38,7 @@ export function courtBankGeometry(grid: TerrainGrid) {
 			shore.push(bankDistance(grid.terrain, x, y) - grid.profile.bankSetback);
 			for (let e = 0; e < 4; e++) frontages.push((cell.alleyEdges >> e) & 1);
 			shade.push(bank.shade[i]);
+			lawn.push(bank.lawn?.[i] ?? 0);
 		}
 		for (const index of bank.indices) indices.push(start + index);
 	}
@@ -48,7 +50,8 @@ export function courtBankGeometry(grid: TerrainGrid) {
 		['shore', shore, 1],
 		['frontages', frontages, 4],
 		['landform', landform, 3],
-		['bankShade', shade, 1]
+		['bankShade', shade, 1],
+		['lawn', lawn, 1]
 	] as const)
 		geometry.setAttribute(key, new THREE.Float32BufferAttribute(values, size));
 	geometry.setIndex(indices);

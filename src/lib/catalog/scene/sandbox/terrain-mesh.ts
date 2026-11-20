@@ -99,6 +99,7 @@ export function createTerrainMesh(
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
 	const peopleFocus = uniform(0);
+	const town = uniform(Number(Boolean(grid.courtFronts?.length)));
 	const drawingInk = mix(colors.pencil, colors.ink, daylight);
 	const cover = coverTexture(grid);
 	const alleys = alleyOverlay(grid, profile, nodes);
@@ -113,6 +114,7 @@ export function createTerrainMesh(
 		const inside = (mask: Node<'float'>) => mask.smoothstep(0.46, 0.54);
 		const edge = (mask: Node<'float'>) =>
 			float(1).sub(mask.sub(0.5).abs().div(mask.fwidth().max(MIN_DERIVATIVE)).smoothstep(0.4, 1.4));
+		const drawing = town.mul(gridStrength.oneMinus()).oneMinus();
 		const furrows = chart.y
 			.mul(2)
 			.fract()
@@ -136,15 +138,15 @@ export function createTerrainMesh(
 			dots.mul(resolvable(chart.x.mul(2))).mul(0.7)
 		);
 		ground = mix(ground, meadow, inside(masks.b));
-		ground = mix(paperColor, ground, forestWeight);
+		ground = mix(paperColor, ground, forestWeight.mul(mix(0.2, 1, drawing)));
 		ground = mix(ground, drawingInk, attribute('bankShade', 'float').mul(terrainWeight));
 		const slots = attribute('landform', 'vec3');
 		ground = mix(ground, colors.soil, slots.x.mul(terrainWeight).mul(0.28));
-		ground = mix(ground, colors.nature, slots.y.mul(forestWeight).mul(0.64));
-		ground = mix(ground, colors.waterStroke, slots.z.mul(terrainWeight).mul(0.52));
+		ground = mix(ground, colors.nature, slots.y.mul(forestWeight).mul(0.28));
+		ground = mix(ground, colors.waterStroke, slots.z.mul(terrainWeight).mul(0.13));
 		const bankLight = normalWorldGeometry.dot(vec3(-0.42, 0.82, 0.38));
 		const riser = bankLight.oneMinus().smoothstep(0.22, 0.72).mul(slots.x);
-		ground = mix(ground, drawingInk, riser.mul(0.33).mul(terrainWeight));
+		ground = mix(ground, drawingInk, riser.mul(0.19).mul(terrainWeight));
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
 		const hatchPhase = attribute('position', 'vec3').x.add(height).div(nodes.hatchSpacing);
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
@@ -160,8 +162,14 @@ export function createTerrainMesh(
 		const contour = minor.mul(nodes.contourMinor).max(major.mul(nodes.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
 		const weighted = contour.mul(gridStrength.mul(planContourGain).add(1));
-		ground = mix(ground, drawingInk, weighted.mul(terrainWeight));
-		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(forestWeight));
+		ground = mix(ground, drawingInk, weighted.mul(terrainWeight).mul(mix(0.28, 1, drawing)));
+		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(forestWeight).mul(drawing));
+
+		ground = mix(
+			ground,
+			mix(paperColor, colors.nature, 0.38),
+			attribute('lawn', 'float').mul(forestWeight)
+		);
 
 		const lens = float(1)
 			.sub(chart.sub(cursor).length().smoothstep(lensInnerCells, lensCells))
@@ -269,6 +277,7 @@ export function createTerrainMesh(
 		 * and materials stay; only the geometry is replaced.
 		 */
 		setGrid(next: TerrainGrid) {
+			town.value = Number(Boolean(next.courtFronts?.length));
 			const nextBase = baseGeometry(next);
 			const replace = (mesh: THREE.Mesh, geometry: THREE.BufferGeometry) => {
 				mesh.geometry.dispose();

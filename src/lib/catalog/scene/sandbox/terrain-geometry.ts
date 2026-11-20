@@ -6,6 +6,7 @@ import * as THREE from 'three/webgpu';
 import type { TerrainCell, TerrainGrid } from '../../logic/terrain-grid';
 import { changedChunks } from '../../logic/quad-grid';
 import { bankDistance, ravineDepth, valleyCoords } from '../../logic/terrain';
+import { poolWaterTriangles } from './pool-water';
 import { pushThree } from '../world-space';
 
 /** Bottom of the model base, meters below mean water. */
@@ -50,6 +51,13 @@ function writeSurface(
 	for (let i = 0; i < 4; i++) frontages.setXYZW(first + i, edge(0), edge(1), edge(2), edge(3));
 }
 
+// Keep two face addresses per cell for the editor. A cut parcel is drawn in
+// full by its refined surface, including the triangles below the old carrier.
+function surfaceIndices(cell: TerrainCell) {
+	const a = cell.index * 4;
+	return cell.bank?.replacesGround ? [a, a, a, a, a, a] : [a, a + 1, a + 2, a, a + 2, a + 3];
+}
+
 /**
  * Terrain surface with a vertex copy for each cell corner and its chart position.
  * Two triangles per cell in index order: face index >> 1 is the cell index.
@@ -60,10 +68,9 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 	const indices: number[] = [];
 	for (const cell of grid.cells) {
 		writeSurface(attributes, grid, cell);
-		const start = cell.index * 4;
 		const { column: c, row: r } = cell;
 		chart.push(c, r, c + 1, r, c + 1, r + 1, c, r + 1);
-		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+		indices.push(...surfaceIndices(cell));
 	}
 	const geometry = new THREE.BufferGeometry();
 	for (const [name, attribute] of Object.entries(attributes))
@@ -71,6 +78,10 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 	geometry.setAttribute('chart', new THREE.Float32BufferAttribute(chart, 2));
 	geometry.setAttribute(
 		'bankShade',
+		new THREE.BufferAttribute(new Float32Array(grid.cells.length * 4), 1)
+	);
+	geometry.setAttribute(
+		'lawn',
 		new THREE.BufferAttribute(new Float32Array(grid.cells.length * 4), 1)
 	);
 	geometry.setIndex(indices);
@@ -94,9 +105,12 @@ export function patchSurface(
 	};
 	for (const key of changedChunks(previous, grid)) {
 		for (const cell of grid.chunks.get(key) ?? []) {
-			if (cell !== previous.cellsById.get(cell.id)) writeSurface(attributes, grid, cell);
+			if (cell === previous.cellsById.get(cell.id)) continue;
+			writeSurface(attributes, grid, cell);
+			geometry.index?.set(surfaceIndices(cell), cell.index * 6);
 		}
 	}
+	if (geometry.index) geometry.index.needsUpdate = true;
 	for (const attribute of Object.values(attributes)) attribute.needsUpdate = true;
 	geometry.boundingSphere = null;
 	geometry.boundingBox = null;
@@ -169,6 +183,12 @@ export function waterGeometry(
 		return bend;
 	}
 	for (const cell of grid.cells) {
+		for (const p of poolWaterTriangles(cell)) {
+			const [along, across] = riverChart(p[0], p[1]);
+			pushThree(positions, p);
+			chart.push(along, across);
+			wake.push(0);
+		}
 		if (cell.corners.every((corner) => corner[2] > level)) continue;
 		for (const i of [0, 1, 2, 0, 2, 3]) {
 			const [x, y] = cell.corners[i],

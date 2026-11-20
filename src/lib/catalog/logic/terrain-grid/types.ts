@@ -3,7 +3,20 @@ import type { Vec3 } from '../parametrik/types';
 import type { Terrain, TerrainZone } from '../terrain';
 import type { Pattern } from './patterns';
 
-export type BankSurface = { divisions: number; points: Vec3[]; shade: number[]; indices: number[] };
+export type BankSurface = {
+	divisions: number;
+	points: Vec3[];
+	shade: number[];
+	indices: number[];
+	/** Turf coverage at each refined vertex. */
+	lawn?: number[];
+	/** This complete mesh owns the parcel surface, including any excavation. */
+	replacesGround?: boolean;
+	/** Elevation of the district pool in metres. */
+	water?: number;
+	/** Indexed bed triangles connected below the common waterline. */
+	waterFaces?: number[];
+};
 
 type TerrainCellCorners = QuadCell['corners'];
 

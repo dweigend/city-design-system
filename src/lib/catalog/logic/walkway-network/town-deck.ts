@@ -2,6 +2,8 @@ import { townLife } from './town-life';
 import { ribbonDeck } from './ribbon-deck';
 import { ribbonEntry } from './ribbon-entry';
 import { ribbonNetwork } from './ribbon-network';
+import { courtLawn } from './court-lawn';
+import { courtSurfaces } from './town-palette';
 import { walkingProfile } from './walking-profile';
 import { throughRoute, type CourtPassage } from './through-route';
 import { courtTerrace } from './court-terrace';
@@ -33,8 +35,8 @@ function plazaParts(
 	ground: (x: number, y: number) => number
 ): Primitive[] {
 	const paving = {
-		token: '--cat-nature-2',
-		finish: index % 2 === 0 ? 'beton-terrazzo' : 'beton-schalung'
+		token: courtSurfaces.rim.token,
+		finish: courtSurfaces.rim.finishes[index % 2]
 	} as const;
 	const plate = {
 		...frame,
@@ -142,5 +144,12 @@ export function townDeck(
 			seed
 		)
 	);
-	return [...flushDecks(plazas), ...deck, ...entries, ...walkers, ...planting, ...visitors];
+	return [
+		...flushDecks(plazas).flatMap(courtLawn),
+		...deck,
+		...entries,
+		...walkers,
+		...planting,
+		...visitors
+	];
 }

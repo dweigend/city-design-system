@@ -1,3 +1,4 @@
+import { courtPools } from './court-pools';
 import { courtEarthworks } from './court-earthworks';
 import { gradeTown } from './town-grading';
 import type { CityPlan } from '../city-plan';
@@ -23,7 +24,7 @@ export function surveyedGrid(grid: TerrainGrid) {
 }
 
 /** Towns supply physical stair flights. Keep the alley reservations as ordinary passages. */
-export function townGrid(grid: TerrainGrid, city: CityPlan) {
+export function townGrid(grid: TerrainGrid, city: CityPlan, occupied: Iterable<string> = []) {
 	const raw = surveyedGrid(grid),
 		plans = towns.get(raw) ?? new WeakMap<CityPlan, TerrainGrid>(),
 		previous = plans.get(city);
@@ -35,10 +36,11 @@ export function townGrid(grid: TerrainGrid, city: CityPlan) {
 		const cell = cellAtPoint(raw, x, y);
 		return cell ? surfaceHeight(benches[cell.index].corners, x, y) : NaN;
 	});
-	const cells = benches.map((c) => {
+	const banksAndBenches = benches.map((c) => {
 		const cell = passage(banks.grade(c));
 		return cell.buildable && reserved.has(cell.id) ? { ...cell, buildable: false } : cell;
 	});
+	const cells = courtPools(raw, city, banksAndBenches, city.poolExclusions ?? occupied);
 	const next = {
 		...raw,
 		courtFronts: banks.fronts,
