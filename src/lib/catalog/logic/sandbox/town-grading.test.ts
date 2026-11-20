@@ -2,7 +2,7 @@ import { area } from '../ansicht/geometrie';
 import type { Primitive } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import { required } from '../required';
-import { openingScene, createWorld, cityCentreView, type World } from './index';
+import { openingScene, createWorld, cityCentreView, cityCorridorSite, type World } from './index';
 import { openCity } from './city-opening';
 import { surveyedGrid } from './town-grid';
 import { walkingHeight } from './network-terrain';
@@ -84,3 +84,20 @@ for (const [seed, terraceRows] of [
 		60000
 	);
 }
+
+test('the public route survey gives the path planner finished station and court elevations', () => {
+	const world = openingScene(7).world;
+	const [routes, station, courts, ground] = required(cityCorridorSite(world), 'route survey');
+	const parts = cityCentreView(world);
+	for (const id of new Set(routes.flat())) {
+		const [x, y, z] = station(id);
+		const cell = required(world.grid.cellsById.get(id), 'route parcel');
+		expect([x, y]).toEqual(cell.center.slice(0, 2));
+		expect(z).toBeGreaterThan(ground(x, y));
+	}
+	for (const court of courts) {
+		const plate = parts.find((p) => p.id === 'court/' + court.id);
+		if (plate?.kind !== 'prism') throw Error('Missing surveyed court');
+		expect(court.position[2]).toBeCloseTo(plate.z + plate.height, 8);
+	}
+}, 60000);

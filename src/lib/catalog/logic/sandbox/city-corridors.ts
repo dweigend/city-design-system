@@ -4,12 +4,25 @@ import { area } from '../ansicht/geometrie';
 import { required } from '../required';
 import { townDeck, courtLanding } from '../walkway-network';
 import { walkingHeight } from './network-terrain';
+import type { Vec3 } from '../parametrik/types';
+import type { TerrainCell } from '../terrain-grid';
 import type { World } from './world-contract';
 
-/** Projects the public court walks and green circuits shared by the game and bible. */
-export function cityCorridorPaths(world: World) {
+function stationPosition(cell: TerrainCell, crossingClearance: number): Vec3 {
+	const [x, y] = cell.center;
+	const z = Math.max(...cell.corners.map((p) => p[2]));
+	const crossing = cell.plan.footbridge || cell.zone === 'water';
+	const level = crossing
+		? Math.max(cell.pad, z + crossingClearance)
+		: Math.ceil(2 * (z - 0.08)) / 2 + 0.4;
+	return [x, y, level];
+}
+
+/** Returns routes, surveyed station positions (x, y, walking elevation in metres), court sites,
+ * the finished ground sampler and seed. Court site positions carry their finished floor elevation. */
+export function cityCorridorSite(world: World) {
 	const city = world.state.city;
-	if (!city?.walk) return [];
+	if (!city?.walk) return;
 	const cell = (id: string) => required(world.grid.cellsById.get(id), 'surveyed site');
 	const ground = (x: number, y: number) => walkingHeight(world.grid, x, y);
 	const courts = city.centres.flatMap((c) =>
@@ -30,21 +43,19 @@ export function cityCorridorPaths(world: World) {
 			};
 		})
 	);
-	return townDeck(
-		city.walk,
-		(id) => {
-			const c = cell(id);
-			const [x, y] = c.center;
-			const z = Math.max(...c.corners.map((p) => p[2]));
-			const crossing = c.plan.footbridge || c.zone === 'water';
-			const level = crossing
-				? Math.max(c.pad, z + world.grid.profile.footbridgeClearance)
-				: Math.ceil(2 * (z - 0.08)) / 2 + 0.4;
-			return [x, y, level];
-		},
-		courts,
-		ground,
-		world.seed,
-		(x, y) => walkingHeight(surveyedGrid(world.grid), x, y)
+	const stations = new Map(
+		[...new Set(city.walk.flat())].map(
+			(id) => [id, stationPosition(cell(id), world.grid.profile.footbridgeClearance)] as const
+		)
 	);
+	const station = (id: string) => required(stations.get(id), 'surveyed walk station');
+	return [city.walk, station, courts, ground, world.seed] as const;
+}
+
+/** Projects public courts and walks from the same station survey as the centreline planner. */
+export function cityCorridorPaths(world: World) {
+	const site = cityCorridorSite(world);
+	if (!site) return [];
+	const relief = surveyedGrid(world.grid);
+	return townDeck(...site, (x, y) => walkingHeight(relief, x, y));
 }
