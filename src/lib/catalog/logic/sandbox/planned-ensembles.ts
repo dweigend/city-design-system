@@ -33,12 +33,7 @@ function survey(grid: TerrainGrid, state: SandboxState, court: Court) {
 	const members = court.lots.filter((id) => state.stacks.has(id));
 	const cells = members.map((id): [string, EnsembleCell] => {
 		const plot = required(grid.cellsById.get(id), 'planned plot');
-		const neighbors = members.filter(
-			(other) =>
-				other !== id &&
-				(plot.neighbors.includes(other) ||
-					(court.lots.indexOf(id) < 3 && court.lots.indexOf(other) < 3))
-		);
+		const neighbors = members.filter((other) => plot.neighbors.includes(other));
 		return [
 			id,
 			{
