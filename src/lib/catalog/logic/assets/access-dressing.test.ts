@@ -7,10 +7,30 @@ test('a longhouse has three outward-facing windows down each side', () => {
 		(p) => p.kind === 'ring' && p.slot === 'glass' && p.rotation === Math.PI / 2
 	);
 	expect(panes).toHaveLength(6);
-	const ends = geometry.filter(
-		(p) => p.kind === 'ring' && p.slot === 'glass' && p.rotation !== Math.PI / 2
-	);
-	expect(ends).toHaveLength(2);
+});
+
+test('a longhouse has one recessed pane and bezel on each end', () => {
+	const { geometry } = buildObject('living-capsule', 'longhouse', 17);
+	const axialRings = geometry
+		.filter((p) => p.kind === 'ring')
+		.filter((p) => p.rotation !== Math.PI / 2);
+	expect(axialRings.filter((p) => p.slot === 'glass')).toHaveLength(2);
+	for (const sign of [-1, 1]) {
+		const end = axialRings.filter((p) => Math.sign(p.position[0]) === sign);
+		const panes = end.filter((p) => p.slot === 'glass');
+		expect(panes).toHaveLength(1);
+		const [pane] = panes;
+		const bezels = end.filter(
+			(p) => p.slot === 'accent' && p.innerRadius > 0 && p.innerRadius < pane.radius
+		);
+		expect(bezels).toHaveLength(1);
+		const [bezel] = bezels;
+		expect(bezel.radius).toBeGreaterThan(pane.radius);
+		expect(bezel.position.slice(1)).toEqual(pane.position.slice(1));
+		expect(
+			sign * (bezel.position[0] - pane.position[0]) + (bezel.depth - pane.depth) / 2
+		).toBeCloseTo(0.14);
+	}
 });
 
 test('paired escalators have four continuous glazed cheeks', () => {
