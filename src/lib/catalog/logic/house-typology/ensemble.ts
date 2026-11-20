@@ -23,7 +23,7 @@ export type EnsembleContext = {
 
 function skyline(sites: Survey[], seed: number) {
 	const roles = new Map<string, HouseRole>(sites.map((s) => [s.id, 'medium']));
-	if (sites.length < 3) return new Map<string, HouseRole>(sites.map((s) => [s.id, 'high']));
+	if (sites.length === 1) return new Map<string, HouseRole>(sites.map((s) => [s.id, 'high']));
 	const sorted = [...sites].sort((a, b) => a.programme.length - b.programme.length);
 	const top = required(sorted.at(-1), 'upper datum');
 	const ties = sorted.filter((s) => s.programme.length === top.programme.length);
