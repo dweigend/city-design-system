@@ -1,3 +1,4 @@
+import { throughRoute } from './through-route';
 import { required } from '../required';
 import { fitWalkingFlights } from './index';
 import { townPath } from './town-path';
@@ -271,4 +272,119 @@ test('level court and apron paving open both sides of a walk over low terrain', 
 		[0, 8],
 		[22, 25]
 	]);
+});
+
+test('a raised bridge has a closed structural section seated on flared ground-bearing piers', () => {
+	const parts = publicFlight(
+		{ id: 'bridge', a: [0, 0, 4], b: [20, 0, 4] },
+		(x, y) => 0.05 * x + 0.02 * y
+	);
+	const girder = parts.find((p) => p.id === 'bridge/girder');
+	if (girder?.kind !== 'mesh') throw Error('missing box girder');
+	expect(Math.max(...girder.points.map((p) => p[2]))).toBeCloseTo(3.8);
+	const soffit = Math.min(...girder.points.map((p) => p[2]));
+	expect(soffit).toBeCloseTo(3.38);
+	const piers = parts.filter((p) => p.kind === 'mesh' && p.id.startsWith('bridge/pier/'));
+	expect(piers).toHaveLength(2);
+	for (const pier of piers) {
+		if (pier.kind !== 'mesh') throw Error('missing pier');
+		for (const [x, y, z] of pier.points.slice(0, 4))
+			expect(z).toBeCloseTo(0.05 * x + 0.02 * y - 0.04);
+		expect(pier.points.slice(-4).every((p) => Math.abs(p[2] - soffit) < 1e-8)).toBe(true);
+	}
+});
+
+test('a court bridge enters and leaves surveyed openings on different floors and meets ground', () => {
+	const entry: Vec3 = [16, 0, 4],
+		exit: Vec3 = [26, 0, 2],
+		terminal: Vec3 = [0, 0, 1];
+	const passage = {
+		id: 'test-house',
+		entry: { position: entry, outward: [-1, 0] as const },
+		exit: { position: exit, outward: [1, 0] as const },
+		clearWidth: 2.6,
+		headroom: 2.5,
+		centreline: [entry, exit]
+	};
+	const route = throughRoute(
+		terminal,
+		passage,
+		() => 0,
+		() => true
+	);
+	expect(route[0].a).toEqual(terminal);
+	for (let i = 1; i < route.length; i++) expect(route[i].a).toEqual(route[i - 1].b);
+	const inside = route.filter((s) => s.inside);
+	expect(inside.map((s) => [s.a, s.b])).toEqual([[entry, exit]]);
+	expect(route.at(-1)?.b[2]).toBe(0);
+	expect(
+		throughRoute(
+			terminal,
+			passage,
+			() => 0,
+			() => false
+		)
+	).toEqual([]);
+	expect(
+		throughRoute(
+			terminal,
+			{ ...passage, clearWidth: 2 },
+			() => 0,
+			() => true
+		)
+	).toEqual([]);
+});
+
+test('a public court terminal and its furnished house passage use one swept deck', () => {
+	const centre: Vec3 = [0, 0, 1],
+		entry: Vec3 = [11, 4, 4],
+		exit: Vec3 = [21, 4, 2];
+	const site = {
+		id: 'court',
+		position: centre,
+		polygon: [
+			[-8, -8],
+			[8, -8],
+			[8, 8],
+			[-8, 8]
+		] as [number, number][],
+		area: 256,
+		passages: [
+			{
+				id: 'house',
+				entry: { position: entry, outward: [-1, 0] as const },
+				exit: { position: exit, outward: [1, 0] as const },
+				clearWidth: 2.5,
+				headroom: 2.5,
+				centreline: [entry, exit],
+				clearApproach: () => true
+			}
+		]
+	};
+	const parts = townDeck(
+		[['court', 'lane']],
+		(id) => (id === 'court' ? centre : [-22, 4, 2]),
+		[site],
+		() => 0,
+		7
+	);
+	const member = (part: Primitive) => part.id.startsWith('town-walk/passage/house/');
+	expect(
+		parts.some((p) => member(p) && p.id.includes('/approach/') && p.id.endsWith('/girder'))
+	).toBe(true);
+	expect(
+		parts.some((p) => member(p) && p.id.includes('/inside/') && p.id.includes(':tread:'))
+	).toBe(true);
+	expect(parts.some((p) => member(p) && p.id.includes('/inside/') && p.id.includes('/pier/'))).toBe(
+		false
+	);
+	expect(
+		parts.some(
+			(p) =>
+				member(p) &&
+				p.id.includes('/descent/') &&
+				p.kind === 'prism' &&
+				Math.abs(p.z + p.height) < 1e-7
+		)
+	).toBe(true);
 });

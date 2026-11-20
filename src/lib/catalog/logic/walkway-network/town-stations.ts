@@ -6,7 +6,14 @@ import { interpolatePoint, type Vec3 } from '../parametrik/types';
 type Center = (id: string) => Vec3;
 type Station = { position: Vec3; arms: string[] };
 type Stations = Map<string, Station>;
-export type TownSpan = { id: string; a: Vec3; b: Vec3; fromFork?: string; toFork?: string };
+export type TownSpan = {
+	id: string;
+	a: Vec3;
+	b: Vec3;
+	fromFork?: string;
+	toFork?: string;
+	inside?: boolean;
+};
 
 /** Seats junctions on the surveyed route and draws the three arms
  * towards their common bisector. Each court keeps its surveyed landing. */
