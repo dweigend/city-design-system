@@ -262,7 +262,7 @@ function courses(
 	}
 	const top = datums[programme.length];
 	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
-	return { levels, parts, access, profile: envelope.section, top, exterior };
+	return { levels, parts, access, envelope, top, exterior };
 }
 /** Returns the same bearing solids used by the composer, before placing roof furniture. */
 export function bearingCourses(plan: Plan, context: EnsembleContext) {
@@ -283,7 +283,7 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access, profile, top, exterior } = bearingCourses(plan, context);
+		{ levels, parts, access, envelope, top, exterior } = bearingCourses(plan, context);
 	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
 	const options = [
@@ -309,7 +309,7 @@ export function perimeterHouse(
 		compact: true,
 		flightWidth: 1.25,
 		path: 'ladder',
-		signature: silhouette('block', 'ladder', true, false, profile),
+		signature: silhouette(envelope),
 		bay,
 		start: site.start,
 		stories: site.programme.length,

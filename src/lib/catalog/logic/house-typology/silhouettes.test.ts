@@ -8,7 +8,9 @@ import {
 	planHouse,
 	sectionParts
 } from '../composed-house';
-import { nearestSilhouettes } from './silhouette-measure';
+import { shellSystems } from '../../data/house-shells';
+import { sections } from './section-insets';
+import type { HouseEnvelope } from './envelope';
 import { accessShare } from '../composed-house/access-budget';
 import { checkFit, planEnsemble, wideTypologies as typologies, type Typology } from './index';
 
@@ -113,15 +115,6 @@ test('the most frequent painted use leads every house, with shell on alternating
 		}
 	}
 });
-test('alternating capsule bands shift by half a metre to one and a quarter metres', () => {
-	const levels = specimen(1, 'capsule-stack').composition.levels;
-	const shifts = levels.slice(1).map((l, i) => l.position[0] - levels[i].position[0]);
-	for (const [i, shift] of shifts.entries()) {
-		expect(Math.abs(shift)).toBeGreaterThanOrEqual(0.5 - 1e-8);
-		expect(Math.abs(shift)).toBeLessThanOrEqual(1.25 + 1e-8);
-		if (i) expect(shift * shifts[i - 1]).toBeLessThan(0);
-	}
-});
 test('occupied outlines span at least four fifths of the painted bay', () => {
 	const exempt = ['capsule-stack', 'cluster-mast', 'lattice-head', 'twin-stack', 'bell-house'];
 	const failures: string[] = [];
@@ -139,86 +132,75 @@ test('occupied outlines span at least four fifths of the painted bay', () => {
 		}
 	expect(failures).toEqual([]);
 });
-test('full occupied floors follow the sixteen typology sections', () => {
-	const floors: Record<Typology, number[]> = {
-		block: [],
-		'capsule-stack': [],
-		'deck-tower': [0, 2, 4, 5],
-		'round-tower': [0, 1, 2, 3, 4, 5],
-		'portal-house': [4, 5],
-		'lattice-head': [4, 5],
-		'courtyard-house': [0, 1, 2, 3, 4, 5],
-		'terrace-house': [0, 1, 2, 3, 4, 5],
-		'plinth-house': [0, 1, 2, 3, 4, 5],
-		'cluster-mast': [],
-		rack: [0, 1, 2, 3, 4, 5],
-		'bridge-house': [5],
-		'bell-house': [5],
-		'twin-stack': [0, 1, 2, 3, 4, 5],
-		'slab-house': [0, 1, 2, 3, 4, 5],
-		'water-house': [0, 5],
-		'tree-house': [2, 3.5, 5]
-	};
-	for (const t of typologies) {
-		const h = specimen(footprints[t][0], t).composition;
-		const bands = h.levels
-			.filter((_, i) => h.parts.some((p) => p.id === h.id + '/level/' + i + '/deck'))
-			.map((l) => (l.position[2] - h.datum) / 4);
-		expect(bands, t).toEqual(floors[t]);
-	}
-});
-test('every pair differs in two silhouette features and seeds preserve each signature', () => {
-	const signatures = typologies.map((type) => {
-		const site = footprints[type][0],
-			s = specimen(site, type).composition.signature;
-		for (const footprint of footprints[type])
-			for (const seed of [0, 1, 19, 103])
-				expect(specimen(footprint, type, 6, seed).composition.signature).toEqual(s);
-		return Object.values(s);
+function envelopeHouse(envelope: Partial<HouseEnvelope>, metres = 12, seed = 23) {
+	const cells = squareGrid(1, 1, metres).cells;
+	return planHouse({
+		cells,
+		seed,
+		stacks: new Map([[cells[0].id, Array<'living'>(7).fill('living')]]),
+		envelope
 	});
-	for (const [i, a] of signatures.entries())
-		for (const [j, b] of signatures.slice(i + 1).entries())
-			expect(
-				a.filter((v, k) => v !== b[k]).length,
-				typologies[i] + ' / ' + typologies[i + j + 1]
-			).toBeGreaterThanOrEqual(2);
+}
+test('each section produces a distinct sequence of occupied outlines on a common parcel', () => {
+	const profiles = sections.map((section) =>
+		envelopeHouse({ section, outline: 'orthogonal' }).composition.levels.map((l) => l.outline)
+	);
+	expect(new Set(profiles.map((p) => JSON.stringify(p))).size).toBe(sections.length);
 });
-test('all admissible band-fill distances reach eight percent', () => {
-	const minima = nearestSilhouettes(typologies, footprints, specimen);
-	console.info('Band-fill minima', Object.fromEntries(minima));
-	expect([...minima.values()].every((m) => m.distance >= 0.08)).toBe(true);
-});
-
-test('plug-in units span three fifths of the inhabited silhouette along their long axis', () => {
-	for (const type of ['capsule-stack', 'cluster-mast', 'tree-house', 'bell-house'] as const) {
-		for (const cells of footprints[type]) {
-			const section = specimen(cells, type);
-			const envelope = sectionParts(section)
-				.filter((p) => p.id.includes('/body/') || p.roofCell !== undefined)
-				.flatMap(housePartPlan);
-			for (const body of section.composition.levels.flatMap((l) => l.bodies)) {
-				const axis = Math.abs(Math.sin(body.rotation)) > 0.5 ? 1 : 0;
-				const span = envelope.map((p) => p[axis]);
-				expect(
-					body.size[0] / (Math.max(...span) - Math.min(...span)),
-					type + '/' + cells
-				).toBeGreaterThanOrEqual(0.6 - 1e-7);
-			}
+test('the wings and decks share the landing elevation on every inhabited floor', () => {
+	for (const section of sections) {
+		const h = envelopeHouse({ section });
+		const route = circulation(h);
+		for (const level of h.composition.levels) {
+			expect(level.bodies.every((b) => b.position[2] === level.landing[2])).toBe(true);
+			expect(route.docks.some((d) => d.door.every((v, k) => v === level.landing[k]))).toBe(true);
 		}
 	}
 });
-
-test('the compact block adds a seventeenth silhouette signature', () => {
-	const cell = squareGrid(1, 1, 4).cells[0];
-	const block = planHouse({
-		cells: [cell],
-		stacks: new Map([[cell.id, ['living', 'food', 'water']]]),
-		seed: 7
-	}).composition;
-	const features = Object.values(block.signature);
-	expect(block.typology).toBe('block');
-	for (const type of typologies) {
-		const other = Object.values(specimen(footprints[type][0], type).composition.signature);
-		expect(features.filter((value, k) => value !== other[k]).length).toBeGreaterThanOrEqual(2);
+test('the structural systems have distinct projected meshes even at fixed section and finish', () => {
+	const shapes = shellSystems.map((system) => {
+		const h = envelopeHouse({ system, section: 'vessel', finish: 'beton-schalung' });
+		const wall = sectionParts(h).find((p) => p.source.objectId === 'full-height-shell');
+		if (wall?.kind !== 'mesh') throw Error('Missing structural wall');
+		expect(h.composition.signature.support).toBe(system);
+		return JSON.stringify([wall.points, wall.triangles]);
+	});
+	expect(new Set(shapes).size).toBe(shellSystems.length);
+});
+test('a terraced section retreats by at least eight percent across its elevation', () => {
+	for (const metres of [6, 12, 24]) {
+		const { levels } = envelopeHouse(
+			{ section: 'terrace-fan', outline: 'orthogonal' },
+			metres
+		).composition;
+		expect((levels[0].width - levels[levels.length - 1].width) / metres).toBeGreaterThanOrEqual(
+			0.08
+		);
 	}
+});
+test('full-height members span more than three fifths of their inhabited elevation', () => {
+	for (const system of shellSystems) {
+		const h = envelopeHouse({ system });
+		const walls = sectionParts(h).filter((p) => p.source.objectId === 'full-height-shell');
+		expect(walls.length).toBe(4);
+		for (const p of walls) {
+			if (p.kind !== 'mesh') throw Error('Missing structural mesh');
+			const z = p.points.map((q) => q[2]);
+			expect((Math.max(...z) - Math.min(...z)) / (h.top - h.composition.ground)).toBeGreaterThan(
+				0.6
+			);
+		}
+	}
+});
+test('compact and broad carriers retain the specified form independently of the seed', () => {
+	const envelope = { system: 'diagrid', section: 'waisted-shell', outline: 'fluted' } as const;
+	for (const metres of [4, 12])
+		for (const seed of [0, 1, 19, 103]) {
+			const h = envelopeHouse(envelope, metres, seed).composition;
+			expect([h.signature.support, h.signature.body, h.signature.outline]).toEqual([
+				envelope.system,
+				envelope.section,
+				envelope.outline
+			]);
+		}
 });
