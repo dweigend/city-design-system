@@ -16,7 +16,10 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 		...protectedIds,
 		...[...state.cover].filter(([, cover]) => cover === 'forest').map(([id]) => id)
 	]);
-	const city = planCity(grid, town.railCellIds, occupied, walkOccupied);
+	const city = {
+		...planCity(grid, town.railCellIds, occupied, walkOccupied),
+		poolExclusions: [...walkOccupied]
+	};
 	for (const c of city.centres)
 		for (const id of c.green.planting)
 			if (!state.cover.has(id))

@@ -25,3 +25,9 @@ export const pathSurfaces = {
 	structure: { role: 'neu', material: 'metal', ...houseSurfaces.frame },
 	bearing: { role: 'neu', ...publicPaving }
 } as const satisfies Record<string, Pick<Primitive, 'role' | 'material' | 'token' | 'finish'>>;
+
+/** Low-gloss court turf and its two stone edge treatments. */
+export const courtSurfaces = {
+	lawn: { role: 'neu', material: 'concrete', token: '--cat-foliage', ageTint: 0.64 },
+	rim: { token: '--cat-nature-2', finishes: ['beton-terrazzo', 'beton-schalung'] }
+} as const;

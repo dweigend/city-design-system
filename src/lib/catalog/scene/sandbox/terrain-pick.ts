@@ -32,15 +32,20 @@ export function createTerrainPicker() {
 		return chunk;
 	}
 
-	function intersect(ray: THREE.Ray, cell: TerrainCell): number {
+	function coarseDistance(ray: THREE.Ray, cell: TerrainCell): number {
+		if (cell.bank?.replacesGround) return Infinity;
 		const { corners } = cell;
 		position(corners[0], a);
 		position(corners[1], b);
 		position(corners[2], c);
 		position(corners[3], d);
-		let distance = Infinity;
-		if (ray.intersectTriangle(a, b, c, true, hit) || ray.intersectTriangle(a, c, d, true, hit))
-			distance = ray.origin.distanceTo(hit);
+		return ray.intersectTriangle(a, b, c, true, hit) || ray.intersectTriangle(a, c, d, true, hit)
+			? ray.origin.distanceTo(hit)
+			: Infinity;
+	}
+
+	function intersect(ray: THREE.Ray, cell: TerrainCell) {
+		let distance = coarseDistance(ray, cell);
 		const bank = cell.bank;
 		const box = bankBounds.get(cell);
 		if (bank && box && ray.intersectsBox(box))

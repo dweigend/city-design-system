@@ -64,10 +64,12 @@ function nearestEdge({ edges, mouth }: Platform, p: Vec3) {
 function section(platform: Platform, p: Vec3, survey: number) {
 	const { top, mouth } = platform;
 	const { side, out } = nearestEdge(platform, p);
-	if (out >= reach) return [p[2], 0];
+	if (out >= reach) return [p[2], 0, 0];
 	const strip = side !== mouth ? side.setback(p, top - 0.055) : undefined;
-	if (strip !== undefined) return [Math.max(p[2], strip), 0];
-	return bankSlope(p, survey, top, side.toe(p), out, side === mouth);
+	if (strip !== undefined) return [Math.max(p[2], strip), 0, 0];
+	const [height, ink] = bankSlope(p, survey, top, side.toe(p), out, side === mouth);
+	const lawn = Math.max(0, Math.min(1, (2.65 - out) / 0.32));
+	return [height, ink, lawn];
 }
 
 // Two shallow treads project from the court into the fill. A short battered riser
@@ -92,7 +94,7 @@ function bankSlope(
 		entrance || !Number.isFinite(toe) ? 0 : Math.max(0, Math.min(1.5, survey - top, toe - top));
 	const seam = top - 0.055;
 	const batter = Math.min(1, Math.max(0, (out - 1.15) / 0.65));
-	const t = Math.max(0, out) / reach;
+	const t = entrance ? out / reach : Math.max(0, out - 1.8) / (reach - 1.8);
 	const daylight = cut > 0 ? Math.max(0, (out - 1.8) / (reach - 1.8)) : terraceFall(t, seam - p[2]);
 	const z = seam + cut * batter;
 	const entry = entrance ? Math.max(0, 1 - Math.max(0, out) / 1.5) : 1;
@@ -126,15 +128,17 @@ function sidePoint(cell: TerrainCell, side: number, k: number, n: number): Vec3 
 
 function finishedBank(platforms: Platform[], p: Vec3, survey: number, fill: number) {
 	let height = p[2] + fill,
-		tone = 0;
+		tone = 0,
+		lawn = 0;
 	for (const platform of platforms) {
-		const [z, ink] = section(platform, p, survey);
+		const [z, ink, turf] = section(platform, p, survey);
+		lawn = Math.max(lawn, turf);
 		if (z > height) {
 			height = z;
 			tone = ink;
 		}
 	}
-	return { height, tone };
+	return { height, tone, lawn };
 }
 
 function bankSurface(cell: TerrainCell, raw: TerrainCell, platforms: Platform[]) {
@@ -143,30 +147,34 @@ function bankSurface(cell: TerrainCell, raw: TerrainCell, platforms: Platform[])
 	const divisions = platforms.length ? courtDivisions : shelfDivisions;
 	const points: Vec3[] = [],
 		shade: number[] = [],
+		lawn: number[] = [],
 		raised: boolean[] = [];
 	for (let j = 0; j <= divisions; j++) {
 		for (let i = 0; i <= divisions; i++) {
 			const p = bankPoint(cell, i, j, divisions),
 				survey = bankPoint(raw, i, j, divisions)[2];
-			const { height, tone } = finishedBank(
-				platforms,
-				p,
-				survey,
-				shelf?.(i / divisions, j / divisions) ?? 0
-			);
+			const {
+				height,
+				tone,
+				lawn: turf
+			} = finishedBank(platforms, p, survey, shelf?.(i / divisions, j / divisions) ?? 0);
 			points.push([p[0], p[1], height]);
 			shade.push(tone);
+			lawn.push(turf);
 			raised.push(height > p[2]);
 		}
 	}
-	const indices = raisedFaces(raised, divisions);
-	return indices.length ? ({ points, indices, shade, divisions } satisfies BankSurface) : undefined;
+	const replacesGround = lawn.some((v) => v > 0);
+	const indices = raisedFaces(raised, divisions, replacesGround);
+	return indices.length
+		? ({ points, indices, shade, lawn, divisions, replacesGround } satisfies BankSurface)
+		: undefined;
 }
 
-function raisedFaces(raised: boolean[], divisions: number) {
+function raisedFaces(raised: boolean[], divisions: number, full: boolean) {
 	const indices: number[] = [];
 	const face = (a: number, b: number, c: number) => {
-		if (raised[a] || raised[b] || raised[c]) indices.push(a, b, c);
+		if (full || raised[a] || raised[b] || raised[c]) indices.push(a, b, c);
 	};
 	for (let j = 0; j < divisions; j++)
 		for (let i = 0; i < divisions; i++) {

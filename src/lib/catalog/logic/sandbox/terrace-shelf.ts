@@ -1,3 +1,4 @@
+import { sampleSlot } from './terrain-samples';
 import { chartPoint, type TerrainCell } from '../terrain-grid';
 
 // Four chart intervals per parcel resolve a roughly metre-wide riser. Court banks
@@ -20,19 +21,5 @@ export function terraceShelf(cell: TerrainCell) {
 			riser = Math.min(1, fraction / 0.22);
 		return shoulder * Math.max(0, riser * riser * (3 - 2 * riser) - fraction);
 	});
-	return (u: number, v: number) => {
-		const x = u * n,
-			y = v * n,
-			i = Math.min(n - 1, Math.floor(x)),
-			j = Math.min(n - 1, Math.floor(y));
-		const a = j * stride + i,
-			du = x - i,
-			dv = y - j,
-			b = du >= dv ? a + 1 : a + stride;
-		return (
-			fill[a] +
-			Math.abs(du - dv) * (fill[b] - fill[a]) +
-			Math.min(du, dv) * (fill[a + stride + 1] - fill[a])
-		);
-	};
+	return (u: number, v: number) => sampleSlot(fill, n, u, v);
 }

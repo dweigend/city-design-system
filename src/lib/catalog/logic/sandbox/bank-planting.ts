@@ -1,3 +1,4 @@
+import { courtReservations } from './court-reservations';
 import { hashUnit } from '../../core/random';
 import { type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { inradius } from '../quad-grid';
@@ -34,11 +35,7 @@ function occupied({ state }: World) {
 	const city = state.city;
 	return new Set([
 		...(city?.walk.flat() ?? []),
-		...(city?.centres ?? []).flatMap((c) => [
-			c.landmark.cellId,
-			...c.lots,
-			...(c.ensembles ?? []).flatMap((e) => [e.court, ...(e.plaza?.cells ?? [])])
-		]),
+		...courtReservations(city),
 		...state.stacks.keys(),
 		...state.lines.flatMap((l) => l.cellIds),
 		...[...state.parts.values()].map((p) => p.anchor.cellId),
@@ -101,7 +98,13 @@ export function bankPlanting(world: World): Crown[] {
 	const taken = occupied(world);
 	return shoulders(world.grid).flatMap((cell) => {
 		const cover = world.state.cover.get(cell.id);
-		if (taken.has(cell.id) || (cover && cover !== 'meadow') || !cell.plantable) return [];
+		if (
+			cell.bank?.water !== undefined ||
+			taken.has(cell.id) ||
+			(cover && cover !== 'meadow') ||
+			!cell.plantable
+		)
+			return [];
 		return coppice(world, cell);
 	});
 }

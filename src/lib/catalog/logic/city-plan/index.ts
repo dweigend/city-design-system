@@ -4,7 +4,7 @@ import { characters, centreMix } from './character';
 import { planDistricts } from './districts';
 import { planEnsembles } from './ensembles';
 export { styleWeightsAt } from './districts';
-export type CityPlan = ReturnType<typeof planCity>;
+export type CityPlan = ReturnType<typeof planCity> & { poolExclusions?: readonly string[] };
 type Link = readonly [string, string];
 const distance = (a: TerrainCell, b: TerrainCell) => Math.hypot(a.column - b.column, a.row - b.row);
 
