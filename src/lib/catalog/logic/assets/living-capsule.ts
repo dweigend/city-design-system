@@ -1,6 +1,6 @@
 import { mount, type AssetRecipe } from './definition';
 import { panel } from './objects/forms';
-import { cabinPaint, cabinGlass, cabinBrass, cabinPort } from './objects/cabin-port';
+import { cabinPaint, cabinGlass, cabinInk, cabinPort } from './objects/cabin-port';
 import { ring, surface } from './parts';
 import type { ObjectGeometry } from './object-geometry';
 
@@ -8,7 +8,7 @@ export const livingCapsule: AssetRecipe = {
 	id: 'living-capsule',
 	slotNames: ['accent', 'body', 'glass'],
 	suggestions: {
-		accent: cabinBrass,
+		accent: cabinInk,
 		body: cabinPaint,
 		glass: cabinGlass
 	},
@@ -41,9 +41,11 @@ export const livingCapsule: AssetRecipe = {
 				);
 			}
 		}
-		parts.push(
-			...cabinPort(half + r + 0.16, z, 'accent', 'glass').map((port) => ({ ...port, curvature: r }))
-		);
+		for (const side of [-1, 1]) {
+			parts.push(ring([side * half, 0, z], r + 0.012, r - 0.025, 0.065, 'accent'));
+			for (const port of cabinPort(side * (half + r + 0.16), z, 'accent', 'glass', side))
+				parts.push({ ...port, curvature: r, rotation: side < 0 ? Math.PI : 0 });
+		}
 		return parts;
 	}
 };

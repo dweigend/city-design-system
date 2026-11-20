@@ -1,7 +1,8 @@
+import type { ObjectGeometry } from '../object-geometry';
 import { block } from '../assembly';
 import { panel } from './forms';
 import { cabinShell } from './cabin-shell';
-import { cabinBrass, cabinGlass, cabinPaint, cabinPort } from './cabin-port';
+import { cabinInk, cabinGlass, cabinPaint, cabinPort } from './cabin-port';
 import { rounded } from './kit-recipe';
 import { houseSeries, lengths, spans } from './house-series';
 
@@ -21,10 +22,10 @@ function cabin(end: End) {
 			const nose = end === 'door' ? 0.24 : 0.18;
 			const right = l / 2 - balcony - nose;
 			const parts = [
-				cabinShell(
-					-l / 2,
+				...cabinShell(
+					-l / 2 + 0.18,
 					right,
-					end === 'door' || end === 'balcony' ? 0.83 : 0.54,
+					end === 'door' || end === 'balcony' ? 0.83 : 0.6,
 					v,
 					end === 'ribbon' ? 1.215 : 1.25
 				),
@@ -45,16 +46,16 @@ function cabin(end: End) {
 		suggestions: {
 			...recipe.suggestions,
 			shell: cabinPaint,
-			edge: cabinBrass,
+			edge: end === 'closed' ? { ...cabinGlass, token: '--ink' as const } : cabinInk,
 			glass: cabinGlass
 		}
 	}));
 }
 
 function fittings(end: End, l: number, balcony: number) {
-	const parts = [];
-	if (end !== 'door')
-		parts.push(...cabinPort(l / 2 - balcony, 1.325, 'edge', end === 'closed' ? 'shell' : 'glass'));
+	const pane = end === 'closed' ? 'edge' : 'glass';
+	const parts: ObjectGeometry[] = cabinPort(-l / 2, 1.325, 'edge', pane, -1);
+	if (end !== 'door') parts.push(...cabinPort(l / 2 - balcony, 1.325, 'edge', pane));
 	if (end === 'door') {
 		parts.push(
 			block(l / 2 - 0.18, 0, 0.14, 0.12, 1.08, 1.95, 'glass'),
