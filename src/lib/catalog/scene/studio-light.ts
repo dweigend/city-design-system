@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { float, mix, shadow, uniform } from 'three/tsl';
+import { float, mix, output, shadow, uniform, vec4 } from 'three/tsl';
 import { studioConfig } from './studio-quality';
 
 export const studioKeyDirection = new THREE.Vector3(-0.85, 0.85, 0.25).normalize();
@@ -23,14 +23,14 @@ export function createStudioLight(config = studioConfig()) {
 	const tint = new THREE.Color(config.shadowTint);
 	const shadowTone = uniform(new THREE.Vector3(tint.r, tint.g, tint.b));
 	const opacity = float(shadowMask).oneMinus().mul(config.shadowOpacity);
+	const shade = (color: THREE.Node<'vec3'>) => mix(color, shadowTone, opacity);
 	return {
 		shadowTone,
 		opacity,
 		objects: [sun, sun.target, fill],
-		/** The ground holds the paper palette outside the cast shadow. */
-		shade(this: void, color: THREE.Node<'vec3'>) {
-			return mix(color, shadowTone, opacity);
-		},
+		shade,
+		// The caster derives opacity from colorNode.a. Only the beauty pass may sample shadow depth.
+		receiverOutput: vec4(shade(output.rgb), output.a),
 		/** Caps the studio's warm grey against the current paper, including night palettes. */
 		setPaper(paper: THREE.Color) {
 			shadowTone.value.set(

@@ -403,13 +403,12 @@ export function createParametrikScene(
 							polygonOffsetFactor: 1,
 							polygonOffsetUnits: 1
 						});
+						if (role === 'bestand' && !see) material.outputNode = pipeline.light.receiverOutput;
 						material.colorNode =
 							role === 'bestand' && !see
-								? pipeline.light.shade(
-										pencilStock(
-											colorNode(new THREE.Color(palette.paper)).rgb,
-											colorNode(inkColor(true)).rgb
-										)
+								? pencilStock(
+										colorNode(new THREE.Color(palette.paper)).rgb,
+										colorNode(inkColor(true)).rgb
 									)
 								: surfaceColor(
 										color,

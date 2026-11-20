@@ -37,7 +37,6 @@ import {
 	modelViewMatrix,
 	normalGeometry,
 	normalize,
-	output,
 	positionGeometry,
 	screenDPR,
 	screenSize,
@@ -453,7 +452,7 @@ export function createFormlaborScene(
 		haut: material('haut', farben, palette)
 	};
 	for (const face of [stoffe.flaeche, stoffe.stab]) {
-		face.outputNode = vec4(pipeline.light.shade(output.rgb), output.a);
+		face.outputNode = pipeline.light.receiverOutput;
 	}
 
 	const schau = new THREE.Vector4(5, 0, 0, 0);
