@@ -130,9 +130,10 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 		),
 		holes: [opening]
 	};
+	if (wing && cells.length === 1) pier.polygon = wingRim(cells[0], wing.abutments, pier.polygon);
 	const wingShape =
 		wing && cells.length === 1
-			? { polygon: wingRim(cells[0], wing, pier.polygon), holes: [opening] }
+			? { polygon: wingRim(cells[0], wing.walls, pier.polygon), holes: [opening] }
 			: bridge;
 	const rooms = cells.flatMap((c) =>
 		plan.site.envelope || c === access.anchor
