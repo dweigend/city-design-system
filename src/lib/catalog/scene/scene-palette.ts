@@ -9,6 +9,8 @@ export function sceneSwatch(palette: Palette3D, token: string, fallback = palett
 			return palette.paper;
 		case '--ink':
 			return palette.ink;
+		case '--ink-3':
+			return palette.ink3 ?? fallback;
 		case '--blueprint':
 			return palette.blueprint;
 		case '--signal':

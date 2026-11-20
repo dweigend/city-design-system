@@ -1,4 +1,4 @@
-import { scenePalette } from './scene-palette';
+import { scenePalette, sceneSwatch } from './scene-palette';
 import { readFileSync } from 'node:fs';
 import { surfaceTokens } from '../logic/parametrik/types';
 import { colorOf, parsePalette } from '../logic/farbe/palette';
@@ -21,6 +21,7 @@ test('flat, curved and indexed forms resolve every finish with use, ink and pape
 				names.map((token) => [token, hex(token === '--blueprint-soft' ? '--paper' : token)])
 			)
 		);
+		expect(sceneSwatch(palette, '--ink-3')).toBe(hex('--ink-3'));
 		const library = createMaterialLibrary(palette);
 		for (const token of surfaceTokens) {
 			const pigment = tokenColor(palette, token);
