@@ -28,6 +28,6 @@ export const pathSurfaces = {
 
 /** Low-gloss court turf and its two stone edge treatments. */
 export const courtSurfaces = {
-	lawn: { role: 'neu', material: 'concrete', token: '--cat-foliage', ageTint: 0.64 },
+	lawn: { role: 'neu', material: 'concrete', token: '--cat-lawn' },
 	rim: { token: '--cat-nature-2', finishes: ['beton-terrazzo', 'beton-schalung'] }
 } as const;

@@ -1,5 +1,6 @@
 import { hashUnit } from '../../core/random';
-import { houseSurfaces } from '../composed-house';
+import { courtSurfaces } from './town-palette';
+import { roundFootprint } from '../building-envelope';
 import type { Vec3, Primitive } from '../parametrik/types';
 import { mountFitting } from './town-scatter';
 import type { PublicSpace } from './court-life';
@@ -48,30 +49,39 @@ export function courtGarden(
 	const id =
 		trees[Math.floor(hashUnit(seed, court.id, 'garden-tree') * trees.length)] + '-park-tree-2p5m';
 	const count = court.area >= 144 ? 3 + Math.floor(2 * hashUnit(seed, court.id, 'tree-count')) : 1;
-	const beds = Array.from({ length: count }, (_, i) => {
-		const left = width * (i / count - 0.5),
-			right = left + width / count;
-		const polygon = [point(left, 0.9), point(right, 0.9), point(right, 3.2), point(left, 3.2)];
-		const at = point((left + right) / 2, 1.6);
-		const base = Math.min(...polygon.map((p) => ground(...p))) - 0.04;
-		const target = relief(...at) + 0.15;
-		const level = Math.max(
-			ground(...at) + 0.05,
-			z + 0.15 * Math.max(-3, Math.min(3, Math.round((target - z) / 0.15)))
-		);
-		const tree: Vec3 = [...at, level];
-		const soil: Primitive = {
-			kind: 'prism',
-			role: 'neu',
-			id: court.id + '/garden/soil/' + i,
-			...houseSurfaces.food,
-			material: 'concrete',
-			finish: 'planted-mat',
-			polygon,
-			z: base,
-			height: level - base
-		};
-		return [soil, ...mountFitting(id, 'low-crown', tree, court.id + '/garden/' + i, seed)];
+	// One turf shoulder carries the whole grove. Its narrow ends return to
+	// the court edge and its bowed outer edge continues the district lawn.
+	const shoulder = roundFootprint(
+		[
+			point(-width / 2, 0.9),
+			point(width / 2, 0.9),
+			point(width / 2, 2.6),
+			point(width * 0.29, 4.0),
+			point(0, 4.6),
+			point(-width * 0.29, 4.0),
+			point(-width / 2, 2.6)
+		],
+		1.8
+	);
+	const level = Math.max(
+		z - 0.12,
+		ground(...point(0, 2)),
+		Math.min(z + 0.3, relief(...point(0, 2)))
+	);
+	const base = Math.min(level, ...shoulder.map((p) => ground(...p))) - 0.04;
+	const soil: Primitive = {
+		kind: 'prism',
+		id: court.id + '/garden/soil',
+		...courtSurfaces.lawn,
+		edges: false,
+		polygon: shoulder,
+		z: base,
+		height: level - base
+	};
+	const grove = Array.from({ length: count }, (_, i) => {
+		const along = width * ((i + 0.5) / count - 0.5);
+		const tree: Vec3 = [...point(along, 1.8), level];
+		return mountFitting(id, 'low-crown', tree, court.id + '/garden/' + i, seed);
 	}).flat();
 	const rim = [a, b, point(width / 2, 0.9), point(-width / 2, 0.9)];
 	const bottom = Math.min(z - 0.6, ...rim.map((p) => ground(...p))) - 0.04;
@@ -79,7 +89,8 @@ export function courtGarden(
 		kind: 'prism',
 		id: court.id + '/garden/bed',
 		role: 'neu',
-		...houseSurfaces.food,
+		token: courtSurfaces.rim.token,
+		edges: false,
 		material: 'concrete',
 		finish: 'beton-terrazzo',
 		polygon: rim,
@@ -89,6 +100,6 @@ export function courtGarden(
 	return {
 		landing,
 		point: open.point,
-		parts: [bed, ...beds]
+		parts: [bed, soil, ...grove]
 	};
 }

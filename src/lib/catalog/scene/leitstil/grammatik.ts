@@ -18,6 +18,7 @@ export function grammatik(host: HTMLElement, s: Stil) {
 		'--ana-null',
 		'--cat-hazard',
 		'--cat-foliage',
+		'--cat-lawn',
 		'--alpha-trace',
 		...(['people', 'water', 'energy', 'food', 'material'] as const).flatMap((id) =>
 			([1, 2, 3, 4, 5] as const).map((n) => flowStepToken(id, n))
