@@ -148,7 +148,10 @@ export function draftingStudy(placed: World) {
 	return {
 		world,
 		earliestFullYear: placed.state.year,
-		additions: [...elevatedWalkway(world), ...(world.seed === SEED ? twoSuns(world) : [])],
+		additions: [
+			...(world.state.city?.walk ? [] : elevatedWalkway(world)),
+			...(world.seed === SEED ? twoSuns(world) : [])
+		],
 		frame: FRAME,
 		portraitFrame: PORTRAIT_FRAME
 	};
@@ -159,7 +162,7 @@ export function riversideStock(start: World) {
 	return interventions(start, townFormEdits(start)).reduce(applyEdit, start);
 }
 
-/** Opens the generated city. Seed 7 also retains the drafting study’s authored interventions. */
+/** Opens the generated city with the reference valley’s planted banks on seed 7. */
 export function openingScene(seed: number) {
 	const start = createWorld(seed);
 	const covers = seed === SEED ? COVERS.flatMap(([kind, rect]) => cover(kind, rect)) : [];
@@ -171,16 +174,10 @@ export function openingScene(seed: number) {
 	};
 }
 
-/** Frames the same city as the game, with the authored drafting details on alternate seeds. */
+/** Frames the same city as the game and adds the seed-7 kinetic landmark. */
 export function acceptanceScene(seed = SEED) {
 	const { world } = openingScene(seed);
-	const study = {
-		world,
-		earliestFullYear: world.state.year,
-		additions: seed === SEED ? twoSuns(world) : [],
-		frame: FRAME,
-		portraitFrame: PORTRAIT_FRAME
-	};
+	const study = draftingStudy(world);
 	const disc = study.additions.find((p) => p.id === TWO_SUNS_TURNING_DISC);
 	return { ...study, ...(disc?.kind === 'ring' && { landmark: disc.position }) };
 }

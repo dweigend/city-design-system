@@ -104,11 +104,17 @@ export function planCity(grid: TerrainGrid, rail: Link, occupied: ReadonlySet<st
 		...corridors.flatMap(([a, b]) => cellsBetween(grid, a, b).map((c) => c.id))
 	]);
 	const landmarks = stops.map((stop, i) => planCentre(grid, stop, land, reserved, families[i]));
-	const groups = planEnsembles(grid, stops, land, reserved);
+	const { groups, walk } = planEnsembles(
+		grid,
+		stops,
+		land,
+		reserved,
+		new Set([...occupied, ...landmarks.map((c) => c.landmark.cellId)])
+	);
 	const centres = landmarks.map((centre, i) => ({
 		...centre,
 		ensembles: groups[i],
 		lots: groups[i].flatMap((group) => group.lots)
 	}));
-	return { centres, corridors, districts: planDistricts(grid, centres) };
+	return { centres, corridors, walk, districts: planDistricts(grid, centres) };
 }

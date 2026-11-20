@@ -48,9 +48,17 @@ function buildLot(
 	cell: TerrainCell,
 	construct: Construct
 ) {
-	const style = cityHouseStyle(world, plan, cell);
+	const ensemble = plan.centres
+		.flatMap((c) => c.ensembles ?? [])
+		.find((g) => g.lots.includes(cell.id));
+	const base = ensemble && cell.id !== ensemble.lots[0];
+	const style =
+		base && stylesForYear(world.state.year).includes('composed')
+			? 'composed'
+			: cityHouseStyle(world, plan, cell);
 	const uses: readonly HouseUse[] = ['living', 'food', 'water', 'material', 'energy'];
-	const use = uses[Math.floor(hashUnit(world.seed, cell.id, 'city-use') * uses.length)];
+	const use =
+		uses[Math.floor(hashUnit(world.seed, ensemble?.court ?? cell.id, 'city-use') * uses.length)];
 	for (let floor = 0; floor < height; floor++)
 		world = construct(world, {
 			kind: 'raise',

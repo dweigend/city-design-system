@@ -1,3 +1,5 @@
+import { townRoutes } from '../walkway-network';
+import { required } from '../required';
 import { hashUnit } from '../../core/random';
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
 
@@ -46,10 +48,12 @@ export function planEnsembles(
 	grid: TerrainGrid,
 	stops: TerrainCell[],
 	land: TerrainCell[],
-	reserved: Set<string>
+	reserved: Set<string>,
+	occupied: Set<string>
 ) {
 	const available = land.filter((c) => !reserved.has(c.id));
-	const free = new Set(available.map((c) => c.id));
+	const envelopes = new Map(available.map((c) => [c.id, envelope(c)]));
+	const free = new Set(envelopes.keys());
 	const byStop = stops.map((stop) =>
 		[...available].sort((a, b) => {
 			const distance = (c: TerrainCell) =>
@@ -58,22 +62,33 @@ export function planEnsembles(
 		})
 	);
 	const groups = stops.map((): TownEnsemble[] => []);
+	let walk: string[][] = [];
+	const built: TownEnsemble[] = [];
 	const count = 5 + Math.floor(4 * hashUnit(grid.terrain.seed, 'ensemble-count'));
 	for (let i = 0; i < count; i++) {
 		const district = i % stops.length;
-		let chosen: TownEnsemble | undefined;
-		for (const court of byStop[district]) {
-			if (free.has(court.id)) chosen = courtGroup(grid, court, free);
-			if (chosen) break;
-		}
-		if (!chosen) throw new RangeError('No free court near ' + stops[district].id);
+		const { chosen, route } = site(byStop[district]);
+		walk = route;
+		built.push(chosen);
 		groups[district].push(chosen);
 		const boxes = [chosen.court, chosen.mouth, ...chosen.lots].map((id) =>
-			envelope(grid.cellsById.get(id)!)
+			required(envelopes.get(id), 'ensemble footprint')
 		);
-		for (const c of available) {
-			if (boxes.some((b) => gap(envelope(c), b) < 12)) free.delete(c.id);
+		for (const id of free) {
+			const box = required(envelopes.get(id), 'candidate footprint');
+			if (boxes.some((b) => gap(box, b) < 12)) free.delete(id);
 		}
 	}
-	return groups;
+	return { groups, walk };
+
+	function site(candidates: TerrainCell[]) {
+		for (const court of candidates) {
+			if (!free.has(court.id)) continue;
+			const chosen = courtGroup(grid, court, free);
+			if (!chosen) continue;
+			const route = townRoutes(grid, [...built, chosen], occupied);
+			if (route) return { chosen, route };
+		}
+		throw new RangeError('No reachable court in surveyed district');
+	}
 }

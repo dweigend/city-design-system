@@ -1,3 +1,4 @@
+import { privateSurface } from '../walkway-network';
 import { sandboxGenerationYears } from '../../data/sandbox';
 import type { Primitive } from '../parametrik/types';
 import { present, type Focus } from '../presentation';
@@ -27,9 +28,11 @@ export function presentHouseGroup(
 	phase: Build,
 	year: number,
 	focus: Focus,
-	earliestFullYear?: number
+	earliestFullYear?: number,
+	publicDeckPalette = false
 ): Primitive[] {
 	if (!isColourBuild(phase, earliestFullYear)) return present(parts, focus.stock);
+	if (publicDeckPalette) parts = parts.map(privateSurface);
 	const forms = present(parts.map(newVolume), focus.houses);
 	// Fixed study plates keep their original ink.
 	if (earliestFullYear !== undefined || focus.houses !== 'full') return forms;

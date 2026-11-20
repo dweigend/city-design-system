@@ -1,3 +1,4 @@
+import { plannedPlots } from './planned-ensembles';
 import { networkGroups } from './network-groups';
 import { nextSeed } from '../../core/random';
 import { required } from '../required';
@@ -57,9 +58,12 @@ function survey(world: World) {
 			] as const;
 		})
 	);
+	const planned = plannedPlots(world.state);
 	const stock = houseObstacles(world.grid, world.state);
 	return [
-		...sectionGroups(world.grid, sections, world.seed, stock),
+		...sectionGroups(world.grid, sections, world.seed, stock).filter(
+			(g) => !g.span || !g.cells.some((id) => planned.has(id))
+		),
 		...networkGroups(world, sections, r3, stock)
 	].map((g) => {
 		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));

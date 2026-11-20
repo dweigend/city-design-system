@@ -1,3 +1,4 @@
+import { plannedLayout, plannedPlots } from './planned-ensembles';
 import { planEnsembles, type Ensembles, type HouseUse, type Stacks } from '../house-brush';
 import { neighborsOf, type QuadGrid } from '../quad-grid';
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
@@ -28,9 +29,7 @@ export function houseDistrict(cell: TerrainCell) {
 }
 
 function placements(grid: TerrainGrid, state: SandboxState) {
-	const planned = new Set(
-		state.city?.centres.flatMap((c) => c.ensembles?.flatMap((g) => g.lots) ?? [])
-	);
+	const planned = plannedPlots(state);
 	return new Map(
 		[...state.storyParts].flatMap(([id, stories]) => {
 			if (planned.has(id)) return [];
@@ -75,9 +74,10 @@ export function houseEnsembles(
 		seed,
 		latest.get(grid)
 	);
-	seeds.set(seed, layout);
+	const combined = plannedLayout(grid, state, layout);
+	seeds.set(seed, combined);
 	latest.set(grid, layout);
-	return layout;
+	return combined;
 }
 
 /** Adds derived top storeys only to the phase owning the painted top. Saved stacks stay intact. */
