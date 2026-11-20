@@ -49,7 +49,7 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 	return growCity(
 		{
 			...world,
-			grid: townGrid(world.grid, city.walk),
+			grid: townGrid(world.grid, city),
 			state: { ...world.state, city, cityStages }
 		},
 		applyEdit,
