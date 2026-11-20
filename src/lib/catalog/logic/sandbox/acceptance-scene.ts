@@ -177,5 +177,11 @@ export function openingScene(seed: number) {
 /** Frames the same city as the game and adds the seed-7 kinetic landmark. */
 export function acceptanceScene(seed = SEED) {
 	const { world } = openingScene(seed);
-	return draftingStudy(world);
+	const waterfront = world.state.city?.centres.find(
+		(centre) => centre.landmark.object === 'water-tower'
+	);
+	return {
+		...draftingStudy(world),
+		...(waterfront && { featuredCentre: { cellId: waterfront.cellId, headingDeg: 196 } })
+	};
 }

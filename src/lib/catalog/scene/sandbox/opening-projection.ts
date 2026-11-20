@@ -28,7 +28,8 @@ export type OpeningScreen = ReturnType<typeof screenBounds>;
 export type Courts = ReturnType<typeof courtOpening>;
 
 // All candidate crops at a heading are affine transforms of one orthographic projection.
-function projector(view: View) {
+/** Builds a bounds projector on the active camera axes in world metres. */
+export function projector(view: View) {
 	const m = view.camera.matrixWorld.elements;
 	const x0 = m[12] * m[0] + m[13] * m[1] + m[14] * m[2];
 	const y0 = m[12] * m[4] + m[13] * m[5] + m[14] * m[6];

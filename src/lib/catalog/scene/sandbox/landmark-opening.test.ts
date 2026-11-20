@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test';
 import { Box2, Vector2 } from 'three/webgpu';
 import {
 	acceptanceScene,
+	centreLandmark,
 	composedProjection,
 	houseGroups,
 	openingScene,
@@ -10,6 +11,7 @@ import {
 } from '../../logic/sandbox';
 import type { World } from '../../logic/sandbox';
 import { focuses } from '../../logic/presentation';
+import { required } from '../../logic/required';
 import { bounds } from '../../logic/ansicht/geometrie';
 import type { Primitive } from '../../logic/parametrik/types';
 import { lineParts } from '../../logic/transit-line';
@@ -133,6 +135,45 @@ function expectFraming(
 	const stock = visibleContext(world, view, safe, hud, homes);
 	expectEnsembleComposition(view, safe, visible, stock);
 }
+function expectTransitClear(
+	world: World,
+	view: View,
+	canvas: Box2,
+	safe: Box2,
+	additions: Primitive[]
+) {
+	const forbidden = new Box2(
+		new Vector2(0, safe.min.y + (safe.max.y - safe.min.y) * 0.55),
+		new Vector2(safe.max.x * 0.55, safe.max.y)
+	);
+	const stations = world.lines.map((line) => roundedStops(lineParts(line)));
+	expect(stations.length).toBeGreaterThan(0);
+	for (const parts of [...stations, additions].filter((group) => group.length)) {
+		const box = envelope(view, parts);
+		if (!canvas.intersectsBox(box)) continue;
+		expect(view.isPortrait(), parts[0].id).toBe(false);
+		expect(safe.containsBox(box), parts[0].id).toBe(true);
+		expect(forbidden.intersectsBox(box), parts[0].id).toBe(false);
+	}
+}
+
+function expectWaterfront(world: World, view: View, safe: Box2, courts: Map<string, Box2>) {
+	const waterfront = world.state.city?.centres.find((c) => c.landmark.object === 'water-tower');
+	if (!waterfront) throw Error('Missing acceptance water tower');
+	expect(safe.containsBox(envelope(view, centreLandmark(world, waterfront)))).toBe(true);
+	const gates = new Set(waterfront.ensembles?.map((e) => e.court));
+	for (const gate of gates)
+		expect(safe.containsBox(required(courts.get(gate), 'waterfront court'))).toBe(true);
+	for (const route of world.state.city?.walk ?? []) {
+		if (!gates.has(route[0])) continue;
+		for (const id of route)
+			for (const corner of required(world.grid.cellsById.get(id), 'court approach').corners) {
+				const { x, y } = view.project(corner);
+				expect(safe.containsPoint(new Vector2(x, y))).toBe(true);
+			}
+	}
+}
+
 test.each([
 	['sandbox', 1440, 900, 1257, 40, 900],
 	['sandbox-short', 1280, 640, 1097, 40, 640],
@@ -147,27 +188,21 @@ test.each([
 		const { world, additions } = scene;
 		const view = createView();
 		view.resize(width, height);
-		const phone = width < height,
-			area = { right, top, bottom, reserved: hud(name, width, height, right, top, bottom) };
+		const phone = width < height;
+		const area = {
+			right,
+			top,
+			bottom,
+			reserved: hud(name, width, height, right, top, bottom),
+			featuredCentre: 'featuredCentre' in scene ? scene.featuredCentre : undefined
+		};
 		const hudBoxes = [...area.reserved, { left: 0, right: width, top: 0, bottom: top }].map(
 			(r) => new Box2(new Vector2(r.left, r.top), new Vector2(r.right, r.bottom))
 		);
 		expect((phone ? frameOldTown : frameTownSilhouette)(view, world, area, additions)).toBe(true);
 		const canvas = new Box2(new Vector2(), new Vector2(width, height));
 		const safe = new Box2(new Vector2(0, top), new Vector2(right, bottom));
-		const forbidden = new Box2(
-			new Vector2(0, top + (bottom - top) * 0.55),
-			new Vector2(right * 0.55, bottom)
-		);
-		const stations = world.lines.map((line) => roundedStops(lineParts(line)));
-		expect(stations.length).toBeGreaterThan(0);
-		for (const parts of [...stations, additions].filter((group) => group.length)) {
-			const box = envelope(view, parts);
-			if (!canvas.intersectsBox(box)) continue;
-			expect(phone, parts[0].id).toBe(false);
-			expect(safe.containsBox(box), parts[0].id).toBe(true);
-			expect(forbidden.intersectsBox(box), parts[0].id).toBe(false);
-		}
+		expectTransitClear(world, view, canvas, safe, additions);
 		const houses = composedProjection(world).filter((h) => !h.span);
 		const courts = world.state.city?.centres.flatMap((c) => c.ensembles ?? []) ?? [];
 		const boxes = courts.map((court) =>
@@ -178,6 +213,8 @@ test.each([
 					.flatMap((h) => h.parts())
 			)
 		);
+		if (name === 'acceptance')
+			expectWaterfront(world, view, safe, new Map(courts.map((c, i) => [c.court, boxes[i]])));
 		const visible = boxes.filter((box) => canvas.intersectsBox(box));
 		expect(visible.length).toBeGreaterThanOrEqual(2);
 		for (const box of visible) {

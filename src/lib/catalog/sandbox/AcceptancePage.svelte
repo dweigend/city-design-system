@@ -26,7 +26,7 @@
 		const query = new URLSearchParams(location.search);
 		const requested = Number(query.get('seed') ?? '7');
 		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
-		const { world, earliestFullYear, additions } = acceptanceScene(seed);
+		const { world, earliestFullYear, additions, featuredCentre } = acceptanceScene(seed);
 		const openingArea = () => {
 			const rect = host.getBoundingClientRect();
 			if (!rect.height) return;
@@ -41,7 +41,7 @@
 				}
 			];
 			const bottom = top > 0 && top < rect.height ? top : rect.height;
-			return { top: Math.min(32, bottom / 4), bottom, reserved };
+			return { top: Math.min(32, bottom / 4), bottom, reserved, featuredCentre };
 		};
 		const study = {
 			openingArea,

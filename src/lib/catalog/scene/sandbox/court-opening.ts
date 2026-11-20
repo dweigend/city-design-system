@@ -1,7 +1,7 @@
 import { Vector3 } from 'three/webgpu';
 import { STORY } from '../../data/grid';
 import { bounds } from '../../logic/ansicht/geometrie';
-import { composedProjection, houseGroups, type World } from '../../logic/sandbox';
+import { centreLandmark, composedProjection, houseGroups, type World } from '../../logic/sandbox';
 import { focuses } from '../../logic/presentation';
 import type { Primitive } from '../../logic/parametrik/types';
 
@@ -120,4 +120,24 @@ function stockGroups(world: World) {
 	return [...chunks].flatMap((chunk) =>
 		chunk ? [...houseGroups(world, chunk, focuses.all).values()] : []
 	);
+}
+
+/** Full exhibit footprint, including each court approach, its buildings and the centre landmark. */
+export function centreOpening(world: World, centreId: string, courts: ReturnType<typeof survey>) {
+	const city = world.state.city;
+	const centre = city?.centres.find((c) => c.cellId === centreId);
+	if (!centre?.ensembles?.length) return;
+	const gates = new Set(centre.ensembles.map((e) => e.court));
+	const cells = new Set([
+		...centre.ensembles.flatMap((e) => [e.court, e.mouth, ...(e.plaza?.cells ?? [])]),
+		...(city?.walk ?? []).filter((route) => gates.has(route[0])).flat()
+	]);
+	const centres = new Set([...gates].map((id) => world.grid.cellsById.get(id)?.center));
+	return [
+		...courts.filter((c) => centres.has(c.center)).flatMap((c) => c.houses.flat()),
+		...[...cells].flatMap((id) =>
+			(world.grid.cellsById.get(id)?.corners ?? []).map(([x, y, z]) => new Vector3(x, z, -y))
+		),
+		...centreLandmark(world, centre).flatMap((part) => boxCorners(bounds(part)))
+	];
 }
