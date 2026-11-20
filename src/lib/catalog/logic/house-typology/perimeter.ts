@@ -162,6 +162,46 @@ function floorOutline(
 		i
 	);
 }
+function floorBodies(
+	plan: Plan,
+	shapes: CourseShapes,
+	shape: Shape,
+	i: number,
+	z: number,
+	ceiling: number,
+	gallery: boolean,
+	parts: Solid[],
+	wing?: UpperWing
+) {
+	const { rooms, pier, envelope } = shapes;
+	const { cells, ground, id } = plan.site;
+	const raised = i === 0 && wing?.level === 1;
+	const baseTop = raised ? z + (ceiling - z) * 0.46 : ceiling - rim;
+	const shells = i === 0 && !plan.site.envelope ? rooms : [shape];
+	const bodies = shells.map((shell, k) => {
+		const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
+		if (body.band && i >= 2) {
+			body.band.cells = cells;
+			body.band.finish = envelope.finish;
+			if (!gallery) body.band.skin = envelope.skin;
+		}
+		parts.push(bodySolid(body, shell, ground));
+		return body;
+	});
+	if (raised) {
+		const upper = makeBody(
+			plan,
+			id + '/level/0/body/pier',
+			pier,
+			baseTop,
+			ceiling - rim - baseTop,
+			i
+		);
+		bodies.push(upper);
+		parts.push(bodySolid(upper, pier, ground));
+	}
+	return bodies;
+}
 function courses(
 	plan: Plan,
 	frontage: ReadonlySet<string>,
@@ -170,7 +210,7 @@ function courses(
 	wing?: UpperWing
 ) {
 	const shapes = courseShapes(plan, frontage, wing);
-	const { access, axis, opening, plot, rooms, envelope, pier } = shapes;
+	const { access, axis, opening, plot, rooms, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
 	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
 	const parts: Solid[] = rooms.map((room, k) =>
@@ -182,31 +222,7 @@ function courses(
 		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
 		const shape = floorOutline(plan, shapes, i, gallery, wing);
-		const underGround = i === 0 && wing?.level === 1;
-		const baseTop = underGround ? z + (ceiling - z) * 0.46 : ceiling - rim;
-		const shells = i === 0 && !plan.site.envelope ? rooms : [shape];
-		const bodies = shells.map((shell, k) => {
-			const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
-			if (body.band && i >= 2) {
-				body.band.cells = cells;
-				body.band.finish = envelope.finish;
-				if (!gallery) body.band.skin = envelope.skin;
-			}
-			parts.push(bodySolid(body, shell, ground));
-			return body;
-		});
-		if (underGround) {
-			const upper = makeBody(
-				plan,
-				id + '/level/0/body/pier',
-				pier,
-				baseTop,
-				ceiling - rim - baseTop,
-				i
-			);
-			bodies.push(upper);
-			parts.push(bodySolid(upper, pier, ground));
-		}
+		const bodies = floorBodies(plan, shapes, shape, i, z, ceiling, gallery, parts, wing);
 		const [x, y] = extent(shape),
 			use = bodies[0].use;
 		levels.push({
