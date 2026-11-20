@@ -1,4 +1,4 @@
-import type { EnsembleContext } from './ensemble';
+import type { EnsembleContext } from './ensemble-context';
 import type { Survey } from './survey';
 import { collapse } from './collapse';
 import type { Plan } from './types';

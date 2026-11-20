@@ -6,7 +6,6 @@ export type UpperWing = {
 	level: number;
 	walls: Set<string>;
 	abutments: Set<string>;
-	roof: 'head' | 'terrace';
 };
 function neighbours(site: Survey, pending: Set<Survey>) {
 	const adjacent = new Set(site.cells.flatMap((c) => c.neighbors));
@@ -31,27 +30,23 @@ function takeWing(pending: Set<Survey>, count: number) {
 function divideWing(group: Survey[], result: Map<string, UpperWing>, sites: Survey[]) {
 	const lowest = Math.min(...group.map((s) => s.programme.length));
 	if (group.length < 2 || lowest >= 5) return;
-	const head = [...group].sort(
-		(a, b) => b.programme.length - a.programme.length || a.id.localeCompare(b.id)
-	)[0];
 	const level = Math.min(2, lowest - 1);
 	const remaining = new Set(group);
 	while (remaining.size) {
-		const wing = takeWing(remaining, remaining.size === 4 ? 2 : 3);
+		const wing = takeWing(remaining, remaining.size === 4 || group.length === 3 ? 2 : 3);
 		for (const site of wing) {
 			const abutments = sites
 				.filter((s) => s.ground !== site.ground)
 				.flatMap((s) => s.cells.map((c) => c.id));
 			result.set(site.id, {
 				level,
-				roof: site === head ? 'head' : 'terrace',
 				abutments: new Set(abutments),
 				walls: new Set(wing.filter((n) => n !== site).flatMap((n) => n.cells.map((c) => c.id)))
 			});
 		}
 	}
 }
-/** Assigns upper galleries to connected wings and reserves a single roof head per joined court. */
+/** Assigns upper galleries to connected wings. */
 export function upperWings(sites: Survey[], frontages: Map<string, Set<string> | undefined>) {
 	const result = new Map<string, UpperWing>();
 	const pending = new Set(

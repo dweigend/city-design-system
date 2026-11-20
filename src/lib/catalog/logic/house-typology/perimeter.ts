@@ -12,7 +12,7 @@ import { crownSpec, objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
 import { silhouette } from './signature';
-import type { EnsembleContext } from './ensemble';
+import type { EnsembleContext } from './ensemble-context';
 import type { HouseRole } from './families';
 import type { Body, HouseComposition, Level, Plan, Solid } from './types';
 
@@ -99,7 +99,7 @@ function bodySolid(body: Body, shape: Shape, ground: number): Solid {
 }
 function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const anchor = entranceCell(plan.site.cells, frontage, plan.sign),
-		bay = plan.site.envelope ? footprintBay(plan.site.cells) : footprintBay([anchor]);
+		bay = frontage.size ? footprintBay([anchor]) : footprintBay(plan.site.cells);
 	const axis: XY = [bay.x, bay.y + plan.sign * Math.min(bay.depth * 0.2, 1.4)];
 	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
@@ -138,11 +138,23 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 			? { polygon: wingRim(cells[0], wing.walls, pier.polygon), holes: [opening] }
 			: bridge;
 	const rooms = cells.flatMap((c) =>
-		plan.site.envelope || c === access.anchor
+		!frontage.size || c === access.anchor
 			? entranceRooms(c, axis, plan.sign)
 			: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 	);
-	return { access, axis, opening, plot, full, bridge, pier, wingShape, rooms, envelope };
+	return {
+		access,
+		axis,
+		opening,
+		plot,
+		full,
+		bridge,
+		pier,
+		wingShape,
+		rooms,
+		envelope,
+		joined: frontage.size > 0
+	};
 }
 type CourseShapes = ReturnType<typeof courseShapes>;
 function floorOutline(
@@ -155,7 +167,7 @@ function floorOutline(
 	if (i + 1 === wing?.level) return shapes.pier;
 	if (i === wing?.level) return shapes.wingShape;
 	if (gallery) return shapes.bridge;
-	if (!plan.site.envelope && i < 2) return shapes.full;
+	if (shapes.joined && i < 2) return shapes.full;
 	return parcelSection(
 		shapes.plot,
 		shapes.opening,
@@ -183,7 +195,7 @@ function floorBodies(
 		envelope.system === 'service-risers' || envelope.system === 'helical-services'
 			? serviceGallery(shape, shapes.opening, plan.sign)
 			: shape;
-	const shells = i === 0 && !plan.site.envelope ? rooms : [occupied];
+	const shells = i === 0 && shapes.joined ? rooms : [occupied];
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
 		if (body.band && i >= 2) {
@@ -252,22 +264,26 @@ function courses(
 	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
 	return { levels, parts, access, profile: envelope.section, top, exterior };
 }
+/** Returns the same bearing solids used by the composer, before placing roof furniture. */
+export function bearingCourses(plan: Plan, context: EnsembleContext) {
+	const decision = context.houses.get(plan.site.id);
+	return courses(
+		plan,
+		decision?.frontage ?? new Set(),
+		context.seed,
+		decision?.galleryCourse,
+		decision?.upperWing
+	);
+}
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
 	plan: Plan,
 	role: HouseRole,
 	accessSide: HouseComposition['accessSide'],
-	frontage: ReadonlySet<string>,
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access, profile, top, exterior } = courses(
-			plan,
-			frontage,
-			context.seed,
-			context.houses.get(site.id)?.galleryCourse,
-			context.houses.get(site.id)?.upperWing
-		);
+		{ levels, parts, access, profile, top, exterior } = bearingCourses(plan, context);
 	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
 	const options = [
@@ -283,7 +299,7 @@ export function perimeterHouse(
 		crowns[crowns.length - 1];
 	crown.position = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5), top];
 	crown.anchor = 'roof';
-	const sharedRoof = context.houses.get(site.id)?.upperWing?.roof;
+	const sharedRoof = context.houses.get(site.id)?.roof;
 	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
 	return {
 		id: site.id,

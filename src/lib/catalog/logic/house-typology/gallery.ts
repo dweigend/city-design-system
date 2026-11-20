@@ -4,17 +4,9 @@ import type { Survey } from './survey';
 
 type XY = [number, number];
 
-/** Reserves neighbouring frontages for a continuous podium where a street meets narrow or compound plots. */
+/** Reserves neighbouring frontages for a continuous podium along each shared parcel edge. */
 export function frontages(sites: Survey[]) {
 	const owner = new Map(sites.flatMap((s) => s.cells.map((c) => [c.id, s] as const)));
-	const street = sites.some(
-		(s) =>
-			s.compact ||
-			s.cells.length > 1 ||
-			s.ground !== sites[0].ground ||
-			s.width !== sites[0].width ||
-			s.depth !== sites[0].depth
-	);
 	return new Map(
 		sites.map((site) => {
 			const edges = site.cells.flatMap((c) =>
@@ -23,11 +15,8 @@ export function frontages(sites: Survey[]) {
 					return !!other && other !== site;
 				})
 			);
-			const narrowWing = site.compact && site.cells.length > 1;
-			return [
-				site.id,
-				(street && edges.length) || narrowWing ? new Set(edges) : undefined
-			] as const;
+
+			return [site.id, edges.length ? new Set(edges) : undefined] as const;
 		})
 	);
 }

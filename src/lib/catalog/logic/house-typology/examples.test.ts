@@ -18,7 +18,9 @@ test('eight painted neighbours share one high point and two plinth or bar sites'
 test('three living floors retain three inhabited decks', () => {
 	const [house] = compose();
 	expect(house.levels).toHaveLength(3);
-	expect(house.levels.every((l) => l.bodies.some((b) => b.kind === 'capsule'))).toBe(true);
+	expect(
+		house.levels.every((l) => l.bodies.some((b) => (b.band?.footprint?.polygon.length ?? 0) >= 3))
+	).toBe(true);
 });
 test('each joint transfers load to the surveyed ground', () => {
 	for (const house of compose()) expect(checkFit(house.parts)).toEqual([]);

@@ -1,4 +1,5 @@
-import { upperWings, type UpperWing } from './upper-wings';
+import { roofOwners } from './roof-owners';
+import { upperWings } from './upper-wings';
 import { frontages, galleryCourses } from './gallery';
 import { paletteCount, housePath } from './routes';
 import { required } from '../required';
@@ -8,20 +9,8 @@ import { collapse } from './collapse';
 import { affinities, typologies, type HouseRole, type Typology } from './families';
 import { survey, type Survey } from './survey';
 
-type Decision = {
-	frontage?: ReadonlySet<string>;
-	galleryCourse?: number;
-	upperWing?: UpperWing;
-	role: HouseRole;
-	typology: Typology;
-	away: [number, number];
-};
-export type EnsembleContext = {
-	datum: number;
-	skyline: number;
-	seed: number;
-	houses: ReadonlyMap<string, Decision>;
-};
+import type { Decision, EnsembleContext } from './ensemble-context';
+export type { EnsembleContext } from './ensemble-context';
 
 function skyline(sites: Survey[], seed: number) {
 	const roles = new Map<string, HouseRole>(sites.map((s) => [s.id, 'medium']));
@@ -113,6 +102,7 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 		sites.map((s) => [
 			s.id,
 			{
+				roof: 'head',
 				role: required(roles.get(s.id), 'ensemble role'),
 				typology: forms.get(s.id) ?? 'block',
 				away: away(s, sites),
@@ -135,10 +125,15 @@ export function planEnsemble(sites: readonly HouseSite[], seed?: number): Ensemb
 	const datum =
 		origin + step * (1 + Math.ceil((Math.max(...sorted.map((s) => s.base)) - origin) / step));
 	const ceiling = datum + STORY * Math.max(...sorted.map((s) => s.programme.length)) + step;
-	return {
+	const context = {
 		seed: selectedSeed,
 		datum,
 		skyline: ceiling,
 		houses: houseLayer(sorted, skyline(sorted, selectedSeed), selectedSeed)
 	};
+	if (sorted.length > 1) {
+		const heads = roofOwners(sorted, context);
+		for (const [id, decision] of context.houses) decision.roof = heads.has(id) ? 'head' : 'terrace';
+	}
+	return context;
 }

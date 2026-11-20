@@ -44,6 +44,7 @@ function contactGraph(entries: Entry[]) {
 		}
 	return {
 		components: new Set(labels.filter((_, i) => body(entries[i]))).size,
+		labels,
 		joined,
 		collisions
 	};
@@ -105,4 +106,22 @@ export function massGraph(houses: Section[]) {
 		inhabitedBridges: galleries.size,
 		collisions
 	};
+}
+
+/** Groups owners by actual touching decks and inhabited volumes, independent of the roof plan. */
+export function supportedMasses(houses: Section[]) {
+	const entries = houses.flatMap((house, owner) =>
+		house.composition.parts
+			.filter((p) => ['deck', 'body', 'attic', 'capsule'].includes(p.joint))
+			.map((p) => entry(p, owner))
+	);
+	const { labels } = contactGraph(entries);
+	const groups = new Map<number, Set<Section>>();
+	for (const [i, e] of entries.entries()) {
+		if (!body(e)) continue;
+		const group = groups.get(labels[i]) ?? new Set();
+		group.add(houses[e.owner]);
+		groups.set(labels[i], group);
+	}
+	return [...groups.values()];
 }
