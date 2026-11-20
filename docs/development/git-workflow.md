@@ -4,11 +4,11 @@ Remote: GitHub `city-design-system`. CI: `.github/workflows/verify.yml` (job `ve
 
 ## Authorization
 
-| ID    | Rule                                                                                                                                                                                                                                       | Auth. |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
-| GW-01 | An implementation task authorizes no commit, push, pull request or merge. A granted permission is used fully within its named operation and candidate; it does not authorize other remote writes.                                          | N     |
-| GW-02 | `main` changes only on David's explicit instruction, one merge at a time. A new candidate invalidates a merge instruction based on the previous approval; re-review requires a fresh merge instruction. Agents commit on working branches. | D     |
-| GW-03 | Pushing and creating remote repositories only on David's instruction.                                                                                                                                                                      | D     |
+| ID    | Rule                                                                                                                                                                                                                                                                                            | Auth. |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| GW-01 | An implementation task authorizes no commit, push, pull request or merge. A granted permission is used fully within its named operation and candidate; it does not authorize other remote writes.                                                                                               | N     |
+| GW-02 | `main` changes only on David's explicit instruction, one merge at a time. A new candidate invalidates a merge instruction based on the previous approval; re-review requires a fresh merge instruction. Agents commit on working branches.                                                      | D     |
+| GW-03 | Pushing and creating remote repositories only on David's instruction. Standing authorization: fast-forward pushes and merges to `experimente` (the build lane) and pushes to the private lab repository need no separate instruction; `main`, force-pushes and remote branch deletion still do. | D     |
 
 ## Branches
 
