@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { townSections } from '../../src/lib/catalog/logic/sandbox/composed-projection';
 import { openingScene } from '../../src/lib/catalog/logic/sandbox';
-import { bounds } from '../../src/lib/catalog/logic/ansicht/geometrie';
+import { profile } from '../../src/lib/catalog/logic/house-typology/fit-geometry';
 import { massGraph } from './masses';
 
 test('six populated opening courts each carry two or three upper wings and one roof head', () => {
@@ -19,7 +19,7 @@ test('six populated opening courts each carry two or three upper wings and one r
 				composition: {
 					...h.composition,
 					parts: h.composition.parts.filter(
-						(p) => bounds(p).min[2] >= h.composition.levels[floor].position[2]
+						(p) => profile(p).bounds.min[2] >= h.composition.levels[floor].position[2]
 					)
 				}
 			}));
