@@ -1,3 +1,4 @@
+import { projectBuildingSurface } from '../../scene/building-surface';
 import { expect, test } from 'bun:test';
 import { resolveFinish } from '../material/surface';
 import { printPatterns } from '../../data/materialPrint';
@@ -165,7 +166,7 @@ test('four-cell housing exposes programme stock and an open bay, terrace or cour
 					parts.some(
 						(p) =>
 							p.id.startsWith(b.id + '/' + b.objectId + '/') &&
-							(uses.has(p.token) || p.token === houseSurfaces.shell.token)
+							(uses.has(projectBuildingSurface(p).token) || p.token === houseSurfaces.shell.token)
 					)
 				),
 				type

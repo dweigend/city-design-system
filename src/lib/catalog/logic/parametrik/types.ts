@@ -66,7 +66,8 @@ type Base = {
 	envelope?: boolean;
 	/** Bearing locations in world meters, rendered as ink dots in the drafting treatment. */
 	bearings?: Vec3[];
-	token: ColorToken;
+	/** Palette-bound geometry receives its token during scene projection. */
+	token?: ColorToken;
 	/** Second pigment of an opaque print patch. The first pigment is the part token. */
 	overprint?: ColorToken;
 	material: MaterialId;

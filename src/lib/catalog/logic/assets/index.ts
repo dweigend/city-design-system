@@ -12,9 +12,11 @@ export type SlotAssignment = {
 	finish: FinishId;
 	colourRole?: Primitive['colourRole'];
 };
+export type ObjectSurface =
+	SlotAssignment | { buildingSurface: BuildingSurface; override?: SlotAssignment };
 export type ObjectOptions = {
 	instanceId?: string;
-	slots?: Readonly<Record<string, SlotAssignment>>;
+	slots?: Readonly<Record<string, ObjectSurface>>;
 };
 
 type BuildingSlots = Pick<BuildingSurface, 'use' | 'ensemble'> & {
@@ -80,18 +82,28 @@ export function buildObject(
 			slot === 'figure' && recipe.legacyFigureSlot && !options.slots?.figure
 				? recipe.legacyFigureSlot
 				: slot;
-		const chosen = options.slots?.[key];
+		const assignment = options.slots?.[key];
+		const deferred = assignment && 'buildingSurface' in assignment;
+		const chosen = deferred ? assignment.override : assignment;
 		const building = options.building;
 		const role = building?.slots[key];
-		if (building && role && !chosen) {
+		const buildingSurface = deferred
+			? assignment.buildingSurface
+			: building && role
+				? { use: building.use, ensemble: building.ensemble, slot: role }
+				: undefined;
+		if (buildingSurface && !chosen) {
 			return {
 				...shape,
-				token: suggestion.token,
 				material: suggestion.material,
-				buildingSurface: { use: building.use, ensemble: building.ensemble, slot: role }
+				buildingSurface
 			};
 		}
-		return { ...shape, ...assignedSurface(suggestion, chosen) };
+		return {
+			...shape,
+			...assignedSurface(suggestion, chosen),
+			...(deferred && chosen?.finish !== 'city-drawing' && { buildingSurface })
+		};
 	});
 	return { geometry, defaults, parts, footprint: recipe.footprint, anchors: recipe.anchors };
 }

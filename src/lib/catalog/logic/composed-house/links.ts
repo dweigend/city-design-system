@@ -1,7 +1,7 @@
 import { bridgeWidth, bridgeMovement, houseMovementPorts } from './bridge-movement';
 import { bridgePair } from './people';
 import { required } from '../required';
-import { houseSurfaces, type HouseSurfaces } from './surfaces';
+import { houseSurfaces, sectionSurfaces, type HouseSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
 import { sectionObstacle, type HouseObstacle } from './clearance';
 import { bridgeForm, type EnsembleDistrict } from '../district-frame';
@@ -127,13 +127,22 @@ export function houseLinks(
 	const owners = new Map<string, Section[]>();
 	for (const s of sections)
 		for (const cell of s.cells) owners.set(cell.id, [...(owners.get(cell.id) ?? []), s]);
+	const palettes = new Map(sections.map((s) => [s.id, sectionSurfaces(s, surfaces)]));
 	const boxes = [...sections.map(sectionObstacle), ...stock];
 	const spans = [...sections]
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.flatMap((a) =>
 			[...near(grid, a, owners)].flatMap(([b, distance]) => {
 				if (a.id >= b.id) return [];
-				const span = link(a, b, distance, boxes, seed, a.district, surfaces);
+				const span = link(
+					a,
+					b,
+					distance,
+					boxes,
+					seed,
+					a.district,
+					required(palettes.get(a.id), 'bridge palette')
+				);
 				return span ? [span] : [];
 			})
 		);
@@ -141,7 +150,12 @@ export function houseLinks(
 	return budget(spans, sections.length).map((span) => {
 		const owner = [span.a, span.b].find((id) => !occupied.has(id));
 		if (!owner) return span;
-		const pair = bridgePair(span.route, span.id, seed, surfaces);
+		const pair = bridgePair(
+			span.route,
+			span.id,
+			seed,
+			required(palettes.get(owner), 'bridge palette')
+		);
 		if (pair.length) occupied.add(owner);
 		return { ...span, parts: [...span.parts, ...pair] };
 	});

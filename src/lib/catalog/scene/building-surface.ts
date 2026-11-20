@@ -1,9 +1,15 @@
 import { buildingPalette } from '../logic/material/building-palette';
 import { finishMaterial } from '../logic/material/surface';
-import type { Primitive } from '../logic/parametrik/types';
+import type { ColorToken, Primitive } from '../logic/parametrik/types';
 
-/** Dresses a tagged building role for both stages, leaving explicit finishes and drawing stock intact. */
-export function projectBuildingSurface(part: Primitive): Primitive {
+type Projected = Primitive & { token: ColorToken };
+
+function hasToken(part: Primitive): part is Projected {
+	return part.token !== undefined;
+}
+
+/** Resolves a building slot at projection time and preserves caller-selected drawing treatments. */
+export function projectBuildingSurface(part: Primitive): Projected {
 	const context = part.buildingSurface;
 	if (
 		!context ||
@@ -11,8 +17,13 @@ export function projectBuildingSurface(part: Primitive): Primitive {
 		part.role === 'bestand' ||
 		part.planned ||
 		part.material === 'ghost'
-	)
-		return part;
+	) {
+		if (hasToken(part)) return part;
+		const token = context
+			? buildingPalette(context.use, context.ensemble)[context.slot].token
+			: '--paper';
+		return { ...part, token };
+	}
 	const surface = buildingPalette(context.use, context.ensemble)[context.slot];
 	return {
 		...part,

@@ -48,6 +48,7 @@ export function planHouse(site: HouseSite): Section {
 	const offset = ladderOffset(composition);
 	const section: Section = {
 		composition,
+		ensemble: site.context ? [...site.context.houses.keys()].sort().join('|') : composition.id,
 		cells,
 		start,
 		stories,

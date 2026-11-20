@@ -1,7 +1,7 @@
 import { buildRoofFrame } from '../megastructure';
 import { moduleGroup, type ModuleRod } from './module-group';
 import { hash } from '../hash-random';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
 import { kanal, kantenId } from '../traeger';
 import type { Site } from './form';
 import type { Mass } from './massing';
@@ -51,7 +51,7 @@ function skeleton(
 	return members;
 }
 
-function drawer(b: Bay, token: Primitive['token']): Primitive {
+function drawer(b: Bay, token: ColorToken): Primitive {
 	const corners = [
 		[0, 0],
 		[1, 0],

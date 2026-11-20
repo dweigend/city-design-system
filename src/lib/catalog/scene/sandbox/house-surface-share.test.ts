@@ -1,3 +1,4 @@
+import { projectBuildingSurface } from '../building-surface';
 import { expect, test } from 'bun:test';
 import { ACCENT_TOKEN, GROUND_TOKEN } from '../../data/house-body';
 import { resolveFinish } from '../../logic/material/surface';
@@ -55,7 +56,7 @@ function sample(positions: number[], slots: number[], axis: number, sign: number
 	return hits;
 }
 function visibleLabels(s: ReturnType<typeof specimen>) {
-	const parts = sectionParts(s);
+	const parts = sectionParts(s).map(projectBuildingSurface);
 	const labels: string[] = [];
 	const out = batchFaces(parts, (p) => {
 		if (!p.finish) throw Error('Missing finish on ' + p.id);
@@ -183,7 +184,9 @@ function paintedBodies(section: ReturnType<typeof specimen>) {
 		.filter((b) =>
 			parts.some(
 				(p) =>
-					p.id.startsWith(b.id + '/') && PAINTED.includes(p.source.slot) && colours.has(p.token)
+					p.id.startsWith(b.id + '/') &&
+					PAINTED.includes(p.source.slot) &&
+					colours.has(projectBuildingSurface(p).token)
 			)
 		);
 }
@@ -241,12 +244,26 @@ test('only the high point of an ensemble of two or more houses carries a whole c
 }, 30000);
 
 function silhouetteBudget(section: ReturnType<typeof specimen>) {
-	const mesh = batch(sectionParts(section), (p) => {
+	const parts = sectionParts(section);
+	const rooms = section.composition.levels.flatMap((l) => l.bodies.map((b) => b.id + '/'));
+	const architecture = new Set(
+		parts
+			.filter((part) => {
+				const slot = part.buildingSurface?.slot;
+				if (part.source.objectId === 'full-height-shell') return slot === 'shell' && !part.glass;
+				return (
+					(slot === 'shell' || slot === 'pane') &&
+					rooms.some((prefix) => part.id.startsWith(prefix))
+				);
+			})
+			.map((part) => part.id)
+	);
+	const mesh = batch(parts, (p) => {
 		const fittings =
 			/\/stair\/|\/post\/|\/brace|\/shaft\/|\/rail\/|\/terrace\/kit-parapet|\/landing-seat\//.test(
 				p.id
 			);
-		return new Color().setRGB(fittings ? 1 : 0, 0, 0);
+		return new Color().setRGB(fittings ? 1 : architecture.has(p.id) ? 2 : 0, 0, 0);
 	});
 	const faces = [mesh.neu, mesh.alt, mesh.blatt, mesh.glas];
 	const pos = faces.flatMap((f) => f.p),
@@ -254,51 +271,59 @@ function silhouetteBudget(section: ReturnType<typeof specimen>) {
 	return [0, 2].map((axis) => {
 		const hits = sample(pos, tags, axis, 1);
 		const total = hits.reduce((a, b) => a + b, 0);
-		return hits[1] / total;
+		return { hardware: hits[1] / total, architecture: hits[2] / total };
 	});
 }
 
-for (const seed of [7, 13])
+function paintedTown(seed: number) {
+	let world = createWorld(seed, { cells: 0 });
+	for (let i = 0; i < 30; i++) {
+		const cellId = 26 + 2 * (i % 6) + '/' + (26 + 2 * Math.floor(i / 6));
+		for (let n = 0; n <= i % 6; n++)
+			world = applyEdit(world, { kind: 'raise', cellId, use: 'living' });
+	}
+	return paintedSections(buildingPlots(world.grid), world.state.stacks, seed);
+}
+
+for (const seed of [7, 13]) {
 	test(
-		'two elevations of thirty painted town houses on world seed ' + seed,
+		'painted town material balance on world seed ' + seed,
 		() => {
-			let world = createWorld(seed, { cells: 0 });
-			for (let i = 0; i < 30; i++) {
-				const cellId = 26 + 2 * (i % 6) + '/' + (26 + 2 * Math.floor(i / 6));
-				for (let n = 0; n <= i % 6; n++)
-					world = applyEdit(world, { kind: 'raise', cellId, use: 'living' });
-			}
-			const houses = paintedSections(buildingPlots(world.grid), world.state.stacks, seed);
+			const failed = paintedTown(seed).filter(
+				(h) => !balanced(h, seed + '/' + h.id + '/' + h.stories)
+			);
+			expect(failed.map((h) => h.id)).toEqual([]);
+		},
+		45000
+	);
+	test(
+		'Silhouette guard on both elevations of thirty painted houses, seed ' + seed,
+		() => {
+			const houses = paintedTown(seed);
 			expect(houses).toHaveLength(30);
-			const failed = houses.filter((h) => !balanced(h, seed + '/' + h.id + '/' + h.stories));
+
 			const results = houses.map((h) => {
 				const { width, depth } = h.composition.bay;
 				if (Math.min(width, depth) < 8) expect(h.typology).toBe('block');
 				const bodies = h.composition.levels.flatMap((l) => l.bodies);
 				expect(h.composition.levels).toHaveLength(h.stories);
 				expect(
-					bodies.every((b) => b.band?.footprint && b.band.lining),
+					bodies.every((b) => b.band?.footprint && b.band.lining && b.band.modules === undefined),
 					h.id
 				).toBe(true);
 				expect(h.composition.exterior?.stations.at(-1)?.z).toBe(h.top);
 				return silhouetteBudget(h);
 			});
-			const passed = results.filter((views) => views.every((v) => v <= 0.15)).length;
-			console.info(
-				'Town silhouette',
-				seed,
-				passed,
-				'of 30',
-				'maximum hardware',
-				Math.max(...results.flat())
-			);
-			expect(passed).toBeGreaterThanOrEqual(24);
-			expect(failed.map((h) => h.id)).toEqual([]);
+			const qualified = results.filter((views) => views.every((v) => v.hardware <= 0.15));
+			expect(qualified.length).toBeGreaterThanOrEqual(24);
+			for (const views of qualified)
+				for (const view of views) expect(view.architecture).toBeGreaterThanOrEqual(0.6);
 		},
 		45000
 	);
+}
 
-test('compact elevations keep the hardware budget across narrow square bays', () => {
+function* narrowBays() {
 	for (const width of [1.8, 2.5, 3, 4, 5]) {
 		const cells = squareGrid(1, 1, width).cells;
 		for (const height of [1, 2, 3, 6, 10])
@@ -308,10 +333,26 @@ test('compact elevations keep the hardware budget across narrow square bays', ()
 					seed,
 					stacks: new Map([[cells[0].id, Array(height).fill('living')]])
 				});
-				expect(balanced(section, 'narrow/' + width + '/' + height + '/' + seed)).toBe(true);
-				for (const view of silhouetteBudget(section)) {
-					expect(view, width + '/' + height + '/' + seed).toBeLessThanOrEqual(0.15);
-				}
+				yield { section, label: width + '/' + height + '/' + seed };
 			}
+	}
+}
+
+test('narrow square bays retain material balance', () => {
+	for (const { section, label } of narrowBays())
+		expect(balanced(section, 'narrow/' + label)).toBe(true);
+}, 45000);
+
+test('Silhouette guard for compact elevations across narrow square bays', () => {
+	for (const { section, label } of narrowBays()) {
+		for (const body of section.composition.levels.flatMap((l) => l.bodies)) {
+			expect(body.band?.footprint).toBeDefined();
+			expect(body.band?.lining).toBeDefined();
+			expect(body.band?.modules).toBeUndefined();
+		}
+		for (const view of silhouetteBudget(section)) {
+			expect(view.hardware, label).toBeLessThanOrEqual(0.15);
+			expect(view.architecture, label).toBeGreaterThanOrEqual(0.6);
+		}
 	}
 }, 45000);

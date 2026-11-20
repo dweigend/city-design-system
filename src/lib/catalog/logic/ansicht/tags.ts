@@ -81,7 +81,7 @@ export function tag(p: Primitive): Tag {
 	const id = quelle(p.id);
 	const at = /@(-?\d+)/.exec(id);
 	const level = at ? Number(at[1]) : Math.floor((bounds(p).min[2] + 0.2) / STOREY);
-	const flow = p.token === '--paper' ? null : flowOfToken(p.token);
+	const flow = p.token ? flowOfToken(p.token) : null;
 	const line = p.kind === 'polyline';
 	// Only new contour polylines bypass the role and geometry classification.
 	const schicht =

@@ -236,7 +236,6 @@ function floorBodies(
 		);
 		if (body.band && i >= 2) {
 			body.band.cells = cells;
-			body.band.finish = envelope.finish;
 			if (!gallery) body.band.skin = envelope.skin;
 		}
 		parts.push(bodySolid(body, shell, ground));

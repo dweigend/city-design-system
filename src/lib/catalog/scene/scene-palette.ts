@@ -3,7 +3,12 @@ import type { Palette3D } from '../data/city3d';
 import { surfaceTokens } from '../logic/parametrik/types';
 
 /** Resolves a CSS scene token. Missing categories default to paper and a missing signal to ink. */
-export function sceneSwatch(palette: Palette3D, token: string, fallback = palette.paper): string {
+export function sceneSwatch(
+	palette: Palette3D,
+	token: string | undefined,
+	fallback = palette.paper
+): string {
+	if (!token) return fallback;
 	switch (token) {
 		case '--paper':
 			return palette.paper;

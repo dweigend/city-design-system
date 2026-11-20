@@ -8,17 +8,6 @@ import type { FinishId } from '../parametrik/types';
 const frames = ['mast', 'fan-truss', 'scissor', 'ring', 'outrigger'] as const;
 const skins = ['plain', 'woven', 'framed', 'cushioned'] as const;
 const outlines = ['orthogonal', 'faceted', 'oval', 'fluted'] as const;
-const finishes = [
-	'beton-schalung',
-	'membran-opal',
-	'membran-gewebe',
-	'holz-natur',
-	'glas-matt',
-	'metall-gebuerstet',
-	'metall-lackiert',
-	'keramik-glasiert'
-] as const satisfies readonly FinishId[];
-
 /** Independent choices for the inhabited section, its plan contour and its external finish. */
 export type HouseEnvelope = {
 	section: (typeof sections)[number];
@@ -28,7 +17,7 @@ export type HouseEnvelope = {
 	frame?: (typeof frames)[number];
 	system: ShellSystem;
 	outline: (typeof outlines)[number];
-	finish: (typeof finishes)[number] | 'membran-voile' | 'membran-film';
+	finish?: FinishId;
 	skin: (typeof skins)[number];
 };
 
@@ -73,12 +62,6 @@ export function houseEnvelope(
 		section: requested?.section ?? pick(sections, seed, id, 'perimeter/profile'),
 		outline: requested?.outline ?? pick(outlines, seed, id, 'perimeter/outline'),
 		skin: requested?.skin ?? pick(skins, seed, id, 'perimeter/skin'),
-		finish:
-			requested?.finish ??
-			(fabric
-				? system === 'inflated-cushion'
-					? 'membran-film'
-					: 'membran-voile'
-				: pick(finishes, seed, id, 'perimeter/finish'))
+		...(requested?.finish && { finish: requested.finish })
 	};
 }

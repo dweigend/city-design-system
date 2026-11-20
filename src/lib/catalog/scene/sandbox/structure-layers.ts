@@ -4,12 +4,13 @@ import { collageCut } from './collage-cut';
 import { hasFinish, type Surface } from './finish-batch';
 import { hasGlazeContour } from './structure-outline';
 const isAccent = (part: Primitive) =>
-	part.role === 'neu' && !part.envelope && part.token.startsWith('--cat-');
+	part.role === 'neu' && !part.envelope && part.token?.startsWith('--cat-');
 
 function isConduit(part: Primitive) {
 	return (
 		part.kind === 'pipe' &&
-		(['--cat-health', '--cat-mobility'].includes(part.token) ||
+		(part.token === '--cat-health' ||
+			part.token === '--cat-mobility' ||
 			(part.token === '--cat-business' && part.id.endsWith('/deck')))
 	);
 }

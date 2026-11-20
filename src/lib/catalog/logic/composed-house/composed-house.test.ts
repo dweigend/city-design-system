@@ -1,4 +1,5 @@
 import { specimen } from '../house-typology/specimens';
+import { buildingPalette } from '../material/building-palette';
 import { buildObject } from '../assets';
 import { expect, test } from 'bun:test';
 import { checkFit } from '../house-typology';
@@ -140,7 +141,7 @@ test('explicit shell, glazing and capsule rim assignments survive projection acr
 	const rims = sectionParts(section).filter((p) => p.source.slot === 'edge' && p.kind === 'ring');
 	expect(rims.length).toBeGreaterThan(0);
 	for (const rim of rims) {
-		expect(rim).toMatchObject({ token: '--ink-3', finish: 'metal' });
+		expect(rim.buildingSurface?.slot).toBe('frame');
 		expect(parts.find((p) => p.id === rim.id)).toMatchObject(palette.water);
 	}
 	for (const l of section.composition.levels) {
@@ -268,20 +269,19 @@ test('the capsule reference has no dark or sub-half-metre pieces resting on a de
 			p.source.objectId === 'stairs' ||
 			p.source.objectId === 'landing'
 	);
-	// Plinth terrazzo, decks and landings timber, treads plain in the access colour.
-	const finishOf = (p: (typeof decks)[number]) => {
-		if (p.id.endsWith('/plinth')) return 'beton-terrazzo';
-		return p.source.objectId === 'stairs' ? houseSurfaces.access.finish : 'holz-natur';
-	};
-	for (const p of decks) expect(p.finish, p.id).toBe(finishOf(p));
+	for (const p of decks) {
+		const slot = p.buildingSurface?.slot;
+		if (p.id.endsWith('/plinth')) expect(slot).toBe('base');
+		else expect(slot === 'deck' || slot === 'frame').toBe(true);
+	}
 	const treads = parts.filter((p) => p.source.objectId === 'stairs' && p.kind === 'prism');
 	expect(treads.length).toBeGreaterThan(0);
-	expect(treads.every((p) => p.kind === 'prism' && p.topToken === houseSurfaces.access.token)).toBe(
-		true
-	);
+	expect(treads.every((p) => p.buildingSurface?.slot === 'deck')).toBe(true);
 	const hits = parts.filter((p) => {
 		const b = bounds(p);
-		if (p.token !== '--ink' && Math.max(...b.max.map((v, k) => v - b.min[k])) >= 0.5) return false;
+		const role = p.buildingSurface;
+		const token = role ? buildingPalette(role.use, role.ensemble)[role.slot].token : p.token;
+		if (token !== '--ink' && Math.max(...b.max.map((v, k) => v - b.min[k])) >= 0.5) return false;
 		return surfaces.some((surface) => {
 			const deck = bounds(surface);
 			return (

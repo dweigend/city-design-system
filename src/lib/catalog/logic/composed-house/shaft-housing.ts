@@ -17,7 +17,7 @@ export function shaftHousing(s: Section, surfaces: HouseSurfaces) {
 			inner = y + sign * 0.075;
 		// The ladder housing takes the programme colour on the accent body only and is structure-grey
 		// elsewhere, so the house keeps exactly one coloured body.
-		const paint = roleSurface(b === accent ? surfaces[b.use] : surfaces.frame, 'trim');
+		const paint = roleSurface(b === accent ? surfaces[b.use] : surfaces.frame, 'fitting');
 		const p = houseObject('primitive-slab', 'square', s.seed, {
 			instanceId: b.id + '/' + b.objectId + '/ladder-housing',
 			slots: { body: paint }

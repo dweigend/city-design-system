@@ -8,12 +8,10 @@ const surface = (token: ColorToken, finish: FinishId): Surface => ({ token, fini
 // One field colour for each ensemble. Housing can take a mineral, ceramic or folded-metal family;
 // service buildings retain their programme hue across those three treatments.
 const shellFinishes = ['keramik-glasiert', 'corrugated-metal', 'beton-terrazzo'] as const;
-const housingPigments = ['--cat-foliage', '--cat-health', '--cat-living'] as const;
-
 /** Assigns the building's named material slots in theme tokens. The stable ensemble key owns the draw. */
 export function buildingPalette(use: HouseUse, ensemble: string) {
 	const family = Math.floor(hashUnit(0, ensemble, 'building-material') * shellFinishes.length);
-	const pigment = use === 'living' ? housingPigments[family] : BODY_TOKEN[use];
+	const pigment = BODY_TOKEN[use];
 	return {
 		shell: { ...surface(pigment, shellFinishes[family]), colourRole: 'ensemble-ground' as const },
 		base: surface('--paper', 'beton-terrazzo'),

@@ -149,13 +149,13 @@ describe('L11 world', () => {
 		const strom = welt(weltDefaults);
 		for (const p of strom.primitives) {
 			if (p.id.includes('-weg-') && p.kind !== 'polyline' && p.kind !== 'cylinder')
-				expect(['--cat-business', '--paper']).toContain(p.token);
+				expect(['--cat-business', '--paper']).toContain(p.token ?? '');
 			if (p.id.includes('-geruest-')) expect(p.token).toBe('--signal');
 		}
 		const rot = welt({ ...weltDefaults, farbcode: '43' });
 		for (const p of rot.primitives)
 			if (/^face:.*@/.test(p.id))
-				expect(['--paper', '--cat-hazard', '--signal']).toContain(p.token);
+				expect(['--paper', '--cat-hazard', '--signal']).toContain(p.token ?? '');
 		const netze = welt({ ...weltDefaults, fokus: 'netze' });
 		for (const p of netze.primitives)
 			if (p.role === 'neu' && p.token !== '--paper')

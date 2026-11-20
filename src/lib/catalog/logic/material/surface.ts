@@ -43,7 +43,7 @@ export const finishCatalogue: readonly { id: FinishId; name: string }[] = [
 /** Resolves an explicit pigment and finish without consulting geometry, role or theme. */
 export function resolveFinish(
 	id: FinishId,
-	token: ColorToken,
+	token: ColorToken = '--paper',
 	ageTint = 0,
 	colourRole?: Primitive['colourRole']
 ): SurfaceRecipe {
