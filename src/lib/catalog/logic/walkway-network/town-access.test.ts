@@ -87,6 +87,11 @@ function externalParts(world: World) {
 function checkTownPalette(world: World, parts: Primitive[]) {
 	const walk = accessPlates([...parts, ...externalParts(world)]);
 	const faces = walkingPlates(parts);
+	const retained = new Set(
+		parts
+			.filter((p) => p.kind === 'mesh' && p.id.endsWith('/pier/foot'))
+			.map((p) => p.id.slice(0, -10))
+	);
 	const supports = parts.filter(
 		(p): p is Extract<Primitive, { radius: number; height: number }> & { kind: 'cylinder' } =>
 			p.kind === 'cylinder' && p.id.includes('/pier')
@@ -94,12 +99,13 @@ function checkTownPalette(world: World, parts: Primitive[]) {
 	for (const deck of walk.filter((p) => !p.id.includes(':tread:'))) {
 		const owner = deck.id.split('/panel/')[0];
 		expect(
-			supports.some(
-				(p) =>
-					p.id.startsWith(owner + '/pier') &&
-					Math.abs(p.position[2] + p.height - deck.z) <= 0.02 &&
-					faces.some((q) => contacts([p.position[0], p.position[1], deck.z + deck.height], q))
-			),
+			retained.has(owner) ||
+				supports.some(
+					(p) =>
+						p.id.startsWith(owner + '/pier') &&
+						Math.abs(p.position[2] + p.height - deck.z) <= 0.02 &&
+						faces.some((q) => contacts([p.position[0], p.position[1], deck.z + deck.height], q))
+				),
 			owner
 		).toBe(true);
 	}

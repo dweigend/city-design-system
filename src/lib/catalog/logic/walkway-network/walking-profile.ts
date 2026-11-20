@@ -10,6 +10,7 @@ export const walkingProfile = {
 	treadRise: houseStair.rise,
 	going: houseStair.going,
 	gradeLimit: 0.08,
+	guardDrop: 0.75,
 	railHeight: 1.04,
 	postSpacing: 3
 } as const;
