@@ -7,8 +7,11 @@ import { convexHull } from '../parzelle';
 import { wingRim, type UpperWing } from './upper-wings';
 import {
 	entranceCell,
+	groundApproach,
+	crossesApproach,
 	entranceRooms,
 	entranceWidth,
+	entranceHeadroom,
 	landingDepth,
 	approachDepth
 } from './entrance';
@@ -156,7 +159,7 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 			: bridge;
 	const groundRooms = (depth: number) =>
 		cells.flatMap((c) =>
-			!frontage.size || c === access.anchor
+			!frontage.size || c === access.anchor || crossesApproach(c, axis, plan.sign, depth)
 				? entranceRooms(c, axis, plan.sign, depth)
 				: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 		);
@@ -197,15 +200,8 @@ function floorOutline(
 		turn
 	);
 }
-function occupiedRooms(
-	plan: Plan,
-	shapes: CourseShapes,
-	shape: Shape,
-	floor: number,
-	ceiling: number
-) {
-	if (floor === 0 && (shapes.joined || groundCourse(plan.site, ceiling).surveyed))
-		return shapes.rooms;
+function occupiedRooms(plan: Plan, shapes: CourseShapes, shape: Shape, floor: number) {
+	if (floor === 0) return shapes.rooms;
 	const system = shapes.envelope.system;
 	if (system === 'service-risers' || system === 'helical-services')
 		return [serviceGallery(shape, shapes.opening, plan.sign)];
@@ -225,8 +221,8 @@ function floorBodies(
 	const { pier, envelope } = shapes;
 	const { cells, ground, id } = plan.site;
 	const raised = i === 0 && wing?.level === 1;
-	const baseTop = raised ? z + (ceiling - z) * 0.46 : ceiling - rim;
-	const shells = occupiedRooms(plan, shapes, shape, i, ceiling);
+	const baseTop = raised ? z + Math.max(entranceHeadroom, (ceiling - z) * 0.46) : ceiling - rim;
+	const shells = occupiedRooms(plan, shapes, shape, i);
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(
 			plan,
@@ -314,7 +310,8 @@ function courses(
 		parts.push(plate(id + '/' + name, deck, ceiling - rim, rim, ground, 'deck'));
 	}
 	const top = datums[programme.length];
-	return { levels, parts, access, envelope, top, exterior };
+	const openings = [groundApproach(cells, axis, plan.sign, seat, levels[0].landing[2])];
+	return { levels, parts, access, envelope, top, exterior: { ...exterior, openings } };
 }
 /** Returns the same bearing solids used by the composer, before placing roof furniture. */
 export function bearingCourses(plan: Plan, context: EnsembleContext) {

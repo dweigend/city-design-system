@@ -284,3 +284,8 @@ export function legacyRoleOf(primitive: Primitive): BuildingRole {
 export function interpolatePoint(a: Vec3, b: Vec3, t: number): Vec3 {
 	return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
+
+/** Returns the oriented normal of two world-space vectors. */
+export function crossProduct([ax, ay, az]: Vec3, [bx, by, bz]: Vec3): Vec3 {
+	return [ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx];
+}

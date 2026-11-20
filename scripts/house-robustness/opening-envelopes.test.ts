@@ -1,3 +1,4 @@
+import { checkExteriorEntrance } from './exterior-entrance';
 import { expect, test } from 'bun:test';
 import { openingScene } from '../../src/lib/catalog/logic/sandbox';
 import { townSections } from '../../src/lib/catalog/logic/sandbox/composed-projection';
@@ -31,6 +32,7 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 		for (const house of houses) {
 			const parts = sectionParts(house);
 			checkParcel(house, parts);
+			checkExteriorEntrance(house, parts);
 			const envelope = house.composition.exterior;
 			if (!envelope) throw Error('Missing full-height envelope on ' + house.id);
 			expect(envelope.bottom).toBe(house.composition.ground);

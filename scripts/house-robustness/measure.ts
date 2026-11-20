@@ -1,3 +1,4 @@
+import { checkExteriorEntrance } from './exterior-entrance';
 import {
 	planHouse,
 	sectionParts,
@@ -45,6 +46,7 @@ export function measure({ sites, seed, grid }: ReturnType<typeof cases>[number])
 		const parts = sectionParts(h);
 		try {
 			checkParcel(h, parts);
+			checkExteriorEntrance(h, parts);
 		} catch (e) {
 			errors.push(String(e).split('\n')[0]);
 		}

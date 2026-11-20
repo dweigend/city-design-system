@@ -2,9 +2,12 @@ import { houseStair } from '../../data/house-stair';
 import type { QuadCell } from '../quad-grid';
 
 // Two offset 0.48 m ladder lanes, 0.06 m stiles and 0.05 m clear on each side.
+export const entranceHeadroom = 2.1;
 export const entranceWidth = 1.18;
 export const landingDepth = 0.41;
 export const approachDepth = houseStair.width / 2 + 0.02;
+
+const approachHalfWidth = houseStair.width / 2 + 0.24 + 0.02;
 
 type XY = [number, number];
 /** Keeps the part of a convex ring on the positive side of a signed line. */
@@ -20,11 +23,21 @@ function clip(ring: XY[], distance: (point: XY) => number) {
 	});
 }
 
+/** Whether a neighbouring cell can cross the same ground approach on an oblique parcel. */
+export function crossesApproach(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
+	const xs = cell.corners.map((p) => p[0]);
+	return (
+		Math.max(...xs) > axis[0] - approachHalfWidth &&
+		Math.min(...xs) < axis[0] + approachHalfWidth &&
+		cell.corners.some((p) => sign * (p[1] - axis[1]) > -rearDepth)
+	);
+}
+
 /** Opens the entrance cell from its exterior face to the ladder, retaining two piers and the rear room. */
 export function entranceRooms(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
 	const ring = cell.corners.map(([x, y]): XY => [x, y]);
 	// The public approach reaches either staggered ladder foot with its full walking width.
-	const half = houseStair.width / 2 + 0.24 + 0.02;
+	const half = approachHalfWidth;
 	const left = axis[0] - half,
 		right = axis[0] + half;
 	const middle = clip(
@@ -59,4 +72,25 @@ export function entranceCell(
 		);
 	}
 	return cells.reduce((best, c) => (exposure(c) > exposure(best) ? c : best));
+}
+
+/** Reserves the ground approach from the parcel face to both ladder lanes, in world metres. */
+export function groundApproach(
+	cells: readonly QuadCell[],
+	axis: XY,
+	sign: number,
+	bottom: number,
+	floor: number
+) {
+	const half = approachHalfWidth;
+	const outer = sign * Math.max(...cells.flatMap((c) => c.corners.map((p) => sign * p[1])));
+	const inner = axis[1] - sign * approachDepth;
+	return {
+		min: [axis[0] - half, Math.min(inner, outer), bottom] as [number, number, number],
+		max: [axis[0] + half, Math.max(inner, outer), floor + entranceHeadroom] as [
+			number,
+			number,
+			number
+		]
+	};
 }
