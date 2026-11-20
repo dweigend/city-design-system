@@ -5,6 +5,8 @@ import { courtLanding } from '../walkway-network';
 import { courtBench } from './town-grading';
 import { required } from '../required';
 
+import { setbackGrade } from './court-setback';
+
 type Point = readonly number[];
 type Height = (x: number, y: number) => number;
 type Court = CityPlan['centres'][number]['ensembles'][number];
@@ -12,7 +14,7 @@ type Section = ReturnType<typeof edge>;
 const reach = 4.5;
 const divisions = 12;
 
-function edge(a: Point, b: Point, centre: Point, ground: Height) {
+function edge(a: Point, b: Point, centre: Point, ground: Height, lots: TerrainCell[]) {
 	const dx = b[0] - a[0],
 		dy = b[1] - a[1],
 		length = Math.hypot(dx, dy);
@@ -29,7 +31,14 @@ function edge(a: Point, b: Point, centre: Point, ground: Height) {
 			i = Math.min(intervals - 1, Math.floor(at));
 		return toes[i] + (toes[i + 1] - toes[i]) * (at - i);
 	};
-	return { x: a[0], y: a[1], nx, ny, toe };
+	return {
+		x: a[0],
+		y: a[1],
+		nx,
+		ny,
+		toe,
+		setback: setbackGrade(a, b, nx, ny, lots, ground, reach)
+	};
 }
 
 type Platform = { edges: Section[]; top: number; mouth: Section };
@@ -55,17 +64,27 @@ function section(platform: Platform, p: Vec3, survey: number) {
 	const { top, mouth } = platform;
 	const { side, out } = nearestEdge(platform, p);
 	if (out >= reach) return [p[2], 0];
-	const toe = side.toe(p);
+	const strip = side !== mouth ? side.setback(p, top - 0.055) : undefined;
+	if (strip !== undefined) return [Math.max(p[2], strip), 0];
+	return bankSlope(p, survey, top, side.toe(p), out, side === mouth);
+}
+
+function bankSlope(
+	p: Vec3,
+	survey: number,
+	top: number,
+	toe: number,
+	out: number,
+	entrance: boolean
+) {
 	const cut =
-		side === mouth || !Number.isFinite(toe)
-			? 0
-			: Math.max(0, Math.min(1.5, survey - top, toe - top));
+		entrance || !Number.isFinite(toe) ? 0 : Math.max(0, Math.min(1.5, survey - top, toe - top));
 	const seam = top - 0.055;
 	const batter = Math.min(1, Math.max(0, (out - 1.15) / 0.65));
 	const t = Math.max(0, out) / reach;
 	const daylight = cut > 0 ? Math.max(0, (out - 1.8) / (reach - 1.8)) : t * t * (3 - 2 * t);
 	const z = seam + cut * batter;
-	const entry = side === mouth ? Math.max(0, 1 - Math.max(0, out) / 1.5) : 1;
+	const entry = entrance ? Math.max(0, 1 - Math.max(0, out) / 1.5) : 1;
 	// A cutting rejoins the higher hillside at its surveyed daylight elevation.
 	const back = cut > 0 ? Math.max(p[2], toe) : p[2];
 	const intended = z + (back - z) * daylight;
@@ -75,16 +94,35 @@ function section(platform: Platform, p: Vec3, survey: number) {
 	return [Math.max(p[2], ground), Math.max(face * 0.38, daylight * (1 - daylight) * 0.32)];
 }
 
+// Evaluate shared bank vertices in one direction. Reversed chart arithmetic can otherwise
+// put the same frontage vertex on opposite sides of a cut or setback boundary.
+function bankPoint(cell: TerrainCell, i: number, j: number): Vec3 {
+	const n = divisions;
+	if (i > 0 && i < n && j > 0 && j < n) return chartPoint(cell.corners, i / n, j / n);
+	const [side, k] = j === 0 ? [0, i] : i === n ? [1, j] : j === n ? [2, n - i] : [3, n - j];
+	return sidePoint(cell, side, k);
+}
+
+function sidePoint(cell: TerrainCell, side: number, k: number): Vec3 {
+	const n = divisions;
+	const next = (side + 1) % 4;
+	const forward = cell.vertexIds[side] < cell.vertexIds[next];
+	const a = cell.corners[forward ? side : next],
+		b = cell.corners[forward ? next : side];
+	const t = (forward ? k : n - k) / n;
+	if (t === 0) return a;
+	if (t === 1) return b;
+	return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
 function bankSurface(cell: TerrainCell, raw: TerrainCell, platforms: Platform[]) {
 	const points: Vec3[] = [],
 		shade: number[] = [],
 		raised: boolean[] = [];
 	for (let j = 0; j <= divisions; j++) {
 		for (let i = 0; i <= divisions; i++) {
-			const u = i / divisions,
-				v = j / divisions;
-			const p = chartPoint(cell.corners, u, v),
-				survey = chartPoint(raw.corners, u, v)[2];
+			const p = bankPoint(cell, i, j),
+				survey = bankPoint(raw, i, j)[2];
 			let height = p[2],
 				tone = 0;
 			for (const platform of platforms) {
@@ -117,11 +155,34 @@ function platform(raw: TerrainGrid, group: Court, ground: Height) {
 	const parcel = required(raw.cellsById.get(group.court), 'court parcel');
 	const polygon = group.plaza?.polygon ?? parcel.corners;
 	const middle = [(polygon[0][0] + polygon[2][0]) / 2, (polygon[0][1] + polygon[2][1]) / 2];
-	const edges = polygon.map((a, i) => edge(a, polygon[(i + 1) % polygon.length], middle, ground));
+	const lots = group.lots
+		.map((id) => required(raw.cellsById.get(id), 'court wing'))
+		.filter((c) => !c.raised);
+	const edges = polygon.map((a, i) =>
+		edge(a, polygon[(i + 1) % polygon.length], middle, ground, lots)
+	);
 	const approach = required(raw.cellsById.get(group.mouth), 'court approach').center;
 	const facing = (e: Section) => (approach[0] - e.x) * e.nx + (approach[1] - e.y) * e.ny;
 	const mouth = edges.reduce((a, b) => (facing(a) > facing(b) ? a : b));
-	return { edges, mouth, top: courtLanding(parcel, courtBench(raw, group)).position[2] };
+	const top = courtLanding(parcel, courtBench(raw, group)).position[2];
+	const fronts = edges.flatMap((side, i) => {
+		if (side === mouth) return [];
+		const a = polygon[i],
+			b = polygon[(i + 1) % polygon.length];
+		return [
+			{
+				courtId: group.court,
+				edge: i,
+				a: [a[0], a[1]] as const,
+				b: [b[0], b[1]] as const,
+				nx: side.nx,
+				ny: side.ny,
+				pavingZ: top,
+				reach
+			}
+		];
+	});
+	return { edges, mouth, top, fronts };
 }
 
 function bankParcels(raw: TerrainGrid, group: Court, site: Platform) {
@@ -150,19 +211,22 @@ function bankParcels(raw: TerrainGrid, group: Court, site: Platform) {
 /** Refines only parcels in reach of a public court. Adjoining parcels evaluate the
  * same cross-section at their shared edge. The entrance slopes away into the walk. */
 export function courtEarthworks(raw: TerrainGrid, city: CityPlan, ground: Height) {
+	const fronts: NonNullable<TerrainGrid['courtFronts']>[number][] = [];
 	const platforms = new Map<string, Platform[]>();
 	for (const group of city.centres.flatMap((centre) => centre.ensembles ?? [])) {
 		const site = platform(raw, group, ground);
+		fronts.push(...site.fronts);
 		for (const cell of bankParcels(raw, group, site)) {
 			const list = platforms.get(cell.id) ?? [];
 			list.push(site);
 			platforms.set(cell.id, list);
 		}
 	}
-	return (cell: TerrainCell) => {
+	const grade = (cell: TerrainCell) => {
 		const sites = platforms.get(cell.id);
 		if (!sites || cell.zone === 'water') return cell;
 		const bank = bankSurface(cell, required(raw.cellsById.get(cell.id), 'surveyed bank'), sites);
 		return bank ? { ...cell, bank } : cell;
 	};
+	return { grade, fronts };
 }
