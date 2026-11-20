@@ -19,9 +19,21 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 		accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
-		...continuousShell(section.composition, section.seed, surfaces.shell, surfaces.frame),
+		...continuousShell(
+			section.composition,
+			section.seed,
+			surfaces.shell,
+			surfaces.frame,
+			section.slottedSkin
+		),
 		...shaftHousing(section, surfaces).map(cantilever),
-		...section.slots.flatMap((b) => bodyParts(b, surfaces, b === target ? accent : 'none'))
+		...section.slots.flatMap((b) => {
+			const body =
+				section.slottedSkin && b.band?.skin
+					? { ...b, band: { ...b.band, skin: 'plain' as const } }
+					: b;
+			return bodyParts(body, surfaces, b === target ? accent : 'none');
+		})
 	];
 	const walk = access(section, surfaces).map((p) => {
 		return p.kind === 'prism' && p.height < 0.12

@@ -12,6 +12,7 @@ import type { QuadCell } from '../quad-grid';
 export type HouseSite = Site & { context?: EnsembleContext };
 export type Section = {
 	ensemble: string;
+	slottedSkin: boolean;
 	compact: boolean;
 	stairAxis: [number, number];
 	id: string;

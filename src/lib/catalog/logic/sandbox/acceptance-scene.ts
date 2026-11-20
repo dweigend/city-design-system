@@ -145,9 +145,13 @@ export function draftingStudy(placed: World) {
 		state: { ...placed.state, ...advanceFrames(placed, placed.state.year - 1) }
 	};
 	const world = { ...first, state: { ...first.state, ...advanceFrames(first, placed.state.year) } };
+	return studyView(world);
+}
+
+function studyView(world: World) {
 	return {
 		world,
-		earliestFullYear: placed.state.year,
+		earliestFullYear: world.state.year,
 		additions: [
 			...(world.state.city?.walk ? [] : elevatedWalkway(world)),
 			...(world.seed === SEED ? twoSuns(world) : [])
@@ -181,7 +185,7 @@ export function acceptanceScene(seed = SEED) {
 		(centre) => centre.landmark.object === 'water-tower'
 	);
 	return {
-		...draftingStudy(world),
+		...studyView(world),
 		...(waterfront && { featuredCentre: { cellId: waterfront.cellId, headingDeg: 196 } })
 	};
 }
