@@ -11,7 +11,7 @@ type Construct = (world: World, edit: Edit) => World;
 const cohortEnds = [0, 4, 10, 17, 24];
 
 /** Draws a method once per footprint from its district and the current epoch. */
-export function cityHouseStyle(world: World, plan: CityPlan, cell: TerrainCell) {
+function cityHouseStyle(world: World, plan: CityPlan, cell: TerrainCell) {
 	const weights = styleWeightsAt(plan, cell);
 	const choices = stylesForYear(world.state.year);
 	if (choices.length === 1) return choices[0];
@@ -44,13 +44,11 @@ function occupied(world: World) {
 function buildLot(
 	world: World,
 	plan: CityPlan,
-	centre: Centre,
+	height: number,
 	cell: TerrainCell,
 	construct: Construct
 ) {
 	const style = cityHouseStyle(world, plan, cell);
-	const tower = hashUnit(world.seed, cell.id, 'city-typology') < centre.towerShare;
-	const height = (tower ? 5 : 1) + Math.floor(hashUnit(world.seed, cell.id, 'city-height') * 3);
 	const uses: readonly HouseUse[] = ['living', 'food', 'water', 'material', 'energy'];
 	const use = uses[Math.floor(hashUnit(world.seed, cell.id, 'city-use') * uses.length)];
 	for (let floor = 0; floor < height; floor++)
@@ -63,6 +61,21 @@ function buildLot(
 	return world;
 }
 
+function released(centre: Centre, stage: number, next: number, seed: number) {
+	// Existing saves retain their original release order and seeded heights.
+	if (!centre.ensembles)
+		return centre.lots.slice(cohortEnds[stage], cohortEnds[next]).map((id) => ({
+			id,
+			height:
+				(hashUnit(seed, id, 'city-typology') < centre.towerShare ? 5 : 1) +
+				Math.floor(hashUnit(seed, id, 'city-height') * 3)
+		}));
+	const end = (stage: number) => (stage ? stage + 2 : 0);
+	return centre.ensembles.flatMap((g) =>
+		g.lots.slice(end(stage), end(next)).map((id, i) => ({ id, height: g.heights[end(stage) + i] }))
+	);
+}
+
 /** Advances each expansion area's saved stage once, building only its newly released
  * dry lots. Earlier cohorts stay editable, including lots the player has cleared. */
 export function growCity(world: World, construct: Construct, opening = false): World {
@@ -73,10 +86,10 @@ export function growCity(world: World, construct: Construct, opening = false): W
 	const stages = city.centres.map((centre, i) => {
 		const stage = cityStages[i];
 		const next = Math.min(stage + 1 + Number(opening && i === 0), cohortEnds.length - 1);
-		for (const id of centre.lots.slice(cohortEnds[stage], cohortEnds[next])) {
+		for (const { id, height } of released(centre, stage, next, world.seed)) {
 			const cell = world.grid.cellsById.get(id);
 			if (cell?.buildable && !reserved.has(id))
-				world = buildLot(world, city, centre, cell, construct);
+				world = buildLot(world, city, height, cell, construct);
 		}
 		return next;
 	});

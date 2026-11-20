@@ -28,8 +28,12 @@ export function houseDistrict(cell: TerrainCell) {
 }
 
 function placements(grid: TerrainGrid, state: SandboxState) {
+	const planned = new Set(
+		state.city?.centres.flatMap((c) => c.ensembles?.flatMap((g) => g.lots) ?? [])
+	);
 	return new Map(
 		[...state.storyParts].flatMap(([id, stories]) => {
+			if (planned.has(id)) return [];
 			const placed = stories
 				.map((story) => Number(story.id.split('/')[1]))
 				.find((action) => action > 0);

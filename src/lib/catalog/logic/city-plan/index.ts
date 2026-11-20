@@ -2,6 +2,7 @@ import { hashUnit } from '../../core/random';
 import { cellsBetween, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { characters, centreMix } from './character';
 import { planDistricts } from './districts';
+import { planEnsembles } from './ensembles';
 export { styleWeightsAt } from './districts';
 export type CityPlan = ReturnType<typeof planCity>;
 type Link = readonly [string, string];
@@ -78,11 +79,6 @@ function planCentre(
 	if (!landmark) throw new RangeError('No landmark site near ' + stop.id);
 	const path = cellsBetween(grid, stop.id, landmark.id).map((c) => c.id);
 	for (const id of path) reserved.add(id);
-	const lots = nearby
-		.filter((c) => !reserved.has(c.id))
-		.slice(0, 24)
-		.map((c) => c.id);
-	for (const id of lots) reserved.add(id);
 	return {
 		cellId: stop.id,
 		column: stop.column,
@@ -90,7 +86,7 @@ function planCentre(
 		character: family.character,
 		landmark: { cellId: landmark.id, object: family.landmark, variant: family.variant },
 		path,
-		lots,
+
 		towerShare: family.towerShare,
 		weights: centreMix(grid.terrain.seed, stop.id, family.weights)
 	};
@@ -107,6 +103,12 @@ export function planCity(grid: TerrainGrid, rail: Link, occupied: ReadonlySet<st
 		...occupied,
 		...corridors.flatMap(([a, b]) => cellsBetween(grid, a, b).map((c) => c.id))
 	]);
-	const centres = stops.map((stop, i) => planCentre(grid, stop, land, reserved, families[i]));
+	const landmarks = stops.map((stop, i) => planCentre(grid, stop, land, reserved, families[i]));
+	const groups = planEnsembles(grid, stops, land, reserved);
+	const centres = landmarks.map((centre, i) => ({
+		...centre,
+		ensembles: groups[i],
+		lots: groups[i].flatMap((group) => group.lots)
+	}));
 	return { centres, corridors, districts: planDistricts(grid, centres) };
 }

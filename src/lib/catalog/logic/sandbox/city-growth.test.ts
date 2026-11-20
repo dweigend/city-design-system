@@ -11,7 +11,7 @@ test('the editable seed-7 city builds the district draw, retains player lots and
 	assert(city && cityStages);
 	expect(cityCentreView(opening).length).toBeGreaterThan(city.centres.length);
 	expect(cityStages[0]).toBeGreaterThan(cityStages[1]);
-	const occupied = city.centres[1].lots[4];
+	const occupied = city.centres[1].ensembles[0].lots[3];
 	const protectedWorld = applyEdit(opening, {
 		kind: 'raise',
 		cellId: occupied,
