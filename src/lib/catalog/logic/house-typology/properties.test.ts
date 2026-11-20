@@ -74,15 +74,16 @@ function auditFoot(h: HouseComposition) {
 	const foot = h.levels[0].outline.map(([x, y]): [number, number] => [x, y]);
 	if (Math.abs(area(foot) - plot) > 1e-6 && h.ensembleSize === 1) return 'occupied parcel foot';
 }
+function auditDatums(h: HouseComposition, shell: NonNullable<HouseComposition['exterior']>) {
+	return (
+		shell.bottom === h.ground &&
+		shell.top === h.crown.position[2] &&
+		shell.stations.length === h.levels.length + 1
+	);
+}
 function audit(h: HouseComposition) {
 	const shell = h.exterior;
-	if (
-		!shell ||
-		shell.bottom !== h.ground ||
-		shell.top !== h.crown.position[2] ||
-		shell.stations.length !== h.levels.length + 1
-	)
-		return 'exterior datums';
+	if (!shell || !auditDatums(h, shell)) return 'exterior datums';
 	const foot = auditFoot(h);
 	if (foot) return foot;
 	for (const [i, l] of h.levels.entries()) {
