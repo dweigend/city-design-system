@@ -6,7 +6,7 @@ import type { StructureMaterials } from './structure-materials';
 import { wallContact } from './wall-contact';
 import { columnSeats } from './column-seats';
 import { stairSeats } from './stair-seats';
-import { contactWash } from './contact-wash';
+import { bearingSeats, contactWash } from './contact-wash';
 import { jointMesh } from './structure-parts';
 
 /** Holds the single ink mesh for the seated contacts, rebuilding only when the inputs change. */
@@ -50,29 +50,14 @@ export function createJointLayer(
 		contacts: ReturnType<typeof sandboxStructuralContacts>,
 		grid: TerrainGrid
 	) {
-		seams = wallContact(
-			seated.flatMap((b) => b.parts),
-			grid
-		);
+		const parts = seated.flatMap((b) => b.parts);
+		seams = wallContact(parts, grid);
 		if (seams) group.add(seams);
-		const seats = contacts
-			.filter((c) => c.supportNormal || c.seat === 'slab-seam')
-			.map((c) => ({
-				point: c.point,
-				normal: c.supportNormal ?? c.axis,
-				diameter: c.member.diameter
-			}));
-		for (const batch of seated) seats.push(...stairSeats(batch.parts, grid));
-		const occupied = new Set(seats.map((s) => s.point.map((n) => n.toFixed(3)).join(',')));
-		for (const seat of columnSeats(
-			seated.flatMap((b) => b.parts),
-			grid
-		)) {
-			const key = seat.point.map((n) => n.toFixed(3)).join(',');
-			if (!occupied.has(key)) seats.push(seat);
-			occupied.add(key);
-		}
-		wash = contactWash(seats);
+		wash = contactWash([
+			...bearingSeats(contacts),
+			...stairSeats(parts, grid),
+			...columnSeats(parts, grid)
+		]);
 	}
 
 	return {

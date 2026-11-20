@@ -1,14 +1,11 @@
 import { expect, test } from 'bun:test';
-import { Vector3 } from 'three/webgpu';
+import { Box2, Vector2, Vector3 } from 'three/webgpu';
 import type { Vec3 } from '../../logic/parametrik/types';
-import {
-	acceptanceScene,
-	createWorld,
-	openingScene,
-	TWO_SUNS_TURNING_DISC
-} from '../../logic/sandbox';
+import { acceptanceScene, createWorld, openingScene } from '../../logic/sandbox';
 import { STORY } from '../../data/grid';
 import { frameTownSilhouette, frameOldTown } from './opening-view';
+import { boxCorners, openingLandmarks } from './opening-landmarks';
+import { courtOpening } from './court-opening';
 import { createView } from './view';
 
 test('the seed-7 portrait opening keeps the river and slope visible in the opening area', () => {
@@ -68,29 +65,39 @@ test('two central parcels fill 77 percent of the desktop opening despite a dista
 	expect(fill).toBeCloseTo(0.77, 3);
 });
 
-test('the acceptance landmark stays inside the crop with its neighbouring court', () => {
-	const { world, additions } = acceptanceScene(7);
-	const disc = additions.find((p) => p.id === TWO_SUNS_TURNING_DISC);
-	if (disc?.kind !== 'ring') throw new Error('Seed 7 requires the coloured disc');
-	const mark = disc.position;
-	for (const [width, height] of [
-		[1440, 900],
-		[390, 640]
-	]) {
+test.each([
+	[1440, 900, 1050],
+	[390, 844, 390]
+])(
+	'whole landmarks and courts fit the %d by %d viewport with right edge %d',
+	(width, height, right) => {
+		const { world, landmark, landmarkBounds } = acceptanceScene(7);
+		if (!landmark || !landmarkBounds) throw Error('Missing landmark geometry');
 		const view = createView();
 		view.resize(width, height);
-		const fit = (landmark?: Vec3) =>
-			width < height
-				? frameOldTown(view, world, undefined, landmark)
-				: frameTownSilhouette(view, world, landmark);
-
-		fit(mark);
-		expect(view.span()).toBeLessThan(65);
-		const pixel = view.project(mark);
-		expect(Math.abs(pixel.x / width - 0.5)).toBeLessThanOrEqual(0.426);
-		expect(Math.abs(pixel.y / height - 0.5)).toBeLessThanOrEqual(0.426);
+		const phone = width < height;
+		const area = phone ? { top: 142, bottom: 680, right } : { top: 0, bottom: height, right };
+		if (phone) frameOldTown(view, world, area, landmark, landmarkBounds);
+		else frameTownSilhouette(view, world, landmark, area, landmarkBounds);
+		const courts = courtOpening(world, phone, landmark);
+		if (!courts) throw Error('Missing occupied courts');
+		for (const p of [...courts.points, ...boxCorners(landmarkBounds)]) {
+			const pixel = view.project([p.x, -p.z, p.y]);
+			expect(pixel.x).toBeWithin(0, right);
+			expect(pixel.y).toBeWithin(area.top, area.bottom);
+		}
+		for (const group of openingLandmarks(world)) {
+			const crop = new Box2(new Vector2(0, area.top), new Vector2(right, area.bottom));
+			const box = new Box2().setFromPoints(
+				group.map((p) => {
+					const { x, y } = view.project([p.x, -p.z, p.y]);
+					return new Vector2(x, y);
+				})
+			);
+			expect(crop.containsBox(box) || !crop.intersectsBox(box)).toBe(true);
+		}
 	}
-});
+);
 
 test('the desktop opening without ensemble data retains occupied parcels and central water', () => {
 	const source = openingScene(7).world;

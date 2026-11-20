@@ -50,6 +50,7 @@ type StageOptions = {
 	/** Opens an editable sandbox at the town scale. */
 	frameTown?: boolean;
 	landmark?: Vec3;
+	landmarkBounds?: import('../../logic/ansicht/geometrie').Bounds;
 	/** Seed the study additions belong to, if restricted to one terrain. */
 	additionSeed?: number;
 	/** Optional study window in world meters, from its low corner to its high corner. */
@@ -257,10 +258,11 @@ export function createSandboxStage(
 		return bounds;
 	}
 
-	function framePortrait(world: World, area = study.openingArea?.()) {
-		if (planView || !frameOldTown(view, world, area, study.landmark)) return false;
+	function frameOpening(world: World, area = study.openingArea?.()) {
 		framedArea = area;
-		return true;
+		return view.isPortrait() && !planView
+			? frameOldTown(view, world, area, study.landmark, study.landmarkBounds)
+			: frameTownSilhouette(view, world, study.landmark, area, study.landmarkBounds);
 	}
 
 	function frameTerrain(mesh: TerrainMesh) {
@@ -268,13 +270,7 @@ export function createSandboxStage(
 			const frame = view.isPortrait() ? (study.portraitFrame ?? study.frame) : study.frame;
 			return view.frameBox(studyBounds(frame), view.isPortrait() ? 1 : OPENING_MARGIN);
 		}
-		if (opening) {
-			const framed =
-				view.isPortrait() && !planView
-					? framePortrait(opening)
-					: frameTownSilhouette(view, opening, study.landmark);
-			if (framed) return;
-		}
+		if (opening && frameOpening(opening)) return;
 		view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
 	}
 
@@ -404,11 +400,16 @@ export function createSandboxStage(
 			opening = undefined;
 			invalidateView();
 		},
-		/** Re-centers the portrait opening once the HUD bounds are available. */
+		/** Re-centers the opening once the HUD bounds are available. */
 		setOpeningArea(area: OpeningArea) {
 			if (!opening || study.frame) return;
-			if (framedArea?.top === area.top && framedArea.bottom === area.bottom) return;
-			if (framePortrait(opening, area)) invalidateView();
+			if (
+				framedArea?.top === area.top &&
+				framedArea.bottom === area.bottom &&
+				framedArea.right === area.right
+			)
+				return;
+			if (frameOpening(opening, area)) invalidateView();
 		},
 		/**
 		 * Shows a world. A new seed starts over; otherwise only what differs from the world

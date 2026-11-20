@@ -143,7 +143,7 @@ export function structureMaterials(
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);
 		materials.perimeter.color.copy(g.kontur);
-		materials.bearing.color.copy(g.ink);
+		materials.bearing.color.copy(cityEdges ? g.blei : g.ink);
 		printInk.value.copy(g.token('--ink'));
 		for (const line of [materials.carrierInk, materials.portalInk, materials.braceInk])
 			line.color.copy(g.ink);

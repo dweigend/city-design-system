@@ -22,9 +22,10 @@ export function columnSeats(parts: readonly Primitive[], grid: TerrainGrid): Was
 	for (const column of feet) {
 		if (column.height < 2.5 || column.height < column.diameter * 1.5) continue;
 		const base = top.get(column.point.join(','));
-		if (base && base.diameter >= column.diameter)
-			seats.push({ point: column.point, normal: [0, 0, 1], diameter: column.diameter });
-		const foot = base && base.diameter >= column.diameter ? base : column;
+		const plinth =
+			base && base.height < base.diameter && base.diameter > column.diameter ? base : undefined;
+		if (plinth) seats.push({ point: column.point, normal: [0, 0, 1], diameter: column.diameter });
+		const foot = plinth ?? column;
 		const [x, y, z] = foot.point;
 		const ground = surveyGround(grid, { point: [x, y, z - 0.3], axis: [0, 0, 1], length: 0.6 });
 		if (ground)

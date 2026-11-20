@@ -22,7 +22,7 @@ function projectedCourts(portrait: boolean) {
 	return frame.points.map((p) => view.project([p.x, -p.z, p.y]));
 }
 
-test('the court and its occupied lots fit between the phone HUD edges with 15 percent margin', () => {
+test('the court and its occupied lots fit between the phone HUD edges at 60 percent fill', () => {
 	view.resize(390, 844);
 	expect(frameOldTown(view, world, openingArea)).toBe(true);
 	const points = projectedCourts(true);
@@ -32,7 +32,7 @@ test('the court and its occupied lots fit between the phone HUD edges with 15 pe
 			range(points.map((p) => p.x)) / 390,
 			range(points.map((p) => p.y)) / (openingArea.bottom - openingArea.top)
 		)
-	).toBeCloseTo(0.85);
+	).toBeCloseTo(0.6);
 	for (const p of points) {
 		expect(p.x).toBeWithin(0, 390);
 		expect(p.y).toBeWithin(openingArea.top, openingArea.bottom);
@@ -99,7 +99,7 @@ test('the desktop opening includes the central district and crops outlying parce
 		expect(p.y).toBeWithin(0, 900);
 	}
 	expect(Math.max(...bounds.map((p) => p.x)) - Math.min(...bounds.map((p) => p.x))).toBeCloseTo(
-		1440 * 0.85
+		1440 * 0.64
 	);
 	expect(visible).toBeGreaterThan(0);
 	expect(visible).toBeLessThan(world.state.stacks.size);

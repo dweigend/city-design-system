@@ -30,16 +30,24 @@
 	let header = $state<HTMLElement>();
 	let hudGroup = $state<HTMLDivElement>();
 
+	let rail = $state<HTMLDivElement>();
 	let modeControls = $state<HTMLDivElement>();
-	let area = $state<{ top: number; bottom: number }>();
+	let area = $state<{ top: number; bottom: number; right?: number }>();
 	$effect(() => {
-		if (!header || !modeControls || !hudGroup) return;
-		const controls = [header, modeControls, hudGroup];
+		const controls = [header, modeControls, hudGroup, rail].filter(
+			(el): el is HTMLElement => el !== undefined
+		);
+		if (controls.length !== 4) return;
 		const observer = new ResizeObserver(() => {
-			const [title, modes, tools] = controls.map((el) => el.getBoundingClientRect());
+			const [title, modes, tools, panel] = controls.map((el) => el.getBoundingClientRect());
+			if (panel.width && !tools.width) {
+				area = { top: 0, bottom: window.innerHeight, right: panel.left };
+				return;
+			}
 			const top = Math.max(title.bottom, modes.bottom);
 			area = top < tools.top ? { top, bottom: tools.top } : undefined;
 		});
+		observer.observe(document.documentElement);
 		controls.forEach((el) => observer.observe(el));
 		return () => observer.disconnect();
 	});
@@ -237,7 +245,7 @@
 			/>
 		</div>
 	</div>
-	<SandboxHud bind:this={hud} bind:group={hudGroup} {session} />
+	<SandboxHud bind:this={hud} bind:group={hudGroup} bind:rail {session} />
 </main>
 
 <style>

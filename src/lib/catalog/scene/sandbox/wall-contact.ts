@@ -1,3 +1,4 @@
+import { contactInk } from '../studio-quality';
 import {
 	BufferGeometry,
 	DoubleSide,
@@ -98,7 +99,7 @@ export function wallContact(parts: Primitive[], grid?: TerrainGrid) {
 	geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	geometry.setAttribute('uv', new Float32BufferAttribute(chart, 2));
 	const material = new MeshBasicNodeMaterial({
-		color: 0x403936,
+		color: contactInk.color,
 		side: DoubleSide,
 		transparent: true,
 		depthWrite: false,
@@ -106,6 +107,6 @@ export function wallContact(parts: Primitive[], grid?: TerrainGrid) {
 		polygonOffsetFactor: -1,
 		polygonOffsetUnits: -2
 	});
-	material.opacityNode = uv().y.oneMinus().pow(2).mul(0.5);
+	material.opacityNode = uv().y.oneMinus().pow(2).mul(contactInk.opacity);
 	return new Mesh(geometry, material);
 }
