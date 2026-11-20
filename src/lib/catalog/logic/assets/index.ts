@@ -7,7 +7,11 @@ import { suggestedSurface } from './slot-defaults';
 
 export { assetCategories, type AssetCategory } from './definition';
 export type { ObjectGeometry } from './object-geometry';
-export type SlotAssignment = { token: ColorToken; finish: FinishId };
+export type SlotAssignment = {
+	token: ColorToken;
+	finish: FinishId;
+	colourRole?: Primitive['colourRole'];
+};
 export type ObjectOptions = {
 	instanceId?: string;
 	slots?: Readonly<Record<string, SlotAssignment>>;
@@ -76,6 +80,7 @@ export function buildObject(
 		const { token, finish } = chosen ?? suggestion;
 		return {
 			...shape,
+			...(chosen?.colourRole && { colourRole: chosen.colourRole }),
 			material: finish === suggestion.finish ? suggestion.material : finishMaterial(finish),
 			token,
 			...(finish === 'city-drawing' ? {} : { finish })

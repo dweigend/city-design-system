@@ -51,7 +51,7 @@ export function resolveFinish(
 	if (colourRole === 'ensemble-ground' && surface.kind === 'physical') {
 		surface.recipe.haut.deckkraft = 1;
 		surface.recipe.farbe.anteil = 1;
-		surface.recipe.farbe.papier = 0.42;
+		surface.recipe.farbe.papier = 0.14;
 		surface.groundCoat = true;
 	}
 	if (ageTint && (surface.kind === 'diagram' || surface.kind === 'physical')) {

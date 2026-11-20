@@ -16,7 +16,7 @@ const lighting = {
 	intensity: 2.2,
 	sky: 0xf3f6ff,
 	ground: 0xe8d8bd,
-	bounce: 1.65,
+	bounce: 1.4,
 	bias: -0.0006,
 	radius: 7.5,
 	shadowTint: 0x6b6359,

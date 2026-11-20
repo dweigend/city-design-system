@@ -6,7 +6,7 @@ import {
 	positionWorld,
 	vec3
 } from 'three/tsl';
-import { grainVisibility, townPattern } from './pattern-density';
+import { faceChart, grainVisibility, townPattern } from './pattern-density';
 import type { Muster } from './materialMuster';
 
 /** Open circular punches, 0.6 m across on a 1.25 m grid. */
@@ -22,13 +22,16 @@ export function perforatedSheet() {
 
 /** A half-metre corrugation with 95 mm crest-to-trough relief. */
 export function corrugation(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
-	const ridge = townPattern(
-		p,
-		0.5,
-		(uv) => uv.x.fract().sub(0.5).abs().sub(0.12).mul(8).clamp(0, 2).sub(1),
-		'grid'
-	);
-	return { farbe: base.mul(ridge.mul(0.21).add(0.92)), hoehe: ridge, relief: 0.0475 };
+	const profile = (uv: Node<'vec2'>) =>
+		uv.x.fract().sub(0.5).abs().sub(0.12).mul(8).clamp(0, 2).sub(1);
+	const ridge = townPattern(p, 0.5, profile, 'grid');
+	const chart = faceChart(p).div(0.5);
+	return {
+		farbe: base.mul(ridge.mul(0.13).add(0.94)),
+		hoehe: profile(chart),
+		relief: 0.0475,
+		reliefCoverage: chart.fwidth().length().smoothstep(0.16, 0.5).oneMinus()
+	};
 }
 
 /** Crossed 65 × 24 mm flakes. Unresolved faces return to the pressed binder colour. */
@@ -52,6 +55,12 @@ export function pressedFlakes(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
 /** The frosted shell catches grazing light around its lightly tinted transmitting face. */
 export function frostedAcrylic(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
 	const rim = normalViewGeometry.dot(positionViewDirection).abs().oneMinus().pow(2);
-	const flute = townPattern(p, 0.045, (uv) => uv.x.mul(2 * Math.PI).cos(), 'fixed');
-	return { farbe: base.mul(rim.mul(0.075).add(1)), hoehe: flute, relief: 0.00032 };
+	const chart = faceChart(p).div(0.045);
+	const flute = chart.x.mul(2 * Math.PI).cos();
+	return {
+		farbe: base.mul(rim.mul(0.075).add(1)),
+		hoehe: flute,
+		relief: 0.00032,
+		reliefCoverage: chart.fwidth().length().smoothstep(0.16, 0.5).oneMinus()
+	};
 }

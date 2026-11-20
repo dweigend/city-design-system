@@ -44,7 +44,9 @@ export function studioPipeline(
 	contact.thickness.value = 0.7;
 	const pipeline = new THREE.RenderPipeline(renderer);
 	const buffer = new THREE.Vector2();
-	const opacity = contact.getTextureNode().r.oneMinus().mul(bearing.r).mul(contactInk.opacity);
+	// Bring shallow deck and kerb contacts into the print without increasing the darkest joint.
+	const occlusion = contact.getTextureNode().r.oneMinus().clamp(0, 1).pow(0.68);
+	const opacity = occlusion.mul(bearing.r).mul(contactInk.opacity);
 	const shaded = mix(face.rgb, face.rgb.mul(color(contactInk.color)), opacity);
 	pipeline.outputNode = vec4(shaded, face.a);
 	return {
