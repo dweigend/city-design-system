@@ -13,7 +13,7 @@ export const BODY_TOKEN = {
 } as const;
 
 /** Saturated use pigment for the selected occupied body in a composed house. */
-export const ACCENT_TOKEN = { ...BODY_TOKEN, living: flowToken.people } as const;
+export const ACCENT_TOKEN = BODY_TOKEN;
 
 /** Muted shell pigments shared by all members of a court, keyed by its leading programme. */
 export const GROUND_TOKEN = {

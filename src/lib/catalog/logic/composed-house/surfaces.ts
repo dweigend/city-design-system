@@ -1,68 +1,44 @@
-import { ACCENT_TOKEN, type HouseUse } from '../../data/house-body';
-import { flowToken } from '../../data/focus';
-import type { SlotAssignment } from '../assets';
-import type { ColorToken } from '../parametrik/types';
+import type { ObjectSurface } from '../assets';
+import { houseSurfaces, type SurfaceSlot } from '../material/house-surfaces';
+import type { BuildingSurface } from '../parametrik/types';
+import type { Section } from './types';
 
-export type Surface = SlotAssignment;
-/** `anchor` paints the whole accent body, also on kit bodies: the one colour body of an ensemble. */
+export { houseSurfaces };
 export type BandAccent = 'none' | 'window' | 'wall' | 'storey' | 'anchor';
-export type SurfaceSlot = HouseUse | 'frame' | 'deck' | 'pane' | 'access' | 'shell';
+export type Surface = ObjectSurface;
 export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
 
-const walkingFinish = 'holz-natur';
-const metal = (token: ColorToken): Surface => ({ token, finish: 'metal' });
-/** Default assignments for the game and bible. Geometry accepts the same slots with any palette. */
-export const houseSurfaces: HouseSurfaces = {
-	frame: { token: '--ink-3', finish: 'metall-lackiert' },
-	deck: { token: '--paper', finish: walkingFinish },
-	shell: { token: '--paper', finish: 'acryl-matt' },
-	pane: { token: '--paper', finish: 'glas-klar' },
-	access: metal(flowToken.people),
-	living: { token: ACCENT_TOKEN.living, finish: 'metall-lackiert' },
-	energy: metal(ACCENT_TOKEN.energy),
-	water: metal(ACCENT_TOKEN.water),
-	food: metal(ACCENT_TOKEN.food),
-	material: metal(ACCENT_TOKEN.material)
-};
-
-const finishes = {
-	base: 'beton-terrazzo',
-	deck: walkingFinish,
-	roof: 'corrugated-metal',
-	terrace: 'beton-schalung',
-	screen: 'perforated-metal',
-	capsule: 'acryl-matt',
-	glazing: 'glas-klar',
-	fitting: 'metall-messing',
-	rim: 'metal',
-	lining: 'beton-schalung',
-	enamel: 'metall-lackiert',
-	trim: 'fired-slip'
-} as const;
-/** Whole band bodies take calm, light finishes only. Chipboard and graphite read as blotches and as
- * heavy dark masses at town scale. */
-const bandFinishes = {
-	living: 'metall-lackiert',
-	food: 'keramik-glasiert',
-	energy: 'beton-schalung',
-	material: 'metall-lackiert',
-	water: 'beton-terrazzo'
-} as const;
-const defaults = new Set(Object.values(houseSurfaces));
-/** Applies a role finish to a stock slot, respecting a caller-supplied surface. */
-export function roleSurface(
-	surface: Surface,
-	role: keyof typeof finishes,
-	token: ColorToken = surface.token
-): Surface {
-	// A walking surface in the access colour stays plain: a patterned finish under the pink reads as
-	// blotches from town distance.
-	if (surface === houseSurfaces.access) return surface;
-	return defaults.has(surface) ? { token, finish: finishes[role] } : surface;
+/** Binds construction slots to the ensemble and retains explicit caller assignments. */
+export function sectionSurfaces(section: Section, palette = houseSurfaces): HouseSurfaces {
+	const { shellUse } = section.composition;
+	const assign = (key: SurfaceSlot, slot: BuildingSurface['slot'], use = shellUse) => ({
+		buildingSurface: { use, ensemble: section.ensemble, slot },
+		override: palette[key] === houseSurfaces[key] ? undefined : palette[key]
+	});
+	return {
+		frame: assign('frame', 'frame'),
+		deck: assign('deck', 'deck'),
+		shell: assign('shell', 'shell'),
+		pane: assign('pane', 'pane'),
+		access: assign('access', 'deck'),
+		living: assign('living', 'shell', 'living'),
+		water: assign('water', 'shell', 'water'),
+		energy: assign('energy', 'shell', 'energy'),
+		food: assign('food', 'shell', 'food'),
+		material: assign('material', 'shell', 'material')
+	};
 }
-/** Dresses an opaque course from its actual use, with pigment on the selected band. */
-export function bandSurface(surface: Surface, use: HouseUse, accent: boolean): Surface {
-	return defaults.has(surface)
-		? { token: accent ? surface.token : '--paper', finish: bandFinishes[use] }
+
+/** Assigns a construction role while preserving any explicit override. */
+export function roleSurface(surface: Surface, slot: BuildingSurface['slot']): Surface {
+	return 'buildingSurface' in surface
+		? { ...surface, buildingSurface: { ...surface.buildingSurface, slot } }
 		: surface;
+}
+
+/** Gives an explicit shell assignment precedence over programme stock. */
+export function shellSurface(shell: Surface, body: Surface): Surface {
+	if (!('buildingSurface' in shell)) return shell;
+	if (shell.override && 'buildingSurface' in body) return { ...body, override: shell.override };
+	return body;
 }

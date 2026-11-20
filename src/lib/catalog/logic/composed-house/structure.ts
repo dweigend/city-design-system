@@ -113,9 +113,9 @@ function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
 		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces.deck, 'base') })];
 	// A walkable roof plate is a smooth terrace; corrugation is for roofs nobody stands on.
 	const coat = p.id.endsWith('/roof-walk')
-		? roleSurface(surfaces.shell, 'terrace')
+		? roleSurface(surfaces.shell, 'deck')
 		: p.id.endsWith('/roof')
-			? roleSurface(surfaces.shell, 'roof')
+			? roleSurface(surfaces.shell, 'shell')
 			: surfaces.deck;
 	const deck = floor(s, p, { ...surfaces, deck: coat });
 	if (deck.kind !== 'prism' || deck.height < 0.42) return [deck];
@@ -134,7 +134,7 @@ function structuralStock(s: Section, p: Solid, surfaces: HouseSurfaces): StockPa
 		return [
 			floor(s, p, {
 				...surfaces,
-				deck: roleSurface(surfaces[p.slot === 'shell' ? 'shell' : use], 'lining', '--paper')
+				deck: roleSurface(surfaces[p.slot === 'shell' ? 'shell' : use], 'shell')
 			})
 		];
 	}

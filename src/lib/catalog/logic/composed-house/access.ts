@@ -9,7 +9,7 @@ import { mastAccess } from './mast-access';
 import { windingRoute } from './circulation';
 import { houseObject, type StockPart, type HousePart } from './house-object';
 import type { Section } from './types';
-import { houseSurfaces, roleSurface, type HouseSurfaces } from './surfaces';
+import { sectionSurfaces, roleSurface, type HouseSurfaces } from './surfaces';
 
 type Route = ReturnType<typeof windingRoute>;
 type XY = [number, number];
@@ -137,7 +137,7 @@ export function fitsWinding(
 	clear: (p: StockPart) => boolean
 ) {
 	const route = windingRoute(s),
-		draw = projection(route.track, s, houseSurfaces);
+		draw = projection(route.track, s, sectionSurfaces(s));
 	for (const [i, dock] of route.docks.entries())
 		if (!draw.connection(dock, i).every((p) => contains(p) && clear(p))) return false;
 	const seen = new Set<string>();

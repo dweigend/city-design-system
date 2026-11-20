@@ -4,8 +4,7 @@ import type { Body } from '../house-typology';
 import { houseObject } from './house-object';
 import { place } from './asset-fit';
 import {
-	houseSurfaces,
-	bandSurface,
+	shellSurface,
 	roleSurface,
 	type BandAccent,
 	type HouseSurfaces,
@@ -49,53 +48,16 @@ function ring(x: number, y: number, w: number, d: number, r: number): XY[] {
 	});
 }
 
-const WALL_ACCENTS: BandAccent[] = ['wall', 'storey', 'anchor'];
-function paintsWall(accent: BandAccent) {
-	return WALL_ACCENTS.includes(accent);
-}
-/** A kit body keeps its neutral wall unless it is the ensemble's one colour body. */
-function wallPainted(accent: BandAccent, fitted: boolean) {
-	return accent === 'anchor' || (!fitted && paintsWall(accent));
-}
-
-function wallSurface(body: Body, surfaces: HouseSurfaces, painted: boolean) {
-	const panel = surfaces[body.use];
-	if (!body.band?.shell) return bandSurface(panel, body.use, painted);
-	const backing = surfaces.shell === houseSurfaces.shell ? panel : surfaces.shell;
-	return roleSurface(
-		backing,
-		body.use === 'material' ? 'enamel' : 'lining',
-		painted ? panel.token : '--paper'
-	);
-}
-
-function envelopeWall(body: Body, surfaces: HouseSurfaces, painted: boolean) {
-	const wall = wallSurface(body, surfaces, painted);
-	const finish = body.band?.finish;
-	return finish && Object.values(houseSurfaces).includes(surfaces[body.use])
-		? { ...wall, finish }
-		: wall;
-}
-
-function bandCoatings(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
-	const panel = surfaces[body.use];
-	const fitted = body.band?.wellX !== undefined || !!body.band?.modules;
-	const paintedWall = wallPainted(accent, fitted);
-	const tintedPane = accent !== 'none' && (fitted || accent !== 'wall');
-	return {
-		wall: envelopeWall(body, surfaces, paintedWall),
-		glass: roleSurface(surfaces.pane, 'glazing', tintedPane ? panel.token : surfaces.pane.token),
-		// Door and window trim take the programme colour on the accent body only.
-		trim: roleSurface(panel, 'trim', accent === 'none' ? '--paper' : panel.token),
-		sill: roleSurface(panel, 'trim', paintsWall(accent) ? panel.token : '--paper')
-	};
-}
 /** Extrudes the band in closed courses around a recessed glazing strip and the surveyed court. */
 export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	const { id, objectId, variant, seed, band } = body;
 	const [x, y, z] = body.position,
 		[w, d, h] = body.size;
-	const { wall, glass, trim, sill } = bandCoatings(body, surfaces, accent);
+	const panel = surfaces[body.use];
+	const wall = shellSurface(surfaces.shell, panel);
+	const glass = surfaces.pane;
+	const trim = roleSurface(panel, accent === 'none' ? 'frame' : 'fitting');
+	const sill = trim;
 	if (band?.modules) return kitCourses(body, band.modules, wall, glass, trim);
 	const court = band?.court;
 	const holes = court
@@ -138,7 +100,7 @@ export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccen
 				holes: p.holes
 			};
 		});
-	const screen = envelopeScreen(body, wall);
+	const screen = envelopeScreen(body, roleSurface(wall, 'screen'));
 	if (d < 1.6 || h < 1.5) return [...screen, course('body', 0, h, 0, wall)];
 	const cuts = [0, h];
 	for (let sill = 1; sill < h; sill += 4) {

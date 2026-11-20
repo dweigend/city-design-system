@@ -1,7 +1,6 @@
-import { finishMaterial } from '../material/surface';
 import { assetRegistry } from '../assets';
 import {
-	houseSurfaces,
+	shellSurface,
 	roleSurface,
 	type HouseSurfaces,
 	type Surface,
@@ -14,19 +13,12 @@ import { bandParts } from './band-parts';
 import { place } from './asset-fit';
 
 const stock = new Map(assetRegistry.map((asset) => [asset.id, asset]));
-function stockCoating(id: string, address: string, paint: Surface) {
-	if (address.endsWith('/crown')) return roleSurface(paint, 'roof', '--paper');
-	if (/parapet|screen|railing/.test(id)) return roleSurface(paint, 'screen', '--ink-3');
-	if (id.includes('cradle')) return paint;
-	if (/capsule|crown-lantern|glass-bell/.test(id)) return roleSurface(paint, 'capsule', '--paper');
-	if (id.includes('column-foot')) return roleSurface(paint, 'base', '--paper');
-	return paint;
-}
-function edgeSurface(id: string, paint: Surface, finish: Surface) {
-	if (id.includes('capsule-ribbon')) return roleSurface(paint, 'rim', '--paper');
-	if (/capsule|lantern|bell/.test(id)) return paint;
-	if (/parapet|deck/.test(id)) return roleSurface(paint, 'fitting', '--paper');
-	return finish;
+function stockSurface(id: string, address: string, surface: Surface) {
+	if (address.endsWith('/crown') || /capsule|lantern|bell/.test(id))
+		return roleSurface(surface, 'shell');
+	if (/parapet|screen|railing/.test(id)) return roleSurface(surface, 'screen');
+	if (id.includes('column-foot')) return roleSurface(surface, 'base');
+	return surface;
 }
 function stockSurfaces(
 	id: string,
@@ -40,7 +32,7 @@ function stockSurfaces(
 		body: finish,
 		shell: use ? finish : surfaces.shell,
 		glass: surfaces.pane,
-		edge: edgeSurface(id, paint, finish),
+		edge: roleSurface(paint, 'fitting'),
 		liquid: paint,
 		fabric: finish,
 		planting: paint,
@@ -64,11 +56,11 @@ export function members(
 	const asset = stock.get(id);
 	if (!asset) throw new RangeError('Unknown house stock ' + id);
 	const paint = use ? surfaces[use] : surfaces.frame;
-	const finish = stockCoating(id, address, paint);
+	const finish = stockSurface(id, address, paint);
 	const roles = stockSurfaces(id, paint, finish, surfaces, use);
 	if (body) {
-		roles.shell = surfaces.shell === houseSurfaces.shell ? body : surfaces.shell;
-		roles.edge = roleSurface(paint, 'rim', body.token);
+		roles.shell = shellSurface(surfaces.shell, body);
+		roles.edge = roleSurface(paint, 'frame');
 		roles.accent = body;
 		roles.highlight = body;
 		roles.body = body;
@@ -89,11 +81,7 @@ export function members(
 function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	if (b.band) return bandParts(b, surfaces, accent);
 	const paint = surfaces[b.use];
-	const shell = roleSurface(paint, 'capsule', accent !== 'none' ? paint.token : '--paper');
-	const pane =
-		b.objectId.includes('lantern') && (accent === 'storey' || accent === 'anchor')
-			? roleSurface(surfaces.pane, 'glazing', paint.token)
-			: surfaces.pane;
+	const shell = roleSurface(paint, 'shell');
 	const stock = members(
 		b.objectId,
 		b.variant,
@@ -101,16 +89,10 @@ function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 		b.id,
 		surfaces,
 		b.use,
-		/\/body\/\d+$/.test(b.id) ? shell : undefined,
-		pane
+		/\/body\/\d+$/.test(b.id) ? shell : undefined
 	);
-	const rim = roleSurface(surfaces[b.use], 'rim', '--ink-3');
 	return place(
-		stock.map((p) =>
-			capsuleLine(p, b)
-				? { ...p, ...rim, material: finishMaterial(rim.finish) }
-				: weatherSkin(recess(p, b), b.scale)
-		),
+		stock.map((p) => (capsuleLine(p, b) ? p : weatherSkin(recess(p, b), b.scale))),
 		b.nativeCenter,
 		b.position,
 		[b.scale, b.scale, b.scale],
@@ -122,10 +104,7 @@ function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 export function bodyParts(b: Body, surfaces: HouseSurfaces, accent: BandAccent = 'none') {
 	return bodyStock(b, surfaces, accent).map((p) => ({
 		...p,
-		structuralRole: b.structuralRole,
-		...(accent !== 'none' && p.token === surfaces[b.use].token
-			? { colourRole: 'body-accent' as const }
-			: {})
+		structuralRole: b.structuralRole
 	}));
 }
 
