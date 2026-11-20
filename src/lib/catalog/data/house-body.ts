@@ -3,7 +3,7 @@ import { flowToken, type FlowId } from './focus';
 /** Token and drawn sections (meters) for house and rooftop frames. */
 export const HOUSE_FRAME = { token: '--ink-3', primary: 0.12, secondary: 0.08 } as const;
 
-/** Wall colour of each use. Housing takes the pale planning tint; paths alone stay pink. */
+/** Wall colour of each use, worn as one saturated field. Housing is violet; paths alone stay pink. */
 export const BODY_TOKEN = {
 	living: '--body-living',
 	water: flowToken.water,
@@ -11,6 +11,18 @@ export const BODY_TOKEN = {
 	food: flowToken.food,
 	material: flowToken.material
 } as const;
+
+/**
+ * Counter colour of each use for screens, parapets and railings: the field's strongest contrast
+ * among the palette tokens. Path pink is never a counter colour.
+ */
+export const COUNTER_TOKEN = {
+	living: '--cat-mobility',
+	water: '--signal',
+	energy: '--blueprint',
+	food: '--signal',
+	material: '--blueprint'
+} as const satisfies Record<HouseUse, string>;
 
 /** Saturated use pigment for the selected occupied body in a composed house. */
 export const ACCENT_TOKEN = BODY_TOKEN;

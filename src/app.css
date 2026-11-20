@@ -25,7 +25,7 @@
 	--ground-sand: oklch(0.85 0.045 85);
 	--ground-sage: oklch(0.76 0.035 145);
 	--ground-clay: oklch(0.72 0.055 47);
-	--body-living: oklch(0.82 0.07 268);
+	--body-living: oklch(0.7 0.14 288);
 	/* Accent and hazard: only these are strong (5 %) */
 	--signal: oklch(0.575 0.18 33);
 	--cat-hazard: oklch(0.47 0.165 12);

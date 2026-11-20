@@ -6,7 +6,13 @@ import { nextSeed } from '../../core/random';
 import { required } from '../required';
 import { isPainted } from './house-phase-ink';
 import { houseObstacles } from './house-obstacles';
-import { accentBody, accentKind, paintedSections, sectionGroups } from '../composed-house';
+import {
+	accentBody,
+	accentKind,
+	fieldUse,
+	paintedSections,
+	sectionGroups
+} from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { buildingPlots } from './building-plots';
 import { houseThreshold } from '../house-structure';
@@ -78,6 +84,7 @@ function survey(world: World) {
 						s.composition.sharedRoof,
 						s.composition.exterior?.system,
 						s.composition.shellUse,
+						fieldUse(s),
 						s.composition.exterior?.seams,
 						s.composition.ground,
 						accentKind(s),
