@@ -1,15 +1,7 @@
+import type { OpeningProjection, OpeningScreen } from './opening-projection';
 import { desktopComposition, surroundings } from './opening-composition';
 import { Box2, Vector2 } from 'three/webgpu';
 import type { View } from './view';
-
-export type OpeningProjection = {
-	courts: Box2[];
-	houses: Box2[][];
-	landmarks: Box2[];
-	stock: Box2[];
-	landscape: Box2[];
-};
-export type OpeningScreen = { canvas: Box2; safe: Box2; foreground: Box2; reserved: Box2[] };
 
 const desktopSizes = {
 	min: 140,

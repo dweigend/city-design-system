@@ -1,4 +1,4 @@
-import type { OpeningProjection } from './opening-score';
+import type { OpeningProjection } from './opening-projection';
 import { Box2, Vector2 } from 'three/webgpu';
 
 function area(box: Box2) {

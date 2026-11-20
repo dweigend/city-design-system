@@ -1,7 +1,14 @@
 import { stockOrigins } from './opening-origins';
 import { Box2, Box3, Vector2, Vector3 } from 'three/webgpu';
-import { houseSizes, scoreCrop, type OpeningScreen, type OpeningProjection } from './opening-score';
-import { orientedProjection, screenBounds, surveyContext, type Courts } from './opening-projection';
+import { houseSizes, scoreCrop } from './opening-score';
+import {
+	orientedProjection,
+	screenBounds,
+	surveyContext,
+	type Courts,
+	type OpeningScreen,
+	type OpeningProjection
+} from './opening-projection';
 import type { World } from '../../logic/sandbox';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { CourtFit, OpeningArea, View } from './view';
