@@ -1,4 +1,4 @@
-import { desktopComposition } from './opening-composition';
+import { ensembleComposition } from './opening-composition';
 import { expect, test } from 'bun:test';
 import { Box2, Vector2 } from 'three/webgpu';
 import {
@@ -76,7 +76,7 @@ function expectStockClear(world: World, view: View, hudBoxes: Box2[]) {
 	}
 	return boxes;
 }
-function contextualSpread(world: World, view: View, safe: Box2, hud: Box2[], houses: Box2[]) {
+function visibleContext(world: World, view: View, safe: Box2, hud: Box2[], houses: Box2[]) {
 	const visible = (b: Box2) =>
 		!b.isEmpty() &&
 		[b.min.x, b.max.x].some((x) =>
@@ -102,18 +102,19 @@ function contextualSpread(world: World, view: View, safe: Box2, hud: Box2[], hou
 				.intersect(safe)
 		)
 		.filter(visible);
-	if (view.isPortrait()) expect(stock.length).toBeGreaterThan(0);
+
 	expect(greenOrWater.length).toBeGreaterThan(0);
-	return {
-		spread: [...houses, ...stock, ...greenOrWater].reduce((all, b) => all.union(b), new Box2()),
-		stock
-	};
+	return stock;
 }
-function expectDesktopComposition(view: View, safe: Box2, ensembles: Box2[], historic: Box2[]) {
+function expectEnsembleComposition(view: View, safe: Box2, ensembles: Box2[], historic: Box2[]) {
+	if (view.isPortrait()) expect(ensembles.length).toBe(2);
 	const area = (b: Box2) => (b.max.x - b.min.x) * (b.max.y - b.min.y);
 	const frame = area(safe);
 	const envelope = ensembles.reduce((box, body) => box.union(body), new Box2());
-	expect(area(envelope) / frame).toBeWithin(0.45, 0.58);
+	expect(area(envelope) / frame).toBeWithin(
+		view.isPortrait() ? 0.4 : 0.45,
+		view.isPortrait() ? 0.501 : 0.58
+	);
 	// Two distant silhouettes at opposite edges cannot satisfy this occupied-area check.
 	expect(ensembles.reduce((sum, body) => sum + area(body), 0) / frame).toBeGreaterThanOrEqual(0.21);
 	expect(historic.reduce((sum, roof) => sum + area(roof), 0) / frame).toBeLessThanOrEqual(0.2);
@@ -128,15 +129,8 @@ function expectFraming(
 	homes: Box2[],
 	visible: Box2[]
 ) {
-	const { spread, stock } = contextualSpread(world, view, safe, hud, homes);
-	if (!view.isPortrait()) return expectDesktopComposition(view, safe, visible, stock);
-	const size = safe.getSize(new Vector2());
-	expect(
-		Math.max(spread.min.x - safe.min.x, safe.max.x - spread.max.x) / size.x
-	).toBeLessThanOrEqual(0.15);
-	expect(
-		Math.max(spread.min.y - safe.min.y, safe.max.y - spread.max.y) / size.y
-	).toBeLessThanOrEqual(0.15);
+	const stock = visibleContext(world, view, safe, hud, homes);
+	expectEnsembleComposition(view, safe, visible, stock);
 }
 test.each([
 	['sandbox', 1440, 900, 1257, 40, 900],
@@ -265,13 +259,13 @@ test('desktop accepts peripheral stock only while the built pair remains the sub
 		new Box2(new Vector2(x, y), new Vector2(r, b));
 	const frame = rect(0, 0, 1000, 800);
 	const houses = [rect(120, 120, 440, 580), rect(520, 180, 900, 640)];
-	const score = (stock: Box2[]) => desktopComposition(houses, stock, frame, 1);
+	const score = (stock: Box2[]) => ensembleComposition(houses, stock, frame, 1);
 	expect(score([])).toBeDefined();
 	expect(score([rect(0, 100, 100, 600)])).toBeDefined();
 	expect(score([rect(0, 0, 250, 740)])).toBeUndefined();
 	expect(score([rect(450, 360, 460, 380)])).toBeUndefined();
 	expect(
-		desktopComposition(
+		ensembleComposition(
 			[rect(320, 160, 470, 450), rect(530, 220, 700, 500)],
 			[rect(0, 100, 100, 600)],
 			frame,

@@ -9,9 +9,7 @@ export function visibleCourts(world: World, view: View, area?: OpeningArea) {
 		top = area?.top ?? 0,
 		bottom = area?.bottom ?? height;
 	return courtOpening(world)
-		.map((c) =>
-			view.isPortrait() || !c.houses.length ? [...c.points, ...c.houses.flat()] : c.houses.flat()
-		)
+		.map((c) => (c.houses.length ? c.houses.flat() : c.points))
 		.map((points) => points.map((p) => view.project([p.x, -p.z, p.y])))
 		.filter((points) =>
 			points.every((p) => p.x >= (area?.left ?? 0) && p.x <= right && p.y >= top && p.y <= bottom)
