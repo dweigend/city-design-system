@@ -1,9 +1,16 @@
+import { convexHull, plotCovers } from '../parzelle';
+import type { QuadCell } from '../quad-grid';
+import { twistStations, rotateSection } from './twist-stations';
 import { inside, intersects, validateRing } from '../parametrik/raster/universal/kern';
 import { sectionInsets } from './section-insets';
 import type { HouseEnvelope } from './envelope';
 
 type XY = [number, number];
-type Parcel = { polygon: XY[]; holes: XY[][] };
+type Parcel = {
+	polygon: XY[];
+	holes: XY[][];
+	courtWalls?: { a: XY; b: XY; centre: readonly number[] }[];
+};
 const mix = (a: XY, b: XY, t: number): XY => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 type WallDepth = (x: number, y: number) => number;
 function wallDepth(span: number, limits: number[]): WallDepth {
@@ -73,17 +80,21 @@ export function parcelSection(
 	opening: XY[],
 	envelope: HouseEnvelope,
 	elevation: number,
-	floor: number
+	floor: number,
+	turn = 0
 ) {
 	const base = wallCorners(parcel.polygon);
 	if (floor === 0) return { polygon: base, holes: [...parcel.holes, opening] };
-	return fittedSection(
+	const shape = fittedSection(
 		parcel,
 		[...parcel.holes, opening],
 		envelope.outline,
 		base,
 		wallDepth(spanOf(base), sectionInsets(envelope.section, elevation, floor))
 	);
+	if (!turn) return shape;
+	const rotated = rotateSection(shape.polygon, base, turn);
+	return fits(rotated, parcel, shape.holes) ? { ...shape, polygon: rotated } : shape;
 }
 function fittedSection(
 	parcel: Parcel,
@@ -112,6 +123,7 @@ function fittedSection(
 /** Fits continuous exterior panels to corresponding perimeter corners independently of floor heights. */
 export function parcelExterior(
 	parcel: Parcel,
+	cells: readonly QuadCell[],
 	opening: XY[],
 	envelope: HouseEnvelope,
 	datums: readonly number[],
@@ -123,8 +135,8 @@ export function parcelExterior(
 	const last = datums.length - 2;
 	const limits = (floor: number) =>
 		sectionInsets(envelope.section, floor / Math.max(1, last), floor);
-	const stations = datums.map((z, i) => {
-		if (i <= 1) return { z, ring, atBoundary: true };
+	const neutral = datums.map((z, i) => {
+		if (i <= 1) return { z, ring, atBoundary: true, turn: 0 };
 		// Both courses meet this datum. The outer wall must clear the broader one on each side.
 		const below = limits(i - 1),
 			above = limits(Math.min(i, last));
@@ -136,17 +148,38 @@ export function parcelExterior(
 			ring,
 			wallDepth(span, bounds)
 		).polygon;
-		return { z, ring: profile, atBoundary: profile === ring };
+		return { z, ring: profile, atBoundary: profile === ring, turn: 0 };
 	});
+	const reveal = fittedSection(parcel, holes, 'orthogonal', ring, () => 0.35).polygon;
+	const stations = twistStations(
+		neutral,
+		ring,
+		envelope.twist ?? 0,
+		(candidate) => fits(candidate, parcel, holes),
+		(layers) =>
+			ring.every((_, i) => {
+				const j = (i + 1) % ring.length;
+				// Every possible pressure displacement stays inside the hull of its anchor and free edges.
+				const points = [
+					reveal[i],
+					reveal[j],
+					...layers.flatMap((layer) => [layer.ring[i], layer.ring[j]])
+				];
+				const hull = convexHull(points).map(([x, y]): XY => [x, y]);
+				return plotCovers(cells, { ring: hull, holes: [] }, 0);
+			})
+	);
 	const seams = ring.map((a, i) => survey(a, ring[(i + 1) % ring.length]));
 	return {
 		ring,
 		seams,
-		reveal: fittedSection(parcel, holes, 'orthogonal', ring, () => 0.35).polygon,
+		reveal,
 		stations,
 		bottom: datums[0],
 		top: datums[datums.length - 1],
 		system: envelope.system,
+		fabric: envelope.fabric,
+		courtWalls: envelope.fabric ? (parcel.courtWalls ?? []) : [],
 		finish: envelope.finish,
 		faces: seams.map((spans) =>
 			spans.some(

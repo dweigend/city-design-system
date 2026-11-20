@@ -1,3 +1,4 @@
+import { membraneResponse } from '../membrane';
 import { shellSystems, type ShellSystem } from '../../data/house-shells';
 import { mount, type AssetRecipe } from './definition';
 import { surface } from './parts';
@@ -69,7 +70,15 @@ const draw: Record<ShellSystem, Draw> = {
 			m,
 			12,
 			16,
-			(u, v) => 0.65 * Math.abs(Math.sin(2 * Math.PI * u) * Math.sin(2 * Math.PI * v)),
+			(u, v) =>
+				membraneResponse(
+					{ pressure: 2, tension: 1, restraint: 'net' },
+					3,
+					4.5,
+					u,
+					(v * 2) % 1,
+					0.65
+				).fraction * 0.65,
 			(i, j) => (i === 5 || i === 6) && j % 8 > 0 && j % 8 < 7
 		),
 	'pleated-sheet': (m) =>

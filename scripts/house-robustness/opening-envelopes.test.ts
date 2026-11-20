@@ -25,7 +25,9 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 			expect(envelope.bottom).toBe(house.composition.ground);
 			expect(envelope.top).toBe(house.top);
 			const walls = parts.filter((p) => p.source.objectId === 'full-height-shell');
-			expect(walls).toHaveLength(envelope.faces.filter(Boolean).length);
+			expect(walls).toHaveLength(
+				envelope.faces.filter(Boolean).length + envelope.courtWalls.length
+			);
 			for (const p of walls) {
 				expect(p.token).toBe(BODY_TOKEN[house.composition.shellUse]);
 				if (!p.finish) throw Error('Missing wall finish');

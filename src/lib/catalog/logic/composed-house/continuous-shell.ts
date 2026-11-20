@@ -1,3 +1,5 @@
+import { courtyardPanel, membranePanel } from './membrane-panel';
+import { stationAt } from './shell-station';
 import { cutPartyWall } from './party-wall-cut';
 import type { HouseComposition } from '../house-typology';
 import type { Vec3 } from '../parametrik/types';
@@ -6,22 +8,6 @@ import type { Surface } from './surfaces';
 
 type Shell = NonNullable<HouseComposition['exterior']>;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
-function stationAt(shell: Shell, height: number, corner: number, depth: number, tuck: number) {
-	const upper = shell.stations.findIndex((s) => s.z >= height);
-	const index = upper < 0 ? shell.stations.length - 1 : Math.max(1, upper);
-	const lo = shell.stations[index - 1],
-		hi = shell.stations[index];
-	const t = clamp((height - lo.z) / (hi.z - lo.z));
-	const at = (k: number) => {
-		const base = shell.ring[corner][k];
-		const atStation = (station: typeof lo) =>
-			station.atBoundary
-				? base + tuck * (shell.reveal[corner][k] - base)
-				: base + depth * (station.ring[corner][k] - base);
-		return (1 - t) * atStation(lo) + t * atStation(hi);
-	};
-	return [at(0), at(1)];
-}
 const broadSheets: ReadonlySet<Shell['system']> = new Set([
 	'tensile-sail',
 	'seed-pod',
@@ -77,12 +63,29 @@ function panel(shell: Shell, index: number, source: StockMesh, start: number, en
 	}
 	return { points, triangles };
 }
+function wallSpan(shell: Shell, index: number, source: StockMesh, start: number, end: number) {
+	const fabric = shell.fabric;
+	if (!fabric) return panel(shell, index, source, start, end);
+	const cloth = membranePanel(shell, index, start, end, fabric);
+	if (
+		shell.system === 'inflated-cushion' ||
+		shell.system === 'suspended-curtain' ||
+		shell.system === 'tensile-sail'
+	)
+		return cloth;
+	// A textile lining requested on a separate structural system retains its original carrier.
+	const carrier = panel(shell, index, source, start, end);
+	return {
+		points: cloth.points.concat(carrier.points),
+		triangles: cloth.triangles.concat(carrier.triangles.map((i) => i + cloth.points.length))
+	};
+}
 function exposedPanel(shell: Shell, index: number, source: StockMesh) {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	for (const { start, end, hidden } of shell.seams[index]) {
 		if (hidden && hidden[0] <= shell.bottom && hidden[1] >= shell.top) continue;
-		const span = panel(shell, index, source, start, end);
+		const span = wallSpan(shell, index, source, start, end);
 		const visible = hidden ? cutPartyWall(span, hidden) : span;
 		const base = points.length;
 		for (const p of visible.points) points.push(p);
@@ -104,5 +107,17 @@ export function continuousShell(h: HouseComposition, seed: number, surface: Surf
 		colourRole: 'ensemble-ground' as const,
 		structuralRole: 'bearing' as const
 	};
-	return shell.ring.flatMap((_, i) => (shell.faces[i] ? [exposedPanel(shell, i, source)] : []));
+	const outer = shell.ring.flatMap((_, i) =>
+		shell.faces[i] ? [exposedPanel(shell, i, source)] : []
+	);
+	const fabric = shell.fabric;
+	if (!fabric) return outer;
+	return [
+		...outer,
+		...shell.courtWalls.map((wall, i) => ({
+			...source,
+			...courtyardPanel(shell, wall, fabric),
+			id: source.id + '/court/' + i
+		}))
+	];
 }

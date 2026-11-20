@@ -1,3 +1,4 @@
+import { required } from '../required';
 import { roomOnDeck } from './deck-outline';
 import { prismFaces } from './prism';
 import { partyFaces } from './party-faces';
@@ -16,7 +17,7 @@ import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior, roomLining } from './parcel-section';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
-import { boundaryRings, ringArea, type QuadCell } from '../quad-grid';
+import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
 import { crownSpec, objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
@@ -33,10 +34,22 @@ function rectangle(x: number, y: number, w: number, d: number): XY[] {
 }
 function parcel(cells: readonly QuadCell[]) {
 	const ids = new Set(cells.map((c) => c.id));
-	const [polygon, ...holes] = boundaryRings(cells, (id) => ids.has(id)).sort(
-		(a, b) => ringArea(b) - ringArea(a)
+	const plots = boundaryRuns(cells, (id) => ids.has(id))
+		.map((run) => ({
+			ring: run.map(({ from: [x, y] }): XY => [x, y]),
+			run
+		}))
+		.sort((a, b) => ringArea(b.ring) - ringArea(a.ring));
+	const [outer, ...courts] = plots;
+	const centres = new Map(cells.map((cell) => [cell.id, cell.center]));
+	const courtWalls = courts.flatMap(({ run }) =>
+		run.map(({ from, to, cellId }) => ({
+			a: [from[0], from[1]] as XY,
+			b: [to[0], to[1]] as XY,
+			centre: required(centres.get(cellId), 'courtyard cell')
+		}))
 	);
-	return { polygon, holes };
+	return { polygon: outer.ring, holes: courts.map((p) => p.ring), courtWalls };
 }
 function extent(shape: Shape) {
 	const span = (axis: number) => {
@@ -168,6 +181,7 @@ function floorOutline(
 	shapes: CourseShapes,
 	i: number,
 	gallery: boolean,
+	turn: number,
 	wing?: UpperWing
 ) {
 	if (i + 1 === wing?.level) return shapes.pier;
@@ -179,7 +193,8 @@ function floorOutline(
 		shapes.opening,
 		shapes.envelope,
 		i / Math.max(1, plan.site.programme.length - 1),
-		i
+		i,
+		turn
 	);
 }
 function floorBodies(
@@ -247,6 +262,7 @@ function courses(
 	const datums = courseDatums(plan, context.seed, galleryCourse);
 	const exterior = parcelExterior(
 		plot,
+		cells,
 		opening,
 		envelope,
 		datums,
@@ -260,7 +276,7 @@ function courses(
 		const z = i ? datums[i] : ground + 0.6;
 		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
-		const shape = floorOutline(plan, shapes, i, gallery, wing);
+		const shape = floorOutline(plan, shapes, i, gallery, exterior.stations[i].turn, wing);
 		const bodies = floorBodies(plan, shapes, shape, i, z, ceiling, gallery, parts, wing);
 		const [x, y] = extent(shape),
 			use = bodies[0].use;
