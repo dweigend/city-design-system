@@ -84,6 +84,7 @@ test('the lawn and its stone rim have one rounded seam flush with the court', ()
 		const rim = parts.find((p) => p.id === 'court/' + lawn.id.slice('court-lawn/'.length));
 		if (lawn.kind !== 'prism' || rim?.kind !== 'prism') throw Error('Missing lawn or rim');
 		expect(lawn.polygon.length).toBeGreaterThan(16);
+		expect(rim.polygon).toHaveLength(lawn.polygon.length);
 		expect(rim.holes).toEqual([lawn.polygon]);
 		expect(lawn.z + lawn.height).toBeCloseTo(rim.z + rim.height, 9);
 	}
