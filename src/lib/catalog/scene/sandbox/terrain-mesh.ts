@@ -1,3 +1,4 @@
+import { studioKeyDirection } from '../studio-light';
 import { courtBankGeometry } from './court-bank-geometry';
 /**
  * Terrain as a paper relief: the ground carries contour hairlines, the area grid appears as a
@@ -130,13 +131,13 @@ export function createTerrainMesh(
 		const field = mix(
 			mix(paperColor, colors.food, 0.29),
 			mix(paperColor, colors.food, 0.5),
-			furrows
+			furrows.mul(drawing)
 		);
 		ground = mix(ground, field, inside(masks.g));
 		const meadow = mix(
 			mix(paperColor, colors.nature, 0.32),
 			colors.nature,
-			dots.mul(resolvable(chart.x.mul(2))).mul(0.7)
+			dots.mul(resolvable(chart.x.mul(2))).mul(0.7).mul(drawing)
 		);
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(paperColor, ground, forestWeight.mul(mix(0.2, 1, drawing)));
@@ -145,7 +146,7 @@ export function createTerrainMesh(
 		ground = mix(ground, colors.soil, slots.x.mul(terrainWeight).mul(0.28));
 		ground = mix(ground, colors.nature, slots.y.mul(forestWeight).mul(0.28));
 		ground = mix(ground, colors.waterStroke, slots.z.mul(terrainWeight).mul(0.13));
-		const bankLight = normalWorldGeometry.dot(vec3(-0.42, 0.82, 0.38));
+		const bankLight = normalWorldGeometry.dot(vec3(studioKeyDirection));
 		const riser = bankLight.oneMinus().smoothstep(0.22, 0.72).mul(slots.x);
 		ground = mix(ground, drawingInk, riser.mul(0.19).mul(terrainWeight));
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
@@ -154,7 +155,7 @@ export function createTerrainMesh(
 		ground = mix(
 			ground,
 			drawingInk,
-			incision.mul(hatch).mul(1.28).mul(nodes.ravineTone).mul(terrainWeight)
+			incision.mul(hatch).mul(1.28).mul(nodes.ravineTone).mul(terrainWeight).mul(drawing)
 		);
 		const outline = edge(masks.r).max(edge(masks.g)).max(edge(masks.b));
 
@@ -163,7 +164,7 @@ export function createTerrainMesh(
 		const contour = minor.mul(nodes.contourMinor).max(major.mul(nodes.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
 		const weighted = contour.mul(gridStrength.mul(planContourGain).add(1));
-		ground = mix(ground, drawingInk, weighted.mul(terrainWeight).mul(mix(0.28, 1, drawing)));
+		ground = mix(ground, drawingInk, weighted.mul(terrainWeight).mul(mix(0.18, 1, drawing)));
 		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(forestWeight).mul(drawing));
 
 		ground = mix(

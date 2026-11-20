@@ -14,6 +14,7 @@ import {
 } from 'three/tsl';
 import type { AusfuehrungId } from '../data/materialAusfuehrung';
 import type { OberflaechenWerte } from '../logic/material/ausfuehrung';
+import { grainVisibility } from './pattern-density';
 import { holzMuster } from './materialHolzMuster';
 import { mineralMuster } from './materialMineralMuster';
 import type { Muster, MusterRaum } from './materialMuster';
@@ -30,19 +31,20 @@ const reliefVon: Partial<Record<AusfuehrungId, number>> = {
 
 function membranMuster(base: Node<'vec3'>, id: AusfuehrungId, p: Node<'vec3'>): Muster {
 	const weave = noise(p, 66);
+	const coverage = grainVisibility(p.mul(66));
 	if (id === 'membran-gewebe' || id === 'membran-voile') {
-		return { farbe: base.mul(weave.mul(0.12).add(1)), hoehe: weave, relief: 0.00055 };
+		return { farbe: base.mul(weave.mul(coverage).mul(0.04).add(1)), hoehe: weave, relief: 0.00055, reliefCoverage: coverage };
 	}
 	// Incidence works for the orthographic stage and cannot feed back from the bump normal.
 	const frontal = normalViewGeometry.dot(positionViewDirection).abs().clamp(0, 1);
 	if (id === 'membran-opal') {
-		const warm = positionLocal.y.mul(-0.87).add(noise(p, 1.5).mul(0.31)).add(0.97).smoothstep(0, 1);
+		const warm = positionLocal.y.mul(-0.87).add(0.97).smoothstep(0, 1);
 		const tints = mix(color('#9481cf'), color('#f7ac91'), warm);
 		const shell = mix(tints, base, frontal.pow(2).mul(0.34));
-		return { farbe: shell, hoehe: weave, relief: 0.00018 };
+		return { farbe: shell, hoehe: weave, relief: 0.00018, reliefCoverage: coverage };
 	}
 	const gespannt = frontal.smoothstep(0.02, 0.84).mul(0.55).add(0.45);
-	return { farbe: base.mul(gespannt), hoehe: weave, relief: 0.00023 };
+	return { farbe: base.mul(gespannt), hoehe: weave, relief: 0.00023, reliefCoverage: coverage };
 }
 
 function gussMuster(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
@@ -59,11 +61,14 @@ function gussMuster(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
 }
 
 function metalMuster(base: Node<'vec3'>, bare: boolean, p: Node<'vec3'>): Muster {
-	const brush = mx_noise_float(p.mul(vec3(1.8, 450, 450)));
+	const chart = p.mul(vec3(1.8, 450, 450));
+	const brush = mx_noise_float(chart);
+	const coverage = grainVisibility(chart);
 	return {
-		farbe: base.mul(brush.mul(bare ? 0.1 : 0.012).add(1)),
+		farbe: base.mul(brush.mul(coverage).mul(bare ? 0.06 : 0.012).add(1)),
 		hoehe: brush,
-		relief: bare ? 0.00035 : 0.00008
+		relief: bare ? 0.00035 : 0.00008,
+		reliefCoverage: coverage
 	};
 }
 
