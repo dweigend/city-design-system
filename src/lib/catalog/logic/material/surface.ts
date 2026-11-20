@@ -9,7 +9,13 @@ import { rezept, voreinstellung, type Rezept } from './rezept';
 import type { MaterialVariation } from './variation';
 
 export type SurfaceRecipe =
-	| { kind: 'physical'; id: AusfuehrungId; recipe: Rezept; variation?: MaterialVariation }
+	| {
+			kind: 'physical';
+			id: AusfuehrungId;
+			recipe: Rezept;
+			variation?: MaterialVariation;
+			groundCoat?: boolean;
+	  }
 	| {
 			kind: 'diagram';
 			id?: FinishId;
@@ -39,12 +45,14 @@ export function resolveFinish(
 	id: FinishId,
 	token: ColorToken,
 	ageTint = 0,
-	opaquePigment = false
+	colourRole?: Primitive['colourRole']
 ): SurfaceRecipe {
 	const surface = baseFinish(id, token);
-	if (opaquePigment && surface.kind === 'physical') {
+	if (colourRole === 'ensemble-ground' && surface.kind === 'physical') {
 		surface.recipe.haut.deckkraft = 1;
 		surface.recipe.farbe.anteil = 1;
+		surface.recipe.farbe.papier = 0.42;
+		surface.groundCoat = true;
 	}
 	if (ageTint && (surface.kind === 'diagram' || surface.kind === 'physical')) {
 		const color = surface.recipe.farbe;

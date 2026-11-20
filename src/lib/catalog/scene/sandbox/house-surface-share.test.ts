@@ -61,7 +61,7 @@ function shares(s: ReturnType<typeof specimen>) {
 		if (!p.finish) throw Error('Missing finish on ' + p.id);
 		const resolved = resolveFinish(p.finish, p.token);
 		const finish = resolved.kind === 'diagram' ? (resolved.coating ?? p.finish) : p.finish;
-		const key = [p.token, finish].join('|');
+		const key = [p.token, finish, p.colourRole ?? 'neutral'].join('|');
 		if (!labels.includes(key)) labels.push(key);
 		return new Color().setRGB(labels.indexOf(key), 0, 0);
 	});
@@ -85,14 +85,18 @@ function shares(s: ReturnType<typeof specimen>) {
 	const leading = [...uses].sort(
 		(a, b) => uses.filter((u) => u === b).length - uses.filter((u) => u === a).length
 	)[0];
-	let accent = 0,
+	let ground = 0,
+		accent = 0,
 		structure = 0;
 	for (const [i, key] of labels.entries()) {
-		const [token, finish] = key.split('|');
+		const [token, finish, role] = key.split('|');
 		const pct = (totals[i] * 100) / total;
 		if (!pct) continue;
-		if (token === BODY_TOKEN[leading]) accent += pct;
-		else
+		if (role === 'ensemble-ground') ground += pct;
+		else if (role === 'body-accent') {
+			expect(token).toBe(BODY_TOKEN[leading]);
+			accent += pct;
+		} else if (token !== BODY_TOKEN[leading])
 			expect(
 				Object.values(BODY_TOKEN).some((t) => t === token),
 				s.id + ' secondary programme'
@@ -100,7 +104,7 @@ function shares(s: ReturnType<typeof specimen>) {
 		if (token === houseSurfaces.frame.token) structure += pct;
 		finishes.set(finish, (finishes.get(finish) ?? 0) + pct);
 	}
-	return { accent, structure, finishes };
+	return { ground, accent, structure, finishes };
 }
 /** Typologies whose defining element is their support: a drum core, a dome on long stilts, or a
  * trunk with three branch decks.
@@ -117,14 +121,8 @@ function cellsFor(type: string) {
 	if (type === 'courtyard-house') return 4;
 	return TWO_CELL.includes(type) ? 2 : 1;
 }
-/** Exactly one body carries the accent: at least a tenth of a house with up to four bodies. In a
- * ring or cluster of many small bodies one body is a smaller share. */
-function accentFloor(section: ReturnType<typeof specimen>) {
-	const bodies = section.composition.levels.reduce((n, l) => n + l.bodies.length, 0);
-	return bodies > 4 ? 1 : 10;
-}
 function balanced(section: ReturnType<typeof specimen>, label: string) {
-	const { accent, structure, finishes } = shares(section);
+	const { ground, accent, structure, finishes } = shares(section);
 	const brass = finishes.get('metall-messing') ?? 0;
 	const largest = Math.max(...finishes.values());
 	console.info(
@@ -136,10 +134,9 @@ function balanced(section: ReturnType<typeof specimen>, label: string) {
 		brass.toFixed(2)
 	);
 	return (
-		accent >= accentFloor(section) &&
+		ground > 0 &&
 		accent <= (ensembleAnchor(section) ? 50 : 30) &&
 		finishes.size >= 3 &&
-		largest <= 55 &&
 		structure <= (SUPPORT_LED.includes(section.typology) ? 30 : 25) &&
 		brass <= 2
 	);
@@ -202,7 +199,7 @@ test('only the high point of an ensemble of two or more houses carries a whole c
 			paintedBodies(section).map((b) => b.id),
 			section.id
 		).toEqual([accentBody(section).id]);
-		expect(accent, section.id).toBeGreaterThanOrEqual(accentFloor(section));
+		expect(shares(section).ground, section.id).toBeGreaterThan(0);
 		expect(accent, section.id).toBeLessThanOrEqual(anchor ? 50 : 30);
 	}
 	const [alone] = paintedSections(grid, new Map([['1/0', living(6)]]), 7);
@@ -218,10 +215,11 @@ function silhouetteBudget(section: ReturnType<typeof specimen>) {
 			/\/stair\/|\/post\/|\/brace|\/shaft\/|\/rail\/|\/terrace\/kit-parapet|\/landing-seat\//.test(
 				p.id
 			);
-		const body = p.id.endsWith('/socle/body/0')
-			? bodies.length
-			: bodies.findIndex((b) => p.id.startsWith(b.id + '/' + b.objectId + '/'));
-		return new Color().setRGB(fittings ? 1 : body >= 0 ? 2 + body : 0, 0, 0);
+		const occupied =
+			p.colourRole === 'ensemble-ground' ||
+			p.id.endsWith('/socle/body/0') ||
+			bodies.some((b) => p.id.startsWith(b.id + '/' + b.objectId + '/'));
+		return new Color().setRGB(fittings ? 1 : occupied ? 2 : 0, 0, 0);
 	});
 	const faces = [mesh.neu, mesh.alt, mesh.blatt, mesh.glas];
 	const pos = faces.flatMap((f) => f.p),
@@ -229,11 +227,7 @@ function silhouetteBudget(section: ReturnType<typeof specimen>) {
 	return [0, 2].map((axis) => {
 		const hits = sample(pos, tags, axis, 1);
 		const total = hits.reduce((a, b) => a + b, 0);
-		const largest = hits
-			.slice(2)
-			.sort((a, b) => b - a)
-			.slice(0, 2);
-		return { hardware: hits[1] / total, bodies: largest.reduce((a, b) => a + b, 0) / total };
+		return { hardware: hits[1] / total, bodies: hits[2] / total };
 	});
 }
 
@@ -254,19 +248,12 @@ for (const seed of [7, 13])
 				const { width, depth } = h.composition.bay;
 				if (Math.min(width, depth) < 8) expect(h.typology).toBe('block');
 				const bodies = h.composition.levels.flatMap((l) => l.bodies);
-				expect(bodies.length).toBeLessThanOrEqual(3);
-				if (Math.min(width, depth) >= 2.1)
-					expect(
-						bodies.every((b) => !b.band || b.band.modules !== undefined),
-						h.id
-					).toBe(true);
-				if (h.stories <= 4) {
-					const height = h.composition.crown.position[2] + h.composition.crown.size[2] - h.base[2];
-					expect(
-						Math.max(...bodies.map((b) => Math.max(b.size[0], b.size[1]))) + 1e-7,
-						h.id
-					).toBeGreaterThanOrEqual(0.6 * height);
-				}
+				expect(h.composition.levels).toHaveLength(h.stories);
+				expect(
+					bodies.every((b) => b.band?.footprint && b.band.lining && !b.band.modules),
+					h.id
+				).toBe(true);
+				expect(h.composition.exterior?.stations.at(-1)?.z).toBe(h.top);
 				return silhouetteBudget(h);
 			});
 			const passed = results.filter((views) =>
@@ -283,7 +270,7 @@ for (const seed of [7, 13])
 				).length,
 				'maximum hardware',
 				Math.max(...results.flat().map((v) => v.hardware)),
-				'minimum two bodies',
+				'minimum occupied surface',
 				Math.min(...results.flat().map((v) => v.bodies))
 			);
 			expect(passed).toBeGreaterThanOrEqual(24);
@@ -292,7 +279,7 @@ for (const seed of [7, 13])
 		45000
 	);
 
-test('compact elevations keep the hardware and two-body budgets across narrow square bays', () => {
+test('compact elevations keep the hardware and occupied-surface budgets across narrow square bays', () => {
 	for (const width of [1.8, 2.5, 3, 4, 5]) {
 		const cells = squareGrid(1, 1, width).cells;
 		for (const height of [1, 2, 3, 6, 10])

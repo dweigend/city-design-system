@@ -1,3 +1,5 @@
+import { roomOnDeck } from './deck-outline';
+import { prismFaces } from './prism';
 import { partyFaces } from './party-faces';
 import { serviceGallery } from './service-gallery';
 import { convexHull } from '../parzelle';
@@ -284,6 +286,21 @@ export function bearingCourses(plan: Plan, context: EnsembleContext) {
 		decision?.upperWing
 	);
 }
+function roofAnchor(roof: Extract<Solid, { kind: 'prism' }>, preferred: XY, crown: Body): XY {
+	const { polygon, holes = [] } = roof;
+	if (roomOnDeck(polygon, holes, ...preferred, 0, 0)) return preferred;
+	const centres = prismFaces([polygon, ...holes]).map((face): XY => [
+		face.reduce((sum, point) => sum + point[0], 0) / face.length,
+		face.reduce((sum, point) => sum + point[1], 0) / face.length
+	]);
+	const distance = ([x, y]: XY) => Math.hypot(x - preferred[0], y - preferred[1]);
+	centres.sort((a, b) => distance(a) - distance(b));
+	return (
+		centres.find((p) => roomOnDeck(polygon, holes, ...p, crown.size[0] / 2, crown.size[1] / 2)) ??
+		centres[0] ??
+		preferred
+	);
+}
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
 	plan: Plan,
@@ -306,7 +323,10 @@ export function perimeterHouse(
 	const crown =
 		crowns.find((c) => c.size[0] <= bay.width * 0.7 && c.size[1] <= bay.depth * 0.32) ??
 		crowns[crowns.length - 1];
-	crown.position = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5), top];
+	const roof = parts[parts.length - 1];
+	const preferred: XY = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5)];
+	const anchor = roof.kind === 'prism' ? roofAnchor(roof, preferred, crown) : preferred;
+	crown.position = [...anchor, top];
 	crown.anchor = 'roof';
 	const sharedRoof = context.houses.get(site.id)?.roof;
 	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));

@@ -99,6 +99,10 @@ export function continuousShell(h: HouseComposition, seed: number, surface: Surf
 		slots: { body: { ...surface, finish: shell.finish } }
 	}).parts[0];
 	if (stock.kind !== 'mesh') throw Error('Expected a continuous shell mesh');
-	const source = { ...stock, opaquePigment: true, structuralRole: 'bearing' as const };
+	const source = {
+		...stock,
+		colourRole: 'ensemble-ground' as const,
+		structuralRole: 'bearing' as const
+	};
 	return shell.ring.flatMap((_, i) => (shell.faces[i] ? [exposedPanel(shell, i, source)] : []));
 }

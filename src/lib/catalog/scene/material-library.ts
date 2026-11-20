@@ -69,7 +69,17 @@ export function compileSurface(
 				double,
 				options.environment ?? null,
 				s.variation ?? variationVorgabe,
-				options.quality ?? studioQuality()
+				options.quality ?? studioQuality(),
+				s.groundCoat
+					? lookColor(
+							{
+								token: s.recipe.farbe.token,
+								paper: s.recipe.farbe.papier,
+								tint: s.recipe.farbe.tint
+							},
+							palette
+						)
+					: undefined
 			);
 		case 'diagram':
 			if (s.coating) {

@@ -40,7 +40,7 @@ type Base = {
 	/** Explicit surface applied after generation. Omission keeps the original drafting treatment. */
 	finish?: FinishId;
 	/** Solid pigmented substrate under this finish. Openings are cut in the mesh. */
-	opaquePigment?: boolean;
+	colourRole?: 'ensemble-ground' | 'body-accent';
 	id: string;
 	role: Role;
 	/** Previous drawing treatment for an existing bible plate. A carrier otherwise uses stock there. */

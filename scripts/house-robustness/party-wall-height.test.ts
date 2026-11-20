@@ -14,7 +14,8 @@ for (const lower of [1, 2, 5]) {
 			}));
 			const context = planEnsemble(sites);
 			const [tower, other] = sites.map((site) => planHouse({ ...site, context }));
-			const shell = tower.composition.exterior!;
+			const shell = tower.composition.exterior;
+			if (!shell) throw Error('Missing tower exterior');
 			const index = shell.seams.findIndex((s) => s.length === 1 && s[0].hidden);
 			expect(index).toBeGreaterThanOrEqual(0);
 			const wall = sectionParts(tower).find(

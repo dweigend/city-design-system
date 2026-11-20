@@ -29,7 +29,7 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 			for (const p of walls) {
 				expect(p.token).toBe(BODY_TOKEN[house.composition.shellUse]);
 				if (!p.finish) throw Error('Missing wall finish');
-				const finish = resolveFinish(p.finish, p.token, p.ageTint, p.opaquePigment);
+				const finish = resolveFinish(p.finish, p.token, p.ageTint, p.colourRole);
 				if (finish.kind !== 'physical') throw Error('Expected physical wall finish');
 				const optics = oberflaechenWerte(finish.recipe, finish.id);
 				expect([optics.transmission, optics.deckkraft, optics.pigment]).toEqual([0, 1, 1]);
