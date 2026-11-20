@@ -1,4 +1,4 @@
-import { BODY_TOKEN, type HouseUse } from '../../data/house-body';
+import { ACCENT_TOKEN, type HouseUse } from '../../data/house-body';
 import { flowToken } from '../../data/focus';
 import type { SlotAssignment } from '../assets';
 import type { ColorToken } from '../parametrik/types';
@@ -18,11 +18,11 @@ export const houseSurfaces: HouseSurfaces = {
 	shell: { token: '--paper', finish: 'acryl-matt' },
 	pane: { token: '--paper', finish: 'glas-klar' },
 	access: metal(flowToken.people),
-	living: { token: BODY_TOKEN.living, finish: 'metall-lackiert' },
-	energy: metal(BODY_TOKEN.energy),
-	water: metal(BODY_TOKEN.water),
-	food: metal(BODY_TOKEN.food),
-	material: metal(BODY_TOKEN.material)
+	living: { token: ACCENT_TOKEN.living, finish: 'metall-lackiert' },
+	energy: metal(ACCENT_TOKEN.energy),
+	water: metal(ACCENT_TOKEN.water),
+	food: metal(ACCENT_TOKEN.food),
+	material: metal(ACCENT_TOKEN.material)
 };
 
 const finishes = {

@@ -1,4 +1,6 @@
+import { framedSpan } from './framed-span';
 import { courtyardPanel, membranePanel } from './membrane-panel';
+import { pipeBetween } from './parts';
 import { stationAt } from './shell-station';
 import { cutPartyWall } from './party-wall-cut';
 import type { HouseComposition } from '../house-typology';
@@ -80,12 +82,20 @@ function wallSpan(shell: Shell, index: number, source: StockMesh, start: number,
 		triangles: cloth.triangles.concat(carrier.triangles.map((i) => i + cloth.points.length))
 	};
 }
-function exposedPanel(shell: Shell, index: number, source: StockMesh) {
+function exposedPanel(
+	h: HouseComposition,
+	shell: Shell,
+	index: number,
+	source: StockMesh,
+	rod: (a: Vec3, b: Vec3) => void
+) {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	for (const { start, end, hidden } of shell.seams[index]) {
 		if (hidden && hidden[0] <= shell.bottom && hidden[1] >= shell.top) continue;
-		const span = wallSpan(shell, index, source, start, end);
+		const framed = framedSpan(h, shell, index, start, end, hidden);
+		framed?.rods.forEach(([a, b]) => rod(a, b));
+		const span = framed ?? wallSpan(shell, index, source, start, end);
 		const visible = hidden ? cutPartyWall(span, hidden) : span;
 		const base = points.length;
 		for (const p of visible.points) points.push(p);
@@ -94,26 +104,43 @@ function exposedPanel(shell: Shell, index: number, source: StockMesh) {
 	return { ...source, id: source.id + '/' + index, points, triangles };
 }
 /** Maps a full-height fabric, frame or service run between corresponding surveyed wall corners. */
-export function continuousShell(h: HouseComposition, seed: number, surface: Surface): HousePart[] {
+export function continuousShell(
+	h: HouseComposition,
+	seed: number,
+	surface: Surface & { colourRole?: 'ensemble-ground' },
+	frame: Surface
+): HousePart[] {
 	const shell = h.exterior;
 	if (!shell) return [];
 	const stock = houseObject('full-height-shell', shell.system, seed, {
 		instanceId: h.id + '/exterior',
-		slots: { body: { ...surface, finish: shell.finish } }
+		slots: { body: surface }
 	}).parts[0];
 	if (stock.kind !== 'mesh') throw Error('Expected a continuous shell mesh');
 	const source = {
 		...stock,
-		colourRole: 'ensemble-ground' as const,
+		smooth: !!shell.fabric,
+		colourRole: surface.colourRole,
 		structuralRole: 'bearing' as const
 	};
+	const rods: HousePart[] = [];
 	const outer = shell.ring.flatMap((_, i) =>
-		shell.faces[i] ? [exposedPanel(shell, i, source)] : []
+		shell.faces[i]
+			? [
+					exposedPanel(h, shell, i, source, (a, b) => {
+						rods.push({
+							...pipeBetween(h.id + '/frame/' + i + '/' + rods.length, a, b, 0.085, frame),
+							structuralRole: 'bearing'
+						});
+					})
+				]
+			: []
 	);
 	const fabric = shell.fabric;
 	if (!fabric) return outer;
 	return [
 		...outer,
+		...rods,
 		...shell.courtWalls.map((wall, i) => ({
 			...source,
 			...courtyardPanel(shell, wall, fabric),

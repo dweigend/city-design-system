@@ -39,3 +39,4 @@ export {
 	type Auftrag,
 	type Warteschlange
 } from './warteschlange';
+export { addiere, huellmatrix, zerlege } from './numerik';

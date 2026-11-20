@@ -12,6 +12,18 @@ export const BODY_TOKEN = {
 	material: flowToken.material
 } as const;
 
+/** Saturated use pigment for the selected occupied body in a composed house. */
+export const ACCENT_TOKEN = { ...BODY_TOKEN, living: flowToken.people } as const;
+
+/** Muted shell pigments shared by all members of a court, keyed by its leading programme. */
+export const GROUND_TOKEN = {
+	living: '--paper',
+	water: '--ground-stone',
+	energy: '--ground-sand',
+	food: '--ground-sage',
+	material: '--ground-clay'
+} as const satisfies Record<HouseUse, string>;
+
 /**
  * Use of a story. `living` is the plain house without a flow color; the other uses carry
  * the color of their flow. People and paths keep their own color for walkways and rail.

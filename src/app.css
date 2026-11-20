@@ -20,6 +20,10 @@
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
 	/* Wall tint of new housing bodies in the sandbox; paths alone stay pink. */
+	--ground-stone: oklch(0.76 0.025 240);
+	--ground-sand: oklch(0.85 0.045 85);
+	--ground-sage: oklch(0.76 0.035 145);
+	--ground-clay: oklch(0.72 0.055 47);
 	--body-living: oklch(0.82 0.07 268);
 	/* Accent and hazard: only these are strong (5 %) */
 	--signal: oklch(0.575 0.18 33);

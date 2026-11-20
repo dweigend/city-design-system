@@ -117,7 +117,10 @@ function pathSegments(count: number, coarse: boolean) {
 function buildMesh(p: SolidOf<'mesh'>, at: Placement) {
 	const geometry = new THREE.BufferGeometry();
 	const points = p.points.map(vector);
-	geometry.setFromPoints(p.triangles.map((i) => points[i]));
+	if (p.smooth) {
+		geometry.setFromPoints(points);
+		geometry.setIndex(p.triangles);
+	} else geometry.setFromPoints(p.triangles.map((i) => points[i]));
 	geometry.computeVertexNormals();
 	const rulings =
 		p.edges === false

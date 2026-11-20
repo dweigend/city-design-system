@@ -17,6 +17,10 @@ export const surfaceTokens = [
 	'--cat-nature-2',
 	'--cat-foliage',
 	'--cat-hazard',
+	'--ground-stone',
+	'--ground-sand',
+	'--ground-sage',
+	'--ground-clay',
 	'--paper',
 	'--ink',
 	'--ink-3',
@@ -90,6 +94,8 @@ type Base = {
 };
 /** Indexed CCW triangles and explicit pencil paths sharing world-space metre coordinates. */
 export type MeshForm = {
+	/** Average normals across shared vertices of a continuous material surface. */
+	smooth?: boolean;
 	kind: 'mesh';
 	rotation?: never;
 	points: Vec3[];

@@ -134,6 +134,7 @@ export function planEnsemble(sites: readonly HouseSite[], seed?: number): Ensemb
 	const datum =
 		origin + step * (1 + Math.ceil((Math.max(...sorted.map((s) => s.base)) - origin) / step));
 	const ceiling = datum + STORY * Math.max(...sorted.map((s) => s.programme.length)) + step;
+	const leading = houseEnvelope(sorted[0].id, selectedSeed, sorted[0].envelope);
 	const context = {
 		seed: selectedSeed,
 		datum,
@@ -148,7 +149,8 @@ export function planEnsemble(sites: readonly HouseSite[], seed?: number): Ensemb
 			})
 		),
 		shellUse: shellProgramme(sorted),
-		leadingSystem: houseEnvelope(sorted[0].id, selectedSeed, sorted[0].envelope).system,
+		leadingSystem: leading.system,
+		leadingFrame: leading.frame,
 		houses: houseLayer(sorted, skyline(sorted, selectedSeed), selectedSeed)
 	};
 	if (sorted.length > 1) {

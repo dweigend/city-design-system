@@ -179,6 +179,7 @@ export function parcelExterior(
 		top: datums[datums.length - 1],
 		system: envelope.system,
 		fabric: envelope.fabric,
+		frame: envelope.frame,
 		courtWalls: envelope.fabric ? (parcel.courtWalls ?? []) : [],
 		finish: envelope.finish,
 		faces: seams.map((spans) =>

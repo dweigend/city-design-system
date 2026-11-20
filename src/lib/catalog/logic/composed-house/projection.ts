@@ -1,3 +1,4 @@
+import { GROUND_TOKEN } from '../../data/house-body';
 import { continuousShell } from './continuous-shell';
 import { shaftHousing } from './shaft-housing';
 import { terraceFurniture } from './terrace-furniture';
@@ -33,12 +34,18 @@ function programmeSurfaces(section: Section, palette: typeof houseSurfaces) {
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
 	const surfaces = programmeSurfaces(section, palette);
 	const shell =
-		palette.shell === houseSurfaces.shell ? palette[section.composition.shellUse] : palette.shell;
+		palette.shell === houseSurfaces.shell
+			? {
+					colourRole: 'ensemble-ground' as const,
+					token: GROUND_TOKEN[section.composition.shellUse],
+					finish: section.composition.exterior?.finish ?? palette.shell.finish
+				}
+			: palette.shell;
 	const target = accentBody(section),
 		accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
-		...continuousShell(section.composition, section.seed, shell),
+		...continuousShell(section.composition, section.seed, shell, surfaces.frame),
 		...shaftHousing(section, surfaces).map(cantilever),
 		...section.slots.flatMap((b) => bodyParts(b, surfaces, b === target ? accent : 'none'))
 	];
