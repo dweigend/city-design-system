@@ -1,3 +1,6 @@
+import { walkingProfile } from './walking-profile';
+// Limit the elevation change across one smoothing interval to a centimetre.
+const smoothingRun = 0.01 / walkingProfile.gradeLimit;
 /** Effective run in metres. An eased first and last metre gives a horizontal tangent at a landing. */
 export function easedRun(x: number, length: number) {
 	const lead = Math.min(1, length / 2);
@@ -12,7 +15,7 @@ export function easedRun(x: number, length: number) {
 /** Filters the Lipschitz height envelope with a uniform cubic B-spline, retaining exact endpoints. */
 export function ribbonRise(distances: number[], heights: number[], closed = false) {
 	const length = distances[distances.length - 1],
-		bays = Math.max(1, Math.ceil(length / 1.5)),
+		bays = Math.max(1, Math.ceil(length / smoothingRun)),
 		step = length / bays;
 	let j = 0;
 	const knots = Array.from({ length: bays + 1 }, (_, i) => {

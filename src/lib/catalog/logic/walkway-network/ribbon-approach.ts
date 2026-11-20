@@ -1,3 +1,4 @@
+import { crossfall } from './ribbon-soil';
 import type { Vec3 } from '../parametrik/types';
 import { ribbonCurve, type Section } from './ribbon-curve';
 import { easedRun } from './ribbon-rise';
@@ -13,11 +14,9 @@ function clearance(sections: Section[], base: number, top: number, ground: Groun
 			d += Math.hypot(s.centre[0] - prev[0], s.centre[1] - prev[1]);
 		}
 		const z = base + walkingProfile.gradeLimit * easedRun(d, Math.max(2, d + 1));
-		for (const p of [s.left, s.centre, s.right]) {
-			const soil = ground(p[0], p[1]);
-			if (!Number.isFinite(soil)) return Infinity;
-			deficit = Math.max(deficit, soil + 0.025 - z);
-		}
+		const soil = crossfall(s.left, s.right, ground);
+		if (!Number.isFinite(soil)) return Infinity;
+		deficit = Math.max(deficit, soil + 0.05 - z);
 	}
 	return Math.max(deficit, top - base - walkingProfile.gradeLimit * easedRun(d, d)) * 10000 + d;
 }
@@ -51,12 +50,33 @@ function controls(
 		b
 	];
 }
-function* layouts(a: Vec3, b: Vec3, last: Vec3) {
+type Layout = [number, number, number, number];
+function* layouts(): Generator<Layout> {
 	for (const length of [8, 16, 26, 40])
 		for (const width of [6, 12])
 			for (const sign of [-1, 1])
-				for (let i = 0; i < 16; i++)
-					yield controls(a, b, last, (Math.PI * i) / 8, sign, length, width);
+				for (let i = 0; i < 16; i++) yield [(Math.PI * i) / 8, sign, length, width];
+}
+function* refine([angle, sign, length, width]: Layout): Generator<Layout> {
+	for (const turn of [-1, 0, 1])
+		for (const run of [-2, 0, 2])
+			for (const spread of [-1, 0, 1])
+				yield [angle + (turn * Math.PI) / 32, sign, length + run, width + spread];
+}
+function side(a: Vec3, b: Vec3, p: Vec3) {
+	return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+}
+function crossesItself(sections: Section[]) {
+	for (let i = 1; i < sections.length; i++) {
+		const a = sections[i - 1].centre,
+			b = sections[i].centre;
+		for (let j = i + 2; j < sections.length; j++) {
+			const c = sections[j - 1].centre,
+				d = sections[j].centre;
+			if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true;
+		}
+	}
+	return false;
 }
 /** Fits a longer, smooth approach to a low terminal when the direct ramp cannot clear the bank. */
 export function contourApproach(
@@ -71,12 +91,14 @@ export function contourApproach(
 		last = original[original.length - 2].centre;
 	let best = original,
 		score = clearance(original, base, top, ground);
-	for (const points of layouts(a, b, last)) {
-		if (!points.slice(1).every((p, j) => clear(points[j], p))) continue;
+	let selected: Layout | undefined;
+	const consider = (layout: Layout) => {
+		const points = controls(a, b, last, ...layout);
+		if (!points.slice(1).every((p, j) => clear(points[j], p))) return;
 		const candidate = ribbonCurve(points);
 		const cost = clearance(candidate, base, top, ground);
 		if (cost >= score || !candidate.slice(1).every((s, j) => clear(candidate[j].centre, s.centre)))
-			continue;
+			return;
 		// A tight turn with an inverted inner edge cannot carry a constant-width deck.
 		const folds = candidate.slice(1).some((s, j) => {
 			const p = candidate[j],
@@ -86,10 +108,13 @@ export function contourApproach(
 				(e) => e[0] * dx + e[1] * dy <= 0
 			);
 		});
-		if (!folds) {
+		if (!folds && !crossesItself(candidate)) {
+			selected = layout;
 			score = cost;
 			best = candidate;
 		}
-	}
+	};
+	for (const layout of layouts()) consider(layout);
+	if (selected) for (const layout of refine(selected)) consider(layout);
 	return best;
 }

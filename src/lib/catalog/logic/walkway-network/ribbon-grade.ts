@@ -1,3 +1,4 @@
+import { crossfall } from './ribbon-soil';
 import { required } from '../required';
 import { easedRun, ribbonRise } from './ribbon-rise';
 import type { Vec3 } from '../parametrik/types';
@@ -23,9 +24,8 @@ function propagate(nodes: Node[], slot: 'floor' | 'ceiling', sign: number) {
 		}
 	}
 }
-function seat(p: Vec3, ground: (x: number, y: number) => number) {
-	const value = ground(p[0], p[1]);
-	return Number.isFinite(value) ? value : -Infinity;
+function midpoint(a: Vec3, b: Vec3): Vec3 {
+	return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0];
 }
 type Reach = Network['reaches'][number];
 function runs(sections: Reach['sections'], loop: boolean) {
@@ -58,15 +58,27 @@ function survey(
 	if (loop) row[row.length - 1] = row[0];
 	for (const [i, s] of sections.entries()) {
 		const cell = row[i];
-		const soil = Math.max(...[s.left, s.centre, s.right].map((p) => seat(p, ground)));
+		const soil = crossfall(s.left, s.right, ground);
 		cell.floor = Math.max(cell.floor, s.centre[2], soil + 0.15);
-		if (i) link(cell, row[i - 1], distances[i] - distances[i - 1]);
+		if (!i) continue;
+		const prev = sections[i - 1],
+			midFloor =
+				crossfall(midpoint(prev.left, s.left), midpoint(prev.right, s.right), ground) + 0.15;
+		cell.floor = Math.max(cell.floor, midFloor);
+		row[i - 1].floor = Math.max(row[i - 1].floor, midFloor);
+		link(cell, row[i - 1], distances[i] - distances[i - 1]);
 	}
 	return { row, distances, loop };
 }
 /** Grades connected reaches together, with exact court levels and a common elevation at each fork. */
 export function gradeRibbon({ reaches, forks }: Network, ground: (x: number, y: number) => number) {
-	const hubs = new Map(forks.map((f) => [f.id, node()]));
+	const hubs = new Map(
+		forks.map((f) => {
+			const hub = node();
+			hub.floor = Math.max(...f.rim.flat().map((p) => crossfall(f.position, p, ground))) + 0.15;
+			return [f.id, hub] as const;
+		})
+	);
 
 	const rows = reaches.map((r) => survey(r, hubs, ground));
 	const nodes = new Set(rows.flatMap((r) => r.row));
@@ -79,7 +91,7 @@ export function gradeRibbon({ reaches, forks }: Network, ground: (x: number, y: 
 			if (r.hubs[side]) return [];
 			const at = side ? row[row.length - 1] : row[0],
 				other = side ? row[0] : row[row.length - 1];
-			return at.floor > at.ceiling + 0.18
+			return at.floor > at.ceiling + 0.15
 				? [{ reach: r, side, base: at.ceiling, top: other.floor }]
 				: [];
 		});
