@@ -264,8 +264,8 @@ test('level court and apron paving open both sides of a walk over low terrain', 
 		position: [15, 8, 2] as Vec3,
 		area: 196,
 		polygon: [
-			[8, 1],
-			[22, 1],
+			[8, 0.85],
+			[22, 0.85],
 			[22, 15],
 			[8, 15]
 		] as [number, number][],
@@ -273,8 +273,8 @@ test('level court and apron paving open both sides of a walk over low terrain', 
 			[
 				[3, -6],
 				[8, -6],
-				[8, -1],
-				[3, -1]
+				[8, -0.85],
+				[3, -0.85]
 			]
 		] as [number, number][][]
 	};
@@ -294,14 +294,14 @@ test('level court and apron paving open both sides of a walk over low terrain', 
 			.map((points) => [points[0][0], points.at(-1)?.[0]]);
 	for (const [side, targets] of [
 		[
-			-1.25,
+			-0.9,
 			[
 				[0, 3],
 				[8, 25]
 			]
 		],
 		[
-			1.25,
+			0.9,
 			[
 				[0, 8],
 				[22, 25]
@@ -319,13 +319,13 @@ test('bridge columns seat against the sloping ground and terminate at the deck s
 	const ground = (x: number, y: number) => 0.05 * x + 0.02 * y;
 	const parts = publicFlight({ id: 'bridge', a: [0, 0, 4], b: [20, 0, 4] }, ground);
 	const columns = parts.filter((p) => p.kind === 'cylinder' && p.id.startsWith('bridge/pier/'));
-	expect(columns).toHaveLength(3);
+	expect(columns).toHaveLength(5);
 	for (const c of columns)
 		if (c.kind === 'cylinder') {
 			const [x, y, z] = c.position;
 			expect(z).toBeCloseTo(ground(x, y), 10);
 			expect(z + c.height).toBeCloseTo(3.8, 10);
-			expect(c.radius).toBe(0.12);
+			expect(c.radius).toBe(0.16);
 		}
 });
 
@@ -454,23 +454,23 @@ test('a smooth public ribbon carries a constant section on slender equally space
 		const ds = chainage(c),
 			columns = parts.filter((p) => p.kind === 'cylinder' && p.id.includes('/pier/'));
 		const bay = ds[ds.length - 1] / columns.length;
-		expect(bay).toBeLessThanOrEqual(8);
+		expect(bay).toBeLessThanOrEqual(4.8);
 		for (const [i, p] of columns.entries())
 			if (p.kind === 'cylinder') {
 				const seat = pathPoint(c, ds, (i + 0.5) * bay);
-				expect(p.radius * 2).toBe(0.24);
+				expect(p.radius * 2).toBe(0.32);
 				expect(
 					Math.hypot(p.position[0] - seat[0], p.position[1] - seat[1], p.position[2])
 				).toBeLessThan(1e-9);
-				expect(p.height).toBeCloseTo(4.85, 8);
+				expect(p.height).toBeCloseTo(4.91, 8);
 			}
 		const mesh = parts.find((p) => p.kind === 'mesh' && p.id.endsWith('/ramp'));
 		if (mesh?.kind !== 'mesh') throw Error('missing ribbon');
 		for (let i = 0; i < mesh.points.length; i += 4) {
-			expect(mesh.points[i + 3][2] - mesh.points[i][2]).toBeCloseTo(0.15, 10);
+			expect(mesh.points[i + 3][2] - mesh.points[i][2]).toBeCloseTo(0.09, 10);
 			expect(
 				Math.hypot(...mesh.points[i + 2].map((v, k) => v - mesh.points[i + 3][k]))
-			).toBeCloseTo(2.5, 8);
+			).toBeCloseTo(1.8, 8);
 		}
 		let lastK = 0;
 		for (let i = 1; i < c.length - 1; i++) {

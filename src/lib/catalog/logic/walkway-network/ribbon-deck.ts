@@ -9,8 +9,18 @@ import { pathSurfaces } from './town-palette';
 import { ribbonNetwork } from './ribbon-network';
 type Ground = (x: number, y: number) => number;
 function deck(id: string, sections: Section[], ground: Ground, supported: boolean): Primitive[] {
-	const lower = ([x, y, z]: Vec3): Vec3 => [x, y, z - ribbonProfile.depth];
-	const rings = sections.map(({ left, right }) => [lower(right), lower(left), left, right]);
+	// Recess the soffit under the walking edge so the rim casts a narrow shadow.
+	const soffit = (p: Vec3, centre: Vec3): Vec3 => [
+		p[0] + 0.09 * (centre[0] - p[0]),
+		p[1] + 0.09 * (centre[1] - p[1]),
+		p[2] - ribbonProfile.depth
+	];
+	const rings = sections.map(({ left, right, centre }) => [
+		soffit(right, centre),
+		soffit(left, centre),
+		left,
+		right
+	]);
 	const mesh: Primitive = { ...pathSurfaces.walking, id: id + '/ramp', ...profileSolid(rings) };
 	if (!supported) return [mesh];
 	const path = sections.map((s) => s.centre);
@@ -23,15 +33,17 @@ function guard(path: Vec3[], id: string): Primitive[] {
 	const railHeight = 1.04;
 	return [
 		{
-			...pathSurfaces.structure,
+			...pathSurfaces.guard,
+			edges: false,
 			id,
 			...pathTube(
 				path.map(([x, y, z]): Vec3 => [x, y, z + railHeight]),
 				ribbonProfile.railRadius
 			)
 		},
-		...pathSupports(path, 3).map((p, j): Primitive => ({
-			...pathSurfaces.structure,
+		...pathSupports(path, 3.6).map((p, j): Primitive => ({
+			...pathSurfaces.guard,
+			edges: false,
 			id: id + '/post/' + j,
 			kind: 'cylinder',
 			position: p,
@@ -43,9 +55,10 @@ function guard(path: Vec3[], id: string): Primitive[] {
 function fitApproaches(
 	network: ReturnType<typeof ribbonNetwork>,
 	ground: Ground,
-	clear?: (a: Vec3, b: Vec3) => boolean
+	clear?: (a: Vec3, b: Vec3) => boolean,
+	water?: Ground
 ) {
-	const places = gradeRibbon(network, ground);
+	const places = gradeRibbon(network, ground, water);
 	if (!clear || !places.length) return;
 	for (const { reach, side, base, top } of places) {
 		const original = side ? reach.sections.toReversed() : reach.sections;
@@ -55,7 +68,7 @@ function fitApproaches(
 			? fit.toReversed().map((s) => ({ ...s, left: s.right, right: s.left }))
 			: fit;
 	}
-	gradeRibbon(network, ground);
+	gradeRibbon(network, ground, water);
 }
 /** Projects one constant-section ribbon, its exposed guards and axial columns in world metres. */
 export function ribbonDeck(
@@ -64,15 +77,21 @@ export function ribbonDeck(
 	courts: Primitive[],
 	{
 		inside = false,
+		water,
 		clear,
 		railId = 'town-walk/rail'
-	}: { inside?: boolean; clear?: (a: Vec3, b: Vec3) => boolean; railId?: string } = {}
+	}: {
+		water?: Ground;
+		inside?: boolean;
+		clear?: (a: Vec3, b: Vec3) => boolean;
+		railId?: string;
+	} = {}
 ) {
-	if (!inside) fitApproaches(network, ground, clear);
+	if (!inside) fitApproaches(network, ground, clear, water);
 	const support = landingGround(courts, ground),
 		rails: Vec3[][] = [];
 	const exposed = (edge: Vec3[], side: 1 | -1) =>
-		rails.push(...guardRuns(edge, support, (p) => p[2], side));
+		rails.push(...guardRuns(edge, support, (p) => p[2], side, ribbonProfile.guardDrop));
 	const parts = network.reaches.flatMap(({ id, sections }) => {
 		if (!inside) {
 			exposed(

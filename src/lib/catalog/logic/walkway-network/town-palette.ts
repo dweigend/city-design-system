@@ -22,6 +22,12 @@ export const pathSurfaces = {
 		token: houseSurfaces.access.token,
 		finish: 'kunststoff-formteil'
 	},
+	guard: {
+		role: 'neu',
+		material: 'metal',
+		...houseSurfaces.frame,
+		token: houseSurfaces.shell.token
+	},
 	structure: { role: 'neu', material: 'metal', ...houseSurfaces.frame },
 	bearing: { role: 'neu', ...publicPaving }
 } as const satisfies Record<string, Pick<Primitive, 'role' | 'material' | 'token' | 'finish'>>;

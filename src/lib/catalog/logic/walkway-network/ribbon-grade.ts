@@ -44,7 +44,8 @@ function link(a: Node, b: Node, run: number) {
 function survey(
 	{ sections, ends, hubs: keys }: Reach,
 	hubs: Map<string, Node>,
-	ground: (x: number, y: number) => number
+	ground: (x: number, y: number) => number,
+	water?: (x: number, y: number) => number
 ) {
 	const loop = ends[0].join(',') === ends[1].join(',');
 	const distances = runs(sections, loop),
@@ -59,7 +60,8 @@ function survey(
 	for (const [i, s] of sections.entries()) {
 		const cell = row[i];
 		const soil = crossfall(s.left, s.right, ground);
-		cell.floor = Math.max(cell.floor, s.centre[2], soil + 0.15);
+		const waterline = water?.(s.centre[0], s.centre[1]) ?? -Infinity;
+		cell.floor = Math.max(cell.floor, s.centre[2], soil + 0.15, waterline + 1.8);
 		if (!i) continue;
 		const prev = sections[i - 1],
 			midFloor =
@@ -71,7 +73,11 @@ function survey(
 	return { row, distances, loop };
 }
 /** Grades connected reaches together, with exact court levels and a common elevation at each fork. */
-export function gradeRibbon({ reaches, forks }: Network, ground: (x: number, y: number) => number) {
+export function gradeRibbon(
+	{ reaches, forks }: Network,
+	ground: (x: number, y: number) => number,
+	water?: (x: number, y: number) => number
+) {
 	const hubs = new Map(
 		forks.map((f) => {
 			const hub = node();
@@ -80,7 +86,7 @@ export function gradeRibbon({ reaches, forks }: Network, ground: (x: number, y: 
 		})
 	);
 
-	const rows = reaches.map((r) => survey(r, hubs, ground));
+	const rows = reaches.map((r) => survey(r, hubs, ground, water));
 	const nodes = new Set(rows.flatMap((r) => r.row));
 	propagate([...nodes], 'floor', 1);
 	propagate([...nodes], 'ceiling', -1);

@@ -105,7 +105,8 @@ export function townDeck(
 	seed: number,
 	relief = ground,
 	reservationsByLink: ReadonlyMap<string, FlightReservation> = new Map(),
-	clear?: (a: Vec3, b: Vec3) => boolean
+	clear?: (a: Vec3, b: Vec3) => boolean,
+	water?: (x: number, y: number) => number
 ) {
 	const { stations, gardens, terraces, courts } = surveyTownWalk(
 		routes,
@@ -136,7 +137,7 @@ export function townDeck(
 	const planting = gardens.flatMap((g) => g.parts);
 	const network = ribbonNetwork(routes, stations);
 	const entries = passages.flatMap((route) => ribbonEntry(route, ground, plazas));
-	const deck = ribbonDeck(network, ground, plazas, { clear });
+	const deck = ribbonDeck(network, ground, plazas, { clear, water });
 	const walkers = network.reaches.flatMap((r) =>
 		townLife(
 			r.sections.map((s) => s.centre),
