@@ -25,7 +25,9 @@ export function membraneLoad(system: ShellSystem, seed: number, id: string, requ
 	if (restraint)
 		return {
 			restraint,
-			pressure: 0.4 + 1.4 * hashUnit(seed, id, 'envelope/pressure'),
+			pressure:
+				(system === 'inflated-cushion' ? 1 : 0.035) *
+				(0.4 + 1.4 * hashUnit(seed, id, 'envelope/pressure')),
 			tension: 1.1 + 2 * hashUnit(seed, id, 'envelope/tension')
 		};
 }

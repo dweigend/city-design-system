@@ -30,7 +30,7 @@ const reliefVon: Partial<Record<AusfuehrungId, number>> = {
 
 function membranMuster(base: Node<'vec3'>, id: AusfuehrungId, p: Node<'vec3'>): Muster {
 	const weave = noise(p, 66);
-	if (id === 'membran-gewebe') {
+	if (id === 'membran-gewebe' || id === 'membran-voile') {
 		return { farbe: base.mul(weave.mul(0.12).add(1)), hoehe: weave, relief: 0.00055 };
 	}
 	// Incidence works for the orthographic stage and cannot feed back from the bump normal.

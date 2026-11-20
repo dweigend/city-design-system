@@ -230,6 +230,30 @@ export const materialAusfuehrungen: readonly Ausfuehrung[] = [
 		transmission: 0.12
 	},
 	{
+		id: 'membran-voile',
+		familie: 'membran',
+		name: 'Tensioned voile',
+		beschreibung: 'Light crosses an open weave. Fold overlaps and the frame remain visible.',
+		grundton: '#e6e1d6',
+		pigment: 0.48,
+		rauheit: 0.74,
+		metall: 0,
+		transmission: 0.12,
+		deckkraft: 0.54
+	},
+	{
+		id: 'membran-film',
+		familie: 'membran',
+		name: 'Diffuse pneumatic film',
+		beschreibung: 'Milky film transmits light around silhouettes and overlapping seams.',
+		grundton: '#e4dfd7',
+		pigment: 0.36,
+		rauheit: 0.49,
+		metall: 0,
+		transmission: 0.38,
+		deckkraft: 0.72
+	},
+	{
 		id: 'membran-opal',
 		familie: 'membran',
 		name: 'Opal film',

@@ -26,7 +26,7 @@ export type HouseEnvelope = {
 	fabric?: Membrane;
 	system: ShellSystem;
 	outline: (typeof outlines)[number];
-	finish: (typeof finishes)[number];
+	finish: (typeof finishes)[number] | 'membran-voile' | 'membran-film';
 	skin: (typeof skins)[number];
 };
 
@@ -52,6 +52,12 @@ export function houseEnvelope(
 		section: requested?.section ?? pick(sections, seed, id, 'perimeter/profile'),
 		outline: requested?.outline ?? pick(outlines, seed, id, 'perimeter/outline'),
 		skin: requested?.skin ?? pick(skins, seed, id, 'perimeter/skin'),
-		finish: requested?.finish ?? pick(finishes, seed, id, 'perimeter/finish')
+		finish:
+			requested?.finish ??
+			(fabric
+				? system === 'inflated-cushion'
+					? 'membran-film'
+					: 'membran-voile'
+				: pick(finishes, seed, id, 'perimeter/finish'))
 	};
 }

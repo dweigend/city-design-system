@@ -53,3 +53,7 @@ export function membraneResponse(
 export { clothIntervals, clothOpening, simulateCloth } from './cloth';
 
 export type { Membrane } from './cloth';
+
+export { hangingCloth } from './drape';
+
+export { tensionNet } from './saddle';

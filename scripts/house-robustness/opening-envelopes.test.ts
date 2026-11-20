@@ -8,6 +8,17 @@ import { oberflaechenWerte } from '../../src/lib/catalog/logic/material/ausfuehr
 import { resolveFinish } from '../../src/lib/catalog/logic/material/surface';
 import { massGraph } from './masses';
 
+function checkOptics(p: ReturnType<typeof sectionParts>[number]) {
+	if (!p.finish) throw Error('Missing wall finish');
+	const finish = resolveFinish(p.finish, p.token, p.ageTint, p.colourRole);
+	if (finish.kind !== 'physical') throw Error('Expected physical wall finish');
+	const optics = oberflaechenWerte(finish.recipe, finish.id);
+	if (p.finish === 'membran-film' || p.finish === 'membran-voile') {
+		expect(optics.transmission).toBeGreaterThan(0);
+		expect(optics.deckkraft).toBeLessThan(1);
+	} else expect([optics.transmission, optics.deckkraft, optics.pigment]).toEqual([0, 1, 1]);
+}
+
 const world = openingScene(7).world;
 const { sections, layout } = townSections(world);
 if (!world.state.city) throw Error('Missing opening city');
@@ -31,11 +42,7 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 			for (const p of walls) {
 				expect(p.colourRole).toBe('ensemble-ground');
 				expect(p.token).toBe(GROUND_TOKEN[house.composition.shellUse]);
-				if (!p.finish) throw Error('Missing wall finish');
-				const finish = resolveFinish(p.finish, p.token, p.ageTint, p.colourRole);
-				if (finish.kind !== 'physical') throw Error('Expected physical wall finish');
-				const optics = oberflaechenWerte(finish.recipe, finish.id);
-				expect([optics.transmission, optics.deckkraft, optics.pigment]).toEqual([0, 1, 1]);
+				checkOptics(p);
 			}
 		}
 		const graph = massGraph(houses);

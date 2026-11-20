@@ -86,6 +86,8 @@ type Base = {
 };
 /** Indexed CCW triangles and explicit pencil paths sharing world-space metre coordinates. */
 export type MeshForm = {
+	/** Average normals across shared vertices of a continuous material surface. */
+	smooth?: boolean;
 	kind: 'mesh';
 	rotation?: never;
 	points: Vec3[];

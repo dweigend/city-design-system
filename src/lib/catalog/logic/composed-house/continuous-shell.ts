@@ -1,4 +1,5 @@
-import { courtyardPanel, membranePanel } from './membrane-panel';
+import { courtyardPanel, membranePanel, upperSailGrips } from './membrane-panel';
+import { pipeBetween } from './parts';
 import { stationAt } from './shell-station';
 import { cutPartyWall } from './party-wall-cut';
 import type { HouseComposition } from '../house-typology';
@@ -93,11 +94,28 @@ function exposedPanel(shell: Shell, index: number, source: StockMesh) {
 	}
 	return { ...source, id: source.id + '/' + index, points, triangles };
 }
+// Anchor the upper grips to the occupied roof. Each end is taken from the same solved bay.
+function sailBrackets(h: HouseComposition, shell: Shell, surface: Surface) {
+	if (shell.system !== 'tensile-sail' || !shell.fabric) return [];
+	const fabric = shell.fabric;
+	const roof = shell.stations[shell.stations.length - 1].ring;
+	return shell.seams.flatMap((spans, i) => spans.flatMap(({start,end,hidden}, k) => {
+		if (!shell.faces[i] || (hidden && hidden[1] >= shell.top)) return [];
+		const ties = upperSailGrips(shell,i,start,end,fabric);
+		const a = roof[i], b = roof[(i+1)%roof.length];
+		return [start,end].map((u, j) => {
+			const tie = ties[j];
+			const foot = u + (j === 0 ? 1 : -1) * 0.075 * (end-start);
+			const root: Vec3 = [a[0]+foot*(b[0]-a[0]),a[1]+foot*(b[1]-a[1]),shell.top-0.12];
+			return {...pipeBetween(h.id+'/sail-grip/'+i+'/'+k+'/'+j,root,tie,0.055,surface),structuralRole:'cantilever' as const};
+		});
+	}));
+}
 /** Maps a full-height fabric, frame or service run between corresponding surveyed wall corners. */
 export function continuousShell(
 	h: HouseComposition,
 	seed: number,
-	surface: Surface & { colourRole?: 'ensemble-ground' }
+	surface: Surface & { colourRole?: 'ensemble-ground' }, frame: Surface
 ): HousePart[] {
 	const shell = h.exterior;
 	if (!shell) return [];
@@ -108,6 +126,7 @@ export function continuousShell(
 	if (stock.kind !== 'mesh') throw Error('Expected a continuous shell mesh');
 	const source = {
 		...stock,
+		smooth: !!shell.fabric,
 		colourRole: surface.colourRole,
 		structuralRole: 'bearing' as const
 	};
@@ -118,6 +137,7 @@ export function continuousShell(
 	if (!fabric) return outer;
 	return [
 		...outer,
+		...sailBrackets(h,shell,frame),
 		...shell.courtWalls.map((wall, i) => ({
 			...source,
 			...courtyardPanel(shell, wall, fabric),

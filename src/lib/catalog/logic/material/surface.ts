@@ -49,7 +49,7 @@ export function resolveFinish(
 ): SurfaceRecipe {
 	const surface = baseFinish(id, token);
 	if (colourRole === 'ensemble-ground' && surface.kind === 'physical') {
-		surface.recipe.haut.deckkraft = 1;
+		if (id !== 'membran-voile' && id !== 'membran-film') surface.recipe.haut.deckkraft = 1;
 		surface.recipe.farbe.anteil = 1;
 		surface.recipe.farbe.papier = 0.42;
 		surface.groundCoat = true;

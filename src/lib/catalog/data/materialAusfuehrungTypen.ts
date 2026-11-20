@@ -24,6 +24,8 @@ export type AusfuehrungId =
 	| 'membran-beschichtet'
 	| 'membran-gewebe'
 	| 'membran-opal'
+	| 'membran-voile'
+	| 'membran-film'
 	| 'wasser-ruhig'
 	| 'bestand-matt'
 	| 'metall-messing'
@@ -52,5 +54,5 @@ export type Ausfuehrung = {
 	rauheit: number;
 	metall: number;
 	transmission: number;
-	deckkraft?: 1;
+	deckkraft?: number;
 };
