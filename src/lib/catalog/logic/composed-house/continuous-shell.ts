@@ -114,7 +114,7 @@ function sailBrackets(h: HouseComposition, shell: Shell, surface: Surface) {
 					shell.top - 0.12
 				];
 				return {
-					...pipeBetween(h.id + '/sail-grip/' + i + '/' + k + '/' + j, root, tie, 0.055, surface),
+					...pipeBetween(h.id + '/sail-grip/' + i + '/' + k + '/' + j, root, tie, 0.06, surface),
 					structuralRole: 'cantilever' as const
 				};
 			});
