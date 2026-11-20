@@ -10,7 +10,8 @@ import type { EnsembleDistrict } from '../district-frame';
 import { neighborsOf, type QuadGrid } from '../quad-grid';
 import { planHouse } from './section';
 import { houseLinks } from './links';
-import { sectionParts } from './projection';
+import type { GroundHeight } from './foundations';
+import { sectionMembers, sectionParts } from './projection';
 
 type Survey = {
 	floorFor?: (cell: QuadGrid['cells'][number]) => number | undefined;
@@ -104,7 +105,8 @@ export function sectionGroups(
 	grid: QuadGrid,
 	houses: ReturnType<typeof paintedSections>,
 	seed: number,
-	stock: HouseObstacle[] = []
+	stock: HouseObstacle[] = [],
+	finishedGround?: GroundHeight
 ) {
 	const byId = new Map(houses.map((h) => [h.id, h]));
 	const groups = houses.map((h) => ({
@@ -115,7 +117,8 @@ export function sectionGroups(
 		span: '',
 		chunk: h.cells[0].chunk,
 		cells: h.cells.map((c) => c.id),
-		parts: (): StockPart[] => sectionParts(h)
+		parts: (): StockPart[] =>
+			finishedGround ? sectionMembers(h, undefined, finishedGround) : sectionParts(h)
 	}));
 	for (const link of houseLinks(grid, houses, seed, stock)) {
 		const a = required(byId.get(link.a), 'first bridge owner'),
