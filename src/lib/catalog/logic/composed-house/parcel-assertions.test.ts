@@ -1,5 +1,9 @@
 import { expect, test } from 'bun:test';
-import { deckCovers, plotCovers } from './parcel-assertions.test-support';
+import { squareGrid } from '../quad-grid';
+import { houseObject } from './house-object';
+import { plotCovers } from './parcel-footprint';
+import { parcelFitsRail } from './stair-parcel';
+import { deckCovers } from './parcel-assertions.test-support';
 
 type XY = [number, number];
 const square = (x: number, y: number, w: number, d: number): XY[] => [
@@ -68,4 +72,25 @@ test('a centimetre slot between grid samples rejects overlap and permits boundar
 		expect(plotCovers(cells, shape, 0)).toBe(covered);
 		expect(deckCovers(deck, shape)).toBe(covered);
 	}
+});
+
+test('mounted railing bays respect the common cantilever margin and parcel gaps', () => {
+	const cell = squareGrid(1, 1, 4).cells[0];
+	const [x, y] = cell.corners[0];
+	const rail = houseObject('railing', 'standard', 0, { instanceId: 'rail', slots: {} }).parts[0];
+	if (rail.kind !== 'pipe') throw Error('Missing rail tube');
+	const fitted = (outside: number) => ({
+		...rail,
+		points: [1, 3].map((dx) => [x + dx, y - outside + rail.radius, 1] as [number, number, number])
+	});
+	expect(parcelFitsRail({ cells: [cell] }, fitted(0.59))).toBe(true);
+	expect(parcelFitsRail({ cells: [cell] }, fitted(0.61))).toBe(false);
+	const row = squareGrid(3, 1, 4).cells;
+	const [start, end] = [row[0], row[2]].map((c) => c.corners[0]);
+	expect(
+		parcelFitsRail(
+			{ cells: [row[0], row[2]] },
+			{ ...rail, points: [start, end].map(([u, v]) => [u + 2, v + 2, 1]) }
+		)
+	).toBe(false);
 });
