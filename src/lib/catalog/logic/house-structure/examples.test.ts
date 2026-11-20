@@ -1,0 +1,206 @@
+import { expect, test } from 'bun:test';
+import { houseSurfaces, planHouse, structureHouse } from '../composed-house';
+import { composeHouse, planEnsemble } from '../house-typology';
+import { squareGrid } from '../quad-grid';
+import type { HouseUse } from '../../data/house-body';
+import {
+	checkHouseStructure,
+	exoskeletonHouse,
+	fannedTrussHouse,
+	mastHouse,
+	scaffoldHouse,
+	skinFrame,
+	structureParts,
+	supportedNodes,
+	type HouseStructure,
+	type Plot
+} from './index';
+
+const GROUND = 2;
+/** An irregular convex parcel: no builder may rely on a square. */
+const plot: Plot = {
+	id: 'plot',
+	ensemble: 'court',
+	use: 'living',
+	ground: GROUND,
+	parcel: {
+		polygon: [
+			[0, 0],
+			[11, 1],
+			[12, 9],
+			[1, 10]
+		],
+		holes: []
+	}
+};
+const elements = (house: HouseStructure, element: string) =>
+	structureParts(house).filter((part) => part.element === element);
+const rules = (house: HouseStructure) => checkHouseStructure(house).map((f) => f.rule);
+
+function painted(storeys: number, seed: number, span = 10) {
+	const cell = squareGrid(4, 3, span).cellsById.get('1/1');
+	if (!cell) throw new RangeError('Missing test cell');
+	const stack = Array<HouseUse>(storeys).fill('living');
+	return { cells: [cell], stacks: new Map([[cell.id, stack]]), seed };
+}
+
+test('example 1: a layered block is one case of the contract and keeps every body', () => {
+	const section = planHouse(painted(3, 7));
+	const { structure, levels, crown } = section.composition;
+	expect(structure.principle).toBe('layers');
+	expect(checkHouseStructure(structure)).toEqual([]);
+	expect(structure.platforms.filter((p) => p.room)).toHaveLength(3);
+	expect(structure.platforms.map((p) => p.datum)).toEqual([
+		...levels.map((l) => l.position[2]),
+		section.top
+	]);
+	expect(section.slots).toEqual([...levels.flatMap((l) => l.bodies), crown]);
+});
+
+test('example 2: a single mast carries two decks under one tensioned tent', () => {
+	const house = mastHouse(plot, { height: 12, datums: [3, 6] });
+	expect(checkHouseStructure(house)).toEqual([]);
+	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 3, GROUND + 6]);
+	expect(elements(house, 'room')).toHaveLength(0);
+	expect(elements(house, 'strut')).toHaveLength(3);
+	const tent = skinFrame(house, house.skins[0].id);
+	expect(tent.interior).toEqual([[6, 5, GROUND + 12]]);
+	expect(tent.boundary.every((p) => p[2] === GROUND)).toBe(true);
+	expect(tent.edges).toEqual(['cable', 'cable', 'cable', 'cable']);
+	expect(house.roof).toEqual({ kind: 'skin', patches: [house.skins[0].id] });
+});
+
+test('example 3: an exoskeleton hangs rooms at two datums clear inside its frame', () => {
+	const house = exoskeletonHouse(plot, { height: 12, datums: [4, 8] });
+	expect(checkHouseStructure(house)).toEqual([]);
+	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 4, GROUND + 8]);
+	expect(elements(house, 'room')).toHaveLength(2);
+	const posts = house.nodes.filter((n) => n.founded).map((n) => n.position);
+	const reach = (p: number[]) => Math.hypot(p[0] - 6, p[1] - 5);
+	for (const platform of house.platforms)
+		for (const [i, corner] of platform.outline.entries())
+			expect(reach(corner)).toBeLessThan(reach(posts[i]) - 1);
+	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(4);
+});
+
+test('example 4: a fanned truss throws rods outward and tensions a sail between each pair', () => {
+	const house = fannedTrussHouse(plot, { datum: 5, height: 11 });
+	expect(checkHouseStructure(house)).toEqual([]);
+	expect(house.roof).toBeUndefined();
+	expect(house.platforms).toHaveLength(1);
+	expect(house.skins).toHaveLength(4);
+	for (const sail of house.skins) {
+		const { boundary, pull } = skinFrame(house, sail.id);
+		// Two rod tips above and outside the deck, tied down to the trunk below it.
+		expect(boundary[0][2]).toBe(GROUND + 11);
+		expect(boundary[1][2]).toBe(GROUND + 11);
+		expect(boundary[2]).toEqual([6, 5, GROUND + 5 * 0.55]);
+		expect(pull[2]).toEqual([0, 0, 1]);
+	}
+});
+
+test('example 5: a scaffold occupies only the datums it is told to', () => {
+	const house = scaffoldHouse(plot, { bay: 3, bays: 5, occupied: [2, 4], rooms: [4] });
+	expect(checkHouseStructure(house)).toEqual([]);
+	expect(house.principle).toBe('scaffold');
+	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 6, GROUND + 12]);
+	expect(house.platforms.map((p) => Boolean(p.room))).toEqual([false, true]);
+	expect(house.roof).toBeUndefined();
+	const tower = scaffoldHouse(plot, { bay: 3, bays: 12, occupied: [4, 8, 12], rooms: [] });
+	expect(tower.principle).toBe('tower');
+	expect(tower.roof).toEqual({ kind: 'terrace', platform: 'plot/level/12' });
+	expect(checkHouseStructure(tower)).toEqual([]);
+});
+
+test('every layered house states a buildable structure on its own parcel', () => {
+	for (const span of [4.5, 10])
+		for (const storeys of [1, 3, 8, 16])
+			for (const seed of [1, 7, 23, 41])
+				expect(checkHouseStructure(composeHouse(painted(storeys, seed, span)).structure)).toEqual(
+					[]
+				);
+	const sites = squareGrid(8, 1, 10).cells.map((cell, i) => ({
+		cells: [cell],
+		seed: 28,
+		stacks: new Map([[cell.id, Array<HouseUse>(i + 2).fill('living')]])
+	}));
+	const context = planEnsemble(sites);
+	for (const site of sites) {
+		const { structure } = composeHouse(site, context);
+		expect(checkHouseStructure(structure)).toEqual([]);
+		expect(structure.ensemble).toBe(sites[0].cells[0].id);
+	}
+});
+
+test('a tie carries only what hangs below a supported node', () => {
+	const base = mastHouse(plot, { height: 12, datums: [] });
+	const head = base.nodes.find((n) => n.position[2] === GROUND + 12);
+	if (!head) throw new Error('Missing mast head');
+	const hung: HouseStructure = {
+		...base,
+		nodes: [
+			...base.nodes,
+			{ id: 'pod', position: [6, 5, GROUND + 7] },
+			{ id: 'kite', position: [6, 5, GROUND + 15] }
+		],
+		rods: [
+			...base.rods,
+			{ id: 'hanger', from: head.id, to: 'pod', radius: 0.02, action: 'tie' },
+			{ id: 'string', from: head.id, to: 'kite', radius: 0.02, action: 'tie' }
+		]
+	};
+	const supported = supportedNodes(hung);
+	expect(supported.has('pod')).toBe(true);
+	expect(supported.has('kite')).toBe(false);
+	expect(checkHouseStructure(hung)).toEqual([{ rule: 'no-load-path', subject: 'kite' }]);
+});
+
+test('each broken invariant is reported by its rule', () => {
+	const house = exoskeletonHouse(plot, { height: 12, datums: [4, 8] });
+	const floating = { ...house, nodes: house.nodes.map(({ id, position }) => ({ id, position })) };
+	expect(new Set(rules(floating))).toEqual(
+		new Set(['no-load-path', 'loose-grip', 'unborne-platform'])
+	);
+	expect(rules({ ...house, access: house.access.slice(0, 1) })).toEqual(['unreached-platform']);
+	const lifted = house.access.map((way) => ({ ...way, head: [way.head[0], way.head[1], 0] }));
+	expect(rules({ ...house, access: lifted as HouseStructure['access'] })).toEqual([
+		'access-off-datum',
+		'access-off-datum'
+	]);
+	const wide = house.platforms.map((p) => ({ ...p, outline: plot.parcel.polygon.map(grow) }));
+	expect(rules({ ...house, platforms: wide })).toEqual(['outside-parcel', 'outside-parcel']);
+	const open = house.skins.map((skin) => ({ ...skin, boundary: skin.boundary.slice(0, 2) }));
+	expect(new Set(rules({ ...house, skins: open }))).toEqual(new Set(['open-skin']));
+	expect(rules({ ...house, roof: { kind: 'skin', patches: ['none'] } })).toEqual([
+		'unknown-reference'
+	]);
+});
+function grow([x, y]: [number, number]): [number, number] {
+	return [6 + (x - 6) * 1.2, 5 + (y - 5) * 1.2];
+}
+
+test('one engine draws every principle from registry stock in role slots', () => {
+	const houses = [
+		mastHouse(plot, { height: 12, datums: [3, 6] }),
+		exoskeletonHouse(plot, { height: 12, datums: [4, 8] }),
+		fannedTrussHouse(plot, { datum: 5, height: 11 }),
+		scaffoldHouse(plot, { bay: 3, bays: 5, occupied: [2, 4], rooms: [4] })
+	];
+	for (const house of houses) {
+		const neutral = structureParts(house);
+		const parts = structureHouse(house);
+		expect(parts.map((p) => p.id)).toEqual(neutral.map((p) => p.id));
+		expect(neutral.every((p) => p.surface.ensemble === 'court')).toBe(true);
+		for (const [i, part] of parts.entries()) {
+			const way = neutral[i].element === 'access';
+			expect(part.source.objectId.length).toBeGreaterThan(0);
+			// The access colour is reserved for ways; everything else is coloured by its slot.
+			expect(part.token === houseSurfaces.access.token).toBe(way);
+			expect(part.buildingSurface).toEqual(way ? undefined : neutral[i].surface);
+			if (part.kind !== 'mesh') continue;
+			// The tensioned cloth is finer than the straight fan and stays finite.
+			expect(part.points.length).toBeGreaterThan(house.nodes.length);
+			expect(part.points.flat().every(Number.isFinite)).toBe(true);
+		}
+	}
+});

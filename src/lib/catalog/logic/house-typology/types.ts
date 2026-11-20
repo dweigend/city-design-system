@@ -3,6 +3,7 @@ import type { Survey } from './survey';
 import type { HouseSite, HouseSlot, Deck } from './site';
 import type { buildObject, ObjectGeometry } from '../assets';
 import type { Typology, HouseRole } from './families';
+import type { HouseStructure } from '../house-structure';
 export type Plan = {
 	site: Survey;
 	type: Typology;
@@ -83,6 +84,8 @@ export type Level = Deck & {
 };
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
+	/** Occupancy and structure in the contract shared by every house principle. */
+	structure: HouseStructure;
 	exterior?: ReturnType<typeof import('./parcel-section').parcelExterior> & {
 		openings: ReturnType<typeof import('./entrance').groundApproach>[];
 	};

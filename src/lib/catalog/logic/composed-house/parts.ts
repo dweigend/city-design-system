@@ -26,6 +26,16 @@ function plate(id: string, variant: string, surface: Surface) {
 	return p;
 }
 
+/** Cuts the square registry plate to a surveyed outline between z and z + height, metres. */
+export function slabOver(
+	id: string,
+	shape: { polygon: [number, number][]; holes: [number, number][][]; z: number; height: number },
+	surface: Surface
+) {
+	const { polygon, holes, z, height } = shape;
+	return { ...plate(id, 'square', surface), polygon, holes, z, height };
+}
+
 /** Maps the four corners of a square registry plate to a surveyed walkway tread. */
 export function tread(
 	id: string,
