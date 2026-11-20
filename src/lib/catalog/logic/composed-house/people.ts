@@ -3,13 +3,13 @@ import type { Vec3 } from '../parametrik/types';
 import { members } from './provider';
 
 import { place } from './asset-fit';
-import type { HouseSurfaces } from './surfaces';
+import type { SectionSurfaces } from './surfaces';
 /** Places the feet of an unscaled registry figure on its walking surface. */
 export function person(
 	position: Vec3,
 	id: string,
 	seed: number,
-	surfaces: HouseSurfaces,
+	surfaces: SectionSurfaces,
 	yaw = 0,
 	count = 1
 ) {
@@ -27,7 +27,7 @@ export function person(
 	);
 }
 /** A pair stands along the first bridge segment, with its feet at interpolated deck height. */
-export function bridgePair(route: Vec3[], id: string, seed: number, surfaces: HouseSurfaces) {
+export function bridgePair(route: Vec3[], id: string, seed: number, surfaces: SectionSurfaces) {
 	const [a, b] = route;
 	const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
 	if (length < 1.2) return [];

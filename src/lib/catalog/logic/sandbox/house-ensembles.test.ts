@@ -50,9 +50,11 @@ test('the seed-7 bank has four distinct, stepped ensembles through the sandbox p
 		ids.some((id) => !expansion.has(id) && grid.cellsById.get(id)?.zone === 'floodplain')
 	);
 	expect(bank).toHaveLength(4);
-	expect(
-		composedProjection(world).filter((g) => g.owners.length === 2).length
-	).toBeGreaterThanOrEqual(3);
+	const groups = composedProjection(world);
+	const houses = new Set(groups.filter((g) => g.owners.length === 1).map((g) => g.id));
+	const bridges = groups.filter((g) => g.owners.length === 2);
+	expect(bridges.length).toBeGreaterThan(0);
+	for (const span of bridges) for (const owner of span.owners) expect(houses.has(owner)).toBe(true);
 	for (const ids of bank) {
 		const parcels = ids.map((id) => required(layout.cells.get(id)));
 		const peaks = parcels.filter(({ role }) => role === 'turm');

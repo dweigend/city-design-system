@@ -6,7 +6,7 @@ import { houseObject, type HousePart } from './house-object';
 import { parcelSupports } from './stair-parcel';
 import { terrainHeight } from './ground';
 import type { Section } from './types';
-import type { HouseSurfaces } from './surfaces';
+import type { SectionSurfaces } from './surfaces';
 
 const variants = ['standard', 'medium', 'long'] as const;
 const bay = 2.5;
@@ -57,7 +57,7 @@ export function groundRamp(
 /** Rotates and translates the native eight-percent ramp selected by its surveyed bay count. */
 export function mountRamp(
 	s: Section,
-	surfaces: HouseSurfaces,
+	surfaces: SectionSurfaces,
 	from: Vec3,
 	to: Vec3,
 	id: string

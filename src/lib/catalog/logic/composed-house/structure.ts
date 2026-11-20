@@ -5,10 +5,10 @@ import type { Vec3 } from '../parametrik/types';
 import { members } from './provider';
 import { place } from './asset-fit';
 import { houseObject, type HousePart, type StockPart } from './house-object';
-import { roleSurface, type HouseSurfaces } from './surfaces';
+import { roleSurface, type SectionSurfaces } from './surfaces';
 import { pipeBetween } from './parts';
 
-function bearingStock(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
+function bearingStock(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: SectionSurfaces) {
 	const socket = p.joint === 'socket';
 	const id = socket
 		? 'kit-capsule-cradle-2p5m'
@@ -21,7 +21,7 @@ function bearingStock(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: 
 		surfaces
 	);
 }
-function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
+function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: SectionSurfaces) {
 	const socket = p.joint === 'socket';
 	const stock = bearingStock(s, p, surfaces);
 	const box = union(stock.map(bounds));
@@ -55,7 +55,7 @@ function columnSections(stock: StockPart[], p: Extract<Solid, { kind: 'box' }>):
 		];
 	});
 }
-function slabStock(s: Section, p: Solid, surfaces: HouseSurfaces) {
+function slabStock(s: Section, p: Solid, surfaces: SectionSurfaces) {
 	const stock = houseObject(
 		p.source?.objectId ?? 'primitive-slab',
 		p.source?.variant ?? 'square',
@@ -68,7 +68,7 @@ function slabStock(s: Section, p: Solid, surfaces: HouseSurfaces) {
 	if (stock.kind !== 'prism') throw new Error('Expected slab stock');
 	return stock;
 }
-function floor(s: Section, p: Solid, surfaces: HouseSurfaces): StockPart {
+function floor(s: Section, p: Solid, surfaces: SectionSurfaces): StockPart {
 	const stock = slabStock(s, p, surfaces);
 	const h = p.size[2];
 	if (p.kind === 'prism')
@@ -108,7 +108,7 @@ function floorRing(s: Section, p: Extract<Solid, { kind: 'box' | 'cylinder' | 'c
 				];
 	return polygon;
 }
-function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
+function deckParts(s: Section, p: Solid, surfaces: SectionSurfaces) {
 	if (p.slot === 'base')
 		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces.deck, 'base') })];
 	// A walkable roof plate is a smooth terrace; corrugation is for roofs nobody stands on.
@@ -128,7 +128,7 @@ function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
 	];
 }
 /** Fits manufactured columns and sockets to their surveyed joints, and cuts plates to their outlines. */
-function structuralStock(s: Section, p: Solid, surfaces: HouseSurfaces): StockPart[] {
+function structuralStock(s: Section, p: Solid, surfaces: SectionSurfaces): StockPart[] {
 	if (p.joint === 'attic') {
 		const use = s.composition.levels[s.composition.levels.length - 1].use;
 		return [
@@ -156,7 +156,7 @@ function structuralStock(s: Section, p: Solid, surfaces: HouseSurfaces): StockPa
 	return [];
 }
 /** Projects each solid with its declared load path on every registry member. */
-export function houseStructure(s: Section, surfaces: HouseSurfaces): HousePart[] {
+export function houseStructure(s: Section, surfaces: SectionSurfaces): HousePart[] {
 	return s.composition.parts.flatMap((p) =>
 		structuralStock(s, p, surfaces).map((member) => ({
 			...member,

@@ -1,15 +1,16 @@
+import { projectBuildingSurface } from '../../src/lib/catalog/scene/building-surface';
 import { checkExteriorEntrance } from './exterior-entrance';
 import { expect, test } from 'bun:test';
 import { openingScene } from '../../src/lib/catalog/logic/sandbox';
 import { townSections } from '../../src/lib/catalog/logic/sandbox/composed-projection';
-import { sectionParts } from '../../src/lib/catalog/logic/composed-house';
+import { fieldUse, sectionParts } from '../../src/lib/catalog/logic/composed-house';
 import { checkParcel } from '../../src/lib/catalog/logic/composed-house/parcel-assertions.test-support';
-import { GROUND_TOKEN } from '../../src/lib/catalog/data/house-body';
+import { BODY_TOKEN } from '../../src/lib/catalog/data/house-body';
 import { oberflaechenWerte } from '../../src/lib/catalog/logic/material/ausfuehrung';
 import { resolveFinish } from '../../src/lib/catalog/logic/material/surface';
 import { massGraph } from './masses';
 
-function checkOptics(p: ReturnType<typeof sectionParts>[number]) {
+function checkOptics(p: ReturnType<typeof projectBuildingSurface>) {
 	if (!p.finish) throw Error('Missing wall finish');
 	const finish = resolveFinish(p.finish, p.token, p.ageTint, p.colourRole);
 	if (finish.kind !== 'physical') throw Error('Expected physical wall finish');
@@ -42,9 +43,11 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 				envelope.faces.filter(Boolean).length + envelope.courtWalls.length
 			);
 			for (const p of walls) {
-				expect(p.colourRole).toBe('ensemble-ground');
-				expect(p.token).toBe(GROUND_TOKEN[house.composition.shellUse]);
-				checkOptics(p);
+				expect(p.buildingSurface?.slot).toBe('shell');
+				const projected = projectBuildingSurface(p);
+				expect(projected.colourRole).toBe('ensemble-ground');
+				expect(projected.token).toBe(BODY_TOKEN[fieldUse(house)]);
+				checkOptics(projected);
 			}
 		}
 		const graph = massGraph(houses);

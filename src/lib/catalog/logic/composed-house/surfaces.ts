@@ -1,14 +1,14 @@
 import { hashUnit } from '../../core/random';
 import type { HouseUse } from '../../data/house-body';
 import type { ObjectSurface } from '../assets';
-import { houseSurfaces, type SurfaceSlot } from '../material/house-surfaces';
+import { houseSurfaces, type HouseSurfaces, type SurfaceSlot } from '../material/house-surfaces';
 import type { BuildingSurface } from '../parametrik/types';
 import type { Section } from './types';
 
 export { houseSurfaces };
 export type BandAccent = 'none' | 'window' | 'wall' | 'storey' | 'anchor';
 export type Surface = ObjectSurface;
-export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
+export type SectionSurfaces = HouseSurfaces<Surface>;
 
 /**
  * The use whose colour a house wears as its envelope field: one of the uses the house itself
@@ -22,7 +22,7 @@ export function fieldUse(section: Section): HouseUse {
 }
 
 /** Binds construction slots to the ensemble and retains explicit caller assignments. */
-export function sectionSurfaces(section: Section, palette = houseSurfaces): HouseSurfaces {
+export function sectionSurfaces(section: Section, palette = houseSurfaces): SectionSurfaces {
 	const { shellUse } = section.composition;
 	const field = fieldUse(section);
 	const assign = (key: SurfaceSlot, slot: BuildingSurface['slot'], use = shellUse) => ({

@@ -1,13 +1,15 @@
 import { expect, test } from 'bun:test';
-import { circulation, paintedSections, houseSurfaces } from '../composed-house';
+import { circulation, houseSurfaces } from '../composed-house';
 import { interpolatePoint, type Primitive, type Vec3 } from '../parametrik/types';
 import { cellAtPoint } from '../terrain-grid';
+import type { Solid } from '../house-typology';
 import { bounds } from '../ansicht/geometrie';
 import { required } from '../required';
 import { applyEdit, createWorld, changes, type World } from './index';
-import { composedProjection } from './composed-projection';
-import { buildingPlots } from './building-plots';
-import { houseDistrict } from './house-ensembles';
+import { composedProjection, townSections } from './composed-projection';
+import { intersect, shoelaceArea } from '../parametrik/raster/geometry';
+import { prismFaces } from '../house-typology/prism';
+import type { Point2 } from '../ansicht/geometrie';
 
 const networks = (w: World) => composedProjection(w).filter((g) => g.id.startsWith('network/'));
 const paint = (w: World, id: string) => applyEdit(w, { kind: 'raise', cellId: id, use: 'living' });
@@ -55,44 +57,44 @@ function clearTerrain(world: World, deck: Sheet[]) {
 }
 
 function houseClearance(world: World, deck: Sheet[], stations: Set<string>) {
-	const houses = paintedSections(buildingPlots(world.grid), world.state.stacks, world.seed, {
-		district: (id) => houseDistrict(required(world.grid.cellsById.get(id), 'painted cell'))
-	});
-	for (const house of houses) {
+	const { sections } = townSections(world);
+	for (const house of sections) {
 		const foot = required(circulation(house).stops.at(-1), 'stair foot');
 		expect(stations.has(key(foot))).toBe(true);
-		for (const body of house.composition.levels.flatMap((l) => l.bodies)) {
-			const [w, d] =
-				Math.abs(Math.sin(body.rotation)) > 0.5 ? [body.size[1], body.size[0]] : body.size;
-			for (const {
-				points: [a, b, c, e]
-			} of deck) {
-				const from = midpoint(a, b),
-					to = midpoint(c, e);
-				expect(cutsBody(from, to, body.position, [w, d])).toBe(false);
-			}
+		for (const body of house.composition.parts.filter((p) => p.joint === 'body')) {
+			if (body.kind !== 'prism') throw Error('Expected surveyed occupied footprint');
+			clearRoom(body, deck);
 		}
 	}
 }
 
-// Clip a complete centreline section against the open interior of the physical body footprint.
-function cutsBody(a: Vec3, b: Vec3, center: Vec3, size: number[]) {
-	let low = 0,
-		high = 1;
-	for (const i of [0, 1]) {
-		const delta = b[i] - a[i],
-			half = size[i] / 2 - 1e-6,
-			offset = center[i] - a[i];
-		if (Math.abs(delta) < 1e-10) {
-			if (Math.abs(offset) >= half) return false;
-			continue;
-		}
-		const t = (offset - half) / delta,
-			u = (offset + half) / delta;
-		low = Math.max(low, Math.min(t, u));
-		high = Math.min(high, Math.max(t, u));
+function clearRoom(body: Extract<Solid, { kind: 'prism' }>, deck: Sheet[]) {
+	const faces = prismFaces([body.polygon, ...(body.holes ?? [])]);
+	for (const strip of deck) {
+		const outline = walkingBand(strip.points, body.z, body.z + body.height);
+		if (outline.length < 3) continue;
+		for (const face of faces)
+			expect(
+				Math.abs(shoelaceArea(intersect(outline, face))),
+				body.id + ' / ' + strip.id
+			).toBeLessThan(1e-7);
 	}
-	return low < high;
+}
+
+// Clip the clear walking volume at the floor and ceiling before testing plan overlap.
+function walkingBand(points: Vec3[], bottom: number, top: number): Point2[] {
+	function clip(ring: Vec3[], height: number, sign: number) {
+		const kept: Vec3[] = [];
+		for (const [i, a] of ring.entries()) {
+			const b = ring[(i + 1) % ring.length];
+			const da = sign * (a[2] - height),
+				db = sign * (b[2] - height);
+			if (da > 0) kept.push(a);
+			if (da * db < 0) kept.push(interpolatePoint(a, b, da / (da - db)));
+		}
+		return kept;
+	}
+	return clip(clip(points, bottom - 2.1, 1), top, -1).map(([x, y]) => [x, y]);
 }
 
 function peopleOnDeck(parts: Primitive[], deck: Sheet[]) {

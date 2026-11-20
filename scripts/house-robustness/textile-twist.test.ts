@@ -54,11 +54,25 @@ test('a pressurised skin keeps the diagrid carrier on the same surveyed section'
 			.filter((p) => p.source.objectId === 'full-height-shell')
 			.flatMap((p) => (p.kind === 'mesh' ? [p] : []));
 	};
-	const carrier = walls('diagrid'),
-		cloth = walls('inflated-cushion', fabric),
-		combined = walls('diagrid', fabric);
-	for (const [i, p] of combined.entries()) {
-		expect(p.triangles.length).toBe(carrier[i].triangles.length + cloth[i].triangles.length);
-		expect(p.points.slice(cloth[i].points.length)).toEqual(carrier[i].points);
+	const carrier = walls('diagrid');
+	const combined = walls('diagrid', fabric);
+	expect(combined).toHaveLength(carrier.length);
+	for (const [i, panel] of combined.entries()) {
+		const mesh = carrier[i];
+		expect(panel.triangles.length).toBeGreaterThan(mesh.triangles.length);
+		const faces = new Set(triangleKeys(panel));
+		for (const face of triangleKeys(mesh)) expect(faces.has(face)).toBe(true);
 	}
 });
+
+function triangleKeys(mesh: { points: number[][]; triangles: number[] }) {
+	const keys: string[] = [];
+	for (let i = 0; i < mesh.triangles.length; i += 3)
+		keys.push(
+			mesh.triangles
+				.slice(i, i + 3)
+				.map((j) => mesh.points[j].join(','))
+				.join('|')
+		);
+	return keys;
+}

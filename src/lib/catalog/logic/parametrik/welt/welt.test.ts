@@ -144,7 +144,7 @@ describe('L11 world', () => {
 		}
 	});
 
-	test('color code and focus color through the corner modules', () => {
+	test('flow colours reach paths and frames', () => {
 		// Rule "Flows": paths carry people (pink), frame is signal, track ink.
 		const strom = welt(weltDefaults);
 		for (const p of strom.primitives) {
@@ -152,17 +152,23 @@ describe('L11 world', () => {
 				expect(['--cat-business', '--paper']).toContain(p.token ?? '');
 			if (p.id.includes('-geruest-')) expect(p.token).toBe('--signal');
 		}
+	});
+
+	test('hazard fixtures use the selected colour code', () => {
 		const rot = welt({ ...weltDefaults, farbcode: '43' });
 		for (const p of rot.primitives)
 			if (/^face:.*@/.test(p.id))
 				expect(['--paper', '--cat-hazard', '--signal']).toContain(p.token ?? '');
+		expect(farbcodes.map((f) => f.id)).toEqual(['strom', '45', '36', '43']);
+	});
+
+	test('network and volume focus colour the appropriate corner modules', () => {
 		const netze = welt({ ...weltDefaults, fokus: 'netze' });
 		for (const p of netze.primitives)
 			if (p.role === 'neu' && p.token !== '--paper')
 				expect(/-weg-|^treppe:|^figur-|^bahn-/.test(p.id)).toBe(true);
 		const volumen = welt({ ...weltDefaults, fokus: 'volumen' });
 		for (const p of volumen.primitives) if (p.id.includes('-weg-')) expect(p.token).toBe('--paper');
-		expect(farbcodes.map((f) => f.id)).toEqual(['strom', '45', '36', '43']);
 	});
 });
 

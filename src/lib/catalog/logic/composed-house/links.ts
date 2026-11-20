@@ -1,7 +1,7 @@
 import { bridgeWidth, bridgeMovement, houseMovementPorts } from './bridge-movement';
 import { bridgePair } from './people';
 import { required } from '../required';
-import { houseSurfaces, sectionSurfaces, type HouseSurfaces } from './surfaces';
+import { houseSurfaces, sectionSurfaces, type SectionSurfaces } from './surfaces';
 import { bridgeRoute } from './bridge-route';
 import { sectionObstacle, type HouseObstacle } from './clearance';
 import { bridgeForm, type EnsembleDistrict } from '../district-frame';
@@ -35,7 +35,7 @@ function link(
 	boxes: HouseObstacle[],
 	seed: number,
 	district: EnsembleDistrict,
-	surfaces: HouseSurfaces
+	surfaces: SectionSurfaces
 ) {
 	// A shared inhabited wall already connects these lots at the podium.
 	if (

@@ -89,10 +89,14 @@ test('successive painted storeys remain reachable in one living stack', () => {
 				)
 			).toBe(true);
 		}
-		expect(
-			new Set(
-				group.filter((p) => p.id.includes('/body/')).map((p) => p.id.match(/.*\/body\/\d+/)?.[0])
-			).size
-		).toBe(decks.length);
+		const occupied = new Set(
+			group.flatMap((p) => {
+				const course = p.id.match(/\/level\/(\d+)\/body\//);
+				return course ? [Number(course[1])] : [];
+			})
+		);
+		expect([...occupied].sort((a, b) => a - b)).toEqual(
+			Array.from({ length: stories }, (_, i) => i)
+		);
 	}
 });

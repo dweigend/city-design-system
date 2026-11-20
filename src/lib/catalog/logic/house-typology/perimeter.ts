@@ -259,6 +259,21 @@ function floorBodies(
 	}
 	return bodies;
 }
+function courseDeck(
+	i: number,
+	courseCount: number,
+	gallery: boolean,
+	wingLevel: number | undefined,
+	shape: Shape,
+	exterior: ReturnType<typeof parcelExterior>
+) {
+	const name = i === courseCount - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
+	const deck =
+		i === courseCount - 1 && !gallery && i !== wingLevel
+			? { ...shape, polygon: exterior.stations[courseCount].ring }
+			: shape;
+	return { name, deck };
+}
 function courses(
 	plan: Plan,
 	frontage: ReadonlySet<string>,
@@ -317,11 +332,7 @@ function courses(
 				ringArea(shape.polygon) - shape.holes.reduce((a, h) => a + Math.abs(ringArea(h)), 0),
 			outline: shape.polygon.map(([u, v]) => [u, v, z])
 		});
-		const name = i === programme.length - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
-		const deck =
-			i === programme.length - 1 && !gallery && i !== wing?.level
-				? { ...shape, polygon: exterior.stations[programme.length].ring }
-				: shape;
+		const { name, deck } = courseDeck(i, programme.length, gallery, wing?.level, shape, exterior);
 		parts.push(plate(id + '/' + name, deck, ceiling - rim, rim, ground, 'deck'));
 		roofWalk = deck;
 	}

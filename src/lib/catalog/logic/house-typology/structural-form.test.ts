@@ -1,7 +1,6 @@
 import { projectBuildingSurface } from '../../scene/building-surface';
 import { expect, test } from 'bun:test';
-import { resolveFinish } from '../material/surface';
-import { printPatterns } from '../../data/materialPrint';
+import { buildingPalette } from '../material/building-palette';
 import { bounds } from '../ansicht/geometrie';
 import { circulation, houseSurfaces, sectionParts } from '../composed-house';
 import { specimen, minimumGauge } from './specimens';
@@ -222,52 +221,22 @@ test('glazing and sill follow the surveyed inner weather line and share a horizo
 	}
 });
 
-test('every typology exposes its specified catalogue finishes', () => {
-	for (const type of typologies) {
-		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
-		const parts = sectionParts(s);
-		expect(new Set(parts.map((p) => p.finish)).size, type).toBeGreaterThanOrEqual(3);
-		parts.forEach(checkFinish);
-		for (const b of s.composition.levels.flatMap((l) => l.bodies)) {
-			const skin = parts.filter(
-				(p) =>
-					p.id.startsWith(b.id + '/' + b.objectId + '/') &&
-					!['glass', 'edge', 'trim'].includes(p.source.slot) &&
-					!p.id.includes('/ladder-housing/') &&
-					!p.id.endsWith('/attic') &&
-					!p.id.includes('/window-')
-			);
-			expect(skin.length).toBeGreaterThan(0);
-			expect(new Set(skin.map((p) => p.token + '/' + p.finish)).size, b.id).toBe(1);
-			if (Math.max(...b.size) > 2)
-				for (const part of skin) expect(linePattern(part), part.id).toBe(false);
+test('parcel surfaces resolve to their ensemble catalogue finishes at projection', () => {
+	for (const cells of [1, 2, 4]) {
+		const house = specimen(cells, 'block');
+		const expected = buildingPalette(house.composition.shellUse, house.ensemble);
+		const finishes = new Set<string>();
+		for (const p of sectionParts(house)) {
+			const surface = p.buildingSurface;
+			if (!surface) throw Error('Missing surface on ' + p.id);
+			expect(p.finish).toBeUndefined();
+			const finish = projectBuildingSurface(p).finish;
+			expect(finish, p.id).toBe(expected[surface.slot].finish);
+			finishes.add(expected[surface.slot].finish);
 		}
+		expect(finishes.size).toBeGreaterThanOrEqual(3);
 	}
 });
-// The scene dispatches architectural prints by catalogue code. Physical corrugation and
-// moulded ribs also carry repeating lines. Frosted acrylic has only grazing colour and microrelief.
-function linePattern(p: Part) {
-	if (!p.finish) throw Error('Missing body finish');
-	const recipe = resolveFinish(p.finish, p.token);
-	if (recipe.kind === 'pattern') return [1, 2, 6].includes(printPatterns[recipe.id]);
-	if (recipe.kind === 'diagram')
-		return !recipe.coating && ['lamelle', 'welle', 'naht'].includes(recipe.pattern ?? '');
-	return (
-		recipe.kind === 'physical' && ['corrugated-metal', 'kunststoff-gerippt'].includes(recipe.id)
-	);
-}
-function checkFinish(p: Part) {
-	if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
-	if (p.source.objectId.includes('parapet'))
-		expect(p.finish).toBe(p.source.slot === 'edge' ? 'metall-messing' : 'perforated-metal');
-	if (
-		p.id.includes('/body/') &&
-		p.source.objectId.startsWith('kit-capsule') &&
-		p.source.slot === 'shell'
-	)
-		expect(p.finish).toBe('acryl-matt');
-	if (p.id.endsWith('/deck')) expect(p.finish).toBe(houseSurfaces.deck.finish);
-}
 test('the roof ornament sits on the final deck of the supported volume', () => {
 	for (const t of typologies) {
 		const house = specimen(2, t),

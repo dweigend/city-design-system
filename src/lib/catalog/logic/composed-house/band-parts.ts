@@ -7,7 +7,7 @@ import {
 	shellSurface,
 	roleSurface,
 	type BandAccent,
-	type HouseSurfaces,
+	type SectionSurfaces,
 	type Surface
 } from './surfaces';
 
@@ -49,7 +49,7 @@ function ring(x: number, y: number, w: number, d: number, r: number): XY[] {
 }
 
 /** Extrudes the band in closed courses around a recessed glazing strip and the surveyed court. */
-export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
+export function bandParts(body: Body, surfaces: SectionSurfaces, accent: BandAccent) {
 	const { id, objectId, variant, seed, band } = body;
 	const [x, y, z] = body.position,
 		[w, d, h] = body.size;

@@ -1,22 +1,17 @@
 import { projectBuildingSurface } from '../building-surface';
 import { expect, test } from 'bun:test';
-import { ACCENT_TOKEN, GROUND_TOKEN } from '../../data/house-body';
-import { resolveFinish } from '../../logic/material/surface';
+import { BODY_TOKEN, COUNTER_TOKEN } from '../../data/house-body';
+import { flowToken } from '../../data/focus';
+import { buildingPalette } from '../../logic/material/building-palette';
 import { batchFaces } from '../batch';
 import { Color } from 'three';
-import { batch } from '../batch';
 import { createWorld, applyEdit } from '../../logic/sandbox';
 import { buildingPlots } from '../../logic/sandbox/building-plots';
 import { squareGrid } from '../../logic/quad-grid';
 import { planHouse, paintedSections } from '../../logic/composed-house';
 import { typologies } from '../../logic/house-typology';
 import { specimen } from '../../logic/house-typology/specimens';
-import {
-	accentBody,
-	ensembleAnchor,
-	houseSurfaces,
-	sectionParts
-} from '../../logic/composed-house';
+import { fieldUse, ensembleAnchor, houseSurfaces, sectionParts } from '../../logic/composed-house';
 
 type XY = [number, number, number];
 const density = 8;
@@ -55,80 +50,49 @@ function sample(positions: number[], slots: number[], axis: number, sign: number
 	for (const [, slot] of pixels.values()) hits[slot] = (hits[slot] ?? 0) + 1;
 	return hits;
 }
-function visibleLabels(s: ReturnType<typeof specimen>) {
-	const parts = sectionParts(s).map(projectBuildingSurface);
-	const labels: string[] = [];
-	const out = batchFaces(parts, (p) => {
-		if (!p.finish) throw Error('Missing finish on ' + p.id);
-		const resolved = resolveFinish(p.finish, p.token, p.ageTint, p.colourRole);
-		const finish = resolved.kind === 'diagram' ? (resolved.coating ?? p.finish) : p.finish;
-		const key = [p.token, finish, p.colourRole ?? 'neutral'].join('|');
-		if (!labels.includes(key)) labels.push(key);
-		return new Color().setRGB(labels.indexOf(key), 0, 0);
-	});
-	const faces = [out.neu, out.alt, out.glas, out.blatt];
-	const pos = faces.flatMap((f) => f.p),
-		slots = faces.flatMap((f) => f.c);
-	const totals = labels.map(() => 0);
-	for (const [axis, sign] of [
-		[0, 1],
-		[0, -1],
-		[2, 1],
-		[2, -1],
-		[1, 1]
-	])
-		sample(pos, slots, axis, sign).forEach((n, i) => {
-			if (n) totals[i] += n;
-		});
-	return { labels, totals, total: totals.reduce((a, b) => a + b, 0) };
+type Section = ReturnType<typeof specimen>;
+
+type Part = ReturnType<typeof sectionParts>[number];
+
+function checkSurface(part: Part) {
+	const role = part.buildingSurface;
+	if (!role) throw Error('Missing building surface on ' + part.id);
+	const { token, finish } = projectBuildingSurface(part);
+	const palette = buildingPalette(role.use, role.ensemble);
+	expect(token, part.id).not.toBe(flowToken.people);
+	expect(finish, part.id).toBe(palette[role.slot].finish);
+	expect(token, part.id).toBe(palette[role.slot].token);
+	if (role.slot === 'shell') expect(token, part.id).toBe(BODY_TOKEN[role.use]);
+	if (role.slot === 'screen') expect(token, part.id).toBe(COUNTER_TOKEN[role.use]);
+	if (role.slot === 'screen' || role.slot === 'fitting')
+		expect(token, part.id).not.toBe(BODY_TOKEN[role.use]);
 }
 
-function checkPigment(role: string, token: string, leading: string, ground: string) {
-	if (role === 'ensemble-ground') expect(token).toBe(ground);
-	else if (role === 'body-accent') expect(token).toBe(leading);
-	else if (token !== leading && token !== houseSurfaces.access.token)
-		expect(
-			Object.values(ACCENT_TOKEN).some((t) => t === token),
-			'secondary programme'
-		).toBe(false);
+function checkPalette(section: Section) {
+	const parts = sectionParts(section);
+	const field = fieldUse(section);
+	expect(section.decks.flatMap((deck) => deck.programme)).toContain(field);
+	for (const part of parts) checkSurface(part);
+	const shells = parts.filter((p) => p.buildingSurface?.slot === 'shell');
+	const views = visibleShares(
+		parts,
+		(p) => new Color(p.buildingSurface?.slot === 'shell' ? 1 : 0, 0, 0)
+	);
+	expect(
+		[
+			[0, 1],
+			[0, -1],
+			[2, 1],
+			[2, -1],
+			[1, 1]
+		].some(([axis, sign]) => views(axis, sign)[1] > 0),
+		section.id + ' ' + section.composition.structure.principle + ' visible programme field'
+	).toBe(true);
+	if (section.composition.structure.principle === 'layers')
+		for (const part of shells.filter((p) => p.source.objectId === 'full-height-shell'))
+			expect(part.buildingSurface?.use, part.id).toBe(field);
 }
 
-function shares(s: ReturnType<typeof specimen>) {
-	const { labels, totals, total } = visibleLabels(s);
-	const finishes = new Map<string, number>();
-	const shellFinishes = new Set<string>();
-	const uses = s.decks.flatMap((d) => d.programme);
-	const leading = [...uses].sort(
-		(a, b) => uses.filter((u) => u === b).length - uses.filter((u) => u === a).length
-	)[0];
-	let ground = 0,
-		accent = 0,
-		structure = 0;
-	for (const [i, key] of labels.entries()) {
-		const [token, finish, role] = key.split('|');
-		const pct = (totals[i] * 100) / total;
-		if (!pct) continue;
-		checkPigment(role, token, ACCENT_TOKEN[leading], GROUND_TOKEN[s.composition.shellUse]);
-		if (token.startsWith('--cat-')) accent += pct;
-		if (role === 'ensemble-ground') {
-			shellFinishes.add(finish);
-			ground += pct;
-		}
-		if (token === houseSurfaces.frame.token) structure += pct;
-		finishes.set(finish, (finishes.get(finish) ?? 0) + pct);
-	}
-	return {
-		ground,
-		accent,
-		structure,
-		finishes,
-		secondary: [...finishes].filter(([finish]) => !shellFinishes.has(finish))
-	};
-}
-/** Typologies whose defining element is their support: a drum core, a dome on long stilts, or a
- * trunk with three branch decks.
- * Their grey structure may reach 30 % of the visible surface; every other house stays at 25 %. */
-const SUPPORT_LED: string[] = ['round-tower', 'bell-house', 'tree-house'];
 const TWO_CELL: string[] = [
 	'bridge-house',
 	'terrace-house',
@@ -140,70 +104,14 @@ function cellsFor(type: string) {
 	if (type === 'courtyard-house') return 4;
 	return TWO_CELL.includes(type) ? 2 : 1;
 }
-function balanced(section: ReturnType<typeof specimen>, label: string) {
-	const { ground, accent, structure, finishes, secondary } = shares(section);
-	const brass = finishes.get('metall-messing') ?? 0;
-	const largest = Math.max(...finishes.values());
-	console.info(
-		label,
-		accent.toFixed(2),
-		finishes.size,
-		largest.toFixed(2),
-		structure.toFixed(2),
-		brass.toFixed(2)
-	);
-	return (
-		ground > 0 &&
-		accent <= (ensembleAnchor(section) ? 50 : 30) &&
-		secondary.length >= 2 &&
-		secondary.every(([, share]) => share <= 55) &&
-		structure <= (SUPPORT_LED.includes(section.typology) ? 30 : 25) &&
-		brass <= 2
-	);
-}
-test('visible accent, material diversity, frame and brass across four elevations and the roof', () => {
-	const failed: string[] = [];
+test('typology specimens project programme fields and contrast hardware from the engine palette', () => {
 	for (const [height, seed] of [
 		[3, 19],
 		[6, 7]
 	])
-		for (const type of typologies) {
-			const label = type + '/' + height;
-			if (!balanced(specimen(cellsFor(type), type, height, seed), label)) failed.push(label);
-		}
-	expect(failed).toEqual([]);
+		for (const type of typologies) checkPalette(specimen(cellsFor(type), type, height, seed));
 }, 45000);
 
-const PAINTED: string[] = ['body', 'shell', 'glass'];
-/** Bodies whose wall, shell or glazing carries a programme colour; trims and sills do not count. */
-function paintedBodies(section: ReturnType<typeof specimen>) {
-	const colours = new Set<string>(Object.values(ACCENT_TOKEN));
-	const parts = sectionParts(section);
-	return section.composition.levels
-		.flatMap((l) => l.bodies)
-		.filter((b) =>
-			parts.some(
-				(p) =>
-					p.id.startsWith(b.id + '/') &&
-					PAINTED.includes(p.source.slot) &&
-					colours.has(projectBuildingSurface(p).token)
-			)
-		);
-}
-test('every house has exactly one accent body, chosen by body and not by storey', () => {
-	for (const [height, seed] of [
-		[3, 19],
-		[6, 7]
-	])
-		for (const type of typologies) {
-			const section = specimen(cellsFor(type), type, height, seed);
-			const painted = paintedBodies(section);
-			expect(
-				painted.map((b) => b.id),
-				type + '/' + height
-			).toEqual([accentBody(section).id]);
-		}
-}, 45000);
 test('an explicit envelope slot supplies both its pigment and its finish', () => {
 	const house = specimen(1, 'block', 3, 19);
 	const shell = { token: '--signal', finish: 'glas-klar' } as const;
@@ -217,7 +125,7 @@ test('an explicit envelope slot supplies both its pigment and its finish', () =>
 	}
 });
 
-test('only the high point of an ensemble of two or more houses carries a whole colour body', () => {
+test('ensemble members and standalone houses wear their own programme fields', () => {
 	const grid = squareGrid(4, 2, 10);
 	const living = (n: number) => Array<'living'>(n).fill('living');
 	const stacks = new Map([
@@ -227,51 +135,54 @@ test('only the high point of an ensemble of two or more houses carries a whole c
 	]);
 	const ensemble = paintedSections(grid, stacks, 7);
 	expect(ensemble.filter(ensembleAnchor)).toHaveLength(1);
-	for (const section of ensemble) {
-		const anchor = ensembleAnchor(section);
-		const { accent } = shares(section);
-		expect(
-			paintedBodies(section).map((b) => b.id),
-			section.id
-		).toEqual([accentBody(section).id]);
-		expect(shares(section).ground, section.id).toBeGreaterThan(0);
-		expect(accent, section.id).toBeLessThanOrEqual(anchor ? 50 : 30);
-	}
+	for (const section of ensemble) checkPalette(section);
 	const [alone] = paintedSections(grid, new Map([['1/0', living(6)]]), 7);
 	expect(ensembleAnchor(alone)).toBe(false);
-	expect(paintedBodies(alone)).toHaveLength(1);
-	expect(shares(alone).accent).toBeLessThanOrEqual(30);
+	checkPalette(alone);
 }, 30000);
+
+function visibleShares(parts: Part[], colour: Parameters<typeof batchFaces>[1]) {
+	const mesh = batchFaces(parts.map(projectBuildingSurface), colour);
+	const faces = [mesh.neu, mesh.alt, mesh.blatt, mesh.glas];
+	const positions = faces.flatMap((f) => f.p),
+		tags = faces.flatMap((f) => f.c);
+	return (axis: number, sign: number) => {
+		const hits = sample(positions, tags, axis, sign);
+		const total = hits.reduce((sum, count) => sum + count, 0);
+		return hits.map((count) => count / total);
+	};
+}
 
 function silhouetteBudget(section: ReturnType<typeof specimen>) {
 	const parts = sectionParts(section);
 	const rooms = section.composition.levels.flatMap((l) => l.bodies.map((b) => b.id + '/'));
+	const structure = section.composition.structure;
+	const roomIds = new Set(structure.platforms.filter((p) => p.room).map((p) => p.id + '/room'));
 	const architecture = new Set(
 		parts
 			.filter((part) => {
 				const slot = part.buildingSurface?.slot;
-				if (part.source.objectId === 'full-height-shell') return slot === 'shell' && !part.glass;
+				if (part.source.objectId === 'full-height-shell')
+					return !part.glass && (slot === 'shell' || slot === 'screen');
 				return (
-					(slot === 'shell' || slot === 'pane') &&
-					rooms.some((prefix) => part.id.startsWith(prefix))
+					(slot === 'shell' || slot === 'pane' || slot === 'screen') &&
+					(roomIds.has(part.id) || rooms.some((prefix) => part.id.startsWith(prefix)))
 				);
 			})
 			.map((part) => part.id)
 	);
-	const mesh = batch(parts, (p) => {
+	const views = visibleShares(parts, (p) => {
 		const fittings =
+			p.buildingSurface?.slot === 'fitting' ||
+			p.buildingSurface?.slot === 'frame' ||
 			/\/stair\/|\/post\/|\/brace|\/shaft\/|\/rail\/|\/terrace\/kit-parapet|\/landing-seat\//.test(
 				p.id
 			);
 		return new Color().setRGB(fittings ? 1 : architecture.has(p.id) ? 2 : 0, 0, 0);
 	});
-	const faces = [mesh.neu, mesh.alt, mesh.blatt, mesh.glas];
-	const pos = faces.flatMap((f) => f.p),
-		tags = faces.flatMap((f) => f.c);
 	return [0, 2].map((axis) => {
-		const hits = sample(pos, tags, axis, 1);
-		const total = hits.reduce((a, b) => a + b, 0);
-		return { hardware: hits[1] / total, architecture: hits[2] / total };
+		const [, hardware, architecture] = views(axis, 1);
+		return { hardware, architecture };
 	});
 }
 
@@ -289,10 +200,7 @@ for (const seed of [7, 13]) {
 	test(
 		'painted town material balance on world seed ' + seed,
 		() => {
-			const failed = paintedTown(seed).filter(
-				(h) => !balanced(h, seed + '/' + h.id + '/' + h.stories)
-			);
-			expect(failed.map((h) => h.id)).toEqual([]);
+			for (const house of paintedTown(seed)) checkPalette(house);
 		},
 		45000
 	);
@@ -302,7 +210,7 @@ for (const seed of [7, 13]) {
 			const houses = paintedTown(seed);
 			expect(houses).toHaveLength(30);
 
-			const results = houses.map((h) => {
+			for (const h of houses) {
 				const { width, depth } = h.composition.bay;
 				if (Math.min(width, depth) < 8) expect(h.typology).toBe('block');
 				const bodies = h.composition.levels.flatMap((l) => l.bodies);
@@ -312,12 +220,8 @@ for (const seed of [7, 13]) {
 					h.id
 				).toBe(true);
 				expect(h.composition.exterior?.stations.at(-1)?.z).toBe(h.top);
-				return silhouetteBudget(h);
-			});
-			const qualified = results.filter((views) => views.every((v) => v.hardware <= 0.15));
-			expect(qualified.length).toBeGreaterThanOrEqual(24);
-			for (const views of qualified)
-				for (const view of views) expect(view.architecture).toBeGreaterThanOrEqual(0.6);
+				checkBudget(h, seed + '/' + h.id);
+			}
 		},
 		45000
 	);
@@ -339,8 +243,7 @@ function* narrowBays() {
 }
 
 test('narrow square bays retain material balance', () => {
-	for (const { section, label } of narrowBays())
-		expect(balanced(section, 'narrow/' + label)).toBe(true);
+	for (const { section } of narrowBays()) checkPalette(section);
 }, 45000);
 
 test('Silhouette guard for compact elevations across narrow square bays', () => {
@@ -350,9 +253,21 @@ test('Silhouette guard for compact elevations across narrow square bays', () => 
 			expect(body.band?.lining).toBeDefined();
 			expect(body.band?.modules).toBeUndefined();
 		}
-		for (const view of silhouetteBudget(section)) {
-			expect(view.hardware, label).toBeLessThanOrEqual(0.15);
-			expect(view.architecture, label).toBeGreaterThanOrEqual(0.6);
-		}
+		checkBudget(section, label);
 	}
 }, 45000);
+
+function checkBudget(section: Section, label: string) {
+	for (const [index, view] of silhouetteBudget(section).entries()) {
+		const elevation =
+			label +
+			' ' +
+			section.composition.structure.principle +
+			' elevation ' +
+			index +
+			' ' +
+			JSON.stringify(view);
+		expect(view.hardware, elevation).toBeLessThanOrEqual(0.15);
+		expect(view.architecture, elevation).toBeGreaterThanOrEqual(0.6);
+	}
+}

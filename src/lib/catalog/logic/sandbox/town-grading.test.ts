@@ -1,6 +1,11 @@
+import { pathSupports } from '../linear-path';
+import { cityCorridorPlan } from './city-corridors';
+import { ribbonClearance } from './ribbon-clearance.test-support';
+import { ribbonProfile } from '../walkway-network/ribbon-column';
+import type { MovementGraph } from '../movement-network';
 import { surveyTownWalk } from '../walkway-network';
 import { houseStair } from '../../data/house-stair';
-import type { Primitive } from '../parametrik/types';
+import type { Primitive, Vec3 } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import { required } from '../required';
 import { openingScene, createWorld, cityCentreView, cityCorridorSite, type World } from './index';
@@ -12,49 +17,94 @@ function checkBench(
 	p: Extract<Primitive, { kind: 'prism' }>,
 	ground: (x: number, y: number) => number
 ) {
-	const [a, b, , d] = p.polygon;
-	for (let i = 0; i <= 8; i++)
-		for (let j = 0; j <= 8; j++) {
-			const x = a[0] + ((b[0] - a[0]) * i) / 8 + ((d[0] - a[0]) * j) / 8;
-			const y = a[1] + ((b[1] - a[1]) * i) / 8 + ((d[1] - a[1]) * j) / 8;
-			const soil = ground(x, y);
-			expect(p.z - soil).toBeLessThan(0.001);
-			expect(p.z + p.height - soil).toBeGreaterThanOrEqual(0.049);
-		}
-}
-function checkWalk(parts: Primitive[], ground: (x: number, y: number) => number) {
-	const decks = parts.filter(
-		(p) => p.kind === 'mesh' && p.id.startsWith('town-walk/') && p.id.endsWith('/ramp')
+	const centre = p.polygon.reduce(
+		([x, y], [u, v]) => [x + u / p.polygon.length, y + v / p.polygon.length],
+		[0, 0]
 	);
-	expect(decks.length).toBeGreaterThan(0);
-	const lengths = decks.map((p) => (p.kind === 'mesh' ? checkRibbon(p, ground) : [0, 0]));
-	const length = lengths.reduce((sum, p) => sum + p[0], 0),
-		low = lengths.reduce((sum, p) => sum + p[1], 0);
-	expect(low).toBeGreaterThan(length / 2);
+	for (const [i, a] of p.polygon.entries()) {
+		const b = p.polygon[(i + 1) % p.polygon.length];
+		for (let j = 0; j <= 4; j++)
+			for (let k = 0; k <= 4 - j; k++) {
+				const x = centre[0] + ((a[0] - centre[0]) * j) / 4 + ((b[0] - centre[0]) * k) / 4;
+				const y = centre[1] + ((a[1] - centre[1]) * j) / 4 + ((b[1] - centre[1]) * k) / 4;
+				const soil = ground(x, y);
+				expect(p.z - soil).toBeLessThan(0.001);
+				expect(p.z + p.height - soil).toBeGreaterThanOrEqual(0.049);
+			}
+	}
 }
 
-function checkRibbon(
-	p: Extract<Primitive, { kind: 'mesh' }>,
+function checkConnected(graph: MovementGraph) {
+	expect(graph.unresolved).toEqual([]);
+	const neighbors = new Map(graph.ports.map((p) => [p.id, new Set<string>()]));
+	for (const e of graph.edges) {
+		neighbors.get(e.from)?.add(e.to);
+		neighbors.get(e.to)?.add(e.from);
+	}
+	const visited = new Set([graph.ports[0].id]);
+	for (const id of visited) for (const next of neighbors.get(id) ?? []) visited.add(next);
+	expect(visited.size).toBe(graph.ports.length);
+}
+
+function checkColumns(
+	path: Vec3[],
+	id: string,
+	parts: Map<string, Primitive>,
 	ground: (x: number, y: number) => number
 ) {
-	let low = 0,
-		length = 0;
-	let previous: number[] | undefined;
-	for (let i = 2; i < p.points.length; i += 4) {
-		const a = p.points[i],
-			b = p.points[i + 1],
-			centre = a.map((v, k) => (v + b[k]) / 2);
-		for (const q of [a, centre, b]) expect(ground(q[0], q[1]) - q[2], p.id).toBeLessThan(0.02);
-		if (previous) {
-			const run = Math.hypot(centre[0] - previous[0], centre[1] - previous[1]);
-			length += run;
-			if (centre[2] - ground(centre[0], centre[1]) <= 1.2) low += run;
-			expect(Math.abs(centre[2] - previous[2]) / run, p.id).toBeLessThanOrEqual(0.08 + 1e-7);
+	const stations = pathSupports(path, ribbonProfile.bay);
+	for (const [i, [x, y, z]] of stations.entries()) {
+		const base = ground(x, y);
+		const height = z - ribbonProfile.depth - base;
+		const pier = parts.get(id + '/pier/' + i);
+		if (height <= 0.04) expect(pier).toBeUndefined();
+		else {
+			if (pier?.kind !== 'cylinder') throw Error('Missing column on ' + id);
+			expect(pier.position[0]).toBeCloseTo(x, 7);
+			expect(pier.position[1]).toBeCloseTo(y, 7);
+			expect(pier.position[2]).toBeCloseTo(base, 7);
+			expect(pier.height).toBeCloseTo(height, 7);
+			expect(pier.radius).toBe(ribbonProfile.columnRadius);
 		}
-		previous = centre;
 	}
-	return [length, low];
 }
+
+function checkRibbon(mesh: Extract<Primitive, { kind: 'mesh' }>, world: World) {
+	const gaps = ribbonClearance(mesh, world.grid);
+	// At a court mouth the 0.60 m slab meets a bench graded up to 0.55 m above its base.
+	expect(Number.isFinite(gaps.ground), mesh.id).toBe(true);
+	expect(gaps.ground, mesh.id).toBeGreaterThanOrEqual(0.05 - 1e-7);
+	expect(gaps.water, mesh.id).toBeGreaterThanOrEqual(1.8 - 1e-7);
+	const path: Vec3[] = [];
+	for (let i = 2; i < mesh.points.length; i += 4) {
+		const a = mesh.points[i],
+			b = mesh.points[i + 1];
+		const centre: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, a[2]];
+		const prev = path.at(-1);
+		if (prev)
+			expect(
+				Math.abs(centre[2] - prev[2]) / Math.hypot(centre[0] - prev[0], centre[1] - prev[1])
+			).toBeLessThanOrEqual(0.08 + 1e-7);
+		path.push(centre);
+	}
+	return path;
+}
+
+function checkWalk(parts: Primitive[], world: World) {
+	const { graph } = required(cityCorridorPlan(world), 'town ribbon').plan;
+	checkConnected(graph);
+	const members = new Map(parts.map((p) => [p.id, p]));
+	const spans = graph.edges.filter((e) => e.kind === 'walkway' || e.kind === 'bridge');
+	expect(spans.length).toBeGreaterThan(0);
+	for (const e of spans) {
+		const mesh = members.get(e.id + '/ramp');
+		if (mesh?.kind !== 'mesh') throw Error('Missing walking surface on ' + e.id);
+		checkColumns(checkRibbon(mesh, world), e.id, members, (x, y) =>
+			walkingHeight(world.grid, x, y)
+		);
+	}
+}
+
 function checkTreadGoing(world: World) {
 	const site = required(cityCorridorSite(world), 'city walk');
 	const { spans, unresolved } = surveyTownWalk(...site, (x, y) =>
@@ -104,12 +154,12 @@ for (const [seed, terraceRows] of [
 			const city = required(world.state.city, 'planned town');
 			const ground = (x: number, y: number) => walkingHeight(world.grid, x, y);
 			const parts = cityCentreView(world);
-			checkWalk(parts, ground);
+			checkWalk(parts, world);
 			checkTreadGoing(world);
 			const groups = city.centres.flatMap((c) => c.ensembles);
 			expect(groups.length).toBeGreaterThan(0);
 			for (const g of groups) {
-				const p = parts.find((p) => p.id === 'court/' + g.court);
+				const p = parts.find((p) => p.id === 'court-lawn/' + g.court);
 				if (p?.kind !== 'prism') throw Error('Missing court floor');
 				checkBench(p, ground);
 				checkSeats(world, g.lots, ground);

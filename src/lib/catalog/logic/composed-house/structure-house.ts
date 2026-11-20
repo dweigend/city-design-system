@@ -7,10 +7,10 @@ import {
 import { houseObject, type HousePart, type StockPart } from './house-object';
 import { pipeBetween, slabOver } from './parts';
 import { tensionSkin } from './structure-skin';
-import { houseSurfaces, roleSurface, type HouseSurfaces, type Surface } from './surfaces';
+import { houseSurfaces, roleSurface, type SectionSurfaces, type Surface } from './surfaces';
 
 /** Assigns the palette surface of one colour-agnostic role slot. */
-function slotSurface(part: StructurePart, surfaces: HouseSurfaces): Surface {
+function slotSurface(part: StructurePart, surfaces: SectionSurfaces): Surface {
 	const { slot, use } = part.surface;
 	if (part.element === 'access') return surfaces.access;
 	if (part.element === 'room') return roleSurface(surfaces[use], 'shell');
@@ -54,7 +54,7 @@ const BEARING: ReadonlySet<StructurePart['element']> = new Set(['strut', 'platfo
  */
 export function structureHouse(
 	structure: HouseStructure,
-	surfaces: HouseSurfaces = houseSurfaces,
+	surfaces: SectionSurfaces = houseSurfaces,
 	solve: SkinSolver = tensionSkin
 ): HousePart[] {
 	return structureParts(structure, solve).map((part) => ({
