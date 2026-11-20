@@ -8,7 +8,7 @@ import type { World } from './world-contract';
 
 type Crown = Pick<
 	Extract<Primitive, { kind: 'dome' }>,
-	'id' | 'kind' | 'position' | 'radius' | 'height' | 'facets' | 'edges'
+	'id' | 'kind' | 'position' | 'radius' | 'height' | 'edges'
 > & { slot: 'foliage' };
 
 const candidates = new WeakMap<TerrainGrid, TerrainCell[]>();
@@ -58,8 +58,8 @@ function rootLevel(grid: TerrainGrid, x: number, y: number, radius: number, grou
 	);
 }
 
-// A coppice has a taller centre and a pair of lower outer crowns. Keep the
-// entire group inside its parcel so a ribbon or occupied lot can border it.
+// Two overlapping, round crowns form a low bank thicket. Taller growth is
+// limited to the broad central crown on parcels with more cover.
 function coppice(world: World, cell: TerrainCell): Crown[] {
 	const r = Math.min(2.8, inradius(cell)) * 0.94;
 	if (r < 0.85) return [];
@@ -67,14 +67,14 @@ function coppice(world: World, cell: TerrainCell): Crown[] {
 	const theta = 2 * Math.PI * hashUnit(world.seed, cell.id, 'coppice-bearing');
 	const cover = hashUnit(world.seed, cell.id, 'coppice-height');
 	const parts: Crown[] = [];
-	for (const [i, side] of [0, -1, 1].entries()) {
-		const dx = side * 0.48 * r * Math.cos(theta),
-			dy = side * 0.48 * r * Math.sin(theta);
+	for (const [i, side] of [0, 1].entries()) {
+		const dx = side * 0.5 * r * Math.cos(theta),
+			dy = side * 0.5 * r * Math.sin(theta);
 		const cx = x + dx,
 			cy = y + dy,
 			ground = walkingHeight(world.grid, cx, cy);
-		const radius = r * (side === 0 ? 0.68 : 0.44);
-		const height = radius * (side === 0 ? 2.0 + cover : 0.95 + cover * 0.45);
+		const radius = r * (side === 0 ? 0.9 : 0.43);
+		const height = radius * (side === 0 ? 0.72 + 0.56 * cover ** 2 : 0.64 + cover * 0.2);
 		if (!Number.isFinite(ground)) continue;
 		const base = rootLevel(world.grid, cx, cy, radius, ground);
 		parts.push({
@@ -84,8 +84,7 @@ function coppice(world: World, cell: TerrainCell): Crown[] {
 			id: 'bank-coppice/' + cell.id + '/' + i,
 			position: [cx, cy, base],
 			radius,
-			height: height + ground - base,
-			facets: 1
+			height: height + ground - base
 		});
 	}
 	return parts;
