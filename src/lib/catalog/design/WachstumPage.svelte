@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DesignShell from './DesignShell.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import VerfahrenMatrix from '../bibel/VerfahrenMatrix.svelte';
 	import WachstumDemo from '../modellierung/WachstumDemo.svelte';
 	import FeldDemo from '../modellierung/FeldDemo.svelte';
@@ -22,6 +23,8 @@
 <svelte:head><title>Growth · City Design System</title></svelte:head>
 
 <DesignShell title="Growth">
+	<DesignPrinciples page="growth" />
+
 	<Abschnitt id={W.wegeZuerst.id} titel={W.wegeZuerst.titel} lead={W.wegeZuerst.lead}>
 		<WachstumDemo />
 	</Abschnitt>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DesignShell from './DesignShell.svelte';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import {
 		DemoKarte,
 		FarbeLoop,
@@ -32,6 +33,8 @@
 	<section id={K.pickerAbschnitt.id} aria-label={K.pickerAbschnitt.titel}>
 		<MaterialPicker bind:zustand />
 	</section>
+
+	<DesignPrinciples page="material" />
 
 	<div class="demos">
 		<DemoKarte {...K.farbZielKarte}><FarbZiel /></DemoKarte>
