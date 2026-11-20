@@ -5,17 +5,27 @@ export const cabinPaint = {
 	finish: 'metall-lackiert',
 	token: '--paper'
 } as const;
-export const cabinBrass = {
+export const cabinInk = {
 	material: 'metal',
-	finish: 'metall-messing',
-	token: '--cat-living'
+	finish: 'metall-graphit',
+	token: '--ink'
 } as const;
-export const cabinGlass = { material: 'acrylic', finish: 'acryl-matt', token: '--paper' } as const;
+export const cabinGlass = {
+	material: 'acrylic',
+	finish: 'acryl-matt',
+	token: '--blueprint'
+} as const;
 
-/** A 0.18 m brass reveal holds the pane 0.14 m behind the outward-facing lip. */
-export function cabinPort(front: number, height: number, edge: string, pane: string) {
+/** A 0.18 m graphite reveal holds the pane 0.14 m behind the outward-facing lip. */
+export function cabinPort(
+	front: number,
+	height: number,
+	edge: string,
+	pane: string,
+	direction = 1
+) {
 	return [
-		ring([front - 0.09, 0, height], 0.55, 0.43, 0.18, edge),
-		ring([front - 0.155, 0, height], 0.435, 0, 0.03, pane)
+		ring([front - direction * 0.09, 0, height], 0.66, 0.52, 0.18, edge),
+		ring([front - direction * 0.155, 0, height], 0.525, 0, 0.03, pane)
 	];
 }
