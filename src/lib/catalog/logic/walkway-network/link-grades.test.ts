@@ -1,3 +1,5 @@
+import { cityCorridorSite, openingScene } from '../sandbox';
+import { required } from '../required';
 import { expect, test } from 'bun:test';
 import type { Vec3 } from '../parametrik/types';
 import { gradeWalkLinks } from './index';
@@ -57,3 +59,32 @@ test('fixed endpoints require two full goings even for a rise within numerical t
 		expect(fit.requiredRun).toBe(fit.availableRun);
 	}
 });
+
+// Clear centreline lengths from the swept-path survey, after both mouth setbacks.
+for (const [seed, from, to, clearRun, originalRise, gradedRise] of [
+	[7, '32/35', '32/34', 3.107688393765594, -2.5, -1.53],
+	[29, '26/32', '26/36', 5.209529325940333, 3.8, 2.72]
+] as const) {
+	test(
+		'the surveyed straight flight fits seed ' + seed + ' link ' + from + '>' + to,
+		() => {
+			const [routes, station, courts] = required(
+				cityCorridorSite(openingScene(seed).world),
+				'city walk'
+			);
+			expect(routes.some((path) => path.some((id, i) => id === from && path[i + 1] === to))).toBe(
+				true
+			);
+			const ends = new Map(courts.map((c) => [c.id, c.position]));
+			const z = (id: string) => (ends.get(id) ?? station(id))[2];
+			const link = { from, to, a: at(0, z(from)), b: at(clearRun, z(to)) };
+			expect(link.b[2] - link.a[2]).toBeCloseTo(originalRise);
+			const [graded] = gradeWalkLinks([link], ends, townStairs);
+			expect(graded.b[2] - graded.a[2]).toBeCloseTo(gradedRise, 6);
+			expect(graded.requiredRun).toBeLessThanOrEqual(clearRun);
+			expect(graded.availableRun).toBe(clearRun);
+			expect(graded.a).toEqual(link.a);
+		},
+		60000
+	);
+}
