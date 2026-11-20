@@ -8,7 +8,8 @@ test('the bible shell and city batch receive the same projected ensemble finish'
 	const [shells] = materialSheet('--paper');
 	for (const sample of shells.samples) {
 		const parts = sample.parts();
-		const shell = parts.find((p) => p.buildingSurface?.slot === 'shell')!;
+		const shell = parts.find((p) => p.buildingSurface?.slot === 'shell');
+		if (!shell) throw new Error('Missing shell on ' + sample.id);
 		const expected = projectBuildingSurface(shell);
 		expect(shell.finish).toBeUndefined();
 		expect(expected.colourRole).toBe('ensemble-ground');
