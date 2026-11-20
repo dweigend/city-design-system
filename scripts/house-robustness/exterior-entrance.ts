@@ -1,6 +1,6 @@
 import { clipPolygon, type Point2 } from '../../src/lib/catalog/logic/ansicht/geometrie';
 import type { planHouse, sectionParts } from '../../src/lib/catalog/logic/composed-house';
-import type { Vec3 } from '../../src/lib/catalog/logic/parametrik/types';
+import { crossProduct, type Vec3 } from '../../src/lib/catalog/logic/parametrik/types';
 import { houseStair } from '../../src/lib/catalog/data/house-stair';
 
 const axes: Vec3[] = [
@@ -10,9 +10,6 @@ const axes: Vec3[] = [
 ];
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const minus = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-function cross([ax, ay, az]: Vec3, [bx, by, bz]: Vec3): Vec3 {
-	return [ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx];
-}
 function overlaps(points: Vec3[], half: Vec3, axis: Vec3) {
 	const span = points.map((p) => dot(p, axis));
 	const radius = dot(half, axis.map(Math.abs) as Vec3);
@@ -24,8 +21,8 @@ function intersects(points: Vec3[], half: Vec3) {
 	if (!axes.every((axis) => overlaps(points, half, axis))) return false;
 	const edges = points.map((p, i) => minus(points[(i + 1) % points.length], p));
 	return (
-		overlaps(points, half, cross(edges[0], edges[1])) &&
-		edges.every((e) => axes.every((axis) => overlaps(points, half, cross(e, axis))))
+		overlaps(points, half, crossProduct(edges[0], edges[1])) &&
+		edges.every((e) => axes.every((axis) => overlaps(points, half, crossProduct(e, axis))))
 	);
 }
 

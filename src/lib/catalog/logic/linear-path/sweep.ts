@@ -1,10 +1,7 @@
-import type { Vec3 } from '../parametrik/types';
+import { crossProduct, type Vec3 } from '../parametrik/types';
 
 type Offset = readonly [number, number];
 const delta = (p: Vec3, q: Vec3): Vec3 => [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
-function cross([ax, ay, az]: Vec3, [bx, by, bz]: Vec3): Vec3 {
-	return [ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx];
-}
 function unit(v: Vec3): Vec3 {
 	const d = Math.hypot(...v);
 	if (d < 1e-12) throw new RangeError('A sweep station needs a tangent');
@@ -25,9 +22,9 @@ export function sweepProfile(
 		const after = i === path.length - 1 && closed ? 1 : Math.min(path.length - 1, i + 1);
 		const direction = delta(path[before], path[after]);
 		const tangent = unit(Math.hypot(...direction) > 1e-12 ? direction : delta(p, path[after]));
-		const normal = cross([0, 0, 1], tangent);
-		const left = unit(Math.hypot(...normal) > 1e-10 ? normal : cross(tangent, [1, 0, 0]));
-		const up = cross(tangent, left);
+		const normal = crossProduct([0, 0, 1], tangent);
+		const left = unit(Math.hypot(...normal) > 1e-10 ? normal : crossProduct(tangent, [1, 0, 0]));
+		const up = crossProduct(tangent, left);
 		rings.push(
 			profile.map(([side, height]) => p.map((v, k) => v + left[k] * side + up[k] * height) as Vec3)
 		);
