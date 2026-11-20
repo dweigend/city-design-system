@@ -1,3 +1,4 @@
+import type { RailEdgeReport } from './rail-edge';
 import { flightRail } from './flight-rail';
 import { treadSpine, pairedTreads, type Station } from './stair-track';
 import { flightStations } from './flight-stations';
@@ -95,7 +96,7 @@ function roofBypass(s: Section, station: Vec3, door: Vec3): Vec3[] {
 	];
 }
 /** Instantiates rigid straight treads and level connections to each landing. */
-export function flightAccess(s: Section, surfaces: HouseSurfaces) {
+export function flightAccess(s: Section, surfaces: HouseSurfaces, reports?: RailEdgeReport[]) {
 	const { flightWidth: width } = s.composition;
 	const route = flightRoute(s),
 		id = s.id + '/stair/';
@@ -154,13 +155,17 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 		...walk,
 		...flightRail(
 			s,
-			[
-				{ station: route.legs[0].ends[0], z: route.legs[0].from[2] },
-				...route.legs.map((l) => ({ station: l.ends[1], z: l.to[2] }))
-			],
+			route.legs.map((l) => ({
+				flight: l.flight,
+				a: l.ends[0],
+				b: l.ends[1],
+				high: l.from[2],
+				low: l.to[2]
+			})),
 			width,
 			surfaces,
-			walk
+			walk,
+			reports
 		)
 	];
 }

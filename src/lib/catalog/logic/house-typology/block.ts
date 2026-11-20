@@ -73,7 +73,7 @@ function walkingPlate(
 		w,
 		d,
 		plan.sign,
-		exterior ? undefined : { x, halfWidth: 0.39, depth: 0.76 }
+		exterior ? undefined : { x, halfWidth: 0.58, depth: 0.76 }
 	);
 	return { ...plate, kind: 'prism', polygon, z, height: h };
 }

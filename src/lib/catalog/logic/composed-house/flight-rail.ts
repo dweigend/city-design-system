@@ -6,98 +6,121 @@ import type { Section } from './types';
 import type { Vec3 } from '../parametrik/types';
 import { houseObject, type StockPart } from './house-object';
 import { roleSurface, type HouseSurfaces } from './surfaces';
-import { edge, type Station } from './stair-track';
+import {
+	edgeBays,
+	railDistance,
+	type RailLeg,
+	type RailEdgeReport,
+	type RailReason
+} from './rail-edge';
+import { postSeats } from './post-seats';
+import { bodyParts } from './provider';
 
 type Rail = Extract<StockPart, { kind: 'pipe' }>;
-type End = { station: Station; z: number };
-
-function length(a: Vec3, b: Vec3) {
-	return Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
-}
-
-// Sample equal distances along the stair edge, then measure each straight stock chord.
-function divide(points: Vec3[], distances: number[], count: number) {
-	let i = 1;
-	return Array.from({ length: count + 1 }, (_, j): Vec3 => {
-		const d = (distances[distances.length - 1] * j) / count;
-		while (i < distances.length - 1 && distances[i] < d) i++;
-		const t = (d - distances[i - 1]) / (distances[i] - distances[i - 1]);
-		return points[i - 1].map((v, k) => v + t * (points[i][k] - v)) as Vec3;
-	});
-}
-
-function joints(points: Vec3[], span: number) {
-	const distances = [0];
-	for (let i = 1; i < points.length; i++)
-		distances.push(distances[i - 1] + length(points[i - 1], points[i]));
-	const total = distances[distances.length - 1];
-	for (let count = Math.max(1, Math.ceil(total / span)); count >= 1; count--) {
-		const ends = divide(points, distances, count);
-		const scales = ends.slice(1).map((b, i) => length(ends[i], b) / span);
-		if (Math.min(...scales) >= 1 && Math.max(...scales) <= 1.15) return ends;
-		if (Math.max(...scales) > 1.15) break;
-	}
-	return [];
-}
-
 function segment(stock: Rail[], a: Vec3, b: Vec3, span: number, id: string) {
-	const distance = length(a, b),
+	const distance = railDistance(a, b),
 		scale = distance / span;
-	const axis = b.map((v, k) => (v - a[k]) / distance) as Vec3;
-	const horizontal = Math.hypot(axis[0], axis[1]);
-	const up = [(-axis[2] * axis[0]) / horizontal, (-axis[2] * axis[1]) / horizontal, horizontal];
-	// Adjacent bays share the end-post axis. Pivot about the top joint so pitched bays meet at turns.
-	const railHeight = stock[0].points[0][2];
-	const centre = a.map((v, k) => (v + b[k]) / 2 - up[k] * railHeight * scale);
+	const dx = b[0] - a[0],
+		dy = b[1] - a[1],
+		run = Math.hypot(dx, dy);
+	const [start, end] = stock[0].points;
+	const roll = Math.atan2(b[2] - a[2], run) - Math.atan2(end[2] - start[2], end[0] - start[0]);
+	const cos = Math.cos(roll),
+		sin = Math.sin(roll);
+	function mount([x, , z]: Vec3): Vec3 {
+		const along = scale * ((x - start[0]) * cos - (z - start[2]) * sin);
+		return [
+			a[0] + (along * dx) / run,
+			a[1] + (along * dy) / run,
+			a[2] + scale * ((x - start[0]) * sin + (z - start[2]) * cos)
+		];
+	}
 
 	return stock.map((p, i) => ({
 		...p,
 		id: id + '/' + i,
 		structuralRole: 'cantilever' as const,
 		radius: p.radius * scale,
-		points: p.points.map(
-			([x, , z]) => centre.map((v, k) => v + scale * (axis[k] * x + up[k] * z)) as Vec3
-		)
+		points: p.points.map(mount)
 	}));
 }
 
-/** Fits whole handrail bays along the surveyed outer edge, including the curved stair turns. */
+/** Fits both edges of every flight from the terrain up, reserving volume for the lower runs first. */
 export function flightRail(
 	s: Section,
-	ends: End[],
+	legs: RailLeg[],
 	width: number,
 	surfaces: HouseSurfaces,
-	walk: StockPart[]
+	walk: StockPart[],
+	reports?: RailEdgeReport[]
 ) {
-	const id = s.id + '/stair/rail/';
-	const object = houseObject('railing', 'standard', s.seed, {
-		instanceId: id,
-		slots: { frame: roleSurface(surfaces.frame, 'screen') }
-	});
-	const stock = object.parts.map((p) => {
-		if (p.kind !== 'pipe') throw Error('Expected a registered rail');
-		return p;
-	});
-	const [start, end] = stock[0].points;
-	const span = length(start, end);
-	const points = ends.map(({ station, z }): Vec3 => [
-		...edge(station, width / 2 - 0.09),
-		z + start[2]
-	]);
-	const path = joints(points, span);
+	const stockFor = (variant: string) =>
+		houseObject('railing', variant, s.seed, {
+			instanceId: s.id + '/stair/rail',
+			slots: { frame: roleSurface(surfaces.frame, 'screen') }
+		}).parts.map((p) => {
+			if (p.kind !== 'pipe') throw Error('Expected a registered rail');
+			return p;
+		});
+	const stocks = new Map<string, Rail[]>();
+	function fitting(a: Vec3, b: Vec3, small: boolean) {
+		const angle = Math.atan2(b[2] - a[2], Math.hypot(b[1] - a[1], b[0] - a[0]));
+		const pitch = Math.min(75, Math.max(0, Math.round((angle * 12) / Math.PI) * 15));
+		const variant = (small ? 'closure-post' : 'short-post') + (pitch ? '-' + pitch : '');
+		const stock = stocks.get(variant) ?? stockFor(variant);
+		stocks.set(variant, stock);
+		return stock;
+	}
+	const stock = stockFor('short-post'),
+		[start, end] = stock[0].points,
+		span = railDistance(start, end);
+	const seated = postSeats(walk);
 	const house = stairHouse(s, surfaces);
 	const clear = stairClearance(house);
+	const wallClear = stairClearance(
+		s.composition.levels.flatMap((l) => l.bodies.flatMap((b) => bodyParts(b, surfaces)))
+	);
 	const seats = s.composition.path === 'spiral' ? [] : landingSeats(walk, house, surfaces.deck);
 	let remaining = remainingAccessVolume(house, walk, seats);
-	return path.slice(1).flatMap((b, i) => {
-		const bay = segment(stock, path[i], b, span, id + i);
-		const cost = volume(bay);
-		if (
-			cost > remaining ||
-			!bay.every((p) => clear({ ...p, radius: p.radius + 0.16 }) && parcelFitsRail(s, p))
-		)
-			return [];
-		remaining -= cost;
-		return bay;
-	});
+	function omission(bay: Rail[]): RailReason | undefined {
+		if (!bay.every(clear) || !bay.slice(1).every(seated)) return 'clearance';
+		if (!wallClear({ ...bay[0], radius: bay[0].radius + 0.3 })) return 'wall';
+		if (!bay.every((p) => parcelFitsRail(s, p))) return 'parcel';
+		if (volume(bay) > remaining) return 'volume';
+	}
+	const groups = Map.groupBy(legs, (l) => l.flight);
+	return [...groups].reverse().flatMap(([flight, run]) =>
+		['outer', 'inner'].flatMap((side) => {
+			const report: RailEdgeReport = {
+				flight,
+				side: side === 'outer' ? 'outer' : 'inner',
+				length: 0,
+				covered: 0,
+				omitted: { wall: 0, clearance: 0, parcel: 0, volume: 0 }
+			};
+			reports?.push(report);
+			const offset = (width / 2 - 0.09) * (side === 'outer' ? 1 : -1);
+			return edgeBays(run, offset, span).flatMap(({ a, b, length, fits, small }, i) => {
+				report.length += length;
+				const raised = (p: Vec3): Vec3 => [p[0], p[1], p[2] + start[2] - 0.17];
+				const bay = fits
+					? segment(
+							fitting(a, b, small),
+							raised(a),
+							raised(b),
+							small ? span / 4 : span,
+							s.id + '/stair/rail/' + flight + '/' + side + '/' + i
+						)
+					: [];
+				const reason = fits ? omission(bay) : 'clearance';
+				if (reason) {
+					report.omitted[reason] += length;
+					return [];
+				}
+				report.covered += length;
+				remaining -= volume(bay);
+				return bay;
+			});
+		})
+	);
 }
