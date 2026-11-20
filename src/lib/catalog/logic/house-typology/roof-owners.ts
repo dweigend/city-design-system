@@ -19,14 +19,15 @@ function touch(a: Profile, b: Profile) {
 
 /** Selects one roof owner per component of touching occupied volumes and bearing decks. */
 export function roofOwners(sites: Survey[], context: EnsembleContext) {
-	const shapes = new Map(
+	const sections = new Map(
 		sites.map((site) => {
 			const { plan } = layout(site, context);
-			return [site, bearingCourses(plan, context).parts.map(profile)] as const;
+			const { parts, top } = bearingCourses(plan, context);
+			return [site, { shapes: parts.map(profile), top }] as const;
 		})
 	);
 	const linked = (a: Survey, b: Survey) =>
-		shapes.get(a)?.some((p) => shapes.get(b)?.some((q) => touch(p, q)));
+		sections.get(a)?.shapes.some((p) => sections.get(b)?.shapes.some((q) => touch(p, q)));
 	const owners = new Set<string>(),
 		pending = new Set(sites);
 	for (const first of pending) {
@@ -38,7 +39,11 @@ export function roofOwners(sites: Survey[], context: EnsembleContext) {
 					group.push(other);
 					pending.delete(other);
 				}
-		group.sort((a, b) => b.programme.length - a.programme.length || a.id.localeCompare(b.id));
+		group.sort(
+			(a, b) =>
+				(sections.get(b)?.top ?? b.ground) - (sections.get(a)?.top ?? a.ground) ||
+				a.id.localeCompare(b.id)
+		);
 		owners.add(group[0].id);
 	}
 	return owners;

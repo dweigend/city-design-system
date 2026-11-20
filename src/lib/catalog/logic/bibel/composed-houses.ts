@@ -22,12 +22,17 @@ function single(
 }
 function ensemble(): RulePlate {
 	const grid = squareGrid(3, 1, 10);
-	const stacks = new Map(grid.cells.map((c, i) => [c.id, mixed.slice(0, i + 2)]));
+	const stacks = new Map(
+		grid.cells.map((c, i) => [
+			c.id,
+			Array.from({ length: i + 6 }, (_, level) => mixed[level % mixed.length])
+		])
+	);
 	const houses = paintedSections(grid, stacks, 0);
 	return {
 		id: 'ensemble',
 		title: 'Three neighbours',
-		text: 'Bridges connect the occupied decks at their shared landing height.',
+		text: 'Two inhabited galleries cross the party walls at a common floor height.',
 		primitives: [
 			...houses.flatMap((h) => sectionParts(h)),
 			...houseLinks(grid, houses, 0).flatMap((b) => b.parts)
@@ -35,9 +40,9 @@ function ensemble(): RulePlate {
 	};
 }
 function publicWalk(): RulePlate {
-	const seed = 7,
-		grid = squareGrid(3, 3, 12);
-	const ids = ['0/0', '1/0', '1/1', '2/1', '1/2'];
+	const seed = 9,
+		grid = squareGrid(5, 5, 12);
+	const ids = ['0/1', '1/1', '2/1', '3/1', '4/1'];
 	const stacks = new Map(ids.map((id, i) => [id, mixed.slice(0, [2, 4, 1, 3, 2][i])]));
 	const houses = paintedSections(grid, stacks, seed);
 	const site = { terrain: () => 0, blocked: () => [], stock: [] };

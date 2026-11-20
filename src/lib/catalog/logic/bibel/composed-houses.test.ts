@@ -19,7 +19,7 @@ for (const [i, [title, system, storeys]] of singles.entries()) {
 		if (roof?.kind !== 'prism') throw Error('Missing roof deck');
 		for (const wall of walls) {
 			if (wall.kind !== 'mesh') throw Error('Missing wall mesh');
-			expect(wall.id).toContain(system);
+			expect(wall).toHaveProperty('source.variant', system);
 			expect(Math.max(...wall.points.map((p) => p[2]))).toBeCloseTo(roof.z + roof.height);
 		}
 		expect(
@@ -27,10 +27,29 @@ for (const [i, [title, system, storeys]] of singles.entries()) {
 		).toHaveLength(storeys - 1);
 	});
 }
-test('three neighbours share two level spans', () => {
-	const spans = plates[5].primitives.filter((p) => p.id.startsWith('link/') && p.kind === 'prism');
-	expect(new Set(spans.map((p) => p.id.split('/').slice(0, 4).join('/'))).size).toBe(2);
-	expect(spans.some((p) => p.id.includes('stair-bridge'))).toBe(false);
+test('three neighbours meet above the podium on both shared walls', () => {
+	const parts = plates[5].primitives;
+	for (const x of [-5, 5]) {
+		const rooms = parts.filter(
+			(p) =>
+				p.kind === 'prism' &&
+				p.id.includes('/body/') &&
+				p.z > 8 &&
+				p.polygon.filter(([u]) => Math.abs(u - x) < 1e-8).length >= 2
+		);
+		expect(
+			rooms.some(
+				(p) =>
+					p.kind === 'prism' &&
+					rooms.some(
+						(q) =>
+							q.kind === 'prism' &&
+							q.id.split('/level/')[0] !== p.id.split('/level/')[0] &&
+							Math.abs(q.z - p.z) < 1e-8
+					)
+			)
+		).toBe(true);
+	}
 });
 
 test('five separate roofs share a branching public walkway and registry pedestrians', () => {
