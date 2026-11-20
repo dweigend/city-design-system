@@ -3,7 +3,7 @@ import { Box3, Vector3 } from 'three/webgpu';
 import { assetRegistry, buildObject } from '../../logic/assets';
 import { build } from '../primitive-geometry';
 
-const groups = { 'street-life-': 116, 'kit-': 144, 'person-': 40 };
+const groups = { 'street-life-': 116, 'kit-': 153, 'person-': 40 };
 const seeds = [0, 1, 17, 2147483648, 4294967295];
 const override = { finish: 'holz-natur', token: '--signal' } as const;
 
