@@ -138,12 +138,10 @@ export function townDeck(
 	const network = ribbonNetwork(routes, stations);
 	const entries = passages.flatMap((route) => ribbonEntry(route, ground, plazas));
 	const deck = ribbonDeck(network, ground, plazas, { clear, water });
-	const walkers = network.reaches.flatMap((r) =>
-		townLife(
-			r.sections.map((s) => s.centre),
-			r.id,
-			seed
-		)
+	const walkers = townLife(
+		network.reaches.map((r) => ({ id: r.id, path: r.sections.map((s) => s.centre) })),
+		gardens.map((g) => g.landing),
+		seed
 	);
 	return [
 		...flushDecks(plazas).flatMap(courtLawn),

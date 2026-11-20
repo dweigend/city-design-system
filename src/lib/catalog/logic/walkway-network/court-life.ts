@@ -65,7 +65,7 @@ function visitors(survey: Survey, furniture: Placement[], landing?: Vec3) {
 	const { space, seed } = survey;
 	const result = [...furniture],
 		taken = result.map((p) => p.box);
-	let remaining = Math.max(1, Math.round(space.area / 17.5));
+	let remaining = Math.min(2, Math.max(1, Math.round(space.area / 120)));
 	if (landing) {
 		const near = {
 			...survey,
@@ -75,7 +75,7 @@ function visitors(survey: Survey, furniture: Placement[], landing?: Vec3) {
 					Math.hypot(b.p[0] - landing[0], b.p[1] - landing[1])
 			)
 		};
-		const group = positions(near, ['kit-scatter-group-3'], 'court/landing', taken).next().value;
+		const group = positions(near, ['kit-scatter-stand'], 'court/landing', taken).next().value;
 		if (
 			!group ||
 			Math.hypot(group.box.x - landing[0], group.box.y - landing[1]) +
@@ -85,22 +85,16 @@ function visitors(survey: Survey, furniture: Placement[], landing?: Vec3) {
 			return;
 		taken.push(group.box);
 		result.push(group);
-		remaining -= 3;
+		remaining--;
 	}
 	while (remaining > 0) {
 		const pose = hashUnit(seed, space.id, remaining) < 0.5 ? 'stand' : 'walk';
-		const sizes = [15, 7, 1].filter((n) => n <= remaining);
-		const choices = sizes.map((n) => ({ n, id: 'kit-scatter-' + (n === 1 ? pose : 'plaza-' + n) }));
-		const choice = choices
-			.map(({ n, id }) => ({
-				n,
-				placement: positions(survey, [id], 'court/' + remaining, taken).next().value
-			}))
-			.find((option) => option.placement);
-		if (!choice?.placement) return;
-		result.push(choice.placement);
-		taken.push(choice.placement.box);
-		remaining -= choice.n;
+		const visitor = positions(survey, ['kit-scatter-' + pose], 'court/' + remaining, taken).next()
+			.value;
+		if (!visitor) return;
+		result.push(visitor);
+		taken.push(visitor.box);
+		remaining--;
 	}
 	return result;
 }

@@ -4,6 +4,7 @@ import { Box2, Vector2 } from 'three/webgpu';
 import {
 	acceptanceScene,
 	centreLandmark,
+	cityCentreView,
 	composedProjection,
 	houseGroups,
 	openingScene,
@@ -160,16 +161,18 @@ function expectTransitClear(
 function expectWaterfront(world: World, view: View, safe: Box2, courts: Map<string, Box2>) {
 	const waterfront = world.state.city?.centres.find((c) => c.landmark.object === 'water-tower');
 	if (!waterfront) throw Error('Missing acceptance water tower');
-	expect(safe.containsBox(envelope(view, centreLandmark(world, waterfront)))).toBe(true);
+	// The complete exhibit leaves six percent of the usable span clear on either side.
+	const inset = safe.clone().expandByVector(safe.getSize(new Vector2()).multiplyScalar(-0.06));
+	expect(inset.containsBox(envelope(view, centreLandmark(world, waterfront)))).toBe(true);
 	const gates = new Set(waterfront.ensembles?.map((e) => e.court));
 	for (const gate of gates)
-		expect(safe.containsBox(required(courts.get(gate), 'waterfront court'))).toBe(true);
+		expect(inset.containsBox(required(courts.get(gate), 'waterfront court'))).toBe(true);
 	for (const route of world.state.city?.walk ?? []) {
 		if (!gates.has(route[0])) continue;
 		for (const id of route)
 			for (const corner of required(world.grid.cellsById.get(id), 'court approach').corners) {
 				const { x, y } = view.project(corner);
-				expect(safe.containsPoint(new Vector2(x, y))).toBe(true);
+				expect(inset.containsPoint(new Vector2(x, y))).toBe(true);
 			}
 	}
 }
@@ -203,6 +206,15 @@ test.each([
 		const canvas = new Box2(new Vector2(), new Vector2(width, height));
 		const safe = new Box2(new Vector2(0, top), new Vector2(right, bottom));
 		expectTransitClear(world, view, canvas, safe, additions);
+		const walkers = cityCentreView(world)
+			.filter((p) => p.kind === 'sphere')
+			.filter((p) => p.id.includes('/life/'))
+			.map((p) => view.project(p.position))
+			.filter(({ x, y }) => {
+				const point = new Vector2(x, y);
+				return safe.containsPoint(point) && !hudBoxes.some((b) => b.containsPoint(point));
+			});
+		expect(walkers.length).toBeWithin(1, 9);
 		const houses = composedProjection(world).filter((h) => !h.span);
 		const courts = world.state.city?.centres.flatMap((c) => c.ensembles ?? []) ?? [];
 		const boxes = courts.map((court) =>
