@@ -6,12 +6,15 @@ import { houseSeries, lengths, moduleSpan } from './house-series';
 import { rounded } from './kit-recipe';
 import { suggestions } from './suggestions';
 
-const depth = 5,
-	reveal = 0.35,
-	radius = 0.45;
+const reveal = 0.35;
+const bodySpans = [2.5, 3.75, ...lengths];
+const planDepth = (span: number) => Math.min(5, span);
+const cornerRadius = (span: number): 0.3 | 0.45 => (span < 5 ? 0.3 : 0.45);
 type Point = [number, number];
 
 function windowCourse(span: number, sill: number, v: number, entry: boolean) {
+	const depth = planDepth(span),
+		radius = cornerRadius(span);
 	const left = rounded(-(span - 0.85) / 2, 0, sill, 0.85, depth, 1, 'body');
 	if (entry && left.kind === 'prism') {
 		const x = -span / 2;
@@ -36,8 +39,10 @@ function windowCourse(span: number, sill: number, v: number, entry: boolean) {
 }
 
 function band(span: number, storeys: number, v: number) {
+	const depth = planDepth(span),
+		radius = cornerRadius(span);
 	const stock = [
-		castCourse(span, depth, 0, 1, false),
+		castCourse(span, depth, 0, 1, false, radius),
 		block(-span / 2 + reveal - 0.06, 0, 0, 0.12, 1.1, 2, 'trim')
 	];
 	for (let floor = 0; floor < storeys; floor++) {
@@ -45,7 +50,7 @@ function band(span: number, storeys: number, v: number) {
 		stock.push(...windowCourse(span, sill, v, floor === 0));
 		stock.push(
 			floor === storeys - 1
-				? castCourse(span, depth, sill + 1, STORY - 2, true)
+				? castCourse(span, depth, sill + 1, STORY - 2, true, radius)
 				: rounded(0, 0, sill + 1, span, depth, STORY - 1, 'body', radius)
 		);
 	}
@@ -54,9 +59,9 @@ function band(span: number, storeys: number, v: number) {
 
 function plinth(span: number, v: number) {
 	const h = 0.6 + 0.3 * v,
-		b = 0.45,
+		b = cornerRadius(span),
 		x = span / 2 + 0.3,
-		y = depth / 2 + 0.3;
+		y = planDepth(span) / 2 + 0.3;
 	const outline: Point[] = [
 		[-x + b, -y],
 		[x - b, -y],
@@ -73,8 +78,8 @@ export const storeyKit = [
 	...[1, 2].flatMap((n) =>
 		houseSeries(
 			'band-body-' + n + 's',
-			lengths,
-			(l) => [l, depth],
+			bodySpans,
+			(l) => [l, planDepth(l)],
 			['body', 'glass', 'trim'],
 			['plain', 'porthole-row', 'corner-window'],
 			(l, v) => band(l, n, v)
@@ -93,8 +98,8 @@ export const storeyKit = [
 	),
 	...houseSeries(
 		'plinth-chamfer',
-		lengths,
-		(l) => [moduleSpan(l + 0.6), moduleSpan(depth + 0.6)],
+		bodySpans,
+		(l) => [moduleSpan(l + 0.6), moduleSpan(planDepth(l) + 0.6)],
 		['body'],
 		['low', 'standard', 'high'],
 		plinth

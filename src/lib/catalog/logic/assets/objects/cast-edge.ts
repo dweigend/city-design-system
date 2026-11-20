@@ -1,9 +1,8 @@
 import type { Vec3 } from '../../parametrik/types';
 import { surface } from '../parts';
 
-const radius = 0.45;
 type XY = [number, number];
-function outline(w: number, d: number, inset: number, door: boolean): XY[] {
+function outline(w: number, d: number, inset: number, door: boolean, radius: number): XY[] {
 	const points: XY[] = [];
 	for (let q = 0; q < 4; q++) {
 		const cx = (q === 0 || q === 3 ? 1 : -1) * (w / 2 - radius),
@@ -38,12 +37,19 @@ function closeEnd(points: Vec3[], start: number, n: number, door: boolean, top: 
 	);
 }
 
-/** Casts the outside edge as a 0.45 m quarter-round at the roof or at the foot of a storey. */
-export function castCourse(w: number, d: number, z: number, height: number, roof: boolean) {
+/** Casts the outside edge as a quarter-round at the roof or at the foot of a storey. */
+export function castCourse(
+	w: number,
+	d: number,
+	z: number,
+	height: number,
+	roof: boolean,
+	radius: number
+) {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	function station(inset: number, level: number) {
-		const ring = outline(w, d, inset, !roof);
+		const ring = outline(w, d, inset, !roof, radius);
 		const start = points.length,
 			n = ring.length;
 		for (const [x, y] of ring) points.push([x, y, level]);
@@ -63,7 +69,7 @@ export function castCourse(w: number, d: number, z: number, height: number, roof
 		);
 	}
 	if (!roof) station(0, z + height);
-	const n = outline(w, d, 0, !roof).length,
+	const n = outline(w, d, 0, !roof, radius).length,
 		last = points.length - n;
 	triangles.push(
 		...closeEnd(points, 0, n, !roof, false),
