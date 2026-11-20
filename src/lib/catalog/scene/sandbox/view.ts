@@ -16,6 +16,7 @@ const SPAN_MAX = 1500;
 const CAMERA_DISTANCE = 1400;
 
 export type OpeningArea = {
+	featuredCentre?: { cellId: string; headingDeg: number };
 	top: number;
 	bottom: number;
 	right?: number;

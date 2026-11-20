@@ -1,7 +1,9 @@
+import { centreOpening } from './court-opening';
 import { openingOrigins } from './opening-origins';
 import { Box2, Box3, Vector2, Vector3 } from 'three/webgpu';
 import { houseSizes, scoreCrop } from './opening-score';
 import {
+	projector,
 	orientedProjection,
 	screenBounds,
 	surveyContext,
@@ -155,6 +157,34 @@ function sightlines(view: View, screen: OpeningScreen) {
 	return [[first, -1] as const, ...landscapeAngles.filter(([heading]) => heading !== first)];
 }
 
+// A full district includes its approaches and landmark; score its houses with the usual clearance rules.
+function fitExhibit(search: FrameSearch, points: Vector3[], fits: CourtFit[], area: OpeningArea) {
+	const { view, screen, data } = search;
+	const box = projector(view)(points);
+	const size = box.getSize(new Vector2()),
+		room = screen.safe.getSize(new Vector2());
+	for (const fit of fits) {
+		const scale = view.courtScale(size.x, size.y, room.x, room.y, fit.fill);
+		const origin = box
+			.getCenter(new Vector2())
+			.sub(screen.safe.getCenter(new Vector2()).divideScalar(scale));
+		const occupied = new Box2(
+			box.min.clone().sub(origin).multiplyScalar(scale),
+			box.max.clone().sub(origin).multiplyScalar(scale)
+		);
+		if (
+			!screen.safe.containsBox(occupied) ||
+			screen.reserved.some((hud) => hud.intersectsBox(occupied))
+		)
+			continue;
+		const rank = scoreCrop(view, screen, data, scale, origin, 'rank');
+		if (!rank || rank[1] !== 0) continue;
+		view.frameSilhouette(points, undefined, area, [], fit);
+		return true;
+	}
+	return false;
+}
+
 function searchGroups(search: FrameSearch, groups: number[][], fits: CourtFit[]) {
 	for (const translate of [false, true]) {
 		search.translate = translate;
@@ -177,7 +207,18 @@ export function frameOccupiedCourts(
 		surroundings = surveyContext(world, additions);
 	const screen = screenBounds(view, area);
 	let best: Choice | undefined;
-	for (const [degrees, pitch] of sightlines(view, screen)) {
+	const courtCenters = courts.map((c) => c.center);
+	const subject = view.isPortrait() ? undefined : area?.featuredCentre;
+	const exhibit = subject && centreOpening(world, subject.cellId, courts);
+	const normal = sightlines(view, screen);
+	const angles =
+		exhibit && subject
+			? [
+					[subject.headingDeg, -1] as const,
+					...normal.filter(([heading]) => heading !== subject.headingDeg)
+				]
+			: normal;
+	for (const [degrees, pitch] of angles.slice(0, openingHeadingLimit)) {
 		const heading = (degrees * Math.PI) / 180,
 			pitchOffset = (pitch * Math.PI) / 180;
 		const previous: Choice | undefined = best;
@@ -185,13 +226,15 @@ export function frameOccupiedCourts(
 			fill,
 			offset: new Vector2()
 		}));
-		const fits = shapes.map((shape) => ({ ...shape, heading, pitchOffset }));
+		const fits = shapes.map((shape) => ({ ...shape, heading, pitchOffset, courtCenters }));
 		view.frameSilhouette([new Vector3()], undefined, undefined, [], fits[0]);
 		const data = orientedProjection(view, courts, surroundings, heading);
 		const search: FrameSearch = { view, screen, data, best: previous };
+		if (exhibit && area && fitExhibit(search, exhibit, [{ ...fits[0], fill: 0.9 }, ...fits], area))
+			return true;
 		searchGroups(search, groups, fits);
 		best = search.best;
-		if (meetsTarget(best)) break;
+		if (meetsTarget(best) && !exhibit) break;
 	}
 	if (!best) return false;
 	view.frameSilhouette(
@@ -202,7 +245,7 @@ export function frameOccupiedCourts(
 		undefined,
 		area,
 		[],
-		{ ...best.fit, courtCenters: courts.map((c) => c.center) }
+		best.fit
 	);
 	return true;
 }

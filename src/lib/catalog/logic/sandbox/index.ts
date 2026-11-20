@@ -6,7 +6,7 @@
 export { EMPTY_STATE, styleForYear, stylesForYear } from './state';
 export { installationPartView, installationView } from './installation-view';
 export { cityCorridorSite } from './city-corridors';
-export { cityCentreView } from './city-view';
+export { cityCentreView, centreLandmark } from './city-view';
 export { spongeWorkView } from './sponge-view';
 export { advanceAdditions } from './advance-additions';
 export {
