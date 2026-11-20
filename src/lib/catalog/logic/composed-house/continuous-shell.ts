@@ -5,12 +5,22 @@ import type { Surface } from './surfaces';
 
 type Shell = NonNullable<HouseComposition['exterior']>;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
+function stationAt(shell: Shell, height: number, corner: number, depth: number) {
+	const upper = shell.stations.findIndex((s) => s.z >= height);
+	const index = upper < 0 ? shell.stations.length - 1 : Math.max(1, upper);
+	const lo = shell.stations[index - 1],
+		hi = shell.stations[index];
+	const t = clamp((height - lo.z) / (hi.z - lo.z));
+	const at = (k: number) => {
+		const inner = (1 - t) * lo.ring[corner][k] + t * hi.ring[corner][k];
+		return shell.ring[corner][k] + depth * (inner - shell.ring[corner][k]);
+	};
+	return [at(0), at(1)];
+}
 function panel(shell: Shell, index: number, source: Extract<HousePart, { kind: 'mesh' }>) {
 	const next = (index + 1) % shell.ring.length;
 	const a = shell.ring[index],
-		b = shell.ring[next],
-		c = shell.inner[index],
-		d = shell.inner[next];
+		b = shell.ring[next];
 	const length = Math.hypot(a[0] - b[0], a[1] - b[1]);
 	const bays = Math.max(1, Math.round(length / 5));
 	const points: Vec3[] = [],
@@ -20,18 +30,11 @@ function panel(shell: Shell, index: number, source: Extract<HousePart, { kind: '
 		for (const [relief, y, z] of source.points) {
 			const u = (i + clamp(y / 3 + 0.5)) / bays,
 				t = clamp(z / 9);
-			const iProfile = Math.min(
-				shell.profile.length - 2,
-				Math.floor(t * (shell.profile.length - 1))
-			);
-			const uProfile = t * (shell.profile.length - 1) - iProfile;
-			const depth = clamp(
-				(shell.profile[iProfile] * (1 - uProfile) + shell.profile[iProfile + 1] * uProfile) * 0.45 +
-					relief * 0.13 * Math.sin(Math.PI * clamp(y / 3 + 0.5))
-			);
-			const at = (k: number) =>
-				(1 - u) * (a[k] + depth * (c[k] - a[k])) + u * (b[k] + depth * (d[k] - b[k]));
-			points.push([at(0), at(1), shell.bottom + t * (shell.top - shell.bottom)]);
+			const height = shell.bottom + t * (shell.top - shell.bottom);
+			const depth = clamp(0.52 + relief * 0.26 * Math.sin(Math.PI * clamp(y / 3 + 0.5)));
+			const left = stationAt(shell, height, index, depth),
+				right = stationAt(shell, height, next, depth);
+			points.push([(1 - u) * left[0] + u * right[0], (1 - u) * left[1] + u * right[1], height]);
 		}
 		triangles.push(...source.triangles.map((j) => j + base));
 	}

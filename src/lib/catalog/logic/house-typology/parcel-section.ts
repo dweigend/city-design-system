@@ -92,30 +92,30 @@ export function parcelExterior(
 	parcel: Parcel,
 	opening: XY[],
 	envelope: HouseEnvelope,
-	bottom: number,
-	top: number,
-	faces?: (a: XY, b: XY) => boolean
+	datums: readonly number[],
+	faces: (a: XY, b: XY) => boolean
 ) {
 	const reference = { ...envelope, outline: 'orthogonal' as const };
 	const ring = wallCorners(parcel.polygon);
-	const inner = parcelSection(
-		parcel,
-		opening,
-		{ ...reference, section: 'lantern-neck' },
-		0,
-		0
-	).polygon;
-	const profile = Array.from({ length: 9 }, (_, i) =>
-		Math.min(0.75, sectionInsets(envelope.section, i / 8, i).reduce((a, v) => a + v, 0) * 0.66)
-	);
+	const lastFloor = datums.length - 2;
+	const stations = datums.map((z, i) => {
+		const floor = Math.min(i, lastFloor);
+		const section = parcelSection(
+			parcel,
+			opening,
+			reference,
+			floor / Math.max(1, lastFloor),
+			floor
+		);
+		return { z, ring: section.polygon };
+	});
 	return {
 		ring,
-		inner,
-		bottom,
-		top,
+		stations,
+		bottom: datums[0],
+		top: datums[datums.length - 1],
 		system: envelope.system,
 		finish: envelope.finish,
-		profile,
-		faces: ring.map((a, i) => faces?.(a, ring[(i + 1) % ring.length]) ?? true)
+		faces: ring.map((a, i) => faces(a, ring[(i + 1) % ring.length]))
 	};
 }

@@ -249,14 +249,7 @@ function courses(
 		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
 	}
 	const top = datums[programme.length];
-	const exterior = parcelExterior(
-		plot,
-		opening,
-		envelope,
-		ground,
-		top,
-		exposedWall(cells, frontage)
-	);
+	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
 	return { levels, parts, access, profile: envelope.section, top, exterior };
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
