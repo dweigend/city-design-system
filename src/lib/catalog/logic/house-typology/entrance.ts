@@ -23,6 +23,16 @@ function clip(ring: XY[], distance: (point: XY) => number) {
 	});
 }
 
+/** Whether a neighbouring cell can cross the same ground approach on an oblique parcel. */
+export function crossesApproach(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
+	const xs = cell.corners.map((p) => p[0]);
+	return (
+		Math.max(...xs) > axis[0] - approachHalfWidth &&
+		Math.min(...xs) < axis[0] + approachHalfWidth &&
+		cell.corners.some((p) => sign * (p[1] - axis[1]) > -rearDepth)
+	);
+}
+
 /** Opens the entrance cell from its exterior face to the ladder, retaining two piers and the rear room. */
 export function entranceRooms(cell: QuadCell, axis: XY, sign: number, rearDepth: number) {
 	const ring = cell.corners.map(([x, y]): XY => [x, y]);

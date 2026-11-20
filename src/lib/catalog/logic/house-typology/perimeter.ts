@@ -8,6 +8,7 @@ import { wingRim, type UpperWing } from './upper-wings';
 import {
 	entranceCell,
 	groundApproach,
+	crossesApproach,
 	entranceRooms,
 	entranceWidth,
 	entranceHeadroom,
@@ -158,7 +159,7 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 			: bridge;
 	const groundRooms = (depth: number) =>
 		cells.flatMap((c) =>
-			!frontage.size || c === access.anchor
+			!frontage.size || c === access.anchor || crossesApproach(c, axis, plan.sign, depth)
 				? entranceRooms(c, axis, plan.sign, depth)
 				: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 		);
