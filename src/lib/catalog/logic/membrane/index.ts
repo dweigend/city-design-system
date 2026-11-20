@@ -56,4 +56,4 @@ export type { Membrane } from './cloth';
 
 export { hangingCloth } from './drape';
 
-export { tensionNet } from './saddle';
+export { tensionPatch } from './tension-patch';

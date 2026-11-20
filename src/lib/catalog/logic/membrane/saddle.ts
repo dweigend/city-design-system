@@ -1,3 +1,4 @@
+import { deadLoadPerArea, hemTensionFactor } from './force-density';
 import type { Membrane } from './cloth';
 import type { Vec3 } from '../parametrik/types';
 
@@ -37,8 +38,8 @@ function neighbours(count: number, dx: number, dy: number, tension: number) {
 	return Array.from({ length: count }, (_, k) => {
 		const x = k % side,
 			y = Math.floor(k / side);
-		const qu = warp * (y === 0 || y === divisions ? 9 : 1),
-			qv = weft * (x === 0 || x === divisions ? 9 : 1);
+		const qu = warp * (y === 0 || y === divisions ? hemTensionFactor : 1),
+			qv = weft * (x === 0 || x === divisions ? hemTensionFactor : 1);
 		return [
 			[x > 0 ? k - 1 : -1, qu],
 			[x < divisions ? k + 1 : -1, qu],
@@ -64,7 +65,7 @@ function relax(width: number, height: number, fabric: Membrane) {
 	for (let step = 0; step < 180; step++) {
 		for (let k = 0; k < positions.length; k++) {
 			if (pinned[k]) continue;
-			const net: Vec3 = [0, -0.014 * dx * dy, fabric.pressure * dx * dy];
+			const net: Vec3 = [0, -deadLoadPerArea * dx * dy, fabric.pressure * dx * dy];
 			balanceNode(positions, k, links[k], sums[k], net);
 		}
 	}

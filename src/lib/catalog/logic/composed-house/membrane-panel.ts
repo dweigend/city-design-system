@@ -2,7 +2,6 @@ import {
 	clothIntervals as subdivisions,
 	clothOpening,
 	hangingCloth,
-	tensionNet,
 	clothColumns,
 	simulateCloth,
 	membraneResponse
@@ -140,19 +139,6 @@ function mapClothPoint(
 	const share = clearance > 1e-8 ? seam * (0.5 + 0.5 * Math.tanh((2 * depth) / clearance)) : 0;
 	return [rest[0] + share * delta[0], rest[1] + share * delta[1], z];
 }
-/** The two upper load paths originate at the actual fixed vertices of the solved sail. */
-export function upperSailGrips(
-	shell: Shell,
-	index: number,
-	start: number,
-	end: number,
-	fabric: Fabric
-) {
-	const { width, at } = surveySpan(shell, index, start, end);
-	const sheet = tensionNet(width, shell.top - shell.bottom, fabric);
-	return sheet.upperGrips.map((point) => mapClothPoint(shell, width, at, point));
-}
-
 function clothMesh(shell: Shell, fabric: Fabric, width: number, at: SurfaceAt) {
 	if (shell.system === 'suspended-curtain' || shell.system === 'tensile-sail') {
 		const sheet = hangingCloth(shell.system, width, shell.top - shell.bottom, fabric);

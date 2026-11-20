@@ -1,4 +1,5 @@
-import { courtyardPanel, membranePanel, upperSailGrips } from './membrane-panel';
+import { framedSpan } from './framed-span';
+import { courtyardPanel, membranePanel } from './membrane-panel';
 import { pipeBetween } from './parts';
 import { stationAt } from './shell-station';
 import { cutPartyWall } from './party-wall-cut';
@@ -81,45 +82,26 @@ function wallSpan(shell: Shell, index: number, source: StockMesh, start: number,
 		triangles: cloth.triangles.concat(carrier.triangles.map((i) => i + cloth.points.length))
 	};
 }
-function exposedPanel(shell: Shell, index: number, source: StockMesh) {
+function exposedPanel(
+	h: HouseComposition,
+	shell: Shell,
+	index: number,
+	source: StockMesh,
+	rod: (a: Vec3, b: Vec3) => void
+) {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	for (const { start, end, hidden } of shell.seams[index]) {
 		if (hidden && hidden[0] <= shell.bottom && hidden[1] >= shell.top) continue;
-		const span = wallSpan(shell, index, source, start, end);
+		const framed = framedSpan(h, shell, index, start, end, hidden);
+		framed?.rods.forEach(([a, b]) => rod(a, b));
+		const span = framed ?? wallSpan(shell, index, source, start, end);
 		const visible = hidden ? cutPartyWall(span, hidden) : span;
 		const base = points.length;
 		for (const p of visible.points) points.push(p);
 		for (const i of visible.triangles) triangles.push(base + i);
 	}
 	return { ...source, id: source.id + '/' + index, points, triangles };
-}
-// Anchor the upper grips to the occupied roof. Each end is taken from the same solved bay.
-function sailBrackets(h: HouseComposition, shell: Shell, surface: Surface) {
-	if (shell.system !== 'tensile-sail' || !shell.fabric) return [];
-	const fabric = shell.fabric;
-	const roof = shell.stations[shell.stations.length - 1].ring;
-	return shell.seams.flatMap((spans, i) =>
-		spans.flatMap(({ start, end, hidden }, k) => {
-			if (!shell.faces[i] || (hidden && hidden[1] >= shell.top)) return [];
-			const ties = upperSailGrips(shell, i, start, end, fabric);
-			const a = roof[i],
-				b = roof[(i + 1) % roof.length];
-			return [start, end].map((u, j) => {
-				const tie = ties[j];
-				const foot = u + (j === 0 ? 1 : -1) * 0.075 * (end - start);
-				const root: Vec3 = [
-					a[0] + foot * (b[0] - a[0]),
-					a[1] + foot * (b[1] - a[1]),
-					shell.top - 0.12
-				];
-				return {
-					...pipeBetween(h.id + '/sail-grip/' + i + '/' + k + '/' + j, root, tie, 0.06, surface),
-					structuralRole: 'cantilever' as const
-				};
-			});
-		})
-	);
 }
 /** Maps a full-height fabric, frame or service run between corresponding surveyed wall corners. */
 export function continuousShell(
@@ -141,14 +123,24 @@ export function continuousShell(
 		colourRole: surface.colourRole,
 		structuralRole: 'bearing' as const
 	};
+	const rods: HousePart[] = [];
 	const outer = shell.ring.flatMap((_, i) =>
-		shell.faces[i] ? [exposedPanel(shell, i, source)] : []
+		shell.faces[i]
+			? [
+					exposedPanel(h, shell, i, source, (a, b) => {
+						rods.push({
+							...pipeBetween(h.id + '/frame/' + i + '/' + rods.length, a, b, 0.085, frame),
+							structuralRole: 'bearing'
+						});
+					})
+				]
+			: []
 	);
 	const fabric = shell.fabric;
 	if (!fabric) return outer;
 	return [
 		...outer,
-		...sailBrackets(h, shell, frame),
+		...rods,
 		...shell.courtWalls.map((wall, i) => ({
 			...source,
 			...courtyardPanel(shell, wall, fabric),

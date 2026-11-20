@@ -13,6 +13,7 @@ export type Decision = {
 export type EnsembleContext = {
 	podiums: ReadonlyMap<string, import('./party-faces').PartyHeight>;
 	shellUse: import('../../data/house-body').HouseUse;
+	leadingFrame?: import('./envelope').HouseEnvelope['frame'];
 	leadingSystem: import('./envelope').HouseEnvelope['system'];
 	datum: number;
 	skyline: number;
