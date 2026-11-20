@@ -24,9 +24,14 @@ function rod(m: Mesh, path: UV[], width: number, relief = 0.06) {
 			[relief + 0.05, s, t],
 			[relief - 0.04, s + x, t + y]
 		];
-		const lo = ring(u, v),
-			hi = ring(a, b);
-		for (let j = 0; j < 3; j++) face(m, [lo[j], lo[(j + 1) % 3], hi[(j + 1) % 3], hi[j]]);
+		const stations = Math.max(1, Math.ceil(Math.abs(v - b) * 8));
+		let lo = ring(u, v);
+		for (let k = 1; k <= stations; k++) {
+			const t = k / stations;
+			const hi = ring(u + t * (a - u), v + t * (b - v));
+			for (let j = 0; j < 3; j++) face(m, [lo[j], lo[(j + 1) % 3], hi[(j + 1) % 3], hi[j]]);
+			lo = hi;
+		}
 	}
 }
 function fabric(

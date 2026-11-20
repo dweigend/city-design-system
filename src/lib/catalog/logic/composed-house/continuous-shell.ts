@@ -26,10 +26,8 @@ function panel(shell: Shell, index: number, source: Extract<HousePart, { kind: '
 			);
 			const uProfile = t * (shell.profile.length - 1) - iProfile;
 			const depth = clamp(
-				0.08 +
-					shell.profile[iProfile] * (1 - uProfile) +
-					shell.profile[iProfile + 1] * uProfile +
-					relief * 0.3
+				(shell.profile[iProfile] * (1 - uProfile) + shell.profile[iProfile + 1] * uProfile) * 0.45 +
+					relief * 0.13 * Math.sin(Math.PI * clamp(y / 3 + 0.5))
 			);
 			const at = (k: number) =>
 				(1 - u) * (a[k] + depth * (c[k] - a[k])) + u * (b[k] + depth * (d[k] - b[k]));

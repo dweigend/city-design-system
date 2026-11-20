@@ -1,3 +1,5 @@
+import { serviceGallery } from './service-gallery';
+import { convexHull } from '../parzelle';
 import { wingRim, type UpperWing } from './upper-wings';
 import { entranceCell, entranceRooms, entranceWidth } from './entrance';
 import { courseDatums } from './course-datums';
@@ -114,20 +116,20 @@ function exposedWall(cells: readonly QuadCell[], frontage: ReadonlySet<string>) 
 }
 function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWing) {
 	const access = accessBay(plan, frontage),
-		{ bay, axis, opening } = access;
+		{ axis, opening } = access;
 	const { cells, id } = plan.site;
 	const envelope = houseEnvelope(id, plan.seed, plan.site.envelope);
 	const plot = parcel(cells);
 	const full = { polygon: plot.polygon, holes: [...plot.holes, opening] };
 	const span = galleryPlot(cells, frontage, access.anchor);
 	const bridge = { ...span, holes: [...span.holes, opening] };
+	// The stair clearance fixes the inside of the pier. Its outer faces inherit the bearing parcel.
+	const reduced = access.anchor.corners.map(([x, y]): XY => [
+		axis[0] + (x - axis[0]) * 0.46,
+		axis[1] + (y - axis[1]) * 0.46
+	]);
 	const pier = {
-		polygon: rectangle(
-			axis[0],
-			axis[1],
-			Math.max(entranceWidth + 0.2, Math.min(bay.width * 0.48, 3)),
-			Math.max(1.12, Math.min(bay.depth * 0.46, 2.8))
-		),
+		polygon: convexHull([...reduced, ...opening]).map(([x, y]): XY => [x, y]),
 		holes: [opening]
 	};
 	if (wing && cells.length === 1) pier.polygon = wingRim(cells[0], wing.abutments, pier.polygon);
@@ -177,7 +179,11 @@ function floorBodies(
 	const { cells, ground, id } = plan.site;
 	const raised = i === 0 && wing?.level === 1;
 	const baseTop = raised ? z + (ceiling - z) * 0.46 : ceiling - rim;
-	const shells = i === 0 && !plan.site.envelope ? rooms : [shape];
+	const occupied =
+		envelope.system === 'service-risers' || envelope.system === 'helical-services'
+			? serviceGallery(shape, shapes.opening, plan.sign)
+			: shape;
+	const shells = i === 0 && !plan.site.envelope ? rooms : [occupied];
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
 		if (body.band && i >= 2) {
@@ -243,10 +249,14 @@ function courses(
 		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
 	}
 	const top = datums[programme.length];
-	const exterior =
-		!frontage.size || wing?.roof === 'head'
-			? parcelExterior(plot, opening, envelope, ground, top, exposedWall(cells, frontage))
-			: undefined;
+	const exterior = parcelExterior(
+		plot,
+		opening,
+		envelope,
+		ground,
+		top,
+		exposedWall(cells, frontage)
+	);
 	return { levels, parts, access, profile: envelope.section, top, exterior };
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
