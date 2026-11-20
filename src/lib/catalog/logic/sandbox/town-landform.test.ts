@@ -87,6 +87,11 @@ test('planted shoulders carry overlapping canopy volumes rooted on refined terra
 	const reserved = new Set(walk.flat());
 	const shrubs = bankPlanting(world);
 	expect(shrubs.length).toBeGreaterThan(30);
+	expect(new Set(shrubs.map((p) => p.slot))).toEqual(
+		new Set(['foliage', 'willow', 'evergreen', 'grass', 'stem'])
+	);
+	expect(shrubs.filter((p) => p.kind === 'mesh').every((p) => p.smooth)).toBe(true);
+	expect(bankPlanting(world)).toEqual(shrubs);
 	let tallest = 0;
 	for (const crown of shrubs) {
 		if (crown.kind !== 'dome') {

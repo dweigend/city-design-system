@@ -3,19 +3,9 @@ import { courtReservations } from './court-reservations';
 import { hashUnit } from '../../core/random';
 import { type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { inradius } from '../quad-grid';
-import type { Primitive } from '../parametrik/types';
+import { bankCanopy, meadowTuft, type BankPlant } from './bank-flora';
 import { walkingHeight } from './network-terrain';
 import type { World } from './world-contract';
-
-type Crown = Pick<
-	Extract<Primitive, { kind: 'dome' }>,
-	'id' | 'kind' | 'position' | 'radius' | 'height' | 'edges'
-> & { slot: 'foliage' };
-
-type TreePart =
-	| { kind: 'sphere'; slot: 'foliage'; squash: number }
-	| { kind: 'cylinder'; slot: 'stem'; height: number };
-type Plant = Crown | (Pick<Crown, 'id' | 'position' | 'radius' | 'edges'> & TreePart);
 
 const candidates = new WeakMap<TerrainGrid, TerrainCell[]>();
 
@@ -66,34 +56,48 @@ function rootLevel(grid: TerrainGrid, x: number, y: number, radius: number, grou
 	);
 }
 
-// Two overlapping, round crowns form a low bank thicket. Taller growth is
-// limited to the broad central crown on parcels with more cover.
-function coppice(world: World, cell: TerrainCell): Crown[] {
+function groundHabit(world: World, cell: TerrainCell) {
+	const lawn = world.state.cover.get(cell.id) === 'meadow' || cell.bank?.lawn?.some((w) => w > 0.5);
+	const grass = hashUnit(world.seed, cell.id, 'bank-grass');
+	const cover = hashUnit(world.seed, cell.id, 'coppice-height');
+	return {
+		tuft: (side: number) => (lawn && grass > 0.38) || (side === 1 && grass < 0.32),
+		rise: (side: number) => {
+			if (lawn) return 0.2 + 0.16 * cover;
+			return side === 0 ? 0.72 + 0.56 * cover ** 2 : 0.64 + cover * 0.2;
+		},
+		slot: cover < 0.45 ? ('willow' as const) : ('foliage' as const)
+	};
+}
+
+// The meadow alternates low shrubs with tussocks on the same planted shoulder.
+function coppice(world: World, cell: TerrainCell): BankPlant[] {
 	const r = Math.min(2.8, inradius(cell)) * 0.94;
 	if (r < 0.85) return [];
 	const [x, y] = cell.center;
 	const theta = 2 * Math.PI * hashUnit(world.seed, cell.id, 'coppice-bearing');
-	const cover = hashUnit(world.seed, cell.id, 'coppice-height');
-	const parts: Crown[] = [];
-	for (const [i, side] of [0, 1].entries()) {
+	const habit = groundHabit(world, cell);
+	const parts: BankPlant[] = [];
+	for (const side of [0, 1]) {
 		const dx = side * 0.5 * r * Math.cos(theta),
 			dy = side * 0.5 * r * Math.sin(theta);
 		const cx = x + dx,
 			cy = y + dy,
 			ground = walkingHeight(world.grid, cx, cy);
 		const radius = r * (side === 0 ? 0.9 : 0.43);
-		const meadow =
-			world.state.cover.get(cell.id) === 'meadow' || cell.bank?.lawn?.some((w) => w > 0.5);
-		const height = meadow
-			? radius * (0.2 + 0.16 * cover)
-			: radius * (side === 0 ? 0.72 + 0.56 * cover ** 2 : 0.64 + cover * 0.2);
+		const id = 'bank-coppice/' + cell.id + '/' + side;
 		if (!Number.isFinite(ground)) continue;
+		if (habit.tuft(side)) {
+			parts.push(meadowTuft(id, [cx, cy, ground - 0.08], Math.min(0.85, radius), theta + side));
+			continue;
+		}
+		const height = radius * habit.rise(side);
 		const base = rootLevel(world.grid, cx, cy, radius, ground);
 		parts.push({
 			kind: 'dome',
-			slot: 'foliage',
+			slot: habit.slot,
 			edges: false,
-			id: 'bank-coppice/' + cell.id + '/' + i,
+			id,
 			position: [cx, cy, base],
 			radius,
 			height: height + ground - base
@@ -103,7 +107,7 @@ function coppice(world: World, cell: TerrainCell): Crown[] {
 }
 
 // Grove density follows the terrace in broad patches; individual trees vary within it.
-function grove(world: World, cell: TerrainCell, r: number): Plant[] {
+function grove(world: World, cell: TerrainCell, r: number): BankPlant[] {
 	const [x, y] = cell.center;
 	const phase = hashUnit(world.seed, 'grove-phase') * 2 * Math.PI;
 	if (Math.cos(x / 13 + phase) + Math.sin(y / 16 - phase) < -0.35) return [];
@@ -114,34 +118,18 @@ function grove(world: World, cell: TerrainCell, r: number): Plant[] {
 		cy = y + 0.16 * r * Math.sin(bearing);
 	const ground = walkingHeight(world.grid, cx, cy);
 	if (!Number.isFinite(ground)) return [];
-	const squash = 0.82 + 0.46 * size;
-	const height = 0.85 + radius * (0.75 + size * 0.55);
-	const id = 'terrace-grove/' + cell.id;
-	return [
-		{
-			id: id + '/stem',
-			kind: 'cylinder',
-			slot: 'stem',
-			edges: false,
-			position: [cx, cy, ground - 0.12],
-			radius: radius * 0.095,
-			height: height + 0.12
-		},
-		{
-			id: id + '/crown',
-			kind: 'sphere',
-			slot: 'foliage',
-			edges: false,
-			position: [cx, cy, ground + height + radius * squash * 0.56],
-			radius,
-			squash
-		}
-	];
+	return bankCanopy(
+		'terrace-grove/' + cell.id,
+		[cx, cy, ground],
+		radius,
+		bearing,
+		hashUnit(world.seed, cell.id, 'grove-species')
+	);
 }
 
 /** Projects planted bank volumes on the finished ground. Public circulation,
  * court reservations, built parcels and player forests retain their space. */
-export function bankPlanting(world: World): Plant[] {
+export function bankPlanting(world: World): BankPlant[] {
 	if (!world.state.city) return [];
 	const taken = occupied(world);
 	const clear = plantingClearance(world);

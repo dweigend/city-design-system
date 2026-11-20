@@ -1,3 +1,4 @@
+import { plantingSurfaces } from '../../data/planting-surfaces';
 import { Color } from 'three';
 import { resolveTokens } from '../themeBinding';
 import { TOENE, PROJEKTION_TOENE } from '../../data/leitstil';
@@ -17,7 +18,7 @@ export function grammatik(host: HTMLElement, s: Stil) {
 		'--ana-druck',
 		'--ana-null',
 		'--cat-hazard',
-		'--cat-foliage',
+		...Object.values(plantingSurfaces).map((surface) => surface.token),
 		'--cat-lawn',
 		'--alpha-trace',
 		...(['people', 'water', 'energy', 'food', 'material'] as const).flatMap((id) =>
