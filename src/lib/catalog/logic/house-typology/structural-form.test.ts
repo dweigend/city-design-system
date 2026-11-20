@@ -214,7 +214,7 @@ test('glazing and sill follow the occupied parcel contour and share a horizontal
 			const pane = courses.find((p) => p.id.includes('/window')),
 				sill = courses.find((p) => p.id.includes('/sill'));
 			if (pane?.kind !== 'prism' || sill?.kind !== 'prism') throw Error('Missing glazing or sill');
-			expect(pane.polygon).toEqual(b.band?.footprint?.polygon);
+			expect(b.band?.footprint?.polygon).toEqual(pane.polygon);
 			expect(sill.polygon).toEqual(pane.polygon);
 			expect(sill.z + sill.height).toBeCloseTo(pane.z);
 		}
