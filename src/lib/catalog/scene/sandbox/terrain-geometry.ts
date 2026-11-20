@@ -21,6 +21,7 @@ function chartedGeometry(positions: number[], chart: number[]) {
 function surfaceAttributes(count: number) {
 	return {
 		position: new THREE.BufferAttribute(new Float32Array(count * 3), 3),
+		landform: new THREE.BufferAttribute(new Float32Array(count * 3), 3),
 		shore: new THREE.BufferAttribute(new Float32Array(count), 1),
 		frontages: new THREE.BufferAttribute(new Float32Array(count * 4), 4),
 		relief: new THREE.BufferAttribute(new Float32Array(count * 2), 2)
@@ -39,6 +40,8 @@ function writeSurface(
 	for (const [i, [x, y, z]] of cell.corners.entries()) {
 		const at = cell.index * 4 + i;
 		position.setXYZ(at, x, z, -y);
+		const weights = cell.landform?.[i] ?? [0, 0, 0];
+		attributes.landform.setXYZ(at, weights[0], weights[1], weights[2]);
 		shore.setX(at, bankDistance(grid.terrain, x, y) - grid.profile.bankSetback);
 		relief.setXY(at, z, ravineDepth(grid.terrain, x, y));
 	}
@@ -84,6 +87,7 @@ export function patchSurface(
 	// The surface owns these non-interleaved BufferAttributes, installed by surfaceGeometry.
 	const attributes = {
 		position: geometry.attributes.position,
+		landform: geometry.attributes.landform,
 		shore: geometry.attributes.shore,
 		frontages: geometry.attributes.frontages,
 		relief: geometry.attributes.relief

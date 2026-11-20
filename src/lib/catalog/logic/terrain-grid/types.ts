@@ -5,6 +5,8 @@ import type { Pattern } from './patterns';
 
 export type BankSurface = { divisions: number; points: Vec3[]; shade: number[]; indices: number[] };
 
+type TerrainCellCorners = QuadCell['corners'];
+
 export type TerrainCell = QuadCell &
 	Readonly<{
 		/** Lattice position; the id `column/row` is the stable anchor of everything painted. */
@@ -27,6 +29,8 @@ export type TerrainCell = QuadCell &
 		alleyEdges: number;
 		/** Local court cut and fill sampled on the parcel's triangular chart. */
 		bank?: BankSurface;
+		/** Corner weights for terrace, planted bank and swale on the shared surface. */
+		landform?: TerrainCellCorners;
 	}>;
 
 /** Surveyed court side with its outward normal and the extent of the graded bank in metres. */
