@@ -37,6 +37,7 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 		}
 		const graph = massGraph(houses);
 		expect(graph.collisions).toBe(0);
+		expect(graph.components).toBeGreaterThanOrEqual(1);
 		expect(graph.components).toBeLessThanOrEqual(3);
 		console.log('COURT ' + JSON.stringify({ court: court.court, houses: houses.length, ...graph }));
 	});

@@ -7,6 +7,6 @@ export { composeHouse } from './compose';
 export { planBridges } from './bridges';
 export { checkFit, partsIntersect } from './fit';
 export type { FitPart } from './types';
-export { wideTypologies, typologies, type Typology } from './families';
+export { typologies, type Typology } from './families';
 export type { Body, StructuralRole, Occupant, Deck, HouseComposition, Solid } from './types';
 export type { HouseSite, HouseSlot } from './site';
