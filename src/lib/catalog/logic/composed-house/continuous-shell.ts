@@ -1,4 +1,5 @@
 import { openSurface, openRod } from './shell-openings';
+import { slottedWall } from './slotted-wall';
 import { framedSpan } from './framed-span';
 import { courtyardPanel, membranePanel } from './membrane-panel';
 import { pipeBetween } from './parts';
@@ -94,15 +95,18 @@ function exposedPanel(
 	shell: Shell,
 	index: number,
 	source: StockMesh,
+	slotted: boolean,
 	rod: (a: Vec3, b: Vec3) => void
 ) {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	for (const { start, end, hidden } of shell.seams[index]) {
 		if (hidden && hidden[0] <= shell.bottom && hidden[1] >= shell.top) continue;
-		const framed = framedSpan(h, shell, index, start, end, hidden);
+		const framed = slotted ? undefined : framedSpan(h, shell, index, start, end, hidden);
 		framed?.rods.flatMap((pair) => clearRod(pair, shell)).forEach(([a, b]) => rod(a, b));
-		const span = framed ?? wallSpan(shell, index, source, start, end);
+		const span = slotted
+			? slottedWall(shell, index, start, end)
+			: (framed ?? wallSpan(shell, index, source, start, end));
 		const visible = hidden ? cutPartyWall(span, hidden) : span;
 		const base = points.length;
 		for (const p of visible.points) points.push(p);
@@ -115,7 +119,8 @@ export function continuousShell(
 	h: HouseComposition,
 	seed: number,
 	surface: Surface,
-	frame: Surface
+	frame: Surface,
+	slotted: boolean
 ): HousePart[] {
 	const shell = h.exterior;
 	if (!shell) return [];
@@ -126,14 +131,14 @@ export function continuousShell(
 	if (stock.kind !== 'mesh') throw Error('Expected a continuous shell mesh');
 	const source = {
 		...stock,
-		smooth: !!shell.fabric,
+		smooth: slotted || !!shell.fabric,
 		structuralRole: 'bearing' as const
 	};
 	const rods: HousePart[] = [];
 	const outer = shell.ring.flatMap((_, i) =>
 		shell.faces[i]
 			? [
-					exposedPanel(h, shell, i, source, (a, b) => {
+					exposedPanel(h, shell, i, source, slotted, (a, b) => {
 						rods.push({
 							...pipeBetween(h.id + '/frame/' + i + '/' + rods.length, a, b, 0.085, frame),
 							structuralRole: 'bearing'
