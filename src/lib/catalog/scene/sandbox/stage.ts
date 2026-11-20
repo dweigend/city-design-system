@@ -259,7 +259,7 @@ export function createSandboxStage(
 	function frameOpening(world: World, area = study.openingArea?.()) {
 		framedArea = area;
 		return view.isPortrait() && !planView
-			? frameOldTown(view, world, area)
+			? frameOldTown(view, world, area, study.additions)
 			: frameTownSilhouette(view, world, area, study.additions);
 	}
 

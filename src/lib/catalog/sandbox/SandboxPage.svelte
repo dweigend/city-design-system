@@ -42,7 +42,7 @@
 		const observer = new ResizeObserver(() => {
 			const [title, modes, tools, panel, bar] = controls.map((el) => el.getBoundingClientRect());
 			if (panel.width && !tools.width) {
-				area = { top: 0, bottom: bar.top, right: panel.left };
+				area = { top: Math.max(title.bottom, modes.bottom), bottom: bar.top, right: panel.left };
 				return;
 			}
 			const top = Math.max(title.bottom, modes.bottom);

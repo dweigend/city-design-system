@@ -1,5 +1,5 @@
 import type { Primitive } from '../../logic/parametrik/types';
-import { frameDesktopCourts } from './desktop-opening';
+import { frameOccupiedCourts } from './landmark-opening';
 import { courtOpening } from './court-opening';
 import { Vector3 } from 'three/webgpu';
 import { bankDistance, valleyCoords, valleyPoint } from '../../logic/terrain';
@@ -53,15 +53,19 @@ function frameCourts(
 ) {
 	const courts = courtOpening(world, view.isPortrait());
 	if (!courts) return false;
-	if (view.isPortrait()) view.frameSilhouette(courts.points, undefined, area, [], courts.heading);
-	else frameDesktopCourts(view, world, courts, area, additions);
+	frameOccupiedCourts(view, world, courts, area, additions);
 	return true;
 }
 
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
-export function frameOldTown(view: View, world: World, area?: OpeningArea) {
+export function frameOldTown(
+	view: View,
+	world: World,
+	area?: OpeningArea,
+	additions?: readonly Primitive[]
+) {
 	if (!view.isPortrait()) return false;
-	if (frameCourts(view, world, area)) return true;
+	if (frameCourts(view, world, area, additions)) return true;
 	const cluster = townCluster(world, true);
 	if (!cluster) return false;
 	view.frameSilhouette(cluster.points, cluster.anchor, area, cluster.water);
