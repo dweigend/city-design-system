@@ -1,3 +1,4 @@
+import type { RailEdgeReport } from './rail-edge';
 import { parcelSupports } from './stair-parcel';
 import { mountRamp } from './ground-ramp';
 import { flightRail } from './flight-rail';
@@ -102,9 +103,9 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 }
 
 /** Places rigid registry treads on the walking line and fits stock to its level deck connections. */
-export function access(s: Section, surfaces: HouseSurfaces) {
+export function access(s: Section, surfaces: HouseSurfaces, reports?: RailEdgeReport[]) {
 	if (s.compact) return mastAccess(s, surfaces);
-	if (s.composition.path !== 'spiral') return flightAccess(s, surfaces);
+	if (s.composition.path !== 'spiral') return flightAccess(s, surfaces, reports);
 	const route = windingRoute(s),
 		draw = projection(route.track, s, surfaces);
 	const walk = [...route.legs.flatMap(draw.walk), ...route.docks.flatMap(draw.connection)];
@@ -112,15 +113,19 @@ export function access(s: Section, surfaces: HouseSurfaces) {
 		...walk,
 		...flightRail(
 			s,
-			[
-				{ station: route.track[route.legs[0].first], z: route.legs[0].from[2] },
-				...route.legs
-					.filter((l) => l.kind !== 'ramp')
-					.map((l) => ({ station: route.track[l.last], z: l.to[2] }))
-			],
+			route.legs
+				.filter((l) => l.kind !== 'ramp')
+				.map((l) => ({
+					flight: l.flight,
+					a: route.track[l.first],
+					b: route.track[l.last],
+					high: l.from[2],
+					low: l.to[2]
+				})),
 			route.width,
 			surfaces,
-			walk
+			walk,
+			reports
 		)
 	];
 }

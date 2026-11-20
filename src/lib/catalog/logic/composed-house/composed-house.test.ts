@@ -225,7 +225,13 @@ test('compact pods keep a caged ladder until a full public stair fits its geomet
 		if (depth === 4) expect(h.compact).toBe(true);
 		if (h.compact) {
 			expect(
-				route.legs.every((l) => l.kind === 'ladder' && Math.abs(l.to[2] - l.from[2]) <= 4)
+				route.legs.every((l) =>
+					l.kind === 'ladder'
+						? Math.abs(l.to[2] - l.from[2]) <= 4
+						: l.kind === 'landing' &&
+							l.from[2] === l.to[2] &&
+							Math.abs(Math.abs(l.from[0] - l.to[0]) - route.width) < 1e-8
+				)
 			).toBe(true);
 			const parts = sectionParts(h);
 			expect(h.typology).toBe('block');

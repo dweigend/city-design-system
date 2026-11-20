@@ -45,7 +45,7 @@ test('ramp decks and both solid cheeks follow the eight percent grade', () => {
 });
 
 test('railings share one centred deck reservation', () => {
-	for (const variant of ['standard', 'parapet', 'screen']) {
+	for (const variant of assetRegistry.find((a) => a.id === 'railing')?.variants ?? []) {
 		const { footprint, anchors, geometry } = buildObject('railing', variant, 17);
 		expect(footprint).toEqual([2.5, 0.15]);
 		expect(anchors).toEqual([{ attachment: 'deck', position: [0, 0, 0], normal: [0, 0, 1] }]);
