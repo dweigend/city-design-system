@@ -20,10 +20,15 @@ function panel(shell: Shell, index: number, source: Extract<HousePart, { kind: '
 		for (const [relief, y, z] of source.points) {
 			const u = (i + clamp(y / 3 + 0.5)) / bays,
 				t = clamp(z / 9);
+			const iProfile = Math.min(
+				shell.profile.length - 2,
+				Math.floor(t * (shell.profile.length - 1))
+			);
+			const uProfile = t * (shell.profile.length - 1) - iProfile;
 			const depth = clamp(
 				0.08 +
-					shell.profile[Math.min(7, Math.floor(t * 8))] * (1 - ((t * 8) % 1)) +
-					shell.profile[Math.min(8, Math.floor(t * 8) + 1)] * ((t * 8) % 1) +
+					shell.profile[iProfile] * (1 - uProfile) +
+					shell.profile[iProfile + 1] * uProfile +
 					relief * 0.3
 			);
 			const at = (k: number) =>

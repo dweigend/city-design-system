@@ -127,3 +127,31 @@ test('the full tube radius counts between twelve sampled directions', () => {
 	expect(centre + radius * Math.cos(angle)).toBeLessThan(0.6);
 	expect(plotCovers([cell], footprint(tube), 0.6)).toBe(false);
 });
+
+test('inclined mesh panels follow the sloping parcel face up to its boundary', () => {
+	const stock = houseObject('full-height-shell', 'tensile-sail', 1, {
+		instanceId: 'wall',
+		slots: {}
+	}).parts[0];
+	if (stock.kind !== 'mesh') throw Error('Expected a membrane mesh');
+	const parcel = [
+		{
+			corners: [
+				[0, 0],
+				[8, 0],
+				[0, 8]
+			]
+		}
+	];
+	for (const [tip, fits] of [
+		[7, true],
+		[7.2, false]
+	] as const) {
+		const points: [number, number, number][] = [
+			[1, 1, 0],
+			[7, 1, 6],
+			[1, tip, 9]
+		];
+		expect(plotCovers(parcel, footprint({ ...stock, points, triangles: [0, 1, 2] }), 0)).toBe(fits);
+	}
+});
