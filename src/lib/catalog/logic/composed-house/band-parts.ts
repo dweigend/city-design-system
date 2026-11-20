@@ -49,11 +49,19 @@ function ring(x: number, y: number, w: number, d: number, r: number): XY[] {
 	});
 }
 
+function courseOutline(body: Body, inset: number) {
+	const [x, y] = body.position;
+	const [w, d] = body.size;
+	const band = body.band;
+	if (inset && band?.paneRing) return band.paneRing;
+	return band?.lining ?? band?.footprint?.polygon ?? ring(x, y, w - inset * 2, d - inset * 2, 0.45);
+}
+
 /** Extrudes the band in closed courses around a recessed glazing strip and the surveyed court. */
 export function bandParts(body: Body, surfaces: SectionSurfaces, accent: BandAccent) {
 	const { id, objectId, variant, seed, band } = body;
-	const [x, y, z] = body.position,
-		[w, d, h] = body.size;
+	const z = body.position[2],
+		[, d, h] = body.size;
 	const panel = surfaces[body.use];
 	const wall = shellSurface(surfaces.shell, panel);
 	const glass = surfaces.pane;
@@ -74,11 +82,7 @@ export function bandParts(body: Body, surfaces: SectionSurfaces, accent: BandAcc
 			...stock,
 			z: z + base,
 			height,
-			polygon:
-				(inset ? band?.paneRing : undefined) ??
-				band?.lining ??
-				band?.footprint?.polygon ??
-				ring(x, y, w - inset * 2, d - inset * 2, 0.45),
+			polygon: courseOutline(body, inset),
 			holes: band?.footprint?.holes ?? holes
 		};
 	}
@@ -125,9 +129,9 @@ export function bandParts(body: Body, surfaces: SectionSurfaces, accent: BandAcc
 				window ? 0.35 : 0,
 				window ? glass : wall
 			);
-			if (!window || !band?.lining || !band.paneRing) return [layer];
+			if (!window) return [layer];
 			const pier = course('pier-' + i, at, end - at, 0, wall);
-			return [layer, ...windowPiers(band.lining, band.paneRing, pier)];
+			return [layer, ...windowPiers(band, pier)];
 		})
 	];
 }

@@ -1,3 +1,4 @@
+import type { Body } from '../house-typology';
 import type { StockPart } from './house-object';
 
 type XY = [number, number];
@@ -5,7 +6,10 @@ type Plate = Extract<StockPart, { kind: 'prism' }>;
 const along = (a: XY, b: XY, t: number): XY => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
 
 /** Divides a ribbon into glazed bays with solid piers spanning from wall face to pane. */
-export function windowPiers(face: XY[], pane: XY[], stock: Plate): Plate[] {
+export function windowPiers(band: Body['band'], stock: Plate): Plate[] {
+	const face = band?.lining,
+		pane = band?.paneRing;
+	if (!face || !pane) return [];
 	return face.flatMap((a, i) => {
 		const j = (i + 1) % face.length,
 			b = face[j];

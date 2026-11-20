@@ -5,6 +5,7 @@ import { sections } from './section-insets';
 import { hashUnit } from '../../core/random';
 import type { FinishId } from '../parametrik/types';
 
+const standaloneSections = sections.filter((section) => section !== 'barrel');
 const frames = ['mast', 'fan-truss', 'scissor', 'ring', 'outrigger'] as const;
 const skins = ['plain', 'woven', 'framed', 'cushioned'] as const;
 const outlines = ['orthogonal', 'faceted', 'oval', 'fluted'] as const;
@@ -53,7 +54,7 @@ export function houseEnvelope(
 	const { frame, fabric } = textile(system, seed, id, requested);
 	const twist =
 		requested?.twist ?? (fabric ? (hashUnit(seed, id, 'envelope/twist') - 0.5) * 1.3 : 0);
-	const section = requested?.section ?? pick(sections, seed, id, 'perimeter/profile');
+	const section = requested?.section ?? pick(standaloneSections, seed, id, 'perimeter/profile');
 	const pod = section === 'orbital-nodes' || section === 'vessel';
 	if (!Number.isFinite(twist)) throw RangeError('Invalid envelope twist');
 	return {
