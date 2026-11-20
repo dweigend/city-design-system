@@ -33,7 +33,12 @@ function membranMuster(base: Node<'vec3'>, id: AusfuehrungId, p: Node<'vec3'>): 
 	const weave = noise(p, 66);
 	const coverage = grainVisibility(p.mul(66));
 	if (id === 'membran-gewebe' || id === 'membran-voile') {
-		return { farbe: base.mul(weave.mul(coverage).mul(0.04).add(1)), hoehe: weave, relief: 0.00055, reliefCoverage: coverage };
+		return {
+			farbe: base.mul(weave.mul(coverage).mul(0.04).add(1)),
+			hoehe: weave,
+			relief: 0.00055,
+			reliefCoverage: coverage
+		};
 	}
 	// Incidence works for the orthographic stage and cannot feed back from the bump normal.
 	const frontal = normalViewGeometry.dot(positionViewDirection).abs().clamp(0, 1);
@@ -65,7 +70,12 @@ function metalMuster(base: Node<'vec3'>, bare: boolean, p: Node<'vec3'>): Muster
 	const brush = mx_noise_float(chart);
 	const coverage = grainVisibility(chart);
 	return {
-		farbe: base.mul(brush.mul(coverage).mul(bare ? 0.06 : 0.012).add(1)),
+		farbe: base.mul(
+			brush
+				.mul(coverage)
+				.mul(bare ? 0.06 : 0.012)
+				.add(1)
+		),
 		hoehe: brush,
 		relief: bare ? 0.00035 : 0.00008,
 		reliefCoverage: coverage
