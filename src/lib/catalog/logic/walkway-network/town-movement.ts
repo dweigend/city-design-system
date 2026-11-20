@@ -127,8 +127,8 @@ function registerReach(
 }
 function registerPassage(s: Survey, court: string, spans: TownSpan[], ground: Ground) {
 	let from = court;
-	for (const { reach, adapter, inside, last } of passageReaches(spans, ground)) {
-		const to = reach.id + '/end',
+	for (const { reach, port: sill, adapter, inside, last } of passageReaches(spans, ground)) {
+		const to = sill?.id ?? reach.id + '/end',
 			p = required(reach.sections.at(-1), 'passage endpoint').centre;
 		const q = required(reach.sections.at(-2), 'passage heading').centre;
 		if (adapter) {
@@ -144,7 +144,8 @@ function registerPassage(s: Survey, court: string, spans: TownSpan[], ground: Gr
 		}
 		s.ports.set(
 			to,
-			port(to, last ? 'path' : 'entrance', p, Math.atan2(p[1] - q[1], p[0] - q[0]), profile.width)
+			sill ??
+				port(to, last ? 'path' : 'entrance', p, Math.atan2(p[1] - q[1], p[0] - q[0]), profile.width)
 		);
 		registerReach(
 			s,

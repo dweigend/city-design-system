@@ -12,6 +12,7 @@ export type TownSpan = {
 	b: Vec3;
 	fromFork?: string;
 	toFork?: string;
+	port?: import('../movement-network').MovementPort;
 	inside?: boolean;
 	adapter?: boolean;
 };

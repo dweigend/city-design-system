@@ -1,4 +1,7 @@
-import { courtHouseFloor } from './court-house-floor';
+import { cityCorridorPlan } from './city-corridors';
+import { openHousePassage } from '../composed-house';
+import { townSections } from './town-sections';
+export { townSections } from './town-sections';
 import { seatedHouse } from './house-ground';
 import { plannedPlots } from './planned-ensembles';
 import { networkGroups } from './network-groups';
@@ -6,58 +9,10 @@ import { nextSeed } from '../../core/random';
 import { required } from '../required';
 import { isPainted } from './house-phase-ink';
 import { houseObstacles } from './house-obstacles';
-import {
-	accentBody,
-	accentKind,
-	fieldUse,
-	paintedSections,
-	sectionGroups
-} from '../composed-house';
-import type { HouseUse } from '../house-brush';
-import { buildingPlots } from './building-plots';
+import { accentBody, accentKind, fieldUse, sectionGroups } from '../composed-house';
 import { houseThreshold } from '../house-structure';
-import { houseEnsembles, houseDistrict } from './house-ensembles';
 import type { World } from './world';
 
-function paintedRuns(world: World) {
-	const runs = new Map<number, Map<string, HouseUse[]>>();
-	for (const [id, parts] of world.state.storyParts) {
-		let start = 0;
-		parts.forEach((part, i) => {
-			if (part.style !== 'composed') {
-				start = i + 1;
-				return;
-			}
-			const level = runs.get(start) ?? new Map<string, HouseUse[]>(),
-				floors = level.get(id) ?? [];
-			floors[i] = required(world.state.stacks.get(id), 'painted stack')[i];
-			level.set(id, floors);
-			runs.set(start, level);
-		});
-	}
-	return runs;
-}
-/** Plans the constructed house sections from the saved story runs and town layout. */
-export function townSections(world: World) {
-	const plots = buildingPlots(world.grid),
-		r3 = houseEnsembles(world.grid, plots, world.state, world.seed);
-	const planned = plannedPlots(world.state);
-	const sections = [...paintedRuns(world)].flatMap(([start, stacks]) =>
-		paintedSections(plots, stacks, world.seed, {
-			floorFor: (cell) => {
-				const court = planned.has(cell.id) && r3.cells.get(cell.id)?.id;
-				return start === 0 && court ? courtHouseFloor(world.grid, cell, court) : undefined;
-			},
-			courtFor: (id) => (planned.has(id) ? r3.cells.get(id)?.id : undefined),
-			seedFor: (id) => world.state.storyParts.get(id)?.[start]?.houseSeed,
-			// The shared-wall graph limits bodies. R3's lateral graph also includes across-alley neighbours.
-			joined: (a, b) =>
-				!planned.has(a) && !planned.has(b) && (r3.cells.get(a)?.neighbors.includes(b) ?? false),
-			district: (id) => houseDistrict(required(world.grid.cellsById.get(id), 'painted cell'))
-		})
-	);
-	return { sections, layout: r3 };
-}
 type Layout = ReturnType<typeof townSections>;
 /** The court a ground house stands on and the threshold it opens to that court. */
 function courtDoor(house: Layout['sections'][number] | undefined, layout: Layout['layout']) {
@@ -99,6 +54,7 @@ function survey(world: World) {
 	);
 	const planned = plannedPlots(world.state);
 	const stock = houseObstacles(world.grid, world.state);
+	const passages = cityCorridorPlan(world)?.plan.passages;
 	const houses = new Map(sections.map((s) => [s.id, s]));
 	return [
 		...sectionGroups(world.grid, sections, world.seed, stock).filter(
@@ -114,19 +70,23 @@ function survey(world: World) {
 		const onGround = !g.span && owners[0].start === 0;
 		const cells = g.cells.map((id) => required(world.grid.cellsById.get(id), 'foundation parcel'));
 		const house = houses.get(g.id);
+		const passage = house && passages?.get(house.id);
+		const parts = () => {
+			const members = g.parts();
+			if (!onGround || !house) return members;
+			const seated = seatedHouse(members, cells, world.grid, house.composition.exterior?.bottom, {
+				slot: 'shell',
+				use: fieldUse(house),
+				ensemble: house.ensemble
+			});
+			return passage ? openHousePassage(house, passage, seated) : seated;
+		};
 		return {
 			...g,
 			door: courtDoor(planned.has(g.cells[0]) ? house : undefined, r3),
-			parts:
-				onGround && house
-					? () =>
-							seatedHouse(g.parts(), cells, world.grid, house.composition.exterior?.bottom, {
-								slot: 'shell',
-								use: fieldUse(house),
-								ensemble: house.ensemble
-							})
-					: g.parts,
-			signature: g.span || owners[0].appearance,
+			passage,
+			parts,
+			signature: g.span || owners[0].appearance + JSON.stringify(passage?.centreline ?? []),
 			start: owners[0].start,
 			seed: owners[0].seed,
 			built: Math.max(...owners.map((p) => p.built)),

@@ -1,8 +1,8 @@
 import { bounds, type Point2 } from '../ansicht/geometrie';
-import type { StockPart } from './house-object';
+import type { Primitive } from '../parametrik/types';
 
 /** Plan vertices of house stock, with rotation applied about a box's local centre. */
-export function planPoints(p: StockPart): Point2[] {
+export function planPoints(p: Primitive): Point2[] {
 	if (p.kind === 'prism') return p.polygon;
 	if (p.kind === 'mesh') return p.points.map(([x, y]) => [x, y]);
 	if (p.kind === 'pipe') return p.points.flatMap(([x, y]) => circle(x, y, p.radius));
