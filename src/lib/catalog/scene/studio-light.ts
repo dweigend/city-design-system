@@ -17,8 +17,6 @@ export function createStudioLight(config = studioConfig()) {
 	sun.shadow.camera.up.set(0, 0, 1);
 	sun.shadow.radius = config.radius;
 	const stride = uniform(config.radius / config.shadowSize);
-	// A stationary tent avoids rotating a sparse PCF kernel across a flat paper face.
-	const offsets = config.shadowTaps === 4 ? [-0.5, 0.5] : [-0.75, 0, 0.75];
 	function filterNode({
 		depthTexture,
 		shadowCoord
@@ -28,15 +26,19 @@ export function createStudioLight(config = studioConfig()) {
 	}) {
 		let result: THREE.Node<'float'> = float(0);
 		let total = 0;
-		for (const x of offsets)
-			for (const y of offsets) {
-				const weight = (x === 0 ? 2 : 1) * (y === 0 ? 2 : 1);
-				const coord = shadowCoord.xy.add(vec2(x, y).mul(stride));
-				result = result.add(
-					texture<'float'>(depthTexture, coord).compare(shadowCoord.z).mul(weight)
-				);
-				total += weight;
-			}
+		// A fixed disk gives straight cast edges distinct transition points on both axes.
+		const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+		for (let i = 0; i < config.shadowTaps; i++) {
+			const area = (i + 0.5) / config.shadowTaps;
+			const radius = Math.sqrt(area);
+			const angle = (i + 0.5) * goldenAngle;
+			const offset = vec2(Math.cos(angle) * radius, Math.sin(angle) * radius);
+			const weight = 1 - 0.65 * area;
+			const coord = shadowCoord.xy.add(offset.mul(stride));
+			const sample = texture<'float'>(depthTexture, coord).compare(shadowCoord.z);
+			result = result.add(sample.mul(weight));
+			total += weight;
+		}
 		return result.div(total);
 	}
 	Object.assign(sun.shadow, { filterNode });
