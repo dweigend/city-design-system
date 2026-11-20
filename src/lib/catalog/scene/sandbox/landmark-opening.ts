@@ -1,4 +1,4 @@
-import { stockOrigins } from './opening-origins';
+import { openingOrigins } from './opening-origins';
 import { Box2, Box3, Vector2, Vector3 } from 'three/webgpu';
 import { houseSizes, scoreCrop } from './opening-score';
 import {
@@ -117,13 +117,13 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 			.sub(center.clone().add(fit.offset).divideScalar(scale));
 		consider(search, group, fit, origin, scale);
 		if (!search.translate || group.length !== 2) continue;
-		for (const stockOrigin of stockOrigins(box, screen, data, scale, view.isPortrait())) {
+		for (const candidateOrigin of openingOrigins(box, screen, data, scale, view.isPortrait())) {
 			const offset = box
 				.getCenter(new Vector2())
-				.sub(stockOrigin)
+				.sub(candidateOrigin)
 				.multiplyScalar(scale)
 				.sub(center);
-			consider(search, group, { ...fit, offset }, stockOrigin, scale);
+			consider(search, group, { ...fit, offset }, candidateOrigin, scale);
 			if (meetsTarget(search.best)) return;
 		}
 	}
@@ -131,14 +131,14 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 
 // Studio sightlines cover both directions along the waterfront and a cross-town view.
 const portraitHeadings = [172, 170, 180, 124, 144, 108, 90, 0] as const;
-// The west-facing view at studio elevation keeps the full-height parcels readable on short canvases.
+// The south-southeast sightline separates neighbouring courts across a shallow HUD opening.
 const landscapeAngles = [
 	[210, -1],
 	[144, -1],
 	[124, -1],
 	[180, -1],
 	[108, -1],
-	[266, 0],
+	[157.5, -1],
 	[90, -1],
 	[0, -1]
 ] as const;
@@ -150,7 +150,8 @@ function sightlines(view: View, screen: OpeningScreen) {
 	const room = screen.safe.getSize(new Vector2());
 	const ratio = room.x / room.y;
 	if (view.isPortrait()) return portraitHeadings.map((h) => [h, 0] as const);
-	const first = ratio >= 1.65 ? 90 : 108;
+	const shortRail = screen.safe.max.x < screen.canvas.max.x && ratio >= 1.65;
+	const first = shortRail ? 157.5 : ratio >= 1.65 ? 90 : 108;
 	return [[first, -1] as const, ...landscapeAngles.filter(([heading]) => heading !== first)];
 }
 

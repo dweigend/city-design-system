@@ -31,6 +31,7 @@
 	let header = $state<HTMLElement>();
 	let hudGroup = $state<HTMLDivElement>();
 
+	let hintBox = $state<HTMLDivElement>();
 	let timelineBar = $state<HTMLDivElement>();
 	let rail = $state<HTMLDivElement>();
 	let modeControls = $state<HTMLDivElement>();
@@ -40,10 +41,12 @@
 			(el): el is HTMLElement => el !== undefined
 		);
 		if (controls.length !== 5) return;
+		const hint = hintBox;
 		const observer = new ResizeObserver(() => {
 			const [title, modes, tools, panel, bar] = controls.map((el) => el.getBoundingClientRect());
 			const reserved = [title, modes, panel, bar].filter((r) => r.width > 0 && r.height > 0);
 			if (panel.width && !tools.width) {
+				if (hint) reserved.push(hint.getBoundingClientRect());
 				area = {
 					top: 40,
 					bottom: document.documentElement.clientHeight,
@@ -62,6 +65,7 @@
 			);
 		});
 		observer.observe(document.documentElement);
+		if (hint) observer.observe(hint);
 		controls.forEach((el) => observer.observe(el));
 		return () => observer.disconnect();
 	});
@@ -259,7 +263,14 @@
 			/>
 		</div>
 	</div>
-	<SandboxHud bind:this={hud} bind:group={hudGroup} bind:timelineBar bind:rail {session} />
+	<SandboxHud
+		bind:this={hud}
+		bind:group={hudGroup}
+		bind:timelineBar
+		bind:hintBox
+		bind:rail
+		{session}
+	/>
 </main>
 
 <style>

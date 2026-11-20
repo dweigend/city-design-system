@@ -48,8 +48,8 @@ function remaining(room: Box2[], bodies: Box2[], regions: Box2[], scale: number)
 	return room;
 }
 
-/** Finds legal camera origins where a complete group and part of a stock roof can share the image. */
-export function* stockOrigins(
+/** Finds origins where the full court group clears the HUD, including crops without visible stock. */
+export function* openingOrigins(
 	fit: Box2,
 	screen: OpeningScreen,
 	data: OpeningProjection,
@@ -63,6 +63,7 @@ export function* stockOrigins(
 		fit.min.x - safe.min.x / scale,
 		fit.min.y - safe.min.y / scale
 	);
+	domain.expandByScalar(-6 / scale);
 	if (domain.isEmpty()) return;
 	const stock = data.stock
 		.map((b) =>
@@ -71,7 +72,6 @@ export function* stockOrigins(
 				.intersect(domain)
 		)
 		.filter((b) => !b.isEmpty());
-	if (!stock.length) return;
 	const edges = silhouetteLimits(screen);
 	let room = remaining(
 		[domain],
@@ -81,15 +81,15 @@ export function* stockOrigins(
 	);
 	room = remaining(room, data.courts, edges, scale);
 	room = remaining(room, data.stock, screen.reserved, scale);
-	yield* distinctOrigins(room, stock, domain.getCenter(new Vector2()), scale);
+	yield* distinctOrigins(room, [domain, ...stock], domain.getCenter(new Vector2()), scale);
 }
 
-function* distinctOrigins(room: Box2[], stock: Box2[], aim: Vector2, scale: number) {
+function* distinctOrigins(room: Box2[], regions: Box2[], aim: Vector2, scale: number) {
 	const seen = new Set<string>();
 	for (const free of room) {
-		for (const historic of stock) {
-			if (!free.intersectsBox(historic)) continue;
-			const legal = free.clone().intersect(historic);
+		for (const region of regions) {
+			if (!free.intersectsBox(region)) continue;
+			const legal = free.clone().intersect(region);
 			for (const point of [legal.clampPoint(aim, new Vector2()), legal.getCenter(new Vector2())]) {
 				// Subpixel translations yield the same apparent crop.
 				const key = Math.round(point.x * scale * 4) + ',' + Math.round(point.y * scale * 4);

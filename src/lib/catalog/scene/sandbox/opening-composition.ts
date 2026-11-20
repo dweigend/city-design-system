@@ -36,10 +36,12 @@ export function ensembleComposition(
 	if (historic.length && extent < min) return;
 	const mass = bodies.reduce((sum, body) => sum + area(body), 0) / frame;
 	const middle = subject.getCenter(new Vector2());
-	const drift = middle.clone().sub(centre).divide(size).length();
+	const offset = middle.clone().sub(centre).divide(size);
+	const drift = offset.length();
 	const gap = Math.min(...bodies.map((body) => body.distanceToPoint(middle))) / size.x;
 	const penalty =
-		Math.max(0, min - extent, extent - max) + Math.max(0, 0.21 - mass, drift - 0.12, gap - 0.1);
+		Math.max(0, min - extent, extent - max) +
+		Math.max(0, 0.21 - mass, drift - 0.12, Math.abs(offset.y) - 0.065, gap - 0.1);
 	return [1, -penalty, 1, -gap - drift * 0.35 + mass * 0.22, -Math.abs(extent - (min + max) / 2)];
 }
 
