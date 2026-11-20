@@ -33,6 +33,7 @@
 						primitives={plate.primitives}
 						label="{plate.title}: {plate.text}"
 						tools={false}
+						rulePlate
 					/>
 				</div>
 				<figcaption><strong>{plate.title}.</strong> {plate.text}</figcaption>

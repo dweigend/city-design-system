@@ -9,13 +9,15 @@
 		primitives,
 		label,
 		style = defaultStyle,
-		tools = true
+		tools = true,
+		rulePlate = false
 	}: {
 		primitives: Primitive[];
 		label: string;
 		style?: SceneStyle;
 		/** false: no own reset button; the surrounding demo calls reset() (bibel/DemoLayout). */
 		tools?: boolean;
+		rulePlate?: boolean;
 	} = $props();
 	/** Camera back to the fitted default view. */
 	export function reset() {
@@ -57,7 +59,11 @@
 		const current = scene,
 			next = primitives,
 			appearance = style;
-		const frame = requestAnimationFrame(() => current?.update(next, appearance));
+		const plate = rulePlate;
+		const frame = requestAnimationFrame(() => {
+			if (plate) current?.updateRulePlate(next, appearance);
+			else current?.update(next, appearance);
+		});
 		return () => cancelAnimationFrame(frame);
 	});
 </script>
