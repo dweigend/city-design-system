@@ -1,4 +1,4 @@
-import { buildingPalette } from '../logic/material/building-palette';
+import { resolveBuildingSurface } from '../logic/material/building-palette';
 import { finishMaterial } from '../logic/material/surface';
 import type { ColorToken, Primitive } from '../logic/parametrik/types';
 
@@ -19,12 +19,10 @@ export function projectBuildingSurface(part: Primitive): Projected {
 		part.material === 'ghost'
 	) {
 		if (hasToken(part)) return part;
-		const token = context
-			? buildingPalette(context.use, context.ensemble)[context.slot].token
-			: '--paper';
+		const token = context ? resolveBuildingSurface(context).token : '--paper';
 		return { ...part, token };
 	}
-	const surface = buildingPalette(context.use, context.ensemble)[context.slot];
+	const surface = resolveBuildingSurface(context);
 	return {
 		...part,
 		...surface,

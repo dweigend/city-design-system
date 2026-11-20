@@ -17,7 +17,7 @@ export const ACCENT_TOKEN = BODY_TOKEN;
 
 /** Muted shell pigments shared by all members of a court, keyed by its leading programme. */
 export const GROUND_TOKEN = {
-	living: '--paper',
+	living: '--ground-living',
 	water: '--ground-stone',
 	energy: '--ground-sand',
 	food: '--ground-sage',

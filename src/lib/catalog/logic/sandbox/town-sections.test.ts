@@ -1,6 +1,6 @@
 import { projectBuildingSurface } from '../../scene/building-surface';
 import { expect, test } from 'bun:test';
-import { ACCENT_TOKEN } from '../../data/house-body';
+import { ACCENT_TOKEN, GROUND_TOKEN } from '../../data/house-body';
 import { accentBody, ensembleAnchor, sectionParts } from '../composed-house';
 import { openingScene } from './index';
 import { townSections } from './composed-projection';
@@ -24,9 +24,11 @@ test('every occupied court in the seed-seven opening has its own houses and one 
 		const anchor = anchors[0],
 			target = accentBody(anchor);
 		expect(anchor.composition.levels.at(-1)?.bodies).toContain(target);
-		const walls = sectionParts(anchor).filter(
-			(p) => p.id.startsWith(target.id + '/') && ['shell', 'body'].includes(p.source.slot)
-		);
+		const parts = sectionParts(anchor).filter((p) => p.id.startsWith(target.id + '/'));
+		const walls = parts.filter((p) => p.buildingSurface?.slot === 'shell');
+		const screens = parts.filter((p) => p.buildingSurface?.slot === 'screen');
+		for (const screen of screens)
+			expect(projectBuildingSurface(screen).token).toBe(GROUND_TOKEN[anchor.composition.shellUse]);
 		expect(walls.length).toBeGreaterThan(0);
 		expect(walls.every((p) => colours.has(projectBuildingSurface(p).token))).toBe(true);
 	}

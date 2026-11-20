@@ -28,7 +28,7 @@ function stockSurfaces(
 	use?: HouseUse
 ) {
 	return {
-		frame: finish,
+		frame: surfaces.frame,
 		body: finish,
 		shell: use ? finish : surfaces.shell,
 		glass: surfaces.pane,
@@ -64,7 +64,6 @@ export function members(
 		roles.accent = body;
 		roles.highlight = body;
 		roles.body = body;
-		roles.frame = body;
 		roles.glass = pane;
 	}
 	const slots = Object.fromEntries(

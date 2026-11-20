@@ -18,6 +18,7 @@ export const surfaceTokens = [
 	'--cat-foliage',
 	'--cat-lawn',
 	'--cat-hazard',
+	'--ground-living',
 	'--ground-stone',
 	'--ground-sand',
 	'--ground-sage',
@@ -45,6 +46,7 @@ export type BuildingSurface = {
 	slot: 'shell' | 'base' | 'deck' | 'screen' | 'pane' | 'fitting' | 'frame';
 	use: import('../../data/house-body').HouseUse;
 	ensemble: string;
+	accentUse?: import('../../data/house-body').HouseUse;
 	pigment?: ColorToken;
 };
 type Base = {
