@@ -27,9 +27,13 @@ test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b4
 	expect(
 		defaults.filter((p) => !p.id.includes(':trunk')).every((p) => p.token === '--cat-foliage')
 	).toBe(true);
-	const originalInk = defaults.map((p) =>
-		p.token === '--cat-foliage' ? { ...p, token: '--cat-nature' } : p
-	);
+	expect(
+		defaults.filter((p) => p.id.includes(':trunk')).every((p) => p.token === '--cat-bark')
+	).toBe(true);
+	const originalInk = defaults.map((p) => ({
+		...p,
+		token: p.id.includes(':trunk') ? '--paper' : '--cat-nature'
+	}));
 	expect(fingerprint(originalInk)).toBe(
 		'b0800045ebdda3d2f1d2357679595d967df505db5a1a31ae687f773b97541799'
 	);
