@@ -1,3 +1,4 @@
+export { clearCourse } from './clear-course';
 import type { TerrainGrid } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';
 import { alignment, chainage, segment, poseAt } from './alignment';

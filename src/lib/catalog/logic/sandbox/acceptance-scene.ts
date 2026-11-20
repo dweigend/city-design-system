@@ -68,7 +68,7 @@ const COVERS: readonly (readonly [Cover, Rect])[] = [
 	['forest', [110, 22, 114, 26]],
 	['meadow', [60, 22, 64, 25]]
 ];
-const OPENING_CELL = '79/44';
+
 // One painted crown starter per connected bank group gives the surrounding two-storey
 // parcels room to alternate within the two-storey surcharge limit.
 const BANK_CROWN_STARTERS = ['66/25', '78/25', '88/23', '106/24'];
@@ -148,7 +148,10 @@ export function draftingStudy(placed: World) {
 	return {
 		world,
 		earliestFullYear: placed.state.year,
-		additions: [...elevatedWalkway(world), ...(world.seed === SEED ? twoSuns(world) : [])],
+		additions: [
+			...(world.state.city?.walk ? [] : elevatedWalkway(world)),
+			...(world.seed === SEED ? twoSuns(world) : [])
+		],
 		frame: FRAME,
 		portraitFrame: PORTRAIT_FRAME
 	};
@@ -159,24 +162,22 @@ export function riversideStock(start: World) {
 	return interventions(start, townFormEdits(start)).reduce(applyEdit, start);
 }
 
-/** Opens the generated city. Seed 7 also retains the drafting study’s authored interventions. */
+/** Opens the generated city with the reference valley’s planted banks on seed 7. */
 export function openingScene(seed: number) {
 	const start = createWorld(seed);
-	if (seed !== SEED) return { world: openCity(start), additions: [], referenceCellId: undefined };
-	const world = riversideStock(start);
+	const covers = seed === SEED ? COVERS.flatMap(([kind, rect]) => cover(kind, rect)) : [];
+	const town = openCity(covers.reduce(applyEdit, start), seed === SEED ? TWO_SUNS_CELLS : []);
 	return {
-		world: openCity(world, [...WALKWAY, ...TWO_SUNS_CELLS, ...TUBE]),
-		additions: elevatedWalkway(world),
-		referenceCellId: OPENING_CELL
+		world: town,
+		additions: [] as Primitive[],
+		referenceCellId: town.state.city?.centres[0]?.lots[0]
 	};
 }
 
-/** Frames the same city as the game, with the authored drafting details on alternate seeds. */
+/** Frames the same city as the game and adds the seed-7 kinetic landmark. */
 export function acceptanceScene(seed = SEED) {
 	const { world } = openingScene(seed);
-	const study = draftingStudy(
-		seed === SEED ? world : interventions(world, []).reduce(applyEdit, world)
-	);
+	const study = draftingStudy(world);
 	const disc = study.additions.find((p) => p.id === TWO_SUNS_TURNING_DISC);
 	return { ...study, ...(disc?.kind === 'ring' && { landmark: disc.position }) };
 }

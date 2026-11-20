@@ -18,7 +18,7 @@ export const drawingTransitSlots: TransitSlots = {
 const steel = { ...paper, finish: 'metall-gebuerstet' } as const;
 export const cityTransitSlots: TransitSlots = {
 	...drawingTransitSlots,
-	deck: steel,
+	deck: { ...paper, finish: 'metall-kupfer' },
 	glass: { ...paper, finish: 'clear-acrylic' },
 	platform: steel,
 	shaft: steel,
