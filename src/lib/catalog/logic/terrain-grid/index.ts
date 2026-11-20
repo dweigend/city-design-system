@@ -1,3 +1,5 @@
+export { wallContacts } from './court-frontage';
+export { wallContact } from './wall-contact';
 export { bankHeight, chartPoint } from './bank-surface';
 export { passageClearance } from './frontage-lot';
 import { behindPassage } from './frontage-lot';
