@@ -26,3 +26,12 @@ test('equal pressure to tension ratios produce the same bulge; pressure relieves
 	expect(inflated.sag).toBeGreaterThan(0);
 	expect(inflated.fraction).toBeLessThan(1);
 });
+
+test('removing cloth at the slit breaks reflection symmetry under uniform loading', () => {
+	const free = { pressure: 1, tension: 2, restraint: 'hoops' } as const;
+	const sample = (u: number) => membraneResponse(free, 6, 6, u, 0.5, 2).fraction;
+	expect(sample(0.25)).toBeGreaterThan(0);
+	expect(Math.abs(sample(0.25) - sample(0.75))).toBeGreaterThan(1e-5);
+	expect(sample(0)).toBe(0);
+	expect(sample(1)).toBe(0);
+});
