@@ -1,3 +1,4 @@
+import { pathTube } from '../linear-path';
 import type { Vec3 } from '../parametrik/types';
 import type { ObjectGeometry } from './object-geometry';
 /** Shared primitive fields. The registry assigns stable local IDs in drawing order. */
@@ -23,7 +24,7 @@ export function bulb(position: Vec3, radius: number, squash: number, slot: strin
 }
 /** Straight tube between two centre-line ends. */
 export function rod(from: Vec3, to: Vec3, radius: number, slot = 'body'): ObjectGeometry {
-	return { ...surface(slot), kind: 'pipe', points: [from, to], radius };
+	return { ...surface(slot), ...pathTube([from, to], radius) };
 }
 /** Upright annulus or solid disc with its axis along x. */
 export function ring(

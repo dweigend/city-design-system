@@ -5,7 +5,7 @@ import { expect, test } from 'bun:test';
 import { assetRegistry, buildObject } from '../assets';
 import { bounds } from '../ansicht/geometrie';
 import { place } from './asset-fit';
-import { houseObject, type HousePart } from './house-object';
+import { houseObject } from './house-object';
 
 test('every registered object variant mounts as a house fitting with finite geometry', () => {
 	const kinds = new Set<string>();
@@ -34,40 +34,26 @@ function pipe<T extends { kind: string }>(p: T) {
 	return p as Extract<T, { kind: 'pipe' }>;
 }
 
-function expectRailBays(rails: HousePart[]) {
-	const stock = (variant: string) => buildObject('railing', variant, 17).parts.map(pipe);
-	const members = rails.map(pipe);
-	expect(members.length).toBeGreaterThan(3);
-	const length = (points: (typeof members)[number]['points']) =>
-		Math.hypot(...points[1].map((v, k) => v - points[0][k]));
-	for (let i = 0; i < members.length; i += 3) {
-		const top = members[i];
-		const local = stock(top.source.variant);
-		const scale = top.radius / local[0].radius;
-		expect(scale).toBeWithin(0.85, 1.15);
-		const bayIndex = (id: string) => Number(id.split('/').at(-2));
-		if (
-			i &&
-			top.id.split('/').slice(0, -2).join('/') ===
-				members[i - 3].id.split('/').slice(0, -2).join('/') &&
-			bayIndex(top.id) === bayIndex(members[i - 3].id) + 1
-		)
-			for (const k of [0, 1, 2])
-				expect(top.points[0][k]).toBeCloseTo(members[i - 3].points[1][k], 9);
-		for (const [j, stock] of local.entries()) {
-			const p = members[i + j];
-			expect(p.source.member).toBe(j);
-			expect(p.radius).toBeCloseTo(stock.radius * scale);
-			expect(length(p.points)).toBeCloseTo(length(stock.points) * scale);
+test('switchback and winding handrails follow the tread edges with one vertical post per station', () => {
+	for (const type of ['round-tower', 'deck-tower'] as const) {
+		const rails = sectionParts(specimen(1, type))
+			.filter((p) => p.source.objectId === 'railing')
+			.map(pipe);
+		const tops = rails.filter((p) => p.source.member === 0),
+			posts = rails.filter((p) => p.source.member !== 0);
+		expect(tops.some((p) => p.points.length > 2)).toBe(true);
+		const vertices = new Set(tops.flatMap((p) => p.points.map((q) => q.join(','))));
+		const seats = new Set<string>();
+		for (const p of posts) {
+			const [foot, top] = p.points;
+			expect(seats.has(top.join(','))).toBe(false);
+			seats.add(top.join(','));
+			expect(vertices.has(top.join(','))).toBe(true);
+			expect(foot.slice(0, 2)).toEqual(top.slice(0, 2));
+			expect(top[2] - foot[2]).toBeCloseTo(0.92, 8);
 		}
 	}
-}
-
-test('switchback and winding stairs mount complete, uniformly scaled railing bays', () => {
-	for (const type of ['round-tower', 'deck-tower'] as const)
-		expectRailBays(sectionParts(specimen(1, type)).filter((p) => p.source.objectId === 'railing'));
 });
-
 test('the narrow block ladder bears against the inside of its folded facade', () => {
 	const cells = squareGrid(1, 1, 4).cells;
 	const s = planHouse({

@@ -1,7 +1,11 @@
-import { interpolatePoint, type Primitive, type Vec3 } from '../parametrik/types';
-import { deckCorners, spanSurvey } from '../walkway';
+import { fitWalkingFlights, type FlightReservation } from './flight-fit';
+import { levelRuns } from './level-runs';
+import { type Primitive, type Vec3 } from '../parametrik/types';
+import { pathDeck } from './path-deck';
+export { publicFlight } from './path-deck';
+import { townPath } from './town-path';
 import { houseSurfaces } from '../composed-house';
-import { flushDecks, publicPaving } from './town-floor';
+import { flushDecks } from './town-floor';
 import { courtLife } from './court-life';
 import { courtGarden } from './court-garden';
 import { meetingPlatforms, meetingSites, reservations } from './town-landings';
@@ -9,73 +13,8 @@ import { finishMaterial } from '../material/surface';
 import { hashUnit } from '../../core/random';
 import { townLife } from './town-life';
 
-import { townStations, townSpans, type TownSpan } from './town-stations';
-const width = 2.5,
-	thickness = 0.2;
+import { townStations, townSpans } from './town-stations';
 const frame = { role: 'neu', material: 'metal', ...houseSurfaces.frame } as const;
-const deck = {
-	role: 'neu',
-	material: 'acrylic',
-	token: houseSurfaces.access.token,
-	finish: 'kunststoff-formteil'
-} as const;
-
-function flight(span: TownSpan): Primitive[] {
-	const { a, b, id } = span,
-		ring = deckCorners(a, b, width);
-	const { treads } = spanSurvey(ring, id, width, { thickness, treadRise: 0.17 });
-	const parts: Primitive[] = treads.map((t) => ({ ...deck, ...t, kind: 'prism' }));
-	for (const [p, q, side] of [
-		[ring[0], ring[3], 'right'],
-		[ring[1], ring[2], 'left']
-	] as const) {
-		const raised = (v: Vec3): Vec3 => [v[0], v[1], v[2] + 1.04];
-		parts.push({
-			...frame,
-			id: id + '/' + side,
-			kind: 'pipe',
-			points: [raised(p), raised(q)],
-			radius: 0.06
-		});
-		const count = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 3);
-		for (let i = 0; i < count; i++) {
-			const foot = interpolatePoint(p, q, (i + 0.5) / count);
-			parts.push({
-				...frame,
-				id: id + '/' + side + '/' + i,
-				kind: 'cylinder',
-				position: foot,
-				height: 1.04,
-				radius: 0.06
-			});
-		}
-	}
-	return parts;
-}
-
-/** Draws a public deck flight between surveyed landings, with two rails and ground-seated piers. */
-export function publicFlight(span: TownSpan, ground: (x: number, y: number) => number) {
-	const { a, b, id } = span;
-	const parts = flight(span);
-	const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 12);
-	for (let i = 0; i < n; i++) {
-		const [x, y, z] = interpolatePoint(a, b, (i + 0.5) / n),
-			foot = ground(x, y);
-		if (z - thickness > foot)
-			parts.push({
-				...frame,
-				kind: 'cylinder',
-				id: id + '/pier/' + i,
-				position: [x, y, foot],
-				height: z - thickness - foot,
-				radius: 0.2
-			});
-	}
-	return parts.some((p) => p.id.startsWith(id + '/pier/'))
-		? parts
-		: parts.map((p) => (p.kind === 'prism' ? { ...p, ...publicPaving } : p));
-}
-
 type Court = {
 	aprons?: [number, number][][];
 	id: string;
@@ -125,6 +64,21 @@ function plazaParts(
 	}
 	return parts;
 }
+/** Surveys the town centrelines and their court terminals in world metres. */
+export function surveyTownWalk(
+	routes: readonly string[][],
+	center: (id: string) => Vec3,
+	courts: Court[],
+	seed: number,
+	reservations: ReadonlyMap<string, FlightReservation> = new Map()
+) {
+	const mouths = new Map(routes.map((path) => [path[0], center(path[1])]));
+	const gardens = courts.map((c) => courtGarden(c, mouths.get(c.id) ?? c.position, seed));
+	const ends = new Map(courts.map((c, i) => [c.id, gardens[i].landing]));
+	const stations = townStations(routes, center, ends);
+	const { spans, unresolved } = fitWalkingFlights(townSpans(routes, stations, ends), reservations);
+	return { ends, stations, spans, gardens, unresolved };
+}
 /** Projects horizontal 2.5 m spans and matching steps between even-metre
  * landings. Terminals descend into courts. Degree-three junctions have an open plaza. */
 export function townDeck(
@@ -132,40 +86,23 @@ export function townDeck(
 	center: (id: string) => Vec3,
 	courts: Court[],
 	ground: (x: number, y: number) => number,
-	seed: number
+	seed: number,
+	reservationsByLink: ReadonlyMap<string, FlightReservation> = new Map()
 ) {
-	const mouths = new Map(routes.map((path) => [path[0], center(path[1])]));
-	const gardens = courts.map((c) => courtGarden(c, mouths.get(c.id) ?? c.position, seed));
-	const ends = new Map(courts.map((c, i) => [c.id, gardens[i].landing]));
-	const stations = townStations(routes, center, ends);
-	const spans = townSpans(routes, stations, ends);
-	const plazas: Primitive[] = [],
-		joints: Primitive[] = [];
+	const { ends, stations, spans, gardens } = surveyTownWalk(
+		routes,
+		center,
+		courts,
+		seed,
+		reservationsByLink
+	);
+	const plazas: Primitive[] = [];
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
 	const sites = meetingSites(spans, [...ends.values()]);
-	for (const [id, { position, arms }] of stations) {
-		if (arms.length < 2 || sites.some((s) => s.position === position)) continue;
-		const [x, y, z] = position;
-		const base = ground(x, y);
-		const carried = z - thickness > base;
-		if (carried)
-			joints.push({
-				...frame,
-				kind: 'cylinder',
-				id: 'town-walk/joint/' + id + '/pier',
-				position: [x, y, base],
-				height: z - thickness - base,
-				radius: 0.2
-			});
-		joints.push({
-			...(carried ? deck : { role: 'neu' as const, ...publicPaving }),
-			id: 'town-walk/joint/' + id,
-			kind: 'cylinder',
-			position: [x, y, z - thickness],
-			height: thickness,
-			radius: arms.length === 3 ? width : width / 2
-		});
-	}
+	const forks = new Map(
+		[...stations].filter(([, s]) => s.arms.length === 3).map(([id, s]) => [id, s.position])
+	);
+	const { bands, junctions } = townPath(spans, forks);
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries())
 		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));
@@ -173,12 +110,10 @@ export function townDeck(
 	const taken = reservations([...visitors, ...planting.filter((p) => !p.id.endsWith('/bed'))]);
 	const meetings = meetingPlatforms(sites, taken, seed, ground);
 	return [
-		...flushDecks([
-			...plazas,
-			...spans.flatMap((s) => publicFlight(s, ground)),
-			...joints,
-			...meetings
-		]),
+		...levelRuns(
+			flushDecks([...plazas, ...pathDeck(bands, junctions, ground), ...meetings]),
+			bands
+		),
 		...planting,
 		...townLife(spans, seed, taken),
 		...visitors

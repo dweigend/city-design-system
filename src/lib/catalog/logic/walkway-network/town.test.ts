@@ -52,18 +52,32 @@ function topology(walk: string[][], courts: Set<string>, parts: Primitive[]) {
 	for (const id of courts) {
 		expect(degree.get(id)).toBe(1);
 		expect(
-			parts.some((p) => p.id.startsWith('town-walk/' + id + '>') && p.id.includes(':tread:'))
+			parts.some(
+				(p) =>
+					p.id.startsWith('town-walk/' + id + '>') &&
+					(p.id.includes(':tread:') || p.id.endsWith('/ramp'))
+			)
 		).toBe(true);
 	}
 	expect(Math.max(...degree.values())).toBeLessThanOrEqual(3);
 }
 
 function publicDeck(parts: Primitive[], pink: Primitive[], floor: Plate[]) {
-	const byId = new Map(parts.map((p) => [p.id, p]));
+	const rails = parts.filter((p) => p.kind === 'pipe' && p.id.startsWith('town-walk/rail/'));
+	expect(rails.length).toBeGreaterThan(0);
+	for (const rail of rails)
+		if (rail.kind === 'pipe') {
+			expect(rail.radius * 2).toBeCloseTo(0.12);
+			expect(rail.points.length).toBeGreaterThan(1);
+		}
 
 	expect(
 		pink.every(
-			(p) => p.id.startsWith('town-walk/') && (p.kind === 'prism' || p.kind === 'cylinder')
+			(p) =>
+				p.id.startsWith('town-walk/') &&
+				(p.kind === 'prism' ||
+					p.kind === 'cylinder' ||
+					(p.kind === 'mesh' && p.id.endsWith('/ramp')))
 		)
 	).toBe(true);
 
@@ -71,18 +85,12 @@ function publicDeck(parts: Primitive[], pink: Primitive[], floor: Plate[]) {
 		expect(width(p)).toBeCloseTo(2.5);
 		expect(p.height).toBeLessThanOrEqual(0.25);
 	}
-	const spans = floor.filter((p) => !p.id.includes(':tread:'));
+	const spans = floor.filter((p) => !(p.id.includes(':tread:') || p.id.endsWith('/ramp')));
 	let area = 0;
 	for (const p of spans) {
 		const run = distance(p.polygon[0], p.polygon[3]);
 		expect(run).toBeLessThanOrEqual(25);
 		area += run * width(p);
-		for (const side of ['right', 'left']) {
-			const rail = byId.get(p.id + '/' + side);
-			if (rail?.kind !== 'pipe') throw Error('Missing handrail ' + p.id);
-			expect(rail.radius * 2).toBeCloseTo(0.12);
-			expect(rail.points[0][2] + rail.radius - p.z - p.height).toBeCloseTo(1.1);
-		}
 		const piers = parts.filter((q) => q.id.startsWith(p.id + '/pier/'));
 		expect(piers.length).toBeGreaterThanOrEqual(Math.ceil(run / 12));
 	}
@@ -96,7 +104,10 @@ function checkSupport(members: Primitive[], surfaces: Primitive[], feet: number)
 		const { min, max } = bounds(p);
 		for (const x of [min[0], max[0]])
 			for (const y of [min[1], max[1]])
-				expect(standsOn({ ...head, position: [x, y, feet + 1] }, surfaces, feet)).toBe(true);
+				expect(
+					standsOn({ ...head, position: [x, y, feet + 1] }, surfaces, feet),
+					p.id + ' at ' + [x, y, feet].join(',')
+				).toBe(true);
 	}
 }
 
@@ -289,7 +300,7 @@ for (const seed of [7, 13, 29])
 			const parts = cityCentreView(world),
 				pink = parts.filter((p) => p.token === houseSurfaces.access.token);
 			const courts = new Set(city.centres.flatMap((c) => c.ensembles.map((g) => g.court)));
-			const floor = surveyedFloors(parts);
+			const floor = surveyedFloors(world);
 			for (const id of courts) {
 				const plate = parts.find((p) => p.id === 'court/' + id);
 				expect(

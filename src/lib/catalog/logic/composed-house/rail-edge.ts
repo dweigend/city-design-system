@@ -1,3 +1,4 @@
+import { chainage, pathPoint } from '../linear-path';
 import type { Vec3 } from '../parametrik/types';
 import type { Station } from './stair-track';
 
@@ -10,10 +11,6 @@ export type RailEdgeReport = {
 	covered: number;
 	omitted: Record<RailReason, number>;
 };
-
-export function railDistance(a: Vec3, b: Vec3) {
-	return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-}
 
 /** Samples a stair turn on its concentric arc and straight runs on the tread edge. */
 function stations({ a, b, high, low }: RailLeg, offset: number) {
@@ -36,7 +33,8 @@ function stations({ a, b, high, low }: RailLeg, offset: number) {
 	});
 }
 
-function survey(legs: RailLeg[], offset: number) {
+/** Samples the concentric tread edge in equal arc-length bays, retaining every turn station. */
+export function edgeBays(legs: RailLeg[], offset: number, spacing: number) {
 	const last = legs[legs.length - 1];
 	const points = legs.flatMap((l) => stations(l, offset));
 	points.push([
@@ -45,56 +43,19 @@ function survey(legs: RailLeg[], offset: number) {
 		last.low
 	]);
 	points.reverse();
-	const distances = [0];
-	for (let i = 1; i < points.length; i++)
-		distances.push(distances[i - 1] + railDistance(points[i - 1], points[i]));
-
-	function at(d: number): Vec3 {
-		let i = 1,
-			high = points.length - 1;
-		while (i < high) {
-			const mid = (i + high) >>> 1;
-			if (distances[mid] < d) i = mid + 1;
-			else high = mid;
+	const distances = chainage(points),
+		length = distances[distances.length - 1],
+		count = Math.ceil(length / spacing);
+	let next = 1;
+	return Array.from({ length: count }, (_, i) => {
+		const start = (length * i) / count,
+			end = (length * (i + 1)) / count;
+		const path = [pathPoint(points, distances, start)];
+		while (next < points.length - 1 && distances[next] < end - 1e-9) {
+			if (distances[next] > start + 1e-9) path.push(points[next]);
+			next++;
 		}
-		const t = (d - distances[i - 1]) / (distances[i] - distances[i - 1]);
-		return points[i - 1].map((value, k) => value + (points[i][k] - value) * t) as Vec3;
-	}
-	return { total: distances[distances.length - 1], at };
-}
-
-/** Divides one flight edge from its bottom landing up; any stock-length remainder is measured. */
-export function edgeBays(legs: RailLeg[], offset: number, span: number) {
-	const { total, at } = survey(legs, offset);
-	const unit = span / 4;
-	const count = Math.max(1, Math.floor(total / (unit * 1.025)));
-	const pitch = total / count;
-	function bay(i: number, n: number) {
-		const start = i * pitch,
-			end = (i + n) * pitch,
-			a = at(start),
-			b = at(end);
-		const mid = at((start + end) / 2);
-		const deviation = Math.hypot(mid[0] - (a[0] + b[0]) / 2, mid[1] - (a[1] + b[1]) / 2);
-		const scale = railDistance(a, b) / (unit * n);
-		return {
-			a,
-			b,
-			length: end - start,
-			small: n === 1,
-			fits: scale >= 1 - 1e-8 && scale <= 1.15 && deviation <= 0.029
-		};
-	}
-	const result = [];
-	for (let i = 0; i < count;) {
-		const full = i + 4 <= count ? bay(i, 4) : undefined;
-		if (full?.fits) {
-			result.push(full);
-			i += 4;
-		} else {
-			result.push(bay(i, 1));
-			i++;
-		}
-	}
-	return result;
+		path.push(pathPoint(points, distances, end));
+		return { path, length: end - start };
+	});
 }

@@ -9,7 +9,9 @@ function residents(network: Network, id: string, seed: number) {
 	const result: Primitive[] = [];
 	let distance = 0,
 		index = 0;
-	const strips = network.geometry.filter((p) => p.kind === 'mesh');
+	const strips = network.geometry
+		.filter((p) => p.kind === 'mesh')
+		.filter((p) => !p.id.endsWith('/ramp'));
 	const station = () => ((index + 0.25 + 0.5 * hashUnit(seed, id, index)) * network.length) / count;
 	for (const sheet of strips) {
 		const [a, b, c, d] = sheet.points;

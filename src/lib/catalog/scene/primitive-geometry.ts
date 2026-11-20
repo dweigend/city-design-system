@@ -1,3 +1,4 @@
+import { pipeGeometry } from './pipe-geometry';
 import { modelBevel } from './convex-creases';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { legacyRoleOf } from '../logic/parametrik/types';
@@ -160,16 +161,19 @@ function buildBox(p: SolidOf<'box'>, at: Placement) {
 }
 
 function buildPipe(p: SolidOf<'pipe'>, at: Placement, coarse: boolean) {
-	const curve = new THREE.CatmullRomCurve3(p.points.map(vector));
-	// A straight pipe needs one segment along its length; curved paths keep the fine sampling.
-	const along = p.points.length === 2 ? 1 : pathSegments(96, coarse);
-	const geometry = new THREE.TubeGeometry(
-		curve,
-		along,
-		p.radius,
-		circleSegments(p.radius, coarse),
-		false
+	const stations =
+		p.sampled || p.points.length === 2
+			? p.points
+			: new THREE.CatmullRomCurve3(p.points.map((q) => new THREE.Vector3(...q)))
+					.getSpacedPoints(pathSegments(96, coarse))
+					.map((v) => v.toArray() as Vec3);
+	const path = stations.filter(
+		(p, i) => !i || p.some((v, k) => Math.abs(v - stations[i - 1][k]) > 1e-10)
 	);
+	const geometry =
+		path.length > 1 && p.radius > 0
+			? pipeGeometry(path, p.radius, circleSegments(p.radius, coarse))
+			: new THREE.BufferGeometry();
 	return at(new THREE.Vector3(), geometry, { outline: true });
 }
 

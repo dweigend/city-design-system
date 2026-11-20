@@ -5,6 +5,7 @@ import { routeDecks } from './route';
 import { deckParts, WALKWAY_PARAMS, WALKWAY_PROFILE } from './span';
 export { routeDecks };
 export {
+	treadCount,
 	spanSurvey,
 	deckCorners,
 	spanEnd,
@@ -35,17 +36,31 @@ export function walkwayParts(
 			? WALKWAY_PROFILE
 			: resolveParams(WALKWAY_PARAMS, overrides, { width });
 	const deckWidth = profile.width;
+	const guards = new Map<string, Extract<Primitive, { kind: 'polyline' }>>();
 	return routeDecks(points, deckWidth).flatMap((ring, i) => {
 		const a = points[i],
 			b = points[i + 1];
 		const key = `${id}:${i}`;
-		const parts = deckParts(ring, key, deckWidth, flowToken.people, profile, simplifyAtCity);
+		const parts = deckParts(ring, key, deckWidth, flowToken.people, profile, simplifyAtCity).filter(
+			(p) => {
+				if (p.kind !== 'polyline') return true;
+				const side = p.id.slice(key.length),
+					guard = guards.get(side);
+				if (guard) {
+					guard.points.push(p.points[1]);
+					return false;
+				}
+				p.token = '--ink-3';
+				guards.set(side, p);
+				return true;
+			}
+		);
 		const height = (a[2] + b[2]) / 2 - profile.thickness - groundZ;
 		if (height > 0)
 			parts.push({
 				id: key + ':pier',
 				role: 'neu',
-				token: flowToken.people,
+				token: '--ink-3',
 				material: 'concrete',
 				kind: 'cylinder',
 				position: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, groundZ],

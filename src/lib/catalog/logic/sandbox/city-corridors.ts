@@ -5,9 +5,9 @@ import { walkingHeight } from './network-terrain';
 import type { World } from './world-contract';
 
 /** Projects the public court walks and green circuits shared by the game and bible. */
-export function cityCorridorPaths(world: World) {
+export function cityCorridorSite(world: World) {
 	const city = world.state.city;
-	if (!city?.walk) return [];
+	if (!city?.walk) return;
 	const cell = (id: string) => required(world.grid.cellsById.get(id), 'surveyed site');
 	const ground = (x: number, y: number) => walkingHeight(world.grid, x, y);
 	const courts = city.centres.flatMap((c) =>
@@ -28,5 +28,11 @@ export function cityCorridorPaths(world: World) {
 			};
 		})
 	);
-	return townDeck(city.walk, (id) => cell(id).center, courts, ground, world.seed);
+	return [city.walk, (id: string) => cell(id).center, courts, ground, world.seed] as const;
+}
+
+/** Projects the surveyed public walks from the shared city state. */
+export function cityCorridorPaths(world: World) {
+	const site = cityCorridorSite(world);
+	return site ? townDeck(...site) : [];
 }

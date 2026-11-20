@@ -43,15 +43,13 @@ function end(t: Plate, i: number, j: number): Vec3 {
 	];
 }
 function attachedStairs(parts: Primitive[], walk: Plate[]) {
-	const carriers = walkingPlates(parts).filter(
-		(p) => !p.id.includes(':tread:') || p.id.startsWith('town-walk/platform/')
-	);
+	const carriers = walkingPlates(parts);
 	for (const first of walk.filter((p) => p.id.endsWith(':tread:0'))) {
 		const run = first.id.slice(0, -1);
 		const treads = walk.filter((p) => p.id.startsWith(run));
 		for (const q of [end(first, 0, 1), end(treads[treads.length - 1], 2, 3)])
 			expect(
-				carriers.some((p) => contacts(q, p)),
+				carriers.some((p) => !p.id.startsWith(run) && contacts(q, p)),
 				run + ' unattached at ' + q.join(',')
 			).toBe(true);
 	}
@@ -89,8 +87,11 @@ function checkTownPalette(world: World, parts: Primitive[]) {
 		).toBe(true);
 	}
 	expect(walk.length).toBeGreaterThan(0);
-	attachedStairs(parts, surveyedFloors(parts));
+	attachedStairs(parts, surveyedFloors(world));
 	expect(world.grid.cells.some((c) => c.plan.stairAlley)).toBe(false);
+}
+function ramp(p: Primitive) {
+	return p.kind === 'mesh' && p.id.startsWith('town-walk/') && p.id.endsWith('/ramp');
 }
 function accessPlates(parts: Primitive[]) {
 	const token = houseSurfaces.access.token;
@@ -99,6 +100,7 @@ function accessPlates(parts: Primitive[]) {
 		if (p.overprint === token || (p.kind === 'prism' && p.topToken === token))
 			throw Error('Access print ' + p.id);
 		if (p.token !== token) continue;
+		if (ramp(p)) continue;
 		if (p.kind !== 'prism' || !p.id.startsWith('town-walk/'))
 			throw Error('Detached access ' + p.id);
 		walk.push(p);

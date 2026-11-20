@@ -1,3 +1,4 @@
+import { walkingProfile } from './walking-profile';
 import { WALKWAY_PARAMS } from '../walkway';
 import { houseStair } from '../../data/house-stair';
 import { distance, mix, nearest, separation, survey } from './clearance';
@@ -41,7 +42,8 @@ function approach(input: NetworkInput, entry: Point, pair: Pair) {
 		rise = z - input.terrain(...entry);
 	const run = distance(entry, top);
 	if (rise <= 0 || run < epsilon) return;
-	if (rise / run <= 0.08 && run <= 25) return { foot: entry, kind: 'ramp' as const };
+	if (rise / run <= walkingProfile.gradeLimit && run <= 25)
+		return { foot: entry, kind: 'ramp' as const };
 	const foot = stairFoot(input, entry, top, z);
 	if (foot) return { foot, kind: 'stair' as const };
 }

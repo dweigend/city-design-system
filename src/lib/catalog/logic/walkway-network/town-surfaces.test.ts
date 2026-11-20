@@ -1,3 +1,9 @@
+import { fitWalkingFlights } from './index';
+import { townPath } from './town-path';
+import { pathDeck } from './path-deck';
+import { townSpans } from './town-stations';
+import type { Vec3, Primitive } from '../parametrik/types';
+import { chainage, pathPoint } from '../linear-path';
 import { test, expect } from 'bun:test';
 import { openingScene, cityCentreView } from '../sandbox';
 import { houseSurfaces } from '../composed-house';
@@ -58,3 +64,126 @@ for (const seed of [7, 13, 29])
 		},
 		30000
 	);
+
+function checkRails(
+	parts: ReturnType<typeof pathDeck>,
+	rails: Extract<Primitive, { kind: 'pipe' }>[],
+	bands: ReturnType<typeof townPath>['bands']
+) {
+	for (const [i, rail] of rails.entries()) {
+		const positions = rail.points.map(([x, y, z]): Vec3 => [x, y, z - 1.04]);
+		const side = i === 0 ? 'right' : 'left';
+		const expected = [...bands[0][side], ...bands[1][side].slice(1)];
+		for (const [j, p] of positions.entries())
+			for (const k of [0, 1, 2]) expect(p[k]).toBeCloseTo(expected[j][k], 10);
+		const distance = chainage(positions),
+			length = distance[distance.length - 1];
+		const posts = parts.flatMap((p) =>
+			p.kind === 'cylinder' && p.id.startsWith(rail.id + '/post/') ? [p.position] : []
+		);
+		expect(length / posts.length).toBeLessThanOrEqual(3);
+		for (const [j, p] of posts.entries()) {
+			const target = pathPoint(positions, distance, ((j + 0.5) * length) / posts.length);
+			expect(Math.hypot(...p.map((v, k) => v - target[k]))).toBeLessThan(1e-8);
+		}
+	}
+}
+test('a swept bend has coincident deck seams and one arc-spaced guard on each walking edge', () => {
+	for (const angle of [-1.3, -0.85, 0.42, 1.1, 1.5]) {
+		const point: Vec3 = [9, 0, 2];
+		const { bands, junctions } = townPath(
+			[
+				{ id: 'a', a: [0, 0, 2], b: point },
+				{ id: 'b', a: point, b: [9 + 12 * Math.cos(angle), 12 * Math.sin(angle), 2] }
+			],
+			new Map()
+		);
+		for (const side of ['left', 'right'] as const)
+			expect(bands[0][side].at(-1)).toEqual(bands[1][side][0]);
+		const parts = pathDeck(bands, junctions, () => 0);
+		const rails = parts.flatMap((p) => (p.kind === 'pipe' ? [p] : []));
+		expect(rails).toHaveLength(2);
+		checkRails(parts, rails, bands);
+	}
+});
+
+test('a graded town flight reserves the stock going and limits both ascending and descending risers', () => {
+	for (const rise of [-2, 2, 4]) {
+		const route = [['a', 'b']];
+		const a: Vec3 = [0, 0, 4],
+			b: Vec3 = [10, 0, 4 + rise];
+		const stations = new Map([
+			['a', { position: a, arms: ['b'] }],
+			['b', { position: b, arms: ['a'] }]
+		]);
+		const spans = townSpans(route, stations, new Map()),
+			flight = spans[spans.length - 1];
+		const steps = publicFlight(flight, () => 0).flatMap((p) => (p.kind === 'prism' ? [p] : []));
+		expect(steps.length).toBeGreaterThan(1);
+		for (const [i, p] of steps.entries()) {
+			expect(
+				Math.hypot(p.polygon[3][0] - p.polygon[0][0], p.polygon[3][1] - p.polygon[0][1])
+			).toBeGreaterThanOrEqual(0.29 - 1e-9);
+			if (i) expect(Math.abs(p.z - steps[i - 1].z)).toBeLessThanOrEqual(0.17 + 1e-9);
+		}
+	}
+});
+
+test('a gentle grade has a continuous solid ramp whose upper corners meet the paired handrails', () => {
+	const parts = publicFlight({ id: 'grade', a: [0, 0, 2], b: [10, 0, 2.8] }, () => 0);
+	const ramp = parts.find((p) => p.kind === 'mesh');
+	if (ramp?.kind !== 'mesh') throw Error('Expected ramp');
+	expect(ramp.triangles.length).toBe(36);
+	const top = [ramp.points[3], ramp.points[7], ramp.points[2], ramp.points[6]];
+	const rails = parts.flatMap((p) => (p.kind === 'pipe' ? p.points : []));
+	expect(rails.map(([x, y]) => [x, y])).toEqual(top.map(([x, y]) => [x, y]));
+	for (const [i, p] of top.entries()) expect(rails[i][2] - p[2]).toBeCloseTo(1.04);
+});
+
+test('every fork mouth shares both deck corners with the landing and keeps its walking width open', () => {
+	const center: Vec3 = [0, 0, 2],
+		forks = new Map([['crossing', center]]);
+	for (const turn of [0.1, 0.72, 1.25]) {
+		const arms = [turn, turn + 2, turn + 4].map((angle, i) => {
+			const out = (r: number): Vec3 => [r * Math.cos(angle), r * Math.sin(angle), 2];
+			return { id: 'arm/' + i, a: out(2.5), b: out(9), fromFork: 'crossing' };
+		});
+		const { bands, junctions } = townPath(arms, forks);
+		const corners = junctions[0].rim.flatMap((r) => [r[0], r[r.length - 1]]);
+		const guards = pathDeck(bands, junctions, () => 0).filter((p) => p.kind === 'pipe');
+		expect(guards).toHaveLength(3);
+		for (const band of bands) {
+			const [a, b] = [band.left[0], band.right[0]];
+			expect(corners).toContainEqual(a);
+			expect(corners).toContainEqual(b);
+			expect(Math.hypot(...a.map((v, k) => v - b[k]))).toBeCloseTo(2.5, 9);
+		}
+	}
+});
+
+test('short flights report their deficit or fold inside the reserved side with a level turning landing', () => {
+	const span = { id: 'terminal', a: [0, 0, 0] as Vec3, b: [5.3, 0, 4] as Vec3 };
+	const blocked = fitWalkingFlights([span], new Map());
+	expect(blocked.spans).toEqual([]);
+	expect(blocked.unresolved[0]).toMatchObject({
+		id: 'terminal',
+		availableRun: 5.3
+	});
+	expect(blocked.unresolved[0].requiredRun).toBeCloseTo(7.25, 10);
+	for (const side of ['left', 'right'] as const) {
+		const fit = fitWalkingFlights([span], new Map([['terminal', { side, depth: 8 }]]));
+		expect(fit.unresolved).toEqual([]);
+		expect(fit.spans[0].a).toEqual(span.a);
+		expect(fit.spans.at(-1)?.b).toEqual(span.b);
+		const flights = fit.spans.filter((s) => s.a[2] !== s.b[2]);
+		expect(flights).toHaveLength(2);
+		for (const s of flights) {
+			const count = 1 + Math.ceil(Math.abs(s.b[2] - s.a[2]) / 0.17);
+			expect(Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) / count).toBeGreaterThanOrEqual(
+				0.29 - 1e-9
+			);
+		}
+		expect(fit.spans.some((s) => s.a[2] === 2 && s.b[2] === 2)).toBe(true);
+		expect(fit.spans.every((s) => (side === 'left' ? s.a[1] >= 0 : s.a[1] <= 0))).toBe(true);
+	}
+});

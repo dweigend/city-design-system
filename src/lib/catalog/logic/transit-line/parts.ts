@@ -1,3 +1,4 @@
+import { pathTube } from '../linear-path';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { chainage, poseAt } from './alignment';
 import {
@@ -92,9 +93,10 @@ export function lineParts(
 		{
 			...surface,
 			id: line.id + '/deck',
-			kind: 'pipe',
-			points: line.path.map((p): Vec3 => [...p]),
-			radius: design.deckRadius,
+			...pathTube(
+				line.path.map((p): Vec3 => [...p]),
+				design.deckRadius
+			),
 			...(capsule ? slots.glass : slots.deck),
 			...(capsule ? { glass: true } : {})
 		}
