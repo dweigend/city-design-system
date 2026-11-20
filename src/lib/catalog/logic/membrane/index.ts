@@ -1,5 +1,9 @@
 import { clothIntervals, simulateCloth, type Membrane } from './inflation';
 
+import { solveYarns, yarnIntervals } from './cloth';
+import { netCell } from './net-cell';
+export { clothSurface } from './cloth-surface';
+
 const parabola = (u: number) => 4 * u * (1 - u);
 
 function cableSpan(u: number, z: number, width: number, fabric: Membrane) {
@@ -16,18 +20,25 @@ export function clothColumns(width: number, restraint: Membrane['restraint']) {
 	return clothIntervals * Math.max(1, Math.round(width / (restraint === 'hoops' ? 9 : 12)));
 }
 
-function sampleDisplacement(fabric: Membrane, width: number, span: number, u: number, v: number) {
+/** Prepares the solved deflection in metres for repeated samples of one course. */
+export function clothSampler(fabric: Membrane, width: number, span: number) {
 	const cols = clothColumns(width, fabric.restraint);
+	if (fabric.restraint === 'net') {
+		const yarnCols = (cols / clothIntervals) * yarnIntervals;
+		return netCell(solveYarns(fabric, yarnCols, width, span), yarnCols);
+	}
 	const field = simulateCloth(fabric, cols, width, span);
-	const x = u * cols,
-		y = v * clothIntervals;
-	const i = Math.min(cols - 1, Math.floor(x)),
-		j = Math.min(clothIntervals - 1, Math.floor(y));
-	const row = (r: number) => {
-		const a = r * (cols + 1) + i;
-		return field[a] + (field[a + 1] - field[a]) * (x - i);
+	return (u: number, v: number) => {
+		const x = u * cols,
+			y = v * clothIntervals;
+		const i = Math.min(cols - 1, Math.floor(x)),
+			j = Math.min(clothIntervals - 1, Math.floor(y));
+		const row = (r: number) => {
+			const a = r * (cols + 1) + i;
+			return field[a] + (field[a + 1] - field[a]) * (x - i);
+		};
+		return row(j) + (row(j + 1) - row(j)) * (y - j);
 	};
-	return row(j) + (row(j + 1) - row(j)) * (y - j);
 }
 
 /** Resolves normal deflection in metres and gravitational sag for a uniformly loaded, biaxially tensioned bay. */
@@ -38,7 +49,7 @@ export function membraneResponse(
 	u: number,
 	v: number,
 	clearance: number,
-	free = sampleDisplacement(fabric, width, span, u, v)
+	free = clothSampler(fabric, width, span)(u, v)
 ) {
 	const horizontal = cableSpan(u, v, width, fabric);
 	const shareOfBay = Math.min(horizontal / (width * width), parabola(v));

@@ -1,5 +1,7 @@
 import { solveYarns, yarnIntervals, yarnOpening, type Membrane } from './cloth';
 
+import { netCell } from './net-cell';
+
 export type { Membrane } from './cloth';
 
 // Three surface intervals per yarn interval retain the slit endpoints on the refined mesh.
@@ -37,7 +39,7 @@ function smoothRows(field: Float64Array, cols: number, refinedCols: number) {
 	);
 }
 
-// Round the groove over its width so a diagonal tie stays continuous between the solver pins.
+// Round the strap groove over its width.
 function tieProfile(phase: number) {
 	const wave = Math.sin(Math.PI * phase);
 	return wave ** 2 / (0.12 + 0.88 * wave ** 2);
@@ -47,10 +49,7 @@ function seamProfile(restraint: Membrane['restraint'], i: number, j: number, col
 	if (!i || !j || i === cols || j === clothIntervals) return 0;
 	const phase = i / clothIntervals;
 	if (restraint === 'straps') return tieProfile(phase);
-	if (restraint === 'net') {
-		const offset = j / (2 * clothIntervals);
-		return tieProfile(phase + offset) * tieProfile(phase - offset);
-	}
+
 	return 1;
 }
 
@@ -60,6 +59,14 @@ export function simulateCloth(fabric: Membrane, cols: number, width: number, hei
 	const field = solveYarns(fabric, yarnCols, width, height);
 	const previous = cache.get(field);
 	if (previous) return previous;
+	if (fabric.restraint === 'net') {
+		const sample = netCell(field, yarnCols);
+		const surface = Float64Array.from({ length: (cols + 1) * (clothIntervals + 1) }, (_, k) =>
+			sample((k % (cols + 1)) / cols, Math.floor(k / (cols + 1)) / clothIntervals)
+		);
+		cache.set(field, surface);
+		return surface;
+	}
 	const rows = smoothRows(field, yarnCols, cols);
 	const surface = new Float64Array((cols + 1) * (clothIntervals + 1));
 	for (let j = 0; j <= clothIntervals; j++) {
