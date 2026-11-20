@@ -68,7 +68,11 @@ export function buildObject(
 		.map((part, i) => ({ ...part, id: (options.instanceId ?? id) + '/' + i }));
 	const parts = geometry.map(({ slot, ...shape }): Primitive => {
 		const suggestion = defaults[slot];
-		const chosen = options.slots?.[slot];
+		const key =
+			slot === 'figure' && recipe.legacyFigureSlot && !options.slots?.figure
+				? recipe.legacyFigureSlot
+				: slot;
+		const chosen = options.slots?.[key];
 		const { token, finish } = chosen ?? suggestion;
 		return {
 			...shape,

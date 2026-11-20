@@ -22,7 +22,7 @@ function travellers(w: number, y: number, z: number) {
 	return Array.from({ length: n }, (_, i) =>
 		actionFigure(i % 2 ? 'walk' : 'stand', [(i - (n - 1) / 2) * 0.94, y + (i % 2) * 0.2, z], {
 			heading: i * 1.85,
-			slot: 'foot',
+			slot: 'figure',
 			sample: (i + 1) / (n + 1)
 		})
 	).flat();

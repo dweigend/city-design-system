@@ -25,3 +25,32 @@ test('the walker has a low distinct dog and a lead in every pose', () => {
 		expect(geometry.some((p) => p.kind === 'pipe' && p.slot === 'trim')).toBe(true);
 	}
 });
+
+test('all registry staffage bodies suggest ink and graphite through their public slot', () => {
+	for (const entry of assetRegistry) {
+		for (const variant of entry.variants) {
+			const { geometry } = buildObject(entry.id, variant, 17);
+			// The released figure starts with a round head and a three-section tapered torso.
+			const heads = geometry.filter((part, i) => {
+				const torso = geometry[i + 1];
+				return (
+					part.kind === 'sphere' &&
+					part.radius <= 0.125 &&
+					torso?.kind === 'mesh' &&
+					torso.points.length === 36
+				);
+			});
+			if (
+				entry.id.startsWith('person-') ||
+				entry.id.startsWith('kit-scatter-') ||
+				entry.id === 'scale-figure'
+			)
+				expect(heads.length, entry.id).toBeGreaterThan(0);
+			for (const { slot } of heads)
+				expect(
+					entry.slotDefaults[variant][slot],
+					entry.id + '/' + variant + '/' + slot
+				).toMatchObject({ token: '--ink', finish: 'metall-graphit' });
+		}
+	}
+});

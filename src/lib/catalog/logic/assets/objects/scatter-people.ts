@@ -1,11 +1,11 @@
 import { mount, type AssetRecipe } from '../definition';
 import type { ObjectGeometry } from '../object-geometry';
 import type { Vec3 } from '../../parametrik/types';
-import { actionFigure, clay } from '../production/activities/action-figure';
+import { actionFigure, graphiteFigure } from '../production/activities/action-figure';
 import { plazaLayout } from './plaza-layout';
 import { scatterLayout } from './scatter-layout';
 
-const surfaces = { body: { ...clay, token: '--body-living' } } as const;
+const surfaces = { body: graphiteFigure } as const;
 const base = {
 	category: 'neighbourhood-services',
 	anchors: [mount('deck')],

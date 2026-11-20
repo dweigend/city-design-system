@@ -67,9 +67,9 @@ function canopy(roof: Roof, x: number, w: number, d: number, h: number): ObjectG
 }
 function tradeBay(x: number, i: number) {
 	return [
-		...actionFigure('stand', [x, 1.03, 0.18], { slot: 'slats', heading: -1.5, sample: i / 3 }),
+		...actionFigure('stand', [x, 1.03, 0.18], { slot: 'figure', heading: -1.5, sample: i / 3 }),
 		...actionFigure('lean', [x + 0.12, -0.84, 0.18], {
-			slot: 'slats',
+			slot: 'figure',
 			heading: 1.5,
 			sample: 1 - i / 3
 		})

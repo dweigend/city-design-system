@@ -73,6 +73,8 @@ export type AssetPlacement = {
 	anchors: readonly AssetAnchor[];
 };
 export type AssetRecipe = AssetPlacement & {
+	/** Saved assignments for this former shared slot also dress figures unless explicitly overridden. */
+	legacyFigureSlot?: string;
 	draw: (variant: number, sample: number) => ObjectGeometry[];
 };
 

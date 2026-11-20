@@ -1,10 +1,11 @@
+import { graphiteFigure } from './production/activities/action-figure';
 import { finishMaterial } from '../material/surface';
 import type { ColorToken, FinishId } from '../parametrik/types';
 import type { AssetRecipe, AssetSurface } from './definition';
 
 const dress: Record<string, [FinishId, ColorToken]> = {
 	body: ['kunststoff-formteil', '--paper'],
-	figure: ['keramik-ton', '--ink'],
+	figure: [graphiteFigure.finish, graphiteFigure.token],
 	plaza: ['beton-terrazzo', '--cat-business-2'],
 	accent: ['keramik-glasiert', '--body-living'],
 	glass: ['clear-acrylic', '--cat-health-3'],
@@ -43,7 +44,9 @@ const sharedDress: readonly [string, string][] = [
 	['planting', 'channel']
 ];
 function defaultSlot(recipe: AssetRecipe, slot: string) {
-	const names = new Set(recipe.slotNames);
+	const names = new Set(
+		recipe.slotNames.filter((name) => !recipe.legacyFigureSlot || name !== 'figure')
+	);
 	let selected = slot;
 	for (const [from, to] of sharedDress) {
 		if (names.size <= 3) break;

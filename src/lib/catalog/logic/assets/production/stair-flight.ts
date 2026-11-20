@@ -43,7 +43,7 @@ export function stairUsers(r: number, steps: number, rise: number) {
 		return actionFigure(
 			'climb',
 			[r * 0.67 * Math.cos(angle), r * 0.67 * Math.sin(angle), step * rise + 0.22],
-			{ heading: angle + Math.PI / 2, slot: 'slats', sample: (i % 5) / 4 }
+			{ heading: angle + Math.PI / 2, slot: 'figure', sample: (i % 5) / 4 }
 		);
 	}).flat();
 }

@@ -90,7 +90,7 @@ function tenant(room: Room, x: number, i: number) {
 	return actionFigure(seated.has(room) ? 'sit' : 'stand', [x, 0.12, floor], {
 		child: room === 'nursery',
 		heading: i * 0.87,
-		slot: 'slats',
+		slot: 'figure',
 		sample: (i % 5) / 4
 	});
 }

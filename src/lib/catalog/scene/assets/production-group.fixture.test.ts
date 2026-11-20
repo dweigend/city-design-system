@@ -10,7 +10,7 @@ export function checkProductionGroup(group: AssetCategory) {
 		expect(entries).toHaveLength(21);
 		for (const entry of entries) {
 			expect(entry.slotNames.length).toBeGreaterThanOrEqual(2);
-			expect(entry.slotNames.length).toBeLessThanOrEqual(3);
+			expect(entry.slotNames.filter((slot) => slot !== 'figure').length).toBeLessThanOrEqual(3);
 			const used = new Set<string>();
 			const signatures = entry.variants.map((v) => {
 				const base = buildObject(entry.id, v, 0);
