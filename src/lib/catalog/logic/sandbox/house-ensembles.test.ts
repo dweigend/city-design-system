@@ -6,7 +6,16 @@ import { focuses } from '../presentation';
 import { composedProjection } from './composed-projection';
 import { buildingPlots } from './building-plots';
 import { houseEnsembles } from './house-ensembles';
-import { acceptanceScene, applyEdit, changes, houseGroups, type World } from './index';
+import {
+	acceptanceScene,
+	draftingStudy,
+	riversideStock,
+	createWorld,
+	applyEdit,
+	changes,
+	houseGroups,
+	type World
+} from './index';
 
 function required<T>(value: T | undefined): T {
 	assert(value !== undefined);
@@ -31,7 +40,7 @@ function expectPeakVolume(world: World, earliestFullYear: number, peak: Ensemble
 }
 
 test('the seed-7 bank has four distinct, stepped ensembles through the sandbox projection', () => {
-	const { world, earliestFullYear } = acceptanceScene();
+	const { world, earliestFullYear } = draftingStudy(riversideStock(createWorld(7)));
 	const { grid, state, seed } = world;
 	const plots = buildingPlots(grid);
 	const layout = houseEnsembles(grid, plots, state, seed);

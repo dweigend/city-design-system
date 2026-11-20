@@ -1,5 +1,8 @@
 import type { planHouse, HouseObstacle } from '../composed-house';
-import type { NetworkInput } from '../walkway-network';
+import { courtLanding, publicFlight, type NetworkInput } from '../walkway-network';
+import { required } from '../required';
+import type { World } from './world-contract';
+import { walkingHeight } from './network-terrain';
 import { groundDeck } from './network-deck';
 import { budgetedNetwork } from './network-budget';
 import { networkParts } from './network-parts';
@@ -85,3 +88,47 @@ type Group = {
 	parts: () => ReturnType<typeof networkParts>;
 };
 export type NetworkCache = Map<string, { signature: string; group: Group | undefined }>;
+
+/** Joins the lowest outward-facing deck at a court to its public landing.
+ * Reach and going are surveyed on the actual house ports after a paint edit. */
+export function courtFlights(world: World, sections: Sections) {
+	const byCell = new Map(
+		sections.filter((h) => !h.start).flatMap((h) => h.cells.map((c) => [c.id, h] as const))
+	);
+	const courts = world.state.city?.centres.flatMap((c) => c.ensembles ?? []) ?? [];
+	return courts.flatMap((court) => {
+		const cell = required(world.grid.cellsById.get(court.court), 'public court');
+		const a = courtLanding(cell).position;
+		const options = court.lots
+			.slice(0, 3)
+			.flatMap((id) => courtPorts(byCell.get(id), a))
+			.sort((l, r) => l.run - r.run);
+		const port = options[0];
+		if (!port) return [];
+		const id = 'network/court/' + court.court;
+		return [
+			{
+				id,
+				owners: [port.house.id],
+				cells: port.house.cells.map((c) => c.id),
+				chunk: port.house.cells[0].chunk,
+				span: JSON.stringify([a, port.b]),
+				parts: () => publicFlight({ id, a, b: port.b }, (x, y) => walkingHeight(world.grid, x, y))
+			}
+		];
+	});
+}
+
+function courtPorts(house: Sections[number] | undefined, a: Sections[number]['base']) {
+	if (!house) return [];
+	const [x, y] = house.base;
+	return house.composition.ports
+		.filter((p) => p.level === 0)
+		.flatMap(({ position: b }) => {
+			const run = Math.hypot(b[0] - a[0], b[1] - a[1]);
+			const facing = (a[0] - b[0]) * (b[0] - x) + (a[1] - b[1]) * (b[1] - y);
+			return facing > 0 && run <= 14 && run >= 1.5 * Math.abs(b[2] - a[2])
+				? [{ b, run, house }]
+				: [];
+		});
+}

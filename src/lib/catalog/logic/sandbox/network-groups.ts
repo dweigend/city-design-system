@@ -1,7 +1,8 @@
+import { plannedPlots } from './planned-ensembles';
 import type { planHouse, HouseObstacle } from '../composed-house';
 import type { Ensembles } from '../house-brush';
 import type { TerrainGrid } from '../terrain-grid';
-import { ensembleNetwork, type NetworkCache } from './ensemble-network';
+import { courtFlights, ensembleNetwork, type NetworkCache } from './ensemble-network';
 import { blockedOutlines, walkingHeight } from './network-terrain';
 import { bodyObstacles } from './network-site';
 import type { World } from './world';
@@ -36,7 +37,11 @@ export function networkGroups(
 	layout: Ensembles,
 	stock: HouseObstacle[]
 ) {
-	const groups = neighbours(sections, layout);
+	const planned = plannedPlots(world.state);
+	const groups = neighbours(
+		sections.filter((h) => h.cells.every((c) => !planned.has(c.id))),
+		layout
+	);
 	const cache: NetworkCache = surveys.get(world.grid) ?? new Map();
 	surveys.set(world.grid, cache);
 	const site = {
@@ -51,5 +56,5 @@ export function networkGroups(
 		return group ? [group] : [];
 	});
 	for (const id of cache.keys()) if (!active.has(id)) cache.delete(id);
-	return networks;
+	return [...networks, ...courtFlights(world, sections)];
 }

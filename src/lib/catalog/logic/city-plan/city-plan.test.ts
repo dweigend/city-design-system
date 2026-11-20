@@ -24,7 +24,7 @@ test('ten valley seeds have distinct characters on dry sites and routable links 
 		for (const c of city.centres) {
 			expect(grid.cellsById.get(c.cellId)?.buildable).toBe(true);
 			expect(reached.has(c.cellId)).toBe(true);
-			expect(c.lots.length).toBeGreaterThan(8);
+			expect(c.lots).toEqual(c.ensembles.flatMap((group) => group.lots));
 		}
 		if (seed === 7) expect(planCity(grid, town.railCellIds, new Set())).toEqual(city);
 	}
