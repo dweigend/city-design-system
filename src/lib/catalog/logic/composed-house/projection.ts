@@ -1,3 +1,4 @@
+import { continuousShell } from './continuous-shell';
 import { shaftHousing } from './shaft-housing';
 import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
@@ -35,6 +36,7 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 		accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
+		...continuousShell(section.composition, section.seed, surfaces.shell),
 		...shaftHousing(section, surfaces).map(cantilever),
 		...section.slots.flatMap((b) => bodyParts(b, surfaces, b === target ? accent : 'none'))
 	];

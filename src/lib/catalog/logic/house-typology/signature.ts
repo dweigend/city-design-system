@@ -1,4 +1,5 @@
 import type { Typology } from './families';
+import type { HouseEnvelope } from './envelope';
 import type { housePath } from './routes';
 
 const forms = {
@@ -36,10 +37,11 @@ export function silhouette(
 	type: Typology,
 	path: ReturnType<typeof housePath>,
 	compact: boolean,
-	tall: boolean
+	tall: boolean,
+	upperForm?: HouseEnvelope['section']
 ) {
 	const [base, deck, body, outline] = forms[type];
 	const support = tall && (base === 'posts' || base === 'mast') ? 'lattice shaft' : base;
 	const stair = compact && path !== 'spiral' ? 'ladder' : stairs[path];
-	return { support, deck, body, stair, outline };
+	return { support, deck, body: upperForm ?? body, stair, outline };
 }

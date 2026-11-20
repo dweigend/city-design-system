@@ -93,8 +93,8 @@ export function composeHouse(
 	const site = survey(input);
 	const { plan, role, accessSide } = layout(site, context);
 	const frontage = context.houses.get(site.id)?.frontage;
-	if (frontage && plan.type === 'block')
-		return perimeterHouse(plan, role, accessSide, frontage, context);
+	if (site.envelope || (frontage && plan.type === 'block'))
+		return perimeterHouse(plan, role, accessSide, frontage ?? new Set(), context);
 	const { type, sign, bar } = plan;
 	const levels = occupiedLevels(plan);
 	fitRear(plan, levels);

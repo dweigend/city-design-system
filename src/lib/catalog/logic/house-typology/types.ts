@@ -1,3 +1,4 @@
+import type { HouseEnvelope } from './envelope';
 import type { Survey } from './survey';
 import type { HouseSite, HouseSlot, Deck } from './site';
 import type { buildObject, ObjectGeometry } from '../assets';
@@ -58,6 +59,9 @@ export type Body = HouseSlot & {
 	nativeCenter: Point;
 	bay?: [number, number];
 	band?: {
+		cells?: HouseSite['cells'];
+		finish?: HouseEnvelope['finish'];
+		skin?: HouseEnvelope['skin'];
 		wellX?: number;
 		footprint?: { polygon: [number, number][]; holes: [number, number][][] };
 		modules?: Point;
@@ -78,6 +82,7 @@ export type Level = Deck & {
 };
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
+	exterior?: ReturnType<typeof import('./parcel-section').parcelExterior>;
 	flightWidth: number;
 	signature: ReturnType<typeof import('./signature').silhouette>;
 	path: ReturnType<typeof import('./routes').housePath>;
@@ -89,6 +94,7 @@ export type HouseComposition = {
 	role: HouseRole;
 	/** Number of houses planned together; a standalone house is an ensemble of one. */
 	ensembleSize: number;
+	sharedRoof?: 'head' | 'terrace';
 	typology: Typology;
 	cells: HouseSite['cells'];
 	datum: number;

@@ -59,7 +59,7 @@ export function terraceFurniture(s: Section, house: StockPart[], surfaces: House
 		return planter(s, surfaces, base, l.use, spot, floor);
 	});
 	const roof = house.find((p): p is Floor => p.kind === 'prism' && p.id.endsWith('/roof-walk'));
-	if (!roof || !roof.polygon.length) return planted;
+	if (s.composition.sharedRoof === 'terrace' || !roof || !roof.polygon.length) return planted;
 	const xs = roof.polygon.map((p) => p[0]),
 		ys = roof.polygon.map((p) => p[1]);
 	const left = Math.min(...xs),

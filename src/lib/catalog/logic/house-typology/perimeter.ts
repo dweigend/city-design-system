@@ -1,7 +1,12 @@
+import { serviceGallery } from './service-gallery';
+import { convexHull } from '../parzelle';
+import { wingRim, type UpperWing } from './upper-wings';
 import { entranceCell, entranceRooms, entranceWidth } from './entrance';
+import { courseDatums } from './course-datums';
+import { houseEnvelope } from './envelope';
+import { parcelSection, parcelExterior } from './parcel-section';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
-import { STORY } from '../../data/grid';
 import { boundaryRings, ringArea, type QuadCell } from '../quad-grid';
 import { crownSpec, objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
@@ -94,51 +99,136 @@ function bodySolid(body: Body, shape: Shape, ground: number): Solid {
 }
 function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const anchor = entranceCell(plan.site.cells, frontage, plan.sign),
-		bay = footprintBay([anchor]);
+		bay = plan.site.envelope ? footprintBay(plan.site.cells) : footprintBay([anchor]);
 	const axis: XY = [bay.x, bay.y + plan.sign * Math.min(bay.depth * 0.2, 1.4)];
 	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
 }
-function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: number) {
+function exposedWall(cells: readonly QuadCell[], frontage: ReadonlySet<string>) {
+	const edges = cells.flatMap((cell) =>
+		cell.corners.flatMap((p, i) =>
+			frontage.has(cell.neighbors[i] ?? '') ? [[p, cell.corners[(i + 1) % 4]]] : []
+		)
+	);
+	const near = (a: readonly number[], b: readonly number[]) =>
+		Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-5;
+	return (a: XY, b: XY) => !edges.some(([u, v]) => near(a, u) && near(b, v));
+}
+function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWing) {
 	const access = accessBay(plan, frontage),
-		{ bay, axis, opening } = access;
-	const { cells, programme, ground, id } = plan.site;
+		{ axis, opening } = access;
+	const { cells, id } = plan.site;
+	const envelope = houseEnvelope(id, plan.seed, plan.site.envelope);
 	const plot = parcel(cells);
 	const full = { polygon: plot.polygon, holes: [...plot.holes, opening] };
 	const span = galleryPlot(cells, frontage, access.anchor);
 	const bridge = { ...span, holes: [...span.holes, opening] };
+	// The stair clearance fixes the inside of the pier. Its outer faces inherit the bearing parcel.
+	const reduced = access.anchor.corners.map(([x, y]): XY => [
+		axis[0] + (x - axis[0]) * 0.46,
+		axis[1] + (y - axis[1]) * 0.46
+	]);
+	const pier = {
+		polygon: convexHull([...reduced, ...opening]).map(([x, y]): XY => [x, y]),
+		holes: [opening]
+	};
+	if (wing && cells.length === 1) pier.polygon = wingRim(cells[0], wing.abutments, pier.polygon);
+	const wingShape =
+		wing && cells.length === 1
+			? { polygon: wingRim(cells[0], wing.walls, pier.polygon), holes: [opening] }
+			: bridge;
 	const rooms = cells.flatMap((c) =>
-		c === access.anchor
+		plan.site.envelope || c === access.anchor
 			? entranceRooms(c, axis, plan.sign)
 			: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 	);
+	return { access, axis, opening, plot, full, bridge, pier, wingShape, rooms, envelope };
+}
+type CourseShapes = ReturnType<typeof courseShapes>;
+function floorOutline(
+	plan: Plan,
+	shapes: CourseShapes,
+	i: number,
+	gallery: boolean,
+	wing?: UpperWing
+) {
+	if (i + 1 === wing?.level) return shapes.pier;
+	if (i === wing?.level) return shapes.wingShape;
+	if (gallery) return shapes.bridge;
+	if (!plan.site.envelope && i < 2) return shapes.full;
+	return parcelSection(
+		shapes.plot,
+		shapes.opening,
+		shapes.envelope,
+		i / Math.max(1, plan.site.programme.length - 1),
+		i
+	);
+}
+function floorBodies(
+	plan: Plan,
+	shapes: CourseShapes,
+	shape: Shape,
+	i: number,
+	z: number,
+	ceiling: number,
+	gallery: boolean,
+	parts: Solid[],
+	wing?: UpperWing
+) {
+	const { rooms, pier, envelope } = shapes;
+	const { cells, ground, id } = plan.site;
+	const raised = i === 0 && wing?.level === 1;
+	const baseTop = raised ? z + (ceiling - z) * 0.46 : ceiling - rim;
+	const occupied =
+		envelope.system === 'service-risers' || envelope.system === 'helical-services'
+			? serviceGallery(shape, shapes.opening, plan.sign)
+			: shape;
+	const shells = i === 0 && !plan.site.envelope ? rooms : [occupied];
+	const bodies = shells.map((shell, k) => {
+		const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
+		if (body.band && i >= 2) {
+			body.band.cells = cells;
+			body.band.finish = envelope.finish;
+			if (!gallery) body.band.skin = envelope.skin;
+		}
+		parts.push(bodySolid(body, shell, ground));
+		return body;
+	});
+	if (raised) {
+		const upper = makeBody(
+			plan,
+			id + '/level/0/body/pier',
+			pier,
+			baseTop,
+			ceiling - rim - baseTop,
+			i
+		);
+		bodies.push(upper);
+		parts.push(bodySolid(upper, pier, ground));
+	}
+	return bodies;
+}
+function courses(
+	plan: Plan,
+	frontage: ReadonlySet<string>,
+	ensembleSeed: number,
+	galleryCourse?: number,
+	wing?: UpperWing
+) {
+	const shapes = courseShapes(plan, frontage, wing);
+	const { access, axis, opening, plot, rooms, envelope } = shapes;
+	const { cells, programme, ground, id } = plan.site;
+	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
 	const parts: Solid[] = rooms.map((room, k) =>
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
 	);
 	const levels: Level[] = [];
 	for (let i = 0; i < programme.length; i++) {
-		const z = ground + (i ? i * STORY : 0.6);
-		const ceiling = ground + (i + 1) * STORY;
+		const z = i ? datums[i] : ground + 0.6;
+		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
-		const setback = 1 - Math.min(0.25, 0.045 * i);
-		const tower = {
-			polygon: rectangle(bay.x, bay.y, bay.width * setback, bay.depth * setback),
-			holes: [opening]
-		};
-		const shape = i < 2 ? full : gallery ? bridge : tower;
-		const shells = i === 0 ? rooms : [shape];
-		const bodies = shells.map((shell, k) => {
-			const body = makeBody(
-				plan,
-				id + '/level/' + i + '/body/' + k,
-				shell,
-				z,
-				ceiling - rim - z,
-				i
-			);
-			parts.push(bodySolid(body, shell, ground));
-			return body;
-		});
+		const shape = floorOutline(plan, shapes, i, gallery, wing);
+		const bodies = floorBodies(plan, shapes, shape, i, z, ceiling, gallery, parts, wing);
 		const [x, y] = extent(shape),
 			use = bodies[0].use;
 		levels.push({
@@ -158,7 +248,9 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 		const name = i === programme.length - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
 		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
 	}
-	return { levels, parts, access };
+	const top = datums[programme.length];
+	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
+	return { levels, parts, access, profile: envelope.section, top, exterior };
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
@@ -169,9 +261,14 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access } = courses(plan, frontage, context.houses.get(site.id)?.galleryCourse);
-	const { bay, axis } = access,
-		top = site.ground + site.programme.length * STORY;
+		{ levels, parts, access, profile, top, exterior } = courses(
+			plan,
+			frontage,
+			context.seed,
+			context.houses.get(site.id)?.galleryCourse,
+			context.houses.get(site.id)?.upperWing
+		);
+	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
 	const options = [
 		crownSpec(use),
@@ -186,14 +283,17 @@ export function perimeterHouse(
 		crowns[crowns.length - 1];
 	crown.position = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5), top];
 	crown.anchor = 'roof';
-	parts.push(mounted(crown, site.ground, 'crown'));
+	const sharedRoof = context.houses.get(site.id)?.upperWing?.roof;
+	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
 	return {
 		id: site.id,
 		ensembleSize: context.houses.size,
+		exterior,
+		sharedRoof,
 		compact: true,
 		flightWidth: 1.25,
 		path: 'ladder',
-		signature: silhouette('block', 'ladder', true, false),
+		signature: silhouette('block', 'ladder', true, false, profile),
 		bay,
 		start: site.start,
 		stories: site.programme.length,
