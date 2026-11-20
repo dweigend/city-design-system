@@ -1,3 +1,4 @@
+import { shellSystems } from '../../data/house-shells';
 import { planHouse, sectionParts } from '../composed-house';
 import { polygonHouseSite, type HouseEnvelope } from '../house-typology';
 import type { Point2 } from '../parametrik/vocab';
@@ -64,8 +65,10 @@ const studies: Study[] = [
 export function envelopePlates() {
 	return studies.map(([title, plan, section, outline, skin, finish], i) => {
 		const seed = 31 + i;
+		const system = shellSystems[[3, 0, 2, 4, 14, 7, 5, 1, 10, 6, 11, 9, 15, 12, 13, 8][i % 16]];
 		const site = polygonHouseSite('study', plans[plan], Array(7).fill('living'), seed, {
 			section,
+			system,
 			outline,
 			skin,
 			finish
@@ -73,7 +76,7 @@ export function envelopePlates() {
 		return {
 			id: 'envelope-' + i,
 			title,
-			text: [plan, section, outline, skin, finish].join(' · '),
+			text: [plan, section, system, outline, skin, finish].join(' · '),
 			primitives: sectionParts(planHouse(site))
 		};
 	});

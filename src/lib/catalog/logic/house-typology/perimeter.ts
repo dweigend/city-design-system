@@ -2,7 +2,7 @@ import { wingRim, type UpperWing } from './upper-wings';
 import { entranceCell, entranceRooms, entranceWidth } from './entrance';
 import { courseDatums } from './course-datums';
 import { houseEnvelope } from './envelope';
-import { upperFootprint } from './perimeter-profile';
+import { parcelSection, parcelExterior } from './parcel-section';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { boundaryRings, ringArea, type QuadCell } from '../quad-grid';
@@ -144,13 +144,21 @@ function courses(
 		const z = i ? datums[i] : ground + 0.6;
 		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
-		const tower = upperFootprint(envelope, bay, opening, i, programme.length);
+		const tower = parcelSection(plot, opening, envelope, i / Math.max(1, programme.length - 1), i);
 		const under = wing && i + 1 === wing.level;
 		const onWing = wing && i === wing.level;
-		const shape = under ? pier : onWing ? wingShape : i < 2 ? full : gallery ? bridge : tower;
+		const shape = under
+			? pier
+			: onWing
+				? wingShape
+				: gallery
+					? bridge
+					: !plan.site.envelope && i < 2
+						? full
+						: tower;
 		const underGround = i === 0 && under;
 		const baseTop = underGround ? z + (ceiling - z) * 0.46 : ceiling - rim;
-		const shells = i === 0 ? rooms : [shape];
+		const shells = i === 0 && !plan.site.envelope ? rooms : [shape];
 		const bodies = shells.map((shell, k) => {
 			const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
 			if (body.band && i >= 2) {
@@ -191,7 +199,30 @@ function courses(
 		const name = i === programme.length - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
 		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
 	}
-	return { levels, parts, access, profile: envelope.section, top: datums[programme.length] };
+	const top = datums[programme.length];
+	const exterior =
+		!frontage.size || wing?.roof === 'head'
+			? parcelExterior(
+					plot,
+					opening,
+					envelope,
+					ground,
+					top,
+					(a, b) =>
+						!cells.some((cell) =>
+							cell.corners.some(
+								([x, y], i) =>
+									frontage.has(cell.neighbors[i] ?? '') &&
+									Math.hypot(x - a[0], y - a[1]) < 1e-5 &&
+									Math.hypot(
+										cell.corners[(i + 1) % 4][0] - b[0],
+										cell.corners[(i + 1) % 4][1] - b[1]
+									) < 1e-5
+							)
+						)
+				)
+			: undefined;
+	return { levels, parts, access, profile: envelope.section, top, exterior };
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
@@ -202,7 +233,7 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access, profile, top } = courses(
+		{ levels, parts, access, profile, top, exterior } = courses(
 			plan,
 			frontage,
 			context.seed,
@@ -229,6 +260,7 @@ export function perimeterHouse(
 	return {
 		id: site.id,
 		ensembleSize: context.houses.size,
+		exterior,
 		sharedRoof,
 		compact: true,
 		flightWidth: 1.25,

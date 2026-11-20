@@ -1,3 +1,4 @@
+import { shellSystems, type ShellSystem } from '../../data/house-shells';
 import { sections } from './section-insets';
 import { hashUnit } from '../../core/random';
 import type { FinishId } from '../parametrik/types';
@@ -18,6 +19,7 @@ const finishes = [
 /** Independent choices for the inhabited section, its plan contour and its external finish. */
 export type HouseEnvelope = {
 	section: (typeof sections)[number];
+	system: ShellSystem;
 	outline: (typeof outlines)[number];
 	finish: (typeof finishes)[number];
 	skin: (typeof skins)[number];
@@ -34,6 +36,7 @@ export function houseEnvelope(
 	requested?: Partial<HouseEnvelope>
 ): HouseEnvelope {
 	return {
+		system: requested?.system ?? pick(shellSystems, seed, id, 'perimeter/system'),
 		section: requested?.section ?? pick(sections, seed, id, 'perimeter/profile'),
 		outline: requested?.outline ?? pick(outlines, seed, id, 'perimeter/outline'),
 		skin: requested?.skin ?? pick(skins, seed, id, 'perimeter/skin'),

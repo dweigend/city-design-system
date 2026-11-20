@@ -81,6 +81,7 @@ export type Level = Deck & {
 };
 export type Port = { level: number; position: Point };
 export type HouseComposition = {
+	exterior?: ReturnType<typeof import('./parcel-section').parcelExterior>;
 	flightWidth: number;
 	signature: ReturnType<typeof import('./signature').silhouette>;
 	path: ReturnType<typeof import('./routes').housePath>;

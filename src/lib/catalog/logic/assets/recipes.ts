@@ -71,6 +71,7 @@ import { houseVolumes } from './house-volumes';
 import { houseProjections } from './house-projections';
 import type { AssetRecipe } from './definition';
 import { porthole } from './porthole';
+import { fullHeightShell } from './full-height-shell';
 import { envelopePanel } from './envelope-panel';
 import { windowBand } from './window-band';
 import { balcony } from './balcony';
@@ -230,5 +231,6 @@ export const recipes: readonly AssetRecipe[] = [
 	...workFrames,
 	...parkTrees,
 	...cycleScenes,
-	envelopePanel
+	envelopePanel,
+	fullHeightShell
 ];
