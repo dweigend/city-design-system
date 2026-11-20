@@ -1,4 +1,4 @@
-import { specimen, minimumGauge } from './specimens';
+import { minimumGauge } from './specimens';
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import {
@@ -12,36 +12,27 @@ import { shellSystems } from '../../data/house-shells';
 import { sections } from './section-insets';
 import type { HouseEnvelope } from './envelope';
 import { accessShare } from '../composed-house/access-budget';
-import { checkFit, planEnsemble, wideTypologies as typologies, type Typology } from './index';
+import { checkFit, planEnsemble } from './index';
 
-const footprints: Record<Typology, number[]> = {
-	block: [],
-	'capsule-stack': [1],
-	'deck-tower': [1, 2],
-	'round-tower': [1, 4],
-	'portal-house': [2],
-	'lattice-head': [1],
-	'courtyard-house': [4],
-	'terrace-house': [2, 4],
-	'plinth-house': [1, 2, 4],
-	'cluster-mast': [1],
-	rack: [1, 2, 4],
-	'bridge-house': [2],
-	'bell-house': [1, 2, 4],
-	'twin-stack': [2],
-	'slab-house': [2],
-	'water-house': [1],
-	'tree-house': [1]
-};
-test('forced assemblies carry every member and keep access within ten percent', () => {
+function paintedHouse(n: number, system: HouseEnvelope['system']) {
+	const cells = squareGrid(n === 1 ? 1 : 2, n === 4 ? 2 : 1, 10).cells;
+	const uses = ['water', 'living', 'living', 'food', 'material', 'energy'] as const;
+	return planHouse({
+		cells,
+		seed: 7,
+		envelope: { system },
+		stacks: new Map(cells.map((c) => [c.id, [...uses]]))
+	});
+}
+test('every envelope system carries its members and keeps access within ten percent', () => {
 	const findings: string[] = [];
-	for (const type of typologies)
-		for (const cells of footprints[type]) {
-			const s = specimen(cells, type),
+	for (const system of shellSystems)
+		for (const cells of [1, 2, 4]) {
+			const s = paintedHouse(cells, system),
 				fit = checkFit(s.composition.parts),
 				share = accessShare(sectionParts(s));
 			if (fit.length || share > 0.1)
-				findings.push(type + '/' + cells + ' ' + share.toFixed(3) + ' ' + JSON.stringify(fit[0]));
+				findings.push(system + '/' + cells + ' ' + share.toFixed(3) + ' ' + JSON.stringify(fit[0]));
 		}
 	expect(findings).toEqual([]);
 });
@@ -60,7 +51,7 @@ function memberThickness(p: ReturnType<typeof sectionParts>[number]) {
 			return Infinity;
 	}
 }
-function checkHardware(s: ReturnType<typeof specimen>) {
+function checkHardware(s: ReturnType<typeof planHouse>) {
 	for (const p of s.composition.supports.filter((p) => p.joint === 'shaft'))
 		expect(Math.min(p.size[0], p.size[1]), p.id).toBeGreaterThanOrEqual(0.3 - 1e-8);
 	for (const p of sectionParts(s)) {
@@ -75,8 +66,8 @@ function checkHardware(s: ReturnType<typeof specimen>) {
 	}
 }
 test('bearing sections and exposed circulation meet their minimum diameters', () => {
-	for (const type of typologies)
-		for (const cells of footprints[type]) checkHardware(specimen(cells, type));
+	for (const system of shellSystems)
+		for (const cells of [1, 2, 4]) checkHardware(paintedHouse(cells, system));
 });
 test('full-height spiral count stays within the ensemble allowance on both bay widths', () => {
 	for (const size of [4, 10])
@@ -101,9 +92,9 @@ const programmeTokens = new Set([
 	houseSurfaces.water.token,
 	houseSurfaces.food.token
 ]);
-test('the most frequent painted use leads every house, with shell on alternating storeys', () => {
-	for (const type of typologies) {
-		const s = specimen(footprints[type][0], type),
+test('each occupied body uses at most one programme pigment from the leading use', () => {
+	for (const system of shellSystems) {
+		const s = paintedHouse(1, system),
 			parts = sectionParts(s);
 		for (const body of s.slots) {
 			const used = parts.filter(
@@ -116,11 +107,10 @@ test('the most frequent painted use leads every house, with shell on alternating
 	}
 });
 test('occupied outlines span at least four fifths of the painted bay', () => {
-	const exempt = ['capsule-stack', 'cluster-mast', 'lattice-head', 'twin-stack', 'bell-house'];
 	const failures: string[] = [];
-	for (const t of typologies.filter((t) => !exempt.includes(t)))
-		for (const n of footprints[t]) {
-			const s = specimen(n, t),
+	for (const system of shellSystems)
+		for (const n of [1, 2, 4]) {
+			const s = paintedHouse(n, system),
 				axis = s.composition.bay.width >= s.composition.bay.depth ? 0 : 1;
 			const points = sectionParts(s)
 				.filter((p) => !p.id.includes('/stair/'))
@@ -128,7 +118,7 @@ test('occupied outlines span at least four fifths of the painted bay', () => {
 				.map((p) => p[axis]);
 			const width = Math.max(...points) - Math.min(...points);
 			const share = width / (axis ? s.composition.bay.depth : s.composition.bay.width);
-			if (share < 0.8 - 1e-8) failures.push(t + ' on ' + n + ' cells: ' + share.toFixed(3));
+			if (share < 0.8 - 1e-8) failures.push(system + ' on ' + n + ' cells: ' + share.toFixed(3));
 		}
 	expect(failures).toEqual([]);
 });
@@ -181,6 +171,14 @@ test('a terraced section retreats by at least eight percent across its elevation
 test('full-height members span more than three fifths of their inhabited elevation', () => {
 	for (const system of shellSystems) {
 		const h = envelopeHouse({ system });
+		const shell = h.composition.exterior;
+		if (!shell) throw Error('Missing parcel shell');
+		expect(shell.stations[0].ring).toEqual(shell.ring);
+		expect(shell.stations[0].z).toBe(h.composition.ground);
+		expect(shell.stations.at(-1)?.z).toBe(h.top);
+		const corners = h.cells[0].corners.map(([x, y]) => [x, y]);
+		expect(shell.ring).toHaveLength(corners.length);
+		for (const corner of corners) expect(shell.ring).toContainEqual(corner);
 		const walls = sectionParts(h).filter((p) => p.source.objectId === 'full-height-shell');
 		expect(walls.length).toBe(4);
 		for (const p of walls) {
@@ -219,7 +217,7 @@ test('each seeded ensemble shares a structural system and retains individual occ
 		const houses = sites.map((site) => planHouse({ ...site, context }).composition);
 		expect(houses.every((h) => h.exterior?.system === context.leadingSystem)).toBe(true);
 		systems.add(context.leadingSystem);
-		for (const h of houses) outlines.add(h.signature.body);
+		outlines.add(JSON.stringify(houses[0].levels.map((l) => l.outline)));
 	}
 	expect(systems.size).toBeGreaterThan(1);
 	expect(outlines.size).toBeGreaterThan(1);
