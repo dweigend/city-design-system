@@ -4,10 +4,11 @@
 	import HouseChoice from './HouseChoice.svelte';
 	import Button from '../ui/Button.svelte';
 	import { nextSeed } from '../core/random';
+	import { envelopePlates } from '../logic/bibel/envelope-plates';
 	import { composedHousePlates } from '../logic/bibel/composed-houses';
 	import { plotHouse, plotShapes, type PlotShape } from '../logic/bibel/house-plot';
 	import { sectionParts } from '../logic/composed-house';
-	const examples = composedHousePlates();
+	const examples = [...composedHousePlates(), ...envelopePlates()];
 	let shape = $state<PlotShape>('Rectangle'),
 		height = $state(4),
 		area = $state(240),
@@ -28,7 +29,7 @@
 
 <RulePlates
 	title="Composed houses"
-	text="Generate a painted footprint or compare the five reference sections."
+	text="Generate a painted footprint and compare house sections, ensembles and envelope studies."
 	{plates}
 	fitView
 >

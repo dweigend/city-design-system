@@ -1,8 +1,9 @@
 import { entranceCell, entranceRooms } from './entrance';
-import { perimeterProfile, upperFootprint } from './perimeter-profile';
+import { courseDatums } from './course-datums';
+import { houseEnvelope } from './envelope';
+import { upperFootprint } from './perimeter-profile';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
-import { STORY } from '../../data/grid';
 import { boundaryRings, ringArea, type QuadCell } from '../quad-grid';
 import { crownSpec, objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
@@ -95,22 +96,28 @@ function bodySolid(body: Body, shape: Shape, ground: number): Solid {
 }
 function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const anchor = entranceCell(plan.site.cells, frontage, plan.sign),
-		bay = footprintBay([anchor]);
+		bay = plan.site.envelope ? footprintBay(plan.site.cells) : footprintBay([anchor]);
 	const axis: XY = [bay.x, bay.y + plan.sign * Math.min(bay.depth * 0.2, 1.4)];
 	const opening = rectangle(...axis, 0.84, 0.82);
 	return { anchor, bay, axis, opening };
 }
-function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: number) {
+function courses(
+	plan: Plan,
+	frontage: ReadonlySet<string>,
+	ensembleSeed: number,
+	galleryCourse?: number
+) {
 	const access = accessBay(plan, frontage),
 		{ bay, axis, opening } = access;
 	const { cells, programme, ground, id } = plan.site;
-	const profile = perimeterProfile(id, plan.seed);
+	const envelope = houseEnvelope(id, plan.seed, plan.site.envelope);
+	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
 	const plot = parcel(cells);
 	const full = { polygon: plot.polygon, holes: [...plot.holes, opening] };
 	const span = galleryPlot(cells, frontage, access.anchor);
 	const bridge = { ...span, holes: [...span.holes, opening] };
 	const rooms = cells.flatMap((c) =>
-		c === access.anchor
+		plan.site.envelope || c === access.anchor
 			? entranceRooms(c, axis, plan.sign)
 			: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 	);
@@ -119,10 +126,10 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 	);
 	const levels: Level[] = [];
 	for (let i = 0; i < programme.length; i++) {
-		const z = ground + (i ? i * STORY : 0.6);
-		const ceiling = ground + (i + 1) * STORY;
+		const z = i ? datums[i] : ground + 0.6;
+		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
-		const tower = upperFootprint(profile, bay, opening, i, programme.length);
+		const tower = upperFootprint(envelope, bay, opening, i, programme.length);
 		const shape = i < 2 ? full : gallery ? bridge : tower;
 		const shells = i === 0 ? rooms : [shape];
 		const bodies = shells.map((shell, k) => {
@@ -134,6 +141,10 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 				ceiling - rim - z,
 				i
 			);
+			if (body.band && i >= 2) {
+				body.band.finish = envelope.finish;
+				if (!gallery) body.band.skin = envelope.skin;
+			}
 			parts.push(bodySolid(body, shell, ground));
 			return body;
 		});
@@ -156,7 +167,7 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 		const name = i === programme.length - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
 		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
 	}
-	return { levels, parts, access, profile };
+	return { levels, parts, access, profile: envelope.section, top: datums[programme.length] };
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
@@ -167,13 +178,13 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access, profile } = courses(
+		{ levels, parts, access, profile, top } = courses(
 			plan,
 			frontage,
+			context.seed,
 			context.houses.get(site.id)?.galleryCourse
 		);
-	const { bay, axis } = access,
-		top = site.ground + site.programme.length * STORY;
+	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
 	const options = [
 		crownSpec(use),

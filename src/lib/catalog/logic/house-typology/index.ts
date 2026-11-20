@@ -1,3 +1,5 @@
+export { polygonHouseSite } from './polygon-site';
+export type { HouseEnvelope } from './envelope';
 export { planEnsemble, type EnsembleContext } from './ensemble';
 export { roomOnDeck } from './deck-outline';
 export { blockSkin } from './block-skin';

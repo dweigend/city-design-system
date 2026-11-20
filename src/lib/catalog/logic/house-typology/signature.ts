@@ -1,5 +1,5 @@
 import type { Typology } from './families';
-import type { perimeterProfile } from './perimeter-profile';
+import type { HouseEnvelope } from './envelope';
 import type { housePath } from './routes';
 
 const forms = {
@@ -38,7 +38,7 @@ export function silhouette(
 	path: ReturnType<typeof housePath>,
 	compact: boolean,
 	tall: boolean,
-	upperForm?: ReturnType<typeof perimeterProfile>
+	upperForm?: HouseEnvelope['section']
 ) {
 	const [base, deck, body, outline] = forms[type];
 	const support = tall && (base === 'posts' || base === 'mast') ? 'lattice shaft' : base;

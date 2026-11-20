@@ -40,7 +40,8 @@ export function survey(site: HouseSite) {
 		accessDepth,
 		center: [x, y] as const,
 		district: site.district ?? 'infill',
-		seed: site.seed
+		seed: site.seed,
+		envelope: site.envelope
 	};
 }
 export type Survey = ReturnType<typeof survey>;

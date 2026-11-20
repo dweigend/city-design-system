@@ -1,3 +1,4 @@
+import type { HouseEnvelope } from './envelope';
 import type { HouseUse, Stacks } from '../../data/house-body';
 import type { EnsembleDistrict } from '../district-frame';
 import type { Vec3 } from '../parametrik/types';
@@ -8,6 +9,7 @@ export type HouseSite = {
 	stacks: Stacks;
 	seed: number;
 	district?: EnsembleDistrict;
+	envelope?: Partial<HouseEnvelope>;
 	plan?: 'rectangular' | 'round';
 };
 type TierKind = 'solar' | 'capsule' | 'dome' | 'lookout' | 'rack' | 'grove' | 'workshop';

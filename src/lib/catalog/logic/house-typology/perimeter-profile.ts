@@ -1,22 +1,20 @@
 import { convexHull } from '../parzelle';
-import { hashUnit } from '../../core/random';
+import type { HouseEnvelope } from './envelope';
 
 type XY = [number, number];
 type Bay = { x: number; y: number; width: number; depth: number };
-const profiles = ['terrace-fan', 'lantern-neck', 'cross-stack', 'lightwell'] as const;
-type Profile = (typeof profiles)[number];
-
-/** Chooses the upper mass once per site; podium and party-wall datums remain ensemble decisions. */
-export function perimeterProfile(id: string, seed: number) {
-	return profiles[Math.floor(hashUnit(seed, id, 'perimeter/profile') * profiles.length)];
-}
-
 function limits(
-	profile: Profile,
+	profile: HouseEnvelope['section'],
 	fraction: number,
 	floor: number
 ): [number, number, number, number] {
 	switch (profile) {
+		case 'gable':
+			return [0.42 * fraction, 0.42 * fraction, 0.02, 0.02];
+		case 'vessel': {
+			const inset = 0.08 + 0.24 * Math.abs(2 * fraction - 1);
+			return [inset, inset, inset, inset];
+		}
 		case 'terrace-fan':
 			return [0.02, 0.02 + fraction * 0.55, 0.02, 0.02];
 		case 'lantern-neck': {
@@ -38,14 +36,14 @@ function rectangle(left: number, right: number, bottom: number, top: number): XY
 	];
 }
 
-function shapedRim(profile: Profile, rim: XY[], access: XY[]) {
+function shapedRim(outline: HouseEnvelope['outline'], rim: XY[], access: XY[]) {
 	const [[west, south], , [east, north]] = rim;
-	if (profile === 'cross-stack' || profile === 'lightwell') return rim;
+	if (outline === 'orthogonal') return rim;
 	const cx = (west + east) / 2,
 		cy = (south + north) / 2;
 	const w = (east - west) / 2,
 		d = (north - south) / 2;
-	if (profile === 'terrace-fan') {
+	if (outline === 'faceted') {
 		const sail: XY[] = [
 			[east, cy],
 			[cx, north],
@@ -55,29 +53,64 @@ function shapedRim(profile: Profile, rim: XY[], access: XY[]) {
 		];
 		return convexHull([...sail, ...access]).map(([x, y]): XY => [x, y]);
 	}
-	const lantern = Array.from({ length: 12 }, (_, i): XY => {
-		const a = (2 * Math.PI * i) / 12;
-		return [cx + w * Math.cos(a), cy + d * Math.sin(a)];
+	const h = Math.sqrt(3) / 2;
+	const directions = [
+		[1, 0],
+		[h, 0.5],
+		[0.5, h],
+		[0, 1],
+		[-0.5, h],
+		[-h, 0.5],
+		[-1, 0],
+		[-h, -0.5],
+		[-0.5, -h],
+		[0, -1],
+		[0.5, -h],
+		[h, -0.5]
+	];
+	const lantern = directions.map(([u, v], i): XY => {
+		const radius = outline === 'fluted' && i % 2 ? 0.72 : 1;
+		return [cx + w * u * radius, cy + d * v * radius];
 	});
+	// Preserve the full shaft and its structural lining, including in a narrow neck.
+	if (
+		outline === 'fluted' &&
+		access.every(([x, y]) => Math.abs(x - cx) / w + Math.abs(y - cy) / d < 0.7)
+	)
+		return lantern;
 	return convexHull([...lantern, ...access]).map(([x, y]): XY => [x, y]);
 }
 
-/** Fits four upper-volume principles around the invariant stair opening in an inscribed bay. */
+/** Fits the occupied upper volume around the invariant stair opening in an inscribed bay. */
 export function upperFootprint(
-	profile: Profile,
+	envelope: HouseEnvelope,
 	bay: Bay,
 	opening: XY[],
 	floor: number,
 	stories: number
 ) {
+	const profile = envelope.section;
 	const [west, east, south, north] = limits(profile, floor / Math.max(1, stories - 1), floor);
 	const wall = 0.16;
 	const [x0, y0] = opening[0],
 		[x1, y1] = opening[2];
-	const left = Math.min(x0 - wall, bay.x - bay.width * (0.5 - west));
-	const right = Math.max(x1 + wall, bay.x + bay.width * (0.5 - east));
-	const bottom = Math.min(y0 - wall, bay.y - bay.depth * (0.5 - south));
-	const top = Math.max(y1 + wall, bay.y + bay.depth * (0.5 - north));
+	const clearance = 0.13;
+	const left = Math.min(
+		x0 - wall,
+		Math.max(bay.x - bay.width / 2 + clearance, bay.x - bay.width * (0.5 - west))
+	);
+	const right = Math.max(
+		x1 + wall,
+		Math.min(bay.x + bay.width / 2 - clearance, bay.x + bay.width * (0.5 - east))
+	);
+	const bottom = Math.min(
+		y0 - wall,
+		Math.max(bay.y - bay.depth / 2 + clearance, bay.y - bay.depth * (0.5 - south))
+	);
+	const top = Math.max(
+		y1 + wall,
+		Math.min(bay.y + bay.depth / 2 - clearance, bay.y + bay.depth * (0.5 - north))
+	);
 	const holes = [opening];
 	if (profile === 'lightwell') {
 		const [lo, hi] = top - y1 > y0 - bottom ? [y1, top] : [bottom, y0];
@@ -93,5 +126,5 @@ export function upperFootprint(
 	}
 	const rim = rectangle(left, right, bottom, top);
 	const access = rectangle(x0 - wall, x1 + wall, y0 - wall, y1 + wall);
-	return { polygon: shapedRim(profile, rim, access), holes };
+	return { polygon: shapedRim(envelope.outline, rim, access.concat(holes.slice(1).flat())), holes };
 }

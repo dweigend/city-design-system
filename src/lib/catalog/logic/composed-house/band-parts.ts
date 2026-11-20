@@ -1,3 +1,4 @@
+import { envelopeScreen } from './envelope-screen';
 import { blockSkin } from '../house-typology';
 import type { Body } from '../house-typology';
 import { houseObject } from './house-object';
@@ -68,13 +69,21 @@ function wallSurface(body: Body, surfaces: HouseSurfaces, painted: boolean) {
 	);
 }
 
+function envelopeWall(body: Body, surfaces: HouseSurfaces, painted: boolean) {
+	const wall = wallSurface(body, surfaces, painted);
+	const finish = body.band?.finish;
+	return finish && Object.values(houseSurfaces).includes(surfaces[body.use])
+		? { ...wall, finish }
+		: wall;
+}
+
 function bandCoatings(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	const panel = surfaces[body.use];
 	const fitted = body.band?.wellX !== undefined || !!body.band?.modules;
 	const paintedWall = wallPainted(accent, fitted);
 	const tintedPane = accent !== 'none' && (fitted || accent !== 'wall');
 	return {
-		wall: wallSurface(body, surfaces, paintedWall),
+		wall: envelopeWall(body, surfaces, paintedWall),
 		glass: roleSurface(surfaces.pane, 'glazing', tintedPane ? panel.token : surfaces.pane.token),
 		// Door and window trim take the programme colour on the accent body only.
 		trim: roleSurface(panel, 'trim', accent === 'none' ? '--paper' : panel.token),
@@ -128,23 +137,30 @@ export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccen
 				holes: p.holes
 			};
 		});
-	if (d < 1.6 || h < 1.5) return [course('body', 0, h, 0, wall)];
+	const screen =
+		band?.skin && band.skin !== 'plain'
+			? envelopeScreen(body, course('screen', 0, h, 0, wall), wall)
+			: [];
+	if (d < 1.6 || h < 1.5) return [...screen, course('body', 0, h, 0, wall)];
 	const cuts = [0, h];
 	for (let sill = 1; sill < h; sill += 4) {
 		cuts.push(sill);
 		if (sill + 1 < h) cuts.push(sill + 1);
 	}
 	cuts.sort((a, b) => a - b);
-	return cuts.slice(1).map((end, i) => {
-		const at = cuts[i],
-			phase = ((at + end) / 2) % 4,
-			window = phase >= 1 && phase < 2;
-		return course(
-			(window ? 'window' : i ? 'lintel' : 'sill') + '-' + i,
-			at,
-			end - at,
-			window ? 0.35 : 0,
-			window ? glass : wall
-		);
-	});
+	return [
+		...screen,
+		...cuts.slice(1).map((end, i) => {
+			const at = cuts[i],
+				phase = ((at + end) / 2) % 4,
+				window = phase >= 1 && phase < 2;
+			return course(
+				(window ? 'window' : i ? 'lintel' : 'sill') + '-' + i,
+				at,
+				end - at,
+				window ? 0.35 : 0,
+				window ? glass : wall
+			);
+		})
+	];
 }

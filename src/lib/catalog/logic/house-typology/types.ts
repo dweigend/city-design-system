@@ -1,3 +1,4 @@
+import type { HouseEnvelope } from './envelope';
 import type { Survey } from './survey';
 import type { HouseSite, HouseSlot, Deck } from './site';
 import type { buildObject, ObjectGeometry } from '../assets';
@@ -58,6 +59,8 @@ export type Body = HouseSlot & {
 	nativeCenter: Point;
 	bay?: [number, number];
 	band?: {
+		finish?: HouseEnvelope['finish'];
+		skin?: HouseEnvelope['skin'];
 		wellX?: number;
 		footprint?: { polygon: [number, number][]; holes: [number, number][][] };
 		modules?: Point;
