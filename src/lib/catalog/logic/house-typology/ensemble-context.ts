@@ -11,6 +11,7 @@ export type Decision = {
 	away: [number, number];
 };
 export type EnsembleContext = {
+	shellUse: import('../../data/house-body').HouseUse;
 	leadingSystem: import('./envelope').HouseEnvelope['system'];
 	datum: number;
 	skyline: number;

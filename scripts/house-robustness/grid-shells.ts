@@ -6,7 +6,7 @@ import { cases, type Variant } from './sites';
 
 const variants: Variant[] = ['regular', 'organic', 'rotated', 'mixed', 'hillside'];
 
-/** Crosses all sixteen systems with one footprint, rotating grid and terrain between cases. */
+/** Crosses every registered system with one footprint, rotating grid and terrain between cases. */
 export function gridShellSubset(shape: string, offset: number) {
 	for (const [i, system] of shellSystems.entries()) {
 		const variant = variants[(i + offset) % variants.length];

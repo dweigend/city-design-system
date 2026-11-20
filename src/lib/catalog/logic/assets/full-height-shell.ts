@@ -3,64 +3,20 @@ import { mount, type AssetRecipe } from './definition';
 import { surface } from './parts';
 import type { Vec3 } from '../parametrik/types';
 
-type Mesh = { points: Vec3[]; triangles: number[]; lines: number[][] };
-type UV = [number, number];
-const tau = 2 * Math.PI;
-function face(m: Mesh, points: Vec3[]) {
-	const k = m.points.length;
-	m.points.push(...points);
-	for (let j = 1; j < points.length - 1; j++) m.triangles.push(k, k + j, k + j + 1);
-}
-function rod(m: Mesh, path: UV[], width: number, relief = 0.06) {
-	for (let i = 1; i < path.length; i++) {
-		const [u, v] = path[i - 1],
-			[a, b] = path[i],
-			length = Math.hypot(a - u, b - v);
-		if (!length) continue;
-		const x = (-(b - v) / length) * width,
-			y = ((a - u) / length) * width;
-		const ring = (s: number, t: number): Vec3[] => [
-			[relief - 0.04, s - x, t - y],
-			[relief + 0.05, s, t],
-			[relief - 0.04, s + x, t + y]
-		];
-		const stations = Math.max(1, Math.ceil(Math.abs(v - b) * 8));
-		let lo = ring(u, v);
-		for (let k = 1; k <= stations; k++) {
-			const t = k / stations;
-			const hi = ring(u + t * (a - u), v + t * (b - v));
-			for (let j = 0; j < 3; j++) face(m, [lo[j], lo[(j + 1) % 3], hi[(j + 1) % 3], hi[j]]);
-			lo = hi;
-		}
-	}
-}
-function fabric(
-	m: Mesh,
-	nx: number,
-	nz: number,
-	depth: (u: number, v: number) => number,
-	skip?: (i: number, j: number) => boolean
-) {
-	for (let i = 0; i < nx; i++)
-		for (let j = 0; j < nz; j++) {
-			if (skip?.(i, j)) continue;
-			const vertex = (a: number, b: number): Vec3 => [depth(a / nx, b / nz), a / nx, b / nz];
-			face(m, [vertex(i, j), vertex(i + 1, j), vertex(i + 1, j + 1), vertex(i, j + 1)]);
-		}
-}
-function curve(f: (t: number) => UV, n = 12) {
-	return Array.from({ length: n + 1 }, (_, i) => f(i / n));
-}
+import { face, rod, fabric, curve, tau, type Mesh } from './shell-mesh';
+import { foldedWall, foldedSkins } from './folded-wall';
+
 type Draw = (m: Mesh) => void;
 const draw: Record<ShellSystem, Draw> = {
+	...foldedSkins,
 	// A heavy wall cut by a single stepped portal in each bay.
 	'quarry-portals': (m) =>
 		fabric(
 			m,
-			8,
+			10,
 			12,
 			(u) => 0.42 * Math.abs(2 * u - 1),
-			(i, j) => j < 7 && i >= 2 && i <= 5 && j < 7 - Math.abs(i - 3.5)
+			(i, j) => j < 7 && i >= 3 && i <= 6 && j < 7 - Math.abs(i - 4.5)
 		),
 	// Broad overlapping sheets curl away from a narrow diagonal seam.
 	'lapped-sails': (m) => {
@@ -69,7 +25,10 @@ const draw: Record<ShellSystem, Draw> = {
 				const rib = (u: number, top: boolean): Vec3 => [
 					top ? 0.72 * Math.sin(Math.PI * u) : -0.3,
 					u,
-					Math.min(1, Math.max(0, (course + (top ? 1.08 : 0) + 0.28 * (u - 0.5)) / 3))
+					Math.min(
+						1,
+						Math.max(0, (course + (top ? (course === 2 ? 1.14 : 0.88) : 0) + 0.28 * (u - 0.5)) / 3)
+					)
 				];
 				const a = i / 8,
 					b = (i + 1) / 8;
@@ -94,7 +53,7 @@ const draw: Record<ShellSystem, Draw> = {
 				[0, b, 1],
 				[0, a, 1]
 			];
-			for (let j = 0; j < 4; j++) face(m, [ring[j], ring[(j + 1) % 4], [0.92, (a + b) / 2, 0.84]]);
+			for (const j of [0, 1, 3]) face(m, [ring[j], ring[(j + 1) % 4], [0.92, (a + b) / 2, 0.84]]);
 		}
 	},
 	'tensile-sail': (m) =>
@@ -102,16 +61,25 @@ const draw: Record<ShellSystem, Draw> = {
 			m,
 			10,
 			12,
-			(u, v) => 0.66 * Math.sin(Math.PI * u) * Math.sin(Math.PI * v) + 0.22 * (u - v) ** 2
+			(u, v) => 0.66 * Math.sin(Math.PI * u) * Math.sin(Math.PI * v) + 0.22 * (u - v) ** 2,
+			(i, j) => Math.abs(i - 4.5 - 2 * Math.sin((j / 12) * Math.PI)) < 1.2 && j > 1 && j < 11
 		),
 	'inflated-cushion': (m) =>
 		fabric(
 			m,
 			12,
 			16,
-			(u, v) => 0.65 * Math.abs(Math.sin(2 * Math.PI * u) * Math.sin(2 * Math.PI * v))
+			(u, v) => 0.65 * Math.abs(Math.sin(2 * Math.PI * u) * Math.sin(2 * Math.PI * v)),
+			(i, j) => (i === 5 || i === 6) && j % 8 > 0 && j % 8 < 7
 		),
-	'pleated-sheet': (m) => fabric(m, 12, 6, (u, v) => 0.52 * Math.abs(((u * 6 + v) % 1) - 0.5) * 2),
+	'pleated-sheet': (m) =>
+		fabric(
+			m,
+			12,
+			6,
+			(u, v) => 0.52 * Math.abs(((u * 6 + v) % 1) - 0.5) * 2,
+			(i, j) => (i + j) % 6 === 2
+		),
 	'woven-basket': (m) => {
 		for (let k = -4; k <= 4; k++)
 			for (const sign of [-1, 1]) {
@@ -178,7 +146,13 @@ const draw: Record<ShellSystem, Draw> = {
 				);
 	},
 	'suspended-curtain': (m) => {
-		fabric(m, 12, 8, (u, v) => 0.17 * Math.cos(tau * 3 * u) * (1 - v) + 0.21);
+		fabric(
+			m,
+			12,
+			8,
+			(u, v) => 0.17 * Math.cos(tau * 3 * u) * (1 - v) + 0.21,
+			(i, j) => i % 6 === 3 && j > 0 && j < 7
+		);
 		for (const u of [0.15, 0.85])
 			rod(
 				m,
@@ -298,7 +272,9 @@ export const fullHeightShell: AssetRecipe = {
 	anchors: [mount('facade')],
 	draw(index) {
 		const m: Mesh = { points: [], triangles: [], lines: [] };
-		draw[shellSystems[index]](m);
+		const system = shellSystems[index];
+		foldedWall(m, system);
+		draw[system](m);
 		return [
 			{
 				...surface(),

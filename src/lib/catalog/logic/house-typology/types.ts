@@ -63,6 +63,7 @@ export type Body = HouseSlot & {
 		finish?: HouseEnvelope['finish'];
 		skin?: HouseEnvelope['skin'];
 		wellX?: number;
+		lining?: [number, number][];
 		footprint?: { polygon: [number, number][]; holes: [number, number][][] };
 		modules?: Point;
 		plinth?: boolean;
@@ -94,6 +95,7 @@ export type HouseComposition = {
 	role: HouseRole;
 	/** Number of houses planned together; a standalone house is an ensemble of one. */
 	ensembleSize: number;
+	shellUse: HouseSlot['use'];
 	sharedRoof?: 'head' | 'terrace';
 	typology: Typology;
 	cells: HouseSite['cells'];

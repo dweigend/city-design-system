@@ -63,6 +63,7 @@ function survey(world: World) {
 						s.composition.role,
 						s.composition.sharedRoof,
 						s.composition.exterior?.system,
+						s.composition.shellUse,
 						accentKind(s),
 						accentBody(s).id
 					]),

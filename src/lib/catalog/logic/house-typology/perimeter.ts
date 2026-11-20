@@ -10,7 +10,7 @@ import {
 } from './entrance';
 import { courseDatums } from './course-datums';
 import { houseEnvelope } from './envelope';
-import { parcelSection, parcelExterior } from './parcel-section';
+import { parcelSection, parcelExterior, roomLining } from './parcel-section';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { boundaryRings, ringArea, type QuadCell } from '../quad-grid';
@@ -91,7 +91,7 @@ function makeBody(
 		...body,
 		position: [x.center, y.center, z],
 		size: [x.length, y.length, height],
-		band: { shell: floor % 2 === 1, footprint: shape }
+		band: { shell: floor % 2 === 1, footprint: shape, lining: roomLining(shape) }
 	};
 }
 function bodySolid(body: Body, shape: Shape, ground: number): Solid {
@@ -239,6 +239,7 @@ function courses(
 	const { access, axis, opening, plot, foundation, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
 	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
+	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
 	const parts: Solid[] = foundation.map((room, k) =>
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
 	);
@@ -266,10 +267,13 @@ function courses(
 			outline: shape.polygon.map(([u, v]) => [u, v, z])
 		});
 		const name = i === programme.length - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
-		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
+		const deck =
+			i === programme.length - 1 && !gallery && i !== wing?.level
+				? { ...shape, polygon: exterior.stations[programme.length].ring }
+				: shape;
+		parts.push(plate(id + '/' + name, deck, ceiling - rim, rim, ground, 'deck'));
 	}
 	const top = datums[programme.length];
-	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
 	return { levels, parts, access, envelope, top, exterior };
 }
 /** Returns the same bearing solids used by the composer, before placing roof furniture. */
@@ -312,6 +316,7 @@ export function perimeterHouse(
 	return {
 		id: site.id,
 		ensembleSize: context.houses.size,
+		shellUse: context.shellUse,
 		exterior,
 		sharedRoof,
 		compact: true,

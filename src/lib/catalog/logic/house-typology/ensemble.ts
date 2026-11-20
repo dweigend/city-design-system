@@ -114,6 +114,12 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 		])
 	);
 }
+function shellProgramme(sites: Survey[]) {
+	const counts = new Map<Survey['programme'][number][number], number>();
+	for (const site of sites)
+		for (const use of site.programme.flat()) counts.set(use, (counts.get(use) ?? 0) + 1);
+	return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+}
 /** Solves one ensemble (one to eight houses) in stable site order. Datum is the first shared half-storey above all painted bases. */
 export function planEnsemble(sites: readonly HouseSite[], seed?: number): EnsembleContext {
 	if (!sites.length || sites.length > 8) throw new RangeError('Expected one to eight house sites');
@@ -130,6 +136,7 @@ export function planEnsemble(sites: readonly HouseSite[], seed?: number): Ensemb
 		seed: selectedSeed,
 		datum,
 		skyline: ceiling,
+		shellUse: shellProgramme(sorted),
 		leadingSystem: houseEnvelope(sorted[0].id, selectedSeed, sorted[0].envelope).system,
 		houses: houseLayer(sorted, skyline(sorted, selectedSeed), selectedSeed)
 	};

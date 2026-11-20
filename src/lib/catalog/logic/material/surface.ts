@@ -35,8 +35,17 @@ export const finishCatalogue: readonly { id: FinishId; name: string }[] = [
 ];
 
 /** Resolves an explicit pigment and finish without consulting geometry, role or theme. */
-export function resolveFinish(id: FinishId, token: ColorToken, ageTint = 0): SurfaceRecipe {
+export function resolveFinish(
+	id: FinishId,
+	token: ColorToken,
+	ageTint = 0,
+	opaquePigment = false
+): SurfaceRecipe {
 	const surface = baseFinish(id, token);
+	if (opaquePigment && surface.kind === 'physical') {
+		surface.recipe.haut.deckkraft = 1;
+		surface.recipe.farbe.anteil = 1;
+	}
 	if (ageTint && (surface.kind === 'diagram' || surface.kind === 'physical')) {
 		const color = surface.recipe.farbe;
 		color.papier += (1 - color.papier) * ageTint;

@@ -32,11 +32,13 @@ function programmeSurfaces(section: Section, palette: typeof houseSurfaces) {
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
 	const surfaces = programmeSurfaces(section, palette);
+	const shell =
+		palette.shell === houseSurfaces.shell ? palette[section.composition.shellUse] : palette.shell;
 	const target = accentBody(section),
 		accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
-		...continuousShell(section.composition, section.seed, surfaces.shell),
+		...continuousShell(section.composition, section.seed, shell),
 		...shaftHousing(section, surfaces).map(cantilever),
 		...section.slots.flatMap((b) => bodyParts(b, surfaces, b === target ? accent : 'none'))
 	];

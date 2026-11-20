@@ -18,6 +18,8 @@ export const shellSystems = [
 	'bundled-columns',
 	'quarry-portals',
 	'lapped-sails',
-	'prismatic-lantern'
+	'prismatic-lantern',
+	'seed-pod',
+	'ramp-fold'
 ] as const;
 export type ShellSystem = (typeof shellSystems)[number];

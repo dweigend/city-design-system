@@ -70,7 +70,17 @@ const studies: Study[] = [
 		'metall-gebuerstet',
 		'lapped-sails'
 	],
-	['Silo lantern', 'pentagon', 'silo-crown', 'fluted', 'plain', 'glas-matt', 'prismatic-lantern']
+	['Silo lantern', 'pentagon', 'silo-crown', 'fluted', 'plain', 'glas-matt', 'prismatic-lantern'],
+	['Split seed pod', 'cove', 'vessel', 'oval', 'plain', 'membran-gewebe', 'seed-pod'],
+	[
+		'Rising clerestory',
+		'triangle',
+		'diagonal-sail',
+		'faceted',
+		'plain',
+		'metall-gebuerstet',
+		'ramp-fold'
+	]
 ];
 
 /** Published combinations use the same carrier, seeded levels, finishes and screen geometry as town lots. */
