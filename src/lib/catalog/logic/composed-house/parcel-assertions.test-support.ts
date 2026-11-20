@@ -1,15 +1,16 @@
+import { cantileverMargin, footprint, plotCovers, side, type Footprint } from './parcel-footprint';
 import assert from 'node:assert/strict';
 import { bodyParts } from './provider';
 import { bounds, translate } from '../ansicht/geometrie';
 import { houseSurfaces } from './surfaces';
 import { checkFit, partsIntersect } from '../house-typology';
-import { housePartPlan, type planHouse, type sectionParts } from './index';
+import { type planHouse, type sectionParts } from './index';
 
 type Section = ReturnType<typeof planHouse>;
 type Parts = ReturnType<typeof sectionParts>;
 type XY = [number, number];
 
-type Footprint = { ring: XY[]; holes: XY[][] };
+const epsilon = 1e-9;
 
 function inRing([x, y]: XY, ring: XY[]) {
 	let inside = false;
@@ -30,75 +31,53 @@ function ringDistance([x, y]: XY, ring: XY[]) {
 	}
 	return distance;
 }
-/** Convex hull in counter-clockwise order (monotone chain). */
-function hull(points: XY[]) {
-	const sorted = [...points].sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-	const turn = (o: XY, a: XY, b: XY) =>
-		(a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-	const half = (list: XY[]) => {
-		const chain: XY[] = [];
-		for (const p of list) {
-			while (chain.length > 1 && turn(chain[chain.length - 2], chain[chain.length - 1], p) <= 0)
-				chain.pop();
-			chain.push(p);
-		}
-		return chain.slice(0, -1);
-	};
-	return [...half(sorted), ...half(sorted.reverse())];
+function strictlyInside(p: XY, ring: XY[]) {
+	return ringDistance(p, ring) > epsilon && inRing(p, ring);
 }
-/** Plan footprint of a part: a prism keeps its own outline and holes, any other kind its hull. */
-function footprint(p: Parts[number]): Footprint {
-	const plan = housePartPlan(p) as XY[];
-	return p.kind === 'prism'
-		? { ring: plan, holes: p.holes ?? [] }
-		: { ring: hull(plan), holes: [] };
-}
-/** Samples the whole footprint: its boundary and a grid over its interior, never only vertices. */
-function footprintSamples({ ring, holes }: Footprint, finest = 0.9): XY[] {
-	const xs = ring.map((p) => p[0]),
-		ys = ring.map((p) => p[1]);
-	const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
-	const step = Math.max(0.1, Math.min(finest, span / 12));
-	const samples: XY[] = [];
-	for (const [i, [u, v]] of ring.entries()) {
-		const [a, b] = ring[(i + 1) % ring.length];
-		const n = Math.max(1, Math.ceil(Math.hypot(a - u, b - v) / step));
-		for (let k = 0; k < n; k++) samples.push([u + ((a - u) * k) / n, v + ((b - v) * k) / n]);
+// Split at boundary vertices as well as proper intersections. This also catches an edge
+// traversing a notch through its two corners, where neither intersection is proper.
+function edgeLeaves(a: XY, b: XY, ring: XY[], forbiddenInside: boolean) {
+	const cuts = [0, 1],
+		dx = b[0] - a[0],
+		dy = b[1] - a[1],
+		length = Math.hypot(dx, dy);
+	if (length <= epsilon) return false;
+	for (const [i, c] of ring.entries()) {
+		const d = ring[(i + 1) % ring.length];
+		const u = side(a, b, c) / length,
+			v = side(a, b, d) / length;
+		if (Math.abs(u) <= epsilon) cuts.push(((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / length ** 2);
+		if (!(u * v < 0)) continue;
+		const s = side(c, d, a),
+			t = side(c, d, b);
+		if (s * t < 0) cuts.push(s / (s - t));
 	}
-	for (let x = Math.min(...xs) + step / 2; x < Math.max(...xs); x += step)
-		for (let y = Math.min(...ys) + step / 2; y < Math.max(...ys); y += step)
-			if (inRing([x, y], ring) && !holes.some((h) => inRing([x, y], h))) samples.push([x, y]);
-	return samples;
+	const ordered = cuts.filter((t) => t >= 0 && t <= 1).sort((s, t) => s - t);
+	return ordered.slice(1).some((t, i) => {
+		const mid = (t + ordered[i]) / 2,
+			p: XY = [a[0] + mid * dx, a[1] + mid * dy];
+		return ringDistance(p, ring) > epsilon && inRing(p, ring) === forbiddenInside;
+	});
 }
-function cellContains(corners: readonly (readonly number[])[], [x, y]: XY, margin: number) {
-	let inside = true,
-		distance = Infinity;
-	for (const [i, [u, v]] of corners.entries()) {
-		const [a, b] = corners[(i + 1) % corners.length],
-			dx = a - u,
-			dy = b - v;
-		if (dx * (y - v) - dy * (x - u) < -1e-9) inside = false;
-		const t = Math.max(0, Math.min(1, ((x - u) * dx + (y - v) * dy) / (dx * dx + dy * dy)));
-		distance = Math.min(distance, Math.hypot(x - u - t * dx, y - v - t * dy));
-	}
-	return inside || distance <= margin + 1e-7;
+function boundaryLeaves(shape: XY[], ring: XY[], forbiddenInside: boolean) {
+	return shape.some((p, i) => edgeLeaves(p, shape[(i + 1) % shape.length], ring, forbiddenInside));
 }
-/** True when the whole footprint lies on the union of the cells, widened by the margin. */
-export function plotCovers(
-	cells: readonly { corners: readonly (readonly number[])[] }[],
-	shape: Footprint,
-	margin: number
-) {
-	return footprintSamples(shape).every((pt) =>
-		cells.some((c) => cellContains(c.corners, pt, margin))
+function encloses(outer: XY[], inner: XY[]) {
+	return (
+		inner.every((p) => inRing(p, outer) || ringDistance(p, outer) <= epsilon) &&
+		!boundaryLeaves(inner, outer, false)
 	);
 }
-/** True when the whole footprint lies on the deck outline and crosses none of its openings. */
+function overlaps(a: XY[], b: XY[]) {
+	return a.some((p) => strictlyInside(p, b)) || boundaryLeaves(a, b, true);
+}
+/** Checks occupied footprint edges and opening interiors, allowing contact at their boundaries. */
 export function deckCovers(deck: Footprint, shape: Footprint) {
-	return footprintSamples(shape, 0.15).every(
-		(pt) =>
-			(inRing(pt, deck.ring) || ringDistance(pt, deck.ring) <= 1e-6) &&
-			!deck.holes.some((h) => inRing(pt, h) && ringDistance(pt, h) > 1e-6)
+	if (!encloses(deck.ring, shape.ring)) return false;
+	return deck.holes.every(
+		(hole) =>
+			shape.holes.some((opening) => encloses(opening, hole)) ||
+			!(overlaps(hole, shape.ring) || overlaps(shape.ring, hole) || encloses(shape.ring, hole))
 	);
 }
 function checkOccupant(
@@ -141,7 +120,7 @@ export function checkParcel(s: Section, parts: Parts) {
 		}
 		assert(['bearing', 'cantilever'].includes(p.structuralRole), p.id);
 		assert(
-			plotCovers(s.cells, footprint(p), p.structuralRole === 'bearing' ? 0 : 0.6),
+			plotCovers(s.cells, footprint(p), p.structuralRole === 'bearing' ? 0 : cantileverMargin),
 			p.id + ' ' + p.structuralRole + ' outside ' + s.id
 		);
 	}

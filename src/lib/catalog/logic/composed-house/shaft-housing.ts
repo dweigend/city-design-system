@@ -13,7 +13,7 @@ export function shaftHousing(s: Section, surfaces: HouseSurfaces) {
 			facade = b.position[1] + (sign * b.size[1]) / 2;
 		const outer = y + sign * 0.11,
 			inner = y + sign * 0.075;
-		const paint = roleSurface(surfaces[b.band?.shell ? 'shell' : b.use], 'capsule');
+		const paint = roleSurface(surfaces[b.use], 'trim');
 		const p = houseObject('primitive-slab', 'square', s.seed, {
 			instanceId: b.id + '/' + b.objectId + '/ladder-housing',
 			slots: { body: paint }

@@ -3,7 +3,7 @@ import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
-import { houseSurfaces } from './surfaces';
+import { houseSurfaces, type BandAccent } from './surfaces';
 import type { Section } from './types';
 import { servicePipes } from './service-pipes';
 import { landingSeats } from './landing-seats';
@@ -27,16 +27,27 @@ function programmeSurfaces(section: Section, palette: typeof houseSurfaces) {
 		energy: useSurface('energy')
 	};
 }
+function accentStorey(section: Section) {
+	const levels = section.composition.levels;
+	if (section.typology === 'bell-house' || section.typology === 'plinth-house') return 0;
+	if (levels.length > 3) return levels.length - 1;
+	return Math.floor(levels.length / 2);
+}
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
 	const surfaces = programmeSurfaces(section, palette);
+	const levels = section.composition.levels;
+	const accentLevel = levels[accentStorey(section)];
+	const accent: BandAccent = levels.length === 1 ? 'window' : levels.length > 3 ? 'storey' : 'wall';
 	const house = [
 		...houseStructure(section, surfaces),
 		...shaftHousing(section, surfaces).map(cantilever),
-		...section.slots.flatMap((b) => bodyParts(b, surfaces))
+		...section.slots.flatMap((b) =>
+			bodyParts(b, surfaces, accentLevel.bodies.includes(b) ? accent : 'none')
+		)
 	];
 	const walk = access(section, surfaces).map((part) => {
-		const p = walkingFace(part, surfaces, section.decks[0].use);
+		const p = walkingFace(part, surfaces);
 		return p.kind === 'prism' && p.height < 0.12
 			? { ...p, z: p.z + p.height - 0.12, height: 0.12 }
 			: p;
@@ -63,16 +74,12 @@ function cantilever(p: StockPart): HousePart {
 	return { ...p, structuralRole: 'cantilever' };
 }
 
-function walkingFace(
-	p: HousePart,
-	surfaces: typeof houseSurfaces,
-	use: Section['decks'][number]['use']
-): HousePart {
+function walkingFace(p: HousePart, surfaces: typeof houseSurfaces): HousePart {
 	if (
 		p.kind !== 'prism' ||
 		surfaces.access !== houseSurfaces.access ||
 		p.token !== surfaces.access.token
 	)
 		return p;
-	return { ...p, token: surfaces[use].token, topToken: p.token };
+	return { ...p, topToken: p.token };
 }

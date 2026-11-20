@@ -115,19 +115,13 @@ function floorRing(s: Section, p: Extract<Solid, { kind: 'box' | 'cylinder' | 'c
 }
 function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
 	if (p.slot === 'base')
-		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces[s.decks[0].use], 'base') })];
-	const painted = ['/roof', '/roof-walk', '/entry'].some((suffix) => p.id.endsWith(suffix));
-	const deck = floor(
-		s,
-		p,
-		painted
-			? { ...surfaces, deck: roleSurface(surfaces.shell, p.id.endsWith('/roof') ? 'roof' : 'deck') }
-			: surfaces
-	);
+		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces.deck, 'base') })];
+	const coat = p.id.endsWith('/roof') ? roleSurface(surfaces.shell, 'roof') : surfaces.deck;
+	const deck = floor(s, p, { ...surfaces, deck: coat });
 	if (deck.kind !== 'prism' || deck.height < 0.42) return [deck];
 	const level = s.decks.find((l) => Math.abs(l.position[2] - deck.z - deck.height) < 1e-7);
 	if (!level) return [deck];
-	const apron = floor(s, p, { ...surfaces, deck: roleSurface(surfaces[level.use], 'deck') });
+	const apron = floor(s, p, surfaces);
 	return [
 		{ ...deck, z: deck.z + deck.height - 0.12, height: 0.12 },
 		{ ...apron, id: p.id + '/apron', height: deck.height - 0.12 }
@@ -140,12 +134,12 @@ function structuralStock(s: Section, p: Solid, surfaces: HouseSurfaces): StockPa
 		return [
 			floor(s, p, {
 				...surfaces,
-				deck: roleSurface(surfaces[p.slot === 'shell' ? 'shell' : use], 'capsule')
+				deck: roleSurface(surfaces[p.slot === 'shell' ? 'shell' : use], 'lining', '--paper')
 			})
 		];
 	}
 	if (p.id.endsWith('/socle/body/0'))
-		return [floor(s, p, { ...surfaces, deck: surfaces[s.decks[0].use] })];
+		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces.deck, 'base') })];
 	if (p.joint === 'deck') return deckParts(s, p, surfaces);
 	if (p.joint === 'brace' && p.kind === 'mesh') {
 		const centre = (i: number): Vec3 =>

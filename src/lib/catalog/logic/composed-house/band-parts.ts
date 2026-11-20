@@ -2,10 +2,17 @@ import { blockSkin } from '../house-typology';
 import type { Body } from '../house-typology';
 import { houseObject } from './house-object';
 import { place } from './asset-fit';
-import { roleSurface, type HouseSurfaces, type Surface } from './surfaces';
+import {
+	houseSurfaces,
+	bandSurface,
+	roleSurface,
+	type BandAccent,
+	type HouseSurfaces,
+	type Surface
+} from './surfaces';
 
 type XY = [number, number];
-function kitCourses(b: Body, counts: Body['size'], paint: Surface, glass: Surface) {
+function kitCourses(b: Body, counts: Body['size'], paint: Surface, glass: Surface, trim: Surface) {
 	const [nx, ny, nz] = counts;
 	const [w, d, h] = b.nativeSize.map((v) => v * b.scale);
 	const [x, y, z] = b.position,
@@ -19,7 +26,7 @@ function kitCourses(b: Body, counts: Body['size'], paint: Surface, glass: Surfac
 			variants[(variants.indexOf(b.variant) + column + row + level) % variants.length];
 		const stock = houseObject(b.objectId, variant, b.seed, {
 			instanceId: b.id + '/' + b.objectId + '/' + i,
-			slots: { body: paint, glass, trim: paint }
+			slots: { body: paint, glass, trim }
 		});
 		return place(
 			stock.parts,
@@ -41,14 +48,40 @@ function ring(x: number, y: number, w: number, d: number, r: number): XY[] {
 	});
 }
 
+function paintsWall(accent: BandAccent) {
+	return accent === 'wall' || accent === 'storey';
+}
+
+function wallSurface(body: Body, surfaces: HouseSurfaces, painted: boolean) {
+	const panel = surfaces[body.use];
+	if (!body.band?.shell) return bandSurface(panel, body.use, painted);
+	const backing = surfaces.shell === houseSurfaces.shell ? panel : surfaces.shell;
+	return roleSurface(
+		backing,
+		body.use === 'material' ? 'enamel' : 'lining',
+		painted ? panel.token : '--paper'
+	);
+}
+
+function bandCoatings(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
+	const panel = surfaces[body.use];
+	const fitted = body.band?.wellX !== undefined || !!body.band?.modules;
+	const paintedWall = !fitted && paintsWall(accent);
+	const tintedPane = accent !== 'none' && (fitted || accent !== 'wall');
+	return {
+		wall: wallSurface(body, surfaces, paintedWall),
+		glass: roleSurface(surfaces.pane, 'glazing', tintedPane ? panel.token : surfaces.pane.token),
+		trim: roleSurface(panel, 'trim'),
+		sill: roleSurface(panel, 'trim', paintsWall(accent) ? panel.token : '--paper')
+	};
+}
 /** Extrudes the band in closed courses around a recessed glazing strip and the surveyed court. */
-export function bandParts(body: Body, surfaces: HouseSurfaces) {
+export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	const { id, objectId, variant, seed, band } = body;
 	const [x, y, z] = body.position,
 		[w, d, h] = body.size;
-	const paint = roleSurface(surfaces[band?.shell ? 'shell' : body.use], 'capsule');
-	const glass = roleSurface(surfaces.pane, 'glazing');
-	if (band?.modules) return kitCourses(body, band.modules, paint, glass);
+	const { wall, glass, trim, sill } = bandCoatings(body, surfaces, accent);
+	if (band?.modules) return kitCourses(body, band.modules, wall, glass, trim);
 	const court = band?.court;
 	const holes = court
 		? [ring(court.center[0], court.center[1], court.width, court.width, 0.15).reverse()]
@@ -76,14 +109,20 @@ export function bandParts(body: Body, surfaces: HouseSurfaces) {
 					0,
 					p.height,
 					0,
-					p.id.includes('/window-') ? glass : paint
+					p.id.includes('/window-')
+						? glass
+						: p.id.endsWith('/door')
+							? trim
+							: p.z === z
+								? sill
+								: wall
 				),
 				z: p.z,
 				polygon: p.polygon,
 				holes: p.holes
 			};
 		});
-	if (d < 1.6 || h < 1.5) return [course('body', 0, h, 0, paint)];
+	if (d < 1.6 || h < 1.5) return [course('body', 0, h, 0, wall)];
 	const cuts = [0, h];
 	for (let sill = 1; sill < h; sill += 4) {
 		cuts.push(sill);
@@ -99,7 +138,7 @@ export function bandParts(body: Body, surfaces: HouseSurfaces) {
 			at,
 			end - at,
 			window ? 0.35 : 0,
-			window ? glass : paint
+			window ? glass : wall
 		);
 	});
 }
