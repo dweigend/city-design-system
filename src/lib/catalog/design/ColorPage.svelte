@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DesignShell from './DesignShell.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import FarbLabor from '../color/FarbLabor.svelte';
 	import FarbMatrix from '../color/FarbMatrix.svelte';
 	import DataTable from '../bibel/DataTable.svelte';
@@ -16,6 +17,8 @@
 <svelte:head><title>Color · City Design System</title></svelte:head>
 
 <DesignShell title="Color">
+	<DesignPrinciples page="color" />
+
 	<Abschnitt id="farbe-ruhig" titel={C.ruhig.titel} lead={C.ruhig.lead}>
 		<FarbLabor text={C.ruhig.bild} />
 	</Abschnitt>

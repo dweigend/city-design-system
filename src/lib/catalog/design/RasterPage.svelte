@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DesignShell from './DesignShell.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import { RasterLabor, SpielraumLoop, ViereckLoop } from '../raster';
 	import * as R from '../data/raster';
 
@@ -14,6 +15,8 @@
 <svelte:head><title>Grid · City Design System</title></svelte:head>
 
 <DesignShell title="Grid">
+	<DesignPrinciples page="grid" />
+
 	<Abschnitt id={R.grund.id} titel={R.grund.titel} lead={R.grund.lead}>
 		<RasterLabor />
 	</Abschnitt>

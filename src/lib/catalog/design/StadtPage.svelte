@@ -2,6 +2,7 @@
 	import DesignShell from './DesignShell.svelte';
 	import Wegweiser from './Wegweiser.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import { Bauteilpass, Hochwege, Leitbild, Schwammstadt, Weiterbauen } from '../stadt';
 	import { leitbild } from '../data/vision';
 	import * as T from '../data/stadt';
@@ -17,6 +18,7 @@
 
 <DesignShell title="City">
 	<Leitbild {...leitbild} />
+	<DesignPrinciples page="city" />
 
 	<Abschnitt id={T.weiterbauen.id} titel={T.weiterbauen.titel} lead={T.weiterbauen.lead}>
 		<Weiterbauen />

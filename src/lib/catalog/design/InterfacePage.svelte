@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DesignShell from './DesignShell.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import L13Werkbank from '../labor/L13Werkbank.svelte';
 	import { Bedientafel, HudDemo, IconAtlas } from '../interface';
 	import TypeScale from '../foundations/TypeScale.svelte';
@@ -18,6 +19,8 @@
 <svelte:head><title>Interface · City Design System</title></svelte:head>
 
 <DesignShell title="Interface">
+	<DesignPrinciples page="interface" />
+
 	<Abschnitt id={I.oeffnen.id} titel={I.oeffnen.titel} lead={I.oeffnen.lead}>
 		<L13Werkbank id="interface-werkbank" />
 	</Abschnitt>
