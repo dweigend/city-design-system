@@ -1,7 +1,13 @@
 import { courtBench } from './town-grading';
 import { surveyedGrid } from './town-grid';
 import type { planHouse, HouseObstacle } from '../composed-house';
-import { courtLanding, publicFlight, type NetworkInput } from '../walkway-network';
+import {
+	ensembleMovement,
+	houseCourtConnection,
+	courtLanding,
+	publicFlight,
+	type NetworkInput
+} from '../walkway-network';
 import { required } from '../required';
 import type { World } from './world-contract';
 import { walkingHeight } from './network-terrain';
@@ -75,6 +81,7 @@ export function ensembleNetwork(
 		cells: sections.flatMap((h) => h.cells.map((c) => c.id)),
 		chunk: sections[0].cells[0].chunk,
 		span: JSON.stringify([seed, network.geometry]),
+		graph: ensembleMovement(id, network),
 		parts: () => networkParts(network, id, seed)
 	};
 	cache?.set(sections[0].id, { signature, group });
@@ -82,6 +89,7 @@ export function ensembleNetwork(
 }
 
 type Group = {
+	graph: ReturnType<typeof ensembleMovement>;
 	id: string;
 	owners: string[];
 	cells: string[];
@@ -107,13 +115,18 @@ export function courtFlights(world: World, sections: Sections) {
 				.slice(0, 3)
 				.flatMap((id) => courtPorts(byCell.get(id), a))
 				.sort((l, r) => l.run - r.run);
-			const port = options[0];
-			if (!port) return [];
 			const id = 'network/court/' + court.court;
+			const port = options
+				.map((p) => ({ ...p, graph: houseCourtConnection(id, a, p.b) }))
+				.find((p) => p.graph.edges.length);
+
+			if (!port) return [];
 			return [
 				{
 					id,
 					owners: [port.house.id],
+					graph: port.graph,
+					court: court.court,
 					cells: port.house.cells.map((c) => c.id),
 					chunk: port.house.cells[0].chunk,
 					span: JSON.stringify([a, port.b]),
@@ -131,8 +144,6 @@ function courtPorts(house: Sections[number] | undefined, a: Sections[number]['ba
 		.flatMap(({ position: b }) => {
 			const run = Math.hypot(b[0] - a[0], b[1] - a[1]);
 			const facing = (a[0] - b[0]) * (b[0] - x) + (a[1] - b[1]) * (b[1] - y);
-			return facing > 0 && run <= 14 && run >= 1.5 * Math.abs(b[2] - a[2])
-				? [{ b, run, house }]
-				: [];
+			return facing > 0 && run <= 14 ? [{ b, run, house }] : [];
 		});
 }

@@ -79,7 +79,11 @@ function aligned(passage: CourtPassage) {
 /** Connects the reachable sill to its court and the opposite sill to finished ground.
  * Rejects an incomplete, obstructed or undersized passage before emitting geometry. */
 export function throughRoute(terminal: Vec3, passage: CourtPassage, ground: Ground, clear: Clear) {
-	if (!(passage.clearWidth >= width && passage.headroom >= 2.2) || !aligned(passage)) return [];
+	if (
+		!(passage.clearWidth >= width && passage.headroom >= walkingProfile.headroom) ||
+		!aligned(passage)
+	)
+		return [];
 	const forward = crossing(terminal, passage, ground, clear);
 	if (forward.length) return forward;
 	return crossing(

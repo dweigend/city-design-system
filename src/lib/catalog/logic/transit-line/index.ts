@@ -1,3 +1,4 @@
+export { transitMovement } from './movement';
 export { clearCourse } from './clear-course';
 import type { TerrainGrid } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';

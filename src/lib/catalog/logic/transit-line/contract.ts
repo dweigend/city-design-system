@@ -95,3 +95,11 @@ export const VEHICLE: Record<TransitKind, { length: number; radius: number; cars
 	capsule: { length: 3.4, radius: 0.95, cars: 1 }
 };
 export const CAR_GAP = 0.6;
+
+/** Generated station platform radius and vertical clearance in metres. */
+export const stationEnvelope = {
+	radius: 4.5,
+	height: 3.4,
+	capsuleRadius: 3.6,
+	capsuleSquash: 0.72
+} as const;

@@ -1,3 +1,5 @@
+export { ensembleMovement } from './ensemble-movement';
+export { houseCourtConnection } from './walking-connection';
 export type { CourtPassage as TownPassage } from './through-route';
 export { gradeWalkLinks } from './link-grades';
 export { separation as segmentSeparation } from './clearance';
