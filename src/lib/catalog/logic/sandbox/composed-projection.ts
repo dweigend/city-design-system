@@ -4,7 +4,7 @@ import { nextSeed } from '../../core/random';
 import { required } from '../required';
 import { isPainted } from './house-phase-ink';
 import { houseObstacles } from './house-obstacles';
-import { paintedSections, sectionGroups } from '../composed-house';
+import { accentBody, accentKind, paintedSections, sectionGroups } from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { buildingPlots } from './building-plots';
 import { houseEnsembles, houseDistrict } from './house-ensembles';
@@ -59,6 +59,7 @@ function survey(world: World) {
 				s.id,
 				{
 					start: s.start,
+					appearance: JSON.stringify([s.composition.role, accentKind(s), accentBody(s).id]),
 					seed: s.seed,
 					built: Math.max(...stories.map((p) => p.built)),
 					painted: stories.some((p) => isPainted(p.id))
@@ -77,6 +78,7 @@ function survey(world: World) {
 		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
 		return {
 			...g,
+			signature: g.span || owners[0].appearance,
 			start: owners[0].start,
 			seed: owners[0].seed,
 			built: Math.max(...owners.map((p) => p.built)),
@@ -94,21 +96,16 @@ export function composedProjection(world: World) {
 	return groups;
 }
 
-/** A third parcel can divert or remove a span without changing either endpoint. */
-export function changedSpans(before: World, after: World) {
-	const spans = (w: World) =>
-		new Map(
-			composedProjection(w)
-				.filter((g) => g.span)
-				.map((g) => [g.id, g])
-		);
-	const old = spans(before),
-		next = spans(after),
-		changes = new Map<string, string>();
+/** A neighbour can acquire a different ensemble role or divert a span without a local edit. */
+export function changedProjectionGroups(before: World, after: World) {
+	const index = (world: World) => new Map(composedProjection(world).map((g) => [g.id, g]));
+	const old = index(before),
+		next = index(after);
+	const changes = new Map<string, string>();
 	for (const [id, g] of old)
-		if (g.span !== next.get(id)?.span) changes.set('composed/' + id, g.chunk);
+		if (g.signature !== next.get(id)?.signature) changes.set('composed/' + id, g.chunk);
 	for (const [id, g] of next)
-		if (g.span !== old.get(id)?.span) changes.set('composed/' + id, g.chunk);
+		if (g.signature !== old.get(id)?.signature) changes.set('composed/' + id, g.chunk);
 	return changes;
 }
 
