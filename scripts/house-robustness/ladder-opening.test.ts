@@ -15,7 +15,8 @@ test('both ladder lanes clear the occupied floors of a six- and seven-storey pai
 		);
 		expect(rails.length).toBeGreaterThan(0);
 		for (const level of house.composition.levels.slice(1)) {
-			const opening = level.bodies[0].band!.footprint!.holes.at(-1)!;
+			const opening = level.bodies[0].band?.footprint?.holes.at(-1);
+			if (!opening) throw Error('Missing occupied ladder opening');
 			const xs = opening.map((p) => p[0]);
 			for (const rail of rails) {
 				if (rail.kind !== 'pipe') continue;
