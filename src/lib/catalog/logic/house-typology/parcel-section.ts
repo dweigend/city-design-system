@@ -115,7 +115,7 @@ export function parcelExterior(
 	opening: XY[],
 	envelope: HouseEnvelope,
 	datums: readonly number[],
-	faces: (a: XY, b: XY) => boolean
+	survey: ReturnType<typeof import('./party-faces').partyFaces>
 ) {
 	const ring = wallCorners(parcel.polygon),
 		span = spanOf(ring);
@@ -138,14 +138,20 @@ export function parcelExterior(
 		).polygon;
 		return { z, ring: profile, atBoundary: profile === ring };
 	});
+	const seams = ring.map((a, i) => survey(a, ring[(i + 1) % ring.length]));
 	return {
 		ring,
+		seams,
 		reveal: fittedSection(parcel, holes, 'orthogonal', ring, () => 0.35).polygon,
 		stations,
 		bottom: datums[0],
 		top: datums[datums.length - 1],
 		system: envelope.system,
 		finish: envelope.finish,
-		faces: ring.map((a, i) => faces(a, ring[(i + 1) % ring.length]))
+		faces: seams.map((spans) =>
+			spans.some(
+				({ hidden }) => !hidden || hidden[0] > datums[0] || hidden[1] < datums[datums.length - 1]
+			)
+		)
 	};
 }

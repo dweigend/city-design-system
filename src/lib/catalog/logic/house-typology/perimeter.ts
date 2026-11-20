@@ -1,3 +1,4 @@
+import { partyFaces } from './party-faces';
 import { serviceGallery } from './service-gallery';
 import { convexHull } from '../parzelle';
 import { wingRim, type UpperWing } from './upper-wings';
@@ -110,16 +111,6 @@ function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
 }
-function exposedWall(cells: readonly QuadCell[], frontage: ReadonlySet<string>) {
-	const edges = cells.flatMap((cell) =>
-		cell.corners.flatMap((p, i) =>
-			frontage.has(cell.neighbors[i] ?? '') ? [[p, cell.corners[(i + 1) % 4]]] : []
-		)
-	);
-	const near = (a: readonly number[], b: readonly number[]) =>
-		Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-5;
-	return (a: XY, b: XY) => !edges.some(([u, v]) => near(a, u) && near(b, v));
-}
 function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWing) {
 	const access = accessBay(plan, frontage),
 		{ axis, opening } = access;
@@ -231,15 +222,21 @@ function floorBodies(
 function courses(
 	plan: Plan,
 	frontage: ReadonlySet<string>,
-	ensembleSeed: number,
+	context: EnsembleContext,
 	galleryCourse?: number,
 	wing?: UpperWing
 ) {
 	const shapes = courseShapes(plan, frontage, wing);
 	const { access, axis, opening, plot, foundation, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
-	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
-	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
+	const datums = courseDatums(plan, context.seed, galleryCourse);
+	const exterior = parcelExterior(
+		plot,
+		opening,
+		envelope,
+		datums,
+		partyFaces(cells, frontage, context.podiums, [ground, datums[Math.min(2, programme.length)]])
+	);
 	const parts: Solid[] = foundation.map((room, k) =>
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
 	);
@@ -282,7 +279,7 @@ export function bearingCourses(plan: Plan, context: EnsembleContext) {
 	return courses(
 		plan,
 		decision?.frontage ?? new Set(),
-		context.seed,
+		context,
 		decision?.galleryCourse,
 		decision?.upperWing
 	);

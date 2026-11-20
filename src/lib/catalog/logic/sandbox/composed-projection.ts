@@ -64,6 +64,7 @@ function survey(world: World) {
 						s.composition.sharedRoof,
 						s.composition.exterior?.system,
 						s.composition.shellUse,
+						s.composition.exterior?.seams,
 						accentKind(s),
 						accentBody(s).id
 					]),

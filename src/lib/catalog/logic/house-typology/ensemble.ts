@@ -1,3 +1,5 @@
+import { courseDatum } from './course-datums';
+import type { PartyHeight } from './party-faces';
 import { houseEnvelope } from './envelope';
 import { roofOwners } from './roof-owners';
 import { upperWings } from './upper-wings';
@@ -136,6 +138,15 @@ export function planEnsemble(sites: readonly HouseSite[], seed?: number): Ensemb
 		seed: selectedSeed,
 		datum,
 		skyline: ceiling,
+		podiums: new Map(
+			sorted.flatMap((s) => {
+				const height: PartyHeight = [
+					s.ground,
+					courseDatum(s.ground, s.id, selectedSeed, Math.min(2, s.programme.length))
+				];
+				return s.cells.map((c) => [c.id, height] as const);
+			})
+		),
 		shellUse: shellProgramme(sorted),
 		leadingSystem: houseEnvelope(sorted[0].id, selectedSeed, sorted[0].envelope).system,
 		houses: houseLayer(sorted, skyline(sorted, selectedSeed), selectedSeed)
