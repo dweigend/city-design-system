@@ -71,7 +71,7 @@ export function publicFlight(span: TownSpan, ground: (x: number, y: number) => n
 	for (let i = 0; i < n; i++) {
 		const [x, y, z] = interpolatePoint(a, b, (i + 0.5) / n),
 			foot = ground(x, y);
-		if (z - thickness > foot)
+		if (Number.isFinite(foot) && z - thickness > foot)
 			parts.push({
 				...frame,
 				kind: 'cylinder',

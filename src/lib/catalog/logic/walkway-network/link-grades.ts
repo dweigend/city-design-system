@@ -52,27 +52,31 @@ export function gradeWalkLinks(
 	// two world elevations must not round the rise up into an additional tread.
 	const riseMargin = profile.treadRise * 1e-8;
 	const limits = links.map(({ from, to, availableRun }) => {
-		const risers = Math.floor(availableRun / profile.going) - 1;
+		const treads = Math.floor(availableRun / profile.going);
+		const risers = treads - (treads * profile.going > availableRun ? 2 : 1);
 		return { from, to, rise: Math.max(0, risers * profile.treadRise - riseMargin) };
 	});
 	const ceiling = new Map([...levels.keys()].map((id) => [id, courts.get(id)?.[2] ?? Infinity]));
 	spread(ceiling, limits);
-	for (const [id, position] of courts) {
-		const cap = ceiling.get(id);
-		if (cap !== undefined && position[2] > cap + levels.size * riseMargin)
-			throw new RangeError('Insufficient walking run between fixed court levels at ' + id);
-	}
 	// Raising low neighbours first preserves terrain and crossing clearances wherever possible.
 	for (const [id, z] of levels) {
 		const cap = required(ceiling.get(id), 'ceiling');
 		levels.set(id, -(courts.get(id)?.[2] ?? Math.min(z, cap)));
 	}
 	spread(levels, limits);
-	const at = (p: Vec3, id: string): Vec3 => [p[0], p[1], -required(levels.get(id), 'landing')];
+	const at = (p: Vec3, id: string): Vec3 => [
+		p[0],
+		p[1],
+		courts.get(id)?.[2] ?? -required(levels.get(id), 'landing')
+	];
 	return links.map(({ from, to, a, b, availableRun }) => {
 		const start = at(a, from),
 			end = at(b, to);
 		const requiredRun = flightRun(end[2] - start[2], profile);
+		if (requiredRun > availableRun)
+			throw new RangeError(
+				'Insufficient walking run between fixed court levels at ' + from + '>' + to
+			);
 		return { from, to, a: start, b: end, availableRun, requiredRun };
 	});
 }

@@ -12,7 +12,11 @@ type Ground = (x: number, y: number) => number;
 export function retainingFoot(p: Plate, ground: Ground): Primitive {
 	const polygon = shoelaceArea(p.polygon) > 0 ? p.polygon : [...p.polygon].reverse();
 	const top = polygon.map(([x, y]): Vec3 => [x, y, p.z]);
-	const bottom = polygon.map(([x, y]): Vec3 => [x, y, Math.min(p.z, ground(x, y) - 0.04)]);
+	const bottom = polygon.map(([x, y]): Vec3 => {
+		const soil = ground(x, y);
+		// At the survey boundary the retaining face terminates at the slab soffit.
+		return [x, y, Number.isFinite(soil) ? Math.min(p.z, soil - 0.04) : p.z];
+	});
 	const n = top.length;
 	return {
 		kind: 'mesh',

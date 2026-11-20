@@ -39,3 +39,21 @@ test('the finished court floor supplies the terminal level when the survey heigh
 	expect(link.a).toEqual(floor);
 	expect(link.requiredRun).toBeLessThanOrEqual(link.availableRun);
 });
+
+test('fixed endpoints require two full goings even for a rise within numerical tolerance', () => {
+	for (const rise of [townStairs.treadRise, 1e-10]) {
+		const a = at(0, 0);
+		const b = at(2 * townStairs.going - 1e-10, rise);
+		const link = { from: 'low', to: 'high', a, b };
+		const ends = new Map([
+			['low', a],
+			['high', b]
+		]);
+		expect(() => gradeWalkLinks([link], ends, townStairs)).toThrow('fixed court levels');
+		b[0] = 2 * townStairs.going;
+		const [fit] = gradeWalkLinks([link], ends, townStairs);
+		expect(fit.b).toEqual(b);
+		expect(fit.a).toEqual(a);
+		expect(fit.requiredRun).toBe(fit.availableRun);
+	}
+});
