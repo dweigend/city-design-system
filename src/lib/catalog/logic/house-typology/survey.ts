@@ -33,6 +33,7 @@ export function survey(site: HouseSite) {
 		ground,
 		start,
 		base: ground,
+		finishedFloor: start === 0 ? site.finishedFloor : undefined,
 		width,
 		depth,
 		elongated: Math.max(width, depth) > 1.5 * Math.min(width, depth),

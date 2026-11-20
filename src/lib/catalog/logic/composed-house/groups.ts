@@ -11,6 +11,7 @@ import { houseLinks } from './links';
 import { sectionParts } from './projection';
 
 type Survey = {
+	floorFor?: (cell: QuadGrid['cells'][number]) => number | undefined;
 	courtFor?: (id: string) => string | undefined;
 	seedFor?: (id: string) => number | undefined;
 	district?: (id: string) => EnsembleDistrict;
@@ -86,6 +87,7 @@ export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, su
 	const sites = footprints(grid, stacks, survey.joined).map((cells) => ({
 		cells,
 		stacks,
+		finishedFloor: survey.floorFor?.(cells[0]),
 		seed: survey.seedFor?.(cells[0].id) ?? seed,
 		district: survey.district?.(cells[0].id)
 	}));

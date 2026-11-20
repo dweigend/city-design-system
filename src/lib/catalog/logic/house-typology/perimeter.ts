@@ -12,7 +12,7 @@ import {
 	landingDepth,
 	approachDepth
 } from './entrance';
-import { courseDatums } from './course-datums';
+import { courseDatums, groundCourse } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior, roomLining } from './parcel-section';
 import { galleryPlot } from './gallery';
@@ -197,6 +197,20 @@ function floorOutline(
 		turn
 	);
 }
+function occupiedRooms(
+	plan: Plan,
+	shapes: CourseShapes,
+	shape: Shape,
+	floor: number,
+	ceiling: number
+) {
+	if (floor === 0 && (shapes.joined || groundCourse(plan.site, ceiling).surveyed))
+		return shapes.rooms;
+	const system = shapes.envelope.system;
+	if (system === 'service-risers' || system === 'helical-services')
+		return [serviceGallery(shape, shapes.opening, plan.sign)];
+	return [shape];
+}
 function floorBodies(
 	plan: Plan,
 	shapes: CourseShapes,
@@ -208,15 +222,11 @@ function floorBodies(
 	parts: Solid[],
 	wing?: UpperWing
 ) {
-	const { rooms, pier, envelope } = shapes;
+	const { pier, envelope } = shapes;
 	const { cells, ground, id } = plan.site;
 	const raised = i === 0 && wing?.level === 1;
 	const baseTop = raised ? z + (ceiling - z) * 0.46 : ceiling - rim;
-	const occupied =
-		envelope.system === 'service-risers' || envelope.system === 'helical-services'
-			? serviceGallery(shape, shapes.opening, plan.sign)
-			: shape;
-	const shells = i === 0 && shapes.joined ? rooms : [occupied];
+	const shells = occupiedRooms(plan, shapes, shape, i, ceiling);
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(
 			plan,
@@ -260,20 +270,22 @@ function courses(
 	const { access, axis, opening, plot, foundation, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
 	const datums = courseDatums(plan, context.seed, galleryCourse);
+	const { seat, slab, surveyed } = groundCourse(plan.site, datums[1]);
+	datums[0] = seat;
 	const exterior = parcelExterior(
 		plot,
 		cells,
 		opening,
 		envelope,
 		datums,
-		partyFaces(cells, frontage, context.podiums, [ground, datums[Math.min(2, programme.length)]])
+		partyFaces(cells, frontage, context.podiums, [seat, datums[Math.min(2, programme.length)]])
 	);
-	const parts: Solid[] = foundation.map((room, k) =>
-		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
+	const parts: Solid[] = (surveyed ? shapes.rooms : foundation).map((room, k) =>
+		plate(id + (k ? '/plinth/' + k : '/plinth'), room, seat, slab, seat, 'base')
 	);
 	const levels: Level[] = [];
 	for (let i = 0; i < programme.length; i++) {
-		const z = i ? datums[i] : ground + 0.6;
+		const z = i ? datums[i] : seat + slab;
 		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
 		const shape = floorOutline(plan, shapes, i, gallery, exterior.stations[i].turn, wing);
@@ -376,7 +388,7 @@ export function perimeterHouse(
 		typology: 'block',
 		cells: site.cells,
 		datum: plan.datum,
-		ground: site.ground,
+		ground: exterior.bottom,
 		accessSide,
 		family: { bar: 0.3, radius: 0.15, parapet: 'rail' },
 		core: { position: [axis[0], axis[1], site.ground], width: entranceWidth },

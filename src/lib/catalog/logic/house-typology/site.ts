@@ -8,6 +8,8 @@ export type HouseSite = {
 	cells: readonly QuadCell[];
 	stacks: Stacks;
 	seed: number;
+	/** Finished ground-floor elevation in metres at the graded entrance. */
+	finishedFloor?: number;
 	district?: EnsembleDistrict;
 	envelope?: Partial<HouseEnvelope>;
 	plan?: 'rectangular' | 'round';
