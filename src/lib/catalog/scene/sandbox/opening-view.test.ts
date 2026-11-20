@@ -110,3 +110,17 @@ test('the desktop opening includes occupied parcels and the central waterfront',
 	});
 	expect(visible.length).toBeGreaterThan(5);
 });
+
+test('the opening ensembles and central water share the portrait HUD opening', () => {
+	const { world } = openingScene(7);
+	const view = createView();
+	view.resize(390, 844);
+	const area = { top: 142, bottom: 680 };
+	frameOldTown(view, world, area);
+	const visible = world.grid.cells.filter((cell) => {
+		const p = view.project(cell.center);
+		return p.x > 175.5 && p.x < 214.5 && p.y > area.top && p.y < area.bottom;
+	});
+	expect(visible.some((c) => c.zone === 'water')).toBe(true);
+	expect(visible.some((c) => world.state.stacks.has(c.id))).toBe(true);
+});

@@ -19,10 +19,6 @@ export type OpeningArea = { top: number; bottom: number };
 
 export type View = ReturnType<typeof createView>;
 
-function waterfrontCenter(center: number, lowerTown: number, shore: number, room: number) {
-	return lowerTown - shore < room * 0.75 ? Math.min(center, shore + room * 0.235) : center;
-}
-
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
 export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
 	const opening = resolveParams(OPENING_VIEW_PARAMS, undefined, overrides);
@@ -92,6 +88,31 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	}
 
 	apply();
+	// Project actual water cells onto the same camera axes as the town. Meanders can place
+	// the bank nearest the town centroid outside the middle of the opening.
+	function fitWaterfront(
+		center: THREE.Vector2,
+		up: THREE.Vector3,
+		room: number,
+		water: Vec3[],
+		anchored: boolean
+	) {
+		const pixel = metersPerPixel();
+		const band = width * pixel * 0.045;
+		let nearest = Infinity;
+		const point = new THREE.Vector3();
+		for (const [x, y, z] of water) {
+			point.set(x, z, -y);
+			if (Math.abs(point.dot(right) - center.x) > band) continue;
+			const offset = point.dot(up) - center.y;
+			if (Math.abs(offset) < Math.abs(nearest)) nearest = offset;
+		}
+		if (!Number.isFinite(nearest)) return;
+		const margin = room * pixel * 0.44;
+		if (anchored) span = Math.min(SPAN_MAX, span * Math.max(1, Math.abs(nearest) / margin));
+		else center.y += nearest - THREE.MathUtils.clamp(nearest, -margin, margin);
+	}
+
 	function fitLandmark(center: THREE.Vector2, up: THREE.Vector3, room: number, landmark?: Vec3) {
 		if (!landmark) return;
 		const [x, y, z] = landmark;
@@ -156,7 +177,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			anchor?: THREE.Vector3,
 			area?: OpeningArea,
 			landmark?: Vec3,
-			shore?: THREE.Vector3
+			water: Vec3[] = []
 		) {
 			if (elevationRad !== Math.PI / 2)
 				elevationRad = anchor ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
@@ -172,8 +193,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			const center = bounds.getCenter(new THREE.Vector2());
 			const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);
 			if (anchor) center.set(anchor.dot(right), anchor.dot(up));
-			if (shore)
-				center.y = waterfrontCenter(center.y, bounds.min.y, shore.dot(up), room * metersPerPixel());
+			fitWaterfront(center, up, room, water, Boolean(anchor));
 			fitLandmark(center, up, room, landmark);
 			target.copy(eye).multiplyScalar(depth);
 			target.addScaledVector(right, center.x).addScaledVector(up, center.y);
