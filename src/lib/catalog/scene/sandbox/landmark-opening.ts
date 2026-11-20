@@ -46,7 +46,13 @@ type Choice = { group: number[]; fit: CourtFit; rank: number[] };
 function meetsTarget(choice?: Choice) {
 	return choice?.rank[1] === 0 && choice.rank[2] === 1;
 }
-type FrameSearch = { view: View; screen: OpeningScreen; data: OpeningProjection; best?: Choice };
+type FrameSearch = {
+	view: View;
+	screen: OpeningScreen;
+	data: OpeningProjection;
+	translate?: boolean;
+	best?: Choice;
+};
 function consider(
 	search: FrameSearch,
 	group: number[],
@@ -82,7 +88,7 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 			.getCenter(new Vector2())
 			.sub(center.clone().add(fit.offset).divideScalar(scale));
 		consider(search, group, fit, origin, scale);
-		if (fit.offset.lengthSq() || group.length !== 2) continue;
+		if (!search.translate || group.length !== 2) continue;
 		for (const stockOrigin of stockOrigins(box, screen, data, scale, view.isPortrait())) {
 			const offset = box
 				.getCenter(new Vector2())
@@ -96,9 +102,9 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 }
 
 // Studio sightlines cover both directions along the waterfront and a cross-town view.
-const angles = [
-	[0, 0],
+const phoneAngles = [
 	[78, -20],
+	[0, 0],
 	[249, -20],
 	[2, -18],
 	[0, -20],
@@ -106,21 +112,27 @@ const angles = [
 	[150, 0],
 	[270, -10]
 ] as const;
+const desktopHeadings = [210, 144, 124, 180, 108, 240, 90, 0] as const;
 
 /** Maximum number of projected town orientations in a single opening fit. */
-export const openingHeadingLimit = angles.length;
+export const openingHeadingLimit = Math.max(phoneAngles.length, desktopHeadings.length);
 
 function sightlines(view: View, screen: OpeningScreen) {
+	if (view.isPortrait()) return phoneAngles;
 	const room = screen.safe.getSize(new Vector2());
 	const ratio = room.x / room.y;
-	// Wider openings favour the waterfront axis, narrower ones a diagonal through the courts.
-	const priorities = [
-		[1.9, 0],
-		[1.65, 3],
-		[1.35, 2]
-	];
-	const first = view.isPortrait() ? 1 : (priorities.find(([min]) => ratio >= min)?.[1] ?? 5);
-	return [angles[first], ...angles.filter((_, i) => i !== first)];
+	const first = ratio >= 1.65 ? 124 : 144;
+	return [first, ...desktopHeadings.filter((h) => h !== first)].map((h) => [h, -1] as const);
+}
+
+function searchPairs(search: FrameSearch, groups: number[][], fits: CourtFit[]) {
+	for (const translate of search.view.isPortrait() ? [true] : [false, true]) {
+		search.translate = translate;
+		for (const { group, box } of distinctCrops(groups, search.data.courts)) {
+			tryCrop(search, group, box, fits);
+			if (meetsTarget(search.best)) return;
+		}
+	}
 }
 
 /** Fits readable houses and their surroundings while keeping controls and complete landmarks clear. */
@@ -147,16 +159,16 @@ export function frameOccupiedCourts(
 		view.frameSilhouette([new Vector3()], undefined, undefined, [], fits[0]);
 		const data = orientedProjection(view, courts, surroundings, heading);
 		const search: FrameSearch = { view, screen, data, best: previous };
-		for (const { group, box } of distinctCrops(groups, data.courts)) {
-			tryCrop(search, group, box, fits);
-			if (meetsTarget(search.best)) break;
-		}
+		searchPairs(search, groups, fits);
 		best = search.best;
 		if (meetsTarget(best)) break;
 	}
 	if (!best) return false;
 	view.frameSilhouette(
-		best.group.flatMap((i) => [...courts[i].points, ...courts[i].houses.flat()]),
+		best.group.flatMap((i) => {
+			const { points, houses } = courts[i];
+			return view.isPortrait() || !houses.length ? [...points, ...houses.flat()] : houses.flat();
+		}),
 		undefined,
 		area,
 		[],

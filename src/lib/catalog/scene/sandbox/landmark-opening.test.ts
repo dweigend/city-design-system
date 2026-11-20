@@ -1,3 +1,4 @@
+import { desktopComposition } from './opening-composition';
 import { expect, test } from 'bun:test';
 import { Box2, Vector2 } from 'three/webgpu';
 import {
@@ -12,6 +13,7 @@ import { focuses } from '../../logic/presentation';
 import { bounds } from '../../logic/ansicht/geometrie';
 import type { Primitive } from '../../logic/parametrik/types';
 import { lineParts } from '../../logic/transit-line';
+import { collectOpeningGroups } from './court-opening';
 import { roundedStops } from './station-rings';
 import { createView, type View } from './view';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
@@ -46,17 +48,32 @@ function hud(name: string, w: number, h: number, right: number, top: number, bot
 		{ left: 16, top: h - 77, right: 665, bottom: h - 16 }
 	];
 }
+const stageGeometry = new WeakMap<World, Map<string, Primitive[]>>();
+function collectStageGeometry(
+	scene: ReturnType<typeof openingScene> | ReturnType<typeof acceptanceScene>
+) {
+	const { world } = scene;
+	const year = 'earliestFullYear' in scene ? scene.earliestFullYear : undefined;
+	const groups = collectOpeningGroups(world);
+	stageGeometry.set(world, groups);
+	for (const chunk of world.grid.chunks.keys())
+		for (const [id, parts] of houseGroups(world, chunk, focuses.all, undefined, year))
+			groups.set(id, parts);
+}
 function expectStockClear(world: World, view: View, hudBoxes: Box2[]) {
 	const boxes: Box2[] = [];
-	const chunks = new Set([...world.grid.cellsById.values()].map((cell) => cell.chunk));
-	for (const chunk of chunks)
-		for (const parts of houseGroups(world, chunk, focuses.all).values()) {
-			const stock = parts.filter((p) => p.role === 'bestand');
-			if (!stock.length) continue;
-			const box = envelope(view, stock);
-			expect(hudBoxes.some((r) => r.intersectsBox(box))).toBe(false);
-			boxes.push(box);
-		}
+	const groups =
+		stageGeometry.get(world)?.values() ??
+		[...world.grid.chunks.keys()].flatMap((chunk) => [
+			...houseGroups(world, chunk, focuses.all).values()
+		]);
+	for (const parts of groups) {
+		const stock = parts.filter((p) => p.role === 'bestand');
+		if (!stock.length) continue;
+		const box = envelope(view, stock);
+		expect(hudBoxes.some((r) => r.intersectsBox(box))).toBe(false);
+		boxes.push(box);
+	}
 	return boxes;
 }
 function contextualSpread(world: World, view: View, safe: Box2, hud: Box2[], houses: Box2[]) {
@@ -85,9 +102,41 @@ function contextualSpread(world: World, view: View, safe: Box2, hud: Box2[], hou
 				.intersect(safe)
 		)
 		.filter(visible);
-	expect(stock.length).toBeGreaterThan(0);
+	if (view.isPortrait()) expect(stock.length).toBeGreaterThan(0);
 	expect(greenOrWater.length).toBeGreaterThan(0);
-	return [...houses, ...stock, ...greenOrWater].reduce((all, b) => all.union(b), new Box2());
+	return {
+		spread: [...houses, ...stock, ...greenOrWater].reduce((all, b) => all.union(b), new Box2()),
+		stock
+	};
+}
+function expectDesktopComposition(view: View, safe: Box2, ensembles: Box2[], historic: Box2[]) {
+	const area = (b: Box2) => (b.max.x - b.min.x) * (b.max.y - b.min.y);
+	const frame = area(safe);
+	const envelope = ensembles.reduce((box, body) => box.union(body), new Box2());
+	expect(area(envelope) / frame).toBeWithin(0.45, 0.58);
+	// Two distant silhouettes at opposite edges cannot satisfy this occupied-area check.
+	expect(ensembles.reduce((sum, body) => sum + area(body), 0) / frame).toBeGreaterThanOrEqual(0.21);
+	expect(historic.reduce((sum, roof) => sum + area(roof), 0) / frame).toBeLessThanOrEqual(0.2);
+	expect(historic.some((roof) => roof.containsPoint(safe.getCenter(new Vector2())))).toBe(false);
+	expect((view.elevation() * 180) / Math.PI).toBeWithin(24.9, 35.1);
+}
+function expectFraming(
+	world: World,
+	view: View,
+	safe: Box2,
+	hud: Box2[],
+	homes: Box2[],
+	visible: Box2[]
+) {
+	const { spread, stock } = contextualSpread(world, view, safe, hud, homes);
+	if (!view.isPortrait()) return expectDesktopComposition(view, safe, visible, stock);
+	const size = safe.getSize(new Vector2());
+	expect(
+		Math.max(spread.min.x - safe.min.x, safe.max.x - spread.max.x) / size.x
+	).toBeLessThanOrEqual(0.15);
+	expect(
+		Math.max(spread.min.y - safe.min.y, safe.max.y - spread.max.y) / size.y
+	).toBeLessThanOrEqual(0.15);
 }
 test.each([
 	['sandbox', 1440, 900, 1257, 40, 900],
@@ -98,9 +147,9 @@ test.each([
 ] as const)(
 	'%s opens on whole houses and whole transit landmarks',
 	(name, width, height, right, top, bottom) => {
-		const { world, additions } = name.startsWith('acceptance')
-			? acceptanceScene(7)
-			: openingScene(7);
+		const scene = name.startsWith('acceptance') ? acceptanceScene(7) : openingScene(7);
+		collectStageGeometry(scene);
+		const { world, additions } = scene;
 		const view = createView();
 		view.resize(width, height);
 		const phone = width < height,
@@ -148,11 +197,7 @@ test.each([
 		const homeBoxes = houses
 			.map((h) => envelope(view, h.parts()))
 			.filter((b) => safe.containsBox(b));
-		const spread = contextualSpread(world, view, safe, hudBoxes, homeBoxes);
-		expect(Math.max(spread.min.x, right - spread.max.x) / right).toBeLessThanOrEqual(0.15);
-		expect(
-			Math.max(spread.min.y - top, bottom - spread.max.y) / (bottom - top)
-		).toBeLessThanOrEqual(0.15);
+		expectFraming(world, view, safe, hudBoxes, homeBoxes, visible);
 		const heights = homeBoxes.map((b) => b.max.y - b.min.y).sort((a, b) => a - b);
 		const median =
 			(heights[Math.floor(heights.length / 2)] + heights[Math.floor((heights.length - 1) / 2)]) / 2;
@@ -214,3 +259,23 @@ test.each([false, true])(
 		]);
 	}
 );
+
+test('desktop accepts peripheral stock only while the built pair remains the subject', () => {
+	const rect = (x: number, y: number, r: number, b: number) =>
+		new Box2(new Vector2(x, y), new Vector2(r, b));
+	const frame = rect(0, 0, 1000, 800);
+	const houses = [rect(120, 120, 440, 580), rect(520, 180, 900, 640)];
+	const score = (stock: Box2[]) => desktopComposition(houses, stock, frame, 1);
+	expect(score([])).toBeDefined();
+	expect(score([rect(0, 100, 100, 600)])).toBeDefined();
+	expect(score([rect(0, 0, 250, 740)])).toBeUndefined();
+	expect(score([rect(450, 360, 460, 380)])).toBeUndefined();
+	expect(
+		desktopComposition(
+			[rect(320, 160, 470, 450), rect(530, 220, 700, 500)],
+			[rect(0, 100, 100, 600)],
+			frame,
+			1
+		)
+	).toBeUndefined();
+});

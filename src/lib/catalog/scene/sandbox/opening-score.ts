@@ -1,3 +1,4 @@
+import { desktopComposition, surroundings } from './opening-composition';
 import { Box2, Vector2 } from 'three/webgpu';
 import type { View } from './view';
 
@@ -87,48 +88,10 @@ export function scoreCrop(
 		foreground = inverse(screen.foreground);
 	const hud = screen.reserved.map(inverse);
 	if (obstructed(view.isPortrait(), data, canvas, safe, foreground, hud)) return;
-	return readableCourts(data, safe, scale, room, hud, houseSizes(view.isPortrait()), mode);
-}
-
-function corners(box: Box2) {
-	return [box.min, box.max, new Vector2(box.min.x, box.max.y), new Vector2(box.max.x, box.min.y)];
-}
-
-// A house can obscure the centre of a stock roof while its eaves still show beside it.
-function exposedContext(
-	boxes: Box2[],
-	safe: Box2,
-	obstacles: Box2[],
-	spread: Box2,
-	interior: Box2
-) {
-	let exposed = false;
-	for (const box of boxes) {
-		if (!box.intersectsBox(safe)) continue;
-		const patch = box.clone().intersect(safe);
-		for (const point of corners(patch)) {
-			if (obstacles.some((b) => b.containsPoint(point))) continue;
-			exposed = true;
-			spread.expandByPoint(point);
-			if (spread.containsBox(interior)) return true;
-		}
-	}
-	return exposed;
-}
-
-function surroundings(
-	data: OpeningProjection,
-	homes: Box2[],
-	hud: Box2[],
-	safe: Box2,
-	spread: Box2
-) {
-	const obstacles = [...homes, ...hud];
-	const interior = safe.clone().expandByVector(safe.getSize(new Vector2()).multiplyScalar(-0.15));
-	if (data.stock.length && !exposedContext(data.stock, safe, obstacles, spread, interior))
-		return false;
-	return (
-		!data.landscape.length || exposedContext(data.landscape, safe, obstacles, spread, interior)
+	return readableCourts(
+		data,
+		{ safe, scale, room, hud, sizes: houseSizes(view.isPortrait()) },
+		mode
 	);
 }
 
@@ -151,15 +114,11 @@ function apparentHeight(data: OpeningProjection, homes: Box2[], safe: Box2, scal
 	return median(measured.map((b) => (b.max.y - b.min.y) * scale));
 }
 
-function readableCourts(
-	data: OpeningProjection,
-	safe: Box2,
-	scale: number,
-	room: Vector2,
-	hud: Box2[],
-	sizes: typeof desktopSizes,
-	mode: 'context' | 'rank' | 'clearance'
-) {
+type Crop = { safe: Box2; scale: number; room: Vector2; hud: Box2[]; sizes: typeof desktopSizes };
+type ScoreMode = 'context' | 'rank' | 'clearance';
+
+function readableCourts(data: OpeningProjection, crop: Crop, mode: ScoreMode) {
+	const { safe, scale, sizes } = crop;
 	const visible = data.courts.flatMap((b, i) => (safe.containsBox(b) ? [i] : []));
 	const homes = visible.flatMap((i) => data.houses[i]);
 	const height = apparentHeight(data, homes, safe, scale);
@@ -168,11 +127,28 @@ function readableCourts(
 	if (data.courts.length && !visible.length) return;
 	const bodies = visible.map((i) => coverage(data.houses[i]));
 	if (mode === 'rank' && !readableGroup(data, bodies, height, scale, sizes.min)) return;
+	return sceneComposition(data, crop, { visible, homes, bodies, height }, mode);
+}
+
+function sceneComposition(
+	data: OpeningProjection,
+	crop: Crop,
+	group: {
+		visible: number[];
+		homes: Box2[];
+		bodies: Box2[];
+		height: number;
+	},
+	mode: ScoreMode
+) {
+	const { visible, homes, bodies, height } = group;
+	const builtDesktop = crop.sizes === desktopSizes && bodies.length >= 2;
 	const spread = coverage(bodies);
-	if (!surroundings(data, homes, hud, safe, spread)) return;
+	if (!surroundings(data, homes, crop.hud, crop.safe, spread, !builtDesktop)) return;
+	if (builtDesktop) return desktopComposition(bodies, data.stock, crop.safe, crop.scale);
 	if (mode === 'context') return [];
 	const courtBox = coverage(visible.map((i) => data.courts[i]));
-	return rankComposition({ safe, spread, bodies, courtBox, height, scale, room, sizes });
+	return rankComposition({ ...crop, spread, bodies, courtBox, height });
 }
 
 function rankComposition({
