@@ -1,9 +1,21 @@
-import { bounds } from '../ansicht/geometrie';
+import { assetRegistry } from '../assets';
+import { townLife } from './town-life';
+import { courtLife } from './court-life';
+import { bounds, union, area as polygonArea } from '../ansicht/geometrie';
 import { expect, test } from 'bun:test';
-import { openingScene, cityCentreView, type World } from '../sandbox';
+import { focuses } from '../presentation';
+import { cityTransitSlots, lineParts } from '../transit-line';
+import {
+	openingScene,
+	cityCentreView,
+	houseGroups,
+	installationView,
+	spongeWorkView,
+	type World
+} from '../sandbox';
 import { required } from '../required';
 import { houseSurfaces } from '../composed-house';
-import { type Primitive } from '../parametrik/types';
+import { type Primitive, type Vec3 } from '../parametrik/types';
 import { distance, nearest, separation } from './clearance';
 import type { Point } from './types';
 
@@ -53,6 +65,36 @@ function topology(walk: string[][], courts: Set<string>, parts: Primitive[]) {
 			.sort()
 	).toEqual([...courts].sort());
 	expect(Math.max(...degree.values())).toBe(3);
+	for (const [id, n] of degree)
+		if (n === 3)
+			expect(
+				parts.filter(
+					(p) => p.kind === 'sphere' && p.id.startsWith('town-walk/platform/' + id + '/meeting/')
+				)
+			).toHaveLength(3);
+}
+
+function checkTownPalette(world: World, parts: Primitive[]) {
+	const token = houseSurfaces.access.token;
+	const chunks = new Set(
+		[...world.state.stacks.keys()].map(
+			(id) => required(world.grid.cellsById.get(id), 'built plot').chunk
+		)
+	);
+	const external = [
+		...world.lines.flatMap((l) => lineParts(l, cityTransitSlots)),
+		...installationView(world, 'all'),
+		...(world.state.spongeWorks ?? []).flatMap((w) => spongeWorkView(world.grid, w)),
+		...[...chunks].flatMap((chunk) => [...houseGroups(world, chunk, focuses.all).values()].flat())
+	];
+	for (const p of [...parts, ...external]) {
+		expect(p.overprint).not.toBe(token);
+		if (p.kind === 'prism') expect(p.topToken).not.toBe(token);
+		if (p.token !== token) continue;
+		expect(p.kind === 'prism' && p.id.startsWith('town-walk/')).toBe(true);
+		const span = p.id.split(':tread:')[0];
+		expect(parts.some((q) => q.id.startsWith(span + '/pier/'))).toBe(true);
+	}
 }
 
 function publicDeck(parts: Primitive[], pink: Primitive[], floor: Plate[]) {
@@ -83,16 +125,54 @@ function publicDeck(parts: Primitive[], pink: Primitive[], floor: Plate[]) {
 		const piers = parts.filter((q) => q.id.startsWith(p.id + '/pier/'));
 		expect(piers.length).toBeGreaterThanOrEqual(Math.ceil(run / 12));
 	}
-	const planters = parts.filter(
-		(p) => p.id.includes('/rolled-lip-planter/') && p.id.endsWith('/0')
-	);
-	expect(planters).toHaveLength(Math.floor(area / (2.5 * 30)));
 	return area;
 }
 
-function people(parts: Primitive[], pink: Primitive[], area: number, count: number) {
-	const surfaces = [...pink, ...parts.filter((p) => p.id.startsWith('court/'))];
-	const heads = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/person-'));
+function checkSupport(members: Primitive[], surfaces: Primitive[], feet: number) {
+	const head = members.find((p) => p.kind === 'sphere');
+	if (head?.kind !== 'sphere' || !head.id.includes('/kit-scatter-')) return;
+	for (const p of members) {
+		const { min, max } = bounds(p);
+		for (const x of [min[0], max[0]])
+			for (const y of [min[1], max[1]])
+				expect(standsOn({ ...head, position: [x, y, feet + 1] }, surfaces, feet)).toBe(true);
+	}
+}
+
+function footprintSupport(parts: Primitive[], surfaces: Primitive[]) {
+	const objects = new Map<string, Primitive[]>();
+	for (const p of parts.filter(
+		(p) => p.id.includes('/kit-scatter-') || p.id.includes('/planter/rolled-lip-planter/')
+	)) {
+		const key = p.id.slice(0, p.id.lastIndexOf('/'));
+		const members = objects.get(key) ?? [];
+		members.push(p);
+		objects.set(key, members);
+	}
+	const occupied: ReturnType<typeof union>[] = [];
+	for (const members of objects.values()) {
+		const box = union(members.map(bounds));
+		for (const other of occupied)
+			expect([0, 1].some((i) => box.min[i] >= other.max[i] || other.min[i] >= box.max[i])).toBe(
+				true
+			);
+		occupied.push(box);
+		checkSupport(members, surfaces, box.min[2]);
+	}
+}
+
+function people(parts: Primitive[], pink: Primitive[], length: number, courts: Set<string>) {
+	const surfaces = [
+		...pink,
+		...parts.filter(
+			(p) =>
+				p.id.startsWith('court/') ||
+				p.id.startsWith('town-walk/platform/') ||
+				p.id.startsWith('town-walk/joint/')
+		)
+	];
+	footprintSupport(parts, surfaces);
+	const heads = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-'));
 	for (const head of heads) {
 		const prefix = head.id.slice(0, head.id.lastIndexOf('/') + 1);
 		const feet = Math.min(
@@ -100,11 +180,106 @@ function people(parts: Primitive[], pink: Primitive[], area: number, count: numb
 		);
 		expect(head.kind === 'sphere' && standsOn(head, surfaces, feet)).toBe(true);
 	}
-	const walkers = heads.filter((h) => h.id.includes('person-walking')).length;
-	expect(Math.abs(walkers - heads.length / 3)).toBeLessThanOrEqual(count + 2);
-	const publicHeads = heads.filter((h) => h.id.includes('/life/')).length;
-	expect(area / publicHeads).toBeGreaterThanOrEqual(15);
-	expect(area / publicHeads).toBeLessThanOrEqual(20);
+	for (const id of courts) expect(heads.some((p) => p.id.startsWith(id + '/court/'))).toBe(true);
+	const publicHeads = heads.filter((h) => h.id.includes('/life/'));
+	expect(Math.abs(publicHeads.length - length / 20)).toBeLessThanOrEqual(1);
+	for (const head of heads)
+		expect(assetRegistry.some((a) => head.id.includes('/' + a.id + '/'))).toBe(true);
+}
+
+function courtOccupancy(parts: Primitive[], id: string, plate: Plate) {
+	const groups = new Map<string, Primitive[]>();
+	let count = 0;
+	for (const part of parts.filter(
+		(p) => p.id.startsWith(id + '/court/') || p.id.startsWith(id + '/feature/')
+	)) {
+		const key = part.id.slice(0, part.id.indexOf('/', id.length + 7));
+		// The awning and bench share a single feature reservation.
+		const owner = part.id.includes('/feature/') ? 'feature' : key;
+		const group = groups.get(owner) ?? [];
+		group.push(part);
+		groups.set(owner, group);
+		if (part.kind === 'sphere' && part.id.includes('/kit-scatter-')) count++;
+	}
+	expect(count).toBe(Math.max(3, Math.round(polygonArea(plate.polygon) / 17.5)));
+	const boxes = [...groups.values()].map((group) => union(group.map(bounds)));
+	for (const [i, a] of boxes.entries())
+		for (const b of boxes.slice(i + 1))
+			expect([0, 1].some((k) => a.max[k] <= b.min[k] || b.max[k] <= a.min[k])).toBe(true);
+}
+
+test('native plaza gatherings and deck lines fill carriers sized for their full parties', () => {
+	for (const seed of [7, 13, 29]) {
+		const polygon: [number, number][] = [
+			[0, 0],
+			[20, 0],
+			[20, 20],
+			[0, 20]
+		];
+		const figures = courtLife(
+			{ id: 'square', polygon, area: 400, position: [10, 10, 2] },
+			seed,
+			false
+		);
+		for (const n of [7, 15])
+			expect(
+				figures.filter((p) => p.kind === 'sphere' && p.id.includes('kit-scatter-plaza-' + n + '/'))
+			).toHaveLength(n);
+		const spans = Array.from({ length: 40 }, (_, i) => ({
+			id: 'route/' + i,
+			a: [0, i * 5, 2] as Vec3,
+			b: [20, i * 5, 2] as Vec3
+		}));
+		const walkers = townLife(spans, seed);
+		for (const n of [3, 7, 15])
+			expect(walkers.some((p) => p.id.includes('kit-scatter-group-' + n + '/'))).toBe(true);
+		expect(walkers.filter((p) => p.kind === 'sphere' && p.id.includes('/life/'))).toHaveLength(40);
+	}
+});
+
+function checkMeetings(parts: Primitive[], floor: Plate[], courts: Set<string>) {
+	const heads = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-'));
+	expect(heads.every((p) => p.token === '--ink' && p.finish === 'metall-graphit')).toBe(true);
+	const near = (p: Primitive, at: Vec3) =>
+		p.kind === 'sphere' &&
+		Math.hypot(p.position[0] - at[0], p.position[1] - at[1]) <= 4.2 &&
+		Math.abs(p.position[2] - at[2] - 1.5) < 0.4;
+	const platforms = parts.filter(
+		(p) =>
+			p.kind === 'cylinder' && p.id.startsWith('town-walk/platform/') && !p.id.endsWith('/pier')
+	);
+	for (const p of platforms)
+		expect(heads.filter((h) => h.id.startsWith(p.id + '/meeting/'))).toHaveLength(3);
+	for (const p of floor.filter((p) => p.id.endsWith(':tread:0'))) {
+		const key = p.id.slice(0, -1);
+		const treads = floor.filter((q) => q.id.startsWith(key));
+		for (const [t, i, j] of [
+			[p, 0, 1],
+			[treads[treads.length - 1], 2, 3]
+		] as const) {
+			const a = t.polygon[i],
+				b = t.polygon[j];
+			const at: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, t.z + t.height];
+			expect(heads.filter((h) => near(h, at)).length).toBeGreaterThanOrEqual(3);
+		}
+	}
+	checkGardens(parts, heads, courts);
+}
+
+function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string>) {
+	for (const id of courts) {
+		expect(heads.filter((h) => h.id.startsWith(id + '/court/landing/'))).toHaveLength(3);
+		const plate = parts.find((p) => p.id === 'court/' + id),
+			bed = parts.find((p) => p.id === id + '/garden/bed');
+		if (plate?.kind !== 'prism' || bed?.kind !== 'prism') throw Error('Missing garden plaza');
+		expect(['beton-terrazzo', 'holz-natur']).toContain(plate.finish ?? '');
+		expect(
+			bed.polygon.filter((p) => plate.polygon.some((q) => q[0] === p[0] && q[1] === p[1]))
+		).toHaveLength(2);
+		expect(parts.some((p) => p.id.startsWith(id + '/garden/') && p.id.includes('park-tree-'))).toBe(
+			true
+		);
+	}
 }
 
 function transit(world: World, floor: Plate[]) {
@@ -144,10 +319,26 @@ for (const seed of [7, 13, 29])
 				pink = parts.filter((p) => p.token === houseSurfaces.access.token);
 			const courts = new Set(city.centres.flatMap((c) => c.ensembles.map((g) => g.court)));
 			const floor = pink.filter((p) => p.kind === 'prism');
-			for (const id of courts)
-				expect(parts.some((p) => p.id.startsWith(id + '/bench/backrest-bench/'))).toBe(true);
+			for (const id of courts) {
+				const plate = parts.find((p) => p.id === 'court/' + id);
+				expect(
+					plate?.kind === 'prism' &&
+						plate.height === 0.6 &&
+						plate.token === houseSurfaces.deck.token
+				).toBe(true);
+				if (plate?.kind === 'prism') courtOccupancy(parts, id, plate);
+				const assets = new Set(
+					parts.filter((p) => p.id.startsWith(id + '/feature/')).map((p) => p.id.split('/').at(-2))
+				);
+				if (assets.has('kit-terrace-awning')) expect(assets.delete('kit-terrace-bench')).toBe(true);
+				expect(assets.size).toBe(1);
+			}
+			checkTownPalette(world, parts);
 			topology(city.walk, courts, parts);
-			people(parts, pink, publicDeck(parts, pink, floor), courts.size);
+			checkMeetings(parts, floor, courts);
+			publicDeck(parts, pink, floor);
+			const length = floor.reduce((sum, p) => sum + distance(p.polygon[0], p.polygon[3]), 0);
+			people(parts, pink, length, courts);
 			transit(world, floor);
 			expect(cityCentreView(world)).toEqual(parts);
 		},

@@ -1,9 +1,16 @@
-import { townRoutes } from '../walkway-network';
+import { area } from '../ansicht/geometrie';
+import { furnishedCourt, townRoutes } from '../walkway-network';
 import { required } from '../required';
 import { hashUnit } from '../../core/random';
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
 
-type TownEnsemble = { court: string; mouth: string; lots: string[]; heights: number[] };
+type TownEnsemble = {
+	openingPlots?: number;
+	court: string;
+	mouth: string;
+	lots: string[];
+	heights: number[];
+};
 
 function envelope(cell: TerrainCell) {
 	const xs = cell.corners.map((p) => p[0]),
@@ -32,13 +39,30 @@ function courtGroup(grid: TerrainGrid, court: TerrainCell, free: Set<string>) {
 					)
 				)
 		);
-		if (!corners.length) continue;
-		const lots = [...new Set([...wings.map((c) => c.id), ...corners])];
+		if (corners.length !== 2) continue;
+		const size = (id: string) =>
+			area(required(grid.cellsById.get(id), 'court plot').corners.map(([x, y]) => [x, y]));
+		corners.sort((a, b) => size(b) - size(a));
+		const anchorArea = size(corners[0]);
+		if (wings.some((w) => size(w.id) > anchorArea)) continue;
+		const lots = [corners[0], ...wings.map((c) => c.id), corners[1]];
+		const extension = wings
+			.flatMap((c) => c.neighbors)
+			.find(
+				(id) =>
+					id &&
+					free.has(id) &&
+					id !== court.id &&
+					id !== mouth.id &&
+					!lots.includes(id) &&
+					size(id) <= anchorArea
+			);
+		if (!extension || !furnishedCourt(court, mouth, grid.terrain.seed)) continue;
+		const openingPlots = lots.length;
+		lots.push(extension);
 		const low = 2 + Math.floor(hashUnit(grid.terrain.seed, court.id, 'base') * 2);
-		const heights = lots.map(
-			(id, j) => low + (j === 0 ? 3 : Math.floor(hashUnit(grid.terrain.seed, id, 'step') * 2))
-		);
-		return { court: court.id, mouth: mouth.id, lots, heights };
+		const heights = lots.map((_, i) => low + (i === 0 ? 2 : 0));
+		return { court: court.id, mouth: mouth.id, lots, heights, openingPlots };
 	}
 }
 
@@ -64,10 +88,15 @@ export function planEnsembles(
 	const groups = stops.map((): TownEnsemble[] => []);
 	let walk: string[][] = [];
 	const built: TownEnsemble[] = [];
-	const count = 5 + Math.floor(4 * hashUnit(grid.terrain.seed, 'ensemble-count'));
+	const count = 6 + Math.floor(2 * hashUnit(grid.terrain.seed, 'ensemble-count'));
 	for (let i = 0; i < count; i++) {
 		const district = i % stops.length;
-		const { chosen, route } = site(byStop[district]);
+		const found = site(byStop[district]);
+		if (!found) {
+			if (built.length >= 5) break;
+			throw new RangeError('No reachable court in surveyed district');
+		}
+		const { chosen, route } = found;
 		walk = route;
 		built.push(chosen);
 		groups[district].push(chosen);
@@ -89,6 +118,5 @@ export function planEnsembles(
 			const route = townRoutes(grid, [...built, chosen], occupied);
 			if (route) return { chosen, route };
 		}
-		throw new RangeError('No reachable court in surveyed district');
 	}
 }
