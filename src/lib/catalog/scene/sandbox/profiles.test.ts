@@ -6,6 +6,7 @@ import { createStudioLight } from '../studio-light';
 import { writeAlleyMask } from './alley-mask';
 import { createTerrainMesh } from './terrain-mesh';
 import { STRUCTURE_PARAMS, TERRAIN_VIEW_PARAMS } from './view-params';
+import { plantingSurface } from './planting-surface';
 import { forestChunk, LAND_COVER_PARAMS, type Cover } from '../../logic/land-cover';
 import { squareGrid } from '../../logic/quad-grid';
 import { createTerrain } from '../../logic/terrain';
@@ -21,7 +22,8 @@ const fingerprint = (value: unknown) =>
 test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b48', () => {
 	const grid = squareGrid(6, 6, 5, 6);
 	const cover: Cover = new Map(grid.cells.map((cell) => [cell.id, 'forest']));
-	const defaults = forestChunk(grid, cover, '0:0', 7);
+	const planting = forestChunk(grid, cover, '0:0', 7);
+	const defaults = planting.map(plantingSurface);
 	expect(
 		defaults.filter((p) => !p.id.includes(':trunk')).every((p) => p.token === '--cat-foliage')
 	).toBe(true);
@@ -33,7 +35,7 @@ test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b4
 	);
 	const tree = resolveParams(TREE_PARAMS, { trunkRadiusMin: 0.5 });
 	const overrides = resolveParams(LAND_COVER_PARAMS, { cellMargin: 0.5 });
-	const changed = forestChunk(grid, cover, '0:0', 7, overrides, tree);
+	const changed = forestChunk(grid, cover, '0:0', 7, overrides, tree).map(plantingSurface);
 	expect(changed.map((p) => p.id)).toEqual(defaults.map((p) => p.id));
 	expect(changed[0]).toMatchObject({ radius: trunkRadius(3, tree) });
 	expect(changed).not.toEqual(defaults);

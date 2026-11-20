@@ -3,7 +3,8 @@
  * worlds and hands them to the terrain and the structure layer. Nothing flows back (PP-2).
  */
 import { focuses, present, type FocusId } from '../../logic/presentation';
-import { forestChunk, plantingSurfaces } from '../../logic/land-cover';
+import { plantingSurface } from './planting-surface';
+import { forestChunk } from '../../logic/land-cover';
 import {
 	installationPartView,
 	bankPlanting,
@@ -91,10 +92,7 @@ function projectCentres(
 	)
 		structures.set('city-centres', cityCentreView(after, focus));
 	if ((before.state.city || after.state.city) && (refocus || plantingChanged(before, after))) {
-		const crowns = bankPlanting(after).map(({ slot, ...crown }) => ({
-			...crown,
-			...plantingSurfaces[slot]
-		}));
+		const crowns = bankPlanting(after).map(plantingSurface);
 		structures.set('forest:town-banks', present(crowns, focuses[focus].forest));
 	}
 }
@@ -228,7 +226,7 @@ export function projectChanges(
 	for (const chunk of chunks(delta.forestChunks))
 		structures.set(
 			KEY.forest + chunk,
-			present(forestChunk(grid, state.cover, chunk, seed), levels.forest)
+			present(forestChunk(grid, state.cover, chunk, seed).map(plantingSurface), levels.forest)
 		);
 
 	if (refocus || delta.installations)

@@ -4,7 +4,7 @@
  */
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import { hash } from '../hash-random';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { Vec3 } from '../parametrik/types';
 import type { QuadCell, QuadGrid } from '../quad-grid';
 import {
 	TREE_FORM,
@@ -17,11 +17,6 @@ import {
 /** Order is part of the contract: the scene maps the kinds to texture channels. */
 export const COVER_KINDS = ['forest', 'field', 'meadow'] as const;
 export type CoverKind = (typeof COVER_KINDS)[number];
-
-/** Scene surface assigned to the live foliage slot on forest and planted bank crowns. */
-export const plantingSurfaces = {
-	foliage: { role: 'neu', material: 'wood', token: '--cat-foliage' }
-} as const;
 
 /** Cover per cell id; a cell without cover has no entry. */
 export type Cover = ReadonlyMap<string, CoverKind>;
@@ -78,7 +73,7 @@ function tree(
 	slot: number,
 	profile: typeof defaults,
 	formProfile: TreeProfile
-): Primitive[] {
+) {
 	const id = cell.index * 4 + slot;
 	const share = (channel: number) =>
 		profile.cellMargin + hash(seed, id, channel) * (1 - 2 * profile.cellMargin);
@@ -87,27 +82,25 @@ function tree(
 	const trunk = s * formProfile.trunkHeight * 0.5;
 	const tones = [profile.lightTone, profile.middleTone, profile.darkTone];
 	const shade = tones[Math.floor(hash(seed, id, CHANNEL.tone) * tones.length)];
-	const common = { role: 'neu', material: 'wood', shade } as const;
 	const form = forestForm(seed, id, z);
 	const crown = crownParts(
 		form,
 		[x, y, z + (form === 'cone' ? trunk * 0.5 : trunk)],
 		s,
 		(i) => ({
-			...common,
-			id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`,
-			...plantingSurfaces.foliage
+			slot: 'foliage' as const,
+			shade,
+			id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`
 		}),
 		undefined,
 		formProfile
 	);
-	const stem: Primitive = {
-		...common,
+	const stem = {
+		slot: 'stem' as const,
 		id: `${cell.id}:trunk${slot}`,
-		token: '--paper',
 		shade: 0,
-		kind: 'cylinder',
-		position: [x, y, z - 0.3],
+		kind: 'cylinder' as const,
+		position: [x, y, z - 0.3] as Vec3,
 		radius: trunkRadius(s, formProfile),
 		height: trunk + s * formProfile.trunkIntoCrown + 0.3
 	};
@@ -127,7 +120,7 @@ export function forestChunk(
 	seed: number,
 	overrides?: ParamOverrides<typeof LAND_COVER_PARAMS>,
 	formProfile: TreeProfile = TREE_FORM
-): Primitive[] {
+) {
 	const profile = overrides ? resolveParams(LAND_COVER_PARAMS, undefined, overrides) : defaults;
 	return (grid.chunks.get(chunk) ?? []).flatMap((cell) => {
 		if (cover.get(cell.id) !== 'forest') return [];

@@ -1,3 +1,5 @@
+import { forestChunk } from '../../logic/land-cover';
+import { squareGrid } from '../../logic/quad-grid';
 import { materialSheet } from '../../logic/material/contact-sheet';
 import { expect, test } from 'bun:test';
 import { assetRegistry, buildObject, type SlotAssignment } from '../../logic/assets';
@@ -9,6 +11,22 @@ const assignments: SlotAssignment[] = ['--signal', '--paper', '--cat-nature-2'].
 		finish
 	}))
 );
+
+function expectBareGeometry(part: { slot: string }) {
+	for (const field of ['token', 'finish', 'material', 'topToken', 'overprint', 'printBand'])
+		expect(part).not.toHaveProperty(field);
+}
+
+test('forest geometry reserves the foliage and stem slots for projection', () => {
+	const grid = squareGrid(6, 6, 5, 6);
+	const cover = new Map(grid.cells.map((c) => [c.id, 'forest' as const]));
+	const parts = forestChunk(grid, cover, '0:0', 7);
+	expect(new Set(parts.map((p) => p.slot))).toEqual(new Set(['stem', 'foliage']));
+	for (const part of parts) {
+		expect(part.slot).toBe(part.id.includes(':trunk') ? 'stem' : 'foliage');
+		expectBareGeometry(part);
+	}
+});
 
 test('every variant exposes deterministic bare geometry and independently replaceable slots', () => {
 	for (const a of assetRegistry) {
@@ -29,8 +47,7 @@ function checkVariant(a: (typeof assetRegistry)[number], v: string, used: Set<st
 	for (const part of base.geometry) {
 		used.add(part.slot);
 		expect(base.defaults[part.slot]).toBeDefined();
-		for (const field of ['token', 'finish', 'material', 'topToken', 'overprint', 'printBand'])
-			expect(part).not.toHaveProperty(field);
+		expectBareGeometry(part);
 	}
 	checkAssignments(a, v, base);
 }
