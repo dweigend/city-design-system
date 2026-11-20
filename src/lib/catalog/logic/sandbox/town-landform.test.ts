@@ -90,6 +90,7 @@ test('planted shoulders carry overlapping canopy volumes rooted on refined terra
 	let tallest = 0;
 	for (const crown of shrubs) {
 		if (crown.kind !== 'dome') throw Error('missing planted volume');
+		expect(crown).not.toHaveProperty('facets');
 		const [x, y, z] = crown.position;
 		const r = crown.radius;
 		for (const [u, v] of [
