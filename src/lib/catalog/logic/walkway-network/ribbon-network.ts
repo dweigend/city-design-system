@@ -2,7 +2,7 @@ import { required } from '../required';
 import { contours } from '../linear-path';
 import { type Vec3 } from '../parametrik/types';
 import { ribbonCurve } from './ribbon-curve';
-import { walkingProfile } from './walking-profile';
+import { ribbonProfile } from './ribbon-column';
 type Station = { position: Vec3; arms: string[] };
 type Port = { centre: Vec3; left: Vec3; right: Vec3; dx: number; dy: number };
 const key = (p: Vec3) => p.join(',');
@@ -22,7 +22,7 @@ function ports(stations: Map<string, Station>, id: string, s: Station) {
 				.filter((_, j) => i !== j)
 				.map((a) => Math.acos(Math.min(1, Math.max(-1, Math.cos(angle - a.angle)))))
 		);
-		const h = walkingProfile.width / 2,
+		const h = ribbonProfile.width / 2,
 			setback = Math.min(
 				d * (required(stations.get(neighbour), 'ribbon station').arms.length === 2 ? 0.82 : 0.48),
 				h / Math.tan(turn / 2) + 1.45

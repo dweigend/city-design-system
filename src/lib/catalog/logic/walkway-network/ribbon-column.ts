@@ -2,11 +2,13 @@ import type { Vec3, Primitive } from '../parametrik/types';
 import { pathSurfaces } from './town-palette';
 /** Public ribbon section and support dimensions in metres. */
 export const ribbonProfile = {
-	depth: 0.15,
-	columnRadius: 0.12,
-	bay: 8,
-	railRadius: 0.026,
-	postRadius: 0.022
+	width: 1.8,
+	depth: 0.09,
+	guardDrop: 1.15,
+	columnRadius: 0.16,
+	bay: 4.8,
+	railRadius: 0.019,
+	postRadius: 0.016
 } as const;
 type Ground = (x: number, y: number) => number;
 /** Seats a vertical column between finished terrain and the deck soffit. */

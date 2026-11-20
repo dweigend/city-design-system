@@ -6,7 +6,7 @@ import { required } from '../required';
 import { townDeck, courtLanding } from '../walkway-network';
 import { walkingHeight, walkingSampler, surfaceHeight } from './network-terrain';
 import type { Vec3 } from '../parametrik/types';
-import { bankHeight, type TerrainCell } from '../terrain-grid';
+import { bankHeight, cellAtPoint, type TerrainCell } from '../terrain-grid';
 import type { World } from './world-contract';
 
 function stationPosition(cell: TerrainCell, crossingClearance: number): Vec3 {
@@ -75,6 +75,12 @@ export function cityCorridorPaths(
 		seed,
 		(x, y) => walkingHeight(relief, x, y),
 		undefined,
-		cityRibbonClearance(world)
+		cityRibbonClearance(world),
+		(x, y) => {
+			const cell = cellAtPoint(world.grid, x, y);
+			if (cell?.bank?.water !== undefined && bankHeight(cell, x, y) < cell.bank.water)
+				return cell.bank.water;
+			return cell?.zone === 'water' ? world.grid.terrain.waterLevel : -Infinity;
+		}
 	);
 }

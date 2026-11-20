@@ -63,7 +63,8 @@ export function guardRuns(
 	edge: Vec3[],
 	ground: Ground,
 	seat: (p: Vec3) => number,
-	outward: 1 | -1
+	outward: 1 | -1,
+	minimumDrop: number = walkingProfile.guardDrop
 ) {
 	return edge.slice(1).flatMap((b, i) => {
 		const a = edge[i],
@@ -75,7 +76,7 @@ export function guardRuns(
 		return intervals(a, b, (p) => {
 			const z = seat(p),
 				surface = ground(p[0] + dy * offset, p[1] - dx * offset, z);
-			return !Number.isFinite(surface) || z - surface >= walkingProfile.guardDrop;
+			return !Number.isFinite(surface) || z - surface >= minimumDrop;
 		});
 	});
 }

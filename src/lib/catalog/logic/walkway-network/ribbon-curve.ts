@@ -1,9 +1,9 @@
 import type { Vec3 } from '../parametrik/types';
-import { walkingProfile } from './walking-profile';
+import { ribbonProfile } from './ribbon-column';
 
 export type Section = { centre: Vec3; left: Vec3; right: Vec3 };
-const half = walkingProfile.width / 2;
-function section(p: Vec3[], t: number): Section {
+
+function section(p: Vec3[], t: number, half: number): Section {
 	const u = 1 - t;
 	const w = [u ** 3, 3 * t ** 3 - 6 * t * t + 4, -3 * t ** 3 + 3 * t * t + 3 * t + 1, t ** 3];
 	const v = [-3 * u * u, 9 * t * t - 12 * t, -9 * t * t + 6 * t + 3, 3 * t * t];
@@ -21,7 +21,8 @@ function section(p: Vec3[], t: number): Section {
 }
 const reflect = (a: Vec3, b: Vec3): Vec3 => [2 * a[0] - b[0], 2 * a[1] - b[1], 2 * a[2] - b[2]];
 /** Samples a uniform C2 cubic B-spline and offsets its analytic plan normal in metres. */
-export function ribbonCurve(points: Vec3[]) {
+export function ribbonCurve(points: Vec3[], width: number = ribbonProfile.width) {
+	const half = width / 2;
 	const last = points.length - 1,
 		closed = points[0].join(',') === points[last].join(',');
 	const controls = [
@@ -32,12 +33,12 @@ export function ribbonCurve(points: Vec3[]) {
 	const samples: Section[] = [];
 	for (let i = 0; i < last; i++) {
 		const p = controls.slice(i, i + 4),
-			end = section(p, 1);
-		const start = section(p, 0);
+			end = section(p, 1, half);
+		const start = section(p, 0, half);
 		if (!i) samples.push(start);
 		const append = (a: Section, b: Section, lo: number, hi: number, depth: number) => {
 			const middle = (lo + hi) / 2,
-				m = section(p, middle);
+				m = section(p, middle, half);
 			const dot = (x: Section, y: Section) =>
 				((x.left[0] - x.centre[0]) * (y.left[0] - y.centre[0]) +
 					(x.left[1] - x.centre[1]) * (y.left[1] - y.centre[1])) /

@@ -1,3 +1,4 @@
+import { walkingProfile } from './walking-profile';
 import type { Primitive } from '../parametrik/types';
 import { ribbonCurve } from './ribbon-curve';
 import { ribbonDeck } from './ribbon-deck';
@@ -23,7 +24,7 @@ export function ribbonEntry(
 							id,
 							ends: [points[0], points[points.length - 1]],
 							hubs: [],
-							sections: ribbonCurve(points)
+							sections: ribbonCurve(points, walkingProfile.width)
 						}
 					]
 				},
