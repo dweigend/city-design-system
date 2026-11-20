@@ -7,7 +7,7 @@ import { expect, test } from 'bun:test';
 import { openingScene, cityCentreView, type World } from '../sandbox';
 import { required } from '../required';
 import { houseSurfaces } from '../composed-house';
-import { type Primitive, type Vec3 } from '../parametrik/types';
+import { type Primitive } from '../parametrik/types';
 import { distance, nearest, separation } from './clearance';
 import type { Point } from './types';
 
@@ -121,21 +121,15 @@ function people(parts: Primitive[], courts: Set<string>) {
 		expect(head.kind === 'sphere' && standsOn(head, surfaces, feet)).toBe(true);
 	}
 	for (const id of courts) expect(heads.some((p) => p.id.startsWith(id + '/court/'))).toBe(true);
-	const walkers = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/life/'));
-	expect(walkers.length).toBeGreaterThan(0);
+	const walkers = parts.filter((p) => p.kind === 'sphere').filter((p) => p.id.includes('/life/'));
+	expect(walkers.length).toBeWithin(1, 9);
 	const decks = parts.filter((p) => p.kind === 'mesh' && p.id.endsWith('/ramp'));
-	for (const deck of decks)
-		if (deck.kind === 'mesh') {
-			const path = deck.points
-				.filter((_, i) => i % 4 === 2)
-				.map((p, i) => p.map((v, k) => (v + deck.points[i * 4 + 3][k]) / 2) as Vec3);
-			const length = path
-				.slice(1)
-				.reduce((n, p, i) => n + Math.hypot(...p.map((v, k) => v - path[i][k])), 0);
-			expect(walkers.filter((w) => w.id.startsWith(deck.id.slice(0, -5) + '/life/'))).toHaveLength(
-				Math.floor(length / 28)
-			);
-		}
+	for (const [i, walker] of walkers.entries()) {
+		expect(decks.some((deck) => walker.id.startsWith(deck.id.slice(0, -5) + '/life/'))).toBe(true);
+		for (const other of walkers.slice(i + 1))
+			expect(distance(xy(walker.position), xy(other.position))).toBeGreaterThanOrEqual(17.5);
+	}
+
 	for (const head of heads)
 		expect(assetRegistry.some((a) => head.id.includes('/' + a.id + '/'))).toBe(true);
 }
@@ -154,14 +148,14 @@ function courtOccupancy(parts: Primitive[], id: string, plate: Plate) {
 		groups.set(owner, group);
 		if (part.kind === 'sphere' && part.id.includes('/kit-scatter-')) count++;
 	}
-	expect(count).toBe(Math.max(3, Math.round(polygonArea(plate.polygon) / 17.5)));
+	expect(count).toBe(Math.min(2, Math.max(1, Math.round(polygonArea(plate.polygon) / 120))));
 	const boxes = [...groups.values()].map((group) => union(group.map(bounds)));
 	for (const [i, a] of boxes.entries())
 		for (const b of boxes.slice(i + 1))
 			expect([0, 1].some((k) => a.max[k] <= b.min[k] || b.max[k] <= a.min[k])).toBe(true);
 }
 
-test('native plaza gatherings and single walkers fill carriers sized for their full parties', () => {
+test('small court parties and spaced route walkers use native figures', () => {
 	for (const seed of [7, 13, 29]) {
 		const polygon: [number, number][] = [
 			[0, 0],
@@ -174,26 +168,30 @@ test('native plaza gatherings and single walkers fill carriers sized for their f
 			seed,
 			false
 		);
-		for (const n of [7, 15])
-			expect(
-				figures.filter((p) => p.kind === 'sphere' && p.id.includes('kit-scatter-plaza-' + n + '/'))
-			).toHaveLength(n);
+		expect(
+			figures.filter((p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-'))
+		).toHaveLength(2);
 		const walkers = townLife(
 			[
-				[0, 0, 2],
-				[80, 0, 2],
-				[120, 0, 2]
+				{
+					id: 'route',
+					path: [
+						[0, 0, 2],
+						[80, 0, 2],
+						[120, 0, 2]
+					]
+				}
 			],
-			'route',
+			[],
 			seed
 		);
-		expect(walkers.filter((p) => p.kind === 'sphere')).toHaveLength(4);
+		expect(walkers.filter((p) => p.kind === 'sphere')).toHaveLength(2);
 	}
 });
 
 function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string>) {
 	for (const id of courts) {
-		expect(heads.filter((h) => h.id.startsWith(id + '/court/landing/'))).toHaveLength(3);
+		expect(heads.filter((h) => h.id.startsWith(id + '/court/landing/'))).toHaveLength(1);
 		const plate = parts.find((p) => p.id === 'court/' + id),
 			bed = parts.find((p) => p.id === id + '/garden/bed');
 		if (plate?.kind !== 'prism' || bed?.kind !== 'prism') throw Error('Missing garden plaza');
