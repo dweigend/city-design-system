@@ -13,7 +13,7 @@ test('a longhouse has one recessed pane and bezel on each end', () => {
 	const { geometry } = buildObject('living-capsule', 'longhouse', 17);
 	const axialRings = geometry
 		.filter((p) => p.kind === 'ring')
-		.filter((p) => p.rotation !== Math.PI / 2);
+		.filter((p) => Math.abs(Math.cos(p.rotation ?? 0) * Math.cos(p.tilt ?? 0)) >= Math.cos(1e-4));
 	expect(axialRings.filter((p) => p.slot === 'glass')).toHaveLength(2);
 	for (const sign of [-1, 1]) {
 		const end = axialRings.filter((p) => Math.sign(p.position[0]) === sign);

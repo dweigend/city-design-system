@@ -4,7 +4,7 @@ import { walkingDog } from './walking-dog';
 import { panel } from './forms';
 import { capsule } from './kit-recipe';
 import { ring } from '../parts';
-import { actionFigure, clay, type Pose } from '../production/activities/action-figure';
+import { actionFigure, graphiteFigure, type Pose } from '../production/activities/action-figure';
 function accessory(id: string, v: number) {
 	if (id === 'dog-walker') return walkingDog();
 	const hardware = v === 1 ? 'frame' : 'accent';
@@ -55,7 +55,7 @@ function entry(
 		variants: ['relaxed', 'lifted-hand', 'broad-coat'],
 		slotNames,
 		suggestions: {
-			body: { ...clay, token: '--body-living' },
+			body: graphiteFigure,
 			trim: figureSurfaces.gear,
 			accent: figureSurfaces.skin,
 			frame: figureSurfaces.gear

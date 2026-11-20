@@ -95,14 +95,15 @@ function scene(place: Place) {
 								: 'walk'
 							: 'stand';
 				return actionFigure(pose, [x, y, stair ? (step + 1) * 0.19 : 0], {
-					slot: 'body',
+					slot: place === 'stop' ? 'figure' : 'body',
 					heading,
 					child: place === 'play' && i % 5 === 1,
 					sample: (s + i * 0.39) % 1
 				});
 			});
 			return [...furniture(place, w), ...crowd];
-		}
+		},
+		place === 'stop'
 	);
 	if (place === 'market' || place === 'work') {
 		return recipes.map((recipe) => ({

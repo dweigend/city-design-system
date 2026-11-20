@@ -3,7 +3,11 @@ import { bulb, surface } from '../../parts';
 import type { ObjectGeometry } from '../../object-geometry';
 export type Pose = 'stand' | 'walk' | 'sit' | 'carry' | 'lean' | 'cycle' | 'climb';
 type Level = [number, number, number, number];
-export const clay = { material: 'glaze', finish: 'keramik-ton', token: '--ink' } as const;
+export const graphiteFigure = {
+	material: 'metal',
+	finish: 'metall-graphit',
+	token: '--ink'
+} as const;
 // Elliptical sections describe one continuous piece of cut model stock.
 function tapered(levels: Level[], place: (p: Vec3) => Vec3, slot: string): ObjectGeometry {
 	const n = 12,

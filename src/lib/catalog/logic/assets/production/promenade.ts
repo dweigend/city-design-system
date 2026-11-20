@@ -1,4 +1,4 @@
-import { clay, actionFigure } from './activities/action-figure';
+import { graphiteFigure, actionFigure } from './activities/action-figure';
 import { suggestions } from '../objects/suggestions';
 import { pipe, shell } from '../assembly';
 import { panel } from '../objects/forms';
@@ -143,7 +143,7 @@ export const promenade = [
 		}
 	).map((recipe) => ({
 		...recipe,
-		suggestions: { ...recipe.suggestions, body: clay, foot: suggestions.slats }
+		suggestions: { ...recipe.suggestions, body: graphiteFigure, foot: suggestions.slats }
 	})),
 	...furniture(
 		'rain-pocket-seat',

@@ -1,4 +1,4 @@
-import { clay } from './activities/action-figure';
+import { graphiteFigure } from './activities/action-figure';
 import { finishCatalogue } from '../../material/surface';
 import type { Vec3, FinishId } from '../../parametrik/types';
 import { mount, type AssetCategory, type AssetRecipe, type Attachment } from '../definition';
@@ -35,6 +35,7 @@ const finishes = {
 		token: '--cat-health-3'
 	}
 } as const;
+const clay = { material: 'glaze', finish: 'keramik-ton', token: '--ink' } as const;
 type Slot = keyof typeof finishes;
 type Draw = (span: number, variant: number, sample: number) => ObjectGeometry[];
 
@@ -46,15 +47,28 @@ export function series(
 	variants: readonly string[],
 	figureSlot?: Slot
 ) {
-	return (id: string, slots: Slot[], depth: (span: number) => number, draw: Draw): AssetRecipe[] =>
+	return (
+		id: string,
+		slots: Slot[],
+		depth: (span: number) => number,
+		draw: Draw,
+		splitFigures = Boolean(figureSlot)
+	): AssetRecipe[] =>
 		spans.map((span) => ({
 			id: id + '-' + String(span).replace('.', 'p') + 'm',
 			category,
-			slotNames: slots,
+			slotNames: splitFigures ? [...slots, 'figure'] : slots,
+			legacyFigureSlot: splitFigures ? figureSlot : undefined,
 			variants,
 			footprint: [span, depth(span)],
 			anchors: [mount(attachment)],
-			suggestions: figureSlot ? { ...finishes, [figureSlot]: clay } : finishes,
+			suggestions: figureSlot
+				? {
+						...finishes,
+						[figureSlot]: splitFigures ? clay : graphiteFigure,
+						figure: graphiteFigure
+					}
+				: finishes,
 			draw: (v, s) => draw(span, v, s)
 		}));
 }

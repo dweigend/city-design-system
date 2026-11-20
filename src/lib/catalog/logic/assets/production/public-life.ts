@@ -1,8 +1,8 @@
 import { mount, type AssetRecipe } from '../definition';
 import { panel } from '../objects/forms';
-import { actionFigure, clay, type Pose } from './activities/action-figure';
+import { actionFigure, graphiteFigure, type Pose } from './activities/action-figure';
 const propSurface = { material: 'concrete', finish: 'beton-schalung', token: '--ink' } as const;
-export const figureSurfaces = { coat: clay, skin: propSurface, gear: propSurface };
+export const figureSurfaces = { coat: graphiteFigure, skin: propSurface, gear: propSurface };
 function character(id: string, variants: string[], poses: Pose[]): AssetRecipe {
 	return {
 		id,
