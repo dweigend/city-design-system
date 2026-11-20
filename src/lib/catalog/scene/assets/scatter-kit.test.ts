@@ -5,10 +5,11 @@ import { Box3 } from 'three/webgpu';
 import type { Vec3 } from '../../logic/parametrik/types';
 
 const entries = assetRegistry.filter((a) => a.id.startsWith('kit-scatter-'));
+const decks = entries.filter((a) => !a.id.startsWith('kit-scatter-plaza-'));
 type Asset = ReturnType<typeof buildObject>;
 test('six single-tone scatter registrations fit flat narrow decks', () => {
-	expect(entries.length).toBe(6);
-	for (const a of entries) {
+	expect(decks.length).toBe(6);
+	for (const a of decks) {
 		expect(a.slotNames).toEqual(['body']);
 		expect(a.footprint[1]).toBeLessThanOrEqual(2);
 	}
@@ -61,3 +62,21 @@ for (const entry of entries)
 			}
 		expect(variants.size).toBe(3);
 	});
+
+test('court reservations retain an open centre or a gap between gatherings', () => {
+	const plazas = entries.filter((a) => a.id.startsWith('kit-scatter-plaza-'));
+	expect(plazas.map((a) => a.footprint)).toEqual([
+		[3.5, 3],
+		[5.5, 4.5]
+	]);
+	for (const a of plazas) {
+		const [w, d] = a.footprint;
+		for (const h of buildObject(a.id, 'ring', 17).geometry)
+			if (h.kind === 'sphere')
+				expect(Math.hypot(h.position[0] / (w / 2), h.position[1] / (d / 2))).toBeGreaterThan(0.66);
+		const xs = buildObject(a.id, 'two-knots', 17)
+			.geometry.flatMap((p) => (p.kind === 'sphere' ? [p.position[0]] : []))
+			.sort((a, b) => a - b);
+		expect(Math.max(...xs.slice(1).map((x, i) => x - xs[i]))).toBeGreaterThan(1.0);
+	}
+});
