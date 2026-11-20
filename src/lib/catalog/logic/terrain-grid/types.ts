@@ -3,6 +3,8 @@ import type { Vec3 } from '../parametrik/types';
 import type { Terrain, TerrainZone } from '../terrain';
 import type { Pattern } from './patterns';
 
+export type BankSurface = { divisions: number; points: Vec3[]; shade: number[]; indices: number[] };
+
 export type TerrainCell = QuadCell &
 	Readonly<{
 		/** Lattice position; the id `column/row` is the stable anchor of everything painted. */
@@ -23,6 +25,8 @@ export type TerrainCell = QuadCell &
 		/** Buildable remainder where an alley takes part of the terrain cell. */
 		lotCorners?: QuadCell['corners'];
 		alleyEdges: number;
+		/** Local court cut and fill sampled on the parcel's triangular chart. */
+		bank?: BankSurface;
 	}>;
 
 export type TerrainGrid = QuadGrid<TerrainCell> &

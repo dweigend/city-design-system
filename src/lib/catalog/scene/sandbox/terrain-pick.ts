@@ -7,9 +7,10 @@ type Chunk = { cells: readonly TerrainCell[]; bounds: THREE.Box3 };
 
 const position = (point: Vec3, out: THREE.Vector3) => out.set(point[0], point[2], -point[1]);
 
-/** Builds an exact terrain picker over the renderer's two triangles per cell. */
+/** Picks the nearest parcel or refined court bank on its displayed triangles. */
 export function createTerrainPicker() {
 	let chunks: Chunk[] = [];
+	const bankBounds = new WeakMap<TerrainCell, THREE.Box3>();
 	const byCells = new WeakMap<readonly TerrainCell[], Chunk>();
 	const [a, b, c, d, hit] = Array.from({ length: 5 }, () => new THREE.Vector3());
 
@@ -17,8 +18,15 @@ export function createTerrainPicker() {
 		const known = byCells.get(cells);
 		if (known) return known;
 		const bounds = new THREE.Box3();
-		for (const cell of cells)
+		for (const cell of cells) {
+			if (cell.bank) {
+				const box = new THREE.Box3();
+				for (const p of cell.bank.points) box.expandByPoint(position(p, a));
+				bankBounds.set(cell, box);
+				bounds.union(box);
+			}
 			for (const corner of cell.corners) bounds.expandByPoint(position(corner, a));
+		}
 		const chunk = { cells, bounds };
 		byCells.set(cells, chunk);
 		return chunk;
@@ -30,9 +38,20 @@ export function createTerrainPicker() {
 		position(corners[1], b);
 		position(corners[2], c);
 		position(corners[3], d);
+		let distance = Infinity;
 		if (ray.intersectTriangle(a, b, c, true, hit) || ray.intersectTriangle(a, c, d, true, hit))
-			return ray.origin.distanceTo(hit);
-		return Infinity;
+			distance = ray.origin.distanceTo(hit);
+		const bank = cell.bank;
+		const box = bankBounds.get(cell);
+		if (bank && box && ray.intersectsBox(box))
+			for (let i = 0; i < bank.indices.length; i += 3) {
+				position(bank.points[bank.indices[i]], a);
+				position(bank.points[bank.indices[i + 1]], b);
+				position(bank.points[bank.indices[i + 2]], c);
+				if (ray.intersectTriangle(a, b, c, true, hit))
+					distance = Math.min(distance, ray.origin.distanceTo(hit));
+			}
+		return distance;
 	}
 
 	return {

@@ -1,3 +1,4 @@
+export { bankHeight, chartPoint } from './bank-surface';
 export { passageClearance } from './frontage-lot';
 import { behindPassage } from './frontage-lot';
 import { blockPatches, type BlockCache } from './block-patch';
@@ -28,7 +29,7 @@ import { BLOCK, columnLeans, MODULE, REACH, rowShifts, type Lattice } from './co
 import { assemble, columnStorage, CHUNK_CELLS } from './storage';
 import { patternOffsets } from './patterns';
 import { cellId, type TerrainGrid, type TerrainCell } from './types';
-export { cellId, type TerrainGrid, type TerrainCell } from './types';
+export { cellId, type BankSurface, type TerrainGrid, type TerrainCell } from './types';
 export { cellAtPoint, cellsBetween } from './queries';
 export { BLOCK, MODULE } from './contour-rows';
 /** Height of a level datum above the ground: the visible foot of every building, meters. */
