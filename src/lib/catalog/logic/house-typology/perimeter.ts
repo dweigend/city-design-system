@@ -1,4 +1,5 @@
 import { entranceCell, entranceRooms } from './entrance';
+import { perimeterProfile, upperFootprint } from './perimeter-profile';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { STORY } from '../../data/grid';
@@ -103,6 +104,7 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 	const access = accessBay(plan, frontage),
 		{ bay, axis, opening } = access;
 	const { cells, programme, ground, id } = plan.site;
+	const profile = perimeterProfile(id, plan.seed);
 	const plot = parcel(cells);
 	const full = { polygon: plot.polygon, holes: [...plot.holes, opening] };
 	const span = galleryPlot(cells, frontage, access.anchor);
@@ -120,11 +122,7 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 		const z = ground + (i ? i * STORY : 0.6);
 		const ceiling = ground + (i + 1) * STORY;
 		const gallery = i === galleryCourse;
-		const setback = 1 - Math.min(0.25, 0.045 * i);
-		const tower = {
-			polygon: rectangle(bay.x, bay.y, bay.width * setback, bay.depth * setback),
-			holes: [opening]
-		};
+		const tower = upperFootprint(profile, bay, opening, i, programme.length);
 		const shape = i < 2 ? full : gallery ? bridge : tower;
 		const shells = i === 0 ? rooms : [shape];
 		const bodies = shells.map((shell, k) => {
@@ -158,7 +156,7 @@ function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: numb
 		const name = i === programme.length - 1 ? 'roof-walk' : 'level/' + (i + 1) + '/deck';
 		parts.push(plate(id + '/' + name, shape, ceiling - rim, rim, ground, 'deck'));
 	}
-	return { levels, parts, access };
+	return { levels, parts, access, profile };
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
@@ -169,7 +167,11 @@ export function perimeterHouse(
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access } = courses(plan, frontage, context.houses.get(site.id)?.galleryCourse);
+		{ levels, parts, access, profile } = courses(
+			plan,
+			frontage,
+			context.houses.get(site.id)?.galleryCourse
+		);
 	const { bay, axis } = access,
 		top = site.ground + site.programme.length * STORY;
 	const use = levels[levels.length - 1].use;
@@ -193,7 +195,7 @@ export function perimeterHouse(
 		compact: true,
 		flightWidth: 1.25,
 		path: 'ladder',
-		signature: silhouette('block', 'ladder', true, false),
+		signature: silhouette('block', 'ladder', true, false, profile),
 		bay,
 		start: site.start,
 		stories: site.programme.length,
