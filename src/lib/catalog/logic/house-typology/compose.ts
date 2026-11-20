@@ -1,3 +1,4 @@
+import { perimeterHouse } from './perimeter';
 import { fitBandStock } from './band-stock';
 import { blockAssembly } from './block';
 import { silhouette } from './signature';
@@ -91,6 +92,8 @@ export function composeHouse(
 ): HouseComposition {
 	const site = survey(input);
 	const { plan, role, accessSide } = layout(site, context);
+	const frontage = context.houses.get(site.id)?.frontage;
+	if (frontage && plan.type === 'block') return perimeterHouse(plan, role, accessSide, frontage);
 	const { type, sign, bar } = plan;
 	const levels = occupiedLevels(plan);
 	fitRear(plan, levels);

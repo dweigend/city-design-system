@@ -1,3 +1,4 @@
+export { boundaryRings, boundaryRuns, ringArea, direction, turn } from './outline';
 import { quadGrid, type QuadGrid, type QuadCell } from './carrier';
 export { quadGrid, type QuadGrid, type QuadCell } from './carrier';
 export { patchGrid } from './patch';

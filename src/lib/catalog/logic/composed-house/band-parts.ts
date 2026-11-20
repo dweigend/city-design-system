@@ -101,8 +101,8 @@ export function bandParts(body: Body, surfaces: HouseSurfaces, accent: BandAccen
 			...stock,
 			z: z + base,
 			height,
-			polygon: ring(x, y, w - inset * 2, d - inset * 2, 0.45),
-			holes
+			polygon: band?.footprint?.polygon ?? ring(x, y, w - inset * 2, d - inset * 2, 0.45),
+			holes: band?.footprint?.holes ?? holes
 		};
 	}
 	if (band?.wellX !== undefined)

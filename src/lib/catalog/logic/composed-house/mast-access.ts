@@ -33,7 +33,8 @@ export function mastRoute(s: Section) {
 	const [x, y] = s.stairAxis;
 	const doors = [roofLanding(s), ...[...s.composition.levels].reverse().map((d) => d.landing)];
 	const stops = doors.map((d): Vec3 => [x, y, d[2]]);
-	const groundY = s.typology === 'block' ? blockFoot(s) : y;
+	const groundY =
+		s.typology === 'block' && !s.composition.levels[0].bodies[0].band?.footprint ? blockFoot(s) : y;
 	stops.push([x, groundY, s.start ? s.base[2] : terrainHeight(s, [x, groundY, 0])]);
 	const rests: Vec3[] = [];
 	const legs = stops.slice(1).flatMap((end, flight) => {

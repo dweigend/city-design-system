@@ -36,6 +36,13 @@ function link(
 	district: EnsembleDistrict,
 	surfaces: HouseSurfaces
 ) {
+	// A shared inhabited wall already connects these lots at the podium.
+	if (
+		distance === 1 &&
+		a.composition.levels[0].bodies[0].band?.footprint &&
+		b.composition.levels[0].bodies[0].band?.footprint
+	)
+		return;
 	const id = 'link/' + a.id + '~' + b.id;
 	const width = 2.5;
 	const ends = new Set([...a.cells, ...b.cells].map((c) => c.id));

@@ -51,6 +51,10 @@ export function planHouse(site: HouseSite): Section {
 		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
+	if (levels[0].bodies[0].band?.footprint) {
+		section.stairAxis = [core.position[0], core.position[1]];
+		return section;
+	}
 	return fitAccess(section, sign);
 }
 function ladder(section: Section) {

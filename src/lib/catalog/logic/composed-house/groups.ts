@@ -59,8 +59,7 @@ function connectedEnsembles(grid: QuadGrid, sites: HouseSite[]) {
 		for (const site of ensemble)
 			for (const n of site.cells.flatMap((c) => neighborsOf(grid, c))) {
 				const next = owner.get(n.id);
-				if (next && ensemble.length < 8 && site.cells[0].pad === n.pad && pending.delete(next))
-					ensemble.push(next);
+				if (next && ensemble.length < 8 && pending.delete(next)) ensemble.push(next);
 			}
 		ensembles.push(ensemble);
 	}
