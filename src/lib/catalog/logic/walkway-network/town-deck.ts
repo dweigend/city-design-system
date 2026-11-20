@@ -131,6 +131,7 @@ export function townDeck(
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries()) plazas.push(...plazaParts(court, i + parity));
+	const courtMouths = new Map(courts.map((court, i) => ['court/' + court.id, gardens[i]]));
 	const planting = gardens.flatMap((g) => g.parts);
 	const network = ribbonNetwork(links, stations);
 	const entries = passages.flatMap(({ spans }) => ribbonEntry(spans, ground, plazas));
@@ -141,7 +142,7 @@ export function townDeck(
 		seed
 	);
 	return [
-		...flushDecks(plazas).flatMap(courtLawn),
+		...flushDecks(plazas).flatMap((plate) => courtLawn(plate, courtMouths.get(plate.id))),
 		...deck,
 		...entries,
 		...walkers,
