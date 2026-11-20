@@ -59,6 +59,9 @@ function auditLevel(l: HouseComposition['levels'][number], ceiling: number) {
 		if (error) return error;
 	}
 }
+function auditOccupation(h: HouseComposition) {
+	return h.crown.anchor === 'roof' && h.people.every((p) => p.count === 1 || p.count === 2);
+}
 function auditBase(h: HouseComposition) {
 	const base = h.parts.find((p) => p.slot === 'base');
 	if (
@@ -90,8 +93,7 @@ function audit(h: HouseComposition) {
 		const error = auditLevel(l, shell.stations[i + 1].z);
 		if (error) return error;
 	}
-	if (h.people.some((p) => p.count !== 1 && p.count !== 2) || h.crown.anchor !== 'roof')
-		return 'occupation';
+	if (!auditOccupation(h)) return 'occupation';
 	const bearing = auditBase(h);
 	if (bearing) return bearing;
 	const finding = checkFit(h.parts)[0];
