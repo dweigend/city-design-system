@@ -1,3 +1,6 @@
+import { surveyedGrid } from '../sandbox/town-grid';
+import { walkingHeight } from '../sandbox/network-terrain';
+import { needsTreads } from './walking-profile';
 import { spanSurvey, deckCorners } from '../walkway';
 import type { Primitive } from '../parametrik/types';
 import type { World } from '../sandbox';
@@ -6,21 +9,27 @@ import { surveyTownWalk } from './index';
 import { convexParts } from '../parametrik/raster/geometry';
 
 /** Recovers the untrimmed walking survey to check terminal attachment and routing budgets. */
-export function surveyedFloors(world: World) {
+export function surveyedWalk(world: World) {
 	const site = cityCorridorSite(world);
-	if (!site) return [];
-	const [routes, center, courts, , seed] = site;
-	return surveyTownWalk(routes, center, courts, seed).spans.flatMap(({ id, a, b }) =>
-		spanSurvey(deckCorners(a, b, 2.5), id, 2.5, { thickness: 0.2, treadRise: 0.17 }).treads.map(
-			(t) => ({
-				...t,
-				kind: 'prism' as const,
-				token: '--paper' as const,
-				role: 'neu' as const,
-				material: 'concrete' as const
-			})
-		)
-	);
+	if (!site) throw Error('Missing town walk');
+	const relief = surveyedGrid(world.grid);
+	return surveyTownWalk(...site, (x, y) => walkingHeight(relief, x, y));
+}
+/** Samples flat deck stations and stair treads for dimensional checks. */
+export function surveyedFloors(world: World) {
+	return surveyedWalk(world)
+		.spans.filter((s) => s.a[2] === s.b[2] || needsTreads(s.a, s.b))
+		.flatMap(({ id, a, b }) =>
+			spanSurvey(deckCorners(a, b, 2.5), id, 2.5, { thickness: 0.2, treadRise: 0.17 }).treads.map(
+				(t) => ({
+					...t,
+					kind: 'prism' as const,
+					token: '--paper' as const,
+					role: 'neu' as const,
+					material: 'concrete' as const
+				})
+			)
+		);
 }
 /** Identifies projected upper walking faces independently of the palette. */
 export function walkingPlates(parts: Primitive[]) {

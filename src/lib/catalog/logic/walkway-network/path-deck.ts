@@ -1,3 +1,4 @@
+import { retainingHeight, retainingFoot } from './retaining-foot';
 import { outline } from './level-runs';
 import { walkingProfile, rampSurface, treadSeat, needsTreads } from './walking-profile';
 import { contours, pathSupports, pathTube } from '../linear-path';
@@ -80,7 +81,23 @@ function strip({ span: { a, b, id }, right, left }: Band, ground: Ground): Primi
 					}
 				]
 			: spanSurvey(ring, id, width, { thickness, treadRise }).treads;
-	return [...faces.map((p): Primitive => ({ ...surface, ...p, kind: 'prism' })), ...supports];
+	return seated(
+		faces.map((p) => ({ ...deck, ...p, kind: 'prism' })),
+		supports,
+		ground
+	);
+}
+function seated(
+	plates: Extract<Primitive, { kind: 'prism' }>[],
+	supports: Primitive[],
+	ground: Ground
+): Primitive[] {
+	if (
+		supports.length &&
+		!plates.every((p) => p.polygon.every(([x, y]) => p.z - ground(x, y) <= retainingHeight))
+	)
+		return [...plates, ...supports];
+	return plates.flatMap((p) => [{ ...p, ...publicPaving }, retainingFoot(p, ground)]);
 }
 function fork({ id, position, rim }: Junction, ground: Ground): Primitive[] {
 	const [x, y, z] = position,
@@ -100,18 +117,20 @@ function fork({ id, position, rim }: Junction, ground: Ground): Primitive[] {
 					}
 				]
 			: [];
-	return [
-		{
-			...deck,
-			...(!support.length ? publicPaving : {}),
-			id,
-			kind: 'prism',
-			polygon,
-			z: z - thickness,
-			height: thickness
-		},
-		...support
-	];
+	return seated(
+		[
+			{
+				...deck,
+				id,
+				kind: 'prism',
+				polygon,
+				z: z - thickness,
+				height: thickness
+			}
+		],
+		support,
+		ground
+	);
 }
 /** Projects the swept deck and its continuous exposed edges, including fork fillets. */
 export function pathDeck(

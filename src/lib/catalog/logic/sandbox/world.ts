@@ -128,7 +128,7 @@ function replaceState(world: World, state: SandboxState, source: 'edit' | 'resto
 		state.edits === world.state.edits
 			? previous
 			: regrid(previous, { ...world.grid.terrain, edits: state.edits });
-	const grid = state.city?.walk ? townGrid(terrain, state.city.walk) : terrain;
+	const grid = state.city?.walk ? townGrid(terrain, state.city) : terrain;
 	if (source === 'restore') state = settleCover(grid, state);
 	else if (grid !== world.grid) {
 		state = removeInstallations(state, (part) => lostSeat(world.grid, grid, part));

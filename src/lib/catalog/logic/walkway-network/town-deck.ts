@@ -1,3 +1,4 @@
+import { courtTerrace } from './court-terrace';
 import { fitWalkingFlights, type FlightReservation } from './flight-fit';
 import { levelRuns } from './level-runs';
 import { type Primitive, type Vec3 } from '../parametrik/types';
@@ -13,7 +14,7 @@ import { finishMaterial } from '../material/surface';
 import { hashUnit } from '../../core/random';
 import { townLife } from './town-life';
 
-import { townStations, townSpans } from './town-stations';
+import { townLinkSurvey, townStations, townSpans } from './town-stations';
 const frame = { role: 'neu', material: 'metal', ...houseSurfaces.frame } as const;
 type Court = {
 	aprons?: [number, number][][];
@@ -68,35 +69,49 @@ function plazaParts(
 export function surveyTownWalk(
 	routes: readonly string[][],
 	center: (id: string) => Vec3,
-	courts: Court[],
+	survey: Court[],
+	ground: (x: number, y: number) => number,
 	seed: number,
+	relief = ground,
 	reservations: ReadonlyMap<string, FlightReservation> = new Map()
 ) {
+	const terraces = survey.map((c) =>
+		c.aprons?.length === 0 ? courtTerrace(c, relief, ground) : { court: c, steps: [] }
+	);
+	const courts = terraces.map(({ court }, i) => ({ ...survey[i], ...court }));
 	const mouths = new Map(routes.map((path) => [path[0], center(path[1])]));
-	const gardens = courts.map((c) => courtGarden(c, mouths.get(c.id) ?? c.position, seed));
+	const gardens = courts.map((c) =>
+		courtGarden(c, mouths.get(c.id) ?? c.position, seed, ground, relief)
+	);
 	const ends = new Map(courts.map((c, i) => [c.id, gardens[i].landing]));
 	const stations = townStations(routes, center, ends);
-	const { spans, unresolved } = fitWalkingFlights(townSpans(routes, stations, ends), reservations);
-	return { ends, stations, spans, gardens, unresolved };
+	const { spans, unresolved } = fitWalkingFlights(
+		townSpans(townLinkSurvey(routes, stations, ends), stations, ends),
+		reservations
+	);
+	return { ends, stations, spans, gardens, unresolved, terraces, courts };
 }
-/** Projects horizontal 2.5 m spans and matching steps between even-metre
+/** Projects 2.5 m paths and matching steps between surveyed
  * landings. Terminals descend into courts. Degree-three junctions have an open plaza. */
 export function townDeck(
 	routes: readonly string[][],
 	center: (id: string) => Vec3,
-	courts: Court[],
+	survey: Court[],
 	ground: (x: number, y: number) => number,
 	seed: number,
+	relief = ground,
 	reservationsByLink: ReadonlyMap<string, FlightReservation> = new Map()
 ) {
-	const { ends, stations, spans, gardens } = surveyTownWalk(
+	const { ends, stations, spans, gardens, terraces, courts } = surveyTownWalk(
 		routes,
 		center,
-		courts,
+		survey,
+		ground,
 		seed,
+		relief,
 		reservationsByLink
 	);
-	const plazas: Primitive[] = [];
+	const plazas: Primitive[] = terraces.flatMap((t) => t.steps);
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
 	const sites = meetingSites(spans, [...ends.values()]);
 	const forks = new Map(
@@ -107,7 +122,10 @@ export function townDeck(
 	for (const [i, court] of courts.entries())
 		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));
 	const planting = gardens.flatMap((g) => g.parts);
-	const taken = reservations([...visitors, ...planting.filter((p) => !p.id.endsWith('/bed'))]);
+	const taken = reservations([
+		...visitors,
+		...planting.filter((p) => !p.id.endsWith('/bed') && !p.id.includes('/garden/soil/'))
+	]);
 	const meetings = meetingPlatforms(sites, taken, seed, ground);
 	return [
 		...levelRuns(

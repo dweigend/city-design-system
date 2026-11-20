@@ -1,4 +1,4 @@
-import { surveyedFloors, walkingPlates } from './town-survey.test-support';
+import { surveyedFloors, surveyedWalk, walkingPlates } from './town-survey.test-support';
 import { assetRegistry } from '../assets';
 import { townLife } from './town-life';
 import { courtLife } from './court-life';
@@ -317,7 +317,11 @@ for (const seed of [7, 13, 29])
 			topology(city.walk, courts, parts);
 			checkMeetings(parts, floor, courts);
 			publicDeck(parts, pink, floor);
-			const length = floor.reduce((sum, p) => sum + distance(p.polygon[0], p.polygon[3]), 0);
+			const runs = surveyedWalk(world).spans.map((s) => ({
+				id: s.id,
+				length: distance(xy(s.a), xy(s.b))
+			}));
+			const length = runs.reduce((sum, s) => sum + s.length, 0);
 			// Measured projected walk lengths before the centre greens were introduced.
 			const original = new Map([
 				[7, 491.5365],
@@ -329,11 +333,9 @@ for (const seed of [7, 13, 29])
 					path.slice(1).map((id, i) => 'town-walk/' + path[i] + '>' + id)
 				)
 			);
-			const internalLength = floor.reduce(
+			const internalLength = runs.reduce(
 				(sum, p) =>
-					linkSpans.has(p.id.split(':')[0].replace(/\/stair$/, ''))
-						? sum
-						: sum + distance(p.polygon[0], p.polygon[3]),
+					linkSpans.has(p.id.split(':')[0].replace(/\/stair$/, '')) ? sum : sum + p.length,
 				0
 			);
 			expect(internalLength).toBeLessThan(required(original.get(seed), 'reference length'));

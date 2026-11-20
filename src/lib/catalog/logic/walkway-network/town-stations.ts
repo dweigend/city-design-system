@@ -1,4 +1,4 @@
-import { treadCount } from '../walkway';
+import { flightRun, gradeWalkLinks } from './link-grades';
 import { walkingProfile } from './walking-profile';
 import { required } from '../required';
 import { interpolatePoint, type Vec3 } from '../parametrik/types';
@@ -8,7 +8,7 @@ type Station = { position: Vec3; arms: string[] };
 type Stations = Map<string, Station>;
 export type TownSpan = { id: string; a: Vec3; b: Vec3; fromFork?: string; toFork?: string };
 
-/** Seats junctions on the two-metre level grid and draws the three arms
+/** Seats junctions on the surveyed route and draws the three arms
  * towards their common bisector. Each court keeps its surveyed landing. */
 export function townStations(
 	routes: readonly string[][],
@@ -19,7 +19,7 @@ export function townStations(
 	const add = (id: string, next: string) => {
 		const [x, y, z] = center(id);
 		const station: Station = stations.get(id) ?? {
-			position: ends.get(id) ?? [x, y, 2 * Math.ceil((z + 1) / 2)],
+			position: ends.get(id) ?? [x, y, z],
 			arms: []
 		};
 		station.arms.push(next);
@@ -87,42 +87,69 @@ function landing(s: Station, other: Station, stations: Stations) {
 			)
 		);
 	const setback = walkingProfile.width / 2 / Math.tan(Math.min(...turns) / 2) + 0.32;
-	const flightRun = treadCount(q[2] - p[2], walkingProfile.treadRise) * walkingProfile.going;
+	const requiredRun = flightRun(q[2] - p[2], walkingProfile);
 	const share = other.arms.length === 3 ? 0.5 : 1;
-	const reserve = p[2] === q[2] ? setback : Math.max(0.1, (d - flightRun) * share);
+	const reserve = p[2] === q[2] ? setback : Math.max(0.1, (d - requiredRun) * share);
 	const end = interpolatePoint(p, q, Math.min(0.49, setback / d, reserve / d));
 	end[2] = p[2];
 	return end;
 }
 
-/** Ends each flight on level decking and leaves three open mouths at a fork. */
-export function townSpans(
+/** Surveys the clear run after fork setbacks and grades each shared landing once. */
+export function townLinkSurvey(
 	routes: readonly string[][],
 	stations: Stations,
 	ends: ReadonlyMap<string, Vec3>
-): TownSpan[] {
-	return routes.flatMap((path) =>
-		path.slice(1).flatMap((id, i): TownSpan[] => {
-			const from = required(stations.get(path[i]), 'surveyed site'),
-				to = required(stations.get(id), 'surveyed site');
-			const a = landing(from, to, stations),
-				b = landing(to, from, stations);
-			const key = 'town-walk/' + path[i] + '>' + id;
-			const fromFork = from.arms.length === 3 ? path[i] : undefined,
-				toFork = to.arms.length === 3 ? id : undefined;
-			if (a[2] === b[2] || ends.has(path[i])) return [{ id: key, a, b, fromFork, toFork }];
-			const run = Math.hypot(b[0] - a[0], b[1] - a[1]);
-			const steps = treadCount(b[2] - a[2], walkingProfile.treadRise);
-			const levelShare = Math.min(0.45, 1 - (steps * walkingProfile.going) / run);
-			// A short lead cannot contain the inside edge of a full-width bend.
-			if (levelShare * run < walkingProfile.width / 2 + 0.15)
-				return [{ id: key, a, b, fromFork, toFork }];
-			const middle = interpolatePoint(a, b, levelShare);
-			middle[2] = a[2];
-			return [
-				{ id: key, a, b: middle, fromFork },
-				{ id: key + '/stair', a: middle, b, toFork }
-			];
+) {
+	const mouths = routes.flatMap((path) =>
+		path.slice(1).map((to, i) => {
+			const from = path[i];
+			const start = required(stations.get(from), 'from station');
+			const end = required(stations.get(to), 'to station');
+			return { from, to, a: landing(start, end, stations), b: landing(end, start, stations) };
 		})
 	);
+	return gradeWalkLinks(mouths, ends, walkingProfile);
+}
+
+/** Ends each flight on level decking and leaves three open mouths at a fork. */
+export function townSpans(
+	links: ReturnType<typeof townLinkSurvey>,
+	stations: Stations,
+	ends: ReadonlyMap<string, Vec3>
+): TownSpan[] {
+	return links.flatMap<TownSpan>(({ from, to, a: first, b: last, requiredRun, availableRun }) => {
+		const start = required(stations.get(from), 'from station');
+		const end = required(stations.get(to), 'to station');
+		start.position[2] = first[2];
+		end.position[2] = last[2];
+		const a = start.arms.length === 3 ? first : start.position;
+		const b = end.arms.length === 3 ? last : end.position;
+		const key = 'town-walk/' + from + '>' + to;
+		const fromFork = start.arms.length === 3 ? from : undefined,
+			toFork = end.arms.length === 3 ? to : undefined;
+		if (a[2] === b[2] || ends.has(from)) return [{ id: key, a, b, fromFork, toFork }];
+		return levelLead({ id: key, a, b, fromFork, toFork }, requiredRun, availableRun);
+	});
+}
+function levelLead(
+	{ id, a, b, fromFork, toFork }: TownSpan,
+	requiredRun: number,
+	availableRun: number
+): TownSpan[] {
+	const rising = b[2] > a[2];
+	const share = Math.min(rising ? 0.55 : 0.45, 1 - requiredRun / availableRun);
+	if (share * availableRun < walkingProfile.width / 2 + 0.15)
+		return [{ id, a, b, fromFork, toFork }];
+	const middle = interpolatePoint(a, b, rising ? 1 - share : share);
+	middle[2] = Math.max(a[2], b[2]);
+	return rising
+		? [
+				{ id: id + '/stair', a, b: middle, fromFork },
+				{ id, a: middle, b, toFork }
+			]
+		: [
+				{ id, a, b: middle, fromFork },
+				{ id: id + '/stair', a: middle, b, toFork }
+			];
 }

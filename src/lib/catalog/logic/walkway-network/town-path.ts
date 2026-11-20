@@ -79,6 +79,18 @@ function join(bands: Map<TownSpan, Band>, a: Mouth, b: Mouth, width: number) {
 		v = edge(bands, b, false);
 	const samples = fillet(a, b, width);
 	if (!samples) {
+		// A steep short flight may terminate inside a sharp bend. Its bisector
+		// section must stay within both spans or an inside edge turns backwards.
+		const reach = (m: Mouth) => {
+			const dx = m.span.b[0] - m.span.a[0],
+				dy = m.span.b[1] - m.span.a[1];
+			return Math.abs((p[0] - m.center[0]) * dx + (p[1] - m.center[1]) * dy) / (dx * dx + dy * dy);
+		};
+		if (Math.max(reach(a), reach(b)) > 0.45) {
+			const scale = width / 2 / Math.hypot(p[0] - a.center[0], p[1] - a.center[1]);
+			p[0] = a.center[0] + (p[0] - a.center[0]) * scale;
+			p[1] = a.center[1] + (p[1] - a.center[1]) * scale;
+		}
 		setEnd(u, a.start, [p]);
 		setEnd(v, b.start, [p]);
 		return;

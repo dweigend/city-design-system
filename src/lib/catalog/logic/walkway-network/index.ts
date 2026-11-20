@@ -1,3 +1,4 @@
+export { gradeWalkLinks } from './link-grades';
 export { separation as segmentSeparation } from './clearance';
 export { greenCircuit, greenApproaches } from './green-circuit';
 export { privateSurface } from './town-palette';
