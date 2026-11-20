@@ -28,6 +28,7 @@ export type CourtFit = {
 	pitchOffset: number;
 	fill: number;
 	offset: THREE.Vector2;
+	courtCenters?: readonly Vec3[];
 };
 export type View = ReturnType<typeof createView>;
 
@@ -187,6 +188,21 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		openingFit = fit && width >= height ? { points, area, fit } : undefined;
 	}
 
+	// Keep the opening houses and any court centres seen between them when looking straight down.
+	function refitOpening(saved: NonNullable<typeof openingFit>, plan: boolean) {
+		if (!plan) return frameSilhouette(saved.points, undefined, saved.area, [], saved.fit);
+		const centers = (saved.fit.courtCenters ?? []).map(([x, y, z]) => new THREE.Vector3(x, z, -y));
+		const visible = centers.filter((center) => {
+			const p = center.clone().project(camera);
+			return Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1;
+		});
+		frameSilhouette([...saved.points, ...visible], undefined, saved.area, [], {
+			...saved.fit,
+			offset: new THREE.Vector2()
+		});
+		openingFit = saved;
+	}
+
 	return {
 		camera,
 		target,
@@ -204,7 +220,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			if (plan) axonElevationRad = elevationRad;
 			elevationRad = plan ? Math.PI / 2 : axonElevationRad;
 			if (openingFit) {
-				frameSilhouette(openingFit.points, undefined, openingFit.area, [], openingFit.fit);
+				refitOpening(openingFit, plan);
 				return;
 			}
 			apply();

@@ -191,7 +191,7 @@ export function frameOccupiedCourts(
 		undefined,
 		area,
 		[],
-		best.fit
+		{ ...best.fit, courtCenters: courts.map((c) => c.center) }
 	);
 	return true;
 }

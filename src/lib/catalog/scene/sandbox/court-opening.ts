@@ -37,6 +37,7 @@ function lotCorners(world: World, group: Court) {
 function survey(world: World) {
 	const groups = courtGroups(world);
 	const courts = groups.map((group) => ({
+		center: group.court.center,
 		points: lotCorners(world, group),
 		houses: [] as Vector3[][]
 	}));
