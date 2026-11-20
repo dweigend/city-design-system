@@ -1,14 +1,9 @@
+import { BODY_TOKEN } from '../../data/house-body';
 import { projectBuildingSurface } from '../../scene/building-surface';
 import { minimumGauge } from './specimens';
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
-import {
-	circulation,
-	houseSurfaces,
-	housePartPlan,
-	planHouse,
-	sectionParts
-} from '../composed-house';
+import { circulation, housePartPlan, planHouse, sectionParts } from '../composed-house';
 import { shellSystems } from '../../data/house-shells';
 import { sections } from './section-insets';
 import type { HouseEnvelope } from './envelope';
@@ -86,26 +81,21 @@ test('full-height spiral count stays within the ensemble allowance on both bay w
 			expect(windings.length).toBeLessThanOrEqual(Math.floor(count / 3));
 		}
 });
-const programmeTokens = new Set([
-	houseSurfaces.living.token,
-	houseSurfaces.energy.token,
-	houseSurfaces.material.token,
-	houseSurfaces.water.token,
-	houseSurfaces.food.token
-]);
-test('each occupied body uses at most one programme pigment from the leading use', () => {
+test('each occupied body projects its own programme pigment on shell and screen surfaces', () => {
 	for (const system of shellSystems) {
-		const s = paintedHouse(1, system),
-			parts = sectionParts(s);
-		for (const body of s.slots) {
-			const used = parts.filter(
+		const house = paintedHouse(1, system);
+		const parts = sectionParts(house);
+		for (const body of house.slots) {
+			const surfaces = parts.filter(
 				(p) =>
-					p.id.startsWith(body.id + '/' + body.objectId + '/') &&
-					programmeTokens.has(projectBuildingSurface(p).token)
+					p.id.startsWith(body.id + '/') &&
+					(p.buildingSurface?.slot === 'shell' || p.buildingSurface?.slot === 'screen')
 			);
-			const finishes = new Set(used.map((p) => projectBuildingSurface(p).token));
-			expect(finishes.size).toBeLessThanOrEqual(1);
-			for (const token of finishes) expect(token).toBe(houseSurfaces.living.token);
+			expect(surfaces.length, body.id).toBeGreaterThan(0);
+			for (const p of surfaces) {
+				expect(p.buildingSurface?.use, p.id).toBe(body.use);
+				expect(projectBuildingSurface(p).token, p.id).toBe(BODY_TOKEN[body.use]);
+			}
 		}
 	}
 });
