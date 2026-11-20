@@ -11,7 +11,20 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 	const occupied = new Set([...state.stacks.keys(), ...state.cover.keys(), ...protectedIds]);
 	const town = planTownForms(grid, world.seed, occupied);
 	if (!town) return world;
-	const city = planCity(grid, town.railCellIds, occupied);
+	const walkOccupied = new Set([
+		...state.stacks.keys(),
+		...protectedIds,
+		...[...state.cover].filter(([, cover]) => cover === 'forest').map(([id]) => id)
+	]);
+	const city = planCity(grid, town.railCellIds, occupied, walkOccupied);
+	for (const c of city.centres)
+		for (const id of c.green.planting)
+			if (!state.cover.has(id))
+				world = applyEdit(world, {
+					kind: 'cover',
+					cellId: id,
+					cover: c.green.cells.includes(id) ? 'meadow' : 'field'
+				});
 	const bodies = [
 		...state.stacks.keys(),
 		...city.centres.flatMap((c) => [

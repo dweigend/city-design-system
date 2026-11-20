@@ -26,7 +26,7 @@ export function reservations(parts: Primitive[]): Reservation[] {
 	});
 }
 type Site = { id: string; position: Vec3; radius?: number };
-/** Coalesces a stair's level junction with the fork or terrace it serves. */
+/** Coalesces coincident stair landings and leaves terminal meetings on their terraces. */
 export function meetingSites(spans: TownSpan[], ends: Vec3[]) {
 	const sites: Site[] = [];
 	for (const { id, a, b } of spans.filter(({ a, b }) => a[2] !== b[2])) {

@@ -4,7 +4,7 @@ import { townDeck, courtLanding } from '../walkway-network';
 import { walkingHeight } from './network-terrain';
 import type { World } from './world-contract';
 
-/** Projects the public court-to-court tree shared by the game and bible. */
+/** Projects the public court walks and green circuits shared by the game and bible. */
 export function cityCorridorPaths(world: World) {
 	const city = world.state.city;
 	if (!city?.walk) return [];
@@ -24,7 +24,7 @@ export function cityCorridorPaths(world: World) {
 				polygon,
 				area: area(polygon),
 				position: [x, y, z] as [number, number, number],
-				aprons: [inset.polygon, plan.apron]
+				aprons: plan.apron.length ? [inset.polygon, plan.apron] : []
 			};
 		})
 	);

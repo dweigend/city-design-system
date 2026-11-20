@@ -36,26 +36,25 @@ function width(p: Plate) {
 
 function topology(walk: string[][], courts: Set<string>, parts: Primitive[]) {
 	const degree = new Map<string, number>(),
-		visited = new Set<string>();
-	for (const [i, path] of walk.entries()) {
-		expect(courts.has(path[0])).toBe(true);
-		if (i) expect(visited.has(path[path.length - 1])).toBe(true);
-		expect(path.slice(0, -1).every((id) => !visited.has(id))).toBe(true);
-		for (const [j, id] of path.entries()) {
-			visited.add(id);
-			degree.set(id, (degree.get(id) ?? 0) + (j === 0 || j === path.length - 1 ? 1 : 2));
+		edges = new Set<string>();
+	for (const path of walk) {
+		for (let i = 1; i < path.length; i++) {
+			const a = path[i - 1],
+				b = path[i],
+				key = [a, b].sort().join('>');
+			expect(edges.has(key)).toBe(false);
+			edges.add(key);
+			degree.set(a, (degree.get(a) ?? 0) + 1);
+			degree.set(b, (degree.get(b) ?? 0) + 1);
 		}
+	}
+	for (const id of courts) {
+		expect(degree.get(id)).toBe(1);
 		expect(
-			parts.some((p) => p.id.startsWith('town-walk/' + path[0] + '>' + path[1] + ':tread:'))
+			parts.some((p) => p.id.startsWith('town-walk/' + id + '>') && p.id.includes(':tread:'))
 		).toBe(true);
 	}
-	expect(
-		[...degree]
-			.filter(([, n]) => n === 1)
-			.map(([id]) => id)
-			.sort()
-	).toEqual([...courts].sort());
-	expect(Math.max(...degree.values())).toBe(3);
+	expect(Math.max(...degree.values())).toBeLessThanOrEqual(3);
 }
 
 function publicDeck(parts: Primitive[], pink: Primitive[], floor: Plate[]) {
@@ -312,6 +311,13 @@ for (const seed of [7, 13, 29])
 			checkMeetings(parts, floor, courts);
 			publicDeck(parts, pink, floor);
 			const length = floor.reduce((sum, p) => sum + distance(p.polygon[0], p.polygon[3]), 0);
+			// Measured projected walk lengths before the centre greens were introduced.
+			const original = new Map([
+				[7, 491.5365],
+				[13, 390.9511],
+				[29, 563.1497]
+			]);
+			expect(length).toBeLessThan(required(original.get(seed), 'reference length'));
 			people(parts, pink, length, courts);
 			transit(world, floor);
 			expect(cityCentreView(world)).toEqual(parts);

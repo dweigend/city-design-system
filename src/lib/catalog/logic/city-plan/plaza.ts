@@ -29,22 +29,20 @@ function axes(court: TerrainCell, mouth: TerrainCell) {
 	};
 }
 
+type Rect = readonly [number, number, number, number];
+const overlaps = (a: Rect, b: Rect) =>
+	a[0] < b[1] - 1e-6 && b[0] < a[1] - 1e-6 && a[2] < b[3] - 1e-6 && b[2] < a[3] - 1e-6;
 // Walk the connected parcels whose projected intervals intersect the reservation.
 // Conservative corner intersections keep both paving and planting clear of adjacent stock.
-function footprint(grid: TerrainGrid, start: TerrainCell, axes: Profile, end: number) {
+function footprint(grid: TerrainGrid, start: TerrainCell, axes: Profile, rectangles: Rect[]) {
 	const seen = new Set([start.id]),
 		queue = [start],
 		cells = [];
 	for (const c of queue) {
 		const u = c.corners.map(axes.along),
 			v = c.corners.map(axes.out);
-		if (
-			Math.min(...u) >= 10.3 ||
-			Math.max(...u) <= -10.3 ||
-			Math.min(...v) >= end ||
-			Math.max(...v) <= 0.001
-		)
-			continue;
+		const box: Rect = [Math.min(...u), Math.max(...u), Math.min(...v), Math.max(...v)];
+		if (!rectangles.some((rect) => overlaps(box, rect))) continue;
 		cells.push(c);
 		for (const id of c.neighbors)
 			if (id && !seen.has(id)) {
@@ -55,28 +53,63 @@ function footprint(grid: TerrainGrid, start: TerrainCell, axes: Profile, end: nu
 	return cells;
 }
 
+function terraceFrame(frame: ReturnType<typeof axes>, wings: TerrainCell[]) {
+	const side = [...wings].sort((a, b) => frame.out(b.center) - frame.out(a.center))[0];
+	const rear = required(
+		wings.find((w) => w !== side),
+		'rear wing'
+	);
+	const sign = Math.sign(frame.along(side.center));
+	const sideEdge = Math.min(...side.corners.map((q) => sign * frame.along(q)));
+	const shift = sideEdge - 7;
+	return {
+		width: frame.width,
+		front: Math.max(...rear.corners.map(frame.out)),
+		along: (q: readonly number[]) => sign * frame.along(q) - shift,
+		out: frame.out,
+		point: (u: number, v: number) => frame.point(sign * (u + shift), v)
+	};
+}
 /** Surveys a fourteen-metre square beyond the recessed court and reserves its planted and stepped edges. */
 export function surveyPlaza(
 	grid: TerrainGrid,
 	court: TerrainCell,
 	throat: TerrainCell,
 	lots: string[],
-	free: ReadonlySet<string>
+	free: ReadonlySet<string>,
+	gates: ReadonlySet<string>,
+	wings: TerrainCell[] = []
 ) {
-	const frame = axes(court, throat);
-	const front = Math.max(
-		0,
-		...lots.flatMap((id) => required(grid.cellsById.get(id), 'wing').corners.map(frame.out))
-	);
+	const source = axes(court, throat);
+	const stock = lots.map((id) => required(grid.cellsById.get(id), 'court wing'));
+	const frame =
+		wings.length === 2
+			? terraceFrame(source, wings)
+			: { ...source, front: Math.max(0, ...stock.flatMap((c) => c.corners.map(source.out))) };
+	const front = frame.front;
 	const far = front + 14;
 	const p = frame.point;
-	const cells = footprint(grid, throat, frame, far + 3.2).filter((c) => !lots.includes(c.id));
+	const w = frame.width / 2;
+	const rectangles: Rect[] = [
+		[-w, w, Math.min(0, front), wings.length === 2 ? front : Math.max(0, front)],
+		[-10.2, 7, front, far],
+		[-2, 2, far, far + 2.4]
+	];
+	const start = cellAtPoint(grid, ...p(0, front + 7));
+	if (!start) return;
+	const surveyed = footprint(grid, start, frame, rectangles);
+	if (wings.length === 2 && surveyed.some((c) => lots.includes(c.id))) return;
+	const cells = surveyed.filter((c) => !lots.includes(c.id));
 	if (cells.some((c) => !free.has(c.id))) return;
-	const gate = cellAtPoint(grid, ...p(0, far + 8));
-	if (!gate || !free.has(gate.id) || cells.some((c) => c === gate)) return;
+	const gate = [4, 6, 8, 10]
+		.map((n) => cellAtPoint(grid, ...p(-4, far + n)))
+		.find((c) => c && gates.has(c.id) && !cells.includes(c));
+	if (!gate) return;
 	const polygon = [p(-7, front), p(7, front), p(7, far), p(-7, far)];
 	if (polygon.some((q) => !cellAtPoint(grid, ...q))) return;
-	const w = frame.width / 2;
-	const apron = [p(-w, 0), p(w, 0), p(w, front), p(-w, front)];
-	return { mouth: gate.id, polygon, apron, cells: cells.map((c) => c.id) };
+
+	const apron = wings.length === 2 ? [] : [p(-w, 0), p(w, 0), p(w, front), p(-w, front)];
+	const bed = [p(-7, front), p(-7, far), p(-10.2, far), p(-10.2, front)];
+	const steps = [p(-2, far), p(2, far), p(2, far + 2.4), p(-2, far + 2.4)];
+	return { mouth: gate.id, polygon, apron, bed, steps, cells: cells.map((c) => c.id) };
 }

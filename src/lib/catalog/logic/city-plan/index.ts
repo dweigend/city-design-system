@@ -95,7 +95,12 @@ function planCentre(
 /** Extends a surveyed valley town's two rail stops on dry land. Growth lots emit
  * nearest first in lattice cells, ties by row-major index. Occupied IDs are excluded
  * from new works. Missing station or landmark ground raises RangeError. */
-export function planCity(grid: TerrainGrid, rail: Link, occupied: ReadonlySet<string>) {
+export function planCity(
+	grid: TerrainGrid,
+	rail: Link,
+	occupied: ReadonlySet<string>,
+	walkOccupied: ReadonlySet<string> = occupied
+) {
 	const land = grid.cells.filter((c) => c.buildable && c.zone !== 'water' && !occupied.has(c.id));
 	const families = characters(grid.terrain.seed);
 	const { stops, corridors } = centreStops(grid, rail, land, families);
@@ -104,15 +109,19 @@ export function planCity(grid: TerrainGrid, rail: Link, occupied: ReadonlySet<st
 		...corridors.flatMap(([a, b]) => cellsBetween(grid, a, b).map((c) => c.id))
 	]);
 	const landmarks = stops.map((stop, i) => planCentre(grid, stop, land, reserved, families[i]));
-	const { groups, walk } = planEnsembles(
+	const { groups, walk, greens, planting } = planEnsembles(
 		grid,
 		stops,
 		land,
 		reserved,
-		new Set([...occupied, ...landmarks.map((c) => c.landmark.cellId)])
+		new Set([...walkOccupied, ...landmarks.map((c) => c.landmark.cellId)])
 	);
 	const centres = landmarks.map((centre, i) => ({
 		...centre,
+		green: { ...greens[i], planting: planting[i] },
+		dominantProgramme: (['living', 'food', 'material', 'water', 'energy'] as const)[
+			(i + Math.floor(hashUnit(grid.terrain.seed, 'district-programme') * 5)) % 5
+		],
 		ensembles: groups[i],
 		lots: groups[i].flatMap((group) => group.lots)
 	}));

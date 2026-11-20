@@ -5,7 +5,7 @@ import type { TownSpan } from './town-stations';
 
 const length = ({ a, b }: TownSpan) => Math.hypot(b[0] - a[0], b[1] - a[1]);
 
-/** Allocates one rigid line or single to each selected level span at one person per twenty metres. */
+/** Allocates one single walker to each selected level span at one person per twenty metres. */
 export function townLife(spans: TownSpan[], seed: number, reserved: readonly Reservation[] = []) {
 	let remaining = Math.round(spans.reduce((sum, s) => sum + length(s), 0) / 20);
 	const free = spans
