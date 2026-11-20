@@ -1,10 +1,12 @@
 import { mount, type AssetRecipe } from '../definition';
 import { figureSurfaces } from '../production/public-life';
+import { walkingDog } from './walking-dog';
 import { panel } from './forms';
 import { capsule } from './kit-recipe';
 import { ring } from '../parts';
 import { actionFigure, clay, type Pose } from '../production/activities/action-figure';
 function accessory(id: string, v: number) {
+	if (id === 'dog-walker') return walkingDog();
 	const hardware = v === 1 ? 'frame' : 'accent';
 	if (id.includes('bicycle') || id.startsWith('cargo'))
 		return [
@@ -45,7 +47,6 @@ function entry(
 	poses: Pose[],
 	child: boolean
 ): AssetRecipe {
-	const members = poses.length === 2 ? [...poses, 'stand' as const] : poses;
 	return {
 		id: 'person-' + id,
 		category: 'neighbourhood-services',
@@ -62,9 +63,9 @@ function entry(
 		draw(v, s) {
 			const props = accessory(id, v);
 			const workstation = slotNames.includes('frame') && props.length === 0;
-			return members.flatMap((pose, i) => {
-				const x = members.length > 1 ? [0.27, -0.28, 0.15][i] : 0,
-					y = (i - (members.length - 1) / 2) * 0.76;
+			return poses.flatMap((pose, i) => {
+				const x = poses.length > 1 ? [0.27, -0.28, 0.15][i] : 0,
+					y = (i - (poses.length - 1) / 2) * 0.76;
 				const seated = props.length === 0 && (v === 2 || pose === 'sit');
 				const posture = seated ? 'sit' : i === 1 && pose === 'stand' ? 'walk' : pose;
 				const seat = furniture(x, y, seated, workstation && v === 1);
