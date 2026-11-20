@@ -1,3 +1,4 @@
+import { plannedPlots } from './planned-ensembles';
 import { composedProjection } from './composed-projection';
 import type { BuildingMethod } from '../../data/sandbox';
 import { buildingPlots } from './building-plots';
@@ -165,20 +166,41 @@ export function houseView(
 
 const houseGroupKey = ({ built, style }: Phase, id: string) => `${built}/${style}/${id}`;
 
+function affectedComposed(
+	world: World,
+	direct: Set<string>,
+	edits: Set<string>,
+	terrainChanged: boolean
+) {
+	const planned = plannedPlots(world.state);
+	const out = new Map<string, string>();
+	for (const g of composedProjection(world)) {
+		const wholeCourt = terrainChanged || g.cells.some((id) => planned.has(id));
+		const affected = wholeCourt
+			? g.planningCells.some((id) => edits.has(id))
+			: g.cells.some((id) => direct.has(id));
+		if (affected) out.set('composed/' + g.id, g.chunk);
+	}
+	return out;
+}
+
 /** Mass addresses touching the supplied parcels or their facade neighbours. */
-export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Map<string, string> {
+export function affectedHouseGroups(
+	world: World,
+	cellIds: Iterable<string>,
+	terrainChanged = false
+): Map<string, string> {
 	const { plots, ensembles } = houseProjection(world);
-	const edits = new Set(cellIds);
+	const direct = new Set(cellIds);
+	const edits = ensembleEditCells(world.grid, ensembles, direct);
 	const nearby = new Set<QuadCell>();
-	for (const id of ensembleEditCells(world.grid, ensembles, edits)) {
+	for (const id of edits) {
 		const cell = plots.cellsById.get(id);
 		if (!cell) continue;
 		nearby.add(cell);
 		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
 	}
-	const out = new Map<string, string>();
-	for (const g of composedProjection(world))
-		if (g.cells.some((id) => edits.has(id))) out.set('composed/' + g.id, g.chunk);
+	const out = affectedComposed(world, direct, edits, terrainChanged);
 	for (const [phase, painted] of constructionPhases(world.state)) {
 		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, world.state.stacks, ensembles);

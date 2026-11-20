@@ -91,7 +91,8 @@ export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, su
 	}));
 	return ensembles(grid, sites, survey.courtFor).flatMap((ensemble) => {
 		const context = planEnsemble(ensemble, seed);
-		return ensemble.map((site) => planHouse({ ...site, context }));
+		const planningCells = ensemble.flatMap((site) => site.cells.map((cell) => cell.id));
+		return ensemble.map((site) => ({ ...planHouse({ ...site, context }), planningCells }));
 	});
 }
 /** Assigns each house and shared span to its anchor chunk once. */
@@ -105,6 +106,7 @@ export function sectionGroups(
 	const groups = houses.map((h) => ({
 		id: h.id,
 		owners: [h.id],
+		planningCells: h.planningCells,
 		span: '',
 		chunk: h.cells[0].chunk,
 		cells: h.cells.map((c) => c.id),
@@ -116,6 +118,7 @@ export function sectionGroups(
 		groups.push({
 			id: link.id,
 			owners: [a.id, b.id],
+			planningCells: [...new Set([...a.planningCells, ...b.planningCells])],
 			span: JSON.stringify([link.kind, link.width, link.route]),
 			chunk: a.cells[0].chunk,
 			cells: [...a.cells, ...b.cells].map((c) => c.id),

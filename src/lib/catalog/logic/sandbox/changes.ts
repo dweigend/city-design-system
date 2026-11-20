@@ -53,8 +53,8 @@ function changedHouses(before: World, after: World, moved: ReadonlySet<string>) 
 			? new Map<string, string>()
 			: changedSpans(before, after);
 	return new Map([
-		...affectedHouseGroups(before, ids),
-		...affectedHouseGroups(after, ids),
+		...affectedHouseGroups(before, ids, moved.size > 0),
+		...affectedHouseGroups(after, ids, moved.size > 0),
 		...changedSpans(before, after)
 	]);
 }
