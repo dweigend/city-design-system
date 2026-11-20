@@ -40,6 +40,8 @@ export function layout(site: Survey, context: EnsembleContext) {
 	const fixed = context.houses.get(site.id);
 	if (!fixed) throw new RangeError('Site outside ensemble: ' + site.id);
 	const { role, away } = fixed;
+	const pod =
+		role === 'high' && context.houses.size > 1 && !Object.keys(site.envelope ?? {}).length;
 	if (context.houses.size > 1 && !site.envelope?.system)
 		site = {
 			...site,
@@ -57,6 +59,7 @@ export function layout(site: Survey, context: EnsembleContext) {
 	const accessSide = sideFor(site, away[1], context.seed, type);
 	const sign = accessSide === 'north' ? 1 : -1;
 	const plan: Plan = {
+		pod,
 		site,
 		type,
 		sign,

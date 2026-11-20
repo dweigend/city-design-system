@@ -5,6 +5,7 @@ import type { buildObject, ObjectGeometry } from '../assets';
 import type { Typology, HouseRole } from './families';
 import type { HouseStructure } from '../house-structure';
 export type Plan = {
+	pod: boolean;
 	site: Survey;
 	type: Typology;
 	seed: number;

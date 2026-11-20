@@ -13,13 +13,20 @@ function fieldEdges(shell: Shell, index: number, next: number) {
 	return [0, ...slots.flatMap((u) => [u - half, u + half]), 1];
 }
 /** Fits continuous fields between surveyed corners, keeping each slot aligned across party seams. */
-export function slottedWall(shell: Shell, index: number, start: number, end: number) {
+export function slottedWall(
+	shell: Shell,
+	index: number,
+	start: number,
+	end: number,
+	openUpper = false
+) {
 	const next = (index + 1) % shell.ring.length;
 	const edges = fieldEdges(shell, index, next);
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	function appendField(left: number, right: number) {
-		for (const [j, { z }] of shell.stations.entries()) {
+		const stations = openUpper ? shell.stations.slice(0, 2) : shell.stations;
+		for (const [j, { z }] of stations.entries()) {
 			const depth = j === shell.stations.length - 1 ? 1 : 0.24;
 			const from = stationAt(shell, z, index, depth, 0);
 			const to = stationAt(shell, z, next, depth, 0);

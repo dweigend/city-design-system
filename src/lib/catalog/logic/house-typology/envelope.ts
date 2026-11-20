@@ -53,14 +53,16 @@ export function houseEnvelope(
 	const { frame, fabric } = textile(system, seed, id, requested);
 	const twist =
 		requested?.twist ?? (fabric ? (hashUnit(seed, id, 'envelope/twist') - 0.5) * 1.3 : 0);
+	const section = requested?.section ?? pick(sections, seed, id, 'perimeter/profile');
+	const pod = section === 'orbital-nodes' || section === 'vessel';
 	if (!Number.isFinite(twist)) throw RangeError('Invalid envelope twist');
 	return {
 		system,
 		fabric,
 		frame,
 		twist,
-		section: requested?.section ?? pick(sections, seed, id, 'perimeter/profile'),
-		outline: requested?.outline ?? pick(outlines, seed, id, 'perimeter/outline'),
+		section,
+		outline: requested?.outline ?? (pod ? 'oval' : pick(outlines, seed, id, 'perimeter/outline')),
 		skin: requested?.skin ?? pick(skins, seed, id, 'perimeter/skin'),
 		...(requested?.finish && { finish: requested.finish })
 	};

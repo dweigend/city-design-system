@@ -2,7 +2,6 @@ type Insets = [west: number, east: number, south: number, north: number];
 type SectionRule = (rise: number, floor: number) => Insets;
 const ring = (d: number): Insets => [d, d, d, d];
 const wave = (t: number) => (1 - Math.cos(2 * Math.PI * t)) / 2;
-const bulb = (t: number) => Math.sqrt(Math.max(0, 1 - (2 * t - 1) ** 2));
 const sectionsByName = {
 	'terrace-fan': (t) => [0.02, 0.02 + t * 0.55, 0.02, 0.02],
 	'lantern-neck': (t) => ring(t >= 0.75 ? 0.04 : 0.27),
@@ -11,7 +10,7 @@ const sectionsByName = {
 	gable: (t) => [0.42 * t, 0.42 * t, 0.02, 0.02],
 	vessel: (t) => ring(0.08 + 0.24 * Math.abs(2 * t - 1)),
 	// Broad paired chambers and a pinched connector on a common vertical core.
-	'orbital-nodes': (t) => ring(0.36 - 0.33 * bulb((2 * t) % 1)),
+	'orbital-nodes': (_, floor) => ring(floor % 3 === 1 ? 0.31 : 0.035),
 	// A broad crown projects beyond a narrow stem in every direction.
 	'canopy-cap': (t) => ring(t < 0.7 ? 0.35 : 0.04 + 0.12 * (t - 0.7)),
 	// The cantilever switches sides once, keeping a continuous bearing strip.
