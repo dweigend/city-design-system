@@ -6,7 +6,7 @@ import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { patchSurface, surfaceGeometry } from './terrain-geometry';
 import { seatedTargets } from './roof-pick';
 import { createTerrainPicker } from './terrain-pick';
-import { courtOpening } from './court-opening';
+import { visibleCourts } from './fixtures/visible-courts';
 import { createView } from './view';
 import { createTerrainMesh } from './terrain-mesh';
 import { KEY, projectChanges } from './projection';
@@ -17,12 +17,12 @@ const view = createView();
 const openingArea = { top: 142, bottom: 680 };
 
 function projectedCourts(portrait: boolean) {
-	const frame = courtOpening(world, portrait);
-	assert(frame);
-	return frame.points.map((p) => view.project([p.x, -p.z, p.y]));
+	const courts = visibleCourts(world, view, portrait ? openingArea : undefined);
+	expect(courts.length).toBeGreaterThanOrEqual(2);
+	return courts.flat();
 }
 
-test('the court and its occupied lots fit between the phone HUD edges at 80 percent fill', () => {
+test('the court and its occupied lots fit between the phone HUD edges at 98 percent fill', () => {
 	view.resize(390, 844);
 	expect(frameOldTown(view, world, openingArea)).toBe(true);
 	const points = projectedCourts(true);
@@ -32,7 +32,7 @@ test('the court and its occupied lots fit between the phone HUD edges at 80 perc
 			range(points.map((p) => p.x)) / 390,
 			range(points.map((p) => p.y)) / (openingArea.bottom - openingArea.top)
 		)
-	).toBeCloseTo(0.8);
+	).toBeCloseTo(0.98);
 	for (const p of points) {
 		expect(p.x).toBeWithin(0, 390);
 		expect(p.y).toBeWithin(openingArea.top, openingArea.bottom);
@@ -101,7 +101,7 @@ test('the desktop opening includes the central district and crops outlying parce
 	const extent = (values: number[]) => Math.max(...values) - Math.min(...values);
 	expect(
 		Math.max(extent(bounds.map((p) => p.x)) / 1440, extent(bounds.map((p) => p.y)) / 900)
-	).toBeCloseTo(0.9);
+	).toBeCloseTo(0.98);
 	expect(visible).toBeGreaterThan(0);
 	expect(visible).toBeLessThan(world.state.stacks.size);
 });
@@ -218,8 +218,16 @@ test('switching the desktop opening to plan keeps both opening courts visible', 
 	const desktop = createView();
 	desktop.resize(1440, 900);
 	frameTownSilhouette(desktop, world);
+	const courts = world.state.city?.centres
+		.flatMap((c) => c.ensembles ?? [])
+		.filter((c) => {
+			const cell = world.grid.cellsById.get(c.court);
+			assert(cell);
+			const p = desktop.project(cell.center);
+			return p.x >= 0 && p.x < 1440 && p.y >= 0 && p.y < 900;
+		});
+	expect(courts?.length).toBeGreaterThanOrEqual(2);
 	desktop.setPlan(true);
-	const courts = world.state.city?.centres[0].ensembles;
 	assert(courts?.length);
 	for (const { court } of courts) {
 		const cell = world.grid.cellsById.get(court);

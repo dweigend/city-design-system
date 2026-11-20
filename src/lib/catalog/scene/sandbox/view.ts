@@ -15,7 +15,12 @@ const SPAN_MAX = 1500;
 /** Distance of the camera from its target, meters; far enough to clear every building. */
 const CAMERA_DISTANCE = 1400;
 
-export type OpeningArea = { top: number; bottom: number; right?: number };
+export type OpeningArea = {
+	top: number;
+	bottom: number;
+	right?: number;
+	reserved?: readonly Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>[];
+};
 
 export type View = ReturnType<typeof createView>;
 
@@ -67,7 +72,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		apply();
 	}
 
-	const courtFill = () => (width < height ? 0.8 : 0.9);
+	const courtFill = 0.98;
 	const clusterFill = () => (width < height ? opening.portraitFill : opening.clusterFill);
 	const metersPerPixel = () => span / height;
 	/** Ground meters per image meter along the image's vertical axis. */
@@ -126,15 +131,23 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		else center.y += nearest - THREE.MathUtils.clamp(nearest, -margin, margin);
 	}
 
+	function fittedSpan(w: number, h: number, usableWidth: number, room: number, fill: number) {
+		return THREE.MathUtils.clamp(
+			(Math.max(w / usableWidth, h / room) * height) / fill,
+			SPAN_MIN,
+			SPAN_MAX
+		);
+	}
 	function fitOpening(bounds: THREE.Box2, area?: OpeningArea, heading?: number) {
 		const room = area ? Math.max(1, area.bottom - area.top) : height;
 		const usableWidth = Math.max(1, Math.min(width, area?.right ?? width));
 		const size = bounds.getSize(new THREE.Vector2());
-		const fill = heading !== undefined ? courtFill() : clusterFill();
-		span = THREE.MathUtils.clamp(
-			(Math.max(size.x / usableWidth, size.y / room) * height) / fill,
-			SPAN_MIN,
-			SPAN_MAX
+		span = fittedSpan(
+			size.x,
+			size.y,
+			usableWidth,
+			room,
+			heading !== undefined ? courtFill : clusterFill()
 		);
 		return { room, usableWidth };
 	}
@@ -224,6 +237,9 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		isPortrait: () => width < height,
 		/** Canvas dimensions in CSS pixels. */
 		viewport: () => [width, height] as const,
+		/** CSS pixels per metre after fitting a projected court envelope to the available room. */
+		courtScale: (w: number, h: number, usableWidth: number, room: number) =>
+			height / fittedSpan(w, h, usableWidth, room, courtFill),
 		frameSilhouette,
 		/** World meters to the current canvas position in CSS pixels. */
 		project([x, y, z]: Vec3) {

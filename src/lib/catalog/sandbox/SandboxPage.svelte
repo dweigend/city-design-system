@@ -33,7 +33,7 @@
 	let timelineBar = $state<HTMLDivElement>();
 	let rail = $state<HTMLDivElement>();
 	let modeControls = $state<HTMLDivElement>();
-	let area = $state<{ top: number; bottom: number; right?: number }>();
+	let area = $state<import('../scene/sandbox/view').OpeningArea>();
 	$effect(() => {
 		const controls = [header, modeControls, hudGroup, rail, timelineBar].filter(
 			(el): el is HTMLElement => el !== undefined
@@ -41,12 +41,19 @@
 		if (controls.length !== 5) return;
 		const observer = new ResizeObserver(() => {
 			const [title, modes, tools, panel, bar] = controls.map((el) => el.getBoundingClientRect());
+			const reserved = [title, modes, panel, bar].filter((r) => r.width > 0 && r.height > 0);
 			if (panel.width && !tools.width) {
-				area = { top: Math.max(title.bottom, modes.bottom), bottom: bar.top, right: panel.left };
+				area = {
+					top: 0,
+					bottom: document.documentElement.clientHeight,
+					right: panel.left,
+					reserved
+				};
 				return;
 			}
 			const top = Math.max(title.bottom, modes.bottom);
-			area = top < tools.top ? { top, bottom: tools.top } : undefined;
+			area =
+				top < tools.top ? { top, bottom: tools.top, reserved: [title, modes, tools] } : undefined;
 		});
 		observer.observe(document.documentElement);
 		controls.forEach((el) => observer.observe(el));

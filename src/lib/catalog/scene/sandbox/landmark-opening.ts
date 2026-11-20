@@ -1,4 +1,6 @@
-import { Box2, Vector2, Vector3 } from 'three/webgpu';
+import { cameraScore } from './opening-score';
+import { Box2, Box3, Vector2, Vector3 } from 'three/webgpu';
+import { boxCorners, type courtOpening, stockBounds } from './court-opening';
 import { bounds } from '../../logic/ansicht/geometrie';
 import type { Primitive } from '../../logic/parametrik/types';
 import type { World } from '../../logic/sandbox';
@@ -7,10 +9,7 @@ import { roundedStops } from './station-rings';
 import type { OpeningArea, View } from './view';
 
 function corners(part: Primitive) {
-	const { min, max } = bounds(part);
-	return [min[0], max[0]].flatMap((x) =>
-		[min[1], max[1]].flatMap((y) => [min[2], max[2]].map((z) => new Vector3(x, z, -y)))
-	);
+	return boxCorners(bounds(part));
 }
 
 // Project bends individually so the corners of an empty bend don't enlarge the route silhouette.
@@ -32,71 +31,112 @@ function rect(x: number, y: number, right: number, bottom: number) {
 	return new Box2(new Vector2(x, y), new Vector2(right, bottom));
 }
 
-function openingZones(view: View, area?: OpeningArea) {
+type Courts = ReturnType<typeof courtOpening>;
+
+function neighbourhoods(courts: Courts) {
+	// Exhaust the small opening town. For an expanded city, bound the search to neighbours.
+	if (courts.length <= 8) {
+		let sets: number[][] = [[]];
+		for (const i of courts.keys()) sets = sets.concat(sets.map((indices) => [...indices, i]));
+		return sets.slice(1);
+	}
+	const centers = courts.map((c) => new Box3().setFromPoints(c.points).getCenter(new Vector3()));
+	const groups = new Map<string, number[]>();
+	for (const center of centers) {
+		const nearest = centers
+			.map((p, i) => ({ i, d: p.distanceToSquared(center) }))
+			.sort((a, b) => a.d - b.d);
+		for (let count = 1; count <= nearest.length; count++) {
+			const indices = nearest
+				.slice(0, count)
+				.map((p) => p.i)
+				.sort((a, b) => a - b);
+			groups.set(indices.join(','), indices);
+		}
+	}
+	return [...groups.values()];
+}
+
+// All candidate crops at a heading are affine transforms of one orthographic projection.
+function projector(view: View) {
 	const [w, h] = view.viewport(),
-		right = area?.right ?? w,
-		top = area?.top ?? 0,
-		bottom = area?.bottom ?? h;
-	return {
-		canvas: rect(0, 0, w, h).expandByScalar(4),
-		safe: rect(0, top, right, bottom).expandByScalar(-4),
-		foreground: rect(0, top + (bottom - top) * 0.55, right * 0.55, bottom)
+		unit = view.metersPerPixel(),
+		p = new Vector3(),
+		q = new Vector2();
+	return (points: Vector3[]) => {
+		const box = new Box2();
+		for (const corner of points) {
+			p.copy(corner).project(view.camera);
+			box.expandByPoint(q.set((p.x * w * unit) / 2, (-p.y * h * unit) / 2));
+		}
+		return box;
 	};
 }
 
-function projectedBox(view: View, group: Vector3[]) {
-	const box = new Box2();
-	for (const p of group) {
-		const { x, y } = view.project([p.x, -p.z, p.y]);
-		box.expandByPoint(new Vector2(x, y));
-	}
-	return box;
+function screenBounds(view: View, area?: OpeningArea) {
+	const [w, h] = view.viewport();
+	const safe = rect(0, area?.top ?? 0, area?.right ?? w, area?.bottom ?? h);
+	const reserved = (area?.reserved ?? []).map((r) => rect(r.left, r.top, r.right, r.bottom));
+	const foreground = rect(
+		0,
+		safe.min.y + 0.55 * (safe.max.y - safe.min.y),
+		safe.max.x * 0.55,
+		safe.max.y
+	);
+	return { canvas: rect(0, 0, w, h), safe, reserved, foreground };
 }
 
-function violations(
-	view: View,
-	groups: Vector3[][],
-	zones: ReturnType<typeof openingZones>,
-	others: Vector3[][]
-) {
-	let score = 0;
-	for (const group of groups) {
-		const box = projectedBox(view, group);
-		if (!zones.canvas.intersectsBox(box)) continue;
-		if (view.isPortrait() || !zones.safe.containsBox(box)) score += groups.length + 1;
-		if (zones.foreground.intersectsBox(box)) score++;
-	}
-	for (const group of others) {
-		const box = projectedBox(view, group);
-		if (zones.canvas.intersectsBox(box) && !zones.safe.containsBox(box)) score += groups.length + 1;
-	}
-	return score;
+function compare(a: number[], b: number[]) {
+	for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 1e-6) return a[i] - b[i];
+	return 0;
 }
 
-/** Keeps whole landmark envelopes clear of crop edges and the phone canvas while fitting occupied courts. */
+function projectScene(view: View, courts: Courts, landmarks: Vector3[][], stock: Vector3[][]) {
+	const project = projector(view);
+	const houses = courts.map((c) => (c.houses.length ? c.houses.map(project) : [project(c.points)]));
+	return {
+		courts: courts.map((c, i) => houses[i].reduce((box, h) => box.union(h), project(c.points))),
+		houses,
+		landmarks: landmarks.map(project),
+		stock: stock.map(project)
+	};
+}
+
+/** Fits readable houses first, comparing whole occupied neighbourhoods at the current viewport size. */
 export function frameOccupiedCourts(
 	view: View,
 	world: World,
-	courts: { points: Vector3[]; others: Vector3[][]; heading: number },
+	courts: Courts,
 	area?: OpeningArea,
 	additions: readonly Primitive[] = []
 ) {
-	const groups = landmarkBounds(world, additions),
-		zones = openingZones(view, area);
-	const fit = (heading: number) =>
-		view.frameSilhouette(courts.points, undefined, area, [], heading);
-	let best = courts.heading,
-		lowest = Infinity,
-		smallest = Infinity;
-	for (let offset = 0; offset < 360; offset += 5) {
-		const heading = courts.heading + (offset * Math.PI) / 180;
-		fit(heading);
-		const score = violations(view, groups, zones, courts.others);
-		if (score < lowest || (score === lowest && view.span() < smallest - 0.01)) {
-			lowest = score;
-			smallest = view.span();
-			best = heading;
+	const groups = neighbourhoods(courts),
+		landmarks = landmarkBounds(world, additions),
+		stock = stockBounds(world);
+	const screen = screenBounds(view, area);
+	let best = groups[0],
+		azimuth = 0,
+		score: number[] = [];
+	for (let degrees = 0; degrees < 360; degrees += 2.5) {
+		const heading = (degrees * Math.PI) / 180;
+		view.frameSilhouette([courts[0].points[0]], undefined, area, [], heading);
+		const data = projectScene(view, courts, landmarks, stock);
+		for (const group of groups) {
+			const rank = cameraScore(view, screen, group, data);
+			if (rank && (!score.length || compare(rank, score) > 0)) {
+				score = rank;
+				best = group;
+				azimuth = heading;
+			}
 		}
 	}
-	fit(best);
+	if (!score.length) return false;
+	view.frameSilhouette(
+		best.flatMap((i) => [...courts[i].points, ...courts[i].houses.flat()]),
+		undefined,
+		area,
+		[],
+		azimuth
+	);
+	return true;
 }

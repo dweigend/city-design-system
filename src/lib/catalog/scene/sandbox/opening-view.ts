@@ -51,10 +51,9 @@ function frameCourts(
 	area?: OpeningArea,
 	additions?: readonly Primitive[]
 ) {
-	const courts = courtOpening(world, view.isPortrait());
-	if (!courts) return false;
-	frameOccupiedCourts(view, world, courts, area, additions);
-	return true;
+	const courts = courtOpening(world);
+	if (!courts.length) return false;
+	return frameOccupiedCourts(view, world, courts, area, additions);
 }
 
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
