@@ -70,7 +70,9 @@ export function projectScene(
 	const project = projector(view);
 	const houses = courts.map((c) => (c.houses.length ? c.houses.map(project) : [project(c.points)]));
 	return {
-		courts: courts.map((c, i) => houses[i].reduce((box, h) => box.union(h), project(c.points))),
+		courts: courts.map((c, i) =>
+			houses[i].reduce((box, h) => box.union(h), view.isPortrait() ? project(c.points) : new Box2())
+		),
 		houses,
 		landmarks: surroundings.landmarks.map(project),
 		stock: surroundings.stock.map(project),
@@ -118,7 +120,7 @@ export function orientedProjection(
 	geometry: ReturnType<typeof surveyContext>,
 	heading: number
 ) {
-	const key = heading + '/' + view.elevation();
+	const key = heading + '/' + view.elevation() + '/' + view.isPortrait();
 	const cache = oriented.get(geometry) ?? new Map<string, ReturnType<typeof projectScene>>();
 	const existing = cache.get(key);
 	if (existing) return existing;
