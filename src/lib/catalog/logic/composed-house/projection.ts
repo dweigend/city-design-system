@@ -1,3 +1,5 @@
+import { terrainHeight } from './ground';
+import { seatPlinth, frameFootings, type GroundHeight } from './foundations';
 import { profileRoof } from './profile-roof';
 import { continuousShell } from './continuous-shell';
 import { shaftHousing } from './shaft-housing';
@@ -16,8 +18,28 @@ import { structureHouse } from './structure-house';
 
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
+	const height: GroundHeight = (x, y) => terrainHeight(section, [x, y, 0]);
+	const parts = sectionMembers(section, palette, height);
+	if (section.start || section.composition.structure.principle !== 'layers') return parts;
+	const bases = new Set(
+		section.composition.parts.filter((p) => p.slot === 'base').map((p) => p.id)
+	);
+	return parts.flatMap((part) =>
+		part.kind === 'prism' && bases.has(part.id)
+			? seatPlinth(part, height, section.cells[0].raised)
+			: [part]
+	);
+}
+
+/** Projects above-datum masonry for the town's wall survey, and seats frame feet on its grade. */
+export function sectionMembers(
+	section: Section,
+	palette = houseSurfaces,
+	height: GroundHeight
+): HousePart[] {
 	const surfaces = sectionSurfaces(section, palette);
-	if (section.composition.structure.principle !== 'layers') return framedParts(section, surfaces);
+	if (section.composition.structure.principle !== 'layers')
+		return framedParts(section, surfaces, height);
 	const target = accentBody(section),
 		accent = accentKind(section);
 	const house = [
@@ -71,14 +93,19 @@ function occupants(section: Section, surfaces: SectionSurfaces): HousePart[] {
  * the house's own field use; its people stay inside, since the decks they were planned on are
  * not built.
  */
-function framedParts(section: Section, surfaces: SectionSurfaces): HousePart[] {
+function framedParts(
+	section: Section,
+	surfaces: SectionSurfaces,
+	height: GroundHeight
+): HousePart[] {
 	const { structure } = section.composition,
 		use = fieldUse(section);
 	const skins = structure.skins.map((skin) => ({ ...skin, use }));
 	const frame = structureHouse({ ...structure, skins }, surfaces).filter(
 		(part) => !part.id.endsWith('/access')
 	);
-	return [...frame, ...access(section, surfaces)];
+	const feet = section.start ? [] : frameFootings(structure, surfaces.frame, height);
+	return [...frame, ...feet, ...access(section, surfaces)];
 }
 
 function cantilever(p: StockPart): HousePart {

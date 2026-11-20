@@ -1,3 +1,4 @@
+import { walkingSampler } from './network-terrain';
 import { cityCorridorPlan } from './city-corridors';
 import { openHousePassage } from '../composed-house';
 import { townSections } from './town-sections';
@@ -57,7 +58,7 @@ function survey(world: World) {
 	const passages = cityCorridorPlan(world)?.plan.passages;
 	const houses = new Map(sections.map((s) => [s.id, s]));
 	return [
-		...sectionGroups(world.grid, sections, world.seed, stock).filter(
+		...sectionGroups(world.grid, sections, world.seed, stock, walkingSampler(world.grid)).filter(
 			(g) => !g.span || !g.cells.some((id) => planned.has(id))
 		),
 		...networkGroups(world, sections, r3, stock).map((g) => ({
