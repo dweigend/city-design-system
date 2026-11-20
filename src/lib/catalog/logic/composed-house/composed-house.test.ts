@@ -131,6 +131,11 @@ test('explicit shell, glazing and capsule rim assignments survive projection acr
 		water: { token: '--signal', finish: 'holz-natur' } as const,
 		pane: { token: '--paper', finish: 'glas-klar' } as const
 	};
+	const shellOverride = { token: '--signal', finish: 'keramik-glasiert' } as const;
+	const customShell = sectionParts(section, { ...palette, shell: shellOverride });
+	const shells = customShell.filter((p) => p.id.includes('/body/') && p.source.slot === 'shell');
+	expect(shells.length).toBeGreaterThan(0);
+	for (const part of shells) expect(part).toMatchObject(shellOverride);
 	const parts = sectionParts(section, palette);
 	const rims = sectionParts(section).filter((p) => p.source.slot === 'edge' && p.kind === 'ring');
 	expect(rims.length).toBeGreaterThan(0);
@@ -142,11 +147,7 @@ test('explicit shell, glazing and capsule rim assignments survive projection acr
 		const body = parts.filter((p) => p.id.startsWith(l.bodies[0].id + '/'));
 		expect(body.length).toBeGreaterThan(0);
 		for (const p of body)
-			expect(p).toMatchObject(
-				p.source.slot === 'glass' && /^kit-capsule-(ribbon|porthole|door)-/.test(p.source.objectId)
-					? palette.pane
-					: palette.water
-			);
+			expect(p).toMatchObject(p.source.slot === 'glass' ? palette.pane : palette.water);
 	}
 });
 
@@ -258,7 +259,8 @@ test('the capsule reference has no dark or sub-half-metre pieces resting on a de
 			p.source.objectId === 'stairs' ||
 			p.source.objectId === 'landing'
 	);
-	expect(decks.every((p) => p.finish === 'beton-terrazzo')).toBe(true);
+	for (const p of decks)
+		expect(p.finish, p.id).toBe(p.id.endsWith('/plinth') ? 'beton-terrazzo' : 'holz-natur');
 	const treads = parts.filter((p) => p.source.objectId === 'stairs' && p.kind === 'prism');
 	expect(treads.length).toBeGreaterThan(0);
 	expect(treads.every((p) => p.kind === 'prism' && p.topToken === houseSurfaces.access.token)).toBe(

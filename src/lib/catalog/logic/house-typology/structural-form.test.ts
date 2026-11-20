@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test';
+import { resolveFinish } from '../material/surface';
+import { printPatterns } from '../../data/materialPrint';
 import { bounds } from '../ansicht/geometrie';
 import { circulation, housePartPlan, houseSurfaces, sectionParts } from '../composed-house';
 import { specimen, minimumGauge } from './specimens';
@@ -182,7 +184,7 @@ test('four-cell housing exposes programme stock and an open bay, terrace or cour
 					parts.some(
 						(p) =>
 							p.id.startsWith(b.id + '/' + b.objectId + '/') &&
-							(uses.has(p.token) || (b.band?.shell && p.token === houseSurfaces.shell.token))
+							(uses.has(p.token) || p.token === houseSurfaces.shell.token)
 					)
 				),
 				type
@@ -254,32 +256,40 @@ test('every typology exposes its specified catalogue finishes', () => {
 			const skin = parts.filter(
 				(p) =>
 					p.id.startsWith(b.id + '/' + b.objectId + '/') &&
-					p.source.slot !== 'glass' &&
-					!(b.kind === 'capsule' && p.source.slot === 'edge') &&
+					!['glass', 'edge', 'trim'].includes(p.source.slot) &&
+					!p.id.includes('/ladder-housing/') &&
+					!p.id.endsWith('/attic') &&
 					!p.id.includes('/window-')
 			);
 			expect(skin.length).toBeGreaterThan(0);
 			expect(new Set(skin.map((p) => p.token + '/' + p.finish)).size, b.id).toBe(1);
 			if (Math.max(...b.size) > 2)
-				expect(
-					skin.every(
-						(p) => !['acryl-matt', 'corrugated-metal', 'perforated-metal'].includes(p.finish ?? '')
-					)
-				).toBe(true);
+				for (const part of skin) expect(linePattern(part), part.id).toBe(false);
 		}
 	}
 });
+// The scene dispatches architectural prints by catalogue code. Physical corrugation and
+// moulded ribs also carry repeating lines. Frosted acrylic has only grazing colour and microrelief.
+function linePattern(p: Part) {
+	if (!p.finish) throw Error('Missing body finish');
+	const recipe = resolveFinish(p.finish, p.token);
+	if (recipe.kind === 'pattern') return [1, 2, 6].includes(printPatterns[recipe.id]);
+	if (recipe.kind === 'diagram')
+		return !recipe.coating && ['lamelle', 'welle', 'naht'].includes(recipe.pattern ?? '');
+	return (
+		recipe.kind === 'physical' && ['corrugated-metal', 'kunststoff-gerippt'].includes(recipe.id)
+	);
+}
 function checkFinish(p: Part) {
 	if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
-	if (p.source.objectId.includes('parapet-rail')) expect(p).toMatchObject(houseSurfaces.frame);
-	else if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
-		expect(p.finish).toBe('perforated-metal');
+	if (p.source.objectId.includes('parapet'))
+		expect(p.finish).toBe(p.source.slot === 'edge' ? 'metall-messing' : 'perforated-metal');
 	if (
 		p.id.includes('/body/') &&
 		p.source.objectId.startsWith('kit-capsule') &&
 		p.source.slot === 'shell'
 	)
-		expect(p.finish).toBeDefined();
+		expect(p.finish).toBe('acryl-matt');
 	if (p.id.endsWith('/deck')) expect(p.finish).toBe(houseSurfaces.deck.finish);
 }
 test('every inhabited storey has a registry terrace planter', () => {

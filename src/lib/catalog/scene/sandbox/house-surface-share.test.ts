@@ -1,4 +1,7 @@
 import { expect, test } from 'bun:test';
+import { BODY_TOKEN } from '../../data/house-body';
+import { resolveFinish } from '../../logic/material/surface';
+import { batchFaces } from '../batch';
 import { Color } from 'three';
 import { batch } from '../batch';
 import { createWorld, applyEdit } from '../../logic/sandbox';
@@ -47,39 +50,20 @@ function sample(positions: number[], slots: number[], axis: number, sign: number
 	return hits;
 }
 function shares(s: ReturnType<typeof specimen>) {
-	// Tag the shell separately from the deck, which also defaults to warm paper.
-	const palette = {
-		...houseSurfaces,
-		shell: { ...houseSurfaces.shell, token: '--signal' as const }
-	};
-	const painted = new Set(
-		[
-			palette.shell,
-			palette.water,
-			palette.energy,
-			palette.living,
-			palette.food,
-			palette.material
-		].map((p) => p.token)
-	);
-	const out = batch(sectionParts(s, palette), (p) =>
-		new Color().setRGB(
-			(p.finish === 'metall-messing' ? 4 : 0) +
-				(p.token === palette.shell.token
-					? 3
-					: painted.has(p.token)
-						? 0
-						: p.token === palette.deck.token || p.token === palette.frame.token
-							? 1
-							: 2),
-			0,
-			0
-		)
-	);
+	const parts = sectionParts(s);
+	const labels: string[] = [];
+	const out = batchFaces(parts, (p) => {
+		if (!p.finish) throw Error('Missing finish on ' + p.id);
+		const resolved = resolveFinish(p.finish, p.token);
+		const finish = resolved.kind === 'diagram' ? (resolved.coating ?? p.finish) : p.finish;
+		const key = [p.token, finish].join('|');
+		if (!labels.includes(key)) labels.push(key);
+		return new Color().setRGB(labels.indexOf(key), 0, 0);
+	});
 	const faces = [out.neu, out.alt, out.glas, out.blatt];
 	const pos = faces.flatMap((f) => f.p),
 		slots = faces.flatMap((f) => f.c);
-	const totals = Array<number>(8).fill(0);
+	const totals = labels.map(() => 0);
 	for (const [axis, sign] of [
 		[0, 1],
 		[0, -1],
@@ -87,9 +71,31 @@ function shares(s: ReturnType<typeof specimen>) {
 		[2, -1],
 		[1, 1]
 	])
-		sample(pos, slots, axis, sign).forEach((n, i) => (totals[i] += n));
-	const pct = totals.map((n) => (100 * n) / totals.reduce((a, b) => a + b));
-	return [...pct.slice(0, 4).map((n, i) => n + pct[i + 4]), pct.slice(4).reduce((a, b) => a + b)];
+		sample(pos, slots, axis, sign).forEach((n, i) => {
+			if (n) totals[i] += n;
+		});
+	const total = totals.reduce((a, b) => a + b, 0);
+	const finishes = new Map<string, number>();
+	const uses = s.decks.flatMap((d) => d.programme);
+	const leading = [...uses].sort(
+		(a, b) => uses.filter((u) => u === b).length - uses.filter((u) => u === a).length
+	)[0];
+	let accent = 0,
+		structure = 0;
+	for (const [i, key] of labels.entries()) {
+		const [token, finish] = key.split('|');
+		const pct = (totals[i] * 100) / total;
+		if (!pct) continue;
+		if (token === BODY_TOKEN[leading]) accent += pct;
+		else
+			expect(
+				Object.values(BODY_TOKEN).some((t) => t === token),
+				s.id + ' secondary programme'
+			).toBe(false);
+		if (token === houseSurfaces.frame.token) structure += pct;
+		finishes.set(finish, (finishes.get(finish) ?? 0) + pct);
+	}
+	return { accent, structure, finishes };
 }
 /** Typologies whose defining element is their support: a drum core, a dome on long stilts, or a
  * trunk with three branch decks.
@@ -106,32 +112,38 @@ function cellsFor(type: string) {
 	if (type === 'courtyard-house') return 4;
 	return TWO_CELL.includes(type) ? 2 : 1;
 }
-/** True when paint dominates, structure stays under its cap and the leading programme leads. */
-function balanced(type: (typeof typologies)[number], height: number, seed: number) {
-	const [lead, structure, , shell, brass] = shares(specimen(cellsFor(type), type, height, seed));
-	expect(brass, type + ' brass %').toBeLessThanOrEqual(2);
-	const paint = lead + shell;
+function balanced(section: ReturnType<typeof specimen>, label: string) {
+	const { accent, structure, finishes } = shares(section);
+	const brass = finishes.get('metall-messing') ?? 0;
+	const largest = Math.max(...finishes.values());
 	console.info(
-		type,
-		height,
-		paint.toFixed(1),
-		structure.toFixed(1),
-		'brass %',
-		brass.toFixed(3),
-		((100 * lead) / paint).toFixed(1)
+		label,
+		accent.toFixed(2),
+		finishes.size,
+		largest.toFixed(2),
+		structure.toFixed(2),
+		brass.toFixed(2)
 	);
-	const cap = SUPPORT_LED.includes(type) ? 30 : 25;
-	return paint >= 55 && structure <= cap && lead >= shell;
+	return (
+		accent >= 10 &&
+		accent <= 30 &&
+		finishes.size >= 3 &&
+		largest <= 55 &&
+		structure <= (SUPPORT_LED.includes(section.typology) ? 30 : 25) &&
+		brass <= 2
+	);
 }
-test('programme and structure shares across four elevations and the roof', () => {
-	const cases = [
+test('visible accent, material diversity, frame and brass across four elevations and the roof', () => {
+	const failed: string[] = [];
+	for (const [height, seed] of [
 		[3, 19],
 		[6, 7]
-	].flatMap(([height, seed]) => typologies.map((type) => ({ type, height, seed })));
-	const failures = cases
-		.filter(({ type, height, seed }) => !balanced(type, height, seed))
-		.map(({ type, height }) => type + '/' + height);
-	expect(failures).toEqual([]);
+	])
+		for (const type of typologies) {
+			const label = type + '/' + height;
+			if (!balanced(specimen(cellsFor(type), type, height, seed), label)) failed.push(label);
+		}
+	expect(failed).toEqual([]);
 }, 45000);
 
 function silhouetteBudget(section: ReturnType<typeof specimen>) {
@@ -161,53 +173,59 @@ function silhouetteBudget(section: ReturnType<typeof specimen>) {
 }
 
 for (const seed of [7, 13])
-	test('two elevations of thirty painted town houses on world seed ' + seed, () => {
-		let world = createWorld(seed, { cells: 0 });
-		for (let i = 0; i < 30; i++) {
-			const cellId = 26 + 2 * (i % 6) + '/' + (26 + 2 * Math.floor(i / 6));
-			for (let n = 0; n <= i % 6; n++)
-				world = applyEdit(world, { kind: 'raise', cellId, use: 'living' });
-		}
-		const houses = paintedSections(buildingPlots(world.grid), world.state.stacks, seed);
-		expect(houses).toHaveLength(30);
-		const results = houses.map((h) => {
-			const { width, depth } = h.composition.bay;
-			if (Math.min(width, depth) < 8) expect(h.typology).toBe('block');
-			const bodies = h.composition.levels.flatMap((l) => l.bodies);
-			expect(bodies.length).toBeLessThanOrEqual(3);
-			if (Math.min(width, depth) >= 2.1)
-				expect(
-					bodies.every((b) => !b.band || b.band.modules !== undefined),
-					h.id
-				).toBe(true);
-			if (h.stories <= 4) {
-				const height = h.composition.crown.position[2] + h.composition.crown.size[2] - h.base[2];
-				expect(
-					Math.max(...bodies.map((b) => Math.max(b.size[0], b.size[1]))) + 1e-7,
-					h.id
-				).toBeGreaterThanOrEqual(0.6 * height);
+	test(
+		'two elevations of thirty painted town houses on world seed ' + seed,
+		() => {
+			let world = createWorld(seed, { cells: 0 });
+			for (let i = 0; i < 30; i++) {
+				const cellId = 26 + 2 * (i % 6) + '/' + (26 + 2 * Math.floor(i / 6));
+				for (let n = 0; n <= i % 6; n++)
+					world = applyEdit(world, { kind: 'raise', cellId, use: 'living' });
 			}
-			return silhouetteBudget(h);
-		});
-		const passed = results.filter((views) =>
-			views.every((v) => v.hardware <= 0.15 && v.bodies >= 0.6)
-		).length;
-		console.info(
-			'Town silhouette',
-			seed,
-			passed,
-			'of 30',
-			'fitted houses',
-			houses.filter((h) =>
-				h.composition.levels.some((l) => l.bodies.some((b) => b.band && !b.band.modules))
-			).length,
-			'maximum hardware',
-			Math.max(...results.flat().map((v) => v.hardware)),
-			'minimum two bodies',
-			Math.min(...results.flat().map((v) => v.bodies))
-		);
-		expect(passed).toBeGreaterThanOrEqual(24);
-	});
+			const houses = paintedSections(buildingPlots(world.grid), world.state.stacks, seed);
+			expect(houses).toHaveLength(30);
+			const failed = houses.filter((h) => !balanced(h, seed + '/' + h.id + '/' + h.stories));
+			const results = houses.map((h) => {
+				const { width, depth } = h.composition.bay;
+				if (Math.min(width, depth) < 8) expect(h.typology).toBe('block');
+				const bodies = h.composition.levels.flatMap((l) => l.bodies);
+				expect(bodies.length).toBeLessThanOrEqual(3);
+				if (Math.min(width, depth) >= 2.1)
+					expect(
+						bodies.every((b) => !b.band || b.band.modules !== undefined),
+						h.id
+					).toBe(true);
+				if (h.stories <= 4) {
+					const height = h.composition.crown.position[2] + h.composition.crown.size[2] - h.base[2];
+					expect(
+						Math.max(...bodies.map((b) => Math.max(b.size[0], b.size[1]))) + 1e-7,
+						h.id
+					).toBeGreaterThanOrEqual(0.6 * height);
+				}
+				return silhouetteBudget(h);
+			});
+			const passed = results.filter((views) =>
+				views.every((v) => v.hardware <= 0.15 && v.bodies >= 0.6)
+			).length;
+			console.info(
+				'Town silhouette',
+				seed,
+				passed,
+				'of 30',
+				'fitted houses',
+				houses.filter((h) =>
+					h.composition.levels.some((l) => l.bodies.some((b) => b.band && !b.band.modules))
+				).length,
+				'maximum hardware',
+				Math.max(...results.flat().map((v) => v.hardware)),
+				'minimum two bodies',
+				Math.min(...results.flat().map((v) => v.bodies))
+			);
+			expect(passed).toBeGreaterThanOrEqual(24);
+			expect(failed.map((h) => h.id)).toEqual([]);
+		},
+		45000
+	);
 
 test('compact elevations keep the hardware and two-body budgets across narrow square bays', () => {
 	for (const width of [1.8, 2.5, 3, 4, 5]) {
@@ -219,10 +237,11 @@ test('compact elevations keep the hardware and two-body budgets across narrow sq
 					seed,
 					stacks: new Map([[cells[0].id, Array(height).fill('living')]])
 				});
+				expect(balanced(section, 'narrow/' + width + '/' + height + '/' + seed)).toBe(true);
 				for (const view of silhouetteBudget(section)) {
 					expect(view.hardware, width + '/' + height + '/' + seed).toBeLessThanOrEqual(0.15);
 					expect(view.bodies, width + '/' + height + '/' + seed).toBeGreaterThanOrEqual(0.6);
 				}
 			}
 	}
-});
+}, 45000);

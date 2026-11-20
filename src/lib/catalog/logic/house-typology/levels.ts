@@ -126,11 +126,6 @@ function seatUpperBlock(level: Level, lower: Body) {
 	level.bodies[0].position[2] = z;
 	for (const point of level.outline) point[2] = z;
 }
-function shellCourse(plan: Plan, levels: Level[], k: number) {
-	if (levels.length !== 2) return k % 3 === 1;
-	const ratio = plan.type === 'block' ? 0.75 : 1;
-	return k === 1 && levels[1].bodies[0].size[2] < levels[0].bodies[0].size[2] * ratio;
-}
 /** Groups the complete painted programme onto the occupied courses of this typology. */
 export function occupiedLevels(plan: Plan) {
 	const ordered = courseIndices(plan),
@@ -145,7 +140,7 @@ export function occupiedLevels(plan: Plan) {
 		if (band && levels[k + 1] && plan.type !== 'block')
 			level.bodies[0].size[2] =
 				Math.min(2 * STORY, levels[k + 1].position[2] - level.position[2]) - 0.3;
-		if (band) band.shell = shellCourse(plan, levels, k);
+		if (band) band.shell = level.use === levels[k - 1]?.use && !levels[k - 1].bodies[0].band?.shell;
 	}
 	return levels;
 }

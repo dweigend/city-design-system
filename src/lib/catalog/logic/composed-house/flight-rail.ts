@@ -5,7 +5,7 @@ import { stairClearance, stairHouse } from './stair-clearance';
 import type { Section } from './types';
 import type { Vec3 } from '../parametrik/types';
 import { houseObject, type StockPart } from './house-object';
-import type { HouseSurfaces } from './surfaces';
+import { roleSurface, type HouseSurfaces } from './surfaces';
 import { edge, type Station } from './stair-track';
 
 type Rail = Extract<StockPart, { kind: 'pipe' }>;
@@ -72,7 +72,7 @@ export function flightRail(
 	const id = s.id + '/stair/rail/';
 	const object = houseObject('railing', 'standard', s.seed, {
 		instanceId: id,
-		slots: { frame: surfaces.frame }
+		slots: { frame: roleSurface(surfaces.frame, 'screen') }
 	});
 	const stock = object.parts.map((p) => {
 		if (p.kind !== 'pipe') throw Error('Expected a registered rail');

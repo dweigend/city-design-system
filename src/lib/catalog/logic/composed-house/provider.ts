@@ -1,6 +1,12 @@
 import { finishMaterial } from '../material/surface';
 import { assetRegistry } from '../assets';
-import { roleSurface, type HouseSurfaces, type Surface } from './surfaces';
+import {
+	houseSurfaces,
+	roleSurface,
+	type HouseSurfaces,
+	type Surface,
+	type BandAccent
+} from './surfaces';
 import { houseObject } from './house-object';
 import type { HouseUse } from '../../data/house-body';
 import type { Body } from '../house-typology';
@@ -9,11 +15,18 @@ import { place } from './asset-fit';
 
 const stock = new Map(assetRegistry.map((asset) => [asset.id, asset]));
 function stockCoating(id: string, address: string, paint: Surface) {
-	if (address.endsWith('/crown')) return roleSurface(paint, 'roof');
-	if (/parapet|screen|railing/.test(id)) return roleSurface(paint, 'screen');
-	if (/capsule|crown-lantern|glass-bell/.test(id)) return roleSurface(paint, 'capsule');
-	if (id.includes('column-foot')) return roleSurface(paint, 'base');
+	if (address.endsWith('/crown')) return roleSurface(paint, 'roof', '--paper');
+	if (/parapet|screen|railing/.test(id)) return roleSurface(paint, 'screen', '--ink-3');
+	if (id.includes('cradle')) return paint;
+	if (/capsule|crown-lantern|glass-bell/.test(id)) return roleSurface(paint, 'capsule', '--paper');
+	if (id.includes('column-foot')) return roleSurface(paint, 'base', '--paper');
 	return paint;
+}
+function edgeSurface(id: string, paint: Surface, finish: Surface) {
+	if (id.includes('capsule-ribbon')) return roleSurface(paint, 'rim', '--paper');
+	if (/capsule|lantern|bell/.test(id)) return paint;
+	if (/parapet|deck/.test(id)) return roleSurface(paint, 'fitting', '--paper');
+	return finish;
 }
 function stockSurfaces(
 	id: string,
@@ -23,15 +36,15 @@ function stockSurfaces(
 	use?: HouseUse
 ) {
 	return {
-		frame: id.includes('parapet-rail') ? surfaces.frame : finish,
+		frame: finish,
 		body: finish,
 		shell: use ? finish : surfaces.shell,
-		glass: id.includes('solar-sail') ? finish : surfaces.pane,
-		edge: id.includes('parapet') || id.includes('deck') ? roleSurface(paint, 'fitting') : finish,
+		glass: surfaces.pane,
+		edge: edgeSurface(id, paint, finish),
 		liquid: paint,
 		fabric: finish,
 		planting: paint,
-		deck: use ? finish : surfaces.deck,
+		deck: id.includes('parapet') ? finish : surfaces.deck,
 		accent: paint,
 		channel: surfaces[use ?? 'water'],
 		highlight: paint
@@ -44,32 +57,51 @@ export function members(
 	seed: number,
 	address: string,
 	surfaces: HouseSurfaces,
-	use?: HouseUse
+	use?: HouseUse,
+	body?: Surface,
+	pane = surfaces.pane
 ) {
 	const asset = stock.get(id);
 	if (!asset) throw new RangeError('Unknown house stock ' + id);
 	const paint = use ? surfaces[use] : surfaces.frame;
 	const finish = stockCoating(id, address, paint);
 	const roles = stockSurfaces(id, paint, finish, surfaces, use);
-	const body = /\/body\/\d+$/.test(address);
+	if (body) {
+		roles.shell = surfaces.shell === houseSurfaces.shell ? body : surfaces.shell;
+		roles.body = body;
+		roles.frame = body;
+		roles.glass = pane;
+	}
 	const slots = Object.fromEntries(
 		asset.slotNames.map((slot) => [
 			slot,
-			body
-				? slot === 'glass' && /^kit-capsule-(ribbon|porthole|door)-/.test(id)
-					? roleSurface(surfaces.pane, 'glazing')
-					: roleSurface(paint, 'capsule')
-				: id.startsWith('person-')
-					? paint
-					: (roles[slot as keyof typeof roles] ?? surfaces.frame)
+			id.startsWith('person-')
+				? surfaces.frame
+				: (roles[slot as keyof typeof roles] ?? surfaces.frame)
 		])
 	);
 	return houseObject(id, variant, seed, { instanceId: address + '/' + id, slots }).parts;
 }
-function bodyStock(b: Body, surfaces: HouseSurfaces) {
-	if (b.band) return bandParts(b, surfaces);
-	const stock = members(b.objectId, b.variant, b.seed, b.id, surfaces, b.use);
-	const rim = roleSurface(surfaces[b.use], 'rim');
+/** Uses the measured registry origin and the composition's single rigid transform. */
+function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
+	if (b.band) return bandParts(b, surfaces, accent);
+	const paint = surfaces[b.use];
+	const shell = roleSurface(paint, 'capsule', accent !== 'none' ? paint.token : '--paper');
+	const pane =
+		b.objectId.includes('lantern') && accent === 'storey'
+			? roleSurface(surfaces.pane, 'glazing', paint.token)
+			: surfaces.pane;
+	const stock = members(
+		b.objectId,
+		b.variant,
+		b.seed,
+		b.id,
+		surfaces,
+		b.use,
+		/\/body\/\d+$/.test(b.id) ? shell : undefined,
+		pane
+	);
+	const rim = roleSurface(surfaces[b.use], 'rim', '--ink-3');
 	return place(
 		stock.map((p) =>
 			capsuleLine(p, b)
@@ -84,8 +116,8 @@ function bodyStock(b: Body, surfaces: HouseSurfaces) {
 }
 
 /** Mounts the body stock with the load path assigned by the composition. */
-export function bodyParts(b: Body, surfaces: HouseSurfaces) {
-	return bodyStock(b, surfaces).map((p) => ({ ...p, structuralRole: b.structuralRole }));
+export function bodyParts(b: Body, surfaces: HouseSurfaces, accent: BandAccent = 'none') {
+	return bodyStock(b, surfaces, accent).map((p) => ({ ...p, structuralRole: b.structuralRole }));
 }
 
 function recess(p: ReturnType<typeof members>[number], b: Body) {
