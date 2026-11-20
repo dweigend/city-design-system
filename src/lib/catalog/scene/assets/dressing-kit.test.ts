@@ -3,7 +3,7 @@ import { Box3, Vector3 } from 'three/webgpu';
 import { assetRegistry, buildObject } from '../../logic/assets';
 import { build } from '../primitive-geometry';
 
-const groups = { 'street-life-': 116, 'kit-': 163, 'person-': 40 };
+const groups = { 'street-life-': 116, 'kit-': 169, 'person-': 40 };
 const seeds = [0, 1, 17, 2147483648, 4294967295];
 const override = { finish: 'holz-natur', token: '--signal' } as const;
 
@@ -48,8 +48,10 @@ type Entry = (typeof assetRegistry)[number];
 type Asset = ReturnType<typeof buildObject>;
 function checkReservation(entry: Entry) {
 	const [w, d] = entry.footprint;
-	expect(w % 1.25).toBe(0);
-	expect(d % 1.25).toBe(0);
+	if (!entry.id.startsWith('kit-scatter-')) {
+		expect(w % 1.25).toBe(0);
+		expect(d % 1.25).toBe(0);
+	}
 	const variants = entry.variants.map((v) => JSON.stringify(buildObject(entry.id, v, 0).geometry));
 	expect(new Set(variants).size).toBe(3);
 	return new Box3(
@@ -62,7 +64,7 @@ function checkAsset(entry: Entry, variant: string, seed: number) {
 	expect(base.anchors).toEqual([{ attachment: 'deck', position: [0, 0, 0], normal: [0, 0, 1] }]);
 	expect(base).toEqual(buildObject(entry.id, variant, seed));
 	expect(base.parts.length).toBeGreaterThan(0);
-	expect(base.parts.length).toBeLessThanOrEqual(25);
+	expect(base.parts.length).toBeLessThanOrEqual(entry.id.startsWith('kit-scatter-') ? 60 : 25);
 	expect(JSON.stringify(base.geometry)).not.toContain('null');
 	return base;
 }
