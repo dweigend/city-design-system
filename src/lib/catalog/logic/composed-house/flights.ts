@@ -111,12 +111,14 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 	const plate = stock('landing', 'mast-platform', surfaces.deck);
 	const platform = (from: Vec3, to: Vec3, key: string) => ({
 		...plate,
+		structuralRole: 'cantilever' as const,
 		id: id + key,
 		polygon: rectangle(from, to, width),
-		z: from[2] - plate.height
+		height: 0.12,
+		z: from[2] - 0.12
 	});
 	const spine = stock('landing', 'mast-platform', surfaces.frame);
-	const parts = route.legs.flatMap((leg, i) => {
+	const treads = route.legs.flatMap((leg, i) => {
 		const { to, kind, ends } = leg;
 		const [a, b] = ends;
 		const stock = kind === 'landing' ? plate : tread;
@@ -131,9 +133,8 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 			treadSpine(spine, id + i, a, b, to[2])
 		];
 	});
-	return [
-		...parts,
-		...flightRail(s, route, surfaces),
+	const walk = [
+		...treads,
 		...route.docks.flatMap(({ station, door }, i) => {
 			const knee: Vec3 = [door[0], station[1], door[2]];
 			const path =
@@ -148,5 +149,18 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 						: []
 				);
 		})
+	];
+	return [
+		...walk,
+		...flightRail(
+			s,
+			[
+				{ station: route.legs[0].ends[0], z: route.legs[0].from[2] },
+				...route.legs.map((l) => ({ station: l.ends[1], z: l.to[2] }))
+			],
+			width,
+			surfaces,
+			walk
+		)
 	];
 }

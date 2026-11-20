@@ -1,3 +1,4 @@
+import { groundRamp } from './ground-ramp';
 import { flightRoute } from './flights';
 import { mastRoute } from './mast-access';
 import { houseStair } from '../../data/house-stair';
@@ -78,14 +79,28 @@ export function windingRoute(s: Section) {
 		const ground = s.start ? s.base[2] : terrainHeight(s, [...p.xy, 0]);
 		const steps = Math.max(1, Math.round((z - ground) / houseStair.rise));
 		const end = at(index + hand * (steps + Math.floor((steps - 1) / 17) + 1));
-		const actual = s.start ? s.base[2] : terrainHeight(s, [...track[end].xy, 0]);
-		const drop = actual + (s.start ? 0 : 0.025);
+		const drop = s.start ? s.base[2] : terrainHeight(s, [...track[end].xy, 0]);
 		return { steps, drop, error: Math.abs((z - drop) / steps - houseStair.rise) };
 	});
 	const exit = exits.reduce((a, b) => (a.error <= b.error ? a : b));
-	descend(exit.drop, exit.steps, false);
-	advance(s.start ? 0 : 0.025, 'ramp');
-	stops.push(point());
+	const ramp = !s.start && groundRamp(s, track, at, index, hand, z, legs.length, exit.steps);
+	descend(ramp ? ramp.top : exit.drop, ramp ? ramp.steps : exit.steps, false);
+	if (ramp) {
+		const from = point();
+		legs.push({
+			from,
+			to: ramp.end,
+			kind: 'ramp',
+			steps: 0,
+			first: index,
+			last: at(index + hand),
+			flight
+		});
+		stops.push(ramp.end);
+	} else {
+		advance(0, 'landing');
+		stops.push(point());
+	}
 	return { width: publicStair.width, axis, track, legs, stops, docks };
 }
 

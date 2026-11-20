@@ -1,7 +1,7 @@
 import type { Vec3 } from '../parametrik/types';
 import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
-import { houseObject, type StockPart } from './house-object';
+import { houseObject, type HousePart } from './house-object';
 import type { Section } from './types';
 import type { HouseSurfaces } from './surfaces';
 
@@ -63,7 +63,7 @@ export function mastRoute(s: Section) {
 }
 
 /** Fits rigid rungs between continuous stiles, with a side landing at each deck opening. */
-export function mastAccess(s: Section, surfaces: HouseSurfaces): StockPart[] {
+export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	const id = s.id + '/stair/',
 		route = mastRoute(s);
 	const stock = houseObject('ladder', 'rung-bay', s.seed, {
@@ -94,10 +94,12 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): StockPart[] {
 	}));
 	const landings = [...route.docks, ...extra].map(({ door: [dx, dy, z], station: [x, y] }, i) => ({
 		...plate,
+		structuralRole: 'cantilever' as const,
 		id: id + 'landing/' + i,
-		z: z - plate.height,
+		height: 0.12,
+		z: z - 0.12,
 		polygon: plate.polygon.map(([u, v]): [number, number] => [
-			u * route.width + (v < 0 ? dx : x),
+			(Math.sign(u) * route.width) / 2 + (v < 0 ? dx : x),
 			v < 0 ? dy : y
 		])
 	}));
@@ -113,9 +115,10 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): StockPart[] {
 			const copies = j === 0 ? count : 1;
 			return Array.from({ length: copies }, (_, k) => ({
 				...(j === 0 ? rung : p),
+				structuralRole: 'cantilever' as const,
 				radius: 0.06,
 				id: id + (j === 0 ? 'rung/' : 'ladder/') + i + '/' + j + '/' + k,
-				points: p.points.map(([u, , v]): Vec3 => [
+				points: p.points.map(([, u, v]): Vec3 => [
 					to[0] +
 						u * (route.width / 0.62) +
 						(from[0] - to[0]) * (j === 0 ? (k + 1) / count : v / 0.28),
@@ -134,6 +137,7 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): StockPart[] {
 					const n = Math.max(1, Math.ceil(Math.abs(from[2] - to[2]) / 1.2));
 					return Array.from({ length: n }, (_, j) => ({
 						...rail,
+						structuralRole: 'cantilever' as const,
 						id: id + 'cage/' + i + '/' + j,
 						radius: 0.06,
 						points: Array.from({ length: 9 }, (_, k): Vec3 => {

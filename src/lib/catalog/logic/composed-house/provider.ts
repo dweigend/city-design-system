@@ -66,8 +66,7 @@ export function members(
 	);
 	return houseObject(id, variant, seed, { instanceId: address + '/' + id, slots }).parts;
 }
-/** Uses the measured registry origin and the composition's single rigid transform. */
-export function bodyParts(b: Body, surfaces: HouseSurfaces) {
+function bodyStock(b: Body, surfaces: HouseSurfaces) {
 	if (b.band) return bandParts(b, surfaces);
 	const stock = members(b.objectId, b.variant, b.seed, b.id, surfaces, b.use);
 	const rim = roleSurface(surfaces[b.use], 'rim');
@@ -82,6 +81,11 @@ export function bodyParts(b: Body, surfaces: HouseSurfaces) {
 		[b.scale, b.scale, b.scale],
 		b.rotation
 	);
+}
+
+/** Mounts the body stock with the load path assigned by the composition. */
+export function bodyParts(b: Body, surfaces: HouseSurfaces) {
+	return bodyStock(b, surfaces).map((p) => ({ ...p, structuralRole: b.structuralRole }));
 }
 
 function recess(p: ReturnType<typeof members>[number], b: Body) {

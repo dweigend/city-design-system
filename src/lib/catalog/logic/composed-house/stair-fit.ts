@@ -1,12 +1,8 @@
+import { stairClearance, stairHouse } from './stair-clearance';
 import { publicStair } from './stair-track';
 import type { Section } from './types';
-import { houseSurfaces } from './surfaces';
 import { fitsWinding } from './access';
 import { planPoints } from './part-plan';
-import { partsIntersect } from '../house-typology';
-import { bodyParts } from './provider';
-import { houseStructure } from './structure';
-import { bounds } from '../ansicht/geometrie';
 import type { StockPart } from './house-object';
 
 type XY = [number, number];
@@ -57,41 +53,6 @@ function insideBay(s: Section, p: StockPart) {
 			Math.abs(u - x) <= width / 2 + margin + 1e-7 && Math.abs(v - y) <= depth / 2 + margin + 1e-7
 	);
 }
-function obstacles(s: Section) {
-	const stock = [
-		...s.slots.flatMap((b) => bodyParts(b, houseSurfaces)),
-		...houseStructure(s, houseSurfaces).filter((p) => p.source.objectId !== 'primitive-slab')
-	];
-	return stock.map((part) => {
-		const ext = bounds(part);
-		if ((part.kind === 'box' || part.kind === 'wedge') && part.rotation) {
-			const pts = planPoints(part);
-			for (const k of [0, 1] as const) {
-				ext.min[k] = Math.min(...pts.map((p) => p[k]));
-				ext.max[k] = Math.max(...pts.map((p) => p[k]));
-			}
-		}
-		return { part, ext };
-	});
-}
-function dockClearance(s: Section) {
-	const stock = obstacles(s);
-	const levels = new Map<number, typeof stock>();
-	return (p: StockPart) => {
-		const box = bounds(p),
-			z = box.min[2];
-		let row = levels.get(z);
-		if (!row) {
-			row = stock.filter(({ ext }) => ext.min[2] < box.max[2] - 0.02 && ext.max[2] > z + 0.02);
-			levels.set(z, row);
-		}
-		return row.every(
-			({ part, ext }) =>
-				ext.min.some((v, k) => v >= box.max[k] - 0.02 || ext.max[k] <= box.min[k] + 0.02) ||
-				!partsIntersect(p, part)
-		);
-	};
-}
 function parcelAxes(s: Section, rear: number, sign: number): XY[] {
 	const [cx] = s.base;
 	const reach = publicStair.radius + publicStair.width;
@@ -138,13 +99,13 @@ function parcelFit(s: Section, axis: XY) {
 /** Fits the actual winding stock and deck connections after all occupied levels have been seated. */
 export function stairAxis(s: Section, rear: number, sign: number): XY | undefined {
 	const seen = new Set<string>();
-	let clear: ReturnType<typeof dockClearance> | undefined;
+	let clear: ReturnType<typeof stairClearance> | undefined;
 	for (const axis of [...axes(s, rear, sign), ...parcelAxes(s, rear, sign)]) {
 		const key = axis.join('/');
 		if (seen.has(key)) continue;
 		seen.add(key);
 		if (!clearsDecks(s, axis) || !parcelFit(s, axis)) continue;
-		clear ??= dockClearance(s);
+		clear ??= stairClearance(stairHouse(s));
 		const clearDock = clear;
 		const inside = (p: StockPart) => insideBay(s, p) || planPoints(p).every((q) => inParcel(s, q));
 		if (fitsWinding({ ...s, compact: false, stairAxis: axis }, inside, clearDock)) return axis;
