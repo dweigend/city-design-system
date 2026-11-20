@@ -33,9 +33,7 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 	const house = [
 		...houseStructure(section, surfaces),
 		...shaftHousing(section, surfaces).map(cantilever),
-		...section.slots.flatMap((b) =>
-			bodyParts(b, surfaces).map((p) => ({ ...p, structuralRole: b.structuralRole }))
-		)
+		...section.slots.flatMap((b) => bodyParts(b, surfaces))
 	];
 	const walk = access(section, surfaces).map((part) => {
 		const p = walkingFace(part, surfaces, section.decks[0].use);
@@ -52,7 +50,7 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 		...seats.map(cantilever),
 		...terraceFurniture(section, house, surfaces),
 		...servicePipes(section, surfaces).map(cantilever),
-		...walk.map(cantilever),
+		...walk,
 		...section.composition.people.flatMap((p, i) =>
 			person(p.position, section.id + '/people/' + i, section.seed, surfaces, 0, p.count).map(
 				(member) => ({ ...member, structuralRole: p.structuralRole, carrier: p.carrier })
@@ -66,10 +64,10 @@ function cantilever(p: StockPart): HousePart {
 }
 
 function walkingFace(
-	p: StockPart,
+	p: HousePart,
 	surfaces: typeof houseSurfaces,
 	use: Section['decks'][number]['use']
-): StockPart {
+): HousePart {
 	if (
 		p.kind !== 'prism' ||
 		surfaces.access !== houseSurfaces.access ||

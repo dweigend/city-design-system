@@ -48,6 +48,11 @@ export function pairedTreads(
 	const half = publicStair.width / 2;
 	return [-1, 0].map((side, j) => ({
 		...stock,
+		// The inner landing carries the flight end at the stringer. The outer half projects from it.
+		structuralRole:
+			j === 0 && stock.source.objectId === 'landing'
+				? ('bearing' as const)
+				: ('cantilever' as const),
 		id: id + (j ? '/outer' : ''),
 		height: 0.12,
 		z: z - 0.12,
@@ -70,6 +75,7 @@ export function treadSpine(
 ) {
 	return {
 		...stock,
+		structuralRole: 'cantilever' as const,
 		id: id + '/stringer',
 		height: 0.3,
 		z: z - 0.42,

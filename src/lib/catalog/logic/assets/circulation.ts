@@ -1,49 +1,73 @@
-import { plate } from './assembly';
+import { block, plate, row } from './assembly';
 import { mount, type AssetRecipe } from './definition';
 import { rod, surface } from './parts';
 
-const stock = {
-	category: 'access',
-	footprint: [1, 1],
-	variants: ['standard'],
-	anchors: [mount('deck')]
-} as const;
+const stock = { category: 'access', anchors: [mount('deck')] } as const;
+
+function landing(variant: number) {
+	const x = variant === 1 ? 1.25 : 0.625;
+	const y = 0.625;
+	const corner: [number, number][] =
+		variant === 2
+			? [
+					[x, y - 0.375],
+					[x - 0.375, y]
+				]
+			: [[x, y]];
+	return [plate([[-x, -y], [x, -y], ...corner, [-x, y]], 0, 0.2, 'deck')];
+}
+
+function ramp(variant: number) {
+	const run = 2.5 * (variant + 1);
+	function wedge(y: number, width: number, lip: number) {
+		const height = 0.08 * run + lip;
+		return {
+			...surface('deck'),
+			kind: 'wedge' as const,
+			position: [-run / 2, y, 0] as [number, number, number],
+			size: [run, width, height] as [number, number, number],
+			low: lip / height
+		};
+	}
+	return [wedge(-0.425, 0.85, 0), wedge(-0.625, 0.2, 0.2), wedge(0.425, 0.2, 0.2)];
+}
+
+function railing(variant: number) {
+	if (variant === 1) return [block(0, 0, 0, 2.5, 0.12, 1.1, 'frame')];
+	if (variant === 2)
+		return [
+			...row(7, (t) => block(1.175 * t, 0, 0.12, 0.12, 0.12, 0.86, 'frame')),
+			...[0, 0.49, 0.98].map((z) => block(0, 0, z, 2.5, 0.12, 0.12, 'frame'))
+		];
+	return [
+		rod([-1.19, 0, 0.92], [1.19, 0, 0.92], 0.06, 'frame'),
+		...[-1.19, 1.19].map((x) => rod([x, 0, 0], [x, 0, 0.92], 0.06, 'frame'))
+	];
+}
+
 export const circulationObjects: AssetRecipe[] = [
 	{
 		...stock,
 		id: 'landing',
-		variants: ['standard', 'mast-platform'],
+		footprint: [2.5, 1.25],
+		variants: ['standard', 'mast-platform', 'corner'],
 		slotNames: ['deck'],
-		draw: (variant) => [
-			plate(
-				[
-					[-0.5, -0.5],
-					[0.5, -0.5],
-					[0.5, 0.5],
-					[-0.5, 0.5]
-				],
-				0,
-				variant === 1 ? 0.035 : 0.12,
-				'deck'
-			)
-		]
+		draw: landing
 	},
 	{
 		...stock,
 		id: 'ramp',
+		footprint: [7.5, 1.25],
+		variants: ['standard', 'medium', 'long'],
 		slotNames: ['deck'],
-		draw: () => [
-			{ ...surface('deck'), kind: 'wedge', position: [-0.5, -0.5, 0], size: [1, 1, 1], low: 0 }
-		]
+		draw: ramp
 	},
 	{
 		...stock,
 		id: 'railing',
+		footprint: [2.5, 0.15],
+		variants: ['standard', 'parapet', 'screen'],
 		slotNames: ['frame'],
-		draw: () => [
-			rod([0, 0, 0.92], [1, 0, 0.92], 0.035, 'frame'),
-			rod([0, 0, 0], [0, 0, 0.92], 0.028, 'frame'),
-			rod([1, 0, 0], [1, 0, 0.92], 0.028, 'frame')
-		]
+		draw: railing
 	}
 ];
