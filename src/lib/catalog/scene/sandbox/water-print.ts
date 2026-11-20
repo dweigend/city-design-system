@@ -17,11 +17,12 @@ export function riverInk(
 		bend = attribute('wake', 'float');
 	const width = attribute('riverWidth', 'float');
 	const bank = chart.y.negate().min(chart.y.add(width)).max(0);
-	const drift = chart.x.mul(0.046).add(seconds.mul(0.075)).sin();
-	const reflection = chart.y.mul(0.19).add(drift).add(bend.mul(0.22)).sin().mul(0.5).add(0.5);
+	const time = seconds.mul(0.045);
+	const drift = chart.x.mul(0.032).add(time).sin();
+	const across = chart.y.mul(0.058).add(drift.mul(1.8)).add(bend.mul(0.22)).sin();
+	const along = chart.x.mul(0.047).add(chart.y.mul(0.026)).sub(time).sin();
+	const sky = across.mul(along).mul(0.5).add(0.5);
 	const pool = attribute('poolDepth', 'float').smoothstep(0, 1.1);
 	const depth = mix(wash, blue, bank.smoothstep(0, 15).mul(0.28).max(pool.mul(0.68)));
-	const ripple = chart.y.mul(3.1).add(chart.x.mul(0.43)).add(drift.mul(2)).sub(seconds.mul(0.5));
-	const glint = ripple.sin().smoothstep(0.68, 1).mul(reflection).mul(pool).mul(0.16);
-	return mix(depth, paper, reflection.smoothstep(0.28, 0.91).mul(0.14).add(glint));
+	return mix(depth, paper, sky.mul(0.105));
 }
