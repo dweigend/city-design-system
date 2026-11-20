@@ -176,7 +176,7 @@ test('full-height members span more than three fifths of their inhabited elevati
 		expect(shell.stations[0].ring).toEqual(shell.ring);
 		expect(shell.stations[0].z).toBe(h.composition.ground);
 		expect(shell.stations.at(-1)?.z).toBe(h.top);
-		const corners = h.cells[0].corners.map(([x, y]) => [x, y]);
+		const corners = h.cells[0].corners.map(([x, y]): [number, number] => [x, y]);
 		expect(shell.ring).toHaveLength(corners.length);
 		for (const corner of corners) expect(shell.ring).toContainEqual(corner);
 		const walls = sectionParts(h).filter((p) => p.source.objectId === 'full-height-shell');
