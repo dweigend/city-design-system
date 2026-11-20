@@ -8,11 +8,6 @@ import { houseObject, type HousePart, type StockPart } from './house-object';
 import { roleSurface, type HouseSurfaces } from './surfaces';
 import { pipeBetween } from './parts';
 
-/** A cradle belongs to the capsule it holds and takes the living surface. Column feet, shafts and
- * heads are structure and stay on the frame surface. */
-function bearingSurfaces(p: Solid, surfaces: HouseSurfaces) {
-	return p.joint === 'socket' ? { ...surfaces, frame: surfaces.living } : surfaces;
-}
 function bearingStock(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
 	const socket = p.joint === 'socket';
 	const id = socket
@@ -23,7 +18,7 @@ function bearingStock(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: 
 		p.source?.variant ?? (socket ? 'shallow' : 'light'),
 		s.seed,
 		p.id,
-		bearingSurfaces(p, surfaces)
+		surfaces
 	);
 }
 function bearing(s: Section, p: Extract<Solid, { kind: 'box' }>, surfaces: HouseSurfaces) {
@@ -116,7 +111,7 @@ function floorRing(s: Section, p: Extract<Solid, { kind: 'box' | 'cylinder' | 'c
 function deckParts(s: Section, p: Solid, surfaces: HouseSurfaces) {
 	if (p.slot === 'base')
 		return [floor(s, p, { ...surfaces, deck: roleSurface(surfaces.deck, 'base') })];
-	const coat = p.id.endsWith('/roof') ? roleSurface(surfaces.shell, 'roof') : surfaces.deck;
+	const coat = /\/roof(-walk)?$/.test(p.id) ? roleSurface(surfaces.shell, 'roof') : surfaces.deck;
 	const deck = floor(s, p, { ...surfaces, deck: coat });
 	if (deck.kind !== 'prism' || deck.height < 0.42) return [deck];
 	const level = s.decks.find((l) => Math.abs(l.position[2] - deck.z - deck.height) < 1e-7);

@@ -33,15 +33,17 @@ const finishes = {
 	glazing: 'glas-klar',
 	fitting: 'metall-messing',
 	rim: 'metal',
-	lining: 'pressed-chipboard',
+	lining: 'beton-schalung',
 	enamel: 'metall-lackiert',
 	trim: 'fired-slip'
 } as const;
+/** Whole band bodies take calm, light finishes only. Chipboard and graphite read as blotches and as
+ * heavy dark masses at town scale. */
 const bandFinishes = {
 	living: 'metall-lackiert',
 	food: 'holz-natur',
-	energy: 'metall-graphit',
-	material: 'pressed-chipboard',
+	energy: 'beton-schalung',
+	material: 'metall-lackiert',
 	water: 'beton-terrazzo'
 } as const;
 const defaults = new Set(Object.values(houseSurfaces));
@@ -51,6 +53,9 @@ export function roleSurface(
 	role: keyof typeof finishes,
 	token: ColorToken = surface.token
 ): Surface {
+	// A walking surface in the access colour stays plain: a patterned finish under the pink reads as
+	// blotches from town distance.
+	if (surface === houseSurfaces.access) return surface;
 	return defaults.has(surface) ? { token, finish: finishes[role] } : surface;
 }
 /** Dresses an opaque course from its actual use, with pigment on the selected band. */

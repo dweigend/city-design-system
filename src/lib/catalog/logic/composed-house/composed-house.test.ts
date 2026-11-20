@@ -144,7 +144,10 @@ test('explicit shell, glazing and capsule rim assignments survive projection acr
 		expect(parts.find((p) => p.id === rim.id)).toMatchObject(palette.water);
 	}
 	for (const l of section.composition.levels) {
-		const body = parts.filter((p) => p.id.startsWith(l.bodies[0].id + '/'));
+		// The cradle is structure and stays on the frame surface; only the capsule follows its use.
+		const body = parts.filter(
+			(p) => p.id.startsWith(l.bodies[0].id + '/') && !p.id.includes('/socket/')
+		);
 		expect(body.length).toBeGreaterThan(0);
 		for (const p of body)
 			expect(p).toMatchObject(p.source.slot === 'glass' ? palette.pane : palette.water);
@@ -259,8 +262,12 @@ test('the capsule reference has no dark or sub-half-metre pieces resting on a de
 			p.source.objectId === 'stairs' ||
 			p.source.objectId === 'landing'
 	);
-	for (const p of decks)
-		expect(p.finish, p.id).toBe(p.id.endsWith('/plinth') ? 'beton-terrazzo' : 'holz-natur');
+	// Plinth terrazzo, decks and landings timber, treads plain in the access colour.
+	const finishOf = (p: (typeof decks)[number]) => {
+		if (p.id.endsWith('/plinth')) return 'beton-terrazzo';
+		return p.source.objectId === 'stairs' ? houseSurfaces.access.finish : 'holz-natur';
+	};
+	for (const p of decks) expect(p.finish, p.id).toBe(finishOf(p));
 	const treads = parts.filter((p) => p.source.objectId === 'stairs' && p.kind === 'prism');
 	expect(treads.length).toBeGreaterThan(0);
 	expect(treads.every((p) => p.kind === 'prism' && p.topToken === houseSurfaces.access.token)).toBe(
