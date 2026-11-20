@@ -13,6 +13,7 @@ export type TownSpan = {
 	fromFork?: string;
 	toFork?: string;
 	port?: import('../movement-network').MovementPort;
+	groundPort?: import('../movement-network').MovementPort;
 	inside?: boolean;
 	adapter?: boolean;
 };
