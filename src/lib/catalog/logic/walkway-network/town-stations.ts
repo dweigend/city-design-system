@@ -1,5 +1,5 @@
 import { flightRun, gradeWalkLinks } from './link-grades';
-import { walkingProfile } from './walking-profile';
+import { needsTreads, walkingProfile } from './walking-profile';
 import { required } from '../required';
 import { interpolatePoint, type Vec3 } from '../parametrik/types';
 
@@ -123,7 +123,8 @@ export function townLinkSurvey(
 export function townSpans(
 	links: ReturnType<typeof townLinkSurvey>,
 	stations: Stations,
-	ends: ReadonlyMap<string, Vec3>
+	ends: ReadonlyMap<string, Vec3>,
+	ground?: (x: number, y: number) => number
 ): TownSpan[] {
 	return links.flatMap<TownSpan>(({ from, to, a: first, b: last, requiredRun, availableRun }) => {
 		const start = required(stations.get(from), 'from station');
@@ -136,8 +137,37 @@ export function townSpans(
 		const fromFork = start.arms.length === 3 ? from : undefined,
 			toFork = end.arms.length === 3 ? to : undefined;
 		if (a[2] === b[2] || ends.has(from)) return [{ id: key, a, b, fromFork, toFork }];
-		return levelLead({ id: key, a, b, fromFork, toFork }, requiredRun, availableRun);
+		// Keep the level turning landing where a sharp miter would enter the bank.
+		const upper = a[2] > b[2] ? start : end;
+		const rampRun = leadRun(a, b, requiredRun, () => buriedCorner(upper, stations, ground));
+		return levelLead({ id: key, a, b, fromFork, toFork }, rampRun, availableRun);
 	});
+}
+function leadRun(a: Vec3, b: Vec3, stairRun: number, meetsBank: () => boolean) {
+	if (needsTreads(a, b) || meetsBank()) return stairRun;
+	return Math.abs(b[2] - a[2]) / walkingProfile.gradeLimit;
+}
+function buriedCorner(
+	station: Station,
+	stations: Stations,
+	ground?: (x: number, y: number) => number
+) {
+	if (!ground || station.arms.length !== 2) return false;
+	const [x, y, z] = station.position;
+	const [u, v] = station.arms.map((id) => {
+		const p = required(stations.get(id), 'turning arm').position;
+		const dx = p[0] - x,
+			dy = p[1] - y,
+			d = Math.hypot(dx, dy);
+		return [dx / d, dy / d];
+	});
+	// Intersect both offset lines at the common station.
+	const divisor = 1 - u[0] * v[0] - u[1] * v[1];
+	if (divisor < 1e-8) return true;
+	const scale = walkingProfile.width / (2 * divisor);
+	const mx = scale * (v[1] - u[1]),
+		my = scale * (u[0] - v[0]);
+	return ground(x + mx, y + my) >= z || ground(x - mx, y - my) >= z;
 }
 function levelLead(
 	{ id, a, b, fromFork, toFork }: TownSpan,

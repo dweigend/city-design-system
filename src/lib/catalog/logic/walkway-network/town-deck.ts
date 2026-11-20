@@ -91,7 +91,7 @@ export function surveyTownWalk(
 	const ends = new Map(courts.map((c, i) => [c.id, gardens[i].landing]));
 	const stations = townStations(routes, center, ends);
 	const { spans, unresolved } = fitWalkingFlights(
-		townSpans(townLinkSurvey(routes, stations, ends), stations, ends),
+		townSpans(townLinkSurvey(routes, stations, ends), stations, ends, ground),
 		reservations
 	);
 	return { ends, stations, spans, gardens, unresolved, terraces, courts };

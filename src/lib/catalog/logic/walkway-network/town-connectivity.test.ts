@@ -42,38 +42,52 @@ function neighbours(face: Face, next: Face) {
 }
 function rampConnections(parts: Primitive[], faces: Face[]) {
 	const links = new Map<Face, Set<Face>>();
+	const mouths = new Map<string, Face>();
+	const connect = (a: Face, b: Face) => {
+		for (const [u, v] of [
+			[a, b],
+			[b, a]
+		]) {
+			const row = links.get(u) ?? new Set<Face>();
+			row.add(v);
+			links.set(u, row);
+		}
+	};
 	for (const part of parts) {
 		if (part.kind !== 'mesh' || !part.id.endsWith('/ramp')) continue;
-		const contacts = [0, 4].map((i) => {
+		const ends = [0, part.points.length - 4].map((i) => {
 			const edge = [part.points[i + 2], part.points[i + 3]];
+			const key = edge
+				.map((p) => p.join(','))
+				.sort()
+				.join('|');
+			const joined = mouths.get(key);
+			if (joined) return joined;
 			const polygon = edge.map(([x, y]): Vertex => [x, y]);
-			return faces.filter(
-				(f) => Math.abs(f.z + f.height - edge[0][2]) < 1e-7 && !separated(f, { ...f, polygon })
-			);
+			const end = { ...faces[0], id: part.id, polygon, z: edge[0][2], height: 0 };
+			mouths.set(key, end);
+			for (const f of faces)
+				if (Math.abs(f.z + f.height - end.z) < 1e-7 && !separated(f, end)) connect(f, end);
+			return end;
 		});
-		for (const group of contacts) expect(group.length, part.id).toBeGreaterThan(0);
-		for (const a of contacts[0])
-			for (const b of contacts[1]) {
-				const add = (u: Face, v: Face) => {
-					const row = links.get(u) ?? new Set<Face>();
-					row.add(v);
-					links.set(u, row);
-				};
-				add(a, b);
-				add(b, a);
-			}
+		connect(ends[0], ends[1]);
 	}
-	return links;
+	for (const end of mouths.values()) expect(links.get(end)?.size, end.id).toBeGreaterThan(1);
+	return { mouths: [...mouths.values()], links };
 }
-function components(faces: Face[], ramps: Map<Face, Set<Face>>) {
-	const pending = new Set(faces);
+function components(faces: Face[], { mouths, links: ramps }: ReturnType<typeof rampConnections>) {
+	const pending = new Set([...faces, ...mouths]);
 	const groups: Face[][] = [];
 	for (const start of pending) {
 		const group = [start];
 		pending.delete(start);
 		for (const face of group) {
 			for (const next of pending) {
-				if (!ramps.get(face)?.has(next) && !neighbours(face, next)) continue;
+				if (
+					!ramps.get(face)?.has(next) &&
+					(face.polygon.length < 3 || next.polygon.length < 3 || !neighbours(face, next))
+				)
+					continue;
 				pending.delete(next);
 				group.push(next);
 			}
@@ -108,6 +122,15 @@ function inspect(world: World) {
 		groups.map((g) => g[0].id),
 		groups.map((g) => g.length + ' at ' + g[0].id).join(', ')
 	).toHaveLength(1);
+	// A meeting platform may border the route, but it must never be its only connection.
+	const ribbon = parts.filter(
+		(p) =>
+			p.id.startsWith('court/') ||
+			(/^town-walk\/(joint\/)?\d/.test(p.id) && p.finish === 'kunststoff-formteil')
+	);
+	const walking = walkingPlates(ribbon);
+	const network = components(walking, rampConnections(ribbon, walking));
+	expect(network.map((g) => g[0].id)).toHaveLength(1);
 	const connected = new Set(groups[0].map((p) => p.id));
 	const reserved = new Set(city.walk.flat());
 	for (const centre of city.centres) {
