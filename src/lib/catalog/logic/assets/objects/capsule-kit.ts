@@ -1,4 +1,6 @@
 import { block } from '../assembly';
+import { panel } from './forms';
+import { cabinShell } from './cabin-shell';
 import { ring } from '../parts';
 import { rounded } from './kit-recipe';
 import { houseSeries, lengths, spans } from './house-series';
@@ -15,44 +17,56 @@ function cabin(end: End) {
 		slots,
 		profiles,
 		(l, v) => {
-			const radius = v === 1 ? 0.45 : 0.15;
 			const balcony = end === 'balcony' ? 1.25 : 0;
-			const nose = end === 'door' || end === 'porthole' ? 0.1 : 0;
-			const w = l - balcony - nose,
-				x = -(balcony + nose) / 2,
-				waist = v === 2 ? 1.25 : 1;
+			const nose = end === 'door' ? 0.24 : end === 'porthole' ? 0.1 : 0;
+			const right = l / 2 - balcony - nose;
 			const parts = [
-				rounded(x, 0, 0, w, 2.5, waist, 'shell', radius),
-				rounded(
-					x,
-					0,
-					waist,
-					w,
-					end === 'ribbon' ? 2.4 : 2.5,
-					0.6,
-					end === 'ribbon' ? 'glass' : 'shell',
-					radius
+				cabinShell(
+					-l / 2,
+					right,
+					end === 'door' || end === 'balcony' ? 0.83 : 0.54,
+					v,
+					end === 'ribbon' ? 1.215 : 1.25
 				),
-				rounded(x, 0, waist + 0.6, w, 2.5, 2.35 - waist - 0.6, 'shell', radius),
-				rounded(x, 0, 2.35, w, 2.5, 0.15, 'edge', radius)
+				panel(-balcony / 2, 0, 0.15, l - balcony - 1.1, 1.6, 0.2, 'edge'),
+				...[-1, 1].map((side) =>
+					block(-balcony / 2 + (side * (l - balcony - 2.2)) / 2, 0, 0, 1.0, 1.0, 0.15, 'edge')
+				)
 			];
-			return [...parts, ...fittings(end, l, waist, balcony)];
+			if (end === 'ribbon')
+				for (const side of [-1, 1]) {
+					parts.push(panel(0, side * 1.19, 1.18, l - 1.65, 0.12, 0.4, 'glass'));
+				}
+
+			return [...parts, ...fittings(end, l, balcony)];
 		}
-	);
+	).map((recipe) => ({
+		...recipe,
+		suggestions: {
+			...recipe.suggestions,
+			shell: {
+				material: 'acrylic' as const,
+				finish: 'acryl-matt' as const,
+				token: '--paper' as const
+			}
+		}
+	}));
 }
 
-function fittings(end: End, l: number, waist: number, balcony: number) {
+function fittings(end: End, l: number, balcony: number) {
 	const parts = [];
-	if (end === 'ribbon')
-		for (const side of [-1, 1])
-			for (let i = 1; i < l / 1.25; i++)
-				parts.push(block(i * 1.25 - l / 2, side * 1.225, waist, 0.12, 0.05, 0.6, 'edge'));
 	if (end === 'porthole')
 		parts.push(
 			ring([l / 2 - 0.05, 0, 1.35], 0.55, 0.4, 0.1, 'edge'),
 			ring([l / 2 - 0.05, 0, 1.35], 0.4, 0, 0.1, 'glass')
 		);
-	if (end === 'door') parts.push(block(l / 2 - 0.05, 0, 0, 0.1, 1, 2.1, 'glass'));
+	if (end === 'door') {
+		parts.push(
+			block(l / 2 - 0.18, 0, 0.14, 0.12, 1.08, 1.95, 'glass'),
+			...[-1, 1].map((side) => block(l / 2 - 0.12, side * 0.62, 0.14, 0.24, 0.16, 1.95, 'shell')),
+			block(l / 2 - 0.12, 0, 2.09, 0.24, 1.4, 0.17, 'shell')
+		);
+	}
 	if (end === 'balcony')
 		parts.push(
 			block(l / 2 - balcony / 2, 0, 0, balcony, 2.5, 0.15, 'edge'),

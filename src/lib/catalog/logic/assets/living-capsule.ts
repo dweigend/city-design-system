@@ -7,17 +7,21 @@ import type { ObjectGeometry } from './object-geometry';
 export const livingCapsule: AssetRecipe = {
 	id: 'living-capsule',
 	slotNames: ['accent', 'body', 'glass'],
-	suggestions: { accent: suggestions.foot, body: suggestions.body, glass: suggestions.diffuser },
+	suggestions: {
+		accent: suggestions.foot,
+		body: { material: 'acrylic', finish: 'acryl-matt', token: '--paper' },
+		glass: suggestions.diffuser
+	},
 	category: 'capsules',
 	variants: ['studio', 'twin', 'longhouse'],
 	footprint: [9.1, 3.1],
 	anchors: [mount('deck')],
 	draw(variant, sample) {
 		const half = [1.25, 2, 3][variant],
-			r = 1.32 + 0.045 * sample,
-			z = r + 0.22;
+			r = 1.15 + 0.045 * sample,
+			z = 2.5 - r;
 		const parts: ObjectGeometry[] = [
-			panel(0, 0, 0, half * 2 + 0.9, 2, 0.55, 'accent'),
+			panel(0, 0, 0, half * 2 + 0.9, 1.72, 0.52, 'accent'),
 			{ ...surface(), kind: 'capsule', from: [-half, 0, z], to: [half, 0, z], radius: r }
 		];
 		for (const side of [-1, 1]) {
