@@ -19,7 +19,7 @@ export function gridShellSubset(shape: string, offset: number) {
 			const exterior = house.composition.exterior;
 			if (!exterior) throw Error('Missing parcel envelope');
 			expect(parts.filter((p) => p.source.objectId === 'full-height-shell')).toHaveLength(
-				exterior.faces.filter(Boolean).length
+				exterior.faces.filter(Boolean).length + exterior.courtWalls.length
 			);
 			expect(exterior.system).toBe(system);
 			auditPolygon(name, item.seed, house, parts);

@@ -7,3 +7,4 @@ export * from './genese';
 export * from './evolution';
 export * from './invarianten';
 export * from './chronik';
+export { plotCovers, side, type Footprint } from './coverage';
