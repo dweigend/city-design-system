@@ -113,11 +113,19 @@ function survey(world: World) {
 		const owners = g.owners.map((id) => required(phases.get(id), 'section owner'));
 		const onGround = !g.span && owners[0].start === 0;
 		const cells = g.cells.map((id) => required(world.grid.cellsById.get(id), 'foundation parcel'));
-		const house = !g.span && planned.has(g.cells[0]) ? houses.get(g.id) : undefined;
+		const house = houses.get(g.id);
 		return {
 			...g,
-			door: courtDoor(house, r3),
-			parts: onGround ? () => seatedHouse(g.parts(), cells, world.grid) : g.parts,
+			door: courtDoor(planned.has(g.cells[0]) ? house : undefined, r3),
+			parts:
+				onGround && house
+					? () =>
+							seatedHouse(g.parts(), cells, world.grid, house.composition.exterior?.bottom, {
+								slot: 'shell',
+								use: fieldUse(house),
+								ensemble: house.ensemble
+							})
+					: g.parts,
 			signature: g.span || owners[0].appearance,
 			start: owners[0].start,
 			seed: owners[0].seed,

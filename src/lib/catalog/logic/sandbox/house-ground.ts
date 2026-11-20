@@ -1,6 +1,8 @@
 import { clipPolygon, rotated, type Point2 } from '../ansicht/geometrie';
-import type { Primitive } from '../parametrik/types';
-import { wallContacts, type TerrainGrid, type TerrainCell } from '../terrain-grid';
+import type { BuildingSurface, Primitive, Vec3 } from '../parametrik/types';
+import type { TerrainGrid, TerrainCell } from '../terrain-grid';
+import { lowerShellEdges, groundPanels } from './shell-ground';
+import { planBounds, overlaps } from './network-site';
 import { walkingHeight } from './network-terrain';
 
 type Plate = Extract<Primitive, { kind: 'prism' }>;
@@ -40,56 +42,59 @@ function pierSeats(strip: Point2[], tangent: Point2) {
 	}).filter((p) => p.length >= 3);
 }
 
-function footings(p: Plate, cell: TerrainCell, grid: TerrainGrid, bottom: number): Primitive[] {
+function floodBase(p: Plate, cell: TerrainCell, grid: TerrainGrid, bottom: number): Primitive[] {
 	const polygon = rotated(p.polygon, p.rotation ?? 0);
-	const low = Math.min(
-		...polygon.flatMap((a, edge) => {
-			const contacts = wallContacts(grid, {
-				houseId: p.id,
-				ring: 0,
-				edge,
-				a,
-				b: polygon[(edge + 1) % polygon.length],
-				start: 0,
-				end: 1,
-				footZ: p.z,
-				use: 'wall'
-			});
-			return contacts.map((contact) =>
-				contact.kind === 'surveyed'
-					? Math.min(...contact.stations.map((s) => s.groundZ))
-					: walkingHeight(grid, ...a)
-			);
-		})
-	);
-	const gap = p.z - low;
-	if (!(gap > 0.02)) return [];
-	const holes = p.holes?.map((h) => rotated(h, p.rotation ?? 0));
-	const profiles = cell.raised && !holes?.length ? floodPiers(polygon, cell) : [polygon];
-	return profiles.map((profile, i) => ({
-		kind: 'prism',
-		role: p.role,
-		id: p.id + '/foundation/' + i,
-		token: '--paper',
-		finish: 'beton-schalung',
-		material: 'concrete',
-		polygon: profile,
-		holes,
-		z: Math.min(bottom, low),
-		height: p.z - Math.min(bottom, low)
-	}));
+	const holes = p.holes?.map((h) => planBounds(rotated(h, p.rotation ?? 0))) ?? [];
+	return floodPiers(polygon, cell).flatMap((profile, i) => {
+		if (holes.some((h) => overlaps(h, planBounds(profile)))) return [];
+		const ground = profile.map(([x, y]) => walkingHeight(grid, x, y));
+		if (ground.every((z) => z >= p.z)) return [];
+		const z = Math.min(bottom, ...ground.filter(Number.isFinite));
+		return [
+			{
+				...p,
+				id: p.id + '/foundation/' + i,
+				polygon: profile,
+				holes: undefined,
+				rotation: undefined,
+				z,
+				height: p.z - z
+			}
+		];
+	});
 }
 
-/** Carries the actual lowest plates into the parcel. Spaced flood piers leave a channel along the contour. */
-export function seatedHouse(parts: Primitive[], cells: TerrainCell[], grid: TerrainGrid) {
+function plateEdges(p: Plate): [Vec3, Vec3][] {
+	return [p.polygon, ...(p.holes ?? [])].flatMap((ring) => {
+		const corners = rotated(ring, p.rotation ?? 0);
+		return corners.map((a, i): [Vec3, Vec3] => [
+			[...a, p.z],
+			[...corners[(i + 1) % corners.length], p.z]
+		]);
+	});
+}
+
+/** Seats the cut shell edges on finished terrain and carries flood floors on spaced perimeter piers. */
+export function seatedHouse(
+	parts: Primitive[],
+	cells: TerrainCell[],
+	grid: TerrainGrid,
+	seat: number | undefined,
+	field: BuildingSurface
+) {
 	const anchor = cells[0];
 	const bottom = Math.min(...cells.flatMap((c) => c.corners.map((p) => p[2]))) - 0.05;
-	const basePlate = (id: string) => /\/plinth(?:\/\d+)?$/.test(id);
-	const hasPlinth = parts.some((p) => basePlate(p.id));
-	const feet = parts.flatMap((p) =>
-		p.kind === 'prism' && (hasPlinth ? basePlate(p.id) : Math.abs(p.z - anchor.pad) < 1e-7)
-			? footings(p, anchor, grid, bottom)
-			: []
-	);
-	return [...parts, ...feet];
+	const exterior = (p: Primitive) => p.kind === 'mesh' && p.id.includes('/exterior/');
+	const hasShell = seat !== undefined && parts.some(exterior);
+	const hasBase = parts.some((p) => p.buildingSurface?.slot === 'base');
+	const bearingPlate = (p: Plate) =>
+		hasBase ? p.buildingSurface?.slot === 'base' : Math.abs(p.z - anchor.pad) < 1e-7;
+	return parts.flatMap((part): Primitive[] => {
+		if (!anchor.raised && seat !== undefined && part.kind === 'mesh' && exterior(part))
+			return [part, ...groundPanels(part, lowerShellEdges(part, seat), grid)];
+		if (part.kind !== 'prism' || !bearingPlate(part)) return [part];
+		const plate = { ...part, buildingSurface: field };
+		if (anchor.raised) return [plate, ...floodBase(plate, anchor, grid, bottom)];
+		return hasShell ? [plate] : [plate, ...groundPanels(plate, plateEdges(plate), grid)];
+	});
 }
