@@ -88,7 +88,7 @@ function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 	const paint = surfaces[b.use];
 	const shell = roleSurface(paint, 'capsule', accent !== 'none' ? paint.token : '--paper');
 	const pane =
-		b.objectId.includes('lantern') && accent === 'storey'
+		b.objectId.includes('lantern') && (accent === 'storey' || accent === 'anchor')
 			? roleSurface(surfaces.pane, 'glazing', paint.token)
 			: surfaces.pane;
 	const stock = members(
