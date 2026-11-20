@@ -1,4 +1,4 @@
-import { frontages } from './gallery';
+import { frontages, galleryCourses } from './gallery';
 import { paletteCount, housePath } from './routes';
 import { required } from '../required';
 import type { HouseSite } from './site';
@@ -9,6 +9,7 @@ import { survey, type Survey } from './survey';
 
 type Decision = {
 	frontage?: ReadonlySet<string>;
+	galleryCourse?: number;
 	role: HouseRole;
 	typology: Typology;
 	away: [number, number];
@@ -101,6 +102,7 @@ function wideForms(sites: Survey[], roles: Map<string, HouseRole>, seed: number)
 }
 function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
 	const streets = frontages(sites);
+	const galleries = galleryCourses(sites, streets);
 	const wide = sites.filter((s) => !s.compact && !streets.get(s.id));
 	const chosen = wideForms(wide, roles, seed);
 	const forms = new Map(wide.map((s, i) => [s.id, chosen[i]]));
@@ -111,7 +113,8 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 				role: required(roles.get(s.id), 'ensemble role'),
 				typology: forms.get(s.id) ?? 'block',
 				away: away(s, sites),
-				frontage: streets.get(s.id)
+				frontage: streets.get(s.id),
+				galleryCourse: galleries.get(s.id)
 			}
 		])
 	);

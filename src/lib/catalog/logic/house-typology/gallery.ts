@@ -1,4 +1,5 @@
 import { boundaryRings, ringArea, type QuadCell } from '../quad-grid';
+import { STORY } from '../../data/grid';
 import type { Survey } from './survey';
 
 type XY = [number, number];
@@ -29,6 +30,33 @@ export function frontages(sites: Survey[]) {
 			] as const;
 		})
 	);
+}
+
+/** Selects a common walking elevation for opposing upper galleries on compatible foundations. */
+export function galleryCourses(sites: Survey[], walls: ReturnType<typeof frontages>) {
+	const tall = sites.filter((s) => s.programme.length >= 5 && walls.get(s.id)?.size);
+	const courses = new Map<string, number>();
+	for (const first of tall) {
+		if (courses.has(first.id)) continue;
+		const group = [first];
+		for (const site of group) {
+			const edges = walls.get(site.id);
+			for (const next of tall) {
+				const offset = (next.ground - first.ground) / STORY;
+				if (!Number.isInteger(offset) || group.includes(next)) continue;
+				if (next.cells.some((cell) => edges?.has(cell.id))) group.push(next);
+			}
+		}
+		if (group.length < 2) continue;
+		const low = Math.max(...group.map((s) => s.ground + 3 * STORY));
+		const top = Math.min(...group.map((s) => s.ground + (s.programme.length - 1) * STORY));
+		const target = Math.min(
+			...group.map((s) => s.ground + Math.ceil(s.programme.length / 2) * STORY)
+		);
+		if (low <= top)
+			for (const s of group) courses.set(s.id, (Math.max(low, target) - s.ground) / STORY);
+	}
+	return courses;
 }
 
 /** Centreline rooms follow the shortest cell paths from the access tower to its party walls. */

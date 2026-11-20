@@ -7,6 +7,7 @@ import { crownSpec, objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
 import { silhouette } from './signature';
+import type { EnsembleContext } from './ensemble';
 import type { HouseRole } from './families';
 import type { Body, HouseComposition, Level, Plan, Solid } from './types';
 
@@ -98,7 +99,7 @@ function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const opening = rectangle(...axis, 0.84, 0.82);
 	return { anchor, bay, axis, opening };
 }
-function courses(plan: Plan, frontage: ReadonlySet<string>) {
+function courses(plan: Plan, frontage: ReadonlySet<string>, galleryCourse?: number) {
 	const access = accessBay(plan, frontage),
 		{ bay, axis, opening } = access;
 	const { cells, programme, ground, id } = plan.site;
@@ -118,7 +119,7 @@ function courses(plan: Plan, frontage: ReadonlySet<string>) {
 	for (let i = 0; i < programme.length; i++) {
 		const z = ground + (i ? i * STORY : 0.6);
 		const ceiling = ground + (i + 1) * STORY;
-		const gallery = i === Math.ceil(programme.length / 2) && i >= 3;
+		const gallery = i === galleryCourse;
 		const setback = 1 - Math.min(0.25, 0.045 * i);
 		const tower = {
 			polygon: rectangle(bay.x, bay.y, bay.width * setback, bay.depth * setback),
@@ -164,10 +165,11 @@ export function perimeterHouse(
 	plan: Plan,
 	role: HouseRole,
 	accessSide: HouseComposition['accessSide'],
-	frontage: ReadonlySet<string>
+	frontage: ReadonlySet<string>,
+	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access } = courses(plan, frontage);
+		{ levels, parts, access } = courses(plan, frontage, context.houses.get(site.id)?.galleryCourse);
 	const { bay, axis } = access,
 		top = site.ground + site.programme.length * STORY;
 	const use = levels[levels.length - 1].use;
@@ -187,6 +189,7 @@ export function perimeterHouse(
 	parts.push(mounted(crown, site.ground, 'crown'));
 	return {
 		id: site.id,
+		ensembleSize: context.houses.size,
 		compact: true,
 		flightWidth: 1.25,
 		path: 'ladder',

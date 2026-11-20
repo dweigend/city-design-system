@@ -16,6 +16,7 @@ export function subset(variant: Variant) {
 				throw error;
 			}
 			console.log('HOUSE ' + JSON.stringify({ name: c.name, seed: c.seed, ...metrics }));
+			expect(metrics.missingGalleries).toEqual([]);
 			expect(metrics.errors).toEqual([]);
 			expect(metrics.share).toBeLessThanOrEqual(0.1);
 			expect(metrics.isolated).toBeLessThanOrEqual(3);

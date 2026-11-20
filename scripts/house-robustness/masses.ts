@@ -72,9 +72,9 @@ function skyRooms(bodies: Entry[]) {
 			const left = below(a.owner),
 				right = below(b.owner);
 			if (left.length && right.length && !left.some((p) => right.some((q) => touches(p, q))))
-				pairs.add([a.owner, b.owner, a.box.min[2]].join('/'));
+				pairs.add([a.owner, b.owner].join('/'));
 		}
-	return pairs.size;
+	return pairs;
 }
 /** Counts components containing occupied rooms. Slim supports, circulation and ornaments cannot join masses. */
 export function massGraph(houses: Section[]) {
@@ -87,12 +87,22 @@ export function massGraph(houses: Section[]) {
 		bodies = entries.filter(body),
 		plates = entries.filter((p) => p.p.joint === 'deck');
 	const { components, joined, collisions } = contactGraph(entries);
+	const galleries = skyRooms(bodies);
+	const missingGalleries = houses.flatMap((a, i) =>
+		houses.flatMap((b, j) => {
+			if (i >= j || a.stories < 5 || b.stories < 5 || a.composition.ground !== b.composition.ground)
+				return [];
+			const adjacent = a.cells.some((c) => b.cells.some((d) => c.neighbors.includes(d.id)));
+			return adjacent && !galleries.has([i, j].join('/')) ? [a.id + ' / ' + b.id] : [];
+		})
+	);
 	return {
+		missingGalleries,
 		components,
 		byHouse: lots.map((l) => contactGraph(l).components),
 		joined: joined.size / houses.length,
 		spanning: bodies.filter((b) => spans(b, bodies, plates)).length,
-		inhabitedBridges: skyRooms(bodies),
+		inhabitedBridges: galleries.size,
 		collisions
 	};
 }
