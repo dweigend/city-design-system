@@ -115,6 +115,7 @@ export function composeHouse(
 		start: site.start,
 		stories: site.programme.length,
 		role,
+		ensembleSize: context.houses.size,
 		typology: type,
 		cells: site.cells,
 		datum: context.datum,
