@@ -1,22 +1,38 @@
+import { insideCourt } from './court-life';
 import { interpolatePoint, type Vec3, type Primitive } from '../parametrik/types';
 import { walkingProfile } from './walking-profile';
 
 type Ground = (x: number, y: number, z: number) => number;
-/** Includes adjoining circular meeting platforms when measuring the fall beyond a walking edge. */
+type Support = { z: number; covers: (x: number, y: number) => boolean };
+function walkingSupports(parts: Primitive[]) {
+	const supports: Support[] = [];
+	for (const p of parts) {
+		if (p.kind === 'prism' && p.id.startsWith('court/')) {
+			supports.push({ z: p.z + p.height, covers: (x, y) => insideCourt([x, y], p.polygon) });
+		} else if (
+			p.kind === 'cylinder' &&
+			p.id.startsWith('town-walk/platform/') &&
+			!p.id.includes('/meeting/') &&
+			!p.id.endsWith('/pier')
+		) {
+			const [cx, cy, z] = p.position;
+			supports.push({ z: z + p.height, covers: (x, y) => Math.hypot(x - cx, y - cy) <= p.radius });
+		}
+	}
+	return supports;
+}
+/** Samples the highest finished ground, court paving or meeting platform beneath the walking elevation. */
 export function landingGround(
 	parts: Primitive[],
 	ground: (x: number, y: number) => number
 ): Ground {
-	const landings = parts.flatMap((p) =>
-		p.kind === 'cylinder' && !p.id.includes('/meeting/') && !p.id.endsWith('/pier')
-			? [{ x: p.position[0], y: p.position[1], z: p.position[2] + p.height, r: p.radius }]
-			: []
-	);
+	const supports = walkingSupports(parts);
 	return (x, y, z) => {
 		let surface = ground(x, y);
-		for (const p of landings)
-			if (p.z <= z + 1e-7 && p.z > surface && Math.hypot(p.x - x, p.y - y) < p.r - 0.05)
+		for (const p of supports) {
+			if (p.z <= z + 1e-7 && (!Number.isFinite(surface) || p.z > surface) && p.covers(x, y))
 				surface = p.z;
+		}
 		return surface;
 	};
 }
@@ -35,11 +51,23 @@ function intervals(a: Vec3, b: Vec3, exposed: (p: Vec3) => boolean) {
 }
 /** Clips each edge segment to the stretches where its walking face drops away.
  * Half-metre samples locate transitions without adding vertices to a straight guard. */
-export function guardRuns(edge: Vec3[], ground: Ground, seat: (p: Vec3) => number) {
-	const exposed = (p: Vec3) => {
-		const z = seat(p),
-			surface = ground(p[0], p[1], z);
-		return !Number.isFinite(surface) || z - surface >= walkingProfile.guardDrop;
-	};
-	return edge.slice(1).flatMap((b, i) => intervals(edge[i], b, exposed));
+export function guardRuns(
+	edge: Vec3[],
+	ground: Ground,
+	seat: (p: Vec3) => number,
+	outward: 1 | -1
+) {
+	return edge.slice(1).flatMap((b, i) => {
+		const a = edge[i],
+			dx = b[0] - a[0],
+			dy = b[1] - a[1],
+			length = Math.hypot(dx, dy);
+		if (!length) return [];
+		const offset = (outward * 0.4) / length;
+		return intervals(a, b, (p) => {
+			const z = seat(p),
+				surface = ground(p[0] + dy * offset, p[1] - dx * offset, z);
+			return !Number.isFinite(surface) || z - surface >= walkingProfile.guardDrop;
+		});
+	});
 }

@@ -43,12 +43,14 @@ function piers(id: string, path: Vec3[], ground: Ground): Primitive[] {
 function exposed(
 	edge: Vec3[],
 	ground: (x: number, y: number, z: number) => number,
-	stepped: boolean
+	stepped: boolean,
+	outward: 1 | -1
 ) {
 	return guardRuns(
 		edge,
 		ground,
-		(p) => (stepped ? treadSeat(edge[0], edge[edge.length - 1], p) : undefined) ?? p[2]
+		(p) => (stepped ? treadSeat(edge[0], edge[edge.length - 1], p) : undefined) ?? p[2],
+		outward
 	);
 }
 function handrail(path: Vec3[], id: string, stairs: Vec3[][]): Primitive[] {
@@ -166,6 +168,7 @@ export function pathDeck(
 		guardGround?: (x: number, y: number, z: number) => number;
 	} = {}
 ) {
+	const leftEdges = new Set(bands.map((b) => b.left));
 	const edges = [
 		...bands.flatMap((b) => [b.right, b.left]),
 		...junctions.flatMap((j) => j.rim.filter((edge) => edge.length > 1))
@@ -176,9 +179,11 @@ export function pathDeck(
 	return [
 		...bands.flatMap((b) => strip(b, ground, marked)),
 		...junctions.flatMap((j) => fork(j, ground, marked)),
-		...contours(edges.flatMap((edge) => exposed(edge, guardGround, stairs.includes(edge)))).flatMap(
-			(path, i) => handrail(path, railId + '/' + i, stairs)
-		)
+		...contours(
+			edges.flatMap((edge) =>
+				exposed(edge, guardGround, stairs.includes(edge), leftEdges.has(edge) ? -1 : 1)
+			)
+		).flatMap((path, i) => handrail(path, railId + '/' + i, stairs))
 	];
 }
 /** Projects a standalone public flight from the same profile as the town walk. */
@@ -200,7 +205,7 @@ export function publicFlight(span: TownSpan, ground: Ground, reservation?: Fligh
 	return [
 		...strip(band, ground, false),
 		...(['right', 'left'] as const).flatMap((side) =>
-			exposed(band[side], ground, stairs.length > 0).flatMap((run, i) =>
+			exposed(band[side], ground, stairs.length > 0, side === 'left' ? -1 : 1).flatMap((run, i) =>
 				handrail(run, span.id + '/' + side + (i ? '/' + i : ''), stairs)
 			)
 		)

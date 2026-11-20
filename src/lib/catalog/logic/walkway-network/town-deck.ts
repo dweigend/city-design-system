@@ -132,7 +132,9 @@ export function townDeck(
 		...levelRuns(
 			flushDecks([
 				...plazas,
-				...pathDeck(bands, junctions, ground, { guardGround: landingGround(meetings, ground) }),
+				...pathDeck(bands, junctions, ground, {
+					guardGround: landingGround([...plazas, ...meetings], ground)
+				}),
 				...meetings
 			]),
 			bands

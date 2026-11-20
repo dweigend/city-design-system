@@ -6,7 +6,8 @@ type Point = [number, number];
 
 export type PublicSpace = { id: string; position: Vec3; area: number; polygon: Point[] };
 
-function inside([x, y]: Point, polygon: Point[]) {
+/** Tests a point against the closed outline of a convex court or apron, in metres. */
+export function insideCourt([x, y]: Point, polygon: Point[]) {
 	const sides = polygon.map(([a, b], i) => {
 		const [u, v] = polygon[(i + 1) % polygon.length];
 		return (u - a) * (y - b) - (v - b) * (x - a);
@@ -16,7 +17,7 @@ function inside([x, y]: Point, polygon: Point[]) {
 function fits(b: Reservation, space: PublicSpace, taken: Reservation[]) {
 	if (!available(b, taken)) return false;
 	return [-1, 1].every((i) =>
-		[-1, 1].every((j) => inside([b.x + (i * b.w) / 2, b.y + (j * b.d) / 2], space.polygon))
+		[-1, 1].every((j) => insideCourt([b.x + (i * b.w) / 2, b.y + (j * b.d) / 2], space.polygon))
 	);
 }
 function sites(space: PublicSpace, seed: number) {

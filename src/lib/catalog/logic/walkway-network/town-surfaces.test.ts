@@ -10,7 +10,7 @@ import { openingScene, cityCentreView } from '../sandbox';
 import { houseSurfaces } from '../composed-house';
 import { area } from '../ansicht/geometrie';
 import { intersect, shoelaceArea } from '../parametrik/raster/geometry';
-import { publicFlight } from './town-deck';
+import { publicFlight, townDeck } from './town-deck';
 import { walkingPlates } from './town-survey.test-support';
 
 test('an unsupported ground span uses plain cast paving', () => {
@@ -206,7 +206,7 @@ test('short flights report their deficit or fold inside the reserved side with a
 
 test('guards stop at the exposed stretch of the downhill edge and omit the bank side', () => {
 	const span = { id: 'bank', a: [0, 0, 2] as Vec3, b: [12, 0, 2] as Vec3 };
-	const parts = publicFlight(span, (x, y) => (y < 0 && x >= 3 && x < 8 ? 0 : 1.9));
+	const parts = publicFlight(span, (x, y) => (y < -1.25 && x >= 3 && x < 8 ? 0 : 2));
 	const rails = parts.filter((p) => p.kind === 'pipe');
 	expect(rails).toHaveLength(1);
 	expect(rails[0].points).toEqual([
@@ -227,4 +227,48 @@ test('the public route keeps its walking finish across a low bank and a raised s
 	for (const id of ['low', 'high'])
 		expect(parts.find((p) => p.id === id)?.token).toBe(houseSurfaces.access.token);
 	expect(parts.find((p) => p.id === 'low/pier/foot')?.token).toBe('--paper');
+});
+
+test('level court and apron paving open both sides of a walk over low terrain', () => {
+	const court = {
+		id: 'plaza',
+		position: [15, 8, 2] as Vec3,
+		area: 196,
+		polygon: [
+			[8, 1],
+			[22, 1],
+			[22, 15],
+			[8, 15]
+		] as [number, number][],
+		aprons: [
+			[
+				[3, -6],
+				[8, -6],
+				[8, -1],
+				[3, -1]
+			]
+		] as [number, number][][]
+	};
+	const parts = townDeck(
+		[['a', 'b']],
+		(id) => (id === 'a' ? [0, 0, 2] : [25, 0, 2]),
+		[court],
+		() => 0,
+		7
+	);
+	const rails = parts.flatMap((p) =>
+		p.kind === 'pipe' && p.id.startsWith('town-walk/rail/') ? [p.points] : []
+	);
+	const ranges = (y: number) =>
+		rails
+			.filter((points) => points.every((p) => p[1] === y))
+			.map((points) => [points[0][0], points.at(-1)?.[0]]);
+	expect(ranges(-1.25)).toEqual([
+		[0, 3],
+		[8, 25]
+	]);
+	expect(ranges(1.25)).toEqual([
+		[0, 8],
+		[22, 25]
+	]);
 });
