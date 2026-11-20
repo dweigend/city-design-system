@@ -53,52 +53,105 @@ function footprint(p: Parts[number]): Footprint {
 		? { ring: plan, holes: p.holes ?? [] }
 		: { ring: hull(plan), holes: [] };
 }
-/** Samples the whole footprint: its boundary and a grid over its interior, never only vertices. */
-function footprintSamples({ ring, holes }: Footprint, finest = 0.9): XY[] {
-	const xs = ring.map((p) => p[0]),
-		ys = ring.map((p) => p[1]);
-	const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
-	const step = Math.max(0.1, Math.min(finest, span / 12));
-	const samples: XY[] = [];
-	for (const [i, [u, v]] of ring.entries()) {
-		const [a, b] = ring[(i + 1) % ring.length];
-		const n = Math.max(1, Math.ceil(Math.hypot(a - u, b - v) / step));
-		for (let k = 0; k < n; k++) samples.push([u + ((a - u) * k) / n, v + ((b - v) * k) / n]);
-	}
-	for (let x = Math.min(...xs) + step / 2; x < Math.max(...xs); x += step)
-		for (let y = Math.min(...ys) + step / 2; y < Math.max(...ys); y += step)
-			if (inRing([x, y], ring) && !holes.some((h) => inRing([x, y], h))) samples.push([x, y]);
-	return samples;
+type Corners = readonly (readonly number[])[];
+const epsilon = 1e-9;
+function side(a: readonly number[], b: readonly number[], p: readonly number[]) {
+	return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
 }
-function cellContains(corners: readonly (readonly number[])[], [x, y]: XY, margin: number) {
-	let inside = true,
-		distance = Infinity;
-	for (const [i, [u, v]] of corners.entries()) {
-		const [a, b] = corners[(i + 1) % corners.length],
-			dx = a - u,
-			dy = b - v;
-		if (dx * (y - v) - dy * (x - u) < -1e-9) inside = false;
-		const t = Math.max(0, Math.min(1, ((x - u) * dx + (y - v) * dy) / (dx * dx + dy * dy)));
-		distance = Math.min(distance, Math.hypot(x - u - t * dx, y - v - t * dy));
-	}
-	return inside || distance <= margin + 1e-7;
+function area(ring: Corners) {
+	return ring.slice(2).reduce((sum, p, i) => sum + side(ring[0], ring[i + 1], p) / 2, 0);
 }
-/** True when the whole footprint lies on the union of the cells, widened by the margin. */
+function split(ring: XY[], distance: (p: XY) => number) {
+	const inside: XY[] = [],
+		outside: XY[] = [];
+	for (const [i, a] of ring.entries()) {
+		const b = ring[(i + 1) % ring.length],
+			u = distance(a),
+			v = distance(b);
+		(u >= 0 ? inside : outside).push(a);
+		if (u >= 0 === v >= 0) continue;
+		const t = u / (u - v);
+		const cut: XY = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+		inside.push(cut);
+		outside.push(cut);
+	}
+	return { inside, outside };
+}
+function subtractCell(ring: XY[], corners: Corners, margin: number) {
+	const rest: XY[][] = [];
+	const sign = Math.sign(area(corners));
+	for (const [i, a] of corners.entries()) {
+		const b = corners[(i + 1) % corners.length];
+		const offset = margin * Math.hypot(b[0] - a[0], b[1] - a[1]);
+		const { inside, outside } = split(ring, (p) => sign * side(a, b, p) + offset);
+		if (outside.length >= 3) rest.push(outside);
+		ring = inside;
+		if (ring.length < 3) break;
+	}
+	return rest;
+}
+/** Subtracts the union of margin-offset convex cells from the occupied footprint, in square metres. */
 export function plotCovers(
-	cells: readonly { corners: readonly (readonly number[])[] }[],
+	cells: readonly { corners: Corners }[],
 	shape: Footprint,
 	margin: number
 ) {
-	return footprintSamples(shape).every((pt) =>
-		cells.some((c) => cellContains(c.corners, pt, margin))
+	function uncovered(ring: XY[]) {
+		let pieces = [ring];
+		for (const cell of cells) pieces = pieces.flatMap((r) => subtractCell(r, cell.corners, margin));
+		return pieces.reduce((total, piece) => total + Math.abs(area(piece)), 0);
+	}
+	return (
+		uncovered(shape.ring) - shape.holes.reduce((sum, hole) => sum + uncovered(hole), 0) <= 1e-6
 	);
 }
-/** True when the whole footprint lies on the deck outline and crosses none of its openings. */
+function strictlyInside(p: XY, ring: XY[]) {
+	return ringDistance(p, ring) > epsilon && inRing(p, ring);
+}
+// Split at boundary vertices as well as proper intersections. This also catches an edge
+// traversing a notch through its two corners, where neither intersection is proper.
+function edgeLeaves(a: XY, b: XY, ring: XY[], forbiddenInside: boolean) {
+	const cuts = [0, 1],
+		dx = b[0] - a[0],
+		dy = b[1] - a[1],
+		length = Math.hypot(dx, dy);
+	if (length <= epsilon) return false;
+	for (const [i, c] of ring.entries()) {
+		const d = ring[(i + 1) % ring.length];
+		const u = side(a, b, c) / length,
+			v = side(a, b, d) / length;
+		if (Math.abs(u) <= epsilon) cuts.push(((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / length ** 2);
+		if (!(u * v < 0)) continue;
+		const s = side(c, d, a),
+			t = side(c, d, b);
+		if (s * t < 0) cuts.push(s / (s - t));
+	}
+	const ordered = cuts.filter((t) => t >= 0 && t <= 1).sort((s, t) => s - t);
+	return ordered.slice(1).some((t, i) => {
+		const mid = (t + ordered[i]) / 2,
+			p: XY = [a[0] + mid * dx, a[1] + mid * dy];
+		return ringDistance(p, ring) > epsilon && inRing(p, ring) === forbiddenInside;
+	});
+}
+function boundaryLeaves(shape: XY[], ring: XY[], forbiddenInside: boolean) {
+	return shape.some((p, i) => edgeLeaves(p, shape[(i + 1) % shape.length], ring, forbiddenInside));
+}
+function encloses(outer: XY[], inner: XY[]) {
+	return (
+		inner.every((p) => inRing(p, outer) || ringDistance(p, outer) <= epsilon) &&
+		!boundaryLeaves(inner, outer, false)
+	);
+}
+function overlaps(a: XY[], b: XY[]) {
+	return a.some((p) => strictlyInside(p, b)) || boundaryLeaves(a, b, true);
+}
+/** Checks occupied footprint edges and opening interiors, allowing contact at their boundaries. */
 export function deckCovers(deck: Footprint, shape: Footprint) {
-	return footprintSamples(shape, 0.15).every(
-		(pt) =>
-			(inRing(pt, deck.ring) || ringDistance(pt, deck.ring) <= 1e-6) &&
-			!deck.holes.some((h) => inRing(pt, h) && ringDistance(pt, h) > 1e-6)
+	if (!encloses(deck.ring, shape.ring)) return false;
+	return deck.holes.every(
+		(hole) =>
+			shape.holes.some((opening) => encloses(opening, hole)) ||
+			!(overlaps(hole, shape.ring) || overlaps(shape.ring, hole) || encloses(shape.ring, hole))
 	);
 }
 function checkOccupant(

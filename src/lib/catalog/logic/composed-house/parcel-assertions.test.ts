@@ -54,3 +54,18 @@ test('an occupant straddling a deck opening is off the deck although its corners
 		false
 	);
 });
+
+test('a centimetre slot between grid samples rejects overlap and permits boundary contact', () => {
+	const cells = [{ corners: square(0, 0, 3.037, 5) }, { corners: square(3.047, 0, 4, 5) }];
+	const deck = { ring: square(0, 0, 7, 5), holes: [square(3.037, 0.5, 0.01, 4)] };
+	for (const [x, covered] of [
+		[2, false],
+		[0.5, true],
+		[0, true],
+		[1.037, true]
+	] as const) {
+		const shape = { ring: square(x, 1, 2, 2), holes: [] };
+		expect(plotCovers(cells, shape, 0)).toBe(covered);
+		expect(deckCovers(deck, shape)).toBe(covered);
+	}
+});
