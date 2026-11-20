@@ -38,5 +38,6 @@ const defaults = new Set(Object.values(houseSurfaces));
 /** Selects the catalogue finish for stock dressed with a default slot, preserving a caller's explicit assignment. */
 export function roleSurface(surface: Surface, role: keyof typeof finishes): Surface {
 	if (!defaults.has(surface)) return surface;
-	return { token: role === 'rim' ? '--ink' : surface.token, finish: finishes[role] };
+	// A capsule rim is a mid-grey line: ink read as a heavy black ring on stacked capsules.
+	return { token: role === 'rim' ? '--ink-3' : surface.token, finish: finishes[role] };
 }

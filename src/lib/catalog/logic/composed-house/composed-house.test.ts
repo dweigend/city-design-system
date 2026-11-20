@@ -135,7 +135,7 @@ test('explicit shell, glazing and capsule rim assignments survive projection acr
 	const rims = sectionParts(section).filter((p) => p.source.slot === 'edge' && p.kind === 'ring');
 	expect(rims.length).toBeGreaterThan(0);
 	for (const rim of rims) {
-		expect(rim).toMatchObject({ token: '--ink', finish: 'metal' });
+		expect(rim).toMatchObject({ token: '--ink-3', finish: 'metal' });
 		expect(parts.find((p) => p.id === rim.id)).toMatchObject(palette.water);
 	}
 	for (const l of section.composition.levels) {
