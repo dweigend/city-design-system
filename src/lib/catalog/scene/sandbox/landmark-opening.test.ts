@@ -45,7 +45,8 @@ function hud(name: string, w: number, h: number, right: number, top: number, bot
 		{ left: 8, top: 8, right: 158, bottom: 141 },
 		{ left: w - 434, top: 16, right: w - 16, bottom: 61 },
 		{ left: right, top: h / 2 - 252, right: w - 16, bottom: h / 2 + 252 },
-		{ left: 16, top: h - 77, right: 665, bottom: h - 16 }
+		{ left: 16, top: h - 78, right: 665, bottom: h - 16 },
+		{ left: w - 359, top: h - 42, right: w - 16, bottom: h - 16 }
 	];
 }
 const stageGeometry = new WeakMap<World, Map<string, Primitive[]>>();
@@ -151,7 +152,7 @@ test.each([
 		const hudBoxes = [...area.reserved, { left: 0, right: width, top: 0, bottom: top }].map(
 			(r) => new Box2(new Vector2(r.left, r.top), new Vector2(r.right, r.bottom))
 		);
-		(phone ? frameOldTown : frameTownSilhouette)(view, world, area, additions);
+		expect((phone ? frameOldTown : frameTownSilhouette)(view, world, area, additions)).toBe(true);
 		const canvas = new Box2(new Vector2(), new Vector2(width, height));
 		const safe = new Box2(new Vector2(0, top), new Vector2(right, bottom));
 		const forbidden = new Box2(

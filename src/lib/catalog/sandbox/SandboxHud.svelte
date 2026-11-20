@@ -46,12 +46,14 @@
 		session,
 		group = $bindable(),
 		rail = $bindable(),
-		timelineBar = $bindable()
+		timelineBar = $bindable(),
+		hintBox = $bindable()
 	}: {
 		session: Session;
 		group?: HTMLDivElement;
 		rail?: HTMLDivElement;
 		timelineBar?: HTMLDivElement;
+		hintBox?: HTMLDivElement;
 	} = $props();
 
 	let sheetOpen = $state(false);
@@ -194,7 +196,7 @@
 {/snippet}
 
 {#snippet toolHint()}
-	<div class="hint" class:warning={Boolean(failure)}>
+	<div class="hint" bind:this={hintBox} class:warning={Boolean(failure)}>
 		<span role="status">
 			{hint}
 			{#if failure && advanceReport}<span class="pending">{advanceReport}</span>{/if}
