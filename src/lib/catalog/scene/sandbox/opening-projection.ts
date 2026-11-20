@@ -112,10 +112,7 @@ export function surveyContext(world: World, additions: readonly Primitive[]) {
 	contexts.set(world, { additions, geometry });
 	return geometry;
 }
-const oriented = new WeakMap<
-	ReturnType<typeof surveyContext>,
-	Map<string, OpeningProjection>
->();
+const oriented = new WeakMap<ReturnType<typeof surveyContext>, Map<string, OpeningProjection>>();
 /** Caches per-orientation silhouettes for fixed world-origin camera axes, independent of HUD and zoom. */
 export function orientedProjection(
 	view: View,
