@@ -33,7 +33,10 @@ const sectionsByName = {
 	'tiered-ziggurat': (t) => ring(0.04 + 0.12 * Math.floor(3 * t)),
 	'waisted-shell': (t) => ring(0.04 + 0.3 * wave(t)),
 	'corbelled-bowl': (t) => ring(0.38 * (1 - t * t)),
-	longhouse: (t) => [0.03, 0.03, 0.08 + 0.36 * t, 0.08 + 0.36 * t]
+	longhouse: (t) => [0.03, 0.03, 0.08 + 0.36 * t, 0.08 + 0.36 * t],
+	'quarry-cut': (t) => [0.03, t < 0.52 ? 0.06 : 0.49, 0.04, 0.32 * t],
+	'wind-scoop': (t) => [0.48 * Math.sin(Math.PI * t), 0.02, 0.07, 0.31 * t * t],
+	'silo-crown': (t) => ring(t > 0.68 ? 0.06 : 0.26 * Math.sin(Math.PI * t))
 } satisfies Record<string, SectionRule>;
 
 export const sections = Object.keys(sectionsByName) as (keyof typeof sectionsByName)[];

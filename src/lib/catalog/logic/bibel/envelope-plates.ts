@@ -34,7 +34,8 @@ type Study = [
 	HouseEnvelope['section'],
 	HouseEnvelope['outline'],
 	HouseEnvelope['skin'],
-	HouseEnvelope['finish']
+	HouseEnvelope['finish'],
+	HouseEnvelope['system']?
 ];
 const studies: Study[] = [
 	['Woven vessel', 'cove', 'vessel', 'oval', 'woven', 'holz-natur'],
@@ -58,14 +59,36 @@ const studies: Study[] = [
 	['Ziggurat', 'pentagon', 'tiered-ziggurat', 'orthogonal', 'plain', 'keramik-glasiert'],
 	['Waisted shell', 'triangle', 'waisted-shell', 'oval', 'woven', 'membran-gewebe'],
 	['Corbelled bowl', 'cove', 'corbelled-bowl', 'fluted', 'cushioned', 'glas-matt'],
-	['Longhouse', 'triangle', 'longhouse', 'orthogonal', 'woven', 'holz-natur']
+	['Longhouse', 'triangle', 'longhouse', 'orthogonal', 'woven', 'holz-natur'],
+	['Quarry portal', 'cove', 'quarry-cut', 'faceted', 'plain', 'beton-schalung', 'quarry-portals'],
+	[
+		'Lapped wind sails',
+		'triangle',
+		'wind-scoop',
+		'oval',
+		'plain',
+		'metall-gebuerstet',
+		'lapped-sails'
+	],
+	['Silo lantern', 'pentagon', 'silo-crown', 'fluted', 'plain', 'glas-matt', 'prismatic-lantern'],
+	['Split seed pod', 'cove', 'vessel', 'oval', 'plain', 'membran-gewebe', 'seed-pod'],
+	[
+		'Rising clerestory',
+		'triangle',
+		'diagonal-sail',
+		'faceted',
+		'plain',
+		'metall-gebuerstet',
+		'ramp-fold'
+	]
 ];
 
 /** Published combinations use the same carrier, seeded levels, finishes and screen geometry as town lots. */
 export function envelopePlates() {
-	return studies.map(([title, plan, section, outline, skin, finish], i) => {
+	return studies.map(([title, plan, section, outline, skin, finish, specified], i) => {
 		const seed = 31 + i;
-		const system = shellSystems[[3, 0, 2, 4, 14, 7, 5, 1, 10, 6, 11, 9, 15, 12, 13, 8][i % 16]];
+		const system =
+			specified ?? shellSystems[[3, 0, 2, 4, 14, 7, 5, 1, 10, 6, 11, 9, 15, 12, 13, 8][i % 16]];
 		const site = polygonHouseSite('study', plans[plan], Array(7).fill('living'), seed, {
 			section,
 			system,

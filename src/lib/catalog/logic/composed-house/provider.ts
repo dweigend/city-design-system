@@ -120,7 +120,13 @@ function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 
 /** Mounts the body stock with the load path assigned by the composition. */
 export function bodyParts(b: Body, surfaces: HouseSurfaces, accent: BandAccent = 'none') {
-	return bodyStock(b, surfaces, accent).map((p) => ({ ...p, structuralRole: b.structuralRole }));
+	return bodyStock(b, surfaces, accent).map((p) => ({
+		...p,
+		structuralRole: b.structuralRole,
+		...(accent !== 'none' && p.token === surfaces[b.use].token
+			? { colourRole: 'body-accent' as const }
+			: {})
+	}));
 }
 
 function recess(p: ReturnType<typeof members>[number], b: Body) {

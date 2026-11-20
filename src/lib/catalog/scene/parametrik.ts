@@ -411,7 +411,7 @@ export function createParametrikScene(
 				continue;
 			}
 			const surface = finish
-				? resolveFinish(finish, p.token, p.ageTint)
+				? resolveFinish(finish, p.token, p.ageTint, p.colourRole)
 				: look
 					? drawingSurface(look)
 					: undefined;

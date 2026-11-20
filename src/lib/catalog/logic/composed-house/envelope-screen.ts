@@ -38,7 +38,7 @@ export function envelopeScreen(body: Body, surface: Surface): StockPart[] {
 		slots: { body: surface }
 	}).parts[0];
 	if (stock.kind !== 'mesh') throw new Error('Expected an envelope panel mesh');
-	return footprint.polygon.flatMap((a, i, ring) => {
+	return (body.band?.lining ?? footprint.polygon).flatMap((a, i, ring) => {
 		const mesh: Mesh = {
 			...stock,
 			id: body.id + '/face/' + i + '/screen',

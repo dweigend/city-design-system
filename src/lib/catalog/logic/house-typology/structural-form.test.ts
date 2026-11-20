@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { resolveFinish } from '../material/surface';
 import { printPatterns } from '../../data/materialPrint';
 import { bounds } from '../ansicht/geometrie';
-import { circulation, housePartPlan, houseSurfaces, sectionParts } from '../composed-house';
+import { circulation, houseSurfaces, sectionParts } from '../composed-house';
 import { specimen, minimumGauge } from './specimens';
 import { wideTypologies as typologies, type Typology } from './families';
 
@@ -54,16 +54,6 @@ function edgeDistance(a: XY, b: XY, p: XY) {
 		Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))
 	);
 	return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
-}
-function touches(a: Part, b: Part) {
-	const A = bounds(a),
-		B = bounds(b);
-	if (A.min.some((v, k) => v > B.max[k] + 0.02 || B.min[k] > A.max[k] + 0.02)) return false;
-	const one = housePartPlan(a),
-		two = housePartPlan(b);
-	const near = (a: XY[], b: XY[]) =>
-		a.some((p, i) => b.some((q) => edgeDistance(p, a[(i + 1) % a.length], q) < 0.020001));
-	return near(one, two) || near(two, one);
 }
 function inside(point: XY, ring: XY[]) {
 	const [x, y] = point;
@@ -121,44 +111,35 @@ test('every floor and roof exit meets its physical deck within two centimetres',
 			).toBe(true);
 	}
 });
-test('switchback half-landings meet a building member, directly or through an attached deck seat', () => {
-	for (const type of ['deck-tower', 'rack', 'cluster-mast', 'plinth-house'] as const) {
-		const parts = sectionParts(specimen(type === 'cluster-mast' ? 4 : 1, type));
-		const building = parts.filter(
-			(p) =>
-				!p.id.includes('/stair/') && !p.id.includes('/landing-seat/') && !p.id.includes('/people/')
-		);
-		const track = parts.filter((p) => /\/tread(?:\/outer)?$/.test(p.id)).flatMap(housePartPlan);
-		const envelope = building.flatMap(housePartPlan);
-		for (const axis of [0, 1] as const) {
-			const coords = (points: XY[]) => points.map((p) => p[axis]);
-			expect(Math.min(...coords(track))).toBeLessThanOrEqual(Math.max(...coords(envelope)) + 0.02);
-			expect(Math.max(...coords(track))).toBeGreaterThanOrEqual(
-				Math.min(...coords(envelope)) - 0.02
-			);
-		}
-		const turns = parts.filter((p) => p.id.includes('/stair/') && p.id.endsWith('/landing'));
-		expect(turns.length).toBeGreaterThan(0);
-		for (const turn of turns) {
-			const seat = parts.find((p) => p.id === turn.id.replace('/stair/', '/landing-seat/'));
+test('each ladder flight starts on a physical landing shared by both ladder lanes', () => {
+	for (const t of typologies) {
+		const s = specimen(2, t),
+			parts = sectionParts(s);
+		const landings = parts.filter((p) => p.kind === 'prism' && p.id.includes('/stair/landing/'));
+		const route = circulation(s);
+		for (const flight of route.legs.filter((l) => l.kind === 'ladder')) {
+			const [x, y, z] = flight.from;
 			expect(
-				building.some((b) => touches(turn, b)) ||
-					(!!seat && touches(turn, seat) && building.some((b) => touches(seat, b))),
-				turn.id + ' ' + type
+				landings.some(
+					(p) => p.kind === 'prism' && Math.abs(p.z + p.height - z) <= 0.02 && onDeck([x, y], p)
+				)
 			).toBe(true);
 		}
 	}
 });
-test('a thirteen-storey frame carries loads through lattice bays with 0.3 m chords and diagonals', () => {
-	for (const type of ['deck-tower', 'capsule-stack', 'rack'] as const) {
-		const h = specimen(1, type, 13).composition;
-		expect(h.signature.support).toBe('lattice shaft');
-		const braces = h.supports.filter((p) => p.id.includes('/lattice/'));
-		expect(braces.length).toBeGreaterThan(3);
-		for (const b of braces) {
-			expect(b.size[1]).toBeCloseTo(0.3);
-			expect(b.size[2]).toBeLessThanOrEqual(4.000001);
-		}
+test('a thirteen-storey envelope carries a structural wall from grade to its crest', () => {
+	const s = specimen(1, 'deck-tower', 13);
+	const exterior = s.composition.exterior;
+	if (!exterior) throw Error('Missing structural envelope');
+	expect(exterior.system).toBe(s.composition.signature.support);
+	expect(exterior.stations).toHaveLength(14);
+	const walls = sectionParts(s).filter((p) => p.source.objectId === 'full-height-shell');
+	expect(walls.length).toBeGreaterThan(3);
+	for (const wall of walls) {
+		if (wall.kind !== 'mesh') throw Error('Expected bearing mesh');
+		expect(wall.source.variant).toBe(exterior.system);
+		expect(Math.min(...wall.points.map((p) => p[2]))).toBeCloseTo(s.composition.ground);
+		expect(Math.max(...wall.points.map((p) => p[2]))).toBeCloseTo(s.top);
 	}
 });
 test('four-cell housing exposes programme stock and an open bay, terrace or courtyard', () => {
@@ -224,24 +205,18 @@ test('registry groups have unscaled feet on terraces, landings or roofs', () => 
 		}
 	}
 });
-test('each band has a terrace guard and a recessed pane below its lintel', () => {
-	for (const type of typologies) {
-		const s = specimen(type === 'courtyard-house' ? 4 : 2, type),
-			parts = sectionParts(s);
-		for (const b of s.slots.filter((b) => b.band)) {
-			if (b.band?.modules) {
-				expect(parts.some((p) => p.id.startsWith(b.id + '/') && p.source.slot === 'glass')).toBe(
-					true
-				);
-				continue;
-			}
+test('glazing and sill follow the surveyed inner weather line and share a horizontal joint', () => {
+	for (const t of typologies) {
+		const house = specimen(2, t),
+			parts = sectionParts(house);
+		for (const b of house.slots.filter((b) => b.band?.footprint)) {
 			const courses = parts.filter((p) => p.id.startsWith(b.id + '/primitive-slab/'));
 			const pane = courses.find((p) => p.id.includes('/window')),
 				sill = courses.find((p) => p.id.includes('/sill'));
-			if (!pane || !sill) throw Error('Missing glazing or sill');
-			for (const axis of [0, 1])
-				expect(bounds(pane).min[axis] - bounds(sill).min[axis]).toBeCloseTo(0.35);
-			expect(parts.some((p) => p.id.startsWith(b.id + '/terrace/kit-parapet-solid-'))).toBe(true);
+			if (pane?.kind !== 'prism' || sill?.kind !== 'prism') throw Error('Missing glazing or sill');
+			expect(b.band?.lining).toEqual(pane.polygon);
+			expect(sill.polygon).toEqual(pane.polygon);
+			expect(sill.z + sill.height).toBeCloseTo(pane.z);
 		}
 	}
 });
@@ -292,13 +267,13 @@ function checkFinish(p: Part) {
 		expect(p.finish).toBe('acryl-matt');
 	if (p.id.endsWith('/deck')) expect(p.finish).toBe(houseSurfaces.deck.finish);
 }
-test('every inhabited storey has a registry terrace planter', () => {
-	for (const type of typologies) {
-		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
-		const furniture = sectionParts(s).filter(
-			(p) => p.source.objectId === 'rolled-lip-planter' && p.id.includes('/level/')
-		);
-		expect(furniture.length, type).toBe(s.decks.length);
+test('the roof ornament sits on the final deck of the supported volume', () => {
+	for (const t of typologies) {
+		const house = specimen(2, t),
+			crown = house.composition.crown;
+		expect(house.composition.sharedRoof).toBe('head');
+		expect(crown.position[2]).toBeCloseTo(house.top);
+		expect(sectionParts(house).some((p) => p.id.startsWith(crown.id + '/'))).toBe(true);
 	}
 });
 
