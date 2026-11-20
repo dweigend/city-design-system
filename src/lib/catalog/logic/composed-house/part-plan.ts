@@ -9,17 +9,11 @@ export function planPoints(p: Primitive): Point2[] {
 	if (p.kind === 'capsule') return [p.from, p.to].flatMap(([x, y]) => circle(x, y, p.radius));
 	if (p.kind === 'sphere' || p.kind === 'cylinder' || p.kind === 'dome')
 		return circle(p.position[0], p.position[1], p.radius);
+	if (p.kind === 'vault')
+		return corners(p.position[0], p.position[1], p.width, p.length, p.rotation);
 	if (p.kind === 'box' || p.kind === 'wedge') {
-		const [w, d] = p.size,
-			[x, y] = p.position,
-			c = Math.cos(p.rotation ?? 0),
-			s = Math.sin(p.rotation ?? 0);
-		return [-0.5, 0.5].flatMap((u) =>
-			[-0.5, 0.5].map((v): Point2 => [
-				x + w / 2 + u * w * c - v * d * s,
-				y + d / 2 + u * w * s + v * d * c
-			])
-		);
+		const [w, d] = p.size;
+		return corners(p.position[0] + w / 2, p.position[1] + d / 2, w, d, p.rotation);
 	}
 	const b = bounds(p);
 	return [b.min[0], b.max[0]].flatMap((x) => [b.min[1], b.max[1]].map((y): Point2 => [x, y]));
@@ -30,4 +24,12 @@ function circle(x: number, y: number, r: number): Point2[] {
 		x + outer * Math.cos(((i + 0.5) * Math.PI) / 6),
 		y + outer * Math.sin(((i + 0.5) * Math.PI) / 6)
 	]);
+}
+
+function corners(x: number, y: number, w: number, d: number, angle = 0): Point2[] {
+	const c = Math.cos(angle),
+		s = Math.sin(angle);
+	return [-0.5, 0.5].flatMap((u) =>
+		[-0.5, 0.5].map((v): Point2 => [x + u * w * c - v * d * s, y + u * w * s + v * d * c])
+	);
 }
