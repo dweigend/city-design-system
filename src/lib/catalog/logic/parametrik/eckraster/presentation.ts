@@ -83,7 +83,7 @@ export function head(
 		.map((q, i) => ({
 			...q,
 			id: `kopf:${c.id}:${i}`,
-			token: keep.has(q.token) ? q.token : accent
+			token: q.token && keep.has(q.token) ? q.token : accent
 		}));
 }
 

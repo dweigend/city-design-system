@@ -95,7 +95,6 @@ export function buildObject(
 		if (buildingSurface && !chosen) {
 			return {
 				...shape,
-				token: suggestion.token,
 				material: suggestion.material,
 				buildingSurface
 			};

@@ -62,7 +62,7 @@ export function stapelBild(
 		.filter((p) => sichtbar.includes(schichtVon(p)))
 		.map((p, i) => {
 			if (!umgebaut || schichtVon(p) !== 'einschub') return p;
-			const alt = STROEME.indexOf(p.token);
+			const alt = STROEME.findIndex((token) => token === p.token);
 			const r = Math.floor(random(saat + i * 7919)() * (STROEME.length - 1));
 			return { ...p, token: STROEME[(Math.max(0, alt) + 1 + r) % STROEME.length] };
 		});

@@ -129,7 +129,7 @@ test('seed 7 adds four differently shaped, permanent catchment works per tick an
 		expect(added.every(({ built }) => built === after.state.year)).toBe(true);
 		expect(
 			forms(after).every((parts) =>
-				parts.some(({ token, role }) => token.startsWith('--cat-') && role === 'neu')
+				parts.some(({ token, role }) => token?.startsWith('--cat-') && role === 'neu')
 			)
 		).toBe(true);
 		expect(advanceAdditions(before, after)).toMatchObject({

@@ -242,7 +242,7 @@ export function populateStructures(
 				.filter(
 					(p) =>
 						p.role === 'neu' &&
-						p.token.startsWith('--cat-') &&
+						p.token?.startsWith('--cat-') &&
 						/\/(fitting|vessel|feed)$/.test(p.id)
 				)
 				.map((p) => [

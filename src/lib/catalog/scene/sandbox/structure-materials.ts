@@ -211,7 +211,7 @@ export function structureMaterials(
 			materials.stockPrimary.color.copy(palette.blei);
 		}
 	}
-	function colorOf(token: string) {
+	function colorOf(token = '--paper') {
 		const cached = colors.get(token);
 		if (cached) return cached;
 		const color = palette?.token(token) ?? paper;
@@ -222,7 +222,7 @@ export function structureMaterials(
 	/** Resolves a flat print patch against the same palette as its source pigments. */
 	function printColor(part: Primitive) {
 		const base = colorOf(part.token);
-		if (!part.overprint || !palette) return base;
+		if (!part.token || !part.overprint || !palette) return base;
 		const key = part.token + '/' + part.overprint;
 		const cached = overprints.get(key);
 		if (cached) return cached;

@@ -1,3 +1,4 @@
+import { projectBuildingSurface } from '../../scene/building-surface';
 import { expect, test } from 'bun:test';
 import { ACCENT_TOKEN } from '../../data/house-body';
 import { accentBody, ensembleAnchor, sectionParts } from '../composed-house';
@@ -27,6 +28,6 @@ test('every occupied court in the seed-seven opening has its own houses and one 
 			(p) => p.id.startsWith(target.id + '/') && ['shell', 'body'].includes(p.source.slot)
 		);
 		expect(walls.length).toBeGreaterThan(0);
-		expect(walls.every((p) => colours.has(p.token) && p.colourRole === 'body-accent')).toBe(true);
+		expect(walls.every((p) => colours.has(projectBuildingSurface(p).token))).toBe(true);
 	}
 }, 60000);

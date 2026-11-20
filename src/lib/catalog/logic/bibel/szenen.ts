@@ -48,7 +48,7 @@ export const koepfe = (): Vignette[] =>
 			primitives: [
 				...formOnCell(familie, 'square', { ...defaults(familie), ...f.kopfParams }, 7, {
 					token: main
-				}).map((q) => ({ ...q, token: keep.has(q.token) ? q.token : accentOf(main) })),
+				}).map((q) => ({ ...q, token: q.token && keep.has(q.token) ? q.token : accentOf(main) })),
 				// Vegetation stays green; the dwelling beneath it carries the people color.
 				...(f.id === 'wohnen'
 					? [

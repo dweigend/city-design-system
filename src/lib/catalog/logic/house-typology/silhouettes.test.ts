@@ -1,3 +1,4 @@
+import { projectBuildingSurface } from '../../scene/building-surface';
 import { minimumGauge } from './specimens';
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
@@ -98,9 +99,11 @@ test('each occupied body uses at most one programme pigment from the leading use
 			parts = sectionParts(s);
 		for (const body of s.slots) {
 			const used = parts.filter(
-				(p) => p.id.startsWith(body.id + '/' + body.objectId + '/') && programmeTokens.has(p.token)
+				(p) =>
+					p.id.startsWith(body.id + '/' + body.objectId + '/') &&
+					programmeTokens.has(projectBuildingSurface(p).token)
 			);
-			const finishes = new Set(used.map((p) => p.token));
+			const finishes = new Set(used.map((p) => projectBuildingSurface(p).token));
 			expect(finishes.size).toBeLessThanOrEqual(1);
 			for (const token of finishes) expect(token).toBe(houseSurfaces.living.token);
 		}

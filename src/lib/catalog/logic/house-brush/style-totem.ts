@@ -6,7 +6,7 @@ import type { ModuleRecipe } from './module-group';
 import type { DockedModule } from '../megastructure';
 import { flowToken } from '../../data/focus';
 import { STORY } from '../../data/grid';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
 import { kanal } from '../traeger';
 import type { Site } from './form';
 import type { Mass } from './massing';
@@ -71,7 +71,7 @@ function porthole(b: Bay, pod: Pod): Primitive[] {
 export function dockedModule(
 	b: Bay,
 	side: number,
-	token: Primitive['token'],
+	token: ColorToken,
 	p = TOTEM_DEFAULTS
 ): Primitive[] {
 	const center = b.point(0.5, 0.5, p.seat);

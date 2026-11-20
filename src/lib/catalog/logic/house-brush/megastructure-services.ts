@@ -1,5 +1,5 @@
 import { flowToken } from '../../data/focus';
-import type { Primitive, Vec3 } from '../parametrik/types';
+import type { ColorToken, Primitive, Vec3 } from '../parametrik/types';
 import { along, type Bay } from './megastructure-bay';
 
 /** Short walkable landing on the side served by the access flight. */
@@ -55,7 +55,7 @@ export function access(bay: Bay, side: number) {
 }
 
 /** Carries the supply independently of the access flight. */
-export function supply(bay: Bay, side: number, token: Primitive['token']) {
+export function supply(bay: Bay, side: number, token: ColorToken) {
 	const points: Vec3[] = [
 		along(bay, side, 0.16, -0.1, 0),
 		along(bay, side, 0.16, -0.1, 0.5),

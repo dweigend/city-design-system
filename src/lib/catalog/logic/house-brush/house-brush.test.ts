@@ -275,7 +275,7 @@ test('Capsules print pigment below the paper seam and turn a quarter turn each l
 	const [a, b, c] = pods.map(direction);
 	expect(a[0] * b[1] - a[1] * b[0]).toBeCloseTo(0);
 	expect(a[0] * c[0] + a[1] * c[1]).toBeCloseTo(0);
-	expect(list.some((p) => p.token.startsWith('--cat-business'))).toBe(false);
+	expect(list.some((p) => p.token?.startsWith('--cat-business'))).toBe(false);
 	expect(named(list, '/porthole-ring')).toHaveLength(3);
 });
 

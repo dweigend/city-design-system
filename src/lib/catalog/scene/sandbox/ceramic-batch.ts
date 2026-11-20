@@ -84,7 +84,7 @@ export function ceramicBatch(
 	const groups = new Map<Material, BufferGeometry[]>();
 	for (const part of parts) {
 		if (part.kind === 'polyline') continue;
-		const token = (pigments.get(part.id) ?? part).token;
+		const token = (pigments.get(part.id) ?? part).token ?? '--paper';
 		const family = castingFamily.get(part.kind) ?? 1;
 		const finish =
 			token === '--paper' ? 0 : family === 3 && token !== flowToken.energy ? 1 : family;

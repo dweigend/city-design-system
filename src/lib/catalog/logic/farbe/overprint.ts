@@ -1,8 +1,8 @@
 import { linearToOklch, oklchToLinear, type Rgb } from './oklch';
 
 /** The path ramp is reserved for opaque pink marks. */
-export function isPathInk(token: string): boolean {
-	return token === '--cat-business' || token.startsWith('--cat-business-');
+export function isPathInk(token?: string): boolean {
+	return token === '--cat-business' || token?.startsWith('--cat-business-') === true;
 }
 
 const MIN_LIGHTNESS = 0.42;

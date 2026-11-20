@@ -272,7 +272,7 @@ test('the capsule reference has no dark or sub-half-metre pieces resting on a de
 	for (const p of decks) {
 		const slot = p.buildingSurface?.slot;
 		if (p.id.endsWith('/plinth')) expect(slot).toBe('base');
-		else expect(['deck', 'frame']).toContain(slot);
+		else expect(slot === 'deck' || slot === 'frame').toBe(true);
 	}
 	const treads = parts.filter((p) => p.source.objectId === 'stairs' && p.kind === 'prism');
 	expect(treads.length).toBeGreaterThan(0);

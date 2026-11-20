@@ -181,7 +181,6 @@ export function parcelExterior(
 		fabric: envelope.fabric,
 		frame: envelope.frame,
 		courtWalls: envelope.fabric ? (parcel.courtWalls ?? []) : [],
-		finish: envelope.finish,
 		faces: seams.map((spans) =>
 			spans.some(
 				({ hidden }) => !hidden || hidden[0] > datums[0] || hidden[1] < datums[datums.length - 1]
