@@ -1,6 +1,6 @@
 import { block } from '../assembly';
 import { rod, drum } from '../parts';
-import { rounded } from './kit-recipe';
+import { pavedDeck, rounded } from './kit-recipe';
 import { spans, houseSeries, courses } from './house-series';
 import { passage } from './capsule-kit';
 
@@ -94,7 +94,7 @@ function garden(overhang: boolean) {
 }
 export const deckKit = [
 	...(['solid', 'rail', 'mesh', 'glass'] as const).flatMap(parapet),
-	...walk('gallery'),
+	...walk('gallery').map(pavedDeck),
 	...walk('plank'),
 	...walk('truss'),
 	...houseSeries(
@@ -125,7 +125,7 @@ export const deckKit = [
 		['deck', 'frame'],
 		bays,
 		(l, v) => [rounded(0, 0, 0, l, 1.25, 0.15, 'deck'), ...barrier(l, 0.55, 0.15, v)]
-	),
+	).map(pavedDeck),
 	...garden(true),
 	...garden(false)
 ];
