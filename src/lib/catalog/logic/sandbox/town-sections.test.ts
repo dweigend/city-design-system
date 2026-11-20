@@ -22,7 +22,7 @@ test('every occupied court in the seed-seven opening has its own houses and one 
 		expect(anchors.map((h) => h.id)).toEqual([court.lots[0]]);
 		const anchor = anchors[0],
 			target = accentBody(anchor);
-		expect(anchor.decks.at(-1)?.bodies).toContain(target);
+		expect(anchor.composition.levels.at(-1)?.bodies).toContain(target);
 		const walls = sectionParts(anchor).filter(
 			(p) => p.id.startsWith(target.id + '/') && ['shell', 'body'].includes(p.source.slot)
 		);
