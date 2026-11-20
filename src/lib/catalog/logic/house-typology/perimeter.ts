@@ -102,18 +102,21 @@ function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
 }
-function courses(
-	plan: Plan,
-	frontage: ReadonlySet<string>,
-	ensembleSeed: number,
-	galleryCourse?: number,
-	wing?: UpperWing
-) {
+function exposedWall(cells: readonly QuadCell[], frontage: ReadonlySet<string>) {
+	const edges = cells.flatMap((cell) =>
+		cell.corners.flatMap((p, i) =>
+			frontage.has(cell.neighbors[i] ?? '') ? [[p, cell.corners[(i + 1) % 4]]] : []
+		)
+	);
+	const near = (a: readonly number[], b: readonly number[]) =>
+		Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-5;
+	return (a: XY, b: XY) => !edges.some(([u, v]) => near(a, u) && near(b, v));
+}
+function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWing) {
 	const access = accessBay(plan, frontage),
 		{ bay, axis, opening } = access;
-	const { cells, programme, ground, id } = plan.site;
+	const { cells, id } = plan.site;
 	const envelope = houseEnvelope(id, plan.seed, plan.site.envelope);
-	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
 	const plot = parcel(cells);
 	const full = { polygon: plot.polygon, holes: [...plot.holes, opening] };
 	const span = galleryPlot(cells, frontage, access.anchor);
@@ -136,6 +139,39 @@ function courses(
 			? entranceRooms(c, axis, plan.sign)
 			: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
 	);
+	return { access, axis, opening, plot, full, bridge, pier, wingShape, rooms, envelope };
+}
+type CourseShapes = ReturnType<typeof courseShapes>;
+function floorOutline(
+	plan: Plan,
+	shapes: CourseShapes,
+	i: number,
+	gallery: boolean,
+	wing?: UpperWing
+) {
+	if (i + 1 === wing?.level) return shapes.pier;
+	if (i === wing?.level) return shapes.wingShape;
+	if (gallery) return shapes.bridge;
+	if (!plan.site.envelope && i < 2) return shapes.full;
+	return parcelSection(
+		shapes.plot,
+		shapes.opening,
+		shapes.envelope,
+		i / Math.max(1, plan.site.programme.length - 1),
+		i
+	);
+}
+function courses(
+	plan: Plan,
+	frontage: ReadonlySet<string>,
+	ensembleSeed: number,
+	galleryCourse?: number,
+	wing?: UpperWing
+) {
+	const shapes = courseShapes(plan, frontage, wing);
+	const { access, axis, opening, plot, rooms, envelope, pier } = shapes;
+	const { cells, programme, ground, id } = plan.site;
+	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
 	const parts: Solid[] = rooms.map((room, k) =>
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
 	);
@@ -144,24 +180,14 @@ function courses(
 		const z = i ? datums[i] : ground + 0.6;
 		const ceiling = datums[i + 1];
 		const gallery = i === galleryCourse;
-		const tower = parcelSection(plot, opening, envelope, i / Math.max(1, programme.length - 1), i);
-		const under = wing && i + 1 === wing.level;
-		const onWing = wing && i === wing.level;
-		const shape = under
-			? pier
-			: onWing
-				? wingShape
-				: gallery
-					? bridge
-					: !plan.site.envelope && i < 2
-						? full
-						: tower;
-		const underGround = i === 0 && under;
+		const shape = floorOutline(plan, shapes, i, gallery, wing);
+		const underGround = i === 0 && wing?.level === 1;
 		const baseTop = underGround ? z + (ceiling - z) * 0.46 : ceiling - rim;
 		const shells = i === 0 && !plan.site.envelope ? rooms : [shape];
 		const bodies = shells.map((shell, k) => {
 			const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
 			if (body.band && i >= 2) {
+				body.band.cells = cells;
 				body.band.finish = envelope.finish;
 				if (!gallery) body.band.skin = envelope.skin;
 			}
@@ -202,25 +228,7 @@ function courses(
 	const top = datums[programme.length];
 	const exterior =
 		!frontage.size || wing?.roof === 'head'
-			? parcelExterior(
-					plot,
-					opening,
-					envelope,
-					ground,
-					top,
-					(a, b) =>
-						!cells.some((cell) =>
-							cell.corners.some(
-								([x, y], i) =>
-									frontage.has(cell.neighbors[i] ?? '') &&
-									Math.hypot(x - a[0], y - a[1]) < 1e-5 &&
-									Math.hypot(
-										cell.corners[(i + 1) % 4][0] - b[0],
-										cell.corners[(i + 1) % 4][1] - b[1]
-									) < 1e-5
-							)
-						)
-				)
+			? parcelExterior(plot, opening, envelope, ground, top, exposedWall(cells, frontage))
 			: undefined;
 	return { levels, parts, access, profile: envelope.section, top, exterior };
 }

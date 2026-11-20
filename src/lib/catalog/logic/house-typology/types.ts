@@ -59,6 +59,7 @@ export type Body = HouseSlot & {
 	nativeCenter: Point;
 	bay?: [number, number];
 	band?: {
+		cells?: HouseSite['cells'];
 		finish?: HouseEnvelope['finish'];
 		skin?: HouseEnvelope['skin'];
 		wellX?: number;

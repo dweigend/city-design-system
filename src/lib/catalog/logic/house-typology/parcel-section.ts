@@ -49,6 +49,13 @@ function fits(ring: XY[], parcel: Parcel, holes: XY[][]) {
 		holes.every((h) => h.every((p) => inside(p, ring)) && !crosses(h, ring))
 	);
 }
+function wallCorners(polygon: XY[]) {
+	return polygon.filter((p, i, r) => {
+		const a = r[(i + r.length - 1) % r.length],
+			b = r[(i + 1) % r.length];
+		return Math.abs((p[0] - a[0]) * (b[1] - p[1]) - (p[1] - a[1]) * (b[0] - p[0])) > 1e-9;
+	});
+}
 /** Offsets the original surveyed walls; backs off at re-entrant corners, courtyards and the stair. */
 export function parcelSection(
 	parcel: Parcel,
@@ -57,11 +64,7 @@ export function parcelSection(
 	elevation: number,
 	floor: number
 ) {
-	const base = parcel.polygon.filter((p, i, r) => {
-		const a = r[(i + r.length - 1) % r.length],
-			b = r[(i + 1) % r.length];
-		return Math.abs((p[0] - a[0]) * (b[1] - p[1]) - (p[1] - a[1]) * (b[0] - p[0])) > 1e-9;
-	});
+	const base = wallCorners(parcel.polygon);
 	const ext = (k: number) =>
 		Math.max(...base.map((p) => p[k])) - Math.min(...base.map((p) => p[k]));
 	const span = Math.min(ext(0), ext(1));
@@ -94,11 +97,7 @@ export function parcelExterior(
 	faces?: (a: XY, b: XY) => boolean
 ) {
 	const reference = { ...envelope, outline: 'orthogonal' as const };
-	const ring = parcel.polygon.filter((p, i, r) => {
-		const a = r[(i + r.length - 1) % r.length],
-			b = r[(i + 1) % r.length];
-		return Math.abs((p[0] - a[0]) * (b[1] - p[1]) - (p[1] - a[1]) * (b[0] - p[0])) > 1e-9;
-	});
+	const ring = wallCorners(parcel.polygon);
 	const inner = parcelSection(
 		parcel,
 		opening,

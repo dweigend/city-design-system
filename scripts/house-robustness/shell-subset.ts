@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test';
 import { shellSystems } from '../../src/lib/catalog/data/house-shells';
 import { polygonHouseSite } from '../../src/lib/catalog/logic/house-typology';
 import { planHouse, sectionParts } from '../../src/lib/catalog/logic/composed-house';
-import { checkParcel } from '../../src/lib/catalog/logic/composed-house/parcel-assertions.test-support';
+import { auditPolygon } from './polygon-subset';
 import { polygonCases } from './polygon-cases';
 
 /** Keeps each exterior system on the original ring while the occupied floors vary independently. */
@@ -25,6 +25,6 @@ export function shellSubset(shape: string) {
 				const zs = p.points.map((q) => q[2]);
 				expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan((house.top - h.ground) * 0.64);
 			}
-			checkParcel(house, parts);
+			auditPolygon(shape + '/' + system, 81 + i, house, parts);
 		});
 }

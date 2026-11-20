@@ -1,3 +1,4 @@
+import { footprint as planFootprint, plotCovers } from './parcel-footprint';
 import type { Vec3 } from '../parametrik/types';
 import type { Body } from '../house-typology';
 import { houseObject, type StockPart } from './house-object';
@@ -37,9 +38,16 @@ export function envelopeScreen(body: Body, surface: Surface): StockPart[] {
 		slots: { body: surface }
 	}).parts[0];
 	if (stock.kind !== 'mesh') throw new Error('Expected an envelope panel mesh');
-	const mesh: Mesh = { ...stock, id, points: [], triangles: [] };
-	footprint.polygon.forEach((a, i, ring) =>
-		panel(mesh, a, ring[(i + 1) % ring.length], body, stock)
-	);
-	return mesh.points.length ? [mesh] : [];
+	return footprint.polygon.flatMap((a, i, ring) => {
+		const mesh: Mesh = {
+			...stock,
+			id: body.id + '/face/' + i + '/screen',
+			points: [],
+			triangles: []
+		};
+		panel(mesh, a, ring[(i + 1) % ring.length], body, stock);
+		if (!mesh.points.length) return [];
+		const cells = body.band?.cells;
+		return !cells || plotCovers(cells, planFootprint(mesh), 0) ? [mesh] : [];
+	});
 }
