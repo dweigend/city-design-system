@@ -3,7 +3,7 @@ export { greenCircuit, greenApproaches } from './green-circuit';
 export { privateSurface } from './town-palette';
 export { courtLanding } from './court-landing';
 export { townDeck, publicFlight } from './town-deck';
-export { townRoutes } from './town-routes';
+export { townRoutes, linkCentres } from './town-routes';
 import { survey } from './clearance';
 import { deckOptions } from './deck-route';
 import { project } from './geometry';

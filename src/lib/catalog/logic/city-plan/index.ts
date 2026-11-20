@@ -109,7 +109,7 @@ export function planCity(
 		...corridors.flatMap(([a, b]) => cellsBetween(grid, a, b).map((c) => c.id))
 	]);
 	const landmarks = stops.map((stop, i) => planCentre(grid, stop, land, reserved, families[i]));
-	const { groups, walk, greens, planting } = planEnsembles(
+	const { groups, walk, links, isolated, greens, planting } = planEnsembles(
 		grid,
 		stops,
 		land,
@@ -125,5 +125,12 @@ export function planCity(
 		ensembles: groups[i],
 		lots: groups[i].flatMap((group) => group.lots)
 	}));
-	return { centres, corridors, walk, districts: planDistricts(grid, centres) };
+	return {
+		centres,
+		corridors,
+		walk,
+		links,
+		isolatedCentres: isolated.map((i) => stops[i].id),
+		districts: planDistricts(grid, centres)
+	};
 }

@@ -313,7 +313,19 @@ for (const seed of [7, 13, 29])
 				[13, 390.9511],
 				[29, 563.1497]
 			]);
-			expect(length).toBeLessThan(required(original.get(seed), 'reference length'));
+			const linkSpans = new Set(
+				city.links.flatMap((path) =>
+					path.slice(1).map((id, i) => 'town-walk/' + path[i] + '>' + id)
+				)
+			);
+			const internalLength = floor.reduce(
+				(sum, p) =>
+					linkSpans.has(p.id.split(':')[0].replace(/\/stair$/, ''))
+						? sum
+						: sum + distance(p.polygon[0], p.polygon[3]),
+				0
+			);
+			expect(internalLength).toBeLessThan(required(original.get(seed), 'reference length'));
 			people(parts, length, courts);
 			transit(
 				world,

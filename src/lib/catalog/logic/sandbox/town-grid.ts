@@ -1,7 +1,7 @@
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
 
 const originals = new WeakMap<TerrainGrid, TerrainGrid>();
-const towns = new WeakMap<TerrainGrid, TerrainGrid>();
+const towns = new WeakMap<TerrainGrid, WeakMap<string[][], TerrainGrid>>();
 const passages = new WeakMap<TerrainCell, TerrainCell>();
 
 function passage(cell: TerrainCell): TerrainCell {
@@ -19,18 +19,24 @@ export function surveyedGrid(grid: TerrainGrid) {
 }
 
 /** Towns supply physical stair flights. Keep the alley reservations as ordinary passages. */
-export function townGrid(grid: TerrainGrid) {
+export function townGrid(grid: TerrainGrid, walk: string[][]) {
 	const raw = surveyedGrid(grid),
-		previous = towns.get(raw);
+		plans = towns.get(raw) ?? new WeakMap<string[][], TerrainGrid>(),
+		previous = plans.get(walk);
 	if (previous) return previous;
-	const cells = raw.cells.map(passage);
+	const reserved = new Set(walk.flat());
+	const cells = raw.cells.map((c) => {
+		const cell = passage(c);
+		return cell.buildable && reserved.has(cell.id) ? { ...cell, buildable: false } : cell;
+	});
 	const next = {
 		...raw,
 		cells,
 		cellsById: new Map(cells.map((c) => [c.id, c])),
-		chunks: new Map([...raw.chunks].map(([id, chunk]) => [id, chunk.map(passage)]))
+		chunks: new Map([...raw.chunks].map(([id, chunk]) => [id, chunk.map((c) => cells[c.index])]))
 	};
-	towns.set(raw, next);
+	plans.set(walk, next);
+	towns.set(raw, plans);
 	originals.set(next, raw);
 	return next;
 }

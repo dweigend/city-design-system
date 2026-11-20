@@ -3,7 +3,7 @@ import { surveyPlaza } from './plaza';
 import { greenAt, greenParcels } from './green';
 import { aroundGreen, clusterSite, clusterSetback, parcelBox } from './cluster';
 import { courtGroup } from './court-group';
-import { greenCircuit, greenApproaches, townRoutes } from '../walkway-network';
+import { greenCircuit, greenApproaches, townRoutes, linkCentres } from '../walkway-network';
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
 
 type TownEnsemble = {
@@ -39,12 +39,14 @@ export function planEnsembles(
 	}
 	const groups: TownEnsemble[][] = [],
 		walk: string[][] = [];
+	const networks: string[][][] = [];
+	const footprintsUsed = new Set(occupied);
 	const planting: string[][] = [];
 	for (const [index, stop] of stops.entries()) {
 		const green = greens[index],
 			[x, y] = stop.center;
 		const inner = green.cells.filter((id) => !green.ring.includes(id));
-		const obstacles = new Set([...occupied, ...inner, ...walk.flat()]);
+		const obstacles = new Set([...footprintsUsed, ...inner, ...walk.flat()]);
 		const ring =
 			greenCircuit(grid, stop, obstacles) ?? greenCircuit(grid, stop, obstacles, 90) ?? green.ring;
 		for (const id of ring) {
@@ -71,6 +73,7 @@ export function planEnsembles(
 			routes = route();
 		}
 		routes ??= [];
+		networks.push(routes);
 		walk.push(...routes);
 		groups.push(chosen);
 		const footprints = chosen.flatMap((g) => [...g.lots, ...g.plaza.cells, g.mouth, g.court]);
@@ -89,11 +92,13 @@ export function planEnsembles(
 				blocked
 			)
 		);
-		for (const id of [...footprints, ...clusterSetback(chosen, envelopes)]) {
+		for (const id of footprints) footprintsUsed.add(id);
+		for (const id of [...routes.flat(), ...footprints, ...clusterSetback(chosen, envelopes)]) {
 			gates.delete(id);
 			free.delete(id);
 			open.delete(id);
 		}
 	}
-	return { groups, walk, greens, planting };
+	const { links, isolated } = linkCentres(grid, networks, footprintsUsed);
+	return { groups, walk: [...walk, ...links], links, isolated, greens, planting };
 }

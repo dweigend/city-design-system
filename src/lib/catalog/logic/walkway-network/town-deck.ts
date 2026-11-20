@@ -109,7 +109,7 @@ function plazaParts(
 	if (!court.aprons) return parts;
 	const top = court.position[2],
 		foot = ground(...point(0, 2.4));
-	const steps = Math.max(2, Math.ceil((top - foot) / 0.17));
+	const steps = Math.max(2, 1 + Math.ceil(Math.abs(top - foot) / 0.17));
 	for (let i = 0; i < steps; i++) {
 		const a = (2.4 * i) / steps,
 			b = (2.4 * (i + 1)) / steps;

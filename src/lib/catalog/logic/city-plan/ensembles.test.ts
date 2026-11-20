@@ -149,7 +149,7 @@ for (const seed of [7, 13, 29])
 				for (const id of group.lots) {
 					expect(edited.state.storyParts.get(id)).toBe(world.state.storyParts.get(id));
 				}
-			const lots = groups[groups.length - 1].lots;
+			const lots = groups.slice(1).flatMap((g) => g.lots);
 			const remote = remoteGeometry(world, lots);
 			expect(remote.length).toBeGreaterThan(0);
 			expect(JSON.stringify(remoteGeometry(edited, lots))).toBe(JSON.stringify(remote));
