@@ -186,7 +186,6 @@ export function createSandboxStage(
 		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
-		pipeline.setTownFootprint(scale);
 		light.aim(view.target, view.span());
 		pixelsPerMeter.value = 1 / view.metersPerPixel();
 		updateStyle();

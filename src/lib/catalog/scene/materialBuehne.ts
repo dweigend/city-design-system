@@ -109,10 +109,7 @@ export function createMaterialBuehne(
 		for (const s of letzte) stueckHuelle(s.teil, box);
 		if (box.isEmpty()) return;
 		studio?.frame(box);
-		pipeline.light.aim(
-			box.getCenter(new THREE.Vector3()),
-			box.getSize(new THREE.Vector3()).length()
-		);
+		pipeline.light.frame(box);
 		blick.frame(box);
 	}
 

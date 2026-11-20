@@ -23,7 +23,7 @@ export function contactWash(seats: WashSeat[]) {
 		polygonOffsetFactor: -2,
 		polygonOffsetUnits: -2
 	});
-	material.opacityNode = uv().sub(0.5).length().smoothstep(0.12, 0.5).oneMinus().mul(0.55);
+	material.opacityNode = uv().sub(0.5).length().smoothstep(0.26, 0.5).oneMinus().mul(0.55);
 	const mesh = new InstancedMesh(new PlaneGeometry(), material, seats.length);
 	const localNormal = new Vector3(0, 0, 1);
 	const normal = new Vector3();
@@ -33,7 +33,7 @@ export function contactWash(seats: WashSeat[]) {
 		normal.set(x, z, -y).normalize();
 		pose.position.set(c.point[0], c.point[2], -c.point[1]).addScaledVector(normal, 0.008);
 		pose.quaternion.setFromUnitVectors(localNormal, normal);
-		pose.scale.setScalar(c.diameter + 1.4);
+		pose.scale.setScalar(c.diameter + Math.max(1.4, c.diameter * 0.5));
 		pose.updateMatrix();
 		mesh.setMatrixAt(i, pose.matrix);
 	});

@@ -29,6 +29,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	const forward = new THREE.Vector3();
 	/** Unit vector from the target toward the camera, three.js axes. */
 	const eye = new THREE.Vector3();
+	let heading = Number(BLICK.azimutRad);
 	let elevationRad = BLICK.hoeheRad;
 	let axonElevationRad = elevationRad;
 	// Vertical canvas fraction reserved for the focus, including the portrait HUD offset.
@@ -46,7 +47,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		camera.bottom = -halfHeight;
 		// The plan looks straight down with north up; the axonometric view turns by the azimuth.
 		const plan = elevationRad === Math.PI / 2;
-		const azimuthRad = plan ? 0 : BLICK.azimutRad;
+		const azimuthRad = plan ? 0 : heading;
 		right.set(Math.cos(azimuthRad), 0, -Math.sin(azimuthRad));
 		forward.set(-Math.sin(azimuthRad), 0, -Math.cos(azimuthRad));
 		eye.copy(forward).multiplyScalar(-Math.cos(elevationRad)).setY(Math.sin(elevationRad));
@@ -55,6 +56,13 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		camera.lookAt(target);
 		camera.updateProjectionMatrix();
 		camera.updateMatrixWorld();
+	}
+
+	function orientOpening(courtHeading?: number) {
+		heading = courtHeading ?? BLICK.azimutRad;
+		if (elevationRad !== Math.PI / 2)
+			elevationRad = width < height ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
+		apply();
 	}
 
 	const clusterFill = () => (width < height ? opening.portraitFill : opening.clusterFill);
@@ -151,6 +159,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Frames a three.js box: its center in the image center, `margin` ≥ 1 around its silhouette. */
 		frameBox(box: THREE.Box3, margin: number) {
 			focusY = 0.5;
+			heading = BLICK.azimutRad;
 			box.getCenter(target);
 			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
@@ -177,18 +186,19 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			anchor?: THREE.Vector3,
 			area?: OpeningArea,
 			landmark?: Vec3,
-			water: Vec3[] = []
+			water: Vec3[] = [],
+			courtHeading?: number
 		) {
-			if (elevationRad !== Math.PI / 2)
-				elevationRad = anchor ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
-			apply();
+			orientOpening(courtHeading);
 			const bounds = new THREE.Box2();
 			const up = new THREE.Vector3().crossVectors(eye, right);
 			for (const point of points)
 				bounds.expandByPoint(new THREE.Vector2(point.dot(right), point.dot(up)));
 			const room = area ? Math.max(1, area.bottom - area.top) : height;
 			const size = bounds.getSize(new THREE.Vector2());
-			const fit = (Math.max(size.x / width, size.y / room) * height) / clusterFill();
+			const fit =
+				(Math.max(size.x / width, size.y / room) * height) /
+				(courtHeading !== undefined ? 0.85 : clusterFill());
 			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			const center = bounds.getCenter(new THREE.Vector2());
 			const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);

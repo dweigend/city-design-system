@@ -6,6 +6,7 @@ import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { patchSurface, surfaceGeometry } from './terrain-geometry';
 import { seatedTargets } from './roof-pick';
 import { createTerrainPicker } from './terrain-pick';
+import { courtOpening } from './court-opening';
 import { createView } from './view';
 import { createTerrainMesh } from './terrain-mesh';
 import { KEY, projectChanges } from './projection';
@@ -15,24 +16,27 @@ const { world } = openingScene(7);
 const view = createView();
 const openingArea = { top: 142, bottom: 680 };
 
-test('the playable town centres an occupied parcel between the HUD edges', () => {
+function projectedCourts(portrait: boolean) {
+	const frame = courtOpening(world, portrait);
+	assert(frame);
+	return frame.points.map((p) => view.project([p.x, -p.z, p.y]));
+}
+
+test('the court and its occupied lots fit between the phone HUD edges with 15 percent margin', () => {
 	view.resize(390, 844);
 	expect(frameOldTown(view, world, openingArea)).toBe(true);
-	const centerY = (openingArea.top + openingArea.bottom) / 2;
-	const cell = [...world.state.stacks.keys()]
-		.map((id) => {
-			const parcel = world.grid.cellsById.get(id);
-			assert(parcel);
-			return parcel;
-		})
-		.find(({ center }) => {
-			const { x, y } = view.project(center);
-			return Math.hypot(x - 195, y - centerY) < 0.001;
-		});
-	if (!cell) throw new Error('Missing sample plot');
-	const { x, y } = view.project(cell.center);
-	expect(x).toBeCloseTo(195);
-	expect(y).toBeCloseTo(centerY);
+	const points = projectedCourts(true);
+	const range = (values: number[]) => Math.max(...values) - Math.min(...values);
+	expect(
+		Math.max(
+			range(points.map((p) => p.x)) / 390,
+			range(points.map((p) => p.y)) / (openingArea.bottom - openingArea.top)
+		)
+	).toBeCloseTo(0.85);
+	for (const p of points) {
+		expect(p.x).toBeWithin(0, 390);
+		expect(p.y).toBeWithin(openingArea.top, openingArea.bottom);
+	}
 });
 
 type ScreenPoint = ReturnType<typeof view.project>;
@@ -72,7 +76,7 @@ test('the tighter portrait opening crops the terrain rim outside the HUD opening
 	const visible = () =>
 		boundary.filter(([a, b]) => visibleEdge(view.project(a), view.project(b))).length;
 	expect(visible()).toBe(0);
-	view.zoomAt(1.4, 195, 411);
+	view.zoomAt(8, 195, 411);
 	expect(visible()).toBeGreaterThan(0);
 });
 
@@ -89,7 +93,15 @@ test('the desktop opening includes the central district and crops outlying parce
 	view.resize(1440, 900);
 	expect(frameTownSilhouette(view, world)).toBe(true);
 	const visible = visibleDesktopParcels(view);
-	expect(visible).toBeGreaterThanOrEqual(Math.ceil((world.state.stacks.size * 2) / 3));
+	const bounds = projectedCourts(false);
+	for (const p of bounds) {
+		expect(p.x).toBeWithin(0, 1440);
+		expect(p.y).toBeWithin(0, 900);
+	}
+	expect(Math.max(...bounds.map((p) => p.x)) - Math.min(...bounds.map((p) => p.x))).toBeCloseTo(
+		1440 * 0.85
+	);
+	expect(visible).toBeGreaterThan(0);
 	expect(visible).toBeLessThan(world.state.stacks.size);
 });
 
@@ -201,12 +213,20 @@ test('rebuilding the affected house groups after a dig equals drawing the whole 
 	}
 });
 
-test('switching the desktop opening to plan keeps the majority of parcels visible', () => {
+test('switching the desktop opening to plan keeps both opening courts visible', () => {
 	const desktop = createView();
 	desktop.resize(1440, 900);
 	frameTownSilhouette(desktop, world);
 	desktop.setPlan(true);
-	expect(visibleDesktopParcels(desktop)).toBeGreaterThan(world.state.stacks.size / 2);
+	const courts = world.state.city?.centres[0].ensembles;
+	assert(courts?.length);
+	for (const { court } of courts) {
+		const cell = world.grid.cellsById.get(court);
+		assert(cell);
+		const p = desktop.project(cell.center);
+		expect(p.x).toBeWithin(0, 1440);
+		expect(p.y).toBeWithin(0, 900);
+	}
 });
 
 test('plan rotation preserves a panned and zoomed district across both projections', () => {
@@ -231,15 +251,14 @@ test('the portrait plan and return preserve the opening parcel between the HUD e
 	phone.resize(390, 844);
 	frameOldTown(phone, world, openingArea);
 	const focusY = (openingArea.top + openingArea.bottom) / 2;
-	const anchor = [...world.state.stacks.keys()]
-		.map((id) => world.grid.cellsById.get(id)?.center)
-		.find(
-			(center) =>
-				center &&
-				Math.abs(phone.project(center).y - focusY) < 0.001 &&
-				Math.abs(phone.project(center).x - 195) < 0.001
-		);
-	if (!anchor) throw new Error('Missing opening focus');
+	const ray = new THREE.Raycaster();
+	ray.setFromCamera(phone.ndc(195, focusY), phone.camera);
+	const hit = ray.ray.intersectPlane(
+		new THREE.Plane(new THREE.Vector3(0, 1, 0), -phone.target.y),
+		new THREE.Vector3()
+	);
+	assert(hit);
+	const anchor: [number, number, number] = [hit.x, -hit.z, hit.y];
 	const elevation = phone.elevation();
 	for (const plan of [true, false]) {
 		phone.setPlan(plan);
