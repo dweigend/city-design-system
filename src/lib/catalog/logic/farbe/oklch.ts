@@ -91,13 +91,20 @@ export const applyStep = (base: Oklch, s: StepRule): Oklch => ({
 	h: base.h
 });
 
+function lab({ l, c, h }: Oklch): [number, number, number] {
+	const radians = (h * Math.PI) / 180;
+	return [l, c * Math.cos(radians), c * Math.sin(radians)];
+}
+
+/** Interpolates opaque tones in Cartesian OKLab using the second tone's fractional share. */
+export function mixOklab(first: Oklch, second: Oklch, share: number): Oklch {
+	const left = lab(first);
+	const [l, a, b] = lab(second).map((v, i) => left[i] + (v - left[i]) * share);
+	return { l, c: Math.hypot(a, b), h: (Math.atan2(b, a) * 180) / Math.PI };
+}
+
 /** Distance in OKLab space (ΔE_ok); visible from about 0.02, clear from 0.1. */
 export function deltaE(a: Oklch, b: Oklch): number {
-	const lab = ({ l, c, h }: Oklch) => [
-		l,
-		c * Math.cos((h * Math.PI) / 180),
-		c * Math.sin((h * Math.PI) / 180)
-	];
 	const [x, y] = [lab(a), lab(b)];
 	return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
 }
