@@ -4,7 +4,7 @@ import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
-import { houseSurfaces, sectionSurfaces, type HouseSurfaces } from './surfaces';
+import { houseSurfaces, sectionSurfaces, type SectionSurfaces } from './surfaces';
 import { accentBody, accentKind } from './accent';
 import type { Section } from './types';
 import { servicePipes } from './service-pipes';
@@ -56,7 +56,7 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 	];
 }
 
-function occupants(section: Section, surfaces: HouseSurfaces): HousePart[] {
+function occupants(section: Section, surfaces: SectionSurfaces): HousePart[] {
 	return section.composition.people.flatMap((p, i) =>
 		person(p.position, section.id + '/people/' + i, section.seed, surfaces, 0, p.count).map(
 			(member) => ({ ...member, structuralRole: p.structuralRole, carrier: p.carrier })
@@ -65,7 +65,7 @@ function occupants(section: Section, surfaces: HouseSurfaces): HousePart[] {
 }
 
 /** A house that is not layered draws its structure contract; its stair and people stay. */
-function framedParts(section: Section, surfaces: HouseSurfaces): HousePart[] {
+function framedParts(section: Section, surfaces: SectionSurfaces): HousePart[] {
 	const frame = structureHouse(section.composition.structure, surfaces).filter(
 		(part) => !part.id.endsWith('/access')
 	);

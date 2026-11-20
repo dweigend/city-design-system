@@ -2,7 +2,7 @@ import { assetRegistry } from '../assets';
 import {
 	shellSurface,
 	roleSurface,
-	type HouseSurfaces,
+	type SectionSurfaces,
 	type Surface,
 	type BandAccent
 } from './surfaces';
@@ -24,7 +24,7 @@ function stockSurfaces(
 	id: string,
 	paint: Surface,
 	finish: Surface,
-	surfaces: HouseSurfaces,
+	surfaces: SectionSurfaces,
 	use?: HouseUse
 ) {
 	return {
@@ -48,7 +48,7 @@ export function members(
 	variant: string,
 	seed: number,
 	address: string,
-	surfaces: HouseSurfaces,
+	surfaces: SectionSurfaces,
 	use?: HouseUse,
 	body?: Surface,
 	pane = surfaces.pane
@@ -78,7 +78,7 @@ export function members(
 	return houseObject(id, variant, seed, { instanceId: address + '/' + id, slots }).parts;
 }
 /** Uses the measured registry origin and the composition's single rigid transform. */
-function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
+function bodyStock(b: Body, surfaces: SectionSurfaces, accent: BandAccent) {
 	if (b.band) return bandParts(b, surfaces, accent);
 	const paint = surfaces[b.use];
 	const shell = roleSurface(paint, 'shell');
@@ -101,7 +101,7 @@ function bodyStock(b: Body, surfaces: HouseSurfaces, accent: BandAccent) {
 }
 
 /** Mounts the body stock with the load path assigned by the composition. */
-export function bodyParts(b: Body, surfaces: HouseSurfaces, accent: BandAccent = 'none') {
+export function bodyParts(b: Body, surfaces: SectionSurfaces, accent: BandAccent = 'none') {
 	return bodyStock(b, surfaces, accent).map((p) => ({
 		...p,
 		structuralRole: b.structuralRole

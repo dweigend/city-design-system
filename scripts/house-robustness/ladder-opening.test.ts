@@ -55,6 +55,22 @@ test('both ladder lanes clear the occupied floors of a six- and seven-storey pai
 	}
 });
 
+function expectExitLandings(
+	parts: ReturnType<typeof sectionParts>,
+	walk: ReturnType<typeof circulation>
+) {
+	for (const { door } of walk.docks) {
+		const plate = parts.find(
+			(p) =>
+				p.kind === 'prism' &&
+				p.id.includes('/stair/landing/') &&
+				Math.abs(p.z + p.height - door[2]) < 1e-8
+		);
+		if (plate?.kind !== 'prism') throw Error('Missing exit landing');
+		expect(plate.polygon.some(([x]) => Math.abs(x - door[0]) < 1e-8)).toBe(true);
+	}
+}
+
 test('a narrow one-storey house keeps a clear approach to one continuous side ladder', () => {
 	const cells = squareGrid(1, 1, 1.8).cells;
 	for (const seed of [2, 19]) {
@@ -74,15 +90,6 @@ test('a narrow one-storey house keeps a clear approach to one continuous side la
 		}
 		for (const part of parts.filter((p) => p.id.includes('/stair/')))
 			expect(plotCovers(cells, footprint(part), 0), part.id).toBe(true);
-		for (const { door } of walk.docks) {
-			const plate = parts.find(
-				(p) =>
-					p.kind === 'prism' &&
-					p.id.includes('/stair/landing/') &&
-					Math.abs(p.z + p.height - door[2]) < 1e-8
-			);
-			if (plate?.kind !== 'prism') throw Error('Missing exit landing');
-			expect(plate.polygon.some(([x]) => Math.abs(x - door[0]) < 1e-8)).toBe(true);
-		}
+		expectExitLandings(parts, walk);
 	}
 });

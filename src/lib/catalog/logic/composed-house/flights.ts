@@ -6,7 +6,7 @@ import type { Vec3 } from '../parametrik/types';
 import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
 import { houseObject } from './house-object';
-import { roleSurface, type HouseSurfaces } from './surfaces';
+import { roleSurface, type SectionSurfaces } from './surfaces';
 import type { Section } from './types';
 
 type Leg = {
@@ -96,11 +96,11 @@ function roofBypass(s: Section, station: Vec3, door: Vec3): Vec3[] {
 	];
 }
 /** Instantiates rigid straight treads and level connections to each landing. */
-export function flightAccess(s: Section, surfaces: HouseSurfaces, reports?: RailEdgeReport[]) {
+export function flightAccess(s: Section, surfaces: SectionSurfaces, reports?: RailEdgeReport[]) {
 	const { flightWidth: width } = s.composition;
 	const route = flightRoute(s),
 		id = s.id + '/stair/';
-	const stock = (name: string, variant: string, deck: HouseSurfaces['deck']) => {
+	const stock = (name: string, variant: string, deck: SectionSurfaces['deck']) => {
 		const p = houseObject(name, variant, s.seed, {
 			instanceId: id,
 			slots: { deck, ...(name === 'stairs' ? { body: surfaces.frame } : {}) }

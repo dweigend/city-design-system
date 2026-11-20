@@ -1,7 +1,7 @@
 import { roomOnDeck } from '../house-typology';
 import type { Section } from './types';
 import type { StockPart } from './house-object';
-import type { HouseSurfaces } from './surfaces';
+import type { SectionSurfaces } from './surfaces';
 import { members } from './provider';
 import { place } from './asset-fit';
 import type { Vec3 } from '../parametrik/types';
@@ -46,7 +46,7 @@ function seat(floor: Floor, l: Level, people: Vec3[]) {
 	}
 }
 /** Places one freestanding registry planter on the clear portion of each furnished terrace. */
-export function terraceFurniture(s: Section, house: StockPart[], surfaces: HouseSurfaces) {
+export function terraceFurniture(s: Section, house: StockPart[], surfaces: SectionSurfaces) {
 	const planted = s.composition.levels.flatMap((l, i) => {
 		const base = s.id + '/level/' + i + '/';
 		const floor = house.find(
@@ -92,7 +92,7 @@ export function terraceFurniture(s: Section, house: StockPart[], surfaces: House
 }
 function planter(
 	s: Section,
-	surfaces: HouseSurfaces,
+	surfaces: SectionSurfaces,
 	base: string,
 	use: Level['use'],
 	spot: { x: number; y: number; r: number },

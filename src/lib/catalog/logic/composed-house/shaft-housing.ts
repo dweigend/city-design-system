@@ -1,10 +1,10 @@
 import { houseObject } from './house-object';
-import { roleSurface, type HouseSurfaces } from './surfaces';
+import { roleSurface, type SectionSurfaces } from './surfaces';
 import { accentBody } from './accent';
 import type { Section } from './types';
 
 /** Encloses an exterior ladder in a folded facade panel carried by the plinth. */
-export function shaftHousing(s: Section, surfaces: HouseSurfaces) {
+export function shaftHousing(s: Section, surfaces: SectionSurfaces) {
 	if (s.typology !== 'block' || !s.composition.levels.some((l) => l.bodies[0].band?.modules))
 		return [];
 	const [x, y] = s.stairAxis,

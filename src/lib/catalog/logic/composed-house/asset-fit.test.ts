@@ -1,8 +1,8 @@
-import { specimen } from '../house-typology/specimens';
-import { planHouse, sectionParts } from './index';
+import { plotCovers, footprint } from './parcel-footprint';
+import { circulation, planHouse, sectionParts } from './index';
 import { squareGrid } from '../quad-grid';
 import { expect, test } from 'bun:test';
-import { assetRegistry, buildObject } from '../assets';
+import { assetRegistry } from '../assets';
 import { bounds } from '../ansicht/geometrie';
 import { place } from './asset-fit';
 import { houseObject } from './house-object';
@@ -34,74 +34,56 @@ function pipe<T extends { kind: string }>(p: T) {
 	return p as Extract<T, { kind: 'pipe' }>;
 }
 
-test('switchback and winding handrails follow the tread edges with one vertical post per station', () => {
-	for (const type of ['round-tower', 'deck-tower'] as const) {
-		const rails = sectionParts(specimen(1, type))
-			.filter((p) => p.source.objectId === 'railing')
+function parcel(width: number, stories: number) {
+	const cells = squareGrid(1, 1, width).cells;
+	return planHouse({
+		cells,
+		seed: 1,
+		stacks: new Map([[cells[0].id, Array(stories).fill('living')]])
+	});
+}
+
+test('each parcel ladder flight has two vertical stiles at the surveyed elevations', () => {
+	const house = parcel(8, 4);
+	const parts = sectionParts(house);
+	const runs = circulation(house).legs.filter((leg) => leg.kind === 'ladder');
+	for (const [i, leg] of runs.entries()) {
+		const stiles = parts
+			.filter((p) => p.id.startsWith(house.id + '/stair/ladder/' + i + '/'))
 			.map(pipe);
-		const tops = rails.filter((p) => p.source.member === 0),
-			posts = rails.filter((p) => p.source.member !== 0);
-		expect(tops.some((p) => p.points.length > 2)).toBe(true);
-		const vertices = new Set(tops.flatMap((p) => p.points.map((q) => q.join(','))));
-		const seats = new Set<string>();
-		for (const p of posts) {
-			const [foot, top] = p.points;
-			expect(seats.has(top.join(','))).toBe(false);
-			seats.add(top.join(','));
-			expect(vertices.has(top.join(','))).toBe(true);
-			expect(foot.slice(0, 2)).toEqual(top.slice(0, 2));
-			expect(top[2] - foot[2]).toBeCloseTo(0.92, 8);
+		expect(stiles).toHaveLength(2);
+		for (const stile of stiles) {
+			const [a, b] = stile.points;
+			expect(a.slice(0, 2)).toEqual(b.slice(0, 2));
+			expect(a[2]).toBeCloseTo(leg.to[2]);
+			expect(b[2]).toBeCloseTo(leg.from[2]);
 		}
 	}
 });
-test('the narrow block ladder bears against the inside of its folded facade', () => {
-	const cells = squareGrid(1, 1, 4).cells;
-	const s = planHouse({
-		cells,
-		seed: 1,
-		stacks: new Map([[cells[0].id, ['living', 'living', 'living']]])
-	});
-	const parts = sectionParts(s);
-	const stile = parts.find((p) => p.id.includes('/stair/ladder/'));
-	if (stile?.kind !== 'pipe') throw Error('Missing ladder stile');
-	const [x, y, z] = stile.points[0];
-	const walls = parts.filter((p) => p.id.includes('/ladder-housing'));
-	expect(
-		walls.some(
-			(p) =>
-				p.kind === 'prism' &&
-				p.z <= z &&
-				p.z + p.height >= z &&
-				p.polygon.some(([u, v], i, ring) => {
-					const [a, b] = ring[(i + 1) % ring.length];
-					return (
-						v === b &&
-						Math.min(u, a) <= x &&
-						x <= Math.max(u, a) &&
-						Math.abs(Math.abs(v - y) - stile.radius) <= 0.02
-					);
-				})
-		)
-	).toBe(true);
+
+test('narrow parcel ladders stay within the surveyed parcel from terrain to roof', () => {
+	const house = parcel(1.8, 1);
+	const rails = sectionParts(house)
+		.filter((p) => p.id.includes('/stair/ladder/'))
+		.map(pipe);
+	expect(rails).toHaveLength(2);
+	for (const rail of rails) {
+		expect(plotCovers(house.cells, footprint(rail), 0)).toBe(true);
+		expect(bounds(rail).max[2]).toBeCloseTo(house.top + rail.radius);
+	}
 });
 
-test('winding terrain approaches mount each complete ramp at its native size and grade', () => {
-	for (const [cells, height, variant] of [
-		[1, 3, 'standard'],
-		[1, 6, 'medium'],
-		[4, 6, 'long']
-	] as const) {
-		const section = specimen(cells, 'round-tower', height, 7);
-		const ramp = sectionParts(section).filter((p) => p.source.objectId === 'ramp');
-		const stock = buildObject('ramp', variant, section.seed).parts;
-		expect(ramp).toHaveLength(stock.length);
-		for (const [i, p] of ramp.entries()) {
-			const local = stock[i];
-			if (p.kind !== 'wedge' || local.kind !== 'wedge') throw Error('Expected a mounted ramp');
-			expect(p.source.variant).toBe(variant);
-			expect(p.structuralRole).toBe('bearing');
-			expect(p.size).toEqual(local.size);
-			expect(p.low).toBe(local.low);
-		}
+test('parcel landings reach the registered door elevation at every occupied course', () => {
+	for (const stories of [3, 6]) {
+		const house = parcel(10, stories);
+		const doors = circulation(house).docks;
+		expect(doors).toHaveLength(stories + 1);
+		const landings = sectionParts(house).filter(
+			(p) => p.kind === 'prism' && p.source.objectId === 'landing'
+		);
+		for (const { door } of doors)
+			expect(
+				landings.some((p) => p.kind === 'prism' && Math.abs(p.z + p.height - door[2]) < 1e-8)
+			).toBe(true);
 	}
 });

@@ -4,7 +4,7 @@ import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
 import { houseObject, type HousePart } from './house-object';
 import type { Section } from './types';
-import type { HouseSurfaces } from './surfaces';
+import type { SectionSurfaces } from './surfaces';
 
 function blockFoot(s: Section) {
 	const sign = s.composition.accessSide === 'north' ? 1 : -1;
@@ -85,7 +85,7 @@ export function mastRoute(s: Section) {
 }
 
 /** Fits rigid rungs between continuous stiles, with a side landing at each deck opening. */
-export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
+export function mastAccess(s: Section, surfaces: SectionSurfaces): HousePart[] {
 	const id = s.id + '/stair/',
 		route = mastRoute(s);
 	const stock = houseObject('ladder', 'rung-bay', s.seed, {

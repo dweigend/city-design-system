@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { polygonHouseSite } from '../../src/lib/catalog/logic/house-typology';
 import { planHouse, sectionParts } from '../../src/lib/catalog/logic/composed-house';
+import { plotCovers } from '../../src/lib/catalog/logic/parzelle';
 import { polygonCases } from './polygon-cases';
 
 for (const shape of ['triangle', 'pentagon', 'amorphous']) {
@@ -12,8 +13,14 @@ for (const shape of ['triangle', 'pentagon', 'amorphous']) {
 			const shell = house.composition.exterior;
 			if (!shell) throw Error('Missing exterior');
 			expect(shell.stations[0].ring).toEqual(shell.ring);
-			const foot = house.composition.levels[0].bodies[0].band?.footprint;
-			expect(foot?.polygon).toEqual(shell.ring);
+			const groundFloor = house.composition.levels[0];
+			expect(groundFloor.outline.map(([x, y]) => [x, y])).toEqual(shell.ring);
+			const feet = groundFloor.bodies.map((b) => b.band?.footprint);
+			expect(feet.length).toBeGreaterThan(0);
+			for (const foot of feet) {
+				if (!foot) throw Error('Missing occupied ground room');
+				expect(plotCovers(site.cells, { ring: foot.polygon, holes: foot.holes }, 0)).toBe(true);
+			}
 			for (const part of sectionParts(house).filter(
 				(p) => p.source.objectId === 'full-height-shell'
 			)) {

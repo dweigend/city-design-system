@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
-import { planHouse, sectionParts } from '../composed-house';
+import { houseSurfaces, planHouse, sectionParts } from '../composed-house';
 import { sections } from './section-insets';
 import { houseEnvelope, type HouseEnvelope } from './envelope';
 
@@ -44,7 +44,10 @@ test('a partial override preserves all independently drawn envelope choices', ()
 test('the public projection constructs the selected screen and dresses the body with the requested finish', () => {
 	for (const skin of ['plain', 'woven', 'framed', 'cushioned'] as const) {
 		const s = build({ section: 'vessel', skin, finish: 'membran-gewebe' });
-		const parts = sectionParts(s);
+		const parts = sectionParts(s, {
+			...houseSurfaces,
+			shell: { token: '--cat-mobility', finish: 'membran-gewebe' }
+		});
 		expect(parts.filter((p) => p.id.endsWith('/screen') && p.kind === 'mesh').length > 0).toBe(
 			skin !== 'plain'
 		);

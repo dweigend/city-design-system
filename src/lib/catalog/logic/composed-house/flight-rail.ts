@@ -5,7 +5,7 @@ import { stairClearance, stairHouse } from './stair-clearance';
 import type { Section } from './types';
 import type { Vec3 } from '../parametrik/types';
 import { houseObject, type StockPart } from './house-object';
-import { roleSurface, type HouseSurfaces } from './surfaces';
+import { roleSurface, type SectionSurfaces } from './surfaces';
 import { edgeBays, type RailLeg, type RailEdgeReport, type RailReason } from './rail-edge';
 import { postSeats } from './post-seats';
 import { bodyParts } from './provider';
@@ -19,7 +19,7 @@ export function flightRail(
 	s: Section,
 	legs: RailLeg[],
 	width: number,
-	surfaces: HouseSurfaces,
+	surfaces: SectionSurfaces,
 	walk: StockPart[],
 	reports?: RailEdgeReport[]
 ) {

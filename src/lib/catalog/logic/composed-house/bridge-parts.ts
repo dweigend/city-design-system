@@ -1,10 +1,10 @@
 import { routeDecks, spanSurvey } from '../walkway';
 import type { Vec3 } from '../parametrik/types';
-import { roleSurface, type HouseSurfaces } from './surfaces';
+import { roleSurface, type SectionSurfaces } from './surfaces';
 import { tread, pipeBetween } from './parts';
 
 /** Seats registered plates and rails along the mitered bridge route at the surveyed walking datums. */
-export function bridgeParts(path: Vec3[], id: string, width: number, surfaces: HouseSurfaces) {
+export function bridgeParts(path: Vec3[], id: string, width: number, surfaces: SectionSurfaces) {
 	return routeDecks(path, width).flatMap((ring, i) => {
 		const { treads, rails } = spanSurvey(ring, id + ':' + i, width, undefined, true);
 		return [
@@ -17,7 +17,7 @@ export function bridgeParts(path: Vec3[], id: string, width: number, surfaces: H
 	});
 }
 
-function handrail(id: string, points: [Vec3, Vec3], surfaces: HouseSurfaces) {
+function handrail(id: string, points: [Vec3, Vec3], surfaces: SectionSurfaces) {
 	const at = (t: number, h: number): Vec3 =>
 		points[0].map((v, k) => v + (points[1][k] - v) * t + (k === 2 ? h - 1 : 0)) as Vec3;
 	const metal = roleSurface(surfaces.frame, 'screen');

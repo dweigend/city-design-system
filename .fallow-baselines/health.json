@@ -486,10 +486,10 @@
     },
     "src/lib/catalog/logic/parametrik/welt/welt.test.ts": {
       "complexity_moderate": {
-        "count": 3
+        "count": 2
       },
       "crap_moderate": {
-        "count": 2
+        "count": 1
       }
     },
     "src/lib/catalog/logic/parzelle/evolution.ts": {
@@ -1496,14 +1496,6 @@
     },
     "src/lib/catalog/logic/parametrik/welt/wege.ts\u0000wege": {
       "complexity_critical": {
-        "count": 1
-      }
-    },
-    "src/lib/catalog/logic/parametrik/welt/welt.test.ts\u0000test(\"color code and focus color through the c...\")": {
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },

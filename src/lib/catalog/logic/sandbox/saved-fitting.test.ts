@@ -76,7 +76,15 @@ for (const [recipe, flow, from, to, seats, hash] of fixtures)
 		}
 		const restored = withState(world, { ...frame.state, parts });
 		// Z marks bearing dots as hidden in city view. The original hashes predate this display flag.
-		const geometry = JSON.stringify(installationView(restored, 'all'), function (key, value) {
+		const primitives = installationView(restored, 'all').map((part) => {
+			if (part.kind !== 'pipe' || part.role !== 'traeger' || !part.id.startsWith('p/1/'))
+				return part;
+			assert.equal(part.token, '--ink-3');
+			assert.equal(part.shade, undefined);
+			// The historical drawing used shaded paper for carrier rods.
+			return { ...part, token: '--paper', shade: 1 };
+		});
+		const geometry = JSON.stringify(primitives, function (key, value) {
 			if (key === 'cityForm' && value === false && this.id?.endsWith('/joint')) return undefined;
 			return value;
 		});

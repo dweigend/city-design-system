@@ -5,7 +5,7 @@ import type { ColorToken } from '../parametrik/types';
 
 type Surface = SlotAssignment;
 export type SurfaceSlot = HouseUse | 'frame' | 'deck' | 'pane' | 'access' | 'shell';
-export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
+export type HouseSurfaces<T = Surface> = Readonly<Record<SurfaceSlot, T>>;
 
 const walkingFinish = 'holz-natur';
 const metal = (token: ColorToken): Surface => ({ token, finish: 'metal' });

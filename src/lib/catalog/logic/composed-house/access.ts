@@ -9,13 +9,13 @@ import { mastAccess } from './mast-access';
 import { windingRoute } from './circulation';
 import { houseObject, type StockPart, type HousePart } from './house-object';
 import type { Section } from './types';
-import { sectionSurfaces, roleSurface, type HouseSurfaces } from './surfaces';
+import { sectionSurfaces, roleSurface, type SectionSurfaces } from './surfaces';
 
 type Route = ReturnType<typeof windingRoute>;
 type XY = [number, number];
 const { width } = houseStair;
 
-function circulationStock(s: Section, surfaces: HouseSurfaces) {
+function circulationStock(s: Section, surfaces: SectionSurfaces) {
 	const id = s.id + '/stair/';
 	const stock = (
 		name: string,
@@ -32,7 +32,7 @@ function circulationStock(s: Section, surfaces: HouseSurfaces) {
 		throw new Error('Expected circulation stock');
 	return { id, straight, landing, spine };
 }
-function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) {
+function projection(track: Route['track'], s: Section, surfaces: SectionSurfaces) {
 	const { id, straight, landing, spine } = circulationStock(s, surfaces);
 	function platform(key: string, polygon: XY[], z: number) {
 		return {
@@ -103,7 +103,7 @@ function projection(track: Route['track'], s: Section, surfaces: HouseSurfaces) 
 }
 
 /** Places rigid registry treads on the walking line and fits stock to its level deck connections. */
-export function access(s: Section, surfaces: HouseSurfaces, reports?: RailEdgeReport[]) {
+export function access(s: Section, surfaces: SectionSurfaces, reports?: RailEdgeReport[]) {
 	if (s.compact) return mastAccess(s, surfaces);
 	if (s.composition.path !== 'spiral') return flightAccess(s, surfaces, reports);
 	const route = windingRoute(s),

@@ -1,3 +1,4 @@
+import { membranePanel } from '../../src/lib/catalog/logic/composed-house/membrane-panel';
 import { expect, test } from 'bun:test';
 import { planHouse, sectionParts } from '../../src/lib/catalog/logic/composed-house';
 import {
@@ -27,9 +28,11 @@ function cloth(
 		}
 	});
 	const parts = sectionParts(house);
-	const points = parts
-		.filter((p) => p.source.objectId === 'full-height-shell')
-		.flatMap((p) => (p.kind === 'mesh' ? p.points : []));
+	const shell = house.composition.exterior;
+	const fabric = shell?.fabric;
+	if (!shell || !fabric) throw Error('Missing textile envelope');
+	// Compare material stations before the entrance cut creates load-dependent vertices.
+	const points = shell.ring.flatMap((_, i) => membranePanel(shell, i, 0, 1, fabric).points);
 	return { house, parts, points };
 }
 function sites() {

@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import { houseSurfaces, houseLinks, planHouse, type HouseObstacle } from './index';
 
-const grid = squareGrid(7, 5, 8);
+const grid = squareGrid(7, 5, 5);
 const house = (id: string, n: number) =>
 	planHouse({
 		cells: [required(grid.cellsById.get(id), 'test cell')],
@@ -51,7 +51,7 @@ test('bridges are level, never stair bridges, and unequal deck levels stay apart
 		position: [p.position[0], p.position[1], p.position[2] + 1]
 	}));
 	expect(houseLinks(grid, [house('0/2', 1), elevated], 5)).toHaveLength(0);
-	const block = ['1/1', '2/1', '3/1', '1/2', '2/2', '3/2', '1/3', '2/3', '3/3'];
+	const block = ['0/0', '2/0', '4/0', '0/2', '2/2', '4/2', '0/4', '2/4', '4/4'];
 	for (const seed of [1, 5, 11, 23]) {
 		const links = houseLinks(
 			grid,

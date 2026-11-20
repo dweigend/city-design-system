@@ -100,13 +100,15 @@ function exposedPanel(
 ) {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
+	const spanAt = (start: number, end: number, hidden: Shell['seams'][number][number]['hidden']) => {
+		if (slotted) return slottedWall(shell, index, start, end);
+		const framed = framedSpan(h, shell, index, start, end, hidden);
+		framed?.rods.flatMap((pair) => clearRod(pair, shell)).forEach(([a, b]) => rod(a, b));
+		return framed ?? wallSpan(shell, index, source, start, end);
+	};
 	for (const { start, end, hidden } of shell.seams[index]) {
 		if (hidden && hidden[0] <= shell.bottom && hidden[1] >= shell.top) continue;
-		const framed = slotted ? undefined : framedSpan(h, shell, index, start, end, hidden);
-		framed?.rods.flatMap((pair) => clearRod(pair, shell)).forEach(([a, b]) => rod(a, b));
-		const span = slotted
-			? slottedWall(shell, index, start, end)
-			: (framed ?? wallSpan(shell, index, source, start, end));
+		const span = spanAt(start, end, hidden);
 		const visible = hidden ? cutPartyWall(span, hidden) : span;
 		const base = points.length;
 		for (const p of visible.points) points.push(p);

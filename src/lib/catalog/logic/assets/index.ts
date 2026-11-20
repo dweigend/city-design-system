@@ -82,30 +82,38 @@ export function buildObject(
 			slot === 'figure' && recipe.legacyFigureSlot && !options.slots?.figure
 				? recipe.legacyFigureSlot
 				: slot;
-		const assignment = options.slots?.[key];
-		const deferred = assignment && 'buildingSurface' in assignment;
-		const chosen = deferred ? assignment.override : assignment;
-		const building = options.building;
-		const role = building?.slots[key];
-		const buildingSurface = deferred
-			? assignment.buildingSurface
-			: building && role
-				? { use: building.use, ensemble: building.ensemble, slot: role }
-				: undefined;
-		if (buildingSurface && !chosen) {
-			return {
-				...shape,
-				material: suggestion.material,
-				buildingSurface
-			};
-		}
-		return {
-			...shape,
-			...assignedSurface(suggestion, chosen),
-			...(deferred && chosen?.finish !== 'city-drawing' && { buildingSurface })
-		};
+		return { ...shape, ...dressSlot(suggestion, options.slots?.[key], options.building, key) };
 	});
 	return { geometry, defaults, parts, footprint: recipe.footprint, anchors: recipe.anchors };
+}
+
+function defaultBuildingSlot(building: BuildingSlots | undefined, key: string) {
+	const slot = building?.slots[key];
+	if (building && slot) return { use: building.use, ensemble: building.ensemble, slot };
+}
+
+function dressSlot(
+	suggestion: AssetSurface,
+	assignment: ObjectSurface | undefined,
+	building: BuildingSlots | undefined,
+	key: string
+) {
+	const deferred = assignment && 'buildingSurface' in assignment;
+	const chosen = deferred ? assignment.override : assignment;
+
+	const buildingSurface = deferred
+		? assignment.buildingSurface
+		: defaultBuildingSlot(building, key);
+	if (buildingSurface && !chosen) {
+		return {
+			material: suggestion.material,
+			buildingSurface
+		};
+	}
+	return {
+		...assignedSurface(suggestion, chosen),
+		...(deferred && chosen?.finish !== 'city-drawing' && { buildingSurface })
+	};
 }
 
 function assignedSurface(suggestion: AssetSurface, chosen?: SlotAssignment) {

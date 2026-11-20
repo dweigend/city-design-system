@@ -1,5 +1,5 @@
 import type { Section } from './types';
-import { sectionSurfaces, type HouseSurfaces } from './surfaces';
+import { sectionSurfaces, type SectionSurfaces } from './surfaces';
 import { planPoints } from './part-plan';
 import { partsIntersect } from '../house-typology';
 import { bodyParts } from './provider';
@@ -8,7 +8,7 @@ import { bounds } from '../ansicht/geometrie';
 import type { StockPart } from './house-object';
 
 /** Projects the building members against which a stair is fitted and budgeted. */
-export function stairHouse(s: Section, surfaces: HouseSurfaces = sectionSurfaces(s)) {
+export function stairHouse(s: Section, surfaces: SectionSurfaces = sectionSurfaces(s)) {
 	return [...houseStructure(s, surfaces), ...s.slots.flatMap((b) => bodyParts(b, surfaces))];
 }
 function obstacles(house: StockPart[]) {
