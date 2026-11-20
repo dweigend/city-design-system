@@ -26,6 +26,7 @@ export function scenePalette(resolve: (names: string[]) => Record<string, string
 		...surfaceTokens,
 		'--ink-3',
 		'--blueprint-soft',
+		'--terrain-soil',
 		'--cat-health-1',
 		'--cat-health-2'
 	];
@@ -34,6 +35,7 @@ export function scenePalette(resolve: (names: string[]) => Record<string, string
 		paper: t['--paper'],
 		ink: t['--ink'],
 		ink3: t['--ink-3'],
+		terrainSoil: t['--terrain-soil'],
 		blueprint: t['--blueprint'],
 		blueprintSoft: t['--blueprint-soft'],
 		categories: Object.fromEntries(

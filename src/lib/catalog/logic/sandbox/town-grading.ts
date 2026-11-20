@@ -1,3 +1,4 @@
+import { townLandform } from './town-landform';
 import { intersect, shoelaceArea } from '../parametrik/raster/geometry';
 import type { CityPlan } from '../city-plan';
 import type { Vec3 } from '../parametrik/types';
@@ -62,13 +63,18 @@ export function gradeTown(grid: TerrainGrid, city: CityPlan) {
 	const plots = new Set(courts.flatMap((court) => court.lots));
 	for (const id of plots) bermHouse(levels, required(grid.cellsById.get(id), 'house parcel'));
 	for (const court of courts) benchCourt(levels, grid, court);
+	const slots = townLandform(grid, city, levels);
 	const points = new Map(
 		[...levels]
 			.filter(([p, z]) => p[2] >= grid.terrain.waterLevel && p[2] !== z)
 			.map(([p, z]) => [p, [p[0], p[1], z] as Vec3])
 	);
 	const vertex = (p: Vec3) => points.get(p) ?? p;
-	const cell = (c: TerrainCell) =>
-		c.corners.some((p) => points.has(p)) ? gradeCell(c, vertex, plots.has(c.id)) : c;
+	const cell = (c: TerrainCell) => {
+		const graded = c.corners.some((p) => points.has(p)) ? gradeCell(c, vertex, plots.has(c.id)) : c;
+		return c.corners.some((p) => slots.has(p))
+			? { ...graded, landform: mapCorners(c.corners, (p) => slots.get(p) ?? [0, 0, 0]) }
+			: graded;
+	};
 	return { vertex, cell };
 }

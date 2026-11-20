@@ -69,6 +69,16 @@ function section(platform: Platform, p: Vec3, survey: number) {
 	return bankSlope(p, survey, top, side.toe(p), out, side === mouth);
 }
 
+// Two shallow treads project from the court into the fill. A short battered riser
+// between them retains the soil; the outer toe rejoins the surveyed hillside.
+function terraceFall(t: number, drop: number) {
+	const runs = Math.min(3, Math.max(1, Math.round(drop / 0.36)));
+	const course = t * runs,
+		part = course - Math.floor(course);
+	const riser = Math.max(0, Math.min(1, (part - 0.4) / 0.55));
+	return (Math.floor(course) + riser * riser * (3 - 2 * riser)) / runs;
+}
+
 function bankSlope(
 	p: Vec3,
 	survey: number,
@@ -82,7 +92,7 @@ function bankSlope(
 	const seam = top - 0.055;
 	const batter = Math.min(1, Math.max(0, (out - 1.15) / 0.65));
 	const t = Math.max(0, out) / reach;
-	const daylight = cut > 0 ? Math.max(0, (out - 1.8) / (reach - 1.8)) : t * t * (3 - 2 * t);
+	const daylight = cut > 0 ? Math.max(0, (out - 1.8) / (reach - 1.8)) : terraceFall(t, seam - p[2]);
 	const z = seam + cut * batter;
 	const entry = entrance ? Math.max(0, 1 - Math.max(0, out) / 1.5) : 1;
 	// A cutting rejoins the higher hillside at its surveyed daylight elevation.
