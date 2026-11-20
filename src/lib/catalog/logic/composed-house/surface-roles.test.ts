@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { flowToken } from '../../data/focus';
-import { ACCENT_TOKEN, GROUND_TOKEN } from '../../data/house-body';
+import { BODY_TOKEN } from '../../data/house-body';
 import { projectBuildingSurface } from '../../scene/building-surface';
 import { squareGrid } from '../quad-grid';
 import { openingScene } from '../sandbox';
@@ -29,26 +29,19 @@ function checkHouse(house: ReturnType<typeof planHouse>) {
 	const parts = sectionParts(house);
 	const accent = accentBody(house).id + '/';
 	expect(parts.some((p) => p.id.startsWith(accent))).toBe(true);
-	let painted = false;
 	for (const part of parts) {
 		checkGeometry(part, part.id);
 		const role = part.buildingSurface;
 		if (!role) throw Error('Missing building surface on ' + part.id);
-		expect(role.use).toBe(house.composition.shellUse);
+		expect(Object.keys(role).sort()).toEqual(['ensemble', 'slot', 'use']);
 		expect(role.ensemble).toBe(house.ensemble);
 		const resolved = projectBuildingSurface(part);
 		expect(resolved.finish, part.id).toBeDefined();
 		expect(resolved.token, part.id).toBeDefined();
 		expect(resolved.token, part.id).not.toBe(flowToken.people);
-		if (role.accentUse) {
-			expect(part.id.startsWith(accent)).toBe(true);
-			expect(resolved.token).toBe(ACCENT_TOKEN[role.accentUse]);
-			painted = true;
-		} else if (['shell', 'base', 'deck', 'screen'].includes(role.slot)) {
-			expect(resolved.token).toBe(GROUND_TOKEN[role.use]);
-		}
+		if (role.use === 'living' && role.slot === 'shell')
+			expect(resolved.token, part.id).toBe(BODY_TOKEN.living);
 	}
-	expect(painted).toBe(true);
 }
 
 for (const seed of [7, 29])

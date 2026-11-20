@@ -1,11 +1,10 @@
-import type { HouseUse } from '../../data/house-body';
 import { continuousShell } from './continuous-shell';
 import { shaftHousing } from './shaft-housing';
 import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
-import { houseSurfaces, sectionSurfaces, type BandAccent, type HouseSurfaces } from './surfaces';
+import { houseSurfaces, sectionSurfaces, type HouseSurfaces } from './surfaces';
 import { accentBody, accentKind } from './accent';
 import type { Section } from './types';
 import { servicePipes } from './service-pipes';
@@ -13,25 +12,6 @@ import { landingSeats } from './landing-seats';
 import type { HousePart, StockPart } from './house-object';
 import { access } from './access';
 import { structureHouse } from './structure-house';
-
-function leadingUse(section: Section) {
-	const counts = new Map<HouseUse, number>();
-	for (const deck of section.decks)
-		for (const use of deck.programme) counts.set(use, (counts.get(use) ?? 0) + 1);
-	return [...counts].sort((a, b) => b[1] - a[1])[0][0];
-}
-
-function accentParts(parts: HousePart[], kind: BandAccent, use: HouseUse) {
-	const windowOnly = kind === 'window' && parts.some((p) => p.buildingSurface?.slot === 'pane');
-	return parts.map((part) => {
-		const surface = part.buildingSurface;
-		if (!surface) return part;
-		const painted =
-			(surface.slot === 'shell' && !windowOnly) ||
-			(surface.slot === 'pane' && (windowOnly || kind === 'anchor'));
-		return painted ? { ...part, buildingSurface: { ...surface, accentUse: use } } : part;
-	});
-}
 
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
@@ -54,9 +34,7 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 				section.slottedSkin && b.band?.skin
 					? { ...b, band: { ...b.band, skin: 'plain' as const } }
 					: b;
-			return b === target
-				? accentParts(bodyParts(body, surfaces, accent), accent, leadingUse(section))
-				: bodyParts(body, surfaces);
+			return bodyParts(body, surfaces, b === target ? accent : 'none');
 		})
 	];
 	const walk = access(section, surfaces).map((p) => {

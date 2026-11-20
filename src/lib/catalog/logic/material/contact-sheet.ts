@@ -99,11 +99,11 @@ function constructionDetails() {
 			deck: 'deck',
 			frame: 'frame'
 		}),
-		sample('kit-parapet-solid-5m', 'medium', 'Punched screen · brushed metal cap', {
+		sample('kit-parapet-solid-5m', 'medium', 'Punched screen · brass cap', {
 			deck: 'screen',
 			edge: 'fitting'
 		}),
-		sample('porthole', 'ringed', 'Frosted acrylic · brushed metal bezel', {
+		sample('porthole', 'ringed', 'Frosted acrylic · brass bezel', {
 			glass: 'pane',
 			body: 'fitting',
 			accent: 'frame'

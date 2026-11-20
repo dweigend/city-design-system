@@ -1,6 +1,6 @@
 import { hashUnit } from '../../core/random';
-import { ACCENT_TOKEN, GROUND_TOKEN, type HouseUse } from '../../data/house-body';
-import type { BuildingSurface, ColorToken, FinishId } from '../parametrik/types';
+import { BODY_TOKEN, type HouseUse } from '../../data/house-body';
+import type { ColorToken, FinishId } from '../parametrik/types';
 
 type Surface = { token: ColorToken; finish: FinishId };
 const surface = (token: ColorToken, finish: FinishId): Surface => ({ token, finish });
@@ -11,24 +11,14 @@ const shellFinishes = ['keramik-glasiert', 'corrugated-metal', 'beton-terrazzo']
 /** Assigns the building's named material slots in theme tokens. The stable ensemble key owns the draw. */
 export function buildingPalette(use: HouseUse, ensemble: string) {
 	const family = Math.floor(hashUnit(0, ensemble, 'building-material') * shellFinishes.length);
-	const ground = (finish: FinishId) => ({
-		...surface(GROUND_TOKEN[use], finish),
-		colourRole: 'ensemble-ground' as const
-	});
+	const pigment = BODY_TOKEN[use];
 	return {
-		shell: ground(shellFinishes[family]),
-		base: ground('beton-terrazzo'),
-		deck: ground('beton-terrazzo'),
-		screen: ground('perforated-metal'),
-		pane: surface('--paper', 'acryl-matt'),
-		fitting: surface('--ink-3', 'metall-gebuerstet'),
+		shell: { ...surface(pigment, shellFinishes[family]), colourRole: 'ensemble-ground' as const },
+		base: surface('--paper', 'beton-terrazzo'),
+		deck: surface('--paper', 'beton-terrazzo'),
+		screen: surface(pigment, 'perforated-metal'),
+		pane: surface('--cat-health-3', 'acryl-matt'),
+		fitting: surface('--cat-mobility', 'metall-messing'),
 		frame: surface('--ink-3', 'metall-lackiert')
 	};
-}
-
-/** Resolves a construction slot and its optional occupied-body accent before scene overrides. */
-export function resolveBuildingSurface(context: BuildingSurface) {
-	const stock = buildingPalette(context.use, context.ensemble)[context.slot];
-	if (!context.accentUse) return stock;
-	return { ...stock, token: ACCENT_TOKEN[context.accentUse], colourRole: 'body-accent' as const };
 }

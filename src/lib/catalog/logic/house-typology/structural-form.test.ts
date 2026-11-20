@@ -1,4 +1,3 @@
-import { GROUND_TOKEN } from '../../data/house-body';
 import { projectBuildingSurface } from '../../scene/building-surface';
 import { expect, test } from 'bun:test';
 import { resolveFinish } from '../material/surface';
@@ -167,8 +166,7 @@ test('four-cell housing exposes programme stock and an open bay, terrace or cour
 					parts.some(
 						(p) =>
 							p.id.startsWith(b.id + '/' + b.objectId + '/') &&
-							(uses.has(projectBuildingSurface(p).token) ||
-								projectBuildingSurface(p).token === GROUND_TOKEN[h.shellUse])
+							(uses.has(projectBuildingSurface(p).token) || p.token === houseSurfaces.shell.token)
 					)
 				),
 				type
