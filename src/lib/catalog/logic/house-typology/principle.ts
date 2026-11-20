@@ -3,6 +3,7 @@ import {
 	exoskeletonHouse,
 	fannedTrussHouse,
 	mastHouse,
+	tentMastHouse,
 	type HouseStructure,
 	type Plot
 } from '../house-structure';
@@ -13,13 +14,15 @@ const LAYERED_SHARE = 0.5;
 const HEADROOM = 2.6;
 /** Height of a mast head or of fan tips above that clearance, metres. */
 const CROWN_RISE = 2.4;
+/** Height of a tent mast's tip above its lookout, metres. */
+const TENT_RISE = 5;
 
 type Site = { id: string; seed: number; cells: readonly unknown[]; programme: unknown[] };
 
 /**
  * Chooses how a house carries itself. A house on one convex cell with two to six storeys and
- * no face hidden by a neighbour (`joined` false) may be a mast, a fanned truss or an
- * exoskeleton; every other house stays layered. The draw is a stateless hash of the house seed
+ * no face hidden by a neighbour (`joined` false) may be a tent mast, a brim mast, a fanned
+ * truss or an exoskeleton; every other house stays layered. The draw is a stateless hash of the house seed
  * and id.
  */
 export function housePrinciple(site: Site, joined: boolean) {
@@ -28,20 +31,41 @@ export function housePrinciple(site: Site, joined: boolean) {
 	const draw = hashUnit(site.seed, site.id, 'house/principle');
 	if (draw < LAYERED_SHARE) return 'layers';
 	const share = (draw - LAYERED_SHARE) / (1 - LAYERED_SHARE);
-	return share < 0.4 ? 'mast' : share < 0.75 ? 'fanned-truss' : 'exoskeleton';
+	if (share < 0.35) return 'tent-mast';
+	if (share < 0.55) return 'mast';
+	return share < 0.8 ? 'fanned-truss' : 'exoskeleton';
+}
+
+/** Index of the ring edge whose midpoint lies nearest to a plan point. */
+function nearestEdge(ring: [number, number][], [x, y]: [number, number]) {
+	const distance = (i: number) => {
+		const a = ring[i],
+			b = ring[(i + 1) % ring.length];
+		return Math.hypot((a[0] + b[0]) / 2 - x, (a[1] + b[1]) / 2 - y);
+	};
+	return ring.reduce((best, _, i) => (distance(i) < distance(best) ? i : best), 0);
 }
 
 /**
- * Builds the structure of a non-layered house on the datums its storeys already occupy, so
- * stairs and bridges meet a platform at every level. `datums` are world heights, ascending.
+ * Builds the structure of a non-layered house from the datums its storeys would occupy, world
+ * heights ascending with the roof datum last. A tent mast keeps only the roof datum as its
+ * lookout and opens towards `entrance`; the other principles put a platform on every datum.
  */
 export function framedStructure(
 	principle: Exclude<ReturnType<typeof housePrinciple>, 'layers'>,
 	plot: Plot,
-	datums: number[]
+	datums: number[],
+	entrance: [number, number]
 ): HouseStructure {
 	const levels = datums.map((z) => z - plot.ground);
-	const clear = levels[levels.length - 1] + HEADROOM;
+	const top = levels[levels.length - 1],
+		clear = top + HEADROOM;
+	if (principle === 'tent-mast')
+		return tentMastHouse(plot, {
+			lookout: top,
+			height: top + TENT_RISE,
+			open: nearestEdge(plot.parcel.polygon, entrance)
+		});
 	if (principle === 'mast') return mastHouse(plot, { datums: levels, height: clear + CROWN_RISE });
 	if (principle === 'fanned-truss')
 		return fannedTrussHouse(plot, { datums: levels, height: clear + CROWN_RISE });

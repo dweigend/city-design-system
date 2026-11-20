@@ -421,7 +421,8 @@ export function perimeterHouse(
 						ground: seat,
 						parcel: { polygon: exterior.ring, holes: [] }
 					},
-					[...occupancy.floors.map((floor) => floor.datum), top]
+					[...occupancy.floors.map((floor) => floor.datum), top],
+					axis
 				);
 	return {
 		structure,

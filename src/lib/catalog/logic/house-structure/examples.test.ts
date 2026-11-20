@@ -9,6 +9,7 @@ import {
 	exoskeletonHouse,
 	fannedTrussHouse,
 	mastHouse,
+	tentMastHouse,
 	scaffoldHouse,
 	skinFrame,
 	structureParts,
@@ -72,6 +73,19 @@ test('example 2: a single mast hangs two decks under one tent pulled over its br
 	// Small sails drop from every second brim edge to the first raised deck.
 	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(2);
 	expect(elements(house, 'tie')).toHaveLength(8);
+});
+
+test('a free-standing mast holds one high lookout under cloth pulled to ground anchors', () => {
+	const house = tentMastHouse(plot, { height: 13, lookout: 8, open: 1 });
+	expect(checkHouseStructure(house)).toEqual([]);
+	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 8]);
+	// Nothing but the mast and the ladder stands between the ground and the lookout.
+	expect(elements(house, 'room')).toHaveLength(0);
+	expect(house.skins.map((s) => s.id)).toEqual(['plot/gore/0', 'plot/gore/2', 'plot/gore/3']);
+	for (const gore of house.skins) {
+		const { boundary } = skinFrame(house, gore.id);
+		expect(boundary.map((p) => p[2])).toEqual([GROUND, GROUND, GROUND + 13]);
+	}
 });
 
 test('example 3: an exoskeleton hangs platforms at two datums clear inside its frame', () => {
@@ -141,6 +155,7 @@ test('every painted house states a buildable structure on its own parcel', () =>
 
 test('free-standing painted houses take every principle and draw no solid storeys', () => {
 	const seen = new Set<string>();
+	let lookouts = 0;
 	for (let seed = 1; seed <= 40; seed++) {
 		const section = planHouse(painted(3, seed));
 		const { structure } = section.composition;
@@ -149,12 +164,17 @@ test('free-standing painted houses take every principle and draw no solid storey
 		const parts = sectionParts(section);
 		expect(parts.some((p) => p.id.includes('/body/'))).toBe(false);
 		expect(parts.some((p) => p.kind === 'mesh' && p.buildingSurface)).toBe(true);
-		// Stairs still meet a platform on every storey datum and on the roof datum.
+		// Every platform lies on a storey datum the stair serves, and the highest is the roof datum.
+		const served = [...section.decks.map((d) => d.position[2]), section.top];
 		const datums = structure.platforms.map((p) => p.datum);
-		expect(datums).toEqual([...section.decks.map((d) => d.position[2]), section.top]);
+		expect(datums.every((z) => served.includes(z))).toBe(true);
+		expect(datums[datums.length - 1]).toBe(section.top);
+		expect(checkHouseStructure(structure)).toEqual([]);
+		lookouts += Number(datums.length === 1);
 		expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
 	}
 	expect(seen).toEqual(new Set(['layers', 'mast', 'fanned-truss', 'exoskeleton']));
+	expect(lookouts).toBeGreaterThan(0);
 });
 
 test('a tie carries only what hangs below a supported node', () => {
