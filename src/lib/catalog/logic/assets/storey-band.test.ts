@@ -14,7 +14,7 @@ for (const span of [2.5, 3.75, 5, 7.5, 10])
 				for (const [floor, band] of windows.entries()) {
 					if (band.kind !== 'prism') throw Error('Expected continuous recessed glazing');
 					expect(band.z).toBe(1 + floor * STORY);
-					expect(band.height).toBe(1);
+					expect(band.height).toBe(1.4);
 					for (const axis of [0, 1])
 						expect(footprint[axis] / 2 - Math.max(...band.polygon.map((p) => p[axis]))).toBeCloseTo(
 							0.35
@@ -39,3 +39,28 @@ for (const span of [2.5, 3.75, 5, 7.5, 10])
 			}
 		});
 	}
+
+test('the band has slender corner posts and collars centred at both eye levels', () => {
+	const { geometry } = buildObject('kit-band-body-2s-7p5m', 'porthole-row', 17);
+	for (const sill of [1, 5]) {
+		const posts = geometry.filter(
+			(p) =>
+				p.kind === 'prism' && p.z === sill && p.slot === 'body' && p.polygon.every(([x]) => x > 0)
+		);
+		expect(posts).toHaveLength(2);
+		for (const p of posts) {
+			if (p.kind !== 'prism') throw Error('Expected a cast post');
+			const xs = p.polygon.map(([x]) => x);
+			expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.24);
+		}
+		const collars = geometry.find(
+			(p) =>
+				p.kind === 'mesh' &&
+				p.slot === 'trim' &&
+				p.points.every((q) => q[2] > sill && q[2] < sill + 1.4)
+		);
+		if (collars?.kind !== 'mesh') throw Error('Expected a row of collars');
+		const zs = collars.points.map((q) => q[2]);
+		expect((Math.max(...zs) + Math.min(...zs)) / 2).toBeCloseTo(sill + 0.7);
+	}
+});
