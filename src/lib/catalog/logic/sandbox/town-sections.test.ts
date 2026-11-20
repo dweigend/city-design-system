@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { BODY_TOKEN } from '../../data/house-body';
+import { ACCENT_TOKEN } from '../../data/house-body';
 import { accentBody, ensembleAnchor, sectionParts } from '../composed-house';
 import { openingScene } from './index';
 import { townSections } from './composed-projection';
@@ -7,7 +7,7 @@ import { townSections } from './composed-projection';
 test('every occupied court in the seed-seven opening has its own houses and one coloured upper body', () => {
 	const world = openingScene(7).world;
 	const { sections } = townSections(world);
-	const colours = new Set<string>(Object.values(BODY_TOKEN));
+	const colours = new Set<string>(Object.values(ACCENT_TOKEN));
 	const courts = world.state.city?.centres.flatMap((c) => c.ensembles) ?? [];
 	expect(courts.length).toBeGreaterThan(0);
 	for (const court of courts) {
@@ -27,6 +27,6 @@ test('every occupied court in the seed-seven opening has its own houses and one 
 			(p) => p.id.startsWith(target.id + '/') && ['shell', 'body'].includes(p.source.slot)
 		);
 		expect(walls.length).toBeGreaterThan(0);
-		expect(walls.every((p) => colours.has(p.token))).toBe(true);
+		expect(walls.every((p) => colours.has(p.token) && p.colourRole === 'body-accent')).toBe(true);
 	}
 }, 60000);

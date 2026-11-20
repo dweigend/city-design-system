@@ -94,17 +94,21 @@ function exposedPanel(shell: Shell, index: number, source: StockMesh) {
 	return { ...source, id: source.id + '/' + index, points, triangles };
 }
 /** Maps a full-height fabric, frame or service run between corresponding surveyed wall corners. */
-export function continuousShell(h: HouseComposition, seed: number, surface: Surface): HousePart[] {
+export function continuousShell(
+	h: HouseComposition,
+	seed: number,
+	surface: Surface & { colourRole?: 'ensemble-ground' }
+): HousePart[] {
 	const shell = h.exterior;
 	if (!shell) return [];
 	const stock = houseObject('full-height-shell', shell.system, seed, {
 		instanceId: h.id + '/exterior',
-		slots: { body: { ...surface, finish: shell.finish } }
+		slots: { body: surface }
 	}).parts[0];
 	if (stock.kind !== 'mesh') throw Error('Expected a continuous shell mesh');
 	const source = {
 		...stock,
-		colourRole: 'ensemble-ground' as const,
+		colourRole: surface.colourRole,
 		structuralRole: 'bearing' as const
 	};
 	const outer = shell.ring.flatMap((_, i) =>

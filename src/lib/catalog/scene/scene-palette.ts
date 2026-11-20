@@ -38,7 +38,13 @@ export function scenePalette(resolve: (names: string[]) => Record<string, string
 		blueprintSoft: t['--blueprint-soft'],
 		categories: Object.fromEntries(
 			names
-				.filter((n) => n.startsWith('--cat-') || n === '--body-living' || n === '--signal')
+				.filter(
+					(n) =>
+						n.startsWith('--ground-') ||
+						n.startsWith('--cat-') ||
+						n === '--body-living' ||
+						n === '--signal'
+				)
 				.map((n) => [n.replace('--cat-', ''), t[n]])
 		)
 	};
