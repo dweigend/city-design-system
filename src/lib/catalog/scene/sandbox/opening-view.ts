@@ -22,7 +22,7 @@ function townCluster({ grid, state }: World, portrait = false) {
 		along,
 		across - bankDistance(terrain, center.x, center.y) - 2
 	);
-	const shore = new Vector3(bx, terrain.waterLevel, -by);
+	const water = grid.cells.filter((cell) => cell.zone === 'water').map((cell) => cell.center);
 	const distance = ({ cell }: (typeof parcels)[number]) =>
 		Math.hypot(cell.center[0] - center.x, cell.center[1] - center.y);
 	parcels.sort((a, b) => distance(a) - distance(b));
@@ -40,7 +40,7 @@ function townCluster({ grid, state }: World, portrait = false) {
 	}
 	const [x, y, z] = parcels.reduce((best, p) => (distance(p) < distance(best) ? p : best)).cell
 		.center;
-	return { points, shore, anchor: new Vector3(x, z, -y) };
+	return { points, water, anchor: new Vector3(x, z, -y) };
 }
 
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
@@ -48,7 +48,7 @@ export function frameOldTown(view: View, world: World, area?: OpeningArea, landm
 	if (!view.isPortrait()) return false;
 	const cluster = townCluster(world, true);
 	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, cluster.anchor, area, landmark);
+	view.frameSilhouette(cluster.points, cluster.anchor, area, landmark, cluster.water);
 	return true;
 }
 
@@ -56,6 +56,6 @@ export function frameOldTown(view: View, world: World, area?: OpeningArea, landm
 export function frameTownSilhouette(view: View, world: World, landmark?: Vec3) {
 	const cluster = townCluster(world);
 	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, undefined, undefined, landmark, cluster.shore);
+	view.frameSilhouette(cluster.points, undefined, undefined, landmark, cluster.water);
 	return true;
 }
