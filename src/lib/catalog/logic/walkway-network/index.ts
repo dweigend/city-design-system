@@ -1,4 +1,3 @@
-export { furnishedCourt } from './court-garden';
 export { privateSurface } from './town-palette';
 export { courtLanding } from './court-landing';
 export { townDeck, publicFlight } from './town-deck';

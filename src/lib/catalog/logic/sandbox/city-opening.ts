@@ -14,7 +14,11 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 	const city = planCity(grid, town.railCellIds, occupied);
 	const bodies = [
 		...state.stacks.keys(),
-		...city.centres.flatMap((c) => [c.landmark.cellId, ...c.lots])
+		...city.centres.flatMap((c) => [
+			c.landmark.cellId,
+			...c.lots,
+			...c.ensembles.flatMap((g) => g.plaza?.cells ?? [])
+		])
 	];
 	const thresholds = city.centres.flatMap((centre) =>
 		centre.ensembles.flatMap((court) =>

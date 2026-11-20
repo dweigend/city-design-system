@@ -236,6 +236,18 @@ function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string
 		const plate = parts.find((p) => p.id === 'court/' + id),
 			bed = parts.find((p) => p.id === id + '/garden/bed');
 		if (plate?.kind !== 'prism' || bed?.kind !== 'prism') throw Error('Missing garden plaza');
+		expect(plate.polygon.every((p, i) => distance(p, plate.polygon[(i + 1) % 4]) >= 12)).toBe(true);
+		const steps = parts.filter(
+			(p): p is Plate => p.kind === 'prism' && p.id.startsWith(plate.id + '/step/')
+		);
+		expect(steps.length).toBeGreaterThan(1);
+		expect(steps.every((p) => width(p) >= 1.2)).toBe(true);
+		const trees = new Set(
+			parts
+				.filter((p) => p.id.startsWith(id + '/garden/') && p.id.includes('park-tree-'))
+				.map((p) => p.id.split('/garden/')[1].split('/')[0])
+		);
+		expect([3, 4]).toContain(trees.size);
 		expect(['beton-terrazzo', 'holz-natur']).toContain(plate.finish ?? '');
 		expect(
 			bed.polygon.filter((p) => plate.polygon.some((q) => q[0] === p[0] && q[1] === p[1]))
@@ -286,9 +298,7 @@ for (const seed of [7, 13, 29])
 			for (const id of courts) {
 				const plate = parts.find((p) => p.id === 'court/' + id);
 				expect(
-					plate?.kind === 'prism' &&
-						plate.height === 0.6 &&
-						plate.token === houseSurfaces.deck.token
+					plate?.kind === 'prism' && plate.height === 0.6 && plate.token === '--cat-nature-2'
 				).toBe(true);
 				if (plate?.kind === 'prism') courtOccupancy(parts, id, plate);
 				const assets = new Set(

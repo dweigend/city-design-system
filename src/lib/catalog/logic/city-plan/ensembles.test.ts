@@ -74,7 +74,9 @@ for (const seed of [7, 13, 29])
 				expect(heights[0] - heights[1]).toBeGreaterThanOrEqual(2);
 				expect(heights[1] - heights[heights.length - 1]).toBe(0);
 				expect(heights[heights.length - 1]).toBeGreaterThanOrEqual(2);
-				const bounds = group.lots.map((id) => {
+				const plaza = required(group.plaza, 'reserved plaza');
+				expect(plaza.cells.every((id) => !world.state.stacks.has(id))).toBe(true);
+				const bounds = [...group.lots, ...plaza.cells].map((id) => {
 					const corners = required(world.grid.cellsById.get(id), 'surveyed site').corners;
 					const xs = corners.map((p) => p[0]),
 						ys = corners.map((p) => p[1]);

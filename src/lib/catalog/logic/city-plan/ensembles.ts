@@ -1,11 +1,13 @@
+import { surveyPlaza } from './plaza';
 import { area } from '../ansicht/geometrie';
-import { furnishedCourt, townRoutes } from '../walkway-network';
+import { townRoutes } from '../walkway-network';
 import { required } from '../required';
 import { hashUnit } from '../../core/random';
 import type { TerrainCell, TerrainGrid } from '../terrain-grid';
 
 type TownEnsemble = {
 	openingPlots?: number;
+	plaza?: NonNullable<ReturnType<typeof surveyPlaza>>;
 	court: string;
 	mouth: string;
 	lots: string[];
@@ -22,7 +24,7 @@ function gap(a: ReturnType<typeof envelope>, b: ReturnType<typeof envelope>) {
 	return Math.hypot(Math.max(0, a[0] - b[1], b[0] - a[1]), Math.max(0, a[2] - b[3], b[2] - a[3]));
 }
 
-function courtGroup(grid: TerrainGrid, court: TerrainCell, free: Set<string>) {
+function courtGroup(grid: TerrainGrid, court: TerrainCell, free: Set<string>, open: Set<string>) {
 	const sides = court.neighbors.map((id) => id && grid.cellsById.get(id));
 	for (let i = 0; i < 4; i++) {
 		const mouth = sides[i];
@@ -57,12 +59,14 @@ function courtGroup(grid: TerrainGrid, court: TerrainCell, free: Set<string>) {
 					!lots.includes(id) &&
 					size(id) <= anchorArea
 			);
-		if (!extension || !furnishedCourt(court, mouth, grid.terrain.seed)) continue;
+		if (!extension) continue;
 		const openingPlots = lots.length;
 		lots.push(extension);
+		const plaza = surveyPlaza(grid, court, mouth, lots, open);
+		if (!plaza) continue;
 		const low = 2 + Math.floor(hashUnit(grid.terrain.seed, court.id, 'base') * 2);
 		const heights = lots.map((_, i) => low + (i === 0 ? 2 : 0));
-		return { court: court.id, mouth: mouth.id, lots, heights, openingPlots };
+		return { court: court.id, mouth: plaza.mouth, plaza, lots, heights, openingPlots };
 	}
 }
 
@@ -76,8 +80,11 @@ export function planEnsembles(
 	occupied: Set<string>
 ) {
 	const available = land.filter((c) => !reserved.has(c.id));
-	const envelopes = new Map(available.map((c) => [c.id, envelope(c)]));
-	const free = new Set(envelopes.keys());
+	const envelopes = new Map(grid.cells.map((c) => [c.id, envelope(c)]));
+	const free = new Set(available.map((c) => c.id));
+	const open = new Set(
+		grid.cells.filter((c) => c.zone !== 'water' && !reserved.has(c.id)).map((c) => c.id)
+	);
 	const byStop = stops.map((stop) =>
 		[...available].sort((a, b) => {
 			const distance = (c: TerrainCell) =>
@@ -100,12 +107,15 @@ export function planEnsembles(
 		walk = route;
 		built.push(chosen);
 		groups[district].push(chosen);
-		const boxes = [chosen.court, chosen.mouth, ...chosen.lots].map((id) =>
+		const boxes = [chosen.court, chosen.mouth, ...chosen.lots, ...chosen.plaza.cells].map((id) =>
 			required(envelopes.get(id), 'ensemble footprint')
 		);
-		for (const id of free) {
+		for (const id of open) {
 			const box = required(envelopes.get(id), 'candidate footprint');
-			if (boxes.some((b) => gap(box, b) < 12)) free.delete(id);
+			if (boxes.some((b) => gap(box, b) < 12)) {
+				free.delete(id);
+				open.delete(id);
+			}
 		}
 	}
 	return { groups, walk };
@@ -113,7 +123,7 @@ export function planEnsembles(
 	function site(candidates: TerrainCell[]) {
 		for (const court of candidates) {
 			if (!free.has(court.id)) continue;
-			const chosen = courtGroup(grid, court, free);
+			const chosen = courtGroup(grid, court, free, open);
 			if (!chosen) continue;
 			const route = townRoutes(grid, [...built, chosen], occupied);
 			if (route) return { chosen, route };

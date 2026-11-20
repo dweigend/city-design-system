@@ -1,7 +1,12 @@
 import { required } from '../required';
 import type { TerrainGrid } from '../terrain-grid';
 
-type Gate = { court: string; mouth: string; lots: readonly string[] };
+type Gate = {
+	court: string;
+	mouth: string;
+	plaza?: { cells: readonly string[] };
+	lots: readonly string[];
+};
 
 function connection(
 	grid: TerrainGrid,
@@ -38,7 +43,10 @@ export function townRoutes(
 	occupied: ReadonlySet<string>
 ) {
 	if (!gates.length) return [];
-	const blocked = new Set([...occupied, ...gates.flatMap((g) => [...g.lots, g.court, g.mouth])]);
+	const blocked = new Set([
+		...occupied,
+		...gates.flatMap((g) => [...g.lots, ...(g.plaza?.cells ?? []), g.court, g.mouth])
+	]);
 	const first = gates[0],
 		start = required(grid.cellsById.get(first.mouth), 'court mouth');
 	if (

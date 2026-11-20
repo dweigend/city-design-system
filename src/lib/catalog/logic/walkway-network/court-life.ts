@@ -75,7 +75,13 @@ function visitors(survey: Survey, furniture: Placement[], landing?: Vec3) {
 			)
 		};
 		const group = positions(near, ['kit-scatter-group-3'], 'court/landing', taken).next().value;
-		if (!group) return;
+		if (
+			!group ||
+			Math.hypot(group.box.x - landing[0], group.box.y - landing[1]) +
+				Math.hypot(group.box.w, group.box.d) / 2 >
+				4.2
+		)
+			return;
 		taken.push(group.box);
 		result.push(group);
 		remaining -= 3;
@@ -99,7 +105,7 @@ function visitors(survey: Survey, furniture: Placement[], landing?: Vec3) {
 }
 
 /** Packs the whole seeded party and its fitting together, at native registry sizes. */
-export function courtLayout(space: PublicSpace, seed: number, furnished: boolean, landing?: Vec3) {
+function courtLayout(space: PublicSpace, seed: number, furnished: boolean, landing?: Vec3) {
 	const survey = { space, seed, candidates: sites(space, seed) };
 	for (const furniture of arrangements(survey, furnished)) {
 		const layout = visitors(survey, furniture, landing);

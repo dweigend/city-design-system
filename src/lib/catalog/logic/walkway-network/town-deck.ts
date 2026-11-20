@@ -75,7 +75,55 @@ export function publicFlight(span: TownSpan, ground: (x: number, y: number) => n
 		: parts.map((p) => (p.kind === 'prism' ? { ...p, ...houseSurfaces.deck } : p));
 }
 
-type Court = { id: string; position: Vec3; area: number; polygon: [number, number][] };
+type Court = {
+	aprons?: [number, number][][];
+	id: string;
+	position: Vec3;
+	area: number;
+	polygon: [number, number][];
+};
+function plazaParts(
+	court: Court,
+	index: number,
+	point: (along: number, out: number) => [number, number],
+	ground: (x: number, y: number) => number
+): Primitive[] {
+	const paving = {
+		token: '--cat-nature-2',
+		finish: index % 2 === 0 ? 'beton-terrazzo' : 'holz-natur'
+	} as const;
+	const plate = {
+		...frame,
+		...paving,
+		material: finishMaterial(paving.finish),
+		id: 'court/' + court.id,
+		kind: 'prism' as const,
+		polygon: court.polygon,
+		z: court.position[2] - 0.6,
+		height: 0.6
+	};
+	const parts: Primitive[] = [plate];
+	for (const [i, polygon] of (court.aprons ?? []).entries())
+		parts.push({ ...plate, id: plate.id + '/apron/' + i, polygon });
+	if (!court.aprons) return parts;
+	const top = court.position[2],
+		foot = ground(...point(0, 2.4));
+	const steps = Math.max(2, Math.ceil((top - foot) / 0.17));
+	for (let i = 0; i < steps; i++) {
+		const a = (2.4 * i) / steps,
+			b = (2.4 * (i + 1)) / steps;
+		const polygon = [point(-2, a), point(2, a), point(2, b), point(-2, b)];
+		const z = Math.min(...polygon.map(([x, y]) => ground(x, y)), foot) - 0.05;
+		parts.push({
+			...plate,
+			id: plate.id + '/step/' + i,
+			polygon,
+			z,
+			height: top + ((foot - top) * i) / (steps - 1) - z
+		});
+	}
+	return parts;
+}
 /** Projects horizontal 2.5 m spans and matching steps between even-metre
  * landings. Terminals descend into courts. Degree-three junctions have an open plaza. */
 export function townDeck(
@@ -107,20 +155,8 @@ export function townDeck(
 		});
 	}
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
-	for (const [i, court] of courts.entries()) {
-		const finish = (i + parity) % 2 === 0 ? 'beton-terrazzo' : 'holz-natur';
-		plazas.push({
-			...frame,
-			...houseSurfaces.deck,
-			finish,
-			material: finishMaterial(finish),
-			id: 'court/' + court.id,
-			kind: 'prism',
-			polygon: court.polygon,
-			z: court.position[2] - 0.6,
-			height: 0.6
-		});
-	}
+	for (const [i, court] of courts.entries())
+		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));
 	const planting = gardens.flatMap((g) => g.parts);
 	const taken = reservations([...visitors, ...planting.filter((p) => !p.id.endsWith('/bed'))]);
 	const meetings = meetingPlatforms(sites, taken, seed, ground);
