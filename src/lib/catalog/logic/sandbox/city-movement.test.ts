@@ -1,3 +1,7 @@
+import { area, type Point2 } from '../ansicht/geometrie';
+import { intersect } from '../parametrik/raster/geometry';
+import { deckCorners } from '../walkway';
+import { required } from '../required';
 import { test, expect } from 'bun:test';
 import { cityMovementNetwork, composedProjection, openingScene } from './index';
 import { townSections } from './composed-projection';
@@ -63,4 +67,44 @@ test('layered houses keep their layers beside the free-standing ones', () => {
 	expect(layered.length).toBeGreaterThan(0);
 	for (const { composition } of layered)
 		expect(composition.structure.platforms.some((p) => p.room)).toBe(true);
+});
+
+test('the seed 7 public ribbon crosses a framed house between its surveyed entrance ports', () => {
+	const { world } = openingScene(7);
+	const graph = cityMovementNetwork(world, 120);
+	const houses = new Map(composedProjection(world).map((h) => [h.id, h]));
+	const ports = new Map(graph.ports.map((p) => [p.id, p]));
+	const tunnels = graph.edges.filter((e) => e.kind === 'tunnel');
+	expect(tunnels.length).toBeGreaterThan(0);
+	for (const edge of tunnels) {
+		const a = required(ports.get(edge.from), 'entry sill'),
+			b = required(ports.get(edge.to), 'exit sill');
+		const house = required(houses.get(a.id.split('/portal/')[0]), 'passage house');
+		const passage = required(house.passage, 'house passage survey');
+		expect(new Set([passage.entry.port?.id, passage.exit.port?.id])).toEqual(new Set([a.id, b.id]));
+		const parts = house.parts();
+		expect(parts.some((p) => p.id.includes('/portal/frame/'))).toBe(true);
+		const lane = deckCorners([...a.position], [...b.position], edge.width).map(([x, y]): Point2 => [
+			x,
+			y
+		]);
+		for (const part of parts) {
+			if (
+				part.kind !== 'prism' ||
+				part.z >= a.position[2] + a.headroom - 1e-7 ||
+				part.z + part.height <= a.position[2] + 1e-7
+			)
+				continue;
+			expect(area(intersect(part.polygon, lane)), part.id).toBeLessThan(1e-7);
+		}
+		expect([a.kind, b.kind]).toEqual(['entrance', 'entrance']);
+		expect(Math.min(a.width, b.width)).toBeGreaterThanOrEqual(2.5);
+		expect(Math.min(a.headroom, b.headroom)).toBeGreaterThanOrEqual(2.2);
+		expect(Math.cos(a.heading - b.heading)).toBeCloseTo(-1, 8);
+		expect(reachedKinds(graph, a.id)).toContain('court');
+		for (const end of [a, b])
+			expect(
+				graph.edges.some((e) => e.kind === 'path' && (e.from === end.id || e.to === end.id))
+			).toBe(true);
+	}
 });

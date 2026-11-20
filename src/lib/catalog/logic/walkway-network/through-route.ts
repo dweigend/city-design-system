@@ -4,7 +4,8 @@ import { needsTreads } from './walking-profile';
 import type { TownSpan } from './town-stations';
 import { walkingProfile } from './walking-profile';
 
-type Threshold = { position: Vec3; outward: readonly [number, number] };
+import type { MovementPort } from '../movement-network';
+type Threshold = { port?: MovementPort; position: Vec3; outward: readonly [number, number] };
 /** World-metre walking clearance surveyed by the envelope owner, from first sill to last. */
 export type CourtPassage = {
 	id: string;
@@ -13,6 +14,8 @@ export type CourtPassage = {
 	centreline: readonly Vec3[];
 	clearWidth: number;
 	headroom: number;
+	stepFree?: boolean;
+	clearInterior?: () => boolean;
 	clearApproach?: (a: Vec3, b: Vec3, width: number) => boolean;
 };
 type Ground = (x: number, y: number) => number;
@@ -25,7 +28,7 @@ function outside({ position: [x, y, z], outward: [u, v] }: Threshold, run: numbe
 function spans(points: readonly Vec3[], prefix: string): TownSpan[] {
 	return points.slice(1).map((b, i) => ({ id: prefix + '/' + i, a: points[i], b }));
 }
-function descent(exit: Threshold, ground: Ground, clear: Clear, id: string) {
+function descent(exit: Threshold, ground: Ground, clear: Clear, id: string, stepFree = false) {
 	const start = outside(exit, width);
 	let fallback: TownSpan[] | undefined;
 	for (let run = width + 2; run <= 32; run += 1) {
@@ -34,6 +37,7 @@ function descent(exit: Threshold, ground: Ground, clear: Clear, id: string) {
 		if (!Number.isFinite(foot[2]) || !clear(start, foot)) break;
 		const flight = spans([start, foot], id + '/descent');
 		if (!needsTreads(start, foot)) return flight;
+		if (stepFree) continue;
 		if (!fallback && walkingLink(flight[0].id, start, foot, 'entrance', 'path').edges.length)
 			fallback = [{ ...flight[0], adapter: true }];
 	}
@@ -52,10 +56,12 @@ function crossing(terminal: Vec3, passage: CourtPassage, ground: Ground, clear: 
 		return [];
 	const id = 'town-walk/passage/' + passage.id;
 	const lead = spans([terminal, approach, entry.position], id + '/approach');
+	lead[lead.length - 1].port = entry.port;
 	const inside = spans(passage.centreline, id + '/inside').map((s) => ({ ...s, inside: true }));
+	inside[inside.length - 1].port = exit.port;
 	const outsideExit = outside(exit, width);
 	if (!clear(exit.position, outsideExit)) return [];
-	const down = descent(exit, ground, clear, id);
+	const down = descent(exit, ground, clear, id, passage.stepFree);
 	if (!down) return [];
 	const route = [
 		...lead,

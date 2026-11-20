@@ -1,4 +1,10 @@
-import { edgePath, type MovementGraph } from '../movement-network';
+import { deckCorners } from '../walkway';
+import {
+	edgePath,
+	type MovementPort,
+	type MovementEdge,
+	type MovementGraph
+} from '../movement-network';
 import { edgeSections } from './edge-sections';
 import { stairEdge } from './path-deck';
 import { column, ribbonProfile } from './ribbon-column';
@@ -52,6 +58,21 @@ function guard(path: Vec3[], id: string): Primitive[] {
 		}))
 	];
 }
+function groundLanding(e: MovementEdge, foot: MovementPort | undefined): Primitive[] {
+	if (e.kind !== 'path' || foot?.kind !== 'path') return [];
+	const [x, y, z] = foot.position;
+	const end: Vec3 = [x + 0.5 * Math.cos(foot.heading), y + 0.5 * Math.sin(foot.heading), z];
+	return [
+		{
+			...pathSurfaces.bearing,
+			kind: 'prism',
+			id: e.id + '/foot',
+			polygon: deckCorners([x, y, z], end, e.width).map(([u, v]) => [u, v]),
+			z: z - ribbonProfile.depth,
+			height: ribbonProfile.depth
+		}
+	];
+}
 /** Projects finished walking edges and their junction boundaries in world metres. */
 export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primitive[]) {
 	const ports = new Map(graph.ports.map((p) => [p.id, p]));
@@ -80,7 +101,9 @@ export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primiti
 				e.guardGroup
 			);
 		}
-		return deck(e.id, sections, ground, e.kind !== 'tunnel');
+		const parts = deck(e.id, sections, ground, e.kind !== 'tunnel');
+		parts.push(...groundLanding(e, ports.get(e.to)));
+		return parts;
 	});
 	for (const p of graph.ports) {
 		if (!p.rim) continue;

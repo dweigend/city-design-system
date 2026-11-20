@@ -48,6 +48,16 @@ function plazaParts(court: Court, index: number): Primitive[] {
 		parts.push({ ...plate, id: plate.id + '/apron/' + i, polygon });
 	return parts;
 }
+function courtPassage(c: Court, landing: Vec3, ground: (x: number, y: number) => number) {
+	for (const p of c.passages ?? []) {
+		if (!p.clearApproach) continue;
+		const clear = p.clearApproach;
+		const route = throughRoute(landing, p, ground, (a, b) => clear(a, b, walkingProfile.width));
+		if (route.length && (p.clearInterior?.() ?? true))
+			return [{ court: c.id, spans: route, passage: p }];
+	}
+	return [];
+}
 /** Surveys the town centrelines and their court terminals in world metres. */
 export function surveyTownWalk(
 	routes: readonly string[][],
@@ -71,18 +81,9 @@ export function surveyTownWalk(
 	// Older survey consumers inspect the straight-link tread budget independently of the fitted ribbon.
 	const flightBudget = () =>
 		fitWalkingFlights(townSpans(links, stations, ends, ground), reservations);
-	const passages = courts.flatMap((c, i) => {
-		if (!stations.has(c.id)) return [];
-		for (const p of c.passages ?? []) {
-			if (!p.clearApproach) continue;
-			const clear = p.clearApproach;
-			const route = throughRoute(gardens[i].landing, p, ground, (a, b) =>
-				clear(a, b, walkingProfile.width)
-			);
-			if (route.length) return [{ court: c.id, spans: route }];
-		}
-		return [];
-	});
+	const passages = courts.flatMap((court, i) =>
+		stations.has(court.id) ? courtPassage(court, gardens[i].landing, ground) : []
+	);
 
 	const graph = townMovement(
 		ribbonNetwork(routes, stations),
@@ -93,6 +94,7 @@ export function surveyTownWalk(
 		water
 	);
 	return {
+		passages: new Map(passages.map((p) => [p.passage.id, p.passage])),
 		ends,
 		stations,
 		get spans() {

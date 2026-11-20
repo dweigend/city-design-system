@@ -1,3 +1,4 @@
+import { housePassages } from '../composed-house';
 import { cityPassages, cityRibbonClearance } from './city-passages';
 import { courtBench } from './town-grading';
 import { surveyedGrid } from './town-grid';
@@ -63,11 +64,17 @@ function corridorInputs(world: World, openingSurvey?: Parameters<typeof cityPass
 	if (!site) return;
 	const relief = surveyedGrid(world.grid);
 	const [routes, station, courts, ground, seed] = site;
-	const openings = openingSurvey && cityPassages(world, openingSurvey);
+	const floors = new Map(courts.map((c) => [c.id, c.position[2]]));
+	const openings = cityPassages(
+		world,
+		openingSurvey ??
+			((section, court) =>
+				housePassages(section, required(floors.get(court), 'passage court'), ground))
+	);
 	return [
 		routes,
 		station,
-		courts.map((c) => ({ ...c, passages: openings?.get(c.id) })),
+		courts.map((c) => ({ ...c, passages: openings.get(c.id) })),
 		ground,
 		seed,
 		(x: number, y: number) => walkingHeight(relief, x, y)

@@ -2,14 +2,14 @@ import { deckCorners } from '../walkway';
 import { intersect } from '../parametrik/raster/geometry';
 import { area, type Point2 } from '../ansicht/geometrie';
 import type { Vec3 } from '../parametrik/types';
-import { townSections } from './composed-projection';
+import { townSections } from './town-sections';
 import { buildingPlots } from './building-plots';
 import { overlaps, planBounds } from './network-site';
 import type { World } from './world-contract';
 import type { TownPassage } from '../walkway-network';
 
 type Section = ReturnType<typeof townSections>['sections'][number];
-type Survey = (section: Section) => readonly TownPassage[];
+type Survey = (section: Section, court: string) => readonly TownPassage[];
 function occupied(world: World) {
 	const plots = buildingPlots(world.grid);
 	const reserved = new Set([
@@ -50,7 +50,7 @@ export function cityPassages(world: World, survey: Survey) {
 		if (!court) continue;
 		const host = new Set(section.cells.map((c) => c.id)),
 			neighbours = lots.filter((l) => !host.has(l.id));
-		const openings = survey(section).map((p) => ({
+		const openings = survey(section, court).map((p) => ({
 			...p,
 			clearApproach: (a: Vec3, b: Vec3, width: number) => clearApproach(neighbours, a, b, width)
 		}));

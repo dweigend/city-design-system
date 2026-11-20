@@ -21,3 +21,5 @@ export { composedGroups, paintedSections, sectionGroups } from './groups';
 
 export type { HouseObstacle } from './clearance';
 export { person } from './people';
+export { housePassages } from './passage-survey';
+export { openHousePassage } from './passage-cut';
