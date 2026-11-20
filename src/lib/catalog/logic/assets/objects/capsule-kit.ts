@@ -1,7 +1,7 @@
 import { block } from '../assembly';
 import { panel } from './forms';
 import { cabinShell } from './cabin-shell';
-import { ring } from '../parts';
+import { cabinBrass, cabinGlass, cabinPaint, cabinPort } from './cabin-port';
 import { rounded } from './kit-recipe';
 import { houseSeries, lengths, spans } from './house-series';
 
@@ -18,7 +18,7 @@ function cabin(end: End) {
 		profiles,
 		(l, v) => {
 			const balcony = end === 'balcony' ? 1.25 : 0;
-			const nose = end === 'door' ? 0.24 : end === 'porthole' ? 0.1 : 0;
+			const nose = end === 'door' ? 0.24 : 0.18;
 			const right = l / 2 - balcony - nose;
 			const parts = [
 				cabinShell(
@@ -44,27 +44,22 @@ function cabin(end: End) {
 		...recipe,
 		suggestions: {
 			...recipe.suggestions,
-			shell: {
-				material: 'acrylic' as const,
-				finish: 'acryl-matt' as const,
-				token: '--paper' as const
-			}
+			shell: cabinPaint,
+			edge: cabinBrass,
+			glass: cabinGlass
 		}
 	}));
 }
 
 function fittings(end: End, l: number, balcony: number) {
 	const parts = [];
-	if (end === 'porthole')
-		parts.push(
-			ring([l / 2 - 0.05, 0, 1.35], 0.55, 0.4, 0.1, 'edge'),
-			ring([l / 2 - 0.05, 0, 1.35], 0.4, 0, 0.1, 'glass')
-		);
+	if (end !== 'door')
+		parts.push(...cabinPort(l / 2 - balcony, 1.325, 'edge', end === 'closed' ? 'shell' : 'glass'));
 	if (end === 'door') {
 		parts.push(
 			block(l / 2 - 0.18, 0, 0.14, 0.12, 1.08, 1.95, 'glass'),
-			...[-1, 1].map((side) => block(l / 2 - 0.12, side * 0.62, 0.14, 0.24, 0.16, 1.95, 'shell')),
-			block(l / 2 - 0.12, 0, 2.09, 0.24, 1.4, 0.17, 'shell')
+			...[-1, 1].map((side) => block(l / 2 - 0.12, side * 0.62, 0.14, 0.24, 0.16, 1.95, 'edge')),
+			block(l / 2 - 0.12, 0, 2.09, 0.24, 1.4, 0.17, 'edge')
 		);
 	}
 	if (end === 'balcony')
