@@ -10,16 +10,15 @@ type Display = { bay: BaySurvey; planned: boolean; subdued: boolean; geometry: s
 function forms(row: Display, result?: Result): Primitive[] {
 	const { bay, planned, subdued } = row;
 	if (result?.status === 'rejected' && !planned) return [];
-	const axes = bayAxes(bay).axes;
-	const rods =
-		result?.status === 'sized' && !planned
-			? result.rods
-			: axes.map(([a, b], i) => ({ a, b, id: String(i), diameter: 0.18 }));
+	const installed = !planned && result?.status === 'sized';
+	const rods = installed
+		? result.rods
+		: bayAxes(bay).axes.map(([a, b], i) => ({ a, b, id: String(i), diameter: 0.18 }));
 	// Each installed support runs from its surveyed foot to a chord joint.
 	const feet = new Map(
 		rods.filter((rod) => rod.id !== '2').map((rod) => [rod.a.join(','), rod.a] as const)
 	);
-	return rods.map((r): Primitive => ({
+	const members = rods.map((r): Primitive => ({
 		id: bay.id + '/' + r.id,
 		kind: 'pipe',
 		points: [r.a, r.b],
@@ -31,6 +30,23 @@ function forms(row: Display, result?: Result): Primitive[] {
 		cityForm: r.diameter < 0.18 ? false : undefined,
 		bearings: r.id === '0' && !planned ? [...feet.values()] : undefined,
 		token: planned ? '--blueprint' : '--paper',
+		material: 'metal',
+		edges: false
+	}));
+	if (!installed) return members;
+	return [...members, ...supportShoes(row, [...feet.values()])];
+}
+
+function supportShoes(row: Display, feet: NonNullable<Primitive['bearings']>): Primitive[] {
+	return feet.map((position, i): Primitive => ({
+		id: row.bay.id + '/shoe/' + i,
+		kind: 'cylinder',
+		position,
+		radius: 0.32,
+		height: 0.13,
+		role: row.subdued ? 'bestand' : 'neu',
+		finish: 'metall-gebuerstet',
+		token: '--paper',
 		material: 'metal',
 		edges: false
 	}));
@@ -48,7 +64,8 @@ export function createFrameLayer(
 	const cache = new Map<string, Result>();
 	let stopped = false;
 	let previous:
-		{ survey: ReturnType<typeof frameSurvey>; world: World; focus: FocusId } | undefined;
+		| { survey: ReturnType<typeof frameSurvey>; world: World; focus: FocusId; previews: boolean }
+		| undefined;
 	const roles = new Map<string, { role: string }>();
 	const timings = new Map<string, number>();
 	const previewTimings = new Map<string, number>();
@@ -91,7 +108,7 @@ export function createFrameLayer(
 	}
 	return {
 		/** Displays a saved frame generation and exposes still-pending spans as dashed lines. */
-		show(world: World, focus: FocusId) {
+		show(world: World, focus: FocusId, previews = true) {
 			const started = performance.now();
 			const survey = frameSurvey(world);
 			const { bays, seams, rules } = survey;
@@ -103,6 +120,7 @@ export function createFrameLayer(
 					previous &&
 					previous.world.seed === world.seed &&
 					previous.focus === focus &&
+					previous.previews === previews &&
 					previous.world.state.year === world.state.year
 				) {
 					const before = previous.survey;
@@ -132,10 +150,10 @@ export function createFrameLayer(
 				return redraw;
 			}
 			for (const id of redraw) project(id);
-			function visibleGeometry(id: string, role: string, installed?: BaySurvey) {
+			function visibleGeometry(id: string, role: string) {
 				if (role === 'gap' || world.state.frameInstallations?.get(id)?.result.status === 'rejected')
 					return;
-				return installed ?? survey.supportedBay(id, roles);
+				return survey.supportedBay(id, roles);
 			}
 			function project(id: string) {
 				const decision = roles.get(id);
@@ -146,7 +164,7 @@ export function createFrameLayer(
 					return;
 				}
 				const installed = installedBay(world, id);
-				const bay = visibleGeometry(id, decision.role, installed?.bay);
+				const bay = installed?.bay ?? (previews ? visibleGeometry(id, decision.role) : undefined);
 				if (!bay) {
 					next.delete(id);
 					return;
@@ -173,7 +191,7 @@ export function createFrameLayer(
 					}
 			}
 			rows = next;
-			previous = { survey, world, focus };
+			previous = { survey, world, focus, previews };
 		},
 		/** Starts sizing once the preview has been submitted to the renderer. */
 		afterDraw() {
@@ -184,14 +202,6 @@ export function createFrameLayer(
 		},
 		timings,
 		previewTimings,
-		/** Retires the engineering overlay when leaving the infrastructure drawing. */
-		clear() {
-			for (const id of rows.keys()) structures.set('tg/' + id, []);
-			rows.clear();
-			previous = undefined;
-			roles.clear();
-			awaitingDraw.clear();
-		},
 		dispose() {
 			stopped = true;
 			worker?.terminate();

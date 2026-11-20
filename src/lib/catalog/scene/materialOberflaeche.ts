@@ -77,12 +77,6 @@ function projiziereMuster(
 	projectPhysicalChannels();
 
 	function projectPhysicalChannels() {
-		if (w.id === 'acryl-matt')
-			m.transmissionNode = pattern.hoehe
-				.smoothstep(0.15, 0.55)
-				.mul(0.55)
-				.add(0.45)
-				.mul(w.transmission);
 		if (pattern.metallVersatz)
 			m.metalnessNode = float(w.metall).add(pattern.metallVersatz).clamp(0, 1);
 		m.roughnessNode = float(w.rauheit)
@@ -126,7 +120,10 @@ export function physicalSurface(
 		side: doppelt ? THREE.DoubleSide : THREE.FrontSide
 	});
 	projiziereMuster(m, w, base, r.haut.bewegt, variation, quality, r.farbe.anteil === 1);
-	if (w.id === 'perforated-metal') m.maskNode = perforatedSheet();
+	if (w.id === 'perforated-metal') {
+		m.maskNode = perforatedSheet();
+		m.maskShadowNode = m.maskNode;
+	}
 
 	m.normalNode = creaseNormal((m.normalNode ?? normalView) as THREE.Node<'vec3'>);
 	physischeDetails(m, w);

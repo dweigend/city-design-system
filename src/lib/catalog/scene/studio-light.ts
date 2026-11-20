@@ -31,12 +31,12 @@ export function createStudioLight(config = studioConfig()) {
 		shade(this: void, color: THREE.Node<'vec3'>) {
 			return mix(color, shadowTone, opacity);
 		},
-		/** Sets the ground shadow tint. The optional paper caps callers using the drawing shadow tone. */
-		setTone(color: THREE.Color, paper = color) {
+		/** Caps the studio's warm grey against the current paper, including night palettes. */
+		setPaper(paper: THREE.Color) {
 			shadowTone.value.set(
-				Math.min(color.r, paper.r),
-				Math.min(color.g, paper.g),
-				Math.min(color.b, paper.b)
+				Math.min(tint.r, paper.r),
+				Math.min(tint.g, paper.g),
+				Math.min(tint.b, paper.b)
 			);
 		},
 		/** Releases the shadow render target. */

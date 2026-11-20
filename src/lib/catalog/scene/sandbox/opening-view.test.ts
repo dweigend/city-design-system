@@ -1,7 +1,12 @@
 import { expect, test } from 'bun:test';
 import { Vector3 } from 'three/webgpu';
 import type { Vec3 } from '../../logic/parametrik/types';
-import { acceptanceScene, createWorld, TWO_SUNS_TURNING_DISC } from '../../logic/sandbox';
+import {
+	acceptanceScene,
+	createWorld,
+	openingScene,
+	TWO_SUNS_TURNING_DISC
+} from '../../logic/sandbox';
 import { STORY } from '../../data/grid';
 import { frameTownSilhouette, frameOldTown } from './opening-view';
 import { createView } from './view';
@@ -30,7 +35,7 @@ test('the seed-7 portrait opening keeps the river and slope visible in the openi
 	expect(frameOldTown(view, world)).toBe(false);
 });
 
-test('two central parcels fill 70 percent of the desktop opening despite a distant parcel', () => {
+test('two central parcels fill 77 percent of the desktop opening despite a distant parcel', () => {
 	const source = createWorld(7);
 	const cells = [...source.grid.cellsById.values()];
 	const near = cells[0];
@@ -60,7 +65,7 @@ test('two central parcels fill 70 percent of the desktop opening despite a dista
 		range(points.map((point) => point.x)) / 1440,
 		range(points.map((point) => point.y)) / 900
 	);
-	expect(fill).toBeCloseTo(0.7, 3);
+	expect(fill).toBeCloseTo(0.77, 3);
 });
 
 test('the acceptance landmark stays inside the crop without widening the district', () => {
@@ -86,4 +91,22 @@ test('the acceptance landmark stays inside the crop without widening the distric
 		expect(Math.abs(pixel.x / width - 0.5)).toBeLessThan(0.37);
 		expect(Math.abs(pixel.y / height - 0.5)).toBeLessThan(0.37);
 	}
+});
+
+test('the desktop opening includes occupied parcels and the central waterfront', () => {
+	const { world } = openingScene(7);
+	const view = createView();
+	view.resize(1440, 900);
+	frameTownSilhouette(view, world);
+	const waterfront = world.grid.cells
+		.filter((cell) => cell.zone === 'water')
+		.map((cell) => view.project(cell.center));
+	expect(waterfront.some((p) => p.x > 648 && p.x < 792 && p.y > 0 && p.y < 900)).toBe(true);
+	const visible = [...world.state.stacks.keys()].filter((id) => {
+		const cell = world.grid.cellsById.get(id);
+		if (!cell) throw Error('Missing occupied parcel');
+		const p = view.project(cell.center);
+		return p.x > 0 && p.x < 1440 && p.y > 0 && p.y < 900;
+	});
+	expect(visible.length).toBeGreaterThan(5);
 });

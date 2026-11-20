@@ -26,9 +26,12 @@ test('the sandbox draws pending rods, installed sections and the reopened entry 
 	layer.show(original, 'all');
 	const installed = original.state.frameInstallations?.get(study.entrance)?.result;
 	if (installed?.status !== 'sized') throw new Error('Missing installed entrance frame');
-	expect(visible.get(key)?.map((p) => p.sectionDiameter)).toEqual(
-		installed.rods.map((r) => r.diameter)
-	);
+	expect(
+		visible
+			.get(key)
+			?.filter((p) => p.kind === 'pipe')
+			.map((p) => p.sectionDiameter)
+	).toEqual(installed.rods.map((r) => r.diameter));
 	const shoes = visible.get(key)?.flatMap((part) => part.bearings ?? []) ?? [];
 	const feet = installed.rods.filter((rod) => rod.id !== '2').map((rod) => rod.a);
 	expect(new Set(shoes.map((p) => p.join(',')))).toEqual(new Set(feet.map((p) => p.join(','))));
@@ -37,9 +40,12 @@ test('the sandbox draws pending rods, installed sections and the reopened entry 
 	expect(visible.get(key)).toEqual([]);
 	layer.show(study.at(1, false), 'all');
 	expect(visible.get(key)?.every((p) => p.planned)).toBe(true);
-	layer.clear();
+	layer.show(study.at(1, false), 'all', false);
 	expect([...visible.values()].flat()).toHaveLength(0);
-	layer.show(study.at(1, false), 'all');
-	expect(visible.get(key)).toHaveLength(3);
+	layer.show(original, 'all', false);
+	expect(visible.get(key)?.flatMap((p) => p.bearings ?? [])).toEqual(shoes);
+	expect(visible.get(key)?.flatMap((p) => (p.kind === 'cylinder' ? [p.position] : []))).toEqual(
+		shoes
+	);
 	layer.dispose();
 });

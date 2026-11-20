@@ -44,7 +44,7 @@ export function wakeGeometry(grid: TerrainGrid, piers: readonly Pier[]) {
 	return geometry;
 }
 
-/** Two diverging strokes run 3.6 support diameters downstream with short companion ripples. */
+/** Two diverging strokes run 3.6 support diameters downstream with a subdued moving highlight. */
 export function wakeInk(ink: Node<'vec3'>, seconds: Node<'float'>, visibility: Node<'float'>) {
 	const m = new MeshBasicNodeMaterial({
 		transparent: true,
@@ -58,22 +58,8 @@ export function wakeInk(ink: Node<'vec3'>, seconds: Node<'float'>, visibility: N
 	const aa = arm.fwidth().max(0.025);
 	const line = float(1).sub(arm.smoothstep(float(0.075).sub(aa), float(0.075).add(aa)));
 	const ends = q.x.smoothstep(-0.15, 0.28).mul(float(1).sub(q.x.smoothstep(3.2, 3.65)));
-	const lane = q.y.mul(1.4).fract().sub(0.5).abs();
-	const dash = float(1).sub(
-		q.x
-			.mul(0.55)
-			.sub(seconds.mul(0.36))
-			.add(q.y.mul(1.4).floor().mul(0.31))
-			.fract()
-			.sub(0.5)
-			.abs()
-			.smoothstep(0.17, 0.23)
-	);
-	const ripple = float(1)
-		.sub(lane.smoothstep(0.018, 0.118))
-		.mul(dash)
-		.mul(float(1).sub(q.length().smoothstep(1.8, 3)));
+	const pulse = q.x.mul(1.4).sub(seconds.mul(0.32)).cos().mul(0.07).add(0.22);
 	m.colorNode = ink;
-	m.opacityNode = line.mul(ends).max(ripple.mul(0.65)).mul(visibility);
+	m.opacityNode = line.mul(ends).mul(pulse).mul(visibility);
 	return m;
 }

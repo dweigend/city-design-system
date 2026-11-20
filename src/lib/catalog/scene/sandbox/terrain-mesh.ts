@@ -157,12 +157,8 @@ export function createTerrainMesh(
 			.mul(nodes.cellInk)
 			.max(parcelLine.mul(nodes.parcel));
 		const plotted = mix(ground, colors.blueprint, plan.mul(terrainWeight));
-		const phase = attribute('position', 'vec3')
-			.x.add(attribute('position', 'vec3').z.mul(0.65))
-			.div(1.65);
-		const hatchWeight = hairline(phase, 1).mul(resolvable(phase)).mul(daylight);
 		return alleys.shade(
-			mix(plotted, shadeGround(plotted), hatchWeight.mul(0.48).add(0.78)),
+			shadeGround(plotted),
 			drawingInk,
 			colors.people,
 			paperColor,
@@ -177,7 +173,7 @@ export function createTerrainMesh(
 	const surface = new THREE.Mesh(surfaceGeometry(grid), surfaceMaterial);
 	surface.receiveShadow = true;
 
-	const waterMaterial = new THREE.MeshBasicNodeMaterial();
+	const waterMaterial = new THREE.MeshStandardNodeMaterial({ roughness: 0.34, metalness: 0.12 });
 	waterMaterial.colorNode = mix(
 		paperColor,
 		riverInk(seconds, colors.water, paperColor, colors.waterStroke),
@@ -288,7 +284,7 @@ export function createTerrainMesh(
 				sceneSwatch(palette, '--cat-health')
 			);
 			colors.waterStroke.value.set(waterStroke);
-			colors.nature.value.copy(category('--cat-nature'));
+			colors.nature.value.copy(category('--cat-foliage'));
 			colors.people.value.copy(category(flowToken[WEG_STROM]));
 			colors.food.value.copy(category('--cat-nature')).lerp(category('--cat-mobility'), 0.45);
 		},

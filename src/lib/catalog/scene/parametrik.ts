@@ -405,7 +405,12 @@ export function createParametrikScene(
 						});
 						material.colorNode =
 							role === 'bestand' && !see
-								? pencilStock(colorNode(color).rgb, colorNode(inkColor(true)).rgb)
+								? pipeline.light.shade(
+										pencilStock(
+											colorNode(new THREE.Color(palette.paper)).rgb,
+											colorNode(inkColor(true)).rgb
+										)
+									)
 								: surfaceColor(
 										color,
 										p.material,
@@ -419,6 +424,7 @@ export function createParametrikScene(
 				});
 				mesh.position.copy(place.position);
 				mesh.rotation.copy(place.rotation);
+				mesh.receiveShadow = role === 'bestand' && !see;
 				mesh.userData.id = p.id;
 				pickables.push(mesh);
 				parent.add(mesh);

@@ -1,4 +1,4 @@
-import { corrugation, flutedAcrylic, pressedFlakes } from './toy-surfaces';
+import { corrugation, frostedAcrylic, pressedFlakes } from './toy-surfaces';
 import type { Node } from 'three/webgpu';
 import type { AusfuehrungId } from '../data/materialAusfuehrung';
 import {
@@ -20,7 +20,7 @@ import {
 const musterVon: Partial<
 	Record<AusfuehrungId, (base: Node<'vec3'>, welt: Node<'vec3'>) => Muster>
 > = {
-	'acryl-matt': flutedAcrylic,
+	'acryl-matt': frostedAcrylic,
 	'pressed-chipboard': pressedFlakes,
 	'corrugated-metal': corrugation,
 	'planted-mat': plantedMatPattern,
