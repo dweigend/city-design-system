@@ -23,7 +23,7 @@ function edgeOffsets(box: Box2, size: Vector2, origin: Vector2, scale: number) {
 // At maximum span, first try clearing individual landmarks or stock silhouettes.
 // The union supplies a legal last resort even if the HUD covers the entire town.
 function outsideOffsets(data: OpeningProjection, size: Vector2, origin: Vector2, scale: number) {
-	const boxes = [...data.landmarks, ...data.stock, ...data.courts];
+	const boxes = [...data.landmarks, ...data.centres, ...data.stock, ...data.courts];
 	const union = boxes.reduce((all, b) => all.union(b), new Box2());
 	return [...boxes, union]
 		.flatMap((box) => edgeOffsets(box, size, origin, scale))

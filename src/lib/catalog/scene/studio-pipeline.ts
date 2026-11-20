@@ -58,7 +58,7 @@ export function studioPipeline(
 				const close = 1 - THREE.MathUtils.smoothstep(pixel, 0.04, 0.12);
 				const scale = Math.min(1, config.aoScale * (pixel < 0.08 ? 1.5 : 1));
 				contact.resolutionScale = scale;
-				const radius = THREE.MathUtils.clamp((3 * pixel) / scale, 0.55 - 0.23 * close, 1.65);
+				const radius = THREE.MathUtils.clamp((2 * pixel) / scale, 0.42 - 0.18 * close, 0.95);
 				contact.radius.value = radius;
 				contact.thickness.value = radius * 0.85;
 				contact.scale.value = 2.4 + 0.8 * close;

@@ -2,7 +2,7 @@ import { Box2, Vector2, Vector3 } from 'three/webgpu';
 import { boxCorners, type courtOpening, stockBounds } from './court-opening';
 import { bounds } from '../../logic/ansicht/geometrie';
 import type { Primitive } from '../../logic/parametrik/types';
-import type { World } from '../../logic/sandbox';
+import { centreLandmark, type World } from '../../logic/sandbox';
 import { lineParts } from '../../logic/transit-line';
 import { roundedStops } from './station-rings';
 import type { OpeningArea, View } from './view';
@@ -77,6 +77,7 @@ export function projectScene(
 		courts: houses.map((group) => group.reduce((box, house) => box.union(house), new Box2())),
 		houses,
 		landmarks: surroundings.landmarks.map(project),
+		centres: surroundings.centres.map(project),
 		stock: surroundings.stock.map(project),
 		landscape: surroundings.landscape.map(project)
 	};
@@ -92,7 +93,15 @@ function measureContext(world: World, additions: readonly Primitive[]) {
 				['forest', 'meadow'].includes(world.state.cover.get(cell.id) ?? '')
 		)
 		.map((cell) => cell.corners.map(([x, y, z]) => new Vector3(x, z, -y)));
-	return { landmarks: landmarkBounds(world, additions), stock: stockBounds(world), landscape };
+	const centres = (world.state.city?.centres ?? [])
+		.map((centre) => centreLandmark(world, centre).flatMap(corners))
+		.filter((points) => points.length);
+	return {
+		centres,
+		landmarks: landmarkBounds(world, additions),
+		stock: stockBounds(world),
+		landscape
+	};
 }
 
 const contexts = new WeakMap<

@@ -18,9 +18,9 @@ const lighting = {
 	ground: 0xf1e5d7,
 	bounce: 1.65,
 	bias: -0.0006,
-	radius: 9,
+	radius: 11,
 	shadowTint: 0x716e78,
-	shadowOpacity: 0.47
+	shadowOpacity: 0.32
 } as const;
 const profiles = {
 	phone: Object.freeze({

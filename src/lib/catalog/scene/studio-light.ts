@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { float, mix, output, shadow, texture, uniform, vec2, vec4 } from 'three/tsl';
 import { studioConfig } from './studio-quality';
 
-export const studioKeyDirection = new THREE.Vector3(1, 0.68, 0.45).normalize();
+export const studioKeyDirection = new THREE.Vector3(1, 1.15, 0.45).normalize();
 
 /** Fits a directional shadow to the scene without shading the paper with ambient light. */
 export function createStudioLight(config = studioConfig()) {
@@ -15,6 +15,7 @@ export function createStudioLight(config = studioConfig()) {
 	sun.shadow.needsUpdate = true;
 	sun.shadow.bias = config.bias;
 	sun.shadow.camera.up.set(0, 0, 1);
+	sun.shadow.intensity = 0.78;
 	sun.shadow.radius = config.radius;
 	const stride = uniform(config.radius / config.shadowSize);
 	function filterNode({
@@ -132,7 +133,7 @@ export function createStudioLight(config = studioConfig()) {
 			const width = extent(right),
 				height = extent(up);
 			const texel = (2 * Math.max(width, height)) / config.modelShadowSize;
-			const radius = THREE.MathUtils.clamp(0.16 / texel, 2.5, 16);
+			const radius = THREE.MathUtils.clamp(0.22 / texel, 2.5, 16);
 			aimKey(
 				bounds.getCenter(new THREE.Vector3()),
 				width,

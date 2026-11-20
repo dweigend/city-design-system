@@ -158,6 +158,18 @@ function expectTransitClear(
 	}
 }
 
+function expectCentreClear(world: World, view: View, canvas: Box2, safe: Box2, obstacles: Box2[]) {
+	if (!view.isPortrait()) return;
+	const landmarks = (world.state.city?.centres ?? [])
+		.map((centre) => envelope(view, centreLandmark(world, centre)))
+		.filter((box) => canvas.intersectsBox(box));
+	expect(landmarks.length).toBeGreaterThan(0);
+	for (const landmark of landmarks) {
+		expect(safe.containsBox(landmark)).toBe(true);
+		expect(obstacles.some((box) => box.intersectsBox(landmark))).toBe(false);
+	}
+}
+
 function expectWaterfront(world: World, view: View, safe: Box2, courts: Map<string, Box2>) {
 	const waterfront = world.state.city?.centres.find((c) => c.landmark.object === 'water-tower');
 	if (!waterfront) throw Error('Missing acceptance water tower');
@@ -238,6 +250,7 @@ test.each([
 				)
 			).toBe(false);
 		}
+		expectCentreClear(world, view, canvas, safe, [...hudBoxes, ...visible]);
 		const homeBoxes = houses
 			.map((h) => envelope(view, h.parts()))
 			.filter((b) => safe.containsBox(b));

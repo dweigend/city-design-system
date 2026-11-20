@@ -5,6 +5,8 @@ import { applyEdit, openingScene, EMPTY_STATE, withState } from '../../logic/san
 import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { patchSurface, surfaceGeometry } from './terrain-geometry';
 import { seatedTargets } from './roof-pick';
+import { cellAtPoint } from '../../logic/terrain-grid';
+import { courtBankGeometry } from './court-bank-geometry';
 import { createTerrainPicker } from './terrain-pick';
 import { visibleCourts } from './fixtures/visible-courts';
 import { createView } from './view';
@@ -113,17 +115,19 @@ test('chunk picking selects the same terrain cell as the rendered triangles on p
 	picker.setGrid(world.grid);
 	const geometry = surfaceGeometry(world.grid);
 	const material = new THREE.MeshBasicMaterial();
-	const surface = new THREE.Mesh(geometry, material);
+	const banks = courtBankGeometry(world.grid);
+	const surfaces = [geometry, banks].map((g) => new THREE.Mesh(g, material));
 	const raycaster = new THREE.Raycaster();
 	for (const y of [160, 420, 520, 675, 820]) {
 		for (const x of [12, 70, 120, 192, 240, 300, 375]) {
 			raycaster.setFromCamera(view.ndc(x, y), view.camera);
-			const face = raycaster.intersectObject(surface)[0]?.faceIndex;
+			const point = raycaster.intersectObjects(surfaces)[0]?.point;
 			expect(picker.pick(raycaster.ray, Infinity)?.index).toBe(
-				face == null ? undefined : face >> 1
+				point && cellAtPoint(world.grid, point.x, -point.z)?.index
 			);
 		}
 	}
+	banks.dispose();
 	geometry.dispose();
 	material.dispose();
 });
