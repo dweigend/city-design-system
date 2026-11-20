@@ -1,3 +1,4 @@
+import { courtOpening } from './court-opening';
 import { Vector3 } from 'three/webgpu';
 import { bankDistance, valleyCoords, valleyPoint } from '../../logic/terrain';
 import { STORY } from '../../data/grid';
@@ -43,9 +44,18 @@ function townCluster({ grid, state }: World, portrait = false) {
 	return { points, water, anchor: new Vector3(x, z, -y) };
 }
 
+function frameCourts(view: View, world: World, area?: OpeningArea, landmark?: Vec3) {
+	const courts = courtOpening(world, view.isPortrait(), landmark);
+	if (!courts) return false;
+	if (landmark) courts.points.push(new Vector3(landmark[0], landmark[2], -landmark[1]));
+	view.frameSilhouette(courts.points, undefined, area, undefined, [], courts.heading);
+	return true;
+}
+
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
 export function frameOldTown(view: View, world: World, area?: OpeningArea, landmark?: Vec3) {
 	if (!view.isPortrait()) return false;
+	if (frameCourts(view, world, area, landmark)) return true;
 	const cluster = townCluster(world, true);
 	if (!cluster) return false;
 	view.frameSilhouette(cluster.points, cluster.anchor, area, landmark, cluster.water);
@@ -54,6 +64,7 @@ export function frameOldTown(view: View, world: World, area?: OpeningArea, landm
 
 /** Fits the central occupied town footprint, including its building heights. */
 export function frameTownSilhouette(view: View, world: World, landmark?: Vec3) {
+	if (frameCourts(view, world, undefined, landmark)) return true;
 	const cluster = townCluster(world);
 	if (!cluster) return false;
 	view.frameSilhouette(cluster.points, undefined, undefined, landmark, cluster.water);

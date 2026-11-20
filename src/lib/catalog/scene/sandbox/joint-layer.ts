@@ -4,6 +4,7 @@ import { deriveStructuralJoints, sandboxStructuralContacts } from '../../logic/s
 import type { TerrainGrid } from '../../logic/terrain-grid';
 import type { StructureMaterials } from './structure-materials';
 import { wallContact } from './wall-contact';
+import { columnSeats } from './column-seats';
 import { stairSeats } from './stair-seats';
 import { contactWash } from './contact-wash';
 import { jointMesh } from './structure-parts';
@@ -62,6 +63,15 @@ export function createJointLayer(
 				diameter: c.member.diameter
 			}));
 		for (const batch of seated) seats.push(...stairSeats(batch.parts, grid));
+		const occupied = new Set(seats.map((s) => s.point.map((n) => n.toFixed(3)).join(',')));
+		for (const seat of columnSeats(
+			seated.flatMap((b) => b.parts),
+			grid
+		)) {
+			const key = seat.point.map((n) => n.toFixed(3)).join(',');
+			if (!occupied.has(key)) seats.push(seat);
+			occupied.add(key);
+		}
 		wash = contactWash(seats);
 	}
 

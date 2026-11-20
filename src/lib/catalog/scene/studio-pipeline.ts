@@ -34,17 +34,25 @@ export function studioPipeline(
 	contact.scale.value = 2.4;
 	contact.thickness.value = 0.7;
 	const pipeline = new THREE.RenderPipeline(renderer);
+	const buffer = new THREE.Vector2();
 	const shaded = face.rgb.mul(mix(0.22, 1, contact.getTextureNode().r));
 	pipeline.outputNode = vec4(shaded, face.a);
 	return {
 		light,
-		/** Keeps contact visible across town blocks as the orthographic footprint grows. */
-		setTownFootprint(metersPerPixel: number) {
-			const radius = THREE.MathUtils.clamp((3 * metersPerPixel) / config.aoScale, 0.55, 1.65);
-			contact.radius.value = radius;
-			contact.thickness.value = radius * 0.85;
+		render() {
+			if (camera instanceof THREE.OrthographicCamera) {
+				renderer.getDrawingBufferSize(buffer);
+				const pixel = (camera.top - camera.bottom) / (camera.zoom * Math.max(1, buffer.y));
+				const close = 1 - THREE.MathUtils.smoothstep(pixel, 0.04, 0.12);
+				const scale = Math.min(1, config.aoScale * (pixel < 0.08 ? 1.5 : 1));
+				contact.resolutionScale = scale;
+				const radius = THREE.MathUtils.clamp((3 * pixel) / scale, 0.55 - 0.23 * close, 1.65);
+				contact.radius.value = radius;
+				contact.thickness.value = radius * 0.85;
+				contact.scale.value = 2.4 + 0.8 * close;
+			}
+			pipeline.render();
 		},
-		render: () => pipeline.render(),
 		dispose() {
 			pipeline.dispose();
 			scene.remove(...light.objects);

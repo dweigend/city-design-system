@@ -61,7 +61,7 @@ export function structureMaterials(
 		}),
 		stockDetail: new THREE.Line2NodeMaterial(),
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
-		pencil: new THREE.Line2NodeMaterial({ transparent: cityEdges, opacity: cityEdges ? 0.72 : 1 }),
+		pencil: new THREE.Line2NodeMaterial({ transparent: cityEdges, opacity: cityEdges ? 0.56 : 1 }),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
 		carrierInk: new THREE.Line2NodeMaterial(),
@@ -138,7 +138,7 @@ export function structureMaterials(
 		materials.stockSheet.color.copy(paper);
 		materials.glass.color.copy(g.weiss);
 		materials.ghost.color.copy(g.blei);
-		materials.pencil.color.copy(g.paper).lerp(g.ink, 0.56);
+		materials.pencil.color.copy(g.paper).lerp(g.ink, 0.48);
 		materials.stockDetail.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);

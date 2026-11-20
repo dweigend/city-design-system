@@ -616,11 +616,7 @@ export function createFormlaborScene(
 		grenzen.makeEmpty();
 		updateAssemblies(bild.staende);
 		ground.frame(grenzen);
-		if (!grenzen.isEmpty())
-			pipeline.light.aim(
-				grenzen.getCenter(new THREE.Vector3()),
-				grenzen.getSize(new THREE.Vector3()).length()
-			);
+		if (!grenzen.isEmpty()) pipeline.light.frame(grenzen);
 		pipeline.light.refresh();
 		if (extentChanged(vorher)) fit();
 		else render();

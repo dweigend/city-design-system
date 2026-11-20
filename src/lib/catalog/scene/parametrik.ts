@@ -110,6 +110,7 @@ export function createParametrikScene(
 	function fit(reset = false, direction?: Vec3) {
 		const bounds = new THREE.Box3().setFromObject(model);
 		ground.frame(bounds);
+		light.frame(bounds);
 		if (moved && !reset) {
 			camera.left = (-camera.top * width) / height;
 			camera.right = -camera.left;
@@ -119,7 +120,6 @@ export function createParametrikScene(
 		}
 		if (bounds.isEmpty() && !fixed) return;
 		const center = fixed ? vector(fixed.center) : bounds.getCenter(new THREE.Vector3());
-		light.aim(center, Math.max(3, bounds.getSize(new THREE.Vector3()).length()));
 		const eyeDirection = direction ?? fixed?.eye;
 		const eye = eyeDirection
 			? vector(eyeDirection).normalize()

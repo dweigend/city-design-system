@@ -20,9 +20,30 @@ const lighting = {
 	shadowOpacity: 0.62
 } as const;
 const profiles = {
-	phone: Object.freeze({ ...lighting, shadowSize: 1024, aoScale: 0.35, aoSamples: 6 }),
-	desktop: Object.freeze({ ...lighting, shadowSize: 2048, aoScale: 0.5, aoSamples: 12 }),
-	high: Object.freeze({ ...lighting, shadowSize: 4096, aoScale: 0.75, aoSamples: 18 })
+	phone: Object.freeze({
+		...lighting,
+		shadowSize: 1024,
+		shadowTaps: 4,
+		modelShadowSize: 1024,
+		aoScale: 0.35,
+		aoSamples: 6
+	}),
+	desktop: Object.freeze({
+		...lighting,
+		shadowSize: 2048,
+		shadowTaps: 9,
+		modelShadowSize: 2560,
+		aoScale: 0.5,
+		aoSamples: 12
+	}),
+	high: Object.freeze({
+		...lighting,
+		shadowSize: 4096,
+		shadowTaps: 9,
+		modelShadowSize: 4096,
+		aoScale: 0.75,
+		aoSamples: 18
+	})
 };
 
 /** Resolves the canonical lighting and sampling configuration shared by every stage. */

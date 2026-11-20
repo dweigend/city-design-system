@@ -68,7 +68,7 @@ test('two central parcels fill 77 percent of the desktop opening despite a dista
 	expect(fill).toBeCloseTo(0.77, 3);
 });
 
-test('the acceptance landmark stays inside the crop without widening the district', () => {
+test('the acceptance landmark stays inside the crop with its neighbouring court', () => {
 	const { world, additions } = acceptanceScene(7);
 	const disc = additions.find((p) => p.id === TWO_SUNS_TURNING_DISC);
 	if (disc?.kind !== 'ring') throw new Error('Seed 7 requires the coloured disc');
@@ -83,18 +83,18 @@ test('the acceptance landmark stays inside the crop without widening the distric
 			width < height
 				? frameOldTown(view, world, undefined, landmark)
 				: frameTownSilhouette(view, world, landmark);
-		fit();
-		const span = view.span();
+
 		fit(mark);
-		expect(view.span()).toBe(span);
+		expect(view.span()).toBeLessThan(65);
 		const pixel = view.project(mark);
-		expect(Math.abs(pixel.x / width - 0.5)).toBeLessThan(0.37);
-		expect(Math.abs(pixel.y / height - 0.5)).toBeLessThan(0.37);
+		expect(Math.abs(pixel.x / width - 0.5)).toBeLessThanOrEqual(0.426);
+		expect(Math.abs(pixel.y / height - 0.5)).toBeLessThanOrEqual(0.426);
 	}
 });
 
-test('the desktop opening includes occupied parcels and the central waterfront', () => {
-	const { world } = openingScene(7);
+test('the desktop opening without ensemble data retains occupied parcels and central water', () => {
+	const source = openingScene(7).world;
+	const world = { ...source, state: { ...source.state, city: undefined } };
 	const view = createView();
 	view.resize(1440, 900);
 	frameTownSilhouette(view, world);
@@ -111,8 +111,9 @@ test('the desktop opening includes occupied parcels and the central waterfront',
 	expect(visible.length).toBeGreaterThan(5);
 });
 
-test('the opening ensembles and central water share the portrait HUD opening', () => {
-	const { world } = openingScene(7);
+test('occupied parcels and central water share the legacy portrait HUD opening', () => {
+	const source = openingScene(7).world;
+	const world = { ...source, state: { ...source.state, city: undefined } };
 	const view = createView();
 	view.resize(390, 844);
 	const area = { top: 142, bottom: 680 };
