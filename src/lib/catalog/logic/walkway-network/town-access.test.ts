@@ -5,6 +5,7 @@ import {
 	installationView,
 	spongeWorkView,
 	openingScene,
+	acceptanceScene,
 	prepareAdvance,
 	applyEdit,
 	regenerateHouse,
@@ -106,6 +107,8 @@ for (const seed of [7, 13, 29])
 	test(
 		'attached access through growth, painting and regeneration on ' + seed,
 		() => {
+			const reference = acceptanceScene(seed);
+			checkTownPalette(reference.world, [...cityCentreView(reference.world), ...reference.additions]);
 			let world = openingScene(seed).world;
 			const inspect = () => checkTownPalette(world, cityCentreView(world));
 			inspect();
