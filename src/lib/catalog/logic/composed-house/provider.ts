@@ -1,3 +1,4 @@
+import { finishMaterial } from '../material/surface';
 import { assetRegistry } from '../assets';
 import { roleSurface, type HouseSurfaces, type Surface } from './surfaces';
 import { houseObject } from './house-object';
@@ -14,6 +15,28 @@ function stockCoating(id: string, address: string, paint: Surface) {
 	if (id.includes('column-foot')) return roleSurface(paint, 'base');
 	return paint;
 }
+function stockSurfaces(
+	id: string,
+	paint: Surface,
+	finish: Surface,
+	surfaces: HouseSurfaces,
+	use?: HouseUse
+) {
+	return {
+		frame: id.includes('parapet-rail') ? surfaces.frame : finish,
+		body: finish,
+		shell: use ? finish : surfaces.shell,
+		glass: id.includes('solar-sail') ? finish : surfaces.pane,
+		edge: id.includes('parapet') || id.includes('deck') ? roleSurface(paint, 'fitting') : finish,
+		liquid: paint,
+		fabric: finish,
+		planting: paint,
+		deck: use ? finish : surfaces.deck,
+		accent: paint,
+		channel: surfaces[use ?? 'water'],
+		highlight: paint
+	};
+}
 /** Dresses every declared registry slot from the caller's palette. */
 export function members(
 	id: string,
@@ -27,60 +50,33 @@ export function members(
 	if (!asset) throw new RangeError('Unknown house stock ' + id);
 	const paint = use ? surfaces[use] : surfaces.frame;
 	const finish = stockCoating(id, address, paint);
-	const roles = {
-		frame: finish,
-		body: finish,
-		shell: use ? finish : surfaces.shell,
-		glass: id.includes('solar-sail') ? finish : surfaces.pane,
-		edge: roleSurface(paint, 'fitting'),
-		liquid: paint,
-		fabric: finish,
-		planting: paint,
-		deck: use ? finish : surfaces.deck,
-		accent: surfaces[use ?? 'frame'],
-		channel: surfaces[use ?? 'water'],
-		highlight: surfaces[use ?? 'frame']
-	};
+	const roles = stockSurfaces(id, paint, finish, surfaces, use);
+	const body = /\/body\/\d+$/.test(address);
 	const slots = Object.fromEntries(
-		asset.slotNames.map((slot) => [slot, roles[slot as keyof typeof roles] ?? surfaces.frame])
+		asset.slotNames.map((slot) => [
+			slot,
+			body
+				? slot === 'glass' && /^kit-capsule-(ribbon|porthole|door)-/.test(id)
+					? roleSurface(surfaces.pane, 'glazing')
+					: roleSurface(paint, 'capsule')
+				: id.startsWith('person-')
+					? paint
+					: (roles[slot as keyof typeof roles] ?? surfaces.frame)
+		])
 	);
 	return houseObject(id, variant, seed, { instanceId: address + '/' + id, slots }).parts;
-}
-function drumPanels(b: Body, stock: ReturnType<typeof members>, surfaces: HouseSurfaces) {
-	const panels = members(
-		b.objectId,
-		b.variant,
-		b.seed,
-		b.id,
-		{ ...surfaces, pane: roleSurface(surfaces[b.use], 'capsule') },
-		b.use
-	);
-	return stock.flatMap((p, i): typeof stock => {
-		if (p.source.slot !== 'glass') return [p];
-		const panel = panels[i];
-		if (p.kind !== 'cylinder' || panel.kind !== 'cylinder') return [panel];
-		const sill = p.height * 0.72;
-		return [
-			{ ...panel, id: p.id + '/sill', height: sill },
-			{
-				...p,
-				position: [p.position[0], p.position[1], p.position[2] + sill],
-				radius: Math.max(0.12, p.radius - 0.35 / b.scale),
-				height: p.height - sill
-			}
-		];
-	});
 }
 /** Uses the measured registry origin and the composition's single rigid transform. */
 export function bodyParts(b: Body, surfaces: HouseSurfaces) {
 	if (b.band) return bandParts(b, surfaces);
 	const stock = members(b.objectId, b.variant, b.seed, b.id, surfaces, b.use);
-	const painted =
-		b.objectId.includes('crown-lantern') || b.objectId === 'glass-bell'
-			? drumPanels(b, stock, surfaces)
-			: stock;
+	const rim = roleSurface(surfaces[b.use], 'rim');
 	return place(
-		painted.map((p) => weatherSkin(recess(p, b), b.scale)),
+		stock.map((p) =>
+			capsuleLine(p, b)
+				? { ...p, ...rim, material: finishMaterial(rim.finish) }
+				: weatherSkin(recess(p, b), b.scale)
+		),
 		b.nativeCenter,
 		b.position,
 		[b.scale, b.scale, b.scale],
@@ -113,4 +109,14 @@ function weatherSkin(p: ReturnType<typeof members>[number], scale: number) {
 		return { ...p, size, position };
 	}
 	return p;
+}
+
+// Older capsule kits also assign the edge slot to full-width mounting pads.
+function capsuleLine(p: ReturnType<typeof members>[number], b: Body) {
+	if (b.kind !== 'capsule' || p.source.slot !== 'edge') return false;
+	if (p.kind === 'ring') return (p.radius - p.innerRadius) * b.scale < 0.15;
+	if (p.kind === 'pipe') return 2 * p.radius * b.scale < 0.15;
+	if (p.kind === 'torus') return 2 * p.tube * b.scale < 0.15;
+	if (p.kind === 'box') return p.size.filter((d) => d * b.scale < 0.15).length >= 2;
+	return false;
 }

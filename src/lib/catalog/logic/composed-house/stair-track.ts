@@ -1,4 +1,4 @@
-import type { HousePart } from './house-object';
+import type { StockPart } from './house-object';
 import { houseStair } from '../../data/house-stair';
 type XY = [number, number];
 export type Station = { xy: XY; normal: XY };
@@ -39,7 +39,7 @@ export const publicStair = {
 
 /** Joins two registry tread halves along the walking line, preserving level footings at curved turns. */
 export function pairedTreads(
-	stock: Extract<HousePart, { kind: 'prism' }>,
+	stock: Extract<StockPart, { kind: 'prism' }>,
 	id: string,
 	a: Station,
 	b: Station,
@@ -58,4 +58,21 @@ export function pairedTreads(
 			edge(a, (side + 1) * half)
 		]
 	}));
+}
+
+/** Continuous 0.3 m wide central spine immediately below the tread soffit. */
+export function treadSpine(
+	stock: Extract<StockPart, { kind: 'prism' }>,
+	id: string,
+	a: Station,
+	b: Station,
+	z: number
+) {
+	return {
+		...stock,
+		id: id + '/stringer',
+		height: 0.3,
+		z: z - 0.42,
+		polygon: [edge(a, -0.15), edge(b, -0.15), edge(b, 0.15), edge(a, 0.15)]
+	};
 }

@@ -43,41 +43,30 @@ function skyline(sites: Survey[], seed: number) {
 	return roles;
 }
 
-function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
+function away(site: Survey, sites: Survey[]): [number, number] {
+	const neighbors = sites.filter(
+		(other) =>
+			other !== site && site.cells.some((c) => other.cells.some((n) => c.neighbors.includes(n.id)))
+	);
+	return [0, 1].map((k) =>
+		Math.sign(neighbors.reduce((sum, n) => sum + site.center[k] - n.center[k], 0))
+	) as [number, number];
+}
+
+function wideForms(sites: Survey[], roles: Map<string, HouseRole>, seed: number): Typology[] {
 	const weights = sites.map((s) => affinities(s, required(roles.get(s.id), 'ensemble role')));
-	const houses = new Map<string, Decision>();
-	const away = (site: Survey): [number, number] => {
-		const neighbors = sites.filter(
-			(other) =>
-				other !== site &&
-				site.cells.some((c) => other.cells.some((n) => c.neighbors.includes(n.id)))
-		);
-		return [0, 1].map((k) =>
-			Math.sign(neighbors.reduce((sum, n) => sum + site.center[k] - n.center[k], 0))
-		) as [number, number];
-	};
-	const assign = (i: number, typology: Typology) =>
-		houses.set(sites[i].id, {
-			role: required(roles.get(sites[i].id), 'ensemble role'),
-			typology,
-			away: away(sites[i])
-		});
 	if (sites.length < 3) {
-		for (let j = 0; j < sites.length; j++) {
-			assign(
-				j,
-				collapse(
-					'house/' + sites[j].id,
-					seed,
-					required(roles.get(sites[j].id), 'ensemble role'),
-					typologies.map((t) => [
-						t,
-						sites.length === 2 && housePath(t) === 'spiral' ? 0 : weights[j][t]
-					])
-				)
-			);
-		}
-		return houses;
+		return sites.map((site, j) =>
+			collapse(
+				'house/' + site.id,
+				seed,
+				required(roles.get(site.id), 'ensemble role'),
+				typologies.map((t) => [
+					t,
+					sites.length === 2 && housePath(t) === 'spiral' ? 0 : weights[j][t]
+				])
+			)
+		);
 	}
 	const palettes = new Map<string, { forms: Typology[]; weight: number }>();
 	for (const [i, a] of typologies.entries())
@@ -102,8 +91,22 @@ function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number
 		sites.map((s) => roles.get(s.id)).join('|'),
 		[...palettes].map(([name, p]) => [name, p.weight])
 	);
-	required(palettes.get(key), 'chosen palette').forms.forEach((type, i) => assign(i, type));
-	return houses;
+	return required(palettes.get(key), 'chosen palette').forms;
+}
+function houseLayer(sites: Survey[], roles: Map<string, HouseRole>, seed: number) {
+	const wide = sites.filter((s) => !s.compact);
+	const chosen = wideForms(wide, roles, seed);
+	const forms = new Map(wide.map((s, i) => [s.id, chosen[i]]));
+	return new Map<string, Decision>(
+		sites.map((s) => [
+			s.id,
+			{
+				role: required(roles.get(s.id), 'ensemble role'),
+				typology: forms.get(s.id) ?? 'block',
+				away: away(s, sites)
+			}
+		])
+	);
 }
 /** Solves one ensemble (one to eight houses) in stable site order. Datum is the first shared half-storey above all painted bases. */
 export function planEnsemble(sites: readonly HouseSite[], seed?: number): EnsembleContext {

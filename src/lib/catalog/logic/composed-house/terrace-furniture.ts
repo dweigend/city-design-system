@@ -1,31 +1,15 @@
+import { roomOnDeck } from '../house-typology';
 import type { Section } from './types';
-import type { HousePart } from './house-object';
+import type { StockPart } from './house-object';
 import type { HouseSurfaces } from './surfaces';
 import { members } from './provider';
 import { place } from './asset-fit';
 import type { Vec3 } from '../parametrik/types';
 
-type XY = [number, number];
-type Floor = Extract<HousePart, { kind: 'prism' }>;
+type Floor = Extract<StockPart, { kind: 'prism' }>;
 type Level = Section['composition']['levels'][number];
-function inside([x, y]: XY, ring: XY[]) {
-	let result = false;
-	for (const [i, [a, b]] of ring.entries()) {
-		const [c, d] = ring[(i + 1) % ring.length];
-		if (b > y !== d > y && x < a + ((c - a) * (y - b)) / (d - b)) result = !result;
-	}
-	return result;
-}
 function fits(floor: Floor, x: number, y: number, r: number) {
-	return [
-		[-r, -r],
-		[r, -r],
-		[r, r],
-		[-r, r]
-	].every(([u, v]) => {
-		const pt: XY = [x + u, y + v];
-		return inside(pt, floor.polygon) && !floor.holes?.some((h) => inside(pt, h));
-	});
+	return roomOnDeck(floor.polygon, floor.holes ?? [], x, y, r, r);
 }
 function inCabin(l: Level, x: number, y: number, r: number) {
 	return l.bodies.some((b) => {
@@ -62,7 +46,7 @@ function seat(floor: Floor, l: Level, people: Vec3[]) {
 	}
 }
 /** Places one freestanding registry planter on the clear portion of each furnished terrace. */
-export function terraceFurniture(s: Section, house: HousePart[], surfaces: HouseSurfaces) {
+export function terraceFurniture(s: Section, house: StockPart[], surfaces: HouseSurfaces) {
 	const planted = s.composition.levels.flatMap((l, i) => {
 		const base = s.id + '/level/' + i + '/';
 		const floor = house.find(
@@ -72,23 +56,38 @@ export function terraceFurniture(s: Section, house: HousePart[], surfaces: House
 		const people = s.composition.people.filter((p) => p.level === i).map((p) => p.position);
 		const spot = seat(floor, l, people);
 		if (!spot) return [];
-		return planter(s, surfaces, base, l.use, spot, l.position[2]);
+		return planter(s, surfaces, base, l.use, spot, floor);
 	});
 	const roof = house.find((p): p is Floor => p.kind === 'prism' && p.id.endsWith('/roof-walk'));
 	if (!roof || !roof.polygon.length) return planted;
-	const [a, , c] = roof.polygon;
-	if (Math.min(Math.abs(c[0] - a[0]), Math.abs(c[1] - a[1])) < 2.5) return planted;
-	const x = 0.8 * a[0] + 0.2 * c[0],
-		y = 0.8 * a[1] + 0.2 * c[1];
+	const xs = roof.polygon.map((p) => p[0]),
+		ys = roof.polygon.map((p) => p[1]);
+	const left = Math.min(...xs),
+		right = Math.max(...xs),
+		front = Math.min(...ys),
+		rear = Math.max(...ys);
+	if (Math.min(right - left, rear - front) < 1.25) return planted;
+	const z = roof.z + roof.height;
+	const residents = s.composition.people.filter((p) => Math.abs(p.position[2] - z) < 0.01);
+	const crown = s.composition.crown;
+	const candidates = [0.18, 0.82, 0.32, 0.68].flatMap((u) =>
+		[0.18, 0.82, 0.32, 0.68].map((v) => [left + u * (right - left), front + v * (rear - front)])
+	);
+	const r = Math.min(0.34, (right - left) / 8, (rear - front) / 8);
+	const spot = candidates.find(
+		([x, y]) =>
+			Math.abs(x - s.composition.bay.x) + r <= s.composition.bay.width / 2 &&
+			Math.abs(y - s.composition.bay.y) + r <= s.composition.bay.depth / 2 &&
+			fits(roof, x, y, r) &&
+			(crown.position[2] > z + 1 ||
+				Math.abs(x - crown.position[0]) > crown.size[0] / 2 + r ||
+				Math.abs(y - crown.position[1]) > crown.size[1] / 2 + r) &&
+			residents.every((p) => Math.hypot(x - p.position[0], y - p.position[1]) > r + 0.42)
+	);
+	if (!spot) return planted;
+	const [x, y] = spot;
 	return planted.concat(
-		planter(
-			s,
-			surfaces,
-			s.id + '/roof/',
-			s.composition.crown.use,
-			{ x, y, r: 0.34 },
-			roof.z + roof.height
-		)
+		planter(s, surfaces, s.id + '/roof/', s.composition.crown.use, { x, y, r }, roof)
 	);
 }
 function planter(
@@ -97,9 +96,15 @@ function planter(
 	base: string,
 	use: Level['use'],
 	spot: { x: number; y: number; r: number },
-	z: number
+	floor: Floor
 ) {
 	const stock = members('rolled-lip-planter', 'compact', s.seed, base + 'furniture', surfaces, use);
 	const scale = spot.r / 0.69;
-	return place(stock, [0, 0, 0], [spot.x, spot.y, z], [scale, scale, scale], 0);
+	return place(
+		stock,
+		[0, 0, 0],
+		[spot.x, spot.y, floor.z + floor.height],
+		[scale, scale, scale],
+		0
+	).map((p) => ({ ...p, structuralRole: 'occupant' as const, carrier: floor.id }));
 }

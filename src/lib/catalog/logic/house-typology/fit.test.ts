@@ -85,3 +85,24 @@ test('a stretched registry member can be diagnosed from its source address alone
 		'rigid-scale'
 	);
 });
+
+test('ground seats and supports directly under a body must transmit load', () => {
+	const base = { ...box('first', [0, 0, 0]), structuralRole: 'bearing' as const };
+	const rim = {
+		...box('second', [0, 0, 1]),
+		structuralRole: 'bearing' as const,
+		joint: 'deck' as const
+	};
+	const body = {
+		...box('third', [0, 0, 2]),
+		structuralRole: 'cantilever' as const,
+		joint: 'body' as const
+	};
+	expect(checkFit([base, rim, body])).toEqual([]);
+	for (const index of [0, 1]) {
+		const parts = [base, rim, body].map((p, i) =>
+			i === index ? { ...p, structuralRole: 'cantilever' as const } : p
+		);
+		expect(checkFit(parts)).toEqual([{ code: 'bearing-role', part: parts[index].id }]);
+	}
+});

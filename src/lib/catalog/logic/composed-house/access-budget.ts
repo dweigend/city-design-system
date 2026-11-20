@@ -1,9 +1,9 @@
 import { planPoints } from './part-plan';
 import { bounds } from '../ansicht/geometrie';
-import type { HousePart } from './house-object';
+import type { StockPart } from './house-object';
 
 /** Sum of member bounding volumes, including landings, rails and the terrain approach. */
-export function accessShare(parts: HousePart[]) {
+export function accessShare(parts: StockPart[]) {
 	let total = 0,
 		access = 0;
 	for (const p of parts) {

@@ -14,7 +14,7 @@ export function survey(site: HouseSite) {
 	if (programme.some((p) => !p.length)) throw new RangeError('Unpainted interior storey');
 	const { width, depth, x, y } = footprintBay(cells);
 	const anchor = cells[0];
-	const compact = width < 5.6 || depth < 8;
+	const compact = Math.min(width, depth) < 8;
 	const accessDepth = compact ? 0 : 2.55;
 	const ground = anchor.pad + start * STORY;
 	const living = new Set<number>();

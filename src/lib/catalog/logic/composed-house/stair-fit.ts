@@ -7,7 +7,7 @@ import { partsIntersect } from '../house-typology';
 import { bodyParts } from './provider';
 import { houseStructure } from './structure';
 import { bounds } from '../ansicht/geometrie';
-import type { HousePart } from './house-object';
+import type { StockPart } from './house-object';
 
 type XY = [number, number];
 const radius = publicStair.radius + publicStair.width / 2;
@@ -50,7 +50,7 @@ function clearsDecks(s: Section, [x, y]: XY) {
 		);
 	});
 }
-function insideBay(s: Section, p: HousePart) {
+function insideBay(s: Section, p: StockPart) {
 	const { x, y, width, depth } = s.composition.bay;
 	return planPoints(p).every(
 		([u, v]) =>
@@ -77,7 +77,7 @@ function obstacles(s: Section) {
 function dockClearance(s: Section) {
 	const stock = obstacles(s);
 	const levels = new Map<number, typeof stock>();
-	return (p: HousePart) => {
+	return (p: StockPart) => {
 		const box = bounds(p),
 			z = box.min[2];
 		let row = levels.get(z);
@@ -146,7 +146,7 @@ export function stairAxis(s: Section, rear: number, sign: number): XY | undefine
 		if (!clearsDecks(s, axis) || !parcelFit(s, axis)) continue;
 		clear ??= dockClearance(s);
 		const clearDock = clear;
-		const inside = (p: HousePart) => insideBay(s, p) || planPoints(p).every((q) => inParcel(s, q));
+		const inside = (p: StockPart) => insideBay(s, p) || planPoints(p).every((q) => inParcel(s, q));
 		if (fitsWinding({ ...s, compact: false, stairAxis: axis }, inside, clearDock)) return axis;
 	}
 }

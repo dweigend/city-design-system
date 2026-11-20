@@ -18,13 +18,15 @@ export function bearings(
 	y = plan.rear - plan.sign * 0.15
 ) {
 	const rise = top - z,
-		collar = Math.min(0.3, rise / 4);
+		collar = Math.min(0.3, rise / 4),
+		foot = Math.min(0.52, rise / 2);
 	return stations.flatMap((x, i) => {
 		const address = id + '/post/' + i;
 		const size = plan.bar;
 		const member = (name: 'foot' | 'shaft' | 'head', at: number, height: number, width: number) =>
 			solid(
 				address + '/' + name,
+				'bearing',
 				name,
 				[x, y, at],
 				[plan.type === 'slab-house' && name === 'shaft' ? 1.1 : width, width, height],
@@ -32,8 +34,8 @@ export function bearings(
 				'frame'
 			);
 		return [
-			member('foot', z, collar, size),
-			member('shaft', z + collar, rise - 2 * collar, size),
+			member('foot', z, foot, size),
+			member('shaft', z + foot, rise - foot - collar, size),
 			member('head', top - collar, collar, size)
 		];
 	});
@@ -150,6 +152,7 @@ function sockets(l: Level, z: number, ground: number) {
 		return [
 			solid(
 				b.id + '/socket',
+				'bearing',
 				'socket',
 				[center(0, l.width), center(1, l.depth), z],
 				[socket[0], socket[1], 0.3],
@@ -192,6 +195,7 @@ export function tierParts(
 	if (body.band) {
 		const floor = solid(
 			id + '/deck',
+			'bearing',
 			'deck',
 			[x, y, z - 0.3],
 			[l.width, l.depth, 0.3],
@@ -203,7 +207,7 @@ export function tierParts(
 			...members,
 			bandSolid(floor, l.court),
 			bandSolid(
-				solid(body.id, 'body', body.position, body.size, site.ground, body.use),
+				solid(body.id, 'cantilever', 'body', body.position, body.size, site.ground, body.use),
 				body.band.court
 			)
 		];
@@ -213,6 +217,7 @@ export function tierParts(
 	const thickness = Math.min(1.1, clearance, Math.max(0.3, (bodyVolume * ratio) / l.deckArea));
 	const floor = solid(
 		id + '/deck',
+		'bearing',
 		'deck',
 		[x, y, z - thickness],
 		[l.width, l.depth, thickness],

@@ -1,7 +1,7 @@
 import { buildObject } from '../assets';
 import { bounds, union } from '../ansicht/geometrie';
 import type { HouseSlot } from './site';
-import type { Body, Point, Joint, Block } from './types';
+import type { Body, Point, Joint, Block, StructuralRole } from './types';
 type ObjectSpec = readonly [string, string, HouseSlot['kind']];
 const crowns: Record<Body['use'], ObjectSpec> = {
 	living: ['dome', 'saucer', 'dome'],
@@ -20,6 +20,7 @@ export function crownSpec(use: Body['use'], small = false): ObjectSpec {
 /** Measures the selected registry variant before fitting. The resulting transform is a translation, yaw and one scalar. */
 export function objectSlot(
 	id: string,
+	structuralRole: StructuralRole,
 	spec: ObjectSpec,
 	use: HouseSlot['use'],
 	seed: number,
@@ -39,6 +40,7 @@ export function objectSlot(
 	const size = nativeSize.map((d) => d * scale) as Point;
 	return {
 		id,
+		structuralRole,
 		objectId,
 		variant,
 		seed,
@@ -58,6 +60,7 @@ export function objectSlot(
 /** Creates a physical assembly envelope in world metres from its bottom centre. */
 export function solid(
 	id: string,
+	structuralRole: StructuralRole,
 	joint: Joint,
 	[x, y, z]: Point,
 	size: Point,
@@ -66,6 +69,7 @@ export function solid(
 ): Block {
 	return {
 		id,
+		structuralRole,
 		joint,
 		ground,
 		slot,
@@ -82,7 +86,7 @@ export function worldSize(body: Body): Point {
 export function mounted(body: Body, ground: number, joint: Joint): Block {
 	const scale: Point = [body.scale, body.scale, body.scale];
 	return {
-		...solid(body.id, joint, body.position, worldSize(body), ground, body.use),
+		...solid(body.id, body.structuralRole, joint, body.position, worldSize(body), ground, body.use),
 		source: { objectId: body.objectId, variant: body.variant },
 		nativeSize: worldSize({ ...body, size: body.nativeSize }),
 		scale

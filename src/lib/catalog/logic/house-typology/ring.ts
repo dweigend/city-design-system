@@ -25,7 +25,12 @@ export function ringLevel(plan: Plan, i: number, z: number, use: HouseUse): Leve
 	const spec = 'kit-crown-lantern-' + String(module).replace('.', 'p') + 'm';
 	const body = objectSlot(
 		site.id + '/level/' + i + '/body/0',
-		[spec, i % 8 < 4 ? 'tall' : 'standard', use === 'living' ? 'capsule' : 'lookout'],
+		'cantilever',
+		[
+			spec,
+			(i + (plan.seed & 1)) % 4 < 2 ? 'tall' : 'standard',
+			use === 'living' ? 'capsule' : 'lookout'
+		],
 		use,
 		plan.seed,
 		0

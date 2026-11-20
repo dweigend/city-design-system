@@ -1,3 +1,4 @@
+import { foundation } from './foundation';
 import { required } from '../required';
 import { STORY } from '../../data/grid';
 import { terraceGuards } from './terrace-guards';
@@ -7,15 +8,18 @@ import { bearings, tierParts } from './frame';
 import { crownSpec, mounted, objectSlot, solid } from './objects';
 import type { Level, Point, Solid, Plan } from './types';
 import type { HouseRole } from './families';
+const sections = [true, false].flatMap((prefabricated) =>
+	[0.3, 0.24, 0.36, 0.18, 0.42, 0.1, 0.5, 0.04].map((ratio) => ({ prefabricated, ratio }))
+);
 const volume = ([w, d, h]: Point) => w * d * h;
 function parapet(plan: Plan, plate: ReturnType<typeof solid>) {
-	if (plan.site.compact) return [];
 	const [w, d, h] = plate.size,
 		[x, y, z] = plate.position;
 	const n = Math.floor(w / 2.5);
 	return Array.from({ length: n }, (_, i) => {
 		const rail = objectSlot(
 			plate.id + '/rail/' + i,
+			'cantilever',
 			['kit-parapet-rail-2p5m', 'two-post', 'workshop'],
 			'material',
 			plan.seed,
@@ -39,7 +43,7 @@ function roof(
 ) {
 	const { site, seed, rear } = plan;
 	const below = level.position[2];
-	const crown = objectSlot(site.id + '/crown', spec, use, seed, 0);
+	const crown = objectSlot(site.id + '/crown', 'cantilever', spec, use, seed, 0);
 	const [w, d] = crown.size,
 		x = (stations[0] + stations[stations.length - 1]) / 2,
 		y = rear - (plan.sign * d) / 2;
@@ -47,6 +51,7 @@ function roof(
 	crown.anchor = 'roof';
 	const deck = solid(
 		site.id + '/roof',
+		'cantilever',
 		'deck',
 		[x, y, z - 0.25],
 		[
@@ -54,7 +59,7 @@ function roof(
 				site.width,
 				Math.max(w + 0.6, required(stations.at(-1), 'bearing station') - stations[0] + 0.4)
 			),
-			Math.min(site.depth, d + (site.compact ? 0 : 0.6)),
+			Math.min(site.depth, d + 0.6),
 			0.25
 		],
 		site.ground,
@@ -87,6 +92,7 @@ function entryLanding(plan: Plan, stations: number[]) {
 	const width = stations[stations.length - 1] - stations[0] + 0.6;
 	const plate = solid(
 		plan.site.id + '/entry',
+		'bearing',
 		'deck',
 		[(stations[0] + stations[stations.length - 1]) / 2, y, plan.datum - 0.25],
 		[width, 1.25, 0.25],
@@ -98,10 +104,30 @@ function entryLanding(plan: Plan, stations: number[]) {
 		plate
 	];
 }
-function balanced(parts: Solid[], bodies: number, crown: number, compact: boolean) {
+function balanced(parts: Solid[], bodies: number, crown: number) {
 	const total = parts.reduce((s, p) => s + volume(p.size), 0);
 	const frame = (total - bodies - crown) / total;
-	return bodies / total >= 0.55 && (!compact || frame >= 0.2) && frame <= 0.35;
+	return bodies / total >= 0.55 && frame <= 0.35;
+}
+function roofOptions(
+	plan: Plan,
+	upper: Level,
+	top: number,
+	stations: number[],
+	role: HouseRole,
+	skyline: number
+) {
+	const use = upper.use;
+	const roofs = [false, true]
+		.map((small) => roof(plan, upper, top, stations, use, crownSpec(use, small)))
+		.filter(
+			({ crown }) =>
+				crown.size[0] <= plan.site.width &&
+				crown.size[1] + 0.3 <= plan.site.depth - plan.site.accessDepth &&
+				(role === 'high' || top + crown.size[2] <= skyline)
+		);
+	roofs.push(roof(plan, upper, top, stations, use, ['primitive-dome', 'short', 'dome']));
+	return roofs;
 }
 /** Selects a stock crown and a slab section satisfying the mass budget with every joint included. */
 export function assemble(
@@ -115,34 +141,23 @@ export function assemble(
 		top = below + STORY + (role === 'high' ? STORY / 2 : 0);
 	const upper = levels[levels.length - 1];
 	if (upper.bodies[0].band) upper.bodies[0].size[2] = top - below - 0.25;
-	const use = upper.use;
-	const roofs = [false, true]
-		.map((small) => roof(plan, upper, top, stations, use, crownSpec(use, small)))
-		.filter(
-			({ crown }) =>
-				crown.size[0] <= plan.site.width &&
-				crown.size[1] + (plan.site.compact ? 0 : 0.3) <=
-					(plan.site.compact
-						? Math.min(3.6, plan.site.depth)
-						: plan.site.depth - plan.site.accessDepth) &&
-				(role === 'high' || top + crown.size[2] <= skyline)
-		);
-	roofs.push(roof(plan, upper, top, stations, use, ['primitive-dome', 'short', 'dome']));
+	const roofs = roofOptions(plan, upper, top, stations, role, skyline);
 	const bodies = levels.flatMap((l) => l.bodies).reduce((s, b) => s + volume(b.size), 0);
 	const fittings = terraceGuards(plan, levels);
 	const guards = fittings.map((b) => mounted(b, plan.site.ground, 'service'));
 
-	for (const prefabricated of [true, false])
-		for (const ratio of [0.3, 0.24, 0.36, 0.18, 0.42, 0.1, 0.5, 0.04]) {
-			const entry = levels[0].position[2] > plan.datum ? entryLanding(plan, stations) : [];
-			const frame = levels.flatMap((l, i) =>
-				tierParts(plan, l, i, levels[i - 1], stations, ratio, prefabricated)
-			);
-			for (const { crown, parts: cap } of roofs) {
-				const parts = [...entry, ...frame, ...cap, ...guards];
-				if (balanced(parts, bodies, volume(crown.size), plan.site.compact))
-					return { parts, crown, fittings };
-			}
+	const entry = levels[0].position[2] > plan.datum ? entryLanding(plan, stations) : [];
+	for (const { prefabricated, ratio } of sections) {
+		const frame = levels.flatMap((l, i) =>
+			tierParts(plan, l, i, levels[i - 1], stations, ratio, prefabricated)
+		);
+		const seated = foundation(plan, levels[0], [...entry, ...frame], stations);
+		const socle = seated.find((p) => p.id.endsWith('/socle/body/0'));
+		const enclosed = bodies + (socle ? volume(socle.size) : 0);
+		for (const { crown, parts: cap } of roofs) {
+			const parts = [...seated, ...cap, ...guards];
+			if (balanced(parts, enclosed, volume(crown.size))) return { parts, crown, fittings };
 		}
+	}
 	throw new RangeError('No balanced assembly for ' + plan.site.id + ' ' + plan.type);
 }

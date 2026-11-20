@@ -1,3 +1,7 @@
+import { access as projectAccess } from '../composed-house/access';
+import { bodyParts } from '../composed-house/provider';
+import { houseStructure } from '../composed-house/structure';
+import { checkParcel } from '../composed-house/parcel-assertions.test-support';
 import { expect, test } from 'bun:test';
 import { plotHouse, plotShapes } from './house-plot';
 import {
@@ -33,15 +37,25 @@ function touches(point: Vec3, ring: [number, number][]) {
 	});
 }
 type Path = ReturnType<typeof circulation>;
-type Parts = ReturnType<typeof sectionParts>;
+type Parts = ReturnType<typeof projectAccess>;
 function checkDecks(s: Section, path: Path) {
 	const levels = new Set(path.stops.map((p) => Math.round(p[2] * 100)));
-	for (const d of s.decks) {
+	for (const [i, d] of s.decks.entries()) {
 		expect(levels.has(Math.round(d.position[2] * 100))).toBe(true);
 		const elevation = d.position[2] - s.cells[0].pad;
-		expect(elevation === 1 || Math.abs(elevation / 2 - Math.round(elevation / 2)) < 1e-7).toBe(
-			true
-		);
+		expect(
+			(s.typology === 'block' &&
+				(i
+					? Math.abs(
+							d.position[2] -
+								(s.composition.levels[i - 1].bodies[0].position[2] +
+									s.composition.levels[i - 1].bodies[0].size[2] +
+									0.16)
+						) < 1e-7
+					: elevation >= 0.6 - 1e-8 && elevation <= 1.2)) ||
+				elevation === 1 ||
+				Math.abs(elevation / 2 - Math.round(elevation / 2)) < 1e-7
+		).toBe(true);
 	}
 }
 function checkDocks(path: Path, parts: Parts) {
@@ -49,7 +63,6 @@ function checkDocks(path: Path, parts: Parts) {
 		expect(
 			parts.some(
 				(p) =>
-					p.id.includes('/stair/') &&
 					p.kind === 'prism' &&
 					Math.abs(p.z + p.height - dock.station[2]) <= 0.02 &&
 					touches(dock.station, p.polygon)
@@ -86,29 +99,16 @@ function checkFlights(s: Section, path: Path) {
 	}
 	expect(length).toBeLessThanOrEqual(2.2 * (s.top - path.stops[path.stops.length - 1][2]));
 }
-function inside(s: Section, x: number, y: number, margin: number) {
-	return s.cells.some((c) =>
-		c.corners.every(([u, v], i) => {
-			const next = c.corners[(i + 1) % 4];
-			return (
-				(next[0] - u) * (y - v) - (next[1] - v) * (x - u) >=
-				-margin * Math.hypot(next[0] - u, next[1] - v) - 1e-6
-			);
-		})
-	);
-}
 function occupiedBounds(parts: Parts) {
-	return parts
-		.filter((p) => p.id.includes('/body/') || p.id.includes('/post/'))
-		.map((p) => {
-			const b = bounds(p);
-			const points = planPoints(p);
-			for (const k of [0, 1] as const) {
-				b.min[k] = Math.min(...points.map((q) => q[k]));
-				b.max[k] = Math.max(...points.map((q) => q[k]));
-			}
-			return { ...b, part: p };
-		});
+	return parts.map((p) => {
+		const b = bounds(p);
+		const points = planPoints(p);
+		for (const k of [0, 1] as const) {
+			b.min[k] = Math.min(...points.map((q) => q[k]));
+			b.max[k] = Math.max(...points.map((q) => q[k]));
+		}
+		return { ...b, part: p };
+	});
 }
 function checkClearance(
 	p: Parts[number],
@@ -124,51 +124,57 @@ function checkClearance(
 		p.id + ' clearance'
 	).toBe(true);
 }
+function stairSurface(p: Parts[number]) {
+	const source = p.source.objectId;
+	return source === 'stairs' || (source === 'ladder' && p.source.member === 0)
+		? palette.access
+		: source === 'railing' || source === 'ladder' || (p.kind === 'prism' && p.height === 0.3)
+			? palette.frame
+			: palette.deck;
+}
+
 function checkStairSurface(p: Parts[number]) {
 	const source = p.source.objectId;
-	const surface =
-		source === 'stairs' || p.id.includes('/stair/rung/')
-			? palette.access
-			: source === 'railing' || source === 'ladder'
-				? palette.frame
-				: palette.deck;
-	expect(p.token).toBe(surface.token);
+	expect(p.token).toBe(stairSurface(p).token);
 	if (source === 'stairs' && p.kind === 'prism') {
 		const ring = p.polygon;
 		const j = p.source.variant === 'straight-tread' ? 3 : 1;
 		expect(Math.hypot(ring[0][0] - ring[j][0], ring[0][1] - ring[j][1])).toBeCloseTo(1.25, 8);
 	}
 }
-function checkParts(s: Section, parts: Parts) {
-	const occupied = occupiedBounds(parts);
-	let body = 0,
-		total = 0,
-		access = 0;
-	for (const p of parts) {
-		expect(
-			planPoints(p).every(([x, y]) => inside(s, x, y, p.id.includes('/stair/') ? 0.6 : 0)),
-			p.id + ' outside ' + s.id
-		).toBe(true);
-		const box = bounds(p);
-		const volume = box.max.reduce((v, max, i) => v * (max - box.min[i]), 1);
-		expect(Number.isFinite(volume)).toBe(true);
-		total += volume;
-		if (p.id.includes('/body/') || p.id.includes('/planter/')) body += volume;
-		if (!p.id.includes('/stair/')) continue;
-		access += volume;
-		checkClearance(p, box, occupied);
+function volume(p: Parts[number]) {
+	const box = bounds(p);
+	const v = box.max.reduce((v, max, i) => v * (max - box.min[i]), 1);
+	expect(Number.isFinite(v)).toBe(true);
+	return v;
+}
+function checkParts(s: Section, parts: ReturnType<typeof sectionParts>, walk: Parts) {
+	checkParcel(s, parts);
+	const solids = s.composition.parts.filter((p) =>
+		['body', 'socket', 'foot', 'shaft', 'head'].includes(p.joint)
+	);
+	const bodies = s.composition.levels.flatMap((l) =>
+		l.bodies.flatMap((b) => bodyParts(b, palette))
+	);
+	const frame = houseStructure({ ...s, composition: { ...s.composition, parts: solids } }, palette);
+	const occupied = occupiedBounds([...bodies, ...frame]);
+	for (const p of walk) {
+		checkClearance(p, bounds(p), occupied);
 		checkStairSurface(p);
 	}
-	expect(body).toBeGreaterThan(access);
-	expect(access / total).toBeLessThanOrEqual(0.1);
+	const sum = (ps: Parts) => ps.reduce((v, p) => v + volume(p), 0);
+	const stairs = sum(walk);
+	expect(sum(bodies)).toBeGreaterThan(stairs);
+	expect(stairs / sum(parts)).toBeLessThanOrEqual(0.1);
 }
 function inspect(s: Section) {
 	const path = circulation(s),
 		parts = sectionParts(s, palette);
 	checkDecks(s, path);
-	checkDocks(path, parts);
+	const walk = projectAccess(s, palette);
+	checkDocks(path, walk);
 	checkFlights(s, path);
-	checkParts(s, parts);
+	checkParts(s, parts, walk);
 }
 
 for (const shape of plotShapes)

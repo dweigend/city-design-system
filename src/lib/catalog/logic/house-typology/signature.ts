@@ -2,6 +2,7 @@ import type { Typology } from './families';
 import type { housePath } from './routes';
 
 const forms = {
+	block: ['plinth', 'closed courses', 'stacked block', 'solid'],
 	'capsule-stack': ['mast', 'landings only', 'alternating', 'slim'],
 	'deck-tower': ['posts', 'spaced rims', 'alternating', 'wide'],
 	'round-tower': ['drum', 'every level', 'ring', 'ring'],

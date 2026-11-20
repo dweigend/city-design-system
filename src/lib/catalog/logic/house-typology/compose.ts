@@ -1,3 +1,5 @@
+import { fitBandStock } from './band-stock';
+import { blockAssembly } from './block';
 import { silhouette } from './signature';
 import { housePath } from './routes';
 import { layout } from './layout';
@@ -5,7 +7,7 @@ import { assemble } from './assembly';
 import type { HouseSite } from './site';
 import { planEnsemble, type EnsembleContext } from './ensemble';
 import { survey } from './survey';
-import { collapse } from './collapse';
+import { terraceLife } from './terrace-life';
 import { occupiedLevels } from './levels';
 import type { HouseComposition, Point, Port, Plan, Level } from './types';
 const spread: Partial<Record<Plan['type'], number>> = {
@@ -46,6 +48,7 @@ function bearingAxes(plan: Plan, levels: Level[]) {
 }
 function bridgePorts(levels: Level[]): Port[] {
 	return levels.flatMap((l, level) => {
+		if (l.bodies[0].band?.wellX !== undefined) return [{ level, position: l.landing }];
 		const reach = l.round
 			? Math.sqrt((l.width / 2) ** 2 - (l.landing[1] - l.position[1]) ** 2)
 			: l.width / 2;
@@ -66,23 +69,20 @@ function bridgePorts(levels: Level[]): Port[] {
 		];
 	});
 }
-function peopleOnLandings(plan: Plan, levels: Level[]) {
-	const groups = Number(
-		collapse('part/people/' + plan.site.id, plan.seed, plan.type, [
-			['1', 1],
-			['2', levels.length >= 2 ? 1 : 0]
-		])
-	);
-	return Array.from({ length: groups }, (_, i) => {
-		const level = Math.floor((i * levels.length) / groups),
-			[x, y, z] = levels[level].landing;
-		const spacing = plan.site.compact ? 0.3 : 0.45;
-		return [-spacing, 0, spacing].map((dx) => ({
-			position: [x + dx, y, z] as Point,
-			height: 1.75,
-			level
-		}));
-	}).flat();
+function fitCourses(plan: Plan, levels: Level[]) {
+	if (plan.type !== 'block') for (const l of levels) for (const b of l.bodies) fitBandStock(b, 0.9);
+	if (plan.type === 'block' && levels.some((l) => l.bodies[0].band?.modules))
+		for (const l of levels)
+			l.landing[1] = l.bodies[0].position[1] + (plan.sign * l.bodies[0].size[1]) / 2;
+}
+function fitRear(plan: Plan, levels: Level[]) {
+	if (plan.type === 'block' && !levels.some((l) => l.bodies[0].band?.modules)) {
+		const extra =
+			Math.max(0, ...levels.map((l) => l.bodies[0].size[1] + 0.1 - plan.site.depth)) / 2;
+		plan.rear += plan.sign * extra;
+		for (const l of levels) l.landing[1] += plan.sign * extra;
+	}
+	if (levels[0].court) plan.rear = levels[0].landing[1] + plan.sign * 0.15;
 }
 /** Composes one painted site against the frozen ensemble; a singleton uses the same three layers. */
 export function composeHouse(
@@ -93,14 +93,15 @@ export function composeHouse(
 	const { plan, role, accessSide } = layout(site, context);
 	const { type, sign, bar } = plan;
 	const levels = occupiedLevels(plan);
-	if (levels[0].court) plan.rear = levels[0].landing[1] + plan.sign * 0.15;
+	fitRear(plan, levels);
 
 	const stations = bearingAxes(plan, levels);
-	const { parts, crown, fittings } = assemble(plan, levels, role, stations, context.skyline);
-	const path =
-		Math.min(site.width, site.depth) < 3.5
-			? 'ladder'
-			: housePath(type, site.compact && context.houses.size === 1);
+	const { parts, crown, fittings } =
+		type === 'block'
+			? blockAssembly(plan, levels)
+			: assemble(plan, levels, role, stations, context.skyline);
+	fitCourses(plan, levels);
+	const path = housePath(type);
 	const supports = parts.filter((p) =>
 		['foot', 'shaft', 'head', 'brace', 'beam'].includes(p.joint)
 	);
@@ -119,7 +120,7 @@ export function composeHouse(
 		datum: context.datum,
 		ground: site.ground,
 		accessSide,
-		people: peopleOnLandings(plan, levels),
+		people: terraceLife(site, levels, parts, crown, site.seed),
 		family: { bar, radius: bar === 0.3 ? 0.45 : 0.15, parapet: bar === 0.3 ? 'panel' : 'rail' },
 		core: {
 			position: [(stations[0] + stations[1]) / 2, plan.rear - sign * 0.15, site.ground],

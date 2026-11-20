@@ -1,4 +1,4 @@
-import { specimen } from './specimens';
+import { specimen, minimumGauge } from './specimens';
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import {
@@ -10,9 +10,10 @@ import {
 } from '../composed-house';
 import { nearestSilhouettes } from './silhouette-measure';
 import { accessShare } from '../composed-house/access-budget';
-import { checkFit, planEnsemble, typologies, type Typology } from './index';
+import { checkFit, planEnsemble, wideTypologies as typologies, type Typology } from './index';
 
 const footprints: Record<Typology, number[]> = {
+	block: [],
 	'capsule-stack': [1],
 	'deck-tower': [1, 2],
 	'round-tower': [1, 4],
@@ -62,7 +63,7 @@ function checkHardware(s: ReturnType<typeof specimen>) {
 		expect(Math.min(p.size[0], p.size[1]), p.id).toBeGreaterThanOrEqual(0.3 - 1e-8);
 	for (const p of sectionParts(s)) {
 		if (!p.source.objectId.startsWith('person-'))
-			expect(memberThickness(p), p.id).toBeGreaterThanOrEqual(0.12 - 1e-7);
+			expect(memberThickness(p), p.id).toBeGreaterThanOrEqual(minimumGauge(s, p) - 1e-7);
 		if (p.kind === 'box' && p.id.endsWith('/stringer')) expect(p.size[1]).toBeCloseTo(0.3);
 		if (p.kind !== 'pipe') continue;
 		const functional =
@@ -140,6 +141,7 @@ test('occupied outlines span at least four fifths of the painted bay', () => {
 });
 test('full occupied floors follow the sixteen typology sections', () => {
 	const floors: Record<Typology, number[]> = {
+		block: [],
 		'capsule-stack': [],
 		'deck-tower': [0, 2, 4, 5],
 		'round-tower': [0, 1, 2, 3, 4, 5],
@@ -203,5 +205,20 @@ test('plug-in units span three fifths of the inhabited silhouette along their lo
 				).toBeGreaterThanOrEqual(0.6 - 1e-7);
 			}
 		}
+	}
+});
+
+test('the compact block adds a seventeenth silhouette signature', () => {
+	const cell = squareGrid(1, 1, 4).cells[0];
+	const block = planHouse({
+		cells: [cell],
+		stacks: new Map([[cell.id, ['living', 'food', 'water']]]),
+		seed: 7
+	}).composition;
+	const features = Object.values(block.signature);
+	expect(block.typology).toBe('block');
+	for (const type of typologies) {
+		const other = Object.values(specimen(footprints[type][0], type).composition.signature);
+		expect(features.filter((value, k) => value !== other[k]).length).toBeGreaterThanOrEqual(2);
 	}
 });

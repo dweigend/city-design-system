@@ -5,6 +5,7 @@ import { circleDepth, discDepth } from './circle';
 const tolerance = 0.02 + 1e-9;
 export type Finding = {
 	code:
+		| 'bearing-role'
 		| 'floating'
 		| 'intersects'
 		| 'post-end'
@@ -104,8 +105,17 @@ function missingPostEnd({ joint, above }: Entry) {
 	const ends = joint && postEnds[joint];
 	return ends && !ends.some((end) => above.has(end));
 }
+function needsBearing(e: Entry) {
+	return (
+		Math.abs(e.bounds.min[2] - (e.p.ground ?? 0)) <= 1e-7 ||
+		e.above.has('capsule') ||
+		e.above.has('body')
+	);
+}
 function inspectJoint(e: Entry, grounded: Set<FitPart>, findings: Finding[]) {
 	const { p, joint: j, below } = e;
+	if ('structuralRole' in p && p.structuralRole !== 'bearing' && needsBearing(e))
+		findings.push({ code: 'bearing-role', part: p.id });
 	if (!grounded.has(p)) findings.push({ code: 'floating', part: p.id });
 	if (j === 'capsule' && !below.has('socket'))
 		findings.push({ code: 'missing-socket', part: p.id });

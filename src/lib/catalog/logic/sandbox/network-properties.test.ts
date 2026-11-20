@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { circulation, paintedSections, houseSurfaces } from '../composed-house';
 import { interpolatePoint, type Primitive, type Vec3 } from '../parametrik/types';
 import { cellAtPoint } from '../terrain-grid';
+import { bounds } from '../ansicht/geometrie';
 import { required } from '../required';
 import { applyEdit, createWorld, changes, type World } from './index';
 import { composedProjection } from './composed-projection';
@@ -13,10 +14,7 @@ const paint = (w: World, id: string) => applyEdit(w, { kind: 'raise', cellId: id
 const midpoint = (a: Vec3, b: Vec3) => interpolatePoint(a, b, 0.5);
 const key = ([x, y]: Vec3) => [x.toFixed(6), y.toFixed(6)].join(',');
 const strips = (parts: Primitive[]) =>
-	parts.filter(
-		(p): p is Extract<Primitive, { kind: 'mesh' }> =>
-			p.kind === 'mesh' && !p.id.includes('/people/')
-	);
+	parts.filter((p) => p.kind === 'mesh').filter((p) => !p.id.includes('/people/'));
 type Sheet = ReturnType<typeof strips>[number];
 
 function topology(deck: Sheet[]) {
@@ -98,28 +96,30 @@ function cutsBody(a: Vec3, b: Vec3, center: Vec3, size: number[]) {
 }
 
 function peopleOnDeck(parts: Primitive[], deck: Sheet[]) {
-	const figures = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/people/'));
+	const figures = new Map<string, Primitive[]>();
+	for (const p of parts) {
+		const id = p.id.match(/.*\/people\/\d+/)?.[0];
+		if (id) figures.set(id, [...(figures.get(id) ?? []), p]);
+	}
 	const centers = deck.map((s) => midpoint(s.points[0], s.points[2]));
 	const span = deck.reduce((sum, { points: [a, b, c, d] }) => {
 		const p = midpoint(a, b),
 			q = midpoint(c, d);
 		return sum + Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
 	}, 0);
-	expect(figures.length).toBeGreaterThanOrEqual(Math.max(1, Math.ceil(span / 20)));
-	expect(figures.length).toBeLessThanOrEqual(Math.max(1, Math.ceil((3 * span) / 20)));
-	for (const head of figures) {
-		const prefix = head.id.slice(0, head.id.lastIndexOf('/') + 1);
-		const vertices = parts.flatMap((p) =>
-			p.kind === 'mesh' && p.id.startsWith(prefix) ? p.points : []
-		);
-		const ground = Math.min(...vertices.map((p) => p[2]));
-		const sole = vertices.filter((p) => Math.abs(p[2] - ground) < 1e-8);
-		expect(sole.length).toBeGreaterThan(0);
-		const feet = sole.reduce(
-			(sum, p): Vec3 => [sum[0] + p[0] / sole.length, sum[1] + p[1] / sole.length, ground],
-			[0, 0, ground] as Vec3
-		);
-		expect(centers.some((p) => Math.hypot(...p.map((v, k) => v - feet[k])) < 1e-7)).toBe(true);
+	expect(figures.size).toBeGreaterThanOrEqual(Math.max(1, Math.ceil(span / 20)));
+	expect(figures.size).toBeLessThanOrEqual(Math.max(1, Math.ceil((3 * span) / 20)));
+	for (const figure of figures.values()) {
+		const boxes = figure.map(bounds);
+		const foot = Math.min(...boxes.map((b) => b.min[2]));
+		const min = [0, 1].map((i) => Math.min(...boxes.map((b) => b.min[i])));
+		const max = [0, 1].map((i) => Math.max(...boxes.map((b) => b.max[i])));
+		expect(
+			centers.some(
+				([x, y, z]) =>
+					Math.abs(z - foot) < 0.02 && x >= min[0] && x <= max[0] && y >= min[1] && y <= max[1]
+			)
+		).toBe(true);
 	}
 }
 

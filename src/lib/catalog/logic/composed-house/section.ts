@@ -6,7 +6,22 @@ import { composeHouse } from '../house-typology';
 import type { HouseSite, Section } from './types';
 
 function ladderOffset(h: Section['composition']) {
-	if (h.compact) return -0.04;
+	if (h.typology === 'block')
+		return h.levels.some((l) => l.bodies[0].band?.modules)
+			? Math.max(
+					0.12,
+					...h.levels.map(
+						(l) =>
+							Math.abs(
+								l.bodies[0].position[1] +
+									(l.bodies[0].facing[1] * l.bodies[0].size[1]) / 2 -
+									h.bay.y
+							) -
+							h.bay.depth / 2 +
+							0.09
+					)
+				)
+			: -0.39;
 	return h.typology === 'tree-house' ? 1.05 : 0.52;
 }
 /** Adapts the frozen composition to the painted-house and stair projection seam. */
@@ -29,7 +44,8 @@ export function planHouse(site: HouseSite): Section {
 		base: [core.position[0], core.position[1], composition.ground],
 		width: Math.max(...levels.map((l) => l.width)),
 		depth: Math.max(...levels.map((l) => l.depth)),
-		top: composition.ground + stories * STORY,
+		top:
+			composition.typology === 'block' ? crown.position[2] : composition.ground + stories * STORY,
 		decks: levels,
 		slots: levels.flatMap((l) => l.bodies).concat(crown, composition.fittings),
 		stairAxis: [core.position[0], rear + sign * offset]

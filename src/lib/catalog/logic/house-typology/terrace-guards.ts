@@ -9,6 +9,7 @@ export function terraceGuards(plan: Plan, levels: Level[]) {
 		const side = Math.sign(level.position[0] - b.position[0]);
 		const rail = objectSlot(
 			b.id + '/terrace',
+			'cantilever',
 			['kit-parapet-solid-2p5m', 'narrow', 'workshop'],
 			b.use,
 			plan.seed,

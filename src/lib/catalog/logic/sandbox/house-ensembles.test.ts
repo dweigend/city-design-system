@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { expect, test } from 'bun:test';
 import type { EnsembleCell } from '../house-brush';
-import { STORY } from '../../data/grid';
+import { bounds } from '../ansicht/geometrie';
 import { focuses } from '../presentation';
 import { composedProjection } from './composed-projection';
 import { buildingPlots } from './building-plots';
@@ -34,9 +34,10 @@ function expectPeakVolume(world: World, earliestFullYear: number, peak: Ensemble
 	const roof = parts.find((p) => p.id.endsWith('/roof-walk'));
 	if (roof?.kind !== 'prism') throw Error('Missing roof walk');
 	const cell = required(world.grid.cellsById.get(peak.body));
-	expect(roof.z + roof.height).toBeCloseTo(
-		cell.pad + required(world.state.stacks.get(peak.body)).length * STORY
-	);
+	const crown = required(parts.find((p) => p.id.includes('/crown/')));
+	expect(bounds(crown).min[2]).toBeCloseTo(roof.z + roof.height);
+	expect(bounds(crown).max[2] - cell.pad).toBeGreaterThanOrEqual(6);
+	expect(parts.some((p) => p.id.includes('/body/'))).toBe(true);
 }
 
 test('the seed-7 bank has four distinct, stepped ensembles through the sandbox projection', () => {

@@ -11,6 +11,7 @@ export function roofExit(plan: Plan, level: Level, stations: number[], z: number
 	const plate = (width: number, depth: number, y: number) =>
 		solid(
 			site.id + '/roof-walk',
+			'bearing',
 			'deck',
 			[x, y, z - 0.3],
 			[width, depth, 0.3],
@@ -22,7 +23,10 @@ export function roofExit(plan: Plan, level: Level, stations: number[], z: number
 		return plate(Math.max(span, 2 * Math.abs(level.landing[0] - x) + 0.3), 0.3, rear - sign * 0.15);
 	const limits = [site.center[1] - (site.depth - 2.5) / 2, site.center[1] + (site.depth - 2.5) / 2];
 	const obstacles = level.bodies.map((b) =>
-		bandSolid(solid(b.id, 'body', b.position, worldSize(b), site.ground, b.use), b.band?.court)
+		bandSolid(
+			solid(b.id, 'cantilever', 'body', b.position, worldSize(b), site.ground, b.use),
+			b.band?.court
+		)
 	);
 	for (const offset of [0.95, -1.25, 0]) {
 		const y = Math.min(limits[1], Math.max(limits[0], rear + sign * offset));

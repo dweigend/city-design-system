@@ -1,6 +1,7 @@
 import type { Typology } from './families';
 
 const paths = {
+	block: 'ladder',
 	'capsule-stack': 'zigzag',
 	'deck-tower': 'zigzag',
 	'round-tower': 'spiral',
@@ -20,8 +21,7 @@ const paths = {
 } as const satisfies Record<Typology, string>;
 
 /** The single circulation system specified by the typology. */
-export function housePath(type: Typology, drum = false) {
-	if (drum && (type === 'capsule-stack' || type === 'cluster-mast')) return 'spiral';
+export function housePath(type: Typology) {
 	return paths[type];
 }
 

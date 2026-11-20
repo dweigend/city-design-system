@@ -16,6 +16,7 @@ export function clusterLevel(plan: Plan, i: number, z: number, use: HouseUse): L
 	const length = free >= 10 ? 10 : free >= 6.375 ? 7.5 : 5;
 	const body = objectSlot(
 		id,
+		'cantilever',
 		['kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm', 'round-shoulder', 'capsule'],
 		use,
 		plan.seed,

@@ -7,12 +7,13 @@ export type Surface = SlotAssignment;
 export type SurfaceSlot = HouseUse | 'frame' | 'deck' | 'pane' | 'access' | 'shell';
 export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
 
+const walkingFinish = 'beton-terrazzo';
 const metal = (token: ColorToken): Surface => ({ token, finish: 'metal' });
 /** Default assignments for the game and bible. Geometry accepts the same slots with any palette. */
 export const houseSurfaces: HouseSurfaces = {
-	frame: { token: '--ink', finish: 'perforated-metal' },
-	deck: { token: '--paper', finish: 'beton-terrazzo' },
-	shell: { token: '--signal', finish: 'metall-lackiert' },
+	frame: { token: '--ink-3', finish: 'metall-lackiert' },
+	deck: { token: '--paper', finish: walkingFinish },
+	shell: { token: '--paper', finish: 'metall-lackiert' },
 	pane: { token: '--blueprint', finish: 'glas-klar' },
 	access: metal(flowToken.people),
 	living: { token: BODY_TOKEN.living, finish: 'metall-lackiert' },
@@ -23,16 +24,19 @@ export const houseSurfaces: HouseSurfaces = {
 };
 
 const finishes = {
-	base: 'beton-schalung',
-	deck: 'beton-terrazzo',
+	base: 'beton-terrazzo',
+	deck: walkingFinish,
 	roof: 'corrugated-metal',
 	screen: 'perforated-metal',
-	capsule: 'acryl-matt',
+	capsule: 'metall-lackiert',
+	glazing: 'acryl-matt',
 	fitting: 'metall-messing',
+	rim: 'metal',
 	food: 'holz-natur'
 } as const;
 const defaults = new Set(Object.values(houseSurfaces));
 /** Selects the catalogue finish for stock dressed with a default slot, preserving a caller's explicit assignment. */
 export function roleSurface(surface: Surface, role: keyof typeof finishes): Surface {
-	return defaults.has(surface) ? { token: surface.token, finish: finishes[role] } : surface;
+	if (!defaults.has(surface)) return surface;
+	return { token: role === 'rim' ? '--ink' : surface.token, finish: finishes[role] };
 }

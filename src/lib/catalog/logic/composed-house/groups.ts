@@ -1,3 +1,4 @@
+import type { StockPart } from './house-object';
 import type { HouseSite } from './types';
 import { planEnsemble } from '../house-typology';
 import { required } from '../required';
@@ -92,7 +93,7 @@ export function sectionGroups(
 		span: '',
 		chunk: h.cells[0].chunk,
 		cells: h.cells.map((c) => c.id),
-		parts: () => sectionParts(h)
+		parts: (): StockPart[] => sectionParts(h)
 	}));
 	for (const link of houseLinks(grid, houses, seed, stock)) {
 		const a = required(byId.get(link.a), 'first bridge owner'),

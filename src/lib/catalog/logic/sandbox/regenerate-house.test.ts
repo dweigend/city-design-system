@@ -1,3 +1,4 @@
+import { checkParcel } from '../composed-house/parcel-assertions.test-support';
 import { expect, test } from 'bun:test';
 import {
 	applyEdit,
@@ -8,15 +9,9 @@ import {
 	withState
 } from './index';
 import { buildingPlots } from './building-plots';
-import {
-	paintedSections,
-	circulation,
-	planHouse,
-	sectionParts,
-	housePartPlan
-} from '../composed-house';
+import { paintedSections, circulation, planHouse, sectionParts } from '../composed-house';
 import { squareGrid } from '../quad-grid';
-import { bounds } from '../ansicht/geometrie';
+import { accessShare } from '../composed-house/access-budget';
 
 test('selected regeneration preserves paint, unrelated house geometry and undo state', () => {
 	let world = createWorld(7, { cells: 0 });
@@ -54,35 +49,13 @@ test('terrain parcels and 1.8–5 metre bays keep supports inside and limit body
 					for (const leg of route.legs)
 						expect(Math.abs(leg.from[2] - leg.to[2])).toBeLessThanOrEqual(4 + 1e-8);
 				expect(route.stops).toHaveLength(s.decks.length + 2);
-				const feet = s.composition.supports.flatMap((p) =>
-					p.joint === 'foot' && p.kind === 'box' ? [p.position[2]] : []
+				const feet = s.composition.parts.flatMap((p) =>
+					p.slot === 'base' && p.kind === 'prism' ? [p.z] : []
 				);
 				expect(Math.min(...feet)).toBeCloseTo(c.pad);
-				const edges = c.corners.map(([x, y], i) => {
-					const q = c.corners[(i + 1) % 4];
-					const dx = q[0] - x,
-						dy = q[1] - y;
-					return { x, y, dx, dy, length: Math.hypot(dx, dy) };
-				});
-				const bodies = s.slots.map((b) => b.id + '/' + b.objectId + '/');
-				const volumes = sectionParts(s).map((p) => {
-					const margin =
-						bodies.some((prefix) => p.id.startsWith(prefix)) || p.id.includes('/stair/') ? 0.6 : 0;
-					expect(
-						housePartPlan(p).every(([x, y]) =>
-							edges.every((e) => e.dx * (y - e.y) - e.dy * (x - e.x) >= -margin * e.length - 1e-6)
-						),
-						p.id + ' on ' + c.id
-					).toBe(true);
-					const b = bounds(p);
-					return {
-						v: b.max.reduce((v, x, i) => v * (x - b.min[i]), 1),
-						access: p.id.includes('/stair/')
-					};
-				});
-				const sum = (access: boolean) =>
-					volumes.reduce((v, p) => v + (!access || p.access ? p.v : 0), 0);
-				expect(sum(true) / sum(false)).toBeLessThanOrEqual(0.1);
+				const parts = sectionParts(s);
+				checkParcel(s, parts);
+				expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
 			}
 });
 

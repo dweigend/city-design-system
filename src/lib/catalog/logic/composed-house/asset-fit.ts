@@ -1,8 +1,8 @@
-import type { HousePart } from './house-object';
+import type { StockPart } from './house-object';
 import type { Vec3 } from '../parametrik/types';
 type Fit = { point: (p: Vec3) => Vec3; scale: Vec3; angle: number };
 
-function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): HousePart {
+function placed(part: StockPart, { point, scale: [sx, sy, sz], angle }: Fit): StockPart {
 	const radius = Math.min(sx, sy);
 	switch (part.kind) {
 		case 'pipe':
@@ -41,9 +41,9 @@ function placed(part: HousePart, { point, scale: [sx, sy, sz], angle }: Fit): Ho
 }
 
 function placePrism(
-	part: Extract<HousePart, { kind: 'prism' }>,
+	part: Extract<StockPart, { kind: 'prism' }>,
 	{ point, scale: [, , sz] }: Fit
-): HousePart {
+): StockPart {
 	const ring = (polygon: [number, number][]) =>
 		polygon.map(([x, y]): [number, number] => {
 			const q = point([x, y, 0]);
@@ -58,9 +58,9 @@ function placePrism(
 	};
 }
 function placeRing(
-	part: Extract<HousePart, { kind: 'ring' }>,
+	part: Extract<StockPart, { kind: 'ring' }>,
 	{ point, scale: [sx, sy], angle }: Fit
-): HousePart {
+): StockPart {
 	const radius = Math.min(sx, sy);
 	return {
 		...part,
@@ -72,9 +72,9 @@ function placeRing(
 	};
 }
 function placeTorus(
-	part: Extract<HousePart, { kind: 'torus' }>,
+	part: Extract<StockPart, { kind: 'torus' }>,
 	{ point, scale: [sx, sy], angle }: Fit
-): HousePart {
+): StockPart {
 	const radius = Math.min(sx, sy);
 	return {
 		...part,
@@ -85,9 +85,9 @@ function placeTorus(
 	};
 }
 function placeVault(
-	part: Extract<HousePart, { kind: 'vault' | 'arch' | 'halfpipe' }>,
+	part: Extract<StockPart, { kind: 'vault' | 'arch' | 'halfpipe' }>,
 	{ point, scale: [sx, sy, sz], angle }: Fit
-): HousePart {
+): StockPart {
 	const radius = Math.min(sx, sy);
 	return {
 		...part,
@@ -100,9 +100,9 @@ function placeVault(
 	};
 }
 function placeFrame(
-	part: Extract<HousePart, { kind: 'frame' }>,
+	part: Extract<StockPart, { kind: 'frame' }>,
 	{ point, scale: [sx, sy, sz] }: Fit
-): HousePart {
+): StockPart {
 	const radius = Math.min(sx, sy);
 
 	const [w, d, h] = part.size;
@@ -114,9 +114,9 @@ function placeFrame(
 	};
 }
 function placeBox(
-	part: Extract<HousePart, { kind: 'box' | 'wedge' }>,
+	part: Extract<StockPart, { kind: 'box' | 'wedge' }>,
 	{ point, scale: [sx, sy, sz], angle }: Fit
-): HousePart {
+): StockPart {
 	const [w, d, h] = part.size,
 		[x, y, z] = part.position;
 	const center = point([x + w / 2, y + d / 2, z]);
@@ -128,9 +128,9 @@ function placeBox(
 	};
 }
 function placeHelix(
-	part: Extract<HousePart, { kind: 'helix' }>,
+	part: Extract<StockPart, { kind: 'helix' }>,
 	{ point, scale: [sx, sy, sz], angle }: Fit
-): HousePart {
+): StockPart {
 	const radius = Math.min(sx, sy);
 	return {
 		...part,
@@ -143,7 +143,7 @@ function placeHelix(
 	};
 }
 /** Kinds defined by world points only: every point takes the fitted transform. */
-function placeAnnular(part: HousePart, fit: Fit): HousePart {
+function placeAnnular(part: StockPart, fit: Fit): StockPart {
 	switch (part.kind) {
 		case 'mesh':
 		case 'polyline':
@@ -162,7 +162,7 @@ function placeAnnular(part: HousePart, fit: Fit): HousePart {
 			throw new RangeError('Unsupported house fitting ' + part.kind);
 	}
 }
-function placeRectangular(part: HousePart, fit: Fit): HousePart {
+function placeRectangular(part: StockPart, fit: Fit): StockPart {
 	switch (part.kind) {
 		case 'prism':
 			return placePrism(part, fit);
@@ -181,7 +181,7 @@ function placeRectangular(part: HousePart, fit: Fit): HousePart {
 }
 
 /** Places registry members relative to their measured native origin. */
-export function place(parts: HousePart[], origin: Vec3, target: Vec3, scale: Vec3, angle: number) {
+export function place(parts: StockPart[], origin: Vec3, target: Vec3, scale: Vec3, angle: number) {
 	const c = Math.cos(angle),
 		s = Math.sin(angle);
 	const point = ([x, y, z]: Vec3): Vec3 => {

@@ -63,7 +63,7 @@ export function composedHousePlates(): RulePlate[] {
 		single(
 			'pavilion',
 			'Capsule stack',
-			'Four inhabited levels carry glazed capsules in cradles.',
+			'Four inhabited levels carry rounded capsules in cradles.',
 			Array<HouseUse>(4).fill('living'),
 			1,
 			'capsule-stack'

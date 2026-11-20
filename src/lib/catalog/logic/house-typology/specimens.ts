@@ -18,3 +18,15 @@ export function specimen(n: number, typology: Typology, height = 6, seed = 7) {
 	houses.set(id, { ...decision, typology });
 	return planHouse({ ...site, context: { ...context, houses } });
 }
+
+/** A released band door trim has a 120 mm native gauge that follows its rigid storey scale. */
+export function minimumGauge(
+	section: ReturnType<typeof specimen>,
+	part: { id: string; source: { objectId: string; slot: string } }
+) {
+	if (!part.source.objectId.startsWith('kit-band-body-') || part.source.slot !== 'trim')
+		return 0.12;
+	const body = section.slots.find((b) => part.id.startsWith(b.id + '/'));
+	if (!body) throw Error('Unowned band trim');
+	return 0.12 * body.scale;
+}
