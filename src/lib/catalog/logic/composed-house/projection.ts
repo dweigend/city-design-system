@@ -3,7 +3,8 @@ import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
-import { houseSurfaces, type BandAccent } from './surfaces';
+import { houseSurfaces } from './surfaces';
+import { accentBody, accentKind } from './accent';
 import type { Section } from './types';
 import { servicePipes } from './service-pipes';
 import { landingSeats } from './landing-seats';
@@ -27,32 +28,15 @@ function programmeSurfaces(section: Section, palette: typeof houseSurfaces) {
 		energy: useSurface('energy')
 	};
 }
-function accentStorey(section: Section) {
-	const levels = section.composition.levels;
-	if (section.typology === 'bell-house' || section.typology === 'plinth-house') return 0;
-	if (levels.length > 3) return levels.length - 1;
-	return Math.floor(levels.length / 2);
-}
-/** The ensemble's high point carries the one fully coloured body; other houses keep a small accent. */
-function accentKind(section: Section): BandAccent {
-	const levels = section.composition.levels.length;
-	// With fewer than four bodies one painted body would exceed the 30 % accent budget.
-	if (section.composition.role === 'high' && levels > 3) return 'anchor';
-	if (levels === 1) return 'window';
-	return levels > 3 ? 'storey' : 'wall';
-}
 /** Projects the same surveyed assembly in the bible and the sandbox. */
 export function sectionParts(section: Section, palette = houseSurfaces): HousePart[] {
 	const surfaces = programmeSurfaces(section, palette);
-	const levels = section.composition.levels;
-	const accentLevel = levels[accentStorey(section)];
-	const accent = accentKind(section);
+	const target = accentBody(section),
+		accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
 		...shaftHousing(section, surfaces).map(cantilever),
-		...section.slots.flatMap((b) =>
-			bodyParts(b, surfaces, accentLevel.bodies.includes(b) ? accent : 'none')
-		)
+		...section.slots.flatMap((b) => bodyParts(b, surfaces, b === target ? accent : 'none'))
 	];
 	const walk = access(section, surfaces).map((part) => {
 		const p = walkingFace(part, surfaces);

@@ -10,7 +10,12 @@ import { squareGrid } from '../../logic/quad-grid';
 import { planHouse, paintedSections } from '../../logic/composed-house';
 import { typologies } from '../../logic/house-typology';
 import { specimen } from '../../logic/house-typology/specimens';
-import { houseSurfaces, sectionParts } from '../../logic/composed-house';
+import {
+	accentBody,
+	ensembleAnchor,
+	houseSurfaces,
+	sectionParts
+} from '../../logic/composed-house';
 
 type XY = [number, number, number];
 const density = 8;
@@ -112,6 +117,12 @@ function cellsFor(type: string) {
 	if (type === 'courtyard-house') return 4;
 	return TWO_CELL.includes(type) ? 2 : 1;
 }
+/** Exactly one body carries the accent: at least a tenth of a house with up to four bodies. In a
+ * ring or cluster of many small bodies one body is a smaller share. */
+function accentFloor(section: ReturnType<typeof specimen>) {
+	const bodies = section.composition.levels.reduce((n, l) => n + l.bodies.length, 0);
+	return bodies > 4 ? 1 : 10;
+}
 function balanced(section: ReturnType<typeof specimen>, label: string) {
 	const { accent, structure, finishes } = shares(section);
 	const brass = finishes.get('metall-messing') ?? 0;
@@ -125,8 +136,8 @@ function balanced(section: ReturnType<typeof specimen>, label: string) {
 		brass.toFixed(2)
 	);
 	return (
-		accent >= 10 &&
-		accent <= 30 &&
+		accent >= accentFloor(section) &&
+		accent <= (ensembleAnchor(section) ? 50 : 30) &&
 		finishes.size >= 3 &&
 		largest <= 55 &&
 		structure <= (SUPPORT_LED.includes(section.typology) ? 30 : 25) &&
@@ -145,6 +156,60 @@ test('visible accent, material diversity, frame and brass across four elevations
 		}
 	expect(failed).toEqual([]);
 }, 45000);
+
+const PAINTED: string[] = ['body', 'shell', 'glass'];
+/** Bodies whose wall, shell or glazing carries a programme colour; trims and sills do not count. */
+function paintedBodies(section: ReturnType<typeof specimen>) {
+	const colours = new Set<string>(Object.values(BODY_TOKEN));
+	const parts = sectionParts(section);
+	return section.composition.levels
+		.flatMap((l) => l.bodies)
+		.filter((b) =>
+			parts.some(
+				(p) =>
+					p.id.startsWith(b.id + '/') && PAINTED.includes(p.source.slot) && colours.has(p.token)
+			)
+		);
+}
+test('every house has exactly one accent body, chosen by body and not by storey', () => {
+	for (const [height, seed] of [
+		[3, 19],
+		[6, 7]
+	])
+		for (const type of typologies) {
+			const section = specimen(cellsFor(type), type, height, seed);
+			const painted = paintedBodies(section);
+			expect(
+				painted.map((b) => b.id),
+				type + '/' + height
+			).toEqual([accentBody(section).id]);
+		}
+}, 45000);
+test('only the high point of an ensemble of two or more houses carries a whole colour body', () => {
+	const grid = squareGrid(4, 2, 10);
+	const living = (n: number) => Array<'living'>(n).fill('living');
+	const stacks = new Map([
+		['0/0', living(3)],
+		['1/0', living(6)],
+		['2/0', living(3)]
+	]);
+	const ensemble = paintedSections(grid, stacks, 7);
+	expect(ensemble.filter(ensembleAnchor)).toHaveLength(1);
+	for (const section of ensemble) {
+		const anchor = ensembleAnchor(section);
+		const { accent } = shares(section);
+		expect(
+			paintedBodies(section).map((b) => b.id),
+			section.id
+		).toEqual([accentBody(section).id]);
+		expect(accent, section.id).toBeGreaterThanOrEqual(accentFloor(section));
+		expect(accent, section.id).toBeLessThanOrEqual(anchor ? 50 : 30);
+	}
+	const [alone] = paintedSections(grid, new Map([['1/0', living(6)]]), 7);
+	expect(ensembleAnchor(alone)).toBe(false);
+	expect(paintedBodies(alone)).toHaveLength(1);
+	expect(shares(alone).accent).toBeLessThanOrEqual(30);
+}, 30000);
 
 function silhouetteBudget(section: ReturnType<typeof specimen>) {
 	const bodies = section.composition.levels.flatMap((l) => l.bodies);
