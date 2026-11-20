@@ -1,3 +1,4 @@
+import { houseSurfaces } from '../composed-house';
 import { flowToken } from '../../data/focus';
 import type { ColorToken, Primitive } from '../parametrik/types';
 import { inradius } from '../quad-grid';
@@ -60,7 +61,7 @@ function pool(
 	const { ground, top, polygon, prism } = site(cell, id);
 	const water = top + 0.12;
 	const inner = kind === 'water-square' ? 0.52 : 0.67;
-	const rim = kind === 'water-square' ? flowToken.people : flowToken.food;
+	const rim = kind === 'water-square' ? houseSurfaces.deck.token : flowToken.food;
 	return [
 		prism('water', flowToken.water, inner, water, 0.12),
 		{

@@ -50,10 +50,16 @@ function peakUse(
 	const uses = ['living', 'food', 'energy'] as const;
 	return uses[Math.floor(hashUnit(seed, id, 'roof') * uses.length)];
 }
+function districtUses(centre: Centre | undefined, anchor: boolean, use: HouseUse) {
+	const programme = centre?.dominantProgramme;
+	return {
+		use: programme ?? use,
+		middle: anchor ? ('living' as const) : (programme ?? ('living' as const))
+	};
+}
 function programme(world: World, plan: CityPlan, cell: TerrainCell) {
-	const ensemble = plan.centres
-		.flatMap((c) => c.ensembles ?? [])
-		.find((g) => g.lots.includes(cell.id));
+	const centre = plan.centres.find((c) => c.lots.includes(cell.id));
+	const ensemble = centre?.ensembles?.find((g) => g.lots.includes(cell.id));
 	const grouped = ensemble?.openingPlots !== undefined;
 	const base = ensemble && (grouped || cell.id !== ensemble.lots[0]);
 	const style =
@@ -64,7 +70,7 @@ function programme(world: World, plan: CityPlan, cell: TerrainCell) {
 	const use =
 		uses[Math.floor(hashUnit(world.seed, ensemble?.court ?? cell.id, 'city-use') * uses.length)];
 	const roof = peakUse(ensemble, cell.id, world.seed);
-	return { style, use, roof };
+	return { style, roof, ...districtUses(centre, ensemble?.lots[0] === cell.id, use) };
 }
 
 function buildLot(
@@ -74,12 +80,12 @@ function buildLot(
 	cell: TerrainCell,
 	construct: Construct
 ) {
-	const { style, use, roof } = programme(world, plan, cell);
+	const { style, use, roof, middle } = programme(world, plan, cell);
 	for (let floor = 0; floor < height; floor++)
 		world = construct(world, {
 			kind: 'raise',
 			cellId: cell.id,
-			use: floor === 0 ? use : floor === height - 1 ? roof : 'living',
+			use: floor === 0 ? use : floor === height - 1 ? roof : middle,
 			style
 		});
 	return world;

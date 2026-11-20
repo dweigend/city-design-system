@@ -5,6 +5,7 @@ import { FRAME_DIAMETER, LANDING_RADIUS_M, moduleBridge } from '../megastructure
 import { buildObject } from '../assets';
 import { translate } from '../ansicht/geometrie';
 import { focuses, present, type FocusId, type Representation } from '../presentation';
+import { houseSurfaces } from '../composed-house';
 import { flowToken } from '../../data/focus';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { savedSocket, rodOf, position, type BuiltPart } from './installation-parts';
@@ -43,7 +44,7 @@ function segmentView(
 	return moduleBridge(a, end, p.id, { simplifyAtCity: true }).map((form) => ({
 		...form,
 		...(form.kind === 'polyline' ? { member: 'secondary' as const, detail: true } : {}),
-		token: flowToken.people
+		token: form.kind === 'prism' ? flowToken.people : houseSurfaces.frame.token
 	}));
 }
 

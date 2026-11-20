@@ -147,14 +147,7 @@ export function houseView(
 				(g) => g.chunk === chunk && (g.built !== state.year || g.cells.some((id) => stacks.has(id)))
 			)
 			.flatMap((g) =>
-				presentHouseGroup(
-					g.parts(),
-					g,
-					state.year,
-					focus,
-					earliestFullYear,
-					!!state.city?.walk && !g.id.startsWith('network/')
-				)
+				presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear, !!state.city?.walk)
 			),
 		...present(stock.flatMap(project), focus.stock),
 		...colour.flatMap((entry) =>
@@ -251,14 +244,7 @@ export function houseGroups(
 			if (g.chunk === chunk && (!keys || keys.has(key)))
 				groups.set(
 					key,
-					presentHouseGroup(
-						g.parts(),
-						g,
-						state.year,
-						focus,
-						earliestFullYear,
-						!!state.city?.walk && !g.id.startsWith('network/')
-					)
+					presentHouseGroup(g.parts(), g, state.year, focus, earliestFullYear, !!state.city?.walk)
 				);
 		}
 	}
