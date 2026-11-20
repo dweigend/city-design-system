@@ -5,7 +5,7 @@ import { required } from '../required';
 import { townDeck, courtLanding } from '../walkway-network';
 import { walkingHeight } from './network-terrain';
 import type { Vec3 } from '../parametrik/types';
-import type { TerrainCell } from '../terrain-grid';
+import { bankHeight, type TerrainCell } from '../terrain-grid';
 import type { World } from './world-contract';
 
 function stationPosition(cell: TerrainCell, crossingClearance: number): Vec3 {
@@ -15,7 +15,7 @@ function stationPosition(cell: TerrainCell, crossingClearance: number): Vec3 {
 	const level = crossing
 		? Math.max(cell.pad, z + crossingClearance)
 		: Math.ceil(2 * (z - 0.08)) / 2 + 0.4;
-	return [x, y, level];
+	return [x, y, Math.max(level, bankHeight(cell, x, y) + 0.1)];
 }
 
 /** Returns routes, surveyed station positions (x, y, walking elevation in metres), court sites,

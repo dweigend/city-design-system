@@ -1,3 +1,4 @@
+import { courtBankGeometry } from './court-bank-geometry';
 /**
  * Terrain as a paper relief: the ground carries contour hairlines, the area grid appears as a
  * plan drawn onto the land, and painted land cover shows as tinted, patterned areas.
@@ -126,6 +127,7 @@ export function createTerrainMesh(
 		);
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(paperColor, ground, forestWeight);
+		ground = mix(ground, drawingInk, attribute('bankShade', 'float').mul(terrainWeight));
 		const incision = relief.y.smoothstep(0, grid.profile.ravineDepth);
 		const hatchPhase = attribute('position', 'vec3').x.add(height).div(nodes.hatchSpacing);
 		const hatch = hairline(hatchPhase, 1).mul(resolvable(hatchPhase));
@@ -172,6 +174,8 @@ export function createTerrainMesh(
 	surfaceMaterial.colorNode = groundColor();
 	const surface = new THREE.Mesh(surfaceGeometry(grid), surfaceMaterial);
 	surface.receiveShadow = true;
+	const banks = new THREE.Mesh(courtBankGeometry(grid), surfaceMaterial);
+	banks.receiveShadow = true;
 
 	const waterMaterial = new THREE.MeshStandardNodeMaterial({ roughness: 0.34, metalness: 0.12 });
 	waterMaterial.colorNode = mix(
@@ -207,7 +211,7 @@ export function createTerrainMesh(
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
 	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
-	group.add(footprint, surface, water, wakes, baseMesh, deck);
+	group.add(footprint, surface, banks, water, wakes, baseMesh, deck);
 
 	return {
 		group,
@@ -255,6 +259,7 @@ export function createTerrainMesh(
 			};
 			replace(wakes, wakeGeometry(next, piers));
 			replace(deck, footbridgeGeometry(next));
+			replace(banks, courtBankGeometry(next));
 			patchSurface(surface.geometry, currentGrid, next);
 			currentGrid = next;
 			replace(
@@ -335,6 +340,7 @@ export function createTerrainMesh(
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 			}
+			banks.geometry.dispose();
 			tableShadow.dispose();
 			alleys.dispose();
 			cover.map.dispose();

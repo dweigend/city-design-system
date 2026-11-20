@@ -1,6 +1,8 @@
+import { courtEarthworks } from './court-earthworks';
 import { gradeTown } from './town-grading';
 import type { CityPlan } from '../city-plan';
-import type { TerrainCell, TerrainGrid } from '../terrain-grid';
+import { surfaceHeight } from './network-terrain';
+import { cellAtPoint, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 
 const originals = new WeakMap<TerrainGrid, TerrainGrid>();
 const towns = new WeakMap<TerrainGrid, WeakMap<CityPlan, TerrainGrid>>();
@@ -28,8 +30,13 @@ export function townGrid(grid: TerrainGrid, city: CityPlan) {
 	if (previous) return previous;
 	const reserved = new Set(city.walk.flat());
 	const graded = gradeTown(raw, city);
-	const cells = raw.cells.map((c) => {
-		const cell = passage(graded.cell(c));
+	const benches = raw.cells.map(graded.cell);
+	const withBank = courtEarthworks(raw, city, (x, y) => {
+		const cell = cellAtPoint(raw, x, y);
+		return cell ? surfaceHeight(benches[cell.index].corners, x, y) : NaN;
+	});
+	const cells = benches.map((c) => {
+		const cell = passage(withBank(c));
 		return cell.buildable && reserved.has(cell.id) ? { ...cell, buildable: false } : cell;
 	});
 	const next = {

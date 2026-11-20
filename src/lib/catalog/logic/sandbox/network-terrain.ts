@@ -1,4 +1,4 @@
-import { cellAtPoint, type TerrainGrid } from '../terrain-grid';
+import { bankHeight, cellAtPoint, type TerrainGrid } from '../terrain-grid';
 import type { Vec3 } from '../parametrik/types';
 import { planBounds, overlaps } from './network-site';
 import type { World } from './world-contract';
@@ -20,7 +20,7 @@ function triangleHeight(x: number, y: number, a: Vec3, b: Vec3, c: Vec3) {
 export function walkingHeight(grid: TerrainGrid, x: number, y: number) {
 	const cell = cellAtPoint(grid, x, y);
 	if (!cell) return NaN;
-	return surfaceHeight(cell.corners, x, y);
+	return cell.bank ? bankHeight(cell, x, y) : surfaceHeight(cell.corners, x, y);
 }
 
 /** Interpolates a surveyed quad on its rendered diagonal. */
