@@ -404,7 +404,8 @@ export function createSandboxStage(
 			if (
 				framedArea?.top === area.top &&
 				framedArea.bottom === area.bottom &&
-				framedArea.right === area.right
+				framedArea.right === area.right &&
+				framedArea.reserved === area.reserved
 			)
 				return;
 			if (frameOpening(opening, area)) invalidateView();

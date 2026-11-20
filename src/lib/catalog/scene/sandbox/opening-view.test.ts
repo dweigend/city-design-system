@@ -4,7 +4,7 @@ import type { Vec3 } from '../../logic/parametrik/types';
 import { acceptanceScene, createWorld, openingScene } from '../../logic/sandbox';
 import { STORY } from '../../data/grid';
 import { frameTownSilhouette, frameOldTown } from './opening-view';
-import { courtOpening } from './court-opening';
+import { visibleCourts } from './fixtures/visible-courts';
 import { createView } from './view';
 
 test('the seed-7 portrait opening keeps the river and slope visible in the opening area', () => {
@@ -77,19 +77,14 @@ test.each([
 			area = { top, bottom, right };
 		if (phone) frameOldTown(view, world, area, additions);
 		else frameTownSilhouette(view, world, area, additions);
-		const courts = courtOpening(world, phone);
-		if (!courts) throw Error('Missing occupied courts');
-		const box = new Box2().setFromPoints(
-			courts.points.map((p) => {
-				const q = view.project([p.x, -p.z, p.y]);
-				return new Vector2(q.x, q.y);
-			})
-		);
+		const courts = visibleCourts(world, view, area);
+		expect(courts.length).toBeGreaterThanOrEqual(2);
+		const box = new Box2().setFromPoints(courts.flat().map((p) => new Vector2(p.x, p.y)));
 		const center = box.getCenter(new Vector2()),
 			size = box.getSize(new Vector2());
 		expect(center.x).toBeCloseTo(right / 2);
 		expect(center.y).toBeCloseTo((top + bottom) / 2);
-		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(phone ? 0.8 : 0.9);
+		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(0.98);
 		expect(box.max.y).toBeLessThan(bottom);
 	}
 );

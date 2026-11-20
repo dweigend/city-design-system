@@ -29,8 +29,17 @@
 		const { world, earliestFullYear, additions } = acceptanceScene(seed);
 		const openingArea = () => {
 			const rect = host.getBoundingClientRect();
-			const top = legend.getBoundingClientRect().top - rect.top;
-			return top > 0 && top < rect.height ? { top: 0, bottom: top } : undefined;
+			const key = legend.getBoundingClientRect();
+			const top = key.top - rect.top;
+			const reserved = [
+				{
+					left: key.left - rect.left,
+					right: key.right - rect.left,
+					top,
+					bottom: key.bottom - rect.top
+				}
+			];
+			return top > 0 && top < rect.height ? { top: 0, bottom: top, reserved } : undefined;
 		};
 		const study = {
 			openingArea,
