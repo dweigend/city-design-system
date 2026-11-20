@@ -24,6 +24,7 @@ export function shaftCourses(plan: Plan, level: Level, stations: number[], top: 
 				const id = plan.site.id + '/shaft/' + axis + '/' + i;
 				const b = objectSlot(
 					id,
+					'bearing',
 					['kit-' + choice.name + '-' + course + 'm', choice.variant, 'workshop'],
 					'material',
 					plan.seed,

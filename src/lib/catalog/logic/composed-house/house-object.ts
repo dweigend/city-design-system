@@ -1,7 +1,10 @@
 import { buildObject, type ObjectOptions } from '../assets';
 import type { Primitive } from '../parametrik/types';
 
-export type HousePart = Primitive & {
+import type { Occupant, StructuralRole } from '../house-typology';
+
+export type HousePart = StockPart & ({ structuralRole: StructuralRole } | Occupant);
+export type StockPart = Primitive & {
 	source: { objectId: string; variant: string; seed: number; slot: string; member: number };
 };
 
@@ -13,7 +16,7 @@ export function houseObject(
 	options: Required<ObjectOptions>
 ) {
 	const object = buildObject(objectId, variant, seed, options);
-	const parts: HousePart[] = object.parts.map((p, member) => ({
+	const parts: StockPart[] = object.parts.map((p, member) => ({
 		...p,
 		source: { objectId, variant, seed, slot: object.geometry[member].slot, member }
 	}));

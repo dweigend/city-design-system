@@ -1,8 +1,10 @@
 export { planEnsemble, type EnsembleContext } from './ensemble';
+export { roomOnDeck } from './deck-outline';
+export { blockSkin } from './block-skin';
 export { composeHouse } from './compose';
 export { planBridges } from './bridges';
 export { checkFit, partsIntersect } from './fit';
 export type { FitPart } from './types';
-export { typologies, type Typology } from './families';
-export type { Body, Deck, HouseComposition, Solid } from './types';
+export { wideTypologies, typologies, type Typology } from './families';
+export type { Body, StructuralRole, Occupant, Deck, HouseComposition, Solid } from './types';
 export type { HouseSite, HouseSlot } from './site';

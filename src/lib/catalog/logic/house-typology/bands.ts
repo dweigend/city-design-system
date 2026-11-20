@@ -18,7 +18,8 @@ const shapes: Partial<Record<Plan['type'], Bay>> = {
 	'water-house': (w, d, t) => (t ? [w * 0.58, d * 0.68] : [w, d])
 };
 
-function corners([x, y, z]: Point, w: number, d: number): Point[] {
+/** Rectangle corners in counterclockwise order at the walking datum. */
+export function corners([x, y, z]: Point, w: number, d: number): Point[] {
 	return [
 		[-1, -1],
 		[1, -1],
@@ -58,6 +59,7 @@ export function storeyBand(
 			? { center: [x, y, z] as Point, width: Math.min(w, d) * 0.38 }
 			: undefined;
 	const band: Body = {
+		structuralRole: 'cantilever',
 		id: site.id + '/level/' + i + '/body/0',
 		objectId: 'primitive-slab',
 		variant: 'rounded',

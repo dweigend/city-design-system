@@ -1,5 +1,5 @@
 import type { Survey } from './survey';
-export const typologies = [
+export const wideTypologies = [
 	'capsule-stack',
 	'deck-tower',
 	'round-tower',
@@ -17,6 +17,7 @@ export const typologies = [
 	'water-house',
 	'tree-house'
 ] as const;
+export const typologies = [...wideTypologies, 'block'] as const;
 export type Typology = (typeof typologies)[number];
 export type HouseRole = 'high' | 'medium' | 'bar' | 'plinth';
 type Suitability = {
@@ -30,6 +31,7 @@ type Suitability = {
 	tall: boolean;
 };
 const suitability: Record<Typology, (factors: Suitability) => number> = {
+	block: () => 0,
 	'capsule-stack': ({ living, n }) => (living && n <= 2 ? 14 : 1),
 	'deck-tower': ({ uses, h }) => (uses.size > 1 && h >= 3 ? 12 : 2),
 	'round-tower': ({ site, h }) =>
@@ -60,7 +62,7 @@ export function affinities(s: Survey, role: HouseRole): Record<Typology, number>
 		tall = h >= 5;
 	const factors = { site: s, role, n, h, uses, living, green, tall };
 	const weight = (type: Typology) => {
-		if (s.compact && type !== 'capsule-stack' && type !== 'cluster-mast') return 0;
+		if (s.compact) return Number(type === 'block');
 		return suitability[type](factors);
 	};
 	// Every typology contributes one entry in the canonical order.

@@ -1,5 +1,5 @@
 import { bounds } from '../ansicht/geometrie';
-import type { HousePart } from './house-object';
+import type { StockPart } from './house-object';
 import { planPoints } from './part-plan';
 import { tread } from './parts';
 import type { Surface } from './surfaces';
@@ -39,7 +39,7 @@ function seat(a: XY, b: XY, z: number, id: string, surface: Surface) {
 	const [s1, e1, e2, s2] = plate.polygon;
 	return { ...plate, polygon: [s1, e1, b, e2, s2, a] };
 }
-function facesOf(p: HousePart) {
+function facesOf(p: StockPart) {
 	if (p.kind === 'prism') return [p.polygon, ...(p.holes ?? [])];
 	if (p.kind === 'cylinder') return [planPoints(p)];
 	if (p.kind !== 'box') return [];
@@ -47,7 +47,7 @@ function facesOf(p: HousePart) {
 	return [[a, b, d, c]];
 }
 /** Seats each switchback half-landing on a short deck cantilever from the nearest surveyed face. */
-export function landingSeats(walk: HousePart[], house: HousePart[], surface: Surface) {
+export function landingSeats(walk: StockPart[], house: StockPart[], surface: Surface) {
 	const faces = house
 		.filter(
 			(p) =>

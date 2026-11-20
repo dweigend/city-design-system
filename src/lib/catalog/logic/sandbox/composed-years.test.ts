@@ -1,7 +1,7 @@
 import { required } from '../required';
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
-import { STORY } from '../../data/grid';
+import { bounds } from '../ansicht/geometrie';
 import { applyEdit, beginStroke, extendStroke, createWorld, houseGroups, changes } from './index';
 
 test('later paint extends one frame and links houses across construction years', () => {
@@ -22,13 +22,18 @@ test('later paint extends one frame and links houses across construction years',
 			(id) => id === 'composed/' + a || id.startsWith('composed/' + a + '@')
 		)
 	).toEqual(['composed/' + a]);
-	for (const joint of ['foot', 'shaft', 'head'])
-		expect(section.some((p) => p.id.includes('/kit-column-' + joint + '-'))).toBe(true);
+	expect(section.some((p) => p.id.endsWith('/plinth'))).toBe(true);
 	const roof = section.find((p) => p.id.endsWith('/roof-walk'));
 	if (roof?.kind !== 'prism') throw Error('Missing roof');
-	expect(roof.z + roof.height).toBeCloseTo(
-		required(extended.grid.cellsById.get(a), 'painted cell').pad + 2 * STORY
+	const crown = required(
+		section.find((p) => p.id.includes('/crown/')),
+		'roof element'
 	);
+	expect(bounds(crown).min[2]).toBeCloseTo(roof.z + roof.height);
+	expect(
+		bounds(crown).max[2] - required(extended.grid.cellsById.get(a), 'painted cell').pad
+	).toBeGreaterThanOrEqual(6);
+	expect(extended.state.stacks.get(a)).toHaveLength(2);
 	expect([...groups.keys()].some((k) => k.startsWith('composed/link/'))).toBe(true);
 	const changed = changes(later, extended).houseGroups;
 	expect(changed.has('composed/' + a)).toBe(true);
@@ -54,11 +59,10 @@ test('successive painted storeys remain reachable in one living stack', () => {
 		);
 		const decks = group.filter(
 			(p) =>
-				p.id.includes('/level/') &&
-				(p.id.endsWith('/deck') || p.id.endsWith('/landing')) &&
+				(p.id.endsWith('/plinth') || (p.id.includes('/level/') && p.id.endsWith('/deck'))) &&
 				p.kind === 'prism'
 		);
-		expect(decks).toHaveLength(stories);
+		expect(decks).toHaveLength(stories > 4 ? 2 : 1);
 		for (const deck of decks) {
 			if (deck.kind !== 'prism') throw new Error('Expected walking surface');
 			const z = deck.z + deck.height;
@@ -69,12 +73,10 @@ test('successive painted storeys remain reachable in one living stack', () => {
 				)
 			).toBe(true);
 		}
-		if (stories >= 3)
-			expect(
-				group.filter(
-					(p) =>
-						p.id.includes('/body/') && p.id.includes('/kit-crown-lantern-') && p.kind === 'cylinder'
-				).length
-			).toBeGreaterThanOrEqual(2);
+		expect(
+			new Set(
+				group.filter((p) => p.id.includes('/body/')).map((p) => p.id.match(/.*\/body\/\d+/)?.[0])
+			).size
+		).toBe(decks.length);
 	}
 });

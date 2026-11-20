@@ -9,6 +9,7 @@ const upper: Course = (i, n) => i >= Math.min(n - 1, Math.max(1, n - 2));
 const ends: Course = (i, n) => first(i, n) || last(i, n);
 const none: Course = () => false;
 const courses: Record<Typology, { occupied: Course; floor: Course }> = {
+	block: { occupied: (i, n) => !i || (n > 4 && i === Math.ceil(n / 2)), floor: every },
 	'capsule-stack': { occupied: every, floor: none },
 	'deck-tower': {
 		occupied: (i, n) => (n === 3 ? ends(i, n) : n <= 4 || i % 2 === 0 || last(i, n)),
@@ -33,9 +34,7 @@ const courses: Record<Typology, { occupied: Course; floor: Course }> = {
 /** Selects the painted bands that carry bodies, preserving their vertical order. */
 export function courseIndices({ site, type }: Plan) {
 	const n = site.programme.length;
-	return Array.from({ length: n }, (_, i) => i).filter(
-		(i) => courses[type].occupied(i, n) || i === n - 1
-	);
+	return Array.from({ length: n }, (_, i) => i).filter((i) => courses[type].occupied(i, n));
 }
 
 /** Distinguishes full occupied plates from the consoles carried by a narrow access landing. */

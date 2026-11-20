@@ -4,7 +4,7 @@ import { branchLevel } from './branches';
 import { clusterLevel } from './cluster';
 import { ringLevel } from './ring';
 import { courseIndices } from './courses';
-import { podLevel } from './pod';
+import { blockLevel } from './block';
 import { collapse } from './collapse';
 import { objectSlot, worldSize } from './objects';
 import type { Body, Level, Plan, Point } from './types';
@@ -63,10 +63,10 @@ const special: Partial<Record<Plan['type'], typeof ringLevel>> = {
 	'round-tower': ringLevel
 };
 function planLevel(plan: Plan, i: number, course: number): Level {
-	const { site, type } = plan,
+	const { type } = plan,
 		use = useAt(plan, i),
 		z = plan.datum + i * STORY;
-	if (site.compact) return podLevel(plan, i, use);
+	if (type === 'block') return blockLevel(plan, i, use);
 	const band = storeyBand(plan, i, course, use);
 	if (band) return band;
 	if (type === 'tree-house') return branchLevel(plan, i, use);
@@ -85,8 +85,12 @@ function infillStock(plan: Plan, i: number, bell: boolean, depth: number) {
 				'dome'
 			] as const)
 		: ([
-				'kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm',
-				i % 8 >= 4 ? 'high-waist' : 'round-shoulder',
+				'kit-capsule-' +
+					['ribbon', 'porthole', 'closed', 'balcony'][((site.seed + i) >>> 0) & 3] +
+					'-' +
+					String(length).replace('.', 'p') +
+					'm',
+				(i + (plan.seed & 1)) % 4 >= 2 ? 'high-waist' : 'round-shoulder',
 				'capsule'
 			] as const);
 }
@@ -96,7 +100,7 @@ function infillLevel(plan: Plan, i: number, z: number, use: Body['use']): Level 
 	const bell = type === 'bell-house' && i === site.programme.length - 1;
 	const depth = site.depth - site.accessDepth - 1.55;
 	const spec = infillStock(plan, i, bell, depth);
-	const b = objectSlot(site.id + '/level/' + i + '/body/0', spec, use, plan.seed, 0);
+	const b = objectSlot(site.id + '/level/' + i + '/body/0', 'cantilever', spec, use, plan.seed, 0);
 	b.scale = Math.max(
 		0.85,
 		Math.min(
@@ -115,6 +119,18 @@ function infillLevel(plan: Plan, i: number, z: number, use: Body['use']): Level 
 	return rectangular(plan, [b], i, z);
 }
 
+function seatUpperBlock(level: Level, lower: Body) {
+	const z = lower.position[2] + lower.size[2] + 0.16;
+	level.position[2] = z;
+	level.landing[2] = z;
+	level.bodies[0].position[2] = z;
+	for (const point of level.outline) point[2] = z;
+}
+function shellCourse(plan: Plan, levels: Level[], k: number) {
+	if (levels.length !== 2) return k % 3 === 1;
+	const ratio = plan.type === 'block' ? 0.75 : 1;
+	return k === 1 && levels[1].bodies[0].size[2] < levels[0].bodies[0].size[2] * ratio;
+}
 /** Groups the complete painted programme onto the occupied courses of this typology. */
 export function occupiedLevels(plan: Plan) {
 	const ordered = courseIndices(plan),
@@ -123,13 +139,13 @@ export function occupiedLevels(plan: Plan) {
 		...planLevel(plan, i, k),
 		programme: rows.slice(k ? i : 0, ordered[k + 1] ?? rows.length).flat()
 	}));
+	if (plan.type === 'block' && levels.length > 1) seatUpperBlock(levels[1], levels[0].bodies[0]);
 	for (const [k, level] of levels.entries()) {
-		const band = level.bodies[0].band,
-			previous = levels[k - 1];
-		if (band && levels[k + 1])
+		const band = level.bodies[0].band;
+		if (band && levels[k + 1] && plan.type !== 'block')
 			level.bodies[0].size[2] =
 				Math.min(2 * STORY, levels[k + 1].position[2] - level.position[2]) - 0.3;
-		if (band) band.shell = Boolean(previous && !previous.bodies[0].band?.shell);
+		if (band) band.shell = shellCourse(plan, levels, k);
 	}
 	return levels;
 }

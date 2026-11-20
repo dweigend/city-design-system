@@ -1,7 +1,6 @@
 import { flightRail } from './flight-rail';
-import { edge, pairedTreads, type Station } from './stair-track';
+import { treadSpine, pairedTreads, type Station } from './stair-track';
 import { flightStations } from './flight-stations';
-import { houseStair } from '../../data/house-stair';
 import type { Vec3 } from '../parametrik/types';
 import { roofLanding } from './roof-landing';
 import { terrainHeight } from './ground';
@@ -17,7 +16,6 @@ type Leg = {
 	flight: number;
 	ends: [Station, Station];
 };
-const { going } = houseStair;
 
 /** Surveys a continuous switchback of rigid treads and level half-landings. */
 export function flightRoute(s: Section) {
@@ -117,43 +115,24 @@ export function flightAccess(s: Section, surfaces: HouseSurfaces) {
 		polygon: rectangle(from, to, width),
 		z: from[2] - plate.height
 	});
-	const cheek = houseObject('stairs', 'short-flight', s.seed, {
-		instanceId: id,
-		slots: { deck: surfaces.access, body: surfaces.frame }
-	}).parts[0];
-	if (cheek.kind !== 'box') throw Error('Expected rectangular stair section');
-	const stringers = route.legs.flatMap(({ from, to, kind, ends }, i) =>
-		kind === 'stairs'
-			? [
-					{
-						...cheek,
-						id: id + i + '/stringer',
-						rotation: Math.atan2(to[1] - from[1], to[0] - from[0]),
-						position: [
-							(edge(ends[0], 0.75)[0] + edge(ends[1], 0.75)[0] - going) / 2,
-							(edge(ends[0], 0.75)[1] + edge(ends[1], 0.75)[1] - 0.3) / 2,
-							to[2] - 0.3
-						] as Vec3,
-						size: [going, 0.3, 0.3] as Vec3
-					}
-				]
-			: []
-	);
+	const spine = stock('landing', 'mast-platform', surfaces.frame);
 	const parts = route.legs.flatMap((leg, i) => {
 		const { to, kind, ends } = leg;
 		const [a, b] = ends;
 		const stock = kind === 'landing' ? plate : tread;
-		return pairedTreads(
-			stock,
-			id + i + '/' + (kind === 'landing' ? 'landing' : 'tread'),
-			a,
-			b,
-			to[2]
-		);
+		return [
+			...pairedTreads(
+				stock,
+				id + i + '/' + (kind === 'landing' ? 'landing' : 'tread'),
+				a,
+				b,
+				to[2]
+			),
+			treadSpine(spine, id + i, a, b, to[2])
+		];
 	});
 	return [
 		...parts,
-		...stringers,
 		...flightRail(s, route, surfaces),
 		...route.docks.flatMap(({ station, door }, i) => {
 			const knee: Vec3 = [door[0], station[1], door[2]];

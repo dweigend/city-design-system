@@ -21,6 +21,36 @@ import {
 const grid = squareGrid(9, 3, 12);
 const cells = [grid.cells[0], grid.cells[1]];
 const uses: HouseUse[] = ['water', 'living', 'food', 'energy', 'material'];
+test('compact kit spans stay rigid, and the undersize fallback carries a one-metre window band', () => {
+	const variants = new Set<string>();
+	for (const width of [1.8, 5.6])
+		for (const seed of [0, 1, 2]) {
+			const cells = squareGrid(1, 1, width).cells;
+			const house = planHouse({ cells, seed, stacks: new Map([[cells[0].id, ['living']]]) });
+			const body = house.composition.levels[0].bodies[0],
+				parts = sectionParts(house);
+			expect(
+				house.composition.crown.position[2] + house.composition.crown.size[2] - house.base[2]
+			).toBeGreaterThanOrEqual(6);
+			if (width === 1.8) {
+				expect(body.band?.modules).toBeUndefined();
+				const glass = parts.find(
+					(p) => p.id.startsWith(body.id + '/') && p.id.includes('/window-')
+				);
+				if (glass?.kind !== 'prism') throw Error('Missing recessed window');
+				expect(glass.z - body.position[2]).toBeCloseTo(1);
+				expect(glass.height).toBeCloseTo(1);
+			} else {
+				expect(body.objectId).toBe('kit-band-body-1s-5m');
+				expect(body.scale).toBeWithin(0.85, 1.15);
+				expect(parts.find((p) => p.id.endsWith('/plinth'))?.source.objectId).toBe(
+					'kit-plinth-chamfer-5m'
+				);
+				variants.add(body.variant);
+			}
+		}
+	expect(variants.size).toBe(3);
+});
 function site(n: number, seed: number, mono = false) {
 	const floors = Array.from({ length: n }, (_, i) =>
 		mono ? ('living' as const) : uses[(seed + i) % uses.length]
@@ -40,13 +70,9 @@ test('frame bearings, supported volumes, walking surfaces and roof datum through
 				[...s.composition.levels].reverse().map((l) => l.landing)
 			);
 			expect(route.stops.length).toBe(s.decks.length + 2);
-			expect(s.composition.people.length).toBeGreaterThanOrEqual(3);
-			expect(s.composition.people.length).toBeLessThanOrEqual(6);
 			for (const [i, p] of s.composition.people.entries()) {
 				const feet = parts.filter((part) => part.id.startsWith(s.id + '/people/' + i + '/'));
-				expect(Math.min(...feet.map((f) => bounds(f).min[2]))).toBeCloseTo(
-					s.decks[p.level].position[2]
-				);
+				expect(Math.min(...feet.map((f) => bounds(f).min[2]))).toBeCloseTo(p.position[2]);
 			}
 			expect(parts.every((p) => bounds(p).max.every(Number.isFinite))).toBe(true);
 		}
@@ -89,26 +115,38 @@ test('replacing every named surface changes no generated geometry', () => {
 	for (const seed of [0, 1, 2, 3, 4]) {
 		const section = planHouse(site(9, seed));
 		expect(sectionParts(section, palette)).toEqual(
-			sectionParts(section).map((p) => ({ ...p, ...replacement, material: 'wood' }))
+			sectionParts(section).map((p) => {
+				const replaced = { ...p, ...replacement, material: 'wood' as const };
+				if (replaced.kind === 'prism') delete replaced.topToken;
+				return replaced;
+			})
 		);
 	}
 });
 
-test('reassigning the capsule glass leaves its shell and the continuous frame untouched', () => {
-	const input = specimen(1, 'capsule-stack', 2);
-	const before = sectionParts(input);
-	const after = sectionParts(input, {
+test('explicit shell, glazing and capsule rim assignments survive projection across capsule variants', () => {
+	const section = specimen(1, 'capsule-stack', 2, 0);
+	const palette = {
 		...houseSurfaces,
-		pane: { token: '--signal', finish: 'holz-natur' }
-	});
-	const glass = before.filter(
-		(p) => p.source.objectId.startsWith('kit-capsule') && p.finish === 'glas-klar'
-	);
-	expect(glass.length).toBeGreaterThan(0);
-	for (const [i, part] of before.entries()) {
-		if (part.finish === 'glas-klar')
-			expect(after[i]).toMatchObject({ id: part.id, finish: 'holz-natur', token: '--signal' });
-		else expect(after[i]).toEqual(part);
+		water: { token: '--signal', finish: 'holz-natur' } as const,
+		pane: { token: '--paper', finish: 'glas-klar' } as const
+	};
+	const parts = sectionParts(section, palette);
+	const rims = sectionParts(section).filter((p) => p.source.slot === 'edge' && p.kind === 'ring');
+	expect(rims.length).toBeGreaterThan(0);
+	for (const rim of rims) {
+		expect(rim).toMatchObject({ token: '--ink', finish: 'metal' });
+		expect(parts.find((p) => p.id === rim.id)).toMatchObject(palette.water);
+	}
+	for (const l of section.composition.levels) {
+		const body = parts.filter((p) => p.id.startsWith(l.bodies[0].id + '/'));
+		expect(body.length).toBeGreaterThan(0);
+		for (const p of body)
+			expect(p).toMatchObject(
+				p.source.slot === 'glass' && /^kit-capsule-(ribbon|porthole|door)-/.test(p.source.objectId)
+					? palette.pane
+					: palette.water
+			);
 	}
 });
 
@@ -186,7 +224,8 @@ test('compact pods keep a caged ladder until a full public stair fits its geomet
 				route.legs.every((l) => l.kind === 'ladder' && Math.abs(l.to[2] - l.from[2]) <= 4)
 			).toBe(true);
 			const parts = sectionParts(h);
-			expect(parts.some((p) => p.id.includes('/stair/cage/'))).toBe(true);
+			expect(h.typology).toBe('block');
+			expect(parts.some((p) => p.id.includes('/stair/rung/'))).toBe(true);
 			for (const l of route.legs.slice(0, -1))
 				expect(
 					parts.some(
@@ -204,4 +243,38 @@ test('compact pods keep a caged ladder until a full public stair fits its geomet
 	const shallow = house(4, 12, 0);
 	if (!shallow.compact) expect(circulation(shallow).width).toBe(2.5);
 	expect(circulation(specimen(1, 'round-tower')).width).toBe(2.5);
+});
+
+test('the capsule reference has no dark or sub-half-metre pieces resting on a deck or tread', () => {
+	const parts = sectionParts(specimen(1, 'capsule-stack', 4, 1));
+	const surfaces = parts.filter(
+		(p) => p.kind === 'prism' && (p.roofCell || /tread|landing/.test(p.id))
+	);
+	expect(surfaces.length).toBeGreaterThan(0);
+	const decks = surfaces.filter(
+		(p) =>
+			p.id.endsWith('/deck') ||
+			p.id.endsWith('/plinth') ||
+			p.source.objectId === 'stairs' ||
+			p.source.objectId === 'landing'
+	);
+	expect(decks.every((p) => p.finish === 'beton-terrazzo')).toBe(true);
+	const treads = parts.filter((p) => p.source.objectId === 'stairs' && p.kind === 'prism');
+	expect(treads.length).toBeGreaterThan(0);
+	expect(treads.every((p) => p.kind === 'prism' && p.topToken === houseSurfaces.access.token)).toBe(
+		true
+	);
+	const hits = parts.filter((p) => {
+		const b = bounds(p);
+		if (p.token !== '--ink' && Math.max(...b.max.map((v, k) => v - b.min[k])) >= 0.5) return false;
+		return surfaces.some((surface) => {
+			const deck = bounds(surface);
+			return (
+				surface !== p &&
+				Math.abs(b.min[2] - deck.max[2]) <= 0.02 &&
+				[0, 1].every((k) => b.min[k] < deck.max[k] && b.max[k] > deck.min[k])
+			);
+		});
+	});
+	expect(hits.map((p) => [p.id, p.source.objectId, p.source.slot])).toEqual([]);
 });

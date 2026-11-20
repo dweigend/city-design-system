@@ -65,6 +65,7 @@ export function brace(
 		points,
 		triangles,
 		lines: [],
+		structuralRole: 'bearing',
 		joint: 'brace',
 		slot: 'frame',
 		role: 'neu',

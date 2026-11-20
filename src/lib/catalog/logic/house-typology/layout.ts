@@ -12,27 +12,35 @@ const bars: Partial<Record<Typology, number>> = {
 };
 
 function rearOffset(site: Survey, type: Typology) {
-	if (site.compact)
-		return (
-			Math.min(
-				site.depth,
-				Math.min(site.width, site.depth) >= 3.75 && Math.max(site.width, site.depth) >= 7
-					? 5.094
-					: 3.763
-			) -
-			site.depth / 2
-		);
+	if (type === 'block') return site.depth / 2;
 	if (type === 'cluster-mast') return 0.15 - site.accessDepth / 2;
 	if (type === 'tree-house') return 0.15;
 	if (type === 'round-tower') return 0.41 * Math.min(site.width, site.depth, 20);
 	return site.depth / 2 - site.accessDepth;
 }
 
+function sideFor(site: Survey, away: number, seed: number, type: Typology) {
+	const cell = site.cells[0];
+	const uphill = cell.corners.reduce(
+		(sum, p) => sum + (p[1] - cell.center[1]) * (p[2] - cell.center[2]),
+		0
+	);
+	const facing = site.district === 'bank' && Math.abs(uphill) > 0.01 ? Math.sign(uphill) : -away;
+	return site.compact && facing
+		? facing > 0
+			? 'north'
+			: 'south'
+		: collapse('part/side/' + site.id, seed, type, [
+				['north', 1],
+				['south', 1]
+			] as const);
+}
 /** Locates the frame and access band against the fixed ensemble decision. */
 export function layout(site: Survey, context: EnsembleContext) {
 	const fixed = context.houses.get(site.id);
 	if (!fixed) throw new RangeError('Site outside ensemble: ' + site.id);
-	const { typology: type, role, away } = fixed;
+	const { role, away } = fixed;
+	const type = site.compact ? 'block' : fixed.typology;
 	const route = housePath(type);
 	const broad =
 		!site.compact &&
@@ -41,15 +49,7 @@ export function layout(site: Survey, context: EnsembleContext) {
 		site.width >= 8;
 	if (broad) site = { ...site, accessDepth: 4.55 };
 	else if (type === 'cluster-mast' && !site.compact) site = { ...site, accessDepth: 0.8 };
-	const accessSide =
-		site.compact && away[1]
-			? away[1] > 0
-				? 'south'
-				: 'north'
-			: collapse('part/side/' + site.id, context.seed, type, [
-					['north', 1],
-					['south', 1]
-				] as const);
+	const accessSide = sideFor(site, away[1], context.seed, type);
 	const sign = accessSide === 'north' ? 1 : -1;
 	const plan: Plan = {
 		site,

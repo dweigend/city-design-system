@@ -21,17 +21,17 @@ test('capsule stack carries four console landings', () => {
 	).toHaveLength(4);
 	expect(plates[0].primitives.some((p) => p.id.includes('kit-capsule-ribbon'))).toBe(true);
 });
-test('deck tower carries a solar crown and four recessed window bands', () => {
+test('deck tower carries a solar crown and recessed bands at the occupied floor heights', () => {
 	const parts = plates[1].primitives;
 	expect(parts.some((p) => p.id.includes('kit-crown-solar-sail'))).toBe(true);
-	expect(parts.filter((p) => p.id.includes('/window'))).toHaveLength(4);
+	expect(
+		new Set(parts.filter((p) => p.id.includes('/window')).map((p) => p.id.split('/body/')[0])).size
+	).toBe(4);
 });
 test('round tower carries circular decks and glazed drums', () => {
 	expect(decks(2).every((p) => p.kind === 'prism' && p.polygon.length === 64)).toBe(true);
 	expect(
-		plates[2].primitives.some(
-			(p) => p.id.includes('/kit-crown-lantern-') && p.finish === 'glas-klar'
-		)
+		plates[2].primitives.some((p) => p.id.includes('/kit-crown-lantern-') && p.kind === 'cylinder')
 	).toBe(true);
 });
 test('cluster mast carries inhabited capsules on alternating axes', () => {

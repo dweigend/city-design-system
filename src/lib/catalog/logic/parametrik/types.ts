@@ -19,6 +19,7 @@ export const surfaceTokens = [
 	'--cat-hazard',
 	'--paper',
 	'--ink',
+	'--ink-3',
 	'--cat-living',
 	'--cat-health',
 	'--cat-mobility',

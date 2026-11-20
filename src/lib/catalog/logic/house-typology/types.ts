@@ -27,6 +27,7 @@ export type Joint =
 	| 'head'
 	| 'brace'
 	| 'beam'
+	| 'attic'
 	| 'crown';
 export type FitMetadata = {
 	joint?: Joint;
@@ -40,10 +41,14 @@ type AssemblyShape = Extract<
 	ObjectGeometry,
 	{ kind: 'box' | 'mesh' | 'cylinder' | 'cone' | 'prism' }
 >;
-export type Solid = AssemblyShape & FitMetadata & { joint: Joint; ground: number; size: Point };
+export type StructuralRole = 'bearing' | 'cantilever';
+export type Occupant = { structuralRole: 'occupant'; carrier: string };
+export type Solid = AssemblyShape &
+	FitMetadata & { structuralRole: StructuralRole; joint: Joint; ground: number; size: Point };
 export type Block = Extract<Solid, { kind: 'box' }>;
 /** Size is occupied local geometry. A capsule bay is its nominal 1.25 m plan-grid reservation. */
 export type Body = HouseSlot & {
+	structuralRole: StructuralRole;
 	objectId: string;
 	variant: string;
 	seed: number;
@@ -52,7 +57,13 @@ export type Body = HouseSlot & {
 	nativeSize: Point;
 	nativeCenter: Point;
 	bay?: [number, number];
-	band?: { plinth?: boolean; shell: boolean; court?: { center: Point; width: number } };
+	band?: {
+		wellX?: number;
+		modules?: Point;
+		plinth?: boolean;
+		shell: boolean;
+		court?: { center: Point; width: number };
+	};
 };
 export type Level = Deck & {
 	bodies: Body[];
@@ -88,7 +99,7 @@ export type HouseComposition = {
 	crown: Body;
 	fittings: Body[];
 	ports: Port[];
-	people: { position: Point; height: number; level: number }[];
+	people: (Occupant & { position: Point; height: number; level: number; count: number })[];
 };
 export type Bridge = {
 	a: string;

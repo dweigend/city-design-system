@@ -3,6 +3,8 @@ import { objectSlot } from './objects';
 import type { HouseUse } from '../../data/house-body';
 import type { Level, Plan, Point } from './types';
 
+/** Clear deck rim around a branch cabin in metres. */
+const RIM = 0.2;
 /** Seats three separate cabins on short radial arms at successive half-storeys. */
 export function branchLevel(plan: Plan, i: number, use: HouseUse): Level {
 	const { site } = plan,
@@ -25,17 +27,20 @@ export function branchLevel(plan: Plan, i: number, use: HouseUse): Level {
 	];
 	const free = u ? site.depth : site.width;
 	const length = free >= 7.8 ? 7.5 : 5;
-	const scale = Math.min(1.15, (free - 0.3) / length, (radial - 0.9) / 2.5);
-	const half = 1.25 * scale + 0.15;
-	const reach = Math.min(4.25, radial - half - 0.01);
-	const tangent = (length * scale + 0.3) / 2;
 	const body = objectSlot(
 		site.id + '/level/' + i + '/body/0',
+		'cantilever',
 		['kit-capsule-ribbon-' + String(length).replace('.', 'p') + 'm', 'round-shoulder', 'capsule'],
 		use,
 		plan.seed,
 		u ? Math.PI / 2 : 0
 	);
+	// The pad follows the unit's real size: the capsule plus a rim on every side.
+	const [long, wide] = body.nativeSize;
+	const scale = Math.min(1.15, (free - 0.62) / long, (radial - 0.9) / wide);
+	const half = (wide * scale) / 2 + RIM;
+	const reach = Math.min(4.25, radial - half - 0.01);
+	const tangent = (long * scale) / 2 + RIM;
 	body.scale = scale;
 	body.size = body.nativeSize.map((d) => d * scale) as Point;
 	body.position = at(reach, 0, z + 0.3);

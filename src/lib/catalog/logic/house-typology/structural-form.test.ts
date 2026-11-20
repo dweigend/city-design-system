@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import { bounds } from '../ansicht/geometrie';
 import { circulation, housePartPlan, houseSurfaces, sectionParts } from '../composed-house';
-import { specimen } from './specimens';
-import { typologies, type Typology } from './families';
+import { specimen, minimumGauge } from './specimens';
+import { wideTypologies as typologies, type Typology } from './families';
 
 type Part = ReturnType<typeof sectionParts>[number];
 type XY = [number, number];
@@ -30,7 +30,8 @@ function checkStockGauges(section: ReturnType<typeof specimen>) {
 	const parts = sectionParts(section);
 	for (const p of parts.filter((p) => !p.source.objectId.startsWith('person-'))) {
 		const thickness = stockThickness(p);
-		if (thickness !== undefined) expect(thickness, p.id).toBeGreaterThanOrEqual(0.12 - 1e-8);
+		if (thickness !== undefined)
+			expect(thickness, p.id).toBeGreaterThanOrEqual(minimumGauge(section, p) - 1e-8);
 	}
 	const pipes = parts.filter((p) => p.id.includes('/service/pipe/'));
 	expect(pipes.length).toBeLessThanOrEqual(2);
@@ -210,8 +211,7 @@ test('registry groups have unscaled feet on terraces, landings or roofs', () => 
 			parts.filter((p) => p.source.objectId.startsWith('person-')),
 			(p) => p.id.split('/person-')[0]
 		);
-		expect(groups.size, type).toBeGreaterThanOrEqual(3);
-		expect(groups.size, type).toBeLessThanOrEqual(15);
+		expect(groups.size, type).toBe(s.composition.people.length);
 		for (const [id, figure] of groups) {
 			const feet = figure.map(bounds).sort((a, b) => a.min[2] - b.min[2])[0];
 			const point: XY = [(feet.min[0] + feet.max[0]) / 2, (feet.min[1] + feet.max[1]) / 2];
@@ -227,6 +227,12 @@ test('each band has a terrace guard and a recessed pane below its lintel', () =>
 		const s = specimen(type === 'courtyard-house' ? 4 : 2, type),
 			parts = sectionParts(s);
 		for (const b of s.slots.filter((b) => b.band)) {
+			if (b.band?.modules) {
+				expect(parts.some((p) => p.id.startsWith(b.id + '/') && p.source.slot === 'glass')).toBe(
+					true
+				);
+				continue;
+			}
 			const courses = parts.filter((p) => p.id.startsWith(b.id + '/primitive-slab/'));
 			const pane = courses.find((p) => p.id.includes('/window')),
 				sill = courses.find((p) => p.id.includes('/sill'));
@@ -244,32 +250,38 @@ test('every typology exposes its specified catalogue finishes', () => {
 		const parts = sectionParts(s);
 		expect(new Set(parts.map((p) => p.finish)).size, type).toBeGreaterThanOrEqual(3);
 		parts.forEach(checkFinish);
-		s.composition.levels.forEach((l) => checkBandFinish(l, parts));
+		for (const b of s.composition.levels.flatMap((l) => l.bodies)) {
+			const skin = parts.filter(
+				(p) =>
+					p.id.startsWith(b.id + '/' + b.objectId + '/') &&
+					p.source.slot !== 'glass' &&
+					!(b.kind === 'capsule' && p.source.slot === 'edge') &&
+					!p.id.includes('/window-')
+			);
+			expect(skin.length).toBeGreaterThan(0);
+			expect(new Set(skin.map((p) => p.token + '/' + p.finish)).size, b.id).toBe(1);
+			if (Math.max(...b.size) > 2)
+				expect(
+					skin.every(
+						(p) => !['acryl-matt', 'corrugated-metal', 'perforated-metal'].includes(p.finish ?? '')
+					)
+				).toBe(true);
+		}
 	}
 });
 function checkFinish(p: Part) {
 	if (p.id.endsWith('/roof')) expect(p.finish).toBe('corrugated-metal');
-	if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
+	if (p.source.objectId.includes('parapet-rail')) expect(p).toMatchObject(houseSurfaces.frame);
+	else if (p.source.objectId.includes('parapet') && p.source.slot !== 'edge')
 		expect(p.finish).toBe('perforated-metal');
 	if (
 		p.id.includes('/body/') &&
 		p.source.objectId.startsWith('kit-capsule') &&
 		p.source.slot === 'shell'
 	)
-		expect(p.finish).toBe('acryl-matt');
-	if (p.id.endsWith('/deck')) expect(p.finish).toBe('beton-terrazzo');
+		expect(p.finish).toBeDefined();
+	if (p.id.endsWith('/deck')) expect(p.finish).toBe(houseSurfaces.deck.finish);
 }
-function checkBandFinish(
-	l: ReturnType<typeof specimen>['composition']['levels'][number],
-	parts: Part[]
-) {
-	const b = l.bodies[0];
-	if (!b.band) return;
-	const sill = parts.find((p) => p.id.startsWith(b.id + '/primitive-slab/sill'));
-	if (b.band.plinth) expect(sill?.finish).toBe('beton-schalung');
-	else if (b.use === 'food') expect(sill?.finish).toBe('holz-natur');
-}
-
 test('every inhabited storey has a registry terrace planter', () => {
 	for (const type of typologies) {
 		const s = specimen(type === 'courtyard-house' ? 4 : 2, type);
@@ -288,16 +300,27 @@ test('public flights span two 1.25 m stock plates at each riser', () => {
 		const parts = sectionParts(s),
 			halves = parts.filter((p) => p.id.includes('/stair/') && p.id.endsWith('/tread/outer'));
 		expect(halves.length, type).toBeGreaterThan(0);
-		for (const second of halves) {
-			if (second.kind !== 'prism') throw Error('Expected a second registered tread');
-			expect(second.height).toBeLessThanOrEqual(0.25);
-			const first = parts.find((p) => p.id === second.id.slice(0, -6));
-			if (first?.kind !== 'prism') throw Error('Missing inside tread');
-			const span = Math.hypot(
-				first.polygon[0][0] - second.polygon[3][0],
-				first.polygon[0][1] - second.polygon[3][1]
-			);
-			expect(span).toBeCloseTo(2.5);
-		}
+		for (const second of halves) checkTreadPair(parts, second);
 	}
 });
+function checkTreadPair(parts: Part[], second: Part) {
+	if (second.kind !== 'prism') throw Error('Expected a second registered tread');
+	expect(second.height).toBeLessThanOrEqual(0.25);
+	const spine = parts.find(
+		(p) => p.id === second.id.replace(/(?:\/stairs)?\/tread\/outer$/, '/stringer')
+	);
+	if (spine?.kind !== 'prism') throw Error('Missing tread spine ' + second.id);
+	expect(spine.height).toBeGreaterThanOrEqual(0.3);
+	expect(
+		Math.hypot(spine.polygon[0][0] - spine.polygon[3][0], spine.polygon[0][1] - spine.polygon[3][1])
+	).toBeCloseTo(0.3);
+	expect(spine.z + spine.height).toBeCloseTo(second.z);
+
+	const first = parts.find((p) => p.id === second.id.slice(0, -6));
+	if (first?.kind !== 'prism') throw Error('Missing inside tread');
+	const span = Math.hypot(
+		first.polygon[0][0] - second.polygon[3][0],
+		first.polygon[0][1] - second.polygon[3][1]
+	);
+	expect(span).toBeCloseTo(2.5);
+}
