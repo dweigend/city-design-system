@@ -143,7 +143,7 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 }
 
 // Studio sightlines cover both directions along the waterfront and a cross-town view.
-const portraitHeadings = [172, 170, 180, 124, 144, 108, 90, 0] as const;
+const portraitHeadings = [342, 150, 172, 180, 124, 144, 90, 0] as const;
 // The south-southeast sightline separates neighbouring courts across a shallow HUD opening.
 const landscapeAngles = [
 	[210, -1],

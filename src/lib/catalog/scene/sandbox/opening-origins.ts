@@ -79,6 +79,7 @@ export function* openingOrigins(
 		phone ? [screen.canvas] : [...edges, screen.foreground],
 		scale
 	);
+	if (phone) room = remaining(room, data.centres, edges, scale);
 	room = remaining(room, data.courts, edges, scale);
 	room = remaining(room, data.stock, screen.reserved, scale);
 	yield* distinctOrigins(room, [domain, ...stock], domain.getCenter(new Vector2()), scale);

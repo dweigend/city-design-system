@@ -1,6 +1,15 @@
 import { studioQuality, type StudioQuality } from './studio-quality';
 import { Color, DoubleSide, type Material, type Node, type Texture } from 'three/webgpu';
-import { attribute, color, float, normalWorld, vec3, vec4 } from 'three/tsl';
+import {
+	attribute,
+	color,
+	float,
+	mx_noise_float,
+	normalWorld,
+	positionWorld,
+	vec3,
+	vec4
+} from 'three/tsl';
 import type { Palette3D } from '../data/city3d';
 import { printPatterns } from '../data/materialPrint';
 import type { SurfaceRecipe } from '../logic/material/surface';
@@ -53,6 +62,38 @@ function kilnFinish(
 	);
 }
 
+function physicalFinish(
+	s: Extract<SurfaceRecipe, { kind: 'physical' }>,
+	palette: Palette3D,
+	options: SurfaceOptions,
+	double: boolean
+) {
+	const face = physicalSurface(
+		s.recipe,
+		palette,
+		s.id,
+		double,
+		options.environment ?? null,
+		s.variation ?? variationVorgabe,
+		options.quality ?? studioQuality(),
+		s.groundCoat
+			? lookColor(
+					{
+						token: s.recipe.farbe.token,
+						paper: s.recipe.farbe.papier,
+						tint: s.recipe.farbe.tint
+					},
+					palette
+				)
+			: undefined
+	);
+	if (s.groundCoat) {
+		face.clearcoat = Math.max(face.clearcoat, 0.32);
+		face.clearcoatRoughnessNode = mx_noise_float(positionWorld.mul(0.35)).mul(0.055).add(0.38);
+	}
+	return face;
+}
+
 /** Compiles a surface independently of its consumer. Instance buffers can supply interpolated print inputs. */
 export function compileSurface(
 	s: SurfaceRecipe,
@@ -62,25 +103,7 @@ export function compileSurface(
 	const double = options.double ?? true;
 	switch (s.kind) {
 		case 'physical':
-			return physicalSurface(
-				s.recipe,
-				palette,
-				s.id,
-				double,
-				options.environment ?? null,
-				s.variation ?? variationVorgabe,
-				options.quality ?? studioQuality(),
-				s.groundCoat
-					? lookColor(
-							{
-								token: s.recipe.farbe.token,
-								paper: s.recipe.farbe.papier,
-								tint: s.recipe.farbe.tint
-							},
-							palette
-						)
-					: undefined
-			);
+			return physicalFinish(s, palette, options, double);
 		case 'diagram':
 			if (s.coating) {
 				const { token, papier: paper, tint } = s.recipe.farbe;

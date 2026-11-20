@@ -39,6 +39,15 @@ function obstructed(
 		)
 	)
 		return true;
+	if (
+		phone &&
+		data.centres.some(
+			(b) =>
+				canvas.intersectsBox(b) &&
+				(blocked(b) || data.courts.some((court) => court.intersectsBox(b)))
+		)
+	)
+		return true;
 	if (data.courts.some((b) => canvas.intersectsBox(b) && blocked(b))) return true;
 	return hud.some((zone) => data.stock.some((b) => zone.intersectsBox(b)));
 }

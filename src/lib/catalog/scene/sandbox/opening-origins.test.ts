@@ -14,7 +14,14 @@ test('a short opening translates both ensembles clear of the timeline without a 
 		new Box2(new Vector2(400, 210), new Vector2(800, 572))
 	];
 	const pair = courts[0].clone().union(courts[1]);
-	const data = { courts, houses: courts.map((b) => [b]), stock: [], landmarks: [], landscape: [] };
+	const data = {
+		courts,
+		houses: courts.map((b) => [b]),
+		stock: [],
+		centres: [],
+		landmarks: [],
+		landscape: []
+	};
 	const origins = [...openingOrigins(pair, screen, data, 1, false)];
 	expect(origins.length).toBeGreaterThan(0);
 	for (const origin of origins) {

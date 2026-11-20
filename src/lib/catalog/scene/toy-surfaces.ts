@@ -22,15 +22,16 @@ export function perforatedSheet() {
 
 /** A half-metre corrugation with 95 mm crest-to-trough relief. */
 export function corrugation(base: Node<'vec3'>, p: Node<'vec3'>): Muster {
-	const profile = (uv: Node<'vec2'>) =>
-		uv.x.fract().sub(0.5).abs().sub(0.12).mul(8).clamp(0, 2).sub(1);
-	const ridge = townPattern(p, 0.5, profile, 'grid');
-	const chart = faceChart(p).div(0.5);
+	const phase = faceChart(p).x.div(0.5);
+	const ridge = phase.mul(2 * Math.PI).cos();
+	// Fade the physical repeat to its mean before the projected ridges become subpixel.
+	const coverage = phase.fwidth().smoothstep(0.12, 0.45).oneMinus();
 	return {
-		farbe: base.mul(ridge.mul(0.13).add(0.94)),
-		hoehe: profile(chart),
+		farbe: base.mul(ridge.mul(coverage).mul(0.09).add(0.96)),
+		hoehe: ridge,
+		rauheitVersatz: ridge.mul(coverage).mul(-0.025),
 		relief: 0.0475,
-		reliefCoverage: chart.fwidth().length().smoothstep(0.16, 0.5).oneMinus()
+		reliefCoverage: coverage
 	};
 }
 
