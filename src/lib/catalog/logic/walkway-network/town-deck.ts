@@ -7,7 +7,6 @@ import { courtLawn } from './court-lawn';
 import { courtSurfaces } from './town-palette';
 import { walkingProfile } from './walking-profile';
 import { throughRoute, type CourtPassage } from './through-route';
-import { courtTerrace } from './court-terrace';
 import { fitWalkingFlights, type FlightReservation } from './flight-fit';
 import { type Primitive, type Vec3 } from '../parametrik/types';
 export { publicFlight } from './path-deck';
@@ -61,10 +60,7 @@ export function surveyTownWalk(
 	clear?: (a: Vec3, b: Vec3) => boolean,
 	water?: (x: number, y: number) => number
 ) {
-	const terraces = survey.map((c) =>
-		c.aprons?.length === 0 ? courtTerrace(c, relief, ground) : { court: c, steps: [] }
-	);
-	const courts = terraces.map(({ court }, i) => ({ ...survey[i], ...court }));
+	const courts = survey;
 	const mouths = new Map(routes.map((path) => [path[0], center(path[1])]));
 	const gardens = courts.map((c) =>
 		courtGarden(c, mouths.get(c.id) ?? c.position, seed, ground, relief)
@@ -106,7 +102,6 @@ export function surveyTownWalk(
 		get unresolved() {
 			return flightBudget().unresolved;
 		},
-		terraces,
 		courts,
 		graph
 	};
@@ -138,11 +133,11 @@ export function townDeck(
 }
 /** Dresses the edges and courts of a completed survey without changing their alignment. */
 export function projectTownWalk(
-	{ gardens, terraces, courts, graph }: ReturnType<typeof surveyTownWalk>,
+	{ gardens, courts, graph }: ReturnType<typeof surveyTownWalk>,
 	ground: (x: number, y: number) => number,
 	seed: number
 ) {
-	const plazas: Primitive[] = terraces.flatMap((t) => t.steps);
+	const plazas: Primitive[] = [];
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries()) plazas.push(...plazaParts(court, i + parity));

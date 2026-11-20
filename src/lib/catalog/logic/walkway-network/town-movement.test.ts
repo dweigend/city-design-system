@@ -130,3 +130,30 @@ test('a restricted tunnel egress docks a stair when the gentler descent cannot f
 	expect(plan.graph.edges.some((e) => e.kind === 'dock' && e.from === stair.to)).toBe(true);
 	expect(plan.graph.edges.some((e) => e.kind === 'tunnel')).toBe(true);
 });
+
+test('a sloping bank alone does not cut a stair into the plaza', () => {
+	const court = {
+		id: 'plaza',
+		position: [0, 0, 3] as Vec3,
+		area: 400,
+		polygon: [
+			[-10, -10],
+			[10, -10],
+			[10, 10],
+			[-10, 10]
+		] as [number, number][],
+		aprons: []
+	};
+	const parts = townDeck(
+		[['plaza', 'street']],
+		(id) => (id === 'plaza' ? court.position : [35, 0, 3]),
+		[court],
+		() => 0,
+		3,
+		(_x, y) => y * 0.15
+	);
+	const slab = parts.find((p) => p.id === 'court/plaza');
+	if (slab?.kind !== 'prism') throw Error('Missing plaza');
+	expect(slab.polygon).toEqual(court.polygon);
+	expect(parts.filter((p) => p.id.includes('/seat/step/'))).toHaveLength(0);
+});

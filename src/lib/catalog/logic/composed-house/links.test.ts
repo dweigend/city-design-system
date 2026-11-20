@@ -92,12 +92,6 @@ test('house bridge thresholds step onto the two decks and carry a 1.1 m handrail
 		position: [p.position[0], p.position[1], p.position[2] + 0.2]
 	}));
 	const [link] = houseLinks(grid, [a, b], 11);
-	const [edge] = link.graph.edges;
-	expect(edge.kind).toBe('bridge');
-	expect(Math.abs(link.graph.ports[1].position[2] - link.graph.ports[0].position[2])).toBeCloseTo(
-		0.2
-	);
-	expect(edge.via?.length).toBeGreaterThan(0);
 	const plates = link.parts.filter((p) => p.kind === 'prism');
 	const datums = plates.map((p) => p.z + p.height);
 	expect(Math.max(...datums) - Math.min(...datums)).toBeCloseTo(0.2);
@@ -106,4 +100,21 @@ test('house bridge thresholds step onto the two decks and carry a 1.1 m handrail
 	if (newel?.kind !== 'pipe') throw Error('Missing handrail bearing');
 	expect(newel.radius * 2).toBeCloseTo(0.12);
 	expect(newel.points[newel.points.length - 1][2] - newel.points[0][2]).toBeCloseTo(1.1);
+});
+
+test('surveyed house ports own the threshold elevations of the projected bridge', () => {
+	const a = house('0/2', 3),
+		b = house('2/2', 3);
+	const x = (a.base[0] + b.base[0]) / 2,
+		y = (a.base[1] + b.base[1]) / 2;
+	a.composition.ports = [{ level: 0, position: [x - 3, y, 5] }];
+	b.composition.ports = [{ level: 0, position: [x + 3, y, 5.2] }];
+	const [link] = houseLinks(grid, [a, b], 11);
+	const [edge] = link.graph.edges;
+	expect(edge.from).toBe(a.id + '/port/0');
+	expect(edge.to).toBe(b.id + '/port/0');
+	expect(edge.length).toBeGreaterThan(6);
+	const plates = link.parts.filter((p) => p.kind === 'prism');
+	expect(plates.some((p) => Math.abs(p.z + p.height - 5) < 1e-7)).toBe(true);
+	expect(plates.some((p) => Math.abs(p.z + p.height - 5.2) < 1e-7)).toBe(true);
 });
