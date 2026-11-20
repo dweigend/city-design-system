@@ -1,5 +1,5 @@
 import type { Vec3 } from '../parametrik/types';
-import { fitWalkingFlights } from './flight-fit';
+import { needsTreads } from './walking-profile';
 import type { TownSpan } from './town-stations';
 import { walkingProfile } from './walking-profile';
 
@@ -31,7 +31,7 @@ function descent(exit: Threshold, ground: Ground, clear: Clear, id: string) {
 		foot[2] = ground(foot[0], foot[1]);
 		if (!Number.isFinite(foot[2]) || !clear(start, foot)) return;
 		const flight = spans([start, foot], id + '/descent');
-		if (!fitWalkingFlights(flight, new Map()).unresolved.length) return flight;
+		if (!needsTreads(start, foot)) return flight;
 	}
 }
 function crossing(terminal: Vec3, passage: CourtPassage, ground: Ground, clear: Clear) {
@@ -58,8 +58,7 @@ function crossing(terminal: Vec3, passage: CourtPassage, ground: Ground, clear: 
 		...spans([exit.position, outsideExit], id + '/threshold'),
 		...down
 	];
-	const { spans: fitted, unresolved } = fitWalkingFlights(route, new Map());
-	return unresolved.length ? [] : fitted;
+	return route.some((s) => needsTreads(s.a, s.b)) ? [] : route;
 }
 
 function aligned(passage: CourtPassage) {

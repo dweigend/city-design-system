@@ -9,19 +9,11 @@ function walkingSupports(parts: Primitive[]) {
 	for (const p of parts) {
 		if (p.kind === 'prism' && p.id.startsWith('court/')) {
 			supports.push({ z: p.z + p.height, covers: (x, y) => insideCourt([x, y], p.polygon) });
-		} else if (
-			p.kind === 'cylinder' &&
-			p.id.startsWith('town-walk/platform/') &&
-			!p.id.includes('/meeting/') &&
-			!p.id.endsWith('/pier')
-		) {
-			const [cx, cy, z] = p.position;
-			supports.push({ z: z + p.height, covers: (x, y) => Math.hypot(x - cx, y - cy) <= p.radius });
 		}
 	}
 	return supports;
 }
-/** Samples the highest finished ground, court paving or meeting platform beneath the walking elevation. */
+/** Samples the highest finished ground or court paving beneath the walking elevation. */
 export function landingGround(
 	parts: Primitive[],
 	ground: (x: number, y: number) => number
@@ -37,16 +29,32 @@ export function landingGround(
 	};
 }
 
+function transition(start: number, end: number, changed: (u: number) => boolean) {
+	let lo = start,
+		hi = end;
+	for (let i = 0; i < 24; i++) {
+		const mid = (lo + hi) / 2;
+		if (changed(mid)) hi = mid;
+		else lo = mid;
+	}
+	if (end - hi < 1e-8) return end;
+	if (lo - start < 1e-8) return start;
+	return (lo + hi) / 2;
+}
 function intervals(a: Vec3, b: Vec3, exposed: (p: Vec3) => boolean) {
 	const count = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.5));
-	const at = (j: number) => (j === 0 ? a : j === count ? b : interpolatePoint(a, b, j / count));
+	const at = (t: number) => (t === 0 ? a : t === 1 ? b : interpolatePoint(a, b, t));
+	let from = exposed(a) ? 0 : undefined;
 	const runs: Vec3[][] = [];
-	let start = 0;
-	for (let i = 0; i <= count; i++) {
-		if (i < count && exposed(at(i + 0.5))) continue;
-		if (start < i) runs.push([at(start), at(i)]);
-		start = i + 1;
+	for (let i = 1; i <= count; i++) {
+		const t = i / count,
+			open = exposed(at(t));
+		if (open === (from !== undefined)) continue;
+		const boundary = transition((i - 1) / count, t, (u) => exposed(at(u)) === open);
+		if (from !== undefined && boundary > from) runs.push([at(from), at(boundary)]);
+		from = open ? boundary : undefined;
 	}
+	if (from !== undefined && from < 1) runs.push([at(from), b]);
 	return runs;
 }
 /** Clips each edge segment to the stretches where its walking face drops away.

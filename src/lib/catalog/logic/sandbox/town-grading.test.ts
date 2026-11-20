@@ -1,6 +1,5 @@
 import { surveyTownWalk } from '../walkway-network';
 import { houseStair } from '../../data/house-stair';
-import { area } from '../ansicht/geometrie';
 import type { Primitive } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import { required } from '../required';
@@ -24,25 +23,38 @@ function checkBench(
 		}
 }
 function checkWalk(parts: Primitive[], ground: (x: number, y: number) => number) {
-	const sills = new Set(
-		parts.filter((p) => p.id.endsWith('/pier/foot')).map((p) => p.id.slice(0, -10))
+	const decks = parts.filter(
+		(p) => p.kind === 'mesh' && p.id.startsWith('town-walk/') && p.id.endsWith('/ramp')
 	);
-	let grounded = 0,
-		total = 0;
-	for (const p of parts) {
-		if (
-			p.kind !== 'prism' ||
-			!/^town-walk\/\d+\/\d+>\d+\/\d+(?:\/stair)?(?::tread:\d+)?(?:\/panel\/\d+)?$/.test(p.id)
-		)
-			continue;
-		const size = area(p.polygon);
-		total += size;
-		if (sills.has(p.id.split('/panel/')[0])) grounded += size;
-		for (const [x, y] of p.polygon) expect(ground(x, y) - p.z - p.height, p.id).toBeLessThan(0.02);
-	}
-	expect(grounded).toBeGreaterThan(total / 2);
+	expect(decks.length).toBeGreaterThan(0);
+	const lengths = decks.map((p) => (p.kind === 'mesh' ? checkRibbon(p, ground) : [0, 0]));
+	const length = lengths.reduce((sum, p) => sum + p[0], 0),
+		low = lengths.reduce((sum, p) => sum + p[1], 0);
+	expect(low).toBeGreaterThan(length / 2);
 }
 
+function checkRibbon(
+	p: Extract<Primitive, { kind: 'mesh' }>,
+	ground: (x: number, y: number) => number
+) {
+	let low = 0,
+		length = 0;
+	let previous: number[] | undefined;
+	for (let i = 2; i < p.points.length; i += 4) {
+		const a = p.points[i],
+			b = p.points[i + 1],
+			centre = a.map((v, k) => (v + b[k]) / 2);
+		for (const q of [a, centre, b]) expect(ground(q[0], q[1]) - q[2], p.id).toBeLessThan(0.02);
+		if (previous) {
+			const run = Math.hypot(centre[0] - previous[0], centre[1] - previous[1]);
+			length += run;
+			if (centre[2] - ground(centre[0], centre[1]) <= 1.2) low += run;
+			expect(Math.abs(centre[2] - previous[2]) / run, p.id).toBeLessThanOrEqual(0.08 + 1e-7);
+		}
+		previous = centre;
+	}
+	return [length, low];
+}
 function checkTreadGoing(world: World) {
 	const site = required(cityCorridorSite(world), 'city walk');
 	const { spans, unresolved } = surveyTownWalk(...site, (x, y) =>

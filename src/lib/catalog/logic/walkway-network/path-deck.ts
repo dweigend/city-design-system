@@ -1,7 +1,6 @@
-import { bridgeSection } from './bridge-section';
+import { column, ribbonProfile } from './ribbon-column';
 import { guardRuns } from './guard-runs';
 import { retainingHeight, retainingFoot } from './retaining-foot';
-import { outline } from './level-runs';
 import { walkingProfile, rampSurface, treadSeat, needsTreads } from './walking-profile';
 import { contours, pathSupports, pathTube } from '../linear-path';
 import { type Primitive, type Vec3 } from '../parametrik/types';
@@ -31,7 +30,7 @@ function exposed(
 function handrail(path: Vec3[], id: string, stairs: Vec3[][]): Primitive[] {
 	const top = path.map(([x, y, z]): Vec3 => [x, y, z + railHeight]);
 	return [
-		{ ...frame, id, ...pathTube(top, 0.06) },
+		{ ...frame, id, ...pathTube(top, ribbonProfile.railRadius) },
 		...pathSupports(path, postSpacing).map((p, i): Primitive => {
 			const foot =
 				stairs
@@ -43,7 +42,7 @@ function handrail(path: Vec3[], id: string, stairs: Vec3[][]): Primitive[] {
 				id: id + '/post/' + i,
 				position: [p[0], p[1], foot],
 				height: p[2] + railHeight - foot,
-				radius: 0.06
+				radius: ribbonProfile.postRadius
 			};
 		})
 	];
@@ -53,14 +52,13 @@ function strip(
 	ground: Ground,
 	marked: boolean
 ): Primitive[] {
-	const sections = inside ? [] : bridgeSection({ span: { id, a, b }, right, left }, ground);
-	const supports: Primitive[] = sections.some((p) => p.slot === 'bearing')
-			? sections.map(({ slot, ...mesh }) => ({
-					...pathSurfaces[slot],
-					...mesh
-				}))
-			: [],
-		surface = marked || supports.length ? deck : { ...deck, ...publicPaving };
+	const supports = inside
+		? []
+		: pathSupports([a, b], ribbonProfile.bay).flatMap((p, i) => {
+				const z = needsTreads(a, b) ? (treadSeat(a, b, p) ?? p[2]) : p[2];
+				return column(id + '/pier/' + i, [p[0], p[1], z], ground, thickness);
+			});
+	const surface = marked || supports.length ? deck : { ...deck, ...publicPaving };
 	const ring = [right[0], left[0], left[left.length - 1], right[right.length - 1]] as [
 		Vec3,
 		Vec3,
@@ -74,7 +72,7 @@ function strip(
 			? [
 					{
 						id,
-						polygon: outline(left, right),
+						polygon: [...left, ...right.toReversed()].map(([x, y]): [number, number] => [x, y]),
 						z: a[2] - thickness,
 						height: thickness
 					}

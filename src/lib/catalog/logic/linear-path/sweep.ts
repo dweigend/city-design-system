@@ -36,9 +36,18 @@ export function sweepProfile(
 }
 
 /** Closed solid between two or more surveyed cross-sections. Profiles are
- * counter-clockwise viewed along the negative path tangent and must be convex. */
+ * counter-clockwise viewed along the negative path tangent and must be convex. A repeated
+ * end section closes a circuit onto its original vertices without a cap. */
 export function profileSolid(rings: readonly Vec3[][]) {
-	return { kind: 'mesh' as const, ...connectSections(rings, true, true), lines: [] };
+	const last = rings[rings.length - 1];
+	const loop =
+		rings.length > 3 && rings[0].every((p, i) => Math.hypot(...delta(p, last[i])) < 1e-9);
+	const mesh = connectSections(rings, !loop, true);
+	if (loop) {
+		mesh.points.splice(-last.length);
+		mesh.triangles = mesh.triangles.map((i) => i % mesh.points.length);
+	}
+	return { kind: 'mesh' as const, ...mesh, lines: [] };
 }
 function connectSections(rings: readonly Vec3[][], cap: boolean, closedProfile: boolean) {
 	const n = rings[0].length,

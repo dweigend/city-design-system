@@ -1,4 +1,4 @@
-import { surveyedWalk, walkingPlates } from './town-survey.test-support';
+import { surveyedWalk } from './town-survey.test-support';
 import { test, expect } from 'bun:test';
 import {
 	cityCentreView,
@@ -16,61 +16,8 @@ import { focuses } from '../presentation';
 import { cityTransitSlots, lineParts } from '../transit-line';
 import { houseSurfaces } from '../composed-house';
 import { required } from '../required';
-import { townPath } from './town-path';
-import { needsTreads } from './walking-profile';
-import { interpolatePoint, type Primitive, type Vec3 } from '../parametrik/types';
+import { interpolatePoint, type Primitive } from '../parametrik/types';
 type Plate = Extract<Primitive, { kind: 'prism' }>;
-type Point = [number, number];
-function contains(p: Plate, [x, y]: Point) {
-	const sides = p.polygon.map(([a, b], i) => {
-		const [c, d] = p.polygon[(i + 1) % p.polygon.length];
-		return ((c - a) * (y - b) - (d - b) * (x - a)) / Math.hypot(c - a, d - b);
-	});
-	return Math.min(...sides) >= -0.000001 || Math.max(...sides) <= 0.000001;
-}
-function contacts(q: Vec3, part: Primitive) {
-	if (part.kind === 'prism')
-		return Math.abs(q[2] - part.z - part.height) <= 0.02 && contains(part, [q[0], q[1]]);
-	if (part.kind !== 'cylinder') return false;
-	const [x, y, z] = part.position;
-	return (
-		Math.abs(q[2] - z - part.height) <= 0.02 && Math.hypot(q[0] - x, q[1] - y) <= part.radius + 1e-7
-	);
-}
-function rampEnd(p: Primitive, q: Vec3) {
-	if (p.kind !== 'mesh' || !p.id.endsWith('/ramp')) return false;
-	return [0, 4].some((i) => {
-		const a = p.points[i + 2],
-			b = p.points[i + 3],
-			d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-		return (
-			Math.abs(q[2] - a[2]) < 1e-7 &&
-			Math.abs(Math.hypot(q[0] - a[0], q[1] - a[1]) + Math.hypot(q[0] - b[0], q[1] - b[1]) - d) <
-				1e-7
-		);
-	});
-}
-function attachedStairs(parts: Primitive[], world: World) {
-	const carriers = walkingPlates(parts),
-		{ spans, stations } = surveyedWalk(world);
-	const forks = new Map(
-		[...stations].filter(([, s]) => s.arms.length === 3).map(([id, s]) => [id, s.position])
-	);
-	for (const { span, left, right } of townPath(spans, forks).bands.filter((b) =>
-		needsTreads(b.span.a, b.span.b)
-	)) {
-		for (const i of [0, left.length - 1]) {
-			const a = left[i],
-				b = right[i === 0 ? 0 : right.length - 1];
-			const q = interpolatePoint(a, b, 0.5);
-			expect(
-				carriers.some((p) => !p.id.startsWith(span.id + ':tread:') && contacts(q, p)) ||
-					parts.some((p) => rampEnd(p, q)),
-				span.id + ' unattached at ' + q.join(',')
-			).toBe(true);
-		}
-	}
-}
 function externalParts(world: World) {
 	const chunks = new Set(
 		[...world.state.stacks.keys()].map(
@@ -86,42 +33,23 @@ function externalParts(world: World) {
 }
 function checkTownPalette(world: World, parts: Primitive[]) {
 	const walk = accessPlates([...parts, ...externalParts(world)]);
-	const faces = walkingPlates(parts);
-	const retained = new Set(
-		parts
-			.filter((p) => p.kind === 'mesh' && p.id.endsWith('/pier/foot'))
-			.map((p) => p.id.slice(0, -10))
-	);
-	const supports = parts.filter(
-		(p): p is Extract<Primitive, { radius: number; height: number }> & { kind: 'cylinder' } =>
-			p.kind === 'cylinder' && p.id.includes('/pier')
-	);
-	for (const deck of walk.filter((p) => !p.id.includes(':tread:'))) {
-		const owner = deck.id.split('/panel/')[0];
-		expect(
-			retained.has(owner) ||
-				(parts.some(
-					(p) =>
-						p.kind === 'mesh' &&
-						p.id === owner + '/girder' &&
-						p.points.some(
-							([x, y, z]) =>
-								Math.abs(z - deck.z) < 1e-7 &&
-								faces.some((f) => contacts([x, y, deck.z + deck.height], f))
-						)
-				) &&
-					parts.some((p) => p.kind === 'mesh' && p.id.startsWith(owner + '/pier/'))) ||
-				supports.some(
-					(p) =>
-						p.id.startsWith(owner + '/pier') &&
-						Math.abs(p.position[2] + p.height - deck.z) <= 0.02 &&
-						faces.some((q) => contacts([p.position[0], p.position[1], deck.z + deck.height], q))
-				),
-			owner
-		).toBe(true);
+	const decks = parts.filter((p) => p.kind === 'mesh' && ramp(p));
+	expect(decks.length).toBeGreaterThan(0);
+	for (const landing of surveyedWalk(world).ends.values()) {
+		const touches = decks.some(
+			(p) =>
+				p.kind === 'mesh' &&
+				[0, p.points.length - 4].some((i) => {
+					const [x, y, z] = interpolatePoint(p.points[i + 2], p.points[i + 3], 0.5);
+					return Math.hypot(x - landing[0], y - landing[1], z - landing[2]) < 1e-6;
+				})
+		);
+		expect(touches, 'court threshold ' + landing).toBe(true);
 	}
-	expect(walk.length).toBeGreaterThan(0);
-	attachedStairs(parts, world);
+	expect(walk.every((p) => p.id.startsWith('town-walk/joint/'))).toBe(true);
+	expect(
+		parts.some((p) => p.id.startsWith('town-walk/') && /:tread:|\/girder|\/platform\//.test(p.id))
+	).toBe(false);
 	expect(world.grid.cells.some((c) => c.plan.stairAlley)).toBe(false);
 }
 function ramp(p: Primitive) {
