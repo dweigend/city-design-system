@@ -21,6 +21,8 @@ export type MovementPort = {
 	width: number;
 	headroom: number;
 	accepts: readonly MovementKind[];
+	/** Surveyed ground dock with a level square and the three terrain stations at its apron toe. */
+	groundLanding?: { depth: number; toe: readonly Position[] };
 	/** Boundary arcs between the mouths of a surveyed common landing, in plan metres. */
 	rim?: readonly (readonly (readonly [number, number])[])[];
 };

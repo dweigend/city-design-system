@@ -44,10 +44,15 @@ export function passageReaches(route: TownSpan[], ground: (x: number, y: number)
 		};
 		if (!first.adapter && !first.inside) fitApproaches({ reaches: [reach], forks: [] }, ground);
 		meetSill(reach.sections[0], groups[i - 1]?.at(-1)?.port, first.inside ? -1 : 1);
-		meetSill(reach.sections[reach.sections.length - 1], last.port, first.inside ? 1 : -1);
+		meetSill(
+			reach.sections[reach.sections.length - 1],
+			last.port ?? last.groundPort,
+			first.inside ? 1 : -1
+		);
 		return {
 			reach,
 			port: last.port,
+			groundPort: last.groundPort,
 			adapter: first.adapter,
 			inside: first.inside,
 			last: i === groups.length - 1

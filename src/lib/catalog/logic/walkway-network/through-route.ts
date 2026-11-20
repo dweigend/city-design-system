@@ -1,3 +1,4 @@
+import { surveyGroundLanding } from './ground-landing';
 import { walkingLink } from './walking-connection';
 import type { Vec3 } from '../parametrik/types';
 import { needsTreads } from './walking-profile';
@@ -33,9 +34,14 @@ function descent(exit: Threshold, ground: Ground, clear: Clear, id: string, step
 	let fallback: TownSpan[] | undefined;
 	for (let run = width + 2; run <= 32; run += 1) {
 		const foot = outside(exit, run);
-		foot[2] = ground(foot[0], foot[1]);
-		if (!Number.isFinite(foot[2]) || !clear(start, foot)) break;
+		const end = outside(exit, run + width);
+		const toe = outside(exit, run + 1.5 * width);
+		if (!clear(start, foot) || !clear(foot, toe)) break;
+		const groundPort = surveyGroundLanding(id + '/ground', foot, end, ground);
+		if (!groundPort) continue;
+		foot[2] = groundPort.position[2];
 		const flight = spans([start, foot], id + '/descent');
+		flight[0].groundPort = groundPort;
 		if (!needsTreads(start, foot)) return flight;
 		if (stepFree) continue;
 		if (!fallback && walkingLink(flight[0].id, start, foot, 'entrance', 'path').edges.length)

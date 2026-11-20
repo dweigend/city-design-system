@@ -2,7 +2,7 @@ import { area, bounds, type Point2 } from '../ansicht/geometrie';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { openSurface } from './shell-openings';
 import { planPoints } from './part-plan';
-import { jamb, portalFrame, strip } from './passage-frame';
+import { jamb, lintel, portalFrame, strip } from './passage-frame';
 import type { Section } from './types';
 
 type Plate = Extract<Primitive, { kind: 'prism' }>;
@@ -37,7 +37,7 @@ function clippable(p: Primitive, l: Lane) {
 	);
 }
 function roughOpening(l: Lane) {
-	return { ...l, clearWidth: l.clearWidth + 2 * jamb, headroom: l.headroom + jamb };
+	return { ...l, clearWidth: l.clearWidth + 2 * jamb, headroom: l.headroom + lintel };
 }
 /** Checks that trimming only envelope panels and masonry leaves a continuous walking volume. */
 export function canOpenPassage(parts: Primitive[], lane: Lane) {

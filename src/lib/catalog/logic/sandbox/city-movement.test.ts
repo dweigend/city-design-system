@@ -3,7 +3,14 @@ import { intersect } from '../parametrik/raster/geometry';
 import { deckCorners } from '../walkway';
 import { required } from '../required';
 import { test, expect } from 'bun:test';
-import { cityMovementNetwork, composedProjection, openingScene } from './index';
+import {
+	acceptanceScene,
+	cityCentreView,
+	cityMovementNetwork,
+	composedProjection,
+	openingScene
+} from './index';
+import { cityCorridorPlan } from './city-corridors';
 import { townSections } from './composed-projection';
 
 test('a generated town exposes court docks and the complete curved rail alignment to routing', () => {
@@ -107,4 +114,44 @@ test('the seed 7 public ribbon crosses a framed house between its surveyed entra
 				graph.edges.some((e) => e.kind === 'path' && (e.from === end.id || e.to === end.id))
 			).toBe(true);
 	}
+});
+
+test('the seed 7 house exit descends on paired piers to a paved ground dock', () => {
+	const { world } = acceptanceScene(7);
+	const { plan, ground } = required(cityCorridorPlan(world), 'town survey');
+	const tunnel = required(
+		plan.graph.edges.find((e) => e.kind === 'tunnel' && e.from.startsWith('29/29/portal/')),
+		'house crossing'
+	);
+	const exit = required(
+		plan.graph.edges.find((e) => e.from === tunnel.to && e.kind === 'path'),
+		'exit ramp'
+	);
+	const dock = required(
+		plan.graph.edges.find((e) => e.from === exit.to && e.kind === 'dock'),
+		'ground dock'
+	);
+	const foot = required(
+		plan.graph.ports.find((p) => p.id === dock.to),
+		'landing'
+	);
+	const landing = required(foot.groundLanding, 'paved landing');
+	expect(landing.depth).toBeGreaterThanOrEqual(2.5);
+	for (const [x, y, z] of landing.toe) expect(z).toBeCloseTo(ground(x, y), 7);
+	const parts = cityCentreView(world);
+	expect(parts.find((p) => p.id === foot.id + '/foot')).toMatchObject({ kind: 'prism' });
+	for (const side of [0, 1]) {
+		const piers = parts.filter((p) => p.id.startsWith(exit.id + '/pier/' + side + '/'));
+		expect(piers.length).toBeGreaterThan(0);
+		for (const p of piers) {
+			if (p.kind !== 'cylinder') throw Error('Missing bearing');
+			expect(p.position[2]).toBeCloseTo(ground(p.position[0], p.position[1]), 7);
+		}
+	}
+	const house = required(
+		composedProjection(world).find((h) => h.id === '29/29'),
+		'portal frame'
+	);
+	const surrounds = house.parts().filter((p) => p.id.includes('/portal/frame/surround/'));
+	expect(new Set(surrounds.map((p) => p.id.split('/surround/')[1].split('/')[0])).size).toBe(2);
 });

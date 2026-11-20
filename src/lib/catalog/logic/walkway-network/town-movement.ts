@@ -125,21 +125,35 @@ function registerReach(
 		])
 	});
 }
+function registerEgressStair(
+	s: Survey,
+	id: string,
+	from: string,
+	end: Vec3,
+	groundPort?: MovementPort
+) {
+	const start = required(s.ports.get(from), 'passage landing').position;
+	const flight = walkingLink(id, [...start], end, 'entrance', 'path');
+	const foot = flight.ports[1];
+	for (const port of flight.ports) s.ports.set(port.id, port);
+	if (groundPort) s.ports.set(foot.id, { ...groundPort, id: foot.id });
+	s.elements.push(
+		element(id + '/landing', 'junction', from, flight.ports[0].id, profile.width),
+		...flight.edges
+	);
+	return foot.id;
+}
 function registerPassage(s: Survey, court: string, spans: TownSpan[], ground: Ground) {
 	let from = court;
-	for (const { reach, port: sill, adapter, inside, last } of passageReaches(spans, ground)) {
+	for (const { reach, port: sill, groundPort, adapter, inside, last } of passageReaches(
+		spans,
+		ground
+	)) {
 		const to = sill?.id ?? reach.id + '/end',
 			p = required(reach.sections.at(-1), 'passage endpoint').centre;
 		const q = required(reach.sections.at(-2), 'passage heading').centre;
 		if (adapter) {
-			const start = required(s.ports.get(from), 'passage landing').position;
-			const flight = walkingLink(reach.id, [...start], p, 'entrance', 'path');
-			for (const port of flight.ports) s.ports.set(port.id, port);
-			s.elements.push(
-				element(reach.id + '/landing', 'junction', from, flight.ports[0].id, profile.width),
-				...flight.edges
-			);
-			from = flight.ports[1].id;
+			from = registerEgressStair(s, reach.id, from, p, groundPort);
 			continue;
 		}
 		s.ports.set(
@@ -156,6 +170,10 @@ function registerPassage(s: Survey, court: string, spans: TownSpan[], ground: Gr
 			profile.width,
 			reach.id + '/rail'
 		);
+		if (groundPort) {
+			s.ports.set(groundPort.id, groundPort);
+			s.requests.push({ id: groundPort.id + '/dock', from: to, to: groundPort.id, profile });
+		}
 		from = to;
 	}
 }
