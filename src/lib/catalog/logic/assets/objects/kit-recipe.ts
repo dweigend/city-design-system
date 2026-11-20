@@ -1,6 +1,7 @@
 import { flowToken } from '../../../data/focus';
 import { mount, type AssetCategory, type AssetRecipe, type AssetSurface } from '../definition';
 import { plate } from '../assembly';
+import { suggestions } from './suggestions';
 import { surface } from '../parts';
 import type { ObjectGeometry } from '../object-geometry';
 import type { Vec3 } from '../../parametrik/types';
@@ -67,4 +68,9 @@ export function rounded(
 /** Rounded solid specified by its two end-cap centres, in metres. */
 export function capsule(from: Vec3, to: Vec3, radius: number, slot: string): ObjectGeometry {
 	return { ...surface(slot), kind: 'capsule', from, to, radius };
+}
+
+/** Dresses a walkable deck in the shared metre-scale paving finish. */
+export function pavedDeck(recipe: AssetRecipe): AssetRecipe {
+	return { ...recipe, suggestions: { ...recipe.suggestions, deck: suggestions.foot } };
 }

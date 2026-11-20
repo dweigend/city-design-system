@@ -1,6 +1,6 @@
 import { block } from '../assembly';
 import { drum, rod } from '../parts';
-import { rounded } from './kit-recipe';
+import { pavedDeck, rounded } from './kit-recipe';
 import { houseSeries, courses, spans, moduleSpan } from './house-series';
 
 const grades = ['light', 'standard', 'heavy'];
@@ -118,8 +118,8 @@ export const structuralKit = [
 	...bay('portal-bay', true, true),
 	...wall('bearing-slab', false),
 	...wall('cantilever-slab', true),
-	...plinth(false),
-	...plinth(true),
+	...plinth(false).map(pavedDeck),
+	...plinth(true).map(pavedDeck),
 	...houseSeries(
 		'branch-column',
 		courses,
