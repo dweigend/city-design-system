@@ -1,3 +1,4 @@
+import { profileRoof } from './profile-roof';
 import { continuousShell } from './continuous-shell';
 import { shaftHousing } from './shaft-housing';
 import { terraceFurniture } from './terrace-furniture';
@@ -21,6 +22,7 @@ export function sectionParts(section: Section, palette = houseSurfaces): HousePa
 		accent = accentKind(section);
 	const house = [
 		...houseStructure(section, surfaces),
+		...profileRoof(section, surfaces).map(cantilever),
 		...continuousShell(
 			section.composition,
 			section.seed,

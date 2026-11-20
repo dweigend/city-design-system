@@ -1,7 +1,6 @@
 import { required } from '../required';
 import { podCourse } from './pod-course';
-import { roomOnDeck } from './deck-outline';
-import { prismFaces } from './prism';
+import { roofCrown } from './roof-crown';
 import { partyFaces } from './party-faces';
 import { serviceGallery } from './service-gallery';
 import { convexHull } from '../parzelle';
@@ -24,7 +23,7 @@ import { ensembleFigure, framedStructure, housePrinciple } from './principle';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
-import { crownSpec, objectSlot, solid, mounted } from './objects';
+import { objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
 import { silhouette } from './signature';
@@ -110,6 +109,7 @@ function makeBody(
 		plan.seed,
 		0
 	);
+	const lining = spanning ? shape.polygon : roomLining(shape);
 	return {
 		...body,
 		position: [x.center, y.center, z],
@@ -117,7 +117,8 @@ function makeBody(
 		band: {
 			shell: floor % 2 === 1,
 			footprint: shape,
-			lining: spanning ? shape.polygon : roomLining(shape)
+			lining,
+			paneRing: roomLining({ ...shape, polygon: lining }, 0.38)
 		}
 	};
 }
@@ -405,21 +406,6 @@ export function bearingCourses(plan: Plan, context: EnsembleContext) {
 		decision?.upperWing
 	);
 }
-function roofAnchor(roof: Extract<Solid, { kind: 'prism' }>, preferred: XY, crown: Body): XY {
-	const { polygon, holes = [] } = roof;
-	if (roomOnDeck(polygon, holes, ...preferred, 0, 0)) return preferred;
-	const centres = prismFaces([polygon, ...holes]).map((face): XY => [
-		face.reduce((sum, point) => sum + point[0], 0) / face.length,
-		face.reduce((sum, point) => sum + point[1], 0) / face.length
-	]);
-	const distance = ([x, y]: XY) => Math.hypot(x - preferred[0], y - preferred[1]);
-	centres.sort((a, b) => distance(a) - distance(b));
-	return (
-		centres.find((p) => roomOnDeck(polygon, holes, ...p, crown.size[0] / 2, crown.size[1] / 2)) ??
-		centres[0] ??
-		preferred
-	);
-}
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
 	plan: Plan,
@@ -431,22 +417,14 @@ export function perimeterHouse(
 		{ levels, parts, access, envelope, top, exterior, occupancy } = bearingCourses(plan, context);
 	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
-	const options = [
-		crownSpec(use),
-		crownSpec(use, true),
-		['primitive-dome', 'short', 'dome'] as const
-	];
-	const crowns = options.map((spec) =>
-		objectSlot(site.id + '/crown', 'cantilever', spec, use, plan.seed, 0)
+	const crown = roofCrown(
+		plan,
+		bay,
+		use,
+		parts[parts.length - 1],
+		top,
+		envelope.section === 'barrel'
 	);
-	const crown =
-		crowns.find((c) => c.size[0] <= bay.width * 0.7 && c.size[1] <= bay.depth * 0.32) ??
-		crowns[crowns.length - 1];
-	const roof = parts[parts.length - 1];
-	const preferred: XY = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5)];
-	const anchor = roof.kind === 'prism' ? roofAnchor(roof, preferred, crown) : preferred;
-	crown.position = [...anchor, top];
-	crown.anchor = 'roof';
 	const sharedRoof = context.houses.get(site.id)?.roof;
 	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
 	// The structure stands on the seated ground course, which may differ from the surveyed pad.

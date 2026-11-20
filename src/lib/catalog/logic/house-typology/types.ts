@@ -65,6 +65,7 @@ export type Body = HouseSlot & {
 		finish?: HouseEnvelope['finish'];
 		skin?: HouseEnvelope['skin'];
 		wellX?: number;
+		paneRing?: [number, number][];
 		lining?: [number, number][];
 		footprint?: { polygon: [number, number][]; holes: [number, number][][] };
 		modules?: Point;

@@ -7,6 +7,10 @@ const sectionsByName = {
 	'lantern-neck': (t) => ring(t >= 0.75 ? 0.04 : 0.27),
 	'cross-stack': (_, i) => (i % 2 ? [0.29, 0.29, 0.04, 0.04] : [0.04, 0.04, 0.29, 0.29]),
 	lightwell: () => ring(0.025),
+	barrel: (t) => {
+		const retreat = 0.035 + 0.39 * (1 - Math.sqrt(1 - t * t));
+		return [retreat, retreat, 0.035, 0.035];
+	},
 	gable: (t) => [0.42 * t, 0.42 * t, 0.02, 0.02],
 	vessel: (t) => ring(0.08 + 0.24 * Math.abs(2 * t - 1)),
 	// Broad paired chambers and a pinched connector on a common vertical core.

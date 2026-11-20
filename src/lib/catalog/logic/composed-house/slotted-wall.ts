@@ -27,9 +27,8 @@ export function slottedWall(
 	function appendField(left: number, right: number) {
 		const stations = openUpper ? shell.stations.slice(0, 2) : shell.stations;
 		for (const [j, { z }] of stations.entries()) {
-			const depth = j === shell.stations.length - 1 ? 1 : 0.24;
-			const from = stationAt(shell, z, index, depth, 0);
-			const to = stationAt(shell, z, next, depth, 0);
+			const from = stationAt(shell, z, index, 1, 0);
+			const to = stationAt(shell, z, next, 1, 0);
 			const base = points.length;
 			for (const u of [left, right])
 				points.push([from[0] + (to[0] - from[0]) * u, from[1] + (to[1] - from[1]) * u, z]);

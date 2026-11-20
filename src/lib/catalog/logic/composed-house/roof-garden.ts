@@ -1,3 +1,4 @@
+import { ringArea } from '../quad-grid';
 import { roomOnDeck } from '../house-typology';
 import { place } from './asset-fit';
 import { houseObject, type StockPart } from './house-object';
@@ -23,10 +24,19 @@ function reserved(section: Section, z: number) {
 		});
 	return obstacles;
 }
+// Leave at least eighteen square metres of walkable terrace per additional trough.
+function bedCapacity(roof: Roof) {
+	const usableArea =
+		Math.abs(ringArea(roof.polygon)) -
+		(roof.holes ?? []).reduce((sum, h) => sum + Math.abs(ringArea(h)), 0);
+	return Math.max(1, Math.min(3, Math.floor(usableArea / 18)));
+}
+
 function bedsOn(section: Section, roof: Roof) {
 	const xs = roof.polygon.map(([x]) => x),
 		ys = roof.polygon.map(([, y]) => y);
 	const obstacles = reserved(section, roof.z + roof.height);
+	const capacity = bedCapacity(roof);
 	const beds: Reservation[] = [];
 	for (let x = Math.min(...xs) + 0.45; x < Math.max(...xs); x += 0.5)
 		for (let y = Math.min(...ys) + 0.45; y < Math.max(...ys); y += 0.5) {
@@ -40,7 +50,7 @@ function bedsOn(section: Section, roof: Roof) {
 			);
 			if (!bed) continue;
 			beds.push(bed);
-			if (beds.length === 3) return beds;
+			if (beds.length === capacity) return beds;
 			obstacles.push({ ...bed, w: bed.w + 0.5, d: bed.d + 0.5 });
 		}
 	return beds;
