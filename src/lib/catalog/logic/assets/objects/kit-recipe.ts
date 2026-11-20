@@ -50,7 +50,7 @@ export function rounded(
 	d: number,
 	h: number,
 	slot: string,
-	r: 0.15 | 0.45 = 0.15
+	r: 0.15 | 0.3 | 0.45 = 0.15
 ) {
 	const points: [number, number][] = [];
 	for (let q = 0; q < 4; q++) {

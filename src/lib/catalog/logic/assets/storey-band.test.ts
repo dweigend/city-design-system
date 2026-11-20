@@ -2,8 +2,9 @@ import { expect, test } from 'bun:test';
 import { buildObject } from './index';
 import { STORY } from '../../data/grid';
 
-for (const span of [5, 7.5, 10])
+for (const span of [2.5, 3.75, 5, 7.5, 10])
 	for (const storeys of [1, 2]) {
+		const radius = span < 5 ? 0.3 : 0.45;
 		const id = 'kit-band-body-' + storeys + 's-' + String(span).replace('.', 'p') + 'm';
 		test(id + ' recesses its window band on both axes', () => {
 			for (const variant of ['plain', 'porthole-row', 'corner-window']) {
@@ -34,7 +35,7 @@ for (const span of [5, 7.5, 10])
 				);
 				if (roof?.kind !== 'mesh') throw Error('Expected a cast roof edge');
 				const top = roof.points.filter((p) => p[2] === storeys * STORY);
-				expect(footprint[0] / 2 - Math.max(...top.map((p) => p[0]))).toBeCloseTo(0.45, 2);
+				expect(footprint[0] / 2 - Math.max(...top.map((p) => p[0]))).toBeCloseTo(radius, 2);
 			}
 		});
 	}

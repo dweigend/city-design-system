@@ -3,8 +3,10 @@ import { surface } from '../parts';
 
 /** Casts evenly spaced collars into the glazing reveal, centred at the storey's eye level. */
 export function bandCollars(span: number, depth: number, reveal: number, z: number) {
-	const count = Math.round(span / 1.875),
-		pitch = (span - 1.5) / count;
+	const count = span < 5 ? span / 1.25 : Math.round(span / 1.875),
+		pitch = (span - 1.5) / count,
+		outer = Math.min(0.4, pitch * 0.43),
+		inner = outer * 0.75;
 	const points: Vec3[] = [],
 		triangles: number[] = [];
 	function collar(x: number, y: number, dx: number, dy: number) {
@@ -12,10 +14,10 @@ export function bandCollars(span: number, depth: number, reveal: number, z: numb
 		for (let i = 0; i < 32; i++) {
 			const a = (Math.PI * i) / 16;
 			for (const [r, h] of [
-				[0.4, 0],
-				[0.4, 0.12],
-				[0.3, 0.12],
-				[0.3, 0]
+				[outer, 0],
+				[outer, 0.12],
+				[inner, 0.12],
+				[inner, 0]
 			]) {
 				const u = r * Math.cos(a);
 				points.push([x + dx * h - dy * u, y + dy * h + dx * u, z + r * Math.sin(a)]);
