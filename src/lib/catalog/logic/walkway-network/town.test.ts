@@ -1,3 +1,4 @@
+import { surveyedFloors, walkingPlates } from './town-survey.test-support';
 import { assetRegistry } from '../assets';
 import { townLife } from './town-life';
 import { courtLife } from './court-life';
@@ -121,16 +122,8 @@ function footprintSupport(parts: Primitive[], surfaces: Primitive[]) {
 	}
 }
 
-function people(parts: Primitive[], pink: Primitive[], length: number, courts: Set<string>) {
-	const surfaces = [
-		...pink,
-		...parts.filter(
-			(p) =>
-				p.id.startsWith('court/') ||
-				p.id.startsWith('town-walk/platform/') ||
-				p.id.startsWith('town-walk/joint/')
-		)
-	];
+function people(parts: Primitive[], length: number, courts: Set<string>) {
+	const surfaces = walkingPlates(parts);
 	footprintSupport(parts, surfaces);
 	const heads = parts.filter((p) => p.kind === 'sphere' && p.id.includes('/kit-scatter-'));
 	for (const head of heads) {
@@ -209,7 +202,10 @@ function checkMeetings(parts: Primitive[], floor: Plate[], courts: Set<string>) 
 		Math.abs(p.position[2] - at[2] - 1.5) < 0.4;
 	const platforms = parts.filter(
 		(p) =>
-			p.kind === 'cylinder' && p.id.startsWith('town-walk/platform/') && !p.id.endsWith('/pier')
+			p.kind === 'prism' &&
+			p.id.startsWith('town-walk/platform/') &&
+			!p.id.includes('/meeting/') &&
+			!p.id.includes('/panel/')
 	);
 	for (const p of platforms)
 		expect(heads.filter((h) => h.id.startsWith(p.id + '/meeting/'))).toHaveLength(3);
@@ -247,7 +243,7 @@ function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string
 				.map((p) => p.id.split('/garden/')[1].split('/')[0])
 		);
 		expect([3, 4]).toContain(trees.size);
-		expect(['beton-terrazzo', 'holz-natur']).toContain(plate.finish ?? '');
+		expect(['beton-terrazzo', 'beton-schalung']).toContain(plate.finish ?? '');
 		expect(
 			bed.polygon.filter((p) => plate.polygon.some((q) => q[0] === p[0] && q[1] === p[1]))
 		).toHaveLength(2);
@@ -268,7 +264,7 @@ function transit(world: World, floor: Plate[]) {
 			b = xy(line.path[line.path.length - 1]);
 		for (const p of floor)
 			for (const [i, c] of p.polygon.entries()) {
-				const d = p.polygon[(i + 1) % 4];
+				const d = p.polygon[(i + 1) % p.polygon.length];
 				expect(separation({ a, b }, { a: c, b: d })).toBeGreaterThanOrEqual(6);
 			}
 		for (const cell of stock) {
@@ -293,7 +289,7 @@ for (const seed of [7, 13, 29])
 			const parts = cityCentreView(world),
 				pink = parts.filter((p) => p.token === houseSurfaces.access.token);
 			const courts = new Set(city.centres.flatMap((c) => c.ensembles.map((g) => g.court)));
-			const floor = pink.filter((p) => p.kind === 'prism');
+			const floor = surveyedFloors(parts);
 			for (const id of courts) {
 				const plate = parts.find((p) => p.id === 'court/' + id);
 				expect(
@@ -318,8 +314,11 @@ for (const seed of [7, 13, 29])
 				[29, 563.1497]
 			]);
 			expect(length).toBeLessThan(required(original.get(seed), 'reference length'));
-			people(parts, pink, length, courts);
-			transit(world, floor);
+			people(parts, length, courts);
+			transit(
+				world,
+				walkingPlates(parts).filter((p) => p.token === houseSurfaces.access.token)
+			);
 			expect(cityCentreView(world)).toEqual(parts);
 		},
 		30000

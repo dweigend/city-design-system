@@ -1,3 +1,4 @@
+import { surveyedFloors, walkingPlates } from './town-survey.test-support';
 import { test, expect } from 'bun:test';
 import {
 	cityCentreView,
@@ -42,14 +43,9 @@ function end(t: Plate, i: number, j: number): Vec3 {
 	];
 }
 function attachedStairs(parts: Primitive[], walk: Plate[]) {
-	const landings = parts.filter(
-		(p) =>
-			p.id.startsWith('court/') ||
-			(/^town-walk\/(platform|joint)\//.test(p.id) &&
-				p.kind === 'cylinder' &&
-				!p.id.endsWith('/pier'))
+	const carriers = walkingPlates(parts).filter(
+		(p) => !p.id.includes(':tread:') || p.id.startsWith('town-walk/platform/')
 	);
-	const carriers = [...landings, ...walk.filter((p) => !p.id.includes(':tread:'))];
 	for (const first of walk.filter((p) => p.id.endsWith(':tread:0'))) {
 		const run = first.id.slice(0, -1);
 		const treads = walk.filter((p) => p.id.startsWith(run));
@@ -75,19 +71,25 @@ function externalParts(world: World) {
 }
 function checkTownPalette(world: World, parts: Primitive[]) {
 	const walk = accessPlates([...parts, ...externalParts(world)]);
-	const decks = walk.filter((p) => !p.id.includes(':tread:'));
-	for (const deck of decks)
+	const faces = walkingPlates(parts);
+	const supports = parts.filter(
+		(p): p is Extract<Primitive, { radius: number; height: number }> & { kind: 'cylinder' } =>
+			p.kind === 'cylinder' && p.id.includes('/pier')
+	);
+	for (const deck of walk.filter((p) => !p.id.includes(':tread:'))) {
+		const owner = deck.id.split('/panel/')[0];
 		expect(
-			parts.some(
+			supports.some(
 				(p) =>
-					p.kind === 'cylinder' &&
-					p.id.startsWith(deck.id + '/pier/') &&
+					p.id.startsWith(owner + '/pier') &&
 					Math.abs(p.position[2] + p.height - deck.z) <= 0.02 &&
-					contains(deck, [p.position[0], p.position[1]])
-			)
+					faces.some((q) => contacts([p.position[0], p.position[1], deck.z + deck.height], q))
+			),
+			owner
 		).toBe(true);
+	}
 	expect(walk.length).toBeGreaterThan(0);
-	attachedStairs(parts, walk);
+	attachedStairs(parts, surveyedFloors(parts));
 	expect(world.grid.cells.some((c) => c.plan.stairAlley)).toBe(false);
 }
 function accessPlates(parts: Primitive[]) {
@@ -108,7 +110,10 @@ for (const seed of [7, 13, 29])
 		'attached access through growth, painting and regeneration on ' + seed,
 		() => {
 			const reference = acceptanceScene(seed);
-			checkTownPalette(reference.world, [...cityCentreView(reference.world), ...reference.additions]);
+			checkTownPalette(reference.world, [
+				...cityCentreView(reference.world),
+				...reference.additions
+			]);
 			let world = openingScene(seed).world;
 			const inspect = () => checkTownPalette(world, cityCentreView(world));
 			inspect();

@@ -1,3 +1,4 @@
+import { publicPaving } from './town-floor';
 import { houseSurfaces } from '../composed-house';
 import { bounds, union } from '../ansicht/geometrie';
 import { required } from '../required';
@@ -64,8 +65,7 @@ export function meetingPlatforms(
 			kind: 'cylinder',
 			id: key,
 			role: 'neu',
-			material: 'concrete',
-			...houseSurfaces.deck,
+			...publicPaving,
 			position: [x, y, z - 0.2],
 			height: 0.2,
 			radius: Math.max(radius, r + Math.hypot(box.w, box.d) / 2 + 0.06)
