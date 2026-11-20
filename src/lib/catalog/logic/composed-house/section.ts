@@ -25,11 +25,13 @@ function ladderOffset(h: Section['composition']) {
 			: -0.39;
 	return h.typology === 'tree-house' ? 1.05 : 0.52;
 }
-/** The roof platform's walking surface; without a roof, the nominal storey height. */
+/** The roof platform's walking surface; without one, the highest platform. */
 function roofDatum({ structure, ground, stories }: Section['composition']) {
 	const { roof, platforms } = structure;
 	const walk = roof && roof.kind !== 'skin' && platforms.find((p) => p.id === roof.platform);
-	return walk ? walk.datum : ground + stories * STORY;
+	if (walk) return walk.datum;
+	if (!platforms.length) return ground + stories * STORY;
+	return Math.max(...platforms.map((p) => p.datum));
 }
 /** Bodies exist only where the structure declares a room, and a crown only where it roofs. */
 function occupiedBodies({ structure, levels, crown, fittings }: Section['composition']) {
