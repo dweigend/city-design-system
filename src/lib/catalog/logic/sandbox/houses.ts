@@ -166,23 +166,13 @@ export function houseView(
 
 const houseGroupKey = ({ built, style }: Phase, id: string) => `${built}/${style}/${id}`;
 
-/** Mass addresses touching the supplied parcels or their facade neighbours. */
-export function affectedHouseGroups(
+function affectedComposed(
 	world: World,
-	cellIds: Iterable<string>,
-	terrainChanged = false
-): Map<string, string> {
-	const { plots, ensembles } = houseProjection(world);
-	const direct = new Set(cellIds);
+	direct: Set<string>,
+	edits: Set<string>,
+	terrainChanged: boolean
+) {
 	const planned = plannedPlots(world.state);
-	const edits = ensembleEditCells(world.grid, ensembles, direct);
-	const nearby = new Set<QuadCell>();
-	for (const id of edits) {
-		const cell = plots.cellsById.get(id);
-		if (!cell) continue;
-		nearby.add(cell);
-		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
-	}
 	const out = new Map<string, string>();
 	for (const g of composedProjection(world)) {
 		const wholeCourt = terrainChanged || g.cells.some((id) => planned.has(id));
@@ -191,6 +181,26 @@ export function affectedHouseGroups(
 			: g.cells.some((id) => direct.has(id));
 		if (affected) out.set('composed/' + g.id, g.chunk);
 	}
+	return out;
+}
+
+/** Mass addresses touching the supplied parcels or their facade neighbours. */
+export function affectedHouseGroups(
+	world: World,
+	cellIds: Iterable<string>,
+	terrainChanged = false
+): Map<string, string> {
+	const { plots, ensembles } = houseProjection(world);
+	const direct = new Set(cellIds);
+	const edits = ensembleEditCells(world.grid, ensembles, direct);
+	const nearby = new Set<QuadCell>();
+	for (const id of edits) {
+		const cell = plots.cellsById.get(id);
+		if (!cell) continue;
+		nearby.add(cell);
+		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
+	}
+	const out = affectedComposed(world, direct, edits, terrainChanged);
 	for (const [phase, painted] of constructionPhases(world.state)) {
 		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, world.state.stacks, ensembles);
