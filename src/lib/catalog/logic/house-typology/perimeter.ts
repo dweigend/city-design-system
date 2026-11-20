@@ -197,6 +197,20 @@ function floorOutline(
 		turn
 	);
 }
+function occupiedRooms(
+	plan: Plan,
+	shapes: CourseShapes,
+	shape: Shape,
+	floor: number,
+	ceiling: number
+) {
+	if (floor === 0 && (shapes.joined || groundCourse(plan.site, ceiling).surveyed))
+		return shapes.rooms;
+	const system = shapes.envelope.system;
+	if (system === 'service-risers' || system === 'helical-services')
+		return [serviceGallery(shape, shapes.opening, plan.sign)];
+	return [shape];
+}
 function floorBodies(
 	plan: Plan,
 	shapes: CourseShapes,
@@ -208,16 +222,11 @@ function floorBodies(
 	parts: Solid[],
 	wing?: UpperWing
 ) {
-	const { rooms, pier, envelope } = shapes;
+	const { pier, envelope } = shapes;
 	const { cells, ground, id } = plan.site;
 	const raised = i === 0 && wing?.level === 1;
 	const baseTop = raised ? z + (ceiling - z) * 0.46 : ceiling - rim;
-	const occupied =
-		envelope.system === 'service-risers' || envelope.system === 'helical-services'
-			? serviceGallery(shape, shapes.opening, plan.sign)
-			: shape;
-	const shells =
-		i === 0 && (shapes.joined || groundCourse(plan.site, ceiling).surveyed) ? rooms : [occupied];
+	const shells = occupiedRooms(plan, shapes, shape, i, ceiling);
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(
 			plan,
