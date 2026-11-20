@@ -84,7 +84,7 @@ export function createSandboxStage(
 	const view = createView();
 	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
 	const light = pipeline.light;
-	const structures = createStructures(study.quality, true, light.shade);
+	const structures = createStructures(study.quality, true, light.receiverOutput);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];

@@ -31,7 +31,7 @@ export type StructureMaterials = ReturnType<typeof structureMaterials>;
 export function structureMaterials(
 	quality?: StudioQuality,
 	cityEdges = false,
-	shadeStock = (tone: THREE.Node<'vec3'>) => tone
+	receiverOutput?: THREE.Node<'vec4'>
 ) {
 	const contours = cityEdges ? undefined : plateContours();
 	let envelopeShadows = true;
@@ -119,9 +119,10 @@ export function structureMaterials(
 	for (const material of [materials.solid, materials.sheet, materials.pod])
 		material.castShadowPositionNode = cityEdges ? positionLocal : positionLocal.add(localShift);
 	const graphite = uniform(new THREE.Color());
-	materials.stock.colorNode = shadeStock(pencilStock(paperTone.rgb, graphite.rgb));
+	materials.stock.colorNode = pencilStock(paperTone.rgb, graphite.rgb);
 	materials.sheet.colorNode = materials.solid.colorNode;
 	materials.stockSheet.colorNode = materials.stock.colorNode;
+	materials.stock.outputNode = materials.stockSheet.outputNode = receiverOutput ?? null;
 
 	function applyTones(g: ReturnType<typeof grammatik>) {
 		palette = g;

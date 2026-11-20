@@ -35,11 +35,11 @@ export type Structures = ReturnType<typeof createStructures>;
 export function createStructures(
 	quality?: StudioQuality,
 	cityEdges = false,
-	shadeStock?: Parameters<typeof structureMaterials>[2]
+	receiverOutput?: Parameters<typeof structureMaterials>[2]
 ) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
-	const finishes = structureMaterials(quality, cityEdges, shadeStock);
+	const finishes = structureMaterials(quality, cityEdges, receiverOutput);
 	const joints = createJointLayer(finishes.materials.bearing, cityEdges);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();
