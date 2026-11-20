@@ -27,12 +27,12 @@ export function reservations(parts: Primitive[]): Reservation[] {
 }
 type Site = { id: string; position: Vec3; radius?: number };
 /** Coalesces a stair's level junction with the fork or terrace it serves. */
-export function meetingSites(spans: TownSpan[], forks: Site[], ends: Vec3[]) {
-	const sites: Site[] = forks.map((s) => ({ ...s, radius: 2.5 }));
+export function meetingSites(spans: TownSpan[], ends: Vec3[]) {
+	const sites: Site[] = [];
 	for (const { id, a, b } of spans.filter(({ a, b }) => a[2] !== b[2])) {
 		for (const [i, p] of [a, b].entries()) {
 			if (ends.some((q) => apart(p, q) < 1e-6 && p[2] === q[2])) continue;
-			if (sites.some((s) => p[2] === s.position[2] && apart(p, s.position) <= 1.81)) continue;
+			if (sites.some((s) => p[2] === s.position[2] && apart(p, s.position) <= 0.02)) continue;
 			sites.push({ id: id + '/end/' + i, position: p });
 		}
 	}
@@ -48,7 +48,7 @@ function seat(p: Vec3, taken: Reservation[]) {
 			if (available(box, taken)) return { box, r };
 		}
 }
-/** Seats a rigid graphite group at each stair landing and fork on a ground-supported platform. */
+/** Seats a rigid graphite group at each stair landing on a ground-supported platform. */
 export function meetingPlatforms(
 	sites: Site[],
 	taken: Reservation[],

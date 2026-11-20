@@ -92,12 +92,9 @@ export function townDeck(
 	const spans = townSpans(routes, stations, ends);
 	const plazas: Primitive[] = [];
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
-	const forks = [...stations]
-		.filter(([, s]) => s.arms.length === 3)
-		.map(([id, s]) => ({ id, position: s.position }));
-	const sites = meetingSites(spans, forks, [...ends.values()]);
+	const sites = meetingSites(spans, [...ends.values()]);
 	for (const [id, { position, arms }] of stations) {
-		if (arms.length !== 2 || sites.some((s) => s.position === position)) continue;
+		if (arms.length < 2 || sites.some((s) => s.position === position)) continue;
 		const [x, y, z] = position;
 		plazas.push({
 			...deck,
@@ -106,7 +103,7 @@ export function townDeck(
 			kind: 'cylinder',
 			position: [x, y, z - thickness],
 			height: thickness,
-			radius: width / 2
+			radius: arms.length === 3 ? width : width / 2
 		});
 	}
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));

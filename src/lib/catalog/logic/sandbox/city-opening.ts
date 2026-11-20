@@ -1,3 +1,4 @@
+import { townGrid } from './town-grid';
 import { planCity } from '../city-plan';
 import { planTownForms } from '../town-forms';
 import { applyEdit, type World } from './world';
@@ -28,5 +29,9 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 		if (cellIds) world = applyEdit(world, { kind: 'line', transit: 'viaduct', cellIds });
 	}
 	const cityStages = city.centres.map(() => 0);
-	return growCity({ ...world, state: { ...world.state, city, cityStages } }, applyEdit, true);
+	return growCity(
+		{ ...world, grid: townGrid(world.grid), state: { ...world.state, city, cityStages } },
+		applyEdit,
+		true
+	);
 }
