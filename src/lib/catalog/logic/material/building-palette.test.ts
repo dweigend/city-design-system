@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { BODY_TOKEN } from '../../data/house-body';
+import { flowToken } from '../../data/focus';
+import { BODY_TOKEN, COUNTER_TOKEN } from '../../data/house-body';
 import { buildingPalette } from './building-palette';
 import { materialSheet } from './contact-sheet';
 
@@ -17,6 +18,20 @@ test('one ensemble keeps its construction family across programme changes', () =
 		Array.from({ length: 30 }, (_, i) => buildingPalette('living', String(i)).shell.finish)
 	);
 	expect(families.size).toBe(3);
+});
+
+test('every use wears one saturated field against a counter colour, and neither is path pink', () => {
+	const fields = new Set<string>();
+	for (const use of ['living', 'food', 'water', 'energy', 'material'] as const) {
+		const { shell, screen, pane } = buildingPalette(use, 'court-A');
+		fields.add(shell.token);
+		expect(shell.colourRole).toBe('ensemble-ground');
+		expect(screen.token).toBe(COUNTER_TOKEN[use]);
+		for (const token of [shell.token, screen.token, pane.token])
+			expect(token).not.toBe(flowToken.people);
+		expect(new Set([shell.token, screen.token, pane.token]).size).toBe(3);
+	}
+	expect(fields.size).toBe(5);
 });
 
 test('installed materials are shown on assembled parts before the finish catalogue', () => {

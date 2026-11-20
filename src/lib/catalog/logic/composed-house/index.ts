@@ -10,6 +10,7 @@ export { accentBody, accentKind, ensembleAnchor, planHouse, sectionParts };
 export type { HouseSite } from './types';
 export { houseLinks } from './links';
 export { structureHouse } from './structure-house';
+export { fieldUse } from './surfaces';
 
 /** Builds one connected painted footprint as ordered world-metre primitives. */
 export function composedHouse(site: HouseSite, surfaces?: HouseSurfaces) {

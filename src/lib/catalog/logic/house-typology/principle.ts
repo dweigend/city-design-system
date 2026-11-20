@@ -15,7 +15,7 @@ const HEADROOM = 2.6;
 /** Height of a mast head or of fan tips above that clearance, metres. */
 const CROWN_RISE = 2.4;
 /** Height of a tent mast's tip above its lookout, metres. */
-const TENT_RISE = 5;
+const TENT_RISE = 8;
 
 type Site = { id: string; seed: number; cells: readonly unknown[]; programme: unknown[] };
 
