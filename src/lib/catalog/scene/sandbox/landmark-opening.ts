@@ -131,17 +131,27 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 
 // Studio sightlines cover both directions along the waterfront and a cross-town view.
 const portraitHeadings = [172, 170, 180, 124, 144, 108, 90, 0] as const;
-const landscapeHeadings = [210, 144, 124, 180, 108, 240, 90, 0] as const;
+// The west-facing view at studio elevation keeps the full-height parcels readable on short canvases.
+const landscapeAngles = [
+	[210, -1],
+	[144, -1],
+	[124, -1],
+	[180, -1],
+	[108, -1],
+	[266, 0],
+	[90, -1],
+	[0, -1]
+] as const;
 
 /** Maximum number of projected town orientations in a single opening fit. */
-export const openingHeadingLimit = Math.max(portraitHeadings.length, landscapeHeadings.length);
+export const openingHeadingLimit = Math.max(portraitHeadings.length, landscapeAngles.length);
 
 function sightlines(view: View, screen: OpeningScreen) {
 	const room = screen.safe.getSize(new Vector2());
 	const ratio = room.x / room.y;
 	if (view.isPortrait()) return portraitHeadings.map((h) => [h, 0] as const);
 	const first = ratio >= 1.65 ? 90 : 108;
-	return [first, ...landscapeHeadings.filter((h) => h !== first)].map((h) => [h, -1] as const);
+	return [[first, -1] as const, ...landscapeAngles.filter(([heading]) => heading !== first)];
 }
 
 function searchGroups(search: FrameSearch, groups: number[][], fits: CourtFit[]) {
