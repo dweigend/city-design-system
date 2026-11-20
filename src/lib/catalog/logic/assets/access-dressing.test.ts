@@ -3,9 +3,12 @@ import { buildObject } from './index';
 
 test('a longhouse has three outward-facing windows down each side', () => {
 	const { geometry } = buildObject('living-capsule', 'longhouse', 17);
-	const panes = geometry.filter((p) => p.kind === 'ring' && p.slot === 'glass');
+	const panes = geometry.filter(
+		(p) => p.kind === 'ring' && p.slot === 'glass' && p.rotation === Math.PI / 2
+	);
 	expect(panes).toHaveLength(6);
-	expect(panes.every((p) => p.kind === 'ring' && p.rotation === Math.PI / 2)).toBe(true);
+	const end = geometry.filter((p) => p.kind === 'ring' && !p.rotation);
+	expect(end.map((p) => p.slot)).toEqual(['accent', 'glass']);
 });
 
 test('paired escalators have four continuous glazed cheeks', () => {
