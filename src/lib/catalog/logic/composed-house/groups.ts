@@ -11,6 +11,7 @@ import { houseLinks } from './links';
 import { sectionParts } from './projection';
 
 type Survey = {
+	courtFor?: (id: string) => string | undefined;
 	seedFor?: (id: string) => number | undefined;
 	district?: (id: string) => EnsembleDistrict;
 	joined?: (a: string, b: string) => boolean;
@@ -65,6 +66,21 @@ function connectedEnsembles(grid: QuadGrid, sites: HouseSite[]) {
 	}
 	return ensembles;
 }
+function ensembles(grid: QuadGrid, sites: HouseSite[], courtFor: Survey['courtFor']) {
+	if (!courtFor) return connectedEnsembles(grid, sites);
+	const courts = new Map<string, HouseSite[]>(),
+		unplanned: HouseSite[] = [];
+	for (const site of sites) {
+		const court = courtFor(site.cells[0].id);
+		if (court === undefined) unplanned.push(site);
+		else {
+			const members = courts.get(court) ?? [];
+			members.push(site);
+			courts.set(court, members);
+		}
+	}
+	return [...courts.values(), ...connectedEnsembles(grid, unplanned)];
+}
 /** Plans connected painted footprints of equal stack height on a common bearing datum. */
 export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, survey: Survey = {}) {
 	const sites = footprints(grid, stacks, survey.joined).map((cells) => ({
@@ -73,7 +89,7 @@ export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, su
 		seed: survey.seedFor?.(cells[0].id) ?? seed,
 		district: survey.district?.(cells[0].id)
 	}));
-	return connectedEnsembles(grid, sites).flatMap((ensemble) => {
+	return ensembles(grid, sites, survey.courtFor).flatMap((ensemble) => {
 		const context = planEnsemble(ensemble, seed);
 		return ensemble.map((site) => planHouse({ ...site, context }));
 	});

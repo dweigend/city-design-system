@@ -28,17 +28,25 @@ function paintedRuns(world: World) {
 	}
 	return runs;
 }
-function survey(world: World) {
+/** Plans the constructed house sections from the saved story runs and town layout. */
+export function townSections(world: World) {
 	const plots = buildingPlots(world.grid),
 		r3 = houseEnsembles(world.grid, plots, world.state, world.seed);
+	const planned = plannedPlots(world.state);
 	const sections = [...paintedRuns(world)].flatMap(([start, stacks]) =>
 		paintedSections(plots, stacks, world.seed, {
+			courtFor: (id) => (planned.has(id) ? r3.cells.get(id)?.id : undefined),
 			seedFor: (id) => world.state.storyParts.get(id)?.[start]?.houseSeed,
 			// The shared-wall graph limits bodies. R3's lateral graph also includes across-alley neighbours.
-			joined: (a, b) => r3.cells.get(a)?.neighbors.includes(b) ?? false,
+			joined: (a, b) =>
+				!planned.has(a) && !planned.has(b) && (r3.cells.get(a)?.neighbors.includes(b) ?? false),
 			district: (id) => houseDistrict(required(world.grid.cellsById.get(id), 'painted cell'))
 		})
 	);
+	return { sections, layout: r3 };
+}
+function survey(world: World) {
+	const { sections, layout: r3 } = townSections(world);
 	const phases = new Map(
 		sections.map((s) => {
 			const stories = s.cells.flatMap((c) =>
