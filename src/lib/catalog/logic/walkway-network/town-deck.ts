@@ -1,3 +1,5 @@
+import { walkingProfile } from './walking-profile';
+import { throughRoute, type CourtPassage } from './through-route';
 import { landingGround } from './guard-runs';
 import { courtTerrace } from './court-terrace';
 import { fitWalkingFlights, type FlightReservation } from './flight-fit';
@@ -18,6 +20,8 @@ import { townLife } from './town-life';
 import { townLinkSurvey, townStations, townSpans } from './town-stations';
 const frame = { role: 'neu', material: 'metal', ...houseSurfaces.frame } as const;
 type Court = {
+	passages?: CourtPassage[];
+
 	aprons?: [number, number][][];
 	id: string;
 	position: Vec3;
@@ -118,7 +122,18 @@ export function townDeck(
 	const forks = new Map(
 		[...stations].filter(([, s]) => s.arms.length === 3).map(([id, s]) => [id, s.position])
 	);
-	const { bands, junctions } = townPath(spans, forks);
+	const passages = courts.flatMap((c, i) => {
+		for (const p of c.passages ?? []) {
+			if (!p.clearApproach) continue;
+			const clear = p.clearApproach;
+			const route = throughRoute(gardens[i].landing, p, ground, (a, b) =>
+				clear(a, b, walkingProfile.width)
+			);
+			if (route.length) return route;
+		}
+		return [];
+	});
+	const { bands, junctions } = townPath([...spans, ...passages], forks);
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
 	for (const [i, court] of courts.entries())
 		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));

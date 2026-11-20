@@ -100,6 +100,17 @@ function checkTownPalette(world: World, parts: Primitive[]) {
 		const owner = deck.id.split('/panel/')[0];
 		expect(
 			retained.has(owner) ||
+				(parts.some(
+					(p) =>
+						p.kind === 'mesh' &&
+						p.id === owner + '/girder' &&
+						p.points.some(
+							([x, y, z]) =>
+								Math.abs(z - deck.z) < 1e-7 &&
+								faces.some((f) => contacts([x, y, deck.z + deck.height], f))
+						)
+				) &&
+					parts.some((p) => p.kind === 'mesh' && p.id.startsWith(owner + '/pier/'))) ||
 				supports.some(
 					(p) =>
 						p.id.startsWith(owner + '/pier') &&

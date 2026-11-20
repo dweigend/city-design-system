@@ -1,3 +1,4 @@
+import { publicPaving } from './town-floor';
 import { houseSurfaces } from '../composed-house';
 import type { Primitive } from '../parametrik/types';
 
@@ -12,3 +13,15 @@ export function privateSurface(p: Primitive): Primitive {
 		p = { ...p, printBand: { ...p.printBand, upper: neutral } };
 	return p;
 }
+
+/** Surface-slot assignments for projecting public-path geometry into the existing scene. */
+export const pathSurfaces = {
+	walking: {
+		role: 'neu',
+		material: 'acrylic',
+		token: houseSurfaces.access.token,
+		finish: 'kunststoff-formteil'
+	},
+	structure: { role: 'neu', material: 'metal', ...houseSurfaces.frame },
+	bearing: { role: 'neu', ...publicPaving }
+} as const satisfies Record<string, Pick<Primitive, 'role' | 'material' | 'token' | 'finish'>>;

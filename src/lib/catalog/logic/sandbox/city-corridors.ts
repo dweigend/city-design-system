@@ -1,3 +1,4 @@
+import { cityPassages } from './city-passages';
 import { courtBench } from './town-grading';
 import { surveyedGrid } from './town-grid';
 import { area } from '../ansicht/geometrie';
@@ -57,9 +58,21 @@ export function cityCorridorSite(world: World) {
 }
 
 /** Projects public courts and walks from the same station survey as the centreline planner. */
-export function cityCorridorPaths(world: World) {
+export function cityCorridorPaths(
+	world: World,
+	openingSurvey?: Parameters<typeof cityPassages>[1]
+) {
 	const site = cityCorridorSite(world);
 	if (!site) return [];
 	const relief = surveyedGrid(world.grid);
-	return townDeck(...site, (x, y) => walkingHeight(relief, x, y));
+	const [routes, station, courts, ground, seed] = site;
+	const openings = openingSurvey && cityPassages(world, openingSurvey);
+	return townDeck(
+		routes,
+		station,
+		courts.map((c) => ({ ...c, passages: openings?.get(c.id) })),
+		ground,
+		seed,
+		(x, y) => walkingHeight(relief, x, y)
+	);
 }

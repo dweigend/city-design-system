@@ -1,3 +1,4 @@
+export type { CourtPassage as TownPassage } from './through-route';
 export { gradeWalkLinks } from './link-grades';
 export { separation as segmentSeparation } from './clearance';
 export { greenCircuit, greenApproaches } from './green-circuit';
