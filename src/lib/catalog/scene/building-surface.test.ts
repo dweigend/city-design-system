@@ -13,7 +13,7 @@ test('the bible shell and city batch receive the same projected ensemble finish'
 		const expected = projectBuildingSurface(shell);
 		expect(shell.finish).toBeUndefined();
 		expect(expected.colourRole).toBe('ensemble-ground');
-		expect(partition([shell], new Set(), true).finished).toEqual([expected]);
+		expect(partition([shell], new Set(), true).finished as unknown[]).toEqual([expected]);
 		expect(projectBuildingSurface(applySurface(shell, undefined, '--signal')).token).toBe(
 			'--signal'
 		);

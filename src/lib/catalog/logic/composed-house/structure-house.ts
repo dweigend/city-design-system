@@ -8,13 +8,7 @@ import {
 import { houseObject, type HousePart, type StockPart } from './house-object';
 import { pipeBetween, slabOver } from './parts';
 import { tensionSkin } from './structure-skin';
-import {
-	bandSurface,
-	houseSurfaces,
-	roleSurface,
-	type HouseSurfaces,
-	type Surface
-} from './surfaces';
+import { houseSurfaces, roleSurface, type HouseSurfaces, type Surface } from './surfaces';
 
 /** A skin takes the calm ground tone of its use unless the caller supplies a shell surface. */
 function shellSurface(surfaces: HouseSurfaces, use: HouseUse): Surface {
@@ -26,7 +20,7 @@ function shellSurface(surfaces: HouseSurfaces, use: HouseUse): Surface {
 function slotSurface(part: StructurePart, surfaces: HouseSurfaces): Surface {
 	const { slot, use } = part.surface;
 	if (part.element === 'access') return surfaces.access;
-	if (part.element === 'room') return bandSurface(surfaces[use], use, false);
+	if (part.element === 'room') return roleSurface(surfaces[use], 'shell');
 	const bySlot: Record<typeof slot, Surface> = {
 		frame: surfaces.frame,
 		fitting: roleSurface(surfaces.frame, 'fitting'),
