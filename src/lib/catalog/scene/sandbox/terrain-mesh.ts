@@ -137,7 +137,10 @@ export function createTerrainMesh(
 		const meadow = mix(
 			mix(paperColor, colors.nature, 0.32),
 			colors.nature,
-			dots.mul(resolvable(chart.x.mul(2))).mul(0.7).mul(drawing)
+			dots
+				.mul(resolvable(chart.x.mul(2)))
+				.mul(0.7)
+				.mul(drawing)
 		);
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(paperColor, ground, forestWeight.mul(mix(0.2, 1, drawing)));

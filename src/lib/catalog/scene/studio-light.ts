@@ -107,7 +107,14 @@ export function createStudioLight(config = studioConfig()) {
 		/** Covers the town viewport, including casters beside the visible ground. */
 		aim(target: THREE.Vector3, span: number) {
 			const reach = Math.max(2, span * 1.1);
-			aimKey(target, reach, reach, reach, config.shadowSize, config.radius * (config.shadowSize / 2048));
+			aimKey(
+				target,
+				reach,
+				reach,
+				reach,
+				config.shadowSize,
+				config.radius * (config.shadowSize / 2048)
+			);
 		},
 		/** Fits both light-space axes to the subject. A projected cast shadow shares its caster's coordinates. */
 		frame(bounds: THREE.Box3) {
