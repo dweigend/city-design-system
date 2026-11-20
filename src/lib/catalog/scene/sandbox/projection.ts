@@ -32,6 +32,7 @@ export type Target = Readonly<{
 	structures: Pick<Structures, 'set'>;
 	earliestFullYear?: number;
 	coarse?: boolean;
+	openingGroups?: Map<string, Parameters<Structures['set']>[1]>;
 }>;
 
 function projectCover(target: Target, after: World, cellIds: readonly string[]) {
@@ -164,6 +165,7 @@ function projectHouses(
 		);
 		for (const [key, parts] of groups) {
 			houses.set(chunk, key, parts);
+			target.openingGroups?.set(key, parts);
 			keys.delete(key);
 		}
 	}

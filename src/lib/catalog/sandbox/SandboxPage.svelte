@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { phoneOpeningArea } from '../scene/sandbox/opening-area';
 	import HouseChoice from './HouseChoice.svelte';
 	import { composedHouseIds } from '../logic/sandbox';
 	import { focusModes } from '../data/focus';
@@ -44,7 +45,7 @@
 			const reserved = [title, modes, panel, bar].filter((r) => r.width > 0 && r.height > 0);
 			if (panel.width && !tools.width) {
 				area = {
-					top: 0,
+					top: 40,
 					bottom: document.documentElement.clientHeight,
 					right: panel.left,
 					reserved
@@ -52,8 +53,13 @@
 				return;
 			}
 			const top = Math.max(title.bottom, modes.bottom);
-			area =
-				top < tools.top ? { top, bottom: tools.top, reserved: [title, modes, tools] } : undefined;
+			area = phoneOpeningArea(
+				document.documentElement.clientWidth,
+				document.documentElement.clientHeight,
+				top,
+				tools.top,
+				[...reserved, tools]
+			);
 		});
 		observer.observe(document.documentElement);
 		controls.forEach((el) => observer.observe(el));

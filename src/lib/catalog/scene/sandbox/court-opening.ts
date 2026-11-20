@@ -5,6 +5,15 @@ import { composedProjection, houseGroups, type World } from '../../logic/sandbox
 import { focuses } from '../../logic/presentation';
 import type { Primitive } from '../../logic/parametrik/types';
 
+type PartGroups = Map<string, Primitive[]>;
+const projected = new WeakMap<World, PartGroups>();
+/** Retains the source geometry already emitted by the stage's initial complete house projection. */
+export function collectOpeningGroups(world: World) {
+	const groups: PartGroups = new Map();
+	projected.set(world, groups);
+	return groups;
+}
+
 function courtGroups(world: World) {
 	return (world.state.city?.centres ?? []).flatMap((centre) =>
 		(centre.ensembles ?? []).flatMap((group) => {
@@ -38,7 +47,7 @@ function survey(world: World) {
 			house.cells.some((id) => group.lots.includes(id)) ? [i] : []
 		);
 		if (!indices.length) continue;
-		const parts = house.parts();
+		const parts = projected.get(world)?.get('composed/' + house.id) ?? house.parts();
 		if (!parts.length) continue;
 		const points = supportPoints(parts);
 		for (const i of indices) {
@@ -57,16 +66,24 @@ export function boxCorners({ min, max }: ReturnType<typeof bounds>) {
 
 // A box contained in another part cannot contribute an extremum at any camera heading.
 function supportPoints(parts: Primitive[]) {
-	const boxes = parts.map(bounds);
-	const outer = boxes.filter(
-		(b, i) =>
-			!boxes.some(
-				(a, j) =>
-					j !== i &&
-					a.min.every((v, k) => v <= b.min[k] && a.max[k] >= b.max[k]) &&
-					(j < i || a.min.some((v, k) => v < b.min[k] || a.max[k] > b.max[k]))
+	const volume = (b: ReturnType<typeof bounds>) =>
+		(b.max[0] - b.min[0]) * (b.max[1] - b.min[1]) * (b.max[2] - b.min[2]);
+	const boxes = parts.map(bounds).sort((a, b) => volume(b) - volume(a));
+	const outer: typeof boxes = [];
+	for (const box of boxes) {
+		if (
+			!outer.some(
+				(b) =>
+					b.min[0] <= box.min[0] &&
+					b.min[1] <= box.min[1] &&
+					b.min[2] <= box.min[2] &&
+					b.max[0] >= box.max[0] &&
+					b.max[1] >= box.max[1] &&
+					b.max[2] >= box.max[2]
 			)
-	);
+		)
+			outer.push(box);
+	}
 	return outer.flatMap(boxCorners);
 }
 
@@ -85,17 +102,21 @@ const stockCache = new WeakMap<World, Vector3[][]>();
 export function stockBounds(world: World) {
 	const cached = stockCache.get(world);
 	if (cached) return cached;
+	const groups = projected.get(world);
+	const source = groups ? [...groups.values()] : stockGroups(world);
+	const stock = source.flatMap((parts) => {
+		const historic = parts.filter((p) => p.role === 'bestand');
+		return historic.length ? [supportPoints(historic)] : [];
+	});
+	stockCache.set(world, stock);
+	return stock;
+}
+
+function stockGroups(world: World) {
 	const chunks = new Set(
 		[...world.state.stacks.keys()].map((id) => world.grid.cellsById.get(id)?.chunk)
 	);
-	const stock: Vector3[][] = [];
-	for (const chunk of chunks) {
-		if (!chunk) continue;
-		for (const parts of houseGroups(world, chunk, focuses.all).values()) {
-			const historic = parts.filter((p) => p.role === 'bestand');
-			if (historic.length) stock.push(supportPoints(historic));
-		}
-	}
-	stockCache.set(world, stock);
-	return stock;
+	return [...chunks].flatMap((chunk) =>
+		chunk ? [...houseGroups(world, chunk, focuses.all).values()] : []
+	);
 }

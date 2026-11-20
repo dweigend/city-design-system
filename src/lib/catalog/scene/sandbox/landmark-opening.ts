@@ -1,89 +1,29 @@
-import { cameraScore } from './opening-score';
+import { stockOrigins } from './opening-origins';
 import { Box2, Box3, Vector2, Vector3 } from 'three/webgpu';
-import { boxCorners, type courtOpening, stockBounds } from './court-opening';
-import { bounds } from '../../logic/ansicht/geometrie';
-import type { Primitive } from '../../logic/parametrik/types';
+import { houseSizes, scoreCrop, type OpeningScreen, type OpeningProjection } from './opening-score';
+import { orientedProjection, screenBounds, surveyContext, type Courts } from './opening-projection';
 import type { World } from '../../logic/sandbox';
-import { lineParts } from '../../logic/transit-line';
-import { roundedStops } from './station-rings';
-import type { OpeningArea, View } from './view';
+import type { Primitive } from '../../logic/parametrik/types';
+import type { CourtFit, OpeningArea, View } from './view';
 
-function corners(part: Primitive) {
-	return boxCorners(bounds(part));
-}
-
-// Project bends individually so the corners of an empty bend don't enlarge the route silhouette.
-function partCorners(part: Primitive) {
-	if (part.kind !== 'pipe') return corners(part);
-	return part.points
-		.slice(1)
-		.flatMap((end, i) => corners({ ...part, points: [part.points[i], end] }));
-}
-
-function landmarkBounds(world: World, additions: readonly Primitive[]) {
-	const routes = world.lines.map((line) => roundedStops(lineParts(line)));
-	return [...routes, additions]
-		.filter((group) => group.length)
-		.map((group) => group.flatMap(partCorners));
-}
-
-function rect(x: number, y: number, right: number, bottom: number) {
-	return new Box2(new Vector2(x, y), new Vector2(right, bottom));
-}
-
-type Courts = ReturnType<typeof courtOpening>;
-
+// Frame nearby pairs; the independent visibility test counts every court in the crop.
 function neighbourhoods(courts: Courts) {
-	// Exhaust the small opening town. For an expanded city, bound the search to neighbours.
-	if (courts.length <= 8) {
-		let sets: number[][] = [[]];
-		for (const i of courts.keys()) sets = sets.concat(sets.map((indices) => [...indices, i]));
-		return sets.slice(1);
-	}
+	if (courts.length === 1) return [[0]];
 	const centers = courts.map((c) => new Box3().setFromPoints(c.points).getCenter(new Vector3()));
-	const groups = new Map<string, number[]>();
-	for (const center of centers) {
-		const nearest = centers
-			.map((p, i) => ({ i, d: p.distanceToSquared(center) }))
-			.sort((a, b) => a.d - b.d);
-		for (let count = 1; count <= nearest.length; count++) {
-			const indices = nearest
-				.slice(0, count)
-				.map((p) => p.i)
-				.sort((a, b) => a - b);
-			groups.set(indices.join(','), indices);
-		}
-	}
-	return [...groups.values()];
-}
-
-// All candidate crops at a heading are affine transforms of one orthographic projection.
-function projector(view: View) {
-	const [w, h] = view.viewport(),
-		unit = view.metersPerPixel(),
-		p = new Vector3(),
-		q = new Vector2();
-	return (points: Vector3[]) => {
-		const box = new Box2();
-		for (const corner of points) {
-			p.copy(corner).project(view.camera);
-			box.expandByPoint(q.set((p.x * w * unit) / 2, (-p.y * h * unit) / 2));
-		}
-		return box;
-	};
-}
-
-function screenBounds(view: View, area?: OpeningArea) {
-	const [w, h] = view.viewport();
-	const safe = rect(0, area?.top ?? 0, area?.right ?? w, area?.bottom ?? h);
-	const reserved = (area?.reserved ?? []).map((r) => rect(r.left, r.top, r.right, r.bottom));
-	const foreground = rect(
-		0,
-		safe.min.y + 0.55 * (safe.max.y - safe.min.y),
-		safe.max.x * 0.55,
-		safe.max.y
+	const middle = new Box3().setFromPoints(centers).getCenter(new Vector3());
+	const nearby = centers
+		.map((point, i) => ({ point, i }))
+		.sort((a, b) => a.point.distanceToSquared(middle) - b.point.distanceToSquared(middle))
+		.slice(0, 8);
+	const pairs = nearby.flatMap((a, i) =>
+		nearby
+			.slice(i + 1)
+			.map((b) => ({ group: [a.i, b.i], distance: a.point.distanceToSquared(b.point) }))
 	);
-	return { canvas: rect(0, 0, w, h), safe, reserved, foreground };
+	return pairs
+		.sort((a, b) => a.distance - b.distance)
+		.slice(0, 16)
+		.map((p) => p.group);
 }
 
 function compare(a: number[], b: number[]) {
@@ -91,18 +31,99 @@ function compare(a: number[], b: number[]) {
 	return 0;
 }
 
-function projectScene(view: View, courts: Courts, landmarks: Vector3[][], stock: Vector3[][]) {
-	const project = projector(view);
-	const houses = courts.map((c) => (c.houses.length ? c.houses.map(project) : [project(c.points)]));
-	return {
-		courts: courts.map((c, i) => houses[i].reduce((box, h) => box.union(h), project(c.points))),
-		houses,
-		landmarks: landmarks.map(project),
-		stock: stock.map(project)
-	};
+function distinctCrops(groups: number[][], courts: Box2[]) {
+	const crops = new Map<string, { group: number[]; box: Box2 }>();
+	for (const group of groups) {
+		const box = group.reduce((sum, i) => sum.union(courts[i]), new Box2());
+		const key = [box.min.x, box.max.x, box.min.y, box.max.y].join(',');
+		if (!crops.has(key)) crops.set(key, { group, box });
+	}
+	return crops.values();
 }
 
-/** Fits readable houses first, comparing whole occupied neighbourhoods at the current viewport size. */
+type Choice = { group: number[]; fit: CourtFit; rank: number[] };
+
+function meetsTarget(choice?: Choice) {
+	return choice?.rank[1] === 0 && choice.rank[2] === 1;
+}
+type FrameSearch = { view: View; screen: OpeningScreen; data: OpeningProjection; best?: Choice };
+function consider(
+	search: FrameSearch,
+	group: number[],
+	fit: CourtFit,
+	origin: Vector2,
+	scale: number
+) {
+	const rank = scoreCrop(search.view, search.screen, search.data, scale, origin, 'rank');
+	if (rank && (!search.best || compare(rank, search.best.rank) > 0))
+		search.best = { group, fit, rank };
+}
+
+function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit[]) {
+	const { view, screen, data } = search;
+	const size = box.getSize(new Vector2()),
+		room = screen.safe.getSize(new Vector2()),
+		center = screen.safe.getCenter(new Vector2());
+	const heights = group
+		.flatMap((i) => data.houses[i].map((h) => h.max.y - h.min.y))
+		.sort((a, b) => a - b);
+	const median =
+		(heights[Math.floor(heights.length / 2)] + heights[Math.floor((heights.length - 1) / 2)]) / 2;
+	const sizes = houseSizes(view.isPortrait());
+	const ideal = [sizes.ideal, ...sizes.samples.filter((h) => h !== sizes.ideal)]
+		.map((px) => ({ ...fits[0], fill: (px / median) * Math.max(size.x / room.x, size.y / room.y) }))
+		.filter((f) => f.fill <= 0.98);
+	for (const fit of [...ideal, ...fits]) {
+		if (meetsTarget(search.best)) return;
+
+		const scale = view.courtScale(size.x, size.y, room.x, room.y, fit.fill);
+		if (median * scale < sizes.min || median * scale > sizes.max) continue;
+		const origin = box
+			.getCenter(new Vector2())
+			.sub(center.clone().add(fit.offset).divideScalar(scale));
+		consider(search, group, fit, origin, scale);
+		if (fit.offset.lengthSq() || group.length !== 2) continue;
+		for (const stockOrigin of stockOrigins(box, screen, data, scale, view.isPortrait())) {
+			const offset = box
+				.getCenter(new Vector2())
+				.sub(stockOrigin)
+				.multiplyScalar(scale)
+				.sub(center);
+			consider(search, group, { ...fit, offset }, stockOrigin, scale);
+			if (meetsTarget(search.best)) return;
+		}
+	}
+}
+
+// Studio sightlines cover both directions along the waterfront and a cross-town view.
+const angles = [
+	[0, 0],
+	[78, -20],
+	[249, -20],
+	[2, -18],
+	[0, -20],
+	[39, -20],
+	[150, 0],
+	[270, -10]
+] as const;
+
+/** Maximum number of projected town orientations in a single opening fit. */
+export const openingHeadingLimit = angles.length;
+
+function sightlines(view: View, screen: OpeningScreen) {
+	const room = screen.safe.getSize(new Vector2());
+	const ratio = room.x / room.y;
+	// Wider openings favour the waterfront axis, narrower ones a diagonal through the courts.
+	const priorities = [
+		[1.9, 0],
+		[1.65, 3],
+		[1.35, 2]
+	];
+	const first = view.isPortrait() ? 1 : (priorities.find(([min]) => ratio >= min)?.[1] ?? 5);
+	return [angles[first], ...angles.filter((_, i) => i !== first)];
+}
+
+/** Fits readable houses and their surroundings while keeping controls and complete landmarks clear. */
 export function frameOccupiedCourts(
 	view: View,
 	world: World,
@@ -111,32 +132,35 @@ export function frameOccupiedCourts(
 	additions: readonly Primitive[] = []
 ) {
 	const groups = neighbourhoods(courts),
-		landmarks = landmarkBounds(world, additions),
-		stock = stockBounds(world);
+		surroundings = surveyContext(world, additions);
 	const screen = screenBounds(view, area);
-	let best = groups[0],
-		azimuth = 0,
-		score: number[] = [];
-	for (let degrees = 0; degrees < 360; degrees += 2.5) {
-		const heading = (degrees * Math.PI) / 180;
-		view.frameSilhouette([courts[0].points[0]], undefined, area, [], heading);
-		const data = projectScene(view, courts, landmarks, stock);
-		for (const group of groups) {
-			const rank = cameraScore(view, screen, group, data);
-			if (rank && (!score.length || compare(rank, score) > 0)) {
-				score = rank;
-				best = group;
-				azimuth = heading;
-			}
+	let best: Choice | undefined;
+	for (const [degrees, pitch] of sightlines(view, screen)) {
+		const heading = (degrees * Math.PI) / 180,
+			pitchOffset = (pitch * Math.PI) / 180;
+		const previous: Choice | undefined = best;
+		const shapes = [0.64, 0.72, 0.8, 0.86, 0.92, 0.98].map((fill) => ({
+			fill,
+			offset: new Vector2()
+		}));
+		const fits = shapes.map((shape) => ({ ...shape, heading, pitchOffset }));
+		view.frameSilhouette([new Vector3()], undefined, undefined, [], fits[0]);
+		const data = orientedProjection(view, courts, surroundings, heading);
+		const search: FrameSearch = { view, screen, data, best: previous };
+		for (const { group, box } of distinctCrops(groups, data.courts)) {
+			tryCrop(search, group, box, fits);
+			if (meetsTarget(search.best)) break;
 		}
+		best = search.best;
+		if (meetsTarget(best)) break;
 	}
-	if (!score.length) return false;
+	if (!best) return false;
 	view.frameSilhouette(
-		best.flatMap((i) => [...courts[i].points, ...courts[i].houses.flat()]),
+		best.group.flatMap((i) => [...courts[i].points, ...courts[i].houses.flat()]),
 		undefined,
 		area,
 		[],
-		azimuth
+		best.fit
 	);
 	return true;
 }
