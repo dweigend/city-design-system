@@ -13,6 +13,7 @@ export type TownSpan = {
 	fromFork?: string;
 	toFork?: string;
 	inside?: boolean;
+	adapter?: boolean;
 };
 
 /** Seats junctions on the surveyed route and draws the three arms
@@ -29,7 +30,7 @@ export function townStations(
 			position: ends.get(id) ?? [x, y, z],
 			arms: []
 		};
-		station.arms.push(next);
+		if (!station.arms.includes(next)) station.arms.push(next);
 		stations.set(id, station);
 	};
 	for (const path of routes)
@@ -116,7 +117,12 @@ export function townLinkSurvey(
 			return { from, to, a: landing(start, end, stations), b: landing(end, start, stations) };
 		})
 	);
-	return gradeWalkLinks(mouths, ends, walkingProfile);
+	const links = gradeWalkLinks(mouths, ends, walkingProfile);
+	for (const { from, to, a, b } of links) {
+		required(stations.get(from), 'from station').position[2] = a[2];
+		required(stations.get(to), 'to station').position[2] = b[2];
+	}
+	return links;
 }
 
 /** Ends each flight on level decking and leaves three open mouths at a fork. */
@@ -129,8 +135,6 @@ export function townSpans(
 	return links.flatMap<TownSpan>(({ from, to, a: first, b: last, requiredRun, availableRun }) => {
 		const start = required(stations.get(from), 'from station');
 		const end = required(stations.get(to), 'to station');
-		start.position[2] = first[2];
-		end.position[2] = last[2];
 		const a = start.arms.length === 3 ? first : start.position;
 		const b = end.arms.length === 3 ? last : end.position;
 		const key = 'town-walk/' + from + '>' + to;

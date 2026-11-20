@@ -1,4 +1,4 @@
-export { ensembleMovement } from './ensemble-movement';
+import { ensembleMovement } from './ensemble-movement';
 export { houseCourtConnection } from './walking-connection';
 export type { CourtPassage as TownPassage } from './through-route';
 export { gradeWalkLinks } from './link-grades';
@@ -6,7 +6,7 @@ export { separation as segmentSeparation } from './clearance';
 export { greenCircuit, greenApproaches } from './green-circuit';
 export { privateSurface } from './town-palette';
 export { courtLanding } from './court-landing';
-export { townDeck, publicFlight, surveyTownWalk } from './town-deck';
+export { townDeck, surveyTownWalk, projectTownWalk } from './town-deck';
 export { townRoutes, linkCentres } from './town-routes';
 import { survey } from './clearance';
 import { deckOptions } from './deck-route';
@@ -58,7 +58,7 @@ function met(network: Omit<Network, 'geometry'>, area: number) {
  * Throws RangeError for invalid input, unreachable entrances or an infeasible mandatory
  * tree. Inputs are read only. Geometry carries material slots for the caller to dress.
  */
-export function planNetwork(input: NetworkInput, seed: number): Network {
+export function planNetwork(input: NetworkInput, seed: number, namespace = '', surfaceLift = 0) {
 	validate(input, seed);
 	const checked = {
 		...input,
@@ -91,6 +91,9 @@ export function planNetwork(input: NetworkInput, seed: number): Network {
 			break;
 		}
 	}
-	return { ...network, geometry: project(network, checked, seed) };
+	const graph = ensembleMovement(namespace, network, surfaceLift);
+	return { ...network, graph, geometry: project(graph, network.nodes, namespace, checked, seed) };
 }
 export { fitWalkingFlights } from './flight-fit';
+
+export { ribbonDeck as projectWalkingEdges } from './ribbon-deck';

@@ -21,10 +21,13 @@ function section(p: Vec3[], t: number, half: number): Section {
 }
 const reflect = (a: Vec3, b: Vec3): Vec3 => [2 * a[0] - b[0], 2 * a[1] - b[1], 2 * a[2] - b[2]];
 /** Samples a uniform C2 cubic B-spline and offsets its analytic plan normal in metres. */
-export function ribbonCurve(points: Vec3[], width: number = ribbonProfile.width) {
+export function ribbonCurve(
+	points: Vec3[],
+	width: number = ribbonProfile.width,
+	closed = points[0].join(',') === points.at(-1)?.join(',')
+) {
 	const half = width / 2;
-	const last = points.length - 1,
-		closed = points[0].join(',') === points[last].join(',');
+	const last = points.length - 1;
 	const controls = [
 		closed ? points[last - 1] : reflect(points[0], points[1]),
 		...points,

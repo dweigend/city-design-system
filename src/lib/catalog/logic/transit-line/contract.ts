@@ -1,3 +1,4 @@
+import type { MovementGraph } from '../movement-network';
 import { defineParams, numberParam, resolveParams, type ParamOverrides } from '../../core/params';
 import type { Vec3 } from '../parametrik/types';
 export type TransitKind = 'viaduct' | 'capsule';
@@ -8,6 +9,8 @@ export type TransitLine = Readonly<{
 	kind: TransitKind;
 	profile?: TransitOverrides;
 	cellIds: readonly string[];
+	/** Absent on lines serialized before port-based routing. */
+	movement?: MovementGraph;
 	path: readonly Vec3[];
 	length: number;
 	stops: readonly TransitStop[];

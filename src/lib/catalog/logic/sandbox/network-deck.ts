@@ -4,7 +4,7 @@ import type { Vec3 } from '../parametrik/types';
 
 /** Lay the public wearing surface one tread thickness above the grid triangles.
  * Crossfall follows the terrain on both sides of a ground strip. */
-export function groundDeck(network: Network, terrain: NetworkInput['terrain']) {
+export function groundDeck<T extends Network>(network: T, terrain: NetworkInput['terrain']) {
 	const top = (x: number, y: number) => terrain(x, y) + houseStair.thickness;
 	const geometry = network.geometry.map((shape) => {
 		if (shape.kind === 'mesh' && !shape.id.endsWith('/ramp')) {

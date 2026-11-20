@@ -3,7 +3,7 @@ import { courtBench } from './town-grading';
 import { surveyedGrid } from './town-grid';
 import { area } from '../ansicht/geometrie';
 import { required } from '../required';
-import { townDeck, courtLanding } from '../walkway-network';
+import { projectTownWalk, surveyTownWalk, courtLanding } from '../walkway-network';
 import { walkingHeight, walkingSampler, surfaceHeight } from './network-terrain';
 import type { Vec3 } from '../parametrik/types';
 import { bankHeight, cellAtPoint, type TerrainCell } from '../terrain-grid';
@@ -58,7 +58,7 @@ export function cityCorridorSite(world: World) {
 }
 
 /** Collects the court mouths and optional house surveys used by routing and projection. */
-export function corridorInputs(world: World, openingSurvey?: Parameters<typeof cityPassages>[1]) {
+function corridorInputs(world: World, openingSurvey?: Parameters<typeof cityPassages>[1]) {
 	const site = cityCorridorSite(world);
 	if (!site) return;
 	const relief = surveyedGrid(world.grid);
@@ -74,18 +74,30 @@ export function corridorInputs(world: World, openingSurvey?: Parameters<typeof c
 	] as const;
 }
 
-/** Projects public courts and walks from the same station survey as the centreline planner. */
-export function cityCorridorPaths(
-	world: World,
-	openingSurvey?: Parameters<typeof cityPassages>[1]
-) {
+type OpeningSurvey = Parameters<typeof cityPassages>[1];
+function planCorridors(world: World, openingSurvey?: OpeningSurvey) {
 	const inputs = corridorInputs(world, openingSurvey);
-	return inputs
-		? townDeck(...inputs, undefined, cityRibbonClearance(world), (x, y) => {
-				const cell = cellAtPoint(world.grid, x, y);
-				if (cell?.bank?.water !== undefined && bankHeight(cell, x, y) < cell.bank.water)
-					return cell.bank.water;
-				return cell?.zone === 'water' ? world.grid.terrain.waterLevel : -Infinity;
-			})
-		: [];
+	if (!inputs) return;
+	const water = (x: number, y: number) => {
+		const cell = cellAtPoint(world.grid, x, y);
+		if (cell?.bank?.water !== undefined && bankHeight(cell, x, y) < cell.bank.water)
+			return cell.bank.water;
+		return cell?.zone === 'water' ? world.grid.terrain.waterLevel : -Infinity;
+	};
+	return {
+		plan: surveyTownWalk(...inputs, undefined, cityRibbonClearance(world), water),
+		ground: inputs[3]
+	};
+}
+const plans = new WeakMap<World, ReturnType<typeof planCorridors>>();
+/** Shares the finished alignment between rendering and routing for each immutable world. */
+export function cityCorridorPlan(world: World, openingSurvey?: OpeningSurvey) {
+	if (openingSurvey) return planCorridors(world, openingSurvey);
+	if (!plans.has(world)) plans.set(world, planCorridors(world));
+	return plans.get(world);
+}
+/** Projects the walking graph and court furnishings from the city's finished survey. */
+export function cityCorridorPaths(world: World, openingSurvey?: OpeningSurvey) {
+	const site = cityCorridorPlan(world, openingSurvey);
+	return site ? projectTownWalk(site.plan, site.ground, world.seed) : [];
 }

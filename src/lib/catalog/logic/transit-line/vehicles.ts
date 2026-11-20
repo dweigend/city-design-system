@@ -1,3 +1,4 @@
+import { transitTrack } from './movement';
 import { chainage, poseAt } from './alignment';
 import {
 	resolveTransitProfile,
@@ -24,21 +25,23 @@ function shuttle(distance: number, speed: number, time: number) {
  * profile overrides throw RangeError. No mutation.
  */
 export function vehiclePoses(line: TransitLine, timeS: number): TransitPose[] {
+	const path = transitTrack(line),
+		distances = chainage(path),
+		length = distances.at(-1) ?? 0;
 	const train = line.kind === 'viaduct',
 		vehicle = VEHICLE[line.kind],
 		speed = resolveTransitProfile(line.kind, line.profile).speed;
 	const pitch = vehicle.length + CAR_GAP,
 		span = train ? (vehicle.cars - 1) * pitch + vehicle.length : 0;
-	const count = train ? vehicle.cars : Math.max(1, Math.ceil(line.length / POD_SPACING));
-	const distances = chainage(line.path);
+	const count = train ? vehicle.cars : Math.max(1, Math.ceil(length / POD_SPACING));
 	return Array.from({ length: count }, (_, i) => {
 		const { at, reverse } = shuttle(
-			line.length - span,
+			length - span,
 			speed,
 			timeS + (train ? 0 : (i * POD_SPACING) / speed)
 		);
 		const offset = train ? vehicle.length / 2 + i * pitch : 0;
-		const pose = poseAt(line.path, distances, Math.min(line.length, at + offset));
+		const pose = poseAt(path, distances, Math.min(length, at + offset));
 		if (train) pose.position[2] += TRAIN_LIFT;
 		if (reverse) {
 			pose.headingRad = Math.atan2(-Math.sin(pose.headingRad), -Math.cos(pose.headingRad));

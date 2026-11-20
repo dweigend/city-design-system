@@ -1,6 +1,12 @@
 import { dock } from './docking';
 import type { DockRequest, MovementElement, MovementPort, MovementEdge } from './types';
-export type { DockRequest, MovementElement, MovementKind, MovementPort } from './types';
+export type {
+	DockRequest,
+	MovementEdge,
+	MovementElement,
+	MovementKind,
+	MovementPort
+} from './types';
 
 function unique<T extends { id: string }>(records: readonly T[]) {
 	const map = new Map(records.map((r) => [r.id, r]));
@@ -12,6 +18,12 @@ function endpoint(ports: Map<string, MovementPort>, id: string) {
 	const p = ports.get(id);
 	if (!p) throw new RangeError('Unknown movement port ' + id);
 	return p;
+}
+function edgeWidth(edge: MovementElement, a: MovementPort, b: MovementPort) {
+	const width = edge.width ?? Math.min(a.width, b.width);
+	if (!Number.isFinite(width) || width <= 0)
+		throw new RangeError('Invalid movement width ' + edge.id);
+	return width;
 }
 function measure(edge: MovementElement, ports: Map<string, MovementPort>): MovementEdge {
 	const a = endpoint(ports, edge.from),
@@ -31,7 +43,12 @@ function measure(edge: MovementElement, ports: Map<string, MovementPort>): Movem
 		(!run && length)
 	)
 		throw new RangeError('Invalid movement element ' + edge.id);
-	return { ...edge, length, grade: run ? (b.position[2] - a.position[2]) / run : 0 };
+	return {
+		...edge,
+		width: edgeWidth(edge, a, b),
+		length,
+		grade: run ? (b.position[2] - a.position[2]) / run : 0
+	};
 }
 function unsupportedEnds(edges: MovementEdge[], removed: Set<string>) {
 	const active = edges.filter((e) => !removed.has(e.from) && !removed.has(e.to));
@@ -85,4 +102,20 @@ export function movementNetwork(
 			.filter((r, i) => !additions[i].edges.length || removed.has(r.from) || removed.has(r.to))
 			.map((r) => r.id)
 	};
+}
+
+/** Returns the ordered centreline of an edge in traversal order, including both ports. */
+export function edgePath(edge: MovementElement, ports: ReadonlyMap<string, MovementPort>) {
+	const from = ports.get(edge.from),
+		to = ports.get(edge.to);
+	if (!from || !to) throw new RangeError('Missing endpoint for ' + edge.id);
+	return [from.position, ...(edge.via ?? []), to.position];
+}
+export type MovementGraph = ReturnType<typeof movementNetwork>;
+
+/** Minimum clear walking height in metres for public circulation. */
+export const pedestrianHeadroom = 2.2;
+/** Default walking scenario in travellers per minute at one traveller per metre of width per second. */
+export function walkingCapacity(width: number) {
+	return 60 * width;
 }

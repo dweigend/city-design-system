@@ -50,12 +50,14 @@ function handrail(path: Vec3[], id: string, stairs: Vec3[][]): Primitive[] {
 function strip(
 	{ span: { a, b, id, inside }, right, left }: Band,
 	ground: Ground,
-	marked: boolean
+	marked: boolean,
+	stepWidth: number = width,
+	stepped = needsTreads(a, b)
 ): Primitive[] {
 	const supports = inside
 		? []
 		: pathSupports([a, b], ribbonProfile.bay).flatMap((p, i) => {
-				const z = needsTreads(a, b) ? (treadSeat(a, b, p) ?? p[2]) : p[2];
+				const z = stepped ? (treadSeat(a, b, p) ?? p[2]) : p[2];
 				return column(id + '/pier/' + i, [p[0], p[1], z], ground, thickness);
 			});
 	const surface = marked || supports.length ? deck : { ...deck, ...publicPaving };
@@ -65,7 +67,7 @@ function strip(
 		Vec3,
 		Vec3
 	];
-	if (a[2] !== b[2] && !needsTreads(a, b))
+	if (a[2] !== b[2] && !stepped)
 		return [{ ...surface, id: id + '/ramp', ...rampSurface(right, left) }, ...supports];
 	const faces =
 		a[2] === b[2]
@@ -77,7 +79,7 @@ function strip(
 						height: thickness
 					}
 				]
-			: spanSurvey(ring, id, width, { thickness, treadRise }).treads;
+			: spanSurvey(ring, id, stepWidth, { thickness, treadRise }).treads;
 	if (inside) return faces.map((p) => ({ ...deck, ...p, kind: 'prism' }));
 	return seated(
 		faces.map((p) => ({ ...deck, ...p, kind: 'prism' })),
@@ -179,11 +181,32 @@ export function publicFlight(span: TownSpan, ground: Ground, reservation?: Fligh
 			marked: false
 		});
 	}
-	const [a, b, c, d] = deckCorners(span.a, span.b, width);
+	return flightBand(span, width, ground, needsTreads(span.a, span.b));
+}
+/** Projects already resolved stair legs, using their edge width and ordered landings. */
+export function stairEdge(
+	id: string,
+	path: readonly (readonly [number, number, number])[],
+	stepWidth: number,
+	ground: Ground
+) {
+	return path
+		.slice(1)
+		.flatMap((p, i) =>
+			flightBand(
+				{ id: path.length === 2 ? id : id + '/' + i, a: [...path[i]], b: [...p] },
+				stepWidth,
+				ground,
+				true
+			)
+		);
+}
+function flightBand(span: TownSpan, stepWidth: number, ground: Ground, stepped: boolean) {
+	const [a, b, c, d] = deckCorners(span.a, span.b, stepWidth);
 	const band = { span, right: [a, d], left: [b, c] };
-	const stairs = needsTreads(span.a, span.b) ? [band.right, band.left] : [];
+	const stairs = stepped ? [band.right, band.left] : [];
 	return [
-		...strip(band, ground, false),
+		...strip(band, ground, false, stepWidth, stepped),
 		...(['right', 'left'] as const).flatMap((side) =>
 			exposed(band[side], ground, stairs.length > 0, side === 'left' ? -1 : 1).flatMap((run, i) =>
 				handrail(run, span.id + '/' + side + (i ? '/' + i : ''), stairs)

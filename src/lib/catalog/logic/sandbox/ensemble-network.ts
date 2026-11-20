@@ -1,11 +1,11 @@
+import { houseStair } from '../../data/house-stair';
 import { courtBench } from './town-grading';
 import { surveyedGrid } from './town-grid';
 import type { planHouse, HouseObstacle } from '../composed-house';
 import {
-	ensembleMovement,
 	houseCourtConnection,
 	courtLanding,
-	publicFlight,
+	projectWalkingEdges,
 	type NetworkInput
 } from '../walkway-network';
 import { required } from '../required';
@@ -73,7 +73,7 @@ export function ensembleNetwork(
 	const signature = JSON.stringify([seed, input, sections.map((h) => h.cells.map((c) => c.id))]);
 	const saved = cache?.get(sections[0].id);
 	if (saved?.signature === signature) return saved.group;
-	const tree = budgetedNetwork(input, seed);
+	const tree = budgetedNetwork(input, seed, id, houseStair.thickness);
 	const network = tree && groundDeck(tree, input.terrain);
 	const group = network && {
 		id,
@@ -81,7 +81,7 @@ export function ensembleNetwork(
 		cells: sections.flatMap((h) => h.cells.map((c) => c.id)),
 		chunk: sections[0].cells[0].chunk,
 		span: JSON.stringify([seed, network.geometry]),
-		graph: ensembleMovement(id, network),
+		graph: network.graph,
 		parts: () => networkParts(network, id, seed)
 	};
 	cache?.set(sections[0].id, { signature, group });
@@ -89,7 +89,7 @@ export function ensembleNetwork(
 }
 
 type Group = {
-	graph: ReturnType<typeof ensembleMovement>;
+	graph: ReturnType<typeof houseCourtConnection>;
 	id: string;
 	owners: string[];
 	cells: string[];
@@ -127,10 +127,12 @@ export function courtFlights(world: World, sections: Sections) {
 					owners: [port.house.id],
 					graph: port.graph,
 					court: court.court,
+					housePort: port.house.id + '/port/' + port.index,
 					cells: port.house.cells.map((c) => c.id),
 					chunk: port.house.cells[0].chunk,
 					span: JSON.stringify([a, port.b]),
-					parts: () => publicFlight({ id, a, b: port.b }, (x, y) => walkingHeight(world.grid, x, y))
+					parts: () =>
+						projectWalkingEdges(port.graph, (x, y) => walkingHeight(world.grid, x, y), [])
 				}
 			];
 		});
@@ -139,11 +141,10 @@ export function courtFlights(world: World, sections: Sections) {
 function courtPorts(house: Sections[number] | undefined, a: Sections[number]['base']) {
 	if (!house) return [];
 	const [x, y] = house.base;
-	return house.composition.ports
-		.filter((p) => p.level === 0)
-		.flatMap(({ position: b }) => {
-			const run = Math.hypot(b[0] - a[0], b[1] - a[1]);
-			const facing = (a[0] - b[0]) * (b[0] - x) + (a[1] - b[1]) * (b[1] - y);
-			return facing > 0 && run <= 14 ? [{ b, run, house }] : [];
-		});
+	return house.composition.ports.flatMap(({ position: b, level }, index) => {
+		if (level !== 0) return [];
+		const run = Math.hypot(b[0] - a[0], b[1] - a[1]);
+		const facing = (a[0] - b[0]) * (b[0] - x) + (a[1] - b[1]) * (b[1] - y);
+		return facing > 0 && run <= 14 ? [{ b, run, house, index }] : [];
+	});
 }

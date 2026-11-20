@@ -1,5 +1,6 @@
 import { ribbonNetwork } from './ribbon-network';
-import { ribbonDeck } from './ribbon-deck';
+import { townMovement } from './town-movement';
+import { ribbonDeck as projectDeck } from './ribbon-deck';
 import { throughRoute } from './through-route';
 import { required } from '../required';
 import { fitWalkingFlights } from './index';
@@ -15,6 +16,14 @@ import { area } from '../ansicht/geometrie';
 import { intersect, shoelaceArea } from '../parametrik/raster/geometry';
 import { publicFlight, townDeck } from './town-deck';
 import { walkingPlates } from './town-survey.test-support';
+
+function ribbonDeck(
+	layout: ReturnType<typeof ribbonNetwork>,
+	ground: (x: number, y: number) => number,
+	courts: Primitive[]
+) {
+	return projectDeck(townMovement(layout, new Map(), [], ground), ground, courts);
+}
 
 test('an unsupported ground span uses plain cast paving', () => {
 	const parts = publicFlight({ id: 'ground', a: [0, 0, 0.2], b: [5, 0, 0.2] }, () => 0);

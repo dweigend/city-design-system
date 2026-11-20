@@ -1,3 +1,4 @@
+import { stationStops, transitTrack } from './movement';
 import { pathTube } from '../linear-path';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { chainage, poseAt } from './alignment';
@@ -87,6 +88,7 @@ export function lineParts(
 	line: TransitLine,
 	slots: TransitSlots = drawingTransitSlots
 ): Primitive[] {
+	const path = transitTrack(line);
 	const design = resolveTransitProfile(line.kind, line.profile),
 		capsule = line.kind === 'capsule';
 	const parts: Primitive[] = [
@@ -94,7 +96,7 @@ export function lineParts(
 			...surface,
 			id: line.id + '/deck',
 			...pathTube(
-				line.path.map((p): Vec3 => [...p]),
+				path.map((p): Vec3 => [...p]),
 				design.deckRadius
 			),
 			...(capsule ? slots.glass : slots.deck),
@@ -102,9 +104,9 @@ export function lineParts(
 		}
 	];
 	if (capsule) {
-		const distances = chainage(line.path);
-		for (let at = 0; at <= line.length; at += design.hoopSpacing) {
-			const { position, headingRad } = poseAt(line.path, distances, at);
+		const distances = chainage(path);
+		for (let at = 0; at <= distances[distances.length - 1]; at += design.hoopSpacing) {
+			const { position, headingRad } = poseAt(path, distances, at);
 			parts.push({
 				...surface,
 				...slots.hoop,
@@ -132,7 +134,7 @@ export function lineParts(
 			height: top - base
 		});
 	});
-	line.stops.forEach((stop, i) =>
+	stationStops(line).forEach((stop, i) =>
 		parts.push(...stopParts(line, stop, line.id + '/stop/' + i, design, slots))
 	);
 	return parts;

@@ -1,13 +1,12 @@
-import { seatMouth } from './ribbon-mouth';
-import { contourApproach } from './ribbon-approach';
+import { edgePath, type MovementGraph } from '../movement-network';
+import { edgeSections } from './edge-sections';
+import { stairEdge } from './path-deck';
 import { column, ribbonProfile } from './ribbon-column';
 import { pathSupports, pathTube, profileSolid, contours } from '../linear-path';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { guardRuns, landingGround } from './guard-runs';
-import { gradeRibbon } from './ribbon-grade';
 import type { Section } from './ribbon-curve';
 import { pathSurfaces } from './town-palette';
-import { ribbonNetwork } from './ribbon-network';
 type Ground = (x: number, y: number) => number;
 function deck(id: string, sections: Section[], ground: Ground, supported: boolean): Primitive[] {
 	// Recess the soffit under the walking edge so the rim casts a narrow shadow.
@@ -53,79 +52,58 @@ function guard(path: Vec3[], id: string): Primitive[] {
 		}))
 	];
 }
-function fitApproaches(
-	network: ReturnType<typeof ribbonNetwork>,
-	ground: Ground,
-	clear?: (a: Vec3, b: Vec3) => boolean,
-	water?: Ground
-) {
-	const places = gradeRibbon(network, ground, water);
-	if (!clear || !places.length) return;
-	for (const { reach, side, base, top } of places) {
-		const original = side ? reach.sections.toReversed() : reach.sections;
-		const fit = contourApproach(original, base, top, ground, clear);
-		if (fit === original) continue;
-		reach.sections = side
-			? fit.toReversed().map((s) => ({ ...s, left: s.right, right: s.left }))
-			: fit;
+/** Projects finished walking edges and their junction boundaries in world metres. */
+export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primitive[]) {
+	const ports = new Map(graph.ports.map((p) => [p.id, p]));
+	const support = landingGround(courts, ground);
+	const rails = new Map<string, Vec3[][]>();
+	function exposed(edge: Vec3[], side: 1 | -1, group = 'town-walk/rail') {
+		const row = rails.get(group) ?? [];
+		row.push(...guardRuns(edge, support, (p) => p[2], side, ribbonProfile.guardDrop));
+		rails.set(group, row);
 	}
-	gradeRibbon(network, ground, water);
-}
-/** Projects one constant-section ribbon, its exposed guards and axial columns in world metres. */
-export function ribbonDeck(
-	network: ReturnType<typeof ribbonNetwork>,
-	ground: Ground,
-	courts: Primitive[],
-	{
-		inside = false,
-		mouths,
-		water,
-		clear,
-		railId = 'town-walk/rail'
-	}: {
-		mouths?: ReadonlyMap<string, number>;
-		water?: Ground;
-		inside?: boolean;
-		clear?: (a: Vec3, b: Vec3) => boolean;
-		railId?: string;
-	} = {}
-) {
-	if (!inside) fitApproaches(network, ground, clear, water);
-	const support = landingGround(courts, ground),
-		rails: Vec3[][] = [];
-	const exposed = (edge: Vec3[], side: 1 | -1) =>
-		rails.push(...guardRuns(edge, support, (p) => p[2], side, ribbonProfile.guardDrop));
-	const parts = network.reaches.flatMap(({ id, sections, ends }) => {
-		for (const [side, p] of ends.entries()) {
-			const heading = mouths?.get(p.join(','));
-			if (heading !== undefined) seatMouth(side ? sections.toReversed() : sections, heading);
-		}
-		if (!inside) {
+	const parts = graph.edges.flatMap((e) => {
+		if (e.mode !== 'walk' || e.kind === 'dock' || e.kind === 'junction' || e.kind === 'court')
+			return [];
+		const path = edgePath(e, ports);
+		if (e.kind === 'stair') return stairEdge(e.id, path, e.width, ground);
+		const sections = edgeSections(e, path);
+		if (e.kind !== 'tunnel') {
 			exposed(
 				sections.map((s) => s.left),
-				-1
+				-1,
+				e.guardGroup
 			);
 			exposed(
 				sections.map((s) => s.right),
-				1
+				1,
+				e.guardGroup
 			);
 		}
-		return deck(id, sections, ground, !inside);
+		return deck(e.id, sections, ground, e.kind !== 'tunnel');
 	});
-	for (const f of network.forks) {
-		const id = 'town-walk/joint/' + f.id;
+	for (const p of graph.ports) {
+		if (!p.rim) continue;
+		const position: Vec3 = [...p.position];
+		const rim = p.rim.map((arc) => arc.map(([x, y]): Vec3 => [x, y, position[2]]));
+		const id = 'town-walk/joint/' + p.id;
 		parts.push(
 			{
 				...pathSurfaces.walking,
 				id,
 				kind: 'prism',
-				polygon: f.rim.flat().map(([x, y]) => [x, y]),
-				z: f.position[2] - ribbonProfile.depth,
+				polygon: rim.flat().map(([x, y]) => [x, y]),
+				z: position[2] - ribbonProfile.depth,
 				height: ribbonProfile.depth
 			},
-			...column(id + '/pier/0', f.position, ground)
+			...column(id + '/pier/0', position, ground)
 		);
-		for (const edge of f.rim) exposed(edge, 1);
+		for (const arc of rim) exposed(arc, 1);
 	}
-	return [...parts, ...contours(rails).flatMap((p, i) => guard(p, railId + '/' + i))];
+	return [
+		...parts,
+		...[...rails].flatMap(([id, segments]) =>
+			contours(segments).flatMap((p, i) => guard(p, id + '/' + i))
+		)
+	];
 }

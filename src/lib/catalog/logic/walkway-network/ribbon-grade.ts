@@ -42,12 +42,12 @@ function link(a: Node, b: Node, run: number) {
 	b.links.push({ to: a, run });
 }
 function survey(
-	{ sections, ends, hubs: keys }: Reach,
+	{ sections, ends, terminals, hubs: keys }: Reach,
 	hubs: Map<string, Node>,
 	ground: (x: number, y: number) => number,
 	water?: (x: number, y: number) => number
 ) {
-	const loop = ends[0].join(',') === ends[1].join(',');
+	const loop = terminals[0] === terminals[1];
 	const distances = runs(sections, loop),
 		row = sections.map(() => node());
 	for (const side of [0, 1]) {

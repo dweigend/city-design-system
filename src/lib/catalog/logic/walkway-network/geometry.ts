@@ -1,3 +1,4 @@
+import { edgePath, type MovementGraph } from '../movement-network';
 import { required } from '../required';
 import { contours, pathSupports, pathTube } from '../linear-path';
 import { townPath } from './town-path';
@@ -95,8 +96,28 @@ function raisedPaths(edges: Edge[], input: NetworkInput, seed: number): Network[
 	return parts;
 }
 /** Projects the shared network stations in walking metres and assigns material slots. */
-export function project(network: Omit<Network, 'geometry'>, input: NetworkInput, seed: number) {
-	const parts: Network['geometry'] = network.edges
+export function project(
+	graph: MovementGraph,
+	nodes: Network['nodes'],
+	namespace: string,
+	input: NetworkInput,
+	seed: number
+) {
+	const ports = new Map(graph.ports.map((p) => [p.id, p]));
+	const local = (id: string) => (namespace ? id.slice(namespace.length + 1) : id);
+	const edges = graph.edges.map((e) => {
+		const kind = e.kind === 'path' ? 'ground' : e.kind === 'walkway' ? 'deck' : e.kind;
+		if (kind !== 'ground' && kind !== 'deck' && kind !== 'ramp' && kind !== 'stair')
+			throw new RangeError('Unknown ensemble edge ' + e.id);
+		return {
+			id: local(e.id),
+			from: e.from,
+			to: e.to,
+			kind,
+			points: edgePath(e, ports).map((p): Position => [...p])
+		} satisfies Edge;
+	});
+	const parts: Network['geometry'] = edges
 		.filter((e) => e.kind === 'ground')
 		.flatMap((e) =>
 			routeDecks(e.points, width).map((points, i) => ({
@@ -111,12 +132,12 @@ export function project(network: Omit<Network, 'geometry'>, input: NetworkInput,
 		);
 	parts.push(
 		...raisedPaths(
-			network.edges.filter((e) => e.kind !== 'ground'),
+			edges.filter((e) => e.kind !== 'ground'),
 			input,
 			seed
 		)
 	);
-	for (const n of network.nodes.filter(isPlaza)) {
+	for (const n of nodes.filter(isPlaza)) {
 		const position: Position = [n.position[0], n.position[1], n.position[2] - 0.08];
 		parts.push({
 			kind: 'cylinder',
