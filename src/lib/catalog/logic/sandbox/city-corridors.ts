@@ -57,30 +57,35 @@ export function cityCorridorSite(world: World) {
 	return [city.walk, station, courts, ground, world.seed] as const;
 }
 
-/** Projects public courts and walks from the same station survey as the centreline planner. */
-export function cityCorridorPaths(
-	world: World,
-	openingSurvey?: Parameters<typeof cityPassages>[1]
-) {
+/** Collects the court mouths and optional house surveys used by routing and projection. */
+export function corridorInputs(world: World, openingSurvey?: Parameters<typeof cityPassages>[1]) {
 	const site = cityCorridorSite(world);
-	if (!site) return [];
+	if (!site) return;
 	const relief = surveyedGrid(world.grid);
 	const [routes, station, courts, ground, seed] = site;
 	const openings = openingSurvey && cityPassages(world, openingSurvey);
-	return townDeck(
+	return [
 		routes,
 		station,
 		courts.map((c) => ({ ...c, passages: openings?.get(c.id) })),
 		ground,
 		seed,
-		(x, y) => walkingHeight(relief, x, y),
-		undefined,
-		cityRibbonClearance(world),
-		(x, y) => {
-			const cell = cellAtPoint(world.grid, x, y);
-			if (cell?.bank?.water !== undefined && bankHeight(cell, x, y) < cell.bank.water)
-				return cell.bank.water;
-			return cell?.zone === 'water' ? world.grid.terrain.waterLevel : -Infinity;
-		}
-	);
+		(x: number, y: number) => walkingHeight(relief, x, y)
+	] as const;
+}
+
+/** Projects public courts and walks from the same station survey as the centreline planner. */
+export function cityCorridorPaths(
+	world: World,
+	openingSurvey?: Parameters<typeof cityPassages>[1]
+) {
+	const inputs = corridorInputs(world, openingSurvey);
+	return inputs
+		? townDeck(...inputs, undefined, cityRibbonClearance(world), (x, y) => {
+				const cell = cellAtPoint(world.grid, x, y);
+				if (cell?.bank?.water !== undefined && bankHeight(cell, x, y) < cell.bank.water)
+					return cell.bank.water;
+				return cell?.zone === 'water' ? world.grid.terrain.waterLevel : -Infinity;
+			})
+		: [];
 }

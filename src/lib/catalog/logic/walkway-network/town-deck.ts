@@ -1,3 +1,4 @@
+import { townMovement } from './town-movement';
 import { townLife } from './town-life';
 import { ribbonDeck } from './ribbon-deck';
 import { ribbonEntry } from './ribbon-entry';
@@ -28,12 +29,7 @@ type Court = {
 	area: number;
 	polygon: [number, number][];
 };
-function plazaParts(
-	court: Court,
-	index: number,
-	point: (along: number, out: number) => [number, number],
-	ground: (x: number, y: number) => number
-): Primitive[] {
+function plazaParts(court: Court, index: number): Primitive[] {
 	const paving = {
 		token: courtSurfaces.rim.token,
 		finish: courtSurfaces.rim.finishes[index % 2]
@@ -51,23 +47,6 @@ function plazaParts(
 	const parts: Primitive[] = [plate];
 	for (const [i, polygon] of (court.aprons ?? []).entries())
 		parts.push({ ...plate, id: plate.id + '/apron/' + i, polygon });
-	if (!court.aprons) return parts;
-	const top = court.position[2],
-		foot = ground(...point(0, 2.4));
-	const steps = Math.max(2, 1 + Math.ceil(Math.abs(top - foot) / 0.17));
-	for (let i = 0; i < steps; i++) {
-		const a = (2.4 * i) / steps,
-			b = (2.4 * (i + 1)) / steps;
-		const polygon = [point(-2, a), point(2, a), point(2, b), point(-2, b)];
-		const z = Math.min(...polygon.map(([x, y]) => ground(x, y)), foot) - 0.05;
-		parts.push({
-			...plate,
-			id: plate.id + '/step/' + i,
-			polygon,
-			z,
-			height: top + ((foot - top) * i) / (steps - 1) - z
-		});
-	}
 	return parts;
 }
 /** Surveys the town centrelines and their court terminals in world metres. */
@@ -94,7 +73,38 @@ export function surveyTownWalk(
 		townSpans(townLinkSurvey(routes, stations, ends), stations, ends, ground),
 		reservations
 	);
-	return { ends, stations, spans, gardens, unresolved, terraces, courts };
+	const passages = courts.flatMap((c, i) => {
+		if (!stations.has(c.id)) return [];
+		for (const p of c.passages ?? []) {
+			if (!p.clearApproach) continue;
+			const clear = p.clearApproach;
+			const route = throughRoute(gardens[i].landing, p, ground, (a, b) =>
+				clear(a, b, walkingProfile.width)
+			);
+			if (route.length) return [{ court: c.id, spans: route }];
+		}
+		return [];
+	});
+
+	const { graph, approaches, links } = townMovement(
+		routes,
+		stations,
+		new Map(courts.map((c, i) => [c.id, gardens[i]])),
+		passages
+	);
+	return {
+		ends,
+		stations,
+		spans,
+		gardens,
+		unresolved,
+		terraces,
+		courts,
+		graph,
+		approaches,
+		links,
+		passages
+	};
 }
 /** Sweeps the shared public ribbon between finished court edges, forks and surveyed building openings. */
 export function townDeck(
@@ -108,7 +118,7 @@ export function townDeck(
 	clear?: (a: Vec3, b: Vec3) => boolean,
 	water?: (x: number, y: number) => number
 ) {
-	const { stations, gardens, terraces, courts } = surveyTownWalk(
+	const { stations, gardens, terraces, courts, approaches, links, passages } = surveyTownWalk(
 		routes,
 		center,
 		survey,
@@ -119,25 +129,12 @@ export function townDeck(
 	);
 	const plazas: Primitive[] = terraces.flatMap((t) => t.steps);
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
-	const passages = courts.flatMap((c, i) => {
-		for (const p of c.passages ?? []) {
-			if (!p.clearApproach) continue;
-			const clear = p.clearApproach;
-			const route = throughRoute(gardens[i].landing, p, ground, (a, b) =>
-				clear(a, b, walkingProfile.width)
-			);
-			if (route.length) return [route];
-		}
-		return [];
-	});
-
 	const parity = Math.floor(2 * hashUnit(seed, 'terrace-finish'));
-	for (const [i, court] of courts.entries())
-		plazas.push(...plazaParts(court, i + parity, gardens[i].point, ground));
+	for (const [i, court] of courts.entries()) plazas.push(...plazaParts(court, i + parity));
 	const planting = gardens.flatMap((g) => g.parts);
-	const network = ribbonNetwork(routes, stations);
-	const entries = passages.flatMap((route) => ribbonEntry(route, ground, plazas));
-	const deck = ribbonDeck(network, ground, plazas, { clear, water });
+	const network = ribbonNetwork(links, stations);
+	const entries = passages.flatMap(({ spans }) => ribbonEntry(spans, ground, plazas));
+	const deck = ribbonDeck(network, ground, plazas, { clear, water, mouths: approaches });
 	const walkers = townLife(
 		network.reaches.map((r) => ({ id: r.id, path: r.sections.map((s) => s.centre) })),
 		gardens.map((g) => g.landing),

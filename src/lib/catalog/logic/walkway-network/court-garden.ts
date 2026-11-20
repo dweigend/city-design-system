@@ -7,7 +7,7 @@ import type { PublicSpace } from './court-life';
 
 type Point = [number, number];
 /** Extends the open court edge into the reserved mouth parcel as a raised garden.
- * The stair meets the opposite end of that edge. */
+ * The public walk meets the clear side of that edge. */
 function edge(court: PublicSpace, mouth: Vec3, side = false) {
 	const {
 		polygon,
@@ -33,7 +33,7 @@ function edge(court: PublicSpace, mouth: Vec3, side = false) {
 	return { width, landing, a, b, point };
 }
 
-/** Projects the planted mouth edge and locates the stair on the clear side. */
+/** Projects the planted mouth edge and locates the walking port on the clear side. */
 export function courtGarden(
 	court: PublicSpace,
 	mouth: Vec3,
@@ -99,7 +99,10 @@ export function courtGarden(
 	};
 	return {
 		landing,
-		point: open.point,
+		heading: Math.atan2(
+			open.point(0, 1)[1] - open.point(0, 0)[1],
+			open.point(0, 1)[0] - open.point(0, 0)[0]
+		),
 		parts: [bed, soil, ...grove]
 	};
 }

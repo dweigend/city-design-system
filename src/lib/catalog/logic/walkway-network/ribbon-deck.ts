@@ -1,3 +1,4 @@
+import { seatMouth } from './ribbon-mouth';
 import { contourApproach } from './ribbon-approach';
 import { column, ribbonProfile } from './ribbon-column';
 import { pathSupports, pathTube, profileSolid, contours } from '../linear-path';
@@ -77,10 +78,12 @@ export function ribbonDeck(
 	courts: Primitive[],
 	{
 		inside = false,
+		mouths,
 		water,
 		clear,
 		railId = 'town-walk/rail'
 	}: {
+		mouths?: ReadonlyMap<string, number>;
 		water?: Ground;
 		inside?: boolean;
 		clear?: (a: Vec3, b: Vec3) => boolean;
@@ -92,7 +95,11 @@ export function ribbonDeck(
 		rails: Vec3[][] = [];
 	const exposed = (edge: Vec3[], side: 1 | -1) =>
 		rails.push(...guardRuns(edge, support, (p) => p[2], side, ribbonProfile.guardDrop));
-	const parts = network.reaches.flatMap(({ id, sections }) => {
+	const parts = network.reaches.flatMap(({ id, sections, ends }) => {
+		for (const [side, p] of ends.entries()) {
+			const heading = mouths?.get(p.join(','));
+			if (heading !== undefined) seatMouth(side ? sections.toReversed() : sections, heading);
+		}
 		if (!inside) {
 			exposed(
 				sections.map((s) => s.left),

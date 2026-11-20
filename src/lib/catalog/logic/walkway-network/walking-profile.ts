@@ -6,6 +6,7 @@ import type { Vec3 } from '../parametrik/types';
 /** Profile dimensions in metres; the ramp limit is rise divided by plan run. */
 export const walkingProfile = {
 	width: 2.5,
+	headroom: 2.2,
 	thickness: 0.2,
 	treadRise: houseStair.rise,
 	going: houseStair.going,

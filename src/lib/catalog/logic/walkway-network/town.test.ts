@@ -1,3 +1,4 @@
+import { ribbonProfile } from './ribbon-column';
 import { ribbonQuads, surveyedWalk, walkingPlates } from './town-survey.test-support';
 import { assetRegistry } from '../assets';
 import { townLife } from './town-life';
@@ -54,7 +55,8 @@ function topology(walk: string[][], courts: Set<string>) {
 function publicDeck(parts: Primitive[], pink: Primitive[]) {
 	const rails = parts.filter((p) => p.kind === 'pipe' && p.id.startsWith('town-walk/rail/'));
 	expect(rails.length).toBeGreaterThan(0);
-	for (const rail of rails) if (rail.kind === 'pipe') expect(rail.radius).toBe(0.026);
+	for (const rail of rails)
+		if (rail.kind === 'pipe') expect(rail.radius).toBe(ribbonProfile.railRadius);
 	expect(
 		pink.every(
 			(p) =>
@@ -199,8 +201,7 @@ function checkGardens(parts: Primitive[], heads: Primitive[], courts: Set<string
 		const steps = parts.filter(
 			(p): p is Plate => p.kind === 'prism' && p.id.startsWith(plate.id + '/step/')
 		);
-		expect(steps.length).toBeGreaterThan(1);
-		expect(steps.every((p) => distance(p.polygon[0], p.polygon[1]) >= 1.2)).toBe(true);
+		expect(steps).toHaveLength(0);
 		const trees = new Set(
 			parts
 				.filter((p) => p.id.startsWith(id + '/garden/') && p.id.includes('park-tree-'))

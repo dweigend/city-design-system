@@ -3,6 +3,7 @@ import type { Primitive, Vec3 } from '../parametrik/types';
 import { chainage, poseAt } from './alignment';
 import {
 	CAPSULE_HOOP_RADIUS,
+	stationEnvelope,
 	resolveTransitProfile,
 	type TransitProfile,
 	type TransitLine,
@@ -11,8 +12,7 @@ import {
 import { drawingTransitSlots, type TransitSlots } from './slots';
 const surface = { role: 'neu', material: 'concrete' } as const;
 
-const PLATFORM_RADIUS = 4.5,
-	HALO_HEIGHT = 3.4;
+const { radius: PLATFORM_RADIUS, height: HALO_HEIGHT } = stationEnvelope;
 const SHAFT_RADIUS = 1.1,
 	FOUNDATION_DEPTH = 1.5;
 function stopParts(
@@ -51,8 +51,8 @@ function stopParts(
 				id,
 				kind: 'sphere',
 				position: [x, y, z],
-				radius: 3.6,
-				squash: 0.72
+				radius: stationEnvelope.capsuleRadius,
+				squash: stationEnvelope.capsuleSquash
 			},
 			shaft
 		];

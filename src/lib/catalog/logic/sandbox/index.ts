@@ -6,6 +6,7 @@ export { bankPlanting } from './bank-planting';
  */
 export { EMPTY_STATE, styleForYear, stylesForYear } from './state';
 export { installationPartView, installationView } from './installation-view';
+export { cityMovementNetwork } from './city-movement';
 export { cityCorridorSite } from './city-corridors';
 export { cityCentreView, centreLandmark } from './city-view';
 export { spongeWorkView } from './sponge-view';
