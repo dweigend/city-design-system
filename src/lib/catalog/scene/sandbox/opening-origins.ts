@@ -1,5 +1,5 @@
 import { Box2, Vector2 } from 'three/webgpu';
-import type { OpeningProjection, OpeningScreen } from './opening-score';
+import type { OpeningProjection, OpeningScreen } from './opening-projection';
 
 function box(x: number, y: number, r: number, b: number) {
 	return new Box2(new Vector2(x, y), new Vector2(r, b));

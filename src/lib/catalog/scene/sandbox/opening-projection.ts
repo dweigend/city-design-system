@@ -22,6 +22,9 @@ function rect(x: number, y: number, right: number, bottom: number) {
 	return new Box2(new Vector2(x, y), new Vector2(right, bottom));
 }
 
+export type OpeningProjection = ReturnType<typeof projectScene>;
+export type OpeningScreen = ReturnType<typeof screenBounds>;
+
 export type Courts = ReturnType<typeof courtOpening>;
 
 // All candidate crops at a heading are affine transforms of one orthographic projection.
@@ -111,7 +114,7 @@ export function surveyContext(world: World, additions: readonly Primitive[]) {
 }
 const oriented = new WeakMap<
 	ReturnType<typeof surveyContext>,
-	Map<string, ReturnType<typeof projectScene>>
+	Map<string, OpeningProjection>
 >();
 /** Caches per-orientation silhouettes for fixed world-origin camera axes, independent of HUD and zoom. */
 export function orientedProjection(
@@ -121,7 +124,7 @@ export function orientedProjection(
 	heading: number
 ) {
 	const key = heading + '/' + view.elevation() + '/' + view.isPortrait();
-	const cache = oriented.get(geometry) ?? new Map<string, ReturnType<typeof projectScene>>();
+	const cache = oriented.get(geometry) ?? new Map<string, OpeningProjection>();
 	const existing = cache.get(key);
 	if (existing) return existing;
 	const data = projectScene(view, courts, geometry);

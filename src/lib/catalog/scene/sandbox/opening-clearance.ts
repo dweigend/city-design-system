@@ -1,8 +1,14 @@
 import { Box2, Vector2 } from 'three/webgpu';
 import type { World } from '../../logic/sandbox';
 import type { Primitive } from '../../logic/parametrik/types';
-import { projectScene, screenBounds, surveyContext, type Courts } from './opening-projection';
-import { scoreCrop, type OpeningProjection } from './opening-score';
+import {
+	projectScene,
+	screenBounds,
+	surveyContext,
+	type Courts,
+	type OpeningProjection
+} from './opening-projection';
+import { scoreCrop } from './opening-score';
 import type { OpeningArea, View } from './view';
 
 function edgeOffsets(box: Box2, size: Vector2, origin: Vector2, scale: number) {
