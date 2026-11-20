@@ -78,7 +78,8 @@ function makeBody(
 	shape: Shape,
 	z: number,
 	height: number,
-	floor: number
+	floor: number,
+	spanning = false
 ): Body {
 	const [x, y] = extent(shape);
 	const use = plan.site.programme[floor][0];
@@ -94,7 +95,11 @@ function makeBody(
 		...body,
 		position: [x.center, y.center, z],
 		size: [x.length, y.length, height],
-		band: { shell: floor % 2 === 1, footprint: shape, lining: roomLining(shape) }
+		band: {
+			shell: floor % 2 === 1,
+			footprint: shape,
+			lining: spanning ? shape.polygon : roomLining(shape)
+		}
 	};
 }
 function bodySolid(body: Body, shape: Shape, ground: number): Solid {
@@ -198,7 +203,15 @@ function floorBodies(
 			: shape;
 	const shells = i === 0 && shapes.joined ? rooms : [occupied];
 	const bodies = shells.map((shell, k) => {
-		const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
+		const body = makeBody(
+			plan,
+			id + '/level/' + i + '/body/' + k,
+			shell,
+			z,
+			baseTop - z,
+			i,
+			gallery || i === wing?.level
+		);
 		if (body.band && i >= 2) {
 			body.band.cells = cells;
 			body.band.finish = envelope.finish;

@@ -2,7 +2,7 @@ import { checkParcel } from '../composed-house/parcel-assertions.test-support';
 import { shellSystems } from '../../data/house-shells';
 import { required } from '../required';
 import { test, expect } from 'bun:test';
-import { squareGrid, ringArea } from '../quad-grid';
+import { squareGrid, ringArea, boundaryRings } from '../quad-grid';
 import { planHouse, sectionParts, circulation, type HouseSite } from '../composed-house';
 import type { HouseSlot } from './index';
 import { bounds } from '../ansicht/geometrie';
@@ -37,6 +37,28 @@ function site(
 const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
 const area = (polygon: [number, number][]) => Math.abs(ringArea(polygon));
 type OccupiedLevel = HouseComposition['levels'][number];
+function footprintArea(shape: { polygon: [number, number][]; holes?: [number, number][][] }) {
+	return area(shape.polygon) - (shape.holes ?? []).reduce((sum, hole) => sum + area(hole), 0);
+}
+function auditMass(h: HouseComposition) {
+	let occupied = 0;
+	let total = 0;
+	for (const p of h.parts) {
+		const volume = p.kind === 'prism' ? footprintArea(p) * p.height : vol(p.size);
+		if (!Number.isFinite(volume) || volume <= 0) return 'invalid solid volume';
+		if (p.joint === 'body' || p.joint === 'capsule') occupied += volume;
+		total += volume;
+	}
+	if (occupied / total < 0.55) return 'occupied volume share ' + occupied / total;
+}
+function auditDeck(l: OccupiedLevel) {
+	const covered = l.bodies.reduce(
+		(sum, b) => sum + footprintArea(required(b.band?.footprint, 'occupied floor')),
+		0
+	);
+	if (!(covered >= 0.55 * l.deckArea && covered <= l.deckArea + 1e-7))
+		return 'occupied deck coverage';
+}
 function auditBody(b: OccupiedLevel['bodies'][number], floor: number, ceiling: number) {
 	const band = b.band;
 	if (
@@ -72,7 +94,25 @@ function auditBase(h: HouseComposition) {
 	)
 		return 'ground bearing';
 }
-function auditFoot(h: HouseComposition) {
+function touchesFoot([x, y]: [number, number], foot: [number, number][]) {
+	return foot.some(([a, b], i) => {
+		const [u, v] = foot[(i + 1) % foot.length];
+		return (
+			Math.abs(Math.hypot(x - a, y - b) + Math.hypot(x - u, y - v) - Math.hypot(a - u, b - v)) <
+			1e-7
+		);
+	});
+}
+function auditFoot(h: HouseComposition, shell: NonNullable<HouseComposition['exterior']>) {
+	const ids = new Set(h.cells.map((c) => c.id));
+	const [survey] = boundaryRings(h.cells, (id) => ids.has(id));
+	const grade = shell.stations[0].ring;
+	if (
+		!survey.every((vertex) => touchesFoot(vertex, grade)) ||
+		Math.abs(area(survey) - area(grade)) > 1e-6
+	)
+		return 'shell misses surveyed boundary';
+
 	const plot = h.cells.reduce((sum, c) => sum + area(c.corners.map(([x, y]) => [x, y])), 0);
 	const foot = h.levels[0].outline.map(([x, y]): [number, number] => [x, y]);
 	if (Math.abs(area(foot) - plot) > 1e-6 && h.ensembleSize === 1) return 'occupied parcel foot';
@@ -87,17 +127,16 @@ function auditDatums(h: HouseComposition, shell: NonNullable<HouseComposition['e
 function audit(h: HouseComposition) {
 	const shell = h.exterior;
 	if (!shell || !auditDatums(h, shell)) return 'exterior datums';
-	const foot = auditFoot(h);
+	const foot = auditFoot(h, shell);
 	if (foot) return foot;
 	for (const [i, l] of h.levels.entries()) {
 		const error = auditLevel(l, shell.stations[i + 1].z);
 		if (error) return error;
 	}
 	if (!auditOccupation(h)) return 'occupation';
-	const bearing = auditBase(h);
+	const bearing = auditBase(h) ?? auditMass(h);
 	if (bearing) return bearing;
-	const finding = checkFit(h.parts)[0];
-	if (finding) return JSON.stringify(finding);
+	return JSON.stringify(checkFit(h.parts)[0]);
 }
 function* paintedSites() {
 	for (let seed = 0; seed < 32; seed++)
@@ -122,7 +161,7 @@ test('mass, deck coverage, joints and finite coordinates across painted sites', 
 				failures.set(type, [seed, n, h, district, mix, String(error)].join(' '));
 			continue;
 		}
-		const error = audit(result);
+		const error = audit(result) ?? result.levels.map(auditDeck).find(Boolean);
 		if (error && !failures.has(result.typology))
 			failures.set(result.typology, [seed, n, h, district, mix, error].join(' '));
 		const system = required(result.exterior, 'exterior').system;
