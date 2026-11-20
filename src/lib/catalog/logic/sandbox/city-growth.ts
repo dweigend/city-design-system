@@ -41,6 +41,32 @@ function occupied(world: World) {
 	]);
 }
 
+function peakUse(
+	group: Centre['ensembles'][number] | undefined,
+	id: string,
+	seed: number
+): HouseUse {
+	if (group?.openingPlots === undefined || id !== group.lots[0]) return 'living';
+	const uses = ['living', 'food', 'energy'] as const;
+	return uses[Math.floor(hashUnit(seed, id, 'roof') * uses.length)];
+}
+function programme(world: World, plan: CityPlan, cell: TerrainCell) {
+	const ensemble = plan.centres
+		.flatMap((c) => c.ensembles ?? [])
+		.find((g) => g.lots.includes(cell.id));
+	const grouped = ensemble?.openingPlots !== undefined;
+	const base = ensemble && (grouped || cell.id !== ensemble.lots[0]);
+	const style =
+		base && stylesForYear(world.state.year).includes('composed')
+			? ('composed' as const)
+			: cityHouseStyle(world, plan, cell);
+	const uses: readonly HouseUse[] = ['living', 'food', 'water', 'material', 'energy'];
+	const use =
+		uses[Math.floor(hashUnit(world.seed, ensemble?.court ?? cell.id, 'city-use') * uses.length)];
+	const roof = peakUse(ensemble, cell.id, world.seed);
+	return { style, use, roof };
+}
+
 function buildLot(
 	world: World,
 	plan: CityPlan,
@@ -48,22 +74,12 @@ function buildLot(
 	cell: TerrainCell,
 	construct: Construct
 ) {
-	const ensemble = plan.centres
-		.flatMap((c) => c.ensembles ?? [])
-		.find((g) => g.lots.includes(cell.id));
-	const base = ensemble && cell.id !== ensemble.lots[0];
-	const style =
-		base && stylesForYear(world.state.year).includes('composed')
-			? 'composed'
-			: cityHouseStyle(world, plan, cell);
-	const uses: readonly HouseUse[] = ['living', 'food', 'water', 'material', 'energy'];
-	const use =
-		uses[Math.floor(hashUnit(world.seed, ensemble?.court ?? cell.id, 'city-use') * uses.length)];
+	const { style, use, roof } = programme(world, plan, cell);
 	for (let floor = 0; floor < height; floor++)
 		world = construct(world, {
 			kind: 'raise',
 			cellId: cell.id,
-			use: floor === 0 ? use : 'living',
+			use: floor === 0 ? use : floor === height - 1 ? roof : 'living',
 			style
 		});
 	return world;
@@ -78,10 +94,12 @@ function released(centre: Centre, stage: number, next: number, seed: number) {
 				(hashUnit(seed, id, 'city-typology') < centre.towerShare ? 5 : 1) +
 				Math.floor(hashUnit(seed, id, 'city-height') * 3)
 		}));
-	const end = (stage: number) => (stage ? stage + 2 : 0);
-	return centre.ensembles.flatMap((g) =>
-		g.lots.slice(end(stage), end(next)).map((id, i) => ({ id, height: g.heights[end(stage) + i] }))
-	);
+	return centre.ensembles.flatMap((g) => {
+		const end = (n: number) =>
+			n === 0 ? 0 : g.openingPlots === undefined ? n + 2 : g.openingPlots + Math.max(0, n - 2);
+		const start = end(stage);
+		return g.lots.slice(start, end(next)).map((id, i) => ({ id, height: g.heights[start + i] }));
+	});
 }
 
 /** Advances each expansion area's saved stage once, building only its newly released

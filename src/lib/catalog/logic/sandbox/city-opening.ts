@@ -16,7 +16,11 @@ export function openCity(world: World, protectedIds: readonly string[] = []): Wo
 		...city.centres.flatMap((c) => [c.landmark.cellId, ...c.lots])
 	];
 	const thresholds = city.centres.flatMap((centre) =>
-		centre.ensembles.flatMap((court) => court.lots.slice(0, 3).map((id) => [court.court, id]))
+		centre.ensembles.flatMap((court) =>
+			court.lots
+				.filter((id) => grid.cellsById.get(id)?.neighbors.includes(court.court))
+				.map((id) => [court.court, id])
+		)
 	);
 	const walks = [...city.walk, ...thresholds];
 	for (const link of city.corridors) {

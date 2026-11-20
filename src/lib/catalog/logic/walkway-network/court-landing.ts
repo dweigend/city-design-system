@@ -14,7 +14,7 @@ export function courtLanding(cell: TerrainCell) {
 		}, 0) / 2;
 	return {
 		id: cell.id,
-		position: [x, y, Math.max(...corners.map((p) => p[2])) + 0.05] as Vec3,
+		position: [x, y, Math.max(...corners.map((p) => p[2])) + 0.6] as Vec3,
 		polygon: corners.map(([u, v]): [number, number] => [u, v]),
 		area: Math.abs(area)
 	};

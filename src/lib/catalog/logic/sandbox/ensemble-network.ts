@@ -96,27 +96,29 @@ export function courtFlights(world: World, sections: Sections) {
 		sections.filter((h) => !h.start).flatMap((h) => h.cells.map((c) => [c.id, h] as const))
 	);
 	const courts = world.state.city?.centres.flatMap((c) => c.ensembles ?? []) ?? [];
-	return courts.flatMap((court) => {
-		const cell = required(world.grid.cellsById.get(court.court), 'public court');
-		const a = courtLanding(cell).position;
-		const options = court.lots
-			.slice(0, 3)
-			.flatMap((id) => courtPorts(byCell.get(id), a))
-			.sort((l, r) => l.run - r.run);
-		const port = options[0];
-		if (!port) return [];
-		const id = 'network/court/' + court.court;
-		return [
-			{
-				id,
-				owners: [port.house.id],
-				cells: port.house.cells.map((c) => c.id),
-				chunk: port.house.cells[0].chunk,
-				span: JSON.stringify([a, port.b]),
-				parts: () => publicFlight({ id, a, b: port.b }, (x, y) => walkingHeight(world.grid, x, y))
-			}
-		];
-	});
+	return courts
+		.filter((court) => court.openingPlots === undefined)
+		.flatMap((court) => {
+			const cell = required(world.grid.cellsById.get(court.court), 'public court');
+			const a = courtLanding(cell).position;
+			const options = court.lots
+				.slice(0, 3)
+				.flatMap((id) => courtPorts(byCell.get(id), a))
+				.sort((l, r) => l.run - r.run);
+			const port = options[0];
+			if (!port) return [];
+			const id = 'network/court/' + court.court;
+			return [
+				{
+					id,
+					owners: [port.house.id],
+					cells: port.house.cells.map((c) => c.id),
+					chunk: port.house.cells[0].chunk,
+					span: JSON.stringify([a, port.b]),
+					parts: () => publicFlight({ id, a, b: port.b }, (x, y) => walkingHeight(world.grid, x, y))
+				}
+			];
+		});
 }
 
 function courtPorts(house: Sections[number] | undefined, a: Sections[number]['base']) {
