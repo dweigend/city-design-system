@@ -1,3 +1,4 @@
+import { studioKeyDirection } from './studio-light';
 import { atan, float, mix, normalWorld, normalView, vec3 } from 'three/tsl';
 import { MeshBasicNodeMaterial, type Node } from 'three/webgpu';
 
@@ -20,7 +21,7 @@ export function firedSlip(
 	const dip = rim.smoothstep(float(0.1).sub(feather), float(0.1).add(feather));
 	const cap = ring.select(float(1), dip).mul(float(q.w.greaterThan(0)));
 	const lip = float(1).sub(rim.sub(0.12).abs().smoothstep(0.018, feather.add(0.048)));
-	const face = normalWorld.dot(vec3(-0.42, 0.82, 0.38));
+	const face = normalWorld.dot(vec3(studioKeyDirection));
 	const body = face.greaterThanEqual(0.17).select(clay, shade);
 	// An asymmetric painted sector makes a ten-second revolution readable on the circular rim.
 	const turn = atan(q.z, q.x)

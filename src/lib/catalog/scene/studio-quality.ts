@@ -12,15 +12,15 @@ export function studioQuality(): StudioQuality {
 export const contactInk = { color: 0x82776c, opacity: 0.25 } as const;
 
 const lighting = {
-	key: 0xfff1de,
-	intensity: 2.2,
-	sky: 0xf3f6ff,
-	ground: 0xe8d8bd,
-	bounce: 1.4,
+	key: 0xfff5e9,
+	intensity: 2.05,
+	sky: 0xf1f5ff,
+	ground: 0xf1e5d7,
+	bounce: 1.65,
 	bias: -0.0006,
-	radius: 7.5,
-	shadowTint: 0x6b6359,
-	shadowOpacity: 0.62
+	radius: 9,
+	shadowTint: 0x716e78,
+	shadowOpacity: 0.47
 } as const;
 const profiles = {
 	phone: Object.freeze({

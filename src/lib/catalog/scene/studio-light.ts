@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { float, mix, output, shadow, texture, uniform, vec2, vec4 } from 'three/tsl';
 import { studioConfig } from './studio-quality';
 
-export const studioKeyDirection = new THREE.Vector3(-0.85, 1.05, 0.25).normalize();
+export const studioKeyDirection = new THREE.Vector3(1, 0.68, 0.45).normalize();
 
 /** Fits a directional shadow to the scene without shading the paper with ambient light. */
 export function createStudioLight(config = studioConfig()) {
@@ -107,7 +107,7 @@ export function createStudioLight(config = studioConfig()) {
 		/** Covers the town viewport, including casters beside the visible ground. */
 		aim(target: THREE.Vector3, span: number) {
 			const reach = Math.max(2, span * 1.1);
-			aimKey(target, reach, reach, reach, config.shadowSize, config.radius);
+			aimKey(target, reach, reach, reach, config.shadowSize, config.radius * (config.shadowSize / 2048));
 		},
 		/** Fits both light-space axes to the subject. A projected cast shadow shares its caster's coordinates. */
 		frame(bounds: THREE.Box3) {
@@ -123,7 +123,7 @@ export function createStudioLight(config = studioConfig()) {
 			const width = extent(right),
 				height = extent(up);
 			const texel = (2 * Math.max(width, height)) / config.modelShadowSize;
-			const radius = THREE.MathUtils.clamp(0.1 / texel, config.radius, 14);
+			const radius = THREE.MathUtils.clamp(0.16 / texel, 2.5, 16);
 			aimKey(
 				bounds.getCenter(new THREE.Vector3()),
 				width,
