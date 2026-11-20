@@ -70,13 +70,24 @@ function consider(
 	scale: number
 ) {
 	const rank = scoreCrop(search.view, search.screen, search.data, scale, origin, 'rank');
-	if (rank && (!search.best || compare(rank, search.best.rank) > 0))
-		search.best = { group, fit, rank };
+	if (!rank || (search.best && compare(rank, search.best.rank) <= 0)) return;
+	search.best = { group, fit, rank };
+	if (!meetsTarget(search.best)) return;
+	// Pull back around the accepted subject's screen centre only while the whole crop is legal.
+	const subject = search.screen.safe.getCenter(new Vector2()).add(fit.offset);
+	for (const factor of [0.95, 0.975, 0.99]) {
+		const wider = scale * factor;
+		const start = origin.clone().addScaledVector(subject, 1 / scale - 1 / wider);
+		const score = scoreCrop(search.view, search.screen, search.data, wider, start, 'rank');
+		if (score?.[1] !== 0 || score[2] !== 1) continue;
+		search.best = { group, rank: score, fit: { ...fit, fill: fit.fill * factor } };
+		break;
+	}
 }
 
 // Orthographic screen area grows with the square of the camera scale.
 function areaFit(fit: CourtFit, size: Vector2, room: Vector2, portrait: boolean) {
-	const portion = portrait ? 0.45 : 0.5;
+	const portion = portrait ? 0.415 : 0.465;
 	const scale = Math.sqrt((portion * room.x * room.y) / (size.x * size.y));
 	const fill = scale * Math.max(size.x / room.x, size.y / room.y);
 	return fill <= 0.98 ? [{ ...fit, fill }] : [];
@@ -94,7 +105,7 @@ function fitSizes(
 		.map((px) => ({ ...fits[0], fill: (px / median) * Math.max(size.x / room.x, size.y / room.y) }))
 		.filter((f) => f.fill <= 0.98);
 	const subject = areaFit(fits[0], size, room, portrait);
-	return portrait ? [...subject, ...ideal, ...fits] : [...ideal, ...fits, ...subject];
+	return [...subject, ...ideal, ...fits];
 }
 
 function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit[]) {
@@ -230,7 +241,22 @@ export function frameOccupiedCourts(
 		view.frameSilhouette([new Vector3()], undefined, undefined, [], fits[0]);
 		const data = orientedProjection(view, courts, surroundings, heading);
 		const search: FrameSearch = { view, screen, data, best: previous };
-		if (exhibit && area && fitExhibit(search, exhibit, [{ ...fits[0], fill: 0.9 }, ...fits], area))
+		if (
+			exhibit &&
+			area &&
+			fitExhibit(
+				search,
+				exhibit,
+				[
+					{ ...fits[0], fill: 0.85 },
+					{ ...fits[0], fill: 0.875 },
+					{ ...fits[0], fill: 0.89 },
+					{ ...fits[0], fill: 0.9 },
+					...fits
+				],
+				area
+			)
+		)
 			return true;
 		searchGroups(search, groups, fits);
 		best = search.best;
