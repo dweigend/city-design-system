@@ -1,3 +1,4 @@
+import { checkExteriorEntrance } from './exterior-entrance';
 import { expect, test } from 'bun:test';
 import { polygonCases } from './polygon-cases';
 import { planHouse, sectionParts, circulation } from '../../src/lib/catalog/logic/composed-house';
@@ -30,6 +31,7 @@ export function auditPolygon(
 	const graph = massGraph([house]),
 		share = accessShare(parts.filter((p) => p.structuralRole !== 'occupant'));
 	checkParcel(house, parts);
+	checkExteriorEntrance(house, parts);
 	expect(graph.collisions).toBe(0);
 	expect(graph.components).toBe(1);
 	expect(share).toBeLessThanOrEqual(0.1);

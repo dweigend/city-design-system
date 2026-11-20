@@ -1,3 +1,4 @@
+import { openSurface, openRod } from './shell-openings';
 import { framedSpan } from './framed-span';
 import { courtyardPanel, membranePanel } from './membrane-panel';
 import { pipeBetween } from './parts';
@@ -82,6 +83,12 @@ function wallSpan(shell: Shell, index: number, source: StockMesh, start: number,
 		triangles: cloth.triangles.concat(carrier.triangles.map((i) => i + cloth.points.length))
 	};
 }
+function clearRod(pair: [Vec3, Vec3], shell: Shell) {
+	return shell.openings.reduce<[Vec3, Vec3][]>(
+		(pieces, box) => pieces.flatMap((p) => openRod(p, box, 0.085)),
+		[pair]
+	);
+}
 function exposedPanel(
 	h: HouseComposition,
 	shell: Shell,
@@ -94,7 +101,7 @@ function exposedPanel(
 	for (const { start, end, hidden } of shell.seams[index]) {
 		if (hidden && hidden[0] <= shell.bottom && hidden[1] >= shell.top) continue;
 		const framed = framedSpan(h, shell, index, start, end, hidden);
-		framed?.rods.forEach(([a, b]) => rod(a, b));
+		framed?.rods.flatMap((pair) => clearRod(pair, shell)).forEach(([a, b]) => rod(a, b));
 		const span = framed ?? wallSpan(shell, index, source, start, end);
 		const visible = hidden ? cutPartyWall(span, hidden) : span;
 		const base = points.length;
@@ -137,14 +144,23 @@ export function continuousShell(
 			: []
 	);
 	const fabric = shell.fabric;
-	if (!fabric) return outer;
+	const clear = (p: StockMesh) => ({
+		...p,
+		...shell.openings.reduce((mesh, box) => openSurface(mesh, box), {
+			points: p.points,
+			triangles: p.triangles
+		})
+	});
+	if (!fabric) return outer.map(clear);
 	return [
-		...outer,
+		...outer.map(clear),
 		...rods,
-		...shell.courtWalls.map((wall, i) => ({
-			...source,
-			...courtyardPanel(shell, wall, fabric),
-			id: source.id + '/court/' + i
-		}))
+		...shell.courtWalls.map((wall, i) =>
+			clear({
+				...source,
+				...courtyardPanel(shell, wall, fabric),
+				id: source.id + '/court/' + i
+			})
+		)
 	];
 }
