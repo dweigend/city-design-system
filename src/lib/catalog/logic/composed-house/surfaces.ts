@@ -11,8 +11,8 @@ export type HouseSurfaces = Readonly<Record<SurfaceSlot, Surface>>;
 /** Binds construction slots to the ensemble and retains explicit caller assignments. */
 export function sectionSurfaces(section: Section, palette = houseSurfaces): HouseSurfaces {
 	const { shellUse } = section.composition;
-	const assign = (key: SurfaceSlot, slot: BuildingSurface['slot'], use = shellUse) => ({
-		buildingSurface: { use, ensemble: section.ensemble, slot },
+	const assign = (key: SurfaceSlot, slot: BuildingSurface['slot']) => ({
+		buildingSurface: { use: shellUse, ensemble: section.ensemble, slot },
 		override: palette[key] === houseSurfaces[key] ? undefined : palette[key]
 	});
 	return {
@@ -21,11 +21,11 @@ export function sectionSurfaces(section: Section, palette = houseSurfaces): Hous
 		shell: assign('shell', 'shell'),
 		pane: assign('pane', 'pane'),
 		access: assign('access', 'deck'),
-		living: assign('living', 'shell', 'living'),
-		water: assign('water', 'shell', 'water'),
-		energy: assign('energy', 'shell', 'energy'),
-		food: assign('food', 'shell', 'food'),
-		material: assign('material', 'shell', 'material')
+		living: assign('living', 'shell'),
+		water: assign('water', 'shell'),
+		energy: assign('energy', 'shell'),
+		food: assign('food', 'shell'),
+		material: assign('material', 'shell')
 	};
 }
 

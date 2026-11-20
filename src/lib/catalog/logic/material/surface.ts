@@ -48,10 +48,11 @@ export function resolveFinish(
 	colourRole?: Primitive['colourRole']
 ): SurfaceRecipe {
 	const surface = baseFinish(id, token);
-	if (colourRole === 'ensemble-ground' && surface.kind === 'physical') {
+	if (colourRole && surface.kind === 'physical') {
 		if (id !== 'membran-voile' && id !== 'membran-film') surface.recipe.haut.deckkraft = 1;
 		surface.recipe.farbe.anteil = 1;
-		surface.recipe.farbe.papier = 0.14;
+		surface.recipe.farbe.papier = colourRole === 'ensemble-ground' ? 0.14 : 0;
+		surface.recipe.farbe.tint = {};
 		surface.groundCoat = true;
 	}
 	if (ageTint && (surface.kind === 'diagram' || surface.kind === 'physical')) {
