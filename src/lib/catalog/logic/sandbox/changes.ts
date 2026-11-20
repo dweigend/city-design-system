@@ -1,4 +1,4 @@
-import { changedSpans } from './composed-projection';
+import { changedProjectionGroups } from './composed-projection';
 import { affectedHouseGroups } from './houses';
 import { changedChunks, neighborsOf } from '../quad-grid';
 import type { World } from './world';
@@ -51,11 +51,11 @@ function changedHouses(before: World, after: World, moved: ReadonlySet<string>) 
 	if (!ids.size)
 		return before.state.cover === after.state.cover
 			? new Map<string, string>()
-			: changedSpans(before, after);
+			: changedProjectionGroups(before, after);
 	return new Map([
 		...affectedHouseGroups(before, ids, moved.size > 0),
 		...affectedHouseGroups(after, ids, moved.size > 0),
-		...changedSpans(before, after)
+		...changedProjectionGroups(before, after)
 	]);
 }
 
