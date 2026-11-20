@@ -1,10 +1,7 @@
-import type { Bounds } from '../../logic/ansicht/geometrie';
-import { boxCorners, openingLandmarks } from './opening-landmarks';
 import { courtOpening } from './court-opening';
 import { Vector3 } from 'three/webgpu';
 import { bankDistance, valleyCoords, valleyPoint } from '../../logic/terrain';
 import { STORY } from '../../data/grid';
-import type { Vec3 } from '../../logic/parametrik/types';
 import type { World } from '../../logic/sandbox';
 import type { OpeningArea, View } from './view';
 
@@ -46,53 +43,28 @@ function townCluster({ grid, state }: World, portrait = false) {
 	return { points, water, anchor: new Vector3(x, z, -y) };
 }
 
-function frameCourts(
-	view: View,
-	world: World,
-	area?: OpeningArea,
-	landmark?: Vec3,
-	markBounds?: Bounds
-) {
-	const courts = courtOpening(world, view.isPortrait(), landmark);
+function frameCourts(view: View, world: World, area?: OpeningArea) {
+	const courts = courtOpening(world, view.isPortrait());
 	if (!courts) return false;
-	const feature = markBounds ? boxCorners(markBounds) : [];
-	if (!feature.length && landmark)
-		feature.push(new Vector3(landmark[0], landmark[2], -landmark[1]));
-	view.frameSilhouette(courts.points, undefined, area, undefined, [], {
-		heading: courts.heading,
-		feature,
-		landmarks: openingLandmarks(world)
-	});
+	view.frameSilhouette(courts.points, undefined, area, [], courts.heading);
 	return true;
 }
 
 /** Fits the occupied neighbourhood around the central editable parcel between the phone controls. */
-export function frameOldTown(
-	view: View,
-	world: World,
-	area?: OpeningArea,
-	landmark?: Vec3,
-	markBounds?: Bounds
-) {
+export function frameOldTown(view: View, world: World, area?: OpeningArea) {
 	if (!view.isPortrait()) return false;
-	if (frameCourts(view, world, area, landmark, markBounds)) return true;
+	if (frameCourts(view, world, area)) return true;
 	const cluster = townCluster(world, true);
 	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, cluster.anchor, area, landmark, cluster.water);
+	view.frameSilhouette(cluster.points, cluster.anchor, area, cluster.water);
 	return true;
 }
 
 /** Fits the central occupied town footprint, including its building heights. */
-export function frameTownSilhouette(
-	view: View,
-	world: World,
-	landmark?: Vec3,
-	area?: OpeningArea,
-	markBounds?: Bounds
-) {
-	if (frameCourts(view, world, area, landmark, markBounds)) return true;
+export function frameTownSilhouette(view: View, world: World, area?: OpeningArea) {
+	if (frameCourts(view, world, area)) return true;
 	const cluster = townCluster(world);
 	if (!cluster) return false;
-	view.frameSilhouette(cluster.points, undefined, area, landmark, cluster.water);
+	view.frameSilhouette(cluster.points, undefined, area, cluster.water);
 	return true;
 }

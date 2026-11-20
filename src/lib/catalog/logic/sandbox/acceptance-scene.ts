@@ -1,6 +1,5 @@
-import { bounds, union } from '../ansicht/geometrie';
 import { openCity } from './city-opening';
-import { TWO_SUNS_CELLS, TWO_SUNS_TURNING_DISC, twoSuns } from './two-suns';
+import { TWO_SUNS_CELLS, twoSuns } from './two-suns';
 import { advanceFrames } from './frame-construction';
 import { planTownForms } from '../town-forms';
 import { walkwayParts } from '../walkway';
@@ -178,13 +177,5 @@ export function openingScene(seed: number) {
 /** Frames the same city as the game and adds the seed-7 kinetic landmark. */
 export function acceptanceScene(seed = SEED) {
 	const { world } = openingScene(seed);
-	const study = draftingStudy(world);
-	const disc = study.additions.find((p) => p.id === TWO_SUNS_TURNING_DISC);
-	return {
-		...study,
-		...(disc?.kind === 'ring' && {
-			landmark: disc.position,
-			landmarkBounds: union(study.additions.filter((p) => p.id.startsWith('two-suns:')).map(bounds))
-		})
-	};
+	return draftingStudy(world);
 }

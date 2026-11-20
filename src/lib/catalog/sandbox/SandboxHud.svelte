@@ -45,8 +45,14 @@
 	let {
 		session,
 		group = $bindable(),
-		rail = $bindable()
-	}: { session: Session; group?: HTMLDivElement; rail?: HTMLDivElement } = $props();
+		rail = $bindable(),
+		timelineBar = $bindable()
+	}: {
+		session: Session;
+		group?: HTMLDivElement;
+		rail?: HTMLDivElement;
+		timelineBar?: HTMLDivElement;
+	} = $props();
 
 	let sheetOpen = $state(false);
 	const narrow = new MediaQuery('(max-width: 640px)');
@@ -256,7 +262,7 @@
 			</Button>
 		</div>
 	</div>
-	<div class="timeline" role="group" aria-label="Timeline">
+	<div class="timeline" bind:this={timelineBar} role="group" aria-label="Timeline">
 		<div class="scale" class:without-events={!events.length}>
 			<Timeline
 				{year}

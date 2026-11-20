@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { float, mix, output, shadow, texture, uniform, vec2, vec4 } from 'three/tsl';
 import { studioConfig } from './studio-quality';
 
-export const studioKeyDirection = new THREE.Vector3(-0.85, 0.85, 0.25).normalize();
+export const studioKeyDirection = new THREE.Vector3(-0.85, 1.05, 0.25).normalize();
 
 /** Fits a directional shadow to the scene without shading the paper with ambient light. */
 export function createStudioLight(config = studioConfig()) {
