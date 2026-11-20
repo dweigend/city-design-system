@@ -1,4 +1,4 @@
-import { clothIntervals, clothOpening, membraneResponse } from '../membrane';
+import { clothColumns, clothSampler, clothSurface, membraneResponse } from '../membrane';
 import { shellSystems, type ShellSystem } from '../../data/house-shells';
 import { mount, type AssetRecipe } from './definition';
 import { surface } from './parts';
@@ -65,22 +65,16 @@ const draw: Record<ShellSystem, Draw> = {
 			(u, v) => 0.66 * Math.sin(Math.PI * u) * Math.sin(Math.PI * v) + 0.22 * (u - v) ** 2,
 			(i, j) => Math.abs(i - 4.5 - 2 * Math.sin((j / 12) * Math.PI)) < 1.2 && j > 1 && j < 11
 		),
-	'inflated-cushion': (m) =>
-		fabric(
-			m,
-			clothIntervals,
-			2 * clothIntervals,
-			(u, v) =>
-				membraneResponse(
-					{ pressure: 2, tension: 1, restraint: 'net' },
-					3,
-					4.5,
-					u,
-					(v * 2) % 1,
-					0.65
-				).fraction * 0.65,
-			clothOpening
-		),
+	'inflated-cushion': (m) => {
+		const load = { pressure: 2, tension: 1, restraint: 'net' } as const;
+		const sample = clothSampler(load, 3, 4.5);
+		const sheet = clothSurface(clothColumns(3, 'net'), 2, 'net', (u, course, v) => [
+			0.65 * membraneResponse(load, 3, 4.5, u, v, 0.65, sample(u, v)).fraction,
+			u,
+			(course + v) / 2
+		]);
+		Object.assign(m, sheet);
+	},
 	'pleated-sheet': (m) =>
 		fabric(
 			m,

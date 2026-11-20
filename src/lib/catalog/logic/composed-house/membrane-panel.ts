@@ -1,9 +1,8 @@
 import {
-	clothIntervals as subdivisions,
-	clothOpening,
+	clothSurface,
 	hangingCloth,
 	clothColumns,
-	simulateCloth,
+	clothSampler,
 	membraneResponse
 } from '../membrane';
 import type { HouseComposition } from '../house-typology';
@@ -78,18 +77,6 @@ function loadedPoint(
 	);
 	return [rest[0] + share * delta[0], rest[1] + share * delta[1], z - sag];
 }
-function clothFaces(cols: number, rows: number) {
-	const triangles: number[] = [];
-	for (let j = 0; j < rows; j++)
-		for (let i = 0; i < cols; i++) {
-			// A vertical slit between paired welds exposes the occupied glazing behind the membrane.
-			if (clothOpening(i, j)) continue;
-			const a = j * (cols + 1) + i,
-				b = a + cols + 1;
-			triangles.push(a, a + 1, b + 1, a, b + 1, b);
-		}
-	return triangles;
-}
 function surveySpan(shell: Shell, index: number, start: number, end: number) {
 	const a = shell.ring[index],
 		b = shell.ring[(index + 1) % shell.ring.length];
@@ -149,27 +136,17 @@ function clothMesh(shell: Shell, fabric: Fabric, width: number, at: SurfaceAt) {
 	}
 	const cols = clothColumns(width, fabric.restraint);
 	const anchors = courses(shell, fabric.restraint);
-	const rows = (anchors.length - 1) * subdivisions,
-		points: Vec3[] = [];
-	const cloth = anchors.slice(1).map((z, i) => simulateCloth(fabric, cols, width, z - anchors[i]));
-	for (let j = 0; j <= rows; j++) {
-		const course = Math.min(anchors.length - 2, Math.floor(j / subdivisions));
-		const v = j / subdivisions - course;
-		for (let i = 0; i <= cols; i++) {
-			const local = i / cols;
-			points.push(
-				loadedPoint(
-					at,
-					fabric,
-					width,
-					local,
-					v,
-					anchors[course],
-					anchors[course + 1],
-					cloth[course][(j - course * subdivisions) * (cols + 1) + i]
-				)
-			);
-		}
-	}
-	return { points, triangles: clothFaces(cols, rows) };
+	const samples = anchors.slice(1).map((z, i) => clothSampler(fabric, width, z - anchors[i]));
+	return clothSurface(cols, samples.length, fabric.restraint, (u, course, v) =>
+		loadedPoint(
+			at,
+			fabric,
+			width,
+			u,
+			v,
+			anchors[course],
+			anchors[course + 1],
+			samples[course](u, v)
+		)
+	);
 }
