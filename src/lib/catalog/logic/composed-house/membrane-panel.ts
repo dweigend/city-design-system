@@ -91,6 +91,14 @@ function clothFaces(cols: number, rows: number) {
 		}
 	return triangles;
 }
+function surveySpan(shell: Shell, index: number, start: number, end: number) {
+	const a = shell.ring[index],
+		b = shell.ring[(index + 1) % shell.ring.length];
+	const width = Math.hypot(b[0] - a[0], b[1] - a[1]) * (end - start);
+	const at: SurfaceAt = (u, z) => sample(shell, index, start + (end - start) * u, z);
+	return { width, at };
+}
+
 /** Spans a surveyed wall with pressurised cloth between its corner seams, ribs and selected floors. */
 export function membranePanel(
 	shell: Shell,
@@ -99,12 +107,8 @@ export function membranePanel(
 	end: number,
 	fabric: Fabric
 ) {
-	const a = shell.ring[index],
-		b = shell.ring[(index + 1) % shell.ring.length];
-	const width = Math.hypot(b[0] - a[0], b[1] - a[1]) * (end - start);
-	return clothMesh(shell, fabric, width, (u, z) =>
-		sample(shell, index, start + (end - start) * u, z)
-	);
+	const { width, at } = surveySpan(shell, index, start, end);
+	return clothMesh(shell, fabric, width, at);
 }
 
 /** Spans a courtyard bay between the inner survey line and its adjoining occupied cell. */
@@ -144,11 +148,8 @@ export function upperSailGrips(
 	end: number,
 	fabric: Fabric
 ) {
-	const a = shell.ring[index],
-		b = shell.ring[(index + 1) % shell.ring.length];
-	const width = Math.hypot(b[0] - a[0], b[1] - a[1]) * (end - start);
+	const { width, at } = surveySpan(shell, index, start, end);
 	const sheet = tensionNet(width, shell.top - shell.bottom, fabric);
-	const at: SurfaceAt = (u, z) => sample(shell, index, start + (end - start) * u, z);
 	return sheet.upperGrips.map((point) => mapClothPoint(shell, width, at, point));
 }
 

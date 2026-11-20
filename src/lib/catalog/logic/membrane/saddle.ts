@@ -48,6 +48,13 @@ function neighbours(count: number, dx: number, dy: number, tension: number) {
 	});
 }
 
+function balanceNode(positions: Vec3[], k: number, edges: number[][], sum: number, net: Vec3) {
+	for (const [index, q] of edges)
+		for (let axis = 0; axis < 3; axis++) net[axis] += q * positions[index][axis];
+	for (let axis = 0; axis < 3; axis++)
+		positions[k][axis] += 1.35 * (net[axis] / sum - positions[k][axis]);
+}
+
 function relax(width: number, height: number, fabric: Membrane) {
 	const { positions, pinned, faces } = netGrid(width, height);
 	const dx = width / divisions,
@@ -58,10 +65,7 @@ function relax(width: number, height: number, fabric: Membrane) {
 		for (let k = 0; k < positions.length; k++) {
 			if (pinned[k]) continue;
 			const net: Vec3 = [0, -0.014 * dx * dy, fabric.pressure * dx * dy];
-			for (const [index, q] of links[k])
-				for (let axis = 0; axis < 3; axis++) net[axis] += q * positions[index][axis];
-			for (let axis = 0; axis < 3; axis++)
-				positions[k][axis] += 1.35 * (net[axis] / sums[k] - positions[k][axis]);
+			balanceNode(positions, k, links[k], sums[k], net);
 		}
 	}
 	return {
