@@ -34,7 +34,7 @@ function neighbours(count: number, dx: number, dy: number, tension: number) {
 	// Force density is tensile force divided by edge length. Boundary cables gather the free hems.
 	const warp = (tension * dy) / dx,
 		weft = (tension * dx) / dy;
-	return Array.from({length: count}, (_, k) => {
+	return Array.from({ length: count }, (_, k) => {
 		const x = k % side,
 			y = Math.floor(k / side);
 		const qu = warp * (y === 0 || y === divisions ? 9 : 1),
@@ -49,7 +49,7 @@ function neighbours(count: number, dx: number, dy: number, tension: number) {
 }
 
 function relax(width: number, height: number, fabric: Membrane) {
-	const { positions, pinned, faces } = netGrid(width,height);
+	const { positions, pinned, faces } = netGrid(width, height);
 	const dx = width / divisions,
 		dy = height / divisions;
 	const links = neighbours(positions.length, dx, dy, fabric.tension);
@@ -64,7 +64,11 @@ function relax(width: number, height: number, fabric: Membrane) {
 				positions[k][axis] += 1.35 * (net[axis] / sums[k] - positions[k][axis]);
 		}
 	}
-	return { positions, faces, upperGrips: [positions[divisions * side], positions[side * side - 1]] };
+	return {
+		positions,
+		faces,
+		upperGrips: [positions[divisions * side], positions[side * side - 1]]
+	};
 }
 
 /** Finds a four-grip anticlastic sail under warp, weft, edge-cable tension and distributed load. */

@@ -121,30 +121,44 @@ export function courtyardPanel(shell: Shell, wall: Shell['courtWalls'][number], 
 		return { rest: edge.map((v, k) => v - delta[k]), delta, clearance: Math.hypot(...delta) };
 	});
 }
-function mapClothPoint(shell: Shell,width:number,at:SurfaceAt,[x,rise,depth]: readonly number[]): Vec3 {
-		const z = shell.bottom + Math.max(0, Math.min(shell.top - shell.bottom, rise));
-		const u = Math.max(0, Math.min(1, x / width));
-		const v = (z - shell.bottom) / (shell.top - shell.bottom);
-		const { rest, delta, clearance } = at(u, z);
-		// Reserve space behind the surveyed boundary for folds on either side of the attachment plane.
-		const seam =
-			shell.system === 'tensile-sail' ? 1 : Math.sin(Math.PI * u) * Math.sin(Math.PI * v);
-		const share = clearance > 1e-8 ? seam * (0.5 + 0.5 * Math.tanh((2 * depth) / clearance)) : 0;
-		return [rest[0] + share * delta[0], rest[1] + share * delta[1], z];
+function mapClothPoint(
+	shell: Shell,
+	width: number,
+	at: SurfaceAt,
+	[x, rise, depth]: readonly number[]
+): Vec3 {
+	const z = shell.bottom + Math.max(0, Math.min(shell.top - shell.bottom, rise));
+	const u = Math.max(0, Math.min(1, x / width));
+	const v = (z - shell.bottom) / (shell.top - shell.bottom);
+	const { rest, delta, clearance } = at(u, z);
+	// Reserve space behind the surveyed boundary for folds on either side of the attachment plane.
+	const seam = shell.system === 'tensile-sail' ? 1 : Math.sin(Math.PI * u) * Math.sin(Math.PI * v);
+	const share = clearance > 1e-8 ? seam * (0.5 + 0.5 * Math.tanh((2 * depth) / clearance)) : 0;
+	return [rest[0] + share * delta[0], rest[1] + share * delta[1], z];
 }
 /** The two upper load paths originate at the actual fixed vertices of the solved sail. */
-export function upperSailGrips(shell: Shell,index:number,start:number,end:number,fabric:Fabric) {
-	const a=shell.ring[index],b=shell.ring[(index+1)%shell.ring.length];
-	const width=Math.hypot(b[0]-a[0],b[1]-a[1])*(end-start);
-	const sheet=tensionNet(width,shell.top-shell.bottom,fabric);
-	const at: SurfaceAt=(u,z)=>sample(shell,index,start+(end-start)*u,z);
-	return sheet.upperGrips.map(point=>mapClothPoint(shell,width,at,point));
+export function upperSailGrips(
+	shell: Shell,
+	index: number,
+	start: number,
+	end: number,
+	fabric: Fabric
+) {
+	const a = shell.ring[index],
+		b = shell.ring[(index + 1) % shell.ring.length];
+	const width = Math.hypot(b[0] - a[0], b[1] - a[1]) * (end - start);
+	const sheet = tensionNet(width, shell.top - shell.bottom, fabric);
+	const at: SurfaceAt = (u, z) => sample(shell, index, start + (end - start) * u, z);
+	return sheet.upperGrips.map((point) => mapClothPoint(shell, width, at, point));
 }
 
 function clothMesh(shell: Shell, fabric: Fabric, width: number, at: SurfaceAt) {
 	if (shell.system === 'suspended-curtain' || shell.system === 'tensile-sail') {
 		const sheet = hangingCloth(shell.system, width, shell.top - shell.bottom, fabric);
-		return {points: sheet.positions.map(p=>mapClothPoint(shell,width,at,p)), triangles:sheet.faces};
+		return {
+			points: sheet.positions.map((p) => mapClothPoint(shell, width, at, p)),
+			triangles: sheet.faces
+		};
 	}
 	const cols = clothColumns(width, fabric.restraint);
 	const anchors = courses(shell, fabric.restraint);

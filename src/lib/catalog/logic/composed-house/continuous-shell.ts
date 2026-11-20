@@ -99,23 +99,34 @@ function sailBrackets(h: HouseComposition, shell: Shell, surface: Surface) {
 	if (shell.system !== 'tensile-sail' || !shell.fabric) return [];
 	const fabric = shell.fabric;
 	const roof = shell.stations[shell.stations.length - 1].ring;
-	return shell.seams.flatMap((spans, i) => spans.flatMap(({start,end,hidden}, k) => {
-		if (!shell.faces[i] || (hidden && hidden[1] >= shell.top)) return [];
-		const ties = upperSailGrips(shell,i,start,end,fabric);
-		const a = roof[i], b = roof[(i+1)%roof.length];
-		return [start,end].map((u, j) => {
-			const tie = ties[j];
-			const foot = u + (j === 0 ? 1 : -1) * 0.075 * (end-start);
-			const root: Vec3 = [a[0]+foot*(b[0]-a[0]),a[1]+foot*(b[1]-a[1]),shell.top-0.12];
-			return {...pipeBetween(h.id+'/sail-grip/'+i+'/'+k+'/'+j,root,tie,0.055,surface),structuralRole:'cantilever' as const};
-		});
-	}));
+	return shell.seams.flatMap((spans, i) =>
+		spans.flatMap(({ start, end, hidden }, k) => {
+			if (!shell.faces[i] || (hidden && hidden[1] >= shell.top)) return [];
+			const ties = upperSailGrips(shell, i, start, end, fabric);
+			const a = roof[i],
+				b = roof[(i + 1) % roof.length];
+			return [start, end].map((u, j) => {
+				const tie = ties[j];
+				const foot = u + (j === 0 ? 1 : -1) * 0.075 * (end - start);
+				const root: Vec3 = [
+					a[0] + foot * (b[0] - a[0]),
+					a[1] + foot * (b[1] - a[1]),
+					shell.top - 0.12
+				];
+				return {
+					...pipeBetween(h.id + '/sail-grip/' + i + '/' + k + '/' + j, root, tie, 0.055, surface),
+					structuralRole: 'cantilever' as const
+				};
+			});
+		})
+	);
 }
 /** Maps a full-height fabric, frame or service run between corresponding surveyed wall corners. */
 export function continuousShell(
 	h: HouseComposition,
 	seed: number,
-	surface: Surface & { colourRole?: 'ensemble-ground' }, frame: Surface
+	surface: Surface & { colourRole?: 'ensemble-ground' },
+	frame: Surface
 ): HousePart[] {
 	const shell = h.exterior;
 	if (!shell) return [];
@@ -137,7 +148,7 @@ export function continuousShell(
 	if (!fabric) return outer;
 	return [
 		...outer,
-		...sailBrackets(h,shell,frame),
+		...sailBrackets(h, shell, frame),
 		...shell.courtWalls.map((wall, i) => ({
 			...source,
 			...courtyardPanel(shell, wall, fabric),
