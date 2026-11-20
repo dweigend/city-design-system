@@ -31,16 +31,17 @@ export function townGrid(grid: TerrainGrid, city: CityPlan) {
 	const reserved = new Set(city.walk.flat());
 	const graded = gradeTown(raw, city);
 	const benches = raw.cells.map(graded.cell);
-	const withBank = courtEarthworks(raw, city, (x, y) => {
+	const banks = courtEarthworks(raw, city, (x, y) => {
 		const cell = cellAtPoint(raw, x, y);
 		return cell ? surfaceHeight(benches[cell.index].corners, x, y) : NaN;
 	});
 	const cells = benches.map((c) => {
-		const cell = passage(withBank(c));
+		const cell = passage(banks.grade(c));
 		return cell.buildable && reserved.has(cell.id) ? { ...cell, buildable: false } : cell;
 	});
 	const next = {
 		...raw,
+		courtFronts: banks.fronts,
 		vertices: raw.vertices.map(graded.vertex),
 		cells,
 		cellsById: new Map(cells.map((c) => [c.id, c])),

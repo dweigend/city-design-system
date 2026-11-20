@@ -1,6 +1,6 @@
 import { clipPolygon, rotated, type Point2 } from '../ansicht/geometrie';
 import type { Primitive } from '../parametrik/types';
-import type { TerrainGrid, TerrainCell } from '../terrain-grid';
+import { wallContacts, type TerrainGrid, type TerrainCell } from '../terrain-grid';
 import { walkingHeight } from './network-terrain';
 
 type Plate = Extract<Primitive, { kind: 'prism' }>;
@@ -21,7 +21,27 @@ function floodWalls(polygon: Point2[], cell: TerrainCell) {
 
 function footings(p: Plate, cell: TerrainCell, grid: TerrainGrid, bottom: number): Primitive[] {
 	const polygon = rotated(p.polygon, p.rotation ?? 0);
-	const gap = p.z - Math.min(...polygon.map(([x, y]) => walkingHeight(grid, x, y)));
+	const low = Math.min(
+		...polygon.flatMap((a, edge) => {
+			const contacts = wallContacts(grid, {
+				houseId: p.id,
+				ring: 0,
+				edge,
+				a,
+				b: polygon[(edge + 1) % polygon.length],
+				start: 0,
+				end: 1,
+				footZ: p.z,
+				use: 'wall'
+			});
+			return contacts.map((contact) =>
+				contact.kind === 'surveyed'
+					? Math.min(...contact.stations.map((s) => s.groundZ))
+					: walkingHeight(grid, ...a)
+			);
+		})
+	);
+	const gap = p.z - low;
 	if (!(gap > 0.02)) return [];
 	const holes = p.holes?.map((h) => rotated(h, p.rotation ?? 0));
 	const profiles = cell.raised && !holes?.length ? floodWalls(polygon, cell) : [polygon];
@@ -34,8 +54,8 @@ function footings(p: Plate, cell: TerrainCell, grid: TerrainGrid, bottom: number
 		material: 'concrete',
 		polygon: profile,
 		holes,
-		z: bottom,
-		height: p.z - bottom
+		z: Math.min(bottom, low),
+		height: p.z - Math.min(bottom, low)
 	}));
 }
 

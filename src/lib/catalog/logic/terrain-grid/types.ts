@@ -29,8 +29,21 @@ export type TerrainCell = QuadCell &
 		bank?: BankSurface;
 	}>;
 
+/** Surveyed court side with its outward normal and the extent of the graded bank in metres. */
+export type CourtFront = {
+	courtId: string;
+	edge: number;
+	a: readonly [number, number];
+	b: readonly [number, number];
+	nx: number;
+	ny: number;
+	pavingZ: number;
+	reach: number;
+};
+
 export type TerrainGrid = QuadGrid<TerrainCell> &
 	Readonly<{
+		courtFronts?: readonly CourtFront[];
 		profile: typeof import('./alley-profile').defaultAlleyPlan;
 		terrain: Terrain;
 		columns: number;
