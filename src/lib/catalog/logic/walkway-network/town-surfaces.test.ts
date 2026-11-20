@@ -1,3 +1,4 @@
+import { meetingSites } from './town-landings';
 import { throughRoute } from './through-route';
 import { required } from '../required';
 import { fitWalkingFlights } from './index';
@@ -146,6 +147,30 @@ test('a graded town flight reserves the stock going and limits both ascending an
 	}
 });
 
+test('rolling terrain stays a continuous ribbon across a bend without stair platforms', () => {
+	const route = [['a', 'b', 'c']];
+	const positions: Vec3[] = [
+		[0, 0, 2],
+		[5, 0, 2.4],
+		[10, 1, 2.0]
+	];
+	const stations = new Map(
+		route[0].map((id, i) => [
+			id,
+			{ position: positions[i], arms: route[0].filter((_, j) => Math.abs(i - j) === 1) }
+		])
+	);
+	const spans = townSpans(townLinkSurvey(route, stations, new Map()), stations, new Map());
+	expect(spans).toHaveLength(2);
+	expect(meetingSites(spans, [])).toEqual([]);
+	const { bands, junctions } = townPath(spans, new Map());
+	const ramps = pathDeck(bands, junctions, () => 0).filter(
+		(p) => p.kind === 'mesh' && p.id.endsWith('/ramp')
+	);
+	expect(ramps).toHaveLength(2);
+	if (ramps[0].kind !== 'mesh' || ramps[1].kind !== 'mesh') throw Error('missing ramp');
+	expect(ramps[0].points.slice(-2)).toEqual(ramps[1].points.slice(2, 4));
+});
 test('a gentle grade has a continuous solid ramp whose upper corners meet the paired handrails', () => {
 	const parts = publicFlight({ id: 'grade', a: [0, 0, 2], b: [10, 0, 2.8] }, () => 0);
 	const ramp = parts.find((p) => p.kind === 'mesh');

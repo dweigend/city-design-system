@@ -1,3 +1,4 @@
+import { needsTreads } from './walking-profile';
 import { landingBase } from './retaining-foot';
 import { publicPaving } from './town-floor';
 import { houseSurfaces } from '../composed-house';
@@ -31,7 +32,7 @@ type Site = { id: string; position: Vec3; radius?: number };
 /** Coalesces coincident stair landings and leaves terminal meetings on their terraces. */
 export function meetingSites(spans: TownSpan[], ends: Vec3[]) {
 	const sites: Site[] = [];
-	for (const { id, a, b } of spans.filter(({ a, b }) => a[2] !== b[2])) {
+	for (const { id, a, b } of spans.filter(({ a, b }) => needsTreads(a, b))) {
 		for (const [i, p] of [a, b].entries()) {
 			if (ends.some((q) => apart(p, q) < 1e-6 && p[2] === q[2])) continue;
 			if (sites.some((s) => p[2] === s.position[2] && apart(p, s.position) <= 0.02)) continue;
