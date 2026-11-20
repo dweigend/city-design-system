@@ -24,8 +24,9 @@ export function planPoints(p: StockPart): Point2[] {
 	return [b.min[0], b.max[0]].flatMap((x) => [b.min[1], b.max[1]].map((y): Point2 => [x, y]));
 }
 function circle(x: number, y: number, r: number): Point2[] {
+	const outer = r / Math.cos(Math.PI / 12);
 	return Array.from({ length: 12 }, (_, i) => [
-		x + r * Math.cos((i * Math.PI) / 6),
-		y + r * Math.sin((i * Math.PI) / 6)
+		x + outer * Math.cos(((i + 0.5) * Math.PI) / 6),
+		y + outer * Math.sin(((i + 0.5) * Math.PI) / 6)
 	]);
 }

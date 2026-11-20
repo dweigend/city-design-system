@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { squareGrid } from '../quad-grid';
 import { houseObject } from './house-object';
-import { plotCovers } from './parcel-footprint';
+import { footprint, plotCovers } from './parcel-footprint';
 import { parcelFitsRail } from './stair-parcel';
 import { deckCovers } from './parcel-assertions.test-support';
 
@@ -93,4 +93,37 @@ test('mounted railing bays respect the common cantilever margin and parcel gaps'
 			{ ...rail, points: [start, end].map(([u, v]) => [u + 2, v + 2, 1]) }
 		)
 	).toBe(false);
+});
+
+test('cantilever corners follow the 0.6 metre disk', () => {
+	const cells = [{ corners: square(0, 0, 4, 4) }];
+	for (const [distance, allowed] of [
+		[0.59, true],
+		[0.61, false]
+	] as const) {
+		const offset = -distance / Math.sqrt(2);
+		expect(plotCovers(cells, { ring: square(offset, offset, 0.1, 0.1), holes: [] }, 0.6)).toBe(
+			allowed
+		);
+	}
+});
+
+test('the full tube radius counts between twelve sampled directions', () => {
+	const angle = Math.PI / 12,
+		c = Math.cos(angle),
+		s = Math.sin(angle);
+	const cell = { corners: square(-4, -2, 4, 4).map(([x, y]) => [c * x - s * y, s * x + c * y]) };
+	const member = houseObject('railing', 'standard', 0, { instanceId: 'rail', slots: {} }).parts[0];
+	if (member.kind !== 'pipe') throw Error('Missing tube');
+	const radius = 0.5,
+		centre = 0.6 - radius + 0.01;
+	const tube = {
+		...member,
+		radius,
+		points: [-1, 1].map(
+			(t) => [centre * c - t * s, centre * s + t * c, 1] as [number, number, number]
+		)
+	};
+	expect(centre + radius * Math.cos(angle)).toBeLessThan(0.6);
+	expect(plotCovers([cell], footprint(tube), 0.6)).toBe(false);
 });

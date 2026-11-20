@@ -171,7 +171,30 @@ function inspect(s: Section) {
 	const path = circulation(s),
 		parts = sectionParts(s, palette);
 	checkDecks(s, path);
-	const walk = projectAccess(s, palette);
+	const reports: NonNullable<Parameters<typeof projectAccess>[2]> = [];
+	const walk = projectAccess(s, palette, reports);
+	if (!s.compact) {
+		const flights = new Set(path.legs.map((l) => l.flight));
+		expect(new Set(reports.map((r) => r.flight + '/' + r.side)).size).toBe(flights.size * 2);
+		for (const r of reports) {
+			const open = r.length - r.omitted.wall;
+			expect(r.covered + Object.values(r.omitted).reduce((a, b) => a + b, 0)).toBeCloseTo(
+				r.length,
+				8
+			);
+			if (r.covered < open * 0.8)
+				expect(r.omitted.clearance + r.omitted.parcel + r.omitted.volume).toBeGreaterThan(0);
+			const tops = walk.filter(
+				(p) => p.id.includes('/rail/' + r.flight + '/' + r.side + '/') && p.source.member === 0
+			);
+			const chord = tops.reduce(
+				(v, p) =>
+					p.kind === 'pipe' ? v + Math.hypot(...p.points[1].map((n, k) => n - p.points[0][k])) : v,
+				0
+			);
+			expect(chord).toBeGreaterThanOrEqual(r.covered * 0.96 - 1e-8);
+		}
+	}
 	checkDocks(path, walk);
 	checkFlights(s, path);
 	checkParts(s, parts, walk);

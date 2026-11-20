@@ -22,7 +22,7 @@ function blockFoot(s: Section) {
 		if (dx * sign >= -1e-8) return limit;
 		return Math.min(
 			limit,
-			(dx * (bay.y - v) - dy * (bay.x - u) - Math.abs(dy) * 0.31 + 0.535 * Math.hypot(dx, dy)) /
+			(dx * (bay.y - v) - dy * (bay.x - u) - Math.abs(dy) * 0.54 + 0.535 * Math.hypot(dx, dy)) /
 				(-dx * sign)
 		);
 	}, target);
@@ -36,30 +36,50 @@ export function mastRoute(s: Section) {
 	const groundY =
 		s.typology === 'block' && !s.composition.levels[0].bodies[0].band?.footprint ? blockFoot(s) : y;
 	stops.push([x, groundY, s.start ? s.base[2] : terrainHeight(s, [x, groundY, 0])]);
-	const rests: Vec3[] = [];
-	const legs = stops.slice(1).flatMap((end, flight) => {
+	const width = s.typology === 'block' ? 0.48 : 0.62;
+	const flights = stops.slice(1).flatMap((end, flight) => {
 		const start = stops[flight];
 		const count = Math.max(1, Math.ceil(Math.abs(end[2] - start[2]) / 4));
-		const station = (i: number): Vec3 =>
-			i === 0
-				? start
-				: i === count
-					? end
-					: (start.map((v, k) => v + ((end[k] - v) * i) / count) as Vec3);
-		return Array.from({ length: count }, (_, i) => {
-			const from = station(i),
-				to = station(i + 1);
-			if (i) rests.push(from);
-			return { from, to, kind: 'ladder' as const, flight, steps: 0 };
-		});
+		const station = (i: number) => start.map((v, k) => v + ((end[k] - v) * i) / count) as Vec3;
+		return Array.from({ length: count }, (_, i) => ({
+			from: station(i),
+			to: station(i + 1),
+			flight,
+			steps: 0,
+			kind: 'ladder' as const
+		}));
 	});
+	for (const [i, l] of flights.entries()) {
+		const offset = ((i % 2 ? 1 : -1) * width) / 2;
+		l.from[0] += offset;
+		l.to[0] += offset;
+	}
+	const legs = flights.flatMap((l, i) =>
+		i
+			? [
+					{
+						from: flights[i - 1].to,
+						to: l.from,
+						kind: 'landing' as const,
+						flight: l.flight,
+						steps: 0
+					},
+					l
+				]
+			: [l]
+	);
+	const docks = flights.flatMap((leg, i) =>
+		i && flights[i - 1].flight === leg.flight
+			? []
+			: [{ door: doors[leg.flight], station: leg.from }]
+	);
 	return {
 		axis: s.stairAxis,
-		width: s.typology === 'block' ? 0.48 : 0.62,
-		rests,
-		stops,
+		width,
+		flights,
 		legs,
-		docks: doors.map((door, i) => ({ door, station: stops[i] }))
+		docks,
+		stops: [...docks.map((d) => d.station), flights[flights.length - 1].to]
 	};
 }
 
@@ -77,9 +97,14 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	}).parts[0];
 	if (plate.kind !== 'prism') throw new Error('Expected ladder landing');
 	const sign = s.composition.accessSide === 'north' ? 1 : -1;
-	const extra = route.rests.map(([x, y, z]) => ({
-		door: [
-			x,
+	// Each break has one deck that meets both ladder lanes and, at occupied levels, the doorway.
+	const landings = route.flights.map((leg, i) => {
+		const [, y, z] = leg.from;
+		const axis = s.stairAxis[0];
+		const dock = route.docks.find((d) => d.station === leg.from);
+		const dx = dock?.door[0] ?? axis;
+		const dy =
+			dock?.door[1] ??
 			y -
 				(s.typology === 'tree-house' ? 1 : sign) *
 					(s.typology === 'block'
@@ -88,27 +113,24 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 							: 0.32
 						: s.typology === 'cluster-mast' && !s.composition.compact
 							? 0.42
-							: 0.6),
-			z
-		] as Vec3,
-		station: [x, y, z] as Vec3
-	}));
-	const landings = [...route.docks, ...extra].map(({ door: [dx, dy, z], station: [x, y] }, i) => ({
-		...plate,
-		structuralRole: 'cantilever' as const,
-		id: id + 'landing/' + i,
-		height: 0.12,
-		z: z - 0.12,
-		polygon: plate.polygon.map(([u, v]): [number, number] => [
-			(Math.sign(u) * route.width) / 2 + (v < 0 ? dx : x),
-			v < 0 ? dy : y
-		])
-	}));
+							: 0.6);
+		return {
+			...plate,
+			structuralRole: 'cantilever' as const,
+			id: id + 'landing/' + i,
+			height: 0.12,
+			z: z - 0.12,
+			polygon: plate.polygon.map(([u, v]): [number, number] => [
+				v < 0 ? dx + (Math.sign(u) * route.width) / 2 : axis + (Math.sign(u) * route.width) / 2,
+				v < 0 ? dy : y
+			])
+		};
+	});
 	const rung = houseObject('ladder', 'rung-bay', s.seed, {
 		instanceId: id + 'rung',
 		slots: { body: surfaces.access }
 	}).parts[0];
-	const flights = route.legs.flatMap(({ from, to }, i) => {
+	const flights = route.flights.flatMap(({ from, to }, i) => {
 		const height = from[2] - to[2],
 			count = Math.max(1, Math.round(height / 0.28));
 		return stock.flatMap((p, j) => {
@@ -134,7 +156,7 @@ export function mastAccess(s: Section, surfaces: HouseSurfaces): HousePart[] {
 	const hoops =
 		s.typology === 'block'
 			? []
-			: route.legs.flatMap(({ from, to }, i) => {
+			: route.flights.flatMap(({ from, to }, i) => {
 					const n = Math.max(1, Math.ceil(Math.abs(from[2] - to[2]) / 1.2));
 					return Array.from({ length: n }, (_, j) => ({
 						...rail,

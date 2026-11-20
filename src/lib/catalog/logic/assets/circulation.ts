@@ -39,9 +39,14 @@ function railing(variant: number) {
 			...row(7, (t) => block(1.175 * t, 0, 0.12, 0.12, 0.12, 0.86, 'frame')),
 			...[0, 0.49, 0.98].map((z) => block(0, 0, z, 2.5, 0.12, 0.12, 'frame'))
 		];
+	const pitch = variant < 3 ? 0 : (Math.floor((variant - 3) / 2) * Math.PI) / 12;
+	const span = variant < 3 ? 2.38 : variant % 2 ? 0.72 : 0.18;
+	const half = (span * Math.cos(pitch)) / 2,
+		rise = span * Math.sin(pitch);
 	return [
-		rod([-1.19, 0, 0.92], [1.19, 0, 0.92], 0.06, 'frame'),
-		...[-1.19, 1.19].map((x) => rod([x, 0, 0], [x, 0, 0.92], 0.06, 'frame'))
+		rod([-half, 0, 0.92], [half, 0, 0.92 + rise], 0.06, 'frame'),
+		rod([-half, 0, 0], [-half, 0, 0.92], 0.06, 'frame'),
+		rod([half, 0, rise], [half, 0, 0.92 + rise], 0.06, 'frame')
 	];
 }
 
@@ -66,7 +71,14 @@ export const circulationObjects: AssetRecipe[] = [
 		...stock,
 		id: 'railing',
 		footprint: [2.5, 0.15],
-		variants: ['standard', 'parapet', 'screen'],
+		variants: [
+			'standard',
+			'parapet',
+			'screen',
+			...Array.from({ length: 6 }, (_, i) =>
+				['short-post', 'closure-post'].map((name) => (i ? name + '-' + 15 * i : name))
+			).flat()
+		],
 		slotNames: ['frame'],
 		draw: railing
 	}
