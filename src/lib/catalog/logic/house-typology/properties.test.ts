@@ -36,23 +36,43 @@ function site(
 }
 const vol = (s: number[]) => s.reduce((v, d) => v * d, 1);
 const area = (polygon: [number, number][]) => Math.abs(ringArea(polygon));
+type OccupiedLevel = HouseComposition['levels'][number];
+function auditBody(b: OccupiedLevel['bodies'][number], floor: number, ceiling: number) {
+	const band = b.band;
+	if (
+		!band?.footprint ||
+		!band.lining ||
+		b.position[2] < floor ||
+		b.position[2] + b.size[2] > ceiling + 1e-7 ||
+		b.size[2] <= 0
+	)
+		return 'occupied contour';
+	if (area(band.lining) > area(band.footprint.polygon) + 1e-7)
+		return 'lining beyond bearing outline';
+}
 function auditLevel(l: HouseComposition['levels'][number], ceiling: number) {
 	if (l.position[2] >= ceiling || l.landing[2] !== l.position[2] || l.deckArea <= 0)
 		return 'occupied level';
 	if (!l.bodies.some((b) => b.position[2] === l.position[2])) return 'unsupported level';
 	for (const b of l.bodies) {
-		const band = b.band;
-		if (
-			!band?.footprint ||
-			!band.lining ||
-			b.position[2] < l.position[2] ||
-			b.position[2] + b.size[2] > ceiling + 1e-7 ||
-			b.size[2] <= 0
-		)
-			return 'occupied contour';
-		if (area(band.lining) > area(band.footprint.polygon) + 1e-7)
-			return 'lining beyond bearing outline';
+		const error = auditBody(b, l.position[2], ceiling);
+		if (error) return error;
 	}
+}
+function auditBase(h: HouseComposition) {
+	const base = h.parts.find((p) => p.slot === 'base');
+	if (
+		base?.kind !== 'prism' ||
+		Math.abs(base.z - h.ground) > 1e-7 ||
+		base.height < 0.6 - 1e-7 ||
+		base.height > 1.2
+	)
+		return 'ground bearing';
+}
+function auditFoot(h: HouseComposition) {
+	const plot = h.cells.reduce((sum, c) => sum + area(c.corners.map(([x, y]) => [x, y])), 0);
+	const foot = h.levels[0].outline.map(([x, y]): [number, number] => [x, y]);
+	if (Math.abs(area(foot) - plot) > 1e-6 && h.ensembleSize === 1) return 'occupied parcel foot';
 }
 function audit(h: HouseComposition) {
 	const shell = h.exterior;
@@ -63,23 +83,16 @@ function audit(h: HouseComposition) {
 		shell.stations.length !== h.levels.length + 1
 	)
 		return 'exterior datums';
-	const plot = h.cells.reduce((sum, c) => sum + area(c.corners.map(([x, y]) => [x, y])), 0);
-	const foot = h.levels[0].outline.map(([x, y]): [number, number] => [x, y]);
-	if (Math.abs(area(foot) - plot) > 1e-6 && h.ensembleSize === 1) return 'occupied parcel foot';
+	const foot = auditFoot(h);
+	if (foot) return foot;
 	for (const [i, l] of h.levels.entries()) {
 		const error = auditLevel(l, shell.stations[i + 1].z);
 		if (error) return error;
 	}
 	if (h.people.some((p) => p.count !== 1 && p.count !== 2) || h.crown.anchor !== 'roof')
 		return 'occupation';
-	const base = h.parts.find((p) => p.slot === 'base');
-	if (
-		base?.kind !== 'prism' ||
-		Math.abs(base.z - h.ground) > 1e-7 ||
-		base.height < 0.6 - 1e-7 ||
-		base.height > 1.2
-	)
-		return 'ground bearing';
+	const bearing = auditBase(h);
+	if (bearing) return bearing;
 	const finding = checkFit(h.parts)[0];
 	if (finding) return JSON.stringify(finding);
 }
