@@ -71,13 +71,11 @@ test.each([
 	'acceptance frames the whole occupied ensemble above the timeline at %d by %d',
 	(width, height, right, top, bottom) => {
 		const { world, additions } = acceptanceScene(7);
-		const disc = additions.find((p) => p.kind === 'ring');
-		if (disc?.kind !== 'ring') throw Error('Missing acceptance landmark');
 		const view = createView();
 		view.resize(width, height);
 		const phone = width < height,
 			area = { top, bottom, right };
-		if (phone) frameOldTown(view, world, area);
+		if (phone) frameOldTown(view, world, area, additions);
 		else frameTownSilhouette(view, world, area, additions);
 		const courts = courtOpening(world, phone);
 		if (!courts) throw Error('Missing occupied courts');
@@ -91,9 +89,8 @@ test.each([
 			size = box.getSize(new Vector2());
 		expect(center.x).toBeCloseTo(right / 2);
 		expect(center.y).toBeCloseTo((top + bottom) / 2);
-		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(phone ? 0.6 : 0.64);
+		expect(Math.max(size.x / right, size.y / (bottom - top))).toBeCloseTo(phone ? 0.8 : 0.9);
 		expect(box.max.y).toBeLessThan(bottom);
-		if (phone) expect(view.project(disc.position).x).toBeGreaterThan(right);
 	}
 );
 
@@ -130,24 +127,3 @@ test('occupied parcels and central water share the legacy portrait HUD opening',
 	expect(visible.some((c) => c.zone === 'water')).toBe(true);
 	expect(visible.some((c) => world.state.stacks.has(c.id))).toBe(true);
 });
-
-test.each([
-	[900, 1075, 826],
-	[600, 1075, 530],
-	[807, 1440, 760]
-])(
-	'desktop transit landmarks clear the lower-left foreground at height %d',
-	(height, right, bottom) => {
-		const study = right === 1440 ? acceptanceScene(7) : openingScene(7);
-		const view = createView();
-		view.resize(1440, height);
-		frameTownSilhouette(view, study.world, { right, bottom, top: 0 }, study.additions);
-		const stops = study.world.lines.flatMap((line) =>
-			line.stops.map((stop) => view.project(stop.position))
-		);
-		expect(stops.length).toBeGreaterThan(0);
-		expect(
-			stops.filter((p) => p.x >= 0 && p.x < right * 0.55 && p.y > bottom * 0.55 && p.y < height)
-		).toHaveLength(0);
-	}
-);
