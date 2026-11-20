@@ -1,3 +1,4 @@
+import { houseStair } from '../../data/house-stair';
 import { area } from '../ansicht/geometrie';
 import type { Primitive } from '../parametrik/types';
 import { expect, test } from 'bun:test';
@@ -41,6 +42,23 @@ function checkWalk(parts: Primitive[], ground: (x: number, y: number) => number)
 	expect(grounded).toBeGreaterThan(total / 2);
 }
 
+function checkTreadGoing(parts: Primitive[]) {
+	const rails = parts.filter(
+		(p) => p.kind === 'pipe' && p.id.startsWith('town-walk/') && p.id.endsWith('/right')
+	);
+	expect(rails.length).toBeGreaterThan(0);
+	for (const rail of rails) {
+		if (rail.kind !== 'pipe') continue;
+		const [a, b] = rail.points;
+		const rise = Math.abs(b[2] - a[2]);
+		if (rise < 1e-8) continue;
+		const count = 1 + Math.ceil((rise - 1e-9) / houseStair.rise);
+		expect(Math.hypot(a[0] - b[0], a[1] - b[1]) / count, rail.id).toBeGreaterThanOrEqual(
+			houseStair.going - 1e-8
+		);
+	}
+}
+
 function checkSeats(world: World, ids: string[], ground: (x: number, y: number) => number) {
 	for (const id of ids) {
 		const c = required(world.grid.cellsById.get(id), 'house');
@@ -72,6 +90,7 @@ for (const [seed, terraceRows] of [
 			const ground = (x: number, y: number) => walkingHeight(world.grid, x, y);
 			const parts = cityCentreView(world);
 			checkWalk(parts, ground);
+			checkTreadGoing(parts);
 			const groups = city.centres.flatMap((c) => c.ensembles);
 			expect(groups.length).toBeGreaterThan(0);
 			for (const g of groups) {

@@ -44,6 +44,11 @@ export function deckCorners(
 	];
 }
 
+/** Number of horizontal treads including the two flush landing ends. */
+export function treadCount(rise: number, maximumRise: number) {
+	return 1 + Math.ceil(Math.abs(rise) / maximumRise);
+}
+
 /** Surveys the walking surfaces and handrail endpoints on a mitered span, in world metres. */
 export function spanSurvey(
 	ring: Ring,
@@ -54,7 +59,7 @@ export function spanSurvey(
 ) {
 	const [a, b, c, d] = ring;
 	const rise = d[2] - a[2],
-		steps = Math.ceil(Math.abs(rise) / profile.treadRise) + 1;
+		steps = treadCount(rise, profile.treadRise);
 	if (steps > 4096) throw new RangeError('Walkway exceeds the tread budget');
 	const edge = (p: Vec3, q: Vec3, j: number): Point =>
 		spanEnd([p[0], p[1]], [q[0], q[1]], j / steps);

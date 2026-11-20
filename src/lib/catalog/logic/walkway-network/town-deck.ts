@@ -11,7 +11,8 @@ import { finishMaterial } from '../material/surface';
 import { hashUnit } from '../../core/random';
 import { townLife } from './town-life';
 
-import { townStations, townSpans, type TownSpan } from './town-stations';
+import { townLinkSurvey, townStations, townSpans, type TownSpan } from './town-stations';
+import { townStairs } from './link-grades';
 const width = 2.5,
 	thickness = 0.2;
 const frame = { role: 'neu', material: 'metal', ...houseSurfaces.frame } as const;
@@ -25,7 +26,7 @@ const deck = {
 function flight(span: TownSpan): Primitive[] {
 	const { a, b, id } = span,
 		ring = deckCorners(a, b, width);
-	const { treads } = spanSurvey(ring, id, width, { thickness, treadRise: 0.17 });
+	const { treads } = spanSurvey(ring, id, width, { thickness, treadRise: townStairs.treadRise });
 	const parts: Primitive[] = treads.map((t) => ({ ...deck, ...t, kind: 'prism' }));
 	for (const [p, q, side] of [
 		[ring[0], ring[3], 'right'],
@@ -152,7 +153,7 @@ export function townDeck(
 	);
 	const ends = new Map(courts.map((c, i) => [c.id, gardens[i].landing]));
 	const stations = townStations(routes, center, ends);
-	const spans = townSpans(routes, stations, ends);
+	const spans = townSpans(townLinkSurvey(routes, stations, ends), stations, ends);
 	const plazas: Primitive[] = terraces.flatMap((t) => t.steps),
 		joints: Primitive[] = [];
 	const visitors = courts.flatMap((c, i) => courtLife(c, seed, true, gardens[i].landing));
@@ -195,8 +196,8 @@ export function townDeck(
 	return [
 		...flushDecks([
 			...plazas,
-			...spans.flatMap((s) => publicFlight(s, ground)),
 			...joints,
+			...spans.flatMap((s) => publicFlight(s, ground)),
 			...meetings
 		]),
 		...planting,

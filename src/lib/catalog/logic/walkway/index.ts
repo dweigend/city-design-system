@@ -5,6 +5,7 @@ import { routeDecks } from './route';
 import { deckParts, WALKWAY_PARAMS, WALKWAY_PROFILE } from './span';
 export { routeDecks };
 export {
+	treadCount,
 	spanSurvey,
 	deckCorners,
 	spanEnd,
