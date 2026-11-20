@@ -11,6 +11,6 @@ export function visibleCourts(world: World, view: View, area?: OpeningArea) {
 	return courtOpening(world)
 		.map((c) => [...c.points, ...c.houses.flat()].map((p) => view.project([p.x, -p.z, p.y])))
 		.filter((points) =>
-			points.every((p) => p.x >= 0 && p.x <= right && p.y >= top && p.y <= bottom)
+			points.every((p) => p.x >= (area?.left ?? 0) && p.x <= right && p.y >= top && p.y <= bottom)
 		);
 }

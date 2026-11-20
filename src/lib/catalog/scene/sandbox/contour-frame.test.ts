@@ -89,9 +89,18 @@ async function exerciseFrames() {
 	const playable = createSandboxStage(clock.canvas(), assert.fail, { frameTown: true });
 	playable.resize(1200, 800);
 	await playable.ready;
+	let openingFits = 0;
+	const fit = playable.view.frameSilhouette;
+	playable.view.frameSilhouette = (...args) => {
+		openingFits++;
+		fit(...args);
+	};
 	playable.show(carrier, 'all');
 	playable.setTime(4.9);
 	clock.draw(1000);
+	assert.equal(openingFits, 0, 'first scene drawn before camera fitting');
+	clock.draw(1016);
+	assert(openingFits > 0, 'opening fitted on the following frame');
 	playable.show(installed, 'all', true);
 	const sample = (seconds: number, stamp: number) => {
 		playable.setTime(seconds);

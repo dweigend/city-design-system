@@ -37,6 +37,7 @@ import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { createView, type OpeningArea } from './view';
 import { createVehicles } from './vehicles';
 import { createTimeline } from './timeline';
+import { collectOpeningGroups } from './court-opening';
 import { createFrameLoop } from './frame-loop';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
@@ -153,6 +154,8 @@ export function createSandboxStage(
 	const flushShadows = () => (shadowsDirty = true);
 	let opening: World | undefined;
 	let framedArea: OpeningArea | undefined;
+	let openingPending = false;
+	let openingDrawn = false;
 
 	function updateStyle() {
 		const scale = 1 / view.metersPerPixel();
@@ -198,7 +201,16 @@ export function createSandboxStage(
 		canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 	}
 
+	function prepareOpening() {
+		if (opening && openingPending && openingDrawn) {
+			openingPending = false;
+			frameOpening(opening, framedArea);
+			viewDirty = shadowsDirty = true;
+		}
+	}
+
 	const loop = createFrameLoop(gpu.isLive, ({ stamp, reduced }) => {
+		prepareOpening();
 		prepareView();
 		const seconds = timeline.sample(stamp);
 		terrain?.setTime(seconds);
@@ -206,6 +218,10 @@ export function createSandboxStage(
 		const transit = vehicles.step(timeline.transitSeconds * 1000);
 		renderImage(structures.shadowChanged);
 		frames.afterDraw();
+		if (opening && openingPending) {
+			openingDrawn = true;
+			render();
+		}
 		if (pickDirty || seating || transit)
 			for (const listener of frameListeners) listener(pickDirty ? undefined : crossedPointer);
 		pickDirty = false;
@@ -268,7 +284,11 @@ export function createSandboxStage(
 			const frame = view.isPortrait() ? (study.portraitFrame ?? study.frame) : study.frame;
 			return view.frameBox(studyBounds(frame), view.isPortrait() ? 1 : OPENING_MARGIN);
 		}
-		if (opening && frameOpening(opening)) return;
+		if (opening) {
+			openingPending = true;
+			framedArea = study.openingArea?.() ?? framedArea;
+			if (openingDrawn) return;
+		}
 		view.frameBox(new THREE.Box3().setFromObject(mesh.surface), OPENING_MARGIN);
 	}
 
@@ -292,6 +312,7 @@ export function createSandboxStage(
 		if (additionSeed === world.seed) structures.queue('study', studyAdditions);
 		terrain = replaceTerrain(world);
 		opening = study.frameTown ? world : undefined;
+		openingDrawn = false;
 		frameTerrain(terrain);
 		return { ...world, state: EMPTY_STATE, lines: [] };
 	}
@@ -328,7 +349,16 @@ export function createSandboxStage(
 							structures.queue(key, parts, cellId, placeAt)
 					};
 		projectChanges(
-			{ terrain: mesh, structures: projection, coarse, earliestFullYear: study.earliestFullYear },
+			{
+				terrain: mesh,
+				structures: projection,
+				coarse,
+				earliestFullYear: study.earliestFullYear,
+				openingGroups:
+					opening === after && before.state === EMPTY_STATE
+						? collectOpeningGroups(after)
+						: undefined
+			},
 			before,
 			after,
 			nextFocus,
@@ -405,10 +435,13 @@ export function createSandboxStage(
 				framedArea?.top === area.top &&
 				framedArea.bottom === area.bottom &&
 				framedArea.right === area.right &&
+				framedArea.left === area.left &&
 				framedArea.reserved === area.reserved
 			)
 				return;
-			if (frameOpening(opening, area)) invalidateView();
+			framedArea = area;
+			openingPending = true;
+			invalidateView();
 		},
 		/**
 		 * Shows a world. A new seed starts over; otherwise only what differs from the world
