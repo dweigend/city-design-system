@@ -1,3 +1,4 @@
+import { plannedPlots } from './planned-ensembles';
 import { composedProjection } from './composed-projection';
 import type { BuildingMethod } from '../../data/sandbox';
 import { buildingPlots } from './building-plots';
@@ -166,9 +167,15 @@ export function houseView(
 const houseGroupKey = ({ built, style }: Phase, id: string) => `${built}/${style}/${id}`;
 
 /** Mass addresses touching the supplied parcels or their facade neighbours. */
-export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Map<string, string> {
+export function affectedHouseGroups(
+	world: World,
+	cellIds: Iterable<string>,
+	terrainChanged = false
+): Map<string, string> {
 	const { plots, ensembles } = houseProjection(world);
-	const edits = ensembleEditCells(world.grid, ensembles, cellIds);
+	const direct = new Set(cellIds);
+	const planned = plannedPlots(world.state);
+	const edits = ensembleEditCells(world.grid, ensembles, direct);
 	const nearby = new Set<QuadCell>();
 	for (const id of edits) {
 		const cell = plots.cellsById.get(id);
@@ -177,8 +184,13 @@ export function affectedHouseGroups(world: World, cellIds: Iterable<string>): Ma
 		for (const neighbor of neighborsOf(plots, cell)) nearby.add(neighbor);
 	}
 	const out = new Map<string, string>();
-	for (const g of composedProjection(world))
-		if (g.planningCells.some((id) => edits.has(id))) out.set('composed/' + g.id, g.chunk);
+	for (const g of composedProjection(world)) {
+		const wholeCourt = terrainChanged || g.cells.some((id) => planned.has(id));
+		const affected = wholeCourt
+			? g.planningCells.some((id) => edits.has(id))
+			: g.cells.some((id) => direct.has(id));
+		if (affected) out.set('composed/' + g.id, g.chunk);
+	}
 	for (const [phase, painted] of constructionPhases(world.state)) {
 		if (phase.style === 'composed') continue;
 		const stacks = visualFloors(painted, world.state.stacks, ensembles);
