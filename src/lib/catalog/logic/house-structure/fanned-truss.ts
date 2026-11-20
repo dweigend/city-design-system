@@ -1,82 +1,85 @@
-import type { HouseStructure, Platform, SkinPatch } from './contract';
+import type { HouseStructure, Platform, SkinPatch, XY } from './contract';
+import { hemPosts, EDGE, type Walk } from './hem';
 import {
 	centre,
 	climb,
 	identity,
+	inset,
 	seatedDeck,
 	shrink,
 	trunk,
-	POST_RADIUS,
-	TIE_RADIUS,
+	FINE_RADIUS,
 	type Plot
 } from './plot';
 
-/** Share of the parcel ring the rod tips reach and the decks cover. */
-const TIP_SHARE = 0.96;
-const DECK_SHARE = 0.55;
-/** Rise of the rod tips above the hub they fan from, metres. */
-const FAN_RISE = 2.6;
+/** Share of the parcel ring the crown covers, and its turn as a share of one face step. */
+const CROWN_SHARE = 0.28;
+const TWIST = 0.5;
+/** Share of the parcel ring a deck covers at ground level, and its loss up to the crown. */
+const DECK_SHARE = 0.5;
+const DECK_TAPER = 0.75;
 /** Share of the way from the trunk to the first parcel corner at which the stair winds. */
 const STAIR_SHARE = 0.25;
 
+function turned(ring: XY[], angle: number): XY[] {
+	const [x, y] = centre(ring),
+		cos = Math.cos(angle),
+		sin = Math.sin(angle);
+	return ring.map(([u, v]): XY => [
+		x + (u - x) * cos - (v - y) * sin,
+		y + (u - x) * sin + (v - y) * cos
+	]);
+}
+
 /**
- * A trunk that fans rods outward at every level. Under each deck at `datums`, metres above
- * ground in ascending order, struts fan from the collar below to the deck corners. At the hub
- * below the trunk head rods fan outward and upward to tips at `height`; each pair of
- * neighbouring tips tensions one sail back to the hub, and a rim cable joins the tips. The
- * sails are an open canopy, not a roof. `height` must exceed the highest deck by more than the
- * fan rise. Convex parcel required.
+ * A trunk inside a twisted tower of cloth. Rods fan from the trunk head to a small crown ring
+ * at `height`, turned by half a face step against the parcel; one cloth per parcel face is
+ * tensioned from the hem posts to its crown edge and so winds as a saddle. Under each deck at
+ * `datums`, metres above ground in ascending order, struts fan from the collar below; decks
+ * narrow towards the crown. `height` must exceed the highest deck. Every face that `walk`
+ * passes lifts its hem as the way in. Convex parcel required.
  */
 export function fannedTrussHouse(
 	plot: Plot,
-	shape: { datums: number[]; height: number }
+	shape: { datums: number[]; height: number; walk?: Walk }
 ): HouseStructure {
-	const ring = plot.parcel.polygon,
-		[x, y] = centre(ring);
-	const heights = [0, ...shape.datums, shape.height - FAN_RISE].map((h) => plot.ground + h);
-	const { nodes, rods, collar } = trunk(plot.id + '/trunk', [x, y], heights);
-	const hub = collar(heights.length - 1);
-	const tip = (corner: number) => plot.id + '/tip/' + (corner % ring.length);
-	const sails: SkinPatch[] = [];
-	shrink(ring, TIP_SHARE).forEach((p, corner) => {
-		nodes.push({ id: tip(corner), position: [...p, plot.ground + shape.height] });
-		rods.push(
-			{
-				id: tip(corner) + '/rod',
-				from: hub,
-				to: tip(corner),
-				radius: POST_RADIUS,
-				action: 'strut'
-			},
-			{
-				id: tip(corner) + '/rim',
-				from: tip(corner),
-				to: tip(corner + 1),
-				radius: TIE_RADIUS,
-				action: 'tie'
-			}
-		);
-		sails.push({
-			id: plot.id + '/sail/' + corner,
-			slot: 'screen',
-			use: plot.use,
-			boundary: [{ node: tip(corner) }, { node: tip(corner + 1) }, { node: hub }],
-			edges: ['cable', 'seam', 'seam'],
-			membrane: { pressure: 0, tension: 3 }
-		});
+	const ring = plot.parcel.polygon;
+	const heights = [0, ...shape.datums, shape.height].map((h) => plot.ground + h);
+	const { nodes, rods, collar } = trunk(plot.id + '/trunk', centre(ring), heights);
+	const hem = hemPosts(plot, inset(ring, EDGE), shape.walk),
+		hub = collar(heights.length - 1);
+	const spin = (TWIST * 2 * Math.PI) / ring.length;
+	const crown = turned(shrink(ring, CROWN_SHARE), spin).map((p, corner) => {
+		const id = plot.id + '/crown/' + corner;
+		nodes.push({ id, position: [...p, plot.ground + shape.height] });
+		rods.push({ id: id + '/rod', from: hub, to: id, radius: FINE_RADIUS, action: 'strut' });
+		return id;
 	});
 	const platforms: Platform[] = shape.datums.map((h, i) => {
-		const { platform, seats } = seatedDeck(plot, i, plot.ground + h, DECK_SHARE);
+		const share = DECK_SHARE * (1 - (DECK_TAPER * h) / shape.height);
+		const { platform, seats } = seatedDeck(plot, i, plot.ground + h, share);
 		for (const { id } of seats)
-			rods.push({ id: id + '/fan', from: collar(i), to: id, radius: POST_RADIUS, action: 'strut' });
+			rods.push({ id: id + '/fan', from: collar(i), to: id, radius: FINE_RADIUS, action: 'strut' });
 		nodes.push(...seats);
 		return platform;
 	});
+	const sails = ring.map((_, face): SkinPatch => ({
+		id: plot.id + '/sail/' + face,
+		slot: 'shell',
+		use: plot.use,
+		boundary: [
+			...hem.grips(face),
+			{ node: crown[(face + 1) % ring.length] },
+			{ node: crown[face] }
+		],
+		edges: ['cable', 'seam', 'cable', 'seam'],
+		membrane: { pressure: 0, tension: 3 }
+	}));
 	return {
 		...identity(plot),
 		principle: 'fanned-truss',
-		nodes,
-		rods,
+		nodes: [...nodes, ...hem.nodes],
+		rods: [...rods, ...hem.rods],
 		platforms,
 		skins: sails,
 		access: climb(plot.ground, 'spiral', platforms, shrink(ring, STAIR_SHARE)[0])

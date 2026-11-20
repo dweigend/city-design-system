@@ -4,7 +4,7 @@ import { terraceFurniture } from './terrace-furniture';
 import { person } from './people';
 import { houseStructure } from './structure';
 import { bodyParts } from './provider';
-import { houseSurfaces, sectionSurfaces, type SectionSurfaces } from './surfaces';
+import { fieldUse, houseSurfaces, sectionSurfaces, type SectionSurfaces } from './surfaces';
 import { accentBody, accentKind } from './accent';
 import type { Section } from './types';
 import { servicePipes } from './service-pipes';
@@ -64,12 +64,19 @@ function occupants(section: Section, surfaces: SectionSurfaces): HousePart[] {
 	);
 }
 
-/** A house that is not layered draws its structure contract; its stair and people stay. */
+/**
+ * A house that is not layered draws its structure contract and keeps its stair. Its cloth wears
+ * the house's own field use; its people stay inside, since the decks they were planned on are
+ * not built.
+ */
 function framedParts(section: Section, surfaces: SectionSurfaces): HousePart[] {
-	const frame = structureHouse(section.composition.structure, surfaces).filter(
+	const { structure } = section.composition,
+		use = fieldUse(section);
+	const skins = structure.skins.map((skin) => ({ ...skin, use }));
+	const frame = structureHouse({ ...structure, skins }, surfaces).filter(
 		(part) => !part.id.endsWith('/access')
 	);
-	return [...frame, ...access(section, surfaces), ...occupants(section, surfaces)];
+	return [...frame, ...access(section, surfaces)];
 }
 
 function cantilever(p: StockPart): HousePart {

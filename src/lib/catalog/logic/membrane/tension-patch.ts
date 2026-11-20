@@ -79,13 +79,15 @@ function yarnLinks(positions: Vec3[], yarns: Map<number, Yarn>, tension: number,
  * Finds a fabric patch between three or four cyclic grips in world metres (Z up).
  * Non-negative pressure in kPa acts along the right-hand normals of the reference faces. Positive yarn tension is in kN/m.
  * The optional hem ratio sets the edge cable force density relative to the field.
+ * `held[i]` keeps the edge from grip i to the next one straight, as a seam on a rod or a neighbour; other edges hang free between their grips.
  * Returns a detached indexed triangle mesh with ordered hem paths, including both end grips.
  * Invalid loads, degenerate rest faces and singular systems throw RangeError. Inputs are preserved.
  */
 export function tensionPatch(
 	grips: PatchGrips,
 	fabric: Fabric,
-	hemRatio = hemTensionFactor
+	hemRatio = hemTensionFactor,
+	held: readonly boolean[] = []
 ): Patch {
 	if (
 		!Number.isFinite(fabric.tension) ||
@@ -96,6 +98,8 @@ export function tensionPatch(
 		throw RangeError('Invalid fabric tension or pressure');
 	if (!Number.isFinite(hemRatio) || hemRatio <= 0) throw RangeError('Invalid hem tension ratio');
 	const patch = patchGrid(grips);
+	for (const [i, edge] of patch.edges.entries())
+		if (held[i]) for (const node of edge) patch.pinned[node] = true;
 	const { loads, yarns } = loadedYarns(patch, fabric.pressure);
 	balanceNet(
 		patch.positions,
