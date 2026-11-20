@@ -1,11 +1,13 @@
 import { expect, test } from 'bun:test';
 import { townSections } from '../../src/lib/catalog/logic/sandbox/composed-projection';
 import { openingScene } from '../../src/lib/catalog/logic/sandbox';
+import { bounds } from '../../src/lib/catalog/logic/ansicht/geometrie';
 import { massGraph } from './masses';
 
 test('six populated opening courts each carry two or three upper wings and one roof head', () => {
 	const world = openingScene(7).world;
 	const { sections } = townSections(world);
+	if (!world.state.city) throw Error('Missing opening town');
 	const results = world.state.city.centres
 		.flatMap((c) => c.ensembles)
 		.flatMap((court) => {
@@ -17,7 +19,7 @@ test('six populated opening courts each carry two or three upper wings and one r
 				composition: {
 					...h.composition,
 					parts: h.composition.parts.filter(
-						(p) => p.position[2] >= h.composition.levels[floor].position[2]
+						(p) => bounds(p).min[2] >= h.composition.levels[floor].position[2]
 					)
 				}
 			}));
