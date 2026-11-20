@@ -19,7 +19,7 @@ import { courseDatums, groundCourse } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior, roomLining } from './parcel-section';
 import { layeredStructure } from './layered-structure';
-import { framedStructure, housePrinciple } from './principle';
+import { ensembleFigure, framedStructure, housePrinciple } from './principle';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
 import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
@@ -409,7 +409,8 @@ export function perimeterHouse(
 	const seat = exterior.stations[0].z;
 	const ensemble = [...context.houses.keys()].sort()[0];
 	const highPoint = role === 'high' && context.houses.size > 1;
-	const principle = housePrinciple(site, !exterior.faces.every(Boolean), highPoint);
+	const figure = ensembleFigure(context.houses, context.seed) === site.id;
+	const principle = housePrinciple(site, !exterior.faces.every(Boolean), highPoint, figure);
 	const layered = layeredStructure({
 		...occupancy,
 		id: site.id,
@@ -443,7 +444,7 @@ export function perimeterHouse(
 						parcel: { polygon: exterior.ring, holes: [] }
 					},
 					[...occupancy.floors.map((course) => course.datum), top],
-					[threshold.position[0], threshold.position[1]]
+					{ from: axis, to: [face[0], face[1]], width: threshold.width }
 				);
 	const structure = { ...built, threshold };
 	return {

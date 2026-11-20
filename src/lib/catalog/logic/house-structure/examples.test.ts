@@ -60,62 +60,79 @@ test('example 1: a layered block is one case of the contract and keeps every bod
 	expect(section.slots).toEqual([...levels.flatMap((l) => l.bodies), crown]);
 });
 
-test('example 2: a single mast hangs two decks under one tent pulled over its brim rods', () => {
+const reach = (p: number[]) => Math.hypot(p[0] - 6, p[1] - 5);
+
+test('example 2: a single mast stands two decks inside a calyx of cloth that flares to its brim', () => {
 	const house = mastHouse(plot, { height: 12, datums: [3, 6] });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 3, GROUND + 6]);
 	expect(elements(house, 'room')).toHaveLength(0);
-	expect(house.nodes.filter((n) => n.founded)).toHaveLength(1);
-	const tent = skinFrame(house, house.skins[0].id);
-	expect(tent.interior).toEqual([[6, 5, GROUND + 12]]);
-	expect(tent.boundary.every((p) => p[2] === GROUND + 12 - 2.2)).toBe(true);
-	expect(tent.edges).toEqual(['cable', 'cable', 'cable', 'cable']);
-	expect(house.roof).toEqual({ kind: 'skin', patches: [house.skins[0].id] });
-	// Small sails drop from every second brim edge to the first raised deck.
-	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(2);
-	expect(elements(house, 'tie')).toHaveLength(8);
+	// The mast and one slender hem post per corner are all that stands on the ground.
+	expect(house.nodes.filter((n) => n.founded)).toHaveLength(5);
+	expect(house.skins.map((s) => s.slot)).toEqual(['shell', 'shell', 'shell', 'shell']);
+	for (const cloth of house.skins) {
+		const { boundary, edges } = skinFrame(house, cloth.id);
+		expect(boundary.map((p) => p[2])).toEqual([0.4, 0.4, 11.2, 11.2].map((h) => GROUND + h));
+		expect(reach(boundary[3])).toBeGreaterThan(reach(boundary[0]) + 2);
+		expect(edges).toEqual(['cable', 'seam', 'cable', 'seam']);
+	}
+	expect(house.roof).toBeUndefined();
+	expect(elements(house, 'tie')).toHaveLength(4);
 });
 
-test('a free-standing mast holds one high lookout under cloth pulled to ground anchors', () => {
-	const house = tentMastHouse(plot, { height: 13, lookout: 8, open: 1 });
+test('a free-standing mast holds one high lookout in a cone of cloth that lifts over the way in', () => {
+	const walk = { from: [6, 5] as [number, number], to: [6, 0.55] as [number, number], width: 1.25 };
+	const house = tentMastHouse(plot, { height: 13, lookout: 8, walk });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 8]);
 	// Nothing but the mast and the ladder stands between the ground and the lookout.
 	expect(elements(house, 'room')).toHaveLength(0);
-	expect(house.skins.map((s) => s.id)).toEqual(['plot/gore/0', 'plot/gore/2', 'plot/gore/3']);
-	for (const gore of house.skins) {
-		const { boundary } = skinFrame(house, gore.id);
-		expect(boundary.map((p) => p[2])).toEqual([GROUND, GROUND, GROUND + 13]);
-	}
+	const hems = house.skins.map((gore) => skinFrame(house, gore.id).boundary.map((p) => p[2]));
+	// One gore per face reaches the tip; no cloth rests on the ground, and the walked face lifts.
+	expect(hems).toEqual([
+		[GROUND + 3, GROUND + 3, GROUND + 13],
+		...[1, 2, 3].map(() => [GROUND + 0.4, GROUND + 0.4, GROUND + 13])
+	]);
+	expect(tentMastHouse(plot, { height: 13, lookout: 8 }).nodes).toHaveLength(
+		house.nodes.length - 2
+	);
 });
 
-test('example 3: an exoskeleton hangs platforms at two datums clear inside its frame', () => {
+test('example 3: an exoskeleton hangs platforms at two datums inside a lantern of cushions', () => {
 	const house = exoskeletonHouse(plot, { height: 12, datums: [4, 8] });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 4, GROUND + 8]);
 	expect(house.platforms.map((p) => Boolean(p.room))).toEqual([true, false]);
 	const posts = house.nodes.filter((n) => n.founded).map((n) => n.position);
-	const reach = (p: number[]) => Math.hypot(p[0] - 6, p[1] - 5);
 	for (const platform of house.platforms)
 		for (const [i, corner] of platform.outline.entries())
 			expect(reach(corner)).toBeLessThan(reach(posts[i]) - 1);
-	expect(house.skins.filter((s) => s.slot === 'screen')).toHaveLength(2);
+	expect(house.skins).toHaveLength(4);
+	for (const cushion of house.skins) {
+		const { boundary } = skinFrame(house, cushion.id);
+		// Inflated cloth from the hem to a head ring half as wide as the parcel.
+		expect(cushion.slot).toBe('shell');
+		expect(cushion.membrane?.pressure).toBeGreaterThan(0);
+		expect(boundary.map((p) => p[2])).toEqual([0.4, 0.4, 12, 12].map((h) => GROUND + h));
+		expect(reach(boundary[3])).toBeLessThan(0.6 * reach(boundary[0]));
+	}
 });
 
-test('example 4: a fanned truss throws rods outward and tensions a sail between each pair', () => {
+test('example 4: a fanned truss winds one cloth per face up to a turned crown', () => {
 	const house = fannedTrussHouse(plot, { datums: [3, 6], height: 11 });
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.roof).toBeUndefined();
 	expect(house.platforms).toHaveLength(2);
 	expect(house.skins).toHaveLength(4);
 	for (const sail of house.skins) {
-		const { boundary, pull } = skinFrame(house, sail.id);
-		// Two rod tips above and outside the decks, tied back to the hub on the trunk.
-		expect(boundary[0][2]).toBe(GROUND + 11);
-		expect(boundary[1][2]).toBe(GROUND + 11);
-		expect(boundary[2]).toEqual([6, 5, GROUND + 11 - 2.6]);
-		expect(Math.hypot(boundary[0][0] - 6, boundary[0][1] - 5)).toBeGreaterThan(5);
-		expect(pull[0][2]).toBeLessThan(0);
+		const { boundary } = skinFrame(house, sail.id);
+		expect(boundary.map((p) => p[2])).toEqual([0.4, 0.4, 11, 11].map((h) => GROUND + h));
+		// The crown is small and turned half a face step against the hem below it.
+		expect(reach(boundary[3])).toBeLessThan(0.35 * reach(boundary[0]));
+		const angle = (p: number[]) => Math.atan2(p[1] - 5, p[0] - 6);
+		const turn = (angle(boundary[3]) - angle(boundary[0]) + 2 * Math.PI) % (2 * Math.PI);
+		expect(turn).toBeGreaterThan(0.5);
+		expect(turn).toBeLessThan(1.1);
 	}
 	// Under every deck four struts fan from the collar below.
 	expect(house.rods.filter((r) => r.id.endsWith('/fan'))).toHaveLength(8);

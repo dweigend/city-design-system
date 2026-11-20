@@ -1,108 +1,101 @@
+import type { Vec3 } from '../parametrik/types';
 import type { HouseStructure, Platform, Rod, SkinPatch, StructureNode } from './contract';
+import { hemPosts, EDGE, type Walk } from './hem';
 import {
 	climb,
 	identity,
-	posts,
+	inset,
 	shrink,
+	turn,
 	PLATE,
-	POST_RADIUS,
+	FINE_RADIUS,
 	ROOM_CLEARANCE,
 	TIE_RADIUS,
 	type Plot
 } from './plot';
 
-/** Share of the parcel ring on which the outer frame stands and inside which rooms hang. */
-const FRAME_SHARE = 0.96;
-const ROOM_SHARE = 0.62;
-/** Share of the ring at which the stair climbs, between the rooms and the frame. */
-const STAIR_SHARE = 0.8;
+/** Share of the parcel ring the head ring covers, and of the lantern's width a room fills. */
+const HEAD_SHARE = 0.5;
+const ROOM_FILL = 0.8;
+/** Gauge pressure of the cushions in kPa and their tension in kN/m. */
+const CUSHION = { pressure: 0.25, tension: 3 };
+/** Share of the ring at which the stair climbs, inside the rooms. */
+const STAIR_SHARE = 0.3;
 
 /**
- * An outer frame of posts, a head ring and tie braces. Platforms hang clear inside it on
- * brackets at `datums`, metres above ground in ascending order below `height`; every second
- * one, starting with the lowest, encloses a room. Screens are tensioned over every second face
- * from the first datum to the head, and a cloth closes the head ring.
- * Convex parcel required.
+ * A lantern of cushions on an outer frame. Slender posts lean from the parcel corners to a
+ * smaller head ring at `height`; one inflated cloth per parcel face fills the frame from the
+ * hem to the head, so the house is one use-coloured pillow body. Platforms hang inside on ties
+ * from the head ring at `datums`, metres above ground in ascending order below `height`, and
+ * narrow with the lantern; every second one, starting with the lowest, encloses a room. Every
+ * face that `walk` passes lifts its hem as the way in. Convex parcel required.
  */
 export function exoskeletonHouse(
 	plot: Plot,
-	shape: { height: number; datums: number[] }
+	shape: { height: number; datums: number[]; walk?: Walk }
 ): HouseStructure {
-	const ring = shrink(plot.parcel.polygon, FRAME_SHARE),
-		inner = shrink(plot.parcel.polygon, ROOM_SHARE);
-	const heights = [0, ...shape.datums, shape.height].map((h) => plot.ground + h);
-	const top = heights.length - 1;
-	const frame = posts(plot.id, ring, heights);
-	const nodes: StructureNode[] = [...frame.nodes],
-		rods: Rod[] = [...frame.rods];
-	const next = (corner: number) => (corner + 1) % ring.length;
-	ring.forEach((_, corner) => {
-		const beam = { radius: POST_RADIUS, action: 'strut' as const };
-		const brace = { radius: TIE_RADIUS, action: 'tie' as const };
-		const head = frame.name(corner, top);
-		rods.push({ id: head + '/ring', from: head, to: frame.name(next(corner), top), ...beam });
-		rods.push({
-			id: frame.name(corner, 0) + '/brace',
-			from: frame.name(corner, 0),
-			to: frame.name(next(corner), 1),
-			...brace
-		});
+	const ring = plot.parcel.polygon,
+		count = ring.length;
+	const top = plot.ground + shape.height;
+	const heads = shrink(ring, HEAD_SHARE).map((p): Vec3 => [...p, top]);
+	const hem = hemPosts(plot, inset(ring, EDGE), shape.walk, heads);
+	const head = (corner: number) => plot.id + '/head/' + (corner % count);
+	const nodes: StructureNode[] = [...hem.nodes],
+		rods: Rod[] = [...hem.rods];
+	heads.forEach((position, corner) => {
+		const strut = { radius: FINE_RADIUS, action: 'strut' as const };
+		nodes.push({ id: head(corner), position });
+		rods.push({ id: head(corner) + '/post', from: hem.top(corner), to: head(corner), ...strut });
+		rods.push({ id: head(corner) + '/ring', from: head(corner), to: head(corner + 1), ...strut });
 	});
-	const platforms: Platform[] = shape.datums.map((_, k) => {
+	const levels = [...shape.datums, shape.height];
+	const platforms: Platform[] = shape.datums.map((h, k) => {
 		const id = plot.id + '/room/' + k,
-			datum = heights[k + 1];
-		const bearers = inner.map(([x, y], corner) => {
+			datum = plot.ground + h;
+		const share = ROOM_FILL * (1 - ((1 - HEAD_SHARE) * levels[k + 1]) / shape.height);
+		const outline = shrink(ring, share);
+		const bearers = outline.map(([x, y], corner) => {
 			const seat = id + '/seat/' + corner;
 			nodes.push({ id: seat, position: [x, y, datum] });
 			rods.push({
-				id: seat + '/bracket',
-				from: frame.name(corner, k + 1),
+				id: seat + '/hanger',
+				from: head(corner),
 				to: seat,
-				radius: POST_RADIUS,
-				action: 'strut'
+				radius: TIE_RADIUS,
+				action: 'tie'
 			});
 			return seat;
 		});
+		const room = { height: levels[k + 1] - h - ROOM_CLEARANCE };
 		return {
 			id,
 			datum,
 			thickness: PLATE,
-			outline: inner,
+			outline,
 			bearers,
 			programme: [plot.use],
-			...(k % 2 ? {} : { room: { height: heights[k + 2] - datum - ROOM_CLEARANCE } })
+			...(k % 2 ? {} : { room })
 		};
 	});
-	const screens = ring.flatMap((_, corner): SkinPatch[] => {
-		if (corner % 2) return [];
-		return [
-			{
-				id: plot.id + '/screen/' + corner,
-				slot: 'screen',
-				use: plot.use,
-				boundary: [
-					{ node: frame.name(corner, 1) },
-					{ node: frame.name(next(corner), 1) },
-					{ node: frame.name(next(corner), top) },
-					{ node: frame.name(corner, top) }
-				]
-			}
-		];
+	const cushions = ring.map((_, face): SkinPatch => {
+		const loop = [...hem.grips(face), { node: head(face + 1) }, { node: head(face) }];
+		return {
+			id: plot.id + '/cushion/' + face,
+			slot: 'shell',
+			use: plot.use,
+			// Pressure acts along the right-hand normal: the loop runs counterclockwise from outside.
+			boundary: turn(ring) > 0 ? loop : [loop[1], loop[0], loop[3], loop[2]],
+			edges: ['cable', 'seam', 'seam', 'seam'],
+			membrane: CUSHION
+		};
 	});
-	const cover: SkinPatch = {
-		id: plot.id + '/cover',
-		slot: 'shell',
-		use: plot.use,
-		boundary: ring.map((_, corner) => ({ node: frame.name(corner, top) }))
-	};
 	return {
 		...identity(plot),
 		principle: 'exoskeleton',
 		nodes,
 		rods,
 		platforms,
-		skins: [...screens, cover],
-		access: climb(plot.ground, 'stair', platforms, shrink(plot.parcel.polygon, STAIR_SHARE)[0]),
-		roof: { kind: 'skin', patches: [cover.id] }
+		skins: cushions,
+		access: climb(plot.ground, 'stair', platforms, shrink(ring, STAIR_SHARE)[0])
 	};
 }
