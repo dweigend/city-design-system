@@ -82,15 +82,9 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const pipeline = studioPipeline(
-		renderer,
-		scene,
-		view.camera,
-		study.quality,
-		view.camera.far - view.camera.near
-	);
+	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
 	const light = pipeline.light;
-	const structures = createStructures(study.quality, true);
+	const structures = createStructures(study.quality, true, light.shade);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
@@ -179,7 +173,7 @@ export function createSandboxStage(
 			view.elevation()
 		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
-		if (tones) light.setTone(tones.blei, paper);
+		if (tones) light.setPaper(paper);
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;
@@ -365,8 +359,7 @@ export function createSandboxStage(
 	}
 
 	function worldShown(world: World, nextFocus: FocusId) {
-		if (study.showFrameStudy || nextFocus === 'infrastructure') frames.show(world, nextFocus);
-		else frames.clear();
+		frames.show(world, nextFocus, Boolean(study.showFrameStudy || nextFocus === 'infrastructure'));
 		focus = nextFocus;
 		shown = world;
 		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);

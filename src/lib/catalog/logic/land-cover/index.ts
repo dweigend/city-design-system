@@ -91,7 +91,7 @@ function tree(
 		(i) => ({
 			...common,
 			id: i === 0 ? `${cell.id}:tree${slot}` : `${cell.id}:crown${slot}:${i}`,
-			token: '--cat-nature'
+			token: '--cat-foliage'
 		}),
 		undefined,
 		formProfile

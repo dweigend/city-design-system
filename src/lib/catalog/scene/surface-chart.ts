@@ -28,6 +28,9 @@ export function chartSurface(g: BufferGeometry, kind: Primitive['kind'], rotatio
 		);
 		uv.push((x + 0.39 * z) / 1.39, (y + 0.81 * z) / 1.81);
 	}
+	const extents = new Float32Array(pos.count * 3);
+	for (let i = 0; i < pos.count; i++) size.toArray(extents, i * 3);
+	g.setAttribute('surfaceExtents', new Float32BufferAttribute(extents, 3));
 	g.setAttribute('grainAxis', new Float32BufferAttribute(grainAxis, 3));
 	g.setAttribute('finishChart', new Float32BufferAttribute(chart, 4));
 	g.setAttribute('uv', new Float32BufferAttribute(uv, 2));

@@ -15,6 +15,7 @@ export const surfaceTokens = [
 	'--cat-business-3',
 	'--cat-business-2',
 	'--cat-nature-2',
+	'--cat-foliage',
 	'--cat-hazard',
 	'--paper',
 	'--ink',

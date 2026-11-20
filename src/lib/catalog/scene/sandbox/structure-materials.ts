@@ -28,7 +28,11 @@ import { STRUCTURE_PARAMS, type MinimumInk } from './view-params';
 export type StructureMaterials = ReturnType<typeof structureMaterials>;
 
 /** Materials for the model, paper, silhouette and the two interpretations of structural lines. */
-export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
+export function structureMaterials(
+	quality?: StudioQuality,
+	cityEdges = false,
+	shadeStock = (tone: THREE.Node<'vec3'>) => tone
+) {
 	const contours = cityEdges ? undefined : plateContours();
 	let envelopeShadows = true;
 	let minContourPx = STRUCTURE_PARAMS.minContourPx.default;
@@ -50,14 +54,14 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
 		}),
-		stock: new BodyMaterial({
+		stock: new THREE.MeshBasicNodeMaterial({
 			polygonOffset: true,
 			polygonOffsetFactor: 1,
 			polygonOffsetUnits: 1
 		}),
 		stockDetail: new THREE.Line2NodeMaterial(),
 		stockSheet: new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide }),
-		pencil: new THREE.Line2NodeMaterial({ transparent: cityEdges, opacity: cityEdges ? 0.4 : 1 }),
+		pencil: new THREE.Line2NodeMaterial({ transparent: cityEdges, opacity: cityEdges ? 0.72 : 1 }),
 		detail: new THREE.Line2NodeMaterial(),
 		rail: new THREE.Line2NodeMaterial(),
 		carrierInk: new THREE.Line2NodeMaterial(),
@@ -115,11 +119,9 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 	for (const material of [materials.solid, materials.sheet, materials.pod])
 		material.castShadowPositionNode = cityEdges ? positionLocal : positionLocal.add(localShift);
 	const graphite = uniform(new THREE.Color());
-	materials.stock.colorNode = cityEdges
-		? mix(paperTone.rgb, graphite.rgb, 0.16)
-		: pencilStock(paperTone.rgb, graphite.rgb);
+	materials.stock.colorNode = shadeStock(pencilStock(paperTone.rgb, graphite.rgb));
 	materials.sheet.colorNode = materials.solid.colorNode;
-	materials.stockSheet.colorNode = paperTone;
+	materials.stockSheet.colorNode = materials.stock.colorNode;
 
 	function applyTones(g: ReturnType<typeof grammatik>) {
 		palette = g;
@@ -135,7 +137,7 @@ export function structureMaterials(quality?: StudioQuality, cityEdges = false) {
 		materials.stockSheet.color.copy(paper);
 		materials.glass.color.copy(g.weiss);
 		materials.ghost.color.copy(g.blei);
-		materials.pencil.color.copy(g.blei);
+		materials.pencil.color.copy(g.paper).lerp(g.ink, 0.56);
 		materials.stockDetail.color.copy(g.blei);
 		materials.detail.color.copy(g.detail);
 		materials.rail.color.copy(g.detail);

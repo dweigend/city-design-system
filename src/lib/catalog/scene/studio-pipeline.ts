@@ -1,4 +1,3 @@
-import { cityEdge } from './city-edges';
 import { metallUmgebung } from './materialMetallUmgebung';
 import * as THREE from 'three/webgpu';
 import { mix, pass, vec4 } from 'three/tsl';
@@ -12,8 +11,7 @@ export function studioPipeline(
 	renderer: THREE.WebGPURenderer,
 	scene: THREE.Scene,
 	camera: THREE.Camera,
-	quality = studioQuality(),
-	cityDepthRangeM?: number
+	quality = studioQuality()
 ) {
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 	renderer.toneMapping = THREE.NeutralToneMapping;
@@ -32,21 +30,19 @@ export function studioPipeline(
 	const contact = ao(beauty.getTextureNode('depth'), null, camera);
 	contact.resolutionScale = config.aoScale;
 	contact.samples.value = config.aoSamples;
-	contact.radius.value = 2.4;
-	contact.thickness.value = 0.9;
+	contact.radius.value = 0.8;
+	contact.scale.value = 2.4;
+	contact.thickness.value = 0.7;
 	const pipeline = new THREE.RenderPipeline(renderer);
-	const shaded = face.rgb.mul(mix(cityDepthRangeM ? 0.26 : 0.55, 1, contact.getTextureNode().r));
-	const fill = cityDepthRangeM
-		? shaded.mul(cityEdge(beauty.getTextureNode('depth'), cityDepthRangeM).oneMinus())
-		: shaded;
-	pipeline.outputNode = vec4(fill, face.a);
+	const shaded = face.rgb.mul(mix(0.22, 1, contact.getTextureNode().r));
+	pipeline.outputNode = vec4(shaded, face.a);
 	return {
 		light,
 		/** Keeps contact visible across town blocks as the orthographic footprint grows. */
 		setTownFootprint(metersPerPixel: number) {
-			const radius = THREE.MathUtils.clamp(2 * metersPerPixel, 0.3, 0.8);
+			const radius = THREE.MathUtils.clamp((3 * metersPerPixel) / config.aoScale, 0.55, 1.65);
 			contact.radius.value = radius;
-			contact.thickness.value = radius * 0.375;
+			contact.thickness.value = radius * 0.85;
 		},
 		render: () => pipeline.render(),
 		dispose() {

@@ -22,7 +22,13 @@ test('forest defaults retain the seed-7 geometry, part IDs and order from 9697b4
 	const grid = squareGrid(6, 6, 5, 6);
 	const cover: Cover = new Map(grid.cells.map((cell) => [cell.id, 'forest']));
 	const defaults = forestChunk(grid, cover, '0:0', 7);
-	expect(fingerprint(defaults)).toBe(
+	expect(
+		defaults.filter((p) => !p.id.includes(':trunk')).every((p) => p.token === '--cat-foliage')
+	).toBe(true);
+	const originalInk = defaults.map((p) =>
+		p.token === '--cat-foliage' ? { ...p, token: '--cat-nature' } : p
+	);
+	expect(fingerprint(originalInk)).toBe(
 		'b0800045ebdda3d2f1d2357679595d967df505db5a1a31ae687f773b97541799'
 	);
 	const tree = resolveParams(TREE_PARAMS, { trunkRadiusMin: 0.5 });
@@ -160,7 +166,7 @@ test('removing the last nearby house clears only its local stair ink', () => {
 	expect(stairs.every((c) => ink(c.index) === 0)).toBe(true);
 });
 
-test('night shadows cannot brighten the paper while daytime still uses the drawing shadow tone', () => {
+test('night shadows cannot brighten the paper while daytime keeps the shared warm-grey shadow', () => {
 	const light = createStudioLight();
 	const readTone = () => {
 		let tone: Vector3 | undefined;
@@ -170,9 +176,10 @@ test('night shadows cannot brighten the paper while daytime still uses the drawi
 		return tone?.toArray();
 	};
 	try {
-		light.setTone(new Color(0.8, 0.8, 0.8), new Color(0.96, 0.96, 0.96));
-		expect(readTone()).toEqual([0.8, 0.8, 0.8]);
-		light.setTone(new Color(0.02, 0.02, 0.02), new Color(0.006, 0.007, 0.008));
+		const studioTone = readTone();
+		light.setPaper(new Color(0.96, 0.96, 0.96));
+		expect(readTone()).toEqual(studioTone);
+		light.setPaper(new Color(0.006, 0.007, 0.008));
 		expect(readTone()).toEqual([0.006, 0.007, 0.008]);
 	} finally {
 		light.dispose();

@@ -87,3 +87,20 @@ test('painted steel shares an age-specific material across geometries', () => {
 		library.dispose();
 	}
 });
+
+test('frosted acrylic transmits through a tinted volume and metal punches cast holes', () => {
+	const library = createMaterialLibrary();
+	try {
+		const acrylic = library.material(resolveFinish('acryl-matt', '--paper'));
+		const sheet = library.material(resolveFinish('perforated-metal', '--paper'));
+		if (!(acrylic instanceof MeshPhysicalNodeMaterial && sheet instanceof MeshPhysicalNodeMaterial))
+			throw Error('Expected physical finishes');
+		expect(acrylic.transmission).toBeGreaterThan(0.5);
+		expect(acrylic.thickness).toBeGreaterThan(0);
+		expect(acrylic.attenuationColor).toEqual(acrylic.color);
+		expect(sheet.maskNode).toBeTruthy();
+		expect(sheet.maskShadowNode).toBe(sheet.maskNode);
+	} finally {
+		library.dispose();
+	}
+});

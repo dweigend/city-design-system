@@ -1,7 +1,11 @@
-import { terrazzoChips } from './pattern-density';
-import type { Node } from 'three/webgpu';
+import { pavingFlecks, terrazzoChips } from './pattern-density';
+import { Mesh, Vector3, type Node } from 'three/webgpu';
 import {
+	Fn,
+	attribute,
 	color,
+	uniform,
+	modelScale,
 	float,
 	mix,
 	mx_noise_float,
@@ -29,9 +33,25 @@ function guss(base: Node<'vec3'>, p: Node<'vec3'>) {
 }
 
 function zuschlag(base: Node<'vec3'>, p: Node<'vec3'>) {
-	const chips = terrazzoChips(p, 1.7);
-	const ground = mix(base, color('#424348'), chips.negate().max(0));
-	return { farbe: mix(ground, color('#f5dfbb'), chips.max(0)), hoehe: chips, relief: 0 };
+	const dimensions = Fn((builder) => {
+		if (builder.geometry.hasAttribute('surfaceExtents')) return attribute('surfaceExtents', 'vec3');
+		return uniform(new Vector3()).onObjectUpdate(({ object }, node) => {
+			if (!(object instanceof Mesh)) return node.value;
+			const geometry = object.geometry;
+			if (!geometry.boundingBox) geometry.computeBoundingBox();
+			return geometry.boundingBox?.getSize(node.value) ?? node.value;
+		});
+	})().mul(modelScale.abs());
+	const fine = dimensions.x.min(dimensions.y).min(dimensions.z).lessThan(3);
+	const large = terrazzoChips(p, 1.7);
+	const small = pavingFlecks(p);
+	const coarse = mix(
+		mix(base, color('#777471'), large.negate().max(0)),
+		color('#ead9be'),
+		large.max(0)
+	);
+	const fineFace = base.mul(small.mul(0.1).add(1));
+	return { farbe: fine.select(fineFace, coarse), hoehe: float(0), relief: 0 };
 }
 
 function bruchAbstand(p: Node<'vec3'>) {

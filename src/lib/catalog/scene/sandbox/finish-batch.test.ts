@@ -96,12 +96,44 @@ test('different forms share one draw mesh per selected finish', async () => {
 			terrazzo.material,
 			pool.explicit.material(resolveFinish('beton-terrazzo', forms.mesh.token))
 		);
-		for (const attribute of ['position', 'normal', 'uv', 'finishChart']) {
+		for (const attribute of ['position', 'normal', 'uv', 'finishChart', 'surfaceExtents']) {
 			const values = glaze.geometry.getAttribute(attribute).array;
 			assert.ok(values.length && values.every(Number.isFinite));
 			assert.deepEqual(values, terrazzo.geometry.getAttribute(attribute).array);
 		}
 		for (const hit of hits) hit.geometry.dispose();
+	} finally {
+		pool.dispose();
+		bearing.dispose();
+	}
+});
+
+test('a deck and plinth retain their individual terrazzo scale in one draw', async () => {
+	const [{ structureMaterials }, { populateStructures }] = await loadStructureModules();
+	const pool = structureMaterials();
+	const bearing = new SphereGeometry();
+	try {
+		const group = populateStructures(
+			[0.25, 5].map((depth) => ({
+				...forms.box,
+				finish: 'beton-terrazzo',
+				size: [5, 5, depth]
+			})),
+			pool,
+			bearing
+		);
+		const hits: Mesh[] = group.userData.hits;
+		assert.equal(hits.length, 1);
+		const extents = hits[0].geometry.getAttribute('surfaceExtents');
+		const shortest = new Set<number>();
+		for (let i = 0; i < extents.count; i++) {
+			shortest.add(Math.min(extents.getX(i), extents.getY(i), extents.getZ(i)));
+		}
+		assert.deepEqual(
+			[...shortest].sort((a, b) => a - b),
+			[0.25, 5]
+		);
+		hits[0].geometry.dispose();
 	} finally {
 		pool.dispose();
 		bearing.dispose();

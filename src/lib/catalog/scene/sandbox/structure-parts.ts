@@ -95,7 +95,10 @@ export function populateStructures(
 	const mesh = (faces: Batch['neu'], material: THREE.Material, pick = false) => {
 		if (!faces.p.length) return;
 		const object = new THREE.Mesh(printGeometry(faces), material);
-		object.receiveShadow = material instanceof THREE.MeshStandardNodeMaterial;
+		object.receiveShadow =
+			material === materials.stock ||
+			material === materials.stockSheet ||
+			material instanceof THREE.MeshStandardNodeMaterial;
 		objects.add(object);
 		if (pick) hits.push(object);
 		return object;

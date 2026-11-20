@@ -19,6 +19,10 @@ export type OpeningArea = { top: number; bottom: number };
 
 export type View = ReturnType<typeof createView>;
 
+function waterfrontCenter(center: number, lowerTown: number, shore: number, room: number) {
+	return lowerTown - shore < room * 0.75 ? Math.min(center, shore + room * 0.235) : center;
+}
+
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
 export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
 	const opening = resolveParams(OPENING_VIEW_PARAMS, undefined, overrides);
@@ -88,6 +92,15 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	}
 
 	apply();
+	function fitLandmark(center: THREE.Vector2, up: THREE.Vector3, room: number, landmark?: Vec3) {
+		if (!landmark) return;
+		const [x, y, z] = landmark;
+		const mark = new THREE.Vector3(x, z, -y);
+		const projected = new THREE.Vector2(mark.dot(right), mark.dot(up));
+		const inset = new THREE.Vector2(width, room).multiplyScalar(metersPerPixel() * 0.36);
+		center.clamp(projected.clone().sub(inset), projected.clone().add(inset));
+	}
+
 	return {
 		camera,
 		target,
@@ -142,7 +155,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			points: THREE.Vector3[],
 			anchor?: THREE.Vector3,
 			area?: OpeningArea,
-			landmark?: Vec3
+			landmark?: Vec3,
+			shore?: THREE.Vector3
 		) {
 			if (elevationRad !== Math.PI / 2)
 				elevationRad = anchor ? (opening.mobileElevationDeg * Math.PI) / 180 : BLICK.hoeheRad;
@@ -157,20 +171,10 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			span = Math.min(SPAN_MAX, Math.max(SPAN_MIN, fit));
 			const center = bounds.getCenter(new THREE.Vector2());
 			const depth = (anchor ?? new THREE.Box3().setFromPoints(points).getCenter(target)).dot(eye);
-			if (anchor) {
-				// Center the editable parcel while keeping the whole cluster between the controls.
-				const margin = new THREE.Vector2(width, room).multiplyScalar(span / (2 * height));
-				center
-					.set(anchor.dot(right), anchor.dot(up))
-					.clamp(bounds.max.clone().sub(margin), bounds.min.clone().add(margin));
-			}
-			if (landmark) {
-				const [x, y, z] = landmark;
-				const mark = new THREE.Vector3(x, z, -y);
-				const projected = new THREE.Vector2(mark.dot(right), mark.dot(up));
-				const inset = new THREE.Vector2(width, room).multiplyScalar(metersPerPixel() * 0.36);
-				center.clamp(projected.clone().sub(inset), projected.clone().add(inset));
-			}
+			if (anchor) center.set(anchor.dot(right), anchor.dot(up));
+			if (shore)
+				center.y = waterfrontCenter(center.y, bounds.min.y, shore.dot(up), room * metersPerPixel());
+			fitLandmark(center, up, room, landmark);
 			target.copy(eye).multiplyScalar(depth);
 			target.addScaledVector(right, center.x).addScaledVector(up, center.y);
 			apply();
