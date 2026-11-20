@@ -1,5 +1,5 @@
 import type { OpeningProjection, OpeningScreen } from './opening-projection';
-import { desktopComposition, surroundings } from './opening-composition';
+import { ensembleComposition, surroundings } from './opening-composition';
 import { Box2, Vector2 } from 'three/webgpu';
 import type { View } from './view';
 
@@ -92,10 +92,10 @@ function readableGroup(
 	bodies: Box2[],
 	height: number,
 	scale: number,
-	min: number
+	sizes: typeof desktopSizes
 ) {
 	return (
-		height >= min &&
+		height >= sizes.min &&
 		bodies.length >= Math.min(2, data.courts.length) &&
 		separated(bodies, 12 / scale)
 	);
@@ -118,7 +118,7 @@ function readableCourts(data: OpeningProjection, crop: Crop, mode: ScoreMode) {
 	if (mode === 'clearance') return [];
 	if (data.courts.length && !visible.length) return;
 	const bodies = visible.map((i) => coverage(data.houses[i]));
-	if (mode === 'rank' && !readableGroup(data, bodies, height, scale, sizes.min)) return;
+	if (mode === 'rank' && !readableGroup(data, bodies, height, scale, sizes)) return;
 	return sceneComposition(data, crop, { visible, homes, bodies, height }, mode);
 }
 
@@ -134,10 +134,12 @@ function sceneComposition(
 	mode: ScoreMode
 ) {
 	const { visible, homes, bodies, height } = group;
-	const builtDesktop = crop.sizes === desktopSizes && bodies.length >= 2;
+	const portrait = crop.sizes === phoneSizes;
+	if (portrait && bodies.length > 2) return;
+	const built = bodies.length >= Math.min(2, data.courts.length) && bodies.length > 0;
 	const spread = coverage(bodies);
-	if (!surroundings(data, homes, crop.hud, crop.safe, spread, !builtDesktop)) return;
-	if (builtDesktop) return desktopComposition(bodies, data.stock, crop.safe, crop.scale);
+	if (!surroundings(data, homes, crop.hud, crop.safe, spread, !built)) return;
+	if (built) return ensembleComposition(bodies, data.stock, crop.safe, crop.scale, portrait);
 	if (mode === 'context') return [];
 	const courtBox = coverage(visible.map((i) => data.courts[i]));
 	return rankComposition({ ...crop, spread, bodies, courtBox, height });

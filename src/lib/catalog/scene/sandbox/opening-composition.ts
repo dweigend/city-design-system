@@ -6,8 +6,14 @@ function area(box: Box2) {
 	return size.x * size.y;
 }
 
-/** Rates the two-dimensional framing of complete built silhouettes in the usable desktop image. */
-export function desktopComposition(bodies: Box2[], stock: Box2[], safe: Box2, scale: number) {
+/** Rates the two-dimensional framing of complete built silhouettes in the usable HUD opening. */
+export function ensembleComposition(
+	bodies: Box2[],
+	stock: Box2[],
+	safe: Box2,
+	scale: number,
+	portrait = false
+) {
 	const frame = area(safe);
 	const centre = safe.getCenter(new Vector2());
 	const size = safe.getSize(new Vector2());
@@ -25,14 +31,16 @@ export function desktopComposition(bodies: Box2[], stock: Box2[], safe: Box2, sc
 	const stockShare = historic.reduce((sum, box) => sum + area(box), 0) / frame;
 	if (stockShare > 0.2 || historic.some((box) => box.intersectsBox(centralRegion))) return;
 	const extent = area(subject) / frame;
-	if (historic.length && extent < 0.45) return;
+	const min = portrait ? 0.4 : 0.45;
+	const max = portrait ? 0.5 : 0.58;
+	if (historic.length && extent < min) return;
 	const mass = bodies.reduce((sum, body) => sum + area(body), 0) / frame;
 	const middle = subject.getCenter(new Vector2());
 	const drift = middle.clone().sub(centre).divide(size).length();
 	const gap = Math.min(...bodies.map((body) => body.distanceToPoint(middle))) / size.x;
 	const penalty =
-		Math.max(0, 0.45 - extent, extent - 0.58) + Math.max(0, 0.21 - mass, drift - 0.12, gap - 0.1);
-	return [1, -penalty, 1, -gap - drift * 0.35 + mass * 0.22, -Math.abs(extent - 0.5)];
+		Math.max(0, min - extent, extent - max) + Math.max(0, 0.21 - mass, drift - 0.12, gap - 0.1);
+	return [1, -penalty, 1, -gap - drift * 0.35 + mass * 0.22, -Math.abs(extent - (min + max) / 2)];
 }
 
 function corners(box: Box2) {
