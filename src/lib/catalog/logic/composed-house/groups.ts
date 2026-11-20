@@ -92,12 +92,7 @@ export function paintedSections(grid: QuadGrid, stacks: Stacks, seed: number, su
 	return ensembles(grid, sites, survey.courtFor).flatMap((ensemble) => {
 		const context = planEnsemble(ensemble, seed);
 		const planningCells = ensemble.flatMap((site) => site.cells.map((cell) => cell.id));
-		return ensemble.map((site) => {
-			const court = survey.courtFor?.(site.cells[0].id);
-			const isolated = !context.houses.get(site.cells[0].id)?.frontage;
-			const envelope = court !== undefined && isolated ? {} : undefined;
-			return { ...planHouse({ ...site, envelope, context }), planningCells };
-		});
+		return ensemble.map((site) => ({ ...planHouse({ ...site, context }), planningCells }));
 	});
 }
 /** Assigns each house and shared span to its anchor chunk once. */

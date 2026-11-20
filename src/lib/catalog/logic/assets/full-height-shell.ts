@@ -53,6 +53,50 @@ function curve(f: (t: number) => UV, n = 12) {
 }
 type Draw = (m: Mesh) => void;
 const draw: Record<ShellSystem, Draw> = {
+	// A heavy wall cut by a single stepped portal in each bay.
+	'quarry-portals': (m) =>
+		fabric(
+			m,
+			8,
+			12,
+			(u) => 0.42 * Math.abs(2 * u - 1),
+			(i, j) => j < 7 && i >= 2 && i <= 5 && j < 7 - Math.abs(i - 3.5)
+		),
+	// Broad overlapping sheets curl away from a narrow diagonal seam.
+	'lapped-sails': (m) => {
+		for (let course = 0; course < 3; course++)
+			for (let i = 0; i < 8; i++) {
+				const rib = (u: number, top: boolean): Vec3 => [
+					top ? 0.72 * Math.sin(Math.PI * u) : -0.3,
+					u,
+					Math.min(1, Math.max(0, (course + (top ? 1.08 : 0) + 0.28 * (u - 0.5)) / 3))
+				];
+				const a = i / 8,
+					b = (i + 1) / 8;
+				face(m, [rib(a, false), rib(b, false), rib(b, true), rib(a, true)]);
+			}
+	},
+	// Silo flutes terminate in a belt of projecting, four-facet lantern panes.
+	'prismatic-lantern': (m) => {
+		fabric(
+			m,
+			12,
+			6,
+			(u) => 0.42 * Math.cos(tau * 3 * u),
+			(_, j) => j >= 4
+		);
+		for (let i = 0; i < 3; i++) {
+			const a = i / 3,
+				b = (i + 1) / 3;
+			const ring: Vec3[] = [
+				[0, a, 2 / 3],
+				[0, b, 2 / 3],
+				[0, b, 1],
+				[0, a, 1]
+			];
+			for (let j = 0; j < 4; j++) face(m, [ring[j], ring[(j + 1) % 4], [0.92, (a + b) / 2, 0.84]]);
+		}
+	},
 	'tensile-sail': (m) =>
 		fabric(
 			m,

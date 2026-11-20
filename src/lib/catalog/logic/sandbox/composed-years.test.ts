@@ -78,7 +78,7 @@ test('successive painted storeys remain reachable in one living stack', () => {
 				(p.id.endsWith('/plinth') || (p.id.includes('/level/') && p.id.endsWith('/deck'))) &&
 				p.kind === 'prism'
 		);
-		expect(decks).toHaveLength(stories > 4 ? 2 : 1);
+		expect(decks).toHaveLength(stories);
 		for (const deck of decks) {
 			if (deck.kind !== 'prism') throw new Error('Expected walking surface');
 			const z = deck.z + deck.height;

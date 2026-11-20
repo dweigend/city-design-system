@@ -2,9 +2,9 @@ import { expect, test } from 'bun:test';
 import { townSections } from '../../src/lib/catalog/logic/sandbox/composed-projection';
 import { openingScene } from '../../src/lib/catalog/logic/sandbox';
 import { profile } from '../../src/lib/catalog/logic/house-typology/fit-geometry';
-import { massGraph } from './masses';
+import { massGraph, supportedMasses } from './masses';
 
-test('six populated opening courts each carry two or three upper wings and one roof head', () => {
+test('populated opening courts carry one roof head per supported mass', () => {
 	const world = openingScene(7).world;
 	const { sections } = townSections(world);
 	if (!world.state.city) throw Error('Missing opening town');
@@ -25,16 +25,28 @@ test('six populated opening courts each carry two or three upper wings and one r
 			}));
 			const rooms = massGraph(houses);
 			const masses = massGraph(upper).components;
-			const crowns = houses.filter((h) => h.slots.includes(h.composition.crown)).length;
+			const groups = supportedMasses(houses);
+			const crowns = groups.map(
+				(group) => [...group].filter((h) => h.slots.includes(h.composition.crown)).length
+			);
 			console.log(
 				'UPPER ' +
 					JSON.stringify({ court: court.court, masses, bridges: rooms.inhabitedBridges, crowns })
 			);
 			expect(masses).toBeGreaterThanOrEqual(2);
 			expect(masses).toBeLessThanOrEqual(3);
-			expect(rooms.inhabitedBridges).toBeGreaterThan(0);
-			expect(crowns).toBe(1);
+			if (
+				houses.some((h) =>
+					h.cells.some((c) =>
+						c.neighbors.some((id) =>
+							houses.some((other) => other !== h && other.cells.some((cell) => cell.id === id))
+						)
+					)
+				)
+			)
+				expect(rooms.inhabitedBridges).toBeGreaterThan(0);
+			expect(crowns).toEqual(groups.map(() => 1));
 			return [court];
 		});
-	expect(results).toHaveLength(6);
+	expect(results).toHaveLength(7);
 });

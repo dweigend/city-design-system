@@ -1,6 +1,6 @@
 import { ensembleNetwork } from '../sandbox';
 import { required } from '../required';
-import { planEnsemble, type Typology } from '../house-typology';
+import type { HouseEnvelope } from '../house-typology';
 import { planHouse, sectionParts, houseLinks, paintedSections } from '../composed-house';
 import type { HouseUse } from '../house-brush';
 import { squareGrid } from '../quad-grid';
@@ -13,25 +13,26 @@ function single(
 	text: string,
 	uses: HouseUse[],
 	seed: number,
-	typology: Typology
+	envelope: Partial<HouseEnvelope>
 ): RulePlate {
-	const cells = squareGrid(typology === 'portal-house' ? 2 : 1, 1, 10).cells;
+	const cells = squareGrid(id === 'portal' ? 2 : 1, 1, 10).cells;
 	const site = { cells, stacks: new Map(cells.map((c) => [c.id, uses])), seed };
-	const context = planEnsemble([site]);
-	const houses = new Map(
-		[...context.houses].map(([id, decision]) => [id, { ...decision, typology }])
-	);
-	const house = planHouse({ ...site, context: { ...context, houses } });
+	const house = planHouse({ ...site, envelope });
 	return { id, title, text, primitives: sectionParts(house) };
 }
 function ensemble(): RulePlate {
 	const grid = squareGrid(3, 1, 10);
-	const stacks = new Map(grid.cells.map((c, i) => [c.id, mixed.slice(0, i + 2)]));
+	const stacks = new Map(
+		grid.cells.map((c, i) => [
+			c.id,
+			Array.from({ length: i + 6 }, (_, level) => mixed[level % mixed.length])
+		])
+	);
 	const houses = paintedSections(grid, stacks, 0);
 	return {
 		id: 'ensemble',
 		title: 'Three neighbours',
-		text: 'Bridges connect the occupied decks at their shared two-metre datum.',
+		text: 'Two inhabited galleries cross the party walls at a common floor height.',
 		primitives: [
 			...houses.flatMap((h) => sectionParts(h)),
 			...houseLinks(grid, houses, 0).flatMap((b) => b.parts)
@@ -39,9 +40,9 @@ function ensemble(): RulePlate {
 	};
 }
 function publicWalk(): RulePlate {
-	const seed = 7,
-		grid = squareGrid(3, 3, 12);
-	const ids = ['0/0', '1/0', '1/1', '2/1', '1/2'];
+	const seed = 9,
+		grid = squareGrid(5, 5, 12);
+	const ids = ['0/1', '1/1', '2/1', '3/1', '4/1'];
 	const stacks = new Map(ids.map((id, i) => [id, mixed.slice(0, [2, 4, 1, 3, 2][i])]));
 	const houses = paintedSections(grid, stacks, seed);
 	const site = { terrain: () => 0, blocked: () => [], stock: [] };
@@ -62,44 +63,40 @@ export function composedHousePlates(): RulePlate[] {
 	return [
 		single(
 			'pavilion',
-			'Capsule stack',
-			'Four inhabited levels carry rounded capsules in cradles.',
+			'Inflated vessel',
+			'A continuous cushion skin wraps four inhabited levels.',
 			Array<HouseUse>(4).fill('living'),
 			1,
-			'capsule-stack'
+			{ system: 'inflated-cushion', section: 'vessel' }
 		),
 		single(
 			'house',
-			'Deck tower',
-			'Offset storeys alternate the house’s leading programme colour with pale shell. A recessed window band wraps each storey.',
+			'Pleated tower',
+			'Folded panels follow the changing width of the occupied floors.',
 			mixed,
 			3,
-			'deck-tower'
+			{ system: 'pleated-sheet', section: 'folded-fan' }
 		),
 		single(
 			'round',
-			'Round tower',
-			'Circular decks carry drums above the waterfront.',
+			'Woven lantern',
+			'A woven outer frame narrows at the neck of the eight-storey section.',
 			Array<HouseUse>(8).fill('water'),
 			0,
-			'round-tower'
+			{ system: 'woven-basket', section: 'lantern-neck' }
 		),
 		single(
 			'rectangular',
-			'Cluster mast',
-			'Capsules turn around a shared mast on successive levels.',
+			'Service spiral',
+			'Service runs wind around the inhabited volume.',
 			Array<HouseUse>(5).fill('living'),
 			1,
-			'cluster-mast'
+			{ system: 'helical-services', section: 'spiral-terrace' }
 		),
-		single(
-			'portal',
-			'Portal house',
-			'Two cores hold an inhabited bar above an open approach.',
-			mixed,
-			3,
-			'portal-house'
-		),
+		single('portal', 'Ribbed longhouse', 'Arch ribs repeat along the two-cell parcel.', mixed, 3, {
+			system: 'arch-ribs',
+			section: 'longhouse'
+		}),
 		ensemble(),
 		publicWalk()
 	];

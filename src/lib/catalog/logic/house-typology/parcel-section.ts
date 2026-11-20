@@ -65,6 +65,7 @@ export function parcelSection(
 	floor: number
 ) {
 	const base = wallCorners(parcel.polygon);
+	if (floor === 0) return { polygon: base, holes: [...parcel.holes, opening] };
 	const ext = (k: number) =>
 		Math.max(...base.map((p) => p[k])) - Math.min(...base.map((p) => p[k]));
 	const span = Math.min(ext(0), ext(1));

@@ -2,48 +2,54 @@ import { expect, test } from 'bun:test';
 import { composedHousePlates } from './composed-houses';
 
 const plates = composedHousePlates();
-const decks = (i: number) =>
-	plates[i].primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/deck'));
-
-test('capsule stack carries four console landings', () => {
-	expect(plates.map((p) => p.title)).toEqual([
-		'Capsule stack',
-		'Deck tower',
-		'Round tower',
-		'Cluster mast',
-		'Portal house',
-		'Three neighbours',
-		'One public walkway'
-	]);
-	expect(decks(0)).toHaveLength(0);
-	expect(
-		plates[0].primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/landing'))
-	).toHaveLength(4);
-	expect(plates[0].primitives.some((p) => p.id.includes('kit-capsule-ribbon'))).toBe(true);
-});
-test('deck tower carries a solar crown and recessed bands at the occupied floor heights', () => {
-	const parts = plates[1].primitives;
-	expect(parts.some((p) => p.id.includes('kit-crown-solar-sail'))).toBe(true);
-	expect(
-		new Set(parts.filter((p) => p.id.includes('/window')).map((p) => p.id.split('/body/')[0])).size
-	).toBe(4);
-});
-test('round tower carries circular decks and glazed drums', () => {
-	expect(decks(2).every((p) => p.kind === 'prism' && p.polygon.length === 64)).toBe(true);
-	expect(
-		plates[2].primitives.some((p) => p.id.includes('/kit-crown-lantern-') && p.kind === 'cylinder')
-	).toBe(true);
-});
-test('cluster mast carries inhabited capsules on alternating axes', () => {
-	const parts = plates[3].primitives.filter(
-		(p) => p.kind === 'box' && p.id.includes('/kit-capsule-ribbon-')
-	);
-	expect(new Set(parts.map((p) => p.rotation)).size).toBeGreaterThan(1);
-});
-test('three neighbours share two level spans', () => {
-	const spans = plates[5].primitives.filter((p) => p.id.startsWith('link/') && p.kind === 'prism');
-	expect(new Set(spans.map((p) => p.id.split('/').slice(0, 4).join('/'))).size).toBe(2);
-	expect(spans.some((p) => p.id.includes('stair-bridge'))).toBe(false);
+const singles = [
+	['Inflated vessel', 'inflated-cushion', 4],
+	['Pleated tower', 'pleated-sheet', 4],
+	['Woven lantern', 'woven-basket', 8],
+	['Service spiral', 'helical-services', 5],
+	['Ribbed longhouse', 'arch-ribs', 4]
+] as const;
+for (const [i, [title, system, storeys]] of singles.entries()) {
+	test(title + ' carries its envelope across every inhabited floor', () => {
+		const plate = plates[i];
+		expect(plate.title).toBe(title);
+		const walls = plate.primitives.filter((p) => p.id.includes('/exterior/') && p.kind === 'mesh');
+		expect(walls.length).toBeGreaterThanOrEqual(4);
+		const roof = plate.primitives.find((p) => p.kind === 'prism' && p.id.endsWith('/roof-walk'));
+		if (roof?.kind !== 'prism') throw Error('Missing roof deck');
+		for (const wall of walls) {
+			if (wall.kind !== 'mesh') throw Error('Missing wall mesh');
+			expect(wall).toHaveProperty('source.variant', system);
+			expect(Math.max(...wall.points.map((p) => p[2]))).toBeCloseTo(roof.z + roof.height);
+		}
+		expect(
+			plate.primitives.filter((p) => p.id.includes('/level/') && p.id.endsWith('/deck'))
+		).toHaveLength(storeys - 1);
+	});
+}
+test('three neighbours meet above the podium on both shared walls', () => {
+	const parts = plates[5].primitives;
+	for (const x of [-5, 5]) {
+		const rooms = parts.filter(
+			(p) =>
+				p.kind === 'prism' &&
+				p.id.includes('/body/') &&
+				p.z > 8 &&
+				p.polygon.filter(([u]) => Math.abs(u - x) < 1e-8).length >= 2
+		);
+		expect(
+			rooms.some(
+				(p) =>
+					p.kind === 'prism' &&
+					rooms.some(
+						(q) =>
+							q.kind === 'prism' &&
+							q.id.split('/level/')[0] !== p.id.split('/level/')[0] &&
+							Math.abs(q.z - p.z) < 1e-8
+					)
+			)
+		).toBe(true);
+	}
 });
 
 test('five separate roofs share a branching public walkway and registry pedestrians', () => {

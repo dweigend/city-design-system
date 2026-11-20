@@ -59,7 +59,13 @@ function survey(world: World) {
 				s.id,
 				{
 					start: s.start,
-					appearance: JSON.stringify([s.composition.role, accentKind(s), accentBody(s).id]),
+					appearance: JSON.stringify([
+						s.composition.role,
+						s.composition.sharedRoof,
+						s.composition.exterior?.system,
+						accentKind(s),
+						accentBody(s).id
+					]),
 					seed: s.seed,
 					built: Math.max(...stories.map((p) => p.built)),
 					painted: stories.some((p) => isPainted(p.id))

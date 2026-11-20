@@ -1,7 +1,13 @@
 import { serviceGallery } from './service-gallery';
 import { convexHull } from '../parzelle';
 import { wingRim, type UpperWing } from './upper-wings';
-import { entranceCell, entranceRooms, entranceWidth } from './entrance';
+import {
+	entranceCell,
+	entranceRooms,
+	entranceWidth,
+	landingDepth,
+	approachDepth
+} from './entrance';
 import { courseDatums } from './course-datums';
 import { houseEnvelope } from './envelope';
 import { parcelSection, parcelExterior } from './parcel-section';
@@ -12,7 +18,7 @@ import { crownSpec, objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
 import { silhouette } from './signature';
-import type { EnsembleContext } from './ensemble';
+import type { EnsembleContext } from './ensemble-context';
 import type { HouseRole } from './families';
 import type { Body, HouseComposition, Level, Plan, Solid } from './types';
 
@@ -99,7 +105,7 @@ function bodySolid(body: Body, shape: Shape, ground: number): Solid {
 }
 function accessBay(plan: Plan, frontage: ReadonlySet<string>) {
 	const anchor = entranceCell(plan.site.cells, frontage, plan.sign),
-		bay = plan.site.envelope ? footprintBay(plan.site.cells) : footprintBay([anchor]);
+		bay = frontage.size ? footprintBay([anchor]) : footprintBay(plan.site.cells);
 	const axis: XY = [bay.x, bay.y + plan.sign * Math.min(bay.depth * 0.2, 1.4)];
 	const opening = rectangle(...axis, entranceWidth, 0.82);
 	return { anchor, bay, axis, opening };
@@ -137,12 +143,26 @@ function courseShapes(plan: Plan, frontage: ReadonlySet<string>, wing?: UpperWin
 		wing && cells.length === 1
 			? { polygon: wingRim(cells[0], wing.walls, pier.polygon), holes: [opening] }
 			: bridge;
-	const rooms = cells.flatMap((c) =>
-		plan.site.envelope || c === access.anchor
-			? entranceRooms(c, axis, plan.sign)
-			: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
-	);
-	return { access, axis, opening, plot, full, bridge, pier, wingShape, rooms, envelope };
+	const groundRooms = (depth: number) =>
+		cells.flatMap((c) =>
+			!frontage.size || c === access.anchor
+				? entranceRooms(c, axis, plan.sign, depth)
+				: [{ polygon: c.corners.map(([x, y]): XY => [x, y]), holes: [] }]
+		);
+	return {
+		access,
+		axis,
+		opening,
+		plot,
+		full,
+		bridge,
+		pier,
+		wingShape,
+		rooms: groundRooms(approachDepth),
+		foundation: groundRooms(landingDepth),
+		envelope,
+		joined: frontage.size > 0
+	};
 }
 type CourseShapes = ReturnType<typeof courseShapes>;
 function floorOutline(
@@ -155,7 +175,7 @@ function floorOutline(
 	if (i + 1 === wing?.level) return shapes.pier;
 	if (i === wing?.level) return shapes.wingShape;
 	if (gallery) return shapes.bridge;
-	if (!plan.site.envelope && i < 2) return shapes.full;
+	if (shapes.joined && i < 2) return shapes.full;
 	return parcelSection(
 		shapes.plot,
 		shapes.opening,
@@ -183,7 +203,7 @@ function floorBodies(
 		envelope.system === 'service-risers' || envelope.system === 'helical-services'
 			? serviceGallery(shape, shapes.opening, plan.sign)
 			: shape;
-	const shells = i === 0 && !plan.site.envelope ? rooms : [occupied];
+	const shells = i === 0 && shapes.joined ? rooms : [occupied];
 	const bodies = shells.map((shell, k) => {
 		const body = makeBody(plan, id + '/level/' + i + '/body/' + k, shell, z, baseTop - z, i);
 		if (body.band && i >= 2) {
@@ -216,10 +236,10 @@ function courses(
 	wing?: UpperWing
 ) {
 	const shapes = courseShapes(plan, frontage, wing);
-	const { access, axis, opening, plot, rooms, envelope } = shapes;
+	const { access, axis, opening, plot, foundation, envelope } = shapes;
 	const { cells, programme, ground, id } = plan.site;
 	const datums = courseDatums(plan, ensembleSeed, galleryCourse);
-	const parts: Solid[] = rooms.map((room, k) =>
+	const parts: Solid[] = foundation.map((room, k) =>
 		plate(id + (k ? '/plinth/' + k : '/plinth'), room, ground, 0.6, ground, 'base')
 	);
 	const levels: Level[] = [];
@@ -240,7 +260,7 @@ function courses(
 			use,
 			programme: programme[i],
 			bodies,
-			landing: [axis[0], axis[1] - plan.sign * 0.41, z],
+			landing: [axis[0], axis[1] - plan.sign * landingDepth, z],
 			deckArea:
 				ringArea(shape.polygon) - shape.holes.reduce((a, h) => a + Math.abs(ringArea(h)), 0),
 			outline: shape.polygon.map(([u, v]) => [u, v, z])
@@ -250,24 +270,28 @@ function courses(
 	}
 	const top = datums[programme.length];
 	const exterior = parcelExterior(plot, opening, envelope, datums, exposedWall(cells, frontage));
-	return { levels, parts, access, profile: envelope.section, top, exterior };
+	return { levels, parts, access, envelope, top, exterior };
+}
+/** Returns the same bearing solids used by the composer, before placing roof furniture. */
+export function bearingCourses(plan: Plan, context: EnsembleContext) {
+	const decision = context.houses.get(plan.site.id);
+	return courses(
+		plan,
+		decision?.frontage ?? new Set(),
+		context.seed,
+		decision?.galleryCourse,
+		decision?.upperWing
+	);
 }
 /** Fits occupied party-wall courses, a common gallery and stepped upper bays to adjoining parcels. */
 export function perimeterHouse(
 	plan: Plan,
 	role: HouseRole,
 	accessSide: HouseComposition['accessSide'],
-	frontage: ReadonlySet<string>,
 	context: EnsembleContext
 ): HouseComposition {
 	const { site } = plan,
-		{ levels, parts, access, profile, top, exterior } = courses(
-			plan,
-			frontage,
-			context.seed,
-			context.houses.get(site.id)?.galleryCourse,
-			context.houses.get(site.id)?.upperWing
-		);
+		{ levels, parts, access, envelope, top, exterior } = bearingCourses(plan, context);
 	const { bay, axis } = access;
 	const use = levels[levels.length - 1].use;
 	const options = [
@@ -283,7 +307,7 @@ export function perimeterHouse(
 		crowns[crowns.length - 1];
 	crown.position = [bay.x, bay.y - plan.sign * Math.min(bay.depth * 0.2, 1.5), top];
 	crown.anchor = 'roof';
-	const sharedRoof = context.houses.get(site.id)?.upperWing?.roof;
+	const sharedRoof = context.houses.get(site.id)?.roof;
 	if (sharedRoof !== 'terrace') parts.push(mounted(crown, site.ground, 'crown'));
 	return {
 		id: site.id,
@@ -293,7 +317,7 @@ export function perimeterHouse(
 		compact: true,
 		flightWidth: 1.25,
 		path: 'ladder',
-		signature: silhouette('block', 'ladder', true, false, profile),
+		signature: silhouette(envelope),
 		bay,
 		start: site.start,
 		stories: site.programme.length,
