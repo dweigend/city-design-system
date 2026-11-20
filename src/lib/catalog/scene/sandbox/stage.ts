@@ -7,10 +7,10 @@ import * as THREE from 'three/webgpu';
 import { uniform } from 'three/tsl';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
-import { STRICHE, type Kontext } from '../../data/leitstil';
-import { grammatik } from '../leitstil';
-import { nearestZoom, sandboxStyle } from './drafting-style';
-import { defaultMinimumInk, type MinimumInk } from './view-params';
+import { STRICHE } from '../../data/leitstil';
+import { applyStructureStyle } from './structure-style';
+import { nearestZoom } from './drafting-style';
+import type { MinimumInk } from './view-params';
 import { createFrameLayer } from './frame-layer';
 import type { Palette3D } from '../../data/city3d';
 import { bindSceneTheme } from '../themeBinding';
@@ -163,16 +163,16 @@ export function createSandboxStage(
 		projectStockOverview(terrain, nextFrame, nextCoarse);
 		coarse = nextCoarse;
 		if (shown) structures.setJointView(shown.grid, shown.state.year, !coarse);
-		const thema = document.documentElement.dataset.theme === 'dark' ? 'dunkel' : 'hell';
-		const context: Kontext = { zoom, modus: 'ansehen', situation: 'normal', thema };
-		const style = sandboxStyle(context);
-		const tones = refreshTones ? grammatik(canvas, style) : undefined;
-		structures.setStyle(
-			[style, study.minInkAppliesTo ?? defaultMinimumInk, scale, tones],
-			view.elevation()
+		const style = applyStructureStyle(
+			structures,
+			canvas,
+			scale,
+			view.elevation(),
+			refreshTones,
+			study.minInkAppliesTo
 		);
 		terrain?.setCityOverview(style.rollen.weg.level === 'block');
-		if (tones) light.setPaper(paper);
+		if (refreshTones) light.setPaper(paper);
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;

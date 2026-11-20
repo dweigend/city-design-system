@@ -19,7 +19,9 @@ import {
 } from './sandbox/structure-outline';
 import { sceneSwatch } from './scene-palette';
 import { bindSceneTheme } from './themeBinding';
-import { legacyRoleOf } from '../logic/parametrik/types';
+import { createStructures, type Structures } from './sandbox/structures';
+import { applyStructureStyle } from './sandbox/structure-style';
+import { isStructural, legacyRoleOf } from '../logic/parametrik/types';
 import * as THREE from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
@@ -70,6 +72,21 @@ export function createParametrikScene(
 		height = 1,
 		fixed: View | undefined;
 	let initialized = false;
+	let carriers: Structures | undefined;
+	let carrierScale = 0,
+		carrierElevation = 0,
+		carrierPaletteDirty = true;
+	const cameraDirection = new THREE.Vector3();
+	function syncCarriers() {
+		if (!carriers) return;
+		const scale = (height * camera.zoom) / (camera.top - camera.bottom);
+		const elevation = Math.asin(-camera.getWorldDirection(cameraDirection).y);
+		if (scale === carrierScale && elevation === carrierElevation && !carrierPaletteDirty) return;
+		applyStructureStyle(carriers, canvas, scale, elevation, carrierPaletteDirty);
+		carrierScale = scale;
+		carrierElevation = elevation;
+		carrierPaletteDirty = false;
+	}
 	const ready = initializeDrawingRenderer(
 		renderer,
 		canvas,
@@ -82,6 +99,7 @@ export function createParametrikScene(
 	);
 	const render = () => {
 		if (alive && initialized) {
+			syncCarriers();
 			pipeline.render();
 			canvas.dataset.frame = String(Number(canvas.dataset.frame ?? 0) + 1);
 		}
@@ -99,6 +117,7 @@ export function createParametrikScene(
 		controls.listenToKeyEvents(canvas);
 	}
 	function clear() {
+		if (carriers) model.remove(carriers.group);
 		painters.length = 0;
 		model.traverse((object) => {
 			if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
@@ -141,7 +160,12 @@ export function createParametrikScene(
 		const point = new THREE.Vector3();
 		if (!direction)
 			model.traverse((o) => {
-				if (!(o instanceof THREE.Mesh) || o instanceof LineSegments2) return;
+				if (
+					!(o instanceof THREE.Mesh) ||
+					o instanceof LineSegments2 ||
+					o instanceof THREE.InstancedMesh
+				)
+					return;
 				const positions = o.geometry.getAttribute('position');
 				for (let i = 0; i < positions.count; i++)
 					projected.expandByPoint(
@@ -151,6 +175,11 @@ export function createParametrikScene(
 							.applyMatrix4(camera.matrixWorldInverse)
 					);
 			});
+		if (projected.isEmpty()) projected.copy(bounds).applyMatrix4(camera.matrixWorldInverse);
+		if (carriers)
+			projected.union(
+				new THREE.Box3().setFromObject(carriers.group).applyMatrix4(camera.matrixWorldInverse)
+			);
 		const span = fixed
 			? fixed.span
 			: Math.max(
@@ -227,7 +256,8 @@ export function createParametrikScene(
 		primitives: Primitive[],
 		style: SceneStyle = defaultStyle,
 		view?: View,
-		groupOf?: GroupOf
+		groupOf?: GroupOf,
+		structural?: Primitive[]
 	) {
 		if (!alive) return;
 		clear();
@@ -237,6 +267,18 @@ export function createParametrikScene(
 		usedMaterials.clear();
 		usedSurfaces.clear();
 		fixed = view;
+		if (structural?.length) {
+			if (!carriers) {
+				carriers = createStructures(undefined, true, light.receiverOutput);
+				carriers.setPalette(palette);
+				carrierPaletteDirty = true;
+			}
+			carriers.set('rule', structural);
+			model.add(carriers.group);
+		} else if (carriers) {
+			carriers.dispose();
+			carriers = undefined;
+		}
 		const groupFor = (key: string) => {
 			let g = groups.get(key);
 			if (!g) {
@@ -511,6 +553,8 @@ export function createParametrikScene(
 	}
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, (next) => {
 		palette = next;
+		carriers?.setPalette(next);
+		carrierPaletteDirty = true;
 		surfaces.setPalette(next);
 		glazeContour.ink.set(next.ink);
 		signal.set(sceneSwatch(next, '--signal'));
@@ -529,6 +573,16 @@ export function createParametrikScene(
 	const raycaster = new THREE.Raycaster();
 	return {
 		update,
+		/** Rule plates retain section fills and project their structural members with the game renderer. */
+		updateRulePlate(primitives: Primitive[], style?: SceneStyle) {
+			update(
+				primitives.filter((p) => !isStructural(p)),
+				style,
+				undefined,
+				undefined,
+				primitives.filter(isStructural)
+			);
+		},
 		ready,
 		camera,
 		/** New fixed framing without rebuilding geometry (explosion zooms out smoothly). */
@@ -609,6 +663,7 @@ export function createParametrikScene(
 			stopTheme();
 			alive = false;
 			clear();
+			carriers?.dispose();
 			glazeContour.material?.dispose();
 			selection.material?.dispose();
 			controls?.dispose();

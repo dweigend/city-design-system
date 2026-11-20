@@ -193,11 +193,11 @@ export function populateStructures(
 			groups.set(stroke, traces);
 		}
 		for (const [stroke, traces] of groups) lines(batchFaces(traces, toColor).kanten.neu, stroke);
-		// Explicit bearing nodes with no axial member retain their existing ink mark.
+		// Only declared seats on installed members receive a bearing mark.
 		const points = parts.carriers.flatMap((part) =>
-			part.kind === 'sphere' || part.token === '--ink' ? (part.bearings ?? []) : []
+			!part.planned && part.role === 'traeger' ? (part.bearings ?? []) : []
 		);
-		if (contours && details && points.length)
+		if (details && points.length)
 			objects.add(bearingDots(points, bearingGeometry, materials.bearing));
 	}
 
