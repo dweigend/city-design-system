@@ -7,7 +7,6 @@ import { patternAt, type Pattern } from './patterns';
 import type { Lattice } from './contour-rows';
 
 import { defaultAlleyPlan } from './alley-profile';
-import type { TerrainCell } from './types';
 type Profile = typeof defaultAlleyPlan;
 type Site = { corners: QuadCell['corners']; zone: TerrainZone; pattern: Pattern; incision: number };
 
@@ -214,11 +213,17 @@ function alleyWidth(kind: ReturnType<typeof routeKind>, landing: boolean, profil
 	}[kind];
 }
 
+type PassageSite = Pick<QuadCell, 'id' | 'center' | 'neighbors'> & {
+	pattern: Pattern;
+	plan: ReturnType<typeof alleyPlan>;
+	alleyEdges: number;
+};
+
 /** Cost in adjusted meters for following or joining the carrier's circulation survey.
  * The arterial avoids stairs and prefers main-alley frontage. Local links admit stair alleys. */
 export function corridorCost(
-	from: TerrainCell,
-	to: TerrainCell,
+	from: PassageSite,
+	to: PassageSite,
 	side: number,
 	kind: 'arterial' | 'street' | 'alley',
 	profile: Profile
@@ -235,7 +240,7 @@ export function corridorCost(
 	return distance * ((surveyed ? 0.72 : 1) + penalty * grade + climb + Number(stair));
 }
 
-function followsAlley(cell: TerrainCell, side: number, kind: 'arterial' | 'street' | 'alley') {
+function followsAlley(cell: PassageSite, side: number, kind: 'arterial' | 'street' | 'alley') {
 	if (side < 0 || !(cell.alleyEdges & (1 << side))) return false;
 	const { direction, stairAlley } = cell.plan;
 	if (stairAlley && kind === 'arterial') return false;
