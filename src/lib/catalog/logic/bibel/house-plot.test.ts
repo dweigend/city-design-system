@@ -1,7 +1,6 @@
+import { bodyParts } from '../composed-house/provider';
 import { chainage } from '../linear-path';
 import { access as projectAccess } from '../composed-house/access';
-import { bodyParts } from '../composed-house/provider';
-import { houseStructure } from '../composed-house/structure';
 import { checkParcel } from '../composed-house/parcel-assertions.test-support';
 import { expect, test } from 'bun:test';
 import { plotHouse, plotShapes } from './house-plot';
@@ -125,9 +124,45 @@ function checkClearance(
 		p.id + ' clearance'
 	).toBe(true);
 }
+// Clip in 3D so a sloping or vertical sail is tested at the actual tread height.
+function clipAtTreadEdge(points: Vec3[], a: [number, number], b: [number, number]) {
+	const side = ([x, y]: Vec3) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+	return points.flatMap((p, i) => {
+		const q = points[(i + 1) % points.length],
+			u = side(p),
+			v = side(q);
+		const clipped = u >= 0 ? [p] : [];
+		if (u * v < 0) clipped.push(p.map((n, k) => n + ((q[k] - n) * u) / (u - v)) as Vec3);
+		return clipped;
+	});
+}
+function checkSailHeadroom(parts: Parts, walk: Parts) {
+	const sails = parts.filter((p) => p.kind === 'mesh' && p.id.includes('/sail/'));
+	for (const tread of walk) {
+		if (tread.kind !== 'prism') continue;
+		const top = tread.z + tread.height;
+		for (const sail of sails) {
+			if (sail.kind !== 'mesh') continue;
+			for (let j = 0; j < sail.triangles.length; j += 3) {
+				let face = sail.triangles.slice(j, j + 3).map((k) => sail.points[k]);
+				if (face.every((p) => p[2] <= tread.z) || face.every((p) => p[2] >= top + 2.1)) continue;
+				for (const [i, a] of tread.polygon.entries()) {
+					face = clipAtTreadEdge(face, a, tread.polygon[(i + 1) % tread.polygon.length]);
+					if (!face.length) break;
+				}
+				expect(
+					face.every((p) => p[2] <= tread.z) || face.every((p) => p[2] >= top + 2.1),
+					tread.id + ' headroom under ' + sail.id
+				).toBe(true);
+			}
+		}
+	}
+}
 function stairSurface(p: Parts[number]) {
 	const source = p.source.objectId;
-	return source === 'stairs' || (source === 'ladder' && p.source.member === 0)
+	return source === 'stairs' ||
+		p.id.includes('/access/stair/') ||
+		(source === 'ladder' && p.source.member === 0)
 		? palette.access
 		: source === 'railing' || source === 'ladder' || (p.kind === 'prism' && p.height === 0.3)
 			? palette.frame
@@ -151,21 +186,37 @@ function volume(p: Parts[number]) {
 }
 function checkParts(s: Section, parts: ReturnType<typeof sectionParts>, walk: Parts) {
 	checkParcel(s, parts);
-	const solids = s.composition.parts.filter((p) =>
-		['body', 'socket', 'foot', 'shaft', 'head'].includes(p.joint)
+	const { structure, levels } = s.composition;
+	const bodyIds = new Set(levels.flatMap((l) => l.bodies.map((b) => b.id)));
+	const frameIds = new Set(
+		s.composition.parts
+			.filter((p) => ['body', 'socket', 'foot', 'shaft', 'head'].includes(p.joint))
+			.map((p) => p.id)
 	);
-	const bodies = s.composition.levels.flatMap((l) =>
-		l.bodies.flatMap((b) => bodyParts(b, palette))
-	);
-	const frame = houseStructure({ ...s, composition: { ...s.composition, parts: solids } }, palette);
-	const occupied = occupiedBounds([...bodies, ...frame]);
+	const platforms = new Set(structure.platforms.flatMap((p) => [p.id, p.id + '/room']));
+	const belongs = (id: string, roots: Set<string>) => {
+		while (!roots.has(id)) {
+			const end = id.lastIndexOf('/');
+			if (end < 0) return false;
+			id = id.slice(0, end);
+		}
+		return true;
+	};
+	// Survey the installed rooms and their frame. Open platforms carry the programme in a truss.
+	const bodies = parts.filter((p) => belongs(p.id, bodyIds) || platforms.has(p.id));
+	const occupied = occupiedBounds([...bodies, ...parts.filter((p) => belongs(p.id, frameIds))]);
 	for (const p of walk) {
 		checkClearance(p, bounds(p), occupied);
 		checkStairSurface(p);
 	}
 	const sum = (ps: Parts) => ps.reduce((v, p) => v + volume(p), 0);
 	const stairs = sum(walk);
-	expect(sum(bodies)).toBeGreaterThan(stairs);
+	// The programme budget is measured against its requested stock; clearance and the
+	// ten-percent installed-volume budget are measured against the finished assembly.
+	const programme = levels.flatMap((level) =>
+		level.bodies.flatMap((body) => bodyParts(body, palette))
+	);
+	expect(sum(programme)).toBeGreaterThan(stairs);
 	expect(stairs / sum(parts)).toBeLessThanOrEqual(0.1);
 }
 function inspect(s: Section) {
@@ -173,8 +224,10 @@ function inspect(s: Section) {
 		parts = sectionParts(s, palette);
 	checkDecks(s, path);
 	const reports: NonNullable<Parameters<typeof projectAccess>[2]> = [];
-	const walk = projectAccess(s, palette, reports);
+	const walk = parts.filter((p) => p.id.includes('/stair/'));
+	expect(walk.length).toBeGreaterThan(0);
 	if (!s.compact) {
+		projectAccess(s, palette, reports);
 		const flights = new Set(path.legs.map((l) => l.flight));
 		expect(new Set(reports.map((r) => r.flight + '/' + r.side)).size).toBe(flights.size * 2);
 		for (const r of reports) {
@@ -198,6 +251,7 @@ function inspect(s: Section) {
 	checkDocks(path, walk);
 	checkFlights(s, path);
 	checkParts(s, parts, walk);
+	if (s.composition.structure.principle === 'fanned-truss') checkSailHeadroom(parts, walk);
 }
 
 for (const shape of plotShapes)
