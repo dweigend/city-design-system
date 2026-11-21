@@ -577,6 +577,15 @@ const library: DesignPrinciple[] = [
 		reason:
 			'The library works like component kits such as shadcn, daisyUI or Babylon Lite: a block is picked, configured and combined, never copied into a page. A demo that starts its own renderer, camera or geometry breaks the kit and LIB-1.',
 		decided: '2026-11-21'
+	},
+	{
+		id: 'LIB-8',
+		page: 'library',
+		title: 'One engine, every view',
+		rule: 'Every bible picture is an interactive view of the shared engine: isometric, plan, schematic, section and terrain views are camera and display modes of one scene, never a separately drawn diagram.',
+		reason:
+			'A plan with contour lines, a section with the coarse envelope, a height-zone envelope over the massing and a dark plan with a time line all show the same city state. The engine owns these modes so the bible, the game and its analysis views stay one picture that the reader can turn, step and switch.',
+		decided: '2026-11-21'
 	}
 ];
 
