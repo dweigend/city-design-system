@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
+	import { resolve } from '$app/paths';
 	import { X } from 'lucide-svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import DesignShell from '../design/DesignShell.svelte';
@@ -43,6 +44,20 @@
 <svelte:head><title>Archive · City Design System</title></svelte:head>
 
 <DesignShell title="Archive">
+	<section id="library-path" class="library-path" aria-labelledby="library-title">
+		<h2 id="library-title">Shared library in use</h2>
+		<p>
+			The sandbox builds ground paths, bridges, court approaches and rail from typed movement ports
+			and edges. Its corridor projection reads the same surveyed alignment as the graph. House parts
+			and palette roles already serve bible views and the sandbox.
+		</p>
+		<p>
+			The Infrastructure Atlas prototype traces water and power from supply nodes to building
+			fittings. That connection model still needs to join the shared grid. The existing bible
+			studies need the common city scene and actions for the
+			<a href={resolve('/interface#engine-path')}>planned engine miniatures</a>.
+		</p>
+	</section>
 	<FilterBar items={archiv} bind:filter shown={shown.length} bind:hoehe={leiste} />
 	<div class="archiv" style:--leiste="{leiste}px">
 		<ArchivRaster items={shown} selected={aktuell?.key} onselect={waehle} />
@@ -71,6 +86,27 @@
 {/if}
 
 <style>
+	.library-path {
+		display: grid;
+		gap: var(--space-2);
+		max-width: 66ch;
+		margin-block-end: var(--space-6);
+	}
+	.library-path h2 {
+		font-size: var(--text-m);
+		font-weight: 600;
+	}
+	.library-path p {
+		font-size: var(--text-s);
+		line-height: 1.5;
+	}
+	.library-path a {
+		color: var(--ink);
+		text-underline-offset: 0.18em;
+	}
+	.library-path a:hover {
+		text-decoration-thickness: var(--stroke);
+	}
 	.archiv {
 		display: grid;
 		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);

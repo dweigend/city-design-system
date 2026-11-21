@@ -3,14 +3,14 @@
 	import Abschnitt from '../bibel/Abschnitt.svelte';
 	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import L13Werkbank from '../labor/L13Werkbank.svelte';
-	import { Bedientafel, HudDemo, IconAtlas } from '../interface';
+	import { Bedientafel, ConnectionStudy, HudDemo, IconAtlas } from '../interface';
 	import TypeScale from '../foundations/TypeScale.svelte';
 	import GridSpec from '../foundations/GridSpec.svelte';
 	import { typeRoles } from '../data/tokens';
 	import * as I from '../data/interface';
 
 	/**
-	 * Page /interface: experiment first. The workbench opens a building (views and
+	 * Page /interface: city connections and the engine path. The workbench opens a building (views and
 	 * motions as context info), then the HUD in Play and Plan with its patterns,
 	 * an icon system as a list, the panel of UI controls, finally type and page grid.
 	 */
@@ -19,6 +19,7 @@
 <svelte:head><title>Interface · City Design System</title></svelte:head>
 
 <DesignShell title="Interface">
+	<ConnectionStudy />
 	<DesignPrinciples page="interface" />
 
 	<Abschnitt id={I.oeffnen.id} titel={I.oeffnen.titel} lead={I.oeffnen.lead}>
