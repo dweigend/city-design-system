@@ -1,29 +1,46 @@
 <script lang="ts">
 	import MotionToggle from './MotionToggle.svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Toggle } from 'bits-ui';
-	import { Map as MapIcon } from 'lucide-svelte';
+	import { page } from '$app/state';
+	import { RadioGroup } from 'bits-ui';
 	import { loadEnvelopeKernel } from './envelope-kernel';
 	import { onMount } from 'svelte';
 	import { acceptanceScene } from '../logic/sandbox';
 	import { sandboxUses } from '../data/sandbox';
+	import { viewModes, type ViewMode, type ViewPolicy } from '../data/view-modes';
+	import { resolveView } from '../logic/view-modes';
 	import { attachInput } from '../scene/sandbox';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox';
 	import { ThemeToggle } from '../theme';
-	import Icon from '../ui/Icon.svelte';
 
 	let host: HTMLDivElement;
 	let legend: HTMLUListElement;
 	let canvas: HTMLCanvasElement;
 	let stage = $state.raw<SandboxStage>();
 	let seed = $state(7);
-	let plan = $state(false);
+	const viewPolicy = { view: 'iso', views: viewModes, display: 'normal' } satisfies ViewPolicy;
+	const viewLabels: Record<ViewMode, string> = { iso: 'Iso', plan: 'Plan', terrain: 'Terrain' };
+	let selected = $state(resolveView(viewPolicy));
 	let paused = $state(false);
 	let error = $state('');
 	const key = [...sandboxUses, { id: 'paths', name: 'Paths', color: 'var(--cat-business)' }];
 
+	function selectView(value: string) {
+		selected = resolveView(viewPolicy, { view: value });
+		const url = new URL(location.href);
+		url.searchParams.set('view', selected.view);
+		void goto(resolve(`/sandbox/abnahme?${url.searchParams}${url.hash}`), {
+			shallow: true,
+			replace: true,
+			state: page.state
+		});
+	}
+
 	onMount(() => {
 		const query = new URLSearchParams(location.search);
+		const initialView = viewModes.find((view) => view === query.get('view'));
+		selected = resolveView(viewPolicy, { view: initialView });
 		const requested = Number(query.get('seed') ?? '7');
 		seed = Number.isSafeInteger(requested) ? requested >>> 0 : 7;
 		const { world, earliestFullYear, additions, featuredCentre } = acceptanceScene(seed);
@@ -56,6 +73,7 @@
 				query.get('minInkAppliesTo') === 'primary' ? ('primary' as const) : ('all' as const)
 		};
 		const current = createSandboxStage(canvas, () => (error = '3D view unavailable.'), study);
+		current.setView(selected);
 		void current.ready.catch(() => {});
 		const observer = new ResizeObserver(() => {
 			current.resize(host.clientWidth, host.clientHeight);
@@ -88,7 +106,7 @@
 	});
 
 	$effect(() => stage?.setPaused(paused));
-	$effect(() => stage?.setPlan(plan));
+	$effect(() => stage?.setView(selected));
 </script>
 
 <svelte:head><title>Acceptance scene · City Design System</title></svelte:head>
@@ -105,15 +123,16 @@
 			</nav>
 		</div>
 		<div class="controls">
-			<Toggle.Root
-				bind:pressed={plan}
-				class="cg-button"
-				data-variant="icon"
-				aria-label="Plan view"
-				title="Plan view"
+			<RadioGroup.Root
+				value={selected.view}
+				onValueChange={selectView}
+				aria-label="View mode"
+				class="view-modes"
 			>
-				<Icon icon={MapIcon} size={20} />
-			</Toggle.Root>
+				{#each viewPolicy.views as view (view)}
+					<RadioGroup.Item value={view} class="view-mode">{viewLabels[view]}</RadioGroup.Item>
+				{/each}
+			</RadioGroup.Root>
 			<MotionToggle bind:paused />
 			<ThemeToggle />
 		</div>
@@ -213,7 +232,11 @@
 	.controls {
 		flex-wrap: wrap;
 	}
-	.controls > :global(.cg-button) {
+	.controls :global(.view-modes) {
+		display: flex;
+	}
+	.controls > :global(.cg-button),
+	.controls :global(.view-mode) {
 		display: inline-grid;
 		place-items: center;
 		min-width: max(44px, var(--ctl-m));
@@ -224,8 +247,19 @@
 		background: var(--paper);
 		font-size: var(--text-s);
 		cursor: pointer;
+		touch-action: manipulation;
 	}
-	.controls > :global(.cg-button[data-state='on']) {
+	.controls :global(.view-mode + .view-mode) {
+		border-inline-start: 0;
+	}
+	.controls :global(.view-mode:hover) {
+		background: var(--paper-2);
+	}
+	.controls :global(.view-mode:focus-visible) {
+		outline-offset: -2px;
+	}
+	.controls > :global(.cg-button[data-state='on']),
+	.controls :global(.view-mode[data-state='checked']) {
 		background: var(--paper-3);
 	}
 	.view {

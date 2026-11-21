@@ -31,6 +31,8 @@ export const TERRAIN_VIEW_PARAMS = defineParams({
 	footbridgeTone: numberParam('Bridge tone', 'ratio', 0.25, [0, 1, 0.01]),
 	minor: numberParam('Minor contour interval', 'm', 0.5, [0.25, 2, 0.25]),
 	major: numberParam('Major contour interval', 'm', 5, [2, 10, 1]),
+	reliefStep: numberParam('Terrain elevation band', 'm', 1, [0.5, 5, 0.5]),
+	reliefInk: numberParam('Terrain band ink increment', 'ratio', 0.055, [0, 0.12, 0.005]),
 	ravineTone: numberParam('Ravine wash', 'ratio', 0.1, [0, 1, 0.01]),
 	hatchSpacing: numberParam('Ravine hatch spacing', 'm', 4, [1, 10, 1]),
 	paperWash: numberParam('Paper wash', 'ratio', 0.045, [0, 0.25, 0.005]),

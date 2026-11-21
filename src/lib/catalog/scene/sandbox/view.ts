@@ -33,6 +33,8 @@ export type CourtFit = {
 };
 export type View = ReturnType<typeof createView>;
 
+type InspectionPose = Readonly<{ elevation: number; margin: number }>;
+
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
 export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
 	const opening = resolveParams(OPENING_VIEW_PARAMS, undefined, overrides);
@@ -53,6 +55,10 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let height = 1;
 	let span = 400;
 	let openingFit: { points: THREE.Vector3[]; area?: OpeningArea; fit: CourtFit } | undefined;
+	let openingSubject: THREE.Vector3[] | undefined;
+	let inspectionBounds: THREE.Box3 | undefined;
+	let inspection: InspectionPose | undefined;
+	let openingPose: { target: THREE.Vector3; elevation: number; span: number } | undefined;
 
 	function apply() {
 		const halfHeight = span / 2;
@@ -90,7 +96,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 
 	/** Moves the image content by a screen offset in pixels (x right, y down). */
 	function pan(dxPx: number, dyPx: number) {
-		openingFit = undefined;
+		if (!inspection) openingFit = undefined;
 		const scale = metersPerPixel();
 		target.addScaledVector(right, -dxPx * scale);
 		target.addScaledVector(forward, dyPx * scale * foreshortening());
@@ -108,7 +114,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 
 	/** Scales the visible span by `factor` and keeps the ground under the pixel in place. */
 	function zoomAt(factor: number, xPx: number, yPx: number) {
-		openingFit = undefined;
+		if (!inspection) openingFit = undefined;
 		const before = groundPoint(xPx, yPx);
 		span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, span * factor));
 		target.add(before.sub(groundPoint(xPx, yPx)));
@@ -186,6 +192,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		target.addScaledVector(right, center.x).addScaledVector(up, center.y);
 		apply();
 		alignOpening(area, usableWidth, fit);
+		openingSubject = points;
+		inspectionBounds = undefined;
 		openingFit = fit && width >= height ? { points, area, fit } : undefined;
 	}
 
@@ -204,12 +212,77 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		openingFit = saved;
 	}
 
+	function fitBoxSpan(box: THREE.Box3, margin: number) {
+		const up = new THREE.Vector3().crossVectors(eye, right);
+		const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+		const extent = (axis: THREE.Vector3) =>
+			Math.abs(axis.x) * half.x + Math.abs(axis.y) * half.y + Math.abs(axis.z) * half.z;
+		const fit = Math.max(extent(up), (extent(right) * height) / width) * 2 * margin;
+		span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
+	}
+
+	/** Caches ground bounds around the opening subject and the nearby visible water. */
+	function frameInspection(water: THREE.BufferGeometry) {
+		if (!openingSubject) return;
+		const box = new THREE.Box3().setFromPoints(openingSubject);
+		const center = box.getCenter(new THREE.Vector3());
+		const size = box.getSize(new THREE.Vector3());
+		const reach = Math.max(size.x, size.z) * 0.75;
+		const position = water.getAttribute('position');
+		const point = new THREE.Vector3();
+		for (let i = 0; i < position.count; i++) {
+			point.fromBufferAttribute(position, i);
+			const distance = (point.x - center.x) ** 2 + (point.z - center.z) ** 2;
+			if (distance <= reach ** 2) box.expandByPoint(point);
+		}
+		box.max.y = box.min.y;
+		inspectionBounds = box;
+	}
+
+	/** Applies an alternate pose around the opening target, or restores the opening camera. */
+	function setInspection(next?: InspectionPose) {
+		if (openingPose) {
+			target.copy(openingPose.target);
+			elevationRad = openingPose.elevation;
+			span = openingPose.span;
+			openingPose = undefined;
+		}
+		inspection = next;
+		if (next) {
+			openingPose = { target: target.clone(), elevation: elevationRad, span };
+			elevationRad = next.elevation;
+			apply();
+			if (inspectionBounds) {
+				inspectionBounds.getCenter(target);
+				fitBoxSpan(inspectionBounds, next.margin);
+			}
+		}
+		apply();
+	}
+
 	return {
 		camera,
 		target,
 		pan,
 		zoomAt,
 		metersPerPixel,
+		setInspection,
+		frameInspection,
+		/** Fits the opening camera, then reapplies the current alternate pose. */
+		frameBase(frame: () => void) {
+			const saved = inspection;
+			if (saved) setInspection();
+			try {
+				frame();
+			} finally {
+				if (saved) setInspection(saved);
+			}
+		},
+		/** Returns the opening camera's drawing metrics while an alternate pose is active. */
+		drawingMetrics: () => ({
+			scale: height / (openingPose?.span ?? span),
+			elevation: openingPose?.elevation ?? elevationRad
+		}),
 		/** Camera elevation in radians, including the vertical plan. */
 		elevation: () => elevationRad,
 		/** Visible image height in meters. */
@@ -237,24 +310,14 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Frames a three.js box: its center in the image center, `margin` ≥ 1 around its silhouette. */
 		frameBox(box: THREE.Box3, margin: number) {
 			openingFit = undefined;
+			openingSubject = undefined;
+			inspectionBounds = undefined;
 			focusY = focusX = 0.5;
 			heading = BLICK.azimutRad;
 			box.getCenter(target);
 			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
-			const up = new THREE.Vector3().crossVectors(eye, right);
-			const corner = new THREE.Vector3();
-			let halfWidth = 0;
-			let halfHeight = 0;
-			for (const x of [box.min.x, box.max.x])
-				for (const y of [box.min.y, box.max.y])
-					for (const z of [box.min.z, box.max.z]) {
-						corner.set(x, y, z).sub(target);
-						halfWidth = Math.max(halfWidth, Math.abs(corner.dot(right)));
-						halfHeight = Math.max(halfHeight, Math.abs(corner.dot(up)));
-					}
-			const fit = Math.max(halfHeight * 2, (halfWidth * 2 * height) / width) * margin;
-			span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
+			fitBoxSpan(box, margin);
 			apply();
 		},
 		/** Whether the canvas is taller than it is wide. */

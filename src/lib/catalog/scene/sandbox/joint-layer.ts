@@ -75,17 +75,19 @@ export function createJointLayer(
 		invalidate() {
 			dirty = true;
 		},
-		/** Rebuilds the visible connector geometry from the current structure batches. */
+		/** Reports whether rebuilding the connector layer changed its retained geometry. */
 		draw(batches: () => Iterable<{ key: string; parts: readonly Primitive[] }>) {
-			if (!grid || !group.visible || !dirty) return;
+			if (!grid || !group.visible || !dirty) return false;
 			const seated = [...batches()];
 			const contacts = sandboxStructuralContacts(seated, grid, built);
+			const hadGeometry = group.children.length > 0;
 			clear();
 			if (drawContacts) drawWash(seated, contacts, grid);
 			if (wash) group.add(wash);
 			mesh = close ? jointMesh(deriveStructuralJoints(contacts), material) : undefined;
 			if (mesh) group.add(mesh);
 			dirty = false;
+			return hadGeometry || group.children.length > 0;
 		}
 	};
 }
