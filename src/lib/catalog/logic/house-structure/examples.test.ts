@@ -102,7 +102,7 @@ test('the calyx well starts on the entry cell and serves every deck in order', (
 		{ height: 12, datums: [3, 6, 9], walk: { from: [0, 0], to: [0, -3], width: 1, groundAt } }
 	);
 	expect(checkHouseStructure(house)).toEqual([]);
-	const [x, y, z] = house.access[0].foot;
+	const [x, , z] = house.access[0].foot;
 	expect(x).toBeGreaterThan(0);
 	expect(z).toBeCloseTo(2 - x / 3, 10);
 	expect(house.entryDatum).toBe(z);
