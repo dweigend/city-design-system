@@ -1,3 +1,4 @@
+import { structureAccess } from './structure-house';
 import type { RailEdgeReport } from './rail-edge';
 import { parcelSupports } from './stair-parcel';
 import { mountRamp } from './ground-ramp';
@@ -104,6 +105,8 @@ function projection(track: Route['track'], s: Section, surfaces: SectionSurfaces
 
 /** Places rigid registry treads on the walking line and fits stock to its level deck connections. */
 export function access(s: Section, surfaces: SectionSurfaces, reports?: RailEdgeReport[]) {
+	if (s.composition.structure.access[0]?.spiral)
+		return structureAccess(s.composition.structure, surfaces);
 	if (s.compact) return mastAccess(s, surfaces);
 	if (s.composition.path !== 'spiral') return flightAccess(s, surfaces, reports);
 	const route = windingRoute(s),

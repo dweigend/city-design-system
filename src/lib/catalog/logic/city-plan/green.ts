@@ -42,8 +42,20 @@ export function greenParcels(
 		[(x + u) / 2, (y + v) / 2],
 		...centres.slice(i + 1).map((q) => [(u + q[0]) / 2, (v + q[1]) / 2])
 	]);
-	const nearby = grid.cells.filter((c) =>
-		midpoints.some(([a, b]) => Math.hypot(c.center[0] - a, c.center[1] - b) < 10)
+	const plantingRadius = 10;
+	const xs = midpoints.map(([x]) => x),
+		ys = midpoints.map(([, y]) => y);
+	const left = Math.min(...xs) - plantingRadius,
+		right = Math.max(...xs) + plantingRadius;
+	const bottom = Math.min(...ys) - plantingRadius,
+		top = Math.max(...ys) + plantingRadius;
+	const nearby = grid.cells.filter(
+		({ center: [x, y] }) =>
+			x >= left &&
+			x <= right &&
+			y >= bottom &&
+			y <= top &&
+			midpoints.some(([a, b]) => Math.hypot(x - a, y - b) < plantingRadius)
 	);
 	const ids = new Set([...cells, ...nearby.map((c) => c.id)]);
 	return [...ids].filter((id) => !blocked.has(id) && grid.cellsById.get(id)?.plantable);

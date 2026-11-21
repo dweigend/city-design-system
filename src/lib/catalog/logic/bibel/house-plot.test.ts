@@ -1,7 +1,6 @@
+import { bodyParts } from '../composed-house/provider';
 import { chainage } from '../linear-path';
 import { access as projectAccess } from '../composed-house/access';
-import { bodyParts } from '../composed-house/provider';
-import { houseStructure } from '../composed-house/structure';
 import { checkParcel } from '../composed-house/parcel-assertions.test-support';
 import { expect, test } from 'bun:test';
 import { plotHouse, plotShapes } from './house-plot';
@@ -125,9 +124,77 @@ function checkClearance(
 		p.id + ' clearance'
 	).toBe(true);
 }
+// Clip the emitted rod to the tread's height and plan edges. A rod's projected
+// bounding box alone would report overlapping diagonals even in the clear fan bay.
+function rodHitsTread(
+	rod: Extract<Parts[number], { kind: 'pipe' }>,
+	tread: Extract<Parts[number], { kind: 'prism' }>
+) {
+	const a = rod.points[0],
+		b = rod.points[rod.points.length - 1];
+	const radius = rod.radius;
+	let from = 0,
+		to = 1;
+	const clip = (u: number, v: number) => {
+		if (u <= 0 && v <= 0) return false;
+		if (u <= 0) from = Math.max(from, u / (u - v));
+		if (v <= 0) to = Math.min(to, u / (u - v));
+		return from < to;
+	};
+	return (
+		clip(a[2] - tread.z + radius, b[2] - tread.z + radius) &&
+		clip(tread.z + tread.height - a[2] + radius, tread.z + tread.height - b[2] + radius) &&
+		tread.polygon.every(([x, y], i) => {
+			const [u, v] = tread.polygon[(i + 1) % tread.polygon.length];
+			const dx = u - x,
+				dy = v - y;
+			const side = ([px, py]: Vec3) => dx * (py - y) - dy * (px - x) + radius * Math.hypot(dx, dy);
+			return clip(side(a), side(b));
+		})
+	);
+}
+
+// Clip in 3D so a sloping or vertical sail is tested at the actual tread height.
+function clipAtTreadEdge(points: Vec3[], a: [number, number], b: [number, number]) {
+	const side = ([x, y]: Vec3) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+	return points.flatMap((p, i) => {
+		const q = points[(i + 1) % points.length],
+			u = side(p),
+			v = side(q);
+		const clipped = u >= 0 ? [p] : [];
+		if (u * v < 0) clipped.push(p.map((n, k) => n + ((q[k] - n) * u) / (u - v)) as Vec3);
+		return clipped;
+	});
+}
+function checkSailHeadroom(parts: Parts, walk: Parts) {
+	const sails = parts.filter(
+		(p) => p.kind === 'mesh' && (p.id.includes('/sail/') || p.id.includes('/calyx/'))
+	);
+	for (const tread of walk) {
+		if (tread.kind !== 'prism') continue;
+		const top = tread.z + tread.height;
+		for (const sail of sails) {
+			if (sail.kind !== 'mesh') continue;
+			for (let j = 0; j < sail.triangles.length; j += 3) {
+				let face = sail.triangles.slice(j, j + 3).map((k) => sail.points[k]);
+				if (face.every((p) => p[2] <= tread.z) || face.every((p) => p[2] >= top + 2.1)) continue;
+				for (const [i, a] of tread.polygon.entries()) {
+					face = clipAtTreadEdge(face, a, tread.polygon[(i + 1) % tread.polygon.length]);
+					if (!face.length) break;
+				}
+				expect(
+					face.every((p) => p[2] <= tread.z) || face.every((p) => p[2] >= top + 2.1),
+					tread.id + ' headroom under ' + sail.id
+				).toBe(true);
+			}
+		}
+	}
+}
 function stairSurface(p: Parts[number]) {
 	const source = p.source.objectId;
-	return source === 'stairs' || (source === 'ladder' && p.source.member === 0)
+	return source === 'stairs' ||
+		p.id.includes('/access/stair/') ||
+		(source === 'ladder' && p.source.member === 0)
 		? palette.access
 		: source === 'railing' || source === 'ladder' || (p.kind === 'prism' && p.height === 0.3)
 			? palette.frame
@@ -151,21 +218,46 @@ function volume(p: Parts[number]) {
 }
 function checkParts(s: Section, parts: ReturnType<typeof sectionParts>, walk: Parts) {
 	checkParcel(s, parts);
-	const solids = s.composition.parts.filter((p) =>
-		['body', 'socket', 'foot', 'shaft', 'head'].includes(p.joint)
+	const { structure, levels } = s.composition;
+	const bodyIds = new Set(levels.flatMap((l) => l.bodies.map((b) => b.id)));
+	const frameIds = new Set(
+		s.composition.parts
+			.filter((p) => ['body', 'socket', 'foot', 'shaft', 'head'].includes(p.joint))
+			.map((p) => p.id)
 	);
-	const bodies = s.composition.levels.flatMap((l) =>
-		l.bodies.flatMap((b) => bodyParts(b, palette))
+	const platforms = new Set(structure.platforms.flatMap((p) => [p.id, p.id + '/room']));
+	const belongs = (id: string, roots: Set<string>) => {
+		while (!roots.has(id)) {
+			const end = id.lastIndexOf('/');
+			if (end < 0) return false;
+			id = id.slice(0, end);
+		}
+		return true;
+	};
+	// Survey the installed rooms and their frame. Open platforms carry the programme in a truss.
+	const bodies = parts.filter((p) => belongs(p.id, bodyIds) || platforms.has(p.id));
+	const occupied = occupiedBounds([...bodies, ...parts.filter((p) => belongs(p.id, frameIds))]);
+	// The newel is the stair's tangent bearing, at the well's declared inner radius.
+	const rodIds = new Set(structure.rods.map((rod) => rod.id));
+	rodIds.delete(structure.id + '/newel');
+	const rods = parts.filter(
+		(p): p is Extract<Parts[number], { kind: 'pipe' }> => p.kind === 'pipe' && rodIds.has(p.id)
 	);
-	const frame = houseStructure({ ...s, composition: { ...s.composition, parts: solids } }, palette);
-	const occupied = occupiedBounds([...bodies, ...frame]);
 	for (const p of walk) {
+		if (p.kind === 'prism')
+			for (const rod of rods)
+				expect(rodHitsTread(rod, p), p.id + ' clearance from ' + rod.id).toBe(false);
 		checkClearance(p, bounds(p), occupied);
 		checkStairSurface(p);
 	}
 	const sum = (ps: Parts) => ps.reduce((v, p) => v + volume(p), 0);
 	const stairs = sum(walk);
-	expect(sum(bodies)).toBeGreaterThan(stairs);
+	// The programme budget is measured against its requested stock; clearance and the
+	// ten-percent installed-volume budget are measured against the finished assembly.
+	const programme = levels.flatMap((level) =>
+		level.bodies.flatMap((body) => bodyParts(body, palette))
+	);
+	expect(sum(programme)).toBeGreaterThan(stairs);
 	expect(stairs / sum(parts)).toBeLessThanOrEqual(0.1);
 }
 function inspect(s: Section) {
@@ -173,8 +265,10 @@ function inspect(s: Section) {
 		parts = sectionParts(s, palette);
 	checkDecks(s, path);
 	const reports: NonNullable<Parameters<typeof projectAccess>[2]> = [];
-	const walk = projectAccess(s, palette, reports);
+	const walk = parts.filter((p) => p.id.includes('/stair/'));
+	expect(walk.length).toBeGreaterThan(0);
 	if (!s.compact) {
+		projectAccess(s, palette, reports);
 		const flights = new Set(path.legs.map((l) => l.flight));
 		expect(new Set(reports.map((r) => r.flight + '/' + r.side)).size).toBe(flights.size * 2);
 		for (const r of reports) {
@@ -198,6 +292,7 @@ function inspect(s: Section) {
 	checkDocks(path, walk);
 	checkFlights(s, path);
 	checkParts(s, parts, walk);
+	if (s.composition.structure.access[0]?.spiral) checkSailHeadroom(parts, walk);
 }
 
 for (const shape of plotShapes)

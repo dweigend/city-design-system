@@ -20,11 +20,11 @@ export function prismFaces(rings: XY[][]): XY[][] {
 	const faces: XY[][] = [];
 	for (let i = 1; i < xs.length; i++) {
 		const l = xs[i - 1],
-			r = xs[i],
-			mid = (l + r) / 2;
+			r = xs[i];
 		const crossing = edges
-			.filter((e) => e.lo < mid && e.hi > mid)
-			.sort((a, b) => a.at(mid) - b.at(mid));
+			// Adjacent floating-point coordinates may have no representable midpoint.
+			.filter((e) => e.lo <= l && e.hi >= r)
+			.sort((a, b) => a.at(l) - b.at(l) + (a.at(r) - b.at(r)));
 		for (let j = 1; j < crossing.length; j += 2) {
 			const a = crossing[j - 1],
 				b = crossing[j];

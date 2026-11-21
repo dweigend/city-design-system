@@ -72,16 +72,23 @@ function survey(world: World) {
 		const cells = g.cells.map((id) => required(world.grid.cellsById.get(id), 'foundation parcel'));
 		const house = houses.get(g.id);
 		const passage = house && passages?.get(house.id);
-		const parts = () => {
-			const members = g.parts();
-			if (!onGround || !house) return members;
-			const seated = seatedHouse(members, cells, world.grid, house.composition.exterior?.bottom, {
-				slot: 'shell',
-				use: fieldUse(house),
-				ensemble: house.ensemble
-			});
-			return passage ? openHousePassage(house, passage, seated) : seated;
-		};
+		const parts =
+			onGround && house
+				? () => {
+						const seated = seatedHouse(
+							g.parts(),
+							cells,
+							world.grid,
+							house.composition.exterior?.bottom,
+							{
+								slot: 'shell',
+								use: fieldUse(house),
+								ensemble: house.ensemble
+							}
+						);
+						return passage ? openHousePassage(house, passage, seated) : seated;
+					}
+				: g.parts;
 		return {
 			...g,
 			door: courtDoor(planned.has(g.cells[0]) ? house : undefined, r3),

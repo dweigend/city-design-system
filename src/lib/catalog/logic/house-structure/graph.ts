@@ -7,6 +7,7 @@ export type SkinFrame = {
 	boundary: Vec3[];
 	edges: SkinEdge[];
 	interior: Vec3[];
+	batten?: [Vec3, Vec3];
 	/** Mean of the interior grips, or of the boundary without any: where gores meet. */
 	peak: Vec3;
 	/** Unit direction in which the structure leaves boundary grip i. Zero without a rod. */
@@ -94,6 +95,12 @@ export function skinFrame(structure: HouseStructure, patchId: string): SkinFrame
 		interior = (patch.interior ?? []).map((grip) => gripPoint(structure, grip));
 	return {
 		boundary,
+		...(patch.batten && {
+			batten: [gripPoint(structure, patch.batten[0]), gripPoint(structure, patch.batten[1])] as [
+				Vec3,
+				Vec3
+			]
+		}),
 		edges: patch.boundary.map((_, i) => patch.edges?.[i] ?? 'seam'),
 		interior,
 		peak: mean(interior.length ? interior : boundary),

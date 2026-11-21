@@ -68,6 +68,11 @@ export function planHouse(site: HouseSite): Section {
 		slots: occupiedBodies(composition),
 		stairAxis: [core.position[0], rear + sign * offset]
 	};
+	const spiral = composition.structure.access[0]?.spiral;
+	if (spiral) {
+		section.stairAxis = spiral.well.axis;
+		return section;
+	}
 	if (levels[0].bodies[0].band?.footprint) {
 		section.stairAxis = [core.position[0], core.position[1]];
 		return section;

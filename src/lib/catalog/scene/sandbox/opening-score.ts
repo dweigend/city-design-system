@@ -118,6 +118,15 @@ function apparentHeight(data: OpeningProjection, homes: Box2[], safe: Box2, scal
 type Crop = { safe: Box2; scale: number; room: Vector2; hud: Box2[]; sizes: typeof desktopSizes };
 type ScoreMode = 'context' | 'rank' | 'clearance';
 
+// A composed portrait keeps a whole centre landmark beside its built courts.
+function missingPortraitLandmark(data: OpeningProjection, crop: Crop) {
+	return (
+		crop.sizes === phoneSizes &&
+		data.centres.length > 0 &&
+		!data.centres.some((centre) => crop.safe.containsBox(centre))
+	);
+}
+
 function readableCourts(data: OpeningProjection, crop: Crop, mode: ScoreMode) {
 	const { safe, scale, sizes } = crop;
 	const visible = data.courts.flatMap((b, i) => (safe.containsBox(b) ? [i] : []));
@@ -125,6 +134,7 @@ function readableCourts(data: OpeningProjection, crop: Crop, mode: ScoreMode) {
 	const height = apparentHeight(data, homes, safe, scale);
 	if (height > sizes.max) return;
 	if (mode === 'clearance') return [];
+	if (visible.length && missingPortraitLandmark(data, crop)) return;
 	if (data.courts.length && !visible.length) return;
 	const bodies = visible.map((i) => coverage(data.houses[i]));
 	if (mode === 'rank' && !readableGroup(data, bodies, height, scale, sizes)) return;

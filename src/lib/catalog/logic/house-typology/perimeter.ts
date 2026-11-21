@@ -22,7 +22,7 @@ import { layeredStructure } from './layered-structure';
 import { ensembleFigure, framedStructure, housePrinciple } from './principle';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
-import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
+import { boundaryRuns, ringArea, parcelSurfaceHeight, type QuadCell } from '../quad-grid';
 import { objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
@@ -432,7 +432,8 @@ export function perimeterHouse(
 	const ensemble = [...context.houses.keys()].sort()[0];
 	const highPoint = role === 'high' && context.houses.size > 1;
 	const figure = ensembleFigure(context.houses, context.seed) === site.id;
-	const principle = housePrinciple(site, !exterior.faces.every(Boolean), highPoint, figure);
+	const joined = exterior.seams.some((spans) => spans.some((span) => span.hidden));
+	const principle = housePrinciple(site, joined, highPoint, figure);
 	const layered = layeredStructure({
 		...occupancy,
 		id: site.id,
@@ -466,9 +467,22 @@ export function perimeterHouse(
 						parcel: { polygon: exterior.ring, holes: [] }
 					},
 					[...occupancy.floors.map((course) => course.datum), top],
-					{ from: axis, to: [face[0], face[1]], width: threshold.width }
+					{
+						from: axis,
+						to: [face[0], face[1]],
+						width: threshold.width,
+						groundAt: site.start ? undefined : (x, y) => parcelSurfaceHeight(site.cells, x, y)
+					},
+					{ axis, opening: access.opening }
 				);
 	const structure = { ...built, threshold };
+	// Framed spirals declare one run per planned floor, followed by the roof run.
+	if (built.access[0]?.spiral)
+		for (const [i, level] of levels.entries()) {
+			const landing = built.access[i]?.landing;
+			if (landing) level.landing = landing;
+		}
+	const path = built.access[0]?.spiral ? 'spiral' : 'ladder';
 	return {
 		structure,
 		id: site.id,
@@ -478,8 +492,8 @@ export function perimeterHouse(
 		sharedRoof,
 		compact: true,
 		flightWidth: 1.25,
-		path: 'ladder',
-		signature: silhouette(envelope),
+		path,
+		signature: { ...silhouette(envelope), stair: path },
 		bay,
 		start: site.start,
 		stories: site.programme.length,

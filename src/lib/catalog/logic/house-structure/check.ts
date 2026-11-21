@@ -76,7 +76,7 @@ function checkSkins(s: HouseStructure, index: Index, report: Report) {
 	for (const skin of s.skins) {
 		if (skin.boundary.length < 3 || (skin.edges && skin.edges.length !== skin.boundary.length))
 			report('open-skin', skin.id);
-		for (const grip of [...skin.boundary, ...(skin.interior ?? [])]) {
+		for (const grip of [...skin.boundary, ...(skin.interior ?? []), ...(skin.batten ?? [])]) {
 			const state = gripState(s, index, grip);
 			if (state === 'unknown') report('unknown-reference', skin.id);
 			if (state === 'loose') report('loose-grip', skin.id);
@@ -120,7 +120,8 @@ function meets(point: Vec3, level: number) {
 }
 
 function checkRun(s: HouseStructure, index: Index, way: Access, report: Report) {
-	const start = way.from === undefined ? { datum: s.ground } : index.platforms.get(way.from),
+	const start =
+			way.from === undefined ? { datum: s.entryDatum ?? s.ground } : index.platforms.get(way.from),
 		end = index.platforms.get(way.to);
 	if (!start || !end) return report('unknown-reference', way.id);
 	if (!meets(way.foot, start.datum) || !meets(way.head, end.datum))

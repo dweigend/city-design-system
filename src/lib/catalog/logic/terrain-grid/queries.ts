@@ -2,6 +2,7 @@ import { neighborsOf, type QuadCell } from '../quad-grid';
 import { valleyCoords } from '../terrain';
 import { MODULE, MAX_SHIFT, MAX_LEAN } from './contour-rows';
 import { cellId } from './types';
+import { cellColumns } from './storage';
 import type { TerrainGrid, TerrainCell } from './types';
 /** Rows a cell may lie from its lattice row; bounds the search of `cellAtPoint`. */
 const ROW_SEARCH = Math.ceil(MAX_SHIFT / MODULE) + 1;
@@ -22,13 +23,14 @@ export function cellAtPoint(grid: TerrainGrid, x: number, y: number): TerrainCel
 	const [along, across] = valleyCoords(grid.terrain, x, y);
 	const column = Math.floor(along / MODULE);
 	const row = Math.floor(across / MODULE);
+	const columns = cellColumns(grid);
 	for (let r = Math.max(0, row - ROW_SEARCH); r <= Math.min(grid.rows - 1, row + ROW_SEARCH); r++)
 		for (
 			let c = Math.max(0, column - COLUMN_SEARCH);
 			c <= Math.min(grid.columns - 1, column + COLUMN_SEARCH);
 			c++
 		) {
-			const cell = grid.cellsById.get(cellId(c, r));
+			const cell = columns ? columns[c][r] : grid.cellsById.get(cellId(c, r));
 			if (cell && contains(cell, x, y)) return cell;
 		}
 	return undefined;

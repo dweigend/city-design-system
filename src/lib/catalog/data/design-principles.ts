@@ -326,6 +326,15 @@ const grid: DesignPrinciple[] = [
 			anchor: 'court-growth',
 			label: 'Compare two dates at the same square'
 		}
+	},
+	{
+		id: 'GRID-7',
+		page: 'grid',
+		title: 'Every cell is a spanned space',
+		rule: 'Every cell of the 3D city grid is a spanned space, a polyhedron such as a tetrahedron, hexahedron, octahedron, pyramid, dodecahedron or icosahedron, holding exactly one filling: empty, a bridge or connection, or a house.',
+		reason:
+			'The spanned space appears already when the city is generated, not as a special object. Paths, bridges and houses are fillings of the same cells, so the principle returns wherever the city builds.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -529,6 +538,15 @@ const ui: DesignPrinciple[] = [
 		reason:
 			'A demo starts still. Play and Stop are the only controls, Stop returns to the start state, and only one demo runs per page.',
 		decided: '2026-11-17'
+	},
+	{
+		id: 'UI-4',
+		page: 'interface',
+		title: 'Every page tells its own story',
+		rule: 'A bible page carries no cross-reference blocks, link lists or "see chapter" notes; at most a term in the running text links on, as in an encyclopedia.',
+		reason:
+			'References scatter the reader and make a page depend on others. Each page explains what it shows by itself; the site navigation leads from chapter to chapter.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -556,10 +574,10 @@ const library: DesignPrinciple[] = [
 		id: 'LIB-3',
 		page: 'library',
 		title: 'Parameters, not constants',
-		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden.',
+		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden, and shared inputs such as height, width and complexity have one name, unit and range across every block.',
 		reason:
-			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded.',
-		decided: '2026-11-18'
+			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded. The city sets only coarse lots; the houses add the detail through the same height, width and complexity inputs, so a control means the same everywhere.',
+		decided: '2026-11-21'
 	},
 	{
 		id: 'LIB-4',

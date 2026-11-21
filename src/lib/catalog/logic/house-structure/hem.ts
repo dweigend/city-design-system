@@ -3,7 +3,7 @@ import type { Grip, Rod, StructureNode, XY } from './contract';
 import { FINE_RADIUS, type Plot } from './plot';
 
 /** The ground walk into a house in plan, world metres: from its stair foot out to the parcel face. */
-export type Walk = { from: XY; to: XY; width: number };
+export type Walk = { from: XY; to: XY; width: number; groundAt?: (x: number, y: number) => number };
 
 /** Distance from the parcel edge at which slender posts and cloth edges stand, metres. */
 export const EDGE = 0.15;

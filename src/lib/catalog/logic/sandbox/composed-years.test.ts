@@ -1,6 +1,11 @@
 import { required } from '../required';
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
+import { walkingHeight } from './network-terrain';
+import { townSections } from './town-sections';
+import { partsIntersect } from '../house-typology';
+import type { Access } from '../house-structure';
+import type { Primitive } from '../parametrik/types';
 import { bounds } from '../ansicht/geometrie';
 import { applyEdit, beginStroke, extendStroke, createWorld, houseGroups, changes } from './index';
 
@@ -57,6 +62,35 @@ test('later paint extends one frame and links houses across construction years',
 	}
 });
 
+type Plate = Extract<Primitive, { kind: 'prism' }>;
+function checkSpiral(run: Access, group: Primitive[], decks: Plate[], destination: Plate) {
+	const steps = group.filter((p) => p.id.startsWith(run.id + '/stair/'));
+	expect(steps.length).toBeGreaterThan(1);
+	let z = run.foot[2];
+	let previous: Plate['polygon'] | undefined;
+	for (const tread of steps) {
+		if (tread.kind !== 'prism' && tread.kind !== 'mesh') throw Error('Missing walking surface');
+		const ring =
+			tread.kind === 'prism'
+				? tread.polygon
+				: tread.points.map(([x, y]) => [x, y] as [number, number]);
+		if (previous) expect(ring.slice(0, 2)).toEqual([previous[3], previous[2]]);
+		previous = ring;
+		const top = bounds(tread).max[2];
+		expect(top - z).toBeWithin(-1e-8, 0.19);
+		expect(decks.some((deck) => partsIntersect(deck, tread))).toBe(false);
+		z = top;
+	}
+	expect(z).toBeCloseTo(destination.z + destination.height, 8);
+	const landing = required(previous, 'physical spiral exit');
+	expect(
+		landing.filter((p) =>
+			destination.holes?.some((ring) => ring.some((q) => q[0] === p[0] && q[1] === p[1]))
+		)
+	).toHaveLength(2);
+	expect(run.landing?.slice(0, 2)).toEqual(landing[2]);
+}
+
 test('successive painted storeys remain reachable in one living stack', () => {
 	const id = '30/30';
 	let world = createWorld(7, { cells: 0 });
@@ -73,6 +107,39 @@ test('successive painted storeys remain reachable in one living stack', () => {
 			).get('composed/' + id),
 			'painted house'
 		);
+		const section = required(
+			townSections(world).sections.find((s) => s.id === id),
+			'painted section'
+		);
+		const structure = section.composition.structure;
+		expect(section.decks).toHaveLength(stories);
+		expect(structure.principle).toBe(stories === 1 ? 'layers' : 'fanned-truss');
+		if (structure.principle === 'fanned-truss') {
+			expect(structure.platforms.map((p) => p.datum)).toEqual([
+				...section.decks.map((d) => d.position[2]),
+				section.top
+			]);
+			expect(structure.access).toHaveLength(stories + 1);
+			const decks = structure.platforms.map((p) => {
+				const part = group.find((member) => member.id === p.id);
+				if (part?.kind !== 'prism') throw Error('Missing open platform ' + p.id);
+				expect(part.buildingSurface?.use).toBe('living');
+				return part;
+			});
+			for (const [i, run] of structure.access.entries()) {
+				expect(run.kind).toBe('spiral');
+				expect(run.from).toBe(i ? structure.platforms[i - 1].id : undefined);
+				expect(run.to).toBe(decks[i].id);
+				expect(run.foot[2]).toBeCloseTo(
+					i
+						? structure.platforms[i - 1].datum
+						: walkingHeight(world.grid, run.foot[0], run.foot[1]),
+					7
+				);
+				checkSpiral(run, group, decks, decks[i]);
+			}
+			continue;
+		}
 		const decks = group.filter(
 			(p) =>
 				(p.id.endsWith('/plinth') || (p.id.includes('/level/') && p.id.endsWith('/deck'))) &&

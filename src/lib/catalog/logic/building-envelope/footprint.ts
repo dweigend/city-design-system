@@ -42,6 +42,12 @@ function arc(ring: Point2[], i: number, radius: number): Point2[] {
 	const y = p[1] - setback * Math.sin(incoming) + side * r * Math.cos(incoming);
 	const count = Math.ceil(Math.abs(turn) / (Math.PI / 24));
 	return Array.from({ length: count + 1 }, (_, j) => {
+		// Construct tangent endpoints on their source edges to avoid trigonometric overshoot.
+		if (j === 0 || j === count) {
+			const neighbor = j === 0 ? a : b;
+			const t = setback / distance(p, neighbor);
+			return [p[0] + (neighbor[0] - p[0]) * t, p[1] + (neighbor[1] - p[1]) * t];
+		}
 		const angle = incoming - (side * Math.PI) / 2 + (turn * j) / count;
 		return [x + r * Math.cos(angle), y + r * Math.sin(angle)];
 	});

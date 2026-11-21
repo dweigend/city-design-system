@@ -1,24 +1,15 @@
+import { outline, squaredGap, type Box, type Outline } from './parcel-outline';
 import { segmentSeparation } from '../walkway-network';
 import { required } from '../required';
 import type { TerrainGrid, TerrainCell } from '../terrain-grid';
 
-type Box = readonly [number, number, number, number];
+const minimumSetback = 12;
+const maximumSetback = 20;
+const minimumGapSquared = minimumSetback ** 2;
+const maximumGapSquared = maximumSetback ** 2;
 /** Axis-aligned envelope of a surveyed parcel in world metres. */
 export function parcelBox(cell: TerrainCell) {
 	return outline(cell.corners);
-}
-function outline(points: readonly (readonly number[])[]) {
-	const polygon = points.map(([x, y]): [number, number] => [x, y]);
-	return {
-		box: extent(points.map(([x, y]) => [x, x, y, y])),
-		edges: polygon.map((a, i) => ({ a, b: polygon[(i + 1) % polygon.length] }))
-	};
-}
-type Outline = ReturnType<typeof outline>;
-function squaredGap(a: Box, b: Box) {
-	const x = Math.max(0, a[0] - b[1], b[0] - a[1]),
-		y = Math.max(0, a[2] - b[3], b[2] - a[3]);
-	return x * x + y * y;
 }
 function extent(boxes: Box[]): Box {
 	return [
@@ -35,6 +26,31 @@ type Plan = {
 	lots: string[];
 	plaza: { cells: string[]; polygon: Polygon; apron: Polygon; bed: Polygon; steps: Polygon };
 };
+// Wrapped corner bearings at the five green survey points, evaluated only for candidate rings.
+function greenBearings(parts: Outline[], box: Box, x: number, y: number) {
+	const [a, b, c, d] = box;
+	const dx = (a + b) / 2 - x,
+		dy = (c + d) / 2 - y;
+	return [
+		[0, 0],
+		[-5, 0],
+		[5, 0],
+		[0, -5],
+		[0, 5]
+	].map(([u, v]) => {
+		const bearing = Math.atan2(dy - v, dx - u);
+		const angles = parts.flatMap((p) =>
+			p.edges.map(({ a }) => {
+				const delta = Math.atan2(a[1] - y - v, a[0] - x - u) - bearing;
+				return bearing + Math.atan2(Math.sin(delta), Math.cos(delta));
+			})
+		);
+		return [Math.min(...angles), bearing, Math.max(...angles)].map(
+			(n) => (n + 2 * Math.PI) % (2 * Math.PI)
+		);
+	});
+}
+
 /** Conservative parcel envelopes include the plaza, its mouth, garden and future wing. */
 export function clusterSite<T extends Plan>(
 	g: T,
@@ -53,32 +69,15 @@ export function clusterSite<T extends Plan>(
 		[x, y] = stop.center;
 	const [a, b, c, d] = box;
 	if (Math.max(x - a, b - x, y - c, d - y) > 95) return;
-	const dx = (a + b) / 2 - x,
-		dy = (c + d) / 2 - y;
-	const arcs = [
-		[0, 0],
-		[-5, 0],
-		[5, 0],
-		[0, -5],
-		[0, 5]
-	].map(([u, v]) => {
-		const bearing = Math.atan2(dy - v, dx - u);
-		const angles = parts.flatMap((p) =>
-			p.edges.map(({ a }) => {
-				const delta = Math.atan2(a[1] - y - v, a[0] - x - u) - bearing;
-				return bearing + Math.atan2(Math.sin(delta), Math.cos(delta));
-			})
-		);
-		return [Math.min(...angles), bearing, Math.max(...angles)].map(
-			(n) => (n + 2 * Math.PI) % (2 * Math.PI)
-		);
-	});
+	let arcs: number[][] | undefined;
 	const mouth = required(grid.cellsById.get(g.mouth), 'plaza access').center;
 	return {
 		g,
 		parts,
 		box,
-		arcs,
+		get arcs() {
+			return (arcs ??= greenBearings(parts, box, x, y));
+		},
 		rank:
 			(reach.get(g.mouth) ?? 25) * 4 +
 			Math.hypot(mouth[0] - x, mouth[1] - y) * 0.15 +
@@ -86,19 +85,30 @@ export function clusterSite<T extends Plan>(
 	};
 }
 type Site<T extends Plan> = NonNullable<ReturnType<typeof clusterSite<T>>>;
+const gaps = new WeakMap<Outline, WeakMap<Outline, number>>();
+function measuredGap(p: Outline, q: Outline) {
+	const cached = gaps.get(p)?.get(q) ?? gaps.get(q)?.get(p);
+	if (cached !== undefined) return cached;
+	const gap = edgeGap(p, q);
+	const pairs = gaps.get(p) ?? new WeakMap<Outline, number>();
+	pairs.set(q, gap);
+	gaps.set(p, pairs);
+	return gap;
+}
 function edgeGap(p: Outline, q: Outline) {
 	let best = Infinity;
 	for (const a of p.edges)
 		for (const b of q.edges) {
+			if (squaredGap(a.box, b.box) > Math.min(maximumGapSquared, best * best)) continue;
 			best = Math.min(best, segmentSeparation(a, b));
-			if (best < 12) return best;
+			if (best < minimumSetback) return best;
 		}
 	return best;
 }
 function pieceGap(p: Outline, q: Outline, near: boolean) {
 	const broad = squaredGap(p.box, q.box);
-	if (broad > 400 || (near && broad >= 144)) return Infinity;
-	return p === q ? 0 : edgeGap(p, q);
+	if (broad > maximumGapSquared || (near && broad >= minimumGapSquared)) return Infinity;
+	return p === q ? 0 : measuredGap(p, q);
 }
 function compatible<T extends Plan>(a: Site<T>, b: Site<T>) {
 	if (
@@ -106,7 +116,7 @@ function compatible<T extends Plan>(a: Site<T>, b: Site<T>) {
 		Math.max(a.box[3], b.box[3]) - Math.min(a.box[2], b.box[2]) > 120
 	)
 		return false;
-	if (squaredGap(a.box, b.box) > 400) return false;
+	if (squaredGap(a.box, b.box) > maximumGapSquared) return false;
 	return setbacks(a.parts, b.parts);
 }
 function setbacks(left: Outline[], right: Outline[]) {
@@ -114,8 +124,8 @@ function setbacks(left: Outline[], right: Outline[]) {
 	for (const p of left)
 		for (const q of right) {
 			const gap = pieceGap(p, q, near);
-			if (gap < 12) return false;
-			if (gap <= 20) near = true;
+			if (gap < minimumSetback) return false;
+			if (gap <= maximumSetback) near = true;
 		}
 	return near;
 }
@@ -166,7 +176,10 @@ export function clusterSetback<T extends Plan>(groups: T[], envelopes: Map<strin
 	const bounds = extent(parts),
 		reserved: string[] = [];
 	for (const [id, { box }] of envelopes)
-		if (squaredGap(bounds, box) < 144 && parts.some((p) => squaredGap(p, box) < 144))
+		if (
+			squaredGap(bounds, box) < minimumGapSquared &&
+			parts.some((p) => squaredGap(p, box) < minimumGapSquared)
+		)
 			reserved.push(id);
 	return reserved;
 }
