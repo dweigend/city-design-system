@@ -49,10 +49,13 @@ test('terrain parcels and 1.8–5 metre bays keep supports inside and limit body
 					for (const leg of route.legs)
 						expect(Math.abs(leg.from[2] - leg.to[2])).toBeLessThanOrEqual(4 + 1e-8);
 				expect(route.stops).toHaveLength(s.decks.length + 2);
-				const feet = s.composition.parts.flatMap((p) =>
-					p.slot === 'base' && p.kind === 'prism' ? [p.z] : []
-				);
-				expect(Math.min(...feet)).toBeCloseTo(c.pad);
+				const plinths = s.composition.parts.filter((p) => p.slot === 'base' && p.kind === 'prism');
+				expect(plinths.length).toBeGreaterThan(0);
+				for (const plinth of plinths) {
+					// The carrier pad gives the walking datum at the slab's top.
+					expect(plinth.z + plinth.height).toBeCloseTo(c.pad);
+					expect(plinth.z).toBeCloseTo(s.composition.ground);
+				}
 				const parts = sectionParts(s);
 				checkParcel(s, parts);
 				expect(accessShare(parts)).toBeLessThanOrEqual(0.1);
