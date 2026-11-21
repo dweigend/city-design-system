@@ -14,7 +14,7 @@ test('replays the same course bytes with fresh buffers after generating another 
 	const other = generateValley({ seed: 1301 });
 	const replay = generateValley({ seed: 1201 });
 
-	expect(first.version).toBe('valley/2');
+	expect(first.version).toBe('valley/3');
 	expect(first.seed).toBe(1201);
 	const bytes = (values: Float64Array) => new Uint8Array(values.buffer);
 	expect(bytes(first.course.xy)).toEqual(bytes(replay.course.xy));
@@ -204,4 +204,16 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 		}
 	}
 	console.log(rows.join('\n'));
+});
+
+test('rejects a high-amplitude, short-wavelength override that leaves the local band', () => {
+	const parameters = {
+		bankfullWidthM: [350, 350],
+		phaseOffset: [0, 0],
+		headingAmplitude: [0.79, 0.79],
+		wavelengthToWidth: [11.5, 11.5]
+	} as const;
+	expect(() => generateValley({ seed: 14, parameters })).toThrow('valley-sinuosity-out-of-band');
+	const paired = { ...parameters, wavelengthToWidth: [13.2, 13.2] } as const;
+	expect(() => generateValley({ seed: 14, parameters: paired })).not.toThrow();
 });

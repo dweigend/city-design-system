@@ -1,7 +1,16 @@
+import { clipPolylineToSquare, sinuosity } from '../../core/polyline';
+import {
+	LARGE_LOWLAND_MEASUREMENT_BANDS,
+	VALLEY_MEASUREMENT_PROTOCOL
+} from '../../data/valley-references';
+import { VALLEY_FLOORS } from './ground-profile';
 import { generateCourse, type RiverCourse } from './course';
 import { valleyParameters, type ValleyParameters } from './parameters';
+import type { Valley } from './snapshot';
 
-export type { RiverCourse, ValleyParameters };
+export type { RiverCourse, ValleyParameters, Valley };
+export { sampleValley, type ValleyField } from './field';
+export { contains, groundAt, meanWaterAt } from './field-samplers';
 export { DEFAULT_VALLEY_PARAMETERS } from './parameters';
 
 export type ValleyOptions = Readonly<{
@@ -9,12 +18,7 @@ export type ValleyOptions = Readonly<{
 	parameters?: Partial<ValleyParameters>;
 }>;
 
-export type Valley = Readonly<{
-	version: 'valley/2';
-	seed: number;
-	course: RiverCourse;
-}>;
-
+const TRIBUTARIES = Object.freeze([] as const);
 const SEED_LIMIT = 2 ** 32;
 
 /**
@@ -22,7 +26,7 @@ const SEED_LIMIT = 2 ** 32;
  * overrides in meters, radians and width ratios. Defaults and override bounds are in
  * CONTRACT.md. The result is frozen and detached, with caller-owned XY and chainage
  * buffers in downstream order at 6.25 m spacing. Leaves the options untouched.
- * Throws RangeError before allocation for an invalid seed or parameter.
+ * Throws RangeError for an invalid seed, parameter, or overridden shape outside the local sinuosity band.
  */
 export function generateValley({ seed, parameters }: ValleyOptions): Valley {
 	if (!Number.isInteger(seed) || seed < 0 || seed >= SEED_LIMIT) {
@@ -30,5 +34,20 @@ export function generateValley({ seed, parameters }: ValleyOptions): Valley {
 	}
 	const normalizedSeed = seed >>> 0;
 	const course = generateCourse(normalizedSeed, valleyParameters(parameters));
-	return Object.freeze({ version: 'valley/2', seed: normalizedSeed, course });
+	if (parameters) checkLocalSinuosity(course);
+	return Object.freeze({
+		version: 'valley/3',
+		seed: normalizedSeed,
+		course,
+		floors: VALLEY_FLOORS,
+		tributaries: TRIBUTARIES,
+		valleySlope: 0.00025
+	});
+}
+
+function checkLocalSinuosity(course: RiverCourse): void {
+	const reach = clipPolylineToSquare(course.xy, VALLEY_MEASUREMENT_PROTOCOL.localWindowM);
+	if (!reach || sinuosity(reach.xy) > LARGE_LOWLAND_MEASUREMENT_BANDS.sinuosity2km[1]) {
+		throw new RangeError('valley-sinuosity-out-of-band');
+	}
 }

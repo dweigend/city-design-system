@@ -45,6 +45,7 @@ export const VALLEY_REFERENCES = [
 	}
 ] as const;
 
+/** Centered vector and surface measurement settings. Slopes are rise/run. */
 export const VALLEY_MEASUREMENT_PROTOCOL = {
 	localWindowM: 2_000,
 	regionalWindowM: 8_000,
@@ -52,6 +53,13 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	borderHits: 2,
 	cornerBearingsDeg: [0, 15, 30, 45, 60, 75, 90],
 	reliefCoreM: 1_000,
+	fieldSpacingM: 12.5,
+	bankSampling: 'linear-bed-minus-water-zero-crossing',
+	stationOffsetM: 125,
+	stationTangentHalfLengthM: 60,
+	boxFractions: [0, 0.5, 1],
+	gaussianTruncateSigma: 4,
+	landSlopeClassLimits: [0.02, 0.05, 0.15],
 	surfaceSpacingM: 30,
 	smoothingSigmaM: 30,
 	profileSpacingM: 250,
@@ -61,7 +69,7 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	gentleSlopeLimit: 0.02
 } as const;
 
-/** Inclusive bands for the course, its wet-width proxy and future field measurements. */
+/** Inclusive bands for the course, field wet width and bare-earth measurements. */
 export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	sinuosity2km: [1, 1.11],
 	sinuosity8km: [1.05, 1.3],
