@@ -68,13 +68,14 @@ export function framedStructure(
 	principle: Exclude<ReturnType<typeof housePrinciple>, 'layers'>,
 	plot: Plot,
 	datums: number[],
-	walk: Walk
+	walk: Walk,
+	tentWell: NonNullable<Parameters<typeof tentMastHouse>[1]['well']>
 ): HouseStructure {
 	const levels = datums.map((z) => z - plot.ground);
 	const top = levels[levels.length - 1],
 		clear = top + HEADROOM;
 	if (principle === 'tent-mast')
-		return tentMastHouse(plot, { lookout: top, height: top + TENT_RISE, walk });
+		return tentMastHouse(plot, { lookout: top, height: top + TENT_RISE, walk, well: tentWell });
 	if (principle === 'mast')
 		return mastHouse(plot, { datums: levels, height: clear + CROWN_RISE, walk });
 	if (principle === 'fanned-truss')

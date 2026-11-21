@@ -124,6 +124,36 @@ function checkClearance(
 		p.id + ' clearance'
 	).toBe(true);
 }
+// Clip the emitted rod to the tread's height and plan edges. A rod's projected
+// bounding box alone would report overlapping diagonals even in the clear fan bay.
+function rodHitsTread(
+	rod: Extract<Parts[number], { kind: 'pipe' }>,
+	tread: Extract<Parts[number], { kind: 'prism' }>
+) {
+	const a = rod.points[0],
+		b = rod.points[rod.points.length - 1];
+	const radius = rod.radius;
+	let from = 0,
+		to = 1;
+	const clip = (u: number, v: number) => {
+		if (u <= 0 && v <= 0) return false;
+		if (u <= 0) from = Math.max(from, u / (u - v));
+		if (v <= 0) to = Math.min(to, u / (u - v));
+		return from < to;
+	};
+	return (
+		clip(a[2] - tread.z + radius, b[2] - tread.z + radius) &&
+		clip(tread.z + tread.height - a[2] + radius, tread.z + tread.height - b[2] + radius) &&
+		tread.polygon.every(([x, y], i) => {
+			const [u, v] = tread.polygon[(i + 1) % tread.polygon.length];
+			const dx = u - x,
+				dy = v - y;
+			const side = ([px, py]: Vec3) => dx * (py - y) - dy * (px - x) + radius * Math.hypot(dx, dy);
+			return clip(side(a), side(b));
+		})
+	);
+}
+
 // Clip in 3D so a sloping or vertical sail is tested at the actual tread height.
 function clipAtTreadEdge(points: Vec3[], a: [number, number], b: [number, number]) {
 	const side = ([x, y]: Vec3) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
@@ -137,7 +167,9 @@ function clipAtTreadEdge(points: Vec3[], a: [number, number], b: [number, number
 	});
 }
 function checkSailHeadroom(parts: Parts, walk: Parts) {
-	const sails = parts.filter((p) => p.kind === 'mesh' && p.id.includes('/sail/'));
+	const sails = parts.filter(
+		(p) => p.kind === 'mesh' && (p.id.includes('/sail/') || p.id.includes('/calyx/'))
+	);
 	for (const tread of walk) {
 		if (tread.kind !== 'prism') continue;
 		const top = tread.z + tread.height;
@@ -205,7 +237,16 @@ function checkParts(s: Section, parts: ReturnType<typeof sectionParts>, walk: Pa
 	// Survey the installed rooms and their frame. Open platforms carry the programme in a truss.
 	const bodies = parts.filter((p) => belongs(p.id, bodyIds) || platforms.has(p.id));
 	const occupied = occupiedBounds([...bodies, ...parts.filter((p) => belongs(p.id, frameIds))]);
+	// The newel is the stair's tangent bearing, at the well's declared inner radius.
+	const rodIds = new Set(structure.rods.map((rod) => rod.id));
+	rodIds.delete(structure.id + '/newel');
+	const rods = parts.filter(
+		(p): p is Extract<Parts[number], { kind: 'pipe' }> => p.kind === 'pipe' && rodIds.has(p.id)
+	);
 	for (const p of walk) {
+		if (p.kind === 'prism')
+			for (const rod of rods)
+				expect(rodHitsTread(rod, p), p.id + ' clearance from ' + rod.id).toBe(false);
 		checkClearance(p, bounds(p), occupied);
 		checkStairSurface(p);
 	}
@@ -251,7 +292,7 @@ function inspect(s: Section) {
 	checkDocks(path, walk);
 	checkFlights(s, path);
 	checkParts(s, parts, walk);
-	if (s.composition.structure.principle === 'fanned-truss') checkSailHeadroom(parts, walk);
+	if (s.composition.structure.access[0]?.spiral) checkSailHeadroom(parts, walk);
 }
 
 for (const shape of plotShapes)

@@ -6,6 +6,11 @@ import { centre } from './plot';
 
 // Sixteen goings per revolution keep a clear walking height between successive turns.
 const SIDES = 16;
+/** Absolute deviation that triggers an approach ramp, and added riser height on that ramp run, in metres. */
+const RISER_DEVIATION = 0.019;
+const RAMP_RISER_ALLOWANCE = 0.015;
+/** Maximum approach rise per metre of horizontal travel. */
+const APPROACH_GRADE = 0.08;
 const RISERS_PER_FLIGHT = 16;
 const ANGLE = (2 * Math.PI) / SIDES;
 const WALK_RADIUS = houseStair.going / (2 * Math.sin(ANGLE / 2));
@@ -74,7 +79,7 @@ function ringAt(well: SpiralWell, radius: number) {
 	return Array.from({ length: SIDES }, (_, i) => point(well, i, radius));
 }
 
-/** Cuts a continuous well and sizes the decks around it. Returns ascending runs from ground. */
+/** Sets holes and enlarges open decks in place. Returns ascending runs from the sampled ground. */
 export function spiralAccess(
 	ring: XY[],
 	platforms: Platform[],
@@ -104,12 +109,12 @@ export function spiralAccess(
 		let approach = 0;
 		// A short plinth sometimes admits no whole number of standard risers. Take the
 		// residual rise on an inclined entry before the first full tread.
-		if (Math.abs(rise / steps - houseStair.rise) >= 0.019) {
+		if (Math.abs(rise / steps - houseStair.rise) >= RISER_DEVIATION) {
 			steps = Math.floor(rise / houseStair.rise);
-			approach = Math.max(0, rise - steps * (houseStair.rise + 0.015));
+			approach = Math.max(0, rise - steps * (houseStair.rise + RAMP_RISER_ALLOWANCE));
 		}
 		const going = 2 * well.walk * Math.sin(ANGLE / 2);
-		const rampSectors = Math.ceil(approach / (going * 0.08));
+		const rampSectors = Math.ceil(approach / (going * APPROACH_GRADE));
 		const spiral = { well, start, steps, approach, rampSectors };
 		const foot: Vec3 = [...point(well, start, well.walk), z];
 		start += rampSectors + steps + Math.max(0, Math.floor((steps - 1) / RISERS_PER_FLIGHT)) + 1;

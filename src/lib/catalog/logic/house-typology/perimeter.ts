@@ -1,4 +1,3 @@
-import { climb } from '../house-structure';
 import { required } from '../required';
 import { podCourse } from './pod-course';
 import { roofCrown } from './roof-crown';
@@ -23,7 +22,7 @@ import { layeredStructure } from './layered-structure';
 import { ensembleFigure, framedStructure, housePrinciple } from './principle';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
-import { boundaryRuns, ringArea, surfaceHeight, type QuadCell } from '../quad-grid';
+import { boundaryRuns, ringArea, parcelSurfaceHeight, type QuadCell } from '../quad-grid';
 import { objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
@@ -472,28 +471,17 @@ export function perimeterHouse(
 						from: axis,
 						to: [face[0], face[1]],
 						width: threshold.width,
-						groundAt: site.start ? undefined : (x, y) => surfaceHeight(site.cells[0].corners, x, y)
-					}
+						groundAt: site.start ? undefined : (x, y) => parcelSurfaceHeight(site.cells, x, y)
+					},
+					{ axis, opening: access.opening }
 				);
-	// The compact ladder and its landings occupy the entrance well up to the lookout.
-	// A tapering mast deck needs a rim even when the well reaches beyond its original outline.
-	if (built.principle === 'mast') {
-		const lip = access.opening.map(([x, y]): XY => [
-			axis[0] + 1.25 * (x - axis[0]),
-			axis[1] + 1.25 * (y - axis[1])
-		]);
-		for (const deck of built.platforms) {
-			deck.outline = convexHull([...deck.outline, ...lip]).map(([x, y]) => [x, y]);
-			deck.holes = [access.opening];
-		}
-		built.access = climb(built.ground, 'ladder', built.platforms, axis);
-	}
 	const structure = { ...built, threshold };
-	for (const run of built.access) {
-		if (!run.landing) continue;
-		const level = levels.find((level) => level.position[2] === run.head[2]);
-		if (level) level.landing = run.landing;
-	}
+	// Framed spirals declare one run per planned floor, followed by the roof run.
+	if (built.access[0]?.spiral)
+		for (const [i, level] of levels.entries()) {
+			const landing = built.access[i]?.landing;
+			if (landing) level.landing = landing;
+		}
 	const path = built.access[0]?.spiral ? 'spiral' : 'ladder';
 	return {
 		structure,
