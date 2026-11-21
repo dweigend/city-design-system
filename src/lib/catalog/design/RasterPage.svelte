@@ -1,4 +1,7 @@
 <script lang="ts">
+	import CourtStudy from '../raster/CourtStudy.svelte';
+	import type { CourtStudy as Study } from '../raster/court-study.server';
+	let { study }: { study: Study } = $props();
 	import DesignShell from './DesignShell.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
 	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
@@ -14,7 +17,8 @@
 
 <svelte:head><title>Grid · City Design System</title></svelte:head>
 
-<DesignShell title="Grid">
+<DesignShell title="Grid" showTitle={false}>
+	<CourtStudy {study} />
 	<DesignPrinciples page="grid" />
 
 	<Abschnitt id={R.grund.id} titel={R.grund.titel} lead={R.grund.lead}>
