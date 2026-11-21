@@ -29,7 +29,7 @@ function survey() {
 		({ center }) => Math.abs(center[0] - origin[0]) < 48 && Math.abs(center[1] - origin[1]) < 24
 	);
 	const blocks: number[] = [];
-	const lots: { polygon: Point2[]; added: boolean }[] = [];
+	const lots: { polygon: Point2[]; added: boolean; removed: boolean }[] = [];
 	const buildings = [];
 	for (const cell of nearby) {
 		cell.neighbors.forEach((id, i) => {
@@ -37,11 +37,14 @@ function survey() {
 			if (id && before.grid.cellsById.get(id)?.block === cell.block) return;
 			blocks.push(...local(cell.corners[i]), ...local(cell.corners[(i + 1) % 4]));
 		});
+		const beforeStories = before.state.stacks.get(cell.id)?.length;
 		const stories = after.state.stacks.get(cell.id)?.length;
-		if (!stories) continue;
+		if (!stories && !beforeStories) continue;
 		const ring = cell.lotCorners ?? cell.corners;
-		const added = !before.state.stacks.has(cell.id);
-		lots.push({ polygon: ring.map(local), added });
+		const added = !beforeStories;
+		const removed = !stories;
+		lots.push({ polygon: ring.map(local), added, removed });
+		if (!stories) continue;
 		const span = cutSpan(ring);
 		if (span && span[0] >= -42 && span[1] <= 2)
 			buildings.push({ left: span[0], right: span[1], pad: cell.pad, stories, added });

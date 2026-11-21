@@ -34,7 +34,7 @@
 	<section id={K.pickerAbschnitt.id} aria-label={K.pickerAbschnitt.titel}>
 		<MaterialPicker bind:zustand />
 		<p>
-			Lab · Compare skins on fixed geometry in the picker. The <a
+			Bible study · Compare skins on fixed geometry in the picker. The <a
 				href={resolve('/formen#construction-phases')}>construction phase study</a
 			> shows how the treatment changes as new buildings become stock.
 		</p>

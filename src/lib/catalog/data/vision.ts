@@ -39,7 +39,7 @@ export const leitbild = {
 			ton: 'bestand'
 		},
 		{
-			titel: 'No streets',
+			titel: 'No roads',
 			text: 'Follow the elevated walking network between courts.',
 			ziel: 'hochwege',
 			ton: 'people'

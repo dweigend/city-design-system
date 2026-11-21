@@ -14,7 +14,7 @@ export type Abschnitt = { id: string; titel: string; lead?: string };
 export const wegeZuerst: Abschnitt = {
 	id: 'wachstum-wege',
 	titel: 'Paths first, then blocks',
-	lead: 'Proven in the lab · Grow paths from gates and squares, then inspect the blocks left between them.'
+	lead: 'Bible study · Grow paths from gates and squares, then inspect the blocks left between them.'
 };
 
 export type Familie = 'zugang' | 'feld' | 'ring';
@@ -90,7 +90,7 @@ export const kennwertNamen = {
 export const felder: Abschnitt = {
 	id: 'wachstum-felder',
 	titel: 'Fields set the direction, not the place',
-	lead: 'Proven in the lab · The field suggests a direction for paths across the district. Change it to see where the paths bend.'
+	lead: 'Bible study · The field suggests a direction for paths across the district. Change it to see where the paths bend.'
 };
 
 export type FeldModus = 'richtung' | 'abstand' | 'anziehung';
@@ -118,7 +118,7 @@ export const feldHinweis = 'Drag the point.';
 export const teilen: Abschnitt = {
 	id: 'wachstum-teilen',
 	titel: 'A block splits, and every part knows its origin',
-	lead: 'Proven in the lab · The split tree records how a block becomes strips and parcels. Each parcel keeps its identity as dimensions change.'
+	lead: 'Bible study · The split tree records how a block becomes strips and parcels. Each parcel keeps its identity as dimensions change.'
 };
 
 export const teilungPhasen: Phase[] = [
@@ -152,12 +152,12 @@ export const teilenBeispiel = {
 	fliessen: [0.35, 0.65] as const
 };
 
-/* 5 · Parcels without streets */
+/* 5 · Parcels without roads */
 
 export const parzellen: Abschnitt = {
 	id: 'wachstum-parzellen',
-	titel: 'Lots hang on paths, not on streets',
-	lead: 'Proven in the lab · Compare lots reached by alley, square, walkway or transit stop as their boundaries change over time.'
+	titel: 'Lots hang on paths, not on roads',
+	lead: 'Bible study · Compare lots reached by alley, square, walkway or transit stop as their boundaries change over time.'
 };
 
 export type ParzellenBlock = { id: string; name: string; spec: BlockSpec; schutz: number };
@@ -279,7 +279,7 @@ export const nutzungen = [
 export const wfc: Abschnitt = {
 	id: 'wachstum-wfc',
 	titel: 'Where many things fit, the neighbors decide',
-	lead: 'Proven in the lab · Wave Function Collapse selects compatible neighbours. A separate check tests whether each footbridge reaches a gate.'
+	lead: 'Bible study · Wave Function Collapse selects compatible neighbours. A separate check tests whether each footbridge reaches a gate.'
 };
 
 /* 7 · Method matrix */
@@ -299,7 +299,9 @@ export const verfahren: Verfahren[] = [
 	{ id: 'parzellen', titel: 'Parcels', ziel: `#${parzellen.id}` },
 	{ id: 'wfc', titel: 'Wave Function Collapse', ziel: `#${wfc.id}` },
 	{ id: 'raster', titel: 'Universal grid', ziel: '/raster#raster-vierecke' },
+	{ id: 'raumraster', titel: 'Spatial grid', ziel: '/raster#spatial-grid' },
 	{ id: 'traeger', titel: 'Fixed carrier', ziel: '/raster#raster-spielraum' },
+	{ id: 'volumen', titel: 'Solid and void', ziel: '/formen#volume-section' },
 	{ id: 'eck', titel: 'Corner modules', ziel: '/formen/haus' }
 ];
 
@@ -360,8 +362,8 @@ export const aufgaben: Aufgabe[] = [
 	{
 		aufgabe: 'The same buildings on every grid',
 		haupt: 'raster',
-		mit: ['eck'],
-		warum: 'Everything becomes a quad, and modules know only quads.',
+		mit: ['raumraster', 'volumen', 'eck'],
+		warum: 'Everything becomes a quad, and volumes and modules sit in the same grid.',
 		nicht: 'Fields provide no cells and no fixed names.'
 	},
 	{

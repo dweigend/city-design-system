@@ -15,20 +15,24 @@
 				{/each}
 			</div>
 			<p>
-				<strong>In the game.</strong> Solid marks on this schematic section show movement
-				connections available in the
-				<a href={resolve('/sandbox/abnahme')}>sandbox movement graph</a>.
+				<strong>Bible study.</strong> Solid marks on this schematic section use the shared
+				movement-graph types. The <a href={resolve('/sandbox/abnahme')}>sandbox</a> has footbridges over
+				alleys; façade landings with portals exist in the City Game prototype and are planned for the
+				sandbox (ST12, #37).
 			</p>
 			<p>
-				<strong>Lab.</strong> The A–E span uses A–B and D–E for two end faces and C for the roof point.
-				Its spatial grid joins spherical rooms to both faces. The test proves geometric contact. Walkable
-				access is planned.
+				<strong>Prototype.</strong> The City Game services prototype validates water and power from supply
+				nodes to building fittings. Sandbox integration is planned (ST14, #38), marked dashed above.
 			</p>
 			<p>
-				<strong>Planned.</strong> Dashed marks show water and power fittings. Ordinary
+				<strong>Lab.</strong> Geodesic bridge rooms between two faces are studied separately in the
+				Lab; see <a href={resolve('/formen#kuppel')}>dome geometry</a>. Walkable access is planned.
+			</p>
+			<p>
+				<strong>Planned.</strong> Ordinary
 				<a href={resolve('/wachstum#GROW-2')}>growth retains buildings</a>. Setting a route is a
-				deliberate intervention under <a href={resolve('/#CITY-4')}>CITY-4</a>, illustrated by the
-				passage threshold.
+				deliberate intervention under <a href={resolve('/#CITY-4')}>CITY-4</a>; the passage
+				threshold marks where a deliberate cut would open (no cut is shown yet).
 			</p>
 		</div>
 		<EnginePath />

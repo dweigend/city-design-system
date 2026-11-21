@@ -24,8 +24,8 @@
 
 <DesignShell title="City">
 	<CityReadingPath {study} />
-	<Leitbild {...leitbild} />
 	<DesignPrinciples page="city" />
+	<Leitbild {...leitbild} />
 
 	<Abschnitt id={T.weiterbauen.id} titel={T.weiterbauen.titel} lead={T.weiterbauen.lead}>
 		<Weiterbauen />
@@ -34,7 +34,12 @@
 	<Abschnitt id={T.hochwege.id} titel={T.hochwege.titel} lead={T.hochwege.lead}>
 		<Hochwege />
 		<p>
-			<a href={resolve('/interface#connections')}>Trace the bridge landing and other connections</a>
+			Ordinary growth retains existing buildings (<a href={resolve('/wachstum#GROW-2')}>GROW-2</a>),
+			while deliberate path placement may open a passage or remove a small house (<a
+				href={resolve('/#CITY-4')}>CITY-4</a
+			>).
+			<a href={resolve('/interface#connections')}>Trace the bridge landing and other connections</a
+			>.
 		</p>
 	</Abschnitt>
 

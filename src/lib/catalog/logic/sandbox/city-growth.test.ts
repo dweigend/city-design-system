@@ -17,6 +17,9 @@ test('the editable seed-7 city extends the low court wings, retains player lots 
 	const advance = () => prepareAdvance(protectedWorld).finish(new Map());
 	const next = advance();
 	expect(next.state.stacks.size).toBeGreaterThan(opening.state.stacks.size);
+	for (const cellId of protectedWorld.state.stacks.keys()) {
+		expect(next.state.stacks.has(cellId)).toBe(true);
+	}
 	expect(next.state.cityStages).toEqual(cityStages.map((stage) => stage + 1));
 	expect(advance().state.storyParts).toEqual(next.state.storyParts);
 	expect(withState(next, opening.state).state).toBe(opening.state);

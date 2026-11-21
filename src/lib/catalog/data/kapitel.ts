@@ -31,19 +31,19 @@ export const kapitelGruppen: KapitelGruppe[] = [
 				text: 'Building on existing stock, paths above the alleys, rain and components in a closed loop.'
 			},
 			{
-				pfad: '/formen',
-				titel: 'Forms',
-				text: 'Structures carry, forms fill: from the folded plate to the tower built from corners.'
-			},
-			{
 				pfad: '/raster',
 				titel: 'Grid',
-				text: 'The city stands on any ground, from the checkerboard to the old town.'
+				text: 'Contour-led ground quads and the 3D spatial grid: from the checkerboard to the organic city plan.'
 			},
 			{
 				pfad: '/wachstum',
 				titel: 'Growth',
 				text: 'Paths first, then blocks: the city grows without a master plan.'
+			},
+			{
+				pfad: '/formen',
+				titel: 'Forms',
+				text: 'Solid and void volumes in the grid, construction phases, structural families and corner assembly.'
 			},
 			{
 				pfad: '/farben',
@@ -58,7 +58,7 @@ export const kapitelGruppen: KapitelGruppe[] = [
 			{
 				pfad: '/interface',
 				titel: 'Interface',
-				text: 'Icons, UI controls and building views speak the language of the city.'
+				text: 'Building connections, the shared engine path, HUD patterns, icons and controls.'
 			}
 		]
 	},
@@ -80,7 +80,7 @@ export const kapitelGruppen: KapitelGruppe[] = [
 			{
 				pfad: '/archiv',
 				titel: 'Archive',
-				text: 'Every image in one place: our own designs, raw material, external references.'
+				text: 'Shared library status, library principles (LIB-1–LIB-6) and every reference image in one place.'
 			}
 		]
 	}
@@ -88,4 +88,4 @@ export const kapitelGruppen: KapitelGruppe[] = [
 
 /** The reading path in one sentence. */
 export const leseweg =
-	'City shows the whole. Forms build the building, Grid lays the ground, Growth distributes both. Color, Material and Interface decide how the same data appears. The workshop shows where every rule comes from.';
+	'City shows the whole. Grid lays the ground and spatial envelope, Growth evolves it over time, Forms shape occupied and open volumes. Color, Material and Interface decide how the same data and connections appear. The workshop shows where every rule comes from.';

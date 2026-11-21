@@ -17,14 +17,22 @@
 		<CourtSection section={study.section} />
 		<div class="notes">
 			<p>
-				<strong>In the game</strong> Contours mark half-metre changes in terrain height. Grey lots
-				stay in place. One new lot joins the group in {study.afterYear}.
+				<strong>Game</strong> Contours mark half-metre changes in terrain height. Grey lots stay in
+				place during ordinary growth (terrain cuts follow
+				<a href={resolve('/raster#GRID-3')}>GRID-3</a>). One new lot joins the group in {study.afterYear}.
+				Each occupied lot (parcel) sits on one or more quad cells of the ground grid extruded into
+				the 3D spatial grid.
 			</p>
 			<p>
 				<strong>Planned</strong> The outer line marks the proposed volume. The subgrid divides it by
-				lot and storey. The square stays open. See the
+				lot. The square stays open. See the
 				<a href={resolve('/raster#GRID-2')}>grid limits and exceptions</a>, then follow the
 				<a href={resolve('/formen#volume-section')}>occupied and open volumes</a>.
+			</p>
+			<p>
+				<strong>Three 3D models today.</strong> The sandbox stacks storeys on a quad terrain grid; the
+				City Game volume prototype uses tessellated storeys inside one XYZ envelope; the Lab A–E span
+				clips a 3D Voronoi lattice. The shared 3D grid is planned (ST6, #36).
 			</p>
 		</div>
 	</div>
