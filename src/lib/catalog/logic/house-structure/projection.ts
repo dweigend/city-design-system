@@ -1,3 +1,6 @@
+import { skinPanels } from './skin-panels';
+import { spiralSteps } from './spiral';
+import { houseStair } from '../../data/house-stair';
 import { skinFrame, type SkinFrame } from './graph';
 import type { BuildingSurface, Vec3 } from '../parametrik/types';
 import type { HouseStructure, Platform, SkinPatch, XY } from './contract';
@@ -31,6 +34,16 @@ const ACCESS_RADIUS = 0.06;
  * It stands in until a tension solver is passed; it has no sag, pressure or seams.
  */
 function fanSkin(frame: SkinFrame): SkinMesh {
+	if (frame.batten) {
+		const points: Vec3[] = [],
+			triangles: number[] = [];
+		for (const { grips } of skinPanels(frame)) {
+			const base = points.length;
+			points.push(...grips);
+			for (let i = 2; i < grips.length; i++) triangles.push(base, base + i - 1, base + i);
+		}
+		return { points, triangles };
+	}
 	const count = frame.boundary.length;
 	return {
 		points: [...frame.boundary, frame.peak],
@@ -100,14 +113,48 @@ export function structureParts(
 			kind: 'mesh',
 			...solve(skinFrame(structure, skin.id), skin)
 		})),
-		...structure.access.map((way): StructurePart => ({
-			id: way.id,
-			element: 'access',
-			surface: { use, ensemble, slot: 'fitting' },
-			kind: 'rod',
-			from: [...way.foot],
-			to: [...way.head],
-			radius: ACCESS_RADIUS
-		}))
+		...structureAccessParts(structure)
 	];
+}
+
+/** Projects the declared runs to tread sectors or centreline rods, in ascending run order. */
+export function structureAccessParts(structure: HouseStructure): StructurePart[] {
+	const { ensemble, use } = structure;
+	return structure.access.flatMap((way): StructurePart[] =>
+		way.spiral
+			? spiralSteps(way).map((step): StructurePart => {
+					const common = {
+						id: step.id,
+						element: 'access' as const,
+						surface: { use, ensemble, slot: 'fitting' as const }
+					};
+					if (step.kind === 'ramp') {
+						const points = step.polygon.map(([x, y], i): Vec3 => [
+							x,
+							y,
+							i < 2 ? step.from[2] : step.to[2]
+						]);
+						return { ...common, kind: 'mesh', points, triangles: [0, 1, 2, 0, 2, 3] };
+					}
+					return {
+						...common,
+						kind: 'plate',
+						polygon: step.polygon,
+						holes: [],
+						z: step.to[2] - houseStair.thickness,
+						height: houseStair.thickness
+					};
+				})
+			: [
+					{
+						id: way.id,
+						element: 'access',
+						surface: { use, ensemble, slot: 'fitting' },
+						kind: 'rod',
+						from: [...way.foot],
+						to: [...way.head],
+						radius: ACCESS_RADIUS
+					}
+				]
+	);
 }

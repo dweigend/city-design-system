@@ -134,6 +134,15 @@ const city: DesignPrinciple[] = [
 			'Rain, storage and green are part of the cityscape. The elements come from the inventory of the reference images.',
 		decided: '2026-11-19',
 		demo: { route: '/', anchor: 'schwamm', label: 'Rain stays in the district' }
+	},
+	{
+		id: 'CITY-11',
+		page: 'city',
+		title: 'An invented valley',
+		rule: 'Every city grows in an invented, generated valley with a river, from shared principles; no real city is copied.',
+		reason:
+			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -317,6 +326,15 @@ const grid: DesignPrinciple[] = [
 			anchor: 'court-growth',
 			label: 'Compare two dates at the same square'
 		}
+	},
+	{
+		id: 'GRID-7',
+		page: 'grid',
+		title: 'Every cell is a spanned space',
+		rule: 'Every cell of the 3D city grid is a spanned space, a polyhedron such as a tetrahedron, hexahedron, octahedron, pyramid, dodecahedron or icosahedron, holding exactly one filling: empty, a bridge or connection, or a house.',
+		reason:
+			'The spanned space appears already when the city is generated, not as a special object. Paths, bridges and houses are fillings of the same cells, so the principle returns wherever the city builds.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -360,8 +378,8 @@ const growth: DesignPrinciple[] = [
 		title: 'A small town to start',
 		rule: 'A game opens on a small seeded stock town that can be grayed out.',
 		reason:
-			'The player is architect and planner on one large canvas. The full time-lapse of an old town is a later project.',
-		decided: '2026-11-18'
+			'The player is architect and planner on one large canvas. The story line plays the time-lapse before it, from the first settlement in the valley to the game start in 2030.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -429,6 +447,15 @@ const color: DesignPrinciple[] = [
 		reason:
 			'It reads like a result plot with scale and legend, and it is switched on, never mixed into the normal view.',
 		decided: '2026-11-13'
+	},
+	{
+		id: 'COLOR-8',
+		page: 'color',
+		title: 'Transparency mode shows infrastructure',
+		rule: 'A transparency mode turns every house into a strongly stylized, gray or black-and-white, see-through body, so pipes, cables, paths and flows stand out in color.',
+		reason:
+			'Infrastructure is hidden in the normal view, so the city may wear a freer color world there, always from one curated, stylized palette. Use colors carry their meaning on the infrastructure that the transparency mode reveals.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -511,6 +538,15 @@ const ui: DesignPrinciple[] = [
 		reason:
 			'A demo starts still. Play and Stop are the only controls, Stop returns to the start state, and only one demo runs per page.',
 		decided: '2026-11-17'
+	},
+	{
+		id: 'UI-4',
+		page: 'interface',
+		title: 'Every page tells its own story',
+		rule: 'A bible page carries no cross-reference blocks, link lists or "see chapter" notes; at most a term in the running text links on, as in an encyclopedia.',
+		reason:
+			'References scatter the reader and make a page depend on others. Each page explains what it shows by itself; the site navigation leads from chapter to chapter.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -538,10 +574,10 @@ const library: DesignPrinciple[] = [
 		id: 'LIB-3',
 		page: 'library',
 		title: 'Parameters, not constants',
-		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden.',
+		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden, and shared inputs such as height, width and complexity have one name, unit and range across every block.',
 		reason:
-			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded.',
-		decided: '2026-11-18'
+			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded. The city sets only coarse lots; the houses add the detail through the same height, width and complexity inputs, so a control means the same everywhere.',
+		decided: '2026-11-21'
 	},
 	{
 		id: 'LIB-4',

@@ -1,8 +1,9 @@
-import type { HouseStructure, Platform, SkinPatch, XY } from './contract';
+import type { HouseStructure, Platform, SkinPatch, SpiralWell, XY } from './contract';
+import { spiralAccess, spiralNewel } from './spiral';
 import { hemPosts, EDGE, type Walk } from './hem';
 import {
+	turn,
 	centre,
-	climb,
 	identity,
 	inset,
 	seatedDeck,
@@ -18,8 +19,6 @@ const TWIST = 0.5;
 /** Share of the parcel ring a deck covers at ground level, and its loss up to the crown. */
 const DECK_SHARE = 0.5;
 const DECK_TAPER = 0.75;
-/** Share of the way from the trunk to the first parcel corner at which the stair winds. */
-const STAIR_SHARE = 0.25;
 
 function turned(ring: XY[], angle: number): XY[] {
 	const [x, y] = centre(ring),
@@ -29,6 +28,27 @@ function turned(ring: XY[], angle: number): XY[] {
 		x + (u - x) * cos - (v - y) * sin,
 		y + (u - x) * sin + (v - y) * cos
 	]);
+}
+
+// A transverse support holds pinched faces clear of the highest occupied landing.
+function spreaderRing(footRing: XY[], crownRing: XY[], share: number, well?: SpiralWell): XY[] {
+	if (!well) return [];
+	const waist = footRing.map(([x, y], i): XY => [
+		x + (crownRing[i][0] - x) * share,
+		y + (crownRing[i][1] - y) * share
+	]);
+	const needsSpace = waist.map(([x, y], i) => {
+		const [a, b] = waist[(i + 1) % waist.length],
+			dx = a - x,
+			dy = b - y;
+		const distance =
+			(turn(footRing) * (dx * (well.axis[1] - y) - dy * (well.axis[0] - x))) / Math.hypot(dx, dy);
+		return distance < well.outer + EDGE;
+	});
+	if (!needsSpace.some(Boolean)) return [];
+	return waist.map((p, i) =>
+		needsSpace[i] || needsSpace[(i + waist.length - 1) % waist.length] ? footRing[i] : p
+	);
 }
 
 /**
@@ -46,10 +66,12 @@ export function fannedTrussHouse(
 	const ring = plot.parcel.polygon;
 	const heights = [0, ...shape.datums, shape.height].map((h) => plot.ground + h);
 	const { nodes, rods, collar } = trunk(plot.id + '/trunk', centre(ring), heights);
-	const hem = hemPosts(plot, inset(ring, EDGE), shape.walk),
+	const footRing = inset(ring, EDGE);
+	const hem = hemPosts(plot, footRing, shape.walk),
 		hub = collar(heights.length - 1);
 	const spin = (TWIST * 2 * Math.PI) / ring.length;
-	const crown = turned(shrink(ring, CROWN_SHARE), spin).map((p, corner) => {
+	const crownRing = turned(shrink(ring, CROWN_SHARE), spin);
+	const crown = crownRing.map((p, corner) => {
 		const id = plot.id + '/crown/' + corner;
 		nodes.push({ id, position: [...p, plot.ground + shape.height] });
 		rods.push({ id: id + '/rod', from: hub, to: id, radius: FINE_RADIUS, action: 'strut' });
@@ -63,9 +85,33 @@ export function fannedTrussHouse(
 		nodes.push(...seats);
 		return platform;
 	});
+	const access = spiralAccess(ring, platforms, plot.ground, 'spiral', shape.walk?.groundAt);
+	spiralNewel(plot.id, access, nodes, rods);
+	// Where the narrowing cloth would cross the stair, a spreader holds the face clear
+	// above its highest landing. Its strut stays overhead all the way to the trunk head.
+	const well = access[0]?.spiral?.well;
+	const highest = shape.datums.at(-1) ?? 0;
+	const spreaderHeight = highest + Math.min(2.2, (shape.height - highest) / 2);
+	const rim = spreaderRing(footRing, crownRing, spreaderHeight / shape.height, well).map(
+		(xy, i) => {
+			const id = plot.id + '/spreader/' + i;
+			nodes.push({ id, position: [...xy, plot.ground + spreaderHeight] });
+			rods.push({ id: id + '/rod', from: hub, to: id, radius: FINE_RADIUS, action: 'strut' });
+			return { node: id };
+		}
+	);
+	for (const [i, grip] of rim.entries())
+		rods.push({
+			id: grip.node + '/batten',
+			from: grip.node,
+			to: rim[(i + 1) % rim.length].node,
+			radius: FINE_RADIUS,
+			action: 'strut'
+		});
 	const sails = ring.map((_, face): SkinPatch => ({
 		id: plot.id + '/sail/' + face,
 		slot: 'shell',
+		batten: rim.length ? [rim[face], rim[(face + 1) % rim.length]] : undefined,
 		use: plot.use,
 		boundary: [
 			...hem.grips(face),
@@ -77,11 +123,14 @@ export function fannedTrussHouse(
 	}));
 	return {
 		...identity(plot),
+		...(shape.walk?.groundAt && access.length
+			? { entryDatum: shape.walk.groundAt(access[0].foot[0], access[0].foot[1]) }
+			: {}),
 		principle: 'fanned-truss',
 		nodes: [...nodes, ...hem.nodes],
 		rods: [...rods, ...hem.rods],
 		platforms,
 		skins: sails,
-		access: climb(plot.ground, 'spiral', platforms, shrink(ring, STAIR_SHARE)[0])
+		access
 	};
 }

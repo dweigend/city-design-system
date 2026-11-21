@@ -39,6 +39,8 @@ export type SkinPatch = {
 	boundary: Grip[];
 	/** Edge i runs from boundary[i] to boundary[i + 1]. Omitted edges are seams. */
 	edges?: SkinEdge[];
+	/** Ends of a transverse batten on a four-corner sail, on sides 3 and 1 respectively. */
+	batten?: [Grip, Grip];
 	/** Grips inside the loop that push or pull the cloth: a mast head, an outward rod tip. */
 	interior?: Grip[];
 	/** Gauge pressure in kPa and in-plane tension in kN/m. */
@@ -61,6 +63,18 @@ export type Platform = {
 	room?: { height: number };
 };
 
+/** The axis and radii of the newel, opening and walking line, in world metres. */
+export type SpiralWell = { axis: XY; outer: number; inner: number; walk: number };
+
+/** Riser and entry-ramp layout on the continuous series of angular stations. */
+type SpiralRun = {
+	well: SpiralWell;
+	start: number;
+	steps: number;
+	approach: number;
+	rampSectors: number;
+};
+
 /** One explicit way up to a platform. */
 export type Access = {
 	id: string;
@@ -70,6 +84,9 @@ export type Access = {
 	to: string;
 	foot: Vec3;
 	head: Vec3;
+	/** Where the stair landing meets the edge of the platform opening. */
+	landing?: Vec3;
+	spiral?: SpiralRun;
 };
 
 /**
@@ -101,6 +118,8 @@ export type HouseStructure = {
 	use: HouseUse;
 	/** Height of the parcel ground. */
 	ground: number;
+	/** Terrain height at the foot of the surveyed entrance on a sloping parcel. */
+	entryDatum?: number;
 	parcel: Parcel;
 	nodes: StructureNode[];
 	rods: Rod[];

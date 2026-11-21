@@ -27,8 +27,18 @@ function checkGeometry(value: unknown, path: string) {
 function checkHouse(house: ReturnType<typeof planHouse>) {
 	checkGeometry(house.composition.exterior, house.id + '/exterior');
 	const parts = sectionParts(house);
-	const accent = accentBody(house).id + '/';
-	expect(parts.some((p) => p.id.startsWith(accent))).toBe(true);
+	const structure = house.composition.structure;
+	if (structure.principle === 'layers') {
+		const accent = accentBody(house).id + '/';
+		expect(parts.some((p) => p.id.startsWith(accent))).toBe(true);
+	} else {
+		expect(structure.skins.length).toBeGreaterThan(0);
+		for (const skin of structure.skins) {
+			const panel = parts.find((p) => p.id === skin.id);
+			expect(panel?.kind, skin.id).toBe('mesh');
+			expect(panel?.buildingSurface?.slot, skin.id).toBe(skin.slot);
+		}
+	}
 	for (const part of parts) {
 		checkGeometry(part, part.id);
 		const role = part.buildingSurface;

@@ -1,4 +1,5 @@
-import type { HouseStructure, SkinPatch } from './contract';
+import type { HouseStructure, SkinPatch, XY } from './contract';
+import { convexHull } from '../parzelle';
 import { hemPosts, EDGE, type Walk } from './hem';
 import {
 	centre,
@@ -22,6 +23,8 @@ const NEST_MIN = 0.2;
 const NEST_MAX = 0.5;
 /** Share of the way from the mast to the first parcel corner at which the ladder climbs. */
 const LADDER_SHARE = 0.12;
+/** Ratio of the landing lip to the ladder opening about the shaft axis. */
+const LANDING_SHARE = 1.25;
 
 /**
  * One free-standing mast with a single high lookout inside a cone of cloth. One gore per
@@ -32,7 +35,7 @@ const LADDER_SHARE = 0.12;
  */
 export function tentMastHouse(
 	plot: Plot,
-	shape: { height: number; lookout: number; walk?: Walk }
+	shape: { height: number; lookout: number; walk?: Walk; well?: { axis: XY; opening: XY[] } }
 ): HouseStructure {
 	const ring = plot.parcel.polygon,
 		datum = plot.ground + shape.lookout;
@@ -46,6 +49,15 @@ export function tentMastHouse(
 	const reach = 1 - (shape.lookout + HEADROOM) / shape.height;
 	const share = Math.min(NEST_MAX, Math.max(NEST_MIN, NEST_FILL * reach));
 	const { platform, seats } = seatedDeck(plot, 0, datum, share);
+	const axis = shape.well?.axis ?? shrink(ring, LADDER_SHARE)[0];
+	if (shape.well) {
+		const lip = shape.well.opening.map(([x, y]): XY => [
+			axis[0] + LANDING_SHARE * (x - axis[0]),
+			axis[1] + LANDING_SHARE * (y - axis[1])
+		]);
+		platform.outline = convexHull([...platform.outline, ...lip]).map(([x, y]) => [x, y]);
+		platform.holes = [shape.well.opening];
+	}
 	const rods = [...mast.rods, ...hem.rods];
 	for (const { id } of seats)
 		rods.push(
@@ -67,7 +79,7 @@ export function tentMastHouse(
 		rods,
 		platforms: [platform],
 		skins: gores,
-		access: climb(plot.ground, 'ladder', [platform], shrink(ring, LADDER_SHARE)[0]),
+		access: climb(plot.ground, 'ladder', [platform], axis),
 		roof: { kind: 'skin', patches: gores.map((gore) => gore.id) }
 	};
 }
