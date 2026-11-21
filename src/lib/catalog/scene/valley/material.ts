@@ -42,7 +42,7 @@ export function valleyMaterial(exaggeration: number) {
 
 	return {
 		material,
-		setPalette(palette: Palette3D) {
+		setPalette(this: void, palette: Palette3D) {
 			const paper = new Color(palette.paper);
 			const ground = new Color(sceneSwatch(palette, '--ground-sage'));
 			floodplain.value.copy(paper).lerp(ground, 0.33);

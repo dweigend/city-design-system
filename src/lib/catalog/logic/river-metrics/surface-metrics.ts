@@ -61,7 +61,29 @@ function surfaceStats(surface: Surface, signed: Sampler, protocol: SurfaceProtoc
 	return { reliefM: high - low, landSlopeShares: counts.map((count) => (land ? count / land : 0)) };
 }
 
-function checkGrid(grid: SurfaceGrid, protocol: SurfaceProtocol): number {
+function validSurfaceProtocol(windowM: number, protocol: SurfaceProtocol): boolean {
+	return (
+		protocol.surfaceSpacingM > 0 &&
+		protocol.surfaceSpacingM <= windowM / 2 &&
+		protocol.smoothingSigmaM > 0 &&
+		Number.isFinite(protocol.smoothingSigmaM) &&
+		protocol.gaussianTruncateSigma > 0 &&
+		Number.isFinite(protocol.gaussianTruncateSigma) &&
+		protocol.reliefCoreM > 0
+	);
+}
+
+function validProfileProtocol(spacingM: number, protocol: SurfaceProtocol): boolean {
+	return (
+		protocol.profileSpacingM > 0 &&
+		protocol.profileHalfLengthM > 0 &&
+		protocol.profileHalfLengthM % spacingM === 0 &&
+		protocol.stationOffsetM >= 0 &&
+		protocol.stationTangentHalfLengthM > 0
+	);
+}
+
+function checkGrid(grid: SurfaceGrid): number {
 	const side = grid.windowM / grid.spacingM + 1;
 	const valid =
 		Number.isInteger(side) &&
@@ -69,17 +91,7 @@ function checkGrid(grid: SurfaceGrid, protocol: SurfaceProtocol): number {
 		grid.spacingM > 0 &&
 		grid.windowM > 0 &&
 		grid.bedMm.length === side ** 2 &&
-		grid.meanWaterMm.length === side ** 2 &&
-		protocol.surfaceSpacingM > 0 &&
-		protocol.surfaceSpacingM <= grid.windowM / 2 &&
-		protocol.smoothingSigmaM > 0 &&
-		protocol.gaussianTruncateSigma > 0 &&
-		protocol.profileSpacingM > 0 &&
-		protocol.profileHalfLengthM > 0 &&
-		protocol.profileHalfLengthM % grid.spacingM === 0 &&
-		protocol.stationOffsetM >= 0 &&
-		protocol.stationTangentHalfLengthM > 0 &&
-		protocol.reliefCoreM > 0;
+		grid.meanWaterMm.length === side ** 2;
 	if (!valid) throw new RangeError('invalid-surface-grid');
 	return side;
 }
@@ -94,7 +106,13 @@ export function measureRiverSurface(
 	course: ArrayLike<number>,
 	protocol: SurfaceProtocol
 ) {
-	const side = checkGrid(grid, protocol);
+	const side = checkGrid(grid);
+	if (
+		!validSurfaceProtocol(grid.windowM, protocol) ||
+		!validProfileProtocol(grid.spacingM, protocol)
+	) {
+		throw new RangeError('invalid-surface-grid');
+	}
 	const reach = clipPolylineToSquare(course, grid.windowM);
 	const surface = smoothSurface(
 		grid,
