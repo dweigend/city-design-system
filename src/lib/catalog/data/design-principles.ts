@@ -326,6 +326,15 @@ const grid: DesignPrinciple[] = [
 			anchor: 'court-growth',
 			label: 'Compare two dates at the same square'
 		}
+	},
+	{
+		id: 'GRID-7',
+		page: 'grid',
+		title: 'Every cell is a spanned space',
+		rule: 'Every cell of the 3D city grid is a spanned space, a polyhedron such as a tetrahedron, hexahedron, octahedron, pyramid, dodecahedron or icosahedron, holding exactly one filling: empty, a bridge or connection, or a house.',
+		reason:
+			'The spanned space appears already when the city is generated, not as a special object. Paths, bridges and houses are fillings of the same cells, so the principle returns wherever the city builds.',
+		decided: '2026-11-21'
 	}
 ];
 
