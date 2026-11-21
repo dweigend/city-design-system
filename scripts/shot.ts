@@ -21,11 +21,13 @@ const origin = preview(revision);
 const requested = values.url ? new URL(values.url, origin) : undefined;
 if (requested && requested.origin !== origin)
 	throw Error('URL must match the verified preview at ' + origin);
+const shotRoute = process.env.SHOT_ROUTE;
+const defaultRoutes = shotRoute ? [shotRoute] : ['/sandbox/abnahme', '/sandbox', '/sandbox/haus'];
 const routes = positionals.length
 	? positionals
 	: requested && requested.pathname !== '/'
 		? [requested.pathname + requested.search]
-		: ['/sandbox/abnahme', '/sandbox', '/sandbox/haus'];
+		: defaultRoutes;
 const folder = resolve(shots, new Date().toISOString().replaceAll(':', '-'));
 const reference = resolve(
 	values.reference ??
@@ -60,6 +62,7 @@ const browser = await chromium.launch({
 	ignoreDefaultArgs: ['--enable-unsafe-swiftshader'],
 	env: { ...process.env, VK_DRIVER_FILES: '/usr/share/vulkan/icd.d/radeon_icd.json' },
 	args: [
+		`--unsafely-treat-insecure-origin-as-secure=${origin}`,
 		'--use-angle=vulkan',
 		'--use-vulkan=native',
 		'--enable-features=Vulkan',
