@@ -78,6 +78,7 @@ export function exoskeletonHouse(
 	const access = spiralAccess(ring, platforms, plot.ground, 'stair', shape.walk?.groundAt);
 	spiralNewel(plot.id, access, nodes, rods);
 	const cushions = ring.map((_, face): SkinPatch => {
+		const next = (face + 1) % count;
 		const loop = [...hem.grips(face), { node: head(face + 1) }, { node: head(face) }];
 		return {
 			id: plot.id + '/cushion/' + face,
@@ -86,7 +87,15 @@ export function exoskeletonHouse(
 			// Pressure acts along the right-hand normal: the loop runs counterclockwise from outside.
 			boundary: turn(ring) > 0 ? loop : [loop[1], loop[0], loop[3], loop[2]],
 			edges: ['cable', 'seam', 'seam', 'seam'],
-			membrane: CUSHION
+			// For the same relative bulge, membrane tension grows with the unsupported span.
+			membrane: {
+				pressure: CUSHION.pressure,
+				tension: Math.max(
+					CUSHION.tension,
+					CUSHION.pressure *
+						Math.hypot(ring[next][0] - ring[face][0], ring[next][1] - ring[face][1])
+				)
+			}
 		};
 	});
 	return {
