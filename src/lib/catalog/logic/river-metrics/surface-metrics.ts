@@ -1,4 +1,4 @@
-import { clipPolylineToSquare } from './course-metrics';
+import { clipPolylineToSquare } from '../../core/polyline';
 import { crossSections, profileAt, stepCandidates, wetRunM } from './cross-profiles';
 import { gridSampler, smoothSurface, type SurfaceGrid } from './surface-grid';
 

@@ -43,3 +43,9 @@ Run `bun test src/lib/catalog/logic/valley/valley.test.ts` in `heavy-slot`. The 
 `bedMm` and `meanWaterMm` are signed integer elevations. `floor` is 0 for water, 1 for floodplain, 2 for lower terrace and 3 for upper terrace. `classes` uses 1 for water, 2 for floodplain, 4 for terrace and 32 as an additional high-terrace bit. At the shoreline the bed is wet exactly when its integer height is below mean water. Terrace indices change at the integer midpoint of the corresponding rise.
 
 `contains(field, x, y)` checks the closed window and rejects nonfinite coordinates. `groundAt` and `meanWaterAt` linearly interpolate between samples in both axes and return meters. For a coordinate outside the window they throw a RangeError with message and code `outside-window`.
+
+## Coupled bend parameters
+
+Amplitude and wavelength-to-width are two coordinates of the same channel-2 draw. The default shape follows a diagonal from (0.71 rad, 11.5) to (0.79 rad, 13.2). The long wavelength paired with the larger amplitude keeps local sinuosity in the chapter band. Independent overrides can leave it: 0.79 rad and a ratio of 11.5 at 350 m bankfull reach S₂ ≈ 1.112 at a 33° mean bearing and zero phase.
+
+Parameter and curvature bounds are checked before generating the vector. Every overridden course is then clipped to the chapter's centered 2 km square and checked against its upper S₂ limit. An offending course throws `RangeError('valley-sinuosity-out-of-band')` before a snapshot is returned. The check uses the generated course once, with the original seed and draw order. The width ratio 0.94 is a declared assumption. The field gates measure its wet interval independently.

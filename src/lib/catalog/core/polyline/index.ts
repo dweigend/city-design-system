@@ -1,6 +1,8 @@
 import { clipSegment, onBorder } from './clip-segment';
 import { distance, pointAt, polylineLength } from './polyline';
 
+export { distance, pointAt, type Point } from './polyline';
+
 export type ClippedReach = Readonly<{
 	xy: Float64Array;
 	borderHits: number;

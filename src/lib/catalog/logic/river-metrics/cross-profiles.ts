@@ -1,4 +1,4 @@
-import { distance, pointAt, type Point } from './polyline';
+import { distance, pointAt, type Point } from '../../core/polyline';
 
 type Sampler = (x: number, y: number) => number;
 type ProfilePoint = Readonly<{ offset: number; signed: number; height: number }>;
