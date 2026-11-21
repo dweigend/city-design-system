@@ -23,7 +23,7 @@
 {#snippet step(item: Step, picture: Snippet)}
 	<li>
 		<div class="copy">
-			<span>{item.status}</span>
+			<span>{item.step} · {item.status}</span>
 			<h2>{item.title}</h2>
 			<p>{item.text}</p>
 		</div>
@@ -119,13 +119,9 @@
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-areas: 'copy' 'picture' 'link';
 			grid-template-rows: auto auto auto;
-			align-content: center;
-			gap: var(--space-4);
-			min-height: 90svh;
-		}
-		li:first-child {
 			align-content: start;
-			min-height: 78svh;
+			gap: var(--space-4);
+			padding-block: var(--space-6);
 		}
 	}
 </style>

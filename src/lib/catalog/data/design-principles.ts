@@ -144,7 +144,7 @@ const forms: DesignPrinciple[] = [
 		title: 'Solid and void',
 		rule: 'A house takes shape through the interplay of occupied cells and spaces left open or cut out of the same 3D grid.',
 		reason:
-			'Occupied regions form the body. Open regions read as courtyards, passages and openings. The initial prototype demonstrates this with simple surface bodies.',
+			'Occupied regions form the body and open regions read as courtyards, passages and openings. Target: proven separately in the City Game volume prototype (tessellated storeys, VOLUME-VERIFICATION) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
 		decided: '2026-11-21',
 		demo: { route: '/formen', anchor: 'volume-section', label: 'Read the solid and the passage' }
 	},
@@ -221,9 +221,9 @@ const forms: DesignPrinciple[] = [
 		title: 'The same house rule across cells',
 		rule: 'A house rule takes its geometry from the shared 3D grid and fits orthogonal, corner, irregular and distorted cells alike.',
 		reason:
-			'The rule can place occupied and open regions in each kind of cell. Windows, domes and roofs take their dimensions from that cell geometry.',
+			'Irregular cells reach the house rule as quads (GRID-1); the brush itself stays quad-only (GRID-4). Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
 		decided: '2026-11-21',
-		demo: { route: '/sandbox/regel', label: 'One house rule on several grids' }
+		demo: { route: '/sandbox/regel', label: 'One house rule on several 2D grids' }
 	},
 	{
 		id: 'FORM-10',
@@ -267,7 +267,7 @@ const grid: DesignPrinciple[] = [
 		title: 'Terrain and the 3D envelope',
 		rule: 'The contour-led ground grid and its 3D cells bound building volume, morphing, overhangs and ordinary access, with individual connections allowed to leave the grid as exceptions.',
 		reason:
-			'Along the terrain, long grid lines follow contours and cross lines run downslope. A body may occupy only part of its cells, and a path may weave through grid-derived space between bodies. The coarse grid divides ensembles and leaves clear cuts between them.',
+			'Along the terrain, long grid lines follow contours and cross lines run downslope; bodies may occupy part of their cells and paths may weave between them. Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
 		decided: '2026-11-21',
 		demo: {
 			route: '/raster',
@@ -303,6 +303,20 @@ const grid: DesignPrinciple[] = [
 			'The data model is a deterministic graph with local rules; rendering is only a projection. A feature that works on squares alone is not finished.',
 		decided: '2026-11-11',
 		demo: { route: '/raster', anchor: 'raster-grund', label: 'The city stands on any ground' }
+	},
+	{
+		id: 'GRID-6',
+		page: 'grid',
+		title: 'Seeded city volume',
+		rule: 'Terrain produces a seed-regenerable city plan, a 3D spatial grid above it, and subgrids with simple surface bodies extendable by the growth rules.',
+		reason:
+			'The shared library supplies the geometry, and the bible grid demo shows spatial structure and growth. Target for the first shared acceptance image (ST6 #36).',
+		decided: '2026-11-21',
+		demo: {
+			route: '/raster',
+			anchor: 'court-growth',
+			label: 'Compare two dates at the same square'
+		}
 	}
 ];
 
@@ -313,7 +327,7 @@ const growth: DesignPrinciple[] = [
 		title: 'Evolution instead of plan',
 		rule: 'The city grows through events over time, never from a master plan.',
 		reason:
-			'Drivers change (politics, climate, floods, migration), people adapt, and architecture reflects it: conversion, densification, extension, demolition, vacancy. The same event principle drives past epochs and the future, at every scale. Clever approximation beats simulation.',
+			'Drivers change (politics, climate, floods, migration), people adapt, and architecture reflects it: conversion, densification, extension, vacancy, and demolition only through a deliberate intervention (CITY-4) or a visible terrain change (GRID-3). The same event principle drives past epochs and the future, at every scale.',
 		decided: '2026-11-12',
 		demo: { route: '/wachstum', anchor: 'wachstum-wege', label: 'Paths first, then blocks' }
 	},
@@ -504,9 +518,9 @@ const library: DesignPrinciple[] = [
 		id: 'LIB-1',
 		page: 'library',
 		title: 'One library for bible and game',
-		rule: 'Every bible miniature and the game use the same engine and library, with the game adding controls and actions across the landscape.',
+		rule: 'Every bible miniature and the game use the same engine and library with no bible-only or game-only code path, while the game adds controls and actions across the landscape.',
 		reason:
-			'Each miniature isolates one visible rule. Thin wrappers handle growth and change over time on the shared path.',
+			'Each miniature isolates one visible rule, combining direct building with simple city functions; priority goes to visible neighborhoods, paths, bridges, pipes, power connections and transparency (D7). Target: fixtures authored for a single picture are labelled as bible studies and listed on /archiv#library-path until replaced (ST6 #36, ST12 #37, ST14 #38, ST15 #39).',
 		decided: '2026-11-21',
 		demo: { route: '/interface', anchor: 'engine-path', label: 'Trace the shared path' }
 	},

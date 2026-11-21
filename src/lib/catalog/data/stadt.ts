@@ -10,19 +10,19 @@ export type Abschnitt = { id: string; titel: string; lead: string };
 export const weiterbauen: Abschnitt = {
 	id: 'weiterbauen',
 	titel: 'Retain, convert, extend',
-	lead: 'In the game · A house can gain storeys on its existing lot. The sequence shows how conversion and extension can share a footprint.'
+	lead: 'Bible study · The sandbox grows storeys on existing lots (/sandbox). This sequence shows how conversion and extension share a footprint.'
 };
 
 export const hochwege: Abschnitt = {
 	id: 'hochwege',
 	titel: 'Elevated walkways between courts',
-	lead: 'In the game · Elevated walkways link courts in the opening city. Access from every building is planned.'
+	lead: 'Bible study · The sandbox links courts with footbridges over alleys (/sandbox); façade landings from every building are planned (ST12, #37).'
 };
 
 export const schwamm: Abschnitt = {
 	id: 'schwamm',
 	titel: 'Rain stays in the district',
-	lead: 'In the game · Green roofs, retention basins and water squares appear as the district grows toward its sponge-city target.'
+	lead: 'Bible study · The sandbox runs sponge-city growth (/sandbox); this sequence isolates green roofs, retention basins and water squares.'
 };
 
 export const bauteile: Abschnitt = {

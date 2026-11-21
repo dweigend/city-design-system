@@ -23,7 +23,7 @@
 			...p,
 			...study.plaza[(i + 1) % study.plaza.length]
 		]);
-		const visible = study.lots.filter((lot) => later || !lot.added);
+		const visible = study.lots.filter((lot) => (later ? !lot.removed : !lot.added));
 		const seams = visible.flatMap(({ polygon }) =>
 			polygon.flatMap((p, i) => [...p, ...polygon[(i + 1) % polygon.length]])
 		);
@@ -69,7 +69,7 @@
 <figure>
 	{#if showCaption}
 		<figcaption>
-			<strong>{later ? study.afterYear : study.beforeYear}</strong><span>In the game</span>
+			<strong>{later ? study.afterYear : study.beforeYear}</strong><span>Game</span>
 		</figcaption>
 	{/if}
 	<div class="map">

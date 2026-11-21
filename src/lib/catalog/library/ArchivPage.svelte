@@ -48,17 +48,30 @@
 	<section id="library-path" class="library-path" aria-labelledby="library-title">
 		<h2 id="library-title">Shared library in use</h2>
 		<p>
-			<strong>In the game.</strong> The sandbox builds ground paths, bridges, court approaches and rail
-			from typed movement ports and edges. Its corridor projection reads the same surveyed alignment as
-			the graph. House parts and palette roles already serve bible views and the sandbox.
+			<strong>Status labels.</strong> <strong>Game</strong> = sandbox code path (<a
+				href={resolve('/sandbox')}>/sandbox</a
+			>); <strong>Prototype</strong> = City Game prototype module; <strong>Lab</strong> = external
+			experiment; <strong>Bible study</strong> = fixture authored for a single bible picture;
+			<strong>Planned</strong> = scheduled work with issue number.
 		</p>
 		<p>
-			<strong>Lab.</strong> The Infrastructure Atlas prototype traces water and power from supply nodes
-			to building fittings.
+			<strong>Game.</strong> The sandbox builds ground paths, footbridges over alleys, court approaches
+			and rail from typed movement ports and edges. Its corridor projection reads the same surveyed alignment
+			as the graph. House parts and palette roles already serve bible views and the sandbox.
 		</p>
 		<p>
-			<strong>Planned.</strong> Integrate service connections into the shared grid and run the
-			<a href={resolve('/interface#engine-path')}>engine miniatures</a> on the common city scene.
+			<strong>Prototype.</strong> The City Game Infrastructure Atlas prototype traces water and power
+			from supply nodes to building fittings (sandbox planned, ST14 #38) and validates tessellated volume
+			houses (VOLUME-VERIFICATION).
+		</p>
+		<p>
+			<strong>Bible studies to replace.</strong> City scenes (<code>logic/stadt/*</code>), the
+			connection fixture (<code>logic/connection-study/fixture.ts</code>), the volume and phase
+			study (<code>logic/formen/volume-study.ts</code>), and the server-side court survey (<code
+				>raster/court-study.server.ts</code
+			>) still run outside the sandbox until replaced by the
+			<a href={resolve('/interface#engine-path')}>shared engine miniatures</a> (ST6 #36, ST12 #37, ST14
+			#38, ST15 #39).
 		</p>
 	</section>
 	<DesignPrinciples page="library" />

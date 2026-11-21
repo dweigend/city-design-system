@@ -77,7 +77,7 @@
 			<span>{connection.detail}</span>
 			<span class="status">
 				<i class:planned={!connection.walkingKind} aria-hidden="true"></i>
-				{connection.walkingKind ? 'Proven' : 'Planned'}
+				{connection.walkingKind ? 'Bible study · schematic' : 'Planned'}
 			</span>
 		</figcaption>
 	{/if}

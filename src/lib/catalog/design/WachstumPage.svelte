@@ -25,7 +25,7 @@
 
 <DesignShell title="Growth">
 	<p>
-		<strong>In the game.</strong> The
+		<strong>Game.</strong> The
 		<a href={resolve('/raster#court-growth')}>two dates at the square</a>
 		show ordinary growth with existing lots in place. <strong>Planned.</strong>
 		<a href={resolve('/interface#connections')}>Deliberate path placement</a>

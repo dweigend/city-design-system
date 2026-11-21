@@ -10,11 +10,11 @@
 
 <svelte:head><title>Forms · Solid and void · City Design System</title></svelte:head>
 <DesignShell title="Forms" showTitle={false}>
+	<Teilseiten />
 	<VolumeStudy />
 
-	<Teilseiten />
 	<DesignPrinciples page="forms" />
-	<Abschnitt id={ensemble.id} titel={ensemble.titel} lead="Lab · {ensemble.lead}">
+	<Abschnitt id={ensemble.id} titel={ensemble.titel} lead="Bible study · {ensemble.lead}">
 		<Ensemble />
 		<p>
 			<a href={resolve('/material#material-formen')}>Envelope and surface treatments</a> ·
@@ -22,7 +22,7 @@
 		</p>
 	</Abschnitt>
 	{#each familienTexte as texte (texte.id)}
-		<FamilieDemo familie={texte.id} texte={{ ...texte, lead: `Lab · ${texte.lead}` }} />
+		<FamilieDemo familie={texte.id} texte={{ ...texte, lead: `Bible study · ${texte.lead}` }} />
 	{/each}
 </DesignShell>
 

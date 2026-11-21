@@ -37,7 +37,7 @@
 	<Abschnitt
 		id={einstieg.id}
 		titel="The structural system is the building"
-		lead="At 8 m existing stock, elevated walkway and front door meet. Rooms occupy the structural system; its structure is preserved through conversion."
+		lead="Bible study · Solid and void (/formen#volume-section) sets cell massing, Structures sets the framing family, and this page shows cell-level corner assembly. At 8 m existing stock, elevated walkway and front door meet."
 	>
 		<HausDemo
 			>{#snippet stapel()}<TurmSimulation bind:wahl bind:zelle bind:phase />{/snippet}</HausDemo

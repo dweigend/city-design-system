@@ -97,7 +97,7 @@ export const akzente: Akzent[] = [
 export const stroeme = {
 	titel: 'Five flows, five steps',
 	lead: 'Light tones color large surfaces; dark tones mark the core, such as a storage tank.',
-	akzente: 'Two accents have no color ramp:'
+	akzente: 'Three accents have no color ramp:'
 };
 
 /* ── Design rules (reference at the end of the page) ────────── */

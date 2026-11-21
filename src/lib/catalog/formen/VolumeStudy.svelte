@@ -27,8 +27,8 @@
 	<div class="phase-intro" id="construction-phases">
 		<h3>Construction phases</h3>
 		<p>
-			Lab study · The three phases compare how a new addition becomes visible stock. Game
-			integration is planned under <a href={resolve('/formen#FORM-10')}>FORM-10</a>.
+			Bible study · The three phases compare how a new addition becomes visible stock. Game
+			integration is planned under <a href={resolve('/formen#FORM-10')}>FORM-10</a> (ST15, #39).
 		</p>
 	</div>
 	<div class="phases" role="group" aria-label="Construction phase comparison">
@@ -42,6 +42,9 @@
 			</figure>
 		{/each}
 	</div>
+	<p class="next">
+		<a href={resolve('/interface#connections')}>Next: Trace building connections</a>
+	</p>
 </section>
 
 <style>
@@ -92,6 +95,10 @@
 		text-underline-offset: 0.2em;
 	}
 	figcaption p {
+		font-size: var(--text-s);
+	}
+	.next {
+		margin-top: var(--space-5);
 		font-size: var(--text-s);
 	}
 	@media (max-width: 720px) {

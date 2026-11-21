@@ -9,7 +9,7 @@ export type Abschnitt = { id: string; titel: string; lead: string };
 export const grund: Abschnitt = {
 	id: 'raster-grund',
 	titel: 'The city stands on any ground',
-	lead: 'Proven in the lab · Compare nine grids under the same building rules. Switch layers to follow a block from its boundary to its houses.'
+	lead: 'Bible study · These 2D ground quads form the base of the 3D spatial grid shown above. Compare nine grids under the same building rules and switch layers from block boundary to houses.'
 };
 
 export type SchichtId = 'bloecke' | 'zellen' | 'vierecke' | 'ecken' | 'stadt';
@@ -17,7 +17,7 @@ export type Schicht = {
 	id: SchichtId;
 	name: string;
 	text: string;
-	weiter?: { pfad: '/formen/haus'; text: string };
+	weiter?: { pfad: '/formen#volume-section'; text: string };
 };
 
 /** The layers in sequence: each one arises from the one before. */
@@ -41,7 +41,7 @@ export const schichten: Schicht[] = [
 		id: 'ecken',
 		name: 'Corners',
 		text: 'Any corner inside a block can be built on; the corners of the alleys stay free.',
-		weiter: { pfad: '/formen/haus', text: 'This is where the forms take over.' }
+		weiter: { pfad: '/formen#volume-section', text: 'This is where the forms take over.' }
 	},
 	{
 		id: 'stadt',
@@ -55,7 +55,7 @@ export const startSchichten: SchichtId[] = ['bloecke', 'vierecke', 'stadt'];
 export const vierecke: Abschnitt = {
 	id: 'raster-vierecke',
 	titel: 'Every polygon becomes quads',
-	lead: 'Proven in the lab · Follow a polygon through subdivision and inspect the quads that carry the building.'
+	lead: 'Bible study · Follow a polygon through subdivision and inspect the quads that carry the building.'
 };
 
 export type Phase = { id: string; titel: string; text: string };
@@ -90,7 +90,7 @@ export const teilungPhasen: Phase[] = [
 export const spielraum: Abschnitt = {
 	id: 'raster-spielraum',
 	titel: 'The mesh moves, the rules stay',
-	lead: 'Proven in the lab · Warping and smoothing move the corners while each quad keeps its neighbours.'
+	lead: 'Bible study · Warping and smoothing move the corners while each quad keeps its neighbours.'
 };
 
 export const spielraumPhasen: Phase[] = [
