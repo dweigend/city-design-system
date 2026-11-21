@@ -29,16 +29,16 @@ export function valleyMaterial(exaggeration: number) {
 
 	const bedAboveWater = attribute<'float'>('signedDepth', 'float');
 	const heightM = positionLocal.y.div(exaggeration);
-	const lower = mix(floodplain, lowTerrace, bedAboveWater.smoothstep(2, 7));
-	const land = mix(lower, highTerrace, bedAboveWater.smoothstep(9, 14));
+	const lower = mix(floodplain.rgb, lowTerrace.rgb, bedAboveWater.smoothstep(2, 7));
+	const land = mix(lower, highTerrace.rgb, bedAboveWater.smoothstep(9, 14));
 	const key = normalWorldGeometry.dot(vec3(-0.64, 0.71, -0.28));
 	const shade = float(0.71).sub(key).clamp(-0.2, 0.7);
 	const relief = land.mul(float(1).sub(shade.mul(0.22)));
 	const minor = contour(heightM, 1, 0.75).mul(0.38);
 	const major = contour(heightM, 5, 1).mul(0.64);
-	const printed = mix(relief, contourInk, minor.max(major));
+	const printed = mix(relief, contourInk.rgb, minor.max(major));
 	const material = new MeshBasicNodeMaterial({ toneMapped: false });
-	material.colorNode = bedAboveWater.lessThan(0).select(vec3(river), vec3(printed));
+	material.colorNode = bedAboveWater.lessThan(0).select(river.rgb, printed);
 
 	return {
 		material,
