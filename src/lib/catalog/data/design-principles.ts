@@ -568,6 +568,15 @@ const library: DesignPrinciple[] = [
 		reason:
 			'Form follows from simulated force flow, but the player never waits for it. The cache key is a hash of the input.',
 		decided: '2026-11-13'
+	},
+	{
+		id: 'LIB-7',
+		page: 'library',
+		title: 'A kit with its own documentation',
+		rule: 'The engine is a kit of small composable building blocks, each with a public entry, documented parameters and a live example on the library documentation page, and every bible demo is assembled from these blocks.',
+		reason:
+			'The library works like component kits such as shadcn, daisyUI or Babylon Lite: a block is picked, configured and combined, never copied into a page. A demo that starts its own renderer, camera or geometry breaks the kit and LIB-1.',
+		decided: '2026-11-21'
 	}
 ];
 
