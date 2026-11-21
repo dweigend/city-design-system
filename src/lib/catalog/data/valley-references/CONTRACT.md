@@ -14,3 +14,11 @@ Run `bun test src/lib/catalog/data/valley-references.test.ts`. The [tests](../va
 2. The measurement protocol uses 2,000 m and 8,000 m windows, 6.25 m spacing and two border contacts.
 3. Picture seeds 1201, 1301 and 1409 occupy the first three positions in the six comparison seeds.
 4. The 32 holdouts match the declared `nextSeed` chain and bring the total to 38 distinct seeds.
+
+## Ground gates
+
+Sample the complete 2,000 m square on the 12.5 m grid. On the clipped course, start at 125 m of chainage and measure every 250 m. Each normal uses the chord from 60 m before to 60 m after its station, clipped to the reach. Sample signed bed minus mean water every 12.5 m using bilinear interpolation of the field. Interpolate its zero crossing linearly between neighboring profile samples to estimate each bank to sub-cell precision. Measure the connected wet interval containing the course. A boundary-censored interval is omitted and each case requires at least one complete station. Every complete width must be in [320, 420] m.
+
+Fill wet terrain to its local mean water before resampling at 30 m. Gaussian smoothing uses σ = 30 m and a four-sigma radius. Measure relief over the central 1 km square and report slope classes over land in the full window. Detect contiguous signed gradients over 5% on the smoothed 12.5 m profiles within 1 km either side of the station. Keep gains of at least 3 m and apply the step gates to linearly interpolated percentiles of all candidates in each case. Ground comparison columns come from the DTM row only.
+
+Run the same field gates for the 38 seeds and at both endpoints and the midpoint of default width, phase, and the paired curvature draw, at each protocol bearing. The grid of cases samples the parameter box.
