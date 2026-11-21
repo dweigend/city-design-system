@@ -406,10 +406,11 @@ const color: DesignPrinciple[] = [
 	{
 		id: 'COLOR-5',
 		page: 'color',
-		title: 'Stock in pencil, new in color',
-		rule: 'Existing stock is a light pencil line without fill; only the new carries color.',
-		reason: 'Old and new are told apart at a glance.',
-		decided: '2026-11-13'
+		title: 'Stock as a mix of volume and drawing',
+		rule: 'Existing stock carries no use color and mixes two drawings: some buildings are plain light volumes, others detailed pencil drawings, while only the new and the focused flow carry color.',
+		reason:
+			'The mix reduces detail and still keeps the city lively. A muted phase tint and a pencil line read almost alike, so a building may show either; its construction phase (FORM-10) stays legible through form and drawn detail, not through color.',
+		decided: '2026-11-21'
 	},
 	{
 		id: 'COLOR-6',

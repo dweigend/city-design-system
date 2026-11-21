@@ -21,8 +21,8 @@
 	<p class="phase-note">
 		Construction phases (<a href={resolve('/formen#construction-phases')}>Forms</a>) govern surfaces
 		and colors alongside <a href={resolve('/farben#COLOR-4')}>COLOR-4</a> and
-		<a href={resolve('/farben#COLOR-5')}>COLOR-5</a>; how older phases appear as stock is an
-		<a href={resolve('/#open-design')}>open design decision</a>.
+		<a href={resolve('/farben#COLOR-5')}>COLOR-5</a>, which shows older phases as stock: plain
+		volumes and pencil drawings without use color.
 	</p>
 	<DesignPrinciples page="color" />
 
