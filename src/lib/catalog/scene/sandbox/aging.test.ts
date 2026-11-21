@@ -49,7 +49,10 @@ test('advancing tints painted houses gradually and preserves path and rail ink e
 			envelope: true
 		});
 		expect(freshHouse.some((part) => part.token === '--cat-health')).toBe(true);
-		expect(freshRail.some((part) => part.token === '--cat-business')).toBe(true);
+		expect(freshRail.find((part) => part.id.endsWith('/deck'))).toMatchObject({
+			token: '--paper',
+			finish: 'metall-kupfer'
+		});
 		expect(freshPath.some((part) => part.token === '--cat-business')).toBe(true);
 
 		projectChanges(target, built, aged, 'all', false);
@@ -82,23 +85,19 @@ test('a painted ground-floor body keeps its shell and receives the shared age ti
 	const drawn = new Map<string, Primitive[]>();
 	const target = { terrain, structures: { set: drawn.set.bind(drawn) } };
 	const shell = () =>
-		[...drawn.values()]
-			.flat()
-			.find((part) => part.kind === 'capsule' && part.id.startsWith('30/30/tier/0/body/'));
+		[...drawn.values()].flat().filter((part) => part.id.startsWith('30/30/level/0/body/'));
 	try {
 		projectChanges(target, before, built, 'all', false);
-		expect(shell()).toMatchObject({
-			role: 'neu',
-			kind: 'capsule',
-			token: '--paper'
-		});
+		const fresh = shell();
+		expect(fresh).toContainEqual(
+			expect.objectContaining({
+				kind: 'prism',
+				role: 'neu',
+				buildingSurface: { slot: 'shell', use: 'living', ensemble: '30/30' }
+			})
+		);
 		projectChanges(target, built, aged, 'all', false);
-		expect(shell()).toMatchObject({
-			role: 'neu',
-			kind: 'capsule',
-			token: '--paper',
-			ageTint: 0.06
-		});
+		expect(shell()).toEqual(fresh.map((part) => ({ ...part, ageTint: 0.06 })));
 	} finally {
 		terrain.dispose();
 	}

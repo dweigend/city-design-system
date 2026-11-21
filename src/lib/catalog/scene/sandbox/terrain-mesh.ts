@@ -107,6 +107,7 @@ export function createTerrainMesh(
 	const alleys = alleyOverlay(grid, profile, nodes);
 	const chart = attribute('chart', 'vec2');
 	const relief = attribute('relief', 'vec2');
+	const bankMasks = attribute('bankMasks', 'vec2');
 	const height = relief.x;
 
 	const seconds = uniform(0);
@@ -144,7 +145,7 @@ export function createTerrainMesh(
 		);
 		ground = mix(ground, meadow, inside(masks.b));
 		ground = mix(paperColor, ground, forestWeight.mul(mix(0.2, 1, drawing)));
-		ground = mix(ground, drawingInk, attribute('bankShade', 'float').mul(terrainWeight));
+		ground = mix(ground, drawingInk, bankMasks.x.mul(terrainWeight));
 		const slots = attribute('landform', 'vec3');
 		ground = mix(ground, colors.soil, slots.x.mul(terrainWeight).mul(0.28));
 		ground = mix(ground, colors.nature, slots.y.mul(forestWeight).mul(0.28));
@@ -173,7 +174,7 @@ export function createTerrainMesh(
 		ground = mix(
 			ground,
 			mix(paperColor, colors.nature, bankLight.oneMinus().clamp(0, 1).mul(0.3).add(0.22)),
-			attribute('lawn', 'float').mul(terrainWeight)
+			bankMasks.y.mul(terrainWeight)
 		);
 
 		const lens = float(1)
