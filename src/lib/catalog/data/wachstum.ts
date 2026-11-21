@@ -14,7 +14,7 @@ export type Abschnitt = { id: string; titel: string; lead?: string };
 export const wegeZuerst: Abschnitt = {
 	id: 'wachstum-wege',
 	titel: 'Paths first, then blocks',
-	lead: 'Organic cities form the other way around from planned ones. Paths run from gates and squares into the land, and whatever stays open between them becomes a block. Same seed, same city.'
+	lead: 'Proven in the lab · Grow paths from gates and squares, then inspect the blocks left between them.'
 };
 
 export type Familie = 'zugang' | 'feld' | 'ring';
@@ -90,7 +90,7 @@ export const kennwertNamen = {
 export const felder: Abschnitt = {
 	id: 'wachstum-felder',
 	titel: 'Fields set the direction, not the place',
-	lead: 'A field lays a tendency over the whole district. It decides nothing; it suggests. Paths and buildings follow it, however many there are.'
+	lead: 'Proven in the lab · The field suggests a direction for paths across the district. Change it to see where the paths bend.'
 };
 
 export type FeldModus = 'richtung' | 'abstand' | 'anziehung';
@@ -118,7 +118,7 @@ export const feldHinweis = 'Drag the point.';
 export const teilen: Abschnitt = {
 	id: 'wachstum-teilen',
 	titel: 'A block splits, and every part knows its origin',
-	lead: 'A split tree cuts the block first into strips, then into parcels. It records every cut. That is why a parcel keeps its name even when its dimensions shift.'
+	lead: 'Proven in the lab · The split tree records how a block becomes strips and parcels. Each parcel keeps its identity as dimensions change.'
 };
 
 export const teilungPhasen: Phase[] = [
@@ -157,7 +157,7 @@ export const teilenBeispiel = {
 export const parzellen: Abschnitt = {
 	id: 'wachstum-parzellen',
 	titel: 'Lots hang on paths, not on streets',
-	lead: 'A lot has access if you can reach it on foot: by alley, square, elevated walkway or transit stop. The core of the block belongs to everyone, and over the decades the city keeps recutting its lots.'
+	lead: 'Proven in the lab · Compare lots reached by alley, square, walkway or transit stop as their boundaries change over time.'
 };
 
 export type ParzellenBlock = { id: string; name: string; spec: BlockSpec; schutz: number };
@@ -279,7 +279,7 @@ export const nutzungen = [
 export const wfc: Abschnitt = {
 	id: 'wachstum-wfc',
 	titel: 'Where many things fit, the neighbors decide',
-	lead: 'Wave Function Collapse places tiles like a sudoku: every cell starts with all possibilities, and every choice strikes from the neighbors whatever no longer fits. A separate step then checks whether every footbridge reaches a gate.'
+	lead: 'Proven in the lab · Wave Function Collapse selects compatible neighbours. A separate check tests whether each footbridge reaches a gate.'
 };
 
 /* 7 · Method matrix */

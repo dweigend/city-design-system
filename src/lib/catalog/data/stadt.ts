@@ -10,23 +10,23 @@ export type Abschnitt = { id: string; titel: string; lead: string };
 export const weiterbauen: Abschnitt = {
 	id: 'weiterbauen',
 	titel: 'Retain, convert, extend',
-	lead: 'The city never starts on empty ground. First, what stands stays. Then the old building takes on a new use. Only then is something new added.'
+	lead: 'In the game · A house can gain storeys on its existing lot. The sequence shows how conversion and extension can share a footprint.'
 };
 
 export const hochwege: Abschnitt = {
 	id: 'hochwege',
 	titel: 'Elevated walkways connect every building',
-	lead: 'The city has no streets. Paths run above the alleys and across the roofs, and every building plugs into the network that is already there.'
+	lead: 'In the game · Elevated walkways link courts in the opening city. Access from every building is planned.'
 };
 
 export const schwamm: Abschnitt = {
 	id: 'schwamm',
 	titel: 'Rain stays in the district',
-	lead: 'A block in the sponge city does not throw rain away. It holds it on the roof, in the ground and in the basin, and releases it slowly.'
+	lead: 'In the game · Green roofs, retention basins and water squares appear as the district grows toward its sponge-city target.'
 };
 
 export const bauteile: Abschnitt = {
 	id: 'bauteile',
 	titel: 'Every component has a passport',
-	lead: 'Nothing is lost in this city. A window, a panel, a pallet: every instance keeps its number and its history, however often it moves.'
+	lead: 'Planned · A component passport would carry the identity and history of a part through storage, reuse and reassembly.'
 };

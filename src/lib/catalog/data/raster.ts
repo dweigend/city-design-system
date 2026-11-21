@@ -9,7 +9,7 @@ export type Abschnitt = { id: string; titel: string; lead: string };
 export const grund: Abschnitt = {
 	id: 'raster-grund',
 	titel: 'The city stands on any ground',
-	lead: 'Checkerboard, honeycomb or organically grown old town: the grid only sets the blocks. Everything built on top follows the same rules everywhere.'
+	lead: 'Proven in the lab · Compare nine grids under the same building rules. Switch layers to follow a block from its boundary to its houses.'
 };
 
 export type SchichtId = 'bloecke' | 'zellen' | 'vierecke' | 'ecken' | 'stadt';
@@ -55,7 +55,7 @@ export const startSchichten: SchichtId[] = ['bloecke', 'vierecke', 'stadt'];
 export const vierecke: Abschnitt = {
 	id: 'raster-vierecke',
 	titel: 'Every polygon becomes quads',
-	lead: 'So a building only needs to know quads, never the grid beneath them.'
+	lead: 'Proven in the lab · Follow a polygon through subdivision and inspect the quads that carry the building.'
 };
 
 export type Phase = { id: string; titel: string; text: string };
@@ -90,7 +90,7 @@ export const teilungPhasen: Phase[] = [
 export const spielraum: Abschnitt = {
 	id: 'raster-spielraum',
 	titel: 'The mesh moves, the rules stay',
-	lead: 'Distortion and smoothing move corners, never neighborhoods. Every quad keeps its neighbors, every building its place.'
+	lead: 'Proven in the lab · Warping and smoothing move the corners while each quad keeps its neighbours.'
 };
 
 export const spielraumPhasen: Phase[] = [
