@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { VALLEY_PICTURE_SEEDS } from '../data/valley-references';
+	import { resolveView } from '../logic/view-modes';
 	import { createSandboxStage } from '../scene/sandbox';
 	import { createValleyContext } from '../scene/valley';
 	import {
@@ -14,6 +15,7 @@
 	let canvas: HTMLCanvasElement;
 	let deck: HTMLDivElement;
 	let error = $state(false);
+	const terrainView = resolveView({ view: 'terrain', views: ['terrain'], display: 'normal' });
 	const scalePercent =
 		(100 * VALLEY_STUDY_SCALE_M) / (VALLEY_STUDY_GRID.windowM * VALLEY_STUDY_VIEW.margin);
 
@@ -21,6 +23,7 @@
 		const fields = VALLEY_PICTURE_SEEDS.map(valleyStudyField);
 		const valley = createValleyContext(fields, VALLEY_STUDY_VIEW);
 		const stage = createSandboxStage(canvas, () => (error = true), { context: valley.context });
+		stage.setView(terrainView);
 		void stage.ready.catch(() => {});
 
 		const resize = () => {

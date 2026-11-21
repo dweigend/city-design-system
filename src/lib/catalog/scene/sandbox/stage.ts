@@ -17,6 +17,7 @@ import { bindSceneTheme } from '../themeBinding';
 import { sceneSwatch } from '../scene-palette';
 import type { Primitive, Vec3 } from '../../logic/parametrik/types';
 import type { FocusId } from '../../logic/presentation';
+import type { ResolvedView } from '../../logic/view-modes';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
 import { createCellPicker } from './house-picker';
@@ -33,8 +34,10 @@ import {
 } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
+import { createTerrainLook } from './terrain-look';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { createView, type FrameOrientation, type OpeningArea } from './view';
+import { createViewMode } from './view-mode';
 import { createVehicles } from './vehicles';
 import { createTimeline } from './timeline';
 import { collectOpeningGroups } from './court-opening';
@@ -92,11 +95,14 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
+	const terrainLook = createTerrainLook();
+	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality, terrainLook.beauty);
 	const light = pipeline.light;
-	const structures = createStructures(study.quality, true, light.receiverOutput);
+	const structures = createStructures(study.quality, true, light.receiverOutput, terrainLook.mark);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
+	const viewMode = createViewMode(view, terrainLook, vehicles.group);
+	const warmTarget = new THREE.RenderTarget(1, 1);
 	const studyAdditions = study.additions ?? [];
 	scene.add(structures.group, vehicles.group);
 	const context = study.context;
@@ -139,7 +145,9 @@ export function createSandboxStage(
 	let focus: FocusId = 'all';
 	let shown: World | undefined;
 	let palette: Palette3D | undefined;
-	let planView = false;
+	const viewLayers = () => ({ terrain, marks: [baseLines, cursor, target, rejection] });
+	let retainedDirty = true;
+	let warmedStructureRevision = structures.retainedRevision;
 	const frames = createFrameLayer(
 		structures,
 		() => render(),
@@ -150,6 +158,7 @@ export function createSandboxStage(
 	);
 	let refreshTones = true;
 	let viewDirty = true;
+	let styleDirty = true;
 	let pickDirty = true;
 	type Affected = (x: number, y: number) => boolean;
 	const frameListeners = new Set<(affected?: Affected) => void>();
@@ -157,7 +166,7 @@ export function createSandboxStage(
 	function crossedPointer(x: number, y: number) {
 		hoverRay.setFromCamera(view.ndc(x, y), view.camera);
 		const crosses = (box: THREE.Box3) => !box.isEmpty() && hoverRay.ray.intersectsBox(box);
-		return crosses(structures.swept) || crosses(vehicles.swept);
+		return crosses(structures.swept) || (vehicles.group.visible && crosses(vehicles.swept));
 	}
 	let coarse = false;
 	let viewScale = 0;
@@ -169,8 +178,7 @@ export function createSandboxStage(
 	let openingPending = false;
 	let openingDrawn = false;
 
-	function updateStyle() {
-		const scale = 1 / view.metersPerPixel();
+	function updateStyle(scale: number, elevation: number) {
 		const zoom = nearestZoom(scale);
 		const nextCoarse = zoom === 'stadt' || zoom === 'quartier';
 		if (nextCoarse !== coarse && shown)
@@ -182,7 +190,7 @@ export function createSandboxStage(
 			structures,
 			canvas,
 			scale,
-			view.elevation(),
+			elevation,
 			refreshTones,
 			study.minInkAppliesTo
 		);
@@ -191,18 +199,19 @@ export function createSandboxStage(
 		canvas.dataset.zoom = zoom;
 
 		refreshTones = false;
+		styleDirty = false;
 	}
 
 	function prepareView() {
-		const scale = view.metersPerPixel();
-		const elevation = view.elevation();
-		if (!viewDirty && !refreshTones && scale === viewScale && elevation === viewElevation) return;
+		const { scale, elevation } = view.drawingMetrics();
+		const redraw = styleDirty || refreshTones || scale !== viewScale || elevation !== viewElevation;
+		if (!viewDirty && !redraw) return;
 		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
 		light.aim(view.target, view.span());
 		pixelsPerMeter.value = 1 / view.metersPerPixel();
-		updateStyle();
+		if (redraw) updateStyle(scale, elevation);
 		viewDirty = false;
 	}
 
@@ -215,10 +224,39 @@ export function createSandboxStage(
 
 	function prepareOpening() {
 		if (opening && openingPending && openingDrawn) {
+			const world = opening;
 			openingPending = false;
-			frameOpening(opening, framedArea);
+			view.frameBase(() => {
+				frameOpening(world, framedArea);
+				if (viewMode.retainsDrafting && terrain) view.frameInspection(terrain.water.geometry);
+			});
 			viewDirty = shadowsDirty = true;
 		}
+	}
+
+	function renderView(castersMoved: boolean) {
+		const needsWarmUp = retainedDirty || warmedStructureRevision !== structures.retainedRevision;
+		if (!viewMode.retainsDrafting || !needsWarmUp || (opening && openingPending)) {
+			renderImage(castersMoved);
+			return true;
+		}
+		// The beauty pass only runs once per renderer frame. Keep the warm-up off the canvas
+		// and schedule the visible pass even while playback is paused.
+		const target = renderer.getRenderTarget();
+		renderer.setRenderTarget(warmTarget);
+		try {
+			viewMode.warm(scene, viewLayers(), () => {
+				light.refresh();
+				pipeline.render();
+			});
+		} finally {
+			renderer.setRenderTarget(target);
+		}
+		retainedDirty = false;
+		warmedStructureRevision = structures.retainedRevision;
+		shadowsDirty = true;
+		render();
+		return false;
 	}
 
 	const loop = createFrameLoop(gpu.isLive, ({ stamp, reduced }) => {
@@ -228,7 +266,7 @@ export function createSandboxStage(
 		terrain?.setTime(seconds);
 		const seating = structures.step(seconds * 1000, reduced && !timeline.seeking);
 		const transit = vehicles.step(timeline.transitSeconds * 1000);
-		renderImage(structures.shadowChanged);
+		if (!renderView(structures.shadowChanged)) return false;
 		frames.afterDraw();
 		if (opening && openingPending) {
 			openingDrawn = true;
@@ -248,6 +286,7 @@ export function createSandboxStage(
 		paper.set(next.paper);
 		scene.background = context ? paper : paper.clone().lerp(new THREE.Color(next.ink), 0.025);
 		structures.setPalette(next);
+		terrainLook.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);
@@ -277,6 +316,7 @@ export function createSandboxStage(
 			baseOutline
 		);
 		scene.add(baseLines);
+		retainedDirty = true;
 	}
 
 	function studyBounds(frame: readonly [Vec3, Vec3]) {
@@ -287,7 +327,7 @@ export function createSandboxStage(
 
 	function frameOpening(world: World, area = study.openingArea?.()) {
 		framedArea = area;
-		return view.isPortrait() && !planView
+		return view.isPortrait() && view.elevation() !== Math.PI / 2
 			? frameOldTown(view, world, area, study.additions)
 			: frameTownSilhouette(view, world, area, study.additions);
 	}
@@ -312,7 +352,6 @@ export function createSandboxStage(
 		}
 		const mesh = createTerrainMesh(world.grid, undefined, light.shade);
 		scene.add(mesh.group);
-		mesh.setGridVisible(Number(planView));
 		drawBaseLines(mesh);
 		if (palette) mesh.setPalette(palette);
 		return mesh;
@@ -326,7 +365,8 @@ export function createSandboxStage(
 		terrain = replaceTerrain(world);
 		opening = study.frameTown ? world : undefined;
 		openingDrawn = false;
-		frameTerrain(terrain);
+		const mesh = terrain;
+		view.frameBase(() => frameTerrain(mesh));
 		return { ...world, state: EMPTY_STATE, lines: [] };
 	}
 
@@ -378,11 +418,13 @@ export function createSandboxStage(
 			nextFocus !== focus || before.roofBuilder !== after.roofBuilder
 		);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
+		if (before.lines !== after.lines) retainedDirty = true;
 	}
 
 	function frameCurrent(force: boolean) {
 		if (context) return view.frameBox(context.bounds, 1, context.orientation);
-		if (terrain && (force || opening)) frameTerrain(terrain);
+		const mesh = terrain;
+		if (mesh && (force || opening)) view.frameBase(() => frameTerrain(mesh));
 	}
 
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
@@ -402,6 +444,8 @@ export function createSandboxStage(
 		canvas.dataset.updates = String(Number(canvas.dataset.updates ?? 0) + 1);
 		shadowsDirty = true;
 		viewDirty = true;
+		styleDirty = true;
+		viewMode.applyLayers(viewLayers());
 		render();
 	}
 
@@ -416,6 +460,18 @@ export function createSandboxStage(
 
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, applyPalette);
+
+	/**
+	 * Applies a resolved camera and display to retained scene buffers.
+	 * Plan retains the iso drafting scale, stroke selection and detail tier.
+	 */
+	function setView(resolved: ResolvedView, editable = false) {
+		if (!editable && !viewMode.retainsDrafting && terrain)
+			view.frameInspection(terrain.water.geometry);
+		if (!viewMode.set(resolved, viewLayers(), editable)) return false;
+		invalidateView();
+		return true;
+	}
 
 	return {
 		ready: gpu.started,
@@ -486,22 +542,24 @@ export function createSandboxStage(
 		},
 		/** Axonometric view, or the plan seen from above. */
 		setPlan(plan: boolean) {
-			if (planView === plan) return;
-			planView = plan;
-			view.setPlan(plan);
-			terrain?.setGridVisible(Number(plan));
-			opening = undefined;
-			invalidateView();
+			if (setView({ view: plan ? 'plan' : 'iso', display: 'normal' }, true)) opening = undefined;
+		},
+		/** Applies a resolved view. Inspection plan keeps the opening drafting and detail tier. */
+		setView: (resolved: ResolvedView) => {
+			setView(resolved);
 		},
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */
 		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
 			prepareView();
+			const cars = vehicles.group.visible
+				? vehicles.group.children.filter((car) => car.visible)
+				: [];
 			return picker(x, y, shown.grid, [
 				...structures.solids(KEY.installation),
 				...housePickTargets(terrain, structures),
 				...structures.solids(KEY.forest),
-				...vehicles.group.children.filter((car) => car.visible),
+				...cars,
 				terrain.water
 			]);
 		},
@@ -520,6 +578,8 @@ export function createSandboxStage(
 				cursor.renderOrder = 10;
 				scene.add(cursor);
 			}
+			viewMode.applyLayers(viewLayers());
+			if (cursor || target) retainedDirty = true;
 			render();
 		},
 		/** Keeps the rejected survey visible alongside a later brush guide. */
@@ -531,6 +591,8 @@ export function createSandboxStage(
 				rejection.renderOrder = 12;
 				scene.add(rejection);
 			}
+			viewMode.applyLayers(viewLayers());
+			if (rejection) retainedDirty = true;
 			render();
 		},
 		dispose() {
@@ -550,6 +612,7 @@ export function createSandboxStage(
 			context?.dispose();
 			frames.dispose();
 			structures.dispose();
+			warmTarget.dispose();
 			pipeline.dispose();
 			baseOutline.dispose();
 			cursorMaterial.dispose();
