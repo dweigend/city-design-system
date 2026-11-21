@@ -2,7 +2,7 @@
 
 The scalar fixture in [valley-references.ts](../valley-references.ts) holds measured river geometry, calibration bands, and the seed lists. The four city rows are ordered Cologne, Bonn, Basel, Regensburg. Wet width is the mapped water segment across the river at a station. The width columns are in meters and are separate from generated bankfull width. The Cologne row uses a bare-earth DTM and includes relief, slope and step heights. The three DSM rows supply river geometry.
 
-The protocol uses 2 km and 8 km squares centered on the origin, with course vertices spaced 6.25 m apart. Each measured reach needs two border contacts. Both sinuosity bands include their endpoints, and the regional ratio must exceed the local ratio for each seed. The separate local median of 1.05 is a type target. The fixture also records width and surface measurement settings for the field slice.
+The protocol uses 2 km and 8 km squares centered on the origin, with course vertices spaced 6.25 m apart. Each measured reach needs two border contacts. Both sinuosity bands include their endpoints, and the regional ratio must exceed the local ratio for every seed and at each default shape corner at the listed bearings. The median regional ratio across the gate seeds must be in [1.12, 1.19]. The separate local median of 1.05 is a type target. The fixture also records width and surface measurement settings for the field slice.
 
 The gate uses the six comparison seeds followed by 32 holdouts. The holdouts were fixed before tuning by calling `nextSeed` repeatedly from `VALLEY_HOLDOUT_ROOT`. The first three comparison seeds are the picture seeds.
 

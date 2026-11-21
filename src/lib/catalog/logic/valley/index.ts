@@ -2,6 +2,7 @@ import { generateCourse, type RiverCourse } from './course';
 import { valleyParameters, type ValleyParameters } from './parameters';
 
 export type { RiverCourse, ValleyParameters };
+export { DEFAULT_VALLEY_PARAMETERS } from './parameters';
 
 export type ValleyOptions = Readonly<{
 	seed: number;

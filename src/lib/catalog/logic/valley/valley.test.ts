@@ -7,7 +7,7 @@ import {
 	VALLEY_X1_SEEDS
 } from '../../data/valley-references';
 import { clipPolylineToSquare, sinuosity } from '../river-metrics';
-import { generateValley } from './index';
+import { DEFAULT_VALLEY_PARAMETERS, generateValley } from './index';
 
 test('replays the same course bytes with fresh buffers after generating another seed', () => {
 	const first = generateValley({ seed: 1201 });
@@ -59,24 +59,44 @@ test('applies parameter bands and rejects a bend tighter than twice the width', 
 	).toThrow('invalid-valley-parameters');
 });
 
-function measure(xy: Float64Array, window: number, seed: number): number {
+function measure(xy: Float64Array, window: number, label: string): number {
 	const reach = clipPolylineToSquare(xy, window);
-	if (!reach) throw new Error(`Seed ${seed}: empty ${window} m window`);
-	expect(reach.borderHits, `Seed ${seed}, ${window} m window`).toBe(protocol.borderHits);
+	if (!reach) throw new Error(`${label}: empty ${window} m window`);
+	expect(reach.borderHits, `${label}, ${window} m window`).toBe(protocol.borderHits);
 	const half = window / 2;
 	expect(Math.max(Math.abs(reach.xy[0]), Math.abs(reach.xy[1]))).toBe(half);
 	expect(Math.max(Math.abs(reach.xy.at(-2) ?? NaN), Math.abs(reach.xy.at(-1) ?? NaN))).toBe(half);
 	return sinuosity(reach.xy);
 }
 
+function measureCourse(xy: Float64Array, label: string) {
+	return {
+		sinuosity2km: measure(xy, protocol.localWindowM, label),
+		sinuosity8km: measure(xy, protocol.regionalWindowM, label)
+	};
+}
+
+function expectSinuosity(
+	{ sinuosity2km, sinuosity8km }: ReturnType<typeof measureCourse>,
+	label: string
+) {
+	expect(sinuosity2km, `${label} S₂ minimum`).toBeGreaterThanOrEqual(bands.sinuosity2km[0]);
+	expect(sinuosity2km, `${label} S₂ maximum`).toBeLessThanOrEqual(bands.sinuosity2km[1]);
+	expect(sinuosity8km, `${label} S₈ minimum`).toBeGreaterThanOrEqual(bands.sinuosity8km[0]);
+	expect(sinuosity8km, `${label} S₈ maximum`).toBeLessThanOrEqual(bands.sinuosity8km[1]);
+	expect(sinuosity8km, `${label} S₈ > S₂`).toBeGreaterThan(sinuosity2km);
+}
+
+function median(values: number[]): number {
+	const sorted = values.toSorted((a, b) => a - b);
+	const middle = Math.floor(sorted.length / 2);
+	return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
 test('meets both sinuosity bands in order on all 38 frozen seeds', () => {
 	const measured = [...VALLEY_X1_SEEDS, ...VALLEY_HOLDOUT_SEEDS].map((seed) => {
 		const { course } = generateValley({ seed });
-		return {
-			seed,
-			sinuosity2km: measure(course.xy, protocol.localWindowM, seed),
-			sinuosity8km: measure(course.xy, protocol.regionalWindowM, seed)
-		};
+		return { seed, ...measureCourse(course.xy, `Seed ${seed}`) };
 	});
 	const rows = [
 		...VALLEY_REFERENCES.map((row) => ({ name: row.city, ...row })),
@@ -93,11 +113,72 @@ test('meets both sinuosity bands in order on all 38 frozen seeds', () => {
 		].join('\n')
 	);
 
-	for (const { seed, sinuosity2km, sinuosity8km } of measured) {
-		expect(sinuosity2km, `Seed ${seed} S₂ minimum`).toBeGreaterThanOrEqual(bands.sinuosity2km[0]);
-		expect(sinuosity2km, `Seed ${seed} S₂ maximum`).toBeLessThanOrEqual(bands.sinuosity2km[1]);
-		expect(sinuosity8km, `Seed ${seed} S₈ minimum`).toBeGreaterThanOrEqual(bands.sinuosity8km[0]);
-		expect(sinuosity8km, `Seed ${seed} S₈ maximum`).toBeLessThanOrEqual(bands.sinuosity8km[1]);
-		expect(sinuosity8km, `Seed ${seed} S₈ > S₂`).toBeGreaterThan(sinuosity2km);
+	for (const row of measured) expectSinuosity(row, `Seed ${row.seed}`);
+	const median2km = median(measured.map((row) => row.sinuosity2km));
+	const median8km = median(measured.map((row) => row.sinuosity8km));
+	console.log(`Median S₂ = ${median2km.toFixed(6)}, median S₈ = ${median8km.toFixed(6)}`);
+	expect(median8km, 'Median S₈ minimum').toBeGreaterThanOrEqual(bands.medianSinuosity8km[0]);
+	expect(median8km, 'Median S₈ maximum').toBeLessThanOrEqual(bands.medianSinuosity8km[1]);
+});
+
+function rotate(xy: Float64Array, radians: number): Float64Array {
+	const rotated = new Float64Array(xy.length);
+	const cos = Math.cos(radians);
+	const sin = Math.sin(radians);
+	for (let i = 0; i < xy.length; i += 2) {
+		rotated[i] = xy[i] * cos - xy[i + 1] * sin;
+		rotated[i + 1] = xy[i] * sin + xy[i + 1] * cos;
 	}
+	return rotated;
+}
+
+function measuredRange(values: number[]): string {
+	return `${Math.min(...values).toFixed(4)}–${Math.max(...values).toFixed(4)}`;
+}
+
+test('meets both sinuosity bands at every default shape corner for the protocol bearings', () => {
+	const { bankfullWidthM, headingAmplitude, wavelengthToWidth, phaseOffset } =
+		DEFAULT_VALLEY_PARAMETERS;
+	const seed = VALLEY_X1_SEEDS[0];
+	// A straight course from the same seed reveals its bearing without using private hash channels.
+	const straight = generateValley({ seed, parameters: { headingAmplitude: [0, 0] } }).course.xy;
+	const bearing = Math.atan2(straight[3] - straight[1], straight[2] - straight[0]);
+	const rows = [
+		'| Bankfull (m) | Amplitude (rad) | Wavelength / width | Phase (rad) | S₂ range | S₈ range | Min S₈ − S₂ |',
+		'| ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
+	];
+	for (const width of bankfullWidthM) {
+		for (const phase of phaseOffset) {
+			// Curvature uses one draw, so its two endpoints pair the amplitude and wavelength endpoints.
+			for (const end of [0, 1] as const) {
+				const amplitude = headingAmplitude[end];
+				const wavelengthRatio = wavelengthToWidth[end];
+				const { course } = generateValley({
+					seed,
+					parameters: {
+						bankfullWidthM: [width, width],
+						headingAmplitude: [amplitude, amplitude],
+						wavelengthToWidth: [wavelengthRatio, wavelengthRatio],
+						phaseOffset: [phase, phase]
+					}
+				});
+				const results = protocol.cornerBearingsDeg.map((degrees) => {
+					const label = `${width} m, amplitude ${amplitude}, ratio ${wavelengthRatio}, phase ${phase}, ${degrees}°`;
+					const result = measureCourse(
+						rotate(course.xy, (degrees * Math.PI) / 180 - bearing),
+						label
+					);
+					expectSinuosity(result, label);
+					return result;
+				});
+				const local = measuredRange(results.map((row) => row.sinuosity2km));
+				const regional = measuredRange(results.map((row) => row.sinuosity8km));
+				const minDelta = Math.min(...results.map((row) => row.sinuosity8km - row.sinuosity2km));
+				rows.push(
+					`| ${width} | ${amplitude} | ${wavelengthRatio} | ${phase} | ${local} | ${regional} | ${minDelta.toFixed(4)} |`
+				);
+			}
+		}
+	}
+	console.log(rows.join('\n'));
 });
