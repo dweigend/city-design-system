@@ -34,7 +34,15 @@ const overlaps = (a: Rect, b: Rect) =>
 	a[0] < b[1] - 1e-6 && b[0] < a[1] - 1e-6 && a[2] < b[3] - 1e-6 && b[2] < a[3] - 1e-6;
 // Walk the connected parcels whose projected intervals intersect the reservation.
 // Conservative corner intersections keep both paving and planting clear of adjacent stock.
-function footprint(grid: TerrainGrid, start: TerrainCell, axes: Profile, rectangles: Rect[]) {
+function footprint(
+	grid: TerrainGrid,
+	start: TerrainCell,
+	axes: Profile,
+	rectangles: Rect[],
+	lots: string[],
+	free: ReadonlySet<string>,
+	compact: boolean
+) {
 	const seen = new Set([start.id]),
 		queue = [start],
 		cells = [];
@@ -43,7 +51,9 @@ function footprint(grid: TerrainGrid, start: TerrainCell, axes: Profile, rectang
 			v = c.corners.map(axes.out);
 		const box: Rect = [Math.min(...u), Math.max(...u), Math.min(...v), Math.max(...v)];
 		if (!rectangles.some((rect) => overlaps(box, rect))) continue;
-		cells.push(c);
+		const wing = lots.includes(c.id);
+		if (wing ? compact : !free.has(c.id)) return;
+		if (!wing) cells.push(c);
 		for (const id of c.neighbors)
 			if (id && !seen.has(id)) {
 				seen.add(id);
@@ -70,6 +80,19 @@ function terraceFrame(frame: ReturnType<typeof axes>, wings: TerrainCell[]) {
 		point: (u: number, v: number) => frame.point(sign * (u + shift), v)
 	};
 }
+function plazaGate(
+	grid: TerrainGrid,
+	p: Profile['point'],
+	far: number,
+	gates: ReadonlySet<string>,
+	cells: TerrainCell[]
+) {
+	for (const offset of [4, 6, 8, 10]) {
+		const candidate = cellAtPoint(grid, ...p(-4, far + offset));
+		if (candidate && gates.has(candidate.id) && !cells.includes(candidate)) return candidate;
+	}
+}
+
 /** Surveys a fourteen-metre square beyond the recessed court and reserves its planted and stepped edges. */
 export function surveyPlaza(
 	grid: TerrainGrid,
@@ -97,13 +120,9 @@ export function surveyPlaza(
 	];
 	const start = cellAtPoint(grid, ...p(0, front + 7));
 	if (!start) return;
-	const surveyed = footprint(grid, start, frame, rectangles);
-	if (wings.length === 2 && surveyed.some((c) => lots.includes(c.id))) return;
-	const cells = surveyed.filter((c) => !lots.includes(c.id));
-	if (cells.some((c) => !free.has(c.id))) return;
-	const gate = [4, 6, 8, 10]
-		.map((n) => cellAtPoint(grid, ...p(-4, far + n)))
-		.find((c) => c && gates.has(c.id) && !cells.includes(c));
+	const cells = footprint(grid, start, frame, rectangles, lots, free, wings.length === 2);
+	if (!cells) return;
+	const gate = plazaGate(grid, p, far, gates, cells);
 	if (!gate) return;
 	const polygon = [p(-7, front), p(7, front), p(7, far), p(-7, far)];
 	if (polygon.some((q) => !cellAtPoint(grid, ...q))) return;

@@ -1,13 +1,14 @@
-import type { HouseStructure, Platform, SkinPatch } from './contract';
+import type { HouseStructure, Platform, SkinPatch, SpiralWell, XY } from './contract';
+import { spiralAccess, spiralNewel } from './spiral';
 import { hemPosts, EDGE, type Walk } from './hem';
 import {
 	centre,
-	climb,
 	identity,
 	inset,
 	seatedDeck,
 	shrink,
 	trunk,
+	turn,
 	FINE_RADIUS,
 	TIE_RADIUS,
 	type Plot
@@ -18,8 +19,22 @@ const FOOT_SHARE = 0.6;
 const DECK_SHARE = 0.45;
 /** Height of the mast head above the brim, metres. */
 const HEAD_RISE = 0.8;
-/** Share of the way from the mast to the first parcel corner at which the ladder climbs. */
-const LADDER_SHARE = 0.2;
+
+/** Widens the hem only when the calyx would cut through the stair on a compact parcel. */
+function hemRing(ring: XY[], well?: SpiralWell): XY[] {
+	if (!well) return shrink(ring, FOOT_SHARE);
+	const c = centre(ring);
+	const orientation = turn(ring);
+	const share = ring.reduce((fill, [x, y], i) => {
+		const [u, v] = ring[(i + 1) % ring.length];
+		const dx = u - x,
+			dy = v - y;
+		const distance = ([px, py]: XY) =>
+			(orientation * (dx * (py - y) - dy * (px - x))) / Math.hypot(dx, dy);
+		return Math.max(fill, 1 - (distance(well.axis) - well.outer - EDGE) / distance(c));
+	}, FOOT_SHARE);
+	return shrink(ring, Math.min(1, share));
+}
 
 /**
  * One mast inside a calyx of cloth. Hem posts stand on a small ring around the mast; ties from
@@ -37,8 +52,7 @@ export function mastHouse(
 		brim = plot.ground + shape.height - HEAD_RISE;
 	const heights = [0, ...shape.datums, shape.height].map((h) => plot.ground + h);
 	const { nodes, rods, collar } = trunk(plot.id + '/mast', centre(ring), heights);
-	const hem = hemPosts(plot, shrink(ring, FOOT_SHARE), shape.walk),
-		head = collar(heights.length - 1);
+	const head = collar(heights.length - 1);
 	const tips = inset(ring, EDGE).map((p, corner) => {
 		const id = plot.id + '/brim/' + corner;
 		nodes.push({ id, position: [...p, brim] });
@@ -59,6 +73,14 @@ export function mastHouse(
 		nodes.push(...seats);
 		return platform;
 	});
+	const access = spiralAccess(ring, platforms, plot.ground, 'spiral', shape.walk?.groundAt);
+	const foot = access[0]?.foot;
+	const walk =
+		shape.walk && foot
+			? { ...shape.walk, from: [foot[0], foot[1]] as [number, number] }
+			: shape.walk;
+	const hem = hemPosts(plot, hemRing(ring, access[0]?.spiral?.well), walk);
+	spiralNewel(plot.id, access, nodes, rods);
 	const calyx = ring.map((_, face): SkinPatch => {
 		const next = (face + 1) % ring.length;
 		return {
@@ -72,11 +94,12 @@ export function mastHouse(
 	});
 	return {
 		...identity(plot),
+		...(foot && shape.walk?.groundAt ? { entryDatum: foot[2] } : {}),
 		principle: 'mast',
 		nodes: [...nodes, ...hem.nodes],
 		rods: [...rods, ...hem.rods],
 		platforms,
 		skins: calyx,
-		access: climb(plot.ground, 'ladder', platforms, shrink(ring, LADDER_SHARE)[0])
+		access
 	};
 }

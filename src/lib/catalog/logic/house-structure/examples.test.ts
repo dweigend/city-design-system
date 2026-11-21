@@ -2,8 +2,9 @@ import { expect, test } from 'bun:test';
 import { bounds } from '../ansicht/geometrie';
 import { houseSurfaces, planHouse, sectionParts, structureHouse } from '../composed-house';
 import { composeHouse, planEnsemble } from '../house-typology';
-import { squareGrid } from '../quad-grid';
+import { parcelSurfaceHeight, squareGrid } from '../quad-grid';
 import type { HouseUse } from '../../data/house-body';
+import type { Vec3 } from '../parametrik/types';
 import {
 	checkHouseStructure,
 	exoskeletonHouse,
@@ -67,8 +68,8 @@ test('example 2: a single mast stands two decks inside a calyx of cloth that fla
 	expect(checkHouseStructure(house)).toEqual([]);
 	expect(house.platforms.map((p) => p.datum)).toEqual([GROUND + 3, GROUND + 6]);
 	expect(elements(house, 'room')).toHaveLength(0);
-	// The mast and one slender hem post per corner are all that stands on the ground.
-	expect(house.nodes.filter((n) => n.founded)).toHaveLength(5);
+	// The mast, stair newel and one slender hem post per corner stand on the ground.
+	expect(house.nodes.filter((n) => n.founded)).toHaveLength(6);
 	expect(house.skins.map((s) => s.slot)).toEqual(['shell', 'shell', 'shell', 'shell']);
 	for (const cloth of house.skins) {
 		const { boundary, edges } = skinFrame(house, cloth.id);
@@ -78,6 +79,41 @@ test('example 2: a single mast stands two decks inside a calyx of cloth that fla
 	}
 	expect(house.roof).toBeUndefined();
 	expect(elements(house, 'tie')).toHaveLength(4);
+});
+
+test('the calyx well starts on the entry cell and serves every deck in order', () => {
+	const cells = squareGrid(2, 1, 6).cells.map((cell, i) => {
+		const [a, b, c, d] = cell.corners.map(([x, y]): Vec3 => [x, y, i ? 2 - x / 3 : 2]);
+		return { ...cell, corners: [a, b, c, d] as const };
+	});
+	const groundAt = (x: number, y: number) => parcelSurfaceHeight(cells, x, y);
+	const house = mastHouse(
+		{
+			...plot,
+			parcel: {
+				polygon: [
+					[-6, -3],
+					[6, -3],
+					[6, 3],
+					[-6, 3]
+				],
+				holes: []
+			}
+		},
+		{ height: 12, datums: [3, 6, 9], walk: { from: [0, 0], to: [0, -3], width: 1, groundAt } }
+	);
+	expect(checkHouseStructure(house)).toEqual([]);
+	const [x, , z] = house.access[0].foot;
+	expect(x).toBeGreaterThan(0);
+	expect(z).toBeCloseTo(2 - x / 3, 10);
+	expect(house.entryDatum).toBe(z);
+	for (const [i, run] of house.access.entries()) {
+		expect(run.kind).toBe('spiral');
+		if (i) expect(run.foot).toEqual(house.access[i - 1].head);
+		expect(run.to).toBe(house.platforms[i].id);
+		if (!run.landing) throw new Error('Missing calyx landing');
+		expect(house.platforms[i].holes?.[0]).toContainEqual([run.landing[0], run.landing[1]]);
+	}
 });
 
 test('a free-standing mast holds one high lookout in a cone of cloth that lifts over the way in', () => {

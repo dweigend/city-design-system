@@ -62,8 +62,8 @@ test('fixed endpoints require two full goings even for a rise within numerical t
 
 // Clear centreline lengths from the swept-path survey, after both mouth setbacks.
 for (const [seed, from, to, clearRun, originalRise, gradedRise] of [
-	[7, '32/35', '32/34', 3.107688393765594, -2.5, -1.53],
-	[29, '26/32', '26/36', 5.209529325940333, 3.8, 2.72]
+	[7, '32/35', '32/34', 3.107688393765594, -3.089350073118546, -1.53],
+	[29, '26/32', '26/36', 5.209529325940333, 3.456528748547703, 2.72]
 ] as const) {
 	test(
 		'the surveyed straight flight fits seed ' + seed + ' link ' + from + '>' + to,

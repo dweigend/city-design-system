@@ -8,6 +8,11 @@ type Columns<T> = (readonly T[])[];
 type Storage = { vertices: Columns<Vec3>; cells: Columns<TerrainCell> };
 const storage = new WeakMap<TerrainGrid, Storage>();
 
+/** Read-only lattice columns of an assembled grid, or undefined for a caller-supplied grid. */
+export function cellColumns(grid: TerrainGrid): readonly (readonly TerrainCell[])[] | undefined {
+	return storage.get(grid)?.cells;
+}
+
 function ordered<T>(columns: Columns<T>, rows: number) {
 	return Array.from(
 		{ length: columns.length * rows },

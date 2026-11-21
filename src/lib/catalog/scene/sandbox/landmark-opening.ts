@@ -143,15 +143,15 @@ function tryCrop(search: FrameSearch, group: number[], box: Box2, fits: CourtFit
 }
 
 // Studio sightlines cover both directions along the waterfront and a cross-town view.
-const portraitHeadings = [342, 150, 172, 180, 124, 144, 90, 0] as const;
-// The south-southeast sightline separates neighbouring courts across a shallow HUD opening.
+const portraitHeadings = [342, 152, 172, 180, 124, 144, 90, 0] as const;
+// The south-southwest sightline separates neighbouring courts across a shallow HUD opening.
 const landscapeAngles = [
 	[210, -1],
 	[144, -1],
 	[124, -1],
 	[180, -1],
 	[108, -1],
-	[157.5, -1],
+	[202, -1],
 	[90, -1],
 	[0, -1]
 ] as const;
@@ -164,7 +164,7 @@ function sightlines(view: View, screen: OpeningScreen) {
 	const ratio = room.x / room.y;
 	if (view.isPortrait()) return portraitHeadings.map((h) => [h, 0] as const);
 	const shortRail = screen.safe.max.x < screen.canvas.max.x && ratio >= 1.65;
-	const first = shortRail ? 157.5 : ratio >= 1.65 ? 90 : 108;
+	const first = shortRail ? 202 : ratio >= 1.65 ? 90 : 108;
 	return [[first, -1] as const, ...landscapeAngles.filter(([heading]) => heading !== first)];
 }
 

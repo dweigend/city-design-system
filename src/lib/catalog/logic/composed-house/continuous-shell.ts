@@ -150,18 +150,21 @@ export function continuousShell(
 			: []
 	);
 	const fabric = shell.fabric;
-	const clear = (p: StockMesh) => ({
-		...p,
-		...shell.openings.reduce((mesh, box) => openSurface(mesh, box), {
-			points: p.points,
-			triangles: p.triangles
-		})
-	});
-	if (!fabric) return outer.map(clear);
+	const clear = (p: StockMesh) => {
+		const panel = {
+			...p,
+			...shell.openings.reduce((mesh, box) => openSurface(mesh, box), {
+				points: p.points,
+				triangles: p.triangles
+			})
+		};
+		return panel.triangles.length ? [panel] : [];
+	};
+	if (!fabric) return outer.flatMap(clear);
 	return [
-		...outer.map(clear),
+		...outer.flatMap(clear),
 		...rods,
-		...shell.courtWalls.map((wall, i) =>
+		...shell.courtWalls.flatMap((wall, i) =>
 			clear({
 				...source,
 				...courtyardPanel(shell, wall, fabric),
