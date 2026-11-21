@@ -4,6 +4,7 @@ import { houseSurfaces, planHouse, sectionParts, structureHouse } from '../compo
 import { composeHouse, planEnsemble } from '../house-typology';
 import { parcelSurfaceHeight, squareGrid } from '../quad-grid';
 import type { HouseUse } from '../../data/house-body';
+import type { Vec3 } from '../parametrik/types';
 import {
 	checkHouseStructure,
 	exoskeletonHouse,
@@ -81,10 +82,10 @@ test('example 2: a single mast stands two decks inside a calyx of cloth that fla
 });
 
 test('the calyx well starts on the entry cell and serves every deck in order', () => {
-	const cells = squareGrid(2, 1, 6).cells.map((cell, i) => ({
-		...cell,
-		corners: cell.corners.map(([x, y]) => [x, y, i ? 2 - x / 3 : 2]) as typeof cell.corners
-	}));
+	const cells = squareGrid(2, 1, 6).cells.map((cell, i) => {
+		const [a, b, c, d] = cell.corners.map(([x, y]): Vec3 => [x, y, i ? 2 - x / 3 : 2]);
+		return { ...cell, corners: [a, b, c, d] as const };
+	});
 	const groundAt = (x: number, y: number) => parcelSurfaceHeight(cells, x, y);
 	const house = mastHouse(
 		{
@@ -110,7 +111,8 @@ test('the calyx well starts on the entry cell and serves every deck in order', (
 		expect(run.kind).toBe('spiral');
 		if (i) expect(run.foot).toEqual(house.access[i - 1].head);
 		expect(run.to).toBe(house.platforms[i].id);
-		expect(house.platforms[i].holes?.[0]).toContainEqual(run.landing?.slice(0, 2));
+		if (!run.landing) throw new Error('Missing calyx landing');
+		expect(house.platforms[i].holes?.[0]).toContainEqual([run.landing[0], run.landing[1]]);
 	}
 });
 
