@@ -529,6 +529,15 @@ const ui: DesignPrinciple[] = [
 		reason:
 			'A demo starts still. Play and Stop are the only controls, Stop returns to the start state, and only one demo runs per page.',
 		decided: '2026-11-17'
+	},
+	{
+		id: 'UI-4',
+		page: 'interface',
+		title: 'Every page tells its own story',
+		rule: 'A bible page carries no cross-reference blocks, link lists or "see chapter" notes; at most a term in the running text links on, as in an encyclopedia.',
+		reason:
+			'References scatter the reader and make a page depend on others. Each page explains what it shows by itself; the site navigation leads from chapter to chapter.',
+		decided: '2026-11-21'
 	}
 ];
 
