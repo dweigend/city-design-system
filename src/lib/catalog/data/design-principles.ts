@@ -134,6 +134,15 @@ const city: DesignPrinciple[] = [
 			'Rain, storage and green are part of the cityscape. The elements come from the inventory of the reference images.',
 		decided: '2026-11-19',
 		demo: { route: '/', anchor: 'schwamm', label: 'Rain stays in the district' }
+	},
+	{
+		id: 'CITY-11',
+		page: 'city',
+		title: 'An invented valley',
+		rule: 'Every city grows in an invented, generated valley with a river, from shared principles; no real city is copied.',
+		reason:
+			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -360,8 +369,8 @@ const growth: DesignPrinciple[] = [
 		title: 'A small town to start',
 		rule: 'A game opens on a small seeded stock town that can be grayed out.',
 		reason:
-			'The player is architect and planner on one large canvas. The full time-lapse of an old town is a later project.',
-		decided: '2026-11-18'
+			'The player is architect and planner on one large canvas. The story line plays the time-lapse before it, from the first settlement in the valley to the game start in 2030.',
+		decided: '2026-11-21'
 	}
 ];
 
@@ -429,6 +438,15 @@ const color: DesignPrinciple[] = [
 		reason:
 			'It reads like a result plot with scale and legend, and it is switched on, never mixed into the normal view.',
 		decided: '2026-11-13'
+	},
+	{
+		id: 'COLOR-8',
+		page: 'color',
+		title: 'Transparency mode shows infrastructure',
+		rule: 'A transparency mode turns every house into a strongly stylized, gray or black-and-white, see-through body, so pipes, cables, paths and flows stand out in color.',
+		reason:
+			'Infrastructure is hidden in the normal view, so the city may wear a freer color world there, always from one curated, stylized palette. Use colors carry their meaning on the infrastructure that the transparency mode reveals.',
+		decided: '2026-11-21'
 	}
 ];
 
