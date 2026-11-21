@@ -1,3 +1,4 @@
+import { spiralSteps, type Access } from '../house-structure';
 import { groundRamp } from './ground-ramp';
 import { flightRoute } from './flights';
 import { mastRoute } from './mast-access';
@@ -104,8 +105,30 @@ export function windingRoute(s: Section) {
 	return { width: publicStair.width, axis, track, legs, stops, docks };
 }
 
+function framedSpiral(runs: Access[], axis: [number, number], width: number) {
+	const descending = [...runs].reverse();
+	const legs = descending.flatMap((run, flight) =>
+		spiralSteps(run)
+			.reverse()
+			.map((step) => ({
+				first: step.last,
+				last: step.first,
+				from: step.to,
+				to: step.from,
+				kind: step.kind,
+				flight,
+				steps: Number(step.kind === 'stairs')
+			}))
+	);
+	const docks = descending.map((run) => ({ station: run.head, door: run.landing ?? run.head }));
+	return { axis, width, legs, docks, stops: [...docks.map((d) => d.station), runs[0].foot] };
+}
+
 /** Returns the one circulation polyline selected by the available clear bay. */
 export function circulation(s: Section) {
+	const runs = s.composition.structure.access;
+	const spiral = runs[0]?.spiral;
+	if (spiral) return framedSpiral(runs, spiral.well.axis, spiral.well.outer - spiral.well.inner);
 	if (s.compact) return mastRoute(s);
 	return s.composition.path === 'spiral' ? windingRoute(s) : flightRoute(s);
 }

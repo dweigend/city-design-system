@@ -96,3 +96,4 @@ export function changedChunks(before: QuadGrid, after: QuadGrid): Set<string> {
 	}
 	return new Set(firstChanges.sort((a, b) => a.index - b.index).map((cell) => cell.chunk));
 }
+export { surfaceHeight } from './surface-height';

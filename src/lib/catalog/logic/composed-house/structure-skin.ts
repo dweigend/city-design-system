@@ -1,26 +1,9 @@
 import { tensionPatch } from '../membrane';
-import type { SkinSolver } from '../house-structure';
+import { skinPanels, type SkinSolver } from '../house-structure';
 import type { Vec3 } from '../parametrik/types';
 
-type Grips = Parameters<typeof tensionPatch>[0];
 /** Fabric of a skin that states none: unpressurised, tension in kN/m. */
 const TAUT = { pressure: 0, tension: 2 };
-
-type Panel = { grips: Grips; held: boolean[] };
-
-/** The tension patch spans three or four grips; a larger or peaked loop is cut into gores. */
-function panels(frame: Parameters<SkinSolver>[0]): Panel[] {
-	const { boundary, interior, peak } = frame;
-	const seams = frame.edges.map((edge) => edge === 'seam');
-	if (!interior.length && boundary.length === 3)
-		return [{ grips: [boundary[0], boundary[1], boundary[2]], held: seams }];
-	if (!interior.length && boundary.length === 4)
-		return [{ grips: [boundary[0], boundary[1], boundary[2], boundary[3]], held: seams }];
-	return boundary.map((p, i) => ({
-		grips: [p, boundary[(i + 1) % boundary.length], peak],
-		held: [seams[i], true, true]
-	}));
-}
 
 /**
  * Tensions a skin over its grips with the shared membrane solver, in world metres. A loop of
@@ -31,7 +14,7 @@ function panels(frame: Parameters<SkinSolver>[0]): Panel[] {
 export const tensionSkin: SkinSolver = (frame, patch) => {
 	const points: Vec3[] = [],
 		triangles: number[] = [];
-	for (const { grips, held } of panels(frame)) {
+	for (const { grips, held } of skinPanels(frame)) {
 		const solved = tensionPatch(grips, patch.membrane ?? TAUT, undefined, held);
 		const base = points.length;
 		points.push(...solved.positions);

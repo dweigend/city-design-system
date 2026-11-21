@@ -1,3 +1,4 @@
+import { climb } from '../house-structure';
 import { required } from '../required';
 import { podCourse } from './pod-course';
 import { roofCrown } from './roof-crown';
@@ -22,7 +23,7 @@ import { layeredStructure } from './layered-structure';
 import { ensembleFigure, framedStructure, housePrinciple } from './principle';
 import { galleryPlot } from './gallery';
 import { corners } from './bands';
-import { boundaryRuns, ringArea, type QuadCell } from '../quad-grid';
+import { boundaryRuns, ringArea, surfaceHeight, type QuadCell } from '../quad-grid';
 import { objectSlot, solid, mounted } from './objects';
 import { footprintBay } from './footprint';
 import { terraceLife } from './terrace-life';
@@ -467,9 +468,33 @@ export function perimeterHouse(
 						parcel: { polygon: exterior.ring, holes: [] }
 					},
 					[...occupancy.floors.map((course) => course.datum), top],
-					{ from: axis, to: [face[0], face[1]], width: threshold.width }
+					{
+						from: axis,
+						to: [face[0], face[1]],
+						width: threshold.width,
+						groundAt: site.start ? undefined : (x, y) => surfaceHeight(site.cells[0].corners, x, y)
+					}
 				);
+	// The compact ladder and its landings occupy the entrance well up to the lookout.
+	// A tapering mast deck needs a rim even when the well reaches beyond its original outline.
+	if (built.principle === 'mast') {
+		const lip = access.opening.map(([x, y]): XY => [
+			axis[0] + 1.25 * (x - axis[0]),
+			axis[1] + 1.25 * (y - axis[1])
+		]);
+		for (const deck of built.platforms) {
+			deck.outline = convexHull([...deck.outline, ...lip]).map(([x, y]) => [x, y]);
+			deck.holes = [access.opening];
+		}
+		built.access = climb(built.ground, 'ladder', built.platforms, axis);
+	}
 	const structure = { ...built, threshold };
+	for (const run of built.access) {
+		if (!run.landing) continue;
+		const level = levels.find((level) => level.position[2] === run.head[2]);
+		if (level) level.landing = run.landing;
+	}
+	const path = built.access[0]?.spiral ? 'spiral' : 'ladder';
 	return {
 		structure,
 		id: site.id,
@@ -479,8 +504,8 @@ export function perimeterHouse(
 		sharedRoof,
 		compact: true,
 		flightWidth: 1.25,
-		path: 'ladder',
-		signature: silhouette(envelope),
+		path,
+		signature: { ...silhouette(envelope), stair: path },
 		bay,
 		start: site.start,
 		stories: site.programme.length,

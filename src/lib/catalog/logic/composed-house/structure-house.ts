@@ -1,5 +1,6 @@
 import {
 	structureParts,
+	structureAccessParts,
 	type HouseStructure,
 	type SkinSolver,
 	type StructurePart
@@ -26,12 +27,18 @@ function slotSurface(part: StructurePart, surfaces: SectionSurfaces): Surface {
 	return bySlot[slot];
 }
 
-function cloth(part: Extract<StructurePart, { kind: 'mesh' }>, surface: Surface): StockPart {
+function meshStock(part: Extract<StructurePart, { kind: 'mesh' }>, surface: Surface): StockPart {
 	// The tensile variant has no random dimensions; only its registry address is kept.
-	const stock = houseObject('full-height-shell', 'tensile-sail', 0, {
-		instanceId: part.id,
-		slots: { body: surface }
-	}).parts[0];
+	const ramp = part.element === 'access';
+	const stock = houseObject(
+		ramp ? 'primitive-mesh' : 'full-height-shell',
+		ramp ? 'short' : 'tensile-sail',
+		0,
+		{
+			instanceId: part.id,
+			slots: { body: surface }
+		}
+	).parts[0];
 	if (stock.kind !== 'mesh') throw new Error('Expected a shell mesh');
 	return { ...stock, id: part.id, points: part.points, triangles: part.triangles, lines: [] };
 }
@@ -39,7 +46,7 @@ function cloth(part: Extract<StructurePart, { kind: 'mesh' }>, surface: Surface)
 function stock(part: StructurePart, surface: Surface): StockPart {
 	if (part.kind === 'rod') return pipeBetween(part.id, part.from, part.to, part.radius, surface);
 	if (part.kind === 'plate') return slabOver(part.id, part, surface);
-	return cloth(part, surface);
+	return meshStock(part, surface);
 }
 
 const BEARING: ReadonlySet<StructurePart['element']> = new Set(['strut', 'platform', 'room']);
@@ -57,10 +64,21 @@ export function structureHouse(
 	surfaces: SectionSurfaces = houseSurfaces,
 	solve: SkinSolver = tensionSkin
 ): HousePart[] {
-	return structureParts(structure, solve).map((part) => ({
+	return structureParts(structure, solve).map((part) => projectPart(part, surfaces));
+}
+
+/** Projects just the declared access with the same stock and surfaces used by the complete frame. */
+export function structureAccess(structure: HouseStructure, surfaces: SectionSurfaces): HousePart[] {
+	return structureAccessParts(structure).map((part) => projectPart(part, surfaces));
+}
+function projectPart(part: StructurePart, surfaces: SectionSurfaces): HousePart {
+	return {
 		...stock(part, slotSurface(part, surfaces)),
 		// Ways keep the access colour; every other element is coloured by its role slot.
 		...(part.element === 'access' ? {} : { buildingSurface: part.surface }),
-		structuralRole: BEARING.has(part.element) ? 'bearing' : 'cantilever'
-	}));
+		structuralRole:
+			BEARING.has(part.element) || (part.element === 'access' && part.kind === 'mesh')
+				? 'bearing'
+				: 'cantilever'
+	};
 }

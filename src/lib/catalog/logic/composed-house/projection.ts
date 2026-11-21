@@ -102,9 +102,9 @@ function framedParts(
 		use = fieldUse(section);
 	const skins = structure.skins.map((skin) => ({ ...skin, use }));
 	const frame = structureHouse(
-		{ ...structure, ensemble: section.ensemble, skins },
+		{ ...structure, access: [], ensemble: section.ensemble, skins },
 		surfaces
-	).filter((part) => !part.id.endsWith('/access'));
+	);
 	const feet = section.start ? [] : frameFootings(structure, surfaces.frame, height);
 	return [...frame, ...feet, ...access(section, surfaces)];
 }
