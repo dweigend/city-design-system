@@ -34,7 +34,7 @@ import {
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
-import { createView, type OpeningArea } from './view';
+import { createView, type FrameOrientation, type OpeningArea } from './view';
 import { createVehicles } from './vehicles';
 import { createTimeline } from './timeline';
 import { collectOpeningGroups } from './court-opening';
@@ -42,7 +42,17 @@ import { createFrameLoop } from './frame-loop';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
+/** Detached fixed context geometry supplied to the stage, which takes ownership of disposal. */
+export type StageContext = Readonly<{
+	group: THREE.Object3D;
+	bounds: THREE.Box3;
+	orientation: FrameOrientation;
+	setPalette(palette: Palette3D): void;
+	dispose(): void;
+}>;
+
 type StageOptions = {
+	context?: StageContext;
 	quality?: StudioQuality;
 	minInkAppliesTo?: MinimumInk;
 	showFrameStudy?: boolean;
@@ -89,6 +99,8 @@ export function createSandboxStage(
 	const vehicles = createVehicles();
 	const studyAdditions = study.additions ?? [];
 	scene.add(structures.group, vehicles.group);
+	const context = study.context;
+	if (context) scene.add(context.group);
 
 	const ink = new THREE.Color();
 	const paper = new THREE.Color();
@@ -234,7 +246,7 @@ export function createSandboxStage(
 	function applyPalette(next: Palette3D) {
 		palette = next;
 		paper.set(next.paper);
-		scene.background = paper.clone().lerp(new THREE.Color(next.ink), 0.025);
+		scene.background = context ? paper : paper.clone().lerp(new THREE.Color(next.ink), 0.025);
 		structures.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
@@ -246,6 +258,7 @@ export function createSandboxStage(
 		rejectionMaterial.color.copy(swatches.hazard);
 		targetMaterial.color.set(sceneSwatch(next, '--signal'));
 		terrain?.setPalette(next);
+		context?.setPalette(next);
 		vehicles.setPalette(next);
 
 		render();
@@ -368,6 +381,7 @@ export function createSandboxStage(
 	}
 
 	function frameCurrent(force: boolean) {
+		if (context) return view.frameBox(context.bounds, 1, context.orientation);
 		if (terrain && (force || opening)) frameTerrain(terrain);
 	}
 
@@ -533,6 +547,7 @@ export function createSandboxStage(
 			targetMaterial.dispose();
 			rejectionMaterial.dispose();
 			if (terrain) terrain.dispose();
+			context?.dispose();
 			frames.dispose();
 			structures.dispose();
 			pipeline.dispose();

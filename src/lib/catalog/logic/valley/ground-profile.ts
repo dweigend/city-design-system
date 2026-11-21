@@ -28,13 +28,17 @@ export function heightAboveWaterM(
 	const landwardMm = Math.abs(signedOffsetMm) - wetHalfWidthMm;
 	if (landwardMm < 0) return -3.1 * ramp(-landwardMm, 80_000);
 	const side = Math.sign(signedOffsetMm);
-	const swayMm = Math.round(14_000 * Math.sin(stationMm / 530_000 + course.phaseOffset * 12));
-	const first = 95_000 + side * (swayMm + 13_000);
-	const second = 245_000 + side * (swayMm - 2_000);
+	const bendSwayMm = Math.round(29_000 * Math.sin(stationMm / 720_000 + course.phaseOffset * 16));
+	const widthSwayMm = Math.round(1.65 * (wetHalfWidthMm - 183_000));
+	const lateralSwayMm = Math.max(-36_000, Math.min(36_000, bendSwayMm + widthSwayMm));
+	const first = 103_000 + side * (lateralSwayMm + 4_000);
+	const second = 253_000 + side * (lateralSwayMm - 7_000);
+	const apronCenterMm = second + 340_000 + side * 2 * bendSwayMm;
 	const [floodplain, lower, upper] = FLOORS;
 	return (
 		floodplain.levelM * ramp(landwardMm, 36_000) +
 		(lower.levelM - floodplain.levelM) * rise(landwardMm, first, 22_000) +
-		(upper.levelM - lower.levelM) * rise(landwardMm, second, 26_000)
+		(upper.levelM - lower.levelM) * rise(landwardMm, second, 26_000) +
+		1.4 * rise(landwardMm, apronCenterMm, 220_000)
 	);
 }

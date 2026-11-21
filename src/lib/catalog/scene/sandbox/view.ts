@@ -32,6 +32,7 @@ export type CourtFit = {
 	courtCenters?: readonly Vec3[];
 };
 export type View = ReturnType<typeof createView>;
+export type FrameOrientation = Readonly<{ headingRad: number; elevationRad: number }>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
 export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
@@ -52,6 +53,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let width = 1;
 	let height = 1;
 	let span = 400;
+	let cameraDistance = CAMERA_DISTANCE;
 	let openingFit: { points: THREE.Vector3[]; area?: OpeningArea; fit: CourtFit } | undefined;
 
 	function apply() {
@@ -68,7 +70,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		forward.set(-Math.sin(azimuthRad), 0, -Math.cos(azimuthRad));
 		eye.copy(forward).multiplyScalar(-Math.cos(elevationRad)).setY(Math.sin(elevationRad));
 		camera.up.copy(plan ? forward : THREE.Object3D.DEFAULT_UP);
-		camera.position.copy(target).addScaledVector(eye, CAMERA_DISTANCE);
+		camera.position.copy(target).addScaledVector(eye, cameraDistance);
 		camera.lookAt(target);
 		camera.updateProjectionMatrix();
 		camera.updateMatrixWorld();
@@ -234,27 +236,32 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			height = Math.max(1, nextHeight);
 			apply();
 		},
-		/** Frames a three.js box: its center in the image center, `margin` ≥ 1 around its silhouette. */
-		frameBox(box: THREE.Box3, margin: number) {
+		/** Frames a three.js box. An explicit orientation fits fixed studies at their full extent. */
+		frameBox(box: THREE.Box3, margin: number, orientation?: FrameOrientation) {
 			openingFit = undefined;
 			focusY = focusX = 0.5;
-			heading = BLICK.azimutRad;
+			heading = orientation?.headingRad ?? BLICK.azimutRad;
 			box.getCenter(target);
-			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
+			if (orientation) elevationRad = orientation.elevationRad;
+			else if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
 			const up = new THREE.Vector3().crossVectors(eye, right);
 			const corner = new THREE.Vector3();
 			let halfWidth = 0;
 			let halfHeight = 0;
+			let halfDepth = 0;
 			for (const x of [box.min.x, box.max.x])
 				for (const y of [box.min.y, box.max.y])
 					for (const z of [box.min.z, box.max.z]) {
 						corner.set(x, y, z).sub(target);
 						halfWidth = Math.max(halfWidth, Math.abs(corner.dot(right)));
 						halfHeight = Math.max(halfHeight, Math.abs(corner.dot(up)));
+						if (orientation) halfDepth = Math.max(halfDepth, Math.abs(corner.dot(eye)));
 					}
 			const fit = Math.max(halfHeight * 2, (halfWidth * 2 * height) / width) * margin;
-			span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
+			span = orientation ? fit : Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
+			cameraDistance = Math.max(CAMERA_DISTANCE, halfDepth + 200);
+			camera.far = Math.max(CAMERA_DISTANCE * 2.5, cameraDistance + halfDepth + 200);
 			apply();
 		},
 		/** Whether the canvas is taller than it is wide. */
