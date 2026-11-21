@@ -11,7 +11,8 @@ export function studioPipeline(
 	renderer: THREE.WebGPURenderer,
 	scene: THREE.Scene,
 	camera: THREE.Camera,
-	quality = studioQuality()
+	quality = studioQuality(),
+	beautyOutput: THREE.Node<'vec4'> = output
 ) {
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 	renderer.toneMapping = THREE.NeutralToneMapping;
@@ -30,7 +31,7 @@ export function studioPipeline(
 	// flag with the beauty sample so a nearby occluder cannot darken their pixels.
 	const receiver = uniform(0).onObjectUpdate(({ object }) => (object?.receiveShadow ? 1 : 0));
 	const mask = receiver.mul(normalWorldGeometry.y.smoothstep(0.45, 0.8));
-	const outputs = mrt({ output, bearing: vec4(vec3(mask), output.a) });
+	const outputs = mrt({ output: beautyOutput, bearing: vec4(vec3(mask), output.a) });
 	outputs.setBlendMode('bearing', outputs.getBlendMode('output'));
 	beauty.setMRT(outputs);
 	beauty.getTexture('bearing').type = THREE.UnsignedByteType;

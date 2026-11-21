@@ -34,6 +34,7 @@ import {
 } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
+import { createTerrainLook } from './terrain-look';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { createView, type OpeningArea } from './view';
 import { createViewMode } from './view-mode';
@@ -84,12 +85,14 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
-	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality);
+	const terrainLook = createTerrainLook();
+	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality, terrainLook.beauty);
 	const light = pipeline.light;
-	const structures = createStructures(study.quality, true, light.receiverOutput);
+	const structures = createStructures(study.quality, true, light.receiverOutput, terrainLook.mark);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
-	const viewMode = createViewMode(view, structures.group, vehicles.group);
+	const viewMode = createViewMode(view, terrainLook, vehicles.group);
+	const warmTarget = new THREE.RenderTarget(1, 1);
 	const studyAdditions = study.additions ?? [];
 	scene.add(structures.group, vehicles.group);
 
@@ -130,7 +133,6 @@ export function createSandboxStage(
 	let focus: FocusId = 'all';
 	let shown: World | undefined;
 	let palette: Palette3D | undefined;
-	let planView = false;
 	const viewLayers = () => ({ terrain, marks: [baseLines, cursor, target, rejection] });
 	let retainedDirty = true;
 	const frames = createFrameLayer(
@@ -154,7 +156,7 @@ export function createSandboxStage(
 	function crossedPointer(x: number, y: number) {
 		hoverRay.setFromCamera(view.ndc(x, y), view.camera);
 		const crosses = (box: THREE.Box3) => !box.isEmpty() && hoverRay.ray.intersectsBox(box);
-		return crosses(structures.swept) || crosses(vehicles.swept);
+		return crosses(structures.swept) || (vehicles.group.visible && crosses(vehicles.swept));
 	}
 	let coarse = false;
 	let viewScale = 0;
@@ -217,25 +219,33 @@ export function createSandboxStage(
 			openingPending = false;
 			view.frameBase(() => {
 				frameOpening(world, framedArea);
-				if (viewMode.active && terrain) view.frameInspection(terrain.water.geometry);
+				if (viewMode.retainsDrafting && terrain) view.frameInspection(terrain.water.geometry);
 			});
 			viewDirty = shadowsDirty = true;
 		}
 	}
 
 	function renderView(castersMoved: boolean) {
-		if (!viewMode.active || !retainedDirty || (opening && openingPending))
-			return renderImage(castersMoved);
-		viewMode.warm(scene, viewLayers(), () => {
-			light.refresh();
-			if (viewMode.iso) renderImage(false);
-			else pipeline.render();
-		});
-		retainedDirty = false;
-		if (!viewMode.iso) {
-			shadowsDirty = viewMode.terrainOnly;
-			renderImage(false);
+		if (!viewMode.retainsDrafting || !retainedDirty || (opening && openingPending)) {
+			renderImage(castersMoved);
+			return true;
 		}
+		// The beauty pass only runs once per renderer frame. Keep the warm-up off the canvas
+		// and schedule the visible pass even while playback is paused.
+		const target = renderer.getRenderTarget();
+		renderer.setRenderTarget(warmTarget);
+		try {
+			viewMode.warm(scene, viewLayers(), () => {
+				light.refresh();
+				pipeline.render();
+			});
+		} finally {
+			renderer.setRenderTarget(target);
+		}
+		retainedDirty = false;
+		shadowsDirty = true;
+		render();
+		return false;
 	}
 
 	const loop = createFrameLoop(gpu.isLive, ({ stamp, reduced }) => {
@@ -245,7 +255,7 @@ export function createSandboxStage(
 		terrain?.setTime(seconds);
 		const seating = structures.step(seconds * 1000, reduced && !timeline.seeking);
 		const transit = vehicles.step(timeline.transitSeconds * 1000);
-		renderView(structures.shadowChanged);
+		if (!renderView(structures.shadowChanged)) return false;
 		frames.afterDraw();
 		if (opening && openingPending) {
 			openingDrawn = true;
@@ -265,6 +275,7 @@ export function createSandboxStage(
 		paper.set(next.paper);
 		scene.background = paper.clone().lerp(new THREE.Color(next.ink), 0.025);
 		structures.setPalette(next);
+		terrainLook.setPalette(next);
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);
@@ -303,7 +314,7 @@ export function createSandboxStage(
 
 	function frameOpening(world: World, area = study.openingArea?.()) {
 		framedArea = area;
-		return view.isPortrait() && !planView
+		return view.isPortrait() && view.elevation() !== Math.PI / 2
 			? frameOldTown(view, world, area, study.additions)
 			: frameTownSilhouette(view, world, area, study.additions);
 	}
@@ -419,7 +430,7 @@ export function createSandboxStage(
 		shadowsDirty = true;
 		viewDirty = true;
 		styleDirty = true;
-		viewMode.applyLayers(viewLayers(), planView);
+		viewMode.applyLayers(viewLayers());
 		render();
 	}
 
@@ -434,6 +445,18 @@ export function createSandboxStage(
 
 	// Theme colors: the terrain only changes uniforms; structures re-bake their vertex colors.
 	const stopTheme = bindSceneTheme(canvas, scene, renderer, applyPalette);
+
+	/**
+	 * Applies a resolved camera and display to retained scene buffers.
+	 * Plan retains the iso drafting scale, stroke selection and detail tier.
+	 */
+	function setView(resolved: ResolvedView, editable = false) {
+		if (!editable && !viewMode.retainsDrafting && terrain)
+			view.frameInspection(terrain.water.geometry);
+		if (!viewMode.set(resolved, viewLayers(), editable)) return false;
+		invalidateView();
+		return true;
+	}
 
 	return {
 		ready: gpu.started,
@@ -504,37 +527,26 @@ export function createSandboxStage(
 		},
 		/** Axonometric view, or the plan seen from above. */
 		setPlan(plan: boolean) {
-			const released = viewMode.set(undefined, viewLayers(), planView);
-			if (planView === plan && !released) return;
-			planView = plan;
-			view.setPlan(plan);
-			terrain?.setGridVisible(Number(plan));
-			opening = undefined;
-			invalidateView();
+			if (setView({ view: plan ? 'plan' : 'iso', display: 'normal' }, true)) opening = undefined;
 		},
-		/** Applies a resolved camera and display to the retained stage. */
-		setView(resolved: ResolvedView) {
-			if (!viewMode.active && terrain) view.frameInspection(terrain.water.geometry);
-			if (viewMode.set(resolved, viewLayers(), planView)) invalidateView();
+		/** Applies a resolved view while retaining the opening drafting and detail tier. */
+		setView: (resolved: ResolvedView) => {
+			setView(resolved);
 		},
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */
 		pickCell(x: number, y: number) {
 			if (!terrain || !shown) return undefined;
 			prepareView();
-			return picker(
-				x,
-				y,
-				shown.grid,
-				viewMode.terrainOnly
-					? [terrain.water]
-					: [
-							...structures.solids(KEY.installation),
-							...housePickTargets(terrain, structures),
-							...structures.solids(KEY.forest),
-							...vehicles.group.children.filter((car) => car.visible),
-							terrain.water
-						]
-			);
+			const cars = vehicles.group.visible
+				? vehicles.group.children.filter((car) => car.visible)
+				: [];
+			return picker(x, y, shown.grid, [
+				...structures.solids(KEY.installation),
+				...housePickTargets(terrain, structures),
+				...structures.solids(KEY.forest),
+				...cars,
+				terrain.water
+			]);
 		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
@@ -551,7 +563,7 @@ export function createSandboxStage(
 				cursor.renderOrder = 10;
 				scene.add(cursor);
 			}
-			viewMode.applyLayers(viewLayers(), planView);
+			viewMode.applyLayers(viewLayers());
 			retainedDirty = true;
 			render();
 		},
@@ -564,7 +576,7 @@ export function createSandboxStage(
 				rejection.renderOrder = 12;
 				scene.add(rejection);
 			}
-			viewMode.applyLayers(viewLayers(), planView);
+			viewMode.applyLayers(viewLayers());
 			retainedDirty = true;
 			render();
 		},
@@ -584,6 +596,7 @@ export function createSandboxStage(
 			if (terrain) terrain.dispose();
 			frames.dispose();
 			structures.dispose();
+			warmTarget.dispose();
 			pipeline.dispose();
 			baseOutline.dispose();
 			cursorMaterial.dispose();

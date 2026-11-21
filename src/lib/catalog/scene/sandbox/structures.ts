@@ -35,7 +35,8 @@ export type Structures = ReturnType<typeof createStructures>;
 export function createStructures(
 	quality?: StudioQuality,
 	cityEdges = false,
-	receiverOutput?: Parameters<typeof structureMaterials>[2]
+	receiverOutput?: Parameters<typeof structureMaterials>[2],
+	markTerrainVolume?: (group: THREE.Object3D, wooded: boolean) => void
 ) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
@@ -87,6 +88,7 @@ export function createStructures(
 				? batches[0]
 				: new THREE.Group();
 		if (batches.length && root !== batches[0]) root.add(...batches);
+		markTerrainVolume?.(root, key.startsWith('forest:'));
 		return { group: root, targets, primitives, drawing, cellId, key, dockAt, motion };
 	}
 

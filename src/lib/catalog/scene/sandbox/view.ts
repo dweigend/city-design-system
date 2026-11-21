@@ -33,7 +33,7 @@ export type CourtFit = {
 };
 export type View = ReturnType<typeof createView>;
 
-type InspectionPose = Readonly<{ elevation?: number; margin: number }>;
+type InspectionPose = Readonly<{ elevation: number; margin: number }>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
 export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
@@ -250,7 +250,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		inspection = next;
 		if (next) {
 			openingPose = { target: target.clone(), elevation: elevationRad, span };
-			elevationRad = next.elevation ?? axonElevationRad;
+			elevationRad = next.elevation;
 			apply();
 			if (inspectionBounds) {
 				inspectionBounds.getCenter(target);

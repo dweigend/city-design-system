@@ -181,6 +181,10 @@ export function createTerrainMesh(
 			mix(paperColor, colors.nature, bankLight.oneMinus().clamp(0, 1).mul(0.3).add(0.22)),
 			bankMasks.y.mul(terrainWeight)
 		);
+		const step = height.div(nodes.reliefStep).floor();
+		const band = mix(paperColor, drawingInk, step.mul(nodes.reliefInk).clamp(0, 0.42));
+		const steppedGround = mix(band, drawingInk, weighted.mul(terrainWeight).mul(0.55));
+		ground = mix(ground, steppedGround, terrainOnly);
 
 		const lens = float(1)
 			.sub(chart.sub(cursor).length().smoothstep(lensInnerCells, lensCells))
@@ -199,14 +203,14 @@ export function createTerrainMesh(
 			colors.blueprint,
 			plan.mul(terrainWeight).mul(terrainOnly.oneMinus())
 		);
-		const groundShadows = gridStrength.mul(flatWater).oneMinus();
+		const groundShadows = gridStrength.max(terrainOnly).mul(flatWater).oneMinus();
 		return alleys.shade(
 			mix(plotted, shadeGround(plotted), groundShadows),
 			drawingInk,
 			colors.people,
 			paperColor,
 			peopleFocus,
-			pathWeight.mul(terrainOnly.oneMinus()),
+			pathWeight.mul(mix(1, 0.32, terrainOnly)),
 			daylight
 		);
 	}
@@ -253,7 +257,6 @@ export function createTerrainMesh(
 	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(footprint, surface, banks, water, wakes, baseMesh, deck);
-	let pathsVisible = true;
 
 	return {
 		group,
@@ -360,21 +363,17 @@ export function createTerrainMesh(
 			terrainWeight.value = weights[view.terrain];
 			forestWeight.value = weights[view.forest];
 			pathWeight.value = weights[view.paths];
-			pathsVisible = view.paths !== 'hidden';
-			deck.visible = pathsVisible && !terrainOnly.value;
+			deck.visible = view.paths !== 'hidden';
 			group.visible = view.terrain !== 'hidden';
 		},
-		setGridVisible(strength: number) {
-			gridStrength.value = strength;
-		},
 		/** Changes the analytical treatment with uniforms and retained object visibility. */
-		setInspection(mode?: ViewMode) {
+		setInspection(mode?: ViewMode, editable = false) {
 			const reliefOnly = mode === 'terrain';
+			gridStrength.value = Number(mode === 'plan');
 			terrainOnly.value = Number(reliefOnly);
-			flatWater.value = Number(mode === 'plan' || reliefOnly);
+			flatWater.value = Number((mode === 'plan' && !editable) || reliefOnly);
 			wakes.visible = flatWater.value === 0;
 			footprint.visible = baseMesh.visible = !reliefOnly;
-			deck.visible = pathsVisible && !reliefOnly;
 		},
 		/** Grid lens: chart position of the cursor in cells and its strength 0–1. */
 		setLens(column: number, row: number, strength: number) {
