@@ -37,7 +37,6 @@ export const cityReadingPath = {
 /** Open review questions and picture gaps carried forward from the contributing packages. */
 export const cityReview = {
 	decisions: [
-		'How older construction phases appear as stock: muted or full phase surface vs. light pencil line (FORM-10 vs. COLOR-5, COLOR-4, GROW-3)',
 		'Picture targets for sandbox details (D5)',
 		'Scope of the next city study after the first prototype (D6)'
 	],
