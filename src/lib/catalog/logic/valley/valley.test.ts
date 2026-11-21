@@ -14,7 +14,7 @@ test('replays the same course bytes with fresh buffers after generating another 
 	const other = generateValley({ seed: 1301 });
 	const replay = generateValley({ seed: 1201 });
 
-	expect(first.version).toBe('valley/1');
+	expect(first.version).toBe('valley/2');
 	expect(first.seed).toBe(1201);
 	const bytes = (values: Float64Array) => new Uint8Array(values.buffer);
 	expect(bytes(first.course.xy)).toEqual(bytes(replay.course.xy));
@@ -59,6 +59,22 @@ test('applies parameter bands and rejects a bend tighter than twice the width', 
 	).toThrow('invalid-valley-parameters');
 });
 
+test('derives wet width from a fixed ratio of bankfull width', () => {
+	const seed = VALLEY_X1_SEEDS[0];
+	const { course } = generateValley({ seed, parameters: { bankfullWidthM: [400, 400] } });
+	expect(course.wetWidthM).toBe(376);
+	const custom = generateValley({
+		seed,
+		parameters: { bankfullWidthM: [400, 400], wetToBankfullWidth: 0.85 }
+	});
+	expect(custom.course.wetWidthM).toBe(340);
+	for (const ratio of [0, -0.1, 1.01, NaN, Infinity]) {
+		expect(() => generateValley({ seed, parameters: { wetToBankfullWidth: ratio } })).toThrow(
+			'invalid-valley-parameters'
+		);
+	}
+});
+
 function measure(xy: Float64Array, window: number, label: string): number {
 	const reach = clipPolylineToSquare(xy, window);
 	if (!reach) throw new Error(`${label}: empty ${window} m window`);
@@ -87,6 +103,11 @@ function expectSinuosity(
 	expect(sinuosity8km, `${label} S₈ > S₂`).toBeGreaterThan(sinuosity2km);
 }
 
+function expectWetWidth(widthM: number, label: string) {
+	expect(widthM, `${label} wet width minimum`).toBeGreaterThanOrEqual(bands.wetWidthM[0]);
+	expect(widthM, `${label} wet width maximum`).toBeLessThanOrEqual(bands.wetWidthM[1]);
+}
+
 function median(values: number[]): number {
 	const sorted = values.toSorted((a, b) => a - b);
 	const middle = Math.floor(sorted.length / 2);
@@ -96,6 +117,7 @@ function median(values: number[]): number {
 test('meets both sinuosity bands in order on all 38 frozen seeds', () => {
 	const measured = [...VALLEY_X1_SEEDS, ...VALLEY_HOLDOUT_SEEDS].map((seed) => {
 		const { course } = generateValley({ seed });
+		expectWetWidth(course.wetWidthM, `Seed ${seed}`);
 		return { seed, ...measureCourse(course.xy, `Seed ${seed}`) };
 	});
 	const rows = [
@@ -144,8 +166,8 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 	const straight = generateValley({ seed, parameters: { headingAmplitude: [0, 0] } }).course.xy;
 	const bearing = Math.atan2(straight[3] - straight[1], straight[2] - straight[0]);
 	const rows = [
-		'| Bankfull (m) | Amplitude (rad) | Wavelength / width | Phase (rad) | S₂ range | S₈ range | Min S₈ − S₂ |',
-		'| ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
+		'| Bankfull (m) | Wet (m) | Amplitude (rad) | Wavelength / width | Phase (rad) | S₂ range | S₈ range | Min S₈ − S₂ |',
+		'| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
 	];
 	for (const width of bankfullWidthM) {
 		for (const phase of phaseOffset) {
@@ -162,6 +184,7 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 						phaseOffset: [phase, phase]
 					}
 				});
+				expectWetWidth(course.wetWidthM, `${width} m bankfull`);
 				const results = protocol.cornerBearingsDeg.map((degrees) => {
 					const label = `${width} m, amplitude ${amplitude}, ratio ${wavelengthRatio}, phase ${phase}, ${degrees}°`;
 					const result = measureCourse(
@@ -175,7 +198,7 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 				const regional = measuredRange(results.map((row) => row.sinuosity8km));
 				const minDelta = Math.min(...results.map((row) => row.sinuosity8km - row.sinuosity2km));
 				rows.push(
-					`| ${width} | ${amplitude} | ${wavelengthRatio} | ${phase} | ${local} | ${regional} | ${minDelta.toFixed(4)} |`
+					`| ${width} | ${course.wetWidthM.toFixed(1)} | ${amplitude} | ${wavelengthRatio} | ${phase} | ${local} | ${regional} | ${minDelta.toFixed(4)} |`
 				);
 			}
 		}

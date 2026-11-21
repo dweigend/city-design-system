@@ -1,17 +1,18 @@
 import { hash } from '../../core/random';
-import { VALLEY_MEASUREMENT_PROTOCOL } from '../../data/valley-references';
 import type { ValleyParameters } from './parameters';
 
 export type RiverCourse = Readonly<{
 	xy: Float64Array;
 	chainageM: Float64Array;
 	bankfullWidthM: number;
+	wetWidthM: number;
 }>;
 
 const MAIN_STEM_ID = 0;
 const CHANNEL = { heading: 0, phase: 1, curvature: 2, width: 3 } as const;
-const REGIONAL_RADIUS_M = VALLEY_MEASUREMENT_PROTOCOL.regionalWindowM / Math.SQRT2;
-const SPACING_M = VALLEY_MEASUREMENT_PROTOCOL.courseSpacingM;
+const REGIONAL_COVERAGE_M = 8_000;
+const REGIONAL_RADIUS_M = REGIONAL_COVERAGE_M / Math.SQRT2;
+const SPACING_M = 6.25;
 const TURN = 2 * Math.PI;
 
 // The same curvature draw sets amplitude and wavelength within their declared bands.
@@ -57,5 +58,13 @@ export function generateCourse(seed: number, parameters: ValleyParameters): Rive
 		xy[2 * i + 1] = xy[2 * (i - 1) + 1] + SPACING_M * Math.sin(angle);
 	}
 	centerCourse(xy, midpoint);
-	return Object.freeze({ xy, chainageM, bankfullWidthM });
+	const { wetToBankfullWidth } = parameters;
+	return Object.freeze({
+		xy,
+		chainageM,
+		bankfullWidthM,
+		get wetWidthM() {
+			return bankfullWidthM * wetToBankfullWidth;
+		}
+	});
 }

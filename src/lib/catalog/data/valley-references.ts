@@ -61,7 +61,7 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	gentleSlopeLimit: 0.02
 } as const;
 
-/** Inclusive bands. Surface and wet-width measurements start with the field slice. */
+/** Inclusive bands for the course, its wet-width proxy and future field measurements. */
 export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	sinuosity2km: [1, 1.11],
 	sinuosity8km: [1.05, 1.3],
