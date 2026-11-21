@@ -1,5 +1,11 @@
 import { clipPolylineToSquare } from '../../core/polyline';
-import { crossSections, profileAt, stepCandidates, wetRunM } from './cross-profiles';
+import {
+	crossSections,
+	floodplainWidths,
+	profileAt,
+	stepCandidates,
+	wetBanks
+} from './cross-profiles';
 import { gridSampler, smoothSurface, type SurfaceGrid } from './surface-grid';
 
 type SurfaceProtocol = Readonly<{
@@ -91,7 +97,8 @@ function checkGrid(grid: SurfaceGrid): number {
 		grid.spacingM > 0 &&
 		grid.windowM > 0 &&
 		grid.bedMm.length === side ** 2 &&
-		grid.meanWaterMm.length === side ** 2;
+		grid.meanWaterMm.length === side ** 2 &&
+		(grid.floor === undefined || grid.floor.length === side ** 2);
 	if (!valid) throw new RangeError('invalid-surface-grid');
 	return side;
 }
@@ -123,6 +130,9 @@ export function measureRiverSurface(
 	const signed = gridSampler(side, grid.spacingM, (i) => grid.bedMm[i] - grid.meanWaterMm[i]);
 	const height = gridSampler(surface.side, protocol.surfaceSpacingM, (i) => surface.heights[i]);
 	const widthM: number[] = [];
+	const bankPairsM: (readonly [number, number])[] = [];
+	const { floor } = grid;
+	const terrace = floor && gridSampler(side, grid.spacingM, (i) => Number(floor[i] >= 2));
 	const stepHeightsM: number[] = [];
 	const stations = reach
 		? crossSections(
@@ -139,13 +149,18 @@ export function measureRiverSurface(
 			grid.spacingM,
 			grid.windowM,
 			signed,
-			height
+			height,
+			terrace
 		);
-		const width = wetRunM(profile);
-		if (width !== null) widthM.push(width);
+		const banks = wetBanks(profile);
+		if (banks) {
+			widthM.push(banks.right - banks.left);
+			const pair = terrace && floodplainWidths(profile, banks);
+			if (pair) bankPairsM.push(pair);
+		}
 		stepHeightsM.push(
 			...stepCandidates(profile, protocol.stepMinimumSlope, protocol.stepMinimumGainM)
 		);
 	}
-	return { widthM, stepHeightsM, ...surfaceStats(surface, signed, protocol) };
+	return { widthM, bankPairsM, stepHeightsM, ...surfaceStats(surface, signed, protocol) };
 }

@@ -1,7 +1,7 @@
 import { distance, pointAt, type Point } from '../../core/polyline';
 
 type Sampler = (x: number, y: number) => number;
-type ProfilePoint = Readonly<{ offset: number; signed: number; height: number }>;
+type ProfilePoint = Readonly<{ offset: number; signed: number; height: number; terrace: number }>;
 type Station = (offset: number) => Point;
 
 function chainage(xy: ArrayLike<number>): Float64Array {
@@ -56,13 +56,19 @@ export function profileAt(
 	spacing: number,
 	windowM: number,
 	signed: Sampler,
-	height: Sampler
+	height: Sampler,
+	terrace?: Sampler
 ): ProfilePoint[] {
 	const points: ProfilePoint[] = [];
 	for (let offset = -halfLength; offset <= halfLength; offset += spacing) {
 		const { x, y } = station(offset);
 		if (Math.max(Math.abs(x), Math.abs(y)) > windowM / 2) continue;
-		points.push({ offset, signed: signed(x, y), height: height(x, y) });
+		points.push({
+			offset,
+			signed: signed(x, y),
+			height: height(x, y),
+			terrace: terrace?.(x, y) ?? 0
+		});
 	}
 	return points;
 }
@@ -71,8 +77,8 @@ function shore({ offset, signed }: ProfilePoint, dry: ProfilePoint): number {
 	return offset + ((dry.offset - offset) * -signed) / (dry.signed - signed);
 }
 
-/** Measures the connected wet interval at the course, or returns null if a bank is censored. */
-export function wetRunM(profile: readonly ProfilePoint[]): number | null {
+/** Finds the banks of the connected wet interval, or null if either is censored. */
+export function wetBanks(profile: readonly ProfilePoint[]) {
 	const center = profile.findIndex(({ offset }) => offset === 0);
 	if (center < 0 || profile[center].signed >= 0) return null;
 	let left = center;
@@ -80,7 +86,36 @@ export function wetRunM(profile: readonly ProfilePoint[]): number | null {
 	while (left > 0 && profile[left - 1].signed < 0) left--;
 	while (right + 1 < profile.length && profile[right + 1].signed < 0) right++;
 	if (left === 0 || right + 1 === profile.length) return null;
-	return shore(profile[right], profile[right + 1]) - shore(profile[left], profile[left - 1]);
+	return {
+		left: shore(profile[left], profile[left - 1]),
+		right: shore(profile[right], profile[right + 1]),
+		leftDry: left - 1,
+		rightDry: right + 1
+	};
+}
+
+function terraceEdge(profile: readonly ProfilePoint[], start: number, direction: -1 | 1) {
+	for (let i = start; i >= 0 && i < profile.length; i += direction) {
+		const point = profile[i];
+		if (point.terrace < 0.5) continue;
+		const prior = profile[i - direction];
+		return (
+			prior.offset +
+			((point.offset - prior.offset) * (0.5 - prior.terrace)) / (point.terrace - prior.terrace)
+		);
+	}
+	return null;
+}
+
+/** Measures the dry distance from each bank to its first mapped terrace. */
+export function floodplainWidths(
+	profile: readonly ProfilePoint[],
+	banks: NonNullable<ReturnType<typeof wetBanks>>
+): readonly [leftM: number, rightM: number] | null {
+	const left = terraceEdge(profile, banks.leftDry, -1);
+	const right = terraceEdge(profile, banks.rightDry, 1);
+	if (left === null || right === null) return null;
+	return [Math.max(0, banks.left - left), Math.max(0, right - banks.right)];
 }
 
 function grade(profile: readonly ProfilePoint[], index: number): number {
