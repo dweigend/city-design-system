@@ -25,7 +25,7 @@
 
 <DesignShell title="Growth">
 	<p>
-		<a href={resolve('/raster') + '#court-growth'}>Compare one generation at the square</a> · In the game
+		<a href={resolve('/raster')}>Compare one generation at the square</a> · In the game
 	</p>
 	<DesignPrinciples page="growth" />
 

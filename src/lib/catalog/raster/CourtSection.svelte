@@ -44,7 +44,7 @@
 				width={x(wall.right) - x(wall.left)}
 				height={wall.stories * section.story * 4.4}
 			/>
-			{#each Array(wall.stories - 1) as _, i (i)}
+			{#each Array(wall.stories - 1).keys() as i (i)}
 				<line
 					class="floor"
 					x1={x(wall.left)}
