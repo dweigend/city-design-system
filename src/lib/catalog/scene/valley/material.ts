@@ -38,7 +38,7 @@ export function valleyMaterial(exaggeration: number) {
 	const major = contour(heightM, 5, 1).mul(0.64);
 	const printed = mix(relief, contourInk, minor.max(major));
 	const material = new MeshBasicNodeMaterial({ toneMapped: false });
-	material.colorNode = bedAboveWater.lessThan(0).select(river, printed);
+	material.colorNode = bedAboveWater.lessThan(0).select(vec3(river), vec3(printed));
 
 	return {
 		material,
