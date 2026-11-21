@@ -16,7 +16,7 @@ test('the same plan seed reproduces geometry and sub-area IDs on the test terrai
 	expect(plan.cells.length).toBeGreaterThan(200);
 	expect(new Set(plan.areas.map(({ id }) => id)).size).toBe(plan.areas.length);
 	for (const cell of plan.cells) {
-		expect(cell.corners).toBe(grid.cellsById.get(cell.id)?.corners);
+		expect(cell.corners === grid.cellsById.get(cell.id)?.corners).toBe(true);
 		for (const [x, y, z] of cell.corners) {
 			expect(z).toBe(terrainHeight(grid.terrain, x, y));
 		}
@@ -37,7 +37,8 @@ test.each([104, 207])(
 	(seed) => {
 		const plan = deriveGroundPlan(grid, ANCHOR, seed);
 		const cells = new Map(plan.cells.map((cell) => [cell.id, cell]));
-		const seen = new Set<string>();
+		const assigned = plan.areas.flatMap(({ cellIds }) => cellIds);
+		expect(assigned.sort()).toEqual([...cells.keys()].sort());
 		const paths = new Set(
 			plan.areas.filter((area) => area.kind === 'path').flatMap((area) => area.cellIds)
 		);
@@ -52,14 +53,9 @@ test.each([104, 207])(
 				}
 			}
 			expect(reached).toEqual(members);
-			for (const id of members) {
-				expect(seen.has(id)).toBe(false);
-				seen.add(id);
-			}
 			if (kind === 'buildable') expect(cellIds.every(frontsPath)).toBe(true);
 			if (kind === 'plaza') expect(cellIds.some(frontsPath)).toBe(true);
 		}
-		expect(seen).toEqual(new Set(cells.keys()));
 		expect(plan.areas.filter(({ kind }) => kind === 'path')).toHaveLength(1);
 		expect(plan.areas.some(({ kind }) => kind === 'court')).toBe(true);
 		expect(plan.areas.some(({ kind }) => kind === 'plaza')).toBe(true);

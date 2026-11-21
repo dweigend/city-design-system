@@ -18,6 +18,30 @@ function pathCandidates(cells: readonly TerrainCell[], anchor: TerrainCell, seed
 	);
 }
 
+function joinPath(
+	start: string,
+	cells: ReadonlyMap<string, TerrainCell>,
+	connected: ReadonlySet<string>,
+	paths: Set<string>
+) {
+	const queue = [start];
+	const parents = new Map<string, string | undefined>([[start, undefined]]);
+	for (const id of queue) {
+		if (connected.has(id)) {
+			for (let parent = parents.get(id); parent !== undefined; parent = parents.get(parent)) {
+				paths.add(parent);
+			}
+			return;
+		}
+		for (const neighbor of cells.get(id)?.neighbors ?? []) {
+			if (neighbor === null || !cells.has(neighbor) || parents.has(neighbor)) continue;
+			parents.set(neighbor, id);
+			queue.push(neighbor);
+		}
+	}
+	throw new Error('Expected a connected ground plan');
+}
+
 function connectPaths(cells: readonly TerrainCell[], anchor: TerrainCell, paths: Set<string>) {
 	const byId = new Map(cells.map((cell) => [cell.id, cell]));
 	const connected = new Set<string>();
@@ -38,22 +62,8 @@ function connectPaths(cells: readonly TerrainCell[], anchor: TerrainCell, paths:
 	grow(anchor.id);
 	for (const start of paths) {
 		if (connected.has(start)) continue;
-		const queue = [start];
-		const parents = new Map<string, string | undefined>([[start, undefined]]);
-		for (const id of queue) {
-			if (connected.has(id)) {
-				for (let parent = parents.get(id); parent !== undefined; parent = parents.get(parent)) {
-					paths.add(parent);
-				}
-				grow(start);
-				break;
-			}
-			for (const neighbor of byId.get(id)?.neighbors ?? []) {
-				if (neighbor === null || !byId.has(neighbor) || parents.has(neighbor)) continue;
-				parents.set(neighbor, id);
-				queue.push(neighbor);
-			}
-		}
+		joinPath(start, byId, connected, paths);
+		grow(start);
 	}
 }
 
