@@ -42,6 +42,7 @@ export function survey(site: HouseSite) {
 		center: [x, y] as const,
 		district: site.district ?? 'infill',
 		seed: site.seed,
+		requestedSystem: site.envelope?.system,
 		envelope: site.envelope
 	};
 }

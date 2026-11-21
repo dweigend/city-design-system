@@ -1,4 +1,3 @@
-import { CatmullRomCurve3, Vector3 } from 'three/webgpu';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
@@ -59,7 +58,18 @@ test('acceptance slab collars sit on slab planes and post axes without moving en
 	const riverside = draftingStudy(riversideStock(createWorld(7)));
 	const { contacts, parts, joints } = acceptanceJoints(riverside);
 	const seams = contacts.filter(({ seat }) => seat === 'slab-seam');
-	expect(seams).toHaveLength(19);
+	// 9feb8ebc widened the walk and seated its landings (19 to 25 seams).
+	// The inhabited parcel in 01d10553 adds both faces of its deck and plinth at stop 2.
+	expect(seams).toHaveLength(29);
+	const stationSlabs = seams
+		.filter(({ member }) => member.id === 'line:line185/line185/stop/2/shaft')
+		.map(({ support }) => support.id);
+	expect(stationSlabs).toEqual([
+		'house:composed/116/37/116/37/level/1/deck',
+		'house:composed/116/37/116/37/level/1/deck',
+		'house:composed/116/37/116/37/plinth',
+		'house:composed/116/37/116/37/plinth'
+	]);
 	const endpointContacts = contacts.filter(({ seat }) => seat !== 'slab-seam');
 	expect(acceptanceJoints(riverside, true).joints).toEqual(joints);
 	for (const { member, support, point, axis } of seams) {
@@ -84,7 +94,7 @@ test('acceptance slab collars sit on slab planes and post axes without moving en
 	// Composed houses and registered structural members define the seed-7 contact set.
 	// The digest freezes the seed-7 endpoint joint IDs and positions in this projection.
 	expect(Bun.hash(JSON.stringify(endpoints.map(({ partId, point }) => [partId, point])))).toBe(
-		12797792281088843432n
+		4248688836026219336n
 	);
 });
 
@@ -158,7 +168,8 @@ test('a wall overprint prism supplies no through-post collars', () => {
 	expect(contacts.filter(({ seat }) => seat === 'slab-seam')).toEqual([]);
 });
 
-test('a rail saddle follows the curved deck between control points', () => {
+test('a rail saddle follows the curved deck between control points', async () => {
+	const { CatmullRomCurve3, Vector3 } = await import('three/webgpu');
 	const points: Vec3[] = [
 		[0, 0, 10],
 		[4, 0, 10],

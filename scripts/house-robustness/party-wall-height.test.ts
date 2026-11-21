@@ -10,6 +10,8 @@ for (const lower of [1, 2, 5]) {
 			const sites = squareGrid(2, 1, 10).cells.map((c, i) => ({
 				cells: [c],
 				stacks: new Map([[c.id, Array<'water'>(i ? lower : 7).fill('water')]]),
+				// Survey a full-height wall. Default ensemble screens stop at the podium.
+				envelope: { system: 'pleated-sheet' as const },
 				seed: 7
 			}));
 			const context = planEnsemble(sites);

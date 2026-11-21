@@ -205,7 +205,7 @@ test('registry groups have unscaled feet on terraces, landings or roofs', () => 
 		}
 	}
 });
-test('glazing and sill follow the surveyed inner weather line and share a horizontal joint', () => {
+test('recessed glazing and its sill follow their surveyed outlines and share a horizontal joint', () => {
 	for (const t of typologies) {
 		const house = specimen(2, t),
 			parts = sectionParts(house);
@@ -214,8 +214,9 @@ test('glazing and sill follow the surveyed inner weather line and share a horizo
 			const pane = courses.find((p) => p.id.includes('/window')),
 				sill = courses.find((p) => p.id.includes('/sill'));
 			if (pane?.kind !== 'prism' || sill?.kind !== 'prism') throw Error('Missing glazing or sill');
-			expect(b.band?.lining).toEqual(pane.polygon);
-			expect(sill.polygon).toEqual(pane.polygon);
+			expect(b.band?.paneRing).toEqual(pane.polygon);
+			expect(b.band?.lining).toEqual(sill.polygon);
+			expect(pane.polygon).not.toEqual(sill.polygon);
 			expect(sill.z + sill.height).toBeCloseTo(pane.z);
 		}
 	}

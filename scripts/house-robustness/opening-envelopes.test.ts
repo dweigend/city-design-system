@@ -39,10 +39,22 @@ for (const court of world.state.city.centres.flatMap((c) => c.ensembles)) {
 			expect(envelope.bottom).toBe(house.composition.ground);
 			expect(envelope.top).toBe(house.top);
 			const walls = parts.filter((p) => p.source.objectId === 'full-height-shell');
-			expect(walls).toHaveLength(
-				envelope.faces.filter(Boolean).length + envelope.courtWalls.length
+			// Open upper storeys leave the slotted shell only at the podium. A party seam
+			// covering that whole height leaves no panel on that face.
+			const wallTop =
+				house.slottedSkin && house.composition.ensembleSize > 1
+					? envelope.stations[1].z
+					: envelope.top;
+			const exposed = envelope.faces.filter(
+				(visible, i) =>
+					visible &&
+					envelope.seams[i].some(
+						({ hidden }) => !hidden || hidden[0] > envelope.bottom || hidden[1] < wallTop
+					)
 			);
+			expect(walls).toHaveLength(exposed.length + envelope.courtWalls.length);
 			for (const p of walls) {
+				expect(p.kind === 'mesh' && p.triangles.length > 0).toBe(true);
 				expect(p.buildingSurface?.slot).toBe('shell');
 				const projected = projectBuildingSurface(p);
 				expect(projected.colourRole).toBe('ensemble-ground');

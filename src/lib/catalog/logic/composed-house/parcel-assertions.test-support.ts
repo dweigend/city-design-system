@@ -1,8 +1,6 @@
 import { cantileverMargin, footprint, plotCovers, side, type Footprint } from './parcel-footprint';
 import assert from 'node:assert/strict';
-import { bodyParts } from './provider';
 import { bounds, translate } from '../ansicht/geometrie';
-import { houseSurfaces } from './surfaces';
 import { checkFit, partsIntersect } from '../house-typology';
 import { type planHouse, type sectionParts } from './index';
 
@@ -89,15 +87,20 @@ function checkOccupant(
 	const deck = { ring: carrier.polygon as XY[], holes: (carrier.holes ?? []) as XY[][] };
 	assert(deckCovers(deck, footprint(p)), p.id + ' outside ' + p.carrier);
 }
-function bodySeats(s: Section) {
-	return s.composition.levels.flatMap((l) =>
-		l.bodies.map((b) => ({
-			z: b.position[2],
-			feet: bodyParts(b, houseSurfaces)
-				.filter((p) => Math.abs(bounds(p).min[2] - b.position[2]) < 1e-7)
-				.map((p) => translate(p, [0, 0, -0.05]))
-		}))
-	);
+function bodySeats(s: Section, parts: Parts) {
+	const { structure, levels } = s.composition;
+	const bodies =
+		structure.principle === 'layers'
+			? levels.flatMap((l) => l.bodies.map((b) => ({ id: b.id, z: b.position[2] })))
+			: structure.platforms.filter((p) => p.room).map((p) => ({ id: p.id + '/room', z: p.datum }));
+	return bodies.map(({ id, z }) => ({
+		z,
+		feet: parts
+			.filter(
+				(p) => (p.id === id || p.id.startsWith(id + '/')) && Math.abs(bounds(p).min[2] - z) < 1e-7
+			)
+			.map((p) => translate(p, [0, 0, -0.05]))
+	}));
 }
 function checkSupport(p: Parts[number], ground: number, seats: ReturnType<typeof bodySeats>) {
 	if (p.structuralRole === 'bearing') return;
@@ -111,7 +114,7 @@ function checkSupport(p: Parts[number], ground: number, seats: ReturnType<typeof
 /** Checks every projected part against its parcel or its named deck. */
 export function checkParcel(s: Section, parts: Parts) {
 	const carriers = new Map(parts.map((p) => [p.id, p]));
-	const seats = bodySeats(s);
+	const seats = bodySeats(s, parts);
 	for (const p of parts) {
 		checkSupport(p, s.composition.ground, seats);
 		if (p.structuralRole === 'occupant') {

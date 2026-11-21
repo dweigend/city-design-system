@@ -1,8 +1,8 @@
 import type { Vec3 } from '../parametrik/types';
 import type { HouseStructure, Platform, Rod, SkinPatch, StructureNode } from './contract';
+import { spiralAccess, spiralNewel } from './spiral';
 import { hemPosts, EDGE, type Walk } from './hem';
 import {
-	climb,
 	identity,
 	inset,
 	shrink,
@@ -19,8 +19,6 @@ const HEAD_SHARE = 0.5;
 const ROOM_FILL = 0.8;
 /** Gauge pressure of the cushions in kPa and their tension in kN/m. */
 const CUSHION = { pressure: 0.25, tension: 3 };
-/** Share of the ring at which the stair climbs, inside the rooms. */
-const STAIR_SHARE = 0.3;
 
 /**
  * A lantern of cushions on an outer frame. Slender posts lean from the parcel corners to a
@@ -77,7 +75,10 @@ export function exoskeletonHouse(
 			...(k % 2 ? {} : { room })
 		};
 	});
+	const access = spiralAccess(ring, platforms, plot.ground, 'stair', shape.walk?.groundAt);
+	spiralNewel(plot.id, access, nodes, rods);
 	const cushions = ring.map((_, face): SkinPatch => {
+		const next = (face + 1) % count;
 		const loop = [...hem.grips(face), { node: head(face + 1) }, { node: head(face) }];
 		return {
 			id: plot.id + '/cushion/' + face,
@@ -86,16 +87,27 @@ export function exoskeletonHouse(
 			// Pressure acts along the right-hand normal: the loop runs counterclockwise from outside.
 			boundary: turn(ring) > 0 ? loop : [loop[1], loop[0], loop[3], loop[2]],
 			edges: ['cable', 'seam', 'seam', 'seam'],
-			membrane: CUSHION
+			// For the same relative bulge, membrane tension grows with the unsupported span.
+			membrane: {
+				pressure: CUSHION.pressure,
+				tension: Math.max(
+					CUSHION.tension,
+					CUSHION.pressure *
+						Math.hypot(ring[next][0] - ring[face][0], ring[next][1] - ring[face][1])
+				)
+			}
 		};
 	});
 	return {
 		...identity(plot),
+		...(shape.walk?.groundAt && access.length
+			? { entryDatum: shape.walk.groundAt(access[0].foot[0], access[0].foot[1]) }
+			: {}),
 		principle: 'exoskeleton',
 		nodes,
 		rods,
 		platforms,
 		skins: cushions,
-		access: climb(plot.ground, 'stair', platforms, shrink(ring, STAIR_SHARE)[0])
+		access
 	};
 }

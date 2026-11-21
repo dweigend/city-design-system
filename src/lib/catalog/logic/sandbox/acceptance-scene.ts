@@ -186,6 +186,6 @@ export function acceptanceScene(seed = SEED) {
 	);
 	return {
 		...studyView(world),
-		...(waterfront && { featuredCentre: { cellId: waterfront.cellId, headingDeg: 196 } })
+		...(waterfront && { featuredCentre: { cellId: waterfront.cellId, headingDeg: 202 } })
 	};
 }
