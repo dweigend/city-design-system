@@ -27,7 +27,7 @@
 			</li>
 		{/each}
 	</ul>
-	<a href={resolve('/archiv') + '#library-path'}>Library status</a>
+	<a href={resolve('/archiv#library-path')}>Library status</a>
 </aside>
 
 <style>

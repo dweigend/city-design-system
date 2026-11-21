@@ -55,7 +55,7 @@
 			The Infrastructure Atlas prototype traces water and power from supply nodes to building
 			fittings. That connection model still needs to join the shared grid. The existing bible
 			studies need the common city scene and actions for the
-			<a href={resolve('/interface') + '#engine-path'}>planned engine miniatures</a>.
+			<a href={resolve('/interface#engine-path')}>planned engine miniatures</a>.
 		</p>
 	</section>
 	<FilterBar items={archiv} bind:filter shown={shown.length} bind:hoehe={leiste} />
