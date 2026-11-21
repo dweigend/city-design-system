@@ -113,3 +113,45 @@ export function surveyPlaza(
 	const steps = [p(-2, far), p(2, far), p(2, far + 2.4), p(-2, far + 2.4)];
 	return { mouth: gate.id, polygon, apron, bed, steps, cells: cells.map((c) => c.id) };
 }
+
+/** Surveys a central open square against the same carrier footprint as the recessed plaza.
+ * Returns its connected cells and the closest available street mouth on the perimeter. */
+export function surveyCentrePlaza(
+	grid: TerrainGrid,
+	centre: TerrainCell,
+	land: ReadonlyMap<string, TerrainCell>,
+	approach: TerrainCell
+) {
+	const [x, y] = centre.center;
+	const frame = {
+		along: (p: readonly number[]) => p[0] - x,
+		out: (p: readonly number[]) => p[1] - y,
+		point: (u: number, v: number): Point => [u + x, v + y]
+	};
+	// Keep the footprint on the same network as the centre if the crop clips the survey.
+	const surveyed = new Set(
+		footprint(grid, centre, frame, [[-5, 5, -5, 5]])
+			.filter((cell) => land.has(cell.id))
+			.map(({ id }) => id)
+	);
+	const cells = [centre];
+	const kept = new Set([centre.id]);
+	const mouths = new Map<string, TerrainCell>();
+	for (const cell of cells) {
+		for (const id of cell.neighbors) {
+			if (id === null || kept.has(id)) continue;
+			const next = land.get(id);
+			if (!next) continue;
+			if (surveyed.has(id)) {
+				kept.add(id);
+				cells.push(next);
+			} else mouths.set(id, next);
+		}
+	}
+	const distance = (cell: TerrainCell) =>
+		Math.hypot(cell.center[0] - approach.center[0], cell.center[1] - approach.center[1]);
+	const mouth = [...mouths.values()].sort(
+		(a, b) => distance(a) - distance(b) || a.index - b.index
+	)[0];
+	return mouth ? { cells: kept, mouth } : undefined;
+}

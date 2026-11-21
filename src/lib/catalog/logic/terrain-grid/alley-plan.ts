@@ -7,6 +7,7 @@ import { patternAt, type Pattern } from './patterns';
 import type { Lattice } from './contour-rows';
 
 import { defaultAlleyPlan } from './alley-profile';
+import type { TerrainCell } from './types';
 type Profile = typeof defaultAlleyPlan;
 type Site = { corners: QuadCell['corners']; zone: TerrainZone; pattern: Pattern; incision: number };
 
@@ -210,5 +211,42 @@ function alleyWidth(kind: ReturnType<typeof routeKind>, landing: boolean, profil
 		alley: profile.alleyWidth,
 		stairAlley: profile.stairAlleyWidth,
 		footbridge: profile.footbridgeWidth
+	}[kind];
+}
+
+/** Cost in adjusted meters for following or joining the carrier's circulation survey.
+ * The arterial avoids stairs and prefers main-alley frontage. Local links admit stair alleys. */
+export function corridorCost(
+	from: TerrainCell,
+	to: TerrainCell,
+	side: number,
+	kind: 'arterial' | 'street' | 'alley',
+	profile: Profile
+) {
+	const [x, y, z] = from.center;
+	const distance = Math.hypot(to.center[0] - x, to.center[1] - y);
+	const grade = Math.abs(to.center[2] - z) / distance;
+	const reciprocal = to.neighbors.indexOf(from.id);
+	const surveyed = followsAlley(from, side, kind) || followsAlley(to, reciprocal, kind);
+	const contour = from.pattern === 'contour' || to.pattern === 'contour';
+	const penalty = kind === 'arterial' ? 4 : 2;
+	const climb = contour && side % 2 === 0 ? Math.min(1, grade / profile.steepGrade) : 0;
+	const stair = kind === 'arterial' && grade >= profile.steepGrade;
+	return distance * ((surveyed ? 0.72 : 1) + penalty * grade + climb + Number(stair));
+}
+
+function followsAlley(cell: TerrainCell, side: number, kind: 'arterial' | 'street' | 'alley') {
+	if (side < 0 || !(cell.alleyEdges & (1 << side))) return false;
+	const { direction, stairAlley } = cell.plan;
+	if (stairAlley && kind === 'arterial') return false;
+	return direction === 'both' || direction === (side % 2 ? 'along' : 'across');
+}
+
+/** Nominal corridor width in meters, using the carrier's circulation profile. */
+export function groundRouteWidth(kind: 'arterial' | 'street' | 'alley', profile: Profile) {
+	return {
+		arterial: profile.mainAlleyWidth,
+		street: profile.passageWidth,
+		alley: profile.alleyWidth
 	}[kind];
 }
