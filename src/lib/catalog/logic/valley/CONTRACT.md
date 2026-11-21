@@ -1,8 +1,8 @@
 # Valley
 
-`generateValley({ seed, parameters? })` returns one large-lowland main stem as a `valley/2` snapshot. `seed` must be an integer in [0, 2³²). The result carries the seed, version and course. The course contains interleaved world XY coordinates, downstream chainage from zero, bankfull width and a derived wet width, all in meters. Its middle vertex lies at the origin and its endpoints reach beyond the centered 8 km square. The generator sets the vertex spacing at 6.25 m, up to floating-point roundoff.
+`generateValley({ seed, parameters? })` returns one large-lowland main stem as a `valley/3` snapshot. `seed` must be an integer in [0, 2³²). The result carries the seed, version and course. The course contains interleaved world XY coordinates, downstream chainage from zero, bankfull width and a derived wet width, all in meters. It also carries the mean bearing, valley slope, ordered floors and an empty list of tributaries. Its middle vertex lies at the origin and its endpoints reach beyond the centered 8 km square. The generator sets the vertex spacing at 6.25 m, up to floating-point roundoff.
 
-The snapshot and its course record are frozen. Each call gives the caller its own coordinate and chainage buffers. The same seed, generator version and parameters reproduce their bytes in the same runtime. `valley/2` changes the default amplitudes and widths, so a seed from `valley/1` now gives a different course. Replay of `valley/1` output requires its original implementation.
+The snapshot and its course record are frozen. Each call gives the caller its own coordinate and chainage buffers. The same seed, generator version and parameters reproduce their bytes in the same runtime. `valley/2` changes the default amplitudes and widths, so a seed from `valley/1` now gives a different course. Replay of `valley/1` output requires its original implementation. The first field uses `valley/3` because it adds floors, slope and sampling to the snapshot. The default vector course retains its `valley/2` coordinates.
 
 | Parameter            | Default        | Valid bounds                                             |
 | -------------------- | -------------- | -------------------------------------------------------- |
@@ -20,9 +20,9 @@ Draws use `core/random.hash(seed, 0, channel)`, with main-stem ID 0. Channel 0 s
 
 ## Millimeter fields for sampling
 
-`bedMm` and `meanWaterMm` are reserved for the field sampler. Their source values are the computed bed and local mean-water elevations in Float64 meters relative to the mean water at the course point nearest the origin. For each value, multiply by 1,000 and round once with `Math.round`. Exact half-millimeter ties in the scaled value round toward positive infinity, for example −1.5 mm to −1 mm and 1.5 mm to 2 mm. Store zero as 0.
+`bedMm` and `meanWaterMm` store the field elevations. Their source values are the computed bed and local mean-water elevations in Float64 meters relative to the mean water at the course point nearest the origin. For each value, multiply by 1,000 and round once with `Math.round`. Exact half-millimeter ties in the scaled value round toward positive infinity, for example −1.5 mm to −1 mm and 1.5 mm to 2 mm. Store zero as 0.
 
-Reject nonfinite meter inputs with `RangeError('invalid-height-m')`. A rounded value outside the signed 32-bit range [−2,147,483,648, 2,147,483,647] throws `RangeError('height-mm-overflow')` before storage. The field uses those integers for elevation comparisons. Identical meter inputs round the same way in Bun and the browser. The sampler will need cross-runtime checks near half-millimeter and class boundaries because its upstream geometry uses floating-point trigonometry.
+Reject nonfinite meter inputs with `RangeError('invalid-height-m')`. A rounded value outside the signed 32-bit range [−2,147,483,648, 2,147,483,647] throws `RangeError('height-mm-overflow')` before storage. The field uses those integers for elevation comparisons. Identical meter inputs round the same way in Bun and the browser. The vector course is quantized to millimeters before the raster projection. Cross-runtime equality is measured for the three study seeds.
 
 ## Executable examples
 
@@ -35,3 +35,11 @@ Run `bun test src/lib/catalog/logic/valley/valley.test.ts` in `heavy-slot`. The 
 5. A 400 m bankfull width gives a 376 m wet width at the default ratio and 340 m at a ratio of 0.85.
 6. For all 38 frozen seeds, the default course crosses each square with two border contacts. The independent instrument measures S₂ in [1.00, 1.11] and S₈ in [1.05, 1.30], with S₈ greater than S₂ for each seed and median S₈ in [1.12, 1.19].
 7. The same per-course gates hold at both endpoints of width, phase and the shared curvature draw at bearings from 0° to 90° in 15° steps. The wet-width proxy passes its band on the 38 courses and at the corners.
+
+## Field
+
+`sampleValley(valley, { windowM: 2000, spacingM: 12.5 })` accepts exactly this grid. Other pairs throw `RangeError('invalid-valley-grid')`. The returned frozen record includes seed, version, window and spacing. Its 161² entries are in row-major order with row zero north, column zero west and both endpoints included. Each call owns its four buffers.
+
+`bedMm` and `meanWaterMm` are signed integer elevations. `floor` is 0 for water, 1 for floodplain, 2 for lower terrace and 3 for upper terrace. `classes` uses 1 for water, 2 for floodplain, 4 for terrace and 32 as an additional high-terrace bit. At the shoreline the bed is wet exactly when its integer height is below mean water. Terrace indices change at the integer midpoint of the corresponding rise.
+
+`contains(field, x, y)` checks the closed window and rejects nonfinite coordinates. `groundAt` and `meanWaterAt` linearly interpolate between samples in both axes and return meters. For a coordinate outside the window they throw a RangeError with message and code `outside-window`.
