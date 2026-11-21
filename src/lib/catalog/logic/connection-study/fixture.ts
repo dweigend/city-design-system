@@ -1,5 +1,5 @@
-import type { FlowId } from './focus';
-import type { Primitive, Vec3 } from '../logic/parametrik/types';
+import type { FlowId } from '../../data/focus';
+import type { Primitive, Vec3 } from '../parametrik/types';
 
 type Connection = {
 	id: string;

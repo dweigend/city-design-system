@@ -1,4 +1,4 @@
-import { connections, connectionStock } from '../../data/connection-study';
+import { connections, connectionStock } from './fixture';
 import {
 	edgePath,
 	movementNetwork,
