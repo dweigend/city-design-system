@@ -1,7 +1,7 @@
 export const volumeStudy = {
 	title: 'Solid and void',
 	description:
-		'Bible study · A floor spans the passage between the arch and the closed rooms. Follow the grid through the empty bay and out the back.',
+		'Seven filled cells form a house around two open cells. Follow the court from the entrance to the rear wall.',
 	section:
 		'Section through a building with an open ground-floor passage beneath a continuous deck.',
 	faces: [

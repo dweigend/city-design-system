@@ -60,13 +60,17 @@
 			as the graph. House parts and palette roles already serve bible views and the sandbox.
 		</p>
 		<p>
+			<a href={resolve('/formen#volume-section')}>House and court</a> shows how the cell space, occupancy
+			and house recipe fit together on the shared stage.
+		</p>
+		<p>
 			<strong>Prototype.</strong> The City Game Infrastructure Atlas prototype traces water and power
 			from supply nodes to building fittings (sandbox planned, ST14 #38) and validates tessellated volume
 			houses (VOLUME-VERIFICATION).
 		</p>
 		<p>
 			<strong>Bible studies to replace.</strong> City scenes (<code>logic/stadt/*</code>), the
-			connection fixture (<code>logic/connection-study/fixture.ts</code>), the volume and phase
+			connection fixture (<code>logic/connection-study/fixture.ts</code>), the construction phase
 			study (<code>logic/formen/volume-study.ts</code>), and the server-side court survey (<code
 				>raster/court-study.server.ts</code
 			>) still run outside the sandbox until replaced by the
