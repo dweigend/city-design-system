@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import DesignShell from './DesignShell.svelte';
 	import Wegweiser from './Wegweiser.svelte';
 	import Abschnitt from '../bibel/Abschnitt.svelte';
@@ -18,6 +19,9 @@
 
 <DesignShell title="City">
 	<Leitbild {...leitbild} />
+	<p>
+		<a href={resolve('/raster')}>Compare one generation at the square</a> · In the game
+	</p>
 	<DesignPrinciples page="city" />
 
 	<Abschnitt id={T.weiterbauen.id} titel={T.weiterbauen.titel} lead={T.weiterbauen.lead}>
