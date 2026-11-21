@@ -50,6 +50,7 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	regionalWindowM: 8_000,
 	courseSpacingM: 6.25,
 	borderHits: 2,
+	cornerBearingsDeg: [0, 15, 30, 45, 60, 75, 90],
 	reliefCoreM: 1_000,
 	surfaceSpacingM: 30,
 	smoothingSigmaM: 30,
@@ -60,10 +61,11 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	gentleSlopeLimit: 0.02
 } as const;
 
-/** Inclusive bands. Surface and wet-width measurements start with the field slice. */
+/** Inclusive bands for the course, its wet-width proxy and future field measurements. */
 export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	sinuosity2km: [1, 1.11],
 	sinuosity8km: [1.05, 1.3],
+	medianSinuosity8km: [1.12, 1.19],
 	medianSinuosity2kmTarget: 1.05,
 	wetWidthM: [320, 420],
 	smoothedCoreReliefM: [12, 22],

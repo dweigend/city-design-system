@@ -5,19 +5,22 @@ export type ValleyParameters = Readonly<{
 	wavelengthToWidth: Band;
 	headingAmplitude: Band;
 	phaseOffset: Band;
+	wetToBankfullWidth: number;
 }>;
 
-const DEFAULT_PARAMETERS: ValleyParameters = {
-	bankfullWidthM: [340, 420],
-	wavelengthToWidth: [11.5, 13.2],
-	headingAmplitude: [0.53, 0.65],
-	phaseOffset: [-0.14, 0.14]
-};
+/** Frozen default bands for the large-lowland river type. */
+export const DEFAULT_VALLEY_PARAMETERS: ValleyParameters = Object.freeze({
+	bankfullWidthM: Object.freeze([350, 430] as const),
+	wavelengthToWidth: Object.freeze([11.5, 13.2] as const),
+	headingAmplitude: Object.freeze([0.71, 0.79] as const),
+	phaseOffset: Object.freeze([-0.14, 0.14] as const),
+	wetToBankfullWidth: 0.94
+});
 
 const TURN = 2 * Math.PI;
 const MIN_RADIUS_TO_WIDTH = 2;
 const MAX_PHASE_OFFSET = Math.PI / 4;
-const BANKFULL_WIDTH_M: Band = [320, 420];
+const BANKFULL_WIDTH_M: Band = [320, 450];
 const WAVELENGTH_TO_WIDTH: Band = [10, 14];
 
 function isBand(band: Band, lower: number, upper: number): boolean {
@@ -27,12 +30,16 @@ function isBand(band: Band, lower: number, upper: number): boolean {
 }
 
 export function valleyParameters(overrides?: Partial<ValleyParameters>): ValleyParameters {
-	const parameters = { ...DEFAULT_PARAMETERS, ...overrides };
-	const { bankfullWidthM, wavelengthToWidth, headingAmplitude, phaseOffset } = parameters;
+	const parameters = { ...DEFAULT_VALLEY_PARAMETERS, ...overrides };
+	const { bankfullWidthM, wavelengthToWidth, headingAmplitude, phaseOffset, wetToBankfullWidth } =
+		parameters;
 	if (
 		!isBand(bankfullWidthM, ...BANKFULL_WIDTH_M) ||
 		!isBand(wavelengthToWidth, ...WAVELENGTH_TO_WIDTH) ||
-		!isBand(phaseOffset, -MAX_PHASE_OFFSET, MAX_PHASE_OFFSET)
+		!isBand(phaseOffset, -MAX_PHASE_OFFSET, MAX_PHASE_OFFSET) ||
+		!Number.isFinite(wetToBankfullWidth) ||
+		wetToBankfullWidth <= 0 ||
+		wetToBankfullWidth > 1
 	) {
 		throw new RangeError('invalid-valley-parameters');
 	}
