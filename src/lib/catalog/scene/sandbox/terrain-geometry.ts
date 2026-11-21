@@ -77,12 +77,8 @@ export function surfaceGeometry(grid: TerrainGrid): THREE.BufferGeometry {
 		geometry.setAttribute(name, attribute);
 	geometry.setAttribute('chart', new THREE.Float32BufferAttribute(chart, 2));
 	geometry.setAttribute(
-		'bankShade',
-		new THREE.BufferAttribute(new Float32Array(grid.cells.length * 4), 1)
-	);
-	geometry.setAttribute(
-		'lawn',
-		new THREE.BufferAttribute(new Float32Array(grid.cells.length * 4), 1)
+		'bankMasks',
+		new THREE.BufferAttribute(new Float32Array(grid.cells.length * 4 * 2), 2)
 	);
 	geometry.setIndex(indices);
 	geometry.computeVertexNormals();

@@ -14,12 +14,15 @@ test('court bank contours and terrain picks follow the same physical faces in th
 	);
 	if (!(banks instanceof Mesh)) throw new Error('Court banks missing from terrain surface');
 	const geometry: BufferGeometry = banks.geometry;
-	const { position, relief, bankShade } = geometry.attributes;
+	const { position, relief, bankMasks } = geometry.attributes;
 	const indices = required(geometry.index, 'bank triangles');
 	const picker = createTerrainPicker();
 	picker.setGrid(grid);
 	expect(indices.count).toBeGreaterThan(0);
-	expect(bankShade.array.some((v) => v > 0.2)).toBe(true);
+	const maskValues = grid.cells.flatMap(({ bank }) =>
+		bank ? bank.points.flatMap((_, i) => [bank.shade[i], bank.lawn?.[i] ?? 0]) : []
+	);
+	expect(bankMasks.array).toEqual(Float32Array.from(maskValues));
 	for (let i = 0; i < indices.count; i += 531) {
 		const centre = new Vector3();
 		for (let j = 0; j < 3; j++) {
