@@ -34,13 +34,13 @@ export const leitbild = {
 	leitideen: [
 		{
 			titel: 'Build on, not build new',
-			text: 'What stands, stays. It is converted, extended upward, densified.',
+			text: 'The growth study shows a house gaining storeys on its existing lot.',
 			ziel: 'weiterbauen',
 			ton: 'bestand'
 		},
 		{
 			titel: 'No streets',
-			text: 'Paths run overhead and belong to people on foot. Everything is within walking distance.',
+			text: 'Follow the elevated walking network between courts.',
 			ziel: 'hochwege',
 			ton: 'people'
 		},

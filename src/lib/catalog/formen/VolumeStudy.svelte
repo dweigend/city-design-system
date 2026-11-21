@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import VolumeFrame from './VolumeFrame.svelte';
 	import { volumeStudy } from '../data/volume-study';
 </script>
@@ -8,6 +9,11 @@
 		<div class="intro">
 			<h2 id="volume-title">{volumeStudy.title}</h2>
 			<p>{volumeStudy.description}</p>
+			<p>
+				See <a href={resolve('/formen#FORM-1')}>FORM-1</a> for the occupied and open cells and
+				<a href={resolve('/formen#FORM-3')}>FORM-3</a> for the role of references in
+				<a href={resolve('/material#material-familien')}>surface studies</a>.
+			</p>
 		</div>
 		<VolumeFrame
 			phase={0}
@@ -18,12 +24,19 @@
 				'.'}
 		/>
 	</div>
-	<div class="phases" id="construction-phases" role="group" aria-label="Construction phases">
+	<div class="phase-intro" id="construction-phases">
+		<h3>Construction phases</h3>
+		<p>
+			Lab study · The three phases compare how a new addition becomes visible stock. Game
+			integration is planned under <a href={resolve('/formen#FORM-10')}>FORM-10</a>.
+		</p>
+	</div>
+	<div class="phases" role="group" aria-label="Construction phase comparison">
 		{#each volumeStudy.phases as phase, i (phase.name)}
 			<figure>
 				<VolumeFrame phase={i} label={phase.name + '. ' + phase.caption} />
 				<figcaption>
-					<h3>{phase.name}</h3>
+					<h4>{phase.name}</h4>
 					<p>{phase.caption}</p>
 				</figcaption>
 			</figure>
@@ -64,8 +77,19 @@
 		margin: 0;
 		border-top: var(--hair) solid var(--line);
 	}
-	h3 {
+	.phase-intro {
+		margin-top: var(--space-8);
+	}
+	.phase-intro p {
+		max-width: 65ch;
+	}
+	h3,
+	h4 {
 		font-size: var(--text-m);
+	}
+	a {
+		color: var(--ink);
+		text-underline-offset: 0.2em;
 	}
 	figcaption p {
 		font-size: var(--text-s);

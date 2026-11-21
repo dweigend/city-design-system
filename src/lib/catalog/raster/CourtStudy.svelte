@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import CourtPlan from './CourtPlan.svelte';
 	import CourtSection from './CourtSection.svelte';
 	import type { CourtStudy } from './court-study.server';
@@ -12,7 +13,7 @@
 		<span>Seed 7</span>
 	</header>
 	<div class="plans"><CourtPlan {study} /><CourtPlan {study} later /></div>
-	<div class="section">
+	<div class="section" id="spatial-grid">
 		<CourtSection section={study.section} />
 		<div class="notes">
 			<p>
@@ -20,8 +21,10 @@
 				stay in place. One new lot joins the group in {study.afterYear}.
 			</p>
 			<p>
-				<strong>Planned</strong> The outer line marks the proposed volume. The subgrid divides it by lot
-				and storey. The square stays open.
+				<strong>Planned</strong> The outer line marks the proposed volume. The subgrid divides it by
+				lot and storey. The square stays open. See the
+				<a href={resolve('/raster#GRID-2')}>grid limits and exceptions</a>, then follow the
+				<a href={resolve('/formen#volume-section')}>occupied and open volumes</a>.
 			</p>
 		</div>
 	</div>
@@ -74,6 +77,10 @@
 		display: block;
 		margin-bottom: var(--space-1);
 		color: var(--ink-2);
+	}
+	a {
+		color: var(--ink);
+		text-underline-offset: 0.2em;
 	}
 	@media (max-width: 680px) {
 		.plans,

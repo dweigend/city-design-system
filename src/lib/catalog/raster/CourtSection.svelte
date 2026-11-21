@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { CourtStudy } from './court-study.server';
-	let { section }: { section: CourtStudy['section'] } = $props();
+	let { section, showCaption = true }: { section: CourtStudy['section']; showCaption?: boolean } =
+		$props();
 	const x = (metres: number) => 20 + (metres + 42) * 7.5;
 	const y = (metres: number) => 155 - metres * 4.4;
 	const terrain = $derived(section.terrain.map(([u, v]) => x(u) + ',' + y(v)).join(' '));
@@ -9,7 +10,9 @@
 </script>
 
 <figure>
-	<figcaption><strong>Section A–A′</strong><span>Planned envelope</span></figcaption>
+	{#if showCaption}
+		<figcaption><strong>Section A–A′</strong><span>Planned envelope</span></figcaption>
+	{/if}
 	<svg
 		viewBox="0 0 370 161"
 		role="img"

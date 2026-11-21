@@ -5,3 +5,5 @@ export { default as ViereckLoop } from './ViereckLoop.svelte';
 export { default as SpielraumLoop } from './SpielraumLoop.svelte';
 export { default as LoopSchritte } from '../bibel/LoopSchritte.svelte';
 export { default as WinkelSpanne } from './WinkelSpanne.svelte';
+export { default as CourtPlan } from './CourtPlan.svelte';
+export { default as CourtSection } from './CourtSection.svelte';

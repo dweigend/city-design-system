@@ -15,7 +15,7 @@ export const weiterbauen: Abschnitt = {
 
 export const hochwege: Abschnitt = {
 	id: 'hochwege',
-	titel: 'Elevated walkways connect every building',
+	titel: 'Elevated walkways between courts',
 	lead: 'In the game · Elevated walkways link courts in the opening city. Access from every building is planned.'
 };
 

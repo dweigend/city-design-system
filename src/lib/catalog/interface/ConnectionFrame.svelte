@@ -6,7 +6,10 @@
 	import { vector } from '../scene/primitive-geometry';
 	import { readPalette } from '../scene/themeBinding';
 
-	let { connection }: { connection: (typeof connectionViews)[number] } = $props();
+	let {
+		connection,
+		showCaption = true
+	}: { connection: (typeof connectionViews)[number]; showCaption?: boolean } = $props();
 
 	const view: View = { center: [0, 1, 3.4], eye: [0.64, -1, 0.83], span: 15 };
 	let canvas: HTMLCanvasElement;
@@ -47,7 +50,10 @@
 	});
 </script>
 
-<figure id={connection.id}>
+<figure
+	id={showCaption ? connection.id : undefined}
+	aria-label={showCaption ? undefined : connection.detail}
+>
 	<div class="drawing" data-theme="light" style:--flow={flowColor(connection.flow, 5)}>
 		<canvas bind:this={canvas} aria-hidden="true"></canvas>
 		{#if endpoint}
@@ -65,14 +71,16 @@
 		{/if}
 		{#if failed}<p role="status">3D view unavailable.</p>{/if}
 	</div>
-	<figcaption>
-		<h3>{connection.title}</h3>
-		<span>{connection.detail}</span>
-		<span class="status">
-			<i class:planned={!connection.walkingKind} aria-hidden="true"></i>
-			{connection.walkingKind ? 'Proven' : 'Planned'}
-		</span>
-	</figcaption>
+	{#if showCaption}
+		<figcaption>
+			<h3>{connection.title}</h3>
+			<span>{connection.detail}</span>
+			<span class="status">
+				<i class:planned={!connection.walkingKind} aria-hidden="true"></i>
+				{connection.walkingKind ? 'Proven' : 'Planned'}
+			</span>
+		</figcaption>
+	{/if}
 </figure>
 
 <style>

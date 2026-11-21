@@ -15,9 +15,20 @@
 				{/each}
 			</div>
 			<p>
-				One fixed, schematic section. Solid marks show movement connections available in the
-				<a href={resolve('/sandbox/abnahme')}>sandbox</a>. Dashed marks show planned service
-				fittings. Cutting a new passage while laying a path is also planned.
+				<strong>In the game.</strong> Solid marks on this schematic section show movement
+				connections available in the
+				<a href={resolve('/sandbox/abnahme')}>sandbox movement graph</a>.
+			</p>
+			<p>
+				<strong>Lab.</strong> The A–E span uses A–B and D–E for two end faces and C for the roof point.
+				Its spatial grid joins spherical rooms to both faces. The test proves geometric contact. Walkable
+				access is planned.
+			</p>
+			<p>
+				<strong>Planned.</strong> Dashed marks show water and power fittings. Ordinary
+				<a href={resolve('/wachstum#GROW-2')}>growth retains buildings</a>. Setting a route is a
+				deliberate intervention under <a href={resolve('/#CITY-4')}>CITY-4</a>, illustrated by the
+				passage threshold.
 			</p>
 		</div>
 		<EnginePath />
