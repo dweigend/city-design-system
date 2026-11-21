@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import DesignShell from './DesignShell.svelte';
 	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import {
@@ -32,6 +33,11 @@
 <DesignShell title="Material" showTitle={false}>
 	<section id={K.pickerAbschnitt.id} aria-label={K.pickerAbschnitt.titel}>
 		<MaterialPicker bind:zustand />
+		<p>
+			Lab · Compare skins on fixed geometry in the picker. The <a
+				href={resolve('/formen#construction-phases')}>construction phase study</a
+			> shows how the treatment changes as new buildings become stock.
+		</p>
 	</section>
 
 	<DesignPrinciples page="material" />
@@ -52,6 +58,15 @@
 
 <style>
 	/* Six demo cards in two columns below the picker; one column on narrow screens. */
+	p {
+		max-width: 68ch;
+		margin-bottom: var(--space-6);
+		color: var(--ink-2);
+	}
+	a {
+		color: var(--ink);
+		text-underline-offset: 0.2em;
+	}
 	.demos {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));

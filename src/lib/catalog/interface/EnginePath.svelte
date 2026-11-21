@@ -4,7 +4,7 @@
 </script>
 
 <aside aria-labelledby="engine-path">
-	<h3 id="engine-path">One engine path <span>Target</span></h3>
+	<h3 id="engine-path">One engine path <span>Planned</span></h3>
 	<div
 		class="diagram"
 		role="group"
@@ -28,6 +28,7 @@
 		{/each}
 	</ul>
 	<a href={resolve('/archiv#library-path')}>Library status</a>
+	<a href={resolve('/archiv#LIB-1')}>Shared engine principle LIB-1</a>
 </aside>
 
 <style>

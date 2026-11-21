@@ -1,7 +1,7 @@
 export const volumeStudy = {
 	title: 'Solid and void',
 	description:
-		'A floor spans the passage between the arch and the closed rooms. Follow the grid through the empty bay and out the back.',
+		'Proven in the lab · A floor spans the passage between the arch and the closed rooms. Follow the grid through the empty bay and out the back.',
 	section:
 		'Section through a building with an open ground-floor passage beneath a continuous deck.',
 	faces: [
@@ -18,7 +18,8 @@ export const volumeStudy = {
 		},
 		{
 			name: 'Organic',
-			caption: 'A curved canopy rises over the solid wing. The arch and dome remain.'
+			caption:
+				'A curved canopy rises over the solid wing. The arch and dome remain visible as stock.'
 		}
 	]
 } as const;

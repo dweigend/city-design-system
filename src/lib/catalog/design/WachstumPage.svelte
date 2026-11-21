@@ -25,7 +25,11 @@
 
 <DesignShell title="Growth">
 	<p>
-		<a href={resolve('/raster')}>Compare one generation at the square</a> · In the game
+		<strong>In the game.</strong> The
+		<a href={resolve('/raster#court-growth')}>two dates at the square</a>
+		show ordinary growth with existing lots in place. <strong>Planned.</strong>
+		<a href={resolve('/interface#connections')}>Deliberate path placement</a>
+		can intervene in stock. See <a href={resolve('/wachstum#GROW-2')}>GROW-2</a>.
 	</p>
 	<DesignPrinciples page="growth" />
 

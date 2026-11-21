@@ -5,7 +5,7 @@
  * renumbered: a changed rule keeps its id, a dropped rule leaves a gap.
  */
 
-/** Bible page that owns a principle. `library` has no page yet; its entries are read from here. */
+/** Bible page that owns a principle. */
 export type PrinciplePage =
 	'city' | 'forms' | 'grid' | 'growth' | 'color' | 'material' | 'interface' | 'library';
 
@@ -57,26 +57,27 @@ const city: DesignPrinciple[] = [
 		reason:
 			'Movement is public infrastructure. The hierarchy is promenade, main lane, lane, stair lane and square. A brief never says "street", because the word alone makes roads appear.',
 		decided: '2026-11-11',
-		demo: { route: '/', anchor: 'hochwege', label: 'Elevated walkways connect every building' }
+		demo: { route: '/', anchor: 'hochwege', label: 'Elevated walkways between courts' }
 	},
 	{
 		id: 'CITY-3',
 		page: 'city',
 		title: 'Build on the stock',
-		rule: 'The city starts in existing stock: what stands stays and is converted, extended upward and densified.',
+		rule: 'The city starts with existing buildings and retains them through ordinary growth as it converts, extends and densifies them.',
 		reason:
-			'There is no greenfield start. The sandbox opens with an existing town in light pencil, and a stock house gains storeys without being torn down.',
-		decided: '2026-11-11',
+			'The sandbox opens with a seeded town, and a stock house can gain storeys on its existing lot. Deliberate path placement follows CITY-4.',
+		decided: '2026-11-21',
 		demo: { route: '/', anchor: 'weiterbauen', label: 'Retain, convert, extend' }
 	},
 	{
 		id: 'CITY-4',
 		page: 'city',
-		title: 'Paths are graph edges',
-		rule: 'Every path is an edge in one graph: ports are the nodes, and walkways, stairs, ramps and rails are edges with length, slope, capacity and mode.',
+		title: 'Grid-led paths and deliberate cuts',
+		rule: 'Routes share one movement graph with grid-derived ports and alignments, and deliberate path placement may cut a passage, opening or gate through occupied space or remove a small building.',
 		reason:
-			'Each generator emits typed ports (house exit, both ends of a stair, end of a path). Rules decide between a direct connection and an inserted stair or ramp; nothing dangles and nothing is superfluous. The same graph later carries traffic.',
-		decided: '2026-11-20'
+			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. The first bridge proof calls for reachable landings on two façades above a central footpath.',
+		decided: '2026-11-21',
+		demo: { route: '/interface', anchor: 'connections', label: 'Trace a connection to its landing' }
 	},
 	{
 		id: 'CITY-5',
@@ -140,11 +141,12 @@ const forms: DesignPrinciple[] = [
 	{
 		id: 'FORM-1',
 		page: 'forms',
-		title: 'One volume, then carve',
-		rule: 'A house is one volume that follows its parcel from ground to roof; architecture is carved into it, never stacked from boxes.',
+		title: 'Solid and void',
+		rule: 'A house takes shape through the interplay of occupied cells and spaces left open or cut out of the same 3D grid.',
 		reason:
-			'The rigid box system is a dead end. Houses are composed from structure, decks, volumes, green, stairs, pipes and tanks, and become towers from a certain height.',
-		decided: '2026-11-20'
+			'Occupied regions form the body. Open regions read as courtyards, passages and openings. The initial prototype demonstrates this with simple surface bodies.',
+		decided: '2026-11-21',
+		demo: { route: '/formen', anchor: 'volume-section', label: 'Read the solid and the passage' }
 	},
 	{
 		id: 'FORM-2',
@@ -159,11 +161,12 @@ const forms: DesignPrinciple[] = [
 	{
 		id: 'FORM-3',
 		page: 'forms',
-		title: 'Forms from the stock of references',
-		rule: 'Every new house shows at least one form from the references, such as a solid of revolution, a capsule or a cantilever roof.',
+		title: 'References guide the finish',
+		rule: 'Once the grid and occupied volume set the building form, house references guide its surfaces, texture, transparency, grilles, scaffolds, light and details.',
 		reason:
-			'Variety comes from many systems besides the volume: continuous membranes in which floors dissolve, exoskeletons and rod systems, external services, helical twists and inflated envelopes. Inflation is a principle (pressure against constraints), not a single shape.',
-		decided: '2026-11-19'
+			'A reference can suggest how a membrane wraps a volume or how a frame filters light. The same occupied and open spaces can support several treatments.',
+		decided: '2026-11-21',
+		demo: { route: '/material', anchor: 'material-familien', label: 'Compare surface treatments' }
 	},
 	{
 		id: 'FORM-4',
@@ -215,21 +218,26 @@ const forms: DesignPrinciple[] = [
 	{
 		id: 'FORM-9',
 		page: 'forms',
-		title: 'Every building fits every cell',
-		rule: 'A building is a rule over cell geometry: it fits orthogonal, corner, irregular and distorted cells alike.',
+		title: 'The same house rule across cells',
+		rule: 'A house rule takes its geometry from the shared 3D grid and fits orthogonal, corner, irregular and distorted cells alike.',
 		reason:
-			'Windows, domes and roofs take their measure from the cell. There are no fixed shapes on squares; the proof is the same house rule side by side on several grids.',
-		decided: '2026-11-18',
+			'The rule can place occupied and open regions in each kind of cell. Windows, domes and roofs take their dimensions from that cell geometry.',
+		decided: '2026-11-21',
 		demo: { route: '/sandbox/regel', label: 'One house rule on several grids' }
 	},
 	{
 		id: 'FORM-10',
 		page: 'forms',
-		title: 'Styles are parameters',
-		rule: 'A building style is a parameter set of the house rule, grouped by epoch; several styles coexist and share one grammar.',
+		title: 'Construction phases',
+		rule: 'New construction follows Memphis, then Archigram and Fuller, then organic structures, while earlier buildings remain visible as stock.',
 		reason:
-			'Metabolism, Fuller, blob, Memphis and scaffold may stand side by side. Memphis is one highly stylized variety, not the whole city.',
-		decided: '2026-11-18'
+			'The phases change chiefly the surfaces and colors of the same house grammar. An early building becomes recognizable stock when the next phase builds around it.',
+		decided: '2026-11-21',
+		demo: {
+			route: '/formen',
+			anchor: 'construction-phases',
+			label: 'Follow one building through three phases'
+		}
 	},
 	{
 		id: 'FORM-11',
@@ -256,11 +264,16 @@ const grid: DesignPrinciple[] = [
 	{
 		id: 'GRID-2',
 		page: 'grid',
-		title: 'Terrain first',
-		rule: 'The grid follows the contour lines, never the other way round: long lines run along the contour, cross lines down the slope.',
+		title: 'Terrain and the 3D envelope',
+		rule: 'The contour-led ground grid and its 3D cells bound building volume, morphing, overhangs and ordinary access, with individual connections allowed to leave the grid as exceptions.',
 		reason:
-			'The plan reads like a real hillside town with legible blocks and lanes. A distorted net of small cells is rejected.',
-		decided: '2026-11-18'
+			'Along the terrain, long grid lines follow contours and cross lines run downslope. A body may occupy only part of its cells, and a path may weave through grid-derived space between bodies. The coarse grid divides ensembles and leaves clear cuts between them.',
+		decided: '2026-11-21',
+		demo: {
+			route: '/raster',
+			anchor: 'spatial-grid',
+			label: 'Read the envelope and its open square'
+		}
 	},
 	{
 		id: 'GRID-3',
@@ -308,10 +321,15 @@ const growth: DesignPrinciple[] = [
 		id: 'GROW-2',
 		page: 'growth',
 		title: 'What is built stays',
-		rule: 'Over the time steps what is built stays standing and the new connects to it.',
+		rule: 'In ordinary time steps, existing buildings stay standing and new work connects to them.',
 		reason:
-			'The same view with the same seed over four time steps shows continuity. A switched-on future goal, such as the sponge city, visibly changes what is built afterward.',
-		decided: '2026-11-19'
+			'The same view and seed show continuity across time steps. A future goal such as the sponge city changes subsequent construction. A deliberate path intervention follows CITY-4.',
+		decided: '2026-11-21',
+		demo: {
+			route: '/raster',
+			anchor: 'court-growth',
+			label: 'Compare two dates at the same square'
+		}
 	},
 	{
 		id: 'GROW-3',
@@ -486,10 +504,11 @@ const library: DesignPrinciple[] = [
 		id: 'LIB-1',
 		page: 'library',
 		title: 'One library for bible and game',
-		rule: 'Bible and game are built from the same library and the same engine: no bible-only and no game-only code path.',
+		rule: 'Every bible miniature and the game use the same engine and library, with the game adding controls and actions across the landscape.',
 		reason:
-			'Existing bible code is extended, not rewritten. The sandbox must reach the level of the bible demos, not fall behind them.',
-		decided: '2026-11-19'
+			'Each miniature isolates one visible rule. Thin wrappers handle growth and change over time on the shared path.',
+		decided: '2026-11-21',
+		demo: { route: '/interface', anchor: 'engine-path', label: 'Trace the shared path' }
 	},
 	{
 		id: 'LIB-2',

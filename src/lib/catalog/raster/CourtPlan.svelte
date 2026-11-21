@@ -3,7 +3,11 @@
 	import { createRasterBuehne } from '../scene/rasterBuehne';
 	import type { CourtStudy } from './court-study.server';
 
-	let { study, later = false }: { study: CourtStudy; later?: boolean } = $props();
+	let {
+		study,
+		later = false,
+		showCaption = true
+	}: { study: CourtStudy; later?: boolean; showCaption?: boolean } = $props();
 	let canvas: HTMLCanvasElement;
 	let failed = $state(false);
 	let cut = $state({ left: 0, right: 0, y: 0 });
@@ -63,9 +67,11 @@
 </script>
 
 <figure>
-	<figcaption>
-		<strong>{later ? study.afterYear : study.beforeYear}</strong><span>In the game</span>
-	</figcaption>
+	{#if showCaption}
+		<figcaption>
+			<strong>{later ? study.afterYear : study.beforeYear}</strong><span>In the game</span>
+		</figcaption>
+	{/if}
 	<div class="map">
 		<canvas
 			bind:this={canvas}

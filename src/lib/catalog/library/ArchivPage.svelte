@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { X } from 'lucide-svelte';
 	import { MediaQuery } from 'svelte/reactivity';
+	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
 	import DesignShell from '../design/DesignShell.svelte';
 	import FilterBar from './FilterBar.svelte';
 	import ArchivRaster from './ArchivRaster.svelte';
@@ -47,17 +48,20 @@
 	<section id="library-path" class="library-path" aria-labelledby="library-title">
 		<h2 id="library-title">Shared library in use</h2>
 		<p>
-			The sandbox builds ground paths, bridges, court approaches and rail from typed movement ports
-			and edges. Its corridor projection reads the same surveyed alignment as the graph. House parts
-			and palette roles already serve bible views and the sandbox.
+			<strong>In the game.</strong> The sandbox builds ground paths, bridges, court approaches and rail
+			from typed movement ports and edges. Its corridor projection reads the same surveyed alignment as
+			the graph. House parts and palette roles already serve bible views and the sandbox.
 		</p>
 		<p>
-			The Infrastructure Atlas prototype traces water and power from supply nodes to building
-			fittings. That connection model still needs to join the shared grid. The existing bible
-			studies need the common city scene and actions for the
-			<a href={resolve('/interface#engine-path')}>planned engine miniatures</a>.
+			<strong>Lab.</strong> The Infrastructure Atlas prototype traces water and power from supply nodes
+			to building fittings.
+		</p>
+		<p>
+			<strong>Planned.</strong> Integrate service connections into the shared grid and run the
+			<a href={resolve('/interface#engine-path')}>engine miniatures</a> on the common city scene.
 		</p>
 	</section>
+	<DesignPrinciples page="library" />
 	<FilterBar items={archiv} bind:filter shown={shown.length} bind:hoehe={leiste} />
 	<div class="archiv" style:--leiste="{leiste}px">
 		<ArchivRaster items={shown} selected={aktuell?.key} onselect={waehle} />
