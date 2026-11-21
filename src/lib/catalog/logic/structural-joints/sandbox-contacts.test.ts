@@ -1,4 +1,3 @@
-import { CatmullRomCurve3, Vector3 } from 'three/webgpu';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { expect, test } from 'bun:test';
 import { focuses } from '../presentation';
@@ -169,7 +168,8 @@ test('a wall overprint prism supplies no through-post collars', () => {
 	expect(contacts.filter(({ seat }) => seat === 'slab-seam')).toEqual([]);
 });
 
-test('a rail saddle follows the curved deck between control points', () => {
+test('a rail saddle follows the curved deck between control points', async () => {
+	const { CatmullRomCurve3, Vector3 } = await import('three/webgpu');
 	const points: Vec3[] = [
 		[0, 0, 10],
 		[4, 0, 10],
