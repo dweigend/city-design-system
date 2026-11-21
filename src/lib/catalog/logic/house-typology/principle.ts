@@ -18,7 +18,10 @@ const CROWN_RISE = 2.4;
 /** Height of a tent mast's tip above its lookout, metres. */
 const TENT_RISE = 8;
 
-type Site = { id: string; seed: number; cells: readonly unknown[]; programme: unknown[] };
+type Site = Pick<
+	import('./survey').Survey,
+	'id' | 'seed' | 'cells' | 'programme' | 'requestedSystem'
+>;
 
 /**
  * The house an ensemble of several houses names as its cloth figure: the member below the high
@@ -37,14 +40,14 @@ export function ensembleFigure(houses: ReadonlyMap<string, { role: string }>, se
 /**
  * Chooses how a house carries itself. A house on one convex cell with two to six storeys may
  * be a tent mast, a calyx mast, a twisted fanned truss or a cushion exoskeleton. A house stays
- * layered when a neighbour hides one of its faces (`joined`) or when it is the high point of an
+ * layered for a requested shell system, when a neighbour shares part of a face (`joined`) or when it is the high point of an
  * ensemble (`anchor`), whose upper body carries the ensemble's accent. The ensemble's `figure`
  * is always a tent mast when it is eligible, so a court shows one large cloth form. Every other
  * draw is a stateless hash of the house seed and id.
  */
 export function housePrinciple(site: Site, joined: boolean, anchor: boolean, figure = false) {
 	const storeys = site.programme.length;
-	if (joined || anchor) return 'layers';
+	if (site.requestedSystem || joined || anchor) return 'layers';
 	if (site.cells.length !== 1 || storeys < 2 || storeys > 6) return 'layers';
 	if (figure) return 'tent-mast';
 	const draw = hashUnit(site.seed, site.id, 'house/principle');

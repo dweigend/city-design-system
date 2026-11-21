@@ -432,7 +432,8 @@ export function perimeterHouse(
 	const ensemble = [...context.houses.keys()].sort()[0];
 	const highPoint = role === 'high' && context.houses.size > 1;
 	const figure = ensembleFigure(context.houses, context.seed) === site.id;
-	const principle = housePrinciple(site, !exterior.faces.every(Boolean), highPoint, figure);
+	const joined = exterior.seams.some((spans) => spans.some((span) => span.hidden));
+	const principle = housePrinciple(site, joined, highPoint, figure);
 	const layered = layeredStructure({
 		...occupancy,
 		id: site.id,
