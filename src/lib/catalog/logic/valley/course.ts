@@ -3,6 +3,8 @@ import type { ValleyParameters } from './parameters';
 
 export type RiverCourse = Readonly<{
 	xy: Float64Array;
+	meanBearingRad: number;
+	phaseOffset: number;
 	chainageM: Float64Array;
 	bankfullWidthM: number;
 	wetWidthM: number;
@@ -16,15 +18,19 @@ const SPACING_M = 6.25;
 const TURN = 2 * Math.PI;
 
 // The same curvature draw sets amplitude and wavelength within their declared bands.
-function headingAt(seed: number, parameters: ValleyParameters, bankfullWidthM: number) {
+function courseShape(seed: number, parameters: ValleyParameters, bankfullWidthM: number) {
 	const { headingAmplitude, wavelengthToWidth, phaseOffset } = parameters;
 	const phase = sampleBand(phaseOffset, hash(seed, MAIN_STEM_ID, CHANNEL.phase));
 	const curvature = hash(seed, MAIN_STEM_ID, CHANNEL.curvature);
 	const amplitude = sampleBand(headingAmplitude, curvature);
 	const wavelength = bankfullWidthM * sampleBand(wavelengthToWidth, curvature);
 	const bearing = TURN * hash(seed, MAIN_STEM_ID, CHANNEL.heading);
-	return (chainage: number) =>
-		bearing + amplitude * Math.cos((TURN * chainage) / wavelength + phase);
+	return {
+		meanBearingRad: bearing,
+		phaseOffset: phase,
+		heading: (chainage: number) =>
+			bearing + amplitude * Math.cos((TURN * chainage) / wavelength + phase)
+	};
 }
 
 function sampleBand([min, max]: readonly [number, number], fraction: number): number {
@@ -40,12 +46,13 @@ function centerCourse(xy: Float64Array, midpoint: number): void {
 	}
 }
 
+/** Integrates the seeded main stem at fixed chainage intervals. */
 export function generateCourse(seed: number, parameters: ValleyParameters): RiverCourse {
 	const bankfullWidthM = sampleBand(
 		parameters.bankfullWidthM,
 		hash(seed, MAIN_STEM_ID, CHANNEL.width)
 	);
-	const heading = headingAt(seed, parameters, bankfullWidthM);
+	const { heading, meanBearingRad, phaseOffset } = courseShape(seed, parameters, bankfullWidthM);
 	// Every step advances by at least this projection along the mean bearing.
 	const minimumAdvance = SPACING_M * Math.cos(parameters.headingAmplitude[1]);
 	const midpoint = Math.ceil(REGIONAL_RADIUS_M / minimumAdvance) + 1;
@@ -61,6 +68,8 @@ export function generateCourse(seed: number, parameters: ValleyParameters): Rive
 	const { wetToBankfullWidth } = parameters;
 	return Object.freeze({
 		xy,
+		meanBearingRad,
+		phaseOffset,
 		chainageM,
 		bankfullWidthM,
 		get wetWidthM() {

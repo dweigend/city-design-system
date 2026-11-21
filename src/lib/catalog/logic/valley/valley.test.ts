@@ -14,7 +14,7 @@ test('replays the same course bytes with fresh buffers after generating another 
 	const other = generateValley({ seed: 1301 });
 	const replay = generateValley({ seed: 1201 });
 
-	expect(first.version).toBe('valley/2');
+	expect(first.version).toBe('valley/3');
 	expect(first.seed).toBe(1201);
 	const bytes = (values: Float64Array) => new Uint8Array(values.buffer);
 	expect(bytes(first.course.xy)).toEqual(bytes(replay.course.xy));

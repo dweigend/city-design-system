@@ -1,7 +1,11 @@
+import { VALLEY_FLOORS } from './ground-profile';
 import { generateCourse, type RiverCourse } from './course';
 import { valleyParameters, type ValleyParameters } from './parameters';
+import type { Valley } from './snapshot';
 
-export type { RiverCourse, ValleyParameters };
+export type { RiverCourse, ValleyParameters, Valley };
+export { sampleValley, type ValleyField } from './field';
+export { contains, groundAt, meanWaterAt } from './field-samplers';
 export { DEFAULT_VALLEY_PARAMETERS } from './parameters';
 
 export type ValleyOptions = Readonly<{
@@ -9,12 +13,7 @@ export type ValleyOptions = Readonly<{
 	parameters?: Partial<ValleyParameters>;
 }>;
 
-export type Valley = Readonly<{
-	version: 'valley/2';
-	seed: number;
-	course: RiverCourse;
-}>;
-
+const TRIBUTARIES = Object.freeze([] as const);
 const SEED_LIMIT = 2 ** 32;
 
 /**
@@ -30,5 +29,12 @@ export function generateValley({ seed, parameters }: ValleyOptions): Valley {
 	}
 	const normalizedSeed = seed >>> 0;
 	const course = generateCourse(normalizedSeed, valleyParameters(parameters));
-	return Object.freeze({ version: 'valley/2', seed: normalizedSeed, course });
+	return Object.freeze({
+		version: 'valley/3',
+		seed: normalizedSeed,
+		course,
+		floors: VALLEY_FLOORS,
+		tributaries: TRIBUTARIES,
+		valleySlope: 0.00025
+	});
 }
