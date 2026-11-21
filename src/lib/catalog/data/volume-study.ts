@@ -1,0 +1,24 @@
+export const volumeStudy = {
+	title: 'Solid and void',
+	description:
+		'A floor spans the passage between the arch and the closed rooms. Follow the grid through the empty bay and out the back.',
+	section:
+		'Section through a building with an open ground-floor passage beneath a continuous deck.',
+	faces: [
+		{ name: 'Open scaffold', point: [3, 0, 4.82], right: false, high: true },
+		{ name: 'Transparency', point: [9, 0, 5.5], right: true, high: true },
+		{ name: 'Surface', point: [7, 0, 3.3], right: false, high: false },
+		{ name: 'Closed shell', point: [16, 0, 2], right: true, high: false }
+	],
+	phases: [
+		{ name: 'Memphis', caption: 'An arch and a block carry the open deck.' },
+		{
+			name: 'Archigram / Fuller',
+			caption: 'A faceted roof caps the frame. The arch becomes stock.'
+		},
+		{
+			name: 'Organic',
+			caption: 'A curved canopy rises over the solid wing. The arch and dome remain.'
+		}
+	]
+} as const;
