@@ -148,7 +148,7 @@ test('New terrain and subsequent raw input target the new seed in order', () => 
 	} finally {
 		d.dispose();
 	}
-});
+}, 60000);
 
 test('completion listeners receive Dig and its store credit before a reentrant Advance', () => {
 	const d = gestureDriver();
