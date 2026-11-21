@@ -27,6 +27,7 @@ import type { Focus, Representation } from '../../logic/presentation';
 import { flowToken } from '../../data/focus';
 import { WEG_STROM } from '../../data/leitstil';
 import type { Palette3D } from '../../data/city3d';
+import type { ViewMode } from '../../data/view-modes';
 import { sceneSwatch } from '../scene-palette';
 import { shiftedPaper } from './paper-inlay';
 import { wakeGeometry, wakeInk, type Pier } from './pier-wakes';
@@ -100,6 +101,8 @@ export function createTerrainMesh(
 	const cursor = uniform(new THREE.Vector2(-100, -100));
 	const lensStrength = uniform(0);
 	const gridStrength = uniform(0);
+	const terrainOnly = uniform(0);
+	const flatWater = uniform(0);
 	const peopleFocus = uniform(0);
 	const town = uniform(Number(Boolean(grid.courtFronts?.length)));
 	const drawingInk = mix(colors.pencil, colors.ink, daylight);
@@ -117,7 +120,8 @@ export function createTerrainMesh(
 		const inside = (mask: Node<'float'>) => mask.smoothstep(0.46, 0.54);
 		const edge = (mask: Node<'float'>) =>
 			float(1).sub(mask.sub(0.5).abs().div(mask.fwidth().max(MIN_DERIVATIVE)).smoothstep(0.4, 1.4));
-		const drawing = town.mul(gridStrength.oneMinus()).oneMinus();
+		const contourView = gridStrength.max(terrainOnly);
+		const drawing = town.mul(contourView.oneMinus()).oneMinus();
 		const furrows = chart.y
 			.mul(2)
 			.fract()
@@ -144,7 +148,8 @@ export function createTerrainMesh(
 				.mul(drawing)
 		);
 		ground = mix(ground, meadow, inside(masks.b));
-		ground = mix(paperColor, ground, forestWeight.mul(mix(0.2, 1, drawing)));
+		const coverWeight = forestWeight.mul(terrainOnly.oneMinus());
+		ground = mix(paperColor, ground, coverWeight.mul(mix(0.2, 1, drawing)));
 		ground = mix(ground, drawingInk, bankMasks.x.mul(terrainWeight));
 		const slots = attribute('landform', 'vec3');
 		ground = mix(ground, colors.soil, slots.x.mul(terrainWeight).mul(0.28));
@@ -167,9 +172,9 @@ export function createTerrainMesh(
 		const major = hairline(height.div(nodes.major), 1.2);
 		const contour = minor.mul(nodes.contourMinor).max(major.mul(nodes.contourMajor));
 		// In the plan the contours carry the image: they gain weight with the full grid.
-		const weighted = contour.mul(gridStrength.mul(planContourGain).add(1));
+		const weighted = contour.mul(contourView.mul(planContourGain).add(1));
 		ground = mix(ground, drawingInk, weighted.mul(terrainWeight).mul(mix(0.18, 1, drawing)));
-		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(forestWeight).mul(drawing));
+		ground = mix(ground, colors.ink, outline.mul(nodes.outline).mul(coverWeight).mul(drawing));
 
 		ground = mix(
 			ground,
@@ -189,14 +194,19 @@ export function createTerrainMesh(
 			.mul(lens.mul(near).max(gridStrength))
 			.mul(nodes.cellInk)
 			.max(parcelLine.mul(nodes.parcel));
-		const plotted = mix(ground, colors.blueprint, plan.mul(terrainWeight));
+		const plotted = mix(
+			ground,
+			colors.blueprint,
+			plan.mul(terrainWeight).mul(terrainOnly.oneMinus())
+		);
+		const groundShadows = gridStrength.mul(flatWater).oneMinus();
 		return alleys.shade(
-			shadeGround(plotted),
+			mix(plotted, shadeGround(plotted), groundShadows),
 			drawingInk,
 			colors.people,
 			paperColor,
 			peopleFocus,
-			pathWeight,
+			pathWeight.mul(terrainOnly.oneMinus()),
 			daylight
 		);
 	}
@@ -211,7 +221,7 @@ export function createTerrainMesh(
 	const waterMaterial = new THREE.MeshStandardNodeMaterial({ roughness: 0.34, metalness: 0.12 });
 	waterMaterial.colorNode = mix(
 		paperColor,
-		riverInk(seconds, colors.water, paperColor, colors.waterStroke),
+		mix(riverInk(seconds, colors.water, paperColor, colors.waterStroke), colors.water, flatWater),
 		terrainWeight
 	);
 	let piers: readonly Pier[] = [];
@@ -243,6 +253,7 @@ export function createTerrainMesh(
 	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(footprint, surface, banks, water, wakes, baseMesh, deck);
+	let pathsVisible = true;
 
 	return {
 		group,
@@ -349,11 +360,21 @@ export function createTerrainMesh(
 			terrainWeight.value = weights[view.terrain];
 			forestWeight.value = weights[view.forest];
 			pathWeight.value = weights[view.paths];
-			deck.visible = view.paths !== 'hidden';
+			pathsVisible = view.paths !== 'hidden';
+			deck.visible = pathsVisible && !terrainOnly.value;
 			group.visible = view.terrain !== 'hidden';
 		},
 		setGridVisible(strength: number) {
 			gridStrength.value = strength;
+		},
+		/** Changes the analytical treatment with uniforms and retained object visibility. */
+		setInspection(mode?: ViewMode) {
+			const reliefOnly = mode === 'terrain';
+			terrainOnly.value = Number(reliefOnly);
+			flatWater.value = Number(mode === 'plan' || reliefOnly);
+			wakes.visible = flatWater.value === 0;
+			footprint.visible = baseMesh.visible = !reliefOnly;
+			deck.visible = pathsVisible && !reliefOnly;
 		},
 		/** Grid lens: chart position of the cursor in cells and its strength 0–1. */
 		setLens(column: number, row: number, strength: number) {
