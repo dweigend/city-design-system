@@ -135,12 +135,10 @@ export function createSandboxStage(
 	let palette: Palette3D | undefined;
 	const viewLayers = () => ({ terrain, marks: [baseLines, cursor, target, rejection] });
 	let retainedDirty = true;
+	let warmedStructureRevision = structures.retainedRevision;
 	const frames = createFrameLayer(
 		structures,
-		() => {
-			retainedDirty = true;
-			render();
-		},
+		() => render(),
 		(detail) => {
 			canvas.dataset.frameFailure = detail;
 			study.onFrameFailure?.(detail);
@@ -190,7 +188,6 @@ export function createSandboxStage(
 
 		refreshTones = false;
 		styleDirty = false;
-		retainedDirty = true;
 	}
 
 	function prepareView() {
@@ -226,7 +223,8 @@ export function createSandboxStage(
 	}
 
 	function renderView(castersMoved: boolean) {
-		if (!viewMode.retainsDrafting || !retainedDirty || (opening && openingPending)) {
+		const needsWarmUp = retainedDirty || warmedStructureRevision !== structures.retainedRevision;
+		if (!viewMode.retainsDrafting || !needsWarmUp || (opening && openingPending)) {
 			renderImage(castersMoved);
 			return true;
 		}
@@ -243,6 +241,7 @@ export function createSandboxStage(
 			renderer.setRenderTarget(target);
 		}
 		retainedDirty = false;
+		warmedStructureRevision = structures.retainedRevision;
 		shadowsDirty = true;
 		render();
 		return false;
@@ -304,6 +303,7 @@ export function createSandboxStage(
 			baseOutline
 		);
 		scene.add(baseLines);
+		retainedDirty = true;
 	}
 
 	function studyBounds(frame: readonly [Vec3, Vec3]) {
@@ -405,6 +405,7 @@ export function createSandboxStage(
 			nextFocus !== focus || before.roofBuilder !== after.roofBuilder
 		);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
+		if (before.lines !== after.lines) retainedDirty = true;
 	}
 
 	function frameCurrent(force: boolean) {
@@ -529,7 +530,7 @@ export function createSandboxStage(
 		setPlan(plan: boolean) {
 			if (setView({ view: plan ? 'plan' : 'iso', display: 'normal' }, true)) opening = undefined;
 		},
-		/** Applies a resolved view while retaining the opening drafting and detail tier. */
+		/** Applies a resolved view. Inspection plan keeps the opening drafting and detail tier. */
 		setView: (resolved: ResolvedView) => {
 			setView(resolved);
 		},
@@ -564,7 +565,7 @@ export function createSandboxStage(
 				scene.add(cursor);
 			}
 			viewMode.applyLayers(viewLayers());
-			retainedDirty = true;
+			if (cursor || target) retainedDirty = true;
 			render();
 		},
 		/** Keeps the rejected survey visible alongside a later brush guide. */
@@ -577,7 +578,7 @@ export function createSandboxStage(
 				scene.add(rejection);
 			}
 			viewMode.applyLayers(viewLayers());
-			retainedDirty = true;
+			if (rejection) retainedDirty = true;
 			render();
 		},
 		dispose() {

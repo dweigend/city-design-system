@@ -41,6 +41,7 @@ export function createStructures(
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
 	const finishes = structureMaterials(quality, cityEdges, receiverOutput);
+	const materials = Object.values(finishes.materials);
 	const joints = createJointLayer(finishes.materials.bearing, cityEdges);
 	group.add(joints.group);
 	const entries = new Map<string, Entry>();
@@ -51,6 +52,7 @@ export function createStructures(
 	const animated = new Set<Entry>();
 	const swept = new THREE.Box3();
 	let shadowChanged = false;
+	let retainedRevision = 0;
 	const hitLists = new Map<string, THREE.Object3D[]>();
 	let distance: DrawingDistance = {
 		screenEdges: cityEdges,
@@ -89,6 +91,7 @@ export function createStructures(
 				: new THREE.Group();
 		if (batches.length && root !== batches[0]) root.add(...batches);
 		markTerrainVolume?.(root, key.startsWith('forest:'));
+		if (root.children.length) retainedRevision++;
 		return { group: root, targets, primitives, drawing, cellId, key, dockAt, motion };
 	}
 
@@ -226,6 +229,10 @@ export function createStructures(
 		get shadowChanged() {
 			return shadowChanged;
 		},
+		/** Advances when a new retained draw is installed or a material becomes visible. */
+		get retainedRevision() {
+			return retainedRevision;
+		},
 		/** Samples the seated drop and the inner pose at a single timeline coordinate. */
 		step(timeMs: number, reduced: boolean) {
 			const seconds = timeMs / 1000;
@@ -251,7 +258,10 @@ export function createStructures(
 					if (!objects.key.startsWith('forest:')) updateJointSeating(item);
 				}
 			}
-			joints.draw(seatedParts);
+			if (joints.draw(seatedParts)) {
+				markTerrainVolume?.(joints.group, false);
+				retainedRevision++;
+			}
 			return changed;
 		},
 		/** Updates material roles at the current zoom. Theme changes also re-bake vertex colors. */
@@ -259,7 +269,9 @@ export function createStructures(
 			const [style, , scale] = args;
 			const block = style.rollen.weg.level === 'block';
 			const minContourPx = finishes.minContourPx();
+			const hidden = materials.filter((material) => !material.visible);
 			const recolor = finishes.setStyle(...args);
+			if (hidden.some((material) => material.visible)) retainedRevision++;
 			if (
 				recolor ||
 				scale !== distance.scale ||
