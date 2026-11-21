@@ -574,10 +574,10 @@ const library: DesignPrinciple[] = [
 		id: 'LIB-3',
 		page: 'library',
 		title: 'Parameters, not constants',
-		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden.',
+		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden, and shared inputs such as height, width and complexity have one name, unit and range across every block.',
 		reason:
-			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded.',
-		decided: '2026-11-18'
+			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded. The city sets only coarse lots; the houses add the detail through the same height, width and complexity inputs, so a control means the same everywhere.',
+		decided: '2026-11-21'
 	},
 	{
 		id: 'LIB-4',
