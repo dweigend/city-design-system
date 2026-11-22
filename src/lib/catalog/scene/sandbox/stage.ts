@@ -566,7 +566,7 @@ export function createSandboxStage(
 		/** Pauses vehicle simulation at its current pose. Other placement feedback continues. */
 		setTransitPaused: timeline.pauseTransit.bind(timeline),
 		/** Canvas size in CSS pixels. */
-		resize(width: number, height: number) {
+		resize(this: void, width: number, height: number) {
 			renderer.setSize(width, height, false);
 			view.resize(width, height);
 			frameCurrent(Boolean(study.frame));
@@ -627,7 +627,7 @@ export function createSandboxStage(
 			if (rejection) retainedDirty = true;
 			render();
 		},
-		dispose() {
+		dispose(this: void) {
 			timeline.dispose();
 			stopTheme();
 			frameListeners.clear();

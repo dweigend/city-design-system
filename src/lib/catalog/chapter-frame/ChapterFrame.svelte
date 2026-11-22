@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { Collapsible, Popover, Tabs, ToggleGroup } from 'bits-ui';
 	import { ChevronDown, Layers, Play, RotateCcw, Square, SquareDashed } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -9,7 +7,15 @@
 	import { resolveView, type ResolvedView } from '../logic/view-modes';
 	import type { ChapterStage, ChapterStageFactory } from '../scene/chapter-stage';
 
-	let { chapter, createStage }: { chapter: Chapter; createStage: ChapterStageFactory } = $props();
+	let {
+		chapter,
+		createStage,
+		navigateToStep
+	}: {
+		chapter: Chapter;
+		createStage: ChapterStageFactory;
+		navigateToStep: (id: ChapterStep['id']) => void;
+	} = $props();
 
 	const viewOptions = [
 		{ id: 'iso', label: 'Iso' },
@@ -69,7 +75,7 @@
 		const next = chapter.steps.find((item) => item.id === id);
 		if (!next || next.id === step.id) return;
 		showStep(next, moveMs);
-		void goto('#' + next.id, { shallow: true, state: page.state });
+		navigateToStep(next.id);
 	}
 
 	function syncHash() {

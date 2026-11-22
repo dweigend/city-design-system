@@ -46,7 +46,7 @@ export function valleyMaterial(exaggeration: number) {
 	return {
 		material,
 		/** Reveals the relief, wet channel and terraces, or the full field with contours. */
-		reveal(phase = 2) {
+		reveal(this: void, phase = 2) {
 			cover.value = Number(phase >= 1);
 			lines.value = Number(phase >= 2);
 		},

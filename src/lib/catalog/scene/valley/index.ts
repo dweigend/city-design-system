@@ -26,7 +26,7 @@ function valleyMeshes(fields: readonly ValleyField[], exaggeration: number) {
 		meshes,
 		reveal,
 		setPalette,
-		dispose() {
+		dispose(this: void) {
 			for (const mesh of meshes) mesh.geometry.dispose();
 			material.dispose();
 		}
