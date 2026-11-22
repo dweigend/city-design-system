@@ -48,6 +48,7 @@ import { lighting } from './objects/lighting';
 import { tables } from './objects/tables';
 import { seating } from './objects/seating';
 import { walkwayStop } from './walkway-stop';
+import { ribbonSegment } from './ribbon-segment';
 import { primitiveObjects } from './primitive-objects';
 import { houseFittings } from './house-fittings';
 import { roofMachinery } from './roof-machinery';
@@ -182,6 +183,7 @@ export const recipes: readonly AssetRecipe[] = [
 	...houseFittings,
 	...roofMachinery,
 	walkwayStop,
+	ribbonSegment,
 	...circulationObjects,
 	...primitiveObjects,
 	...seating,

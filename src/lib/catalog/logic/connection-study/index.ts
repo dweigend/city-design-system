@@ -52,14 +52,15 @@ export const connectionViews = connections.map((connection) => {
 	return { ...connection, points: edge ? edgePath(edge, ports) : connection.points };
 });
 
+const paperSurface = { role: 'bestand', material: 'paper' } as const;
+const paperSlots = {
+	walking: paperSurface,
+	bearing: paperSurface,
+	guard: paperSurface
+} as const;
+
 /** Fixed cut of the district, with shared-engine surfaces for the two movement links. */
 export const connectionSection: Primitive[] = [
 	...connectionStock,
-	...projectWalkingEdges(graph, () => 0, []).map((part): Primitive => ({
-		...part,
-		finish: undefined,
-		token: undefined,
-		role: 'bestand',
-		material: 'paper'
-	}))
+	...projectWalkingEdges(graph, () => 0, [], paperSlots)
 ];

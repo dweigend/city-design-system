@@ -61,12 +61,54 @@ export type Attachment = 'facade' | 'roof' | 'deck';
 export type AssetAnchor = { attachment: Attachment; position: Vec3; normal: Vec3 };
 export type AssetSurface = { finish: FinishId; token: ColorToken; material: MaterialId };
 
+/** Surveyed transverse ribbon cross-section in world metres (x/y plan, z up). */
+export type RibbonSection = {
+	readonly centre: Vec3;
+	readonly left: Vec3;
+	readonly right: Vec3;
+};
+
+/** Surveyed terminal port in world metres; heading is the surveyed plan axis angle in radians CCW from +x. */
+export type RibbonPort = {
+	readonly id: string;
+	readonly position: readonly [number, number, number];
+	readonly heading: number;
+};
+
+/** Explicit terminal ports for a surveyed ribbon segment, keyed by segment endpoint. */
+export type RibbonPorts = {
+	readonly start?: RibbonPort;
+	readonly end?: RibbonPort;
+};
+
+/**
+ * Caller-prepared site input for a ribbon-segment instance.
+ * Coordinates are world metres with origin `[0, 0, 0]`, x/y ground plane and z up.
+ * Built geometry, anchors and footprint stay in world metres; site consumers locate plan
+ * bounds from the emitted world-space geometry and join neighbours at the outward-facing
+ * terminal anchors.
+ */
+export type RibbonSegmentSite = {
+	readonly sections: readonly RibbonSection[];
+	readonly ground: (x: number, y: number) => number;
+	readonly ports?: RibbonPorts;
+};
+
+/** World-space site build result; `footprint` encloses the full emitted geometry in plan metres. */
+export type SiteBuildResult = {
+	geometry: ObjectGeometry[];
+	footprint: readonly [number, number];
+	anchors: readonly AssetAnchor[];
+};
+
 export type AssetPlacement = {
 	slotNames: readonly string[];
 	suggestions?: Readonly<Record<string, AssetSurface>>;
 	finishes?: Readonly<Record<string, AssetSurface>>;
 	id: string;
 	category: AssetCategory;
+	/** True when production instances take a caller-prepared site alongside a stock preview default. */
+	siteParametric?: true;
 	variants: readonly string[];
 	/** Reserved plan dimensions [x, y] in metres, shared by all variants and seeds. */
 	footprint: readonly [number, number];
@@ -76,6 +118,12 @@ export type AssetRecipe = AssetPlacement & {
 	/** Saved assignments for this former shared slot also dress figures unless explicitly overridden. */
 	legacyFigureSlot?: string;
 	draw: (variant: number, sample: number) => ObjectGeometry[];
+	drawSite?: (
+		variant: number,
+		sample: number,
+		site: RibbonSegmentSite,
+		instanceId: string
+	) => SiteBuildResult;
 };
 
 /** Describes a local origin on a host plane. Its normal points away from the host. */

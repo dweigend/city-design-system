@@ -1,55 +1,53 @@
-import { interpolatePoint } from '../parametrik/types';
+import { buildObject, type MaterialAssignment, type SlotAssignment } from '../assets';
+import { finishMaterial } from '../material/surface';
 import { projectGroundLanding } from './ground-landing';
 import { edgePath, type MovementGraph } from '../movement-network';
 import { edgeSections } from './edge-sections';
 import { stairEdge } from './path-deck';
 import { column, ribbonProfile } from './ribbon-column';
-import { pathSupports, pathTube, profileSolid, contours } from '../linear-path';
+import { pathSupports, pathTube, contours } from '../linear-path';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { guardRuns, landingGround } from './guard-runs';
-import type { Section } from './ribbon-curve';
 import { pathSurfaces } from './town-palette';
+
 type Ground = (x: number, y: number) => number;
-function deck(
-	id: string,
-	sections: Section[],
-	ground: Ground,
-	supported: boolean,
-	paired: boolean
-): Primitive[] {
-	// Recess the soffit under the walking edge so the rim casts a narrow shadow.
-	const soffit = (p: Vec3, centre: Vec3): Vec3 => [
-		p[0] + 0.09 * (centre[0] - p[0]),
-		p[1] + 0.09 * (centre[1] - p[1]),
-		p[2] - ribbonProfile.depth
-	];
-	const rings = sections.map(({ left, right, centre }) => [
-		soffit(right, centre),
-		soffit(left, centre),
-		left,
-		right
-	]);
-	const mesh: Primitive = { ...pathSurfaces.walking, id: id + '/ramp', ...profileSolid(rings) };
-	if (!supported) return [mesh];
-	const paths = paired
-		? (['left', 'right'] as const).map((side) =>
-				sections.map((s) => interpolatePoint(s.centre, s[side], 0.75))
-			)
-		: [sections.map((s) => s.centre)];
-	return [
-		mesh,
-		...paths.flatMap((path, side) =>
-			pathSupports(path, ribbonProfile.bay).flatMap((p, i) =>
-				column(id + '/pier/' + (paired ? side + '/' : '') + i, p, ground)
-			)
-		)
-	];
+type RibbonSlotSurface = SlotAssignment | MaterialAssignment;
+/**
+ * Optional surface overrides for swept ribbon segments (`walking`, `bearing`) and their
+ * exposed guards (`guard`). Stairs, landings and junctions keep `pathSurfaces`.
+ */
+export type RibbonSlots = Partial<Record<'walking' | 'bearing' | 'guard', RibbonSlotSurface>>;
+
+const productionSegmentSlots: Readonly<Record<'walking' | 'bearing', SlotAssignment>> = {
+	walking: { token: pathSurfaces.walking.token, finish: pathSurfaces.walking.finish },
+	bearing: { token: pathSurfaces.bearing.token, finish: pathSurfaces.bearing.finish }
+};
+
+function guardSurface(assignment: RibbonSlotSurface | undefined) {
+	if (assignment && 'material' in assignment && !('finish' in assignment)) {
+		return {
+			role: assignment.role ?? pathSurfaces.guard.role,
+			material: assignment.material
+		};
+	}
+	if (assignment && 'token' in assignment) {
+		return {
+			role: pathSurfaces.guard.role,
+			...(assignment.colourRole && { colourRole: assignment.colourRole }),
+			material: finishMaterial(assignment.finish),
+			token: assignment.token,
+			...(assignment.finish === 'city-drawing' ? {} : { finish: assignment.finish })
+		};
+	}
+	return pathSurfaces.guard;
 }
-function guard(path: Vec3[], id: string): Primitive[] {
+
+function guard(path: Vec3[], id: string, surface: RibbonSlotSurface | undefined): Primitive[] {
 	const railHeight = 1.04;
+	const dress = guardSurface(surface);
 	return [
 		{
-			...pathSurfaces.guard,
+			...dress,
 			edges: false,
 			id,
 			...pathTube(
@@ -58,7 +56,7 @@ function guard(path: Vec3[], id: string): Primitive[] {
 			)
 		},
 		...pathSupports(path, 3.6).map((p, j): Primitive => ({
-			...pathSurfaces.guard,
+			...dress,
 			edges: false,
 			id: id + '/post/' + j,
 			kind: 'cylinder',
@@ -68,8 +66,23 @@ function guard(path: Vec3[], id: string): Primitive[] {
 		}))
 	];
 }
+
+function segmentSlots(
+	slots: RibbonSlots | undefined
+): Readonly<Record<'walking' | 'bearing', RibbonSlotSurface>> {
+	return {
+		walking: slots?.walking ?? productionSegmentSlots.walking,
+		bearing: slots?.bearing ?? productionSegmentSlots.bearing
+	};
+}
+
 /** Projects finished walking edges and their junction boundaries in world metres. */
-export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primitive[]) {
+export function ribbonDeck(
+	graph: MovementGraph,
+	ground: Ground,
+	courts: Primitive[],
+	slots?: RibbonSlots
+) {
 	const ports = new Map(graph.ports.map((p) => [p.id, p]));
 	const landings = new Set(
 		graph.edges
@@ -83,6 +96,7 @@ export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primiti
 		row.push(...guardRuns(edge, support, (p) => p[2], side, ribbonProfile.guardDrop));
 		rails.set(group, row);
 	}
+	const ribbonSurface = segmentSlots(slots);
 	const parts = graph.edges.flatMap((e) => {
 		if (e.mode !== 'walk' || e.kind === 'dock' || e.kind === 'junction' || e.kind === 'court')
 			return [];
@@ -101,7 +115,13 @@ export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primiti
 				e.guardGroup
 			);
 		}
-		return deck(e.id, sections, ground, e.kind !== 'tunnel', landings.has(e.to));
+		const variant = e.kind === 'tunnel' ? 'tunnel' : landings.has(e.to) ? 'paired' : 'supported';
+		const edgePorts = { start: ports.get(e.from), end: ports.get(e.to) };
+		return buildObject('ribbon-segment', variant, 0, {
+			instanceId: e.id,
+			slots: ribbonSurface,
+			site: { sections, ground, ports: edgePorts }
+		}).parts;
 	});
 	for (const p of graph.ports) {
 		parts.push(...projectGroundLanding(p, ground));
@@ -125,7 +145,7 @@ export function ribbonDeck(graph: MovementGraph, ground: Ground, courts: Primiti
 	return [
 		...parts,
 		...[...rails].flatMap(([id, segments]) =>
-			contours(segments).flatMap((p, i) => guard(p, id + '/' + i))
+			contours(segments).flatMap((p, i) => guard(p, id + '/' + i, slots?.guard))
 		)
 	];
 }
