@@ -23,6 +23,10 @@ test('frames the same metric bounds in iso, plan and a portrait viewport', () =>
 	expect(plan.up).toEqual([0, 1, 0]);
 	expect(displacement(plan.center, plan.eye).slice(0, 2)).toEqual([0, 0]);
 	expect(plan.halfHeight).toBeGreaterThan(1.5);
+	for (const [x, y] of shadowPolygon(bounds)) {
+		expect(Math.abs(x - plan.center[0])).toBeLessThan(plan.halfWidth);
+		expect(Math.abs(y - plan.center[1])).toBeLessThan(plan.halfHeight);
+	}
 	expect(dotProduct(readView('iso').eye, readView('iso').eye)).toBeCloseTo(1);
 });
 
