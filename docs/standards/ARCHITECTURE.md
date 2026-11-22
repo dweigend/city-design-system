@@ -36,6 +36,8 @@ Use one flat folder directly under its layer. Keep every file at that level.
 - `contract.test.ts` verifies behavior through the entry.
 - `example.ts` runs the entry with fixed inputs.
 
+Modules under `src/lib/ui` are presentational and are demonstrated on the `/interface` page instead of carrying `contract.test.ts` and `example.ts`.
+
 ## Check a change
 
 1. Does each file belong to the layer that owns its work?
