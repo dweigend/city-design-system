@@ -120,16 +120,16 @@ export function strokeMaterials(landscape = false) {
 		...pencilBias,
 		linewidth: landscape ? 1.35 : 0.75
 	});
-	const grid = new Line2NodeMaterial({
-		...options,
-		linewidth: 0.72,
-		polygonOffset: true,
+	const gridDepth = {
 		// The screen-space ribbon extends beyond the terrain-draped centerline.
+		polygonOffset: true,
 		polygonOffsetFactor: -1,
 		polygonOffsetUnits: -16384
-	});
+	};
+	const grid = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 1.5 });
+	const gridBoundary = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 2.5 });
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();
-	return { eye, outer, crease, grid, ground };
+	return { eye, outer, crease, grid, gridBoundary, ground };
 }

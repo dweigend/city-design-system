@@ -31,7 +31,7 @@ const requestedRoutes = positionals.length
 			: ['/', '/landscape', '/interface', '/blocks'];
 const variants: Record<string, readonly string[]> = {
 	'/landscape': ['?view=plan', '?sinuosity=1.04', '?sinuosity=1.28'],
-	'/city': ['?view=plan', '?site=180', '?site=440']
+	'/city': ['?view=plan', '?city=380', '?city=1160']
 };
 const routes = requestedRoutes.flatMap((route) =>
 	values.size ? [route] : [route, ...(variants[route] ?? []).map((query) => route + query)]

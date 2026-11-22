@@ -12,7 +12,12 @@
 	import type { View } from '../../lib/scene/stage';
 	import { projectValleyWindow } from '../../lib/scene/valley-projection';
 	import { terrainGridProjection } from '../../lib/scene/terrain-grid-projection';
-	import { citySiteParams, createCitySite, readCityGrid } from '../../lib/world/city-site';
+	import {
+		citySiteParams,
+		cityWindow,
+		createCitySite,
+		readCityGrid
+	} from '../../lib/world/city-site';
 	import { Slider } from '../../lib/ui/slider';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
@@ -20,20 +25,12 @@
 
 	const chapter = chapterAt('/city');
 	const city = createCitySite();
-	const terrain = projectValleyWindow(city.valley, city.window, city.heightScale);
-	const ground = required(
-		terrain.object.parts.find(({ slot }) => slot === 'ground'),
-		'valley ground'
-	).shape;
-	if (ground.kind !== 'mesh') throw new Error('Expected a valley ground mesh');
-
-	const projectGrid = terrainGridProjection(ground, terrain.toLocal, terrain.object.footprint);
 
 	const cellParam = terrainGridParams.cellSize;
-	const siteParam = citySiteParams.siteSize;
+	const cityParam = citySiteParams.citySize;
 	const format = new Intl.NumberFormat('en');
 	const area = new Intl.NumberFormat('en', { maximumFractionDigits: 1 });
-	const fit = { bearing: (23 * Math.PI) / 180, elevation: (40 * Math.PI) / 180, fill: 0.98 };
+	const fit = { bearing: (10 * Math.PI) / 180, elevation: (51 * Math.PI) / 180, fill: 0.98 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
@@ -50,22 +47,37 @@
 		resolveParams(terrainGridParams, { cellSize: valueFromQuery('cell') ?? cellParam.default })
 			.cellSize
 	);
-	let siteSize = $derived(
-		resolveParams(citySiteParams, { siteSize: valueFromQuery('site') ?? siteParam.default })
-			.siteSize
+	let citySize = $derived(
+		resolveParams(citySiteParams, { citySize: valueFromQuery('city') ?? cityParam.default })
+			.citySize
 	);
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
-	const model = $derived(prepareGrid(siteSize, cellSize));
+	const terrain = $derived(prepareTerrain(citySize));
+	const model = $derived(prepareGrid(citySize, cellSize, terrain));
 
-	function prepareGrid(length: number, cell: number) {
+	function prepareTerrain(length: number) {
+		const model = projectValleyWindow(city.valley, cityWindow(city, length), city.heightScale);
+		const ground = required(
+			model.object.parts.find(({ slot }) => slot === 'ground'),
+			'valley ground'
+		).shape;
+		if (ground.kind !== 'mesh') throw new Error('Expected a valley ground mesh');
+		return {
+			drawables: model.drawables,
+			project: terrainGridProjection(ground, model.toLocal, model.object.footprint)
+		};
+	}
+
+	function prepareGrid(length: number, cell: number, terrain: ReturnType<typeof prepareTerrain>) {
 		const start = performance.now();
-		const { grid, areaHectares } = readCityGrid(city, length, cell);
+		const { grid, areaHectares, medianCellSize } = readCityGrid(city, length, cell);
 		const generated = performance.now();
-		const overlay = projectGrid(grid);
+		const overlay = terrain.project(grid);
 		return {
 			drawables: [...terrain.drawables, ...overlay.drawables],
 			cellCount: grid.cells.length,
 			areaHectares,
+			medianCellSize,
 			generationMs: generated - start,
 			projectionMs: performance.now() - generated
 		};
@@ -98,10 +110,8 @@
 	/>
 	<div class="stack">
 		<div class="stack">
-			<p>The grid follows the contours of the valley. Its cells leave steep slopes open.</p>
-			<p>
-				The grid gives the city room to grow. As the site grows, its existing cells stay in place.
-			</p>
+			<p>The city starts as a coarse plan of cells that follows the contours of the valley.</p>
+			<p>The city grows by adding cells. Existing cells stay where they are.</p>
 		</div>
 		<Slider
 			label={cellParam.label}
@@ -111,11 +121,11 @@
 			bind:value={cellSize}
 		/>
 		<Slider
-			label={siteParam.label}
-			min={siteParam.min}
-			max={siteParam.max}
-			step={siteParam.step}
-			bind:value={siteSize}
+			label={cityParam.label}
+			min={cityParam.min}
+			max={cityParam.max}
+			step={cityParam.step}
+			bind:value={citySize}
 		/>
 		<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
 		<div class="stack valley-observations">
@@ -125,17 +135,18 @@
 					<dd>{format.format(model.cellCount)}</dd>
 				</div>
 				<div>
-					<dt>Cell size</dt>
-					<dd>{cellSize}&nbsp;m</dd>
+					<dt>Median cell size</dt>
+					<dd>{format.format(Math.round(model.medianCellSize))}&nbsp;m</dd>
 				</div>
 				<div>
-					<dt>Site area</dt>
+					<dt>City area</dt>
 					<dd>{area.format(model.areaHectares)}&nbsp;ha</dd>
 				</div>
+				<div>
+					<dt>Height scale</dt>
+					<dd>×{city.heightScale}</dd>
+				</div>
 			</dl>
-			<p class="caption">
-				<span class="data">Seed {city.valley.seed} · Heights ×{city.heightScale}</span>
-			</p>
 		</div>
 	</div>
 </section>

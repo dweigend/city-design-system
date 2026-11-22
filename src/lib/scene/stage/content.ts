@@ -1,4 +1,5 @@
 import { Box3, BufferGeometry, Float32BufferAttribute, Group, Mesh } from 'three/webgpu';
+import type { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { Bounds3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
@@ -37,12 +38,18 @@ function project(
 		: landscape
 			? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
 			: edgeGeometry(positions, indices);
-	const lines = (grid ? [strokes.grid] : [strokes.crease, strokes.outer]).map((material, index) => {
-		const line = new LineSegments2(stroke, material);
-		line.renderOrder = 2 + index;
-		line.visible = stroke.instanceCount > 0;
-		return line;
-	});
+	const strokesToDraw = grid
+		? [
+				{ geometry: stroke, material: strokes.grid },
+				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary }
+			]
+		: [
+				{ geometry: stroke, material: strokes.crease },
+				{ geometry: stroke, material: strokes.outer }
+			];
+	const lines = strokesToDraw.map(({ geometry, material }, index) =>
+		projectStroke(geometry, material, 2 + index)
+	);
 	const fill = landscape ? indexed : indexed.toNonIndexed();
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
@@ -52,7 +59,18 @@ function project(
 		drawable.terrainField
 	);
 	const mesh = new Mesh(fill, material);
-	return { drawable, mesh, stroke, lines, terrain, flat, heightScale, atlas };
+	return { drawable, mesh, lines, terrain, flat, heightScale, atlas };
+}
+
+function projectStroke(
+	geometry: LineSegmentsGeometry,
+	material: ReturnType<typeof strokeMaterials>['grid'],
+	order: number
+) {
+	const line = new LineSegments2(geometry, material);
+	line.renderOrder = order;
+	line.visible = geometry.instanceCount > 0;
+	return line;
 }
 
 export function projectContent(
@@ -97,11 +115,11 @@ export function projectContent(
 			ground?.shadow.geometry.dispose();
 			ground?.shadow.material.dispose();
 			ground?.outline.geometry.dispose();
-			for (const { mesh, stroke, atlas } of parts) {
+			for (const { mesh, lines, atlas } of parts) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 				atlas?.dispose();
-				stroke.dispose();
+				for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();
 			}
 		}
 	};
