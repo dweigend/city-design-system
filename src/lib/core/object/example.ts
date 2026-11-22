@@ -1,4 +1,4 @@
-import { PlaceableObject, type Shape } from './index';
+import { PlaceableObject, type Shape } from './object';
 
 export function example(): PlaceableObject {
 	const box: Shape = { kind: 'box', center: [0, 0, 1], size: [4, 3, 2], rotation: 0 };
