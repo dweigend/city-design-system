@@ -20,6 +20,7 @@ import type { FocusId } from '../../logic/presentation';
 import type { ResolvedView } from '../../logic/view-modes';
 import { stilFuer } from '../../logic/leitstil';
 import { EMPTY_STATE, type World } from '../../logic/sandbox';
+import type { GroundPlan } from '../../logic/city-plan';
 import { createCellPicker } from './house-picker';
 import { studioPipeline } from '../studio-pipeline';
 import { type StudioQuality } from '../studio-quality';
@@ -80,6 +81,8 @@ type StageOptions = {
 	earliestFullYear?: number;
 	/** Fixed additions to the study outside the editable sandbox state. */
 	additions?: Primitive[];
+	/** Fixed plan projected over its source terrain, with carrier circulation masked in the crop. */
+	groundPlan?: GroundPlan;
 };
 
 const CURSOR_DASH_PX = 4;
@@ -370,7 +373,12 @@ export function createSandboxStage(
 			scene.remove(terrain.group);
 			terrain.dispose();
 		}
-		const mesh = createTerrainMesh(world.grid, undefined, light.shade);
+		const plan = study.groundPlan;
+		const planCells =
+			plan && plan.terrainSeed === world.grid.terrain.seed
+				? new Set(plan.cells.map(({ id }) => id))
+				: undefined;
+		const mesh = createTerrainMesh(world.grid, undefined, light.shade, planCells);
 		scene.add(mesh.group);
 		drawBaseLines(mesh);
 		if (palette) mesh.setPalette(palette);

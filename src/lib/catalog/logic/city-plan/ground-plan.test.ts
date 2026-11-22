@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'bun:test';
 import { boundaryRings, ringArea } from '../quad-grid';
 import { createTerrain, valleyPoint } from '../terrain';
-import { deriveGrid, regrid, type TerrainGrid } from '../terrain-grid';
+import { cellAtPoint, deriveGrid, regrid, type TerrainGrid } from '../terrain-grid';
 import { deriveGroundPlan, type GroundPlan } from '.';
 
 const ANCHOR = '76/64';
@@ -90,8 +90,12 @@ test('repeats the same seed and preserves IDs across a distant terrain edit', ()
 			edits: [{ kind: 'basin', center: farBank, radius: 12 }]
 		})
 	);
-	expect(edited).not.toBe(grid);
-	expect(JSON.stringify(deriveGroundPlan(edited, ANCHOR, 104)) === JSON.stringify(plan)).toBe(true);
+	const beforeEdit = cellAtPoint(grid, ...farBank);
+	const afterEdit = cellAtPoint(edited, ...farBank);
+	expect(beforeEdit).toBeDefined();
+	expect(afterEdit?.corners).not.toEqual(beforeEdit?.corners);
+	expect(plan.cells.some(({ id }) => id === beforeEdit?.id)).toBe(false);
+	expect(deriveGroundPlan(edited, ANCHOR, 104)).toEqual(plan);
 	for (const seed of [-1, 1.5, 2 ** 32, NaN])
 		expect(() => deriveGroundPlan(grid, ANCHOR, seed)).toThrow(RangeError);
 });
@@ -171,6 +175,23 @@ test.each(SEEDS)(
 		const cells = new Map(plan.cells.map((cell) => [cell.id, cell]));
 		expect(plan.areas.flatMap(({ cellIds }) => cellIds).sort()).toEqual([...cells.keys()].sort());
 		expect(new Set(plan.areas.map(({ id }) => id)).size).toBe(plan.areas.length);
+		let reservedCount = 0;
+		for (const area of plan.areas) {
+			if (area.kind === 'buildable') {
+				for (const id of area.cellIds) {
+					expect(cells.get(id)?.plot).toBeDefined();
+					expect(plan.reservations.has(id)).toBe(false);
+				}
+				continue;
+			}
+			expect(area.reserve.kind).toBe(area.kind === 'path' ? 'clearance' : 'open-to-sky');
+			for (const id of area.cellIds) {
+				expect(cells.get(id)?.plot).toBeUndefined();
+				expect(plan.reservations.get(id)).toBe(area.id);
+				reservedCount++;
+			}
+		}
+		expect(plan.reservations.size).toBe(reservedCount);
 		const courts = plan.areas.filter(({ kind }) => kind === 'court');
 		expect(courts.length).toBeGreaterThanOrEqual(3);
 		for (const { cellIds } of courts) {

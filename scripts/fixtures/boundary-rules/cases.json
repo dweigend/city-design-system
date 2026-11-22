@@ -1,5 +1,12 @@
 {
 	"negative": {
+		"city-plan-private-file": {
+			"rule": "city-plan-public-entry",
+			"files": {
+				"src/lib/catalog/scene/plan.ts": "import { deriveGroundPlan } from '../logic/city-plan/ground-plan';\nexport const derive = deriveGroundPlan;",
+				"src/lib/catalog/logic/city-plan/ground-plan.ts": "export const deriveGroundPlan = () => ({});"
+			}
+		},
 		"headless-app": {
 			"rule": "headless-core",
 			"files": {
