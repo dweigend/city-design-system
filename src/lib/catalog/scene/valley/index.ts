@@ -1,6 +1,9 @@
 import { Box3, Group, Mesh } from 'three/webgpu';
 import type { ValleyField } from '../../logic/valley';
-import type { StageContext } from '../sandbox';
+import { VALLEY_PICTURE_SEEDS } from '../../data/valley-references';
+import { VALLEY_STUDY_VIEW, valleyStudyField } from '../../logic/valley-study';
+import type { ChapterStageFactory } from '../chapter-stage';
+import { createSandboxStage, type StageContext } from '../sandbox';
 import { valleyGeometry } from './geometry';
 import { valleyMaterial } from './material';
 
@@ -13,15 +16,27 @@ type ValleyContextView = Readonly<{
 
 type Plate = Readonly<{ x: number; y: number; width: number }>;
 
+function valleyMeshes(fields: readonly ValleyField[], exaggeration: number) {
+	const group = new Group();
+	const { material, setPalette, reveal } = valleyMaterial(exaggeration);
+	const meshes = fields.map((field) => new Mesh(valleyGeometry(field, exaggeration), material));
+	group.add(...meshes);
+	return {
+		group,
+		meshes,
+		reveal,
+		setPalette,
+		dispose() {
+			for (const mesh of meshes) mesh.geometry.dispose();
+			material.dispose();
+		}
+	};
+}
+
 /** Builds a shared-stage context for projected valley fields at one orientation and scale. */
 export function createValleyContext(fields: readonly ValleyField[], view: ValleyContextView) {
-	const group = new Group();
+	const { group, meshes, setPalette, dispose } = valleyMeshes(fields, view.exaggeration);
 	const bounds = new Box3();
-	const { material, setPalette } = valleyMaterial(view.exaggeration);
-	const meshes = fields.map(
-		(field) => new Mesh(valleyGeometry(field, view.exaggeration), material)
-	);
-	group.add(...meshes);
 
 	const elevationSin = Math.sin(view.elevationRad);
 	const [low, high] = view.heightRangeM;
@@ -33,10 +48,7 @@ export function createValleyContext(fields: readonly ValleyField[], view: Valley
 		bounds,
 		orientation: { headingRad: 0, elevationRad: view.elevationRad },
 		setPalette,
-		dispose() {
-			for (const mesh of meshes) mesh.geometry.dispose();
-			material.dispose();
-		}
+		dispose
 	};
 
 	return {
@@ -56,3 +68,46 @@ export function createValleyContext(fields: readonly ValleyField[], view: Valley
 		}
 	};
 }
+
+/** Creates a fixed-context valley viewer from the same fields and mesh as the sandbox study. */
+export const createValleyChapterStage: ChapterStageFactory = (canvas, onError) => {
+	const fields = VALLEY_PICTURE_SEEDS.map(valleyStudyField);
+	const { exaggeration, elevationRad, margin, heightRangeM } = VALLEY_STUDY_VIEW;
+	const { group, meshes, reveal, setPalette, dispose } = valleyMeshes(fields, exaggeration);
+	const half = fields[0].windowM / 2;
+	const bounds = new Box3();
+	bounds.min.set(-half, heightRangeM[0] * exaggeration, -half);
+	bounds.max.set(half, heightRangeM[1] * exaggeration, half);
+
+	const terrain = { headingRad: 0, elevationRad };
+	const stage = createSandboxStage(canvas, onError, {
+		context: {
+			group,
+			bounds,
+			orientation: terrain,
+			viewOrientations: {
+				terrain,
+				iso: { headingRad: Math.PI / 4, elevationRad: Math.atan(Math.SQRT1_2) },
+				plan: { headingRad: 0, elevationRad: Math.PI / 2 }
+			},
+			viewMargin: margin,
+			setPalette,
+			dispose
+		}
+	});
+	void stage.ready.catch(() => {});
+
+	return {
+		show({ seed }) {
+			meshes.forEach((mesh, index) => (mesh.visible = fields[index].seed === seed));
+			stage.render();
+		},
+		reveal(phase) {
+			reveal(phase);
+			stage.render();
+		},
+		setView: stage.setView,
+		resize: stage.resize,
+		dispose: stage.dispose
+	};
+};

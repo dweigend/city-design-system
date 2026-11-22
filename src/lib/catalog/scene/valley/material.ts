@@ -26,6 +26,8 @@ export function valleyMaterial(exaggeration: number) {
 	const highTerrace = uniform(new Color());
 	const contourInk = uniform(new Color());
 	const river = uniform(new Color());
+	const cover = uniform(1);
+	const lines = uniform(1);
 
 	const bedAboveWater = attribute<'float'>('signedDepth', 'float');
 	const heightM = positionLocal.y.div(exaggeration);
@@ -36,12 +38,18 @@ export function valleyMaterial(exaggeration: number) {
 	const relief = land.mul(float(1).sub(shade.mul(0.22)));
 	const minor = contour(heightM, 1, 0.75).mul(0.38);
 	const major = contour(heightM, 5, 1).mul(0.64);
-	const printed = mix(relief, contourInk.rgb, minor.max(major));
+	const plain = floodplain.rgb.mul(float(1).sub(shade.mul(0.22)));
+	const printed = mix(relief, contourInk.rgb, minor.max(major).mul(lines));
 	const material = new MeshBasicNodeMaterial({ toneMapped: false });
-	material.colorNode = bedAboveWater.lessThan(0).select(river.rgb, printed);
+	material.colorNode = mix(plain, bedAboveWater.lessThan(0).select(river.rgb, printed), cover);
 
 	return {
 		material,
+		/** Reveals the relief, wet channel and terraces, or the full field with contours. */
+		reveal(phase = 2) {
+			cover.value = Number(phase >= 1);
+			lines.value = Number(phase >= 2);
+		},
 		setPalette(this: void, palette: Palette3D) {
 			const paper = new Color(palette.paper);
 			const ground = new Color(sceneSwatch(palette, '--ground-sage'));

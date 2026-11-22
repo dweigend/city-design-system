@@ -1,5 +1,5 @@
-import { VALLEY_PICTURE_BEARING_RAD } from '../data/valley-references';
-import { generateValley, sampleValley, type ValleyField } from '../logic/valley';
+import { VALLEY_PICTURE_BEARING_RAD } from '../../data/valley-references';
+import { generateValley, sampleValley, type ValleyField } from '../valley';
 
 export const VALLEY_STUDY_GRID = { windowM: 2000, spacingM: 12.5 } as const;
 export const VALLEY_STUDY_VIEW = {
