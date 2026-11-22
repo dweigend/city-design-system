@@ -1,0 +1,2 @@
+/** Reveal details one row at a time, for example bind:value={openRow}. */
+export { default as Accordion } from './Accordion.svelte';
