@@ -1,169 +1,201 @@
 # Architecture
 
-Owner for: layers, import matrix, public contracts, autonomous modules and composition, ownership of state and resources, known current deviations. This file describes the **target state**. The current state deviates; those deviations are listed [below](#current-deviations).
+The catalog under `src/lib/catalog/` owns the city's headless model and its projection. The bible selects a model, preset and view. The game also sends actions to the model owner. A chapter can change the camera without rebuilding the model. A game action can change the model without knowing which chapter or camera is open.
 
-## Principles
-
-| ID   | Rule                                                                                                                                                                                                                                                                          | Source · Auth.                                  |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| A-01 | Ten principles apply: one responsibility per module; high cohesion, low coupling; directed dependency; encapsulation; explicit contracts; composition over inheritance; single source of truth; dependency inversion; functional core with imperative shell; local evolution. | AR §Ten architectural principles · N            |
-| A-02 | **Headless invariant.** Every domain capability is callable through a public TypeScript API without UI and executable in Bun. Replacing the UI requires no change to `data/` or `logic/`.                                                                                     | PR 1, 7; AR §Strict separation · D              |
-| A-03 | UI may import logic, logic never UI. Components do not compute domain rules.                                                                                                                                                                                                  | AR §Strict separation; AG · D                   |
-| A-04 | UI changes domain state only via public actions or functions, never by assigning to domain objects. Renderers receive detached data records and report intent: ID and action.                                                                                                 | AR §Strict separation, §Layers · N              |
-| A-05 | Domain logic uses no framework types: no runes, stores, lifecycle hooks. I/O, persistence, network, and browser access live in explicit adapters outside `data/` and `logic/`.                                                                                                | AR §Strict separation, §Layers · N              |
-| A-06 | Import is inert: no registration, no DOM access, no timer, no mutable global state when loading a module. Pure constants and fixtures are allowed.                                                                                                                            | AR §Shared UI; ST · D\*                         |
-| A-07 | SvelteKit is the host, the catalog is the repository store. The host discovers and renders; the core computes. Folders and exports are created only with a working slice. No empty target folders.                                                                            | ST §Principles; AR §Binding domain layout · D\* |
+This standard defines ownership, imports and interfaces for LIB-1 through LIB-8. The design decisions live in the [principle register](../../src/lib/catalog/data/design-principles.ts). [Coding standards](CODING_STANDARDS.md) own public function documentation and refactor acceptance, [procedural principles](PROCEDURAL_PRINCIPLES.md) own numerical and deterministic behavior, [naming](NAMING_CONVENTIONS.md) and the [glossary](GLOSSARY.md) own vocabulary. [Documentation standards](DOCUMENTATION_STANDARDS.md) own publication and archive evidence. Checks follow the [lane rules](README.md#lanes). Paths below are relative to the catalog unless prefixed with `src/`.
 
 ## Layers
 
-Translation of the three library layers (core, optional controller, UI) onto the catalog.
+```text
+route → page / host
+host → example or recipe → lower recipe or block → data → core
+host → projection → public model types
+host → stage → projection helpers
+```
 
-| Layer       | Location                                        | Responsibility                                                                       |
-| ----------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `data`      | `src/lib/catalog/data/**/*.ts`                  | Declarative facts: tokens, tables, chapter copy, color contract, fixtures. No rules. |
-| `logic`     | `src/lib/catalog/logic/**/*.ts`                 | Rules, generators, state owners, metrics, headless scene composition.                |
-| `scene`     | `src/lib/catalog/scene/**/*.ts`                 | Projection of data to three.js. Owns GPU resources.                                  |
-| `component` | `src/lib/catalog/**/*.svelte`, `**/*.svelte.ts` | View with Bits UI. Thin: accept input, call function, show result.                   |
-| `route`     | `src/routes/**`                                 | Mount one page component. One-liner. No CSS.                                         |
-| `dev`       | `**/*.test.ts`, `**/benchmark.ts`               | Verify and measure. No runtime code imports them.                                    |
+The arrows denote imports. At runtime the host passes a model result to a projection and attaches its context to the stage. The projection and stage share a leaf scene contract. This distinction matters: producing a mesh from a house must not rerun the house recipe.
 
-Test files (`*.test.ts`) belong exclusively to the `dev` layer regardless of folder; this assignment takes precedence over folder rules.
+| ID   | Boundary                                                                                                                                                                                                                                                                      |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-01 | Assign each module one output or state authority. Its contract identifies a consumer and the owner of any mutable result.                                                                                                                                                     |
+| A-02 | Domain capabilities run from their public entry in Bun with no host or rendering environment.                                                                                                                                                                                 |
+| A-03 | Components translate controls into domain actions. A rule affecting the result for the same model inputs belongs to a headless owner.                                                                                                                                         |
+| A-04 | Hosts submit actions to that owner. A projection receives read-only model input and reports selection by model ID.                                                                                                                                                            |
+| A-05 | Core, data and logic have no browser, framework, filesystem, network or persistence dependency. Supply external input at the application boundary.                                                                                                                            |
+| A-06 | Importing an entry must not register handlers, start work or mutate shared state. Allocate mutable sessions, resources and caches at the owning entry's explicit call.                                                                                                        |
+| A-07 | Introduce a public folder with its first executable use.                                                                                                                                                                                                                      |
+| A-10 | Classify test and benchmark files as dev first, route files as routes next, and catalog Svelte components and rune files as hosts. Other source files take their module's layer. Putting host code under a headless folder is an error.                                       |
+| A-11 | Classify a public logic module by its exported result. A block supplies a reusable operation or model contract. A recipe chooses and composes operations for a named domain result. An example selects fixed inputs and calls a public entry. The contract declares the kind. |
+| A-12 | Plain TypeScript in host folders is host code, including browser adapters and controllers. It may translate pointer coordinates or format values. The effect of a domain action belongs to logic.                                                                             |
+| A-13 | Core owns neutral capabilities such as parameter resolution, randomness or polyline metrics. Domain-specific types reside with their logic owner.                                                                                                                             |
 
-Mapping of library concepts:
+## Import matrix
 
-| Library                                      | Here                                                                                                 |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| autonomous core modules `library-core/<mod>` | generator families under `logic/parametrik/` (see [Module map](#autonomous-modules-and-composition)) |
-| `world-composition/`                         | one named composition point; default `logic/parametrik/welt/`                                        |
-| `models/<slug>/model.ts`                     | headless scenes and demos in `logic/bibel/`, `logic/ansicht/`; assertable                            |
-| `models/<slug>/ui.ts`                        | catalog components of a bible page or lab demo: flat, with defaults                                  |
-| `ui-web/`                                    | `ui/`, `foundations/` (Bits UI building blocks)                                                      |
-| `ui-3d/`                                     | `scene/`                                                                                             |
-| Model Lab (host)                             | SvelteKit routes and page components in `design/`                                                    |
-| `tests/public-contracts/`                    | `*.test.ts` alongside the module, only via public entry points                                       |
+Allowed **direct** destinations are listed below. Own private files are implicit. Every edge to another public module, including an explicit type import or re-export, uses its entry. External package paths are considered after resolution.
 
-## Import Matrix
+| Source                             | Allowed destinations                                                                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core capability                    | Its own files                                                                                                                                       |
+| Data                               | Core, lower data modules                                                                                                                            |
+| Block, including core domain types | Core, data, lower blocks                                                                                                                            |
+| Recipe                             | Core, data, blocks, lower recipes                                                                                                                   |
+| Example                            | Core, data, public block and recipe entries                                                                                                         |
+| Projection                         | Core, data, public block values and model types, recipe output types, lower projection helpers, leaf scene contracts, three.js                      |
+| Stage implementation               | Core, data, public model contracts and read-only selectors, projection helpers, leaf scene contracts, three.js                                      |
+| Leaf scene contracts               | Public model types, data types, three.js types. Type exports only                                                                                   |
+| Host, including application wiring | Headless entries, example entries, projection and stage entries, lower hosts, Svelte, SvelteKit, Bits UI and icons                                  |
+| Route                              | Page component and SvelteKit route plumbing; the root layout also loads global CSS                                                                  |
+| Dev                                | Subject under test through its entry, lower layers, test fixtures and test dependencies; private unit tests may access their own module's internals |
 
-✔ allowed, ✘ forbidden. Prohibitions also apply to `import type` and transitive imports.
+| ID         | Boundary                                                                                                                                                                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-20, A-21 | Data cannot reach logic, scene, host, route, UI packages or three.js, including transitively.                                                                                                                                                                                                      |
+| A-22, A-23 | Logic cannot reach scene, host, route, UI packages or three.js, including transitively.                                                                                                                                                                                                            |
+| A-24       | Scene cannot reach host, route or UI packages, including transitively. A projection may reference the shared scene contract. Concrete stage creation belongs to application wiring.                                                                                                                |
+| A-25       | Hosts reach three.js through scene entries. Direct three.js imports, including types, are forbidden.                                                                                                                                                                                               |
+| A-26       | A page route mounts one page component. Layer-specific imports belong in that component or its adapters.                                                                                                                                                                                           |
+| A-27       | Runtime cannot import dev.                                                                                                                                                                                                                                                                         |
+| A-28       | Both file graph and module graph are acyclic, including type edges. Collapse private files to their nearest public module, remove intra-module edges, then check strongly connected components.                                                                                                    |
+| A-29       | “Lower” means downstream in this acyclic graph within an allowed kind. Recipe → recipe is valid when the caller composes a distinct result from the callee's public output. A block cannot import a recipe, even for its types. Move a genuinely shared input contract to its lowest domain owner. |
 
-The `core` layer owns the public entry points `core/params/index.ts` and
-`core/random/index.ts`. Catalog consumers can import these entry points directly.
-The existing logic entry points forward to them. The `core-no-higher-layers`
-rule allows headless core files and explicitly approved npm packages as import
-targets. The package list is empty. Each core module's runtime code depends
-only on its own files. External consumers and contract tests access a core
-module through its `index.ts`. Tests remain in the `dev` layer and can also
-import `bun:test`. Tests named `*.unit.test.ts` can import private files in
-their own module.
+**Graph coverage.** The depcruise graph includes TypeScript compilation dependencies. The Svelte AST supplement covers explicit type imports and re-exports for headless reachability, data-to-logic and file cycles. Inline `import('module').Type` expressions and other rule families need separate coverage. A passing direct-edge check does not establish a transitive boundary.
 
-| from ↓ · to → | `data` | `logic` | `scene` | `component` | `route` | `svelte`, `$app` | `bits-ui`, `lucide-svelte` | `three` |
-| ------------- | :----: | :-----: | :-----: | :---------: | :-----: | :--------------: | :------------------------: | :-----: |
-| `data`        |   ✔    |    ✘    |    ✘    |      ✘      |    ✘    |        ✘         |             ✘              |    ✘    |
-| `logic`       |   ✔    |    ✔    |    ✘    |      ✘      |    ✘    |        ✘         |             ✘              |    ✘    |
-| `scene`       |   ✔    |    ✔    |    ✔    |      ✘      |    ✘    |        ✘         |             ✘              |    ✔    |
-| `component`   |   ✔    |    ✔    |    ✔    |      ✔      |    ✘    |        ✔         |             ✔              |    ✘    |
-| `route`       |   ✘    |    ✘    |    ✘    |      ✔      |    ✔    |        ✔         |             ✘              |    ✘    |
-| `dev`         |   ✔    |    ✔    |    ✔    |      ✘      |    ✘    |        ✘         |             ✘              |    ✔    |
+## Public contracts
 
-As rules for dependency-cruiser. The "Tool" column names the rule in `.dependency-cruiser.cjs`; "—" means: not configured. Every rule has a negative fixture in `scripts/fixtures/boundary-rules/cases.json`.
+| ID   | Boundary                                                                                                                                                                                                                                                          |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-30 | One public module exposes one `index.ts`. Existing file entries or necessary secondary entries must be explicitly identified at the owner's boundary before enforcement. Public contract tests use the entry; `*.unit.test.ts` may import the module's internals. |
+| A-31 | Each public export has a consumer or an executable contract example. Helpers used only by the implementation stay private.                                                                                                                                        |
+| A-32 | Types follow the owner of their meaning. A position in a local frame and a surveyed world position may have the same tuple representation. Their conversion belongs at the boundary.                                                                              |
+| A-33 | A variant plugs into a typed operation of its owner. Importing a variant cannot register it through global side effects.                                                                                                                                          |
+| A-34 | Core has no dependency on the city domain or the sister repository. Use the naming standard for the public vocabulary.                                                                                                                                            |
 
-**Current tool coverage (2026-11-14).** The Svelte adapter of dependency-cruiser analyzes compiled JavaScript; pure type edges are still missing there. `check:boundaries:types` therefore augments the complete dependency-cruiser graph via Svelte and TypeScript AST with explicit type imports and type re-exports from instance and module scripts (`import type`, inline `type`, `export type`, inline type re-exports). Relative paths, TS path aliases, and package imports are resolved; unresolvable type edges fail the check. The augmented graph checks the existing rules `headless-core`, `data-no-logic`, and `no-cycles` for additional violations, including cycles across TS and multiple Svelte type edges. Findings already present in the original graph stay with the existing gate and its unchanged baseline. `check:boundaries` runs both gates even if one fails; `review` incorporates this combined gate. Executable positive and negative fixtures: `scripts/svelte-type-boundaries.test.ts`. The supplement evaluates the same rules, including `pathNot` and transitive `reachable` rules, and rejects any other rule shape. Type expressions like `import('./modul').Typ` are not part of this extension.
+## Block contract
 
-| ID   | from               | forbidden to                                          | Tool                                          | Source · Auth.                                             |
-| ---- | ------------------ | ----------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
-| A-20 | `data`             | `logic`, `scene`, `component`, `route`                | `data-no-logic`, `headless-core` (transitive) | Transfer Matrix (three layers) · N\*                       |
-| A-21 | `data`             | `svelte`, `$app`, `bits-ui`, `lucide-svelte`, `three` | `headless-core` (transitive)                  | PR 1; AR §Strict separation · D                            |
-| A-22 | `logic`            | `scene`, `component`, `route`                         | `headless-core` (transitive)                  | AR §Ten architectural principles (Dependency rule); AG · D |
-| A-23 | `logic`            | `svelte`, `$app`, `bits-ui`, `lucide-svelte`, `three` | `headless-core` (transitive)                  | PR 1; AR §Strict separation · D                            |
-| A-24 | `scene`            | `component`, `route`, `svelte`, `$app`, `bits-ui`     | `scene-no-ui` (direct edges only, see below)  | AR §Layers · N\*                                           |
-| A-25 | `component`        | `three`                                               | `component-no-three` (direct)                 | AR §Layers (renderers in visualization layer) · N\*        |
-| A-26 | `route`            | `data`, `logic`, `scene`, `bits-ui`, `three`          | `route-thin` (direct)                         | AG; UI §Flat first · D\*                                   |
-| A-27 | all except `dev`   | `dev`                                                 | `no-runtime-to-dev`                           | ST §Import rules · D                                       |
-| A-28 | `src/lib/catalog/` | cycles                                                | `no-cycles` plus Svelte type-edge extension   | AR §Dependency rules · N                                   |
+LIB-2, LIB-3, LIB-7. A public headless entry has a local contract. A documented kit capability also has a live example; several supporting capabilities can be demonstrated by the same executable example.
 
-Limits of the tool coverage:
+| ID   | Interface                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A-35 | Place `CONTRACT.md` beside the public entry. Link the entry to its executable examples and document public functions under C-23. Preserve existing call signatures when adopting the contract.                                                                                                                                                                                                                                                                                 |
+| A-36 | Give public inputs types. Reference the owning schema for units, bounds and defaults, and state how omitted or invalid input is handled. `data/block-inputs` owns the shared controls and `core/params` resolves them. **The 1–32 m range for height and width is proposed, pending David's approval.** Consumers of this schema use its implemented bounds. Their adoption as a product-wide range remains open.                                                              |
+| A-37 | State which procedural contract governs order, identity, mutation and randomness. Identify the stream or state to preserve across calls, or state that the operation is draw-free. Cite the applicable procedural rules and executable cases.                                                                                                                                                                                                                                  |
+| A-38 | State the result and its ownership (detached value, immutable shared references, or an explicitly managed session) and its error form. Placeable results cross `logic/assets` with role slots, metric footprint and anchors. The geometry output refers to roles. Palette and material assignment occur at the slot boundary. Non-placeable outputs retain their own domain contracts.                                                                                         |
+| A-39 | Use a standalone `Kind: block`, `Kind: recipe` or `Kind: example` line under the title of a public logic contract. This is the sole machine-readable classification for those modules. A core domain type uses `Kind: block`; the physical core layer already has an unambiguous path. For a kit capability, an `Example:` line names the catalog-relative public entry of the headless example used in chapter 8, part B. Keep this metadata separate from explanatory prose. |
 
-- A-24 checks direct edges only. The transitive check finds one chain: `scene/themeBinding.ts` imports the `theme/` barrel, which reaches Svelte and Bits UI components. Its fix belongs to the library refactor plan (theme coupling); the transitive rule is switched on afterwards.
-- A-25 and A-26 can only be direct: components reach `three` legitimately through `scene/`, routes reach every layer through their page component.
-- Plain `.ts` helpers inside component folders belong to no layer. Public entry points (A-30) and autonomous families (A-40) are not enforced until the module map (A-41) is decided.
+Example header for `logic/occupancy/CONTRACT.md`:
 
-Not verifiable via the import graph and must be evidenced separately:
+```markdown
+# Occupancy
 
-- Browser globals (`document`, `window`, `localStorage`, …) in `data/` and `logic/`: forbidden (A-05). ESLint `no-restricted-globals` enforces this for headless `.ts` files, tests excluded; `globalThis.window` is not caught.
-- No CSS in routes: [DS-42](DESIGN_STANDARDS.md#css-boundaries).
-- Routes as one-liners: A `+page.svelte` imports exactly one page component and renders it. `+layout.svelte` loads `app.css`.
+Kind: block
+Example: logic/house-court-example
+```
 
-## Public Contracts
+A generator reads contracts for the module area being brought under enforcement. It rejects missing, duplicate or unknown kinds, unresolved examples, and private example paths. It uses directory containment for ownership and the resolved import graph for direction. It must not infer a default kind from an undocumented legacy folder. Example links are documentation references, never reverse imports from the advertised capability.
 
-| ID   | Rule                                                                                                                                                                                     | Source · Auth.             |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| A-30 | Consumers outside a module import only its public entry points. The entry point is `index.ts`; additional entry points are listed in the module map. No deep imports into private files. | AR §Dependency rules · N\* |
-| A-31 | Public contracts are small. Private helpers remain private; headless does not mean exporting every function.                                                                             | AR; SK decisions · N       |
-| A-32 | Types live with their domain owner. No grab-bag folders `types/`, `utils/`, `core/`. The render contract `Primitive` belongs to `logic/parametrik/types.ts`.                             | AR §Kernels · N            |
-| A-33 | Kernel, algorithms, and explicit variants are separated. Variants are swappable through small, task-scoped contracts. No plugin registry, no universal manager, no deep inheritance.     | AR §Kernels · N            |
-| A-34 | Reusable mathematics carries neutral names. Urbanism rules carry domain names. This transfer creates no dependency on `city-library`.                                                    | PR 2, 3; Transfer · D\*    |
+## Autonomous modules and composition
 
-## Autonomous Modules and Composition
+| ID   | Boundary                                                                                                                                                                                                                                                 |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-40 | Use the domain owner below for shared semantics. Introduce a proposed contract through a working producer and consumer before exposing it.                                                                                                               |
+| A-41 | Apply the [module map](#module-map) and A-11 to classify each public entry in a migrated area. Mixed legacy files are assigned explicitly when that boundary is introduced.                                                                              |
+| A-42 | Each named composition has one recipe owner. A parent may consume that recipe unchanged. A projection consumes its result; a host or example chooses when to run it.                                                                                     |
+| A-43 | One owner implements each domain predicate, identity rule and operation. Identical outputs on one fixture do not establish equivalence. Before consolidating, compare frames, tie-breaking, tolerances and error behavior under the procedural standard. |
+| A-44 | An example depends downward and may be imported by hosts and tests. A domain or scene module must not depend on an example or chapter.                                                                                                                   |
 
-| ID   | Rule                                                                                                                                                                                                          | Source · Auth.                     |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| A-40 | Generator families declared autonomous do not import each other, not even for types. Coordinate types are declared structurally. Not every subdirectory of `logic/` is autonomous.                            | ST §Principles · D\*               |
-| A-41 | The accepted module map puts numeric parameter schemas and both random contracts in `core`. The generator map below describes the legacy layout during migration.                                             | Brief David, 2026-11-18 · D        |
-| A-42 | Shared flows across autonomous families live in exactly one named composition point. It may import all families; no family imports it.                                                                        | ST §Principles · D\*               |
-| A-43 | Only small, stable helpers may be copied between autonomous families. Each copy is registered and passes shared conformance cases. Identity, geometric predicates, and copy semantics have exactly one owner. | ST §Duplication rule · D           |
-| A-44 | Scenes and demos (`logic/bibel/`, `logic/ansicht/`) are consumers. They import only public entry points; nothing imports them except components and tests.                                                    | ST §Import rules (`models/`) · D\* |
+| Domain type | Owner or first implementation boundary                                                                       | What callers can rely on                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| CellSpace   | `logic/cell-space`                                                                                           | Addressed oriented faces and cells; face incidence distinguishes contact from shared vertices.                     |
+| Occupancy   | `logic/occupancy`                                                                                            | One fill per cell, separate reservations, atomic writes.                                                           |
+| MemberGraph | Node/member boundary of `logic/traeger`                                                                      | Edges reference endpoint IDs and roles. Statics owns loads, movement-network owns travel constraints.              |
+| SurfaceMesh | Introduce the shared surface contract at `logic/building-envelope` on its first cross-module surface adapter | Oriented rings, source IDs, roles and open boundaries survive triangulation. Carrier faces adapt to this contract. |
+| CurvePath   | Introduce the oriented path contract at `logic/linear-path` on the first shared sweep                        | Ordered metric points, orientation and anchor references. `core/polyline` owns only neutral measurements.          |
+| ScalarField | Introduce `logic/scalar-field` with the first spatial extraction recipe                                      | Local domain and reproducible sampling recipe. The extractor owns sampling resolution and iso value.               |
 
-Legacy generator module map:
+A core domain type is a block. The six names describe interoperation points; implementation and availability are established by their entries and examples. Chapter procedure lists belong to chapter data.
 
-| Role                   | Module under `logic/parametrik/`                                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| autonomous             | `raster/` (grid generators), `raster/universal/kern/` (carrier, transactions), `formen/` (form families), `eckraster/` (corner modules, occupancy) |
-| shared contract base   | `types.ts` (render contract), `random.ts` (randomness)                                                                                             |
-| single composition pt. | `welt/`                                                                                                                                            |
-| open                   | `komposition/`, `raster/universal/` without `kern/`, `logic/modellierung/`                                                                         |
+## State, resources, ownership
 
-Measured coupling on 2026-11-12 (import paths, excluding tests): `formen` and `eckraster` import each other; `kern` and `raster/universal` import each other; `raster/universal` imports `eckraster`. Today, no family is autonomous.
+| ID   | Boundary                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-50 | The object build entry and catalog of placeable objects belong to `logic/assets`. The library page references existing identities.                                                                                                                                                                                                                                                                                                              |
+| A-51 | Name the authority for each mutable value. Consumers use its actions, stable references or detached observations.                                                                                                                                                                                                                                                                                                                               |
+| A-52 | A projection owns the resources it creates until its context is attached. The stage then calls its cleanup on replacement or disposal. Borrowed resources are identified by their owner and released there.                                                                                                                                                                                                                                     |
+| A-53 | Layout, picking, camera and selection highlight are view state. They have no authority over topology, world coordinates or random streams.                                                                                                                                                                                                                                                                                                      |
+| A-54 | For expensive work, the adapter owns cancellation, work budget, input revision and cache lifetime. Key a cached result by inputs, seed when used, and algorithm version. Publish a result only for the active revision. Failure, cancellation or a late reply leaves the last valid snapshot visible. Transfer model data across the worker boundary and allocate GPU resources in scene. Apply the measurement rules in PROCEDURAL_PRINCIPLES. |
 
-## State, Resources, Ownership
+| Fact                                                           | Owner                                                                   |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Shared control schemas / parameter resolution / random streams | `data/block-inputs` / `core/params` / `core/random`                     |
+| Cell incidence / fill changes / planned ground reservations    | `logic/cell-space` / `logic/occupancy` / `logic/city-plan`              |
+| Sandbox world actions / object build call                      | `logic/sandbox` / `logic/assets`                                        |
+| Chapter records / view IDs / policy validation                 | `data/chapters` / `data/view-modes` / `logic/view-modes`                |
+| Design principles / flow roles / theme selection               | `data/design-principles.ts` / `data/focus.ts` / `theme/theme.svelte.ts` |
+| Canvas DOM lifetime / rendered camera and GPU resources        | Mounting host / attached stage and its projections                      |
 
-| ID   | Rule                                                                                                                                              | Source · Auth.                        |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| A-50 | One identity and lifecycle protocol. No competing registries. IDs, transactions, undo, and cache invalidation have named owners.                  | ST §Consequences; AR §Kernels · D     |
-| A-51 | Every live value has exactly one authority (table below). Other places hold references or detached observations, never a second mutable copy.     | AR §State, hosts and verification · N |
-| A-52 | `scene/` owns all GPU resources. Every creation has a `dispose` path. Components hold the canvas and lifecycle and call it.                       | AR §Layers · N                        |
-| A-53 | Canvas layout, camera, dragging, and selection highlight are view state. They are never authority for topology, randomness, or world coordinates. | AR §Layers · N                        |
+## Stage and view modes
 
-| State                                   | Owner (current)                           | Note                                  |
-| --------------------------------------- | ----------------------------------------- | ------------------------------------- |
-| Corner-grid occupancy, undo/redo        | `logic/parametrik/eckraster/state.ts`     | explicit actions (103)                |
-| Core model, transactions                | `logic/parametrik/raster/universal/kern/` | ownership contract not yet documented |
-| World structure and its cache           | `logic/parametrik/welt/index.ts`          | module-wide cache: deviation          |
-| Flow color contract                     | `data/focus.ts`                           | set by David                          |
-| Theme (light, dark)                     | `data/theme.svelte.ts`                    | UI state in wrong place: deviation    |
-| Camera, selection, canvas, GPU resource | `scene/` and components                   | view state                            |
+LIB-1, LIB-5, LIB-8.
 
-## Current Deviations
+| ID   | Interface                                                                                                                                                                                                                                                                                                            |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-60 | `createSandboxStage` in `scene/sandbox/stage.ts` is the renderer constructor boundary. Only this implementation and its private delegates own the rendered camera, GPU frame scheduling and picking dispatch. Projection code supplies geometry and material nodes consumed by the stage.                            |
+| A-61 | A chapter adapter implements `scene/chapter-stage` (`show`, `reveal`, `setView`, `resize`, `dispose`) over that stage. The sandbox retains its world/action interface. A second facade may adapt calls; it must delegate rendering to the same implementation.                                                       |
+| A-62 | The projection supplies a context with bounds, group, palette binding and disposal. Where relevant it supplies view orientation and a mapping from selectable geometry to domain IDs. Isolate the shared context type in a leaf scene entry when migrating a projection that otherwise imports the concrete factory. |
+| A-63 | Each attachment has one release path, including initialization failure and early unmount. Two canvases may run independently.                                                                                                                                                                                        |
+| A-64 | The view selects pose, visible layers and filters. The display changes material or visibility treatment under the selected view policy.                                                                                                                                                                              |
+| A-65 | A view/display change preserves model IDs, source geometry, selection identity, occupancy, simulation position and RNG continuation.                                                                                                                                                                                 |
+| A-66 | A mode is selectable only when both its stage implementation and the step policy support it. Validate the requested pair through `logic/view-modes`. A label alone cannot enable a mode.                                                                                                                             |
 
-Measured on 2026-11-12 via import search in `src/lib/catalog/`, excluding `logic/modellierung/` (in progress). The parallel tooling run lists the same cases as baseline: 11 `data` → `logic` imports, 3 renderer imports, 1 cycle. This list is a starting baseline, not an assignment; fix sequence: see the step plan in the private design lab.
+| Mode                           | Projection behavior                                                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Iso / plan / terrain           | Axonometric pose / orthographic top view / terrain with ground contacts, all in the model's coordinate frame.              |
+| Schematic / section            | Filter the model's computed relationships / intersect its geometry in world meters. Only closed bodies receive a cut fill. |
+| Normal / transparency / levels | Standard appearance / expose obscured infrastructure / vary detail by focus level.                                         |
 
-| Rule        | Location                                                                                        | Kind                               |
-| ----------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
-| A-20        | `data/color.ts`, `data/werkbank.ts`, `data/stadt.ts`, `data/material.ts` (type only) → `logic/` | Data imports logic                 |
-| A-21, A-05  | `data/city3d.ts` → `three`, `window`                                                            | three.js scene in data folder      |
-| A-21, A-05  | `data/theme.svelte.ts` → Runes, `document`, `localStorage`                                      | UI state in data folder            |
-| A-23        | `logic/parametrik/raster/geometry.ts` → `three` (`ShapeUtils`, `Vector2`)                       | Renderer math in logic             |
-| A-25        | `labor/L10View.svelte` → `three`                                                                | Component uses three.js directly   |
-| A-28        | `raster/universal/update.ts` ↔ `raster/universal/index.ts`                                      | Import cycle (103 step 2)          |
-| A-30        | Components import individual files, e.g., `logic/parametrik/welt/ansicht`                       | Entry points not established       |
-| A-40        | see measured coupling above                                                                     | no autonomous family               |
-| C-32, PT-14 | module-wide caches in `logic/parametrik/welt/index.ts`                                          | shared cache lifetime (103 step 3) |
+## Chapters as data
 
-Not measured: transitive imports, deep imports in detail, `dispose` paths. Cycle search is incomplete: type imports from `.svelte` files are missing from the graph.
+LIB-1, LIB-7, LIB-8.
 
-**Addendum 2026-11-17.** The dependency-cruiser baseline is empty. `data/werkbank.ts` is gone: its option tables live with the view types they are keyed by in `logic/ansicht/optionen.ts`. `raster/geometry.ts` triangulates with its own earcut port (`raster/earcut.ts`, identical vertex and triangle order to the former three.js call, proven by `earcut.test.ts`). The `universal` cycle is resolved by `universal/quality.ts`. `data/city3d.ts` now holds types only; the three.js scene and `window` access left it. The table above stays as the measurement of 2026-11-12.
+| ID   | Interface                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-70 | A chapter record supplies number, scene key, title, summary and ordered steps. A step supplies its ID, principle IDs, copy, seeded preset, view policy and one control with its data. Part B entries reference an executable example and parameter schema by key.                                                                                                                                                             |
+| A-71 | Chapter records are serializable. Principle IDs resolve in the register; executable code, scene objects and component references stay out of chapter data.                                                                                                                                                                                                                                                                    |
+| A-72 | Bind each supported scene key to one host adapter in the chapter frame. A new key ships with a consuming step.                                                                                                                                                                                                                                                                                                                |
+| A-73 | The frame keeps the stage attached across steps for the same scene, applies the selection and releases it on unmount or scene replacement.                                                                                                                                                                                                                                                                                    |
+| A-74 | An active illustration uses an existing recipe or block entry and the stage. Presets may override the owner's defaults. Under F-038, archive an obsolete visualization and its accompanying text by keeping a screenshot and text in the private lab, then removing the obsolete route or step, code and references. Confirm remaining consumers before removing shared code. Only active chapters enter the stage migration. |
 
-**Addendum 2026-11-14 on A-25.** A read-only search for module specifiers `three` and `three/…` across all `*.svelte` and `*.svelte.ts` files under `src/lib/catalog/` yields zero hits. The direct component import from the historical table is therefore no longer present in the current codebase. This is not a check of transitive imports or full architectural sign-off; the measurement of 2026-11-12 remains readable unchanged.
+## Module map
 
-## Verification
+| Area                                                                                                                                                                                       | Classification                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/{params,random,polyline,planning,neighbourhood}`, `data/**`                                                                                                                          | Neutral core capabilities, declarative data respectively.                                                                                                                  |
+| `logic/{cell-space,occupancy,terrain-grid,movement-network,building-envelope,linear-path,assets,view-modes}`                                                                               | Blocks. A domain block may internally compose helpers; its public result is reusable independently of a chosen scenario.                                                   |
+| `logic/{city-plan,parcel-deck,house-court,composed-house}`                                                                                                                                 | Recipes for a city plan, fitted deck, occupied courtyard house and assembled house. House-court may consume the public parcel-deck contract.                               |
+| `logic/valley`, `logic/house-court-example`                                                                                                                                                | Valley is a block exposing a parameterized generator and surveyable snapshot. House-court-example is an example selecting the plot and calling the deck and house recipes. |
+| Other logic modules, including `parametrik`, `modellierung`, `bibel`, `ansicht`                                                                                                            | Apply A-11 to the entry's public behavior at migration. Private subfolders inherit their owner. Split a mixed example/domain entry before enabling kind rules.             |
+| `scene/sandbox/stage.ts` and its stage-private delegates, `scene/chapter-stage`                                                                                                            | Shared stage implementation and chapter facade contract. Directory membership confers no renderer privileges on other files in `scene/sandbox`.                            |
+| Remaining scene files                                                                                                                                                                      | Projection or leaf scene contract. Legacy chapter factories combining stage construction and projection split the wiring into a host adapter when migrated.                |
+| `chapter-frame`, `sandbox`, `design`, `bibel`, `ui`, `foundations`, `theme`, `formen`, `interface`, `library`, `material`, `raster`, `stadt`, `color`, `labor`, `modellierung`, `werkbank` | Host components and host-side adapters; A-10 applies to tests.                                                                                                             |
+| `src/routes/**`, test files, benchmark files, test fixtures                                                                                                                                | Routes and dev respectively.                                                                                                                                               |
 
-Check per implementation slice: headless access via public entry points, import direction, explicit contracts, one owner per state; for UI additionally: only defined actions, no domain rule in the component (AR §Layers · N). The tool covers A-20 through A-28; coverage limits are in [Import Matrix](#import-matrix). New violations are findings. The baseline is reduced separately and never broadened wholesale.
+## Enforcement
+
+Use the following evidence for each touched boundary. The builder owns checks on the build lane; independent review follows the release-lane workflow. An automation proposal is not an executed gate. Introduce each new graph rule in a clean module area with allowed and forbidden fixtures. Use the gate probes and baseline policy in the [verification commands](README.md#verification-commands).
+
+| Rules                     | Executable or inspection check                                                                                                                                                                                                                                                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-01, A-07, A-13, A-31–34 | Trace each new export to a consumer or example, identify the authority in its contract, inspect variant registration and external imports. Fallow unused-export reporting supplements this inspection.                                                                                                                                    |
+| A-02–06, A-12             | Import and call the public headless entry from Bun; inspect initialization, external I/O and writes from the host. ESLint restricts browser globals in configured headless files. Inspect qualified globals and headless imports outside that scope.                                                                                      |
+| A-10–11, A-41             | Inspect file classification and check contract kind against public behavior. Extend the boundary check to fail on missing/ambiguous assignments in enrolled modules, including host TS helpers and host files in headless folders.                                                                                                        |
+| A-20–23                   | `check:boundaries` runs `headless-core`, `data-no-logic` and the Svelte type supplement. Inspect paths through plain host TS until those files are classified in the gate.                                                                                                                                                                |
+| A-24–27                   | `scene-no-ui`, `component-no-three`, `route-thin`, `no-runtime-to-dev` cover direct edges within configured source/target patterns. Inspect route mounts and plain host helpers. Extend scene reachability after decoupling the theme subscription.                                                                                       |
+| A-28–30, A-42, A-44       | Use `no-cycles`, core boundary checks and existing entry checks for params, random and city-plan. For other modules inspect the resolved import paths against the matrix. Extend depcruise with per-entry and kind rules from A-39, check SCCs on the collapsed graph, and extend the Svelte type check for the enrolled rules.           |
+| A-35–39                   | Inspect contracts and C-23 docs; run the entry's examples using schema defaults, changed inputs and invalid inputs. Check identities, role-slot resolution and documented RNG continuation. Extend the contract checker to resolve Kind/Example metadata and chapter references; use AST checks for pigment literals at geometry outputs. |
+| A-40, A-43, A-50–51       | Trace one producer and consumer to each changed owner. Exercise invalid contacts, conflicting writes or registry lookup for the applicable contract. Compare suspected duplicate predicates and tie cases. Fallow clone groups identify candidates.                                                                                       |
+| A-52–54, A-63             | Exercise release after attachment and failed initialization, two canvases and remount. For workers, reverse reply order, abort a revision and assert the last valid snapshot and instance-local cache. Measure the changed example under the procedural budget standard.                                                                  |
+| A-60–62                   | Inspect constructor call sites and their imports (including aliases), material construction, camera and frame scheduling. Add a scoped AST gate for new renderer paths and unsupported shaders/materials. For a migrated picture, compare the same preset and camera in hardware-GPU shots and exercise picking and resize.               |
+| A-64–66                   | Exercise enabled and unavailable mode pairs. Switch a paused snapshot between modes and compare model IDs, geometry, time and the next draw. The landscape chapter test covers policy selection; model invariants require stage cases.                                                                                                    |
+| A-70–74                   | Validate serializable records, IDs, control and scene bindings. In the real frame switch steps, watch attachment count and confirm teardown. Verify that the example entry used in part B is the displayed one. For a retired study, read back the archived image and text and check for remaining app references.                        |
+
+Automated graph checks run through `check:boundaries` in ship and verify. Ship selects affected tests. Verify also runs the Fallow and baseline checks. Follow the existing lane requirements for rendered evidence. A person assessing a change can use the inspection column without creating a new review role.
