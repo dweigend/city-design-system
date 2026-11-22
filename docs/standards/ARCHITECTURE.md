@@ -38,6 +38,13 @@ Use one flat folder directly under its layer. Keep every file at that level.
 
 Modules under `src/lib/ui` are presentational and are demonstrated on the `/interface` page instead of carrying `contract.test.ts` and `example.ts`.
 
+## Object contract
+
+A placeable object has an id, ordered slot names, parts, a local width and depth, and named anchors with positions and unit normals.
+Parts have unique ids and each names a declared slot. Geometry is a box rotated about Z, an extrusion of an implicitly closed ground polygon, or an indexed triangle mesh.
+Coordinates and footprint dimensions are in meters, with XY on the ground and Z up. Rotations are in radians.
+The scene's surface module assigns color tokens and finishes to slots.
+
 ## Check a change
 
 1. Does each file belong to the layer that owns its work?

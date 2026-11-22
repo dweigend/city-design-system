@@ -55,7 +55,7 @@ const probes = [
 	{ fixture: '05-domain-peers', fanout: 'domain-max-three:' },
 	{
 		fixture: '06-slots',
-		lint: Array<string>(4).fill('no-restricted-syntax: Use a slot name in headless geometry.')
+		lint: Array<string>(5).fill('no-restricted-syntax: Use a slot name in headless geometry.')
 	},
 	{
 		fixture: '07-styles',
