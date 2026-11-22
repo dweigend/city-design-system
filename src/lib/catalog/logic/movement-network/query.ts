@@ -1,3 +1,4 @@
+import { edgeAdmitted, portAdmitted, validateQuery } from './query-filter';
 import type {
 	MovementEdge,
 	MovementElement,
@@ -7,65 +8,23 @@ import type {
 	Position
 } from './types';
 
-// Dimensionless grade comparison tolerance from ST1 build-space contract.
-const gradeComparisonTolerance = 1e-9;
-// Width and headroom bound comparison tolerance in metres.
-const dimensionComparisonTolerance = 1e-9;
-// Shortest-path distance tie threshold in metres before lexical edge-ID tie-breaking.
+// Complete-route shortest-path tie threshold in metres before lexical edge-ID tie-breaking.
 const distanceTieTolerance = 1e-9;
 
 type SearchState = { distance: number; portIds: string[]; edgeIds: string[] };
 type Neighbor = { to: string; edge: MovementEdge };
+type CanonicalSearch = {
+	adjacency: ReadonlyMap<string, readonly Neighbor[]>;
+	distToGoal: ReadonlyMap<string, number>;
+	toPortId: string;
+	limit: number;
+	portIds: string[];
+	edgeIds: string[];
+	visited: Set<string>;
+};
 
-function validateBound(name: string, value: number | undefined) {
-	if (value !== undefined && (!Number.isFinite(value) || value < 0))
-		throw new RangeError(`Invalid movement query ${name}: ${value}`);
-}
-function validateQuery(query: MovementPathQuery | undefined) {
-	if (!query) return;
-	validateBound('maxGrade', query.maxGrade);
-	validateBound('minWidth', query.minWidth);
-	validateBound('minHeadroom', query.minHeadroom);
-}
-function portAdmitted(port: MovementPort, query: MovementPathQuery | undefined) {
-	if (!query) return true;
-	const widthOk =
-		query.minWidth === undefined || port.width + dimensionComparisonTolerance >= query.minWidth;
-	const headroomOk =
-		query.minHeadroom === undefined ||
-		port.headroom + dimensionComparisonTolerance >= query.minHeadroom;
-	return widthOk && headroomOk;
-}
-function edgeBoundsAdmitted(edge: MovementEdge, query: MovementPathQuery) {
-	if (query.maxGrade !== undefined && edge.maxGrade > query.maxGrade + gradeComparisonTolerance)
-		return false;
-	return (
-		query.minWidth === undefined || edge.width + dimensionComparisonTolerance >= query.minWidth
-	);
-}
-function edgeAdmitted(
-	edge: MovementEdge,
-	from: MovementPort,
-	to: MovementPort,
-	query: MovementPathQuery | undefined
-) {
-	if (!query) return true;
-	if (!portAdmitted(from, query) || !portAdmitted(to, query)) return false;
-	if (query.modes && !query.modes.includes(edge.mode)) return false;
-	if (query.excludeKinds?.includes(edge.kind)) return false;
-	return edgeBoundsAdmitted(edge, query);
-}
-function compareEdgeIds(a: readonly string[], b: readonly string[]) {
-	const count = Math.min(a.length, b.length);
-	for (let i = 0; i < count; i++) {
-		if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
-	}
-	return a.length - b.length;
-}
-function isBetterState(candidate: SearchState, current: SearchState) {
-	if (candidate.distance < current.distance - distanceTieTolerance) return true;
-	if (candidate.distance > current.distance + distanceTieTolerance) return false;
-	return compareEdgeIds(candidate.edgeIds, current.edgeIds) < 0;
+function compareText(a: string, b: string) {
+	return a < b ? -1 : a > b ? 1 : 0;
 }
 function buildAdjacency(
 	edges: readonly MovementEdge[],
@@ -81,42 +40,73 @@ function buildAdjacency(
 		adjacency.get(edge.from)?.push({ to: edge.to, edge });
 		adjacency.get(edge.to)?.push({ to: edge.from, edge });
 	}
-	for (const entries of adjacency.values()) {
-		entries.sort((l, r) =>
-			l.to !== r.to ? (l.to < r.to ? -1 : 1) : l.edge.id < r.edge.id ? -1 : 1
-		);
-	}
+	for (const entries of adjacency.values())
+		entries.sort((l, r) => compareText(l.edge.id, r.edge.id) || compareText(l.to, r.to));
 	return adjacency;
 }
-function isEarlierFrontier(candidate: [string, SearchState], chosen: [string, SearchState]) {
-	if (isBetterState(candidate[1], chosen[1])) return true;
-	if (isBetterState(chosen[1], candidate[1])) return false;
-	return candidate[0] < chosen[0];
-}
-function nextUnsettled(best: ReadonlyMap<string, SearchState>, settled: ReadonlySet<string>) {
-	let chosen: [string, SearchState] | undefined;
-	for (const entry of best) {
+function nextUnsettledDistance(
+	distances: ReadonlyMap<string, number>,
+	settled: ReadonlySet<string>
+): [string, number] | undefined {
+	let chosen: [string, number] | undefined;
+	for (const entry of distances) {
 		if (settled.has(entry[0])) continue;
-		if (!chosen || isEarlierFrontier(entry, chosen)) chosen = entry;
+		if (!chosen || entry[1] < chosen[1] || (entry[1] === chosen[1] && entry[0] < chosen[0]))
+			chosen = entry;
 	}
 	return chosen;
 }
-function relaxNeighbors(
-	neighbors: readonly Neighbor[],
-	state: SearchState,
-	settled: ReadonlySet<string>,
-	best: Map<string, SearchState>
-) {
-	for (const { to, edge } of neighbors) {
-		if (settled.has(to) || state.edgeIds.includes(edge.id)) continue;
-		const candidate: SearchState = {
-			distance: state.distance + edge.length,
-			portIds: [...state.portIds, to],
-			edgeIds: [...state.edgeIds, edge.id]
-		};
-		const existing = best.get(to);
-		if (!existing || isBetterState(candidate, existing)) best.set(to, candidate);
+function shortestDistancesToGoal(
+	adjacency: ReadonlyMap<string, readonly Neighbor[]>,
+	fromPortId: string,
+	toPortId: string
+): ReadonlyMap<string, number> {
+	const distances = new Map<string, number>([[toPortId, 0]]);
+	const settled = new Set<string>();
+	let shortest: number | undefined;
+	let step = nextUnsettledDistance(distances, settled);
+	while (step) {
+		const [portId, distance] = step;
+		if (shortest !== undefined && distance > shortest + distanceTieTolerance) break;
+		settled.add(portId);
+		if (portId === fromPortId) shortest = distance;
+		for (const { to, edge } of adjacency.get(portId) ?? []) {
+			if (settled.has(to)) continue;
+			const nextDistance = distance + edge.length;
+			const existing = distances.get(to);
+			if (existing === undefined || nextDistance < existing) distances.set(to, nextDistance);
+		}
+		step = nextUnsettledDistance(distances, settled);
 	}
+	return distances;
+}
+function searchCanonicalPath(
+	search: CanonicalSearch,
+	portId: string,
+	distance: number
+): SearchState | undefined {
+	for (const { to, edge } of search.adjacency.get(portId) ?? []) {
+		if (search.visited.has(to)) continue;
+		const remaining = search.distToGoal.get(to);
+		if (remaining === undefined) continue;
+		const nextDistance = distance + edge.length;
+		if (nextDistance + remaining > search.limit) continue;
+		if (to === search.toPortId)
+			return {
+				distance: nextDistance,
+				portIds: [...search.portIds, to],
+				edgeIds: [...search.edgeIds, edge.id]
+			};
+		search.visited.add(to);
+		search.portIds.push(to);
+		search.edgeIds.push(edge.id);
+		const found = searchCanonicalPath(search, to, nextDistance);
+		if (found) return found;
+		search.edgeIds.pop();
+		search.portIds.pop();
+		search.visited.delete(to);
+	}
+	return undefined;
 }
 function samePosition(a: Position, b: Position) {
 	return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
@@ -132,9 +122,8 @@ function appendSegment(
 		([x, y, z]) => [x, y, z] as const
 	);
 	if (reversed) segment.reverse();
-	for (const point of segment) {
+	for (const point of segment)
 		if (!points.length || !samePosition(points[points.length - 1], point)) points.push(point);
-	}
 }
 function assemblePath(
 	state: SearchState,
@@ -143,10 +132,10 @@ function assemblePath(
 ): MovementPath {
 	const points: Position[] = [];
 	const visitedPorts = state.portIds.map((id) => ports.get(id)).filter((p) => p !== undefined);
-	const minHeadroom = Math.min(...visitedPorts.map((p) => p.headroom));
 	let totalLength = 0,
 		maxGrade = 0,
 		minWidth = Math.min(...visitedPorts.map((p) => p.width));
+	const minHeadroom = Math.min(...visitedPorts.map((p) => p.headroom));
 	for (let i = 0; i < state.edgeIds.length; i++) {
 		const edge = edgesById.get(state.edgeIds[i]);
 		const from = edge && ports.get(edge.from),
@@ -171,9 +160,10 @@ function assemblePath(
 /** Finds the shortest deterministic bidirectional path between two ports on a MovementGraph.
  *
  * Weights edges by centreline `length` in metres, allowing zero-cost seams (`dock`) and reverse
- * traversal. Ties within 1e-9 m are broken canonically by lexicographic edge-ID sequence so the
- * result does not depend on input edge order. Returns `undefined` when either port is unknown or
- * no path satisfies `query`; returns a detached `MovementPath` without mutating `graph`.
+ * traversal. Complete-route length ties within 1e-9 m of the exact shortest distance are broken
+ * canonically by lexicographic edge-ID sequence so the result does not depend on input edge order.
+ * Returns `undefined` when either port is unknown or no path satisfies `query`; returns a detached
+ * `MovementPath` without mutating `graph`.
  *
  * Optional `query` bounds: `modes` filters `edge.mode`, `excludeKinds` filters `edge.kind` (e.g.
  * `['stair']` for step-free routes), `maxGrade` filters `edge.maxGrade` (dimensionless, 1e-9
@@ -203,16 +193,19 @@ export function findMovementPath(
 		};
 	}
 	const adjacency = buildAdjacency(graph.edges, ports, query);
-	const edgesById = new Map(graph.edges.map((e) => [e.id, e]));
-	const best = new Map<string, SearchState>([
-		[fromPortId, { distance: 0, portIds: [fromPortId], edgeIds: [] }]
-	]);
-	const settled = new Set<string>();
-	for (let step = nextUnsettled(best, settled); step; step = nextUnsettled(best, settled)) {
-		const [portId, state] = step;
-		settled.add(portId);
-		if (portId === toPortId) return assemblePath(state, edgesById, ports);
-		relaxNeighbors(adjacency.get(portId) ?? [], state, settled, best);
-	}
-	return undefined;
+	const distToGoal = shortestDistancesToGoal(adjacency, fromPortId, toPortId);
+	const shortest = distToGoal.get(fromPortId);
+	if (shortest === undefined) return undefined;
+	const search: CanonicalSearch = {
+		adjacency,
+		distToGoal,
+		toPortId,
+		limit: shortest + distanceTieTolerance,
+		portIds: [fromPortId],
+		edgeIds: [],
+		visited: new Set([fromPortId])
+	};
+	const state = searchCanonicalPath(search, fromPortId, 0);
+	if (!state) return undefined;
+	return assemblePath(state, new Map(graph.edges.map((e) => [e.id, e])), ports);
 }
