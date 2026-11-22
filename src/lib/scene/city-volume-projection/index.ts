@@ -1,88 +1,45 @@
-import type { Vec3 } from '../../core/geometry';
-import { required } from '../../core/invariant';
-import { PlaceableObject, type Footprint, type Shape } from '../../core/object';
-import type { CityVolume, VolumeCell } from '../../domain/city-volume';
-import {
-	planningHeights,
-	planningVolume,
-	resolveSurfaces,
-	type SurfaceAssignment
-} from '../surface';
+import type { Vec2 } from '../../core/geometry';
+import { PlaceableObject, type Footprint } from '../../core/object';
+import type { CityVolume } from '../../domain/city-volume';
+import type { TerrainGrid } from '../../domain/terrain-grid';
+import { planningStudy, resolveSurfaces, type Drawable } from '../surface';
+import { latticeMesh } from './lattice';
+import { profileMesh } from './profile';
 
-function cellGeometry(
-	{ id, height, edges }: VolumeCell,
-	sides: readonly (readonly Vec3[])[]
-): { shape: Shape; strokeSegments: readonly number[] } {
-	const ring = sides.flat();
-	const count = ring.length;
-	const positions = ring.flatMap((point) => [...point]);
-	const roof = ring.map(([x, y, z]): Vec3 => [x, y, z + height]);
-	for (const point of roof) positions.push(...point);
-	const middle = ring.reduce(
-		([x, y, z], [u, v, w]) => [x + u / count, y + v / count, z + w / count],
-		[0, 0, height]
-	);
-	positions.push(...middle);
-	const indices: number[] = [];
-	const segments: number[] = [];
-	let a = 0;
-	for (const [edge, side] of sides.entries()) {
-		const neighbor = edges[edge];
-		const wallHeight = neighbor === null ? height : -neighbor.heightDifference;
-		const drawsRim = !neighbor || wallHeight !== 0 || id < neighbor.id;
-		const end = a + side.length;
-		if (wallHeight > 0) {
-			const corners = neighbor ? [a, end % count] : [a];
-			for (const corner of corners) {
-				const [x, y, z] = roof[corner];
-				segments.push(x, y, z - wallHeight, x, y, z);
-			}
-		}
-		for (; a < end; a++) {
-			const b = (a + 1) % count;
-			indices.push(2 * count, a + count, b + count);
-			if (drawsRim) segments.push(...roof[a], ...roof[b]);
-			if (!neighbor) segments.push(...ring[a], ...ring[b]);
-			if (wallHeight <= 0) continue;
-			const bottom = positions.length / 3;
-			for (const [x, y, z] of [roof[a], roof[b]]) positions.push(x, y, z - wallHeight);
-			indices.push(bottom, bottom + 1, b + count, bottom, b + count, a + count);
-		}
-	}
-	return { shape: { kind: 'mesh', positions, indices }, strokeSegments: Object.freeze(segments) };
-}
+const noStrokes: readonly number[] = Object.freeze([]);
 
-/** Projects one indexed hull mesh per cell in local stage meters. Rings are the terrain
- * projection's ordered sides. Their samples support the walls and a translated canopy,
- * drawing only the exterior and exposed height differences. The terrain itself closes the footprint underneath. */
+/** Projects the sampled profile and the full metric cells as separate drawable batches.
+ * The XY transform puts both in the terrain's local frame. The ground sampler returns
+ * unscaled world terrain heights in meters. No vertices or faces are added to an empty grid. */
 export function projectCityVolume(
 	volume: CityVolume,
-	edgesByCellId: ReadonlyMap<string, readonly (readonly Vec3[])[]>,
-	footprint: Footprint
+	plan: TerrainGrid,
+	footprint: Footprint,
+	toLocal: (x: number, y: number) => Vec2,
+	groundHeight: (x: number, y: number) => number
 ) {
-	const geometry = volume.cells.map((cell) =>
-		cellGeometry(cell, required(edgesByCellId.get(cell.id), 'draped cell edges'))
-	);
+	const profile = profileMesh(plan, volume.profile, toLocal, groundHeight);
+	const lattice = latticeMesh(plan, volume.grid, toLocal);
+	const parts = [
+		{ id: 'lattice', slot: 'lattice', shape: lattice.geometry },
+		{ id: 'profile', slot: 'profile', shape: profile.geometry },
+		{ id: 'nodes', slot: 'nodes', shape: profile.nodes }
+	];
 	const object = PlaceableObject.create({
 		id: 'city-volume',
-		slots: ['volume'],
+		slots: parts.map(({ slot }) => slot),
+		parts: parts.filter(({ shape }) => shape.indices.length),
 		footprint,
-		anchors: [],
-		parts: volume.cells.map(({ id }, index) => ({
-			id,
-			slot: 'volume',
-			shape: geometry[index].shape
-		}))
+		anchors: []
 	});
-	function drawables(assignment: SurfaceAssignment) {
-		return resolveSurfaces(object, assignment).map((part, index) => ({
-			...part,
-			strokeSegments: geometry[index].strokeSegments
-		}));
-	}
-	return {
-		object,
-		drawables: drawables(planningVolume),
-		heightDrawables: drawables(planningHeights)
-	};
+	const drawables: Drawable[] = resolveSurfaces(object, planningStudy).map((drawable) => ({
+		...drawable,
+		strokeSegments:
+			drawable.id === 'profile'
+				? profile.wires
+				: drawable.id === 'lattice'
+					? lattice.wires
+					: noStrokes
+	}));
+	return { object, drawables };
 }

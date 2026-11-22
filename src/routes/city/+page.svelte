@@ -1,16 +1,18 @@
 <script module lang="ts">
 	export const lead =
-		'The city grows from the terrain as grids, building shapes and events give it form without a master plan.';
+		'The city follows the valley floor. A continuous height profile sets its upper limit and a three-dimensional grid fills the space below.';
 </script>
 
 <script lang="ts">
 	import { page } from '$app/state';
 	import { required } from '../../lib/core/invariant';
+	import { bounds } from '../../lib/core/object';
 	import { resolveParams } from '../../lib/core/params';
 	import { cityVolumeParams } from '../../lib/domain/city-volume';
 	import { projectCityVolume } from '../../lib/scene/city-volume-projection';
 	import type { View } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
+	import { planningOverlay } from '../../lib/scene/surface';
 	import { terrainGridProjection } from '../../lib/scene/terrain-grid-projection';
 	import { projectValleyWindow } from '../../lib/scene/valley-projection';
 	import { Slider } from '../../lib/ui/slider';
@@ -22,18 +24,16 @@
 
 	const chapter = chapterAt('/city');
 	const city = createCitySite();
-	const heightsScale = `Heights ×${city.heightScale}`;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
 	const planFit = { bearing: (10 * Math.PI) / 180, elevation: (28 * Math.PI) / 180, fill: 0.98 };
-	const volumeFit = { ...planFit, zoom: 1.27 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
 	const steps = [
 		{ value: '01', label: 'Plan' },
-		{ value: '02', label: 'Volume' },
-		{ value: '03', label: 'Heights' }
+		{ value: '02', label: 'Profile' },
+		{ value: '03', label: 'Grid' }
 	];
 	const { citySize: sizeParam } = citySiteParams;
 	const { height: heightParam, complexity: complexityParam } = cityVolumeParams;
@@ -64,26 +64,31 @@
 	);
 	let height = $derived(volumeInputs.height);
 	let complexity = $derived(volumeInputs.complexity);
-	const activeComplexity = $derived(step === '03' ? complexity : 0);
 
 	const plan = $derived(preparePlan(citySize));
-	const volume = $derived(prepareVolume(plan, height, activeComplexity));
+	const volume = $derived(prepareVolume(plan, height, complexity));
+	const volumeFit = $derived({
+		bearing: (-34 * Math.PI) / 180,
+		elevation: (33 * Math.PI) / 180,
+		fill: 0.9,
+		zoom: 1.16,
+		focus: volume.projection.object.parts.length ? bounds(volume.projection.object) : undefined
+	});
 	const drawables = $derived([
 		...plan.terrainDrawables,
-		...(step === '02' ? plan.lines.traces : plan.lines.drawables).map((part) => ({
+		...(step === '01' ? plan.lines.drawables : plan.lines.traces),
+		...volume.projection.drawables.map((part) => ({
 			...part,
-			visible: step !== '03'
-		})),
-		...(step === '03' ? volume.projection.heightDrawables : volume.projection.drawables).map(
-			(part) => ({ ...part, visible: step !== '01' })
-		)
+			...(part.id === 'profile' && step === '03' ? planningOverlay : {}),
+			visible: part.id === 'lattice' ? step === '03' : step !== '01'
+		}))
 	]);
 
 	const measurements = $derived([
-		{ label: 'Cells', value: plan.grid.cells.length, unit: '' },
+		{ label: 'Plan cells', value: plan.grid.cells.length, unit: '' },
 		{ label: 'City area', value: plan.areaHectares, unit: 'ha' },
-		{ label: 'Maximum height', value: step === '01' ? 0 : volume.maxHeight, unit: 'm' },
-		{ label: 'Median height', value: step === '01' ? 0 : volume.medianHeight, unit: 'm' }
+		...(step === '01' ? [] : [{ label: 'Peak height', value: volume.peakHeight, unit: 'm' }]),
+		...(step === '03' ? [{ label: 'Grid cells', value: volume.grid.cells.length, unit: '' }] : [])
 	]);
 
 	function preparePlan(length: number) {
@@ -98,19 +103,10 @@
 		if (ground.kind !== 'mesh') throw new Error('Expected a valley ground mesh');
 		const { footprint } = terrain.object;
 		const lines = terrainGridProjection(ground, terrain.toLocal, footprint)(plan.grid);
-		let projected: ReturnType<typeof projectCityVolume>;
-		let projectedHeights: readonly number[] = [];
-		function project(volume: ReturnType<typeof plan.readVolume>['volume']) {
-			const heights = volume.cells.map(({ height }) => height);
-			if (!projected || heights.some((height, index) => height !== projectedHeights[index])) {
-				projected = projectCityVolume(volume, lines.edgesByCellId, footprint);
-				projectedHeights = heights;
-			}
-			return projected;
-		}
 		return {
 			...plan,
-			project,
+			footprint,
+			toLocal: terrain.toLocal,
 			terrainDrawables: terrain.drawables,
 			lines,
 			generationMs: generated - started,
@@ -122,9 +118,16 @@
 		const started = performance.now();
 		const volume = plan.readVolume({ height, complexity });
 		const generated = performance.now();
-		const projection = plan.project(volume.volume);
+		const projection = projectCityVolume(
+			volume,
+			plan.grid,
+			plan.footprint,
+			plan.toLocal,
+			(x, y) => city.valley.sampleGround(x, y).height
+		);
 		return {
 			...volume,
+			peakHeight: volume.profile.height(...volume.profile.summit),
 			projection,
 			generationMs: generated - started,
 			projectionMs: performance.now() - generated
@@ -140,7 +143,7 @@
 
 <section
 	class="grid grid-aside"
-	aria-label="City plan and volume"
+	aria-label="City plan, profile and grid"
 	data-generation-ms={(plan.generationMs + volume.generationMs).toFixed(2)}
 	data-projection-ms={(plan.projectionMs + volume.projectionMs).toFixed(2)}
 	data-volume-generation-ms={volume.generationMs.toFixed(2)}
@@ -154,8 +157,8 @@
 			label={step === '01'
 				? 'Coarse city plan on the valley terrace'
 				: step === '02'
-					? 'Translucent city volume of uniform height above the valley terrace'
-					: 'Solid city volumes with high and low areas on the valley terrace'}
+					? 'Elevation profile above the city plan'
+					: 'Stacked lattice cells beneath the city’s elevation profile'}
 			landscape
 			fit={step === '01' ? planFit : volumeFit}
 		/>
@@ -174,7 +177,6 @@
 				</div>
 			{/each}
 		</dl>
-		<p class="data">{heightsScale}</p>
 	</div>
 
 	<Tabs label="City steps" items={steps} bind:value={step}>
@@ -194,8 +196,8 @@
 					/>
 				{:else if active === '02'}
 					<p>
-						Each cell rises by the same height above its ground line. The transparent hull shows the
-						outline and the plan beneath it. The height limit is in meters.
+						One continuous surface rises from the city edge to a main peak and lower shoulders.
+						Height sets the summit in meters above the ground.
 					</p>
 					<Slider
 						label={heightParam.label}
@@ -206,8 +208,8 @@
 					/>
 				{:else}
 					<p>
-						The same cells form a few high areas with lower cells around them. Increasing complexity
-						deepens the difference between high and low areas.
+						Each plan cell holds as many full levels as fit under the profile at its center. Higher
+						complexity brings out secondary peaks and saddles.
 					</p>
 					<Slider
 						label={complexityParam.label}

@@ -1,134 +1,120 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { TerrainGrid } from '../terrain-grid';
-import { CityVolume, storeyHeight } from './index';
+import { CityVolume, levelHeight } from './index';
 import { example } from './example';
 
-// Same seeds and growth rectangle as the terrain-grid contract.
-const seeds = [0, 1, 7, 42, 1201, 1301, 1409, 65537, 4294967295];
-const datum = { origin: [12, 16], bearing: 0.31 } as const;
+const seed = 1201;
+const datum = { origin: [0, 0], bearing: 0, length: 380, width: 152 } as const;
 
-function plan(seed = 1201, length = 96, width = 64, cellSize = 5) {
+function plan(length: number = datum.length, width: number = datum.width) {
 	return TerrainGrid.create({
 		seed,
 		site: { ...datum, length, width },
-		parameters: { cellSize },
-		heightAt: (x, y) => 11 + 0.026 * x + 0.058 * y
+		parameters: { cellSize: 20 },
+		heightAt: () => 0
 	});
 }
 
-test('repeats detached frozen cells and reports each shared edge from both sides', () => {
-	const grid = structuredClone(plan());
-	const source = { plan: grid, datum, seed: 1201, parameters: { height: 32, complexity: 1 } };
-	const before = structuredClone(source);
-	const result = CityVolume.create(source);
-	expect(CityVolume.create(source)).toEqual(result);
-	expect(source).toEqual(before);
-	expect(result.cells.map(({ id }) => id)).toEqual(grid.cells.map(({ id }) => id));
-	const vertices = new Map(grid.vertices.map(({ id, position }) => [id, position]));
-	const cells = new Map(result.cells.map((cell) => [cell.id, cell]));
-	expect(Object.isFrozen(result.cells)).toBe(true);
-	for (const [index, cell] of result.cells.entries()) {
-		const ground = grid.cells[index];
-		expect(cell.base).toEqual(
-			ground.vertexIds.map((id) => required(vertices.get(id), 'plan vertex'))
-		);
-		expect(cell.base[0]).not.toBe(vertices.get(ground.vertexIds[0]));
-		expect(Object.isFrozen(cell.base[0])).toBe(true);
-		expect(Object.isFrozen(cell.edges)).toBe(true);
-		for (const [edge, neighbor] of cell.edges.entries()) {
-			const id = ground.neighbors[edge];
-			expect(neighbor?.id ?? null).toBe(id);
-			if (neighbor) {
-				const other = required(cells.get(neighbor.id), 'volume neighbor');
-				expect(neighbor.heightDifference).toBe(other.height - cell.height);
-				expect(Object.isFrozen(neighbor)).toBe(true);
-			}
+test('samples a continuous profile across cell edges and falls low at the outline', () => {
+	const terrain = plan();
+	const { profile } = CityVolume.create({ seed, datum, plan: terrain });
+	const vertices = new Map(terrain.vertices.map(({ id, position }) => [id, position]));
+	const boundary = new Set(terrain.boundary.flatMap((edge) => [...edge]));
+	for (const { vertexIds, neighbors } of terrain.cells) {
+		for (const [i, neighbor] of neighbors.entries()) {
+			const [ax, ay] = required(vertices.get(vertexIds[i]), 'plan corner');
+			const [bx, by] = required(vertices.get(vertexIds[(i + 1) % 4]), 'plan corner');
+			const x = (ax + bx) / 2;
+			const y = (ay + by) / 2;
+			const dx = (by - ay) * 1e-6;
+			const dy = (ax - bx) * 1e-6;
+			expect(profile.height(x + dx, y + dy)).toBeCloseTo(profile.height(x - dx, y - dy), 3);
+			if (!neighbor) expect(profile.height(x, y)).toBeLessThan(18);
 		}
+	}
+	for (const id of boundary) {
+		const [x, y] = required(vertices.get(id), 'plan vertex');
+		expect(profile.height(x, y)).toBeLessThan(18);
+	}
+	expect(profile.height(...profile.summit)).toBeCloseTo(96, 8);
+});
+
+test('repeats the same seed and scales every sample without moving the summit', () => {
+	const options = { seed, datum, plan: plan() };
+	const a = CityVolume.create(options);
+	const b = CityVolume.create(options);
+	const high = CityVolume.create({ ...options, parameters: { height: 144 } });
+	const other = CityVolume.create({ ...options, seed: seed + 1 });
+	expect(high.profile.summit).toEqual(a.profile.summit);
+	expect(other.profile.summit).not.toEqual(a.profile.summit);
+	expect(a.grid).toEqual(b.grid);
+	for (const {
+		position: [x, y]
+	} of options.plan.vertices) {
+		expect(a.profile.height(x, y)).toBe(b.profile.height(x, y));
+		expect(high.profile.height(x, y)).toBeCloseTo(a.profile.height(x, y) * 1.5, 10);
 	}
 });
 
-test('keeps every old cell height and base when the grid crop grows', () => {
-	const options = { seed: 1201, datum, parameters: { height: 32, complexity: 1 } };
-	const small = CityVolume.create({ ...options, plan: plan() });
-	const large = CityVolume.create({ ...options, plan: plan(1201, 161, 113) });
-	const larger = new Map(large.cells.map((cell) => [cell.id, cell]));
-	expect(small.cells.length).toBeGreaterThan(100);
-	expect(larger.size).toBeGreaterThan(small.cells.length);
-	for (const { id, height, base } of small.cells)
-		expect(larger.get(id)).toMatchObject({ id, height, base });
+test('retains the levels and IDs of existing cells through growth', () => {
+	const options = { seed, datum };
+	const small = CityVolume.create({ ...options, plan: plan() }).grid;
+	const big = CityVolume.create({ ...options, plan: plan(620, 300) }).grid;
+	const larger = new Map(big.columns.map((column) => [column.planCellId, column]));
+	expect(big.columns.length).toBeGreaterThan(small.columns.length);
+	for (const column of small.columns) expect(larger.get(column.planCellId)).toEqual(column);
+	const ids = new Set(big.cells.map(({ id }) => id));
+	expect(ids.size).toBe(big.cells.length);
+	for (const { id } of small.cells) expect(ids.has(id)).toBe(true);
+	expect(Math.max(...example().grid.columns.map(({ levels }) => levels))).toBe(6);
 });
 
-test('shares bounds and supports both a capped top storey and the minimum positive height', () => {
-	const options = { plan: plan(), datum, seed: 1201 };
-	const heights = (height: number, complexity: number) =>
-		new Set(
-			CityVolume.create({ ...options, parameters: { height, complexity } }).cells.map(
-				(cell) => cell.height
-			)
-		);
-	expect(heights(200, -1)).toEqual(new Set([32]));
-	expect(heights(-20, 8)).toEqual(new Set([1]));
-	expect([...heights(2.4, 1)]).toHaveLength(1);
-	expect([...heights(2.4, 1)][0]).toBeCloseTo(2.4);
-	expect(heights(21, 8)).toEqual(heights(21, 1));
-	expect(example().cells.length).toBeGreaterThan(0);
-});
-
-test('keeps jumps over two storeys to at most 8% of edges across all registered seeds', () => {
-	for (const seed of seeds) {
-		const grid = plan(seed, 620, 260, 40);
-		for (let step = 0; step <= 100; step++) {
-			const { cells } = CityVolume.create({
-				plan: grid,
-				datum,
-				seed,
-				parameters: { height: 32, complexity: step / 100 }
-			});
-			const edges = cells.flatMap(({ edges }) => edges.filter((edge) => edge !== null));
-			const steep = edges.filter(
-				({ heightDifference }) => Math.abs(heightDifference) > 2 * storeyHeight
-			);
-			expect(steep.length / edges.length).toBeLessThanOrEqual(0.08);
-			if (step === 100) {
-				const heights = cells.map(({ height }) => height);
-				expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThanOrEqual(
-					4 * storeyHeight
+test('adds two distinct shoulders and saddles to the broad dome', () => {
+	const options = { seed, datum, plan: plan(440, 220) };
+	function maxima(complexity: number) {
+		const { profile } = CityVolume.create({ ...options, parameters: { complexity } });
+		const peaks: number[] = [];
+		for (let x = -180; x <= 180; x += 2) {
+			for (let y = -70; y <= 70; y += 2) {
+				const height = profile.height(x, y);
+				const neighbors = [-2, 0, 2].flatMap((dx) =>
+					[-2, 0, 2]
+						.filter((dy) => dx !== 0 || dy !== 0)
+						.map((dy) => profile.height(x + dx, y + dy))
 				);
-				expect(
-					heights.every(
-						(height) =>
-							height >= storeyHeight &&
-							height <= 32 &&
-							(height === 32 || height % storeyHeight === 0)
-					)
-				).toBe(true);
+				if (height > 40 && neighbors.every((other) => height > other)) peaks.push(height);
 			}
 		}
+		return peaks.sort((a, b) => b - a);
 	}
+	expect(maxima(0)).toHaveLength(1);
+	const peaks = maxima(1);
+	expect(peaks).toHaveLength(3);
+	expect(peaks[0]).toBeGreaterThan(6 * levelHeight);
+	expect(peaks[2]).toBeGreaterThan(3 * levelHeight);
 });
 
-test('rejects invalid numeric inputs and malformed plan topology', () => {
-	const grid = plan();
-	const source = { plan: grid, datum, seed: 1201 };
-	expect(() => CityVolume.create({ ...source, seed: -1 })).toThrow(RangeError);
-	expect(() => CityVolume.create({ ...source, datum: { ...datum, bearing: Infinity } })).toThrow(
-		RangeError
-	);
-	expect(() => CityVolume.create({ ...source, parameters: { height: NaN } })).toThrow(RangeError);
-	expect(() => CityVolume.create({ ...source, parameters: { complexity: Infinity } })).toThrow(
-		RangeError
-	);
-	expect(() => CityVolume.create({ ...source, plan: { ...grid, vertices: [] } })).toThrow(
-		RangeError
-	);
-	expect(() =>
-		CityVolume.create({
-			...source,
-			plan: { ...grid, cells: [grid.cells[0], ...grid.cells] }
-		})
-	).toThrow(RangeError);
-	expect(() =>
-		CityVolume.create({ ...source, plan: { ...grid, cells: grid.cells.slice(0, 1) } })
-	).toThrow(RangeError);
+test('counts only full levels at plan cell centers', () => {
+	const terrain = plan();
+	const { profile, grid } = CityVolume.create({
+		seed,
+		datum,
+		plan: terrain,
+		parameters: { height: 16 }
+	});
+	const vertices = new Map(terrain.vertices.map(({ id, position }) => [id, position]));
+	for (const [i, cell] of terrain.cells.entries()) {
+		const [x, y] = cell.vertexIds.reduce(
+			([x, y], id) => {
+				const [u, v] = required(vertices.get(id), 'plan vertex');
+				return [x + u / 4, y + v / 4];
+			},
+			[0, 0]
+		);
+		expect(grid.columns[i]).toEqual({
+			planCellId: cell.id,
+			levels: Math.floor(profile.height(x, y) / levelHeight)
+		});
+	}
 });

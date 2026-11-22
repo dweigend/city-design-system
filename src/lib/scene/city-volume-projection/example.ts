@@ -1,14 +1,23 @@
-import type { Vec3 } from '../../core/geometry';
+import { CityVolume } from '../../domain/city-volume';
+import { TerrainGrid } from '../../domain/terrain-grid';
 import { projectCityVolume } from './index';
 
 export function example() {
-	const base: readonly Vec3[] = [
-		[0, 0, 1],
-		[2, 0, 1],
-		[2, 2, 2],
-		[0, 2, 2]
-	];
-	const cells = [{ id: 'cell', base, height: 6, edges: [null, null, null, null] }];
-	const sides = base.map((point) => [point]);
-	return projectCityVolume({ cells }, new Map([['cell', sides]]), { width: 2, depth: 2 });
+	const seed = 1201;
+	const datum = { origin: [0, 0], bearing: 0, length: 380, width: 152 } as const;
+	const heightAt = (_x: number, y: number) => 10 + y * 0.06;
+	const plan = TerrainGrid.create({ seed, site: datum, heightAt });
+	const volume = CityVolume.create({ seed, plan, datum });
+	return {
+		plan,
+		volume,
+		heightAt,
+		...projectCityVolume(
+			volume,
+			plan,
+			{ width: datum.length, depth: datum.width },
+			(x, y) => [x, y],
+			heightAt
+		)
+	};
 }

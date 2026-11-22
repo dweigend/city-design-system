@@ -117,34 +117,21 @@ export function readCityGrid(
 	});
 }
 
-function readCityVolume(
-	city: ReturnType<typeof createCitySite>,
-	plan: Grid,
-	parameters: CityVolumeOptions['parameters']
-) {
-	const volume = CityVolume.create({
-		plan,
-		datum: { origin: city.origin, bearing: city.frame.bearing },
-		seed: city.valley.seed,
-		parameters
-	});
-	const heights = volume.cells.map(({ height }) => height).sort((a, b) => a - b);
-	return Object.freeze({
-		volume,
-		maxHeight: heights.at(-1) ?? 0,
-		medianHeight: median(heights)
-	});
-}
-
-/** Composes the city plan from the fixed valley and site at the given city size in meters.
- * The returned reader lifts this exact plan from the same datum and seed. Its maximum
- * and median heights are in meters above ground, both zero when the plan is empty. */
+/** Composes the terrain window, plan and a reader for its profile and lattice.
+ * The profile datum uses the same smallest reference span for every city size. */
 export function createCityPlan(city: ReturnType<typeof createCitySite>, citySize: number) {
 	const plan = readCityGrid(city, citySize);
+	const referenceLength = citySiteParams.citySize.min;
+	const datum = {
+		origin: city.origin,
+		bearing: city.frame.bearing,
+		length: referenceLength,
+		width: referenceLength * outlineAspect * 0.8
+	};
 	return Object.freeze({
 		...plan,
 		window: cityWindow(city, citySize),
-		readVolume: (parameters: CityVolumeOptions['parameters']) =>
-			readCityVolume(city, plan.grid, parameters)
+		readVolume: (parameters?: CityVolumeOptions['parameters']) =>
+			CityVolume.create({ plan: plan.grid, datum, seed: city.valley.seed, parameters })
 	});
 }

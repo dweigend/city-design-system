@@ -8,8 +8,7 @@ import { drape } from './drape';
 /** Prepares the terrain's triangle index once. The returned function projects a grid as one
  * line-finished mesh batch, with a private ring of indices per cell. It splits edges at terrain
  * triangle crossings and follows the mesh's exaggerated Z. The stage applies the depth bias.
- * Supplies regular and faint strokes on the same mesh. Includes the draped edges by cell ID, ordered like the plan boundary of each
- * cell. Throws RangeError for an edge outside the mesh. Grid data stays in true meters. */
+ * Supplies regular and faint strokes on the same mesh. Throws RangeError for an edge outside the mesh. Grid data stays in true meters. */
 export function terrainGridProjection(
 	ground: Extract<Shape, { kind: 'mesh' }>,
 	toLocal: (x: number, y: number) => Vec2,
@@ -41,10 +40,8 @@ function projectGrid(
 		}
 		return (forward ? points : [...points].reverse()).slice(0, -1);
 	}
-	const drapedEdges = new Map<string, readonly (readonly Vec3[])[]>();
-	for (const { id, vertexIds } of grid.cells) {
+	for (const { vertexIds } of grid.cells) {
 		const sides = vertexIds.map((from, i) => edge(from, vertexIds[(i + 1) % 4]));
-		drapedEdges.set(id, sides);
 		const ring = sides.flat();
 		const center = positions.length / 3;
 		const middle = vertexIds.reduce(
@@ -72,10 +69,8 @@ function projectGrid(
 	});
 	const drawables = resolveSurfaces(object, { cell: { color: '--ink-2', finish: 'line' } });
 	const traces = resolveSurfaces(object, { cell: { color: '--plan-trace', finish: 'line' } });
-	const edgesByCellId: ReadonlyMap<string, readonly (readonly Vec3[])[]> = drapedEdges;
 	return Object.freeze({
 		object,
-		edgesByCellId,
 		traces: Object.freeze(traces.map((part) => Object.freeze(part))),
 		drawables: Object.freeze(drawables.map((part) => Object.freeze(part)))
 	});

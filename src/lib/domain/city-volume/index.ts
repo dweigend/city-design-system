@@ -1,119 +1,72 @@
-import type { Vec2, Vec3 } from '../../core/geometry';
+import type { Vec2 } from '../../core/geometry';
+import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
-import type { TerrainGrid, TerrainGridVertex } from '../terrain-grid';
-import { heightField } from './height';
+import type { TerrainGrid } from '../terrain-grid';
+import { distanceToEdge, createProfile, type ProfileDatum } from './profile';
 
-/** A full storey is three meters. The top storey can be partial at the height cap. */
-export const storeyHeight = 3;
+/** Full lattice level height in meters. A 96 m summit fits six full levels. */
+export const levelHeight = 14;
 
-/** Shared height cap in meters and unitless differentiation with city preview defaults. */
+/** Summit height above ground in meters and unitless relief. */
 export const cityVolumeParams = defineParams({
-	height: { ...blockInputs.height, default: blockInputs.height.max },
-	complexity: { ...blockInputs.complexity, default: blockInputs.complexity.max }
+	height: { label: 'Height', unit: 'm', min: 16, max: 144, default: 96, step: 1 },
+	complexity: { ...blockInputs.complexity, default: 0.75 }
 });
 
-/** A signed change in height above shared ground, from this cell to its neighbor, in meters. */
-export type VolumeEdge = Readonly<{ id: string; heightDifference: number }>;
-
-/** One plan cell in meters. Raise each CCW base point by height for the canopy; edge i
- * leads from base point i to its successor, with null at the outside of the plan. */
-export type VolumeCell = Readonly<{
-	id: string;
-	base: readonly Vec3[];
-	height: number;
-	edges: readonly (VolumeEdge | null)[];
-}>;
-
-/** Detached, deeply frozen volume cells in plan order. */
-export type CityVolume = Readonly<{ cells: readonly VolumeCell[] }>;
-
-/** The datum and its bearing (radians) stay fixed as the plan grows. TerrainGrid's addressed
- * vertices and ordered neighbor slots give the volume the same cell IDs and shared edges. */
+/** A seeded profile and lattice over an immutable plan. The datum's origin, bearing
+ * (radians) and reference extents (meters) stay fixed across crops. */
 export type CityVolumeOptions = Readonly<{
-	plan: Pick<TerrainGrid, 'cells' | 'vertices'>;
-	datum: Readonly<{ origin: Vec2; bearing: number }>;
+	plan: TerrainGrid;
+	datum: ProfileDatum;
 	seed: number;
 	parameters?: Readonly<{ height?: number; complexity?: number }>;
 }>;
 
-function uniqueById<T extends { id: string }>(items: readonly T[]) {
-	const indexed = new Map<string, T>();
-	for (const item of items) {
-		if (!item.id || indexed.has(item.id)) throw new RangeError('Missing or duplicate plan id');
-		indexed.set(item.id, item);
-	}
-	return indexed;
-}
+/** One full lattice cell, addressed by its plan cell and zero-based level. */
+export type CityCell = Readonly<{ id: string; planCellId: string; level: number }>;
 
-function baseRing(vertices: ReadonlyMap<string, TerrainGridVertex>, ids: readonly string[]) {
-	const base = ids.map((id) => {
-		const position = vertices.get(id)?.position;
-		if (position?.length !== 3 || !position.every(Number.isFinite))
-			throw new RangeError('Expected a finite plan vertex');
-		return Object.freeze([...position] as const);
-	});
-	if (
-		base.length !== 4 ||
-		new Set(ids).size !== 4 ||
-		base.some(([ax, ay], i) => {
-			const [bx, by] = base[(i + 1) % 4];
-			const [cx, cy] = base[(i + 2) % 4];
-			return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= 0;
-		})
-	)
-		throw new RangeError('Expected a convex counterclockwise plan cell');
-	return Object.freeze(base);
-}
+/** Continuous height above ground, with grid columns in plan order and cells bottom up. */
+export type CityVolume = Readonly<{
+	profile: Readonly<{ height: (x: number, y: number) => number; summit: Vec2 }>;
+	grid: Readonly<{
+		columns: readonly Readonly<{ planCellId: string; levels: number }>[];
+		cells: readonly CityCell[];
+	}>;
+}>;
 
-function create({
-	plan,
-	datum: { origin, bearing },
-	seed,
-	parameters
-}: CityVolumeOptions): CityVolume {
-	const { height, complexity } = resolveParams(cityVolumeParams, parameters);
-	if (origin.length !== 2 || ![...origin, bearing].every(Number.isFinite))
-		throw new RangeError('Expected a finite plan datum');
-	const field = heightField(seed, origin, bearing);
-	const vertices = uniqueById(plan.vertices);
-	uniqueById(plan.cells);
-	const storeys = Math.max(1, Math.ceil(height / storeyHeight));
-	const cells = plan.cells.map(({ id, vertexIds, neighbors }) => {
-		const base = baseRing(vertices, vertexIds);
-		const center = base.reduce<Vec2>(([x, y], [u, v]) => [x + u / 4, y + v / 4], [0, 0]);
-		const fraction = 1 - complexity * (1 - field(center));
-		const cellHeight = Math.min(height, Math.max(1, Math.round(storeys * fraction)) * storeyHeight);
-		return { id, base, height: cellHeight, vertexIds, neighbors };
+/** Builds a detached profile and grid from a valid terrain grid and fixed datum. The
+ * profile takes world XY meters and returns meter offsets above terrain. Complete
+ * levels fit at each cell's XY center. A growing crop preserves existing levels
+ * and IDs. Changing height scales every sample. Invalid datum, seed or inputs throw. */
+function create({ plan, datum, seed, parameters }: CityVolumeOptions): CityVolume {
+	const values = resolveParams(cityVolumeParams, parameters);
+	const vertices = new Map(plan.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
+	const point = (id: string) => required(vertices.get(id), 'city plan vertex');
+	const boundary = plan.boundary.map(([a, b]) => [point(a), point(b)] as const);
+	let edgeWidth = datum.width / 7;
+	const samples = plan.cells.map(({ id, vertexIds }) => {
+		const ring = vertexIds.map(point);
+		const center = ring.reduce<Vec2>(([x, y], [u, v]) => [x + u / 4, y + v / 4], [0, 0]);
+		// Fade within the edge of the crop, without changing any cell center sample.
+		for (const [i, a] of ring.entries()) {
+			edgeWidth = Math.min(edgeWidth, distanceToEdge(center, a, ring[(i + 1) % 4]));
+		}
+		return { id, center };
 	});
-	const cellsById = new Map(cells.map((cell) => [cell.id, cell]));
-	return Object.freeze({
-		cells: Object.freeze(
-			cells.map(({ id, base, height, neighbors, vertexIds }) => {
-				if (neighbors.length !== vertexIds.length)
-					throw new RangeError('Expected one neighbor slot per plan edge');
-				const edges = neighbors.map((neighborId, edge) => {
-					if (neighborId === null) return null;
-					const neighbor = cellsById.get(neighborId);
-					const opposite = neighbor?.vertexIds.indexOf(vertexIds[(edge + 1) % 4]) ?? -1;
-					if (
-						!neighbor ||
-						neighbor.id === id ||
-						opposite < 0 ||
-						neighbor.vertexIds[(opposite + 1) % 4] !== vertexIds[edge] ||
-						neighbor.neighbors[opposite] !== id
-					)
-						throw new RangeError('Expected reciprocal neighbors across the same edge');
-					return Object.freeze({ id: neighborId, heightDifference: neighbor.height - height });
-				});
-				return Object.freeze({ id, base, height, edges: Object.freeze(edges) });
-			})
+	const profile = createProfile(seed, datum, values, boundary, edgeWidth);
+	const columns = samples.map(({ id, center }) =>
+		Object.freeze({ planCellId: id, levels: Math.floor(profile.height(...center) / levelHeight) })
+	);
+	const cells = columns.flatMap(({ planCellId, levels }) =>
+		Array.from({ length: levels }, (_, level) =>
+			Object.freeze({ id: `${planCellId}/level/${level}`, planCellId, level })
 		)
+	);
+	return Object.freeze({
+		profile,
+		grid: Object.freeze({ columns: Object.freeze(columns), cells: Object.freeze(cells) })
 	});
 }
 
-/** Creates a volume without changing the input. Two keyed centers form smooth radial hills;
- * their maximum blends with the uniform height as complexity increases. The same cell ID
- * and stable outline have the same height on a larger crop with the same seed and datum.
- * Parameters clamp and snap through the shared schema. Invalid seeds, geometry or topology throw
- * RangeError. Parameter type errors throw TypeError. An empty plan produces no cells. */
+/** Factory for a seeded city profile and its full-height lattice. */
 export const CityVolume = Object.freeze({ create });

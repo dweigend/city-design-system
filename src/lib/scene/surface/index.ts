@@ -57,23 +57,31 @@ export const landscape = Object.freeze({
 	'water-section': Object.freeze({ color: '--river-section', finish: 'matte', flat: true })
 } satisfies SurfaceAssignment);
 
-/** Blueprint hull for city planning, with see-through surfaces. */
-export const planningVolume = Object.freeze({
-	volume: Object.freeze({
+/** Blueprint surfaces and hairlines for a stepped lattice and its elevation profile. */
+export const planningStudy = Object.freeze({
+	profile: {
 		color: '--blueprint-3',
 		finish: 'glass',
 		flat: true,
-		opacity: '--alpha-hull'
-	})
-} satisfies SurfaceAssignment);
+		opacity: '--alpha-hull',
+		stroke: { color: '--blueprint', width: 0.8, opacity: 0.54 }
+	},
+	nodes: { color: '--blueprint', finish: 'glass', flat: true },
+	lattice: {
+		color: '--blueprint-3',
+		finish: 'glass',
+		flat: true,
+		opacity: '--alpha-trace',
+		stroke: { color: '--blueprint', width: 0.8, opacity: 0.4 }
+	}
+} as const satisfies SurfaceAssignment);
 
-/** The pale blueprint step, with opaque matte fill and the stage's orientation tones. */
-export const planningHeights = Object.freeze({
-	volume: Object.freeze({
-		color: '--blueprint-2',
-		finish: 'matte'
-	})
-} satisfies SurfaceAssignment);
+/** A lighter profile treatment keeps the lattice visible underneath. */
+export const planningOverlay = {
+	...planningStudy.profile,
+	opacity: '--alpha-trace',
+	stroke: { ...planningStudy.profile.stroke, opacity: 0.32 }
+} as const satisfies Surface;
 
 /** Returns the stock assignment with one flow color on the wall. */
 export function accent(color: FlowColor): SurfaceAssignment {
