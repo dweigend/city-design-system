@@ -131,6 +131,7 @@ export function measureRiverSurface(
 	const height = gridSampler(surface.side, protocol.surfaceSpacingM, (i) => surface.heights[i]);
 	const widthM: number[] = [];
 	const bankPairsM: (readonly [number, number])[] = [];
+	const dryBankWidthsM: number[] = [];
 	const { floor } = grid;
 	const terrace = floor && gridSampler(side, grid.spacingM, (i) => Number(floor[i] >= 2));
 	const stepHeightsM: number[] = [];
@@ -155,12 +156,22 @@ export function measureRiverSurface(
 		const banks = wetBanks(profile);
 		if (banks) {
 			widthM.push(banks.right - banks.left);
-			const pair = terrace && floodplainWidths(profile, banks);
-			if (pair) bankPairsM.push(pair);
+			if (terrace) {
+				const [left, right] = floodplainWidths(profile, banks);
+				if (left !== null) dryBankWidthsM.push(left);
+				if (right !== null) dryBankWidthsM.push(right);
+				if (left !== null && right !== null) bankPairsM.push([left, right]);
+			}
 		}
 		stepHeightsM.push(
 			...stepCandidates(profile, protocol.stepMinimumSlope, protocol.stepMinimumGainM)
 		);
 	}
-	return { widthM, bankPairsM, stepHeightsM, ...surfaceStats(surface, signed, protocol) };
+	return {
+		widthM,
+		bankPairsM,
+		dryBankWidthsM,
+		stepHeightsM,
+		...surfaceStats(surface, signed, protocol)
+	};
 }

@@ -54,6 +54,11 @@ function check(row: Measurements, label: string) {
 	expect(row.bankPairsM.length, label + ' complete bank pairs').toBeGreaterThanOrEqual(
 		form.minimumCompleteBankPairs
 	);
+	expect(
+		Math.min(...row.dryBankWidthsM),
+		label + ' dry width on every measured bank'
+	).toBeGreaterThanOrEqual(form.minimumDryBankWidthM);
+	expect(Number.isFinite(row.floodplainRatio), label + ' finite floodplain ratio').toBe(true);
 	expect(row.floodplainRatio, label + ' floodplain width ratio').toBeGreaterThanOrEqual(
 		form.minimumFloodplainWidthRatio
 	);
@@ -68,7 +73,7 @@ function range(values: number[]) {
 
 function reportForm(label: string, rows: Measurements[]) {
 	console.log(
-		`${label}: bank pairs ${range(rows.map((r) => r.bankPairsM.length))}, floodplain ratio ${range(rows.map((r) => r.floodplainRatio))}, step spread ${range(rows.map((r) => r.stepSpreadM))} m.`
+		`${label}: bank pairs ${range(rows.map((r) => r.bankPairsM.length))}, floodplain ratio ${range(rows.map((r) => r.floodplainRatio))}, step spread ${range(rows.map((r) => r.stepSpreadM))} m, minimum dry width ${Math.min(...rows.map((r) => Math.min(...r.dryBankWidthsM))).toFixed(3)} m.`
 	);
 }
 
