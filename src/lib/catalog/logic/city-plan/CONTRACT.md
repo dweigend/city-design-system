@@ -9,5 +9,7 @@ Cell coordinates reference the source snapshot in world X/Y meters with Z up. Bo
 `ground-plan/2` uses named hash draws for district rotation and lobe dimensions, style weights, the common old-town eave, pocket gaps, detached setbacks and tower count.
 Cells emit in carrier order, route ties use discovery order, and memberships sort by cell ID.
 IDs are namespaced by terrain seed, anchor and plan seed. The arterial, network and plaza have fixed role keys. Branches key by destination, courts by carrier block and plots or gaps by cell.
+Each plot has one `parcel` and one `block`. A parcel groups side-connected plots of the same kind within a carrier parcel and block. IDs use the plan namespace and the lexically first ground cell address in the parcel or the carrier block address, respectively.
 Path areas carry ST1 clearance in meters. Courts, the plaza and gaps are open to the sky. Reserved cells have no plot.
-The detached `Reservations` map indexes reserved carrier cell IDs by area owner. For volume consumers it describes ground scope. An ST1 adapter assigns volume cell IDs, convex CCW pieces and a base elevation per piece.
+The detached `plan.reservations` map indexes ground cell IDs by area owner. The volume producer selects protected leaves from each area's scope, including only below-clearance leaves for paths and the full column for open-to-sky areas.
+Call `projectGroundReservations(plan, space, groundByLeaf)` with protected leaf IDs mapped to their reserved ground IDs. Pass the resulting detached `Reservations` map to `occupyCells`. The projection preserves owner IDs, sorts by leaf ID and throws `RangeError` for unknown leaves or unreserved sources.
