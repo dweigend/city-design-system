@@ -30,3 +30,20 @@ test('fits a fixed plate throughout a turn at desktop and phone aspect ratios', 
 		}
 	}
 });
+
+test('a level section pans and anchors its zoom in screen space', () => {
+	const view = createView();
+	view.resize(400, 600);
+	const bounds = new Box3(new Vector3(0, -9, -60), new Vector3(0, 30, 60));
+	view.setInspection({ elevation: 0, heading: Math.PI / 2, margin: 1.1, bounds });
+	const point = [0, 15, 5] as const;
+	const before = view.project(point);
+	view.pan(20, -15);
+	const after = view.project(point);
+	expect(after.x).toBeCloseTo(before.x + 20);
+	expect(after.y).toBeCloseTo(before.y - 15);
+	view.zoomAt(0.8, after.x, after.y);
+	const zoomed = view.project(point);
+	expect(zoomed.x).toBeCloseTo(after.x);
+	expect(zoomed.y).toBeCloseTo(after.y);
+});

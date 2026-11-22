@@ -23,6 +23,7 @@
 	let selected = $state(resolveView(viewPolicy));
 	let paused = $state(false);
 	let error = $state('');
+	let endpoints = $state<{ x: number; y: number }[]>([]);
 	const key = [...sandboxUses, { id: 'paths', name: 'Paths', color: 'var(--cat-business)' }];
 
 	function selectView(value: string) {
@@ -95,8 +96,12 @@
 			strokeEnd: () => {},
 			viewChanged: current.viewChanged
 		});
+		const stopFrame = current.afterFrame(() => {
+			if (selected.view === 'plan') endpoints = current.sectionEndpoints() ?? [];
+		});
 		stage = current;
 		return () => {
+			stopFrame();
 			mounted = false;
 			detach();
 			observer.disconnect();
@@ -143,6 +148,13 @@
 			aria-label="Seed {seed} acceptance scene. Arrow keys pan, plus and minus zoom."
 		></canvas>
 
+		{#if selected.view === 'plan'}
+			{#each endpoints as point, index (index)}
+				<span class="cut-endpoint" style:--x="{point.x}px" style:--y="{point.y}px">
+					{index === 0 ? 'A' : 'A′'}
+				</span>
+			{/each}
+		{/if}
 		{#if error}<p role="alert">{error}</p>{/if}
 	</div>
 	<ul bind:this={legend} class="key" aria-label="Colour key">
@@ -233,6 +245,8 @@
 	}
 	.controls :global(.view-modes) {
 		display: flex;
+		flex-wrap: wrap;
+		max-width: 100%;
 	}
 	.controls > :global(.cg-button),
 	.controls :global(.view-mode) {
@@ -261,7 +275,18 @@
 	.controls :global(.view-mode[data-state='checked']) {
 		background: var(--paper-3);
 	}
+	.cut-endpoint {
+		position: absolute;
+		inset: var(--y) auto auto var(--x);
+		transform: translate(-50%, -50%);
+		padding: 0 var(--space-1);
+		background: var(--paper);
+		color: var(--ink);
+		font: var(--text-s) var(--font-mono);
+		pointer-events: none;
+	}
 	.view {
+		overflow: clip;
 		position: relative;
 		flex: 1;
 		min-height: 0;

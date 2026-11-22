@@ -13,11 +13,17 @@ const distanceTieTolerance = 1e-9;
 
 type SearchState = { distance: number; portIds: string[]; edgeIds: string[] };
 type Neighbor = { to: string; edge: MovementEdge };
+type ReverseShortest = {
+	distToGoal: ReadonlyMap<string, number>;
+	hopsToGoal: ReadonlyMap<string, number>;
+	nextToGoal: ReadonlyMap<string, Neighbor>;
+};
 type CanonicalSearch = {
 	adjacency: ReadonlyMap<string, readonly Neighbor[]>;
 	distToGoal: ReadonlyMap<string, number>;
+	hopsToGoal: ReadonlyMap<string, number>;
 	toPortId: string;
-	limit: number;
+	shortest: number;
 	portIds: string[];
 	edgeIds: string[];
 	visited: Set<string>;
@@ -25,6 +31,10 @@ type CanonicalSearch = {
 
 function compareText(a: string, b: string) {
 	return a < b ? -1 : a > b ? 1 : 0;
+}
+function routeLimit(shortest: number, hops: number): number {
+	const relativeSlack = Math.max(1, shortest) * Math.max(1, hops) * Number.EPSILON * 4;
+	return shortest + distanceTieTolerance + relativeSlack;
 }
 function buildAdjacency(
 	edges: readonly MovementEdge[],
@@ -60,25 +70,53 @@ function shortestDistancesToGoal(
 	adjacency: ReadonlyMap<string, readonly Neighbor[]>,
 	fromPortId: string,
 	toPortId: string
-): ReadonlyMap<string, number> {
-	const distances = new Map<string, number>([[toPortId, 0]]);
+): ReverseShortest {
+	const distToGoal = new Map<string, number>([[toPortId, 0]]);
+	const hopsToGoal = new Map<string, number>([[toPortId, 0]]);
+	const nextToGoal = new Map<string, Neighbor>();
 	const settled = new Set<string>();
 	let shortest: number | undefined;
-	let step = nextUnsettledDistance(distances, settled);
+	let step = nextUnsettledDistance(distToGoal, settled);
 	while (step) {
 		const [portId, distance] = step;
-		if (shortest !== undefined && distance > shortest + distanceTieTolerance) break;
+		if (shortest !== undefined && distance > routeLimit(shortest, adjacency.size)) break;
 		settled.add(portId);
 		if (portId === fromPortId) shortest = distance;
+		const hops = hopsToGoal.get(portId) ?? 0;
 		for (const { to, edge } of adjacency.get(portId) ?? []) {
 			if (settled.has(to)) continue;
 			const nextDistance = distance + edge.length;
-			const existing = distances.get(to);
-			if (existing === undefined || nextDistance < existing) distances.set(to, nextDistance);
+			const existing = distToGoal.get(to);
+			if (existing === undefined || nextDistance < existing) {
+				distToGoal.set(to, nextDistance);
+				hopsToGoal.set(to, hops + 1);
+				nextToGoal.set(to, { to: portId, edge });
+			}
 		}
-		step = nextUnsettledDistance(distances, settled);
+		step = nextUnsettledDistance(distToGoal, settled);
 	}
-	return distances;
+	return { distToGoal, hopsToGoal, nextToGoal };
+}
+function reconstructDijkstraPath(
+	nextToGoal: ReadonlyMap<string, Neighbor>,
+	fromPortId: string,
+	toPortId: string
+): SearchState | undefined {
+	const portIds = [fromPortId];
+	const edgeIds: string[] = [];
+	const seen = new Set([fromPortId]);
+	let distance = 0;
+	let current = fromPortId;
+	while (current !== toPortId) {
+		const step = nextToGoal.get(current);
+		if (!step || seen.has(step.to)) return undefined;
+		seen.add(step.to);
+		portIds.push(step.to);
+		edgeIds.push(step.edge.id);
+		distance += step.edge.length;
+		current = step.to;
+	}
+	return { distance, portIds, edgeIds };
 }
 function searchCanonicalPath(
 	search: CanonicalSearch,
@@ -90,7 +128,8 @@ function searchCanonicalPath(
 		const remaining = search.distToGoal.get(to);
 		if (remaining === undefined) continue;
 		const nextDistance = distance + edge.length;
-		if (nextDistance + remaining > search.limit) continue;
+		const totalHops = search.edgeIds.length + 1 + (search.hopsToGoal.get(to) ?? 0);
+		if (nextDistance + remaining > routeLimit(search.shortest, totalHops)) continue;
 		if (to === search.toPortId)
 			return {
 				distance: nextDistance,
@@ -193,19 +232,22 @@ export function findMovementPath(
 		};
 	}
 	const adjacency = buildAdjacency(graph.edges, ports, query);
-	const distToGoal = shortestDistancesToGoal(adjacency, fromPortId, toPortId);
-	const shortest = distToGoal.get(fromPortId);
+	const reverse = shortestDistancesToGoal(adjacency, fromPortId, toPortId);
+	const shortest = reverse.distToGoal.get(fromPortId);
 	if (shortest === undefined) return undefined;
 	const search: CanonicalSearch = {
 		adjacency,
-		distToGoal,
+		distToGoal: reverse.distToGoal,
+		hopsToGoal: reverse.hopsToGoal,
 		toPortId,
-		limit: shortest + distanceTieTolerance,
+		shortest,
 		portIds: [fromPortId],
 		edgeIds: [],
 		visited: new Set([fromPortId])
 	};
-	const state = searchCanonicalPath(search, fromPortId, 0);
+	const state =
+		searchCanonicalPath(search, fromPortId, 0) ??
+		reconstructDijkstraPath(reverse.nextToGoal, fromPortId, toPortId);
 	if (!state) return undefined;
 	return assemblePath(state, new Map(graph.edges.map((e) => [e.id, e])), ports);
 }

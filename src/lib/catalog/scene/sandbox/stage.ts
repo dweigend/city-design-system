@@ -35,10 +35,14 @@ import {
 } from './projection';
 import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
+import { MODEL_BASE_Y_M } from './terrain-geometry';
 import { createTerrainLook } from './terrain-look';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
 import { createView, type FrameOrientation, type OpeningArea } from './view';
 import { createViewMode } from './view-mode';
+import { createSectionLayer } from './section-layer';
+import { sectionSite } from './section-site';
+import { createSchematicLayer } from './schematic-layer';
 import { createVehicles } from './vehicles';
 import { createTimeline } from './timeline';
 import { collectOpeningGroups } from './court-opening';
@@ -53,7 +57,7 @@ export type StageContext = Readonly<{
 	bounds: THREE.Box3;
 	orientation: FrameOrientation;
 	/** Optional fixed-context orientations for the supported stage views. */
-	viewOrientations?: Readonly<Record<ResolvedView['view'], FrameOrientation>>;
+	viewOrientations?: Readonly<Partial<Record<ResolvedView['view'], FrameOrientation>>>;
 	/** Margin around a fixed context when its view orientations are supplied. */
 	viewMargin?: number;
 	/** Optional perspective lens and subject silhouette for a fixed context. */
@@ -120,11 +124,37 @@ export function createSandboxStage(
 	const structures = createStructures(study.quality, true, light.receiverOutput, terrainLook.mark);
 	const nextFrame = { set: structures.queue };
 	const vehicles = createVehicles();
-	const viewMode = createViewMode(view, terrainLook, vehicles.group);
+	const section = createSectionLayer();
+	const schematic = createSchematicLayer();
+	const viewMode = createViewMode(
+		view,
+		terrainLook,
+		structures.group,
+		vehicles.group,
+		section,
+		schematic
+	);
 	const warmTarget = new THREE.RenderTarget(1, 1);
 	const studyAdditions = study.additions ?? [];
-	scene.add(structures.group, vehicles.group);
-	if (context) scene.add(context.group);
+	scene.add(viewMode.clip, section.group, section.marker, schematic.group);
+	viewMode.clip.add(structures.group, vehicles.group);
+	if (context) viewMode.clip.add(context.group);
+	if (context?.viewOrientations) {
+		const center = context.bounds.getCenter(new THREE.Vector3());
+		const width = context.bounds.getSize(new THREE.Vector3()).x;
+		const sources = context.group.children.flatMap((child) =>
+			child instanceof THREE.Mesh
+				? [{ parent: child, ground: [child.geometry], baseM: context.bounds.min.y }]
+				: []
+		);
+		section.rebuild(
+			[center.x, -center.z, center.y],
+			[0, -1],
+			width * 0.48,
+			[context.bounds.min.y, context.bounds.max.y],
+			sources
+		);
+	}
 
 	const ink = new THREE.Color();
 	const paper = new THREE.Color();
@@ -250,7 +280,8 @@ export function createSandboxStage(
 			openingPending = false;
 			view.frameBase(() => {
 				frameOpening(world, framedArea);
-				if (viewMode.retainsDrafting && terrain) view.frameInspection(terrain.water.geometry);
+				if (viewMode.retainsDrafting && terrain)
+					view.frameInspection(terrain.water.geometry, section.anchors);
 			});
 			viewDirty = shadowsDirty = true;
 		}
@@ -313,6 +344,7 @@ export function createSandboxStage(
 		refreshTones = true;
 		shadowsDirty = true;
 		ink.set(next.ink);
+		schematic.setPalette(next);
 		swatches.planned.set(next.blueprint);
 		swatches.hazard.set(sceneSwatch(next, hazardRole.token));
 		baseOutline.color.copy(ink);
@@ -320,6 +352,10 @@ export function createSandboxStage(
 		rejectionMaterial.color.copy(swatches.hazard);
 		targetMaterial.color.set(sceneSwatch(next, '--signal'));
 		terrain?.setPalette(next);
+		section.setPalette(
+			next,
+			terrain?.waterColor() ?? new THREE.Color(sceneSwatch(next, '--cat-health'))
+		);
 		context?.setPalette(next);
 		vehicles.setPalette(next);
 
@@ -328,7 +364,7 @@ export function createSandboxStage(
 
 	function removeLines(lines: LineSegments2 | undefined) {
 		if (!lines) return;
-		scene.remove(lines);
+		lines.removeFromParent();
 		lines.geometry.dispose();
 	}
 
@@ -338,7 +374,7 @@ export function createSandboxStage(
 			new LineSegmentsGeometry().setPositions(mesh.baseLines()),
 			baseOutline
 		);
-		scene.add(baseLines);
+		viewMode.clip.add(baseLines);
 		retainedDirty = true;
 	}
 
@@ -370,7 +406,7 @@ export function createSandboxStage(
 
 	function replaceTerrain(world: World) {
 		if (terrain) {
-			scene.remove(terrain.group);
+			terrain.group.removeFromParent();
 			terrain.dispose();
 		}
 		const plan = study.groundPlan;
@@ -379,7 +415,7 @@ export function createSandboxStage(
 				? new Set(plan.cells.map(({ id }) => id))
 				: undefined;
 		const mesh = createTerrainMesh(world.grid, undefined, light.shade, planCells);
-		scene.add(mesh.group);
+		viewMode.clip.add(mesh.group);
 		drawBaseLines(mesh);
 		if (palette) mesh.setPalette(palette);
 		return mesh;
@@ -446,7 +482,6 @@ export function createSandboxStage(
 			nextFocus !== focus || before.roofBuilder !== after.roofBuilder
 		);
 		if (before.grid !== after.grid) drawBaseLines(mesh);
-		if (before.lines !== after.lines) retainedDirty = true;
 	}
 
 	function frameCurrent(force: boolean, durationMs = 0) {
@@ -460,13 +495,42 @@ export function createSandboxStage(
 		if (mesh && (force || opening)) view.frameBase(() => frameTerrain(mesh));
 	}
 
+	function updateAnalyticalLayers(before: World, world: World, mesh: TerrainMesh) {
+		if (shown?.grid !== world.grid) {
+			const { center, reachM, topM } = sectionSite(world);
+			const waterM = world.grid.terrain.waterLevel;
+			section.rebuild(
+				center,
+				[1, 0],
+				reachM,
+				[waterM - 9, topM],
+				[{ parent: section.group, ground: mesh.sectionGround(), baseM: MODEL_BASE_Y_M, waterM }]
+			);
+			if (palette) section.setPalette(palette, mesh.waterColor());
+			viewMode.frameSection();
+			retainedDirty = true;
+		}
+		if (
+			!shown ||
+			before.lines !== world.lines ||
+			shown.grid !== world.grid ||
+			before.state.city !== world.state.city
+		) {
+			schematic.rebuild(world);
+			retainedDirty = true;
+		}
+	}
+
 	function updateVehicles(before: World, world: World, nextFocus: FocusId) {
 		if (
 			before.lines !== world.lines ||
 			before.grid !== world.grid ||
 			before.state.storyParts !== world.state.storyParts
-		)
+		) {
 			vehicles.setWorld(world);
+			retainedDirty = true;
+		}
+		if (nextFocus !== focus) retainedDirty = true;
 		vehicles.setFocus(nextFocus);
 	}
 
@@ -487,7 +551,7 @@ export function createSandboxStage(
 		target = polylineObject(outline.length ? [outline] : [], targetMaterial);
 		if (target) {
 			target.renderOrder = 11;
-			scene.add(target);
+			viewMode.clip.add(target);
 		}
 	}
 
@@ -500,9 +564,10 @@ export function createSandboxStage(
 	 */
 	function setView(resolved: ResolvedView, editable = false, durationMs = 0) {
 		if (!editable && !viewMode.retainsDrafting && terrain)
-			view.frameInspection(terrain.water.geometry);
+			view.frameInspection(terrain.water.geometry, section.anchors);
 		// A fixed perspective context keeps its inspection pose when it is reframed.
-		const orientation = context?.viewOrientations?.[resolved.view];
+		const orientation =
+			context?.viewOrientations?.[resolved.view === 'schematic' ? 'plan' : resolved.view];
 		if (!viewMode.set(resolved, viewLayers(), editable && !lens, Boolean(orientation)))
 			return false;
 		if (orientation) {
@@ -521,6 +586,8 @@ export function createSandboxStage(
 		setPaused: timeline.pause.bind(timeline),
 		view,
 		render,
+		/** Screen positions of the plan's retained section endpoints in CSS pixels. */
+		sectionEndpoints: () => section.anchors?.map((point) => view.project(point)),
 		/** Runs after the rendered camera and pick geometry are current. */
 		afterFrame(listener: (affected?: Affected) => void) {
 			frameListeners.add(listener);
@@ -568,6 +635,7 @@ export function createSandboxStage(
 				nextFocus,
 				place && before === shown && before.state !== world.state
 			);
+			updateAnalyticalLayers(before, world, terrain);
 			updateVehicles(before, world, nextFocus);
 			worldShown(world, nextFocus);
 		},
@@ -595,13 +663,20 @@ export function createSandboxStage(
 			const cars = vehicles.group.visible
 				? vehicles.group.children.filter((car) => car.visible)
 				: [];
-			return picker(x, y, shown.grid, [
-				...structures.solids(KEY.installation),
-				...housePickTargets(terrain, structures),
-				...structures.solids(KEY.forest),
-				...cars,
-				terrain.water
-			]);
+			return picker(
+				x,
+				y,
+				shown.grid,
+				[
+					...structures.solids(KEY.installation),
+					...housePickTargets(terrain, structures),
+					...structures.solids(KEY.forest),
+					...cars,
+					terrain.water,
+					...(viewMode.cut ? section.targets : [])
+				],
+				viewMode.cut
+			);
 		},
 		/** Shows the area grid around a lattice position (in cells); strength 0 hides it. */
 		setLens(column: number, row: number, strength: number) {
@@ -616,7 +691,7 @@ export function createSandboxStage(
 			if (cursor) {
 				cursor.computeLineDistances();
 				cursor.renderOrder = 10;
-				scene.add(cursor);
+				viewMode.clip.add(cursor);
 			}
 			viewMode.applyLayers(viewLayers());
 			if (cursor || target) retainedDirty = true;
@@ -629,7 +704,7 @@ export function createSandboxStage(
 			if (rejection) {
 				rejection.computeLineDistances();
 				rejection.renderOrder = 12;
-				scene.add(rejection);
+				viewMode.clip.add(rejection);
 			}
 			viewMode.applyLayers(viewLayers());
 			if (rejection) retainedDirty = true;
@@ -652,6 +727,8 @@ export function createSandboxStage(
 			context?.dispose();
 			frames.dispose();
 			structures.dispose();
+			section.dispose();
+			schematic.dispose();
 			warmTarget.dispose();
 			pipeline.dispose();
 			baseOutline.dispose();

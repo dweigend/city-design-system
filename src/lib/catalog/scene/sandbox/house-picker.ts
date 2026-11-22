@@ -9,13 +9,23 @@ export function createCellPicker(view: View) {
 	const terrain = createTerrainPicker();
 	let shownGrid: TerrainGrid | undefined;
 
-	return (x: number, y: number, grid: TerrainGrid, targets: THREE.Object3D[]) => {
+	return (
+		x: number,
+		y: number,
+		grid: TerrainGrid,
+		targets: THREE.Object3D[],
+		cut?: THREE.Plane
+	) => {
 		if (shownGrid !== grid) {
 			terrain.setGrid(grid);
 			shownGrid = grid;
 		}
 		ray.params.Line.threshold = view.metersPerPixel() / 2;
 		ray.setFromCamera(view.ndc(x, y), view.camera);
+		if (cut) {
+			const entry = ray.ray.distanceToPlane(cut);
+			if (entry !== null) ray.ray.recast(entry);
+		}
 		const solid = ray.intersectObjects(targets, false)[0];
 		const ground = terrain.pick(ray.ray, solid?.distance);
 		return ground?.index ?? solidOwner(grid, solid);

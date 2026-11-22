@@ -13,10 +13,12 @@ import {
 	float,
 	mix,
 	normalWorldGeometry,
+	output,
 	texture,
 	uniform,
 	vec2,
-	vec3
+	vec3,
+	vec4
 } from 'three/tsl';
 import { resolveParams, type ParamOverrides } from '../../core/params';
 import { plantingSurfaces } from '../../data/planting-surfaces';
@@ -105,6 +107,7 @@ export function createTerrainMesh(
 	const gridStrength = uniform(0);
 	const terrainOnly = uniform(0);
 	const flatWater = uniform(0);
+	const schematic = uniform(0);
 	const peopleFocus = uniform(0);
 	const town = uniform(Number(Boolean(grid.courtFronts?.length)));
 	const drawingInk = mix(colors.pencil, colors.ink, daylight);
@@ -206,13 +209,14 @@ export function createTerrainMesh(
 			plan.mul(terrainWeight).mul(terrainOnly.oneMinus())
 		);
 		const groundShadows = gridStrength.max(terrainOnly).mul(flatWater).oneMinus();
+		const analyticalGround = mix(paper, colors.ink, major.mul(0.05));
 		return alleys.shade(
-			mix(plotted, shadeGround(plotted), groundShadows),
+			mix(mix(plotted, shadeGround(plotted), groundShadows), analyticalGround, schematic),
 			drawingInk,
 			colors.people,
 			paperColor,
-			peopleFocus,
-			pathWeight.mul(mix(1, 0.32, terrainOnly)),
+			peopleFocus.max(schematic),
+			pathWeight.mul(mix(1, 0.32, terrainOnly)).mul(mix(1, 0.55, schematic)),
 			daylight
 		);
 	}
@@ -227,8 +231,15 @@ export function createTerrainMesh(
 	const waterMaterial = new THREE.MeshStandardNodeMaterial({ roughness: 0.34, metalness: 0.12 });
 	waterMaterial.colorNode = mix(
 		paperColor,
-		mix(riverInk(seconds, colors.water, paperColor, colors.waterStroke), colors.water, flatWater),
+		riverInk(seconds, colors.water, paperColor, colors.waterStroke),
 		terrainWeight
+	);
+	const riverOffset = attribute('chart', 'vec2').y.add(attribute('riverWidth', 'float').mul(0.5));
+	const riverLine = riverOffset.abs().smoothstep(0.6, 1.6).oneMinus();
+	const flatBand = mix(colors.water, colors.waterStroke, riverLine.mul(schematic));
+	waterMaterial.outputNode = vec4(
+		mix(output.rgb, mix(paperColor, flatBand, terrainWeight), flatWater),
+		output.a
 	);
 	let piers: readonly Pier[] = [];
 	const wakes = new THREE.Mesh(
@@ -256,7 +267,11 @@ export function createTerrainMesh(
 
 	const group = new THREE.Group();
 	const deckMaterial = new THREE.MeshBasicNodeMaterial();
-	deckMaterial.colorNode = mix(paperColor, colors.ink, nodes.footbridgeTone);
+	deckMaterial.colorNode = mix(
+		mix(paperColor, colors.ink, nodes.footbridgeTone),
+		colors.people,
+		schematic
+	);
 	const deck = new THREE.Mesh(footbridgeGeometry(grid), deckMaterial);
 	group.add(footprint, surface, banks, water, wakes, baseMesh, deck);
 
@@ -281,6 +296,10 @@ export function createTerrainMesh(
 		},
 		surface,
 		water,
+		/** The section uses the exact carrier and refined bank triangles. */
+		sectionGround: () => [surface.geometry, banks.geometry],
+		/** Matches the water tint of the terrain section to the plan sheet. */
+		waterColor: () => colors.water.value,
 		/** Replaces view overrides in schema units, restoring omitted fields to defaults.
 		 * Updates the shader uniforms in place. Invalid values throw RangeError.
 		 */
@@ -373,9 +392,13 @@ export function createTerrainMesh(
 			const reliefOnly = mode === 'terrain';
 			gridStrength.value = Number(mode === 'plan');
 			terrainOnly.value = Number(reliefOnly);
-			flatWater.value = Number((mode === 'plan' && !editable) || reliefOnly);
+			schematic.value = Number(mode === 'schematic');
+			flatWater.value = Number(
+				(mode === 'plan' && !editable) || reliefOnly || mode === 'schematic' || mode === 'section'
+			);
 			wakes.visible = flatWater.value === 0;
-			footprint.visible = baseMesh.visible = !reliefOnly;
+			footprint.visible = baseMesh.visible =
+				!reliefOnly && mode !== 'schematic' && mode !== 'section';
 		},
 		/** Grid lens: chart position of the cursor in cells and its strength 0–1. */
 		setLens(column: number, row: number, strength: number) {
