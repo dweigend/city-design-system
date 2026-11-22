@@ -5,6 +5,7 @@ const gradeTolerance = 1e-9;
 // Width and headroom bound comparison tolerance in metres.
 const dimensionTolerance = 1e-9;
 
+/** Throws RangeError for a supplied numeric bound outside the finite nonnegative range. */
 export function validateQuery(query: MovementPathQuery | undefined) {
 	if (!query) return;
 	for (const [name, value] of [
@@ -17,6 +18,7 @@ export function validateQuery(query: MovementPathQuery | undefined) {
 	}
 }
 
+/** Checks the port's recorded width and headroom in metres against the optional minima. */
 export function portAdmitted(port: MovementPort, query: MovementPathQuery | undefined) {
 	if (!query) return true;
 	const widthOk = query.minWidth === undefined || port.width + dimensionTolerance >= query.minWidth;
@@ -30,6 +32,7 @@ function edgeBoundsAdmitted(edge: MovementEdge, query: MovementPathQuery) {
 	return query.minWidth === undefined || edge.width + dimensionTolerance >= query.minWidth;
 }
 
+/** Checks both ports and the edge against the optional mode, kind, grade and clearance filters. */
 export function edgeAdmitted(
 	edge: MovementEdge,
 	from: MovementPort,
