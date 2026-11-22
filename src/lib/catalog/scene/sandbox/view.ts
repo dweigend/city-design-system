@@ -249,9 +249,18 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	}
 
 	/** Caches ground bounds around the opening subject and the nearby visible water. */
-	function frameInspection(water: THREE.BufferGeometry, anchors?: readonly Vec3[]) {
+	function frameInspection(water: THREE.BufferGeometry, anchors?: readonly [Vec3, Vec3]) {
 		if (!openingSubject) return;
 		const box = new THREE.Box3().setFromPoints(openingSubject);
+		if (width < height && anchors) {
+			const cut = anchors.map(([x, y]) => new THREE.Vector3(x, box.min.y, -y));
+			// The portrait sheet follows the transect so the waterfront remains readable.
+			const halfWidth = cut[0].distanceTo(cut[1]) * 0.27;
+			inspectionBounds = new THREE.Box3()
+				.setFromPoints(cut)
+				.expandByVector(new THREE.Vector3(halfWidth, 0, 0));
+			return;
+		}
 		const center = box.getCenter(new THREE.Vector3());
 		const size = box.getSize(new THREE.Vector3());
 		const reach = Math.max(size.x, size.z) * 0.75;
