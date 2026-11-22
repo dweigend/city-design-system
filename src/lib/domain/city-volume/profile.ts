@@ -32,7 +32,7 @@ export function createProfile(
 	const random = Random.create({ seed }).derive('city-profile');
 	const cos = Math.cos(bearing);
 	const sin = Math.sin(bearing);
-	const main = peak(random.derive('main'), 0.055, -0.08, 0.3 - 0.125 * complexity, 0.47, 1);
+	const main = peak(random.derive('main'), 0.055, -0.08, 0.3 - 0.125 * complexity, 0.39, 1);
 	const west = peak(random.derive('west'), -0.34, -0.1, 0.24, 0.48, 0.49 * complexity);
 	const east = peak(random.derive('east'), 0.39, -0.11, 0.21, 0.45, 0.48 * complexity);
 	const [u, v] = main.position;
