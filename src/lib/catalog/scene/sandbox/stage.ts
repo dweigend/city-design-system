@@ -42,6 +42,7 @@ import { createVehicles } from './vehicles';
 import { createTimeline } from './timeline';
 import { collectOpeningGroups } from './court-opening';
 import { createFrameLoop } from './frame-loop';
+import { createContextCamera, type ContextPerspective } from './context-camera';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
@@ -50,6 +51,8 @@ export type StageContext = Readonly<{
 	group: THREE.Object3D;
 	bounds: THREE.Box3;
 	orientation: FrameOrientation;
+	/** Optional perspective lens and subject silhouette for a fixed context. */
+	perspective?: ContextPerspective;
 	setPalette(palette: Palette3D): void;
 	dispose(): void;
 }>;
@@ -95,8 +98,16 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
+	const context = study.context;
+	const lens = context?.perspective ? createContextCamera(context.perspective) : undefined;
 	const terrainLook = createTerrainLook();
-	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality, terrainLook.beauty);
+	const pipeline = studioPipeline(
+		renderer,
+		scene,
+		lens?.camera ?? view.camera,
+		study.quality,
+		terrainLook.beauty
+	);
 	const light = pipeline.light;
 	const structures = createStructures(study.quality, true, light.receiverOutput, terrainLook.mark);
 	const nextFrame = { set: structures.queue };
@@ -105,7 +116,6 @@ export function createSandboxStage(
 	const warmTarget = new THREE.RenderTarget(1, 1);
 	const studyAdditions = study.additions ?? [];
 	scene.add(structures.group, vehicles.group);
-	const context = study.context;
 	if (context) scene.add(context.group);
 
 	const ink = new THREE.Color();
@@ -422,7 +432,12 @@ export function createSandboxStage(
 	}
 
 	function frameCurrent(force: boolean) {
-		if (context) return view.frameBox(context.bounds, 1, context.orientation);
+		if (context) {
+			view.frameBox(context.bounds, 1, context.orientation);
+			const [width, height] = view.viewport();
+			lens?.frame(view.camera, view.target, width / height);
+			return;
+		}
 		const mesh = terrain;
 		if (mesh && (force || opening)) view.frameBase(() => frameTerrain(mesh));
 	}

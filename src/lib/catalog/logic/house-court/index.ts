@@ -1,6 +1,6 @@
-import { blockInputs, type BlockInputs } from '../../data/block-inputs';
-import { resolveParams } from '../../core/params';
-import type { CellFace, CellPoint, CellSpace } from '../cell-space';
+import type { BlockInputs } from '../../data/block-inputs';
+import type { CellFace, CellSpace } from '../cell-space';
+import type { ParcelCells } from '../parcel-deck';
 import {
 	createOccupancy,
 	occupyCells,
@@ -8,16 +8,6 @@ import {
 	type Occupancy,
 	type Reservations
 } from '../occupancy';
-
-type SlotIndex = 0 | 1 | 2;
-export type HouseCourtSlot = Readonly<{ row: SlotIndex; column: SlotIndex; cellId: string }>;
-export type HouseCourtParcel = Readonly<{
-	id: string;
-	space: CellSpace;
-	entrance: readonly [CellPoint, CellPoint];
-	exitFaceId: string;
-	slots: readonly HouseCourtSlot[];
-}>;
 
 type RoomRole = 'left' | 'right' | 'rear';
 type Room = Readonly<{ id: string; role: RoomRole; cellIds: readonly string[] }>;
@@ -39,7 +29,7 @@ const layout = [
 	['rear', 'rear', 'rear']
 ] as const;
 
-function groups(parcel: HouseCourtParcel) {
+function groups(parcel: ParcelCells) {
 	const slots = [...parcel.slots].sort((a, b) => a.row - b.row || a.column - b.column);
 	const positions = new Set(slots.map(({ row, column }) => 3 * row + column));
 	const cells = new Set(slots.map(({ cellId }) => cellId));
@@ -74,19 +64,17 @@ function requireConnectivity(space: CellSpace, cellIds: readonly string[]) {
 
 /**
  * Occupies the seven house slots and reserves the existing two-cell court.
- * Entrance-facing slots are row zero. Inputs use the shared metre and complexity schema.
- * Defaults apply to omitted parameters and omitted fills start empty. No random draws.
- * Returns detached fills and reservations, sharing the supplied cell-space snapshot.
+ * Entrance-facing slots are row zero. A parcel supplies resolved block inputs and geometry.
+ * Omitted fills start empty. No random draws.
+ * Returns detached fills and reservations, sharing the supplied cell space and block inputs.
  * Throws RangeError on invalid bindings, blocked court access or conflicting fills.
  */
 export function createHouseCourt(
-	parcel: HouseCourtParcel,
-	inputs: Partial<BlockInputs> = {},
-	occupancy = createOccupancy(parcel.space),
+	parcel: ParcelCells,
+	occupancy: Occupancy = createOccupancy(parcel.space),
 	reservations: Reservations = new Map()
 ): HouseCourt {
-	const parameters = resolveParams(blockInputs, undefined, inputs);
-	const { space } = parcel;
+	const { space, inputs } = parcel;
 	const byRole = groups(parcel);
 	const id = JSON.stringify([parcel.id, 'house']);
 	const rooms = (['left', 'right', 'rear'] as const).map((role) => ({
@@ -122,7 +110,7 @@ export function createHouseCourt(
 	return {
 		id,
 		space,
-		inputs: parameters,
+		inputs,
 		occupancy: filled,
 		reservations: protectedCells,
 		rooms,

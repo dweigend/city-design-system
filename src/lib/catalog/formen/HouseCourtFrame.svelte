@@ -33,10 +33,7 @@
 </script>
 
 <div class="frame" bind:this={host}>
-	<canvas
-		bind:this={canvas}
-		aria-label="Isometric view of a U-shaped house around an open court on a level plot"
-	></canvas>
+	<canvas bind:this={canvas} aria-label="View into the open court of a U-shaped house"></canvas>
 	{#if failed}<p role="status">3D view unavailable. Reload to retry.</p>{/if}
 </div>
 
