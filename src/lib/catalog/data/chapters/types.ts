@@ -1,7 +1,10 @@
 import type { ViewMode, ViewPolicy } from '../view-modes';
 
 /** Seeded scene preset used by a chapter step. */
-export type ChapterPreset = Readonly<{ scene: 'valley' | 'acceptance'; seed: number }>;
+export type ChapterPreset = Readonly<{
+	scene: 'valley' | 'acceptance' | 'style-houses';
+	seed: number;
+}>;
 
 type DemoCue = Readonly<{ atMs: number; phase: number; view?: ViewMode }>;
 

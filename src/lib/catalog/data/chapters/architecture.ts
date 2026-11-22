@@ -72,13 +72,31 @@ export const architectureChapter = {
 			principles: ['FORM-8'],
 			view: 'terrain'
 		}),
-		placeholder(8, {
+		{
+			id: 'step-8',
 			label: 'Phases',
 			title: 'Three construction phases',
 			caption:
 				'New building follows Memphis, then Archigram and Fuller, then organic forms. Each earlier phase remains as stock.',
 			principles: ['FORM-10'],
-			view: 'iso'
-		})
+			preset: { scene: 'style-houses', seed: 7 },
+			view: 'iso',
+			views: ['iso'],
+			display: 'normal',
+			control: {
+				kind: 'playback',
+				hint: 'Press Play to build the three phases one after another. Drag to turn the houses.',
+				cues: [
+					{ atMs: 0, phase: 0 },
+					{ atMs: 2600, phase: 1 },
+					{ atMs: 5200, phase: 2 },
+					{ atMs: 7800, phase: 3 }
+				]
+			},
+			details: {
+				label: 'How the three houses differ',
+				text: 'All three stand on the same lot and reach the same height. Memphis stacks solid blocks like toys, each in its own material, under a wedge, a cube and a cone. Archigram and Fuller hang swappable capsules into an open frame, run the pipes outside and set a geodesic dome and a crane on top. The organic house forks one trunk into limbs that carry soft shells under moss and leaves.'
+			}
+		}
 	]
 } as const satisfies Chapter;

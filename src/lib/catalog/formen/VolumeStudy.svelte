@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import HouseCourtFrame from './HouseCourtFrame.svelte';
-	import VolumeFrame from './VolumeFrame.svelte';
 	import { volumeStudy } from '../data/volume-study';
 </script>
 
@@ -15,24 +14,6 @@
 			</p>
 		</div>
 		<HouseCourtFrame />
-	</div>
-	<div class="phase-intro" id="construction-phases">
-		<h3>Construction phases</h3>
-		<p>
-			Bible study · The three phases compare how a new addition becomes visible stock. Game
-			integration is planned under <a href={resolve('/formen#FORM-10')}>FORM-10</a> (ST15, #39).
-		</p>
-	</div>
-	<div class="phases" role="group" aria-label="Construction phase comparison">
-		{#each volumeStudy.phases as phase, i (phase.name)}
-			<figure>
-				<VolumeFrame phase={i} label={phase.name + '. ' + phase.caption} />
-				<figcaption>
-					<h4>{phase.name}</h4>
-					<p>{phase.caption}</p>
-				</figcaption>
-			</figure>
-		{/each}
 	</div>
 	<p class="next">
 		<a href={resolve('/interface#connections')}>Next: Trace building connections</a>
@@ -63,40 +44,16 @@
 		line-height: 1.4;
 		color: var(--ink-2);
 	}
-	.phases {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: var(--space-6);
-		margin-top: var(--space-5);
-	}
-	figure {
-		margin: 0;
-		border-top: var(--hair) solid var(--line);
-	}
-	.phase-intro {
-		margin-top: var(--space-8);
-	}
-	.phase-intro p {
-		max-width: 65ch;
-	}
-	h3,
-	h4 {
-		font-size: var(--text-m);
-	}
 	a {
 		color: var(--ink);
 		text-underline-offset: 0.2em;
-	}
-	figcaption p {
-		font-size: var(--text-s);
 	}
 	.next {
 		margin-top: var(--space-5);
 		font-size: var(--text-s);
 	}
 	@media (max-width: 720px) {
-		.section,
-		.phases {
+		.section {
 			grid-template-columns: minmax(0, 1fr);
 		}
 		.intro p {

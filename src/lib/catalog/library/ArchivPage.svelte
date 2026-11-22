@@ -73,7 +73,7 @@
 		<p>
 			<strong>Bible studies to replace.</strong> City scenes (<code>logic/stadt/*</code>), the
 			connection fixture (<code>logic/connection-study/fixture.ts</code>), the construction phase
-			study (<code>logic/formen/volume-study.ts</code>), and the server-side court survey (<code
+			houses (<code>logic/style-house</code>), and the server-side court survey (<code
 				>raster/court-study.server.ts</code
 			>) still run outside the sandbox until replaced by the
 			<a data-sveltekit-reload href={resolve('/interface#engine-path')}>shared engine miniatures</a> (ST6

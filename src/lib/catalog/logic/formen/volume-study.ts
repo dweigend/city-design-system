@@ -67,7 +67,9 @@ function referenceGrid() {
 	return lines;
 }
 
-const ground = [
+/** Fixed cutaway of a house over an open passage, assembled from the catalog's form vocabulary, in metres. */
+export const volumeSection: Primitive[] = [
+	...referenceGrid(),
 	...sample('bogen-portal', [0, 0, 0, 6, 6, 3], { hoehe: 1, tiefe: 1, wand: 0.14 }, 'shell').filter(
 		(p) => p.kind === 'arch'
 	),
@@ -81,32 +83,4 @@ const ground = [
 	),
 	...sample('huelle-klimahaut', [6, 0, 3.32, 6, 6, 3], { hoehe: 1, inhalt: 0, abstand: 0 }, 'pane'),
 	...slab([12, 0, 3.32, 6, 6, 3], 'shell')
-];
-const crown = sample(
-	'kopf-kuppel',
-	[0, 0, 6.32, 6, 6, 3],
-	{ facetten: 1, stich: 1.2 },
-	'frame'
-).map((p): Primitive =>
-	p.kind === 'dome' ? { ...p, material: 'metal', buildingSurface: undefined } : p
-);
-const canopy = sample(
-	'huelle-membran',
-	[9, 0, 6.32, 9, 6, 5],
-	{ hoch: 0.95, tief: 0.2, durchhang: 0.8 },
-	'frame'
-).map((p): Primitive =>
-	p.kind === 'membrane'
-		? { ...p, buildingSurface: { use: 'food', ensemble: 'passage', slot: 'shell' } }
-		: p
-);
-
-const stock = (p: Primitive): Primitive => ({ ...p, role: 'bestand', buildingSurface: undefined });
-const grid = referenceGrid();
-
-/** Fixed cutaway and cumulative phases assembled from the catalog's form vocabulary, in metres. */
-export const volumePhases = [
-	[...grid, ...ground],
-	[...grid, ...ground.map(stock), ...crown],
-	[...grid, ...ground.map(stock), ...crown.map(stock), ...canopy]
 ];

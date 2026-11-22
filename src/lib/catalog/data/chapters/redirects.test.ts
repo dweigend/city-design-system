@@ -45,7 +45,7 @@ const bookmarks = [
 	['/raster#court-growth', '/stadtbau#step-3'],
 	['/wachstum#wachstum-wege', '/stadtbau#step-4'],
 	['/formen#volume-section', '/architektur#step-1'],
-	['/formen#construction-phases', '/architektur#step-7'],
+	['/formen#construction-phases', '/architektur#step-8'],
 	['/formen#traeger-wabe', '/architektur#step-2'],
 	['/formen/haus#formen-ecken', '/architektur#step-1'],
 	['/formen/haus#formen-weg', '/wege#step-4'],

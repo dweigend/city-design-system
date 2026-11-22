@@ -46,7 +46,7 @@
 	<CourtSection section={study.section} showCaption={false} />
 {/snippet}
 {#snippet volume()}
-	<VolumeFrame phase={0} label={volumeStudy.section} />
+	<VolumeFrame label={volumeStudy.section} />
 {/snippet}
 {#snippet connection()}
 	<ConnectionFrame connection={bridge} showCaption={false} />

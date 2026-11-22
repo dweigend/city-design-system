@@ -18,7 +18,9 @@ for (const chapter of chapters) {
 		for (const step of chapter.steps) {
 			expect(resolveView(step).view).toBe(step.view);
 			expect(step.caption.split(/\s+/).length).toBeLessThanOrEqual(25);
-			const built = chapter.number === 1 && ['step-0', 'step-1', 'step-2'].includes(step.id);
+			const built =
+				(chapter.number === 1 && ['step-0', 'step-1', 'step-2'].includes(step.id)) ||
+				(chapter.number === 5 && step.id === 'step-8');
 			if (!built) {
 				expect(step.details.text).toBe('Status: placeholder · demo follows');
 				expect(step.control.kind).toBe('view');

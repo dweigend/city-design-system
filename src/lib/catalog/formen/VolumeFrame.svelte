@@ -3,14 +3,10 @@
 	import { readPalette } from '../scene/themeBinding';
 	import { vector } from '../scene/primitive-geometry';
 	import { observeSceneVisibility } from '../scene/scene-visibility.svelte';
-	import { volumePhases } from '../logic/formen/volume-study';
+	import { volumeSection } from '../logic/formen/volume-study';
 	import { volumeStudy } from '../data/volume-study';
 
-	let {
-		phase,
-		annotated = false,
-		label
-	}: { phase: number; annotated?: boolean; label: string } = $props();
+	let { annotated = false, label }: { annotated?: boolean; label: string } = $props();
 	let host: HTMLDivElement;
 	let canvas: HTMLCanvasElement;
 	let visible = $state(false);
@@ -51,7 +47,7 @@
 		void scene.ready
 			.then(() => {
 				if (!alive) return;
-				scene.update(volumePhases[phase]);
+				scene.update(volumeSection);
 				resize();
 				ro.observe(host);
 			})
