@@ -622,6 +622,15 @@ const library: DesignPrinciple[] = [
 		reason:
 			'A plan with contour lines, a section with the coarse envelope, a height-zone envelope over the massing and a dark plan with a time line all show the same city state. The engine owns these modes so the bible, the game and its analysis views stay one picture that the reader can turn, step and switch.',
 		decided: '2026-11-21'
+	},
+	{
+		id: 'LIB-9',
+		page: 'library',
+		title: 'Flat and isolated blocks',
+		rule: 'Every block occupies one flat catalog directory, imports only core types and immutable data across its boundary, and runs independently in its own test and live example.',
+		reason:
+			'Recipes and hosts compose blocks through their public entries, as in component kits such as shadcn/ui and Bits UI. Instance-local state lets the same block run independently in the bible and the game.',
+		decided: '2026-11-22'
 	}
 ];
 

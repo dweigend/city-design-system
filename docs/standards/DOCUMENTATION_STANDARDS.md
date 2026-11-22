@@ -29,14 +29,15 @@ Owner by document type:
 
 Translation of the library model pattern (question, visible mechanism, targeted intervention, headless comparison). There it is a proposal; here too.
 
-| ID     | Rule                                                                                                                                                                                            | Source · Auth.                           |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| DOC-10 | Structure of a rule on a bible page: **Rule → Purpose → executable demo → metric with unit and budget → source and status.**                                                                    | Transfer addendum; PR §Model pattern · V |
-| DOC-11 | Interventions, seed, and reset are visible. Every demo states one boundary case and one non-goal.                                                                                               | Transfer addendum · V                    |
-| DOC-12 | A demo is a consumer of the catalog contract. It contains no domain logic of its own and no CSS in the page. Displayed numbers come from `logic/` ([C-42](CODING_STANDARDS.md#reference-code)). | AG; UI §Binding UI authoring rules · D\* |
-| DOC-13 | Every demo has a headless counterpart: an assertable scenario in `logic/` that reproduces the displayed metric.                                                                                 | PR §Model pattern (step 4) · V           |
-| DOC-14 | Effect claims require a source or measurement. If both are absent, the statement is marked as intent. An image does not replace proof of access or function.                                    | 99 No. 3; 103 · V                        |
-| DOC-15 | Bible copy and tables live as data in `data/`. Components render them.                                                                                                                          | Current practice (`data/kapitel.ts`) · V |
+| ID     | Rule                                                                                                                                                                                                           | Source · Auth.                           |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| DOC-10 | Structure of a rule on a bible page: **Rule → Purpose → executable demo → metric with unit and budget → source and status.**                                                                                   | Transfer addendum; PR §Model pattern · V |
+| DOC-11 | Interventions, seed, and reset are visible. Every demo states one boundary case and one non-goal.                                                                                                              | Transfer addendum · V                    |
+| DOC-12 | A demo is a consumer of the catalog contract. It contains no domain logic of its own and no CSS in the page. Displayed numbers come from `logic/` ([C-42](CODING_STANDARDS.md#reference-code)).                | AG; UI §Binding UI authoring rules · D\* |
+| DOC-13 | Every demo has a headless counterpart: an assertable scenario in `logic/` that reproduces the displayed metric.                                                                                                | PR §Model pattern (step 4) · V           |
+| DOC-14 | Effect claims require a source or measurement. If both are absent, the statement is marked as intent. An image does not replace proof of access or function.                                                   | 99 No. 3; 103 · V                        |
+| DOC-15 | Bible copy and tables live as data in `data/`. Components render them.                                                                                                                                         | Current practice (`data/kapitel.ts`) · V |
+| DOC-16 | Before retiring a bible illustration, archive its screenshot and accompanying text together in the private lab. Verify that both can be opened before removing the obsolete step or route and its unused code. | David 2026-11-22 · D                     |
 
 ## Labs
 
