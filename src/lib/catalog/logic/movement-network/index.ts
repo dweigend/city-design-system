@@ -1,11 +1,23 @@
 import { dock } from './docking';
-import type { DockRequest, MovementElement, MovementPort, MovementEdge } from './types';
+import { findMovementPath } from './query';
+import type {
+	DockRequest,
+	MovementEdge,
+	MovementElement,
+	MovementFragment,
+	MovementPort
+} from './types';
+export { findMovementPath };
 export type {
 	DockRequest,
 	MovementEdge,
 	MovementElement,
+	MovementFragment,
 	MovementKind,
-	MovementPort
+	MovementPath,
+	MovementPathQuery,
+	MovementPort,
+	Position
 } from './types';
 
 function unique<T extends { id: string }>(records: readonly T[]) {
@@ -25,16 +37,23 @@ function edgeWidth(edge: MovementElement, a: MovementPort, b: MovementPort) {
 		throw new RangeError('Invalid movement width ' + edge.id);
 	return width;
 }
+function segmentGrade(run: number, rise: number) {
+	if (run > 0) return rise / run;
+	return rise > 0 ? Infinity : 0;
+}
 function measure(edge: MovementElement, ports: Map<string, MovementPort>): MovementEdge {
 	const a = endpoint(ports, edge.from),
 		b = endpoint(ports, edge.to);
 	let run = 0,
 		length = 0,
+		maxGrade = 0,
 		previous = a.position;
 	for (const point of [...(edge.via ?? []), b.position]) {
 		const d = Math.hypot(point[0] - previous[0], point[1] - previous[1]);
+		const rise = Math.abs(point[2] - previous[2]);
 		run += d;
-		length += Math.hypot(d, point[2] - previous[2]);
+		length += Math.hypot(d, rise);
+		maxGrade = Math.max(maxGrade, segmentGrade(d, rise));
 		previous = point;
 	}
 	if (
@@ -47,7 +66,8 @@ function measure(edge: MovementElement, ports: Map<string, MovementPort>): Movem
 		...edge,
 		width: edgeWidth(edge, a, b),
 		length,
-		grade: run ? (b.position[2] - a.position[2]) / run : 0
+		grade: run ? (b.position[2] - a.position[2]) / run : 0,
+		maxGrade
 	};
 }
 function unsupportedEnds(edges: MovementEdge[], removed: Set<string>) {
@@ -74,7 +94,9 @@ function incompleteFlights(ports: Map<string, MovementPort>, edges: MovementEdge
 }
 /** Assembles surveyed elements and compatible dock requests in input order. Geometric
  * mismatches are listed as unresolved. Malformed records and colliding IDs throw RangeError.
- * Length is centreline metres; signed mean grade is rise divided by horizontal chainage. */
+ * Length is centreline metres; signed mean `grade` is endpoint rise divided by horizontal
+ * chainage; `maxGrade` is maximum absolute segment rise/run (ST1 `PathEdge.grade`, or `Infinity`
+ * if an embedded nonzero vertical segment occurs inside a nonzero-run polyline). */
 export function movementNetwork(
 	inputs: readonly MovementPort[],
 	elements: readonly MovementElement[],
@@ -102,6 +124,21 @@ export function movementNetwork(
 			.filter((r, i) => !additions[i].edges.length || removed.has(r.from) || removed.has(r.to))
 			.map((r) => r.id)
 	};
+}
+
+/** Composes movement graph fragments, extra seam/crossing edges and dock requests in input order
+ * through one validated `movementNetwork` pass. Preserves stable IDs and rejects colliding IDs
+ * or malformed records with `RangeError`. Returns a fresh `MovementGraph`; inputs are not mutated. */
+export function composeMovementGraphs(
+	fragments: readonly MovementFragment[],
+	extraEdges: readonly MovementElement[] = [],
+	requests: readonly DockRequest[] = []
+): MovementGraph {
+	return movementNetwork(
+		fragments.flatMap((fragment) => fragment.ports),
+		[...fragments.flatMap((fragment) => fragment.edges ?? []), ...extraEdges],
+		[...fragments.flatMap((fragment) => fragment.requests ?? []), ...requests]
+	);
 }
 
 /** Returns the ordered centreline of an edge in traversal order, including both ports. */

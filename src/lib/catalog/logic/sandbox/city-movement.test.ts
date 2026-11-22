@@ -1,4 +1,5 @@
 import { area, type Point2 } from '../ansicht/geometrie';
+import { findMovementPath } from '../movement-network';
 import { intersect } from '../parametrik/raster/geometry';
 import { deckCorners } from '../walkway';
 import { required } from '../required';
@@ -154,4 +155,53 @@ test('the seed 7 house exit descends on paired piers to a paved ground dock', ()
 	);
 	const surrounds = house.parts().filter((p) => p.id.includes('/portal/frame/surround/'));
 	expect(new Set(surrounds.map((p) => p.id.split('/surround/')[1].split('/')[0])).size).toBe(2);
+});
+
+test('seed 7 queries ground path, level-change ramp and upper bridge in one connected graph', () => {
+	const graph = cityMovementNetwork(openingScene(7).world, 120);
+	const stepFree = { modes: ['walk'] as const, maxGrade: 0.08, excludeKinds: ['stair'] as const };
+	const groundPath = required(
+		findMovementPath(graph, '29/29/portal/b', '30/29', stepFree),
+		'ground path'
+	);
+	expect(groundPath.edgeIds).toEqual(['town-walk/passage/29/29/approach/1']);
+	expect(groundPath.maxGrade).toBeLessThanOrEqual(0.08 + 1e-9);
+	const levelChange = required(
+		findMovementPath(graph, 'town-walk/passage/29/29/ground', '29/29/portal/a', stepFree),
+		'exit ramp'
+	);
+	expect(levelChange.edgeIds).toEqual([
+		'town-walk/passage/29/29/ground/dock',
+		'town-walk/passage/29/29/descent/0'
+	]);
+	const last = required(levelChange.points.at(-1), 'ramp top');
+	expect(levelChange.points[0][2]).toBeLessThan(last[2]);
+	const upperRoute = required(
+		findMovementPath(graph, 'town-walk/passage/29/29/ground', '36/35>36/34', stepFree),
+		'ground-to-bridge route'
+	);
+	expect(upperRoute.edgeIds).toEqual([
+		'town-walk/passage/29/29/ground/dock',
+		'town-walk/passage/29/29/descent/0',
+		'town-walk/passage/29/29/inside/0',
+		'town-walk/passage/29/29/approach/1',
+		'30/29/dock',
+		'town-walk/30/29>34/27',
+		'35/30>35/29/landing',
+		'35/30>36/30/landing',
+		'town-walk/36/35>36/34'
+	]);
+	expect(upperRoute.minHeadroom).toBeGreaterThanOrEqual(2.2);
+	expect(
+		findMovementPath(graph, 'town-walk/passage/29/29/ground', '36/35>36/34', {
+			modes: ['walk'],
+			maxGrade: 0.05
+		})
+	).toBeUndefined();
+	expect(
+		findMovementPath(graph, '30/29', '30/30/threshold', { modes: ['walk'], maxGrade: 0.08 })
+	).toBeUndefined();
+	expect(
+		findMovementPath(graph, '30/29', '30/30/threshold', { modes: ['walk'] })?.edgeIds
+	).toContain('30/30/threshold/crossing');
 });

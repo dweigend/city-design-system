@@ -1,7 +1,7 @@
 import { composedProjection } from './composed-projection';
 import { transitMovement } from '../transit-line';
 import {
-	movementNetwork,
+	composeMovementGraphs,
 	walkingCapacity,
 	type DockRequest,
 	type MovementElement
@@ -63,20 +63,15 @@ export function cityMovementNetwork(
 	const crossing = groups.flatMap((g) => courtCrossings(g, courts));
 	const doors = courtDoors(groups, courts);
 	const lines = world.lines.map((line) => transitMovement(line, railCapacity));
-	return movementNetwork(
+	return composeMovementGraphs(
 		[
-			...(walk?.ports ?? []),
-			...groups.flatMap((g) => g.movement.ports),
-			...doors.ports,
-			...lines.flatMap((l) => l.ports)
+			...(walk ? [walk] : []),
+			...groups.map((g) => g.movement),
+			{ ports: [], edges: crossing },
+			doors,
+			...lines
 		],
-		[
-			...(walk?.edges ?? []),
-			...groups.flatMap((g) => g.movement.edges),
-			...crossing,
-			...doors.edges,
-			...lines.flatMap((l) => l.edges)
-		],
+		[],
 		transfers
 	);
 }
