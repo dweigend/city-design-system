@@ -177,3 +177,24 @@ test('findMovementPath enforces complete-route tie tolerance without per-hop dri
 	expect(dockedRoute?.edgeIds).toEqual(['a0', 'd0', 'z1']);
 	expect(dockedRoute?.totalLength).toBeLessThanOrEqual(2 + 1e-9);
 });
+
+test('findMovementPath preserves unique routes under large-to-small floating-point rounding', () => {
+	const p0 = port('p0', 'path', 0, 0, ['path']);
+	const p1 = port('p1', 'path', 1e8, 0, ['path']);
+	const p2 = { ...port('p2', 'path', 1e8, 0, ['path']), position: [1e8, 1e-8, 0] as const };
+	const p3 = { ...port('p3', 'path', 1e8, 0, ['path']), position: [1e8, 2e-8, 0] as const };
+	const edges = [
+		walkEdge('e0', 'p0', 'p1'),
+		walkEdge('e1', 'p1', 'p2'),
+		walkEdge('e2', 'p2', 'p3')
+	];
+	for (const ordered of [edges, [...edges].reverse()]) {
+		const graph = movementNetwork([p0, p1, p2, p3], ordered, []);
+		const forward = findMovementPath(graph, 'p0', 'p3');
+		expect(forward?.edgeIds).toEqual(['e0', 'e1', 'e2']);
+		expect(forward?.portIds).toEqual(['p0', 'p1', 'p2', 'p3']);
+		const reverse = findMovementPath(graph, 'p3', 'p0');
+		expect(reverse?.edgeIds).toEqual(['e2', 'e1', 'e0']);
+		expect(reverse?.portIds).toEqual(['p3', 'p2', 'p1', 'p0']);
+	}
+});
