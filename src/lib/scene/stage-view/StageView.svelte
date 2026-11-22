@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Stage, type Display, type View } from '../stage';
+	import { Stage, type Display, type View, type ViewFit } from '../stage';
 	import type { Drawable } from '../surface';
 
 	interface Props {
@@ -9,9 +9,10 @@
 		display: Display;
 		label: string;
 		landscape?: boolean;
+		fit?: ViewFit;
 	}
 
-	let { drawables, view, display, label, landscape = false }: Props = $props();
+	let { drawables, view, display, label, landscape = false, fit }: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let stage = $state.raw<Awaited<ReturnType<typeof Stage.create>>>();
 	let unavailable = $state(false);
@@ -21,7 +22,7 @@
 		const target = canvas;
 		let mounted = true;
 		let resize: ResizeObserver | undefined;
-		void Stage.create({ canvas: target, landscape }).then(
+		void Stage.create({ canvas: target, landscape, fit }).then(
 			(opened) => {
 				if (!mounted) return opened.delete();
 				stage = opened;

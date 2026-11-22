@@ -19,6 +19,7 @@
 	const chapter = chapterAt('/landscape');
 	const seeds = [1201, 1301, 1409];
 	const { label, min, max, step, default: defaultSinuosity } = valleyParams.sinuosity;
+	const fit = { bearing: (28 * Math.PI) / 180, elevation: (39 * Math.PI) / 180, fill: 0.96 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
@@ -80,6 +81,7 @@
 		display="normal"
 		label="Relief map of the river valley with its floodplain, terraces and slopes"
 		landscape
+		{fit}
 	/>
 	<div class="stack">
 		<div class="stack">

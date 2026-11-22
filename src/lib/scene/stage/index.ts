@@ -1,6 +1,6 @@
 import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
-import { fitCamera, type View } from './camera';
+import { fitCamera, type View, type ViewFit } from './camera';
 import { strokeMaterials } from './edges';
 import { hasSameGeometry, projectContent } from './content';
 import { readColors, readDisplay, type Display } from './material';
@@ -9,7 +9,7 @@ import { stageState } from './state';
 import { drawingPalette } from './tone';
 
 /** Camera projections for the same geometry. */
-export type { View } from './camera';
+export type { View, ViewFit } from './camera';
 /** Surface displays for the same geometry. */
 export type { Display } from './material';
 /** Returns the fixed house, resolved surfaces and metric extents for a stage. */
@@ -17,10 +17,12 @@ export { stageExample } from './example';
 
 async function create({
 	canvas,
-	landscape = false
+	landscape = false,
+	fit
 }: {
 	canvas: HTMLCanvasElement;
 	landscape?: boolean;
+	fit?: ViewFit;
 }) {
 	const gpu = await openRenderer(canvas);
 	const { renderer, hardware, adapterName } = gpu;
@@ -45,7 +47,7 @@ async function create({
 
 		strokes.outer.color.copy(ink);
 		strokes.crease.color.copy(ink);
-		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.14);
+		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
 		strokes.ground.color.copy(paper).lerp(ink, 0.48);
 		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
 		palette.dark.value = Number(dark);
@@ -77,7 +79,8 @@ async function create({
 				view,
 				content.bounds,
 				aspect,
-				landscape
+				landscape,
+				fit
 			);
 			Object.assign(camera, {
 				left: -halfWidth,

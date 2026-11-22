@@ -10,8 +10,24 @@ export type Surface = Readonly<{ color: `--${string}`; finish: Finish; flat?: bo
 /** Explicit lookup of surfaces by slot name. */
 export type SurfaceAssignment = Readonly<Record<string, Surface | undefined>>;
 
+/** South-first terrain samples. Each texel stores height, XY gradients, and signed bank distance. */
+export type TerrainField = Readonly<{
+	columns: number;
+	rows: number;
+	width: number;
+	depth: number;
+	samples: Float32Array;
+}>;
+
 /** One part’s id, geometry and surface. Height scale recovers true contour elevations. */
-export type Drawable = Surface & Readonly<{ id: string; shape: Shape; heightScale?: number }>;
+export type Drawable = Surface &
+	Readonly<{
+		id: string;
+		shape: Shape;
+		heightScale?: number;
+		terrainField?: TerrainField;
+		boundaryStroke?: boolean;
+	}>;
 
 type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
 
@@ -27,8 +43,9 @@ export const existing = Object.freeze({
 /** Paper ground and the pale step of the existing water color. */
 export const landscape = Object.freeze({
 	ground: Object.freeze({ color: '--paper-2', finish: 'terrain' }),
-	earth: Object.freeze({ color: '--ground-plinth', finish: 'matte' }),
-	water: Object.freeze({ color: '--cat-health-2', finish: 'matte', flat: true })
+	earth: Object.freeze({ color: '--river-earth', finish: 'matte' }),
+	water: Object.freeze({ color: '--river-water', finish: 'matte', flat: true }),
+	'water-section': Object.freeze({ color: '--river-section', finish: 'matte', flat: true })
 } satisfies SurfaceAssignment);
 
 /** Returns the stock assignment with one flow color on the wall. */

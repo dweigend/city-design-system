@@ -6,10 +6,10 @@ test('frames the regional reach as a cut block within the triangle budget', () =
 	const valley = Valley.create({ seed: 1201 });
 	const { object, heightScale, drawables, triangleCount } = projectValley(valley);
 	expect(object.footprint.width).toBeCloseTo(8079, 0);
-	expect(object.footprint.depth).toBe(3800);
-	expect(heightScale).toBe(8);
-	expect(object.slots).toEqual(['ground', 'earth', 'water']);
-	expect(drawables.map(({ finish }) => finish)).toEqual(['terrain', 'matte', 'matte']);
+	expect(object.footprint.depth).toBe(4000);
+	expect(heightScale).toBe(14);
+	expect(object.slots).toEqual(['ground', 'earth', 'water', 'water-section']);
+	expect(drawables.map(({ finish }) => finish)).toEqual(['terrain', 'matte', 'matte', 'matte']);
 	expect(triangleCount).toBeLessThanOrEqual(valleyTriangleBudget);
 	expect(drawables[0].shape).toBe(object.parts[0].shape);
 });

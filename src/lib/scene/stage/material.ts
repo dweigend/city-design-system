@@ -1,6 +1,7 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
 import { materialColor, mix, normalWorldGeometry, uniform, vec2 } from 'three/tsl';
-import type { Finish } from '../surface';
+import type { Finish, TerrainField } from '../surface';
+import { projectTerrainField } from './field';
 import { graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
@@ -22,7 +23,7 @@ export function readDisplay(display: Display) {
 	return displays[display];
 }
 
-export function fillMaterial(palette: ReturnType<typeof drawingPalette>) {
+export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?: TerrainField) {
 	const material = new MeshBasicNodeMaterial({
 		side: DoubleSide,
 		forceSinglePass: true,
@@ -44,12 +45,13 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>) {
 		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
 		mix(pressure, grain.top, palette.hull)
 	);
+	const atlas = field ? projectTerrainField(field) : undefined;
 	material.colorNode = mix(
 		mix(fill, materialColor, flat),
-		terrainColor(palette, heightScale),
+		terrainColor(palette, heightScale, atlas?.sample),
 		terrain
 	);
-	return { material, terrain, flat, heightScale };
+	return { material, terrain, flat, heightScale, atlas: atlas?.image };
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

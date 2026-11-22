@@ -19,6 +19,9 @@
 	--cat-grass: oklch(0.76 0.082 105);
 	--cat-bark: oklch(0.39 0.024 69);
 	--cat-lawn: color-mix(in oklab, var(--cat-foliage) 62%, var(--paper));
+	--river-earth: oklch(0.67 0 0);
+	--river-water: color-mix(in oklab, var(--cat-health-2) 77%, var(--paper-3));
+	--river-section: color-mix(in oklab, var(--river-water) 77%, var(--ink-2));
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
 	--ground-stone: oklch(0.76 0.025 240);
@@ -107,6 +110,7 @@
 }
 
 [data-theme='dark'] {
+	--river-earth: oklch(0.39 0 0);
 	--ana-zug: oklch(0.72 0.095 195);
 	--ana-druck: oklch(0.72 0.16 305);
 	--paper: oklch(0.18 0.008 265);

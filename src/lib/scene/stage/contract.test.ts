@@ -33,7 +33,11 @@ test('frames the same metric bounds in iso, plan and a portrait viewport', () =>
 test('fits every corner of kilometer-scale bounds in both landscape views', () => {
 	const bounds = { min: [-1000, -1000, -3], max: [1000, 1000, 20] } as const;
 	for (const view of ['iso', 'plan'] as const) {
-		const camera = fitCamera(view, bounds, 16 / 9, true);
+		const camera = fitCamera(view, bounds, 16 / 9, true, {
+			bearing: 0.384,
+			elevation: 0.75,
+			fill: 0.96
+		});
 		const depth = Math.hypot(...displacement(camera.center, camera.eye));
 		expect(camera.halfWidth).toBeGreaterThan(1000);
 		expect(camera.halfHeight).toBeGreaterThan(view === 'plan' ? 1000 : 820);

@@ -32,7 +32,7 @@ function project(
 	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	indexed.setIndex([...indices]);
 	const stroke = landscape
-		? boundaryGeometry(positions, indices)
+		? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
 		: edgeGeometry(positions, indices);
 	const lines = [strokes.crease, strokes.outer].map((material, index) => {
 		const line = new LineSegments2(stroke, material);
@@ -44,9 +44,12 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale } = fillMaterial(palette);
+	const { material, terrain, flat, heightScale, atlas } = fillMaterial(
+		palette,
+		drawable.terrainField
+	);
 	const mesh = new Mesh(fill, material);
-	return { drawable, mesh, stroke, lines, terrain, flat, heightScale };
+	return { drawable, mesh, stroke, lines, terrain, flat, heightScale, atlas };
 }
 
 export function projectContent(
@@ -91,9 +94,10 @@ export function projectContent(
 			ground?.shadow.geometry.dispose();
 			ground?.shadow.material.dispose();
 			ground?.outline.geometry.dispose();
-			for (const { mesh, stroke } of parts) {
+			for (const { mesh, stroke, atlas } of parts) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
+				atlas?.dispose();
 				stroke.dispose();
 			}
 		}

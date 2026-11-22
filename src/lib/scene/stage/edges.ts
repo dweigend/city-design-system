@@ -45,6 +45,8 @@ export function edgeGeometry(positions: readonly number[], indices: readonly num
 }
 
 export function boundaryGeometry(positions: readonly number[], indices: readonly number[]) {
+	const geometry = new LineSegmentsGeometry();
+	if (!indices.length) return geometry.setPositions([]);
 	const keys = new Map<string, number>();
 	const welded = new Array<number>(positions.length / 3);
 	for (let i = 0; i < welded.length; i++) {
@@ -75,7 +77,7 @@ export function boundaryGeometry(positions: readonly number[], indices: readonly
 		segments.push(...positions.slice(a * 3, a * 3 + 3), ...positions.slice(b * 3, b * 3 + 3));
 		normals.push(0, 0, 1);
 	}
-	const geometry = new LineSegmentsGeometry().setPositions(segments);
+	geometry.setPositions(segments);
 	const normal = new InstancedBufferAttribute(new Float32Array(normals), 3);
 	geometry.setAttribute('edgeFront', normal);
 	geometry.setAttribute('edgeBack', normal);
@@ -93,7 +95,7 @@ export function strokeMaterials(landscape = false) {
 	const crease = new Line2NodeMaterial({
 		...options,
 		...pencilBias,
-		linewidth: landscape ? 1.15 : 0.75
+		linewidth: landscape ? 1.35 : 0.75
 	});
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;

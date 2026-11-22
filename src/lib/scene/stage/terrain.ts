@@ -12,52 +12,54 @@ import {
 	vec2
 } from 'three/tsl';
 import type { Node } from 'three/webgpu';
-import { graphite, grain, levels, sun, type drawingPalette } from './tone';
+import { graphite, grain, type drawingPalette } from './tone';
 
 const contourInterval = 2;
-const indexInterval = 5 * contourInterval;
+const northWest = vec2(-Math.SQRT1_2, Math.SQRT1_2);
 
-function contours(height: Node<'float'>) {
+function pencil(height: Node<'float'>, interval: number, radius: number) {
 	const dx = dFdx(height).abs();
 	const dy = dFdy(height).abs();
 	const slope = vec2(dx, dy).length().mul(screenDPR);
-	const heightPerPixel = slope.max(0.0001);
+	const perPixel = slope.max(0.0001);
+	const level = height.div(interval).round();
+	const across = height.sub(level.mul(interval)).abs().div(perPixel);
 	const pixel = screenCoordinate.div(screenDPR);
-	const along = dx.greaterThan(dy).select(pixel.y, pixel.x);
-
-	const level = height.div(contourInterval).round();
-	const across = height.sub(level.mul(contourInterval)).abs().div(heightPerPixel);
-	const dots = along
-		.div(3.4)
-		.add(hash(level.add(127)))
-		.fract()
-		.sub(0.5)
-		.mul(3.4);
-	const distance = vec2(across, dots).length();
-	const minor = distance
-		.smoothstep(0.37, 0.85)
-		.oneMinus()
-		.mul(heightPerPixel.reciprocal().mul(contourInterval).smoothstep(1.8, 3.4))
-		.mul(level.mod(5).notEqual(0).select(0.51, 0));
-
-	const major = height.div(indexInterval).round().mul(indexInterval);
-	const indexDistance = height.sub(major).abs().div(heightPerPixel);
-	const indexDots = along.div(2.2).fract().sub(0.5).mul(2.2);
-	const index = vec2(indexDistance, indexDots).length().smoothstep(0.58, 0.98).oneMinus().mul(0.51);
-	return minor.max(index).mul(slope.smoothstep(0.003, 0.017));
+	const stagger = hash(level.add(257));
+	const dots = pixel.div(3.3).add(stagger).fract().sub(0.5).mul(3.3);
+	const fromX = vec2(across, dots.x)
+		.length()
+		.smoothstep(radius - 0.28, radius + 0.28)
+		.oneMinus();
+	const fromY = vec2(across, dots.y)
+		.length()
+		.smoothstep(radius - 0.28, radius + 0.28)
+		.oneMinus();
+	const tangent = dx.div(dx.add(dy).max(0.0001)).smoothstep(0.37, 0.63);
+	const linked = mix(fromX, fromY, tangent);
+	const spacing = perPixel.reciprocal().mul(interval);
+	return linked.mul(spacing.smoothstep(1.25, 2.65)).mul(slope.smoothstep(0.00035, 0.003));
 }
 
 export function terrainColor(
 	palette: ReturnType<typeof drawingPalette>,
-	heightScale: Node<'float'>
+	heightScale: Node<'float'>,
+	field?: Node<'vec4'>
 ) {
-	const height = positionWorld.z.div(heightScale);
-	const normal = normalWorldGeometry.xy;
-	const illumination = normal.dot(vec2(...sun)).mul(0.078);
-	const slopeShade = normal.length().smoothstep(0.04, 0.65).mul(0.073);
-	const slopeTone = illumination.sub(slopeShade).clamp(levels.shadow, levels.top);
-	const floorTone = height.smoothstep(1.5, 15).mul(0.04).sub(0.027);
-	const offset = slopeTone.add(floorTone).add(palette.dark.mul(0.085)).mul(palette.hull.oneMinus());
+	const height = field?.x ?? positionWorld.z.div(heightScale);
+	const gradient = field ? field.yz.mul(heightScale) : normalWorldGeometry.xy.negate();
+	const slope = gradient.length();
+	const facing = gradient.negate().dot(northWest).div(slope.max(0.0001));
+	const steepness = slope.smoothstep(0.018, 2.45);
+	const shading = steepness.mul(facing.mul(0.032).sub(0.262));
+	const bank = field ? field.w.max(0).smoothstep(6, 102).oneMinus().mul(0.085) : float(0);
+	const offset = shading
+		.sub(bank)
+		.max(-0.262)
+		.add(palette.dark.mul(steepness.mul(0.41).add(0.079)))
+		.mul(palette.hull.oneMinus());
 	const paper = graphite(materialColor, offset, float(grain.shadow));
-	return mix(paper, palette.ink, contours(height).mul(palette.hull.oneMinus()));
+	const minor = pencil(height, contourInterval, 0.66).mul(palette.dark.mul(0.1).add(0.25));
+	const index = pencil(height, contourInterval * 5, 0.79).mul(palette.dark.mul(-0.15).add(0.5));
+	return mix(paper, palette.ink, minor.max(index).mul(palette.hull.oneMinus()));
 }

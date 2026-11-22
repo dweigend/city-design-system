@@ -36,15 +36,24 @@ export function readView(view: View) {
 	return views[view];
 }
 
-export function fitCamera(view: View, bounds: Bounds3, aspect: number, landscape = false) {
+/** Optional orthographic fit, with angles in radians and a fill fraction of the frame. */
+export type ViewFit = Readonly<{ bearing?: number; elevation?: number; fill?: number }>;
+
+export function fitCamera(
+	view: View,
+	bounds: Bounds3,
+	aspect: number,
+	landscape = false,
+	fit: ViewFit = {}
+) {
 	const { eye, up, fill, shadowFit } = readView(view);
-	const elevation = (35 * Math.PI) / 180;
-	const valleyBearing = (25 * Math.PI) / 180;
+	const elevation = fit.elevation ?? elevationRad;
+	const bearing = fit.bearing ?? bearingRad;
 	const direction: Vec3 =
-		landscape && view === 'iso'
+		view === 'iso'
 			? [
-					Math.sin(valleyBearing) * Math.cos(elevation),
-					-Math.cos(valleyBearing) * Math.cos(elevation),
+					Math.sin(bearing) * Math.cos(elevation),
+					-Math.cos(bearing) * Math.cos(elevation),
 					Math.sin(elevation)
 				]
 			: eye;
@@ -56,13 +65,12 @@ export function fitCamera(view: View, bounds: Bounds3, aspect: number, landscape
 		dotProduct(half, [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])]);
 	const shift = scaled([-sun[0], -sun[1], 0], shadowFit || landscape ? half[2] * shadowReach : 0);
 	const center = sum(interpolation(bounds.min, bounds.max, 0.5), shift);
-	const objectFit =
-		Math.max(extent(imageUp), extent(right) / aspect, 0.05) / (landscape ? 0.93 : fill);
+	const objectFit = Math.max(extent(imageUp), extent(right) / aspect, 0.05) / (fit.fill ?? fill);
 	const shadowFitHeight =
 		Math.max(
 			extent(imageUp) + Math.abs(dotProduct(shift, imageUp)),
 			(extent(right) + Math.abs(dotProduct(shift, right))) / aspect
-		) / 0.9;
+		) / (landscape ? (fit.fill ?? 0.9) : 0.9);
 	const halfHeight = Math.max(objectFit, shadowFitHeight);
 	const depth = extent(direction);
 	const depthMarginM = Math.max(1, half[2] * 1.2, depth * 0.01);
