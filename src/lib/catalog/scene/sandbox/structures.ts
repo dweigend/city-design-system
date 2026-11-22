@@ -36,7 +36,7 @@ export function createStructures(
 	quality?: StudioQuality,
 	cityEdges = false,
 	receiverOutput?: Parameters<typeof structureMaterials>[2],
-	markTerrainVolume?: (group: THREE.Object3D, wooded: boolean) => void
+	markTerrainVolume?: (group: THREE.Object3D, key: string) => void
 ) {
 	const group = new THREE.Group();
 	const dot = new THREE.SphereGeometry(0.25, 12, 8);
@@ -90,7 +90,8 @@ export function createStructures(
 				? batches[0]
 				: new THREE.Group();
 		if (batches.length && root !== batches[0]) root.add(...batches);
-		markTerrainVolume?.(root, key.startsWith('forest:'));
+		markTerrainVolume?.(root, key);
+		root.userData.batchKey = key;
 		if (root.children.length) retainedRevision++;
 		return { group: root, targets, primitives, drawing, cellId, key, dockAt, motion };
 	}
@@ -259,7 +260,7 @@ export function createStructures(
 				}
 			}
 			if (joints.draw(seatedParts)) {
-				markTerrainVolume?.(joints.group, false);
+				markTerrainVolume?.(joints.group, 'joints');
 				retainedRevision++;
 			}
 			return changed;

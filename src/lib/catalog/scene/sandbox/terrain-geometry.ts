@@ -10,7 +10,7 @@ import { poolWaterTriangles } from './pool-water';
 import { pushThree } from '../world-space';
 
 /** Bottom of the model base, meters below mean water. */
-const BASE_DEPTH = 9;
+export const MODEL_BASE_Y_M = -9;
 
 function chartedGeometry(positions: number[], chart: number[]) {
 	const geometry = new THREE.BufferGeometry();
@@ -137,8 +137,8 @@ export function baseGeometry(grid: TerrainGrid) {
 	const points = rim(grid);
 	points.forEach((a, i) => {
 		const b = points[(i + 1) % points.length];
-		const a0: [number, number, number] = [a[0], a[1], -BASE_DEPTH];
-		const b0: [number, number, number] = [b[0], b[1], -BASE_DEPTH];
+		const a0: [number, number, number] = [a[0], a[1], MODEL_BASE_Y_M];
+		const b0: [number, number, number] = [b[0], b[1], MODEL_BASE_Y_M];
 		for (const p of [a0, b0, b, a0, b, a]) pushThree(positions, p);
 		for (const p of [a, b, a0, b0]) pushThree(lines, p);
 	});

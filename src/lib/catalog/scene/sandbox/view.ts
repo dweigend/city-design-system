@@ -43,7 +43,12 @@ type BoxMove = Readonly<{
 	fit: () => void;
 }>;
 
-type InspectionPose = Readonly<{ elevation: number; margin: number }>;
+type InspectionPose = Readonly<{
+	elevation: number;
+	margin: number;
+	heading?: number;
+	bounds?: THREE.Box3;
+}>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
 export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS>) {
@@ -55,6 +60,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	const forward = new THREE.Vector3();
 	/** Unit vector from the target toward the camera, three.js axes. */
 	const eye = new THREE.Vector3();
+	const panAxis = new THREE.Vector3();
 	let heading = Number(BLICK.azimutRad);
 	let elevationRad = BLICK.hoeheRad;
 	let axonElevationRad = elevationRad;
@@ -69,8 +75,10 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let openingSubject: THREE.Vector3[] | undefined;
 	let inspectionBounds: THREE.Box3 | undefined;
 	let inspection: InspectionPose | undefined;
+	let inspectionZoomLimit = SPAN_MAX;
 	let boxMove: BoxMove | undefined;
-	let openingPose: { target: THREE.Vector3; elevation: number; span: number } | undefined;
+	let openingPose:
+		{ target: THREE.Vector3; elevation: number; span: number; heading: number } | undefined;
 
 	function apply(fit?: () => void) {
 		// The plan looks straight down with north up; the axonometric view turns by the azimuth.
@@ -79,6 +87,8 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		right.set(Math.cos(azimuthRad), 0, -Math.sin(azimuthRad));
 		forward.set(-Math.sin(azimuthRad), 0, -Math.cos(azimuthRad));
 		eye.copy(forward).multiplyScalar(-Math.cos(elevationRad)).setY(Math.sin(elevationRad));
+		if (elevationRad === 0) panAxis.copy(THREE.Object3D.DEFAULT_UP);
+		else panAxis.copy(forward).multiplyScalar(1 / Math.sin(elevationRad));
 		fit?.();
 		const halfHeight = span / 2;
 		const halfWidth = (halfHeight * width) / height;
@@ -104,15 +114,13 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 
 	const clusterFill = () => (width < height ? opening.portraitFill : opening.clusterFill);
 	const metersPerPixel = () => span / height;
-	/** Ground meters per image meter along the image's vertical axis. */
-	const foreshortening = () => 1 / Math.sin(elevationRad);
 
 	/** Moves the image content by a screen offset in pixels (x right, y down). */
 	function pan(dxPx: number, dyPx: number) {
 		if (!inspection) openingFit = undefined;
 		const scale = metersPerPixel();
 		target.addScaledVector(right, -dxPx * scale);
-		target.addScaledVector(forward, dyPx * scale * foreshortening());
+		target.addScaledVector(panAxis, dyPx * scale);
 		apply();
 	}
 
@@ -122,14 +130,14 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		return target
 			.clone()
 			.addScaledVector(right, (xPx - width / 2) * scale)
-			.addScaledVector(forward, (height / 2 - yPx) * scale * foreshortening());
+			.addScaledVector(panAxis, (height / 2 - yPx) * scale);
 	}
 
 	/** Scales the visible span by `factor` and keeps the ground under the pixel in place. */
 	function zoomAt(factor: number, xPx: number, yPx: number) {
 		if (!inspection) openingFit = undefined;
 		const before = groundPoint(xPx, yPx);
-		span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, span * factor));
+		span = Math.max(SPAN_MIN, Math.min(inspectionZoomLimit, span * factor));
 		target.add(before.sub(groundPoint(xPx, yPx)));
 		apply();
 	}
@@ -241,9 +249,18 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	}
 
 	/** Caches ground bounds around the opening subject and the nearby visible water. */
-	function frameInspection(water: THREE.BufferGeometry) {
+	function frameInspection(water: THREE.BufferGeometry, anchors?: readonly [Vec3, Vec3]) {
 		if (!openingSubject) return;
 		const box = new THREE.Box3().setFromPoints(openingSubject);
+		if (width < height && anchors) {
+			const cut = anchors.map(([x, y]) => new THREE.Vector3(x, box.min.y, -y));
+			// The portrait sheet follows the transect so the waterfront remains readable.
+			const halfWidth = cut[0].distanceTo(cut[1]) * 0.27;
+			inspectionBounds = new THREE.Box3()
+				.setFromPoints(cut)
+				.expandByVector(new THREE.Vector3(halfWidth, 0, 0));
+			return;
+		}
 		const center = box.getCenter(new THREE.Vector3());
 		const size = box.getSize(new THREE.Vector3());
 		const reach = Math.max(size.x, size.z) * 0.75;
@@ -254,6 +271,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			const distance = (point.x - center.x) ** 2 + (point.z - center.z) ** 2;
 			if (distance <= reach ** 2) box.expandByPoint(point);
 		}
+		for (const [x, y] of anchors ?? []) box.expandByPoint(point.set(x, box.min.y, -y));
 		box.max.y = box.min.y;
 		inspectionBounds = box;
 	}
@@ -264,16 +282,22 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			target.copy(openingPose.target);
 			elevationRad = openingPose.elevation;
 			span = openingPose.span;
+			heading = openingPose.heading;
 			openingPose = undefined;
 		}
 		inspection = next;
+		inspectionZoomLimit = SPAN_MAX;
 		if (next) {
-			openingPose = { target: target.clone(), elevation: elevationRad, span };
+			openingPose = { target: target.clone(), elevation: elevationRad, span, heading };
 			elevationRad = next.elevation;
+			heading = next.heading ?? heading;
+			boxMove = undefined;
 			apply();
-			if (inspectionBounds) {
-				inspectionBounds.getCenter(target);
-				fitBoxSpan(inspectionBounds, next.margin);
+			const bounds = next.bounds ?? inspectionBounds;
+			if (bounds) {
+				bounds.getCenter(target);
+				fitBoxSpan(bounds, next.margin, Boolean(next.bounds));
+				inspectionZoomLimit = Math.max(SPAN_MAX, span * 3);
 			}
 		}
 		apply();
@@ -375,7 +399,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			height / fittedSpan(w, h, usableWidth, room, fill),
 		frameSilhouette,
 		/** World meters to the current canvas position in CSS pixels. */
-		project([x, y, z]: Vec3) {
+		project([x, y, z]: Readonly<Vec3>) {
 			const point = new THREE.Vector3(x, z, -y).project(camera);
 			return { x: ((point.x + 1) * width) / 2, y: ((1 - point.y) * height) / 2 };
 		},
