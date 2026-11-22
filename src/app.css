@@ -213,6 +213,11 @@
 		gap: var(--space-4);
 	}
 	.grid-aside { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+	.city-stage { display: grid; justify-items: start; gap: var(--space-2); min-inline-size: 0; }
+	.city-stage > .frame { inline-size: 100%; }
+	.city-measurements { margin: 0; }
+	.city-measurements > div { display: flex; gap: var(--space-1); }
+	.city-measurements dd { margin: 0; }
 	.frame { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: clip; }
 	.frame, .panel { border: var(--hair) solid var(--line); }
 	.frame > :is(img, canvas) { inline-size: 100%; block-size: 100%; object-fit: contain; }

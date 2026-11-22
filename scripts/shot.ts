@@ -31,7 +31,13 @@ const requestedRoutes = positionals.length
 			: ['/', '/landscape', '/interface', '/blocks'];
 const variants: Record<string, readonly string[]> = {
 	'/landscape': ['?view=plan', '?sinuosity=1.04', '?sinuosity=1.28'],
-	'/city': ['?view=plan', '?city=380', '?city=1160']
+	'/city': [
+		'?step=01',
+		'?step=02',
+		'?step=03&view=plan',
+		'?step=03&complexity=0.2',
+		'?step=03&complexity=1.0'
+	]
 };
 const routes = requestedRoutes.flatMap((route) =>
 	values.size ? [route] : [route, ...(variants[route] ?? []).map((query) => route + query)]
@@ -104,7 +110,7 @@ try {
 			const showDarkStage = size === 'dark-desktop' && hasStage;
 			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu && !showDarkStage)
 				continue;
-			const cropStage = isCity && size === 'desktop' && (!isVariant || url.search === '?view=plan');
+			const cropStage = isCity && size === 'desktop' && (!isVariant || url.search === '?step=02');
 			const deviceScaleFactor = cropStage ? 2 : 1;
 			const page = await browser.newPage({
 				viewport: { width, height },
