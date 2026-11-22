@@ -17,7 +17,9 @@ export type ValleyOptions = Readonly<{
 	parameters?: Readonly<{ sinuosity?: number }>;
 }>;
 
-/** Immutable valley in meters, Z up, with the downstream bearing in radians. */
+/** Frozen geometry in meters with Z up and downstream bearing in radians.
+ * The 2 km grid is north-first with 12.5 m cells and named ground bands.
+ */
 export type Valley = Readonly<{
 	seed: number;
 	parameters: Readonly<{ sinuosity: number }>;
@@ -26,12 +28,18 @@ export type Valley = Readonly<{
 	bands: typeof valleyBands;
 	/** Samples bed elevation in meters at finite XY coordinates in the closed grid window. */
 	heightAt(x: number, y: number): number;
+	/** Reads bed and mean water elevations in true meters across the modeled region.
+	 * Returns a detached sample. Non-finite or out-of-range coordinates throw RangeError.
+	 */
+	sampleGround(x: number, y: number): Readonly<{ height: number; water: number }>;
 }>;
 
 /** Builds one deterministic river and its ground from a uint32 seed and a nominal
- * sinuosity. The parameter clamps to [1.04, 1.28] and snaps to 0.01. At a fixed
+ * sinuosity (default 1.15). The input clamps to [1.04, 1.28] and snaps to 0.01. At a fixed
  * parameter, the paired curvature draw adds −0.011 to +0.027 to the full-wave ratio.
- * The result is detached and deeply frozen.
+ * Sinuosity means channel length divided by endpoint chord over a full wavelength.
+ * Keyed course, bank and ground streams produce repeatable results. Invalid seeds or
+ * parameter overrides throw. The independent measurement protocol lives in world/valley-protocol.
  */
 function create({ seed, parameters }: ValleyOptions): Valley {
 	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32) throw new RangeError('invalid-seed');
@@ -49,6 +57,7 @@ function create({ seed, parameters }: ValleyOptions): Valley {
 		course,
 		grid,
 		bands: valleyBands,
+		sampleGround: sample,
 		heightAt(x: number, y: number) {
 			const half = grid.origin[1];
 			if (!(Math.abs(x) <= half && Math.abs(y) <= half)) throw new RangeError('outside-window');
