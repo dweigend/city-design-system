@@ -28,6 +28,7 @@ export type ChapterStep = ViewPolicy &
 /** Content rendered by the shared chapter frame. */
 export type Chapter = Readonly<{
 	number: number;
+	scene: 'valley';
 	title: string;
 	summary: string;
 	steps: readonly [ChapterStep, ...ChapterStep[]];

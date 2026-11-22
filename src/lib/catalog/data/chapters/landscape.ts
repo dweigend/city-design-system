@@ -7,6 +7,7 @@ const preset = { seed: VALLEY_PICTURE_SEEDS[0] };
 /** Chapter 1, using the same seeded field as the valley study. */
 export const landscapeChapter = {
 	number: 1,
+	scene: 'valley',
 	title: 'Landscape and typography',
 	summary:
 		'A river shapes an invented valley, everything that follows rests on it, and one typeface labels it.',
@@ -64,7 +65,7 @@ export const landscapeChapter = {
 			views: viewModes,
 			display: 'normal',
 			preset,
-			control: { kind: 'view', hint: 'Choose Iso, Plan or Terrain above.' },
+			control: { kind: 'view', hint: 'Choose Iso, Plan or Terrain in the stage.' },
 			caption:
 				'Iso, plan, schematic, section and terrain are camera modes of one scene. No picture in this bible is drawn separately.',
 			details: {

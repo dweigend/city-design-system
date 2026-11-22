@@ -35,8 +35,13 @@ export type CourtFit = {
 export type View = ReturnType<typeof createView>;
 export type FrameOrientation = Readonly<{ headingRad: number; elevationRad: number }>;
 
-type BoxPose = Readonly<{ heading: number; elevation: number; span: number }>;
-type BoxMove = Readonly<{ from: BoxPose; to: BoxPose; startedAt: number; duration: number }>;
+type BoxMove = Readonly<{
+	from: FrameOrientation;
+	to: FrameOrientation;
+	startedAt: number;
+	duration: number;
+	fit: () => void;
+}>;
 
 type InspectionPose = Readonly<{ elevation: number; margin: number }>;
 
@@ -67,19 +72,20 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let boxMove: BoxMove | undefined;
 	let openingPose: { target: THREE.Vector3; elevation: number; span: number } | undefined;
 
-	function apply() {
-		const halfHeight = span / 2;
-		const halfWidth = (halfHeight * width) / height;
-		camera.left = -halfWidth;
-		camera.right = halfWidth;
-		camera.top = halfHeight;
-		camera.bottom = -halfHeight;
+	function apply(fit?: () => void) {
 		// The plan looks straight down with north up; the axonometric view turns by the azimuth.
 		const plan = elevationRad === Math.PI / 2;
 		const azimuthRad = plan ? 0 : heading;
 		right.set(Math.cos(azimuthRad), 0, -Math.sin(azimuthRad));
 		forward.set(-Math.sin(azimuthRad), 0, -Math.cos(azimuthRad));
 		eye.copy(forward).multiplyScalar(-Math.cos(elevationRad)).setY(Math.sin(elevationRad));
+		fit?.();
+		const halfHeight = span / 2;
+		const halfWidth = (halfHeight * width) / height;
+		camera.left = -halfWidth;
+		camera.right = halfWidth;
+		camera.top = halfHeight;
+		camera.bottom = -halfHeight;
 		camera.up.copy(plan ? forward : THREE.Object3D.DEFAULT_UP);
 		camera.position.copy(target).addScaledVector(eye, cameraDistance);
 		camera.lookAt(target);
@@ -273,34 +279,17 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		apply();
 	}
 
-	function boxPose(): BoxPose {
-		return { heading, elevation: elevationRad, span };
-	}
-
-	function applyBoxPose(pose: BoxPose) {
-		heading = pose.heading;
-		elevationRad = pose.elevation;
-		span = pose.span;
-		apply();
-	}
-
-	/** Advances a fixed-context camera move and reports whether it needs another frame. */
+	/** Advances a fixed-context camera move and keeps its full bounds in the viewport. */
 	function stepBoxMove(stamp: number, reduced: boolean) {
 		if (!boxMove) return false;
-		const { from, to, startedAt, duration } = boxMove;
+		const { from, to, startedAt, duration, fit } = boxMove;
 		const progress = reduced ? 1 : THREE.MathUtils.clamp((stamp - startedAt) / duration, 0, 1);
-		if (progress === 1) {
-			boxMove = undefined;
-			applyBoxPose(to);
-			return false;
-		}
 		const ease = progress ** 2 * (3 - 2 * progress);
-		applyBoxPose({
-			heading: THREE.MathUtils.lerp(from.heading, to.heading, ease),
-			elevation: THREE.MathUtils.lerp(from.elevation, to.elevation, ease),
-			span: THREE.MathUtils.lerp(from.span, to.span, ease)
-		});
-		return true;
+		heading = THREE.MathUtils.lerp(from.headingRad, to.headingRad, ease);
+		elevationRad = THREE.MathUtils.lerp(from.elevationRad, to.elevationRad, ease);
+		apply(fit);
+		if (progress === 1) boxMove = undefined;
+		return progress < 1;
 	}
 
 	return {
@@ -353,7 +342,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		/** Frames a three.js box. An explicit orientation fits fixed studies at their full extent. */
 		frameBox(box: THREE.Box3, margin: number, orientation?: FrameOrientation, durationMs = 0) {
 			boxMove = undefined;
-			const from = boxPose();
+			const from = { headingRad: heading, elevationRad };
 			openingFit = undefined;
 			openingSubject = undefined;
 			inspectionBounds = undefined;
@@ -362,12 +351,19 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			box.getCenter(target);
 			if (orientation) elevationRad = orientation.elevationRad;
 			else if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
-			apply();
-			fitBoxSpan(box, margin, Boolean(orientation));
-			if (durationMs > 0) {
-				boxMove = { from, to: boxPose(), startedAt: performance.now(), duration: durationMs };
-				applyBoxPose(from);
-			} else apply();
+			const fit = () => fitBoxSpan(box, margin, Boolean(orientation));
+			if (durationMs > 0 && orientation) {
+				boxMove = {
+					from,
+					to: orientation,
+					startedAt: performance.now(),
+					duration: durationMs,
+					fit
+				};
+				heading = from.headingRad;
+				elevationRad = from.elevationRad;
+			}
+			apply(fit);
 		},
 		stepBoxMove,
 		/** Whether the canvas is taller than it is wide. */
