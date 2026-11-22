@@ -23,7 +23,11 @@ if (requested && requested.origin !== origin)
 	throw Error('URL must match the verified preview at ' + origin);
 const routes = positionals.length
 	? positionals
-	: [requested ? requested.pathname + requested.search : (process.env.SHOT_ROUTE ?? '/')];
+	: requested
+		? [requested.pathname + requested.search]
+		: process.env.SHOT_ROUTE
+			? [process.env.SHOT_ROUTE]
+			: ['/', '/landscape', '/interface'];
 const folder = resolve(shots, new Date().toISOString().replaceAll(':', '-'));
 const reference = values.reference ? resolve(values.reference) : undefined;
 
@@ -76,11 +80,12 @@ try {
 		if (url.origin !== origin) throw Error('Expected a local preview route');
 		for (const [size, width, height, theme] of [
 			['phone', 390, 844, 'light'],
-			['short-desktop', 1280, 640, 'light'],
-			['dark-desktop', 1280, 640, 'dark'],
+			['desktop', 1366, 768, 'light'],
+			['dark-desktop', 1366, 768, 'dark'],
 			['dark-phone', 390, 844, 'dark']
 		] as const) {
-			if (theme === 'dark' && url.pathname !== '/interface') continue;
+			const showChapterMenu = size === 'dark-phone' && url.pathname === '/';
+			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu) continue;
 			const page = await browser.newPage({
 				viewport: { width, height },
 				deviceScaleFactor: 1,
@@ -93,6 +98,10 @@ try {
 				await page.evaluate(async () => {
 					await document.fonts.ready;
 				});
+				if (showChapterMenu) {
+					await page.getByRole('button', { name: 'Chapters' }).click();
+					await page.getByRole('dialog', { name: 'Chapters' }).waitFor();
+				}
 				const renderer = await page.evaluate(webGlRenderer);
 				const backend = 'webgl2';
 				if (
@@ -139,6 +148,7 @@ try {
 					width,
 					height,
 					theme,
+					chapterMenuOpen: showChapterMenu,
 					image,
 					fullImage,
 					sheet: hasComparison ? sheet : undefined,
