@@ -3,9 +3,11 @@ import {
 	composeMovementGraphs,
 	findMovementPath,
 	movementNetwork,
+	type MovementElement,
 	type MovementFragment,
 	type MovementKind,
-	type MovementPort
+	type MovementPort,
+	type Position
 } from './index';
 
 function port(
@@ -16,6 +18,15 @@ function port(
 	accepts: MovementKind[]
 ): MovementPort {
 	return { id, kind, position: [x, 0, z], heading: 0, width: 2.5, headroom: 3, accepts };
+}
+function walkEdge(
+	id: string,
+	from: string,
+	to: string,
+	kind: MovementElement['kind'] = 'path',
+	via?: readonly Position[]
+): MovementElement {
+	return { id, from, to, kind, mode: 'walk', capacity: 150, ...(via ? { via } : {}) };
 }
 
 function connectedBridgeGraph() {
@@ -28,67 +39,21 @@ function connectedBridgeGraph() {
 
 	const groundFragment: MovementFragment = {
 		ports: [groundStart, groundHub],
-		edges: [
-			{
-				id: 'ground/walk',
-				from: 'ground/start',
-				to: 'ground/hub',
-				kind: 'path',
-				mode: 'walk',
-				capacity: 150
-			}
-		]
+		edges: [walkEdge('ground/walk', 'ground/start', 'ground/hub')]
 	};
 	const levelFragment: MovementFragment = {
 		ports: [stairFoot, stairTop],
 		edges: [
-			{
-				id: 'level/ramp',
-				from: 'ground/hub',
-				to: 'upper/landing',
-				kind: 'ramp',
-				mode: 'walk',
-				capacity: 150
-			},
-			{
-				id: 'level/stair-dock',
-				from: 'ground/hub',
-				to: 'stair/foot',
-				kind: 'dock',
-				mode: 'walk',
-				capacity: 150
-			},
-			{
-				id: 'level/stair',
-				from: 'stair/foot',
-				to: 'stair/top',
-				kind: 'stair',
-				mode: 'walk',
-				capacity: 150
-			}
+			walkEdge('level/ramp', 'ground/hub', 'upper/landing', 'ramp'),
+			walkEdge('level/stair-dock', 'ground/hub', 'stair/foot', 'dock'),
+			walkEdge('level/stair', 'stair/foot', 'stair/top', 'stair')
 		]
 	};
 	const upperFragment: MovementFragment = {
 		ports: [upperLanding, upperEnd],
-		edges: [
-			{
-				id: 'upper/bridge',
-				from: 'upper/landing',
-				to: 'upper/end',
-				kind: 'bridge',
-				mode: 'walk',
-				capacity: 150
-			}
-		]
+		edges: [walkEdge('upper/bridge', 'upper/landing', 'upper/end', 'bridge')]
 	};
-	const seam = {
-		id: 'level/stair-top-link',
-		from: 'stair/top',
-		to: 'upper/landing',
-		kind: 'walkway' as const,
-		mode: 'walk' as const,
-		capacity: 150
-	};
+	const seam = walkEdge('level/stair-top-link', 'stair/top', 'upper/landing', 'walkway');
 	return {
 		graph: composeMovementGraphs([groundFragment, levelFragment, upperFragment], [seam]),
 		groundFragment,
@@ -103,28 +68,12 @@ test('maxGrade captures the steepest centreline segment while grade preserves si
 	const graph = movementNetwork(
 		[a, b, c],
 		[
-			{
-				id: 'undulating',
-				from: 'a',
-				to: 'b',
-				kind: 'path',
-				mode: 'walk',
-				capacity: 120,
-				via: [[5, 0, 1]]
-			},
-			{ id: 'zero-dock', from: 'b', to: 'c', kind: 'dock', mode: 'walk', capacity: 120 },
-			{
-				id: 'vertical-step',
-				from: 'a',
-				to: 'c',
-				kind: 'path',
-				mode: 'walk',
-				capacity: 120,
-				via: [
-					[5, 0, 0],
-					[5, 0, 1]
-				]
-			}
+			walkEdge('undulating', 'a', 'b', 'path', [[5, 0, 1]]),
+			walkEdge('zero-dock', 'b', 'c', 'dock'),
+			walkEdge('vertical-step', 'a', 'c', 'path', [
+				[5, 0, 0],
+				[5, 0, 1]
+			])
 		],
 		[]
 	);
@@ -185,13 +134,46 @@ test('findMovementPath breaks equal-length ties canonically regardless of edge i
 	const c = { ...port('c', 'path', 5, 0, ['path']), position: [5, -5, 0] as const };
 	const d = port('d', 'path', 10, 0, ['path']);
 	const edges = [
-		{ id: 'e/b1', from: 'a', to: 'b', kind: 'path' as const, mode: 'walk' as const, capacity: 100 },
-		{ id: 'e/b2', from: 'b', to: 'd', kind: 'path' as const, mode: 'walk' as const, capacity: 100 },
-		{ id: 'e/a1', from: 'a', to: 'c', kind: 'path' as const, mode: 'walk' as const, capacity: 100 },
-		{ id: 'e/a2', from: 'c', to: 'd', kind: 'path' as const, mode: 'walk' as const, capacity: 100 }
+		walkEdge('e/b1', 'a', 'b'),
+		walkEdge('e/b2', 'b', 'd'),
+		walkEdge('e/a1', 'a', 'c'),
+		walkEdge('e/a2', 'c', 'd')
 	];
 	const forward = movementNetwork([a, b, c, d], edges, []);
 	const reversed = movementNetwork([a, b, c, d], [...edges].reverse(), []);
 	expect(findMovementPath(forward, 'a', 'd')?.edgeIds).toEqual(['e/a1', 'e/a2']);
 	expect(findMovementPath(reversed, 'a', 'd')?.edgeIds).toEqual(['e/a1', 'e/a2']);
+});
+
+test('findMovementPath enforces complete-route tie tolerance without per-hop drift across docks', () => {
+	const p0 = port('p0', 'path', 0, 0, ['path']);
+	const p1 = port('p1', 'path', 1, 0, ['path']);
+	const p1b = port('p1b', 'path', 1, 0, ['path']);
+	const p2 = port('p2', 'path', 2, 0, ['path']);
+	const edges = [
+		walkEdge('z0', 'p0', 'p1'),
+		walkEdge('a0', 'p0', 'p1', 'path', [[0.5, 0.00002, 0]]),
+		walkEdge('z1', 'p1', 'p2'),
+		walkEdge('a1', 'p1', 'p2', 'path', [[1.5, 0.00002, 0]])
+	];
+	for (const ordered of [edges, [...edges].reverse()]) {
+		const route = findMovementPath(movementNetwork([p0, p1, p2], ordered, []), 'p0', 'p2');
+		expect(route?.edgeIds).toEqual(['a0', 'z1']);
+		expect(route?.totalLength).toBeLessThanOrEqual(2 + 1e-9);
+	}
+
+	const dockedEdges = [
+		edges[0],
+		edges[1],
+		walkEdge('d0', 'p1', 'p1b', 'dock'),
+		{ ...edges[2], from: 'p1b' },
+		{ ...edges[3], from: 'p1b' }
+	];
+	const dockedRoute = findMovementPath(
+		movementNetwork([p0, p1, p1b, p2], dockedEdges, []),
+		'p0',
+		'p2'
+	);
+	expect(dockedRoute?.edgeIds).toEqual(['a0', 'd0', 'z1']);
+	expect(dockedRoute?.totalLength).toBeLessThanOrEqual(2 + 1e-9);
 });
