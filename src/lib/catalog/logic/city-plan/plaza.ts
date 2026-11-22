@@ -34,33 +34,21 @@ const overlaps = (a: Rect, b: Rect) =>
 	a[0] < b[1] - 1e-6 && b[0] < a[1] - 1e-6 && a[2] < b[3] - 1e-6 && b[2] < a[3] - 1e-6;
 // Walk the connected parcels whose projected intervals intersect the reservation.
 // Conservative corner intersections keep both paving and planting clear of adjacent stock.
-function footprint(
-	grid: TerrainGrid,
-	start: TerrainCell,
-	axes: Profile,
-	rectangles: Rect[],
-	lots: string[],
-	free: ReadonlySet<string>,
-	compact: boolean
-) {
+function* footprint(grid: TerrainGrid, start: TerrainCell, axes: Profile, rectangles: Rect[]) {
 	const seen = new Set([start.id]),
-		queue = [start],
-		cells = [];
+		queue = [start];
 	for (const c of queue) {
 		const u = c.corners.map(axes.along),
 			v = c.corners.map(axes.out);
 		const box: Rect = [Math.min(...u), Math.max(...u), Math.min(...v), Math.max(...v)];
 		if (!rectangles.some((rect) => overlaps(box, rect))) continue;
-		const wing = lots.includes(c.id);
-		if (wing ? compact : !free.has(c.id)) return;
-		if (!wing) cells.push(c);
+		yield c;
 		for (const id of c.neighbors)
 			if (id && !seen.has(id)) {
 				seen.add(id);
 				queue.push(required(grid.cellsById.get(id), 'plaza neighbour'));
 			}
 	}
-	return cells;
 }
 
 function terraceFrame(frame: ReturnType<typeof axes>, wings: TerrainCell[]) {
@@ -120,8 +108,12 @@ export function surveyPlaza(
 	];
 	const start = cellAtPoint(grid, ...p(0, front + 7));
 	if (!start) return;
-	const cells = footprint(grid, start, frame, rectangles, lots, free, wings.length === 2);
-	if (!cells) return;
+	const cells = [];
+	for (const cell of footprint(grid, start, frame, rectangles)) {
+		const wing = lots.includes(cell.id);
+		if (wing ? wings.length === 2 : !free.has(cell.id)) return;
+		if (!wing) cells.push(cell);
+	}
 	const gate = plazaGate(grid, p, far, gates, cells);
 	if (!gate) return;
 	const polygon = [p(-7, front), p(7, front), p(7, far), p(-7, far)];
@@ -149,7 +141,7 @@ export function surveyCentrePlaza(
 	};
 	// Keep the footprint on the same network as the centre if the crop clips the survey.
 	const surveyed = new Set(
-		footprint(grid, centre, frame, [[-5, 5, -5, 5]])
+		[...footprint(grid, centre, frame, [[-5, 5, -5, 5]])]
 			.filter((cell) => land.has(cell.id))
 			.map(({ id }) => id)
 	);
