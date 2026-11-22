@@ -207,9 +207,12 @@
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
 		gap: var(--space-4);
 	}
+	.grid-aside { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 	.frame { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: clip; }
 	.frame, .panel { border: var(--hair) solid var(--line); }
 	.frame > :is(img, canvas) { inline-size: 100%; block-size: 100%; object-fit: contain; }
+	.frame > canvas { display: block; min-inline-size: 0; min-block-size: 0; }
+	.frame > [role='status'] { margin: var(--space-4); }
 	.panel {
 		padding: var(--space-4);
 		background: var(--paper-2);
@@ -217,6 +220,7 @@
 	hr, .divider { margin: 0; border: 0; border-block-start: var(--hair) solid var(--line); }
 	@media (max-width: 720px) {
 		h1, [data-type-sample='h1'] { font-size: var(--text-xl); }
+		.grid-aside { grid-template-columns: minmax(0, 1fr); }
 		.page { padding: var(--space-6) var(--space-4) var(--space-12); }
 		th[scope='row'] { inline-size: 6.5rem; }
 	}
