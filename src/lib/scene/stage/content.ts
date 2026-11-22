@@ -31,10 +31,13 @@ function project(
 	const indexed = new BufferGeometry();
 	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	indexed.setIndex([...indices]);
-	const stroke = landscape
-		? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
-		: edgeGeometry(positions, indices);
-	const lines = [strokes.crease, strokes.outer].map((material, index) => {
+	const grid = landscape && drawable.finish === 'line';
+	const stroke = grid
+		? boundaryGeometry(positions, indices, true)
+		: landscape
+			? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
+			: edgeGeometry(positions, indices);
+	const lines = (grid ? [strokes.grid] : [strokes.crease, strokes.outer]).map((material, index) => {
 		const line = new LineSegments2(stroke, material);
 		line.renderOrder = 2 + index;
 		line.visible = stroke.instanceCount > 0;

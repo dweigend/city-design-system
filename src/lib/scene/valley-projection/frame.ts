@@ -1,3 +1,4 @@
+import type { Vec2 } from '../../core/geometry';
 import { clipPolylineToSquare } from '../../core/polyline';
 import type { Valley } from '../../domain/valley';
 
@@ -36,6 +37,34 @@ export function reachFrame(valley: Valley) {
 }
 
 export type ReachFrame = ReturnType<typeof reachFrame>;
+
+export type ValleyWindow = Readonly<{
+	origin: Vec2;
+	bearing: number;
+	length: number;
+	width: number;
+}>;
+
+export function windowFrame(valley: Valley, { origin: [cx, cy], bearing, length }: ValleyWindow) {
+	const fx = Math.cos(bearing);
+	const fy = Math.sin(bearing);
+	const toLocal = (x: number, y: number): Vec2 => [
+		(x - cx) * fx + (y - cy) * fy,
+		(y - cy) * fx - (x - cx) * fy
+	];
+	const xy = valley.course.xy;
+	const course: Vec2[] = [];
+	for (let i = 0; i < xy.length; i += 2) course.push(toLocal(xy[i], xy[i + 1]));
+	return {
+		length,
+		xy,
+		course,
+		toLocal,
+		sample(x: number, y: number) {
+			return valley.sampleGround(cx + x * fx - y * fy, cy + x * fy + y * fx);
+		}
+	};
+}
 
 export function trackRiver(course: ReachFrame['course']) {
 	let index = 0;

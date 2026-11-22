@@ -44,9 +44,7 @@ export function edgeGeometry(positions: readonly number[], indices: readonly num
 	return geometry;
 }
 
-export function boundaryGeometry(positions: readonly number[], indices: readonly number[]) {
-	const geometry = new LineSegmentsGeometry();
-	if (!indices.length) return geometry.setPositions([]);
+function weldVertices(positions: readonly number[]) {
 	const keys = new Map<string, number>();
 	const welded = new Array<number>(positions.length / 3);
 	for (let i = 0; i < welded.length; i++) {
@@ -59,21 +57,46 @@ export function boundaryGeometry(positions: readonly number[], indices: readonly
 		if (existing === undefined) keys.set(key, i);
 		welded[i] = existing ?? i;
 	}
+	return welded;
+}
+
+function edgeKey(a: number, b: number, vertexCount: number) {
+	return Math.min(a, b) * vertexCount + Math.max(a, b);
+}
+
+function openEdges(indices: readonly number[], vertexCount: number) {
 	const edges = new Set<number>();
 	for (let i = 0; i < indices.length; i += 3) {
 		for (let side = 0; side < 3; side++) {
-			const a = welded[indices[i + side]];
-			const b = welded[indices[i + ((side + 1) % 3)]];
+			const a = indices[i + side];
+			const b = indices[i + ((side + 1) % 3)];
 			if (a === b) continue;
-			const key = Math.min(a, b) * welded.length + Math.max(a, b);
+			const key = edgeKey(a, b, vertexCount);
 			if (!edges.delete(key)) edges.add(key);
 		}
 	}
+	return edges;
+}
+
+export function boundaryGeometry(
+	positions: readonly number[],
+	indices: readonly number[],
+	perCell = false
+) {
+	const geometry = new LineSegmentsGeometry();
+	if (!indices.length) return geometry.setPositions([]);
+	const welded = weldVertices(positions);
+	// With separate cell indices, extract each rim before deduplicating shared segments.
+	const edges = openEdges(perCell ? indices : indices.map((index) => welded[index]), welded.length);
 	const segments = [];
 	const normals = [];
+	const drawn = new Set<number>();
 	for (const key of edges) {
-		const a = Math.floor(key / welded.length);
-		const b = key % welded.length;
+		const a = welded[Math.floor(key / welded.length)];
+		const b = welded[key % welded.length];
+		const segment = edgeKey(a, b, welded.length);
+		if (a === b || drawn.has(segment)) continue;
+		drawn.add(segment);
 		segments.push(...positions.slice(a * 3, a * 3 + 3), ...positions.slice(b * 3, b * 3 + 3));
 		normals.push(0, 0, 1);
 	}
@@ -97,8 +120,16 @@ export function strokeMaterials(landscape = false) {
 		...pencilBias,
 		linewidth: landscape ? 1.35 : 0.75
 	});
+	const grid = new Line2NodeMaterial({
+		...options,
+		linewidth: 0.72,
+		polygonOffset: true,
+		// The screen-space ribbon extends beyond the terrain-draped centerline.
+		polygonOffsetFactor: -1,
+		polygonOffsetUnits: -16384
+	});
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();
-	return { eye, outer, crease, ground };
+	return { eye, outer, crease, grid, ground };
 }

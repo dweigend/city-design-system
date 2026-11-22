@@ -48,6 +48,7 @@ async function create({
 		strokes.outer.color.copy(ink);
 		strokes.crease.color.copy(ink);
 		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
+		strokes.grid.color.copy(ink).lerp(paper, dark ? 0.18 : 0.26);
 		strokes.ground.color.copy(paper).lerp(ink, 0.48);
 		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
 		palette.dark.value = Number(dark);
@@ -167,6 +168,7 @@ async function create({
 				strokes.outer.dispose();
 				strokes.crease.dispose();
 				strokes.ground.dispose();
+				strokes.grid.dispose();
 				delete canvas.dataset.stageReady;
 				delete canvas.dataset.stageAdapter;
 				delete canvas.dataset.stageHardware;

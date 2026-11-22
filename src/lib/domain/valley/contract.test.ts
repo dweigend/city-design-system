@@ -61,3 +61,23 @@ test('keeps downstream course spacing and a distinct adjustable bend', () => {
 	expect(Valley.create({ seed: 1201, parameters: { sinuosity: 1.22 } }).course.xy).not.toEqual(xy);
 	expect(course.wetWidth).toBeCloseTo(course.bankfullWidth * 0.94);
 });
+
+test('reads a lower terrace frame on each side of the valley axis', () => {
+	const valley = Valley.create({ seed: 1201 });
+	for (const side of ['narrow', 'wide'] as const) {
+		const {
+			position: [x, y, z],
+			downstream,
+			across,
+			bearing
+		} = valley.lowerTerraceFrame(25, side);
+		expect(z).toBe(valley.heightAt(x, y));
+		expect(z - valley.sampleGround(x, y).water).toBeGreaterThan(7);
+		expect(downstream).toEqual([Math.cos(bearing), Math.sin(bearing)]);
+		expect(downstream[0] * across[0] + downstream[1] * across[1]).toBeCloseTo(0);
+	}
+	expect(valley.lowerTerraceFrame(25).across.map((value) => -value)).toEqual([
+		...valley.lowerTerraceFrame(25, 'wide').across
+	]);
+	expect(() => valley.lowerTerraceFrame(Infinity)).toThrow(RangeError);
+});
