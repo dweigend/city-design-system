@@ -59,7 +59,7 @@ test('the coarse carrier is connected, bounded by the crop and covers its integr
 	for (const face of coarse.faces) {
 		const [a, b] = face.uses;
 		if (b) {
-			expect(a.direction).toBe(-b.direction);
+			expect(a.direction + b.direction).toBe(0);
 			graph.get(a.cellId)?.add(b.cellId);
 			graph.get(b.cellId)?.add(a.cellId);
 		} else if (
@@ -124,7 +124,7 @@ test('every coarse contact and exterior survives refinement with its full area',
 			uses.every((u) => refined.has(required(parents.get(u.cellId), 'parent')))
 	);
 	expect(seam).toHaveLength(4);
-	for (const { uses } of seam) expect(uses[0].direction).toBe(-uses[1].direction);
+	for (const { uses } of seam) expect(uses[0].direction + uses[1].direction).toBe(0);
 });
 
 test('each refined parent contains disjoint convex children of equal total volume', () => {
