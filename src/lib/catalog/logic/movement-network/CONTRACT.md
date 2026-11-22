@@ -1,4 +1,12 @@
-# Movement Network Contract
+# Movement network
+
+Kind: recipe
+Purpose: Connects movement ports and finds deterministic routes through the resulting graph.
+Exports: movementNetwork, composeMovementGraphs, findMovementPath
+Outputs: A movement graph, ordered edge geometry and path queries.
+Input: fragments | readonly MovementFragment[] | — | Ordered port and edge fragments | Required
+Input: extraEdges | readonly MovementElement[] | — | Additional seam or crossing edges | Empty
+Input: requests | readonly DockRequest[] | — | Pairs of existing port IDs | Empty
 
 - **Purpose:** Single headless public entry for movement ports, edges, fragment composition (`composeMovementGraphs`), straight-line docking (`movementNetwork`), centreline extraction (`edgePath`), and deterministic path queries (`findMovementPath`).
 - **Units & Frame:** World metres (`x, y` plan, `z` up), headings in radians CCW from `+x`, capacity in travellers/minute, grades dimensionless (`rise / run`).

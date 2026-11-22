@@ -32,5 +32,6 @@ export type Chapter = Readonly<{
 	slug: string;
 	title: string;
 	summary: string;
+	libraryDocs?: Readonly<{ index: ChapterStep['id']; steps: readonly ChapterStep['id'][] }>;
 	steps: readonly [ChapterStep, ...ChapterStep[]];
 }>;

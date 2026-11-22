@@ -1,5 +1,13 @@
 # City plan
 
+Kind: recipe
+Purpose: Plans a seeded city over a surveyed valley crop.
+Exports: deriveGroundPlan, projectGroundReservations
+Outputs: GroundPlan with ordered routes, plots, courts and reservations.
+Input: grid | TerrainGrid | m | Surveyed carrier | Required
+Input: anchorId | string | — | Dry ground cell address | Required
+Input: seed | number | — | Integer in [0, 2³²) | Required
+
 `planCity` extends a surveyed valley town from two rail stops. Import `deriveGroundPlan(grid, anchorId, seed): GroundPlan` from the city-plan index.
 `deriveGroundPlan(grid, '76/64', 104)` on terrain seed 7 returns the dry connected crop and its disjoint cover of stable areas.
 The seeded plan owns paths, courts and plots within its crop. The carrier supplies geometry, blocks and passage survey inputs. The stage masks carrier alley ink in the crop. Seeded house consumers use plan plots.

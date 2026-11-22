@@ -6,8 +6,9 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { chapters, legacyStep, type ChapterSlug } from '../data/chapters';
 	import ChapterFrame from './ChapterFrame.svelte';
+	import type { ContractDoc } from './contract-docs';
 
-	let { slug }: { slug: ChapterSlug } = $props();
+	let { slug, docs = [] }: { slug: ChapterSlug; docs?: readonly ContractDoc[] } = $props();
 	const chapter = $derived(chapters.find((entry) => entry.slug === slug));
 	const legacy = $derived(page.url.searchParams.get('legacy'));
 	const moving = $derived(legacy !== null && legacyStep(legacy, '') !== undefined);
@@ -28,6 +29,6 @@
 
 {#if chapter && (!moving || failed)}
 	{#key chapter.slug}
-		<ChapterFrame {chapter} />
+		<ChapterFrame {chapter} {docs} />
 	{/key}
 {/if}

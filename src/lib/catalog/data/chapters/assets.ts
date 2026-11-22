@@ -4,6 +4,10 @@ import type { Chapter } from './types';
 export const assetsChapter = {
 	number: 8,
 	slug: 'bausteine',
+	libraryDocs: {
+		index: 'step-9',
+		steps: ['step-7', 'step-8', 'step-9', 'step-10']
+	},
 	title: '3D assets and building blocks',
 	summary:
 		'Objects use role slots and meters, and each engine building block is documented with a live example.',
@@ -85,7 +89,8 @@ export const assetsChapter = {
 			caption:
 				'Each block has one public entry, documented parameters and a live example. Every demo in this bible is built from them.',
 			principles: ['LIB-7'],
-			view: 'iso'
+			view: 'terrain',
+			scene: 'valley'
 		}),
 		placeholder(10, {
 			label: 'Workers',
@@ -97,3 +102,14 @@ export const assetsChapter = {
 		})
 	]
 } as const satisfies Chapter;
+
+/** Entries deferred while their contracts or demos are being rebuilt. */
+export const pendingContracts = [
+	{ key: 'logic/cell-space', title: 'Cell space' },
+	{ key: 'logic/occupancy', title: 'Occupancy' },
+	{ key: 'logic/house-court', title: 'House court' },
+	{ key: 'logic/house-court-example', title: 'House court example' },
+	{ key: 'scene/house-court', title: 'House court projection' },
+	{ key: 'data/block-inputs', title: 'Shared block inputs' },
+	{ key: 'volume-study', title: 'Volume study and construction phases' }
+] as const;
