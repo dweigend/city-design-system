@@ -48,6 +48,7 @@ async function create({
 		strokes.outer.color.copy(ink);
 		strokes.crease.color.copy(ink);
 		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
+		strokes.explicit.color.copy(ink);
 		strokes.grid.color.copy(ink);
 		strokes.gridBoundary.color.copy(ink);
 		strokes.ground.color.copy(paper).lerp(ink, 0.48);
@@ -55,8 +56,13 @@ async function create({
 		palette.dark.value = Number(dark);
 		palette.hull.value = Number(display === 'transparency');
 		const style = readDisplay(display);
-		for (const { drawable, mesh, terrain, flat, heightScale } of content.parts) {
-			const { opacity, paper: usePaper } = style(drawable.finish, hull);
+		for (const { drawable, mesh, lines, terrain, flat, heightScale } of content.parts) {
+			const { opacity: displayOpacity, paper: usePaper } = style(drawable.finish, hull);
+			const opacity =
+				!usePaper && drawable.opacity
+					? Number(css.getPropertyValue(drawable.opacity) || displayOpacity)
+					: displayOpacity;
+			const visible = drawable.visible !== false;
 			const material = mesh.material;
 			const transparent = opacity < 1;
 			const polygonOffset = !landscape && drawable.finish !== 'glass';
@@ -68,7 +74,8 @@ async function create({
 			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
 			if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
 			else material.color.copy(color(drawable.color));
-			mesh.visible = opacity > 0 && mesh.geometry.attributes.position.count > 0;
+			mesh.visible = visible && opacity > 0 && mesh.geometry.attributes.position.count > 0;
+			for (const line of lines) line.visible = visible && line.geometry.instanceCount > 0;
 		}
 	}
 
@@ -122,7 +129,7 @@ async function create({
 	Object.assign(canvas.dataset, { stageAdapter: adapterName, stageHardware: String(hardware) });
 
 	return {
-		/** Replaces the list, retaining geometry for the same ordered IDs and shapes. */
+		/** Replaces the list, retaining geometry for the same ordered IDs, shapes and stroke modes. */
 		show(drawables: readonly Drawable[]) {
 			if (closing) return;
 			if (hasSameGeometry(content.parts, drawables)) {
@@ -169,6 +176,7 @@ async function create({
 				strokes.outer.dispose();
 				strokes.crease.dispose();
 				strokes.ground.dispose();
+				strokes.explicit.dispose();
 				strokes.grid.dispose();
 				strokes.gridBoundary.dispose();
 				delete canvas.dataset.stageReady;

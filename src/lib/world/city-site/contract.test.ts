@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { citySiteParams, cityWindow, createCitySite, readCityGrid } from './index';
+import { citySiteParams, cityWindow, createCitySite, readCityGrid, createCityPlan } from './index';
 import { example } from './example';
 
 test('grows the seeded city along its terrace without moving existing cells', () => {
@@ -30,4 +30,19 @@ test('grows the seeded city along its terrace without moving existing cells', ()
 		expect(bank).toBeGreaterThan(0);
 		expect(vertices.get(id)).toEqual(position);
 	}
+});
+
+test('raises the same terrace cells over true-height terrain and retains their heights through growth', () => {
+	const city = createCitySite();
+	const initial = createCityPlan(city, citySiteParams.citySize.default);
+	const grown = createCityPlan(city, citySiteParams.citySize.max);
+	const even = initial.readVolume({ height: 30, complexity: 0 });
+	const heights = initial.readVolume({ height: 30, complexity: 1 });
+	const larger = grown.readVolume({ height: 30, complexity: 1 });
+	const largerHeights = new Map(larger.volume.cells.map(({ id, height }) => [id, height]));
+	expect(city.heightScale).toBe(1);
+	expect(even).toMatchObject({ maxHeight: 30, medianHeight: 30 });
+	expect(heights.medianHeight).toBeLessThan(heights.maxHeight);
+	expect(largerHeights.size).toBeGreaterThan(heights.volume.cells.length);
+	for (const { id, height } of heights.volume.cells) expect(largerHeights.get(id)).toBe(height);
 });

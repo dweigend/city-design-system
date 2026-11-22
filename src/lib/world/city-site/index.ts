@@ -2,7 +2,12 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
+import { CityVolume, type CityVolumeOptions } from '../../domain/city-volume';
+import {
+	TerrainGrid,
+	terrainGridParams,
+	type TerrainGrid as Grid
+} from '../../domain/terrain-grid';
 import { Valley } from '../../domain/valley';
 import { terraceGrid } from './connected';
 
@@ -38,7 +43,7 @@ export function createCitySite() {
 		origin,
 		frame,
 		outline: Object.freeze(outline),
-		heightScale: 2
+		heightScale: 1
 	});
 }
 
@@ -54,7 +59,7 @@ export function cityWindow(city: ReturnType<typeof createCitySite>, citySize: nu
 	return {
 		origin: [x - u * 55, y - v * 55] as const,
 		bearing: frame.bearing,
-		length: length * 1.53,
+		length: length * 1.34,
 		width: Math.max(420, length * 0.66)
 	};
 }
@@ -84,7 +89,7 @@ function median(sorted: readonly number[]) {
 export function readCityGrid(
 	city: ReturnType<typeof createCitySite>,
 	citySize: number,
-	cellSize: number
+	cellSize = terrainGridParams.cellSize.default
 ) {
 	const { valley, origin, frame } = city;
 	const { citySize: length } = resolveParams(citySiteParams, { citySize });
@@ -109,5 +114,37 @@ export function readCityGrid(
 		grid,
 		areaHectares: areas.reduce((sum, area) => sum + area, 0) / 10_000,
 		medianCellSize: Math.sqrt(median(areas))
+	});
+}
+
+function readCityVolume(
+	city: ReturnType<typeof createCitySite>,
+	plan: Grid,
+	parameters: CityVolumeOptions['parameters']
+) {
+	const volume = CityVolume.create({
+		plan,
+		datum: { origin: city.origin, bearing: city.frame.bearing },
+		seed: city.valley.seed,
+		parameters
+	});
+	const heights = volume.cells.map(({ height }) => height).sort((a, b) => a - b);
+	return Object.freeze({
+		volume,
+		maxHeight: heights.at(-1) ?? 0,
+		medianHeight: median(heights)
+	});
+}
+
+/** Composes the city plan from the fixed valley and site at the given city size in meters.
+ * The returned reader lifts this exact plan from the same datum and seed. Its maximum
+ * and median heights are in meters above ground, both zero when the plan is empty. */
+export function createCityPlan(city: ReturnType<typeof createCitySite>, citySize: number) {
+	const plan = readCityGrid(city, citySize);
+	return Object.freeze({
+		...plan,
+		window: cityWindow(city, citySize),
+		readVolume: (parameters: CityVolumeOptions['parameters']) =>
+			readCityVolume(city, plan.grid, parameters)
 	});
 }

@@ -130,8 +130,14 @@ export function strokeMaterials(landscape = false) {
 	};
 	const grid = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 1.5 });
 	const gridBoundary = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 2.5 });
+	const explicit = new Line2NodeMaterial({
+		...options,
+		...pencilBias,
+		alphaToCoverage: false,
+		linewidth: 1.15
+	});
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();
-	return { eye, outer, crease, grid, gridBoundary, ground };
+	return { eye, outer, crease, grid, gridBoundary, explicit, ground };
 }

@@ -127,6 +127,12 @@ test('retains geometry for the same ordered IDs and shape references', () => {
 	const { drawables, newDrawables } = stageExample();
 	const parts = drawables.map((drawable) => ({ drawable }));
 	expect(hasSameGeometry(parts, newDrawables)).toBe(true);
+	expect(
+		hasSameGeometry(
+			parts,
+			drawables.map((drawable) => ({ ...drawable, visible: false }))
+		)
+	).toBe(true);
 	expect(hasSameGeometry(parts, [...newDrawables].reverse())).toBe(false);
 	expect(hasSameGeometry(parts, newDrawables.slice(1))).toBe(false);
 	expect(hasSameGeometry(parts, structuredClone(newDrawables))).toBe(false);

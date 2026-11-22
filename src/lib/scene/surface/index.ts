@@ -5,7 +5,12 @@ import type { PlaceableObject, Shape } from '../../core/object';
 export type Finish = 'matte' | 'gloss' | 'glass' | 'line' | 'terrain';
 
 /** One CSS color token and finish for a slot. Flat fills retain the token color on all faces. */
-export type Surface = Readonly<{ color: `--${string}`; finish: Finish; flat?: boolean }>;
+export type Surface = Readonly<{
+	color: `--${string}`;
+	finish: Finish;
+	flat?: boolean;
+	opacity?: `--alpha-${string}`;
+}>;
 
 /** Explicit lookup of surfaces by slot name. */
 export type SurfaceAssignment = Readonly<Record<string, Surface | undefined>>;
@@ -19,7 +24,8 @@ export type TerrainField = Readonly<{
 	samples: Float32Array;
 }>;
 
-/** One part’s id, geometry and surface. Height scale recovers true contour elevations. */
+/** One part’s id, geometry and surface. Height scale recovers true contour elevations.
+ * Explicit strokes are packed XYZ endpoint pairs, in the same local meters as the shape. */
 export type Drawable = Surface &
 	Readonly<{
 		id: string;
@@ -27,6 +33,8 @@ export type Drawable = Surface &
 		heightScale?: number;
 		terrainField?: TerrainField;
 		boundaryStroke?: boolean;
+		strokeSegments?: readonly number[];
+		visible?: boolean;
 	}>;
 
 type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
@@ -46,6 +54,16 @@ export const landscape = Object.freeze({
 	earth: Object.freeze({ color: '--river-earth', finish: 'matte' }),
 	water: Object.freeze({ color: '--river-water', finish: 'matte', flat: true }),
 	'water-section': Object.freeze({ color: '--river-section', finish: 'matte', flat: true })
+} satisfies SurfaceAssignment);
+
+/** Blueprint hull for city planning, with see-through surfaces. */
+export const planningVolume = Object.freeze({
+	volume: Object.freeze({
+		color: '--blueprint-3',
+		finish: 'glass',
+		flat: true,
+		opacity: '--alpha-hull'
+	})
 } satisfies SurfaceAssignment);
 
 /** Returns the stock assignment with one flow color on the wall. */
@@ -71,8 +89,7 @@ export function resolveSurfaces(
 		surfaces.set(slot, surface);
 	}
 	return object.parts.map(({ id, slot, shape }) => {
-		const { color, finish, flat } = required(surfaces.get(slot), `surface for slot "${slot}"`);
-		return flat === undefined ? { id, shape, color, finish } : { id, shape, color, finish, flat };
+		return { id, shape, ...required(surfaces.get(slot), `surface for slot "${slot}"`) };
 	});
 }
 

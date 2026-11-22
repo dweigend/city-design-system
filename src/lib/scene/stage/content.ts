@@ -1,5 +1,5 @@
 import { Box3, BufferGeometry, Float32BufferAttribute, Group, Mesh } from 'three/webgpu';
-import type { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { Bounds3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
@@ -17,7 +17,11 @@ export function hasSameGeometry(
 		parts.length === drawables.length &&
 		parts.every(
 			({ drawable }, index) =>
-				drawable.id === drawables[index].id && drawable.shape === drawables[index].shape
+				drawable.id === drawables[index].id &&
+				drawable.shape === drawables[index].shape &&
+				drawable.boundaryStroke === drawables[index].boundaryStroke &&
+				drawable.strokeSegments === drawables[index].strokeSegments &&
+				(drawable.finish === 'line') === (drawables[index].finish === 'line')
 		)
 	);
 }
@@ -33,20 +37,24 @@ function project(
 	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	indexed.setIndex([...indices]);
 	const grid = landscape && drawable.finish === 'line';
-	const stroke = grid
-		? boundaryGeometry(positions, indices, true)
-		: landscape
-			? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
-			: edgeGeometry(positions, indices);
+	const stroke = drawable.strokeSegments
+		? new LineSegmentsGeometry().setPositions([...drawable.strokeSegments])
+		: grid
+			? boundaryGeometry(positions, indices, true)
+			: landscape
+				? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
+				: edgeGeometry(positions, indices);
 	const strokesToDraw = grid
 		? [
 				{ geometry: stroke, material: strokes.grid },
 				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary }
 			]
-		: [
-				{ geometry: stroke, material: strokes.crease },
-				{ geometry: stroke, material: strokes.outer }
-			];
+		: drawable.strokeSegments
+			? [{ geometry: stroke, material: strokes.explicit }]
+			: [
+					{ geometry: stroke, material: strokes.crease },
+					{ geometry: stroke, material: strokes.outer }
+				];
 	const lines = strokesToDraw.map(({ geometry, material }, index) =>
 		projectStroke(geometry, material, 2 + index)
 	);
