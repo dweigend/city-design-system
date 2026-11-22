@@ -11,8 +11,9 @@
 	let {
 		title,
 		children,
-		showTitle = true
-	}: { title: string; children: Snippet; showTitle?: boolean } = $props();
+		showTitle = true,
+		navigation
+	}: { title: string; children: Snippet; showTitle?: boolean; navigation?: Snippet } = $props();
 
 	/**
 	 * Header bar the same on every page: brand on the left, chapters, color mode on the right.
@@ -31,24 +32,28 @@
 	let open = $state(false);
 </script>
 
-<header class="bar">
-	<a class="brand" href={resolve('/')}>City Design System</a>
-	<div class="inline"><KapitelNav /></div>
-	<div class="compact">
-		<Popover.Root bind:open>
-			<Popover.Trigger class="cg-shell-trigger" aria-label="Choose a chapter, current: {current}">
-				<span>{current}</span>
-				<Icon icon={ChevronDown} size={16} />
-			</Popover.Trigger>
-			<Popover.Portal>
-				<Popover.Content class="cg-shell-pop" align="end" sideOffset={8} collisionPadding={16}>
-					<KapitelNav compact onnavigate={() => (open = false)} />
-				</Popover.Content>
-			</Popover.Portal>
-		</Popover.Root>
-	</div>
-	<ThemeToggle />
-</header>
+{#if navigation}
+	{@render navigation()}
+{:else}
+	<header class="bar">
+		<a class="brand" href={resolve('/')}>City Design System</a>
+		<div class="inline"><KapitelNav /></div>
+		<div class="compact">
+			<Popover.Root bind:open>
+				<Popover.Trigger class="cg-shell-trigger" aria-label="Choose a chapter, current: {current}">
+					<span>{current}</span>
+					<Icon icon={ChevronDown} size={16} />
+				</Popover.Trigger>
+				<Popover.Portal>
+					<Popover.Content class="cg-shell-pop" align="end" sideOffset={8} collisionPadding={16}>
+						<KapitelNav compact onnavigate={() => (open = false)} />
+					</Popover.Content>
+				</Popover.Portal>
+			</Popover.Root>
+		</div>
+		<ThemeToggle />
+	</header>
+{/if}
 
 <main class:without-title={!showTitle}>
 	<h1 class:visually-hidden={!showTitle}>{title}</h1>

@@ -18,29 +18,31 @@
 		{/if}
 		<p>{step.control.hint}</p>
 	</div>
-	<div class="principles">
-		{#each step.principles as id (id)}
-			{@const principle = byId.get(id)}
-			{#if principle}
-				<Popover.Root>
-					<Popover.Trigger>{principle.id} · {principle.title}</Popover.Trigger>
-					<Popover.Portal>
-						<Popover.Content
-							class="chapter-principle"
-							role="dialog"
-							aria-label={principle.title}
-							sideOffset={6}
-							collisionPadding={12}
-							trapFocus={false}
-						>
-							<p>{principle.rule}</p>
-							<p>{principle.reason}</p>
-						</Popover.Content>
-					</Popover.Portal>
-				</Popover.Root>
-			{/if}
-		{/each}
-	</div>
+	{#if step.principles.length}
+		<div class="principles">
+			{#each step.principles as id (id)}
+				{@const principle = byId.get(id)}
+				{#if principle}
+					<Popover.Root>
+						<Popover.Trigger>{principle.id} · {principle.title}</Popover.Trigger>
+						<Popover.Portal>
+							<Popover.Content
+								class="chapter-principle"
+								role="dialog"
+								aria-label={principle.title}
+								sideOffset={6}
+								collisionPadding={12}
+								trapFocus={false}
+							>
+								<p>{principle.rule}</p>
+								<p>{principle.reason}</p>
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				{/if}
+			{/each}
+		</div>
+	{/if}
 	<Collapsible.Root class="details">
 		<Collapsible.Trigger>
 			{step.details.label}
