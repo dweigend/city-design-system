@@ -2,13 +2,21 @@ import { expect, test } from 'bun:test';
 import {
 	assetRegistry,
 	buildObject,
+	dressSurface,
 	ribbonDimensions,
 	ribbonPierGeometry,
 	type RibbonSection
 } from './index';
-import { edgePath } from '../movement-network';
+import { connectionViews } from '../connection-study';
+import {
+	edgePath,
+	movementNetwork,
+	pedestrianHeadroom,
+	walkingCapacity
+} from '../movement-network';
 import { openingScene } from '../sandbox';
 import { cityCorridorPlan } from '../sandbox/city-corridors';
+import { projectWalkingEdges } from '../walkway-network';
 import { edgeSections } from '../walkway-network/edge-sections';
 import { column, ribbonProfile } from '../walkway-network/ribbon-column';
 import { pathSurfaces } from '../walkway-network/town-palette';
@@ -317,4 +325,177 @@ test('live seed-7 sandbox corridor segments place outward anchors and enclosing 
 	expect(checkedIds).toContain('town-walk/passage/29/29/approach/1');
 	expect(checkedIds).toContain('town-walk/passage/29/29/descent/0');
 	expect(checkedIds.length).toBeGreaterThanOrEqual(20);
+});
+
+test('perpendicular and degenerate port headings fall back to the outward terminal tangent', () => {
+	const perpendicularPorts = {
+		start: { id: 'a', position: [0, 0, 3] as const, heading: Math.PI / 2 },
+		end: { id: 'b', position: [10, 0, 3] as const, heading: -Math.PI / 2 }
+	};
+	const perp = buildObject('ribbon-segment', 'supported', 0, {
+		instanceId: 'perp/x-axis',
+		site: { sections: sampleSections, ground: () => 0, ports: perpendicularPorts }
+	});
+	expect(perp.anchors[0].position).toEqual([0, 0, 3]);
+	expect(perp.anchors[0].normal[0]).toBeCloseTo(-1, 10);
+	expect(perp.anchors[0].normal[1]).toBeCloseTo(0, 10);
+	expect(perp.anchors[1].position).toEqual([10, 0, 3]);
+	expect(perp.anchors[1].normal[0]).toBeCloseTo(1, 10);
+	expect(perp.anchors[1].normal[1]).toBeCloseTo(0, 10);
+
+	const degenerate = buildObject('ribbon-segment', 'supported', 0, {
+		instanceId: 'perp/nan',
+		site: {
+			sections: sampleSections,
+			ground: () => 0,
+			ports: {
+				start: { id: 'a', position: [0, 0, 3] as const, heading: Number.NaN },
+				end: { id: 'b', position: [10, 0, 3] as const, heading: Number.POSITIVE_INFINITY }
+			}
+		}
+	});
+	expect(degenerate.anchors[0].normal[0]).toBeCloseTo(-1, 10);
+	expect(degenerate.anchors[1].normal[0]).toBeCloseTo(1, 10);
+});
+
+test('bible connection-study bridge and path keep outward terminal normals at surveyed ports', () => {
+	const walking = connectionViews.flatMap(({ walkingKind, ...connection }) =>
+		walkingKind ? [{ ...connection, kind: walkingKind }] : []
+	);
+	const width = 1.8;
+	const graph = movementNetwork(
+		walking.flatMap(({ id, kind, points }) => [
+			{
+				id: id + '/network',
+				kind,
+				position: points[0],
+				heading: 0,
+				width,
+				headroom: pedestrianHeadroom,
+				accepts: ['entrance']
+			},
+			{
+				id: id + '/door',
+				kind: 'entrance',
+				position: points[points.length - 1],
+				heading: -Math.PI / 2,
+				width,
+				headroom: pedestrianHeadroom,
+				accepts: ['bridge', 'path']
+			}
+		]),
+		walking.map(({ id, kind, points }) => ({
+			id,
+			from: id + '/network',
+			to: id + '/door',
+			kind,
+			mode: 'walk',
+			capacity: walkingCapacity(width),
+			via: points.slice(1, -1)
+		})),
+		[]
+	);
+	const ports = new Map(graph.ports.map((p) => [p.id, p]));
+	const checked: string[] = [];
+
+	for (const e of graph.edges) {
+		const path = edgePath(e, ports);
+		const sections = edgeSections(e, path);
+		const startPort = ports.get(e.from);
+		const endPort = ports.get(e.to);
+		const built = buildObject('ribbon-segment', 'supported', 0, {
+			instanceId: e.id,
+			site: { sections, ground: () => 0, ports: { start: startPort, end: endPort } }
+		});
+		checked.push(e.id);
+		expect(startPort).toBeDefined();
+		expect(endPort).toBeDefined();
+		if (!startPort || !endPort) continue;
+		expect(built.anchors[0].position).toEqual([...startPort.position]);
+		expect(built.anchors[1].position).toEqual([...endPort.position]);
+
+		const startOut = unitPlanTangent(sections[1].centre, sections[0].centre);
+		const endOut = unitPlanTangent(
+			sections[sections.length - 2].centre,
+			sections[sections.length - 1].centre
+		);
+		const startDot =
+			built.anchors[0].normal[0] * startOut[0] + built.anchors[0].normal[1] * startOut[1];
+		const endDot = built.anchors[1].normal[0] * endOut[0] + built.anchors[1].normal[1] * endOut[1];
+		expect(startDot).toBeCloseTo(1, 10);
+		expect(endDot).toBeCloseTo(1, 10);
+
+		if (e.id === 'bridge-landing') {
+			// Surveyed start port has heading 0 perpendicular to the y-axis start tangent [0, 1, 0].
+			expect(built.anchors[0].position).toEqual([-10, -1.5, 5.2]);
+			expect(built.anchors[0].normal[0]).toBeCloseTo(0, 10);
+			expect(built.anchors[0].normal[1]).toBeCloseTo(1, 10);
+		}
+	}
+	expect(checked).toContain('bridge-landing');
+	expect(checked).toContain('ground-path');
+});
+
+test('dressSurface owns material-only and city-drawing rules shared by ribbon guards', () => {
+	expect(dressSurface(pathSurfaces.guard, { material: 'paper' })).toEqual({ material: 'paper' });
+	expect(dressSurface(pathSurfaces.guard, { role: 'bestand', material: 'paper' })).toEqual({
+		material: 'paper',
+		role: 'bestand'
+	});
+	const drawing = dressSurface(pathSurfaces.guard, {
+		token: '--cat-business',
+		finish: 'city-drawing',
+		colourRole: 'body-accent'
+	});
+	expect(drawing).toEqual({
+		colourRole: 'body-accent',
+		material: 'metal',
+		token: '--cat-business'
+	});
+	expect('finish' in drawing).toBe(false);
+
+	const graph = movementNetwork(
+		[
+			{
+				id: 'a',
+				kind: 'bridge',
+				position: [0, 0, 3],
+				heading: 0,
+				width: 1.8,
+				headroom: pedestrianHeadroom,
+				accepts: ['bridge']
+			},
+			{
+				id: 'b',
+				kind: 'bridge',
+				position: [6, 0, 3],
+				heading: Math.PI,
+				width: 1.8,
+				headroom: pedestrianHeadroom,
+				accepts: ['bridge']
+			}
+		],
+		[
+			{
+				id: 'guard-check',
+				from: 'a',
+				to: 'b',
+				kind: 'bridge',
+				mode: 'walk',
+				capacity: walkingCapacity(1.8),
+				via: []
+			}
+		],
+		[]
+	);
+	const guards = projectWalkingEdges(graph, () => 0, [], {
+		guard: { token: '--cat-business', finish: 'city-drawing', colourRole: 'body-accent' }
+	}).filter((p) => p.id.startsWith('town-walk/rail/'));
+	expect(guards.length).toBeGreaterThan(0);
+	for (const g of guards) {
+		expect(g.role).toBe(pathSurfaces.guard.role);
+		expect(g.token).toBe('--cat-business');
+		expect(g.colourRole).toBe('body-accent');
+		expect('finish' in g).toBe(false);
+	}
 });

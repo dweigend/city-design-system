@@ -1,5 +1,4 @@
-import { buildObject, type MaterialAssignment, type SlotAssignment } from '../assets';
-import { finishMaterial } from '../material/surface';
+import { buildObject, dressSurface, type MaterialAssignment, type SlotAssignment } from '../assets';
 import { projectGroundLanding } from './ground-landing';
 import { edgePath, type MovementGraph } from '../movement-network';
 import { edgeSections } from './edge-sections';
@@ -24,22 +23,10 @@ const productionSegmentSlots: Readonly<Record<'walking' | 'bearing', SlotAssignm
 };
 
 function guardSurface(assignment: RibbonSlotSurface | undefined) {
-	if (assignment && 'material' in assignment && !('finish' in assignment)) {
-		return {
-			role: assignment.role ?? pathSurfaces.guard.role,
-			material: assignment.material
-		};
-	}
-	if (assignment && 'token' in assignment) {
-		return {
-			role: pathSurfaces.guard.role,
-			...(assignment.colourRole && { colourRole: assignment.colourRole }),
-			material: finishMaterial(assignment.finish),
-			token: assignment.token,
-			...(assignment.finish === 'city-drawing' ? {} : { finish: assignment.finish })
-		};
-	}
-	return pathSurfaces.guard;
+	return {
+		role: pathSurfaces.guard.role,
+		...dressSurface(pathSurfaces.guard, assignment)
+	};
 }
 
 function guard(path: Vec3[], id: string, surface: RibbonSlotSurface | undefined): Primitive[] {
