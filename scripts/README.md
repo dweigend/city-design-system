@@ -2,12 +2,18 @@
 
 Run tests, checks, builds and browsers through `heavy-slot` on the shared server.
 
-| Command                    | What it does                                                                                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run bootstrap`        | Checks the Bun version against the CI pin, installs the frozen dependencies and syncs SvelteKit. Links private skills and suggests a free dev port.   |
-| `bun run verify`           | Runs lint, type checks, unit tests, cycle detection, the private-skill check and the build. Prints a summary and exits with an error if a step fails. |
-| `bun run check:boundaries` | Checks the app and scripts for import cycles.                                                                                                         |
-| `bun run check:skills`     | Checks that Git tracks no private skills.                                                                                                             |
+| Command                    | What it does                                                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bun run bootstrap`        | Checks the pinned Bun version, installs frozen dependencies and syncs SvelteKit. Links private skills and suggests a free dev port.                                                        |
+| `bun run lint`             | Checks formatting and runs ESLint, including the rules for slots, exports, styles, controls, headless globals and the stage.                                                               |
+| `bun run check`            | Syncs SvelteKit and checks types for the app, tests and scripts.                                                                                                                           |
+| `bun test`                 | Runs unit tests and the architecture probes. Run `bun test scripts/rules.test.ts` for the probes alone.                                                                                    |
+| `bun run check:boundaries` | Checks file and module-folder cycles, layer direction, public entries, headless imports, stylesheets, routes and three.js. Counts distinct domain peers from the dependency-cruiser graph. |
+| `bun run check:skills`     | Checks that Git tracks no private skills.                                                                                                                                                  |
+| `bun run build`            | Builds the app with Vite.                                                                                                                                                                  |
+| `bun run verify`           | Runs lint, type checks, tests, import boundaries, the private-skill check and the build. It reports every result and fails if any step fails.                                              |
+
+The [architecture rules](../docs/standards/ARCHITECTURE.md#rules) name the checks. Each test in `scripts/rules.test.ts` uses a failing and a passing source tree from `scripts/fixtures/rules/`. The probes apply the production lint and graph rules to the fixture paths. Bun skips the fixture trees during test discovery. ESLint, TypeScript and dependency-cruiser exclude them from product checks.
 
 ## Capture the preview
 

@@ -552,84 +552,86 @@ const ui: DesignPrinciple[] = [
 
 const library: DesignPrinciple[] = [
 	{
-		id: 'LIB-1',
-		page: 'library',
-		title: 'One library for bible and game',
-		rule: 'Every bible miniature and the game use the same engine and library with no bible-only or game-only code path, while the game adds controls and actions across the landscape.',
-		reason:
-			'Each miniature isolates one visible rule, combining direct building with simple city functions; priority goes to visible neighborhoods, paths, bridges, pipes, power connections and transparency (D7). Target: fixtures authored for a single picture are labelled as bible studies and listed on /archiv#library-path until replaced (ST6 #36, ST12 #37, ST14 #38, ST15 #39).',
-		decided: '2026-11-21',
-		demo: { route: '/interface', anchor: 'engine-path', label: 'Trace the shared path' }
-	},
-	{
 		id: 'LIB-2',
 		page: 'library',
-		title: 'One object contract',
-		rule: 'Every object (asset, design object, house body, primitive) has the same contract: role slots, footprint and anchors in meters, one build signature.',
-		reason:
-			'The house grammar places objects from one registry by their anchors. No object bakes color into its geometry.',
-		decided: '2026-11-19'
-	},
-	{
-		id: 'LIB-3',
-		page: 'library',
-		title: 'Parameters, not constants',
-		rule: 'Library functions take style sets, display levels, grid sizes, proportions and material recipes as data with defaults that can be overridden, and shared inputs such as height, width and complexity have one name, unit and range across every block.',
-		reason:
-			'Bible and game call the same functions with different parameters. Nothing that defines a look is hard-coded. The city sets only coarse lots; the houses add the detail through the same height, width and complexity inputs, so a control means the same everywhere.',
-		decided: '2026-11-21'
+		title: 'Geometry uses slots',
+		rule: 'Geometry names slots and scene assigns color and material at one boundary.',
+		reason: 'The same shape can take different materials without rebuilding its geometry.',
+		decided: '2026-11-22'
 	},
 	{
 		id: 'LIB-4',
 		page: 'library',
-		title: 'Core below, systems above',
-		rule: 'A core of independent functions sits at the bottom, specialized libraries on top; dependencies point downward only.',
+		title: 'Dependencies point downward',
+		rule: 'Routes can use any layer, UI stays within its own layer, and the scene, world, domain and core layers depend only on their own layer or the layers below them.',
 		reason:
-			'The parts combine like bricks. Game logic stays in the headless city library, not in the design system.',
-		decided: '2026-11-18'
-	},
-	{
-		id: 'LIB-5',
-		page: 'library',
-		title: 'WebGPU and TSL',
-		rule: 'The 3D world renders with the three.js WebGPURenderer, and every shader and material is written in TSL.',
-		reason: 'No GLSL. Performance is measured on a real GPU, never on a software renderer.',
-		decided: '2026-11-19'
-	},
-	{
-		id: 'LIB-6',
-		page: 'library',
-		title: 'Computation never blocks the game',
-		rule: 'Expensive computation never blocks the game: it is precomputed in development or runs in a worker with a time budget and a cache.',
-		reason:
-			'Form follows from simulated force flow, but the player never waits for it. The cache key is a hash of the input.',
-		decided: '2026-11-13'
+			'Scene projects, world composes, domain defines capabilities and core provides the foundation. Each layer can change without depending on its callers.',
+		decided: '2026-11-22'
 	},
 	{
 		id: 'LIB-7',
 		page: 'library',
-		title: 'A kit with its own documentation',
-		rule: 'The engine is a kit of small composable building blocks, each with a public entry, documented parameters and a live example on the library documentation page, and every bible demo is assembled from these blocks.',
+		title: 'One entry per module',
+		rule: 'Every module exposes named exports through its index.ts and keeps its other files private to the module.',
 		reason:
-			'The library works like component kits such as shadcn, daisyUI or Babylon Lite: a block is picked, configured and combined, never copied into a page. A demo that starts its own renderer, camera or geometry breaks the kit and LIB-1.',
-		decided: '2026-11-21'
+			'A consumer can configure or combine a module through the same documented entry used by its test and fixed-input example.',
+		decided: '2026-11-22'
 	},
 	{
 		id: 'LIB-8',
 		page: 'library',
-		title: 'One engine, every view',
-		rule: 'Every bible picture is an interactive view of the shared engine: isometric, plan, schematic, section and terrain views are camera and display modes of one scene, never a separately drawn diagram.',
-		reason:
-			'A plan with contour lines, a section with the coarse envelope, a height-zone envelope over the massing and a dark plan with a time line all show the same city state. The engine owns these modes so the bible, the game and its analysis views stay one picture that the reader can turn, step and switch.',
-		decided: '2026-11-21'
+		title: 'One shared stage',
+		rule: 'Only the stage creates renderers, cameras and frame loops.',
+		reason: 'Plan, terrain, section, schematic and isometric views use the same stage.',
+		decided: '2026-11-22'
 	},
 	{
-		id: 'LIB-9',
+		id: 'LIB-10',
 		page: 'library',
-		title: 'Flat and isolated blocks',
-		rule: 'Every block occupies one flat catalog directory, imports only core types and immutable data across its boundary, and runs independently in its own test and live example.',
+		title: 'Acyclic dependencies',
+		rule: 'Files and module folders form graphs without cycles.',
 		reason:
-			'Recipes and hosts compose blocks through their public entries, as in component kits such as shadcn/ui and Bits UI. Instance-local state lets the same block run independently in the bible and the game.',
+			'A cycle can exist between folders even when no individual file imports back into itself.',
+		decided: '2026-11-22'
+	},
+	{
+		id: 'LIB-11',
+		page: 'library',
+		title: 'Headless model',
+		rule: 'Core, domain and world run in Bun without the DOM, Svelte, Bits UI, Lucide or three.js.',
+		reason: 'Geometry, rules and composition can be tested without a browser or renderer.',
+		decided: '2026-11-22'
+	},
+	{
+		id: 'LIB-12',
+		page: 'library',
+		title: 'Small domain modules',
+		rule: 'A domain module imports at most three other domain modules, with wider composition in world.',
+		reason: 'A capability stays focused while world combines capabilities into a complete model.',
+		decided: '2026-11-22'
+	},
+	{
+		id: 'LIB-13',
+		page: 'library',
+		title: 'One stylesheet',
+		rule: 'All CSS lives in src/app.css and Svelte files use classes without style blocks, inline style attributes or style directives.',
+		reason: 'The bible and game share a single place for styles.',
+		decided: '2026-11-22'
+	},
+	{
+		id: 'LIB-14',
+		page: 'library',
+		title: 'Controls from the kit',
+		rule: 'Raw buttons, inputs, selects and textareas belong in the UI kit, which owns all Bits UI and Lucide imports.',
+		reason: 'Pages and demos reuse the same controls and their interaction behavior.',
+		decided: '2026-11-22'
+	},
+	{
+		id: 'LIB-15',
+		page: 'library',
+		title: 'Routes own page content',
+		rule: 'Routes own chapter text and page-local widgets, the library cannot import routes and only scene imports three.js.',
+		reason: 'Pages assemble library modules. Scene owns the renderer-facing code.',
 		decided: '2026-11-22'
 	}
 ];
