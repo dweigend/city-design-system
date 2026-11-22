@@ -15,7 +15,7 @@ const plot = {
 const base = { width: 9, height: 3, complexity: 0 };
 const deck = createParcelDeck(plot, base, 7);
 const { space, slots } = deck;
-const a = createHouseCourt(deck, base);
+const a = createHouseCourt(deck);
 const fills = slots.map(({ cellId }) => a.occupancy.get(cellId));
 const ids = (model: typeof a) => [model.court.id, ...model.rooms.map(({ id }) => id)];
 const cellId = (index: number) => slots[index].cellId;
@@ -75,7 +75,7 @@ test('a conflicting bridge or reservation leaves the entire batch untouched', ()
 		{ id: cellId(0), fill: { kind: 'bridge', connectionId: 'crossing' } }
 	]);
 	const before = structuredClone(bridge);
-	expect(() => createHouseCourt(deck, base, bridge)).toThrow('occupied');
+	expect(() => createHouseCourt(deck, bridge)).toThrow('occupied');
 	expect(bridge).toEqual(before);
 
 	const empty = createOccupancy(space);
@@ -91,7 +91,9 @@ test('a conflicting bridge or reservation leaves the entire batch untouched', ()
 test('dimensions change while addresses and canonical order stay fixed', () => {
 	const inputs = { width: 6, height: 4, complexity: 1 };
 	const narrower = createParcelDeck(plot, inputs, 7);
-	const b = createHouseCourt(narrower, inputs);
+	const b = createHouseCourt(narrower);
+	expect(b.inputs).toBe(narrower.inputs);
+	expect(b.inputs).toEqual(inputs);
 	const points = b.space.nodes.map(({ position }) => position);
 	const xs = points.map(([x]) => x);
 	const topAt = (y: number) => Math.max(...points.filter((p) => p[1] === y).map((p) => p[2]));
@@ -102,14 +104,13 @@ test('dimensions change while addresses and canonical order stay fixed', () => {
 	expect([...b.occupancy]).toEqual([...a.occupancy]);
 	const reversed = createHouseCourt(
 		{ ...narrower, slots: [...narrower.slots].reverse() },
-		inputs,
 		new Map([...createOccupancy(b.space)].reverse())
 	);
 	expect(reversed).toEqual(b);
 	expect([...reversed.occupancy]).toEqual([...b.occupancy]);
 });
 
-test('the same iso snapshot exposes the three court walls and hides house contacts', () => {
+test('the same snapshot exposes the three court walls and hides house contacts', () => {
 	const before = structuredClone(a);
 	const caller = random(7);
 	const control = random(7);

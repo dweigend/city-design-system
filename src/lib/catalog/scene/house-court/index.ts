@@ -5,7 +5,8 @@ import {
 	Group,
 	Line2NodeMaterial,
 	Mesh,
-	MeshBasicNodeMaterial
+	MeshBasicNodeMaterial,
+	Vector3
 } from 'three/webgpu';
 import { LineSegments2 } from 'three/examples/jsm/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
@@ -20,8 +21,9 @@ import { faceGeometry } from './geometry';
 
 const PLOT_DEPTH = 0.24;
 const FRAME_MARGIN = 0.5;
-const ELEVATION_RAD = Math.PI / 3.2;
-const HEADING_OFFSET_RAD = Math.PI / 9;
+const ELEVATION_RAD = (42 * Math.PI) / 180;
+const HEADING_OFFSET_RAD = Math.PI / 250;
+const PERSPECTIVE_DISTANCE_M = 12.5;
 
 function plotRings(ring: readonly CellPoint[]) {
 	const lower = ring.map(([x, y, z]): CellPoint => [x, y, z - PLOT_DEPTH]);
@@ -46,7 +48,7 @@ function surface(inkMix: number) {
 		polygonOffsetUnits: 1
 	});
 	const light = normalWorldGeometry.dot(vec3(-0.56, 0.76, 0.32));
-	const shade = light.mul(-0.18).add(inkMix).clamp(0.03, 0.7);
+	const shade = light.mul(-0.08).add(inkMix).clamp(0.03, 0.95);
 	material.colorNode = mix(paper.rgb, ink.rgb, shade);
 	return { material, paper: paper.value, ink: ink.value };
 }
@@ -60,7 +62,7 @@ function meshOutlines(geometry: ReturnType<typeof faceGeometry>, material: Line2
 	return lines;
 }
 
-function houseRings(house: HouseCourt) {
+function houseRings(house: HouseCourt, datum: number) {
 	const nodes = new Map(house.space.nodes.map(({ id, position }) => [id, position]));
 	const court = new Set(house.court.cellIds);
 	const courtFaces = new Set(
@@ -68,13 +70,16 @@ function houseRings(house: HouseCourt) {
 			.filter(({ uses }) => uses.some(({ cellId }) => court.has(cellId)))
 			.map(({ id }) => id)
 	);
+	const roof: CellPoint[][] = [];
 	const exterior: CellPoint[][] = [];
 	const recess: CellPoint[][] = [];
 	for (const { id, nodeIds } of exposedHouseFaces(house)) {
-		const target = courtFaces.has(id) ? recess : exterior;
-		target.push(nodeIds.map((node) => required(nodes.get(node), 'house face node')));
+		const ring = nodeIds.map((node) => required(nodes.get(node), 'house face node'));
+		if (courtFaces.has(id)) recess.push(ring);
+		else if (ring.every((point) => point[2] > datum)) roof.push(ring);
+		else exterior.push(ring);
 	}
-	return { exterior, recess };
+	return { roof, exterior, recess };
 }
 
 /**
@@ -84,10 +89,10 @@ function houseRings(house: HouseCourt) {
 export function createHouseCourtContext(deck: ParcelDeck, house: HouseCourt): StageContext {
 	const group = new Group();
 	const origin = deck.plotRing[0];
-	const { exterior, recess } = houseRings(house);
+	const { roof, exterior, recess } = houseRings(house, origin[2]);
 	const ground = plotRings(deck.plotRing);
-	const surfaces = [surface(0.21), surface(0.52), surface(0.34)];
-	const meshes = [exterior, recess, ground].map(
+	const surfaces = [surface(0.13), surface(0.5), surface(0.83), surface(0.26)];
+	const meshes = [roof, exterior, recess, ground].map(
 		(rings, i) => new Mesh(faceGeometry(rings, origin), surfaces[i].material)
 	);
 	group.add(...meshes);
@@ -97,10 +102,13 @@ export function createHouseCourtContext(deck: ParcelDeck, house: HouseCourt): St
 		depthWrite: false,
 		toneMapped: false
 	});
-	const shell = faceGeometry([...exterior, ...recess], origin);
-	const lines = [meshOutlines(shell, lineMaterial), meshOutlines(meshes[2].geometry, lineMaterial)];
+	const shell = faceGeometry([...roof, ...exterior, ...recess], origin);
+	const lines = [meshOutlines(shell, lineMaterial), meshOutlines(meshes[3].geometry, lineMaterial)];
 	shell.dispose();
 	group.add(...lines);
+	const points = [...roof, ...exterior, ...recess, ...ground]
+		.flat()
+		.map(([x, y, z]) => new Vector3(x - origin[0], z - origin[2], origin[1] - y));
 	const [left, right] = deck.entrance;
 	return {
 		group,
@@ -109,12 +117,13 @@ export function createHouseCourtContext(deck: ParcelDeck, house: HouseCourt): St
 			headingRad: Math.atan2(right[1] - left[1], right[0] - left[0]) + HEADING_OFFSET_RAD,
 			elevationRad: ELEVATION_RAD
 		},
+		perspective: { distance: PERSPECTIVE_DISTANCE_M, points },
 		setPalette(palette) {
 			for (const { paper, ink } of surfaces) {
 				paper.set(palette.paper);
 				ink.set(palette.ink);
 			}
-			lineMaterial.color.set(palette.ink);
+			lineMaterial.color.set(palette.ink).lerp(surfaces[0].paper, 0.2);
 		},
 		dispose() {
 			for (const mesh of meshes) {

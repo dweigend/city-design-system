@@ -1,7 +1,6 @@
 import { resolveParams } from '../../core/params';
 import { blockInputs, type BlockInputs } from '../../data/block-inputs';
-import { createCellSpace, type CellPoint } from '../cell-space';
-import type { HouseCourtParcel, HouseCourtSlot } from '../house-court';
+import { createCellSpace, type CellPoint, type CellSpace } from '../cell-space';
 import { required } from '../required';
 import { LAENGEN_TOLERANZ, planen, pruefePlan, type TraegerPlan } from '../traeger';
 
@@ -12,7 +11,22 @@ export type LevelParcel = Readonly<{
 	depth: number;
 }>;
 
-export type ParcelDeck = HouseCourtParcel & Readonly<{ plotRing: readonly CellPoint[] }>;
+type SlotIndex = 0 | 1 | 2;
+type ParcelSlot = Readonly<{ row: SlotIndex; column: SlotIndex; cellId: string }>;
+
+export type ParcelCells = Readonly<{
+	id: string;
+	space: CellSpace;
+	inputs: BlockInputs;
+	exitFaceId: string;
+	slots: readonly ParcelSlot[];
+}>;
+
+export type ParcelDeck = ParcelCells &
+	Readonly<{
+		entrance: LevelParcel['entrance'];
+		plotRing: readonly CellPoint[];
+	}>;
 
 function parcelFrame(plot: LevelParcel) {
 	const [left, right] = plot.entrance;
@@ -43,7 +57,7 @@ function axisPositions(plan: TraegerPlan, axis: 0 | 1) {
 
 type Axis = ReturnType<typeof axisPositions>;
 
-function slotIndex(value: number, axis: Axis): HouseCourtSlot['row'] {
+function slotIndex(value: number, axis: Axis): SlotIndex {
 	if (value < axis.values[1]) return 0;
 	if (value < axis.values[2]) return 1;
 	return 2;
@@ -76,7 +90,8 @@ export function createParcelDeck(
 	inputs: Partial<BlockInputs> = {},
 	seed = 7
 ): ParcelDeck {
-	const { width, height, complexity } = resolveParams(blockInputs, undefined, inputs);
+	const parameters = Object.freeze(resolveParams(blockInputs, undefined, inputs));
+	const { width, height, complexity } = parameters;
 	const frame = parcelFrame(plot);
 	const tolerance = LAENGEN_TOLERANZ * Math.max(1, width);
 	if (width > Math.min(frame.width, plot.depth) + tolerance)
@@ -128,6 +143,7 @@ export function createParcelDeck(
 	return {
 		id: plot.id,
 		space,
+		inputs: parameters,
 		slots,
 		exitFaceId: exit.id,
 		entrance: [frame.point(0, 0), frame.point(frame.width, 0)],
