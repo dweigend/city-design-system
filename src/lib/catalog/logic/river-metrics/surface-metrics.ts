@@ -103,6 +103,27 @@ function checkGrid(grid: SurfaceGrid): number {
 	return side;
 }
 
+type ProfileWidths = {
+	widthM: number[];
+	bankPairsM: (readonly [number, number])[];
+	dryBankWidthsM: number[];
+};
+
+function recordWidths(
+	profile: ReturnType<typeof profileAt>,
+	hasTerrace: boolean,
+	widths: ProfileWidths
+) {
+	const banks = wetBanks(profile);
+	if (!banks) return;
+	widths.widthM.push(banks.right - banks.left);
+	if (!hasTerrace) return;
+	const [left, right] = floodplainWidths(profile, banks);
+	if (left !== null) widths.dryBankWidthsM.push(left);
+	if (right !== null) widths.dryBankWidthsM.push(right);
+	if (left !== null && right !== null) widths.bankPairsM.push([left, right]);
+}
+
 /**
  * Measures complete wet widths, step gains, core relief and land slope shares from a
  * north-first centered grid of millimeter heights and an interleaved XY course in meters.
@@ -129,8 +150,7 @@ export function measureRiverSurface(
 	);
 	const signed = gridSampler(side, grid.spacingM, (i) => grid.bedMm[i] - grid.meanWaterMm[i]);
 	const height = gridSampler(surface.side, protocol.surfaceSpacingM, (i) => surface.heights[i]);
-	const widthM: number[] = [];
-	const bankPairsM: (readonly [number, number])[] = [];
+	const widths: ProfileWidths = { widthM: [], bankPairsM: [], dryBankWidthsM: [] };
 	const { floor } = grid;
 	const terrace = floor && gridSampler(side, grid.spacingM, (i) => Number(floor[i] >= 2));
 	const stepHeightsM: number[] = [];
@@ -152,15 +172,14 @@ export function measureRiverSurface(
 			height,
 			terrace
 		);
-		const banks = wetBanks(profile);
-		if (banks) {
-			widthM.push(banks.right - banks.left);
-			const pair = terrace && floodplainWidths(profile, banks);
-			if (pair) bankPairsM.push(pair);
-		}
+		recordWidths(profile, terrace !== undefined, widths);
 		stepHeightsM.push(
 			...stepCandidates(profile, protocol.stepMinimumSlope, protocol.stepMinimumGainM)
 		);
 	}
-	return { widthM, bankPairsM, stepHeightsM, ...surfaceStats(surface, signed, protocol) };
+	return {
+		...widths,
+		stepHeightsM,
+		...surfaceStats(surface, signed, protocol)
+	};
 }

@@ -10,7 +10,13 @@ import {
 	VALLEY_X1_SEEDS
 } from '../../data/valley-references';
 import { measureRiverSurface } from '../river-metrics';
-import { DEFAULT_VALLEY_PARAMETERS, generateValley, sampleValley, type Valley } from './index';
+import {
+	DEFAULT_VALLEY_PARAMETERS,
+	generateValley,
+	sampleValley,
+	type Valley,
+	type ValleyParameters
+} from './index';
 
 const grid = { windowM: protocol.localWindowM, spacingM: protocol.fieldSpacingM };
 
@@ -54,6 +60,11 @@ function check(row: Measurements, label: string) {
 	expect(row.bankPairsM.length, label + ' complete bank pairs').toBeGreaterThanOrEqual(
 		form.minimumCompleteBankPairs
 	);
+	expect(
+		Math.min(...row.dryBankWidthsM),
+		label + ' dry width on every measured bank'
+	).toBeGreaterThanOrEqual(form.minimumDryBankWidthM);
+	expect(Number.isFinite(row.floodplainRatio), label + ' finite floodplain ratio').toBe(true);
 	expect(row.floodplainRatio, label + ' floodplain width ratio').toBeGreaterThanOrEqual(
 		form.minimumFloodplainWidthRatio
 	);
@@ -68,7 +79,7 @@ function range(values: number[]) {
 
 function reportForm(label: string, rows: Measurements[]) {
 	console.log(
-		`${label}: bank pairs ${range(rows.map((r) => r.bankPairsM.length))}, floodplain ratio ${range(rows.map((r) => r.floodplainRatio))}, step spread ${range(rows.map((r) => r.stepSpreadM))} m.`
+		`${label}: bank pairs ${range(rows.map((r) => r.bankPairsM.length))}, floodplain ratio ${range(rows.map((r) => r.floodplainRatio))}, step spread ${range(rows.map((r) => r.stepSpreadM))} m, minimum dry width ${Math.min(...rows.map((r) => Math.min(...r.dryBankWidthsM))).toFixed(3)} m.`
 	);
 }
 
@@ -120,37 +131,68 @@ test('measures and gates the ground of all 38 frozen seeds', () => {
 		`Seed wet width across complete transects: ${range(rows.flatMap((r) => r.widthM))} m.`
 	);
 	for (const row of rows) check(row, String(row.seed));
-}, 180_000);
+}, 300_000);
 
 function fixed([lo, hi]: readonly [number, number], fraction: number): [number, number] {
 	const value = lo + (hi - lo) * fraction;
 	return [value, value];
 }
 
-function* boxParameters() {
+type BoxCase = { label: string; parameters: Partial<ValleyParameters> };
+
+function combinations(dimensions: readonly (readonly number[])[]): number[][] {
+	return dimensions.reduce<number[][]>(
+		(rows, options) => rows.flatMap((row) => options.map((option) => [...row, option])),
+		[[]]
+	);
+}
+
+function* shapeCases(): Generator<BoxCase> {
 	const defaults = DEFAULT_VALLEY_PARAMETERS;
-	for (const width of protocol.boxFractions) {
-		for (const phase of protocol.boxFractions) {
-			for (const curvature of protocol.boxFractions) {
-				for (const placement of protocol.boxFractions) {
-					for (const ground of protocol.boxFractions) {
-						for (const openBank of ['left', 'right'] as const) {
-							yield {
-								label: `width ${width}, phase ${phase}, curvature ${curvature}, placement ${placement}, ground ${ground}, open ${openBank}`,
-								parameters: {
-									bankfullWidthM: fixed(defaults.bankfullWidthM, width),
-									phaseOffset: fixed(defaults.phaseOffset, phase),
-									headingAmplitude: fixed(defaults.headingAmplitude, curvature),
-									wavelengthToWidth: fixed(defaults.wavelengthToWidth, curvature),
-									windowPhaseOffset: fixed(defaults.windowPhaseOffset, placement),
-									groundVariation: fixed(defaults.groundVariation, ground),
-									openBank
-								}
-							};
-						}
-					}
+	const fractions = protocol.boxFractions;
+	const placements = [0, 0.25, 0.5, 0.75, 1];
+	for (const [width, phase, curvature, placement, ground] of combinations([
+		fractions,
+		fractions,
+		fractions,
+		placements,
+		fractions
+	])) {
+		for (const openBank of ['left', 'right'] as const) {
+			yield {
+				label: `width ${width}, phase ${phase}, curvature ${curvature}, placement ${placement}, ground ${ground}, open ${openBank}`,
+				parameters: {
+					bankfullWidthM: fixed(defaults.bankfullWidthM, width),
+					phaseOffset: fixed(defaults.phaseOffset, phase),
+					headingAmplitude: fixed(defaults.headingAmplitude, curvature),
+					wavelengthToWidth: fixed(defaults.wavelengthToWidth, curvature),
+					windowPhaseOffset: fixed(defaults.windowPhaseOffset, placement),
+					groundVariation: fixed(defaults.groundVariation, ground),
+					openBank
 				}
-			}
+			};
+		}
+	}
+}
+
+function* layoutCases(): Generator<BoxCase> {
+	const defaults = DEFAULT_VALLEY_PARAMETERS;
+	const ends = [0, 1];
+	const dimensions = [[0.25, 0.75], protocol.boxFractions, ends, ends, ends];
+	for (const [placement, across, ground, height, tilt] of combinations(dimensions)) {
+		for (const openBank of ['left', 'right'] as const) {
+			yield {
+				label: `layout phase ${placement}, open ${openBank}, across ${across}, ground ${ground}, height ${height}, tilt ${tilt}`,
+				parameters: {
+					bankfullWidthM: fixed(defaults.bankfullWidthM, 1),
+					windowPhaseOffset: fixed(defaults.windowPhaseOffset, placement),
+					windowAcross: fixed(defaults.windowAcross, across),
+					groundVariation: fixed(defaults.groundVariation, ground),
+					groundHeightVariation: fixed(defaults.groundHeightVariation, height),
+					axisTiltRad: fixed(defaults.axisTiltRad, tilt),
+					openBank
+				}
+			};
 		}
 	}
 }
@@ -158,7 +200,7 @@ function* boxParameters() {
 test('gates the default shape box at endpoints and midpoints and the protocol bearings', () => {
 	const seed = VALLEY_X1_SEEDS[0];
 	const rows = [];
-	for (const { label, parameters } of boxParameters()) {
+	for (const { label, parameters } of [...shapeCases(), ...layoutCases()]) {
 		for (const degrees of protocol.cornerBearingsDeg) {
 			const bearingRad = (degrees * Math.PI) / 180;
 			try {
@@ -176,41 +218,11 @@ test('gates the default shape box at endpoints and midpoints and the protocol be
 	);
 	reportForm('Box form', rows);
 	for (const row of rows) check(row, row.label);
-}, 180_000);
+}, 300_000);
 
-function maskDifference(a: Uint8Array, b: Uint8Array, level: number) {
-	let union = 0;
-	let difference = 0;
-	for (let i = 0; i < a.length; i++) {
-		const aMatches = a[i] === level;
-		const bMatches = b[i] === level;
-		union += Number(aMatches || bMatches);
-		difference += Number(aMatches !== bMatches);
-	}
-	return difference / union;
-}
-
-test('distinguishes every pair of pictured valleys in a common frame', () => {
-	const grids = VALLEY_PICTURE_SEEDS.map((seed) => {
+test('applies the field gates in the actual picture frames', () => {
+	for (const seed of VALLEY_PICTURE_SEEDS) {
 		const valley = generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD });
-		const field = sampleValley(valley, grid);
-		const measured = measure(valley, field);
-		check(measured, `Study seed ${seed}`);
-		return field.floor;
-	});
-	const pairs = [
-		[0, 1],
-		[0, 2],
-		[1, 2]
-	] as const;
-	for (const [i, j] of pairs) {
-		const label = `${VALLEY_PICTURE_SEEDS[i]} / ${VALLEY_PICTURE_SEEDS[j]}`;
-		const wet = maskDifference(grids[i], grids[j], 0);
-		const floodplain = maskDifference(grids[i], grids[j], 1);
-		console.log(
-			`${label}: wet difference ${wet.toFixed(3)}, floodplain difference ${floodplain.toFixed(3)}`
-		);
-		expect(wet, label).toBeGreaterThanOrEqual(form.minimumWetMaskDifference);
-		expect(floodplain, label).toBeGreaterThanOrEqual(form.minimumFloodplainMaskDifference);
+		check(measure(valley), `Study seed ${seed}`);
 	}
 });

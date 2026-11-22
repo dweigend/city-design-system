@@ -88,8 +88,18 @@ export const VALLEY_FORM_BANDS = {
 	minimumStepSpreadM: 2.25,
 	minimumFloodplainWidthRatio: 2,
 	minimumCompleteBankPairs: 2,
+	minimumDryBankWidthM: 12.5,
 	minimumWetMaskDifference: 0.1,
 	minimumFloodplainMaskDifference: 0.2
+} as const;
+
+/** Geometric differences measured at the seven interior rows of the shared picture frame. */
+export const VALLEY_WINDOW_FORM = {
+	minimumPhaseHalfRangeRad: Math.PI / 4,
+	minimumCenterClearanceM: 125,
+	pictureRowsM: [-750, -500, -250, 0, 250, 500, 750],
+	minimumLineRmsM: 150,
+	minimumShapeRmsM: 30
 } as const;
 
 /** The picture plates face downstream at a shared bearing. */

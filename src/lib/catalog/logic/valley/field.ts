@@ -45,10 +45,10 @@ export function sampleValley(valley: Valley, { windowM, spacingM }: ValleyGrid):
 			const index = row * side + column;
 			const xMm = column * spacingMm - half;
 			const yMm = half - row * spacingMm;
-			const { alongM, acrossM } = coordinates(xMm, yMm);
+			const { alongM, stationM, acrossM } = coordinates(xMm, yMm);
 			const water = -alongM * valley.valleySlope;
 			const distanceToBankM = (project(xMm, yMm) - wetHalfWidthMm) / 1000;
-			const height = heightAboveWaterM(valley.axis, alongM, acrossM, distanceToBankM);
+			const height = heightAboveWaterM(valley.axis, stationM, acrossM, distanceToBankM);
 			meanWaterMm[index] = toMillimeters(water);
 			bedMm[index] = toMillimeters(water + height);
 			const aboveWater = bedMm[index] - meanWaterMm[index];

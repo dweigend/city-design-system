@@ -90,3 +90,20 @@ test('measures a sub-cell bank crossing and detects separate rises on both banks
 	expect(result.reliefM).toBeCloseTo(9, 2);
 	expect(result.landSlopeShares.reduce((total, share) => total + share)).toBeCloseTo(1, 12);
 });
+
+test('records a terrace at the wet bank even with the opposite terrace censored', () => {
+	const windowM = 2000;
+	const spacingM = 12.5;
+	const side = windowM / spacingM + 1;
+	const yAt = (i: number) => windowM / 2 - Math.floor(i / side) * spacingM;
+	const meanWaterMm = new Int32Array(side ** 2);
+	const bedMm = meanWaterMm.map((_, i) => (Math.abs(yAt(i)) <= 175 ? -1000 : 1000));
+	const floor = Uint8Array.from(bedMm, (bed, i) => (bed < 0 ? 0 : yAt(i) > 175 ? 2 : 1));
+	const metrics = measureRiverSurface(
+		{ windowM, spacingM, bedMm, meanWaterMm, floor },
+		[-2000, 0, 2000, 0],
+		VALLEY_MEASUREMENT_PROTOCOL
+	);
+	expect(metrics.bankPairsM).toHaveLength(0);
+	expect(metrics.dryBankWidthsM).toEqual(Array<number>(8).fill(0));
+});

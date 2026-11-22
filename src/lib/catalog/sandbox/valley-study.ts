@@ -10,7 +10,7 @@ export const VALLEY_STUDY_VIEW = {
 } as const;
 export const VALLEY_STUDY_SCALE_M = 500;
 
-/** Samples a rigidly rotated seed in the common study frame, with mean flow from top to bottom. */
+/** Samples an off-channel window in the common study frame, with flow toward the bottom. */
 export function valleyStudyField(seed: number): ValleyField {
 	const valley = generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD });
 	return sampleValley(valley, VALLEY_STUDY_GRID);

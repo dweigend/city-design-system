@@ -112,11 +112,13 @@ function terraceEdge(profile: readonly ProfilePoint[], start: number, direction:
 export function floodplainWidths(
 	profile: readonly ProfilePoint[],
 	banks: NonNullable<ReturnType<typeof wetBanks>>
-): readonly [leftM: number, rightM: number] | null {
+): readonly [leftM: number | null, rightM: number | null] {
 	const left = terraceEdge(profile, banks.leftDry, -1);
 	const right = terraceEdge(profile, banks.rightDry, 1);
-	if (left === null || right === null) return null;
-	return [Math.max(0, banks.left - left), Math.max(0, right - banks.right)];
+	return [
+		left === null ? null : Math.max(0, banks.left - left),
+		right === null ? null : Math.max(0, right - banks.right)
+	];
 }
 
 function grade(profile: readonly ProfilePoint[], index: number): number {

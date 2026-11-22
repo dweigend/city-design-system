@@ -1,4 +1,3 @@
-import { VALLEY_GROUND_DEFAULTS as defaults } from '../../data/valley-ground';
 import type { ValleyAxis } from './valley-axis';
 
 function ramp(distanceM: number, runM: number): number {
@@ -14,23 +13,25 @@ function rise(distanceM: number, centerM: number, halfRunM: number): number {
 /** Samples valley-axis relief in meters above mean water. Only the bank skirt reads the river. */
 export function heightAboveWaterM(
 	axis: ValleyAxis,
-	alongM: number,
+	stationM: number,
 	acrossM: number,
 	distanceToBankM: number
 ): number {
-	if (distanceToBankM < 0) return -defaults.bedDepthM * ramp(-distanceToBankM, defaults.bedRunM);
-	const t = alongM / defaults.axisReachM;
-	const lateral = acrossM - axis.bowM * t * t;
+	const { profile } = axis;
+	if (distanceToBankM < 0) return -profile.bedDepthM * ramp(-distanceToBankM, profile.bedRunM);
+	const t = stationM / axis.bowSpanM;
+	const absT = Math.abs(t);
+	const bow = absT < 1 ? t * t : 2 * absT - 1;
+	const lateral = acrossM - axis.bowM * bow;
 	const distance = Math.abs(lateral);
 	const edge =
 		Math.sign(lateral) === axis.openSide ? axis.openEdgeM + axis.wideningM * t : axis.closeEdgeM;
-	const upperEdge = edge + defaults.upperSetbackM;
+	const upperEdge = edge + profile.upperSetbackM;
 	const [floodplain, lower, upper] = axis.floors;
 	const relief =
 		floodplain.levelM +
-		(lower.levelM - floodplain.levelM) * rise(distance, edge, defaults.firstHalfRunM) +
-		(upper.levelM - lower.levelM) * rise(distance, upperEdge, defaults.secondHalfRunM) +
-		defaults.apronRiseM *
-			rise(distance, upperEdge + defaults.apronSetbackM, defaults.apronHalfRunM);
-	return relief * ramp(distanceToBankM, defaults.bankRunM);
+		(lower.levelM - floodplain.levelM) * rise(distance, edge, profile.firstHalfRunM) +
+		(upper.levelM - lower.levelM) * rise(distance, upperEdge, profile.secondHalfRunM) +
+		profile.apronRiseM * rise(distance, upperEdge + profile.apronSetbackM, profile.apronHalfRunM);
+	return relief * ramp(distanceToBankM, profile.bankRunM);
 }
