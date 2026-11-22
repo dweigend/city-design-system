@@ -6,10 +6,10 @@ const registered = new Set(designPrinciples.map(({ id }) => id));
 const presets = {
 	valley: { scene: 'valley', seed: VALLEY_PICTURE_SEEDS[0] },
 	acceptance: { scene: 'acceptance', seed: 7 }
-} as const satisfies Record<ChapterPreset['scene'], ChapterPreset>;
+} as const satisfies Partial<Record<ChapterPreset['scene'], ChapterPreset>>;
 
 type PlaceholderCopy = Pick<ChapterStep, 'title' | 'label' | 'caption' | 'principles' | 'view'> &
-	Readonly<{ scene?: ChapterPreset['scene']; detailsLabel?: string }>;
+	Readonly<{ scene?: keyof typeof presets; detailsLabel?: string }>;
 
 /** Creates a step with real view controls and an existing scene while its demo is pending. */
 export function placeholder(number: number, copy: PlaceholderCopy): ChapterStep {

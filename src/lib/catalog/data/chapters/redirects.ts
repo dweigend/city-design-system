@@ -57,7 +57,7 @@ const moves: Readonly<Record<string, Move>> = {
 	formen: {
 		target: volume,
 		anchors: {
-			'construction-phases': ['architektur', 'step-7'],
+			'construction-phases': ['architektur', 'step-8'],
 			'FORM-10': ['architektur', 'step-8'],
 			kuppel: methods,
 			tragwerke: methods,

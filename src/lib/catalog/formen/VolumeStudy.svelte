@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import HouseCourtFrame from './HouseCourtFrame.svelte';
-	import StyleHouses from './StyleHouses.svelte';
 	import { volumeStudy } from '../data/volume-study';
 </script>
 
@@ -16,7 +15,6 @@
 		</div>
 		<HouseCourtFrame />
 	</div>
-	<StyleHouses />
 	<p class="next">
 		<a href={resolve('/interface#connections')}>Next: Trace building connections</a>
 	</p>

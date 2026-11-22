@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { bounds, union } from '../ansicht/geometrie';
 import type { Primitive, Vec3 } from '../parametrik/types';
-import { buildStyleHouse, styleHouseDefaults, styleHouseIds } from './index';
+import {
+	buildConstructionPhases,
+	buildStyleHouse,
+	styleHouseDefaults,
+	styleHouseIds
+} from './index';
 
 const kinds = (parts: Primitive[]) => new Set(parts.map((part) => part.kind));
 
@@ -76,5 +81,27 @@ describe('style houses', () => {
 			buildStyleHouse('organic', { slots: { frame: { finish: 'holz-natur', token: '--ink' } } })
 		).toThrow(RangeError);
 		expect(() => buildStyleHouse('organic', { inputs: { height: 99 } })).toThrow(RangeError);
+	});
+
+	test('phases build one after another and leave earlier houses as stock', () => {
+		const axis = [1, 0] as const;
+		const row = buildConstructionPhases(axis);
+		const total = styleHouseIds.reduce((sum, id) => sum + buildStyleHouse(id).parts.length, 0);
+		expect(row.active).toBeUndefined();
+		expect(row.parts.length).toBe(total);
+		expect(row.parts.every((part) => part.role === 'neu' && part.finish)).toBe(true);
+		expect(row.lots.map(({ id }) => id)).toEqual([...styleHouseIds]);
+		expect(row.lots[1].centre).toEqual([0, 0, 0]);
+		expect(row.lots[2].centre[0] - row.lots[1].centre[0]).toBeGreaterThan(
+			row.inputs.width * Math.SQRT2
+		);
+
+		const second = buildConstructionPhases(axis, 1);
+		const stock = second.parts.filter((part) => part.role === 'bestand');
+		expect(second.active).toBe(1);
+		expect(stock.length).toBe(buildStyleHouse('memphis').parts.length);
+		expect(stock.every((part) => !part.finish && part.id.startsWith('memphis/'))).toBe(true);
+		expect(second.parts.some((part) => part.id.startsWith('organic/'))).toBe(false);
+		expect(buildConstructionPhases(axis, 3).parts).toEqual(row.parts);
 	});
 });

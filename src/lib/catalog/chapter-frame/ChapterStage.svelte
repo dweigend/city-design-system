@@ -4,7 +4,11 @@
 	import { onMount } from 'svelte';
 	import type { ChapterPreset } from '../data/chapters';
 	import { displayLabels, viewLabels } from '../data/view-modes';
-	import { createAcceptanceChapterStage, type ChapterStageFactory } from '../scene/chapter-stage';
+	import {
+		createAcceptanceChapterStage,
+		createStyleHouseChapterStage,
+		type ChapterStageFactory
+	} from '../scene/chapter-stage';
 	import { createValleyChapterStage } from '../scene/valley';
 	import type { ChapterController } from './chapter-controller.svelte';
 
@@ -13,7 +17,8 @@
 
 	const stages = {
 		valley: createValleyChapterStage,
-		acceptance: createAcceptanceChapterStage
+		acceptance: createAcceptanceChapterStage,
+		'style-houses': createStyleHouseChapterStage
 	} satisfies Record<ChapterPreset['scene'], ChapterStageFactory>;
 	const displayIcons = { transparency: SquareDashed, levels: Layers };
 	let canvas = $state<HTMLCanvasElement>();
