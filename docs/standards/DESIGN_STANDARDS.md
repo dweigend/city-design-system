@@ -42,15 +42,16 @@ Paragraphs are up to 68 ch wide. Table column headers use the label style in sec
 
 ### Layout
 
-| Class      | Use                                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| `.page`    | Center a left-aligned page up to 1440 px wide, with 48 px side gutters and 16 px at 720 px and below. |
-| `.stack`   | Space items vertically.                                                                               |
-| `.cluster` | Place items in a row and wrap as needed.                                                              |
-| `.grid`    | Fit columns to the space available.                                                                   |
-| `.frame`   | Hold a picture or canvas in a 16:9 area.                                                              |
-| `.panel`   | Give content a paper surface with padding and a thin border.                                          |
-| `.divider` | Draw a thin horizontal rule, also the default for `hr`.                                               |
+| Class         | Use                                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `.page`       | Center a left-aligned page up to 1440 px wide, with 48 px side gutters and 16 px at 720 px and below. |
+| `.stack`      | Space items vertically.                                                                               |
+| `.cluster`    | Place items in a row and wrap as needed.                                                              |
+| `.grid`       | Fit columns to the space available.                                                                   |
+| `.grid-aside` | Pair a main view and its details in a two-to-one grid. Stack them at 720 px and below.                |
+| `.frame`      | Hold a picture or canvas in a 16:9 area.                                                              |
+| `.panel`      | Give content a paper surface with padding and a thin border.                                          |
+| `.divider`    | Draw a thin horizontal rule, also the default for `hr`.                                               |
 
 Direct page sections have 80 px of space above a 1 px ink rule and 24 px of padding below the rule.
 

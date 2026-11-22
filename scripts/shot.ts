@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,7 +13,8 @@ const { values, positionals } = parseArgs({
 		revision: { type: 'string' },
 		before: { type: 'string' },
 		reference: { type: 'string' },
-		url: { type: 'string' }
+		url: { type: 'string' },
+		size: { type: 'string' }
 	}
 });
 const revision = values.revision ?? git(integration, 'rev-parse', 'HEAD');
@@ -27,7 +28,15 @@ const routes = positionals.length
 		? [requested.pathname + requested.search]
 		: process.env.SHOT_ROUTE
 			? [process.env.SHOT_ROUTE]
-			: ['/', '/landscape', '/interface'];
+			: ['/', '/landscape', '/interface', '/blocks'];
+const sizes = [
+	['phone', 390, 844, 'light'],
+	['desktop', 1366, 768, 'light'],
+	['dark-desktop', 1366, 768, 'dark'],
+	['dark-phone', 390, 844, 'dark']
+] as const;
+if (values.size && !sizes.some(([size]) => size === values.size))
+	throw Error('Unknown shot size: ' + values.size);
 const folder = resolve(shots, new Date().toISOString().replaceAll(':', '-'));
 const reference = values.reference ? resolve(values.reference) : undefined;
 
@@ -78,14 +87,13 @@ try {
 	for (const route of routes) {
 		const url = new URL(route, origin);
 		if (url.origin !== origin) throw Error('Expected a local preview route');
-		for (const [size, width, height, theme] of [
-			['phone', 390, 844, 'light'],
-			['desktop', 1366, 768, 'light'],
-			['dark-desktop', 1366, 768, 'dark'],
-			['dark-phone', 390, 844, 'dark']
-		] as const) {
+		const hasStage = url.pathname === '/blocks';
+		for (const [size, width, height, theme] of sizes) {
+			if (values.size && values.size !== size) continue;
 			const showChapterMenu = size === 'dark-phone' && url.pathname === '/';
-			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu) continue;
+			const showDarkStage = size === 'dark-desktop' && hasStage;
+			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu && !showDarkStage)
+				continue;
 			const page = await browser.newPage({
 				viewport: { width, height },
 				deviceScaleFactor: 1,
@@ -102,20 +110,20 @@ try {
 					await page.getByRole('button', { name: 'Chapters' }).click();
 					await page.getByRole('dialog', { name: 'Chapters' }).waitFor();
 				}
-				const renderer = await page.evaluate(webGlRenderer);
-				const backend = 'webgl2';
+				const backend = hasStage ? 'webgpu' : 'webgl2';
+				const renderer = hasStage ? await stageAdapter(page) : await page.evaluate(webGlRenderer);
 				if (
-					!/amd|radeon/i.test(renderer) ||
+					(!hasStage && !/amd|radeon/i.test(renderer)) ||
 					/swiftshader|llvmpipe|lavapipe|software/i.test(renderer)
 				)
 					throw Error('Hardware proof failed: ' + renderer);
 
 				const key = Buffer.from(route).toString('base64url') + '-' + size;
 				const fullImage = key + '-full.png';
-				const image = theme === 'light' ? key + '.png' : fullImage;
-				const sheet = key + '-sheet.png';
+				const image = hasStage || theme === 'dark' ? fullImage : key + '.png';
 				const current = resolve(folder, image);
-				if (theme === 'light') await page.screenshot({ path: current, animations: 'disabled' });
+				if (theme === 'light')
+					await page.screenshot({ path: resolve(folder, key + '.png'), animations: 'disabled' });
 				await page.screenshot({
 					path: resolve(folder, fullImage),
 					animations: 'disabled',
@@ -126,8 +134,8 @@ try {
 				const panels = ['-label', 'After', current];
 				if (baseline && before) panels.unshift('-label', 'Before', resolve(before, baseline.image));
 				if (reference && theme === 'light') panels.push('-label', 'Reference', reference);
-				const hasComparison = panels.length > 3;
-				if (hasComparison) {
+				const sheet = panels.length > 3 ? key + '-sheet.png' : undefined;
+				if (sheet) {
 					execFileSync('montage', [
 						'-font',
 						'DejaVu-Sans',
@@ -151,7 +159,7 @@ try {
 					chapterMenuOpen: showChapterMenu,
 					image,
 					fullImage,
-					sheet: hasComparison ? sheet : undefined,
+					sheet,
 					backend,
 					renderer
 				});
@@ -165,24 +173,29 @@ try {
 	await browser.close();
 }
 preview(revision);
-await Bun.write(
-	resolve(folder, 'manifest.json'),
-	JSON.stringify(
-		{
-			revision,
-			origin,
-			before,
-			reference,
-			reducedMotion: true,
-			deviceScaleFactor: 1,
-			browser: browser.version(),
-			records
-		},
-		null,
-		2
-	)
-);
+const manifest = {
+	revision,
+	origin,
+	before,
+	reference,
+	reducedMotion: true,
+	deviceScaleFactor: 1,
+	browser: browser.version(),
+	records
+};
+await Bun.write(resolve(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
 console.log(folder);
+
+async function stageAdapter(page: Page) {
+	const ready = page.locator('canvas[data-stage-ready="true"]');
+	const unavailable = page.getByRole('status').filter({ hasText: 'WebGPU' });
+	await ready.or(unavailable).waitFor();
+	if (await unavailable.isVisible()) throw Error('The stage could not initialise WebGPU');
+	const { stageHardware, stageAdapter } = await ready.evaluate((canvas) => canvas.dataset);
+	if (stageHardware !== 'true' || !stageAdapter)
+		throw Error('WebGPU hardware proof failed: ' + stageAdapter);
+	return stageAdapter;
+}
 
 function webGlRenderer() {
 	const gl = document.createElement('canvas').getContext('webgl2');

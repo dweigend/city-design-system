@@ -24,7 +24,17 @@ heavy-slot -- bun run dev --host 127.0.0.1 --port 5182 --strictPort
 heavy-slot --wait 180 -- bun run shot
 ```
 
-Shot verifies the preview worktree and revision, then captures `/`, `/landscape` and `/interface` in Chrome at 390 × 844 and 1366 × 768. Each route gets light viewport and full-page shots at both sizes. Interface also gets full-page dark shots at both sizes, and the contents page gets a full-page dark phone shot with the chapter menu open. The script checks the browser's GPU and writes the screenshots and manifest under `_lokal/rebuild-shots/`. Pass a route to capture a different page. Supply `--reference /absolute/path/to/image.png` or a matching first-parent capture with `--before <shot-folder>` to create comparison sheets.
+Shot verifies the preview worktree and revision, then captures `/`, `/landscape`, `/interface` and `/blocks` in Chrome at 390 × 844 and 1366 × 768. Each route gets light viewport and full-page shots at both sizes. Interface also gets dark shots at both sizes, Blocks gets a dark desktop shot, and the contents page gets a dark phone shot with the chapter menu open.
+
+For Blocks, Shot waits for the first frame and checks the stage's WebGPU adapter. Other pages use the browser's WebGL hardware check. Screenshots and the manifest are saved under `_lokal/rebuild-shots/`.
+
+Pass one or more routes to capture specific pages. Use `--size desktop` to capture only that size and put the Blocks view or display in the URL.
+
+```sh
+heavy-slot --wait 180 -- bun run shot --size desktop '/blocks?view=plan&display=transparency'
+```
+
+Supply `--reference /absolute/path/to/image.png` or a matching first-parent capture with `--before <shot-folder>` to create comparison sheets.
 
 ## Ship a package
 
