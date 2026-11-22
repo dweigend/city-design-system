@@ -36,16 +36,33 @@ import { createStructures } from './structures';
 import { createTerrainMesh, type TerrainMesh } from './terrain-mesh';
 import { createTerrainLook } from './terrain-look';
 import { frameOldTown, frameTownSilhouette } from './opening-view';
-import { createView, type OpeningArea } from './view';
+import { createView, type FrameOrientation, type OpeningArea } from './view';
 import { createViewMode } from './view-mode';
 import { createVehicles } from './vehicles';
 import { createTimeline } from './timeline';
 import { collectOpeningGroups } from './court-opening';
 import { createFrameLoop } from './frame-loop';
+import { createContextCamera, type ContextPerspective } from './context-camera';
 
 /** Free margin around the terrain in the opening view, as a factor of its silhouette. */
 const OPENING_MARGIN = 1.1;
+/** Detached fixed context geometry supplied to the stage, which takes ownership of disposal. */
+export type StageContext = Readonly<{
+	group: THREE.Object3D;
+	bounds: THREE.Box3;
+	orientation: FrameOrientation;
+	/** Optional fixed-context orientations for the supported stage views. */
+	viewOrientations?: Readonly<Record<ResolvedView['view'], FrameOrientation>>;
+	/** Margin around a fixed context when its view orientations are supplied. */
+	viewMargin?: number;
+	/** Optional perspective lens and subject silhouette for a fixed context. */
+	perspective?: ContextPerspective;
+	setPalette(palette: Palette3D): void;
+	dispose(): void;
+}>;
+
 type StageOptions = {
+	context?: StageContext;
 	quality?: StudioQuality;
 	minInkAppliesTo?: MinimumInk;
 	showFrameStudy?: boolean;
@@ -85,8 +102,17 @@ export function createSandboxStage(
 
 	const scene = new THREE.Scene();
 	const view = createView();
+	const context = study.context;
+	let contextOrientation = context?.orientation;
+	const lens = context?.perspective ? createContextCamera(context.perspective) : undefined;
 	const terrainLook = createTerrainLook();
-	const pipeline = studioPipeline(renderer, scene, view.camera, study.quality, terrainLook.beauty);
+	const pipeline = studioPipeline(
+		renderer,
+		scene,
+		lens?.camera ?? view.camera,
+		study.quality,
+		terrainLook.beauty
+	);
 	const light = pipeline.light;
 	const structures = createStructures(study.quality, true, light.receiverOutput, terrainLook.mark);
 	const nextFrame = { set: structures.queue };
@@ -95,6 +121,7 @@ export function createSandboxStage(
 	const warmTarget = new THREE.RenderTarget(1, 1);
 	const studyAdditions = study.additions ?? [];
 	scene.add(structures.group, vehicles.group);
+	if (context) scene.add(context.group);
 
 	const ink = new THREE.Color();
 	const paper = new THREE.Color();
@@ -152,7 +179,7 @@ export function createSandboxStage(
 	const frameListeners = new Set<(affected?: Affected) => void>();
 	const hoverRay = new THREE.Raycaster();
 	function crossedPointer(x: number, y: number) {
-		hoverRay.setFromCamera(view.ndc(x, y), view.camera);
+		hoverRay.setFromCamera(view.ndc(x, y), lens?.camera ?? view.camera);
 		const crosses = (box: THREE.Box3) => !box.isEmpty() && hoverRay.ray.intersectsBox(box);
 		return crosses(structures.swept) || (vehicles.group.visible && crosses(vehicles.swept));
 	}
@@ -194,6 +221,10 @@ export function createSandboxStage(
 		const { scale, elevation } = view.drawingMetrics();
 		const redraw = styleDirty || refreshTones || scale !== viewScale || elevation !== viewElevation;
 		if (!viewDirty && !redraw) return;
+		if (lens && viewDirty) {
+			const [width, height] = view.viewport();
+			lens.frame(view.camera, view.target, width / height);
+		}
 		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
@@ -249,6 +280,7 @@ export function createSandboxStage(
 
 	const loop = createFrameLoop(gpu.isLive, ({ stamp, reduced }) => {
 		prepareOpening();
+		const moving = view.stepBoxMove(stamp, reduced);
 		prepareView();
 		const seconds = timeline.sample(stamp);
 		terrain?.setTime(seconds);
@@ -263,7 +295,7 @@ export function createSandboxStage(
 		if (pickDirty || seating || transit)
 			for (const listener of frameListeners) listener(pickDirty ? undefined : crossedPointer);
 		pickDirty = false;
-		return timeline.playing();
+		return moving || timeline.playing();
 	});
 	const { render } = loop;
 	const timeline = createTimeline(canvas, render);
@@ -272,7 +304,7 @@ export function createSandboxStage(
 	function applyPalette(next: Palette3D) {
 		palette = next;
 		paper.set(next.paper);
-		scene.background = paper.clone().lerp(new THREE.Color(next.ink), 0.025);
+		scene.background = context ? paper : paper.clone().lerp(new THREE.Color(next.ink), 0.025);
 		structures.setPalette(next);
 		terrainLook.setPalette(next);
 		refreshTones = true;
@@ -285,6 +317,7 @@ export function createSandboxStage(
 		rejectionMaterial.color.copy(swatches.hazard);
 		targetMaterial.color.set(sceneSwatch(next, '--signal'));
 		terrain?.setPalette(next);
+		context?.setPalette(next);
 		vehicles.setPalette(next);
 
 		render();
@@ -408,7 +441,13 @@ export function createSandboxStage(
 		if (before.lines !== after.lines) retainedDirty = true;
 	}
 
-	function frameCurrent(force: boolean) {
+	function frameCurrent(force: boolean, durationMs = 0) {
+		if (context) {
+			view.frameBase(() =>
+				view.frameBox(context.bounds, context.viewMargin ?? 1, contextOrientation, durationMs)
+			);
+			return;
+		}
 		const mesh = terrain;
 		if (mesh && (force || opening)) view.frameBase(() => frameTerrain(mesh));
 	}
@@ -451,10 +490,17 @@ export function createSandboxStage(
 	 * Applies a resolved camera and display to retained scene buffers.
 	 * Plan retains the iso drafting scale, stroke selection and detail tier.
 	 */
-	function setView(resolved: ResolvedView, editable = false) {
+	function setView(resolved: ResolvedView, editable = false, durationMs = 0) {
 		if (!editable && !viewMode.retainsDrafting && terrain)
 			view.frameInspection(terrain.water.geometry);
-		if (!viewMode.set(resolved, viewLayers(), editable)) return false;
+		// A fixed perspective context keeps its inspection pose when it is reframed.
+		const orientation = context?.viewOrientations?.[resolved.view];
+		if (!viewMode.set(resolved, viewLayers(), editable && !lens, Boolean(orientation)))
+			return false;
+		if (orientation) {
+			contextOrientation = orientation;
+			frameCurrent(true, loop.reduced.matches ? 0 : durationMs);
+		}
 		invalidateView();
 		return true;
 	}
@@ -520,7 +566,7 @@ export function createSandboxStage(
 		/** Pauses vehicle simulation at its current pose. Other placement feedback continues. */
 		setTransitPaused: timeline.pauseTransit.bind(timeline),
 		/** Canvas size in CSS pixels. */
-		resize(width: number, height: number) {
+		resize(this: void, width: number, height: number) {
 			renderer.setSize(width, height, false);
 			view.resize(width, height);
 			frameCurrent(Boolean(study.frame));
@@ -530,9 +576,9 @@ export function createSandboxStage(
 		setPlan(plan: boolean) {
 			if (setView({ view: plan ? 'plan' : 'iso', display: 'normal' }, true)) opening = undefined;
 		},
-		/** Applies a resolved view. Inspection plan keeps the opening drafting and detail tier. */
-		setView: (resolved: ResolvedView) => {
-			setView(resolved);
+		/** Applies a resolved view. Fixed contexts may move the camera for up to 600 ms. */
+		setView: (resolved: ResolvedView, durationMs = 0) => {
+			setView(resolved, false, THREE.MathUtils.clamp(durationMs, 0, 600));
 		},
 		/** Picks the nearest visible house, tree or terrain cell in the current view. */
 		pickCell(x: number, y: number) {
@@ -581,7 +627,7 @@ export function createSandboxStage(
 			if (rejection) retainedDirty = true;
 			render();
 		},
-		dispose() {
+		dispose(this: void) {
 			timeline.dispose();
 			stopTheme();
 			frameListeners.clear();
@@ -595,6 +641,7 @@ export function createSandboxStage(
 			targetMaterial.dispose();
 			rejectionMaterial.dispose();
 			if (terrain) terrain.dispose();
+			context?.dispose();
 			frames.dispose();
 			structures.dispose();
 			warmTarget.dispose();

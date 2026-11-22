@@ -14,6 +14,7 @@ const SPAN_MIN = 30;
 const SPAN_MAX = 1500;
 /** Distance of the camera from its target, meters; far enough to clear every building. */
 const CAMERA_DISTANCE = 1400;
+const CONTEXT_DEPTH_MARGIN_M = 200;
 
 export type OpeningArea = {
 	featuredCentre?: { cellId: string; headingDeg: number };
@@ -32,6 +33,10 @@ export type CourtFit = {
 	courtCenters?: readonly Vec3[];
 };
 export type View = ReturnType<typeof createView>;
+export type FrameOrientation = Readonly<{ headingRad: number; elevationRad: number }>;
+
+type BoxPose = Readonly<{ heading: number; elevation: number; span: number }>;
+type BoxMove = Readonly<{ from: BoxPose; to: BoxPose; startedAt: number; duration: number }>;
 
 type InspectionPose = Readonly<{ elevation: number; margin: number }>;
 
@@ -54,10 +59,12 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let width = 1;
 	let height = 1;
 	let span = 400;
+	let cameraDistance = CAMERA_DISTANCE;
 	let openingFit: { points: THREE.Vector3[]; area?: OpeningArea; fit: CourtFit } | undefined;
 	let openingSubject: THREE.Vector3[] | undefined;
 	let inspectionBounds: THREE.Box3 | undefined;
 	let inspection: InspectionPose | undefined;
+	let boxMove: BoxMove | undefined;
 	let openingPose: { target: THREE.Vector3; elevation: number; span: number } | undefined;
 
 	function apply() {
@@ -74,7 +81,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		forward.set(-Math.sin(azimuthRad), 0, -Math.cos(azimuthRad));
 		eye.copy(forward).multiplyScalar(-Math.cos(elevationRad)).setY(Math.sin(elevationRad));
 		camera.up.copy(plan ? forward : THREE.Object3D.DEFAULT_UP);
-		camera.position.copy(target).addScaledVector(eye, CAMERA_DISTANCE);
+		camera.position.copy(target).addScaledVector(eye, cameraDistance);
 		camera.lookAt(target);
 		camera.updateProjectionMatrix();
 		camera.updateMatrixWorld();
@@ -212,13 +219,19 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		openingFit = saved;
 	}
 
-	function fitBoxSpan(box: THREE.Box3, margin: number) {
+	function fitBoxSpan(box: THREE.Box3, margin: number, fullExtent = false) {
 		const up = new THREE.Vector3().crossVectors(eye, right);
 		const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
 		const extent = (axis: THREE.Vector3) =>
 			Math.abs(axis.x) * half.x + Math.abs(axis.y) * half.y + Math.abs(axis.z) * half.z;
 		const fit = Math.max(extent(up), (extent(right) * height) / width) * 2 * margin;
-		span = Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
+		span = fullExtent ? fit : Math.max(SPAN_MIN, Math.min(SPAN_MAX, fit));
+		const halfDepth = fullExtent ? extent(eye) : 0;
+		cameraDistance = Math.max(CAMERA_DISTANCE, halfDepth + CONTEXT_DEPTH_MARGIN_M);
+		camera.far = Math.max(
+			CAMERA_DISTANCE * 2.5,
+			cameraDistance + halfDepth + CONTEXT_DEPTH_MARGIN_M
+		);
 	}
 
 	/** Caches ground bounds around the opening subject and the nearby visible water. */
@@ -258,6 +271,36 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			}
 		}
 		apply();
+	}
+
+	function boxPose(): BoxPose {
+		return { heading, elevation: elevationRad, span };
+	}
+
+	function applyBoxPose(pose: BoxPose) {
+		heading = pose.heading;
+		elevationRad = pose.elevation;
+		span = pose.span;
+		apply();
+	}
+
+	/** Advances a fixed-context camera move and reports whether it needs another frame. */
+	function stepBoxMove(stamp: number, reduced: boolean) {
+		if (!boxMove) return false;
+		const { from, to, startedAt, duration } = boxMove;
+		const progress = reduced ? 1 : THREE.MathUtils.clamp((stamp - startedAt) / duration, 0, 1);
+		if (progress === 1) {
+			boxMove = undefined;
+			applyBoxPose(to);
+			return false;
+		}
+		const ease = progress ** 2 * (3 - 2 * progress);
+		applyBoxPose({
+			heading: THREE.MathUtils.lerp(from.heading, to.heading, ease),
+			elevation: THREE.MathUtils.lerp(from.elevation, to.elevation, ease),
+			span: THREE.MathUtils.lerp(from.span, to.span, ease)
+		});
+		return true;
 	}
 
 	return {
@@ -307,19 +350,26 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			height = Math.max(1, nextHeight);
 			apply();
 		},
-		/** Frames a three.js box: its center in the image center, `margin` ≥ 1 around its silhouette. */
-		frameBox(box: THREE.Box3, margin: number) {
+		/** Frames a three.js box. An explicit orientation fits fixed studies at their full extent. */
+		frameBox(box: THREE.Box3, margin: number, orientation?: FrameOrientation, durationMs = 0) {
+			boxMove = undefined;
+			const from = boxPose();
 			openingFit = undefined;
 			openingSubject = undefined;
 			inspectionBounds = undefined;
 			focusY = focusX = 0.5;
-			heading = BLICK.azimutRad;
+			heading = orientation?.headingRad ?? BLICK.azimutRad;
 			box.getCenter(target);
-			if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
+			if (orientation) elevationRad = orientation.elevationRad;
+			else if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
-			fitBoxSpan(box, margin);
-			apply();
+			fitBoxSpan(box, margin, Boolean(orientation));
+			if (durationMs > 0) {
+				boxMove = { from, to: boxPose(), startedAt: performance.now(), duration: durationMs };
+				applyBoxPose(from);
+			} else apply();
 		},
+		stepBoxMove,
 		/** Whether the canvas is taller than it is wide. */
 		isPortrait: () => width < height,
 		/** Canvas dimensions in CSS pixels. */

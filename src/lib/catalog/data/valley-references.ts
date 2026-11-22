@@ -45,6 +45,7 @@ export const VALLEY_REFERENCES = [
 	}
 ] as const;
 
+/** Centered vector and surface measurement settings. Slopes are rise/run. */
 export const VALLEY_MEASUREMENT_PROTOCOL = {
 	localWindowM: 2_000,
 	regionalWindowM: 8_000,
@@ -52,6 +53,13 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	borderHits: 2,
 	cornerBearingsDeg: [0, 15, 30, 45, 60, 75, 90],
 	reliefCoreM: 1_000,
+	fieldSpacingM: 12.5,
+	bankSampling: 'linear-bed-minus-water-zero-crossing',
+	stationOffsetM: 125,
+	stationTangentHalfLengthM: 60,
+	boxFractions: [0, 0.5, 1],
+	gaussianTruncateSigma: 4,
+	landSlopeClassLimits: [0.02, 0.05, 0.15],
 	surfaceSpacingM: 30,
 	smoothingSigmaM: 30,
 	profileSpacingM: 250,
@@ -61,7 +69,7 @@ export const VALLEY_MEASUREMENT_PROTOCOL = {
 	gentleSlopeLimit: 0.02
 } as const;
 
-/** Inclusive bands for the course, its wet-width proxy and future field measurements. */
+/** Inclusive bands for the course, field wet width and bare-earth measurements. */
 export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	sinuosity2km: [1, 1.11],
 	sinuosity8km: [1.05, 1.3],
@@ -75,6 +83,27 @@ export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	maximumStepHeightP90M: 10
 } as const;
 
+/** Form gates for the corrected valley family. Ratios use the complete dry bank pairs. */
+export const VALLEY_FORM_BANDS = {
+	minimumStepSpreadM: 2.25,
+	minimumFloodplainWidthRatio: 2,
+	minimumCompleteBankPairs: 2,
+	minimumDryBankWidthM: 12.5,
+	minimumWetMaskDifference: 0.1,
+	minimumFloodplainMaskDifference: 0.2
+} as const;
+
+/** Geometric differences measured at the seven interior rows of the shared picture frame. */
+export const VALLEY_WINDOW_FORM = {
+	minimumPhaseHalfRangeRad: Math.PI / 4,
+	minimumCenterClearanceM: 125,
+	pictureRowsM: [-750, -500, -250, 0, 250, 500, 750],
+	minimumLineRmsM: 150,
+	minimumShapeRmsM: 30
+} as const;
+
+/** The picture plates face downstream at a shared bearing. */
+export const VALLEY_PICTURE_BEARING_RAD = -Math.PI / 2;
 export const VALLEY_PICTURE_SEEDS = [1201, 1301, 1409] as const;
 export const VALLEY_X1_SEEDS = [...VALLEY_PICTURE_SEEDS, 1511, 1601, 1709] as const;
 

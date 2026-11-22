@@ -14,7 +14,7 @@ test('replays the same course bytes with fresh buffers after generating another 
 	const other = generateValley({ seed: 1301 });
 	const replay = generateValley({ seed: 1201 });
 
-	expect(first.version).toBe('valley/2');
+	expect(first.version).toBe('valley/5');
 	expect(first.seed).toBe(1201);
 	const bytes = (values: Float64Array) => new Uint8Array(values.buffer);
 	expect(bytes(first.course.xy)).toEqual(bytes(replay.course.xy));
@@ -33,12 +33,15 @@ test('rejects seeds outside the unsigned 32-bit integer domain', () => {
 	expect(generateValley({ seed: 2 ** 32 - 1 }).seed).toBe(2 ** 32 - 1);
 });
 
-test('stores the centered course and chainage at 6.25 m intervals', () => {
+test('stores the off-center course and chainage at 6.25 m intervals', () => {
 	const { course } = generateValley({ seed: 1201 });
 	const { xy, chainageM } = course;
 	const middle = (chainageM.length - 1) / 2;
 	expect(xy.length).toBe(chainageM.length * 2);
-	expect(xy.slice(2 * middle, 2 * middle + 2)).toEqual(new Float64Array([0, 0]));
+	expect(Math.hypot(xy[2 * middle], xy[2 * middle + 1])).toBeCloseTo(
+		Math.abs(course.windowOffsetM),
+		9
+	);
 
 	for (let i = 1; i < chainageM.length; i++) {
 		const dx = xy[2 * i] - xy[2 * (i - 1)];
@@ -55,6 +58,15 @@ test('applies parameter bands and rejects a bend tighter than twice the width', 
 		generateValley({
 			seed: 1201,
 			parameters: { wavelengthToWidth: [10, 10], headingAmplitude: [0, 0.8] }
+		})
+	).toThrow('invalid-valley-parameters');
+});
+
+test('rejects a heading override that could reverse the course', () => {
+	expect(() =>
+		generateValley({
+			seed: 1201,
+			parameters: { wavelengthToWidth: [24, 26], headingAmplitude: [1.7, 1.8] }
 		})
 	).toThrow('invalid-valley-parameters');
 });
@@ -143,17 +155,6 @@ test('meets both sinuosity bands in order on all 38 frozen seeds', () => {
 	expect(median8km, 'Median S₈ maximum').toBeLessThanOrEqual(bands.medianSinuosity8km[1]);
 });
 
-function rotate(xy: Float64Array, radians: number): Float64Array {
-	const rotated = new Float64Array(xy.length);
-	const cos = Math.cos(radians);
-	const sin = Math.sin(radians);
-	for (let i = 0; i < xy.length; i += 2) {
-		rotated[i] = xy[i] * cos - xy[i + 1] * sin;
-		rotated[i + 1] = xy[i] * sin + xy[i + 1] * cos;
-	}
-	return rotated;
-}
-
 function measuredRange(values: number[]): string {
 	return `${Math.min(...values).toFixed(4)}–${Math.max(...values).toFixed(4)}`;
 }
@@ -162,9 +163,6 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 	const { bankfullWidthM, headingAmplitude, wavelengthToWidth, phaseOffset } =
 		DEFAULT_VALLEY_PARAMETERS;
 	const seed = VALLEY_X1_SEEDS[0];
-	// A straight course from the same seed reveals its bearing without using private hash channels.
-	const straight = generateValley({ seed, parameters: { headingAmplitude: [0, 0] } }).course.xy;
-	const bearing = Math.atan2(straight[3] - straight[1], straight[2] - straight[0]);
 	const rows = [
 		'| Bankfull (m) | Wet (m) | Amplitude (rad) | Wavelength / width | Phase (rad) | S₂ range | S₈ range | Min S₈ − S₂ |',
 		'| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
@@ -175,22 +173,21 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 			for (const end of [0, 1] as const) {
 				const amplitude = headingAmplitude[end];
 				const wavelengthRatio = wavelengthToWidth[end];
-				const { course } = generateValley({
-					seed,
-					parameters: {
-						bankfullWidthM: [width, width],
-						headingAmplitude: [amplitude, amplitude],
-						wavelengthToWidth: [wavelengthRatio, wavelengthRatio],
-						phaseOffset: [phase, phase]
-					}
-				});
-				expectWetWidth(course.wetWidthM, `${width} m bankfull`);
+				const parameters = {
+					bankfullWidthM: [width, width],
+					headingAmplitude: [amplitude, amplitude],
+					wavelengthToWidth: [wavelengthRatio, wavelengthRatio],
+					phaseOffset: [phase, phase]
+				} as const;
 				const results = protocol.cornerBearingsDeg.map((degrees) => {
 					const label = `${width} m, amplitude ${amplitude}, ratio ${wavelengthRatio}, phase ${phase}, ${degrees}°`;
-					const result = measureCourse(
-						rotate(course.xy, (degrees * Math.PI) / 180 - bearing),
-						label
-					);
+					const { course } = generateValley({
+						seed,
+						parameters,
+						bearingRad: (degrees * Math.PI) / 180
+					});
+					expectWetWidth(course.wetWidthM, label);
+					const result = measureCourse(course.xy, label);
 					expectSinuosity(result, label);
 					return result;
 				});
@@ -198,10 +195,26 @@ test('meets both sinuosity bands at every default shape corner for the protocol 
 				const regional = measuredRange(results.map((row) => row.sinuosity8km));
 				const minDelta = Math.min(...results.map((row) => row.sinuosity8km - row.sinuosity2km));
 				rows.push(
-					`| ${width} | ${course.wetWidthM.toFixed(1)} | ${amplitude} | ${wavelengthRatio} | ${phase} | ${local} | ${regional} | ${minDelta.toFixed(4)} |`
+					`| ${width} | ${(width * DEFAULT_VALLEY_PARAMETERS.wetToBankfullWidth).toFixed(1)} | ${amplitude} | ${wavelengthRatio} | ${phase} | ${local} | ${regional} | ${minDelta.toFixed(4)} |`
 				);
 			}
 		}
 	}
 	console.log(rows.join('\n'));
+});
+
+test('rejects a high-amplitude, short-wavelength override that leaves the local band', () => {
+	const parameters = {
+		bankfullWidthM: [350, 350],
+		phaseOffset: [0, 0],
+		windowPhaseOffset: [0.45, 0.45],
+		headingAmplitude: [0.79, 0.79],
+		wavelengthToWidth: [11.5, 11.5]
+	} as const;
+	expect(() => generateValley({ seed: 14, parameters, bearingRad: 0 })).not.toThrow();
+	expect(() => generateValley({ seed: 14, parameters, bearingRad: (40 * Math.PI) / 180 })).toThrow(
+		'valley-sinuosity-out-of-band'
+	);
+	const paired = { ...parameters, wavelengthToWidth: [13.2, 13.2] } as const;
+	expect(() => generateValley({ seed: 14, parameters: paired })).not.toThrow();
 });

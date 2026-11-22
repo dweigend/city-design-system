@@ -10,7 +10,7 @@ type Layers = {
 };
 
 const planPose = { elevation: Math.PI / 2, margin: 1.45 };
-type Selection = { resolved: ResolvedView; editable: boolean };
+type Selection = { resolved: ResolvedView; editable: boolean; fixedPose: boolean };
 
 /** Applies the controlled view to the stage's retained camera and draw layers. */
 export function createViewMode(view: View, look: TerrainLook, vehicles: Object3D) {
@@ -27,6 +27,7 @@ export function createViewMode(view: View, look: TerrainLook, vehicles: Object3D
 	}
 
 	function applyPlan(selection: Selection, enabled: boolean) {
+		if (selection.fixedPose) return;
 		if (selection.editable) view.setPlan(enabled);
 		else view.setInspection(enabled ? planPose : undefined);
 	}
@@ -56,7 +57,7 @@ export function createViewMode(view: View, look: TerrainLook, vehicles: Object3D
 			}
 		},
 		/** Changes only the view and returns whether the stage needs a frame. */
-		set(resolved: ResolvedView, layers: Layers, editable: boolean) {
+		set(resolved: ResolvedView, layers: Layers, editable: boolean, fixedPose = false) {
 			if (
 				current?.resolved.view === resolved.view &&
 				current.resolved.display === resolved.display &&
@@ -65,7 +66,7 @@ export function createViewMode(view: View, look: TerrainLook, vehicles: Object3D
 				return false;
 			if (!current && editable && resolved.view === 'iso') return false;
 			if (current?.resolved.view === 'plan') applyPlan(current, false);
-			const next = { resolved, editable };
+			const next = { resolved, editable, fixedPose };
 			if (resolved.view === 'plan') applyPlan(next, true);
 			current = next;
 			apply(layers, next);

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import HouseCourtFrame from './HouseCourtFrame.svelte';
 	import VolumeFrame from './VolumeFrame.svelte';
 	import { volumeStudy } from '../data/volume-study';
 </script>
@@ -10,19 +11,10 @@
 			<h2 id="volume-title">{volumeStudy.title}</h2>
 			<p>{volumeStudy.description}</p>
 			<p>
-				See <a href={resolve('/formen#FORM-1')}>FORM-1</a> for the occupied and open cells and
-				<a href={resolve('/formen#FORM-3')}>FORM-3</a> for the role of references in
-				<a href={resolve('/material#material-familien')}>surface studies</a>.
+				See <a href={resolve('/formen#FORM-1')}>FORM-1</a> for the occupied and open cells.
 			</p>
 		</div>
-		<VolumeFrame
-			phase={0}
-			annotated
-			label={volumeStudy.section +
-				' Face treatments: ' +
-				volumeStudy.faces.map((f) => f.name).join(', ') +
-				'.'}
-		/>
+		<HouseCourtFrame />
 	</div>
 	<div class="phase-intro" id="construction-phases">
 		<h3>Construction phases</h3>
@@ -50,6 +42,7 @@
 <style>
 	section {
 		margin-bottom: var(--space-16);
+		scroll-margin-top: var(--space-4);
 	}
 	.section {
 		display: grid;

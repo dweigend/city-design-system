@@ -1,0 +1,3 @@
+# House and court projection
+
+`createHouseCourtContext(deck, house)` projects the exposed convex face rings and level plot into a shared stage context. The context supplies the bounds, opening orientation and perspective distance. The distance scales with the largest plot edge or house height. The plot needs positive spans and the eye distance must fit in Float32 metres. Unsupported dimensions throw `RangeError`. The shared stage fits the frame on resize and view changes. Roof, exterior walls and court walls use separate tonal steps from the stage palette. The stage owns disposal after attachment. Geometry and input snapshots stay detached.

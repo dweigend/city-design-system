@@ -17,3 +17,11 @@ Run `bun test src/lib/catalog/logic/river-metrics/river-metrics.test.ts`. The [t
 3. One period of a sampled sine curve agrees with independent Simpson quadrature within 10⁻⁶.
 4. A course that leaves and reenters the square returns its longest reach, with an exact tie resolved by input order.
 5. A corner crossing contributes one hit, a tangent vertex contributes one hit and a border overlap yields infinite hits. Invalid and degenerate inputs follow the errors above.
+
+## Surface measurements
+
+`measureRiverSurface(grid, course, protocol)` takes a centered north-first square of bed and local mean water in millimeters and the downstream course in meters. It finds complete wet intervals on cross-sections using linear zero crossings. For relief, slope and steps it raises wet samples to mean water, bilinearly resamples and applies a separable Gaussian with reflected edges. Slope bins count dry land at the common-grid sample centers. The centered gradient uses one-sided differences at the edge. Each profile's contiguous steep runs use signed gradients so forward and reverse rises both count. The unfinished run at a clipped end is censored.
+
+The result contains arrays of measured widths and step gains in meters, the smoothed core relief in meters and normalized shares for each land slope class in ascending order. An optional `floor` grid also yields `bankPairsM`. Each pair gives the dry distance from the left and right wet banks to the first terrace, in downstream order. The terrace edge is the 50% crossing of the bilinearly interpolated mask of floor 2 and above. A censored or absent measurement contributes no entry to its array.
+
+`dryBankWidthsM` also returns individual dry widths so an immediate terrace contact stays measurable when the opposite terrace is censored. Such a contact contributes zero.
