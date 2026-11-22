@@ -587,7 +587,7 @@ export function createSandboxStage(
 		view,
 		render,
 		/** Screen positions of the plan's retained section endpoints in CSS pixels. */
-		sectionEndpoints: () => section.anchors?.map(view.project),
+		sectionEndpoints: () => section.anchors?.map((point) => view.project(point)),
 		/** Runs after the rendered camera and pick geometry are current. */
 		afterFrame(listener: (affected?: Affected) => void) {
 			frameListeners.add(listener);
