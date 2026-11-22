@@ -10,7 +10,7 @@
 		VALLEY_STUDY_SCALE_M,
 		VALLEY_STUDY_VIEW,
 		valleyStudyField
-	} from './valley-study';
+	} from '../logic/valley-study';
 
 	let canvas: HTMLCanvasElement;
 	let deck: HTMLDivElement;

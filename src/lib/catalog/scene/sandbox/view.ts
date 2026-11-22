@@ -35,6 +35,9 @@ export type CourtFit = {
 export type View = ReturnType<typeof createView>;
 export type FrameOrientation = Readonly<{ headingRad: number; elevationRad: number }>;
 
+type BoxPose = Readonly<{ heading: number; elevation: number; span: number }>;
+type BoxMove = Readonly<{ from: BoxPose; to: BoxPose; startedAt: number; duration: number }>;
+
 type InspectionPose = Readonly<{ elevation: number; margin: number }>;
 
 /** Creates the camera and its pan and zoom state. Sizes in CSS pixels, lengths in meters. */
@@ -61,6 +64,7 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 	let openingSubject: THREE.Vector3[] | undefined;
 	let inspectionBounds: THREE.Box3 | undefined;
 	let inspection: InspectionPose | undefined;
+	let boxMove: BoxMove | undefined;
 	let openingPose: { target: THREE.Vector3; elevation: number; span: number } | undefined;
 
 	function apply() {
@@ -269,6 +273,36 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 		apply();
 	}
 
+	function boxPose(): BoxPose {
+		return { heading, elevation: elevationRad, span };
+	}
+
+	function applyBoxPose(pose: BoxPose) {
+		heading = pose.heading;
+		elevationRad = pose.elevation;
+		span = pose.span;
+		apply();
+	}
+
+	/** Advances a fixed-context camera move and reports whether it needs another frame. */
+	function stepBoxMove(stamp: number, reduced: boolean) {
+		if (!boxMove) return false;
+		const { from, to, startedAt, duration } = boxMove;
+		const progress = reduced ? 1 : THREE.MathUtils.clamp((stamp - startedAt) / duration, 0, 1);
+		if (progress === 1) {
+			boxMove = undefined;
+			applyBoxPose(to);
+			return false;
+		}
+		const ease = progress ** 2 * (3 - 2 * progress);
+		applyBoxPose({
+			heading: THREE.MathUtils.lerp(from.heading, to.heading, ease),
+			elevation: THREE.MathUtils.lerp(from.elevation, to.elevation, ease),
+			span: THREE.MathUtils.lerp(from.span, to.span, ease)
+		});
+		return true;
+	}
+
 	return {
 		camera,
 		target,
@@ -317,7 +351,9 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			apply();
 		},
 		/** Frames a three.js box. An explicit orientation fits fixed studies at their full extent. */
-		frameBox(box: THREE.Box3, margin: number, orientation?: FrameOrientation) {
+		frameBox(box: THREE.Box3, margin: number, orientation?: FrameOrientation, durationMs = 0) {
+			boxMove = undefined;
+			const from = boxPose();
 			openingFit = undefined;
 			openingSubject = undefined;
 			inspectionBounds = undefined;
@@ -328,8 +364,12 @@ export function createView(overrides?: ParamOverrides<typeof OPENING_VIEW_PARAMS
 			else if (elevationRad !== Math.PI / 2) elevationRad = BLICK.hoeheRad;
 			apply();
 			fitBoxSpan(box, margin, Boolean(orientation));
-			apply();
+			if (durationMs > 0) {
+				boxMove = { from, to: boxPose(), startedAt: performance.now(), duration: durationMs };
+				applyBoxPose(from);
+			} else apply();
 		},
+		stepBoxMove,
 		/** Whether the canvas is taller than it is wide. */
 		isPortrait: () => width < height,
 		/** Canvas dimensions in CSS pixels. */
