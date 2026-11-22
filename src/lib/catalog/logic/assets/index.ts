@@ -156,18 +156,29 @@ function isMaterialOnly(assignment: ObjectSurface | undefined): assignment is Ma
 	return Boolean(assignment && 'material' in assignment && !('finish' in assignment));
 }
 
+/**
+ * Resolves a palette or material-only slot assignment against a default surface using the
+ * registry's single dressing rule (`city-drawing` omits `finish`).
+ */
+export function dressSurface(
+	suggestion: AssetSurface,
+	assignment?: SlotAssignment | MaterialAssignment
+) {
+	if (isMaterialOnly(assignment)) {
+		return assignment.role
+			? { material: assignment.material, role: assignment.role }
+			: { material: assignment.material };
+	}
+	return assignedSurface(suggestion, assignment);
+}
+
 function dressSlot(
 	suggestion: AssetSurface,
 	assignment: ObjectSurface | undefined,
 	building: BuildingSlots | undefined,
 	key: string
 ) {
-	if (isMaterialOnly(assignment)) {
-		return {
-			material: assignment.material,
-			...(assignment.role && { role: assignment.role })
-		};
-	}
+	if (isMaterialOnly(assignment)) return dressSurface(suggestion, assignment);
 	const deferred = assignment && 'buildingSurface' in assignment;
 	const chosen = deferred ? assignment.override : assignment;
 
@@ -181,7 +192,7 @@ function dressSlot(
 		};
 	}
 	return {
-		...assignedSurface(suggestion, chosen),
+		...dressSurface(suggestion, chosen),
 		...(deferred && chosen?.finish !== 'city-drawing' && { buildingSurface })
 	};
 }
