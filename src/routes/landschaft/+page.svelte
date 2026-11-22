@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LandscapePage from '#lib/catalog/chapter-frame/LandscapePage.svelte';
+	import { ChapterFrame, landscapeChapter } from '#lib/catalog/chapter-frame/index.ts';
 </script>
 
-<LandscapePage />
+<ChapterFrame chapter={landscapeChapter} />
