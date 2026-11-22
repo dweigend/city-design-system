@@ -1,8 +1,10 @@
 import { beforeAll, expect, test } from 'bun:test';
+import { createOccupancy, occupyCells } from '../occupancy';
+import { createParcelDeck } from '../parcel-deck';
 import { boundaryRings, ringArea } from '../quad-grid';
 import { createTerrain, valleyPoint } from '../terrain';
 import { cellAtPoint, deriveGrid, regrid, type TerrainGrid } from '../terrain-grid';
-import { deriveGroundPlan, type GroundPlan } from '.';
+import { deriveGroundPlan, projectGroundReservations, type GroundPlan } from '.';
 
 const ANCHOR = '76/64';
 const SEEDS = [104, 207] as const;
@@ -223,3 +225,93 @@ test.each(SEEDS)(
 		expect(boundaryRings(sourceCells, (id) => cells.has(id))).toEqual(plan.boundary);
 	}
 );
+
+test.each(SEEDS)('seed %i projects reserves into occupancy and keeps the leaves empty', (seed) => {
+	const plan = plans[SEEDS.indexOf(seed)];
+	const { space, slots } = createParcelDeck(
+		{
+			id: 'reserve-fixture',
+			entrance: [
+				[0, 0, 0],
+				[12, 0, 0]
+			],
+			depth: 12
+		},
+		{ width: 9, height: 3, complexity: 0 },
+		seed
+	);
+	const sources = (['path', 'court', 'plaza', 'gap'] as const).map((kind) => {
+		const area = plan.areas.find((area) => area.kind === kind);
+		if (!area) throw Error('Missing reserve: ' + kind);
+		return area;
+	});
+	const protectedAreas = [...sources, sources[0]];
+	const groundByLeaf = new Map(
+		protectedAreas.map((area, index) => [slots[index].cellId, area.cellIds[0]])
+	);
+	const reservations = projectGroundReservations(plan, space, groundByLeaf);
+	const current = createOccupancy(space);
+	const freeLeaf = slots[protectedAreas.length].cellId;
+	const fill = { kind: 'house', houseId: 'house', roomId: 'room' } as const;
+	const writes = [{ id: freeLeaf, fill }];
+	const occupied = occupyCells(space, current, reservations, writes);
+	expect(occupied.get(freeLeaf)).toEqual(fill);
+	expect(reservations.size).toBe(groundByLeaf.size);
+	for (const [index, area] of protectedAreas.entries()) {
+		const id = slots[index].cellId;
+		expect(reservations.get(id)).toBe(area.id);
+		expect(occupied.get(id)).toEqual({ kind: 'empty' });
+		expect(() => occupyCells(space, current, reservations, [...writes, { id, fill }])).toThrow(
+			'Cell is reserved'
+		);
+	}
+	expect(current.get(freeLeaf)).toEqual({ kind: 'empty' });
+	expect(() =>
+		projectGroundReservations(plan, space, new Map([['missing-leaf', sources[0].cellIds[0]]]))
+	).toThrow('Unknown reservation leaf');
+	const plot = plan.areas.find(({ kind }) => kind === 'buildable');
+	if (!plot) throw Error('Missing buildable area');
+	expect(() =>
+		projectGroundReservations(plan, space, new Map([[freeLeaf, plot.cellIds[0]]]))
+	).toThrow('Unknown ground reserve');
+});
+
+test.each(SEEDS)('seed %i partitions plot cells into stable parcels within blocks', (seed) => {
+	const plan = plans[SEEDS.indexOf(seed)];
+	const plots = plan.cells.flatMap((cell) => (cell.plot ? [{ ...cell, plot: cell.plot }] : []));
+	const parcels = Map.groupBy(plots, ({ plot }) => plot.parcel);
+	expect([...parcels.values()].some((members) => members.length > 1)).toBe(true);
+	expect(
+		[...parcels.values()]
+			.flat()
+			.map(({ id }) => id)
+			.sort()
+	).toEqual(
+		plan.areas
+			.filter(({ kind }) => kind === 'buildable')
+			.flatMap(({ cellIds }) => cellIds)
+			.sort()
+	);
+	for (const [parcel, members] of parcels) {
+		const ids = members.map(({ id }) => id).sort();
+		expect(parcel).toBe(`${plan.id}/parcel/${ids[0]}`);
+		const source = grid.cellsById.get(ids[0]);
+		const byId = new Map(members.map((cell) => [cell.id, cell]));
+		const reached = new Set([members[0].id]);
+		for (const id of reached) {
+			for (const neighbor of byId.get(id)?.neighbors ?? []) {
+				if (neighbor !== null && byId.has(neighbor)) reached.add(neighbor);
+			}
+		}
+		expect([...reached].sort()).toEqual(ids);
+		for (const cell of members) {
+			expect(cell.plot.block).toBe(`${plan.id}/block/${source?.block}`);
+			expect(grid.cellsById.get(cell.id)?.parcel).toBe(source?.parcel);
+			expect(cell.plot.kind).toBe(members[0].plot.kind);
+		}
+	}
+	const repeated = deriveGroundPlan(grid, ANCHOR, seed);
+	expect(repeated.cells.map(({ plot }) => plot?.parcel)).toEqual(
+		plan.cells.map(({ plot }) => plot?.parcel)
+	);
+});
