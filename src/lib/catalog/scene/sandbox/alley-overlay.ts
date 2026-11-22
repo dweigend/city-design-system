@@ -15,7 +15,8 @@ export function alleyOverlay(
 		emptyInk: Node<'float'>;
 		embossWidth: Node<'float'>;
 		promenadeWash: Node<'float'>;
-	}
+	},
+	planCells?: ReadonlySet<string>
 ) {
 	const detailed = uniform(1);
 	const pixels = new Uint8Array(grid.cells.length * 4);
@@ -25,7 +26,7 @@ export function alleyOverlay(
 	function update(next: TerrainGrid, houses: Iterable<string>) {
 		current = next;
 		anchors = [...houses];
-		writeAlleyMask(pixels, next, anchors, profile.cityRadiusCells);
+		writeAlleyMask(pixels, next, anchors, profile.cityRadiusCells, planCells);
 		map.needsUpdate = true;
 	}
 	update(grid, []);

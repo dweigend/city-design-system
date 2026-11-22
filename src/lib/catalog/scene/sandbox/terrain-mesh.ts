@@ -63,11 +63,13 @@ export type TerrainMesh = ReturnType<typeof createTerrainMesh>;
 /**
  * Builds the terrain objects for a grid. The caller adds `group` to its scene and calls
  * `dispose` when the grid is replaced. Face index >> 1 of `surface` is the cell index.
+ * A plan crop masks the grid's circulation ink across its full set of cell IDs.
  */
 export function createTerrainMesh(
 	grid: TerrainGrid,
 	overrides?: ParamOverrides<typeof TERRAIN_VIEW_PARAMS>,
-	shadeGround = (color: Node<'vec3'>) => color
+	shadeGround = (color: Node<'vec3'>) => color,
+	planCells?: ReadonlySet<string>
 ) {
 	const profile = resolveParams(TERRAIN_VIEW_PARAMS, undefined, overrides);
 	const nodes = Object.fromEntries(
@@ -107,7 +109,7 @@ export function createTerrainMesh(
 	const town = uniform(Number(Boolean(grid.courtFronts?.length)));
 	const drawingInk = mix(colors.pencil, colors.ink, daylight);
 	const cover = coverTexture(grid);
-	const alleys = alleyOverlay(grid, profile, nodes);
+	const alleys = alleyOverlay(grid, profile, nodes, planCells);
 	const chart = attribute('chart', 'vec2');
 	const relief = attribute('relief', 'vec2');
 	const bankMasks = attribute('bankMasks', 'vec2');

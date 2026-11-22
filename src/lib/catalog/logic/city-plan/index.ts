@@ -1,4 +1,9 @@
-export { deriveGroundPlan, type GroundPlan } from './ground-plan';
+export {
+	deriveGroundPlan,
+	type GroundArea,
+	type GroundPlan,
+	type GroundPlanCell
+} from './ground-plan';
 import { hashUnit } from '../../core/random';
 import { cellsBetween, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { characters, centreMix } from './character';
