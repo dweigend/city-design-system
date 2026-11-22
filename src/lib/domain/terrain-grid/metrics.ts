@@ -4,7 +4,7 @@ import type { Quad } from './carrier';
 /** Plan quality and maximum sampled grade. Grade is rise divided by plan run. */
 export const quality = Object.freeze({
 	minimumAngle: Math.PI / 6,
-	maximumEdgeRatio: 3.5,
+	maximumEdgeRatio: 2.1,
 	maximumGrade: 0.2,
 	maximumSampleStep: 1
 });

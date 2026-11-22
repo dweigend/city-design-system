@@ -1,29 +1,80 @@
 import type { Vec2 } from '../../core/geometry';
+import { validateOutline } from './outline';
 
-export type Site = Readonly<{
+type Datum = Readonly<{
 	origin: Vec2;
 	bearing: number;
-	length: number;
-	width: number;
-	cornerCut?: number;
 }>;
+
+export type Site =
+	| (Datum &
+			Readonly<{
+				length: number;
+				width: number;
+				cornerCut?: number;
+			}>)
+	| (Datum & Readonly<{ outline: readonly Vec2[] }>);
 
 export type HeightAt = (x: number, y: number) => number;
 
-export function validateSite({ origin, bearing, length, width, cornerCut = 0 }: Site) {
-	// Keep lattice addresses and meter-scale differences numerically distinct.
+export function siteOutline(site: Site): readonly Vec2[] {
+	const { origin, bearing } = site;
 	if (
 		!Array.isArray(origin) ||
 		origin.length !== 2 ||
 		![origin[0], origin[1]].every((value) => Number.isFinite(value) && Math.abs(value) <= 1e9) ||
-		!Number.isFinite(bearing) ||
+		!Number.isFinite(bearing)
+	)
+		throw new RangeError('Invalid terrain grid datum');
+
+	if ('outline' in site) {
+		validateOutline(site.outline);
+		if (site.outline.some(([x, y]) => Math.hypot(x - origin[0], y - origin[1]) > 2000))
+			throw new RangeError('Outline must stay within 2 km of its datum');
+		return site.outline;
+	}
+	const { length, width, cornerCut = 0 } = site;
+	if (
 		!Number.isFinite(cornerCut) ||
 		cornerCut < 0 ||
 		cornerCut > 0.5 ||
 		![length, width].every((extent) => Number.isFinite(extent) && extent > 0 && extent <= 2000)
-	) {
+	)
 		throw new RangeError('Invalid terrain grid site');
-	}
+	const { toWorld } = axes(bearing);
+	const corners: Vec2[] =
+		cornerCut === 0
+			? [
+					[-1, -1],
+					[1, -1],
+					[1, 1],
+					[-1, 1]
+				]
+			: clippedCorners(1 - 2 * cornerCut);
+	return corners.map(([x, y]) => {
+		const [u, v] = toWorld((x * length) / 2, (y * width) / 2);
+		return [origin[0] + u, origin[1] + v];
+	});
+}
+
+function clippedCorners(inset: number): Vec2[] {
+	if (inset === 0)
+		return [
+			[0, -1],
+			[1, 0],
+			[0, 1],
+			[-1, 0]
+		];
+	return [
+		[-inset, -1],
+		[inset, -1],
+		[1, -inset],
+		[1, inset],
+		[inset, 1],
+		[-inset, 1],
+		[-1, inset],
+		[-1, -inset]
+	];
 }
 
 export function axes(bearing: number) {
@@ -47,15 +98,4 @@ export function contourBearing(site: Site, sample: HeightAt) {
 	const tangent = Math.atan2(dx, -dy);
 	// Choose the contour direction closest to the site's positive axis.
 	return Math.cos(tangent - bearing) < 0 ? tangent + Math.PI : tangent;
-}
-
-export function insideSite(site: Site) {
-	const { toLocal } = axes(site.bearing);
-	const [x, y] = site.origin;
-	return (point: Vec2) => {
-		const [u, v] = toLocal(point[0] - x, point[1] - y);
-		const along = (2 * Math.abs(u)) / site.length;
-		const across = (2 * Math.abs(v)) / site.width;
-		return along <= 1 && across <= 1 && along + across <= 2 * (1 - (site.cornerCut ?? 0));
-	};
 }

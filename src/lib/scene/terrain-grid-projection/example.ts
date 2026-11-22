@@ -9,6 +9,7 @@ export function example() {
 	} as const;
 	const grid = TerrainGrid.create({
 		seed: 1201,
+		parameters: { cellSize: 5 },
 		site: { origin: [0, 0], bearing: 0, length: 40, width: 40 },
 		heightAt: () => 5
 	});

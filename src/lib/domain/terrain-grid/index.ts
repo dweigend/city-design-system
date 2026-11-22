@@ -4,15 +4,17 @@ import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
 import { carrier, edgeId, type Node, type Quad } from './carrier';
 import { meetsQuality, quality } from './metrics';
-import { contourBearing, insideSite, validateSite, type HeightAt, type Site } from './site';
+import { insideOutline } from './outline';
+import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
 
-/** Fixed datum and bearing with full length and width in meters. Optional cornerCut
- * trims each corner by that fraction of both edges (0 to 0.5). Change only extents to grow. */
+/** Fixed datum and bearing with either a simple world-XY outline or full rectangle dimensions
+ * in meters. An outline closes implicitly and accepts either winding. Rectangle cornerCut trims
+ * each corner by that fraction of both edges (0 to 0.5). Grow by enclosing the previous site. */
 export type TerrainGridSite = Site;
 
 /** Supported nominal cell size in meters. */
 export const terrainGridParams = defineParams({
-	cellSize: { label: 'Cell size', unit: 'm', default: 5, min: 4, max: 12, step: 1 }
+	cellSize: { label: 'Cell size', unit: 'm', default: 40, min: 5, max: 80, step: 5 }
 });
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
@@ -142,18 +144,18 @@ function topology(
  * extents or extents over 2 km), seed, parameter types and missing sampler fail before sampling.
  * Cell size clamps and snaps through the schema. Non-finite sampled heights throw.
  *
- * A seeded, locally relaxed carrier splits polygons at their centers and edge midpoints.
+ * Seeded mutual triangle pairs form rhombi on a locally relaxed carrier. It splits faces at their centers and edge midpoints.
  * Base lattice addresses and split paths own identity. Increasing the crop about the same
  * datum leaves all existing vertices, cells and old neighbor relationships intact.
  *
- * The longer carrier axis follows the contour measured on 20 m baselines at the datum.
+ * The primary carrier axis follows the contour measured on 20 m baselines at the datum.
  * Below 1.5% grade it follows the site's bearing. Cells must lie wholly inside the site,
  * be strictly convex in XY with angles of at least 30° and a longest-to-shortest edge ratio
- * of at most 3.5. Samples along sides and both diagonals, at most 1 m apart, reject rises
+ * of at most 2.1. Samples along sides and both diagonals, at most 1 m apart, reject rises
  * steeper than 20% or absent ground. Narrow features between samples may go undetected.
  */
 function create({ site, seed, heightAt, parameters }: TerrainGridOptions): TerrainGrid {
-	validateSite(site);
+	const outline = siteOutline(site);
 	if (typeof heightAt !== 'function') throw new TypeError('Expected a ground height sampler');
 	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32)
 		throw new RangeError('Invalid terrain grid seed');
@@ -161,12 +163,12 @@ function create({ site, seed, heightAt, parameters }: TerrainGridOptions): Terra
 	const ground = samples(heightAt);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
-	const includes = insideSite(site);
+	const includes = insideOutline(outline);
 	const accepted = [];
-	for (const cell of carrier(site, bearing, cellSize, Random.create({ seed }))) {
+	for (const cell of carrier(site, outline, bearing, cellSize, Random.create({ seed }))) {
 		const [a, b, c, d] = cell.corners;
-		if (!cell.corners.every(({ xy }) => includes(xy))) continue;
-		if (!meetsQuality([a.xy, b.xy, c.xy, d.xy])) continue;
+		const plan = [a.xy, b.xy, c.xy, d.xy] as const;
+		if (!meetsQuality(plan) || !includes(plan)) continue;
 		const segments = [
 			[a, b],
 			[b, c],

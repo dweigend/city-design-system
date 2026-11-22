@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
-import type { Vec3 } from '../../core/geometry';
+import type { Vec2, Vec3 } from '../../core/geometry';
 import { TerrainGrid, terrainGridQuality, type TerrainGridOptions } from './index';
 import { example } from './example';
 
@@ -9,6 +9,7 @@ const qualitySeeds = [0, 1, 7, 42, 1201, 1301, 1409, 65537, 4294967295];
 const options: TerrainGridOptions = {
 	seed: 1201,
 	site: { origin: [12, 16], bearing: 0.31, length: 96, width: 64 },
+	parameters: { cellSize: 5 },
 	heightAt: (x, y) => 11 + 0.026 * x + 0.058 * y
 };
 
@@ -17,11 +18,11 @@ function grow(length: number, width: number) {
 }
 
 test('repeats a detached frozen grid without coupling interleaved calls', () => {
-	const source = { ...options, parameters: { cellSize: 6 } };
+	const source = { ...options, parameters: { cellSize: 10 } };
 	const before = JSON.stringify(source);
 	const grid = TerrainGrid.create(source);
 	const same = TerrainGrid.create({ ...source });
-	TerrainGrid.create({ ...source, seed: 99, parameters: { cellSize: 4 } });
+	TerrainGrid.create({ ...source, seed: 99, parameters: { cellSize: 5 } });
 	expect(TerrainGrid.create(source)).toEqual(grid);
 	expect(same).toEqual(grid);
 	expect(same.vertices[0]).not.toBe(grid.vertices[0]);
@@ -85,9 +86,14 @@ test('aligns the longer carrier axis to an oblique contour', () => {
 
 test('leaves out cells crossing a steep riser even when the full edge grade is low', () => {
 	const site = { origin: [0, 0] as const, bearing: 0, length: 100, width: 72 };
-	const heightAt = (_x: number, y: number) => Math.max(0, Math.min(0.65, (y - 12) * 2));
-	const flat = TerrainGrid.create({ seed: 42, site, heightAt: () => 0 });
-	const step = TerrainGrid.create({ seed: 42, site, heightAt });
+	const heightAt = (_x: number, y: number) => (y >= 12 ? 0.65 : 0);
+	const flat = TerrainGrid.create({
+		seed: 42,
+		site,
+		parameters: { cellSize: 5 },
+		heightAt: () => 0
+	});
+	const step = TerrainGrid.create({ seed: 42, site, parameters: { cellSize: 5 }, heightAt });
 	const vertices = new Map(step.vertices.map(({ id, position }) => [id, position]));
 	expect(step.cells.length).toBeLessThan(flat.cells.length);
 	let lower = 0;
@@ -166,3 +172,61 @@ function checkPolygons(polygons: readonly Vec3[][], seed: number) {
 		}
 	}
 }
+
+test('clips wholly to a simple concave outline and preserves identities as it grows', () => {
+	const outline: readonly Vec2[] = [
+		[-50, -50],
+		[50, -50],
+		[50, 50],
+		[15, 50],
+		[15, 7],
+		[10, 7],
+		[10, 50],
+		[-50, 50]
+	];
+	const expanded: readonly Vec2[] = [
+		[-80, -65],
+		[80, -65],
+		[80, 70],
+		[15, 70],
+		[15, 7],
+		[10, 7],
+		[10, 70],
+		[-80, 70]
+	];
+	const polygon = (outline: readonly Vec2[]) =>
+		TerrainGrid.create({
+			...options,
+			site: { origin: [0, 0], bearing: 0, outline },
+			heightAt: () => 0
+		});
+	const small = polygon(outline);
+	const large = polygon(expanded);
+	expect(polygon([...outline].reverse())).toEqual(small);
+	const larger = new Map(large.cells.map((cell) => [cell.id, cell]));
+	for (const cell of small.cells) expect(larger.get(cell.id)?.vertexIds).toEqual(cell.vertexIds);
+	const vertices = new Map(small.vertices.map((vertex) => [vertex.id, vertex.position]));
+	// The vertical notch must not cut a retained cell, even when all its corners are outside it.
+	for (const cell of small.cells) {
+		const points = cell.vertexIds.map((id) => required(vertices.get(id), 'vertex'));
+		for (const y of [8, 20, 35, 49]) {
+			const point: Vec3 = [12.5, y, 0];
+			expect(separates(points, [point])).toBe(true);
+		}
+	}
+	expect(() =>
+		TerrainGrid.create({
+			...options,
+			site: {
+				origin: [0, 0],
+				bearing: 0,
+				outline: [
+					[0, 0],
+					[10, 10],
+					[0, 8],
+					[15, 0]
+				]
+			}
+		})
+	).toThrow(RangeError);
+});
