@@ -1,8 +1,6 @@
-/* Global tokens and element defaults. Component styles live in the catalog. */
-/* Color in OKLCH (L 0–1, chroma, hue °). Contract and test: logic/farbe/palette.test.ts */
+/* Shared styles for the design bible and the game. */
 :root,
 [data-theme] {
-	/* Paper warm, ink deep blue-black; gray on the ink axis */
 	--paper: oklch(0.985 0.004 85);
 	--paper-2: oklch(0.962 0.006 85);
 	--paper-3: oklch(0.928 0.008 85);
@@ -10,7 +8,6 @@
 	--ink-3: oklch(0.655 0.008 265);
 	--ink-2: oklch(0.5 0.012 265);
 	--ink: oklch(0.2 0.014 265);
-	/* Base tones = step 4: muted (C ≈ 0.12), L ≈ 0.7; yellow light by nature, blueprint deep */
 	--cat-living: oklch(0.75 0.125 62);
 	--cat-health: oklch(0.68 0.11 238);
 	--cat-mobility: oklch(0.87 0.135 94);
@@ -24,16 +21,13 @@
 	--cat-lawn: color-mix(in oklab, var(--cat-foliage) 62%, var(--paper));
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
-	/* Wall tint of new housing bodies in the sandbox; paths alone stay pink. */
 	--ground-stone: oklch(0.76 0.025 240);
 	--ground-sand: oklch(0.85 0.045 85);
 	--ground-sage: oklch(0.76 0.035 145);
 	--ground-clay: oklch(0.72 0.055 47);
 	--body-living: oklch(0.7 0.14 288);
-	/* Accent and hazard: only these are strong (5 %) */
 	--signal: oklch(0.575 0.18 33);
 	--cat-hazard: oklch(0.47 0.165 12);
-	/* Analysis (124 A-02, A-07): two tones outside the flows, only in analysis mode */
 	--ana-zug: oklch(0.56 0.095 195);
 	--ana-null: color-mix(in oklab, var(--paper), var(--ink-3) 12%);
 	--ana-druck: oklch(0.52 0.16 305);
@@ -76,60 +70,25 @@
 	--signal-5: oklch(from var(--signal) var(--step-5));
 	--cat-hazard-1: oklch(from var(--cat-hazard) var(--step-1));
 	--cat-hazard-5: oklch(from var(--cat-hazard) var(--step-5));
-	/* Opacity of the levels of representation */
-	--alpha-solid: 1;
-	--alpha-glass: 0.6;
-	--alpha-hull: 0.3;
-	--alpha-trace: 0.12;
-	/* Text on color surfaces: the same in both modes */
-	--on-cat: oklch(0.2 0.014 265);
-	--on-accent: oklch(0.99 0.003 85);
-	color-scheme: only light; /* “only”: browsers do not force-darken the light palette */
-	/* Type */
-	--font-sans: 'Geist', 'Helvetica Neue', Arial, sans-serif;
-	--font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
-	--text-xs: 11px;
-	--text-s: 13px;
-	--text-m: 16px;
-	--text-l: 24px;
-	--text-xl: 40px;
-	--text-xxl: 64px;
-	/* Grid: one unit, decimal like graph paper (1 · 5 · 10 · 50 · 100) */
-	--u: 4px; /* stroke   · 1 m  */
-	--u5: 20px; /* module   · 5 m  */
-	--u10: 40px; /* field    · 10 m */
-	--u50: 200px; /* parcel   · 50 m */
-	--u100: 400px; /* block    · 100 m */
-	/* Paper lines (--grid-1/5/10) are mixed locally from --ink by Paper.svelte. */
-	/* Dimensions from the grid */
-	--ctl-s: var(--u5); /* compact: tag, switch, row */
-	--ctl-m: var(--u10); /* default: button, tab, tool */
-	--tile-s: var(--u10);
-	--tile-m: calc(2 * var(--u10));
-	--tile-l: calc(3 * var(--u10));
-	/* Lines */
-	--hair: 1px;
-	--stroke: 2px;
-	--bar: 8px;
-	/* Spacing (n · U) */
-	--space-1: 4px;
-	--space-2: 8px;
-	--space-3: 12px;
-	--space-4: 16px;
-	--space-5: 20px;
-	--space-6: 24px;
-	--space-8: 32px;
-	--space-10: 40px;
-	--space-12: 48px;
-	--space-16: 64px;
-	--space-20: 80px;
-	/* Motion */
-	--ease: cubic-bezier(0.2, 0, 0, 1);
-	--fast: 120ms;
+	color-scheme: only light;
+	--font-sans: Geist, 'Helvetica Neue', Arial, sans-serif;
+	--font-mono: 'Geist Mono', ui-monospace, monospace;
+	--text-xs: 0.6875rem;
+	--text-s: 0.8125rem;
+	--text-m: 1rem;
+	--text-l: 1.25rem;
+	--text-xl: 1.5rem;
+	--text-xxl: clamp(2.5rem, 6vw, 4rem);
+	--unit: 0.25rem;
+	--space-2: calc(2 * var(--unit));
+	--space-4: calc(4 * var(--unit));
+	--space-6: calc(6 * var(--unit));
+	--space-12: calc(12 * var(--unit));
+	--radius: 2px;
+	--stroke: 1px;
+	--motion: 120ms;
 }
 
-/* Dark: paper and ink swapped, in hue as well. The ramp runs toward the dark paper.
-   Applies to <html> and to every element with data-theme (light-mode preview). */
 [data-theme='dark'] {
 	--ana-zug: oklch(0.72 0.095 195);
 	--ana-druck: oklch(0.72 0.16 305);
@@ -149,43 +108,152 @@
 	--step-5: calc(l + (0.96 - l) * 0.55) calc(c * 0.55) h;
 	color-scheme: dark;
 }
-* {
-	box-sizing: border-box;
-}
-body {
-	margin: 0;
-	background: var(--paper);
-	color: var(--ink);
-	font-family: var(--font-sans);
-	font-size: var(--text-m);
-	line-height: 1.45;
-	-webkit-font-smoothing: antialiased;
-}
-:focus-visible {
-	outline: var(--stroke) solid var(--ink);
-	outline-offset: 4px;
-}
-h1,
-h2,
-h3,
-p {
-	margin: 0;
-}
-button,
-input,
-select,
-textarea {
-	font: inherit;
-	color: inherit;
-}
-img,
-svg {
-	display: block;
-	max-width: 100%;
-}
-@media (prefers-reduced-motion: reduce) {
-	* {
-		transition-duration: 0s !important;
-		animation-duration: 0s !important;
+
+/* prettier-ignore */
+@layer interface {
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--paper);
+		color: var(--ink);
+		font: var(--text-m) / 1.55 var(--font-sans);
+		overflow-wrap: anywhere;
 	}
+	#app { display: contents; }
+	h1, h2, h3, p, figure { margin: 0; }
+	h1 {
+		font-size: var(--text-xxl);
+		font-weight: 650;
+		letter-spacing: -0.045em;
+		line-height: 1.05;
+	}
+	h2 { font-size: var(--text-xl); font-weight: 600; line-height: 1.2; }
+	h3 { font-size: var(--text-l); font-weight: 600; line-height: 1.25; }
+	a {
+		color: inherit;
+		text-underline-offset: 0.2em;
+		transition: color var(--motion);
+	}
+	a:hover { color: var(--ink-2); }
+	ul, ol { margin: 0; padding-inline-start: var(--space-6); }
+	img { display: block; max-inline-size: 100%; block-size: auto; }
+	code { font: var(--text-s) / 1.5 var(--font-mono); }
+	figcaption { font-size: var(--text-s); color: var(--ink-2); line-height: 1.4; }
+	table { inline-size: 100%; border-collapse: collapse; }
+	th, td {
+		padding: var(--space-2);
+		border-block-end: var(--stroke) solid var(--line);
+		text-align: start;
+	}
+	:focus-visible { outline: var(--stroke) solid var(--ink); outline-offset: var(--unit); }
+
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after {
+			animation-duration: 0s !important;
+			transition-duration: 0s !important;
+		}
+	}
+
+	.lead { font-size: var(--text-l); }
+	.small, .caption { font-size: var(--text-s); color: var(--ink-2); }
+	.caption { line-height: 1.4; }
+	.label {
+		font: var(--text-xs) / 1.5 var(--font-mono);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+	.data { font: var(--text-s) / 1.5 var(--font-mono); }
+	.page {
+		max-inline-size: 46rem;
+		margin-inline: auto;
+		padding: var(--space-12) var(--space-4);
+	}
+	.stack { display: grid; align-content: start; gap: var(--space-6); }
+	.cluster { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+		gap: var(--space-4);
+	}
+	.frame { aspect-ratio: 16 / 9; overflow: clip; }
+	.frame > :is(img, canvas) { inline-size: 100%; block-size: 100%; object-fit: contain; }
+	.panel {
+		padding: var(--space-4);
+		border: var(--stroke) solid var(--line);
+		border-radius: var(--radius);
+		background: var(--paper-2);
+	}
+	hr, .divider { margin: 0; border: 0; border-block-start: var(--stroke) solid var(--line); }
+}
+
+/* prettier-ignore */
+.swatch {
+	display: block;
+	block-size: var(--space-6);
+	margin-block-end: var(--unit);
+	border: var(--stroke) solid var(--line);
+	&.swatch-paper { background: var(--paper); }
+	&.swatch-paper-2 { background: var(--paper-2); }
+	&.swatch-paper-3 { background: var(--paper-3); }
+	&.swatch-line { background: var(--line); }
+	&.swatch-ink-3 { background: var(--ink-3); }
+	&.swatch-ink-2 { background: var(--ink-2); }
+	&.swatch-ink { background: var(--ink); }
+	&.swatch-cat-living { background: var(--cat-living); }
+	&.swatch-cat-health { background: var(--cat-health); }
+	&.swatch-cat-mobility { background: var(--cat-mobility); }
+	&.swatch-cat-business { background: var(--cat-business); }
+	&.swatch-cat-nature { background: var(--cat-nature); }
+	&.swatch-cat-foliage { background: var(--cat-foliage); }
+	&.swatch-cat-evergreen { background: var(--cat-evergreen); }
+	&.swatch-cat-willow { background: var(--cat-willow); }
+	&.swatch-cat-grass { background: var(--cat-grass); }
+	&.swatch-cat-bark { background: var(--cat-bark); }
+	&.swatch-cat-lawn { background: var(--cat-lawn); }
+	&.swatch-terrain-soil { background: var(--terrain-soil); }
+	&.swatch-blueprint { background: var(--blueprint); }
+	&.swatch-ground-stone { background: var(--ground-stone); }
+	&.swatch-ground-sand { background: var(--ground-sand); }
+	&.swatch-ground-sage { background: var(--ground-sage); }
+	&.swatch-ground-clay { background: var(--ground-clay); }
+	&.swatch-body-living { background: var(--body-living); }
+	&.swatch-signal { background: var(--signal); }
+	&.swatch-cat-hazard { background: var(--cat-hazard); }
+	&.swatch-ana-zug { background: var(--ana-zug); }
+	&.swatch-ana-null { background: var(--ana-null); }
+	&.swatch-ana-druck { background: var(--ana-druck); }
+	&.swatch-cat-living-1 { background: var(--cat-living-1); }
+	&.swatch-cat-living-2 { background: var(--cat-living-2); }
+	&.swatch-cat-living-3 { background: var(--cat-living-3); }
+	&.swatch-cat-living-5 { background: var(--cat-living-5); }
+	&.swatch-cat-health-1 { background: var(--cat-health-1); }
+	&.swatch-cat-health-2 { background: var(--cat-health-2); }
+	&.swatch-cat-health-3 { background: var(--cat-health-3); }
+	&.swatch-cat-health-5 { background: var(--cat-health-5); }
+	&.swatch-cat-mobility-1 { background: var(--cat-mobility-1); }
+	&.swatch-cat-mobility-2 { background: var(--cat-mobility-2); }
+	&.swatch-cat-mobility-3 { background: var(--cat-mobility-3); }
+	&.swatch-cat-mobility-5 { background: var(--cat-mobility-5); }
+	&.swatch-cat-business-1 { background: var(--cat-business-1); }
+	&.swatch-cat-business-2 { background: var(--cat-business-2); }
+	&.swatch-cat-business-3 { background: var(--cat-business-3); }
+	&.swatch-cat-business-5 { background: var(--cat-business-5); }
+	&.swatch-cat-nature-1 { background: var(--cat-nature-1); }
+	&.swatch-cat-nature-2 { background: var(--cat-nature-2); }
+	&.swatch-cat-nature-3 { background: var(--cat-nature-3); }
+	&.swatch-cat-nature-5 { background: var(--cat-nature-5); }
+	&.swatch-blueprint-1 { background: var(--blueprint-1); }
+	&.swatch-blueprint-2 { background: var(--blueprint-2); }
+	&.swatch-blueprint-3 { background: var(--blueprint-3); }
+	&.swatch-blueprint-5 { background: var(--blueprint-5); }
+	&.swatch-blueprint-soft { background: var(--blueprint-soft); }
+	&.swatch-ana-zug-2 { background: var(--ana-zug-2); }
+	&.swatch-ana-zug-3 { background: var(--ana-zug-3); }
+	&.swatch-ana-druck-2 { background: var(--ana-druck-2); }
+	&.swatch-ana-druck-3 { background: var(--ana-druck-3); }
+	&.swatch-ana-druck-5 { background: var(--ana-druck-5); }
+	&.swatch-signal-1 { background: var(--signal-1); }
+	&.swatch-signal-5 { background: var(--signal-5); }
+	&.swatch-cat-hazard-1 { background: var(--cat-hazard-1); }
+	&.swatch-cat-hazard-5 { background: var(--cat-hazard-5); }
 }
