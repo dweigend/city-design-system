@@ -77,7 +77,8 @@ try {
 		for (const [size, width, height, theme] of [
 			['phone', 390, 844, 'light'],
 			['short-desktop', 1280, 640, 'light'],
-			['dark-desktop', 1280, 640, 'dark']
+			['dark-desktop', 1280, 640, 'dark'],
+			['dark-phone', 390, 844, 'dark']
 		] as const) {
 			if (theme === 'dark' && url.pathname !== '/interface') continue;
 			const page = await browser.newPage({

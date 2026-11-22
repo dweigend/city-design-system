@@ -16,45 +16,47 @@ The [design principles register](../../src/routes/design-principles.ts) owns the
 
 [The Interface chapter](../../src/routes/interface/+page.svelte) shows the styles defined in [`src/app.css`](../../src/app.css).
 
-| ID    | Rule                                                                                                                                                                                |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DS-10 | Styles are shared across pages and controls. Compose element defaults and classes from `src/app.css`.                                                                               |
-| DS-11 | The same palette names apply in both themes. `[data-theme='dark']` sets the dark variant.                                                                                           |
-| DS-12 | Layout spacing uses multiples of 4 px. Surfaces have square corners, hairlines measure 1 px, emphasis and focus strokes measure 2 px, and transitions use the shared 120 ms timing. |
+| ID    | Rule                                                                                                                                                                                                                                                             |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DS-10 | Styles are shared across pages and controls. Compose element defaults and classes from `src/app.css`.                                                                                                                                                            |
+| DS-11 | The same palette names apply in both themes. `[data-theme='dark']` sets the dark variant.                                                                                                                                                                        |
+| DS-12 | The spacing scale is 4, 8, 12, 16, 24, 48 and 80 px. Controls have 20 and 40 px sizes, and the drawing bar is 8 px. Surfaces have square corners, hairlines measure 1 px, emphasis and focus strokes measure 2 px, and transitions use the shared 120 ms timing. |
 
 ### Typography
 
 Geist is the sans family. Geist Mono is used for code, labels and values. Sizes below are at the default browser font size.
 
-| Element or class | Size       | Use                                                |
-| ---------------- | ---------- | -------------------------------------------------- |
-| `h1`             | 40 / 64 px | Page title, 40 px at 720 px and below              |
-| `h2`             | 24 px      | Section heading                                    |
-| `h3`             | 16 px      | Subsection heading                                 |
-| `p`              | 16 px      | Body paragraph                                     |
-| `.lead`          | 16 px      | Intro paragraph                                    |
-| `.small`         | 13 px      | Secondary text                                     |
-| `.caption`       | 13 px      | Picture caption, also the default for `figcaption` |
-| `.label`         | 11 px      | Uppercase UI and axis labels                       |
-| `.data`          | 11 px      | Monospaced numbers and values                      |
+| Element or class | Size       | Use                                                                                      |
+| ---------------- | ---------- | ---------------------------------------------------------------------------------------- |
+| `h1`             | 40 / 64 px | Uppercase page title with automatic hyphenation. Use 40 px at 720 px and below.          |
+| `h2`             | 24 px      | Section heading                                                                          |
+| `h3`             | 16 px      | Subsection heading                                                                       |
+| `p`              | 16 px      | Body paragraph                                                                           |
+| `.lead`          | 24 px      | Intro paragraph in ink, 400 weight, 1.3 line height, −0.01 em tracking, up to 34 ch wide |
+| `.small`         | 13 px      | Secondary text                                                                           |
+| `.caption`       | 13 px      | Picture caption, also the default for `figcaption`                                       |
+| `.label`         | 11 px      | Uppercase UI and axis labels                                                             |
+| `.data`          | 11 px      | Monospaced numbers and values                                                            |
 
-Links, lists, figures, images, rules, inline code and tables have shared element defaults.
+Paragraphs are up to 68 ch wide. Table column headers use the label style in secondary ink with a 1 px ink rule below. Row headers use 13 px and weight 600. Keyboard focus uses a 2 px ink outline with a 4 px offset in both themes.
 
 ### Layout
 
-| Class      | Use                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| `.page`    | Center a reading column up to 46 rem wide with 16 px side gutters at the default text size. |
-| `.stack`   | Space items vertically.                                                                     |
-| `.cluster` | Place items in a row and wrap as needed.                                                    |
-| `.grid`    | Fit columns to the space available.                                                         |
-| `.frame`   | Hold a picture or canvas in a 16:9 area.                                                    |
-| `.panel`   | Give content a paper surface with padding and a thin border.                                |
-| `.divider` | Draw a thin horizontal rule, also the default for `hr`.                                     |
+| Class      | Use                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `.page`    | Center a left-aligned page up to 1440 px wide, with 48 px side gutters and 16 px at 720 px and below. |
+| `.stack`   | Space items vertically.                                                                               |
+| `.cluster` | Place items in a row and wrap as needed.                                                              |
+| `.grid`    | Fit columns to the space available.                                                                   |
+| `.frame`   | Hold a picture or canvas in a 16:9 area.                                                              |
+| `.panel`   | Give content a paper surface with padding and a thin border.                                          |
+| `.divider` | Draw a thin horizontal rule, also the default for `hr`.                                               |
+
+Direct page sections have 80 px of space above a 1 px ink rule and 24 px of padding below the rule.
 
 ### Palette
 
-The palette includes the paper and ink ramp, five flow ramps, nature and ground tones, blueprint, signal and hazard, analysis tones, and text colors for flow and accent surfaces. Opacity tokens cover solid, glass, envelope and trace. The Interface chapter shows the five ramp steps from Surroundings to Core. Network is step 4 and carries the base tone. The `.swatch` class and its modifiers display the palette and opacities. Literal color values, including hex, OKLCH and RGB, belong only in `src/app.css`.
+The palette includes the paper and ink ramp, five flow ramps, nature and ground tones, blueprint, signal and hazard, analysis tones, and text colors for flow and accent surfaces. Opacity tokens cover solid, glass, envelope and trace. The Interface chapter shows the five ramp steps from Surroundings to Core. Network is step 4 and carries the base tone. Closed color bands show the palette and opacities. The matrix marks each base tone with a 2 px ink line. Literal color values, including hex, OKLCH and RGB, belong only in `src/app.css`.
 
 ## Color and Material
 

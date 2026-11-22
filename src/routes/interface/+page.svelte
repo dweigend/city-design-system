@@ -1,42 +1,14 @@
 <script lang="ts">
 	type Swatch = [token: string, role: string];
 
-	function ramp(base: string, roles: string[]): Swatch[] {
-		return roles.map((role, index) => [index === 3 ? base : base + '-' + (index + 1), role]);
-	}
-
-	const steps = ['Surround\u00adings', 'Surface', 'Volume', 'Network', 'Core'];
-	const ramps = [
-		{
-			name: 'Gray',
-			colors: [
-				['paper-2', 'Stock surface'],
-				['paper-3', 'Deeper paper'],
-				['line', 'Borders and rules'],
-				['ink-3', 'Pencil edge'],
-				['ink-2', 'Secondary text']
-			]
-		},
-		{
-			name: 'People',
-			colors: ramp('cat-business', ['Catchment', 'Square', 'Footpath', 'Elevated walkway', 'Rail'])
-		},
-		{
-			name: 'Water',
-			colors: ramp('cat-health', ['Infiltration', 'Basin', 'Rainwater', 'Pipe', 'Storage'])
-		},
-		{
-			name: 'Energy',
-			colors: ramp('cat-mobility', ['Range', 'Heat', 'Line', 'Generation', 'Storage'])
-		},
-		{
-			name: 'Food',
-			colors: ramp('cat-nature', ['Green space', 'Garden', 'Farm', 'Greenhouse', 'Market'])
-		},
-		{
-			name: 'Material',
-			colors: ramp('cat-living', ['Depot', 'Component', 'Transport', 'Workshop', 'Raw material'])
-		}
+	const steps = ['Surroundings', 'Surface', 'Volume', 'Network', 'Core'];
+	const gray = ['paper-2', 'paper-3', 'line', 'ink-3', 'ink-2'];
+	const flows = [
+		['People', 'people', 'cat-business'],
+		['Water', 'water', 'cat-health'],
+		['Energy', 'energy', 'cat-mobility'],
+		['Food', 'food', 'cat-nature'],
+		['Material', 'material', 'cat-living']
 	];
 
 	const paper: Swatch[] = [
@@ -85,13 +57,6 @@
 		},
 
 		{
-			heading: 'Text on color',
-			colors: [
-				['on-cat', 'Text on flows'],
-				['on-accent', 'Text on accents']
-			]
-		},
-		{
 			heading: 'Analysis tones',
 			colors: [
 				['ana-null', 'Neutral load'],
@@ -105,12 +70,6 @@
 			]
 		}
 	];
-	const levels = [
-		['Detail', 'Full geometry, color and material', '100%'],
-		['Mid', 'Main volumes and modules', '100%'],
-		['Block', 'Paper volume with pencil edges', '100%'],
-		['Envelope', 'Outline with a see-through surface', '30%']
-	];
 	const opacity: Swatch[] = [
 		['alpha-solid', 'Solid · 100%'],
 		['alpha-glass', 'Milky · 60%'],
@@ -119,22 +78,23 @@
 	];
 </script>
 
-{#snippet swatches(colors: Swatch[])}
-	<div class="grid">
-		{#each colors as [token, role] (token)}
-			<figure>
-				<span class="swatch swatch-{token}" aria-hidden="true"></span>
-				<figcaption><code translate="no">--{token}</code><br />{role}</figcaption>
-			</figure>
-		{/each}
-	</div>
+{#snippet band(colors: Swatch[], caption?: string)}
+	<figure>
+		<div data-color-band>
+			{#each colors as [token, role] (token)}
+				<span data-tone={token} role="img" aria-label={role} title={'--' + token + ' · ' + role}
+				></span>
+			{/each}
+		</div>
+		{#if caption}<figcaption>{caption}</figcaption>{/if}
+	</figure>
 {/snippet}
 
 <svelte:head>
 	<title>Interface · City Design System</title>
 </svelte:head>
 
-<main class="page stack">
+<main class="page">
 	<header class="stack">
 		<h1>Interface</h1>
 		<p class="lead">This chapter shows how the design bible uses type, color and layout.</p>
@@ -145,7 +105,7 @@
 		<table aria-labelledby="typography">
 			<tbody>
 				<tr>
-					<th scope="row"><span class="data">h1<br />40 / 64 px · 1</span></th>
+					<th scope="row"><span class="data">h1<br />40/64 px · 1</span></th>
 					<td><p data-type-sample="h1">River city</p></td>
 				</tr>
 				<tr>
@@ -167,12 +127,8 @@
 					</td>
 				</tr>
 				<tr>
-					<th scope="row"><span class="data">.lead<br />16 px / 1.5</span></th>
-					<td
-						><p class="lead">
-							A railway follows the valley and links its hillside neighborhoods.
-						</p></td
-					>
+					<th scope="row"><span class="data">.lead<br />24 px / 1.3</span></th>
+					<td><p class="lead">Rail stops link the valley’s hillside homes.</p></td>
 				</tr>
 				<tr>
 					<th scope="row"><span class="data">.small<br />13 px / 1.45</span></th>
@@ -198,7 +154,7 @@
 		<h2>Color</h2>
 		<section>
 			<h3>Paper and ink</h3>
-			{@render swatches(paper)}
+			{@render band(paper)}
 		</section>
 
 		<section>
@@ -206,26 +162,31 @@
 			<table aria-labelledby="flows" data-color-matrix>
 				<thead>
 					<tr>
-						<th scope="col">Flow</th>
+						<th scope="col" aria-label="Flow"><span data-step-name>Flow</span></th>
 						{#each steps as name, index (name)}
-							<th scope="col">
-								<span class="data">{index + 1}</span><br />
-								{name}
-								{#if index === 3}<br /><span class="small">Base tone</span>{/if}
+							<th
+								scope="col"
+								aria-label={index === 3 ? '4 Network, base tone' : index + 1 + ' ' + name}
+							>
+								{index + 1}<span data-step-name>&nbsp;{name}</span>
 							</th>
 						{/each}
 					</tr>
 				</thead>
 				<tbody>
-					{#each ramps as row (row.name)}
-						<tr>
-							<th scope="row">{row.name}</th>
-							{#each row.colors as [token, role], index (token)}
-								<td data-base-tone={index === 3 && row.name !== 'Gray' ? '' : undefined}>
-									<span class="swatch swatch-{token}" aria-hidden="true"></span>
-									<span class="caption">{role}</span>
-									<code translate="no">--{token}</code>
-								</td>
+					<tr>
+						<th scope="row">Gray</th>
+						{#each gray as token (token)}
+							<td data-tone={token} aria-label={'--' + token} title={'--' + token}></td>
+						{/each}
+					</tr>
+					{#each flows as [name, flow, base] (flow)}
+						<tr data-flow={flow}>
+							<th scope="row">{name}<code translate="no">--{base}</code></th>
+							{#each steps as step, index (step)}
+								{@const token = '--' + base + (index === 3 ? '' : '-' + (index + 1))}
+								<td data-base-tone={index === 3 ? '' : undefined} title={token} aria-label={token}
+								></td>
 							{/each}
 						</tr>
 					{/each}
@@ -236,46 +197,26 @@
 		{#each palette as group (group.heading)}
 			<section>
 				<h3>{group.heading}</h3>
-				{@render swatches(group.colors)}
+				{@render band(group.colors)}
 			</section>
 		{/each}
 
 		<section>
-			<h3 id="levels">Levels of representation</h3>
-			<table aria-labelledby="levels">
-				<thead>
-					<tr>
-						<th scope="col">Level</th>
-						<th scope="col">Surface</th>
-						<th scope="col">Opacity</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each levels as [name, surface, alpha] (name)}
-						<tr>
-							<th scope="row">{name}</th>
-							<td>{surface}</td>
-							<td class="data">{alpha}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+			<h3>Text on color</h3>
+			<figure>
+				<div data-color-band>
+					<span data-text-tone="on-cat" title="--on-cat on Water">Aa</span>
+					<span data-text-tone="on-accent" title="--on-accent on Blueprint">Aa</span>
+				</div>
+				<figcaption>
+					<code>--on-cat</code> on Water · <code>--on-accent</code> on Blueprint
+				</figcaption>
+			</figure>
 		</section>
 
 		<section>
 			<h3>Opacity</h3>
-			{@render swatches(opacity)}
-		</section>
-
-		<section>
-			<h3 id="layers">Focus layers</h3>
-			<table aria-labelledby="layers">
-				<tbody>
-					<tr><th scope="row">Focus</th><td>Flow color and a strong edge.</td></tr>
-					<tr><th scope="row">Context</th><td>Paper with a pencil edge.</td></tr>
-					<tr><th scope="row">Background</th><td>Almost transparent envelope.</td></tr>
-				</tbody>
-			</table>
+			{@render band(opacity, 'Solid 100% · Milky 60% · Envelope 30% · Trace 12%')}
 		</section>
 	</section>
 
