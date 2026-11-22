@@ -22,13 +22,21 @@ const origin = preview(revision);
 const requested = values.url ? new URL(values.url, origin) : undefined;
 if (requested && requested.origin !== origin)
 	throw Error('URL must match the verified preview at ' + origin);
-const routes = positionals.length
+const requestedRoutes = positionals.length
 	? positionals
 	: requested
 		? [requested.pathname + requested.search]
 		: process.env.SHOT_ROUTE
 			? [process.env.SHOT_ROUTE]
 			: ['/', '/landscape', '/interface', '/blocks'];
+const landscapeVariants = [
+	'/landscape?view=plan',
+	'/landscape?sinuosity=1.04',
+	'/landscape?sinuosity=1.28'
+];
+const routes = requestedRoutes.flatMap((route) =>
+	route === '/landscape' && !values.size ? [route, ...landscapeVariants] : [route]
+);
 const sizes = [
 	['phone', 390, 844, 'light'],
 	['desktop', 1366, 768, 'light'],
@@ -87,9 +95,11 @@ try {
 	for (const route of routes) {
 		const url = new URL(route, origin);
 		if (url.origin !== origin) throw Error('Expected a local preview route');
-		const hasStage = url.pathname === '/blocks';
+		const hasStage = url.pathname === '/blocks' || url.pathname === '/landscape';
+		const isVariant = url.pathname === '/landscape' && url.search.length > 0;
 		for (const [size, width, height, theme] of sizes) {
 			if (values.size && values.size !== size) continue;
+			if (!values.size && isVariant && size !== 'desktop') continue;
 			const showChapterMenu = size === 'dark-phone' && url.pathname === '/';
 			const showDarkStage = size === 'dark-desktop' && hasStage;
 			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu && !showDarkStage)

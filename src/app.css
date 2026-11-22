@@ -226,6 +226,12 @@
 		th[scope='row'] { inline-size: 6.5rem; }
 	}
 
+	.valley-controls { align-items: center; }
+	.valley-observations { gap: var(--space-2); }
+	.valley-observations dl { display: grid; gap: var(--space-1); margin: 0; }
+	.valley-observations dl > div { display: flex; justify-content: space-between; }
+	.valley-observations dd { margin: 0; font-variant-numeric: tabular-nums; }
+
 	/* Book frame */
 	.site-header { border-block-end: var(--hair) solid var(--ink); }
 	.site-bar {
