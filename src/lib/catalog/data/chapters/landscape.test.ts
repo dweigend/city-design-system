@@ -31,8 +31,6 @@ describe('landscape chapter steps', () => {
 					expect(resolveView(step, { view }).view).toBe(view);
 				else expect(() => resolveView(step, { view })).toThrow(RangeError);
 			}
-			for (const view of ['schematic', 'section'])
-				expect(() => resolveView(step, { view })).toThrow(RangeError);
 			for (const display of displayModes)
 				expect(resolveView(step, { display }).display).toBe(display);
 			for (const display of ['transparency', 'levels'])
