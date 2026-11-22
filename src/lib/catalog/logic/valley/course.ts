@@ -1,40 +1,45 @@
 import { hash } from '../../core/random';
-import type { ValleyParameters } from './parameters';
+import { sampleBand, type ValleyParameters } from './parameters';
 
 export type RiverCourse = Readonly<{
 	xy: Float64Array;
 	meanBearingRad: number;
 	phaseOffset: number;
+	windowPhaseOffset: number;
 	chainageM: Float64Array;
 	bankfullWidthM: number;
 	wetWidthM: number;
 }>;
 
 const MAIN_STEM_ID = 0;
-const CHANNEL = { heading: 0, phase: 1, curvature: 2, width: 3 } as const;
+const CHANNEL = { heading: 0, phase: 1, curvature: 2, width: 3, window: 4 } as const;
 const REGIONAL_COVERAGE_M = 8_000;
 const REGIONAL_RADIUS_M = REGIONAL_COVERAGE_M / Math.SQRT2;
 const SPACING_M = 6.25;
 const TURN = 2 * Math.PI;
 
 // The same curvature draw sets amplitude and wavelength within their declared bands.
-function courseShape(seed: number, parameters: ValleyParameters, bankfullWidthM: number) {
-	const { headingAmplitude, wavelengthToWidth, phaseOffset } = parameters;
+function courseShape(
+	seed: number,
+	parameters: ValleyParameters,
+	bankfullWidthM: number,
+	bearingRad?: number
+) {
+	const { headingAmplitude, wavelengthToWidth, phaseOffset, windowPhaseOffset } = parameters;
 	const phase = sampleBand(phaseOffset, hash(seed, MAIN_STEM_ID, CHANNEL.phase));
 	const curvature = hash(seed, MAIN_STEM_ID, CHANNEL.curvature);
 	const amplitude = sampleBand(headingAmplitude, curvature);
 	const wavelength = bankfullWidthM * sampleBand(wavelengthToWidth, curvature);
-	const bearing = TURN * hash(seed, MAIN_STEM_ID, CHANNEL.heading);
+	const bearing =
+		bearingRad === undefined ? TURN * hash(seed, MAIN_STEM_ID, CHANNEL.heading) : bearingRad % TURN;
+	const windowPhase = sampleBand(windowPhaseOffset, hash(seed, MAIN_STEM_ID, CHANNEL.window));
 	return {
 		meanBearingRad: bearing,
 		phaseOffset: phase,
+		windowPhaseOffset: windowPhase,
 		heading: (chainage: number) =>
-			bearing + amplitude * Math.cos((TURN * chainage) / wavelength + phase)
+			bearing + amplitude * Math.cos((TURN * chainage) / wavelength + phase + windowPhase)
 	};
-}
-
-function sampleBand([min, max]: readonly [number, number], fraction: number): number {
-	return min + fraction * (max - min);
 }
 
 function centerCourse(xy: Float64Array, midpoint: number): void {
@@ -47,12 +52,21 @@ function centerCourse(xy: Float64Array, midpoint: number): void {
 }
 
 /** Integrates the seeded main stem at fixed chainage intervals. */
-export function generateCourse(seed: number, parameters: ValleyParameters): RiverCourse {
+export function generateCourse(
+	seed: number,
+	parameters: ValleyParameters,
+	bearingRad?: number
+): RiverCourse {
 	const bankfullWidthM = sampleBand(
 		parameters.bankfullWidthM,
 		hash(seed, MAIN_STEM_ID, CHANNEL.width)
 	);
-	const { heading, meanBearingRad, phaseOffset } = courseShape(seed, parameters, bankfullWidthM);
+	const { heading, meanBearingRad, phaseOffset, windowPhaseOffset } = courseShape(
+		seed,
+		parameters,
+		bankfullWidthM,
+		bearingRad
+	);
 	// Every step advances by at least this projection along the mean bearing.
 	const minimumAdvance = SPACING_M * Math.cos(parameters.headingAmplitude[1]);
 	const midpoint = Math.ceil(REGIONAL_RADIUS_M / minimumAdvance) + 1;
@@ -70,10 +84,9 @@ export function generateCourse(seed: number, parameters: ValleyParameters): Rive
 		xy,
 		meanBearingRad,
 		phaseOffset,
+		windowPhaseOffset,
 		chainageM,
 		bankfullWidthM,
-		get wetWidthM() {
-			return bankfullWidthM * wetToBankfullWidth;
-		}
+		wetWidthM: bankfullWidthM * wetToBankfullWidth
 	});
 }

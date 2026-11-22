@@ -5,6 +5,9 @@ export type ValleyParameters = Readonly<{
 	wavelengthToWidth: Band;
 	headingAmplitude: Band;
 	phaseOffset: Band;
+	windowPhaseOffset: Band;
+	groundVariation: Band;
+	openBank?: 'left' | 'right';
 	wetToBankfullWidth: number;
 }>;
 
@@ -13,7 +16,9 @@ export const DEFAULT_VALLEY_PARAMETERS: ValleyParameters = Object.freeze({
 	bankfullWidthM: Object.freeze([350, 430] as const),
 	wavelengthToWidth: Object.freeze([11.5, 13.2] as const),
 	headingAmplitude: Object.freeze([0.71, 0.79] as const),
-	phaseOffset: Object.freeze([-0.14, 0.14] as const),
+	phaseOffset: Object.freeze([-0.06, 0.06] as const),
+	windowPhaseOffset: Object.freeze([-0.31, 0.31] as const),
+	groundVariation: Object.freeze([0, 1] as const),
 	wetToBankfullWidth: 0.94
 });
 
@@ -29,17 +34,33 @@ function isBand(band: Band, lower: number, upper: number): boolean {
 	return Number.isFinite(min) && Number.isFinite(max) && lower <= min && min <= max && max <= upper;
 }
 
+function validGroundSelection({ groundVariation, openBank }: ValleyParameters): boolean {
+	return (
+		isBand(groundVariation, 0, 1) &&
+		(openBank === undefined || openBank === 'left' || openBank === 'right')
+	);
+}
+
+/** Resolves the declared defaults and validates inputs before allocating the course. */
 export function valleyParameters(overrides?: Partial<ValleyParameters>): ValleyParameters {
 	const parameters = { ...DEFAULT_VALLEY_PARAMETERS, ...overrides };
-	const { bankfullWidthM, wavelengthToWidth, headingAmplitude, phaseOffset, wetToBankfullWidth } =
-		parameters;
+	const {
+		bankfullWidthM,
+		wavelengthToWidth,
+		headingAmplitude,
+		phaseOffset,
+		windowPhaseOffset,
+		wetToBankfullWidth
+	} = parameters;
 	if (
 		!isBand(bankfullWidthM, ...BANKFULL_WIDTH_M) ||
 		!isBand(wavelengthToWidth, ...WAVELENGTH_TO_WIDTH) ||
 		!isBand(phaseOffset, -MAX_PHASE_OFFSET, MAX_PHASE_OFFSET) ||
+		!isBand(windowPhaseOffset, -MAX_PHASE_OFFSET, MAX_PHASE_OFFSET) ||
 		!Number.isFinite(wetToBankfullWidth) ||
 		wetToBankfullWidth <= 0 ||
-		wetToBankfullWidth > 1
+		wetToBankfullWidth > 1 ||
+		!validGroundSelection(parameters)
 	) {
 		throw new RangeError('invalid-valley-parameters');
 	}
@@ -49,4 +70,9 @@ export function valleyParameters(overrides?: Partial<ValleyParameters>): ValleyP
 		throw new RangeError('invalid-valley-parameters');
 	}
 	return parameters;
+}
+
+/** Interpolates a closed numeric parameter band. */
+export function sampleBand([min, max]: Band, fraction: number): number {
+	return min + fraction * (max - min);
 }

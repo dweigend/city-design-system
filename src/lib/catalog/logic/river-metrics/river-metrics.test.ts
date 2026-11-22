@@ -74,12 +74,14 @@ test('measures a sub-cell bank crossing and detects separate rises on both banks
 		const bankMm = Math.max(-3000, Math.min(1000, (distance - 177.5) * 100));
 		return bankMm + (distance >= 387.5 ? 8000 : 0);
 	});
+	const floor = Uint8Array.from(bedMm, (bed) => (bed < 0 ? 0 : bed > 1000 ? 2 : 1));
 	const result = measureRiverSurface(
-		{ windowM, spacingM, bedMm, meanWaterMm },
+		{ windowM, spacingM, bedMm, meanWaterMm, floor },
 		[-2000, 0, 2000, 0],
 		VALLEY_MEASUREMENT_PROTOCOL
 	);
 	expect(result.widthM).toEqual(Array<number>(8).fill(355));
+	expect(result.bankPairsM).toEqual(Array<readonly [number, number]>(8).fill([203.75, 203.75]));
 	expect(result.stepHeightsM).toHaveLength(16);
 	for (const height of result.stepHeightsM) {
 		expect(height).toBeGreaterThan(4);

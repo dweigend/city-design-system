@@ -48,3 +48,14 @@ test('rejects unsupported grids and coordinates outside the closed sampling wind
 		}
 	}
 });
+
+test('a straight northbound course lowers mean water toward row zero', () => {
+	const north = generateValley({
+		seed: 1201,
+		bearingRad: Math.PI / 2,
+		parameters: { headingAmplitude: [0, 0] }
+	});
+	const field = sampleValley(north, grid);
+	expect(field.meanWaterMm[80]).toBe(-250);
+	expect(field.meanWaterMm[160 * 161 + 80]).toBe(250);
+});

@@ -21,4 +21,10 @@ Sample the complete 2,000 m square on the 12.5 m grid. On the clipped course, st
 
 Fill wet terrain to its local mean water before resampling at 30 m. Gaussian smoothing uses σ = 30 m and a four-sigma radius. Measure relief over the central 1 km square and report slope classes over land in the full window. Detect contiguous signed gradients over 5% on the smoothed 12.5 m profiles within 1 km either side of the station. Keep gains of at least 3 m and apply the step gates to linearly interpolated percentiles of all candidates in each case. Ground comparison columns come from the DTM row only.
 
-Run the same field gates for the 38 seeds and at both endpoints and the midpoint of default width, phase, and the paired curvature draw, at each protocol bearing. The grid of cases samples the parameter box.
+Run the same field gates for the 38 seeds and at both endpoints and the midpoint of default width, phase, the paired curvature draw, window placement and ground variation, at each protocol bearing and for each open bank. The grid of cases samples the parameter box.
+
+## Form gates
+
+For each case, require a step-height spread of at least 2.25 m from p10 to p90. Measure the dry floodplain from each interpolated wet bank to the first 50% crossing of the bilinearly sampled terrace mask. Use only cross-sections with both banks and both terrace crossings, and require at least two complete pairs. Divide the larger side's median width by the smaller side's median width. Require a ratio of at least 2. A reach with no floodplain on one bank may have an unbounded ratio.
+
+Compare each pair of picture seeds in the common study frame. For each mask, divide the count of points in exactly one seed's mask by the count in either seed's mask. Require a wet-mask difference of at least 10% and a floodplain-mask difference of at least 20%. These are calibration levels for the study's form.

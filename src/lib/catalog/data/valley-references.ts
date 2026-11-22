@@ -83,6 +83,17 @@ export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	maximumStepHeightP90M: 10
 } as const;
 
+/** Form gates for the corrected valley family. Ratios use the complete dry bank pairs. */
+export const VALLEY_FORM_BANDS = {
+	minimumStepSpreadM: 2.25,
+	minimumFloodplainWidthRatio: 2,
+	minimumCompleteBankPairs: 2,
+	minimumWetMaskDifference: 0.1,
+	minimumFloodplainMaskDifference: 0.2
+} as const;
+
+/** The picture plates face downstream at a shared bearing. */
+export const VALLEY_PICTURE_BEARING_RAD = -Math.PI / 2;
 export const VALLEY_PICTURE_SEEDS = [1201, 1301, 1409] as const;
 export const VALLEY_X1_SEEDS = [...VALLEY_PICTURE_SEEDS, 1511, 1601, 1709] as const;
 

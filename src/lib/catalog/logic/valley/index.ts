@@ -3,7 +3,8 @@ import {
 	LARGE_LOWLAND_MEASUREMENT_BANDS,
 	VALLEY_MEASUREMENT_PROTOCOL
 } from '../../data/valley-references';
-import { VALLEY_FLOORS } from './ground-profile';
+import { VALLEY_GROUND_DEFAULTS } from '../../data/valley-ground';
+import { createValleyAxis } from './valley-axis';
 import { generateCourse, type RiverCourse } from './course';
 import { valleyParameters, type ValleyParameters } from './parameters';
 import type { Valley } from './snapshot';
@@ -15,6 +16,7 @@ export { DEFAULT_VALLEY_PARAMETERS } from './parameters';
 
 export type ValleyOptions = Readonly<{
 	seed: number;
+	bearingRad?: number;
 	parameters?: Partial<ValleyParameters>;
 }>;
 
@@ -23,25 +25,30 @@ const SEED_LIMIT = 2 ** 32;
 
 /**
  * Generates a large-lowland valley course from a u32 seed and optional parameter
- * overrides in meters, radians and width ratios. Defaults and override bounds are in
+ * overrides in meters, radians and width ratios. An optional bearing selects the sampling frame before validating the override. Defaults and override bounds are in
  * CONTRACT.md. The result is frozen and detached, with caller-owned XY and chainage
  * buffers in downstream order at 6.25 m spacing. Leaves the options untouched.
  * Throws RangeError for an invalid seed, parameter, or overridden shape outside the local sinuosity band.
  */
-export function generateValley({ seed, parameters }: ValleyOptions): Valley {
+export function generateValley({ seed, parameters, bearingRad }: ValleyOptions): Valley {
 	if (!Number.isInteger(seed) || seed < 0 || seed >= SEED_LIMIT) {
 		throw new RangeError('invalid-seed');
 	}
+	if (bearingRad !== undefined && !Number.isFinite(bearingRad))
+		throw new RangeError('invalid-bearing');
 	const normalizedSeed = seed >>> 0;
-	const course = generateCourse(normalizedSeed, valleyParameters(parameters));
-	if (parameters) checkLocalSinuosity(course);
+	const resolved = valleyParameters(parameters);
+	const course = generateCourse(normalizedSeed, resolved, bearingRad);
+	if (parameters || bearingRad !== undefined) checkLocalSinuosity(course);
+	const axis = createValleyAxis(normalizedSeed, course, resolved);
 	return Object.freeze({
-		version: 'valley/3',
+		version: 'valley/4',
 		seed: normalizedSeed,
 		course,
-		floors: VALLEY_FLOORS,
+		axis,
+		floors: axis.floors,
 		tributaries: TRIBUTARIES,
-		valleySlope: 0.00025
+		valleySlope: VALLEY_GROUND_DEFAULTS.valleySlope
 	});
 }
 

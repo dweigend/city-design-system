@@ -2,6 +2,7 @@ export type SurfaceGrid = Readonly<{
 	windowM: number;
 	spacingM: number;
 	bedMm: ArrayLike<number>;
+	floor?: ArrayLike<number>;
 	meanWaterMm: ArrayLike<number>;
 }>;
 

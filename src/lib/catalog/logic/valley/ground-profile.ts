@@ -1,44 +1,36 @@
-import type { RiverCourse } from './course';
+import { VALLEY_GROUND_DEFAULTS as defaults } from '../../data/valley-ground';
+import type { ValleyAxis } from './valley-axis';
 
-const FLOORS = Object.freeze([
-	Object.freeze({ id: 1, kind: 'floodplain', levelM: 1.4 }),
-	Object.freeze({ id: 2, kind: 'lower-terrace', levelM: 8.1 }),
-	Object.freeze({ id: 3, kind: 'upper-terrace', levelM: 15.5 })
-] as const);
-
-export const VALLEY_FLOORS = FLOORS;
-
-function ramp(distanceMm: number, runMm: number): number {
-	const t = Math.min(1, distanceMm / runMm);
+function ramp(distanceM: number, runM: number): number {
+	const t = Math.min(1, distanceM / runM);
 	return t * (2 - t);
 }
 
-function rise(distanceMm: number, centerMm: number, halfRunMm: number): number {
-	const t = Math.min(1, Math.max(0, (distanceMm - centerMm + halfRunMm) / (2 * halfRunMm)));
+function rise(distanceM: number, centerM: number, halfRunM: number): number {
+	const t = Math.min(1, Math.max(0, (distanceM - centerM + halfRunM) / (2 * halfRunM)));
 	return t * t * (3 - 2 * t);
 }
 
-/** Defines the cross-section in integer-millimeter coordinates and returns height above mean water in meters. */
+/** Samples valley-axis relief in meters above mean water. Only the bank skirt reads the river. */
 export function heightAboveWaterM(
-	course: RiverCourse,
-	stationMm: number,
-	signedOffsetMm: number,
-	wetHalfWidthMm: number
+	axis: ValleyAxis,
+	alongM: number,
+	acrossM: number,
+	distanceToBankM: number
 ): number {
-	const landwardMm = Math.abs(signedOffsetMm) - wetHalfWidthMm;
-	if (landwardMm < 0) return -3.1 * ramp(-landwardMm, 80_000);
-	const side = Math.sign(signedOffsetMm);
-	const bendSwayMm = Math.round(29_000 * Math.sin(stationMm / 720_000 + course.phaseOffset * 16));
-	const widthSwayMm = Math.round(1.65 * (wetHalfWidthMm - 183_000));
-	const lateralSwayMm = Math.max(-36_000, Math.min(36_000, bendSwayMm + widthSwayMm));
-	const first = 103_000 + side * (lateralSwayMm + 4_000);
-	const second = 253_000 + side * (lateralSwayMm - 7_000);
-	const apronCenterMm = second + 340_000 + side * 2 * bendSwayMm;
-	const [floodplain, lower, upper] = FLOORS;
-	return (
-		floodplain.levelM * ramp(landwardMm, 36_000) +
-		(lower.levelM - floodplain.levelM) * rise(landwardMm, first, 22_000) +
-		(upper.levelM - lower.levelM) * rise(landwardMm, second, 26_000) +
-		1.4 * rise(landwardMm, apronCenterMm, 220_000)
-	);
+	if (distanceToBankM < 0) return -defaults.bedDepthM * ramp(-distanceToBankM, defaults.bedRunM);
+	const t = alongM / defaults.axisReachM;
+	const lateral = acrossM - axis.bowM * t * t;
+	const distance = Math.abs(lateral);
+	const edge =
+		Math.sign(lateral) === axis.openSide ? axis.openEdgeM + axis.wideningM * t : axis.closeEdgeM;
+	const upperEdge = edge + defaults.upperSetbackM;
+	const [floodplain, lower, upper] = axis.floors;
+	const relief =
+		floodplain.levelM +
+		(lower.levelM - floodplain.levelM) * rise(distance, edge, defaults.firstHalfRunM) +
+		(upper.levelM - lower.levelM) * rise(distance, upperEdge, defaults.secondHalfRunM) +
+		defaults.apronRiseM *
+			rise(distance, upperEdge + defaults.apronSetbackM, defaults.apronHalfRunM);
+	return relief * ramp(distanceToBankM, defaults.bankRunM);
 }
