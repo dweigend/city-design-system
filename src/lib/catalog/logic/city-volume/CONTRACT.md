@@ -1,5 +1,13 @@
 # City volume
 
+Kind: recipe
+Purpose: Lifts the ground plan into a conforming cell complex with reserved paths and open spaces.
+Exports: deriveCityVolume
+Outputs: Coarse cells, refined leaves, ground bindings and initial occupancy.
+Input: plan | GroundPlan | m | Surveyed city crop | Required
+Input: options.denseHeightM | number | m | 1–32 | 24
+Input: options.lowHeightM | number | m | 1–32 | 7
+
 `deriveCityVolume(plan, options?)` lifts the shared ground vertices in world XY metres, Z up. The seeded plan supplies all addresses and both district centres.
 The terrain-relative canopy interpolates linearly along the dense-to-detached centre axis and holds each endpoint height beyond its centre. Options `denseHeightM` and `lowHeightM` default to 24 and 7 m within the common 1–32 m height range.
 One positive plan path clearance lies below both canopy heights. All columns share the ground, clearance and canopy surfaces.

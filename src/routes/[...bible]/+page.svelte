@@ -5,4 +5,4 @@
 	let { data }: PageProps = $props();
 </script>
 
-<ChapterPage slug={data.slug} />
+<ChapterPage slug={data.slug} docs={data.docs} />

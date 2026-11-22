@@ -3,16 +3,22 @@
 	import { afterNavigate } from '$app/navigation';
 	import { tick } from 'svelte';
 	import BibleMenu from './BibleMenu.svelte';
+	import BlockIndex from './BlockIndex.svelte';
+	import type { ContractDoc } from './contract-docs';
 	import type { Chapter } from '../data/chapters';
 	import { createChapterController } from './chapter-controller.svelte';
 	import ChapterStage from './ChapterStage.svelte';
 	import StepCard from './StepCard.svelte';
 
-	let { chapter }: { chapter: Chapter } = $props();
+	let { chapter, docs = [] }: { chapter: Chapter; docs?: readonly ContractDoc[] } = $props();
 	let stepList = $state<HTMLElement | null>(null);
 	let headerHeight = $state(0);
 	let menuHeight = $state(0);
-	const controller = createChapterController(() => chapter);
+	const controller = createChapterController(() => chapter.steps);
+	const docsSelected = $derived(
+		controller.step !== undefined &&
+			(chapter.libraryDocs?.steps.includes(controller.step.id) ?? false)
+	);
 
 	// The browser owns the fragment. Render a selected card only after reading it.
 	afterNavigate(controller.syncLocation);
@@ -37,7 +43,10 @@
 
 <BibleMenu bind:height={menuHeight} />
 
-<main style:--chapter-header-height={headerHeight + menuHeight + 'px'}>
+<main
+	class:docs-selected={docsSelected}
+	style:--chapter-header-height={headerHeight + menuHeight + 'px'}
+>
 	{#each chapter.steps as item (item.id)}
 		<span class="anchor" id={item.id}></span>
 	{/each}
@@ -60,7 +69,7 @@
 	>
 		{#if controller.step}
 			{#key controller.step.preset.scene}
-				<ChapterStage scene={controller.step.preset.scene} {controller} />
+				<ChapterStage scene={controller.step.preset.scene} {controller} compact={docsSelected} />
 			{/key}
 		{:else}
 			<div class="stage-placeholder" aria-hidden="true"></div>
@@ -79,7 +88,15 @@
 			{#each chapter.steps as item (item.id)}
 				<Tabs.Content value={item.id}>
 					{#if controller.step === item}
-						<StepCard step={item} reroll={controller.reroll} disabled={controller.error} />
+						{#if docsSelected}
+							<div class="block-list">
+								<h2>Building blocks</h2>
+								{#if item.id !== chapter.libraryDocs?.index}<p>{item.caption}</p>{/if}
+								<BlockIndex {docs} />
+							</div>
+						{:else}
+							<StepCard step={item} reroll={controller.reroll} disabled={controller.error} />
+						{/if}
 					{/if}
 				</Tabs.Content>
 			{/each}
@@ -137,6 +154,24 @@
 	main :global(.chapter-body) {
 		display: grid;
 		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+	}
+	.docs-selected {
+		--chapter-stage-height: clamp(20rem, 52vh, 34rem);
+	}
+	.docs-selected :global(.chapter-body) {
+		grid-template-columns: minmax(0, 1fr) minmax(28rem, 1fr);
+	}
+	.block-list {
+		padding: var(--space-4);
+	}
+	.block-list > h2 {
+		margin-bottom: var(--space-3);
+		font-size: var(--text-l);
+		font-weight: 650;
+	}
+	.block-list > p {
+		margin-bottom: var(--space-3);
+		color: var(--ink-2);
 	}
 	.stage-placeholder {
 		height: var(--chapter-stage-height);
@@ -209,7 +244,14 @@
 		.summary {
 			font-size: var(--text-s);
 		}
-		main :global(.chapter-body) {
+		.docs-selected {
+			--chapter-stage-height: 15rem;
+		}
+		.block-list {
+			padding: var(--space-3);
+		}
+		main :global(.chapter-body),
+		.docs-selected :global(.chapter-body) {
 			grid-template-columns: minmax(0, 1fr);
 		}
 		.reading {

@@ -1,22 +1,30 @@
 # Valley
 
+Kind: block
+Purpose: Generates a seeded river valley and samples its terrain and mean water elevations.
+Exports: generateValley, sampleValley, groundAt, meanWaterAt
+Outputs: A detached valley snapshot and sampled fields with water, floodplain and terrace classifications. The field owns its buffers.
+Input: seed | number | — | Integer in [0, 2³²) | Required
+Input: bearingRad | number | rad | Finite, normalized modulo 2π | Seeded
+Input: groundProfile | Partial<ValleyGroundProfile> | Per field | See Ground profile | Valley ground defaults
+Input: windowM | number | m | 2,000 | Required for sampleValley
+Input: spacingM | number | m | 12.5 | Required for sampleValley
+Input: bankfullWidthM | readonly [number, number] | m | 320–450 | 350–430
+Input: wavelengthToWidth | readonly [number, number] | Ratio | 10–26 | 21–24
+Input: headingAmplitude | readonly [number, number] | rad | 0 to the smaller of 1.2 and the minimum ratio / 4π | 0.71–0.79
+Input: phaseOffset | readonly [number, number] | rad | −π/4 to π/4 | −0.06–0.06 rad
+Input: windowPhaseOffset | readonly [number, number] | rad | −π to π | −π to π
+Input: windowAcross | readonly [number, number] | Ratio | −1 to 1 | −1 to 1
+Input: groundVariation | readonly [number, number] | Ratio | 0 to 1 | 0–1
+Input: groundHeightVariation | readonly [number, number] | Ratio | 0 to 1 | 0–1
+Input: axisTiltRad | readonly [number, number] | rad | −0.15 to 0.15 | −0.052–0.052
+Input: openBank | left or right | — | Left or right viewed downstream | Seeded
+Input: wetToBankfullWidth | number | Ratio | Greater than 0 and at most 1 | 0.94
+Example: logic/valley-study
+
 `generateValley({ seed, bearingRad?, parameters?, groundProfile? })` returns a `valley/5` snapshot. It contains the main stem, its valley axis, ground profile, ordered floors and an empty list of tributaries. The course stores interleaved XY coordinates, downstream chainage, bankfull and wet widths, the frame and mean bearings, the two phase offsets and the signed window offset. Lengths are in meters and angles are in radians. Vertices are 6.25 m apart up to floating-point roundoff. The course reaches beyond the centered 8 km square.
 
 `valley/5` moves the window along and across the course, widens the bend spacing, and gives the ground its own height and tilt draws. Course coordinates and field arrays differ from those of `valley/4`. Replaying earlier output requires its original generator. Snapshot records and profile bands are frozen. Each call owns its coordinate and chainage buffers. The same seed, version, bearing and parameters reproduce their bytes in the same runtime.
-
-| Parameter               | Default        | Valid bounds                                           |
-| ----------------------- | -------------- | ------------------------------------------------------ |
-| `bankfullWidthM`        | 350–430 m      | 320–450 m                                              |
-| `wavelengthToWidth`     | 21–24          | 10–26                                                  |
-| `headingAmplitude`      | 0.71–0.79 rad  | 0 to the smaller of 1.2 rad and the minimum ratio / 4π |
-| `phaseOffset`           | −0.06–0.06 rad | −π/4 to π/4                                            |
-| `windowPhaseOffset`     | −π to π        | −π to π                                                |
-| `windowAcross`          | −1 to 1        | −1 to 1                                                |
-| `groundVariation`       | 0–1            | 0 to 1                                                 |
-| `groundHeightVariation` | 0–1            | 0 to 1                                                 |
-| `axisTiltRad`           | −0.052–0.052   | −0.15 to 0.15                                          |
-| `openBank`              | Seeded         | `left` or `right` viewed downstream                    |
-| `wetToBankfullWidth`    | 0.94           | Greater than 0 and at most 1                           |
 
 Pass finite ordered pairs for bands. Equal endpoints fix that parameter. Invalid bands throw `RangeError('invalid-valley-parameters')`. A seed must be an integer in [0, 2³²), or generation throws `RangeError('invalid-seed')`. A supplied `bearingRad` must be finite. It is reduced modulo 2π to select the sampling frame, or generation throws `RangeError('invalid-bearing')`. Validation precedes course allocation.
 

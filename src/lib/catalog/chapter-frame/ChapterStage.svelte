@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ToggleGroup } from 'bits-ui';
-	import { Layers, Play, RotateCcw, Square, SquareDashed } from 'lucide-svelte';
+	import { Layers, Play, RotateCcw, Shuffle, Square, SquareDashed } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import type { ChapterPreset } from '../data/chapters';
 	import { displayLabels, viewLabels } from '../data/view-modes';
@@ -8,8 +8,11 @@
 	import { createValleyChapterStage } from '../scene/valley';
 	import type { ChapterController } from './chapter-controller.svelte';
 
-	let { scene, controller }: { scene: ChapterPreset['scene']; controller: ChapterController } =
-		$props();
+	let {
+		scene,
+		controller,
+		compact = false
+	}: { scene: ChapterPreset['scene']; controller: ChapterController; compact?: boolean } = $props();
 
 	const stages = {
 		valley: createValleyChapterStage,
@@ -42,43 +45,48 @@
 	});
 </script>
 
-<section class="stage" aria-label="Chapter stage">
+<section class="stage" class:compact aria-label="Chapter stage">
 	{#if step && selection}
 		{@const { views, display, displays = [display] } = step}
-		<div class="stage-options">
-			<ToggleGroup.Root
-				type="single"
-				aria-label="View"
-				bind:value={() => controller.selection?.view ?? '', controller.selectView}
-			>
-				{#each Object.entries(viewLabels) as [id, label] (id)}
-					<ToggleGroup.Item value={id} disabled={!views.some((allowed) => allowed === id)}>
-						{label}
-					</ToggleGroup.Item>
-				{/each}
-			</ToggleGroup.Root>
-			<ToggleGroup.Root
-				type="single"
-				aria-label="Display"
-				bind:value={() => controller.selection?.display ?? '', controller.selectDisplay}
-			>
-				{#each Object.entries(displayLabels) as [id, label] (id)}
-					<ToggleGroup.Item
-						value={id}
-						disabled={!displays.some((allowed) => allowed === id)}
-						aria-label={label}
-						title={label}
+		{#if !compact || views.length > 1 || displays.length > 1}
+			<div class="stage-options">
+				{#if !compact || views.length > 1}
+					<ToggleGroup.Root
+						type="single"
+						aria-label="View"
+						bind:value={() => controller.selection?.view ?? '', controller.selectView}
 					>
-						{#if id === 'transparency' || id === 'levels'}
-							{@const Icon = displayIcons[id]}
-							<Icon size={16} aria-hidden="true" />
-						{:else}
-							{label}
-						{/if}
-					</ToggleGroup.Item>
-				{/each}
-			</ToggleGroup.Root>
-		</div>
+						{#each Object.entries(viewLabels) as [id, label] (id)}
+							{@const allowed = views.some((view) => view === id)}
+							{#if !compact || allowed}
+								<ToggleGroup.Item value={id} disabled={!allowed}>{label}</ToggleGroup.Item>
+							{/if}
+						{/each}
+					</ToggleGroup.Root>
+				{/if}
+				{#if !compact || displays.length > 1}
+					<ToggleGroup.Root
+						type="single"
+						aria-label="Display"
+						bind:value={() => controller.selection?.display ?? '', controller.selectDisplay}
+					>
+						{#each Object.entries(displayLabels) as [id, label] (id)}
+							{@const allowed = displays.some((mode) => mode === id)}
+							{#if !compact || allowed}
+								<ToggleGroup.Item value={id} disabled={!allowed} aria-label={label} title={label}>
+									{#if id === 'transparency' || id === 'levels'}
+										{@const Icon = displayIcons[id]}
+										<Icon size={16} aria-hidden="true" />
+									{:else}
+										{label}
+									{/if}
+								</ToggleGroup.Item>
+							{/if}
+						{/each}
+					</ToggleGroup.Root>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="stage-picture" bind:this={picture}>
 			<div
@@ -94,19 +102,27 @@
 		</div>
 
 		<div class="stage-bar">
-			<button
-				type="button"
-				onclick={controller.play}
-				disabled={error || step.control.kind !== 'playback'}
-				aria-label={controller.playing ? 'Stop demo' : 'Play demo'}
-				title={controller.playing ? 'Stop demo' : 'Play demo'}
-			>
-				{#if controller.playing}
-					<Square size={16} aria-hidden="true" />
-				{:else}
-					<Play size={16} aria-hidden="true" />
-				{/if}
-			</button>
+			{#if compact && step.control.kind === 'seed'}
+				<button type="button" class="reroll" onclick={controller.reroll} disabled={error}>
+					<Shuffle size={16} aria-hidden="true" />
+					Reroll seed
+				</button>
+			{/if}
+			{#if !compact || step.control.kind === 'playback'}
+				<button
+					type="button"
+					onclick={controller.play}
+					disabled={error || step.control.kind !== 'playback'}
+					aria-label={controller.playing ? 'Stop demo' : 'Play demo'}
+					title={controller.playing ? 'Stop demo' : 'Play demo'}
+				>
+					{#if controller.playing}
+						<Square size={16} aria-hidden="true" />
+					{:else}
+						<Play size={16} aria-hidden="true" />
+					{/if}
+				</button>
+			{/if}
 			<button
 				type="button"
 				onclick={controller.reset}
@@ -132,7 +148,16 @@
 		box-sizing: border-box;
 		background: var(--paper);
 	}
+	.compact {
+		position: relative;
+		z-index: auto;
+	}
+	.compact .chapter-seed {
+		padding-inline: var(--space-2);
+		font-size: var(--text-s);
+	}
 	.stage-picture {
+		grid-row: 2;
 		position: relative;
 		min-width: 0;
 	}
@@ -153,12 +178,16 @@
 		border-bottom: var(--hair) solid var(--line);
 	}
 	.stage-bar {
+		grid-row: 3;
 		justify-content: flex-end;
 		border-top: var(--hair) solid var(--line);
 	}
 	.stage-options :global([data-toggle-group-root]) {
 		display: flex;
 		flex-wrap: wrap;
+	}
+	.reroll {
+		margin-inline-end: auto;
 	}
 	.stage :global(button) {
 		min-width: var(--chapter-target);

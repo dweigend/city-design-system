@@ -2,14 +2,27 @@ import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import type { ResolvedPathname } from '$app/types';
 import { SvelteURLSearchParams } from 'svelte/reactivity';
-import type { Chapter, ChapterStep } from '../data/chapters';
-import { resolveView, type ResolvedView } from '../logic/view-modes';
+import type { ChapterStep } from '../data/chapters';
+import { resolveView, type ResolvedView, type ViewRequest } from '../logic/view-modes';
 import type { ChapterStage } from '../scene/chapter-stage';
 
 const moveMs = 480;
 
-/** Owns the URL selection, seed overrides and playback for one mounted chapter. */
-export function createChapterController(chapter: () => Chapter) {
+type ControllerOptions = {
+	resolveSelection?: (policy: ChapterStep, request?: ViewRequest) => ResolvedView | undefined;
+	standalone?: boolean;
+};
+
+/** Owns the URL selection, seed overrides and playback for one mounted stage.
+ * Steps are ordered and always contain a default. Standalone stages omit step anchors.
+ * The optional resolver validates the selected step policy for a dedicated example.
+ */
+export function createChapterController(
+	steps: () => readonly [ChapterStep, ...ChapterStep[]],
+	{ resolveSelection, standalone = false }: ControllerOptions = {}
+) {
+	const resolve = (policy: ChapterStep, request?: ViewRequest) =>
+		resolveSelection?.(policy, request) ?? resolveView(policy, request);
 	let step = $state.raw<ChapterStep>();
 	let selection = $state.raw<ResolvedView>();
 	let seedOverride = $state<number>();
@@ -31,7 +44,8 @@ export function createChapterController(chapter: () => Chapter) {
 		else params.delete('view');
 		const search = params.size ? `?${params}` : '';
 		// The current route pathname already includes the configured base.
-		const url = `${page.url.pathname}${search}#${id}` as ResolvedPathname;
+		const anchor = standalone ? '' : `#${id}`;
+		const url = `${page.url.pathname}${search}${anchor}` as ResolvedPathname;
 		void goto(url, { shallow: true, replace, state: page.state });
 	}
 
@@ -51,31 +65,31 @@ export function createChapterController(chapter: () => Chapter) {
 	}
 
 	function syncLocation() {
-		const { steps } = chapter();
-		const next = steps.find((item) => '#' + item.id === location.hash) ?? steps[0];
+		const available = steps();
+		const next = available.find((item) => '#' + item.id === location.hash) ?? available[0];
 		const requested = new SvelteURLSearchParams(location.search).get('view');
 		const view = next.views.find((id) => id === requested);
-		const resolved = resolveView(next, { view });
+		const resolved = resolve(next, { view });
 		if (step !== next || selection?.view !== resolved.view)
 			showStep(next, resolved, step ? moveMs : 0);
 	}
 
 	function changeView(view: string) {
 		if (!step || !selection) return;
-		selection = resolveView(step, { view, display: selection.display });
+		selection = resolve(step, { view, display: selection.display });
 		stage?.setView(selection, moveMs);
 	}
 
 	function reset() {
 		if (!step) return;
-		showStep(step, resolveView(step), moveMs);
+		showStep(step, resolve(step), moveMs);
 		if (new SvelteURLSearchParams(location.search).has('view'))
 			writeLocation(step.id, undefined, true);
 	}
 
 	function selectView(view: string) {
 		if (!step || !view || selection?.view === view) return;
-		if (playing) showStep(step, resolveView(step), moveMs);
+		if (playing) showStep(step, resolve(step), moveMs);
 		changeView(view);
 		writeLocation(step.id, view, true);
 	}
@@ -129,16 +143,16 @@ export function createChapterController(chapter: () => Chapter) {
 		syncLocation,
 		/** Selects a step and pushes its anchor to the browser history. */
 		selectStep(this: void, id: string) {
-			const next = chapter().steps.find((item) => item.id === id);
+			const next = steps().find((item) => item.id === id);
 			if (!next || next === step) return;
-			showStep(next, resolveView(next), moveMs);
+			showStep(next, resolve(next), moveMs);
 			writeLocation(next.id);
 		},
 		selectView,
 		/** Applies an allowed display while retaining the current camera selection. */
 		selectDisplay(this: void, display: string) {
 			if (!step || !selection || !display || display === selection.display) return;
-			selection = resolveView(step, { view: selection.view, display });
+			selection = resolve(step, { view: selection.view, display });
 			stage?.setView(selection);
 		},
 		/** Cycles the active seed step through its preset list. */

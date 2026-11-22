@@ -1,5 +1,13 @@
 # House structure
 
+Kind: recipe
+Purpose: Builds house frames with occupied decks, access and cloth supports.
+Exports: fannedTrussHouse, mastHouse, checkHouseStructure
+Outputs: HouseStructure with nodes, members, platforms, access runs and skin patches.
+Input: plot | Plot | m | Oriented building plot | Required
+Input: shape.datums | number[] | m | Platform heights above ground | Required
+Input: shape.height | number | m | Structure height above ground | Required
+
 A house declares its nodes, rods, occupied platforms, cloth supports and access runs in world metres, with Z up.
 Platform datums give the top of the walking surface. Each access names its destination platform and starts at ground or at the preceding platform.
 Mast and fanned-truss decks share a winding well offset from the trunk.

@@ -10,8 +10,17 @@ export const VALLEY_STUDY_VIEW = {
 } as const;
 export const VALLEY_STUDY_SCALE_M = 500;
 
-/** Samples an off-channel window in the common study frame, with flow toward the bottom. */
+/** Generates a detached valley for the common study bearing in radians.
+ * Accepts an unsigned 32-bit seed. Validation and draw order follow generateValley.
+ */
+export function valleyStudySnapshot(seed: number) {
+	return generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD });
+}
+
+/** Samples the common study grid in meters with flow toward the bottom.
+ * Accepts an unsigned 32-bit seed and returns a field with fresh buffers.
+ * Invalid seeds propagate the generator's RangeError.
+ */
 export function valleyStudyField(seed: number): ValleyField {
-	const valley = generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD });
-	return sampleValley(valley, VALLEY_STUDY_GRID);
+	return sampleValley(valleyStudySnapshot(seed), VALLEY_STUDY_GRID);
 }

@@ -1,12 +1,13 @@
 import { error, redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
-import { chapters, legacyMove } from '../data/chapters';
+import { assetsChapter, chapters, legacyMove } from '../data/chapters';
+import { contractDocs } from './contract-docs.server';
 
 /** Loads a canonical chapter slug, or returns 404 for an unknown path. */
 export function loadBible({ params }: { params: { bible: string } }) {
 	const chapter = chapters.find((entry) => entry.slug === params.bible);
 	if (!chapter) error(404, 'Chapter not found');
-	return { slug: chapter.slug };
+	return { slug: chapter.slug, docs: 'libraryDocs' in chapter ? contractDocs : [] };
 }
 
 /** Permanently redirects a retired route ID, retaining applicable reader parameters. */
@@ -30,4 +31,11 @@ export function loadLegacyBible({ route, url }: { route: { id: string }; url: UR
 
 function withQuery(search: URLSearchParams) {
 	return search.size ? '?' + search.toString() : '';
+}
+
+/** Loads a public library contract, returning 404 for an unknown or pending entry. */
+export function loadBlockDoc({ params }: { params: { block: string } }) {
+	const doc = contractDocs.find(({ slug }) => slug === params.block);
+	if (!doc) error(404, 'Building block not found');
+	return { chapter: assetsChapter, doc, docs: contractDocs };
 }

@@ -1,5 +1,16 @@
 # River metrics
 
+Kind: block
+Purpose: Measures sinuosity, channel width and relief from sampled river geometry.
+Exports: clipPolylineToSquare, sinuosity, measureRiverSurface
+Outputs: Detached clipped reach and border contacts, dimensionless sinuosity, and surface statistics for widths, slope, relief and steps.
+Input: xy | ArrayLike<number> | m | Finite interleaved XY with nonzero segments | Required
+Input: size | number | m | Finite and positive | Required for clipping
+Input: grid | SurfaceGrid | mm | Centered north-first elevations | Required for surface measurements
+Input: course | ArrayLike<number> | m | Downstream XY vertices | Required for surface measurements
+Input: protocol | SurfaceProtocol | Per field | Measurement settings | Required for surface measurements
+Example: river-metrics-example
+
 Both functions take interleaved world XY coordinates in meters. They read the vertices in the given order and leave the input alone.
 
 `clipPolylineToSquare(xy, size)` clips the segments to the closed square centered at the origin. The side length `size` must be finite and positive. The function interpolates the border intersections and selects the longest contiguous reach by length. On a tie it keeps the first reach. Corner-only contact yields an empty clip. The result is `null` when there is no positive-length reach. Otherwise the result has a detached `xy` buffer and a `borderHits` count. A shared vertex on the border counts once, including a tangent vertex. A positive-length border overlap yields `Infinity` for the count.
