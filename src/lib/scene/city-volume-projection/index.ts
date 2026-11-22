@@ -30,12 +30,19 @@ function cellGeometry(
 		const neighbor = edges[edge];
 		const wallHeight = neighbor === null ? height : -neighbor.heightDifference;
 		const drawsRim = !neighbor || wallHeight !== 0 || id < neighbor.id;
-		if (!neighbor) segments.push(...ring[a], ...roof[a]);
 		const end = a + side.length;
+		if (wallHeight > 0) {
+			const corners = neighbor ? [a, end % count] : [a];
+			for (const corner of corners) {
+				const [x, y, z] = roof[corner];
+				segments.push(x, y, z - wallHeight, x, y, z);
+			}
+		}
 		for (; a < end; a++) {
 			const b = (a + 1) % count;
 			indices.push(2 * count, a + count, b + count);
 			if (drawsRim) segments.push(...roof[a], ...roof[b]);
+			if (!neighbor) segments.push(...ring[a], ...ring[b]);
 			if (wallHeight <= 0) continue;
 			const bottom = positions.length / 3;
 			for (const [x, y, z] of [roof[a], roof[b]]) positions.push(x, y, z - wallHeight);

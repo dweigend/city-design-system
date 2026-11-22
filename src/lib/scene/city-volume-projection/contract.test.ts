@@ -16,11 +16,10 @@ test('assigns a planning surface to a metric hull whose canopy follows its base'
 		color: '--blueprint-3',
 		opacity: '--alpha-hull'
 	});
-	expect(drawables[0].strokeSegments).toHaveLength(48);
+	expect(drawables[0].strokeSegments).toHaveLength(72);
 	expect(heightDrawables[0]).toMatchObject({
-		finish: 'glass',
-		color: '--blueprint-3',
-		opacity: '--alpha-glass'
+		finish: 'matte',
+		color: '--blueprint-2'
 	});
 	expect(heightDrawables[0].shape).toBe(drawables[0].shape);
 	expect(heightDrawables[0].strokeSegments).toBe(drawables[0].strokeSegments);

@@ -24,7 +24,7 @@
 	const city = createCitySite();
 	const heightsScale = `Heights ×${city.heightScale}`;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
-	const planFit = { bearing: (10 * Math.PI) / 180, elevation: (33 * Math.PI) / 180, fill: 0.98 };
+	const planFit = { bearing: (10 * Math.PI) / 180, elevation: (28 * Math.PI) / 180, fill: 0.98 };
 	const volumeFit = { ...planFit, zoom: 1.27 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
@@ -70,7 +70,10 @@
 	const volume = $derived(prepareVolume(plan, height, activeComplexity));
 	const drawables = $derived([
 		...plan.terrainDrawables,
-		...(step === '03' ? plan.lines.traces : plan.lines.drawables),
+		...(step === '02' ? plan.lines.traces : plan.lines.drawables).map((part) => ({
+			...part,
+			visible: step !== '03'
+		})),
 		...(step === '03' ? volume.projection.heightDrawables : volume.projection.drawables).map(
 			(part) => ({ ...part, visible: step !== '01' })
 		)
@@ -152,7 +155,7 @@
 				? 'Coarse city plan on the valley terrace'
 				: step === '02'
 					? 'Translucent city volume of uniform height above the valley terrace'
-					: 'Translucent city volume with high and low areas on the valley terrace'}
+					: 'Solid city volumes with high and low areas on the valley terrace'}
 			landscape
 			fit={step === '01' ? planFit : volumeFit}
 		/>

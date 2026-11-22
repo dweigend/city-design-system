@@ -71,7 +71,7 @@ function projectGrid(
 			: []
 	});
 	const drawables = resolveSurfaces(object, { cell: { color: '--ink-2', finish: 'line' } });
-	const traces = resolveSurfaces(object, { cell: { color: '--line', finish: 'line' } });
+	const traces = resolveSurfaces(object, { cell: { color: '--plan-trace', finish: 'line' } });
 	const edgesByCellId: ReadonlyMap<string, readonly (readonly Vec3[])[]> = drapedEdges;
 	return Object.freeze({
 		object,
