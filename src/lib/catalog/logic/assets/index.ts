@@ -6,6 +6,7 @@ import type { AssetPlacement, AssetRecipe, AssetSurface } from './definition';
 import { suggestedSurface } from './slot-defaults';
 
 export { assetCategories, type AssetCategory } from './definition';
+export { shellElevationPoint } from './full-height-shell';
 export type { ObjectGeometry } from './object-geometry';
 export type SlotAssignment = {
 	token: ColorToken;

@@ -1,3 +1,4 @@
+import { shellElevationPoint } from '../assets';
 import { openSurface, openRod } from './shell-openings';
 import { slottedWall } from './slotted-wall';
 import { framedSpan } from './framed-span';
@@ -48,10 +49,11 @@ function panel(shell: Shell, index: number, source: StockMesh, start: number, en
 		triangles: number[] = [];
 	for (let i = 0; i < bays; i++) {
 		const base = points.length;
-		for (const [relief, y, z] of source.points) {
-			const bayU = clamp(y / 3 + 0.5),
+		for (const point of source.points) {
+			const [relief, span, profileRise] = shellElevationPoint(point);
+			const bayU = clamp(span),
 				u = start + ((end - start) * (i + bayU)) / bays,
-				rise = clamp(z / 9);
+				rise = clamp(profileRise);
 			const t = ribbon?.(u, bayU, rise) ?? rise;
 			const height = shell.bottom + t * (shell.top - shell.bottom);
 			// Fold into the surveyed roof edge over the last part of the elevation.

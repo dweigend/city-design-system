@@ -7,6 +7,28 @@ import type { Vec3 } from '../parametrik/types';
 import { face, sweepRib, fabric, curve, tau, type Mesh } from './shell-mesh';
 import { foldedWall, foldedSkins } from './folded-wall';
 
+// The authored elevation retains signed relief and allows ribs to cross its sill.
+const profileWidthMeters = 3;
+const profileHeightMeters = 9;
+const reliefOriginMeters = 0.9;
+
+/**
+ * Converts a local metre-space shell vertex to signed relief in metres, fractional span and
+ * fractional rise. Returns a detached tuple and retains overhangs outside the elevation.
+ */
+export function shellElevationPoint([x, y, z]: Vec3): Vec3 {
+	return [x - reliefOriginMeters, y / profileWidthMeters + 0.5, z / profileHeightMeters];
+}
+
+function mountedPoint([relief, span, rise]: Vec3): Vec3 {
+	// Trim rib overhangs at the mounting sill while keeping the elevation datums.
+	return [
+		reliefOriginMeters + relief,
+		profileWidthMeters * (span - 0.5),
+		profileHeightMeters * Math.max(0, rise)
+	];
+}
+
 type Draw = (m: Mesh) => void;
 const draw: Record<ShellSystem, Draw> = {
 	...foldedSkins,
@@ -269,7 +291,8 @@ const draw: Record<ShellSystem, Draw> = {
 export const fullHeightShell: AssetRecipe = {
 	id: 'full-height-shell',
 	variants: shellSystems,
-	footprint: [0.8, 3],
+	// Reserve the outermost relief and the widest splayed ribs across all systems.
+	footprint: [1.85, 4.2],
 	slotNames: ['body'],
 	category: 'facades',
 	anchors: [mount('facade')],
@@ -283,7 +306,7 @@ export const fullHeightShell: AssetRecipe = {
 				...surface(),
 				kind: 'mesh',
 				...m,
-				points: m.points.map(([d, u, v]) => [d, 3 * (u - 0.5), 9 * v]),
+				points: m.points.map(mountedPoint),
 				edges: false
 			}
 		];
