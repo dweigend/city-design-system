@@ -7,9 +7,7 @@ for (const route of pageRoutes) {
 		const response = await openRoute(page, route.path);
 		expect(response?.status()).toBe(200);
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(route.title);
-		await expect(
-			page.getByRole('banner').getByRole('link', { name: 'City Design System' })
-		).toBeVisible();
+		await expect(page.getByRole('banner').getByRole('button', { name: 'Chapters' })).toBeVisible();
 		const overflow = await page.evaluate(
 			() => document.documentElement.scrollWidth - document.documentElement.clientWidth
 		);
@@ -23,9 +21,11 @@ for (const route of pageRoutes) {
 	});
 }
 
-test('old addresses redirect to their chapter', async ({ page }) => {
-	for (const { from, to, hash } of redirects) {
+for (const [from, to] of redirects) {
+	test(`old address ${from} moves permanently to ${to}`, async ({ page }) => {
+		const response = await page.request.get(from, { maxRedirects: 0 });
+		expect(response.status()).toBe(308);
 		await page.goto(from, { waitUntil: 'domcontentloaded' });
-		await expect(page).toHaveURL((url) => url.pathname === to && url.hash === (hash ?? ''));
-	}
-});
+		await expect(page).toHaveURL((url) => url.pathname + url.hash === to);
+	});
+}

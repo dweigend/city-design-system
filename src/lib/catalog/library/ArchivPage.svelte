@@ -4,6 +4,7 @@
 	import { X } from 'lucide-svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import DesignPrinciples from '../bibel/DesignPrinciples.svelte';
+	import { BibleMenu } from '../chapter-frame';
 	import DesignShell from '../design/DesignShell.svelte';
 	import FilterBar from './FilterBar.svelte';
 	import ArchivRaster from './ArchivRaster.svelte';
@@ -45,6 +46,7 @@
 <svelte:head><title>Archive · City Design System</title></svelte:head>
 
 <DesignShell title="Archive">
+	{#snippet navigation()}<BibleMenu />{/snippet}
 	<section id="library-path" class="library-path" aria-labelledby="library-title">
 		<h2 id="library-title">Shared library in use</h2>
 		<p>
@@ -60,8 +62,8 @@
 			as the graph. House parts and palette roles already serve bible views and the sandbox.
 		</p>
 		<p>
-			<a href={resolve('/formen#volume-section')}>House and court</a> shows how the cell space, occupancy
-			and house recipe fit together on the shared stage.
+			<a data-sveltekit-reload href={resolve('/formen#volume-section')}>House and court</a> shows how
+			the cell space, occupancy and house recipe fit together on the shared stage.
 		</p>
 		<p>
 			<strong>Prototype.</strong> The City Game Infrastructure Atlas prototype traces water and power
@@ -74,8 +76,8 @@
 			study (<code>logic/formen/volume-study.ts</code>), and the server-side court survey (<code
 				>raster/court-study.server.ts</code
 			>) still run outside the sandbox until replaced by the
-			<a href={resolve('/interface#engine-path')}>shared engine miniatures</a> (ST6 #36, ST12 #37, ST14
-			#38, ST15 #39).
+			<a data-sveltekit-reload href={resolve('/interface#engine-path')}>shared engine miniatures</a> (ST6
+			#36, ST12 #37, ST14 #38, ST15 #39).
 		</p>
 	</section>
 	<DesignPrinciples page="library" />

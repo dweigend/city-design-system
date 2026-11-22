@@ -1,7 +1,7 @@
 import type { ViewMode, ViewPolicy } from '../view-modes';
 
 /** Seeded scene preset used by a chapter step. */
-export type ChapterPreset = Readonly<{ seed: number }>;
+export type ChapterPreset = Readonly<{ scene: 'valley' | 'acceptance'; seed: number }>;
 
 type DemoCue = Readonly<{ atMs: number; phase: number; view?: ViewMode }>;
 
@@ -17,6 +17,7 @@ type StepControl = Readonly<
 export type ChapterStep = ViewPolicy &
 	Readonly<{
 		id: `step-${number}`;
+		label?: string;
 		title: string;
 		principles: readonly string[];
 		preset: ChapterPreset;
@@ -28,7 +29,7 @@ export type ChapterStep = ViewPolicy &
 /** Content rendered by the shared chapter frame. */
 export type Chapter = Readonly<{
 	number: number;
-	scene: 'valley';
+	slug: string;
 	title: string;
 	summary: string;
 	steps: readonly [ChapterStep, ...ChapterStep[]];
