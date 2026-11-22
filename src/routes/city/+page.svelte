@@ -24,7 +24,8 @@
 	const city = createCitySite();
 	const heightsScale = `Heights ×${city.heightScale}`;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
-	const fit = { bearing: (10 * Math.PI) / 180, elevation: (33 * Math.PI) / 180, fill: 0.98 };
+	const planFit = { bearing: (10 * Math.PI) / 180, elevation: (33 * Math.PI) / 180, fill: 0.98 };
+	const volumeFit = { ...planFit, zoom: 1.27 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
@@ -68,8 +69,11 @@
 	const plan = $derived(preparePlan(citySize));
 	const volume = $derived(prepareVolume(plan, height, activeComplexity));
 	const drawables = $derived([
-		...plan.drawables,
-		...volume.drawables.map((part) => ({ ...part, visible: step !== '01' }))
+		...plan.terrainDrawables,
+		...(step === '03' ? plan.lines.traces : plan.lines.drawables),
+		...(step === '03' ? volume.projection.heightDrawables : volume.projection.drawables).map(
+			(part) => ({ ...part, visible: step !== '01' })
+		)
 	]);
 
 	const measurements = $derived([
@@ -99,12 +103,13 @@
 				projected = projectCityVolume(volume, lines.edgesByCellId, footprint);
 				projectedHeights = heights;
 			}
-			return projected.drawables;
+			return projected;
 		}
 		return {
 			...plan,
 			project,
-			drawables: [...terrain.drawables, ...lines.drawables],
+			terrainDrawables: terrain.drawables,
+			lines,
 			generationMs: generated - started,
 			projectionMs: performance.now() - generated
 		};
@@ -114,10 +119,10 @@
 		const started = performance.now();
 		const volume = plan.readVolume({ height, complexity });
 		const generated = performance.now();
-		const drawables = plan.project(volume.volume);
+		const projection = plan.project(volume.volume);
 		return {
 			...volume,
-			drawables,
+			projection,
 			generationMs: generated - started,
 			projectionMs: performance.now() - generated
 		};
@@ -149,7 +154,7 @@
 					? 'Translucent city volume of uniform height above the valley terrace'
 					: 'Translucent city volume with high and low areas on the valley terrace'}
 			landscape
-			{fit}
+			fit={step === '01' ? planFit : volumeFit}
 		/>
 		<ToggleGroup
 			label="View"
@@ -187,8 +192,7 @@
 				{:else if active === '02'}
 					<p>
 						Each cell rises by the same height above its ground line. The transparent hull shows the
-						cell walls and the plan beneath them. At 3 meters and above, the height limit rounds
-						down to whole storeys.
+						outline and the plan beneath it. The height limit is in meters.
 					</p>
 					<Slider
 						label={heightParam.label}
