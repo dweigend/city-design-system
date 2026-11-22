@@ -49,7 +49,6 @@ async function create({
 		strokes.outer.color.copy(ink);
 		strokes.crease.color.copy(ink);
 		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
-		strokes.explicit.color.copy(ink);
 		strokes.ground.color.copy(paper).lerp(ink, 0.48);
 		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
 		palette.dark.value = Number(dark);
@@ -76,6 +75,12 @@ async function create({
 			mesh.visible = visible && opacity > 0 && mesh.geometry.attributes.position.count > 0;
 			for (const line of lines) {
 				if (grid) line.material.color.copy(color(drawable.color));
+				if (drawable.strokeSegments) {
+					const stroke = drawable.stroke;
+					line.material.color.copy(usePaper ? ink : color(stroke?.color ?? drawable.color));
+					line.material.linewidth = stroke?.width ?? 1;
+					line.material.opacity = stroke?.opacity ?? 1;
+				}
 				line.visible = visible && line.geometry.instanceCount > 0;
 			}
 		}
@@ -85,7 +90,7 @@ async function create({
 		if (closing || frame !== undefined) return;
 		frame = requestAnimationFrame(() => {
 			frame = undefined;
-			const { view, display, geometryBatchCount } = state.read();
+			const { view, display, geometryBatchCount, geometryBuildCount } = state.read();
 			const { center, eye, up, halfWidth, halfHeight, near, far } = fitCamera(
 				view,
 				content.bounds,
@@ -114,6 +119,7 @@ async function create({
 				Object.assign(canvas.dataset, {
 					stageReady: 'true',
 					stageBuilds: String(geometryBatchCount),
+					stageDrawableBuilds: String(geometryBuildCount),
 					stageView: view,
 					stageTheme: dark ? 'dark' : 'light'
 				});
@@ -184,13 +190,13 @@ async function create({
 				strokes.outer.dispose();
 				strokes.crease.dispose();
 				strokes.ground.dispose();
-				strokes.explicit.dispose();
 				strokes.grid.dispose();
 				strokes.gridBoundary.dispose();
 				delete canvas.dataset.stageReady;
 				delete canvas.dataset.stageAdapter;
 				delete canvas.dataset.stageHardware;
 				delete canvas.dataset.stageBuilds;
+				delete canvas.dataset.stageDrawableBuilds;
 				delete canvas.dataset.stageView;
 				delete canvas.dataset.stageTheme;
 				delete canvas.dataset.stageMeshMs;

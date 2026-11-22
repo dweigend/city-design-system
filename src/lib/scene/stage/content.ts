@@ -4,7 +4,7 @@ import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { Bounds3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import { shapeArrays } from './geometry';
-import { boundaryGeometry, edgeGeometry, type strokeMaterials } from './edges';
+import { boundaryGeometry, edgeGeometry, explicitStroke, type strokeMaterials } from './edges';
 import { projectGround } from './ground';
 import { fillMaterial } from './material';
 import type { drawingPalette } from './tone';
@@ -50,27 +50,26 @@ function project(
 				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary.clone() }
 			]
 		: drawable.strokeSegments
-			? [{ geometry: stroke, material: strokes.explicit }]
+			? [{ geometry: stroke, material: explicitStroke() }]
 			: [
 					{ geometry: stroke, material: strokes.crease },
 					{ geometry: stroke, material: strokes.outer }
 				];
-	// Explicit outlines sit over the hull fill, which tints the draped plan below it.
-	const hullOrder = drawable.strokeSegments ? 4 : 0;
+	// Draw explicit strokes after translucent faces.
+	const layerOrder = drawable.strokeSegments ? 4 : 0;
 	const lines = strokesToDraw.map(({ geometry, material }, index) =>
-		projectStroke(geometry, material, hullOrder ? hullOrder + 1 : 2 + index)
+		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index)
 	);
-	const fill = landscape && !drawable.strokeSegments ? indexed : indexed.toNonIndexed();
+	const fill = landscape ? indexed : indexed.toNonIndexed();
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
 	const { material, terrain, flat, heightScale, atlas } = fillMaterial(
 		palette,
-		drawable.terrainField,
-		drawable.strokeSegments !== undefined
+		drawable.terrainField
 	);
 	const mesh = new Mesh(fill, material);
-	mesh.renderOrder = hullOrder;
+	mesh.renderOrder = layerOrder;
 	return { drawable, mesh, lines, grid, terrain, flat, heightScale, atlas };
 }
 
@@ -121,17 +120,26 @@ export function projectContent(
 	return {
 		parts,
 		group,
-		bounds,
+		get bounds(): Bounds3 {
+			const visible = new Box3();
+			for (const { drawable, mesh } of parts) {
+				if (drawable.visible !== false && mesh.geometry.boundingBox)
+					visible.union(mesh.geometry.boundingBox);
+			}
+			return visible.isEmpty()
+				? bounds
+				: { min: visible.min.toArray(), max: visible.max.toArray() };
+		},
 		ground,
 		delete() {
 			ground?.shadow.geometry.dispose();
 			ground?.shadow.material.dispose();
 			ground?.outline.geometry.dispose();
-			for (const { mesh, lines, grid, atlas } of parts) {
+			for (const { drawable, mesh, lines, grid, atlas } of parts) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 				atlas?.dispose();
-				if (grid) for (const line of lines) line.material.dispose();
+				if (grid || drawable.strokeSegments) for (const line of lines) line.material.dispose();
 				for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();
 			}
 		}

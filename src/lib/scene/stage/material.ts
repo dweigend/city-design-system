@@ -23,11 +23,7 @@ export function readDisplay(display: Display) {
 	return displays[display];
 }
 
-export function fillMaterial(
-	palette: ReturnType<typeof drawingPalette>,
-	field?: TerrainField,
-	evenRoof = false
-) {
+export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?: TerrainField) {
 	const material = new MeshBasicNodeMaterial({
 		side: DoubleSide,
 		forceSinglePass: true,
@@ -40,8 +36,7 @@ export function fillMaterial(
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
 	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
-	// Planning canopies inherit small slopes from the ground. Keep a continuous roof tone.
-	const top = evenRoof ? roof : roof.and(facesLight);
+	const top = roof.and(facesLight);
 	const shadow = roof.or(facesLight).not();
 	const level = top.select(levels.top, shadow.select(levels.shadow, levels.lit));
 	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));

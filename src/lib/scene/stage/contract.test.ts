@@ -57,6 +57,16 @@ test('zooms about the same orthographic center without changing bearing or eleva
 	expect(zoomed.halfHeight * 1.27).toBeCloseTo(regular.halfHeight);
 });
 
+test('frames a focus box while retaining depth coverage for its surroundings', () => {
+	const scene = { min: [-400, -200, -10], max: [400, 200, 130] } as const;
+	const focus = { min: [120, -80, 0], max: [280, 80, 90] } as const;
+	const { center, eye, near, far, halfWidth } = fitCamera('plan', scene, 2, true, { focus });
+	expect(center).toEqual([200, 0, 45]);
+	expect(halfWidth).toBeLessThan(fitCamera('plan', scene, 2, true).halfWidth);
+	expect(eye[2] - near).toBeGreaterThan(scene.max[2]);
+	expect(eye[2] - far).toBeLessThan(scene.min[2]);
+});
+
 test('builds a rotated box, triangulates both prism windings and preserves indexed meshes', () => {
 	const box = shapeArrays({
 		kind: 'box',

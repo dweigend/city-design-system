@@ -10,6 +10,7 @@ export type Surface = Readonly<{
 	finish: Finish;
 	flat?: boolean;
 	opacity?: `--alpha-${string}`;
+	stroke?: Readonly<{ color: `--${string}`; width: number; opacity: number }>;
 }>;
 
 /** Explicit lookup of surfaces by slot name. */

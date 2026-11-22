@@ -37,12 +37,13 @@ export function readView(view: View) {
 }
 
 /** Optional orthographic fit with angles in radians, a fill fraction, and a positive zoom
- * multiplier about the fitted center (default 1). */
+ * multiplier about the fitted center (default 1). Focus frames a subset of the scene in meters. */
 export type ViewFit = Readonly<{
 	bearing?: number;
 	elevation?: number;
 	fill?: number;
 	zoom?: number;
+	focus?: Bounds3;
 }>;
 
 export function fitCamera(
@@ -66,11 +67,15 @@ export function fitCamera(
 	const right = unitVector(crossProduct(up, direction));
 	const imageUp = crossProduct(direction, right);
 
-	const half = scaled(displacement(bounds.min, bounds.max), 0.5);
+	const frame = fit.focus ?? bounds;
+	const half = scaled(displacement(frame.min, frame.max), 0.5);
 	const extent = (axis: Vec3) =>
 		dotProduct(half, [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])]);
-	const shift = scaled([-sun[0], -sun[1], 0], shadowFit || landscape ? half[2] * shadowReach : 0);
-	const center = sum(interpolation(bounds.min, bounds.max, 0.5), shift);
+	const shift = scaled(
+		[-sun[0], -sun[1], 0],
+		!fit.focus && (shadowFit || landscape) ? half[2] * shadowReach : 0
+	);
+	const center = sum(interpolation(frame.min, frame.max, 0.5), shift);
 	const objectFit = Math.max(extent(imageUp), extent(right) / aspect, 0.05) / (fit.fill ?? fill);
 	const shadowFitHeight =
 		Math.max(
@@ -78,11 +83,18 @@ export function fitCamera(
 			(extent(right) + Math.abs(dotProduct(shift, right))) / aspect
 		) / (landscape ? (fit.fill ?? 0.9) : 0.9);
 	const halfHeight = Math.max(objectFit, shadowFitHeight) / (fit.zoom ?? 1);
-	const depth = extent(direction);
+	const sceneHalf = scaled(displacement(bounds.min, bounds.max), 0.5);
+	const depth = dotProduct(sceneHalf, [
+		Math.abs(direction[0]),
+		Math.abs(direction[1]),
+		Math.abs(direction[2])
+	]);
+	const sceneCenter = interpolation(bounds.min, bounds.max, 0.5);
+	const depthShift = dotProduct(displacement(center, sceneCenter), direction);
 	const depthMarginM = Math.max(1, half[2] * 1.2, depth * 0.01);
 	return {
 		center,
-		eye: sum(center, scaled(direction, depth + depthMarginM)),
+		eye: sum(center, scaled(direction, depth + depthShift + depthMarginM)),
 		up,
 		halfWidth: halfHeight * aspect,
 		halfHeight,

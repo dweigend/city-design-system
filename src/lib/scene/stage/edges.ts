@@ -1,6 +1,6 @@
-import { InstancedBufferAttribute, Line2NodeMaterial, Vector3 } from 'three/webgpu';
+import { InstancedBufferAttribute, Line2NodeMaterial, NormalBlending, Vector3 } from 'three/webgpu';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import { attribute, uniform } from 'three/tsl';
+import { attribute, diffuseColor, materialColor, uniform, vec4 } from 'three/tsl';
 
 type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
@@ -130,14 +130,21 @@ export function strokeMaterials(landscape = false) {
 	};
 	const grid = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 1.5 });
 	const gridBoundary = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 2.5 });
-	const explicit = new Line2NodeMaterial({
-		...options,
-		...pencilBias,
-		alphaToCoverage: false,
-		linewidth: 1.15
-	});
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();
-	return { eye, outer, crease, grid, gridBoundary, explicit, ground };
+	return { eye, outer, crease, grid, gridBoundary, ground };
+}
+
+export function explicitStroke() {
+	const material = new Line2NodeMaterial({
+		transparent: true,
+		blending: NormalBlending,
+		depthWrite: false,
+		alphaToCoverage: false,
+		linewidth: 1
+	});
+	// Keep line coverage but blend the ink into all preceding layers, including other translucent fills.
+	material.outputNode = vec4(materialColor, diffuseColor.a);
+	return material;
 }
