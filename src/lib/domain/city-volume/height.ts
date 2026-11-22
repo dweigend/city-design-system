@@ -9,17 +9,17 @@ export function heightField(seed: number, origin: Vec2, bearing: number) {
 	const random = Random.create({ seed }).derive('city-volume');
 	const cos = Math.cos(bearing);
 	const sin = Math.sin(bearing);
-	const centers = [-125, 125].map((offset, index) => {
+	const centers = [-105, 105].map((offset, index) => {
 		const stream = random.derive(String(index));
 		const along = offset + stream.number({ min: -20, max: 20 });
-		const across = stream.number({ min: -20, max: 20 });
+		const across = -65 + stream.number({ min: -20, max: 20 });
 		return {
 			position: [
 				origin[0] + along * cos - across * sin,
 				origin[1] + along * sin + across * cos
 			] as Vec2,
-			radius: stream.number({ min: 205, max: 240 }),
-			peak: stream.number({ min: 0.95, max: 1.03 })
+			radius: stream.number({ min: 235, max: 270 }),
+			peak: stream.number({ min: 0.93, max: 1.01 })
 		};
 	});
 	return (point: Vec2) =>

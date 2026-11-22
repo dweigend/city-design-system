@@ -75,8 +75,7 @@ test('shares bounds and supports both a capped top storey and the minimum positi
 	expect(example().cells.length).toBeGreaterThan(0);
 });
 
-// The full 3–32 m range requires steeper transitions than the former narrower profile.
-test('keeps jumps over two storeys to at most 16% of edges across all registered seeds', () => {
+test('keeps jumps over two storeys to at most 8% of edges across all registered seeds', () => {
 	for (const seed of seeds) {
 		const grid = plan(seed, 620, 260, 40);
 		for (let step = 0; step <= 100; step++) {
@@ -90,7 +89,7 @@ test('keeps jumps over two storeys to at most 16% of edges across all registered
 			const steep = edges.filter(
 				({ heightDifference }) => Math.abs(heightDifference) > 2 * storeyHeight
 			);
-			expect(steep.length / edges.length).toBeLessThanOrEqual(0.16);
+			expect(steep.length / edges.length).toBeLessThanOrEqual(0.08);
 			if (step === 100) {
 				const heights = cells.map(({ height }) => height);
 				expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThanOrEqual(
