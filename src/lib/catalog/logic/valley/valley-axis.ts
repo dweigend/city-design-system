@@ -1,36 +1,54 @@
 import { hash } from '../../core/random';
-import { VALLEY_GROUND_DEFAULTS as defaults } from '../../data/valley-ground';
+import type { ValleyGroundProfile } from '../../data/valley-ground';
 import type { RiverCourse } from './course';
 import { sampleBand, type ValleyParameters } from './parameters';
+import { openBankSide } from './window-placement';
 
-const AXIS_CHANNEL = { bank: 5, variation: 6 } as const;
+const CHANNEL = { width: 6, heights: 8, tilt: 9 } as const;
 
-/** Builds the alluvial profile and its independent axis in the course's world frame. */
-export function createValleyAxis(seed: number, course: RiverCourse, parameters: ValleyParameters) {
-	const opening =
-		parameters.openBank ?? (hash(seed, 0, AXIS_CHANNEL.bank) < 0.5 ? 'left' : 'right');
-	const openSide = opening === 'left' ? 1 : -1;
-	const shape = sampleBand(parameters.groundVariation, hash(seed, 0, AXIS_CHANNEL.variation));
-	const halfReach = Math.round(defaults.axisReachM / course.chainageM[1]);
+function reachChord(course: RiverCourse, reachM: number) {
 	const midpoint = (course.chainageM.length - 1) / 2;
-	const a = 2 * (midpoint - halfReach);
-	const b = 2 * (midpoint + halfReach);
+	const distance = Math.round(reachM / course.chainageM[1]);
+	const a = 2 * (midpoint - distance);
+	const b = 2 * (midpoint + distance);
 	const { xy } = course;
-	const bearingRad = Math.atan2(xy[b + 1] - xy[a + 1], xy[b] - xy[a]);
-	const floodplain = defaults.floodplainLevelM;
-	const lower = floodplain + sampleBand(defaults.firstRiseM, shape);
-	const upper = lower + sampleBand(defaults.secondRiseM, shape);
+	const x = xy[2 * midpoint];
+	const y = xy[2 * midpoint + 1];
+	const dx = xy[b] - xy[a];
+	const dy = xy[b + 1] - xy[a + 1];
+	const bearingRad = Math.atan2(dy, dx);
+	const spanM = Math.hypot(dx, dy) / 2;
+	const crossM = Math.cos(bearingRad) * (xy[a + 1] - y) - Math.sin(bearingRad) * (xy[a] - x);
+	return { x, y, spanM, bearingRad, crossM };
+}
 
+/** Builds the alluvial profile and an independently tilted axis in the course frame. */
+export function createValleyAxis(
+	seed: number,
+	course: RiverCourse,
+	parameters: ValleyParameters,
+	profile: ValleyGroundProfile
+) {
+	const openSide = openBankSide(seed, parameters.openBank);
+	const width = sampleBand(parameters.groundVariation, hash(seed, 0, CHANNEL.width));
+	const height = sampleBand(parameters.groundHeightVariation, hash(seed, 0, CHANNEL.heights));
+	const tiltRad = sampleBand(parameters.axisTiltRad, hash(seed, 0, CHANNEL.tilt));
+	const reach = reachChord(course, profile.axisReachM);
+	const floodplain = profile.floodplainLevelM;
+	const lower = floodplain + sampleBand(profile.firstRiseM, height);
+	const upper = lower + sampleBand(profile.secondRiseM, height);
 	return Object.freeze({
-		bearingRad,
+		profile,
+		anchorX: reach.x,
+		anchorY: reach.y,
+		bearingRad: reach.bearingRad + tiltRad,
+		tiltRad,
+		bowM: reach.crossM * sampleBand(profile.axisBowGain, width),
+		bowSpanM: reach.spanM,
 		openSide,
-		bowM:
-			-Math.sin(course.phaseOffset + course.windowPhaseOffset) *
-			defaults.axisReachM *
-			sampleBand(defaults.axisBowGain, shape),
-		closeEdgeM: sampleBand(defaults.closeEdgeM, shape),
-		openEdgeM: sampleBand(defaults.openEdgeM, shape),
-		wideningM: sampleBand(defaults.wideningM, shape),
+		closeEdgeM: sampleBand(profile.closeEdgeM, width),
+		openEdgeM: sampleBand(profile.openEdgeM, width),
+		wideningM: sampleBand(profile.wideningM, width),
 		floors: Object.freeze([
 			Object.freeze({ id: 1, kind: 'floodplain', levelM: floodplain }),
 			Object.freeze({ id: 2, kind: 'lower-terrace', levelM: lower }),
@@ -41,12 +59,18 @@ export function createValleyAxis(seed: number, course: RiverCourse, parameters: 
 
 export type ValleyAxis = ReturnType<typeof createValleyAxis>;
 
-/** Resolves station and cross-axis coordinates in meters from XY millimeters. */
+/** Resolves grounded coordinates from XY millimeters, with the water datum at the frame origin. */
 export function axisCoordinates(axis: ValleyAxis) {
 	const forwardX = Math.cos(axis.bearingRad);
 	const forwardY = Math.sin(axis.bearingRad);
-	return (xMm: number, yMm: number) => ({
-		alongM: Math.round(forwardX * xMm + forwardY * yMm) / 1000,
-		acrossM: Math.round(forwardX * yMm - forwardY * xMm) / 1000
-	});
+	const alongOffset = forwardX * axis.anchorX + forwardY * axis.anchorY;
+	const acrossOffset = forwardX * axis.anchorY - forwardY * axis.anchorX;
+	return (xMm: number, yMm: number) => {
+		const alongM = Math.round(forwardX * xMm + forwardY * yMm) / 1000;
+		return {
+			alongM,
+			stationM: alongM - alongOffset,
+			acrossM: Math.round(forwardX * yMm - forwardY * xMm) / 1000 - acrossOffset
+		};
+	};
 }

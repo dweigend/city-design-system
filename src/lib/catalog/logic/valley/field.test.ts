@@ -13,9 +13,9 @@ test('samples both endpoints, row zero north and the center at the water datum',
 	expect(groundAt(field, -987.5, 975)).toBe(bedMm[323] / 1000);
 	expect(groundAt(field, -993.75, 1000)).toBe((bedMm[0] + bedMm[1]) / 2000);
 	expect(meanWaterAt(field, 0, 0)).toBe(0);
-	expect(groundAt(field, 0, 0)).toBeLessThan(0);
-	expect(floor[80 * 161 + 80]).toBe(0);
-	expect(classes[80 * 161 + 80]).toBe(1);
+	const middle = (valley.course.chainageM.length - 1) / 2;
+	const [x, y] = valley.course.xy.subarray(2 * middle, 2 * middle + 2);
+	expect(groundAt(field, x, y)).toBeLessThan(meanWaterAt(field, x, y));
 });
 
 test('assigns water and terrace bits from the quantized field and detaches all buffers', () => {
@@ -53,7 +53,7 @@ test('a straight northbound course lowers mean water toward row zero', () => {
 	const north = generateValley({
 		seed: 1201,
 		bearingRad: Math.PI / 2,
-		parameters: { headingAmplitude: [0, 0] }
+		parameters: { headingAmplitude: [0, 0], axisTiltRad: [0, 0] }
 	});
 	const field = sampleValley(north, grid);
 	expect(field.meanWaterMm[80]).toBe(-250);

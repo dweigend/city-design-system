@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import {
+	VALLEY_FORM_BANDS as maskBands,
 	VALLEY_MEASUREMENT_PROTOCOL as protocol,
 	VALLEY_PICTURE_BEARING_RAD,
 	VALLEY_PICTURE_SEEDS,
@@ -41,12 +42,23 @@ test('places the center at least 125 m from the river in all three picture frame
 	}
 });
 
+function maskDifference(a: Uint8Array, b: Uint8Array, level: number) {
+	let union = 0;
+	let difference = 0;
+	for (let i = 0; i < a.length; i++) {
+		const aMatches = a[i] === level;
+		const bMatches = b[i] === level;
+		union += Number(aMatches || bMatches);
+		difference += Number(aMatches !== bMatches);
+	}
+	return difference / union;
+}
+
 test('picture river lines differ in placement and shape', () => {
-	const lines = VALLEY_PICTURE_SEEDS.map((seed) =>
-		wetMidpoints(
-			sampleValley(generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD }), grid)
-		)
+	const fields = VALLEY_PICTURE_SEEDS.map((seed) =>
+		sampleValley(generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD }), grid)
 	);
+	const lines = fields.map(wetMidpoints);
 	for (const [i, j] of [
 		[0, 1],
 		[0, 2],
@@ -60,6 +72,13 @@ test('picture river lines differ in placement and shape', () => {
 		);
 		expect(rms(delta), name).toBeGreaterThanOrEqual(form.minimumLineRmsM);
 		expect(rms(delta, offset), name).toBeGreaterThanOrEqual(form.minimumShapeRmsM);
+		const wet = maskDifference(fields[i].floor, fields[j].floor, 0);
+		const floodplain = maskDifference(fields[i].floor, fields[j].floor, 1);
+		console.log(
+			`${name}: wet difference ${wet.toFixed(3)}, floodplain difference ${floodplain.toFixed(3)}`
+		);
+		expect(wet, name).toBeGreaterThanOrEqual(maskBands.minimumWetMaskDifference);
+		expect(floodplain, name).toBeGreaterThanOrEqual(maskBands.minimumFloodplainMaskDifference);
 	}
 });
 

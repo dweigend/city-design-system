@@ -1,9 +1,12 @@
 import { hash } from '../../core/random';
 import { sampleBand, type ValleyParameters } from './parameters';
+import { alignmentFor, MAX_WINDOW_OFFSET_M, placeCourse, windowOffset } from './window-placement';
 
 export type RiverCourse = Readonly<{
 	xy: Float64Array;
 	meanBearingRad: number;
+	frameBearingRad: number;
+	windowOffsetM: number;
 	phaseOffset: number;
 	windowPhaseOffset: number;
 	chainageM: Float64Array;
@@ -30,25 +33,21 @@ function courseShape(
 	const curvature = hash(seed, MAIN_STEM_ID, CHANNEL.curvature);
 	const amplitude = sampleBand(headingAmplitude, curvature);
 	const wavelength = bankfullWidthM * sampleBand(wavelengthToWidth, curvature);
-	const bearing =
+	const frameBearingRad =
 		bearingRad === undefined ? TURN * hash(seed, MAIN_STEM_ID, CHANNEL.heading) : bearingRad % TURN;
 	const windowPhase = sampleBand(windowPhaseOffset, hash(seed, MAIN_STEM_ID, CHANNEL.window));
+	const windowOffsetM = windowOffset(seed, parameters);
+	const headingAtCenter = amplitude * Math.cos(phase + windowPhase);
+	const bearing = frameBearingRad - headingAtCenter * alignmentFor(windowOffsetM);
 	return {
+		frameBearingRad,
+		windowOffsetM,
 		meanBearingRad: bearing,
 		phaseOffset: phase,
 		windowPhaseOffset: windowPhase,
 		heading: (chainage: number) =>
 			bearing + amplitude * Math.cos((TURN * chainage) / wavelength + phase + windowPhase)
 	};
-}
-
-function centerCourse(xy: Float64Array, midpoint: number): void {
-	const x = xy[2 * midpoint];
-	const y = xy[2 * midpoint + 1];
-	for (let i = 0; i < xy.length; i += 2) {
-		xy[i] -= x;
-		xy[i + 1] -= y;
-	}
 }
 
 /** Integrates the seeded main stem at fixed chainage intervals. */
@@ -61,15 +60,17 @@ export function generateCourse(
 		parameters.bankfullWidthM,
 		hash(seed, MAIN_STEM_ID, CHANNEL.width)
 	);
-	const { heading, meanBearingRad, phaseOffset, windowPhaseOffset } = courseShape(
-		seed,
-		parameters,
-		bankfullWidthM,
-		bearingRad
-	);
+	const {
+		heading,
+		meanBearingRad,
+		frameBearingRad,
+		phaseOffset,
+		windowPhaseOffset,
+		windowOffsetM
+	} = courseShape(seed, parameters, bankfullWidthM, bearingRad);
 	// Every step advances by at least this projection along the mean bearing.
 	const minimumAdvance = SPACING_M * Math.cos(parameters.headingAmplitude[1]);
-	const midpoint = Math.ceil(REGIONAL_RADIUS_M / minimumAdvance) + 1;
+	const midpoint = Math.ceil((REGIONAL_RADIUS_M + MAX_WINDOW_OFFSET_M) / minimumAdvance) + 1;
 	const chainageM = new Float64Array(2 * midpoint + 1);
 	const xy = new Float64Array(2 * chainageM.length);
 	for (let i = 1; i < chainageM.length; i++) {
@@ -78,11 +79,13 @@ export function generateCourse(
 		xy[2 * i] = xy[2 * (i - 1)] + SPACING_M * Math.cos(angle);
 		xy[2 * i + 1] = xy[2 * (i - 1) + 1] + SPACING_M * Math.sin(angle);
 	}
-	centerCourse(xy, midpoint);
+	placeCourse(xy, midpoint, SPACING_M, windowOffsetM);
 	const { wetToBankfullWidth } = parameters;
 	return Object.freeze({
 		xy,
 		meanBearingRad,
+		frameBearingRad,
+		windowOffsetM,
 		phaseOffset,
 		windowPhaseOffset,
 		chainageM,
