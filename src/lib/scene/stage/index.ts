@@ -2,7 +2,7 @@ import { Line2NodeMaterial, OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import { fitCamera, type View } from './camera';
 import { projectContent } from './content';
-import { readColors, readDisplay, type Display } from './material';
+import { drawingPalette, readColors, readDisplay, type Display } from './material';
 import { openRenderer } from './renderer';
 import { stageState } from './state';
 
@@ -19,8 +19,10 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 	const state = stageState(hardware, adapterName);
 	const scene = new Scene();
 	const camera = new OrthographicCamera();
-	const ink = new Line2NodeMaterial({ linewidth: 1.05, depthWrite: false });
-	let content = projectContent([], ink);
+	const ink = new Line2NodeMaterial({ linewidth: 1.5, depthWrite: false, transparent: true });
+	const pencil = new Line2NodeMaterial({ linewidth: 0.8, depthWrite: false, transparent: true });
+	const palette = drawingPalette();
+	let content = projectContent([], ink, pencil, palette);
 	let aspect = 1;
 	let frame: number | undefined;
 	let closing: Promise<void> | undefined;
@@ -48,20 +50,28 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 			camera.lookAt(...center);
 			camera.updateProjectionMatrix();
 
-			const color = readColors(canvas);
+			const css = getComputedStyle(canvas);
+			const color = readColors(css, canvas.ownerDocument);
 			const paper = color('--paper');
+			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
+			const hull = Number(css.getPropertyValue('--alpha-hull'));
 			scene.background = paper;
 			ink.color.copy(color('--ink'));
+			pencil.color.copy(ink.color).lerp(paper, 0.56);
+			content.ground?.shadow.material.color.copy(ink.color).lerp(paper, dark ? 0.91 : 0.42);
+			palette.ink.value.copy(ink.color);
+			palette.light.value.copy(dark ? ink.color : paper);
+			palette.shade.value.copy(dark ? paper : ink.color);
+			palette.hull.value = Number(display === 'transparency');
 			const style = readDisplay(display);
-			for (const { drawable, mesh, shade } of content.parts) {
-				const { opacity, shade: strength, paper: usePaper } = style(drawable.finish);
+			for (const { drawable, mesh } of content.parts) {
+				const { opacity, paper: usePaper } = style(drawable.finish, hull);
 				const material = mesh.material;
 				const transparent = opacity < 1;
 				if (material.transparent !== transparent) material.needsUpdate = true;
 				Object.assign(material, { opacity, transparent, depthWrite: !transparent });
-				if (usePaper) material.color.copy(paper).lerp(ink.color, 0.1);
-				else material.color.copy(color(drawable.color)).lerp(paper, 0.48);
-				shade.value = strength;
+				if (usePaper) material.color.copy(paper).lerp(ink.color, dark ? 0.09 : 0.19);
+				else material.color.copy(color(drawable.color));
 				mesh.visible = opacity > 0 && mesh.geometry.attributes.position.count > 0;
 			}
 			try {
@@ -84,7 +94,7 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 		/** Replaces the list in order, building each drawable once. */
 		show(drawables: readonly Drawable[]) {
 			if (closing) return;
-			const next = projectContent(drawables, ink);
+			const next = projectContent(drawables, ink, pencil, palette);
 			scene.remove(content.group);
 			content.delete();
 			content = next;
@@ -119,6 +129,7 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 				scene.remove(content.group);
 				content.delete();
 				ink.dispose();
+				pencil.dispose();
 				delete canvas.dataset.stageReady;
 				delete canvas.dataset.stageAdapter;
 				delete canvas.dataset.stageHardware;

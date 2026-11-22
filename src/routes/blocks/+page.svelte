@@ -50,7 +50,7 @@
 		{drawables}
 		{view}
 		display={transparent ? 'transparency' : 'normal'}
-		label="House with a triangular roof and an arched window"
+		label="House with a gable roof, central door and two upright windows"
 	/>
 	<div class="stack">
 		<p>

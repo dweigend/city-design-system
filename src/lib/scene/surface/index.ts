@@ -15,6 +15,8 @@ export type Drawable = Surface & Readonly<{ id: string; shape: Shape }>;
 
 /** Frozen palette entries for common slots. Select the entries declared by the object. */
 export const defaultAssignment = Object.freeze({
+	plinth: Object.freeze({ color: '--ground-stone', finish: 'matte' }),
+	door: Object.freeze({ color: '--blueprint', finish: 'matte' }),
 	wall: Object.freeze({ color: '--cat-living', finish: 'matte' }),
 	roof: Object.freeze({ color: '--body-living', finish: 'matte' }),
 	frame: Object.freeze({ color: '--ink', finish: 'line' }),

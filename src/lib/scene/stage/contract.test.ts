@@ -11,7 +11,7 @@ test('frames the same metric bounds in iso, plan and a portrait viewport', () =>
 	const wide = fitCamera('iso', bounds, 2);
 	const narrow = fitCamera('iso', bounds, 0.4);
 	const plan = fitCamera('plan', bounds, 2);
-	expect(wide.center).toEqual([0, 0, 1.15]);
+	expect(wide.center).toEqual([0, 0, 2.3]);
 	expect(narrow.center).toEqual(wide.center);
 	expect(narrow.halfHeight).toBeGreaterThan(wide.halfHeight);
 	expect(wide.eye[0]).toBeGreaterThan(0);
@@ -55,14 +55,14 @@ test('builds a rotated box, triangulates both prism windings and preserves index
 test('applies one translucent paper treatment to every fill and preserves line-only parts', () => {
 	const normal = readDisplay('normal');
 	const transparency = readDisplay('transparency');
-	expect(normal('matte').opacity).toBe(1);
-	expect(normal('gloss').shade).toBeGreaterThan(normal('matte').shade);
-	expect(normal('glass').opacity).toBeLessThan(1);
-	expect(normal('line').opacity).toBe(0);
-	expect(transparency('line').opacity).toBe(0);
-	expect(transparency('glass')).toEqual(transparency('matte'));
-	expect(transparency('gloss')).toEqual(transparency('matte'));
-	expect(transparency('matte').paper).toBe(true);
+	const hull = 0.3;
+	expect(normal('matte', hull).opacity).toBe(1);
+	expect(normal('glass', hull).opacity).toBeLessThan(1);
+	expect(normal('line', hull).opacity).toBe(0);
+	expect(transparency('line', hull).opacity).toBe(0);
+	expect(transparency('glass', hull)).toEqual(transparency('matte', hull));
+	expect(transparency('gloss', hull)).toEqual(transparency('matte', hull));
+	expect(transparency('matte', hull)).toEqual({ opacity: hull, paper: true });
 });
 
 test('rejects unknown view and display IDs, including inherited names', () => {
@@ -81,10 +81,10 @@ test('replaces the drawable count and counts builds only on show', () => {
 	state.setDisplay('transparency');
 	expect(state.read()).toEqual({ ...before, view: 'plan', display: 'transparency' });
 	state.show(drawables.slice(0, 1));
-	expect(state.read()).toMatchObject({ drawableCount: 1, geometryBuildCount: 4 });
+	expect(state.read()).toMatchObject({ drawableCount: 1, geometryBuildCount: 7 });
 	state.show([]);
-	expect(state.read()).toMatchObject({ drawableCount: 0, geometryBuildCount: 4 });
-	expect(before).toMatchObject({ drawableCount: 3, geometryBuildCount: 3, view: 'iso' });
+	expect(state.read()).toMatchObject({ drawableCount: 0, geometryBuildCount: 7 });
+	expect(before).toMatchObject({ drawableCount: 6, geometryBuildCount: 6, view: 'iso' });
 });
 
 test('reports a missing WebGPU adapter through the public entry', async () => {

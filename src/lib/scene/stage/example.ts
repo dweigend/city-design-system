@@ -3,9 +3,9 @@ import { defaultAssignment, resolveSurfaces } from '../surface';
 
 export function stageExample() {
 	const object = houseExample();
-	const { wall, roof, glass } = defaultAssignment;
+	const { plinth, wall, roof, glass, door } = defaultAssignment;
 	return {
-		drawables: resolveSurfaces(object, { wall, roof, glass }),
+		drawables: resolveSurfaces(object, { plinth, wall, roof, glass, door }),
 		footprint: object.footprint,
 		bounds: bounds(object)
 	};

@@ -102,7 +102,7 @@ test('bounds each shape in world space and ignores unused mesh vertices', () => 
 	expect(rotated.max.slice(1)).toEqual([5, 2]);
 	expect(bounds(objectWith(prism))).toEqual({ min: [4, 5, 3], max: [6, 8, 7] });
 	expect(bounds(objectWith(mesh))).toEqual({ min: [0, 0, 0], max: [2, 2, 5] });
-	expect(bounds(example())).toEqual({ min: [-2, -1.5, 0], max: [2, 1.5, 2.3] });
+	expect(bounds(example())).toEqual({ min: [-3.24, -2.24, 0], max: [3.24, 2.24, 4.6] });
 	expect(() => bounds(PlaceableObject.create({ ...objectWith(box), parts: [] }))).toThrow(
 		RangeError
 	);
@@ -119,34 +119,28 @@ test('moves each shape and its anchors together, preserving ids, slots, part ord
 	);
 	expect(moved.parts[0].shape).toEqual({
 		kind: 'box',
-		center: [8, 10, 6],
-		size: [4, 3, 2],
+		center: [8, 10, 5.12],
+		size: [6.3, 4.3, 0.24],
 		rotation: Math.PI / 2
 	});
-	expect(moved.parts[1].shape).toEqual({
-		kind: 'prism',
-		polygon: [
-			[9.5, 8],
-			[9.5, 12],
-			[6.5, 10]
-		],
-		base: 7,
-		top: 7.3
-	});
-	expect(moved.parts[2].shape).toMatchObject({
-		kind: 'mesh',
-		indices: [0, 1, 2, 0, 2, 3, 0, 3, 4]
-	});
-	const shape = moved.parts[2].shape;
-	if (shape.kind !== 'mesh') throw new Error('Expected the arched window mesh');
-	expect(shape.positions.slice(0, 6)).toEqual([9.5, 9, 6, 9.5, 11, 6]);
+	const { shape } = moved.parts[2];
+	const originalRoof = house.parts[2].shape;
+	if (shape.kind !== 'mesh' || originalRoof.kind !== 'mesh')
+		throw new Error('Expected the gable roof mesh');
+	expect(shape.indices).toEqual(originalRoof.indices);
+	expect(shape.positions.slice(6, 9)).toEqual([8, 6.76, 9.6]);
 	expect(moved.anchors.map(({ name, position }) => ({ name, position }))).toEqual([
-		{ name: 'entry', position: [9.5, 10, 5] },
-		{ name: 'roof', position: [8, 10, 7.3] }
+		{ name: 'entry', position: [10, 10, 5] },
+		{ name: 'ridge', position: [8, 10, 9.6] }
 	]);
 	expect(moved.anchors[0].normal[0]).toBeCloseTo(1);
 	expect(moved.anchors[0].normal[1]).toBeCloseTo(0);
 	expect(moved.anchors[1].normal).toEqual([0, 0, 1]);
+	expect(move(objectWith(prism), [0, 0, 5], 0).parts[0].shape).toEqual({
+		...prism,
+		base: prism.base + 5,
+		top: prism.top + 5
+	});
 	expect(() => move(house, [0, Infinity, 0], 0)).toThrow(RangeError);
 	expect(() => move(house, [0, 0, 0], NaN)).toThrow(RangeError);
 });
