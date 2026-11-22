@@ -1,12 +1,13 @@
 import { pathSupports, profileSolid } from '../linear-path';
 import { interpolatePoint, type Vec3 } from '../parametrik/types';
-import type {
-	AssetAnchor,
-	AssetRecipe,
-	RibbonPort,
-	RibbonSection,
-	RibbonSegmentSite,
-	SiteBuildResult
+import {
+	mount,
+	type AssetAnchor,
+	type AssetRecipe,
+	type RibbonPort,
+	type RibbonSection,
+	type RibbonSegmentSite,
+	type SiteBuildResult
 } from './definition';
 import type { ObjectGeometry } from './object-geometry';
 
@@ -34,10 +35,7 @@ const stockSections: readonly RibbonSection[] = [
 	}
 ];
 
-const stockAnchors: readonly AssetAnchor[] = [
-	{ attachment: 'deck', position: [-STOCK_LENGTH_M / 2, 0, STOCK_ELEVATION_M], normal: [-1, 0, 0] },
-	{ attachment: 'deck', position: [STOCK_LENGTH_M / 2, 0, STOCK_ELEVATION_M], normal: [1, 0, 0] }
-];
+const stockAnchors: readonly AssetAnchor[] = [mount('deck')];
 
 function pierGeometry(
 	id: string,

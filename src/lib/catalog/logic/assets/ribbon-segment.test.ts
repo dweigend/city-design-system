@@ -15,7 +15,7 @@ test('ribbon-segment is registered as a site-parametric access object with a sto
 	expect(entry?.variants).toEqual(['supported', 'paired', 'tunnel']);
 	expect(entry?.slotNames).toEqual(['walking', 'bearing']);
 	expect(entry?.footprint).toEqual([6, 1.8]);
-	expect(entry?.anchors).toHaveLength(2);
+	expect(entry?.anchors).toEqual([{ attachment: 'deck', position: [0, 0, 0], normal: [0, 0, 1] }]);
 });
 
 test('ribbon-segment projects colour-free site geometry, swept footprint and port anchors', () => {
