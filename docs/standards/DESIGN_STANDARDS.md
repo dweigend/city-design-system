@@ -54,6 +54,8 @@ Paragraphs are up to 68 ch wide. Table column headers use the label style in sec
 
 Direct page sections have 80 px of space above a 1 px ink rule and 24 px of padding below the rule.
 
+The shared header is 64 px high, or 48 px at 720 px and below, with a 1 px ink rule. The brand and numbered chapter links use uppercase monospace. The current chapter is underlined, and below 960 px the links open from the Chapters popover. Each chapter opens with its number in `.label`, an uppercase `h1` and one `.lead` sentence.
+
 ### Palette
 
 The palette includes the paper and ink ramp, five flow ramps, nature and ground tones, blueprint, signal and hazard, analysis tones, and text colors for flow and accent surfaces. Opacity tokens cover solid, glass, envelope and trace. The Interface chapter shows the five ramp steps from Surroundings to Core. Network is step 4 and carries the base tone. Closed color bands show the palette and opacities. The matrix marks each base tone with a 2 px ink line. Literal color values, including hex, OKLCH and RGB, belong only in `src/app.css`.

@@ -221,6 +221,61 @@
 		th[scope='row'] { inline-size: 6.5rem; }
 	}
 
+	/* Book frame */
+	.site-header { border-block-end: var(--hair) solid var(--ink); }
+	.site-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
+		block-size: calc(64px - var(--hair));
+		padding-block: 0;
+	}
+	.site-brand { margin-inline-end: auto; font-weight: 600; text-decoration: none; }
+	.site-chapters-menu { display: none; }
+	.chapter-links { display: flex; align-items: center; gap: var(--space-2); }
+	.chapter-links a {
+		display: block;
+		color: var(--ink-2);
+		text-decoration: none;
+		overflow-wrap: normal;
+	}
+	.chapter-links a:hover, .chapter-links a[aria-current='page'] { color: var(--ink); }
+	.chapter-links a[aria-current='page'] { text-decoration: underline; }
+	.control-popover:has(.chapter-links) {
+		max-block-size: var(--bits-popover-content-available-height);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
+	.control-popover .chapter-links { display: grid; gap: 0; }
+	.control-popover .chapter-links a { padding: var(--space-2) var(--space-1); }
+	.chapter-number { margin-block-end: var(--space-2); color: var(--ink-2); }
+	.chapter-header + div.stack { margin-block-start: var(--space-6); }
+	.contents { list-style: none; padding: 0; gap: var(--space-4); }
+	.contents li {
+		display: grid;
+		gap: var(--space-1);
+		padding-inline-start: var(--space-12);
+	}
+	.contents a { position: relative; justify-self: start; }
+	.contents .data { position: absolute; inset-inline-start: calc(-1 * var(--space-12)); }
+	.skip-link {
+		position: absolute;
+		inset: var(--space-1) auto auto var(--space-4);
+		z-index: 3;
+		padding: var(--space-2) var(--space-3);
+		background: var(--paper);
+	}
+	.skip-link:not(:focus) { clip-path: inset(50%); }
+	@media (width < 960px) {
+		.site-chapters { display: none; }
+		.site-chapters-menu { display: block; }
+	}
+	@media (max-width: 720px) {
+		.site-bar { block-size: calc(var(--space-12) - var(--hair)); gap: var(--space-2); }
+		.site-bar .control { padding-inline: var(--space-2); }
+		.control-popover .chapter-links a { min-block-size: 44px; }
+	}
+
 	/* Controls */
 	.control {
 		--control-size: var(--ctl-m);
@@ -385,7 +440,6 @@
 	.control-sample h3 + p { margin-block-start: 0; }
 	.control-sample-preview { display: grid; justify-items: start; gap: var(--space-2); min-inline-size: 0; }
 	.control-sample-states { align-items: center; }
-	.page > .control-segments { margin-block-end: var(--space-6); }
 	@media (max-width: 720px) {
 		.control-sample { grid-template-columns: minmax(0, 1fr); }
 	}

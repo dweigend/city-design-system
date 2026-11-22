@@ -14,21 +14,15 @@
 		<meta name="color-scheme" content="light dark" />
 		<meta name="darkreader-lock" />
 		<script>
-			// Set the mode before the first paint, so nothing flashes.
-			(function () {
-				var root = document.documentElement;
-				var choice = 'system';
-				try {
-					var saved = localStorage.getItem('cg-theme');
-					if (saved === 'light' || saved === 'dark') choice = saved;
-				} catch (e) {}
-				var dark =
-					choice === 'system'
-						? matchMedia('(prefers-color-scheme: dark)').matches
-						: choice === 'dark';
-				root.dataset.themeChoice = choice;
-				root.dataset.theme = dark ? 'dark' : 'light';
-			})();
+			const root = document.documentElement;
+			let savedTheme;
+			try {
+				savedTheme = localStorage.getItem('cg-theme');
+			} catch {}
+			if (savedTheme === 'light' || savedTheme === 'dark') root.dataset.themeChoice = savedTheme;
+			root.dataset.theme =
+				root.dataset.themeChoice ||
+				(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 		</script>
 		%sveltekit.head%
 	</head>
