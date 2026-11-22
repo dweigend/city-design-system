@@ -6,7 +6,7 @@ import {
 	type ViewPolicy
 } from '../../data/view-modes';
 
-type ViewRequest = Readonly<{ view?: string; display?: string }>;
+export type ViewRequest = Readonly<{ view?: string; display?: string }>;
 export type ResolvedView = Readonly<{ view: ViewMode; display: DisplayMode }>;
 
 function select<T extends string>(
@@ -32,5 +32,27 @@ export function resolveView(policy: ViewPolicy, request?: ViewRequest): Resolved
 			policy.display,
 			request?.display
 		)
+	});
+}
+
+/** A vertical cut in world meters, retaining points where dot(normal, point) <= offsetM. */
+export type SectionPlane = Readonly<{
+	normal: readonly [number, number, 0];
+	offsetM: number;
+}>;
+
+/** Constructs a vertical section through a world point with a unit horizontal normal. */
+export function sectionThrough(
+	point: readonly [number, number, number],
+	normal: readonly [number, number]
+): SectionPlane {
+	const length = Math.hypot(...normal);
+	if (!Number.isFinite(length) || length === 0 || !point.every(Number.isFinite))
+		throw new RangeError('Invalid section plane');
+	const x = normal[0] / length;
+	const y = normal[1] / length;
+	return Object.freeze({
+		normal: Object.freeze([x, y, 0] as const),
+		offsetM: x * point[0] + y * point[1]
 	});
 }

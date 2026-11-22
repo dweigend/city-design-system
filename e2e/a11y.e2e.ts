@@ -4,8 +4,7 @@ import { unnamedNodes, walkKeyboard } from './support/a11y';
 
 /**
  * DS-60: every control has an accessible name and is keyboard-reachable; the focus stays visible.
- * Runs in every viewport and theme, because layout (popover vs. inline chapters) and focus
- * colors differ between them.
+ * Runs in every viewport and theme to check layout and focus colors.
  */
 for (const route of pageRoutes) {
 	test(`page ${route.path}: names, Tab reach and visible focus`, async ({ page }) => {

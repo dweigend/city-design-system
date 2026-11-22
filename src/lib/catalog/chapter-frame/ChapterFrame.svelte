@@ -1,23 +1,43 @@
 <script lang="ts">
 	import { Tabs } from 'bits-ui';
-	import { onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
+	import { tick } from 'svelte';
+	import BibleMenu from './BibleMenu.svelte';
 	import type { Chapter } from '../data/chapters';
 	import { createChapterController } from './chapter-controller.svelte';
 	import ChapterStage from './ChapterStage.svelte';
 	import StepCard from './StepCard.svelte';
 
 	let { chapter }: { chapter: Chapter } = $props();
+	let stepList = $state<HTMLElement | null>(null);
 	let headerHeight = $state(0);
+	let menuHeight = $state(0);
 	const controller = createChapterController(() => chapter);
 
 	// The browser owns the fragment. Render a selected card only after reading it.
-	onMount(controller.syncLocation);
+	afterNavigate(controller.syncLocation);
+
+	$effect(() => {
+		const id = controller.step?.id;
+		const list = stepList;
+		if (!id || !list) return;
+		void tick().then(() => {
+			const active = list.querySelector<HTMLElement>('[aria-selected="true"]');
+			if (!active) return;
+			const viewport = list.getBoundingClientRect();
+			const tab = active.getBoundingClientRect();
+			if (tab.left < viewport.left) list.scrollLeft += tab.left - viewport.left;
+			else if (tab.right > viewport.right) list.scrollLeft += tab.right - viewport.right;
+		});
+	});
 </script>
 
 <svelte:head><title>{chapter.title} · City Design System</title></svelte:head>
 <svelte:window onhashchange={controller.syncLocation} onpopstate={controller.syncLocation} />
 
-<main style:--chapter-header-height={headerHeight + 'px'}>
+<BibleMenu bind:height={menuHeight} />
+
+<main style:--chapter-header-height={headerHeight + menuHeight + 'px'}>
 	{#each chapter.steps as item (item.id)}
 		<span class="anchor" id={item.id}></span>
 	{/each}
@@ -39,17 +59,19 @@
 		class="chapter-body"
 	>
 		{#if controller.step}
-			<ChapterStage scene={chapter.scene} {controller} />
+			{#key controller.step.preset.scene}
+				<ChapterStage scene={controller.step.preset.scene} {controller} />
+			{/key}
 		{:else}
 			<div class="stage-placeholder" aria-hidden="true"></div>
 		{/if}
 
 		<div class="reading">
-			<Tabs.List aria-label="Chapter steps" class="steps">
-				{#each chapter.steps as item, index (item.id)}
+			<Tabs.List aria-label="Chapter steps" class="steps" bind:ref={stepList}>
+				{#each chapter.steps as item (item.id)}
 					<Tabs.Trigger value={item.id}>
-						<span class="step-number">{index}</span>
-						<span>{item.title}</span>
+						<span class="step-number">{item.id.slice('step-'.length)}</span>
+						<span>{item.label ?? item.title}</span>
 					</Tabs.Trigger>
 				{/each}
 			</Tabs.List>
@@ -150,14 +172,14 @@
 		background: var(--paper);
 	}
 	.reading :global(.steps) {
-		display: grid;
-		grid-auto-columns: minmax(0, 1fr);
-		grid-auto-flow: column;
+		display: flex;
+		overflow-x: auto;
 		border-bottom: var(--hair) solid var(--line);
 	}
 	.reading :global(.steps button) {
 		justify-content: flex-start;
-		min-width: 0;
+		flex: 1 0 7.5rem;
+		max-width: 12rem;
 		padding-block: var(--space-2);
 		border: 0;
 		border-inline-end: var(--hair) solid var(--line);

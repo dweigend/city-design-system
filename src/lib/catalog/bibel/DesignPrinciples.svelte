@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Accordion } from 'bits-ui';
 	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import { ArrowRight, ChevronRight } from 'lucide-svelte';
 	import Icon from '../ui/Icon.svelte';
 	import { principlesFor, type PrinciplePage } from '../data/design-principles';
@@ -14,7 +15,7 @@
 	const principles = $derived(principlesFor(page));
 </script>
 
-<section class="block" aria-labelledby="principles-{page}">
+<section class="block" data-sveltekit-reload aria-labelledby="principles-{page}">
 	<h2 id="principles-{page}">Principles</h2>
 	<Accordion.Root type="multiple" class="cg-principles">
 		{#each principles as p (p.id)}
@@ -29,8 +30,10 @@
 				<Accordion.Content class="cg-principle-body">
 					<p>{p.reason}</p>
 					{#if p.demo}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the route goes through resolve(); only the anchor is appended. -->
-						<a href={resolve(p.demo.route) + (p.demo.anchor ? `#${p.demo.anchor}` : '')}
+						<a
+							data-sveltekit-reload
+							href={(resolve(p.demo.route) +
+								(p.demo.anchor ? `#${p.demo.anchor}` : '')) as ResolvedPathname}
 							>{p.demo.label}<Icon icon={ArrowRight} size={16} /></a
 						>
 					{/if}

@@ -1,13 +1,14 @@
+import { placeholder } from './placeholder';
 import type { Chapter } from './types';
 import { VALLEY_PICTURE_SEEDS } from '../valley-references';
 import { viewModes } from '../view-modes';
 
-const preset = { seed: VALLEY_PICTURE_SEEDS[0] };
+const preset = { scene: 'valley', seed: VALLEY_PICTURE_SEEDS[0] } as const;
 
 /** Chapter 1, using the same seeded field as the valley study. */
 export const landscapeChapter = {
 	number: 1,
-	scene: 'valley',
+	slug: 'landschaft',
 	title: 'Landscape and typography',
 	summary:
 		'A river shapes an invented valley, everything that follows rests on it, and one typeface labels it.',
@@ -65,13 +66,31 @@ export const landscapeChapter = {
 			views: viewModes,
 			display: 'normal',
 			preset,
-			control: { kind: 'view', hint: 'Choose Iso, Plan or Terrain in the stage.' },
+			control: { kind: 'view', hint: 'Choose a view in the stage.' },
 			caption:
 				'Iso, plan, schematic, section and terrain are camera modes of one scene. No picture in this bible is drawn separately.',
 			details: {
-				label: 'Which views are ready',
-				text: 'Iso turns the valley to an oblique angle. Plan looks straight down. Terrain faces downstream to show the profile of the banks. Schematic and Section are planned.'
+				label: 'How the views frame the valley',
+				text: 'Iso turns the valley to an oblique angle. Plan looks straight down. Terrain faces downstream to show the profile of the banks.'
 			}
-		}
+		},
+		placeholder(3, {
+			label: 'Interventions',
+			title: 'Terrain changes only by building',
+			caption:
+				'The ground moves only where a visible structure moves it: a terrace, a cut, a dam. The grid follows.',
+			principles: ['GRID-3'],
+			view: 'terrain',
+			scene: 'valley'
+		}),
+		placeholder(4, {
+			label: 'Typography',
+			title: 'One typeface labels everything',
+			caption:
+				'One typeface, one size scale: the same letters label this page, the map and the game.',
+			principles: [],
+			view: 'plan',
+			scene: 'valley'
+		})
 	]
 } as const satisfies Chapter;

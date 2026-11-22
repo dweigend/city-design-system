@@ -36,10 +36,15 @@ export function createChapterController(chapter: () => Chapter) {
 	}
 
 	function showStep(next: ChapterStep, view: ResolvedView, durationMs: number) {
+		const sameScene = step?.preset.scene === next.preset.scene;
 		cancelPlayback();
 		step = next;
 		seedOverride = undefined;
 		selection = view;
+		if (!sameScene) {
+			error = false;
+			return;
+		}
 		stage?.show(next.preset);
 		stage?.reveal();
 		stage?.setView(view, durationMs);

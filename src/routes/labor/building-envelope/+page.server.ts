@@ -1,2 +1,1 @@
-export { loadEnvelopePlate as load } from '#lib/catalog/labor/envelope-plate.server.ts';
-export const prerender = true;
+export { loadLegacyBible as load } from '#lib/catalog/chapter-frame/bible-load.server.ts';
