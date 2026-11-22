@@ -2,18 +2,19 @@
 	import { ToggleGroup } from 'bits-ui';
 	import { Layers, Play, RotateCcw, Square, SquareDashed } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import type { Chapter } from '../data/chapters';
+	import type { ChapterPreset } from '../data/chapters';
 	import { displayLabels, viewLabels } from '../data/view-modes';
-	import type { ChapterStageFactory } from '../scene/chapter-stage';
+	import { createAcceptanceChapterStage, type ChapterStageFactory } from '../scene/chapter-stage';
 	import { createValleyChapterStage } from '../scene/valley';
 	import type { ChapterController } from './chapter-controller.svelte';
 
-	let { scene, controller }: { scene: Chapter['scene']; controller: ChapterController } = $props();
+	let { scene, controller }: { scene: ChapterPreset['scene']; controller: ChapterController } =
+		$props();
 
-	const stages = { valley: createValleyChapterStage } satisfies Record<
-		Chapter['scene'],
-		ChapterStageFactory
-	>;
+	const stages = {
+		valley: createValleyChapterStage,
+		acceptance: createAcceptanceChapterStage
+	} satisfies Record<ChapterPreset['scene'], ChapterStageFactory>;
 	const displayIcons = { transparency: SquareDashed, levels: Layers };
 	let canvas = $state<HTMLCanvasElement>();
 	let picture = $state<HTMLDivElement>();
@@ -23,8 +24,9 @@
 
 	onMount(() => {
 		const host = picture;
-		if (!canvas || !host) return;
-		const stage = stages[scene](canvas, controller.reportError);
+		const preset = step?.preset;
+		if (!canvas || !host || !preset) return;
+		const stage = stages[scene](canvas, controller.reportError, preset.seed);
 		controller.attach(stage);
 		const resize = () => {
 			if (host.clientWidth && host.clientHeight) stage.resize(host.clientWidth, host.clientHeight);

@@ -1,8 +1,9 @@
 /** View and display IDs available on the shared stage. */
-export const viewModes = ['iso', 'plan', 'terrain'] as const;
+export const viewModes = ['iso', 'plan', 'terrain', 'schematic', 'section'] as const;
+/** Displays available on the shared stage. */
 export const displayModes = ['normal'] as const;
 
-/** Labels for the view bar, including modes awaiting a stage implementation. */
+/** Labels for the view bar, shared by the stage controls. */
 export const viewLabels = {
 	iso: 'Iso',
 	plan: 'Plan',

@@ -44,19 +44,17 @@ export async function openRoute(page: Page, path: string) {
 	return response;
 }
 
-/** Follows an in-page link as a reader would (client-side navigation, no reload). */
-export async function followLink(page: Page, path: string) {
-	await page.locator(`a[href="${path}"]`).first().dispatchEvent('click');
-	await page.waitForURL((url) => url.pathname === path);
-	await page.waitForLoadState('networkidle');
+/** Opens the shared menu and follows the selected chapter link. */
+export async function chooseChapter(page: Page, title: string) {
+	await page.getByRole('button', { name: 'Chapters', exact: true }).click();
+	await page
+		.getByRole('navigation', { name: 'Chapters' })
+		.getByRole('link', { name: title, exact: true })
+		.click();
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
 }
 
 /** Name of the running project, e.g. `narrow-dark`. */
 export function projectName(): string {
 	return base.info().project.name;
-}
-
-/** True for the 390 px projects. */
-export function isNarrow(): boolean {
-	return projectName().startsWith('narrow');
 }

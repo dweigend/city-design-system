@@ -74,6 +74,8 @@ try {
 	for (const route of routes) {
 		const url = new URL(route, origin);
 		if (url.origin !== origin) throw Error('Expected a local preview route');
+		const showChapters = url.searchParams.get('shot') === 'chapters';
+		if (showChapters) url.searchParams.delete('shot');
 		for (const [size, width, height] of [
 			['phone', 390, 844],
 			['short-desktop', 1280, 640]
@@ -111,7 +113,7 @@ try {
 				const key = Buffer.from(route).toString('base64url') + '-' + size;
 				const image = key + '.png';
 				const sheet = key + '-sheet.png';
-				await page.screenshot({ path: resolve(folder, image), animations: 'disabled' });
+				const stageImage = await page.screenshot({ animations: 'disabled' });
 				const current = resolve(folder, image);
 				const bounds = await canvas.boundingBox();
 				if (!bounds) throw Error('Scene canvas disappeared');
@@ -124,16 +126,23 @@ try {
 				const variation = execFileSync(
 					'convert',
 					[
-						current,
+						'png:-',
 						'-crop',
 						'80x80+' + (cx - 40) + '+' + (cy - 40),
 						'-format',
 						'%[fx:standard_deviation]',
 						'info:'
 					],
-					{ encoding: 'utf8' }
+					{ encoding: 'utf8', input: stageImage }
 				);
 				if (!(Number(variation) > 0.001)) throw Error('Blank scene in ' + current);
+				if (showChapters) {
+					await page.getByRole('button', { name: 'Chapters', exact: true }).click();
+					await page.getByRole('navigation', { name: 'Chapters', exact: true }).waitFor();
+					await page.screenshot({ path: current, animations: 'disabled' });
+				} else {
+					await Bun.write(current, stageImage);
+				}
 				const baseline = before ? resolve(before, image) : 'xc:#eeeeee';
 				execFileSync('montage', [
 					'-font',
@@ -155,7 +164,7 @@ try {
 					'3x1',
 					resolve(folder, sheet)
 				]);
-				records.push({ route, size, width, height, image, sheet, ...proof });
+				records.push({ route, finalUrl: page.url(), size, width, height, image, sheet, ...proof });
 				console.log(route, size, proof.backend, proof.renderer);
 			} finally {
 				await page.close();

@@ -53,13 +53,13 @@ Status of search on 2026-11-12: no CSS in routes. An ESLint rule is configured f
 
 ## Component API
 
-| ID    | Rule                                                                                                                                                           | Source · Auth.                                 |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| DS-50 | **Default first.** Omitting gives defined, usable behavior.                                                                                                    | UI §Binding UI authoring rules · N             |
-| DS-51 | **Flat first.** Pages and demos are flat compositions. No builder chains, no configuration layers, no deeply nested layout trees.                              | UI §Binding UI authoring rules · N             |
-| DS-52 | **One normal syntax.** Short props and typed actions. No custom UI DSL, no competing shorthands.                                                               | UI §Binding UI authoring rules; Transfer · N\* |
-| DS-53 | Customization sits on the affected entry. Short projections inline; longer functions named and placed below the description.                                   | UI §Binding UI authoring rules · N             |
-| DS-54 | Components are thin and mutate domain state only through actions ([A-03, A-04](ARCHITECTURE.md#principles)). Shared infrastructure owns rendering and cleanup. | UI §Simple public authoring API · N            |
+| ID    | Rule                                                                                                                                                       | Source · Auth.                                 |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| DS-50 | **Default first.** Omitting gives defined, usable behavior.                                                                                                | UI §Binding UI authoring rules · N             |
+| DS-51 | **Flat first.** Pages and demos are flat compositions. No builder chains, no configuration layers, no deeply nested layout trees.                          | UI §Binding UI authoring rules · N             |
+| DS-52 | **One normal syntax.** Short props and typed actions. No custom UI DSL, no competing shorthands.                                                           | UI §Binding UI authoring rules; Transfer · N\* |
+| DS-53 | Customization sits on the affected entry. Short projections inline; longer functions named and placed below the description.                               | UI §Binding UI authoring rules · N             |
+| DS-54 | Components are thin and mutate domain state only through actions ([A-03, A-04](ARCHITECTURE.md#layers)). Shared infrastructure owns rendering and cleanup. | UI §Simple public authoring API · N            |
 
 ## Accessibility
 
