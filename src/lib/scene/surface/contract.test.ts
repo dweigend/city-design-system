@@ -1,11 +1,6 @@
 import { expect, test } from 'bun:test';
 import { PlaceableObject } from '../../core/object';
-import {
-	defaultAssignment,
-	resolveSurfaces,
-	validateTokens,
-	type SurfaceAssignment
-} from './index';
+import { accent, existing, resolveSurfaces, validateTokens, type SurfaceAssignment } from './index';
 
 const object = PlaceableObject.create({
 	id: 'opening',
@@ -25,7 +20,8 @@ const object = PlaceableObject.create({
 	footprint: { width: 1, depth: 0.2 },
 	anchors: [{ name: 'sill', position: [0.5, 0, 0], normal: [0, 0, -1] }]
 });
-const { glass, frame } = defaultAssignment;
+const { glass } = existing;
+const frame = { color: '--ink', finish: 'line' } as const;
 
 test('assigns surfaces in part order and reuses geometry across finishes', () => {
 	const assignment = Object.freeze({ frame, glass });
@@ -48,7 +44,7 @@ test('requires exactly the declared slots, including those without parts', () =>
 		new RangeError('Missing surface for slot "glass"')
 	);
 	expect(() => resolveSurfaces(object, { glass: undefined, frame })).toThrow(RangeError);
-	expect(() => resolveSurfaces(object, { frame, glass, roof: defaultAssignment.roof })).toThrow(
+	expect(() => resolveSurfaces(object, { frame, glass, roof: existing.roof })).toThrow(
 		new RangeError('Unknown surface slot "roof"')
 	);
 	const withEmptySlot = PlaceableObject.create({ ...object, slots: [...object.slots, 'wall'] });
@@ -62,4 +58,11 @@ test('validates every assigned token against the names supplied by the caller', 
 	expect(() => validateTokens({ frame, glass }, [frame.color])).toThrow(
 		new RangeError(`Unknown color token "${glass.color}" for slot "glass"`)
 	);
+});
+
+test('accents only the wall and keeps every other stock surface', () => {
+	const assigned = accent('--cat-living');
+	expect(assigned).toEqual({ ...existing, wall: { ...existing.wall, color: '--cat-living' } });
+	expect(assigned.glass).toBe(existing.glass);
+	expect(existing.wall.color).toBe('--paper-2');
 });

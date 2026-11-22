@@ -1,7 +1,8 @@
-import { Line2NodeMaterial, OrthographicCamera, Scene } from 'three/webgpu';
+import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import { fitCamera, type View } from './camera';
-import { projectContent } from './content';
+import { strokeMaterials } from './edges';
+import { hasSameGeometry, projectContent } from './content';
 import { drawingPalette, readColors, readDisplay, type Display } from './material';
 import { openRenderer } from './renderer';
 import { stageState } from './state';
@@ -19,10 +20,9 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 	const state = stageState(hardware, adapterName);
 	const scene = new Scene();
 	const camera = new OrthographicCamera();
-	const ink = new Line2NodeMaterial({ linewidth: 1.5, depthWrite: false, transparent: true });
-	const pencil = new Line2NodeMaterial({ linewidth: 0.8, depthWrite: false, transparent: true });
+	const strokes = strokeMaterials();
 	const palette = drawingPalette();
-	let content = projectContent([], ink, pencil, palette);
+	let content = projectContent([], strokes, palette);
 	let aspect = 1;
 	let frame: number | undefined;
 	let closing: Promise<void> | undefined;
@@ -49,6 +49,7 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 			camera.up.set(...up);
 			camera.lookAt(...center);
 			camera.updateProjectionMatrix();
+			camera.getWorldDirection(strokes.eye.value).negate();
 
 			const css = getComputedStyle(canvas);
 			const color = readColors(css, canvas.ownerDocument);
@@ -56,21 +57,23 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
 			const hull = Number(css.getPropertyValue('--alpha-hull'));
 			scene.background = paper;
-			ink.color.copy(color('--ink'));
-			pencil.color.copy(ink.color).lerp(paper, 0.56);
-			content.ground?.shadow.material.color.copy(ink.color).lerp(paper, dark ? 0.91 : 0.42);
-			palette.ink.value.copy(ink.color).lerp(paper, dark ? 0.45 : 0);
-			palette.light.value.copy(dark ? ink.color : paper);
-			palette.shade.value.copy(dark ? paper : ink.color);
+			const ink = color('--ink-2');
+			strokes.outer.color.copy(ink);
+			strokes.crease.color.copy(ink);
+			strokes.ground.color.copy(paper).lerp(ink, 0.48);
+			content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
+			palette.dark.value = Number(dark);
 			palette.hull.value = Number(display === 'transparency');
 			const style = readDisplay(display);
 			for (const { drawable, mesh } of content.parts) {
 				const { opacity, paper: usePaper } = style(drawable.finish, hull);
 				const material = mesh.material;
 				const transparent = opacity < 1;
-				if (material.transparent !== transparent) material.needsUpdate = true;
-				Object.assign(material, { opacity, transparent, depthWrite: !transparent });
-				if (usePaper) material.color.copy(paper).lerp(ink.color, dark ? 0.09 : 0.19);
+				const polygonOffset = drawable.finish !== 'glass';
+				if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
+					material.needsUpdate = true;
+				Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
+				if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
 				else material.color.copy(color(drawable.color));
 				mesh.visible = opacity > 0 && mesh.geometry.attributes.position.count > 0;
 			}
@@ -91,10 +94,15 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 	Object.assign(canvas.dataset, { stageAdapter: adapterName, stageHardware: String(hardware) });
 
 	return {
-		/** Replaces the list in order, building each drawable once. */
+		/** Replaces the list, retaining geometry for the same ordered IDs and shapes. */
 		show(drawables: readonly Drawable[]) {
 			if (closing) return;
-			const next = projectContent(drawables, ink, pencil, palette);
+			if (hasSameGeometry(content.parts, drawables)) {
+				content.parts.forEach((part, index) => (part.drawable = drawables[index]));
+				draw();
+				return;
+			}
+			const next = projectContent(drawables, strokes, palette);
 			scene.remove(content.group);
 			content.delete();
 			content = next;
@@ -128,8 +136,9 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 				theme.disconnect();
 				scene.remove(content.group);
 				content.delete();
-				ink.dispose();
-				pencil.dispose();
+				strokes.outer.dispose();
+				strokes.crease.dispose();
+				strokes.ground.dispose();
 				delete canvas.dataset.stageReady;
 				delete canvas.dataset.stageAdapter;
 				delete canvas.dataset.stageHardware;

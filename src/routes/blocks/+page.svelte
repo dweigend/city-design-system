@@ -17,16 +17,21 @@
 	import { chapterAt } from '../chapters';
 
 	const chapter = chapterAt('/blocks');
-	const { drawables, footprint, bounds } = stageExample();
+	const { drawables, newDrawables, footprint, bounds } = stageExample();
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
+	const surfaces = [
+		{ value: 'existing', label: 'Existing' },
+		{ value: 'new', label: 'New' }
+	];
 	const location = $derived(page.shallow?.url ?? page.url);
 	let view = $derived<View>(location.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
+	const surface = $derived(location.searchParams.get('surface') === 'new' ? 'new' : 'existing');
 	let transparent = $derived(location.searchParams.get('display') === 'transparency');
 
-	function selectOption(name: 'view' | 'display', value: string | undefined) {
+	function selectOption(name: 'view' | 'display' | 'surface', value: string | undefined) {
 		const params = new SvelteURLSearchParams(location.search);
 		if (value) params.set(name, value);
 		else params.delete(name);
@@ -47,7 +52,7 @@
 
 <section class="grid grid-aside" aria-label="House example">
 	<StageView
-		{drawables}
+		drawables={surface === 'new' ? newDrawables : drawables}
 		{view}
 		display={transparent ? 'transparency' : 'normal'}
 		label="House with a gable roof, central door and two upright windows"
@@ -55,7 +60,7 @@
 	<div class="stack">
 		<p>
 			Every object has parts with named slots, a footprint and anchors. A shared surface assignment
-			gives each slot its color and finish.
+			gives each slot its color and finish. New buildings carry a flow color on the walls.
 		</p>
 		<div class="cluster">
 			<ToggleGroup
@@ -63,6 +68,14 @@
 				items={views}
 				bind:value={
 					() => view, (next: string) => selectOption('view', next === 'plan' ? next : undefined)
+				}
+			/>
+			<ToggleGroup
+				label="Surface"
+				items={surfaces}
+				bind:value={
+					() => surface,
+					(next: string) => selectOption('surface', next === 'new' ? next : undefined)
 				}
 			/>
 			<Switch

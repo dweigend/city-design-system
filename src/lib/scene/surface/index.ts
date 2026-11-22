@@ -13,18 +13,21 @@ export type SurfaceAssignment = Readonly<Record<string, Surface | undefined>>;
 /** One part's id, geometry and assigned surface. Geometry stays in meters. */
 export type Drawable = Surface & Readonly<{ id: string; shape: Shape }>;
 
-/** Frozen palette entries for common slots. Select the entries declared by the object. */
-export const defaultAssignment = Object.freeze({
-	plinth: Object.freeze({ color: '--ground-stone', finish: 'matte' }),
-	door: Object.freeze({ color: '--blueprint', finish: 'matte' }),
-	wall: Object.freeze({ color: '--cat-living', finish: 'matte' }),
-	roof: Object.freeze({ color: '--body-living', finish: 'matte' }),
-	frame: Object.freeze({ color: '--ink', finish: 'line' }),
-	deck: Object.freeze({ color: '--ground-stone', finish: 'matte' }),
-	glass: Object.freeze({ color: '--blueprint', finish: 'glass' }),
-	ground: Object.freeze({ color: '--terrain-soil', finish: 'matte' }),
-	foliage: Object.freeze({ color: '--cat-foliage', finish: 'matte' })
+type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
+
+/** The house's neutral stock assignment, with one explicit finish per slot. */
+export const existing = Object.freeze({
+	plinth: Object.freeze({ color: '--ground-plinth', finish: 'matte' }),
+	door: Object.freeze({ color: '--ink-3', finish: 'matte' }),
+	wall: Object.freeze({ color: '--paper-2', finish: 'matte' }),
+	roof: Object.freeze({ color: '--paper-3', finish: 'matte' }),
+	glass: Object.freeze({ color: '--line', finish: 'glass' })
 } satisfies SurfaceAssignment);
+
+/** Returns the stock assignment with one flow color on the wall. */
+export function accent(color: FlowColor): SurfaceAssignment {
+	return Object.freeze({ ...existing, wall: Object.freeze({ ...existing.wall, color }) });
+}
 
 /** Resolves a fresh list in part order, retaining frozen shape references and leaving inputs
  * untouched. Throws RangeError naming a missing or extra slot. No palette is applied implicitly.

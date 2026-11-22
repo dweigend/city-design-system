@@ -1,11 +1,11 @@
 import { bounds, houseExample } from '../../core/object';
-import { defaultAssignment, resolveSurfaces } from '../surface';
+import { accent, existing, resolveSurfaces } from '../surface';
 
 export function stageExample() {
 	const object = houseExample();
-	const { plinth, wall, roof, glass, door } = defaultAssignment;
 	return {
-		drawables: resolveSurfaces(object, { plinth, wall, roof, glass, door }),
+		drawables: resolveSurfaces(object, existing),
+		newDrawables: resolveSurfaces(object, accent('--cat-living')),
 		footprint: object.footprint,
 		bounds: bounds(object)
 	};

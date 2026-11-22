@@ -2,7 +2,10 @@ import { expect, test } from 'bun:test';
 import { dotProduct, displacement } from '../../core/geometry';
 import { Stage, stageExample, type Display, type View } from './index';
 import { fitCamera, readView } from './camera';
+import { hasSameGeometry } from './content';
+import { edgeGeometry } from './edges';
 import { shapeArrays } from './geometry';
+import { shadowPolygon } from './ground';
 import { readDisplay } from './material';
 import { stageState } from './state';
 
@@ -91,4 +94,30 @@ test('reports a missing WebGPU adapter through the public entry', async () => {
 	await expect(Stage.create({ canvas: {} as HTMLCanvasElement })).rejects.toThrow(
 		/WebGPU stage initialisation failed/
 	);
+});
+
+test('retains geometry for the same ordered IDs and shape references', () => {
+	const { drawables, newDrawables } = stageExample();
+	const parts = drawables.map((drawable) => ({ drawable }));
+	expect(hasSameGeometry(parts, newDrawables)).toBe(true);
+	expect(hasSameGeometry(parts, [...newDrawables].reverse())).toBe(false);
+	expect(hasSameGeometry(parts, newDrawables.slice(1))).toBe(false);
+	expect(hasSameGeometry(parts, structuredClone(newDrawables))).toBe(false);
+});
+
+test('keeps the gable ridge and drops the coplanar roof triangle seams', () => {
+	const { positions, indices } = shapeArrays(stageExample().drawables[2].shape);
+	const edges = edgeGeometry(positions, indices);
+	expect(edges.instanceCount).toBe(9);
+	expect(edges.attributes.edgeFront.count).toBe(9);
+	edges.dispose();
+});
+
+test('casts the bounds outline 60 percent of its height away from the sun', () => {
+	const { bounds } = stageExample();
+	const projected = shadowPolygon(bounds);
+	const corner = projected[3];
+	const offset = Math.hypot(corner[0] - bounds.max[0], corner[1] - bounds.max[1]);
+	expect(offset).toBeCloseTo(2.76);
+	expect(projected.every((point) => point[2] === projected[0][2])).toBe(true);
 });

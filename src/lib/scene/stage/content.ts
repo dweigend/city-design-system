@@ -1,56 +1,59 @@
-import {
-	Box3,
-	BufferGeometry,
-	EdgesGeometry,
-	Float32BufferAttribute,
-	Group,
-	Mesh,
-	type Line2NodeMaterial
-} from 'three/webgpu';
+import { Box3, BufferGeometry, Float32BufferAttribute, Group, Mesh } from 'three/webgpu';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
-import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import type { Bounds3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import { shapeArrays } from './geometry';
+import { edgeGeometry, type strokeMaterials } from './edges';
 import { projectGround } from './ground';
 import { fillMaterial, type drawingPalette } from './material';
 
+export function hasSameGeometry(
+	parts: readonly { drawable: Drawable }[],
+	drawables: readonly Drawable[]
+) {
+	return (
+		parts.length === drawables.length &&
+		parts.every(
+			({ drawable }, index) =>
+				drawable.id === drawables[index].id && drawable.shape === drawables[index].shape
+		)
+	);
+}
+
 function project(
 	drawable: Drawable,
-	ink: Line2NodeMaterial,
+	strokes: ReturnType<typeof strokeMaterials>,
 	palette: ReturnType<typeof drawingPalette>
 ) {
 	const { positions, indices } = shapeArrays(drawable.shape);
 	const indexed = new BufferGeometry();
 	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	indexed.setIndex([...indices]);
-	const edges = new EdgesGeometry(indexed);
-	const stroke = new LineSegmentsGeometry().setPositions(
-		edges.attributes.position.array as Float32Array
-	);
-	edges.dispose();
-	const line = new LineSegments2(stroke, ink);
-	line.renderOrder = 2;
-	line.visible = stroke.instanceCount > 0;
+	const stroke = edgeGeometry(positions, indices);
+	const lines = [strokes.crease, strokes.outer].map((material, index) => {
+		const line = new LineSegments2(stroke, material);
+		line.renderOrder = 2 + index;
+		line.visible = stroke.instanceCount > 0;
+		return line;
+	});
 	const fill = indexed.toNonIndexed();
 	indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const mesh = new Mesh(fill, fillMaterial(drawable.finish, palette));
-	return { drawable, mesh, line };
+	const mesh = new Mesh(fill, fillMaterial(palette));
+	return { drawable, mesh, stroke, lines };
 }
 
 export function projectContent(
 	drawables: readonly Drawable[],
-	ink: Line2NodeMaterial,
-	pencil: Line2NodeMaterial,
+	strokes: ReturnType<typeof strokeMaterials>,
 	palette: ReturnType<typeof drawingPalette>
 ) {
 	const box = new Box3();
 	const group = new Group();
-	const parts = drawables.map((drawable) => project(drawable, ink, palette));
-	for (const { mesh, line } of parts) {
-		group.add(mesh, line);
+	const parts = drawables.map((drawable) => project(drawable, strokes, palette));
+	for (const { mesh, lines } of parts) {
+		group.add(mesh, ...lines);
 		if (mesh.geometry.boundingBox) box.union(mesh.geometry.boundingBox);
 	}
 
@@ -64,7 +67,11 @@ export function projectContent(
 		: { min: box.min.toArray(), max: box.max.toArray() };
 	const ground = footprint.isEmpty()
 		? undefined
-		: projectGround({ min: footprint.min.toArray(), max: footprint.max.toArray() }, pencil);
+		: projectGround(
+				bounds,
+				{ min: footprint.min.toArray(), max: footprint.max.toArray() },
+				strokes.ground
+			);
 	if (ground) group.add(ground.shadow, ground.outline);
 	return {
 		parts,
@@ -75,10 +82,10 @@ export function projectContent(
 			ground?.shadow.geometry.dispose();
 			ground?.shadow.material.dispose();
 			ground?.outline.geometry.dispose();
-			for (const { mesh, line } of parts) {
+			for (const { mesh, stroke } of parts) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
-				line.geometry.dispose();
+				stroke.dispose();
 			}
 		}
 	};

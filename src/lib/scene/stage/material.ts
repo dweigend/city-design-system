@@ -1,25 +1,12 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
-import {
-	hash,
-	materialColor,
-	mix,
-	normalWorldGeometry,
-	screenCoordinate,
-	screenDPR,
-	uniform,
-	vec2
-} from 'three/tsl';
+import { materialColor, mix, normalWorldGeometry, uniform, vec2 } from 'three/tsl';
 import type { Finish } from '../surface';
+import { graphite, grain, levels, sun } from './tone';
 
-const finishes = {
-	matte: { opacity: 1, shade: 0.44 },
-	gloss: { opacity: 1, shade: 0.51 },
-	glass: { opacity: 0.7, shade: 0.21 },
-	line: { opacity: 0, shade: 0 }
-} satisfies Record<Finish, { opacity: number; shade: number }>;
+const finishes = { matte: 1, gloss: 1, glass: 0.7, line: 0 } satisfies Record<Finish, number>;
 
 const displays = {
-	normal: (finish: Finish) => ({ opacity: finishes[finish].opacity, paper: false }),
+	normal: (finish: Finish) => ({ opacity: finishes[finish], paper: false }),
 	transparency: (finish: Finish, hull: number) => ({
 		opacity: finish === 'line' ? 0 : hull,
 		paper: true
@@ -32,38 +19,27 @@ export function readDisplay(display: Display) {
 }
 
 export function drawingPalette() {
-	return {
-		light: uniform(new Color()),
-		shade: uniform(new Color()),
-		ink: uniform(new Color()),
-		hull: uniform(0)
-	};
+	return { dark: uniform(0), hull: uniform(0) };
 }
 
-export function fillMaterial(finish: Finish, palette: ReturnType<typeof drawingPalette>) {
+export function fillMaterial(palette: ReturnType<typeof drawingPalette>) {
 	const material = new MeshBasicNodeMaterial({
 		side: DoubleSide,
 		forceSinglePass: true,
-		polygonOffset: finish !== 'glass',
 		polygonOffsetFactor: 1,
 		polygonOffsetUnits: 1
 	});
 	const normal = normalWorldGeometry;
-	const top = normal.z.greaterThan(0.7);
-	const shadow = normal.xy.dot(vec2(-0.6, -0.8)).lessThan(0);
-	const tone = top.select(
-		mix(materialColor, palette.light, 0.34),
-		shadow.select(mix(materialColor, palette.shade, finishes[finish].shade), materialColor)
-	);
-
-	// Anchor graphite to CSS pixel cells, including on a high-DPR canvas.
-	const pixel = screenCoordinate.div(screenDPR).floor();
-	const grain = hash(pixel.x.add(pixel.y.mul(4093)));
-	const pressure = top.select(0, shadow.select(0.21, 0.095));
-	material.colorNode = mix(
-		mix(tone, palette.ink, grain.mul(pressure)),
+	const roof = normal.z.greaterThan(0.7);
+	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
+	const top = roof.and(facesLight);
+	const shadow = roof.or(facesLight).not();
+	const level = top.select(levels.top, shadow.select(levels.shadow, levels.lit));
+	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
+	material.colorNode = graphite(
 		materialColor,
-		palette.hull
+		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
+		mix(pressure, grain.top, palette.hull)
 	);
 	return material;
 }

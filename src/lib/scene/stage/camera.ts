@@ -13,8 +13,7 @@ import {
 // Quarry BLICK, converted from its Y-up projection to world coordinates.
 const bearingRad = (32 * Math.PI) / 180;
 const elevationRad = (26 * Math.PI) / 180;
-const frameFill = 0.63;
-const depthMarginM = 1;
+const frameFill = { iso: 0.7, plan: 0.63 };
 
 export const views = {
 	iso: {
@@ -43,8 +42,9 @@ export function fitCamera(view: View, bounds: Bounds3, aspect: number) {
 	const half = scaled(displacement(bounds.min, bounds.max), 0.5);
 	const extent = (axis: Vec3) =>
 		dotProduct(half, [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])]);
-	const halfHeight = Math.max(extent(imageUp), extent(right) / aspect, 0.05) / frameFill;
+	const halfHeight = Math.max(extent(imageUp), extent(right) / aspect, 0.05) / frameFill[view];
 	const depth = extent(eye);
+	const depthMarginM = Math.max(1, half[2] * 1.2);
 	return {
 		center,
 		eye: sum(center, scaled(eye, depth + depthMarginM)),
