@@ -286,6 +286,7 @@
 	}
 	@media (width < 372px) {
 		.site-bar { gap: var(--space-1); }
+		.site-bar .control { padding-inline: var(--space-1); }
 		.site-chapters-menu .control-icon { display: none; }
 	}
 
