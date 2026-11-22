@@ -36,13 +36,10 @@ export function courseProjection(course: RiverCourse) {
 	const xy = Int32Array.from(course.xy, toMillimeters);
 	const last = course.chainageM.length - 1;
 	const tree = partition(xy, 0, last);
-	const originM = course.chainageM[last / 2];
 
 	return (x: number, y: number) => {
 		let distanceSquared = Infinity;
 		let segment = last;
-		let fraction = 0;
-		let side = 0;
 
 		function inspect(interval: Interval, bound: number): void {
 			if (bound > distanceSquared) return;
@@ -71,18 +68,11 @@ export function courseProjection(course: RiverCourse) {
 				if (candidate < distanceSquared || (candidate === distanceSquared && index < segment)) {
 					distanceSquared = candidate;
 					segment = index;
-					fraction = t;
-					side = Math.sign(dx * py - dy * px);
 				}
 			}
 		}
 
 		inspect(tree, 0);
-		const start = course.chainageM[segment];
-		const end = course.chainageM[segment + 1];
-		return {
-			stationMm: toMillimeters(start + fraction * (end - start) - originM),
-			offsetMm: side * Math.round(Math.sqrt(distanceSquared))
-		};
+		return Math.round(Math.sqrt(distanceSquared));
 	};
 }

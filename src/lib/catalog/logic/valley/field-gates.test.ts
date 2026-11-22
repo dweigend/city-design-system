@@ -3,6 +3,7 @@ import {
 	LARGE_LOWLAND_MEASUREMENT_BANDS as bands,
 	VALLEY_FORM_BANDS as form,
 	VALLEY_HOLDOUT_SEEDS,
+	VALLEY_PICTURE_BEARING_RAD,
 	VALLEY_PICTURE_SEEDS,
 	VALLEY_MEASUREMENT_PROTOCOL as protocol,
 	VALLEY_REFERENCES,
@@ -11,11 +12,9 @@ import {
 import { measureRiverSurface } from '../river-metrics';
 import { DEFAULT_VALLEY_PARAMETERS, generateValley, sampleValley, type Valley } from './index';
 
-function measure(valley: Valley) {
-	const field = sampleValley(valley, {
-		windowM: protocol.localWindowM,
-		spacingM: protocol.fieldSpacingM
-	});
+const grid = { windowM: protocol.localWindowM, spacingM: protocol.fieldSpacingM };
+
+function measure(valley: Valley, field = sampleValley(valley, grid)) {
 	const measured = measureRiverSurface(field, valley.course.xy, protocol);
 	const left = percentile(
 		measured.bankPairsM.map(([width]) => width),
@@ -39,7 +38,8 @@ function assertBand(value: number, [min, max]: readonly [number, number], label:
 	expect(value, label).toBeLessThanOrEqual(max);
 }
 
-function check({ widthM, reliefM, landSlopeShares, stepHeightsM }: Measurements, label: string) {
+function check(row: Measurements, label: string) {
+	const { widthM, reliefM, landSlopeShares, stepHeightsM } = row;
 	expect(widthM.length, label + ' complete width stations').toBeGreaterThan(0);
 	for (const width of widthM) assertBand(width, bands.wetWidthM, label + ' wet width (m)');
 	assertBand(reliefM, bands.smoothedCoreReliefM, label + ' core relief (m)');
@@ -51,9 +51,6 @@ function check({ widthM, reliefM, landSlopeShares, stepHeightsM }: Measurements,
 	expect(percentile(stepHeightsM, 0.9), label + ' step p90 (m)').toBeLessThanOrEqual(
 		bands.maximumStepHeightP90M
 	);
-}
-
-function checkForm(row: Measurements, label: string) {
 	expect(row.bankPairsM.length, label + ' complete bank pairs').toBeGreaterThanOrEqual(
 		form.minimumCompleteBankPairs
 	);
@@ -65,9 +62,11 @@ function checkForm(row: Measurements, label: string) {
 	);
 }
 
+function range(values: number[]) {
+	return `${Math.min(...values).toFixed(3)}–${Math.max(...values).toFixed(3)}`;
+}
+
 function reportForm(label: string, rows: Measurements[]) {
-	const range = (values: number[]) =>
-		`${Math.min(...values).toFixed(3)}–${Math.max(...values).toFixed(3)}`;
 	console.log(
 		`${label}: bank pairs ${range(rows.map((r) => r.bankPairsM.length))}, floodplain ratio ${range(rows.map((r) => r.floodplainRatio))}, step spread ${range(rows.map((r) => r.stepSpreadM))} m.`
 	);
@@ -117,68 +116,67 @@ test('measures and gates the ground of all 38 frozen seeds', () => {
 		].join('\n')
 	);
 	reportForm('Seed form', rows);
-	for (const row of rows) {
-		check(row, String(row.seed));
-		checkForm(row, String(row.seed));
-	}
-}, 120_000);
-
-function rotateCourse(valley: Valley, radians: number): Valley {
-	const cos = Math.cos(radians);
-	const sin = Math.sin(radians);
-	const { course } = valley;
-	const xy = new Float64Array(course.xy.length);
-	for (let i = 0; i < xy.length; i += 2) {
-		const x = course.xy[i];
-		const y = course.xy[i + 1];
-		xy[i] = x * cos - y * sin;
-		xy[i + 1] = x * sin + y * cos;
-	}
-	return { ...valley, course: { ...course, xy } };
-}
+	console.log(
+		`Seed wet width across complete transects: ${range(rows.flatMap((r) => r.widthM))} m.`
+	);
+	for (const row of rows) check(row, String(row.seed));
+}, 180_000);
 
 function fixed([lo, hi]: readonly [number, number], fraction: number): [number, number] {
 	const value = lo + (hi - lo) * fraction;
 	return [value, value];
 }
 
-test('gates the default shape box at endpoints and midpoints and the protocol bearings', () => {
+function* boxParameters() {
 	const defaults = DEFAULT_VALLEY_PARAMETERS;
-	const seed = VALLEY_X1_SEEDS[0];
-	const straight = generateValley({ seed, parameters: { headingAmplitude: [0, 0] } }).course.xy;
-	const bearing = Math.atan2(straight[3] - straight[1], straight[2] - straight[0]);
-	const rows = [];
 	for (const width of protocol.boxFractions) {
 		for (const phase of protocol.boxFractions) {
 			for (const curvature of protocol.boxFractions) {
-				const valley = generateValley({
-					seed,
-					parameters: {
-						bankfullWidthM: fixed(defaults.bankfullWidthM, width),
-						phaseOffset: fixed(defaults.phaseOffset, phase),
-						headingAmplitude: fixed(defaults.headingAmplitude, curvature),
-						wavelengthToWidth: fixed(defaults.wavelengthToWidth, curvature)
+				for (const placement of protocol.boxFractions) {
+					for (const ground of protocol.boxFractions) {
+						for (const openBank of ['left', 'right'] as const) {
+							yield {
+								label: `width ${width}, phase ${phase}, curvature ${curvature}, placement ${placement}, ground ${ground}, open ${openBank}`,
+								parameters: {
+									bankfullWidthM: fixed(defaults.bankfullWidthM, width),
+									phaseOffset: fixed(defaults.phaseOffset, phase),
+									headingAmplitude: fixed(defaults.headingAmplitude, curvature),
+									wavelengthToWidth: fixed(defaults.wavelengthToWidth, curvature),
+									windowPhaseOffset: fixed(defaults.windowPhaseOffset, placement),
+									groundVariation: fixed(defaults.groundVariation, ground),
+									openBank
+								}
+							};
+						}
 					}
-				});
-				for (const degrees of protocol.cornerBearingsDeg) {
-					const fieldBearing = (degrees * Math.PI) / 180;
-					const label = `width f=${width}, phase f=${phase}, curvature f=${curvature}, ${degrees}°`;
-					rows.push({ label, ...measure(rotateCourse(valley, fieldBearing - bearing)) });
 				}
 			}
 		}
 	}
-	const range = (values: number[]) =>
-		[Math.min(...values), Math.max(...values)].map((v) => v.toFixed(3)).join('–');
+}
+
+test('gates the default shape box at endpoints and midpoints and the protocol bearings', () => {
+	const seed = VALLEY_X1_SEEDS[0];
+	const rows = [];
+	for (const { label, parameters } of boxParameters()) {
+		for (const degrees of protocol.cornerBearingsDeg) {
+			const bearingRad = (degrees * Math.PI) / 180;
+			try {
+				rows.push({
+					label: `${label}, ${degrees}°`,
+					...measure(generateValley({ seed, parameters, bearingRad }))
+				});
+			} catch (error) {
+				throw Error(`${label}, ${degrees}°`, { cause: error });
+			}
+		}
+	}
 	console.log(
 		`Box (${rows.length} fields). Wet width ${range(rows.flatMap((row) => row.widthM))} m. Relief ${range(rows.map((row) => row.reliefM))} m. Gentle land ${range(rows.map((row) => row.landSlopeShares[0] * 100))}%. Steps p50 ${range(rows.map((row) => percentile(row.stepHeightsM, 0.5)))} m, p90 ${range(rows.map((row) => percentile(row.stepHeightsM, 0.9)))} m.`
 	);
 	reportForm('Box form', rows);
-	for (const row of rows) {
-		check(row, row.label);
-		checkForm(row, row.label);
-	}
-}, 120_000);
+	for (const row of rows) check(row, row.label);
+}, 180_000);
 
 function maskDifference(a: Uint8Array, b: Uint8Array, level: number) {
 	let union = 0;
@@ -194,11 +192,11 @@ function maskDifference(a: Uint8Array, b: Uint8Array, level: number) {
 
 test('distinguishes every pair of pictured valleys in a common frame', () => {
 	const grids = VALLEY_PICTURE_SEEDS.map((seed) => {
-		const valley = generateValley({ seed });
-		return sampleValley(rotateCourse(valley, -Math.PI / 2 - valley.course.meanBearingRad), {
-			windowM: protocol.localWindowM,
-			spacingM: protocol.fieldSpacingM
-		}).floor;
+		const valley = generateValley({ seed, bearingRad: VALLEY_PICTURE_BEARING_RAD });
+		const field = sampleValley(valley, grid);
+		const measured = measure(valley, field);
+		check(measured, `Study seed ${seed}`);
+		return field.floor;
 	});
 	const pairs = [
 		[0, 1],

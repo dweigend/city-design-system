@@ -1,4 +1,5 @@
-import { VALLEY_FLOORS, heightAboveWaterM } from './ground-profile';
+import { heightAboveWaterM } from './ground-profile';
+import { axisCoordinates } from './valley-axis';
 import { courseProjection } from './course-projection';
 import { toMillimeters } from './millimeters';
 import type { Valley } from './snapshot';
@@ -16,8 +17,6 @@ export type ValleyField = ValleyGrid &
 	}>;
 
 const GRID = Object.freeze({ windowM: 2000, spacingM: 12.5 });
-const MID_LOWER_MM = toMillimeters((VALLEY_FLOORS[0].levelM + VALLEY_FLOORS[1].levelM) / 2);
-const MID_UPPER_MM = toMillimeters((VALLEY_FLOORS[1].levelM + VALLEY_FLOORS[2].levelM) / 2);
 const CLASS_BY_FLOOR = [1, 2, 4, 4 | 32] as const;
 
 /**
@@ -37,16 +36,23 @@ export function sampleValley(valley: Valley, { windowM, spacingM }: ValleyGrid):
 	const spacingMm = toMillimeters(spacingM);
 	const wetHalfWidthMm = toMillimeters(valley.course.wetWidthM / 2);
 	const project = courseProjection(valley.course);
+	const coordinates = axisCoordinates(valley.axis);
+	const [floodplain, lower, upper] = valley.floors;
+	const lowerMm = toMillimeters((floodplain.levelM + lower.levelM) / 2);
+	const upperMm = toMillimeters((lower.levelM + upper.levelM) / 2);
 	for (let row = 0; row < side; row++) {
 		for (let column = 0; column < side; column++) {
 			const index = row * side + column;
-			const { stationMm, offsetMm } = project(column * spacingMm - half, half - row * spacingMm);
-			const water = (-stationMm * valley.valleySlope) / 1000;
-			const height = heightAboveWaterM(valley.course, stationMm, offsetMm, wetHalfWidthMm);
+			const xMm = column * spacingMm - half;
+			const yMm = half - row * spacingMm;
+			const { alongM, acrossM } = coordinates(xMm, yMm);
+			const water = -alongM * valley.valleySlope;
+			const distanceToBankM = (project(xMm, yMm) - wetHalfWidthMm) / 1000;
+			const height = heightAboveWaterM(valley.axis, alongM, acrossM, distanceToBankM);
 			meanWaterMm[index] = toMillimeters(water);
 			bedMm[index] = toMillimeters(water + height);
 			const aboveWater = bedMm[index] - meanWaterMm[index];
-			const level = floorIndex(aboveWater);
+			const level = floorIndex(aboveWater, lowerMm, upperMm);
 			floor[index] = level;
 			classes[index] = CLASS_BY_FLOOR[level];
 		}
@@ -62,8 +68,8 @@ export function sampleValley(valley: Valley, { windowM, spacingM }: ValleyGrid):
 	});
 }
 
-function floorIndex(aboveWaterMm: number): 0 | 1 | 2 | 3 {
+function floorIndex(aboveWaterMm: number, lowerMm: number, upperMm: number): 0 | 1 | 2 | 3 {
 	if (aboveWaterMm < 0) return 0;
-	if (aboveWaterMm < MID_LOWER_MM) return 1;
-	return aboveWaterMm < MID_UPPER_MM ? 2 : 3;
+	if (aboveWaterMm < lowerMm) return 1;
+	return aboveWaterMm < upperMm ? 2 : 3;
 }

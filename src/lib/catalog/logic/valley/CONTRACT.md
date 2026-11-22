@@ -1,26 +1,29 @@
 # Valley
 
-`generateValley({ seed, parameters? })` returns one large-lowland main stem as a `valley/3` snapshot. `seed` must be an integer in [0, 2³²). The result carries the seed, version and course. The course contains interleaved world XY coordinates, downstream chainage from zero, bankfull width and a derived wet width, all in meters. It also carries the mean bearing, valley slope, ordered floors and an empty list of tributaries. Its middle vertex lies at the origin and its endpoints reach beyond the centered 8 km square. The generator sets the vertex spacing at 6.25 m, up to floating-point roundoff.
+`generateValley({ seed, bearingRad?, parameters? })` returns one large-lowland main stem and its ground profile as a `valley/4` snapshot. `seed` must be an integer in [0, 2³²). The result carries the seed, version and course. The course contains interleaved world XY coordinates, downstream chainage from zero, bankfull width and a derived wet width, all in meters. The course stores the mean bearing and both phase offsets. The snapshot also carries the valley axis, valley slope, ordered floors and an empty list of tributaries. Its middle vertex lies at the origin and its endpoints reach beyond the centered 8 km square. The generator sets the vertex spacing at 6.25 m, up to floating-point roundoff.
 
-The snapshot and its course record are frozen. Each call gives the caller its own coordinate and chainage buffers. The same seed, generator version and parameters reproduce their bytes in the same runtime. `valley/2` changes the default amplitudes and widths, so a seed from `valley/1` now gives a different course. Replay of `valley/1` output requires its original implementation. The first field uses `valley/3` because it adds floors, slope and sampling to the snapshot. The default vector course retains its `valley/2` coordinates.
+The snapshot and its course record are frozen. Each call gives the caller its own coordinate and chainage buffers. The same seed, generator version, bearing and parameters reproduce their bytes in the same runtime. `valley/4` moves the window along the meander and lays out terraces from a separate valley axis. These changes alter course coordinates and all four sampled arrays. Replaying earlier outputs requires their original generator version.
 
 | Parameter            | Default        | Valid bounds                                             |
 | -------------------- | -------------- | -------------------------------------------------------- |
 | `bankfullWidthM`     | 350–430 m      | 320–450 m                                                |
 | `wavelengthToWidth`  | 11.5–13.2      | 10–14                                                    |
 | `headingAmplitude`   | 0.71–0.79 rad  | 0 to the minimum wavelength-to-width ratio divided by 4π |
-| `phaseOffset`        | −0.14–0.14 rad | −π/4 to π/4                                              |
+| `phaseOffset`        | −0.06–0.06 rad | −π/4 to π/4                                              |
+| `windowPhaseOffset`  | −0.31–0.31 rad | −π/4 to π/4                                              |
+| `groundVariation`    | 0–1            | 0 to 1                                                   |
+| `openBank`           | Seeded         | `left` or `right` viewed downstream                      |
 | `wetToBankfullWidth` | 0.94           | Greater than 0 and at most 1                             |
 
-`DEFAULT_VALLEY_PARAMETERS` exposes the frozen defaults. Pass an ordered pair of finite values to override a band. A pair with equal endpoints fixes that parameter. `wetToBankfullWidth` is a single finite ratio. Invalid seeds throw a `RangeError` with message `invalid-seed`. Invalid parameters throw a `RangeError` with message `invalid-valley-parameters`. Validation precedes course allocation.
+`DEFAULT_VALLEY_PARAMETERS` exposes the frozen defaults. Pass an ordered pair of finite values to override a band. A pair with equal endpoints fixes that parameter. `wetToBankfullWidth` is a single finite ratio. Invalid seeds throw a `RangeError` with message `invalid-seed`. Invalid parameters throw a `RangeError` with message `invalid-valley-parameters`. A supplied `bearingRad` must be finite. The generator reduces it modulo 2π and uses it as the mean bearing in world XY. An invalid bearing throws `RangeError('invalid-bearing')`. Input validation precedes course allocation.
 
-Draws use `core/random.hash(seed, 0, channel)`, with main-stem ID 0. Channel 0 sets the mean bearing, 1 offsets the central low-curvature reach, 2 sets amplitude and wavelength together, and 3 sets width. The generator integrates a cosine heading at segment midpoints. The amplitude limit keeps the heading derivative at or below the reciprocal of twice the bankfull width.
+Draws use `core/random.hash(seed, 0, channel)`, with main-stem ID 0. Channel 0 sets the default bearing. Channel 1 provides the base phase. Channel 2 pairs amplitude and wavelength, and channel 3 sets width. Channel 4 places the center of the 2 km window by adding one sampled phase offset. Channel 5 chooses the wider bank, and channel 6 interpolates the ground profile bands. The generator integrates a cosine heading at segment midpoints. The amplitude limit keeps the heading derivative at or below the reciprocal of twice the bankfull width.
 
-`wetWidthM` is the bankfull width multiplied by `wetToBankfullWidth`, a constant ratio along the course. At the defaults that puts the wet-width proxy between 329 and 404.2 m. The width ratio controls lateral extent. The field's local mean-water elevation will have its own longitudinal profile.
+`wetWidthM` is the bankfull width multiplied by `wetToBankfullWidth`, a constant ratio along the course. At the defaults that puts the wet-width proxy between 329 and 404.2 m. The width ratio controls lateral extent. The field samples the corresponding wet band by distance from the course.
 
 ## Millimeter fields for sampling
 
-`bedMm` and `meanWaterMm` store the field elevations. Their source values are the computed bed and local mean-water elevations in Float64 meters relative to the mean water at the course point nearest the origin. For each value, multiply by 1,000 and round once with `Math.round`. Exact half-millimeter ties in the scaled value round toward positive infinity, for example −1.5 mm to −1 mm and 1.5 mm to 2 mm. Store zero as 0.
+`bedMm` and `meanWaterMm` store the field elevations. Their source values are the computed bed and local mean-water elevations in Float64 meters relative to mean water at the origin. For each value, multiply by 1,000 and round once with `Math.round`. Exact half-millimeter ties in the scaled value round toward positive infinity, for example −1.5 mm to −1 mm and 1.5 mm to 2 mm. Store zero as 0.
 
 Reject nonfinite meter inputs with `RangeError('invalid-height-m')`. A rounded value outside the signed 32-bit range [−2,147,483,648, 2,147,483,647] throws `RangeError('height-mm-overflow')` before storage. The field uses those integers for elevation comparisons. Identical meter inputs round the same way in Bun and the browser. The vector course is quantized to millimeters before the raster projection. Cross-runtime equality is measured for the three study seeds.
 
@@ -38,7 +41,7 @@ Run `bun test src/lib/catalog/logic/valley/valley.test.ts` in `heavy-slot`. The 
 
 ## Field
 
-`sampleValley(valley, { windowM: 2000, spacingM: 12.5 })` accepts exactly this grid. Other pairs throw `RangeError('invalid-valley-grid')`. The returned frozen record includes seed, version, window and spacing. Its 161² entries are in row-major order with row zero north, column zero west and both endpoints included. Each call owns its four buffers.
+`sampleValley(valley, { windowM: 2000, spacingM: 12.5 })` accepts exactly this grid. Other pairs throw `RangeError('invalid-valley-grid')`. The returned frozen record includes seed, version, window and spacing. Its 161² entries are in row-major order with row zero north, column zero west and both endpoints included. Each call owns its four buffers. The rows are oriented to the XY frame supplied at generation.
 
 `bedMm` and `meanWaterMm` are signed integer elevations. `floor` is 0 for water, 1 for floodplain, 2 for lower terrace and 3 for upper terrace. `classes` uses 1 for water, 2 for floodplain, 4 for terrace and 32 as an additional high-terrace bit. At the shoreline the bed is wet exactly when its integer height is below mean water. Terrace indices change at the integer midpoint of the corresponding rise.
 
@@ -46,8 +49,12 @@ Run `bun test src/lib/catalog/logic/valley/valley.test.ts` in `heavy-slot`. The 
 
 ## Coupled bend parameters
 
-Amplitude and wavelength-to-width are two coordinates of the same channel-2 draw. The default shape follows a diagonal from (0.71 rad, 11.5) to (0.79 rad, 13.2). The long wavelength paired with the larger amplitude keeps local sinuosity in the chapter band. Independent overrides can leave it: 0.79 rad and a ratio of 11.5 at 350 m bankfull reach S₂ ≈ 1.112 at a 33° mean bearing and zero phase.
+Amplitude and wavelength-to-width are two coordinates of the same channel-2 draw. The default shape follows a diagonal from (0.71 rad, 11.5) to (0.79 rad, 13.2). The long wavelength paired with the larger amplitude keeps local sinuosity in the chapter band. With both phases fixed to zero, 0.79 rad at a wavelength-to-width ratio of 11.5 and 350 m bankfull width passes at 0° and exceeds S₂ = 1.11 at 33°.
 
-Parameter and curvature bounds are checked before generating the vector. Every overridden course is then clipped to the chapter's centered 2 km square and checked against its upper S₂ limit. An offending course throws `RangeError('valley-sinuosity-out-of-band')` before a snapshot is returned. The check uses the generated course once, with the original seed and draw order. The width ratio 0.94 is a declared assumption. The field gates measure its wet interval independently.
+Parameter and curvature bounds are checked before generating the vector. A course with overridden parameters or an explicit bearing is generated in that frame, then clipped to the centered 2 km square and checked against its upper S₂ limit. The study and the box tests use this same bearing option. An offending course throws `RangeError('valley-sinuosity-out-of-band')` before a snapshot is returned. The check uses the generated course once, with the original seed and draw order. The width ratio 0.94 is a declared assumption. The field gates measure its wet interval independently.
 
-The field uses a 0.25‰ downstream mean-water fall, a smooth incision and two finite-run risers above the inundated bed. The nominal floor elevations are 1.4, 8.1 and 15.5 m above local mean water. The two risers share a lateral sway driven by the sampled width and phase. A gently rising apron joins the upper terrace. The study rigidly rotates the course to a common downstream bearing before sampling its 2 km view. This leaves the documented world-oriented field available to other callers.
+## Ground profile
+
+The chord at ±1,125 m from the window center sets the valley axis bearing. A shallow quadratic bow uses the combined phase to follow the broad direction of the bend. Both terrace edges follow this axis. One bank uses the nearer edge band. The opposite bank uses the wider edge band and may taper or flare along the valley. The ground draw sets the edge distances and terrace heights together. The [ground defaults](../../data/valley-ground.ts) define the levels, setbacks, riser widths and apron in meters.
+
+The river owns the incision and bank skirt. The axis owns the 0.25‰ downstream mean-water fall and the ground elevations beyond the skirt. Computing the long grade from the axis keeps the outer ground continuous across bends. The study requests a mean bearing of −π/2 so the three seeds flow toward the bottom of their plates.

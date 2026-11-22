@@ -1,11 +1,12 @@
 import type { RiverCourse } from './course';
-import type { VALLEY_FLOORS } from './ground-profile';
+import type { ValleyAxis } from './valley-axis';
 
 export type Valley = Readonly<{
-	version: 'valley/3';
+	version: 'valley/4';
 	seed: number;
 	course: RiverCourse;
-	floors: typeof VALLEY_FLOORS;
+	axis: ValleyAxis;
+	floors: ValleyAxis['floors'];
 	tributaries: readonly [];
 	valleySlope: number;
 }>;

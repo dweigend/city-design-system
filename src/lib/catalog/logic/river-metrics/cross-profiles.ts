@@ -99,6 +99,7 @@ function terraceEdge(profile: readonly ProfilePoint[], start: number, direction:
 		const point = profile[i];
 		if (point.terrace < 0.5) continue;
 		const prior = profile[i - direction];
+		if (prior.terrace >= 0.5) return prior.offset;
 		return (
 			prior.offset +
 			((point.offset - prior.offset) * (0.5 - prior.terrace)) / (point.terrace - prior.terrace)
