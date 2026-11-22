@@ -36,8 +36,14 @@ export function readView(view: View) {
 	return views[view];
 }
 
-/** Optional orthographic fit, with angles in radians and a fill fraction of the frame. */
-export type ViewFit = Readonly<{ bearing?: number; elevation?: number; fill?: number }>;
+/** Optional orthographic fit with angles in radians, a fill fraction, and a positive zoom
+ * multiplier about the fitted center (default 1). */
+export type ViewFit = Readonly<{
+	bearing?: number;
+	elevation?: number;
+	fill?: number;
+	zoom?: number;
+}>;
 
 export function fitCamera(
 	view: View,
@@ -71,7 +77,7 @@ export function fitCamera(
 			extent(imageUp) + Math.abs(dotProduct(shift, imageUp)),
 			(extent(right) + Math.abs(dotProduct(shift, right))) / aspect
 		) / (landscape ? (fit.fill ?? 0.9) : 0.9);
-	const halfHeight = Math.max(objectFit, shadowFitHeight);
+	const halfHeight = Math.max(objectFit, shadowFitHeight) / (fit.zoom ?? 1);
 	const depth = extent(direction);
 	const depthMarginM = Math.max(1, half[2] * 1.2, depth * 0.01);
 	return {

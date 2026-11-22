@@ -18,7 +18,7 @@ export { stageExample } from './example';
 async function create({
 	canvas,
 	landscape = false,
-	fit
+	fit: initialFit
 }: {
 	canvas: HTMLCanvasElement;
 	landscape?: boolean;
@@ -33,6 +33,7 @@ async function create({
 	const palette = drawingPalette();
 	let content = projectContent([], strokes, palette, landscape);
 	let aspect = 1;
+	let fit = initialFit;
 	let frame: number | undefined;
 	let closing: Promise<void> | undefined;
 
@@ -49,14 +50,12 @@ async function create({
 		strokes.crease.color.copy(ink);
 		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
 		strokes.explicit.color.copy(ink);
-		strokes.grid.color.copy(ink);
-		strokes.gridBoundary.color.copy(ink);
 		strokes.ground.color.copy(paper).lerp(ink, 0.48);
 		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
 		palette.dark.value = Number(dark);
 		palette.hull.value = Number(display === 'transparency');
 		const style = readDisplay(display);
-		for (const { drawable, mesh, lines, terrain, flat, heightScale } of content.parts) {
+		for (const { drawable, mesh, lines, grid, terrain, flat, heightScale } of content.parts) {
 			const { opacity: displayOpacity, paper: usePaper } = style(drawable.finish, hull);
 			const opacity =
 				!usePaper && drawable.opacity
@@ -75,7 +74,10 @@ async function create({
 			if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
 			else material.color.copy(color(drawable.color));
 			mesh.visible = visible && opacity > 0 && mesh.geometry.attributes.position.count > 0;
-			for (const line of lines) line.visible = visible && line.geometry.instanceCount > 0;
+			for (const line of lines) {
+				if (grid) line.material.color.copy(color(drawable.color));
+				line.visible = visible && line.geometry.instanceCount > 0;
+			}
 		}
 	}
 
@@ -154,6 +156,12 @@ async function create({
 		/** Sets the surface display. Throws RangeError for an unknown display. */
 		setDisplay(display: Display) {
 			if (!closing && state.setDisplay(display)) draw();
+		},
+		/** Changes the orthographic framing without rebuilding geometry. Omit to reset. */
+		setFit(next?: ViewFit) {
+			if (closing || fit === next) return;
+			fit = next;
+			draw();
 		},
 		/** Resizes to CSS pixels with a device pixel ratio of at most two. */
 		resize(widthPx: number, heightPx: number) {

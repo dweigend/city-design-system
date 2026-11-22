@@ -47,6 +47,16 @@ test('fits every corner of kilometer-scale bounds in both landscape views', () =
 	}
 });
 
+test('zooms about the same orthographic center without changing bearing or elevation', () => {
+	const { bounds } = stageExample();
+	const regular = fitCamera('iso', bounds, 16 / 9, true);
+	const zoomed = fitCamera('iso', bounds, 16 / 9, true, { zoom: 1.27 });
+	expect(zoomed.center).toEqual(regular.center);
+	expect(zoomed.eye).toEqual(regular.eye);
+	expect(zoomed.halfWidth * 1.27).toBeCloseTo(regular.halfWidth);
+	expect(zoomed.halfHeight * 1.27).toBeCloseTo(regular.halfHeight);
+});
+
 test('builds a rotated box, triangulates both prism windings and preserves indexed meshes', () => {
 	const box = shapeArrays({
 		kind: 'box',

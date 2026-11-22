@@ -46,8 +46,8 @@ function project(
 				: edgeGeometry(positions, indices);
 	const strokesToDraw = grid
 		? [
-				{ geometry: stroke, material: strokes.grid },
-				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary }
+				{ geometry: stroke, material: strokes.grid.clone() },
+				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary.clone() }
 			]
 		: drawable.strokeSegments
 			? [{ geometry: stroke, material: strokes.explicit }]
@@ -55,19 +55,23 @@ function project(
 					{ geometry: stroke, material: strokes.crease },
 					{ geometry: stroke, material: strokes.outer }
 				];
+	// Explicit outlines sit over the hull fill, which tints the draped plan below it.
+	const hullOrder = drawable.strokeSegments ? 4 : 0;
 	const lines = strokesToDraw.map(({ geometry, material }, index) =>
-		projectStroke(geometry, material, 2 + index)
+		projectStroke(geometry, material, hullOrder ? hullOrder + 1 : 2 + index)
 	);
-	const fill = landscape ? indexed : indexed.toNonIndexed();
+	const fill = landscape && !drawable.strokeSegments ? indexed : indexed.toNonIndexed();
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
 	const { material, terrain, flat, heightScale, atlas } = fillMaterial(
 		palette,
-		drawable.terrainField
+		drawable.terrainField,
+		drawable.strokeSegments !== undefined
 	);
 	const mesh = new Mesh(fill, material);
-	return { drawable, mesh, lines, terrain, flat, heightScale, atlas };
+	mesh.renderOrder = hullOrder;
+	return { drawable, mesh, lines, grid, terrain, flat, heightScale, atlas };
 }
 
 function projectStroke(
@@ -123,10 +127,11 @@ export function projectContent(
 			ground?.shadow.geometry.dispose();
 			ground?.shadow.material.dispose();
 			ground?.outline.geometry.dispose();
-			for (const { mesh, lines, atlas } of parts) {
+			for (const { mesh, lines, grid, atlas } of parts) {
 				mesh.geometry.dispose();
 				mesh.material.dispose();
 				atlas?.dispose();
+				if (grid) for (const line of lines) line.material.dispose();
 				for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();
 			}
 		}

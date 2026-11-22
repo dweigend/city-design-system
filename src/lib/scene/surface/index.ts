@@ -66,6 +66,15 @@ export const planningVolume = Object.freeze({
 	})
 } satisfies SurfaceAssignment);
 
+/** The same planning tone at glass opacity, with the stage's orientation shading. */
+export const planningHeights = Object.freeze({
+	volume: Object.freeze({
+		color: planningVolume.volume.color,
+		finish: 'glass',
+		opacity: '--alpha-glass'
+	})
+} satisfies SurfaceAssignment);
+
 /** Returns the stock assignment with one flow color on the wall. */
 export function accent(color: FlowColor): SurfaceAssignment {
 	return Object.freeze({ ...existing, wall: Object.freeze({ ...existing.wall, color }) });

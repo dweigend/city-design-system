@@ -46,6 +46,7 @@
 	$effect(() => stage?.show(drawables));
 	$effect(() => stage?.setView(view));
 	$effect(() => stage?.setDisplay(display));
+	$effect(() => stage?.setFit(fit));
 </script>
 
 <div class="frame">
