@@ -1,12 +1,14 @@
 import { required } from '../required';
 import { boundaryRings } from '../quad-grid';
+import type { CellPoint } from '../cell-space';
+import type { Reservations } from '../occupancy';
 import {
-	surveyEnclosedCourts,
 	surveyGroundRoutes,
 	type GroundRoute,
 	type TerrainCell,
 	type TerrainGrid
 } from '../terrain-grid';
+import { surveyEnclosedCourts } from './ground-courts';
 import {
 	DEFAULT_PATH_CLEARANCE_M,
 	groundCentre,
@@ -17,35 +19,38 @@ import { groundPlanShape, type GroundRegime } from './ground-plan-shape';
 import { surveyCentrePlaza } from './plaza';
 
 const VERSION = 'ground-plan/2';
-type GroundPoint = Readonly<TerrainCell['center']>;
-type GroundPlanCell = Readonly<{
+export type GroundPlanCell = Readonly<{
 	id: string;
-	corners: readonly [GroundPoint, GroundPoint, GroundPoint, GroundPoint];
+	corners: readonly [CellPoint, CellPoint, CellPoint, CellPoint];
 	vertexIds: TerrainCell['vertexIds'];
-	center: GroundPoint;
+	center: CellPoint;
 	neighbors: TerrainCell['neighbors'];
 	regime: GroundRegime;
 	pattern: TerrainCell['pattern'];
 	plot?: GroundPlot;
 }>;
 
-type GroundArea = {
-	id: string;
-	cellIds: readonly string[];
-} & (
-	| { kind: 'buildable' }
-	| { kind: 'path'; reserve: { kind: 'clearance'; clearanceM: number } }
-	| { kind: 'court' | 'plaza' | 'gap'; reserve: { kind: 'open-to-sky' } }
-);
+export type GroundArea = Readonly<
+	{
+		id: string;
+		cellIds: readonly string[];
+	} & (
+		| { kind: 'buildable' }
+		| { kind: 'path'; reserve: { kind: 'clearance'; clearanceM: number } }
+		| { kind: 'court' | 'plaza' | 'gap'; reserve: { kind: 'open-to-sky' } }
+	)
+>;
 
 export type GroundPlan = Readonly<{
 	id: string;
 	version: typeof VERSION;
 	seed: number;
+	terrainSeed: number;
 	anchorId: string;
 	boundary: ReturnType<typeof boundaryRings>;
 	cells: readonly GroundPlanCell[];
 	areas: readonly GroundArea[];
+	reservations: Reservations;
 	centres: readonly {
 		regime: GroundRegime;
 		cellId: string;
@@ -156,10 +161,12 @@ function groundAreas(
 }
 
 /**
- * Derives a seeded settlement on the given terrain grid. Seeds must be unsigned 32-bit
- * integers and the anchor must be dry. Cells reference world X/Y and up Z in meters.
- * Incidence is inherited from the anchor's dry connected component. Cells emit in carrier
- * order, area membership in cell ID order. The grid is never mutated.
+ * Derives the authoritative paths, courts, reserves and plots inside a dry terrain crop.
+ * Use the returned boundary, centres and routes to compare seeds on the same grid and anchor.
+ * Positions are world X/Y with Z up in meters. Cells are in carrier order and share the
+ * grid's coordinate tuples. The result's boundaries, area lists and reservation map are
+ * detached. Area members are ordered by cell ID. No input is mutated.
+ * @throws {RangeError} If the seed is not a uint32 or the anchor is missing, raised or open.
  */
 export function deriveGroundPlan(grid: TerrainGrid, anchorId: string, seed: number): GroundPlan {
 	if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
@@ -185,17 +192,24 @@ export function deriveGroundPlan(grid: TerrainGrid, anchorId: string, seed: numb
 	const courts = surveyEnclosedCourts(land, oldTownLand, paths, circulation);
 	const plots = groundPlots(frontedPlots(cells, circulation, courts), regimes, dense, seed);
 	const id = `${VERSION}/terrain/${grid.terrain.seed}/${anchorId}/${seed}`;
+	const areas = groundAreas(id, cells, paths, plaza, courts, plots);
 
 	return {
 		id,
 		version: VERSION,
 		seed,
+		terrainSeed: grid.terrain.seed,
 		anchorId,
 		boundary: boundaryRings(cells, (neighbor) => land.has(neighbor)),
 		cells: cells.map((cell) =>
 			planCell(cell, land, required(regimes.get(cell.id), 'ground district'), plots.get(cell.id))
 		),
-		areas: groundAreas(id, cells, paths, plaza, courts, plots),
+		areas,
+		reservations: new Map(
+			areas.flatMap((area) =>
+				'reserve' in area ? area.cellIds.map((cellId) => [cellId, area.id] as const) : []
+			)
+		),
 		centres: centres.map(({ cell, regime, weights }) => ({ cellId: cell.id, regime, weights })),
 		routes: routes.map((route) => ({
 			...route,

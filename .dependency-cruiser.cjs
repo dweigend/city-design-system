@@ -69,6 +69,15 @@ module.exports = {
 			];
 		}),
 		{
+			name: 'city-plan-public-entry',
+			comment: 'A-30: consumers and contract tests import the city plan through its barrel.',
+			severity: 'error',
+			from: {
+				path: '^(?:(?!src/lib/catalog/logic/city-plan/)|src/lib/catalog/logic/city-plan/(?!.*\\.unit\\.test\\.ts$).*\\.test\\.ts$)'
+			},
+			to: { path: '^src/lib/catalog/logic/city-plan/(?!index\\.ts$)' }
+		},
+		{
 			name: 'data-no-logic',
 			comment: 'A-20: data/ holds facts only and never reaches logic/.',
 			severity: 'error',

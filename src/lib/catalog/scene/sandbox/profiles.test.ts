@@ -11,6 +11,7 @@ import { forestChunk, LAND_COVER_PARAMS, type Cover } from '../../logic/land-cov
 import { squareGrid } from '../../logic/quad-grid';
 import { createTerrain } from '../../logic/terrain';
 import { deriveGrid } from '../../logic/terrain-grid';
+import { deriveGroundPlan } from '../../logic/city-plan';
 import { lineParts, routeLine, TRANSIT_PARAMS, vehiclePoses } from '../../logic/transit-line';
 import { TREE_PARAMS, trunkRadius } from '../../logic/tree-forms';
 import { walkwayParts, WALKWAY_PARAMS } from '../../logic/walkway';
@@ -163,6 +164,22 @@ test('removing the last nearby house clears only its local stair ink', () => {
 	expect(ink(last.index)).toBe(128);
 	writeAlleyMask(pixels, grid, [], 1);
 	expect(stairs.every((c) => ink(c.index) === 0)).toBe(true);
+});
+
+test('a seeded plan masks carrier circulation across plots, reserves and paths', () => {
+	const plan = deriveGroundPlan(grid, '76/64', 104);
+	const crop = new Set(plan.cells.map(({ id }) => id));
+	const original = new Uint8Array(grid.cells.length * 4);
+	const masked = new Uint8Array(original.length);
+	writeAlleyMask(original, grid, [], 1);
+	writeAlleyMask(masked, grid, [], 1, crop);
+
+	expect(plan.cells.some(({ id, plot }) => plot && grid.cellsById.get(id)?.alley)).toBe(true);
+	for (const { id, index } of grid.cells) {
+		const at = index * 4;
+		if (crop.has(id)) expect(masked.subarray(at, at + 4)).toEqual(new Uint8Array(4));
+		else expect(masked.subarray(at, at + 4)).toEqual(original.subarray(at, at + 4));
+	}
 });
 
 test('night shadows cannot brighten the paper while daytime keeps the shared warm-grey shadow', () => {
