@@ -16,6 +16,7 @@ import {
 	type GroundPlot
 } from './ground-districts';
 import { groundPlanShape, type GroundRegime } from './ground-plan-shape';
+import { addressGroundPlots, type AddressedPlot } from './ground-parcels';
 import { surveyCentrePlaza } from './plaza';
 
 const VERSION = 'ground-plan/2';
@@ -27,7 +28,7 @@ export type GroundPlanCell = Readonly<{
 	neighbors: TerrainCell['neighbors'];
 	regime: GroundRegime;
 	pattern: TerrainCell['pattern'];
-	plot?: GroundPlot;
+	plot?: AddressedPlot;
 }>;
 
 export type GroundArea = Readonly<
@@ -78,7 +79,7 @@ function planCell(
 	{ id, corners, vertexIds, center, neighbors: [a, b, c, d], pattern }: TerrainCell,
 	land: ReadonlyMap<string, TerrainCell>,
 	regime: GroundRegime,
-	plot?: GroundPlot
+	plot?: AddressedPlot
 ): GroundPlanCell {
 	const retained = (neighbor: string | null) =>
 		neighbor !== null && land.has(neighbor) ? neighbor : null;
@@ -165,7 +166,10 @@ function groundAreas(
  * Use the returned boundary, centres and routes to compare seeds on the same grid and anchor.
  * Positions are world X/Y with Z up in meters. Cells are in carrier order and share the
  * grid's coordinate tuples. The result's boundaries, area lists and reservation map are
- * detached. Area members are ordered by cell ID. No input is mutated.
+ * detached. Area members are ordered by cell ID. Plots carry a block ID from the carrier
+ * block address and a parcel ID from the first lexical cell address of their connected
+ * group. Reservation keys are ground IDs. Use projectGroundReservations for a CellSpace.
+ * All inputs are required. No input is mutated.
  * @throws {RangeError} If the seed is not a uint32 or the anchor is missing, raised or open.
  */
 export function deriveGroundPlan(grid: TerrainGrid, anchorId: string, seed: number): GroundPlan {
@@ -192,6 +196,7 @@ export function deriveGroundPlan(grid: TerrainGrid, anchorId: string, seed: numb
 	const courts = surveyEnclosedCourts(land, oldTownLand, paths, circulation);
 	const plots = groundPlots(frontedPlots(cells, circulation, courts), regimes, dense, seed);
 	const id = `${VERSION}/terrain/${grid.terrain.seed}/${anchorId}/${seed}`;
+	const addressedPlots = addressGroundPlots(id, land, plots);
 	const areas = groundAreas(id, cells, paths, plaza, courts, plots);
 
 	return {
@@ -202,7 +207,12 @@ export function deriveGroundPlan(grid: TerrainGrid, anchorId: string, seed: numb
 		anchorId,
 		boundary: boundaryRings(cells, (neighbor) => land.has(neighbor)),
 		cells: cells.map((cell) =>
-			planCell(cell, land, required(regimes.get(cell.id), 'ground district'), plots.get(cell.id))
+			planCell(
+				cell,
+				land,
+				required(regimes.get(cell.id), 'ground district'),
+				addressedPlots.get(cell.id)
+			)
 		),
 		areas,
 		reservations: new Map(

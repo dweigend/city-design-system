@@ -4,6 +4,7 @@ export {
 	type GroundPlan,
 	type GroundPlanCell
 } from './ground-plan';
+export { projectGroundReservations } from './ground-reservations';
 import { hashUnit } from '../../core/random';
 import { cellsBetween, type TerrainCell, type TerrainGrid } from '../terrain-grid';
 import { characters, centreMix } from './character';
