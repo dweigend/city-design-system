@@ -2,6 +2,22 @@
 export const viewModes = ['iso', 'plan', 'terrain'] as const;
 export const displayModes = ['normal'] as const;
 
+/** Labels for the view bar, including modes awaiting a stage implementation. */
+export const viewLabels = {
+	iso: 'Iso',
+	plan: 'Plan',
+	schematic: 'Schematic',
+	section: 'Section',
+	terrain: 'Terrain'
+} as const;
+
+/** Labels for the display bar, including modes awaiting a stage implementation. */
+export const displayLabels = {
+	normal: 'Normal',
+	transparency: 'Transparency',
+	levels: 'Levels'
+} as const;
+
 export type ViewMode = (typeof viewModes)[number];
 export type DisplayMode = (typeof displayModes)[number];
 

@@ -1,4 +1,4 @@
-import { Box3, Group, Mesh } from 'three/webgpu';
+import { Box3, Color, Group, Mesh, MeshBasicMaterial, type BufferAttribute } from 'three/webgpu';
 import type { ValleyField } from '../../logic/valley';
 import { VALLEY_PICTURE_SEEDS } from '../../data/valley-references';
 import { VALLEY_STUDY_VIEW, valleyStudyField } from '../../logic/valley-study';
@@ -6,6 +6,8 @@ import type { ChapterStageFactory } from '../chapter-stage';
 import { createSandboxStage, type StageContext } from '../sandbox';
 import { valleyGeometry } from './geometry';
 import { valleyMaterial } from './material';
+import { plateEdge } from './plate-edge';
+import { sceneSwatch } from '../scene-palette';
 
 type ValleyContextView = Readonly<{
 	exaggeration: number;
@@ -72,14 +74,21 @@ export function createValleyContext(fields: readonly ValleyField[], view: Valley
 /** Creates a fixed-context valley viewer from the same fields and mesh as the sandbox study. */
 export const createValleyChapterStage: ChapterStageFactory = (canvas, onError) => {
 	const fields = VALLEY_PICTURE_SEEDS.map(valleyStudyField);
-	const { exaggeration, elevationRad, margin, heightRangeM } = VALLEY_STUDY_VIEW;
+	const { exaggeration } = VALLEY_STUDY_VIEW;
 	const { group, meshes, reveal, setPalette, dispose } = valleyMeshes(fields, exaggeration);
-	const half = fields[0].windowM / 2;
-	const bounds = new Box3();
-	bounds.min.set(-half, heightRangeM[0] * exaggeration, -half);
-	bounds.max.set(half, heightRangeM[1] * exaggeration, half);
+	const bounds = new Box3().setFromObject(group);
+	const baseDepthM = 20;
+	const baseY = bounds.min.y - baseDepthM;
+	bounds.min.y = baseY;
+	const edgeMaterial = new MeshBasicMaterial({ toneMapped: false });
+	const edges = meshes.map((mesh) => {
+		const surface = mesh.geometry.getAttribute('position') as BufferAttribute;
+		const edge = new Mesh(plateEdge(surface, baseY), edgeMaterial);
+		mesh.add(edge);
+		return edge;
+	});
 
-	const terrain = { headingRad: 0, elevationRad };
+	const terrain = { headingRad: 0, elevationRad: (65 * Math.PI) / 180 };
 	const stage = createSandboxStage(canvas, onError, {
 		context: {
 			group,
@@ -90,9 +99,18 @@ export const createValleyChapterStage: ChapterStageFactory = (canvas, onError) =
 				iso: { headingRad: Math.PI / 4, elevationRad: Math.atan(Math.SQRT1_2) },
 				plan: { headingRad: 0, elevationRad: Math.PI / 2 }
 			},
-			viewMargin: margin,
-			setPalette,
-			dispose
+			viewMargin: 1.12,
+			setPalette(palette) {
+				setPalette(palette);
+				edgeMaterial.color
+					.set(sceneSwatch(palette, '--ground-stone'))
+					.lerp(new Color(palette.paper), 0.25);
+			},
+			dispose() {
+				for (const edge of edges) edge.geometry.dispose();
+				edgeMaterial.dispose();
+				dispose();
+			}
 		}
 	});
 	void stage.ready.catch(() => {});

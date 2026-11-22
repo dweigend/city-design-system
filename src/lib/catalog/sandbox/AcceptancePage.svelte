@@ -8,7 +8,7 @@
 	import { onMount } from 'svelte';
 	import { acceptanceScene } from '../logic/sandbox';
 	import { sandboxUses } from '../data/sandbox';
-	import { viewModes, type ViewMode, type ViewPolicy } from '../data/view-modes';
+	import { viewLabels, viewModes, type ViewPolicy } from '../data/view-modes';
 	import { resolveView } from '../logic/view-modes';
 	import { attachInput } from '../scene/sandbox';
 	import { createSandboxStage, type SandboxStage } from '../scene/sandbox';
@@ -20,7 +20,6 @@
 	let stage = $state.raw<SandboxStage>();
 	let seed = $state(7);
 	const viewPolicy = { view: 'iso', views: viewModes, display: 'normal' } satisfies ViewPolicy;
-	const viewLabels: Record<ViewMode, string> = { iso: 'Iso', plan: 'Plan', terrain: 'Terrain' };
 	let selected = $state(resolveView(viewPolicy));
 	let paused = $state(false);
 	let error = $state('');
