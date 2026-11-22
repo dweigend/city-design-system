@@ -57,4 +57,41 @@ export type DockRequest = {
 		capacity: number;
 	};
 };
-export type MovementEdge = MovementElement & { length: number; grade: number; width: number };
+/** A surveyed, validated edge. `grade` is signed mean rise/run; `maxGrade` is max absolute segment rise/run (ST1 PathEdge.grade). */
+export type MovementEdge = MovementElement & {
+	length: number;
+	grade: number;
+	maxGrade: number;
+	width: number;
+};
+
+/** A partial movement graph contributed by one domain generator before composition. */
+export type MovementFragment = {
+	ports: readonly MovementPort[];
+	edges?: readonly MovementElement[];
+	requests?: readonly DockRequest[];
+};
+
+/** Optional traversal constraints for a movement graph path query. */
+export type MovementPathQuery = {
+	modes?: readonly MovementElement['mode'][];
+	/** Maximum allowed segment grade (rise / run, dimensionless). */
+	maxGrade?: number;
+	/** Minimum clear width in metres across traversed edges and ports. */
+	minWidth?: number;
+	/** Minimum endpoint port headroom in metres (port metadata, not a spatial sweep). */
+	minHeadroom?: number;
+	/** Edge kinds to exclude from traversal (for example `['stair']` for step-free routes). */
+	excludeKinds?: readonly MovementElement['kind'][];
+};
+
+/** Detached result of a deterministic shortest-path query on a MovementGraph. */
+export type MovementPath = {
+	portIds: string[];
+	edgeIds: string[];
+	totalLength: number;
+	maxGrade: number;
+	minWidth: number;
+	minHeadroom: number;
+	points: Position[];
+};
