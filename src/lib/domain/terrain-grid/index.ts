@@ -2,9 +2,11 @@ import { distance, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { carrier, edgeId, type Node, type Quad } from './carrier';
+import { carrier, edgeId, freeQuad, type Candidate, type Carrier, type Node } from './carrier';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
+import { bands, contour, hex, polar, square, triangle } from './regular';
+import { voronoi } from './voronoi';
 import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
 
 /** Fixed datum and bearing with either a simple world-XY outline or full rectangle dimensions
@@ -23,11 +25,11 @@ export { quality as terrainGridQuality } from './metrics';
 /** Addressed vertex with sampled position, in meters with Z up. */
 export type TerrainGridVertex = Readonly<{ id: string; position: Vec3 }>;
 
-/** Counterclockwise vertex IDs. Neighbor i is across edge i→(i+1) mod 4, or null at the boundary. */
+/** Counterclockwise polygon. Neighbor i is across edge i→(i+1), or null at the boundary. */
 export type TerrainGridCell = Readonly<{
 	id: string;
-	vertexIds: Quad<string>;
-	neighbors: Quad<string | null>;
+	vertexIds: readonly string[];
+	neighbors: readonly (string | null)[];
 }>;
 
 /** Detached, deeply frozen cells, incident vertices, and oriented boundary edges with land to the left. */
@@ -37,11 +39,47 @@ export type TerrainGrid = Readonly<{
 	boundary: readonly (readonly [from: string, to: string])[];
 }>;
 
+/** Available plan families in display order. */
+export const planVariants = [
+	'organic',
+	'square',
+	'hex',
+	'triangle',
+	'bands',
+	'contour',
+	'polar',
+	'voronoi',
+	'free-quad'
+] as const;
+
+/** Plan topology selected before clipping and ground sampling. */
+export type PlanVariant = (typeof planVariants)[number];
+
+const carriers: Record<
+	PlanVariant,
+	{ generate: Carrier; checkQuality?: boolean; defaultSize?: number }
+> = {
+	organic: {
+		generate: carrier,
+		checkQuality: true,
+		defaultSize: terrainGridParams.cellSize.default
+	},
+	square: { generate: square },
+	hex: { generate: hex },
+	triangle: { generate: triangle },
+	bands: { generate: bands },
+	contour: { generate: contour },
+	polar: { generate: polar },
+	voronoi: { generate: voronoi },
+	'free-quad': { generate: freeQuad, checkQuality: true }
+};
+
 /** Pure height sampler in meters. Return undefined to exclude unavailable ground, such as water.
  * The datum and its 10 m XY probes require finite heights. */
 export type TerrainGridOptions = Readonly<{
 	seed: number;
 	site: TerrainGridSite;
+	variant?: PlanVariant;
 	heightAt: (x: number, y: number) => number | undefined;
 	parameters?: Readonly<{ cellSize?: number }>;
 }>;
@@ -93,21 +131,18 @@ function samples(heightAt: TerrainGridOptions['heightAt']) {
 	};
 }
 
-type MutableQuad<T> = [T, T, T, T];
-
 function topology(
-	candidates: readonly { id: string; corners: Quad<Node> }[],
+	candidates: readonly Candidate[],
 	height: (node: Node) => number | undefined
 ): TerrainGrid {
 	const vertices = new Map<string, TerrainGridVertex>();
 	const open = new Map<
 		string,
-		{ id: string; from: string; to: string; neighbors: MutableQuad<string | null>; index: number }
+		{ id: string; from: string; to: string; neighbors: (string | null)[]; index: number }
 	>();
 	const cells = candidates.map(({ id, corners }) => {
-		const [a, b, c, d] = corners.map(({ id }) => id);
-		const vertexIds = Object.freeze([a, b, c, d] as const);
-		const neighbors: MutableQuad<string | null> = [null, null, null, null];
+		const vertexIds = Object.freeze(corners.map(({ id }) => id));
+		const neighbors: (string | null)[] = corners.map(() => null);
 		corners.forEach((node, index) => {
 			if (!vertices.has(node.id)) {
 				const position = Object.freeze([
@@ -117,7 +152,7 @@ function topology(
 				vertices.set(node.id, Object.freeze({ id: node.id, position }));
 			}
 			const from = node.id;
-			const to = vertexIds[(index + 1) % 4];
+			const to = vertexIds[(index + 1) % vertexIds.length];
 			const key = edgeId(from, to);
 			const opposite = open.get(key);
 			if (opposite) {
@@ -140,44 +175,41 @@ function topology(
 	});
 }
 
-/** Derives a ground grid from a site, uint32 seed and pure sampler. Invalid sites (non-positive
- * extents or extents over 2 km), seed, parameter types and missing sampler fail before sampling.
- * Cell size clamps and snaps through the schema. Non-finite sampled heights throw.
- *
- * Seeded mutual triangle pairs form rhombi on a locally relaxed carrier. It splits faces at their centers and edge midpoints.
- * Base lattice addresses and split paths own identity. Increasing the crop about the same
- * datum leaves all existing vertices, cells and old neighbor relationships intact.
- *
- * The primary carrier axis follows the contour measured on 20 m baselines at the datum.
- * Below 1.5% grade it follows the site's bearing. Cells must lie wholly inside the site,
- * be strictly convex in XY with angles of at least 30° and a longest-to-shortest edge ratio
- * of at most 2.1. Samples along sides and both diagonals, at most 1 m apart, reject rises
- * steeper than 20% or absent ground. Narrow features between samples may go undetected.
- */
-function create({ site, seed, heightAt, parameters }: TerrainGridOptions): TerrainGrid {
+/** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
+ * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
+ * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
+ * sampled at up to 1 m spacing reject unavailable ground or grades over 20%. Organic and
+ * free quads also enforce the published angle and edge-ratio limits. Invalid inputs throw. */
+function create({
+	site,
+	seed,
+	heightAt,
+	parameters,
+	variant = 'organic'
+}: TerrainGridOptions): TerrainGrid {
+	if (!Object.hasOwn(carriers, variant)) throw new RangeError('Unknown plan grid variant');
+	const { generate, checkQuality, defaultSize = 15 } = carriers[variant];
 	const outline = siteOutline(site);
 	if (typeof heightAt !== 'function') throw new TypeError('Expected a ground height sampler');
 	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32)
 		throw new RangeError('Invalid terrain grid seed');
-	const { cellSize } = resolveParams(terrainGridParams, parameters);
+	const { cellSize } = resolveParams(terrainGridParams, {
+		cellSize: parameters?.cellSize ?? defaultSize
+	});
 	const ground = samples(heightAt);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
 	const includes = insideOutline(outline);
 	const accepted = [];
-	for (const cell of carrier(site, outline, bearing, cellSize, Random.create({ seed }))) {
-		const [a, b, c, d] = cell.corners;
-		const plan = [a.xy, b.xy, c.xy, d.xy] as const;
-		if (!meetsQuality(plan) || !includes(plan)) continue;
-		const segments = [
-			[a, b],
-			[b, c],
-			[c, d],
-			[d, a],
-			[a, c],
-			[b, d]
-		];
-		if (!segments.every(([from, to]) => ground.validEdge(from, to))) continue;
+	for (const cell of generate(site, outline, bearing, cellSize, Random.create({ seed }))) {
+		const plan = cell.corners.map(({ xy }) => xy);
+		if (plan.length < 3 || (checkQuality && !meetsQuality(plan)) || !includes(plan)) continue;
+		if (
+			!cell.corners.every((from, i) =>
+				cell.corners.slice(i + 1).every((to) => ground.validEdge(from, to))
+			)
+		)
+			continue;
 		accepted.push(cell);
 	}
 	return topology(accepted, ground.height);

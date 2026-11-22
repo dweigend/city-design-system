@@ -1,5 +1,4 @@
 import { distance, type Vec2 } from '../../core/geometry';
-import type { Quad } from './carrier';
 
 /** Plan quality and maximum sampled grade. Grade is rise divided by plan run. */
 export const quality = Object.freeze({
@@ -9,12 +8,14 @@ export const quality = Object.freeze({
 	maximumSampleStep: 1
 });
 
-export function meetsQuality(points: Quad<Vec2>) {
-	const lengths = points.map((point, index) => distance(point, points[(index + 1) % 4]));
+export function meetsQuality(points: readonly Vec2[]) {
+	const lengths = points.map((point, index) =>
+		distance(point, points[(index + 1) % points.length])
+	);
 	if (Math.max(...lengths) > quality.maximumEdgeRatio * Math.min(...lengths)) return false;
 	return points.every(([x, y], index) => {
-		const [ax, ay] = points[(index + 1) % 4];
-		const [bx, by] = points[(index + 3) % 4];
+		const [ax, ay] = points[(index + 1) % points.length];
+		const [bx, by] = points[(index + points.length - 1) % points.length];
 		const cross = (ax - x) * (by - y) - (ay - y) * (bx - x);
 		const dot = (ax - x) * (bx - x) + (ay - y) * (by - y);
 		return Math.atan2(cross, dot) >= quality.minimumAngle;

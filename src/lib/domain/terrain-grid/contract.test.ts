@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import type { Vec2, Vec3 } from '../../core/geometry';
-import { TerrainGrid, terrainGridQuality, type TerrainGridOptions } from './index';
+import { TerrainGrid, planVariants, terrainGridQuality, type TerrainGridOptions } from './index';
 import { example } from './example';
 
 const qualitySeeds = [0, 1, 7, 42, 1201, 1301, 1409, 65537, 4294967295];
@@ -230,3 +230,38 @@ test('clips wholly to a simple concave outline and preserves identities as it gr
 		})
 	).toThrow(RangeError);
 });
+
+for (const variant of planVariants) {
+	test(`${variant} retains polygons and neighbors while growing the site`, () => {
+		const small = TerrainGrid.create({ ...options, variant, parameters: { cellSize: 10 } });
+		const large = TerrainGrid.create({
+			...options,
+			variant,
+			parameters: { cellSize: 10 },
+			site: { ...options.site, length: 161, width: 113 }
+		});
+		const again = TerrainGrid.create({ ...options, variant, parameters: { cellSize: 10 } });
+		expect(small).toEqual(again);
+		expect(small.cells.length).toBeGreaterThan(0);
+		expect(large.cells.length).toBeGreaterThan(small.cells.length);
+		const cells = new Map(large.cells.map((cell) => [cell.id, cell]));
+		const vertices = new Map(large.vertices.map((vertex) => [vertex.id, vertex.position]));
+		let shared = 0;
+		for (const { id, vertexIds, neighbors } of small.cells) {
+			const retained = required(cells.get(id), 'retained plan cell');
+			expect(retained.vertexIds).toEqual(vertexIds);
+			expect(retained.neighbors).toHaveLength(vertexIds.length);
+			for (const [i, neighbor] of neighbors.entries()) {
+				if (neighbor === null) continue;
+				shared++;
+				expect(retained.neighbors[i]).toBe(neighbor);
+				const adjacent = required(cells.get(neighbor), 'incident cell');
+				const opposite = adjacent.vertexIds.indexOf(vertexIds[(i + 1) % vertexIds.length]);
+				expect(adjacent.vertexIds[(opposite + 1) % adjacent.vertexIds.length]).toBe(vertexIds[i]);
+				expect(adjacent.neighbors[opposite]).toBe(id);
+			}
+		}
+		expect(shared).toBeGreaterThan(0);
+		for (const { id, position } of small.vertices) expect(vertices.get(id)).toEqual(position);
+	});
+}

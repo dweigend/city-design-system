@@ -2,8 +2,16 @@ import { distance, type Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
 import { axes, type Site } from './site';
 
-export type Quad<T> = readonly [T, T, T, T];
+type Quad<T> = readonly [T, T, T, T];
 export type Node = Readonly<{ id: string; xy: Vec2 }>;
+export type Candidate = Readonly<{ id: string; corners: readonly Node[] }>;
+export type Carrier = (
+	site: Site,
+	outline: readonly Vec2[],
+	bearing: number,
+	size: number,
+	random: Random
+) => Iterable<Candidate>;
 type Triangle<T> = readonly [T, T, T];
 type Address = readonly [column: number, row: number, half: number];
 
@@ -53,7 +61,16 @@ function* split(face: readonly Node[]) {
 	}
 }
 
-function baseNodes(random: Random, site: Site, bearing: number, spacing: number) {
+type Relaxation = Readonly<{ center: number; neighbor: number }>;
+const organicRelaxation = { center: 0.76, neighbor: 0.04 };
+
+function baseNodes(
+	random: Random,
+	site: Site,
+	bearing: number,
+	spacing: number,
+	relaxation: Relaxation
+) {
 	const { toWorld } = axes(bearing);
 	const offsets = new Map<string, Vec2>();
 	const nodes = new Map<string, Node>();
@@ -89,8 +106,8 @@ function baseNodes(random: Random, site: Site, bearing: number, spacing: number)
 			[0, 0]
 		);
 		const [u, v] = toWorld(
-			(column + row * 0.5 + 0.76 * x + 0.04 * dx) * spacing,
-			((row * Math.sqrt(3)) / 2 + 0.76 * y + 0.04 * dy) * spacing * 0.94
+			(column + row * 0.5 + relaxation.center * x + relaxation.neighbor * dx) * spacing,
+			((row * Math.sqrt(3)) / 2 + relaxation.center * y + relaxation.neighbor * dy) * spacing * 0.94
 		);
 		const node: Node = { id, xy: [site.origin[0] + u, site.origin[1] + v] };
 		nodes.set(id, node);
@@ -132,7 +149,8 @@ export function* carrier(
 	outline: readonly Vec2[],
 	bearing: number,
 	size: number,
-	random: Random
+	random: Random,
+	relaxation = organicRelaxation
 ) {
 	const spacing = size * 2.25;
 	const { toLocal } = axes(bearing);
@@ -143,7 +161,7 @@ export function* carrier(
 	});
 	const columns = axial.map(([column]) => column);
 	const rows = axial.map(([, row]) => row);
-	const node = baseNodes(random, site, bearing, spacing);
+	const node = baseNodes(random, site, bearing, spacing, relaxation);
 	// A halo covers displaced vertices and every possible partner outside the requested cells.
 	for (
 		let row = Math.floor(Math.min(...rows)) - 2;
@@ -174,3 +192,6 @@ export function* carrier(
 		}
 	}
 }
+
+export const freeQuad: Carrier = (site, outline, bearing, size, random) =>
+	carrier(site, outline, bearing, size, random.derive('free-quad'), { center: 1, neighbor: 0 });
