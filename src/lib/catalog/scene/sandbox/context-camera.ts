@@ -34,7 +34,10 @@ export function createContextCamera({ distance, points }: ContextPerspective) {
 			for (const point of points) {
 				corner.copy(point).applyMatrix4(camera.matrixWorldInverse);
 				const depth = -corner.z;
-				if (depth <= NEAR_PLANE) throw new RangeError('Context camera is too close to its frame');
+				if (!(depth > NEAR_PLANE && Number.isFinite(depth)))
+					throw new RangeError(
+						`Perspective subject depth must be finite and above ${NEAR_PLANE} m at eye distance ${distance} m`
+					);
 				projected.expandByPoint(imagePoint.set(corner.x / depth, corner.y / depth));
 				far = Math.max(far, depth);
 			}

@@ -18,7 +18,8 @@ export function frameClock() {
 	const noop = () => {};
 	const callbacks = new Map<number, FrameRequestCallback>();
 	let id = 0,
-		scene: T.Scene;
+		scene: T.Scene,
+		camera: T.Camera;
 	Object.assign(globalThis, {
 		$state: (value: unknown) => value,
 		devicePixelRatio: 1,
@@ -51,12 +52,14 @@ export function frameClock() {
 		setSize: noop,
 		setPixelRatio: noop,
 		dispose: noop,
-		render: (s: T.Scene) => {
+		render: (s: T.Scene, view: T.Camera) => {
 			s.updateMatrixWorld();
 			scene = s;
+			camera = view;
 		}
 	});
 	return {
+		renderedCamera: () => camera,
 		canvas: () =>
 			({
 				dataset: {},

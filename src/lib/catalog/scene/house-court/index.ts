@@ -17,13 +17,27 @@ import { exposedHouseFaces, type HouseCourt } from '../../logic/house-court';
 import type { ParcelDeck } from '../../logic/parcel-deck';
 import { required } from '../../logic/required';
 import type { StageContext } from '../sandbox';
-import { faceGeometry } from './geometry';
+import { faceGeometry, stagePoint } from './geometry';
 
 const PLOT_DEPTH = 0.24;
 const FRAME_MARGIN = 0.5;
-const ELEVATION_RAD = (42 * Math.PI) / 180;
-const HEADING_OFFSET_RAD = Math.PI / 250;
-const PERSPECTIVE_DISTANCE_M = 12.5;
+const ELEVATION_RAD = (40 * Math.PI) / 180;
+const HEADING_OFFSET_RAD = Math.PI / 12;
+const EYE_DISTANCE_SCALE = 4;
+
+function eyeDistance(deck: ParcelDeck): number {
+	const [origin, right, , back] = deck.plotRing;
+	const edgeLength = (edge: CellPoint) => Math.hypot(edge[0] - origin[0], edge[1] - origin[1]);
+	const plotWidth = edgeLength(right);
+	const plotDepth = edgeLength(back);
+	const extent = Math.max(plotWidth, plotDepth, deck.inputs.height);
+	const distance = EYE_DISTANCE_SCALE * extent;
+	if (!(plotWidth > 0 && plotDepth > 0 && Number.isFinite(Math.fround(distance + extent))))
+		throw new RangeError(
+			`Cannot frame the ${plotWidth} × ${plotDepth} m plot. Plot edges must be positive and the camera range must fit 32-bit coordinates.`
+		);
+	return distance;
+}
 
 function plotRings(ring: readonly CellPoint[]) {
 	const lower = ring.map(([x, y, z]): CellPoint => [x, y, z - PLOT_DEPTH]);
@@ -37,7 +51,7 @@ function plotRings(ring: readonly CellPoint[]) {
 	];
 }
 
-function surface(inkMix: number) {
+function surface(inkMix: number, lightStrength = 0.08) {
 	const paper = uniform(new Color());
 	const ink = uniform(new Color());
 	const material = new MeshBasicNodeMaterial({
@@ -48,7 +62,7 @@ function surface(inkMix: number) {
 		polygonOffsetUnits: 1
 	});
 	const light = normalWorldGeometry.dot(vec3(-0.56, 0.76, 0.32));
-	const shade = light.mul(-0.08).add(inkMix).clamp(0.03, 0.95);
+	const shade = light.mul(-lightStrength).add(inkMix).clamp(0.03, 0.95);
 	material.colorNode = mix(paper.rgb, ink.rgb, shade);
 	return { material, paper: paper.value, ink: ink.value };
 }
@@ -87,11 +101,12 @@ function houseRings(house: HouseCourt, datum: number) {
  * Projects exposed rings only. The stage supplies the live palette and owns disposal.
  */
 export function createHouseCourtContext(deck: ParcelDeck, house: HouseCourt): StageContext {
+	const distance = eyeDistance(deck);
 	const group = new Group();
 	const origin = deck.plotRing[0];
 	const { roof, exterior, recess } = houseRings(house, origin[2]);
 	const ground = plotRings(deck.plotRing);
-	const surfaces = [surface(0.13), surface(0.5), surface(0.83), surface(0.26)];
+	const surfaces = [surface(0.13), surface(0.5), surface(0.83, 0), surface(0.26)];
 	const meshes = [roof, exterior, recess, ground].map(
 		(rings, i) => new Mesh(faceGeometry(rings, origin), surfaces[i].material)
 	);
@@ -108,7 +123,7 @@ export function createHouseCourtContext(deck: ParcelDeck, house: HouseCourt): St
 	group.add(...lines);
 	const points = [...roof, ...exterior, ...recess, ...ground]
 		.flat()
-		.map(([x, y, z]) => new Vector3(x - origin[0], z - origin[2], origin[1] - y));
+		.map((point) => new Vector3(...stagePoint(point, origin)));
 	const [left, right] = deck.entrance;
 	return {
 		group,
@@ -117,13 +132,13 @@ export function createHouseCourtContext(deck: ParcelDeck, house: HouseCourt): St
 			headingRad: Math.atan2(right[1] - left[1], right[0] - left[0]) + HEADING_OFFSET_RAD,
 			elevationRad: ELEVATION_RAD
 		},
-		perspective: { distance: PERSPECTIVE_DISTANCE_M, points },
+		perspective: { distance, points },
 		setPalette(palette) {
 			for (const { paper, ink } of surfaces) {
 				paper.set(palette.paper);
 				ink.set(palette.ink);
 			}
-			lineMaterial.color.set(palette.ink).lerp(surfaces[0].paper, 0.2);
+			lineMaterial.color.set(palette.ink);
 		},
 		dispose() {
 			for (const mesh of meshes) {
