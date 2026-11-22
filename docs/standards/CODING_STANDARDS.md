@@ -40,8 +40,9 @@ These standards cover readability, public APIs, state, effects and verification.
 | C-31 | Computations are pure where practical. Local mutation and stateful kernels are allowed when encapsulated. No blanket immutability mandate.                                                                                                                |
 | C-32 | State mutation, I/O, logging, async ordering, and errors are explicit. No globals, no service locators, no module-wide mutable caches. Errors are not swallowed.                                                                                          |
 | C-33 | Functions first. Classes only for genuine identity, encapsulated state, or lifecycle. New stateful APIs: `Name.create(options?)` with sensible defaults, nested fine options, and a function escape hatch. Existing calls are not rewritten mechanically. |
-| C-34 | No grab-bag modules (`utils`, `helpers`, `manager`), no universal registry, no factory or interface layer without need. Abstract only what lowers concrete duplication of domain rules, complexity, or coupling. Similar code alone is not enough.        |
+| C-34 | No grab-bag modules (`utils`, `helpers`, `manager`), no factory or interface layer without need. Abstract only what lowers concrete duplication of domain rules, complexity, or coupling. Similar code alone is not enough.                               |
 | C-35 | Check existing capabilities first, then write new code or add dependencies. Optimize after measurement ([PB-2](PROCEDURAL_PRINCIPLES.md#6-budgets-and-measurement-duty)).                                                                                 |
+| C-36 | Define a registry as one explicit, ordered list of entries exported as data. Keep registration out of import side effects.                                                                                                                                |
 
 ## Reference Code
 

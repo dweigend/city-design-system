@@ -12,13 +12,49 @@ The [design principles register](../../src/routes/design-principles.ts) owns the
 | DS-04 | **KISS and YAGNI.** Add only used components. No speculative settings, abstractions, entries or scaffolding.                                                                        |
 | DS-05 | Every shared component has one responsibility and a small, typed API. Consumers use that API to configure it.                                                                       |
 
-## Tokens
+## Stylesheet
 
-| ID    | Rule                                                                                                                                                                                                                   |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DS-10 | **One fixed visual system.** Colors, fonts, sizes, spacing, lines, and control dimensions live once as tokens in `src/app.css`. Components use tokens only. No one-off colors, no local themes, no per-page overrides. |
-| DS-11 | Light and dark belong to the same system: the same tokens, paper and ink swapped.                                                                                                                                      |
-| DS-12 | **One unit.** 1 U = 4 px = 1 m, steps 1 · 5 · 10 · 50 · 100. The same unit carries layout, isometric drawing, and the 3D world.                                                                                        |
+[The Interface chapter](../../src/routes/interface/+page.svelte) shows the styles defined in [`src/app.css`](../../src/app.css).
+
+| ID    | Rule                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DS-10 | Styles are shared across pages and controls. Compose element defaults and classes from `src/app.css`.                                                   |
+| DS-11 | The same palette names apply in both themes. `[data-theme='dark']` sets the dark variant.                                                               |
+| DS-12 | Layout spacing uses multiples of 0.25 rem (4 px at the default text size). The stylesheet defines one radius, one stroke width and one motion duration. |
+
+### Typography
+
+Geist is the sans family. Geist Mono is used for code, labels and values. Sizes below are at the default browser font size.
+
+| Element or class | Size     | Use                                                |
+| ---------------- | -------- | -------------------------------------------------- |
+| `h1`             | 40–64 px | Page title, scales with the viewport               |
+| `h2`             | 24 px    | Section heading                                    |
+| `h3`             | 20 px    | Subsection heading                                 |
+| `p`              | 16 px    | Body paragraph                                     |
+| `.lead`          | 20 px    | Intro paragraph                                    |
+| `.small`         | 13 px    | Secondary text                                     |
+| `.caption`       | 13 px    | Picture caption, also the default for `figcaption` |
+| `.label`         | 11 px    | Uppercase UI and axis labels                       |
+| `.data`          | 13 px    | Monospaced numbers and values                      |
+
+Links, lists, figures, images, rules, inline code and tables have shared element defaults.
+
+### Layout
+
+| Class      | Use                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| `.page`    | Center a reading column up to 46 rem wide with 16 px side gutters at the default text size. |
+| `.stack`   | Space items vertically.                                                                     |
+| `.cluster` | Place items in a row and wrap as needed.                                                    |
+| `.grid`    | Fit columns to the space available.                                                         |
+| `.frame`   | Hold a picture or canvas in a 16:9 area.                                                    |
+| `.panel`   | Give content a paper surface with padding and a thin border.                                |
+| `.divider` | Draw a thin horizontal rule, also the default for `hr`.                                     |
+
+### Palette
+
+The palette contains paper, ink and line, categories and flows, ground and terrain, blueprint, signal and hazard, and analysis tones. The Interface chapter displays these colors with a `.swatch` class and a modifier for each token. Literal color values, including hex, OKLCH and RGB, belong only in `src/app.css`.
 
 ## Color and Material
 
@@ -36,7 +72,7 @@ The [design principles register](../../src/routes/design-principles.ts) owns the
 
 | ID    | Rule                                                                                                                              |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------- |
-| DS-45 | Configure a component’s visual variants through its props. Leave its internal styles with the component owner.                    |
+| DS-45 | Configure a component’s visual variants through its props. Use shared stylesheet classes for the visual variants.                 |
 | DS-50 | **Default first.** Omitting gives defined, usable behavior.                                                                       |
 | DS-51 | **Flat first.** Pages and demos are flat compositions. No builder chains, no configuration layers, no deeply nested layout trees. |
 | DS-52 | **One normal syntax.** Short props and typed actions. No custom UI DSL, no competing shorthands.                                  |

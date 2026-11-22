@@ -63,13 +63,13 @@ Owner by document type:
 
 ## Sources and Licenses
 
-| ID     | Rule                                                                                                                                                            |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DOC-50 | Source citation: author, title, place, year, DOI or URL. "Freely readable" is not a usage license. Attribution, licenses, and original titles remain unaltered. |
-| DOC-51 | Third-party reference images and originals remain local and untracked (`.gitignore`). Only original works are published.                                        |
-| DOC-52 | Before adding a dependency, record its license, size and benefit.                                                                                               |
-| DOC-53 | Preserve license and attribution requirements when porting code or using references.                                                                            |
-| DOC-54 | Open data carries its attribution in the derived work. Raw data remains local.                                                                                  |
+| ID     | Rule                                                                                                                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| DOC-50 | Source citation: author, title, place, year, DOI or URL. "Freely readable" is not a usage license. Attribution, licenses, and original titles remain unaltered.                                  |
+| DOC-51 | Third-party reference images and originals remain local and untracked (`.gitignore`). Only original works are published.                                                                         |
+| DOC-52 | Before adding a dependency, record its license, size and benefit.                                                                                                                                |
+| DOC-53 | Port needed code from this project’s own branches and lab. For third-party code, write an original implementation and cite references. Preserve applicable license and attribution requirements. |
+| DOC-54 | Open data carries its attribution in the derived work. Raw data remains local.                                                                                                                   |
 
 ## Frozen Evidence
 
