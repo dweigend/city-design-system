@@ -174,7 +174,7 @@ export function createSandboxStage(
 	const frameListeners = new Set<(affected?: Affected) => void>();
 	const hoverRay = new THREE.Raycaster();
 	function crossedPointer(x: number, y: number) {
-		hoverRay.setFromCamera(view.ndc(x, y), view.camera);
+		hoverRay.setFromCamera(view.ndc(x, y), lens?.camera ?? view.camera);
 		const crosses = (box: THREE.Box3) => !box.isEmpty() && hoverRay.ray.intersectsBox(box);
 		return crosses(structures.swept) || (vehicles.group.visible && crosses(vehicles.swept));
 	}
@@ -216,6 +216,10 @@ export function createSandboxStage(
 		const { scale, elevation } = view.drawingMetrics();
 		const redraw = styleDirty || refreshTones || scale !== viewScale || elevation !== viewElevation;
 		if (!viewDirty && !redraw) return;
+		if (lens && viewDirty) {
+			const [width, height] = view.viewport();
+			lens.frame(view.camera, view.target, width / height);
+		}
 		pickDirty = true;
 		viewScale = scale;
 		viewElevation = elevation;
@@ -433,9 +437,7 @@ export function createSandboxStage(
 
 	function frameCurrent(force: boolean) {
 		if (context) {
-			view.frameBox(context.bounds, 1, context.orientation);
-			const [width, height] = view.viewport();
-			lens?.frame(view.camera, view.target, width / height);
+			view.frameBase(() => view.frameBox(context.bounds, 1, context.orientation));
 			return;
 		}
 		const mesh = terrain;
@@ -483,7 +485,8 @@ export function createSandboxStage(
 	function setView(resolved: ResolvedView, editable = false) {
 		if (!editable && !viewMode.retainsDrafting && terrain)
 			view.frameInspection(terrain.water.geometry);
-		if (!viewMode.set(resolved, viewLayers(), editable)) return false;
+		// A fixed perspective context keeps its inspection pose when it is reframed.
+		if (!viewMode.set(resolved, viewLayers(), editable && !lens)) return false;
 		invalidateView();
 		return true;
 	}
