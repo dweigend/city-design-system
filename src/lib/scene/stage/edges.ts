@@ -6,7 +6,11 @@ type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
 const creaseDot = Math.cos(Math.PI / 180);
 
-export function edgeGeometry(positions: readonly number[], indices: readonly number[]) {
+export function edgeGeometry(
+	positions: readonly number[],
+	indices: readonly number[],
+	boundaryOnly = false
+) {
 	const edges = new Map<string, Edge>();
 	for (let i = 0; i < indices.length; i += 3) {
 		const points = indices
@@ -33,7 +37,7 @@ export function edgeGeometry(positions: readonly number[], indices: readonly num
 	const fronts = [];
 	const backs = [];
 	for (const { start, end, front, back } of edges.values()) {
-		if (back && front.dot(back) > creaseDot) continue;
+		if (back && (boundaryOnly || front.dot(back) > creaseDot)) continue;
 		segments.push(...start.toArray(), ...end.toArray());
 		fronts.push(...front.toArray());
 		backs.push(...(back ?? front).toArray());
@@ -44,14 +48,14 @@ export function edgeGeometry(positions: readonly number[], indices: readonly num
 	return geometry;
 }
 
-export function strokeMaterials() {
+export function strokeMaterials(landscape = false) {
 	const eye = uniform(new Vector3());
 	const front = attribute('edgeFront', 'vec3').dot(eye).greaterThan(1e-5);
 	const back = attribute('edgeBack', 'vec3').dot(eye).greaterThan(1e-5);
 	const silhouette = front.and(back.not()).or(back.and(front.not()));
-	const options = { depthWrite: false, transparent: true };
+	const options = { depthWrite: false, transparent: true, depthTest: !landscape };
 	const outer = new Line2NodeMaterial({ ...options, linewidth: 1.4 });
-	const crease = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
+	const crease = new Line2NodeMaterial({ ...options, linewidth: landscape ? 0.95 : 0.75 });
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();

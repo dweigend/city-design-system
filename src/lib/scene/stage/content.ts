@@ -5,7 +5,8 @@ import type { Drawable } from '../surface';
 import { shapeArrays } from './geometry';
 import { edgeGeometry, type strokeMaterials } from './edges';
 import { projectGround } from './ground';
-import { fillMaterial, type drawingPalette } from './material';
+import { fillMaterial } from './material';
+import type { drawingPalette } from './tone';
 
 export function hasSameGeometry(
 	parts: readonly { drawable: Drawable }[],
@@ -23,35 +24,38 @@ export function hasSameGeometry(
 function project(
 	drawable: Drawable,
 	strokes: ReturnType<typeof strokeMaterials>,
-	palette: ReturnType<typeof drawingPalette>
+	palette: ReturnType<typeof drawingPalette>,
+	landscape: boolean
 ) {
 	const { positions, indices } = shapeArrays(drawable.shape);
 	const indexed = new BufferGeometry();
 	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	indexed.setIndex([...indices]);
-	const stroke = edgeGeometry(positions, indices);
+	const stroke = edgeGeometry(positions, indices, landscape);
 	const lines = [strokes.crease, strokes.outer].map((material, index) => {
 		const line = new LineSegments2(stroke, material);
 		line.renderOrder = 2 + index;
 		line.visible = stroke.instanceCount > 0;
 		return line;
 	});
-	const fill = indexed.toNonIndexed();
-	indexed.dispose();
+	const fill = landscape ? indexed : indexed.toNonIndexed();
+	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const mesh = new Mesh(fill, fillMaterial(palette));
-	return { drawable, mesh, stroke, lines };
+	const { material, terrain } = fillMaterial(palette, landscape);
+	const mesh = new Mesh(fill, material);
+	return { drawable, mesh, stroke, lines, terrain };
 }
 
 export function projectContent(
 	drawables: readonly Drawable[],
 	strokes: ReturnType<typeof strokeMaterials>,
-	palette: ReturnType<typeof drawingPalette>
+	palette: ReturnType<typeof drawingPalette>,
+	landscape: boolean
 ) {
 	const box = new Box3();
 	const group = new Group();
-	const parts = drawables.map((drawable) => project(drawable, strokes, palette));
+	const parts = drawables.map((drawable) => project(drawable, strokes, palette, landscape));
 	for (const { mesh, lines } of parts) {
 		group.add(mesh, ...lines);
 		if (mesh.geometry.boundingBox) box.union(mesh.geometry.boundingBox);
@@ -65,13 +69,14 @@ export function projectContent(
 	const bounds: Bounds3 = box.isEmpty()
 		? { min: [0, 0, 0], max: [0, 0, 0] }
 		: { min: box.min.toArray(), max: box.max.toArray() };
-	const ground = footprint.isEmpty()
-		? undefined
-		: projectGround(
-				bounds,
-				{ min: footprint.min.toArray(), max: footprint.max.toArray() },
-				strokes.ground
-			);
+	const ground =
+		landscape || footprint.isEmpty()
+			? undefined
+			: projectGround(
+					bounds,
+					{ min: footprint.min.toArray(), max: footprint.max.toArray() },
+					strokes.ground
+				);
 	if (ground) group.add(ground.shadow, ground.outline);
 	return {
 		parts,

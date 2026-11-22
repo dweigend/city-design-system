@@ -1,6 +1,15 @@
-import { hash, screenCoordinate, screenDPR, vec3 } from 'three/tsl';
-import type { Node } from 'three/webgpu';
+import { hash, uniform, screenCoordinate, screenDPR, vec3 } from 'three/tsl';
+import { Color, type Node } from 'three/webgpu';
 import type { Vec3 } from '../../core/geometry';
+
+export function drawingPalette() {
+	return {
+		dark: uniform(0),
+		hull: uniform(0),
+		ink: uniform(new Color()),
+		floodplain: uniform(new Color())
+	};
+}
 
 export const sun = [-0.6, -0.8] as const;
 export const shadowReach = 0.6;

@@ -7,10 +7,12 @@ export function stageState(hardware: boolean, adapterName: string) {
 	let display: Display = 'normal';
 	let drawableCount = 0;
 	let geometryBuildCount = 0;
+	let geometryBatchCount = 0;
 	return {
 		show(drawables: readonly Drawable[]) {
 			drawableCount = drawables.length;
 			geometryBuildCount += drawableCount;
+			geometryBatchCount++;
 		},
 		setView(next: View) {
 			readView(next);
@@ -25,7 +27,15 @@ export function stageState(hardware: boolean, adapterName: string) {
 			return true;
 		},
 		read(this: void) {
-			return { view, display, drawableCount, geometryBuildCount, hardware, adapterName };
+			return {
+				view,
+				display,
+				drawableCount,
+				geometryBuildCount,
+				geometryBatchCount,
+				hardware,
+				adapterName
+			};
 		}
 	};
 }

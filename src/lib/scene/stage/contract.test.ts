@@ -30,6 +30,19 @@ test('frames the same metric bounds in iso, plan and a portrait viewport', () =>
 	expect(dotProduct(readView('iso').eye, readView('iso').eye)).toBeCloseTo(1);
 });
 
+test('fits every corner of kilometer-scale bounds in both landscape views', () => {
+	const bounds = { min: [-1000, -1000, -3], max: [1000, 1000, 20] } as const;
+	for (const view of ['iso', 'plan'] as const) {
+		const camera = fitCamera(view, bounds, 16 / 9, true);
+		const depth = Math.hypot(...displacement(camera.center, camera.eye));
+		expect(camera.halfWidth).toBeGreaterThan(1000);
+		expect(camera.halfHeight).toBeGreaterThan(view === 'plan' ? 1000 : 820);
+		expect(camera.near).toBeGreaterThan(0);
+		expect(camera.near).toBeLessThan(depth);
+		expect(camera.far).toBeGreaterThan(depth);
+	}
+});
+
 test('builds a rotated box, triangulates both prism windings and preserves indexed meshes', () => {
 	const box = shapeArrays({
 		kind: 'box',
@@ -91,7 +104,13 @@ test('replaces the drawable count and counts builds only on show', () => {
 	expect(state.read()).toMatchObject({ drawableCount: 1, geometryBuildCount: 7 });
 	state.show([]);
 	expect(state.read()).toMatchObject({ drawableCount: 0, geometryBuildCount: 7 });
-	expect(before).toMatchObject({ drawableCount: 6, geometryBuildCount: 6, view: 'iso' });
+	expect(before).toMatchObject({
+		drawableCount: 6,
+		geometryBuildCount: 6,
+		geometryBatchCount: 1,
+		view: 'iso'
+	});
+	expect(state.read().geometryBatchCount).toBe(3);
 });
 
 test('reports a missing WebGPU adapter through the public entry', async () => {

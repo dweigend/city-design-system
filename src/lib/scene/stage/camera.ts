@@ -36,28 +36,38 @@ export function readView(view: View) {
 	return views[view];
 }
 
-export function fitCamera(view: View, bounds: Bounds3, aspect: number) {
+export function fitCamera(view: View, bounds: Bounds3, aspect: number, landscape = false) {
 	const { eye, up, fill, shadowFit } = readView(view);
-	const right = unitVector(crossProduct(up, eye));
-	const imageUp = crossProduct(eye, right);
+	const elevation = (37 * Math.PI) / 180;
+	const direction: Vec3 =
+		landscape && view === 'iso'
+			? [
+					Math.sin(bearingRad) * Math.cos(elevation),
+					-Math.cos(bearingRad) * Math.cos(elevation),
+					Math.sin(elevation)
+				]
+			: eye;
+	const right = unitVector(crossProduct(up, direction));
+	const imageUp = crossProduct(direction, right);
 
 	const half = scaled(displacement(bounds.min, bounds.max), 0.5);
 	const extent = (axis: Vec3) =>
 		dotProduct(half, [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])]);
-	const shift = scaled([-sun[0], -sun[1], 0], shadowFit ? half[2] * shadowReach : 0);
+	const shift = scaled([-sun[0], -sun[1], 0], shadowFit && !landscape ? half[2] * shadowReach : 0);
 	const center = sum(interpolation(bounds.min, bounds.max, 0.5), shift);
-	const houseFit = Math.max(extent(imageUp), extent(right) / aspect, 0.05) / fill;
+	const objectFit =
+		Math.max(extent(imageUp), extent(right) / aspect, 0.05) / (landscape ? 0.9 : fill);
 	const shadowFitHeight =
 		Math.max(
 			extent(imageUp) + Math.abs(dotProduct(shift, imageUp)),
 			(extent(right) + Math.abs(dotProduct(shift, right))) / aspect
 		) / 0.9;
-	const halfHeight = Math.max(houseFit, shadowFitHeight);
-	const depth = extent(eye);
-	const depthMarginM = Math.max(1, half[2] * 1.2);
+	const halfHeight = Math.max(objectFit, shadowFitHeight);
+	const depth = extent(direction);
+	const depthMarginM = Math.max(1, half[2] * 1.2, depth * 0.01);
 	return {
 		center,
-		eye: sum(center, scaled(eye, depth + depthMarginM)),
+		eye: sum(center, scaled(direction, depth + depthMarginM)),
 		up,
 		halfWidth: halfHeight * aspect,
 		halfHeight,

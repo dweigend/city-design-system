@@ -3,9 +3,10 @@ import type { Drawable } from '../surface';
 import { fitCamera, type View } from './camera';
 import { strokeMaterials } from './edges';
 import { hasSameGeometry, projectContent } from './content';
-import { drawingPalette, readColors, readDisplay, type Display } from './material';
+import { readColors, readDisplay, type Display } from './material';
 import { openRenderer } from './renderer';
 import { stageState } from './state';
+import { drawingPalette } from './tone';
 
 /** Camera projections for the same geometry. */
 export type { View } from './camera';
@@ -14,28 +15,69 @@ export type { Display } from './material';
 /** Returns the fixed house, resolved surfaces and metric extents for a stage. */
 export { stageExample } from './example';
 
-async function create({ canvas }: { canvas: HTMLCanvasElement }) {
+async function create({
+	canvas,
+	landscape = false
+}: {
+	canvas: HTMLCanvasElement;
+	landscape?: boolean;
+}) {
 	const gpu = await openRenderer(canvas);
 	const { renderer, hardware, adapterName } = gpu;
 	const state = stageState(hardware, adapterName);
 	const scene = new Scene();
 	const camera = new OrthographicCamera();
-	const strokes = strokeMaterials();
+	const strokes = strokeMaterials(landscape);
 	const palette = drawingPalette();
-	let content = projectContent([], strokes, palette);
+	let content = projectContent([], strokes, palette, landscape);
 	let aspect = 1;
 	let frame: number | undefined;
 	let closing: Promise<void> | undefined;
+
+	function styleContent(display: Display, dark: boolean) {
+		const css = getComputedStyle(canvas);
+		const color = readColors(css, canvas.ownerDocument);
+		const paper = color('--paper');
+		const hull = Number(css.getPropertyValue('--alpha-hull'));
+		scene.background = paper;
+		const ink = color('--ink-2');
+		palette.ink.value.copy(ink);
+		palette.floodplain.value
+			.copy(color('--paper-2'))
+			.lerp(color('--ground-sage'), dark ? 0.055 : 0.17);
+		strokes.outer.color.copy(ink);
+		strokes.crease.color.copy(ink);
+		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.2 : 0.35);
+		strokes.ground.color.copy(paper).lerp(ink, 0.48);
+		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
+		palette.dark.value = Number(dark);
+		palette.hull.value = Number(display === 'transparency');
+		const style = readDisplay(display);
+		for (const { drawable, mesh, terrain } of content.parts) {
+			const { opacity, paper: usePaper } = style(drawable.finish, hull);
+			const material = mesh.material;
+			const transparent = opacity < 1;
+			const polygonOffset = !landscape && drawable.finish !== 'glass';
+			terrain.value = Number(drawable.finish === 'terrain');
+			if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
+				material.needsUpdate = true;
+			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
+			if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
+			else material.color.copy(color(drawable.color));
+			mesh.visible = opacity > 0 && mesh.geometry.attributes.position.count > 0;
+		}
+	}
 
 	function draw() {
 		if (closing || frame !== undefined) return;
 		frame = requestAnimationFrame(() => {
 			frame = undefined;
-			const { view, display } = state.read();
+			const { view, display, geometryBatchCount } = state.read();
 			const { center, eye, up, halfWidth, halfHeight, near, far } = fitCamera(
 				view,
 				content.bounds,
-				aspect
+				aspect,
+				landscape
 			);
 			Object.assign(camera, {
 				left: -halfWidth,
@@ -51,35 +93,16 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 			camera.updateProjectionMatrix();
 			camera.getWorldDirection(strokes.eye.value).negate();
 
-			const css = getComputedStyle(canvas);
-			const color = readColors(css, canvas.ownerDocument);
-			const paper = color('--paper');
 			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
-			const hull = Number(css.getPropertyValue('--alpha-hull'));
-			scene.background = paper;
-			const ink = color('--ink-2');
-			strokes.outer.color.copy(ink);
-			strokes.crease.color.copy(ink);
-			strokes.ground.color.copy(paper).lerp(ink, 0.48);
-			content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
-			palette.dark.value = Number(dark);
-			palette.hull.value = Number(display === 'transparency');
-			const style = readDisplay(display);
-			for (const { drawable, mesh } of content.parts) {
-				const { opacity, paper: usePaper } = style(drawable.finish, hull);
-				const material = mesh.material;
-				const transparent = opacity < 1;
-				const polygonOffset = drawable.finish !== 'glass';
-				if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
-					material.needsUpdate = true;
-				Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
-				if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
-				else material.color.copy(color(drawable.color));
-				mesh.visible = opacity > 0 && mesh.geometry.attributes.position.count > 0;
-			}
+			styleContent(display, dark);
 			try {
 				renderer.render(scene, camera);
-				canvas.dataset.stageReady = 'true';
+				Object.assign(canvas.dataset, {
+					stageReady: 'true',
+					stageBuilds: String(geometryBatchCount),
+					stageView: view,
+					stageTheme: dark ? 'dark' : 'light'
+				});
 			} finally {
 				gpu.stop();
 			}
@@ -102,7 +125,9 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 				draw();
 				return;
 			}
-			const next = projectContent(drawables, strokes, palette);
+			const start = performance.now();
+			const next = projectContent(drawables, strokes, palette, landscape);
+			canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
 			scene.remove(content.group);
 			content.delete();
 			content = next;
@@ -142,6 +167,10 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 				delete canvas.dataset.stageReady;
 				delete canvas.dataset.stageAdapter;
 				delete canvas.dataset.stageHardware;
+				delete canvas.dataset.stageBuilds;
+				delete canvas.dataset.stageView;
+				delete canvas.dataset.stageTheme;
+				delete canvas.dataset.stageMeshMs;
 				await gpu.delete();
 			})());
 		}

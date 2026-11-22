@@ -1,9 +1,13 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
 import { materialColor, mix, normalWorldGeometry, uniform, vec2 } from 'three/tsl';
 import type { Finish } from '../surface';
-import { graphite, grain, levels, sun } from './tone';
+import { graphite, grain, levels, sun, type drawingPalette } from './tone';
+import { terrainColor } from './terrain';
 
-const finishes = { matte: 1, gloss: 1, glass: 0.7, line: 0 } satisfies Record<Finish, number>;
+const finishes = { matte: 1, gloss: 1, glass: 0.7, line: 0, terrain: 1 } satisfies Record<
+	Finish,
+	number
+>;
 
 const displays = {
 	normal: (finish: Finish) => ({ opacity: finishes[finish], paper: false }),
@@ -18,17 +22,14 @@ export function readDisplay(display: Display) {
 	return displays[display];
 }
 
-export function drawingPalette() {
-	return { dark: uniform(0), hull: uniform(0) };
-}
-
-export function fillMaterial(palette: ReturnType<typeof drawingPalette>) {
+export function fillMaterial(palette: ReturnType<typeof drawingPalette>, landscape: boolean) {
 	const material = new MeshBasicNodeMaterial({
 		side: DoubleSide,
 		forceSinglePass: true,
 		polygonOffsetFactor: 1,
 		polygonOffsetUnits: 1
 	});
+	const terrain = uniform(0);
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
 	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
@@ -36,12 +37,15 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>) {
 	const shadow = roof.or(facesLight).not();
 	const level = top.select(levels.top, shadow.select(levels.shadow, levels.lit));
 	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
-	material.colorNode = graphite(
-		materialColor,
-		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
-		mix(pressure, grain.top, palette.hull)
-	);
-	return material;
+	const fill = landscape
+		? materialColor
+		: graphite(
+				materialColor,
+				level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
+				mix(pressure, grain.top, palette.hull)
+			);
+	material.colorNode = mix(fill, terrainColor(palette), terrain);
+	return { material, terrain };
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

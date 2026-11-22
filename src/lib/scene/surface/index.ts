@@ -2,7 +2,7 @@ import { required } from '../../core/invariant';
 import type { PlaceableObject, Shape } from '../../core/object';
 
 /** Surface finish, with line reserved for pencil outlines. */
-export type Finish = 'matte' | 'gloss' | 'glass' | 'line';
+export type Finish = 'matte' | 'gloss' | 'glass' | 'line' | 'terrain';
 
 /** One CSS color token and finish for a slot. */
 export type Surface = Readonly<{ color: `--${string}`; finish: Finish }>;
@@ -22,6 +22,12 @@ export const existing = Object.freeze({
 	wall: Object.freeze({ color: '--paper-2', finish: 'matte' }),
 	roof: Object.freeze({ color: '--paper-3', finish: 'matte' }),
 	glass: Object.freeze({ color: '--line', finish: 'glass' })
+} satisfies SurfaceAssignment);
+
+/** Paper ground and the pale step of the existing water color. */
+export const landscape = Object.freeze({
+	ground: Object.freeze({ color: '--paper-2', finish: 'terrain' }),
+	water: Object.freeze({ color: '--cat-health-2', finish: 'matte' })
 } satisfies SurfaceAssignment);
 
 /** Returns the stock assignment with one flow color on the wall. */

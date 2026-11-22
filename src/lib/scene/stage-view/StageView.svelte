@@ -8,9 +8,10 @@
 		view: View;
 		display: Display;
 		label: string;
+		landscape?: boolean;
 	}
 
-	let { drawables, view, display, label }: Props = $props();
+	let { drawables, view, display, label, landscape = false }: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let stage = $state.raw<Awaited<ReturnType<typeof Stage.create>>>();
 	let unavailable = $state(false);
@@ -20,7 +21,7 @@
 		const target = canvas;
 		let mounted = true;
 		let resize: ResizeObserver | undefined;
-		void Stage.create({ canvas: target }).then(
+		void Stage.create({ canvas: target, landscape }).then(
 			(opened) => {
 				if (!mounted) return opened.delete();
 				stage = opened;
