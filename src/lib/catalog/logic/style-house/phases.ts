@@ -4,8 +4,8 @@ import { translate } from '../ansicht/geometrie';
 import type { Primitive, Vec3 } from '../parametrik/types';
 import { buildStyleHouse, styleHouseIds, type StyleHouseId } from './house';
 
-/** Clear ground between two neighbouring lots, in metres. */
-const LOT_GAP_M = 1.5;
+/** Clear ground between two neighbouring lots, in metres: an alley that keeps each house readable. */
+const LOT_GAP_M = 4;
 
 export type ConstructionPhases = {
 	inputs: BlockInputs;
@@ -22,9 +22,9 @@ export type ConstructionPhases = {
  * `phase` counts the construction phases already begun (FORM-10): without it all three houses
  * stand finished in their own surfaces; with phase n the house n is new, every earlier house is
  * plain stock without finish and later lots stay empty. Phases outside 0–2 give the finished
- * row. The middle lot is centred on the origin; neighbouring lot centres are one lot diagonal
- * plus a gap apart, so the diamonds of an isometric view do not overlap. Detached result,
- * deterministic, world metres, z up.
+ * row. The middle lot is centred on the origin. The lots keep their world orientation, so the
+ * pitch along `axis` is the lot width plus the gap, divided by the larger axis component:
+ * neighbouring lots never overlap. Detached result, deterministic, world metres, z up.
  */
 export function buildConstructionPhases(
 	axis: readonly [number, number],
@@ -33,7 +33,7 @@ export function buildConstructionPhases(
 ): ConstructionPhases {
 	const houses = styleHouseIds.map((id) => buildStyleHouse(id, { inputs }));
 	const { width } = houses[0].inputs;
-	const pitch = width * Math.SQRT2 + LOT_GAP_M;
+	const pitch = (width + LOT_GAP_M) / Math.max(Math.abs(axis[0]), Math.abs(axis[1]));
 	const active = phase !== undefined && phase >= 0 && phase < houses.length ? phase : undefined;
 	const lots = houses.map(({ id }, index) => {
 		const offset = (index - (houses.length - 1) / 2) * pitch;

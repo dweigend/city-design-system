@@ -4,32 +4,37 @@ import { createParametrikScene, type View } from '../parametrik';
 import { readPalette } from '../themeBinding';
 import type { ChapterStageFactory } from './types';
 
-/** World direction toward the camera; the lots line up across this view. */
+/** World direction toward the camera: the houses show their front and their right side. */
 const EYE: Vec3 = [0.8, -1, 0.62];
 const EYE_LENGTH = Math.hypot(...EYE);
 const EYE_COSINE = Math.hypot(EYE[0], EYE[1]) / EYE_LENGTH;
 const EYE_SINE = EYE[2] / EYE_LENGTH;
-/** Unit vector in plan that runs left to right on screen. */
-const ROW_AXIS = [
-	-EYE[1] / Math.hypot(EYE[0], EYE[1]),
-	EYE[0] / Math.hypot(EYE[0], EYE[1])
-] as const;
+/** Unit vectors in plan: left to right on screen, and from the scene toward the camera. */
+const ACROSS = [-EYE[1] / (EYE_LENGTH * EYE_COSINE), EYE[0] / (EYE_LENGTH * EYE_COSINE)] as const;
+const TOWARD = [EYE[0] / (EYE_LENGTH * EYE_COSINE), EYE[1] / (EYE_LENGTH * EYE_COSINE)] as const;
+/**
+ * The lots follow one alley along world x. Seen from the front right the row steps toward the
+ * reader, so it fills a narrow stage as well as a wide one.
+ */
+const ROW_AXIS = [1, 0] as const;
 /** Depth of a lot toward the camera that the frame keeps, as a share of the lot width. */
 const LOT_REACH = 0.55;
-/** Half width of one lot across the view, as a share of the lot width, with margin. */
-const LOT_HALF_WIDTH = 0.78;
+/** Half width of one house across the view, as a share of the lot width. */
+const LOT_HALF_WIDTH = 0.66;
 
 /**
  * Frames the house under construction, or the whole row when all three stand.
  * Width and height are the viewport in CSS pixels.
  */
 function phaseView({ inputs, lots, active }: ConstructionPhases, width: number, height: number) {
-	const focus = active === undefined ? undefined : lots[active].centre;
-	const [x, y] = focus ?? [0, 0];
-	const reach = focus ? 0 : Math.hypot(...lots[lots.length - 1].centre);
+	const shown = active === undefined ? lots : [lots[active]];
+	const [x, y] = active === undefined ? [0, 0] : lots[active].centre;
+	const offsets = shown.map(({ centre }) => [centre[0] - x, centre[1] - y]);
+	const across = Math.max(...offsets.map(([dx, dy]) => Math.abs(dx * ACROSS[0] + dy * ACROSS[1])));
+	const depth = Math.max(...offsets.map(([dx, dy]) => Math.abs(dx * TOWARD[0] + dy * TOWARD[1])));
 	const halfHeight =
-		1.04 * ((inputs.height / 2) * EYE_COSINE + LOT_REACH * inputs.width * EYE_SINE);
-	const halfWidth = reach + LOT_HALF_WIDTH * inputs.width;
+		1.04 * ((inputs.height / 2) * EYE_COSINE + (LOT_REACH * inputs.width + depth) * EYE_SINE);
+	const halfWidth = across + LOT_HALF_WIDTH * inputs.width;
 	return {
 		center: [x, y, inputs.height / 2 - inputs.width * 0.06],
 		eye: EYE,

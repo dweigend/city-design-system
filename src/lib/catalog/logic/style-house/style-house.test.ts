@@ -92,8 +92,10 @@ describe('style houses', () => {
 		expect(row.parts.every((part) => part.role === 'neu' && part.finish)).toBe(true);
 		expect(row.lots.map(({ id }) => id)).toEqual([...styleHouseIds]);
 		expect(row.lots[1].centre).toEqual([0, 0, 0]);
-		expect(row.lots[2].centre[0] - row.lots[1].centre[0]).toBeGreaterThan(
-			row.inputs.width * Math.SQRT2
+		expect(row.lots[2].centre[0] - row.lots[1].centre[0]).toBeGreaterThan(row.inputs.width);
+		const diagonal = buildConstructionPhases([Math.SQRT1_2, Math.SQRT1_2]);
+		expect(diagonal.lots[2].centre[0] - diagonal.lots[1].centre[0]).toBeGreaterThan(
+			diagonal.inputs.width
 		);
 
 		const second = buildConstructionPhases(axis, 1);
