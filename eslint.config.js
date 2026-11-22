@@ -2,68 +2,147 @@ import prettier from 'eslint-config-prettier';
 import path from 'node:path';
 import js from '@eslint/js';
 import svelte from 'eslint-plugin-svelte';
-import { defineConfig, includeIgnoreFile } from 'eslint/config';
+import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 
+/** @param {string} selector @param {string} message */
+const forbid = (selector, message) => ({ selector, message });
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
+const code = '{js,mjs,cjs,ts,mts,cts,jsx,tsx}';
+const headlessLayers = 'src/lib/{core,domain,world}';
+const headless = [`${headlessLayers}/**/*.${code}`, `${headlessLayers}/**/*.svelte`];
+const library = 'src/lib/{core,domain,world,scene,ui}';
+const invalidLibraryPath = forbid(
+	'Program',
+	'Keep library files in a flat module directly under a layer.'
+);
+const kitPath = 'src/lib/ui/**';
+const stagePath = 'src/lib/scene/stage/**';
 
-/**
- * Runtime code that `tsconfig.json` covers. Tests and scripts use
- * `tsconfig.bun.json` and are linted without types.
- */
-const typedFiles = ['src/**/*.ts', 'src/**/*.svelte'];
-const untypedFiles = ['src/**/*.test.ts'];
+const namedExports = forbid('ExportAllDeclaration', 'Export each public name explicitly.');
+const color = '/#(?:[\\da-f]{8}|[\\da-f]{6}|[\\da-f]{4}|[\\da-f]{3})\\b|(?:rgb|hsl)a?\\(|^--/i';
+const colorValues = forbid(
+	`Literal[value=${color}], TemplateElement[value.cooked=${color}]`,
+	'Use a slot name in headless geometry.'
+);
+const styles = [
+	forbid('SvelteStyleElement', 'Put styles in src/app.css.'),
+	forbid(
+		'SvelteAttribute[key.name=/^style$/i], SvelteShorthandAttribute[key.name="style"]',
+		'Use a class instead of a style attribute.'
+	),
+	forbid('SvelteStyleDirective', 'Use a class instead of a style directive.')
+];
+const kitPackage = '/^(bits-ui|lucide-svelte)(?:\\/|$)/';
+const kit = forbid(
+	[
+		`:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression, TSImportType, TSExternalModuleReference) Literal[value=${kitPackage}]`,
+		`CallExpression[callee.name="require"] > Literal[value=${kitPackage}]`
+	].join(', '),
+	'Import Bits UI and Lucide only in src/lib/ui.'
+);
+const controls = forbid(
+	'SvelteElement[kind="html"][name.name=/^(button|input|select|textarea)$/i]',
+	'Use a control from src/lib/ui.'
+);
 
-/**
- * Type-aware rules from `recommendedTypeChecked` that still have findings. Measured counts and
- * the follow-up live in the typed-lint report; switch one on only after its findings are fixed.
- */
-const deferredTypeChecked = /** @type {const} */ ({
-	'@typescript-eslint/no-floating-promises': 'off',
-	'@typescript-eslint/no-unsafe-argument': 'off',
-	'@typescript-eslint/no-unsafe-assignment': 'off',
-	'@typescript-eslint/no-unsafe-call': 'off',
-	'@typescript-eslint/no-unsafe-member-access': 'off',
-	'@typescript-eslint/no-unsafe-return': 'off',
-	'@typescript-eslint/no-unnecessary-type-assertion': 'off'
-});
+/** @param {string} expression @param {string} names */
+function namedCallee(expression, names) {
+	const pattern = `/^(${names})$/`;
+	return `${expression} > :matches(Identifier[name=${pattern}], MemberExpression[property.name=${pattern}], MemberExpression[property.value=${pattern}]).callee`;
+}
 
-/** Type-aware rules of `recommendedTypeChecked`, applied only to `typedFiles`. */
-const typeCheckedRules = Object.fromEntries(
+const stage = [
+	forbid(
+		namedCallee(
+			'NewExpression',
+			'WebGPURenderer|WebGLRenderer|PerspectiveCamera|OrthographicCamera'
+		),
+		'Create renderers and cameras in src/lib/scene/stage.'
+	),
+	forbid(
+		namedCallee('CallExpression', 'setAnimationLoop|requestAnimationFrame'),
+		'Start frame loops in src/lib/scene/stage.'
+	)
+];
+
+// Flat config replaces selector lists. Compose the restrictions for each source path.
+const scopes = [
+	{
+		files: [`**/*.${code}`],
+		ignores: [kitPath, stagePath, ...headless],
+		rules: [namedExports, kit, ...stage]
+	},
+	{ files: [`${headlessLayers}/**/*.${code}`], rules: [namedExports, kit, ...stage, colorValues] },
+	{ files: [`${kitPath}/*.${code}`], rules: [namedExports, ...stage] },
+	{ files: [`${stagePath}/*.${code}`], rules: [namedExports, kit] },
+	{
+		files: ['**/*.svelte'],
+		ignores: [kitPath, stagePath, ...headless],
+		rules: [namedExports, kit, ...stage, ...styles, controls]
+	},
+	{
+		files: [`${headlessLayers}/**/*.svelte`],
+		rules: [namedExports, kit, ...stage, colorValues, ...styles, controls]
+	},
+	{ files: ['src/lib/ui/**/*.svelte'], rules: [namedExports, ...stage, ...styles] },
+	{ files: ['src/lib/scene/stage/**/*.svelte'], rules: [namedExports, kit, ...styles, controls] }
+];
+const typedRules = Object.fromEntries(
 	ts.configs.recommendedTypeCheckedOnly
 		.flatMap((config) => Object.entries(config.rules ?? {}))
 		.filter(([name]) => name.startsWith('@typescript-eslint/'))
 );
+/** @param {ReturnType<typeof forbid>[]} selectors @returns {['error', ...ReturnType<typeof forbid>[]]} */
+const restrict = (selectors) => ['error', ...selectors];
+
+const restrictedSyntax = scopes.flatMap(({ rules, files, ignores = [] }) => [
+	{ files, ignores, rules: { 'no-restricted-syntax': restrict(rules) } },
+	{
+		files: files.map((file) => [file, 'src/lib/**']),
+		ignores: [...ignores, `${library}/*/*`],
+		rules: { 'no-restricted-syntax': restrict([...rules, invalidLibraryPath]) }
+	}
+]);
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
+	globalIgnores(['scripts/fixtures/rules/']),
 	js.configs.recommended,
 	ts.configs.recommended,
 	svelte.configs.recommended,
 	prettier,
 	svelte.configs.prettier,
 	{
+		linterOptions: { noInlineConfig: true },
 		languageOptions: { globals: { ...globals.browser, ...globals.node } },
 		rules: {
-			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
-			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			'no-undef': 'off',
+			'@typescript-eslint/no-non-null-assertion': 'error',
+			complexity: ['warn', 10],
+			'max-lines': ['warn', { max: 200, skipBlankLines: true, skipComments: true }]
 		}
 	},
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
-		languageOptions: {
-			parserOptions: {
-				projectService: true,
-				extraFileExtensions: ['.svelte'],
-				parser: ts.parser
-			}
+		languageOptions: { parserOptions: { parser: ts.parser } }
+	},
+	{
+		files: headless,
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					globals: ['window', 'document', 'navigator', 'requestAnimationFrame'],
+					checkGlobalObject: true
+				}
+			]
 		}
 	},
 	{
-		files: typedFiles,
-		ignores: untypedFiles,
+		files: ['src/**/*.ts', 'src/**/*.svelte'],
+		ignores: ['src/**/*.test.ts'],
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
@@ -72,9 +151,7 @@ export default defineConfig(
 			}
 		},
 		rules: {
-			...typeCheckedRules,
-			...deferredTypeChecked,
-			// A `default` branch counts as handled; switches without one must cover every variant (C-21).
+			...typedRules,
 			'@typescript-eslint/switch-exhaustiveness-check': [
 				'error',
 				{ considerDefaultExhaustiveForUnions: true }
@@ -82,30 +159,9 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {
-			'@typescript-eslint/no-explicit-any': 'error',
-			'@typescript-eslint/no-non-null-assertion': 'error',
-			complexity: ['warn', 10],
-			'max-lines': ['warn', { max: 200, skipBlankLines: true, skipComments: true }]
-		}
+		files: ['src/**/*.svelte'],
+		// Svelte-check validates template calls, including inferred snippet props.
+		rules: { '@typescript-eslint/no-unsafe-call': 'off' }
 	},
-	{
-		files: ['src/routes/**/*.svelte'],
-		rules: {
-			'no-restricted-syntax': [
-				'error',
-				{ selector: 'SvelteStyleElement', message: 'Route CSS belongs in src/app.css.' },
-				{
-					selector: 'SvelteAttribute[key.name="style"]',
-					message: 'Route style attributes are forbidden.'
-				},
-				{
-					selector: 'SvelteStyleDirective',
-					message: 'Route style directives are forbidden.'
-				}
-			]
-		}
-	}
+	...restrictedSyntax
 );

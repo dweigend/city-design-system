@@ -1,0 +1,2 @@
+[test]
+pathIgnorePatterns = ["scripts/fixtures/rules/**"]

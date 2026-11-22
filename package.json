@@ -14,7 +14,7 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test": "bun test",
-		"check:boundaries": "depcruise src scripts --config .dependency-cruiser.cjs",
+		"check:boundaries": "bun scripts/check-boundaries.ts",
 		"check:skills": "bun scripts/check-private-skills.ts",
 		"bootstrap": "bun scripts/bootstrap-worktree.ts",
 		"verify": "bun scripts/verify.ts",
