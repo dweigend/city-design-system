@@ -44,12 +44,16 @@ import { defaultStyle, type SceneStyle } from '../logic/parametrik/style';
 export type View = { center: Vec3; span: number; eye?: Vec3 };
 /** Optional grouping for the view layer: groups move as a whole (explosion, build phases). */
 export type GroupOf = (p: Primitive) => string;
-/** One scene per canvas. Geometry updates never allocate another WebGL context. */
+/**
+ * One scene per canvas. Geometry updates never allocate another WebGL context.
+ * interactive: true orbits, pans and zooms; 'turn' only orbits and leaves wheel and vertical
+ * touch scrolling to the page, for a view inside running text; false is a still picture.
+ */
 export function createParametrikScene(
 	canvas: HTMLCanvasElement,
 	palette: Palette3D,
 	onError: () => void,
-	interactive = true,
+	interactive: boolean | 'turn' = true,
 	backdrop = false
 ) {
 	const renderer = createDrawingRenderer(canvas);
@@ -112,7 +116,11 @@ export function createParametrikScene(
 		if (!fitting) moved = true;
 		render();
 	});
-	if (controls) {
+	if (controls && interactive === 'turn') {
+		controls.enableZoom = false;
+		controls.enablePan = false;
+		canvas.style.touchAction = 'pan-y';
+	} else if (controls) {
 		controls.minZoom = 0.1;
 		controls.maxZoom = 12;
 		controls.listenToKeyEvents(canvas);
