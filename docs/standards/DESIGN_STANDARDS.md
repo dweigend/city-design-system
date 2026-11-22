@@ -16,27 +16,27 @@ The [design principles register](../../src/routes/design-principles.ts) owns the
 
 [The Interface chapter](../../src/routes/interface/+page.svelte) shows the styles defined in [`src/app.css`](../../src/app.css).
 
-| ID    | Rule                                                                                                                                                    |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DS-10 | Styles are shared across pages and controls. Compose element defaults and classes from `src/app.css`.                                                   |
-| DS-11 | The same palette names apply in both themes. `[data-theme='dark']` sets the dark variant.                                                               |
-| DS-12 | Layout spacing uses multiples of 0.25 rem (4 px at the default text size). The stylesheet defines one radius, one stroke width and one motion duration. |
+| ID    | Rule                                                                                                                                                                                |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DS-10 | Styles are shared across pages and controls. Compose element defaults and classes from `src/app.css`.                                                                               |
+| DS-11 | The same palette names apply in both themes. `[data-theme='dark']` sets the dark variant.                                                                                           |
+| DS-12 | Layout spacing uses multiples of 4 px. Surfaces have square corners, hairlines measure 1 px, emphasis and focus strokes measure 2 px, and transitions use the shared 120 ms timing. |
 
 ### Typography
 
 Geist is the sans family. Geist Mono is used for code, labels and values. Sizes below are at the default browser font size.
 
-| Element or class | Size     | Use                                                |
-| ---------------- | -------- | -------------------------------------------------- |
-| `h1`             | 40–64 px | Page title, scales with the viewport               |
-| `h2`             | 24 px    | Section heading                                    |
-| `h3`             | 20 px    | Subsection heading                                 |
-| `p`              | 16 px    | Body paragraph                                     |
-| `.lead`          | 20 px    | Intro paragraph                                    |
-| `.small`         | 13 px    | Secondary text                                     |
-| `.caption`       | 13 px    | Picture caption, also the default for `figcaption` |
-| `.label`         | 11 px    | Uppercase UI and axis labels                       |
-| `.data`          | 13 px    | Monospaced numbers and values                      |
+| Element or class | Size       | Use                                                |
+| ---------------- | ---------- | -------------------------------------------------- |
+| `h1`             | 40 / 64 px | Page title, 40 px at 720 px and below              |
+| `h2`             | 24 px      | Section heading                                    |
+| `h3`             | 16 px      | Subsection heading                                 |
+| `p`              | 16 px      | Body paragraph                                     |
+| `.lead`          | 16 px      | Intro paragraph                                    |
+| `.small`         | 13 px      | Secondary text                                     |
+| `.caption`       | 13 px      | Picture caption, also the default for `figcaption` |
+| `.label`         | 11 px      | Uppercase UI and axis labels                       |
+| `.data`          | 11 px      | Monospaced numbers and values                      |
 
 Links, lists, figures, images, rules, inline code and tables have shared element defaults.
 
@@ -54,7 +54,7 @@ Links, lists, figures, images, rules, inline code and tables have shared element
 
 ### Palette
 
-The palette contains paper, ink and line, categories and flows, ground and terrain, blueprint, signal and hazard, and analysis tones. The Interface chapter displays these colors with a `.swatch` class and a modifier for each token. Literal color values, including hex, OKLCH and RGB, belong only in `src/app.css`.
+The palette includes the paper and ink ramp, five flow ramps, nature and ground tones, blueprint, signal and hazard, analysis tones, and text colors for flow and accent surfaces. Opacity tokens cover solid, glass, envelope and trace. The Interface chapter shows the five ramp steps from Surroundings to Core. Network is step 4 and carries the base tone. The `.swatch` class and its modifiers display the palette and opacities. Literal color values, including hex, OKLCH and RGB, belong only in `src/app.css`.
 
 ## Color and Material
 

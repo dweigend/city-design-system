@@ -74,14 +74,16 @@ try {
 	for (const route of routes) {
 		const url = new URL(route, origin);
 		if (url.origin !== origin) throw Error('Expected a local preview route');
-		for (const [size, width, height] of [
-			['phone', 390, 844],
-			['short-desktop', 1280, 640]
+		for (const [size, width, height, theme] of [
+			['phone', 390, 844, 'light'],
+			['short-desktop', 1280, 640, 'light'],
+			['dark-desktop', 1280, 640, 'dark']
 		] as const) {
+			if (theme === 'dark' && url.pathname !== '/interface') continue;
 			const page = await browser.newPage({
 				viewport: { width, height },
 				deviceScaleFactor: 1,
-				colorScheme: 'light',
+				colorScheme: theme,
 				reducedMotion: 'reduce'
 			});
 			try {
@@ -99,15 +101,21 @@ try {
 					throw Error('Hardware proof failed: ' + renderer);
 
 				const key = Buffer.from(route).toString('base64url') + '-' + size;
-				const image = key + '.png';
+				const fullImage = key + '-full.png';
+				const image = theme === 'light' ? key + '.png' : fullImage;
 				const sheet = key + '-sheet.png';
 				const current = resolve(folder, image);
-				await page.screenshot({ path: current, animations: 'disabled' });
+				if (theme === 'light') await page.screenshot({ path: current, animations: 'disabled' });
+				await page.screenshot({
+					path: resolve(folder, fullImage),
+					animations: 'disabled',
+					fullPage: true
+				});
 
 				const baseline = previous?.records.find((r) => r.route === route && r.size === size);
 				const panels = ['-label', 'After', current];
 				if (baseline && before) panels.unshift('-label', 'Before', resolve(before, baseline.image));
-				if (reference) panels.push('-label', 'Reference', reference);
+				if (reference && theme === 'light') panels.push('-label', 'Reference', reference);
 				const hasComparison = panels.length > 3;
 				if (hasComparison) {
 					execFileSync('montage', [
@@ -129,7 +137,9 @@ try {
 					size,
 					width,
 					height,
+					theme,
 					image,
+					fullImage,
 					sheet: hasComparison ? sheet : undefined,
 					backend,
 					renderer
@@ -152,7 +162,6 @@ await Bun.write(
 			origin,
 			before,
 			reference,
-			theme: 'light',
 			reducedMotion: true,
 			deviceScaleFactor: 1,
 			browser: browser.version(),

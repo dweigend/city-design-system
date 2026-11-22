@@ -24,7 +24,7 @@ heavy-slot -- bun run dev --host 127.0.0.1 --port 5182 --strictPort
 heavy-slot --wait 180 -- bun run shot
 ```
 
-Shot verifies the preview worktree and revision, then captures `/` in Chrome at 390 × 844 and 1280 × 640. It checks the browser's GPU and writes the screenshots and manifest under `_lokal/rebuild-shots/`. Pass a route to capture a different page. Supply `--reference /absolute/path/to/image.png` or a matching first-parent capture with `--before <shot-folder>` to create comparison sheets.
+Shot verifies the preview worktree and revision, then captures `/` in Chrome at 390 × 844 and 1280 × 640. Each route gets viewport and full-page shots at both sizes. The Interface route also gets a full-page dark desktop shot. The script checks the browser's GPU and writes the screenshots and manifest under `_lokal/rebuild-shots/`. Pass a route to capture a different page. Supply `--reference /absolute/path/to/image.png` or a matching first-parent capture with `--before <shot-folder>` to create comparison sheets.
 
 ## Ship a package
 
