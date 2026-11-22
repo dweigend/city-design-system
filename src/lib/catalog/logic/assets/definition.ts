@@ -68,24 +68,33 @@ export type RibbonSection = {
 	readonly right: Vec3;
 };
 
-/** Surveyed terminal port in world metres; heading is outward plan angle in radians CCW from +x. */
+/** Surveyed terminal port in world metres; heading is the surveyed plan axis angle in radians CCW from +x. */
 export type RibbonPort = {
 	readonly id: string;
 	readonly position: readonly [number, number, number];
 	readonly heading: number;
-	readonly width: number;
+};
+
+/** Explicit terminal ports for a surveyed ribbon segment, keyed by segment endpoint. */
+export type RibbonPorts = {
+	readonly start?: RibbonPort;
+	readonly end?: RibbonPort;
 };
 
 /**
  * Caller-prepared site input for a ribbon-segment instance.
  * Coordinates are world metres with origin `[0, 0, 0]`, x/y ground plane and z up.
+ * Built geometry, anchors and footprint stay in world metres; site consumers locate plan
+ * bounds from the emitted world-space geometry and join neighbours at the outward-facing
+ * terminal anchors.
  */
 export type RibbonSegmentSite = {
 	readonly sections: readonly RibbonSection[];
 	readonly ground: (x: number, y: number) => number;
-	readonly ports?: readonly RibbonPort[];
+	readonly ports?: RibbonPorts;
 };
 
+/** World-space site build result; `footprint` encloses the full emitted geometry in plan metres. */
 export type SiteBuildResult = {
 	geometry: ObjectGeometry[];
 	footprint: readonly [number, number];

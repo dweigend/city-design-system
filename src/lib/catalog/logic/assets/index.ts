@@ -5,7 +5,8 @@ import type {
 	ColorToken,
 	BuildingSurface,
 	MaterialId,
-	Role
+	Role,
+	Vec3
 } from '../parametrik/types';
 import { finishMaterial } from '../material/surface';
 import { recipes } from './recipes';
@@ -14,8 +15,9 @@ import { suggestedSurface } from './slot-defaults';
 
 export { assetCategories, type AssetCategory } from './definition';
 export { shellElevationPoint } from './full-height-shell';
+export { ribbonDimensions, ribbonPierGeometry } from './ribbon-segment';
 export type { ObjectGeometry } from './object-geometry';
-export type { RibbonPort, RibbonSection, RibbonSegmentSite } from './definition';
+export type { RibbonPort, RibbonPorts, RibbonSection, RibbonSegmentSite } from './definition';
 export type SlotAssignment = {
 	token: ColorToken;
 	finish: FinishId;
@@ -106,20 +108,30 @@ export function buildObject(
 				footprint: recipe.footprint,
 				anchors: recipe.anchors
 			};
-	const parts = built.geometry.map(({ slot, ...shape }): Primitive => {
+	const geometry = built.geometry.map((part) => structuredClone(part));
+	const parts = geometry.map(({ slot, ...shape }): Primitive => {
 		const suggestion = defaults[slot];
 		const key =
 			slot === 'figure' && recipe.legacyFigureSlot && !options.slots?.figure
 				? recipe.legacyFigureSlot
 				: slot;
-		return { ...shape, ...dressSlot(suggestion, options.slots?.[key], options.building, key) };
+		return {
+			...structuredClone(shape),
+			...dressSlot(suggestion, options.slots?.[key], options.building, key)
+		};
 	});
+	const footprint: readonly [number, number] = [built.footprint[0], built.footprint[1]];
+	const anchors = built.anchors.map((a) => ({
+		attachment: a.attachment,
+		position: [...a.position] as Vec3,
+		normal: [...a.normal] as Vec3
+	}));
 	return {
-		geometry: built.geometry,
+		geometry,
 		defaults,
 		parts,
-		footprint: built.footprint,
-		anchors: built.anchors
+		footprint,
+		anchors
 	};
 }
 

@@ -1,7 +1,7 @@
-import { buildObject, type ObjectSurface } from '../assets';
+import { buildObject, type MaterialAssignment, type SlotAssignment } from '../assets';
 import { finishMaterial } from '../material/surface';
 import { projectGroundLanding } from './ground-landing';
-import { edgePath, type MovementGraph, type MovementPort } from '../movement-network';
+import { edgePath, type MovementGraph } from '../movement-network';
 import { edgeSections } from './edge-sections';
 import { stairEdge } from './path-deck';
 import { column, ribbonProfile } from './ribbon-column';
@@ -11,10 +11,19 @@ import { guardRuns, landingGround } from './guard-runs';
 import { pathSurfaces } from './town-palette';
 
 type Ground = (x: number, y: number) => number;
-/** Optional surface overrides for ribbon walking decks, piers and guards. */
-export type RibbonSlots = Partial<Record<'walking' | 'bearing' | 'guard', ObjectSurface>>;
+type RibbonSlotSurface = SlotAssignment | MaterialAssignment;
+/**
+ * Optional surface overrides for swept ribbon segments (`walking`, `bearing`) and their
+ * exposed guards (`guard`). Stairs, landings and junctions keep `pathSurfaces`.
+ */
+export type RibbonSlots = Partial<Record<'walking' | 'bearing' | 'guard', RibbonSlotSurface>>;
 
-function guardSurface(assignment: ObjectSurface | undefined) {
+const productionSegmentSlots: Readonly<Record<'walking' | 'bearing', SlotAssignment>> = {
+	walking: { token: pathSurfaces.walking.token, finish: pathSurfaces.walking.finish },
+	bearing: { token: pathSurfaces.bearing.token, finish: pathSurfaces.bearing.finish }
+};
+
+function guardSurface(assignment: RibbonSlotSurface | undefined) {
 	if (assignment && 'material' in assignment && !('finish' in assignment)) {
 		return {
 			role: assignment.role ?? pathSurfaces.guard.role,
@@ -24,6 +33,7 @@ function guardSurface(assignment: ObjectSurface | undefined) {
 	if (assignment && 'token' in assignment) {
 		return {
 			role: pathSurfaces.guard.role,
+			...(assignment.colourRole && { colourRole: assignment.colourRole }),
 			material: finishMaterial(assignment.finish),
 			token: assignment.token,
 			...(assignment.finish === 'city-drawing' ? {} : { finish: assignment.finish })
@@ -32,7 +42,7 @@ function guardSurface(assignment: ObjectSurface | undefined) {
 	return pathSurfaces.guard;
 }
 
-function guard(path: Vec3[], id: string, surface: ObjectSurface | undefined): Primitive[] {
+function guard(path: Vec3[], id: string, surface: RibbonSlotSurface | undefined): Primitive[] {
 	const railHeight = 1.04;
 	const dress = guardSurface(surface);
 	return [
@@ -57,11 +67,12 @@ function guard(path: Vec3[], id: string, surface: ObjectSurface | undefined): Pr
 	];
 }
 
-function segmentSlots(slots: RibbonSlots | undefined) {
-	if (!slots?.walking && !slots?.bearing) return undefined;
+function segmentSlots(
+	slots: RibbonSlots | undefined
+): Readonly<Record<'walking' | 'bearing', RibbonSlotSurface>> {
 	return {
-		...(slots.walking && { walking: slots.walking }),
-		...(slots.bearing && { bearing: slots.bearing })
+		walking: slots?.walking ?? productionSegmentSlots.walking,
+		bearing: slots?.bearing ?? productionSegmentSlots.bearing
 	};
 }
 
@@ -105,12 +116,10 @@ export function ribbonDeck(
 			);
 		}
 		const variant = e.kind === 'tunnel' ? 'tunnel' : landings.has(e.to) ? 'paired' : 'supported';
-		const edgePorts = [ports.get(e.from), ports.get(e.to)].filter(
-			(p): p is MovementPort => p !== undefined
-		);
+		const edgePorts = { start: ports.get(e.from), end: ports.get(e.to) };
 		return buildObject('ribbon-segment', variant, 0, {
 			instanceId: e.id,
-			...(ribbonSurface && { slots: ribbonSurface }),
+			slots: ribbonSurface,
 			site: { sections, ground, ports: edgePorts }
 		}).parts;
 	});

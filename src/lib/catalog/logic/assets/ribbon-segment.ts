@@ -5,21 +5,26 @@ import {
 	type AssetAnchor,
 	type AssetRecipe,
 	type RibbonPort,
+	type RibbonPorts,
 	type RibbonSection,
 	type RibbonSegmentSite,
 	type SiteBuildResult
 } from './definition';
 import type { ObjectGeometry } from './object-geometry';
 
-const RIBBON_DEPTH_M = 0.09;
-const SOFFIT_INSET_RATIO = 0.09;
-const COLUMN_RADIUS_M = 0.16;
-const COLUMN_BAY_M = 4.8;
-const MIN_COLUMN_HEIGHT_M = 0.04;
-const PAIRED_OFFSET_RATIO = 0.75;
+/** Shared headless ribbon deck and pier dimensions in metres (single owner for segments, junctions and stairs). */
+export const ribbonDimensions = {
+	width: 1.8,
+	depth: 0.09,
+	soffitInsetRatio: 0.09,
+	columnRadius: 0.16,
+	bay: 4.8,
+	minColumnHeight: 0.04,
+	pairedOffsetRatio: 0.75
+} as const;
 
 const STOCK_LENGTH_M = 6;
-const STOCK_WIDTH_M = 1.8;
+const STOCK_WIDTH_M = ribbonDimensions.width;
 const STOCK_ELEVATION_M = 2.4;
 
 const stockSections: readonly RibbonSection[] = [
@@ -37,14 +42,16 @@ const stockSections: readonly RibbonSection[] = [
 
 const stockAnchors: readonly AssetAnchor[] = [mount('deck')];
 
-function pierGeometry(
+/** Seats a colour-free vertical pier cylinder between finished terrain and the deck soffit. */
+export function ribbonPierGeometry(
 	id: string,
 	p: Vec3,
-	ground: (x: number, y: number) => number
+	ground: (x: number, y: number) => number,
+	depth: number = ribbonDimensions.depth
 ): ObjectGeometry[] {
 	const base = ground(p[0], p[1]);
-	const height = p[2] - RIBBON_DEPTH_M - base;
-	if (!Number.isFinite(height) || height <= MIN_COLUMN_HEIGHT_M) return [];
+	const height = p[2] - depth - base;
+	if (!Number.isFinite(height) || height <= ribbonDimensions.minColumnHeight) return [];
 	return [
 		{
 			id,
@@ -53,7 +60,7 @@ function pierGeometry(
 			kind: 'cylinder',
 			position: [p[0], p[1], base],
 			height,
-			radius: COLUMN_RADIUS_M
+			radius: ribbonDimensions.columnRadius
 		}
 	];
 }
@@ -67,15 +74,15 @@ function segmentGeometry(
 ): ObjectGeometry[] {
 	// Recess the soffit under the walking edge so the rim casts a narrow shadow.
 	const soffit = (p: Vec3, centre: Vec3): Vec3 => [
-		p[0] + SOFFIT_INSET_RATIO * (centre[0] - p[0]),
-		p[1] + SOFFIT_INSET_RATIO * (centre[1] - p[1]),
-		p[2] - RIBBON_DEPTH_M
+		p[0] + ribbonDimensions.soffitInsetRatio * (centre[0] - p[0]),
+		p[1] + ribbonDimensions.soffitInsetRatio * (centre[1] - p[1]),
+		p[2] - ribbonDimensions.depth
 	];
 	const rings = sections.map(({ left, right, centre }) => [
 		soffit(right, centre),
 		soffit(left, centre),
-		left,
-		right
+		[left[0], left[1], left[2]] as Vec3,
+		[right[0], right[1], right[2]] as Vec3
 	]);
 	const deck: ObjectGeometry = {
 		id: prefix + '/ramp',
@@ -86,60 +93,91 @@ function segmentGeometry(
 	if (!supported) return [deck];
 	const paths = paired
 		? (['left', 'right'] as const).map((side) =>
-				sections.map((s) => interpolatePoint(s.centre, s[side], PAIRED_OFFSET_RATIO))
+				sections.map((s) => interpolatePoint(s.centre, s[side], ribbonDimensions.pairedOffsetRatio))
 			)
 		: [sections.map((s) => s.centre)];
 	return [
 		deck,
 		...paths.flatMap((path, side) =>
-			pathSupports(path, COLUMN_BAY_M).flatMap((p, i) =>
-				pierGeometry(prefix + '/pier/' + (paired ? side + '/' : '') + i, p, ground)
+			pathSupports(path, ribbonDimensions.bay).flatMap((p, i) =>
+				ribbonPierGeometry(prefix + '/pier/' + (paired ? side + '/' : '') + i, p, ground)
 			)
 		)
 	];
 }
 
-function sectionFootprint(sections: readonly RibbonSection[]): readonly [number, number] {
+function geometryFootprint(geometry: readonly ObjectGeometry[]): readonly [number, number] {
 	let minX = Infinity,
 		maxX = -Infinity,
 		minY = Infinity,
 		maxY = -Infinity;
-	for (const { left, right, centre } of sections) {
-		for (const [x, y] of [left, right, centre]) {
-			if (x < minX) minX = x;
-			if (x > maxX) maxX = x;
-			if (y < minY) minY = y;
-			if (y > maxY) maxY = y;
+	const include = (x: number, y: number, r = 0) => {
+		if (x - r < minX) minX = x - r;
+		if (x + r > maxX) maxX = x + r;
+		if (y - r < minY) minY = y - r;
+		if (y + r > maxY) maxY = y + r;
+	};
+	for (const part of geometry) {
+		if (part.kind === 'mesh') {
+			for (const [x, y] of part.points) include(x, y);
+		} else if (part.kind === 'cylinder') {
+			include(part.position[0], part.position[1], part.radius);
+		} else if (part.kind === 'pipe') {
+			for (const [x, y] of part.points) include(x, y, part.radius);
 		}
 	}
 	return [maxX - minX, maxY - minY];
 }
 
-function terminalNormal(from: Vec3, to: Vec3): Vec3 {
-	const dx = to[0] - from[0],
-		dy = to[1] - from[1],
-		len = Math.hypot(dx, dy);
-	return len > 0 ? [dx / len, dy / len, 0] : [1, 0, 0];
+function outwardTangent(sections: readonly RibbonSection[], end: 'start' | 'end'): Vec3 {
+	if (end === 'start') {
+		const anchor = sections[0].centre;
+		for (let i = 1; i < sections.length; i++) {
+			const dx = anchor[0] - sections[i].centre[0];
+			const dy = anchor[1] - sections[i].centre[1];
+			const len = Math.hypot(dx, dy);
+			if (len > 1e-12) return [dx / len, dy / len, 0];
+		}
+		return [-1, 0, 0];
+	}
+	const anchor = sections[sections.length - 1].centre;
+	for (let i = sections.length - 2; i >= 0; i--) {
+		const dx = anchor[0] - sections[i].centre[0];
+		const dy = anchor[1] - sections[i].centre[1];
+		const len = Math.hypot(dx, dy);
+		if (len > 1e-12) return [dx / len, dy / len, 0];
+	}
+	return [1, 0, 0];
+}
+
+function outwardPortNormal(heading: number, outward: Vec3): Vec3 {
+	const nx = Math.cos(heading);
+	const ny = Math.sin(heading);
+	return nx * outward[0] + ny * outward[1] < 0 ? [-nx, -ny, 0] : [nx, ny, 0];
+}
+
+function endpointAnchor(
+	sections: readonly RibbonSection[],
+	end: 'start' | 'end',
+	port: RibbonPort | undefined
+): AssetAnchor {
+	const outward = outwardTangent(sections, end);
+	const fallback = end === 'start' ? sections[0].centre : sections[sections.length - 1].centre;
+	const pos = port ? port.position : fallback;
+	return {
+		attachment: 'deck',
+		position: [pos[0], pos[1], pos[2]],
+		normal: port ? outwardPortNormal(port.heading, outward) : outward
+	};
 }
 
 function segmentAnchors(
 	sections: readonly RibbonSection[],
-	ports?: readonly RibbonPort[]
+	ports?: RibbonPorts
 ): readonly AssetAnchor[] {
-	if (ports && ports.length > 0) {
-		return ports.map((port) => ({
-			attachment: 'deck',
-			position: [port.position[0], port.position[1], port.position[2]],
-			normal: [Math.cos(port.heading), Math.sin(port.heading), 0]
-		}));
-	}
-	const first = sections[0].centre;
-	const second = sections[1].centre;
-	const prev = sections[sections.length - 2].centre;
-	const last = sections[sections.length - 1].centre;
 	return [
-		{ attachment: 'deck', position: [...first], normal: terminalNormal(second, first) },
-		{ attachment: 'deck', position: [...last], normal: terminalNormal(prev, last) }
+		endpointAnchor(sections, 'start', ports?.start),
+		endpointAnchor(sections, 'end', ports?.end)
 	];
 }
 
@@ -153,9 +191,10 @@ function drawSite(
 		throw new RangeError('Ribbon segment site requires at least two surveyed sections');
 	const supported = variant !== 2;
 	const paired = variant === 1;
+	const geometry = segmentGeometry(instanceId, site.sections, site.ground, supported, paired);
 	return {
-		geometry: segmentGeometry(instanceId, site.sections, site.ground, supported, paired),
-		footprint: sectionFootprint(site.sections),
+		geometry,
+		footprint: geometryFootprint(geometry),
 		anchors: segmentAnchors(site.sections, site.ports)
 	};
 }
