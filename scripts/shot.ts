@@ -29,13 +29,12 @@ const requestedRoutes = positionals.length
 		: process.env.SHOT_ROUTE
 			? [process.env.SHOT_ROUTE]
 			: ['/', '/landscape', '/interface', '/blocks'];
-const landscapeVariants = [
-	'/landscape?view=plan',
-	'/landscape?sinuosity=1.04',
-	'/landscape?sinuosity=1.28'
-];
+const variants: Record<string, readonly string[]> = {
+	'/landscape': ['?view=plan', '?sinuosity=1.04', '?sinuosity=1.28'],
+	'/city': ['?view=plan', '?site=180', '?site=440']
+};
 const routes = requestedRoutes.flatMap((route) =>
-	route === '/landscape' && !values.size ? [route, ...landscapeVariants] : [route]
+	values.size ? [route] : [route, ...(variants[route] ?? []).map((query) => route + query)]
 );
 const sizes = [
 	['phone', 390, 844, 'light'],
@@ -95,8 +94,9 @@ try {
 	for (const route of routes) {
 		const url = new URL(route, origin);
 		if (url.origin !== origin) throw Error('Expected a local preview route');
-		const hasStage = url.pathname === '/blocks' || url.pathname === '/landscape';
-		const isVariant = url.pathname === '/landscape' && url.search.length > 0;
+		const isCity = url.pathname === '/city';
+		const hasStage = isCity || url.pathname === '/blocks' || url.pathname === '/landscape';
+		const isVariant = (isCity || url.pathname === '/landscape') && url.search.length > 0;
 		for (const [size, width, height, theme] of sizes) {
 			if (values.size && values.size !== size) continue;
 			if (!values.size && isVariant && size !== 'desktop') continue;
@@ -104,9 +104,11 @@ try {
 			const showDarkStage = size === 'dark-desktop' && hasStage;
 			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu && !showDarkStage)
 				continue;
+			const cropStage = isCity && size === 'desktop' && (!isVariant || url.search === '?view=plan');
+			const deviceScaleFactor = cropStage ? 2 : 1;
 			const page = await browser.newPage({
 				viewport: { width, height },
-				deviceScaleFactor: 1,
+				deviceScaleFactor,
 				colorScheme: theme,
 				reducedMotion: 'reduce'
 			});
@@ -133,12 +135,28 @@ try {
 				const image = hasStage || theme === 'dark' ? fullImage : key + '.png';
 				const current = resolve(folder, image);
 				if (theme === 'light')
-					await page.screenshot({ path: resolve(folder, key + '.png'), animations: 'disabled' });
+					await page.screenshot({
+						path: resolve(folder, key + '.png'),
+						animations: 'disabled',
+						scale: 'css'
+					});
 				await page.screenshot({
 					path: resolve(folder, fullImage),
 					animations: 'disabled',
-					fullPage: true
+					fullPage: true,
+					scale: 'css'
 				});
+
+				const stageImage = cropStage ? key + '-stage-2x.png' : undefined;
+				if (stageImage)
+					await page
+						.locator('.frame')
+						.filter({ has: page.locator('canvas[data-stage-ready]') })
+						.screenshot({
+							path: resolve(folder, stageImage),
+							animations: 'disabled',
+							scale: 'device'
+						});
 
 				const baseline = previous?.records.find((r) => r.route === route && r.size === size);
 				const panels = ['-label', 'After', current];
@@ -169,6 +187,8 @@ try {
 					chapterMenuOpen: showChapterMenu,
 					image,
 					fullImage,
+					stageImage,
+					deviceScaleFactor,
 					sheet,
 					backend,
 					renderer
@@ -189,7 +209,6 @@ const manifest = {
 	before,
 	reference,
 	reducedMotion: true,
-	deviceScaleFactor: 1,
 	browser: browser.version(),
 	records
 };
