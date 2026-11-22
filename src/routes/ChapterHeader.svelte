@@ -4,7 +4,7 @@
 
 <header class="chapter-header stack">
 	<div>
-		<p class="label chapter-number">{number}</p>
+		<p class="label chapter-number">Chapter {number}</p>
 		<h1>{title}</h1>
 	</div>
 	<p class="lead">{lead}</p>
