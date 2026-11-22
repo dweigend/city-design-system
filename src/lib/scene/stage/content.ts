@@ -15,14 +15,18 @@ export function hasSameGeometry(
 ) {
 	return (
 		parts.length === drawables.length &&
-		parts.every(
-			({ drawable }, index) =>
-				drawable.id === drawables[index].id &&
-				drawable.shape === drawables[index].shape &&
-				drawable.boundaryStroke === drawables[index].boundaryStroke &&
-				drawable.strokeSegments === drawables[index].strokeSegments &&
-				(drawable.finish === 'line') === (drawables[index].finish === 'line')
-		)
+		parts.every(({ drawable }, index) => sameGeometry(drawable, drawables[index]))
+	);
+}
+
+function sameGeometry(a: Drawable, b: Drawable) {
+	return (
+		a.id === b.id &&
+		a.shape === b.shape &&
+		a.boundaryStroke === b.boundaryStroke &&
+		a.strokeSegments === b.strokeSegments &&
+		a.terrainField === b.terrainField &&
+		(a.finish === 'line') === (b.finish === 'line')
 	);
 }
 
@@ -84,64 +88,110 @@ function projectStroke(
 	return line;
 }
 
-export function projectContent(
-	drawables: readonly Drawable[],
+type Part = ReturnType<typeof project>;
+
+function disposePart({ drawable, mesh, lines, grid, atlas }: Part) {
+	mesh.geometry.dispose();
+	mesh.material.dispose();
+	atlas?.dispose();
+	if (grid || drawable.strokeSegments) for (const line of lines) line.material.dispose();
+	for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();
+}
+
+function toBounds(box: Box3): Bounds3 {
+	return box.isEmpty()
+		? { min: [0, 0, 0], max: [0, 0, 0] }
+		: { min: box.min.toArray(), max: box.max.toArray() };
+}
+
+export function createContent(
 	strokes: ReturnType<typeof strokeMaterials>,
 	palette: ReturnType<typeof drawingPalette>,
 	landscape: boolean
 ) {
-	const box = new Box3();
 	const group = new Group();
-	const parts = drawables.map((drawable) => project(drawable, strokes, palette, landscape));
-	for (const { mesh, lines } of parts) {
-		group.add(mesh, ...lines);
-		if (mesh.geometry.boundingBox) box.union(mesh.geometry.boundingBox);
+	let parts: Part[] = [];
+	let ground: ReturnType<typeof projectGround> | undefined;
+	const box = new Box3();
+	const footprint = new Box3();
+
+	function deleteGround() {
+		if (!ground) return;
+		group.remove(ground.shadow, ground.outline);
+		ground.shadow.geometry.dispose();
+		ground.shadow.material.dispose();
+		ground.outline.geometry.dispose();
+		ground = undefined;
 	}
 
-	const footprint = new Box3();
-	for (const { mesh } of parts) {
-		const part = mesh.geometry.boundingBox;
-		if (part?.min.z === box.min.z) footprint.union(part);
-	}
-	const bounds: Bounds3 = box.isEmpty()
-		? { min: [0, 0, 0], max: [0, 0, 0] }
-		: { min: box.min.toArray(), max: box.max.toArray() };
-	const ground = footprint.isEmpty()
-		? undefined
-		: projectGround(
-				bounds,
-				{ min: footprint.min.toArray(), max: footprint.max.toArray() },
-				strokes.ground
-			);
-	if (ground) {
+	function fitGround() {
+		const nextBox = new Box3();
+		const nextFootprint = new Box3();
+		const boxes = parts.flatMap(({ mesh }) => mesh.geometry.boundingBox ?? []);
+		for (const bounds of boxes) nextBox.union(bounds);
+		for (const bounds of boxes) {
+			if (bounds.min.z === nextBox.min.z) nextFootprint.union(bounds);
+		}
+		if (box.equals(nextBox) && footprint.equals(nextFootprint)) return;
+		box.copy(nextBox);
+		footprint.copy(nextFootprint);
+		deleteGround();
+		if (footprint.isEmpty()) return;
+		ground = projectGround(toBounds(box), toBounds(footprint), strokes.ground);
 		ground.outline.visible = !landscape;
 		group.add(ground.shadow, ground.outline);
 	}
+
 	return {
-		parts,
 		group,
+		get parts() {
+			return parts;
+		},
+		get ground() {
+			return ground;
+		},
 		get bounds(): Bounds3 {
 			const visible = new Box3();
 			for (const { drawable, mesh } of parts) {
 				if (drawable.visible !== false && mesh.geometry.boundingBox)
 					visible.union(mesh.geometry.boundingBox);
 			}
-			return visible.isEmpty()
-				? bounds
-				: { min: visible.min.toArray(), max: visible.max.toArray() };
+			return toBounds(visible.isEmpty() ? box : visible);
 		},
-		ground,
-		delete() {
-			ground?.shadow.geometry.dispose();
-			ground?.shadow.material.dispose();
-			ground?.outline.geometry.dispose();
-			for (const { drawable, mesh, lines, grid, atlas } of parts) {
-				mesh.geometry.dispose();
-				mesh.material.dispose();
-				atlas?.dispose();
-				if (grid || drawable.strokeSegments) for (const line of lines) line.material.dispose();
-				for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();
+		show(drawables: readonly Drawable[]) {
+			if (hasSameGeometry(parts, drawables)) {
+				parts.forEach((part, index) => (part.drawable = drawables[index]));
+				return 0;
 			}
+			const available = new Map<string, Part[]>();
+			for (const part of parts) {
+				const matches = available.get(part.drawable.id) ?? [];
+				matches.push(part);
+				available.set(part.drawable.id, matches);
+				group.remove(part.mesh, ...part.lines);
+			}
+			let builds = 0;
+			parts = drawables.map((drawable) => {
+				const matches = available.get(drawable.id) ?? [];
+				const index = matches.findIndex((part) => sameGeometry(part.drawable, drawable));
+				if (index >= 0) {
+					const [part] = matches.splice(index, 1);
+					part.drawable = drawable;
+					return part;
+				}
+				builds++;
+				return project(drawable, strokes, palette, landscape);
+			});
+			for (const staleParts of available.values()) for (const part of staleParts) disposePart(part);
+			for (const { mesh, lines } of parts) group.add(mesh, ...lines);
+			fitGround();
+			return builds;
+		},
+		delete() {
+			deleteGround();
+			for (const part of parts) disposePart(part);
+			group.clear();
+			parts = [];
 		}
 	};
 }

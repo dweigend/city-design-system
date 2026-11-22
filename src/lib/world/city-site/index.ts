@@ -2,12 +2,8 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { CityVolume, type CityVolumeOptions } from '../../domain/city-volume';
-import {
-	TerrainGrid,
-	terrainGridParams,
-	type TerrainGrid as Grid
-} from '../../domain/terrain-grid';
+import { createCityProfile, cityVolumeParams } from '../../domain/city-volume';
+import { TerrainGrid, type PlanVariant, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley } from '../../domain/valley';
 import { terraceGrid } from './connected';
 
@@ -71,7 +67,7 @@ function cellAreas(grid: Grid) {
 		const [x, y] = points[0];
 		return (
 			points.reduce((area, [ax, ay], index) => {
-				const [bx, by] = points[(index + 1) % 4];
+				const [bx, by] = points[(index + 1) % points.length];
 				return area + (ax - x) * (by - y) - (ay - y) * (bx - x);
 			}, 0) / 2
 		);
@@ -84,25 +80,29 @@ function median(sorted: readonly number[]) {
 	return (sorted[midpoint] + sorted[Math.floor((sorted.length - 1) / 2)]) / 2;
 }
 
-/** Generates the dry terrace grid inside a nested seeded outline. Area sums the accepted
+/** Scales the fixed, star-shaped city outline about its terrace datum. Returns world XY meters. */
+export function cityOutline(city: ReturnType<typeof createCitySite>, citySize: number) {
+	const { citySize: length } = resolveParams(citySiteParams, { citySize });
+	const { origin, frame } = city;
+	const [u, v] = frame.downstream;
+	return city.outline.map(([x, y]): Vec2 => [
+		origin[0] + length * (x * u - y * v),
+		origin[1] + length * (x * v + y * u)
+	]);
+}
+
+/** Generates the dry terrace grid inside the nested city outline. Area sums the accepted
  * cells in hectares. Median size is the equivalent square side of the median cell area. */
 export function readCityGrid(
 	city: ReturnType<typeof createCitySite>,
 	citySize: number,
-	cellSize = terrainGridParams.cellSize.default
+	variant?: PlanVariant
 ) {
 	const { valley, origin, frame } = city;
-	const { citySize: length } = resolveParams(citySiteParams, { citySize });
-	const [u, v] = frame.downstream;
-	// Scaling one star-shaped ring about its fixed datum makes every footprint nested.
-	const outline = city.outline.map(([x, y]): Vec2 => [
-		origin[0] + length * (x * u - y * v),
-		origin[1] + length * (x * v + y * u)
-	]);
 	const candidates = TerrainGrid.create({
 		seed: valley.seed,
-		site: { origin, bearing: frame.bearing, outline },
-		parameters: { cellSize },
+		site: { origin, bearing: frame.bearing, outline: cityOutline(city, citySize) },
+		variant,
 		heightAt(x, y) {
 			const { height, bank } = valley.sampleGround(x, y);
 			return bank > 0 ? height : undefined;
@@ -117,21 +117,21 @@ export function readCityGrid(
 	});
 }
 
-/** Composes the terrain window, plan and a reader for its profile and lattice.
- * The profile datum uses the same smallest reference span for every city size. */
-export function createCityPlan(city: ReturnType<typeof createCitySite>, citySize: number) {
-	const plan = readCityGrid(city, citySize);
-	const referenceLength = citySiteParams.citySize.min;
-	const datum = {
-		origin: city.origin,
-		bearing: city.frame.bearing,
-		length: referenceLength,
-		width: referenceLength * outlineAspect * 0.8
-	};
-	return Object.freeze({
-		...plan,
-		window: cityWindow(city, citySize),
-		readVolume: (parameters?: CityVolumeOptions['parameters']) =>
-			CityVolume.create({ plan: plan.grid, datum, seed: city.valley.seed, parameters })
-	});
+/** Reads the seeded elevation field for the site's fixed reference span. Parameters
+ * snap and clamp to the city volume schema. Changing the crop leaves this field intact. */
+export function readCityProfile(
+	city: ReturnType<typeof createCitySite>,
+	parameters?: { [Key in keyof typeof cityVolumeParams]?: number }
+) {
+	const length = citySiteParams.citySize.min;
+	return createCityProfile(
+		{
+			origin: city.origin,
+			bearing: city.frame.bearing,
+			length,
+			width: length * outlineAspect * 0.8
+		},
+		city.valley.seed,
+		parameters
+	);
 }

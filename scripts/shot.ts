@@ -110,7 +110,7 @@ try {
 			const showDarkStage = size === 'dark-desktop' && hasStage;
 			if (theme === 'dark' && url.pathname !== '/interface' && !showChapterMenu && !showDarkStage)
 				continue;
-			const cropStage = isCity && size === 'desktop' && (!isVariant || url.search === '?step=02');
+			const cropStage = isCity && size === 'desktop';
 			const deviceScaleFactor = cropStage ? 2 : 1;
 			const page = await browser.newPage({
 				viewport: { width, height },

@@ -1,79 +1,40 @@
 import { expect, test } from 'bun:test';
-import { required } from '../../core/invariant';
-import { TerrainGrid } from '../terrain-grid';
-import { CityVolume, levelHeight } from './index';
+import type { Vec2 } from '../../core/geometry';
+import { TerrainGrid, planVariants } from '../terrain-grid';
+import {
+	createCityLattice,
+	createCityProfile,
+	latticeVariants,
+	levelHeight,
+	readCityColumns
+} from './index';
 import { example } from './example';
 
 const seed = 1201;
 const datum = { origin: [0, 0], bearing: 0, length: 380, width: 152 } as const;
 
-function plan(length: number = datum.length, width: number = datum.width) {
-	return TerrainGrid.create({
-		seed,
-		site: { ...datum, length, width },
-		parameters: { cellSize: 20 },
-		heightAt: () => 0
-	});
-}
-
-test('samples a continuous profile across cell edges and falls low at the outline', () => {
-	const terrain = plan();
-	const { profile } = CityVolume.create({ seed, datum, plan: terrain });
-	const vertices = new Map(terrain.vertices.map(({ id, position }) => [id, position]));
-	const boundary = new Set(terrain.boundary.flatMap((edge) => [...edge]));
-	for (const { vertexIds, neighbors } of terrain.cells) {
-		for (const [i, neighbor] of neighbors.entries()) {
-			const [ax, ay] = required(vertices.get(vertexIds[i]), 'plan corner');
-			const [bx, by] = required(vertices.get(vertexIds[(i + 1) % 4]), 'plan corner');
-			const x = (ax + bx) / 2;
-			const y = (ay + by) / 2;
-			const dx = (by - ay) * 1e-6;
-			const dy = (ax - bx) * 1e-6;
-			expect(profile.height(x + dx, y + dy)).toBeCloseTo(profile.height(x - dx, y - dy), 3);
-			if (!neighbor) expect(profile.height(x, y)).toBeLessThan(18);
-		}
+test('samples a smooth seeded field with a 120 m peak and a low outer edge', () => {
+	const profile = createCityProfile(datum, seed);
+	const same = createCityProfile(datum, seed);
+	const high = createCityProfile(datum, seed, { height: 144 });
+	const other = createCityProfile(datum, seed + 1);
+	expect(profile.height(...profile.summit)).toBeCloseTo(120, 8);
+	expect(profile.height(-190, 60)).toBeLessThan(22);
+	expect(profile.height(profile.summit[0], profile.summit[1] + 35)).toBeLessThan(50);
+	expect(high.summit).toEqual(profile.summit);
+	expect(other.summit).not.toEqual(profile.summit);
+	for (let x = -180; x <= 180; x += 10) {
+		const y = x / 3;
+		expect(profile.height(x, y)).toBe(same.height(x, y));
+		expect(high.height(x, y)).toBeCloseTo(profile.height(x, y) * 1.2, 10);
+		expect(profile.height(x + 1e-6, y)).toBeCloseTo(profile.height(x - 1e-6, y), 4);
 	}
-	for (const id of boundary) {
-		const [x, y] = required(vertices.get(id), 'plan vertex');
-		expect(profile.height(x, y)).toBeLessThan(18);
-	}
-	expect(profile.height(...profile.summit)).toBeCloseTo(96, 8);
+	expect(example().lattice.cells.length).toBeGreaterThan(0);
 });
 
-test('repeats the same seed and scales every sample without moving the summit', () => {
-	const options = { seed, datum, plan: plan() };
-	const a = CityVolume.create(options);
-	const b = CityVolume.create(options);
-	const high = CityVolume.create({ ...options, parameters: { height: 144 } });
-	const other = CityVolume.create({ ...options, seed: seed + 1 });
-	expect(high.profile.summit).toEqual(a.profile.summit);
-	expect(other.profile.summit).not.toEqual(a.profile.summit);
-	expect(a.grid).toEqual(b.grid);
-	for (const {
-		position: [x, y]
-	} of options.plan.vertices) {
-		expect(a.profile.height(x, y)).toBe(b.profile.height(x, y));
-		expect(high.profile.height(x, y)).toBeCloseTo(a.profile.height(x, y) * 1.5, 10);
-	}
-});
-
-test('retains the levels and IDs of existing cells through growth', () => {
-	const options = { seed, datum };
-	const small = CityVolume.create({ ...options, plan: plan() }).grid;
-	const big = CityVolume.create({ ...options, plan: plan(620, 300) }).grid;
-	const larger = new Map(big.columns.map((column) => [column.planCellId, column]));
-	expect(big.columns.length).toBeGreaterThan(small.columns.length);
-	for (const column of small.columns) expect(larger.get(column.planCellId)).toEqual(column);
-	const ids = new Set(big.cells.map(({ id }) => id));
-	expect(ids.size).toBe(big.cells.length);
-	for (const { id } of small.cells) expect(ids.has(id)).toBe(true);
-	expect(Math.max(...example().grid.columns.map(({ levels }) => levels))).toBe(6);
-});
-
-test('adds two distinct shoulders and saddles to the broad dome', () => {
-	const options = { seed, datum, plan: plan(440, 220) };
+test('complexity adds two distinct shoulders with intervening saddles', () => {
 	function maxima(complexity: number) {
-		const { profile } = CityVolume.create({ ...options, parameters: { complexity } });
+		const profile = createCityProfile(datum, seed, { complexity });
 		const peaks: number[] = [];
 		for (let x = -180; x <= 180; x += 2) {
 			for (let y = -70; y <= 70; y += 2) {
@@ -91,30 +52,71 @@ test('adds two distinct shoulders and saddles to the broad dome', () => {
 	expect(maxima(0)).toHaveLength(1);
 	const peaks = maxima(1);
 	expect(peaks).toHaveLength(3);
-	expect(peaks[0]).toBeGreaterThan(6 * levelHeight);
+	expect(peaks[0]).toBeGreaterThan(8 * levelHeight);
 	expect(peaks[2]).toBeGreaterThan(3 * levelHeight);
 });
 
-test('counts only full levels at plan cell centers', () => {
-	const terrain = plan();
-	const { profile, grid } = CityVolume.create({
-		seed,
-		datum,
-		plan: terrain,
-		parameters: { height: 16 }
-	});
-	const vertices = new Map(terrain.vertices.map(({ id, position }) => [id, position]));
-	for (const [i, cell] of terrain.cells.entries()) {
-		const [x, y] = cell.vertexIds.reduce(
-			([x, y], id) => {
-				const [u, v] = required(vertices.get(id), 'plan vertex');
-				return [x + u / 4, y + v / 4];
-			},
-			[0, 0]
-		);
-		expect(grid.columns[i]).toEqual({
-			planCellId: cell.id,
-			levels: Math.floor(profile.height(x, y) / levelHeight)
+for (const variant of planVariants) {
+	for (const frame of latticeVariants) {
+		test(`${variant} × ${frame} keeps complete levels, stable joints and unique edges`, () => {
+			const profile = createCityProfile(datum, seed);
+			const planAt = (length: number, width: number) =>
+				TerrainGrid.create({
+					seed,
+					variant,
+					site: { ...datum, length, width },
+					heightAt: (x, y) => x / 20 + y / 14
+				});
+			const columns = readCityColumns(planAt(240, 100), profile);
+			const lattice = createCityLattice(columns, frame);
+			const large = createCityLattice(readCityColumns(planAt(360, 150), profile), frame);
+			const repeat = createCityLattice(
+				readCityColumns(planAt(240, 100), createCityProfile(datum, seed)),
+				frame
+			);
+			expect(lattice).toEqual(repeat);
+			expect(lattice.cells.length).toBeGreaterThan(0);
+			expect(large.cells.length).toBeGreaterThan(lattice.cells.length);
+			expect(lattice.cells).toHaveLength(columns.reduce((sum, column) => sum + column.levels, 0));
+			for (const { corners, levels } of columns) {
+				const center = corners.reduce<Vec2>(
+					([x, y], { position: [u, v] }) => [x + u / corners.length, y + v / corners.length],
+					[0, 0]
+				);
+				expect(levels).toBe(Math.floor(profile.height(...center) / levelHeight));
+			}
+			for (const key of ['cells', 'nodes', 'edges'] as const) {
+				const entries = new Map(large[key].map((item) => [item.id, item]));
+				expect(entries.size).toBe(large[key].length);
+				for (const item of lattice[key]) expect(entries.get(item.id)).toEqual(item);
+			}
+			const nodes = new Set(lattice.nodes.map(({ id }) => id));
+			for (const { from, to } of lattice.edges) {
+				expect(nodes.has(from)).toBe(true);
+				expect(nodes.has(to)).toBe(true);
+				expect(from < to).toBe(true);
+			}
 		});
 	}
+}
+
+test('the same levels receive the box, diagonal or body-centered members', () => {
+	const corners = [
+		{ id: 'a', position: [0, 0, 0] },
+		{ id: 'b', position: [14, 0, 0] },
+		{ id: 'c', position: [14, 14, 0] },
+		{ id: 'd', position: [0, 14, 0] }
+	] as const;
+	const column = { planCellId: 'square', corners, levels: 1 };
+	const [box, braced, centered, tetrahedral] = latticeVariants.map((frame) =>
+		createCityLattice([column], frame)
+	);
+	expect(box.cells).toEqual(braced.cells);
+	expect(box.cells).toEqual(centered.cells);
+	expect(box.cells).toEqual(tetrahedral.cells);
+	expect(box.edges).toHaveLength(12);
+	expect(braced.edges).toHaveLength(16);
+	expect(centered.edges).toHaveLength(20);
+	expect(tetrahedral.edges).toHaveLength(19);
+	expect(centered.nodes.find(({ id }) => id.endsWith('/center'))?.position).toEqual([7, 7, 7]);
 });

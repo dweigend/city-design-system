@@ -1,45 +1,51 @@
-import type { Vec2 } from '../../core/geometry';
-import { PlaceableObject, type Footprint } from '../../core/object';
-import type { CityVolume } from '../../domain/city-volume';
-import type { TerrainGrid } from '../../domain/terrain-grid';
-import { planningStudy, resolveSurfaces, type Drawable } from '../surface';
+import type { Bounds3, Vec2 } from '../../core/geometry';
+import { bounds, PlaceableObject, type Footprint } from '../../core/object';
+import type { CityLattice, CityProfile } from '../../domain/city-volume';
+import { planningStudy, resolveSurfaces } from '../surface';
 import { latticeMesh } from './lattice';
 import { profileMesh } from './profile';
 
-const noStrokes: readonly number[] = Object.freeze([]);
+type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
 
-/** Projects the sampled profile and the full metric cells as separate drawable batches.
- * The XY transform puts both in the terrain's local frame. The ground sampler returns
- * unscaled world terrain heights in meters. No vertices or faces are added to an empty grid. */
-export function projectCityVolume(
-	volume: CityVolume,
-	plan: TerrainGrid,
-	footprint: Footprint,
-	toLocal: (x: number, y: number) => Vec2,
-	groundHeight: (x: number, y: number) => number
+function project(
+	id: 'profile' | 'lattice',
+	frame: Frame,
+	{ geometry, wires }: ReturnType<typeof latticeMesh>
 ) {
-	const profile = profileMesh(plan, volume.profile, toLocal, groundHeight);
-	const lattice = latticeMesh(plan, volume.grid, toLocal);
-	const parts = [
-		{ id: 'lattice', slot: 'lattice', shape: lattice.geometry },
-		{ id: 'profile', slot: 'profile', shape: profile.geometry },
-		{ id: 'nodes', slot: 'nodes', shape: profile.nodes }
-	];
 	const object = PlaceableObject.create({
-		id: 'city-volume',
-		slots: parts.map(({ slot }) => slot),
-		parts: parts.filter(({ shape }) => shape.indices.length),
-		footprint,
+		id,
+		slots: [id],
+		parts: geometry.indices.length ? [{ id, slot: id, shape: geometry }] : [],
+		footprint: frame.footprint,
 		anchors: []
 	});
-	const drawables: Drawable[] = resolveSurfaces(object, planningStudy).map((drawable) => ({
-		...drawable,
-		strokeSegments:
-			drawable.id === 'profile'
-				? profile.wires
-				: drawable.id === 'lattice'
-					? lattice.wires
-					: noStrokes
-	}));
-	return { object, drawables };
+	return {
+		object,
+		drawables: resolveSurfaces(object, { [id]: planningStudy[id] }).map((drawable) => ({
+			...drawable,
+			strokeSegments: wires
+		}))
+	};
+}
+
+/** Samples a continuous profile over a CCW outline star-shaped about the summit.
+ * Ground heights are unscaled world meters. Returns the surface, contour strokes and local bounds. */
+export function projectCityProfile(
+	profile: CityProfile,
+	outline: readonly Vec2[],
+	frame: Frame,
+	groundHeight: (x: number, y: number) => number
+) {
+	const surface = project(
+		'profile',
+		frame,
+		profileMesh(outline, profile, frame.toLocal, groundHeight)
+	);
+	const focus: Bounds3 = bounds(surface.object);
+	return { ...surface, focus };
+}
+
+/** Projects only the lattice's members and joints into the local terrain frame. */
+export function projectCityLattice(lattice: CityLattice, frame: Frame) {
+	return project('lattice', frame, latticeMesh(lattice, frame.toLocal));
 }

@@ -1,13 +1,15 @@
 import { expect, test } from 'bun:test';
-import { citySiteParams, cityWindow, createCitySite, readCityGrid, createCityPlan } from './index';
+import { createCityLattice, readCityColumns } from '../../domain/city-volume';
+import { planVariants } from '../../domain/terrain-grid';
+import { citySiteParams, cityWindow, createCitySite, readCityGrid, readCityProfile } from './index';
 import { example } from './example';
 
 test('grows the seeded city along its terrace without moving existing cells', () => {
 	const city = createCitySite();
 	const { min, max, default: size } = citySiteParams.citySize;
 	const initial = example();
-	const smaller = readCityGrid(city, min, 40);
-	const larger = readCityGrid(city, max, 40);
+	const smaller = readCityGrid(city, min);
+	const larger = readCityGrid(city, max);
 	const cells = new Map(larger.grid.cells.map((cell) => [cell.id, cell]));
 	expect(city.valley.seed).toBe(1201);
 	expect(initial.grid.cells.length).toBeGreaterThanOrEqual(30);
@@ -15,7 +17,7 @@ test('grows the seeded city along its terrace without moving existing cells', ()
 	expect(smaller.grid.cells.length).toBeLessThan(initial.grid.cells.length);
 	expect(larger.grid.cells.length).toBeGreaterThan(150);
 	expect(cityWindow(city, max).length).toBeGreaterThan(cityWindow(city, size).length);
-	expect(initial).toEqual(readCityGrid(city, size, 40));
+	expect(initial).toEqual(readCityGrid(city, size));
 	for (const { id, vertexIds, neighbors } of initial.grid.cells) {
 		expect(cells.get(id)?.vertexIds).toEqual(vertexIds);
 		neighbors.forEach((neighbor, i) => {
@@ -32,18 +34,18 @@ test('grows the seeded city along its terrace without moving existing cells', ()
 	}
 });
 
-test('keeps the same summit and lattice levels as the chapter plan grows', () => {
-	const city = createCitySite();
-	const small = createCityPlan(city, citySiteParams.citySize.min).readVolume();
-	const initial = createCityPlan(city, citySiteParams.citySize.default).readVolume();
-	const grown = createCityPlan(city, citySiteParams.citySize.max).readVolume();
-	const larger = new Map(grown.grid.columns.map(({ planCellId, levels }) => [planCellId, levels]));
-	expect(city.heightScale).toBe(1);
-	expect(initial.profile.summit).toEqual(small.profile.summit);
-	expect(grown.profile.summit).toEqual(initial.profile.summit);
-	expect(initial.profile.height(...initial.profile.summit)).toBeCloseTo(96);
-	expect(Math.max(...initial.grid.columns.map(({ levels }) => levels))).toBe(6);
-	for (const volume of [small, initial])
-		for (const { planCellId, levels } of volume.grid.columns)
-			expect(larger.get(planCellId)).toBe(levels);
-});
+for (const variant of planVariants) {
+	test(`${variant} retains the chapter's actual terrace cells and levels as it grows`, () => {
+		const city = createCitySite();
+		const profile = readCityProfile(city);
+		const { min, default: size, max } = citySiteParams.citySize;
+		const latticeAt = (length: number) =>
+			createCityLattice(readCityColumns(readCityGrid(city, length, variant).grid, profile));
+		const small = latticeAt(min);
+		const initial = latticeAt(size);
+		const grown = new Set(latticeAt(max).cells.map(({ id }) => id));
+		expect(profile.height(...profile.summit)).toBeCloseTo(120);
+		expect(initial.cells.length).toBeGreaterThan(small.cells.length);
+		for (const { id } of [...small.cells, ...initial.cells]) expect(grown.has(id)).toBe(true);
+	});
+}

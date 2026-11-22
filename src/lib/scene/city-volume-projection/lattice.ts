@@ -1,53 +1,34 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { levelHeight, type CityVolume } from '../../domain/city-volume';
-import type { TerrainGrid } from '../../domain/terrain-grid';
-import { edgeKey, mesh, segments } from './mesh';
+import type { CityLattice } from '../../domain/city-volume';
+import { mesh } from './mesh';
 
-export function latticeMesh(
-	plan: TerrainGrid,
-	grid: CityVolume['grid'],
-	toLocal: (x: number, y: number) => Vec2
-) {
+export function latticeMesh(lattice: CityLattice, toLocal: (x: number, y: number) => Vec2) {
 	const geometry = mesh();
-	const corners = new Map(
-		plan.vertices.map(({ id, position: [x, y, z] }) => [id, [...toLocal(x, y), z] as Vec3])
-	);
-	const levels = new Map(grid.columns.map(({ planCellId, levels }) => [planCellId, levels]));
-	const indices = new Map<string, number>();
-	const edges = new Map<string, readonly [number, number]>();
-	function vertex(id: string, level: number) {
-		const key = `${id}\n${level}`;
-		let index = indices.get(key);
-		if (index === undefined) {
-			const [x, y, z] = required(corners.get(id), 'lattice plan corner');
-			index = geometry.positions.length / 3;
-			geometry.positions.push(x, y, z + level * levelHeight);
-			indices.set(key, index);
-		}
-		return index;
+	const positions = new Map<string, Vec3>();
+	for (const {
+		id,
+		position: [x, y, z]
+	} of lattice.nodes) {
+		const position = [...toLocal(x, y), z] as const;
+		positions.set(id, position);
+		addNode(geometry, position);
 	}
-	function edge(a: number, b: number) {
-		edges.set(edgeKey(a, b), [a, b]);
+	const wires = lattice.edges.flatMap(({ from, to }) => [
+		...required(positions.get(from), 'lattice joint'),
+		...required(positions.get(to), 'lattice joint')
+	]);
+	return { geometry, wires: Object.freeze(wires) };
+}
+
+function addNode(nodes: ReturnType<typeof mesh>, [x, y, z]: Vec3) {
+	const index = nodes.positions.length / 3;
+	const radius = 0.68;
+	nodes.positions.push(x + radius, y, z, x, y + radius, z, x - radius, y, z, x, y - radius, z);
+	nodes.positions.push(x, y, z + radius, x, y, z - radius);
+	for (let i = 0; i < 4; i++) {
+		const a = index + i;
+		const b = index + ((i + 1) % 4);
+		nodes.indices.push(a, b, index + 4, b, a, index + 5);
 	}
-	for (const { id, vertexIds, neighbors } of plan.cells) {
-		const count = required(levels.get(id), 'lattice plan column');
-		for (let level = 0; level < count; level++) {
-			const bottom = vertexIds.map((id) => vertex(id, level));
-			const top = vertexIds.map((id) => vertex(id, level + 1));
-			for (const [i, a] of bottom.entries()) {
-				const j = (i + 1) % bottom.length;
-				edge(a, bottom[j]);
-				edge(top[i], top[j]);
-				edge(a, top[i]);
-				const neighbor = neighbors[i];
-				// Every internal edge is visible. A single layer of exterior faces keeps the lattice legible.
-				if (neighbor === null || level >= required(levels.get(neighbor), 'neighboring column'))
-					geometry.indices.push(a, bottom[j], top[j], a, top[j], top[i]);
-			}
-			if (level === count - 1)
-				geometry.indices.push(top[0], top[1], top[2], top[0], top[2], top[3]);
-		}
-	}
-	return { geometry, wires: segments(geometry.positions, edges) };
 }

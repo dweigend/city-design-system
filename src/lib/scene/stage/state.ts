@@ -9,10 +9,10 @@ export function stageState(hardware: boolean, adapterName: string) {
 	let geometryBuildCount = 0;
 	let geometryBatchCount = 0;
 	return {
-		show(drawables: readonly Drawable[]) {
+		show(drawables: readonly Drawable[], builds: number) {
 			drawableCount = drawables.length;
-			geometryBuildCount += drawableCount;
-			geometryBatchCount++;
+			geometryBuildCount += builds;
+			if (builds) geometryBatchCount++;
 		},
 		setView(next: View) {
 			readView(next);

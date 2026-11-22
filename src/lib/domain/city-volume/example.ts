@@ -1,5 +1,5 @@
 import { TerrainGrid } from '../terrain-grid';
-import { CityVolume } from './index';
+import { createCityLattice, createCityProfile, readCityColumns } from './index';
 
 export function example() {
 	const seed = 1201;
@@ -7,8 +7,10 @@ export function example() {
 	const plan = TerrainGrid.create({
 		seed,
 		site: datum,
-		parameters: { cellSize: 25 },
+		variant: 'hex',
 		heightAt: (_x, y) => y * 0.06
 	});
-	return CityVolume.create({ plan, datum, seed });
+	const profile = createCityProfile(datum, seed);
+	const columns = readCityColumns(plan, profile);
+	return { profile, columns, lattice: createCityLattice(columns, 'braced') };
 }

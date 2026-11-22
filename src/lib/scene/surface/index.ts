@@ -36,6 +36,7 @@ export type Drawable = Surface &
 		boundaryStroke?: boolean;
 		strokeSegments?: readonly number[];
 		visible?: boolean;
+		fillVisible?: boolean;
 	}>;
 
 type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
@@ -57,31 +58,28 @@ export const landscape = Object.freeze({
 	'water-section': Object.freeze({ color: '--river-section', finish: 'matte', flat: true })
 } satisfies SurfaceAssignment);
 
-/** Blueprint surfaces and hairlines for a stepped lattice and its elevation profile. */
+/** Blueprint contours and graphite members for the city elevation study. */
 export const planningStudy = Object.freeze({
 	profile: {
 		color: '--blueprint-3',
 		finish: 'glass',
 		flat: true,
 		opacity: '--alpha-hull',
-		stroke: { color: '--blueprint', width: 0.8, opacity: 0.54 }
+		stroke: { color: '--blueprint', width: 1, opacity: 0.52 }
 	},
-	nodes: { color: '--blueprint', finish: 'glass', flat: true },
 	lattice: {
-		color: '--blueprint-3',
-		finish: 'glass',
+		color: '--ink-2',
+		finish: 'matte',
 		flat: true,
-		opacity: '--alpha-trace',
-		stroke: { color: '--blueprint', width: 0.8, opacity: 0.4 }
+		stroke: { color: '--ink-2', width: 0.72, opacity: 0.43 }
 	}
 } as const satisfies SurfaceAssignment);
 
-/** A lighter profile treatment keeps the lattice visible underneath. */
+/** Keeps the contour visible over an open frame with the profile fill hidden. */
 export const planningOverlay = {
-	...planningStudy.profile,
-	opacity: '--alpha-trace',
-	stroke: { ...planningStudy.profile.stroke, opacity: 0.32 }
-} as const satisfies Surface;
+	fillVisible: false,
+	stroke: { ...planningStudy.profile.stroke, width: 0.85, opacity: 0.38 }
+} as const;
 
 /** Returns the stock assignment with one flow color on the wall. */
 export function accent(color: FlowColor): SurfaceAssignment {

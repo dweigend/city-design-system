@@ -1,31 +1,46 @@
 import { expect, test } from 'bun:test';
 import { levelHeight } from '../../domain/city-volume';
 import { example } from './example';
-import { projectCityVolume } from './index';
+import { projectCityLattice } from './index';
 
-test('draws a continuous triangulated profile over the plan at its metric heights', () => {
-	const { plan, volume, heightAt, object, drawables } = example();
-	expect(object.parts.map(({ id }) => id)).toEqual(['lattice', 'profile', 'nodes']);
-	const profile = drawables[1];
-	expect(profile).toMatchObject({
+test('draws the independently sampled surface and elevation contours at metric heights', () => {
+	const { profile, heightAt, surface } = example();
+	const [drawable] = surface.drawables;
+	const { shape } = drawable;
+	expect(drawable).toMatchObject({
 		finish: 'glass',
 		color: '--blueprint-3',
 		opacity: '--alpha-hull'
 	});
-	const { shape } = profile;
 	if (shape.kind !== 'mesh') throw new Error('Expected the indexed profile mesh');
-	expect(shape.indices.length / 3).toBe(8 * plan.cells.length);
-	expect(profile.strokeSegments?.length).toBeGreaterThan(0);
+	expect(shape.indices.length / 3).toBeGreaterThan(4000);
+	expect(drawable.strokeSegments?.length).toBeGreaterThan(0);
 	for (let i = 0; i < shape.positions.length; i += 3) {
 		const [x, y, z] = shape.positions.slice(i, i + 3);
-		expect(z - heightAt(x, y)).toBeCloseTo(volume.profile.height(x, y), 8);
+		expect(z - heightAt(x, y)).toBeCloseTo(profile.height(x, y), 8);
+	}
+	for (let i = 0; i < shape.indices.length; i += 3) {
+		const [a, b, c] = shape.indices.slice(i, i + 3);
+		for (const [u, v] of [
+			[a, b],
+			[b, c],
+			[c, a]
+		]) {
+			const x = shape.positions[3 * u] - shape.positions[3 * v];
+			const y = shape.positions[3 * u + 1] - shape.positions[3 * v + 1];
+			expect(Math.hypot(x, y)).toBeLessThan(8);
+		}
 	}
 });
 
-test('batches unique lattice edges at full-height intervals above the plan', () => {
-	const { heightAt, drawables } = example();
-	const lattice = drawables[0];
-	const strokes = lattice.strokeSegments ?? [];
+test('projects one octahedral glyph per joint and one segment per unique member', () => {
+	const { heightAt, lattice, members } = example();
+	const [drawable] = members.drawables;
+	const { shape } = drawable;
+	if (shape.kind !== 'mesh') throw new Error('Expected a mesh of lattice joints');
+	expect(shape.indices.length).toBe(24 * lattice.nodes.length);
+	const strokes = drawable.strokeSegments ?? [];
+	expect(strokes.length).toBe(6 * lattice.edges.length);
 	const unique = new Set<string>();
 	let verticals = 0;
 	for (let i = 0; i < strokes.length; i += 6) {
@@ -33,10 +48,8 @@ test('batches unique lattice edges at full-height intervals above the plan', () 
 		const key = [[x, y, z].join(','), [u, v, w].join(',')].sort().join('/');
 		expect(unique.has(key)).toBe(false);
 		unique.add(key);
-		expect((z - heightAt(x, y)) / levelHeight).toBeCloseTo(
-			Math.round((z - heightAt(x, y)) / levelHeight),
-			8
-		);
+		const level = (z - heightAt(x, y)) / levelHeight;
+		expect(level).toBeCloseTo(Math.round(level), 8);
 		if (x === u && y === v) {
 			expect(Math.abs(w - z)).toBeCloseTo(levelHeight, 8);
 			verticals++;
@@ -45,18 +58,7 @@ test('batches unique lattice edges at full-height intervals above the plan', () 
 	expect(verticals).toBeGreaterThan(0);
 });
 
-test('keeps the profile drawable when no full lattice cells fit', () => {
-	const { plan, volume, heightAt, object } = example();
-	const grid = {
-		columns: volume.grid.columns.map((column) => ({ ...column, levels: 0 })),
-		cells: []
-	};
-	const { drawables } = projectCityVolume(
-		{ ...volume, grid },
-		plan,
-		object.footprint,
-		(x, y) => [x, y],
-		heightAt
-	);
-	expect(drawables.map(({ id }) => id)).toEqual(['profile', 'nodes']);
+test('omits the lattice drawable when no full levels fit', () => {
+	const { frame } = example();
+	expect(projectCityLattice({ cells: [], nodes: [], edges: [] }, frame).drawables).toEqual([]);
 });

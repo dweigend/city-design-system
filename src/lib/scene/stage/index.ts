@@ -2,7 +2,7 @@ import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import { fitCamera, type View, type ViewFit } from './camera';
 import { strokeMaterials } from './edges';
-import { hasSameGeometry, projectContent } from './content';
+import { createContent } from './content';
 import { readColors, readDisplay, type Display } from './material';
 import { openRenderer } from './renderer';
 import { stageState } from './state';
@@ -31,7 +31,8 @@ async function create({
 	const camera = new OrthographicCamera();
 	const strokes = strokeMaterials(landscape);
 	const palette = drawingPalette();
-	let content = projectContent([], strokes, palette, landscape);
+	const content = createContent(strokes, palette, landscape);
+	scene.add(content.group);
 	let aspect = 1;
 	let fit = initialFit;
 	let frame: number | undefined;
@@ -72,7 +73,11 @@ async function create({
 			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
 			if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
 			else material.color.copy(color(drawable.color));
-			mesh.visible = visible && opacity > 0 && mesh.geometry.attributes.position.count > 0;
+			mesh.visible =
+				visible &&
+				drawable.fillVisible !== false &&
+				opacity > 0 &&
+				mesh.geometry.attributes.position.count > 0;
 			for (const line of lines) {
 				if (grid) line.material.color.copy(color(drawable.color));
 				if (drawable.strokeSegments) {
@@ -121,6 +126,7 @@ async function create({
 					stageBuilds: String(geometryBatchCount),
 					stageDrawableBuilds: String(geometryBuildCount),
 					stageView: view,
+					stageDisplay: display,
 					stageTheme: dark ? 'dark' : 'light'
 				});
 			} finally {
@@ -137,22 +143,13 @@ async function create({
 	Object.assign(canvas.dataset, { stageAdapter: adapterName, stageHardware: String(hardware) });
 
 	return {
-		/** Replaces the list, retaining geometry for the same ordered IDs, shapes and stroke modes. */
+		/** Replaces the list, retaining geometry for unchanged IDs, shapes and stroke modes. */
 		show(drawables: readonly Drawable[]) {
 			if (closing) return;
-			if (hasSameGeometry(content.parts, drawables)) {
-				content.parts.forEach((part, index) => (part.drawable = drawables[index]));
-				draw();
-				return;
-			}
 			const start = performance.now();
-			const next = projectContent(drawables, strokes, palette, landscape);
-			canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
-			scene.remove(content.group);
-			content.delete();
-			content = next;
-			scene.add(content.group);
-			state.show(drawables);
+			const builds = content.show(drawables);
+			if (builds) canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
+			state.show(drawables, builds);
 			draw();
 		},
 		/** Sets the fitted view. Throws RangeError for an unknown view. */
@@ -198,6 +195,7 @@ async function create({
 				delete canvas.dataset.stageBuilds;
 				delete canvas.dataset.stageDrawableBuilds;
 				delete canvas.dataset.stageView;
+				delete canvas.dataset.stageDisplay;
 				delete canvas.dataset.stageTheme;
 				delete canvas.dataset.stageMeshMs;
 				await gpu.delete();

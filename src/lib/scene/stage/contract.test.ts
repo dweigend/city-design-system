@@ -119,22 +119,22 @@ test('rejects unknown view and display IDs, including inherited names', () => {
 test('replaces the drawable count and counts builds only on show', () => {
 	const state = stageState(true, 'Test adapter');
 	const { drawables } = stageExample();
-	state.show(drawables);
+	state.show(drawables, drawables.length);
 	const before = state.read();
 	state.setView('plan');
 	state.setDisplay('transparency');
 	expect(state.read()).toEqual({ ...before, view: 'plan', display: 'transparency' });
-	state.show(drawables.slice(0, 1));
-	expect(state.read()).toMatchObject({ drawableCount: 1, geometryBuildCount: 7 });
-	state.show([]);
-	expect(state.read()).toMatchObject({ drawableCount: 0, geometryBuildCount: 7 });
+	state.show(drawables.slice(0, 1), 0);
+	expect(state.read()).toMatchObject({ drawableCount: 1, geometryBuildCount: 6 });
+	state.show([], 0);
+	expect(state.read()).toMatchObject({ drawableCount: 0, geometryBuildCount: 6 });
 	expect(before).toMatchObject({
 		drawableCount: 6,
 		geometryBuildCount: 6,
 		geometryBatchCount: 1,
 		view: 'iso'
 	});
-	expect(state.read().geometryBatchCount).toBe(3);
+	expect(state.read().geometryBatchCount).toBe(1);
 });
 
 test('reports a missing WebGPU adapter through the public entry', async () => {

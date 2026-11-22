@@ -10,7 +10,7 @@ export function terraceGrid(grid: TerrainGrid, origin: Vec2, radius: number): Te
 		const [x, y] = vertexIds.reduce(
 			([x, y], id) => {
 				const [u, v] = required(vertices.get(id), 'city vertex');
-				return [x + (u - origin[0]) / 4, y + (v - origin[1]) / 4];
+				return [x + (u - origin[0]) / vertexIds.length, y + (v - origin[1]) / vertexIds.length];
 			},
 			[0, 0]
 		);
@@ -29,7 +29,9 @@ export function terraceGrid(grid: TerrainGrid, origin: Vec2, radius: number): Te
 	const boundary = new Set(
 		kept.flatMap((cell) =>
 			cell.vertexIds.flatMap((from, i) =>
-				cell.neighbors[i] === null ? [`${from}\n${cell.vertexIds[(i + 1) % 4]}`] : []
+				cell.neighbors[i] === null
+					? [`${from}\n${cell.vertexIds[(i + 1) % cell.vertexIds.length]}`]
+					: []
 			)
 		)
 	);

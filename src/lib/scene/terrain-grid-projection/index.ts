@@ -41,13 +41,13 @@ function projectGrid(
 		return (forward ? points : [...points].reverse()).slice(0, -1);
 	}
 	for (const { vertexIds } of grid.cells) {
-		const sides = vertexIds.map((from, i) => edge(from, vertexIds[(i + 1) % 4]));
+		const sides = vertexIds.map((from, i) => edge(from, vertexIds[(i + 1) % vertexIds.length]));
 		const ring = sides.flat();
 		const center = positions.length / 3;
 		const middle = vertexIds.reduce(
 			([x, y], id) => {
 				const [u, v] = required(vertex.get(id), 'cell corner');
-				return [x + u / 4, y + v / 4];
+				return [x + u / vertexIds.length, y + v / vertexIds.length];
 			},
 			[0, 0]
 		);
