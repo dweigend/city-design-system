@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
+import { distance, type Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
 import { axes, type Site } from './site';
 
@@ -16,12 +16,28 @@ function average(points: readonly Node[], id: string): Node {
 	return { id, xy: [x / points.length, y / points.length] };
 }
 
+function faceCenter(points: readonly Node[], id: string): Node {
+	if (points.length !== 3) return average(points, id);
+	const weights = points.map((_point, i) =>
+		distance(points[(i + 1) % 3].xy, points[(i + 2) % 3].xy)
+	);
+	const perimeter = weights.reduce((sum, weight) => sum + weight, 0);
+	const xy: Vec2 = points.reduce<Vec2>(
+		([x, y], { xy: [u, v] }, i) => [
+			x + (u * weights[i]) / perimeter,
+			y + (v * weights[i]) / perimeter
+		],
+		[0, 0]
+	);
+	return { id, xy };
+}
+
 function* split(face: readonly Node[]) {
 	const id = `face/${face
 		.map(({ id }) => id)
 		.sort()
 		.join('/')}`;
-	const center = average(face, `${id}/center`);
+	const center = faceCenter(face, `${id}/center`);
 	const edges = face.map((a, index) => {
 		const b = face[(index + 1) % face.length];
 		return average([a, b], `edge/${edgeId(a.id, b.id)}`);
@@ -46,7 +62,7 @@ function baseNodes(random: Random, site: Site, bearing: number, spacing: number)
 		const cached = offsets.get(key);
 		if (cached) return cached;
 		const local = random.derive(`offset/${key}`);
-		const bounds = { min: -0.1, max: 0.1 };
+		const bounds = { min: -0.13, max: 0.13 };
 		const result: Vec2 = [local.number(bounds), local.number(bounds)];
 		offsets.set(key, result);
 		return result;

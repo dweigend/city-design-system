@@ -124,7 +124,9 @@ export function strokeMaterials(landscape = false) {
 		// The screen-space ribbon extends beyond the terrain-draped centerline.
 		polygonOffset: true,
 		polygonOffsetFactor: -1,
-		polygonOffsetUnits: -16384
+		polygonOffsetUnits: -16384,
+		// Rasterized coverage keeps shared caps solid where the drape crosses triangles.
+		alphaToCoverage: false
 	};
 	const grid = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 1.5 });
 	const gridBoundary = new Line2NodeMaterial({ ...options, ...gridDepth, linewidth: 2.5 });
