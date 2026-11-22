@@ -59,7 +59,7 @@ async function create({ canvas }: { canvas: HTMLCanvasElement }) {
 			ink.color.copy(color('--ink'));
 			pencil.color.copy(ink.color).lerp(paper, 0.56);
 			content.ground?.shadow.material.color.copy(ink.color).lerp(paper, dark ? 0.91 : 0.42);
-			palette.ink.value.copy(ink.color);
+			palette.ink.value.copy(ink.color).lerp(paper, dark ? 0.45 : 0);
 			palette.light.value.copy(dark ? ink.color : paper);
 			palette.shade.value.copy(dark ? paper : ink.color);
 			palette.hull.value = Number(display === 'transparency');
