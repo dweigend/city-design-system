@@ -145,7 +145,7 @@ test('findMovementPath breaks equal-length ties canonically regardless of edge i
 	expect(findMovementPath(reversed, 'a', 'd')?.edgeIds).toEqual(['e/a1', 'e/a2']);
 });
 
-test('findMovementPath enforces complete-route tie tolerance without per-hop drift across docks', () => {
+test('findMovementPath prefers strictly shorter routes over both near ties, including across a dock', () => {
 	const p0 = port('p0', 'path', 0, 0, ['path']);
 	const p1 = port('p1', 'path', 1, 0, ['path']);
 	const p1b = port('p1b', 'path', 1, 0, ['path']);
@@ -157,9 +157,11 @@ test('findMovementPath enforces complete-route tie tolerance without per-hop dri
 		walkEdge('a1', 'p1', 'p2', 'path', [[1.5, 0.00002, 0]])
 	];
 	for (const ordered of [edges, [...edges].reverse()]) {
-		const route = findMovementPath(movementNetwork([p0, p1, p2], ordered, []), 'p0', 'p2');
-		expect(route?.edgeIds).toEqual(['a0', 'z1']);
-		expect(route?.totalLength).toBeLessThanOrEqual(2 + 1e-9);
+		const graph = movementNetwork([p0, p1, p2], ordered, []);
+		const route = findMovementPath(graph, 'p0', 'p2');
+		expect(route?.edgeIds).toEqual(['z0', 'z1']);
+		expect(route?.totalLength).toBe(2);
+		expect(findMovementPath(graph, 'p2', 'p0')?.edgeIds).toEqual(['z1', 'z0']);
 	}
 
 	const dockedEdges = [
@@ -169,13 +171,12 @@ test('findMovementPath enforces complete-route tie tolerance without per-hop dri
 		{ ...edges[2], from: 'p1b' },
 		{ ...edges[3], from: 'p1b' }
 	];
-	const dockedRoute = findMovementPath(
-		movementNetwork([p0, p1, p1b, p2], dockedEdges, []),
-		'p0',
-		'p2'
-	);
-	expect(dockedRoute?.edgeIds).toEqual(['a0', 'd0', 'z1']);
-	expect(dockedRoute?.totalLength).toBeLessThanOrEqual(2 + 1e-9);
+	for (const ordered of [dockedEdges, [...dockedEdges].reverse()]) {
+		const graph = movementNetwork([p0, p1, p1b, p2], ordered, []);
+		expect(graph.edges.find((edge) => edge.id === 'd0')?.length).toBe(0);
+		expect(findMovementPath(graph, 'p0', 'p2')?.edgeIds).toEqual(['z0', 'd0', 'z1']);
+		expect(findMovementPath(graph, 'p2', 'p0')?.edgeIds).toEqual(['z1', 'd0', 'z0']);
+	}
 });
 
 test('findMovementPath preserves unique routes under large-to-small floating-point rounding', () => {
@@ -193,8 +194,99 @@ test('findMovementPath preserves unique routes under large-to-small floating-poi
 		const forward = findMovementPath(graph, 'p0', 'p3');
 		expect(forward?.edgeIds).toEqual(['e0', 'e1', 'e2']);
 		expect(forward?.portIds).toEqual(['p0', 'p1', 'p2', 'p3']);
+		expect(forward?.totalLength).toBe(1e8 + 1e-8 + 1e-8);
 		const reverse = findMovementPath(graph, 'p3', 'p0');
 		expect(reverse?.edgeIds).toEqual(['e2', 'e1', 'e0']);
 		expect(reverse?.portIds).toEqual(['p3', 'p2', 'p1', 'p0']);
+		expect(reverse?.totalLength).toBe(1e-8 + 1e-8 + 1e8);
 	}
+});
+
+test('findMovementPath rejects the lexically earlier 4.47e-8 m detour at 1e8 m', () => {
+	const ports = [port('start', 'path', 0, 0, ['path']), port('end', 'path', 1e8, 0, ['path'])];
+	const edges = [
+		walkEdge('z', 'start', 'end'),
+		walkEdge('a', 'start', 'end', 'path', [[5e7, 1.5, 0]])
+	];
+	for (const ordered of [edges, [...edges].reverse()]) {
+		const graph = movementNetwork(ports, ordered, []);
+		const detour = graph.edges.find((edge) => edge.id === 'a');
+		expect(detour?.length).toBe(1e8 + 3 * 2 ** -26);
+		expect(findMovementPath(graph, 'start', 'end')?.edgeIds).toEqual(['z']);
+		expect(findMovementPath(graph, 'end', 'start')?.edgeIds).toEqual(['z']);
+	}
+});
+
+test('findMovementPath compares exact sums even when binary64 addition hides the difference', () => {
+	const ports = [
+		port('start', 'path', 0, 0, ['path']),
+		port('end', 'path', 1e8, 0, ['path']),
+		{ ...port('long', 'path', 0, 0, ['path']), position: [0, 4e-9, 0] as const },
+		{ ...port('short', 'path', 0, 0, ['path']), position: [0, 2e-9, 0] as const }
+	];
+	const edges = [
+		walkEdge('a0', 'start', 'long'),
+		walkEdge('a1', 'long', 'end'),
+		walkEdge('z0', 'start', 'short'),
+		walkEdge('z1', 'short', 'end')
+	];
+	for (const ordered of [edges, [...edges].reverse()]) {
+		const graph = movementNetwork(ports, ordered, []);
+		const lengths = new Map(graph.edges.map(({ id, length }) => [id, length]));
+		expect(lengths.get('a0')).toBe(4e-9);
+		expect(lengths.get('z0')).toBe(2e-9);
+		expect(lengths.get('a1')).toBe(1e8);
+		expect(lengths.get('z1')).toBe(1e8);
+		expect(1e8 + 4e-9).toBe(1e8 + 2e-9);
+		expect(findMovementPath(graph, 'start', 'end')?.edgeIds).toEqual(['z0', 'z1']);
+		expect(findMovementPath(graph, 'end', 'start')?.edgeIds).toEqual(['z1', 'z0']);
+	}
+});
+
+test('findMovementPath breaks exact docked ties by edge count and then edge IDs at 1e-8 m', () => {
+	const ports = [
+		port('start', 'path', 0, 0, ['path']),
+		port('end', 'path', 1e-8, 0, ['path']),
+		port('a', 'path', 0, 0, ['path']),
+		port('z', 'path', 0, 0, ['path'])
+	];
+	const edges = [
+		walkEdge('b0', 'start', 'a', 'dock'),
+		walkEdge('b1', 'a', 'end'),
+		walkEdge('a0', 'start', 'z', 'dock'),
+		walkEdge('z1', 'z', 'end'),
+		walkEdge('a-dock', 'a', 'z', 'dock'),
+		walkEdge('direct', 'start', 'end', 'ramp')
+	];
+	for (const ordered of [edges, [...edges].reverse()]) {
+		const graph = movementNetwork(ports, ordered, []);
+		expect(findMovementPath(graph, 'start', 'end')?.edgeIds).toEqual(['direct']);
+		const viaDock = { excludeKinds: ['ramp'] as const };
+		expect(findMovementPath(graph, 'start', 'end', viaDock)?.edgeIds).toEqual(['a0', 'z1']);
+		expect(findMovementPath(graph, 'end', 'start', viaDock)?.edgeIds).toEqual(['b1', 'b0']);
+	}
+});
+
+test.each([
+	[1e-8, 2e-9],
+	[1e8, 2 ** -26]
+])('findMovementPath keeps the binary64 filter tolerances at scale %s', (scale, excess) => {
+	const ports = [
+		{ ...port('start', 'path', 0, 0, ['path']), width: scale, headroom: scale },
+		{ ...port('end', 'path', 1, scale, ['path']), width: scale, headroom: scale }
+	];
+	const graph = movementNetwork(ports, [walkEdge('edge', 'start', 'end')], []);
+	expect(
+		findMovementPath(graph, 'start', 'end', {
+			maxGrade: scale - 0.5e-9,
+			minWidth: scale + 0.5e-9,
+			minHeadroom: scale + 0.5e-9
+		})?.edgeIds
+	).toEqual(['edge']);
+	for (const query of [
+		{ maxGrade: scale - excess },
+		{ minWidth: scale + excess },
+		{ minHeadroom: scale + excess }
+	])
+		expect(findMovementPath(graph, 'start', 'end', query)).toBeUndefined();
 });

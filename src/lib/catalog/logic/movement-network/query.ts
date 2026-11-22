@@ -8,34 +8,20 @@ import type {
 	Position
 } from './types';
 
-// Complete-route shortest-path tie threshold in metres before lexical edge-ID tie-breaking.
-const distanceTieTolerance = 1e-9;
+type Route = { portIds: string[]; edgeIds: string[] };
+type Label = Route & { portId: string; lengthUnits: bigint };
+type Neighbor = { to: string; edgeId: string; lengthUnits: bigint };
 
-type SearchState = { distance: number; portIds: string[]; edgeIds: string[] };
-type Neighbor = { to: string; edge: MovementEdge };
-type ReverseShortest = {
-	distToGoal: ReadonlyMap<string, number>;
-	hopsToGoal: ReadonlyMap<string, number>;
-	nextToGoal: ReadonlyMap<string, Neighbor>;
-};
-type CanonicalSearch = {
-	adjacency: ReadonlyMap<string, readonly Neighbor[]>;
-	distToGoal: ReadonlyMap<string, number>;
-	hopsToGoal: ReadonlyMap<string, number>;
-	toPortId: string;
-	shortest: number;
-	portIds: string[];
-	edgeIds: string[];
-	visited: Set<string>;
-};
+// Every finite nonnegative binary64 length is an integer multiple of 2^-1074 metres.
+function exactLengthUnits(length: number, buffer: DataView): bigint {
+	buffer.setFloat64(0, length);
+	const bits = buffer.getBigUint64(0);
+	const exponent = (bits >> 52n) & 2047n;
+	const implicitBit = 1n << 52n;
+	const fraction = bits & (implicitBit - 1n);
+	return exponent === 0n ? fraction : (implicitBit | fraction) << (exponent - 1n);
+}
 
-function compareText(a: string, b: string) {
-	return a < b ? -1 : a > b ? 1 : 0;
-}
-function routeLimit(shortest: number, hops: number): number {
-	const relativeSlack = Math.max(1, shortest) * Math.max(1, hops) * Number.EPSILON * 4;
-	return shortest + distanceTieTolerance + relativeSlack;
-}
 function buildAdjacency(
 	edges: readonly MovementEdge[],
 	ports: ReadonlyMap<string, MovementPort>,
@@ -43,110 +29,62 @@ function buildAdjacency(
 ) {
 	const adjacency = new Map<string, Neighbor[]>();
 	for (const id of ports.keys()) adjacency.set(id, []);
+	const buffer = new DataView(new ArrayBuffer(8));
 	for (const edge of edges) {
-		const from = ports.get(edge.from),
-			to = ports.get(edge.to);
+		const from = ports.get(edge.from);
+		const to = ports.get(edge.to);
 		if (!from || !to || !edgeAdmitted(edge, from, to, query)) continue;
-		adjacency.get(edge.from)?.push({ to: edge.to, edge });
-		adjacency.get(edge.to)?.push({ to: edge.from, edge });
+		const lengthUnits = exactLengthUnits(edge.length, buffer);
+		adjacency.get(from.id)?.push({ to: to.id, edgeId: edge.id, lengthUnits });
+		adjacency.get(to.id)?.push({ to: from.id, edgeId: edge.id, lengthUnits });
 	}
-	for (const entries of adjacency.values())
-		entries.sort((l, r) => compareText(l.edge.id, r.edge.id) || compareText(l.to, r.to));
 	return adjacency;
 }
-function nextUnsettledDistance(
-	distances: ReadonlyMap<string, number>,
-	settled: ReadonlySet<string>
-): [string, number] | undefined {
-	let chosen: [string, number] | undefined;
-	for (const entry of distances) {
-		if (settled.has(entry[0])) continue;
-		if (!chosen || entry[1] < chosen[1] || (entry[1] === chosen[1] && entry[0] < chosen[0]))
-			chosen = entry;
+
+function compareLabels(a: Label, b: Label): number {
+	if (a.lengthUnits !== b.lengthUnits) return a.lengthUnits < b.lengthUnits ? -1 : 1;
+	if (a.edgeIds.length !== b.edgeIds.length) return a.edgeIds.length - b.edgeIds.length;
+	for (let i = 0; i < a.edgeIds.length; i++) {
+		if (a.edgeIds[i] !== b.edgeIds[i]) return a.edgeIds[i] < b.edgeIds[i] ? -1 : 1;
 	}
-	return chosen;
+	return 0;
 }
-function shortestDistancesToGoal(
+
+function leastLabel(labels: Iterable<Label>): Label | undefined {
+	let least: Label | undefined;
+	for (const label of labels) if (!least || compareLabels(label, least) < 0) least = label;
+	return least;
+}
+
+function shortestRoute(
 	adjacency: ReadonlyMap<string, readonly Neighbor[]>,
 	fromPortId: string,
 	toPortId: string
-): ReverseShortest {
-	const distToGoal = new Map<string, number>([[toPortId, 0]]);
-	const hopsToGoal = new Map<string, number>([[toPortId, 0]]);
-	const nextToGoal = new Map<string, Neighbor>();
+): Route | undefined {
+	const first: Label = { portId: fromPortId, lengthUnits: 0n, portIds: [fromPortId], edgeIds: [] };
+	const pending = new Map([[fromPortId, first]]);
 	const settled = new Set<string>();
-	let shortest: number | undefined;
-	let step = nextUnsettledDistance(distToGoal, settled);
-	while (step) {
-		const [portId, distance] = step;
-		if (shortest !== undefined && distance > routeLimit(shortest, adjacency.size)) break;
-		settled.add(portId);
-		if (portId === fromPortId) shortest = distance;
-		const hops = hopsToGoal.get(portId) ?? 0;
-		for (const { to, edge } of adjacency.get(portId) ?? []) {
+	// A shared suffix preserves label order. Even a zero-length edge increases edge count,
+	// so extensions always rank after their prefixes and settled ports never need reopening.
+	for (let label = leastLabel(pending.values()); label; label = leastLabel(pending.values())) {
+		if (label.portId === toPortId) return label;
+		pending.delete(label.portId);
+		settled.add(label.portId);
+		for (const { to, edgeId, lengthUnits } of adjacency.get(label.portId) ?? []) {
 			if (settled.has(to)) continue;
-			const nextDistance = distance + edge.length;
-			const existing = distToGoal.get(to);
-			if (existing === undefined || nextDistance < existing) {
-				distToGoal.set(to, nextDistance);
-				hopsToGoal.set(to, hops + 1);
-				nextToGoal.set(to, { to: portId, edge });
-			}
-		}
-		step = nextUnsettledDistance(distToGoal, settled);
-	}
-	return { distToGoal, hopsToGoal, nextToGoal };
-}
-function reconstructDijkstraPath(
-	nextToGoal: ReadonlyMap<string, Neighbor>,
-	fromPortId: string,
-	toPortId: string
-): SearchState | undefined {
-	const portIds = [fromPortId];
-	const edgeIds: string[] = [];
-	const seen = new Set([fromPortId]);
-	let distance = 0;
-	let current = fromPortId;
-	while (current !== toPortId) {
-		const step = nextToGoal.get(current);
-		if (!step || seen.has(step.to)) return undefined;
-		seen.add(step.to);
-		portIds.push(step.to);
-		edgeIds.push(step.edge.id);
-		distance += step.edge.length;
-		current = step.to;
-	}
-	return { distance, portIds, edgeIds };
-}
-function searchCanonicalPath(
-	search: CanonicalSearch,
-	portId: string,
-	distance: number
-): SearchState | undefined {
-	for (const { to, edge } of search.adjacency.get(portId) ?? []) {
-		if (search.visited.has(to)) continue;
-		const remaining = search.distToGoal.get(to);
-		if (remaining === undefined) continue;
-		const nextDistance = distance + edge.length;
-		const totalHops = search.edgeIds.length + 1 + (search.hopsToGoal.get(to) ?? 0);
-		if (nextDistance + remaining > routeLimit(search.shortest, totalHops)) continue;
-		if (to === search.toPortId)
-			return {
-				distance: nextDistance,
-				portIds: [...search.portIds, to],
-				edgeIds: [...search.edgeIds, edge.id]
+			const candidate: Label = {
+				portId: to,
+				lengthUnits: label.lengthUnits + lengthUnits,
+				portIds: [...label.portIds, to],
+				edgeIds: [...label.edgeIds, edgeId]
 			};
-		search.visited.add(to);
-		search.portIds.push(to);
-		search.edgeIds.push(edge.id);
-		const found = searchCanonicalPath(search, to, nextDistance);
-		if (found) return found;
-		search.edgeIds.pop();
-		search.portIds.pop();
-		search.visited.delete(to);
+			const best = pending.get(to);
+			if (!best || compareLabels(candidate, best) < 0) pending.set(to, candidate);
+		}
 	}
 	return undefined;
 }
+
 function samePosition(a: Position, b: Position) {
 	return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
@@ -165,7 +103,7 @@ function appendSegment(
 		if (!points.length || !samePosition(points[points.length - 1], point)) points.push(point);
 }
 function assemblePath(
-	state: SearchState,
+	state: Route,
 	edgesById: ReadonlyMap<string, MovementEdge>,
 	ports: ReadonlyMap<string, MovementPort>
 ): MovementPath {
@@ -198,9 +136,9 @@ function assemblePath(
 
 /** Finds the shortest deterministic bidirectional path between two ports on a MovementGraph.
  *
- * Weights edges by centreline `length` in metres, allowing zero-cost seams (`dock`) and reverse
- * traversal. Complete-route length ties within 1e-9 m of the exact shortest distance are broken
- * canonically by lexicographic edge-ID sequence so the result does not depend on input edge order.
+ * Compares the exact sum of stored binary64 edge lengths in metres, then edge count, then
+ * the traversal's edge-ID sequence in lexicographic UTF-16 order. Zero-length seams are
+ * supported. Only the returned `totalLength` uses binary64 addition in traversal order.
  * Returns `undefined` when either port is unknown or no path satisfies `query`; returns a detached
  * `MovementPath` without mutating `graph`.
  *
@@ -232,22 +170,7 @@ export function findMovementPath(
 		};
 	}
 	const adjacency = buildAdjacency(graph.edges, ports, query);
-	const reverse = shortestDistancesToGoal(adjacency, fromPortId, toPortId);
-	const shortest = reverse.distToGoal.get(fromPortId);
-	if (shortest === undefined) return undefined;
-	const search: CanonicalSearch = {
-		adjacency,
-		distToGoal: reverse.distToGoal,
-		hopsToGoal: reverse.hopsToGoal,
-		toPortId,
-		shortest,
-		portIds: [fromPortId],
-		edgeIds: [],
-		visited: new Set([fromPortId])
-	};
-	const state =
-		searchCanonicalPath(search, fromPortId, 0) ??
-		reconstructDijkstraPath(reverse.nextToGoal, fromPortId, toPortId);
-	if (!state) return undefined;
-	return assemblePath(state, new Map(graph.edges.map((e) => [e.id, e])), ports);
+	const route = shortestRoute(adjacency, fromPortId, toPortId);
+	if (!route) return undefined;
+	return assemblePath(route, new Map(graph.edges.map((edge) => [edge.id, edge])), ports);
 }
