@@ -25,6 +25,7 @@
 			class="control-popup control-popover"
 			align="start"
 			sideOffset={4}
+			collisionPadding={16}
 			role="dialog"
 			aria-label={label}
 		>

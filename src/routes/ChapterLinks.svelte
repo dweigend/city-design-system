@@ -14,8 +14,7 @@
 			aria-current={page.route.id === slug ? 'page' : undefined}
 			onclick={onnavigate}
 		>
-			<span>{number}</span>
-			{title}
+			{number}&nbsp;{title}
 		</a>
 	{/each}
 </nav>
