@@ -33,7 +33,8 @@ A module is one folder: `index.ts` with documented exports, private sibling file
 
 - One package, one builder, one worktree branched from `rebuild`, about 90 minutes.
 - Packages R00–R07 run one at a time. After R07 at most two run in parallel.
-- A package is done when the checks pass, the hardware-GPU shot stands beside its reference and the picture verdict is written. Two corrections at most, then the package is rebuilt.
+- A package is done when the checks pass, the hardware-GPU shot stands beside its reference and the owner has approved the picture. Opus 5.5 writes the leading picture verdict, Sol 6.2 and Argon add a second opinion. Two corrections at most, then the package is rebuilt.
+- A special case is removed, not carried over. A feature that needs one is left out.
 - Ported code is cut to the module shape above. Compatibility entries, forwarding files, `legacy` names and baselines do not enter the branch.
 - A rule enters the standards together with its check and a failing probe.
 - A chapter page shows only real demos. A chapter without a demo has its heading and nothing else.
@@ -54,7 +55,7 @@ A module is one folder: `index.ts` with documented exports, private sibling file
 
 | ID  | Package         | Done when                                                                                                                                       | Quarry                                                        |
 | --- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| R05 | Core            | `geometry`, `random`, `params` and `invariant` exist with contract tests; one seeded stream type with keyed child streams; shared inputs `height`, `width`, `complexity`. | `core/*`, `logic/parametrik/types.ts`, `data/block-inputs`    |
+| R05 | Core            | `geometry`, `random`, `params` and `invariant` exist with contract tests; one continuing seeded stream type with keyed child streams, as in the sister library; shared inputs `height` and `width` (1–32 m, measured on the bounding box of the result) and `complexity` (0–1). | `core/*`, `logic/parametrik/types.ts`, `data/block-inputs`    |
 | R06 | Object contract | One primitive type with slot names, footprint and anchors in meters; one function assigns palette and material; a test rejects a color in geometry. | `logic/assets/index.ts`, `scene/scene-palette.ts`             |
 | R07 | Stage           | One stage mounts on a page, shows a test object in iso, plan, terrain, schematic and section and in normal and transparency display; switching uploads no geometry. | `scene/sandbox/stage.ts`, `scene/chapter-stage`, `logic/view-modes` |
 
@@ -64,18 +65,18 @@ Each slice adds one module and the page step that shows it.
 
 | ID  | Package                  | Chapter | Done when                                                                                                   | Quarry                                                                              |
 | --- | ------------------------ | ------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| R08 | Valley                   | 1       | The seeded river valley appears on the landscape page; the frozen measurement protocol passes.              | `logic/valley`, `logic/river-metrics`, `scene/valley`                               |
+| R08 | Valley                   | 1       | The seeded river valley appears on the landscape page; sinuosity varies with the seed and is a public parameter; the frozen measurement protocol passes.| `logic/valley`, `logic/river-metrics`, `scene/valley`                               |
 | R09 | Terrain grid             | 2       | A quad grid follows the valley ground on the city page.                                                     | `logic/terrain-grid`, `logic/quad-grid`                                             |
 | R10 | Cell space and occupancy | 2       | The page shows city, volume, grid and houses as four steps on one seed; a cell is empty, bridge or house.   | `logic/cell-space`, `logic/occupancy`, `logic/city-volume`, `logic/city-plan`       |
 | R11 | House and court          | 5       | One house with a court stands on a parcel of the cell space, driven by `height`, `width`, `complexity`.     | `logic/house-court`, `logic/parcel-deck`                                            |
-| R12 | Three style houses       | 5       | Memphis, Archigram and organic houses are distinct at first glance beside their references.                 | branch `t3/three-distinct-style-houses`, lab `pakete/038-formregeln.md`                         |
+| R12 | Three style houses       | 5       | Memphis, Archigram and organic houses are distinct at first glance beside their references and share the cell space as their underlying system.| branch `t3/three-distinct-style-houses`, lab `pakete/038-formregeln.md`                         |
 | R13 | Movement network         | 3       | Elevated walkways connect houses; a route query returns the shortest path with a fixed tie order.           | `logic/movement-network`, branch `t3/rebuild-movement-path-search`, `logic/walkway` |
 | R14 | Transit line             | 3       | An elevated rail line runs through the valley and docks to the movement network.                            | `logic/transit-line`                                                                |
 | R15 | Structural members       | 5       | A member graph carries a megastructure frame; loads read from the same graph.                               | `logic/traeger`, `logic/statik`, `logic/megastructure`                              |
 | R16 | Asset registry           | 8       | Placeable objects build through one entry; the blocks page lists every module from its example.             | `logic/assets`, branch `t3/asset-registry-contract-checks`                          |
-| R17 | Surfaces and palette     | 6       | Material sample plates and the palette render through the one assignment boundary in both display modes.    | `logic/material`, `logic/farbe`, `theme/`                                           |
+| R17 | Surfaces and palette     | 6       | Material sample plates show real relief like the reference pictures; the palette colors by material through the one assignment boundary in both display modes.| `logic/material`, `logic/farbe`, `theme/`                                           |
 | R18 | Sandbox world            | —       | The sandbox paints houses on the grid with strokes, undo and redo, using only modules from R08–R17.         | `logic/sandbox`, `sandbox/`                                                         |
-| R19 | Supply                   | 4       | Defined after its acceptance picture exists.                                                                | lab `bibel-v3/04-*`                                                                 |
+| R19 | Supply                   | 4       | Shown as a picture only, the balance is computed by the sister library; defined after its acceptance picture exists. | lab `bibel-v3/04-*`                                                                 |
 | R20 | Content and story        | 9       | Defined after its acceptance picture exists.                                                                | lab `bibel-v3/09-*`                                                                 |
 
 ### Closing
