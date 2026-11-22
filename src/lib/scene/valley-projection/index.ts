@@ -1,32 +1,42 @@
 import { PlaceableObject } from '../../core/object';
 import type { Valley } from '../../domain/valley';
 import { landscape, resolveSurfaces } from '../surface';
+import { reachFrame } from './frame';
 import { terrainMeshes } from './meshes';
 
-/** Maximum triangle count for the 25 m presentation grid, including the water */
+/** Maximum triangle count including ground, water and the cut earth sides. */
 export const valleyTriangleBudget = 30_000;
 
-/** Projects the entire terrain grid and water together as one metric object, centered at XY zero.
- * Resamples at 25 m by striding over the 12.5 m grid. Water follows the same triangle cuts.
- * Returns detached object parts, drawables and the exact triangle count.
+const stripWidth = 3800;
+
+/** Projects the river from the 8 km measurement window as a 3.8 km wide strip in the
+ * frame of the reach chord. The second argument scales ground, water and skirt elevations
+ * (default 8). The terrain uses finer samples near the river and contours read true heights.
+ * Returns a detached stage object, the measured reach in true XY meters, and a triangle count.
+ * Throws RangeError for a non-positive or non-finite height scale or an over-budget mesh.
  */
-export function projectValley(valley: Valley) {
-	const { grid, seed } = valley;
-	const extent = (grid.side - 1) * grid.cellSize;
-	const parts = terrainMeshes(grid);
+export function projectValley(valley: Valley, heightScale = 8) {
+	if (!Number.isFinite(heightScale) || heightScale <= 0)
+		throw new RangeError('Height scale must be finite and positive');
+	const frame = reachFrame(valley);
+	const parts = terrainMeshes(frame, stripWidth, heightScale);
 	const triangleCount = parts.reduce((sum, { shape }) => sum + shape.indices.length / 3, 0);
 	if (triangleCount > valleyTriangleBudget)
 		throw new RangeError('Valley exceeds the triangle budget');
 	const object = PlaceableObject.create({
-		id: `valley-${seed}`,
+		id: `valley-${valley.seed}`,
 		slots: Object.keys(landscape),
 		parts,
-		footprint: { width: extent, depth: extent },
+		footprint: { width: frame.length, depth: stripWidth },
 		anchors: []
 	});
 	return Object.freeze({
 		object,
+		reach: frame.xy,
+		heightScale,
 		triangleCount,
-		drawables: Object.freeze(resolveSurfaces(object, landscape))
+		drawables: Object.freeze(
+			resolveSurfaces(object, landscape).map((part) => Object.freeze({ ...part, heightScale }))
+		)
 	});
 }

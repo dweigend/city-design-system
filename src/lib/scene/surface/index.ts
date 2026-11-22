@@ -4,14 +4,14 @@ import type { PlaceableObject, Shape } from '../../core/object';
 /** Surface finish, with line reserved for pencil outlines. */
 export type Finish = 'matte' | 'gloss' | 'glass' | 'line' | 'terrain';
 
-/** One CSS color token and finish for a slot. */
-export type Surface = Readonly<{ color: `--${string}`; finish: Finish }>;
+/** One CSS color token and finish for a slot. Flat fills retain the token color on all faces. */
+export type Surface = Readonly<{ color: `--${string}`; finish: Finish; flat?: boolean }>;
 
 /** Explicit lookup of surfaces by slot name. */
 export type SurfaceAssignment = Readonly<Record<string, Surface | undefined>>;
 
-/** One part's id, geometry and assigned surface. Geometry stays in meters. */
-export type Drawable = Surface & Readonly<{ id: string; shape: Shape }>;
+/** One part’s id, geometry and surface. Height scale recovers true contour elevations. */
+export type Drawable = Surface & Readonly<{ id: string; shape: Shape; heightScale?: number }>;
 
 type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
 
@@ -27,7 +27,8 @@ export const existing = Object.freeze({
 /** Paper ground and the pale step of the existing water color. */
 export const landscape = Object.freeze({
 	ground: Object.freeze({ color: '--paper-2', finish: 'terrain' }),
-	water: Object.freeze({ color: '--cat-health-2', finish: 'matte' })
+	earth: Object.freeze({ color: '--ground-plinth', finish: 'matte' }),
+	water: Object.freeze({ color: '--cat-health-2', finish: 'matte', flat: true })
 } satisfies SurfaceAssignment);
 
 /** Returns the stock assignment with one flow color on the wall. */
@@ -53,8 +54,8 @@ export function resolveSurfaces(
 		surfaces.set(slot, surface);
 	}
 	return object.parts.map(({ id, slot, shape }) => {
-		const { color, finish } = required(surfaces.get(slot), `surface for slot "${slot}"`);
-		return { id, shape, color, finish };
+		const { color, finish, flat } = required(surfaces.get(slot), `surface for slot "${slot}"`);
+		return flat === undefined ? { id, shape, color, finish } : { id, shape, color, finish, flat };
 	});
 }
 

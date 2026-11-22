@@ -42,23 +42,23 @@ async function create({
 		scene.background = paper;
 		const ink = color('--ink-2');
 		palette.ink.value.copy(ink);
-		palette.floodplain.value
-			.copy(color('--paper-2'))
-			.lerp(color('--ground-sage'), dark ? 0.055 : 0.17);
+
 		strokes.outer.color.copy(ink);
 		strokes.crease.color.copy(ink);
-		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.2 : 0.35);
+		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.14);
 		strokes.ground.color.copy(paper).lerp(ink, 0.48);
 		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
 		palette.dark.value = Number(dark);
 		palette.hull.value = Number(display === 'transparency');
 		const style = readDisplay(display);
-		for (const { drawable, mesh, terrain } of content.parts) {
+		for (const { drawable, mesh, terrain, flat, heightScale } of content.parts) {
 			const { opacity, paper: usePaper } = style(drawable.finish, hull);
 			const material = mesh.material;
 			const transparent = opacity < 1;
 			const polygonOffset = !landscape && drawable.finish !== 'glass';
 			terrain.value = Number(drawable.finish === 'terrain');
+			flat.value = Number(drawable.flat === true);
+			heightScale.value = drawable.heightScale ?? 1;
 			if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
 				material.needsUpdate = true;
 			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });

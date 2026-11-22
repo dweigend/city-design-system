@@ -3,7 +3,7 @@ import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { Bounds3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import { shapeArrays } from './geometry';
-import { edgeGeometry, type strokeMaterials } from './edges';
+import { boundaryGeometry, edgeGeometry, type strokeMaterials } from './edges';
 import { projectGround } from './ground';
 import { fillMaterial } from './material';
 import type { drawingPalette } from './tone';
@@ -31,7 +31,9 @@ function project(
 	const indexed = new BufferGeometry();
 	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
 	indexed.setIndex([...indices]);
-	const stroke = edgeGeometry(positions, indices, landscape);
+	const stroke = landscape
+		? boundaryGeometry(positions, indices)
+		: edgeGeometry(positions, indices);
 	const lines = [strokes.crease, strokes.outer].map((material, index) => {
 		const line = new LineSegments2(stroke, material);
 		line.renderOrder = 2 + index;
@@ -42,9 +44,9 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain } = fillMaterial(palette, landscape);
+	const { material, terrain, flat, heightScale } = fillMaterial(palette);
 	const mesh = new Mesh(fill, material);
-	return { drawable, mesh, stroke, lines, terrain };
+	return { drawable, mesh, stroke, lines, terrain, flat, heightScale };
 }
 
 export function projectContent(
@@ -69,15 +71,17 @@ export function projectContent(
 	const bounds: Bounds3 = box.isEmpty()
 		? { min: [0, 0, 0], max: [0, 0, 0] }
 		: { min: box.min.toArray(), max: box.max.toArray() };
-	const ground =
-		landscape || footprint.isEmpty()
-			? undefined
-			: projectGround(
-					bounds,
-					{ min: footprint.min.toArray(), max: footprint.max.toArray() },
-					strokes.ground
-				);
-	if (ground) group.add(ground.shadow, ground.outline);
+	const ground = footprint.isEmpty()
+		? undefined
+		: projectGround(
+				bounds,
+				{ min: footprint.min.toArray(), max: footprint.max.toArray() },
+				strokes.ground
+			);
+	if (ground) {
+		ground.outline.visible = !landscape;
+		group.add(ground.shadow, ground.outline);
+	}
 	return {
 		parts,
 		group,

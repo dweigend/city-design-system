@@ -38,12 +38,13 @@ export function readView(view: View) {
 
 export function fitCamera(view: View, bounds: Bounds3, aspect: number, landscape = false) {
 	const { eye, up, fill, shadowFit } = readView(view);
-	const elevation = (37 * Math.PI) / 180;
+	const elevation = (35 * Math.PI) / 180;
+	const valleyBearing = (25 * Math.PI) / 180;
 	const direction: Vec3 =
 		landscape && view === 'iso'
 			? [
-					Math.sin(bearingRad) * Math.cos(elevation),
-					-Math.cos(bearingRad) * Math.cos(elevation),
+					Math.sin(valleyBearing) * Math.cos(elevation),
+					-Math.cos(valleyBearing) * Math.cos(elevation),
 					Math.sin(elevation)
 				]
 			: eye;
@@ -53,10 +54,10 @@ export function fitCamera(view: View, bounds: Bounds3, aspect: number, landscape
 	const half = scaled(displacement(bounds.min, bounds.max), 0.5);
 	const extent = (axis: Vec3) =>
 		dotProduct(half, [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])]);
-	const shift = scaled([-sun[0], -sun[1], 0], shadowFit && !landscape ? half[2] * shadowReach : 0);
+	const shift = scaled([-sun[0], -sun[1], 0], shadowFit || landscape ? half[2] * shadowReach : 0);
 	const center = sum(interpolation(bounds.min, bounds.max, 0.5), shift);
 	const objectFit =
-		Math.max(extent(imageUp), extent(right) / aspect, 0.05) / (landscape ? 0.9 : fill);
+		Math.max(extent(imageUp), extent(right) / aspect, 0.05) / (landscape ? 0.93 : fill);
 	const shadowFitHeight =
 		Math.max(
 			extent(imageUp) + Math.abs(dotProduct(shift, imageUp)),

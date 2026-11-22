@@ -22,7 +22,7 @@ export function readDisplay(display: Display) {
 	return displays[display];
 }
 
-export function fillMaterial(palette: ReturnType<typeof drawingPalette>, landscape: boolean) {
+export function fillMaterial(palette: ReturnType<typeof drawingPalette>) {
 	const material = new MeshBasicNodeMaterial({
 		side: DoubleSide,
 		forceSinglePass: true,
@@ -30,6 +30,8 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, landsca
 		polygonOffsetUnits: 1
 	});
 	const terrain = uniform(0);
+	const flat = uniform(0);
+	const heightScale = uniform(1);
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
 	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
@@ -37,15 +39,17 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, landsca
 	const shadow = roof.or(facesLight).not();
 	const level = top.select(levels.top, shadow.select(levels.shadow, levels.lit));
 	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
-	const fill = landscape
-		? materialColor
-		: graphite(
-				materialColor,
-				level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
-				mix(pressure, grain.top, palette.hull)
-			);
-	material.colorNode = mix(fill, terrainColor(palette), terrain);
-	return { material, terrain };
+	const fill = graphite(
+		materialColor,
+		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
+		mix(pressure, grain.top, palette.hull)
+	);
+	material.colorNode = mix(
+		mix(fill, materialColor, flat),
+		terrainColor(palette, heightScale),
+		terrain
+	);
+	return { material, terrain, flat, heightScale };
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

@@ -6,7 +6,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Valley, valleyParams } from '../../lib/domain/valley';
-	import { clipPolylineToSquare, measureRiver } from '../../lib/domain/river-metrics';
+	import { measureRiver } from '../../lib/domain/river-metrics';
 	import { projectValley } from '../../lib/scene/valley-projection';
 	import { StageView } from '../../lib/scene/stage-view';
 	import type { View } from '../../lib/scene/stage';
@@ -18,7 +18,6 @@
 
 	const chapter = chapterAt('/landscape');
 	const seeds = [1201, 1301, 1409];
-	const regionalWindow = 8000;
 	const { label, min, max, step, default: defaultSinuosity } = valleyParams.sinuosity;
 	const views = [
 		{ value: 'iso', label: 'Iso' },
@@ -43,11 +42,9 @@
 		const projection = projectValley(valley);
 		const projected = performance.now();
 		const { course } = valley;
-		const reach = clipPolylineToSquare(course.xy, regionalWindow);
-		if (!reach) throw new Error('The river must cross the regional window');
 		return {
 			...projection,
-			metrics: measureRiver({ ...course, xy: reach.xy }, course.xy),
+			metrics: measureRiver({ ...course, xy: projection.reach }, course.xy),
 			generationMs: generated - start,
 			projectionMs: projected - generated
 		};
@@ -103,7 +100,12 @@
 			<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
 		</div>
 		<div class="stack valley-observations">
-			<p class="caption">8 km reach · 2 km shown</p>
+			<p class="caption">
+				{(model.object.footprint.width / 1000).toFixed(1)} × {(
+					model.object.footprint.depth / 1000
+				).toFixed(1)}&nbsp;km
+				<span class="data"> · Heights ×{model.heightScale}</span>
+			</p>
 			<dl class="data">
 				<div>
 					<dt>Sinuosity</dt>

@@ -6,8 +6,7 @@ export function drawingPalette() {
 	return {
 		dark: uniform(0),
 		hull: uniform(0),
-		ink: uniform(new Color()),
-		floodplain: uniform(new Color())
+		ink: uniform(new Color())
 	};
 }
 
