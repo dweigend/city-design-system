@@ -20,8 +20,8 @@ export function projectValley(valley: Valley, heightScale = 14) {
 	if (!Number.isFinite(heightScale) || heightScale <= 0)
 		throw new RangeError('Height scale must be finite and positive');
 	const frame = reachFrame(valley);
-	const parts = terrainMeshes(frame, stripWidth, heightScale);
 	const field = terrainField(frame, stripWidth);
+	const parts = terrainMeshes(frame, heightScale, field);
 	const triangleCount = parts.reduce((sum, { shape }) => sum + shape.indices.length / 3, 0);
 	if (triangleCount > valleyTriangleBudget)
 		throw new RangeError('Valley exceeds the triangle budget');

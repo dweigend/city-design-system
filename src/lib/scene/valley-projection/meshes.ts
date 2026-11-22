@@ -1,3 +1,5 @@
+import type { TerrainField } from '../surface';
+import { slopeSpacing } from './spacing';
 import { trackRiver, type ReachFrame } from './frame';
 import { skirt } from './skirt';
 
@@ -23,7 +25,14 @@ function shore(frame: ReachFrame, x: number, center: number, outside: number) {
 	return (wet + dry) / 2;
 }
 
-function section(frame: ReachFrame, x: number, center: number, half: number, scale: number) {
+function section(
+	frame: ReachFrame,
+	x: number,
+	center: number,
+	half: number,
+	scale: number,
+	field: TerrainField
+) {
 	const left = shore(frame, x, center, -half);
 	const right = shore(frame, x, center, half);
 	const cuts = [
@@ -41,9 +50,13 @@ function section(frame: ReachFrame, x: number, center: number, half: number, sca
 	};
 	sample(-half);
 	for (const [band, count] of lateralCounts.entries()) {
-		for (let column = 1; column <= count; column++) {
-			sample(cuts[band] + ((cuts[band + 1] - cuts[band]) * column) / count);
-		}
+		const from = cuts[band];
+		const to = cuts[band + 1];
+		const offsets =
+			band === 0 || band === lateralCounts.length - 1
+				? slopeSpacing(field, x, from, to, count)
+				: Array.from({ length: count }, (_, i) => from + ((to - from) * (i + 1)) / count);
+		for (const y of offsets) sample(y);
 	}
 	for (const index of [leftBankIndex, rightBankIndex]) {
 		const point = points[index];
@@ -71,13 +84,13 @@ function capWater(west: readonly Point[], east: readonly Point[]) {
 	return cut;
 }
 
-export function terrainMeshes(frame: ReachFrame, width: number, scale: number) {
+export function terrainMeshes(frame: ReachFrame, scale: number, field: TerrainField) {
 	const riverAt = trackRiver(frame.course);
 	const points = Array.from({ length: stationCount + 1 }, (_, row) => {
 		const x = (row / stationCount - 0.5) * frame.length;
-		const half = width / 2;
+		const half = field.depth / 2;
 		const center = Math.min(half, Math.max(-half, riverAt(x)));
-		return section(frame, x, center, half, scale);
+		return section(frame, x, center, half, scale, field);
 	}).flat();
 	const ground = mesh(points.flatMap(({ x, y, z }) => [x, y, z]));
 	const water = mesh();
