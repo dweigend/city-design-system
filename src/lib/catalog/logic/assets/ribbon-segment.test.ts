@@ -445,10 +445,10 @@ test('dressSurface owns material-only and city-drawing rules shared by ribbon gu
 	const drawing = dressSurface(pathSurfaces.guard, {
 		token: '--cat-business',
 		finish: 'city-drawing',
-		colourRole: 'accent'
+		colourRole: 'body-accent'
 	});
 	expect(drawing).toEqual({
-		colourRole: 'accent',
+		colourRole: 'body-accent',
 		material: 'metal',
 		token: '--cat-business'
 	});
@@ -489,13 +489,13 @@ test('dressSurface owns material-only and city-drawing rules shared by ribbon gu
 		[]
 	);
 	const guards = projectWalkingEdges(graph, () => 0, [], {
-		guard: { token: '--cat-business', finish: 'city-drawing', colourRole: 'accent' }
+		guard: { token: '--cat-business', finish: 'city-drawing', colourRole: 'body-accent' }
 	}).filter((p) => p.id.startsWith('town-walk/rail/'));
 	expect(guards.length).toBeGreaterThan(0);
 	for (const g of guards) {
 		expect(g.role).toBe(pathSurfaces.guard.role);
 		expect(g.token).toBe('--cat-business');
-		expect(g.colourRole).toBe('accent');
+		expect(g.colourRole).toBe('body-accent');
 		expect('finish' in g).toBe(false);
 	}
 });

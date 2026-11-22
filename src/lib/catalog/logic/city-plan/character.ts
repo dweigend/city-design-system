@@ -1,4 +1,5 @@
 import type { BuildingMethod } from '../../data/sandbox';
+import { required } from '../required';
 import { hashUnit } from '../../core/random';
 
 const styles = ['composed', 'megastructure', 'totem'] as const satisfies readonly BuildingMethod[];
@@ -51,4 +52,12 @@ export function mix(composed: number, megastructure: number, totem: number): Sty
 export function centreMix(seed: number, id: string, weights: readonly number[]) {
 	const w = styles.map((style, i) => weights[i] * (0.75 + 0.5 * hashUnit(seed, id, style)));
 	return mix(w[0], w[1], w[2]);
+}
+
+/** Returns the immutable family defaults for a named city character. */
+export function centreFamily(character: (typeof families)[number]['character']) {
+	return required(
+		families.find((family) => family.character === character),
+		character
+	);
 }
