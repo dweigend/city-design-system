@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { git, integration, preview, research, slot } from './experiment-host';
+import { git, integration, lane, preview, research, slot } from './experiment-host';
 
 const { positionals, values } = parseArgs({
 	args: process.argv.slice(2),
@@ -25,7 +25,7 @@ const { positionals, values } = parseArgs({
 	}
 });
 const [branch] = positionals;
-if (positionals.length !== 1 || !branch || ['main', 'experimente'].includes(branch))
+if (positionals.length !== 1 || !branch || ['main', 'experimente', lane].includes(branch))
 	throw Error('Usage: bun run ship <package branch> [--package ID] [--started-at UTC]');
 git('.', 'check-ref-format', '--branch', branch);
 const id = values.package ?? branch.replaceAll('/', '-');
@@ -54,7 +54,7 @@ function clean(path: string, expected: string) {
 		throw Error('Expected clean ' + expected + ' worktree at ' + path);
 }
 clean(work, branch);
-clean(integration, 'experimente');
+clean(integration, lane);
 const target = (...args: string[]) => git(integration, ...args);
 const packageGit = (...args: string[]) => git(work, ...args);
 const heavy = (args: string[], capture = false) => {
@@ -85,8 +85,6 @@ function gate(base: string) {
 			'scripts',
 			'--config',
 			'.dependency-cruiser.cjs',
-			'--ignore-known',
-			'.dependency-cruiser-baseline.json',
 			'--reaches',
 			reaches,
 			'-T',
@@ -133,8 +131,8 @@ function prepare(): Delivery {
 	if (existsSync(resolve(research, 'ship-receipts', id + '.json')))
 		throw Error('Package ID already has a receipt');
 	const base = target('rev-parse', 'HEAD');
-	if (base !== target('rev-parse', 'origin/experimente'))
-		throw Error('Synchronize experimente with origin before delivery');
+	if (base !== target('rev-parse', 'origin/' + lane))
+		throw Error('Synchronize ' + lane + ' with origin before delivery');
 	preview(base);
 	if (packageGit('merge-base', base, 'HEAD') === packageGit('rev-parse', 'HEAD'))
 		throw Error('Package already integrated');
@@ -148,21 +146,21 @@ function prepare(): Delivery {
 	return state;
 }
 
-target('fetch', 'origin', 'experimente');
+target('fetch', 'origin', lane);
 let state: Delivery | undefined = existsSync(stateFile)
 	? JSON.parse(readFileSync(stateFile, 'utf8'))
 	: undefined;
 if (state && state.branch !== branch) throw Error('Package ID belongs to another branch');
-const remote = target('rev-parse', 'origin/experimente');
+const remote = target('rev-parse', 'origin/' + lane);
 const parents = target('show', '-s', '--format=%P', remote);
 const published = state && parents === [state.base, state.tip].join(' ');
 if (!published && state && state.base !== remote) state = undefined;
 target('merge', '--ff-only', remote);
 if (target('rev-parse', 'HEAD') !== remote)
-	throw Error('Local experimente has unpublished commits');
+	throw Error('Local ' + lane + ' has unpublished commits');
 state ??= prepare();
 clean(work, branch);
-clean(integration, 'experimente');
+clean(integration, lane);
 if (state.tip !== packageGit('rev-parse', 'HEAD')) throw Error('Package changed after gates');
 
 function publish(delivery: Delivery) {
@@ -177,7 +175,7 @@ function publish(delivery: Delivery) {
 			packageGit('rev-parse', delivery.tip + '^{tree}')
 		)
 			throw Error('Candidate tree changed');
-		target('push', 'origin', sha + ':refs/heads/experimente');
+		target('push', 'origin', sha + ':refs/heads/' + lane);
 		target('merge', '--ff-only', sha);
 		return sha;
 	} finally {

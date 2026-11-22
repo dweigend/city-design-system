@@ -9,8 +9,8 @@ import ts from 'typescript-eslint';
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
 /**
- * Runtime code that `tsconfig.json` covers. Tests, scripts and Playwright files live in their own
- * TypeScript environments (`tsconfig.bun.json`, `tsconfig.e2e.json`) and are linted without types.
+ * Runtime code that `tsconfig.json` covers. Tests and scripts use
+ * `tsconfig.bun.json` and are linted without types.
  */
 const typedFiles = ['src/**/*.ts', 'src/**/*.svelte'];
 const untypedFiles = ['src/**/*.test.ts'];
@@ -28,33 +28,6 @@ const deferredTypeChecked = /** @type {const} */ ({
 	'@typescript-eslint/no-unsafe-return': 'off',
 	'@typescript-eslint/no-unnecessary-type-assertion': 'off'
 });
-
-/** Browser globals that headless `data/` and `logic/` code must not touch (ARCHITECTURE A-05). */
-const browserGlobals = [
-	'window',
-	'document',
-	'localStorage',
-	'sessionStorage',
-	'indexedDB',
-	'navigator',
-	'location',
-	'history',
-	'matchMedia',
-	'getComputedStyle',
-	'requestAnimationFrame',
-	'cancelAnimationFrame',
-	'requestIdleCallback',
-	'fetch',
-	'XMLHttpRequest',
-	'WebSocket',
-	'Worker',
-	'alert',
-	'confirm',
-	'prompt'
-].map((name) => ({
-	name,
-	message: 'Browser access belongs in an adapter outside data/ and logic/ (A-05).'
-}));
 
 /** Type-aware rules of `recommendedTypeChecked`, applied only to `typedFiles`. */
 const typeCheckedRules = Object.fromEntries(
@@ -109,11 +82,6 @@ export default defineConfig(
 		}
 	},
 	{
-		files: ['src/lib/catalog/data/**/*.ts', 'src/lib/catalog/logic/**/*.ts'],
-		ignores: ['**/*.svelte.ts', '**/*.test.ts'],
-		rules: { 'no-restricted-globals': ['error', ...browserGlobals] }
-	},
-	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {
@@ -128,7 +96,7 @@ export default defineConfig(
 		rules: {
 			'no-restricted-syntax': [
 				'error',
-				{ selector: 'SvelteStyleElement', message: 'Route CSS belongs in catalog components.' },
+				{ selector: 'SvelteStyleElement', message: 'Route CSS belongs in src/app.css.' },
 				{
 					selector: 'SvelteAttribute[key.name="style"]',
 					message: 'Route style attributes are forbidden.'

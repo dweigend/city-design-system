@@ -7,11 +7,17 @@ export function git(cwd: string, ...args: string[]) {
 	return execFileSync('git', args, { cwd, encoding: 'utf8' }).trimEnd();
 }
 
-export const integration = dirname(
-	git('.', 'rev-parse', '--path-format=absolute', '--git-common-dir')
-);
-export const research = resolve(integration, '../city-design-lab/research');
-export const shots = resolve(research, 'runde-2/shots');
+export const lane = 'rebuild';
+
+const worktrees = git('.', 'worktree', 'list', '--porcelain', '-z').split('\0\0');
+const worktree = worktrees.find((entry) => entry.split('\0').includes('branch refs/heads/' + lane));
+if (!worktree) throw Error('Expected a worktree on ' + lane);
+export const integration = worktree.split('\0')[0].slice('worktree '.length);
+
+const repository = dirname(git('.', 'rev-parse', '--path-format=absolute', '--git-common-dir'));
+export const research = resolve(repository, '../city-design-lab/research');
+export const shots = resolve(integration, '_lokal/rebuild-shots');
+export const previewPort = 5182;
 export const slot = [
 	'heavy-slot',
 	'--exclusive',
@@ -35,10 +41,10 @@ export function requireSlot() {
 	throw Error('Browser requires heavy-slot. Run ' + slot.join(' ') + ' bun run shot');
 }
 
-/** Bind the local Vite listener to the clean experiment checkout and revision. */
+/** Bind the local Vite listener to the clean rebuild worktree and revision. */
 export function preview(revision: string) {
 	if (
-		git(integration, 'branch', '--show-current') !== 'experimente' ||
+		git(integration, 'branch', '--show-current') !== lane ||
 		git(integration, 'rev-parse', 'HEAD') !== revision ||
 		git(integration, 'status', '--porcelain')
 	)
@@ -47,10 +53,12 @@ export function preview(revision: string) {
 }
 
 function listenerOrigin() {
-	const listener = execFileSync('ss', ['-Hlnpt', 'sport = :5181'], { encoding: 'utf8' }).trim();
+	const listener = execFileSync('ss', ['-Hlnpt', 'sport = :' + previewPort], {
+		encoding: 'utf8'
+	}).trim();
 	const pid = listener.match(/pid=(\d+)/)?.[1];
 	if (!pid || readlinkSync('/proc/' + pid + '/cwd') !== integration)
-		throw Error('Expected the experiment preview checkout on port 5181');
+		throw Error('Expected the rebuild preview worktree on port ' + previewPort);
 	const host = listener.split(/\s+/)[3];
 	return 'http://' + host.replace(/^0\.0\.0\.0:/, '127.0.0.1:');
 }

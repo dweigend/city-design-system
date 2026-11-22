@@ -8,8 +8,5 @@ bun.lockb
 # Miscellaneous
 /static/
 
-# Generated measurements: preserve unchanged (manifests, checksums)
-
-# Generated Fallow baselines: preserve as written by `bun run check:fallow:baseline`
-/.fallow-baselines/
-
+# Preserve the rebuild brief as written.
+/docs/development/rebuild.md

@@ -6,10 +6,6 @@ import { createServer } from 'node:net';
 // SvelteKit sync, private skill links, git orientation and a free dev port.
 // Changes nothing outside this worktree. The bun pin lives in the CI workflow, the one source.
 const WORKFLOW = '.github/workflows/verify.yml';
-/**
- * 5180 is the shared live preview (bibel-preview); never hand it out.
- * 5191 is the Playwright server of `bun run test:browser` (playwright.config.ts). */
-const RESERVED_PORTS = new Set([5180, 5191]);
 /** Untracked private skill folders; the main checkout holds the only copy. */
 const SKILL_DIRS = ['.claude/skills', '.agents/skills'];
 const PORT_START = 5190;
@@ -103,7 +99,7 @@ async function isFree(port: number): Promise<boolean> {
 /** First free port from PORT_START on, skipping reserved ports. */
 async function freeDevPort(): Promise<number> {
 	for (let port = PORT_START; port < PORT_START + PORT_ATTEMPTS; port += 1) {
-		if (!RESERVED_PORTS.has(port) && (await isFree(port))) return port;
+		if (await isFree(port)) return port;
 	}
 	throw new Error(`no free port in ${PORT_START}-${PORT_START + PORT_ATTEMPTS - 1}`);
 }

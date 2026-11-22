@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { git, integration, preview, requireSlot, research, shots } from './experiment-host';
+import { git, integration, preview, requireSlot, shots } from './experiment-host';
 
 requireSlot();
 const { values, positionals } = parseArgs({
@@ -21,39 +21,39 @@ const origin = preview(revision);
 const requested = values.url ? new URL(values.url, origin) : undefined;
 if (requested && requested.origin !== origin)
 	throw Error('URL must match the verified preview at ' + origin);
-const shotRoute = process.env.SHOT_ROUTE;
-const defaultRoutes = shotRoute ? [shotRoute] : ['/sandbox/abnahme', '/sandbox', '/sandbox/haus'];
 const routes = positionals.length
 	? positionals
-	: requested && requested.pathname !== '/'
-		? [requested.pathname + requested.search]
-		: defaultRoutes;
+	: [requested ? requested.pathname + requested.search : (process.env.SHOT_ROUTE ?? '/')];
 const folder = resolve(shots, new Date().toISOString().replaceAll(':', '-'));
-const reference = resolve(
-	values.reference ??
-		resolve(research, '../experiments/image-workflow/input/stil-referenz-approved.png')
-);
-function matchesParent(path: string, parent: string) {
-	if (!existsSync(path)) return false;
-	const manifest = JSON.parse(readFileSync(path, 'utf8'));
+const reference = values.reference ? resolve(values.reference) : undefined;
+
+type Capture = { route: string; size: string; image: string };
+type Manifest = { revision: string; records: Capture[] };
+function readManifest(directory: string): Manifest | undefined {
+	const path = resolve(directory, 'manifest.json');
+	if (existsSync(path)) return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+const parent = git(integration, 'rev-parse', revision + '^1');
+function matchesParent(manifest: Manifest | undefined) {
 	return (
-		manifest.revision === parent &&
-		routes.every((route) => manifest.records.some((r: { route: string }) => r.route === route))
+		manifest?.revision === parent &&
+		routes.every((route) => manifest.records.some((record) => record.route === route))
 	);
 }
 function parentCapture() {
 	if (!existsSync(shots)) return;
-	const parent = git(integration, 'rev-parse', revision + '^1');
-	const folder = readdirSync(shots)
+	return readdirSync(shots)
 		.sort()
 		.reverse()
-		.find((name) => matchesParent(resolve(shots, name, 'manifest.json'), parent));
-	if (folder) return resolve(shots, folder);
+		.map((name) => resolve(shots, name))
+		.find((directory) => matchesParent(readManifest(directory)));
 }
 const before = values.before ?? parentCapture();
-const previous = before ? await Bun.file(resolve(before, 'manifest.json')).json() : undefined;
-if (previous && previous.revision !== git(integration, 'rev-parse', revision + '^1'))
-	throw Error('Before must show the first parent of this revision');
+const previous = before ? readManifest(before) : undefined;
+if (before && !matchesParent(previous))
+	throw Error('Before must show the first parent of this revision and all requested routes');
+
 mkdirSync(folder, { recursive: true });
 const records = [];
 const browser = await chromium.launch({
@@ -74,8 +74,6 @@ try {
 	for (const route of routes) {
 		const url = new URL(route, origin);
 		if (url.origin !== origin) throw Error('Expected a local preview route');
-		const showChapters = url.searchParams.get('shot') === 'chapters';
-		if (showChapters) url.searchParams.delete('shot');
 		for (const [size, width, height] of [
 			['phone', 390, 844],
 			['short-desktop', 1280, 640]
@@ -89,83 +87,54 @@ try {
 			try {
 				if (!(await page.goto(url.href, { waitUntil: 'networkidle', timeout: 120000 }))?.ok())
 					throw Error('Could not open ' + url.href);
-				const canvas = page
-					.locator('canvas[data-backend][data-frame]:not([data-frame="0"])')
-					.first();
-				await canvas.waitFor({ timeout: 90000 });
-				await canvas.evaluate(async () => {
+				await page.evaluate(async () => {
 					await document.fonts.ready;
-					await new Promise<void>((done) =>
-						requestAnimationFrame(() => requestAnimationFrame(() => done()))
-					);
 				});
-				const backend = await canvas.getAttribute('data-backend');
-				const renderer =
-					backend === 'webgpu'
-						? await canvas.evaluate(webGpuRenderer)
-						: await canvas.evaluate(webGlRenderer);
-				const proof = { backend, renderer };
+				const renderer = await page.evaluate(webGlRenderer);
+				const backend = 'webgl2';
 				if (
-					!/amd|radeon/i.test(proof.renderer) ||
-					/swiftshader|llvmpipe|lavapipe|software/i.test(proof.renderer)
+					!/amd|radeon/i.test(renderer) ||
+					/swiftshader|llvmpipe|lavapipe|software/i.test(renderer)
 				)
-					throw Error('Hardware proof failed: ' + JSON.stringify(proof));
+					throw Error('Hardware proof failed: ' + renderer);
+
 				const key = Buffer.from(route).toString('base64url') + '-' + size;
 				const image = key + '.png';
 				const sheet = key + '-sheet.png';
-				const stageImage = await page.screenshot({ animations: 'disabled' });
 				const current = resolve(folder, image);
-				const bounds = await canvas.boundingBox();
-				if (!bounds) throw Error('Scene canvas disappeared');
-				const cx = Math.floor(
-					Math.min(width, bounds.x + bounds.width) / 2 + Math.max(0, bounds.x) / 2
-				);
-				const cy = Math.floor(
-					Math.min(height, bounds.y + bounds.height) / 2 + Math.max(0, bounds.y) / 2
-				);
-				const variation = execFileSync(
-					'convert',
-					[
-						'png:-',
-						'-crop',
-						'80x80+' + (cx - 40) + '+' + (cy - 40),
-						'-format',
-						'%[fx:standard_deviation]',
-						'info:'
-					],
-					{ encoding: 'utf8', input: stageImage }
-				);
-				if (!(Number(variation) > 0.001)) throw Error('Blank scene in ' + current);
-				if (showChapters) {
-					await page.getByRole('button', { name: 'Chapters', exact: true }).click();
-					await page.getByRole('navigation', { name: 'Chapters', exact: true }).waitFor();
-					await page.screenshot({ path: current, animations: 'disabled' });
-				} else {
-					await Bun.write(current, stageImage);
+				await page.screenshot({ path: current, animations: 'disabled' });
+
+				const baseline = previous?.records.find((r) => r.route === route && r.size === size);
+				const panels = ['-label', 'After', current];
+				if (baseline && before) panels.unshift('-label', 'Before', resolve(before, baseline.image));
+				if (reference) panels.push('-label', 'Reference', reference);
+				const hasComparison = panels.length > 3;
+				if (hasComparison) {
+					execFileSync('montage', [
+						'-font',
+						'DejaVu-Sans',
+						'-pointsize',
+						'18',
+						...panels,
+						'-geometry',
+						width + 'x' + height + '+4+4',
+						'-tile',
+						'x1',
+						resolve(folder, sheet)
+					]);
 				}
-				const baseline = before ? resolve(before, image) : 'xc:#eeeeee';
-				execFileSync('montage', [
-					'-font',
-					'DejaVu-Sans',
-					'-pointsize',
-					'18',
-					'-label',
-					before ? 'Before' : 'Before (baseline capture)',
-					baseline,
-					'-label',
-					'After',
-					current,
-					'-label',
-					'Reference',
-					reference,
-					'-geometry',
-					width + 'x' + height + '+4+4',
-					'-tile',
-					'3x1',
-					resolve(folder, sheet)
-				]);
-				records.push({ route, finalUrl: page.url(), size, width, height, image, sheet, ...proof });
-				console.log(route, size, proof.backend, proof.renderer);
+				records.push({
+					route,
+					finalUrl: page.url(),
+					size,
+					width,
+					height,
+					image,
+					sheet: hasComparison ? sheet : undefined,
+					backend,
+					renderer
+				});
+				console.log(route, size, backend, renderer);
 			} finally {
 				await page.close();
 			}
@@ -183,7 +152,6 @@ await Bun.write(
 			origin,
 			before,
 			reference,
-			preset: 'opening',
 			theme: 'light',
 			reducedMotion: true,
 			deviceScaleFactor: 1,
@@ -196,20 +164,12 @@ await Bun.write(
 );
 console.log(folder);
 
-async function webGpuRenderer(element: Element) {
-	const context = (element as HTMLCanvasElement).getContext('webgpu') as GPUCanvasContext;
-	const device = context.getConfiguration()?.device;
-	if (!device) throw Error('Missing scene device');
-	await device.queue.onSubmittedWorkDone();
-	const info = device.adapterInfo;
-	if (info.isFallbackAdapter) throw Error('Fallback scene adapter');
-	return [info.vendor, info.architecture, info.device, info.description].join(' ');
-}
-function webGlRenderer(element: Element) {
-	const gl = (element as HTMLCanvasElement).getContext('webgl2');
-	if (!gl) throw Error('Missing scene WebGL2 context');
+function webGlRenderer() {
+	const gl = document.createElement('canvas').getContext('webgl2');
+	if (!gl) throw Error('Missing browser WebGL2 context');
 	const ext = gl.getExtension('WEBGL_debug_renderer_info');
 	if (!ext) throw Error('Missing renderer info');
+	gl.clear(gl.COLOR_BUFFER_BIT);
 	gl.finish();
 	return String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
 }
