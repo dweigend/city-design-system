@@ -150,10 +150,15 @@ function outwardTangent(sections: readonly RibbonSection[], end: 'start' | 'end'
 	return [1, 0, 0];
 }
 
+const PERPENDICULAR_DOT_EPS = 1e-6;
+
 function outwardPortNormal(heading: number, outward: Vec3): Vec3 {
+	if (!Number.isFinite(heading)) return outward;
 	const nx = Math.cos(heading);
 	const ny = Math.sin(heading);
-	return nx * outward[0] + ny * outward[1] < 0 ? [-nx, -ny, 0] : [nx, ny, 0];
+	const dot = nx * outward[0] + ny * outward[1];
+	if (Math.abs(dot) <= PERPENDICULAR_DOT_EPS) return outward;
+	return dot < 0 ? [-nx, -ny, 0] : [nx, ny, 0];
 }
 
 function endpointAnchor(
