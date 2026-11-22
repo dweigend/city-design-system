@@ -10,22 +10,28 @@ function rise(distanceM: number, centerM: number, halfRunM: number): number {
 	return t * t * (3 - 2 * t);
 }
 
+export function axisBow(axis: ValleyAxis, stationM: number) {
+	const t = Math.abs(stationM / axis.bowSpanM);
+	return axis.bowM * (t < 1 ? t * t : 2 * t - 1);
+}
+
 /** Samples valley-axis relief in meters above mean water. Only the bank skirt reads the river. */
 export function heightAboveWaterM(
 	axis: ValleyAxis,
 	stationM: number,
 	acrossM: number,
-	distanceToBankM: number
+	distanceToBankM: number,
+	regionalRate = 0
 ): number {
 	const { profile } = axis;
 	if (distanceToBankM < 0) return -profile.bedDepthM * ramp(-distanceToBankM, profile.bedRunM);
 	const t = stationM / axis.bowSpanM;
-	const absT = Math.abs(t);
-	const bow = absT < 1 ? t * t : 2 * absT - 1;
-	const lateral = acrossM - axis.bowM * bow;
+	const lateral = acrossM - axisBow(axis, stationM);
 	const distance = Math.abs(lateral);
-	const edge =
-		Math.sign(lateral) === axis.openSide ? axis.openEdgeM + axis.wideningM * t : axis.closeEdgeM;
+	const open = Math.sign(lateral) === axis.openSide;
+	const localEdge = open ? axis.openEdgeM + axis.wideningM * t : axis.closeEdgeM;
+	const beltEdge = open ? 690 : 475;
+	const edge = localEdge + (beltEdge - localEdge) * regionalRate;
 	const upperEdge = edge + profile.upperSetbackM;
 	const [floodplain, lower, upper] = axis.floors;
 	const relief =

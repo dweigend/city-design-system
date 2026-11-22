@@ -28,10 +28,10 @@ export type Valley = Readonly<{
 	bands: typeof valleyBands;
 	/** Samples bed elevation in meters at finite XY coordinates in the closed grid window. */
 	heightAt(x: number, y: number): number;
-	/** Reads bed and mean water elevations in true meters across the modeled region.
+	/** Reads bed, mean water and signed distance to the bank in true meters (capped at +160 m on land).
 	 * Returns a detached sample. Non-finite or out-of-range coordinates throw RangeError.
 	 */
-	sampleGround(x: number, y: number): Readonly<{ height: number; water: number }>;
+	sampleGround(x: number, y: number): Readonly<{ height: number; water: number; bank: number }>;
 }>;
 
 /** Builds one deterministic river and its ground from a uint32 seed and a nominal
@@ -49,7 +49,7 @@ function create({ seed, parameters }: ValleyOptions): Valley {
 	const openSide = root.derive('open-bank').number() < 0.5 ? 1 : -1;
 	const course = generateCourse(root.derive('course'), settings.sinuosity, openSide, -Math.PI / 2);
 	const axis = createValleyAxis(root.derive('ground'), course, openSide);
-	const sample = groundSampler(course, axis);
+	const sample = groundSampler(course, axis, root.derive('regional'));
 	const grid = heightGrid(sample, axis);
 	return Object.freeze({
 		seed,

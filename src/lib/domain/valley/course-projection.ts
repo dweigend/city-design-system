@@ -37,8 +37,8 @@ export function courseProjection(course: RiverCourse) {
 	const last = course.xy.length / 2 - 1;
 	const tree = partition(xy, 0, last);
 
-	return (x: number, y: number) => {
-		let distanceSquared = Infinity;
+	return (x: number, y: number, limit = Infinity) => {
+		let distanceSquared = limit * limit;
 		let segment = last;
 
 		function inspect(interval: Interval, bound: number): void {
