@@ -59,7 +59,7 @@ test('keeps every old cell height and base when the grid crop grows', () => {
 		expect(larger.get(id)).toMatchObject({ id, height, base });
 });
 
-test('shares bounds and supports both uniform storeys and the minimum positive height', () => {
+test('shares bounds and supports both a capped top storey and the minimum positive height', () => {
 	const options = { plan: plan(), datum, seed: 1201 };
 	const heights = (height: number, complexity: number) =>
 		new Set(
@@ -67,7 +67,7 @@ test('shares bounds and supports both uniform storeys and the minimum positive h
 				(cell) => cell.height
 			)
 		);
-	expect(heights(200, -1)).toEqual(new Set([30]));
+	expect(heights(200, -1)).toEqual(new Set([32]));
 	expect(heights(-20, 8)).toEqual(new Set([1]));
 	expect([...heights(2.4, 1)]).toHaveLength(1);
 	expect([...heights(2.4, 1)][0]).toBeCloseTo(2.4);
@@ -75,7 +75,8 @@ test('shares bounds and supports both uniform storeys and the minimum positive h
 	expect(example().cells.length).toBeGreaterThan(0);
 });
 
-test('keeps strong changes local across all registered seeds and complexity steps', () => {
+// The full 3–32 m range requires steeper transitions than the former narrower profile.
+test('keeps jumps over two storeys to at most 16% of edges across all registered seeds', () => {
 	for (const seed of seeds) {
 		const grid = plan(seed, 620, 260, 40);
 		for (let step = 0; step <= 100; step++) {
@@ -89,7 +90,7 @@ test('keeps strong changes local across all registered seeds and complexity step
 			const steep = edges.filter(
 				({ heightDifference }) => Math.abs(heightDifference) > 2 * storeyHeight
 			);
-			expect(steep.length / edges.length).toBeLessThanOrEqual(0.08);
+			expect(steep.length / edges.length).toBeLessThanOrEqual(0.16);
 			if (step === 100) {
 				const heights = cells.map(({ height }) => height);
 				expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThanOrEqual(
@@ -97,7 +98,10 @@ test('keeps strong changes local across all registered seeds and complexity step
 				);
 				expect(
 					heights.every(
-						(height) => height >= storeyHeight && height <= 32 && height % storeyHeight === 0
+						(height) =>
+							height >= storeyHeight &&
+							height <= 32 &&
+							(height === 32 || height % storeyHeight === 0)
 					)
 				).toBe(true);
 			}

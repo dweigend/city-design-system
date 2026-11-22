@@ -3,13 +3,13 @@ import { blockInputs, defineParams, resolveParams } from '../../core/params';
 import type { TerrainGrid, TerrainGridVertex } from '../terrain-grid';
 import { heightField } from './height';
 
-/** A full storey is three meters. Caps below one storey retain the specified height. */
+/** A full storey is three meters. The top storey can be partial at the height cap. */
 export const storeyHeight = 3;
 
 /** Shared height cap in meters and unitless differentiation with city preview defaults. */
 export const cityVolumeParams = defineParams({
-	height: { ...blockInputs.height, default: 30 },
-	complexity: { ...blockInputs.complexity, default: 0.85 }
+	height: { ...blockInputs.height, default: blockInputs.height.max },
+	complexity: { ...blockInputs.complexity, default: blockInputs.complexity.max }
 });
 
 /** A signed change in height above shared ground, from this cell to its neighbor, in meters. */
@@ -77,11 +77,11 @@ function create({
 	const field = heightField(seed, origin, bearing);
 	const vertices = uniqueById(plan.vertices);
 	uniqueById(plan.cells);
-	const storeys = Math.max(1, Math.floor(height / storeyHeight));
+	const storeys = Math.max(1, Math.ceil(height / storeyHeight));
 	const cells = plan.cells.map(({ id, vertexIds, neighbors }) => {
 		const base = baseRing(vertices, vertexIds);
 		const center = base.reduce<Vec2>(([x, y], [u, v]) => [x + u / 4, y + v / 4], [0, 0]);
-		const fraction = 1 - complexity * 0.8 * (1 - field(center));
+		const fraction = 1 - complexity * (1 - field(center));
 		const cellHeight = Math.min(height, Math.max(1, Math.round(storeys * fraction)) * storeyHeight);
 		return { id, base, height: cellHeight, vertexIds, neighbors };
 	});

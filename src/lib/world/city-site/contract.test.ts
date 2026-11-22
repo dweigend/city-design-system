@@ -37,12 +37,27 @@ test('raises the same terrace cells over true-height terrain and retains their h
 	const initial = createCityPlan(city, citySiteParams.citySize.default);
 	const grown = createCityPlan(city, citySiteParams.citySize.max);
 	const even = initial.readVolume({ height: 30, complexity: 0 });
-	const heights = initial.readVolume({ height: 30, complexity: 1 });
-	const larger = grown.readVolume({ height: 30, complexity: 1 });
+	const heights = initial.readVolume(undefined);
+	const larger = grown.readVolume(undefined);
 	const largerHeights = new Map(larger.volume.cells.map(({ id, height }) => [id, height]));
 	expect(city.heightScale).toBe(1);
 	expect(even).toMatchObject({ maxHeight: 30, medianHeight: 30 });
 	expect(heights.medianHeight).toBeLessThan(heights.maxHeight);
 	expect(largerHeights.size).toBeGreaterThan(heights.volume.cells.length);
 	for (const { id, height } of heights.volume.cells) expect(largerHeights.get(id)).toBe(height);
+});
+
+test('keeps a low edge and two limited upper storeys in the chapter default', () => {
+	const { volume, maxHeight } = createCityPlan(
+		createCitySite(),
+		citySiteParams.citySize.default
+	).readVolume(undefined);
+	const heights = volume.cells.map(({ height }) => height);
+	const levels = [...new Set(heights)].sort((a, b) => b - a);
+	const upperShare = heights.filter((height) => height >= levels[1]).length / heights.length;
+	expect(maxHeight).toBe(32);
+	expect(levels.at(-1)).toBe(3);
+	expect(levels.length).toBeGreaterThanOrEqual(5);
+	expect(upperShare).toBeGreaterThanOrEqual(0.1);
+	expect(upperShare).toBeLessThanOrEqual(0.2);
 });
