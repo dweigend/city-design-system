@@ -164,7 +164,7 @@
 	const relief = $derived(city.valley.parameters.relief);
 	const elevation = $derived(cityElevation(relief));
 	// Leave room for the Auto profile to raise the ground and roof steps together.
-	const camera = $derived({ bearing: (-24 * Math.PI) / 180, elevation, fill: 0.92 - 0.2 * relief });
+	const camera = $derived({ bearing: (34 * Math.PI) / 180, elevation, fill: 0.92 - 0.2 * relief });
 	const subject = $derived(projectFocus(view, camera, envelope.points()));
 	const cityFit = $derived({
 		...camera,

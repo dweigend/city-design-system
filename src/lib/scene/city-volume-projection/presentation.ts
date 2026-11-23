@@ -45,7 +45,7 @@ export const bodyLooks = {
 	},
 	transparent: {
 		surface: 'veil',
-		fill: 0.5,
+		fill: 0.62,
 		outline: 0.42,
 		width: 0.6,
 		storeys: 0,
@@ -130,7 +130,11 @@ export function cityPresentation({
 						...part,
 						visible: part.boxShade === boxes,
 						vertical,
-						fillAlpha: look.shade * (part.role === 'contact' ? 1 : 0.7),
+						// Envelope shade fades with the veil it falls from.
+						fillAlpha:
+							look.shade *
+							(part.role === 'contact' ? 1 : 0.5) *
+							(part.boxShade || !(level === 'full' && open) ? 1 : detail.envelope),
 						warp: part.warp && { ...part.warp, amount: detail.factor - 1 }
 					};
 				const block = part.role === 'block' || part.role === 'block-storeys';

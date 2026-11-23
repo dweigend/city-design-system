@@ -163,6 +163,16 @@ const city: DesignPrinciple[] = [
 			'Fast corridors make lobes and bays, and large isolated buildable areas can support satellites. Cells meet water at a small setback and the footprint keeps open paths to the exterior. Denser districts take the most accessible ground first.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Grow a city across the valley' }
+	},
+	{
+		id: 'CITY-14',
+		page: 'city',
+		title: 'Taper only from afar',
+		rule: 'The city envelope retreats above its lower neighbours or overhangs them as one continuous deformation that appears only where zooming out hides member detail and is zero at quarter zoom.',
+		reason:
+			'Up close the lattice shows true, upright columns; from afar, where members can no longer be read anyway, the taper gives the skyline its gesture. Each corner moves up to 5 m per level above its lowest neighbour, capped so no column folds over. One signed Taper value runs from 1 (retreat) through 0 to −1 (overhang) and applies to every lattice model.',
+		decided: '2026-11-23',
+		demo: { route: '/city', label: 'Zoom out with Taper' }
 	}
 ];
 
@@ -445,10 +455,10 @@ const color: DesignPrinciple[] = [
 		id: 'COLOR-5',
 		page: 'color',
 		title: 'Stock as a mix of volume and drawing',
-		rule: 'Existing stock carries no use color and mixes two drawings: some buildings are plain light volumes, others detailed pencil drawings, while only the new and the focused flow carry color.',
+		rule: 'Existing stock carries no use color and mixes two drawings: most bodies are plain light see-through volumes, about one in six a pencil drawing, while only the new and the focused flow carry color.',
 		reason:
-			'The mix reduces detail and still keeps the city lively. A muted phase tint and a pencil line read almost alike, so a building may show either; its construction phase (FORM-10) stays legible through form and drawn detail, not through color.',
-		decided: '2026-11-21'
+			'The mix reduces detail and still keeps the city lively. Which body is drawn is a seeded draw per plot, so it never changes with the focus or the zoom. A muted phase tint and a pencil line read almost alike, so a building may show either; its construction phase (FORM-10) stays legible through form and drawn detail, not through color.',
+		decided: '2026-11-23'
 	},
 	{
 		id: 'COLOR-6',
@@ -456,8 +466,9 @@ const color: DesignPrinciple[] = [
 		title: 'One focus for everything',
 		rule: 'Every subsystem offers the same display levels (full, silhouette, transparent, pencil, hidden), so one focus view switches the whole city.',
 		reason:
-			'Focus is a design requirement: the system strips detail so that the player sees one thing.',
-		decided: '2026-11-18'
+			'Focus is a design requirement: the system strips detail so that the player sees one thing. The city need not be drawn completely: out of focus a house may be simplified, greyed out or shown only as a box. One focus choice sets the level of every subsystem from one table; switching it rebuilds no geometry, and a new subsystem joins as a row of that table.',
+		decided: '2026-11-23',
+		demo: { route: '/city', label: 'Focus selector' }
 	},
 	{
 		id: 'COLOR-7',
@@ -524,6 +535,16 @@ const material: DesignPrinciple[] = [
 		reason:
 			'The light level saves on motion, shadow and detail. The levels are parameters, never a second code path.',
 		decided: '2026-11-19'
+	},
+	{
+		id: 'MAT-6',
+		page: 'material',
+		title: 'Depth in the line drawing',
+		rule: 'Lines hidden behind a nearer surface and distant lines are lighter and thinner than near ones, secondary members are lighter than primary ones, and the stepped silhouette is the strongest line of a structure.',
+		reason:
+			'A dense lattice drawn with one line weight turns into black scribble. Weight by visibility, distance and rank lets a large city read as a stepped mass with structure; a translucent body in front still lets the subject behind it show, subdued.',
+		decided: '2026-11-23',
+		demo: { route: '/city', label: 'Lattice focus' }
 	}
 ];
 
