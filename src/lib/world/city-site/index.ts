@@ -10,7 +10,7 @@ import {
 import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley, type ValleySettings } from '../../domain/valley';
 import { preparePlanSelection } from './plan-selection';
-import { prepareCarrier } from './carrier';
+import { growthPrefix, prepareCarrier } from './carrier';
 import { citySiteConfig } from './config';
 import type { CityTerrainSampler } from './sampling';
 import type { CityCrossing } from './crossings';
@@ -77,6 +77,15 @@ type Carrier = ReturnType<typeof prepareCarrier> & {
 };
 const carriers = new WeakMap<CitySite, Map<string, Carrier>>();
 
+function targetArea(citySizeM: number) {
+	const lengthKm = citySizeM / 1000;
+	return (
+		1e6 *
+		lengthKm *
+		(citySiteConfig.targetAreaBaseRatio + citySiteConfig.targetAreaGrowthRatio * lengthKm)
+	);
+}
+
 function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 	let cache = carriers.get(city);
 	if (!cache) {
@@ -104,7 +113,8 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 		},
 		coarseCellSize,
 		variant,
-		seed
+		seed,
+		targetArea(citySiteParams.citySize.max)
 	);
 	if (cache.size === 8) cache.delete(required(cache.keys().next().value, 'oldest carrier'));
 	const result = { ...prepared, planSelection: preparePlanSelection(prepared.plan) };
@@ -208,10 +218,7 @@ export function readCityGrid(
 		variant,
 		params.seed
 	);
-	const lengthKm = params.citySize / 1000;
-	const target = 1e6 * lengthKm * (0.554 + 0.105 * lengthKm);
-	const cutoff = order.findIndex(({ builtArea, complete }) => complete && builtArea >= target);
-	const selected = cutoff < 0 ? order : order.slice(0, cutoff + 1);
+	const selected = growthPrefix(order, targetArea(params.citySize));
 	const ids = selected.map(({ id }) => id);
 	const grid = TerrainGrid.select(candidates, ids);
 	const built = new Set(ids);
@@ -261,6 +268,8 @@ export function readCityGrid(
 	return Object.freeze({
 		grid,
 		growth,
+		variant,
+		seed: params.seed,
 		plan: TerrainGrid.select(plan, [...planIds]),
 		crossings: Object.freeze(activeCrossings),
 		selectedCrossings: Object.freeze(
@@ -280,6 +289,16 @@ export function readCityGrid(
 
 /** Detached grid, selected crossings, datum and serializable growth metadata. */
 export type CityGrid = ReturnType<typeof readCityGrid>;
+
+/** Reads the addressed pedestrian network and planned holdings for a city growth selection.
+ * Main lane paths describe the fixed full guides. The lane intervals and blocks are active. */
+export function readCityParcels(
+	city: CitySite,
+	layout: Pick<CityGrid, 'growth' | 'seed' | 'variant'>
+) {
+	const { parcels, mainLanes } = carrier(city, layout.variant, layout.seed);
+	return Object.freeze({ ...parcels.read(layout.growth.rankedCellIds), mainLanes });
+}
 
 /** Derives districts from the same fixed accessibility order as the footprint. */
 export function readCityDistricts(

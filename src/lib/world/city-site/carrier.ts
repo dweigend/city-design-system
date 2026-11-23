@@ -14,6 +14,9 @@ import {
 	shorelineMorphLimits,
 	TerrainGrid
 } from '../../domain/terrain-grid';
+import { laneGrades, laneReservations } from './lane-policy';
+import { prepareCityParcels } from './parcel-policy';
+import { shoreDetours } from './promenade';
 import { createMainLaneRouter, type MainLanePath } from './main-lanes';
 import type { CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
@@ -71,7 +74,8 @@ export function prepareCarrier(
 	site: Site,
 	coarseCellSize: number,
 	variant: CityPlanVariant,
-	seed: number
+	seed: number,
+	maximumAreaM2: number
 ) {
 	const { sampleGround, origin, bearing, center } = site;
 	const span = { along: 3500, across: 1900 };
@@ -153,7 +157,8 @@ export function prepareCarrier(
 	};
 	const dryEdges = dryPlanEdges(candidates, plan);
 	const mainLanes: MainLanePath[] = [];
-	const route = createMainLaneRouter(candidates);
+	const grade = laneGrades(candidates, sampleGround);
+	const route = createMainLaneRouter(candidates, grade);
 	const access = cityAccessibility(
 		seed,
 		[first, second],
@@ -163,7 +168,9 @@ export function prepareCarrier(
 		(guide, armKey, head) => {
 			const routed = route(guide, armKey, approaches?.find(({ point }) => point === head)?.nodeId);
 			if (!routed) return [];
-			mainLanes.push(routed.path);
+			mainLanes.push(
+				Object.freeze({ ...routed.path, ...(primary ? { crossingId: primary.id } : {}) })
+			);
 			return routed.points;
 		}
 	);
@@ -175,11 +182,35 @@ export function prepareCarrier(
 			}))
 		)
 	);
-	const order = cityGrowth(
+	const rawOrder = cityGrowth(
 		candidates,
 		(point, grade) => access(point, grade, sampleGround(...point).waterClearance),
 		config.minimumRegionAreaM2,
 		links
+	);
+	const maximumOrder = growthPrefix(rawOrder, maximumAreaM2);
+	const maximumGrid = TerrainGrid.select(
+		candidates,
+		maximumOrder.map(({ id }) => id)
+	);
+	const eligible = new Set(maximumOrder.map(({ id }) => id));
+	const edges = dryEdges.filter(({ cellIds }) => cellIds.some((id) => eligible.has(id)));
+	const headIds = new Set(crossings.flatMap(({ heads }) => heads.map(({ nodeId }) => nodeId)));
+	const lanes = laneReservations(
+		edges,
+		mainLanes,
+		headIds,
+		grade,
+		shoreDetours(maximumGrid, edges, sampleGround)
+	);
+	const { order, parcels } = prepareCityParcels(
+		maximumGrid,
+		maximumOrder,
+		lanes,
+		grade,
+		{ origin, bearing, aspect: 1 },
+		coarseCellSize,
+		seed
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));
 	const lowest = candidates.vertices.reduce(
@@ -187,5 +218,22 @@ export function prepareCarrier(
 		Infinity
 	);
 	const datumZ = Number.isFinite(lowest) ? levelHeight * Math.floor(lowest / levelHeight) : 0;
-	return { candidates, plan, crossings, order, ranks, datumZ, dryEdges, mainLanes };
+	return {
+		candidates,
+		plan,
+		crossings,
+		order,
+		ranks,
+		datumZ,
+		parcels,
+		mainLanes: Object.freeze(mainLanes)
+	};
+}
+
+/** Takes the first complete growth step that reaches the area target in square meters. */
+export function growthPrefix(order: ReturnType<typeof cityGrowth>, targetAreaM2: number) {
+	const cutoff = order.findIndex(
+		({ builtArea, complete }) => complete && builtArea >= targetAreaM2
+	);
+	return cutoff < 0 ? order : order.slice(0, cutoff + 1);
 }

@@ -9,7 +9,8 @@ import {
 } from '../../domain/terrain-grid';
 
 /** An addressed main lane from a crossing head or dry local root. */
-export type MainLanePath = PlanEdgePath & Readonly<{ id: string; headId: string }>;
+export type MainLanePath = PlanEdgePath &
+	Readonly<{ id: string; headId: string; crossingId?: string }>;
 
 function guideDistance(point: Vec2, guide: readonly Vec2[]) {
 	let nearest = Infinity;

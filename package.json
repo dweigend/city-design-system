@@ -47,6 +47,7 @@
 	},
 	"dependencies": {
 		"bits-ui": "^2.21.0",
+		"clipper2-ts": "2.0.1-19",
 		"lucide-svelte": "1.0.1",
 		"three": "^0.187.0"
 	}

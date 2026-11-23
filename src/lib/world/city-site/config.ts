@@ -1,5 +1,7 @@
 /** Terrain sampling and plan limits for city sites. */
 export const citySiteConfig = Object.freeze({
+	targetAreaBaseRatio: 0.554, // Linear built-area contribution per nominal kilometer.
+	targetAreaGrowthRatio: 0.105, // Additional built-area contribution per squared nominal kilometer.
 	coarseCellSizeM: 60, // Equivalent square side of a typical plan cell.
 	bankSetbackM: 3, // Minimum clearance from water for occupied ground.
 	groundSampleStepM: 8, // Maximum spacing between occupied-ground probes.

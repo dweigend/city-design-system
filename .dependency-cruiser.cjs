@@ -9,7 +9,7 @@ const configOwners = {
 	'core/object': 'object',
 	'domain/river-metrics': 'river-metrics',
 	'domain/valley': 'hydrology',
-	'world/city-site': 'lanes',
+	'world/city-site': 'lanes|parcels',
 	'world/valley-protocol': 'valley-measurement'
 };
 const allowedConfigEntries = Object.values(configOwners).join('|');
@@ -50,9 +50,9 @@ module.exports = {
 		),
 		...Object.entries(configOwners).map(([owner, slice]) =>
 			error(
-				`config-owner-only-${slice}`,
+				`config-owner-only-${slice.split('|')[0]}`,
 				{ path: `^src/lib/${owner}/` },
-				{ path: '^src/config/', pathNot: `^src/config/${slice}/index\\.ts$` }
+				{ path: '^src/config/', pathNot: `^src/config/(?:${slice})/index\\.ts$` }
 			)
 		),
 		error(

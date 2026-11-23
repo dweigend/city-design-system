@@ -76,9 +76,9 @@ const city: DesignPrinciple[] = [
 		title: 'Grid-led paths and deliberate cuts',
 		rule: 'Routes share one movement graph, land lanes follow grid edges, and a bridge may span straight between its plan-grid bank nodes when its addressed edge chain falls short of the straightness threshold.',
 		reason:
-			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. Bridge heads join the banks at grid nodes. Deliberate path placement may open a passage or gate through occupied space or remove a small building.',
+			'The pedestrian plan reserves width for shore promenades, main lanes, local lanes and stairs, with public squares at block scale. Typed ports connect walkways, stairs, ramps and rails. A deliberate path can open a passage or gate through occupied space or remove a small building.',
 		decided: '2026-11-21',
-		demo: { route: '/interface', anchor: 'connections', label: 'Trace a connection to its landing' }
+		demo: { route: '/city', label: 'Follow lanes and bridge landings in Parcels' }
 	},
 	{
 		id: 'CITY-5',
@@ -160,7 +160,7 @@ const city: DesignPrinciple[] = [
 		title: 'Lobed growth on dry ground',
 		rule: 'The plan grid continues over rivers, tributaries and lakes, with buildings on dry cells and growth reaching the other bank through candidate crossings that favor shorter spans.',
 		reason:
-			'Corridors start at crossing heads, bend with the terrain, and take their own bearings and lengths on each bank. Large isolated areas can support satellites. A wet cell center reserves the whole cell for water. A dry center can keep the buildable part of its cell up to the bank setback. Denser districts take the most accessible ground first.',
+			'Main lanes start at crossing heads and follow dry plan edges, so the arms of the footprint follow the same bends. Large isolated areas can support satellites. A wet cell center reserves the whole cell for water. A dry center can keep the buildable part of its cell up to the bank setback. Denser districts take the most accessible ground first.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Grow a city across the valley' }
 	},
@@ -173,6 +173,26 @@ const city: DesignPrinciple[] = [
 			'Up close the lattice shows true, upright columns; from afar, where members can no longer be read anyway, the taper gives the skyline its gesture. It waits for both the fading of members and a frame wider than the quarter, so a narrow screen never shows it at quarter zoom. Each corner moves up to 5 m per level above its lowest neighbour, capped so no column folds over. One signed Taper value runs from 1 (retreat) through 0 to −1 (overhang) and applies to every lattice model.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Zoom out with Taper' }
+	},
+	{
+		id: 'CITY-15',
+		page: 'city',
+		title: 'Holdings persist through growth',
+		rule: 'A holding reserves its planned ground and entrance from the start, while the occupied volume can change with the current district.',
+		reason:
+			'A future large holding can begin with a small volume and open ground. Densification preserves the address, boundary and access of the holding.',
+		decided: '2026-11-23',
+		demo: { route: '/city', label: 'Grow the city with Parcels in focus' }
+	},
+	{
+		id: 'CITY-16',
+		page: 'city',
+		title: 'Larger units share a block outline',
+		rule: 'Neighboring cells can form one holding with an outline on plan edges and the lane on their shared seam removed before either cell appears.',
+		reason:
+			'A square, park, hall or larger court block can break the rhythm of small holdings. The underlying coarse cell and bay addresses survive.',
+		decided: '2026-11-23',
+		demo: { route: '/city', label: 'Find a merged holding in Parcels' }
 	}
 ];
 

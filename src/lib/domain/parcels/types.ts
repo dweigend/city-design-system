@@ -1,0 +1,75 @@
+import type { Vec2 } from '../../core/geometry';
+import type { DryPlanEdge, TerrainGrid } from '../terrain-grid';
+
+/** A simple oriented outer ring and any clockwise holes, in horizontal meters. Rings close implicitly. */
+export type PlanPolygon = readonly (readonly Vec2[])[];
+
+/** The city's lane width and roles, assigned by the caller to one clipped edge. */
+export type LaneInput = Readonly<{
+	edge: DryPlanEdge;
+	hierarchy: readonly string[];
+	widthM: number;
+	surface: 'walk' | 'stairs';
+	/** Assigns the full width inside the single incident cell. Other edges reserve half on each side. */
+	oneSided?: boolean;
+	protectedFromMerge?: boolean;
+}>;
+
+/** One immutable lane interval with permanent incident block addresses. */
+export type ParcelLane = Readonly<{
+	id: string;
+	edgeId: string;
+	nodeIds: readonly [string, string];
+	provenance: DryPlanEdge['provenance'];
+	points: readonly [Vec2, Vec2];
+	lengthM: number;
+	widthM: number;
+	hierarchy: readonly string[];
+	surface: LaneInput['surface'];
+	blockIds: readonly string[];
+}>;
+
+/** Generic holding dimensions and operations, supplied by the caller per kind. */
+export type HoldingRule = Readonly<{
+	minimumFrontageM: number;
+	partition?: Readonly<{ targetAreaM2: number; minimumAreaM2: number }>;
+	court?: Readonly<{ insetM: number; passageWidthM: number }>;
+	publicUse?: boolean;
+}>;
+
+/** Block merge candidates in preferred order, with the kind of each proposed larger holding. */
+export type MergeProposal = Readonly<{
+	memberCellIds: readonly [string, string];
+	plannedKind: string;
+}>;
+
+/** Geometry tolerance in meters and the fixed and relative limits on block account rounding. */
+export type ParcelTolerance = Readonly<{
+	linearToleranceM: number;
+	areaToleranceM2: number;
+	relativeAreaToleranceRatio: number;
+}>;
+
+/** A fixed carrier, reservation policy and holding program. Growth and use decisions belong to the caller. */
+export type ParcelPlanInput = Readonly<{
+	grid: TerrainGrid;
+	lanes: readonly LaneInput[];
+	merges?: readonly MergeProposal[];
+	plannedKinds: Readonly<Record<string, string>>;
+	holdingRules: Readonly<Record<string, HoldingRule>>;
+	tolerance: ParcelTolerance;
+}>;
+
+/** One usable block with the original cell addresses and a counterclockwise plan boundary. */
+export type ParcelBlock = Readonly<{
+	id: string;
+	memberCellIds: readonly string[];
+	plannedKind: string;
+	nodeIds: readonly string[];
+	outline: readonly Vec2[];
+	laneIds: readonly string[];
+	grossAreaM2: number;
+	laneAreaM2: number;
+	laneGround: readonly PlanPolygon[];
+	netGround: readonly PlanPolygon[];
+}>;
