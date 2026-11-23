@@ -135,7 +135,11 @@ export function createFrame(
 			cells.push(Object.freeze({ id, planCellId, level, sideFaces: Object.freeze(sideFaces) }));
 			addMembers({ id, bottom, top }, connect);
 			solids.push(
-				closeSolid(id, id, [bottom, top, ...bottom.map((a, i) => sideLoop(bottom, top, i))])
+				closeSolid(id, id, [
+					[...bottom].reverse(),
+					top,
+					...bottom.map((a, i) => sideLoop(bottom, top, i))
+				])
 			);
 			bottom = top;
 		}

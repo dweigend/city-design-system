@@ -69,13 +69,14 @@ function jointsOf(topology: PlanTopology, rule: PlaneRule, datumZ: number, heigh
 
 type Joints = ReturnType<typeof jointsOf>;
 
+// Every recipe winds its faces one way: each edge is walked once in each direction.
 const pyramid = (base: readonly Joint[], apex: Joint) => [
-	base,
+	[...base].reverse(),
 	...base.map((a, i) => [a, base[(i + 1) % base.length], apex])
 ];
 
 const prism = (bottom: readonly Joint[], top: readonly Joint[]) => [
-	bottom,
+	[...bottom].reverse(),
 	top,
 	...bottom.map((a, i) => {
 		const j = (i + 1) % bottom.length;
@@ -85,7 +86,7 @@ const prism = (bottom: readonly Joint[], top: readonly Joint[]) => [
 
 /** A plan polygon joined to its medial polygon, whose joint i halves side i. */
 const frustum = (polygon: readonly Joint[], medial: readonly Joint[]) => [
-	polygon,
+	[...polygon].reverse(),
 	medial,
 	...polygon.map((a, i) => [a, polygon[(i + 1) % polygon.length], medial[i]]),
 	...polygon.map((a, i) => [a, medial[i], medial.at(i - 1) ?? medial[i]])
@@ -120,9 +121,9 @@ function addLayer(topology: PlanTopology, joints: Joints, layer: Layer, add: Add
 			const [a, b] = ends.map((corner) => joints.corner(corner, at('plan')));
 			const [c, d] = cells.map((cell) => joints.centre(cell, at('centre')));
 			add(`edge/${key}/level/${level}`, bay([...cells].sort()[0]), [
-				[a, b, c],
+				[a, c, b],
 				[a, b, d],
-				[a, c, d],
+				[a, d, c],
 				[b, c, d]
 			]);
 		}

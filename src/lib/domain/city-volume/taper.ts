@@ -21,6 +21,8 @@ export function taper(sign: 1 | -1): PlaneRule['shift'] {
 			.reduce(([a, b], [u, v]) => [a + u / carried.length, b + v / carried.length], [0, 0]);
 		const [dx, dy] = [x - corner.position[0], y - corner.position[1]];
 		const reach = Math.hypot(dx, dy);
+		// Columns that only touch diagonally across the corner give it no direction.
+		if (reach < 1e-6) return [0, 0];
 		const move = (sign * Math.min(taperStep * depth, taperCap * reach)) / reach;
 		return [dx * move, dy * move];
 	};

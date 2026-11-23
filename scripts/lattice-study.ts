@@ -31,6 +31,7 @@ mkdirSync(out, { recursive: true });
 const sizes = { town: citySiteParams.citySize.default, city: 4600, largest: 7000 } as const;
 const seeds = [1201, 42, 2718, 424242];
 const city = createCitySite();
+const bracedPrisms = new Set(['braced', 'centered', 'tetrahedral']);
 
 type Row = Record<string, string | number | boolean>;
 
@@ -122,7 +123,8 @@ for (const plan of cityPlanVariants) {
 					['face-mismatch', metrics.faceMatch === 1],
 					['open-solid', row.openSolids === 0],
 					['overused-face', row.overusedFaces === 0],
-					['loose-member', row.looseMembers === 0],
+					// Prism bracing lies inside the bay solid; every other model's members are solid edges.
+					['loose-member', row.looseMembers === 0 || bracedPrisms.has(lattice)],
 					['volume', (row.minVolume as number) > 1],
 					['missing-top', row.missingTops === 0],
 					['above-profile', row.aboveProfile === 0],

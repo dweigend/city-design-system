@@ -197,9 +197,11 @@ test('example: one square cell in each model', () => {
 	const corner = (variant: LatticeVariant, level: number) =>
 		build(one, variant).nodes.find(({ id }) => id === `vertex/0,0/level/${level}`)?.position;
 	const run = taperStep / Math.SQRT2;
-	expect(corner('setback', 1)).toEqual([run, run, 17]);
+	const near = (actual: readonly number[] | undefined, expected: readonly number[]) =>
+		expected.forEach((value, i) => expect(actual?.[i]).toBeCloseTo(value, 9));
+	near(corner('setback', 1), [run, run, 17]);
 	expect(corner('setback', 2)?.[0]).toBeCloseTo(2 * run, 9);
-	expect(corner('corbel', 1)).toEqual([-run, -run, 17]);
+	near(corner('corbel', 1), [-run, -run, 17]);
 });
 
 test('example: a uniform square field fills the bays exactly with interior solids', () => {
