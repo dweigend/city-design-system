@@ -1,6 +1,5 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { Random } from '../../core/random';
 import {
 	columnRoof,
 	levelHeight,
@@ -8,7 +7,7 @@ import {
 	type CityTaper,
 	type DistrictKind
 } from '../../domain/city-volume';
-import { stockPencilShare } from '../focus';
+import { drawnInPencil } from './blocks';
 import { mesh } from './mesh';
 
 type Patch = ReturnType<typeof mesh>;
@@ -62,13 +61,6 @@ function addWire(
 	if (wires.has(key)) return;
 	wires.set(key, [...a.point, ...b.point]);
 	part.taper[set === 'outline' ? 'outline' : 'storeys'].push(...a.offset, ...b.offset);
-}
-
-/** Whether a stock column is drawn in pencil: a keyed draw per plan cell, so the choice of one
- * column never depends on the others. */
-function drawnInPencil(seed: number) {
-	const random = Random.create({ seed }).derive('stock-pencil');
-	return (id: string) => random.derive(id).number() < stockPencilShare;
 }
 
 /** Wall heights from the floor to the roof: the floor, every plane between, the roof. */

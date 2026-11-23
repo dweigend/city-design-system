@@ -1,5 +1,4 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
-import { columnRoof, type CityColumn, type DistrictKind } from '../../domain/city-volume';
 import { shadowDirection, shadowReach } from '../stage';
 import { mesh } from './mesh';
 
@@ -29,26 +28,18 @@ function hull(points: Point[]) {
 	return [...half(sorted), ...half([...sorted].reverse())];
 }
 
-/** Flat ground shade of every column: its footprint swept along the sun by `reach` per metre of
- * roof height. The shade lies at the column's ground corners; the warp offsets stretch the swept
- * side with the display's vertical scale. */
-export function shadowMeshes(
-	columns: readonly CityColumn[],
-	datumZ: number,
-	toLocal: (x: number, y: number) => Vec2,
+/** Flat ground shade of every body: its footprint swept along the sun by `reach` per metre of
+ * roof height. The shade lies at the footprint's ground; the warp offsets stretch the swept side
+ * with the display's vertical scale. */
+export function shadowMesh(
+	footprints: readonly Readonly<{ ring: readonly Vec3[]; top: number }>[],
 	reach: number
 ) {
-	const parts = new Map<DistrictKind, { shape: ReturnType<typeof mesh>; warp: number[] }>();
+	const shape = mesh();
+	const warp: number[] = [];
 	const [sx, sy] = shadowDirection;
-	for (const column of columns) {
-		let part = parts.get(column.kind);
-		if (!part) {
-			part = { shape: mesh(), warp: [] };
-			parts.set(column.kind, part);
-		}
-		const top = columnRoof(column, datumZ);
-		const ground = column.corners.map(({ position: [x, y, z] }): Vec3 => [...toLocal(x, y), z]);
-		const points = ground.flatMap((point): Point[] => {
+	for (const { ring: footprint, top } of footprints) {
+		const points = footprint.flatMap((point): Point[] => {
 			const length = (top - point[2]) * reach;
 			const offset: Vec2 = [sx * length, sy * length];
 			return [
@@ -57,12 +48,12 @@ export function shadowMeshes(
 			];
 		});
 		const ring = hull(points);
-		const base = part.shape.positions.length / 3;
+		const base = shape.positions.length / 3;
 		for (const { point, reach: offset } of ring) {
-			part.shape.positions.push(...point);
-			part.warp.push(...offset);
+			shape.positions.push(...point);
+			warp.push(...offset);
 		}
-		for (let i = 1; i < ring.length - 1; i++) part.shape.indices.push(base, base + i, base + i + 1);
+		for (let i = 1; i < ring.length - 1; i++) shape.indices.push(base, base + i, base + i + 1);
 	}
-	return parts;
+	return { shape, warp };
 }

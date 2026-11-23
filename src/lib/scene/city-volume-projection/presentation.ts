@@ -128,12 +128,21 @@ export function cityPresentation({
 					return {
 						...part,
 						vertical,
-						fillAlpha: look.shade * (part.role === 'contact' ? 0.9 : 0.5),
+						fillAlpha: look.shade * (part.role === 'contact' ? 1 : 0.7),
 						warp: part.warp && { ...part.warp, amount: detail.factor - 1 }
 					};
+				// Stock out of focus is drawn as plain boxes, unless a visible lattice needs its envelope.
+				const boxes = level !== 'full' && !open;
+				const block = part.role === 'block' || part.role === 'block-storeys';
+				if (block !== boxes) return { ...part, visible: false };
 				const ramp = level === 'full' && analysis === 'height';
 				const veiled = level === 'full' && open;
-				const outline = part.role === 'storeys' ? look.storeys * Number(!open) : look.outline;
+				const outline =
+					part.role === 'storeys'
+						? look.storeys * Number(!open)
+						: part.role === 'block-storeys'
+							? look.storeys
+							: look.outline;
 				return {
 					...part,
 					...(look.color ? { color: look.color } : {}),

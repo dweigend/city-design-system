@@ -11,7 +11,8 @@ import {
 import { districtSurfaces, planningStudy, resolveSurfaces, type Drawable } from '../surface';
 import { envelopeMeshes } from './envelope';
 import { latticeMesh } from './lattice';
-import { shadowBands, shadowMeshes } from './shadow';
+import { blockMeshes } from './blocks';
+import { shadowBands, shadowMesh } from './shadow';
 
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
 /** Maps the camera framing to continuous detail and height presentation. */
@@ -31,12 +32,13 @@ export type CityDrawable = Drawable &
 		kind: DistrictKind;
 		levels: number;
 		drawn: boolean;
-		role: 'body' | 'storeys' | 'contact' | 'cast';
+		role: 'body' | 'storeys' | 'block' | 'block-storeys' | 'contact' | 'cast';
 	}>;
 
 /** Projects the city's outer roof and exposed walls, grouped by district kind, height and the
- * seeded pencil draw of stock, with their storey lines and two bands of ground shade per kind.
- * Every vertex carries its taper offset. An empty plan returns no drawables or focus. The
+ * seeded pencil draw of stock, with their storey lines. Every envelope vertex carries its taper
+ * offset. Each column also gets its simplest drawing, a plain box inset by a street, and each kind
+ * two bands of ground shade under these boxes. An empty plan returns no drawables or focus. The
  * envelope follows the common level planes in true world meters. */
 export function projectCityDistricts(
 	columns: readonly CityColumn[],
@@ -46,10 +48,17 @@ export function projectCityDistricts(
 	seed = 0
 ) {
 	const patches = envelopeMeshes(columns, datumZ, frame.toLocal, taper, seed);
+	const blocks = blockMeshes(columns, datumZ, frame.toLocal, seed);
 	const shades = (['contact', 'cast'] as const).flatMap((role) =>
-		[...shadowMeshes(columns, datumZ, frame.toLocal, shadowBands[role])].map(
-			([kind, { shape, warp }]) => ({ id: `${kind}/${role}`, kind, role, shape, warp })
-		)
+		slots.flatMap((kind) => {
+			if (kind === 'shadow') return [];
+			const footprints = [...blocks.values()]
+				.filter((part) => part.kind === kind)
+				.flatMap(({ footprints }) => footprints);
+			if (!footprints.length) return [];
+			const { shape, warp } = shadowMesh(footprints, shadowBands[role]);
+			return [{ id: `${kind}/${role}`, kind, role, shape, warp }];
+		})
 	);
 	const object = PlaceableObject.create({
 		id: 'districts',
@@ -58,6 +67,11 @@ export function projectCityDistricts(
 			...slots.flatMap((slot) =>
 				[...patches]
 					.filter(([, patch]) => patch.kind === slot)
+					.map(([id, { shape }]) => ({ id, slot, shape }))
+			),
+			...slots.flatMap((slot) =>
+				[...blocks]
+					.filter(([, part]) => part.kind === slot)
 					.map(([id, { shape }]) => ({ id, slot, shape }))
 			),
 			...shades.map(({ id, shape }) => ({ id, slot: 'shadow', shape }))
@@ -79,6 +93,32 @@ export function projectCityDistricts(
 					warp: { fill: shade.warp, amount: 0 }
 				}
 			];
+		const block = blocks.get(part.id);
+		if (block) {
+			const box: CityDrawable = {
+				...part,
+				kind: block.kind,
+				levels: 0,
+				drawn: block.drawn,
+				role: 'block',
+				strokeSegments: block.outline
+			};
+			return [
+				box,
+				{
+					...box,
+					id: `${part.id}/storeys`,
+					role: 'block-storeys',
+					shape: {
+						kind: 'mesh',
+						positions: block.shape.positions.slice(0, 9),
+						indices: [0, 1, 2]
+					},
+					fillVisible: false,
+					strokeSegments: block.storeys
+				}
+			];
+		}
 		const patch = required(patches.get(part.id), 'envelope patch');
 		const { kind, levels, drawn, taper: offsets } = patch;
 		const body: CityDrawable = {
@@ -105,15 +145,15 @@ export function projectCityDistricts(
 			}
 		];
 	});
+	const bodies = object.parts.filter(({ id }) => patches.has(id));
 	function* points(): IterableIterator<Vec3> {
-		for (const { shape, slot } of object.parts) {
-			if (shape.kind !== 'mesh' || slot === 'shadow') continue;
+		for (const { shape } of bodies) {
+			if (shape.kind !== 'mesh') continue;
 			const { positions } = shape;
 			for (let i = 0; i < positions.length; i += 3)
 				yield [positions[i], positions[i + 1], positions[i + 2]];
 		}
 	}
-	const bodies = object.parts.filter(({ slot }) => slot !== 'shadow');
 	return {
 		object,
 		drawables,
