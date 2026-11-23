@@ -1,3 +1,4 @@
+import { defaults } from './settings';
 import type { Random } from '../../core/random';
 import { createCatchment } from './catchment';
 import type { RiverCourse } from './course';
@@ -7,6 +8,9 @@ import { checkCarvedSills, checkDrainage } from './drainage-check';
 import { lakeGeometry } from './lake-geometry';
 import { extractReaches, importedCatchmentArea } from './reaches';
 import type { ValleyAxis } from './valley-axis';
+
+const { tributaryAreaThresholdM2, lowReliefTributaryAreaIncreaseM2, tributaryAreaReliefExponent } =
+	defaults;
 
 export function drainageTerrain(
 	guide: RiverCourse,
@@ -25,7 +29,9 @@ export function drainageTerrain(
 	const flow = solveDrainage(grid, inlet, importedArea, spine);
 	const floodMs = performance.now() - flood;
 	const geometry = performance.now();
-	const threshold = 500_000 + (1 - relief) ** 4 * 27_500_000;
+	const threshold =
+		tributaryAreaThresholdM2 +
+		(1 - relief) ** tributaryAreaReliefExponent * lowReliefTributaryAreaIncreaseM2;
 	const network = extractReaches(flow, spine, runoff, threshold);
 	const lakes = lakeGeometry(flow);
 	return {

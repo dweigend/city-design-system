@@ -1,7 +1,11 @@
+import { millimetersPerMeter } from './millimeters';
+import { defaults } from './settings';
 import type { Vec2 } from '../../core/geometry';
 
-export const spacing = 75;
-export const side = 161;
+const { catchmentCellSizeM, catchmentGridSideNodes, catchmentSlopeCapMmPerM } = defaults;
+
+export const spacing = catchmentCellSizeM;
+export const side = catchmentGridSideNodes;
 export const radius = (spacing * (side - 1)) / 2;
 
 export function position(index: number): Vec2 {
@@ -31,11 +35,11 @@ export function triangle(x: number, y: number) {
 }
 
 export function interpolate(bed: Int32Array, { a, b, c, wa, wb, wc }: ReturnType<typeof triangle>) {
-	return (bed[a] * wa + bed[b] * wb + bed[c] * wc) / 1000;
+	return (bed[a] * wa + bed[b] * wb + bed[c] * wc) / millimetersPerMeter;
 }
 
 export function limitSlopes(bed: Int32Array) {
-	const rise = spacing * 500;
+	const rise = spacing * catchmentSlopeCapMmPerM;
 	for (let y = 0; y < side; y++) {
 		const start = y * side;
 		for (let x = 1; x < side; x++) {

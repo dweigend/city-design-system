@@ -1,3 +1,4 @@
+import { defaults } from './settings';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { Random } from '../../core/random';
 import { resolveParams } from '../../core/params';
@@ -20,6 +21,18 @@ import {
 } from './survey';
 import { axisBow } from './ground-profile';
 import { createValleyAxis } from './valley-axis';
+
+const {
+	sinuosityRoundingDigits,
+	reliefRoundingDigits,
+	runoffRoundingDigits,
+	openBankPositiveSideProbability,
+	valleyFrameBearingRad,
+	minimumImportedWetWidthM,
+	terraceFrameStationLimitM,
+	terraceFrameDrySearchStepM,
+	terraceFrameDrySearchLimitM
+} = defaults;
 
 /** World-space polygons of the solved channel outline. */
 export { channelPolygons } from './channel-outline';
@@ -115,21 +128,34 @@ export type Valley = Readonly<{
 	readGround(x: number, y: number): GroundReading;
 }>;
 
+// Exact arithmetic: Valley accepts the unsigned range of a Mulberry32 seed.
+const seedLimit = 2 ** 32;
+// Exact arithmetic: the exported generator identity stays fixed for bit-identical behavior.
+const revision = 4;
+// Exact arithmetic: test both lateral directions, then step away from the nominal point.
+const drySearchDirections = [1, -1] as const;
+
 /** Builds one deterministic catchment and routes water from a seeded ancestral valley. */
 function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley {
-	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32) throw new RangeError('invalid-seed');
+	if (!Number.isInteger(seed) || seed < 0 || seed >= seedLimit)
+		throw new RangeError('invalid-seed');
 	const resolved = resolveParams(valleyParams, parameters);
 	const settings = Object.freeze({
-		sinuosity: Number(resolved.sinuosity.toFixed(2)),
-		relief: Number(resolved.relief.toFixed(2)),
-		runoff: Number(resolved.runoff.toFixed(1))
+		sinuosity: Number(resolved.sinuosity.toFixed(sinuosityRoundingDigits)),
+		relief: Number(resolved.relief.toFixed(reliefRoundingDigits)),
+		runoff: Number(resolved.runoff.toFixed(runoffRoundingDigits))
 	});
 	const root = Random.create({ seed });
-	const openSide = root.derive('open-bank').number() < 0.5 ? 1 : -1;
-	const guide = generateCourse(root.derive('course'), settings.sinuosity, openSide, -Math.PI / 2);
+	const openSide = root.derive('open-bank').number() < openBankPositiveSideProbability ? 1 : -1;
+	const guide = generateCourse(
+		root.derive('course'),
+		settings.sinuosity,
+		openSide,
+		valleyFrameBearingRad
+	);
 	if (
 		wetWidth !== undefined &&
-		(!Number.isFinite(wetWidth) || wetWidth < 20 || wetWidth > guide.wetWidth)
+		(!Number.isFinite(wetWidth) || wetWidth < minimumImportedWetWidthM || wetWidth > guide.wetWidth)
 	)
 		throw new RangeError('Wet width must fit inside the generated bankfull channel');
 	const axis = createValleyAxis(root.derive('ground'), guide, openSide);
@@ -145,7 +171,7 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 	}
 	return Object.freeze({
 		seed,
-		revision: 4,
+		revision,
 		parameters: settings,
 		course,
 		lakes: terrain.lakes,
@@ -162,7 +188,7 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 		},
 		readGround: (x: number, y: number) => readGround(sample, x, y),
 		lowerTerraceFrame(station: number, side: 'narrow' | 'wide' = 'narrow') {
-			if (!Number.isFinite(station) || Math.abs(station) > 500)
+			if (!Number.isFinite(station) || Math.abs(station) > terraceFrameStationLimitM)
 				throw new RangeError('Terrace station is outside the central valley');
 			if (side !== 'wide' && side !== 'narrow') throw new RangeError('Unknown terrace side');
 			const sign = side === 'wide' ? axis.openSide : -axis.openSide;
@@ -175,8 +201,12 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 			const v = Math.sin(axis.bearingRad);
 			let x = axis.anchorX + u * station - v * lateral;
 			let y = axis.anchorY + v * station + u * lateral;
-			for (let shift = 5; sample(x, y).bank <= 0 && shift <= 155; shift += 5) {
-				for (const direction of [1, -1]) {
+			for (
+				let shift = terraceFrameDrySearchStepM;
+				sample(x, y).bank <= 0 && shift <= terraceFrameDrySearchLimitM;
+				shift += terraceFrameDrySearchStepM
+			) {
+				for (const direction of drySearchDirections) {
 					const nextX = axis.anchorX + u * station - v * (lateral + direction * shift);
 					const nextY = axis.anchorY + v * station + u * (lateral + direction * shift);
 					if (sample(nextX, nextY).bank <= 0) continue;

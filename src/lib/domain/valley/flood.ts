@@ -31,9 +31,12 @@ function priorityQueue(level: Int32Array) {
 	};
 }
 
+// Exact arithmetic: unvisited is distinct from the outlet parent sentinel (-1).
+const unvisited = -2;
+
 export function floodTerrain({ side, bed }: DrainageGrid) {
 	const level = new Int32Array(bed.length);
-	const parent = new Int32Array(bed.length).fill(-2);
+	const parent = new Int32Array(bed.length).fill(unvisited);
 	const order = new Int32Array(bed.length);
 	const heap = priorityQueue(level);
 	for (let i = 0; i < bed.length; i++) {
@@ -48,7 +51,7 @@ export function floodTerrain({ side, bed }: DrainageGrid) {
 		const i = heap.take();
 		order[rank] = i;
 		eachNeighbor(side, i, (next) => {
-			if (parent[next] !== -2) return;
+			if (parent[next] !== unvisited) return;
 			level[next] = Math.max(level[i], bed[next]);
 			parent[next] = i;
 			heap.add(next);

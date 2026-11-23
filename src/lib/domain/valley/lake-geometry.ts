@@ -1,3 +1,4 @@
+import { millimetersPerMeter } from './millimeters';
 import type { Vec2 } from '../../core/geometry';
 import { position, side } from './catchment-grid';
 import type { solveDrainage } from './drainage';
@@ -17,6 +18,9 @@ export type DrainageLake = Readonly<{
 }>;
 
 type Outline = ReturnType<typeof outline>;
+
+// Exact arithmetic: two crossings bound a shore edge and a ring needs more than one edge.
+const edgeEndpoints = 2;
 
 function outline() {
 	const vertices: Vec2[] = [];
@@ -41,7 +45,7 @@ function outline() {
 				const area = (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]);
 				if (area > 0) indices.push(a, b, c);
 			}
-			if (shore.length === 2 && shore[0] !== shore[1]) edges.set(shore[0], shore[1]);
+			if (shore.length === edgeEndpoints && shore[0] !== shore[1]) edges.set(shore[0], shore[1]);
 		},
 		finish() {
 			const rings: (readonly Vec2[])[] = [];
@@ -55,7 +59,7 @@ function outline() {
 					if (next === start) break;
 					i = next;
 				}
-				if (ring.length > 2) rings.push(Object.freeze(ring));
+				if (ring.length > edgeEndpoints) rings.push(Object.freeze(ring));
 			}
 			return {
 				vertices: Object.freeze(vertices),
@@ -121,10 +125,10 @@ export function lakeGeometry({
 		basins.map((basin, i): DrainageLake =>
 			Object.freeze({
 				id: -1 - i,
-				level: basin.level / 1000,
-				sillElevation: bed[basin.outlet] / 1000,
+				level: basin.level / millimetersPerMeter,
+				sillElevation: bed[basin.outlet] / millimetersPerMeter,
 				area: basin.area,
-				depth: basin.depth / 1000,
+				depth: basin.depth / millimetersPerMeter,
 				outlet: Object.freeze(position(basin.outlet)),
 				downstream:
 					membership[basin.outlet] >= 0

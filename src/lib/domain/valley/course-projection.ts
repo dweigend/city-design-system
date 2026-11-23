@@ -1,5 +1,8 @@
+import { defaults } from './settings';
 import type { RiverCourse } from './course';
 import { toMillimeters } from './millimeters';
+
+const { guideProjectionLeafSegments } = defaults;
 
 type Bounds = { west: number; east: number; south: number; north: number };
 type Interval = Bounds & { start: number; end: number; children?: [Interval, Interval] };
@@ -20,7 +23,7 @@ function bounds(xy: Int32Array, start: number, end: number): Bounds {
 
 function partition(xy: Int32Array, start: number, end: number): Interval {
 	const interval = { ...bounds(xy, start, end), start, end };
-	if (end - start <= 8) return interval;
+	if (end - start <= guideProjectionLeafSegments) return interval;
 	const middle = (start + end) >>> 1;
 	return { ...interval, children: [partition(xy, start, middle), partition(xy, middle, end)] };
 }
@@ -31,11 +34,16 @@ function boxDistanceSquared(box: Bounds, x: number, y: number): number {
 	return dx * dx + dy * dy;
 }
 
+// Exact arithmetic: the initial interval starts at the first vertex.
+const firstVertex = 0;
+// Exact arithmetic: zero is a lower bound on any squared distance.
+const minimumDistanceSquared = 0;
+
 /** Builds a nearest-segment sampler over the course quantized to millimeters. */
 export function courseProjection(course: RiverCourse) {
 	const xy = Int32Array.from(course.xy, toMillimeters);
 	const last = course.xy.length / 2 - 1;
-	const tree = partition(xy, 0, last);
+	const tree = partition(xy, firstVertex, last);
 
 	return (x: number, y: number, limit = Infinity) => {
 		let distanceSquared = limit * limit;
@@ -72,7 +80,7 @@ export function courseProjection(course: RiverCourse) {
 			}
 		}
 
-		inspect(tree, 0);
+		inspect(tree, minimumDistanceSquared);
 		return Math.round(Math.sqrt(distanceSquared));
 	};
 }

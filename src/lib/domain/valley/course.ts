@@ -1,6 +1,9 @@
+import { defaults } from './settings';
 import type { Random } from '../../core/random';
 import { defaultBands, headingAmplitude, sampleBand } from './parameters';
 import { alignmentFor, maxWindowOffset, placeCourse, windowOffset } from './window-placement';
+
+const { guidePointSpacingM, guideRegionalCoverageM, guideWetToBankfullWidthRatio } = defaults;
 
 /** Downstream trunk centerline and length-weighted median widths in meters.
  * Bearing is the mean downstream axis in radians from the positive X axis. */
@@ -11,8 +14,8 @@ export type RiverCourse = Readonly<{
 	bearing: number;
 }>;
 
-export const courseSpacing = 6.25;
-const regionalRadius = 13_000 / Math.SQRT2;
+export const courseSpacing = guidePointSpacingM;
+const regionalRadius = guideRegionalCoverageM / Math.SQRT2;
 const turn = 2 * Math.PI;
 
 function courseShape(
@@ -68,6 +71,6 @@ export function generateCourse(
 		xy: Object.freeze(xy),
 		bearing,
 		bankfullWidth,
-		wetWidth: bankfullWidth * 0.94
+		wetWidth: bankfullWidth * guideWetToBankfullWidthRatio
 	});
 }

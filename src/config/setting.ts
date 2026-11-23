@@ -30,6 +30,24 @@ export function defineSettings<const S extends Settings>(settings: S): Readonly<
 	return Object.freeze(settings);
 }
 
+type Intersection<T> = (T extends unknown ? (value: T) => void : never) extends (
+	value: infer Result
+) => void
+	? Result
+	: never;
+
+/** Compose a capability from private groups and reject any duplicated key. */
+export function joinSettings<const Groups extends readonly Settings[]>(...groups: Groups) {
+	const entries = new Map<string, Setting>();
+	for (const group of groups) {
+		for (const [key, entry] of Object.entries(group)) {
+			if (entries.has(key)) throw new Error(`Duplicate setting: ${key}`);
+			entries.set(key, entry);
+		}
+	}
+	return defineSettings(Object.fromEntries(entries)) as Readonly<Intersection<Groups[number]>>;
+}
+
 /** Resolve setting metadata to a frozen table of defaults for the owning module. */
 export function settingValues<const S extends Settings>(settings: S) {
 	return Object.freeze(
