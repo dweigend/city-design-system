@@ -75,7 +75,7 @@ const planKey = (x: number, y: number) =>
 /** Builds the city's taper field: the full horizontal retreat in world meters of a point of the
  * city volume. Signed use scales it, 1 retreats toward the taller columns like a zoning setback and
  * −1 overhangs the lower ones. A plan corner moves along its ring; a cell centre and an edge
- * midpoint move with the mean of their corners. Between two level planes the move is linear in Z.
+ * midpoint move with the mean of their corners; a cell also answers at the mean of its corners. Between two level planes the move is linear in Z.
  * Throws RangeError for a point that is none of these plan addresses. */
 export function createCityTaper(columns: readonly Column[], datumZ: number) {
 	const topology = readPlanTopology(columns);
@@ -92,7 +92,11 @@ export function createCityTaper(columns: readonly Column[], datumZ: number) {
 		);
 	for (const [id, [x, y]] of topology.centres) {
 		const { corners } = required(topology.columns.get(id), 'taper column');
-		addresses.set(planKey(x, y), (level) => mean(corners.map((c) => atCorner(c.id, level))));
+		const centre = (level: number) => mean(corners.map((c) => atCorner(c.id, level)));
+		// A cell answers at its area centroid and at the mean of its corners (a prism hub).
+		const [mx, my] = mean(corners.map(({ position: [u, v] }) => [u, v]));
+		addresses.set(planKey(x, y), centre);
+		addresses.set(planKey(mx, my), centre);
 	}
 	for (const { ends } of topology.edges.values()) {
 		const [[ax, ay], [bx, by]] = ends.map(({ position }) => position);

@@ -218,10 +218,16 @@ test('example: the taper field retreats a corner by one step per level above its
 	near(taper([30, 30, 31]), [0, 0]);
 	near(taper([30, 0, 24]), [0, run]);
 	expect(() => taper([7, 7, 24])).toThrow(RangeError);
-	// Every lattice joint is a plan address of the field.
+	// Every lattice joint is a plan address of the field, also on irregular plan cells.
 	for (const variant of cityLatticesByPlan.square)
 		for (const { position } of build(one, variant).nodes) expect(taper(position)).toHaveLength(2);
-});
+	const { columns } = town('organic');
+	const datum = datumOf(columns);
+	const field = createCityTaper(columns, datum);
+	for (const variant of cityLatticesByPlan.organic)
+		for (const { position } of createCityLattice(columns, datum, 'organic', variant).nodes)
+			expect(field(position)).toHaveLength(2);
+}, 60_000);
 
 test('example: a uniform square field fills the bays exactly with interior solids', () => {
 	const field = squares(Array.from({ length: 4 }, () => [4, 4, 4, 4]));
