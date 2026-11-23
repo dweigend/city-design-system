@@ -1,18 +1,22 @@
+import { defaults } from './settings';
+import { easeBank } from './ground-profile';
 import { interpolate, radius, triangle } from './catchment-grid';
 import type { drainageTerrain } from './drainage-terrain';
-import { toMillimeters } from './millimeters';
+import { millimetersPerMeter, toMillimeters } from './millimeters';
 import { smoothstep } from './regional-profile';
 import { spillBarriers } from './spill-barriers';
 import { bankLimit, waterIndex } from './water-index';
 
+const { analyticBenchFadeReliefRatio, trunkBankBlendRunM, secondaryBankBlendRunM } = defaults;
+
 export type WaterKind = 'river' | 'tributary' | 'lake' | null;
 
-const millimeters = (value: number) => toMillimeters(value) / 1000;
+const millimeters = (value: number) => toMillimeters(value) / millimetersPerMeter;
 
 export function terrainSampler(terrain: ReturnType<typeof drainageTerrain>, relief: number) {
 	const { reaches, lakes, flow, field } = terrain;
 	const index = waterIndex(reaches, lakes);
-	const blendBenches = 1 - smoothstep(relief / 0.15);
+	const blendBenches = 1 - smoothstep(relief / analyticBenchFadeReliefRatio);
 	const { datum, terraces } = field;
 	type Correction = ReturnType<typeof spillBarriers>;
 	function sample(x: number, y: number, correct?: Correction) {
@@ -66,11 +70,11 @@ export function terrainSampler(terrain: ReturnType<typeof drainageTerrain>, reli
 		const ground =
 			(facet && blendBenches < 1 ? interpolate(flow.bed, facet) * (1 - blendBenches) : 0) +
 			(blendBenches > 0 ? (terraces(x, y) + downstreamDatum) * blendBenches : 0);
-		const run = channel?.kind === 'river' ? 36 : 30;
+		const run = channel?.kind === 'river' ? trunkBankBlendRunM : secondaryBankBlendRunM;
 		const t = Math.min(1, bank / run);
 		const height =
 			channel && channel.bank <= bank
-				? channel.water + (ground - channel.water) * t * (2 - t)
+				? channel.water + easeBank(ground - channel.water, t)
 				: ground;
 		const bed = millimeters(Math.max(height, water) + adjustment);
 		return {

@@ -15,6 +15,7 @@ export function eachNeighbor(
 	if (column + 1 < side && row + 1 < side) visit(index + side + 1, true);
 }
 
+// Exact arithmetic: each vertex gets one third of each incident half-cell triangle.
 export function vertexArea(side: number, spacing: number, index: number) {
 	const x = index % side;
 	const y = (index / side) | 0;

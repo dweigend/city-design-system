@@ -1,7 +1,10 @@
+import { defaults } from './settings';
 import { position } from './catchment-grid';
 import type { RiverCourse } from './course';
 import type { drainageTerrain } from './drainage-terrain';
 import type { ReachStation } from './reaches';
+
+const { guideWetToBankfullWidthRatio } = defaults;
 
 export function trunkCourse(
 	terrain: ReturnType<typeof drainageTerrain>,
@@ -35,6 +38,6 @@ export function trunkCourse(
 		xy: Object.freeze(xy),
 		bearing,
 		wetWidth,
-		bankfullWidth: wetWidth / 0.94
+		bankfullWidth: wetWidth / guideWetToBankfullWidthRatio
 	});
 }

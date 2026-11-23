@@ -1,7 +1,15 @@
+import { defaults } from './settings';
 import { eachNeighbor, type DrainageGrid } from './drainage-grid';
 import type { floodTerrain } from './flood';
 
+const { minimumLakeAreaM2, minimumLakeDepthMm } = defaults;
+
 export type Basin = { root: number; outlet: number; level: number; area: number; depth: number };
+
+// Exact arithmetic: the basin membership array starts with no basin at each vertex.
+const noBasin = -1;
+// Exact arithmetic: area and depth start at the additive and nonnegative maximum identity.
+const emptyBasinMeasures = { area: 0, depth: 0 };
 
 function fraction(a: number, b: number, c: number) {
 	if (a >= 0) return 0;
@@ -14,14 +22,14 @@ function basinsByVertex(
 	{ side, bed }: DrainageGrid,
 	{ level, order, parent }: ReturnType<typeof floodTerrain>
 ) {
-	const membership = new Int32Array(bed.length).fill(-1);
+	const membership = new Int32Array(bed.length).fill(noBasin);
 	const pending = new Int32Array(bed.length);
 	const basins: Basin[] = [];
 	for (const root of order) {
 		if (membership[root] >= 0 || bed[root] >= level[root]) continue;
 		const id = basins.length;
 		const spill = level[root];
-		const basin = { root, outlet: parent[root], level: spill, area: 0, depth: 0 };
+		const basin = { root, outlet: parent[root], level: spill, ...emptyBasinMeasures };
 		basins.push(basin);
 		membership[root] = id;
 		pending[0] = root;
@@ -62,7 +70,7 @@ export function findBasins(grid: DrainageGrid, flood: ReturnType<typeof floodTer
 	}
 	const retained: Basin[] = [];
 	const ids = basins.map((basin) => {
-		if (basin.area < 20_000 || basin.depth < 1000) return -1;
+		if (basin.area < minimumLakeAreaM2 || basin.depth < minimumLakeDepthMm) return -1;
 		return retained.push(basin) - 1;
 	});
 	for (let i = 0; i < bed.length; i++) if (membership[i] >= 0) membership[i] = ids[membership[i]];

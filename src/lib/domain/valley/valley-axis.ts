@@ -1,5 +1,6 @@
+import { millimetersPerMeter } from './millimeters';
 import type { Random } from '../../core/random';
-import { VALLEY_GROUND_DEFAULTS as profile } from './ground-defaults';
+import { VALLEY_GROUND_DEFAULTS as profile } from './settings';
 import { courseSpacing, type RiverCourse } from './course';
 import { defaultBands, sampleBand } from './parameters';
 
@@ -18,6 +19,9 @@ function reachChord(course: RiverCourse, reachM: number) {
 	const crossM = Math.cos(bearingRad) * (xy[a + 1] - y) - Math.sin(bearingRad) * (xy[a] - x);
 	return { x, y, spanM, bearingRad, crossM };
 }
+
+// Exact arithmetic: the floodplain and two terraced floor IDs are ordered and stable.
+const floorId = { floodplain: 1, lowerTerrace: 2, upperTerrace: 3 } as const;
 
 /** Builds the alluvial profile and an independently tilted axis in the course frame. */
 export function createValleyAxis(random: Random, course: RiverCourse, openSide: number) {
@@ -40,9 +44,9 @@ export function createValleyAxis(random: Random, course: RiverCourse, openSide: 
 		openEdgeM: sampleBand(profile.openEdgeM, width),
 		wideningM: sampleBand(profile.wideningM, width),
 		floors: Object.freeze([
-			Object.freeze({ id: 1, kind: 'floodplain', levelM: floodplain }),
-			Object.freeze({ id: 2, kind: 'lower-terrace', levelM: lower }),
-			Object.freeze({ id: 3, kind: 'upper-terrace', levelM: upper })
+			Object.freeze({ id: floorId.floodplain, kind: 'floodplain', levelM: floodplain }),
+			Object.freeze({ id: floorId.lowerTerrace, kind: 'lower-terrace', levelM: lower }),
+			Object.freeze({ id: floorId.upperTerrace, kind: 'upper-terrace', levelM: upper })
 		] as const)
 	});
 }
@@ -56,11 +60,11 @@ export function axisCoordinates(axis: ValleyAxis) {
 	const alongOffset = forwardX * axis.anchorX + forwardY * axis.anchorY;
 	const acrossOffset = forwardX * axis.anchorY - forwardY * axis.anchorX;
 	return (xMm: number, yMm: number) => {
-		const alongM = Math.round(forwardX * xMm + forwardY * yMm) / 1000;
+		const alongM = Math.round(forwardX * xMm + forwardY * yMm) / millimetersPerMeter;
 		return {
 			alongM,
 			stationM: alongM - alongOffset,
-			acrossM: Math.round(forwardX * yMm - forwardY * xMm) / 1000 - acrossOffset
+			acrossM: Math.round(forwardX * yMm - forwardY * xMm) / millimetersPerMeter - acrossOffset
 		};
 	};
 }

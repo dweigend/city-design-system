@@ -1,10 +1,27 @@
+import { defaults } from '../../../config/object';
 import type { Vec3 } from '../geometry';
 import { PlaceableObject, type Shape } from './object';
 
-const eavesM = 3;
-const ridgeM = 4.6;
-const facadeM = -2;
-const plinthHeightM = 0.24;
+const {
+	houseEavesM,
+	houseRidgeM,
+	housePlinthHeightM,
+	houseRoofHalfDepthM,
+	houseRoofHalfWidthM,
+	houseFacadeInsetM,
+	houseFootprintWidthM,
+	houseFootprintDepthM,
+	houseBodyWidthM,
+	houseBodyDepthM,
+	houseDoorWidthM,
+	houseDoorHeightM,
+	houseWindowOffsetM,
+	houseWindowSillM,
+	houseWindowWidthM,
+	houseWindowHeightM
+} = defaults;
+
+const facadeM = -houseBodyDepthM / 2;
 
 function box(center: Vec3, size: Vec3): Shape {
 	return { kind: 'box', center, size, rotation: 0 };
@@ -12,13 +29,15 @@ function box(center: Vec3, size: Vec3): Shape {
 
 function roof(): Shape {
 	const profile = [
-		[-2.24, eavesM],
-		[2.24, eavesM],
-		[0, ridgeM]
+		[-houseRoofHalfDepthM, houseEavesM],
+		[houseRoofHalfDepthM, houseEavesM],
+		[0, houseRidgeM]
 	];
 	return {
 		kind: 'mesh',
-		positions: [-3.24, 3.24].flatMap((x) => profile.flatMap(([y, z]) => [x, y, z])),
+		positions: [-houseRoofHalfWidthM, houseRoofHalfWidthM].flatMap((x) =>
+			profile.flatMap(([y, z]) => [x, y, z])
+		),
 		indices: [
 			0,
 			2,
@@ -52,7 +71,7 @@ function facade(x: number, bottom: number, width: number, height: number): Shape
 	const left = x - width / 2;
 	const right = x + width / 2;
 	const top = bottom + height;
-	const y = facadeM - 0.005;
+	const y = facadeM - houseFacadeInsetM;
 	return {
 		kind: 'mesh',
 		positions: [left, y, bottom, right, y, bottom, right, y, top, left, y, top],
@@ -61,7 +80,7 @@ function facade(x: number, bottom: number, width: number, height: number): Shape
 }
 
 export function example(): PlaceableObject {
-	const footprint = { width: 6.3, depth: 4.3 };
+	const footprint = { width: houseFootprintWidthM, depth: houseFootprintDepthM };
 	return PlaceableObject.create({
 		id: 'house',
 		slots: ['plinth', 'wall', 'roof', 'glass', 'door'],
@@ -69,22 +88,40 @@ export function example(): PlaceableObject {
 			{
 				id: 'plinth',
 				slot: 'plinth',
-				shape: box([0, 0, plinthHeightM / 2], [footprint.width, footprint.depth, plinthHeightM])
+				shape: box(
+					[0, 0, housePlinthHeightM / 2],
+					[footprint.width, footprint.depth, housePlinthHeightM]
+				)
 			},
 			{
 				id: 'body',
 				slot: 'wall',
-				shape: box([0, 0, (eavesM + plinthHeightM) / 2], [6, 4, eavesM - plinthHeightM])
+				shape: box(
+					[0, 0, (houseEavesM + housePlinthHeightM) / 2],
+					[houseBodyWidthM, houseBodyDepthM, houseEavesM - housePlinthHeightM]
+				)
 			},
 			{ id: 'roof', slot: 'roof', shape: roof() },
-			{ id: 'entry-door', slot: 'door', shape: facade(0, plinthHeightM, 0.98, 2.12) },
-			{ id: 'west-window', slot: 'glass', shape: facade(-1.75, 0.99, 0.94, 1.43) },
-			{ id: 'east-window', slot: 'glass', shape: facade(1.75, 0.99, 0.94, 1.43) }
+			{
+				id: 'entry-door',
+				slot: 'door',
+				shape: facade(0, housePlinthHeightM, houseDoorWidthM, houseDoorHeightM)
+			},
+			{
+				id: 'west-window',
+				slot: 'glass',
+				shape: facade(-houseWindowOffsetM, houseWindowSillM, houseWindowWidthM, houseWindowHeightM)
+			},
+			{
+				id: 'east-window',
+				slot: 'glass',
+				shape: facade(houseWindowOffsetM, houseWindowSillM, houseWindowWidthM, houseWindowHeightM)
+			}
 		],
 		footprint,
 		anchors: [
 			{ name: 'entry', position: [0, facadeM, 0], normal: [0, -1, 0] },
-			{ name: 'ridge', position: [0, 0, ridgeM], normal: [0, 0, 1] }
+			{ name: 'ridge', position: [0, 0, houseRidgeM], normal: [0, 0, 1] }
 		]
 	});
 }

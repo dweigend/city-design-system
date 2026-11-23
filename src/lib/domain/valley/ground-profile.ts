@@ -1,8 +1,17 @@
+import { defaults } from './settings';
 import type { ValleyAxis } from './valley-axis';
 
+const { farBeltEdgeM, nearBeltEdgeM } = defaults;
+
+// Exact arithmetic: the cubic smoothstep polynomial has zero derivative at both ends.
 function rise(distanceM: number, centerM: number, halfRunM: number): number {
 	const t = Math.min(1, Math.max(0, (distanceM - centerM + halfRunM) / (2 * halfRunM)));
 	return t * t * (3 - 2 * t);
+}
+
+// Exact arithmetic: the quadratic ease reaches full height with zero slope at t = 1.
+export function easeBank(height: number, t: number): number {
+	return height * t * (2 - t);
 }
 
 export function axisBow(axis: ValleyAxis, stationM: number) {
@@ -22,16 +31,19 @@ export function terraceEdgeM(
 	const localEdge = open
 		? axis.openEdgeM + axis.wideningM * (stationM / axis.bowSpanM)
 		: axis.closeEdgeM;
-	const beltEdge = open ? 690 : 475;
+	const beltEdge = open ? farBeltEdgeM : nearBeltEdgeM;
 	return localEdge + (beltEdge - localEdge) * regionalRate;
 }
+
+// Exact arithmetic: zero blend keeps the local terrace profile.
+const unblendedTerracesRatio = 0;
 
 /** Samples the inherited floodplain and two terrace benches above the datum. */
 export function heightAboveWaterM(
 	axis: ValleyAxis,
 	stationM: number,
 	acrossM: number,
-	regionalRate = 0
+	regionalRate = unblendedTerracesRatio
 ): number {
 	const { profile } = axis;
 	const lateral = acrossM - axisBow(axis, stationM);

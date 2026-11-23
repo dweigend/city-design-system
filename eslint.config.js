@@ -1,3 +1,4 @@
+import { noTunableNumber } from './scripts/config/no-tunable-number.js';
 import prettier from 'eslint-config-prettier';
 import path from 'node:path';
 import js from '@eslint/js';
@@ -89,6 +90,28 @@ const scopes = [
 	{ files: ['src/lib/ui/**/*.svelte'], rules: [namedExports, ...stage, ...styles] },
 	{ files: ['src/lib/scene/stage/**/*.svelte'], rules: [namedExports, kit, ...styles, controls] }
 ];
+// Existing modules still using their local constants join this rule when migrated.
+const pendingConfigModules = [
+	'core/{geometry,invariant,polyline,random}',
+	'domain/{city-volume,terrain-grid}',
+	'world/city-site',
+	'scene/{city-volume-projection,focus,stage,stage-view,surface,terrain-grid-projection,valley-projection}',
+	'ui/{accordion,button,icon,icon-button,popover,scale-legend,select,slider,switch,tabs,toggle-group}'
+];
+/** @type {import('eslint').Linter.Config} */
+const numericSettings = {
+	files: [`${library}/**/*.${code}`, `${library}/**/*.svelte`],
+	ignores: [
+		...pendingConfigModules.map((module) => `src/lib/${module}/**`),
+		'**/*.test.ts',
+		'**/*.evidence.ts',
+		'**/{example,*-example}.ts',
+		'src/lib/domain/valley/survey.ts'
+	],
+	plugins: { config: { rules: { 'no-tunable-number': noTunableNumber } } },
+	rules: { 'config/no-tunable-number': 'error' }
+};
+
 const typedRules = Object.fromEntries(
 	ts.configs.recommendedTypeCheckedOnly
 		.flatMap((config) => Object.entries(config.rules ?? {}))
@@ -129,6 +152,18 @@ export default defineConfig(
 		languageOptions: { parserOptions: { parser: ts.parser } }
 	},
 	{
+		files: ['src/config/**/*.ts', 'scripts/config/*/**/*.ts'],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					globals: ['window', 'document', 'navigator', 'process', 'Bun', 'fetch'],
+					checkGlobalObject: true
+				}
+			]
+		}
+	},
+	{
 		files: headless,
 		rules: {
 			'no-restricted-globals': [
@@ -163,5 +198,6 @@ export default defineConfig(
 		// Svelte-check validates template calls, including inferred snippet props.
 		rules: { '@typescript-eslint/no-unsafe-call': 'off' }
 	},
+	numericSettings,
 	...restrictedSyntax
 );

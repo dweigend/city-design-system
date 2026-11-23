@@ -1,10 +1,14 @@
+import { defaults } from './settings';
+import { easeBank } from './ground-profile';
 import type { Vec2 } from '../../core/geometry';
 import type { DrainageLake } from './lake-geometry';
 import type { Reach, ReachStation } from './reaches';
-import { channelSegments, halfWidth } from './channel-outline';
+import { channelSegments, halfWidth, sectionEndpoints } from './channel-outline';
 
-const size = 160;
-export const bankLimit = 160;
+const { waterBucketSizeM, waterBankDistanceCapM, waterBucketRowStride } = defaults;
+
+const size = waterBucketSizeM;
+export const bankLimit: number = waterBankDistanceCapM;
 type Edge = {
 	a: Vec2;
 	dx: number;
@@ -41,8 +45,8 @@ function edge(a: Vec2, b: Vec2): Edge {
 	};
 }
 
-function key(x: number, y: number) {
-	return Math.floor(x / size) + Math.floor(y / size) * 1024;
+function bucketId(x: number, y: number) {
+	return x + y * waterBucketRowStride;
 }
 
 function spatial<T>() {
@@ -59,7 +63,7 @@ function spatial<T>() {
 					x <= Math.floor((Math.max(a[0], b[0]) + margin) / size);
 					x++
 				) {
-					const id = x + y * 1024;
+					const id = bucketId(x, y);
 					const bucket = bins.get(id);
 					if (bucket) bucket.push(item);
 					else bins.set(id, [item]);
@@ -67,7 +71,7 @@ function spatial<T>() {
 			}
 		},
 		at(x: number, y: number) {
-			return bins.get(key(x, y));
+			return bins.get(bucketId(Math.floor(x / size), Math.floor(y / size)));
 		}
 	};
 }
@@ -93,7 +97,10 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 	const sillReaches = new Set(lakes.map(({ downstream }) => downstream));
 	for (const { id, start, end, trunk, first } of channelSegments(reaches)) {
 		const line = edge(start.xy, end.xy);
-		const maximumRadius = Math.max(halfWidth(start, end, 0), halfWidth(start, end, 1));
+		const maximumRadius = Math.max(
+			halfWidth(start, end, sectionEndpoints.start),
+			halfWidth(start, end, sectionEndpoints.end)
+		);
 		channels.add(
 			{
 				...line,
@@ -162,7 +169,7 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 				kind,
 				bank,
 				water: mix(start.water, end.water, position),
-				depth: mix(start.depth, end.depth, position) * cut * (2 - cut) * (sill ? position : 1)
+				depth: easeBank(mix(start.depth, end.depth, position), cut) * (sill ? position : 1)
 			};
 		},
 		shore(x: number, y: number, inside: DrainageLake | undefined) {

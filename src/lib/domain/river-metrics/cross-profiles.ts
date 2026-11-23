@@ -94,27 +94,34 @@ export function wetBanks(profile: readonly ProfilePoint[]) {
 	};
 }
 
+// Exact arithmetic: the terrace indicator changes class at the midpoint of 0 and 1.
+const terraceIndicatorMidpoint = 1 / 2;
+
 function terraceEdge(profile: readonly ProfilePoint[], start: number, direction: -1 | 1) {
 	for (let i = start; i >= 0 && i < profile.length; i += direction) {
 		const point = profile[i];
-		if (point.terrace < 0.5) continue;
+		if (point.terrace < terraceIndicatorMidpoint) continue;
 		const prior = profile[i - direction];
-		if (prior.terrace >= 0.5) return prior.offset;
+		if (prior.terrace >= terraceIndicatorMidpoint) return prior.offset;
 		return (
 			prior.offset +
-			((point.offset - prior.offset) * (0.5 - prior.terrace)) / (point.terrace - prior.terrace)
+			((point.offset - prior.offset) * (terraceIndicatorMidpoint - prior.terrace)) /
+				(point.terrace - prior.terrace)
 		);
 	}
 	return null;
 }
+
+// Exact arithmetic: profile offsets increase from left to right.
+const outward = { left: -1, right: 1 } as const;
 
 /** Measures the dry distance from each bank to its first mapped terrace. */
 export function floodplainWidths(
 	profile: readonly ProfilePoint[],
 	banks: NonNullable<ReturnType<typeof wetBanks>>
 ): readonly [leftM: number | null, rightM: number | null] {
-	const left = terraceEdge(profile, banks.leftDry, -1);
-	const right = terraceEdge(profile, banks.rightDry, 1);
+	const left = terraceEdge(profile, banks.leftDry, outward.left);
+	const right = terraceEdge(profile, banks.rightDry, outward.right);
 	return [
 		left === null ? null : Math.max(0, banks.left - left),
 		right === null ? null : Math.max(0, right - banks.right)
@@ -127,6 +134,11 @@ function grade(profile: readonly ProfilePoint[], index: number): number {
 	return (high.height - low.height) / (high.offset - low.offset);
 }
 
+// Exact arithmetic: measured runs rise or fall according to the sign of their grade.
+const gradeSigns = [-1, 1] as const;
+// Exact arithmetic: a negative index represents the absence of an active run.
+const noStep = -1;
+
 /** Collects gains of contiguous, same-sign steep runs outside water on one profile. */
 export function stepCandidates(
 	profile: readonly ProfilePoint[],
@@ -134,18 +146,18 @@ export function stepCandidates(
 	minimumGainM: number
 ): number[] {
 	const heights: number[] = [];
-	for (const sign of [-1, 1]) {
-		let start = -1;
+	for (const sign of gradeSigns) {
+		let start = noStep;
 		for (let i = 0; i < profile.length; i++) {
 			if (profile[i].signed >= 0 && grade(profile, i) * sign > minimumSlope) {
-				if (start === -1) start = i;
+				if (start === noStep) start = i;
 				continue;
 			}
-			if (start === -1) continue;
+			if (start === noStep) continue;
 			const stop = profile[i].signed < 0 ? i - 1 : i;
 			const rise = sign * (profile[stop].height - profile[start].height);
 			if (rise >= minimumGainM) heights.push(rise);
-			start = -1;
+			start = noStep;
 		}
 		// An unfinished run is censored at the field border.
 	}

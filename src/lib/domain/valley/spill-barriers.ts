@@ -1,3 +1,4 @@
+import { millimetersPerMeter } from './millimeters';
 import { position, side, type triangle } from './catchment-grid';
 import { eachNeighbor } from './drainage-grid';
 import type { solveDrainage } from './drainage';
@@ -27,10 +28,10 @@ export function spillBarriers(
 	}
 	const correction = new Float64Array(bed.length);
 	for (const i of new Set([...minimum.keys(), ...maximum.keys()])) {
-		const edited = Math.round(height(...position(i)) * 1000);
+		const edited = Math.round(height(...position(i)) * millimetersPerMeter);
 		const lower = minimum.get(i) ?? -Infinity;
 		const upper = maximum.get(i) ?? Infinity;
-		correction[i] = (Math.max(lower, Math.min(upper, edited)) - edited) / 1000;
+		correction[i] = (Math.max(lower, Math.min(upper, edited)) - edited) / millimetersPerMeter;
 	}
 	return ({ a, b, c, wa, wb, wc }: ReturnType<typeof triangle>) =>
 		correction[a] * wa + correction[b] * wb + correction[c] * wc;

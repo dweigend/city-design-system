@@ -1,6 +1,22 @@
+import { millimetersPerMeter } from './millimeters';
+import { defaults } from './settings';
 import type { Vec2 } from '../../core/geometry';
 import { interpolate, position, triangle } from './catchment-grid';
 import type { solveDrainage } from './drainage';
+
+const {
+	unitRunoffYieldM3PerSKm2,
+	channelWidthCoefficientM,
+	channelWidthExponent,
+	defaultImportedLowlandAreaKm2,
+	importedAreaReferenceWidthM,
+	importedAreaReliefDivisor,
+	importedAreaReliefExponent,
+	channelDepthCoefficientM,
+	channelDepthExponent,
+	tributaryBendTrimRatio,
+	tributaryBendElevationToleranceM
+} = defaults;
 
 type Solution = ReturnType<typeof solveDrainage>;
 type Trough = readonly { index: number; x: number; y: number; length: number }[];
@@ -22,28 +38,42 @@ export type Reach = Readonly<{
 	stations: readonly ReachStation[];
 }>;
 
-export function discharge(area: number, runoff: number) {
-	return (0.02 * runoff * area) / 1e6;
-}
+// Exact arithmetic: one square kilometer equals 1,000,000 square meters.
+const squareMetersPerSquareKilometer = 1e6;
 
-const widthCoefficient = 31;
-const widthExponent = 0.34;
+export function discharge(area: number, runoff: number) {
+	return (unitRunoffYieldM3PerSKm2 * runoff * area) / squareMetersPerSquareKilometer;
+}
 
 export function channelWidth(flow: number) {
-	return widthCoefficient * flow ** widthExponent;
+	return channelWidthCoefficientM * flow ** channelWidthExponent;
 }
+
+// Exact arithmetic: the reference conversion uses a unit multiplier for runoff.
+const unitRunoff = 1;
 
 // Invert the width law for a caller-supplied reference width at unit runoff.
 function areaForWidth(width: number) {
-	return (width / widthCoefficient) ** (1 / widthExponent) / discharge(1e6, 1);
+	return (
+		(width / channelWidthCoefficientM) ** (1 / channelWidthExponent) /
+		discharge(squareMetersPerSquareKilometer, unitRunoff)
+	);
 }
 
 /** Imported drainage area in square meters. The guide scales the ancestral catchment and
  * a supplied wet width overrides the lowland area through the same channel law. */
 export function importedCatchmentArea(guideWetWidth: number, relief: number, wetWidth?: number) {
 	const lowlandKm2 =
-		wetWidth === undefined ? 3000 * (guideWetWidth / 370) ** 2 : areaForWidth(wetWidth);
-	return lowlandKm2 * (1 / 150 + (149 / 150) * (1 - relief) ** 2) * 1e6;
+		wetWidth === undefined
+			? defaultImportedLowlandAreaKm2 * (guideWetWidth / importedAreaReferenceWidthM) ** 2
+			: areaForWidth(wetWidth);
+	return (
+		lowlandKm2 *
+		(1 / importedAreaReliefDivisor +
+			((importedAreaReliefDivisor - 1) / importedAreaReliefDivisor) *
+				(1 - relief) ** importedAreaReliefExponent) *
+		squareMetersPerSquareKilometer
+	);
 }
 
 function section(xy: Vec2, water: number, area: number, runoff: number): ReachStation {
@@ -52,7 +82,7 @@ function section(xy: Vec2, water: number, area: number, runoff: number): ReachSt
 		xy: Object.freeze(xy),
 		water,
 		width: channelWidth(flow),
-		depth: 0.35 * flow ** 0.35,
+		depth: channelDepthCoefficientM * flow ** channelDepthExponent,
 		discharge: flow
 	});
 }
@@ -104,11 +134,15 @@ function joinSections(a: ReachStation, b: ReachStation, t: number, runoff: numbe
 	const blend = (x: number, y: number) => x + (y - x) * t;
 	return section(
 		[blend(a.xy[0], b.xy[0]), blend(a.xy[1], b.xy[1])],
-		Math.round(blend(a.water, b.water) * 1000) / 1000,
-		(blend(a.discharge, b.discharge) * 1e6) / (0.02 * runoff),
+		Math.round(blend(a.water, b.water) * millimetersPerMeter) / millimetersPerMeter,
+		(blend(a.discharge, b.discharge) * squareMetersPerSquareKilometer) /
+			(unitRunoffYieldM3PerSKm2 * runoff),
 		runoff
 	);
 }
+
+// Exact arithmetic: repeated midpoint interpolation constructs the center of the quadratic bend.
+const midpointFraction = 1 / 2;
 
 function roundBend(
 	a: ReachStation,
@@ -117,16 +151,19 @@ function roundBend(
 	flow: Solution,
 	runoff: number
 ) {
-	const start = joinSections(b, a, 0.25, runoff);
-	const end = joinSections(b, c, 0.25, runoff);
+	const start = joinSections(b, a, tributaryBendTrimRatio, runoff);
+	const end = joinSections(b, c, tributaryBendTrimRatio, runoff);
 	const middle = joinSections(
-		joinSections(start, b, 0.5, runoff),
-		joinSections(b, end, 0.5, runoff),
-		0.5,
+		joinSections(start, b, midpointFraction, runoff),
+		joinSections(b, end, midpointFraction, runoff),
+		midpointFraction,
 		runoff
 	);
 	const terrain = interpolate(flow.bed, triangle(...middle.xy));
-	return terrain > middle.water + 1 || terrain < middle.water - 1 ? [b] : [start, middle, end];
+	return terrain > middle.water + tributaryBendElevationToleranceM ||
+		terrain < middle.water - tributaryBendElevationToleranceM
+		? [b]
+		: [start, middle, end];
 }
 
 function guideSections(
@@ -141,7 +178,7 @@ function guideSections(
 		const xy: Vec2 = guide ? [guide.x, guide.y] : position(i);
 		const previous = chain[Math.max(0, n - 1)];
 		const area = !trunk && n === chain.length - 1 ? flow.area[previous] : flow.area[i];
-		return section(xy, flow.level[i] / 1000, area, runoff);
+		return section(xy, flow.level[i] / millimetersPerMeter, area, runoff);
 	});
 	if (trunk) return points;
 	return points.flatMap((point, i) =>

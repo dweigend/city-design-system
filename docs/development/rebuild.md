@@ -6,6 +6,7 @@ The library is rebuilt from an empty tree on the branch `rebuild`. A module retu
 
 ```text
 src/app.css            the only stylesheet
+src/config/<capability>/  numeric settings owned by one library module
 src/routes/<chapter>/  page text, image links and page-local widgets
 src/lib/ui/            the UI kit, the only place that imports Bits UI
 src/lib/scene/         one stage and the projections, the only place that imports three.js
@@ -14,20 +15,35 @@ src/lib/domain/        one flat folder per capability
 src/lib/core/          geometry, random, params, object contract
 ```
 
-| Rule | Statement                                                                                                 | Check              |
-| ---- | --------------------------------------------------------------------------------------------------------- | ------------------ |
-| 1    | Imports point downward only: routes → ui, scene → world → domain → core.                                  | dependency-cruiser |
-| 2    | The module graph has no cycles.                                                                           | dependency-cruiser |
-| 3    | Another module is imported through its `index.ts` only. No `export *`.                                    | dependency-cruiser |
-| 4    | `core`, `domain` and `world` run in Bun without DOM, Svelte or three.js.                                  | dependency-cruiser |
-| 5    | A domain module imports at most three other domain modules. More is composition and belongs to `world`.   | dependency-cruiser |
-| 6    | Geometry names slots. Color and material are assigned at one boundary in `scene`.                         | ESLint             |
-| 7    | No `<style>` block and no inline style. All CSS lives in `src/app.css`.                                   | ESLint             |
-| 8    | Controls come from `src/lib/ui`. No raw `button`, `input` or `select`, no Bits UI import outside the kit. | ESLint             |
-| 9    | Page content lives in `src/routes`. The library holds no chapter text.                                    | dependency-cruiser |
-| 10   | Only the stage creates a renderer, a camera or a frame loop.                                              | ESLint             |
+| Rule | Statement                                                                                                 | Check                                              |
+| ---- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| 1    | Imports point downward only: routes → ui, scene → world → domain → core.                                  | dependency-cruiser                                 |
+| 2    | The module graph has no cycles.                                                                           | dependency-cruiser                                 |
+| 3    | Another module is imported through its `index.ts` only. No `export *`.                                    | dependency-cruiser                                 |
+| 4    | `core`, `domain` and `world` run in Bun without DOM, Svelte or three.js.                                  | dependency-cruiser                                 |
+| 5    | A domain module imports at most three other domain modules. More is composition and belongs to `world`.   | dependency-cruiser                                 |
+| 6    | Geometry names slots. Color and material are assigned at one boundary in `scene`.                         | ESLint                                             |
+| 7    | No `<style>` block and no inline style. All CSS lives in `src/app.css`.                                   | ESLint                                             |
+| 8    | Controls come from `src/lib/ui`. No raw `button`, `input` or `select`, no Bits UI import outside the kit. | ESLint                                             |
+| 9    | Page content lives in `src/routes`. The library holds no chapter text.                                    | dependency-cruiser                                 |
+| 10   | Only the stage creates a renderer, a camera or a frame loop.                                              | ESLint                                             |
+| 11   | Put numeric tunables in the owning capability slice.                                                      | dependency-cruiser, ESLint, `bun run check:config` |
 
 A module is one folder: `index.ts` with documented exports, private sibling files, `contract.test.ts` against the entry, and `example.ts` with fixed inputs. The blocks page of chapter 8 is generated from these three. Function names follow the verb table of the sister library (`create`, `add`, `delete`, `take`, `read`, `set`, `select`, `sample`, `advance`, `run`; computed results are nouns).
+
+### Configuration
+
+Put a tunable in `src/config/<capability>/index.ts`. Give it one key, a unit, a meaning and any physical bounds. Cite its design principle or give the engineering reason for the value. Each module reads its own slice and shares facts through its public entry. Parameter schemas validate and snap player input. Derive values from their inputs and preserve the order of floating-point operations. Keep exact arithmetic with its implementation.
+
+Run `bun run config:catalogue` to list the settings. Frozen observations and acceptance ranges belong to their evidence. Styles keep theme values in CSS tokens. Study and host settings belong in `scripts/config/`. Register each slice owner in the dependency rules and enable the numeric lint rule when you finish migrating an existing module.
+
+While city, grid, scene and UI packages are in flight:
+
+1. Put new tunables in one constants file per owning module.
+2. Give each value a unit, a meaning and a principle ID or engineering rationale.
+3. Let the module read its constants and share facts through its public entry.
+4. Keep exact arithmetic local and frozen expectations with their evidence.
+5. Move the constants into the capability slice after the package lands.
 
 ## Working rules
 

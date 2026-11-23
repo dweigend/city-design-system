@@ -15,6 +15,8 @@
 		"format": "prettier --write .",
 		"test": "bun test",
 		"check:boundaries": "bun scripts/check-boundaries.ts",
+		"check:config": "bun scripts/config-catalogue.ts --check",
+		"config:catalogue": "bun scripts/config-catalogue.ts",
 		"check:skills": "bun scripts/check-private-skills.ts",
 		"bootstrap": "bun scripts/bootstrap-worktree.ts",
 		"verify": "bun scripts/verify.ts",

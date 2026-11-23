@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test';
 import { relative, resolve } from 'node:path';
 import { ESLint } from 'eslint';
 import ts from 'typescript-eslint';
+import { defineSettings, joinSettings } from '../src/config/setting';
+import { duplicateConfigKeys, validateConfig } from './config/validate';
 import { checkDomainFanout, readImportGraph } from './check-boundaries';
 
 const root = resolve(import.meta.dir, '..');
@@ -84,6 +86,13 @@ const probes = [
 			),
 			...Array<string>(2).fill('no-restricted-syntax: Start frame loops in src/lib/scene/stage.')
 		]
+	},
+	{
+		fixture: '11-config',
+		graph: ['config-owner-only-hydrology', 'config-data-only'],
+		lint: Array<string>(6).fill(
+			'config/no-tunable-number: Source numeric tunables from this module’s configuration slice.'
+		)
 	}
 ];
 
@@ -140,4 +149,49 @@ for (const { fixture, graph, lint, fanout } of probes) {
 test('product lint ignores the fixture trees', async () => {
 	const sample = resolve(fixtures, '06-slots/fail/src/lib/domain/shape/index.ts');
 	expect(await eslint.isPathIgnored(relative(root, sample))).toBe(true);
+});
+
+test('settings metadata and ownership', () => {
+	const good = defineSettings({
+		setbackM: {
+			value: [3, 5],
+			unit: 'm',
+			meaning: 'Distance behind the frontage',
+			bounds: { exclusiveMin: 0 },
+			principle: 'CITY-12'
+		}
+	});
+	const principles = new Set(['CITY-12']);
+	expect(validateConfig([{ path: 'city', entries: good }], principles)).toEqual([]);
+	expect(() => joinSettings(good, good)).toThrow('Duplicate setting: setbackM');
+	expect(
+		duplicateConfigKeys('settings.ts', 'const values = { setbackM: {}, "setbackM": {} };')
+	).toEqual(['settings.ts:1: duplicate key setbackM']);
+	const bad = Object.freeze({
+		setbackM: Object.freeze({ value: 3, meaning: 'Frontage offset', rationale: 'Calibration' }),
+		riseM: Object.freeze({ value: Infinity, unit: 'm', meaning: '', principle: 'CITY-999' }),
+		widthM: Object.freeze({
+			value: 4,
+			unit: 'm',
+			meaning: 'Lane width',
+			rationale: 'Calibration',
+			bounds: Object.freeze({ exclusiveMin: 4 })
+		})
+	});
+	expect(
+		validateConfig(
+			[
+				{ path: 'city', entries: good },
+				{ path: 'grid', entries: bad }
+			],
+			principles
+		)
+	).toEqual([
+		'grid:setbackM: already owned by city',
+		'grid:setbackM: requires a unit',
+		'grid:riseM: requires a meaning',
+		'grid:riseM: unknown principle',
+		'grid:riseM: requires finite defaults',
+		'grid:widthM: invalid bounds'
+	]);
 });

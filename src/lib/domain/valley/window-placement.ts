@@ -1,24 +1,30 @@
+import { defaults } from './settings';
 import type { Random } from '../../core/random';
 import { defaultBands, sampleBand } from './parameters';
 
-const WINDOW_CHORD_REACH_M = 1000;
-const CLOSE_BANK_OFFSETS_M = [185, 285] as const;
-const OPEN_BANK_OFFSETS_M = [375, 430] as const;
-export const maxWindowOffset = OPEN_BANK_OFFSETS_M[1];
+const {
+	guidePlacementChordReachM,
+	guideNearBankOffsetBandM,
+	guideFarBankOffsetBandM,
+	guideHeadingAlignmentBandRatio
+} = defaults;
+
+export const maxWindowOffset = guideFarBankOffsetBandM[1];
 
 export function windowOffset(random: Random, openSide: number): number {
 	const across = sampleBand(defaultBands.windowAcross, random.number());
 	const side = across < 0 ? -1 : 1;
-	const ranges = side === openSide ? OPEN_BANK_OFFSETS_M : CLOSE_BANK_OFFSETS_M;
+	const ranges = side === openSide ? guideFarBankOffsetBandM : guideNearBankOffsetBandM;
 	return side * sampleBand(ranges, Math.abs(across));
 }
 
-const HEADING_ALIGNMENT = [0.22, 0.62] as const;
-
 /** Aligns more of the local heading as less room remains on the near side of the frame. */
 export function alignmentFor(offsetM: number): number {
-	const closest = CLOSE_BANK_OFFSETS_M[0];
-	return sampleBand(HEADING_ALIGNMENT, (Math.abs(offsetM) - closest) / (maxWindowOffset - closest));
+	const closest = guideNearBankOffsetBandM[0];
+	return sampleBand(
+		guideHeadingAlignmentBandRatio,
+		(Math.abs(offsetM) - closest) / (maxWindowOffset - closest)
+	);
 }
 
 /** Places the field origin off the course along the normal of its broad chord. */
@@ -28,7 +34,7 @@ export function placeCourse(
 	spacingM: number,
 	offset: number
 ): void {
-	const steps = Math.round(WINDOW_CHORD_REACH_M / spacingM);
+	const steps = Math.round(guidePlacementChordReachM / spacingM);
 	const before = 2 * (midpoint - steps);
 	const after = 2 * (midpoint + steps);
 	const chord = Math.atan2(xy[after + 1] - xy[before + 1], xy[after] - xy[before]);

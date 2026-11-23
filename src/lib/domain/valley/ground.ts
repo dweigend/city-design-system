@@ -1,11 +1,17 @@
-import { toMillimeters } from './millimeters';
+import { defaults } from './settings';
+import { millimetersPerMeter, toMillimeters } from './millimeters';
 import type { ValleyAxis } from './valley-axis';
+
+const { valleyRasterWindowM, valleyRasterCellSizeM } = defaults;
 
 /** Ground bands in ascending order from the channel to the outer slope. */
 export const valleyBands = Object.freeze(['channel', 'floodplain', 'terraces', 'slopes'] as const);
 
 /** Index into valleyBands. */
 export type ValleyBand = 0 | 1 | 2 | 3;
+
+// Exact arithmetic: these indices address the named raster bands in their public order.
+const band = { channel: 0, floodplain: 1, terraces: 2, slopes: 3 } as const;
 
 /** North-first square raster in meters. Columns run east and rows run south. */
 export type HeightGrid = Readonly<{
@@ -17,8 +23,8 @@ export type HeightGrid = Readonly<{
 	bands: readonly ValleyBand[];
 }>;
 
-export const windowSize = 2000;
-const cellSize = 12.5;
+export const windowSize = valleyRasterWindowM;
+const cellSize = valleyRasterCellSizeM;
 const half = windowSize / 2;
 export function heightGrid(
 	sample: (x: number, y: number) => { height: number; water: number; bank: number },
@@ -35,10 +41,17 @@ export function heightGrid(
 		for (let column = 0; column < side; column++) {
 			const index = row * side + column;
 			const { height, water, bank } = sample(-half + column * cellSize, half - row * cellSize);
-			const above = Math.round((height - water) * 1000);
+			const above = Math.round((height - water) * millimetersPerMeter);
 			heights[index] = height;
 			waterHeights[index] = water;
-			bands[index] = bank < 0 ? 0 : above < lowerEdge ? 1 : above < upperEdge ? 2 : 3;
+			bands[index] =
+				bank < 0
+					? band.channel
+					: above < lowerEdge
+						? band.floodplain
+						: above < upperEdge
+							? band.terraces
+							: band.slopes;
 		}
 	}
 	return Object.freeze({

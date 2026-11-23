@@ -41,10 +41,13 @@ function gradient(
 	);
 }
 
+// Exact arithmetic: three ordered thresholds partition land into four slope classes.
+const emptySlopeCounts = [0, 0, 0, 0] as const;
+
 function surfaceStats(surface: Surface, signed: Sampler, protocol: SurfaceProtocol) {
 	const { side, center, heights } = surface;
 	const { surfaceSpacingM: spacing, reliefCoreM, landSlopeClassLimits } = protocol;
-	const counts = [0, 0, 0, 0];
+	const counts: number[] = [...emptySlopeCounts];
 	let land = 0;
 	let low = Infinity;
 	let high = -Infinity;
@@ -103,6 +106,9 @@ function checkGrid(grid: SurfaceGrid): number {
 	return side;
 }
 
+// Exact arithmetic: floor indices at or above 2 identify terraces in the surface raster.
+const firstTerraceIndex = 2;
+
 type ProfileWidths = {
 	widthM: number[];
 	bankPairsM: (readonly [number, number])[];
@@ -152,7 +158,8 @@ export function measureRiverSurface(
 	const height = gridSampler(surface.side, protocol.surfaceSpacingM, (i) => surface.heights[i]);
 	const widths: ProfileWidths = { widthM: [], bankPairsM: [], dryBankWidthsM: [] };
 	const { floor } = grid;
-	const terrace = floor && gridSampler(side, grid.spacingM, (i) => Number(floor[i] >= 2));
+	const terrace =
+		floor && gridSampler(side, grid.spacingM, (i) => Number(floor[i] >= firstTerraceIndex));
 	const stepHeightsM: number[] = [];
 	const stations = reach
 		? crossSections(

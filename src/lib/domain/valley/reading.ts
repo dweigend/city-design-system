@@ -1,5 +1,8 @@
+import { defaults } from './settings';
 import { radius } from './catchment-grid';
 import type { terrainSampler, WaterKind } from './terrain-sample';
+
+const { groundSlopeProbeHalfSpanM } = defaults;
 
 /** What covers the ground at a point. */
 export type GroundCover = 'dry' | 'river' | 'lake';
@@ -14,7 +17,7 @@ export type GroundReading = Readonly<{
 	waterKind: WaterKind;
 }>;
 
-const probeM = 2.5;
+const probeM = groundSlopeProbeHalfSpanM;
 
 /** Reads one point with a central-difference slope over 5 m and its cover. */
 export function readGround(

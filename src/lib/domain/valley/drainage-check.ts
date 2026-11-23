@@ -1,6 +1,10 @@
+import { millimetersPerMeter } from './millimeters';
+import { defaults } from './settings';
 import type { solveDrainage } from './drainage';
 import { vertexArea, type DrainageGrid } from './drainage-grid';
 import { floodTerrain } from './flood';
+
+const { nodeAreaBalanceRelativeToleranceRatio, nodeAreaBalanceScaleFloorM2 } = defaults;
 
 /** Catchment conservation residuals in square meters and counts of invalid receiver steps. */
 export type DrainageCheck = Readonly<{
@@ -27,7 +31,7 @@ function dryTriangleSlope(
 			measure(a, a + side, c);
 		}
 	}
-	return maximum / (1000 * spacing);
+	return maximum / (millimetersPerMeter * spacing);
 }
 
 export function checkDrainage(
@@ -55,7 +59,11 @@ export function checkDrainage(
 	collected[inlet] += importedArea;
 	let nodeBalanceFaults = 0;
 	for (let i = 0; i < area.length; i++) {
-		if (Math.abs(area[i] - collected[i]) > 1e-9 * Math.max(1, area[i])) nodeBalanceFaults++;
+		if (
+			Math.abs(area[i] - collected[i]) >
+			nodeAreaBalanceRelativeToleranceRatio * Math.max(nodeAreaBalanceScaleFloorM2, area[i])
+		)
+			nodeBalanceFaults++;
 	}
 	const expected = importedArea + (grid.spacing * (grid.side - 1)) ** 2;
 	return Object.freeze({
@@ -73,7 +81,9 @@ export function checkCarvedSills(
 	sampleHeight: (index: number) => number
 ) {
 	if (!flow.basins.length) return 0;
-	const bed = Int32Array.from(flow.bed, (_, i) => Math.round(sampleHeight(i) * 1000));
+	const bed = Int32Array.from(flow.bed, (_, i) =>
+		Math.round(sampleHeight(i) * millimetersPerMeter)
+	);
 	const { level } = floodTerrain({ ...grid, bed });
 	let faults = 0;
 	for (const basin of flow.basins) {
