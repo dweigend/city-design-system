@@ -72,14 +72,17 @@ export const bodyLooks = {
 /** Member weights by rank: chords and uprights carry, diagonals and hubs are secondary. Hidden
  * members keep a share of their opacity and the farthest lose `recede` of it. */
 export const memberLooks = {
-	lattice: { opacity: 0.85, width: 1.1, hidden: 0.24, recede: 0.5 },
-	uprights: { opacity: 0.72, width: 0.95, hidden: 0.2, recede: 0.5 },
-	detail: { opacity: 0.42, width: 0.6, hidden: 0.1, recede: 0.55 }
+	lattice: { opacity: 1, width: 1.15, hidden: 0.5, recede: 0.4 },
+	uprights: { opacity: 0.92, width: 1, hidden: 0.5, recede: 0.4 },
+	detail: { opacity: 0.6, width: 0.7, hidden: 0.4, recede: 0.45 }
 } as const;
 
 /** A visible lattice raises the envelope outline to this weight: the stepped silhouette is the
  * strongest line of the drawing. */
 const silhouetteOverLattice = { opacity: 0.8, width: 1.35 } as const;
+/** Fill of an out-of-focus envelope around a visible lattice. Hidden members are drawn after the
+ * veil, so a denser veil calms the ground below without hiding the structure. */
+const veilOverLattice = 0.8;
 /** Share of a visible member's opacity at any level below full. */
 const quietMembers = 0.45;
 
@@ -147,7 +150,7 @@ export function cityPresentation({
 					...part,
 					...(look.color ? { color: look.color } : {}),
 					...(ramp ? heightRamp(part.levels * levelHeight) : {}),
-					fillAlpha: veiled && !ramp ? 0.035 + 0.965 * detail.envelope : look.fill,
+					fillAlpha: veiled && !ramp ? 0.035 + 0.965 * detail.envelope : open ? veilOverLattice : look.fill,
 					occlude: true,
 					hatch: look.hatch,
 					vertical,
