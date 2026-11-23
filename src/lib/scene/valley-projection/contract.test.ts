@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test';
 import { TerrainGrid } from '../../domain/terrain-grid';
 import { Valley } from '../../domain/valley';
-import { reachFrame } from './frame';
+import { reachFrame, windowFrame } from './frame';
 import { sectionCuts } from './sections';
+import { waterSurface } from './water';
 import { projectValley, projectValleyWindow, valleyTriangleBudget } from './index';
 
 test('frames the regional reach as a cut block within the triangle budget', () => {
@@ -174,4 +175,27 @@ test('covers a sampled channel point at a curved reach join', () => {
 		}
 	}
 	expect(covered).toBe(true);
+});
+
+test('welds a sloped right-angle channel join at one shared elevation', () => {
+	const stations = (
+		[
+			[-100, 0, 10],
+			[0, 0, 5],
+			[0, 100, 0]
+		] as const
+	).map(([x, y, water]) => ({ xy: [x, y] as const, water, width: 20, depth: 2, discharge: 1 }));
+	const valley = {
+		...Valley.create({ seed: 1201 }),
+		lakes: [],
+		reaches: [{ id: 1, trunk: true, downstream: null, stations }]
+	};
+	const frame = windowFrame(valley, { origin: [0, 0], bearing: 0, length: 250, width: 250 });
+	const { surface } = waterSurface(valley, frame, 250, 1);
+	const heights = surface.positions.flatMap((x, i) =>
+		i % 3 === 0 && Math.abs(x) < 1e-8 && Math.abs(surface.positions[i + 1] - 10) < 1e-8
+			? [surface.positions[i + 2]]
+			: []
+	);
+	expect(heights).toEqual([5]);
 });
