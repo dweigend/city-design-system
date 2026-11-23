@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import type { Setting } from '../src/config/setting';
 import { designPrinciples } from '../src/routes/design-principles';
-import { validateConfig } from './config/validate';
+import { duplicateConfigKeys, validateConfig } from './config/validate';
 
 const root = resolve(import.meta.dir, '..');
 const files = Array.from(new Bun.Glob('{src,scripts}/config/*/index.ts').scanSync(root)).sort();
@@ -14,7 +14,18 @@ const slices = await Promise.all(
 		return { path, entries };
 	})
 );
-const errors = validateConfig(slices, new Set(designPrinciples.map(({ id }) => id)));
+const sourceFiles = Array.from(
+	new Bun.Glob('{src,scripts}/config/*/**/*.ts').scanSync(root)
+).sort();
+const sourceErrors = await Promise.all(
+	sourceFiles.map(async (path) =>
+		duplicateConfigKeys(path, await Bun.file(resolve(root, path)).text())
+	)
+);
+const errors = [
+	...sourceErrors.flat(),
+	...validateConfig(slices, new Set(designPrinciples.map(({ id }) => id)))
+];
 if (errors.length) {
 	for (const error of errors) console.error(error);
 	process.exitCode = 1;

@@ -3,7 +3,7 @@ import { relative, resolve } from 'node:path';
 import { ESLint } from 'eslint';
 import ts from 'typescript-eslint';
 import { defineSettings, joinSettings } from '../src/config/setting';
-import { validateConfig } from './config/validate';
+import { duplicateConfigKeys, validateConfig } from './config/validate';
 import { checkDomainFanout, readImportGraph } from './check-boundaries';
 
 const root = resolve(import.meta.dir, '..');
@@ -164,6 +164,9 @@ test('settings metadata and ownership', () => {
 	const principles = new Set(['CITY-12']);
 	expect(validateConfig([{ path: 'city', entries: good }], principles)).toEqual([]);
 	expect(() => joinSettings(good, good)).toThrow('Duplicate setting: setbackM');
+	expect(
+		duplicateConfigKeys('settings.ts', 'const values = { setbackM: {}, "setbackM": {} };')
+	).toEqual(['settings.ts:1: duplicate key setbackM']);
 	const bad = Object.freeze({
 		setbackM: Object.freeze({ value: 3, meaning: 'Frontage offset', rationale: 'Calibration' }),
 		riseM: Object.freeze({ value: Infinity, unit: 'm', meaning: '', principle: 'CITY-999' }),

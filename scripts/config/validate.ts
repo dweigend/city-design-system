@@ -1,3 +1,5 @@
+import ts from 'typescript';
+
 const boundChecks = {
 	min: (value: number, min: number) => value >= min,
 	max: (value: number, max: number) => value <= max,
@@ -63,5 +65,28 @@ export function validateConfig(slices: readonly ConfigSlice[], principles: Reado
 			for (const error of checkEntry(entry, principles)) errors.push(`${path}:${key}: ${error}`);
 		}
 	}
+	return errors;
+}
+
+
+/** Find duplicate literal keys before evaluation can discard their earlier values. */
+export function duplicateConfigKeys(path: string, text: string): string[] {
+	const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false);
+	const errors: string[] = [];
+	function visit(node: ts.Node) {
+		if (ts.isObjectLiteralExpression(node)) {
+			const keys = new Set<string>();
+			for (const { name } of node.properties) {
+				if (!name || (!ts.isIdentifier(name) && !ts.isStringLiteral(name))) continue;
+				if (keys.has(name.text)) {
+					const { line } = source.getLineAndCharacterOfPosition(name.getStart(source));
+					errors.push(`${path}:${line + 1}: duplicate key ${name.text}`);
+				}
+				keys.add(name.text);
+			}
+		}
+		ts.forEachChild(node, visit);
+	}
+	visit(source);
 	return errors;
 }
