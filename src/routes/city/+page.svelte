@@ -13,19 +13,25 @@
 		cityPlanVariants,
 		cityVolumeParams,
 		createCityLattice,
+		levelHeight,
 		readCityColumns,
 		type CityPlanVariant,
 		type DistrictKind,
 		type LatticeVariant,
 		type SettlementKind
 	} from '../../lib/domain/city-volume';
-	import { projectCityDistricts, projectCityLattice } from '../../lib/scene/city-volume-projection';
-	import type { Display, View } from '../../lib/scene/stage';
+	import {
+		cityPresentation,
+		cityProfile,
+		projectCityDistricts,
+		projectCityLattice
+	} from '../../lib/scene/city-volume-projection';
+	import type { Display, View, Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
-	import { planningOverlay } from '../../lib/scene/surface';
 	import { terrainGridProjection } from '../../lib/scene/terrain-grid-projection';
 	import { projectValleyWindow } from '../../lib/scene/valley-projection';
 	import { Button } from '../../lib/ui/button';
+	import { ScaleLegend } from '../../lib/ui/scale-legend';
 	import { Select } from '../../lib/ui/select';
 	import { Slider } from '../../lib/ui/slider';
 	import { Tabs } from '../../lib/ui/tabs';
@@ -50,6 +56,14 @@
 	const displays = [
 		{ value: 'normal', label: 'Normal' },
 		{ value: 'transparency', label: 'Transparency' }
+	];
+	const profiles = [
+		{ value: 'auto', label: 'Auto' },
+		{ value: 'true', label: 'True scale' }
+	];
+	const colours = [
+		{ value: 'districts', label: 'Districts' },
+		{ value: 'height', label: 'Height' }
 	];
 	const gridLabels: Record<CityPlanVariant, string> = {
 		organic: 'Organic',
@@ -106,6 +120,9 @@
 	let display = $derived<Display>(
 		page.url.searchParams.get('display') === 'transparency' ? 'transparency' : 'normal'
 	);
+	let profile = $derived(choice('profile', ['auto', 'true']));
+	let colour = $derived(choice('colour', ['districts', 'height']));
+	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0 });
 	let step = $derived(stepFromQuery());
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
 	let citySize = $derived(
@@ -129,26 +146,53 @@
 	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
-	const envelope = $derived(projectCityDistricts(columns, city.datumZ, terrain));
+	const envelope = $derived(projectCityDistricts(columns, city.datumZ, terrain, true));
 	const lattice = $derived(createCityLattice(columns, city.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain));
+	const elevation = (17 * Math.PI) / 180;
 	const volumeFit = $derived({
 		bearing: (-24 * Math.PI) / 180,
-		elevation: (17 * Math.PI) / 180,
-		fill: 0.98,
-		focus: envelope.focus
+		elevation,
+		fill: 0.89,
+		focus: envelope.focus,
+		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
+		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
 	const planFit = $derived({ ...volumeFit, elevation: (28 * Math.PI) / 180 });
-	const drawables = $derived([
-		...terrain.drawables,
-		...(step === '01' ? lines.drawables : lines.traces),
-		...envelope.drawables.map((part) => ({
-			...part,
-			...(step === '03' ? planningOverlay : {}),
-			visible: step !== '01'
-		})),
-		...members.drawables.map((part) => ({ ...part, visible: step === '03' }))
-	]);
+	const relief = $derived(step === '01' ? lines.drawables : lines.traces);
+	const ground = $derived([...terrain.drawables, ...relief]);
+	const tiles = $derived(step === '01' ? [] : envelope.drawables);
+	const wires = $derived(step === '03' ? members.drawables : []);
+	const drawables = $derived([...ground, ...tiles, ...wires]);
+	const legendPeak = $derived(Math.max(2 * levelHeight, districts.peakHeight));
+	const heightFactor = $derived(
+		cityProfile(
+			viewport.width,
+			viewport.metersPerPixel,
+			districts.peakHeight,
+			elevation,
+			profile === 'true'
+		).factor
+	);
+	const presentation = $derived(
+		step === '01'
+			? undefined
+			: cityPresentation({
+					terrain: ground,
+					envelope: tiles,
+					members: wires,
+					datum: city.datumZ,
+					peak: districts.peakHeight,
+					elevation,
+					open: step === '03',
+					heat: colour === 'height',
+					trueScale: profile === 'true'
+				})
+	);
+
+	function setViewport(value: Viewport) {
+		viewport = value;
+	}
 
 	const measurements = $derived([
 		{
@@ -161,7 +205,8 @@
 			? []
 			: [
 					...districtMeasurements(columns),
-					{ label: 'Peak', value: format.format(districts.peakHeight), unit: 'm' }
+					{ label: 'Peak', value: format.format(districts.peakHeight), unit: 'm' },
+					{ label: 'Height', value: `×${heightFactor.toFixed(1)}`, unit: '' }
 				])
 	]);
 
@@ -224,6 +269,9 @@
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
 			landscape
+			interactive
+			{presentation}
+			onViewport={setViewport}
 			fit={step === '01' ? planFit : volumeFit}
 		/>
 		<div class="cluster">
@@ -240,6 +288,23 @@
 				}
 			/>
 		</div>
+		{#if step !== '01'}
+			<div class="cluster">
+				<ToggleGroup label="Profile" items={profiles} bind:value={profile} />
+				<ToggleGroup label="Colour" items={colours} bind:value={colour} />
+			</div>
+			{#if colour === 'height'}
+				<ScaleLegend
+					label="Column height in meters"
+					values={[
+						String(levelHeight),
+						format.format((levelHeight + legendPeak) / 2),
+						String(legendPeak)
+					]}
+					unit="m"
+				/>
+			{/if}
+		{/if}
 		<dl class="data cluster city-measurements">
 			{#each measurements as { label, value, unit } (label)}
 				<div>

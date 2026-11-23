@@ -68,13 +68,13 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, atlas } = fillMaterial(
+	const { material, terrain, flat, heightScale, stretch, pivot, atlas } = fillMaterial(
 		palette,
 		drawable.terrainField
 	);
 	const mesh = new Mesh(fill, material);
 	mesh.renderOrder = layerOrder;
-	return { drawable, mesh, lines, grid, terrain, flat, heightScale, atlas };
+	return { drawable, mesh, lines, grid, terrain, flat, heightScale, stretch, pivot, atlas };
 }
 
 function projectStroke(
@@ -150,6 +150,20 @@ export function createContent(
 		get ground() {
 			return ground;
 		},
+		get clippingBounds(): Bounds3 {
+			const visible = new Box3();
+			for (const { drawable, mesh } of parts) {
+				const bounds = mesh.geometry.boundingBox;
+				if (drawable.visible === false || !bounds || bounds.isEmpty()) continue;
+				const { scale, pivot, pinFillBelow } = drawable.vertical ?? { scale: 1, pivot: 0 };
+				const next = bounds.clone();
+				next.min.z +=
+					(pinFillBelow ? Math.max(0, next.min.z - pivot) : next.min.z - pivot) * (scale - 1);
+				next.max.z += Math.max(0, next.max.z - pivot) * (scale - 1);
+				visible.union(next);
+			}
+			return toBounds(visible);
+		},
 		get bounds(): Bounds3 {
 			const visible = new Box3();
 			for (const { drawable, mesh } of parts) {
@@ -157,6 +171,11 @@ export function createContent(
 					visible.union(mesh.geometry.boundingBox);
 			}
 			return toBounds(visible.isEmpty() ? box : visible);
+		},
+		style(drawables: readonly Drawable[]) {
+			if (!hasSameGeometry(parts, drawables))
+				throw new Error('Presentation must retain drawable geometry');
+			parts.forEach((part, index) => (part.drawable = drawables[index]));
 		},
 		show(drawables: readonly Drawable[]) {
 			if (hasSameGeometry(parts, drawables)) {

@@ -26,7 +26,9 @@ export type TerrainField = Readonly<{
 }>;
 
 /** One part’s id, geometry and surface. Height scale recovers true contour elevations.
- * Explicit strokes are packed XYZ endpoint pairs, in the same local meters as the shape. */
+ * Explicit strokes are packed XYZ endpoint pairs in local meters. Vertical scales around
+ * the given pivot. Pinning leaves fill vertices below that pivot grounded, with strokes
+ * expected to lie at or above it. */
 export type Drawable = Surface &
 	Readonly<{
 		id: string;
@@ -37,6 +39,10 @@ export type Drawable = Surface &
 		strokeSegments?: readonly number[];
 		visible?: boolean;
 		fillVisible?: boolean;
+		fillAlpha?: number;
+		colorMix?: Readonly<{ token: `--${string}`; amount: number }>;
+		vertical?: Readonly<{ scale: number; pivot: number; pinFillBelow?: boolean }>;
+		preserveColor?: boolean;
 	}>;
 
 type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
@@ -81,11 +87,17 @@ export const planningStudy = Object.freeze({
 	}
 } as const satisfies SurfaceAssignment);
 
-/** A faint envelope over the open carrier lattice. */
-export const planningOverlay = {
-	opacity: '--alpha-trace',
-	stroke: { ...districtEnvelope.stroke, width: 0.8, opacity: 0.28 }
-} as const;
+/** A lightness-ordered ramp between the lowest and highest true column heights. */
+export function heightRamp(height: number, low: number, high: number) {
+	return {
+		color: '--height-low' as const,
+		colorMix: {
+			token: '--height-high' as const,
+			amount: (height - low) / Math.max(low, high - low)
+		},
+		preserveColor: true
+	};
+}
 
 /** Returns the stock assignment with one flow color on the wall. */
 export function accent(color: FlowColor): SurfaceAssignment {

@@ -1,4 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
+import { required } from '../../core/invariant';
 import { bounds, PlaceableObject, type Footprint } from '../../core/object';
 import type { CityColumn, CityLattice } from '../../domain/city-volume';
 import { districtSurfaces, planningStudy, resolveSurfaces } from '../surface';
@@ -6,24 +7,37 @@ import { envelopeMeshes } from './envelope';
 import { latticeMesh } from './lattice';
 
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
+/** Maps the camera framing to continuous detail and height presentation. */
+export { cityProfile } from './profile';
+/** Styles the envelope and lattice as the camera moves. */
+export { cityPresentation } from './presentation';
+
 const slots = ['detached', 'block', 'center'] as const;
 
 /** Projects the city's outer roof and exposed steps, with one surface per district kind.
  * The envelope follows the common level planes in true world meters. */
-export function projectCityDistricts(columns: readonly CityColumn[], datumZ: number, frame: Frame) {
-	const { patches, outlines } = envelopeMeshes(columns, datumZ, frame.toLocal);
+export function projectCityDistricts(
+	columns: readonly CityColumn[],
+	datumZ: number,
+	frame: Frame,
+	byHeight = false
+) {
+	const patches = envelopeMeshes(columns, datumZ, frame.toLocal, byHeight);
 	const object = PlaceableObject.create({
 		id: 'districts',
 		slots,
-		parts: slots
-			.filter((slot) => patches[slot].indices.length)
-			.map((slot) => ({ id: slot, slot, shape: patches[slot] })),
+		parts: slots.flatMap((slot) =>
+			[...patches]
+				.filter(([, patch]) => patch.kind === slot)
+				.map(([id, { shape }]) => ({ id, slot, shape }))
+		),
 		footprint: frame.footprint,
 		anchors: []
 	});
 	const drawables = resolveSurfaces(object, districtSurfaces).map((part) => ({
 		...part,
-		strokeSegments: [...outlines[part.id as keyof typeof outlines].values()].flat()
+		levels: required(patches.get(part.id), 'envelope patch').levels,
+		strokeSegments: [...required(patches.get(part.id), 'envelope patch').wires.values()].flat()
 	}));
 	return { object, drawables, focus: bounds(object) };
 }
@@ -40,9 +54,18 @@ export function projectCityLattice(lattice: CityLattice, frame: Frame) {
 	});
 	return {
 		object,
-		drawables: resolveSurfaces(object, planningStudy).map((part) => ({
-			...part,
-			strokeSegments: wires
-		}))
+		drawables: resolveSurfaces(object, planningStudy).flatMap((part) => {
+			if (part.shape.kind !== 'mesh') throw new Error('Expected lattice joints');
+			const shape = {
+				kind: 'mesh' as const,
+				positions: part.shape.positions.slice(0, 9),
+				indices: [0, 1, 2]
+			};
+			return [
+				{ ...part, strokeSegments: wires.rims },
+				{ ...part, id: 'uprights', shape, fillVisible: false, strokeSegments: wires.uprights },
+				{ ...part, id: 'detail', shape, fillVisible: false, strokeSegments: wires.detail }
+			];
+		})
 	};
 }

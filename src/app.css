@@ -25,6 +25,8 @@
 	--river-section: color-mix(in oklab, var(--river-water) 77%, var(--ink-2));
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
+	--height-low: #c2e9f3;
+	--height-high: #803413;
 	--ground-stone: oklch(0.76 0.025 240);
 	--ground-plinth: color-mix(in oklch, var(--ground-stone) 29%, var(--paper-3));
 	--ground-sand: oklch(0.85 0.045 85);
@@ -122,6 +124,8 @@
 	--ink-2: oklch(0.74 0.008 85);
 	--ink: oklch(0.95 0.008 85);
 	--blueprint: oklch(0.545 0.16 268);
+	--height-low: #d4f3fb;
+	--height-high: #ac4b22;
 	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;
@@ -216,6 +220,9 @@
 	.grid-aside { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 	.city-stage { display: grid; justify-items: start; gap: var(--space-2); min-inline-size: 0; }
 	.city-stage > .frame { inline-size: 100%; }
+	.scale-legend { margin: 0; inline-size: min(100%, 14rem); }
+	.scale-ramp { block-size: 0.45rem; background: linear-gradient(90deg in srgb-linear, var(--height-low), var(--height-high)); }
+	.scale-ticks { display: flex; justify-content: space-between; }
 	.city-measurements { margin: 0; }
 	.city-measurements > div { display: flex; gap: var(--space-1); }
 	.city-measurements dd { margin: 0; }
@@ -223,6 +230,8 @@
 	.frame, .panel { border: var(--hair) solid var(--line); }
 	.frame > :is(img, canvas) { inline-size: 100%; block-size: 100%; object-fit: contain; }
 	.frame > canvas { display: block; min-inline-size: 0; min-block-size: 0; }
+	.stage-interactive { touch-action: none; cursor: grab; }
+	.stage-interactive:active { cursor: grabbing; }
 	.frame > [role='status'] { margin: var(--space-4); }
 	.panel {
 		padding: var(--space-4);

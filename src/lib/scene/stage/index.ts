@@ -3,13 +3,23 @@ import type { Drawable } from '../surface';
 import { fitCamera, type View, type ViewFit } from './camera';
 import { strokeMaterials } from './edges';
 import { createContent } from './content';
-import { readColors, readDisplay, type Display } from './material';
+import type { Display } from './material';
+import { createStyle } from './style';
 import { openRenderer } from './renderer';
 import { stageState } from './state';
 import { drawingPalette } from './tone';
 
 /** Camera projections for the same geometry. */
 export type { View, ViewFit } from './camera';
+/** Measures a subject in the plane of a fitted view. */
+export { projectFocus } from './camera';
+/** Connects pointer and keyboard navigation to camera framing. */
+export { stageNavigation } from './navigation';
+/** Horizontal framing in world meters and CSS pixels, independent of device pixel ratio. */
+export type Viewport = Readonly<{ width: number; metersPerPixel: number }>;
+/** Calculates presentation properties over existing drawable geometry for a fitted viewport. */
+export type Presentation = (viewport: Viewport) => readonly Drawable[];
+
 /** Surface displays for the same geometry. */
 export type { Display } from './material';
 /** Returns the fixed house, resolved surfaces and metric extents for a stage. */
@@ -18,11 +28,13 @@ export { stageExample } from './example';
 async function create({
 	canvas,
 	landscape = false,
-	fit: initialFit
+	fit: initialFit,
+	onViewport
 }: {
 	canvas: HTMLCanvasElement;
 	landscape?: boolean;
 	fit?: ViewFit;
+	onViewport?: (viewport: Viewport) => void;
 }) {
 	const gpu = await openRenderer(canvas);
 	const { renderer, hardware, adapterName } = gpu;
@@ -34,75 +46,31 @@ async function create({
 	const content = createContent(strokes, palette, landscape);
 	scene.add(content.group);
 	let aspect = 1;
+	let widthPx = 1;
+	let viewport: Viewport = { width: 1, metersPerPixel: 1 };
+	let present: Presentation | undefined;
+	const styleContent = createStyle(canvas, content, palette, strokes, scene, landscape);
 	let fit = initialFit;
 	let frame: number | undefined;
 	let closing: Promise<void> | undefined;
-
-	function styleContent(display: Display, dark: boolean) {
-		const css = getComputedStyle(canvas);
-		const color = readColors(css, canvas.ownerDocument);
-		const paper = color('--paper');
-		const hull = Number(css.getPropertyValue('--alpha-hull'));
-		scene.background = paper;
-		const ink = color('--ink-2');
-		palette.ink.value.copy(ink);
-
-		strokes.outer.color.copy(ink);
-		strokes.crease.color.copy(ink);
-		if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
-		strokes.ground.color.copy(paper).lerp(ink, 0.48);
-		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
-		palette.dark.value = Number(dark);
-		palette.hull.value = Number(display === 'transparency');
-		const style = readDisplay(display);
-		for (const { drawable, mesh, lines, grid, terrain, flat, heightScale } of content.parts) {
-			const { opacity: displayOpacity, paper: usePaper } = style(drawable.finish, hull);
-			const opacity =
-				!usePaper && drawable.opacity
-					? Number(css.getPropertyValue(drawable.opacity) || displayOpacity)
-					: displayOpacity;
-			const visible = drawable.visible !== false;
-			const material = mesh.material;
-			const transparent = opacity < 1;
-			const polygonOffset = !landscape && drawable.finish !== 'glass';
-			terrain.value = Number(drawable.finish === 'terrain');
-			flat.value = Number(drawable.flat === true);
-			heightScale.value = drawable.heightScale ?? 1;
-			if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
-				material.needsUpdate = true;
-			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
-			if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
-			else material.color.copy(color(drawable.color));
-			mesh.visible =
-				visible &&
-				drawable.fillVisible !== false &&
-				opacity > 0 &&
-				mesh.geometry.attributes.position.count > 0;
-			for (const line of lines) {
-				if (grid) line.material.color.copy(color(drawable.color));
-				if (drawable.strokeSegments) {
-					const stroke = drawable.stroke;
-					line.material.color.copy(usePaper ? ink : color(stroke?.color ?? drawable.color));
-					line.material.linewidth = stroke?.width ?? 1;
-					line.material.opacity = stroke?.opacity ?? 1;
-				}
-				line.visible = visible && line.geometry.instanceCount > 0;
-			}
-		}
-	}
 
 	function draw() {
 		if (closing || frame !== undefined) return;
 		frame = requestAnimationFrame(() => {
 			frame = undefined;
 			const { view, display, geometryBatchCount, geometryBuildCount } = state.read();
-			const { center, eye, up, halfWidth, halfHeight, near, far } = fitCamera(
-				view,
-				content.bounds,
-				aspect,
-				landscape,
-				fit
-			);
+			const start = performance.now();
+			const bounds = content.bounds;
+			const framing = fitCamera(view, bounds, aspect, landscape, fit);
+			const width = framing.halfWidth * 2;
+			if (viewport.width !== width || viewport.metersPerPixel !== width / widthPx) {
+				viewport = { width, metersPerPixel: width / widthPx };
+				onViewport?.(viewport);
+			}
+			if (present) content.style(present(viewport));
+			const { center, eye, up, halfWidth, halfHeight, near, far } = present
+				? fitCamera(view, bounds, aspect, landscape, fit, content.clippingBounds)
+				: framing;
 			Object.assign(camera, {
 				left: -halfWidth,
 				right: halfWidth,
@@ -127,7 +95,9 @@ async function create({
 					stageDrawableBuilds: String(geometryBuildCount),
 					stageView: view,
 					stageDisplay: display,
-					stageTheme: dark ? 'dark' : 'light'
+					stageTheme: dark ? 'dark' : 'light',
+					stageWidth: String(width),
+					stageFrameCpuMs: (performance.now() - start).toFixed(2)
 				});
 			} finally {
 				gpu.stop();
@@ -144,8 +114,9 @@ async function create({
 
 	return {
 		/** Replaces the list, retaining geometry for unchanged IDs, shapes and stroke modes. */
-		show(drawables: readonly Drawable[]) {
+		show(drawables: readonly Drawable[], presentation?: Presentation) {
 			if (closing) return;
+			present = presentation;
 			const start = performance.now();
 			const builds = content.show(drawables);
 			if (builds) canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
@@ -166,11 +137,14 @@ async function create({
 			fit = next;
 			draw();
 		},
+		/** Reads the current fitted camera width and scale. */
+		readViewport: () => viewport,
 		/** Resizes to CSS pixels with a device pixel ratio of at most two. */
-		resize(widthPx: number, heightPx: number) {
+		resize(widthCSS: number, heightPx: number) {
 			if (closing) return;
-			const width = Math.max(1, Math.round(widthPx));
+			const width = Math.max(1, Math.round(widthCSS));
 			const height = Math.max(1, Math.round(heightPx));
+			widthPx = width;
 			aspect = width / height;
 			renderer.setDrawingBufferSize(width, height, Math.min(devicePixelRatio, 2));
 			draw();
@@ -198,6 +172,8 @@ async function create({
 				delete canvas.dataset.stageDisplay;
 				delete canvas.dataset.stageTheme;
 				delete canvas.dataset.stageMeshMs;
+				delete canvas.dataset.stageWidth;
+				delete canvas.dataset.stageFrameCpuMs;
 				await gpu.delete();
 			})());
 		}

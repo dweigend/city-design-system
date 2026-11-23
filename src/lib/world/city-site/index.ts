@@ -10,7 +10,7 @@ import { terraceGrid } from './connected';
 /** City size is the nominal outline length along the valley in meters. The seed is a uint32
  * that draws the outline, the plan jitter and the districts; the valley stays fixed. */
 export const citySiteParams = defineParams({
-	citySize: { label: 'City size', unit: 'm', default: 5000, min: 600, max: 7000, step: 200 },
+	citySize: { label: 'City size', unit: 'm', default: 2000, min: 600, max: 7000, step: 200 },
 	seed: { label: 'Seed', unit: '', default: 1201, min: 0, max: 2 ** 32 - 1, step: 1 }
 });
 

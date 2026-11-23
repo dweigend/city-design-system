@@ -1,0 +1,112 @@
+import type { ViewFit } from './camera';
+
+type Point = Readonly<{ x: number; y: number }>;
+
+export function stageNavigation(
+	canvas: HTMLCanvasElement,
+	readScale: () => number,
+	fit: (value: ViewFit) => void
+) {
+	const pointers = new Map<number, Point>();
+	let zoom = 1;
+	let offset: [number, number] = [0, 0];
+	let metersPerPixel = 1;
+	let previousScale = 1;
+
+	function move(from: Point, to: Point, ratio: number) {
+		const measured = readScale();
+		if (measured !== previousScale) metersPerPixel = measured;
+		previousScale = measured;
+		const next = Math.min(32, Math.max(0.55, zoom * ratio));
+		const scale = (metersPerPixel * zoom) / next;
+		const rect = canvas.getBoundingClientRect();
+		const x = rect.left + rect.width / 2;
+		const y = rect.top + rect.height / 2;
+		offset = [
+			offset[0] + (from.x - x) * metersPerPixel - (to.x - x) * scale,
+			offset[1] - (from.y - y) * metersPerPixel + (to.y - y) * scale
+		];
+		metersPerPixel = scale;
+		zoom = next;
+		fit({ offset, zoom });
+	}
+
+	function gesture() {
+		const [a, b] = pointers.values();
+		if (!b) return { point: a, distance: 1 };
+		return {
+			point: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+			distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y))
+		};
+	}
+
+	function point(event: MouseEvent): Point {
+		return { x: event.clientX, y: event.clientY };
+	}
+
+	function reset() {
+		zoom = 1;
+		offset = [0, 0];
+		previousScale = NaN;
+		fit({});
+	}
+
+	const listeners = new AbortController();
+	const { signal } = listeners;
+	canvas.addEventListener(
+		'wheel',
+		(event) => {
+			event.preventDefault();
+			const delta =
+				event.deltaY *
+				(event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
+			move(point(event), point(event), Math.exp(-delta * 0.0017));
+		},
+		{ signal, passive: false }
+	);
+	canvas.addEventListener(
+		'pointerdown',
+		(event) => {
+			if (event.button !== 0 || pointers.size >= 2) return;
+			canvas.setPointerCapture(event.pointerId);
+			pointers.set(event.pointerId, point(event));
+		},
+		{ signal }
+	);
+	canvas.addEventListener(
+		'pointermove',
+		(event) => {
+			if (!pointers.has(event.pointerId)) return;
+			const before = gesture();
+			pointers.set(event.pointerId, point(event));
+			const after = gesture();
+			move(before.point, after.point, after.distance / before.distance);
+		},
+		{ signal }
+	);
+	for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
+		canvas.addEventListener(type, (event) => pointers.delete((event as PointerEvent).pointerId), {
+			signal
+		});
+
+	canvas.addEventListener(
+		'keydown',
+		(event) => {
+			const rect = canvas.getBoundingClientRect();
+			const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+			const dx = 40 * (Number(event.key === 'ArrowLeft') - Number(event.key === 'ArrowRight'));
+			const dy = 40 * (Number(event.key === 'ArrowUp') - Number(event.key === 'ArrowDown'));
+			const ratio = event.key === '+' || event.key === '=' ? 1.25 : event.key === '-' ? 0.8 : 1;
+			if (event.key === 'Home') reset();
+			else if (dx || dy || ratio !== 1) move(center, { x: center.x + dx, y: center.y + dy }, ratio);
+			else return;
+			event.preventDefault();
+		},
+		{ signal }
+	);
+
+	return {
+		reset,
+		delete: () => listeners.abort()
+	};
+}

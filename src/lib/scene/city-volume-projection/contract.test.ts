@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { levelHeight } from '../../domain/city-volume';
 import { example } from './example';
-import { projectCityLattice } from './index';
+import { cityProfile, projectCityLattice } from './index';
 
 test('projects three shaded district kinds with flat caps and exposed steps only', () => {
 	const { envelope, columns, datumZ, districts } = example();
@@ -42,7 +42,7 @@ test('projects one glyph per joint and one segment per unique member on common p
 	const { shape } = drawable;
 	if (shape.kind !== 'mesh') throw new Error('Expected a mesh of lattice joints');
 	expect(shape.indices.length).toBe(24 * lattice.nodes.length);
-	const strokes = drawable.strokeSegments ?? [];
+	const strokes = members.drawables.flatMap(({ strokeSegments }) => strokeSegments ?? []);
 	expect(strokes.length).toBe(6 * lattice.edges.length);
 	for (let i = 0; i < strokes.length; i += 6) {
 		for (const offset of [0, 3]) {
@@ -58,4 +58,16 @@ test('omits the lattice drawable when there are no bays', () => {
 	expect(
 		projectCityLattice({ cells: [], faces: [], nodes: [], edges: [] }, frame).drawables
 	).toEqual([]);
+});
+
+test('keeps true scale at quarter distance and resolves to the stepped envelope at city distance', () => {
+	const elevation = Math.PI / 8;
+	const peak = 91;
+	const near = cityProfile(500, 0.5, peak, elevation, false);
+	const far = cityProfile(5000, 5.5, peak, elevation, false);
+	const displayPeak = far.pivotAboveDatum + (peak - far.pivotAboveDatum) * far.factor;
+	expect(near).toMatchObject({ factor: 1, detail: 1, uprights: 1, rims: 1, envelope: 0 });
+	expect(far).toMatchObject({ detail: 0, uprights: 0, rims: 0, envelope: 1 });
+	expect(displayPeak * Math.cos(elevation)).toBeCloseTo(500);
+	expect(cityProfile(5000, 5.5, peak, elevation, true)).toEqual({ ...far, factor: 1 });
 });

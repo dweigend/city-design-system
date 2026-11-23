@@ -1,0 +1,65 @@
+import { levelHeight } from '../../domain/city-volume';
+import type { Presentation } from '../stage';
+import { heightRamp, type Drawable } from '../surface';
+import { cityProfile } from './profile';
+
+type Options = Readonly<{
+	terrain: readonly Drawable[];
+	envelope: readonly (Drawable & { levels: number })[];
+	members: readonly Drawable[];
+	datum: number;
+	peak: number;
+	elevation: number;
+	open: boolean;
+	heat: boolean;
+	trueScale: boolean;
+}>;
+
+/** Styles the existing envelope and member layers at the viewport scale. */
+export function cityPresentation({
+	terrain,
+	envelope,
+	members,
+	datum,
+	peak,
+	elevation,
+	open,
+	heat,
+	trueScale
+}: Options): Presentation {
+	return ({ width, metersPerPixel }) => {
+		const detail = cityProfile(width, metersPerPixel, peak, elevation, trueScale);
+		const vertical = { pivot: datum + detail.pivotAboveDatum, scale: detail.factor };
+		return [
+			...terrain,
+			...envelope.map((part) => ({
+				...part,
+				...(heat ? heightRamp(part.levels * levelHeight, levelHeight, peak) : {}),
+				fillAlpha: open ? 0.035 + 0.965 * detail.envelope : 1,
+				vertical: { ...vertical, pinFillBelow: true },
+				stroke: part.stroke && {
+					...part.stroke,
+					opacity: open ? 0.15 + 0.5 * detail.envelope : 0.62
+				}
+			})),
+			...members.map((part) => {
+				const fade =
+					part.id === 'lattice'
+						? detail.rims
+						: part.id === 'uprights'
+							? detail.uprights
+							: detail.detail;
+				return {
+					...part,
+					vertical,
+					fillAlpha: detail.detail,
+					stroke: part.stroke && {
+						...part.stroke,
+						opacity: (part.id === 'detail' ? 0.3 : 0.73) * fade,
+						width: 0.55 + 0.55 * fade
+					}
+				};
+			})
+		];
+	};
+}

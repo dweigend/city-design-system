@@ -1,6 +1,14 @@
 import { expect, test } from 'bun:test';
 import { dotProduct, displacement } from '../../core/geometry';
-import { Stage, stageExample, type Display, type View } from './index';
+import {
+	Stage,
+	projectFocus,
+	stageExample,
+	stageNavigation,
+	type Display,
+	type View,
+	type ViewFit
+} from './index';
 import { fitCamera, readView } from './camera';
 import { hasSameGeometry } from './content';
 import { edgeGeometry } from './edges';
@@ -173,4 +181,35 @@ test('casts the bounds outline 60 percent of its height away from the sun', () =
 	const offset = Math.hypot(corner[0] - bounds.max[0], corner[1] - bounds.max[1]);
 	expect(offset).toBeCloseTo(2.76);
 	expect(projected.every((point) => point[2] === projected[0][2])).toBe(true);
+});
+
+test('keeps the world point under the wheel and releases its listener on deletion', () => {
+	const target = Object.assign(new EventTarget(), {
+		getBoundingClientRect: () => ({ left: 0, top: 0, width: 200, height: 200 })
+	});
+	let fit: ViewFit | undefined;
+	const navigation = stageNavigation(
+		target as unknown as HTMLCanvasElement,
+		() => 2,
+		(next) => {
+			fit = next;
+		}
+	);
+	const wheel = () =>
+		Object.assign(new Event('wheel', { cancelable: true }), {
+			clientX: 150,
+			clientY: 100,
+			deltaMode: 0,
+			deltaY: -Math.log(2) / 0.0017
+		});
+	target.dispatchEvent(wheel());
+	expect(fit?.zoom).toBeCloseTo(2);
+	expect(fit?.offset?.[0]).toBeCloseTo(50);
+	expect(fit?.offset?.[1]).toBeCloseTo(0);
+	navigation.reset();
+	expect(fit).toEqual({});
+	navigation.delete();
+	target.dispatchEvent(wheel());
+	expect(fit).toEqual({});
+	expect(projectFocus('iso', {}, [])).toBeUndefined();
 });

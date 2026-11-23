@@ -13,3 +13,8 @@ Changing view, display, surface, size or theme preserves those geometries.
 `read` returns detached state. `delete` releases the stage and may be repeated.
 
 The fixed house is available through `stageExample()`. See `/blocks` for its controls.
+
+A fit can specify the frame width and an offset along the image axes in meters. The stage
+reports the fitted width and meters per CSS pixel. A presentation can vary color, opacity,
+stroke width and vertical scale from that reading while retaining every drawable's geometry.
+The stage view binds pointer and keyboard navigation to those framing inputs.

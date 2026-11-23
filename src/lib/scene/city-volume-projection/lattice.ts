@@ -14,11 +14,26 @@ export function latticeMesh(lattice: CityLattice, toLocal: (x: number, y: number
 		positions.set(id, position);
 		addNode(geometry, position);
 	}
-	const wires = lattice.edges.flatMap(({ from, to }) => [
-		...required(positions.get(from), 'lattice joint'),
-		...required(positions.get(to), 'lattice joint')
-	]);
-	return { geometry, wires: Object.freeze(wires) };
+	const wires = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
+	const key = (a: string, b: string) => JSON.stringify(a < b ? [a, b] : [b, a]);
+	const rim = new Set<string>();
+	const upright = new Set<string>();
+	for (const {
+		corners: [a, b, c, d]
+	} of lattice.faces) {
+		rim.add(key(a, b));
+		rim.add(key(c, d));
+		upright.add(key(b, c));
+		upright.add(key(d, a));
+	}
+	for (const { id, from, to } of lattice.edges) {
+		const group = rim.has(id) ? wires.rims : upright.has(id) ? wires.uprights : wires.detail;
+		group.push(
+			...required(positions.get(from), 'lattice joint'),
+			...required(positions.get(to), 'lattice joint')
+		);
+	}
+	return { geometry, wires };
 }
 
 function addNode(nodes: ReturnType<typeof mesh>, [x, y, z]: Vec3) {
