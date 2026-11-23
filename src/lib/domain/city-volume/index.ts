@@ -1,7 +1,8 @@
+import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
-import type { TerrainGrid } from '../terrain-grid';
-import { createProfile, type ProfileDatum } from './profile';
+import type { PlanVariant, TerrainGrid } from '../terrain-grid';
+import { seedDistricts, type DistrictCell } from './districts';
 import {
 	createFrame,
 	latticeVariants,
@@ -10,67 +11,102 @@ import {
 	type LatticeVariant
 } from './frame';
 
-/** Full structural level height above the terrain, in meters. */
-export const levelHeight = 14;
+/** One coarse level covers two 3.5 m storeys. Upper level planes are 7 m apart. */
+export const levelHeight = 7;
 
-/** Summit height above ground in meters and unitless relief. */
+/** City peak above the site datum in meters and unitless district fragmentation. */
 export const cityVolumeParams = defineParams({
-	height: { label: 'Height', unit: 'm', min: 16, max: 144, default: 120, step: 1 },
-	complexity: { ...blockInputs.complexity, default: 0.75 }
+	height: { label: 'Height', unit: 'm', min: 35, max: 140, default: 105, step: levelHeight },
+	complexity: { ...blockInputs.complexity, default: 0.35 }
 });
 
-/** Column frame families in display order. */
-export { latticeVariants };
+/** Compatible carriers by tiled plan family. All four share the same polygon side faces.
+ * Polar and free-quad are excluded from the chapter because its terrain mask can open holes. */
+export const cityLatticesByPlan = Object.freeze({
+	organic: latticeVariants,
+	square: latticeVariants,
+	hex: latticeVariants,
+	triangle: latticeVariants,
+	bands: latticeVariants,
+	contour: latticeVariants,
+	voronoi: latticeVariants
+} satisfies Partial<Record<PlanVariant, readonly LatticeVariant[]>>);
 
-/** Member topology applied to every complete level of a plan column. */
-export type { LatticeVariant };
+/** Chapter plan families with a compatible carrier. */
+export type CityPlanVariant = keyof typeof cityLatticesByPlan;
 
-/** A triangulation-independent continuous height field in world XY meters. */
-export type CityProfile = ReturnType<typeof createProfile>;
+/** Chapter plan families in display order. */
+export const cityPlanVariants = Object.freeze(Object.keys(cityLatticesByPlan) as CityPlanVariant[]);
 
-/** Builds a seeded continuous height-above-ground field in meters. The fixed datum
- * controls its position and extent independently of growth or plan topology. Invalid input throws. */
-export function createCityProfile(
-	datum: ProfileDatum,
+/** One connected district's kind and the assigned height of this addressed plan cell. */
+export type { DistrictKind, DistrictCell } from './districts';
+
+/** Member topology applied to each bay and the resulting canonical faces, joints and members. */
+export type { LatticeVariant, CityLattice };
+
+/** One column per plan cell, carrying district identity and terrain corners in world meters. */
+export type CityColumn = Column & DistrictCell;
+
+const detached = Object.freeze({ districtId: 'detached/0', kind: 'detached', levels: 1 } as const);
+
+/** Seeds the core and block districts on the fixed, connected initial city plan. The initial
+ * belt retains every boundary cell so later growth joins it. Origin is world XY in meters.
+ * The initial plan needs enough interior cells to seed the requested districts. */
+export function createCityDistricts(
+	initial: TerrainGrid,
+	origin: Vec2,
 	seed: number,
 	parameters?: Readonly<{ height?: number; complexity?: number }>
-): CityProfile {
-	return createProfile(seed, datum, resolveParams(cityVolumeParams, parameters));
+) {
+	const { height, complexity } = resolveParams(cityVolumeParams, parameters);
+	const cells = seedDistricts(initial, origin, seed, complexity, height / levelHeight);
+	return Object.freeze({
+		peakHeight: height,
+		/** Reads the frozen district assignment of a cell in the initial or a larger crop. */
+		cell(id: string): DistrictCell {
+			return cells.get(id) ?? detached;
+		}
+	});
 }
 
-/** Complete levels by plan polygon, with their terrain-draped corners in world meters. */
-export type CityColumn = Column;
+/** Immutable district assignments for a nested sequence of plan crops. */
+export type CityDistricts = ReturnType<typeof createCityDistricts>;
 
-/** Samples the profile at each polygon's mean corner position. Returns immutable columns in
- * plan order, with only complete 14 m levels counted. No random draws or input mutation. */
-export function readCityColumns(plan: TerrainGrid, profile: CityProfile): readonly CityColumn[] {
+/** Returns immutable columns in plan order. Each column starts at the plan's terrain corners. */
+export function readCityColumns(
+	plan: TerrainGrid,
+	districts: CityDistricts
+): readonly CityColumn[] {
 	const vertices = new Map(plan.vertices.map((vertex) => [vertex.id, vertex]));
 	return Object.freeze(
-		plan.cells.map(({ id, vertexIds }) => {
-			const corners = Object.freeze(
-				vertexIds.map((key) => required(vertices.get(key), 'plan corner'))
-			);
-			const [x, y] = corners.reduce(
-				([a, b], { position: [u, v] }) => [a + u / corners.length, b + v / corners.length],
-				[0, 0]
-			);
-			return Object.freeze({
+		plan.cells.map(({ id, vertexIds, neighbors }) =>
+			Object.freeze({
 				planCellId: id,
-				corners,
-				levels: Math.floor(profile.height(x, y) / levelHeight)
-			});
-		})
+				corners: Object.freeze(vertexIds.map((key) => required(vertices.get(key), 'plan corner'))),
+				neighbors,
+				...districts.cell(id)
+			})
+		)
 	);
 }
 
-/** Stable addresses for full levels, joints and undirected members in world XYZ meters. */
-export type { CityLattice };
-
-/** Builds the selected frame over the sampled columns. Shared joints and edges are emitted
- * once. Growing the crop retains existing IDs and positions. Unknown variants throw RangeError. */
+/** Builds a compatible frame. The base follows the terrain and higher planes are all measured
+ * from datumZ in world meters. The first plane must be above all terrain corners. Shared
+ * faces, joints and members are emitted once. Unknown or incompatible variants throw. */
 export function createCityLattice(
 	columns: readonly CityColumn[],
+	datumZ: number,
+	plan: CityPlanVariant,
 	variant: LatticeVariant = 'box'
 ): CityLattice {
-	return createFrame(columns, levelHeight, variant);
+	if (!Object.hasOwn(cityLatticesByPlan, plan) || !cityLatticesByPlan[plan].includes(variant))
+		throw new RangeError('Incompatible plan and lattice');
+	if (
+		!Number.isFinite(datumZ) ||
+		columns.some(({ corners }) =>
+			corners.some(({ position }) => position[2] >= datumZ + levelHeight)
+		)
+	)
+		throw new RangeError('The first city level plane must clear the terrain');
+	return createFrame(columns, datumZ, levelHeight, variant);
 }

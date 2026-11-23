@@ -1,51 +1,48 @@
-import type { Bounds3, Vec2 } from '../../core/geometry';
+import type { Vec2 } from '../../core/geometry';
 import { bounds, PlaceableObject, type Footprint } from '../../core/object';
-import type { CityLattice, CityProfile } from '../../domain/city-volume';
-import { planningStudy, resolveSurfaces } from '../surface';
+import type { CityColumn, CityLattice } from '../../domain/city-volume';
+import { districtSurfaces, planningStudy, resolveSurfaces } from '../surface';
+import { envelopeMeshes } from './envelope';
 import { latticeMesh } from './lattice';
-import { profileMesh } from './profile';
 
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
+const slots = ['detached', 'block', 'center'] as const;
 
-function project(
-	id: 'profile' | 'lattice',
-	frame: Frame,
-	{ geometry, wires }: ReturnType<typeof latticeMesh>
-) {
+/** Projects the city's outer roof and exposed steps, with one surface per district kind.
+ * The envelope follows the common level planes in true world meters. */
+export function projectCityDistricts(columns: readonly CityColumn[], datumZ: number, frame: Frame) {
+	const { patches, outlines } = envelopeMeshes(columns, datumZ, frame.toLocal);
 	const object = PlaceableObject.create({
-		id,
-		slots: [id],
-		parts: geometry.indices.length ? [{ id, slot: id, shape: geometry }] : [],
+		id: 'districts',
+		slots,
+		parts: slots
+			.filter((slot) => patches[slot].indices.length)
+			.map((slot) => ({ id: slot, slot, shape: patches[slot] })),
+		footprint: frame.footprint,
+		anchors: []
+	});
+	const drawables = resolveSurfaces(object, districtSurfaces).map((part) => ({
+		...part,
+		strokeSegments: [...outlines[part.id as keyof typeof outlines].values()].flat()
+	}));
+	return { object, drawables, focus: bounds(object) };
+}
+
+/** Projects only the lattice's members and joints into the local terrain frame. */
+export function projectCityLattice(lattice: CityLattice, frame: Frame) {
+	const { geometry, wires } = latticeMesh(lattice, frame.toLocal);
+	const object = PlaceableObject.create({
+		id: 'lattice',
+		slots: ['lattice'],
+		parts: geometry.indices.length ? [{ id: 'lattice', slot: 'lattice', shape: geometry }] : [],
 		footprint: frame.footprint,
 		anchors: []
 	});
 	return {
 		object,
-		drawables: resolveSurfaces(object, { [id]: planningStudy[id] }).map((drawable) => ({
-			...drawable,
+		drawables: resolveSurfaces(object, planningStudy).map((part) => ({
+			...part,
 			strokeSegments: wires
 		}))
 	};
-}
-
-/** Samples a continuous profile over a CCW outline star-shaped about the summit.
- * Ground heights are unscaled world meters. Returns the surface, contour strokes and local bounds. */
-export function projectCityProfile(
-	profile: CityProfile,
-	outline: readonly Vec2[],
-	frame: Frame,
-	groundHeight: (x: number, y: number) => number
-) {
-	const surface = project(
-		'profile',
-		frame,
-		profileMesh(outline, profile, frame.toLocal, groundHeight)
-	);
-	const focus: Bounds3 = bounds(surface.object);
-	return { ...surface, focus };
-}
-
-/** Projects only the lattice's members and joints into the local terrain frame. */
-export function projectCityLattice(lattice: CityLattice, frame: Frame) {
-	return project('lattice', frame, latticeMesh(lattice, frame.toLocal));
 }

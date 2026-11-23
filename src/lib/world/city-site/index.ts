@@ -2,14 +2,14 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { createCityProfile, cityVolumeParams } from '../../domain/city-volume';
-import { TerrainGrid, type PlanVariant, type TerrainGrid as Grid } from '../../domain/terrain-grid';
+import { createCityDistricts, levelHeight, type CityPlanVariant } from '../../domain/city-volume';
+import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley } from '../../domain/valley';
 import { terraceGrid } from './connected';
 
 /** City size is the nominal outline length along the valley, in meters. */
 export const citySiteParams = defineParams({
-	citySize: { label: 'City size', unit: 'm', default: 600, min: 380, max: 1160, step: 20 }
+	citySize: { label: 'City size', unit: 'm', default: 600, min: 400, max: 1160, step: 20 }
 });
 
 const outlinePointCount = 24;
@@ -39,7 +39,9 @@ export function createCitySite() {
 		origin,
 		frame,
 		outline: Object.freeze(outline),
-		heightScale: 1
+		heightScale: 1,
+		// Round the terrace datum up to a coarse unit so the first plane clears the growing site.
+		datumZ: Math.ceil(frame.position[2] / levelHeight) * levelHeight
 	});
 }
 
@@ -96,7 +98,7 @@ export function cityOutline(city: ReturnType<typeof createCitySite>, citySize: n
 export function readCityGrid(
 	city: ReturnType<typeof createCitySite>,
 	citySize: number,
-	variant?: PlanVariant
+	variant?: CityPlanVariant
 ) {
 	const { valley, origin, frame } = city;
 	const candidates = TerrainGrid.create({
@@ -108,7 +110,7 @@ export function readCityGrid(
 			return bank > 0 ? height : undefined;
 		}
 	});
-	const grid = terraceGrid(candidates, origin, 120);
+	const grid = terraceGrid(candidates, origin);
 	const areas = cellAreas(grid).sort((a, b) => a - b);
 	return Object.freeze({
 		grid,
@@ -117,21 +119,12 @@ export function readCityGrid(
 	});
 }
 
-/** Reads the seeded elevation field for the site's fixed reference span. Parameters
- * snap and clamp to the city volume schema. Changing the crop leaves this field intact. */
-export function readCityProfile(
+/** Seeds districts on the smallest chapter crop so larger crops retain their addresses and levels.
+ * The initial plan can be reused when changing the height or complexity. */
+export function readCityDistricts(
 	city: ReturnType<typeof createCitySite>,
-	parameters?: { [Key in keyof typeof cityVolumeParams]?: number }
+	initial: Grid,
+	parameters?: Parameters<typeof createCityDistricts>[3]
 ) {
-	const length = citySiteParams.citySize.min;
-	return createCityProfile(
-		{
-			origin: city.origin,
-			bearing: city.frame.bearing,
-			length,
-			width: length * outlineAspect * 0.8
-		},
-		city.valley.seed,
-		parameters
-	);
+	return createCityDistricts(initial, city.origin, city.valley.seed, parameters);
 }

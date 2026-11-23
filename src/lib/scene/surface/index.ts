@@ -58,27 +58,34 @@ export const landscape = Object.freeze({
 	'water-section': Object.freeze({ color: '--river-section', finish: 'matte', flat: true })
 } satisfies SurfaceAssignment);
 
-/** Blueprint contours and graphite members for the city elevation study. */
+const districtEnvelope = {
+	finish: 'glass',
+	flat: true,
+	opacity: '--alpha-glass',
+	stroke: { color: '--blueprint', width: 0.9, opacity: 0.52 }
+} as const;
+
+/** Three lightness steps of blueprint for the detached belt, blocks and high-rise core. */
+export const districtSurfaces = Object.freeze({
+	detached: { ...districtEnvelope, color: '--blueprint-2' },
+	block: { ...districtEnvelope, color: '--blueprint-3' },
+	center: { ...districtEnvelope, color: '--blueprint' }
+} as const satisfies SurfaceAssignment);
+
+/** Fine pencil lines and small joints for the coarse carrier. */
 export const planningStudy = Object.freeze({
-	profile: {
-		color: '--blueprint-3',
-		finish: 'glass',
-		flat: true,
-		opacity: '--alpha-hull',
-		stroke: { color: '--blueprint', width: 1, opacity: 0.52 }
-	},
 	lattice: {
 		color: '--ink-2',
 		finish: 'matte',
 		flat: true,
-		stroke: { color: '--ink-2', width: 0.72, opacity: 0.43 }
+		stroke: { color: '--ink-2', width: 0.68, opacity: 0.53 }
 	}
 } as const satisfies SurfaceAssignment);
 
-/** Keeps the contour visible over an open frame with the profile fill hidden. */
+/** A faint envelope over the open carrier lattice. */
 export const planningOverlay = {
-	fillVisible: false,
-	stroke: { ...planningStudy.profile.stroke, width: 0.85, opacity: 0.38 }
+	opacity: '--alpha-trace',
+	stroke: { ...districtEnvelope.stroke, width: 0.8, opacity: 0.28 }
 } as const;
 
 /** Returns the stock assignment with one flow color on the wall. */

@@ -1,6 +1,6 @@
 <script module lang="ts">
 	export const lead =
-		'The city follows the valley floor. A continuous height profile sets its upper limit and a three-dimensional grid fills the space below.';
+		'Valley topography carries the plan grid. Districts set the city height profile, and a coarse lattice follows the plan up to it.';
 </script>
 
 <script lang="ts">
@@ -8,14 +8,16 @@
 	import { required } from '../../lib/core/invariant';
 	import { resolveParams } from '../../lib/core/params';
 	import {
+		cityLatticesByPlan,
+		cityPlanVariants,
 		cityVolumeParams,
 		createCityLattice,
-		latticeVariants,
 		readCityColumns,
+		type CityPlanVariant,
+		type DistrictKind,
 		type LatticeVariant
 	} from '../../lib/domain/city-volume';
-	import { planVariants, type PlanVariant } from '../../lib/domain/terrain-grid';
-	import { projectCityLattice, projectCityProfile } from '../../lib/scene/city-volume-projection';
+	import { projectCityDistricts, projectCityLattice } from '../../lib/scene/city-volume-projection';
 	import type { Display, View } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { planningOverlay } from '../../lib/scene/surface';
@@ -26,12 +28,11 @@
 	import { Tabs } from '../../lib/ui/tabs';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import {
-		cityOutline,
 		citySiteParams,
 		cityWindow,
 		createCitySite,
-		readCityGrid,
-		readCityProfile
+		readCityDistricts,
+		readCityGrid
 	} from '../../lib/world/city-site';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
@@ -48,16 +49,14 @@
 		{ value: 'normal', label: 'Normal' },
 		{ value: 'transparency', label: 'Transparency' }
 	];
-	const gridLabels: Record<PlanVariant, string> = {
+	const gridLabels: Record<CityPlanVariant, string> = {
 		organic: 'Organic',
 		square: 'Square',
 		hex: 'Hexagon',
 		triangle: 'Triangle',
 		bands: 'Axes',
 		contour: 'Contour',
-		polar: 'Polar',
-		voronoi: 'Voronoi',
-		'free-quad': 'Free quad'
+		voronoi: 'Voronoi'
 	};
 	const latticeLabels: Record<LatticeVariant, string> = {
 		box: 'Box',
@@ -65,12 +64,11 @@
 		centered: 'Body-centered',
 		tetrahedral: 'Tetrahedral'
 	};
-	const grids = planVariants.map((value) => ({ value, label: gridLabels[value] }));
-	const frames = latticeVariants.map((value) => ({ value, label: latticeLabels[value] }));
+	const grids = cityPlanVariants.map((value) => ({ value, label: gridLabels[value] }));
 	const steps = [
 		{ value: '01', label: 'Plan' },
-		{ value: '02', label: 'Profile' },
-		{ value: '03', label: 'Grid' }
+		{ value: '02', label: 'Districts' },
+		{ value: '03', label: 'Lattice' }
 	];
 	const { citySize: sizeParam } = citySiteParams;
 	const { height: heightParam, complexity: complexityParam } = cityVolumeParams;
@@ -91,8 +89,13 @@
 		return choices.find((choice) => choice === page.url.searchParams.get(key)) ?? choices[0];
 	}
 
-	let gridVariant = $derived(choice('grid', planVariants));
-	let latticeVariant = $derived(choice('lattice', latticeVariants));
+	let gridVariant = $derived(choice('grid', cityPlanVariants));
+	const compatible = $derived(cityLatticesByPlan[gridVariant]);
+	const frames = $derived(compatible.map((value) => ({ value, label: latticeLabels[value] })));
+	let selectedLattice = $derived(choice('lattice', cityLatticesByPlan.organic));
+	const latticeVariant = $derived(
+		compatible.includes(selectedLattice) ? selectedLattice : compatible[0]
+	);
 	let display = $derived<Display>(
 		page.url.searchParams.get('display') === 'transparency' ? 'transparency' : 'normal'
 	);
@@ -114,24 +117,22 @@
 	const terrain = $derived(prepareTerrain(citySize));
 	const plan = $derived(readCityGrid(city, citySize, gridVariant));
 	const lines = $derived(terrain.projectPlan(plan.grid));
-	const profile = $derived(readCityProfile(city, { height, complexity }));
-	const surface = $derived(
-		projectCityProfile(profile, cityOutline(city, citySize), terrain, groundHeight)
-	);
-	const columns = $derived(readCityColumns(plan.grid, profile));
-	const lattice = $derived(createCityLattice(columns, latticeVariant));
+	const initial = $derived(readCityGrid(city, sizeParam.min, gridVariant));
+	const districts = $derived(readCityDistricts(city, initial.grid, { height, complexity }));
+	const columns = $derived(readCityColumns(plan.grid, districts));
+	const envelope = $derived(projectCityDistricts(columns, city.datumZ, terrain));
+	const lattice = $derived(createCityLattice(columns, city.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain));
 	const volumeFit = $derived({
-		bearing: (-34 * Math.PI) / 180,
-		elevation: (33 * Math.PI) / 180,
-		fill: 0.94,
-		zoom: 1.12,
-		focus: surface.focus
+		bearing: (-24 * Math.PI) / 180,
+		elevation: (23 * Math.PI) / 180,
+		fill: 0.78,
+		focus: envelope.focus
 	});
 	const drawables = $derived([
 		...terrain.drawables,
 		...(step === '01' ? lines.drawables : lines.traces),
-		...surface.drawables.map((part) => ({
+		...envelope.drawables.map((part) => ({
 			...part,
 			...(step === '03' ? planningOverlay : {}),
 			visible: step !== '01'
@@ -140,14 +141,32 @@
 	]);
 
 	const measurements = $derived([
-		{ label: 'Plan cells', value: plan.grid.cells.length, unit: '' },
-		{ label: 'City area', value: plan.areaHectares, unit: 'ha' },
-		...(step === '01' ? [] : [{ label: 'Peak height', value: height, unit: 'm' }]),
-		...(step === '03' ? [{ label: 'Grid cells', value: lattice.cells.length, unit: '' }] : [])
+		{ label: 'Plan cells', value: format.format(plan.grid.cells.length), unit: '' },
+		{ label: 'City area', value: format.format(plan.areaHectares), unit: 'ha' },
+		...(step === '01'
+			? []
+			: [
+					...districtMeasurements(columns),
+					{ label: 'Peak height', value: format.format(districts.peakHeight), unit: 'm' }
+				])
 	]);
 
-	function groundHeight(x: number, y: number) {
-		return city.valley.sampleGround(x, y).height;
+	function districtMeasurements(cells: typeof columns) {
+		const groups: Record<DistrictKind, Set<string>> = {
+			detached: new Set(),
+			block: new Set(),
+			center: new Set()
+		};
+		let peak = 0;
+		for (const { districtId, kind, levels } of cells) {
+			groups[kind].add(districtId);
+			peak = Math.max(peak, levels * 2);
+		}
+		return [
+			{ label: 'Detached', value: `${groups.detached.size} × 2 storeys`, unit: '' },
+			{ label: 'Blocks', value: `${groups.block.size} × 6 storeys`, unit: '' },
+			{ label: 'Centers', value: `${groups.center.size} · up to ${peak} storeys`, unit: '' }
+		];
 	}
 
 	function prepareTerrain(length: number) {
@@ -173,7 +192,7 @@
 
 <ChapterHeader number={chapter.number} title={chapter.title} {lead} />
 
-<section class="grid grid-aside" aria-label="City plan, profile and grid">
+<section class="grid grid-aside" aria-label="City plan, districts and lattice">
 	<div class="city-stage">
 		<StageView
 			{drawables}
@@ -182,8 +201,8 @@
 			label={step === '01'
 				? 'City plan on the valley terrace'
 				: step === '02'
-					? 'Elevation profile above the city plan'
-					: 'Lattice members and joints beneath the elevation contours'}
+					? 'Stepped district heights above the city plan'
+					: 'Continuous carrier lattice under the stepped district envelope'}
 			landscape
 			fit={step === '01' ? planFit : volumeFit}
 		/>
@@ -206,7 +225,7 @@
 				<div>
 					<dt>{label}</dt>
 					<dd>
-						{format.format(value)}{#if unit}&nbsp;{unit}{/if}
+						{value}{#if unit}&nbsp;{unit}{/if}
 					</dd>
 				</div>
 			{/each}
@@ -220,7 +239,8 @@
 			bind:value={
 				() => gridVariant,
 				(value) =>
-					(gridVariant = planVariants.find((variant) => variant === value) ?? planVariants[0])
+					(gridVariant =
+						cityPlanVariants.find((variant) => variant === value) ?? cityPlanVariants[0])
 			}
 		/>
 		{#if step === '03'}
@@ -230,8 +250,7 @@
 				bind:value={
 					() => latticeVariant,
 					(value) =>
-						(latticeVariant =
-							latticeVariants.find((variant) => variant === value) ?? latticeVariants[0])
+						(selectedLattice = compatible.find((variant) => variant === value) ?? compatible[0])
 				}
 			/>
 		{/if}
@@ -239,19 +258,20 @@
 			{#snippet panel(active)}
 				<div class="stack">
 					{#if active === '01'}
-						<p>
-							Organic and Free quad use irregular quads, Square, Triangle and Hexagon tile the plan,
-							and Axes, Contour, Polar and Voronoi follow bands, curves, rings and seeded points.
-						</p>
-						<Slider
-							label={sizeParam.label}
-							min={sizeParam.min}
-							max={sizeParam.max}
-							step={sizeParam.step}
-							bind:value={citySize}
-						/>
+						<p>The plan grid follows the dry valley terrace.</p>
 					{:else if active === '02'}
-						<p>Height sets the summit in meters above ground.</p>
+						<p>Two-storey edges and six-storey blocks surround a high-rise core.</p>
+					{:else}
+						<p>The coarse lattice uses shared levels. Plots and finer grids follow.</p>
+					{/if}
+					<Slider
+						label={sizeParam.label}
+						min={sizeParam.min}
+						max={sizeParam.max}
+						step={sizeParam.step}
+						bind:value={citySize}
+					/>
+					{#if active !== '01'}
 						<Slider
 							label={heightParam.label}
 							min={heightParam.min}
@@ -259,11 +279,6 @@
 							step={heightParam.step}
 							bind:value={height}
 						/>
-					{:else}
-						<p>
-							Box follows the edges, Braced adds side diagonals, Body-centered adds a central joint,
-							and Tetrahedral draws the edges of a tetrahedral split.
-						</p>
 						<Slider
 							label={complexityParam.label}
 							min={complexityParam.min}

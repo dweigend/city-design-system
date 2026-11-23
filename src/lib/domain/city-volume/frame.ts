@@ -1,12 +1,18 @@
 import type { Vec3 } from '../../core/geometry';
 
-export const latticeVariants = ['box', 'braced', 'centered', 'tetrahedral'] as const;
+export const latticeVariants = Object.freeze(['box', 'braced', 'centered', 'tetrahedral'] as const);
 export type LatticeVariant = (typeof latticeVariants)[number];
 
 /** Stable addresses for full levels, joints and undirected members. Joint positions are world
  * XYZ meters, with Z up. Lists are detached and deeply frozen in plan/level traversal order. */
 export type CityLattice = Readonly<{
-	cells: readonly Readonly<{ id: string; planCellId: string; level: number }>[];
+	cells: readonly Readonly<{
+		id: string;
+		planCellId: string;
+		level: number;
+		sideFaces: readonly string[];
+	}>[];
+	faces: readonly Readonly<{ id: string; corners: readonly [string, string, string, string] }>[];
 	nodes: readonly Readonly<{ id: string; position: Vec3 }>[];
 	edges: readonly Readonly<{ id: string; from: string; to: string }>[];
 }>;
@@ -17,6 +23,7 @@ type Edge = CityLattice['edges'][number];
 export type Column = Readonly<{
 	planCellId: string;
 	corners: readonly Node[];
+	neighbors: readonly (string | null)[];
 	levels: number;
 }>;
 
@@ -81,14 +88,15 @@ const frames: Record<LatticeVariant, (level: Level, connect: Connect) => void> =
 
 export function createFrame(
 	columns: readonly Column[],
+	datumZ: number,
 	height: number,
 	variant: LatticeVariant
 ): CityLattice {
-	if (!Object.hasOwn(frames, variant)) throw new RangeError('Unknown lattice variant');
 	const addMembers = frames[variant];
 	const nodes = new Map<string, Node>();
 	const edges = new Map<string, Edge>();
 	const cells = [];
+	const faces = new Map<string, CityLattice['faces'][number]>();
 	function connect(a: Node, b: Node) {
 		for (const { id, position } of [a, b]) {
 			if (!nodes.has(id)) nodes.set(id, Object.freeze({ id, position: Object.freeze(position) }));
@@ -101,19 +109,29 @@ export function createFrame(
 		const cornersAt = (level: number) =>
 			corners.map(({ id, position: [x, y, z] }): Node => ({
 				id: `vertex/${id}/level/${level}`,
-				position: [x, y, z + height * level]
+				position: [x, y, level === 0 ? z : datumZ + height * level]
 			}));
 		let bottom = cornersAt(0);
 		for (let level = 0; level < levels; level++) {
 			const id = `${planCellId}/level/${level}`;
 			const top = cornersAt(level + 1);
-			cells.push(Object.freeze({ id, planCellId, level }));
+			const sideFaces = bottom.map((a, i) => {
+				const j = (i + 1) % bottom.length;
+				const [from, to] = a.id < bottom[j].id ? [i, j] : [j, i];
+				const corners = [bottom[from].id, bottom[to].id, top[to].id, top[from].id] as const;
+				const face = JSON.stringify(corners);
+				if (!faces.has(face))
+					faces.set(face, Object.freeze({ id: face, corners: Object.freeze(corners) }));
+				return face;
+			});
+			cells.push(Object.freeze({ id, planCellId, level, sideFaces: Object.freeze(sideFaces) }));
 			addMembers({ id, bottom, top }, connect);
 			bottom = top;
 		}
 	}
 	return Object.freeze({
 		cells: Object.freeze(cells),
+		faces: Object.freeze([...faces.values()]),
 		nodes: Object.freeze([...nodes.values()]),
 		edges: Object.freeze([...edges.values()])
 	});

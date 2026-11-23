@@ -1,34 +1,28 @@
-import { createCityLattice, createCityProfile, readCityColumns } from '../../domain/city-volume';
+import { createCityDistricts, createCityLattice, readCityColumns } from '../../domain/city-volume';
 import { TerrainGrid } from '../../domain/terrain-grid';
-import { projectCityLattice, projectCityProfile } from './index';
+import { projectCityDistricts, projectCityLattice } from './index';
 
 export function example() {
 	const seed = 1201;
-	const datum = { origin: [0, 0], bearing: 0, length: 380, width: 152 } as const;
-	const heightAt = (_x: number, y: number) => 10 + y * 0.06;
-	const plan = TerrainGrid.create({ seed, site: datum, heightAt });
-	const profile = createCityProfile(datum, seed);
-	const lattice = createCityLattice(readCityColumns(plan, profile));
+	const site = { origin: [0, 0], bearing: 0, length: 380, width: 152 } as const;
+	const datumZ = 10;
+	const heightAt = (_x: number, y: number) => datumZ + y * 0.06;
+	const plan = TerrainGrid.create({ seed, site, variant: 'square', heightAt });
+	const districts = createCityDistricts(plan, site.origin, seed);
+	const columns = readCityColumns(plan, districts);
+	const lattice = createCityLattice(columns, datumZ, 'square');
 	const frame = {
-		footprint: { width: datum.length, depth: datum.width },
+		footprint: { width: site.length, depth: site.width },
 		toLocal: (x: number, y: number) => [x, y] as const
 	};
 	return {
 		heightAt,
+		datumZ,
 		frame,
-		profile,
+		districts,
+		columns,
 		lattice,
-		surface: projectCityProfile(
-			profile,
-			[
-				[-190, -76],
-				[190, -76],
-				[190, 76],
-				[-190, 76]
-			],
-			frame,
-			heightAt
-		),
+		envelope: projectCityDistricts(columns, datumZ, frame),
 		members: projectCityLattice(lattice, frame)
 	};
 }
