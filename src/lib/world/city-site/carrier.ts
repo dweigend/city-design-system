@@ -18,7 +18,6 @@ import type { CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
 
 export const { cityBankSetbackM } = shorelineMorphLimits;
-const edgeSampleStepM = 8;
 
 export const maximumCellRiseM = 16;
 const minimumPartAreaM2 = 360_000;
@@ -97,7 +96,7 @@ export function prepareCarrier(
 			variant,
 			parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 			maximumCellRise: maximumCellRiseM,
-			edgeSampleStep: edgeSampleStepM,
+			edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
 
 			shore: {
 				align: true,

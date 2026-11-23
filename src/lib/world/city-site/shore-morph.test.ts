@@ -31,7 +31,7 @@ function layout(
 		parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 		heightAt: (x, y) => read(x, y).height,
 		maximumCellRise: 16,
-		edgeSampleStep: 8,
+		edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
 		shore: { clearanceAt, minimumEdge, minimumArea }
 	};
 	const cover = ([x, y]: Vec2) => read(x, y).waterKind ?? 'dry';
@@ -126,7 +126,7 @@ for (const variant of cityPlanVariants) {
 				site: { origin: [0, 0], bearing: -Math.PI / 2, length: 1250, width: 600 },
 				parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 				heightAt: () => 0,
-				edgeSampleStep: 8,
+				edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
 				shore: { clearanceAt, minimumEdge, minimumArea, align: true }
 			},
 			([x, y]) => (clearanceAt(x, y) < -shorelineMorphLimits.cityBankSetbackM ? 'river' : 'dry')

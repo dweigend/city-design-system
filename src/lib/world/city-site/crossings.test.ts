@@ -54,7 +54,7 @@ test('equal scores select the same crossings if built polygons are reversed', ()
 			seed: 1201,
 			variant: 'square',
 			parameters: { cellSize: 60 },
-			site: { origin: [0, 0], bearing: 0, length: 720, width: 720 },
+			site: { origin: [0, 0], bearing: 0, length: 720, width: 240 },
 			heightAt: () => 0,
 			shore: { clearanceAt, minimumEdge: 2, minimumArea: 200 }
 		},

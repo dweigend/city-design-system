@@ -32,7 +32,6 @@ export const terrainGridParams = defineParams({
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
-/** Distances and area tolerances for the optional shared shoreline morph. */
 export { crossingLimits, shorelineMorphLimits } from './config';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
@@ -401,7 +400,7 @@ function create(options: TerrainGridOptions): TerrainGrid {
 }
 
 /** Creates one continuous grid and its setback-clipped buildable subset. Cover is sampled at
- * the arithmetic mean of each original cell's corners. Wet centers always reserve the cell
+ * the arithmetic mean of each plan cell's corners after alignment. Wet centers always reserve the cell
  * for water. Dry centers retain their clipped polygon if it passes the ground checks.
  * Supply referenceHeightAt for the uncut vertices if heightAt excludes wet ground. */
 function createPlan(options: TerrainGridOptions, cover: (point: Vec2) => GroundKind) {

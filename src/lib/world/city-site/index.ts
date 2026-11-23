@@ -83,7 +83,7 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 	if (cached) return cached;
 	const station = Random.create({ seed })
 		.derive('crossing-station')
-		.number({ min: -860, max: 860 });
+		.number({ min: -crossingLimits.centerStationRangeM, max: crossingLimits.centerStationRangeM });
 	const {
 		frame: { bearing },
 		sampleGround,

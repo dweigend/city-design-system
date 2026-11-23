@@ -56,6 +56,8 @@ export const shorelineMorphLimits = Object.freeze({
 	clippedMaximumAspectRatio: 6,
 	// Precision of a shared edge's intersection with the setback.
 	clipToleranceM: 0.05,
+	// Maximum spacing for the city cell ground and rise checks.
+	groundSampleStepM: 8,
 	// Smallest interval probed when a segment grazes the setback.
 	clearanceSampleStepM: 0.25,
 	// Minimum dry clearance from water for a city lot.
@@ -84,6 +86,8 @@ export const crossingLimits = Object.freeze({
 	selectionIncrementKm2: 1.25,
 	// Selected crossings allowed in addition to the area-based count.
 	selectionBaseCount: 1,
+	// Maximum seeded station offset along the valley from the city frame origin.
+	centerStationRangeM: 860,
 	// Maximum search distance along the valley for the crossing center.
 	centerSearchAlongM: 520,
 	// Spacing between samples along the valley in the search for the crossing center.

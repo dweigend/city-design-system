@@ -341,7 +341,7 @@ test('rejects a retained square edge with a shallow setback dip between probes',
 		{
 			seed: 0,
 			variant: 'square',
-			site: { origin: [24.5, 0], bearing: 0, width: 240, length: 240 },
+			site: { origin: [39.585, 0], bearing: 0, width: 240, length: 240 },
 			parameters: { cellSize: 60 },
 			heightAt: () => 0,
 			edgeSampleStep: 8,

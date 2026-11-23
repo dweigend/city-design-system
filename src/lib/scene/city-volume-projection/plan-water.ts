@@ -5,6 +5,7 @@ import { planEdges, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityCrossing, CitySite } from '../../world/city-site';
 import { terrainDrape } from '../terrain-grid-projection';
 import type { Drawable } from '../surface';
+import { crossingLiftM } from './constants';
 
 const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 
@@ -32,10 +33,10 @@ export function projectWetPlan(
 	for (const { path, span } of crossings) {
 		if (span) {
 			const [from, to] = span.nodeIds;
-			project(point(from), point(to), markers, 1.2);
+			project(point(from), point(to), markers, crossingLiftM);
 			continue;
 		}
-		for (const { from, to } of path.edges) project(point(from), point(to), markers, 1.2);
+		for (const { from, to } of path.edges) project(point(from), point(to), markers, crossingLiftM);
 	}
 
 	function project(a: Vec2, b: Vec2, output: number[], lift = 0.32) {
