@@ -68,7 +68,6 @@ export function validateConfig(slices: readonly ConfigSlice[], principles: Reado
 	return errors;
 }
 
-
 /** Find duplicate literal keys before evaluation can discard their earlier values. */
 export function duplicateConfigKeys(path: string, text: string): string[] {
 	const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false);
