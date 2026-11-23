@@ -7,6 +7,7 @@ import {
 	type LatticeBay,
 	type LatticePoint
 } from './bay-addresses';
+import { cornerReader } from './foundation';
 import { capHeight, fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
 import { cleanFaces, closeSolid, prismFaces, type LatticeSolid } from './solid';
 
@@ -47,6 +48,11 @@ function braced(level: Level, connect: Connect) {
 	}
 }
 
+function hubCapHeight(ring: readonly Node[], x: number, y: number) {
+	const z = ring[0].position[2];
+	return ring.every(({ position }) => position[2] === z) ? z : capHeight(ring, x, y);
+}
+
 function centered(level: Level, connect: Connect) {
 	box(level, connect);
 	const corners = [...level.bottom, ...level.top];
@@ -54,8 +60,8 @@ function centered(level: Level, connect: Connect) {
 		([x, y], { position: [u, v] }) => [x + u / level.bottom.length, y + v / level.bottom.length],
 		[0, 0]
 	);
-	const bottom = capHeight(level.bottom, x, y);
-	const top = capHeight(level.top, x, y);
+	const bottom = hubCapHeight(level.bottom, x, y);
+	const top = hubCapHeight(level.top, x, y);
 	if (bottom === undefined || top === undefined) return;
 	const floor = Math.max(bottom, level.groundAtHub ?? -Infinity);
 	if (top <= floor) return;
@@ -65,7 +71,7 @@ function centered(level: Level, connect: Connect) {
 		position[2] === level.groundAtHub
 			? `${level.id.slice(0, level.id.lastIndexOf('/level/'))}/ground-center`
 			: `${level.id}/center`;
-	const hub = { id, position };
+	const hub = Object.freeze({ id, position: Object.freeze(position) });
 	for (const corner of corners) connect(hub, corner);
 }
 
@@ -104,15 +110,14 @@ export function createFrame(
 	const solids: LatticeSolid[] = [];
 	function connect(a: Node, b: Node) {
 		if (a.id === b.id) return;
-		for (const { id, position } of [a, b]) {
-			if (!nodes.has(id)) nodes.set(id, Object.freeze({ id, position: Object.freeze(position) }));
-		}
+		if (!nodes.has(a.id)) nodes.set(a.id, a);
+		if (!nodes.has(b.id)) nodes.set(b.id, b);
 		const [from, to] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
 		const id = JSON.stringify([from, to]);
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
 	let triangulate = false;
-	const addresses = bayAddresses(columns, datumZ, (bay, first) => {
+	const addresses = bayAddresses(columns, datumZ, cornerReader(datumZ), (bay, first) => {
 		const { id, bottom, top } = bay;
 		if (first) triangulate = hasCollapsedDiagonal(bottom, top);
 		addMembers(bay, connect);

@@ -1,6 +1,6 @@
 import type { Vec3 } from '../../core/geometry';
 import { planEdgeId } from '../terrain-grid';
-import { columnBays } from './foundation';
+import { columnBays, type CornerReader } from './foundation';
 
 export type LatticePoint = Readonly<{ id: string; position: Vec3 }>;
 
@@ -42,11 +42,11 @@ const sideId = (edge: string, level: number) => `side/${edge}/level/${level}`;
 export function bayAddresses(
 	columns: readonly Column[],
 	datumZ: number,
+	anchors: CornerReader,
 	visit?: (bay: BayRings, first: boolean) => void
 ) {
 	const cells: LatticeBay[] = [];
 	const faces = new Map<string, BayFace>();
-	const corners = new Map<string, LatticePoint>();
 	function addFace(id: string, points: readonly LatticePoint[]) {
 		faces.set(id, Object.freeze({ id, corners: Object.freeze(points.map((point) => point.id)) }));
 	}
@@ -60,16 +60,12 @@ export function bayAddresses(
 			return { edge: planEdgeId(a, b), from, to };
 		});
 		let first = true;
-		for (const { level, bottom, top } of columnBays(column, datumZ)) {
+		for (const { level, bottom, top } of columnBays(column, datumZ, anchors.read)) {
 			const id = bayId(planCellId, level);
 			const floorFace = capId(planCellId, level);
 			const ceilingFace = capId(planCellId, level + 1);
-			if (!faces.has(floorFace)) {
-				addFace(floorFace, bottom);
-				for (const point of bottom) if (!corners.has(point.id)) corners.set(point.id, point);
-			}
+			if (first) addFace(floorFace, bottom);
 			addFace(ceilingFace, top);
-			for (const point of top) if (!corners.has(point.id)) corners.set(point.id, point);
 			const sideFaces = sides.map(({ edge, from, to }) => {
 				const face = sideId(edge, level);
 				if (!faces.has(face)) addFace(face, [bottom[from], bottom[to], top[to], top[from]]);
@@ -93,6 +89,6 @@ export function bayAddresses(
 	return {
 		cells: Object.freeze(cells),
 		faces: Object.freeze([...faces.values()]),
-		bayCorners: Object.freeze([...corners.values()])
+		bayCorners: Object.freeze([...anchors.points])
 	};
 }

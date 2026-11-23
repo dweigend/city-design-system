@@ -1,6 +1,6 @@
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { cornerAt, planeElevation, planeIndex, type columnPlanes } from './foundation';
+import { planeElevation, planeIndex, type columnPlanes, type CornerReader } from './foundation';
 import type { Column } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
 
@@ -24,7 +24,7 @@ export type Joint = Readonly<{
 export type ColumnBands = (id: string) => ReturnType<typeof columnPlanes>;
 type Corner = Column['corners'][number];
 /** Joint factory of one lattice: every joint is created once and keyed by plan address and level. */
-export function jointsOf(topology: PlanTopology, datumZ: number) {
+export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: CornerReader['read']) {
 	const joints = new Map<string, Joint>();
 	const at = (id: string, level: number, position: () => Vec3, corner?: Corner) => {
 		let joint = joints.get(id);
@@ -45,8 +45,8 @@ export function jointsOf(topology: PlanTopology, datumZ: number) {
 	const z = (level: number) => planeElevation(datumZ, level);
 	return {
 		corner(corner: Corner, level: number) {
-			const anchor = cornerAt(corner, datumZ, level);
-			return at(anchor.id, anchor.level, () => anchor.position, corner);
+			const { point, level: index } = readCorner(corner, level);
+			return at(point.id, index, () => point.position, corner);
 		},
 		centre(cell: string, level: number) {
 			return at(`cell/${cell}/level/${level}`, level, () => {

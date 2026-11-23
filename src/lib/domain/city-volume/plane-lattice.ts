@@ -1,6 +1,6 @@
 import { required } from '../../core/invariant';
 import { bayAddresses, type Column } from './bay-addresses';
-import { columnPlanes } from './foundation';
+import { columnPlanes, cornerReader } from './foundation';
 import { hasCollapsedDiagonal } from './foundation-prism';
 import type { CityLattice } from './frame';
 import { readPlanTopology } from './plan-topology';
@@ -23,7 +23,8 @@ export function createPlaneLattice(
 	rule: PlaneRule
 ): CityLattice {
 	const triangulated = new Set<string>();
-	const addresses = bayAddresses(columns, datumZ, ({ id, bottom, top }, first) => {
+	const anchors = cornerReader(datumZ);
+	const addresses = bayAddresses(columns, datumZ, anchors, ({ id, bottom, top }, first) => {
 		if (first && hasCollapsedDiagonal(bottom, top))
 			triangulated.add(id.slice(0, id.lastIndexOf('/level/')));
 	});
@@ -32,7 +33,7 @@ export function createPlaneLattice(
 		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])
 	);
 	const bands: ColumnBands = (id) => required(byColumn.get(id), 'column planes');
-	const joints = jointsOf(topology, datumZ);
+	const joints = jointsOf(topology, datumZ, anchors.read);
 	const kind = (id: string, level: number) => {
 		const { foundation: base } = bands(id);
 		return level < base ? 'plan' : rule.plane(level, level - base);

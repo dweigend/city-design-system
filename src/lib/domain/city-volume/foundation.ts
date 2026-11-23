@@ -52,24 +52,43 @@ export function planeElevation(datumZ: number, level: number) {
 	return datumZ + levelHeight * level;
 }
 
-/** Clamps a corner to the named terrain contact at or below the terrain. */
-export function cornerAt({ id, position: [x, y, z] }: Corner, datumZ: number, level: number) {
-	const plane = planeElevation(datumZ, level);
-	const ground = level === 0 || plane <= z;
-	return Object.freeze({
-		id: `vertex/${id}/level/${ground ? 0 : level}`,
-		position: Object.freeze([x, y, ground ? z : plane] as Vec3),
-		level: ground ? 0 : level
-	});
+/** Interns ground-clamped corners by plan vertex and level for one lattice build. */
+export function cornerReader(datumZ: number) {
+	const byVertex = new Map<string, Map<number, { point: Corner; level: number }>>();
+	const points: Corner[] = [];
+	return {
+		points,
+		read({ id, position: [x, y, z] }: Corner, level: number) {
+			const plane = planeElevation(datumZ, level);
+			const ground = level === 0 || plane <= z;
+			const index = ground ? 0 : level;
+			let rings = byVertex.get(id);
+			if (!rings) byVertex.set(id, (rings = new Map<number, { point: Corner; level: number }>()));
+			let anchor = rings.get(index);
+			if (!anchor) {
+				const point = Object.freeze({
+					id: `vertex/${id}/level/${index}`,
+					position: Object.freeze([x, y, ground ? z : plane] as Vec3)
+				});
+				anchor = { point, level: index };
+				rings.set(index, anchor);
+				points.push(point);
+			}
+			return anchor;
+		}
+	};
 }
+
+export type CornerReader = ReturnType<typeof cornerReader>;
 
 /** Iterates the bay rings from the lowest ground contact to the roof on the common grid. */
 export function* columnBays(
 	column: Readonly<{ corners: readonly Corner[]; levels: number }>,
-	datumZ: number
+	datumZ: number,
+	read: CornerReader['read']
 ) {
 	const { first, roof } = columnPlanes(column, datumZ);
-	const ring = (level: number) => column.corners.map((corner) => cornerAt(corner, datumZ, level));
+	const ring = (level: number) => column.corners.map((corner) => read(corner, level).point);
 	let bottom = ring(first);
 	for (let level = first; level < roof; level++) {
 		const top = ring(level + 1);
