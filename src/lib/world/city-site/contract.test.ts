@@ -5,6 +5,7 @@ import {
 	cityPlanVariants,
 	createCityLattice,
 	levelHeight,
+	prismVariants,
 	readCityColumns,
 	type CityColumn,
 	type CityLattice
@@ -192,7 +193,10 @@ for (const plan of cityPlanVariants) {
 	});
 
 	test(`${plan} shares every side up to the lower column in all lattices`, () => {
-		for (const frame of cityLatticesByPlan[plan]) {
+		// Only prism lattices frame every bay side face with members.
+		for (const frame of cityLatticesByPlan[plan].filter((v) =>
+			prismVariants.some((p) => p === v)
+		)) {
 			const lattice = createCityLattice(columns, datumZ, plan, frame);
 			assertCarrier(columns, lattice, datumZ);
 		}

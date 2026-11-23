@@ -40,6 +40,10 @@ export const cityVolumeParams = defineParams({
 /** Signed volume in m³ of every solid of a lattice, in solid order. Unknown joints throw. */
 export { latticeVolumes } from './lattices';
 
+/** Lattices whose solids are the bays themselves, so every bay side face is framed by members.
+ * The other models keep the bays as addresses and build their own solids. */
+export { prismVariants } from './frame';
+
 /** Horizontal meters a setback or corbel corner moves per level above its lowest neighbor. */
 export { taperStep } from './taper';
 
