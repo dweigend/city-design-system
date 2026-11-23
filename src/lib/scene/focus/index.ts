@@ -11,21 +11,22 @@ export const displayLevels = Object.freeze([
  * envelope, a pencil drawing, or nothing. */
 export type DisplayLevel = (typeof displayLevels)[number];
 
-/** Share of the bodies at the transparent level drawn in pencil instead, so the grey stock keeps
- * a lively mix of plain volumes and drawn buildings (COLOR-5). */
-export const stockPencilShare = 1 / 6;
+/** Share of the stock drawn in pencil (COLOR-5). */
+export { stockPencilShare } from './constants';
 
-/** The focus choices in menu order, named in the owner's words. `subject` lists the subsystems
+/** The focus choices in menu order, named for what they show today: the three district kinds are
+ * districts, not houses, which will join as their own subsystem. `subject` lists the subsystems
  * the choice puts in focus; a choice whose subject is absent is not offered. */
 const choices = {
 	all: { label: 'All', subject: [] },
-	districts: { label: 'Districts', subject: ['detached', 'block', 'center'] },
-	center: { label: 'Center', subject: ['center'] },
-	block: { label: 'Blocks', subject: ['block'] },
-	detached: { label: 'Houses', subject: ['detached'] },
+	districts: { label: 'All districts', subject: ['detached', 'block', 'center'] },
+	center: { label: 'Center district', subject: ['center'] },
+	block: { label: 'Block district', subject: ['block'] },
+	detached: { label: 'Detached district', subject: ['detached'] },
 	lattice: { label: 'Lattice', subject: ['lattice'] },
 	height: { label: 'Height', subject: ['detached', 'block', 'center'], analysis: 'height' },
-	landscape: { label: 'Terrain and water', subject: ['terrain', 'water'] }
+	landscape: { label: 'Terrain and water', subject: ['terrain', 'water'] },
+	plan: { label: 'Plan and crossings', subject: ['plan', 'water-cells', 'crossings'] }
 } as const satisfies Record<
 	string,
 	Readonly<{ label: string; subject: readonly string[]; analysis?: 'height' }>
@@ -38,8 +39,10 @@ export const focusChoices = Object.freeze(Object.keys(choices) as FocusChoice[])
 
 type Row = Readonly<Record<FocusChoice, DisplayLevel>>;
 
-/** The policy, one row per subsystem and one column per focus choice. A new subsystem
- * (houses, paths, supply lines, forest) is one more row; the projection reads its level here. */
+/** The policy, one row per subsystem and one column per focus choice. The plan grid, its water
+ * cells and the selected crossings are rows like the districts, so the Plan step is a focus
+ * choice, not a second mechanism. A new subsystem (houses, paths, supply lines, forest) is one more
+ * row; the projection reads its level here. */
 const policy = {
 	terrain: {
 		all: 'full',
@@ -49,7 +52,8 @@ const policy = {
 		detached: 'full',
 		lattice: 'full',
 		height: 'full',
-		landscape: 'full'
+		landscape: 'full',
+		plan: 'full'
 	},
 	water: {
 		all: 'full',
@@ -59,7 +63,8 @@ const policy = {
 		detached: 'full',
 		lattice: 'full',
 		height: 'full',
-		landscape: 'full'
+		landscape: 'full',
+		plan: 'full'
 	},
 	detached: {
 		all: 'full',
@@ -69,7 +74,8 @@ const policy = {
 		detached: 'full',
 		lattice: 'transparent',
 		height: 'full',
-		landscape: 'silhouette'
+		landscape: 'silhouette',
+		plan: 'transparent'
 	},
 	block: {
 		all: 'full',
@@ -79,7 +85,8 @@ const policy = {
 		detached: 'transparent',
 		lattice: 'transparent',
 		height: 'full',
-		landscape: 'silhouette'
+		landscape: 'silhouette',
+		plan: 'transparent'
 	},
 	center: {
 		all: 'full',
@@ -89,7 +96,8 @@ const policy = {
 		detached: 'transparent',
 		lattice: 'transparent',
 		height: 'full',
-		landscape: 'silhouette'
+		landscape: 'silhouette',
+		plan: 'transparent'
 	},
 	lattice: {
 		all: 'full',
@@ -99,7 +107,41 @@ const policy = {
 		detached: 'hidden',
 		lattice: 'full',
 		height: 'hidden',
-		landscape: 'hidden'
+		landscape: 'hidden',
+		plan: 'hidden'
+	},
+	plan: {
+		all: 'transparent',
+		districts: 'transparent',
+		center: 'transparent',
+		block: 'transparent',
+		detached: 'transparent',
+		lattice: 'transparent',
+		height: 'transparent',
+		landscape: 'transparent',
+		plan: 'full'
+	},
+	'water-cells': {
+		all: 'hidden',
+		districts: 'hidden',
+		center: 'hidden',
+		block: 'hidden',
+		detached: 'hidden',
+		lattice: 'hidden',
+		height: 'hidden',
+		landscape: 'full',
+		plan: 'full'
+	},
+	crossings: {
+		all: 'full',
+		districts: 'full',
+		center: 'transparent',
+		block: 'transparent',
+		detached: 'transparent',
+		lattice: 'transparent',
+		height: 'transparent',
+		landscape: 'full',
+		plan: 'full'
 	}
 } as const satisfies Record<string, Row>;
 

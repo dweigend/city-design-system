@@ -63,6 +63,9 @@ export type Drawable = Surface &
 		occlude?: boolean;
 		/** Strength from 0 to 1 of pencil hatching on the faces turned from the sun. */
 		hatch?: number;
+		/** Oklab lightness offsets of the roof, the lit wall and the wall in shade; the stage's
+		 * own values apply when absent. */
+		faces?: Readonly<{ top: number; lit: number; shadow: number }>;
 		warp?: Warp;
 	}>;
 
@@ -87,16 +90,17 @@ export const landscape = Object.freeze({
 
 const districtEnvelope = {
 	finish: 'matte',
-	stroke: { color: '--blueprint', width: 0.9, opacity: 0.52 }
+	stroke: { color: '--district-edge', width: 0.9, opacity: 0.8 }
 } as const;
 
-/** Three lightness steps of blueprint, light to saturated, for detached houses, blocks and the
- * high-rise center. The shaded, opaque fill keeps the kinds apart in plan and in height. Their
- * ground shade darkens the paper without stacking. */
+/** Three saturated lightness steps of blueprint, light to deep, for the detached, block and
+ * high-rise center districts, all well below the pale water in value and above it in chroma, with
+ * a deep blueprint hairline. The shaded, opaque fill keeps the kinds apart in plan and in height.
+ * Their ground shade darkens the paper without stacking. */
 export const districtSurfaces = Object.freeze({
-	detached: { ...districtEnvelope, color: '--blueprint-2' },
-	block: { ...districtEnvelope, color: '--blueprint-3' },
-	center: { ...districtEnvelope, color: '--blueprint' },
+	detached: { ...districtEnvelope, color: '--district-detached' },
+	block: { ...districtEnvelope, color: '--district-block' },
+	center: { ...districtEnvelope, color: '--district-center' },
 	shadow: { color: '--ground-shadow', finish: 'shadow', flat: true }
 } as const satisfies SurfaceAssignment);
 
@@ -107,6 +111,27 @@ export const planningStudy = Object.freeze({
 		finish: 'matte',
 		flat: true,
 		stroke: { color: '--ink-2', width: 0.68, opacity: 0.53 }
+	}
+} as const satisfies SurfaceAssignment);
+
+/** Plan overlays by slot: the dry plan grid in graphite, the edges of its water cells in the water
+ * hue, and the selected crossings in the opaque path pink of COLOR-3. Lines only, drawn over ground
+ * and water. */
+export const planOverlaySurfaces = Object.freeze({
+	plan: {
+		color: '--ink-2',
+		finish: 'matte',
+		stroke: { color: '--ink-2', width: 0.8, opacity: 0.82 }
+	},
+	'water-cells': {
+		color: '--river-section',
+		finish: 'matte',
+		stroke: { color: '--river-section', width: 0.8, opacity: 0.75 }
+	},
+	crossings: {
+		color: '--path',
+		finish: 'matte',
+		stroke: { color: '--path', width: 2.2, opacity: 1 }
 	}
 } as const satisfies SurfaceAssignment);
 

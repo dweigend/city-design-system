@@ -4,10 +4,20 @@ import type { Shape } from '../../core/object';
 import { planEdges, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityCrossing, CitySite } from '../../world/city-site';
 import { terrainDrape } from '../terrain-grid-projection';
-import type { Drawable } from '../surface';
+import { planOverlaySurfaces, type Drawable } from '../surface';
+import { crossingLiftM, planLineLiftM } from './constants';
 
 const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 
+/** Drawable id of each plan overlay slot; the slot names the focus subsystem it belongs to. */
+export const planOverlayIds = {
+	plan: 'dry-plan',
+	'water-cells': 'water-plan',
+	crossings: 'selected-crossings'
+} as const;
+
+/** Projects the continuous plan as three overlays: dry plan edges, edges touching a water cell, and
+ * the selected crossings along their grid edges, each resolved from its surface slot. */
 export function projectWetPlan(
 	city: CitySite,
 	ground: Extract<Shape, { kind: 'mesh' }>,
@@ -30,9 +40,9 @@ export function projectWetPlan(
 		project(point(a), point(b), water ? wet : dry);
 	}
 	for (const { path } of crossings)
-		for (const { from, to } of path.edges) project(point(from), point(to), markers, 1.2);
+		for (const { from, to } of path.edges) project(point(from), point(to), markers, crossingLiftM);
 
-	function project(a: Vec2, b: Vec2, output: number[], lift = 0.32) {
+	function project(a: Vec2, b: Vec2, output: number[], lift = planLineLiftM) {
 		const start = toLocal(...a);
 		const end = toLocal(...b);
 		const length = distance(start, end);
@@ -46,26 +56,18 @@ export function projectWetPlan(
 	}
 
 	const groups = [
-		{ id: 'dry-plan', color: '--ink-2', width: 0.8, opacity: 0.82, strokeSegments: dry },
-		{ id: 'water-plan', color: '--blueprint', width: 0.8, opacity: 0.6, strokeSegments: wet },
-		{
-			id: 'selected-crossings',
-			color: '--signal',
-			width: 1.9,
-			opacity: 1,
-			strokeSegments: markers
-		}
+		{ slot: 'plan', strokeSegments: dry },
+		{ slot: 'water-cells', strokeSegments: wet },
+		{ slot: 'crossings', strokeSegments: markers }
 	] as const;
 	return groups
 		.filter(({ strokeSegments }) => strokeSegments.length)
-		.map(({ id, color, width, opacity, strokeSegments }) => ({
-			id,
+		.map(({ slot, strokeSegments }) => ({
+			id: planOverlayIds[slot],
 			shape: emptyMesh,
-			color,
-			finish: 'matte',
+			...planOverlaySurfaces[slot],
 			fillVisible: false,
 			preserveColor: true,
-			stroke: { color, width, opacity },
 			strokeSegments
 		}));
 }

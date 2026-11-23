@@ -4,11 +4,13 @@ import {
 	Float32BufferAttribute,
 	Group,
 	Mesh,
-	MeshBasicNodeMaterial
+	MeshBasicNodeMaterial,
+	Raycaster,
+	Vector3
 } from 'three/webgpu';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
-import type { Bounds3 } from '../../core/geometry';
+import type { Bounds3, Vec3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import { shapeArrays } from './geometry';
 import { boundaryGeometry, edgeGeometry, explicitStroke, type strokeMaterials } from './edges';
@@ -108,7 +110,7 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, hatch, atlas } = fillMaterial(
+	const { material, terrain, flat, heightScale, hatch, faces, atlas } = fillMaterial(
 		palette,
 		drawable.terrainField
 	);
@@ -143,6 +145,7 @@ function project(
 		flat,
 		heightScale,
 		hatch,
+		faces,
 		atlas,
 		warpTargets,
 		warpAmount: 0
@@ -162,7 +165,12 @@ export function warpPart(part: Part) {
 	if (!part.warpTargets.length || amount === part.warpAmount) return;
 	part.warpAmount = amount;
 	applyWarp(part.warpTargets, amount);
-	part.mesh.geometry.attributes.position.needsUpdate = true;
+	const fill = part.mesh.geometry;
+	fill.attributes.position.needsUpdate = true;
+	// Shading, culling and clipping read the warped faces, not the retained base.
+	fill.computeVertexNormals();
+	fill.computeBoundingBox();
+	fill.computeBoundingSphere();
 	for (const geometry of new Set(part.lines.map((line) => line.geometry))) {
 		const start = geometry.getAttribute('instanceStart') as unknown as {
 			data: { needsUpdate: boolean };
@@ -184,6 +192,25 @@ function projectStroke(
 }
 
 export type Part = ReturnType<typeof project>;
+
+const ray = new Raycaster();
+const origin = new Vector3();
+
+/** The nearest point where a line through `point` along `direction` meets one of the meshes as
+ * displayed, with their current scale and warp, or undefined. */
+export function rayHit(meshes: readonly Mesh[], point: Vec3, direction: Vec3) {
+	ray.set(origin.fromArray(point), new Vector3(...direction).normalize());
+	// Start the ray behind every mesh, so a point on the image plane can lie inside the scene.
+	const reach = meshes.reduce((most, mesh) => {
+		mesh.updateMatrixWorld();
+		if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+		const { center, radius } = mesh.geometry.boundingSphere ?? { center: origin, radius: 0 };
+		return most + origin.distanceTo(center) + 2 * mesh.matrixWorld.getMaxScaleOnAxis() * radius;
+	}, 0);
+	ray.ray.origin.addScaledVector(ray.ray.direction, -reach);
+	const [first] = ray.intersectObjects([...meshes], false);
+	return first?.point.toArray() as Vec3 | undefined;
+}
 
 function disposePart({ drawable, mesh, veil, lines, grid, atlas }: Part) {
 	mesh.geometry.dispose();
@@ -210,6 +237,8 @@ export function createContent(
 	let ground: ReturnType<typeof projectGround> | undefined;
 	const box = new Box3();
 	const footprint = new Box3();
+	const clipping = new Box3();
+	const scratch = new Box3();
 
 	function deleteGround() {
 		if (!ground) return;
@@ -247,18 +276,28 @@ export function createContent(
 			return ground;
 		},
 		get clippingBounds(): Bounds3 {
-			const visible = new Box3();
+			const visible = clipping.makeEmpty();
 			for (const { drawable, mesh } of parts) {
 				const bounds = mesh.geometry.boundingBox;
 				if (drawable.visible === false || !bounds || bounds.isEmpty()) continue;
-				const { scale, pivot } = drawable.vertical ?? { scale: 1, pivot: 0 };
-				const next = bounds.clone();
-				next.min.z += (next.min.z - pivot) * (scale - 1);
-				next.max.z += (next.max.z - pivot) * (scale - 1);
-				visible.union(next);
+				const scale = drawable.vertical?.scale ?? 1;
+				const pivot = drawable.vertical?.pivot ?? 0;
+				scratch.copy(bounds);
+				scratch.min.z += (scratch.min.z - pivot) * (scale - 1);
+				scratch.max.z += (scratch.max.z - pivot) * (scale - 1);
+				visible.union(scratch);
 			}
 			return toBounds(visible);
 		},
+		/** The displayed terrain point on a view ray through `point`, if any. */
+		hit: (point: Vec3, direction: Vec3) =>
+			rayHit(
+				parts
+					.filter((part) => part.drawable.finish === 'terrain' && part.mesh.visible)
+					.map(({ mesh }) => mesh),
+				point,
+				direction
+			),
 		get bounds(): Bounds3 {
 			const visible = new Box3();
 			for (const { drawable, mesh } of parts) {

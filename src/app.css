@@ -76,6 +76,11 @@
 	--blueprint-3: oklch(from var(--blueprint) var(--step-3));
 	--blueprint-5: oklch(from var(--blueprint) var(--step-5));
 	--blueprint-soft: var(--blueprint-1);
+	--district-detached: oklch(from var(--blueprint) calc(l + 0.2) calc(c * 0.8) h);
+	--district-block: oklch(from var(--blueprint) calc(l + 0.08) calc(c * 0.95) h);
+	--district-center: oklch(from var(--blueprint) calc(l - 0.04) c h);
+	--district-edge: oklch(from var(--blueprint) calc(l - 0.22) calc(c * 0.6) h);
+	--path: var(--cat-business);
 	--ana-zug-2: color-mix(in oklab, var(--paper), var(--ana-zug) 30%);
 	--ana-zug-3: color-mix(in oklab, var(--paper), var(--ana-zug) 65%);
 	--ana-druck-2: color-mix(in oklab, var(--paper), var(--ana-druck) 30%);

@@ -70,8 +70,9 @@ async function create({
 				onViewport?.(viewport);
 			}
 			if (present) content.style(present(viewport));
+			const clipping = present ? content.clippingBounds : bounds;
 			const { center, eye, up, halfWidth, halfHeight, near, far } = present
-				? fitCamera(view, bounds, aspect, landscape, fit, content.clippingBounds)
+				? fitCamera(view, bounds, aspect, landscape, fit, clipping)
 				: framing;
 			Object.assign(camera, {
 				left: -halfWidth,
@@ -86,7 +87,7 @@ async function create({
 			camera.lookAt(...center);
 			camera.updateProjectionMatrix();
 			camera.getWorldDirection(strokes.eye.value).negate();
-			setStrokeDepth(strokes, camera, present ? content.clippingBounds : bounds, width / widthPx);
+			setStrokeDepth(strokes, camera, clipping, width / widthPx);
 
 			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
 			styleContent(display, dark);
@@ -143,8 +144,13 @@ async function create({
 		/** Reads the current fitted camera width and scale. */
 		readViewport: () => viewport,
 		/** Reads the image axes and scale the stage would use for another fit. */
-		readFrame: (next: ViewFit) =>
-			cameraFrame(fitCamera(state.read().view, content.bounds, aspect, landscape, next), widthPx),
+		readFrame: (next: ViewFit) => ({
+			...cameraFrame(
+				fitCamera(state.read().view, content.bounds, aspect, landscape, next),
+				widthPx
+			),
+			hit: content.hit
+		}),
 		/** Resizes to CSS pixels with a device pixel ratio of at most two. */
 		resize(widthCSS: number, heightPx: number) {
 			if (closing) return;

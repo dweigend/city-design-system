@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
-import { dotProduct, displacement } from '../../core/geometry';
+import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial } from 'three/webgpu';
+import { dotProduct, displacement, type Vec3 } from '../../core/geometry';
+import type { Drawable } from '../surface';
 import {
 	Stage,
 	projectFocus,
@@ -10,7 +12,13 @@ import {
 	type ViewFit
 } from './index';
 import { anchoredPan, cameraFrame, fitCamera, groundAt, readView } from './camera';
-import { hasSameGeometry } from './content';
+import { createContent, hasSameGeometry, rayHit, warpPart } from './content';
+import { strokeMaterials } from './edges';
+import { drawingPalette } from './tone';
+
+function contentOf() {
+	return { content: createContent(strokeMaterials(true), drawingPalette(), true) };
+}
 import { edgeGeometry } from './edges';
 import { shapeArrays } from './geometry';
 import { shadowPolygon } from './ground';
@@ -271,4 +279,85 @@ test('keeps the ground point under the cursor when a zoom also lowers the camera
 	const naive = frameOf({ zoom: 2, offset: [0, -100 * 2.4 + 100 * 1.2] });
 	const [, drift] = anchoredPan(naive, anchor, [0, 100]);
 	expect(Math.abs(drift / naive.metersPerPixel)).toBeGreaterThan(5);
+});
+
+test('keeps a terrain point above the frame plane under the cursor through a tilting zoom', () => {
+	// At relief 1 the cursor sees ground 100 m above the plane through the frame centre.
+	const bounds = { min: [-1500, -1000, 0], max: [1500, 1000, 200] } as const;
+	const base: ViewFit = {
+		width: 2400,
+		bearing: -0.42,
+		elevationAtWidth: (width) =>
+			((18 + 44 * Math.min(1, Math.max(0, (width - 500) / 1800))) * Math.PI) / 180
+	};
+	const raised = new Mesh(
+		new BufferGeometry()
+			.setAttribute(
+				'position',
+				new Float32BufferAttribute(
+					[-5000, -5000, 200, 5000, -5000, 200, 5000, 5000, 200, -5000, 5000, 200],
+					3
+				)
+			)
+			.setIndex([0, 1, 2, 0, 2, 3]),
+		new MeshBasicMaterial()
+	);
+	const planeOf = (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) =>
+		cameraFrame(fitCamera('iso', bounds, 1000 / 800, true, { ...base, ...value }), 1000);
+	const frameOf = (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) => ({
+		...planeOf(value),
+		hit: (point: Vec3, direction: Vec3) => rayHit([raised], point, direction)
+	});
+	const drift = (frames: typeof frameOf) => {
+		const target = Object.assign(new EventTarget(), {
+			getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 800 })
+		});
+		let fit: ViewFit = {};
+		stageNavigation(
+			target as unknown as HTMLCanvasElement,
+			() => 2.4,
+			(next) => (fit = next),
+			frames
+		);
+		const anchor = groundAt(frameOf({ zoom: 1, offset: [0, 0] }), [0, 100]);
+		expect(anchor[2]).toBeCloseTo(200, 6);
+		target.dispatchEvent(
+			Object.assign(new Event('wheel', { cancelable: true }), {
+				clientX: 500,
+				clientY: 500,
+				deltaMode: 0,
+				deltaY: -Math.log(2) / 0.0017
+			})
+		);
+		const after = frameOf({
+			zoom: fit.zoom ?? 1,
+			offset: [fit.offset?.[0] ?? 0, fit.offset?.[1] ?? 0]
+		});
+		const [dx, dy] = anchoredPan(after, anchor, [0, 100]);
+		return Math.hypot(dx, dy) / after.metersPerPixel;
+	};
+	expect(drift(frameOf)).toBeLessThan(0.01);
+	// Anchoring on the centre plane instead lets the raised ground slide away from the cursor.
+	expect(drift(planeOf)).toBeGreaterThan(5);
+});
+
+test('moves warped fills with their normals and bounds', () => {
+	const { content } = contentOf();
+	const wall: Drawable = {
+		id: 'wall',
+		color: '--paper',
+		finish: 'matte',
+		shape: { kind: 'mesh', positions: [0, 0, 0, 0, 1, 0, 0, 0, 1], indices: [0, 1, 2] },
+		warp: { fill: [0, 0, 0, 0, 1, 0], amount: 0 }
+	};
+	content.show([wall]);
+	content.style([{ ...wall, warp: { ...wall.warp!, amount: 1 } }]);
+	const [part] = content.parts;
+	warpPart(part);
+	const geometry = part.mesh.geometry;
+	expect(geometry.boundingBox?.max.x).toBeCloseTo(1);
+	const normal = geometry.getAttribute('normal');
+	expect(Math.abs(normal.getX(0))).toBeLessThan(0.99);
+	expect(Math.abs(normal.getZ(0))).toBeGreaterThan(0.5);
+	content.delete();
 });

@@ -8,7 +8,7 @@ import {
 	type DistrictKind
 } from '../../domain/city-volume';
 import { drawnInPencil } from './blocks';
-import { mesh } from './mesh';
+import { clockwise, mesh } from './mesh';
 
 type Patch = ReturnType<typeof mesh>;
 type Wire = number[];
@@ -20,11 +20,15 @@ export type EnvelopePart = {
 	levels: number;
 	drawn: boolean;
 	shape: Patch;
-	/** Taper offsets in local meters, x and y per fill vertex and per outline endpoint. */
-	taper: { fill: number[]; outline: number[]; storeys: number[] };
-	outline: Map<string, Wire>;
-	storeys: Map<string, Wire>;
+	/** Taper offsets in local meters, x and y per fill vertex and per wire endpoint. */
+	taper: { fill: number[] } & Record<WireSet, number[]>;
+	wires: Record<WireSet, Map<string, Wire>>;
 };
+
+/** Wire sets of a body: roof edges at a step or border, wall corners and ground lines, level lines
+ * on the walls, and the plan cell joints across a roof of equal height. */
+export const wireSets = ['roof', 'walls', 'storeys', 'joints'] as const;
+type WireSet = (typeof wireSets)[number];
 
 function wireKey(a: Vec3, b: Vec3) {
 	return [a.join(','), b.join(',')].sort().join('/');
@@ -42,8 +46,10 @@ function localPoint(toLocal: Local, taper: CityTaper) {
 
 function addPolygon(
 	part: EnvelopePart,
-	points: readonly ReturnType<ReturnType<typeof localPoint>>[]
+	ordered: readonly ReturnType<ReturnType<typeof localPoint>>[],
+	flip: boolean
 ) {
+	const points = flip ? [...ordered].reverse() : ordered;
 	const { shape, taper } = part;
 	const base = shape.positions.length / 3;
 	for (const { point, offset } of points) {
@@ -55,15 +61,15 @@ function addPolygon(
 
 function addWire(
 	part: EnvelopePart,
-	set: 'outline' | 'storeys',
+	set: WireSet,
 	a: ReturnType<ReturnType<typeof localPoint>>,
 	b: ReturnType<ReturnType<typeof localPoint>>
 ) {
-	const wires = part[set];
+	const wires = part.wires[set];
 	const key = wireKey(a.point, b.point);
 	if (wires.has(key)) return;
 	wires.set(key, [...a.point, ...b.point]);
-	part.taper[set === 'outline' ? 'outline' : 'storeys'].push(...a.offset, ...b.offset);
+	part.taper[set].push(...a.offset, ...b.offset);
 }
 
 /** Wall heights from the floor to the roof: the floor, every plane between, the roof. */
@@ -79,8 +85,8 @@ function wallHeights(floor: number, top: number, datumZ: number) {
 
 /** Builds the roofs and exposed walls of the city volume, grouped by kind, height and the seeded
  * pencil draw. Walls are split at every level plane so the taper moves each storey on its own.
- * The outline holds roof edges at a step or a district border and the wall corners; drawn columns
- * outline their whole roof. Storeys hold the level lines on the walls. */
+ * Roof wires hold roof edges at a step or a district border, and the whole roof of a drawn column;
+ * joints hold the other roof edges. Walls hold corners and ground lines, storeys the level lines. */
 export function envelopeMeshes(
 	columns: readonly CityColumn[],
 	datumZ: number,
@@ -103,24 +109,25 @@ export function envelopeMeshes(
 				levels,
 				drawn: pencil,
 				shape: mesh(),
-				taper: { fill: [], outline: [], storeys: [] },
-				outline: new Map(),
-				storeys: new Map()
+				taper: { fill: [], roof: [], walls: [], storeys: [], joints: [] },
+				wires: { roof: new Map(), walls: new Map(), storeys: new Map(), joints: new Map() }
 			};
 			parts.set(id, part);
 		}
 		const topZ = columnRoof(column, datumZ);
 		const base = column.corners.map(({ position }) => position);
 		const roof = base.map(([x, y]): Vec3 => [x, y, topZ]);
-		addPolygon(part, roof.map(local));
+		const ring = roof.map(local);
+		const flip = clockwise(ring.map(({ point }) => point));
+		addPolygon(part, ring, flip);
 		for (const [i, a] of roof.entries()) {
 			const j = (i + 1) % roof.length;
 			const b = roof[j];
 			const id = column.neighbors[i];
 			const neighbor = id === null ? undefined : required(byId.get(id), 'envelope neighbor');
 			const lower = neighbor && columnRoof(neighbor, datumZ);
-			if (pencil || neighbor?.districtId !== column.districtId || lower !== topZ)
-				addWire(part, 'outline', local(a), local(b));
+			const edge = pencil || neighbor?.districtId !== column.districtId || lower !== topZ;
+			addWire(part, edge ? 'roof' : 'joints', local(a), local(b));
 			if (lower !== undefined && lower >= topZ) continue;
 			const floorA = lower ?? base[i][2];
 			const floorB = lower ?? base[j][2];
@@ -129,16 +136,16 @@ export function envelopeMeshes(
 				[a[0], a[1], floorA],
 				[b[0], b[1], floorB]
 			];
-			if (lower === undefined) addWire(part, 'outline', local(bottom[0]), local(bottom[1]));
+			if (lower === undefined) addWire(part, 'walls', local(bottom[0]), local(bottom[1]));
 			for (const z of heights) {
 				const top: [Vec3, Vec3] = [
 					[a[0], a[1], z],
 					[b[0], b[1], z]
 				];
-				addPolygon(part, [bottom[0], bottom[1], top[1], top[0]].map(local));
+				addPolygon(part, [bottom[0], bottom[1], top[1], top[0]].map(local), flip);
 				if (z < topZ) addWire(part, 'storeys', local(top[0]), local(top[1]));
-				addWire(part, 'outline', local(bottom[0]), local(top[0]));
-				addWire(part, 'outline', local(bottom[1]), local(top[1]));
+				addWire(part, 'walls', local(bottom[0]), local(top[0]));
+				addWire(part, 'walls', local(bottom[1]), local(top[1]));
 				bottom = top;
 			}
 		}

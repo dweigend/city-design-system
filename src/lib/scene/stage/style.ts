@@ -2,7 +2,7 @@ import { CustomBlending, MinEquation, NormalBlending, OneFactor, type Scene } fr
 import { warpPart, type createContent } from './content';
 import type { strokeMaterials } from './edges';
 import { readColors, readDisplay, type Display } from './material';
-import type { drawingPalette } from './tone';
+import { levels, type drawingPalette } from './tone';
 
 export function createStyle(
 	canvas: HTMLCanvasElement,
@@ -37,7 +37,19 @@ export function createStyle(
 		palette.hull.value = Number(display === 'transparency');
 		const style = readDisplay(display);
 		for (const part of content.parts) {
-			const { drawable, mesh, veil, lines, recede, grid, terrain, flat, heightScale, hatch } = part;
+			const {
+				drawable,
+				mesh,
+				veil,
+				lines,
+				recede,
+				grid,
+				terrain,
+				flat,
+				heightScale,
+				hatch,
+				faces
+			} = part;
 			warpPart(part);
 			const shade = drawable.finish === 'shadow';
 			const { opacity: displayOpacity, paper: paperDisplay } = style(drawable.finish, hull);
@@ -56,6 +68,8 @@ export function createStyle(
 			flat.value = Number(drawable.flat === true || shade);
 			heightScale.value = drawable.heightScale ?? 1;
 			hatch.value = drawable.hatch ?? 0;
+			const face = drawable.faces ?? levels;
+			faces.value.set(face.top, face.lit, face.shadow);
 			const vertical = drawable.vertical;
 			const scale = vertical?.scale ?? 1;
 			const offset = (vertical?.pivot ?? 0) * (1 - scale);

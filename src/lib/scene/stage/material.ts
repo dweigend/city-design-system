@@ -1,4 +1,4 @@
-import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
+import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace, Vector3 } from 'three/webgpu';
 import {
 	materialColor,
 	mix,
@@ -46,13 +46,14 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const flat = uniform(0);
 	const heightScale = uniform(1);
 	const hatch = uniform(0);
+	const faces = uniform(new Vector3(levels.top, levels.lit, levels.shadow));
 
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
 	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
 	const top = roof.and(facesLight);
 	const shadow = roof.or(facesLight).not();
-	const level = top.select(levels.top, shadow.select(levels.shadow, levels.lit));
+	const level = top.select(faces.x, shadow.select(faces.z, faces.y));
 	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
 	const fill = graphite(
 		materialColor,
@@ -70,7 +71,7 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 		terrainColor(palette, heightScale, atlas?.sample),
 		terrain
 	);
-	return { material, terrain, flat, heightScale, hatch, atlas: atlas?.image };
+	return { material, terrain, flat, heightScale, hatch, faces, atlas: atlas?.image };
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

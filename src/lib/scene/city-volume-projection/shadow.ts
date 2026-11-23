@@ -1,9 +1,10 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { shadowDirection, shadowReach } from '../stage';
+import { contactShadeReachPerM } from './constants';
 import { mesh } from './mesh';
 
 /** Ground shade per metre of height: a short dark contact band and the stage's longer cast shadow. */
-export const shadowBands = { contact: 0.14, cast: shadowReach } as const;
+export const shadowBands = { contact: contactShadeReachPerM, cast: shadowReach } as const;
 
 type Point = Readonly<{ point: Vec3; reach: Vec2 }>;
 

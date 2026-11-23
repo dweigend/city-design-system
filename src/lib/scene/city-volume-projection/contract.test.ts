@@ -1,19 +1,34 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
-import { columnRoof, levelHeight } from '../../domain/city-volume';
-import { createCitySite, readCityGrid } from '../../world/city-site';
+import {
+	columnRoof,
+	createCityLattice,
+	levelHeight,
+	readCityColumns
+} from '../../domain/city-volume';
+import { createCitySite, readCityDistricts, readCityGrid } from '../../world/city-site';
+import type { FocusChoice } from '../focus';
+import type { Drawable } from '../surface';
 import { drawnInPencil } from './blocks';
 import { example } from './example';
+import {
+	cityPresentation,
+	cityProfile,
+	projectCityDistricts,
+	projectCityLattice,
+	projectCityTerrain
+} from './index';
+import { memberRank } from './lattice';
+import { clockwise } from './mesh';
 
 const isDrawn = drawnInPencil(1201);
-import { cityProfile, projectCityDistricts, projectCityLattice, projectCityTerrain } from './index';
 
 test('projects shaded district bodies with flat caps, exposed walls split at every level', () => {
 	const { envelope, columns, datumZ } = example();
 	const { drawables, focus } = envelope;
 	const bodies = drawables.filter(({ role }) => role === 'body');
 	expect(new Set(bodies.map(({ kind, color }) => `${kind} ${color}`))).toEqual(
-		new Set(['detached --blueprint-2', 'block --blueprint-3', 'center --blueprint'])
+		new Set(['detached --district-detached', 'block --district-block', 'center --district-center'])
 	);
 	expect(focus?.max[2]).toBe(Math.max(...columns.map((column) => columnRoof(column, datumZ))));
 	const byId = new Map(columns.map((column) => [column.planCellId, column]));
@@ -21,7 +36,11 @@ test('projects shaded district bodies with flat caps, exposed walls split at eve
 		Math.ceil((columnRoof(column, datumZ) - floor) / levelHeight - 1e-9);
 	for (const { kind, levels, drawn, shape, opacity, strokeSegments, warp } of bodies) {
 		expect(opacity).toBeUndefined();
-		expect(strokeSegments?.length).toBeGreaterThan(0);
+		const lines = drawables
+			.filter(({ id }) => id.startsWith(`${kind}/${levels}${drawn ? '/drawn' : ''}`))
+			.flatMap(({ strokeSegments: segments }) => segments ?? []);
+		expect(lines.length).toBeGreaterThanOrEqual(strokeSegments?.length ?? 0);
+		expect(lines.length).toBeGreaterThan(0);
 		if (shape.kind !== 'mesh') throw new Error('Expected an indexed envelope mesh');
 		expect(warp?.fill.length).toBe((2 * shape.positions.length) / 3);
 		const expectedTriangles = columns
@@ -91,6 +110,101 @@ test('keeps true scale at quarter distance and resolves to the stepped envelope 
 	expect(cityProfile(5000, 3.88, peak, elevation, false, 2.3).factor).toBe(2.3);
 	expect(cityProfile(5000, 3.88, peak, elevation, true)).toEqual({ ...far, factor: 1 });
 });
+
+test('keeps the taper at zero for the quarter frame on narrow and wide canvases', () => {
+	const elevation = Math.PI / 10;
+	for (const pixels of [400, 1600]) {
+		expect(cityProfile(500, 500 / pixels, 91, elevation, true).taper).toBe(0);
+		expect(cityProfile(4200, 4200 / pixels, 91, elevation, true).taper).toBeGreaterThan(0.8);
+	}
+});
+
+test('winds roofs up and walls out, whatever the turn of the plan ring', () => {
+	expect(
+		clockwise([
+			[0, 0],
+			[0, 1],
+			[1, 1],
+			[1, 0]
+		])
+	).toBe(true);
+	expect(
+		clockwise([
+			[0, 0],
+			[1, 0],
+			[1, 1],
+			[0, 1]
+		])
+	).toBe(false);
+	const city = createCitySite(undefined, { relief: 0.5 });
+	const plan = readCityGrid(city, 1200);
+	const terrain = projectCityTerrain(city, plan.grid, plan.plan);
+	const columns = readCityColumns(plan.grid, readCityDistricts(city, plan.grid));
+	const { drawables } = projectCityDistricts(columns, plan.datumZ, terrain);
+	for (const { role, shape } of drawables) {
+		if ((role !== 'body' && role !== 'block') || shape.kind !== 'mesh') continue;
+		const { positions: p, indices } = shape;
+		for (let i = 0; i < indices.length; i += 3) {
+			const [a, b, c] = indices.slice(i, i + 3).map((k) => p.slice(3 * k, 3 * k + 3));
+			const up = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+			// A flat triangle is a roof and faces up; walls have no vertical normal component.
+			if (a[2] === b[2] && b[2] === c[2]) expect(up).toBeGreaterThan(0);
+		}
+	}
+}, 15_000);
+
+test('ranks lattice members by direction, so the slants of a model stay its own', () => {
+	expect(memberRank([0, 0, 0], [30, 0, 0.01], false)).toBe('rims');
+	expect(memberRank([0, 0, 0], [30, 0, 3], true)).toBe('rims');
+	expect(memberRank([0, 0, 0], [0.4, 0, 7], false)).toBe('uprights');
+	expect(memberRank([0, 0, 0], [12, 9, 7], false)).toBe('detail');
+	const { lattice, frame, taper } = example();
+	const antiprism = createCityLattice(example().columns, example().datumZ, 'square', 'antiprism');
+	const count = (value: typeof lattice) =>
+		projectCityLattice(value, frame, taper).drawables.find(({ id }) => id === 'detail')
+			?.strokeSegments?.length ?? 0;
+	expect(count(lattice)).toBe(0);
+	expect(count(antiprism)).toBeGreaterThan(0);
+});
+
+test('styles plan overlays from their slots and reuses one list per viewport', () => {
+	const city = createCitySite(undefined, { relief: 0.5 });
+	const plan = readCityGrid(city, 2600);
+	const terrain = projectCityTerrain(city, plan.grid, plan.plan);
+	const overlays = terrain.projectWetPlan(plan.selectedCrossings);
+	const crossing = required(
+		overlays.find(({ id }) => id === 'selected-crossings'),
+		'crossings'
+	);
+	expect(crossing.stroke?.color).toBe('--path');
+	const present = (focus: FocusChoice) =>
+		cityPresentation({
+			terrain: [...terrain.drawables, ...overlays],
+			envelope: [],
+			members: [],
+			focus,
+			peak: 0,
+			relief: 0.5,
+			trueScale: true,
+			maxProfileScale: 1,
+			taper: 0
+		});
+	const viewport = { width: 2600, metersPerPixel: 2 };
+	const all = present('all');
+	expect(all(viewport)).toBe(all({ ...viewport }));
+	const byId = (list: readonly Drawable[], id: string) =>
+		required(
+			list.find((part) => part.id === id),
+			id
+		);
+	const [inAll, inPlan] = [all(viewport), present('plan')(viewport)];
+	expect(byId(inAll, 'water-plan').visible).toBe(false);
+	expect(byId(inPlan, 'water-plan').visible).toBe(true);
+	expect(byId(inAll, 'dry-plan').stroke?.opacity).toBeLessThan(
+		byId(inPlan, 'dry-plan').stroke?.opacity ?? 0
+	);
+	expect(byId(inAll, 'selected-crossings').stroke).toEqual(crossing.stroke);
+}, 15_000);
 
 test('omits an empty district envelope and leaves the stage free to fit the terrain', () => {
 	const { frame, datumZ } = example();

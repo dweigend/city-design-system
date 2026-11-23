@@ -182,6 +182,9 @@ export type CameraFrame = Readonly<{
 	imageUp: Vec3;
 	direction: Vec3;
 	metersPerPixel: number;
+	/** The first displayed ground point on the ray through an image point, looking into the scene.
+	 * `direction` above points from the scene toward the eye. */
+	hit?: (point: Vec3, direction: Vec3) => Vec3 | undefined;
 }>;
 
 /** Reads the image axes of a fitted camera for a canvas of `widthPx` CSS pixels. */
@@ -197,15 +200,16 @@ export function cameraFrame(camera: ReturnType<typeof fitCamera>, widthPx: numbe
 	};
 }
 
-/** The world point seen at a pixel offset from the image centre, on the horizontal plane through
- * the frame's centre. */
+/** The world point seen at a pixel offset from the image centre: the displayed ground the frame
+ * hits there, else the horizontal plane through the frame's centre. */
 export function groundAt(frame: CameraFrame, [x, y]: Vec2): Vec3 {
 	const { center, right, imageUp, direction, metersPerPixel } = frame;
 	const onImage = sum(
 		center,
 		sum(scaled(right, x * metersPerPixel), scaled(imageUp, -y * metersPerPixel))
 	);
-	if (Math.abs(direction[2]) < 1e-9) return onImage;
+	const hit = frame.hit?.(onImage, scaled(direction, -1));
+	if (hit || Math.abs(direction[2]) < 1e-9) return hit ?? onImage;
 	return sum(onImage, scaled(direction, (center[2] - onImage[2]) / direction[2]));
 }
 

@@ -1,11 +1,37 @@
 import { levelHeight } from '../../domain/city-volume';
-import { readFocusChoice, readFocusLevel, type DisplayLevel, type FocusChoice } from '../focus';
-import type { Presentation } from '../stage';
+import {
+	readFocusChoice,
+	readFocusLevel,
+	type DisplayLevel,
+	type FocusChoice,
+	type Subsystem
+} from '../focus';
+import type { Presentation, Viewport } from '../stage';
 import { heightRamp, stockSurfaces, type Drawable } from '../surface';
+import {
+	bodyLooks,
+	castShadeShare,
+	fadedMemberWidth,
+	farStockEdgeShare,
+	focusVeilNearLattice,
+	memberLooks,
+	planTraceShare,
+	planTraceWidthShare,
+	quietMembers,
+	silhouetteOverLattice,
+	veilOverLattice,
+	type BodyLook,
+	type Stroke
+} from './constants';
 import type { CityDrawable } from './drawable';
+import { planOverlayIds } from './plan-water';
 import { cityElevation, cityProfile } from './profile';
 
+/** Body and member looks per display level and rank, from the presentation constants. */
+export { bodyLooks, memberLooks } from './constants';
+
 type Options = Readonly<{
+	/** Ground, water and the plan overlays. */
 	terrain: readonly Drawable[];
 	envelope: readonly CityDrawable[];
 	members: readonly Drawable[];
@@ -18,72 +44,22 @@ type Options = Readonly<{
 	taper: number;
 }>;
 
-type Look = Readonly<{
-	surface?: keyof typeof stockSurfaces;
-	fill: number;
-	outline: number;
-	width: number;
-	storeys: number;
-	hidden: number;
-	hatch: number;
-	shade: number;
+type Profile = ReturnType<typeof cityProfile>;
+type Frame = Readonly<{
+	detail: Profile;
+	vertical: { pivot: number; scale: number };
+	amount: number;
 }>;
 
-/** How a district body reads at each visible level. Neutral looks draw with graphite on a pale
- * veil; `shade` is the strength of the ground shadow. */
-export const bodyLooks = {
-	full: { fill: 1, outline: 0.62, width: 0.9, storeys: 0.3, hidden: 0, hatch: 0, shade: 1 },
-	silhouette: {
-		surface: 'veil',
-		fill: 1,
-		outline: 0.5,
-		width: 0.7,
-		storeys: 0,
-		hidden: 0,
-		hatch: 0,
-		shade: 0.9
-	},
-	transparent: {
-		surface: 'veil',
-		fill: 0.62,
-		outline: 0.42,
-		width: 0.6,
-		storeys: 0,
-		hidden: 0.14,
-		hatch: 0,
-		shade: 0.62
-	},
-	pencil: {
-		surface: 'pencil',
-		fill: 0.74,
-		outline: 0.8,
-		width: 0.85,
-		storeys: 0.34,
-		hidden: 0.2,
-		hatch: 1,
-		shade: 0.78
-	}
-} as const satisfies Record<Exclude<DisplayLevel, 'hidden'>, Look>;
+const overlaySubsystems = new Map<string, Subsystem>(
+	Object.entries(planOverlayIds).map(([slot, id]) => [id, slot as Subsystem])
+);
 
-/** Member weights by rank: chords and uprights carry, diagonals and hubs are secondary. Hidden
- * members keep a share of their opacity and the farthest lose `recede` of it. */
-export const memberLooks = {
-	lattice: { opacity: 1, width: 1.15, hidden: 0.5, recede: 0.4 },
-	uprights: { opacity: 0.92, width: 1, hidden: 0.5, recede: 0.4 },
-	detail: { opacity: 0.6, width: 0.7, hidden: 0.4, recede: 0.45 }
-} as const;
-
-/** A visible lattice raises the envelope outline to this weight: the stepped silhouette is the
- * strongest line of the drawing. */
-const silhouetteOverLattice = { opacity: 0.8, width: 1.35 } as const;
-/** Fill of an out-of-focus envelope around a visible lattice. Hidden members are drawn after the
- * veil, so a denser veil calms the ground below without hiding the structure. */
-const veilOverLattice = 0.8;
-/** Share of a visible member's opacity at any level below full. */
-const quietMembers = 0.45;
-
-function terrainSubsystem(part: Drawable) {
-	return part.flat === true && part.finish !== 'line' ? 'water' : 'terrain';
+function groundSubsystem(part: Drawable): Subsystem {
+	return (
+		overlaySubsystems.get(part.id) ??
+		(part.flat === true && part.finish !== 'line' ? 'water' : 'terrain')
+	);
 }
 
 function bodyLevel(focus: FocusChoice, { kind, drawn }: CityDrawable): DisplayLevel {
@@ -91,8 +67,128 @@ function bodyLevel(focus: FocusChoice, { kind, drawn }: CityDrawable): DisplayLe
 	return level === 'transparent' && drawn ? 'pencil' : level;
 }
 
-/** Styles terrain, district bodies and lattice members by the focus choice at the viewport
- * scale. Every level reuses the same geometry, so switching focus rebuilds nothing. */
+/** The stroke weight of a body's own role at its level: walls on the body and box, roof edges,
+ * storey lines and cell joints on their siblings. */
+function roleStroke(look: BodyLook, role: CityDrawable['role']): Stroke {
+	if (role === 'roof' || role === 'block-roof') return look.roof;
+	if (role === 'storeys' || role === 'block-storeys') return look.storeys;
+	if (role === 'joints') return look.joints;
+	return look.walls;
+}
+
+/** Plan overlays keep their registered line in full, thin to a trace when transparent and drop
+ * out when hidden. */
+function styleGround(part: Drawable, level: DisplayLevel, { vertical, detail }: Frame): Drawable {
+	const trace = level !== 'full' && part.stroke !== undefined;
+	return {
+		...part,
+		visible: level !== 'hidden',
+		vertical,
+		heightScale: detail.factor,
+		...(trace && part.stroke
+			? {
+					stroke: {
+						...part.stroke,
+						opacity: part.stroke.opacity * planTraceShare,
+						width: part.stroke.width * planTraceWidthShare
+					}
+				}
+			: {})
+	};
+}
+
+function styleShade(part: CityDrawable, level: DisplayLevel, open: boolean, frame: Frame) {
+	const look = bodyLooks[level as Exclude<DisplayLevel, 'hidden'>];
+	const boxes = level !== 'full' && !open;
+	return {
+		...part,
+		visible: part.boxShade === boxes,
+		vertical: frame.vertical,
+		// Envelope shade fades with the veil it falls from.
+		fillAlpha:
+			look.shade *
+			(part.role === 'contact' ? 1 : castShadeShare) *
+			(part.boxShade || !(level === 'full' && open) ? 1 : frame.detail.envelope),
+		warp: part.warp && { ...part.warp, amount: frame.detail.factor - 1 }
+	};
+}
+
+function styleBody(
+	part: CityDrawable,
+	level: Exclude<DisplayLevel, 'hidden'>,
+	open: boolean,
+	analysis: string | undefined,
+	{ detail, vertical, amount }: Frame
+): CityDrawable {
+	const look: BodyLook = bodyLooks[level];
+	// Stock out of focus is drawn as plain boxes, unless a visible lattice needs its envelope.
+	const boxes = level !== 'full' && !open;
+	const block = part.role.startsWith('block');
+	if (block !== boxes) return { ...part, visible: false };
+	const ramp = level === 'full' && analysis === 'height';
+	const veiled = level === 'full' && open;
+	const weight = roleStroke(look, part.role);
+	// Over a visible lattice only the stepped silhouette and roof edges stay; storeys and joints go.
+	const silhouette = open && (part.role === 'body' || part.role === 'roof');
+	const opacity = open
+		? silhouette
+			? Math.max(weight.opacity, silhouetteOverLattice.opacity)
+			: 0
+		: weight.opacity;
+	// Neutral edges thin out where member detail fades, so far stock stays a quiet mass.
+	const far = level === 'full' ? 1 : farStockEdgeShare + (1 - farStockEdgeShare) * detail.rims;
+	const neutral = look.surface && stockSurfaces[look.surface];
+	const { line, ...rampSurface } = heightRamp(part.levels * levelHeight);
+	return {
+		...part,
+		...(neutral ? { color: neutral.color } : {}),
+		...(ramp ? rampSurface : {}),
+		faces: look.faces,
+		fillAlpha:
+			veiled && !ramp
+				? focusVeilNearLattice + (1 - focusVeilNearLattice) * detail.envelope
+				: open
+					? veilOverLattice
+					: look.fill,
+		occlude: true,
+		hatch: look.hatch,
+		vertical,
+		warp: part.warp && { ...part.warp, amount },
+		stroke: part.stroke && {
+			...part.stroke,
+			color: ramp ? line : (neutral?.stroke ?? part.stroke.color),
+			opacity: opacity * far,
+			width: silhouette ? Math.max(weight.width, silhouetteOverLattice.width) : weight.width,
+			hidden: look.hidden,
+			recede: look.recede
+		}
+	};
+}
+
+function styleMember(part: Drawable, level: DisplayLevel, { detail, vertical, amount }: Frame) {
+	if (level === 'hidden') return { ...part, visible: false };
+	const rank = part.id === 'lattice' ? 'lattice' : part.id === 'uprights' ? 'uprights' : 'detail';
+	const fade = rank === 'lattice' ? detail.rims : detail[rank];
+	const look = memberLooks[rank];
+	const quiet = level === 'full' ? 1 : quietMembers;
+	return {
+		...part,
+		vertical,
+		fillAlpha: detail.detail * quiet,
+		warp: part.warp && { ...part.warp, amount },
+		stroke: part.stroke && {
+			...part.stroke,
+			opacity: look.opacity * fade * quiet,
+			width: look.width * (fadedMemberWidth + (1 - fadedMemberWidth) * fade),
+			hidden: look.hidden,
+			recede: look.recede
+		}
+	};
+}
+
+/** Styles terrain, plan overlays, district bodies and lattice members by the focus choice at the
+ * viewport scale. Every level reuses the same geometry, so switching focus rebuilds nothing, and
+ * an unchanged viewport returns the same list without allocating. */
 export function cityPresentation({
 	terrain,
 	envelope,
@@ -107,96 +203,30 @@ export function cityPresentation({
 	const analysis = readFocusChoice(focus).analysis;
 	const latticeLevel = readFocusLevel(focus, 'lattice');
 	const open = members.length > 0 && latticeLevel !== 'hidden';
-	return ({ width, metersPerPixel }) => {
+	const groundLevels = terrain.map((part) => readFocusLevel(focus, groundSubsystem(part)));
+	const bodyLevels = envelope.map((part) => bodyLevel(focus, part));
+	let last: { width: number; metersPerPixel: number; drawables: readonly Drawable[] } | undefined;
+	return ({ width, metersPerPixel }: Viewport) => {
+		if (last?.width === width && last.metersPerPixel === metersPerPixel) return last.drawables;
 		const elevation = cityElevation(relief, width);
 		const detail = cityProfile(width, metersPerPixel, peak, elevation, trueScale, maxProfileScale);
-		const vertical = { pivot: 0, scale: detail.factor };
-		const amount = taper * detail.taper;
-		return [
-			...terrain.map((part) => ({
-				...part,
-				visible: readFocusLevel(focus, terrainSubsystem(part)) !== 'hidden',
-				vertical,
-				heightScale: detail.factor
-			})),
-			...envelope.map((part) => {
-				const level = bodyLevel(focus, part);
+		const frame: Frame = {
+			detail,
+			vertical: { pivot: 0, scale: detail.factor },
+			amount: taper * detail.taper
+		};
+		const drawables = [
+			...terrain.map((part, index) => styleGround(part, groundLevels[index], frame)),
+			...envelope.map((part, index) => {
+				const level = bodyLevels[index];
 				if (level === 'hidden') return { ...part, visible: false };
-				const look: Look = bodyLooks[level];
-				// Stock out of focus is drawn as plain boxes, unless a visible lattice needs its envelope.
-				const boxes = level !== 'full' && !open;
 				if (part.role === 'contact' || part.role === 'cast')
-					return {
-						...part,
-						visible: part.boxShade === boxes,
-						vertical,
-						// Envelope shade fades with the veil it falls from.
-						fillAlpha:
-							look.shade *
-							(part.role === 'contact' ? 1 : 0.5) *
-							(part.boxShade || !(level === 'full' && open) ? 1 : detail.envelope),
-						warp: part.warp && { ...part.warp, amount: detail.factor - 1 }
-					};
-				const block = part.role === 'block' || part.role === 'block-storeys';
-				if (block !== boxes) return { ...part, visible: false };
-				const ramp = level === 'full' && analysis === 'height';
-				const veiled = level === 'full' && open;
-				const outline =
-					part.role === 'storeys'
-						? look.storeys * Number(!open)
-						: part.role === 'block-storeys'
-							? look.storeys
-							: look.outline;
-				// Neutral outlines thin out where member detail fades, so far stock stays a quiet mass.
-				const far = level === 'full' ? 1 : 0.45 + 0.55 * detail.rims;
-				const neutral = look.surface && stockSurfaces[look.surface];
-				const { line, ...rampSurface } = heightRamp(part.levels * levelHeight);
-				return {
-					...part,
-					...(neutral ? { color: neutral.color } : {}),
-					...(ramp ? rampSurface : {}),
-					fillAlpha:
-						veiled && !ramp ? 0.035 + 0.965 * detail.envelope : open ? veilOverLattice : look.fill,
-					occlude: true,
-					hatch: look.hatch,
-					vertical,
-					warp: part.warp && { ...part.warp, amount },
-					stroke: part.stroke && {
-						...part.stroke,
-						color: ramp ? line : (neutral?.stroke ?? part.stroke.color),
-						opacity: open
-							? Math.max(outline, part.role === 'body' ? silhouetteOverLattice.opacity : 0)
-							: outline * far,
-						width:
-							open && part.role === 'body'
-								? Math.max(look.width, silhouetteOverLattice.width)
-								: look.width,
-						hidden: look.hidden,
-						recede: 0.3
-					}
-				};
+					return styleShade(part, level, open, frame);
+				return styleBody(part, level, open, analysis, frame);
 			}),
-			...members.map((part) => {
-				if (latticeLevel === 'hidden') return { ...part, visible: false };
-				const rank =
-					part.id === 'lattice' ? 'lattice' : part.id === 'uprights' ? 'uprights' : 'detail';
-				const fade = rank === 'lattice' ? detail.rims : detail[rank];
-				const look = memberLooks[rank];
-				const quiet = latticeLevel === 'full' ? 1 : quietMembers;
-				return {
-					...part,
-					vertical,
-					fillAlpha: detail.detail * quiet,
-					warp: part.warp && { ...part.warp, amount },
-					stroke: part.stroke && {
-						...part.stroke,
-						opacity: look.opacity * fade * quiet,
-						width: look.width * (0.5 + 0.5 * fade),
-						hidden: look.hidden,
-						recede: look.recede
-					}
-				};
-			})
+			...members.map((part) => styleMember(part, latticeLevel, frame))
 		];
+		last = { width, metersPerPixel, drawables };
+		return drawables;
 	};
 }

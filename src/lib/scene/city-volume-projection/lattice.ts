@@ -1,9 +1,19 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { CityLattice, CityTaper } from '../../domain/city-volume';
+import { chordRiseMaxM, latticeJointRadiusM, uprightRunPerRise } from './constants';
 import { mesh } from './mesh';
 
-/** Joints and member wires of a lattice in local meters, by member rank, with the taper offset of
+/** The drawing rank of a member: a chord on one level (by its rank, its face or a level run) is a
+ * rim, a plumb member an upright, and any slant a model's own member (a diagonal, a twist or a
+ * branch), which tells the lattice models apart. */
+export function memberRank([ax, ay, az]: Vec3, [bx, by, bz]: Vec3, chord: boolean) {
+	const rise = Math.abs(bz - az);
+	if (chord || rise <= chordRiseMaxM) return 'rims';
+	return Math.hypot(bx - ax, by - ay) <= uprightRunPerRise * rise ? 'uprights' : 'detail';
+}
+
+/** Joints and member wires of a lattice in local meters, by drawing rank, with the taper offset of
  * every joint vertex and wire endpoint. */
 export function latticeMesh(
 	lattice: CityLattice,
@@ -27,25 +37,17 @@ export function latticeMesh(
 	const offsets = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
 	const key = (a: string, b: string) => JSON.stringify(a < b ? [a, b] : [b, a]);
 	const rim = new Set<string>();
-	const upright = new Set<string>();
 	for (const {
 		corners: [a, b, c, d]
 	} of lattice.faces) {
 		rim.add(key(a, b));
 		rim.add(key(c, d));
-		upright.add(key(b, c));
-		upright.add(key(d, a));
 	}
 	for (const { id, from, to, rank } of lattice.edges) {
-		// A ranked member reads as a rim when it lies in one plane and as an upright otherwise.
-		const group =
-			rank === 'chord' || rim.has(id)
-				? 'rims'
-				: rank === 'strut' || upright.has(id)
-					? 'uprights'
-					: 'detail';
 		const a = required(positions.get(from), 'lattice joint');
 		const b = required(positions.get(to), 'lattice joint');
+		const chord = rank === undefined ? rim.has(id) : rank === 'chord';
+		const group = memberRank(a.point, b.point, chord);
 		wires[group].push(...a.point, ...b.point);
 		offsets[group].push(...a.offset, ...b.offset);
 	}
@@ -54,7 +56,7 @@ export function latticeMesh(
 
 function addNode(nodes: ReturnType<typeof mesh>, [x, y, z]: Vec3) {
 	const index = nodes.positions.length / 3;
-	const radius = 0.92;
+	const radius = latticeJointRadiusM;
 	nodes.positions.push(x + radius, y, z, x, y + radius, z, x - radius, y, z, x, y - radius, z);
 	nodes.positions.push(x, y, z + radius, x, y, z - radius);
 	for (let i = 0; i < 4; i++) {

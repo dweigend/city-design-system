@@ -21,8 +21,11 @@
 		type SettlementKind
 	} from '../../lib/domain/city-volume';
 	import {
+		cityCameraBearingRad,
 		cityElevation,
 		cityFocus,
+		cityFrameFillFlat,
+		cityFrameFillPerRelief,
 		cityPresentation,
 		cityProfile,
 		projectCityDistricts,
@@ -116,7 +119,9 @@
 		compatible.includes(selectedLattice) ? selectedLattice : compatible[0]
 	);
 	let profile = $derived(choice('profile', ['auto', 'true']));
-	let focus = $derived<FocusChoice>(choice('focus', focusChoices));
+	let focus = $derived<FocusChoice | undefined>(
+		focusChoices.find((value) => value === page.url.searchParams.get('focus'))
+	);
 	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0 });
 	let step = $derived(stepFromQuery());
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
@@ -151,22 +156,37 @@
 	);
 	const city = $derived(createCitySite(undefined, { ...terrainSettings, seed }));
 	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
-	const terrain = $derived(
-		projectCityTerrain(city, plan.grid, step === '01' ? plan.plan : plan.grid)
-	);
+	// Every step stands on the whole plan, water cells included, so the plan and its crossings are
+	// one set of overlays that the focus draws at every step.
+	const terrain = $derived(projectCityTerrain(city, plan.grid, plan.plan));
 	const maxProfileScale = $derived(terrain.autoHeightScale);
-	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
 	const taperField = $derived(createCityTaper(columns, plan.datumZ));
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain, taperField));
-	const focusState = $derived(cityFocus(districts.shares, step === '03', focus));
+	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings));
+	const focusState = $derived(
+		cityFocus(
+			{
+				shares: step === '01' ? { detached: 0, block: 0, center: 0 } : districts.shares,
+				lattice: step === '03',
+				waterCells: planLines.some(({ id }) => id === 'water-plan'),
+				crossings: plan.selectedCrossings.length > 0
+			},
+			focus,
+			step === '01' ? 'plan' : 'all'
+		)
+	);
 	const relief = $derived(city.valley.parameters.relief);
 	const elevation = $derived(cityElevation(relief));
 	// Leave room for the Auto profile to raise the ground and roof steps together.
-	const camera = $derived({ bearing: (34 * Math.PI) / 180, elevation, fill: 0.92 - 0.2 * relief });
+	const camera = $derived({
+		bearing: cityCameraBearingRad,
+		elevation,
+		fill: cityFrameFillFlat - cityFrameFillPerRelief * relief
+	});
 	const subject = $derived(projectFocus(view, camera, envelope.points()));
 	const cityFit = $derived({
 		...camera,
@@ -175,9 +195,6 @@
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
-	const planLines = $derived(
-		step === '01' ? terrain.projectWetPlan(plan.selectedCrossings) : lines.traces
-	);
 	const ground = $derived([...terrain.drawables, ...planLines]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
 	const wires = $derived(step === '03' ? members.drawables : []);
@@ -193,19 +210,17 @@
 		).factor
 	);
 	const presentation = $derived(
-		step === '01'
-			? undefined
-			: cityPresentation({
-					terrain: ground,
-					envelope: tiles,
-					members: wires,
-					focus: focusState.active,
-					peak: districts.peakHeight,
-					relief,
-					trueScale: profile === 'true',
-					maxProfileScale,
-					taper
-				})
+		cityPresentation({
+			terrain: ground,
+			envelope: tiles,
+			members: wires,
+			focus: focusState.active,
+			peak: step === '01' ? 0 : districts.peakHeight,
+			relief,
+			trueScale: profile === 'true',
+			maxProfileScale,
+			taper
+		})
 	);
 
 	function setViewport(value: Viewport) {
@@ -266,7 +281,7 @@
 			{view}
 			display="normal"
 			label={step === '01'
-				? 'City plan with blue water cells and red crossings along grid edges'
+				? 'City plan with water cells and pink crossings along grid edges'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
@@ -282,16 +297,14 @@
 				items={views}
 				bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
 			/>
-			{#if step !== '01'}
-				<Select
-					label="Focus"
-					items={focusState.items}
-					bind:value={
-						() => focusState.active,
-						(value) => (focus = focusChoices.find((choice) => choice === value) ?? 'all')
-					}
-				/>
-			{/if}
+			<Select
+				label="Focus"
+				items={focusState.items}
+				bind:value={
+					() => focusState.active,
+					(value) => (focus = focusChoices.find((choice) => choice === value))
+				}
+			/>
 		</div>
 		{#if step !== '01'}
 			<div class="cluster">
@@ -347,8 +360,8 @@
 				<div class="stack">
 					{#if active === '01'}
 						<p>
-							The 60 m grid continues across water. Blue edges mark water cells and red lines follow
-							the selected crossings along grid edges.
+							The 60 m grid continues across water. Edges in the water hue mark water cells, and
+							pink lines follow the selected crossings along grid edges.
 						</p>
 					{:else if active === '02'}
 						<p>
