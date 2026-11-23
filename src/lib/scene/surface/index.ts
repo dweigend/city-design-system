@@ -59,17 +59,16 @@ export const landscape = Object.freeze({
 } satisfies SurfaceAssignment);
 
 const districtEnvelope = {
-	finish: 'glass',
-	flat: true,
-	opacity: '--alpha-glass',
+	finish: 'matte',
 	stroke: { color: '--blueprint', width: 0.9, opacity: 0.52 }
 } as const;
 
-/** Three lightness steps of blueprint for the detached belt, blocks and high-rise core. */
+/** Three lightness steps of blueprint, pale to deep, for detached houses, blocks and the
+ * high-rise center. The shaded, opaque fill keeps the kinds apart in plan and in height. */
 export const districtSurfaces = Object.freeze({
-	detached: { ...districtEnvelope, color: '--blueprint-2' },
-	block: { ...districtEnvelope, color: '--blueprint-3' },
-	center: { ...districtEnvelope, color: '--blueprint' }
+	detached: { ...districtEnvelope, color: '--blueprint-1' },
+	block: { ...districtEnvelope, color: '--blueprint-2' },
+	center: { ...districtEnvelope, color: '--blueprint-3' }
 } as const satisfies SurfaceAssignment);
 
 /** Fine pencil lines and small joints for the coarse carrier. */

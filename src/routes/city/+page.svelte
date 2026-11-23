@@ -1,12 +1,13 @@
 <script module lang="ts">
 	export const lead =
-		'Valley topography carries the plan grid. Districts set the city height profile, and a coarse lattice follows the plan up to it.';
+		'Valley topography carries the plan grid. The size of the settlement decides its districts and its skyline, and a coarse lattice follows the plan up to that height profile.';
 </script>
 
 <script lang="ts">
 	import { page } from '$app/state';
 	import { required } from '../../lib/core/invariant';
 	import { resolveParams } from '../../lib/core/params';
+	import { Random } from '../../lib/core/random';
 	import {
 		cityLatticesByPlan,
 		cityPlanVariants,
@@ -15,7 +16,8 @@
 		readCityColumns,
 		type CityPlanVariant,
 		type DistrictKind,
-		type LatticeVariant
+		type LatticeVariant,
+		type SettlementKind
 	} from '../../lib/domain/city-volume';
 	import { projectCityDistricts, projectCityLattice } from '../../lib/scene/city-volume-projection';
 	import type { Display, View } from '../../lib/scene/stage';
@@ -23,6 +25,7 @@
 	import { planningOverlay } from '../../lib/scene/surface';
 	import { terrainGridProjection } from '../../lib/scene/terrain-grid-projection';
 	import { projectValleyWindow } from '../../lib/scene/valley-projection';
+	import { Button } from '../../lib/ui/button';
 	import { Select } from '../../lib/ui/select';
 	import { Slider } from '../../lib/ui/slider';
 	import { Tabs } from '../../lib/ui/tabs';
@@ -40,7 +43,6 @@
 	const chapter = chapterAt('/city');
 	const city = createCitySite();
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
-	const planFit = { bearing: (10 * Math.PI) / 180, elevation: (28 * Math.PI) / 180, fill: 0.98 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
@@ -70,7 +72,12 @@
 		{ value: '02', label: 'Districts' },
 		{ value: '03', label: 'Lattice' }
 	];
-	const { citySize: sizeParam } = citySiteParams;
+	const { citySize: sizeParam, seed: seedParam } = citySiteParams;
+	const settlementLabels: Record<SettlementKind, string> = {
+		village: 'Village',
+		town: 'Town',
+		city: 'City'
+	};
 	const { height: heightParam, complexity: complexityParam } = cityVolumeParams;
 
 	function valueFromQuery(key: string) {
@@ -105,6 +112,9 @@
 		resolveParams(citySiteParams, { citySize: valueFromQuery('city') ?? sizeParam.default })
 			.citySize
 	);
+	let seed = $derived(
+		resolveParams(citySiteParams, { seed: valueFromQuery('seed') ?? seedParam.default }).seed
+	);
 	const volumeInputs = $derived(
 		resolveParams(cityVolumeParams, {
 			height: valueFromQuery('height') ?? heightParam.default,
@@ -115,20 +125,20 @@
 	let complexity = $derived(volumeInputs.complexity);
 
 	const terrain = $derived(prepareTerrain(citySize));
-	const plan = $derived(readCityGrid(city, citySize, gridVariant));
+	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
 	const lines = $derived(terrain.projectPlan(plan.grid));
-	const initial = $derived(readCityGrid(city, sizeParam.min, gridVariant));
-	const districts = $derived(readCityDistricts(city, initial.grid, { height, complexity }));
+	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
 	const envelope = $derived(projectCityDistricts(columns, city.datumZ, terrain));
 	const lattice = $derived(createCityLattice(columns, city.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain));
 	const volumeFit = $derived({
 		bearing: (-24 * Math.PI) / 180,
-		elevation: (23 * Math.PI) / 180,
-		fill: 0.78,
+		elevation: (26 * Math.PI) / 180,
+		fill: 0.92,
 		focus: envelope.focus
 	});
+	const planFit = $derived({ ...volumeFit, bearing: (10 * Math.PI) / 180 });
 	const drawables = $derived([
 		...terrain.drawables,
 		...(step === '01' ? lines.drawables : lines.traces),
@@ -141,32 +151,42 @@
 	]);
 
 	const measurements = $derived([
+		{
+			label: settlementLabels[districts.settlement],
+			value: format.format(plan.areaKm2),
+			unit: 'km²'
+		},
 		{ label: 'Plan cells', value: format.format(plan.grid.cells.length), unit: '' },
-		{ label: 'City area', value: format.format(plan.areaHectares), unit: 'ha' },
 		...(step === '01'
 			? []
 			: [
 					...districtMeasurements(columns),
-					{ label: 'Peak height', value: format.format(districts.peakHeight), unit: 'm' }
+					{ label: 'Peak', value: format.format(districts.peakHeight), unit: 'm' }
 				])
 	]);
 
+	const kindLabels: Record<DistrictKind, string> = {
+		detached: 'Detached',
+		block: 'Blocks',
+		center: 'Center'
+	};
+
 	function districtMeasurements(cells: typeof columns) {
-		const groups: Record<DistrictKind, Set<string>> = {
-			detached: new Set(),
-			block: new Set(),
-			center: new Set()
-		};
-		let peak = 0;
-		for (const { districtId, kind, levels } of cells) {
-			groups[kind].add(districtId);
-			peak = Math.max(peak, levels * 2);
-		}
-		return [
-			{ label: 'Detached', value: `${groups.detached.size} × 2 storeys`, unit: '' },
-			{ label: 'Blocks', value: `${groups.block.size} × 6 storeys`, unit: '' },
-			{ label: 'Centers', value: `${groups.center.size} · up to ${peak} storeys`, unit: '' }
-		];
+		const storeys: Record<DistrictKind, number[]> = { detached: [], block: [], center: [] };
+		for (const { kind, levels } of cells) storeys[kind].push(levels * 2);
+		return (Object.keys(storeys) as DistrictKind[])
+			.filter((kind) => storeys[kind].length)
+			.map((kind) => {
+				const low = Math.min(...storeys[kind]);
+				const high = Math.max(...storeys[kind]);
+				const range = low === high ? `${low}` : `${low}–${high}`;
+				const share = Math.round(100 * districts.shares[kind]);
+				return { label: kindLabels[kind], value: `${range} storeys · ${share} %`, unit: '' };
+			});
+	}
+
+	function drawSeed() {
+		seed = Math.floor(Random.create({ seed }).derive('new-city').number() * 2 ** 32);
 	}
 
 	function prepareTerrain(length: number) {
@@ -258,12 +278,18 @@
 			{#snippet panel(active)}
 				<div class="stack">
 					{#if active === '01'}
-						<p>The plan grid follows the dry valley terrace.</p>
+						<p>
+							The plan grid covers the upper terrace in 60 m cells, within one storey of the datum.
+						</p>
 					{:else if active === '02'}
-						<p>Two-storey edges and six-storey blocks surround a high-rise core.</p>
+						<p>
+							A village keeps two storeys. A town adds six-storey blocks. Only a city of several
+							square kilometres grows a center, falling in steps from its peak to the block eaves.
+						</p>
 					{:else}
-						<p>The coarse lattice uses shared levels. Plots and finer grids follow.</p>
+						<p>The coarse lattice rises on shared 7 m levels. Plots and finer grids follow.</p>
 					{/if}
+					<Button label="New city" onclick={drawSeed} />
 					<Slider
 						label={sizeParam.label}
 						min={sizeParam.min}

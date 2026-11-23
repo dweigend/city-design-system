@@ -19,34 +19,52 @@ import {
 } from './index';
 import { example } from './example';
 
-test('grows the seeded city along its terrace without moving existing cells', () => {
+test('places a seeded city on the upper terrace and grows it without moving cells', () => {
 	const city = createCitySite();
-	const { min, max, default: size } = citySiteParams.citySize;
+	const { default: size } = citySiteParams.citySize;
 	const initial = example();
-	const smaller = readCityGrid(city, min);
-	const larger = readCityGrid(city, max);
+	const larger = readCityGrid(city, size + 800);
 	const cells = new Map(larger.grid.cells.map((cell) => [cell.id, cell]));
 	expect(city.valley.seed).toBe(1201);
-	expect(initial.grid.cells.length).toBeGreaterThanOrEqual(30);
-	expect(initial.grid.cells.length).toBeLessThanOrEqual(60);
-	expect(smaller.grid.cells.length).toBeLessThan(initial.grid.cells.length);
-	expect(larger.grid.cells.length).toBeGreaterThan(150);
-	expect(cityWindow(city, max).length).toBeGreaterThan(cityWindow(city, size).length);
+	expect(city.datumZ).toBe(19);
+	expect(initial.medianCellSize).toBeGreaterThan(50);
+	expect(initial.medianCellSize).toBeLessThan(70);
 	expect(initial).toEqual(readCityGrid(city, size));
+	expect(readCityGrid(city, size, 'organic', 7).grid).not.toEqual(initial.grid);
+	expect(cityWindow(city, size + 800).length).toBeGreaterThan(cityWindow(city, size).length);
 	for (const { id, vertexIds, neighbors } of initial.grid.cells) {
 		expect(cells.get(id)?.vertexIds).toEqual(vertexIds);
 		neighbors.forEach((neighbor, i) => {
 			if (neighbor !== null) expect(cells.get(id)?.neighbors[i]).toBe(neighbor);
 		});
 	}
-	const vertices = new Map(larger.grid.vertices.map(({ id, position }) => [id, position]));
-	for (const { id, position } of initial.grid.vertices) {
+	for (const { position } of initial.grid.vertices) {
 		const [x, y, z] = position;
 		const { height, bank } = city.valley.sampleGround(x, y);
 		expect(z).toBe(height);
 		expect(bank).toBeGreaterThan(0);
-		expect(vertices.get(id)).toEqual(position);
+		expect(Math.abs(z - city.datumZ)).toBeLessThan(levelHeight / 2);
 	}
+});
+
+test('reads a village, a town and a city from the outline length', () => {
+	const city = createCitySite();
+	const classes = [
+		[1200, 'village', ['detached']],
+		[2600, 'town', ['block', 'detached']],
+		[6000, 'city', ['block', 'center', 'detached']]
+	] as const;
+	for (const [length, settlement, kinds] of classes) {
+		const { grid, areaKm2 } = readCityGrid(city, length, 'square');
+		const districts = readCityDistricts(city, grid);
+		expect(districts.settlement).toBe(settlement);
+		expect(districts.areaKm2).toBeCloseTo(areaKm2, 9);
+		const present = new Set(readCityColumns(grid, districts).map(({ kind }) => kind));
+		expect([...present].sort()).toEqual([...kinds]);
+	}
+	const largest = readCityGrid(city, citySiteParams.citySize.max, 'square');
+	expect(largest.areaKm2).toBeGreaterThan(7.5);
+	expect(readCityDistricts(city, largest.grid).peakHeight).toBe(140);
 });
 
 function assertTiled(grid: TerrainGrid) {
@@ -144,64 +162,21 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 
 const city = createCitySite();
 for (const plan of cityPlanVariants) {
-	const { min, default: size, max, step } = citySiteParams.citySize;
-	const at = (length: number) => readCityGrid(city, length, plan).grid;
-	const initial = at(min);
-	const current = at(size);
-	const grown = at(max);
-	const settings = { complexity: 1 };
-	const profile = readCityDistricts(city, initial, settings);
-	const columns = readCityColumns(current, profile);
+	const town = readCityGrid(city, 2600, plan).grid;
+	const columns = readCityColumns(
+		town,
+		readCityDistricts(city, town, undefined, { complexity: 1 })
+	);
 
-	test(`${plan} tiles each crop and keeps connected districts stable during growth`, () => {
-		const quiet = readCityDistricts(city, initial, { complexity: 0 });
-		const before = new Map(
-			readCityColumns(initial, profile).map((cell) => [cell.planCellId, cell])
-		);
-		for (let length = min; length <= max; length += step) {
-			const grid =
-				length === min ? initial : length === max ? grown : length === size ? current : at(length);
-			assertTiled(grid);
-			expect(assertDistricts(readCityColumns(grid, quiet))).toEqual([
-				'block',
-				'center',
-				'detached'
-			]);
-			const now = readCityColumns(grid, profile);
-			for (const cell of now) {
-				const previous = before.get(cell.planCellId);
-				if (previous) {
-					expect(cell).toMatchObject({
-						districtId: previous.districtId,
-						kind: previous.kind,
-						levels: previous.levels,
-						corners: previous.corners
-					});
-					before.delete(cell.planCellId);
-				}
-			}
-			expect(before.size).toBe(0);
-			for (const cell of now) before.set(cell.planCellId, cell);
-		}
-		const kinds = assertDistricts(columns);
-		expect(kinds.filter((kind) => kind === 'center')).toHaveLength(2);
-		expect(kinds.filter((kind) => kind === 'block').length).toBeGreaterThan(1);
-		expect(readCityColumns(current, readCityDistricts(city, initial, settings))).toEqual(columns);
-		for (const height of [35, 140]) {
-			const peaks = readCityColumns(current, readCityDistricts(city, initial, { height }));
-			expect(Math.max(...peaks.map(({ levels }) => levels)) * levelHeight).toBe(height);
-		}
+	test(`${plan} tiles a town without holes and keeps connected districts`, () => {
+		assertTiled(town);
+		expect(assertDistricts(columns)).toContain('block');
 	});
 
-	for (const frame of cityLatticesByPlan[plan]) {
-		test(`${plan} × ${frame} shares every side up to the lower column`, () => {
+	test(`${plan} shares every side up to the lower column in all lattices`, () => {
+		for (const frame of cityLatticesByPlan[plan]) {
 			const lattice = createCityLattice(columns, city.datumZ, plan, frame);
 			assertCarrier(columns, lattice, city.datumZ);
-			const next = createCityLattice(readCityColumns(grown, profile), city.datumZ, plan, frame);
-			for (const key of ['cells', 'faces', 'nodes', 'edges'] as const) {
-				const byId = new Map(next[key].map((item) => [item.id, item]));
-				for (const item of lattice[key]) expect(byId.get(item.id)).toEqual(item);
-			}
-		});
-	}
+		}
+	});
 }

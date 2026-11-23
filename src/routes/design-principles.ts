@@ -143,6 +143,15 @@ const city: DesignPrinciple[] = [
 		reason:
 			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history.',
 		decided: '2026-11-21'
+	},
+	{
+		id: 'CITY-12',
+		page: 'city',
+		title: 'Size sets the skyline',
+		rule: 'A settlement takes its districts from its built-up area: a village below 1 km² has only two-storey houses, a town adds six-storey blocks, and only a city of several square kilometres grows a high-rise center whose peak rises with its size and falls off in steps.',
+		reason:
+			'A village with towers reads false at first glance. The center is a district of real area with podium, middle heights and few peaks; neighboring columns differ by at most six storeys, so the height profile reads as a hill, not a chimney.',
+		decided: '2026-11-23'
 	}
 ];
 
