@@ -170,7 +170,7 @@ const city: DesignPrinciple[] = [
 		title: 'Taper only from afar',
 		rule: 'The city envelope retreats above its lower neighbours or overhangs them as one continuous deformation that appears only where zooming out hides member detail and is zero at quarter zoom.',
 		reason:
-			'Up close the lattice shows true, upright columns; from afar, where members can no longer be read anyway, the taper gives the skyline its gesture. Each corner moves up to 5 m per level above its lowest neighbour, capped so no column folds over. One signed Taper value runs from 1 (retreat) through 0 to −1 (overhang) and applies to every lattice model.',
+			'Up close the lattice shows true, upright columns; from afar, where members can no longer be read anyway, the taper gives the skyline its gesture. It waits for both the fading of members and a frame wider than the quarter, so a narrow screen never shows it at quarter zoom. Each corner moves up to 5 m per level above its lowest neighbour, capped so no column folds over. One signed Taper value runs from 1 (retreat) through 0 to −1 (overhang) and applies to every lattice model.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Zoom out with Taper' }
 	}
@@ -439,8 +439,8 @@ const color: DesignPrinciple[] = [
 		title: 'Pink is for paths',
 		rule: 'Pink belongs to paths and people: walkways, stairs and bridges carry it, houses never do.',
 		reason:
-			'Paths stay opaque pink in every view. The accent of living maps to the lavender of living instead.',
-		decided: '2026-11-13'
+			'Paths stay opaque pink in every view. The accent of living maps to the lavender of living instead. The selected river crossings of a city plan are drawn in this path pink along their grid edges.',
+		decided: '2026-11-23'
 	},
 	{
 		id: 'COLOR-4',
@@ -457,7 +457,7 @@ const color: DesignPrinciple[] = [
 		title: 'Stock as a mix of volume and drawing',
 		rule: 'Existing stock carries no use color and mixes two drawings: most bodies are plain light see-through volumes, about one in six a pencil drawing, while only the new and the focused flow carry color.',
 		reason:
-			'The mix reduces detail and still keeps the city lively. Which body is drawn is a seeded draw per plot, so it never changes with the focus or the zoom. A muted phase tint and a pencil line read almost alike, so a building may show either; its construction phase (FORM-10) stays legible through form and drawn detail, not through color.',
+			'The mix reduces detail and still keeps the city lively. Which body is drawn is a seeded draw per plot, so it never changes with the focus or the zoom. Every stock body has crisp hairline graphite edges, the roof ring strongest, wall corners and the ground line lighter, and edges behind a body faint but present; its roof is nearly white and its walls show a lit and a shaded value, and what stands behind stays visible through it, subdued. A muted phase tint and a pencil line read almost alike, so a building may show either; its construction phase (FORM-10) stays legible through form and drawn detail, not through color.',
 		decided: '2026-11-23'
 	},
 	{
@@ -466,7 +466,7 @@ const color: DesignPrinciple[] = [
 		title: 'One focus for everything',
 		rule: 'Every subsystem offers the same display levels (full, silhouette, transparent, pencil, hidden), so one focus view switches the whole city.',
 		reason:
-			'Focus is a design requirement: the system strips detail so that the player sees one thing. The city need not be drawn completely: out of focus a house may be simplified, greyed out or shown only as a box. One focus choice sets the level of every subsystem from one table; switching it rebuilds no geometry, and a new subsystem joins as a row of that table.',
+			'Focus is a design requirement: the system strips detail so that the player sees one thing. The city need not be drawn completely: out of focus a house may be simplified, greyed out or shown only as a box. One focus choice sets the level of every subsystem from one table; switching it rebuilds no geometry, and a new subsystem joins as a row of that table. The plan grid, its water cells and the selected crossings are rows too, so the Plan step is the Plan focus and no second mechanism. Choices are named for what they show today: the district kinds are districts until houses join as their own row. Full shows more than the stock: the subject keeps its saturated colour well apart from the pale water, with light roofs, dark hairline edges, level lines and cell joints.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Focus selector' }
 	},

@@ -290,7 +290,7 @@ export function createContent(
 			return toBounds(visible);
 		},
 		/** The displayed terrain point on a view ray through `point`, if any. */
-		hit(point: Vec3, direction: Vec3) {
+		hit: (point: Vec3, direction: Vec3) => {
 			const ground = parts.filter(
 				({ drawable: d, mesh }) => d.finish === 'terrain' && mesh.visible
 			);

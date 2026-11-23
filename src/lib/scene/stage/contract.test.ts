@@ -11,7 +11,14 @@ import {
 	type View,
 	type ViewFit
 } from './index';
-import { anchoredPan, cameraFrame, fitCamera, groundAt, readView } from './camera';
+import {
+	anchoredPan,
+	cameraFrame,
+	fitCamera,
+	groundAt,
+	readView,
+	type CameraFrame
+} from './camera';
 import { createContent, hasSameGeometry, rayHit, warpPart } from './content';
 import { strokeMaterials } from './edges';
 import { drawingPalette } from './tone';
@@ -308,7 +315,7 @@ test('keeps a terrain point above the frame plane under the cursor through a til
 		...planeOf(value),
 		hit: (point: Vec3, direction: Vec3) => rayHit([raised], point, direction)
 	});
-	const drift = (frames: typeof frameOf) => {
+	const drift = (frames: (value: Parameters<typeof frameOf>[0]) => CameraFrame) => {
 		const target = Object.assign(new EventTarget(), {
 			getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 800 })
 		});
@@ -343,15 +350,16 @@ test('keeps a terrain point above the frame plane under the cursor through a til
 
 test('moves warped fills with their normals and bounds', () => {
 	const { content } = contentOf();
+	const warp = { fill: [0, 0, 0, 0, 1, 0], amount: 0 };
 	const wall: Drawable = {
 		id: 'wall',
 		color: '--paper',
 		finish: 'matte',
 		shape: { kind: 'mesh', positions: [0, 0, 0, 0, 1, 0, 0, 0, 1], indices: [0, 1, 2] },
-		warp: { fill: [0, 0, 0, 0, 1, 0], amount: 0 }
+		warp
 	};
 	content.show([wall]);
-	content.style([{ ...wall, warp: { ...wall.warp!, amount: 1 } }]);
+	content.style([{ ...wall, warp: { ...warp, amount: 1 } }]);
 	const [part] = content.parts;
 	warpPart(part);
 	const geometry = part.mesh.geometry;
