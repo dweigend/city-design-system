@@ -12,8 +12,8 @@ export function groundMetrics(city: CitySite, columns: readonly CityColumn[]) {
 	let excessiveCellRises = 0;
 	let maxFoundationErrorM = 0;
 	function probe(x: number, y: number) {
-		const reading = city.valley.readGround(x, y);
-		wetProbes += +(reading.waterKind !== null);
+		const reading = city.sampleGround(x, y);
+		wetProbes += +!reading.dry;
 		return reading.height;
 	}
 	for (const { corners } of columns) {

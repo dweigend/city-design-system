@@ -144,6 +144,7 @@ export function growthMetrics(before: readonly CityColumn[], after: readonly Cit
 		growthMoved: moved,
 		growthDemoted: demoted,
 		growthLowered: lowered,
-		growthKept: kept / before.length
+		growthKept: kept / before.length,
+		growthAdded: after.length - before.length
 	};
 }

@@ -181,7 +181,9 @@
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
-	const planLines = $derived(step === '01' ? terrain.projectWetPlan(plan.crossings) : lines.traces);
+	const planLines = $derived(
+		step === '01' ? terrain.projectWetPlan(plan.selectedCrossings) : lines.traces
+	);
 	const ground = $derived([...terrain.drawables, ...planLines]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
 	const wires = $derived(step === '03' ? members.drawables : []);
@@ -270,7 +272,7 @@
 			{view}
 			{display}
 			label={step === '01'
-				? 'City plan with blue water cells and red candidate crossings'
+				? 'City plan with blue water cells and red crossings along grid edges'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
@@ -351,8 +353,8 @@
 				<div class="stack">
 					{#if active === '01'}
 						<p>
-							The 60 m grid continues across water. Blue edges mark water cells and red lines mark
-							candidate crossings.
+							The 60 m grid continues across water. Blue edges mark water cells and red lines follow
+							the selected crossings along grid edges.
 						</p>
 					{:else if active === '02'}
 						<p>

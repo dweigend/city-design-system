@@ -8,6 +8,7 @@ import { Valley, type ValleySettings } from '../../domain/valley';
 import { preparePlanSelection } from './plan-selection';
 import { prepareCarrier } from './carrier';
 import type { CityTerrainSampler } from './sampling';
+import type { CityCrossing } from './crossings';
 
 /** Maximum sampled height range, in meters, in a buildable city cell. */
 export { maximumCellRiseM } from './carrier';
@@ -55,7 +56,8 @@ export function createCitySite(
 		valley,
 		origin,
 		frame: Object.freeze({ bearing }),
-		sampleGround
+		sampleGround,
+		customGround: terrain !== undefined
 	});
 }
 
@@ -90,6 +92,7 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 			origin,
 			sampleGround,
 			bearing,
+			bankSide: city.customGround ? undefined : (point) => readCitySide(city, point),
 			center: [origin[0] + station * Math.cos(bearing), origin[1] + station * Math.sin(bearing)]
 		},
 		coarseCellSize,
@@ -184,7 +187,8 @@ export function cityWindow(city: CitySite, grid: Grid) {
  * the common 7 m planes at or below the lowest candidate ground. It stays fixed as a city grows.
  * The grid holds setback-clipped buildable cells, the plan holds the uncut cells including
  * water inside and along the edge of the footprint. Crossings list channel candidates
- * with both heads in the built footprint. */
+ * with both heads in the built footprint. The default selection takes up to one candidate
+ * plus one per started 1.25 km² of built area, in candidate order. */
 export function readCityGrid(
 	city: CitySite,
 	citySize: number,
@@ -204,9 +208,25 @@ export function readCityGrid(
 	const ids = selected.map(({ id }) => id);
 	const grid = TerrainGrid.select(candidates, ids);
 	const built = new Set(ids);
-	const activeCrossings = crossings.filter(({ headIds }) => headIds.every((id) => built.has(id)));
+	const activeCrossings: CityCrossing[] = [];
 	const planIds = planSelection(grid);
-	for (const { waterCellIds } of activeCrossings) {
+	for (const {
+		path,
+		heads: [first, second],
+		waterCellIds
+	} of crossings) {
+		const from = first.cellIds.filter((id) => built.has(id));
+		const to = second.cellIds.filter((id) => built.has(id));
+		if (!from.length || !to.length) continue;
+		activeCrossings.push(
+			Object.freeze({
+				path,
+				heads: Object.freeze([
+					Object.freeze({ nodeId: first.nodeId, cellIds: Object.freeze(from) }),
+					Object.freeze({ nodeId: second.nodeId, cellIds: Object.freeze(to) })
+				] as const)
+			})
+		);
 		for (const id of waterCellIds) planIds.add(id);
 	}
 	const needsFringe = new Set(
@@ -233,6 +253,7 @@ export function readCityGrid(
 		grid,
 		plan: TerrainGrid.select(plan, [...planIds]),
 		crossings: Object.freeze(activeCrossings),
+		selectedCrossings: Object.freeze(activeCrossings.slice(0, 1 + Math.ceil(areaKm2 / 1.25))),
 		datumZ,
 		areaKm2,
 		medianCellSize: areas.length

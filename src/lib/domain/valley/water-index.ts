@@ -1,6 +1,7 @@
 import type { Vec2 } from '../../core/geometry';
 import type { DrainageLake } from './lake-geometry';
 import type { Reach, ReachStation } from './reaches';
+import { channelSegments, halfWidth } from './channel-outline';
 
 const size = 160;
 export const bankLimit = 160;
@@ -90,26 +91,22 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 	const shores = spatial<Shore>();
 	const outlines = new Map<DrainageLake, Shore[]>();
 	const sillReaches = new Set(lakes.map(({ downstream }) => downstream));
-	for (const { id, stations, trunk } of reaches) {
-		for (let i = 1; i < stations.length; i++) {
-			const [start, end] = [stations[i - 1], stations[i]];
-			const line = edge(start.xy, end.xy);
-			const maximumRadius = Math.max(start.width, end.width) / 2;
-			if (!Number.isFinite(line.inverse)) continue;
-			channels.add(
-				{
-					...line,
-					maximumRadius,
-					start,
-					end,
-					kind: trunk ? 'river' : 'tributary',
-					sill: i === 1 && sillReaches.has(id)
-				},
-				start.xy,
-				end.xy,
-				bankLimit + maximumRadius
-			);
-		}
+	for (const { id, start, end, trunk, first } of channelSegments(reaches)) {
+		const line = edge(start.xy, end.xy);
+		const maximumRadius = Math.max(halfWidth(start, end, 0), halfWidth(start, end, 1));
+		channels.add(
+			{
+				...line,
+				maximumRadius,
+				start,
+				end,
+				kind: trunk ? 'river' : 'tributary',
+				sill: first && sillReaches.has(id)
+			},
+			start.xy,
+			end.xy,
+			bankLimit + maximumRadius
+		);
 	}
 	for (const lake of lakes) {
 		const outline: Shore[] = [];
@@ -145,7 +142,7 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 				)
 					continue;
 				const u = projection(candidate, x, y);
-				const radius = mix(candidate.start.width, candidate.end.width, u) / 2;
+				const radius = halfWidth(candidate.start, candidate.end, u);
 				const distance = separation(candidate, x, y, u) - radius;
 				if (candidate.kind === 'river' && distance < (trunk?.distance ?? 0)) {
 					trunk = { edge: candidate, t: u, distance };
@@ -159,7 +156,7 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 			const { start, end, kind, sill } = trunk?.edge ?? closest;
 			const position = trunk?.t ?? t;
 			const distance = trunk?.distance ?? bank;
-			const radius = mix(start.width, end.width, position) / 2;
+			const radius = halfWidth(start, end, position);
 			const cut = Math.max(0, Math.min(1, -distance / radius));
 			return {
 				kind,

@@ -1,7 +1,7 @@
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { Shape } from '../../core/object';
-import type { TerrainGrid } from '../../domain/terrain-grid';
+import { planEdges, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityCrossing, CitySite } from '../../world/city-site';
 import { terrainDrape } from '../terrain-grid-projection';
 import type { Drawable } from '../surface';
@@ -20,29 +20,17 @@ export function projectWetPlan(
 	const dry: number[] = [];
 	const wet: number[] = [];
 	const markers: number[] = [];
-	const edges = new Map<string, { a: string; b: string; wet: boolean }>();
-
-	for (const { vertexIds, groundKind } of grid.cells) {
-		for (const [i, a] of vertexIds.entries()) {
-			const b = vertexIds[(i + 1) % vertexIds.length];
-			const key = JSON.stringify(a < b ? [a, b] : [b, a]);
-			const water = groundKind !== 'dry';
-			const existing = edges.get(key);
-			if (existing) existing.wet ||= water;
-			else edges.set(key, { a, b, wet: water });
-		}
-	}
-	for (const { a, b, wet: water } of edges.values()) {
-		project(
-			required(vertices.get(a), 'plan corner'),
-			required(vertices.get(b), 'plan corner'),
-			water ? wet : dry
-		);
-	}
+	const covers = new Map(grid.cells.map(({ id, groundKind }) => [id, groundKind]));
+	const point = (id: string) => required(vertices.get(id), 'plan corner');
 	for (const {
-		banks: [a, b]
-	} of crossings)
-		project(a, b, markers, 1.2);
+		nodeIds: [a, b],
+		cellIds
+	} of planEdges(grid)) {
+		const water = cellIds.some((id) => covers.get(id) !== 'dry');
+		project(point(a), point(b), water ? wet : dry);
+	}
+	for (const { path } of crossings)
+		for (const { from, to } of path.edges) project(point(from), point(to), markers, 1.2);
 
 	function project(a: Vec2, b: Vec2, output: number[], lift = 0.32) {
 		const start = toLocal(...a);
@@ -61,9 +49,9 @@ export function projectWetPlan(
 		{ id: 'dry-plan', color: '--ink-2', width: 0.8, opacity: 0.82, strokeSegments: dry },
 		{ id: 'water-plan', color: '--blueprint', width: 0.8, opacity: 0.6, strokeSegments: wet },
 		{
-			id: 'candidate-crossings',
+			id: 'selected-crossings',
 			color: '--signal',
-			width: 1.55,
+			width: 1.9,
 			opacity: 1,
 			strokeSegments: markers
 		}

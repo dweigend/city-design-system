@@ -1,5 +1,5 @@
 // City volume acceptance across all grids and lattices at town scale with selected size extremes.
-// Writes _lokal/r09b-river/city-study/results.{json,csv} and prints a summary.
+// Writes _lokal/r09b-river/city-study-2/results.{json,csv} and prints a summary.
 // Run: heavy-slot --time 1800 -- bun scripts/city-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -23,12 +23,13 @@ import { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { groundContactMetrics, groundMetrics, hubGroundMetrics } from './city-study-ground';
 import { districtMetrics, growthMetrics, latticeMetrics } from './city-study-metrics';
 import { planMetrics } from './city-study-plan';
+import { footprintMirrorShare, maximumMedianMirrorShare, mirrorSeeds } from './city-study-mirror';
 import { solidMetrics } from './city-study-solids';
 import { summarize, type Row } from './city-study-summary';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
-const out = resolve(import.meta.dir, '../_lokal/r09b-river/city-study');
+const out = resolve(import.meta.dir, '../_lokal/r09b-river/city-study-2');
 mkdirSync(out, { recursive: true });
 
 /** Nominal outline lengths in meters of the three size classes. */
@@ -68,8 +69,11 @@ for (const { relief, runoff, seeds } of terrain) {
 				const [layout, gridMs] = time(() => readCityGrid(city, size, plan, seed));
 				const { grid, areaKm2, datumZ, crossings } = layout;
 				const gridStable = hash(readCityGrid(city, size, plan, seed)) === hash(layout);
-				const grown = readCityGrid(city, size + growthStep, plan, seed).grid;
-				const planned = planMetrics(grid, (point) => readCitySide(city, point), city.sampleGround);
+				const earlier =
+					sizeClass === 'largest' ? readCityGrid(city, size - growthStep, plan, seed).grid : grid;
+				const grown =
+					sizeClass === 'largest' ? grid : readCityGrid(city, size + growthStep, plan, seed).grid;
+				const planned = planMetrics(grid, (point) => readCitySide(city, point), layout);
 				const [districts, districtMs] = time(() => readCityDistricts(city, grid, seed, settings));
 				const columns = readCityColumns(grid, districts);
 				const again =
@@ -77,8 +81,12 @@ for (const { relief, runoff, seeds } of terrain) {
 						? readCityColumns(grid, readCityDistricts(city, grid, seed, settings))
 						: columns;
 				const growth = growthMetrics(
-					columns,
-					readCityColumns(grown, readCityDistricts(city, grown, seed, settings))
+					earlier === grid
+						? columns
+						: readCityColumns(earlier, readCityDistricts(city, earlier, seed, settings)),
+					grown === grid
+						? columns
+						: readCityColumns(grown, readCityDistricts(city, grown, seed, settings))
 				);
 				const district = districtMetrics(grid, columns);
 				const ground = {
@@ -94,7 +102,7 @@ for (const { relief, runoff, seeds } of terrain) {
 				const studyLattices = cityLatticesByPlan[plan].filter(
 					(lattice) => sizeClass === 'town' || lattice === 'box' || lattice === 'centered'
 				);
-				const spans = crossings.map(({ spanM }) => spanM).sort((a, b) => a - b);
+				const spans = crossings.map(({ path }) => path.lengthM).sort((a, b) => a - b);
 				for (const lattice of studyLattices) {
 					const [frame, latticeMs] = time(() => createCityLattice(columns, datumZ, plan, lattice));
 					// A single largest-plan replay per lattice covers the full input extent.
@@ -114,6 +122,7 @@ for (const { relief, runoff, seeds } of terrain) {
 						settlement: districts.settlement,
 						...planned,
 						crossings: spans.length,
+						selectedCrossings: layout.selectedCrossings.length,
 						spanMinM: spans[0] ?? '',
 						spanMedianM: spans.length
 							? (spans[Math.floor(spans.length / 2)] + spans[Math.floor((spans.length - 1) / 2)]) /
@@ -191,7 +200,8 @@ function failures(row: Row, kinds: string) {
 		['nondeterministic', row.deterministic === true],
 		[
 			'growth',
-			row.growthLost === 0 &&
+			Number(row.growthAdded) > 0 &&
+				row.growthLost === 0 &&
 				row.growthMoved === 0 &&
 				row.growthDemoted === 0 &&
 				row.growthLowered === 0
@@ -218,5 +228,21 @@ function median(field: string) {
 const parts = median('partsWithoutRiverSplit');
 const compactness = median('compactness');
 console.log('Footprint medians across the city matrix', { parts, compactness });
-if (rows.some(({ pass }) => !pass) || parts > 3 || compactness < 0.45 || compactness > 0.65)
+const mirror = mirrorSeeds.map((seed) => {
+	const site = createCitySite(undefined, { seed, relief: 0, runoff: 1 });
+	const { grid } = readCityGrid(site, 2600, 'organic', seed);
+	return { seed, share: footprintMirrorShare(grid, site.valley.course.xy) };
+});
+writeFileSync(resolve(out, 'mirror.json'), JSON.stringify(mirror, null, 2) + '\n');
+const shares = mirror.map(({ share }) => share).sort((a, b) => a - b);
+const medianMirror =
+	(shares[Math.floor(shares.length / 2)] + shares[Math.floor((shares.length - 1) / 2)]) / 2;
+console.log('Lowland mirror share', { min: shares[0], median: medianMirror, max: shares.at(-1) });
+if (
+	rows.some(({ pass }) => !pass) ||
+	parts > 3 ||
+	compactness < 0.45 ||
+	compactness > 0.65 ||
+	medianMirror > maximumMedianMirrorShare
+)
 	process.exitCode = 1;

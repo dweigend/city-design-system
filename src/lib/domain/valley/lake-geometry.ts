@@ -33,8 +33,14 @@ function outline() {
 			return i;
 		},
 		face(polygon: number[], shore: number[]) {
-			for (let i = 1; i + 1 < polygon.length; i++)
-				indices.push(polygon[0], polygon[i], polygon[i + 1]);
+			const ring = polygon.filter((vertex, i) => i === 0 || vertex !== polygon[i - 1]);
+			if (ring.length > 1 && ring[0] === ring.at(-1)) ring.pop();
+			for (let i = 1; i + 1 < ring.length; i++) {
+				const [a, b, c] = [ring[0], ring[i], ring[i + 1]];
+				const [p, q, r] = [vertices[a], vertices[b], vertices[c]];
+				const area = (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]);
+				if (area > 0) indices.push(a, b, c);
+			}
 			if (shore.length === 2 && shore[0] !== shore[1]) edges.set(shore[0], shore[1]);
 		},
 		finish() {

@@ -50,10 +50,12 @@ type Nodes = Readonly<{
 }>;
 
 function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
-	const side = Math.round(sideM / spacingM) + 1;
+	const subdivisions = Math.ceil(sideM / spacingM);
+	const side = subdivisions + 1;
+	const spacing = sideM / subdivisions;
 	const nodes = {
 		side,
-		spacing: spacingM,
+		spacing,
 		half: sideM / 2,
 		heights: new Float64Array(side * side),
 		water: new Float64Array(side * side),
@@ -62,8 +64,8 @@ function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	};
 	for (let row = 0; row < side; row++) {
 		for (let column = 0; column < side; column++) {
-			const x = -sideM / 2 + column * spacingM;
-			const y = sideM / 2 - row * spacingM;
+			const x = -sideM / 2 + column * spacing;
+			const y = sideM / 2 - row * spacing;
 			const { height, water, waterKind, lakeId } = sample(x, y);
 			const index = row * side + column;
 			nodes.heights[index] = height;
@@ -190,7 +192,7 @@ export function surveyGround(
 		maxWetSlope: tally.maxWetSlope,
 		drySlope: Object.freeze({ p50: drySlope(0.5), p95: drySlope(0.95), max: drySlope(1) }),
 		waterShare: tally.water / count,
-		lakeArea: tally.lake * window.spacingM ** 2,
+		lakeArea: tally.lake * nodes.spacing ** 2,
 		buildableShare: tally.buildable / count,
 		faults: Object.freeze({
 			uphillSteps: uphillSteps(reaches, window.sideM / 2),

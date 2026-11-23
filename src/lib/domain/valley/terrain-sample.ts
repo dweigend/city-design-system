@@ -2,6 +2,7 @@ import { interpolate, radius, triangle } from './catchment-grid';
 import type { drainageTerrain } from './drainage-terrain';
 import { toMillimeters } from './millimeters';
 import { smoothstep } from './regional-profile';
+import { spillBarriers } from './spill-barriers';
 import { bankLimit, waterIndex } from './water-index';
 
 export type WaterKind = 'river' | 'tributary' | 'lake' | null;
@@ -13,17 +14,11 @@ export function terrainSampler(terrain: ReturnType<typeof drainageTerrain>, reli
 	const index = waterIndex(reaches, lakes);
 	const blendBenches = 1 - smoothstep(relief / 0.15);
 	const { datum, terraces } = field;
-	const outside = (x: number, y: number) => x < -radius || x > radius || y < -radius || y > radius;
-	return (x: number, y: number) => {
+	type Correction = ReturnType<typeof spillBarriers>;
+	function sample(x: number, y: number, correct?: Correction) {
 		if (!Number.isFinite(x) || !Number.isFinite(y)) throw new RangeError('invalid-ground-position');
-		if (outside(x, y))
-			return {
-				height: millimeters(field.ground(x, y)),
-				water: millimeters(datum(x, y)),
-				bank: bankLimit,
-				waterKind: null,
-				lakeId: null
-			};
+		if (Math.abs(x) > radius || Math.abs(y) > radius)
+			throw new RangeError('outside-drainage-solve');
 		const facet = blendBenches < 1 || lakes.length > 0 ? triangle(x, y) : undefined;
 		if (facet && lakes.length > 0) {
 			const basin = Math.max(
@@ -44,13 +39,17 @@ export function terrainSampler(terrain: ReturnType<typeof drainageTerrain>, reli
 					};
 			}
 		}
+		const adjustment = facet && correct ? correct(facet) : 0;
 		const channel = index.channel(x, y);
 		if (channel && channel.bank < 0) {
+			const height = millimeters(channel.water - channel.depth + adjustment);
+			const water = millimeters(channel.water);
+			const wet = height <= water;
 			return {
-				height: millimeters(channel.water - channel.depth),
-				water: millimeters(channel.water),
-				bank: channel.bank,
-				waterKind: channel.kind,
+				height,
+				water: wet ? water : height,
+				bank: wet ? channel.bank : 0,
+				waterKind: wet ? channel.kind : null,
 				lakeId: null
 			};
 		}
@@ -73,12 +72,16 @@ export function terrainSampler(terrain: ReturnType<typeof drainageTerrain>, reli
 			channel && channel.bank <= bank
 				? channel.water + (ground - channel.water) * t * (2 - t)
 				: ground;
+		const bed = millimeters(Math.max(height, water) + adjustment);
 		return {
-			height: millimeters(Math.max(height, water)),
-			water: millimeters(water),
+			height: bed,
+			water: Math.min(bed, millimeters(water)),
 			bank,
 			waterKind: null as WaterKind,
 			lakeId: null
 		};
-	};
+	}
+	if (!lakes.length) return (x: number, y: number) => sample(x, y);
+	const correct = spillBarriers(flow, (x, y) => sample(x, y).height);
+	return (x: number, y: number) => sample(x, y, correct);
 }

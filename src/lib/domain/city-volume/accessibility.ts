@@ -1,75 +1,137 @@
-import type { Vec2 } from '../../core/geometry';
+import { distance, type Vec2 } from '../../core/geometry';
 import { Random } from '../../core/random';
+import { valueNoise } from './value-noise';
 
-const turn = 2 * Math.PI;
 const span = (random: Random, min: number, max: number) => random.number({ min, max });
 
-function roughness(random: Random, wavelength: number) {
-	const lattice = new Map<string, number>();
-	function at(x: number, y: number) {
-		const key = `${x},${y}`;
-		const cached = lattice.get(key);
-		if (cached !== undefined) return cached;
-		const value = span(random.derive(key), -1, 1);
-		lattice.set(key, value);
-		return value;
+type Ground = (x: number, y: number) => Readonly<{ height: number; dry: boolean }>;
+type Arm = { path: readonly Vec2[]; speed: number; entry: number; width: number };
+
+const stepM = 85;
+
+function advance(
+	point: Vec2,
+	heading: number,
+	bearing: number,
+	ground: Ground
+): { point: Vec2; heading: number; score: number } | undefined {
+	const current = ground(...point);
+	const options = [-0.85, -0.42, 0, 0.42, 0.85];
+	let best: { point: Vec2; heading: number; score: number } | undefined;
+	for (const angle of options) {
+		const direction = heading + angle;
+		const next: Vec2 = [
+			point[0] + stepM * Math.cos(direction),
+			point[1] + stepM * Math.sin(direction)
+		];
+		const middle = ground((point[0] + next[0]) / 2, (point[1] + next[1]) / 2);
+		const end = ground(...next);
+		if (!middle.dry || !end.dry) continue;
+		const rise = Math.abs(end.height - middle.height) + Math.abs(middle.height - current.height);
+		const score = rise / 5 + Math.abs(angle) * 0.9 - 0.25 * Math.abs(Math.cos(direction - bearing));
+		if (!best || score < best.score) best = { point: next, heading: direction, score };
 	}
-	const smooth = (t: number) => t * t * (3 - 2 * t);
-	const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-	return ([x, y]: Vec2) => {
-		const u = x / wavelength;
-		const v = y / wavelength;
-		const i = Math.floor(u);
-		const j = Math.floor(v);
-		const s = smooth(u - i);
-		const t = smooth(v - j);
-		return mix(mix(at(i, j), at(i + 1, j), s), mix(at(i, j + 1), at(i + 1, j + 1), s), t);
-	};
+	return best;
 }
 
-function corridors(random: Random, bearing: number) {
-	const count = Math.floor(span(random, 3, 7));
-	const phase = span(random, -Math.PI, Math.PI);
-	return Array.from({ length: count }, (_, index) => {
-		const arm = random.derive(String(index));
-		const heading = bearing + phase + (index * turn) / count + span(arm, -0.35, 0.35);
+function armPath(random: Random, head: Vec2, outward: number, bearing: number, ground: Ground) {
+	const steps = Math.round(span(random, 8, 23));
+	let heading = outward + span(random, -0.29, 0.29);
+	const turn = span(random, 0.035, 0.115) * (random.number() < 0.5 ? -1 : 1);
+	const path = [head];
+	for (let i = 0; i < steps; i++) {
+		const next = advance(path[path.length - 1], heading + turn, bearing, ground);
+		if (!next) break;
+		path.push(next.point);
+		heading = next.heading;
+	}
+	return path;
+}
+
+function armCost({ path, speed, entry, width }: Arm, [x, y]: Vec2) {
+	let cost = Infinity;
+	for (let i = 1; i < path.length; i++) {
+		const [ax, ay] = path[i - 1];
+		const dx = path[i][0] - ax;
+		const dy = path[i][1] - ay;
+		const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (stepM * stepM)));
+		const lateral = Math.hypot(x - ax - t * dx, y - ay - t * dy);
+		cost = Math.min(cost, entry + ((i - 1 + t) * stepM) / speed + lateral * width);
+	}
+	return cost;
+}
+
+function bankAccess(
+	random: Random,
+	head: Vec2,
+	opposite: Vec2 | undefined,
+	bearing: number,
+	ground: Ground
+) {
+	const outward = opposite ? Math.atan2(head[1] - opposite[1], head[0] - opposite[0]) : bearing;
+	const inland = opposite ? span(random, 150, 430) : 0;
+	const toward = outward + span(random, -1.22, 1.22);
+	const inlandPoint: Vec2 = [
+		head[0] + inland * Math.cos(toward),
+		head[1] + inland * Math.sin(toward)
+	];
+	const center = ground(...inlandPoint).dry ? inlandPoint : head;
+	const spread = span(random, 1.8, 2.45);
+	const edge = valueNoise(random.derive('edge'), 210);
+	const lobes = valueNoise(random.derive('lobes'), 530);
+	const count = Math.floor(span(random.derive('count'), 0, 4));
+	const phaseOffset = span(random.derive('bearing'), -0.42, 0.42);
+	const arms: Arm[] = Array.from({ length: count }, (_, index) => {
+		const arm = random.derive('arm/' + index);
 		return {
-			x: Math.cos(heading),
-			y: Math.sin(heading),
-			speed: span(arm, 1.5, 2.8),
-			reach: span(arm, 500, 1800),
-			entry: span(arm, 70, 320)
+			path: armPath(
+				arm,
+				head,
+				outward + phaseOffset + 2.35 * ((index + 0.5) / count - 0.5),
+				bearing,
+				ground
+			),
+			speed: span(arm, 2.7, 4.8),
+			entry: span(arm, 5, 90),
+			width: span(arm, 1.58, 2.1)
 		};
 	});
+	const aspect = span(random, 0.68, 1.6);
+	const phase = bearing + span(random, -1.55, 1.55);
+	const u = Math.cos(phase);
+	const v = Math.sin(phase);
+	return (point: Vec2, grade: number, clearance: number) => {
+		const x = point[0] - center[0];
+		const y = point[1] - center[1];
+		const radial = Math.hypot(aspect * (x * u + y * v), y * u - x * v);
+		const approach = distance(point, head);
+		const travel = arms.reduce(
+			(cost, arm) => Math.min(cost, armCost(arm, point)),
+			Math.min(radial * spread, 70 + 2.85 * approach)
+		);
+		const raggedness = Math.min(1, approach / 350) * (125 * edge(...point) + 620 * lobes(...point));
+		return travel + 240 * grade - 18 * Math.exp(-Math.max(0, clearance) / 55) + raggedness;
+	};
 }
 
-/** Ranks world points by access from a seeded center and finite corridors. Ground supplies
- * a unitless grade and meters of dry clearance. When a channel crossing is known, the two
- * origins lie on its approach roads at the supplied offset in meters. */
-export function cityAccessibility(seed: number, origin: Vec2, bearing: number, bankOffsetM = 0) {
+/** Ranks dry ground from independently drawn bank approaches. Arms start at the given heads
+ * and take dry, shallow-rise steps along the valley. The caller supplies the bank classifier. */
+export function cityAccessibility(
+	seed: number,
+	heads: readonly [first: Vec2, second?: Vec2],
+	bearing: number,
+	ground: Ground,
+	secondBank: (point: Vec2) => boolean
+) {
 	const random = Random.create({ seed }).derive('accessibility');
-	const arms = corridors(random.derive('corridors'), bearing);
-	const shape = random.derive('shape');
-	const spread = span(shape, 1.35, 1.8);
-	const edge = roughness(random.derive('edge'), 210);
-	const lobes = roughness(random.derive('lobes'), 570);
-	const u = Math.cos(bearing);
-	const v = Math.sin(bearing);
-	return (point: Vec2, grade: number, dryClearance: number) => {
-		const dx = point[0] - origin[0];
-		const dy = point[1] - origin[1];
-		const bank = Math.sign(dy * u - dx * v) * bankOffsetM;
-		const x = dx + bank * v;
-		const y = dy - bank * u;
-		const radial = Math.hypot(1.24 * (x * u + y * v), y * u - x * v);
-		let travel = radial * spread;
-		for (const arm of arms) {
-			const advance = Math.max(0, Math.min(arm.reach, x * arm.x + y * arm.y));
-			const lateral = Math.hypot(x - advance * arm.x, y - advance * arm.y);
-			travel = Math.min(travel, arm.entry + advance / arm.speed + lateral * 1.55);
-		}
-		const shorelineAccess = -18 * Math.exp(-Math.max(0, dryClearance) / 55);
-		const raggedness = Math.min(1, radial / 320) * (82 * edge(point) + 175 * lobes(point));
-		return travel + 240 * grade + shorelineAccess + raggedness;
-	};
+	const [first, second] = heads;
+	const primary = bankAccess(random.derive('first-bank'), first, second, bearing, ground);
+	if (!second) return primary;
+	const secondary = bankAccess(random.derive('second-bank'), second, first, bearing, ground);
+	const balance = random.derive('bank-balance');
+	const bias = span(balance, 250, 465) * (balance.number() < 0.5 ? -1 : 1);
+	return (point: Vec2, grade: number, clearance: number) =>
+		secondBank(point)
+			? secondary(point, grade, clearance) + Math.max(0, bias)
+			: primary(point, grade, clearance) + Math.max(0, -bias);
 }

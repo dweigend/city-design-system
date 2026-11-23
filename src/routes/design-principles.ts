@@ -74,9 +74,9 @@ const city: DesignPrinciple[] = [
 		id: 'CITY-4',
 		page: 'city',
 		title: 'Grid-led paths and deliberate cuts',
-		rule: 'Routes share one movement graph with grid-derived ports and alignments, and deliberate path placement may cut a passage, opening or gate through occupied space or remove a small building.',
+		rule: 'Routes share one movement graph, and bridges and lanes follow chains of grid edges between blocks or finer cells.',
 		reason:
-			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. The first bridge proof calls for reachable landings on two façades above a central footpath.',
+			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. Bridge heads join the banks at grid nodes. Deliberate path placement may open a passage or gate through occupied space or remove a small building.',
 		decided: '2026-11-21',
 		demo: { route: '/interface', anchor: 'connections', label: 'Trace a connection to its landing' }
 	},
@@ -160,7 +160,7 @@ const city: DesignPrinciple[] = [
 		title: 'Lobed growth on dry ground',
 		rule: 'The plan grid continues over rivers, tributaries and lakes, with buildings on dry cells and growth reaching the other bank through candidate crossings that favor shorter spans.',
 		reason:
-			'Fast corridors make lobes and bays, and large isolated areas can support satellites. A wet cell center reserves the whole cell for water. A dry center can keep the buildable part of its cell up to the bank setback. Denser districts take the most accessible ground first.',
+			'Corridors start at crossing heads, bend with the terrain, and take their own bearings and lengths on each bank. Large isolated areas can support satellites. A wet cell center reserves the whole cell for water. A dry center can keep the buildable part of its cell up to the bank setback. Denser districts take the most accessible ground first.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Grow a city across the valley' }
 	}

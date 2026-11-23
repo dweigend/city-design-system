@@ -1,4 +1,6 @@
 import type { Vec2 } from '../../core/geometry';
+import { distance } from '../../core/geometry';
+import { required } from '../../core/invariant';
 import { Random } from '../../core/random';
 import {
 	cityAccessibility,
@@ -21,6 +23,7 @@ type Site = Readonly<{
 	origin: Vec2;
 	bearing: number;
 	center: Vec2;
+	bankSide?: (point: Vec2) => number;
 }>;
 
 // Look for a narrow cross section near the seeded station. Water widths are measured
@@ -96,21 +99,54 @@ export function prepareCarrier(
 			return ground.dry ? 'dry' : (ground.waterKind ?? 'water');
 		}
 	);
-	const crossings = channelCrossings(plan, candidates, sampleGround);
 	const random = Random.create({ seed }).derive('crossing');
 	const shift = random.number({ min: -140, max: 140 });
 	const crossing = crossingCenter(center, u, v, sampleGround);
 	const core: Vec2 = crossing?.point ?? [center[0] - shift * v, center[1] + shift * u];
-	const approachM = crossing ? crossing.width / 2 + 20 : 0;
-	const access = cityAccessibility(seed, core, bearing, approachM);
+	const crossings = channelCrossings(plan, candidates, sampleGround, core);
+	const nodes = new Map(plan.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
+	const primary = crossings
+		.filter(
+			({ midpoint, heads: [a, b] }) =>
+				sampleGround(...midpoint).waterKind === 'river' &&
+				(!site.bankSide ||
+					site.bankSide(required(nodes.get(a.nodeId), 'first bank node')) !==
+						site.bankSide(required(nodes.get(b.nodeId), 'second bank node')))
+		)
+		.sort(
+			(a, b) =>
+				distance(core, a.midpoint) +
+				0.45 * a.path.lengthM -
+				distance(core, b.midpoint) -
+				0.45 * b.path.lengthM
+		)[0];
+	const approaches = primary?.heads
+		.map(({ nodeId }) => required(nodes.get(nodeId), 'approach node'))
+		.sort((a, b) => (site.bankSide ? site.bankSide(a) - site.bankSide(b) : a[0] - b[0]));
+	const first = approaches?.[0] ?? core;
+	const second = approaches?.[1];
+	const side = site.bankSide;
+	const secondSide = second && side?.(second);
+	const secondBank = (point: Vec2) => {
+		if (!second) return false;
+		return secondSide && side
+			? side(point) === secondSide
+			: distance(point, second) < distance(point, first);
+	};
+	const access = cityAccessibility(seed, [first, second], bearing, sampleGround, secondBank);
+	const links = crossings.flatMap(({ heads: [a, b], path }) =>
+		a.cellIds.flatMap((from) =>
+			b.cellIds.map((to) => ({
+				headIds: [from, to] as const,
+				spanM: path.lengthM
+			}))
+		)
+	);
 	const order = cityGrowth(
 		candidates,
-		(point, grade) => {
-			const clearance = sampleGround(...point).waterClearance;
-			return access(point, grade, clearance);
-		},
+		(point, grade) => access(point, grade, sampleGround(...point).waterClearance),
 		minimumPartAreaM2,
-		crossings
+		links
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));
 	const lowest = candidates.vertices.reduce(

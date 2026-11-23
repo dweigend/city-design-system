@@ -1,140 +1,145 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import type { TerrainGrid } from '../../domain/terrain-grid';
+import { planEdgeGraph, type PlanEdgePath, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityTerrainSampler } from './sampling';
 
-/** Flowing-water cells in adjacency order, with the buildable heads and wet span in meters. */
+/** A bank-to-bank edge path with the bank node and adjacent built cells at each head. */
 export type CityCrossing = Readonly<{
-	headIds: readonly [string, string];
-	waterCellIds: readonly string[];
-	spanM: number;
-	banks: readonly [Vec2, Vec2];
+	path: PlanEdgePath;
+	heads: readonly [CrossingHead, CrossingHead];
 }>;
 
-type Proposal = CityCrossing & { midpoint: Vec2; score: number };
+type CrossingHead = Readonly<{ nodeId: string; cellIds: readonly string[] }>;
+type Candidate = CityCrossing & { waterCellIds: readonly string[]; midpoint: Vec2; score: number };
+type HeadCell = { id: string; point: Vec2 };
 
-const maximumSpanM = 220;
-const maximumApproachM = 85;
+const maximumSpanM = 320;
 const crossingSpacingM = 105;
-const probeStepM = 3;
+const maximumHeadDepthM = 18;
 
-function wetSpan(a: Vec2, b: Vec2, sample: CityTerrainSampler) {
-	const length = distance(a, b);
-	if (length > maximumSpanM + 2 * maximumApproachM) return;
-	const steps = Math.ceil(length / probeStepM);
-	const point = (t: number): Vec2 => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-	let first = 0;
-	let last = 0;
+// The chord identifies the two banks. The edge graph supplies the route and its length.
+function crossesChannel(a: Vec2, b: Vec2, sample: CityTerrainSampler) {
+	const steps = Math.ceil(distance(a, b) / 5);
+	let wet = false;
+	let ended = false;
 	for (let i = 1; i < steps; i++) {
-		const ground = sample(...point(i / steps));
-		if (ground.dry) continue;
-		if (ground.waterKind !== 'river' && ground.waterKind !== 'tributary') return;
-		if (!first) first = i;
-		else if (i !== last + 1) return;
-		last = i;
+		const t = i / steps;
+		const ground = sample(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]));
+		if (ground.dry) {
+			ended ||= wet;
+			continue;
+		}
+		if (ended || (ground.waterKind !== 'river' && ground.waterKind !== 'tributary')) return false;
+		wet = true;
 	}
-	if (!first || (first * length) / steps > maximumApproachM) return;
-	if (((steps - last) * length) / steps > maximumApproachM) return;
-	const banks = [point((first - 0.5) / steps), point((last + 0.5) / steps)] as const;
-	const spanM = distance(...banks);
-	if (spanM <= maximumSpanM) return { banks, spanM, length };
+	return wet;
 }
 
-function centers(grid: TerrainGrid) {
-	const vertices = new Map(grid.vertices.map(({ id, position }) => [id, position]));
-	return new Map(
-		grid.cells.map(({ id, vertexIds }) => [
-			id,
-			vertexIds.reduce<Vec2>(
-				([x, y], key) => {
-					const [a, b] = required(vertices.get(key), 'cell corner');
-					return [x + a / vertexIds.length, y + b / vertexIds.length];
-				},
-				[0, 0]
-			)
-		])
+function headCells(plan: TerrainGrid, built: TerrainGrid, wetNodes: ReadonlySet<string>) {
+	const vertices = new Map(built.vertices.map(({ id, position }) => [id, position]));
+	const planCells = new Map(plan.cells.map((cell) => [cell.id, cell]));
+	const heads = new Map<string, HeadCell[]>();
+	for (const { id, vertexIds } of built.cells) {
+		const original = required(planCells.get(id), 'head plan cell');
+		const attached = original.vertexIds.filter((node) => wetNodes.has(node));
+		if (!attached.length) continue;
+		const point = vertexIds.reduce<Vec2>(
+			([x, y], node) => {
+				const [a, b] = required(vertices.get(node), 'head cell corner');
+				return [x + a / vertexIds.length, y + b / vertexIds.length];
+			},
+			[0, 0]
+		);
+		for (const node of attached) {
+			const list = heads.get(node) ?? [];
+			list.push({ id, point });
+			heads.set(node, list);
+		}
+	}
+	return heads;
+}
+
+function oppositeHeads(
+	a: Vec2,
+	b: Vec2,
+	first: readonly HeadCell[],
+	last: readonly HeadCell[],
+	sample: CityTerrainSampler
+) {
+	const dx = b[0] - a[0];
+	const dy = b[1] - a[1];
+	const behind = ({ point: [x, y] }: HeadCell) => (x - a[0]) * dx + (y - a[1]) * dy < 0;
+	const beyond = ({ point: [x, y] }: HeadCell) => (x - b[0]) * dx + (y - b[1]) * dy > 0;
+	const pairs = first.filter(behind).flatMap((from) =>
+		last
+			.filter(beyond)
+			.filter((to) => crossesChannel(from.point, to.point, sample))
+			.map((to) => [from.id, to.id] as const)
 	);
+	return [
+		[...new Set(pairs.map(([from]) => from))],
+		[...new Set(pairs.map(([, to]) => to))]
+	] as const;
 }
 
 export function channelCrossings(
 	plan: TerrainGrid,
 	built: TerrainGrid,
-	sample: CityTerrainSampler
+	sample: CityTerrainSampler,
+	core: Vec2
 ) {
-	const points = centers(built);
-	const cells = new Map(plan.cells.map((cell) => [cell.id, cell]));
-	const wet = new Set(
-		plan.cells
-			.filter(({ groundKind }) => groundKind === 'river' || groundKind === 'tributary')
-			.map(({ id }) => id)
+	const cells = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
+	const flowing = (id: string) => cells.get(id) === 'river' || cells.get(id) === 'tributary';
+	const graph = planEdgeGraph(
+		plan,
+		({ cellIds }) =>
+			cellIds.length === 2 &&
+			cellIds.some(flowing) &&
+			cellIds.every((id) => flowing(id) || cells.get(id) === 'dry')
 	);
-	const heads = new Map<string, string[]>();
-	for (const id of points.keys()) {
-		for (const adjacent of required(cells.get(id), 'head cell').neighbors) {
-			if (adjacent === null || !wet.has(adjacent)) continue;
-			const shore = heads.get(adjacent) ?? [];
-			shore.push(id);
-			heads.set(adjacent, shore);
+	const byEdge = new Map(graph.edges.map((edge) => [edge.id, edge]));
+	const edgeNodes = new Set(graph.edges.flatMap(({ nodeIds }) => nodeIds));
+	const heads = headCells(
+		plan,
+		built,
+		new Set(
+			[...edgeNodes].filter((id) => sample(...graph.point(id)).waterClearance >= -maximumHeadDepthM)
+		)
+	);
+	const proposals: Candidate[] = [];
+	for (const [start, first] of heads) {
+		const a = graph.point(start);
+		for (const path of graph.pathsFrom(start, (id) => start < id && heads.has(id), maximumSpanM)) {
+			const end = required(path.nodeIds.at(-1), 'crossing end');
+			const b = graph.point(end);
+			if (distance(a, b) < path.lengthM * 0.58) continue;
+			const [from, to] = oppositeHeads(a, b, first, required(heads.get(end), 'bank heads'), sample);
+			if (!from.length || !to.length) continue;
+			const waterCellIds = [
+				...new Set(
+					path.edges.flatMap(({ id }) =>
+						required(byEdge.get(id), 'crossing edge').cellIds.filter(flowing)
+					)
+				)
+			];
+			const midpoint: Vec2 = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
+			proposals.push({
+				path,
+				heads: [
+					Object.freeze({ nodeId: start, cellIds: Object.freeze(from) }),
+					Object.freeze({ nodeId: end, cellIds: Object.freeze(to) })
+				],
+				waterCellIds,
+				midpoint,
+				score: path.lengthM + 0.22 * distance(core, midpoint)
+			});
 		}
 	}
-
-	const proposals = new Map<string, Proposal>();
-	const tested = new Map<string, ReturnType<typeof wetSpan>>();
-	for (const [start, from] of heads) {
-		const paths = new Map<string, readonly string[]>([[start, [start]]]);
-		const queue = [start];
-		for (const id of queue) {
-			const path = required(paths.get(id), 'crossing path');
-			for (const a of from) {
-				for (const b of heads.get(id) ?? []) {
-					if (a >= b) continue;
-					const key = JSON.stringify([a, b]);
-					const previous = proposals.get(key);
-					if (previous && previous.waterCellIds.length <= path.length) continue;
-					if (!tested.has(key))
-						tested.set(
-							key,
-							wetSpan(
-								required(points.get(a), 'crossing head'),
-								required(points.get(b), 'crossing head'),
-								sample
-							)
-						);
-					const span = tested.get(key);
-					if (!span) continue;
-					const { banks, spanM, length } = span;
-					proposals.set(key, {
-						headIds: [a, b],
-						waterCellIds: path,
-						banks,
-						spanM,
-						midpoint: [(banks[0][0] + banks[1][0]) / 2, (banks[0][1] + banks[1][1]) / 2],
-						score: spanM + 0.45 * (length - spanM)
-					});
-				}
-			}
-			if (path.length >= 5) continue;
-			for (const next of required(cells.get(id), 'water cell').neighbors) {
-				if (next === null || !wet.has(next) || paths.has(next)) continue;
-				paths.set(next, [...path, next]);
-				queue.push(next);
-			}
-		}
-	}
-	const selected: Proposal[] = [];
-	for (const proposal of [...proposals.values()].sort((a, b) => a.score - b.score)) {
+	const selected: Candidate[] = [];
+	for (const proposal of proposals.sort((a, b) => a.score - b.score)) {
 		if (selected.some(({ midpoint }) => distance(midpoint, proposal.midpoint) < crossingSpacingM))
 			continue;
 		selected.push(proposal);
 	}
-	return Object.freeze(
-		selected.map(({ headIds, waterCellIds, banks, spanM }): CityCrossing =>
-			Object.freeze({
-				headIds: Object.freeze(headIds),
-				waterCellIds: Object.freeze(waterCellIds),
-				banks: Object.freeze([Object.freeze(banks[0]), Object.freeze(banks[1])] as const),
-				spanM
-			})
-		)
-	);
+	return selected;
 }

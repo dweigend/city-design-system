@@ -21,6 +21,8 @@ import {
 import { axisBow } from './ground-profile';
 import { createValleyAxis } from './valley-axis';
 
+/** World-space polygons of the solved channel outline. */
+export { channelPolygons } from './channel-outline';
 /** Channel width in meters for discharge in cubic meters per second. */
 export { channelWidth } from './reaches';
 
@@ -85,7 +87,7 @@ export type TerraceFrame = Readonly<{
  */
 export type Valley = Readonly<{
 	seed: number;
-	revision: 3;
+	revision: 4;
 	parameters: ValleySettings;
 	course: RiverCourse;
 	reaches: readonly Reach[];
@@ -104,10 +106,10 @@ export type Valley = Readonly<{
 	/** Samples bed elevation in meters at finite XY coordinates in the closed grid window. */
 	heightAt(x: number, y: number): number;
 	/** Reads bed, mean water and signed distance to the bank in true meters (capped at +160 m on land).
-	 * Returns a detached sample. Non-finite or out-of-range coordinates throw RangeError.
+	 * Returns a detached sample. The closed solve covers ±6 km on both axes. Other coordinates throw RangeError.
 	 */
 	sampleGround(x: number, y: number): Readonly<{ height: number; water: number; bank: number }>;
-	/** Reads height, water level, bank distance, slope (rise/run over a 5 m central difference)
+	/** Reads height, water level, bank distance, slope (rise/run over up to 5 m)
 	 * and cover (`dry`, `river` or `lake`) at finite XY meters anywhere in the regional reach.
 	 * The one generic per-point ground query for plans that sit on the terrain. */
 	readGround(x: number, y: number): GroundReading;
@@ -143,7 +145,7 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 	}
 	return Object.freeze({
 		seed,
-		revision: 3,
+		revision: 4,
 		parameters: settings,
 		course,
 		lakes: terrain.lakes,

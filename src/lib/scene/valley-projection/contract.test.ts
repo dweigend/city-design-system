@@ -148,3 +148,30 @@ test('keeps the regional display corners and their slope probes inside the solve
 		}
 	}
 });
+
+test('covers a sampled channel point at a curved reach join', () => {
+	const valley = Valley.create({ seed: 1201, parameters: { relief: 1, runoff: 1.5 } });
+	const world = [-1055, 1885] as const;
+	expect(valley.sampleGround(...world).bank).toBeLessThan(0);
+	const window = { origin: [0, 0], bearing: 0, length: 4000, width: 4000 } as const;
+	const { drawables, toLocal } = projectValleyWindow(valley, window, 1);
+	const mesh = drawables.find(({ id }) => id === 'river')?.shape;
+	expect(mesh?.kind).toBe('mesh');
+	if (mesh?.kind !== 'mesh') throw new Error('Expected water mesh');
+	const [x, y] = toLocal(...world);
+	const { positions, indices } = mesh;
+	function side(a: number, b: number) {
+		const [u, v] = positions.slice(a * 3, a * 3 + 2);
+		const [p, q] = positions.slice(b * 3, b * 3 + 2);
+		return (p - u) * (y - v) - (q - v) * (x - u);
+	}
+	let covered = false;
+	for (let i = 0; i < indices.length; i += 3) {
+		const [a, b, c] = indices.slice(i, i + 3);
+		if (side(a, b) >= 0 && side(b, c) >= 0 && side(c, a) >= 0) {
+			covered = true;
+			break;
+		}
+	}
+	expect(covered).toBe(true);
+});

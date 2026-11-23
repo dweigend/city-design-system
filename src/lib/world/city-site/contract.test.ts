@@ -12,7 +12,7 @@ import {
 	type CityColumn,
 	type CityLattice
 } from '../../domain/city-volume';
-import type { TerrainGrid } from '../../domain/terrain-grid';
+import { planEdgeGraph, type TerrainGrid } from '../../domain/terrain-grid';
 import {
 	citySiteParams,
 	cityWindow,
@@ -283,25 +283,36 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 			expect(next.has(cell.id)).toBe(true);
 			expect(built.has(cell.id)).toBe(cell.groundKind === 'dry');
 		}
+		expect(crossings).toEqual(readCityGrid(site, 1800, variant).crossings);
+		const graph = planEdgeGraph(plan);
+		const edges = new Map(graph.edges.map((edge) => [edge.id, edge]));
+		const selected = readCityGrid(site, 1800, variant).selectedCrossings;
+		expect(selected).toEqual(crossings.slice(0, 3));
 		for (const {
-			headIds: [a, b],
-			waterCellIds,
-			spanM,
-			banks
+			heads: [a, b],
+			path
 		} of crossings) {
-			expect(built.has(a) && built.has(b)).toBe(true);
-			expect(bank(banks[0][0])).toBeCloseTo(0, -1);
-			expect(bank(banks[1][0])).toBeCloseTo(0, -1);
-			expect(Math.sign(banks[0][0])).toBe(-Math.sign(banks[1][0]));
-			expect(spanM).toBeGreaterThan(108);
-			expect(growth.crossings.some(({ headIds }) => headIds[0] === a && headIds[1] === b)).toBe(
-				true
-			);
-			const path = [a, ...waterCellIds, b];
-			for (const [i, id] of path.slice(1).entries()) {
-				expect(cells.get(path[i])?.neighbors).toContain(id);
-				if (id !== b) expect(cells.get(id)?.groundKind).toBe('river');
+			expect(a.cellIds.every((id) => built.has(id))).toBe(true);
+			expect(b.cellIds.every((id) => built.has(id))).toBe(true);
+			expect(a.cellIds.every((id) => cells.get(id)?.vertexIds.includes(a.nodeId))).toBe(true);
+			expect(b.cellIds.every((id) => cells.get(id)?.vertexIds.includes(b.nodeId))).toBe(true);
+			expect(path.nodeIds[0]).toBe(a.nodeId);
+			expect(path.nodeIds.at(-1)).toBe(b.nodeId);
+			expect(Math.sign(graph.point(a.nodeId)[0])).toBe(-Math.sign(graph.point(b.nodeId)[0]));
+			expect(path.edges).toHaveLength(path.nodeIds.length - 1);
+			let length = 0;
+			for (const [i, { id, from, to }] of path.edges.entries()) {
+				expect([from, to]).toEqual(path.nodeIds.slice(i, i + 2));
+				const edge = required(edges.get(id), 'crossing edge');
+				expect([...edge.nodeIds].sort()).toEqual(path.nodeIds.slice(i, i + 2).sort());
+				expect(edge.cellIds.some((id) => cells.get(id)?.groundKind === 'river')).toBe(true);
+				length += edge.lengthM;
 			}
+			expect(path.lengthM).toBeCloseTo(length, 9);
+			expect(path.lengthM).toBeLessThanOrEqual(320);
+			expect(
+				growth.crossings.some(({ path: grown }) => grown.nodeIds.join() === path.nodeIds.join())
+			).toBe(true);
 		}
 		const districts = readCityDistricts(site, grid);
 		expect(() => readCityDistricts(site, plan)).toThrow('buildable grid');
