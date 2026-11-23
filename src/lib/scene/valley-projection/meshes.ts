@@ -22,7 +22,22 @@ function section(
 	for (const y of regular) {
 		if (crossings.some(({ across }) => Math.abs(y - across) < 0.03)) continue;
 		const { height, water } = frame.sample(x, y);
-		points.push({ x, y, z: height * scale, water: water * scale, bankSide: 0 });
+		const index = crossings.findIndex(({ across }) => across >= y);
+		const next = crossings[index];
+		const previous = crossings[index - 1];
+		if (next && previous && previous.bankSide !== 1) {
+			const t = (y - previous.across) / (next.across - previous.across);
+			const surface = previous.water + (next.water - previous.water) * t;
+			points.push({
+				x,
+				y,
+				z: Math.min(height * scale, surface - 0.015 * scale),
+				water: surface,
+				bankSide: 0
+			});
+		} else {
+			points.push({ x, y, z: height * scale, water: water * scale, bankSide: 0 });
+		}
 	}
 	for (const { across, water, bank, bankSide } of crossings) {
 		const y = Math.min(half, Math.max(-half, across));

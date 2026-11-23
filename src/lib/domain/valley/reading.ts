@@ -22,14 +22,20 @@ export function readGround(
 	y: number
 ): GroundReading {
 	const { height, water, bank, waterKind } = sample(x, y);
-	const dx = sample(x + probeM, y).height - sample(x - probeM, y).height;
-	const dy = sample(x, y + probeM).height - sample(x, y - probeM).height;
+	let slope: number | undefined;
 	const cover: GroundCover = waterKind === null ? 'dry' : waterKind === 'lake' ? 'lake' : 'river';
 	return Object.freeze({
 		height,
 		water,
 		bank,
-		slope: Math.hypot(dx, dy) / (2 * probeM),
+		get slope() {
+			if (slope === undefined) {
+				const dx = sample(x + probeM, y).height - sample(x - probeM, y).height;
+				const dy = sample(x, y + probeM).height - sample(x, y - probeM).height;
+				slope = Math.hypot(dx, dy) / (2 * probeM);
+			}
+			return slope;
+		},
 		cover,
 		waterKind
 	});

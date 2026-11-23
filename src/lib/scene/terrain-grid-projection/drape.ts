@@ -3,10 +3,9 @@ import type { Shape } from '../../core/object';
 
 type Triangle = readonly [Vec3, Vec3, Vec3];
 
-const bucketSize = 16;
 const epsilon = 1e-9;
 
-function* buckets(points: readonly Vec2[] | readonly Vec3[]) {
+function* buckets(points: readonly Vec2[] | readonly Vec3[], bucketSize: number) {
 	const xs = points.map(([x]) => Math.floor(x / bucketSize));
 	const ys = points.map(([, y]) => Math.floor(y / bucketSize));
 	for (let x = Math.min(...xs); x <= Math.max(...xs); x++) {
@@ -38,7 +37,9 @@ function clip(start: number[], end: number[]) {
 	if (to - from > epsilon) return [from, to];
 }
 
-export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>) {
+export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>, bucketSize = 16) {
+	if (!(Number.isFinite(bucketSize) && bucketSize > 0))
+		throw new RangeError('Expected a positive triangle bucket size');
 	const points: Vec3[] = [];
 	for (let i = 0; i < positions.length; i += 3)
 		points.push([positions[i], positions[i + 1], positions[i + 2]]);
@@ -47,7 +48,7 @@ export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>) 
 		const [a, b, c] = [points[indices[i]], points[indices[i + 1]], points[indices[i + 2]]];
 		if ((b[0] - a[0]) * (c[1] - a[1]) === (b[1] - a[1]) * (c[0] - a[0])) continue;
 		const triangle: Triangle = [a, b, c];
-		for (const key of buckets(triangle)) {
+		for (const key of buckets(triangle, bucketSize)) {
 			const bin = triangles.get(key);
 			if (bin) bin.push(triangle);
 			else triangles.set(key, [triangle]);
@@ -55,7 +56,7 @@ export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>) 
 	}
 	return (a: Vec2, b: Vec2): Vec3[] => {
 		const candidates = new Set<Triangle>();
-		for (const key of buckets([a, b]))
+		for (const key of buckets([a, b], bucketSize))
 			for (const triangle of triangles.get(key) ?? []) candidates.add(triangle);
 		const cuts: { t: number; z: number }[] = [];
 		for (const triangle of candidates) {

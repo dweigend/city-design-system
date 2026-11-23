@@ -4,19 +4,40 @@ import type { Reach, ReachStation } from './reaches';
 
 const size = 160;
 export const bankLimit = 160;
-type Edge = { a: Vec2; dx: number; dy: number; inverse: number };
+type Edge = {
+	a: Vec2;
+	dx: number;
+	dy: number;
+	inverse: number;
+	halfX: number;
+	halfY: number;
+	midX: number;
+	midY: number;
+};
 type Shore = Edge & { lake: DrainageLake };
 type Channel = Edge & {
 	start: ReachStation;
 	end: ReachStation;
 	kind: 'river' | 'tributary';
 	sill: boolean;
+	maximumRadius: number;
 };
 
 function edge(a: Vec2, b: Vec2): Edge {
 	const dx = b[0] - a[0];
 	const dy = b[1] - a[1];
-	return { a, dx, dy, inverse: 1 / (dx * dx + dy * dy) };
+	const halfX = Math.abs(dx) / 2;
+	const halfY = Math.abs(dy) / 2;
+	return {
+		a,
+		dx,
+		dy,
+		inverse: 1 / (dx * dx + dy * dy),
+		halfX,
+		halfY,
+		midX: a[0] + dx / 2,
+		midY: a[1] + dy / 2
+	};
 }
 
 function key(x: number, y: number) {
@@ -73,10 +94,12 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 		for (let i = 1; i < stations.length; i++) {
 			const [start, end] = [stations[i - 1], stations[i]];
 			const line = edge(start.xy, end.xy);
+			const maximumRadius = Math.max(start.width, end.width) / 2;
 			if (!Number.isFinite(line.inverse)) continue;
 			channels.add(
 				{
 					...line,
+					maximumRadius,
 					start,
 					end,
 					kind: trunk ? 'river' : 'tributary',
@@ -84,7 +107,7 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 				},
 				start.xy,
 				end.xy,
-				bankLimit + Math.max(start.width, end.width) / 2
+				bankLimit + maximumRadius
 			);
 		}
 	}
@@ -110,6 +133,17 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 			let bank = bankLimit;
 			let t = 0;
 			for (const candidate of channels.at(x, y) ?? []) {
+				// Box distance bounds the segment distance. Keep trunk candidates that
+				// can win the wet-overlap preference even when a tributary is closer.
+				const limit = Math.max(
+					0,
+					candidate.maximumRadius + (candidate.kind === 'river' ? Math.max(0, bank) : bank)
+				);
+				if (
+					Math.abs(x - candidate.midX) - candidate.halfX > limit ||
+					Math.abs(y - candidate.midY) - candidate.halfY > limit
+				)
+					continue;
 				const u = projection(candidate, x, y);
 				const radius = mix(candidate.start.width, candidate.end.width, u) / 2;
 				const distance = separation(candidate, x, y, u) - radius;

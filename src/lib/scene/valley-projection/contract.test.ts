@@ -33,6 +33,15 @@ test('applies one scale to bed, water and cut sides, keeping XY fixed', () => {
 	expect(() => projectValley(valley, 0)).toThrow(RangeError);
 });
 
+test('keeps slender tributaries legible with a blue minimum-width stroke', () => {
+	const valley = Valley.create({ seed: 424242, parameters: { relief: 1 } });
+	const { drawables } = projectValley(valley);
+	const water = drawables.find(({ id }) => id === 'river');
+	expect(water?.stroke).toEqual({ color: '--river-water', width: 2.2, opacity: 1 });
+	expect(water?.strokeSegments?.length).toBeGreaterThan(0);
+	expect((water?.strokeSegments?.length ?? 0) % 6).toBe(0);
+});
+
 test('returns the terrain draping adapter and renders terrain for an empty plan', () => {
 	const valley = Valley.create({ seed: 1201 });
 	const window = { origin: [0, 0], bearing: 0, length: 600, width: 400 } as const;

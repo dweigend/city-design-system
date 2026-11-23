@@ -19,8 +19,9 @@ export function regionalGround(
 	const belt = regionalProfile(guide, random.derive('regional'));
 	const uplift = uplifts(random.derive('catchment/uplift'), relief);
 	const distance = courseProjection(guide);
-	const datum = (x: number, y: number) =>
-		-(x * Math.cos(guide.bearing) + y * Math.sin(guide.bearing)) * axis.profile.valleySlope;
+	const u = Math.cos(guide.bearing);
+	const v = Math.sin(guide.bearing);
+	const datum = (x: number, y: number) => -(x * u + y * v) * axis.profile.valleySlope;
 	const terraces = (x: number, y: number) => {
 		const { stationM, acrossM } = offset(toMillimeters(x), toMillimeters(y));
 		if (x * x + y * y <= 1420 ** 2) return heightAboveWaterM(axis, stationM, acrossM);

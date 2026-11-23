@@ -2,7 +2,7 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { Random } from '../../core/random';
 import { resolveParams } from '../../core/params';
 import { generateCourse, type RiverCourse } from './course';
-import { heightGrid, valleyBands, type HeightGrid } from './ground';
+import { heightGrid, valleyBands, windowSize, type HeightGrid } from './ground';
 import { valleyParams } from './parameters';
 import { drainageTerrain } from './drainage-terrain';
 import type { DrainageLake } from './lake-geometry';
@@ -132,8 +132,12 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 	const rasterStart = performance.now();
 	const course = trunkCourse(terrain, guide.bearing);
 	const sample = terrainSampler(terrain, settings.relief);
-	const grid = heightGrid(sample, axis);
-	onTiming?.(Object.freeze({ ...terrain.timing, gridMs: performance.now() - rasterStart }));
+	let grid: HeightGrid | undefined;
+	const readGrid = () => (grid ??= heightGrid(sample, axis));
+	if (onTiming) {
+		readGrid();
+		onTiming(Object.freeze({ ...terrain.timing, gridMs: performance.now() - rasterStart }));
+	}
 	return Object.freeze({
 		seed,
 		revision: 2,
@@ -142,7 +146,9 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 		lakes: terrain.lakes,
 		checkDrainage: () => terrain.check((x, y) => sample(x, y).height),
 		reaches: terrain.reaches,
-		grid,
+		get grid() {
+			return readGrid();
+		},
 		bands: valleyBands,
 		sampleTerrain: sample,
 		sampleGround(x: number, y: number) {
@@ -182,7 +188,7 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 			});
 		},
 		heightAt(x: number, y: number) {
-			const half = grid.origin[1];
+			const half = windowSize / 2;
 			if (!(Math.abs(x) <= half && Math.abs(y) <= half)) throw new RangeError('outside-window');
 			return sample(x, y).height;
 		}

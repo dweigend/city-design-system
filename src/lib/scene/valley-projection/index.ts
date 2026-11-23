@@ -1,5 +1,5 @@
 import { required } from '../../core/invariant';
-import { PlaceableObject } from '../../core/object';
+import { PlaceableObject, type Shape } from '../../core/object';
 import type { Valley } from '../../domain/valley';
 import { terrainGridProjection } from '../terrain-grid-projection';
 import { landscape, resolveSurfaces } from '../surface';
@@ -7,6 +7,7 @@ import { reachFrame, windowFrame, type ReachFrame, type ValleyWindow } from './f
 import { terrainField } from './raster';
 import { terrainMeshes } from './meshes';
 import { waterSurface } from './water';
+import { tributaryStrokes } from './tributaries';
 
 /** Maximum triangle count including ground, water and the cut earth sides. */
 export const valleyTriangleBudget = 36_000;
@@ -14,6 +15,7 @@ export const valleyTriangleBudget = 36_000;
 const stripWidth = 4000;
 
 const lowlandScale = 14;
+const tributaryWidthPx = 2.2;
 const contourSteps = [1, 2.5, 5, 10] as const;
 
 function visualScale(relief: number) {
@@ -31,12 +33,12 @@ function contourScale(relief: number) {
  * Throws RangeError for a non-positive or non-finite height scale or an over-budget mesh.
  */
 export function projectValley(valley: Valley, heightScale?: number) {
-	return project(valley, reachFrame(valley, stripWidth), stripWidth, heightScale);
+	return project(valley, reachFrame(valley, stripWidth), stripWidth, heightScale, true);
 }
 
 /** Projects a metric window of the same valley, with local X along its bearing and Z
  * exaggerated by the supplied positive height scale. Returns world XY to local XY
- * conversion for overlays, a plan draping adapter, the detached drawables and triangle count. */
+ * conversion for overlays, plan and tributary draping adapters, drawables, and a triangle count. */
 export function projectValleyWindow(valley: Valley, window: ValleyWindow, heightScale: number) {
 	if (
 		![...window.origin, window.bearing, window.length, window.width].every(Number.isFinite) ||
@@ -55,11 +57,35 @@ export function projectValleyWindow(valley: Valley, window: ValleyWindow, height
 		...result,
 		footprint: result.object.footprint,
 		toLocal: frame.toLocal,
+		traceTributaries: (ground: Extract<Shape, { kind: 'mesh' }>) =>
+			traceTributaries(valley, frame, window.width, heightScale, ground),
 		projectPlan: terrainGridProjection(ground, frame.toLocal, result.object.footprint)
 	});
 }
 
-function project(valley: Valley, frame: ReachFrame, width: number, scale?: number) {
+function traceTributaries(
+	valley: Valley,
+	frame: ReachFrame,
+	width: number,
+	heightScale: number,
+	ground: Extract<Shape, { kind: 'mesh' }>
+) {
+	const strokeSegments = tributaryStrokes(valley.reaches, frame, width, heightScale, ground);
+	return strokeSegments.length
+		? {
+				strokeSegments: Object.freeze(strokeSegments),
+				stroke: { color: landscape.water.color, width: tributaryWidthPx, opacity: 1 }
+			}
+		: undefined;
+}
+
+function project(
+	valley: Valley,
+	frame: ReachFrame,
+	width: number,
+	scale?: number,
+	drawTributaries = false
+) {
 	const { field, relief } = terrainField(frame, width);
 	const autoHeightScale = visualScale(relief);
 	const heightScale = scale ?? autoHeightScale;
@@ -69,6 +95,9 @@ function project(valley: Valley, frame: ReachFrame, width: number, scale?: numbe
 	for (let i = 0; i < field.samples.length; i += 4) field.samples[i] /= contourStep;
 	const water = waterSurface(valley, frame, width, heightScale);
 	const parts = terrainMeshes(frame, heightScale, field, water, valleyTriangleBudget);
+	const traces = drawTributaries
+		? traceTributaries(valley, frame, width, heightScale, parts[0].shape)
+		: undefined;
 	const triangleCount = parts.reduce((sum, { shape }) => sum + shape.indices.length / 3, 0);
 	if (triangleCount > valleyTriangleBudget)
 		throw new RangeError('Valley exceeds the triangle budget');
@@ -92,7 +121,8 @@ function project(valley: Valley, frame: ReachFrame, width: number, scale?: numbe
 					...part,
 					heightScale,
 					terrainField: part.finish === 'terrain' ? field : undefined,
-					boundaryStroke: part.flat === true && part.id !== 'river'
+					boundaryStroke: part.flat === true && part.id !== 'river',
+					...(part.id === 'river' ? traces : undefined)
 				})
 			)
 		)

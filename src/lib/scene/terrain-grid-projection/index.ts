@@ -5,6 +5,11 @@ import type { TerrainGrid } from '../../domain/terrain-grid';
 import { resolveSurfaces } from '../surface';
 import { drape } from './drape';
 
+/** Indexes the rendered ground mesh and returns a segment projector in local meters.
+ * The optional bucket side in meters defaults to 16. Each segment follows crossed triangles
+ * and throws if it leaves the mesh. */
+export { drape as terrainDrape };
+
 /** Prepares the terrain's triangle index once. The returned function projects a grid as one
  * line-finished mesh batch, with a private ring of indices per cell. It splits edges at terrain
  * triangle crossings and follows the mesh's exaggerated Z. The stage applies the depth bias.

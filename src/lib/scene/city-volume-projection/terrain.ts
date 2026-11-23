@@ -9,7 +9,7 @@ import { pinGround } from './ground-anchors';
 /** Projects the city window at true scale, welding the plan's sampled foundation corners
  * into the ground triangles. The terrain itself stays unchanged outside this projection. */
 export function projectCityTerrain(city: CitySite, grid: TerrainGrid) {
-	const { drawables, footprint, toLocal, autoHeightScale } = projectValleyWindow(
+	const { drawables, footprint, toLocal, autoHeightScale, traceTributaries } = projectValleyWindow(
 		city.valley,
 		cityWindow(city, grid),
 		1
@@ -23,8 +23,13 @@ export function projectCityTerrain(city: CitySite, grid: TerrainGrid) {
 		ground.shape,
 		grid.vertices.map(({ position: [x, y, z] }): Vec3 => [...toLocal(x, y), z])
 	);
+	const traces = traceTributaries(shape);
 	return {
-		drawables: drawables.map((part) => (part === ground ? { ...part, shape } : part)),
+		drawables: drawables.map((part) => {
+			if (part === ground) return { ...part, shape };
+			if (part.id === 'river' && traces) return { ...part, ...traces };
+			return part;
+		}),
 		footprint,
 		autoHeightScale,
 		toLocal,
