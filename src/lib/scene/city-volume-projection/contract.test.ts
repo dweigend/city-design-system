@@ -12,12 +12,14 @@ import type { Drawable } from '../surface';
 import { drawnInPencil } from './blocks';
 import { example } from './example';
 import {
+	cityElevation,
 	cityPresentation,
 	cityProfile,
 	projectCityDistricts,
 	projectCityLattice,
 	projectCityTerrain
 } from './index';
+import { cityElevationRangeM } from './constants';
 import { memberRank } from './lattice';
 import { clockwise } from './mesh';
 
@@ -231,3 +233,15 @@ test('uses the same sampled mountain ground in the lattice and terrain triangles
 	} of grid.vertices)
 		expect(points.has(key([...toLocal(x, y), z]))).toBe(true);
 }, 15_000);
+
+test('the camera elevation never falls from quarter to whole city and does not jump', () => {
+	for (const relief of [0, 0.5, 1]) {
+		let previous = cityElevation(relief, 0);
+		for (let width = 0; width <= cityElevationRangeM[1] + 500; width += 10) {
+			const elevation = cityElevation(relief, width);
+			expect(elevation).toBeGreaterThanOrEqual(previous - 1e-12);
+			expect(elevation - previous).toBeLessThan((0.5 * Math.PI) / 180);
+			previous = elevation;
+		}
+	}
+});

@@ -8,7 +8,7 @@ and lattice tops read the same world elevations from the city volume.
 - True scale keeps world elevations at every zoom.
 - Height view colours nominal column heights on the same opaque metre scale.
 
-The camera lowers with the metric frame width so the true-scale quarter reads in elevation.
+The camera lowers with the metric frame width so the true-scale quarter reads in elevation. The camera never flattens on the way out: the whole-city elevation is at least the quarter elevation, so the blend is monotone or flat.
 
 The example projects a fixed valley city and its box lattice.
 

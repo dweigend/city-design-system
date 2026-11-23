@@ -28,7 +28,10 @@ function fade(value: number, [start, end]: readonly [number, number]) {
 
 /** Camera elevation in radians for a true horizontal frame width in meters. */
 export function cityElevation(relief: number, widthM = Infinity) {
-	const wholeCity = cityElevationFlatDeg + cityElevationPerReliefDeg * relief;
+	const wholeCity = Math.max(
+		quarterElevationDeg,
+		cityElevationFlatDeg + cityElevationPerReliefDeg * relief
+	);
 	const share = fade(widthM, cityElevationRangeM);
 	return ((quarterElevationDeg + (wholeCity - quarterElevationDeg) * share) * Math.PI) / 180;
 }

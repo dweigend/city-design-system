@@ -16,8 +16,9 @@ export const cityFrameFillFlat = 0.92;
 /** Share of the frame given back per unit of relief, so Auto can raise ground and roofs. */
 export const cityFrameFillPerRelief = 0.2;
 /** Camera elevation at quarter zoom, in degrees. */
-export const quarterElevationDeg = 18;
-/** Camera elevation over a whole flat city, in degrees. */
+export const quarterElevationDeg = 32;
+/** Camera elevation over a whole flat city, in degrees; the whole-city view never sits below the
+ * quarter elevation. */
 export const cityElevationFlatDeg = 24;
 /** Extra camera elevation over a whole city per unit of relief, in degrees. */
 export const cityElevationPerReliefDeg = 38;
