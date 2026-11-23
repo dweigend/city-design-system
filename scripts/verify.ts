@@ -1,5 +1,13 @@
 // Quality gate: every step runs even if an earlier one fails; any failure exits 1.
-const steps = ['lint', 'check', 'test', 'check:boundaries', 'check:skills', 'build'];
+const steps = [
+	'lint',
+	'check',
+	'test',
+	'check:boundaries',
+	'check:config',
+	'check:skills',
+	'build'
+];
 const results: Array<{ name: string; exitCode: number }> = [];
 for (const name of steps) {
 	const { exitCode } = Bun.spawnSync(['bun', 'run', name], {

@@ -4,6 +4,14 @@ const layers = {
 	world: ['world', 'domain', 'core'],
 	domain: ['domain', 'core']
 };
+const configOwners = {
+	'core/params': 'inputs',
+	'core/object': 'object',
+	'domain/river-metrics': 'river-metrics',
+	'domain/valley': 'hydrology',
+	'world/valley-protocol': 'valley-measurement'
+};
+const allowedConfigEntries = Object.values(configOwners).join('|');
 const modulePath = 'src/lib/(?:ui|scene|world|domain|core)/[^/]+';
 const headlessPackages = '(?:three|svelte|bits-ui|lucide-svelte)';
 const installed = '(?:^|/)node_modules/';
@@ -17,19 +25,44 @@ module.exports = {
 				{ path: `^src/lib/${layer}/` },
 				{
 					dependencyTypes: ['local', 'localmodule'],
-					pathNot: `^src/(?:lib/(?:${allowed.join('|')})/|routes/|app\\.css$)`
+					pathNot: `^src/(?:lib/(?:${allowed.join('|')})/|routes/|app\\.css$|config/(?:${allowedConfigEntries})/index\\.ts$)`
 				}
 			)
 		),
 		error(
 			'downward-only-core',
 			{ path: '^src/lib/core/', pathNot: '\\.test\\.ts$' },
-			{ pathNot: '^src/lib/core/' }
+			{ pathNot: `^src/(?:lib/core/|config/(?:${allowedConfigEntries})/index\\.ts$)` }
 		),
 		error(
 			'downward-only-core-test',
 			{ path: '^src/lib/core/.*\\.test\\.ts$' },
-			{ pathNot: '^(?:src/lib/core/|bun:test$)' }
+			{ pathNot: `^(?:src/lib/core/|bun:test$|src/config/(?:${allowedConfigEntries})/index\\.ts$)` }
+		),
+		error(
+			'config-owner-only',
+			{
+				path: '^src/',
+				pathNot: `^src/(?:config/|lib/(?:${Object.keys(configOwners).join('|')})/)`
+			},
+			{ path: '^src/config/' }
+		),
+		...Object.entries(configOwners).map(([owner, slice]) =>
+			error(
+				`config-owner-only-${slice}`,
+				{ path: `^src/lib/${owner}/` },
+				{ path: '^src/config/', pathNot: `^src/config/${slice}/index\\.ts$` }
+			)
+		),
+		error(
+			'config-helpers-data-only',
+			{ path: '^src/config/[^/]+\\.ts$' },
+			{ pathNot: '^src/config/[^/]+\\.ts$' }
+		),
+		error(
+			'config-data-only',
+			{ path: '^src/config/([^/]+)/' },
+			{ pathNot: '^src/config/(?:$1/|setting\\.ts$)' }
 		),
 		error('no-file-cycles', {}, { circular: true }),
 		{
