@@ -4,13 +4,8 @@ import type { PlanVariant, TerrainGrid } from '../terrain-grid';
 import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
 import type { CityCore } from './rank';
 import { levelHeight, peakLaw } from './settlement';
-import {
-	createFrame,
-	latticeVariants,
-	type CityLattice,
-	type Column,
-	type LatticeVariant
-} from './frame';
+import type { CityLattice, Column } from './frame';
+import { createLattice, latticeVariants, type LatticeVariant } from './lattices';
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
 export { cityAccessibility } from './accessibility';
@@ -42,7 +37,16 @@ export const cityVolumeParams = defineParams({
 	complexity: { ...blockInputs.complexity, default: 0.35 }
 });
 
-/** Compatible carriers by tiled plan family. All four share the same polygon side faces.
+/** Signed volume in m³ of every solid of a lattice, in solid order. Unknown joints throw. */
+export { latticeVolumes } from './lattices';
+
+/** Horizontal meters a setback or corbel corner moves per level above its lowest neighbor. */
+export { taperStep } from './taper';
+
+/** One closed volume cell of a lattice, owned by one bay, with faces wound outward. */
+export type { LatticeSolid } from './solid';
+
+/** Compatible carriers by tiled plan family. All models share the same bays and side faces.
  * Polar and free-quad are excluded from the chapter because its terrain mask can open holes. */
 export const cityLatticesByPlan = Object.freeze({
 	organic: latticeVariants,
@@ -63,7 +67,7 @@ export const cityPlanVariants = Object.freeze(Object.keys(cityLatticesByPlan) as
 /** One connected district's kind and the assigned height of this addressed plan cell. */
 export type { DistrictKind, DistrictCell } from './districts';
 
-/** Member topology applied to each bay and the resulting canonical faces, joints and members. */
+/** Lattice model name, and the resulting canonical bays, faces, joints, members and solids. */
 export type { LatticeVariant, CityLattice };
 
 /** One column per plan cell, carrying district identity and terrain corners in world meters. */
@@ -141,5 +145,5 @@ export function createCityLattice(
 				throw new RangeError('The first city level plane must clear the terrain');
 		}
 	}
-	return createFrame(columns, datumZ, levelHeight, variant);
+	return createLattice(columns, datumZ, levelHeight, variant);
 }

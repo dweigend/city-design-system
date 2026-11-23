@@ -56,7 +56,7 @@ test('projects one glyph per joint and one segment per unique member on common p
 test('omits the lattice drawable when there are no bays', () => {
 	const { frame } = example();
 	expect(
-		projectCityLattice({ cells: [], faces: [], nodes: [], edges: [] }, frame).drawables
+		projectCityLattice({ cells: [], faces: [], nodes: [], edges: [], solids: [] }, frame).drawables
 	).toEqual([]);
 });
 

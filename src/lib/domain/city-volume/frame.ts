@@ -1,7 +1,8 @@
 import type { Vec3 } from '../../core/geometry';
+import { closeSolid, type LatticeSolid } from './solid';
 
-export const latticeVariants = Object.freeze(['box', 'braced', 'centered', 'tetrahedral'] as const);
-export type LatticeVariant = (typeof latticeVariants)[number];
+export const prismVariants = Object.freeze(['box', 'braced', 'centered', 'tetrahedral'] as const);
+export type PrismVariant = (typeof prismVariants)[number];
 
 /** Stable addresses for full levels, joints and undirected members. Joint positions are world
  * XYZ meters, with Z up. Lists are detached and deeply frozen in plan/level traversal order. */
@@ -14,7 +15,8 @@ export type CityLattice = Readonly<{
 	}>[];
 	faces: readonly Readonly<{ id: string; corners: readonly [string, string, string, string] }>[];
 	nodes: readonly Readonly<{ id: string; position: Vec3 }>[];
-	edges: readonly Readonly<{ id: string; from: string; to: string }>[];
+	edges: readonly Readonly<{ id: string; from: string; to: string; rank?: 'chord' | 'strut' }>[];
+	solids: readonly LatticeSolid[];
 }>;
 
 type Node = CityLattice['nodes'][number];
@@ -79,7 +81,12 @@ function tetrahedral(level: Level, connect: Connect) {
 	}
 }
 
-const frames: Record<LatticeVariant, (level: Level, connect: Connect) => void> = {
+function sideLoop(bottom: readonly Node[], top: readonly Node[], i: number) {
+	const j = (i + 1) % bottom.length;
+	return [bottom[i], bottom[j], top[j], top[i]];
+}
+
+const frames: Record<PrismVariant, (level: Level, connect: Connect) => void> = {
 	box,
 	braced,
 	centered,
@@ -90,12 +97,13 @@ export function createFrame(
 	columns: readonly Column[],
 	datumZ: number,
 	height: number,
-	variant: LatticeVariant
+	variant: PrismVariant
 ): CityLattice {
 	const addMembers = frames[variant];
 	const nodes = new Map<string, Node>();
 	const edges = new Map<string, Edge>();
 	const cells = [];
+	const solids: LatticeSolid[] = [];
 	const faces = new Map<string, CityLattice['faces'][number]>();
 	function connect(a: Node, b: Node) {
 		for (const { id, position } of [a, b]) {
@@ -126,6 +134,9 @@ export function createFrame(
 			});
 			cells.push(Object.freeze({ id, planCellId, level, sideFaces: Object.freeze(sideFaces) }));
 			addMembers({ id, bottom, top }, connect);
+			solids.push(
+				closeSolid(id, id, [bottom, top, ...bottom.map((a, i) => sideLoop(bottom, top, i))])
+			);
 			bottom = top;
 		}
 	}
@@ -133,6 +144,7 @@ export function createFrame(
 		cells: Object.freeze(cells),
 		faces: Object.freeze([...faces.values()]),
 		nodes: Object.freeze([...nodes.values()]),
-		edges: Object.freeze([...edges.values()])
+		edges: Object.freeze([...edges.values()]),
+		solids: Object.freeze(solids)
 	});
 }

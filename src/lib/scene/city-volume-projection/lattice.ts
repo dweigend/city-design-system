@@ -26,8 +26,14 @@ export function latticeMesh(lattice: CityLattice, toLocal: (x: number, y: number
 		upright.add(key(b, c));
 		upright.add(key(d, a));
 	}
-	for (const { id, from, to } of lattice.edges) {
-		const group = rim.has(id) ? wires.rims : upright.has(id) ? wires.uprights : wires.detail;
+	for (const { id, from, to, rank } of lattice.edges) {
+		// A ranked member reads as a rim when it lies in one plane and as an upright otherwise.
+		const group =
+			rank === 'chord' || rim.has(id)
+				? wires.rims
+				: rank === 'strut' || upright.has(id)
+					? wires.uprights
+					: wires.detail;
 		group.push(
 			...required(positions.get(from), 'lattice joint'),
 			...required(positions.get(to), 'lattice joint')
