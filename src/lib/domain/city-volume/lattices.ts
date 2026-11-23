@@ -1,6 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
 import { antiprism } from './antiprism';
-import { corbel } from './corbel';
 import { diagrid } from './diagrid';
 import {
 	createFrame,
@@ -11,7 +10,6 @@ import {
 } from './frame';
 import { createPlaneLattice } from './plane-lattice';
 import type { PlaneRule } from './plane-joints';
-import { setback } from './setback';
 import { solidVolume } from './solid';
 import { tree } from './tree';
 
@@ -34,9 +32,7 @@ const builders = {
 	>),
 	antiprism: planes(antiprism),
 	diagrid: planes(diagrid),
-	tree: planes(tree),
-	setback: planes(setback),
-	corbel: planes(corbel)
+	tree: planes(tree)
 };
 
 export type LatticeVariant = keyof typeof builders;

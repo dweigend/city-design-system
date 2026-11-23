@@ -10,13 +10,14 @@ import {
 	levelHeight,
 	readCityColumns,
 	taperStep,
+	createCityTaper,
 	type CityColumn,
 	type CityLattice,
 	type CityPlanVariant,
 	type LatticeVariant
 } from './index';
 
-const spatial = ['antiprism', 'diagrid', 'tree', 'setback', 'corbel'] as const;
+const spatial = ['antiprism', 'diagrid', 'tree'] as const;
 const core = { origin: [0, 0], bearing: 0, aspect: 0.5 } as const;
 
 function town(variant: CityPlanVariant) {
@@ -172,8 +173,7 @@ test('solids stay inside the bays and the members are exactly their edges', () =
 		const lattice = createCityLattice(columns, datum, 'hex', variant);
 		const volume = latticeVolumes(lattice).reduce((a, b) => a + b, 0);
 		expect(volume).toBeGreaterThan(0.25 * bays);
-		// A corbel overhangs lower neighbors and the city edge, so only it may exceed the bays.
-		if (variant !== 'corbel') expect(volume).toBeLessThanOrEqual(bays * (1 + 1e-9));
+		expect(volume).toBeLessThanOrEqual(bays * (1 + 1e-9));
 		const fromSolids = new Set(
 			lattice.solids.flatMap(({ faces }) =>
 				faces.flatMap((face) =>
@@ -202,15 +202,25 @@ test('example: one square cell in each model', () => {
 	expect(count('tree')).toEqual([21, 44, 4]);
 	const foot = build(one, 'tree').nodes.find(({ id }) => id === 'cell/c0,0/level/1');
 	expect(foot?.position).toEqual([30, 30, 17]);
-	const corner = (variant: LatticeVariant, level: number) =>
-		build(one, variant).nodes.find(({ id }) => id === `vertex/0,0/level/${level}`)?.position;
+});
+
+test('example: the taper field retreats a corner by one step per level above its foundation', () => {
+	const one = squares([[4]]);
+	const taper = createCityTaper(one, 10);
 	const run = taperStep / Math.SQRT2;
-	const near = (actual: readonly number[] | undefined, expected: readonly number[]) =>
-		expected.forEach((value, i) => expect(actual?.[i]).toBeCloseTo(value, 9));
-	near(corner('setback', 1), [0, 0, 17]);
-	near(corner('setback', 2), [run, run, 24]);
-	expect(corner('setback', 3)?.[0]).toBeCloseTo(2 * run, 9);
-	near(corner('corbel', 2), [-run, -run, 24]);
+	const near = (actual: readonly number[], expected: readonly number[]) =>
+		expected.forEach((value, i) => expect(actual[i]).toBeCloseTo(value, 9));
+	near(taper([0, 0, 17]), [0, 0]);
+	near(taper([0, 0, 24]), [run, run]);
+	near(taper([0, 0, 31]), [2 * run, 2 * run]);
+	// Between two planes the move is linear, and the centre moves with the mean of its corners.
+	near(taper([0, 0, 27.5]), [1.5 * run, 1.5 * run]);
+	near(taper([30, 30, 31]), [0, 0]);
+	near(taper([30, 0, 24]), [0, run]);
+	expect(() => taper([7, 7, 24])).toThrow(RangeError);
+	// Every lattice joint is a plan address of the field.
+	for (const variant of cityLatticesByPlan.square)
+		for (const { position } of build(one, variant).nodes) expect(taper(position)).toHaveLength(2);
 });
 
 test('example: a uniform square field fills the bays exactly with interior solids', () => {
@@ -238,14 +248,14 @@ test('example: a lower neighbor stops the shared solids at its own height', () =
 		expect(owners(3)).toEqual(['c1,0/level/3/cell']);
 	}
 	// The tall column steps back from its lower neighbor and from the open city edge.
-	const tapered = build(squares([[1, 3]]), 'setback');
-	const shared = tapered.nodes.find(({ id }) => id === 'vertex/1,0/level/2');
-	const inner = tapered.nodes.find(({ id }) => id === 'vertex/2,1/level/2');
-	expect(shared?.position[0]).toBeGreaterThan(60);
-	expect(inner?.position.slice(0, 2)).not.toEqual([120, 60]);
+	const steps = squares([[1, 3]]);
+	const taper = createCityTaper(steps, 10);
+	const level = (n: number) => 10 + n * levelHeight;
+	expect(taper([60, 0, level(2)])[0]).toBeGreaterThan(0);
+	expect(taper([120, 60, level(2)])).not.toEqual([0, 0]);
 });
 
-test('all nine models share exact slope contacts and close their clamped bays', () => {
+test('all seven models share exact slope contacts and close their clamped bays', () => {
 	const columns = squares([
 		[2, 3],
 		[2, 3]

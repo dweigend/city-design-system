@@ -33,7 +33,8 @@ export type { SettlementKind } from './settlement';
 export type { CityCore } from './rank';
 
 /** Height caps the peak above the site datum in meters; the city's area sets what the peak can
- * reach below that cap. Complexity is unitless district fragmentation. */
+ * reach below that cap. Complexity is unitless district fragmentation. Taper is the signed share
+ * of the taper field a far view applies: 1 retreats, 0 keeps the columns upright, −1 overhangs. */
 export const cityVolumeParams = defineParams({
 	height: {
 		label: 'Height',
@@ -43,7 +44,8 @@ export const cityVolumeParams = defineParams({
 		default: peakLaw.fullLevels * levelHeight,
 		step: levelHeight
 	},
-	complexity: { ...blockInputs.complexity, default: 0.35 }
+	complexity: { ...blockInputs.complexity, default: 0.35 },
+	taper: { label: 'Taper', unit: '', min: -1, max: 1, default: 1, step: 0.25 }
 });
 
 /** Signed volume in m³ of every solid of a lattice, in solid order. Unknown joints throw. */
@@ -53,8 +55,10 @@ export { latticeVolumes } from './lattices';
  * The other models keep the bays as addresses and build their own solids. */
 export { prismVariants } from './frame';
 
-/** Horizontal meters a setback or corbel corner moves per level above its lowest neighbor. */
+/** Horizontal meters a tapered corner moves per level above its lowest neighbor. */
 export { taperStep } from './taper';
+/** The continuous retreat or overhang of the city volume, read at any plan address and height. */
+export { createCityTaper, type CityTaper } from './taper';
 
 /** One closed volume cell of a lattice, owned by one bay, with faces wound outward. */
 export type { LatticeSolid } from './solid';

@@ -26,7 +26,7 @@ export function createPlaneLattice(
 		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])
 	);
 	const bands: ColumnBands = (id) => required(byColumn.get(id), 'column planes');
-	const joints = jointsOf(topology, rule, datumZ, bands);
+	const joints = jointsOf(topology, datumZ);
 	const kind = (id: string, level: number) => {
 		const { foundation: base } = bands(id);
 		return level < base ? 'plan' : rule.plane(level, level - base);

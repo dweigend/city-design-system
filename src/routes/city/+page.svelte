@@ -81,9 +81,7 @@
 		tetrahedral: 'Tetrahedral',
 		antiprism: 'Antiprism',
 		diagrid: 'Diagrid',
-		tree: 'Tree',
-		setback: 'Setback',
-		corbel: 'Corbel'
+		tree: 'Tree'
 	};
 	const grids = cityPlanVariants.map((value) => ({ value, label: gridLabels[value] }));
 	const steps = [
