@@ -2,199 +2,213 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { Random } from '../../core/random';
 import type { TerrainGrid } from '../terrain-grid';
+import { districtRank, type CityCore } from './rank';
+import {
+	districtLevels,
+	districtShares,
+	maximumLevelStep,
+	peakLevels,
+	settlementOf,
+	type SettlementKind
+} from './settlement';
 
 export type DistrictKind = 'detached' | 'block' | 'center';
 export type DistrictCell = Readonly<{ districtId: string; kind: DistrictKind; levels: number }>;
 
-type Graph = ReadonlyMap<string, readonly string[]>;
-type Cell = Readonly<{ id: string; rank: number }>;
+type PlanCell = Readonly<{
+	id: string;
+	centroid: Vec2;
+	area: number;
+	neighbors: readonly string[];
+}>;
+type Ranked = PlanCell & Readonly<{ rank: number; share: number }>;
 
-function connected(graph: Graph, included: ReadonlySet<string>) {
-	const first = included.values().next().value;
-	if (first === undefined) return false;
-	const queue = [first];
-	const visited = new Set(queue);
-	for (const id of queue) {
-		for (const neighbor of required(graph.get(id), 'district neighbors')) {
-			if (!included.has(neighbor) || visited.has(neighbor)) continue;
-			visited.add(neighbor);
-			queue.push(neighbor);
-		}
-	}
-	return visited.size === included.size;
-}
-
-function grow(
-	graph: Graph,
-	candidates: readonly Cell[],
-	group: Set<string>,
-	remainder: Set<string>,
-	limit: number,
-	start: ReadonlySet<string> = group
-) {
-	const frontier = new Set(
-		[...start].flatMap((id) => [...required(graph.get(id), 'district seed')])
-	);
-	while (group.size < limit) {
-		const next = candidates.find(({ id }) => {
-			if (!frontier.has(id) || !remainder.delete(id)) return false;
-			if (connected(graph, remainder)) return true;
-			remainder.add(id);
-			return false;
-		});
-		if (!next) break;
-		if (group.size === 0) frontier.clear();
-		group.add(next.id);
-		for (const neighbor of required(graph.get(next.id), 'district neighbors'))
-			frontier.add(neighbor);
-	}
-}
-
-function splitBlocks(graph: Graph, pool: ReadonlySet<string>, random: Random, count: number) {
-	const seeds = [...pool]
-		.map((id) => ({ id, rank: random.derive(id).number() }))
-		.sort((a, b) => a.rank - b.rank)
-		.slice(0, count);
-	const districts = seeds.map(({ id }) => new Set([id]));
-	const claimed = new Set(seeds.map(({ id }) => id));
-	const queue = seeds.map(({ id }, district) => ({ id, district }));
-	for (const { id, district } of queue) {
-		for (const neighbor of required(graph.get(id), 'block neighbors')) {
-			if (!pool.has(neighbor) || claimed.has(neighbor)) continue;
-			claimed.add(neighbor);
-			districts[district].add(neighbor);
-			queue.push({ id: neighbor, district });
-		}
-	}
-	return districts;
-}
-
-function rankedInterior(plan: TerrainGrid, origin: Vec2, random: Random, complexity: number) {
+function planCells(plan: TerrainGrid): PlanCell[] {
 	const vertices = new Map(plan.vertices.map(({ id, position }) => [id, position]));
-	const shift = random.derive('center-offset');
-	const outline = random.derive('outline');
-	const offset = { min: -12, max: 12 };
-	const ox = origin[0] + shift.number(offset);
-	const oy = origin[1] + shift.number(offset);
-	return plan.cells
-		.filter(({ neighbors }) => neighbors.every((id) => id !== null))
-		.map(({ id, vertexIds }) => {
-			const [x, y] = vertexIds.reduce(
-				([x, y], corner) => {
-					const [u, v] = required(vertices.get(corner), 'district corner');
-					return [x + (u - ox) / vertexIds.length, y + (v - oy) / vertexIds.length];
-				},
-				[0, 0]
-			);
-			const roughness = outline.derive(id).number() - 0.5;
-			return { id, rank: Math.hypot(x, y) + roughness * (5 + 14 * complexity) };
-		})
-		.sort((a, b) => a.rank - b.rank);
+	return plan.cells.map(({ id, vertexIds, neighbors }) => {
+		const points = vertexIds.map((key) => required(vertices.get(key), 'district corner'));
+		let area = 0;
+		let cx = 0;
+		let cy = 0;
+		for (const [i, [ax, ay]] of points.entries()) {
+			const [bx, by] = points[(i + 1) % points.length];
+			const cross = ax * by - bx * ay;
+			area += cross / 2;
+			cx += ((ax + bx) * cross) / 6;
+			cy += ((ay + by) * cross) / 6;
+		}
+		return {
+			id,
+			centroid: [cx / area, cy / area] as const,
+			area,
+			neighbors: neighbors.filter((neighbor) => neighbor !== null)
+		};
+	});
 }
 
-function fragmentDistricts(
-	graph: Graph,
-	interior: readonly Cell[],
-	block: Set<string>,
-	undeveloped: Set<string>,
+/** Orders cells from the core outward and records the area share up to each cell's middle. */
+function rankCells(cells: readonly PlanCell[], rank: (point: Vec2) => number): Ranked[] {
+	const total = cells.reduce((sum, { area }) => sum + area, 0);
+	const ordered = cells
+		.map((cell) => ({ cell, rank: rank(cell.centroid) }))
+		.sort((a, b) => a.rank - b.rank || (a.cell.id < b.cell.id ? -1 : 1));
+	let cumulative = 0;
+	return ordered.map(({ cell, rank }) => {
+		cumulative += cell.area;
+		return { ...cell, rank, share: (cumulative - cell.area / 2) / total };
+	});
+}
+
+/** A bell over the center: full height at its heart, the podium at its rim. Seeded tower noise
+ * lowers some columns so only a few stand at the top. */
+function centerLevels(t: number, peak: number, towerNoise: number) {
+	const podium = districtLevels.block;
+	const bell = (1 - t) ** 2;
+	return Math.round(podium + Math.max(0, peak - podium) * bell * towerNoise);
+}
+
+/** Raises center columns to at most one level step below their highest neighbor, so a tower
+ * stands on stepped flanks instead of being cut down by the step limit. */
+function supportPeaks(
+	levels: Map<string, number>,
+	cells: readonly PlanCell[],
+	kinds: ReadonlyMap<string, DistrictKind>
+) {
+	const center = cells.filter(({ id }) => kinds.get(id) === 'center');
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const { id, neighbors } of center) {
+			const reach = Math.max(
+				...neighbors.map((neighbor) => required(levels.get(neighbor), 'step neighbor'))
+			);
+			if (required(levels.get(id), 'step column') < reach - maximumLevelStep) {
+				levels.set(id, reach - maximumLevelStep);
+				changed = true;
+			}
+		}
+	}
+}
+
+/** Lowers every column to at most one level step above its lowest neighbor's reach, which
+ * bounds each neighbor jump. Columns only ever move down, so the pass terminates. */
+function limitSteps(levels: Map<string, number>, cells: readonly PlanCell[]) {
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const { id, neighbors } of cells) {
+			const reach = Math.min(
+				...neighbors.map((neighbor) => required(levels.get(neighbor), 'step neighbor'))
+			);
+			const cap = reach + maximumLevelStep;
+			if (required(levels.get(id), 'step column') > cap) {
+				levels.set(id, cap);
+				changed = true;
+			}
+		}
+	}
+}
+
+/** Names each connected run of one kind, numbered from the core outward. */
+function districtIds(ranked: readonly Ranked[], kinds: ReadonlyMap<string, DistrictKind>) {
+	const byId = new Map(ranked.map((cell) => [cell.id, cell]));
+	const ids = new Map<string, string>();
+	const counts: Record<DistrictKind, number> = { detached: 0, block: 0, center: 0 };
+	for (const start of ranked) {
+		if (ids.has(start.id)) continue;
+		const kind = required(kinds.get(start.id), 'district kind');
+		const id = `${kind}/${counts[kind]++}`;
+		const queue = [start];
+		ids.set(start.id, id);
+		for (const cell of queue) {
+			for (const neighbor of cell.neighbors) {
+				if (ids.has(neighbor) || kinds.get(neighbor) !== kind) continue;
+				ids.set(neighbor, id);
+				queue.push(required(byId.get(neighbor), 'district neighbor'));
+			}
+		}
+	}
+	return ids;
+}
+
+function assignKinds(ranked: readonly Ranked[], areaKm2: number) {
+	const { block, center } = districtShares(areaKm2);
+	return new Map(
+		ranked.map(({ id, share }): [string, DistrictKind] => [
+			id,
+			share < center ? 'center' : share < center + block ? 'block' : 'detached'
+		])
+	);
+}
+
+function assignLevels(
+	ranked: readonly Ranked[],
+	kinds: ReadonlyMap<string, DistrictKind>,
+	areaKm2: number,
+	peak: number,
 	random: Random,
 	complexity: number
 ) {
-	const secondary = new Set<string>();
-	const all = new Set(graph.keys());
-	if (complexity >= 0.75) {
-		const outer = [...interior].reverse();
-		// Prefer an outer seed in the block band. Sparse cores can use an unclaimed interior cell.
-		grow(graph, outer, secondary, block, block.size >= 5 ? 2 : 0, block);
-		if (!secondary.size) grow(graph, outer, secondary, undeveloped, 1, all);
+	const { center } = districtShares(areaKm2);
+	const variation = 0.2 + 0.35 * complexity;
+	const levels = new Map<string, number>();
+	for (const [index, { id, share }] of ranked.entries()) {
+		const kind = required(kinds.get(id), 'district kind');
+		if (kind !== 'center') {
+			levels.set(id, districtLevels[kind]);
+			continue;
+		}
+		const noise = index === 0 ? 1 : 1 - variation * random.derive(id).number();
+		levels.set(id, centerLevels(share / center, peak, noise));
 	}
-	const blocks = splitBlocks(
-		graph,
-		block,
-		random.derive('blocks'),
-		1 + Math.floor(2 * complexity + 0.25)
-	);
-	if (complexity >= 0.75 && blocks.length < 2) {
-		const extra = new Set<string>();
-		grow(graph, interior, extra, undeveloped, 1, all);
-		if (extra.size) blocks.push(extra);
-	}
-	return { secondary, blocks };
+	return levels;
 }
+
+/** Settlement class, realized peak levels and the frozen cell assignment of one plan. */
+export type DistrictPlan = Readonly<{
+	settlement: SettlementKind;
+	areaKm2: number;
+	shares: Readonly<Record<DistrictKind, number>>;
+	peakLevels: number;
+	cells: ReadonlyMap<string, DistrictCell>;
+}>;
 
 export function seedDistricts(
 	plan: TerrainGrid,
-	origin: Vec2,
+	core: CityCore,
 	seed: number,
 	complexity: number,
-	peak: number
-) {
+	capLevels: number
+): DistrictPlan {
 	const random = Random.create({ seed }).derive('city-districts');
-	const graph: Graph = new Map(
-		plan.cells.map(({ id, neighbors }) => [id, neighbors.filter((neighbor) => neighbor !== null)])
+	const cells = planCells(plan);
+	const areaKm2 = cells.reduce((sum, { area }) => sum + area, 0) / 1e6;
+	const ranked = rankCells(cells, districtRank(core, random.derive('rank'), complexity));
+	const kinds = assignKinds(ranked, areaKm2);
+	const peak = Math.min(peakLevels(areaKm2), capLevels);
+	const levels = assignLevels(ranked, kinds, areaKm2, peak, random.derive('towers'), complexity);
+	supportPeaks(levels, cells, kinds);
+	limitSteps(levels, cells);
+	const ids = districtIds(ranked, kinds);
+	const assignment = new Map(
+		cells.map(({ id }) => [
+			id,
+			Object.freeze({
+				districtId: required(ids.get(id), 'district id'),
+				kind: required(kinds.get(id), 'district kind'),
+				levels: required(levels.get(id), 'district levels')
+			})
+		])
 	);
-	const undeveloped = new Set(graph.keys());
-	const interior = rankedInterior(plan, origin, random, complexity);
-	const first = interior.find(({ id }) => {
-		undeveloped.delete(id);
-		if (connected(graph, undeveloped)) return true;
-		undeveloped.add(id);
-		return false;
+	const total = areaKm2 * 1e6;
+	const shares: Record<DistrictKind, number> = { detached: 0, block: 0, center: 0 };
+	for (const { id, area } of cells)
+		shares[required(kinds.get(id), 'district kind')] += area / total;
+	return Object.freeze({
+		settlement: settlementOf(areaKm2),
+		areaKm2,
+		shares: Object.freeze(shares),
+		peakLevels: Math.max(0, ...levels.values()),
+		cells: assignment
 	});
-	if (!first) throw new RangeError('The initial city plan needs an interior district seed');
-
-	// The connected outer belt retains every initial cell that can attach future growth.
-	const center = new Set([first.id]);
-	const size = random.derive('district-size').number({ min: 0.85, max: 1.15 });
-	grow(
-		graph,
-		interior,
-		center,
-		undeveloped,
-		Math.max(2, Math.round(interior.length * 0.16 * size))
-	);
-	const block = new Set<string>();
-	grow(
-		graph,
-		interior,
-		block,
-		undeveloped,
-		Math.max(3, Math.round(interior.length * 0.57 * size)),
-		center
-	);
-	if (!block.size) throw new RangeError('The initial city plan needs room for a block district');
-
-	const { secondary, blocks } = fragmentDistricts(
-		graph,
-		interior,
-		block,
-		undeveloped,
-		random,
-		complexity
-	);
-	const cells = new Map<string, DistrictCell>();
-	for (const [index, district] of blocks.entries()) {
-		for (const id of district)
-			cells.set(id, Object.freeze({ districtId: `block/${index}`, kind: 'block', levels: 3 }));
-	}
-	for (const [id, group, top] of [
-		['center/0', center, peak],
-		['center/1', secondary, Math.min(peak - 1, Math.max(4, Math.round(peak * 0.52)))]
-	] as const) {
-		const tierFractions = [1, 0.64, 0.38];
-		const towers = Math.min(tierFractions.length, Math.ceil(group.size / 3));
-		const tiers = new Map(
-			[...group]
-				.filter((_, index) => index % 2 === 0)
-				.slice(0, towers)
-				.map((cell, index) => [cell, Math.max(4, 3 + Math.round((top - 3) * tierFractions[index]))])
-		);
-		for (const cell of group) {
-			cells.set(
-				cell,
-				Object.freeze({ districtId: id, kind: 'center', levels: tiers.get(cell) ?? 3 })
-			);
-		}
-	}
-	return cells;
 }

@@ -3,14 +3,16 @@ import { createCityDistricts, createCityLattice, readCityColumns } from './index
 
 export function example() {
 	const seed = 1201;
-	const site = { origin: [0, 0], bearing: 0, length: 380, width: 152 } as const;
+	const site = { origin: [0, 0], bearing: 0, length: 2600, width: 1300 } as const;
 	const plan = TerrainGrid.create({
 		seed,
 		site,
 		variant: 'hex',
-		heightAt: (_x, y) => y * 0.06
+		heightAt: (_x, y) => y * 0.002,
+		parameters: { cellSize: 40 }
 	});
-	const districts = createCityDistricts(plan, site.origin, seed);
+	const core = { origin: site.origin, bearing: site.bearing, aspect: 0.5 };
+	const districts = createCityDistricts(plan, core, seed);
 	const columns = readCityColumns(plan, districts);
 	return { districts, columns, lattice: createCityLattice(columns, 0, 'hex', 'braced') };
 }

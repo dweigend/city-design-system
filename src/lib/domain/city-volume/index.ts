@@ -1,8 +1,9 @@
-import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
 import type { PlanVariant, TerrainGrid } from '../terrain-grid';
 import { seedDistricts, type DistrictCell } from './districts';
+import type { CityCore } from './rank';
+import { levelHeight } from './settlement';
 import {
 	createFrame,
 	latticeVariants,
@@ -11,12 +12,27 @@ import {
 	type LatticeVariant
 } from './frame';
 
-/** One coarse level covers two 3.5 m storeys. Upper level planes are 7 m apart. */
-export const levelHeight = 7;
+/** Level height, settlement thresholds, fixed district levels, neighbor step limit and the
+ * peak law, with their units and reasons. */
+export {
+	districtLevels,
+	levelHeight,
+	maximumLevelStep,
+	peakLaw,
+	settlementThresholds
+} from './settlement';
 
-/** City peak above the site datum in meters and unitless district fragmentation. */
+/** Village, town or city, decided by built-up area. */
+export type { SettlementKind } from './settlement';
+
+/** Core frame of the district ranking in world meters and radians, with the short-to-long
+ * axis ratio of the city. */
+export type { CityCore } from './rank';
+
+/** Height caps the peak above the site datum in meters; the city's area sets what the peak can
+ * reach below that cap. Complexity is unitless district fragmentation. */
 export const cityVolumeParams = defineParams({
-	height: { label: 'Height', unit: 'm', min: 35, max: 140, default: 105, step: levelHeight },
+	height: { label: 'Height', unit: 'm', min: 21, max: 140, default: 140, step: levelHeight },
 	complexity: { ...blockInputs.complexity, default: 0.35 }
 });
 
@@ -47,29 +63,35 @@ export type { LatticeVariant, CityLattice };
 /** One column per plan cell, carrying district identity and terrain corners in world meters. */
 export type CityColumn = Column & DistrictCell;
 
-const detached = Object.freeze({ districtId: 'detached/0', kind: 'detached', levels: 1 } as const);
-
-/** Seeds the core and block districts on the fixed, connected initial city plan. The initial
- * belt retains every boundary cell so later growth joins it. Origin is world XY in meters.
- * The initial plan needs enough interior cells to seed the requested districts. */
+/** Derives the city height profile of one plan from its built-up area, a uint32 seed and the
+ * core frame. A village below 1 km² holds detached houses only, a town adds six-storey
+ * blocks, a city from 3 km² adds a high-rise center whose peak grows with the area. Cells are
+ * ranked outward from the core by a seeded, extent-independent rank and filled by area share,
+ * so a larger crop only converts cells upward. Center columns fall from the peak to the block
+ * podium, and no column stands more than three levels above a neighbor. peakHeight is the
+ * realized peak above the datum in meters. */
 export function createCityDistricts(
-	initial: TerrainGrid,
-	origin: Vec2,
+	plan: TerrainGrid,
+	core: CityCore,
 	seed: number,
 	parameters?: Readonly<{ height?: number; complexity?: number }>
 ) {
 	const { height, complexity } = resolveParams(cityVolumeParams, parameters);
-	const cells = seedDistricts(initial, origin, seed, complexity, height / levelHeight);
+	const profile = seedDistricts(plan, core, seed, complexity, height / levelHeight);
 	return Object.freeze({
-		peakHeight: height,
-		/** Reads the frozen district assignment of a cell in the initial or a larger crop. */
+		settlement: profile.settlement,
+		areaKm2: profile.areaKm2,
+		/** Plan area share of each district kind, summing to 1. */
+		shares: profile.shares,
+		peakHeight: profile.peakLevels * levelHeight,
+		/** Reads the frozen district assignment of a plan cell. Unknown cells throw. */
 		cell(id: string): DistrictCell {
-			return cells.get(id) ?? detached;
+			return required(profile.cells.get(id), 'district cell');
 		}
 	});
 }
 
-/** Immutable district assignments for a nested sequence of plan crops. */
+/** Immutable district assignment of one plan. */
 export type CityDistricts = ReturnType<typeof createCityDistricts>;
 
 /** Returns immutable columns in plan order. Each column starts at the plan's terrain corners. */

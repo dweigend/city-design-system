@@ -1,30 +1,97 @@
 import { expect, test } from 'bun:test';
+import { required } from '../../core/invariant';
 import { TerrainGrid } from '../terrain-grid';
 import {
 	cityLatticesByPlan,
 	createCityDistricts,
 	createCityLattice,
-	readCityColumns
+	districtLevels,
+	maximumLevelStep,
+	readCityColumns,
+	settlementThresholds,
+	type CityColumn
 } from './index';
 import { example } from './example';
 
-test('snaps the seeded district peak to the city level, independently of the outline', () => {
-	const seed = 1201;
-	const site = { origin: [0, 0], bearing: 0, length: 240, width: 100 } as const;
-	const initial = TerrainGrid.create({ seed, site, variant: 'square', heightAt: () => 0 });
-	const low = createCityDistricts(initial, site.origin, seed, { height: 36, complexity: 1 });
-	const high = createCityDistricts(initial, site.origin, seed, { height: 139, complexity: 1 });
-	const other = createCityDistricts(initial, site.origin, seed + 1, { height: 36, complexity: 1 });
-	expect(low.peakHeight).toBe(35);
-	expect(high.peakHeight).toBe(140);
-	const cells = readCityColumns(initial, low);
-	expect(cells.map(({ districtId }) => districtId)).toEqual(
-		readCityColumns(initial, high).map(({ districtId }) => districtId)
-	);
-	expect(cells.map(({ districtId }) => districtId)).not.toEqual(
-		readCityColumns(initial, other).map(({ districtId }) => districtId)
-	);
+const core = { origin: [0, 0], bearing: 0, aspect: 0.5 } as const;
+
+function flatPlan(length: number, seed = 1201) {
+	const site = { origin: [0, 0], bearing: 0, length, width: length / 2 } as const;
+	return TerrainGrid.create({
+		seed,
+		site,
+		variant: 'square',
+		heightAt: () => 0,
+		parameters: { cellSize: 60 }
+	});
+}
+
+function kindsOf(plan: TerrainGrid, districts: ReturnType<typeof createCityDistricts>) {
+	return new Set(readCityColumns(plan, districts).map(({ kind }) => kind));
+}
+
+test('derives district kinds and the peak from the built-up area of the plan', () => {
+	const village = flatPlan(1000);
+	const town = flatPlan(2000);
+	const city = flatPlan(3800);
+	const at = (plan: TerrainGrid) => createCityDistricts(plan, core, 1201);
+	expect(at(village).settlement).toBe('village');
+	expect([...kindsOf(village, at(village))]).toEqual(['detached']);
+	expect(at(village).peakHeight).toBe(7);
+	expect(at(town).settlement).toBe('town');
+	expect([...kindsOf(town, at(town))].sort()).toEqual(['block', 'detached']);
+	expect(at(town).peakHeight).toBe(21);
+	expect(at(city).settlement).toBe('city');
+	expect([...kindsOf(city, at(city))].sort()).toEqual(['block', 'center', 'detached']);
+	expect(at(city).peakHeight).toBeGreaterThan(42);
+	expect(settlementThresholds).toEqual({ town: 1, city: 3 });
+	const capped = createCityDistricts(city, core, 1201, { height: 49 });
+	expect(capped.peakHeight).toBe(49);
 	expect(example().lattice.cells.length).toBeGreaterThan(0);
+});
+
+test('grades the center and bounds the step between neighboring columns', () => {
+	const plan = flatPlan(3800);
+	const columns = readCityColumns(plan, createCityDistricts(plan, core, 1201));
+	const byId = new Map(columns.map((column) => [column.planCellId, column]));
+	const center = columns.filter(({ kind }) => kind === 'center');
+	const heights = new Set(center.map(({ levels }) => levels));
+	expect(heights.size).toBeGreaterThan(3);
+	expect(Math.min(...heights)).toBe(districtLevels.block);
+	for (const { levels, neighbors } of columns) {
+		for (const id of neighbors) {
+			if (id === null) continue;
+			const neighbor = required(byId.get(id), 'neighbor column');
+			expect(Math.abs(neighbor.levels - levels)).toBeLessThanOrEqual(maximumLevelStep);
+		}
+	}
+	const peak = Math.max(...heights);
+	expect(center.filter(({ levels }) => levels === peak).length).toBeLessThan(center.length / 4);
+});
+
+test('repeats a seed exactly and only converts cells upward as the plan grows', () => {
+	const order = { detached: 0, block: 1, center: 2 };
+	const sizes = [1800, 2400, 3000, 3800];
+	let previous: Map<string, CityColumn> | undefined;
+	for (const length of sizes) {
+		const plan = flatPlan(length);
+		const columns = readCityColumns(plan, createCityDistricts(plan, core, 77));
+		expect(readCityColumns(plan, createCityDistricts(plan, core, 77))).toEqual(columns);
+		for (const column of columns) {
+			const before = previous?.get(column.planCellId);
+			if (!before) continue;
+			expect(order[column.kind]).toBeGreaterThanOrEqual(order[before.kind]);
+			if (column.kind === before.kind && column.kind !== 'center')
+				expect(column.levels).toBe(before.levels);
+		}
+		previous = new Map(columns.map((column) => [column.planCellId, column]));
+	}
+	const other = flatPlan(3800);
+	expect(
+		readCityColumns(other, createCityDistricts(other, core, 78)).map(({ kind }) => kind)
+	).not.toEqual(
+		readCityColumns(other, createCityDistricts(other, core, 77)).map(({ kind }) => kind)
+	);
 });
 
 test('uses the same prism faces for all square frames, including a terrain-fitting first bay', () => {
