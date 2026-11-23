@@ -49,6 +49,10 @@ type Nodes = Readonly<{
 	lake: Int32Array;
 }>;
 
+function axisPosition(index: number, { side, spacing, half }: Nodes) {
+	return index === side - 1 ? half : -half + index * spacing;
+}
+
 function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	const subdivisions = Math.ceil(sideM / spacingM);
 	const side = subdivisions + 1;
@@ -64,8 +68,8 @@ function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	};
 	for (let row = 0; row < side; row++) {
 		for (let column = 0; column < side; column++) {
-			const x = -sideM / 2 + column * spacing;
-			const y = sideM / 2 - row * spacing;
+			const x = axisPosition(column, nodes);
+			const y = -axisPosition(row, nodes);
 			const { height, water, waterKind, lakeId } = sample(x, y);
 			const index = row * side + column;
 			nodes.heights[index] = height;
@@ -85,15 +89,11 @@ function nodeSlope({ heights, side, spacing }: Nodes, row: number, column: numbe
 	return Math.hypot(dx, dy);
 }
 
-function shoreFaults(
-	sample: Sample,
-	{ wet, side, spacing, half }: Nodes,
-	row: number,
-	column: number
-) {
+function shoreFaults(sample: Sample, nodes: Nodes, row: number, column: number) {
+	const { wet, side, spacing } = nodes;
 	if (wet[row * side + column]) return 0;
-	const x = -half + column * spacing;
-	const y = half - row * spacing;
+	const x = axisPosition(column, nodes);
+	const y = -axisPosition(row, nodes);
 	let faults = 0;
 	for (const [dr, dc] of [
 		[-1, 0],
@@ -112,7 +112,8 @@ function shoreFaults(
 			else water = mid;
 		}
 		const land = sample(x + dc * dry, y - dr * dry).height;
-		const surface = sample(x + dc * water, y - dr * water).water;
+		const surface =
+			water === spacing ? nodes.water[r * side + c] : sample(x + dc * water, y - dr * water).water;
 		if (land < surface - waterToleranceM) faults++;
 	}
 	return faults;
@@ -172,7 +173,9 @@ export function surveyGround(
 			}
 			tally.shoreBelow += shoreFaults(sample, nodes, row, column);
 			if (!nodes.lake[index]) continue;
-			tally.lake++;
+			const rowWeight = row === 0 || row === side - 1 ? 0.5 : 1;
+			const columnWeight = column === 0 || column === side - 1 ? 0.5 : 1;
+			tally.lake += rowWeight * columnWeight;
 			const water = nodes.water[index];
 			const level = levels.get(nodes.lake[index]);
 			if (level) {
