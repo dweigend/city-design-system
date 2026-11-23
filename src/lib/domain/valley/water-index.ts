@@ -8,7 +8,7 @@ import { channelSegments, halfWidth, sectionEndpoints } from './channel-outline'
 const { waterBucketSizeM, waterBankDistanceCapM, waterBucketRowStride } = defaults;
 
 const size = waterBucketSizeM;
-export const bankLimit = waterBankDistanceCapM;
+export const bankLimit: number = waterBankDistanceCapM;
 type Edge = {
 	a: Vec2;
 	dx: number;

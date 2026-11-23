@@ -87,7 +87,7 @@ export function headingAmplitude(sinuosity: number, curvature: number): number {
 	const nominal = sampleBand(nominalHeadingAmplitudeBandRad, curvature);
 	const target = sinuosity + fullWaveRatio(nominal) - valleyParams.sinuosity.default;
 	let low = 0;
-	let high = headingAmplitudeSearchMaxRad;
+	let high: number = headingAmplitudeSearchMaxRad;
 	for (let index = 0; index < headingAmplitudeSearchIterations; index++) {
 		const middle = (low + high) / 2;
 		if (fullWaveRatio(middle) < target) low = middle;

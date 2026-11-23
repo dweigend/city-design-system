@@ -98,6 +98,7 @@ const pendingConfigModules = [
 	'scene/{city-volume-projection,focus,stage,stage-view,surface,terrain-grid-projection,valley-projection}',
 	'ui/{accordion,button,icon,icon-button,popover,scale-legend,select,slider,switch,tabs,toggle-group}'
 ];
+/** @type {import('eslint').Linter.Config} */
 const numericSettings = {
 	files: [`${library}/**/*.${code}`, `${library}/**/*.svelte`],
 	ignores: [

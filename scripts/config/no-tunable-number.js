@@ -1,107 +1,150 @@
-const functions = new Set(['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression']);
-const comparisons = new Set(['<', '<=', '>', '>=', '==', '===', '!=', '!==']);
-const arithmetic = new Set(['+', '-', '*', '/', '%']);
+/** @typedef {import('@typescript-eslint/utils').TSESTree.Node} Syntax */
+/** @typedef {import('@typescript-eslint/utils').TSESLint.SourceCode} SourceCode */
 
+const functions = new Set(['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression']);
+const basicOperators = new Set([
+	'<',
+	'<=',
+	'>',
+	'>=',
+	'==',
+	'===',
+	'!=',
+	'!==',
+	'+',
+	'-',
+	'*',
+	'/',
+	'%',
+	'|',
+	'>>>',
+	'<<',
+	'>>'
+]);
+
+/** @param {Syntax} node */
 function expression(node) {
-	while (node.parent.type === 'UnaryExpression' && ['+', '-'].includes(node.parent.operator)) {
+	while (node.parent?.type === 'UnaryExpression' && ['+', '-'].includes(node.parent.operator)) {
 		node = node.parent;
 	}
 	return node;
 }
 
+/** @param {Syntax} node */
+function identifier(node) {
+	return node.type === 'Identifier' ? node.name : undefined;
+}
+
+/** @param {Syntax} node */
 function isIndex(node) {
-	return node.parent.type === 'MemberExpression' && node.parent.property === node;
+	return node.parent?.type === 'MemberExpression' && node.parent.property === node;
 }
 
+/** @param {Syntax} node */
 function isLength(node) {
-	return node.type === 'MemberExpression' && node.property.name === 'length';
+	return node.type === 'MemberExpression' && identifier(node.property) === 'length';
 }
 
+/** @param {Syntax} node @param {number} value */
 function isStride(node, value) {
 	const { parent } = node;
-	if (parent.type === 'AssignmentExpression' && ['+=', '-='].includes(parent.operator)) {
-		const loop = parent.parent;
-		return value <= 3 && loop.type === 'ForStatement' && loop.update === parent;
-	}
-	if (![2, 3].includes(value) || parent.type !== 'BinaryExpression') return false;
+	if (parent?.type !== 'BinaryExpression' || ![2, 3].includes(value)) return false;
+	if (isIndex(parent) || (parent.parent && isIndex(parent.parent))) return true;
 	const other = parent.left === node ? parent.right : parent.left;
-	if (isIndex(parent) || isIndex(parent.parent)) return true;
 	if (['/', '%', '-'].includes(parent.operator) && isLength(other)) return true;
 	return value === 2 && ['*', '/', '**'].includes(parent.operator);
 }
 
+/** @param {Syntax} node */
 function isLoopStart(node) {
 	const declaration = node.parent;
-	return (
-		declaration.type === 'VariableDeclarator' &&
-		declaration.parent.parent.type === 'ForStatement' &&
-		declaration.parent.parent.init === declaration.parent
-	);
+	if (declaration?.type !== 'VariableDeclarator') return false;
+	const loop = declaration.parent.parent;
+	return loop?.type === 'ForStatement' && loop.init === declaration.parent;
 }
 
+/** @param {Syntax} node @param {number} value */
+function isLoopStride(node, value) {
+	const { parent } = node;
+	if (parent?.type !== 'AssignmentExpression' || !['+=', '-='].includes(parent.operator))
+		return false;
+	const loop = parent.parent;
+	return value <= 3 && loop?.type === 'ForStatement' && loop.update === parent;
+}
+
+/** @param {Syntax} node */
+function isClamp(node) {
+	if (node.type !== 'CallExpression' || node.callee.type !== 'MemberExpression') return false;
+	const { object, property } = node.callee;
+	const name = identifier(property);
+	return identifier(object) === 'Math' && (name === 'min' || name === 'max');
+}
+
+/** @param {Syntax} node @param {number} value */
 function isArithmetic(node, value) {
 	const { parent } = node;
+	if (!parent) return false;
 	if (parent.type === 'BinaryExpression') {
-		if (value <= 1)
-			return (
-				comparisons.has(parent.operator) ||
-				arithmetic.has(parent.operator) ||
-				['|', '>>>', '<<', '>>'].includes(parent.operator)
-			);
-		return value === 2 && parent.operator === '-' && ['side', 'length'].includes(parent.left.name);
+		if (value <= 1) return basicOperators.has(parent.operator);
+		return value === 2 && parent.operator === '-' && identifier(parent.left) === 'side';
 	}
-	return (
-		value <= 1 &&
-		(parent.type === 'ReturnStatement' ||
-			(parent.type === 'ArrowFunctionExpression' && parent.parent.type === 'ReturnStatement') ||
-			parent.type === 'ConditionalExpression' ||
-			parent.type === 'LogicalExpression' ||
-			(parent.type === 'AssignmentExpression' &&
-				parent.left.type === 'MemberExpression' &&
-				parent.left.computed) ||
-			(parent.type === 'VariableDeclarator' && parent.parent.kind === 'let') ||
-			(parent.type === 'CallExpression' &&
-				parent.callee.type === 'MemberExpression' &&
-				parent.callee.object.name === 'Math' &&
-				['min', 'max'].includes(parent.callee.property.name)))
-	);
+	if (value > 1) return false;
+	switch (parent.type) {
+		case 'ReturnStatement':
+		case 'ConditionalExpression':
+		case 'LogicalExpression':
+			return true;
+		case 'ArrowFunctionExpression':
+			return parent.parent?.type === 'ReturnStatement';
+		case 'AssignmentExpression':
+			return parent.left.type === 'MemberExpression' && parent.left.computed;
+		case 'VariableDeclarator':
+			return parent.parent.kind === 'let';
+		default:
+			return isClamp(parent);
+	}
 }
 
+/** @param {Syntax} node @param {SourceCode} source */
 function isExactHelper(node, source) {
 	for (let current = node.parent; current; current = current.parent) {
 		if (!functions.has(current.type) && current.type !== 'VariableDeclaration') continue;
-		const owner = current.parent.type === 'ExportNamedDeclaration' ? current.parent : current;
+		const owner = current.parent?.type === 'ExportNamedDeclaration' ? current.parent : current;
 		if (source.getCommentsBefore(owner).some(({ value }) => /^ Exact arithmetic: \S/.test(value)))
 			return true;
 	}
 	return false;
 }
 
+/** @param {Syntax} node @param {number} value */
 function isPositionalArgument(node, value) {
 	const { parent } = node;
-	if (value > 3 || !Number.isInteger(value) || parent.type !== 'CallExpression') return false;
+	if (parent?.type !== 'CallExpression' || value > 3 || !Number.isInteger(value)) return false;
 	const { callee } = parent;
+	if (callee.type === 'Identifier')
+		return callee.name === 'pointAt' && parent.arguments[1] === node;
+	if (callee.type !== 'MemberExpression') return false;
+	const name = identifier(callee.property);
 	return (
-		(callee.type === 'MemberExpression' && ['at', 'slice'].includes(callee.property.name)) ||
-		(callee.type === 'Identifier' && callee.name === 'pointAt' && parent.arguments[1] === node) ||
-		(callee.type === 'MemberExpression' &&
-			callee.property.name === 'reduce' &&
-			value <= 1 &&
-			parent.arguments[1] === node)
+		name === 'at' ||
+		name === 'slice' ||
+		(name === 'reduce' && value <= 1 && parent.arguments[1] === node)
 	);
 }
 
+/** @param {Syntax} node @param {number} value */
 function structural(node, value) {
 	if (isIndex(node) && Number.isInteger(value)) return true;
 	if (isLoopStart(node) && value <= 1) return true;
-	if (isStride(node, value) || isArithmetic(node, value) || isPositionalArgument(node, value))
-		return true;
+	if (isStride(node, value) || isLoopStride(node, value) || isArithmetic(node, value)) return true;
+	if (isPositionalArgument(node, value)) return true;
 	const { parent } = node;
 	return (
-		value === 0.5 && parent.type === 'BinaryExpression' && ['+', '-'].includes(parent.operator)
+		value === 0.5 && parent?.type === 'BinaryExpression' && ['+', '-'].includes(parent.operator)
 	);
 }
 
+/** @type {import('eslint').Rule.RuleModule} */
 export const noTunableNumber = {
 	meta: {
 		type: 'problem',
@@ -109,13 +152,15 @@ export const noTunableNumber = {
 		messages: { setting: 'Source numeric tunables from this module’s configuration slice.' }
 	},
 	create(context) {
+		const source = /** @type {SourceCode} */ (/** @type {unknown} */ (context.sourceCode));
 		return {
 			Literal(literal) {
 				if (typeof literal.value !== 'number') return;
-				const node = expression(literal);
-				if (node.parent.type === 'TSLiteralType') return;
-				if (structural(node, literal.value) || isExactHelper(node, context.sourceCode)) return;
-				context.report({ node, messageId: 'setting' });
+				// The configured parsers add TypeScript and Svelte node kinds to ESLint's standard tree.
+				const node = expression(/** @type {Syntax} */ (/** @type {unknown} */ (literal)));
+				if (node.parent?.type === 'TSLiteralType') return;
+				if (structural(node, literal.value) || isExactHelper(node, source)) return;
+				context.report({ node: literal, messageId: 'setting' });
 			}
 		};
 	}
