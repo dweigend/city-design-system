@@ -95,19 +95,25 @@ function copyAnchor({ name, position, normal }: Anchor): Anchor {
 	return Object.freeze({ name, position: copyCoordinates(position), normal: direction });
 }
 
-// Exact arithmetic: positions are XYZ triples and each mesh face is a triangle.
-const triangleStride = 3;
+// Exact arithmetic: each mesh position has one component per axis.
+const coordinateStride = 3;
+// Exact arithmetic: each mesh face is a triangle with three indices.
+const triangleVertexCount = 3;
 
 function copyMesh({ positions, indices }: Extract<Shape, { kind: 'mesh' }>): Shape {
-	const vertexCount = positions.length / triangleStride;
-	if (positions.length % triangleStride || !indices.length || indices.length % triangleStride)
+	const vertexCount = positions.length / coordinateStride;
+	if (
+		positions.length % coordinateStride ||
+		!indices.length ||
+		indices.length % triangleVertexCount
+	)
 		throw new RangeError('Mesh requires XYZ positions and nonempty index triples');
 	const triangles = [...indices];
 	const isVertexIndex = (index: number) =>
 		Number.isInteger(index) && index >= 0 && index < vertexCount;
 	if (!triangles.every(isVertexIndex))
 		throw new RangeError('Mesh index is outside its vertex array');
-	for (let offset = 0; offset < triangles.length; offset += triangleStride) {
+	for (let offset = 0; offset < triangles.length; offset += triangleVertexCount) {
 		const [a, b, c] = [triangles[offset], triangles[offset + 1], triangles[offset + 2]];
 		if (a === b || b === c || a === c) throw new RangeError('Mesh triangle repeats a vertex index');
 	}
@@ -130,7 +136,7 @@ function copyShape(shape: Shape): Shape {
 			const polygon = Array.from(shape.polygon, copyCoordinates);
 			finite(base);
 			finite(top);
-			if (polygon.length < triangleStride || top < base)
+			if (polygon.length < triangleVertexCount || top < base)
 				throw new RangeError('Invalid prism polygon or heights');
 			return Object.freeze({ kind, polygon: Object.freeze(polygon), base, top });
 		}
@@ -144,7 +150,7 @@ function copyShape(shape: Shape): Shape {
 type PointTransform = (point: Vec3) => Vec3;
 
 function vertex(positions: readonly number[], index: number): Vec3 {
-	const offset = index * triangleStride;
+	const offset = index * coordinateStride;
 	return [positions[offset], positions[offset + 1], positions[offset + 2]];
 }
 
@@ -188,7 +194,7 @@ function moveShape(shape: Shape, point: PointTransform, radians: number): Shape 
 			};
 		case 'mesh': {
 			const positions: number[] = [];
-			for (let index = 0; index < shape.positions.length / triangleStride; index += 1)
+			for (let index = 0; index < shape.positions.length / coordinateStride; index += 1)
 				positions.push(...point(vertex(shape.positions, index)));
 			return { ...shape, positions };
 		}

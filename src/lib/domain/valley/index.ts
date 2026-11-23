@@ -100,7 +100,7 @@ export type TerraceFrame = Readonly<{
  */
 export type Valley = Readonly<{
 	seed: number;
-	revision: 4;
+	revision: typeof revision;
 	parameters: ValleySettings;
 	course: RiverCourse;
 	reaches: readonly Reach[];

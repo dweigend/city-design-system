@@ -38,6 +38,9 @@ export type Reach = Readonly<{
 	stations: readonly ReachStation[];
 }>;
 
+// Exact arithmetic: one square kilometer equals 1,000,000 square meters.
+const squareMetersPerSquareKilometer = 1e6;
+
 export function discharge(area: number, runoff: number) {
 	return (unitRunoffYieldM3PerSKm2 * runoff * area) / squareMetersPerSquareKilometer;
 }
@@ -140,8 +143,6 @@ function joinSections(a: ReachStation, b: ReachStation, t: number, runoff: numbe
 
 // Exact arithmetic: repeated midpoint interpolation constructs the center of the quadratic bend.
 const midpointFraction = 1 / 2;
-// Exact arithmetic: one square kilometer equals 1,000,000 square meters.
-const squareMetersPerSquareKilometer = 1e6;
 
 function roundBend(
 	a: ReachStation,

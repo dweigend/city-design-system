@@ -4,11 +4,11 @@ import type { RiverCourse } from './course';
 
 type Station = { index: number; x: number; y: number; length: number };
 
-/** Embed the inherited meander as a descending breakline on the regional triangulation.
- * A cardinal connector bridges a corner if the triangulation uses the other diagonal. */
 // Exact arithmetic: one point occupies an XY pair in the interleaved course.
 const xyStride = 2;
 
+/** Embed the inherited meander as a descending breakline on the regional triangulation.
+ * A cardinal connector bridges a corner if the triangulation uses the other diagonal. */
 export function trough(course: RiverCourse) {
 	const clipped = clipPolylineToSquare(course.xy, 2 * radius);
 	if (!clipped) throw new Error('The ancestral trough must cross the catchment');
