@@ -58,7 +58,7 @@ export function cornerReader(datumZ: number) {
 	const points: Corner[] = [];
 	return {
 		points,
-		read({ id, position: [x, y, z] }: Corner, level: number) {
+		read(this: void, { id, position: [x, y, z] }: Corner, level: number) {
 			const plane = planeElevation(datumZ, level);
 			const ground = level === 0 || plane <= z;
 			const index = ground ? 0 : level;
