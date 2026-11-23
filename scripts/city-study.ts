@@ -1,5 +1,5 @@
 // City volume acceptance across all grids and lattices at town scale with selected size extremes.
-// Writes _lokal/r09b-river/city-study-2/results.{json,csv} and prints a summary.
+// Writes _lokal/r09b-river/city-study-morph/results.{json,csv} and prints a summary.
 // Run: heavy-slot --time 1800 -- bun scripts/city-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -22,6 +22,7 @@ import {
 import { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { groundContactMetrics, groundMetrics, hubGroundMetrics } from './city-study-ground';
 import { districtMetrics, growthMetrics, latticeMetrics } from './city-study-metrics';
+import { shoreMetrics } from './city-study-shore';
 import { planMetrics } from './city-study-plan';
 import { footprintMirrorShare, maximumMedianMirrorShare, mirrorSeeds } from './city-study-mirror';
 import { solidMetrics } from './city-study-solids';
@@ -29,7 +30,7 @@ import { summarize, type Row } from './city-study-summary';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
-const out = resolve(import.meta.dir, '../_lokal/r09b-river/city-study-2');
+const out = resolve(import.meta.dir, '../_lokal/r09b-river/city-study-morph');
 mkdirSync(out, { recursive: true });
 
 /** Nominal outline lengths in meters of the three size classes. */
@@ -56,6 +57,7 @@ const time = <T>(run: () => T): [T, number] => {
 const hash = (value: unknown) => Bun.hash(JSON.stringify(value)).toString(16);
 
 const rows: Row[] = [];
+const shoreRows = [];
 const started = performance.now();
 for (const { relief, runoff, seeds } of terrain) {
 	const sites = new Map(
@@ -68,6 +70,14 @@ for (const { relief, runoff, seeds } of terrain) {
 			for (const [sizeClass, size] of Object.entries(sizes)) {
 				const [layout, gridMs] = time(() => readCityGrid(city, size, plan, seed));
 				const { grid, areaKm2, datumZ, crossings } = layout;
+				shoreRows.push({
+					plan,
+					seed,
+					size,
+					relief,
+					runoff,
+					...shoreMetrics(layout, city.sampleGround)
+				});
 				const gridStable = hash(readCityGrid(city, size, plan, seed)) === hash(layout);
 				const earlier =
 					sizeClass === 'largest' ? readCityGrid(city, size - growthStep, plan, seed).grid : grid;
@@ -210,6 +220,7 @@ function failures(row: Row, kinds: string) {
 	return checks.filter(([, ok]) => !ok).map(([name]) => name);
 }
 
+writeFileSync(resolve(out, 'shore.json'), JSON.stringify(shoreRows, null, 1) + '\n');
 writeFileSync(resolve(out, 'results.json'), JSON.stringify(rows, null, 1) + '\n');
 const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
 writeFileSync(

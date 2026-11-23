@@ -6,6 +6,7 @@ import { carrier, edgeId, freeQuad, type Candidate, type Carrier, type Node } fr
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
+import { alignShore } from './shore-morph';
 import { shoreline, usableShoreRing } from './shore';
 import { voronoi } from './voronoi';
 import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
@@ -22,6 +23,8 @@ export const terrainGridParams = defineParams({
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
+/** Distances and area tolerances for the optional shared shoreline morph. */
+export { shorelineMorphLimits } from './shore-morph';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
 export type TerrainGridVertex = Readonly<{ id: string; position: Vec3 }>;
@@ -120,6 +123,8 @@ export type TerrainGridOptions = Readonly<{
 	 * trimmed to one dry polygon before validating its ground. */
 	shore?: Readonly<{
 		clearanceAt: (x: number, y: number) => number;
+		/** Align the uncut carrier before classifying and clipping its cells. */
+		align?: boolean;
 		minimumEdge: number;
 		minimumArea: number;
 	}>;
@@ -297,9 +302,14 @@ function generateGrid(
 	const layout = [];
 	const kinds = new Map<string, GroundKind>();
 	const clip = shore && shoreline(shore.clearanceAt);
-	for (const source of generate(site, outline, bearing, cellSize, Random.create({ seed }))) {
-		const plan = source.corners.map(({ xy }) => xy);
-		if (plan.length < 3 || (checkQuality && !meetsQuality(plan)) || !includes(plan)) continue;
+	const carrierCells = [
+		...generate(site, outline, bearing, cellSize, Random.create({ seed }))
+	].filter(({ corners }) => {
+		const plan = corners.map(({ xy }) => xy);
+		return plan.length >= 3 && (!checkQuality || meetsQuality(plan)) && includes(plan);
+	});
+	const cells = shore?.align ? alignShore(carrierCells, shore.clearanceAt, includes) : carrierCells;
+	for (const source of cells) {
 		if (cover) {
 			layout.push(source);
 			const center = ringMean(source.corners);

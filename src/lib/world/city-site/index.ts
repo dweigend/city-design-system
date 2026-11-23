@@ -12,6 +12,8 @@ import type { CityCrossing } from './crossings';
 
 /** Maximum sampled height range, in meters, in a buildable city cell. */
 export { maximumCellRiseM } from './carrier';
+/** Minimum dry clearance required for occupied cells, in meters. */
+export { cityBankSetbackM } from './carrier';
 export type { CityTerrainSampler } from './sampling';
 export type { CityCrossing } from './crossings';
 

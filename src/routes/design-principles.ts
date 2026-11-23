@@ -296,7 +296,7 @@ const grid: DesignPrinciple[] = [
 		title: 'Terrain and the 3D envelope',
 		rule: 'The contour-led ground grid and its 3D cells bound building volume, morphing, overhangs and ordinary access, with individual connections allowed to leave the grid as exceptions.',
 		reason:
-			'Along the terrain, long grid lines follow contours and cross lines run downslope; bodies may occupy part of their cells and paths may weave between them. Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
+			'Long grid lines follow contours and cross lines run downslope. Near water, the plan bends toward the shoreline while keeping its cells and adjacency. Bodies can occupy part of a cell and paths can weave between them. Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
 		decided: '2026-11-21',
 		demo: {
 			route: '/raster',

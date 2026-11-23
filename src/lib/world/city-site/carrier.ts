@@ -12,7 +12,7 @@ import { planCellSide, TerrainGrid } from '../../domain/terrain-grid';
 import type { CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
 
-const bankSetbackM = 3;
+export const cityBankSetbackM = 3;
 const edgeSampleStepM = 8;
 
 export const maximumCellRiseM = 16;
@@ -84,7 +84,8 @@ export function prepareCarrier(
 			edgeSampleStep: edgeSampleStepM,
 
 			shore: {
-				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - bankSetbackM,
+				align: true,
+				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - cityBankSetbackM,
 				minimumEdge: coarseCellSize / 10,
 				minimumArea: 0.24 * coarseCellSize ** 2
 			},
