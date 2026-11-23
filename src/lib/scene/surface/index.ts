@@ -131,7 +131,7 @@ export const planOverlaySurfaces = Object.freeze({
 	crossings: {
 		color: '--path',
 		finish: 'matte',
-		stroke: { color: '--path', width: 2.2, opacity: 1 }
+		stroke: { color: '--path', width: 3, opacity: 1 }
 	}
 } as const satisfies SurfaceAssignment);
 

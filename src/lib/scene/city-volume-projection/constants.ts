@@ -120,7 +120,7 @@ export type BodyLook = Readonly<{
  * edges, level lines and cell joints, so full shows more than the stock. */
 const fullLook: BodyLook = {
 	fill: 1,
-	faces: { top: 0.13, lit: -0.02, shadow: -0.13 },
+	faces: { top: 0.08, lit: -0.03, shadow: -0.14 },
 	roof: { opacity: 0.95, width: 1.05 },
 	walls: { opacity: 0.8, width: 0.8 },
 	storeys: { opacity: 0.42, width: 0.6 },
@@ -194,9 +194,9 @@ export type MemberLook = Readonly<{
  * twists, branches) come second and stay clear behind the veil so models keep apart; plain
  * uprights, common to every model, are the quietest. */
 export const memberLooks = {
-	lattice: { opacity: 0.95, width: 1.1, hidden: 0.42, recede: 0.4 },
-	uprights: { opacity: 0.7, width: 0.75, hidden: 0.3, recede: 0.45 },
-	detail: { opacity: 0.9, width: 0.95, hidden: 0.6, recede: 0.3 }
+	lattice: { opacity: 0.9, width: 1, hidden: 0.4, recede: 0.4 },
+	uprights: { opacity: 0.55, width: 0.65, hidden: 0.25, recede: 0.45 },
+	detail: { opacity: 1, width: 1.1, hidden: 0.65, recede: 0.2 }
 } as const satisfies Record<'lattice' | 'uprights' | 'detail', MemberLook>;
 
 /** Share of a member's width kept once its rank has faded from afar. */
@@ -206,7 +206,7 @@ export const fadedMemberWidth = 0.5;
 export const silhouetteOverLattice: Stroke = { opacity: 0.85, width: 1.35 };
 /** Fill opacity of an out-of-focus envelope around a visible lattice. Hidden members draw after
  * the veil, so the veil calms the ground below without hiding the structure. */
-export const veilOverLattice = 0.62;
+export const veilOverLattice = 0.55;
 /** Fill opacity of a focused envelope over its lattice up close; it grows to opaque with the
  * envelope fade from afar. */
 export const focusVeilNearLattice = 0.035;

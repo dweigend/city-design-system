@@ -170,22 +170,10 @@ async function create({
 				theme.disconnect();
 				scene.remove(content.group);
 				content.delete();
-				strokes.outer.dispose();
-				strokes.crease.dispose();
-				strokes.ground.dispose();
-				strokes.grid.dispose();
-				strokes.gridBoundary.dispose();
-				delete canvas.dataset.stageReady;
-				delete canvas.dataset.stageAdapter;
-				delete canvas.dataset.stageHardware;
-				delete canvas.dataset.stageBuilds;
-				delete canvas.dataset.stageDrawableBuilds;
-				delete canvas.dataset.stageView;
-				delete canvas.dataset.stageDisplay;
-				delete canvas.dataset.stageTheme;
-				delete canvas.dataset.stageMeshMs;
-				delete canvas.dataset.stageWidth;
-				delete canvas.dataset.stageFrameCpuMs;
+				for (const name of ['outer', 'crease', 'ground', 'grid', 'gridBoundary'] as const)
+					strokes[name].dispose();
+				for (const key of Object.keys(canvas.dataset))
+					if (key.startsWith('stage')) delete canvas.dataset[key];
 				await gpu.delete();
 			})());
 		}

@@ -10,7 +10,7 @@ import {
 } from 'three/tsl';
 import type { Finish, TerrainField } from '../surface';
 import { projectTerrainField } from './field';
-import { graphite, grain, levels, sun, type drawingPalette } from './tone';
+import { flatTolerance, graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
 const finishes = {
@@ -50,7 +50,7 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
-	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
+	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(-flatTolerance);
 	const top = roof.and(facesLight);
 	const shadow = roof.or(facesLight).not();
 	const level = top.select(faces.x, shadow.select(faces.z, faces.y));

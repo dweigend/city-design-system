@@ -141,6 +141,10 @@
 	--stock-veil: color-mix(in oklab, var(--paper) 74%, var(--ink-3));
 	--stock-pencil: color-mix(in oklab, var(--paper) 82%, var(--ink-3));
 	--stock-line: var(--ink-2);
+	--district-detached: oklch(from var(--blueprint) calc(l + 0.03) calc(c * 0.9) h);
+	--district-block: oklch(from var(--blueprint) calc(l - 0.05) c h);
+	--district-center: oklch(from var(--blueprint) calc(l - 0.13) c h);
+	--district-edge: oklch(from var(--blueprint) calc(l - 0.3) calc(c * 0.6) h);
 	--ground-shadow: color-mix(in oklab, var(--paper) 55%, black);
 	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);

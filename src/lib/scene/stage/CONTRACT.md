@@ -18,8 +18,9 @@ A fit can specify the frame width and an offset along the image axes in meters. 
 reports the fitted width and meters per CSS pixel. A presentation can vary color, opacity,
 stroke width and vertical scale from that reading while retaining every drawable's geometry.
 The stage view binds pointer and keyboard navigation to those framing inputs.
-A wheel or pinch zoom keeps the ground point under the cursor at the same pixel, even when the
-camera elevation follows the frame width.
+A wheel or pinch zoom keeps the displayed terrain point under the cursor at the same pixel, even
+when the camera elevation follows the frame width; off the terrain it falls back to the plane
+through the frame centre. A drawable may set its own face values (roof, lit wall, wall in shade).
 
 A translucent drawable that occludes lays its depth after every opaque body: bodies behind it
 show through its tint, only its front layer is tinted, and explicit strokes behind it switch to
@@ -27,4 +28,4 @@ their hidden pass, thinner and at the stroke's `hidden` share of its opacity. St
 their `recede` share with view depth. `hatch` adds pencil strokes on faces turned from the sun.
 The shadow finish darkens the ground with the darker of shade and ground, so shadows never stack.
 A warp moves retained positions by an amount times per-vertex offsets in place; it uploads
-changed arrays and builds nothing.
+changed arrays, recomputes normals and bounds, and builds nothing.
