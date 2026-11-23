@@ -14,7 +14,7 @@ export function groundMetrics(city: CitySite, columns: readonly CityColumn[]) {
 	let maxFoundationErrorM = 0;
 	function probe(x: number, y: number) {
 		const reading = city.valley.readGround(x, y);
-		wetProbes += +(reading.cover !== 'dry');
+		wetProbes += +(reading.waterKind !== null);
 		steepProbes += +(reading.slope > surveyDefaults.buildableSlope);
 		return reading.height;
 	}

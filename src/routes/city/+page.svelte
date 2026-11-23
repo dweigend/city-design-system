@@ -28,7 +28,6 @@
 	} from '../../lib/scene/city-volume-projection';
 	import { projectFocus, type Display, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
-	import { valleyHeightScale } from '../../lib/scene/valley-projection';
 	import { valleyParams } from '../../lib/domain/valley';
 	import { cityHeightScaleM } from '../../lib/scene/surface';
 	import { Button } from '../../lib/ui/button';
@@ -153,10 +152,9 @@
 		)
 	);
 	const city = $derived(createCitySite(undefined, { ...terrainSettings, seed }));
-	const maxProfileScale = $derived(valleyHeightScale(city.valley));
-
 	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
 	const terrain = $derived(projectCityTerrain(city, plan.grid));
+	const maxProfileScale = $derived(terrain.autoHeightScale);
 	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));

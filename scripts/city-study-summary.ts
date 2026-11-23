@@ -30,7 +30,7 @@ function group(rows: Row[], field: 'plan' | 'lattice') {
 			verdict: verdict(rate),
 			reasons: [...reasons].map(([r, n]) => `${r} ${n}`).join(', ') || '—',
 			worst: worst
-				? `${worst.plan}/${worst.lattice}/${worst.sizeClass}/seed ${worst.seed}/relief ${worst.relief}/lake ${worst.lake}: ${worst.failures}`
+				? `${worst.plan}/${worst.lattice}/${worst.sizeClass}/seed ${worst.seed}/relief ${worst.relief}/runoff ${worst.runoff}: ${worst.failures}`
 				: '—'
 		};
 	});

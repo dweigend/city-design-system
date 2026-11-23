@@ -61,7 +61,8 @@ export function projectValleyWindow(valley: Valley, window: ValleyWindow, height
 
 function project(valley: Valley, frame: ReachFrame, width: number, scale?: number) {
 	const { field, relief } = terrainField(frame, width);
-	const heightScale = scale ?? visualScale(relief);
+	const autoHeightScale = visualScale(relief);
+	const heightScale = scale ?? autoHeightScale;
 	if (!Number.isFinite(heightScale) || heightScale <= 0)
 		throw new RangeError('Height scale must be finite and positive');
 	const contourStep = contourScale(relief);
@@ -82,6 +83,7 @@ function project(valley: Valley, frame: ReachFrame, width: number, scale?: numbe
 		object,
 		reach: frame.xy,
 		heightScale,
+		autoHeightScale,
 		contourStep,
 		triangleCount,
 		drawables: Object.freeze(

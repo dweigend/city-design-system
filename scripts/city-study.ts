@@ -1,5 +1,5 @@
 // City volume acceptance study: all terrain pairs, plan grids and lattices across three sizes and three seeds,
-// measured headlessly. Writes _lokal/r10c-terrain-city/results.{json,csv} and prints a summary.
+// measured headlessly. Writes _lokal/r10e-city-drainage/results.{json,csv} and prints a summary.
 // Run: heavy-slot --time 1800 -- bun scripts/city-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -26,7 +26,7 @@ import { summarize, type Row } from './city-study-summary';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
-const out = resolve(import.meta.dir, '../_lokal/r10c-terrain-city');
+const out = resolve(import.meta.dir, '../_lokal/r10e-city-drainage');
 mkdirSync(out, { recursive: true });
 
 /** Nominal outline lengths in meters of the three size classes. */
@@ -50,9 +50,9 @@ const hash = (value: unknown) => Bun.hash(JSON.stringify(value)).toString(16);
 const rows: Row[] = [];
 const started = performance.now();
 for (const relief of [0, 0.5, 1]) {
-	for (const lake of [0, 2]) {
+	for (const runoff of [0.5, 1.5]) {
 		const sites = new Map(
-			seeds.map((seed) => [seed, createCitySite(undefined, { relief, lake, seed })])
+			seeds.map((seed) => [seed, createCitySite(undefined, { relief, runoff, seed })])
 		);
 		for (const plan of cityPlanVariants) {
 			const from = rows.length;
@@ -96,7 +96,7 @@ for (const relief of [0, 0.5, 1]) {
 							size,
 							seed,
 							relief,
-							lake,
+							runoff,
 							complexity: settings.complexity,
 							areaKm2,
 							settlement: districts.settlement,
@@ -132,7 +132,7 @@ for (const relief of [0, 0.5, 1]) {
 					)
 				);
 			console.error(
-				`relief ${relief} lake ${lake} ${plan} done after ${((performance.now() - started) / 1000).toFixed(0)} s`
+				`relief ${relief} runoff ${runoff} ${plan} done after ${((performance.now() - started) / 1000).toFixed(0)} s`
 			);
 		}
 	}

@@ -27,7 +27,7 @@ function siteParams(citySize?: number, seed?: number) {
 	});
 }
 
-/** Creates the chapter's fixed grid frame on a valley with optional relief and lake settings.
+/** Creates the chapter's fixed grid frame on a valley with optional relief and runoff settings.
  * The optional seed varies the valley. A pure alternate sampler can supply its own ground readings. */
 export function createCitySite(
 	terrain?: CityTerrainSampler,
@@ -43,7 +43,7 @@ export function createCitySite(
 			const reading = valley.readGround(x, y);
 			return {
 				height: reading.height,
-				dry: reading.cover === 'dry',
+				dry: reading.waterKind === null,
 				waterClearance: reading.bank,
 				slope: reading.slope
 			};

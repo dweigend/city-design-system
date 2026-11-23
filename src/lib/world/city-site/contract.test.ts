@@ -178,7 +178,7 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 }
 
 const city = createCitySite();
-const mountainCity = createCitySite(undefined, { relief: 1, lake: 2 });
+const mountainCity = createCitySite(undefined, { relief: 1, runoff: 1.5 });
 for (const plan of cityPlanVariants) {
 	const { grid: town, datumZ } = readCityGrid(mountainCity, 1800, plan);
 	const columns = readCityColumns(
