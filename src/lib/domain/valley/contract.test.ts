@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
-import { Valley } from './index';
+import { peakHeightM, surveyValley, Valley } from './index';
 import { valleyExample } from './example';
+
+/** Bun hash of the seed-1201 default grid, recorded before relief and lakes existed. */
+const DEFAULT_GRID_HASH = '94893e97f1f4e7f3';
+const gridHash = (valley: Valley) => Bun.hash(JSON.stringify(valley.grid)).toString(16);
 
 test('replays a detached, immutable valley for the same seed and settings', () => {
 	const first = valleyExample();
@@ -80,4 +84,83 @@ test('reads a lower terrace frame on each side of the valley axis', () => {
 		...valley.lowerTerraceFrame(25, 'wide').across
 	]);
 	expect(() => valley.lowerTerraceFrame(Infinity)).toThrow(RangeError);
+});
+
+test('keeps the default lowland valley unchanged by relief and lake', () => {
+	const valley = valleyExample();
+	expect(valley.parameters).toEqual({ sinuosity: 1.15, relief: 0, lake: 1 });
+	expect(valley.lake).toBeNull();
+	expect(gridHash(valley)).toBe(DEFAULT_GRID_HASH);
+	const explicit = Valley.create({ seed: 1201, parameters: { relief: 0, lake: 0 } });
+	expect(explicit.grid).toEqual(valley.grid);
+	for (const seed of [1201, 7, 42, 314]) {
+		expect(Valley.create({ seed, parameters: { relief: 0 } }).lake).toBeNull();
+	}
+});
+
+test('raises seeded mountains with relief and replays them per seed', () => {
+	const ranges = [0, 0.5, 1].map(
+		(relief) => surveyValley(Valley.create({ seed: 42, parameters: { relief, lake: 0 } })).reliefM
+	);
+	expect(ranges[0]).toBeLessThan(40);
+	expect(ranges[1]).toBeGreaterThan(4 * ranges[0]);
+	expect(ranges[2]).toBeGreaterThan(1.5 * ranges[1]);
+	expect(peakHeightM(1)).toBeGreaterThan(ranges[1]);
+	const first = Valley.create({ seed: 7, parameters: { relief: 1 } });
+	expect(gridHash(Valley.create({ seed: 7, parameters: { relief: 1 } }))).toBe(gridHash(first));
+	expect(gridHash(Valley.create({ seed: 8, parameters: { relief: 1 } }))).not.toBe(gridHash(first));
+});
+
+test('holds a forced lake flat; the river enters and leaves at its level', () => {
+	for (const [seed, relief] of [
+		[1201, 0],
+		[42, 0.6],
+		[9001, 1]
+	]) {
+		const valley = Valley.create({ seed, parameters: { relief, lake: 2 } });
+		const lake = valley.lake;
+		if (!lake) throw new Error('Expected a forced lake');
+		const survey = surveyValley(valley);
+		expect(survey.faults).toEqual({ uphillSteps: 0, lakeTiltM: 0, dryBelowWater: 0 });
+		expect(survey.lakeArea).toBeGreaterThan(0.5 * lake.area);
+		const center = valley.readGround(...lake.center);
+		expect(center).toMatchObject({ cover: 'lake', water: lake.level });
+		expect(center.water - center.height).toBeGreaterThan(lake.depth * 0.9);
+		const c = Math.cos(lake.bearing);
+		const s = Math.sin(lake.bearing);
+		for (const sign of [-1, 1]) {
+			const tip = lake.halfLength - 1;
+			const [x, y] = [lake.center[0] + sign * c * tip, lake.center[1] + sign * s * tip];
+			expect(valley.sampleGround(x, y).water).toBe(lake.level);
+		}
+	}
+});
+
+test('draws seeded lakes only where relief makes a basin', () => {
+	const seeds = Array.from({ length: 16 }, (_, index) => 100 + index);
+	const lakes = (relief: number, lake: number) =>
+		seeds.filter((seed) => Valley.create({ seed, parameters: { relief, lake } }).lake).length;
+	expect(lakes(1, 1)).toBeGreaterThan(3);
+	expect(lakes(1, 1)).toBeLessThan(seeds.length);
+	expect(lakes(1, 0)).toBe(0);
+	expect(lakes(0, 2)).toBe(seeds.length);
+});
+
+test('reads height, slope, wet or dry and water kind at any point', () => {
+	const valley = Valley.create({ seed: 42, parameters: { relief: 1, lake: 2 } });
+	const covers = new Set<string>();
+	let steepest = 0;
+	for (let x = -2000; x <= 2000; x += 100) {
+		for (let y = -2000; y <= 2000; y += 100) {
+			const reading = valley.readGround(x, y);
+			expect(reading.height).toBe(valley.sampleGround(x, y).height);
+			expect(reading.cover === 'dry').toBe(reading.bank > 0);
+			covers.add(reading.cover);
+			steepest = Math.max(steepest, reading.slope);
+		}
+	}
+	expect([...covers].sort()).toEqual(['dry', 'lake', 'river']);
+	expect(steepest).toBeGreaterThan(0.5);
+	expect(Object.isFrozen(valley.readGround(0, 0))).toBe(true);
+	expect(() => valley.readGround(NaN, 0)).toThrow(RangeError);
 });

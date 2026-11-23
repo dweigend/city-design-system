@@ -139,10 +139,10 @@ const city: DesignPrinciple[] = [
 		id: 'CITY-11',
 		page: 'city',
 		title: 'An invented valley',
-		rule: 'Every city grows in an invented, generated valley with a river, from shared principles; no real city is copied.',
+		rule: 'Every city grows in an invented, generated valley with a river, from shared principles; relief and seed decide whether mountain ridges flank it or the river widens into a lake, and no real city is copied.',
 		reason:
-			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history.',
-		decided: '2026-11-21'
+			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history. Mountains and lakes come from the same ground, never from templates: water stays level in a lake and only falls downstream, and every flank drains toward the river.',
+		decided: '2026-11-23'
 	},
 	{
 		id: 'CITY-12',

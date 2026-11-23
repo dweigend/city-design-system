@@ -55,6 +55,8 @@ export function windowFrame(valley: Valley, { origin: [cx, cy], bearing, length 
 	const xy = valley.course.xy;
 	const course: Vec2[] = [];
 	for (let i = 0; i < xy.length; i += 2) course.push(toLocal(xy[i], xy[i + 1]));
+	// A window may face upstream; the river tracker walks local X upward.
+	if (course[0][0] > course[course.length - 1][0]) course.reverse();
 	return {
 		length,
 		xy,

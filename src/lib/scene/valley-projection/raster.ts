@@ -3,8 +3,9 @@ import type { ReachFrame } from './frame';
 
 const sampleStep = 20;
 
-/** Samples elevations and distance to the bank independently of the visible triangle grid. */
-export function terrainField(frame: ReachFrame, width: number): TerrainField {
+/** Samples elevations and distance to the bank independently of the visible triangle grid.
+ * The first channel holds height divided by the contour step; gradients stay in true meters. */
+export function terrainField(frame: ReachFrame, width: number, contourStep: number): TerrainField {
 	const columns = Math.ceil(frame.length / sampleStep) + 1;
 	const rows = Math.ceil(width / sampleStep) + 1;
 	const dx = frame.length / (columns - 1);
@@ -19,6 +20,10 @@ export function terrainField(frame: ReachFrame, width: number): TerrainField {
 		}
 	}
 	const heightAt = (column: number, row: number) => samples[4 * (row * columns + column)];
+	const contours = (field: Float32Array) => {
+		if (contourStep === 1) return;
+		for (let i = 0; i < field.length; i += 4) field[i] /= contourStep;
+	};
 	for (let row = 0; row < rows; row++) {
 		const back = Math.max(0, row - 1);
 		const front = Math.min(rows - 1, row + 1);
@@ -30,5 +35,6 @@ export function terrainField(frame: ReachFrame, width: number): TerrainField {
 			samples[i + 2] = (heightAt(column, front) - heightAt(column, back)) / ((front - back) * dy);
 		}
 	}
+	contours(samples);
 	return { columns, rows, width: frame.length, depth: width, samples };
 }

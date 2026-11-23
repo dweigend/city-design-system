@@ -1,7 +1,8 @@
 import type { TerrainField } from '../surface';
 import { slopeSpacing } from './spacing';
 import { trackRiver, type ReachFrame } from './frame';
-import { skirt } from './skirt';
+import { borderSides, skirt } from './skirt';
+import { waterSections, waterSurface } from './water';
 
 type Point = { x: number; y: number; z: number; water: number };
 type Mesh = { kind: 'mesh'; positions: number[]; indices: number[] };
@@ -58,6 +59,8 @@ function section(
 				: Array.from({ length: count }, (_, i) => from + ((to - from) * (i + 1)) / count);
 		for (const y of offsets) sample(y);
 	}
+	// Rows whose tracked river centre is dry, as in a crosswise window, keep their sampled heights.
+	if (frame.sample(x, center).bank > 0) return points;
 	for (const index of [leftBankIndex, rightBankIndex]) {
 		const point = points[index];
 		if (Math.abs(point.y) < half) point.z = point.water;
@@ -69,21 +72,6 @@ function mesh(positions: number[] = []): Mesh {
 	return { kind: 'mesh', positions, indices: [] };
 }
 
-function capWater(west: readonly Point[], east: readonly Point[]) {
-	const cut = mesh();
-	for (const points of [west, east]) {
-		const base = cut.positions.length / 3;
-		for (const { x, y, z, water } of points) cut.positions.push(x, y, water, x, y, z);
-		for (let index = 1; index < points.length; index++) {
-			const a = base + (index - 1) * 2;
-			const b = a + 2;
-			if (points === west) cut.indices.push(a, a + 1, b, b, a + 1, b + 1);
-			else cut.indices.push(a, b, a + 1, b, b + 1, a + 1);
-		}
-	}
-	return cut;
-}
-
 export function terrainMeshes(frame: ReachFrame, scale: number, field: TerrainField) {
 	const riverAt = trackRiver(frame.course);
 	const points = Array.from({ length: stationCount + 1 }, (_, row) => {
@@ -93,30 +81,22 @@ export function terrainMeshes(frame: ReachFrame, scale: number, field: TerrainFi
 		return section(frame, x, center, half, scale, field);
 	}).flat();
 	const ground = mesh(points.flatMap(({ x, y, z }) => [x, y, z]));
-	const water = mesh();
-	let lowest = Infinity;
-	for (let row = 0; row <= stationCount; row++) {
-		const begin = row * stride;
-		for (const at of [leftBankIndex, rightBankIndex]) {
-			const p = points[begin + at];
-			water.positions.push(p.x, p.y, p.water);
-		}
-		if (row === stationCount) break;
-		const a = row * 2;
-		water.indices.push(a, a + 2, a + 1, a + 2, a + 3, a + 1);
+	for (let row = 0; row < stationCount; row++) {
 		for (let column = 0; column < stride - 1; column++) {
-			const s = begin + column;
+			const s = row * stride + column;
 			const t = s + stride;
 			ground.indices.push(s, t, s + 1, t, t + 1, s + 1);
 		}
 	}
-	for (const { z } of points) lowest = Math.min(lowest, z);
-	const bed = (row: number) =>
-		points.slice(row * stride + leftBankIndex, row * stride + rightBankIndex + 1);
+	const lowest = points.reduce((low, { z }) => Math.min(low, z), Infinity);
 	return [
 		{ id: 'ground', slot: 'ground', shape: ground },
 		{ id: 'earth', slot: 'earth', shape: skirt(points, stride, stationCount, lowest - 7 * scale) },
-		{ id: 'river', slot: 'water', shape: water },
-		{ id: 'river-cut', slot: 'water-section', shape: capWater(bed(0), bed(stationCount)) }
+		{ id: 'river', slot: 'water', shape: waterSurface(frame, field.depth, scale) },
+		{
+			id: 'river-cut',
+			slot: 'water-section',
+			shape: waterSections(borderSides(points, stride, stationCount))
+		}
 	];
 }
