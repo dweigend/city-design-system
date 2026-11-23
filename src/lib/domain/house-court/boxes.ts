@@ -41,6 +41,20 @@ export function boxMesh(boxes: readonly Box[]): Shape | undefined {
 	return { kind: 'mesh', positions, indices };
 }
 
+/** Joins convex planar polygons, each wound outward, into one fan-triangulated mesh, or undefined
+ * for none. */
+export function faceMesh(faces: readonly (readonly Vec3[])[]): Shape | undefined {
+	if (!faces.length) return undefined;
+	const positions: number[] = [];
+	const indices: number[] = [];
+	for (const face of faces) {
+		const first = positions.length / 3;
+		for (const point of face) positions.push(...point);
+		for (let k = 1; k + 1 < face.length; k += 1) indices.push(first, first + k, first + k + 1);
+	}
+	return { kind: 'mesh', positions, indices };
+}
+
 /** A side of a counterclockwise quad: endpoints, length, direction and outward unit normal. */
 export function side(quad: readonly Vec2[], i: number) {
 	const [a, b] = [quad[i], quad[(i + 1) % quad.length]];
@@ -57,22 +71,4 @@ export function side(quad: readonly Vec2[], i: number) {
 			a[1] + dy * t - (dx / length) * out
 		]
 	};
-}
-
-/** Moves each side of a counterclockwise quad outward by its own distance in meters and returns
- * the corners where consecutive moved sides meet. Parallel sides keep the moved corner. */
-export function offsetQuad(quad: readonly Vec2[], outsets: readonly number[]): Vec2[] {
-	const n = quad.length;
-	return quad.map((_, i) => {
-		const previous = side(quad, (i + n - 1) % n);
-		const current = side(quad, i);
-		const p: Vec2 = previous.at(1, outsets[(i + n - 1) % n]);
-		const q: Vec2 = current.at(0, outsets[i]);
-		const [d1x, d1y] = [previous.b[0] - previous.a[0], previous.b[1] - previous.a[1]];
-		const [d2x, d2y] = [current.b[0] - current.a[0], current.b[1] - current.a[1]];
-		const cross = d1x * d2y - d1y * d2x;
-		if (Math.abs(cross) < Number.EPSILON * previous.length * current.length) return q;
-		const t = ((q[0] - p[0]) * d2y - (q[1] - p[1]) * d2x) / cross;
-		return [p[0] + d1x * t, p[1] + d1y * t];
-	});
 }

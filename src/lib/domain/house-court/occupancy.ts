@@ -132,9 +132,12 @@ function carve(plan: Plan, path: readonly string[]) {
  * from the frontage to each connected part of the court opens a ground-storey gate. Built cells grow monotonically with
  * width and every cell's storeys with height. Deterministic for equal inputs. */
 export function createHouseCourt(space: CellSpace, inputs: HouseInputs): HouseCourt {
-	const { seed, ...shape } = inputs;
-	const random = Random.create({ seed });
-	const { height, width, complexity } = resolveParams(blockInputs, shape);
+	const random = Random.create({ seed: inputs.seed });
+	const { height, width, complexity } = resolveParams(blockInputs, {
+		...(inputs.height === undefined ? {} : { height: inputs.height }),
+		...(inputs.width === undefined ? {} : { width: inputs.width }),
+		...(inputs.complexity === undefined ? {} : { complexity: inputs.complexity })
+	});
 	const segments = frontageSegments(space);
 	if (!segments.length) throw new RangeError('A house needs at least one frontage side');
 	const depth = boundaryDepth(space);

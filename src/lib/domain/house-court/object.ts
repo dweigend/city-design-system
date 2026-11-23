@@ -4,7 +4,7 @@ import { cellAreaM2, cellCentre, type CellSpace } from '../cell-space';
 import { courtSides, galleries, stair } from './access';
 import { side } from './boxes';
 import type { HouseCourt } from './occupancy';
-import { body, edges, openings, plate, type Context } from './parts';
+import { edges, envelope, openings, plates, type Context } from './parts';
 
 /** Slots per drawing detail. `full` carries the skin parts, `block` one closed mass per built cell. */
 export const houseDetails = Object.freeze({
@@ -83,24 +83,14 @@ function footprint(space: CellSpace) {
 	return { width: Math.max(...xs) - Math.min(...xs), depth: Math.max(...ys) - Math.min(...ys) };
 }
 
-function cellParts(ctx: Context, detail: HouseDetail): Part[] {
-	return ctx.space.cells.flatMap((cell) => {
-		const house = ctx.occupancy.get(cell.id);
-		const parts = [plate(ctx, cell, house?.role === 'court')];
-		if (!house || house.toStorey <= house.fromStorey) return parts;
-		if (detail === 'block') return [...parts, body(ctx, cell, house, 'mass')];
-		return [
-			...parts,
-			body(ctx, cell, house, 'wall'),
-			...edges(ctx, cell, house),
-			...openings(ctx, cell, house)
-		];
-	});
+function bodyParts(ctx: Context, detail: HouseDetail): Part[] {
+	if (detail === 'block') return [...plates(ctx), ...envelope(ctx, 'mass')];
+	return [...plates(ctx), ...envelope(ctx, 'wall'), ...edges(ctx), ...openings(ctx)];
 }
 
-/** Builds the house as one placeable object in the space's meters: cell plates, then per built
- * cell its closed volume (slot `mass` for `block`, `wall` plus floor edges, roof edge and
- * openings for `full`), then court galleries and the stair. No colours; slots name roles (MAT-1).
+/** Builds the house as one placeable object in the space's meters: cell plates, then the closed
+ * envelope of all built cell storeys (slot `mass` for `block`; `wall` plus floor-edge strips, roof
+ * edge and openings for `full`), then court galleries and the stair. No colours; slots name roles (MAT-1).
  * Anchors: `entrance` on the frontage, `court` at the court's centre. A house of another space throws. */
 export function createHouseObject(
 	space: CellSpace,
@@ -113,7 +103,7 @@ export function createHouseObject(
 		id: `house/${space.id}`,
 		slots: houseDetails[detail],
 		parts: [
-			...cellParts(ctx, detail),
+			...bodyParts(ctx, detail),
 			...galleries(ctx, access),
 			...stair(ctx, access, courtEntry(ctx, house))
 		],

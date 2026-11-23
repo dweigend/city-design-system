@@ -33,8 +33,8 @@ export const fullSurfaces = Object.freeze({
 	...ground,
 	wall: surface('--paper', '--ink', true),
 	floorEdge: surface('--paper-3', '--ink-2', false),
-	roofEdge: surface('--paper-2', '--ink', true),
-	opening: surface('--ink-2', '--ink', false, 'glass'),
+	roofEdge: surface('--paper-2', '--ink-2', false),
+	opening: surface('--ink-3', '--ink-2', false, 'glass'),
 	gallery: surface('--path', '--ink', false),
 	stair: surface('--path', '--ink', false)
 } satisfies SurfaceAssignment);

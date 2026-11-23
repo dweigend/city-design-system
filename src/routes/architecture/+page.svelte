@@ -27,7 +27,7 @@
 	};
 	const initial = resolveParams(blockInputs, {
 		height: number('height', 14),
-		width: number('width', 20),
+		width: number('width', 28),
 		complexity: number('complexity', 0.6)
 	});
 	const shapes = Object.entries(parcelShapes).map(([value, { label }]) => ({ value, label }));
@@ -47,6 +47,11 @@
 		{ value: 'plan', label: 'Plan' }
 	];
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 0 });
+	// Look over the lower rear wing into the court, a little steeper than the city view.
+	const fit = {
+		bearing: (number('bearing', 212) * Math.PI) / 180,
+		elevation: (number('elevation', 36) * Math.PI) / 180
+	};
 
 	let shape = $state<ParcelShape>(
 		(query.get('shape') as ParcelShape) in parcelShapes
@@ -100,6 +105,7 @@
 			{drawables}
 			{view}
 			display="normal"
+			{fit}
 			interactive
 			label="A court house of stepped white cell volumes with a pink gallery and stair around a green court"
 		/>
