@@ -6,7 +6,7 @@ export function smoothstep(value: number) {
 	return t * t * (3 - 2 * t);
 }
 
-function alongCourse(course: RiverCourse, fx: number, fy: number) {
+export function alongCourse(course: RiverCourse, fx: number, fy: number) {
 	const stations: number[] = [];
 	const offsets: number[] = [];
 	for (let i = 0; i < course.xy.length; i += 2) {

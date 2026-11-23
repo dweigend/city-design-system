@@ -28,7 +28,7 @@ function accumulate(
 	importedArea: number
 ) {
 	const area = new Float64Array(bed.length);
-	const incoming = new Uint8Array(bed.length);
+	const incoming = new Int32Array(bed.length);
 	const queue = new Int32Array(bed.length);
 	let size = 0;
 	for (let i = 0; i < bed.length; i++) {
@@ -61,12 +61,22 @@ function accumulate(
 	return area;
 }
 
-export function solveDrainage(grid: DrainageGrid, inlet: number, importedArea: number) {
+export function solveDrainage(
+	grid: DrainageGrid,
+	inlet: number,
+	importedArea: number,
+	spine: readonly { index: number }[] = []
+) {
 	const flood = floodTerrain(grid);
 	const { level, parent, order } = flood;
 	const receiver = route(grid.side, flood);
 	const { basins, membership } = findBasins(grid, flood);
 	const bed = grid.bed.slice();
+	for (let i = 1; i < spine.length; i++) {
+		const from = spine[i - 1].index;
+		const to = spine[i].index;
+		if (level[to] < level[from]) receiver[from] = to;
+	}
 	for (let i = 0; i < bed.length; i++) {
 		const basin = basins[membership[i]];
 		if (!basin) bed[i] = level[i];

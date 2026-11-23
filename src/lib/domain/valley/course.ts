@@ -11,7 +11,7 @@ export type RiverCourse = Readonly<{
 }>;
 
 export const courseSpacing = 6.25;
-const regionalRadius = 8_000 / Math.SQRT2;
+const regionalRadius = 13_000 / Math.SQRT2;
 const turn = 2 * Math.PI;
 
 function courseShape(

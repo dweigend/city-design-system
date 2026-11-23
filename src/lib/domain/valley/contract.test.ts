@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { drainageExample } from './drainage-example';
+import { drainageExample, regionalDrainageExample } from './drainage-example';
 import { peakHeightM, surveyValley, Valley } from './index';
 import { valleyExample } from './example';
 
@@ -216,4 +216,35 @@ test('contracts both arms of a side basin at one known sill', () => {
 	expect(flow.membership[7]).toBe(flow.membership[9]);
 	expect(flow.bed[16]).toBe(4000);
 	expect(flow.receiver[16]).toBe(17);
+});
+
+test('routes higher and lower lakes in series at their separate spill levels', () => {
+	const flow = drainageExample([
+		[20, 20, 20, 20, 20, 20, 20],
+		[20, 3, 3, 20, 20, 20, 20],
+		[20, 3, 3, 20, 20, 20, 20],
+		[20, 20, 8, 8, 2, 20, 20],
+		[20, 20, 20, 2, 2, 5, 0],
+		[20, 20, 20, 2, 2, 20, 20],
+		[20, 20, 20, 20, 20, 20, 20]
+	]);
+	expect(flow.basins.map(({ level }) => level)).toEqual([5000, 8000]);
+	const low = flow.basins[0].root;
+	const chain = [];
+	for (let i = flow.basins[1].root; i >= 0; i = flow.receiver[i]) chain.push(i);
+	expect(chain).toContain(low);
+	expect(chain.at(-1)).toBe(34);
+});
+
+test('keeps the imported flow through the regional catchment on fixed seeds', () => {
+	for (const seed of [1201, 42, 9001]) {
+		const terrain = regionalDrainageExample(seed);
+		expect(terrain.path.length).toBeGreaterThan(100);
+		expect(terrain.reaches.some(({ trunk }) => trunk)).toBe(true);
+		expect(terrain.reaches.some(({ trunk }) => !trunk)).toBe(true);
+		for (const { stations } of terrain.reaches) {
+			for (let i = 1; i < stations.length; i++)
+				expect(stations[i].water).toBeLessThanOrEqual(stations[i - 1].water);
+		}
+	}
 });
