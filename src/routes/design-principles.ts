@@ -74,7 +74,7 @@ const city: DesignPrinciple[] = [
 		id: 'CITY-4',
 		page: 'city',
 		title: 'Grid-led paths and deliberate cuts',
-		rule: 'Routes share one movement graph, and bridges and lanes follow chains of grid edges between blocks or finer cells.',
+		rule: 'Routes share one movement graph, land lanes follow grid edges, and a bridge may span straight between its plan-grid bank nodes when its addressed edge chain falls short of the straightness threshold.',
 		reason:
 			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. Bridge heads join the banks at grid nodes. Deliberate path placement may open a passage or gate through occupied space or remove a small building.',
 		decided: '2026-11-21',

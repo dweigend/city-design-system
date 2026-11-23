@@ -1,7 +1,7 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import type { Node } from './carrier';
 
-const cutToleranceM = 0.05;
+import { shorelineMorphLimits as limits } from './config';
 
 /** Clips one convex carrier polygon to a single dry shoreline crossing. Adjacent cells
  * reuse the same intersection on their common edge. Later ground checks reject dry
@@ -19,12 +19,12 @@ export function shoreline(signedDistance: (x: number, y: number) => number) {
 		if (cached) return cached;
 		let inside = land.xy;
 		let outside = water.xy;
-		while (distance(inside, outside) > cutToleranceM) {
+		while (distance(inside, outside) > limits.clipToleranceM) {
 			const mid: Vec2 = [(inside[0] + outside[0]) / 2, (inside[1] + outside[1]) / 2];
 			if (signedDistance(...mid) >= 0) inside = mid;
 			else outside = mid;
 		}
-		const node = distance(inside, land.xy) < cutToleranceM ? land : { id, xy: inside };
+		const node = distance(inside, land.xy) < limits.clipToleranceM ? land : { id, xy: inside };
 		crossings.set(id, node);
 		return node;
 	}
@@ -51,8 +51,7 @@ export function usableShoreRing(
 	const points = ring.map(({ xy }) => xy);
 	const { area } = measurePolygon(points);
 	if (area < minimumArea) return false;
-	const minimumAngle = Math.PI / 12;
-	const maximumAspect = 6;
+
 	return points.every((point, i) => {
 		const a = points[(i + 1) % points.length];
 		const b = points[(i + points.length - 1) % points.length];
@@ -62,8 +61,10 @@ export function usableShoreRing(
 		const by = b[1] - point[1];
 		return (
 			Math.hypot(ax, ay) >= minimumEdge &&
-			Math.atan2(ax * by - ay * bx, ax * bx + ay * by) >= minimumAngle &&
-			points.every((other) => distance(point, other) ** 2 <= maximumAspect * area)
+			Math.atan2(ax * by - ay * bx, ax * bx + ay * by) >= limits.clippedMinimumAngleRad &&
+			points.every(
+				(other) => distance(point, other) ** 2 <= limits.clippedMaximumAspectRatio * area
+			)
 		);
 	});
 }

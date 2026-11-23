@@ -1,6 +1,5 @@
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { edgeId } from './carrier';
 
 type AddressedPlan = Readonly<{
 	vertices: readonly Readonly<{ id: string; position: Vec3 }>[];
@@ -42,6 +41,14 @@ function pathTo(end: Visit): PlanEdgePath {
 	});
 }
 
+/** Returns an unambiguous edge ID for an unordered pair of plan nodes. */
+export function planEdgeId(a: string, b: string) {
+	const pair = a < b ? [a, b] : [b, a];
+	// The ordinary encoding has one separator. The prefixed encoding is disjoint
+	// and preserves any separator already present inside either node ID.
+	return a.includes('|') || b.includes('|') ? '||' + JSON.stringify(pair) : pair.join('|');
+}
+
 /** Reads unique plan edges in first-incidence order. The ID is independent of direction. */
 export function planEdges(grid: AddressedPlan): readonly PlanEdge[] {
 	const points = new Map(grid.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
@@ -50,7 +57,7 @@ export function planEdges(grid: AddressedPlan): readonly PlanEdge[] {
 	for (const { id: cellId, vertexIds } of grid.cells) {
 		for (const [i, from] of vertexIds.entries()) {
 			const to = vertexIds[(i + 1) % vertexIds.length];
-			const id = edgeId(from, to);
+			const id = planEdgeId(from, to);
 			const edge = byId.get(id);
 			if (edge) edge.cellIds.push(cellId);
 			else {

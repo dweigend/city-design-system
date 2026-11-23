@@ -7,7 +7,6 @@ import {
 	planEdges,
 	shorelineMorphLimits,
 	TerrainGrid,
-	terrainGridQuality,
 	type TerrainGridOptions
 } from '../../domain/terrain-grid';
 import { coarseCellSize, createCitySite } from './index';
@@ -20,7 +19,8 @@ function layout(
 ) {
 	const city = createCitySite(undefined, { seed, relief, runoff });
 	const read = city.sampleGround;
-	const clearanceAt = (x: number, y: number) => read(x, y).waterClearance - 3;
+	const clearanceAt = (x: number, y: number) =>
+		read(x, y).waterClearance - shorelineMorphLimits.cityBankSetbackM;
 	const options: TerrainGridOptions = {
 		seed,
 		variant,
@@ -96,10 +96,10 @@ for (const variant of cityPlanVariants) {
 				);
 				const next = qualityOf(vertexIds.map((id) => required(shifted.get(id), 'shifted corner')));
 				expect(next.minAngle).toBeGreaterThanOrEqual(
-					Math.min(base.minAngle, terrainGridQuality.minimumAngle) - 1e-8
+					Math.min(base.minAngle, shorelineMorphLimits.minimumAngleRad) - 1e-8
 				);
 				expect(next.edgeRatio).toBeLessThanOrEqual(
-					Math.max(base.edgeRatio, terrainGridQuality.maximumEdgeRatio) + 1e-8
+					Math.max(base.edgeRatio, shorelineMorphLimits.maximumEdgeRatio) + 1e-8
 				);
 				expect(next.area / base.area).toBeGreaterThanOrEqual(
 					shorelineMorphLimits.minimumAreaRatio - 1e-8
@@ -150,7 +150,8 @@ for (const variant of cityPlanVariants) {
 }
 
 test('keeps the original carrier for an isolated channel narrower than the snap threshold', () => {
-	const clearanceAt = (x: number, y: number) => Math.abs(x - 0.06 * y) - 19;
+	const clearanceAt = (x: number, y: number) =>
+		Math.abs(x - 0.06 * y) - shorelineMorphLimits.minimumWaterWidthM / 4;
 	const options: TerrainGridOptions = {
 		seed: 1201,
 		variant: 'organic',

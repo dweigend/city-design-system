@@ -29,8 +29,14 @@ export function projectWetPlan(
 		const water = cellIds.some((id) => covers.get(id) !== 'dry');
 		project(point(a), point(b), water ? wet : dry);
 	}
-	for (const { path } of crossings)
+	for (const { path, span } of crossings) {
+		if (span) {
+			const [from, to] = span.nodeIds;
+			project(point(from), point(to), markers, 1.2);
+			continue;
+		}
 		for (const { from, to } of path.edges) project(point(from), point(to), markers, 1.2);
+	}
 
 	function project(a: Vec2, b: Vec2, output: number[], lift = 0.32) {
 		const start = toLocal(...a);

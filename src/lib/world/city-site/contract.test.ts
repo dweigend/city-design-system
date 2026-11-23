@@ -12,7 +12,7 @@ import {
 	type CityColumn,
 	type CityLattice
 } from '../../domain/city-volume';
-import { planEdgeGraph, type TerrainGrid } from '../../domain/terrain-grid';
+import { crossingLimits, planEdgeGraph, type TerrainGrid } from '../../domain/terrain-grid';
 import {
 	citySiteParams,
 	cityWindow,
@@ -273,10 +273,10 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 		waterKind: bank(x) < 0 ? 'river' : null
 	}));
 	for (const variant of cityPlanVariants) {
-		const { grid, plan, crossings, datumZ } = readCityGrid(site, 1800, variant);
+		const { grid, plan, crossings, datumZ, areaKm2 } = readCityGrid(site, 1800, variant);
 		const growth = readCityGrid(site, 2400, variant);
 		const next = new Set(growth.plan.cells.map(({ id }) => id));
-		const built = new Set(grid.cells.map(({ id }) => id));
+		const built = new Map(grid.cells.map((cell) => [cell.id, cell]));
 		const cells = new Map(plan.cells.map((cell) => [cell.id, cell]));
 		expect(crossings.length).toBeGreaterThan(0);
 		for (const cell of plan.cells) {
@@ -287,15 +287,21 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 		const graph = planEdgeGraph(plan);
 		const edges = new Map(graph.edges.map((edge) => [edge.id, edge]));
 		const selected = readCityGrid(site, 1800, variant).selectedCrossings;
-		expect(selected).toEqual(crossings.slice(0, 3));
+		expect(selected).toEqual(
+			crossings.slice(
+				0,
+				crossingLimits.selectionBaseCount +
+					Math.ceil(areaKm2 / crossingLimits.selectionIncrementKm2)
+			)
+		);
 		for (const {
 			heads: [a, b],
 			path
 		} of crossings) {
 			expect(a.cellIds.every((id) => built.has(id))).toBe(true);
 			expect(b.cellIds.every((id) => built.has(id))).toBe(true);
-			expect(a.cellIds.every((id) => cells.get(id)?.vertexIds.includes(a.nodeId))).toBe(true);
-			expect(b.cellIds.every((id) => cells.get(id)?.vertexIds.includes(b.nodeId))).toBe(true);
+			expect(a.cellIds.every((id) => built.get(id)?.vertexIds.includes(a.nodeId))).toBe(true);
+			expect(b.cellIds.every((id) => built.get(id)?.vertexIds.includes(b.nodeId))).toBe(true);
 			expect(path.nodeIds[0]).toBe(a.nodeId);
 			expect(path.nodeIds.at(-1)).toBe(b.nodeId);
 			expect(Math.sign(graph.point(a.nodeId)[0])).toBe(-Math.sign(graph.point(b.nodeId)[0]));
@@ -309,7 +315,7 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 				length += edge.lengthM;
 			}
 			expect(path.lengthM).toBeCloseTo(length, 9);
-			expect(path.lengthM).toBeLessThanOrEqual(320);
+			expect(path.lengthM).toBeLessThanOrEqual(crossingLimits.maximumPathLengthM);
 			expect(
 				growth.crossings.some(({ path: grown }) => grown.nodeIds.join() === path.nodeIds.join())
 			).toBe(true);
