@@ -1,4 +1,5 @@
 // Districts, carrier lattice and growth measurements of one city.
+import { distance } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
 import type { CityColumn, CityLattice, DistrictKind } from '../src/lib/domain/city-volume';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
@@ -79,13 +80,10 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 	let maxJointErrorM = 0;
 	for (const { planCellId, neighbors, corners } of columns) {
 		const levels = required(byColumn.get(planCellId), 'column bays');
-		for (const {
-			id,
-			position: [, , z]
-		} of corners) {
+		for (const { id, position } of corners) {
 			const foot = nodes.get(`vertex/${id}/level/0`);
 			if (!foot) missingFeet++;
-			else maxJointErrorM = Math.max(maxJointErrorM, Math.abs(z - foot[2]));
+			else maxJointErrorM = Math.max(maxJointErrorM, distance(position, foot));
 		}
 		neighbors.forEach((neighbor, side) => {
 			if (neighbor === null || neighbor < planCellId) return;

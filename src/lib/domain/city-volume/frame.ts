@@ -1,9 +1,6 @@
 import type { Vec3 } from '../../core/geometry';
-import { columnPlanes } from './foundation';
-import { levelHeight } from './settlement';
-
-export const latticeVariants = Object.freeze(['box', 'braced', 'centered', 'tetrahedral'] as const);
-export type LatticeVariant = (typeof latticeVariants)[number];
+import { columnBays } from './foundation';
+import { closeSolid, prismFaces, type LatticeSolid } from './solid';
 
 /** Stable addresses for full levels, joints and undirected members. Joint positions are world
  * XYZ meters, with Z up. Lists are detached and deeply frozen in plan/level traversal order. */
@@ -16,7 +13,8 @@ export type CityLattice = Readonly<{
 	}>[];
 	faces: readonly Readonly<{ id: string; corners: readonly [string, string, string, string] }>[];
 	nodes: readonly Readonly<{ id: string; position: Vec3 }>[];
-	edges: readonly Readonly<{ id: string; from: string; to: string }>[];
+	edges: readonly Readonly<{ id: string; from: string; to: string; rank?: 'chord' | 'strut' }>[];
+	solids: readonly LatticeSolid[];
 }>;
 
 type Node = CityLattice['nodes'][number];
@@ -81,23 +79,25 @@ function tetrahedral(level: Level, connect: Connect) {
 	}
 }
 
-const frames: Record<LatticeVariant, (level: Level, connect: Connect) => void> = {
+const frames = {
 	box,
 	braced,
 	centered,
 	tetrahedral
 };
 
+export type PrismVariant = keyof typeof frames;
+export const prismVariants = Object.freeze(Object.keys(frames) as PrismVariant[]);
+
 export function createFrame(
 	columns: readonly Column[],
 	datumZ: number,
-	variant: LatticeVariant
+	variant: PrismVariant
 ): CityLattice {
 	const addMembers = frames[variant];
 	const nodes = new Map<string, Node>();
 	const edges = new Map<string, Edge>();
-	const cells = [];
-	const faces = new Map<string, CityLattice['faces'][number]>();
+	const solids: LatticeSolid[] = [];
 	function connect(a: Node, b: Node) {
 		if (a.id === b.id) return;
 		for (const { id, position } of [a, b]) {
@@ -107,22 +107,31 @@ export function createFrame(
 		const id = JSON.stringify([from, to]);
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
+	const { cells, faces } = bayAddresses(columns, datumZ, ({ id, bottom, top }) => {
+		addMembers({ id, bottom, top }, connect);
+		solids.push(closeSolid(id, id, prismFaces(bottom, top)));
+	});
+	return Object.freeze({
+		cells,
+		faces,
+		nodes: Object.freeze([...nodes.values()]),
+		edges: Object.freeze([...edges.values()]),
+		solids: Object.freeze(solids)
+	});
+}
+
+/** Builds the canonical addresses and visits their ground-clamped rings in plan order. */
+export function bayAddresses(
+	columns: readonly Column[],
+	datumZ: number,
+	visit?: (bay: Level) => void
+) {
+	const cells = [];
+	const faces = new Map<string, CityLattice['faces'][number]>();
 	for (const column of columns) {
-		const { planCellId, corners } = column;
-		const { first, roof } = columnPlanes(column, datumZ);
-		const cornersAt = (level: number) =>
-			corners.map(({ id, position: [x, y, z] }): Node => {
-				const plane = datumZ + levelHeight * level;
-				const ground = level === 0 || plane <= z;
-				return {
-					id: `vertex/${id}/level/${ground ? 0 : level}`,
-					position: [x, y, ground ? z : plane]
-				};
-			});
-		let bottom = cornersAt(first);
-		for (let level = first; level < roof; level++) {
+		const { planCellId } = column;
+		for (const { level, bottom, top } of columnBays(column, datumZ)) {
 			const id = `${planCellId}/level/${level}`;
-			const top = cornersAt(level + 1);
 			const sideFaces = bottom.map((a, i) => {
 				const j = (i + 1) % bottom.length;
 				if (a.id === top[i].id && bottom[j].id === top[j].id) return null;
@@ -134,14 +143,11 @@ export function createFrame(
 				return face;
 			});
 			cells.push(Object.freeze({ id, planCellId, level, sideFaces: Object.freeze(sideFaces) }));
-			addMembers({ id, bottom, top }, connect);
-			bottom = top;
+			visit?.({ id, bottom, top });
 		}
 	}
-	return Object.freeze({
+	return {
 		cells: Object.freeze(cells),
-		faces: Object.freeze([...faces.values()]),
-		nodes: Object.freeze([...nodes.values()]),
-		edges: Object.freeze([...edges.values()])
-	});
+		faces: Object.freeze([...faces.values()])
+	};
 }

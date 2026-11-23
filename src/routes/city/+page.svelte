@@ -78,7 +78,12 @@
 		box: 'Box',
 		braced: 'Braced',
 		centered: 'Body-centered',
-		tetrahedral: 'Tetrahedral'
+		tetrahedral: 'Tetrahedral',
+		antiprism: 'Antiprism',
+		diagrid: 'Diagrid',
+		tree: 'Tree',
+		setback: 'Setback',
+		corbel: 'Corbel'
 	};
 	const grids = cityPlanVariants.map((value) => ({ value, label: gridLabels[value] }));
 	const steps = [
