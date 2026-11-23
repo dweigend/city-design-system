@@ -1,5 +1,6 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import type { Node } from './carrier';
+import { planEdgeId } from './edge-path';
 
 import { shorelineMorphLimits as limits } from './config';
 
@@ -24,7 +25,16 @@ export function shoreline(signedDistance: (x: number, y: number) => number) {
 			if (signedDistance(...mid) >= 0) inside = mid;
 			else outside = mid;
 		}
-		const node = distance(inside, land.xy) < limits.clipToleranceM ? land : { id, xy: inside };
+		const first = land.id < water.id ? land : water;
+		const t = distance(first.xy, inside) / distance(land.xy, water.xy);
+		const node =
+			distance(inside, land.xy) < limits.clipToleranceM
+				? land
+				: {
+						id,
+						xy: inside,
+						shore: Object.freeze({ planEdgeId: planEdgeId(land.id, water.id), t })
+					};
 		crossings.set(id, node);
 		return node;
 	}

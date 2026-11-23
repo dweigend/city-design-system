@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
+import { dryPlanEdges, planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
+import { createMainLaneRouter } from './main-lanes';
 import { channelCrossings } from './crossings';
 import { citySiteConfig, createCitySite, readCityGrid, type CityTerrainSampler } from './index';
 
@@ -42,7 +43,7 @@ for (const [seed, relief, runoff, variant] of [
 	}, 30_000);
 }
 
-test('equal scores select the same crossings if built polygons are reversed', () => {
+function clippedBank() {
 	const clearanceAt = (x: number, y: number) => Math.abs(Math.hypot(x, y) - 130) - 48;
 	const sample: CityTerrainSampler = (x, y) => {
 		const waterClearance = clearanceAt(x, y);
@@ -61,9 +62,74 @@ test('equal scores select the same crossings if built polygons are reversed', ()
 		},
 		([x, y]) => sample(x, y).waterKind ?? 'dry'
 	);
+	return { grid, plan, sample };
+}
+
+test('equal scores select the same crossings if built polygons are reversed', () => {
+	const { grid, plan, sample } = clippedBank();
 	const core: Vec2 = [0, 30];
 	const ranked = channelCrossings(plan, grid, sample, core);
 	expect(ranked.length).toBeGreaterThan(0);
 	const reversed = { ...grid, cells: [...grid.cells].reverse() };
 	expect(channelCrossings(plan, reversed, sample, core)).toEqual(ranked);
+});
+
+test('routes from a real crossing head over addressed clipped bank intervals', () => {
+	const { grid, plan, sample } = clippedBank();
+	const crossing = required(channelCrossings(plan, grid, sample, [0, 30])[0], 'crossing');
+	const dry = dryPlanEdges(grid, plan);
+	expect(
+		dry.some(
+			({ provenance }) => provenance.kind === 'plan' && (provenance.t0 > 0 || provenance.t1 < 1)
+		)
+	).toBe(true);
+	expect(dry.some(({ provenance, bank }) => provenance.kind === 'shore' && bank)).toBe(true);
+	for (const { nodeId } of crossing.heads) {
+		const graph = planEdgeGraph(grid);
+		const edge = required(
+			graph.edges.find(({ nodeIds }) => nodeIds.includes(nodeId)),
+			'head edge'
+		);
+		const next = required(
+			edge.nodeIds.find((id) => id !== nodeId),
+			'adjacent dry node'
+		);
+		const guide = [graph.point(nodeId), graph.point(next)];
+		const { path, points } = required(
+			createMainLaneRouter(grid)(guide, 'arm/0', nodeId),
+			'dry arm'
+		);
+		expect(path.nodeIds[0]).toBe(nodeId);
+		expect(path.lengthM).toBeCloseTo(
+			points.slice(1).reduce((m, point, i) => m + distance(points[i], point), 0)
+		);
+		expect(path.edges.every(({ id }) => dry.some((edge) => edge.id === id))).toBe(true);
+	}
+});
+
+test('a main lane walks the square grid with its physical length', () => {
+	const square = TerrainGrid.create({
+		seed: 1201,
+		variant: 'square',
+		parameters: { cellSize: 60 },
+		site: { origin: [0, 0], bearing: 0, length: 300, width: 300 },
+		heightAt: () => 0
+	});
+	const { path, points } = required(
+		createMainLaneRouter(square)(
+			[
+				[0, 0],
+				[60, 0],
+				[60, 120]
+			],
+			'arm/0'
+		),
+		'example route'
+	);
+	expect(path.headId).toBe(path.nodeIds[0]);
+	expect(points[0]).toEqual([0, 0]);
+	expect(points.at(-1)).toEqual([60, 120]);
+	expect(path.lengthM).toBe(180);
+	expect(path.edges).toHaveLength(3);
+	expect(path.edges.map(({ from }) => from)).toEqual(path.nodeIds.slice(0, -1));
 });

@@ -9,6 +9,7 @@ const configOwners = {
 	'core/object': 'object',
 	'domain/river-metrics': 'river-metrics',
 	'domain/valley': 'hydrology',
+	'world/city-site': 'lanes',
 	'world/valley-protocol': 'valley-measurement'
 };
 const allowedConfigEntries = Object.values(configOwners).join('|');

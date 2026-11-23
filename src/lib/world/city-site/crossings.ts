@@ -6,6 +6,8 @@ import type { CityTerrainSampler } from './sampling';
 
 /** A bank-to-bank crossing addressed by an edge path, with an optional direct bridge span. */
 export type CityCrossing = Readonly<{
+	/** Canonical address of this crossing's ordered plan-node path. */
+	id: string;
 	path: PlanEdgePath;
 	/** The straight bridge chord between its two plan nodes, measured in horizontal meters. */
 	span?: Readonly<{ nodeIds: readonly [string, string]; lengthM: number }>;
@@ -17,7 +19,6 @@ type Candidate = CityCrossing & {
 	waterCellIds: readonly string[];
 	midpoint: Vec2;
 	score: number;
-	key: string;
 };
 type HeadCell = { id: string; point: Vec2 };
 
@@ -136,6 +137,7 @@ export function channelCrossings(
 			];
 			const midpoint: Vec2 = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
 			proposals.push({
+				id: JSON.stringify(path.nodeIds),
 				path,
 				...(span ? { span } : {}),
 				heads: [
@@ -144,14 +146,13 @@ export function channelCrossings(
 				],
 				waterCellIds,
 				midpoint,
-				key: JSON.stringify(path.nodeIds),
 				score: path.lengthM + config.coreDistanceWeightRatio * distance(core, midpoint)
 			});
 		}
 	}
 	const selected: Candidate[] = [];
 	for (const proposal of proposals.sort(
-		(a, b) => a.score - b.score || (a.key < b.key ? -1 : Number(a.key > b.key))
+		(a, b) => a.score - b.score || (a.id < b.id ? -1 : Number(a.id > b.id))
 	)) {
 		if (
 			selected.some(

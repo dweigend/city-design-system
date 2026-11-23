@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
-import type { Vec2, Vec3 } from '../../core/geometry';
+import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import {
 	TerrainGrid,
 	planEdgeId,
@@ -373,4 +373,39 @@ test('keeps the shoreline embedding bit-identical when carrier cells are reverse
 	const after = alignShore(cells, clearance, () => true);
 	expect(after).not.toEqual(cells);
 	expect(alignShore([...cells].reverse(), clearance, () => true)).toEqual([...after].reverse());
+});
+
+test('names Voronoi corners by site incidence across geometry changes', () => {
+	const create = (seed: number) =>
+		TerrainGrid.create({
+			seed,
+			variant: 'voronoi',
+			parameters: { cellSize: 60 },
+			site: { origin: [0, 0], bearing: 0, length: 720, width: 720 },
+			heightAt: () => 0
+		});
+	function byIncidence(grid: TerrainGrid) {
+		const groups = new Map<string, string[]>();
+		for (const { id, vertexIds } of grid.cells) {
+			for (const vertex of vertexIds) {
+				const list = groups.get(vertex) ?? [];
+				list.push(id);
+				groups.set(vertex, list);
+			}
+		}
+		return new Map(
+			grid.vertices.flatMap((vertex) => {
+				const sites = groups.get(vertex.id) ?? [];
+				return sites.length === 3 ? [[sites.sort().join('|'), vertex] as const] : [];
+			})
+		);
+	}
+	const first = byIncidence(create(1201));
+	const second = byIncidence(create(1202));
+	let stableMoved = 0;
+	for (const [key, before] of first) {
+		const after = second.get(key);
+		if (after?.id === before.id && distance(after.position, before.position) > 0.1) stableMoved++;
+	}
+	expect(stableMoved).toBeGreaterThan(20);
 });

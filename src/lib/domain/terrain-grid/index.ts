@@ -2,15 +2,8 @@ import { distance, measurePolygon, type Vec2, type Vec3 } from '../../core/geome
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import {
-	carrier,
-	edgeId,
-	freeQuad,
-	ringMean,
-	type Candidate,
-	type Carrier,
-	type Node
-} from './carrier';
+import { carrier, freeQuad, ringMean, type Candidate, type Carrier, type Node } from './carrier';
+import { planEdgeId } from './edge-path';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
@@ -35,7 +28,7 @@ export { quality as terrainGridQuality } from './metrics';
 export { shorelineMorphLimits } from './config';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
-export type TerrainGridVertex = Readonly<{ id: string; position: Vec3 }>;
+export type TerrainGridVertex = Readonly<{ id: string; position: Vec3; shore?: Node['shore'] }>;
 
 /** Counterclockwise polygon. Neighbor i is across edge i→(i+1), or null at the boundary. */
 export type TerrainGridCell = Readonly<{
@@ -223,7 +216,7 @@ function samples(
 			return z;
 		}) satisfies HeightAt,
 		validEdge(a: Node, b: Node) {
-			const key = edgeId(a.id, b.id);
+			const key = planEdgeId(a.id, b.id);
 			if (!edges.has(key)) edges.set(key, a.id < b.id ? validSegment(a, b) : validSegment(b, a));
 			return edges.get(key);
 		}
@@ -250,11 +243,14 @@ function topology(
 					...node.xy,
 					required(height(node), 'accepted vertex height')
 				] as const);
-				vertices.set(node.id, Object.freeze({ id: node.id, position }));
+				vertices.set(
+					node.id,
+					Object.freeze({ id: node.id, position, ...(node.shore ? { shore: node.shore } : {}) })
+				);
 			}
 			const from = node.id;
 			const to = vertexIds[(index + 1) % vertexIds.length];
-			const key = edgeId(from, to);
+			const key = planEdgeId(from, to);
 			const opposite = open.get(key);
 			if (opposite) {
 				neighbors[index] = opposite.id;
@@ -465,8 +461,10 @@ export const TerrainGrid = Object.freeze({ create, createPlan, select });
 /** Edge topology and shortest paths for routing between plan cells. */
 export {
 	planEdges,
+	dryPlanEdges,
 	planEdgeGraph,
 	type PlanEdge,
+	type DryPlanEdge,
 	type PlanEdgePath,
 	type OrientedPlanEdge
 } from './edge-path';

@@ -6,6 +6,7 @@ import { valueNoise } from './value-noise';
 const span = (random: Random, min: number, max: number) => random.number({ min, max });
 
 type Ground = (x: number, y: number) => Readonly<{ height: number; waterKind: string | null }>;
+type Route = (guide: readonly Vec2[], armKey: string, head: Vec2) => readonly Vec2[];
 type Arm = { path: readonly Vec2[]; speed: number; entry: number; width: number };
 
 const stepM = cityVolumeConfig.corridorStepM;
@@ -61,13 +62,17 @@ function armPath(random: Random, head: Vec2, outward: number, bearing: number, g
 
 function armCost({ path, speed, entry, width }: Arm, [x, y]: Vec2) {
 	let cost = Infinity;
+	let along = 0;
 	for (let i = 1; i < path.length; i++) {
 		const [ax, ay] = path[i - 1];
 		const dx = path[i][0] - ax;
 		const dy = path[i][1] - ay;
-		const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (stepM * stepM)));
+		const length = Math.hypot(dx, dy);
+		if (length === 0) continue;
+		const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (length * length)));
 		const lateral = Math.hypot(x - ax - t * dx, y - ay - t * dy);
-		cost = Math.min(cost, entry + ((i - 1 + t) * stepM) / speed + lateral * width);
+		cost = Math.min(cost, entry + (along + t * length) / speed + lateral * width);
+		along += length;
 	}
 	return cost;
 }
@@ -77,7 +82,8 @@ function bankAccess(
 	head: Vec2,
 	opposite: Vec2 | undefined,
 	bearing: number,
-	ground: Ground
+	ground: Ground,
+	route: Route | undefined
 ) {
 	const outward = opposite ? Math.atan2(head[1] - opposite[1], head[0] - opposite[0]) : bearing;
 	const inland = opposite ? span(random, 150, 430) : 0;
@@ -94,14 +100,15 @@ function bankAccess(
 	const phaseOffset = span(random.derive('bearing'), -0.42, 0.42);
 	const arms: Arm[] = Array.from({ length: count }, (_, index) => {
 		const arm = random.derive('arm/' + index);
+		const guide = armPath(
+			arm,
+			head,
+			outward + phaseOffset + 2.35 * ((index + 0.5) / count - 0.5),
+			bearing,
+			ground
+		);
 		return {
-			path: armPath(
-				arm,
-				head,
-				outward + phaseOffset + 2.35 * ((index + 0.5) / count - 0.5),
-				bearing,
-				ground
-			),
+			path: route ? route(guide, 'arm/' + index, head) : guide,
 			speed: span(arm, 2.7, 4.8),
 			entry: span(arm, 5, 90),
 			width: span(arm, 1.58, 2.1)
@@ -132,13 +139,14 @@ export function cityAccessibility(
 	heads: readonly [first: Vec2, second?: Vec2],
 	bearing: number,
 	ground: Ground,
-	secondBank: (point: Vec2) => boolean
+	secondBank: (point: Vec2) => boolean,
+	route?: Route
 ) {
 	const random = Random.create({ seed }).derive('accessibility');
 	const [first, second] = heads;
-	const primary = bankAccess(random.derive('first-bank'), first, second, bearing, ground);
+	const primary = bankAccess(random.derive('first-bank'), first, second, bearing, ground, route);
 	if (!second) return primary;
-	const secondary = bankAccess(random.derive('second-bank'), second, first, bearing, ground);
+	const secondary = bankAccess(random.derive('second-bank'), second, first, bearing, ground, route);
 	const balance = random.derive('bank-balance');
 	const bias = span(balance, 250, 465) * (balance.number() < 0.5 ? -1 : 1);
 	return (point: Vec2, grade: number, clearance: number) =>

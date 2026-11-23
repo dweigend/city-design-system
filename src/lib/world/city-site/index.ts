@@ -218,6 +218,7 @@ export function readCityGrid(
 	const activeCrossings: CityCrossing[] = [];
 	const planIds = planSelection(grid);
 	for (const {
+		id,
 		path,
 		span,
 		heads: [first, second],
@@ -228,6 +229,7 @@ export function readCityGrid(
 		if (!from.length || !to.length) continue;
 		activeCrossings.push(
 			Object.freeze({
+				id,
 				path,
 				...(span ? { span } : {}),
 				heads: Object.freeze([

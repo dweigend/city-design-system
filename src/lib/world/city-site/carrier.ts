@@ -8,7 +8,13 @@ import {
 	levelHeight,
 	type CityPlanVariant
 } from '../../domain/city-volume';
-import { planCellSide, shorelineMorphLimits, TerrainGrid } from '../../domain/terrain-grid';
+import {
+	dryPlanEdges,
+	planCellSide,
+	shorelineMorphLimits,
+	TerrainGrid
+} from '../../domain/terrain-grid';
+import { createMainLaneRouter, type MainLanePath } from './main-lanes';
 import type { CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
 import { citySiteConfig as config } from './config';
@@ -131,10 +137,12 @@ export function prepareCarrier(
 				config.primaryPathWeightRatio * b.path.lengthM
 		)[0];
 	const approaches = primary?.heads
-		.map(({ nodeId }) => required(nodes.get(nodeId), 'approach node'))
-		.sort((a, b) => (site.bankSide ? site.bankSide(a) - site.bankSide(b) : a[0] - b[0]));
-	const first = approaches?.[0] ?? core;
-	const second = approaches?.[1];
+		.map(({ nodeId }) => ({ nodeId, point: required(nodes.get(nodeId), 'approach node') }))
+		.sort(({ point: a }, { point: b }) =>
+			site.bankSide ? site.bankSide(a) - site.bankSide(b) : a[0] - b[0]
+		);
+	const first = approaches?.[0].point ?? core;
+	const second = approaches?.[1].point;
 	const side = site.bankSide;
 	const secondSide = second && side?.(second);
 	const secondBank = (point: Vec2) => {
@@ -143,7 +151,22 @@ export function prepareCarrier(
 			? side(point) === secondSide
 			: distance(point, second) < distance(point, first);
 	};
-	const access = cityAccessibility(seed, [first, second], bearing, sampleGround, secondBank);
+	const dryEdges = dryPlanEdges(candidates, plan);
+	const mainLanes: MainLanePath[] = [];
+	const route = createMainLaneRouter(candidates);
+	const access = cityAccessibility(
+		seed,
+		[first, second],
+		bearing,
+		sampleGround,
+		secondBank,
+		(guide, armKey, head) => {
+			const routed = route(guide, armKey, approaches?.find(({ point }) => point === head)?.nodeId);
+			if (!routed) return [];
+			mainLanes.push(routed.path);
+			return routed.points;
+		}
+	);
 	const links = crossings.flatMap(({ heads: [a, b], path }) =>
 		a.cellIds.flatMap((from) =>
 			b.cellIds.map((to) => ({
@@ -164,5 +187,5 @@ export function prepareCarrier(
 		Infinity
 	);
 	const datumZ = Number.isFinite(lowest) ? levelHeight * Math.floor(lowest / levelHeight) : 0;
-	return { candidates, plan, crossings, order, ranks, datumZ };
+	return { candidates, plan, crossings, order, ranks, datumZ, dryEdges, mainLanes };
 }

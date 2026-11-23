@@ -1,9 +1,14 @@
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { MinHeap } from './edge-queue';
 
 type AddressedPlan = Readonly<{
-	vertices: readonly Readonly<{ id: string; position: Vec3 }>[];
-	cells: readonly Readonly<{ id: string; vertexIds: readonly string[] }>[];
+	vertices: readonly Readonly<{
+		id: string;
+		position: Vec3;
+		shore?: Readonly<{ planEdgeId: string; t: number }>;
+	}>[];
+	cells: readonly Readonly<{ id: string; vertexIds: readonly string[]; groundKind?: string }>[];
 }>;
 
 /** An undirected edge with a canonical ID, end nodes and incident cells. */
@@ -24,7 +29,7 @@ export type PlanEdgePath = Readonly<{
 	lengthM: number;
 }>;
 
-type Visit = { id: string; lengthM: number; via?: PlanEdge; previous?: Visit };
+type Visit = { id: string; lengthM: number; cost: number; via?: PlanEdge; previous?: Visit };
 
 function pathTo(end: Visit): PlanEdgePath {
 	const nodeIds: string[] = [];
@@ -73,8 +78,72 @@ export function planEdges(grid: AddressedPlan): readonly PlanEdge[] {
 	);
 }
 
-/** Indexes the caller's eligible edges and searches shortest paths by length.
- * Crossings and lanes use the same graph with different filters. */
+/** A walkable segment, with ascending fractions on its original support when present.
+ * The dry edge ID always addresses its actual end nodes. */
+export type DryPlanEdge = PlanEdge &
+	Readonly<{
+		provenance:
+			| Readonly<{ kind: 'plan'; planEdgeId: string; t0: number; t1: number; forward: boolean }>
+			| Readonly<{ kind: 'shore'; cellId: string }>;
+		bank: boolean;
+	}>;
+
+/** Reads surviving edges of the clipped grid with original plan support and shoreline provenance. */
+export function dryPlanEdges(grid: AddressedPlan, plan: AddressedPlan): readonly DryPlanEdge[] {
+	const originals = new Map(planEdges(plan).map((edge) => [edge.id, edge]));
+	const covers = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
+	const nodes = new Map(grid.vertices.map(({ id, shore }) => [id, shore]));
+	return Object.freeze(
+		planEdges(grid).map((edge): DryPlanEdge => {
+			const [a, b] = edge.nodeIds;
+			const first = nodes.get(a);
+			const last = nodes.get(b);
+			const original = originals.get(first?.planEdgeId ?? last?.planEdgeId ?? edge.id);
+			const fraction = (node: string, cut: typeof first) => {
+				if (cut && cut.planEdgeId === original?.id) return cut.t;
+				return original?.nodeIds[0] === node ? 0 : original?.nodeIds[1] === node ? 1 : undefined;
+			};
+			const ta = fraction(a, first);
+			const tb = fraction(b, last);
+			if (original && ta !== undefined && tb !== undefined) {
+				const bank =
+					edge.cellIds.length === 1 &&
+					original.cellIds.some((id) => {
+						const cover = covers.get(id);
+						return cover !== undefined && cover !== 'dry';
+					});
+				return Object.freeze({
+					...edge,
+					provenance: Object.freeze({
+						kind: 'plan',
+						planEdgeId: original.id,
+						t0: Math.min(ta, tb),
+						t1: Math.max(ta, tb),
+						forward: ta < tb
+					}),
+					bank
+				});
+			}
+			return Object.freeze({
+				...edge,
+				provenance: Object.freeze({ kind: 'shore', cellId: edge.cellIds[0] }),
+				bank: true
+			});
+		})
+	);
+}
+
+function compareVisits(a: Visit, b: Visit) {
+	const first = a.via?.id ?? '';
+	const second = b.via?.id ?? '';
+	return (
+		a.cost - b.cost ||
+		(first < second ? -1 : Number(first > second)) ||
+		(a.id < b.id ? -1 : Number(a.id > b.id))
+	);
+}
+
+/** Indexes the caller's eligible edges once. Searches by length unless given a measured cost. */
 export function planEdgeGraph(
 	grid: AddressedPlan,
 	accepts: (edge: PlanEdge) => boolean = () => true
@@ -95,23 +164,34 @@ export function planEdgeGraph(
 		edges,
 		/** Returns the world XY of an addressed vertex. Unknown nodes throw. */
 		point,
-		/** Visits destinations by increasing shortest length, with stable ties and a meter bound. */
-		*pathsFrom(start: string, targets: (id: string) => boolean, maximumLengthM: number) {
-			const origin: Visit = { id: start, lengthM: 0 };
+		/** Visits destinations by increasing shortest cost with stable edge ties.
+		 * The bound is in cost units. Positive edge costs are required; Infinity excludes an edge. */
+		*pathsFrom(
+			start: string,
+			targets: (id: string) => boolean,
+			maximumCost: number,
+			measure?: (edge: PlanEdge) => number
+		) {
+			const origin: Visit = { id: start, lengthM: 0, cost: 0 };
 			const best = new Map<string, Visit>([[start, origin]]);
-			const pending = [origin];
-			while (pending.length) {
-				pending.sort((a, b) => b.lengthM - a.lengthM || (a.id < b.id ? 1 : -1));
-				const visit = required(pending.pop(), 'pending edge path');
+			// Keep the original node tie order for the existing length-only crossing search.
+			const compare = measure
+				? compareVisits
+				: (a: Visit, b: Visit) => a.cost - b.cost || (a.id < b.id ? -1 : Number(a.id > b.id));
+			const pending = new MinHeap(compare);
+			pending.add(origin);
+			for (let visit = pending.take(); visit; visit = pending.take()) {
 				if (best.get(visit.id) !== visit) continue;
 				if (visit.id !== start && targets(visit.id)) yield pathTo(visit);
 				for (const via of adjacent.get(visit.id) ?? []) {
 					const id = via.nodeIds[0] === visit.id ? via.nodeIds[1] : via.nodeIds[0];
-					const lengthM = visit.lengthM + via.lengthM;
-					if (lengthM > maximumLengthM || lengthM >= (best.get(id)?.lengthM ?? Infinity)) continue;
-					const next = { id, lengthM, via, previous: visit };
+					const cost = visit.cost + (measure?.(via) ?? via.lengthM);
+					if (!Number.isFinite(cost) || cost > maximumCost) continue;
+					const next = { id, cost, lengthM: visit.lengthM + via.lengthM, via, previous: visit };
+					const previous = best.get(id);
+					if (previous && compare(next, previous) >= 0) continue;
 					best.set(id, next);
-					pending.push(next);
+					pending.add(next);
 				}
 			}
 		}

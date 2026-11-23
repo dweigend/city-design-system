@@ -1,9 +1,14 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
+import { planEdgeId } from './edge-path';
 import { axes, type Site } from './site';
 
 type Quad<T> = readonly [T, T, T, T];
-export type Node = Readonly<{ id: string; xy: Vec2 }>;
+export type Node = Readonly<{
+	id: string;
+	xy: Vec2;
+	shore?: Readonly<{ planEdgeId: string; t: number }>;
+}>;
 export type Candidate = Readonly<{ id: string; corners: readonly Node[] }>;
 export type Carrier = (
 	site: Site,
@@ -14,10 +19,6 @@ export type Carrier = (
 ) => Iterable<Candidate>;
 type Triangle<T> = readonly [T, T, T];
 type Address = readonly [column: number, row: number, half: number];
-
-export function edgeId(a: string, b: string) {
-	return a < b ? `${a}|${b}` : `${b}|${a}`;
-}
 
 export function ringMean(corners: readonly Node[]): Vec2 {
 	return corners.reduce<Vec2>(
@@ -55,7 +56,7 @@ function* split(face: readonly Node[]) {
 	const center = faceCenter(face, `${id}/center`);
 	const edges = face.map((a, index) => {
 		const b = face[(index + 1) % face.length];
-		return average([a, b], `edge/${edgeId(a.id, b.id)}`);
+		return average([a, b], `edge/${planEdgeId(a.id, b.id)}`);
 	});
 	for (const [index, corner] of face.entries()) {
 		const corners: Quad<Node> = [
@@ -142,7 +143,7 @@ function favorite(ring: Triangle<Node>, random: Random) {
 	let highest = -1;
 	for (const [index, from] of ring.entries()) {
 		const to = ring[(index + 1) % 3];
-		const rank = random.derive(`pair/${edgeId(from.id, to.id)}`).number();
+		const rank = random.derive(`pair/${planEdgeId(from.id, to.id)}`).number();
 		if (rank > highest) {
 			highest = rank;
 			best = index;

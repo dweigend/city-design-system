@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
+import { distance, type Vec2 } from '../../core/geometry';
 import type { Carrier } from './carrier';
 import { axes } from './site';
 
@@ -20,6 +20,20 @@ function bisect(polygon: readonly Vec2[], [x, y]: Vec2, [u, v]: Vec2) {
 
 /** Bisector edges shorter than this fraction of the cell size collapse to their midpoint. */
 const shortestEdge = 0.125;
+
+// Weld independently evaluated bisectors to one position at the existing submicron precision.
+const bisectorPrecision = 1e8;
+type GeneratingSite = { id: string; point: Vec2 };
+
+function cornerAddress(point: Vec2, sites: readonly GeneratingSite[]) {
+	const distances = sites.map((site) => ({ id: site.id, radius: distance(site.point, point) }));
+	const nearest = Math.min(...distances.map(({ radius }) => radius));
+	const incident = distances
+		.filter(({ radius }) => radius - nearest <= 1 / bisectorPrecision)
+		.map(({ id }) => id)
+		.sort();
+	return 'bisector/' + JSON.stringify(incident);
+}
 
 type Ring = Readonly<{ id: string; corners: readonly string[] }>;
 
@@ -87,6 +101,7 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 			i++
 		) {
 			const center = seedPoint(i, j);
+			const generators = [{ id: `${i},${j}`, point: center }];
 			let ring: Vec2[] = [
 				[i - 2, j - 2],
 				[i + 2, j - 2],
@@ -96,15 +111,22 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 			// Fixed local competitors keep every cell independent of the crop.
 			for (let v = -2; v <= 2; v++) {
 				for (let u = -2; u <= 2; u++) {
-					if (u || v) ring = bisect(ring, center, seedPoint(i + u, j + v));
+					if (!u && !v) continue;
+					const point = seedPoint(i + u, j + v);
+					generators.push({ id: `${i + u},${j + v}`, point });
+					ring = bisect(ring, center, point);
 				}
 			}
-			const corners = ring.map(([x, y]) => {
-				// Round at 0.01 micrometers per cell meter so both bisector owners share the address.
-				const a = Math.round(x * 1e8);
-				const b = Math.round(y * 1e8);
-				const id = `bisector/${a},${b}`;
-				points.set(id, [a / 1e8, b / 1e8]);
+			const corners = ring.map((point) => {
+				const id = cornerAddress(point, generators);
+				if (!points.has(id))
+					points.set(
+						id,
+						point.map((value) => Math.round(value * bisectorPrecision) / bisectorPrecision) as [
+							number,
+							number
+						]
+					);
 				return id;
 			});
 			rings.push({ id: `site/${i},${j}`, corners: [...new Set(corners)] });
