@@ -1,5 +1,7 @@
-import { citySiteParams, createCitySite, readCityGrid } from './index';
+import { citySiteParams, createCitySite, readCityDistricts, readCityGrid } from './index';
 
 export function example() {
-	return readCityGrid(createCitySite(), citySiteParams.citySize.default);
+	const site = createCitySite();
+	const layout = readCityGrid(site, citySiteParams.citySize.default);
+	return { ...layout, districts: readCityDistricts(site, layout) };
 }

@@ -1,5 +1,5 @@
 import { TerrainGrid } from '../terrain-grid';
-import { createCityDistricts, createCityLattice, readCityColumns } from './index';
+import { createCityDistricts, createCityLattice, readCityColumns, subdivideBay } from './index';
 
 export function example() {
 	const seed = 1201;
@@ -14,5 +14,8 @@ export function example() {
 	const core = { origin: site.origin, bearing: site.bearing, aspect: 0.5 };
 	const districts = createCityDistricts(plan, core, seed);
 	const columns = readCityColumns(plan, districts);
-	return { districts, columns, lattice: createCityLattice(columns, 0, 'hex', 'braced') };
+	const lattice = createCityLattice(columns, 0, 'hex', 'braced');
+	const bay = lattice.cells[0];
+	const floor = lattice.faces.find(({ id }) => id === bay.floorFace);
+	return { districts, columns, lattice, floor, children: subdivideBay(bay) };
 }

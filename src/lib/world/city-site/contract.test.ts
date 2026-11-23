@@ -15,6 +15,7 @@ import {
 import { planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
 import {
 	citySiteParams,
+	citySiteConfig,
 	cityWindow,
 	createCitySite,
 	readCitySide,
@@ -335,7 +336,7 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 
 test('clamps the body-centered ground hub to its own sampled terrain contact', () => {
 	const bump = (x: number, y: number) =>
-		5 * (Math.sin((Math.PI * x) / 60) * Math.sin((Math.PI * y) / 60)) ** 2;
+		9 * (Math.sin((Math.PI * x) / 60) * Math.sin((Math.PI * y) / 60)) ** 2;
 	const site = createCitySite((x, y) => ({
 		height: 24 + bump(x, y),
 		waterKind: null,
@@ -383,4 +384,18 @@ test('keeps body-centered hubs above sampled ground on the seed 1201 organic tow
 		position: [x, y, z]
 	} of nearby)
 		expect(z).toBeGreaterThanOrEqual(site.sampleGround(x, y).height);
+});
+
+test('uses a cell elevation range for buildability on a steady slope', () => {
+	const { maximumCellRiseM, coarseCellSizeM } = citySiteConfig;
+	const onSlope = (rise: number) =>
+		createCitySite((_x, y) => ({
+			height: (y * rise) / coarseCellSizeM,
+			waterKind: null,
+			waterClearance: Infinity
+		}));
+	const allowed = readCityGrid(onSlope(maximumCellRiseM - 1), 600, 'square');
+	const rejected = readCityGrid(onSlope(maximumCellRiseM + 1), 600, 'square');
+	expect(allowed.grid.cells.length).toBeGreaterThan(0);
+	expect(rejected.grid.cells.length).toBe(0);
 });
