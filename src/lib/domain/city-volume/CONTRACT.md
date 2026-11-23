@@ -11,6 +11,8 @@ Assigns district types and levels to an immutable plan, then builds the carrier 
 - Every model emits closed, outward-wound solids owned by canonical bays. Foundation
   caps support the level recipes. Where a frustum meets a full bay, the side is split
   so both solids reuse the same face and joints.
+- The taper field gives every plan corner, cell centre and edge midpoint a horizontal retreat
+  per level above its lowest neighbour; signed use retreats or overhangs. Lattices stay upright.
 - Coordinates are in world meters, with Z up. Keyed draws replay for a fixed seed.
 
 The example builds the box lattice for the fixed stepped city plan.
