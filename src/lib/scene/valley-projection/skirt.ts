@@ -11,29 +11,8 @@ function addSide(mesh: Mesh, points: readonly Point[], bottom: number) {
 	}
 }
 
-/** The four border rows of the ground raster, south, east, north and west, each running
- * counterclockwise around the block. */
-export function borderSides<P extends Point>(
-	points: readonly P[],
-	stride: number,
-	stationCount: number
-): P[][] {
-	const end = stride * stationCount;
-	return [
-		Array.from({ length: stationCount + 1 }, (_, i) => points[i * stride]),
-		points.slice(end, end + stride),
-		Array.from({ length: stationCount + 1 }, (_, i) => points[end - i * stride + stride - 1]),
-		points.slice(0, stride).reverse()
-	];
-}
-
-export function skirt(
-	points: readonly Point[],
-	stride: number,
-	stationCount: number,
-	bottom: number
-) {
+export function skirt(sides: readonly (readonly Point[])[], bottom: number) {
 	const earth: Mesh = { kind: 'mesh', positions: [0, 0, bottom], indices: [] };
-	for (const side of borderSides(points, stride, stationCount)) addSide(earth, side, bottom);
+	for (const side of sides) addSide(earth, side, bottom);
 	return earth;
 }

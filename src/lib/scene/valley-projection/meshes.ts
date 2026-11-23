@@ -1,102 +1,158 @@
 import type { TerrainField } from '../surface';
+import type { ReachFrame } from './frame';
+import { sectionCuts } from './sections';
+import { skirt } from './skirt';
 import { slopeSpacing } from './spacing';
-import { trackRiver, type ReachFrame } from './frame';
-import { borderSides, skirt } from './skirt';
-import { waterSections, waterSurface } from './water';
+import { mesh, waterSections, waterSurface, type Mesh, type SectionPoint } from './water';
 
-type Point = { x: number; y: number; z: number; water: number };
-type Mesh = { kind: 'mesh'; positions: number[]; indices: number[] };
-
-const stationCount = 160;
-const lateralCounts = [26, 12, 8, 12, 26] as const;
-const stride = 1 + lateralCounts.reduce((sum, count) => sum + count, 0);
-const leftBankIndex = lateralCounts[0] + lateralCounts[1];
-const rightBankIndex = leftBankIndex + lateralCounts[2];
-const bankMargin = 210;
-
-function shore(frame: ReachFrame, x: number, center: number, outside: number) {
-	let wet = center;
-	let dry = outside;
-	if (frame.sample(x, dry).bank <= 0) return dry;
-	for (let i = 0; i < 14; i++) {
-		const middle = (wet + dry) / 2;
-		if (frame.sample(x, middle).bank > 0) dry = middle;
-		else wet = middle;
-	}
-	return (wet + dry) / 2;
-}
+type Water = ReturnType<typeof waterSurface>;
 
 function section(
 	frame: ReachFrame,
 	x: number,
-	center: number,
-	half: number,
 	scale: number,
-	field: TerrainField
+	field: TerrainField,
+	count: number,
+	polygons: Water['polygons']
 ) {
-	const left = shore(frame, x, center, -half);
-	const right = shore(frame, x, center, half);
-	const cuts = [
-		-half,
-		Math.max(-half, left - bankMargin),
-		left,
-		right,
-		Math.min(half, right + bankMargin),
-		half
-	];
-	const points: Point[] = [];
-	const sample = (y: number) => {
+	const half = field.depth / 2;
+	const crossings = sectionCuts(polygons, x);
+	const regular = [-half, ...slopeSpacing(field, x, -half, half, count)];
+	const points: SectionPoint[] = [];
+	for (const y of regular) {
+		if (crossings.some(({ across }) => Math.abs(y - across) < 0.03)) continue;
 		const { height, water } = frame.sample(x, y);
-		points.push({ x, y, z: height * scale, water: water * scale });
-	};
-	sample(-half);
-	for (const [band, count] of lateralCounts.entries()) {
-		const from = cuts[band];
-		const to = cuts[band + 1];
-		const offsets =
-			band === 0 || band === lateralCounts.length - 1
-				? slopeSpacing(field, x, from, to, count)
-				: Array.from({ length: count }, (_, i) => from + ((to - from) * (i + 1)) / count);
-		for (const y of offsets) sample(y);
+		points.push({ x, y, z: height * scale, water: water * scale, bankSide: 0 });
 	}
-	// Rows whose tracked river centre is dry, as in a crosswise window, keep their sampled heights.
-	if (frame.sample(x, center).bank > 0) return points;
-	for (const index of [leftBankIndex, rightBankIndex]) {
-		const point = points[index];
-		if (Math.abs(point.y) < half) point.z = point.water;
+	for (const { across, water, bank, bankSide } of crossings) {
+		const y = Math.min(half, Math.max(-half, across));
+		const { height } = frame.sample(x, y);
+		const edge = Math.abs(y) === half || Math.abs(x) === field.width / 2;
+		points.push({
+			x,
+			y,
+			water,
+			bankSide,
+			z: bank && !edge ? water : Math.min(water, height * scale)
+		});
 	}
+	points.sort((a, b) => a.y - b.y);
 	return points;
 }
 
-function mesh(positions: number[] = []): Mesh {
-	return { kind: 'mesh', positions, indices: [] };
+type Row = readonly SectionPoint[];
+
+function banks(row: Row) {
+	const spans: { a: number; b: number; middle: number }[] = [];
+	let start = 0;
+	for (let i = 0; i < row.length; i++) {
+		if (row[i].bankSide < 0) start = i;
+		if (row[i].bankSide > 0) spans.push({ a: start, b: i, middle: (row[start].y + row[i].y) / 2 });
+	}
+	return spans;
 }
 
-export function terrainMeshes(frame: ReachFrame, scale: number, field: TerrainField) {
-	const riverAt = trackRiver(frame.course);
-	const points = Array.from({ length: stationCount + 1 }, (_, row) => {
-		const x = (row / stationCount - 0.5) * frame.length;
-		const half = field.depth / 2;
-		const center = Math.min(half, Math.max(-half, riverAt(x)));
-		return section(frame, x, center, half, scale, field);
-	}).flat();
-	const ground = mesh(points.flatMap(({ x, y, z }) => [x, y, z]));
-	for (let row = 0; row < stationCount; row++) {
-		for (let column = 0; column < stride - 1; column++) {
-			const s = row * stride + column;
-			const t = s + stride;
-			ground.indices.push(s, t, s + 1, t, t + 1, s + 1);
+function matchBanks(left: Row, right: Row) {
+	const anchors: [number, number][] = [];
+	const a = banks(left);
+	const b = banks(right);
+	const reach = 1.5 * (right[0].x - left[0].x) + 12;
+	let i = 0;
+	let j = 0;
+	while (i < a.length && j < b.length) {
+		const delta = a[i].middle - b[j].middle;
+		if (delta < -reach) i++;
+		else if (delta > reach) j++;
+		else {
+			anchors.push([a[i].a, b[j].a], [a[i].b, b[j].b]);
+			i++;
+			j++;
 		}
 	}
-	const lowest = points.reduce((low, { z }) => Math.min(low, z), Infinity);
-	return [
-		{ id: 'ground', slot: 'ground', shape: ground },
-		{ id: 'earth', slot: 'earth', shape: skirt(points, stride, stationCount, lowest - 7 * scale) },
-		{ id: 'river', slot: 'water', shape: waterSurface(frame, field.depth, scale) },
-		{
-			id: 'river-cut',
-			slot: 'water-section',
-			shape: waterSections(borderSides(points, stride, stationCount))
+	anchors.push([left.length - 1, right.length - 1]);
+	return anchors;
+}
+
+function join(ground: Mesh, left: Row, right: Row, start: number) {
+	const middle = start + left.length;
+	let a = 0;
+	let b = 0;
+	for (const [endA, endB] of matchBanks(left, right)) {
+		const beginA = left[a].y;
+		const beginB = right[b].y;
+		const rangeA = left[endA].y - beginA || 1;
+		const rangeB = right[endB].y - beginB || 1;
+		while (a < endA || b < endB) {
+			const nextA = a < endA ? (left[a + 1].y - beginA) / rangeA : Infinity;
+			const nextB = b < endB ? (right[b + 1].y - beginB) / rangeB : Infinity;
+			if (nextA <= nextB) {
+				ground.indices.push(start + a, middle + b, start + a + 1);
+				a++;
+			} else {
+				ground.indices.push(start + a, middle + b, middle + b + 1);
+				b++;
+			}
 		}
+	}
+}
+
+function groundMesh(rows: readonly (readonly SectionPoint[])[]) {
+	const result = mesh();
+	let offset = 0;
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i];
+		for (const { x, y, z } of row) result.positions.push(x, y, z);
+		if (i + 1 < rows.length) join(result, row, rows[i + 1], offset);
+		offset += row.length;
+	}
+	return result;
+}
+
+function stations(
+	frame: ReachFrame,
+	field: TerrainField,
+	count: number,
+	polygons: Water['polygons']
+) {
+	const step = frame.length / count;
+	const regular = Array.from({ length: count + 1 }, (_, i) => i * step - frame.length / 2);
+	const edgeCrossings = polygons.flatMap((polygon) =>
+		polygon.filter(([, y]) => Math.abs(Math.abs(y) - field.depth / 2) < 1e-7).map(([x]) => x)
+	);
+	return [...regular, ...edgeCrossings]
+		.sort((a, b) => a - b)
+		.filter(
+			(x, i, xs) => i === 0 || i === xs.length - 1 || (x - xs[i - 1] > 0.15 && xs[i + 1] - x > 0.15)
+		);
+}
+
+export function terrainMeshes(
+	frame: ReachFrame,
+	scale: number,
+	field: TerrainField,
+	water: Water,
+	budget: number
+) {
+	const count = Math.max(32, Math.min(136, Math.ceil(field.width / 58)));
+	const lateral = Math.min(
+		75,
+		Math.max(26, Math.floor((budget - water.surface.indices.length / 3 - 3200) / (count * 2)) - 14)
+	);
+	const rows = stations(frame, field, count, water.polygons).map((x) =>
+		section(frame, x, scale, field, lateral, water.polygons)
+	);
+	const sides = [
+		rows.map((row) => row[0]),
+		rows[rows.length - 1],
+		rows.map((row) => row[row.length - 1]).reverse(),
+		[...rows[0]].reverse()
+	];
+	let lowest = Infinity;
+	for (const row of rows) for (const { z } of row) lowest = Math.min(lowest, z);
+	return [
+		{ id: 'ground', slot: 'ground', shape: groundMesh(rows) },
+		{ id: 'earth', slot: 'earth', shape: skirt(sides, lowest - 7 * scale) },
+		{ id: 'river', slot: 'water', shape: water.surface },
+		{ id: 'river-cut', slot: 'water-section', shape: waterSections(sides) }
 	];
 }
