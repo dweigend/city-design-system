@@ -263,3 +263,76 @@ test('reads elevated dry ground, explicit water and an empty buildable area from
 	expect(empty.areaKm2).toBe(0);
 	expect(cityWindow(constrained, empty.grid).width).toBeGreaterThan(0);
 });
+
+test('keeps an edge-connected grid over the channel on all seven plans', () => {
+	const bank = (x: number) => Math.abs(x) - 56;
+	const site = createCitySite((x, y) => ({
+		height: 10 + y * 0.002,
+		dry: bank(x) >= 0,
+		waterClearance: bank(x),
+		waterKind: bank(x) < 0 ? 'river' : null
+	}));
+	for (const variant of cityPlanVariants) {
+		const { grid, plan, crossings, datumZ } = readCityGrid(site, 1800, variant);
+		const growth = readCityGrid(site, 2400, variant);
+		const next = new Set(growth.plan.cells.map(({ id }) => id));
+		const built = new Set(grid.cells.map(({ id }) => id));
+		const cells = new Map(plan.cells.map((cell) => [cell.id, cell]));
+		expect(crossings.length).toBeGreaterThan(0);
+		for (const cell of plan.cells) {
+			expect(next.has(cell.id)).toBe(true);
+			expect(built.has(cell.id)).toBe(cell.groundKind === 'dry');
+		}
+		for (const {
+			headIds: [a, b],
+			waterCellIds,
+			spanM,
+			banks
+		} of crossings) {
+			expect(built.has(a) && built.has(b)).toBe(true);
+			expect(bank(banks[0][0])).toBeCloseTo(0, -1);
+			expect(bank(banks[1][0])).toBeCloseTo(0, -1);
+			expect(Math.sign(banks[0][0])).toBe(-Math.sign(banks[1][0]));
+			expect(spanM).toBeGreaterThan(108);
+			expect(growth.crossings.some(({ headIds }) => headIds[0] === a && headIds[1] === b)).toBe(
+				true
+			);
+			const path = [a, ...waterCellIds, b];
+			for (const [i, id] of path.slice(1).entries()) {
+				expect(cells.get(path[i])?.neighbors).toContain(id);
+				if (id !== b) expect(cells.get(id)?.groundKind).toBe('river');
+			}
+		}
+		const districts = readCityDistricts(site, grid);
+		expect(() => readCityDistricts(site, plan)).toThrow('buildable grid');
+		expect(() => readCityColumns(plan, districts)).toThrow('buildable grid');
+		const columns = readCityColumns(grid, districts);
+		const lattice = createCityLattice(columns, datumZ, variant, 'box');
+		expect(columns.every(({ planCellId }) => cells.get(planCellId)?.groundKind === 'dry')).toBe(
+			true
+		);
+		expect(
+			lattice.cells.every(({ planCellId }) => cells.get(planCellId)?.groundKind === 'dry')
+		).toBe(true);
+	}
+}, 30_000);
+
+test('clamps the body-centered ground hub to its own sampled terrain contact', () => {
+	const bump = (x: number, y: number) =>
+		5 * (Math.sin((Math.PI * x) / 60) * Math.sin((Math.PI * y) / 60)) ** 2;
+	const site = createCitySite((x, y) => ({
+		height: 24 + bump(x, y),
+		dry: true,
+		waterClearance: Infinity
+	}));
+	const { grid, datumZ } = readCityGrid(site, 600, 'square');
+	const columns = readCityColumns(grid, readCityDistricts(site, grid));
+	const lattice = createCityLattice(columns, datumZ, 'square', 'centered');
+	const groundHubs = lattice.nodes.filter(({ id }) => id.endsWith('/ground-center'));
+	expect(groundHubs.length).toBeGreaterThan(0);
+	for (const {
+		position: [x, y, z]
+	} of groundHubs) {
+		expect(z).toBeCloseTo(site.sampleGround(x, y).height, 9);
+	}
+});

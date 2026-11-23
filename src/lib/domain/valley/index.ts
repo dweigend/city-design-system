@@ -21,6 +21,9 @@ import {
 import { axisBow } from './ground-profile';
 import { createValleyAxis } from './valley-axis';
 
+/** Channel width in meters for discharge in cubic meters per second. */
+export { channelWidth } from './reaches';
+
 /** Public numeric controls and their units and bounds. */
 export { valleyParams } from './parameters';
 /** Nominal uplift amplitude in meters for a relief ratio. */
@@ -82,7 +85,7 @@ export type TerraceFrame = Readonly<{
  */
 export type Valley = Readonly<{
 	seed: number;
-	revision: 2;
+	revision: 3;
 	parameters: ValleySettings;
 	course: RiverCourse;
 	reaches: readonly Reach[];
@@ -140,7 +143,7 @@ function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley
 	}
 	return Object.freeze({
 		seed,
-		revision: 2,
+		revision: 3,
 		parameters: settings,
 		course,
 		lakes: terrain.lakes,

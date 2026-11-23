@@ -26,8 +26,16 @@ export function discharge(area: number, runoff: number) {
 	return (0.02 * runoff * area) / 1e6;
 }
 
+const widthCoefficient = 31;
+const widthExponent = 0.34;
+
 export function channelWidth(flow: number) {
-	return 48 * Math.sqrt(flow);
+	return widthCoefficient * flow ** widthExponent;
+}
+
+// Invert the width law for a caller-supplied reference width at unit runoff.
+export function areaForWidth(width: number) {
+	return (width / widthCoefficient) ** (1 / widthExponent) / discharge(1e6, 1);
 }
 
 function section(xy: Vec2, water: number, area: number, runoff: number): ReachStation {

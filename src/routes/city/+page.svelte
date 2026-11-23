@@ -159,7 +159,9 @@
 	);
 	const city = $derived(createCitySite(undefined, { ...terrainSettings, seed }));
 	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
-	const terrain = $derived(projectCityTerrain(city, plan.grid));
+	const terrain = $derived(
+		projectCityTerrain(city, plan.grid, step === '01' ? plan.plan : plan.grid)
+	);
 	const maxProfileScale = $derived(terrain.autoHeightScale);
 	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
@@ -179,7 +181,7 @@
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
-	const planLines = $derived(step === '01' ? lines.drawables : lines.traces);
+	const planLines = $derived(step === '01' ? terrain.projectWetPlan(plan.crossings) : lines.traces);
 	const ground = $derived([...terrain.drawables, ...planLines]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
 	const wires = $derived(step === '03' ? members.drawables : []);
@@ -220,7 +222,7 @@
 			value: format.format(plan.areaKm2),
 			unit: 'km²'
 		},
-		{ label: 'Plan cells', value: format.format(plan.grid.cells.length), unit: '' },
+		{ label: 'Plan cells', value: format.format(plan.plan.cells.length), unit: '' },
 		...(step === '01'
 			? []
 			: [
@@ -268,7 +270,7 @@
 			{view}
 			{display}
 			label={step === '01'
-				? 'City plan on the valley ground'
+				? 'City plan with blue water cells and red candidate crossings'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
@@ -349,8 +351,8 @@
 				<div class="stack">
 					{#if active === '01'}
 						<p>
-							The 60 m plan cells follow dry ground and grow outward along the most accessible
-							corridors.
+							The 60 m grid continues across water. Blue edges mark water cells and red lines mark
+							candidate crossings.
 						</p>
 					{:else if active === '02'}
 						<p>

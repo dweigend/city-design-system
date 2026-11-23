@@ -57,7 +57,7 @@ test('derives the adjustable trunk from reaches and scales width by runoff', () 
 	);
 	const wetter = Valley.create({ seed: 1201, parameters: { runoff: 1.5 } });
 	expect(wetter.course.xy).toEqual(course.xy);
-	expect(wetter.course.wetWidth / course.wetWidth).toBeCloseTo(Math.sqrt(1.5), 10);
+	expect(wetter.course.wetWidth / course.wetWidth).toBeCloseTo(1.5 ** 0.34, 10);
 	expect(reaches.some(({ trunk }) => trunk)).toBe(true);
 });
 
@@ -83,7 +83,7 @@ test('reads a lower terrace frame on each side of the valley axis', () => {
 
 test('versions the result and exposes frozen drainage geometry and terrain reads', () => {
 	const valley = Valley.create({ seed: 42, parameters: { relief: 1 } });
-	expect(valley.revision).toBe(2);
+	expect(valley.revision).toBe(3);
 	expect(valley.parameters).toEqual({ sinuosity: 1.15, relief: 1, runoff: 1 });
 	const hash = (value: Valley) =>
 		Bun.hash(JSON.stringify([value.reaches, value.lakes, value.grid]));

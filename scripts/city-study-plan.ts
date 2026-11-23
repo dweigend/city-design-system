@@ -1,5 +1,5 @@
 // Topology and cell quality of one city plan grid.
-import { measurePolygon } from '../src/lib/core/geometry';
+import { convexHull, measurePolygon } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { coarseCellSize, type CityTerrainSampler } from '../src/lib/world/city-site';
@@ -97,31 +97,14 @@ function spansRiver(grid: TerrainGrid, byCell: Map<string, number>, sample: City
 	return false;
 }
 
-function convexHalf(points: readonly Point[]) {
-	const half: Point[] = [];
-	for (const point of points) {
-		while (half.length >= 2) {
-			const [ax, ay] = half[half.length - 2];
-			const [bx, by] = half[half.length - 1];
-			if ((bx - ax) * (point[1] - ay) - (by - ay) * (point[0] - ax) > 0) break;
-			half.pop();
-		}
-		half.push(point);
-	}
-	half.pop();
-	return half;
-}
-
 function shapeMeasures(
 	grid: TerrainGrid,
 	areas: readonly number[],
 	side: (point: Point) => number
 ) {
 	const shape = polygon(grid);
-	const points = grid.vertices
-		.map(({ position: [x, y] }) => [x, y] as const)
-		.sort(([ax, ay], [bx, by]) => ax - bx || ay - by);
-	const hull = [...convexHalf(points), ...convexHalf(points.reverse())];
+	const points = grid.vertices.map(({ position: [x, y] }) => [x, y] as const);
+	const hull = convexHull(points);
 	const total = areas.reduce((sum, value) => sum + value, 0);
 	let negative = 0;
 	for (const [i, { vertexIds }] of grid.cells.entries()) {

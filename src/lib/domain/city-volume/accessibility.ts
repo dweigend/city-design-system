@@ -36,7 +36,7 @@ function corridors(random: Random, bearing: number) {
 		return {
 			x: Math.cos(heading),
 			y: Math.sin(heading),
-			speed: span(arm, 1.8, 3.3),
+			speed: span(arm, 1.5, 2.8),
 			reach: span(arm, 500, 1800),
 			entry: span(arm, 70, 320)
 		};
@@ -66,7 +66,7 @@ export function cityAccessibility(seed: number, origin: Vec2, bearing: number, b
 		for (const arm of arms) {
 			const advance = Math.max(0, Math.min(arm.reach, x * arm.x + y * arm.y));
 			const lateral = Math.hypot(x - advance * arm.x, y - advance * arm.y);
-			travel = Math.min(travel, arm.entry + advance / arm.speed + lateral * 1.85);
+			travel = Math.min(travel, arm.entry + advance / arm.speed + lateral * 1.55);
 		}
 		const shorelineAccess = -18 * Math.exp(-Math.max(0, dryClearance) / 55);
 		const raggedness = Math.min(1, radial / 320) * (82 * edge(point) + 175 * lobes(point));

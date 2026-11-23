@@ -1,17 +1,18 @@
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { TerrainGrid } from '../../domain/terrain-grid';
-import { cityWindow, type CitySite } from '../../world/city-site';
+import { cityWindow, type CityCrossing, type CitySite } from '../../world/city-site';
 import { terrainGridProjection } from '../terrain-grid-projection';
 import { projectValleyWindow } from '../valley-projection';
 import { pinGround } from './ground-anchors';
+import { projectWetPlan } from './plan-water';
 
 /** Projects the city window at true scale, welding the plan's sampled foundation corners
  * into the ground triangles. The terrain itself stays unchanged outside this projection. */
-export function projectCityTerrain(city: CitySite, grid: TerrainGrid) {
+export function projectCityTerrain(city: CitySite, grid: TerrainGrid, plan = grid) {
 	const { drawables, footprint, toLocal, autoHeightScale, traceTributaries } = projectValleyWindow(
 		city.valley,
-		cityWindow(city, grid),
+		cityWindow(city, plan),
 		1
 	);
 	const ground = required(
@@ -33,6 +34,9 @@ export function projectCityTerrain(city: CitySite, grid: TerrainGrid) {
 		footprint,
 		autoHeightScale,
 		toLocal,
-		projectPlan: terrainGridProjection(shape, toLocal, footprint)
+		projectPlan: terrainGridProjection(shape, toLocal, footprint),
+		/** Projects the continuous plan, with separate strokes for wet edges and crossings. */
+		projectWetPlan: (crossings: readonly CityCrossing[]) =>
+			projectWetPlan(city, shape, toLocal, plan, crossings)
 	};
 }

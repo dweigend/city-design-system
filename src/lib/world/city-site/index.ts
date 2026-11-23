@@ -5,13 +5,14 @@ import { Random } from '../../core/random';
 import { createCityDistricts, type CityPlanVariant } from '../../domain/city-volume';
 import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley, type ValleySettings } from '../../domain/valley';
-import { prepareCarrier, type CityTerrainSampler } from './carrier';
+import { preparePlanSelection } from './plan-selection';
+import { prepareCarrier } from './carrier';
+import type { CityTerrainSampler } from './sampling';
 
-/** Terrain height and distance to water in meters, with an explicit dry-ground flag. Alternate
- * samplers may identify the water kind. Infinite clearance means no water nearby. */
 /** Maximum sampled height range, in meters, in a buildable city cell. */
 export { maximumCellRiseM } from './carrier';
-export type { CityTerrainSampler } from './carrier';
+export type { CityTerrainSampler } from './sampling';
+export type { CityCrossing } from './crossings';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
 export const citySiteParams = defineParams({
@@ -61,7 +62,10 @@ export function createCitySite(
 /** A city site with its valley and grid frame. */
 export type CitySite = ReturnType<typeof createCitySite>;
 
-const carriers = new WeakMap<CitySite, Map<string, ReturnType<typeof prepareCarrier>>>();
+type Carrier = ReturnType<typeof prepareCarrier> & {
+	planSelection: ReturnType<typeof preparePlanSelection>;
+};
+const carriers = new WeakMap<CitySite, Map<string, Carrier>>();
 const growth = new WeakMap<Grid, Parameters<typeof createCityDistricts>[4]>();
 
 function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
@@ -93,17 +97,56 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 		seed
 	);
 	if (cache.size === 8) cache.delete(required(cache.keys().next().value, 'oldest carrier'));
-	cache.set(key, prepared);
-	return prepared;
+	const result = { ...prepared, planSelection: preparePlanSelection(prepared.plan) };
+	cache.set(key, result);
+	return result;
 }
 
-/** Returns the side of the planning axis for reporting. It does not classify water bodies. */
+type TrunkSegment = readonly [x: number, y: number, dx: number, dy: number, length2: number];
+const trunkSections = new WeakMap<CitySite, Map<number, TrunkSegment[]>>();
+const sectionSize = 250;
+
+function sections(city: CitySite) {
+	let index = trunkSections.get(city);
+	if (index) return index;
+	index = new Map();
+	const { xy } = city.valley.course;
+	for (let i = 2; i < xy.length; i += 2) {
+		const x = xy[i - 2];
+		const y = xy[i - 1];
+		const dx = xy[i] - x;
+		const dy = xy[i + 1] - y;
+		const length2 = dx * dx + dy * dy;
+		if (!length2) continue;
+		const segment: TrunkSegment = [x, y, dx, dy, length2];
+		for (
+			let section = Math.floor((Math.min(y, y + dy) - 3500) / sectionSize);
+			section <= Math.floor((Math.max(y, y + dy) + 3500) / sectionSize);
+			section++
+		) {
+			const list = index.get(section) ?? [];
+			list.push(segment);
+			index.set(section, list);
+		}
+	}
+	trunkSections.set(city, index);
+	return index;
+}
+
+/** Reads the side of the nearest trunk segment. Positive is left looking downstream. */
 export function readCitySide(city: CitySite, [x, y]: Vec2) {
-	const {
-		origin: [cx, cy],
-		frame: { bearing }
-	} = city;
-	return Math.sign((y - cy) * Math.cos(bearing) - (x - cx) * Math.sin(bearing));
+	let nearest = Infinity;
+	let side = 0;
+	for (const [a, b, dx, dy, length2] of sections(city).get(Math.floor(y / sectionSize)) ?? []) {
+		const u = x - a;
+		const v = y - b;
+		const t = Math.max(0, Math.min(1, (u * dx + v * dy) / length2));
+		const distance2 = (u - t * dx) ** 2 + (v - t * dy) ** 2;
+		if (distance2 >= nearest) continue;
+		nearest = distance2;
+		side = Math.sign(dx * v - dy * u);
+	}
+	return side;
 }
 
 /** Frames the selected blocks on the surrounding terrain, in world XY meters and radians. */
@@ -138,7 +181,10 @@ export function cityWindow(city: CitySite, grid: Grid) {
 }
 
 /** Takes the shortest prefix of nested growth that reaches the desired area. The datum anchors
- * the common 7 m planes at or below the lowest candidate ground. It stays fixed as a city grows. */
+ * the common 7 m planes at or below the lowest candidate ground. It stays fixed as a city grows.
+ * The grid holds setback-clipped buildable cells, the plan holds the uncut cells including
+ * water inside and along the edge of the footprint. Crossings list channel candidates
+ * with both heads in the built footprint. */
 export function readCityGrid(
 	city: CitySite,
 	citySize: number,
@@ -146,15 +192,23 @@ export function readCityGrid(
 	seed?: number
 ) {
 	const params = siteParams(citySize, seed);
-	const { candidates, order, ranks, datumZ } = carrier(city, variant, params.seed);
+	const { candidates, plan, planSelection, crossings, order, ranks, datumZ } = carrier(
+		city,
+		variant,
+		params.seed
+	);
 	const lengthKm = params.citySize / 1000;
 	const target = 1e6 * lengthKm * (0.554 + 0.105 * lengthKm);
 	const cutoff = order.findIndex(({ builtArea, complete }) => complete && builtArea >= target);
 	const selected = cutoff < 0 ? order : order.slice(0, cutoff + 1);
-	const grid = TerrainGrid.select(
-		candidates,
-		selected.map(({ id }) => id)
-	);
+	const ids = selected.map(({ id }) => id);
+	const grid = TerrainGrid.select(candidates, ids);
+	const built = new Set(ids);
+	const activeCrossings = crossings.filter(({ headIds }) => headIds.every((id) => built.has(id)));
+	const planIds = planSelection(grid);
+	for (const { waterCellIds } of activeCrossings) {
+		for (const id of waterCellIds) planIds.add(id);
+	}
 	const needsFringe = new Set(
 		candidates.cells
 			.filter(
@@ -177,6 +231,8 @@ export function readCityGrid(
 	const areaKm2 = (selected.at(-1)?.builtArea ?? 0) / 1e6;
 	return Object.freeze({
 		grid,
+		plan: TerrainGrid.select(plan, [...planIds]),
+		crossings: Object.freeze(activeCrossings),
 		datumZ,
 		areaKm2,
 		medianCellSize: areas.length

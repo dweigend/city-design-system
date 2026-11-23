@@ -1,7 +1,7 @@
 // Run: heavy-slot --time 900 -- bun scripts/terrain-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { surveyValley, Valley, type ValleyTiming } from '../src/lib/domain/valley';
+import { channelWidth, surveyValley, Valley, type ValleyTiming } from '../src/lib/domain/valley';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
@@ -26,7 +26,7 @@ function reaches(valley: Valley) {
 		if (downstream && last?.water !== downstream.stations[0].water) junctionFaults++;
 		let previous = reach.stations[0];
 		for (const next of reach.stations.slice(1)) {
-			if (Math.abs(next.width - 48 * Math.sqrt(next.discharge)) > 1e-9) widthFaults++;
+			if (Math.abs(next.width - channelWidth(next.discharge)) > 1e-9) widthFaults++;
 			const length = Math.hypot(next.xy[0] - previous.xy[0], next.xy[1] - previous.xy[1]);
 			if (inSurvey(next.xy) || inSurvey(previous.xy)) {
 				if (reach.trunk) trunk.push({ width: (previous.width + next.width) / 2, length });

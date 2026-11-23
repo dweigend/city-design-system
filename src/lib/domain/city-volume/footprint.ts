@@ -108,21 +108,72 @@ function partEntries(proposals: ReturnType<typeof sampleCells>, minimumArea: num
 	return { byId, part, areas };
 }
 
+type Crossing = Readonly<{ headIds: readonly [string, string]; spanM: number }>;
+
+function crossingEntries(
+	crossings: readonly Crossing[],
+	byId: ReadonlyMap<string, number>,
+	part: Int32Array,
+	usable: ReadonlySet<number>
+) {
+	const entry = new Map<number, { opposite: number; spanM: number }[]>();
+	const groups = new Map<number, Set<number>>();
+	for (const {
+		headIds: [a, b],
+		spanM
+	} of crossings) {
+		const from = required(byId.get(a), 'crossing head');
+		const to = required(byId.get(b), 'crossing head');
+		if (part[from] === part[to] || !usable.has(part[from]) || !usable.has(part[to])) continue;
+		for (const [head, opposite] of [
+			[from, to],
+			[to, from]
+		]) {
+			const links = entry.get(head) ?? [];
+			links.push({ opposite, spanM });
+			entry.set(head, links);
+			const adjacent = groups.get(part[head]) ?? new Set<number>();
+			adjacent.add(part[opposite]);
+			groups.set(part[head], adjacent);
+		}
+	}
+	// Usable parts are already ordered by access, so the first in each component is its source.
+	const sources = new Set<number>();
+	const seen = new Set<number>();
+	for (const region of usable) {
+		if (seen.has(region)) continue;
+		sources.add(region);
+		const queue = [region];
+		seen.add(region);
+		for (const current of queue) {
+			for (const next of groups.get(current) ?? []) {
+				if (seen.has(next)) continue;
+				seen.add(next);
+				queue.push(next);
+			}
+		}
+	}
+	return { entry, sources };
+}
+
 const minimumStartAreaM2 = 10_800;
 const maximumParts = 8;
 const mainPartAreaM2 = 1_000_000;
 const satelliteEntryM = 180;
+const crossingCostPerMeter = 1.15;
 
 /** Orders growth by access. Every prefix has edge-connected parts with no holes: a new cell
  * must meet each part it touches along an edge, and cannot increase the number of bounded
- * faces in the complement. Each dry region above the minimum area in m² starts once
- * at its best access point. Small regions incur an access cost and at most eight start.
+ * faces in the complement. Dry regions above the minimum area in m² begin at the best
+ * access point of their connected component or at a crossing from an occupied region.
+ * Crossing access cost increases with span. Small regions incur a cost and at most eight start.
  * A new part enters the published order as a group of at least 10,800 m². A plan takes
  * prefixes only at complete steps. Deferred proposals retry when a neighboring corner changes. */
 export function cityGrowth(
 	grid: TerrainGrid,
 	cost: (center: Vec2, grade: number) => number,
-	minimumPartArea: number
+	minimumPartArea: number,
+	crossings: readonly Crossing[] = []
 ) {
 	const proposals = sampleCells(grid, cost);
 	const accepted = new Set<number>();
@@ -131,8 +182,23 @@ export function cityGrowth(
 		const area = required(areas.get(part[index]), 'buildable region area');
 		return proposals[index].cost + satelliteEntryM * Math.max(0, 1 - area / mainPartAreaM2);
 	};
+	const usable = new Set(
+		[...areas.keys()].sort((a, b) => priority(a) - priority(b) || a - b).slice(0, maximumParts)
+	);
+	const { entry, sources } = crossingEntries(crossings, byId, part, usable);
+	const published = new Set<number>();
+	const nextCost = (index: number) => {
+		let cost = Infinity;
+		for (const { opposite, spanM } of entry.get(index) ?? []) {
+			if (!accepted.has(opposite) || !published.has(part[opposite])) continue;
+			cost = Math.min(
+				cost,
+				Math.max(priority(index), priority(opposite)) + crossingCostPerMeter * spanM
+			);
+		}
+		return cost;
+	};
 	const byPriority = (a: number, b: number) => priority(a) - priority(b) || a - b;
-	const usable = new Set([...areas.keys()].sort(byPriority).slice(0, maximumParts));
 	const schedule = [...proposals.keys()]
 		.filter((index) => usable.has(part[index]))
 		.sort(byPriority);
@@ -142,39 +208,57 @@ export function cityGrowth(
 	const retries = new Set<number>();
 	const order: { id: string; builtArea: number; complete: boolean }[] = [];
 	const pending = new Map<number, { area: number; indexes: number[] }>();
-	const published = new Set<number>();
 	let builtArea = 0;
+
+	function append(index: number, complete: boolean) {
+		const { cell, area } = proposals[index];
+		builtArea += area;
+		order.push({ id: cell.id, builtArea, complete });
+		for (const { opposite } of entry.get(index) ?? []) retries.add(opposite);
+	}
 
 	function publish(index: number) {
 		const region = part[index];
-		const { cell, area } = proposals[index];
 		if (published.has(region)) {
-			builtArea += area;
-			order.push({ id: cell.id, builtArea, complete: true });
+			append(index, true);
 			return;
 		}
 		const first = pending.get(region) ?? { area: 0, indexes: [] };
-		first.area += area;
+		first.area += proposals[index].area;
 		first.indexes.push(index);
 		if (first.area < minimumStartAreaM2) {
 			pending.set(region, first);
 			return;
 		}
-		for (const next of first.indexes) {
-			builtArea += proposals[next].area;
-			order.push({ id: proposals[next].cell.id, builtArea, complete: next === index });
-		}
+		for (const next of first.indexes) append(next, next === index);
 		pending.delete(region);
 		published.add(region);
 	}
 
+	let currentCost = -Infinity;
+	const delayed = new Map<number, Set<number>>();
+	const later = (index: number, cost: number) => {
+		const list = delayed.get(cost) ?? new Set<number>();
+		list.add(index);
+		delayed.set(cost, list);
+	};
 	function propose(index: number) {
 		if (accepted.has(index) || !usable.has(part[index])) return;
 		const { cell } = proposals[index];
 		const attached = cell.neighbors.some(
 			(id) => id !== null && accepted.has(required(byId.get(id), 'growth neighbor'))
 		);
-		if ((!attached && (started.has(part[index]) || part[index] !== index)) || !tryAdd(cell)) {
+		const first = !started.has(part[index]);
+		const source = sources.has(part[index]) && part[index] === index;
+		if (!attached && first && !source) {
+			const access = nextCost(index);
+			if (access > currentCost && Number.isFinite(access)) later(index, access);
+			if (access > currentCost) {
+				waiting.add(index);
+				return;
+			}
+		}
+		if ((!attached && !first) || !tryAdd(cell)) {
 			waiting.add(index);
 			return;
 		}
@@ -185,13 +269,33 @@ export function cityGrowth(
 		waiting.ready(cell, retries);
 	}
 
-	for (const index of schedule) {
-		propose(index);
+	function flush() {
 		while (retries.size) {
 			const batch = [...retries].sort(byPriority);
 			retries.clear();
 			for (const pending of batch) propose(pending);
 		}
 	}
+
+	function flushCrossings(before: number) {
+		let cost = Math.min(...delayed.keys());
+		while (cost <= before && Number.isFinite(cost)) {
+			currentCost = cost;
+			const batch = required(delayed.get(cost), 'crossing agenda');
+			delayed.delete(cost);
+			for (const index of batch) retries.add(index);
+			flush();
+			cost = Math.min(...delayed.keys());
+		}
+	}
+
+	for (const index of schedule) {
+		const cost = priority(index);
+		flushCrossings(cost);
+		currentCost = cost;
+		propose(index);
+		flush();
+	}
+	flushCrossings(Infinity);
 	return order;
 }

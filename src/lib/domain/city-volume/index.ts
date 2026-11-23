@@ -86,13 +86,18 @@ export type { LatticeVariant, CityLattice };
 /** One column per plan cell, carrying district identity and terrain corners in world meters. */
 export type CityColumn = Column & DistrictCell;
 
+function requireBuildableGrid(plan: TerrainGrid) {
+	if (plan.cells.some(({ groundKind }) => groundKind !== undefined && groundKind !== 'dry'))
+		throw new RangeError('Expected the clipped buildable grid');
+}
+
 /** Derives the city height profile of one plan from its built-up area, a uint32 seed and the
  * core frame. A village below 1 km² holds detached houses only, a town adds six-storey
  * blocks, a city from 3 km² adds a high-rise center whose peak grows with the area. Cells are
  * ranked outward from the core and filled by area share. A supplied fixed growth order and
  * its future fringe keep earlier cells from moving down. Center columns fall from the peak to the block
  * podium, and no column stands more than three levels above a neighbor. peakHeight is the
- * realized nominal height in meters, measured in whole levels. */
+ * realized nominal height in meters, measured in whole levels. A grid containing water throws. */
 export function createCityDistricts(
 	plan: TerrainGrid,
 	core: CityCore,
@@ -100,6 +105,7 @@ export function createCityDistricts(
 	parameters?: Readonly<{ height?: number; complexity?: number }>,
 	growth?: DistrictGrowth
 ) {
+	requireBuildableGrid(plan);
 	const { height, complexity } = resolveParams(cityVolumeParams, parameters);
 	const profile = seedDistricts(plan, core, seed, complexity, height / levelHeight, growth);
 	return Object.freeze({
@@ -118,18 +124,21 @@ export function createCityDistricts(
 /** Immutable district assignment of one plan. */
 export type CityDistricts = ReturnType<typeof createCityDistricts>;
 
-/** Returns immutable columns in plan order. Each column starts at the plan's terrain corners. */
+/** Returns immutable columns in buildable grid order. A grid containing water throws.
+ * Each column starts at the sampled terrain corners and retains the sampled hub elevation. */
 export function readCityColumns(
 	plan: TerrainGrid,
 	districts: CityDistricts
 ): readonly CityColumn[] {
+	requireBuildableGrid(plan);
 	const vertices = new Map(plan.vertices.map((vertex) => [vertex.id, vertex]));
 	return Object.freeze(
-		plan.cells.map(({ id, vertexIds, neighbors }) =>
+		plan.cells.map(({ id, vertexIds, neighbors, centerHeight }) =>
 			Object.freeze({
 				planCellId: id,
 				corners: Object.freeze(vertexIds.map((key) => required(vertices.get(key), 'plan corner'))),
 				neighbors,
+				groundAtHub: centerHeight,
 				...districts.cell(id)
 			})
 		)
