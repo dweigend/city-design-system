@@ -115,7 +115,7 @@ function run(relief: number, runoff: number, seed: number) {
 		bodies.every(({ sillFault }) => !sillFault) &&
 		survey.faults.lakeTiltM === 0 &&
 		survey.faults.uphillSteps === 0 &&
-		survey.faults.dryBelowLocalWater === 0;
+		survey.faults.shoreBelowWater === 0;
 	return {
 		seed,
 		relief,
@@ -156,7 +156,7 @@ for (const relief of reliefs) {
 		`dry slopes ${['p50', 'p95', 'max'].map((key) => metric(({ survey }) => survey.drySlope[key as keyof typeof survey.drySlope])).join(' | ')}`,
 		`water ${metric(({ survey }) => survey.waterShare)}`,
 		`wet node max grade ${metric(({ survey }) => survey.maxWetSlope)}`,
-		`dry below neighbour ${metric(({ survey }) => survey.faults.dryBelowWater)}`,
+		`dry below water at shore ${metric(({ survey }) => survey.faults.shoreBelowWater)}`,
 		`buildable ${metric(({ survey }) => survey.buildableShare)}`,
 		`trunk widths ${[0, 1, 2].map((i) => metric(({ courses }) => courses.trunkWidth[i])).join(' | ')}`,
 		`junctions ${metric(({ courses }) => courses.junctions)}`,

@@ -13,17 +13,15 @@ export const surveyDefaults: SurveyWindow = Object.freeze({
 	buildableSlope: 0.2
 });
 
-/** Water may fall by this much between neighbouring nodes without counting as a fault. */
+/** Dry ground at a sampled shoreline may be at most 1 cm below its local water surface. */
 const waterToleranceM = 0.01;
 
 /** Hydrology faults: downstream course steps whose water rises, the spread of the lake surface
- * in meters, and dry nodes lower than the water of a wet four-neighbour. All zero when sound. */
+ * in meters, and sampled shore crossings with dry ground below the local water surface. */
 export type HydrologyFaults = Readonly<{
 	uphillSteps: number;
 	lakeTiltM: number;
-	dryBelowWater: number;
-	/** Dry nodes below their own water datum, beside a wet four-neighbour. */
-	dryBelowLocalWater: number;
+	shoreBelowWater: number;
 }>;
 
 /** Measured ground in a survey window. Heights in meters, slopes rise/run, shares of all nodes,
@@ -44,6 +42,7 @@ export type GroundSurvey = Readonly<{
 type Nodes = Readonly<{
 	side: number;
 	spacing: number;
+	half: number;
 	heights: Float64Array;
 	water: Float64Array;
 	wet: Uint8Array;
@@ -55,6 +54,7 @@ function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	const nodes = {
 		side,
 		spacing: spacingM,
+		half: sideM / 2,
 		heights: new Float64Array(side * side),
 		water: new Float64Array(side * side),
 		wet: new Uint8Array(side * side),
@@ -64,11 +64,11 @@ function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 		for (let column = 0; column < side; column++) {
 			const x = -sideM / 2 + column * spacingM;
 			const y = sideM / 2 - row * spacingM;
-			const { height, water, bank, lakeId } = sample(x, y);
+			const { height, water, waterKind, lakeId } = sample(x, y);
 			const index = row * side + column;
 			nodes.heights[index] = height;
 			nodes.water[index] = water;
-			nodes.wet[index] = bank > 0 ? 0 : 1;
+			nodes.wet[index] = waterKind === null ? 0 : 1;
 			nodes.lake[index] = lakeId ?? 0;
 		}
 	}
@@ -83,25 +83,37 @@ function nodeSlope({ heights, side, spacing }: Nodes, row: number, column: numbe
 	return Math.hypot(dx, dy);
 }
 
-function shoreDepth({ heights, water, wet, side }: Nodes, row: number, column: number) {
-	const index = row * side + column;
-	if (wet[index]) return 0;
-	let result = 0;
-	for (const [r, c] of [
-		[row - 1, column],
-		[row + 1, column],
-		[row, column - 1],
-		[row, column + 1]
+function shoreFaults(
+	sample: Sample,
+	{ wet, side, spacing, half }: Nodes,
+	row: number,
+	column: number
+) {
+	if (wet[row * side + column]) return 0;
+	const x = -half + column * spacing;
+	const y = half - row * spacing;
+	let faults = 0;
+	for (const [dr, dc] of [
+		[-1, 0],
+		[1, 0],
+		[0, -1],
+		[0, 1]
 	]) {
-		if (r < 0 || c < 0 || r >= side || c >= side) continue;
-		const other = r * side + c;
-		if (!wet[other]) continue;
-		// A flowing neighbour can be upslope. Record both the old comparison and
-		// the comparison at the local datum to distinguish it from a dry depression.
-		if (heights[index] < water[other] - waterToleranceM) result |= 1;
-		if (heights[index] < water[index] - waterToleranceM) result |= 2;
+		const r = row + dr;
+		const c = column + dc;
+		if (r < 0 || c < 0 || r >= side || c >= side || !wet[r * side + c]) continue;
+		let dry = 0;
+		let water = spacing;
+		while (water - dry > 0.001) {
+			const mid = (water + dry) / 2;
+			if (sample(x + dc * mid, y - dr * mid).waterKind === null) dry = mid;
+			else water = mid;
+		}
+		const land = sample(x + dc * dry, y - dr * dry).height;
+		const surface = sample(x + dc * water, y - dr * water).water;
+		if (land < surface - waterToleranceM) faults++;
 	}
-	return result;
+	return faults;
 }
 
 function uphillSteps(reaches: readonly Reach[], halfM: number) {
@@ -119,7 +131,7 @@ function uphillSteps(reaches: readonly Reach[], halfM: number) {
 }
 
 /** Samples every node of the window once and measures relief, slope, water and buildable land,
- * and checks the hydrology along the course inside the window. */
+ * and bisects wet–dry grid edges to 1 mm to check land against water at the same shore. */
 export function surveyGround(
 	sample: Sample,
 	reaches: readonly Reach[],
@@ -138,8 +150,7 @@ export function surveyGround(
 		water: 0,
 		buildable: 0,
 		lake: 0,
-		below: 0,
-		belowLocal: 0
+		shoreBelow: 0
 	};
 	let [lowest, highest] = [Infinity, -Infinity];
 	const levels = new Map<number, { low: number; high: number }>();
@@ -157,9 +168,7 @@ export function surveyGround(
 				drySlopes.push(slope);
 				if (slope < window.buildableSlope) tally.buildable++;
 			}
-			const shore = shoreDepth(nodes, row, column);
-			if (shore & 1) tally.below++;
-			if (shore & 2) tally.belowLocal++;
+			tally.shoreBelow += shoreFaults(sample, nodes, row, column);
 			if (!nodes.lake[index]) continue;
 			tally.lake++;
 			const water = nodes.water[index];
@@ -186,8 +195,7 @@ export function surveyGround(
 		faults: Object.freeze({
 			uphillSteps: uphillSteps(reaches, window.sideM / 2),
 			lakeTiltM: Math.max(0, ...Array.from(levels.values(), ({ low, high }) => high - low)),
-			dryBelowWater: tally.below,
-			dryBelowLocalWater: tally.belowLocal
+			shoreBelowWater: tally.shoreBelow
 		})
 	});
 }

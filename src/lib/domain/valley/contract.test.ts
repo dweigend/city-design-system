@@ -181,3 +181,17 @@ test('keeps the imported flow through the regional catchment on fixed seeds', ()
 		}
 	}
 });
+
+test('checks the local water level at the shoreline on falling channels and beside a lake sill', () => {
+	const valley = Valley.create({ seed: 424242, parameters: { relief: 1, runoff: 1.5 } });
+	const slope = valley.readGround(1440, -1600);
+	const upstream = valley.readGround(1440, -1580);
+	expect(slope.waterKind).toBeNull();
+	expect(upstream.waterKind).toBe('tributary');
+	expect(slope.height).toBeLessThan(upstream.water);
+	expect(valley.readGround(1440, -1582).height).toBeGreaterThan(71);
+	expect(valley.readGround(-1054, 1340).height).toBeGreaterThan(
+		valley.readGround(-1060, 1340).water
+	);
+	expect(surveyValley(valley).faults.shoreBelowWater).toBe(0);
+});
