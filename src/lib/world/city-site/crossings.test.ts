@@ -22,7 +22,7 @@ for (const [seed, relief, runoff, variant] of [
 				for (const id of head.cellIds)
 					expect(required(built.get(id), 'built landing').vertexIds).toContain(head.nodeId);
 			}
-			const endpoints = [path.nodeIds[0], required(path.nodeIds.at(-1), 'end node')];
+			const endpoints = [path.nodeIds[0], required(path.nodeIds.at(-1), 'end node')] as const;
 			const chordM = distance(graph.point(endpoints[0]), graph.point(endpoints[1]));
 			if (chordM / path.lengthM < crossingLimits.straightSpanThresholdRatio)
 				expect(span).toEqual({ nodeIds: endpoints, lengthM: chordM });
