@@ -92,6 +92,36 @@ function rankedInterior(plan: TerrainGrid, origin: Vec2, random: Random, complex
 		.sort((a, b) => a.rank - b.rank);
 }
 
+function fragmentDistricts(
+	graph: Graph,
+	interior: readonly Cell[],
+	block: Set<string>,
+	undeveloped: Set<string>,
+	random: Random,
+	complexity: number
+) {
+	const secondary = new Set<string>();
+	const all = new Set(graph.keys());
+	if (complexity >= 0.75) {
+		const outer = [...interior].reverse();
+		// Prefer an outer seed in the block band. Sparse cores can use an unclaimed interior cell.
+		grow(graph, outer, secondary, block, block.size >= 5 ? 2 : 0, block);
+		if (!secondary.size) grow(graph, outer, secondary, undeveloped, 1, all);
+	}
+	const blocks = splitBlocks(
+		graph,
+		block,
+		random.derive('blocks'),
+		1 + Math.floor(2 * complexity + 0.25)
+	);
+	if (complexity >= 0.75 && blocks.length < 2) {
+		const extra = new Set<string>();
+		grow(graph, interior, extra, undeveloped, 1, all);
+		if (extra.size) blocks.push(extra);
+	}
+	return { secondary, blocks };
+}
+
 export function seedDistricts(
 	plan: TerrainGrid,
 	origin: Vec2,
@@ -134,27 +164,15 @@ export function seedDistricts(
 	);
 	if (!block.size) throw new RangeError('The initial city plan needs room for a block district');
 
-	const secondary = new Set<string>();
-	if (complexity >= 0.75) {
-		const outer = [...interior].reverse();
-		// Prefer an outer seed in the block band. On small cores, an unclaimed interior
-		// cell can carry the second center while the remaining block band stays connected.
-		grow(graph, outer, secondary, block, block.size >= 5 ? 2 : 0, block);
-		if (!secondary.size) grow(graph, outer, secondary, undeveloped, 1, new Set(graph.keys()));
-	}
-
-	const cells = new Map<string, DistrictCell>();
-	const blocks = splitBlocks(
+	const { secondary, blocks } = fragmentDistricts(
 		graph,
+		interior,
 		block,
-		random.derive('blocks'),
-		1 + Math.floor(2 * complexity + 0.25)
+		undeveloped,
+		random,
+		complexity
 	);
-	if (complexity >= 0.75 && blocks.length < 2) {
-		const extra = new Set<string>();
-		grow(graph, interior, extra, undeveloped, 1, new Set(graph.keys()));
-		if (extra.size) blocks.push(extra);
-	}
+	const cells = new Map<string, DistrictCell>();
 	for (const [index, district] of blocks.entries()) {
 		for (const id of district)
 			cells.set(id, Object.freeze({ districtId: `block/${index}`, kind: 'block', levels: 3 }));
@@ -163,10 +181,19 @@ export function seedDistricts(
 		['center/0', center, peak],
 		['center/1', secondary, Math.min(peak - 1, Math.max(4, Math.round(peak * 0.52)))]
 	] as const) {
-		const towers = Math.min(3, Math.ceil(group.size / 5));
-		for (const [index, cell] of [...group].entries()) {
-			const levels = index < towers ? Math.max(4, top - 2 * index) : 3;
-			cells.set(cell, Object.freeze({ districtId: id, kind: 'center', levels }));
+		const tierFractions = [1, 0.64, 0.38];
+		const towers = Math.min(tierFractions.length, Math.ceil(group.size / 3));
+		const tiers = new Map(
+			[...group]
+				.filter((_, index) => index % 2 === 0)
+				.slice(0, towers)
+				.map((cell, index) => [cell, Math.max(4, 3 + Math.round((top - 3) * tierFractions[index]))])
+		);
+		for (const cell of group) {
+			cells.set(
+				cell,
+				Object.freeze({ districtId: id, kind: 'center', levels: tiers.get(cell) ?? 3 })
+			);
 		}
 	}
 	return cells;
