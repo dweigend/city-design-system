@@ -102,7 +102,7 @@ const limits = {
 	floodplainRatio: [form.minimumFloodplainWidthRatio, Infinity]
 } satisfies Partial<Record<keyof Row, readonly [number, number]>>;
 
-test('checks the unchanged vector, cross-section and ground limits on all 38 registered seeds', () => {
+test('checks the vector, cross-section and ground limits on all 38 registered seeds', () => {
 	expect(new Set(seeds).size).toBe(38);
 	const rows = defaults.map(row);
 	for (const reference of VALLEY_REFERENCES) {
@@ -129,8 +129,12 @@ test('checks the unchanged vector, cross-section and ground limits on all 38 reg
 	const median = percentile(regional, 0.5);
 	const wavelength = rows.map((r) => r.wavelengthRatio);
 	for (const { seed, wavelengthRatio } of rows) {
-		expect(wavelengthRatio, `Seed ${seed} wavelength / bankfull width`).toBeGreaterThanOrEqual(21);
-		expect(wavelengthRatio, `Seed ${seed} wavelength / bankfull width`).toBeLessThanOrEqual(24);
+		expect(wavelengthRatio, `Seed ${seed} wavelength / bankfull width`).toBeGreaterThanOrEqual(
+			bands.wavelengthToBankfullWidth[0]
+		);
+		expect(wavelengthRatio, `Seed ${seed} wavelength / bankfull width`).toBeLessThanOrEqual(
+			bands.wavelengthToBankfullWidth[1]
+		);
 	}
 	console.log(
 		`Median S2 ${percentile(

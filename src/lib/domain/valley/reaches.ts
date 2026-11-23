@@ -26,8 +26,24 @@ export function discharge(area: number, runoff: number) {
 	return (0.02 * runoff * area) / 1e6;
 }
 
+const widthCoefficient = 31;
+const widthExponent = 0.34;
+
 export function channelWidth(flow: number) {
-	return 48 * Math.sqrt(flow);
+	return widthCoefficient * flow ** widthExponent;
+}
+
+// Invert the width law for a caller-supplied reference width at unit runoff.
+function areaForWidth(width: number) {
+	return (width / widthCoefficient) ** (1 / widthExponent) / discharge(1e6, 1);
+}
+
+/** Imported drainage area in square meters. The guide scales the ancestral catchment and
+ * a supplied wet width overrides the lowland area through the same channel law. */
+export function importedCatchmentArea(guideWetWidth: number, relief: number, wetWidth?: number) {
+	const lowlandKm2 =
+		wetWidth === undefined ? 3000 * (guideWetWidth / 370) ** 2 : areaForWidth(wetWidth);
+	return lowlandKm2 * (1 / 150 + (149 / 150) * (1 - relief) ** 2) * 1e6;
 }
 
 function section(xy: Vec2, water: number, area: number, runoff: number): ReachStation {

@@ -103,3 +103,28 @@ export function measurePolygon(points: readonly (Vec2 | Vec3)[]) {
 		: [ox, oy];
 	return { area: twiceArea / 2, centroid };
 }
+
+/** Returns the counterclockwise convex hull of world XY points. Collinear boundary points
+ * and duplicate points are omitted. An empty input has an empty hull. */
+export function convexHull(points: readonly Vec2[]): readonly Vec2[] {
+	const sorted = points.toSorted(([ax, ay], [bx, by]) => ax - bx || ay - by);
+	if (sorted.length < 2) return sorted;
+	const half = (ordered: readonly Vec2[]) => {
+		const ring: Vec2[] = [];
+		for (const point of ordered) {
+			while (ring.length >= 2) {
+				const [ax, ay] = ring[ring.length - 2];
+				const [bx, by] = ring[ring.length - 1];
+				if ((bx - ax) * (point[1] - ay) - (by - ay) * (point[0] - ax) > 0) break;
+				ring.pop();
+			}
+			ring.push(point);
+		}
+		ring.pop();
+		return ring;
+	};
+	const first = sorted[0];
+	const last = sorted[sorted.length - 1];
+	if (first[0] === last[0] && first[1] === last[1]) return [first];
+	return [...half(sorted), ...half(sorted.reverse())];
+}

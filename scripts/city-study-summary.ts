@@ -71,6 +71,7 @@ export function summarize(rows: Row[], out: string, sizes: Record<string, number
 			'parts',
 			'partsWithoutRiverSplit',
 			'minorSideShare',
+			'crossings',
 			'compactness',
 			'largestAreaKm2'
 		]) {

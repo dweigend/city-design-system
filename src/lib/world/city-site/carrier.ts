@@ -1,4 +1,6 @@
 import type { Vec2 } from '../../core/geometry';
+import { distance } from '../../core/geometry';
+import { required } from '../../core/invariant';
 import { Random } from '../../core/random';
 import {
 	cityAccessibility,
@@ -7,29 +9,21 @@ import {
 	type CityPlanVariant
 } from '../../domain/city-volume';
 import { planCellSide, TerrainGrid } from '../../domain/terrain-grid';
-import type { WaterKind } from '../../domain/valley';
+import type { CityTerrainSampler } from './sampling';
+import { channelCrossings } from './crossings';
 
-const bankSetbackM = 3;
+export const cityBankSetbackM = 3;
 const edgeSampleStepM = 8;
 
 export const maximumCellRiseM = 16;
 const minimumPartAreaM2 = 360_000;
-
-export type CityTerrainSampler = (
-	x: number,
-	y: number
-) => Readonly<{
-	height: number;
-	dry: boolean;
-	waterClearance: number;
-	waterKind?: WaterKind;
-}>;
 
 type Site = Readonly<{
 	sampleGround: CityTerrainSampler;
 	origin: Vec2;
 	bearing: number;
 	center: Vec2;
+	bankSide?: (point: Vec2) => number;
 }>;
 
 // Look for a narrow cross section near the seeded station. Water widths are measured
@@ -61,31 +55,6 @@ function crossingCenter(center: Vec2, u: number, v: number, sample: CityTerrainS
 	return best;
 }
 
-const crossingDirections = Array.from({ length: 8 }, (_, i) => {
-	const angle = (i * Math.PI) / 4;
-	return [Math.cos(angle), Math.sin(angle)] as const;
-});
-
-// A local access credit requires a flowing channel and dry ground on the other side.
-// Rays longer than 100 m do not count as local crossings, and lakes have no credit.
-function crossingCredit([x, y]: Vec2, clearance: number, sample: CityTerrainSampler) {
-	if (clearance > 42) return 0;
-	let shortest = 100;
-	for (const [u, v] of crossingDirections) {
-		let entrance: number | undefined;
-		for (let d = 5; d < shortest; d += 5) {
-			const kind = sample(x + d * u, y + d * v).waterKind;
-			if (kind === 'lake' || (entrance === undefined && d > clearance + 22)) break;
-			if (kind === 'river' || kind === 'tributary') entrance ??= d;
-			else if (entrance !== undefined) {
-				shortest = d;
-				break;
-			}
-		}
-	}
-	return 0.65 * (100 - shortest);
-}
-
 export function prepareCarrier(
 	site: Site,
 	coarseCellSize: number,
@@ -105,38 +74,80 @@ export function prepareCarrier(
 		origin[0] + a * span.along * u - b * span.across * v,
 		origin[1] + a * span.along * v + b * span.across * u
 	]);
-	const candidates = TerrainGrid.create({
-		seed,
-		site: { origin, bearing, outline },
-		variant,
-		parameters: { cellSize: coarseCellSize / planCellSide[variant] },
-		maximumCellRise: maximumCellRiseM,
-		edgeSampleStep: edgeSampleStepM,
+	const { grid: candidates, plan } = TerrainGrid.createPlan(
+		{
+			seed,
+			site: { origin, bearing, outline },
+			variant,
+			parameters: { cellSize: coarseCellSize / planCellSide[variant] },
+			maximumCellRise: maximumCellRiseM,
+			edgeSampleStep: edgeSampleStepM,
 
-		shore: {
-			clearanceAt: (x, y) => sampleGround(x, y).waterClearance - bankSetbackM,
-			minimumEdge: coarseCellSize / 10,
-			minimumArea: 0.24 * coarseCellSize ** 2
+			shore: {
+				align: true,
+				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - cityBankSetbackM,
+				minimumEdge: coarseCellSize / 10,
+				minimumArea: 0.24 * coarseCellSize ** 2
+			},
+			referenceHeightAt: (x, y) => sampleGround(x, y).height,
+			heightAt(x, y) {
+				const reading = sampleGround(x, y);
+				return reading.dry ? reading.height : undefined;
+			}
 		},
-		referenceHeightAt: (x, y) => sampleGround(x, y).height,
-		heightAt(x, y) {
-			const reading = sampleGround(x, y);
-			return reading.dry ? reading.height : undefined;
+		(point) => {
+			const ground = sampleGround(...point);
+			return ground.dry ? 'dry' : (ground.waterKind ?? 'water');
 		}
-	});
+	);
 	const random = Random.create({ seed }).derive('crossing');
 	const shift = random.number({ min: -140, max: 140 });
 	const crossing = crossingCenter(center, u, v, sampleGround);
 	const core: Vec2 = crossing?.point ?? [center[0] - shift * v, center[1] + shift * u];
-	const approachM = crossing ? crossing.width / 2 + 135 : 0;
-	const access = cityAccessibility(seed, core, bearing, approachM);
+	const crossings = channelCrossings(plan, candidates, sampleGround, core);
+	const nodes = new Map(plan.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
+	const primary = crossings
+		.filter(
+			({ midpoint, heads: [a, b] }) =>
+				sampleGround(...midpoint).waterKind === 'river' &&
+				(!site.bankSide ||
+					site.bankSide(required(nodes.get(a.nodeId), 'first bank node')) !==
+						site.bankSide(required(nodes.get(b.nodeId), 'second bank node')))
+		)
+		.sort(
+			(a, b) =>
+				distance(core, a.midpoint) +
+				0.45 * a.path.lengthM -
+				distance(core, b.midpoint) -
+				0.45 * b.path.lengthM
+		)[0];
+	const approaches = primary?.heads
+		.map(({ nodeId }) => required(nodes.get(nodeId), 'approach node'))
+		.sort((a, b) => (site.bankSide ? site.bankSide(a) - site.bankSide(b) : a[0] - b[0]));
+	const first = approaches?.[0] ?? core;
+	const second = approaches?.[1];
+	const side = site.bankSide;
+	const secondSide = second && side?.(second);
+	const secondBank = (point: Vec2) => {
+		if (!second) return false;
+		return secondSide && side
+			? side(point) === secondSide
+			: distance(point, second) < distance(point, first);
+	};
+	const access = cityAccessibility(seed, [first, second], bearing, sampleGround, secondBank);
+	const links = crossings.flatMap(({ heads: [a, b], path }) =>
+		a.cellIds.flatMap((from) =>
+			b.cellIds.map((to) => ({
+				headIds: [from, to] as const,
+				spanM: path.lengthM
+			}))
+		)
+	);
 	const order = cityGrowth(
 		candidates,
-		(point, grade) => {
-			const clearance = sampleGround(...point).waterClearance;
-			return access(point, grade, clearance) - crossingCredit(point, clearance, sampleGround);
-		},
-		minimumPartAreaM2
+		(point, grade) => access(point, grade, sampleGround(...point).waterClearance),
+		minimumPartAreaM2,
+		links
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));
 	const lowest = candidates.vertices.reduce(
@@ -144,5 +155,5 @@ export function prepareCarrier(
 		Infinity
 	);
 	const datumZ = Number.isFinite(lowest) ? levelHeight * Math.floor(lowest / levelHeight) : 0;
-	return { candidates, order, ranks, datumZ };
+	return { candidates, plan, crossings, order, ranks, datumZ };
 }

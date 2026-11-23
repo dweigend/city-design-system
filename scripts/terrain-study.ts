@@ -1,7 +1,7 @@
 // Run: heavy-slot --time 900 -- bun scripts/terrain-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { surveyValley, Valley, type ValleyTiming } from '../src/lib/domain/valley';
+import { channelWidth, surveyValley, Valley, type ValleyTiming } from '../src/lib/domain/valley';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
@@ -26,7 +26,7 @@ function reaches(valley: Valley) {
 		if (downstream && last?.water !== downstream.stations[0].water) junctionFaults++;
 		let previous = reach.stations[0];
 		for (const next of reach.stations.slice(1)) {
-			if (Math.abs(next.width - 48 * Math.sqrt(next.discharge)) > 1e-9) widthFaults++;
+			if (Math.abs(next.width - channelWidth(next.discharge)) > 1e-9) widthFaults++;
 			const length = Math.hypot(next.xy[0] - previous.xy[0], next.xy[1] - previous.xy[1]);
 			if (inSurvey(next.xy) || inSurvey(previous.xy)) {
 				if (reach.trunk) trunk.push({ width: (previous.width + next.width) / 2, length });
@@ -83,10 +83,10 @@ function lakes(valley: Valley) {
 	});
 }
 
-function run(relief: number, runoff: number, seed: number) {
+function run(relief: number, runoff: number, seed: number, sinuosity = 1.15) {
 	const start = performance.now();
 	let timing: ValleyTiming | undefined;
-	const parameters = { relief, runoff };
+	const parameters = { relief, runoff, sinuosity };
 	const valley = Valley.create({
 		seed,
 		parameters,
@@ -120,6 +120,7 @@ function run(relief: number, runoff: number, seed: number) {
 		seed,
 		relief,
 		runoff,
+		sinuosity,
 		generationMs,
 		timing,
 		survey,
@@ -142,6 +143,14 @@ function spread(values: number[]) {
 const rows = reliefs.flatMap((relief) =>
 	runoffs.flatMap((runoff) => seeds.map((seed) => run(relief, runoff, seed)))
 );
+const lowReliefSeeds = [0, 1, 17, 42, 1201, 424242];
+const lowReliefs = [0.05, 0.1, 0.15, 0.2, 0.25];
+const lowReliefFuzz = lowReliefs.flatMap((relief, i) =>
+	lowReliefSeeds.map((seed, j) =>
+		run(relief, 1.5, seed, i === 1 && j === 0 ? 1.28 : [1.04, 1.12, 1.2, 1.28][(i * 3 + j) % 4])
+	)
+);
+rows.push(...lowReliefFuzz);
 const failures = rows.filter((row) => !row.pass);
 writeFileSync(resolve(out, 'study.json'), JSON.stringify(rows, null, 1));
 console.log(`Runs ${rows.length}, passed ${rows.length - failures.length} (min/median/max)`);
@@ -179,12 +188,23 @@ for (const relief of [0, 1]) {
 		)
 	);
 }
-for (const { relief, runoff, seed, survey, drainage, courses, bodies, deterministic } of failures) {
+for (const {
+	relief,
+	runoff,
+	seed,
+	sinuosity,
+	survey,
+	drainage,
+	courses,
+	bodies,
+	deterministic
+} of failures) {
 	console.log(
 		'FAIL',
 		relief,
 		runoff,
 		seed,
+		sinuosity,
 		survey.faults,
 		drainage,
 		courses.junctionFaults,

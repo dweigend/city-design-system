@@ -280,3 +280,43 @@ test('can limit grade across whole cells while still rejecting narrow wet cuts',
 	expect(cellGrade.cells.length).toBeGreaterThan(sampleGrade.cells.length);
 	expect(wet.cells.length).toBe(sampleGrade.cells.length);
 });
+
+test('selects each cell once, keeping the first occurrence in the requested order', () => {
+	const grid = TerrainGrid.create(options);
+	const [first, second] = grid.cells;
+	const expected = TerrainGrid.select(grid, [second.id, first.id]);
+	expect(TerrainGrid.select(grid, [second.id, first.id, second.id, first.id])).toEqual(expected);
+});
+
+test('requires setback at the chords and interior of a square beside a circular lake', () => {
+	const clear = (x: number, y: number) => Math.hypot(x + 179, y - 30) - 203;
+	const base = {
+		seed: 0,
+		site: { origin: [0, 0] as const, bearing: 0, width: 240, length: 240 },
+		variant: 'square' as const,
+		parameters: { cellSize: 60 },
+		heightAt: () => 0
+	};
+	const grid = TerrainGrid.create({
+		...base,
+		shore: { clearanceAt: clear, minimumEdge: 2, minimumArea: 200 }
+	});
+	const vertices = new Map(grid.vertices.map(({ id, position }) => [id, position]));
+	expect(grid.cells.length).toBeGreaterThan(0);
+	for (const { vertexIds } of grid.cells) {
+		for (const [i, id] of vertexIds.entries()) {
+			const [x, y] = required(vertices.get(id), 'shore corner');
+			const [u, v] = required(
+				vertices.get(vertexIds[(i + 1) % vertexIds.length]),
+				'next shore corner'
+			);
+			expect(clear((x + u) / 2, (y + v) / 2)).toBeGreaterThanOrEqual(0);
+		}
+	}
+});
+
+test('rejects a spacing whose subdivision count cannot be sampled', () => {
+	expect(() => TerrainGrid.create({ ...options, edgeSampleStep: Number.MIN_VALUE })).toThrow(
+		'sample subdivisions'
+	);
+});

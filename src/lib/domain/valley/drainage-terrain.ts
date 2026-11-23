@@ -5,7 +5,7 @@ import { solveDrainage } from './drainage';
 import { position } from './catchment-grid';
 import { checkCarvedSills, checkDrainage } from './drainage-check';
 import { lakeGeometry } from './lake-geometry';
-import { extractReaches } from './reaches';
+import { extractReaches, importedCatchmentArea } from './reaches';
 import type { ValleyAxis } from './valley-axis';
 
 export function drainageTerrain(
@@ -19,12 +19,9 @@ export function drainageTerrain(
 	const start = performance.now();
 	const { grid, spine, field } = createCatchment(guide, axis, root, relief);
 	const baseMs = performance.now() - start;
-	const calibration = 48 * Math.sqrt(60);
-	const upstreamKm2 =
-		(20 + 2980 * (1 - relief) ** 2) * ((wetWidth ?? guide.wetWidth) / calibration) ** 2;
 	const flood = performance.now();
 	const inlet = spine[0].index;
-	const importedArea = upstreamKm2 * 1e6;
+	const importedArea = importedCatchmentArea(guide.wetWidth, relief, wetWidth);
 	const flow = solveDrainage(grid, inlet, importedArea, spine);
 	const floodMs = performance.now() - flood;
 	const geometry = performance.now();

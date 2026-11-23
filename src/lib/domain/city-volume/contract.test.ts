@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { TerrainGrid } from '../terrain-grid';
 import {
+	cityGrowth,
 	cityLatticesByPlan,
 	createCityDistricts,
 	createCityLattice,
@@ -173,5 +174,45 @@ test('preserves built area when a plan is translated and defines the empty profi
 		expect(empty.areaKm2).toBe(0);
 		expect(empty.peakHeight).toBe(0);
 		expect(empty.shares).toEqual({ detached: 0, block: 0, center: 0 });
+	}
+});
+
+test('enters the second bank through the cheaper crossing after publishing the first head', () => {
+	const plan = TerrainGrid.create({
+		seed: 1201,
+		site: { origin: [0, 0], bearing: 0, length: 840, width: 600 },
+		variant: 'square',
+		parameters: { cellSize: 60 },
+		referenceHeightAt: () => 0,
+		heightAt: (x) => (Math.abs(x) < 60 ? undefined : 0)
+	});
+	const vertices = new Map(plan.vertices.map(({ id, position }) => [id, position]));
+	const cells = plan.cells.map(({ id, vertexIds }) => {
+		const points = vertexIds.map((key) => required(vertices.get(key), 'bank vertex'));
+		const [x, y] = points.reduce(([u, v], [a, b]) => [u + a / 4, v + b / 4], [0, 0]);
+		return { id, x, y };
+	});
+	function head(bank: number, y: number) {
+		const best = cells
+			.filter(({ x }) => Math.sign(x) === bank)
+			.sort(
+				(a, b) => Math.hypot(a.x - bank * 90, a.y - y) - Math.hypot(b.x - bank * 90, b.y - y)
+			)[0];
+		return best.id;
+	}
+	const north = [head(-1, 150), head(1, 150)] as const;
+	const south = [head(-1, -150), head(1, -150)] as const;
+	const access = ([x]: readonly [number, number]) => Number(x > 0);
+	const right = new Set(cells.filter(({ x }) => x > 0).map(({ id }) => id));
+	for (const [short, long] of [
+		[north, south],
+		[south, north]
+	]) {
+		const order = cityGrowth(plan, access, 20_000, [
+			{ headIds: short, spanM: 120 },
+			{ headIds: long, spanM: 190 }
+		]).map(({ id }) => id);
+		expect(order.find((id) => right.has(id))).toBe(short[1]);
+		expect(order.indexOf(short[0])).toBeLessThan(order.indexOf(short[1]));
 	}
 });

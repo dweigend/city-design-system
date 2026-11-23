@@ -2,10 +2,10 @@
 
 Assigns district types and levels to an immutable plan, then builds the carrier lattice.
 
-- Growth starts once per eligible dry region, then expands through shared edges.
+- Growth starts at one source per connected set of eligible dry regions. It expands through shared edges and enters adjacent regions at crossing heads.
 - Districts follow cumulative accessible area and bound nominal neighbor height steps.
 - Ground joints sit at the terrain corners. Above ground, every joint on an upright
-  lies on a shared 7 m plane. Clamped corners may give a triangular side face.
+  lies on a shared 7 m plane. Clamped corners may give a triangular side face. Body-centered hubs clamp to the sampled elevation at their own horizontal position.
 - The roof has the assigned number of levels above the plane at or above the
   highest corner. Columns share all overlapping side faces and their joints.
 - Every model emits closed, outward-wound solids owned by canonical bays. Foundation

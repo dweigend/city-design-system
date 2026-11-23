@@ -1,6 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
-import type { ReachStation, Valley } from '../../domain/valley';
+import { channelPolygons, type Valley } from '../../domain/valley';
 import type { ReachFrame } from './frame';
+import { waterUnion } from './water-union';
 
 type Polygon = readonly Vec3[];
 
@@ -45,40 +46,21 @@ function weld(surface: Mesh) {
 	};
 }
 
-function axes(stations: readonly ReachStation[], i: number) {
-	const before = stations[Math.max(0, i - 1)].xy;
-	const after = stations[Math.min(stations.length - 1, i + 1)].xy;
-	const dx = after[0] - before[0];
-	const dy = after[1] - before[1];
-	return [dx, dy, Math.hypot(dx, dy)] as const;
-}
-
-function crossSection(stations: readonly ReachStation[], i: number): [Vec3, Vec3, Vec3] {
-	const {
-		xy: [x, y],
-		water,
-		width
-	} = stations[i];
-	const [dx, dy, length] = axes(stations, i);
-	const r = width / 2 / (length || 1);
-	return [
-		[x - dy * r, y + dx * r, water],
-		[x, y, water],
-		[x + dy * r, y - dx * r, water]
-	];
-}
-
 export function waterSurface(valley: Valley, frame: ReachFrame, width: number, scale: number) {
 	const surface = mesh();
 	const point = weld(surface);
 	const polygons: Polygon[] = [];
-	const add = (world: Polygon) => {
-		const local = world.map(([x, y, z]): Vec3 => [...frame.toLocal(x, y), z * scale]);
-		const polygon = clipWindow(local, frame.length / 2, width / 2);
-		if (polygon.length < 3) return;
+	const union = waterUnion();
+	const append = (polygon: Polygon) => {
 		const indices = polygon.map(point);
 		for (let i = 1; i + 1 < polygon.length; i++) {
 			const [a, b, c] = [polygon[0], polygon[i], polygon[i + 1]];
+			if (
+				indices[0] === indices[i] ||
+				indices[i] === indices[i + 1] ||
+				indices[0] === indices[i + 1]
+			)
+				continue;
 			const area = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
 			if (Math.abs(area) < 1e-8) continue;
 			if (area > 0) surface.indices.push(indices[0], indices[i], indices[i + 1]);
@@ -86,22 +68,19 @@ export function waterSurface(valley: Valley, frame: ReachFrame, width: number, s
 		}
 		polygons.push(polygon);
 	};
-	for (const { stations } of valley.reaches) {
-		let [left, center, right] = crossSection(stations, 0);
-		for (let i = 1; i < stations.length; i++) {
-			const [nextLeft, nextCenter, nextRight] = crossSection(stations, i);
-			add([left, center, nextCenter, nextLeft]);
-			add([center, right, nextRight, nextCenter]);
-			left = nextLeft;
-			center = nextCenter;
-			right = nextRight;
-		}
-	}
+	const add = (world: Polygon) => {
+		const local = world.map(([x, y, z]): Vec3 => [...frame.toLocal(x, y), z * scale]);
+		for (const part of union(clipWindow(local, frame.length / 2, width / 2))) append(part);
+	};
 	for (const { vertices, indices, level } of valley.lakes) {
 		for (let i = 0; i < indices.length; i += 3) {
 			add([indices[i], indices[i + 1], indices[i + 2]].map((index) => [...vertices[index], level]));
 		}
 	}
+	const trunk = valley.reaches.filter(({ trunk }) => trunk);
+	const tributaries = valley.reaches.filter(({ trunk }) => !trunk);
+	for (const polygon of channelPolygons(trunk)) add(polygon);
+	for (const polygon of channelPolygons(tributaries)) add(polygon);
 	return { surface, polygons };
 }
 

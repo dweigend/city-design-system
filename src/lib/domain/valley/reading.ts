@@ -1,3 +1,4 @@
+import { radius } from './catchment-grid';
 import type { terrainSampler, WaterKind } from './terrain-sample';
 
 /** What covers the ground at a point. */
@@ -30,9 +31,13 @@ export function readGround(
 		bank,
 		get slope() {
 			if (slope === undefined) {
-				const dx = sample(x + probeM, y).height - sample(x - probeM, y).height;
-				const dy = sample(x, y + probeM).height - sample(x, y - probeM).height;
-				slope = Math.hypot(dx, dy) / (2 * probeM);
+				const x0 = Math.max(-radius, x - probeM);
+				const x1 = Math.min(radius, x + probeM);
+				const y0 = Math.max(-radius, y - probeM);
+				const y1 = Math.min(radius, y + probeM);
+				const dx = (sample(x1, y).height - sample(x0, y).height) / (x1 - x0);
+				const dy = (sample(x, y1).height - sample(x, y0).height) / (y1 - y0);
+				slope = Math.hypot(dx, dy);
 			}
 			return slope;
 		},

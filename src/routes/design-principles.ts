@@ -74,9 +74,9 @@ const city: DesignPrinciple[] = [
 		id: 'CITY-4',
 		page: 'city',
 		title: 'Grid-led paths and deliberate cuts',
-		rule: 'Routes share one movement graph with grid-derived ports and alignments, and deliberate path placement may cut a passage, opening or gate through occupied space or remove a small building.',
+		rule: 'Routes share one movement graph, and bridges and lanes follow chains of grid edges between blocks or finer cells.',
 		reason:
-			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. The first bridge proof calls for reachable landings on two façades above a central footpath.',
+			'Typed ports connect walkways, stairs, ramps and rails with length, slope, capacity and mode. Bridge heads join the banks at grid nodes. Deliberate path placement may open a passage or gate through occupied space or remove a small building.',
 		decided: '2026-11-21',
 		demo: { route: '/interface', anchor: 'connections', label: 'Trace a connection to its landing' }
 	},
@@ -142,7 +142,7 @@ const city: DesignPrinciple[] = [
 		title: 'An invented valley',
 		rule: 'Every city grows in a generated valley whose ground shapes the hills, routes runoff into tributaries and sets lake levels at the lowest outlets.',
 		reason:
-			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history. Water stays level in a lake, falls along its outlet and widens the river as tributaries join it.',
+			'Real cities such as Cologne serve only as test cases for measurement. The same principles take a settlement from its first houses to a metropolis, so every seed tells its own history. Water stays level in a lake and falls along its outlet. Discharge widens the river from around 30 m in the headwaters to 100–150 m in lowland valleys at standard runoff.',
 		decided: '2026-11-23'
 	},
 	{
@@ -151,16 +151,16 @@ const city: DesignPrinciple[] = [
 		title: 'Size sets the skyline',
 		rule: 'A settlement takes its districts from its built-up area: a village below 1 km² has only two-storey houses, a town adds six-storey blocks, and only a city of several square kilometres grows a high-rise center whose peak rises with its size and falls off in steps.',
 		reason:
-			'The nominal peak reaches 105 m at 8 km². Neighboring district heights differ by at most six storeys, and a narrow center can peak lower. Columns meet the terrain at their corners and rise to common 7 m roof planes.',
+			'The nominal peak reaches 105 m at 8 km². Neighboring district heights differ by at most six storeys, and a narrow center can peak lower. Columns meet the terrain at their corners and rise to common 7 m roof planes. Body-centered hubs also meet the ground at their own sampled elevations.',
 		decided: '2026-11-23'
 	},
 	{
 		id: 'CITY-13',
 		page: 'city',
 		title: 'Lobed growth on dry ground',
-		rule: 'City growth follows connected dry ground across low terraces, favours narrow channel crossings and leaves steep flanks and small isolated patches open.',
+		rule: 'The plan grid continues over rivers, tributaries and lakes, with buildings on dry cells and growth reaching the other bank through candidate crossings that favor shorter spans.',
 		reason:
-			'Fast corridors make lobes and bays, and large isolated buildable areas can support satellites. Cells meet water at a small setback and the footprint keeps open paths to the exterior. Denser districts take the most accessible ground first.',
+			'Corridors start at crossing heads, bend with the terrain, and take their own bearings and lengths on each bank. Large isolated areas can support satellites. A wet cell center reserves the whole cell for water. A dry center can keep the buildable part of its cell up to the bank setback. Denser districts take the most accessible ground first.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Grow a city across the valley' }
 	},
@@ -306,7 +306,7 @@ const grid: DesignPrinciple[] = [
 		title: 'Terrain and the 3D envelope',
 		rule: 'The contour-led ground grid and its 3D cells bound building volume, morphing, overhangs and ordinary access, with individual connections allowed to leave the grid as exceptions.',
 		reason:
-			'Along the terrain, long grid lines follow contours and cross lines run downslope; bodies may occupy part of their cells and paths may weave between them. Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
+			'Long grid lines follow contours and cross lines run downslope. Near water, the plan bends toward the shoreline while keeping its cells and adjacency. Bodies can occupy part of a cell and paths can weave between them. Target: proven separately in the City Game volume prototype (tessellated storeys) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
 		decided: '2026-11-21',
 		demo: {
 			route: '/raster',

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { required } from '../../core/invariant';
 import { drainageExample, regionalDrainageExample } from './drainage-example';
 import { surveyValley, Valley } from './index';
 import { valleyExample } from './example';
@@ -57,7 +58,7 @@ test('derives the adjustable trunk from reaches and scales width by runoff', () 
 	);
 	const wetter = Valley.create({ seed: 1201, parameters: { runoff: 1.5 } });
 	expect(wetter.course.xy).toEqual(course.xy);
-	expect(wetter.course.wetWidth / course.wetWidth).toBeCloseTo(Math.sqrt(1.5), 10);
+	expect(wetter.course.wetWidth / course.wetWidth).toBeCloseTo(1.5 ** 0.34, 10);
 	expect(reaches.some(({ trunk }) => trunk)).toBe(true);
 });
 
@@ -83,7 +84,7 @@ test('reads a lower terrace frame on each side of the valley axis', () => {
 
 test('versions the result and exposes frozen drainage geometry and terrain reads', () => {
 	const valley = Valley.create({ seed: 42, parameters: { relief: 1 } });
-	expect(valley.revision).toBe(2);
+	expect(valley.revision).toBe(4);
 	expect(valley.parameters).toEqual({ sinuosity: 1.15, relief: 1, runoff: 1 });
 	const hash = (value: Valley) =>
 		Bun.hash(JSON.stringify([value.reaches, value.lakes, value.grid]));
@@ -194,4 +195,38 @@ test('checks the local water level at the shoreline on falling channels and besi
 		valley.readGround(-1060, 1340).water
 	);
 	expect(surveyValley(valley).faults.shoreBelowWater).toBe(0);
+});
+
+const spillRegression = { seed: 0, parameters: { relief: 0.1, runoff: 1.5, sinuosity: 1.28 } };
+
+test('preserves lake spill elevations after incision and terrace blending', () => {
+	const valley = Valley.create(spillRegression);
+	expect(valley.lakes.some(({ id, level }) => id === -3 && level === 26.048)).toBe(true);
+	expect(valley.checkDrainage().carvedSillFaults).toBe(0);
+	for (const { outlet, level } of valley.lakes)
+		expect(valley.readGround(...outlet).height).toBe(level);
+});
+
+test('triangulates the shallow lake without repeated indices or zero-area faces', () => {
+	const { lakes } = Valley.create(spillRegression);
+	const { vertices, indices } = required(
+		lakes.find(({ id }) => id === -2),
+		'shallow lake regression'
+	);
+	expect(indices.length).toBeGreaterThan(0);
+	for (let i = 0; i < indices.length; i += 3) {
+		const [a, b, c] = indices.slice(i, i + 3);
+		expect(new Set([a, b, c]).size).toBe(3);
+		const [[x, y], [u, v], [s, t]] = [vertices[a], vertices[b], vertices[c]];
+		expect((u - x) * (t - y) - (v - y) * (s - x)).toBeGreaterThan(0);
+	}
+});
+
+test('reads the wet inlet on the closed solve boundary and rejects the exterior', () => {
+	const valley = Valley.create({ seed: 1201 });
+	const inlet = valley.readGround(2188.315173, 6000);
+	expect(inlet.waterKind).toBe('river');
+	expect(inlet.bank).toBeLessThan(0);
+	expect(Number.isFinite(inlet.slope)).toBe(true);
+	expect(() => valley.readGround(2188.315173, 6000.001)).toThrow('outside-drainage-solve');
 });

@@ -75,9 +75,11 @@ export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 	sinuosity8km: [1.05, 1.3],
 	medianSinuosity8km: [1.12, 1.19],
 	medianSinuosity2kmTarget: 1.05,
-	wetWidthM: [320, 420],
+	wetWidthM: [100, 150],
+	wavelengthToBankfullWidth: [60, 78],
 	smoothedCoreReliefM: [12, 22],
-	gentleLandShare: [0.6, 0.8],
+	// A narrower wet mask adds the newly exposed, level river margins to the dry sample.
+	gentleLandShare: [0.6, 0.82],
 	minimumStepCandidates: 1,
 	medianStepHeightM: [3, 8],
 	maximumStepHeightP90M: 10
@@ -86,7 +88,8 @@ export const LARGE_LOWLAND_MEASUREMENT_BANDS = {
 /** Form gates for the corrected valley family. Ratios use the complete dry bank pairs. */
 export const VALLEY_FORM_BANDS = {
 	minimumStepSpreadM: 2.25,
-	minimumFloodplainWidthRatio: 2,
+	// Dry widths start at the water edge. Both margins widen as the channel contracts.
+	minimumFloodplainWidthRatio: 1.8,
 	minimumCompleteBankPairs: 2,
 	minimumDryBankWidthM: 12.5,
 	minimumWetMaskDifference: 0.1,

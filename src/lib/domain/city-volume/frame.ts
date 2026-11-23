@@ -25,9 +25,15 @@ export type Column = Readonly<{
 	corners: readonly Node[];
 	neighbors: readonly (string | null)[];
 	levels: number;
+	groundAtHub?: number;
 }>;
 
-type Level = Readonly<{ id: string; bottom: readonly Node[]; top: readonly Node[] }>;
+type Level = Readonly<{
+	id: string;
+	bottom: readonly Node[];
+	top: readonly Node[];
+	groundAtHub?: number;
+}>;
 type Connect = (a: Node, b: Node) => void;
 
 function box({ bottom, top }: Level, connect: Connect) {
@@ -53,15 +59,21 @@ function braced(level: Level, connect: Connect) {
 function centered(level: Level, connect: Connect) {
 	box(level, connect);
 	const corners = [...level.bottom, ...level.top];
-	const position = corners.reduce<Vec3>(
+	const [x, y, nominalZ] = level.bottom.reduce<Vec3>(
 		([x, y, z], { position: [u, v, w] }) => [
-			x + u / corners.length,
-			y + v / corners.length,
+			x + u / level.bottom.length,
+			y + v / level.bottom.length,
 			z + w / corners.length
 		],
 		[0, 0, 0]
 	);
-	const hub = { id: `${level.id}/center`, position };
+	const topZ = level.top.reduce((z, corner) => z + corner.position[2] / corners.length, 0);
+	const position: Vec3 = [x, y, Math.max(level.groundAtHub ?? -Infinity, nominalZ + topZ)];
+	const id =
+		position[2] === level.groundAtHub
+			? `${level.id.slice(0, level.id.lastIndexOf('/level/'))}/ground-center`
+			: `${level.id}/center`;
+	const hub = { id, position };
 	for (const corner of corners) connect(hub, corner);
 }
 
@@ -107,8 +119,9 @@ export function createFrame(
 		const id = JSON.stringify([from, to]);
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
-	const { cells, faces } = bayAddresses(columns, datumZ, ({ id, bottom, top }) => {
-		addMembers({ id, bottom, top }, connect);
+	const { cells, faces } = bayAddresses(columns, datumZ, (bay) => {
+		const { id, bottom, top } = bay;
+		addMembers(bay, connect);
 		solids.push(closeSolid(id, id, prismFaces(bottom, top)));
 	});
 	return Object.freeze({
@@ -143,7 +156,7 @@ export function bayAddresses(
 				return face;
 			});
 			cells.push(Object.freeze({ id, planCellId, level, sideFaces: Object.freeze(sideFaces) }));
-			visit?.({ id, bottom, top });
+			visit?.({ id, bottom, top, groundAtHub: column.groundAtHub });
 		}
 	}
 	return {

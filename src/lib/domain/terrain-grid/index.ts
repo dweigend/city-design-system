@@ -1,4 +1,4 @@
-import { distance, measurePolygon, type Vec3 } from '../../core/geometry';
+import { distance, measurePolygon, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
@@ -6,6 +6,7 @@ import { carrier, edgeId, freeQuad, type Candidate, type Carrier, type Node } fr
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
+import { alignShore } from './shore-morph';
 import { shoreline, usableShoreRing } from './shore';
 import { voronoi } from './voronoi';
 import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
@@ -22,16 +23,25 @@ export const terrainGridParams = defineParams({
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
+/** Distances and area tolerances for the optional shared shoreline morph. */
+export { shorelineMorphLimits } from './shore-morph';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
 export type TerrainGridVertex = Readonly<{ id: string; position: Vec3 }>;
 
 /** Counterclockwise polygon. Neighbor i is across edge i→(i+1), or null at the boundary. */
 export type TerrainGridCell = Readonly<{
+	/** When classified, the original plan cell cover before shoreline clipping. */
+	groundKind?: GroundKind;
+	/** Height at the arithmetic mean of the ring corners, in meters. */
+	centerHeight?: number;
 	id: string;
 	vertexIds: readonly string[];
 	neighbors: readonly (string | null)[];
 }>;
+
+/** Cover read from the site sampler. Water is a fallback for samplers without a water type. */
+export type GroundKind = 'dry' | 'river' | 'tributary' | 'lake' | 'water';
 
 /** Detached, deeply frozen cells, incident vertices, and oriented boundary edges with land to the left. */
 export type TerrainGrid = Readonly<{
@@ -107,12 +117,14 @@ export type TerrainGridOptions = Readonly<{
 	/** Optional total rise over the accepted cell's sampled ground, in meters. When supplied,
 	 * it replaces the default point grade test. */
 	maximumCellRise?: number;
-	/** Maximum span between dry-ground probes on an edge or chord, 1 m by default. */
+	/** Maximum span between probes, 1 m by default. More than 512 subdivisions throws. */
 	edgeSampleStep?: number;
 	/** Optional signed clearance from a buildable shoreline in meters. Crossing cells are
 	 * trimmed to one dry polygon before validating its ground. */
 	shore?: Readonly<{
 		clearanceAt: (x: number, y: number) => number;
+		/** Align the uncut carrier before classifying and clipping its cells. */
+		align?: boolean;
 		minimumEdge: number;
 		minimumArea: number;
 	}>;
@@ -121,12 +133,22 @@ export type TerrainGridOptions = Readonly<{
 	surface?: Readonly<{ sampleStep: number; accepts: (x: number, y: number) => boolean }>;
 }>;
 
+const maximumSampleSubdivisions = 512;
+
+function subdivisionCount(length: number, spacing: number) {
+	const count = Math.max(1, Math.ceil(length / spacing));
+	if (count > maximumSampleSubdivisions)
+		throw new RangeError('Terrain grid sample subdivisions exceed the limit');
+	return count;
+}
+
 function samples(
 	heightAt: TerrainGridOptions['heightAt'],
 	maximumCellGrade: number | undefined,
 	maximumCellRise: number | undefined,
 	edgeSampleStep: number,
-	referenceHeightAt: TerrainGridOptions['referenceHeightAt']
+	referenceHeightAt: TerrainGridOptions['referenceHeightAt'],
+	clearanceAt: NonNullable<TerrainGridOptions['shore']>['clearanceAt'] | undefined
 ) {
 	const heights = new Map<string, number | undefined>();
 	const edges = new Map<string, boolean>();
@@ -136,6 +158,7 @@ function samples(
 	};
 
 	function read(x: number, y: number) {
+		if (clearanceAt && clearanceAt(x, y) < 0) return undefined;
 		const z = heightAt(x, y);
 		if (z !== undefined && !Number.isFinite(z)) throw new RangeError('Invalid ground height');
 		return z;
@@ -148,7 +171,7 @@ function samples(
 		const length = distance(a.xy, b.xy);
 		if (maximumCellGrade !== undefined && Math.abs(end - previous) > maximumCellGrade * length)
 			return false;
-		const steps = Math.max(1, Math.ceil(length / edgeSampleStep));
+		const steps = subdivisionCount(length, edgeSampleStep);
 		const maxRise =
 			maximumCellGrade === undefined && maximumCellRise === undefined
 				? (quality.maximumGrade * length) / steps
@@ -169,7 +192,7 @@ function samples(
 		height,
 		read,
 		datumHeight: ((x, y) => {
-			const z = referenceHeightAt ? referenceHeightAt(x, y) : read(x, y);
+			const z = referenceHeightAt ? referenceHeightAt(x, y) : heightAt(x, y);
 			if (z === undefined || !Number.isFinite(z))
 				throw new RangeError('Terrain grid datum has no finite ground');
 			return z;
@@ -184,14 +207,16 @@ function samples(
 
 function topology(
 	candidates: readonly Candidate[],
-	height: (node: Node) => number | undefined
+	height: (node: Node) => number | undefined,
+	properties?: (cell: Candidate) => Pick<TerrainGridCell, 'groundKind' | 'centerHeight'>
 ): TerrainGrid {
 	const vertices = new Map<string, TerrainGridVertex>();
 	const open = new Map<
 		string,
 		{ id: string; from: string; to: string; neighbors: (string | null)[]; index: number }
 	>();
-	const cells = candidates.map(({ id, corners }) => {
+	const cells = candidates.map((cell) => {
+		const { id, corners } = cell;
 		const vertexIds = Object.freeze(corners.map(({ id }) => id));
 		const neighbors: (string | null)[] = corners.map(() => null);
 		corners.forEach((node, index) => {
@@ -214,7 +239,7 @@ function topology(
 				open.set(key, { id, from, to, neighbors, index });
 			}
 		});
-		return Object.freeze({ id, vertexIds, neighbors });
+		return Object.freeze({ id, vertexIds, neighbors, ...properties?.(cell) });
 	});
 	for (const cell of cells) Object.freeze(cell.neighbors);
 	return Object.freeze({
@@ -226,25 +251,22 @@ function topology(
 	});
 }
 
-/** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
- * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
- * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
- * sampled at up to 1 m spacing by default reject unavailable ground. Grade defaults to 20% at each
- * interval, or can be limited over whole chords or as a sampled cell height range. Organic and
- * free quads also enforce the published angle and edge-ratio limits. Invalid inputs throw. */
-function create({
-	site,
-	seed,
-	heightAt,
-	parameters,
-	variant = 'organic',
-	maximumCellGrade,
-	maximumCellRise,
-	edgeSampleStep = quality.maximumSampleStep,
-	shore,
-	surface,
-	referenceHeightAt
-}: TerrainGridOptions): TerrainGrid {
+function generateGrid(
+	{
+		site,
+		seed,
+		heightAt,
+		parameters,
+		variant = 'organic',
+		maximumCellGrade,
+		maximumCellRise,
+		edgeSampleStep = quality.maximumSampleStep,
+		shore,
+		surface,
+		referenceHeightAt
+	}: TerrainGridOptions,
+	cover?: (point: Vec2) => GroundKind
+) {
 	if (!Object.hasOwn(carriers, variant)) throw new RangeError('Unknown plan grid variant');
 	const { generate, checkQuality, defaultSize = 15 } = carriers[variant];
 	const outline = siteOutline(site);
@@ -270,16 +292,30 @@ function create({
 		maximumCellGrade,
 		maximumCellRise,
 		edgeSampleStep,
-		referenceHeightAt
+		referenceHeightAt,
+		shore?.clearanceAt
 	);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
 	const includes = insideOutline(outline);
 	const accepted = [];
+	const layout = [];
+	const kinds = new Map<string, GroundKind>();
 	const clip = shore && shoreline(shore.clearanceAt);
-	for (const source of generate(site, outline, bearing, cellSize, Random.create({ seed }))) {
-		const plan = source.corners.map(({ xy }) => xy);
-		if (plan.length < 3 || (checkQuality && !meetsQuality(plan)) || !includes(plan)) continue;
+	const carrierCells = [
+		...generate(site, outline, bearing, cellSize, Random.create({ seed }))
+	].filter(({ corners }) => {
+		const plan = corners.map(({ xy }) => xy);
+		return plan.length >= 3 && (!checkQuality || meetsQuality(plan)) && includes(plan);
+	});
+	const cells = shore?.align ? alignShore(carrierCells, shore.clearanceAt, includes) : carrierCells;
+	for (const source of cells) {
+		if (cover) {
+			layout.push(source);
+			const center = ringMean(source.corners);
+			kinds.set(source.id, cover(center));
+			if (kinds.get(source.id) !== 'dry') continue;
+		}
 		const corners = clip ? clip(source.corners) : source.corners;
 		if (corners.length < 3) continue;
 		if (
@@ -295,24 +331,62 @@ function create({
 			)
 		)
 			continue;
-		if (surface || maximumCellRise !== undefined) {
+		if (shore || surface || maximumCellRise !== undefined) {
 			let low = Infinity;
 			let high = -Infinity;
 			if (
 				!validSurface(corners, surface?.sampleStep ?? edgeSampleStep, (x, y) => {
-					if (maximumCellRise === undefined) return surface?.accepts(x, y) ?? true;
+					if (!shore && maximumCellRise === undefined) return surface?.accepts(x, y) ?? true;
 					const z = ground.read(x, y);
 					if (z === undefined || (surface && !surface.accepts(x, y))) return false;
 					low = Math.min(low, z);
 					high = Math.max(high, z);
-					return high - low <= maximumCellRise;
+					return maximumCellRise === undefined || high - low <= maximumCellRise;
 				})
 			)
 				continue;
 		}
 		accepted.push(cell);
 	}
-	return topology(accepted, ground.height);
+	const grid = topology(accepted, ground.height, (cell) => ({
+		centerHeight: ground.read(...ringMean(cell.corners)),
+		...(cover ? { groundKind: 'dry' as const } : {})
+	}));
+	const plan = cover
+		? topology(
+				layout,
+				({ xy }) => ground.datumHeight(...xy),
+				({ id }) => ({
+					groundKind: required(kinds.get(id), 'plan cover')
+				})
+			)
+		: grid;
+	return { grid, plan };
+}
+
+function ringMean(corners: readonly Node[]): Vec2 {
+	return corners.reduce<Vec2>(
+		([x, y], { xy: [a, b] }) => [x + a / corners.length, y + b / corners.length],
+		[0, 0]
+	);
+}
+
+/** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
+ * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
+ * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
+ * sampled at up to 1 m spacing by default reject unavailable ground. Grade defaults to 20% at each
+ * interval, or can be limited over whole chords or as a sampled cell height range. Organic and
+ * free quads also enforce the published angle and edge-ratio limits. Invalid inputs throw. */
+function create(options: TerrainGridOptions): TerrainGrid {
+	return generateGrid(options).grid;
+}
+
+/** Creates one continuous grid and its setback-clipped buildable subset. Cover is sampled at
+ * the arithmetic mean of each original cell's corners. Wet centers always reserve the cell
+ * for water. Dry centers retain their clipped polygon if it passes the ground checks.
+ * Supply referenceHeightAt for the uncut vertices if heightAt excludes wet ground. */
+function createPlan(options: TerrainGridOptions, cover: (point: Vec2) => GroundKind) {
+	return generateGrid(options, cover);
 }
 
 /** Checks a convex ring on a triangular sampling mesh. */
@@ -326,9 +400,9 @@ function validSurface(
 	for (let i = 1; i < ring.length; i++) {
 		const b = ring[i - 1].xy;
 		const c = ring[i].xy;
-		const splits = Math.max(
-			1,
-			Math.ceil(Math.max(distance(a.xy, b), distance(b, c), distance(c, a.xy)) / sampleStep)
+		const splits = subdivisionCount(
+			Math.max(distance(a.xy, b), distance(b, c), distance(c, a.xy)),
+			sampleStep
 		);
 		for (let u = 0; u <= splits; u++) {
 			for (let v = 0; u + v <= splits; v++) {
@@ -341,13 +415,13 @@ function validSurface(
 	return true;
 }
 
-/** Takes plan cells in the requested order, rebuilding neighbor and boundary references. */
+/** Takes plan cells in first-occurrence order, ignoring repeated IDs and rebuilding adjacency. */
 function select(grid: TerrainGrid, ids: readonly string[]): TerrainGrid {
 	const byId = new Map(grid.cells.map((cell) => [cell.id, cell]));
 	const selected = new Set(ids);
 	const vertices = new Set<string>();
 	const boundary: (readonly [string, string])[] = [];
-	const cells = ids.map((id) => {
+	const cells = [...selected].map((id) => {
 		const cell = required(byId.get(id), 'selected plan cell');
 		const neighbors = cell.neighbors.map((neighbor, index) => {
 			const from = cell.vertexIds[index];
@@ -368,4 +442,16 @@ function select(grid: TerrainGrid, ids: readonly string[]): TerrainGrid {
 }
 
 /** Factory and selection of immutable terrain grids. */
-export const TerrainGrid = Object.freeze({ create, select });
+export const TerrainGrid = Object.freeze({ create, createPlan, select });
+
+/** Edge topology and shortest paths for routing between plan cells. */
+export {
+	planEdges,
+	planEdgeGraph,
+	type PlanEdge,
+	type PlanEdgePath,
+	type OrientedPlanEdge
+} from './edge-path';
+
+/** Returns the same undirected edge ID whichever endpoint is first. */
+export { edgeId as planEdgeId } from './carrier';

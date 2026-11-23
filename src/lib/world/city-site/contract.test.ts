@@ -12,7 +12,7 @@ import {
 	type CityColumn,
 	type CityLattice
 } from '../../domain/city-volume';
-import type { TerrainGrid } from '../../domain/terrain-grid';
+import { planEdgeGraph, type TerrainGrid } from '../../domain/terrain-grid';
 import {
 	citySiteParams,
 	cityWindow,
@@ -262,4 +262,88 @@ test('reads elevated dry ground, explicit water and an empty buildable area from
 	expect(empty.grid.cells).toEqual([]);
 	expect(empty.areaKm2).toBe(0);
 	expect(cityWindow(constrained, empty.grid).width).toBeGreaterThan(0);
+});
+
+test('keeps an edge-connected grid over the channel on all seven plans', () => {
+	const bank = (x: number) => Math.abs(x) - 56;
+	const site = createCitySite((x, y) => ({
+		height: 10 + y * 0.002,
+		dry: bank(x) >= 0,
+		waterClearance: bank(x),
+		waterKind: bank(x) < 0 ? 'river' : null
+	}));
+	for (const variant of cityPlanVariants) {
+		const { grid, plan, crossings, datumZ } = readCityGrid(site, 1800, variant);
+		const growth = readCityGrid(site, 2400, variant);
+		const next = new Set(growth.plan.cells.map(({ id }) => id));
+		const built = new Set(grid.cells.map(({ id }) => id));
+		const cells = new Map(plan.cells.map((cell) => [cell.id, cell]));
+		expect(crossings.length).toBeGreaterThan(0);
+		for (const cell of plan.cells) {
+			expect(next.has(cell.id)).toBe(true);
+			expect(built.has(cell.id)).toBe(cell.groundKind === 'dry');
+		}
+		expect(crossings).toEqual(readCityGrid(site, 1800, variant).crossings);
+		const graph = planEdgeGraph(plan);
+		const edges = new Map(graph.edges.map((edge) => [edge.id, edge]));
+		const selected = readCityGrid(site, 1800, variant).selectedCrossings;
+		expect(selected).toEqual(crossings.slice(0, 3));
+		for (const {
+			heads: [a, b],
+			path
+		} of crossings) {
+			expect(a.cellIds.every((id) => built.has(id))).toBe(true);
+			expect(b.cellIds.every((id) => built.has(id))).toBe(true);
+			expect(a.cellIds.every((id) => cells.get(id)?.vertexIds.includes(a.nodeId))).toBe(true);
+			expect(b.cellIds.every((id) => cells.get(id)?.vertexIds.includes(b.nodeId))).toBe(true);
+			expect(path.nodeIds[0]).toBe(a.nodeId);
+			expect(path.nodeIds.at(-1)).toBe(b.nodeId);
+			expect(Math.sign(graph.point(a.nodeId)[0])).toBe(-Math.sign(graph.point(b.nodeId)[0]));
+			expect(path.edges).toHaveLength(path.nodeIds.length - 1);
+			let length = 0;
+			for (const [i, { id, from, to }] of path.edges.entries()) {
+				expect([from, to]).toEqual(path.nodeIds.slice(i, i + 2));
+				const edge = required(edges.get(id), 'crossing edge');
+				expect([...edge.nodeIds].sort()).toEqual(path.nodeIds.slice(i, i + 2).sort());
+				expect(edge.cellIds.some((id) => cells.get(id)?.groundKind === 'river')).toBe(true);
+				length += edge.lengthM;
+			}
+			expect(path.lengthM).toBeCloseTo(length, 9);
+			expect(path.lengthM).toBeLessThanOrEqual(320);
+			expect(
+				growth.crossings.some(({ path: grown }) => grown.nodeIds.join() === path.nodeIds.join())
+			).toBe(true);
+		}
+		const districts = readCityDistricts(site, grid);
+		expect(() => readCityDistricts(site, plan)).toThrow('buildable grid');
+		expect(() => readCityColumns(plan, districts)).toThrow('buildable grid');
+		const columns = readCityColumns(grid, districts);
+		const lattice = createCityLattice(columns, datumZ, variant, 'box');
+		expect(columns.every(({ planCellId }) => cells.get(planCellId)?.groundKind === 'dry')).toBe(
+			true
+		);
+		expect(
+			lattice.cells.every(({ planCellId }) => cells.get(planCellId)?.groundKind === 'dry')
+		).toBe(true);
+	}
+}, 30_000);
+
+test('clamps the body-centered ground hub to its own sampled terrain contact', () => {
+	const bump = (x: number, y: number) =>
+		5 * (Math.sin((Math.PI * x) / 60) * Math.sin((Math.PI * y) / 60)) ** 2;
+	const site = createCitySite((x, y) => ({
+		height: 24 + bump(x, y),
+		dry: true,
+		waterClearance: Infinity
+	}));
+	const { grid, datumZ } = readCityGrid(site, 600, 'square');
+	const columns = readCityColumns(grid, readCityDistricts(site, grid));
+	const lattice = createCityLattice(columns, datumZ, 'square', 'centered');
+	const groundHubs = lattice.nodes.filter(({ id }) => id.endsWith('/ground-center'));
+	expect(groundHubs.length).toBeGreaterThan(0);
+	for (const {
+		position: [x, y, z]
+	} of groundHubs) {
+		expect(z).toBeCloseTo(site.sampleGround(x, y).height, 9);
+	}
 });

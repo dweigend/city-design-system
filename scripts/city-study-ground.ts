@@ -1,6 +1,6 @@
 import { measurePolygon } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
-import type { CityColumn } from '../src/lib/domain/city-volume';
+import type { CityColumn, CityLattice } from '../src/lib/domain/city-volume';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { projectCityTerrain } from '../src/lib/scene/city-volume-projection';
 import { maximumCellRiseM, type CitySite } from '../src/lib/world/city-site';
@@ -12,8 +12,8 @@ export function groundMetrics(city: CitySite, columns: readonly CityColumn[]) {
 	let excessiveCellRises = 0;
 	let maxFoundationErrorM = 0;
 	function probe(x: number, y: number) {
-		const reading = city.valley.readGround(x, y);
-		wetProbes += +(reading.waterKind !== null);
+		const reading = city.sampleGround(x, y);
+		wetProbes += +!reading.dry;
 		return reading.height;
 	}
 	for (const { corners } of columns) {
@@ -43,4 +43,19 @@ export function groundContactMetrics(city: CitySite, grid: TerrainGrid) {
 		([x, y, z]) => !positions.has(key([...projection.toLocal(x, y), z]))
 	).length;
 	return { missingRenderedFeet };
+}
+
+/** Checks each body-centered hub against the terrain at its own horizontal position. */
+export function hubGroundMetrics(city: CitySite, lattice: CityLattice) {
+	let hubCount = 0;
+	let maxHubUndershootM = 0;
+	for (const {
+		id,
+		position: [x, y, z]
+	} of lattice.nodes) {
+		if (!id.endsWith('/center') && !id.endsWith('/ground-center')) continue;
+		hubCount++;
+		maxHubUndershootM = Math.max(maxHubUndershootM, city.sampleGround(x, y).height - z);
+	}
+	return { hubCount, maxHubUndershootM };
 }
