@@ -2,41 +2,57 @@ import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { columnRoof, levelHeight } from '../../domain/city-volume';
 import { createCitySite, readCityGrid } from '../../world/city-site';
+import { drawnInPencil } from './blocks';
 import { example } from './example';
+
+const isDrawn = drawnInPencil(1201);
 import { cityProfile, projectCityDistricts, projectCityLattice, projectCityTerrain } from './index';
 
-test('projects three shaded district kinds with flat caps and exposed steps only', () => {
+test('projects shaded district bodies with flat caps, exposed walls split at every level', () => {
 	const { envelope, columns, datumZ } = example();
 	const { drawables, focus } = envelope;
-	expect(drawables.map(({ id, color }) => [id, color])).toEqual([
-		['detached', '--blueprint-1'],
-		['block', '--blueprint-2'],
-		['center', '--blueprint-3']
-	]);
+	const bodies = drawables.filter(({ role }) => role === 'body');
+	expect(new Set(bodies.map(({ kind, color }) => `${kind} ${color}`))).toEqual(
+		new Set(['detached --blueprint-2', 'block --blueprint-3', 'center --blueprint'])
+	);
 	expect(focus?.max[2]).toBe(Math.max(...columns.map((column) => columnRoof(column, datumZ))));
 	const byId = new Map(columns.map((column) => [column.planCellId, column]));
-	for (const { id, shape, opacity, strokeSegments } of drawables) {
+	const storeysBelow = (column: (typeof columns)[number], floor: number) =>
+		Math.ceil((columnRoof(column, datumZ) - floor) / levelHeight - 1e-9);
+	for (const { kind, levels, drawn, shape, opacity, strokeSegments, warp } of bodies) {
 		expect(opacity).toBeUndefined();
 		expect(strokeSegments?.length).toBeGreaterThan(0);
 		if (shape.kind !== 'mesh') throw new Error('Expected an indexed envelope mesh');
+		expect(warp?.fill.length).toBe((2 * shape.positions.length) / 3);
 		const expectedTriangles = columns
-			.filter(({ kind }) => kind === id)
-			.reduce(
-				(count, column) =>
-					count +
-					column.corners.length -
-					2 +
-					2 *
-						column.neighbors.filter(
-							(id) =>
-								id === null ||
-								columnRoof(required(byId.get(id), 'envelope neighbor'), datumZ) <
-									columnRoof(column, datumZ)
-						).length,
-				0
-			);
+			.filter(
+				(column) =>
+					column.kind === kind && column.levels === levels && isDrawn(column.planCellId) === drawn
+			)
+			.reduce((count, column) => {
+				let walls = 0;
+				for (const [i, id] of column.neighbors.entries()) {
+					const top = columnRoof(column, datumZ);
+					const lower =
+						id === null ? undefined : columnRoof(required(byId.get(id), 'neighbor'), datumZ);
+					if (lower !== undefined && lower >= top) continue;
+					const floor =
+						lower ??
+						Math.max(
+							column.corners[i].position[2],
+							column.corners[(i + 1) % column.corners.length].position[2]
+						);
+					walls += storeysBelow(column, floor);
+				}
+				return count + column.corners.length - 2 + 2 * walls;
+			}, 0);
 		expect(shape.indices).toHaveLength(3 * expectedTriangles);
 	}
+	// About one stock column in six is drawn in pencil, by a keyed draw.
+	const drawnShare =
+		columns.filter(({ planCellId }) => isDrawn(planCellId)).length / columns.length;
+	expect(drawnShare).toBeGreaterThan(0.1);
+	expect(drawnShare).toBeLessThan(0.25);
 });
 
 test('projects one glyph per joint and one segment per unique member on common planes', () => {

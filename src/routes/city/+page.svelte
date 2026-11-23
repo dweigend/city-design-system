@@ -22,19 +22,14 @@
 	} from '../../lib/domain/city-volume';
 	import {
 		cityElevation,
+		cityFocus,
 		cityPresentation,
 		cityProfile,
 		projectCityDistricts,
 		projectCityTerrain,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
-	import {
-		focusChoices,
-		offerFocus,
-		readFocusChoice,
-		type FocusChoice,
-		type Subsystem
-	} from '../../lib/scene/focus';
+	import { focusChoices, type FocusChoice } from '../../lib/scene/focus';
 	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
@@ -95,11 +90,7 @@
 		town: 'Town',
 		city: 'City'
 	};
-	const {
-		height: heightParam,
-		complexity: complexityParam,
-		taper: taperParam
-	} = cityVolumeParams;
+	const { height: heightParam, complexity: complexityParam, taper: taperParam } = cityVolumeParams;
 
 	function valueFromQuery(key: string) {
 		const raw = page.url.searchParams.get(key);
@@ -169,17 +160,7 @@
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain, taperField));
-	const present = $derived<Subsystem[]>([
-		'terrain',
-		'water',
-		...(['detached', 'block', 'center'] as const).filter((kind) => districts.shares[kind] > 0),
-		...(step === '03' ? (['lattice'] as const) : [])
-	]);
-	const offered = $derived(offerFocus(present));
-	const focusItems = $derived(
-		offered.map((value) => ({ value, label: readFocusChoice(value).label }))
-	);
-	const activeFocus = $derived(offered.includes(focus) ? focus : 'all');
+	const focusState = $derived(cityFocus(districts.shares, step === '03', focus));
 	const relief = $derived(city.valley.parameters.relief);
 	const elevation = $derived(cityElevation(relief));
 	// Leave room for the Auto profile to raise the ground and roof steps together.
@@ -214,7 +195,7 @@
 					terrain: ground,
 					envelope: tiles,
 					members: wires,
-					focus: activeFocus,
+					focus: focusState.active,
 					peak: districts.peakHeight,
 					relief,
 					trueScale: profile === 'true',
@@ -300,10 +281,10 @@
 			{#if step !== '01'}
 				<Select
 					label="Focus"
-					items={focusItems}
+					items={focusState.items}
 					bind:value={
-						() => activeFocus,
-						(value) => (focus = offered.find((choice) => choice === value) ?? 'all')
+						() => focusState.active,
+						(value) => (focus = focusChoices.find((choice) => choice === value) ?? 'all')
 					}
 				/>
 			{/if}
@@ -314,7 +295,7 @@
 					<ToggleGroup label="Profile" showLabel items={profiles} bind:value={profile} />
 				</div>
 			</div>
-			{#if readFocusChoice(activeFocus).analysis === 'height'}
+			{#if focusState.analysis === 'height'}
 				<ScaleLegend
 					label="Column height in meters"
 					values={['0', String(cityHeightScaleM / 2), String(cityHeightScaleM)]}

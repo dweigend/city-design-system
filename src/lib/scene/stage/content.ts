@@ -40,7 +40,12 @@ function sameGeometry(a: Drawable, b: Drawable) {
 }
 
 /** Retained base positions and aligned offsets of one warped array. */
-type WarpTarget = { array: Float32Array; base: Float32Array; offsets: Float32Array; stride: number };
+type WarpTarget = {
+	array: Float32Array;
+	base: Float32Array;
+	offsets: Float32Array;
+	stride: number;
+};
 
 function warpTarget(array: Float32Array, offsets: readonly number[], stride = 3): WarpTarget {
 	return { array, base: array.slice(), offsets: Float32Array.from(offsets), stride };

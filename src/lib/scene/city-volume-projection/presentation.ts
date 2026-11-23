@@ -1,7 +1,7 @@
 import { levelHeight } from '../../domain/city-volume';
 import { readFocusChoice, readFocusLevel, type DisplayLevel, type FocusChoice } from '../focus';
 import type { Presentation } from '../stage';
-import { heightRamp, type Drawable } from '../surface';
+import { heightRamp, stockSurfaces, type Drawable } from '../surface';
 import type { CityDrawable } from './index';
 import { cityElevation, cityProfile } from './profile';
 
@@ -19,8 +19,7 @@ type Options = Readonly<{
 }>;
 
 type Look = Readonly<{
-	color?: `--${string}`;
-	stroke?: `--${string}`;
+	surface?: keyof typeof stockSurfaces;
 	fill: number;
 	outline: number;
 	width: number;
@@ -35,8 +34,7 @@ type Look = Readonly<{
 export const bodyLooks = {
 	full: { fill: 1, outline: 0.62, width: 0.9, storeys: 0.3, hidden: 0, hatch: 0, shade: 1 },
 	silhouette: {
-		color: '--stock-veil',
-		stroke: '--stock-line',
+		surface: 'veil',
 		fill: 1,
 		outline: 0.5,
 		width: 0.7,
@@ -46,8 +44,7 @@ export const bodyLooks = {
 		shade: 0.9
 	},
 	transparent: {
-		color: '--stock-veil',
-		stroke: '--stock-line',
+		surface: 'veil',
 		fill: 0.5,
 		outline: 0.42,
 		width: 0.6,
@@ -57,8 +54,7 @@ export const bodyLooks = {
 		shade: 0.62
 	},
 	pencil: {
-		color: '--stock-pencil',
-		stroke: '--stock-line',
+		surface: 'pencil',
 		fill: 0.74,
 		outline: 0.8,
 		width: 0.85,
@@ -127,15 +123,16 @@ export function cityPresentation({
 				const level = bodyLevel(focus, part);
 				if (level === 'hidden') return { ...part, visible: false };
 				const look: Look = bodyLooks[level];
+				// Stock out of focus is drawn as plain boxes, unless a visible lattice needs its envelope.
+				const boxes = level !== 'full' && !open;
 				if (part.role === 'contact' || part.role === 'cast')
 					return {
 						...part,
+						visible: part.boxShade === boxes,
 						vertical,
 						fillAlpha: look.shade * (part.role === 'contact' ? 1 : 0.7),
 						warp: part.warp && { ...part.warp, amount: detail.factor - 1 }
 					};
-				// Stock out of focus is drawn as plain boxes, unless a visible lattice needs its envelope.
-				const boxes = level !== 'full' && !open;
 				const block = part.role === 'block' || part.role === 'block-storeys';
 				if (block !== boxes) return { ...part, visible: false };
 				const ramp = level === 'full' && analysis === 'height';
@@ -146,21 +143,26 @@ export function cityPresentation({
 						: part.role === 'block-storeys'
 							? look.storeys
 							: look.outline;
+				// Neutral outlines thin out where member detail fades, so far stock stays a quiet mass.
+				const far = level === 'full' ? 1 : 0.45 + 0.55 * detail.rims;
+				const neutral = look.surface && stockSurfaces[look.surface];
+				const { line, ...rampSurface } = heightRamp(part.levels * levelHeight);
 				return {
 					...part,
-					...(look.color ? { color: look.color } : {}),
-					...(ramp ? heightRamp(part.levels * levelHeight) : {}),
-					fillAlpha: veiled && !ramp ? 0.035 + 0.965 * detail.envelope : open ? veilOverLattice : look.fill,
+					...(neutral ? { color: neutral.color } : {}),
+					...(ramp ? rampSurface : {}),
+					fillAlpha:
+						veiled && !ramp ? 0.035 + 0.965 * detail.envelope : open ? veilOverLattice : look.fill,
 					occlude: true,
 					hatch: look.hatch,
 					vertical,
 					warp: part.warp && { ...part.warp, amount },
 					stroke: part.stroke && {
 						...part.stroke,
-						color: ramp ? '--height-line' : (look.stroke ?? part.stroke.color),
+						color: ramp ? line : (neutral?.stroke ?? part.stroke.color),
 						opacity: open
 							? Math.max(outline, part.role === 'body' ? silhouetteOverLattice.opacity : 0)
-							: outline,
+							: outline * far,
 						width:
 							open && part.role === 'body'
 								? Math.max(look.width, silhouetteOverLattice.width)

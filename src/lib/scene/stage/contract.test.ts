@@ -9,7 +9,7 @@ import {
 	type View,
 	type ViewFit
 } from './index';
-import { fitCamera, readView } from './camera';
+import { anchoredPan, cameraFrame, fitCamera, groundAt, readView } from './camera';
 import { hasSameGeometry } from './content';
 import { edgeGeometry } from './edges';
 import { shapeArrays } from './geometry';
@@ -226,4 +226,49 @@ test('keeps the world point under the wheel and releases its listener on deletio
 	target.dispatchEvent(wheel());
 	expect(fit).toEqual({});
 	expect(projectFocus('iso', {}, [])).toBeUndefined();
+});
+
+test('keeps the ground point under the cursor when a zoom also lowers the camera', () => {
+	// A 1,000 × 800 canvas zooms from a 2,400 m to a 1,200 m span; the camera pitch follows the span.
+	const bounds = { min: [-1500, -1000, 0], max: [1500, 1000, 40] } as const;
+	const base: ViewFit = {
+		width: 2400,
+		bearing: -0.42,
+		elevationAtWidth: (width) =>
+			((18 + 44 * Math.min(1, Math.max(0, (width - 500) / 1800))) * Math.PI) / 180
+	};
+	const frameOf = (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) =>
+		cameraFrame(fitCamera('iso', bounds, 1000 / 800, true, { ...base, ...value }), 1000);
+	const target = Object.assign(new EventTarget(), {
+		getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 800 })
+	});
+	let fit: ViewFit = {};
+	stageNavigation(
+		target as unknown as HTMLCanvasElement,
+		() => 2.4,
+		(next) => (fit = next),
+		frameOf
+	);
+	const anchor = groundAt(frameOf({ zoom: 1, offset: [0, 0] }), [0, 100]);
+	target.dispatchEvent(
+		Object.assign(new Event('wheel', { cancelable: true }), {
+			clientX: 500,
+			clientY: 500,
+			deltaMode: 0,
+			deltaY: -Math.log(2) / 0.0017
+		})
+	);
+	const after = frameOf({
+		zoom: fit.zoom ?? 1,
+		offset: [fit.offset?.[0] ?? 0, fit.offset?.[1] ?? 0]
+	});
+	expect(fit.zoom).toBeCloseTo(2);
+	// The anchor projects back to the cursor pixel: no residual pan is needed.
+	const [dx, dy] = anchoredPan(after, anchor, [0, 100]);
+	expect(Math.abs(dx / after.metersPerPixel)).toBeLessThan(0.01);
+	expect(Math.abs(dy / after.metersPerPixel)).toBeLessThan(0.01);
+	// The earlier image-plane rule, offset −(100 px × 2.4 m) + 100 px × 1.2 m, drifts by many pixels.
+	const naive = frameOf({ zoom: 2, offset: [0, -100 * 2.4 + 100 * 1.2] });
+	const [, drift] = anchoredPan(naive, anchor, [0, 100]);
+	expect(Math.abs(drift / naive.metersPerPixel)).toBeGreaterThan(5);
 });

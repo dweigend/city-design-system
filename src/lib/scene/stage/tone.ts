@@ -12,6 +12,7 @@ export function drawingPalette() {
 
 export const sun = [-0.6, -0.8] as const;
 export const shadowReach = 0.6;
+export const shadowDirection = Object.freeze([-sun[0], -sun[1]] as const);
 export const levels = { top: 0.028, lit: -0.055, shadow: -0.145 };
 export const grain = { top: 0.014, lit: 0.008, shadow: 0.026 };
 

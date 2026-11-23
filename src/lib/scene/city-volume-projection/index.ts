@@ -2,6 +2,7 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { bounds, PlaceableObject, type Footprint } from '../../core/object';
 import {
+	columnRoof,
 	createCityTaper,
 	type CityColumn,
 	type CityLattice,
@@ -19,10 +20,13 @@ type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) =>
 export { cityElevation, cityProfile } from './profile';
 /** Projects the terrain and the city plan in one frame. */
 export { projectCityTerrain } from './terrain';
+/** Resolves the focus choices a city picture offers and the one in effect. */
+export { cityFocus } from './focus';
 /** Styles terrain, envelope and lattice by focus as the camera moves. */
 export { cityPresentation } from './presentation';
 
-const slots = ['detached', 'block', 'center', 'shadow'] as const;
+const kinds = ['detached', 'block', 'center'] as const;
+const slots = [...kinds, 'shadow'] as const;
 
 /** A drawable of the city volume with what the focus needs to style it: the district kind and
  * height of a body, its seeded pencil draw, and whether it is the body, its storey lines or one
@@ -33,6 +37,8 @@ export type CityDrawable = Drawable &
 		levels: number;
 		drawn: boolean;
 		role: 'body' | 'storeys' | 'block' | 'block-storeys' | 'contact' | 'cast';
+		/** Ground shade falls from the boxes, or from the envelope when it is false. */
+		boxShade?: boolean;
 	}>;
 
 /** Projects the city's outer roof and exposed walls, grouped by district kind, height and the
@@ -49,16 +55,25 @@ export function projectCityDistricts(
 ) {
 	const patches = envelopeMeshes(columns, datumZ, frame.toLocal, taper, seed);
 	const blocks = blockMeshes(columns, datumZ, frame.toLocal, seed);
+	const cells = columns.map((column) => ({
+		kind: column.kind,
+		ring: column.corners.map(({ position: [x, y, z] }): Vec3 => [...frame.toLocal(x, y), z]),
+		top: columnRoof(column, datumZ)
+	}));
 	const shades = (['contact', 'cast'] as const).flatMap((role) =>
-		slots.flatMap((kind) => {
-			if (kind === 'shadow') return [];
-			const footprints = [...blocks.values()]
-				.filter((part) => part.kind === kind)
-				.flatMap(({ footprints }) => footprints);
-			if (!footprints.length) return [];
-			const { shape, warp } = shadowMesh(footprints, shadowBands[role]);
-			return [{ id: `${kind}/${role}`, kind, role, shape, warp }];
-		})
+		[true, false].flatMap((boxShade) =>
+			kinds.flatMap((kind) => {
+				const footprints = boxShade
+					? [...blocks.values()]
+							.filter((part) => part.kind === kind)
+							.flatMap(({ footprints }) => footprints)
+					: cells.filter((cell) => cell.kind === kind);
+				if (!footprints.length) return [];
+				const { shape, warp } = shadowMesh(footprints, shadowBands[role]);
+				const id = `${kind}/${boxShade ? 'block' : 'envelope'}/${role}`;
+				return [{ id, kind, role, boxShade, shape, warp }];
+			})
+		)
 	);
 	const object = PlaceableObject.create({
 		id: 'districts',
@@ -90,6 +105,7 @@ export function projectCityDistricts(
 					levels: 0,
 					drawn: false,
 					role: shade.role,
+					boxShade: shade.boxShade,
 					warp: { fill: shade.warp, amount: 0 }
 				}
 			];

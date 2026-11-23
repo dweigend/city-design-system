@@ -1,6 +1,11 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { Random } from '../../core/random';
-import { columnRoof, levelHeight, type CityColumn, type DistrictKind } from '../../domain/city-volume';
+import {
+	columnRoof,
+	levelHeight,
+	type CityColumn,
+	type DistrictKind
+} from '../../domain/city-volume';
 import { stockPencilShare } from '../focus';
 import { mesh } from './mesh';
 
@@ -30,7 +35,10 @@ export function drawnInPencil(seed: number) {
 
 /** The cell ring scaled about its centroid so its nearest edge moves in by `blockInset`. */
 function insetRing(ring: readonly Vec2[]): Vec2[] {
-	const [cx, cy] = ring.reduce(([x, y], [u, v]) => [x + u / ring.length, y + v / ring.length], [0, 0]);
+	const [cx, cy] = ring.reduce(
+		([x, y], [u, v]) => [x + u / ring.length, y + v / ring.length],
+		[0, 0]
+	);
 	let apothem = Infinity;
 	for (const [i, [ax, ay]] of ring.entries()) {
 		const [bx, by] = ring[(i + 1) % ring.length];
@@ -63,14 +71,24 @@ export function blockMeshes(
 		const id = `${column.kind}${pencil ? '/drawn' : ''}/block`;
 		let part = parts.get(id);
 		if (!part) {
-			part = { kind: column.kind, drawn: pencil, shape: mesh(), outline: [], storeys: [], footprints: [] };
+			part = {
+				kind: column.kind,
+				drawn: pencil,
+				shape: mesh(),
+				outline: [],
+				storeys: [],
+				footprints: []
+			};
 			parts.set(id, part);
 		}
 		const top = columnRoof(column, datumZ);
 		const bottom = Math.min(...column.corners.map(({ position }) => position[2])) - footing;
 		const ring = insetRing(column.corners.map(({ position: [x, y] }) => toLocal(x, y)));
 		part.footprints.push({ ring: ring.map(([x, y]): Vec3 => [x, y, bottom + footing]), top });
-		quad(part.shape, ring.map(([x, y]): Vec3 => [x, y, top]));
+		quad(
+			part.shape,
+			ring.map(([x, y]): Vec3 => [x, y, top])
+		);
 		for (const [i, [ax, ay]] of ring.entries()) {
 			const [bx, by] = ring[(i + 1) % ring.length];
 			quad(part.shape, [
@@ -80,7 +98,11 @@ export function blockMeshes(
 				[ax, ay, top]
 			]);
 			part.outline.push(ax, ay, top, bx, by, top, ax, ay, bottom, ax, ay, top);
-			for (let z = datumZ + levelHeight * Math.ceil((bottom - datumZ) / levelHeight + 0.5); z < top - 1e-6; z += levelHeight)
+			for (
+				let z = datumZ + levelHeight * Math.ceil((bottom - datumZ) / levelHeight + 0.5);
+				z < top - 1e-6;
+				z += levelHeight
+			)
 				part.storeys.push(ax, ay, z, bx, by, z);
 		}
 	}

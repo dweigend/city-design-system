@@ -40,7 +40,10 @@ function localPoint(toLocal: Local, taper: CityTaper) {
 	};
 }
 
-function addPolygon(part: EnvelopePart, points: readonly ReturnType<ReturnType<typeof localPoint>>[]) {
+function addPolygon(
+	part: EnvelopePart,
+	points: readonly ReturnType<ReturnType<typeof localPoint>>[]
+) {
 	const { shape, taper } = part;
 	const base = shape.positions.length / 3;
 	for (const { point, offset } of points) {

@@ -13,10 +13,14 @@ import { projectTerrainField } from './field';
 import { graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
-const finishes = { matte: 1, gloss: 1, glass: 0.7, line: 0, terrain: 1, shadow: 1 } satisfies Record<
-	Finish,
-	number
->;
+const finishes = {
+	matte: 1,
+	gloss: 1,
+	glass: 0.7,
+	line: 0,
+	terrain: 1,
+	shadow: 1
+} satisfies Record<Finish, number>;
 
 const displays = {
 	normal: (finish: Finish) => ({ opacity: finishes[finish], paper: false }),
@@ -55,11 +59,11 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
 		mix(pressure, grain.top, palette.hull)
 	);
-	// Sparse 45° pencil strokes, 7 CSS pixels apart, on the faces turned from the sun.
+	// Sparse 45° pencil strokes, 5 CSS pixels apart, on the faces turned from the sun.
 	const pixel = screenCoordinate.div(screenDPR);
-	const across = pixel.x.add(pixel.y).div(7).fract().sub(0.5).abs().mul(7);
-	const hatching = across.smoothstep(0.35, 0.95).oneMinus().mul(shadow.select(hatch, 0));
-	const drawn = mix(fill, palette.ink, hatching.mul(0.42));
+	const across = pixel.x.add(pixel.y).div(5).fract().sub(0.5).abs().mul(5);
+	const hatching = across.smoothstep(0.3, 0.9).oneMinus().mul(shadow.select(hatch, 0));
+	const drawn = mix(fill, palette.ink, hatching.mul(0.55));
 	const atlas = field ? projectTerrainField(field) : undefined;
 	material.colorNode = mix(
 		mix(drawn, materialColor, flat),

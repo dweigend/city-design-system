@@ -1,11 +1,14 @@
-import type { ViewFit } from './camera';
+import { anchoredPan, groundAt, type CameraFrame, type ViewFit } from './camera';
 
 type Point = Readonly<{ x: number; y: number }>;
 
+/** Pointer and keyboard navigation. With `readFrame`, a zoom keeps the ground point under the
+ * cursor exactly, even when the camera tilts with the frame width. */
 export function stageNavigation(
 	canvas: HTMLCanvasElement,
 	readScale: () => number,
-	fit: (value: ViewFit) => void
+	fit: (value: ViewFit) => void,
+	readFrame?: (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) => CameraFrame
 ) {
 	const pointers = new Map<number, Point>();
 	let zoom = 1;
@@ -22,6 +25,15 @@ export function stageNavigation(
 		const rect = canvas.getBoundingClientRect();
 		const x = rect.left + rect.width / 2;
 		const y = rect.top + rect.height / 2;
+		if (readFrame) {
+			const anchor = groundAt(readFrame({ zoom, offset }), [from.x - x, from.y - y]);
+			const [dx, dy] = anchoredPan(readFrame({ zoom: next, offset }), anchor, [to.x - x, to.y - y]);
+			offset = [offset[0] + dx, offset[1] + dy];
+			metersPerPixel = scale;
+			zoom = next;
+			fit({ offset, zoom });
+			return;
+		}
 		offset = [
 			offset[0] + (from.x - x) * metersPerPixel - (to.x - x) * scale,
 			offset[1] - (from.y - y) * metersPerPixel + (to.y - y) * scale

@@ -174,3 +174,48 @@ export function fitCamera(
 		far: 2 * depth + 2 * depthMarginM
 	};
 }
+
+/** A fitted camera as navigation reads it: image axes, view direction and scale. */
+export type CameraFrame = Readonly<{
+	center: Vec3;
+	right: Vec3;
+	imageUp: Vec3;
+	direction: Vec3;
+	metersPerPixel: number;
+}>;
+
+/** Reads the image axes of a fitted camera for a canvas of `widthPx` CSS pixels. */
+export function cameraFrame(camera: ReturnType<typeof fitCamera>, widthPx: number): CameraFrame {
+	const direction = unitVector(displacement(camera.center, camera.eye));
+	const right = unitVector(crossProduct(camera.up, direction));
+	return {
+		center: camera.center,
+		right,
+		imageUp: crossProduct(direction, right),
+		direction,
+		metersPerPixel: (2 * camera.halfWidth) / widthPx
+	};
+}
+
+/** The world point seen at a pixel offset from the image centre, on the horizontal plane through
+ * the frame's centre. */
+export function groundAt(frame: CameraFrame, [x, y]: Vec2): Vec3 {
+	const { center, right, imageUp, direction, metersPerPixel } = frame;
+	const onImage = sum(
+		center,
+		sum(scaled(right, x * metersPerPixel), scaled(imageUp, -y * metersPerPixel))
+	);
+	if (Math.abs(direction[2]) < 1e-9) return onImage;
+	return sum(onImage, scaled(direction, (center[2] - onImage[2]) / direction[2]));
+}
+
+/** The pan change in image meters that puts a world anchor at a pixel offset from the image
+ * centre of the next frame. Both frames share the pan of the current offset; the result adds to it,
+ * so a zoom that also tilts the camera keeps the anchor under the cursor. */
+export function anchoredPan(next: CameraFrame, anchor: Vec3, [x, y]: Vec2): Vec2 {
+	const relative = displacement(next.center, anchor);
+	return [
+		dotProduct(relative, next.right) - x * next.metersPerPixel,
+		dotProduct(relative, next.imageUp) + y * next.metersPerPixel
+	];
+}

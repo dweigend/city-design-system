@@ -1,10 +1,4 @@
-import {
-	CustomBlending,
-	MinEquation,
-	NormalBlending,
-	OneFactor,
-	type Scene
-} from 'three/webgpu';
+import { CustomBlending, MinEquation, NormalBlending, OneFactor, type Scene } from 'three/webgpu';
 import { warpPart, type createContent } from './content';
 import type { strokeMaterials } from './edges';
 import { readColors, readDisplay, type Display } from './material';
@@ -86,8 +80,7 @@ export function createStyle(
 				depthTest: !shade,
 				depthWrite: !transparent && !shade
 			});
-			if (shade)
-				material.color.copy(paper).lerp(color(drawable.color), drawable.fillAlpha ?? 1);
+			if (shade) material.color.copy(paper).lerp(color(drawable.color), drawable.fillAlpha ?? 1);
 			else if (usePaper) material.color.copy(paper).lerp(color('--ink'), dark ? 0.09 : 0.19);
 			else {
 				material.color.copy(color(drawable.color));
@@ -107,8 +100,7 @@ export function createStyle(
 					const hidden = index === 1;
 					line.material.color.copy(usePaper ? ink : color(stroke?.color ?? drawable.color));
 					line.material.linewidth = (stroke?.width ?? 1) * (hidden ? 0.75 : 1);
-					line.material.opacity =
-						(stroke?.opacity ?? 1) * (hidden ? (stroke?.hidden ?? 0) : 1);
+					line.material.opacity = (stroke?.opacity ?? 1) * (hidden ? (stroke?.hidden ?? 0) : 1);
 					recede[index].value = stroke?.recede ?? 0;
 				}
 				line.scale.z = scale;

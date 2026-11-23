@@ -90,13 +90,13 @@ const districtEnvelope = {
 	stroke: { color: '--blueprint', width: 0.9, opacity: 0.52 }
 } as const;
 
-/** Three lightness steps of blueprint, pale to deep, for detached houses, blocks and the
+/** Three lightness steps of blueprint, light to saturated, for detached houses, blocks and the
  * high-rise center. The shaded, opaque fill keeps the kinds apart in plan and in height. Their
  * ground shade darkens the paper without stacking. */
 export const districtSurfaces = Object.freeze({
-	detached: { ...districtEnvelope, color: '--blueprint-1' },
-	block: { ...districtEnvelope, color: '--blueprint-2' },
-	center: { ...districtEnvelope, color: '--blueprint-3' },
+	detached: { ...districtEnvelope, color: '--blueprint-2' },
+	block: { ...districtEnvelope, color: '--blueprint-3' },
+	center: { ...districtEnvelope, color: '--blueprint' },
 	shadow: { color: '--ground-shadow', finish: 'shadow', flat: true }
 } as const satisfies SurfaceAssignment);
 
@@ -109,6 +109,13 @@ export const planningStudy = Object.freeze({
 		stroke: { color: '--ink-2', width: 0.68, opacity: 0.53 }
 	}
 } as const satisfies SurfaceAssignment);
+
+/** Neutral drawings of stock out of focus: a pale see-through veil and pencil paper, both with
+ * graphite lines. Widths and opacities are set per display level by the projection. */
+export const stockSurfaces = Object.freeze({
+	veil: { color: '--stock-veil', finish: 'matte', stroke: '--stock-line' },
+	pencil: { color: '--stock-pencil', finish: 'matte', stroke: '--stock-line' }
+} as const);
 
 /** Upper tick of the fixed column height scale in true meters. */
 export const cityHeightScaleM = 140;
@@ -125,7 +132,8 @@ export function heightRamp(height: number) {
 			amount: low ? share / breakPoint : (share - breakPoint) / (1 - breakPoint)
 		},
 		opacity: '--alpha-opaque',
-		preserveColor: true
+		preserveColor: true,
+		line: '--height-line'
 	} as const;
 }
 

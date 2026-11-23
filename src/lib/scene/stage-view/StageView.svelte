@@ -39,14 +39,17 @@
 	let unavailable = $state(false);
 	let navigation = $state.raw<ReturnType<typeof stageNavigation>>();
 	let interaction = $state.raw<ViewFit>({});
-	const cameraFit = $derived({
-		...fit,
-		zoom: (fit?.zoom ?? 1) * (interaction.zoom ?? 1),
-		offset: [
-			(fit?.offset?.[0] ?? 0) + (interaction.offset?.[0] ?? 0),
-			(fit?.offset?.[1] ?? 0) + (interaction.offset?.[1] ?? 0)
-		] as const
-	});
+	function combine(value: ViewFit) {
+		return {
+			...fit,
+			zoom: (fit?.zoom ?? 1) * (value.zoom ?? 1),
+			offset: [
+				(fit?.offset?.[0] ?? 0) + (value.offset?.[0] ?? 0),
+				(fit?.offset?.[1] ?? 0) + (value.offset?.[1] ?? 0)
+			] as const
+		};
+	}
+	const cameraFit = $derived(combine(interaction));
 
 	onMount(() => {
 		if (!canvas) return;
@@ -84,7 +87,12 @@
 		const next = stageNavigation(
 			canvas,
 			() => stage?.readViewport().metersPerPixel ?? 1,
-			(value) => (interaction = value)
+			(value) => (interaction = value),
+			(value) => {
+				const frame = stage?.readFrame(combine(value));
+				if (!frame) throw new Error('The stage closed during navigation');
+				return frame;
+			}
 		);
 		navigation = next;
 		return () => next.delete();

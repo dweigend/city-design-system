@@ -31,11 +31,7 @@ test('offers only choices with a present subject and drops drawings it already o
 		latticeInBlocks: 'hidden'
 	});
 	// Without a lattice, Districts draws exactly like All.
-	expect(offerFocus(['terrain', 'water', 'detached'])).toEqual([
-		'all',
-		'height',
-		'landscape'
-	]);
+	expect(offerFocus(['terrain', 'water', 'detached'])).toEqual(['all', 'height', 'landscape']);
 	expect(readFocusChoice('height')).toEqual({ label: 'Height', analysis: 'height' });
 	expect(() => readFocusLevel('nope' as never, 'terrain')).toThrow(RangeError);
 });

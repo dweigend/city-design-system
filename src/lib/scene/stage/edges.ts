@@ -1,5 +1,7 @@
+import type { Bounds3 } from '../../core/geometry';
 import {
 	GreaterDepth,
+	type OrthographicCamera,
 	InstancedBufferAttribute,
 	Line2NodeMaterial,
 	NormalBlending,
@@ -157,10 +159,7 @@ export function strokeMaterials(landscape = false) {
 
 /** One explicit stroke layer: the visible pass, or the hidden pass drawn only where a nearer
  * surface covers the stroke. `recede` lightens strokes with their view depth. */
-export function explicitStroke(
-	depth: ReturnType<typeof strokeMaterials>['depth'],
-	hidden = false
-) {
+export function explicitStroke(depth: ReturnType<typeof strokeMaterials>['depth'], hidden = false) {
 	const material = new Line2NodeMaterial({
 		transparent: true,
 		blending: NormalBlending,
@@ -177,6 +176,36 @@ export function explicitStroke(
 		.clamp(0, 1);
 	// Keep line coverage but blend the ink into all preceding layers, including other translucent fills.
 	material.outputNode = vec4(materialColor, diffuseColor.a.mul(distance.mul(recede).oneMinus()));
-	material.depthNode = viewZToOrthographicDepth(positionView.z.add(depth.pull), cameraNear, cameraFar);
+	material.depthNode = viewZToOrthographicDepth(
+		positionView.z.add(depth.pull),
+		cameraNear,
+		cameraFar
+	);
 	return { material, recede };
+}
+
+/** Strokes on a face are lifted about two and a half CSS pixels toward the eye. */
+const strokePullPx = 2.5;
+
+/** Sets the stroke lift and the view-depth range of the visible bounds for one frame. */
+export function setStrokeDepth(
+	strokes: ReturnType<typeof strokeMaterials>,
+	camera: OrthographicCamera,
+	{ min, max }: Bounds3,
+	metersPerPixel: number
+) {
+	const [ex, ey, ez] = strokes.eye.value.toArray();
+	const { x, y, z } = camera.position;
+	let near = Infinity;
+	let far = -Infinity;
+	for (const cx of [min[0], max[0]])
+		for (const cy of [min[1], max[1]])
+			for (const cz of [min[2], max[2]]) {
+				const depth = -((cx - x) * ex + (cy - y) * ey + (cz - z) * ez);
+				near = Math.min(near, depth);
+				far = Math.max(far, depth);
+			}
+	strokes.depth.near.value = near;
+	strokes.depth.far.value = far;
+	strokes.depth.pull.value = strokePullPx * metersPerPixel;
 }
