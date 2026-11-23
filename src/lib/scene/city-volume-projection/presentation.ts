@@ -2,7 +2,7 @@ import { levelHeight } from '../../domain/city-volume';
 import { readFocusChoice, readFocusLevel, type DisplayLevel, type FocusChoice } from '../focus';
 import type { Presentation } from '../stage';
 import { heightRamp, stockSurfaces, type Drawable } from '../surface';
-import type { CityDrawable } from './index';
+import type { CityDrawable } from './drawable';
 import { cityElevation, cityProfile } from './profile';
 
 type Options = Readonly<{

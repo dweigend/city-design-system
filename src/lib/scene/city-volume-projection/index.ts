@@ -6,13 +6,13 @@ import {
 	createCityTaper,
 	type CityColumn,
 	type CityLattice,
-	type CityTaper,
-	type DistrictKind
+	type CityTaper
 } from '../../domain/city-volume';
 import { districtSurfaces, planningStudy, resolveSurfaces, type Drawable } from '../surface';
 import { envelopeMeshes } from './envelope';
 import { latticeMesh } from './lattice';
 import { blockMeshes } from './blocks';
+import type { CityDrawable } from './drawable';
 import { shadowBands, shadowMesh } from './shadow';
 
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
@@ -28,18 +28,8 @@ export { cityPresentation } from './presentation';
 const kinds = ['detached', 'block', 'center'] as const;
 const slots = [...kinds, 'shadow'] as const;
 
-/** A drawable of the city volume with what the focus needs to style it: the district kind and
- * height of a body, its seeded pencil draw, and whether it is the body, its storey lines or one
- * of its two ground shades. */
-export type CityDrawable = Drawable &
-	Readonly<{
-		kind: DistrictKind;
-		levels: number;
-		drawn: boolean;
-		role: 'body' | 'storeys' | 'block' | 'block-storeys' | 'contact' | 'cast';
-		/** Ground shade falls from the boxes, or from the envelope when it is false. */
-		boxShade?: boolean;
-	}>;
+/** A drawable of the city volume with its focus metadata. */
+export type { CityDrawable } from './drawable';
 
 /** Projects the city's outer roof and exposed walls, grouped by district kind, height and the
  * seeded pencil draw of stock, with their storey lines. Every envelope vertex carries its taper
