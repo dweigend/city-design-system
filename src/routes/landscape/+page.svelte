@@ -5,7 +5,7 @@
 
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Valley, valleyParams } from '../../lib/domain/valley';
+	import { surveyValley, Valley, valleyLakeModes, valleyParams } from '../../lib/domain/valley';
 	import { measureRiver } from '../../lib/domain/river-metrics';
 	import { projectValley } from '../../lib/scene/valley-projection';
 	import { StageView } from '../../lib/scene/stage-view';
@@ -17,15 +17,32 @@
 	import { chapterAt } from '../chapters';
 
 	const chapter = chapterAt('/landscape');
-	const seeds = [1201, 1301, 1409];
+	const seeds = [1201, 1301, 1409, 7, 42, 314, 2718, 9001, 65535, 424242, 31337, 8086];
 	const { label, min, max, step, default: defaultSinuosity } = valleyParams.sinuosity;
+	const reliefParam = valleyParams.relief;
+	const lakeItems = [
+		{ value: 'never', label: 'No lake' },
+		{ value: 'seeded', label: 'Seeded' },
+		{ value: 'always', label: 'Lake' }
+	];
 	const fit = { bearing: (28 * Math.PI) / 180, elevation: (39 * Math.PI) / 180, fill: 0.96 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
-	let seedIndex = $state(0);
+	const querySeed = Number(page.url.searchParams.get('seed'));
+	let seedIndex = $state(Math.max(0, seeds.indexOf(querySeed)));
 	const seed = $derived(seeds[seedIndex]);
+	function clampedQuery(name: string, fallback: number, low: number, high: number) {
+		const value = Number(page.url.searchParams.get(name) ?? fallback);
+		return Number.isFinite(value) ? Math.min(high, Math.max(low, value)) : fallback;
+	}
+	let relief = $derived(
+		clampedQuery('relief', reliefParam.default, reliefParam.min, reliefParam.max)
+	);
+	let lake = $derived<string>(
+		valleyLakeModes[clampedQuery('lake', valleyParams.lake.default, 0, 2)] ?? 'seeded'
+	);
 	const querySinuosity = $derived(
 		Number(page.url.searchParams.get('sinuosity') ?? defaultSinuosity)
 	);
@@ -36,9 +53,10 @@
 	);
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
 
-	function prepareValley(seed: number, sinuosity: number) {
+	function prepareValley(seed: number, sinuosity: number, relief: number, lakeMode: string) {
 		const start = performance.now();
-		const valley = Valley.create({ seed, parameters: { sinuosity } });
+		const lake = Math.max(0, valleyLakeModes.indexOf(lakeMode as (typeof valleyLakeModes)[number]));
+		const valley = Valley.create({ seed, parameters: { sinuosity, relief, lake } });
 		const generated = performance.now();
 		const projection = projectValley(valley);
 		const projected = performance.now();
@@ -46,12 +64,13 @@
 		return {
 			...projection,
 			metrics: measureRiver({ ...course, xy: projection.reach }, course.xy),
+			survey: surveyValley(valley),
 			generationMs: generated - start,
 			projectionMs: projected - generated
 		};
 	}
 
-	const model = $derived(prepareValley(seed, sinuosity));
+	const model = $derived(prepareValley(seed, sinuosity, relief, lake));
 
 	function nextValley() {
 		seedIndex = (seedIndex + 1) % seeds.length;
@@ -79,7 +98,7 @@
 		drawables={model.drawables}
 		{view}
 		display="normal"
-		label="Relief map of the river valley with its floodplain, terraces and slopes"
+		label="Relief map of the river valley with its floodplain, terraces, slopes and any mountains or lake"
 		landscape
 		{fit}
 	/>
@@ -89,6 +108,10 @@
 				The river cuts its course through the valley, leaving a floodplain below and terraces along
 				the slopes.
 			</p>
+			<p>
+				Relief raises ridges and summits beside the valley floor, cut by side valleys that drain to
+				the river. Sometimes the river widens into a lake with one level surface.
+			</p>
 			<p>The first settlement, its paths and the city that follows all stand on that ground.</p>
 			<p>
 				The same typeface names the river, marks elevations on the map and labels the controls in
@@ -96,8 +119,16 @@
 			</p>
 		</div>
 		<Slider {label} {min} {max} {step} bind:value={sinuosity} />
+		<Slider
+			label={reliefParam.label}
+			min={reliefParam.min}
+			max={reliefParam.max}
+			step={reliefParam.step}
+			bind:value={relief}
+		/>
+		<ToggleGroup label="Lake" items={lakeItems} bind:value={lake} />
 		<div class="cluster valley-controls">
-			<Button label="New valley" onclick={nextValley} />
+			<Button label="New terrain" onclick={nextValley} />
 			<span class="data">Seed {seed}</span>
 			<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
 		</div>
@@ -106,7 +137,7 @@
 				{(model.object.footprint.width / 1000).toFixed(1)} × {(
 					model.object.footprint.depth / 1000
 				).toFixed(1)}&nbsp;km
-				<span class="data"> · Heights ×{model.heightScale}</span>
+				<span class="data"> · Heights ×{model.heightScale} · Survey 4 × 4 km</span>
 			</p>
 			<dl class="data">
 				<div>
@@ -120,6 +151,18 @@
 				<div>
 					<dt>Valley length</dt>
 					<dd>{(model.metrics.valleyLength / 1000).toFixed(3)}&nbsp;km</dd>
+				</div>
+				<div>
+					<dt>Relief range</dt>
+					<dd>{Math.round(model.survey.reliefM)}&nbsp;m</dd>
+				</div>
+				<div>
+					<dt>Water share</dt>
+					<dd>{(model.survey.waterShare * 100).toFixed(1)}&nbsp;%</dd>
+				</div>
+				<div>
+					<dt>Lake area</dt>
+					<dd>{(model.survey.lakeArea / 1e6).toFixed(2)}&nbsp;km²</dd>
 				</div>
 			</dl>
 		</div>

@@ -5,8 +5,13 @@ import { defineParams } from '../../core/params';
  * the terrain window is shorter and its measured ratio also depends on the seed.
  */
 export const valleyParams = defineParams({
-	sinuosity: { label: 'Meander', unit: 'ratio', default: 1.15, min: 1.04, max: 1.28, step: 0.01 }
+	sinuosity: { label: 'Meander', unit: 'ratio', default: 1.15, min: 1.04, max: 1.28, step: 0.01 },
+	relief: { label: 'Relief', unit: 'ratio', default: 0, min: 0, max: 1, step: 0.05 },
+	lake: { label: 'Lake', unit: 'mode', default: 1, min: 0, max: 2, step: 1 }
 });
+
+/** Lake modes by the index of the `lake` parameter: never, drawn by the seed, always. */
+export const valleyLakeModes = Object.freeze(['never', 'seeded', 'always'] as const);
 
 export type Band = readonly [min: number, max: number];
 
