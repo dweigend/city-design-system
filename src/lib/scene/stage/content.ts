@@ -7,7 +7,6 @@ import { shapeArrays } from './geometry';
 import { boundaryGeometry, edgeGeometry, explicitStroke, type strokeMaterials } from './edges';
 import { projectGround } from './ground';
 import { fillMaterial } from './material';
-import { stretchStroke } from './stretch';
 import type { drawingPalette } from './tone';
 
 export function hasSameGeometry(
@@ -63,32 +62,31 @@ function project(
 	// Draw explicit strokes after translucent faces.
 	const layerOrder = drawable.strokeSegments ? 4 : 0;
 	const lines = strokesToDraw.map(({ geometry, material }, index) =>
-		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index, !!layerOrder)
+		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index)
 	);
 	const fill = landscape ? indexed : indexed.toNonIndexed();
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, stretch, pivot, atlas } = fillMaterial(
+	const { material, terrain, flat, heightScale, atlas } = fillMaterial(
 		palette,
 		drawable.terrainField
 	);
 	const mesh = new Mesh(fill, material);
 	mesh.renderOrder = layerOrder;
-	return { drawable, mesh, lines, grid, terrain, flat, heightScale, stretch, pivot, atlas };
+	return { drawable, mesh, lines, grid, terrain, flat, heightScale, atlas };
 }
 
 function projectStroke(
 	geometry: LineSegmentsGeometry,
 	material: ReturnType<typeof strokeMaterials>['grid'],
-	order: number,
-	explicit: boolean
+	order: number
 ) {
 	const line = new LineSegments2(geometry, material);
 
 	line.renderOrder = order;
 	line.visible = geometry.instanceCount > 0;
-	return Object.assign(line, { stretch: explicit ? stretchStroke(material) : undefined });
+	return line;
 }
 
 type Part = ReturnType<typeof project>;
@@ -160,8 +158,8 @@ export function createContent(
 				if (drawable.visible === false || !bounds || bounds.isEmpty()) continue;
 				const { scale, pivot } = drawable.vertical ?? { scale: 1, pivot: 0 };
 				const next = bounds.clone();
-				next.min.z += Math.max(0, next.min.z - pivot) * (scale - 1);
-				next.max.z += Math.max(0, next.max.z - pivot) * (scale - 1);
+				next.min.z += (next.min.z - pivot) * (scale - 1);
+				next.max.z += (next.max.z - pivot) * (scale - 1);
 				visible.union(next);
 			}
 			return toBounds(visible);

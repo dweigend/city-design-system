@@ -80,7 +80,7 @@ function convexHalf(points: readonly Point[]) {
 function shapeMeasures(
 	grid: TerrainGrid,
 	areas: readonly number[],
-	bank: (point: Point) => number
+	side: (point: Point) => number
 ) {
 	const shape = polygon(grid);
 	const points = grid.vertices
@@ -94,19 +94,19 @@ function shapeMeasures(
 			([x, y], [a, b]) => [x + a / vertexIds.length, y + b / vertexIds.length],
 			[0, 0]
 		);
-		if (bank(center) < 0) negative += areas[i];
+		if (side(center) < 0) negative += areas[i];
 	}
-	const bankNegativeShare = negative / total;
+	const negativeSideShare = negative / total;
 	return {
-		bankNegativeShare,
-		bankPositiveShare: 1 - bankNegativeShare,
-		minorBankShare: Math.min(bankNegativeShare, 1 - bankNegativeShare),
+		negativeSideShare,
+		positiveSideShare: 1 - negativeSideShare,
+		minorSideShare: Math.min(negativeSideShare, 1 - negativeSideShare),
 		compactness: total / area(hull)
 	};
 }
 
 /** Topology and cell quality of one plan grid. */
-export function planMetrics(grid: TerrainGrid, bank: (point: Point) => number = () => 1) {
+export function planMetrics(grid: TerrainGrid, side: (point: Point) => number = () => 1) {
 	const shape = polygon(grid);
 	const edgeUse = new Map<string, number>();
 	for (const { vertexIds } of grid.cells) {
@@ -161,7 +161,7 @@ export function planMetrics(grid: TerrainGrid, bank: (point: Point) => number = 
 		nonManifold,
 		holes,
 		parts,
-		...shapeMeasures(grid, areas, bank),
+		...shapeMeasures(grid, areas, side),
 		hanging: hangingVertices(grid),
 		duplicateVertices,
 		tiny,

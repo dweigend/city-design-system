@@ -9,6 +9,8 @@ import { latticeMesh } from './lattice';
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
 /** Maps the camera framing to continuous detail and height presentation. */
 export { cityProfile } from './profile';
+/** Projects the terrain and the city plan in one frame. */
+export { projectCityTerrain } from './terrain';
 /** Styles the envelope and lattice as the camera moves. */
 export { cityPresentation } from './presentation';
 

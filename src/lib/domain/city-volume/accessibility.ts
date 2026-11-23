@@ -39,9 +39,9 @@ function corridors(random: Random, bearing: number) {
 		return {
 			x: Math.cos(heading),
 			y: Math.sin(heading),
-			speed: span(arm, 1.1, 2.85),
-			reach: span(arm, 450, 1850),
-			entry: span(arm, 40, 280)
+			speed: span(arm, 2.6, 5.2),
+			reach: span(arm, 650, 2700),
+			entry: span(arm, 60, 370)
 		};
 	});
 }
@@ -52,7 +52,7 @@ export function cityAccessibility(seed: number, origin: Vec2, bearing: number) {
 	const random = Random.create({ seed }).derive('accessibility');
 	const arms = corridors(random.derive('corridors'), bearing);
 	const shape = random.derive('shape');
-	const spread = span(shape, 0.8, 1.38);
+	const spread = span(shape, 1.35, 1.8);
 	const edge = roughness(random.derive('edge'), 210);
 	const lobes = roughness(random.derive('lobes'), 570);
 	return (point: Vec2, grade: number, dryClearance: number) => {
@@ -63,10 +63,10 @@ export function cityAccessibility(seed: number, origin: Vec2, bearing: number) {
 		for (const arm of arms) {
 			const advance = Math.max(0, Math.min(arm.reach, x * arm.x + y * arm.y));
 			const lateral = Math.hypot(x - advance * arm.x, y - advance * arm.y);
-			travel = Math.min(travel, arm.entry + advance / arm.speed + lateral * 1.55);
+			travel = Math.min(travel, arm.entry + advance / arm.speed + lateral * 2.45);
 		}
-		const shelter = 65 * Math.exp(-Math.max(0, dryClearance) / 55);
+		const shorelineAccess = -125 * Math.exp(-Math.max(0, dryClearance) / 55);
 		const raggedness = Math.min(1, radial / 320) * (82 * edge(point) + 175 * lobes(point));
-		return travel + 1100 * grade + shelter + raggedness;
+		return travel + 1100 * grade + shorelineAccess + raggedness;
 	};
 }

@@ -6,9 +6,13 @@ import {
 	levelHeight,
 	type CityPlanVariant
 } from '../../domain/city-volume';
-import { planCellSide, terrainGridQuality, TerrainGrid } from '../../domain/terrain-grid';
+import { planCellSide, TerrainGrid } from '../../domain/terrain-grid';
+import { surveyDefaults } from '../../domain/valley';
 
-const landClearance = 3;
+const bankSetbackM = 3;
+const edgeSampleStepM = 8;
+const surfaceSampleStepM = 12;
+const buildableSlopeLimit = surveyDefaults.buildableSlope;
 
 export type CityTerrainSampler = (
 	x: number,
@@ -17,6 +21,7 @@ export type CityTerrainSampler = (
 	height: number;
 	dry: boolean;
 	waterClearance: number;
+	slope?: number;
 }>;
 
 type Site = Readonly<{
@@ -50,11 +55,24 @@ export function prepareCarrier(
 		site: { origin, bearing, outline },
 		variant,
 		parameters: { cellSize: coarseCellSize / planCellSide[variant] },
-		maximumCellGrade: terrainGridQuality.maximumGrade,
+		maximumCellGrade: buildableSlopeLimit,
+		edgeSampleStep: edgeSampleStepM,
+		surface: {
+			sampleStep: surfaceSampleStepM,
+			accepts(x, y) {
+				const reading = sampleGround(x, y);
+				return reading.dry && (reading.slope ?? 0) <= buildableSlopeLimit;
+			}
+		},
+		shore: {
+			clearanceAt: (x, y) => sampleGround(x, y).waterClearance - bankSetbackM,
+			minimumEdge: coarseCellSize / 10,
+			minimumArea: 0.24 * coarseCellSize ** 2
+		},
 		referenceHeightAt: (x, y) => sampleGround(x, y).height,
 		heightAt(x, y) {
-			const { height, dry, waterClearance } = sampleGround(x, y);
-			return dry && waterClearance > landClearance ? height : undefined;
+			const reading = sampleGround(x, y);
+			return reading.dry ? reading.height : undefined;
 		}
 	});
 	const random = Random.create({ seed }).derive('crossing');
@@ -65,10 +83,10 @@ export function prepareCarrier(
 		access(point, grade, sampleGround(...point).waterClearance)
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));
-	const highest = candidates.vertices.reduce(
-		(peak, { position }) => Math.max(peak, position[2]),
-		-Infinity
+	const lowest = candidates.vertices.reduce(
+		(low, { position }) => Math.min(low, position[2]),
+		Infinity
 	);
-	const datumZ = Number.isFinite(highest) ? levelHeight * Math.floor(highest / levelHeight) : 0;
+	const datumZ = Number.isFinite(lowest) ? levelHeight * Math.floor(lowest / levelHeight) : 0;
 	return { candidates, order, ranks, datumZ };
 }

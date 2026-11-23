@@ -19,9 +19,9 @@ export const districtLevels = Object.freeze({ detached: 1, block: 3 });
 export const maximumLevelStep = 3;
 
 /** Peak levels at the city threshold and at the largest valley city, and that city's area.
- * Real cities need tens of km² for a 140 m tower; the chapter compresses that range into the
- * valley terrace, so the peak grows linearly from 42 m at 3 km² to 140 m at 8 km². */
-export const peakLaw = Object.freeze({ firstLevels: 6, fullLevels: 20, fullArea: 8 });
+ * The nominal cap rises from 42 m at 3 km² to 105 m at 8 km². A narrower center
+ * can have a lower realized peak where the three-level neighbor limit applies. */
+export const peakLaw = Object.freeze({ firstLevels: 6, fullLevels: 15, fullArea: 8 });
 
 export function settlementOf(areaKm2: number): SettlementKind {
 	if (areaKm2 >= settlementThresholds.city) return 'city';

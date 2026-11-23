@@ -151,16 +151,16 @@ const city: DesignPrinciple[] = [
 		title: 'Size sets the skyline',
 		rule: 'A settlement takes its districts from its built-up area: a village below 1 km² has only two-storey houses, a town adds six-storey blocks, and only a city of several square kilometres grows a high-rise center whose peak rises with its size and falls off in steps.',
 		reason:
-			'A village with towers reads false at first glance. The center is a district of real area with podium, middle heights and few peaks; neighboring columns differ by at most six storeys, so the height profile reads as a hill, not a chimney.',
+			'The nominal peak reaches 105 m at 8 km². Neighboring district heights differ by at most six storeys, and a narrow center can peak lower. Columns meet the terrain at their corners and rise to common 7 m roof planes.',
 		decided: '2026-11-23'
 	},
 	{
 		id: 'CITY-13',
 		page: 'city',
 		title: 'Lobed growth on dry ground',
-		rule: 'City growth follows accessible dry ground into lobes, bays and occasional satellites, with development typically reaching both riverbanks.',
+		rule: 'City growth follows accessible dry ground into lobes, bays and occasional satellites, following riverbanks and lake shores and leaving steep ground open.',
 		reason:
-			'A crossing and a few corridors give each seed a different outline. The same order puts denser districts in accessible cells and lets settlements add area without losing settled ground.',
+			'Fast corridors give each seed a different outline. Cells meet water at a small setback and the footprint keeps open paths to the exterior. Denser districts take the most accessible ground first.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Grow a city across the valley' }
 	}
@@ -462,10 +462,10 @@ const color: DesignPrinciple[] = [
 	{
 		id: 'COLOR-7',
 		page: 'color',
-		title: 'Analysis is the one exception',
-		rule: 'The analysis view of force distribution is the only place where color does not mean use.',
+		title: 'Analytical colour',
+		rule: 'Analysis views reserve colour for the measured quantity and give it a labelled scale.',
 		reason:
-			'It reads like a result plot with scale and legend, and it is switched on, never mixed into the normal view.',
+			'Force has its own analysis view. The city height view uses an opaque sequential scale from 0 to 140 m so the same column height reads alike in every settlement.',
 		decided: '2026-11-13'
 	},
 	{

@@ -12,10 +12,13 @@
 		step: number;
 		/** Bind the current number, for example bind:value={height}. */
 		value: number;
+		/** Called when pointer or keyboard adjustment is committed. */
+		onCommit?: (value: number) => void;
 	}
 
 	const id = $props.id();
-	let { label, min, max, step, value = $bindable() }: Props = $props();
+	const readValue = new Intl.NumberFormat('en', { maximumFractionDigits: 6, useGrouping: false });
+	let { label, min, max, step, value = $bindable(), onCommit }: Props = $props();
 </script>
 
 <div class="control-slider-field">
@@ -24,6 +27,7 @@
 		class="control-slider"
 		type="single"
 		thumbPositioning="exact"
+		onValueCommit={onCommit}
 		{min}
 		{max}
 		{step}
@@ -35,7 +39,7 @@
 				<Primitive.Tick class="control-slider-tick" index={tick.index} />
 			{/each}
 			<Primitive.Thumb class="control-slider-thumb" aria-labelledby={id} index={0}>
-				<span class="tag" aria-hidden="true">{value}</span>
+				<span class="tag" aria-hidden="true">{readValue.format(value)}</span>
 			</Primitive.Thumb>
 		{/snippet}
 	</Primitive.Root>

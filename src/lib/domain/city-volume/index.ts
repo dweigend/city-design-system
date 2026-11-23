@@ -14,6 +14,8 @@ import {
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
 export { cityAccessibility } from './accessibility';
+/** Reads the world elevation of a column roof. */
+export { columnRoof } from './foundation';
 /** Produces a nested city footprint from the accessibility of plan cells. */
 export { cityGrowth } from './footprint';
 
@@ -38,7 +40,14 @@ export type { CityCore } from './rank';
 /** Height caps the peak above the site datum in meters; the city's area sets what the peak can
  * reach below that cap. Complexity is unitless district fragmentation. */
 export const cityVolumeParams = defineParams({
-	height: { label: 'Height', unit: 'm', min: 21, max: 140, default: 140, step: levelHeight },
+	height: {
+		label: 'Height',
+		unit: 'm',
+		min: 21,
+		max: peakLaw.fullLevels * levelHeight,
+		default: peakLaw.fullLevels * levelHeight,
+		step: levelHeight
+	},
 	complexity: { ...blockInputs.complexity, default: 0.35 }
 });
 
@@ -75,7 +84,7 @@ export type CityColumn = Column & DistrictCell;
  * ranked outward from the core and filled by area share. A supplied fixed growth order and
  * its future fringe keep earlier cells from moving down. Center columns fall from the peak to the block
  * podium, and no column stands more than three levels above a neighbor. peakHeight is the
- * realized peak above the datum in meters. */
+ * realized nominal height in meters, measured in whole levels. */
 export function createCityDistricts(
 	plan: TerrainGrid,
 	core: CityCore,
@@ -120,7 +129,7 @@ export function readCityColumns(
 }
 
 /** Builds a compatible frame. The base follows the terrain and higher planes are all measured
- * from datumZ in world meters. The first plane must be above all terrain corners. Shared
+ * from datumZ in world meters. Local foundations join the first plane above each corner. Shared
  * faces, joints and members are emitted once. Unknown or incompatible variants throw. */
 export function createCityLattice(
 	columns: readonly CityColumn[],
@@ -137,9 +146,7 @@ export function createCityLattice(
 		for (const { position } of corners) {
 			if (position.length !== 3 || !position.every(Number.isFinite))
 				throw new RangeError('City corners require three finite coordinates');
-			if (position[2] >= datumZ + levelHeight)
-				throw new RangeError('The first city level plane must clear the terrain');
 		}
 	}
-	return createFrame(columns, datumZ, levelHeight, variant);
+	return createFrame(columns, datumZ, variant);
 }

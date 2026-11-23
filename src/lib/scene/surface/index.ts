@@ -26,8 +26,7 @@ export type TerrainField = Readonly<{
 }>;
 
 /** One part’s id, geometry and surface. Height scale recovers true contour elevations.
- * Explicit strokes are packed XYZ endpoint pairs in local meters. Vertical scale affects fill and explicit
- * stroke positions strictly above the given pivot. */
+ * Explicit strokes are packed XYZ endpoint pairs in local meters. Vertical scale transforms fill and stroke positions around the same pivot. */
 export type Drawable = Surface &
 	Readonly<{
 		id: string;
@@ -86,16 +85,23 @@ export const planningStudy = Object.freeze({
 	}
 } as const satisfies SurfaceAssignment);
 
-/** A lightness-ordered ramp between the lowest and highest true column heights. */
-export function heightRamp(height: number, low: number, high: number) {
+/** Upper tick of the fixed column height scale in true meters. */
+export const cityHeightScaleM = 140;
+
+/** Sequential palette shared by all settlements, with extra contrast at town heights. */
+export function heightRamp(height: number) {
+	const share = Math.min(1, Math.max(0, height / cityHeightScaleM));
+	const breakPoint = 0.15;
+	const low = share <= breakPoint;
 	return {
-		color: '--height-low' as const,
+		color: low ? '--height-low' : '--height-mid',
 		colorMix: {
-			token: '--height-high' as const,
-			amount: (height - low) / Math.max(low, high - low)
+			token: low ? '--height-mid' : '--height-high',
+			amount: low ? share / breakPoint : (share - breakPoint) / (1 - breakPoint)
 		},
+		opacity: '--alpha-opaque',
 		preserveColor: true
-	};
+	} as const;
 }
 
 /** Returns the stock assignment with one flow color on the wall. */

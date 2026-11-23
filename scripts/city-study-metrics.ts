@@ -66,17 +66,34 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 		positions.set(k, (positions.get(k) ?? 0) + 1);
 	}
 	const duplicateNodes = [...positions.values()].filter((n) => n > 1).length;
-	const bays = new Map(lattice.cells.map((cell) => [cell.id, cell]));
+	const nodes = new Map(lattice.nodes.map(({ id, position }) => [id, position]));
+	const byColumn = new Map<string, Map<number, CityLattice['cells'][number]>>();
+	for (const bay of lattice.cells) {
+		const levels = byColumn.get(bay.planCellId) ?? new Map();
+		levels.set(bay.level, bay);
+		byColumn.set(bay.planCellId, levels);
+	}
 	let shared = 0;
 	let matched = 0;
-	for (const { planCellId, neighbors, levels } of columns) {
+	let missingFeet = 0;
+	let maxJointErrorM = 0;
+	for (const { planCellId, neighbors, corners } of columns) {
+		const levels = required(byColumn.get(planCellId), 'column bays');
+		for (const {
+			id,
+			position: [, , z]
+		} of corners) {
+			const foot = nodes.get(`vertex/${id}/level/0`);
+			if (!foot) missingFeet++;
+			else maxJointErrorM = Math.max(maxJointErrorM, Math.abs(z - foot[2]));
+		}
 		neighbors.forEach((neighbor, side) => {
 			if (neighbor === null || neighbor < planCellId) return;
-			for (let level = 0; level < levels; level++) {
-				const other = bays.get(`${neighbor}/level/${level}`);
-				if (!other) continue;
+			for (const [level, bay] of levels) {
+				const other = byColumn.get(neighbor)?.get(level);
+				const face = bay.sideFaces[side];
+				if (!other || face === null) continue;
 				shared++;
-				const face = required(bays.get(`${planCellId}/level/${level}`), 'bay').sideFaces[side];
 				matched += +other.sideFaces.includes(face);
 			}
 		});
@@ -96,6 +113,8 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 		members: lattice.edges.length,
 		faces: lattice.faces.length,
 		duplicateNodes,
+		missingFeet,
+		maxJointErrorM,
 		faceMatch: shared ? matched / shared : 1,
 		latticeComponents: components
 	};

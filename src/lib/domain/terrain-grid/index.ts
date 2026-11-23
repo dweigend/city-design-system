@@ -1,4 +1,4 @@
-import { distance, type Vec3 } from '../../core/geometry';
+import { distance, measurePolygon, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
@@ -6,6 +6,7 @@ import { carrier, edgeId, freeQuad, type Candidate, type Carrier, type Node } fr
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
+import { shoreline, usableShoreRing } from './shore';
 import { voronoi } from './voronoi';
 import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
 
@@ -101,13 +102,26 @@ export type TerrainGridOptions = Readonly<{
 	 * for building. The datum and its 10 m probes still require finite heights. */
 	referenceHeightAt?: (x: number, y: number) => number;
 	/** Optional grade limit over whole cell chords. Water and unavailable ground are still
-	 * sampled every meter. Omit to enforce the default grade at each sampling interval. */
+	 * sampled at the edge spacing. Omit to enforce the default grade at each sampling interval. */
 	maximumCellGrade?: number;
+	/** Maximum span between dry-ground probes on an edge or chord, 1 m by default. */
+	edgeSampleStep?: number;
+	/** Optional signed clearance from a buildable shoreline in meters. Crossing cells are
+	 * trimmed to one dry polygon before validating its ground. */
+	shore?: Readonly<{
+		clearanceAt: (x: number, y: number) => number;
+		minimumEdge: number;
+		minimumArea: number;
+	}>;
+	/** Optional predicate checked at the centroid and across each polygon at the given
+	 * maximum spacing in meters, in addition to the default edge and chord checks. */
+	surface?: Readonly<{ sampleStep: number; accepts: (x: number, y: number) => boolean }>;
 }>;
 
 function samples(
 	heightAt: TerrainGridOptions['heightAt'],
 	maximumCellGrade: number | undefined,
+	edgeSampleStep: number,
 	referenceHeightAt: TerrainGridOptions['referenceHeightAt']
 ) {
 	const heights = new Map<string, number | undefined>();
@@ -130,7 +144,7 @@ function samples(
 		const length = distance(a.xy, b.xy);
 		if (maximumCellGrade !== undefined && Math.abs(end - previous) > maximumCellGrade * length)
 			return false;
-		const steps = Math.ceil(length / quality.maximumSampleStep);
+		const steps = Math.max(1, Math.ceil(length / edgeSampleStep));
 		const maxRise =
 			maximumCellGrade === undefined ? (quality.maximumGrade * length) / steps : Infinity;
 		for (let index = 1; index <= steps; index++) {
@@ -208,7 +222,7 @@ function topology(
 /** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
  * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
  * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
- * sampled at up to 1 m spacing reject unavailable ground. Grade defaults to 20% at each
+ * sampled at up to 1 m spacing by default reject unavailable ground. Grade defaults to 20% at each
  * interval, with an optional limit over complete chords instead. Organic and
  * free quads also enforce the published angle and edge-ratio limits. Invalid inputs throw. */
 function create({
@@ -218,6 +232,9 @@ function create({
 	parameters,
 	variant = 'organic',
 	maximumCellGrade,
+	edgeSampleStep = quality.maximumSampleStep,
+	shore,
+	surface,
 	referenceHeightAt
 }: TerrainGridOptions): TerrainGrid {
 	if (!Object.hasOwn(carriers, variant)) throw new RangeError('Unknown plan grid variant');
@@ -234,23 +251,63 @@ function create({
 		(!Number.isFinite(maximumCellGrade) || maximumCellGrade < 0)
 	)
 		throw new RangeError('Expected a nonnegative finite cell grade limit');
-	const ground = samples(heightAt, maximumCellGrade, referenceHeightAt);
+	if (surface && (!Number.isFinite(surface.sampleStep) || surface.sampleStep <= 0))
+		throw new RangeError('Expected a positive finite surface sample spacing');
+	if (!(Number.isFinite(edgeSampleStep) && edgeSampleStep > 0))
+		throw new RangeError('Expected a positive finite edge sample spacing');
+	const ground = samples(heightAt, maximumCellGrade, edgeSampleStep, referenceHeightAt);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
 	const includes = insideOutline(outline);
 	const accepted = [];
-	for (const cell of generate(site, outline, bearing, cellSize, Random.create({ seed }))) {
-		const plan = cell.corners.map(({ xy }) => xy);
+	const clip = shore && shoreline(shore.clearanceAt);
+	for (const source of generate(site, outline, bearing, cellSize, Random.create({ seed }))) {
+		const plan = source.corners.map(({ xy }) => xy);
 		if (plan.length < 3 || (checkQuality && !meetsQuality(plan)) || !includes(plan)) continue;
+		const corners = clip ? clip(source.corners) : source.corners;
+		if (corners.length < 3) continue;
+		if (
+			shore &&
+			corners.some((corner, index) => corner !== source.corners[index]) &&
+			!usableShoreRing(corners, shore)
+		)
+			continue;
+		const cell = { id: source.id, corners };
 		if (
 			!cell.corners.every((from, i) =>
 				cell.corners.slice(i + 1).every((to) => ground.validEdge(from, to))
 			)
 		)
 			continue;
+		if (surface && !validSurface(corners, surface)) continue;
 		accepted.push(cell);
 	}
 	return topology(accepted, ground.height);
+}
+
+/** Checks a convex ring on a triangular sampling mesh. */
+function validSurface(
+	[a, ...ring]: readonly Node[],
+	{ sampleStep, accepts }: NonNullable<TerrainGridOptions['surface']>
+) {
+	const { centroid } = measurePolygon([a, ...ring].map(({ xy }) => xy));
+	if (!centroid || !accepts(...centroid)) return false;
+	for (let i = 1; i < ring.length; i++) {
+		const b = ring[i - 1].xy;
+		const c = ring[i].xy;
+		const splits = Math.max(
+			1,
+			Math.ceil(Math.max(distance(a.xy, b), distance(b, c), distance(c, a.xy)) / sampleStep)
+		);
+		for (let u = 0; u <= splits; u++) {
+			for (let v = 0; u + v <= splits; v++) {
+				const x = a.xy[0] + ((b[0] - a.xy[0]) * u + (c[0] - a.xy[0]) * v) / splits;
+				const y = a.xy[1] + ((b[1] - a.xy[1]) * u + (c[1] - a.xy[1]) * v) / splits;
+				if (!accepts(x, y)) return false;
+			}
+		}
+	}
+	return true;
 }
 
 /** Takes plan cells in the requested order, rebuilding neighbor and boundary references. */

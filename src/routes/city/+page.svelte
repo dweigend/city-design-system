@@ -12,7 +12,6 @@
 		cityPlanVariants,
 		cityVolumeParams,
 		createCityLattice,
-		levelHeight,
 		storeysPerLevel,
 		readCityColumns,
 		type CityPlanVariant,
@@ -24,11 +23,14 @@
 		cityPresentation,
 		cityProfile,
 		projectCityDistricts,
+		projectCityTerrain,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
 	import { projectFocus, type Display, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
-	import { projectValleyWindow } from '../../lib/scene/valley-projection';
+	import { valleyHeightScale } from '../../lib/scene/valley-projection';
+	import { valleyParams } from '../../lib/domain/valley';
+	import { cityHeightScaleM } from '../../lib/scene/surface';
 	import { Button } from '../../lib/ui/button';
 	import { ScaleLegend } from '../../lib/ui/scale-legend';
 	import { Select } from '../../lib/ui/select';
@@ -37,16 +39,15 @@
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import {
 		citySiteParams,
-		cityWindow,
 		createCitySite,
 		readCityDistricts,
 		readCityGrid
 	} from '../../lib/world/city-site';
+	import TerrainControls from '../TerrainControls.svelte';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
 
 	const chapter = chapterAt('/city');
-	const city = createCitySite();
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
 	const views = [
 		{ value: 'iso', label: 'Iso' },
@@ -140,18 +141,30 @@
 	let height = $derived(volumeInputs.height);
 	let complexity = $derived(volumeInputs.complexity);
 
-	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
-	const terrain = $derived(
-		projectValleyWindow(city.valley, cityWindow(city, plan.grid), city.heightScale)
+	let terrainSettings = $derived<Readonly<Record<string, number>>>(
+		resolveParams(
+			valleyParams,
+			Object.fromEntries(
+				Object.entries(valleyParams).map(([key, param]) => [
+					key,
+					valueFromQuery(key) ?? param.default
+				])
+			)
+		)
 	);
+	const city = $derived(createCitySite(undefined, { ...terrainSettings, seed }));
+	const maxProfileScale = $derived(valleyHeightScale(city.valley));
+
+	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
+	const terrain = $derived(projectCityTerrain(city, plan.grid));
 	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, true));
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain));
-	const elevation = (24 * Math.PI) / 180;
-	const camera = { bearing: (-24 * Math.PI) / 180, elevation, fill: 0.92 };
+	const elevation = $derived(((24 + 38 * city.valley.parameters.relief) * Math.PI) / 180);
+	const camera = $derived({ bearing: (-24 * Math.PI) / 180, elevation, fill: 0.92 });
 	const subject = $derived(projectFocus(view, camera, envelope.points()));
 	const cityFit = $derived({
 		...camera,
@@ -159,19 +172,19 @@
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
-	const relief = $derived(step === '01' ? lines.drawables : lines.traces);
-	const ground = $derived([...terrain.drawables, ...relief]);
+	const planLines = $derived(step === '01' ? lines.drawables : lines.traces);
+	const ground = $derived([...terrain.drawables, ...planLines]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
 	const wires = $derived(step === '03' ? members.drawables : []);
 	const drawables = $derived([...ground, ...tiles, ...wires]);
-	const legendPeak = $derived(Math.max(2 * levelHeight, districts.peakHeight));
 	const heightFactor = $derived(
 		cityProfile(
 			viewport.width,
 			viewport.metersPerPixel,
 			districts.peakHeight,
 			elevation,
-			profile === 'true'
+			profile === 'true',
+			maxProfileScale
 		).factor
 	);
 	const presentation = $derived(
@@ -181,12 +194,12 @@
 					terrain: ground,
 					envelope: tiles,
 					members: wires,
-					datum: plan.datumZ,
 					peak: districts.peakHeight,
 					elevation,
 					open: step === '03',
 					heat: colour === 'height',
-					trueScale: profile === 'true'
+					trueScale: profile === 'true',
+					maxProfileScale
 				})
 	);
 
@@ -248,7 +261,7 @@
 			{view}
 			{display}
 			label={step === '01'
-				? 'City plan on the valley terrace'
+				? 'City plan on the valley ground'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
@@ -284,11 +297,7 @@
 			{#if colour === 'height'}
 				<ScaleLegend
 					label="Column height in meters"
-					values={[
-						String(levelHeight),
-						format.format((levelHeight + legendPeak) / 2),
-						String(legendPeak)
-					]}
+					values={['0', String(cityHeightScaleM / 2), String(cityHeightScaleM)]}
 					unit="m"
 				/>
 			{/if}
@@ -327,6 +336,7 @@
 				}
 			/>
 		{/if}
+		<TerrainControls schema={valleyParams} bind:values={terrainSettings} />
 		<Tabs label="City steps" items={steps} bind:value={step}>
 			{#snippet panel(active)}
 				<div class="stack">

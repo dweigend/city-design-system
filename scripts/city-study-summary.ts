@@ -30,7 +30,7 @@ function group(rows: Row[], field: 'plan' | 'lattice') {
 			verdict: verdict(rate),
 			reasons: [...reasons].map(([r, n]) => `${r} ${n}`).join(', ') || '—',
 			worst: worst
-				? `${worst.plan}/${worst.lattice}/${worst.sizeClass}/seed ${worst.seed}/${worst.complexity}: ${worst.failures}`
+				? `${worst.plan}/${worst.lattice}/${worst.sizeClass}/seed ${worst.seed}/relief ${worst.relief}/lake ${worst.lake}: ${worst.failures}`
 				: '—'
 		};
 	});
@@ -64,21 +64,23 @@ export function summarize(rows: Row[], out: string, sizes: Record<string, number
 		};
 	});
 	console.table(bySize);
-	console.table(
-		['parts', 'bankNegativeShare', 'bankPositiveShare', 'minorBankShare', 'compactness'].map(
-			(measure) => {
-				const values = rows.map((row) => Number(row[measure])).sort((a, b) => a - b);
-				return {
-					measure,
-					min: values[0].toFixed(3),
-					median: (
-						(values[Math.floor((values.length - 1) / 2)] + values[Math.floor(values.length / 2)]) /
-						2
-					).toFixed(3),
-					max: values[values.length - 1].toFixed(3)
-				};
-			}
-		)
-	);
+	const shapeRows = [];
+	for (const relief of [...new Set(rows.map((row) => row.relief))]) {
+		const group = rows.filter((row) => row.relief === relief);
+		for (const measure of ['parts', 'minorSideShare', 'compactness']) {
+			const values = group.map((row) => Number(row[measure])).sort((a, b) => a - b);
+			shapeRows.push({
+				relief,
+				measure,
+				min: values[0].toFixed(3),
+				median: (
+					(values[Math.floor((values.length - 1) / 2)] + values[Math.floor(values.length / 2)]) /
+					2
+				).toFixed(3),
+				max: values[values.length - 1].toFixed(3)
+			});
+		}
+	}
+	console.table(shapeRows);
 	console.log(`results: ${resolve(out, 'results.json')}`);
 }

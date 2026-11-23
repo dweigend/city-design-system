@@ -4,12 +4,11 @@ import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
 import { createCityDistricts, type CityPlanVariant } from '../../domain/city-volume';
 import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
-import { Valley } from '../../domain/valley';
+import { Valley, type ValleySettings } from '../../domain/valley';
 import { prepareCarrier, type CityTerrainSampler } from './carrier';
-import { riverFrame } from './river';
 
 /** Terrain height and distance to water in meters, with an explicit dry-ground flag. Grade
- * is sampled across each plan cell from the heights. Infinite clearance means no water nearby. */
+ * is rise/run and can be omitted by alternate samplers. Infinite clearance means no water nearby. */
 export type { CityTerrainSampler } from './carrier';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
@@ -28,29 +27,32 @@ function siteParams(citySize?: number, seed?: number) {
 	});
 }
 
-/** Creates the chapter's dry plan datum and access frame. An alternate sampler can supply
- * buildability without supplying a river course or a terrace elevation. */
-export function createCitySite(terrain?: CityTerrainSampler) {
-	const valley = Valley.create({ seed: 1201, wetWidth: 78 });
-	const frame = valley.lowerTerraceFrame(0);
-	const river = riverFrame(valley.course);
-	const [x, y] = river.at(0);
-	const [u, v] = frame.across;
-	const origin = Object.freeze<Vec2>([x + 155 * u, y + 155 * v]);
+/** Creates the chapter's fixed grid frame on a valley with optional relief and lake settings.
+ * The optional seed varies the valley. A pure alternate sampler can supply its own ground readings. */
+export function createCitySite(
+	terrain?: CityTerrainSampler,
+	settings?: Partial<ValleySettings> & Readonly<{ seed?: number }>
+) {
+	const { seed = citySiteParams.seed.default, ...parameters } = settings ?? {};
+	const valley = Valley.create({ seed, parameters });
+	const bearing = -Math.PI / 2;
+	const origin = Object.freeze([0, 0] as const);
 	const sampleGround: CityTerrainSampler =
 		terrain ??
-		((a, b) => {
-			const { height, bank } = valley.sampleGround(a, b);
-			return { height, dry: bank > 0, waterClearance: bank };
+		((x, y) => {
+			const reading = valley.readGround(x, y);
+			return {
+				height: reading.height,
+				dry: reading.cover === 'dry',
+				waterClearance: reading.bank,
+				slope: reading.slope
+			};
 		});
 	return Object.freeze({
 		valley,
 		origin,
-		frame,
-		river,
-		sampleGround,
-		accessAt: river.at,
-		heightScale: 1
+		frame: Object.freeze({ bearing }),
+		sampleGround
 	});
 }
 
@@ -75,11 +77,15 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 	const {
 		frame: { bearing },
 		sampleGround,
-		accessAt,
 		origin
 	} = city;
 	const prepared = prepareCarrier(
-		{ origin, sampleGround, bearing, center: accessAt(station) },
+		{
+			origin,
+			sampleGround,
+			bearing,
+			center: [origin[0] + station * Math.cos(bearing), origin[1] + station * Math.sin(bearing)]
+		},
 		coarseCellSize,
 		variant,
 		seed
@@ -89,10 +95,13 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 	return prepared;
 }
 
-/** Returns the two river sides for footprint reporting (negative or positive downstream cross
- * product). This observation does not participate in growth or buildability. */
-export function readCityBank(city: CitySite, point: Vec2) {
-	return city.river.bank(point);
+/** Returns the side of the planning axis for reporting. It does not classify water bodies. */
+export function readCitySide(city: CitySite, [x, y]: Vec2) {
+	const {
+		origin: [cx, cy],
+		frame: { bearing }
+	} = city;
+	return Math.sign((y - cy) * Math.cos(bearing) - (x - cx) * Math.sin(bearing));
 }
 
 /** Frames the selected blocks on the surrounding terrain, in world XY meters and radians. */
@@ -126,8 +135,8 @@ export function cityWindow(city: CitySite, grid: Grid) {
 	};
 }
 
-/** Takes the shortest prefix of nested growth that reaches the desired area. The datum is
- * the last common 7 m plane below the highest candidate vertex. It stays fixed as a city grows. */
+/** Takes the shortest prefix of nested growth that reaches the desired area. The datum anchors
+ * the common 7 m planes at or below the lowest candidate ground. It stays fixed as a city grows. */
 export function readCityGrid(
 	city: CitySite,
 	citySize: number,

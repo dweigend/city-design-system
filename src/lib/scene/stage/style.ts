@@ -36,17 +36,7 @@ export function createStyle(
 		palette.dark.value = Number(dark);
 		palette.hull.value = Number(display === 'transparency');
 		const style = readDisplay(display);
-		for (const {
-			drawable,
-			mesh,
-			lines,
-			grid,
-			terrain,
-			flat,
-			heightScale,
-			stretch,
-			pivot
-		} of content.parts) {
+		for (const { drawable, mesh, lines, grid, terrain, flat, heightScale } of content.parts) {
 			const { opacity: displayOpacity, paper: paperDisplay } = style(drawable.finish, hull);
 			const usePaper = paperDisplay && !drawable.preserveColor;
 			const opacity =
@@ -63,10 +53,9 @@ export function createStyle(
 			heightScale.value = drawable.heightScale ?? 1;
 			const vertical = drawable.vertical;
 			const scale = vertical?.scale ?? 1;
-			const origin = vertical?.pivot ?? 0;
-			stretch.value = scale - 1;
-			pivot.value = origin;
-			mesh.frustumCulled = !vertical;
+			const offset = (vertical?.pivot ?? 0) * (1 - scale);
+			mesh.scale.z = scale;
+			mesh.position.z = offset;
 			if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
 				material.needsUpdate = true;
 			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
@@ -89,10 +78,8 @@ export function createStyle(
 					line.material.linewidth = stroke?.width ?? 1;
 					line.material.opacity = stroke?.opacity ?? 1;
 				}
-				if (line.stretch) {
-					line.stretch.stretch.value = stretch.value;
-					line.stretch.pivot.value = origin;
-				}
+				line.scale.z = scale;
+				line.position.z = offset;
 				line.frustumCulled = !vertical;
 				line.visible = visible && line.geometry.instanceCount > 0 && line.material.opacity > 0;
 			}

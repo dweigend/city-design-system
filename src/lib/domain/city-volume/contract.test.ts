@@ -126,7 +126,9 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/0')?.position).toEqual([14, 0, 1]);
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/1')?.position).toEqual([14, 0, 17]);
 	expect(centered.nodes.find(({ id }) => id.endsWith('/center'))?.position).toEqual([7, 7, 9.25]);
-	expect(() => createCityLattice(columns, -4, 'square')).toThrow(RangeError);
+	const sloped = createCityLattice(columns, -4, 'square');
+	expect(sloped.nodes.find(({ id }) => id === 'vertex/d/level/0')?.position).toEqual([0, 14, 3]);
+	expect(sloped.nodes.find(({ id }) => id === 'vertex/d/level/2')?.position).toEqual([0, 14, 10]);
 });
 
 test('rejects malformed columns before allocating bays', () => {
@@ -142,7 +144,7 @@ test('rejects malformed columns before allocating bays', () => {
 		],
 		neighbors: [null, null, null]
 	};
-	for (const levels of [Infinity, NaN, 1.5, 0, -1, 21])
+	for (const levels of [Infinity, NaN, 1.5, 0, -1, 16])
 		expect(() => createCityLattice([{ ...column, levels }], 0, 'triangle')).toThrow(RangeError);
 	for (let i = 0; i < 3; i++) {
 		const position: [number, number, number] = [0, 0, 0];
@@ -150,7 +152,7 @@ test('rejects malformed columns before allocating bays', () => {
 		const corners = [{ id: 'a', position }, ...column.corners.slice(1)];
 		expect(() => createCityLattice([{ ...column, corners }], 0, 'triangle')).toThrow(RangeError);
 	}
-	expect(createCityLattice([{ ...column, levels: 20 }], 0, 'triangle').cells.length).toBe(20);
+	expect(createCityLattice([{ ...column, levels: 15 }], 0, 'triangle').cells.length).toBe(15);
 	expect(storeysPerLevel).toBe(2);
 });
 

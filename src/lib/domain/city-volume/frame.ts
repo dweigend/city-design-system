@@ -1,4 +1,6 @@
 import type { Vec3 } from '../../core/geometry';
+import { columnPlanes } from './foundation';
+import { levelHeight } from './settlement';
 
 export const latticeVariants = Object.freeze(['box', 'braced', 'centered', 'tetrahedral'] as const);
 export type LatticeVariant = (typeof latticeVariants)[number];
@@ -10,7 +12,7 @@ export type CityLattice = Readonly<{
 		id: string;
 		planCellId: string;
 		level: number;
-		sideFaces: readonly string[];
+		sideFaces: readonly (string | null)[];
 	}>[];
 	faces: readonly Readonly<{ id: string; corners: readonly [string, string, string, string] }>[];
 	nodes: readonly Readonly<{ id: string; position: Vec3 }>[];
@@ -89,7 +91,6 @@ const frames: Record<LatticeVariant, (level: Level, connect: Connect) => void> =
 export function createFrame(
 	columns: readonly Column[],
 	datumZ: number,
-	height: number,
 	variant: LatticeVariant
 ): CityLattice {
 	const addMembers = frames[variant];
@@ -98,6 +99,7 @@ export function createFrame(
 	const cells = [];
 	const faces = new Map<string, CityLattice['faces'][number]>();
 	function connect(a: Node, b: Node) {
+		if (a.id === b.id) return;
 		for (const { id, position } of [a, b]) {
 			if (!nodes.has(id)) nodes.set(id, Object.freeze({ id, position: Object.freeze(position) }));
 		}
@@ -105,18 +107,25 @@ export function createFrame(
 		const id = JSON.stringify([from, to]);
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
-	for (const { planCellId, corners, levels } of columns) {
+	for (const column of columns) {
+		const { planCellId, corners } = column;
+		const { first, roof } = columnPlanes(column, datumZ);
 		const cornersAt = (level: number) =>
-			corners.map(({ id, position: [x, y, z] }): Node => ({
-				id: `vertex/${id}/level/${level}`,
-				position: [x, y, level === 0 ? z : datumZ + height * level]
-			}));
-		let bottom = cornersAt(0);
-		for (let level = 0; level < levels; level++) {
+			corners.map(({ id, position: [x, y, z] }): Node => {
+				const plane = datumZ + levelHeight * level;
+				const ground = level === 0 || plane <= z;
+				return {
+					id: `vertex/${id}/level/${ground ? 0 : level}`,
+					position: [x, y, ground ? z : plane]
+				};
+			});
+		let bottom = cornersAt(first);
+		for (let level = first; level < roof; level++) {
 			const id = `${planCellId}/level/${level}`;
 			const top = cornersAt(level + 1);
 			const sideFaces = bottom.map((a, i) => {
 				const j = (i + 1) % bottom.length;
+				if (a.id === top[i].id && bottom[j].id === top[j].id) return null;
 				const [from, to] = a.id < bottom[j].id ? [i, j] : [j, i];
 				const corners = [bottom[from].id, bottom[to].id, top[to].id, top[from].id] as const;
 				const face = JSON.stringify(corners);

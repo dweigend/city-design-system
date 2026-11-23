@@ -1,18 +1,19 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
-import { levelHeight } from '../../domain/city-volume';
+import { columnRoof, levelHeight } from '../../domain/city-volume';
+import { createCitySite, readCityGrid } from '../../world/city-site';
 import { example } from './example';
-import { cityProfile, projectCityDistricts, projectCityLattice } from './index';
+import { cityProfile, projectCityDistricts, projectCityLattice, projectCityTerrain } from './index';
 
 test('projects three shaded district kinds with flat caps and exposed steps only', () => {
-	const { envelope, columns, datumZ, districts } = example();
+	const { envelope, columns, datumZ } = example();
 	const { drawables, focus } = envelope;
 	expect(drawables.map(({ id, color }) => [id, color])).toEqual([
 		['detached', '--blueprint-1'],
 		['block', '--blueprint-2'],
 		['center', '--blueprint-3']
 	]);
-	expect(focus?.max[2]).toBe(datumZ + districts.peakHeight);
+	expect(focus?.max[2]).toBe(Math.max(...columns.map((column) => columnRoof(column, datumZ))));
 	const byId = new Map(columns.map((column) => [column.planCellId, column]));
 	for (const { id, shape, opacity, strokeSegments } of drawables) {
 		expect(opacity).toBeUndefined();
@@ -28,7 +29,9 @@ test('projects three shaded district kinds with flat caps and exposed steps only
 					2 *
 						column.neighbors.filter(
 							(id) =>
-								id === null || required(byId.get(id), 'envelope neighbor').levels < column.levels
+								id === null ||
+								columnRoof(required(byId.get(id), 'envelope neighbor'), datumZ) <
+									columnRoof(column, datumZ)
 						).length,
 				0
 			);
@@ -65,10 +68,11 @@ test('keeps true scale at quarter distance and resolves to the stepped envelope 
 	const peak = 91;
 	const near = cityProfile(500, 0.5, peak, elevation, false);
 	const far = cityProfile(5000, 3.88, peak, elevation, false);
-	const displayPeak = far.pivotAboveDatum + (peak - far.pivotAboveDatum) * far.factor;
+	const displayPeak = peak * far.factor;
 	expect(near).toMatchObject({ factor: 1, detail: 1, uprights: 1, rims: 1, envelope: 0 });
 	expect(far).toMatchObject({ detail: 0, uprights: 0, rims: 0, envelope: 1 });
 	expect(displayPeak * Math.cos(elevation)).toBeCloseTo(500);
+	expect(cityProfile(5000, 3.88, peak, elevation, false, 2.3).factor).toBe(2.3);
 	expect(cityProfile(5000, 3.88, peak, elevation, true)).toEqual({ ...far, factor: 1 });
 });
 
@@ -79,3 +83,21 @@ test('omits an empty district envelope and leaves the stage free to fit the terr
 	expect(envelope.focus).toBeUndefined();
 	expect([...envelope.points()]).toEqual([]);
 });
+
+test('uses the same sampled mountain ground in the lattice and terrain triangles', () => {
+	const city = createCitySite(undefined, { relief: 1 });
+	const { grid } = readCityGrid(city, 1200, 'triangle');
+	const { drawables, toLocal } = projectCityTerrain(city, grid);
+	const shape = required(
+		drawables.find(({ finish }) => finish === 'terrain'),
+		'ground'
+	).shape;
+	if (shape.kind !== 'mesh') throw new Error('Expected triangle ground');
+	const key = (position: readonly number[]) =>
+		position.map((value) => Math.round(value * 1000)).join(',');
+	const points = new Set(shape.indices.map((i) => key(shape.positions.slice(3 * i, 3 * i + 3))));
+	for (const {
+		position: [x, y, z]
+	} of grid.vertices)
+		expect(points.has(key([...toLocal(x, y), z]))).toBe(true);
+}, 15_000);

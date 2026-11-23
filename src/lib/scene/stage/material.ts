@@ -1,13 +1,5 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
-import {
-	materialColor,
-	mix,
-	normalWorldGeometry,
-	positionGeometry,
-	uniform,
-	vec2,
-	vec3
-} from 'three/tsl';
+import { materialColor, mix, normalWorldGeometry, uniform, vec2 } from 'three/tsl';
 import type { Finish, TerrainField } from '../surface';
 import { projectTerrainField } from './field';
 import { graphite, grain, levels, sun, type drawingPalette } from './tone';
@@ -41,12 +33,7 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const terrain = uniform(0);
 	const flat = uniform(0);
 	const heightScale = uniform(1);
-	const stretch = uniform(0);
-	const pivot = uniform(0);
-	material.positionNode = vec3(
-		positionGeometry.xy,
-		positionGeometry.z.add(positionGeometry.z.sub(pivot).max(0).mul(stretch))
-	);
+
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
 	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(0);
@@ -65,7 +52,7 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 		terrainColor(palette, heightScale, atlas?.sample),
 		terrain
 	);
-	return { material, terrain, flat, heightScale, stretch, pivot, atlas: atlas?.image };
+	return { material, terrain, flat, heightScale, atlas: atlas?.image };
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

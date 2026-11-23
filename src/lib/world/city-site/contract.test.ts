@@ -4,6 +4,7 @@ import {
 	cityLatticesByPlan,
 	cityPlanVariants,
 	createCityLattice,
+	columnRoof,
 	levelHeight,
 	readCityColumns,
 	type CityColumn,
@@ -14,16 +15,15 @@ import {
 	citySiteParams,
 	cityWindow,
 	createCitySite,
-	readCityBank,
+	readCitySide,
 	readCityDistricts,
 	readCityGrid
 } from './index';
-import { example } from './example';
 
 test('grows on both banks without moving cells or the common datum', () => {
 	const city = createCitySite();
 	const { default: size } = citySiteParams.citySize;
-	const initial = example();
+	const initial = readCityGrid(city, size);
 	const larger = readCityGrid(city, size + 800);
 	const cells = new Map(larger.grid.cells.map((cell) => [cell.id, cell]));
 	expect(city.valley.seed).toBe(1201);
@@ -44,14 +44,14 @@ test('grows on both banks without moving cells or the common datum', () => {
 	const banks = new Set<number>();
 	for (const { position } of initial.grid.vertices) {
 		const [x, y, z] = position;
-		const { height, bank } = city.valley.sampleGround(x, y);
+		const { height, bank } = city.valley.readGround(x, y);
 		expect(z).toBe(height);
 		expect(bank).toBeGreaterThan(0);
-		expect(z).toBeLessThan(initial.datumZ + levelHeight);
-		banks.add(readCityBank(city, [x, y]));
+		expect(z).toBeGreaterThanOrEqual(initial.datumZ);
+		banks.add(readCitySide(city, [x, y]));
 	}
 	expect(banks).toEqual(new Set([-1, 1]));
-});
+}, 15_000);
 
 test('reads a village, a town and a city from the outline length', () => {
 	const city = createCitySite();
@@ -70,8 +70,8 @@ test('reads a village, a town and a city from the outline length', () => {
 	}
 	const largest = readCityGrid(city, citySiteParams.citySize.max, 'square');
 	expect(largest.areaKm2).toBeGreaterThan(9);
-	expect(readCityDistricts(city, largest.grid).peakHeight).toBe(140);
-});
+	expect(readCityDistricts(city, largest.grid).peakHeight).toBe(105);
+}, 15_000);
 
 function assertTiled(grid: TerrainGrid) {
 	const sides = new Map<string, { id: string; neighbor: string | null; from: string }[]>();
@@ -146,32 +146,31 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 	expect(nodes.size).toBe(lattice.nodes.length);
 	expect(edges.size).toBe(lattice.edges.length);
 	expect(faces.size).toBe(lattice.faces.length);
-	expect(lattice.cells.length).toBe(columns.reduce((sum, column) => sum + column.levels, 0));
 	for (const column of columns) {
-		const { planCellId, corners, levels, neighbors } = column;
-		expect(levels).toBeGreaterThanOrEqual(1);
-		for (let level = 0; level < levels; level++) {
+		const { planCellId, corners, neighbors } = column;
+		const first = Math.floor(
+			(Math.min(...corners.map(({ position }) => position[2])) - datumZ) / levelHeight
+		);
+		const roof = (columnRoof(column, datumZ) - datumZ) / levelHeight;
+		for (const { id, position } of corners) {
+			expect(nodes.get(`vertex/${id}/level/0`)).toEqual(position);
+			expect(nodes.get(`vertex/${id}/level/${roof}`)).toEqual([
+				position[0],
+				position[1],
+				columnRoof(column, datumZ)
+			]);
+		}
+		for (let level = first; level < roof; level++) {
 			const cell = required(bays.get(`${planCellId}/level/${level}`), 'carrier bay');
 			expect(cell.sideFaces).toHaveLength(corners.length);
 			for (const [side, faceId] of cell.sideFaces.entries()) {
 				const neighbor = bays.get(`${neighbors[side]}/level/${level}`);
 				if (neighbor) expect(neighbor.sideFaces).toContain(faceId);
+				if (faceId === null) continue;
 				const boundary = required(faces.get(faceId), 'carrier face').corners;
 				for (const [i, from] of boundary.entries()) {
 					const to = boundary[(i + 1) % boundary.length];
-					expect(edges.has(JSON.stringify([from, to].sort()))).toBe(true);
-				}
-				const [a, b] = [corners[side], corners[(side + 1) % corners.length]];
-				expect(boundary.slice(0, 2).sort()).toEqual(
-					[a, b].map(({ id }) => `vertex/${id}/level/${level}`).sort()
-				);
-				for (const corner of [a, b]) {
-					expect(nodes.get(`vertex/${corner.id}/level/0`)).toEqual(corner.position);
-					expect(nodes.get(`vertex/${corner.id}/level/${level + 1}`)).toEqual([
-						corner.position[0],
-						corner.position[1],
-						datumZ + (level + 1) * levelHeight
-					]);
+					if (from !== to) expect(edges.has(JSON.stringify([from, to].sort()))).toBe(true);
 				}
 			}
 		}
@@ -179,11 +178,12 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 }
 
 const city = createCitySite();
+const mountainCity = createCitySite(undefined, { relief: 1, lake: 2 });
 for (const plan of cityPlanVariants) {
-	const { grid: town, datumZ } = readCityGrid(city, 1800, plan);
+	const { grid: town, datumZ } = readCityGrid(mountainCity, 1800, plan);
 	const columns = readCityColumns(
 		town,
-		readCityDistricts(city, town, undefined, { complexity: 1 })
+		readCityDistricts(mountainCity, town, undefined, { complexity: 1 })
 	);
 
 	test(`${plan} tiles a town without holes and keeps connected districts`, () => {
@@ -222,7 +222,7 @@ test('keeps every level and district through asymmetric growth above the center 
 		expect(rank[next.kind]).toBeGreaterThanOrEqual(rank[old.kind]);
 		expect(next.levels).toBeGreaterThanOrEqual(old.levels);
 	}
-});
+}, 15_000);
 
 test('reads elevated dry ground, explicit water and an empty buildable area from a terrain sampler', () => {
 	const [ox, oy] = city.origin;

@@ -25,9 +25,11 @@
 	--river-section: color-mix(in oklab, var(--river-water) 77%, var(--ink-2));
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
-	--height-low: #c2e9f3;
-	--height-high: #803413;
-	--height-line: #352c29;
+	--height-low: #dcecf3;
+	--height-mid: #699cba;
+	--height-high: #142e57;
+	--height-line: #233b60;
+	--alpha-opaque: 1;
 	--ground-stone: oklch(0.76 0.025 240);
 	--ground-plinth: color-mix(in oklch, var(--ground-stone) 29%, var(--paper-3));
 	--ground-sand: oklch(0.85 0.045 85);
@@ -125,9 +127,7 @@
 	--ink-2: oklch(0.74 0.008 85);
 	--ink: oklch(0.95 0.008 85);
 	--blueprint: oklch(0.545 0.16 268);
-	--height-low: #d4f3fb;
-	--height-high: #ac4b22;
-	--height-line: #eadbd1;
+	--height-line: #a4bfdd;
 	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;
@@ -223,7 +223,7 @@
 	.city-stage { display: grid; justify-items: start; gap: var(--space-2); min-inline-size: 0; }
 	.city-stage > .frame { inline-size: 100%; }
 	.scale-legend { margin: 0; inline-size: min(100%, 14rem); }
-	.scale-ramp { block-size: 0.45rem; background: linear-gradient(90deg in srgb-linear, var(--height-low), var(--height-high)); }
+	.scale-ramp { block-size: 0.45rem; background: linear-gradient(90deg in srgb-linear, var(--height-low), var(--height-mid) 15%, var(--height-high)); }
 	.scale-ticks { display: flex; justify-content: space-between; }
 	.city-measurements { margin: 0; }
 	.city-measurements > div { display: flex; gap: var(--space-1); }
