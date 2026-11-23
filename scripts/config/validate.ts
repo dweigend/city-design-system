@@ -38,13 +38,13 @@ function checkEntry(entry: unknown, principles: ReadonlySet<string>): string[] {
 	if (!record(entry) || !Object.isFrozen(entry)) return ['must be a frozen setting'];
 	const { value, unit, meaning, bounds, principle, rationale } = entry;
 	const errors: string[] = [];
-	const values = Array.isArray(value) ? value : [value];
+	const values: readonly unknown[] = Array.isArray(value) ? Array.from(value) : [value];
 	if (!text(unit)) errors.push('requires a unit');
 	if (!text(meaning)) errors.push('requires a meaning');
 	if (principle !== undefined && (!text(principle) || !principles.has(principle)))
 		errors.push('unknown principle');
 	if (principle === undefined && !text(rationale)) errors.push('requires a rationale');
-	if (!values.length || !Array.from(values).every(finite)) errors.push('requires finite defaults');
+	if (!values.length || !values.every(finite)) errors.push('requires finite defaults');
 	else if (bounds !== undefined && !validBounds(bounds, values)) errors.push('invalid bounds');
 	if (Array.isArray(value) && !Object.isFrozen(value)) errors.push('requires a frozen band');
 	return errors;

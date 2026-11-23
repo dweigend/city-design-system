@@ -13,6 +13,9 @@ export type RiverGeometry = Readonly<{
 	bearing: number;
 }>;
 
+// Exact arithmetic: one vertex occupies two entries in the interleaved XY array.
+const xyStride = 2;
+
 // An oscillation from one axis heading crossing to the next spans half a wave.
 function meanWavelength(xy: ArrayLike<number>, bearing: number): number | null {
 	let length = 0;
@@ -23,8 +26,8 @@ function meanWavelength(xy: ArrayLike<number>, bearing: number): number | null {
 	let previousStation = 0;
 	const x = -Math.sin(bearing);
 	const y = Math.cos(bearing);
-	for (let i = 2; i < xy.length; i += 2) {
-		const dx = xy[i] - xy[i - 2];
+	for (let i = xyStride; i < xy.length; i += xyStride) {
+		const dx = xy[i] - xy[i - xyStride];
 		const dy = xy[i + 1] - xy[i - 1];
 		const segment = Math.hypot(dx, dy);
 		const across = (dx * x + dy * y) / segment;
@@ -61,7 +64,7 @@ export function measureRiver(river: RiverGeometry, waveCourse = river.xy) {
 	)
 		throw new RangeError('invalid-river');
 	const riverLength = polylineLength(xy);
-	const valleyLength = distance(pointAt(xy, 0), pointAt(xy, xy.length - 2));
+	const valleyLength = distance(pointAt(xy, 0), pointAt(xy, xy.length - xyStride));
 	if (valleyLength === 0) throw new RangeError('zero-chord');
 	const sinuosity = riverLength / valleyLength;
 	if (!Number.isFinite(sinuosity)) throw new RangeError('non-finite-sinuosity');

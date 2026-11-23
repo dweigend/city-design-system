@@ -151,6 +151,18 @@ export default defineConfig(
 		languageOptions: { parserOptions: { parser: ts.parser } }
 	},
 	{
+		files: ['src/config/**/*.ts', 'scripts/config/*/**/*.ts'],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					globals: ['window', 'document', 'navigator', 'process', 'Bun', 'fetch'],
+					checkGlobalObject: true
+				}
+			]
+		}
+	},
+	{
 		files: headless,
 		rules: {
 			'no-restricted-globals': [

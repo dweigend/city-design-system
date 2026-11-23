@@ -112,13 +112,16 @@ function terraceEdge(profile: readonly ProfilePoint[], start: number, direction:
 	return null;
 }
 
+// Exact arithmetic: profile offsets increase from left to right.
+const outward = { left: -1, right: 1 } as const;
+
 /** Measures the dry distance from each bank to its first mapped terrace. */
 export function floodplainWidths(
 	profile: readonly ProfilePoint[],
 	banks: NonNullable<ReturnType<typeof wetBanks>>
 ): readonly [leftM: number | null, rightM: number | null] {
-	const left = terraceEdge(profile, banks.leftDry, -1);
-	const right = terraceEdge(profile, banks.rightDry, 1);
+	const left = terraceEdge(profile, banks.leftDry, outward.left);
+	const right = terraceEdge(profile, banks.rightDry, outward.right);
 	return [
 		left === null ? null : Math.max(0, banks.left - left),
 		right === null ? null : Math.max(0, right - banks.right)

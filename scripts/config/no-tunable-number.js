@@ -19,15 +19,14 @@ function isLength(node) {
 
 function isStride(node, value) {
 	const { parent } = node;
-	if (![2, 3].includes(value)) return false;
-	if (parent.type === 'AssignmentExpression' && parent.operator === '+=') {
+	if (parent.type === 'AssignmentExpression' && ['+=', '-='].includes(parent.operator)) {
 		const loop = parent.parent;
-		return loop.type === 'ForStatement' && loop.update === parent;
+		return value <= 3 && loop.type === 'ForStatement' && loop.update === parent;
 	}
-	if (parent.type !== 'BinaryExpression') return false;
+	if (![2, 3].includes(value) || parent.type !== 'BinaryExpression') return false;
 	const other = parent.left === node ? parent.right : parent.left;
 	if (isIndex(parent) || isIndex(parent.parent)) return true;
-	if (['/', '%'].includes(parent.operator) && isLength(other)) return true;
+	if (['/', '%', '-'].includes(parent.operator) && isLength(other)) return true;
 	return value === 2 && ['*', '/', '**'].includes(parent.operator);
 }
 
@@ -54,9 +53,12 @@ function isArithmetic(node, value) {
 	return (
 		value <= 1 &&
 		(parent.type === 'ReturnStatement' ||
+			(parent.type === 'ArrowFunctionExpression' && parent.parent.type === 'ReturnStatement') ||
 			parent.type === 'ConditionalExpression' ||
 			parent.type === 'LogicalExpression' ||
-			(parent.type === 'AssignmentExpression' && parent.left.type !== 'Identifier') ||
+			(parent.type === 'AssignmentExpression' &&
+				parent.left.type === 'MemberExpression' &&
+				parent.left.computed) ||
 			(parent.type === 'VariableDeclarator' && parent.parent.kind === 'let') ||
 			(parent.type === 'CallExpression' &&
 				parent.callee.type === 'MemberExpression' &&
@@ -75,10 +77,25 @@ function isExactHelper(node, source) {
 	return false;
 }
 
+function isPositionalArgument(node, value) {
+	const { parent } = node;
+	if (value > 3 || !Number.isInteger(value) || parent.type !== 'CallExpression') return false;
+	const { callee } = parent;
+	return (
+		(callee.type === 'MemberExpression' && ['at', 'slice'].includes(callee.property.name)) ||
+		(callee.type === 'Identifier' && callee.name === 'pointAt' && parent.arguments[1] === node) ||
+		(callee.type === 'MemberExpression' &&
+			callee.property.name === 'reduce' &&
+			value <= 1 &&
+			parent.arguments[1] === node)
+	);
+}
+
 function structural(node, value) {
 	if (isIndex(node) && Number.isInteger(value)) return true;
 	if (isLoopStart(node) && value <= 1) return true;
-	if (isStride(node, value) || isArithmetic(node, value)) return true;
+	if (isStride(node, value) || isArithmetic(node, value) || isPositionalArgument(node, value))
+		return true;
 	const { parent } = node;
 	return (
 		value === 0.5 && parent.type === 'BinaryExpression' && ['+', '-'].includes(parent.operator)

@@ -57,12 +57,17 @@ module.exports = {
 		error(
 			'config-helpers-data-only',
 			{ path: '^src/config/[^/]+\\.ts$' },
-			{ pathNot: '^src/config/[^/]+\\.ts$' }
+			{ pathNot: '^src/config/setting\\.ts$' }
 		),
 		error(
 			'config-data-only',
 			{ path: '^src/config/([^/]+)/' },
 			{ pathNot: '^src/config/(?:$1/|setting\\.ts$)' }
+		),
+		error(
+			'script-config-data-only',
+			{ path: '^scripts/config/([^/]+)/' },
+			{ pathNot: '^(?:scripts/config/$1/|src/config/setting\\.ts$)' }
 		),
 		error('no-file-cycles', {}, { circular: true }),
 		{

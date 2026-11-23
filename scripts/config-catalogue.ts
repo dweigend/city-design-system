@@ -7,10 +7,9 @@ const root = resolve(import.meta.dir, '..');
 const files = Array.from(new Bun.Glob('{src,scripts}/config/*/index.ts').scanSync(root)).sort();
 const slices = await Promise.all(
 	files.map(async (path) => {
-		const { settings: entries } = (await import(resolve(root, path))) as Record<
-			string,
-			Readonly<Record<string, Setting>>
-		>;
+		const { settings: entries } = (await import(resolve(root, path))) as {
+			settings?: Readonly<Record<string, Setting>>;
+		};
 		if (!entries) throw Error(`${path}: export the settings table as settings`);
 		return { path, entries };
 	})

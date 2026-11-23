@@ -169,6 +169,9 @@ function boundsPoints(shape: Shape): Vec3[] {
 	}
 }
 
+// Exact arithmetic: rotation about Z lets the prism footprint and height be moved independently.
+const axisOrigin = 0;
+
 function moveShape(shape: Shape, point: PointTransform, radians: number): Shape {
 	switch (shape.kind) {
 		case 'box':
@@ -177,11 +180,11 @@ function moveShape(shape: Shape, point: PointTransform, radians: number): Shape 
 			return {
 				kind: 'prism',
 				polygon: shape.polygon.map(([x, y]) => {
-					const [movedX, movedY] = point([x, y, 0]);
+					const [movedX, movedY] = point([x, y, axisOrigin]);
 					return [movedX, movedY];
 				}),
-				base: point([0, 0, shape.base])[2],
-				top: point([0, 0, shape.top])[2]
+				base: point([axisOrigin, axisOrigin, shape.base])[2],
+				top: point([axisOrigin, axisOrigin, shape.top])[2]
 			};
 		case 'mesh': {
 			const positions: number[] = [];
