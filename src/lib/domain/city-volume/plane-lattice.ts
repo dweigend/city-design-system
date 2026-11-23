@@ -92,56 +92,90 @@ const frustum = (polygon: readonly Joint[], medial: readonly Joint[]) => [
 	...polygon.map((a, i) => [a, medial[i], medial.at(i - 1) ?? medial[i]])
 ];
 
-/** Builds the solids of one layer between two level planes. Each solid exists only where every
- * column it touches reaches the upper plane, so a lower neighbor leaves an open, faceted step. */
-function addLayer(topology: PlanTopology, joints: Joints, layer: Layer, add: Add) {
-	const { level, low, high, tall } = layer;
-	const at = (kind: PlaneKind) => (low === kind ? level : level + 1);
-	const bay = (cell: string) => `${cell}/level/${level}`;
-	const kinds = [low, high].sort().join('/');
-	for (const { planCellId: cell, corners } of topology.columns.values()) {
-		if (!tall(cell)) continue;
-		const polygon = (k: number) => corners.map((corner) => joints.corner(corner, k));
-		const medial = (k: number) =>
-			corners.map((a, i) =>
-				joints.middle(topology.edgeKey(a, corners[(i + 1) % corners.length]), k)
-			);
-		const id = `${bay(cell)}/cell`;
-		if (kinds === 'plan/plan') add(id, bay(cell), prism(polygon(level), polygon(level + 1)));
-		if (kinds === 'centre/plan')
-			add(id, bay(cell), pyramid(polygon(at('plan')), joints.centre(cell, at('centre'))));
-		if (kinds === 'medial/plan')
-			add(id, bay(cell), frustum(polygon(at('plan')), medial(at('medial'))));
-		if (kinds === 'foot/medial')
-			add(id, bay(cell), pyramid(medial(at('medial')), joints.centre(cell, at('foot'))));
+type Faces = readonly (readonly Joint[])[];
+type Context = Layer &
+	Readonly<{
+		topology: PlanTopology;
+		joints: Joints;
+		add: Add;
+		at: (kind: PlaneKind) => number;
+		bay: (cell: string) => string;
+	}>;
+
+function polygon({ joints }: Context, { corners }: Column, level: number) {
+	return corners.map((corner) => joints.corner(corner, level));
+}
+
+function medial({ joints, topology }: Context, { corners }: Column, level: number) {
+	return corners.map((a, i) =>
+		joints.middle(topology.edgeKey(a, corners[(i + 1) % corners.length]), level)
+	);
+}
+
+/** The one cell solid of each plane pair, keyed by the sorted plane kinds. */
+const cellSolids: Record<string, (context: Context, column: Column) => Faces> = {
+	'plan/plan': (c, column) => prism(polygon(c, column, c.level), polygon(c, column, c.level + 1)),
+	'centre/plan': (c, column) =>
+		pyramid(polygon(c, column, c.at('plan')), c.joints.centre(column.planCellId, c.at('centre'))),
+	'medial/plan': (c, column) =>
+		frustum(polygon(c, column, c.at('plan')), medial(c, column, c.at('medial'))),
+	'foot/medial': (c, column) =>
+		pyramid(medial(c, column, c.at('medial')), c.joints.centre(column.planCellId, c.at('foot')))
+};
+
+/** Between plan and dual planes, every inner plan edge spans a tetrahedron to its two centres. */
+function addEdgeTetrahedra(c: Context) {
+	for (const { key, ends, cells } of c.topology.edges.values()) {
+		if (cells.length !== 2 || !cells.every(c.tall)) continue;
+		const [a, b] = ends.map((corner) => c.joints.corner(corner, c.at('plan')));
+		const [d, e] = cells.map((cell) => c.joints.centre(cell, c.at('centre')));
+		const faces = [
+			[a, d, b],
+			[a, b, e],
+			[a, e, d],
+			[b, d, e]
+		];
+		c.add(`edge/${key}/level/${c.level}`, c.bay([...cells].sort()[0]), faces);
 	}
-	if (kinds === 'centre/plan') {
-		for (const { key, ends, cells } of topology.edges.values()) {
-			if (cells.length !== 2 || !cells.every(tall)) continue;
-			const [a, b] = ends.map((corner) => joints.corner(corner, at('plan')));
-			const [c, d] = cells.map((cell) => joints.centre(cell, at('centre')));
-			add(`edge/${key}/level/${level}`, bay([...cells].sort()[0]), [
-				[a, c, b],
-				[a, b, d],
-				[a, d, c],
-				[b, c, d]
-			]);
-		}
-	}
-	if (kinds !== 'centre/plan' && kinds !== 'medial/plan') return;
-	for (const ring of topology.rings.values()) {
-		if (!ring.interior || !ring.cells.every(tall)) continue;
-		const base =
-			kinds === 'centre/plan'
-				? ring.cells.map((cell) => joints.centre(cell, at('centre')))
-				: ring.edges.map((key) => joints.middle(key, at('medial')));
-		const apex = joints.corner(ring.corner, at('plan'));
-		add(
-			`vertex/${ring.corner.id}/level/${level}`,
-			bay([...ring.cells].sort()[0]),
+}
+
+/** Every inner plan corner caps the ring of centres or midpoints around it with a pyramid. */
+function addCornerPyramids(c: Context, onCentres: boolean) {
+	for (const ring of c.topology.rings.values()) {
+		if (!ring.interior || !ring.cells.every(c.tall)) continue;
+		const base = onCentres
+			? ring.cells.map((cell) => c.joints.centre(cell, c.at('centre')))
+			: ring.edges.map((key) => c.joints.middle(key, c.at('medial')));
+		const apex = c.joints.corner(ring.corner, c.at('plan'));
+		c.add(
+			`vertex/${ring.corner.id}/level/${c.level}`,
+			c.bay([...ring.cells].sort()[0]),
 			pyramid(base, apex)
 		);
 	}
+}
+
+/** Builds the solids of one layer between two level planes. Each solid exists only where every
+ * column it touches reaches the upper plane, so a lower neighbor leaves an open, faceted step. */
+function addLayer(topology: PlanTopology, joints: Joints, layer: Layer, add: Add) {
+	const { level, low } = layer;
+	const c: Context = {
+		...layer,
+		topology,
+		joints,
+		add,
+		at: (kind) => (low === kind ? level : level + 1),
+		bay: (cell) => `${cell}/level/${level}`
+	};
+	const kinds = [layer.low, layer.high].sort().join('/');
+	const cellSolid = cellSolids[kinds];
+	if (!cellSolid) throw new RangeError(`No lattice layer joins ${kinds} planes`);
+	for (const column of topology.columns.values())
+		if (layer.tall(column.planCellId))
+			add(`${c.bay(column.planCellId)}/cell`, c.bay(column.planCellId), cellSolid(c, column));
+	if (kinds === 'centre/plan') addEdgeTetrahedra(c);
+	if (kinds === 'centre/plan' || kinds === 'medial/plan')
+		addCornerPyramids(c, kinds === 'centre/plan');
 }
 
 type Add = (id: string, bay: string, faces: readonly (readonly Joint[])[]) => void;

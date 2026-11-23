@@ -106,7 +106,10 @@ function planParts(columns: readonly CityColumn[]) {
 		seen.add(planCellId);
 		for (const id of queue)
 			for (const next of required(byId.get(id), 'column').neighbors)
-				if (next !== null && !seen.has(next)) (seen.add(next), queue.push(next));
+				if (next !== null && !seen.has(next)) {
+					seen.add(next);
+					queue.push(next);
+				}
 	}
 	return parts;
 }
