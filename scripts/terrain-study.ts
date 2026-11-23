@@ -1,109 +1,196 @@
-// Terrain acceptance study: relief × lake mode × seed, measured headlessly in the 4 km survey
-// square. Checks the hydrology invariants per run and writes _lokal/r08b-terrain/study.json.
 // Run: heavy-slot --time 900 -- bun scripts/terrain-study.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { surveyValley, Valley, valleyLakeModes } from '../src/lib/domain/valley';
+import { surveyValley, Valley, type ValleyTiming } from '../src/lib/domain/valley';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
-const out = resolve(import.meta.dir, '../_lokal/r08b-terrain');
+const out = resolve(import.meta.dir, '../_lokal/r08c-drainage');
 mkdirSync(out, { recursive: true });
 
 const reliefs = [0, 0.25, 0.5, 0.75, 1];
+const runoffs = [0.5, 1, 1.5];
 const seeds = [1201, 1301, 1409, 7, 42, 314, 2718, 9001, 65535, 424242, 31337, 8086];
+const inSurvey = ([x, y]: readonly number[]) => Math.max(Math.abs(x), Math.abs(y)) <= 2000;
 
-type Row = {
-	relief: number;
-	lake: string;
-	seed: number;
-	generationMs: number;
-	reliefM: number;
-	maxSlope: number;
-	waterShare: number;
-	lakeAreaKm2: number;
-	buildableShare: number;
-	hasLake: boolean;
-	pass: boolean;
-	faults: string;
-};
-
-function run(relief: number, lake: number, seed: number): Row {
-	const start = performance.now();
-	const valley = Valley.create({ seed, parameters: { relief, lake } });
-	const generationMs = performance.now() - start;
-	const again = Valley.create({ seed, parameters: { relief, lake } });
-	const survey = surveyValley(valley);
-	const { uphillSteps, lakeTiltM, dryBelowWater } = survey.faults;
-	const deterministic =
-		Bun.hash(JSON.stringify(again.grid)) === Bun.hash(JSON.stringify(valley.grid));
-	const lakeExpected = lake === 2 ? valley.lake !== null : lake === 0 ? valley.lake === null : true;
-	const lakeSeen = valley.lake === null || survey.lakeArea > 0;
-	const pass =
-		uphillSteps === 0 &&
-		lakeTiltM === 0 &&
-		dryBelowWater === 0 &&
-		deterministic &&
-		lakeExpected &&
-		lakeSeen;
+function reaches(valley: Valley) {
+	const byId = new Map(valley.reaches.map((reach) => [reach.id, reach]));
+	const trunk: { width: number; length: number }[] = [];
+	const tributary = new Map<number, number>();
+	let tributaryLengthM = 0;
+	let junctionFaults = 0;
+	let widthFaults = 0;
+	for (const reach of valley.reaches) {
+		const downstream = reach.downstream === null ? undefined : byId.get(reach.downstream);
+		const last = reach.stations.at(-1);
+		if (downstream && last?.water !== downstream.stations[0].water) junctionFaults++;
+		let previous = reach.stations[0];
+		for (const next of reach.stations.slice(1)) {
+			if (Math.abs(next.width - 48 * Math.sqrt(next.discharge)) > 1e-9) widthFaults++;
+			const length = Math.hypot(next.xy[0] - previous.xy[0], next.xy[1] - previous.xy[1]);
+			if (inSurvey(next.xy) || inSurvey(previous.xy)) {
+				if (reach.trunk) trunk.push({ width: (previous.width + next.width) / 2, length });
+				else tributaryLengthM += length;
+			}
+			previous = next;
+		}
+		if (reach.downstream !== null && last && inSurvey(last.xy)) {
+			tributary.set(reach.downstream, (tributary.get(reach.downstream) ?? 0) + 1);
+		}
+	}
+	trunk.sort((a, b) => a.width - b.width);
+	const length = trunk.reduce((sum, item) => sum + item.length, 0);
+	const percentile = (fraction: number) => {
+		let remaining = fraction * length;
+		for (const item of trunk) {
+			remaining -= item.length;
+			if (remaining <= 0) return item.width;
+		}
+		return trunk.at(-1)?.width ?? 0;
+	};
 	return {
-		relief,
-		lake: valleyLakeModes[lake],
+		trunkWidth: [0.1, 0.5, 0.9].map(percentile),
+		tributaryLengthM,
+		junctions: [...tributary.values()].filter((count) => count > 1).length,
+		junctionFaults,
+		widthFaults
+	};
+}
+
+function lakes(valley: Valley) {
+	const trunkLakes = new Set(
+		valley.reaches.filter(({ trunk }) => trunk).map(({ downstream }) => downstream)
+	);
+	return valley.lakes.map((lake) => {
+		const complete = lake.rings.length > 0 && lake.rings.every((ring) => ring.every(inSurvey));
+		let perimeter = 0;
+		for (const ring of lake.rings) {
+			for (let i = 0; i < ring.length; i++) {
+				const [x, y] = ring[i];
+				const [u, v] = ring[(i + 1) % ring.length];
+				perimeter += Math.hypot(u - x, v - y);
+			}
+		}
+		return {
+			id: lake.id,
+			area: lake.area,
+			outlet: lake.outlet,
+			complete,
+			sideLakeWithOutlet: !trunkLakes.has(lake.id) && lake.downstream !== null,
+			shape: complete ? perimeter / (2 * Math.sqrt(Math.PI * lake.area)) : null,
+			sillFault: lake.level !== lake.sillElevation || lake.area <= 0
+		};
+	});
+}
+
+function run(relief: number, runoff: number, seed: number) {
+	const start = performance.now();
+	let timing: ValleyTiming | undefined;
+	const parameters = { relief, runoff };
+	const valley = Valley.create({
 		seed,
+		parameters,
+		onTiming: (result) => {
+			timing = result;
+		}
+	});
+	const generationMs = performance.now() - start;
+	const again = Valley.create({ seed, parameters });
+	const hash = (value: Valley) =>
+		Bun.hash(JSON.stringify([value.reaches, value.lakes, value.grid]));
+	const survey = surveyValley(valley);
+	const drainage = valley.checkDrainage();
+	const courses = reaches(valley);
+	const bodies = lakes(valley);
+	const deterministic = hash(valley) === hash(again);
+	const pass =
+		deterministic &&
+		drainage.areaResidualM2 <= 1e-3 &&
+		!drainage.nodeBalanceFaults &&
+		!drainage.uphillReceivers &&
+		!drainage.carvedSillFaults &&
+		drainage.maxDryTriangleSlope <= 0.711 &&
+		!courses.widthFaults &&
+		!courses.junctionFaults &&
+		bodies.every(({ sillFault }) => !sillFault) &&
+		survey.faults.lakeTiltM === 0 &&
+		survey.faults.uphillSteps === 0 &&
+		survey.faults.dryBelowLocalWater === 0;
+	return {
+		seed,
+		relief,
+		runoff,
 		generationMs,
-		reliefM: survey.reliefM,
-		maxSlope: survey.maxSlope,
-		waterShare: survey.waterShare,
-		lakeAreaKm2: survey.lakeArea / 1e6,
-		buildableShare: survey.buildableShare,
-		hasLake: valley.lake !== null,
-		pass,
-		faults: JSON.stringify({
-			uphillSteps,
-			lakeTiltM,
-			dryBelowWater,
-			deterministic,
-			lakeExpected,
-			lakeSeen
-		})
+		timing,
+		survey,
+		drainage,
+		courses,
+		bodies,
+		deterministic,
+		pass
 	};
 }
 
 function spread(values: number[]) {
-	const sorted = [...values].sort((a, b) => a - b);
+	if (!values.length) return '—';
+	const sorted = values.toSorted((a, b) => a - b);
 	const median =
 		(sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.floor(sorted.length / 2)]) / 2;
-	return { min: sorted[0], median, max: sorted[sorted.length - 1] };
+	return [sorted[0], median, sorted.at(-1)].map((value) => value?.toFixed(3) ?? '—').join('/');
 }
 
-const rows: Row[] = [];
-for (const relief of reliefs)
-	for (const lake of [0, 1, 2]) for (const seed of seeds) rows.push(run(relief, lake, seed));
-
-const failures = rows.filter((row) => !row.pass);
-const metrics = [
-	'reliefM',
-	'maxSlope',
-	'waterShare',
-	'lakeAreaKm2',
-	'buildableShare',
-	'generationMs'
-] as const;
-const format = (value: number) => (Math.abs(value) >= 10 ? value.toFixed(0) : value.toFixed(3));
-const summary = reliefs.map((relief) => {
-	const group = rows.filter((row) => row.relief === relief);
-	const lakes = group.filter((row) => row.lake === 'seeded' && row.hasLake).length;
-	const line = metrics.map((metric) => {
-		const { min, median, max } = spread(group.map((row) => row[metric]));
-		return `${metric} ${format(min)}/${format(median)}/${format(max)}`;
-	});
-	return `relief ${relief.toFixed(2)} · seeded lakes ${lakes}/${seeds.length} · ${line.join(' · ')}`;
-});
-writeFileSync(resolve(out, 'study.json'), JSON.stringify(rows, null, 1));
-console.log(
-	`runs ${rows.length}, passed ${rows.length - failures.length}, min/median/max per relief:`
+const rows = reliefs.flatMap((relief) =>
+	runoffs.flatMap((runoff) => seeds.map((seed) => run(relief, runoff, seed)))
 );
-for (const line of summary) console.log(line);
-for (const failure of failures)
-	console.log('FAIL', failure.relief, failure.lake, failure.seed, failure.faults);
-if (failures.length) process.exit(1);
+const failures = rows.filter((row) => !row.pass);
+writeFileSync(resolve(out, 'study.json'), JSON.stringify(rows, null, 1));
+console.log(`Runs ${rows.length}, passed ${rows.length - failures.length} (min/median/max)`);
+for (const relief of reliefs) {
+	const group = rows.filter((row) => row.relief === relief);
+	const metric = (read: (row: (typeof rows)[number]) => number) => spread(group.map(read));
+	const side = group
+		.flatMap(({ bodies }) => bodies)
+		.filter((body) => body.complete && body.sideLakeWithOutlet);
+	const stats = [
+		`relief M ${metric(({ survey }) => survey.reliefM)}`,
+		`dry slopes ${['p50', 'p95', 'max'].map((key) => metric(({ survey }) => survey.drySlope[key as keyof typeof survey.drySlope])).join(' | ')}`,
+		`water ${metric(({ survey }) => survey.waterShare)}`,
+		`wet node max grade ${metric(({ survey }) => survey.maxWetSlope)}`,
+		`dry below neighbour ${metric(({ survey }) => survey.faults.dryBelowWater)}`,
+		`buildable ${metric(({ survey }) => survey.buildableShare)}`,
+		`trunk widths ${[0, 1, 2].map((i) => metric(({ courses }) => courses.trunkWidth[i])).join(' | ')}`,
+		`junctions ${metric(({ courses }) => courses.junctions)}`,
+		`tributary length m ${metric(({ courses }) => courses.tributaryLengthM)}`,
+		`complete side lakes ${side.length}, shoreline shape ${spread(side.flatMap(({ shape }) => (shape === null ? [] : [shape])))}`
+	];
+	console.log(`relief ${relief} · ${stats.join(' · ')}`);
+}
+for (const relief of [0, 1]) {
+	const warm = rows
+		.filter((row) => row.relief === relief && row.runoff === 1)
+		.map(({ timing }) => timing);
+	console.log(
+		`timing relief ${relief}`,
+		Object.fromEntries(
+			(['baseMs', 'floodMs', 'reachesMs', 'gridMs'] as const).map((key) => [
+				key,
+				spread(warm.flatMap((timing) => (timing ? [timing[key]] : [])))
+			])
+		)
+	);
+}
+for (const { relief, runoff, seed, survey, drainage, courses, bodies, deterministic } of failures) {
+	console.log(
+		'FAIL',
+		relief,
+		runoff,
+		seed,
+		survey.faults,
+		drainage,
+		courses.junctionFaults,
+		courses.widthFaults,
+		bodies.filter(({ sillFault }) => sillFault).map(({ id }) => id),
+		deterministic
+	);
+}
+if (failures.length) process.exitCode = 1;

@@ -93,10 +93,12 @@ function clipTriangle(
 	outline.face(polygon, shore);
 }
 
-export function lakeGeometry(
-	{ bed, basins, membership, area }: ReturnType<typeof solveDrainage>,
-	threshold: number
-) {
+export function lakeGeometry({
+	bed,
+	basins,
+	membership,
+	receiver
+}: ReturnType<typeof solveDrainage>) {
 	const outlines = basins.map(outline);
 	const clip = (a: number, b: number, c: number) => {
 		const id = Math.max(membership[a], membership[b], membership[c]);
@@ -118,7 +120,12 @@ export function lakeGeometry(
 				area: basin.area,
 				depth: basin.depth / 1000,
 				outlet: Object.freeze(position(basin.outlet)),
-				downstream: area[basin.outlet] >= threshold ? basin.outlet : null,
+				downstream:
+					membership[basin.outlet] >= 0
+						? -1 - membership[basin.outlet]
+						: receiver[basin.outlet] < 0
+							? null
+							: basin.outlet,
 				...outlines[i].finish()
 			})
 		)

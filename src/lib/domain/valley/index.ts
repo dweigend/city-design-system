@@ -2,10 +2,14 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { Random } from '../../core/random';
 import { resolveParams } from '../../core/params';
 import { generateCourse, type RiverCourse } from './course';
-import { groundSampler, heightGrid, valleyBands, type HeightGrid } from './ground';
+import { heightGrid, valleyBands, type HeightGrid } from './ground';
 import { valleyParams } from './parameters';
-import { drawLake, lakeReach, type Lake } from './lake';
-import { mountainFlanks } from './relief';
+import { drainageTerrain } from './drainage-terrain';
+import type { DrainageLake } from './lake-geometry';
+import type { DrainageCheck } from './drainage-check';
+import type { Reach } from './reaches';
+import { terrainSampler } from './terrain-sample';
+import { trunkCourse } from './trunk-course';
 import { readGround, type GroundReading } from './reading';
 import {
 	surveyDefaults,
@@ -18,17 +22,20 @@ import { axisBow } from './ground-profile';
 import { createValleyAxis } from './valley-axis';
 
 /** Public numeric controls and their units and bounds. */
-export { valleyParams, valleyLakeModes } from './parameters';
-/** Peak height in meters of the tallest massif for a relief ratio. */
-export { peakHeightM } from './relief';
+export { valleyParams } from './parameters';
+/** Nominal uplift amplitude in meters for a relief ratio. */
+export { peakHeightM } from './uplifts';
 /** Index order for named ground bands on the raster. */
 export { valleyBands } from './ground';
+export type { Reach, ReachStation } from './reaches';
+export type { DrainageCheck } from './drainage-check';
+export type { WaterKind } from './terrain-sample';
 export type {
 	GroundReading,
 	GroundSurvey,
 	HydrologyFaults,
 	HeightGrid,
-	Lake,
+	DrainageLake,
 	RiverCourse,
 	SurveyWindow
 };
@@ -40,18 +47,26 @@ export { surveyDefaults } from './survey';
  * buildable slope, and hydrology faults (all zero when sound). Pure; samples each node once.
  * Invalid windows throw RangeError. */
 export function surveyValley(valley: Valley, window: SurveyWindow = surveyDefaults): GroundSurvey {
-	return surveyGround(valley.sampleGround, valley.lake, valley.course.xy, window);
+	return surveyGround(valley.sampleTerrain, valley.reaches, window);
 }
 
-/** Resolved parameters: sinuosity ratio, relief ratio in [0, 1] and lake mode index into
- * valleyLakeModes. */
-export type ValleySettings = Readonly<{ sinuosity: number; relief: number; lake: number }>;
+/** Resolved sinuosity, relief and runoff ratios. */
+export type ValleySettings = Readonly<{ sinuosity: number; relief: number; runoff: number }>;
 
-/** Seed and optional parameters. The chapter defaults to seed 1201. */
+/** Wall time in milliseconds for each construction stage. */
+export type ValleyTiming = Readonly<{
+	baseMs: number;
+	floodMs: number;
+	reachesMs: number;
+	gridMs: number;
+}>;
+
+/** Seed and optional parameters. Wet width calibrates imported flow for the city datum. */
 export type ValleyOptions = Readonly<{
 	seed: number;
 	parameters?: Partial<ValleySettings>;
 	wetWidth?: number;
+	onTiming?: (timing: ValleyTiming) => void;
 }>;
 
 /** Position on the lower terrace in meters, with downstream bearing in radians. */
@@ -67,10 +82,15 @@ export type TerraceFrame = Readonly<{
  */
 export type Valley = Readonly<{
 	seed: number;
+	revision: 2;
 	parameters: ValleySettings;
 	course: RiverCourse;
-	/** The lake on the river, or null. Its water is flat at `level`. */
-	lake: Lake | null;
+	reaches: readonly Reach[];
+	lakes: readonly DrainageLake[];
+	/** Checks the solved graph, uncarved dry triangles and spill elevations after incision. */
+	checkDrainage(): DrainageCheck;
+	/** Samples ground with the identity and kind of surface water, when present. */
+	sampleTerrain: ReturnType<typeof terrainSampler>;
 	grid: HeightGrid;
 	bands: typeof valleyBands;
 	/** Returns a frozen frame at the lower terrace center, at a signed downstream station
@@ -90,60 +110,46 @@ export type Valley = Readonly<{
 	readGround(x: number, y: number): GroundReading;
 }>;
 
-/** Builds one deterministic river and its ground from a uint32 seed and three parameters.
- * Sinuosity (default 1.15) clamps to [1.04, 1.28] and snaps to 0.01. At a fixed
- * parameter, the paired curvature draw adds −0.011 to +0.027 to the full-wave ratio.
- * Sinuosity means channel length divided by endpoint chord over a full wavelength.
- * Relief (default 0, step 0.05) raises seeded mountain massifs beyond the upper terrace, up to
- * peakHeightM(relief) above the water; zero keeps the lowland valley unchanged. Lake (default 1)
- * selects never, seeded (chance 0.6 × relief) or always; a lake widens the river into a flat
- * ellipse and the river keeps falling downstream of it. Keyed course, bank, ground, relief and
- * lake streams produce repeatable results. Invalid seeds or parameter overrides throw. The
- * independent measurement protocol lives in world/valley-protocol.
- * An optional narrower wet width in meters keeps the same bankfull course.
- */
-function create({ seed, parameters, wetWidth }: ValleyOptions): Valley {
+/** Builds one deterministic catchment and routes water from a seeded ancestral valley. */
+function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley {
 	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32) throw new RangeError('invalid-seed');
-	const { sinuosity, relief, lake: lakeMode } = resolveParams(valleyParams, parameters);
+	const resolved = resolveParams(valleyParams, parameters);
 	const settings = Object.freeze({
-		sinuosity: Number(sinuosity.toFixed(2)),
-		relief: Number(relief.toFixed(2)),
-		lake: lakeMode
+		sinuosity: Number(resolved.sinuosity.toFixed(2)),
+		relief: Number(resolved.relief.toFixed(2)),
+		runoff: Number(resolved.runoff.toFixed(1))
 	});
 	const root = Random.create({ seed });
 	const openSide = root.derive('open-bank').number() < 0.5 ? 1 : -1;
-	const generated = generateCourse(
-		root.derive('course'),
-		settings.sinuosity,
-		openSide,
-		-Math.PI / 2
-	);
+	const guide = generateCourse(root.derive('course'), settings.sinuosity, openSide, -Math.PI / 2);
 	if (
 		wetWidth !== undefined &&
-		(!Number.isFinite(wetWidth) || wetWidth < 20 || wetWidth > generated.wetWidth)
+		(!Number.isFinite(wetWidth) || wetWidth < 20 || wetWidth > guide.wetWidth)
 	)
 		throw new RangeError('Wet width must fit inside the generated bankfull channel');
-	const course = wetWidth === undefined ? generated : Object.freeze({ ...generated, wetWidth });
-	const axis = createValleyAxis(root.derive('ground'), course, openSide);
-	const flanks = mountainFlanks(root.derive('relief'), settings.relief);
-	const shape = drawLake(root.derive('lake'), course, axis.bearingRad, settings.relief, lakeMode);
-	const reach = shape && lakeReach(shape, axis.bearingRad);
-	const sample = groundSampler(course, axis, root.derive('regional'), {
-		flanks,
-		lake: shape,
-		lakeReach: reach
-	});
+	const axis = createValleyAxis(root.derive('ground'), guide, openSide);
+	const terrain = drainageTerrain(guide, axis, root, settings.relief, settings.runoff, wetWidth);
+	const rasterStart = performance.now();
+	const course = trunkCourse(terrain, guide.bearing);
+	const sample = terrainSampler(terrain, settings.relief);
 	const grid = heightGrid(sample, axis);
-	const lake = shape && Object.freeze({ ...shape, level: sample(...shape.center).water });
+	onTiming?.(Object.freeze({ ...terrain.timing, gridMs: performance.now() - rasterStart }));
 	return Object.freeze({
 		seed,
+		revision: 2,
 		parameters: settings,
 		course,
-		lake,
+		lakes: terrain.lakes,
+		checkDrainage: () => terrain.check((x, y) => sample(x, y).height),
+		reaches: terrain.reaches,
 		grid,
 		bands: valleyBands,
-		sampleGround: sample,
-		readGround: (x: number, y: number) => readGround(sample, lake, x, y),
+		sampleTerrain: sample,
+		sampleGround(x: number, y: number) {
+			const { height, water, bank } = sample(x, y);
+			return { height, water, bank };
+		},
+		readGround: (x: number, y: number) => readGround(sample, x, y),
 		lowerTerraceFrame(station: number, side: 'narrow' | 'wide' = 'narrow') {
 			if (!Number.isFinite(station) || Math.abs(station) > 500)
 				throw new RangeError('Terrace station is outside the central valley');
@@ -156,8 +162,18 @@ function create({ seed, parameters, wetWidth }: ValleyOptions): Valley {
 			const lateral = axisBow(axis, station) + sign * (edge + axis.profile.upperSetbackM / 2);
 			const u = Math.cos(axis.bearingRad);
 			const v = Math.sin(axis.bearingRad);
-			const x = axis.anchorX + u * station - v * lateral;
-			const y = axis.anchorY + v * station + u * lateral;
+			let x = axis.anchorX + u * station - v * lateral;
+			let y = axis.anchorY + v * station + u * lateral;
+			for (let shift = 5; sample(x, y).bank <= 0 && shift <= 155; shift += 5) {
+				for (const direction of [1, -1]) {
+					const nextX = axis.anchorX + u * station - v * (lateral + direction * shift);
+					const nextY = axis.anchorY + v * station + u * (lateral + direction * shift);
+					if (sample(nextX, nextY).bank <= 0) continue;
+					x = nextX;
+					y = nextY;
+					break;
+				}
+			}
 			return Object.freeze({
 				position: Object.freeze([x, y, sample(x, y).height] as const),
 				bearing: axis.bearingRad,

@@ -7,17 +7,14 @@ import { defineParams } from '../../core/params';
 export const valleyParams = defineParams({
 	sinuosity: { label: 'Meander', unit: 'ratio', default: 1.15, min: 1.04, max: 1.28, step: 0.01 },
 	relief: { label: 'Relief', unit: 'ratio', default: 0, min: 0, max: 1, step: 0.05 },
-	lake: { label: 'Lake', unit: 'mode', default: 1, min: 0, max: 2, step: 1 }
+	runoff: { label: 'Runoff', unit: 'ratio', default: 1, min: 0.5, max: 1.5, step: 0.1 }
 });
-
-/** Lake modes by the index of the `lake` parameter: never, drawn by the seed, always. */
-export const valleyLakeModes = Object.freeze(['never', 'seeded', 'always'] as const);
 
 export type Band = readonly [min: number, max: number];
 
 export const defaultBands = {
 	bankfullWidth: [350, 430],
-	wavelengthToWidth: [21, 24],
+	wavelengthToWidth: [21.3, 24],
 	phaseOffset: [-0.06, 0.06],
 	windowPhaseOffset: [-Math.PI, Math.PI],
 	axisTilt: [-0.052, 0.052],

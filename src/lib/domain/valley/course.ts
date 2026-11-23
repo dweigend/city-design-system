@@ -2,7 +2,8 @@ import type { Random } from '../../core/random';
 import { defaultBands, headingAmplitude, sampleBand } from './parameters';
 import { alignmentFor, maxWindowOffset, placeCourse, windowOffset } from './window-placement';
 
-/** Downstream XY vertices 6.25 m apart by chainage. Widths apply to every vertex, in meters. */
+/** Downstream trunk centerline and length-weighted median widths in meters.
+ * Bearing is the mean downstream axis in radians from the positive X axis. */
 export type RiverCourse = Readonly<{
 	xy: readonly number[];
 	bankfullWidth: number;

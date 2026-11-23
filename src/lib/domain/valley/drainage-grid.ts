@@ -14,3 +14,12 @@ export function eachNeighbor(
 	if (column > 0 && row > 0) visit(index - side - 1, true);
 	if (column + 1 < side && row + 1 < side) visit(index + side + 1, true);
 }
+
+export function vertexArea(side: number, spacing: number, index: number) {
+	const x = index % side;
+	const y = (index / side) | 0;
+	const boundaryX = x === 0 || x === side - 1;
+	const boundaryY = y === 0 || y === side - 1;
+	const triangles = boundaryX && boundaryY ? 1 + Number(x === y) : boundaryX || boundaryY ? 3 : 6;
+	return (spacing * spacing * triangles) / 6;
+}

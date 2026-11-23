@@ -23,10 +23,10 @@ export function regionalGround(
 		-(x * Math.cos(guide.bearing) + y * Math.sin(guide.bearing)) * axis.profile.valleySlope;
 	const terraces = (x: number, y: number) => {
 		const { stationM, acrossM } = offset(toMillimeters(x), toMillimeters(y));
-		if (x * x + y * y <= 1420 ** 2) return heightAboveWaterM(axis, stationM, acrossM, Infinity);
+		if (x * x + y * y <= 1420 ** 2) return heightAboveWaterM(axis, stationM, acrossM);
 		const { rate, lateral, shoulder } = belt(x, y);
 		const across = acrossM + (lateral + axisBow(axis, stationM) - acrossM) * rate;
-		return heightAboveWaterM(axis, stationM, across, Infinity, rate) + shoulder;
+		return heightAboveWaterM(axis, stationM, across, rate) + shoulder;
 	};
 	const ground = (x: number, y: number) => {
 		const fromTrough = distance(toMillimeters(x), toMillimeters(y), 2_000_000) / 1000;

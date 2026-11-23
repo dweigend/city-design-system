@@ -3,7 +3,7 @@
 import { floodTerrain } from './flood';
 import { findBasins } from './basins';
 
-import { eachNeighbor, type DrainageGrid } from './drainage-grid';
+import { eachNeighbor, vertexArea, type DrainageGrid } from './drainage-grid';
 
 function route(side: number, { level, parent }: ReturnType<typeof floodTerrain>) {
 	const receiver = parent.slice();
@@ -32,20 +32,7 @@ function accumulate(
 	const queue = new Int32Array(bed.length);
 	let size = 0;
 	for (let i = 0; i < bed.length; i++) {
-		const x = i % side;
-		const y = (i / side) | 0;
-		// Corner weights reflect one or two incident triangles. Interior edge vertices have three.
-		const triangles =
-			x === 0 || x === side - 1
-				? y === 0 || y === side - 1
-					? x === y
-						? 2
-						: 1
-					: 3
-				: y === 0 || y === side - 1
-					? 3
-					: 6;
-		area[i] = (spacing * spacing * triangles) / 6;
+		area[i] = vertexArea(side, spacing, i);
 		if (receiver[i] >= 0) incoming[receiver[i]]++;
 	}
 	area[inlet] += importedArea;

@@ -5,7 +5,8 @@
 
 <script lang="ts">
 	import { page } from '$app/state';
-	import { surveyValley, Valley, valleyLakeModes, valleyParams } from '../../lib/domain/valley';
+	import { resolve } from '$app/paths';
+	import { surveyValley, Valley, valleyParams } from '../../lib/domain/valley';
 	import { measureRiver } from '../../lib/domain/river-metrics';
 	import { projectValley } from '../../lib/scene/valley-projection';
 	import { StageView } from '../../lib/scene/stage-view';
@@ -20,18 +21,13 @@
 	const seeds = [1201, 1301, 1409, 7, 42, 314, 2718, 9001, 65535, 424242, 31337, 8086];
 	const { label, min, max, step, default: defaultSinuosity } = valleyParams.sinuosity;
 	const reliefParam = valleyParams.relief;
-	const lakeItems = [
-		{ value: 'never', label: 'No lake' },
-		{ value: 'seeded', label: 'Seeded' },
-		{ value: 'always', label: 'Lake' }
-	];
+	const runoffParam = valleyParams.runoff;
 	const fit = { bearing: (28 * Math.PI) / 180, elevation: (39 * Math.PI) / 180, fill: 0.96 };
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
-	const querySeed = Number(page.url.searchParams.get('seed'));
-	let seedIndex = $state(Math.max(0, seeds.indexOf(querySeed)));
+	let seedIndex = $derived(Math.max(0, seeds.indexOf(Number(page.url.searchParams.get('seed')))));
 	const seed = $derived(seeds[seedIndex]);
 	function clampedQuery(name: string, fallback: number, low: number, high: number) {
 		const value = Number(page.url.searchParams.get(name) ?? fallback);
@@ -40,8 +36,8 @@
 	let relief = $derived(
 		clampedQuery('relief', reliefParam.default, reliefParam.min, reliefParam.max)
 	);
-	let lake = $derived<string>(
-		valleyLakeModes[clampedQuery('lake', valleyParams.lake.default, 0, 2)] ?? 'seeded'
+	let runoff = $derived(
+		clampedQuery('runoff', runoffParam.default, runoffParam.min, runoffParam.max)
 	);
 	const querySinuosity = $derived(
 		Number(page.url.searchParams.get('sinuosity') ?? defaultSinuosity)
@@ -53,10 +49,9 @@
 	);
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
 
-	function prepareValley(seed: number, sinuosity: number, relief: number, lakeMode: string) {
+	function prepareValley(seed: number, sinuosity: number, relief: number, runoff: number) {
 		const start = performance.now();
-		const lake = Math.max(0, valleyLakeModes.indexOf(lakeMode as (typeof valleyLakeModes)[number]));
-		const valley = Valley.create({ seed, parameters: { sinuosity, relief, lake } });
+		const valley = Valley.create({ seed, parameters: { sinuosity, relief, runoff } });
 		const generated = performance.now();
 		const projection = projectValley(valley);
 		const projected = performance.now();
@@ -70,7 +65,7 @@
 		};
 	}
 
-	const model = $derived(prepareValley(seed, sinuosity, relief, lake));
+	const model = $derived(prepareValley(seed, sinuosity, relief, runoff));
 
 	function nextValley() {
 		seedIndex = (seedIndex + 1) % seeds.length;
@@ -109,8 +104,8 @@
 				the slopes.
 			</p>
 			<p>
-				Relief raises ridges and summits beside the valley floor, cut by side valleys that drain to
-				the river. Sometimes the river widens into a lake with one level surface.
+				Runoff gathers in tributaries and widens the river downstream. Where the ground traps water,
+				a lake fills to its lowest outlet.
 			</p>
 			<p>The first settlement, its paths and the city that follows all stand on that ground.</p>
 			<p>
@@ -126,12 +121,19 @@
 			step={reliefParam.step}
 			bind:value={relief}
 		/>
-		<ToggleGroup label="Lake" items={lakeItems} bind:value={lake} />
+		<Slider
+			label={runoffParam.label}
+			min={runoffParam.min}
+			max={runoffParam.max}
+			step={runoffParam.step}
+			bind:value={runoff}
+		/>
 		<div class="cluster valley-controls">
 			<Button label="New terrain" onclick={nextValley} />
 			<span class="data">Seed {seed}</span>
 			<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
 		</div>
+		<a href={resolve('/landscape?seed=42&relief=1&view=plan')}>Side-lake example</a>
 		<div class="stack valley-observations">
 			<p class="caption">
 				{(model.object.footprint.width / 1000).toFixed(1)} × {(
@@ -151,6 +153,10 @@
 				<div>
 					<dt>Valley length</dt>
 					<dd>{(model.metrics.valleyLength / 1000).toFixed(3)}&nbsp;km</dd>
+				</div>
+				<div>
+					<dt>Median river width</dt>
+					<dd>{Math.round(model.metrics.wetWidth)}&nbsp;m</dd>
 				</div>
 				<div>
 					<dt>Relief range</dt>

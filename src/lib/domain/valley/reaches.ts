@@ -1,5 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
-import { position } from './catchment-grid';
+import { interpolate, position, triangle } from './catchment-grid';
 import type { solveDrainage } from './drainage';
 
 type Solution = ReturnType<typeof solveDrainage>;
@@ -56,6 +56,9 @@ function courses(flow: Solution, path: ReadonlySet<number>, inlet: number, thres
 	const active = receiver.map((_, i) =>
 		Number(membership[i] < 0 && (area[i] >= threshold || path.has(i)))
 	);
+	for (const { outlet } of flow.basins) {
+		for (let i = outlet; i >= 0 && membership[i] < 0 && !active[i]; i = receiver[i]) active[i] = 1;
+	}
 	const incoming = new Uint8Array(receiver.length);
 	for (let i = 0; i < receiver.length; i++) {
 		const next = receiver[i];
@@ -81,22 +84,55 @@ function courses(flow: Solution, path: ReadonlySet<number>, inlet: number, thres
 	return { starts, incoming };
 }
 
+function joinSections(a: ReachStation, b: ReachStation, t: number, runoff: number) {
+	const blend = (x: number, y: number) => x + (y - x) * t;
+	return section(
+		[blend(a.xy[0], b.xy[0]), blend(a.xy[1], b.xy[1])],
+		Math.round(blend(a.water, b.water) * 1000) / 1000,
+		(blend(a.discharge, b.discharge) * 1e6) / (0.02 * runoff),
+		runoff
+	);
+}
+
+function roundBend(
+	a: ReachStation,
+	b: ReachStation,
+	c: ReachStation,
+	flow: Solution,
+	runoff: number
+) {
+	const start = joinSections(b, a, 0.25, runoff);
+	const end = joinSections(b, c, 0.25, runoff);
+	const middle = joinSections(
+		joinSections(start, b, 0.5, runoff),
+		joinSections(b, end, 0.5, runoff),
+		0.5,
+		runoff
+	);
+	const terrain = interpolate(flow.bed, triangle(...middle.xy));
+	return terrain > middle.water + 1 || terrain < middle.water - 1 ? [b] : [start, middle, end];
+}
+
 function guideSections(
 	flow: Solution,
 	chain: readonly number[],
 	stations: ReadonlyMap<number, Trough[number]>,
+	trunk: boolean,
 	runoff: number
 ) {
-	const points: ReachStation[] = [];
-	const at = (i: number): Vec2 => {
+	const points = chain.map((i, n) => {
 		const guide = stations.get(i);
-		return guide ? [guide.x, guide.y] : position(i);
-	};
-	for (let n = 0; n < chain.length; n++) {
-		const i = chain[n];
-		points.push(section(at(i), flow.level[i] / 1000, flow.area[i], runoff));
-	}
-	return points;
+		const xy: Vec2 = guide ? [guide.x, guide.y] : position(i);
+		const previous = chain[Math.max(0, n - 1)];
+		const area = !trunk && n === chain.length - 1 ? flow.area[previous] : flow.area[i];
+		return section(xy, flow.level[i] / 1000, area, runoff);
+	});
+	if (trunk) return points;
+	return points.flatMap((point, i) =>
+		i === 0 || i + 1 === points.length || stations.has(chain[i])
+			? [point]
+			: roundBend(points[i - 1], point, points[i + 1], flow, runoff)
+	);
 }
 
 export function extractReaches(flow: Solution, spine: Trough, runoff: number, threshold: number) {
@@ -113,7 +149,7 @@ export function extractReaches(flow: Solution, spine: Trough, runoff: number, th
 			id,
 			downstream: basin < 0 ? (byVertex.get(last) ?? null) : -1 - basin,
 			trunk: trunk.has(id),
-			stations: Object.freeze(guideSections(flow, chain, guide, runoff))
+			stations: Object.freeze(guideSections(flow, chain, guide, trunk.has(id), runoff))
 		});
 	});
 	return { reaches: Object.freeze(reaches), path, guide, junctions: incoming };

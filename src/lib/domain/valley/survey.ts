@@ -1,6 +1,7 @@
-import { lakeDistance, type Lake } from './lake';
+import type { Reach } from './reaches';
+import type { terrainSampler } from './terrain-sample';
 
-type Sample = (x: number, y: number) => Readonly<{ height: number; water: number; bank: number }>;
+type Sample = ReturnType<typeof terrainSampler>;
 
 /** Square survey window centered on the origin, in meters. */
 export type SurveyWindow = Readonly<{ sideM: number; spacingM: number; buildableSlope: number }>;
@@ -21,6 +22,8 @@ export type HydrologyFaults = Readonly<{
 	uphillSteps: number;
 	lakeTiltM: number;
 	dryBelowWater: number;
+	/** Dry nodes below their own water datum, beside a wet four-neighbour. */
+	dryBelowLocalWater: number;
 }>;
 
 /** Measured ground in a survey window. Heights in meters, slopes rise/run, shares of all nodes,
@@ -30,6 +33,8 @@ export type GroundSurvey = Readonly<{
 	highestM: number;
 	reliefM: number;
 	maxSlope: number;
+	maxWetSlope: number;
+	drySlope: Readonly<{ p50: number; p95: number; max: number }>;
 	waterShare: number;
 	lakeArea: number;
 	buildableShare: number;
@@ -42,10 +47,10 @@ type Nodes = Readonly<{
 	heights: Float64Array;
 	water: Float64Array;
 	wet: Uint8Array;
-	lake: Uint8Array;
+	lake: Int32Array;
 }>;
 
-function sampleNodes(sample: Sample, lake: Lake | null, { sideM, spacingM }: SurveyWindow): Nodes {
+function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	const side = Math.round(sideM / spacingM) + 1;
 	const nodes = {
 		side,
@@ -53,18 +58,18 @@ function sampleNodes(sample: Sample, lake: Lake | null, { sideM, spacingM }: Sur
 		heights: new Float64Array(side * side),
 		water: new Float64Array(side * side),
 		wet: new Uint8Array(side * side),
-		lake: new Uint8Array(side * side)
+		lake: new Int32Array(side * side)
 	};
 	for (let row = 0; row < side; row++) {
 		for (let column = 0; column < side; column++) {
 			const x = -sideM / 2 + column * spacingM;
 			const y = sideM / 2 - row * spacingM;
-			const { height, water, bank } = sample(x, y);
+			const { height, water, bank, lakeId } = sample(x, y);
 			const index = row * side + column;
 			nodes.heights[index] = height;
 			nodes.water[index] = water;
 			nodes.wet[index] = bank > 0 ? 0 : 1;
-			nodes.lake[index] = nodes.wet[index] && lake && lakeDistance(lake, x, y) < 0 ? 1 : 0;
+			nodes.lake[index] = lakeId ?? 0;
 		}
 	}
 	return nodes;
@@ -78,9 +83,10 @@ function nodeSlope({ heights, side, spacing }: Nodes, row: number, column: numbe
 	return Math.hypot(dx, dy);
 }
 
-function dryBelowWater({ heights, water, wet, side }: Nodes, row: number, column: number) {
+function shoreDepth({ heights, water, wet, side }: Nodes, row: number, column: number) {
 	const index = row * side + column;
-	if (wet[index]) return false;
+	if (wet[index]) return 0;
+	let result = 0;
 	for (const [r, c] of [
 		[row - 1, column],
 		[row + 1, column],
@@ -89,19 +95,25 @@ function dryBelowWater({ heights, water, wet, side }: Nodes, row: number, column
 	]) {
 		if (r < 0 || c < 0 || r >= side || c >= side) continue;
 		const other = r * side + c;
-		if (wet[other] && heights[index] < water[other] - waterToleranceM) return true;
+		if (!wet[other]) continue;
+		// A flowing neighbour can be upslope. Record both the old comparison and
+		// the comparison at the local datum to distinguish it from a dry depression.
+		if (heights[index] < water[other] - waterToleranceM) result |= 1;
+		if (heights[index] < water[index] - waterToleranceM) result |= 2;
 	}
-	return false;
+	return result;
 }
 
-function uphillSteps(sample: Sample, course: readonly number[], halfM: number): number {
-	let previous = Infinity;
+function uphillSteps(reaches: readonly Reach[], halfM: number) {
 	let steps = 0;
-	for (let i = 0; i < course.length; i += 2) {
-		if (Math.max(Math.abs(course[i]), Math.abs(course[i + 1])) > halfM) continue;
-		const { water } = sample(course[i], course[i + 1]);
-		if (water > previous) steps++;
-		previous = water;
+	for (const { stations } of reaches) {
+		for (let i = 1; i < stations.length; i++) {
+			const {
+				xy: [x, y],
+				water
+			} = stations[i];
+			if (Math.max(Math.abs(x), Math.abs(y)) <= halfM && water > stations[i - 1].water) steps++;
+		}
 	}
 	return steps;
 }
@@ -110,46 +122,72 @@ function uphillSteps(sample: Sample, course: readonly number[], halfM: number): 
  * and checks the hydrology along the course inside the window. */
 export function surveyGround(
 	sample: Sample,
-	lake: Lake | null,
-	course: readonly number[],
+	reaches: readonly Reach[],
 	window: SurveyWindow
 ): GroundSurvey {
-	if (!(window.sideM > 2 * window.spacingM) || !(window.buildableSlope > 0))
+	if (
+		![window.sideM, window.spacingM, window.buildableSlope].every(Number.isFinite) ||
+		!(window.spacingM > 0 && window.sideM > 2 * window.spacingM && window.buildableSlope > 0)
+	)
 		throw new RangeError('invalid-survey');
-	const nodes = sampleNodes(sample, lake, window);
+	const nodes = sampleNodes(sample, window);
 	const { side, heights, wet } = nodes;
-	const tally = { maxSlope: 0, water: 0, buildable: 0, lake: 0, below: 0 };
-	let [lowest, highest, lakeLow, lakeHigh] = [Infinity, -Infinity, Infinity, -Infinity];
+	const tally = {
+		maxSlope: 0,
+		maxWetSlope: 0,
+		water: 0,
+		buildable: 0,
+		lake: 0,
+		below: 0,
+		belowLocal: 0
+	};
+	let [lowest, highest] = [Infinity, -Infinity];
+	const levels = new Map<number, { low: number; high: number }>();
+	const drySlopes: number[] = [];
 	for (let row = 0; row < side; row++) {
 		for (let column = 0; column < side; column++) {
 			const index = row * side + column;
 			const slope = nodeSlope(nodes, row, column);
 			[lowest, highest] = [Math.min(lowest, heights[index]), Math.max(highest, heights[index])];
 			tally.maxSlope = Math.max(tally.maxSlope, slope);
-			if (wet[index]) tally.water++;
-			else if (slope < window.buildableSlope) tally.buildable++;
-			if (dryBelowWater(nodes, row, column)) tally.below++;
+			if (wet[index]) {
+				tally.water++;
+				tally.maxWetSlope = Math.max(tally.maxWetSlope, slope);
+			} else {
+				drySlopes.push(slope);
+				if (slope < window.buildableSlope) tally.buildable++;
+			}
+			const shore = shoreDepth(nodes, row, column);
+			if (shore & 1) tally.below++;
+			if (shore & 2) tally.belowLocal++;
 			if (!nodes.lake[index]) continue;
 			tally.lake++;
-			[lakeLow, lakeHigh] = [
-				Math.min(lakeLow, nodes.water[index]),
-				Math.max(lakeHigh, nodes.water[index])
-			];
+			const water = nodes.water[index];
+			const level = levels.get(nodes.lake[index]);
+			if (level) {
+				level.low = Math.min(level.low, water);
+				level.high = Math.max(level.high, water);
+			} else levels.set(nodes.lake[index], { low: water, high: water });
 		}
 	}
 	const count = side * side;
+	drySlopes.sort((a, b) => a - b);
+	const drySlope = (q: number) => drySlopes[Math.round(q * (drySlopes.length - 1))] ?? 0;
 	return Object.freeze({
 		lowestM: lowest,
 		highestM: highest,
 		reliefM: highest - lowest,
 		maxSlope: tally.maxSlope,
+		maxWetSlope: tally.maxWetSlope,
+		drySlope: Object.freeze({ p50: drySlope(0.5), p95: drySlope(0.95), max: drySlope(1) }),
 		waterShare: tally.water / count,
 		lakeArea: tally.lake * window.spacingM ** 2,
 		buildableShare: tally.buildable / count,
 		faults: Object.freeze({
-			uphillSteps: uphillSteps(sample, course, window.sideM / 2),
-			lakeTiltM: tally.lake ? lakeHigh - lakeLow : 0,
-			dryBelowWater: tally.below
+			uphillSteps: uphillSteps(reaches, window.sideM / 2),
+			lakeTiltM: Math.max(0, ...Array.from(levels.values(), ({ low, high }) => high - low)),
+			dryBelowWater: tally.below,
+			dryBelowLocalWater: tally.belowLocal
 		})
 	});
 }

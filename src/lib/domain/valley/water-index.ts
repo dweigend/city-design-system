@@ -2,9 +2,10 @@ import type { Vec2 } from '../../core/geometry';
 import type { DrainageLake } from './lake-geometry';
 import type { Reach, ReachStation } from './reaches';
 
-const size = 240;
+const size = 160;
 export const bankLimit = 160;
 type Edge = { a: Vec2; dx: number; dy: number; inverse: number };
+type Shore = Edge & { lake: DrainageLake };
 type Channel = Edge & {
 	start: ReachStation;
 	end: ReachStation;
@@ -54,7 +55,9 @@ function projection({ a, dx, dy, inverse }: Edge, x: number, y: number) {
 }
 
 function separation({ a, dx, dy }: Edge, x: number, y: number, t: number) {
-	return Math.hypot(x - a[0] - dx * t, y - a[1] - dy * t);
+	const u = x - a[0] - dx * t;
+	const v = y - a[1] - dy * t;
+	return Math.sqrt(u * u + v * v);
 }
 
 function mix(a: number, b: number, t: number) {
@@ -63,7 +66,8 @@ function mix(a: number, b: number, t: number) {
 
 export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLake[]) {
 	const channels = spatial<Channel>();
-	const shores = spatial<Edge & { lake: DrainageLake }>();
+	const shores = spatial<Shore>();
+	const outlines = new Map<DrainageLake, Shore[]>();
 	const sillReaches = new Set(lakes.map(({ downstream }) => downstream));
 	for (const { id, stations, trunk } of reaches) {
 		for (let i = 1; i < stations.length; i++) {
@@ -85,38 +89,49 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 		}
 	}
 	for (const lake of lakes) {
+		const outline: Shore[] = [];
+		outlines.set(lake, outline);
 		for (const ring of lake.rings) {
 			for (let i = 0; i < ring.length; i++) {
 				const a = ring[i];
 				const b = ring[(i + 1) % ring.length];
 				const line = edge(a, b);
-				if (Number.isFinite(line.inverse)) shores.add({ ...line, lake }, a, b, bankLimit);
+				if (!Number.isFinite(line.inverse)) continue;
+				const shore = { ...line, lake };
+				outline.push(shore);
+				shores.add(shore, a, b, bankLimit);
 			}
 		}
 	}
 	return {
 		channel(x: number, y: number) {
 			let closest: Channel | undefined;
+			let trunk: { edge: Channel; t: number; distance: number } | undefined;
 			let bank = bankLimit;
 			let t = 0;
 			for (const candidate of channels.at(x, y) ?? []) {
 				const u = projection(candidate, x, y);
 				const radius = mix(candidate.start.width, candidate.end.width, u) / 2;
 				const distance = separation(candidate, x, y, u) - radius;
+				if (candidate.kind === 'river' && distance < (trunk?.distance ?? 0)) {
+					trunk = { edge: candidate, t: u, distance };
+				}
 				if (distance >= bank) continue;
 				closest = candidate;
 				bank = distance;
 				t = u;
 			}
 			if (!closest) return null;
-			const { start, end, kind, sill } = closest;
-			const radius = mix(start.width, end.width, t) / 2;
-			const cut = Math.max(0, Math.min(1, -bank / radius));
+			const { start, end, kind, sill } = trunk?.edge ?? closest;
+			const position = trunk?.t ?? t;
+			const distance = trunk?.distance ?? bank;
+			const radius = mix(start.width, end.width, position) / 2;
+			const cut = Math.max(0, Math.min(1, -distance / radius));
 			return {
 				kind,
 				bank,
-				water: mix(start.water, end.water, t),
-				depth: mix(start.depth, end.depth, t) * cut * (2 - cut) * (sill ? t : 1)
+				water: mix(start.water, end.water, position),
+				depth: mix(start.depth, end.depth, position) * cut * (2 - cut) * (sill ? position : 1)
 			};
 		},
 		shore(x: number, y: number, inside: DrainageLake | undefined) {
@@ -129,6 +144,12 @@ export function waterIndex(reaches: readonly Reach[], lakes: readonly DrainageLa
 				if (d >= distance) continue;
 				lake = candidate.lake;
 				distance = d;
+			}
+			if (inside && distance === bankLimit) {
+				distance = Infinity;
+				for (const candidate of outlines.get(inside) ?? [])
+					distance = Math.min(distance, separation(candidate, x, y, projection(candidate, x, y)));
+				if (!Number.isFinite(distance)) distance = bankLimit;
 			}
 			return lake && { lake, bank: inside ? -distance : distance };
 		}
