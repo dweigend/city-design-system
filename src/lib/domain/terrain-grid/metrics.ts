@@ -1,9 +1,11 @@
 import { distance, type Vec2 } from '../../core/geometry';
 
-/** Plan quality and maximum sampled grade. Grade is rise divided by plan run. */
+/** Plan quality and maximum sampled grade. Grade is rise divided by plan run. An undistorted
+ * triangle split already has an edge ratio of √3; 2.4 leaves room for the relaxed triangles,
+ * so no interior cell is dropped and no hole opens in the plan. */
 export const quality = Object.freeze({
 	minimumAngle: Math.PI / 6,
-	maximumEdgeRatio: 2.1,
+	maximumEdgeRatio: 2.4,
 	maximumGrade: 0.2,
 	maximumSampleStep: 1
 });

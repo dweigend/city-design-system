@@ -15,6 +15,9 @@ export type Site =
 			}>)
 	| (Datum & Readonly<{ outline: readonly Vec2[] }>);
 
+/** Largest distance in meters from the datum to an outline point. */
+export const outlineReach = 4000;
+
 export type HeightAt = (x: number, y: number) => number;
 
 export function siteOutline(site: Site): readonly Vec2[] {
@@ -29,8 +32,8 @@ export function siteOutline(site: Site): readonly Vec2[] {
 
 	if ('outline' in site) {
 		validateOutline(site.outline);
-		if (site.outline.some(([x, y]) => Math.hypot(x - origin[0], y - origin[1]) > 2000))
-			throw new RangeError('Outline must stay within 2 km of its datum');
+		if (site.outline.some(([x, y]) => Math.hypot(x - origin[0], y - origin[1]) > outlineReach))
+			throw new RangeError('Outline must stay within 4 km of its datum');
 		return site.outline;
 	}
 	const { length, width, cornerCut = 0 } = site;
@@ -38,7 +41,9 @@ export function siteOutline(site: Site): readonly Vec2[] {
 		!Number.isFinite(cornerCut) ||
 		cornerCut < 0 ||
 		cornerCut > 0.5 ||
-		![length, width].every((extent) => Number.isFinite(extent) && extent > 0 && extent <= 2000)
+		![length, width].every(
+			(extent) => Number.isFinite(extent) && extent > 0 && extent <= outlineReach
+		)
 	)
 		throw new RangeError('Invalid terrain grid site');
 	const { toWorld } = axes(bearing);

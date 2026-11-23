@@ -18,6 +18,47 @@ function bisect(polygon: readonly Vec2[], [x, y]: Vec2, [u, v]: Vec2) {
 	return ring;
 }
 
+/** Bisector edges shorter than this fraction of the cell size collapse to their midpoint. */
+const shortestEdge = 0.125;
+
+type Ring = Readonly<{ id: string; corners: readonly string[] }>;
+
+/** Unions the two ends of every short edge and returns each address's cluster midpoint, so
+ * every cell that shares a vertex moves it alike and no sliver face remains. */
+function collapseShortEdges(rings: readonly Ring[], points: ReadonlyMap<string, Vec2>) {
+	const parent = new Map([...points.keys()].map((id) => [id, id]));
+	const find = (id: string): string => {
+		const up = parent.get(id) ?? id;
+		if (up === id) return id;
+		const root = find(up);
+		parent.set(id, root);
+		return root;
+	};
+	for (const { corners } of rings) {
+		corners.forEach((a, index) => {
+			const b = corners[(index + 1) % corners.length];
+			const [ax, ay] = points.get(a) ?? [0, 0];
+			const [bx, by] = points.get(b) ?? [0, 0];
+			if (Math.hypot(bx - ax, by - ay) < shortestEdge) parent.set(find(a), find(b));
+		});
+	}
+	const clusters = new Map<string, string[]>();
+	for (const id of points.keys()) clusters.set(find(id), [...(clusters.get(find(id)) ?? []), id]);
+	const merged = new Map<string, Readonly<{ id: string; at: Vec2 }>>();
+	for (const members of clusters.values()) {
+		const id = [...members].sort()[0];
+		const at = members.reduce<Vec2>(
+			([x, y], member) => {
+				const [u, v] = points.get(member) ?? [0, 0];
+				return [x + u / members.length, y + v / members.length];
+			},
+			[0, 0]
+		);
+		for (const member of members) merged.set(member, { id, at });
+	}
+	return merged;
+}
+
 export const voronoi: Carrier = function* (site, outline, bearing, size, random) {
 	const { toLocal, toWorld } = axes(bearing);
 	const local = outline.map(([x, y]) =>
@@ -36,8 +77,15 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 		sites.set(key, point);
 		return point;
 	}
-	for (let j = Math.floor(Math.min(...rows)); j <= Math.ceil(Math.max(...rows)); j++) {
-		for (let i = Math.floor(Math.min(...columns)); i <= Math.ceil(Math.max(...columns)); i++) {
+	const rings: Ring[] = [];
+	const points = new Map<string, Vec2>();
+	// A margin of two sites completes every short-edge cluster of a cell inside the outline.
+	for (let j = Math.floor(Math.min(...rows)) - 2; j <= Math.ceil(Math.max(...rows)) + 2; j++) {
+		for (
+			let i = Math.floor(Math.min(...columns)) - 2;
+			i <= Math.ceil(Math.max(...columns)) + 2;
+			i++
+		) {
 			const center = seedPoint(i, j);
 			let ring: Vec2[] = [
 				[i - 2, j - 2],
@@ -51,17 +99,26 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 					if (u || v) ring = bisect(ring, center, seedPoint(i + u, j + v));
 				}
 			}
-			const corners = new Map(
-				ring.map(([x, y]) => {
-					// Snap at 0.01 micrometers per cell meter so both bisector owners share the address.
-					const a = Math.round(x * 1e8);
-					const b = Math.round(y * 1e8);
-					const [u, v] = toWorld((a * size) / 1e8, (b * size) / 1e8);
-					const id = `bisector/${a},${b}`;
-					return [id, { id, xy: [site.origin[0] + u, site.origin[1] + v] as const }];
-				})
-			);
-			yield { id: `site/${i},${j}`, corners: [...corners.values()] };
+			const corners = ring.map(([x, y]) => {
+				// Round at 0.01 micrometers per cell meter so both bisector owners share the address.
+				const a = Math.round(x * 1e8);
+				const b = Math.round(y * 1e8);
+				const id = `bisector/${a},${b}`;
+				points.set(id, [a / 1e8, b / 1e8]);
+				return id;
+			});
+			rings.push({ id: `site/${i},${j}`, corners: [...new Set(corners)] });
 		}
+	}
+	const merged = collapseShortEdges(rings, points);
+	for (const { id, corners } of rings) {
+		const nodes = new Map(
+			corners.map((corner) => {
+				const { id: address, at } = merged.get(corner) ?? { id: corner, at: [0, 0] };
+				const [u, v] = toWorld(at[0] * size, at[1] * size);
+				return [address, { id: address, xy: [site.origin[0] + u, site.origin[1] + v] as const }];
+			})
+		);
+		yield { id, corners: [...nodes.values()] };
 	}
 };

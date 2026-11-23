@@ -16,7 +16,7 @@ export type TerrainGridSite = Site;
 
 /** Supported nominal cell size in meters. */
 export const terrainGridParams = defineParams({
-	cellSize: { label: 'Cell size', unit: 'm', default: 40, min: 5, max: 80, step: 5 }
+	cellSize: { label: 'Cell size', unit: 'm', default: 40, min: 5, max: 120, step: 5 }
 });
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
@@ -73,6 +73,21 @@ const carriers: Record<
 	voronoi: { generate: voronoi },
 	'free-quad': { generate: freeQuad, checkQuality: true }
 };
+
+/** Equivalent square side of the mean cell at cell size 1, per plan family, measured on a flat
+ * 1.2 km crop. Divide a target side in meters by it to get the cell size of a family. Polar
+ * cells widen with their ring, so polar keeps 1. */
+export const planCellSide: Readonly<Record<PlanVariant, number>> = Object.freeze({
+	organic: 0.927,
+	square: 1,
+	hex: 1.612,
+	triangle: 0.658,
+	bands: 1,
+	contour: 1,
+	polar: 1,
+	voronoi: 1,
+	'free-quad': 0.927
+});
 
 /** Pure height sampler in meters. Return undefined to exclude unavailable ground, such as water.
  * The datum and its 10 m XY probes require finite heights. */
