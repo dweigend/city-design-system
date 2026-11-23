@@ -266,7 +266,7 @@
 			{view}
 			display="normal"
 			label={step === '01'
-				? 'City plan with blue water cells and red crossings along grid edges'
+				? 'City plan with blue water cells and red bridge crossings'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
@@ -347,8 +347,8 @@
 				<div class="stack">
 					{#if active === '01'}
 						<p>
-							The 60 m grid continues across water. Blue edges mark water cells and red lines follow
-							the selected crossings along grid edges.
+							The 60 m grid continues across water. Blue edges mark water cells. Red lines show
+							bridge crossings between bank nodes.
 						</p>
 					{:else if active === '02'}
 						<p>
