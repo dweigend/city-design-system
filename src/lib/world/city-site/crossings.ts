@@ -1,11 +1,7 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import {
-	crossingLimits as limits,
-	planEdgeGraph,
-	type PlanEdgePath,
-	type TerrainGrid
-} from '../../domain/terrain-grid';
+import { planEdgeGraph, type PlanEdgePath, type TerrainGrid } from '../../domain/terrain-grid';
+import { citySiteConfig as config } from './config';
 import type { CityTerrainSampler } from './sampling';
 
 /** A bank-to-bank crossing addressed by an edge path, with an optional direct bridge span. */
@@ -30,11 +26,11 @@ function crossesChannel(points: readonly Vec2[], sample: CityTerrainSampler) {
 	let ended = false;
 	for (let segment = 1; segment < points.length; segment++) {
 		const [a, b] = [points[segment - 1], points[segment]];
-		const steps = Math.max(1, Math.ceil(distance(a, b) / limits.channelSampleStepM));
+		const steps = Math.max(1, Math.ceil(distance(a, b) / config.crossingProbeStepM));
 		for (let step = 1; step <= steps; step++) {
 			const t = step / steps;
 			const ground = sample(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]));
-			if (ground.dry) {
+			if (ground.waterKind === null) {
 				ended ||= wet;
 				continue;
 			}
@@ -116,16 +112,16 @@ export function channelCrossings(
 		for (const path of graph.pathsFrom(
 			start,
 			(id) => start < id && heads.has(id),
-			limits.maximumPathLengthM
+			config.crossingMaxLengthM
 		)) {
 			const end = required(path.nodeIds.at(-1), 'crossing end');
 			const b = graph.point(end);
 			const lengthM = distance(a, b);
 			const straightness = lengthM / path.lengthM;
-			if (straightness < limits.minimumPathStraightnessRatio || !crossesChannel([a, b], sample))
+			if (straightness < config.minimumPathStraightnessRatio || !crossesChannel([a, b], sample))
 				continue;
 			const span =
-				straightness < limits.straightSpanThresholdRatio
+				straightness < config.straightSpanThresholdRatio
 					? Object.freeze({ nodeIds: Object.freeze([start, end] as const), lengthM })
 					: undefined;
 			const [from, to] = oppositeHeads(a, b, first, required(heads.get(end), 'bank heads'), sample);
@@ -149,7 +145,7 @@ export function channelCrossings(
 				waterCellIds,
 				midpoint,
 				key: JSON.stringify(path.nodeIds),
-				score: path.lengthM + limits.coreDistanceWeightRatio * distance(core, midpoint)
+				score: path.lengthM + config.coreDistanceWeightRatio * distance(core, midpoint)
 			});
 		}
 	}
@@ -157,7 +153,11 @@ export function channelCrossings(
 	for (const proposal of proposals.sort(
 		(a, b) => a.score - b.score || (a.key < b.key ? -1 : Number(a.key > b.key))
 	)) {
-		if (selected.some(({ midpoint }) => distance(midpoint, proposal.midpoint) < limits.spacingM))
+		if (
+			selected.some(
+				({ midpoint }) => distance(midpoint, proposal.midpoint) < config.crossingSpacingM
+			)
+		)
 			continue;
 		selected.push(proposal);
 	}

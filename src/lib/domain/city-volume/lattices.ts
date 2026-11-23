@@ -1,13 +1,8 @@
+import type { Column } from './bay-addresses';
 import type { Vec3 } from '../../core/geometry';
 import { antiprism } from './antiprism';
 import { diagrid } from './diagrid';
-import {
-	createFrame,
-	prismVariants,
-	type CityLattice,
-	type Column,
-	type PrismVariant
-} from './frame';
+import { createFrame, prismVariants, type CityLattice, type PrismVariant } from './frame';
 import { createPlaneLattice } from './plane-lattice';
 import type { PlaneRule } from './plane-joints';
 import { solidVolume } from './solid';

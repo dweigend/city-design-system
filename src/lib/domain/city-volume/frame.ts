@@ -1,18 +1,23 @@
 import type { Vec3 } from '../../core/geometry';
-import { columnBays } from './foundation';
-import { closeSolid, prismFaces, type LatticeSolid } from './solid';
+import {
+	bayAddresses,
+	type BayFace,
+	type Column,
+	type BayRings,
+	type LatticeBay,
+	type LatticePoint
+} from './bay-addresses';
+import { cornerReader } from './foundation';
+import { capHeight, fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
+import { cleanFaces, closeSolid, prismFaces, type LatticeSolid } from './solid';
 
 /** Stable addresses for full levels, joints and undirected members. Joint positions are world
  * XYZ meters, with Z up. Lists are detached and deeply frozen in plan/level traversal order. */
 export type CityLattice = Readonly<{
-	cells: readonly Readonly<{
-		id: string;
-		planCellId: string;
-		level: number;
-		sideFaces: readonly (string | null)[];
-	}>[];
-	faces: readonly Readonly<{ id: string; corners: readonly [string, string, string, string] }>[];
-	nodes: readonly Readonly<{ id: string; position: Vec3 }>[];
+	cells: readonly LatticeBay[];
+	faces: readonly BayFace[];
+	bayCorners: readonly LatticePoint[];
+	nodes: readonly LatticePoint[];
 	edges: readonly Readonly<{ id: string; from: string; to: string; rank?: 'chord' | 'strut' }>[];
 	solids: readonly LatticeSolid[];
 }>;
@@ -20,20 +25,7 @@ export type CityLattice = Readonly<{
 type Node = CityLattice['nodes'][number];
 type Edge = CityLattice['edges'][number];
 
-export type Column = Readonly<{
-	planCellId: string;
-	corners: readonly Node[];
-	neighbors: readonly (string | null)[];
-	levels: number;
-	groundAtHub?: number;
-}>;
-
-type Level = Readonly<{
-	id: string;
-	bottom: readonly Node[];
-	top: readonly Node[];
-	groundAtHub?: number;
-}>;
+type Level = BayRings;
 type Connect = (a: Node, b: Node) => void;
 
 function box({ bottom, top }: Level, connect: Connect) {
@@ -56,24 +48,30 @@ function braced(level: Level, connect: Connect) {
 	}
 }
 
+function hubCapHeight(ring: readonly Node[], x: number, y: number) {
+	const z = ring[0].position[2];
+	return ring.every(({ position }) => position[2] === z) ? z : capHeight(ring, x, y);
+}
+
 function centered(level: Level, connect: Connect) {
 	box(level, connect);
 	const corners = [...level.bottom, ...level.top];
-	const [x, y, nominalZ] = level.bottom.reduce<Vec3>(
-		([x, y, z], { position: [u, v, w] }) => [
-			x + u / level.bottom.length,
-			y + v / level.bottom.length,
-			z + w / corners.length
-		],
-		[0, 0, 0]
+	const [x, y] = level.bottom.reduce(
+		([x, y], { position: [u, v] }) => [x + u / level.bottom.length, y + v / level.bottom.length],
+		[0, 0]
 	);
-	const topZ = level.top.reduce((z, corner) => z + corner.position[2] / corners.length, 0);
-	const position: Vec3 = [x, y, Math.max(level.groundAtHub ?? -Infinity, nominalZ + topZ)];
+	const bottom = hubCapHeight(level.bottom, x, y);
+	const top = hubCapHeight(level.top, x, y);
+	if (bottom === undefined || top === undefined) return;
+	const floor = Math.max(bottom, level.groundAtHub ?? -Infinity);
+	if (top <= floor) return;
+	const z = Math.max(floor, (bottom + top) / 2);
+	const position: Vec3 = [x, y, z];
 	const id =
 		position[2] === level.groundAtHub
 			? `${level.id.slice(0, level.id.lastIndexOf('/level/'))}/ground-center`
 			: `${level.id}/center`;
-	const hub = { id, position };
+	const hub = Object.freeze({ id, position: Object.freeze(position) });
 	for (const corner of corners) connect(hub, corner);
 }
 
@@ -112,55 +110,38 @@ export function createFrame(
 	const solids: LatticeSolid[] = [];
 	function connect(a: Node, b: Node) {
 		if (a.id === b.id) return;
-		for (const { id, position } of [a, b]) {
-			if (!nodes.has(id)) nodes.set(id, Object.freeze({ id, position: Object.freeze(position) }));
-		}
+		if (!nodes.has(a.id)) nodes.set(a.id, a);
+		if (!nodes.has(b.id)) nodes.set(b.id, b);
 		const [from, to] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
 		const id = JSON.stringify([from, to]);
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
-	const { cells, faces } = bayAddresses(columns, datumZ, (bay) => {
+	let triangulate = false;
+	const addresses = bayAddresses(columns, datumZ, cornerReader(datumZ), (bay, first) => {
 		const { id, bottom, top } = bay;
+		if (first) triangulate = hasCollapsedDiagonal(bottom, top);
 		addMembers(bay, connect);
-		solids.push(closeSolid(id, id, prismFaces(bottom, top)));
+		if (!triangulate) {
+			solids.push(closeSolid(id, id, cleanFaces(prismFaces(bottom, top))));
+			return;
+		}
+		const split = hasCollapsedDiagonal(bottom, top);
+		const parts = split ? prismParts(bottom, top) : [{ bottom, top }];
+		for (const [i, part] of parts.entries()) {
+			const [floor, ceiling, ...sides] = prismFaces(part.bottom, part.top);
+			solids.push(
+				closeSolid(
+					parts.length === 1 ? id : `${id}/part/${i}`,
+					id,
+					cleanFaces([...fanTriangles(floor), ...fanTriangles(ceiling), ...sides])
+				)
+			);
+		}
 	});
 	return Object.freeze({
-		cells,
-		faces,
+		...addresses,
 		nodes: Object.freeze([...nodes.values()]),
 		edges: Object.freeze([...edges.values()]),
 		solids: Object.freeze(solids)
 	});
-}
-
-/** Builds the canonical addresses and visits their ground-clamped rings in plan order. */
-export function bayAddresses(
-	columns: readonly Column[],
-	datumZ: number,
-	visit?: (bay: Level) => void
-) {
-	const cells = [];
-	const faces = new Map<string, CityLattice['faces'][number]>();
-	for (const column of columns) {
-		const { planCellId } = column;
-		for (const { level, bottom, top } of columnBays(column, datumZ)) {
-			const id = `${planCellId}/level/${level}`;
-			const sideFaces = bottom.map((a, i) => {
-				const j = (i + 1) % bottom.length;
-				if (a.id === top[i].id && bottom[j].id === top[j].id) return null;
-				const [from, to] = a.id < bottom[j].id ? [i, j] : [j, i];
-				const corners = [bottom[from].id, bottom[to].id, top[to].id, top[from].id] as const;
-				const face = JSON.stringify(corners);
-				if (!faces.has(face))
-					faces.set(face, Object.freeze({ id: face, corners: Object.freeze(corners) }));
-				return face;
-			});
-			cells.push(Object.freeze({ id, planCellId, level, sideFaces: Object.freeze(sideFaces) }));
-			visit?.({ id, bottom, top, groundAtHub: column.groundAtHub });
-		}
-	}
-	return {
-		cells: Object.freeze(cells),
-		faces: Object.freeze([...faces.values()])
-	};
 }

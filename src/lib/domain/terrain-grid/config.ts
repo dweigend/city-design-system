@@ -56,52 +56,10 @@ export const shorelineMorphLimits = Object.freeze({
 	clippedMaximumAspectRatio: 6,
 	// Precision of a shared edge's intersection with the setback.
 	clipToleranceM: 0.05,
-	// Maximum spacing for the city cell ground and rise checks.
-	groundSampleStepM: 8,
 	// Smallest interval probed when a segment grazes the setback.
 	clearanceSampleStepM: 0.25,
-	// Minimum dry clearance from water for a city lot.
-	cityBankSetbackM: 3,
 	// Study target for the share of occupied shore cells that keep all their plan nodes.
 	targetUnclippedShare: 0.5,
 	// Study target for the share of bank edges within the setback tolerance.
 	targetAlignedEdgeShare: 0.5
-});
-
-/** Measurements and selection defaults for city crossings addressed by the plan grid. */
-export const crossingLimits = Object.freeze({
-	// Longest eligible edge path between crossing heads.
-	maximumPathLengthM: 320,
-	// Minimum distance between candidate crossing midpoints.
-	spacingM: 105,
-	// Maximum spacing between probes along a crossing chord.
-	channelSampleStepM: 5,
-	// Minimum chord-to-path ratio for a crossing candidate.
-	minimumPathStraightnessRatio: 0.58,
-	// A bridge uses its chord below this chord-to-path ratio.
-	straightSpanThresholdRatio: 0.94,
-	// Distance from the growth center added to the path cost, in meters per meter.
-	coreDistanceWeightRatio: 0.22,
-	// Selected crossings added once for every started increment of built area.
-	selectionIncrementKm2: 1.25,
-	// Selected crossings allowed in addition to the area-based count.
-	selectionBaseCount: 1,
-	// Maximum seeded station offset along the valley from the city frame origin.
-	centerStationRangeM: 860,
-	// Maximum search distance along the valley for the crossing center.
-	centerSearchAlongM: 520,
-	// Spacing between samples along the valley in the search for the crossing center.
-	centerSearchAlongStepM: 65,
-	// Maximum search distance across the valley for the crossing center.
-	centerSearchAcrossM: 1500,
-	// Spacing between samples across the valley in the search for the crossing center.
-	centerSearchAcrossStepM: 12,
-	// Width contribution to the crossing-center cost, in meters per meter.
-	centerWidthWeightRatio: 3,
-	// Across-valley offset contribution to the crossing-center cost, in meters per meter.
-	centerAcrossWeightRatio: 0.35,
-	// Maximum seeded across-valley shift when the center search finds no river.
-	centerFallbackShiftM: 140,
-	// Path length contribution to the primary-crossing cost, in meters per meter.
-	primaryPathWeightRatio: 0.45
 });

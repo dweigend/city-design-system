@@ -9,7 +9,7 @@ import {
 	TerrainGrid,
 	type TerrainGridOptions
 } from '../../domain/terrain-grid';
-import { coarseCellSize, createCitySite } from './index';
+import { citySiteConfig, coarseCellSize, createCitySite } from './index';
 
 const minimumEdge = coarseCellSize * shorelineMorphLimits.clippedMinimumEdgeRatio;
 const minimumArea = coarseCellSize ** 2 * shorelineMorphLimits.clippedMinimumAreaRatio;
@@ -23,7 +23,7 @@ function layout(
 	const city = createCitySite(undefined, { seed, relief, runoff });
 	const read = city.sampleGround;
 	const clearanceAt = (x: number, y: number) =>
-		read(x, y).waterClearance - shorelineMorphLimits.cityBankSetbackM;
+		read(x, y).waterClearance - citySiteConfig.bankSetbackM;
 	const options: TerrainGridOptions = {
 		seed,
 		variant,
@@ -31,7 +31,7 @@ function layout(
 		parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 		heightAt: (x, y) => read(x, y).height,
 		maximumCellRise: 16,
-		edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
+		edgeSampleStep: citySiteConfig.groundSampleStepM,
 		shore: { clearanceAt, minimumEdge, minimumArea }
 	};
 	const cover = ([x, y]: Vec2) => read(x, y).waterKind ?? 'dry';
@@ -126,10 +126,10 @@ for (const variant of cityPlanVariants) {
 				site: { origin: [0, 0], bearing: -Math.PI / 2, length: 1250, width: 600 },
 				parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 				heightAt: () => 0,
-				edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
+				edgeSampleStep: citySiteConfig.groundSampleStepM,
 				shore: { clearanceAt, minimumEdge, minimumArea, align: true }
 			},
-			([x, y]) => (clearanceAt(x, y) < -shorelineMorphLimits.cityBankSetbackM ? 'river' : 'dry')
+			([x, y]) => (clearanceAt(x, y) < -citySiteConfig.bankSetbackM ? 'river' : 'dry')
 		);
 		const points = positions(plan);
 		const cover = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
@@ -166,9 +166,7 @@ test('keeps the original carrier for an isolated channel narrower than the snap 
 		shore: { clearanceAt, minimumEdge, minimumArea }
 	};
 	const cover = ([x, y]: Vec2) =>
-		clearanceAt(x, y) < -shorelineMorphLimits.cityBankSetbackM
-			? ('river' as const)
-			: ('dry' as const);
+		clearanceAt(x, y) < -citySiteConfig.bankSetbackM ? ('river' as const) : ('dry' as const);
 	const base = TerrainGrid.createPlan(options, cover);
 	const morphed = TerrainGrid.createPlan(
 		{

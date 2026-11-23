@@ -1,8 +1,10 @@
+import { cityVolumeConfig } from './config';
 import { required } from '../../core/invariant';
-import type { Column } from './frame';
+import type { Column } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
 import type { Joint, Joints, PlaneKind } from './plane-joints';
-import { prismFaces } from './solid';
+import { capHeight, fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
+import { cleanFaces, prismFaces } from './solid';
 
 type Layer = Readonly<{
 	level: number;
@@ -35,6 +37,7 @@ type Context = Layer &
 		at: (kind: PlaneKind) => number;
 		bay: (cell: string) => string;
 		sharedMedial: SharedMedial;
+		triangulated: ReadonlySet<string>;
 	}>;
 
 function polygon({ joints }: Context, { corners }: Column, level: number) {
@@ -48,38 +51,89 @@ function medial({ joints, topology }: Context, { corners }: Column, level: numbe
 }
 
 /** A full bay meeting a frustum splits its shared side at the frustum's triangle. */
-function planBay(c: Context, column: Column) {
+function planSides(c: Context, column: Column, sides: Faces, indices?: readonly number[]) {
 	const { level, topology, joints } = c;
+	return sides.flatMap((side, i) => {
+		const [a, b, d, e] = side;
+		const start = indices?.[i] ?? i;
+		const end = (start + 1) % column.corners.length;
+		if (indices && end !== indices[(i + 1) % indices.length]) return [side];
+		const key = topology.edgeKey(column.corners[start], column.corners[end]);
+		const at = c.sharedMedial(column.planCellId, key, level);
+		if (at === undefined) return [side];
+		const m = joints.middle(key, at);
+		return at === level
+			? [
+					[a, m, e],
+					[m, b, d],
+					[m, d, e]
+				]
+			: [
+					[a, b, m],
+					[b, d, m],
+					[m, e, a]
+				];
+	});
+}
+
+// On a pinched foundation, a tree foot may lie on the same clamped seam in several bands.
+function onFootEdge(a: Joint, b: Joint, foot: Joint) {
+	const [x, y, z] = foot.position;
+	const [ax, ay, az] = a.position;
+	const [bx, by, bz] = b.position;
+	if (z !== az || z !== bz) return false;
+	const [dx, dy] = [bx - ax, by - ay];
+	const lengthSquared = dx * dx + dy * dy;
+	const along = (x - ax) * dx + (y - ay) * dy;
+	return (
+		along > 0 &&
+		along < lengthSquared &&
+		Math.abs(dx * (y - ay) - dy * (x - ax)) <= cityVolumeConfig.hubWeightTolerance * lengthSquared
+	);
+}
+
+function throughFoot(loop: readonly Joint[], foot: Joint) {
+	return loop.flatMap((a, i) =>
+		onFootEdge(a, loop[(i + 1) % loop.length], foot) ? [a, foot] : [a]
+	);
+}
+
+function addPlanBay(c: Context, column: Column, foot?: Joint) {
+	const { level } = c;
+	const id = column.planCellId;
+	const bay = c.bay(id);
 	const bottom = polygon(c, column, level);
 	const top = polygon(c, column, level + 1);
-	const [floor, roof, ...sides] = prismFaces(bottom, top);
-	return [
-		floor,
-		roof,
-		...sides.flatMap((side, i) => {
-			const [a, b, d, e] = side;
-			const key = topology.edgeKey(column.corners[i], column.corners[(i + 1) % sides.length]);
-			const at = c.sharedMedial(column.planCellId, key, level);
-			if (at === undefined) return [side];
-			const m = joints.middle(key, at);
-			return at === level
-				? [
-						[a, m, e],
-						[m, b, d],
-						[m, d, e]
-					]
-				: [
-						[a, b, m],
-						[b, d, m],
-						[m, e, a]
-					];
-		})
-	];
+	const triangulate = c.triangulated.has(id);
+	const split = triangulate && hasCollapsedDiagonal(bottom, top);
+	const parts = split ? prismParts(bottom, top) : [{ bottom, top, indices: undefined }];
+	for (const [i, part] of parts.entries()) {
+		const [floor, cap, ...sides] = prismFaces(part.bottom, part.top);
+		const onCap =
+			foot &&
+			foot.level === level + 1 &&
+			(!split || capHeight(cap, foot.position[0], foot.position[1]) !== undefined);
+		const ceiling = onCap
+			? cap.flatMap((a, j) => {
+					const b = cap[(j + 1) % cap.length];
+					return onFootEdge(a, b, foot) ? [] : [[a, b, foot]];
+				})
+			: triangulate
+				? fanTriangles(cap)
+				: [cap];
+		const faces = [
+			...(triangulate ? fanTriangles(floor) : [floor]),
+			...ceiling,
+			...planSides(c, column, sides, part.indices)
+		];
+		const stitched =
+			triangulate && foot ? cleanFaces(faces).map((loop) => throughFoot(loop, foot)) : faces;
+		c.add(parts.length === 1 ? `${bay}/cell` : `${bay}/cell/${i}`, bay, stitched);
+	}
 }
 
 /** The one cell solid of each plane pair, keyed by the sorted plane kinds. */
 const cellSolids: Record<string, (context: Context, column: Column) => Faces> = {
-	'plan/plan': planBay,
 	'centre/plan': (c, column) =>
 		pyramid(polygon(c, column, c.at('plan')), c.joints.centre(column.planCellId, c.at('centre'))),
 	'medial/plan': (c, column) =>
@@ -127,8 +181,9 @@ export function addLayer(
 	joints: Joints,
 	layer: Layer,
 	add: Add,
-	foundation: (id: string, level: number) => boolean,
-	sharedMedial: SharedMedial
+	footLevel: (id: string, level: number) => number | undefined,
+	sharedMedial: SharedMedial,
+	triangulated: ReadonlySet<string>
 ) {
 	const { level, low } = layer;
 	const c: Context = {
@@ -137,24 +192,24 @@ export function addLayer(
 		joints,
 		add,
 		sharedMedial,
+		triangulated,
 		at: (kind) => (low === kind ? level : level + 1),
 		bay: (cell) => `${cell}/level/${level}`
 	};
 	const kinds = [layer.low, layer.high].sort().join('/');
 	const cellSolid = cellSolids[kinds];
-	if (!cellSolid) throw new RangeError(`No lattice layer joins ${kinds} planes`);
 	for (const id of layer.cells) {
 		const column = required(topology.columns.get(id), 'lattice column');
-		let faces = cellSolid(c, column);
-		if (foundation(id, level)) {
-			const ring = polygon(c, column, level + 1);
-			faces = [
-				faces[0],
-				...ring.map((a, i) => [a, ring[(i + 1) % ring.length], joints.centre(id, level + 1)]),
-				...faces.slice(2)
-			];
+		if (kinds === 'plan/plan') {
+			const at = footLevel(id, level);
+			addPlanBay(c, column, at === undefined ? undefined : joints.centre(id, at));
+			continue;
 		}
-		add(`${c.bay(id)}/cell`, c.bay(id), faces);
+		if (!cellSolid) throw new RangeError(`No lattice layer joins ${kinds} planes`);
+		const faces = cellSolid(c, column);
+		const splitCap = triangulated.has(id) && kinds.endsWith('/plan');
+		const loops = splitCap ? [...fanTriangles(faces[0]), ...faces.slice(1)] : faces;
+		c.add(`${c.bay(id)}/cell`, c.bay(id), loops);
 	}
 	if (kinds === 'centre/plan') addEdgeTetrahedra(c);
 	if (kinds === 'centre/plan' || kinds === 'medial/plan')

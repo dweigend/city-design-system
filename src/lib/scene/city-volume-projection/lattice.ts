@@ -36,10 +36,14 @@ export function latticeMesh(
 	const wires = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
 	const offsets = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
 	const key = (a: string, b: string) => JSON.stringify(a < b ? [a, b] : [b, a]);
+	const sides = new Set<string>();
+	for (const { sideFaces } of lattice.cells) for (const id of sideFaces) sides.add(id);
 	const rim = new Set<string>();
 	for (const {
+		id,
 		corners: [a, b, c, d]
 	} of lattice.faces) {
+		if (!sides.has(id)) continue;
 		rim.add(key(a, b));
 		rim.add(key(c, d));
 	}

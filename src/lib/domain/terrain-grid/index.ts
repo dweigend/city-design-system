@@ -32,7 +32,7 @@ export const terrainGridParams = defineParams({
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
-export { crossingLimits, shorelineMorphLimits } from './config';
+export { shorelineMorphLimits } from './config';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
 export type TerrainGridVertex = Readonly<{ id: string; position: Vec3 }>;

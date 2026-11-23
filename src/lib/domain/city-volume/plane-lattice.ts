@@ -1,6 +1,8 @@
 import { required } from '../../core/invariant';
-import { columnPlanes, planeIndex } from './foundation';
-import { bayAddresses, type CityLattice, type Column } from './frame';
+import { bayAddresses, type Column } from './bay-addresses';
+import { columnPlanes, cornerReader } from './foundation';
+import { hasCollapsedDiagonal } from './foundation-prism';
+import type { CityLattice } from './frame';
 import { readPlanTopology } from './plan-topology';
 import { addLayer, type Add, type SharedMedial } from './plane-cells';
 import {
@@ -20,13 +22,18 @@ export function createPlaneLattice(
 	datumZ: number,
 	rule: PlaneRule
 ): CityLattice {
-	const { cells, faces } = bayAddresses(columns, datumZ);
+	const triangulated = new Set<string>();
+	const anchors = cornerReader(datumZ);
+	const addresses = bayAddresses(columns, datumZ, anchors, ({ id, bottom, top }, first) => {
+		if (first && hasCollapsedDiagonal(bottom, top))
+			triangulated.add(id.slice(0, id.lastIndexOf('/level/')));
+	});
 	const topology = readPlanTopology(columns);
 	const byColumn = new Map(
 		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])
 	);
 	const bands: ColumnBands = (id) => required(byColumn.get(id), 'column planes');
-	const joints = jointsOf(topology, datumZ);
+	const joints = jointsOf(topology, datumZ, anchors.read);
 	const kind = (id: string, level: number) => {
 		const { foundation: base } = bands(id);
 		return level < base ? 'plan' : rule.plane(level, level - base);
@@ -39,8 +46,12 @@ export function createPlaneLattice(
 		const { foundation: base } = bands(id);
 		return level < base ? ['plan', 'plan'] : [kind(id, level), kind(id, level + 1)];
 	};
-	const carriesFoot = (id: string, level: number) =>
-		level + 1 === bands(id).foundation && occupied(id, level + 1) && kind(id, level + 1) === 'foot';
+	const footLevel = (id: string, level: number) => {
+		const { foundation } = bands(id);
+		if (level + 1 !== foundation && !triangulated.has(id)) return;
+		if (level < foundation && occupied(id, foundation) && kind(id, foundation) === 'foot')
+			return foundation;
+	};
 	const sharedMedial: SharedMedial = (id, key, level) => {
 		const other = topology.edges.get(key)?.cells.find((cell) => cell !== id);
 		if (other === undefined || !occupied(other, level)) return;
@@ -52,8 +63,8 @@ export function createPlaneLattice(
 		loop.flatMap((a, i) => {
 			const b = loop[(i + 1) % loop.length];
 			if (!a.corner || !b.corner || a.id === b.id || a.position[2] !== b.position[2]) return [a];
-			const level = planeIndex(datumZ, a.position[2]);
-			if (!Number.isInteger(level) || level === 0) return [a];
+			const level = a.plane;
+			if (level === undefined || level === 0 || level !== b.plane) return [a];
 			const key = topology.edgeKey(a.corner, b.corner);
 			const edge = topology.edges.get(key);
 			if (
@@ -84,23 +95,34 @@ export function createPlaneLattice(
 			}
 		}
 	};
-	const top = Math.max(0, ...[...byColumn.values()].map(({ roof }) => roof));
-	for (let level = 0; level < top; level++) {
-		const groups = new Map<string, { low: PlaneKind; high: PlaneKind; cells: Set<string> }>();
-		for (const id of topology.columns.keys()) {
-			if (!occupied(id, level)) continue;
+	type PlanePair = { low: PlaneKind; high: PlaneKind; cells: Set<string> };
+	const layers = new Map<number, Map<string, PlanePair>>();
+	for (const [id, { first, roof }] of byColumn) {
+		for (let level = first; level < roof; level++) {
+			let groups = layers.get(level);
+			if (!groups) layers.set(level, (groups = new Map<string, PlanePair>()));
 			const [low, high] = pair(id, level);
 			const key = `${low}/${high}`;
-			const group = groups.get(key) ?? { low, high, cells: new Set<string>() };
+			let group = groups.get(key);
+			if (!group) groups.set(key, (group = { low, high, cells: new Set() }));
 			group.cells.add(id);
-			groups.set(key, group);
 		}
+	}
+	for (const level of [...layers.keys()].sort((a, b) => a - b)) {
+		const groups = required(layers.get(level), 'occupied layer');
 		for (const { low, high, cells } of groups.values())
-			addLayer(topology, joints, { level, low, high, cells }, add, carriesFoot, sharedMedial);
+			addLayer(
+				topology,
+				joints,
+				{ level, low, high, cells },
+				add,
+				footLevel,
+				sharedMedial,
+				triangulated
+			);
 	}
 	return Object.freeze({
-		cells,
-		faces,
+		...addresses,
 		nodes: Object.freeze([...used.values()]),
 		edges: Object.freeze([...edges.values()]),
 		solids: Object.freeze(solids)

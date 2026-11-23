@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { crossingLimits, planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
+import { planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
 import { channelCrossings } from './crossings';
-import { createCitySite, readCityGrid, type CityTerrainSampler } from './index';
+import { citySiteConfig, createCitySite, readCityGrid, type CityTerrainSampler } from './index';
 
 for (const [seed, relief, runoff, variant] of [
 	[1201, 0, 1, 'square'],
@@ -24,13 +24,13 @@ for (const [seed, relief, runoff, variant] of [
 			}
 			const endpoints = [path.nodeIds[0], required(path.nodeIds.at(-1), 'end node')] as const;
 			const chordM = distance(graph.point(endpoints[0]), graph.point(endpoints[1]));
-			if (chordM / path.lengthM < crossingLimits.straightSpanThresholdRatio)
+			if (chordM / path.lengthM < citySiteConfig.straightSpanThresholdRatio)
 				expect(span).toEqual({ nodeIds: endpoints, lengthM: chordM });
 			else expect(span).toBeUndefined();
 			let wet = false;
 			for (const { from, to } of path.edges) {
 				const [[x, y], [u, v]] = [graph.point(from), graph.point(to)];
-				const count = Math.ceil(Math.hypot(u - x, v - y) / crossingLimits.channelSampleStepM);
+				const count = Math.ceil(Math.hypot(u - x, v - y) / citySiteConfig.crossingProbeStepM);
 				for (let index = 1; index <= count; index++) {
 					const t = index / count;
 					const { waterKind } = city.sampleGround(x + (u - x) * t, y + (v - y) * t);
@@ -46,8 +46,9 @@ test('equal scores select the same crossings if built polygons are reversed', ()
 	const clearanceAt = (x: number, y: number) => Math.abs(Math.hypot(x, y) - 130) - 48;
 	const sample: CityTerrainSampler = (x, y) => {
 		const waterClearance = clearanceAt(x, y);
-		const dry = waterClearance >= 0;
-		return { height: 0, waterClearance, dry, waterKind: dry ? null : 'river' };
+		return waterClearance >= 0
+			? { height: 0, waterClearance, waterKind: null }
+			: { height: 0, waterClearance, waterKind: 'river', waterHeight: 1 };
 	};
 	const { grid, plan } = TerrainGrid.createPlan(
 		{
@@ -58,7 +59,7 @@ test('equal scores select the same crossings if built polygons are reversed', ()
 			heightAt: () => 0,
 			shore: { clearanceAt, minimumEdge: 2, minimumArea: 200 }
 		},
-		([x, y]) => (sample(x, y).dry ? 'dry' : 'river')
+		([x, y]) => sample(x, y).waterKind ?? 'dry'
 	);
 	const core: Vec2 = [0, 30];
 	const ranked = channelCrossings(plan, grid, sample, core);

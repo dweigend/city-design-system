@@ -21,7 +21,7 @@ export function districtMetrics(grid: TerrainGrid, columns: readonly CityColumn[
 	for (const column of columns) {
 		share[column.kind] += required(areas.get(column.planCellId), 'cell area') / total;
 		const counts = components[column.kind];
-		counts.set(column.districtId, (counts.get(column.districtId) ?? 0) + 1);
+		counts.set(column.densityRegionId, (counts.get(column.densityRegionId) ?? 0) + 1);
 		for (const id of column.neighbors) {
 			if (id === null) continue;
 			maxJump = Math.max(
@@ -68,6 +68,19 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 	}
 	const duplicateNodes = [...positions.values()].filter((n) => n > 1).length;
 	const nodes = new Map(lattice.nodes.map(({ id, position }) => [id, position]));
+	const canonicalCorners = new Set(lattice.bayCorners.map(({ id }) => id));
+	const canonicalFaces = new Set(lattice.faces.map(({ id }) => id));
+	const unresolvedBayAddresses =
+		lattice.faces.reduce(
+			(count, { corners }) => count + corners.filter((id) => !canonicalCorners.has(id)).length,
+			0
+		) +
+		lattice.cells.reduce(
+			(count, { floorFace, ceilingFace, sideFaces }) =>
+				count +
+				[floorFace, ceilingFace, ...sideFaces].filter((id) => !canonicalFaces.has(id)).length,
+			0
+		);
 	const byColumn = new Map<string, Map<number, CityLattice['cells'][number]>>();
 	for (const bay of lattice.cells) {
 		const levels = byColumn.get(bay.planCellId) ?? new Map();
@@ -90,7 +103,7 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 			for (const [level, bay] of levels) {
 				const other = byColumn.get(neighbor)?.get(level);
 				const face = bay.sideFaces[side];
-				if (!other || face === null) continue;
+				if (!other) continue;
 				shared++;
 				matched += +other.sideFaces.includes(face);
 			}
@@ -106,6 +119,7 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 	for (const { from, to } of lattice.edges) parent.set(find(from), find(to));
 	const components = new Set(lattice.nodes.map(({ id }) => find(id))).size;
 	return {
+		unresolvedBayAddresses,
 		bays: lattice.cells.length,
 		joints: lattice.nodes.length,
 		members: lattice.edges.length,
@@ -121,25 +135,45 @@ export function latticeMetrics(columns: readonly CityColumn[], lattice: CityLatt
 const order = { detached: 0, block: 1, center: 2 };
 
 /** Compares the same seed one size step larger: addresses, kinds and levels of old cells. */
-export function growthMetrics(before: readonly CityColumn[], after: readonly CityColumn[]) {
+export function growthMetrics(
+	before: readonly CityColumn[],
+	after: readonly CityColumn[],
+	rankedCellIds: readonly string[]
+) {
 	const next = new Map(after.map((column) => [column.planCellId, column]));
 	let lost = 0;
 	let moved = 0;
 	let demoted = 0;
 	let lowered = 0;
 	let kept = 0;
+	let unexpectedDistrictChanges = 0;
+	const rank = new Map(rankedCellIds.map((id, i) => [`district/${id}`, i]));
+	const survivors = new Map<string, string>();
+	for (const cell of before) {
+		const now = next.get(cell.planCellId);
+		if (!now) continue;
+		const current = survivors.get(now.districtId);
+		if (
+			!current ||
+			required(rank.get(cell.districtId), 'district rank') <
+				required(rank.get(current), 'district rank')
+		)
+			survivors.set(now.districtId, cell.districtId);
+	}
 	for (const column of before) {
 		const now = next.get(column.planCellId);
 		if (!now) {
 			lost++;
 			continue;
 		}
+		unexpectedDistrictChanges += +(survivors.get(now.districtId) !== now.districtId);
 		if (JSON.stringify(now.corners) !== JSON.stringify(column.corners)) moved++;
 		if (order[now.kind] < order[column.kind]) demoted++;
 		if (now.levels < column.levels) lowered++;
 		kept += +(now.kind === column.kind && now.levels === column.levels);
 	}
 	return {
+		unexpectedDistrictChanges,
 		growthLost: lost,
 		growthMoved: moved,
 		growthDemoted: demoted,

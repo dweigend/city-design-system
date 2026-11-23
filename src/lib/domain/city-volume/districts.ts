@@ -13,7 +13,12 @@ import {
 } from './settlement';
 
 export type DistrictKind = 'detached' | 'block' | 'center';
-export type DistrictCell = Readonly<{ districtId: string; kind: DistrictKind; levels: number }>;
+export type DistrictCell = Readonly<{
+	districtId: string;
+	densityRegionId: string;
+	kind: DistrictKind;
+	levels: number;
+}>;
 
 type PlanCell = Readonly<{
 	id: string;
@@ -22,8 +27,8 @@ type PlanCell = Readonly<{
 	neighbors: readonly string[];
 }>;
 export type DistrictGrowth = Readonly<{
-	rank: (id: string) => number;
-	hasFutureNeighbor: (id: string) => boolean;
+	rankedCellIds: readonly string[];
+	futureFringe: readonly string[];
 }>;
 
 type Ranked = PlanCell & Readonly<{ rank: number; share: number }>;
@@ -91,14 +96,14 @@ function supportPeaks(
 function limitSteps(
 	levels: Map<string, number>,
 	cells: readonly PlanCell[],
-	growth: DistrictGrowth | undefined
+	fringe: ReadonlySet<string>
 ) {
 	let changed = true;
 	while (changed) {
 		changed = false;
 		for (const { id, neighbors } of cells) {
 			const reach = Math.min(
-				growth?.hasFutureNeighbor(id) ? districtLevels.detached : Infinity,
+				fringe.has(id) ? districtLevels.detached : Infinity,
 				...neighbors.map((neighbor) => required(levels.get(neighbor), 'step neighbor'))
 			);
 			const cap = reach + maximumLevelStep;
@@ -110,20 +115,19 @@ function limitSteps(
 	}
 }
 
-/** Names each connected run of one kind, numbered from the core outward. */
-function districtIds(ranked: readonly Ranked[], kinds: ReadonlyMap<string, DistrictKind>) {
+/** The earliest founding address names each connected region. A merger keeps the earlier founder. */
+function regionIds(ranked: readonly Ranked[], kinds?: ReadonlyMap<string, DistrictKind>) {
 	const byId = new Map(ranked.map((cell) => [cell.id, cell]));
 	const ids = new Map<string, string>();
-	const counts: Record<DistrictKind, number> = { detached: 0, block: 0, center: 0 };
 	for (const start of ranked) {
 		if (ids.has(start.id)) continue;
-		const kind = required(kinds.get(start.id), 'district kind');
-		const id = `${kind}/${counts[kind]++}`;
+		const kind = kinds?.get(start.id);
+		const id = `${kind ?? 'district'}/${start.id}`;
 		const queue = [start];
 		ids.set(start.id, id);
 		for (const cell of queue) {
 			for (const neighbor of cell.neighbors) {
-				if (ids.has(neighbor) || kinds.get(neighbor) !== kind) continue;
+				if (ids.has(neighbor) || kinds?.get(neighbor) !== kind) continue;
 				ids.set(neighbor, id);
 				queue.push(required(byId.get(neighbor), 'district neighbor'));
 			}
@@ -186,20 +190,23 @@ export function seedDistricts(
 	const cells = planCells(plan);
 	const areaKm2 = cells.reduce((sum, { area }) => sum + area, 0) / 1e6;
 	const fallback = districtRank(core, random.derive('rank'), complexity);
+	const ranks = growth && new Map(growth.rankedCellIds.map((id, rank) => [id, rank]));
 	const ranked = rankCells(cells, ({ id, centroid }) =>
-		growth ? growth.rank(id) : fallback(centroid)
+		ranks ? required(ranks.get(id), 'growth rank') : fallback(centroid)
 	);
 	const kinds = assignKinds(ranked, areaKm2);
 	const peak = Math.min(peakLevels(areaKm2), capLevels);
 	const levels = assignLevels(ranked, kinds, areaKm2, peak, random.derive('towers'), complexity);
 	supportPeaks(levels, cells, kinds);
-	limitSteps(levels, cells, growth);
-	const ids = districtIds(ranked, kinds);
+	limitSteps(levels, cells, new Set(growth?.futureFringe));
+	const ids = regionIds(ranked);
+	const densityIds = regionIds(ranked, kinds);
 	const assignment = new Map(
 		cells.map(({ id }) => [
 			id,
 			Object.freeze({
 				districtId: required(ids.get(id), 'district id'),
+				densityRegionId: required(densityIds.get(id), 'density region id'),
 				kind: required(kinds.get(id), 'district kind'),
 				levels: required(levels.get(id), 'district levels')
 			})

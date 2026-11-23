@@ -8,19 +8,10 @@ import {
 	levelHeight,
 	type CityPlanVariant
 } from '../../domain/city-volume';
-import {
-	crossingLimits,
-	planCellSide,
-	shorelineMorphLimits,
-	TerrainGrid
-} from '../../domain/terrain-grid';
+import { planCellSide, shorelineMorphLimits, TerrainGrid } from '../../domain/terrain-grid';
 import type { CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
-
-export const { cityBankSetbackM } = shorelineMorphLimits;
-
-export const maximumCellRiseM = 16;
-const minimumPartAreaM2 = 360_000;
+import { citySiteConfig as config } from './config';
 
 type Site = Readonly<{
 	sampleGround: CityTerrainSampler;
@@ -36,30 +27,30 @@ function crossingCenter(center: Vec2, u: number, v: number, sample: CityTerrainS
 	let best: { point: Vec2; width: number } | undefined;
 	let bestCost = Infinity;
 	for (
-		let along = -crossingLimits.centerSearchAlongM;
-		along <= crossingLimits.centerSearchAlongM;
-		along += crossingLimits.centerSearchAlongStepM
+		let along = -config.centerSearchAlongM;
+		along <= config.centerSearchAlongM;
+		along += config.centerSearchAlongStepM
 	) {
 		const x = center[0] + along * u;
 		const y = center[1] + along * v;
 		let entrance: number | undefined;
 		for (
-			let across = -crossingLimits.centerSearchAcrossM;
-			across <= crossingLimits.centerSearchAcrossM;
-			across += crossingLimits.centerSearchAcrossStepM
+			let across = -config.centerSearchAcrossM;
+			across <= config.centerSearchAcrossM;
+			across += config.centerSearchAcrossStepM
 		) {
 			const kind = sample(x - across * v, y + across * u).waterKind;
 			if (kind === 'river') {
-				entrance ??= across - crossingLimits.centerSearchAcrossStepM / 2;
+				entrance ??= across - config.centerSearchAcrossStepM / 2;
 				continue;
 			}
 			if (entrance === undefined) continue;
-			const width = across - crossingLimits.centerSearchAcrossStepM / 2 - entrance;
+			const width = across - config.centerSearchAcrossStepM / 2 - entrance;
 			const midpoint = entrance + width / 2;
 			const cost =
-				crossingLimits.centerWidthWeightRatio * width +
+				config.centerWidthWeightRatio * width +
 				Math.abs(along) +
-				crossingLimits.centerAcrossWeightRatio * Math.abs(midpoint);
+				config.centerAcrossWeightRatio * Math.abs(midpoint);
 			if (kind !== 'lake' && cost < bestCost) {
 				bestCost = cost;
 				best = { point: [x - midpoint * v, y + midpoint * u], width };
@@ -95,30 +86,30 @@ export function prepareCarrier(
 			site: { origin, bearing, outline },
 			variant,
 			parameters: { cellSize: coarseCellSize / planCellSide[variant] },
-			maximumCellRise: maximumCellRiseM,
-			edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
+			maximumCellRise: config.maximumCellRiseM,
+			edgeSampleStep: config.groundSampleStepM,
 
 			shore: {
 				align: true,
-				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - cityBankSetbackM,
+				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - config.bankSetbackM,
 				minimumEdge: shorelineMorphLimits.clippedMinimumEdgeRatio * coarseCellSize,
 				minimumArea: shorelineMorphLimits.clippedMinimumAreaRatio * coarseCellSize ** 2
 			},
 			referenceHeightAt: (x, y) => sampleGround(x, y).height,
 			heightAt(x, y) {
 				const reading = sampleGround(x, y);
-				return reading.dry ? reading.height : undefined;
+				return reading.waterKind === null ? reading.height : undefined;
 			}
 		},
 		(point) => {
 			const ground = sampleGround(...point);
-			return ground.dry ? 'dry' : (ground.waterKind ?? 'water');
+			return ground.waterKind ?? 'dry';
 		}
 	);
 	const random = Random.create({ seed }).derive('crossing');
 	const shift = random.number({
-		min: -crossingLimits.centerFallbackShiftM,
-		max: crossingLimits.centerFallbackShiftM
+		min: -config.centerFallbackShiftM,
+		max: config.centerFallbackShiftM
 	});
 	const crossing = crossingCenter(center, u, v, sampleGround);
 	const core: Vec2 = crossing?.point ?? [center[0] - shift * v, center[1] + shift * u];
@@ -135,9 +126,9 @@ export function prepareCarrier(
 		.sort(
 			(a, b) =>
 				distance(core, a.midpoint) +
-				crossingLimits.primaryPathWeightRatio * a.path.lengthM -
+				config.primaryPathWeightRatio * a.path.lengthM -
 				distance(core, b.midpoint) -
-				crossingLimits.primaryPathWeightRatio * b.path.lengthM
+				config.primaryPathWeightRatio * b.path.lengthM
 		)[0];
 	const approaches = primary?.heads
 		.map(({ nodeId }) => required(nodes.get(nodeId), 'approach node'))
@@ -164,7 +155,7 @@ export function prepareCarrier(
 	const order = cityGrowth(
 		candidates,
 		(point, grade) => access(point, grade, sampleGround(...point).waterClearance),
-		minimumPartAreaM2,
+		config.minimumRegionAreaM2,
 		links
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));

@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { cornerAt, planeElevation, type columnPlanes } from './foundation';
-import type { Column } from './frame';
+import { planeElevation, planeIndex, type columnPlanes, type CornerReader } from './foundation';
+import type { Column } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
 
 /** What a level plane holds: the plan corners, the cell centres (the dual), the edge midpoints
@@ -13,17 +13,31 @@ export type PlaneRule = Readonly<{
 	plane: (level: number, aboveBase: number) => PlaneKind;
 }>;
 
-export type Joint = Readonly<{ id: string; position: Vec3; level: number; corner?: Corner }>;
+export type Joint = Readonly<{
+	id: string;
+	position: Vec3;
+	level: number;
+	plane?: number;
+	corner?: Corner;
+}>;
 /** Occupied span and foundation cap of each column on the shared planes. */
 export type ColumnBands = (id: string) => ReturnType<typeof columnPlanes>;
 type Corner = Column['corners'][number];
 /** Joint factory of one lattice: every joint is created once and keyed by plan address and level. */
-export function jointsOf(topology: PlanTopology, datumZ: number) {
+export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: CornerReader['read']) {
 	const joints = new Map<string, Joint>();
 	const at = (id: string, level: number, position: () => Vec3, corner?: Corner) => {
 		let joint = joints.get(id);
 		if (!joint) {
-			joint = Object.freeze({ id, level, corner, position: Object.freeze(position()) });
+			const point = Object.freeze(position());
+			const index = corner && level === 0 ? planeIndex(datumZ, point[2]) : level;
+			joint = Object.freeze({
+				id,
+				level,
+				plane: Number.isSafeInteger(index) ? index : undefined,
+				corner,
+				position: point
+			});
 			joints.set(id, joint);
 		}
 		return joint;
@@ -31,8 +45,8 @@ export function jointsOf(topology: PlanTopology, datumZ: number) {
 	const z = (level: number) => planeElevation(datumZ, level);
 	return {
 		corner(corner: Corner, level: number) {
-			const anchor = cornerAt(corner, datumZ, level);
-			return at(anchor.id, anchor.level, () => anchor.position, corner);
+			const { point, level: index } = readCorner(corner, level);
+			return at(point.id, index, () => point.position, corner);
 		},
 		centre(cell: string, level: number) {
 			return at(`cell/${cell}/level/${level}`, level, () => {

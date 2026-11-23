@@ -126,7 +126,7 @@ export function envelopeMeshes(
 			const id = column.neighbors[i];
 			const neighbor = id === null ? undefined : required(byId.get(id), 'envelope neighbor');
 			const lower = neighbor && columnRoof(neighbor, datumZ);
-			const edge = pencil || neighbor?.districtId !== column.districtId || lower !== topZ;
+			const edge = pencil || neighbor?.densityRegionId !== column.densityRegionId || lower !== topZ;
 			addWire(part, edge ? 'roof' : 'joints', local(a), local(b));
 			if (lower !== undefined && lower >= topZ) continue;
 			const floorA = lower ?? base[i][2];

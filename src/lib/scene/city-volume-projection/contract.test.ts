@@ -96,7 +96,10 @@ test('projects one glyph per joint and one segment per unique member on common p
 test('omits the lattice drawable when there are no bays', () => {
 	const { frame } = example();
 	expect(
-		projectCityLattice({ cells: [], faces: [], nodes: [], edges: [], solids: [] }, frame).drawables
+		projectCityLattice(
+			{ cells: [], faces: [], bayCorners: [], nodes: [], edges: [], solids: [] },
+			frame
+		).drawables
 	).toEqual([]);
 });
 
@@ -141,7 +144,7 @@ test('winds roofs up and walls out, whatever the turn of the plan ring', () => {
 	const city = createCitySite(undefined, { relief: 0.5 });
 	const plan = readCityGrid(city, 1200);
 	const terrain = projectCityTerrain(city, plan.grid, plan.plan);
-	const columns = readCityColumns(plan.grid, readCityDistricts(city, plan.grid));
+	const columns = readCityColumns(plan.grid, readCityDistricts(city, plan));
 	const { drawables } = projectCityDistricts(columns, plan.datumZ, terrain);
 	for (const { role, shape } of drawables) {
 		if ((role !== 'body' && role !== 'block') || shape.kind !== 'mesh') continue;
@@ -243,5 +246,29 @@ test('the camera elevation never falls from quarter to whole city and does not j
 			expect(elevation - previous).toBeLessThan((0.5 * Math.PI) / 180);
 			previous = elevation;
 		}
+	}
+});
+
+test('projects both the ground and water elevations from the alternate city sampler', () => {
+	const site = createCitySite((x) =>
+		x < 0
+			? { height: 240, waterKind: 'river', waterClearance: x, waterHeight: 245 }
+			: { height: 240, waterKind: null, waterClearance: x }
+	);
+	const { drawables } = projectCityTerrain(site, { vertices: [], cells: [], boundary: [] });
+	expect(site.valley).toBeNull();
+	for (const [id, z] of [
+		['ground', 240],
+		['river', 245]
+	] as const) {
+		const shape = required(
+			drawables.find((part) => part.id === id),
+			id
+		).shape;
+		if (shape.kind !== 'mesh') throw new Error('Expected a sampled mesh');
+		expect(shape.indices.length).toBeGreaterThan(0);
+		expect(shape.positions.filter((_, i) => i % 3 === 2).every((height) => height === z)).toBe(
+			true
+		);
 	}
 });

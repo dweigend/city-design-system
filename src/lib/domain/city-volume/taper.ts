@@ -1,7 +1,7 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { columnPlanes, planeIndex } from './foundation';
-import type { Column } from './frame';
+import type { Column } from './bay-addresses';
 import { readPlanTopology, type PlanRing, type PlanTopology } from './plan-topology';
 
 /** Horizontal meters a corner moves per level above the lowest column around it. */

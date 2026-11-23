@@ -13,7 +13,7 @@ export function groundMetrics(city: CitySite, columns: readonly CityColumn[]) {
 	let maxFoundationErrorM = 0;
 	function probe(x: number, y: number) {
 		const reading = city.sampleGround(x, y);
-		wetProbes += +!reading.dry;
+		wetProbes += +(reading.waterKind !== null);
 		return reading.height;
 	}
 	for (const { corners } of columns) {
@@ -49,13 +49,17 @@ export function groundContactMetrics(city: CitySite, grid: TerrainGrid) {
 export function hubGroundMetrics(city: CitySite, lattice: CityLattice) {
 	let hubCount = 0;
 	let maxHubUndershootM = 0;
+	let maxGroundHubErrorM = 0;
 	for (const {
 		id,
 		position: [x, y, z]
 	} of lattice.nodes) {
 		if (!id.endsWith('/center') && !id.endsWith('/ground-center')) continue;
 		hubCount++;
-		maxHubUndershootM = Math.max(maxHubUndershootM, city.sampleGround(x, y).height - z);
+		const error = city.sampleGround(x, y).height - z;
+		maxHubUndershootM = Math.max(maxHubUndershootM, error);
+		if (id.endsWith('/ground-center'))
+			maxGroundHubErrorM = Math.max(maxGroundHubErrorM, Math.abs(error));
 	}
-	return { hubCount, maxHubUndershootM };
+	return { hubCount, maxHubUndershootM, maxGroundHubErrorM };
 }

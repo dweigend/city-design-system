@@ -1,6 +1,6 @@
 import type { Vec3 } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
-import { latticeVolumes, type CityLattice } from '../src/lib/domain/city-volume';
+import { latticeVolumes, solidEdgeFaults, type CityLattice } from '../src/lib/domain/city-volume';
 
 function cyclicKey(face: readonly string[]) {
 	const start = face.reduce((least, id, i) => (id < face[least] ? i : least), 0);
@@ -30,6 +30,7 @@ function foldedCap(face: readonly string[], positions: ReadonlyMap<string, Vec3>
 /** Checks oriented closure, shared faces, volume and bay ownership. */
 export function solidMetrics(lattice: CityLattice) {
 	let openSolids = 0;
+	let nonManifoldSolidEdges = 0;
 	let faceConflicts = 0;
 	let foldedCaps = 0;
 	const positions = new Map(lattice.nodes.map(({ id, position }) => [id, position]));
@@ -41,7 +42,6 @@ export function solidMetrics(lattice: CityLattice) {
 	for (const { bay, faces } of lattice.solids) {
 		occupied.add(bay);
 		orphanSolids += +!bays.has(bay);
-		const edges = new Map<string, { count: number; balance: number }>();
 		for (const face of faces) {
 			const key = JSON.stringify([...face].sort());
 			const previous = uses.get(key);
@@ -57,23 +57,18 @@ export function solidMetrics(lattice: CityLattice) {
 				const b = face[(i + 1) % face.length];
 				const forward = a < b;
 				const edge = JSON.stringify(forward ? [a, b] : [b, a]);
-				const incidence = edges.get(edge) ?? { count: 0, balance: 0 };
-				incidence.count++;
-				incidence.balance += forward ? 1 : -1;
-				edges.set(edge, incidence);
 				solidEdges.add(edge);
 			}
 		}
-		for (const { count, balance } of edges.values()) {
-			if (count === 2 && balance === 0) continue;
-			openSolids++;
-			break;
-		}
+		const faults = solidEdgeFaults(faces);
+		openSolids += +(faults.open > 0);
+		nonManifoldSolidEdges += faults.nonManifold;
 	}
 	const volumes = latticeVolumes(lattice);
 	return {
 		solids: lattice.solids.length,
 		openSolids,
+		nonManifoldSolidEdges,
 		faceConflicts,
 		foldedCaps,
 		orphanSolids,
