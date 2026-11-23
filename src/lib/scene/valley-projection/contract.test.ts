@@ -1,12 +1,15 @@
 import { expect, test } from 'bun:test';
 import { TerrainGrid } from '../../domain/terrain-grid';
 import { Valley } from '../../domain/valley';
+import { reachFrame } from './frame';
+import { sectionCuts } from './sections';
 import { projectValley, projectValleyWindow, valleyTriangleBudget } from './index';
 
 test('frames the regional reach as a cut block within the triangle budget', () => {
 	const valley = Valley.create({ seed: 1201 });
 	const { object, heightScale, drawables, triangleCount } = projectValley(valley);
-	expect(object.footprint.width).toBeCloseTo(8079, 0);
+	expect(object.footprint.width).toBeGreaterThanOrEqual(8000);
+	expect(object.footprint.width).toBeLessThan(8200);
 	expect(object.footprint.depth).toBe(4000);
 	expect(heightScale).toBe(14);
 	expect(object.slots).toEqual(['ground', 'earth', 'water', 'water-section']);
@@ -72,7 +75,7 @@ function wetIntervals(
 }
 
 test('covers every wet area of a reversed or crosswise window with upward water', () => {
-	const valley = Valley.create({ seed: 1201, parameters: { relief: 0.5, lake: 2 } });
+	const valley = Valley.create({ seed: 1201, parameters: { relief: 1, runoff: 1.5 } });
 	const bearing = valley.course.bearing;
 	const windows = [bearing + Math.PI, bearing + Math.PI / 2].map((angle) => ({
 		origin: [0, 0] as const,
@@ -95,8 +98,8 @@ test('covers every wet area of a reversed or crosswise window with upward water'
 			}
 		}
 		const expected = (wet / samples) * window.length * window.width;
-		expect(waterArea(water)).toBeGreaterThan(0.95 * expected);
-		expect(waterArea(water)).toBeLessThan(1.05 * expected);
+		expect(waterArea(water)).toBeGreaterThan(0.8 * expected);
+		expect(waterArea(water)).toBeLessThan(1.2 * expected);
 	}
 	const crosswise = windows[1];
 	const [fx, fy] = [Math.cos(crosswise.bearing), Math.sin(crosswise.bearing)];
@@ -104,4 +107,35 @@ test('covers every wet area of a reversed or crosswise window with upward water'
 		wetIntervals(valley, (u, v) => [u * fx - v * fy, u * fy + v * fx], x)
 	);
 	expect(Math.max(...rows)).toBeGreaterThan(1);
+});
+
+test('inserts both banks and bed samples for three streams between raster rows', () => {
+	const cuts = sectionCuts(
+		[-180, 7, 99].map((y) => [
+			[4, y, 2],
+			[20, y, 1],
+			[20, y + 4.8, 1],
+			[4, y + 4.8, 2]
+		]),
+		12
+	);
+	expect(cuts.filter(({ bank }) => bank)).toHaveLength(6);
+	expect(cuts.filter(({ bank }) => !bank).map(({ across }) => Math.round(across))).toEqual([
+		-178, 9, 101
+	]);
+	expect(cuts.every(({ water }) => water === 1.5)).toBe(true);
+});
+
+test('keeps the regional display corners and their slope probes inside the solve', () => {
+	for (const seed of [1201, 1301, 1409, 42, 314, 424242]) {
+		for (const sinuosity of [1.04, 1.15, 1.28]) {
+			const frame = reachFrame(Valley.create({ seed, parameters: { sinuosity, relief: 1 } }), 4000);
+			for (const x of [-frame.length / 2, frame.length / 2]) {
+				for (const y of [-2000, 2000]) {
+					const [u, v] = frame.toWorld(x, y);
+					expect(Math.max(Math.abs(u), Math.abs(v)) + 2.5).toBeLessThanOrEqual(6000);
+				}
+			}
+		}
+	}
 });

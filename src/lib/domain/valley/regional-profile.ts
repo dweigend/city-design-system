@@ -36,7 +36,6 @@ export function regionalProfile(course: RiverCourse, random: Random) {
 	const fy = Math.sin(course.bearing);
 	const centerAt = alongCourse(course, fx, fy);
 	const phase = random.derive('terrace-edge').number() * 2 * Math.PI;
-	const bankPhase = random.derive('bank').number() * 2 * Math.PI;
 	return (x: number, y: number) => {
 		const station = x * fx + y * fy;
 		const cross = y * fx - x * fy;
@@ -46,11 +45,9 @@ export function regionalProfile(course: RiverCourse, random: Random) {
 		const scallop = 49 * Math.sin(station / 337 + phase) + 14 * Math.sin(station / 126 - phase);
 		const lateral = (cross - center - scallop) / Math.hypot(1, (after - before) / 840);
 		const rate = smoothstep((Math.abs(station) - 1420) / 1100);
-		const bankWidth =
-			rate * (31 * Math.sin(station / 630 + bankPhase) + 14 * Math.sin(station / 220 - bankPhase));
 		const highGround = smoothstep((Math.hypot(x, y) - 1420) / 950);
 		const flank = smoothstep((Math.abs(lateral) - 650) / 1550);
 		const shoulder = highGround * flank * (6 + 3 * Math.sin(station / 700 + phase));
-		return { rate, lateral, bankWidth, shoulder };
+		return { rate, lateral, shoulder };
 	};
 }
