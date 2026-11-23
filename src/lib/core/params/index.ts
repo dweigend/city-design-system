@@ -1,3 +1,20 @@
+const {
+	blockHeightDefaultM,
+	blockHeightMinM,
+	blockHeightMaxM,
+	blockHeightStepM,
+	blockWidthDefaultM,
+	blockWidthMinM,
+	blockWidthMaxM,
+	blockWidthStepM,
+	blockComplexityDefaultRatio,
+	blockComplexityMinRatio,
+	blockComplexityMaxRatio,
+	blockComplexityStepRatio
+} = defaults;
+
+import { defaults } from '../../../config/inputs';
+
 type NumberParam = Readonly<{
 	label: string;
 	unit: string;
@@ -71,7 +88,28 @@ export function resolveParams<const S extends Schema>(
  * box, regardless of shape. Complexity is unitless. Reading the frozen schema has no side effects.
  */
 export const blockInputs = defineParams({
-	height: { label: 'Height', unit: 'm', default: 4, min: 1, max: 32, step: 0.1 },
-	width: { label: 'Width', unit: 'm', default: 9, min: 1, max: 32, step: 0.1 },
-	complexity: { label: 'Complexity', unit: '', default: 0.5, min: 0, max: 1, step: 0.01 }
+	height: {
+		label: 'Height',
+		unit: 'm',
+		default: blockHeightDefaultM,
+		min: blockHeightMinM,
+		max: blockHeightMaxM,
+		step: blockHeightStepM
+	},
+	width: {
+		label: 'Width',
+		unit: 'm',
+		default: blockWidthDefaultM,
+		min: blockWidthMinM,
+		max: blockWidthMaxM,
+		step: blockWidthStepM
+	},
+	complexity: {
+		label: 'Complexity',
+		unit: '',
+		default: blockComplexityDefaultRatio,
+		min: blockComplexityMinRatio,
+		max: blockComplexityMaxRatio,
+		step: blockComplexityStepRatio
+	}
 });

@@ -1,3 +1,6 @@
+// Exact arithmetic: one meter is 1,000 millimeters.
+const millimetersPerMeter = 1000;
+
 export type SurfaceGrid = Readonly<{
 	windowM: number;
 	spacingM: number;
@@ -32,6 +35,7 @@ function reflect(index: number, length: number): number {
 	return Math.min(folded, period - 1 - folded);
 }
 
+// Exact arithmetic: the normal density uses minus one half of the squared z score.
 function gaussian(radius: number, sigma: number): number[] {
 	const weights = Array.from({ length: 2 * radius + 1 }, (_, index) =>
 		Math.exp(-0.5 * ((index - radius) / sigma) ** 2)
@@ -66,7 +70,7 @@ export function smoothSurface(grid: SurfaceGrid, spacing: number, sigma: number,
 	const filled = gridSampler(
 		sourceSide,
 		grid.spacingM,
-		(i) => Math.max(grid.bedMm[i], grid.meanWaterMm[i]) / 1000
+		(i) => Math.max(grid.bedMm[i], grid.meanWaterMm[i]) / millimetersPerMeter
 	);
 	const raw = new Float64Array(side ** 2);
 	for (let row = 0; row < side; row++) {

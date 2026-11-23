@@ -1,4 +1,7 @@
+import { defaults } from '../../../config/river-metrics';
 import { distance, pointAt, polylineLength } from '../../core/polyline';
+
+const { wavelengthHeadingCrossingToleranceRatio } = defaults;
 
 /** A downstream centerline in meters, constant wet and bankfull widths in meters,
  * and the mean downstream axis bearing in radians from +X.
@@ -26,7 +29,7 @@ function meanWavelength(xy: ArrayLike<number>, bearing: number): number | null {
 		const segment = Math.hypot(dx, dy);
 		const across = (dx * x + dy * y) / segment;
 		const station = length + segment / 2;
-		if (Math.abs(across) <= 1e-12) {
+		if (Math.abs(across) <= wavelengthHeadingCrossingToleranceRatio) {
 			length += segment;
 			continue;
 		}
@@ -41,7 +44,7 @@ function meanWavelength(xy: ArrayLike<number>, bearing: number): number | null {
 		previousAcross = across;
 		previousStation = station;
 	}
-	return count < 2 ? null : (2 * (last - first)) / (count - 1);
+	return count <= 1 ? null : (2 * (last - first)) / (count - 1);
 }
 
 /** Measures the supplied reach without mutation. Valley length is the endpoint chord.

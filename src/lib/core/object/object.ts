@@ -1,5 +1,8 @@
+import { defaults } from '../../../config/object';
 import * as geometry from '../geometry';
 import type { Bounds3, Vec2, Vec3 } from '../geometry';
+
+const { unitNormalLengthToleranceRatio } = defaults;
 
 /** Metric geometry in XY ground and Z up. Prism rings close implicitly; indices form triangles. */
 export type Shape =
@@ -76,9 +79,6 @@ export function move(object: PlaceableObject, translation: Vec3, radians: number
 	});
 }
 
-// Unitless distance from length 1, allowing roundoff from rotating a unit direction.
-const normalTolerance = 1e-12;
-
 function finite(value: number): number {
 	if (!Number.isFinite(value)) throw new RangeError('Expected finite numbers');
 	return value;
@@ -90,21 +90,24 @@ function copyCoordinates<T extends readonly number[]>(values: T): T {
 
 function copyAnchor({ name, position, normal }: Anchor): Anchor {
 	const direction = copyCoordinates(normal);
-	if (Math.abs(geometry.length(direction) - 1) > normalTolerance)
+	if (Math.abs(geometry.length(direction) - 1) > unitNormalLengthToleranceRatio)
 		throw new RangeError(`Anchor "${name}" requires a unit normal`);
 	return Object.freeze({ name, position: copyCoordinates(position), normal: direction });
 }
 
+// Exact arithmetic: positions are XYZ triples and each mesh face is a triangle.
+const triangleStride = 3;
+
 function copyMesh({ positions, indices }: Extract<Shape, { kind: 'mesh' }>): Shape {
-	const vertexCount = positions.length / 3;
-	if (positions.length % 3 || !indices.length || indices.length % 3)
+	const vertexCount = positions.length / triangleStride;
+	if (positions.length % triangleStride || !indices.length || indices.length % triangleStride)
 		throw new RangeError('Mesh requires XYZ positions and nonempty index triples');
 	const triangles = [...indices];
 	const isVertexIndex = (index: number) =>
 		Number.isInteger(index) && index >= 0 && index < vertexCount;
 	if (!triangles.every(isVertexIndex))
 		throw new RangeError('Mesh index is outside its vertex array');
-	for (let offset = 0; offset < triangles.length; offset += 3) {
+	for (let offset = 0; offset < triangles.length; offset += triangleStride) {
 		const [a, b, c] = [triangles[offset], triangles[offset + 1], triangles[offset + 2]];
 		if (a === b || b === c || a === c) throw new RangeError('Mesh triangle repeats a vertex index');
 	}
@@ -127,7 +130,7 @@ function copyShape(shape: Shape): Shape {
 			const polygon = Array.from(shape.polygon, copyCoordinates);
 			finite(base);
 			finite(top);
-			if (polygon.length < 3 || top < base)
+			if (polygon.length < triangleStride || top < base)
 				throw new RangeError('Invalid prism polygon or heights');
 			return Object.freeze({ kind, polygon: Object.freeze(polygon), base, top });
 		}
@@ -141,7 +144,7 @@ function copyShape(shape: Shape): Shape {
 type PointTransform = (point: Vec3) => Vec3;
 
 function vertex(positions: readonly number[], index: number): Vec3 {
-	const offset = index * 3;
+	const offset = index * triangleStride;
 	return [positions[offset], positions[offset + 1], positions[offset + 2]];
 }
 
@@ -182,7 +185,7 @@ function moveShape(shape: Shape, point: PointTransform, radians: number): Shape 
 			};
 		case 'mesh': {
 			const positions: number[] = [];
-			for (let index = 0; index < shape.positions.length / 3; index += 1)
+			for (let index = 0; index < shape.positions.length / triangleStride; index += 1)
 				positions.push(...point(vertex(shape.positions, index)));
 			return { ...shape, positions };
 		}
