@@ -1,0 +1,157 @@
+// Topology and cell quality of one city plan grid.
+import { required } from '../src/lib/core/invariant';
+import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
+import { coarseCellSize } from '../src/lib/world/city-site';
+
+export type Point = readonly [number, number];
+/** Millimeter key of a coordinate tuple. */
+export const key = (p: readonly number[]) => p.map((v) => Math.round(v * 1000)).join(',');
+
+/** Reads a cell ring in plan meters. */
+export function polygon(grid: TerrainGrid) {
+	const vertices = new Map(grid.vertices.map(({ id, position }) => [id, position]));
+	return (vertexIds: readonly string[]): Point[] =>
+		vertexIds.map((id) => {
+			const [x, y] = required(vertices.get(id), 'plan vertex');
+			return [x, y];
+		});
+}
+
+export function area(points: readonly Point[]) {
+	return (
+		points.reduce((sum, [ax, ay], i) => {
+			const [bx, by] = points[(i + 1) % points.length];
+			return sum + ax * by - bx * ay;
+		}, 0) / 2
+	);
+}
+
+function cellShape(points: readonly Point[]) {
+	const n = points.length;
+	let minAngle = Math.PI;
+	let reflex = 0;
+	let shortest = Infinity;
+	let diameter = 0;
+	for (let i = 0; i < n; i++) {
+		const p = points[i];
+		const a = points[(i + 1) % n];
+		const b = points[(i + n - 1) % n];
+		const cross = (a[0] - p[0]) * (b[1] - p[1]) - (a[1] - p[1]) * (b[0] - p[0]);
+		const dot = (a[0] - p[0]) * (b[0] - p[0]) + (a[1] - p[1]) * (b[1] - p[1]);
+		const angle = Math.atan2(cross, dot);
+		if (angle < 0) reflex++;
+		minAngle = Math.min(minAngle, Math.abs(angle));
+		shortest = Math.min(shortest, Math.hypot(a[0] - p[0], a[1] - p[1]));
+		for (const q of points) diameter = Math.max(diameter, Math.hypot(q[0] - p[0], q[1] - p[1]));
+	}
+	return { minAngle, reflex, shortest, diameter };
+}
+
+/** Topology and cell quality of one plan grid. */
+export function planMetrics(grid: TerrainGrid) {
+	const shape = polygon(grid);
+	const edgeUse = new Map<string, number>();
+	for (const { vertexIds } of grid.cells) {
+		vertexIds.forEach((a, i) => {
+			const b = vertexIds[(i + 1) % vertexIds.length];
+			const id = a < b ? `${a}|${b}` : `${b}|${a}`;
+			edgeUse.set(id, (edgeUse.get(id) ?? 0) + 1);
+		});
+	}
+	const uses = [...edgeUse.values()];
+	const interior = uses.filter((n) => n === 2).length;
+	const nonManifold = uses.filter((n) => n > 2).length;
+	const holes = 1 - (grid.vertices.length - edgeUse.size + grid.cells.length);
+	const positions = new Map<string, number>();
+	for (const { position } of grid.vertices) {
+		const k = key(position.slice(0, 2));
+		positions.set(k, (positions.get(k) ?? 0) + 1);
+	}
+	const duplicateVertices = [...positions.values()].filter((n) => n > 1).length;
+	const areas = grid.cells.map(({ vertexIds }) => area(shape(vertexIds)));
+	const median = [...areas].sort((a, b) => a - b)[Math.floor(areas.length / 2)] ?? 0;
+	let tiny = 0;
+	let aspect = 0;
+	let sliver = 0;
+	let shortEdge = 0;
+	let reflex = 0;
+	let degenerate = 0;
+	let worstAngle = Math.PI;
+	grid.cells.forEach(({ vertexIds }, i) => {
+		const s = cellShape(shape(vertexIds));
+		const flags = [
+			areas[i] < 0.2 * median,
+			s.diameter ** 2 / areas[i] > 6,
+			s.minAngle < (15 * Math.PI) / 180,
+			s.shortest < 0.1 * coarseCellSize
+		];
+		tiny += +flags[0];
+		aspect += +flags[1];
+		sliver += +flags[2];
+		shortEdge += +flags[3];
+		reflex += +(s.reflex > 0);
+		degenerate += +flags.some(Boolean);
+		worstAngle = Math.min(worstAngle, s.minAngle);
+	});
+	return {
+		cells: grid.cells.length,
+		interiorEdges: interior,
+		interiorEdgeShare: interior / Math.max(1, interior + nonManifold),
+		nonManifold,
+		holes,
+		hanging: hangingVertices(grid),
+		duplicateVertices,
+		tiny,
+		aspect,
+		sliver,
+		shortEdge,
+		concave: reflex,
+		degenerate,
+		degenerateShare: degenerate / grid.cells.length,
+		worstAngleDeg: (worstAngle * 180) / Math.PI
+	};
+}
+
+/** Vertices that lie inside another cell's edge: T-junctions that break a shared face. */
+function hangingVertices(grid: TerrainGrid) {
+	const bucket = 40;
+	const vertices = new Map(grid.vertices.map(({ id, position }) => [id, position]));
+	const index = new Map<string, [string, string][]>();
+	for (const { vertexIds } of grid.cells) {
+		vertexIds.forEach((a, i) => {
+			const b = vertexIds[(i + 1) % vertexIds.length];
+			const [ax, ay] = required(vertices.get(a), 'plan vertex');
+			const [bx, by] = required(vertices.get(b), 'plan vertex');
+			for (
+				let x = Math.floor(Math.min(ax, bx) / bucket);
+				x <= Math.floor(Math.max(ax, bx) / bucket);
+				x++
+			)
+				for (
+					let y = Math.floor(Math.min(ay, by) / bucket);
+					y <= Math.floor(Math.max(ay, by) / bucket);
+					y++
+				) {
+					const list = index.get(`${x},${y}`) ?? [];
+					list.push([a, b]);
+					index.set(`${x},${y}`, list);
+				}
+		});
+	}
+	let hanging = 0;
+	for (const { id, position } of grid.vertices) {
+		const [px, py] = position;
+		const near = index.get(`${Math.floor(px / bucket)},${Math.floor(py / bucket)}`) ?? [];
+		const found = near.some(([a, b]) => {
+			if (a === id || b === id) return false;
+			const [ax, ay] = required(vertices.get(a), 'plan vertex');
+			const [bx, by] = required(vertices.get(b), 'plan vertex');
+			const length = Math.hypot(bx - ax, by - ay);
+			const t = ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / length ** 2;
+			if (t <= 1e-6 || t >= 1 - 1e-6) return false;
+			return Math.abs((bx - ax) * (py - ay) - (by - ay) * (px - ax)) / length < 1e-3;
+		});
+		hanging += +found;
+	}
+	return hanging;
+}
