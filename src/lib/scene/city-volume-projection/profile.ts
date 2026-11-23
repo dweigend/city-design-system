@@ -17,6 +17,13 @@ function fade(value: number, [start, end]: readonly [number, number]) {
 	return t * t * (3 - 2 * t);
 }
 
+/** Camera elevation in radians for a true horizontal frame width in meters. */
+export function cityElevation(relief: number, widthM = Infinity) {
+	const quarter = 18;
+	const wholeCity = 24 + 38 * relief;
+	return ((quarter + (wholeCity - quarter) * fade(widthM, [500, 2300])) * Math.PI) / 180;
+}
+
 /** Smooth detail weights and vertical scale for a fitted city. At a broad view the projected
  * city peak is one tenth of the frame width, with a gentler target for towns. The caller applies the same capped scale to terrain and city. */
 export function cityProfile(

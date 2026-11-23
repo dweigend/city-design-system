@@ -65,6 +65,20 @@ test('zooms about the same orthographic center without changing bearing or eleva
 	expect(zoomed.halfHeight * 1.27).toBeCloseTo(regular.halfHeight);
 });
 
+test('tilts the camera at close metric framing without moving the frame center', () => {
+	const bounds = { min: [-2000, -1000, 0], max: [2000, 1000, 200] } as const;
+	const fit = {
+		width: 2000,
+		elevation: 1,
+		elevationAtWidth: (width: number) => (width <= 500 ? 0.3 : 1)
+	};
+	const overview = fitCamera('iso', bounds, 16 / 9, false, fit);
+	const quarter = fitCamera('iso', bounds, 16 / 9, false, { ...fit, zoom: 4 });
+	expect(quarter.center).toEqual(overview.center);
+	expect(quarter.halfWidth).toBe(250);
+	expect(quarter.eye[2] - quarter.center[2]).toBeLessThan(overview.eye[2] - overview.center[2]);
+});
+
 test('frames a focus box while retaining depth coverage for its surroundings', () => {
 	const scene = { min: [-400, -200, -10], max: [400, 200, 130] } as const;
 	const focus = { min: [120, -80, 0], max: [280, 80, 90] } as const;

@@ -158,9 +158,9 @@ const city: DesignPrinciple[] = [
 		id: 'CITY-13',
 		page: 'city',
 		title: 'Lobed growth on dry ground',
-		rule: 'City growth follows accessible dry ground into lobes, bays and occasional satellites, following riverbanks and lake shores and leaving steep ground open.',
+		rule: 'City growth follows connected dry ground across low terraces, favours narrow channel crossings and leaves steep flanks and small isolated patches open.',
 		reason:
-			'Fast corridors give each seed a different outline. Cells meet water at a small setback and the footprint keeps open paths to the exterior. Denser districts take the most accessible ground first.',
+			'Fast corridors make lobes and bays, and large isolated buildable areas can support satellites. Cells meet water at a small setback and the footprint keeps open paths to the exterior. Denser districts take the most accessible ground first.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Grow a city across the valley' }
 	}
@@ -463,9 +463,9 @@ const color: DesignPrinciple[] = [
 		id: 'COLOR-7',
 		page: 'color',
 		title: 'Analytical colour',
-		rule: 'Analysis views reserve colour for the measured quantity and give it a labelled scale.',
+		rule: 'Analysis views use a labelled scale whose colours remain distinct from the surrounding layers.',
 		reason:
-			'Force has its own analysis view. The city height view uses an opaque sequential scale from 0 to 140 m so the same column height reads alike in every settlement.',
+			'Force has its own analysis view. The city height view uses an opaque warm scale from 0 to 140 m, distinct from the blue river and lake surfaces in both themes, so the same column height reads alike in every settlement.',
 		decided: '2026-11-13'
 	},
 	{

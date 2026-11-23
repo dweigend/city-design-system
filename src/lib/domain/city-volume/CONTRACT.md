@@ -2,6 +2,7 @@
 
 Assigns district types and levels to an immutable plan, then builds the carrier lattice.
 
+- Growth starts once per eligible dry region, then expands through shared edges.
 - Districts follow cumulative accessible area and bound nominal neighbor height steps.
 - Ground joints sit at the terrain corners. Above ground, every joint on an upright
   lies on a shared 7 m plane. Clamped corners may give a triangular side face.

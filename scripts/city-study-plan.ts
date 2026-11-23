@@ -2,7 +2,7 @@
 import { measurePolygon } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
-import { coarseCellSize } from '../src/lib/world/city-site';
+import { coarseCellSize, type CityTerrainSampler } from '../src/lib/world/city-site';
 
 export type Point = readonly [number, number];
 /** Millimeter key of a coordinate tuple. */
@@ -43,14 +43,16 @@ function cellShape(points: readonly Point[]) {
 	return { minAngle, reflex, shortest, diameter };
 }
 
-function countParts(grid: TerrainGrid) {
+function components(grid: TerrainGrid) {
 	const unseen = new Map(grid.cells.map((cell) => [cell.id, cell]));
+	const byCell = new Map<string, number>();
 	let parts = 0;
 	for (const start of unseen.values()) {
 		parts++;
 		unseen.delete(start.id);
 		const queue = [start];
-		for (const { neighbors } of queue) {
+		for (const { id: current, neighbors } of queue) {
+			byCell.set(current, parts);
 			for (const id of neighbors) {
 				const cell = id === null ? undefined : unseen.get(id);
 				if (!cell) continue;
@@ -59,7 +61,40 @@ function countParts(grid: TerrainGrid) {
 			}
 		}
 	}
-	return parts;
+	return { parts, byCell };
+}
+
+/** Finds a sampled trunk crossing between two different built parts on nearby banks. */
+function spansRiver(grid: TerrainGrid, byCell: Map<string, number>, sample: CityTerrainSampler) {
+	const ring = polygon(grid);
+	const stations = new Map<number, { point: Point; part: number }[]>();
+	for (const { id, vertexIds, neighbors } of grid.cells) {
+		if (neighbors.every((neighbor) => neighbor !== null)) continue;
+		const point = required(measurePolygon(ring(vertexIds)).centroid, 'plan centroid');
+		if (sample(...point).waterClearance > 95) continue;
+		const station = Math.floor(point[1] / 100);
+		const list = stations.get(station) ?? [];
+		list.push({ point, part: required(byCell.get(id), 'plan part') });
+		stations.set(station, list);
+	}
+	for (const bank of stations.values()) {
+		for (const {
+			point: [x, y],
+			part
+		} of bank) {
+			for (const other of bank) {
+				const [u, v] = other.point;
+				const dx = u - x;
+				if (other.part === part || dx < 10 || dx > 650) continue;
+				const count = Math.ceil(Math.hypot(dx, v - y) / 10);
+				for (let i = 1; i < count; i++) {
+					const kind = sample(x + (i * dx) / count, y + (i * (v - y)) / count).waterKind;
+					if (kind === 'river') return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 function convexHalf(points: readonly Point[]) {
@@ -106,7 +141,11 @@ function shapeMeasures(
 }
 
 /** Topology and cell quality of one plan grid. */
-export function planMetrics(grid: TerrainGrid, side: (point: Point) => number = () => 1) {
+export function planMetrics(
+	grid: TerrainGrid,
+	side: (point: Point) => number = () => 1,
+	sample?: CityTerrainSampler
+) {
 	const shape = polygon(grid);
 	const edgeUse = new Map<string, number>();
 	for (const { vertexIds } of grid.cells) {
@@ -119,7 +158,8 @@ export function planMetrics(grid: TerrainGrid, side: (point: Point) => number = 
 	const uses = [...edgeUse.values()];
 	const interior = uses.filter((n) => n === 2).length;
 	const nonManifold = uses.filter((n) => n > 2).length;
-	const parts = countParts(grid);
+	const { parts, byCell } = components(grid);
+	const riverSplit = !!sample && parts > 1 && spansRiver(grid, byCell, sample);
 	// Complement components enclosed by the footprint equal C - (V - E + F).
 	// An open river or a gap between satellites connects to the exterior.
 	const holes = parts - (grid.vertices.length - edgeUse.size + grid.cells.length);
@@ -161,6 +201,8 @@ export function planMetrics(grid: TerrainGrid, side: (point: Point) => number = 
 		nonManifold,
 		holes,
 		parts,
+		riverSplit,
+		partsWithoutRiverSplit: parts - Number(riverSplit),
 		...shapeMeasures(grid, areas, side),
 		hanging: hangingVertices(grid),
 		duplicateVertices,

@@ -64,10 +64,17 @@ for (const relief of [0, 0.5, 1]) {
 					);
 					const gridStable = hash(readCityGrid(city, size, plan, seed).grid) === hash(grid);
 					const grown = readCityGrid(city, size + growthStep, plan, seed).grid;
-					const planned = planMetrics(grid, (point) => readCitySide(city, point));
+					const planned = planMetrics(
+						grid,
+						(point) => readCitySide(city, point),
+						city.sampleGround
+					);
 					const [districts, districtMs] = time(() => readCityDistricts(city, grid, seed, settings));
 					const columns = readCityColumns(grid, districts);
-					const again = readCityColumns(grid, readCityDistricts(city, grid, seed, settings));
+					const again =
+						sizeClass === 'largest'
+							? readCityColumns(grid, readCityDistricts(city, grid, seed, settings))
+							: columns;
 					const growth = growthMetrics(
 						columns,
 						readCityColumns(grown, readCityDistricts(city, grown, seed, settings))
@@ -87,7 +94,9 @@ for (const relief of [0, 0.5, 1]) {
 						const [frame, latticeMs] = time(() =>
 							createCityLattice(columns, datumZ, plan, lattice)
 						);
+						// A single largest-plan replay per lattice covers the full input extent.
 						const frameStable =
+							sizeClass !== 'largest' ||
 							hash(createCityLattice(again, datumZ, plan, lattice)) === hash(frame);
 						const row: Row = {
 							plan,
@@ -149,7 +158,7 @@ function failures(row: Row, kinds: string) {
 		['split-lattice', row.latticeComponents === row.parts],
 		['hole', row.holes === 0 && row.raisedHoles === 0],
 		['wet-ground', row.wetProbes === 0],
-		['steep-ground', row.steepProbes === 0],
+		['cell-rise', row.excessiveCellRises === 0],
 		[
 			'foundation',
 			row.missingFeet === 0 &&

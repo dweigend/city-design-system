@@ -20,6 +20,7 @@
 		type SettlementKind
 	} from '../../lib/domain/city-volume';
 	import {
+		cityElevation,
 		cityPresentation,
 		cityProfile,
 		projectCityDistricts,
@@ -161,11 +162,14 @@
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, true));
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain));
-	const elevation = $derived(((24 + 38 * city.valley.parameters.relief) * Math.PI) / 180);
-	const camera = $derived({ bearing: (-24 * Math.PI) / 180, elevation, fill: 0.92 });
+	const relief = $derived(city.valley.parameters.relief);
+	const elevation = $derived(cityElevation(relief));
+	// Leave room for the Auto profile to raise the ground and roof steps together.
+	const camera = $derived({ bearing: (-24 * Math.PI) / 180, elevation, fill: 0.92 - 0.2 * relief });
 	const subject = $derived(projectFocus(view, camera, envelope.points()));
 	const cityFit = $derived({
 		...camera,
+		elevationAtWidth: (width: number) => cityElevation(relief, width),
 		subject,
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
@@ -180,7 +184,7 @@
 			viewport.width,
 			viewport.metersPerPixel,
 			districts.peakHeight,
-			elevation,
+			cityElevation(relief, viewport.width),
 			profile === 'true',
 			maxProfileScale
 		).factor
@@ -193,7 +197,7 @@
 					envelope: tiles,
 					members: wires,
 					peak: districts.peakHeight,
-					elevation,
+					relief,
 					open: step === '03',
 					heat: colour === 'height',
 					trueScale: profile === 'true',

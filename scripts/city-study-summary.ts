@@ -66,9 +66,19 @@ export function summarize(rows: Row[], out: string, sizes: Record<string, number
 	console.table(bySize);
 	const shapeRows = [];
 	for (const relief of [...new Set(rows.map((row) => row.relief))]) {
-		const group = rows.filter((row) => row.relief === relief);
-		for (const measure of ['parts', 'minorSideShare', 'compactness']) {
-			const values = group.map((row) => Number(row[measure])).sort((a, b) => a - b);
+		const group = rows.filter((row) => row.relief === relief && row.lattice === 'box');
+		for (const measure of [
+			'parts',
+			'partsWithoutRiverSplit',
+			'minorSideShare',
+			'compactness',
+			'largestAreaKm2'
+		]) {
+			const values = (
+				measure === 'largestAreaKm2'
+					? group.filter((row) => row.sizeClass === 'largest').map((row) => Number(row.areaKm2))
+					: group.map((row) => Number(row[measure]))
+			).sort((a, b) => a - b);
 			shapeRows.push({
 				relief,
 				measure,

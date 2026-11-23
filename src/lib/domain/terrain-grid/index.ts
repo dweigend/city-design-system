@@ -102,8 +102,11 @@ export type TerrainGridOptions = Readonly<{
 	 * for building. The datum and its 10 m probes still require finite heights. */
 	referenceHeightAt?: (x: number, y: number) => number;
 	/** Optional grade limit over whole cell chords. Water and unavailable ground are still
-	 * sampled at the edge spacing. Omit to enforce the default grade at each sampling interval. */
+	 * sampled at the edge spacing. With no cell-wide limit the default grade applies per interval. */
 	maximumCellGrade?: number;
+	/** Optional total rise over the accepted cell's sampled ground, in meters. When supplied,
+	 * it replaces the default point grade test. */
+	maximumCellRise?: number;
 	/** Maximum span between dry-ground probes on an edge or chord, 1 m by default. */
 	edgeSampleStep?: number;
 	/** Optional signed clearance from a buildable shoreline in meters. Crossing cells are
@@ -121,6 +124,7 @@ export type TerrainGridOptions = Readonly<{
 function samples(
 	heightAt: TerrainGridOptions['heightAt'],
 	maximumCellGrade: number | undefined,
+	maximumCellRise: number | undefined,
 	edgeSampleStep: number,
 	referenceHeightAt: TerrainGridOptions['referenceHeightAt']
 ) {
@@ -146,7 +150,9 @@ function samples(
 			return false;
 		const steps = Math.max(1, Math.ceil(length / edgeSampleStep));
 		const maxRise =
-			maximumCellGrade === undefined ? (quality.maximumGrade * length) / steps : Infinity;
+			maximumCellGrade === undefined && maximumCellRise === undefined
+				? (quality.maximumGrade * length) / steps
+				: Infinity;
 		for (let index = 1; index <= steps; index++) {
 			const t = index / steps;
 			const z =
@@ -161,6 +167,7 @@ function samples(
 
 	return {
 		height,
+		read,
 		datumHeight: ((x, y) => {
 			const z = referenceHeightAt ? referenceHeightAt(x, y) : read(x, y);
 			if (z === undefined || !Number.isFinite(z))
@@ -223,7 +230,7 @@ function topology(
  * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
  * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
  * sampled at up to 1 m spacing by default reject unavailable ground. Grade defaults to 20% at each
- * interval, with an optional limit over complete chords instead. Organic and
+ * interval, or can be limited over whole chords or as a sampled cell height range. Organic and
  * free quads also enforce the published angle and edge-ratio limits. Invalid inputs throw. */
 function create({
 	site,
@@ -232,6 +239,7 @@ function create({
 	parameters,
 	variant = 'organic',
 	maximumCellGrade,
+	maximumCellRise,
 	edgeSampleStep = quality.maximumSampleStep,
 	shore,
 	surface,
@@ -251,11 +259,19 @@ function create({
 		(!Number.isFinite(maximumCellGrade) || maximumCellGrade < 0)
 	)
 		throw new RangeError('Expected a nonnegative finite cell grade limit');
+	if (maximumCellRise !== undefined && (!Number.isFinite(maximumCellRise) || maximumCellRise < 0))
+		throw new RangeError('Expected a nonnegative finite cell rise limit');
 	if (surface && (!Number.isFinite(surface.sampleStep) || surface.sampleStep <= 0))
 		throw new RangeError('Expected a positive finite surface sample spacing');
 	if (!(Number.isFinite(edgeSampleStep) && edgeSampleStep > 0))
 		throw new RangeError('Expected a positive finite edge sample spacing');
-	const ground = samples(heightAt, maximumCellGrade, edgeSampleStep, referenceHeightAt);
+	const ground = samples(
+		heightAt,
+		maximumCellGrade,
+		maximumCellRise,
+		edgeSampleStep,
+		referenceHeightAt
+	);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
 	const includes = insideOutline(outline);
@@ -279,7 +295,21 @@ function create({
 			)
 		)
 			continue;
-		if (surface && !validSurface(corners, surface)) continue;
+		if (surface || maximumCellRise !== undefined) {
+			let low = Infinity;
+			let high = -Infinity;
+			if (
+				!validSurface(corners, surface?.sampleStep ?? edgeSampleStep, (x, y) => {
+					if (maximumCellRise === undefined) return surface?.accepts(x, y) ?? true;
+					const z = ground.read(x, y);
+					if (z === undefined || (surface && !surface.accepts(x, y))) return false;
+					low = Math.min(low, z);
+					high = Math.max(high, z);
+					return high - low <= maximumCellRise;
+				})
+			)
+				continue;
+		}
 		accepted.push(cell);
 	}
 	return topology(accepted, ground.height);
@@ -288,7 +318,8 @@ function create({
 /** Checks a convex ring on a triangular sampling mesh. */
 function validSurface(
 	[a, ...ring]: readonly Node[],
-	{ sampleStep, accepts }: NonNullable<TerrainGridOptions['surface']>
+	sampleStep: number,
+	accepts: NonNullable<TerrainGridOptions['surface']>['accepts']
 ) {
 	const { centroid } = measurePolygon([a, ...ring].map(({ xy }) => xy));
 	if (!centroid || !accepts(...centroid)) return false;

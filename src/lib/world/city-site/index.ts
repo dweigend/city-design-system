@@ -7,8 +7,10 @@ import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid
 import { Valley, type ValleySettings } from '../../domain/valley';
 import { prepareCarrier, type CityTerrainSampler } from './carrier';
 
-/** Terrain height and distance to water in meters, with an explicit dry-ground flag. Grade
- * is rise/run and can be omitted by alternate samplers. Infinite clearance means no water nearby. */
+/** Terrain height and distance to water in meters, with an explicit dry-ground flag. Alternate
+ * samplers may identify the water kind. Infinite clearance means no water nearby. */
+/** Maximum sampled height range, in meters, in a buildable city cell. */
+export { maximumCellRiseM } from './carrier';
 export type { CityTerrainSampler } from './carrier';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
@@ -45,7 +47,7 @@ export function createCitySite(
 				height: reading.height,
 				dry: reading.waterKind === null,
 				waterClearance: reading.bank,
-				slope: reading.slope
+				waterKind: reading.waterKind
 			};
 		});
 	return Object.freeze({
@@ -147,7 +149,7 @@ export function readCityGrid(
 	const { candidates, order, ranks, datumZ } = carrier(city, variant, params.seed);
 	const lengthKm = params.citySize / 1000;
 	const target = 1e6 * lengthKm * (0.554 + 0.105 * lengthKm);
-	const cutoff = order.findIndex(({ builtArea }) => builtArea >= target);
+	const cutoff = order.findIndex(({ builtArea, complete }) => complete && builtArea >= target);
 	const selected = cutoff < 0 ? order : order.slice(0, cutoff + 1);
 	const grid = TerrainGrid.select(
 		candidates,

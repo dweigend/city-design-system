@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
+import { measurePolygon } from '../../core/geometry';
 import {
 	cityLatticesByPlan,
 	cityPlanVariants,
@@ -95,17 +96,25 @@ function assertTiled(grid: TerrainGrid) {
 	}
 	const unseen = new Set(grid.cells.map(({ id }) => id));
 	const byId = new Map(grid.cells.map((cell) => [cell.id, cell]));
+	const vertices = new Map(grid.vertices.map(({ id, position }) => [id, position]));
 	let parts = 0;
 	for (const start of unseen) {
 		const queue = [start];
 		unseen.delete(start);
 		parts++;
+		let area = 0;
 		for (const id of queue) {
-			for (const neighbor of required(byId.get(id), 'city cell').neighbors) {
+			const { vertexIds, neighbors } = required(byId.get(id), 'city cell');
+			area += measurePolygon(
+				vertexIds.map((vertex) => required(vertices.get(vertex), 'city vertex'))
+			).area;
+			for (const neighbor of neighbors) {
 				if (neighbor !== null && unseen.delete(neighbor)) queue.push(neighbor);
 			}
 		}
+		expect(area).toBeGreaterThanOrEqual(10_800);
 	}
+	expect(parts).toBeLessThanOrEqual(8);
 	expect(grid.vertices.length - sides.size + grid.cells.length).toBe(parts);
 }
 

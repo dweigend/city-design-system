@@ -42,6 +42,8 @@ export function readView(view: View) {
 export type ViewFit = Readonly<{
 	bearing?: number;
 	elevation?: number;
+	/** Optional elevation in radians at the current horizontal frame width in meters. */
+	elevationAtWidth?: (width: number) => number;
 	fill?: number;
 	zoom?: number;
 	width?: number;
@@ -117,7 +119,8 @@ export function fitCamera(
 	clippingBounds = bounds
 ) {
 	const { fill, shadowFit } = readView(view);
-	const { direction, right, imageUp, up } = axes(view, fit);
+	const baseAxes = axes(view, fit);
+	const { right, imageUp } = baseAxes;
 
 	const frame = fit.focus ?? bounds;
 	const half = scaled(displacement(frame.min, frame.max), 0.5);
@@ -126,12 +129,6 @@ export function fitCamera(
 	const shift = scaled(
 		[-sun[0], -sun[1], 0],
 		!fit.focus && !fit.subject && (shadowFit || landscape) ? half[2] * shadowReach : 0
-	);
-	const offset = fit.offset ?? [0, 0];
-	const pan = sum(scaled(right, offset[0]), scaled(imageUp, offset[1]));
-	const center = sum(
-		sum(fit.subject?.center ?? interpolation(frame.min, frame.max, 0.5), shift),
-		pan
 	);
 	const subjectHeight = fit.subject?.halfHeight ?? extent(imageUp);
 	const subjectWidth = fit.subject?.halfWidth ?? extent(right);
@@ -144,6 +141,20 @@ export function fitCamera(
 	const halfHeight =
 		(fit.width === undefined ? Math.max(objectFit, shadowFitHeight) : fit.width / (2 * aspect)) /
 		(fit.zoom ?? 1);
+	const {
+		direction,
+		right: panRight,
+		imageUp: panUp,
+		up
+	} = fit.elevationAtWidth && view === 'iso'
+		? axes(view, { ...fit, elevation: fit.elevationAtWidth(halfHeight * 2 * aspect) })
+		: baseAxes;
+	const offset = fit.offset ?? [0, 0];
+	const pan = sum(scaled(panRight, offset[0]), scaled(panUp, offset[1]));
+	const center = sum(
+		sum(fit.subject?.center ?? interpolation(frame.min, frame.max, 0.5), shift),
+		pan
+	);
 	const sceneHalf = scaled(displacement(clippingBounds.min, clippingBounds.max), 0.5);
 	const depth = dotProduct(sceneHalf, [
 		Math.abs(direction[0]),

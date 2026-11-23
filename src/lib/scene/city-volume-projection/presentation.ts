@@ -1,14 +1,14 @@
 import { levelHeight } from '../../domain/city-volume';
 import type { Presentation } from '../stage';
 import { heightRamp, type Drawable } from '../surface';
-import { cityProfile } from './profile';
+import { cityElevation, cityProfile } from './profile';
 
 type Options = Readonly<{
 	terrain: readonly Drawable[];
 	envelope: readonly (Drawable & { levels: number })[];
 	members: readonly Drawable[];
 	peak: number;
-	elevation: number;
+	relief: number;
 	open: boolean;
 	heat: boolean;
 	trueScale: boolean;
@@ -21,13 +21,14 @@ export function cityPresentation({
 	envelope,
 	members,
 	peak,
-	elevation,
+	relief,
 	open,
 	heat,
 	trueScale,
 	maxProfileScale
 }: Options): Presentation {
 	return ({ width, metersPerPixel }) => {
+		const elevation = cityElevation(relief, width);
 		const detail = cityProfile(width, metersPerPixel, peak, elevation, trueScale, maxProfileScale);
 		const vertical = { pivot: 0, scale: detail.factor };
 		return [

@@ -25,10 +25,10 @@
 	--river-section: color-mix(in oklab, var(--river-water) 77%, var(--ink-2));
 	--terrain-soil: oklch(0.806 0.058 79);
 	--blueprint: oklch(0.46 0.16 268);
-	--height-low: #dcecf3;
-	--height-mid: #699cba;
-	--height-high: #142e57;
-	--height-line: #233b60;
+	--height-low: #f6dfb4;
+	--height-mid: #d59049;
+	--height-high: #4b2113;
+	--height-line: #633b22;
 	--alpha-opaque: 1;
 	--ground-stone: oklch(0.76 0.025 240);
 	--ground-plinth: color-mix(in oklch, var(--ground-stone) 29%, var(--paper-3));
@@ -127,7 +127,7 @@
 	--ink-2: oklch(0.74 0.008 85);
 	--ink: oklch(0.95 0.008 85);
 	--blueprint: oklch(0.545 0.16 268);
-	--height-line: #a4bfdd;
+	--height-line: #633b22;
 	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;

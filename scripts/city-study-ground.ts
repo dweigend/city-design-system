@@ -2,30 +2,32 @@ import { measurePolygon } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
 import type { CityColumn } from '../src/lib/domain/city-volume';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
-import { surveyDefaults } from '../src/lib/domain/valley';
 import { projectCityTerrain } from '../src/lib/scene/city-volume-projection';
-import type { CitySite } from '../src/lib/world/city-site';
+import { maximumCellRiseM, type CitySite } from '../src/lib/world/city-site';
 import { key } from './city-study-plan';
 
 /** Compare foundation elevations against the ground and check ground at the corners and centroid. */
 export function groundMetrics(city: CitySite, columns: readonly CityColumn[]) {
 	let wetProbes = 0;
-	let steepProbes = 0;
+	let excessiveCellRises = 0;
 	let maxFoundationErrorM = 0;
 	function probe(x: number, y: number) {
 		const reading = city.valley.readGround(x, y);
 		wetProbes += +(reading.waterKind !== null);
-		steepProbes += +(reading.slope > surveyDefaults.buildableSlope);
 		return reading.height;
 	}
 	for (const { corners } of columns) {
 		const points = corners.map(({ position }) => position);
+		const center = required(measurePolygon(points).centroid, 'column centroid');
+		const elevations = [probe(...center)];
 		for (const [x, y, z] of points) {
-			maxFoundationErrorM = Math.max(maxFoundationErrorM, Math.abs(z - probe(x, y)));
+			const height = probe(x, y);
+			elevations.push(height);
+			maxFoundationErrorM = Math.max(maxFoundationErrorM, Math.abs(z - height));
 		}
-		probe(...required(measurePolygon(points).centroid, 'column centroid'));
+		excessiveCellRises += +(Math.max(...elevations) - Math.min(...elevations) > maximumCellRiseM);
 	}
-	return { wetProbes, steepProbes, maxFoundationErrorM };
+	return { wetProbes, excessiveCellRises, maxFoundationErrorM };
 }
 
 /** Validates that rendered ground contains every exact foundation sampled for a plan. */
