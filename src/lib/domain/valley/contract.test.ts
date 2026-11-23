@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { drainageExample } from './drainage-example';
 import { peakHeightM, surveyValley, Valley } from './index';
 import { valleyExample } from './example';
 
@@ -163,4 +164,56 @@ test('reads height, slope, wet or dry and water kind at any point', () => {
 	expect(steepest).toBeGreaterThan(0.5);
 	expect(Object.isFrozen(valley.readGround(0, 0))).toBe(true);
 	expect(() => valley.readGround(NaN, 0)).toThrow(RangeError);
+});
+
+test('combines a fork downstream and accounts for all rain and imported area', () => {
+	const flow = drainageExample(
+		[
+			[9, 9, 9, 9, 9],
+			[9, 5, 9, 9, 9],
+			[9, 9, 3, 5, 9],
+			[9, 9, 1, 9, 9],
+			[9, 9, 0, 9, 9]
+		],
+		6,
+		100_000
+	);
+	expect(flow.receiver[6]).toBe(12);
+	expect(flow.receiver[13]).toBe(12);
+	expect(flow.area[12]).toBe(
+		flow.area.reduce((sum, area, i) => sum + (flow.receiver[i] === 12 ? area : 0), 10_000)
+	);
+	const outlets = flow.area.filter((_, i) => flow.receiver[i] < 0);
+	expect(outlets.reduce((sum, area) => sum + area, 0)).toBeCloseTo(260_000, 7);
+});
+
+test('routes flats toward an earlier flood parent with deterministic ties', () => {
+	const flow = drainageExample([
+		[3, 1, 3, 1],
+		[3, 1, 1, 3],
+		[3, 1, 1, 3],
+		[3, 3, 3, 3]
+	]);
+	for (const [index, next] of flow.receiver.entries()) {
+		if (next < 0) continue;
+		expect(flow.level[next]).toBeLessThanOrEqual(flow.level[index]);
+		expect(flow.order.indexOf(next)).toBeLessThan(flow.order.indexOf(index));
+	}
+	expect(flow.receiver[5]).toBe(1);
+});
+
+test('contracts both arms of a side basin at one known sill', () => {
+	const flow = drainageExample([
+		[9, 9, 9, 9, 9, 9],
+		[9, 1, 9, 2, 9, 9],
+		[9, 2, 2, 2, 4, 0],
+		[9, 9, 9, 9, 9, 9],
+		[9, 9, 9, 9, 9, 9],
+		[9, 9, 9, 9, 9, 9]
+	]);
+	expect(flow.basins).toHaveLength(1);
+	expect(flow.basins[0]).toMatchObject({ level: 4000, outlet: 16, depth: 3000 });
+	expect(flow.membership[7]).toBe(flow.membership[9]);
+	expect(flow.bed[16]).toBe(4000);
+	expect(flow.receiver[16]).toBe(17);
 });
