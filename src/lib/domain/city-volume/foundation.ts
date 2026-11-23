@@ -5,7 +5,9 @@ import { levelHeight } from './settlement';
 type Corner = Readonly<{ id: string; position: Vec3 }>;
 /** The index of a point on the common level grid. */
 export function planeIndex(datumZ: number, z: number) {
-	return (z - datumZ) / levelHeight;
+	const index = (z - datumZ) / levelHeight;
+	const nearest = Math.round(index);
+	return planeElevation(datumZ, nearest) === z ? nearest : index;
 }
 
 type GroundColumn = Readonly<{ corners: readonly { position: Vec3 }[]; levels: number }>;

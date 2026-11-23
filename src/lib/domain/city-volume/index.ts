@@ -1,3 +1,4 @@
+import type { Column } from './bay-addresses';
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
 import type { PlanVariant, TerrainGrid } from '../terrain-grid';
@@ -5,7 +6,7 @@ import { columnPlanes } from './foundation';
 import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
 import type { CityCore } from './rank';
 import { districtLevels, levelHeight, peakLaw } from './settlement';
-import type { CityLattice, Column } from './frame';
+import type { CityLattice } from './frame';
 import { createLattice, latticeVariants, type LatticeVariant } from './lattices';
 
 /** Coarse level, density and foundation settings. */
@@ -85,7 +86,7 @@ export type CityPlanVariant = keyof typeof cityLatticesByPlan;
 /** Chapter plan families in display order. */
 export const cityPlanVariants = Object.freeze(Object.keys(cityLatticesByPlan) as CityPlanVariant[]);
 
-/** One connected district's kind and the assigned height of this addressed plan cell. */
+/** Stable district identity, current density region and height of a plan cell, and the ranked growth data. */
 export type { DistrictKind, DistrictCell, DistrictGrowth } from './districts';
 
 /** Canonical bay, face, and corner addresses. */
@@ -108,7 +109,9 @@ function requireBuildableGrid(plan: TerrainGrid) {
  * core frame. A village below 1 km² holds detached houses only, a town adds six-storey
  * blocks, a city from 3 km² adds a high-rise center whose peak grows with the area. Cells are
  * ranked outward from the core and filled by area share. A supplied fixed growth order and
- * its future fringe keep earlier cells from moving down. Center columns fall from the peak to the block
+ * its future fringe keep earlier cells from moving down. Edge-connected occupied cells keep the
+ * earliest founder's address across growth. Density regions group connected cells of one kind.
+ * Center columns fall from the peak to the block
  * podium, and no column stands more than three levels above a neighbor. peakHeight is the
  * realized nominal height in meters, measured in whole levels. A grid containing water throws. */
 export function createCityDistricts(

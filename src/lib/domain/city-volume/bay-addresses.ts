@@ -1,9 +1,16 @@
 import type { Vec3 } from '../../core/geometry';
 import { planEdgeId } from '../terrain-grid';
 import { columnBays } from './foundation';
-import type { Column } from './frame';
 
 export type LatticePoint = Readonly<{ id: string; position: Vec3 }>;
+
+export type Column = Readonly<{
+	planCellId: string;
+	corners: readonly LatticePoint[];
+	neighbors: readonly (string | null)[];
+	levels: number;
+	groundAtHub?: number;
+}>;
 
 /** A coarse cell and its boundary in counterclockwise plan order. */
 export type LatticeBay = Readonly<{

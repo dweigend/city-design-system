@@ -1,9 +1,10 @@
+import { cityVolumeConfig } from './config';
 import { required } from '../../core/invariant';
-import type { Column } from './frame';
+import type { Column } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
 import type { Joint, Joints, PlaneKind } from './plane-joints';
-import { fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
-import { prismFaces } from './solid';
+import { capHeight, fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
+import { cleanFaces, prismFaces } from './solid';
 
 type Layer = Readonly<{
 	level: number;
@@ -75,8 +76,30 @@ function planSides(c: Context, column: Column, sides: Faces, indices?: readonly 
 	});
 }
 
-function addPlanBay(c: Context, column: Column, foot: boolean) {
-	const { level, joints } = c;
+// On a pinched foundation, a tree foot may lie on the same clamped seam in several bands.
+function onFootEdge(a: Joint, b: Joint, foot: Joint) {
+	const [x, y, z] = foot.position;
+	const [ax, ay, az] = a.position;
+	const [bx, by, bz] = b.position;
+	if (z !== az || z !== bz) return false;
+	const [dx, dy] = [bx - ax, by - ay];
+	const lengthSquared = dx * dx + dy * dy;
+	const along = (x - ax) * dx + (y - ay) * dy;
+	return (
+		along > 0 &&
+		along < lengthSquared &&
+		Math.abs(dx * (y - ay) - dy * (x - ax)) <= cityVolumeConfig.hubWeightTolerance * lengthSquared
+	);
+}
+
+function throughFoot(loop: readonly Joint[], foot: Joint) {
+	return loop.flatMap((a, i) =>
+		onFootEdge(a, loop[(i + 1) % loop.length], foot) ? [a, foot] : [a]
+	);
+}
+
+function addPlanBay(c: Context, column: Column, foot?: Joint) {
+	const { level } = c;
 	const id = column.planCellId;
 	const bay = c.bay(id);
 	const bottom = polygon(c, column, level);
@@ -86,18 +109,26 @@ function addPlanBay(c: Context, column: Column, foot: boolean) {
 	const parts = split ? prismParts(bottom, top) : [{ bottom, top, indices: undefined }];
 	for (const [i, part] of parts.entries()) {
 		const [floor, cap, ...sides] = prismFaces(part.bottom, part.top);
-		const ceiling =
-			foot && !split
-				? cap.map((a, j) => [a, cap[(j + 1) % cap.length], joints.centre(id, level + 1)])
-				: triangulate
-					? fanTriangles(cap)
-					: [cap];
+		const onCap =
+			foot &&
+			foot.level === level + 1 &&
+			(!split || capHeight(cap, foot.position[0], foot.position[1]) !== undefined);
+		const ceiling = onCap
+			? cap.flatMap((a, j) => {
+					const b = cap[(j + 1) % cap.length];
+					return onFootEdge(a, b, foot) ? [] : [[a, b, foot]];
+				})
+			: triangulate
+				? fanTriangles(cap)
+				: [cap];
 		const faces = [
 			...(triangulate ? fanTriangles(floor) : [floor]),
 			...ceiling,
 			...planSides(c, column, sides, part.indices)
 		];
-		c.add(parts.length === 1 ? `${bay}/cell` : `${bay}/cell/${i}`, bay, faces);
+		const stitched =
+			triangulate && foot ? cleanFaces(faces).map((loop) => throughFoot(loop, foot)) : faces;
+		c.add(parts.length === 1 ? `${bay}/cell` : `${bay}/cell/${i}`, bay, stitched);
 	}
 }
 
@@ -150,7 +181,7 @@ export function addLayer(
 	joints: Joints,
 	layer: Layer,
 	add: Add,
-	foundation: (id: string, level: number) => boolean,
+	footLevel: (id: string, level: number) => number | undefined,
 	sharedMedial: SharedMedial,
 	triangulated: ReadonlySet<string>
 ) {
@@ -170,7 +201,8 @@ export function addLayer(
 	for (const id of layer.cells) {
 		const column = required(topology.columns.get(id), 'lattice column');
 		if (kinds === 'plan/plan') {
-			addPlanBay(c, column, foundation(id, level));
+			const at = footLevel(id, level);
+			addPlanBay(c, column, at === undefined ? undefined : joints.centre(id, at));
 			continue;
 		}
 		if (!cellSolid) throw new RangeError(`No lattice layer joins ${kinds} planes`);

@@ -1,7 +1,7 @@
 import { measurePolygon, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeId, planEdges } from '../terrain-grid';
-import type { Column } from './frame';
+import type { Column } from './bay-addresses';
 
 type Corner = Column['corners'][number];
 

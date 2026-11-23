@@ -18,7 +18,6 @@ export const cityVolumeConfig = Object.freeze({
 	centerSharePerKm2: 0.01, // Additional center share per square kilometre above the city threshold.
 	maximumCenterShare: 0.1, // Cap on the center share.
 	verticalChildCount: 2, // Equal divisions of each bay band.
-	planeIndexTolerance: 1e-9, // Index tolerance when sampling continuously across a plane.
 	corridorStepM: 85, // Length of one proposed accessibility arm segment.
 	corridorProbeStepM: 5, // Maximum spacing between dry corridor probes.
 	hubWeightTolerance: 1e-9 // Barycentric tolerance when sampling a clamped cap.

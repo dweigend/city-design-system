@@ -2,12 +2,13 @@ import type { Vec3 } from '../../core/geometry';
 import {
 	bayAddresses,
 	type BayFace,
+	type Column,
 	type BayRings,
 	type LatticeBay,
 	type LatticePoint
 } from './bay-addresses';
 import { capHeight, fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
-import { closeSolid, prismFaces, type LatticeSolid } from './solid';
+import { cleanFaces, closeSolid, prismFaces, type LatticeSolid } from './solid';
 
 /** Stable addresses for full levels, joints and undirected members. Joint positions are world
  * XYZ meters, with Z up. Lists are detached and deeply frozen in plan/level traversal order. */
@@ -22,14 +23,6 @@ export type CityLattice = Readonly<{
 
 type Node = CityLattice['nodes'][number];
 type Edge = CityLattice['edges'][number];
-
-export type Column = Readonly<{
-	planCellId: string;
-	corners: readonly Node[];
-	neighbors: readonly (string | null)[];
-	levels: number;
-	groundAtHub?: number;
-}>;
 
 type Level = BayRings;
 type Connect = (a: Node, b: Node) => void;
@@ -124,7 +117,7 @@ export function createFrame(
 		if (first) triangulate = hasCollapsedDiagonal(bottom, top);
 		addMembers(bay, connect);
 		if (!triangulate) {
-			solids.push(closeSolid(id, id, prismFaces(bottom, top)));
+			solids.push(closeSolid(id, id, cleanFaces(prismFaces(bottom, top))));
 			return;
 		}
 		const split = hasCollapsedDiagonal(bottom, top);
@@ -132,11 +125,11 @@ export function createFrame(
 		for (const [i, part] of parts.entries()) {
 			const [floor, ceiling, ...sides] = prismFaces(part.bottom, part.top);
 			solids.push(
-				closeSolid(parts.length === 1 ? id : `${id}/part/${i}`, id, [
-					...fanTriangles(floor),
-					...fanTriangles(ceiling),
-					...sides
-				])
+				closeSolid(
+					parts.length === 1 ? id : `${id}/part/${i}`,
+					id,
+					cleanFaces([...fanTriangles(floor), ...fanTriangles(ceiling), ...sides])
+				)
 			);
 		}
 	});

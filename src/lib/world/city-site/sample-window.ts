@@ -8,7 +8,9 @@ const mesh = (): Mesh => ({ kind: 'mesh', positions: [], indices: [] });
 const intervals = (extent: number) =>
 	Math.min(citySiteConfig.windowMaxIntervals, Math.ceil(extent / citySiteConfig.windowSampleStepM));
 
-/** Samples a terrain window in local meters. Water uses wet triangles of the same mesh. */
+/** Samples a finite, positive terrain window into detached meshes in local meters.
+ * Ground triangles use a bounded regular raster. Water triangles span wholly wet samples.
+ * Throws RangeError for an invalid window or non-finite sampled elevations. */
 export function sampleCityWindow(sample: CityTerrainSampler, window: Window) {
 	const {
 		origin: [cx, cy],
@@ -16,6 +18,8 @@ export function sampleCityWindow(sample: CityTerrainSampler, window: Window) {
 		length,
 		width
 	} = window;
+	if (![cx, cy, bearing, length, width].every(Number.isFinite) || length <= 0 || width <= 0)
+		throw new RangeError('Expected a finite terrain window with positive extents');
 	const c = Math.cos(bearing);
 	const s = Math.sin(bearing);
 	const toLocal = (x: number, y: number): Vec2 => [
@@ -32,6 +36,11 @@ export function sampleCityWindow(sample: CityTerrainSampler, window: Window) {
 		for (let i = 0; i <= cols; i++) {
 			const x = (i / cols - 0.5) * length;
 			const reading = sample(cx + x * c - y * s, cy + x * s + y * c);
+			if (
+				!Number.isFinite(reading.height) ||
+				(reading.waterKind !== null && !Number.isFinite(reading.waterHeight))
+			)
+				throw new RangeError('Expected finite terrain elevations');
 			ground.positions.push(x, y, reading.height);
 			waterIndex.push(reading.waterKind === null ? undefined : water.positions.length / 3);
 			if (reading.waterKind !== null) water.positions.push(x, y, reading.waterHeight);

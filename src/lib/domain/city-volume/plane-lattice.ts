@@ -1,8 +1,8 @@
 import { required } from '../../core/invariant';
-import { bayAddresses } from './bay-addresses';
+import { bayAddresses, type Column } from './bay-addresses';
 import { columnPlanes } from './foundation';
 import { hasCollapsedDiagonal } from './foundation-prism';
-import type { CityLattice, Column } from './frame';
+import type { CityLattice } from './frame';
 import { readPlanTopology } from './plan-topology';
 import { addLayer, type Add, type SharedMedial } from './plane-cells';
 import {
@@ -45,8 +45,12 @@ export function createPlaneLattice(
 		const { foundation: base } = bands(id);
 		return level < base ? ['plan', 'plan'] : [kind(id, level), kind(id, level + 1)];
 	};
-	const carriesFoot = (id: string, level: number) =>
-		level + 1 === bands(id).foundation && occupied(id, level + 1) && kind(id, level + 1) === 'foot';
+	const footLevel = (id: string, level: number) => {
+		const { foundation } = bands(id);
+		if (level + 1 !== foundation && !triangulated.has(id)) return;
+		if (level < foundation && occupied(id, foundation) && kind(id, foundation) === 'foot')
+			return foundation;
+	};
 	const sharedMedial: SharedMedial = (id, key, level) => {
 		const other = topology.edges.get(key)?.cells.find((cell) => cell !== id);
 		if (other === undefined || !occupied(other, level)) return;
@@ -58,8 +62,8 @@ export function createPlaneLattice(
 		loop.flatMap((a, i) => {
 			const b = loop[(i + 1) % loop.length];
 			if (!a.corner || !b.corner || a.id === b.id || a.position[2] !== b.position[2]) return [a];
-			const level = a.level;
-			if (level !== b.level || level === 0) return [a];
+			const level = a.plane;
+			if (level === undefined || level === 0 || level !== b.plane) return [a];
 			const key = topology.edgeKey(a.corner, b.corner);
 			const edge = topology.edges.get(key);
 			if (
@@ -90,14 +94,12 @@ export function createPlaneLattice(
 			}
 		}
 	};
-	const layers = new Map<
-		number,
-		Map<string, { low: PlaneKind; high: PlaneKind; cells: Set<string> }>
-	>();
+	type PlanePair = { low: PlaneKind; high: PlaneKind; cells: Set<string> };
+	const layers = new Map<number, Map<string, PlanePair>>();
 	for (const [id, { first, roof }] of byColumn) {
 		for (let level = first; level < roof; level++) {
 			let groups = layers.get(level);
-			if (!groups) layers.set(level, (groups = new Map()));
+			if (!groups) layers.set(level, (groups = new Map<string, PlanePair>()));
 			const [low, high] = pair(id, level);
 			const key = `${low}/${high}`;
 			let group = groups.get(key);
@@ -113,7 +115,7 @@ export function createPlaneLattice(
 				joints,
 				{ level, low, high, cells },
 				add,
-				carriesFoot,
+				footLevel,
 				sharedMedial,
 				triangulated
 			);

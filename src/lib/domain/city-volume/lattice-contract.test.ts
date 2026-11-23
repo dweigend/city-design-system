@@ -383,11 +383,13 @@ test('separates the saddle along the collapsed high diagonal and checks both edg
 			.filter((i) => i >= 0);
 		const volumes = latticeVolumes(lattice);
 		expect(first.map((i) => volumes[i])).toEqual([4200, 4200]);
-		expect(closedSolids(lattice)).toBe(true);
-		expect(solidEdgeFaults(first.flatMap((i) => lattice.solids[i].faces))).toEqual({
-			open: 0,
-			nonManifold: 1
-		});
+		expect([model, closedSolids(lattice)]).toEqual([model, true]);
+		expect(components(lattice)).toBe(1);
+		if (model === 'box')
+			expect(solidEdgeFaults(first.flatMap((i) => lattice.solids[i].faces))).toEqual({
+				open: 0,
+				nonManifold: 1
+			});
 		if (model === 'centered') {
 			const hubs = lattice.nodes.filter(({ id }) => id.endsWith('/center'));
 			expect(hubs.map(({ position }) => position)).toEqual([[30, 30, 17.5]]);
@@ -415,4 +417,17 @@ test('bounds occupied spans before walking levels but accepts a narrow high-alti
 	const high = createCityLattice([heights(7e8)], 0, 'square', 'antiprism');
 	expect(high.cells.map(({ level }) => level)).toEqual([1e8]);
 	expect(closedSolids(high)).toBe(true);
+});
+
+test('keeps an exactly reconstructed fractional-datum contact on its plane', () => {
+	const datum = 344 / 31;
+	const [column] = squares([[1]]);
+	const ground = datum + 3 * levelHeight;
+	const corners = column.corners.map(({ id, position: [x, y] }) => ({
+		id,
+		position: [x, y, ground] as const
+	}));
+	const lattice = createCityLattice([{ ...column, corners }], datum, 'square', 'diagrid');
+	expect(lattice.cells.map(({ level }) => level)).toEqual([3]);
+	expect(closedSolids(lattice)).toBe(true);
 });

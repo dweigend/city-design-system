@@ -120,6 +120,8 @@ for (const { relief, runoff, seeds } of terrain) {
 				const studyLattices = cityLatticesByPlan[plan].filter(
 					(lattice) => sizeClass === 'town' || lattice === 'box' || lattice === 'centered'
 				);
+				const shoreFixture =
+					plan === 'organic' && seed === 1201 && relief === 0 && sizeClass === 'town';
 				const spans = crossings.map(({ path }) => path.lengthM).sort((a, b) => a - b);
 				for (const lattice of studyLattices) {
 					const [frame, latticeMs] = time(() => createCityLattice(columns, datumZ, plan, lattice));
@@ -156,15 +158,10 @@ for (const { relief, runoff, seeds } of terrain) {
 						...growth,
 						deterministic: gridStable && frameStable,
 						cloneStable,
-						shoreCrossingsValid: spans.every(
-							(span) => span > 0 && span <= citySiteConfig.crossingMaxLengthM
-						),
-						shoreAlignmentValid:
-							plan !== 'organic' ||
-							seed !== 1201 ||
-							relief !== 0 ||
-							sizeClass !== 'town' ||
-							(shore.clipped > 0 && shore.alignedEdges > 0),
+						shoreCrossingsValid:
+							(!shoreFixture || spans.length > 0) &&
+							spans.every((span) => span > 0 && span <= citySiteConfig.crossingMaxLengthM),
+						shoreAlignmentValid: !shoreFixture || (shore.clipped > 0 && shore.alignedEdges > 0),
 						gridMs,
 						districtMs,
 						latticeMs
