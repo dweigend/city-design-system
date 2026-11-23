@@ -134,11 +134,11 @@
 	const members = $derived(projectCityLattice(lattice, terrain));
 	const volumeFit = $derived({
 		bearing: (-24 * Math.PI) / 180,
-		elevation: (26 * Math.PI) / 180,
-		fill: 0.92,
+		elevation: (17 * Math.PI) / 180,
+		fill: 0.98,
 		focus: envelope.focus
 	});
-	const planFit = $derived({ ...volumeFit, bearing: (10 * Math.PI) / 180 });
+	const planFit = $derived({ ...volumeFit, elevation: (28 * Math.PI) / 180 });
 	const drawables = $derived([
 		...terrain.drawables,
 		...(step === '01' ? lines.drawables : lines.traces),
