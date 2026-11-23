@@ -39,7 +39,8 @@ function valueNoise(random: Random) {
 }
 
 /** Returns a rank in meters for a world point: the elliptic distance to the nearer of two
- * cores, distorted by smooth noise. The second core lies 0.7–1.1 km along the long axis and
+ * cores, distorted by smooth noise. The seed moves the main core up to 450 m along the long
+ * axis and 60 m across. The second core lies a further 0.7–1.1 km along the long axis and
  * counts a gap of 900 m at complexity 0, falling to 250 m at complexity 1, so a complex city
  * grows a secondary center. Equal inputs give equal ranks, whatever the plan extent. */
 export function districtRank(core: CityCore, random: Random, complexity: number) {
@@ -47,7 +48,7 @@ export function districtRank(core: CityCore, random: Random, complexity: number)
 	const amplitude = 0.08 + 0.3 * complexity;
 	const shift = random.derive('core');
 	const [ox, oy] = core.origin;
-	const offset: Vec2 = [shift.number({ min: -40, max: 40 }), shift.number({ min: -40, max: 40 })];
+	const offset: Vec2 = [shift.number({ min: -450, max: 450 }), shift.number({ min: -60, max: 60 })];
 	const side = shift.number() < 0.5 ? -1 : 1;
 	const secondary = side * shift.number({ min: 700, max: 1100 });
 	const gap = 250 + 650 * (1 - complexity);
