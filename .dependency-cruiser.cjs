@@ -7,6 +7,9 @@ const layers = {
 const configOwners = {
 	'core/params': 'inputs',
 	'core/object': 'object',
+	'domain/cell-space': 'cell-space',
+	'domain/house-court': 'house-court',
+	'scene/house-projection': 'house-projection',
 	'domain/river-metrics': 'river-metrics',
 	'domain/valley': 'hydrology',
 	'world/valley-protocol': 'valley-measurement'
