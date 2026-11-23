@@ -1,4 +1,11 @@
-import { Box3, BufferGeometry, Float32BufferAttribute, Group, Mesh } from 'three/webgpu';
+import {
+	Box3,
+	BufferGeometry,
+	Float32BufferAttribute,
+	Group,
+	Mesh,
+	MeshBasicNodeMaterial
+} from 'three/webgpu';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { Bounds3 } from '../../core/geometry';
@@ -26,8 +33,33 @@ function sameGeometry(a: Drawable, b: Drawable) {
 		a.boundaryStroke === b.boundaryStroke &&
 		a.strokeSegments === b.strokeSegments &&
 		a.terrainField === b.terrainField &&
+		a.warp?.fill === b.warp?.fill &&
+		a.warp?.stroke === b.warp?.stroke &&
 		(a.finish === 'line') === (b.finish === 'line')
 	);
+}
+
+/** Retained base positions and aligned offsets of one warped array. */
+type WarpTarget = { array: Float32Array; base: Float32Array; offsets: Float32Array; stride: number };
+
+function warpTarget(array: Float32Array, offsets: readonly number[], stride = 3): WarpTarget {
+	return { array, base: array.slice(), offsets: Float32Array.from(offsets), stride };
+}
+
+/** Moves every warped point to base + amount × offset in place. */
+function applyWarp(targets: readonly WarpTarget[], amount: number) {
+	for (const { array, base, offsets, stride } of targets) {
+		for (let point = 0; point < offsets.length / 2; point++) {
+			const i = point * stride;
+			array[i] = base[i] + amount * offsets[2 * point];
+			array[i + 1] = base[i + 1] + amount * offsets[2 * point + 1];
+		}
+	}
+}
+
+/** Expands per-vertex offsets to the order of a non-indexed copy. */
+function expandOffsets(offsets: readonly number[], indices: readonly number[]) {
+	return indices.flatMap((index) => [offsets[2 * index], offsets[2 * index + 1]]);
 }
 
 function project(
@@ -48,18 +80,21 @@ function project(
 			: landscape
 				? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
 				: edgeGeometry(positions, indices);
+	const explicit = drawable.strokeSegments
+		? [explicitStroke(strokes.depth), explicitStroke(strokes.depth, true)]
+		: [];
 	const strokesToDraw = grid
 		? [
 				{ geometry: stroke, material: strokes.grid.clone() },
 				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary.clone() }
 			]
 		: drawable.strokeSegments
-			? [{ geometry: stroke, material: explicitStroke() }]
+			? explicit.map(({ material }) => ({ geometry: stroke, material }))
 			: [
 					{ geometry: stroke, material: strokes.crease },
 					{ geometry: stroke, material: strokes.outer }
 				];
-	// Draw explicit strokes after translucent faces.
+	// Draw explicit strokes after translucent faces, and ground shade between ground and bodies.
 	const layerOrder = drawable.strokeSegments ? 4 : 0;
 	const lines = strokesToDraw.map(({ geometry, material }, index) =>
 		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index)
@@ -68,13 +103,67 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, atlas } = fillMaterial(
+	const { material, terrain, flat, heightScale, hatch, atlas } = fillMaterial(
 		palette,
 		drawable.terrainField
 	);
 	const mesh = new Mesh(fill, material);
-	mesh.renderOrder = layerOrder;
-	return { drawable, mesh, lines, grid, terrain, flat, heightScale, atlas };
+	mesh.renderOrder = drawable.finish === 'shadow' ? 1 : layerOrder;
+	// The depth of a translucent body is laid after every opaque body, so a body behind it stays
+	// visible through the tint while strokes behind it switch to their hidden pass.
+	const veil = new Mesh(fill, new MeshBasicNodeMaterial({ colorWrite: false }));
+	veil.renderOrder = 6;
+	veil.visible = false;
+	mesh.add(veil);
+	const warp = drawable.warp;
+	const warpTargets = warp
+		? [
+				warpTarget(
+					fill.attributes.position.array as Float32Array,
+					fill === indexed ? warp.fill : expandOffsets(warp.fill, indices)
+				),
+				...(warp.stroke && stroke instanceof LineSegmentsGeometry
+					? [warpTarget(segmentArray(stroke), warp.stroke)]
+					: [])
+			]
+		: [];
+	return {
+		drawable,
+		mesh,
+		veil,
+		lines,
+		recede: explicit.map(({ recede }) => recede),
+		grid,
+		terrain,
+		flat,
+		heightScale,
+		hatch,
+		atlas,
+		warpTargets,
+		warpAmount: 0
+	};
+}
+
+function segmentArray(geometry: LineSegmentsGeometry) {
+	const start = geometry.getAttribute('instanceStart') as unknown as {
+		data: { array: Float32Array };
+	};
+	return start.data.array;
+}
+
+/** Moves a warped part to the drawable's amount, uploading only the changed arrays. */
+export function warpPart(part: Part) {
+	const amount = part.drawable.warp?.amount ?? 0;
+	if (!part.warpTargets.length || amount === part.warpAmount) return;
+	part.warpAmount = amount;
+	applyWarp(part.warpTargets, amount);
+	part.mesh.geometry.attributes.position.needsUpdate = true;
+	for (const geometry of new Set(part.lines.map((line) => line.geometry))) {
+		const start = geometry.getAttribute('instanceStart') as unknown as {
+			data: { needsUpdate: boolean };
+		};
+		if (start) start.data.needsUpdate = true;
+	}
 }
 
 function projectStroke(
@@ -89,11 +178,12 @@ function projectStroke(
 	return line;
 }
 
-type Part = ReturnType<typeof project>;
+export type Part = ReturnType<typeof project>;
 
-function disposePart({ drawable, mesh, lines, grid, atlas }: Part) {
+function disposePart({ drawable, mesh, veil, lines, grid, atlas }: Part) {
 	mesh.geometry.dispose();
 	mesh.material.dispose();
+	veil.material.dispose();
 	atlas?.dispose();
 	if (grid || drawable.strokeSegments) for (const line of lines) line.material.dispose();
 	for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();

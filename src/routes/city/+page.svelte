@@ -12,6 +12,7 @@
 		cityPlanVariants,
 		cityVolumeParams,
 		createCityLattice,
+		createCityTaper,
 		storeysPerLevel,
 		readCityColumns,
 		type CityPlanVariant,
@@ -27,7 +28,14 @@
 		projectCityTerrain,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
-	import { projectFocus, type Display, type View, type Viewport } from '../../lib/scene/stage';
+	import {
+		focusChoices,
+		offerFocus,
+		readFocusChoice,
+		type FocusChoice,
+		type Subsystem
+	} from '../../lib/scene/focus';
+	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
 	import { cityHeightScaleM } from '../../lib/scene/surface';
@@ -53,17 +61,9 @@
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
 	];
-	const displays = [
-		{ value: 'normal', label: 'Normal' },
-		{ value: 'transparency', label: 'Transparency' }
-	];
 	const profiles = [
 		{ value: 'auto', label: 'Auto' },
 		{ value: 'true', label: 'True scale' }
-	];
-	const colours = [
-		{ value: 'districts', label: 'Districts' },
-		{ value: 'height', label: 'Height' }
 	];
 	const gridLabels: Record<CityPlanVariant, string> = {
 		organic: 'Organic',
@@ -95,7 +95,11 @@
 		town: 'Town',
 		city: 'City'
 	};
-	const { height: heightParam, complexity: complexityParam } = cityVolumeParams;
+	const {
+		height: heightParam,
+		complexity: complexityParam,
+		taper: taperParam
+	} = cityVolumeParams;
 
 	function valueFromQuery(key: string) {
 		const raw = page.url.searchParams.get(key);
@@ -120,11 +124,8 @@
 	const latticeVariant = $derived(
 		compatible.includes(selectedLattice) ? selectedLattice : compatible[0]
 	);
-	let display = $derived<Display>(
-		page.url.searchParams.get('display') === 'transparency' ? 'transparency' : 'normal'
-	);
 	let profile = $derived(choice('profile', ['auto', 'true']));
-	let colour = $derived(choice('colour', ['districts', 'height']));
+	let focus = $derived<FocusChoice>(choice('focus', focusChoices));
 	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0 });
 	let step = $derived(stepFromQuery());
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
@@ -138,9 +139,11 @@
 	const volumeInputs = $derived(
 		resolveParams(cityVolumeParams, {
 			height: valueFromQuery('height') ?? heightParam.default,
-			complexity: valueFromQuery('complexity') ?? complexityParam.default
+			complexity: valueFromQuery('complexity') ?? complexityParam.default,
+			taper: valueFromQuery('taper') ?? taperParam.default
 		})
 	);
+	let taper = $derived(volumeInputs.taper);
 	let height = $derived(volumeInputs.height);
 	let complexity = $derived(volumeInputs.complexity);
 
@@ -162,9 +165,21 @@
 	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
-	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, true));
+	const taperField = $derived(createCityTaper(columns, plan.datumZ));
+	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));
 	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
-	const members = $derived(projectCityLattice(lattice, terrain));
+	const members = $derived(projectCityLattice(lattice, terrain, taperField));
+	const present = $derived<Subsystem[]>([
+		'terrain',
+		'water',
+		...(['detached', 'block', 'center'] as const).filter((kind) => districts.shares[kind] > 0),
+		...(step === '03' ? (['lattice'] as const) : [])
+	]);
+	const offered = $derived(offerFocus(present));
+	const focusItems = $derived(
+		offered.map((value) => ({ value, label: readFocusChoice(value).label }))
+	);
+	const activeFocus = $derived(offered.includes(focus) ? focus : 'all');
 	const relief = $derived(city.valley.parameters.relief);
 	const elevation = $derived(cityElevation(relief));
 	// Leave room for the Auto profile to raise the ground and roof steps together.
@@ -199,12 +214,12 @@
 					terrain: ground,
 					envelope: tiles,
 					members: wires,
+					focus: activeFocus,
 					peak: districts.peakHeight,
 					relief,
-					open: step === '03',
-					heat: colour === 'height',
 					trueScale: profile === 'true',
-					maxProfileScale
+					maxProfileScale,
+					taper
 				})
 	);
 
@@ -264,7 +279,7 @@
 		<StageView
 			{drawables}
 			{view}
-			{display}
+			display="normal"
 			label={step === '01'
 				? 'City plan on the valley ground'
 				: step === '02'
@@ -282,24 +297,24 @@
 				items={views}
 				bind:value={() => view, (value) => (view = value === 'plan' ? 'plan' : 'iso')}
 			/>
-			<ToggleGroup
-				label="Display"
-				items={displays}
-				bind:value={
-					() => display, (value) => (display = value === 'transparency' ? 'transparency' : 'normal')
-				}
-			/>
+			{#if step !== '01'}
+				<Select
+					label="Focus"
+					items={focusItems}
+					bind:value={
+						() => activeFocus,
+						(value) => (focus = offered.find((choice) => choice === value) ?? 'all')
+					}
+				/>
+			{/if}
 		</div>
 		{#if step !== '01'}
 			<div class="cluster">
 				<div class="control-choice">
 					<ToggleGroup label="Profile" showLabel items={profiles} bind:value={profile} />
 				</div>
-				<div class="control-choice">
-					<ToggleGroup label="Colour" showLabel items={colours} bind:value={colour} />
-				</div>
 			</div>
-			{#if colour === 'height'}
+			{#if readFocusChoice(activeFocus).analysis === 'height'}
 				<ScaleLegend
 					label="Column height in meters"
 					values={['0', String(cityHeightScaleM / 2), String(cityHeightScaleM)]}
@@ -380,6 +395,13 @@
 							max={complexityParam.max}
 							step={complexityParam.step}
 							bind:value={complexity}
+						/>
+						<Slider
+							label={taperParam.label}
+							min={taperParam.min}
+							max={taperParam.max}
+							step={taperParam.step}
+							bind:value={taper}
 						/>
 					{/if}
 				</div>

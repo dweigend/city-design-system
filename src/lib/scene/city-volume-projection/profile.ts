@@ -49,6 +49,8 @@ export function cityProfile(
 		detail: 1 - fade(metersPerPixel, profileLaw.detail),
 		uprights: 1 - fade(metersPerPixel, profileLaw.uprights),
 		rims: 1 - fade(metersPerPixel, profileLaw.rims),
-		envelope: fade(metersPerPixel, profileLaw.envelope)
+		envelope: fade(metersPerPixel, profileLaw.envelope),
+		/** Share of the taper shown: none while member detail is drawn, all once it is gone. */
+		taper: fade(metersPerPixel, profileLaw.detail)
 	};
 }

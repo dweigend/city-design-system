@@ -1,4 +1,9 @@
-import { createCityDistricts, createCityLattice, readCityColumns } from '../../domain/city-volume';
+import {
+	createCityDistricts,
+	createCityLattice,
+	createCityTaper,
+	readCityColumns
+} from '../../domain/city-volume';
 import { TerrainGrid } from '../../domain/terrain-grid';
 import { projectCityDistricts, projectCityLattice } from './index';
 
@@ -21,6 +26,7 @@ export function example() {
 	);
 	const columns = readCityColumns(plan, districts);
 	const lattice = createCityLattice(columns, datumZ, 'square');
+	const taper = createCityTaper(columns, datumZ);
 	const frame = {
 		footprint: { width: site.length, depth: site.width },
 		toLocal: (x: number, y: number) => [x, y] as const
@@ -32,7 +38,8 @@ export function example() {
 		districts,
 		columns,
 		lattice,
-		envelope: projectCityDistricts(columns, datumZ, frame),
-		members: projectCityLattice(lattice, frame)
+		taper,
+		envelope: projectCityDistricts(columns, datumZ, frame, taper, seed),
+		members: projectCityLattice(lattice, frame, taper)
 	};
 }

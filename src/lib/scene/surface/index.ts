@@ -1,8 +1,9 @@
 import { required } from '../../core/invariant';
 import type { PlaceableObject, Shape } from '../../core/object';
 
-/** Surface finish, with line reserved for pencil outlines. */
-export type Finish = 'matte' | 'gloss' | 'glass' | 'line' | 'terrain';
+/** Surface finish, with line reserved for pencil outlines and shadow for flat ground shade that
+ * darkens what lies below it without stacking. */
+export type Finish = 'matte' | 'gloss' | 'glass' | 'line' | 'terrain' | 'shadow';
 
 /** One CSS color token and finish for a slot. Flat fills retain the token color on all faces. */
 export type Surface = Readonly<{
@@ -10,7 +11,23 @@ export type Surface = Readonly<{
 	finish: Finish;
 	flat?: boolean;
 	opacity?: `--alpha-${string}`;
-	stroke?: Readonly<{ color: `--${string}`; width: number; opacity: number }>;
+	stroke?: Readonly<{
+		color: `--${string}`;
+		width: number;
+		opacity: number;
+		/** Share of the opacity kept where a body in front hides the stroke; 0 omits hidden lines. */
+		hidden?: number;
+		/** Share of the opacity the farthest stroke of the picture loses, so depth reads. */
+		recede?: number;
+	}>;
+}>;
+
+/** Horizontal offsets in local meters, x and y per fill vertex and per explicit stroke endpoint.
+ * The stage moves the retained geometry by `amount` times the offsets without rebuilding it. */
+export type Warp = Readonly<{
+	fill: readonly number[];
+	stroke?: readonly number[];
+	amount: number;
 }>;
 
 /** Explicit lookup of surfaces by slot name. */
@@ -41,6 +58,12 @@ export type Drawable = Surface &
 		colorMix?: Readonly<{ token: `--${string}`; amount: number }>;
 		vertical?: Readonly<{ scale: number; pivot: number }>;
 		preserveColor?: boolean;
+		/** A translucent fill still hides what lies behind it from strokes, and only its front
+		 * layer is tinted. */
+		occlude?: boolean;
+		/** Strength from 0 to 1 of pencil hatching on the faces turned from the sun. */
+		hatch?: number;
+		warp?: Warp;
 	}>;
 
 type FlowColor = `--cat-${'living' | 'health' | 'mobility' | 'business' | 'nature'}`;
@@ -68,11 +91,13 @@ const districtEnvelope = {
 } as const;
 
 /** Three lightness steps of blueprint, pale to deep, for detached houses, blocks and the
- * high-rise center. The shaded, opaque fill keeps the kinds apart in plan and in height. */
+ * high-rise center. The shaded, opaque fill keeps the kinds apart in plan and in height. Their
+ * ground shade darkens the paper without stacking. */
 export const districtSurfaces = Object.freeze({
 	detached: { ...districtEnvelope, color: '--blueprint-1' },
 	block: { ...districtEnvelope, color: '--blueprint-2' },
-	center: { ...districtEnvelope, color: '--blueprint-3' }
+	center: { ...districtEnvelope, color: '--blueprint-3' },
+	shadow: { color: '--ground-shadow', finish: 'shadow', flat: true }
 } as const satisfies SurfaceAssignment);
 
 /** Fine pencil lines and small joints for the coarse carrier. */

@@ -1,64 +1,181 @@
 import { levelHeight } from '../../domain/city-volume';
+import { readFocusChoice, readFocusLevel, type DisplayLevel, type FocusChoice } from '../focus';
 import type { Presentation } from '../stage';
 import { heightRamp, type Drawable } from '../surface';
+import type { CityDrawable } from './index';
 import { cityElevation, cityProfile } from './profile';
 
 type Options = Readonly<{
 	terrain: readonly Drawable[];
-	envelope: readonly (Drawable & { levels: number })[];
+	envelope: readonly CityDrawable[];
 	members: readonly Drawable[];
+	focus: FocusChoice;
 	peak: number;
 	relief: number;
-	open: boolean;
-	heat: boolean;
 	trueScale: boolean;
 	maxProfileScale: number;
+	/** Signed share of the taper field, 1 retreat … −1 overhang. */
+	taper: number;
 }>;
 
-/** Styles the existing envelope and member layers at the viewport scale. */
+type Look = Readonly<{
+	color?: `--${string}`;
+	stroke?: `--${string}`;
+	fill: number;
+	outline: number;
+	width: number;
+	storeys: number;
+	hidden: number;
+	hatch: number;
+	shade: number;
+}>;
+
+/** How a district body reads at each visible level. Neutral looks draw with graphite on a pale
+ * veil; `shade` is the strength of the ground shadow. */
+export const bodyLooks = {
+	full: { fill: 1, outline: 0.62, width: 0.9, storeys: 0.3, hidden: 0, hatch: 0, shade: 1 },
+	silhouette: {
+		color: '--stock-veil',
+		stroke: '--stock-line',
+		fill: 1,
+		outline: 0.5,
+		width: 0.7,
+		storeys: 0,
+		hidden: 0,
+		hatch: 0,
+		shade: 0.9
+	},
+	transparent: {
+		color: '--stock-veil',
+		stroke: '--stock-line',
+		fill: 0.5,
+		outline: 0.42,
+		width: 0.6,
+		storeys: 0,
+		hidden: 0.14,
+		hatch: 0,
+		shade: 0.62
+	},
+	pencil: {
+		color: '--stock-pencil',
+		stroke: '--stock-line',
+		fill: 0.74,
+		outline: 0.8,
+		width: 0.85,
+		storeys: 0.34,
+		hidden: 0.2,
+		hatch: 1,
+		shade: 0.78
+	}
+} as const satisfies Record<Exclude<DisplayLevel, 'hidden'>, Look>;
+
+/** Member weights by rank: chords and uprights carry, diagonals and hubs are secondary. Hidden
+ * members keep a share of their opacity and the farthest lose `recede` of it. */
+export const memberLooks = {
+	lattice: { opacity: 0.85, width: 1.1, hidden: 0.24, recede: 0.5 },
+	uprights: { opacity: 0.72, width: 0.95, hidden: 0.2, recede: 0.5 },
+	detail: { opacity: 0.42, width: 0.6, hidden: 0.1, recede: 0.55 }
+} as const;
+
+/** A visible lattice raises the envelope outline to this weight: the stepped silhouette is the
+ * strongest line of the drawing. */
+const silhouetteOverLattice = { opacity: 0.8, width: 1.35 } as const;
+/** Share of a visible member's opacity at any level below full. */
+const quietMembers = 0.45;
+
+function terrainSubsystem(part: Drawable) {
+	return part.flat === true && part.finish !== 'line' ? 'water' : 'terrain';
+}
+
+function bodyLevel(focus: FocusChoice, { kind, drawn }: CityDrawable): DisplayLevel {
+	const level = readFocusLevel(focus, kind);
+	return level === 'transparent' && drawn ? 'pencil' : level;
+}
+
+/** Styles terrain, district bodies and lattice members by the focus choice at the viewport
+ * scale. Every level reuses the same geometry, so switching focus rebuilds nothing. */
 export function cityPresentation({
 	terrain,
 	envelope,
 	members,
+	focus,
 	peak,
 	relief,
-	open,
-	heat,
 	trueScale,
-	maxProfileScale
+	maxProfileScale,
+	taper
 }: Options): Presentation {
+	const analysis = readFocusChoice(focus).analysis;
+	const latticeLevel = readFocusLevel(focus, 'lattice');
+	const open = members.length > 0 && latticeLevel !== 'hidden';
 	return ({ width, metersPerPixel }) => {
 		const elevation = cityElevation(relief, width);
 		const detail = cityProfile(width, metersPerPixel, peak, elevation, trueScale, maxProfileScale);
 		const vertical = { pivot: 0, scale: detail.factor };
+		const amount = taper * detail.taper;
 		return [
-			...terrain.map((part) => ({ ...part, vertical, heightScale: detail.factor })),
-			...envelope.map((part) => ({
+			...terrain.map((part) => ({
 				...part,
-				...(heat ? heightRamp(part.levels * levelHeight) : {}),
-				fillAlpha: open && !heat ? 0.035 + 0.965 * detail.envelope : 1,
+				visible: readFocusLevel(focus, terrainSubsystem(part)) !== 'hidden',
 				vertical,
-				stroke: part.stroke && {
-					...part.stroke,
-					...(heat ? { color: '--height-line' as const } : {}),
-					opacity: open ? 0.15 + 0.5 * detail.envelope : 0.62
-				}
+				heightScale: detail.factor
 			})),
+			...envelope.map((part) => {
+				const level = bodyLevel(focus, part);
+				if (level === 'hidden') return { ...part, visible: false };
+				const look: Look = bodyLooks[level];
+				if (part.role === 'contact' || part.role === 'cast')
+					return {
+						...part,
+						vertical,
+						fillAlpha: look.shade * (part.role === 'contact' ? 0.9 : 0.5),
+						warp: part.warp && { ...part.warp, amount: detail.factor - 1 }
+					};
+				const ramp = level === 'full' && analysis === 'height';
+				const veiled = level === 'full' && open;
+				const outline = part.role === 'storeys' ? look.storeys * Number(!open) : look.outline;
+				return {
+					...part,
+					...(look.color ? { color: look.color } : {}),
+					...(ramp ? heightRamp(part.levels * levelHeight) : {}),
+					fillAlpha: veiled && !ramp ? 0.035 + 0.965 * detail.envelope : look.fill,
+					occlude: true,
+					hatch: look.hatch,
+					vertical,
+					warp: part.warp && { ...part.warp, amount },
+					stroke: part.stroke && {
+						...part.stroke,
+						color: ramp ? '--height-line' : (look.stroke ?? part.stroke.color),
+						opacity: open
+							? Math.max(outline, part.role === 'body' ? silhouetteOverLattice.opacity : 0)
+							: outline,
+						width:
+							open && part.role === 'body'
+								? Math.max(look.width, silhouetteOverLattice.width)
+								: look.width,
+						hidden: look.hidden,
+						recede: 0.3
+					}
+				};
+			}),
 			...members.map((part) => {
-				const fade =
-					part.id === 'lattice'
-						? detail.rims
-						: part.id === 'uprights'
-							? detail.uprights
-							: detail.detail;
+				if (latticeLevel === 'hidden') return { ...part, visible: false };
+				const rank =
+					part.id === 'lattice' ? 'lattice' : part.id === 'uprights' ? 'uprights' : 'detail';
+				const fade = rank === 'lattice' ? detail.rims : detail[rank];
+				const look = memberLooks[rank];
+				const quiet = latticeLevel === 'full' ? 1 : quietMembers;
 				return {
 					...part,
 					vertical,
-					fillAlpha: detail.detail,
+					fillAlpha: detail.detail * quiet,
+					warp: part.warp && { ...part.warp, amount },
 					stroke: part.stroke && {
 						...part.stroke,
-						opacity: (part.id === 'detail' ? 0.35 : 0.78) * fade,
-						width: 0.55 + 0.55 * fade
+						opacity: look.opacity * fade * quiet,
+						width: look.width * (0.5 + 0.5 * fade),
+						hidden: look.hidden,
+						recede: look.recede
 					}
 				};
 			})

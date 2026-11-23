@@ -39,7 +39,8 @@ function cornerClearance({ columns, centres }: PlanTopology, { corner, cells }: 
  * count as the foundation cap. */
 function cornerRetreat(topology: PlanTopology, bands: Bands) {
 	const clearances = new Map<string, number>();
-	return ({ corner, cells, interior }: PlanRing, level: number): Vec2 => {
+	return (ring: PlanRing, level: number): Vec2 => {
+		const { corner, cells, interior } = ring;
 		const base = Math.max(...cells.map((cell) => bands(cell).foundation));
 		if (level <= base) return [0, 0];
 		const roof = (cell: string) => bands(cell).roof;
@@ -55,7 +56,7 @@ function cornerRetreat(topology: PlanTopology, bands: Bands) {
 		if (reach < 1e-6) return [0, 0];
 		let clearance = clearances.get(corner.id);
 		if (clearance === undefined) {
-			clearance = cornerClearance(topology, { corner, cells, interior });
+			clearance = cornerClearance(topology, ring);
 			clearances.set(corner.id, clearance);
 		}
 		const move = Math.min(taperStep * depth, taperCap * reach, clearance) / reach;

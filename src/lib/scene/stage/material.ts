@@ -1,11 +1,19 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace } from 'three/webgpu';
-import { materialColor, mix, normalWorldGeometry, uniform, vec2 } from 'three/tsl';
+import {
+	materialColor,
+	mix,
+	normalWorldGeometry,
+	screenCoordinate,
+	screenDPR,
+	uniform,
+	vec2
+} from 'three/tsl';
 import type { Finish, TerrainField } from '../surface';
 import { projectTerrainField } from './field';
 import { graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
-const finishes = { matte: 1, gloss: 1, glass: 0.7, line: 0, terrain: 1 } satisfies Record<
+const finishes = { matte: 1, gloss: 1, glass: 0.7, line: 0, terrain: 1, shadow: 1 } satisfies Record<
 	Finish,
 	number
 >;
@@ -33,6 +41,7 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const terrain = uniform(0);
 	const flat = uniform(0);
 	const heightScale = uniform(1);
+	const hatch = uniform(0);
 
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
@@ -46,13 +55,18 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
 		mix(pressure, grain.top, palette.hull)
 	);
+	// Sparse 45° pencil strokes, 7 CSS pixels apart, on the faces turned from the sun.
+	const pixel = screenCoordinate.div(screenDPR);
+	const across = pixel.x.add(pixel.y).div(7).fract().sub(0.5).abs().mul(7);
+	const hatching = across.smoothstep(0.35, 0.95).oneMinus().mul(shadow.select(hatch, 0));
+	const drawn = mix(fill, palette.ink, hatching.mul(0.42));
 	const atlas = field ? projectTerrainField(field) : undefined;
 	material.colorNode = mix(
-		mix(fill, materialColor, flat),
+		mix(drawn, materialColor, flat),
 		terrainColor(palette, heightScale, atlas?.sample),
 		terrain
 	);
-	return { material, terrain, flat, heightScale, atlas: atlas?.image };
+	return { material, terrain, flat, heightScale, hatch, atlas: atlas?.image };
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

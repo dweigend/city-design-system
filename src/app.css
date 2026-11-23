@@ -9,6 +9,11 @@
 	--ink-2: oklch(0.5 0.012 265);
 	--ink: oklch(0.2 0.014 265);
 	--plan-trace: color-mix(in oklab, var(--ink-2) 33%, var(--paper-2));
+	/* Stock out of focus: pale veil, pencil paper, graphite edges and ground shade */
+	--stock-veil: color-mix(in oklab, var(--paper) 88%, var(--ink-3));
+	--stock-pencil: color-mix(in oklab, var(--paper) 94%, var(--ink-3));
+	--stock-line: color-mix(in oklab, var(--ink) 62%, var(--ink-2));
+	--ground-shadow: color-mix(in oklab, var(--paper-2) 64%, var(--ink-2));
 	--cat-living: oklch(0.75 0.125 62);
 	--cat-health: oklch(0.68 0.11 238);
 	--cat-mobility: oklch(0.87 0.135 94);
@@ -128,6 +133,10 @@
 	--ink: oklch(0.95 0.008 85);
 	--blueprint: oklch(0.545 0.16 268);
 	--height-line: #633b22;
+	--stock-veil: color-mix(in oklab, var(--paper) 74%, var(--ink-3));
+	--stock-pencil: color-mix(in oklab, var(--paper) 82%, var(--ink-3));
+	--stock-line: var(--ink-2);
+	--ground-shadow: color-mix(in oklab, var(--paper) 55%, black);
 	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;

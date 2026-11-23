@@ -1,4 +1,5 @@
 import { OrthographicCamera, Scene } from 'three/webgpu';
+import type { Bounds3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import { fitCamera, type View, type ViewFit } from './camera';
 import { strokeMaterials } from './edges';
@@ -7,10 +8,13 @@ import type { Display } from './material';
 import { createStyle } from './style';
 import { openRenderer } from './renderer';
 import { stageState } from './state';
-import { drawingPalette } from './tone';
+import { drawingPalette, sun } from './tone';
 
 /** Camera projections for the same geometry. */
 export type { View, ViewFit } from './camera';
+/** Shadows fall along this horizontal unit direction, `shadowReach` metres per metre of height. */
+export const shadowDirection = Object.freeze([-sun[0], -sun[1]] as const);
+export { shadowReach } from './tone';
 /** Measures a subject in the plane of a fitted view. */
 export { projectFocus } from './camera';
 /** Connects pointer and keyboard navigation to camera framing. */
@@ -24,6 +28,31 @@ export type Presentation = (viewport: Viewport) => readonly Drawable[];
 export type { Display } from './material';
 /** Returns the fixed house, resolved surfaces and metric extents for a stage. */
 export { stageExample } from './example';
+
+/** Strokes on a face are lifted about two and a half CSS pixels toward the eye. */
+const strokePullPx = 2.5;
+
+function setStrokeDepth(
+	strokes: ReturnType<typeof strokeMaterials>,
+	camera: OrthographicCamera,
+	{ min, max }: Bounds3,
+	metersPerPixel: number
+) {
+	const [ex, ey, ez] = strokes.eye.value.toArray();
+	const { x, y, z } = camera.position;
+	let near = Infinity;
+	let far = -Infinity;
+	for (const cx of [min[0], max[0]])
+		for (const cy of [min[1], max[1]])
+			for (const cz of [min[2], max[2]]) {
+				const depth = -((cx - x) * ex + (cy - y) * ey + (cz - z) * ez);
+				near = Math.min(near, depth);
+				far = Math.max(far, depth);
+			}
+	strokes.depth.near.value = near;
+	strokes.depth.far.value = far;
+	strokes.depth.pull.value = strokePullPx * metersPerPixel;
+}
 
 async function create({
 	canvas,
@@ -84,6 +113,7 @@ async function create({
 			camera.lookAt(...center);
 			camera.updateProjectionMatrix();
 			camera.getWorldDirection(strokes.eye.value).negate();
+			setStrokeDepth(strokes, camera, present ? content.clippingBounds : bounds, width / widthPx);
 
 			const dark = canvas.ownerDocument.documentElement.dataset.theme === 'dark';
 			styleContent(display, dark);

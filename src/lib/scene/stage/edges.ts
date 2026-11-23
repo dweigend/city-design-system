@@ -1,6 +1,22 @@
-import { InstancedBufferAttribute, Line2NodeMaterial, NormalBlending, Vector3 } from 'three/webgpu';
+import {
+	GreaterDepth,
+	InstancedBufferAttribute,
+	Line2NodeMaterial,
+	NormalBlending,
+	Vector3
+} from 'three/webgpu';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import { attribute, diffuseColor, materialColor, uniform, vec4 } from 'three/tsl';
+import {
+	attribute,
+	cameraFar,
+	cameraNear,
+	diffuseColor,
+	materialColor,
+	positionView,
+	uniform,
+	vec4,
+	viewZToOrthographicDepth
+} from 'three/tsl';
 
 type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
@@ -133,10 +149,18 @@ export function strokeMaterials(landscape = false) {
 	const ground = new Line2NodeMaterial({ ...options, linewidth: 0.75 });
 	outer.maskNode = silhouette;
 	crease.maskNode = silhouette.not();
-	return { eye, outer, crease, grid, gridBoundary, ground };
+	// Explicit strokes lie on faces; `pull` lifts them toward the eye in meters so the face in
+	// front of them decides visibility, and `near` and `far` bound the picture's view depth.
+	const depth = { pull: uniform(0), near: uniform(0), far: uniform(1) };
+	return { eye, outer, crease, grid, gridBoundary, ground, depth };
 }
 
-export function explicitStroke() {
+/** One explicit stroke layer: the visible pass, or the hidden pass drawn only where a nearer
+ * surface covers the stroke. `recede` lightens strokes with their view depth. */
+export function explicitStroke(
+	depth: ReturnType<typeof strokeMaterials>['depth'],
+	hidden = false
+) {
 	const material = new Line2NodeMaterial({
 		transparent: true,
 		blending: NormalBlending,
@@ -144,7 +168,15 @@ export function explicitStroke() {
 		alphaToCoverage: false,
 		linewidth: 1
 	});
+	if (hidden) material.depthFunc = GreaterDepth;
+	const recede = uniform(0);
+	const distance = positionView.z
+		.negate()
+		.sub(depth.near)
+		.div(depth.far.sub(depth.near).max(1e-3))
+		.clamp(0, 1);
 	// Keep line coverage but blend the ink into all preceding layers, including other translucent fills.
-	material.outputNode = vec4(materialColor, diffuseColor.a);
-	return material;
+	material.outputNode = vec4(materialColor, diffuseColor.a.mul(distance.mul(recede).oneMinus()));
+	material.depthNode = viewZToOrthographicDepth(positionView.z.add(depth.pull), cameraNear, cameraFar);
+	return { material, recede };
 }

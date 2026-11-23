@@ -1,20 +1,30 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import type { CityLattice } from '../../domain/city-volume';
+import type { CityLattice, CityTaper } from '../../domain/city-volume';
 import { mesh } from './mesh';
 
-export function latticeMesh(lattice: CityLattice, toLocal: (x: number, y: number) => Vec2) {
+/** Joints and member wires of a lattice in local meters, by member rank, with the taper offset of
+ * every joint vertex and wire endpoint. */
+export function latticeMesh(
+	lattice: CityLattice,
+	toLocal: (x: number, y: number) => Vec2,
+	taper: CityTaper
+) {
 	const geometry = mesh();
-	const positions = new Map<string, Vec3>();
-	for (const {
-		id,
-		position: [x, y, z]
-	} of lattice.nodes) {
-		const position = [...toLocal(x, y), z] as const;
-		positions.set(id, position);
-		addNode(geometry, position);
+	const jointTaper: number[] = [];
+	const positions = new Map<string, { point: Vec3; offset: Vec2 }>();
+	for (const { id, position } of lattice.nodes) {
+		const [x, y, z] = position;
+		const [u, v] = toLocal(x, y);
+		const [dx, dy] = taper(position);
+		const [su, sv] = toLocal(x + dx, y + dy);
+		const joint = { point: [u, v, z] as Vec3, offset: [su - u, sv - v] as Vec2 };
+		positions.set(id, joint);
+		addNode(geometry, joint.point);
+		for (let i = 0; i < 6; i++) jointTaper.push(...joint.offset);
 	}
 	const wires = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
+	const offsets = { rims: [] as number[], uprights: [] as number[], detail: [] as number[] };
 	const key = (a: string, b: string) => JSON.stringify(a < b ? [a, b] : [b, a]);
 	const rim = new Set<string>();
 	const upright = new Set<string>();
@@ -30,16 +40,16 @@ export function latticeMesh(lattice: CityLattice, toLocal: (x: number, y: number
 		// A ranked member reads as a rim when it lies in one plane and as an upright otherwise.
 		const group =
 			rank === 'chord' || rim.has(id)
-				? wires.rims
+				? 'rims'
 				: rank === 'strut' || upright.has(id)
-					? wires.uprights
-					: wires.detail;
-		group.push(
-			...required(positions.get(from), 'lattice joint'),
-			...required(positions.get(to), 'lattice joint')
-		);
+					? 'uprights'
+					: 'detail';
+		const a = required(positions.get(from), 'lattice joint');
+		const b = required(positions.get(to), 'lattice joint');
+		wires[group].push(...a.point, ...b.point);
+		offsets[group].push(...a.offset, ...b.offset);
 	}
-	return { geometry, wires };
+	return { geometry, jointTaper, wires, offsets };
 }
 
 function addNode(nodes: ReturnType<typeof mesh>, [x, y, z]: Vec3) {
