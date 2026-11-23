@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
-import { TerrainGrid } from '../terrain-grid';
+import { planEdgeId, TerrainGrid } from '../terrain-grid';
 import {
 	cityLatticesByPlan,
 	cityVolumeConfig,
@@ -62,7 +62,7 @@ test('address example: neighboring sloped antiprism bays share four child faces 
 		cells.find(({ id }) => id === 'c1,0/level/1'),
 		'east bay'
 	);
-	expect(a.sideFaces[1]).toBe('side/1,0|1,1/level/1');
+	expect(a.sideFaces[1]).toBe(`side/${planEdgeId('1,0', '1,1')}/level/1`);
 	expect(b.sideFaces[3]).toBe(a.sideFaces[1]);
 	const west = subdivideBay(a);
 	const east = subdivideBay(b);
@@ -357,7 +357,11 @@ test('a diagrid frustum shares its triangle with the next column’s foundation'
 	const lattice = createCityLattice(columns, datum, 'square', 'diagrid');
 	const { solids } = lattice;
 	expect(closedSolids(lattice)).toBe(true);
-	const shared = ['vertex/1,0/level/2', 'vertex/1,1/level/2', 'edge/1,0|1,1/level/3'].sort();
+	const shared = [
+		'vertex/1,0/level/2',
+		'vertex/1,1/level/2',
+		`edge/${planEdgeId('1,0', '1,1')}/level/3`
+	].sort();
 	for (const id of ['c0,0/level/2', 'c1,0/level/2']) {
 		const solid = required(
 			solids.find(({ bay }) => bay === id),
