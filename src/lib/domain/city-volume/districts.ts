@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
+import { measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { Random } from '../../core/random';
 import type { TerrainGrid } from '../terrain-grid';
@@ -21,25 +21,21 @@ type PlanCell = Readonly<{
 	area: number;
 	neighbors: readonly string[];
 }>;
+export type DistrictGrowth = Readonly<{
+	rank: (id: string) => number;
+	hasFutureNeighbor: (id: string) => boolean;
+}>;
+
 type Ranked = PlanCell & Readonly<{ rank: number; share: number }>;
 
 function planCells(plan: TerrainGrid): PlanCell[] {
 	const vertices = new Map(plan.vertices.map(({ id, position }) => [id, position]));
 	return plan.cells.map(({ id, vertexIds, neighbors }) => {
 		const points = vertexIds.map((key) => required(vertices.get(key), 'district corner'));
-		let area = 0;
-		let cx = 0;
-		let cy = 0;
-		for (const [i, [ax, ay]] of points.entries()) {
-			const [bx, by] = points[(i + 1) % points.length];
-			const cross = ax * by - bx * ay;
-			area += cross / 2;
-			cx += ((ax + bx) * cross) / 6;
-			cy += ((ay + by) * cross) / 6;
-		}
+		const { area, centroid } = measurePolygon(points);
 		return {
 			id,
-			centroid: [cx / area, cy / area] as const,
+			centroid: required(centroid, 'district centroid'),
 			area,
 			neighbors: neighbors.filter((neighbor) => neighbor !== null)
 		};
@@ -47,10 +43,10 @@ function planCells(plan: TerrainGrid): PlanCell[] {
 }
 
 /** Orders cells from the core outward and records the area share up to each cell's middle. */
-function rankCells(cells: readonly PlanCell[], rank: (point: Vec2) => number): Ranked[] {
+function rankCells(cells: readonly PlanCell[], rank: (cell: PlanCell) => number): Ranked[] {
 	const total = cells.reduce((sum, { area }) => sum + area, 0);
 	const ordered = cells
-		.map((cell) => ({ cell, rank: rank(cell.centroid) }))
+		.map((cell) => ({ cell, rank: rank(cell) }))
 		.sort((a, b) => a.rank - b.rank || (a.cell.id < b.cell.id ? -1 : 1));
 	let cumulative = 0;
 	return ordered.map(({ cell, rank }) => {
@@ -92,12 +88,17 @@ function supportPeaks(
 
 /** Lowers every column to at most one level step above its lowest neighbor's reach, which
  * bounds each neighbor jump. Columns only ever move down, so the pass terminates. */
-function limitSteps(levels: Map<string, number>, cells: readonly PlanCell[]) {
+function limitSteps(
+	levels: Map<string, number>,
+	cells: readonly PlanCell[],
+	growth: DistrictGrowth | undefined
+) {
 	let changed = true;
 	while (changed) {
 		changed = false;
 		for (const { id, neighbors } of cells) {
 			const reach = Math.min(
+				growth?.hasFutureNeighbor(id) ? districtLevels.detached : Infinity,
 				...neighbors.map((neighbor) => required(levels.get(neighbor), 'step neighbor'))
 			);
 			const cap = reach + maximumLevelStep;
@@ -178,17 +179,21 @@ export function seedDistricts(
 	core: CityCore,
 	seed: number,
 	complexity: number,
-	capLevels: number
+	capLevels: number,
+	growth?: DistrictGrowth
 ): DistrictPlan {
 	const random = Random.create({ seed }).derive('city-districts');
 	const cells = planCells(plan);
 	const areaKm2 = cells.reduce((sum, { area }) => sum + area, 0) / 1e6;
-	const ranked = rankCells(cells, districtRank(core, random.derive('rank'), complexity));
+	const fallback = districtRank(core, random.derive('rank'), complexity);
+	const ranked = rankCells(cells, ({ id, centroid }) =>
+		growth ? growth.rank(id) : fallback(centroid)
+	);
 	const kinds = assignKinds(ranked, areaKm2);
 	const peak = Math.min(peakLevels(areaKm2), capLevels);
 	const levels = assignLevels(ranked, kinds, areaKm2, peak, random.derive('towers'), complexity);
 	supportPeaks(levels, cells, kinds);
-	limitSteps(levels, cells);
+	limitSteps(levels, cells, growth);
 	const ids = districtIds(ranked, kinds);
 	const assignment = new Map(
 		cells.map(({ id }) => [

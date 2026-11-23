@@ -12,6 +12,7 @@ export type PrinciplePage =
 /** Routes a principle may point to as its live demo. */
 type DemoRoute =
 	| '/'
+	| '/city'
 	| '/formen'
 	| '/raster'
 	| '/wachstum'
@@ -152,6 +153,16 @@ const city: DesignPrinciple[] = [
 		reason:
 			'A village with towers reads false at first glance. The center is a district of real area with podium, middle heights and few peaks; neighboring columns differ by at most six storeys, so the height profile reads as a hill, not a chimney.',
 		decided: '2026-11-23'
+	},
+	{
+		id: 'CITY-13',
+		page: 'city',
+		title: 'Lobed growth on dry ground',
+		rule: 'City growth follows accessible dry ground into lobes, bays and occasional satellites, with development typically reaching both riverbanks.',
+		reason:
+			'A crossing and a few corridors give each seed a different outline. The same order puts denser districts in accessible cells and lets settlements add area without losing settled ground.',
+		decided: '2026-11-23',
+		demo: { route: '/city', label: 'Grow a city across the valley' }
 	}
 ];
 

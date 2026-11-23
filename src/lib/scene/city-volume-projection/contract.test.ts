@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { levelHeight } from '../../domain/city-volume';
 import { example } from './example';
-import { cityProfile, projectCityLattice } from './index';
+import { cityProfile, projectCityDistricts, projectCityLattice } from './index';
 
 test('projects three shaded district kinds with flat caps and exposed steps only', () => {
 	const { envelope, columns, datumZ, districts } = example();
@@ -12,7 +12,7 @@ test('projects three shaded district kinds with flat caps and exposed steps only
 		['block', '--blueprint-2'],
 		['center', '--blueprint-3']
 	]);
-	expect(focus.max[2]).toBe(datumZ + districts.peakHeight);
+	expect(focus?.max[2]).toBe(datumZ + districts.peakHeight);
 	const byId = new Map(columns.map((column) => [column.planCellId, column]));
 	for (const { id, shape, opacity, strokeSegments } of drawables) {
 		expect(opacity).toBeUndefined();
@@ -64,10 +64,18 @@ test('keeps true scale at quarter distance and resolves to the stepped envelope 
 	const elevation = Math.PI / 8;
 	const peak = 91;
 	const near = cityProfile(500, 0.5, peak, elevation, false);
-	const far = cityProfile(5000, 5.5, peak, elevation, false);
+	const far = cityProfile(5000, 3.88, peak, elevation, false);
 	const displayPeak = far.pivotAboveDatum + (peak - far.pivotAboveDatum) * far.factor;
 	expect(near).toMatchObject({ factor: 1, detail: 1, uprights: 1, rims: 1, envelope: 0 });
 	expect(far).toMatchObject({ detail: 0, uprights: 0, rims: 0, envelope: 1 });
 	expect(displayPeak * Math.cos(elevation)).toBeCloseTo(500);
-	expect(cityProfile(5000, 5.5, peak, elevation, true)).toEqual({ ...far, factor: 1 });
+	expect(cityProfile(5000, 3.88, peak, elevation, true)).toEqual({ ...far, factor: 1 });
+});
+
+test('omits an empty district envelope and leaves the stage free to fit the terrain', () => {
+	const { frame, datumZ } = example();
+	const envelope = projectCityDistricts([], datumZ, frame);
+	expect(envelope.drawables).toEqual([]);
+	expect(envelope.focus).toBeUndefined();
+	expect([...envelope.points()]).toEqual([]);
 });

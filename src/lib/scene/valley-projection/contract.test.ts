@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
+import { TerrainGrid } from '../../domain/terrain-grid';
 import { Valley } from '../../domain/valley';
-import { projectValley, valleyTriangleBudget } from './index';
+import { projectValley, projectValleyWindow, valleyTriangleBudget } from './index';
 
 test('frames the regional reach as a cut block within the triangle budget', () => {
 	const valley = Valley.create({ seed: 1201 });
@@ -27,4 +28,20 @@ test('applies one scale to bed, water and cut sides, keeping XY fixed', () => {
 		}
 	}
 	expect(() => projectValley(valley, 0)).toThrow(RangeError);
+});
+
+test('returns the terrain draping adapter and renders terrain for an empty plan', () => {
+	const valley = Valley.create({ seed: 1201 });
+	const window = { origin: [0, 0], bearing: 0, length: 600, width: 400 } as const;
+	const terrain = projectValleyWindow(valley, window, 1);
+	const grid = TerrainGrid.create({
+		seed: 1201,
+		site: window,
+		variant: 'square',
+		heightAt: () => 0,
+		parameters: { cellSize: 60 }
+	});
+	expect(terrain.projectPlan(grid).drawables).toHaveLength(1);
+	expect(terrain.projectPlan(TerrainGrid.select(grid, [])).drawables).toEqual([]);
+	expect(terrain.drawables.length).toBeGreaterThan(0);
 });

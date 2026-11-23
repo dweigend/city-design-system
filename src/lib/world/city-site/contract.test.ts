@@ -14,37 +14,43 @@ import {
 	citySiteParams,
 	cityWindow,
 	createCitySite,
+	readCityBank,
 	readCityDistricts,
 	readCityGrid
 } from './index';
 import { example } from './example';
 
-test('places a seeded city on the upper terrace and grows it without moving cells', () => {
+test('grows on both banks without moving cells or the common datum', () => {
 	const city = createCitySite();
 	const { default: size } = citySiteParams.citySize;
 	const initial = example();
 	const larger = readCityGrid(city, size + 800);
 	const cells = new Map(larger.grid.cells.map((cell) => [cell.id, cell]));
 	expect(city.valley.seed).toBe(1201);
-	expect(city.datumZ).toBe(19);
+	expect(initial.datumZ).toBe(larger.datumZ);
 	expect(initial.medianCellSize).toBeGreaterThan(50);
 	expect(initial.medianCellSize).toBeLessThan(70);
 	expect(initial).toEqual(readCityGrid(city, size));
 	expect(readCityGrid(city, size, 'organic', 7).grid).not.toEqual(initial.grid);
-	expect(cityWindow(city, size + 800).length).toBeGreaterThan(cityWindow(city, size).length);
+	expect(cityWindow(city, larger.grid).length).toBeGreaterThan(
+		cityWindow(city, initial.grid).length
+	);
 	for (const { id, vertexIds, neighbors } of initial.grid.cells) {
 		expect(cells.get(id)?.vertexIds).toEqual(vertexIds);
 		neighbors.forEach((neighbor, i) => {
 			if (neighbor !== null) expect(cells.get(id)?.neighbors[i]).toBe(neighbor);
 		});
 	}
+	const banks = new Set<number>();
 	for (const { position } of initial.grid.vertices) {
 		const [x, y, z] = position;
 		const { height, bank } = city.valley.sampleGround(x, y);
 		expect(z).toBe(height);
 		expect(bank).toBeGreaterThan(0);
-		expect(Math.abs(z - city.datumZ)).toBeLessThan(levelHeight / 2);
+		expect(z).toBeLessThan(initial.datumZ + levelHeight);
+		banks.add(readCityBank(city, [x, y]));
 	}
+	expect(banks).toEqual(new Set([-1, 1]));
 });
 
 test('reads a village, a town and a city from the outline length', () => {
@@ -63,7 +69,7 @@ test('reads a village, a town and a city from the outline length', () => {
 		expect([...present].sort()).toEqual([...kinds]);
 	}
 	const largest = readCityGrid(city, citySiteParams.citySize.max, 'square');
-	expect(largest.areaKm2).toBeGreaterThan(7.5);
+	expect(largest.areaKm2).toBeGreaterThan(9);
 	expect(readCityDistricts(city, largest.grid).peakHeight).toBe(140);
 });
 
@@ -87,8 +93,20 @@ function assertTiled(grid: TerrainGrid) {
 			expect(b.from).not.toBe(a.from);
 		}
 	}
-	// A connected planar tiling has Euler characteristic 1 exactly when it has no internal holes.
-	expect(grid.vertices.length - sides.size + grid.cells.length).toBe(1);
+	const unseen = new Set(grid.cells.map(({ id }) => id));
+	const byId = new Map(grid.cells.map((cell) => [cell.id, cell]));
+	let parts = 0;
+	for (const start of unseen) {
+		const queue = [start];
+		unseen.delete(start);
+		parts++;
+		for (const id of queue) {
+			for (const neighbor of required(byId.get(id), 'city cell').neighbors) {
+				if (neighbor !== null && unseen.delete(neighbor)) queue.push(neighbor);
+			}
+		}
+	}
+	expect(grid.vertices.length - sides.size + grid.cells.length).toBe(parts);
 }
 
 function assertDistricts(columns: readonly CityColumn[]) {
@@ -162,7 +180,7 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 
 const city = createCitySite();
 for (const plan of cityPlanVariants) {
-	const town = readCityGrid(city, 2600, plan).grid;
+	const { grid: town, datumZ } = readCityGrid(city, 1800, plan);
 	const columns = readCityColumns(
 		town,
 		readCityDistricts(city, town, undefined, { complexity: 1 })
@@ -175,8 +193,60 @@ for (const plan of cityPlanVariants) {
 
 	test(`${plan} shares every side up to the lower column in all lattices`, () => {
 		for (const frame of cityLatticesByPlan[plan]) {
-			const lattice = createCityLattice(columns, city.datumZ, plan, frame);
-			assertCarrier(columns, lattice, city.datumZ);
+			const lattice = createCityLattice(columns, datumZ, plan, frame);
+			assertCarrier(columns, lattice, datumZ);
 		}
 	});
 }
+
+test('keeps every level and district through asymmetric growth above the center share cap', () => {
+	const seed = 2718;
+	const start = readCityGrid(city, 6800, 'organic', seed);
+	const grown = readCityGrid(city, 7000, 'organic', seed);
+	const before = readCityColumns(start.grid, readCityDistricts(city, start.grid, seed));
+	const after = readCityColumns(grown.grid, readCityDistricts(city, grown.grid, seed));
+	const byId = new Map(after.map((column) => [column.planCellId, column]));
+	const rank = { detached: 0, block: 1, center: 2 };
+	expect(start.areaKm2).toBeGreaterThan(8);
+	expect(after).toHaveLength(grown.grid.cells.length);
+	expect(after.length).toBeGreaterThan(before.length);
+	const mean = (columns: readonly CityColumn[], axis: 0 | 1) =>
+		columns.reduce((sum, { corners }) => sum + corners[0].position[axis], 0) / columns.length;
+	const added = after.slice(before.length);
+	expect(
+		Math.hypot(mean(added, 0) - mean(before, 0), mean(added, 1) - mean(before, 1))
+	).toBeGreaterThan(20);
+	for (const old of before) {
+		const next = required(byId.get(old.planCellId), 'grown column');
+		expect(next.corners).toEqual(old.corners);
+		expect(rank[next.kind]).toBeGreaterThanOrEqual(rank[old.kind]);
+		expect(next.levels).toBeGreaterThanOrEqual(old.levels);
+	}
+});
+
+test('reads elevated dry ground, explicit water and an empty buildable area from a terrain sampler', () => {
+	const [ox, oy] = city.origin;
+	const sample = (x: number, y: number) => {
+		const distance = Math.abs(x - ox);
+		return {
+			height: 240 + 0.01 * (y - oy),
+			dry: !(distance > 120 && distance < 190),
+			waterClearance: Infinity
+		};
+	};
+	const alternate = createCitySite(sample);
+	const plan = readCityGrid(alternate, 1800, 'square');
+	expect(plan.areaKm2).toBeGreaterThan(1);
+	expect(plan.grid.vertices.every(({ position: [x, y, z] }) => z > 180 && sample(x, y).dry)).toBe(
+		true
+	);
+	const constrained = createCitySite(() => ({
+		height: 240,
+		dry: false,
+		waterClearance: 0
+	}));
+	const empty = readCityGrid(constrained, 1800, 'square');
+	expect(empty.grid.cells).toEqual([]);
+	expect(empty.areaKm2).toBe(0);
+	expect(cityWindow(constrained, empty.grid).width).toBeGreaterThan(0);
+});

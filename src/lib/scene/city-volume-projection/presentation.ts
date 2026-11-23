@@ -36,9 +36,10 @@ export function cityPresentation({
 				...part,
 				...(heat ? heightRamp(part.levels * levelHeight, levelHeight, peak) : {}),
 				fillAlpha: open ? 0.035 + 0.965 * detail.envelope : 1,
-				vertical: { ...vertical, pinFillBelow: true },
+				vertical,
 				stroke: part.stroke && {
 					...part.stroke,
+					...(heat ? { color: '--height-line' as const } : {}),
 					opacity: open ? 0.15 + 0.5 * detail.envelope : 0.62
 				}
 			})),
@@ -55,7 +56,7 @@ export function cityPresentation({
 					fillAlpha: detail.detail,
 					stroke: part.stroke && {
 						...part.stroke,
-						opacity: (part.id === 'detail' ? 0.3 : 0.73) * fade,
+						opacity: (part.id === 'detail' ? 0.35 : 0.78) * fade,
 						width: 0.55 + 0.55 * fade
 					}
 				};

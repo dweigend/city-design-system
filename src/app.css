@@ -27,6 +27,7 @@
 	--blueprint: oklch(0.46 0.16 268);
 	--height-low: #c2e9f3;
 	--height-high: #803413;
+	--height-line: #352c29;
 	--ground-stone: oklch(0.76 0.025 240);
 	--ground-plinth: color-mix(in oklch, var(--ground-stone) 29%, var(--paper-3));
 	--ground-sand: oklch(0.85 0.045 85);
@@ -126,6 +127,7 @@
 	--blueprint: oklch(0.545 0.16 268);
 	--height-low: #d4f3fb;
 	--height-high: #ac4b22;
+	--height-line: #eadbd1;
 	--body-living: oklch(0.74 0.1 268);
 	--cat-hazard: oklch(0.52 0.17 8);
 	--step-1: calc(l + (0.25 - l) * 1) calc(c * 0.3) h;
@@ -231,6 +233,7 @@
 	.frame > :is(img, canvas) { inline-size: 100%; block-size: 100%; object-fit: contain; }
 	.frame > canvas { display: block; min-inline-size: 0; min-block-size: 0; }
 	.stage-interactive { touch-action: none; cursor: grab; }
+	.stage-interactive:focus-visible { outline-offset: calc(-1 * var(--stroke)); }
 	.stage-interactive:active { cursor: grabbing; }
 	.frame > [role='status'] { margin: var(--space-4); }
 	.panel {
@@ -360,6 +363,8 @@
 	.control-icon { flex: none; }
 	.control-icon-button { inline-size: var(--control-size); padding: 0; }
 	.control-with-icon { justify-content: space-between; }
+	.control-choice { display: grid; gap: var(--space-1); }
+	.control-segments-label { color: var(--ink-2); }
 	.control-segments { display: inline-flex; max-inline-size: 100%; }
 	.control-segments > .control { min-inline-size: 44px; }
 	.control-segments > .control + .control { margin-inline-start: calc(-1 * var(--hair)); }

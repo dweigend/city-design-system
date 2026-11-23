@@ -4,13 +4,15 @@
 	interface Props {
 		/** Name the whole choice, for example "View mode". */
 		label: string;
+		/** Show the group label alongside its accessible name. */
+		showLabel?: boolean;
 		/** Supply segments in order, such as [{ value: 'all', label: 'All items' }]. */
 		items: readonly { value: string; label: string; disabled?: boolean }[];
 		/** Bind the selected segment ID, for example bind:value={mode}. */
 		value: string;
 	}
 
-	let { label, items, value = $bindable() }: Props = $props();
+	let { label, showLabel = false, items, value = $bindable() }: Props = $props();
 
 	function select(next: string) {
 		if (next !== '') value = next;
@@ -23,6 +25,10 @@
 		if (focused instanceof HTMLElement && focused.dataset.value) select(focused.dataset.value);
 	}
 </script>
+
+{#if showLabel}
+	<span class="label control-segments-label" aria-hidden="true">{label}</span>
+{/if}
 
 <Primitive.Root
 	class="control-segments"

@@ -1,4 +1,5 @@
 // Topology and cell quality of one city plan grid.
+import { measurePolygon } from '../src/lib/core/geometry';
 import { required } from '../src/lib/core/invariant';
 import type { TerrainGrid } from '../src/lib/domain/terrain-grid';
 import { coarseCellSize } from '../src/lib/world/city-site';
@@ -18,12 +19,7 @@ export function polygon(grid: TerrainGrid) {
 }
 
 export function area(points: readonly Point[]) {
-	return (
-		points.reduce((sum, [ax, ay], i) => {
-			const [bx, by] = points[(i + 1) % points.length];
-			return sum + ax * by - bx * ay;
-		}, 0) / 2
-	);
+	return measurePolygon(points).area;
 }
 
 function cellShape(points: readonly Point[]) {
@@ -47,8 +43,70 @@ function cellShape(points: readonly Point[]) {
 	return { minAngle, reflex, shortest, diameter };
 }
 
+function countParts(grid: TerrainGrid) {
+	const unseen = new Map(grid.cells.map((cell) => [cell.id, cell]));
+	let parts = 0;
+	for (const start of unseen.values()) {
+		parts++;
+		unseen.delete(start.id);
+		const queue = [start];
+		for (const { neighbors } of queue) {
+			for (const id of neighbors) {
+				const cell = id === null ? undefined : unseen.get(id);
+				if (!cell) continue;
+				unseen.delete(cell.id);
+				queue.push(cell);
+			}
+		}
+	}
+	return parts;
+}
+
+function convexHalf(points: readonly Point[]) {
+	const half: Point[] = [];
+	for (const point of points) {
+		while (half.length >= 2) {
+			const [ax, ay] = half[half.length - 2];
+			const [bx, by] = half[half.length - 1];
+			if ((bx - ax) * (point[1] - ay) - (by - ay) * (point[0] - ax) > 0) break;
+			half.pop();
+		}
+		half.push(point);
+	}
+	half.pop();
+	return half;
+}
+
+function shapeMeasures(
+	grid: TerrainGrid,
+	areas: readonly number[],
+	bank: (point: Point) => number
+) {
+	const shape = polygon(grid);
+	const points = grid.vertices
+		.map(({ position: [x, y] }) => [x, y] as const)
+		.sort(([ax, ay], [bx, by]) => ax - bx || ay - by);
+	const hull = [...convexHalf(points), ...convexHalf(points.reverse())];
+	const total = areas.reduce((sum, value) => sum + value, 0);
+	let negative = 0;
+	for (const [i, { vertexIds }] of grid.cells.entries()) {
+		const center = shape(vertexIds).reduce<Point>(
+			([x, y], [a, b]) => [x + a / vertexIds.length, y + b / vertexIds.length],
+			[0, 0]
+		);
+		if (bank(center) < 0) negative += areas[i];
+	}
+	const bankNegativeShare = negative / total;
+	return {
+		bankNegativeShare,
+		bankPositiveShare: 1 - bankNegativeShare,
+		minorBankShare: Math.min(bankNegativeShare, 1 - bankNegativeShare),
+		compactness: total / area(hull)
+	};
+}
+
 /** Topology and cell quality of one plan grid. */
-export function planMetrics(grid: TerrainGrid) {
+export function planMetrics(grid: TerrainGrid, bank: (point: Point) => number = () => 1) {
 	const shape = polygon(grid);
 	const edgeUse = new Map<string, number>();
 	for (const { vertexIds } of grid.cells) {
@@ -61,7 +119,10 @@ export function planMetrics(grid: TerrainGrid) {
 	const uses = [...edgeUse.values()];
 	const interior = uses.filter((n) => n === 2).length;
 	const nonManifold = uses.filter((n) => n > 2).length;
-	const holes = 1 - (grid.vertices.length - edgeUse.size + grid.cells.length);
+	const parts = countParts(grid);
+	// Complement components enclosed by the footprint equal C - (V - E + F).
+	// An open river or a gap between satellites connects to the exterior.
+	const holes = parts - (grid.vertices.length - edgeUse.size + grid.cells.length);
 	const positions = new Map<string, number>();
 	for (const { position } of grid.vertices) {
 		const k = key(position.slice(0, 2));
@@ -99,6 +160,8 @@ export function planMetrics(grid: TerrainGrid) {
 		interiorEdgeShare: interior / Math.max(1, interior + nonManifold),
 		nonManifold,
 		holes,
+		parts,
+		...shapeMeasures(grid, areas, bank),
 		hanging: hangingVertices(grid),
 		duplicateVertices,
 		tiny,

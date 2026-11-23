@@ -38,7 +38,7 @@ export function latticeMesh(lattice: CityLattice, toLocal: (x: number, y: number
 
 function addNode(nodes: ReturnType<typeof mesh>, [x, y, z]: Vec3) {
 	const index = nodes.positions.length / 3;
-	const radius = 0.68;
+	const radius = 0.92;
 	nodes.positions.push(x + radius, y, z, x, y + radius, z, x - radius, y, z, x, y - radius, z);
 	nodes.positions.push(x, y, z + radius, x, y, z - radius);
 	for (let i = 0; i < 4; i++) {

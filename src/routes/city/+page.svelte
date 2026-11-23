@@ -5,7 +5,6 @@
 
 <script lang="ts">
 	import { page } from '$app/state';
-	import { required } from '../../lib/core/invariant';
 	import { resolveParams } from '../../lib/core/params';
 	import { Random } from '../../lib/core/random';
 	import {
@@ -14,6 +13,7 @@
 		cityVolumeParams,
 		createCityLattice,
 		levelHeight,
+		storeysPerLevel,
 		readCityColumns,
 		type CityPlanVariant,
 		type DistrictKind,
@@ -26,9 +26,8 @@
 		projectCityDistricts,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
-	import type { Display, View, Viewport } from '../../lib/scene/stage';
+	import { projectFocus, type Display, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
-	import { terrainGridProjection } from '../../lib/scene/terrain-grid-projection';
 	import { projectValleyWindow } from '../../lib/scene/valley-projection';
 	import { Button } from '../../lib/ui/button';
 	import { ScaleLegend } from '../../lib/ui/scale-legend';
@@ -141,24 +140,25 @@
 	let height = $derived(volumeInputs.height);
 	let complexity = $derived(volumeInputs.complexity);
 
-	const terrain = $derived(prepareTerrain(citySize));
 	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
+	const terrain = $derived(
+		projectValleyWindow(city.valley, cityWindow(city, plan.grid), city.heightScale)
+	);
 	const lines = $derived(terrain.projectPlan(plan.grid));
 	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
-	const envelope = $derived(projectCityDistricts(columns, city.datumZ, terrain, true));
-	const lattice = $derived(createCityLattice(columns, city.datumZ, gridVariant, latticeVariant));
+	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, true));
+	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain));
-	const elevation = (17 * Math.PI) / 180;
-	const volumeFit = $derived({
-		bearing: (-24 * Math.PI) / 180,
-		elevation,
-		fill: 0.89,
-		focus: envelope.focus,
+	const elevation = (24 * Math.PI) / 180;
+	const camera = { bearing: (-24 * Math.PI) / 180, elevation, fill: 0.92 };
+	const subject = $derived(projectFocus(view, camera, envelope.points()));
+	const cityFit = $derived({
+		...camera,
+		subject,
 		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
 		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
 	});
-	const planFit = $derived({ ...volumeFit, elevation: (28 * Math.PI) / 180 });
 	const relief = $derived(step === '01' ? lines.drawables : lines.traces);
 	const ground = $derived([...terrain.drawables, ...relief]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
@@ -181,7 +181,7 @@
 					terrain: ground,
 					envelope: tiles,
 					members: wires,
-					datum: city.datumZ,
+					datum: plan.datumZ,
 					peak: districts.peakHeight,
 					elevation,
 					open: step === '03',
@@ -196,7 +196,7 @@
 
 	const measurements = $derived([
 		{
-			label: settlementLabels[districts.settlement],
+			label: columns.length ? settlementLabels[districts.settlement] : 'Built-up area',
 			value: format.format(plan.areaKm2),
 			unit: 'km²'
 		},
@@ -218,7 +218,7 @@
 
 	function districtMeasurements(cells: typeof columns) {
 		const storeys: Record<DistrictKind, number[]> = { detached: [], block: [], center: [] };
-		for (const { kind, levels } of cells) storeys[kind].push(levels * 2);
+		for (const { kind, levels } of cells) storeys[kind].push(levels * storeysPerLevel);
 		return (Object.keys(storeys) as DistrictKind[])
 			.filter((kind) => storeys[kind].length)
 			.map((kind) => {
@@ -232,22 +232,6 @@
 
 	function drawSeed() {
 		seed = Math.floor(Random.create({ seed }).derive('new-city').number() * 2 ** 32);
-	}
-
-	function prepareTerrain(length: number) {
-		const terrain = projectValleyWindow(city.valley, cityWindow(city, length), city.heightScale);
-		const ground = required(
-			terrain.object.parts.find(({ slot }) => slot === 'ground'),
-			'valley ground'
-		).shape;
-		if (ground.kind !== 'mesh') throw new Error('Expected a valley ground mesh');
-		const { footprint } = terrain.object;
-		return {
-			footprint,
-			toLocal: terrain.toLocal,
-			drawables: terrain.drawables,
-			projectPlan: terrainGridProjection(ground, terrain.toLocal, footprint)
-		};
 	}
 </script>
 
@@ -272,7 +256,7 @@
 			interactive
 			{presentation}
 			onViewport={setViewport}
-			fit={step === '01' ? planFit : volumeFit}
+			fit={cityFit}
 		/>
 		<div class="cluster">
 			<ToggleGroup
@@ -290,8 +274,12 @@
 		</div>
 		{#if step !== '01'}
 			<div class="cluster">
-				<ToggleGroup label="Profile" items={profiles} bind:value={profile} />
-				<ToggleGroup label="Colour" items={colours} bind:value={colour} />
+				<div class="control-choice">
+					<ToggleGroup label="Profile" showLabel items={profiles} bind:value={profile} />
+				</div>
+				<div class="control-choice">
+					<ToggleGroup label="Colour" showLabel items={colours} bind:value={colour} />
+				</div>
 			</div>
 			{#if colour === 'height'}
 				<ScaleLegend
@@ -344,7 +332,8 @@
 				<div class="stack">
 					{#if active === '01'}
 						<p>
-							The plan grid covers the upper terrace in 60 m cells, within one storey of the datum.
+							The 60 m plan cells follow dry ground and grow outward along the most accessible
+							corridors.
 						</p>
 					{:else if active === '02'}
 						<p>

@@ -1,5 +1,7 @@
+import { required } from '../../core/invariant';
 import { PlaceableObject } from '../../core/object';
 import type { Valley } from '../../domain/valley';
+import { terrainGridProjection } from '../terrain-grid-projection';
 import { landscape, resolveSurfaces } from '../surface';
 import { reachFrame, windowFrame, type ReachFrame, type ValleyWindow } from './frame';
 import { terrainField } from './raster';
@@ -22,7 +24,7 @@ export function projectValley(valley: Valley, heightScale = 14) {
 
 /** Projects a metric window of the same valley, with local X along its bearing and Z
  * exaggerated by the supplied positive height scale. Returns world XY to local XY
- * conversion for overlays, alongside the detached terrain drawables and triangle count. */
+ * conversion for overlays, a plan draping adapter, the detached drawables and triangle count. */
 export function projectValleyWindow(valley: Valley, window: ValleyWindow, heightScale: number) {
 	if (
 		![...window.origin, window.bearing, window.length, window.width].every(Number.isFinite) ||
@@ -31,9 +33,17 @@ export function projectValleyWindow(valley: Valley, window: ValleyWindow, height
 	)
 		throw new RangeError('Expected a finite valley window with positive extents');
 	const frame = windowFrame(valley, window);
+	const result = project(valley, frame, window.width, heightScale);
+	const ground = required(
+		result.object.parts.find(({ slot }) => slot === 'ground'),
+		'valley ground'
+	).shape;
+	if (ground.kind !== 'mesh') throw new Error('Expected a valley ground mesh');
 	return Object.freeze({
-		...project(valley, frame, window.width, heightScale),
-		toLocal: frame.toLocal
+		...result,
+		footprint: result.object.footprint,
+		toLocal: frame.toLocal,
+		projectPlan: terrainGridProjection(ground, frame.toLocal, result.object.footprint)
 	});
 }
 

@@ -26,9 +26,8 @@ export type TerrainField = Readonly<{
 }>;
 
 /** One part’s id, geometry and surface. Height scale recovers true contour elevations.
- * Explicit strokes are packed XYZ endpoint pairs in local meters. Vertical scales around
- * the given pivot. Pinning leaves fill vertices below that pivot grounded, with strokes
- * expected to lie at or above it. */
+ * Explicit strokes are packed XYZ endpoint pairs in local meters. Vertical scale affects fill and explicit
+ * stroke positions strictly above the given pivot. */
 export type Drawable = Surface &
 	Readonly<{
 		id: string;
@@ -41,7 +40,7 @@ export type Drawable = Surface &
 		fillVisible?: boolean;
 		fillAlpha?: number;
 		colorMix?: Readonly<{ token: `--${string}`; amount: number }>;
-		vertical?: Readonly<{ scale: number; pivot: number; pinFillBelow?: boolean }>;
+		vertical?: Readonly<{ scale: number; pivot: number }>;
 		preserveColor?: boolean;
 	}>;
 

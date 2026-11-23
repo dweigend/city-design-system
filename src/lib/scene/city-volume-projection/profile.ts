@@ -2,12 +2,14 @@ import { levelHeight } from '../../domain/city-volume';
 
 const profileLaw = {
 	peakFrameShare: 0.1,
+	townFrameShare: 0.024,
+	peakTransition: [3 * levelHeight, 6 * levelHeight],
 	// Detail transitions are in true meters per CSS pixel.
-	detail: [0.65, 2.7],
-	uprights: [1.2, 4.3],
-	rims: [1.9, 5.15],
-	height: [0.65, 3.15],
-	envelope: [0.85, 4.55]
+	detail: [0.7, 3.2],
+	uprights: [1.55, 3.65],
+	rims: [2.2, 3.85],
+	height: [0.7, 3.15],
+	envelope: [1.25, 3.85]
 } as const;
 
 function fade(value: number, [start, end]: readonly [number, number]) {
@@ -16,7 +18,7 @@ function fade(value: number, [start, end]: readonly [number, number]) {
 }
 
 /** Smooth detail weights and vertical scale for a fitted city. At a broad view the projected
- * peak is one tenth of the frame width. The terrain and foundations stay fixed below the pivot. */
+ * city peak is one tenth of the frame width, with a gentler target for towns. The terrain and foundations stay fixed below the pivot. */
 export function cityProfile(
 	width: number,
 	metersPerPixel: number,
@@ -24,14 +26,20 @@ export function cityProfile(
 	elevation: number,
 	trueScale: boolean
 ) {
-	const pivotAboveDatum = levelHeight / 2;
+	const pivotAboveDatum = levelHeight;
+	const target =
+		profileLaw.townFrameShare +
+		(profileLaw.peakFrameShare - profileLaw.townFrameShare) * fade(peak, profileLaw.peakTransition);
 	const fullScale = Math.max(
 		1,
-		((width * profileLaw.peakFrameShare) / Math.cos(elevation) - pivotAboveDatum) /
-			Math.max(2.5 * levelHeight, peak - pivotAboveDatum)
+		((width * target) / Math.cos(elevation) - pivotAboveDatum) /
+			Math.max(2 * levelHeight, peak - pivotAboveDatum)
 	);
 	return {
-		factor: trueScale ? 1 : 1 + (fullScale - 1) * fade(metersPerPixel, profileLaw.height),
+		factor:
+			trueScale || peak <= pivotAboveDatum
+				? 1
+				: 1 + (fullScale - 1) * fade(metersPerPixel, profileLaw.height),
 		detail: 1 - fade(metersPerPixel, profileLaw.detail),
 		uprights: 1 - fade(metersPerPixel, profileLaw.uprights),
 		rims: 1 - fade(metersPerPixel, profileLaw.rims),

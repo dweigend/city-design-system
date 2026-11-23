@@ -17,6 +17,7 @@ export type { HeightGrid, RiverCourse };
 export type ValleyOptions = Readonly<{
 	seed: number;
 	parameters?: Readonly<{ sinuosity?: number }>;
+	wetWidth?: number;
 }>;
 
 /** Position on the lower terrace in meters, with downstream bearing in radians. */
@@ -53,16 +54,28 @@ export type Valley = Readonly<{
  * sinuosity (default 1.15). The input clamps to [1.04, 1.28] and snaps to 0.01. At a fixed
  * parameter, the paired curvature draw adds −0.011 to +0.027 to the full-wave ratio.
  * Sinuosity means channel length divided by endpoint chord over a full wavelength.
+ * An optional narrower wet width in meters keeps the same bankfull course.
  * Keyed course, bank and ground streams produce repeatable results. Invalid seeds or
  * parameter overrides throw. The independent measurement protocol lives in world/valley-protocol.
  */
-function create({ seed, parameters }: ValleyOptions): Valley {
+function create({ seed, parameters, wetWidth }: ValleyOptions): Valley {
 	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32) throw new RangeError('invalid-seed');
 	const { sinuosity } = resolveParams(valleyParams, parameters);
 	const settings = Object.freeze({ sinuosity: Number(sinuosity.toFixed(2)) });
 	const root = Random.create({ seed });
 	const openSide = root.derive('open-bank').number() < 0.5 ? 1 : -1;
-	const course = generateCourse(root.derive('course'), settings.sinuosity, openSide, -Math.PI / 2);
+	const generated = generateCourse(
+		root.derive('course'),
+		settings.sinuosity,
+		openSide,
+		-Math.PI / 2
+	);
+	if (
+		wetWidth !== undefined &&
+		(!Number.isFinite(wetWidth) || wetWidth < 20 || wetWidth > generated.wetWidth)
+	)
+		throw new RangeError('Wet width must fit inside the generated bankfull channel');
+	const course = wetWidth === undefined ? generated : Object.freeze({ ...generated, wetWidth });
 	const axis = createValleyAxis(root.derive('ground'), course, openSide);
 	const sample = groundSampler(course, axis, root.derive('regional'));
 	const grid = heightGrid(sample, axis);

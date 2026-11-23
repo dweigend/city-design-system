@@ -13,6 +13,7 @@ import {
 import {
 	citySiteParams,
 	createCitySite,
+	readCityBank,
 	readCityDistricts,
 	readCityGrid
 } from '../src/lib/world/city-site';
@@ -26,13 +27,15 @@ const out = resolve(import.meta.dir, '../_lokal/r10-study');
 mkdirSync(out, { recursive: true });
 
 /** Nominal outline lengths in meters of the three size classes. */
-const sizes = { village: 1200, town: 2600, city: 6000 } as const;
+const sizes = { village: 1200, openingTown: 1800, town: 2600, city: 6000, largest: 7000 } as const;
 const seeds = [1201, 7, 42, 314, 2718, 9001, 65535, 424242];
 const complexities = { low: 0.1, high: 0.9 } as const;
 const expectedKinds: Record<keyof typeof sizes, string> = {
 	village: 'detached',
+	openingTown: 'block,detached',
 	town: 'block,detached',
-	city: 'block,center,detached'
+	city: 'block,center,detached',
+	largest: 'block,center,detached'
 };
 const growthStep = citySiteParams.citySize.step;
 const city = createCitySite();
@@ -49,10 +52,10 @@ const started = performance.now();
 for (const plan of cityPlanVariants) {
 	for (const [sizeClass, size] of Object.entries(sizes) as [keyof typeof sizes, number][]) {
 		for (const seed of seeds) {
-			const [{ grid, areaKm2 }, gridMs] = time(() => readCityGrid(city, size, plan, seed));
+			const [{ grid, areaKm2, datumZ }, gridMs] = time(() => readCityGrid(city, size, plan, seed));
 			const gridStable = hash(readCityGrid(city, size, plan, seed).grid) === hash(grid);
 			const grown = readCityGrid(city, size + growthStep, plan, seed).grid;
-			const planned = planMetrics(grid);
+			const planned = planMetrics(grid, (point) => readCityBank(city, point));
 			for (const [complexityName, complexity] of Object.entries(complexities)) {
 				const settings = { complexity };
 				const [districts, districtMs] = time(() => readCityDistricts(city, grid, seed, settings));
@@ -64,11 +67,8 @@ for (const plan of cityPlanVariants) {
 				);
 				const district = districtMetrics(grid, columns);
 				for (const lattice of cityLatticesByPlan[plan]) {
-					const [frame, latticeMs] = time(() =>
-						createCityLattice(columns, city.datumZ, plan, lattice)
-					);
-					const frameStable =
-						hash(createCityLattice(again, city.datumZ, plan, lattice)) === hash(frame);
+					const [frame, latticeMs] = time(() => createCityLattice(columns, datumZ, plan, lattice));
+					const frameStable = hash(createCityLattice(again, datumZ, plan, lattice)) === hash(frame);
 					const row: Row = {
 						plan,
 						lattice,
@@ -107,7 +107,7 @@ function failures(row: Row, sizeClass: keyof typeof sizes) {
 		['duplicate-vertex', row.duplicateVertices === 0],
 		['duplicate-joint', row.duplicateNodes === 0],
 		['face-mismatch', row.faceMatch === 1],
-		['split-lattice', row.latticeComponents === 1],
+		['split-lattice', row.latticeComponents === row.parts],
 		['hole', row.holes === 0],
 		['degenerate', (row.degenerateShare as number) <= 0.01],
 		['concave', row.concave === 0],
@@ -135,3 +135,4 @@ writeFileSync(
 	].join('\n') + '\n'
 );
 summarize(rows, out, sizes);
+if (rows.some(({ pass }) => !pass)) process.exitCode = 1;

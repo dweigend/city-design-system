@@ -1,3 +1,4 @@
+import { measurePolygon } from './index';
 import { expect, test } from 'bun:test';
 import {
 	bounds,
@@ -45,4 +46,16 @@ test('measures the envelope in XY and height along Z', () => {
 	expect(singleton?.max).not.toBe(point);
 	expect(size({ min: [-2, -4, 1], max: [3, 3, 6] })).toEqual([5, 7, 5]);
 	expect(bounds([])).toBeUndefined();
+});
+
+test('measures a five-meter square at the world coordinate limit', () => {
+	for (const offset of [0, 999_999_900]) {
+		const square = [
+			[offset, offset],
+			[offset + 5, offset],
+			[offset + 5, offset + 5],
+			[offset, offset + 5]
+		] as const;
+		expect(measurePolygon(square)).toEqual({ area: 25, centroid: [offset + 2.5, offset + 2.5] });
+	}
 });

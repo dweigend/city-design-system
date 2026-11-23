@@ -1,5 +1,8 @@
-/** One coarse level covers two 3.5 m storeys. Upper level planes are 7 m apart. */
-export const levelHeight = 7;
+/** Number of storeys on one coarse lattice level. */
+export const storeysPerLevel = 2;
+
+/** Meters between common upper level planes. */
+export const levelHeight = 3.5 * storeysPerLevel;
 
 export type SettlementKind = 'village' | 'town' | 'city';
 

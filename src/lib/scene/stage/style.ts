@@ -64,11 +64,9 @@ export function createStyle(
 			const vertical = drawable.vertical;
 			const scale = vertical?.scale ?? 1;
 			const origin = vertical?.pivot ?? 0;
-			stretch.value = vertical?.pinFillBelow ? scale - 1 : 0;
+			stretch.value = scale - 1;
 			pivot.value = origin;
 			mesh.frustumCulled = !vertical;
-			mesh.scale.z = vertical?.pinFillBelow ? 1 : scale;
-			mesh.position.z = vertical?.pinFillBelow ? 0 : origin * (1 - scale);
 			if (material.transparent !== transparent || material.polygonOffset !== polygonOffset)
 				material.needsUpdate = true;
 			Object.assign(material, { opacity, transparent, polygonOffset, depthWrite: !transparent });
@@ -91,8 +89,10 @@ export function createStyle(
 					line.material.linewidth = stroke?.width ?? 1;
 					line.material.opacity = stroke?.opacity ?? 1;
 				}
-				line.scale.z = scale;
-				line.position.z = origin * (1 - scale);
+				if (line.stretch) {
+					line.stretch.stretch.value = stretch.value;
+					line.stretch.pivot.value = origin;
+				}
 				line.frustumCulled = !vertical;
 				line.visible = visible && line.geometry.instanceCount > 0 && line.material.opacity > 0;
 			}

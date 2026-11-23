@@ -9,6 +9,7 @@ import {
 	maximumLevelStep,
 	readCityColumns,
 	settlementThresholds,
+	storeysPerLevel,
 	type CityColumn
 } from './index';
 import { example } from './example';
@@ -126,4 +127,49 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/1')?.position).toEqual([14, 0, 17]);
 	expect(centered.nodes.find(({ id }) => id.endsWith('/center'))?.position).toEqual([7, 7, 9.25]);
 	expect(() => createCityLattice(columns, -4, 'square')).toThrow(RangeError);
+});
+
+test('rejects malformed columns before allocating bays', () => {
+	const column: CityColumn = {
+		planCellId: 'cell',
+		districtId: 'center/0',
+		kind: 'center',
+		levels: 1,
+		corners: [
+			{ id: 'a', position: [0, 0, 0] },
+			{ id: 'b', position: [60, 0, 0] },
+			{ id: 'c', position: [0, 60, 0] }
+		],
+		neighbors: [null, null, null]
+	};
+	for (const levels of [Infinity, NaN, 1.5, 0, -1, 21])
+		expect(() => createCityLattice([{ ...column, levels }], 0, 'triangle')).toThrow(RangeError);
+	for (let i = 0; i < 3; i++) {
+		const position: [number, number, number] = [0, 0, 0];
+		position[i] = i === 1 ? NaN : Infinity;
+		const corners = [{ id: 'a', position }, ...column.corners.slice(1)];
+		expect(() => createCityLattice([{ ...column, corners }], 0, 'triangle')).toThrow(RangeError);
+	}
+	expect(createCityLattice([{ ...column, levels: 20 }], 0, 'triangle').cells.length).toBe(20);
+	expect(storeysPerLevel).toBe(2);
+});
+
+test('preserves built area when a plan is translated and defines the empty profile', () => {
+	for (const offset of [0, 999_999_900]) {
+		const origin = [offset, offset] as const;
+		const plan = TerrainGrid.create({
+			seed: 1201,
+			site: { origin, bearing: 0, length: 10, width: 10 },
+			variant: 'square',
+			parameters: { cellSize: 5 },
+			heightAt: () => 0
+		});
+		expect(plan.cells.length).toBeGreaterThan(0);
+		const oneCell = TerrainGrid.select(plan, [plan.cells[0].id]);
+		expect(createCityDistricts(oneCell, { ...core, origin }, 1201).areaKm2).toBe(25 / 1e6);
+		const empty = createCityDistricts(TerrainGrid.select(plan, []), { ...core, origin }, 1201);
+		expect(empty.areaKm2).toBe(0);
+		expect(empty.peakHeight).toBe(0);
+		expect(empty.shares).toEqual({ detached: 0, block: 0, center: 0 });
+	}
 });

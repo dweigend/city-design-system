@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
+import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { bounds, PlaceableObject, type Footprint } from '../../core/object';
 import type { CityColumn, CityLattice } from '../../domain/city-volume';
@@ -15,7 +15,7 @@ export { cityPresentation } from './presentation';
 const slots = ['detached', 'block', 'center'] as const;
 
 /** Projects the city's outer roof and exposed steps, with one surface per district kind.
- * The envelope follows the common level planes in true world meters. */
+ * An empty plan returns no drawables or focus. The envelope follows the common level planes in true world meters. */
 export function projectCityDistricts(
 	columns: readonly CityColumn[],
 	datumZ: number,
@@ -39,7 +39,15 @@ export function projectCityDistricts(
 		levels: required(patches.get(part.id), 'envelope patch').levels,
 		strokeSegments: [...required(patches.get(part.id), 'envelope patch').wires.values()].flat()
 	}));
-	return { object, drawables, focus: bounds(object) };
+	function* points(): IterableIterator<Vec3> {
+		for (const { shape } of object.parts) {
+			if (shape.kind !== 'mesh') continue;
+			const { positions } = shape;
+			for (let i = 0; i < positions.length; i += 3)
+				yield [positions[i], positions[i + 1], positions[i + 2]];
+		}
+	}
+	return { object, drawables, focus: object.parts.length ? bounds(object) : undefined, points };
 }
 
 /** Projects only the lattice's members and joints into the local terrain frame. */

@@ -1,9 +1,9 @@
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
 import type { PlanVariant, TerrainGrid } from '../terrain-grid';
-import { seedDistricts, type DistrictCell } from './districts';
+import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
 import type { CityCore } from './rank';
-import { levelHeight } from './settlement';
+import { levelHeight, peakLaw } from './settlement';
 import {
 	createFrame,
 	latticeVariants,
@@ -12,6 +12,11 @@ import {
 	type LatticeVariant
 } from './frame';
 
+/** Ranks dry ground by distance, corridors, grade and water clearance. */
+export { cityAccessibility } from './accessibility';
+/** Produces a nested city footprint from the accessibility of plan cells. */
+export { cityGrowth } from './footprint';
+
 /** Level height, settlement thresholds, fixed district levels, neighbor step limit and the
  * peak law, with their units and reasons. */
 export {
@@ -19,7 +24,8 @@ export {
 	levelHeight,
 	maximumLevelStep,
 	peakLaw,
-	settlementThresholds
+	settlementThresholds,
+	storeysPerLevel
 } from './settlement';
 
 /** Village, town or city, decided by built-up area. */
@@ -66,22 +72,23 @@ export type CityColumn = Column & DistrictCell;
 /** Derives the city height profile of one plan from its built-up area, a uint32 seed and the
  * core frame. A village below 1 km² holds detached houses only, a town adds six-storey
  * blocks, a city from 3 km² adds a high-rise center whose peak grows with the area. Cells are
- * ranked outward from the core by a seeded, extent-independent rank and filled by area share,
- * so a larger crop only converts cells upward. Center columns fall from the peak to the block
+ * ranked outward from the core and filled by area share. A supplied fixed growth order and
+ * its future fringe keep earlier cells from moving down. Center columns fall from the peak to the block
  * podium, and no column stands more than three levels above a neighbor. peakHeight is the
  * realized peak above the datum in meters. */
 export function createCityDistricts(
 	plan: TerrainGrid,
 	core: CityCore,
 	seed: number,
-	parameters?: Readonly<{ height?: number; complexity?: number }>
+	parameters?: Readonly<{ height?: number; complexity?: number }>,
+	growth?: DistrictGrowth
 ) {
 	const { height, complexity } = resolveParams(cityVolumeParams, parameters);
-	const profile = seedDistricts(plan, core, seed, complexity, height / levelHeight);
+	const profile = seedDistricts(plan, core, seed, complexity, height / levelHeight, growth);
 	return Object.freeze({
 		settlement: profile.settlement,
 		areaKm2: profile.areaKm2,
-		/** Plan area share of each district kind, summing to 1. */
+		/** Area share of each kind, summing to 1 for a settled plan. An empty plan has all-zero shares. */
 		shares: profile.shares,
 		peakHeight: profile.peakLevels * levelHeight,
 		/** Reads the frozen district assignment of a plan cell. Unknown cells throw. */
@@ -123,12 +130,16 @@ export function createCityLattice(
 ): CityLattice {
 	if (!Object.hasOwn(cityLatticesByPlan, plan) || !cityLatticesByPlan[plan].includes(variant))
 		throw new RangeError('Incompatible plan and lattice');
-	if (
-		!Number.isFinite(datumZ) ||
-		columns.some(({ corners }) =>
-			corners.some(({ position }) => position[2] >= datumZ + levelHeight)
-		)
-	)
-		throw new RangeError('The first city level plane must clear the terrain');
+	if (!Number.isFinite(datumZ)) throw new RangeError('Expected a finite city datum');
+	for (const { levels, corners } of columns) {
+		if (!Number.isInteger(levels) || levels < 1 || levels > peakLaw.fullLevels)
+			throw new RangeError(`City columns require 1–${peakLaw.fullLevels} whole levels`);
+		for (const { position } of corners) {
+			if (position.length !== 3 || !position.every(Number.isFinite))
+				throw new RangeError('City corners require three finite coordinates');
+			if (position[2] >= datumZ + levelHeight)
+				throw new RangeError('The first city level plane must clear the terrain');
+		}
+	}
 	return createFrame(columns, datumZ, levelHeight, variant);
 }

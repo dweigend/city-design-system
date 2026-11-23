@@ -265,3 +265,18 @@ for (const variant of planVariants) {
 		for (const { id, position } of small.vertices) expect(vertices.get(id)).toEqual(position);
 	});
 }
+
+test('can limit grade across whole cells while still rejecting narrow wet cuts', () => {
+	const site = { origin: [0, 0], bearing: 0, length: 240, width: 120 } as const;
+	const options = { seed: 3, site, variant: 'square', parameters: { cellSize: 60 } } as const;
+	const terrace = (x: number) => (x < 22 ? 0 : 8);
+	const sampleGrade = TerrainGrid.create({ ...options, heightAt: terrace });
+	const cellGrade = TerrainGrid.create({ ...options, heightAt: terrace, maximumCellGrade: 0.2 });
+	const wet = TerrainGrid.create({
+		...options,
+		heightAt: (x) => (x > 21 && x < 25 ? undefined : terrace(x)),
+		maximumCellGrade: 0.2
+	});
+	expect(cellGrade.cells.length).toBeGreaterThan(sampleGrade.cells.length);
+	expect(wet.cells.length).toBe(sampleGrade.cells.length);
+});

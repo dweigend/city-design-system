@@ -78,3 +78,28 @@ export function bounds(points: readonly Vec3[]): Bounds3 | undefined {
 export function size({ min, max }: Bounds3): Vec3 {
 	return displacement(min, max);
 }
+
+/** Signed plan area in m² and area centroid in world meters, measured relative to the first
+ * vertex. Z is ignored. Empty rings have no centroid; zero-area rings use the first vertex. */
+export function measurePolygon(points: readonly (Vec2 | Vec3)[]) {
+	if (!points.length) return { area: 0, centroid: undefined };
+	const [ox, oy] = points[0];
+	let twiceArea = 0;
+	let xMoment = 0;
+	let yMoment = 0;
+	for (const [i, [x, y]] of points.entries()) {
+		const [nextX, nextY] = points[(i + 1) % points.length];
+		const ax = x - ox;
+		const ay = y - oy;
+		const bx = nextX - ox;
+		const by = nextY - oy;
+		const cross = ax * by - bx * ay;
+		twiceArea += cross;
+		xMoment += (ax + bx) * cross;
+		yMoment += (ay + by) * cross;
+	}
+	const centroid: Vec2 = twiceArea
+		? [ox + xMoment / (3 * twiceArea), oy + yMoment / (3 * twiceArea)]
+		: [ox, oy];
+	return { area: twiceArea / 2, centroid };
+}

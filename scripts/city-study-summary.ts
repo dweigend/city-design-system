@@ -64,5 +64,21 @@ export function summarize(rows: Row[], out: string, sizes: Record<string, number
 		};
 	});
 	console.table(bySize);
+	console.table(
+		['parts', 'bankNegativeShare', 'bankPositiveShare', 'minorBankShare', 'compactness'].map(
+			(measure) => {
+				const values = rows.map((row) => Number(row[measure])).sort((a, b) => a - b);
+				return {
+					measure,
+					min: values[0].toFixed(3),
+					median: (
+						(values[Math.floor((values.length - 1) / 2)] + values[Math.floor(values.length / 2)]) /
+						2
+					).toFixed(3),
+					max: values[values.length - 1].toFixed(3)
+				};
+			}
+		)
+	);
 	console.log(`results: ${resolve(out, 'results.json')}`);
 }

@@ -97,9 +97,19 @@ export type TerrainGridOptions = Readonly<{
 	variant?: PlanVariant;
 	heightAt: (x: number, y: number) => number | undefined;
 	parameters?: Readonly<{ cellSize?: number }>;
+	/** Optional ground elevation for fitting the reference frame when its datum is unavailable
+	 * for building. The datum and its 10 m probes still require finite heights. */
+	referenceHeightAt?: (x: number, y: number) => number;
+	/** Optional grade limit over whole cell chords. Water and unavailable ground are still
+	 * sampled every meter. Omit to enforce the default grade at each sampling interval. */
+	maximumCellGrade?: number;
 }>;
 
-function samples(heightAt: TerrainGridOptions['heightAt']) {
+function samples(
+	heightAt: TerrainGridOptions['heightAt'],
+	maximumCellGrade: number | undefined,
+	referenceHeightAt: TerrainGridOptions['referenceHeightAt']
+) {
 	const heights = new Map<string, number | undefined>();
 	const edges = new Map<string, boolean>();
 	const height = (node: Node) => {
@@ -115,15 +125,19 @@ function samples(heightAt: TerrainGridOptions['heightAt']) {
 
 	function validSegment(a: Node, b: Node) {
 		let previous = height(a);
-		if (previous === undefined) return false;
+		const end = height(b);
+		if (previous === undefined || end === undefined) return false;
 		const length = distance(a.xy, b.xy);
+		if (maximumCellGrade !== undefined && Math.abs(end - previous) > maximumCellGrade * length)
+			return false;
 		const steps = Math.ceil(length / quality.maximumSampleStep);
-		const maxRise = (quality.maximumGrade * length) / steps;
+		const maxRise =
+			maximumCellGrade === undefined ? (quality.maximumGrade * length) / steps : Infinity;
 		for (let index = 1; index <= steps; index++) {
 			const t = index / steps;
 			const z =
 				index === steps
-					? height(b)
+					? end
 					: read(a.xy[0] + t * (b.xy[0] - a.xy[0]), a.xy[1] + t * (b.xy[1] - a.xy[1]));
 			if (z === undefined || Math.abs(z - previous) > maxRise) return false;
 			previous = z;
@@ -134,8 +148,9 @@ function samples(heightAt: TerrainGridOptions['heightAt']) {
 	return {
 		height,
 		datumHeight: ((x, y) => {
-			const z = read(x, y);
-			if (z === undefined) throw new RangeError('Terrain grid datum has no ground');
+			const z = referenceHeightAt ? referenceHeightAt(x, y) : read(x, y);
+			if (z === undefined || !Number.isFinite(z))
+				throw new RangeError('Terrain grid datum has no finite ground');
 			return z;
 		}) satisfies HeightAt,
 		validEdge(a: Node, b: Node) {
@@ -193,14 +208,17 @@ function topology(
 /** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
  * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
  * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
- * sampled at up to 1 m spacing reject unavailable ground or grades over 20%. Organic and
+ * sampled at up to 1 m spacing reject unavailable ground. Grade defaults to 20% at each
+ * interval, with an optional limit over complete chords instead. Organic and
  * free quads also enforce the published angle and edge-ratio limits. Invalid inputs throw. */
 function create({
 	site,
 	seed,
 	heightAt,
 	parameters,
-	variant = 'organic'
+	variant = 'organic',
+	maximumCellGrade,
+	referenceHeightAt
 }: TerrainGridOptions): TerrainGrid {
 	if (!Object.hasOwn(carriers, variant)) throw new RangeError('Unknown plan grid variant');
 	const { generate, checkQuality, defaultSize = 15 } = carriers[variant];
@@ -211,7 +229,12 @@ function create({
 	const { cellSize } = resolveParams(terrainGridParams, {
 		cellSize: parameters?.cellSize ?? defaultSize
 	});
-	const ground = samples(heightAt);
+	if (
+		maximumCellGrade !== undefined &&
+		(!Number.isFinite(maximumCellGrade) || maximumCellGrade < 0)
+	)
+		throw new RangeError('Expected a nonnegative finite cell grade limit');
+	const ground = samples(heightAt, maximumCellGrade, referenceHeightAt);
 	ground.datumHeight(...site.origin);
 	const bearing = contourBearing(site, ground.datumHeight);
 	const includes = insideOutline(outline);
@@ -230,5 +253,31 @@ function create({
 	return topology(accepted, ground.height);
 }
 
-/** Factory for an immutable terrain grid. */
-export const TerrainGrid = Object.freeze({ create });
+/** Takes plan cells in the requested order, rebuilding neighbor and boundary references. */
+function select(grid: TerrainGrid, ids: readonly string[]): TerrainGrid {
+	const byId = new Map(grid.cells.map((cell) => [cell.id, cell]));
+	const selected = new Set(ids);
+	const vertices = new Set<string>();
+	const boundary: (readonly [string, string])[] = [];
+	const cells = ids.map((id) => {
+		const cell = required(byId.get(id), 'selected plan cell');
+		const neighbors = cell.neighbors.map((neighbor, index) => {
+			const from = cell.vertexIds[index];
+			vertices.add(from);
+			if (neighbor !== null && selected.has(neighbor)) return neighbor;
+			boundary.push(
+				Object.freeze([from, cell.vertexIds[(index + 1) % cell.vertexIds.length]] as const)
+			);
+			return null;
+		});
+		return Object.freeze({ ...cell, neighbors: Object.freeze(neighbors) });
+	});
+	return Object.freeze({
+		cells: Object.freeze(cells),
+		vertices: Object.freeze(grid.vertices.filter(({ id }) => vertices.has(id))),
+		boundary: Object.freeze(boundary)
+	});
+}
+
+/** Factory and selection of immutable terrain grids. */
+export const TerrainGrid = Object.freeze({ create, select });

@@ -7,6 +7,7 @@ import { shapeArrays } from './geometry';
 import { boundaryGeometry, edgeGeometry, explicitStroke, type strokeMaterials } from './edges';
 import { projectGround } from './ground';
 import { fillMaterial } from './material';
+import { stretchStroke } from './stretch';
 import type { drawingPalette } from './tone';
 
 export function hasSameGeometry(
@@ -62,7 +63,7 @@ function project(
 	// Draw explicit strokes after translucent faces.
 	const layerOrder = drawable.strokeSegments ? 4 : 0;
 	const lines = strokesToDraw.map(({ geometry, material }, index) =>
-		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index)
+		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index, !!layerOrder)
 	);
 	const fill = landscape ? indexed : indexed.toNonIndexed();
 	if (fill !== indexed) indexed.dispose();
@@ -80,12 +81,14 @@ function project(
 function projectStroke(
 	geometry: LineSegmentsGeometry,
 	material: ReturnType<typeof strokeMaterials>['grid'],
-	order: number
+	order: number,
+	explicit: boolean
 ) {
 	const line = new LineSegments2(geometry, material);
+
 	line.renderOrder = order;
 	line.visible = geometry.instanceCount > 0;
-	return line;
+	return Object.assign(line, { stretch: explicit ? stretchStroke(material) : undefined });
 }
 
 type Part = ReturnType<typeof project>;
@@ -155,10 +158,9 @@ export function createContent(
 			for (const { drawable, mesh } of parts) {
 				const bounds = mesh.geometry.boundingBox;
 				if (drawable.visible === false || !bounds || bounds.isEmpty()) continue;
-				const { scale, pivot, pinFillBelow } = drawable.vertical ?? { scale: 1, pivot: 0 };
+				const { scale, pivot } = drawable.vertical ?? { scale: 1, pivot: 0 };
 				const next = bounds.clone();
-				next.min.z +=
-					(pinFillBelow ? Math.max(0, next.min.z - pivot) : next.min.z - pivot) * (scale - 1);
+				next.min.z += Math.max(0, next.min.z - pivot) * (scale - 1);
 				next.max.z += Math.max(0, next.max.z - pivot) * (scale - 1);
 				visible.union(next);
 			}
