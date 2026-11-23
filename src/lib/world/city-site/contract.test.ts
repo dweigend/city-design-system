@@ -12,7 +12,7 @@ import {
 	type CityColumn,
 	type CityLattice
 } from '../../domain/city-volume';
-import { planEdgeGraph, type TerrainGrid } from '../../domain/terrain-grid';
+import { planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
 import {
 	citySiteParams,
 	cityWindow,
@@ -63,8 +63,9 @@ test('reads a village, a town and a city from the outline length', () => {
 		[6000, 'city', ['block', 'center', 'detached']]
 	] as const;
 	for (const [length, settlement, kinds] of classes) {
-		const { grid, areaKm2 } = readCityGrid(city, length, 'square');
-		const districts = readCityDistricts(city, grid);
+		const layout = readCityGrid(city, length, 'square');
+		const { grid, areaKm2 } = layout;
+		const districts = readCityDistricts(city, layout);
 		expect(districts.settlement).toBe(settlement);
 		expect(districts.areaKm2).toBeCloseTo(areaKm2, 9);
 		const present = new Set(readCityColumns(grid, districts).map(({ kind }) => kind));
@@ -72,7 +73,7 @@ test('reads a village, a town and a city from the outline length', () => {
 	}
 	const largest = readCityGrid(city, citySiteParams.citySize.max, 'square');
 	expect(largest.areaKm2).toBeGreaterThan(9);
-	expect(readCityDistricts(city, largest.grid).peakHeight).toBe(105);
+	expect(readCityDistricts(city, largest).peakHeight).toBe(105);
 }, 15_000);
 
 function assertTiled(grid: TerrainGrid) {
@@ -132,7 +133,6 @@ function assertDistricts(columns: readonly CityColumn[]) {
 		const queue = [first];
 		const reached = new Set([first.planCellId]);
 		for (const { kind, levels, neighbors } of queue) {
-			expect(kind).toBe(first.kind);
 			if (kind === 'block') expect(levels).toBe(3);
 			if (kind === 'detached') expect(levels).toBe(1);
 			for (const id of neighbors) {
@@ -144,7 +144,7 @@ function assertDistricts(columns: readonly CityColumn[]) {
 		}
 		expect(queue).toHaveLength(group.length);
 	}
-	return [...groups.values()].map(([column]) => column.kind).sort();
+	return columns.map(({ kind }) => kind);
 }
 
 function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, datumZ: number) {
@@ -176,7 +176,6 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 			for (const [side, faceId] of cell.sideFaces.entries()) {
 				const neighbor = bays.get(`${neighbors[side]}/level/${level}`);
 				if (neighbor) expect(neighbor.sideFaces).toContain(faceId);
-				if (faceId === null) continue;
 				const boundary = required(faces.get(faceId), 'carrier face').corners;
 				for (const [i, from] of boundary.entries()) {
 					const to = boundary[(i + 1) % boundary.length];
@@ -190,10 +189,11 @@ function assertCarrier(columns: readonly CityColumn[], lattice: CityLattice, dat
 const city = createCitySite();
 const mountainCity = createCitySite(undefined, { relief: 1, runoff: 1.5 });
 for (const plan of cityPlanVariants) {
-	const { grid: town, datumZ } = readCityGrid(mountainCity, 1800, plan);
+	const layout = readCityGrid(mountainCity, 1800, plan);
+	const { grid: town, datumZ } = layout;
 	const columns = readCityColumns(
 		town,
-		readCityDistricts(mountainCity, town, undefined, { complexity: 1 })
+		readCityDistricts(mountainCity, layout, undefined, { complexity: 1 })
 	);
 
 	test(`${plan} tiles a town without holes and keeps connected districts`, () => {
@@ -216,8 +216,8 @@ test('keeps every level and district through asymmetric growth above the center 
 	const seed = 2718;
 	const start = readCityGrid(city, 6800, 'organic', seed);
 	const grown = readCityGrid(city, 7000, 'organic', seed);
-	const before = readCityColumns(start.grid, readCityDistricts(city, start.grid, seed));
-	const after = readCityColumns(grown.grid, readCityDistricts(city, grown.grid, seed));
+	const before = readCityColumns(start.grid, readCityDistricts(city, start, seed));
+	const after = readCityColumns(grown.grid, readCityDistricts(city, grown, seed));
 	const byId = new Map(after.map((column) => [column.planCellId, column]));
 	const rank = { detached: 0, block: 1, center: 2 };
 	expect(start.areaKm2).toBeGreaterThan(8);
@@ -241,22 +241,25 @@ test('reads elevated dry ground, explicit water and an empty buildable area from
 	const [ox, oy] = city.origin;
 	const sample = (x: number, y: number) => {
 		const distance = Math.abs(x - ox);
-		return {
-			height: 240 + 0.01 * (y - oy),
-			dry: !(distance > 120 && distance < 190),
-			waterClearance: Infinity
-		};
+		const height = 240 + 0.01 * (y - oy);
+		const waterClearance = Math.max(120 - distance, distance - 190);
+		return waterClearance < 0
+			? { height, waterKind: 'water' as const, waterClearance, waterHeight: height + 1 }
+			: { height, waterKind: null, waterClearance };
 	};
 	const alternate = createCitySite(sample);
 	const plan = readCityGrid(alternate, 1800, 'square');
 	expect(plan.areaKm2).toBeGreaterThan(1);
-	expect(plan.grid.vertices.every(({ position: [x, y, z] }) => z > 180 && sample(x, y).dry)).toBe(
-		true
-	);
+	expect(
+		plan.grid.vertices.every(
+			({ position: [x, y, z] }) => z > 180 && sample(x, y).waterKind === null
+		)
+	).toBe(true);
 	const constrained = createCitySite(() => ({
 		height: 240,
-		dry: false,
-		waterClearance: 0
+		waterKind: 'water' as const,
+		waterHeight: 241,
+		waterClearance: -1
 	}));
 	const empty = readCityGrid(constrained, 1800, 'square');
 	expect(empty.grid.cells).toEqual([]);
@@ -266,14 +269,16 @@ test('reads elevated dry ground, explicit water and an empty buildable area from
 
 test('keeps an edge-connected grid over the channel on all seven plans', () => {
 	const bank = (x: number) => Math.abs(x) - 56;
-	const site = createCitySite((x, y) => ({
-		height: 10 + y * 0.002,
-		dry: bank(x) >= 0,
-		waterClearance: bank(x),
-		waterKind: bank(x) < 0 ? 'river' : null
-	}));
+	const site = createCitySite((x, y) => {
+		const height = 10 + y * 0.002;
+		const waterClearance = bank(x);
+		return waterClearance < 0
+			? { height, waterClearance, waterKind: 'river', waterHeight: height + 1 }
+			: { height, waterClearance, waterKind: null };
+	});
 	for (const variant of cityPlanVariants) {
-		const { grid, plan, crossings, datumZ } = readCityGrid(site, 1800, variant);
+		const layout = readCityGrid(site, 1800, variant);
+		const { grid, plan, crossings, datumZ } = layout;
 		const growth = readCityGrid(site, 2400, variant);
 		const next = new Set(growth.plan.cells.map(({ id }) => id));
 		const built = new Set(grid.cells.map(({ id }) => id));
@@ -314,8 +319,8 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 				growth.crossings.some(({ path: grown }) => grown.nodeIds.join() === path.nodeIds.join())
 			).toBe(true);
 		}
-		const districts = readCityDistricts(site, grid);
-		expect(() => readCityDistricts(site, plan)).toThrow('buildable grid');
+		const districts = readCityDistricts(site, layout);
+		expect(() => readCityDistricts(site, { ...layout, grid: plan })).toThrow('buildable grid');
 		expect(() => readCityColumns(plan, districts)).toThrow('buildable grid');
 		const columns = readCityColumns(grid, districts);
 		const lattice = createCityLattice(columns, datumZ, variant, 'box');
@@ -333,11 +338,12 @@ test('clamps the body-centered ground hub to its own sampled terrain contact', (
 		5 * (Math.sin((Math.PI * x) / 60) * Math.sin((Math.PI * y) / 60)) ** 2;
 	const site = createCitySite((x, y) => ({
 		height: 24 + bump(x, y),
-		dry: true,
+		waterKind: null,
 		waterClearance: Infinity
 	}));
-	const { grid, datumZ } = readCityGrid(site, 600, 'square');
-	const columns = readCityColumns(grid, readCityDistricts(site, grid));
+	const layout = readCityGrid(site, 600, 'square');
+	const { grid, datumZ } = layout;
+	const columns = readCityColumns(grid, readCityDistricts(site, layout));
 	const lattice = createCityLattice(columns, datumZ, 'square', 'centered');
 	const groundHubs = lattice.nodes.filter(({ id }) => id.endsWith('/ground-center'));
 	expect(groundHubs.length).toBeGreaterThan(0);
@@ -346,4 +352,35 @@ test('clamps the body-centered ground hub to its own sampled terrain contact', (
 	} of groundHubs) {
 		expect(z).toBeCloseTo(site.sampleGround(x, y).height, 9);
 	}
+});
+
+test('retains the growth rank and fringe when the plan is copied, serialized or reselected', () => {
+	const site = createCitySite(undefined, { seed: 1201, relief: 0.35, runoff: 1 });
+	const initial = readCityGrid(site, 1800);
+	const columns = (layout: typeof initial) =>
+		readCityColumns(layout.grid, readCityDistricts(site, layout));
+	const copied = structuredClone(initial);
+	const stored = JSON.parse(JSON.stringify(initial)) as typeof initial;
+	expect(initial.growth.futureFringe.length).toBeGreaterThan(0);
+	expect(columns(copied)).toEqual(columns(initial));
+	expect(columns(stored)).toEqual(columns(initial));
+	expect(
+		columns({ ...initial, grid: TerrainGrid.select(initial.grid, initial.growth.rankedCellIds) })
+	).toEqual(columns(initial));
+});
+
+test('keeps body-centered hubs above sampled ground on the seed 1201 organic town', () => {
+	const site = createCitySite(undefined, { seed: 1201, relief: 0.35, runoff: 1 });
+	const layout = readCityGrid(site, 1800);
+	const columns = readCityColumns(layout.grid, readCityDistricts(site, layout));
+	const lattice = createCityLattice(columns, layout.datumZ, 'organic', 'centered');
+	const hubs = lattice.nodes.filter(
+		({ id }) => id.endsWith('/center') || id.endsWith('/ground-center')
+	);
+	const nearby = hubs.filter(({ position: [x, y] }) => Math.hypot(x + 161.108, y + 65.789) < 0.01);
+	expect(nearby.length).toBeGreaterThan(0);
+	for (const {
+		position: [x, y, z]
+	} of nearby)
+		expect(z).toBeGreaterThanOrEqual(site.sampleGround(x, y).height);
 });

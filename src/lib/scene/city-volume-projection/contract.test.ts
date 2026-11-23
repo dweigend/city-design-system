@@ -75,7 +75,10 @@ test('projects one glyph per joint and one segment per unique member on common p
 test('omits the lattice drawable when there are no bays', () => {
 	const { frame } = example();
 	expect(
-		projectCityLattice({ cells: [], faces: [], nodes: [], edges: [], solids: [] }, frame).drawables
+		projectCityLattice(
+			{ cells: [], faces: [], bayCorners: [], nodes: [], edges: [], solids: [] },
+			frame
+		).drawables
 	).toEqual([]);
 });
 
@@ -117,3 +120,27 @@ test('uses the same sampled mountain ground in the lattice and terrain triangles
 	} of grid.vertices)
 		expect(points.has(key([...toLocal(x, y), z]))).toBe(true);
 }, 15_000);
+
+test('projects both the ground and water elevations from the alternate city sampler', () => {
+	const site = createCitySite((x) =>
+		x < 0
+			? { height: 240, waterKind: 'river', waterClearance: x, waterHeight: 245 }
+			: { height: 240, waterKind: null, waterClearance: x }
+	);
+	const { drawables } = projectCityTerrain(site, { vertices: [], cells: [], boundary: [] });
+	expect(site.valley).toBeNull();
+	for (const [id, z] of [
+		['ground', 240],
+		['river', 245]
+	] as const) {
+		const shape = required(
+			drawables.find((part) => part.id === id),
+			id
+		).shape;
+		if (shape.kind !== 'mesh') throw new Error('Expected a sampled mesh');
+		expect(shape.indices.length).toBeGreaterThan(0);
+		expect(shape.positions.filter((_, i) => i % 3 === 2).every((height) => height === z)).toBe(
+			true
+		);
+	}
+});

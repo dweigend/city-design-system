@@ -1,6 +1,8 @@
 import { required } from '../../core/invariant';
-import { columnPlanes, planeIndex } from './foundation';
-import { bayAddresses, type CityLattice, type Column } from './frame';
+import { bayAddresses } from './bay-addresses';
+import { columnPlanes } from './foundation';
+import { hasCollapsedDiagonal } from './foundation-prism';
+import type { CityLattice, Column } from './frame';
 import { readPlanTopology } from './plan-topology';
 import { addLayer, type Add, type SharedMedial } from './plane-cells';
 import {
@@ -20,7 +22,11 @@ export function createPlaneLattice(
 	datumZ: number,
 	rule: PlaneRule
 ): CityLattice {
-	const { cells, faces } = bayAddresses(columns, datumZ);
+	const triangulated = new Set<string>();
+	const addresses = bayAddresses(columns, datumZ, ({ id, bottom, top }, first) => {
+		if (first && hasCollapsedDiagonal(bottom, top))
+			triangulated.add(id.slice(0, id.lastIndexOf('/level/')));
+	});
 	const topology = readPlanTopology(columns);
 	const byColumn = new Map(
 		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])
@@ -52,8 +58,8 @@ export function createPlaneLattice(
 		loop.flatMap((a, i) => {
 			const b = loop[(i + 1) % loop.length];
 			if (!a.corner || !b.corner || a.id === b.id || a.position[2] !== b.position[2]) return [a];
-			const level = planeIndex(datumZ, a.position[2]);
-			if (!Number.isInteger(level) || level === 0) return [a];
+			const level = a.level;
+			if (level !== b.level || level === 0) return [a];
 			const key = topology.edgeKey(a.corner, b.corner);
 			const edge = topology.edges.get(key);
 			if (
@@ -84,23 +90,36 @@ export function createPlaneLattice(
 			}
 		}
 	};
-	const top = Math.max(0, ...[...byColumn.values()].map(({ roof }) => roof));
-	for (let level = 0; level < top; level++) {
-		const groups = new Map<string, { low: PlaneKind; high: PlaneKind; cells: Set<string> }>();
-		for (const id of topology.columns.keys()) {
-			if (!occupied(id, level)) continue;
+	const layers = new Map<
+		number,
+		Map<string, { low: PlaneKind; high: PlaneKind; cells: Set<string> }>
+	>();
+	for (const [id, { first, roof }] of byColumn) {
+		for (let level = first; level < roof; level++) {
+			let groups = layers.get(level);
+			if (!groups) layers.set(level, (groups = new Map()));
 			const [low, high] = pair(id, level);
 			const key = `${low}/${high}`;
-			const group = groups.get(key) ?? { low, high, cells: new Set<string>() };
+			let group = groups.get(key);
+			if (!group) groups.set(key, (group = { low, high, cells: new Set() }));
 			group.cells.add(id);
-			groups.set(key, group);
 		}
+	}
+	for (const level of [...layers.keys()].sort((a, b) => a - b)) {
+		const groups = required(layers.get(level), 'occupied layer');
 		for (const { low, high, cells } of groups.values())
-			addLayer(topology, joints, { level, low, high, cells }, add, carriesFoot, sharedMedial);
+			addLayer(
+				topology,
+				joints,
+				{ level, low, high, cells },
+				add,
+				carriesFoot,
+				sharedMedial,
+				triangulated
+			);
 	}
 	return Object.freeze({
-		cells,
-		faces,
+		...addresses,
 		nodes: Object.freeze([...used.values()]),
 		edges: Object.freeze([...edges.values()]),
 		solids: Object.freeze(solids)

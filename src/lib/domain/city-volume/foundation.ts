@@ -1,4 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
+import { cityVolumeConfig } from './config';
 import { levelHeight } from './settlement';
 
 type Corner = Readonly<{ id: string; position: Vec3 }>;
@@ -18,13 +19,25 @@ export function columnPlanes({ corners, levels }: GroundColumn, datumZ: number) 
 		position: [, , z]
 	} of corners) {
 		const index = planeIndex(datumZ, z);
+		if (!Number.isSafeInteger(Math.floor(index)) || Math.abs(z) > Number.MAX_SAFE_INTEGER)
+			throw new RangeError('City ground lies outside the safe plane range');
 		first = Math.min(first, Math.max(0, Math.floor(index)));
 		highest = Math.max(highest, index);
 	}
 	const base = Math.max(0, Math.ceil(highest));
 	// The cap is horizontal and has at least one occupied bay below it.
 	const foundation = Math.max(first + 1, base);
-	return { first, foundation, roof: base + levels };
+	const roof = base + levels;
+	if (
+		!Number.isSafeInteger(first) ||
+		!Number.isSafeInteger(roof) ||
+		roof <= first ||
+		roof - first > cityVolumeConfig.maximumOccupiedBands ||
+		Math.abs(datumZ) > Number.MAX_SAFE_INTEGER ||
+		Math.abs(planeElevation(datumZ, roof)) > Number.MAX_SAFE_INTEGER
+	)
+		throw new RangeError('City occupied plane span is unsupported');
+	return { first, foundation, roof };
 }
 
 /** Reads the horizontal roof elevation in world meters on the common 7 m plane grid. */
@@ -41,11 +54,11 @@ export function planeElevation(datumZ: number, level: number) {
 export function cornerAt({ id, position: [x, y, z] }: Corner, datumZ: number, level: number) {
 	const plane = planeElevation(datumZ, level);
 	const ground = level === 0 || plane <= z;
-	return {
+	return Object.freeze({
 		id: `vertex/${id}/level/${ground ? 0 : level}`,
-		position: [x, y, ground ? z : plane] as Vec3,
+		position: Object.freeze([x, y, ground ? z : plane] as Vec3),
 		level: ground ? 0 : level
-	};
+	});
 }
 
 /** Iterates the bay rings from the lowest ground contact to the roof on the common grid. */

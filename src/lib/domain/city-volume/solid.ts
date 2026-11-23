@@ -1,5 +1,7 @@
 import { crossProduct, displacement, dotProduct, type Vec3 } from '../../core/geometry';
 
+import { fanAnchor } from './foundation-prism';
+
 type Joint = Readonly<{ id: string; position: Vec3 }>;
 
 /** One closed volume cell of a lattice. Faces are loops of joint IDs wound outward. */
@@ -9,17 +11,13 @@ export type LatticeSolid = Readonly<{
 	faces: readonly (readonly string[])[];
 }>;
 
-function precedes([x, y, z]: Vec3, [a, b, c]: Vec3) {
-	return x < a || (x === a && (y < b || (y === b && z < c)));
-}
-
 /** Signed volume of consistently wound loops. A geometric fan anchor gives both sides of
  * a warped face the same triangulation, including both rings of a clamped prism. */
 function signedVolume(loops: readonly (readonly Vec3[])[]) {
 	const origin = loops[0][0];
 	let volume = 0;
 	for (const loop of loops) {
-		const start = loop.reduce((least, point, i) => (precedes(point, loop[least]) ? i : least), 0);
+		const start = fanAnchor(loop, (point) => point);
 		const a = displacement(origin, loop[start]);
 		for (let i = 1; i + 1 < loop.length; i++) {
 			const b = displacement(origin, loop[(start + i) % loop.length]);
@@ -65,4 +63,27 @@ export function closeSolid(id: string, bay: string, faces: readonly (readonly Jo
 /** Signed volume in m³ of a closed, outward-wound solid. */
 export function solidVolume(solid: LatticeSolid, position: (id: string) => Vec3) {
 	return signedVolume(solid.faces.map((face) => face.map(position)));
+}
+
+/** Counts solid edges incident to more than two faces and edges with inconsistent winding. */
+export function solidEdgeFaults(faces: LatticeSolid['faces']) {
+	const edges = new Map<string, { count: number; balance: number }>();
+	for (const face of faces) {
+		for (const [i, a] of face.entries()) {
+			const b = face[(i + 1) % face.length];
+			const forward = a < b;
+			const key = JSON.stringify(forward ? [a, b] : [b, a]);
+			let edge = edges.get(key);
+			if (!edge) edges.set(key, (edge = { count: 0, balance: 0 }));
+			edge.count++;
+			edge.balance += forward ? 1 : -1;
+		}
+	}
+	let nonManifold = 0;
+	let open = 0;
+	for (const { count, balance } of edges.values()) {
+		if (count > 2) nonManifold++;
+		else if (count !== 2 || balance !== 0) open++;
+	}
+	return { nonManifold, open };
 }

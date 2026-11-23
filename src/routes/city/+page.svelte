@@ -156,7 +156,7 @@
 	);
 	const maxProfileScale = $derived(terrain.autoHeightScale);
 	const lines = $derived(terrain.projectPlan(plan.grid));
-	const districts = $derived(readCityDistricts(city, plan.grid, seed, { height, complexity }));
+	const districts = $derived(readCityDistricts(city, plan, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
 	const taperField = $derived(createCityTaper(columns, plan.datumZ));
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));

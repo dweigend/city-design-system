@@ -14,6 +14,7 @@ import {
 } from '../src/lib/domain/city-volume';
 import {
 	citySiteParams,
+	citySiteConfig,
 	createCitySite,
 	readCitySide,
 	readCityDistricts,
@@ -34,13 +35,18 @@ const out = resolve(import.meta.dir, '../_lokal/r09b-river/city-study-morph');
 mkdirSync(out, { recursive: true });
 
 /** Nominal outline lengths in meters of the three size classes. */
-const sizes = { village: 1200, town: citySiteParams.citySize.default, largest: 7000 } as const;
+const sizes = {
+	village: 1200,
+	town: citySiteParams.citySize.default,
+	largest: citySiteParams.citySize.max
+} as const;
 const terrain = [
 	{ relief: 0, runoff: 1, seeds: [1201, 42] },
 	{ relief: 0.75, runoff: 1.5, seeds: [42] },
 	{ relief: 1, runoff: 0.5, seeds: [42] }
 ];
 const bracedPrisms = new Set<string>(prismVariants.filter((variant) => variant !== 'box'));
+const studyToleranceM = 0.001;
 const growthStep = citySiteParams.citySize.step;
 const settings = { complexity: 0.35 };
 const expectedKinds = {
@@ -67,36 +73,38 @@ for (const { relief, runoff, seeds } of terrain) {
 		const from = rows.length;
 		for (const seed of seeds) {
 			const city = required(sites.get(seed), 'study site');
+			const replay = createCitySite(undefined, { relief, runoff, seed });
 			for (const [sizeClass, size] of Object.entries(sizes)) {
 				const [layout, gridMs] = time(() => readCityGrid(city, size, plan, seed));
 				const { grid, areaKm2, datumZ, crossings } = layout;
+				const shore = shoreMetrics(layout, city.sampleGround);
 				shoreRows.push({
 					plan,
 					seed,
 					size,
 					relief,
 					runoff,
-					...shoreMetrics(layout, city.sampleGround)
+					...shore
 				});
-				const gridStable = hash(readCityGrid(city, size, plan, seed)) === hash(layout);
+				const gridStable = hash(readCityGrid(replay, size, plan, seed)) === hash(layout);
 				const earlier =
-					sizeClass === 'largest' ? readCityGrid(city, size - growthStep, plan, seed).grid : grid;
+					sizeClass === 'largest' ? readCityGrid(city, size - growthStep, plan, seed) : layout;
 				const grown =
-					sizeClass === 'largest' ? grid : readCityGrid(city, size + growthStep, plan, seed).grid;
+					sizeClass === 'largest' ? layout : readCityGrid(city, size + growthStep, plan, seed);
 				const planned = planMetrics(grid, (point) => readCitySide(city, point), layout);
-				const [districts, districtMs] = time(() => readCityDistricts(city, grid, seed, settings));
+				const [districts, districtMs] = time(() => readCityDistricts(city, layout, seed, settings));
 				const columns = readCityColumns(grid, districts);
-				const again =
-					sizeClass === 'largest'
-						? readCityColumns(grid, readCityDistricts(city, grid, seed, settings))
-						: columns;
+				const clone = JSON.parse(JSON.stringify(layout)) as typeof layout;
+				const again = readCityColumns(clone.grid, readCityDistricts(city, clone, seed, settings));
+				const cloneStable = hash(again) === hash(columns);
 				const growth = growthMetrics(
-					earlier === grid
+					earlier === layout
 						? columns
-						: readCityColumns(earlier, readCityDistricts(city, earlier, seed, settings)),
-					grown === grid
+						: readCityColumns(earlier.grid, readCityDistricts(city, earlier, seed, settings)),
+					grown === layout
 						? columns
-						: readCityColumns(grown, readCityDistricts(city, grown, seed, settings))
+						: readCityColumns(grown.grid, readCityDistricts(city, grown, seed, settings)),
+					grown.growth.rankedCellIds
 				);
 				const district = districtMetrics(grid, columns);
 				const ground = {
@@ -147,6 +155,16 @@ for (const { relief, runoff, seeds } of terrain) {
 						...solidMetrics(frame),
 						...growth,
 						deterministic: gridStable && frameStable,
+						cloneStable,
+						shoreCrossingsValid: spans.every(
+							(span) => span > 0 && span <= citySiteConfig.crossingMaxLengthM
+						),
+						shoreAlignmentValid:
+							plan !== 'organic' ||
+							seed !== 1201 ||
+							relief !== 0 ||
+							sizeClass !== 'town' ||
+							(shore.clipped > 0 && shore.alignedEdges > 0),
 						gridMs,
 						districtMs,
 						latticeMs
@@ -185,7 +203,11 @@ function failures(row: Row, kinds: string) {
 		['duplicate-vertex', row.duplicateVertices === 0],
 		['duplicate-joint', row.duplicateNodes === 0],
 		['face-mismatch', row.faceMatch === 1 && row.faceConflicts === 0],
-		['open-solid', row.openSolids === 0],
+		['open-solid', row.openSolids === 0 && row.nonManifoldSolidEdges === 0],
+		['bay-address', row.unresolvedBayAddresses === 0],
+		['clone', row.cloneStable === true],
+		['crossing-span', row.shoreCrossingsValid === true],
+		['shore-alignment', row.shoreAlignmentValid === true],
 		['folded-cap', row.foldedCaps === 0],
 		['bay-solid', row.orphanSolids === 0 && row.missingSolids === 0],
 		['solid-volume', Number(row.minVolume) > 0],
@@ -198,10 +220,15 @@ function failures(row: Row, kinds: string) {
 			'foundation',
 			row.missingFeet === 0 &&
 				(!row.renderedGroundChecked || row.missingRenderedFeet === 0) &&
-				Number(row.maxFoundationErrorM) <= 0.001 &&
-				Number(row.maxJointErrorM) <= 0.001
+				Number(row.maxFoundationErrorM) <= studyToleranceM &&
+				Number(row.maxJointErrorM) <= studyToleranceM
 		],
-		['ground-hub', Number(row.maxHubUndershootM ?? 0) <= 0.001 && Number(row.hubCount ?? 1) > 0],
+		[
+			'ground-hub',
+			Number(row.maxHubUndershootM ?? 0) <= studyToleranceM &&
+				Number(row.hubCount ?? 1) > 0 &&
+				Number(row.maxGroundHubErrorM ?? 0) <= studyToleranceM
+		],
 		['parts', Number(row.partsWithoutRiverSplit) <= 8],
 		['degenerate', (row.degenerateShare as number) <= 0.01],
 		['concave', row.concave === 0],
@@ -214,7 +241,8 @@ function failures(row: Row, kinds: string) {
 				row.growthLost === 0 &&
 				row.growthMoved === 0 &&
 				row.growthDemoted === 0 &&
-				row.growthLowered === 0
+				row.growthLowered === 0 &&
+				row.unexpectedDistrictChanges === 0
 		]
 	];
 	return checks.filter(([, ok]) => !ok).map(([name]) => name);

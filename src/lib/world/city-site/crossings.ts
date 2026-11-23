@@ -2,6 +2,7 @@ import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeGraph, type PlanEdgePath, type TerrainGrid } from '../../domain/terrain-grid';
 import type { CityTerrainSampler } from './sampling';
+import { citySiteConfig as config } from './config';
 
 /** A bank-to-bank edge path with the bank node and adjacent built cells at each head. */
 export type CityCrossing = Readonly<{
@@ -13,19 +14,15 @@ type CrossingHead = Readonly<{ nodeId: string; cellIds: readonly string[] }>;
 type Candidate = CityCrossing & { waterCellIds: readonly string[]; midpoint: Vec2; score: number };
 type HeadCell = { id: string; point: Vec2 };
 
-const maximumSpanM = 320;
-const crossingSpacingM = 105;
-const maximumHeadDepthM = 18;
-
 // The chord identifies the two banks. The edge graph supplies the route and its length.
 function crossesChannel(a: Vec2, b: Vec2, sample: CityTerrainSampler) {
-	const steps = Math.ceil(distance(a, b) / 5);
+	const steps = Math.ceil(distance(a, b) / config.crossingProbeStepM);
 	let wet = false;
 	let ended = false;
 	for (let i = 1; i < steps; i++) {
 		const t = i / steps;
 		const ground = sample(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]));
-		if (ground.dry) {
+		if (ground.waterKind === null) {
 			ended ||= wet;
 			continue;
 		}
@@ -103,13 +100,19 @@ export function channelCrossings(
 		plan,
 		built,
 		new Set(
-			[...edgeNodes].filter((id) => sample(...graph.point(id)).waterClearance >= -maximumHeadDepthM)
+			[...edgeNodes].filter(
+				(id) => sample(...graph.point(id)).waterClearance >= -config.crossingMaxHeadDepthM
+			)
 		)
 	);
 	const proposals: Candidate[] = [];
 	for (const [start, first] of heads) {
 		const a = graph.point(start);
-		for (const path of graph.pathsFrom(start, (id) => start < id && heads.has(id), maximumSpanM)) {
+		for (const path of graph.pathsFrom(
+			start,
+			(id) => start < id && heads.has(id),
+			config.crossingMaxLengthM
+		)) {
 			const end = required(path.nodeIds.at(-1), 'crossing end');
 			const b = graph.point(end);
 			if (distance(a, b) < path.lengthM * 0.58) continue;
@@ -137,7 +140,11 @@ export function channelCrossings(
 	}
 	const selected: Candidate[] = [];
 	for (const proposal of proposals.sort((a, b) => a.score - b.score)) {
-		if (selected.some(({ midpoint }) => distance(midpoint, proposal.midpoint) < crossingSpacingM))
+		if (
+			selected.some(
+				({ midpoint }) => distance(midpoint, proposal.midpoint) < config.crossingSpacingM
+			)
+		)
 			continue;
 		selected.push(proposal);
 	}

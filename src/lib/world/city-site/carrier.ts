@@ -11,12 +11,7 @@ import {
 import { planCellSide, TerrainGrid } from '../../domain/terrain-grid';
 import type { CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
-
-export const cityBankSetbackM = 3;
-const edgeSampleStepM = 8;
-
-export const maximumCellRiseM = 16;
-const minimumPartAreaM2 = 360_000;
+import { citySiteConfig as config } from './config';
 
 type Site = Readonly<{
 	sampleGround: CityTerrainSampler;
@@ -80,24 +75,24 @@ export function prepareCarrier(
 			site: { origin, bearing, outline },
 			variant,
 			parameters: { cellSize: coarseCellSize / planCellSide[variant] },
-			maximumCellRise: maximumCellRiseM,
-			edgeSampleStep: edgeSampleStepM,
+			maximumCellRise: config.maximumCellRiseM,
+			edgeSampleStep: config.groundSampleStepM,
 
 			shore: {
 				align: true,
-				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - cityBankSetbackM,
+				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - config.bankSetbackM,
 				minimumEdge: coarseCellSize / 10,
 				minimumArea: 0.24 * coarseCellSize ** 2
 			},
 			referenceHeightAt: (x, y) => sampleGround(x, y).height,
 			heightAt(x, y) {
 				const reading = sampleGround(x, y);
-				return reading.dry ? reading.height : undefined;
+				return reading.waterKind === null ? reading.height : undefined;
 			}
 		},
 		(point) => {
 			const ground = sampleGround(...point);
-			return ground.dry ? 'dry' : (ground.waterKind ?? 'water');
+			return ground.waterKind ?? 'dry';
 		}
 	);
 	const random = Random.create({ seed }).derive('crossing');
@@ -146,7 +141,7 @@ export function prepareCarrier(
 	const order = cityGrowth(
 		candidates,
 		(point, grade) => access(point, grade, sampleGround(...point).waterClearance),
-		minimumPartAreaM2,
+		config.minimumRegionAreaM2,
 		links
 	);
 	const ranks = new Map(order.map(({ id }, index) => [id, index]));

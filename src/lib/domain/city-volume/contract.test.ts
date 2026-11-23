@@ -3,6 +3,7 @@ import { required } from '../../core/invariant';
 import { TerrainGrid } from '../terrain-grid';
 import {
 	cityGrowth,
+	cityAccessibility,
 	cityLatticesByPlan,
 	createCityDistricts,
 	createCityLattice,
@@ -108,7 +109,8 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 			planCellId: 'square',
 			corners,
 			neighbors: [null, null, null, null],
-			districtId: 'detached/0',
+			districtId: 'district/square',
+			densityRegionId: 'detached/square',
 			kind: 'detached',
 			levels: 1
 		}
@@ -126,7 +128,7 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 	expect(tetrahedral.edges).toHaveLength(19);
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/0')?.position).toEqual([14, 0, 1]);
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/1')?.position).toEqual([14, 0, 17]);
-	expect(centered.nodes.find(({ id }) => id.endsWith('/center'))?.position).toEqual([7, 7, 9.25]);
+	expect(centered.nodes.find(({ id }) => id.endsWith('/center'))?.position).toEqual([7, 7, 9]);
 	const sloped = createCityLattice(columns, -4, 'square');
 	expect(sloped.nodes.find(({ id }) => id === 'vertex/d/level/0')?.position).toEqual([0, 14, 3]);
 	expect(sloped.nodes.find(({ id }) => id === 'vertex/d/level/2')?.position).toEqual([0, 14, 10]);
@@ -135,7 +137,8 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 test('rejects malformed columns before allocating bays', () => {
 	const column: CityColumn = {
 		planCellId: 'cell',
-		districtId: 'center/0',
+		districtId: 'district/cell',
+		densityRegionId: 'center/cell',
 		kind: 'center',
 		levels: 1,
 		corners: [
@@ -215,4 +218,44 @@ test('enters the second bank through the cheaper crossing after publishing the f
 		expect(order.find((id) => right.has(id))).toBe(short[1]);
 		expect(order.indexOf(short[0])).toBeLessThan(order.indexOf(short[1]));
 	}
+});
+
+test('a late connector merges districts under the earliest founding plan address', () => {
+	const plan = flatPlan(300);
+	const [a, bridge, b] = plan.cells;
+	const growth = { rankedCellIds: [b.id, a.id, bridge.id], futureFringe: [] };
+	const before = createCityDistricts(
+		TerrainGrid.select(plan, [a.id, b.id]),
+		core,
+		0,
+		undefined,
+		growth
+	);
+	expect(before.cell(a.id).districtId).toBe(`district/${a.id}`);
+	expect(before.cell(b.id).districtId).toBe(`district/${b.id}`);
+	const after = createCityDistricts(
+		TerrainGrid.select(plan, [a.id, bridge.id, b.id]),
+		core,
+		0,
+		undefined,
+		growth
+	);
+	for (const { id } of [a, bridge, b])
+		expect(after.cell(id).districtId).toBe(before.cell(b.id).districtId);
+});
+
+test('a proposed bank arm probes the wet strip between its dry midpoint and endpoint', () => {
+	let sawStripOnArm = false;
+	cityAccessibility(
+		0,
+		[[0, 0]],
+		0,
+		(x, y) => {
+			const wet = x >= 15 && x <= 25;
+			sawStripOnArm ||= wet && Math.abs(y / x - 33.32 / 78.2) < 0.001;
+			return { height: 0, waterKind: wet ? 'river' : null };
+		},
+		() => false
+	);
+	expect(sawStripOnArm).toBe(true);
 });

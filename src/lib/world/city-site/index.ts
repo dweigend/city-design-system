@@ -2,19 +2,26 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { createCityDistricts, type CityPlanVariant } from '../../domain/city-volume';
+import {
+	createCityDistricts,
+	type CityPlanVariant,
+	type DistrictGrowth
+} from '../../domain/city-volume';
 import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley, type ValleySettings } from '../../domain/valley';
 import { preparePlanSelection } from './plan-selection';
 import { prepareCarrier } from './carrier';
+import { citySiteConfig } from './config';
 import type { CityTerrainSampler } from './sampling';
 import type { CityCrossing } from './crossings';
 
 /** Maximum sampled height range, in meters, in a buildable city cell. */
-export { maximumCellRiseM } from './carrier';
+export const maximumCellRiseM = citySiteConfig.maximumCellRiseM;
 /** Minimum dry clearance required for occupied cells, in meters. */
-export { cityBankSetbackM } from './carrier';
-export type { CityTerrainSampler } from './sampling';
+export const cityBankSetbackM = citySiteConfig.bankSetbackM;
+/** City carrier limits used by planning and its studies. */
+export { citySiteConfig };
+export type { CityTerrainReading, CityTerrainSampler } from './sampling';
 export type { CityCrossing } from './crossings';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
@@ -24,7 +31,7 @@ export const citySiteParams = defineParams({
 });
 
 /** Equivalent square side of a typical coarse plan cell, in meters. */
-export const coarseCellSize = 60;
+export const coarseCellSize = citySiteConfig.coarseCellSizeM;
 
 function siteParams(citySize?: number, seed?: number) {
 	return resolveParams(citySiteParams, {
@@ -33,44 +40,42 @@ function siteParams(citySize?: number, seed?: number) {
 	});
 }
 
-/** Creates the chapter's fixed grid frame on a valley with optional relief and runoff settings.
- * The optional seed varies the valley. A pure alternate sampler can supply its own ground readings. */
-export function createCitySite(
-	terrain?: CityTerrainSampler,
-	settings?: Partial<ValleySettings> & Readonly<{ seed?: number }>
-) {
-	const { seed = citySiteParams.seed.default, ...parameters } = settings ?? {};
-	const valley = Valley.create({ seed, parameters });
-	const bearing = -Math.PI / 2;
-	const origin = Object.freeze([0, 0] as const);
-	const sampleGround: CityTerrainSampler =
-		terrain ??
-		((x, y) => {
-			const reading = valley.readGround(x, y);
-			return {
-				height: reading.height,
-				dry: reading.waterKind === null,
-				waterClearance: reading.bank,
-				waterKind: reading.waterKind
-			};
-		});
-	return Object.freeze({
-		valley,
-		origin,
-		frame: Object.freeze({ bearing }),
-		sampleGround,
-		customGround: terrain !== undefined
-	});
-}
+type Settings = Partial<ValleySettings> & Readonly<{ seed?: number }>;
+type CityFrame = Readonly<{
+	origin: Vec2;
+	frame: Readonly<{ bearing: number }>;
+	sampleGround: CityTerrainSampler;
+}>;
 
-/** A city site with its valley and grid frame. */
-export type CitySite = ReturnType<typeof createCitySite>;
+/** A city site with a default valley or an alternate ground source. */
+export type CitySite = CityFrame & Readonly<{ valley: Valley | null }>;
+
+/** Creates a site on a generated valley with optional terrain settings. */
+export function createCitySite(
+	terrain?: undefined,
+	settings?: Settings
+): CityFrame & { readonly valley: Valley };
+/** Creates a site using the alternate ground source for planning and projection. */
+export function createCitySite(terrain: CityTerrainSampler): CityFrame & { readonly valley: null };
+export function createCitySite(terrain?: CityTerrainSampler, settings?: Settings): CitySite {
+	const { seed = citySiteParams.seed.default, ...parameters } = settings ?? {};
+	const frame = Object.freeze({ bearing: -Math.PI / 2 });
+	const origin = Object.freeze([0, 0] as const);
+	if (terrain) return Object.freeze({ valley: null, frame, origin, sampleGround: terrain });
+	const valley = Valley.create({ seed, parameters });
+	const sampleGround: CityTerrainSampler = (x, y) => {
+		const { height, bank: waterClearance, waterKind, water } = valley.sampleTerrain(x, y);
+		return waterKind === null
+			? { height, waterClearance, waterKind }
+			: { height, waterClearance, waterKind, waterHeight: water };
+	};
+	return Object.freeze({ valley, frame, origin, sampleGround });
+}
 
 type Carrier = ReturnType<typeof prepareCarrier> & {
 	planSelection: ReturnType<typeof preparePlanSelection>;
 };
 const carriers = new WeakMap<CitySite, Map<string, Carrier>>();
-const growth = new WeakMap<Grid, Parameters<typeof createCityDistricts>[4]>();
 
 function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 	let cache = carriers.get(city);
@@ -94,7 +99,7 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 			origin,
 			sampleGround,
 			bearing,
-			bankSide: city.customGround ? undefined : (point) => readCitySide(city, point),
+			bankSide: city.valley ? (point) => readCitySide(city, point) : undefined,
 			center: [origin[0] + station * Math.cos(bearing), origin[1] + station * Math.sin(bearing)]
 		},
 		coarseCellSize,
@@ -115,7 +120,7 @@ function sections(city: CitySite) {
 	let index = trunkSections.get(city);
 	if (index) return index;
 	index = new Map();
-	const { xy } = city.valley.course;
+	const xy = city.valley?.course.xy ?? [];
 	for (let i = 2; i < xy.length; i += 2) {
 		const x = xy[i - 2];
 		const y = xy[i - 1];
@@ -231,20 +236,18 @@ export function readCityGrid(
 		);
 		for (const id of waterCellIds) planIds.add(id);
 	}
-	const needsFringe = new Set(
-		candidates.cells
-			.filter(
-				({ id, neighbors }) =>
-					(ranks.get(id) ?? Infinity) < selected.length &&
-					neighbors.some(
-						(neighbor) => neighbor !== null && (ranks.get(neighbor) ?? -1) >= selected.length
-					)
-			)
-			.map(({ id }) => id)
-	);
-	growth.set(grid, {
-		rank: (id) => required(ranks.get(id), 'growth rank'),
-		hasFutureNeighbor: (id) => needsFringe.has(id)
+	const futureFringe = candidates.cells
+		.filter(
+			({ id, neighbors }) =>
+				built.has(id) &&
+				neighbors.some(
+					(neighbor) => neighbor !== null && (ranks.get(neighbor) ?? -1) >= selected.length
+				)
+		)
+		.map(({ id }) => id);
+	const growth: DistrictGrowth = Object.freeze({
+		rankedCellIds: Object.freeze(ids),
+		futureFringe: Object.freeze(futureFringe)
 	});
 	const areas = selected
 		.map(({ builtArea }, i) => builtArea - (selected[i - 1]?.builtArea ?? 0))
@@ -253,6 +256,7 @@ export function readCityGrid(
 	const areaKm2 = (selected.at(-1)?.builtArea ?? 0) / 1e6;
 	return Object.freeze({
 		grid,
+		growth,
 		plan: TerrainGrid.select(plan, [...planIds]),
 		crossings: Object.freeze(activeCrossings),
 		selectedCrossings: Object.freeze(activeCrossings.slice(0, 1 + Math.ceil(areaKm2 / 1.25))),
@@ -264,14 +268,20 @@ export function readCityGrid(
 	});
 }
 
+/** Detached grid, selected crossings, datum and serializable growth metadata. */
+export type CityGrid = ReturnType<typeof readCityGrid>;
+
 /** Derives districts from the same fixed accessibility order as the footprint. */
 export function readCityDistricts(
 	city: CitySite,
-	grid: Grid,
+	{ grid, growth }: Pick<CityGrid, 'grid' | 'growth'>,
 	seed?: number,
 	parameters?: Parameters<typeof createCityDistricts>[3]
 ) {
 	const params = siteParams(undefined, seed);
 	const core = { origin: city.origin, bearing: city.frame.bearing, aspect: 1 };
-	return createCityDistricts(grid, core, params.seed, parameters, growth.get(grid));
+	return createCityDistricts(grid, core, params.seed, parameters, growth);
 }
+
+/** Samples the mesh geometry for an alternate terrain source in the city window. */
+export { sampleCityWindow } from './sample-window';

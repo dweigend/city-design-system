@@ -39,8 +39,8 @@ export function projectWetPlan(
 		const points = drape(start, end).map(([x, y, z]): Vec3 => {
 			const t = distance(start, [x, y]) / length;
 			const world: Vec2 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-			const reading = city.valley.sampleTerrain(...world);
-			return [x, y, (reading.waterKind === null ? z : Math.max(z, reading.water)) + lift];
+			const reading = city.sampleGround(...world);
+			return [x, y, (reading.waterKind === null ? z : Math.max(z, reading.waterHeight)) + lift];
 		});
 		for (let i = 1; i < points.length; i++) output.push(...points[i - 1], ...points[i]);
 	}

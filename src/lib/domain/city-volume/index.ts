@@ -1,11 +1,15 @@
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
 import type { PlanVariant, TerrainGrid } from '../terrain-grid';
+import { columnPlanes } from './foundation';
 import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
 import type { CityCore } from './rank';
-import { levelHeight, peakLaw } from './settlement';
+import { districtLevels, levelHeight, peakLaw } from './settlement';
 import type { CityLattice, Column } from './frame';
 import { createLattice, latticeVariants, type LatticeVariant } from './lattices';
+
+/** Coarse level, density and foundation settings. */
+export { cityVolumeConfig } from './config';
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
 export { cityAccessibility } from './accessibility';
@@ -39,7 +43,7 @@ export const cityVolumeParams = defineParams({
 	height: {
 		label: 'Height',
 		unit: 'm',
-		min: 21,
+		min: districtLevels.block * levelHeight,
 		max: peakLaw.fullLevels * levelHeight,
 		default: peakLaw.fullLevels * levelHeight,
 		step: levelHeight
@@ -61,7 +65,7 @@ export { taperStep } from './taper';
 export { createCityTaper, type CityTaper } from './taper';
 
 /** One closed volume cell of a lattice, owned by one bay, with faces wound outward. */
-export type { LatticeSolid } from './solid';
+export { solidEdgeFaults, type LatticeSolid } from './solid';
 
 /** Compatible carriers by tiled plan family. All models share the same bays and side faces.
  * Polar and free-quad are excluded from the chapter because its terrain mask can open holes. */
@@ -82,7 +86,12 @@ export type CityPlanVariant = keyof typeof cityLatticesByPlan;
 export const cityPlanVariants = Object.freeze(Object.keys(cityLatticesByPlan) as CityPlanVariant[]);
 
 /** One connected district's kind and the assigned height of this addressed plan cell. */
-export type { DistrictKind, DistrictCell } from './districts';
+export type { DistrictKind, DistrictCell, DistrictGrowth } from './districts';
+
+/** Canonical bay, face, and corner addresses. */
+export type { LatticeBay, BayFace, LatticePoint } from './bay-addresses';
+/** Logical child cell, face, and edge addresses for a bisected bay. */
+export { subdivideBay, type ChildBay, type ChildBayFace } from './subdivision';
 
 /** Lattice model name, and the resulting canonical bays, faces, joints, members and solids. */
 export type { LatticeVariant, CityLattice };
@@ -161,13 +170,16 @@ export function createCityLattice(
 	if (!Object.hasOwn(cityLatticesByPlan, plan) || !cityLatticesByPlan[plan].includes(variant))
 		throw new RangeError('Incompatible plan and lattice');
 	if (!Number.isFinite(datumZ)) throw new RangeError('Expected a finite city datum');
-	for (const { levels, corners } of columns) {
+	for (const column of columns) {
+		const { levels, corners } = column;
+		if (corners.length < 3) throw new RangeError('City columns require at least three corners');
 		if (!Number.isInteger(levels) || levels < 1 || levels > peakLaw.fullLevels)
 			throw new RangeError(`City columns require 1–${peakLaw.fullLevels} whole levels`);
 		for (const { position } of corners) {
 			if (position.length !== 3 || !position.every(Number.isFinite))
 				throw new RangeError('City corners require three finite coordinates');
 		}
+		columnPlanes(column, datumZ);
 	}
 	return createLattice(columns, datumZ, variant);
 }

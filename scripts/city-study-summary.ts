@@ -1,5 +1,6 @@
 // Pass rates, verdicts and worst cases of the city volume study.
 import { resolve } from 'node:path';
+import { levelHeight } from '../src/lib/domain/city-volume';
 
 /** One measured study run. */
 export type Row = Record<string, string | number | boolean>;
@@ -55,7 +56,7 @@ export function summarize(rows: Row[], out: string, sizes: Record<string, number
 			cells: `${stat('cells', (v) => Math.min(...v))}–${stat('cells', (v) => Math.max(...v))}`,
 			maxMembers: stat('members', (v) => Math.max(...v)),
 			maxJoints: stat('joints', (v) => Math.max(...v)),
-			peak: `${stat('peakLevels', (v) => Math.min(...v)) * 7}–${stat('peakLevels', (v) => Math.max(...v)) * 7} m`,
+			peak: `${stat('peakLevels', (v) => Math.min(...v)) * levelHeight}–${stat('peakLevels', (v) => Math.max(...v)) * levelHeight} m`,
 			block: `${(100 * stat('blockShare', mean)).toFixed(0)} %`,
 			center: `${(100 * stat('centerShare', mean)).toFixed(0)} %`,
 			gridMs: stat('gridMs', mean).toFixed(0),

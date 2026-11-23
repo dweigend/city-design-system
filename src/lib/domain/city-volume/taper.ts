@@ -1,5 +1,6 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { cityVolumeConfig } from './config';
 import { columnPlanes, planeIndex } from './foundation';
 import type { Column } from './frame';
 import { readPlanTopology, type PlanRing, type PlanTopology } from './plan-topology';
@@ -108,10 +109,10 @@ export function createCityTaper(columns: readonly Column[], datumZ: number) {
 		const at = addresses.get(planKey(x, y));
 		if (!at) throw new RangeError(`No plan address at ${x}, ${y}`);
 		const index = Math.max(0, planeIndex(datumZ, z));
-		const low = Math.floor(index + 1e-9);
+		const low = Math.floor(index + cityVolumeConfig.planeIndexTolerance);
 		const t = index - low;
 		const below = at(low);
-		if (t < 1e-9) return below;
+		if (t < cityVolumeConfig.planeIndexTolerance) return below;
 		const above = at(low + 1);
 		return [below[0] + (above[0] - below[0]) * t, below[1] + (above[1] - below[1]) * t];
 	};

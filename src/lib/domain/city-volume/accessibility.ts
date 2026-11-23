@@ -1,13 +1,23 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { Random } from '../../core/random';
+import { cityVolumeConfig } from './config';
 import { valueNoise } from './value-noise';
 
 const span = (random: Random, min: number, max: number) => random.number({ min, max });
 
-type Ground = (x: number, y: number) => Readonly<{ height: number; dry: boolean }>;
+type Ground = (x: number, y: number) => Readonly<{ height: number; waterKind: string | null }>;
 type Arm = { path: readonly Vec2[]; speed: number; entry: number; width: number };
 
-const stepM = 85;
+const stepM = cityVolumeConfig.corridorStepM;
+const probes = Math.ceil(stepM / cityVolumeConfig.corridorProbeStepM);
+
+function drySegment(a: Vec2, b: Vec2, ground: Ground) {
+	for (let i = 1; i < probes; i++) {
+		const t = i / probes;
+		if (ground(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])).waterKind !== null) return false;
+	}
+	return true;
+}
 
 function advance(
 	point: Vec2,
@@ -26,7 +36,8 @@ function advance(
 		];
 		const middle = ground((point[0] + next[0]) / 2, (point[1] + next[1]) / 2);
 		const end = ground(...next);
-		if (!middle.dry || !end.dry) continue;
+		if (middle.waterKind !== null || end.waterKind !== null || !drySegment(point, next, ground))
+			continue;
 		const rise = Math.abs(end.height - middle.height) + Math.abs(middle.height - current.height);
 		const score = rise / 5 + Math.abs(angle) * 0.9 - 0.25 * Math.abs(Math.cos(direction - bearing));
 		if (!best || score < best.score) best = { point: next, heading: direction, score };
@@ -75,7 +86,7 @@ function bankAccess(
 		head[0] + inland * Math.cos(toward),
 		head[1] + inland * Math.sin(toward)
 	];
-	const center = ground(...inlandPoint).dry ? inlandPoint : head;
+	const center = ground(...inlandPoint).waterKind === null ? inlandPoint : head;
 	const spread = span(random, 1.8, 2.45);
 	const edge = valueNoise(random.derive('edge'), 210);
 	const lobes = valueNoise(random.derive('lobes'), 530);
