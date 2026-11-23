@@ -7,10 +7,12 @@ import {
 	planEdges,
 	shorelineMorphLimits,
 	TerrainGrid,
-	terrainGridQuality,
 	type TerrainGridOptions
 } from '../../domain/terrain-grid';
 import { coarseCellSize, createCitySite } from './index';
+
+const minimumEdge = coarseCellSize * shorelineMorphLimits.clippedMinimumEdgeRatio;
+const minimumArea = coarseCellSize ** 2 * shorelineMorphLimits.clippedMinimumAreaRatio;
 
 function layout(
 	variant: (typeof cityPlanVariants)[number],
@@ -20,7 +22,8 @@ function layout(
 ) {
 	const city = createCitySite(undefined, { seed, relief, runoff });
 	const read = city.sampleGround;
-	const clearanceAt = (x: number, y: number) => read(x, y).waterClearance - 3;
+	const clearanceAt = (x: number, y: number) =>
+		read(x, y).waterClearance - shorelineMorphLimits.cityBankSetbackM;
 	const options: TerrainGridOptions = {
 		seed,
 		variant,
@@ -28,13 +31,13 @@ function layout(
 		parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 		heightAt: (x, y) => read(x, y).height,
 		maximumCellRise: 16,
-		edgeSampleStep: 8,
-		shore: { clearanceAt, minimumEdge: 6, minimumArea: 864 }
+		edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
+		shore: { clearanceAt, minimumEdge, minimumArea }
 	};
 	const cover = ([x, y]: Vec2) => read(x, y).waterKind ?? 'dry';
 	const before = TerrainGrid.createPlan(options, cover).plan;
 	const after = TerrainGrid.createPlan(
-		{ ...options, shore: { clearanceAt, minimumEdge: 6, minimumArea: 864, align: true } },
+		{ ...options, shore: { clearanceAt, minimumEdge, minimumArea, align: true } },
 		cover
 	).plan;
 	return { before, after, clearanceAt };
@@ -88,7 +91,9 @@ for (const variant of cityPlanVariants) {
 				const current = required(shifted.get(id), 'morphed node');
 				if (Math.abs(clearanceAt(...point)) >= shorelineMorphLimits.bandM)
 					expect(current).toEqual(point);
-				moved += Number(distance(point, current) > 0.01);
+				const shiftM = distance(point, current);
+				expect(shiftM).toBeLessThanOrEqual(shorelineMorphLimits.maximumMoveM + 1e-8);
+				moved += Number(shiftM > 0.01);
 			}
 			for (const { vertexIds } of after.cells) {
 				const base = qualityOf(
@@ -96,10 +101,10 @@ for (const variant of cityPlanVariants) {
 				);
 				const next = qualityOf(vertexIds.map((id) => required(shifted.get(id), 'shifted corner')));
 				expect(next.minAngle).toBeGreaterThanOrEqual(
-					Math.min(base.minAngle, terrainGridQuality.minimumAngle) - 1e-8
+					Math.min(base.minAngle, shorelineMorphLimits.minimumAngleRad) - 1e-8
 				);
 				expect(next.edgeRatio).toBeLessThanOrEqual(
-					Math.max(base.edgeRatio, terrainGridQuality.maximumEdgeRatio) + 1e-8
+					Math.max(base.edgeRatio, shorelineMorphLimits.maximumEdgeRatio) + 1e-8
 				);
 				expect(next.area / base.area).toBeGreaterThanOrEqual(
 					shorelineMorphLimits.minimumAreaRatio - 1e-8
@@ -121,10 +126,10 @@ for (const variant of cityPlanVariants) {
 				site: { origin: [0, 0], bearing: -Math.PI / 2, length: 1250, width: 600 },
 				parameters: { cellSize: coarseCellSize / planCellSide[variant] },
 				heightAt: () => 0,
-				edgeSampleStep: 8,
-				shore: { clearanceAt, minimumEdge: 6, minimumArea: 864, align: true }
+				edgeSampleStep: shorelineMorphLimits.groundSampleStepM,
+				shore: { clearanceAt, minimumEdge, minimumArea, align: true }
 			},
-			([x, y]) => (clearanceAt(x, y) < -3 ? 'river' : 'dry')
+			([x, y]) => (clearanceAt(x, y) < -shorelineMorphLimits.cityBankSetbackM ? 'river' : 'dry')
 		);
 		const points = positions(plan);
 		const cover = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
@@ -150,21 +155,25 @@ for (const variant of cityPlanVariants) {
 }
 
 test('keeps the original carrier for an isolated channel narrower than the snap threshold', () => {
-	const clearanceAt = (x: number, y: number) => Math.abs(x - 0.06 * y) - 19;
+	const clearanceAt = (x: number, y: number) =>
+		Math.abs(x - 0.06 * y) - shorelineMorphLimits.minimumWaterWidthM / 4;
 	const options: TerrainGridOptions = {
 		seed: 1201,
 		variant: 'organic',
 		site: { origin: [0, 0], bearing: -Math.PI / 2, length: 1000, width: 600 },
 		parameters: { cellSize: 60 / planCellSide.organic },
 		heightAt: () => 0,
-		shore: { clearanceAt, minimumEdge: 6, minimumArea: 864 }
+		shore: { clearanceAt, minimumEdge, minimumArea }
 	};
-	const cover = ([x, y]: Vec2) => (clearanceAt(x, y) < -3 ? ('river' as const) : ('dry' as const));
+	const cover = ([x, y]: Vec2) =>
+		clearanceAt(x, y) < -shorelineMorphLimits.cityBankSetbackM
+			? ('river' as const)
+			: ('dry' as const);
 	const base = TerrainGrid.createPlan(options, cover);
 	const morphed = TerrainGrid.createPlan(
 		{
 			...options,
-			shore: { clearanceAt, minimumEdge: 6, minimumArea: 864, align: true }
+			shore: { clearanceAt, minimumEdge, minimumArea, align: true }
 		},
 		cover
 	);

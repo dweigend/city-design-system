@@ -27,6 +27,7 @@ import { planMetrics } from './city-study-plan';
 import { footprintMirrorShare, maximumMedianMirrorShare, mirrorSeeds } from './city-study-mirror';
 import { solidMetrics } from './city-study-solids';
 import { summarize, type Row } from './city-study-summary';
+import { footprintCompactnessRange } from './config/city-study';
 import { requireSlot } from './experiment-host';
 
 requireSlot();
@@ -238,6 +239,7 @@ function median(field: string) {
 }
 const parts = median('partsWithoutRiverSplit');
 const compactness = median('compactness');
+const [minimumCompactness, maximumCompactness] = footprintCompactnessRange;
 console.log('Footprint medians across the city matrix', { parts, compactness });
 const mirror = mirrorSeeds.map((seed) => {
 	const site = createCitySite(undefined, { seed, relief: 0, runoff: 1 });
@@ -252,8 +254,8 @@ console.log('Lowland mirror share', { min: shares[0], median: medianMirror, max:
 if (
 	rows.some(({ pass }) => !pass) ||
 	parts > 3 ||
-	compactness < 0.45 ||
-	compactness > 0.65 ||
+	compactness < minimumCompactness ||
+	compactness > maximumCompactness ||
 	medianMirror > maximumMedianMirrorShare
 )
 	process.exitCode = 1;

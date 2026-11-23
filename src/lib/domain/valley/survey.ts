@@ -1,4 +1,5 @@
 import type { Reach } from './reaches';
+import { defaults } from './settings';
 import type { terrainSampler } from './terrain-sample';
 
 type Sample = ReturnType<typeof terrainSampler>;
@@ -6,15 +7,20 @@ type Sample = ReturnType<typeof terrainSampler>;
 /** Square survey window centered on the origin, in meters. */
 export type SurveyWindow = Readonly<{ sideM: number; spacingM: number; buildableSlope: number }>;
 
-/** Default survey: the 4 km square around the valley center at 20 m, buildable below 20 %. */
+/** Default survey window and buildable slope. */
 export const surveyDefaults: SurveyWindow = Object.freeze({
-	sideM: 4000,
-	spacingM: 20,
-	buildableSlope: 0.2
+	sideM: defaults.surveySideM,
+	spacingM: defaults.surveySpacingM,
+	buildableSlope: defaults.surveyBuildableSlopeRatio
 });
 
-/** Dry ground at a sampled shoreline may be at most 1 cm below its local water surface. */
-const waterToleranceM = 0.01;
+// Exact arithmetic: four adjacent nodes on the rectangular survey lattice.
+const cardinalSteps = [
+	[-1, 0],
+	[1, 0],
+	[0, -1],
+	[0, 1]
+] as const;
 
 /** Hydrology faults: downstream course steps whose water rises, the spread of the lake surface
  * in meters, and sampled shore crossings with dry ground below the local water surface. */
@@ -49,6 +55,10 @@ type Nodes = Readonly<{
 	lake: Int32Array;
 }>;
 
+function axisPosition(index: number, { side, spacing, half }: Nodes) {
+	return index === side - 1 ? half : -half + index * spacing;
+}
+
 function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	const subdivisions = Math.ceil(sideM / spacingM);
 	const side = subdivisions + 1;
@@ -64,8 +74,8 @@ function sampleNodes(sample: Sample, { sideM, spacingM }: SurveyWindow): Nodes {
 	};
 	for (let row = 0; row < side; row++) {
 		for (let column = 0; column < side; column++) {
-			const x = -sideM / 2 + column * spacing;
-			const y = sideM / 2 - row * spacing;
+			const x = axisPosition(column, nodes);
+			const y = -axisPosition(row, nodes);
 			const { height, water, waterKind, lakeId } = sample(x, y);
 			const index = row * side + column;
 			nodes.heights[index] = height;
@@ -85,35 +95,27 @@ function nodeSlope({ heights, side, spacing }: Nodes, row: number, column: numbe
 	return Math.hypot(dx, dy);
 }
 
-function shoreFaults(
-	sample: Sample,
-	{ wet, side, spacing, half }: Nodes,
-	row: number,
-	column: number
-) {
+function shoreFaults(sample: Sample, nodes: Nodes, row: number, column: number) {
+	const { wet, side, spacing } = nodes;
 	if (wet[row * side + column]) return 0;
-	const x = -half + column * spacing;
-	const y = half - row * spacing;
+	const x = axisPosition(column, nodes);
+	const y = -axisPosition(row, nodes);
 	let faults = 0;
-	for (const [dr, dc] of [
-		[-1, 0],
-		[1, 0],
-		[0, -1],
-		[0, 1]
-	]) {
+	for (const [dr, dc] of cardinalSteps) {
 		const r = row + dr;
 		const c = column + dc;
 		if (r < 0 || c < 0 || r >= side || c >= side || !wet[r * side + c]) continue;
 		let dry = 0;
 		let water = spacing;
-		while (water - dry > 0.001) {
+		while (water - dry > defaults.surveyShoreBracketM) {
 			const mid = (water + dry) / 2;
 			if (sample(x + dc * mid, y - dr * mid).waterKind === null) dry = mid;
 			else water = mid;
 		}
 		const land = sample(x + dc * dry, y - dr * dry).height;
-		const surface = sample(x + dc * water, y - dr * water).water;
-		if (land < surface - waterToleranceM) faults++;
+		const surface =
+			water === spacing ? nodes.water[r * side + c] : sample(x + dc * water, y - dr * water).water;
+		if (land < surface - defaults.surveyShoreToleranceM) faults++;
 	}
 	return faults;
 }
@@ -133,7 +135,7 @@ function uphillSteps(reaches: readonly Reach[], halfM: number) {
 }
 
 /** Samples every node of the window once and measures relief, slope, water and buildable land,
- * and bisects wet–dry grid edges to 1 mm to check land against water at the same shore. */
+ * and bisects wet–dry grid edges to compare land against water at the same shore. */
 export function surveyGround(
 	sample: Sample,
 	reaches: readonly Reach[],
@@ -146,6 +148,7 @@ export function surveyGround(
 		throw new RangeError('invalid-survey');
 	const nodes = sampleNodes(sample, window);
 	const { side, heights, wet } = nodes;
+	// Exact arithmetic: count and maximum accumulators start at zero.
 	const tally = {
 		maxSlope: 0,
 		maxWetSlope: 0,
@@ -172,7 +175,9 @@ export function surveyGround(
 			}
 			tally.shoreBelow += shoreFaults(sample, nodes, row, column);
 			if (!nodes.lake[index]) continue;
-			tally.lake++;
+			const rowWeight = row === 0 || row === side - 1 ? 0.5 : 1;
+			const columnWeight = column === 0 || column === side - 1 ? 0.5 : 1;
+			tally.lake += rowWeight * columnWeight;
 			const water = nodes.water[index];
 			const level = levels.get(nodes.lake[index]);
 			if (level) {
@@ -184,13 +189,15 @@ export function surveyGround(
 	const count = side * side;
 	drySlopes.sort((a, b) => a - b);
 	const drySlope = (q: number) => drySlopes[Math.round(q * (drySlopes.length - 1))] ?? 0;
+	// Exact arithmetic: these quantiles define the p50, p95 and maximum output fields.
+	const drySlopeSummary = { p50: drySlope(0.5), p95: drySlope(0.95), max: drySlope(1) };
 	return Object.freeze({
 		lowestM: lowest,
 		highestM: highest,
 		reliefM: highest - lowest,
 		maxSlope: tally.maxSlope,
 		maxWetSlope: tally.maxWetSlope,
-		drySlope: Object.freeze({ p50: drySlope(0.5), p95: drySlope(0.95), max: drySlope(1) }),
+		drySlope: Object.freeze(drySlopeSummary),
 		waterShare: tally.water / count,
 		lakeArea: tally.lake * nodes.spacing ** 2,
 		buildableShare: tally.buildable / count,

@@ -281,7 +281,7 @@
 			{view}
 			display="normal"
 			label={step === '01'
-				? 'City plan with water cells and pink crossings along grid edges'
+				? 'City plan with water cells and pink bridge crossings'
 				: step === '02'
 					? 'Stepped district heights above the city plan'
 					: 'Continuous carrier lattice under the stepped district envelope'}
@@ -361,7 +361,7 @@
 					{#if active === '01'}
 						<p>
 							The 60 m grid continues across water. Edges in the water hue mark water cells, and
-							pink lines follow the selected crossings along grid edges.
+							pink lines show the selected bridges along grid edges or straight between bank nodes.
 						</p>
 					{:else if active === '02'}
 						<p>

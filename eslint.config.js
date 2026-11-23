@@ -105,8 +105,7 @@ const numericSettings = {
 		...pendingConfigModules.map((module) => `src/lib/${module}/**`),
 		'**/*.test.ts',
 		'**/*.evidence.ts',
-		'**/{example,*-example}.ts',
-		'src/lib/domain/valley/survey.ts'
+		'**/{example,*-example}.ts'
 	],
 	plugins: { config: { rules: { 'no-tunable-number': noTunableNumber } } },
 	rules: { 'config/no-tunable-number': 'error' }

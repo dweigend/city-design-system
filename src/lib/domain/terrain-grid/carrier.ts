@@ -19,6 +19,13 @@ export function edgeId(a: string, b: string) {
 	return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
+export function ringMean(corners: readonly Node[]): Vec2 {
+	return corners.reduce<Vec2>(
+		([x, y], { xy: [a, b] }) => [x + a / corners.length, y + b / corners.length],
+		[0, 0]
+	);
+}
+
 function average(points: readonly Node[], id: string): Node {
 	const [x, y] = points.reduce(([x, y], { xy }) => [x + xy[0], y + xy[1]], [0, 0]);
 	return { id, xy: [x / points.length, y / points.length] };

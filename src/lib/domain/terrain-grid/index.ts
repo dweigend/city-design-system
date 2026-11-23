@@ -2,11 +2,20 @@ import { distance, measurePolygon, type Vec2, type Vec3 } from '../../core/geome
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { carrier, edgeId, freeQuad, type Candidate, type Carrier, type Node } from './carrier';
+import {
+	carrier,
+	edgeId,
+	freeQuad,
+	ringMean,
+	type Candidate,
+	type Carrier,
+	type Node
+} from './carrier';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
 import { alignShore } from './shore-morph';
+import { shorelineMorphLimits } from './config';
 import { shoreline, usableShoreRing } from './shore';
 import { voronoi } from './voronoi';
 import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
@@ -23,8 +32,7 @@ export const terrainGridParams = defineParams({
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
-/** Distances and area tolerances for the optional shared shoreline morph. */
-export { shorelineMorphLimits } from './shore-morph';
+export { crossingLimits, shorelineMorphLimits } from './config';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
 export type TerrainGridVertex = Readonly<{ id: string; position: Vec3 }>;
@@ -142,6 +150,22 @@ function subdivisionCount(length: number, spacing: number) {
 	return count;
 }
 
+// Signed distance is 1-Lipschitz. If the endpoint clearances cover the interval,
+// no closer probe is needed. Near the setback, descend to the configured precision.
+function setbackSegment(clearanceAt: (x: number, y: number) => number) {
+	function dryBetween(a: Vec2, b: Vec2, da: number, db: number, lengthM: number): boolean {
+		if (da < 0 || db < 0) return false;
+		if (da + db >= lengthM) return true;
+		const mid: Vec2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+		const dm = clearanceAt(...mid);
+		if (dm < 0) return false;
+		if (lengthM <= shorelineMorphLimits.clearanceSampleStepM) return true;
+		return dryBetween(a, mid, da, dm, lengthM / 2) && dryBetween(mid, b, dm, db, lengthM / 2);
+	}
+	return (a: Vec2, b: Vec2, lengthM: number) =>
+		dryBetween(a, b, clearanceAt(...a), clearanceAt(...b), lengthM);
+}
+
 function samples(
 	heightAt: TerrainGridOptions['heightAt'],
 	maximumCellGrade: number | undefined,
@@ -152,6 +176,7 @@ function samples(
 ) {
 	const heights = new Map<string, number | undefined>();
 	const edges = new Map<string, boolean>();
+	const drySegment = clearanceAt && setbackSegment(clearanceAt);
 	const height = (node: Node) => {
 		if (!heights.has(node.id)) heights.set(node.id, read(...node.xy));
 		return heights.get(node.id);
@@ -185,7 +210,7 @@ function samples(
 			if (z === undefined || Math.abs(z - previous) > maxRise) return false;
 			previous = z;
 		}
-		return true;
+		return drySegment?.(a.xy, b.xy, length) ?? true;
 	}
 
 	return {
@@ -364,13 +389,6 @@ function generateGrid(
 	return { grid, plan };
 }
 
-function ringMean(corners: readonly Node[]): Vec2 {
-	return corners.reduce<Vec2>(
-		([x, y], { xy: [a, b] }) => [x + a / corners.length, y + b / corners.length],
-		[0, 0]
-	);
-}
-
 /** Derives a detached plan from a site, uint32 seed and pure sampler. The default organic
  * variant uses relaxed, split quads. Fixed addresses retain vertices and cells as the crop
  * grows around the same datum. Cells must fit wholly inside the crop. Edges and diagonals
@@ -382,7 +400,7 @@ function create(options: TerrainGridOptions): TerrainGrid {
 }
 
 /** Creates one continuous grid and its setback-clipped buildable subset. Cover is sampled at
- * the arithmetic mean of each original cell's corners. Wet centers always reserve the cell
+ * the arithmetic mean of each plan cell's corners after alignment. Wet centers always reserve the cell
  * for water. Dry centers retain their clipped polygon if it passes the ground checks.
  * Supply referenceHeightAt for the uncut vertices if heightAt excludes wet ground. */
 function createPlan(options: TerrainGridOptions, cover: (point: Vec2) => GroundKind) {
@@ -454,4 +472,4 @@ export {
 } from './edge-path';
 
 /** Returns the same undirected edge ID whichever endpoint is first. */
-export { edgeId as planEdgeId } from './carrier';
+export { planEdgeId } from './edge-path';

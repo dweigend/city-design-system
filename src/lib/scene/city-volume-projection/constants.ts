@@ -80,7 +80,7 @@ export const uprightRunPerRise = 0.12;
 
 /** Height in meters at which plan lines float over ground and water. */
 export const planLineLiftM = 0.32;
-/** Height in meters at which crossings float, above the plan lines. */
+/** Height in meters above the sampled surface for the crossing overlay (COLOR-3). */
 export const crossingLiftM = 1.2;
 
 // Body looks by display level.

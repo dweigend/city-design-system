@@ -1,8 +1,16 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import type { Vec2, Vec3 } from '../../core/geometry';
-import { TerrainGrid, planVariants, terrainGridQuality, type TerrainGridOptions } from './index';
+import {
+	TerrainGrid,
+	planEdgeId,
+	planCellSide,
+	planVariants,
+	terrainGridQuality,
+	type TerrainGridOptions
+} from './index';
 import { example } from './example';
+import { alignShore } from './shore-morph';
 
 const qualitySeeds = [0, 1, 7, 42, 1201, 1301, 1409, 65537, 4294967295];
 
@@ -319,4 +327,50 @@ test('rejects a spacing whose subdivision count cannot be sampled', () => {
 	expect(() => TerrainGrid.create({ ...options, edgeSampleStep: Number.MIN_VALUE })).toThrow(
 		'sample subdivisions'
 	);
+});
+
+test('encodes undirected plan edges without delimiter collisions', () => {
+	expect(planEdgeId('a', 'b|c')).toBe(planEdgeId('b|c', 'a'));
+	expect(planEdgeId('a', 'b|c')).not.toBe(planEdgeId('a|b', 'c'));
+});
+
+test('rejects a retained square edge with a shallow setback dip between probes', () => {
+	const clearanceAt = (x: number, y: number) =>
+		Math.min(x - 9, Math.hypot(x - 11, y + 99.99) - 100);
+	const { grid } = TerrainGrid.createPlan(
+		{
+			seed: 0,
+			variant: 'square',
+			site: { origin: [39.585, 0], bearing: 0, width: 240, length: 240 },
+			parameters: { cellSize: 60 },
+			heightAt: () => 0,
+			edgeSampleStep: 8,
+			shore: { clearanceAt, minimumEdge: 2, minimumArea: 200 }
+		},
+		() => 'dry'
+	);
+	expect(clearanceAt(11, 0)).toBeLessThan(0);
+	expect(grid.cells.some(({ id }) => id === 'cell/-1,0/0')).toBe(false);
+	expect(grid.cells.some(({ id }) => id === 'cell/0,0/0')).toBe(true);
+});
+
+test('keeps the shoreline embedding bit-identical when carrier cells are reversed', () => {
+	const grid = TerrainGrid.create({
+		seed: 1201,
+		variant: 'organic',
+		site: { origin: [0, 0], bearing: 0, width: 650, length: 900 },
+		parameters: { cellSize: 60 / planCellSide.organic },
+		heightAt: () => 0
+	});
+	const nodes = new Map(
+		grid.vertices.map(({ id, position: [x, y] }) => [id, { id, xy: [x, y] as Vec2 }])
+	);
+	const cells = grid.cells.map(({ id, vertexIds }) => ({
+		id,
+		corners: vertexIds.map((node) => required(nodes.get(node), 'plan node'))
+	}));
+	const clearance = (x: number, y: number) => Math.abs(y - 55 * Math.sin(x / 190)) - 56;
+	const after = alignShore(cells, clearance, () => true);
+	expect(after).not.toEqual(cells);
+	expect(alignShore([...cells].reverse(), clearance, () => true)).toEqual([...after].reverse());
 });

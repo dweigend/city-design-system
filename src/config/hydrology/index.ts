@@ -6,6 +6,7 @@ import { regional } from './regional';
 import { surface } from './surface';
 import { drainage } from './drainage';
 import { uplift } from './uplift';
+import { survey } from './survey';
 
 /** Hydrology settings and their provenance. */
 export const settings = joinSettings(
@@ -15,7 +16,8 @@ export const settings = joinSettings(
 	regional,
 	surface,
 	drainage,
-	uplift
+	uplift,
+	survey
 );
 
 /** Frozen defaults consumed by the valley module. */

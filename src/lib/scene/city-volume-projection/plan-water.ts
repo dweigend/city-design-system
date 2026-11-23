@@ -17,7 +17,7 @@ export const planOverlayIds = {
 } as const;
 
 /** Projects the continuous plan as three overlays: dry plan edges, edges touching a water cell, and
- * the selected crossings along their grid edges, each resolved from its surface slot. */
+ * the selected crossing paths or direct spans, each resolved from its surface slot. */
 export function projectWetPlan(
 	city: CitySite,
 	ground: Extract<Shape, { kind: 'mesh' }>,
@@ -39,8 +39,14 @@ export function projectWetPlan(
 		const water = cellIds.some((id) => covers.get(id) !== 'dry');
 		project(point(a), point(b), water ? wet : dry);
 	}
-	for (const { path } of crossings)
+	for (const { path, span } of crossings) {
+		if (span) {
+			const [from, to] = span.nodeIds;
+			project(point(from), point(to), markers, crossingLiftM);
+			continue;
+		}
 		for (const { from, to } of path.edges) project(point(from), point(to), markers, crossingLiftM);
+	}
 
 	function project(a: Vec2, b: Vec2, output: number[], lift = planLineLiftM) {
 		const start = toLocal(...a);

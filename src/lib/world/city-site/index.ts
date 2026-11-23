@@ -3,7 +3,7 @@ import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
 import { createCityDistricts, type CityPlanVariant } from '../../domain/city-volume';
-import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
+import { crossingLimits, TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley, type ValleySettings } from '../../domain/valley';
 import { preparePlanSelection } from './plan-selection';
 import { prepareCarrier } from './carrier';
@@ -83,7 +83,7 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 	if (cached) return cached;
 	const station = Random.create({ seed })
 		.derive('crossing-station')
-		.number({ min: -860, max: 860 });
+		.number({ min: -crossingLimits.centerStationRangeM, max: crossingLimits.centerStationRangeM });
 	const {
 		frame: { bearing },
 		sampleGround,
@@ -214,6 +214,7 @@ export function readCityGrid(
 	const planIds = planSelection(grid);
 	for (const {
 		path,
+		span,
 		heads: [first, second],
 		waterCellIds
 	} of crossings) {
@@ -223,6 +224,7 @@ export function readCityGrid(
 		activeCrossings.push(
 			Object.freeze({
 				path,
+				...(span ? { span } : {}),
 				heads: Object.freeze([
 					Object.freeze({ nodeId: first.nodeId, cellIds: Object.freeze(from) }),
 					Object.freeze({ nodeId: second.nodeId, cellIds: Object.freeze(to) })
@@ -255,7 +257,13 @@ export function readCityGrid(
 		grid,
 		plan: TerrainGrid.select(plan, [...planIds]),
 		crossings: Object.freeze(activeCrossings),
-		selectedCrossings: Object.freeze(activeCrossings.slice(0, 1 + Math.ceil(areaKm2 / 1.25))),
+		selectedCrossings: Object.freeze(
+			activeCrossings.slice(
+				0,
+				crossingLimits.selectionBaseCount +
+					Math.ceil(areaKm2 / crossingLimits.selectionIncrementKm2)
+			)
+		),
 		datumZ,
 		areaKm2,
 		medianCellSize: areas.length

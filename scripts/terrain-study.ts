@@ -13,6 +13,17 @@ const runoffs = [0.5, 1, 1.5];
 const seeds = [1201, 1301, 1409, 7, 42, 314, 2718, 9001, 65535, 424242, 31337, 8086];
 const inSurvey = ([x, y]: readonly number[]) => Math.max(Math.abs(x), Math.abs(y)) <= 2000;
 
+// Fixed observations of the width law, separate from the generated reach stations.
+for (const [dischargeM3s, widthM] of [
+	[0, 0],
+	[0.125, 15.286606919647065],
+	[1, 31],
+	[8, 62.865487746981806]
+]) {
+	if (Math.abs(channelWidth(dischargeM3s) - widthM) > 1e-9)
+		throw new Error(`Channel width at ${dischargeM3s} m³/s differs from ${widthM} m`);
+}
+
 function reaches(valley: Valley) {
 	const byId = new Map(valley.reaches.map((reach) => [reach.id, reach]));
 	const trunk: { width: number; length: number }[] = [];

@@ -1,36 +1,16 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { edgeId, type Candidate, type Node } from './carrier';
-import { quality } from './metrics';
+import { edgeId, ringMean, type Candidate, type Node } from './carrier';
+import { shorelineMorphLimits as limits } from './config';
 
 type Clearance = (x: number, y: number) => number;
 type Vertex = { node: Node; neighbors: Set<string>; boundary: Set<string>; fade: number };
-
-/** Shore morph distances in meters and minimum and maximum retained cell area ratios. */
-export const shorelineMorphLimits = Object.freeze({
-	bandM: 145,
-	minimumWaterWidthM: 42,
-	bankToleranceM: 8,
-	bankAllowanceM: 1.8,
-	maximumMoveM: 48,
-	minimumAreaRatio: 0.52,
-	maximumAreaRatio: 1.62
-});
-const limits = shorelineMorphLimits;
-const gradientProbeM = 4;
-
-function center({ corners }: Candidate): Vec2 {
-	return corners.reduce<Vec2>(
-		([x, y], { xy: [a, b] }) => [x + a / corners.length, y + b / corners.length],
-		[0, 0]
-	);
-}
 
 function network(cells: readonly Candidate[], clearance: Clearance) {
 	const vertices = new Map<string, Vertex>();
 	const edges = new Map<string, boolean>();
 	for (const cell of cells) {
-		const dry = clearance(...center(cell)) >= 0;
+		const dry = clearance(...ringMean(cell.corners)) >= 0;
 		for (const [i, node] of cell.corners.entries()) {
 			const next = cell.corners[(i + 1) % cell.corners.length];
 			for (const end of [node, next]) {
@@ -60,24 +40,26 @@ function network(cells: readonly Candidate[], clearance: Clearance) {
 }
 
 function normal([x, y]: Vec2, clearance: Clearance) {
-	const dx = clearance(x + gradientProbeM, y) - clearance(x - gradientProbeM, y);
-	const dy = clearance(x, y + gradientProbeM) - clearance(x, y - gradientProbeM);
+	const dx = clearance(x + limits.gradientProbeM, y) - clearance(x - limits.gradientProbeM, y);
+	const dy = clearance(x, y + limits.gradientProbeM) - clearance(x, y - limits.gradientProbeM);
 	const length = Math.hypot(dx, dy);
-	if (length < gradientProbeM * 0.7 || !Number.isFinite(length)) return;
+	if (length < 2 * limits.gradientProbeM * limits.minimumGradientRatio || !Number.isFinite(length))
+		return;
 	return [dx / length, dy / length] as const;
 }
 
 function onShore(point: Vec2, clearance: Clearance): Vec2 | undefined {
 	let [x, y] = point;
-	for (let i = 0; i < 5; i++) {
+	for (let i = 0; i < limits.projectionPassCount; i++) {
 		const residual = clearance(x, y) - limits.bankAllowanceM;
-		if (Math.abs(residual) < 0.08) return [x, y];
+		if (Math.abs(residual) < limits.projectionToleranceM) return [x, y];
 		const n = normal([x, y], clearance);
 		if (!n || Math.abs(residual) > limits.maximumMoveM) return;
 		x -= n[0] * residual;
 		y -= n[1] * residual;
 	}
-	if (Math.abs(clearance(x, y) - limits.bankAllowanceM) < 0.5) return [x, y];
+	if (Math.abs(clearance(x, y) - limits.bankAllowanceM) < limits.projectionFallbackToleranceM)
+		return [x, y];
 }
 
 function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
@@ -93,11 +75,11 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 		// Redistribute the rail tangentially before projecting. A stair turn otherwise
 		// sends neighboring nodes to almost the same point on the shore.
 		const tangent =
-			[...boundary].reduce((sum, key) => {
+			[...boundary].sort().reduce((sum, key) => {
 				const [x, y] = required(vertices.get(key), 'shore rail neighbor').node.xy;
 				return sum - (x - xy[0]) * n[1] + (y - xy[1]) * n[0];
 			}, 0) / boundary.size;
-		const offset = 0.36 * tangent;
+		const offset = limits.tangentRelaxationRatio * tangent;
 		const target = onShore([xy[0] - offset * n[1], xy[1] + offset * n[0]], clearance);
 		if (!target || distance(xy, target) > limits.maximumMoveM || !wideEnough(target, clearance))
 			continue;
@@ -109,17 +91,23 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 function wideEnough(point: Vec2, clearance: Clearance) {
 	const n = normal(point, clearance);
 	if (!n) return false;
-	const reach = limits.minimumWaterWidthM + 4;
-	const probe = (depth: number) => clearance(point[0] - depth * n[0], point[1] - depth * n[1]);
-	return probe(reach * 0.5) <= -reach * 0.33 && probe(reach) < 0;
+	const reach = limits.minimumWaterWidthM;
+	const probe = (depth: number) =>
+		clearance(
+			point[0] - (limits.bankAllowanceM + depth) * n[0],
+			point[1] - (limits.bankAllowanceM + depth) * n[1]
+		);
+	return probe(reach * 0.5) <= -reach * limits.widthProbeDepthRatio && probe(reach) < 0;
 }
 
 function relax(vertices: ReadonlyMap<string, Vertex>, fixed: ReadonlyMap<string, Vec2>) {
+	const movable = [...vertices].flatMap(([id, { fade, neighbors }]) =>
+		!fixed.has(id) && fade ? [{ id, fade, neighbors: [...neighbors].sort() }] : []
+	);
 	let field = new Map(fixed);
-	for (let pass = 0; pass < 9; pass++) {
+	for (let pass = 0; pass < limits.diffusionPassCount; pass++) {
 		const next = new Map(fixed);
-		for (const [id, { fade, neighbors }] of vertices) {
-			if (fixed.has(id) || !fade) continue;
+		for (const { id, fade, neighbors } of movable) {
 			let x = 0;
 			let y = 0;
 			for (const other of neighbors) {
@@ -128,7 +116,7 @@ function relax(vertices: ReadonlyMap<string, Vertex>, fixed: ReadonlyMap<string,
 				x += delta[0];
 				y += delta[1];
 			}
-			const weight = (0.92 * fade) / neighbors.size;
+			const weight = (limits.diffusionRetentionRatio * fade) / neighbors.length;
 			if (x || y) next.set(id, [x * weight, y * weight]);
 		}
 		field = next;
@@ -149,23 +137,44 @@ function minimumAngle(points: readonly Vec2[]) {
 	);
 }
 
-function safeCells(
+function cellBounds({ corners }: Candidate) {
+	const points = corners.map(({ xy }) => xy);
+	const edges = points.map((point, i) => distance(point, points[(i + 1) % points.length]));
+	return {
+		corners,
+		minimumAngle: Math.min(limits.minimumAngleRad, minimumAngle(points)),
+		maximumRatio: Math.max(limits.maximumEdgeRatio, Math.max(...edges) / Math.min(...edges)),
+		area: measurePolygon(points).area
+	};
+}
+
+function fitsCell(
+	{ corners, area, minimumAngle: angle, maximumRatio }: ReturnType<typeof cellBounds>,
+	point: (node: Node) => Vec2,
+	inside: (ring: readonly Vec2[]) => boolean
+) {
+	const points = corners.map(point);
+	if (points.every((p, i) => p === corners[i].xy)) return true;
+	const lengths = points.map((p, i) => distance(p, points[(i + 1) % points.length]));
+	const ratio = measurePolygon(points).area / area;
+	return (
+		ratio >= limits.minimumAreaRatio &&
+		ratio <= limits.maximumAreaRatio &&
+		minimumAngle(points) >= angle - limits.guardAngleToleranceRad &&
+		Math.max(...lengths) <= maximumRatio * Math.min(...lengths) + limits.guardEdgeToleranceM &&
+		inside(points)
+	);
+}
+
+function limitDisplacement(
 	cells: readonly Candidate[],
 	inside: (ring: readonly Vec2[]) => boolean,
-	field: ReadonlyMap<string, Vec2>
+	field: ReadonlyMap<string, Vec2>,
+	anchors: ReadonlyMap<string, Vec2>
 ) {
 	const bounds = cells
-		.map(({ corners }) => {
-			const points = corners.map(({ xy }) => xy);
-			const edges = points.map((point, i) => distance(point, points[(i + 1) % points.length]));
-			return {
-				corners,
-				minimumAngle: Math.min(quality.minimumAngle, minimumAngle(points)),
-				maximumRatio: Math.max(quality.maximumEdgeRatio, Math.max(...edges) / Math.min(...edges)),
-				area: measurePolygon(points).area
-			};
-		})
-		.filter(({ corners }) => corners.some(({ id }) => field.has(id)));
+		.filter(({ corners }) => corners.some(({ id }) => field.has(id)))
+		.map(cellBounds);
 	const scale = new Map<string, number>();
 	const point = ({ id, xy }: Node): Vec2 => {
 		const delta = field.get(id);
@@ -174,24 +183,43 @@ function safeCells(
 	};
 	for (let pass = 0; ; pass++) {
 		const rejected = new Set<string>();
-		for (const { corners, area, minimumAngle: angle, maximumRatio } of bounds) {
-			const points = corners.map(point);
-			if (points.every((p, i) => p === corners[i].xy)) continue;
-			const lengths = points.map((p, i) => distance(p, points[(i + 1) % points.length]));
-			const ratio = measurePolygon(points).area / area;
-			if (
-				ratio >= limits.minimumAreaRatio &&
-				ratio <= limits.maximumAreaRatio &&
-				minimumAngle(points) >= angle - 1e-10 &&
-				Math.max(...lengths) <= maximumRatio * Math.min(...lengths) + 1e-9 &&
-				inside(points)
-			)
-				continue;
-			for (const { id } of corners) if (field.has(id)) rejected.add(id);
+		for (const cell of bounds) {
+			if (fitsCell(cell, point, inside)) continue;
+			for (const { id } of cell.corners) if (field.has(id)) rejected.add(id);
 		}
-		if (!rejected.size) return point;
-		for (const id of rejected) scale.set(id, pass < 7 ? (scale.get(id) ?? 1) * 0.6 : 0);
+		if (!rejected.size) break;
+		for (const id of rejected)
+			scale.set(
+				id,
+				pass < limits.guardPassCount ? (scale.get(id) ?? 1) * limits.guardRetentionRatio : 0
+			);
 	}
+
+	// A rejected cell initially shortens every incident displacement. Recover bank
+	// motion one node at a time where the neighboring cells can now accommodate it.
+	const incident = new Map<string, ReturnType<typeof cellBounds>[]>();
+	for (const cell of bounds) {
+		for (const { id } of cell.corners) {
+			if (!anchors.has(id) || !scale.has(id)) continue;
+			const list = incident.get(id) ?? [];
+			list.push(cell);
+			incident.set(id, list);
+		}
+	}
+	for (const id of [...incident.keys()].sort()) {
+		const local = required(incident.get(id), 'anchor incident cells');
+		let low = required(scale.get(id), 'shortened anchor scale');
+		let high = 1;
+		for (let pass = 0; pass < limits.anchorRecoveryPassCount; pass++) {
+			const proposal = pass === 0 ? high : (low + high) / 2;
+			scale.set(id, proposal);
+			if (local.every((cell) => fitsCell(cell, point, inside))) low = proposal;
+			else high = proposal;
+			if (low === 1) break;
+		}
+		scale.set(id, low);
+	}
+	return point;
 }
 
 /** Moves the same topological carrier toward its flowing and standing shorelines. */
@@ -201,8 +229,9 @@ export function alignShore(
 	inside: (ring: readonly Vec2[]) => boolean
 ): readonly Candidate[] {
 	const vertices = network(cells, clearance);
-	const field = relax(vertices, anchors(vertices, clearance));
-	const point = safeCells(cells, inside, field);
+	const fixed = anchors(vertices, clearance);
+	const field = relax(vertices, fixed);
+	const point = limitDisplacement(cells, inside, field, fixed);
 	const nodes = new Map([...vertices].map(([id, { node }]) => [id, { id, xy: point(node) }]));
 	return cells.map(({ id, corners }) => ({
 		id,

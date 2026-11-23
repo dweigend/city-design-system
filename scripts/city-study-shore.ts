@@ -21,6 +21,7 @@ export function shoreMetrics(
 	const points = new Map(plan.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
 	const point = (id: string) => required(points.get(id), 'plan point');
 	const stageCells = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
+	const adjacent = new Set<string>();
 	let shoreEdges = 0;
 	let alignedEdges = 0;
 	for (const {
@@ -32,6 +33,7 @@ export function shoreMetrics(
 		const [x, y] = point(a);
 		const [u, v] = point(b);
 		shoreEdges++;
+		for (const id of cellIds) if (stageCells.get(id) === 'dry') adjacent.add(id);
 		if (
 			[point(a), [(x + u) * 0.5, (y + v) * 0.5] as const, point(b)].every(
 				(p) =>
@@ -67,18 +69,41 @@ export function shoreMetrics(
 		});
 		maxEdgeRatio = Math.max(maxEdgeRatio, Math.max(...edges) / Math.min(...edges));
 	}
+	const planCells = new Map(plan.cells.map((cell) => [cell.id, cell]));
+	let clipped = 0;
+	let occupiedShore = 0;
+	for (const { id, vertexIds } of grid.cells) {
+		const original = required(planCells.get(id), 'occupied plan cell').vertexIds;
+		const cut =
+			original.length !== vertexIds.length || original.some((node, i) => node !== vertexIds[i]);
+		if (cut) clipped++;
+		if (cut || adjacent.has(id)) occupiedShore++;
+	}
+	const unclippedShare = occupiedShore ? 1 - clipped / occupiedShore : null;
+	const alignedShare = shoreEdges ? alignedEdges / shoreEdges : null;
 	return {
-		clipped: grid.cells.filter(({ vertexIds }) => vertexIds.some((id) => id.startsWith('shore/')))
-			.length,
+		clipped,
+		occupiedShore,
+		unclippedShare,
+		alignedShare,
+		unclippedTargetMet:
+			unclippedShare === null ? null : unclippedShare >= shorelineMorphLimits.targetUnclippedShare,
+		alignedTargetMet:
+			alignedShare === null ? null : alignedShare >= shorelineMorphLimits.targetAlignedEdgeShare,
 		shoreEdges,
 		alignedEdges,
 		minAreaM2: Number.isFinite(minAreaM2) ? minAreaM2 : 0,
 		maxAreaM2,
 		minAngleDeg: Number.isFinite(minAngleDeg) ? minAngleDeg : 0,
 		maxEdgeRatio,
+		straightSpans: selectedCrossings.filter(({ span }) => span).length,
 		straightness: selectedCrossings.map(
 			({ heads: [first, second], path }) =>
 				distance(point(first.nodeId), point(second.nodeId)) / path.lengthM
+		),
+		renderedStraightness: selectedCrossings.map(
+			({ heads: [first, second], path, span }) =>
+				distance(point(first.nodeId), point(second.nodeId)) / (span?.lengthM ?? path.lengthM)
 		)
 	};
 }
