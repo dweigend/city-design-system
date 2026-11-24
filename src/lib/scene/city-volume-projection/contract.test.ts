@@ -19,6 +19,7 @@ import type { Drawable } from '../surface';
 import { drawnInPencil } from './blocks';
 import { example } from './example';
 import {
+	cityCameraHeightPreset,
 	cityElevation,
 	cityPresentation,
 	cityProfile,
@@ -342,4 +343,17 @@ test('projects the interior of a public fill across a ten-meter terrain peak', (
 		expect(z).toBeCloseTo(Math.min(x, y, 20 - x, 20 - y) + 2 * planLineLiftM, 8);
 	}
 	expect(Math.max(...fill.shape.positions.filter((_, i) => i % 3 === 2))).toBeCloseTo(10.64);
+});
+
+test('uses the supplied district kinds and camera height profile', () => {
+	const { columns, datumZ, frame, taper } = example();
+	const projected = projectCityDistricts(columns, datumZ, frame, taper, 0, ['block']);
+	expect(projected.object.slots).toEqual(['block', 'shadow']);
+	expect(new Set(projected.drawables.map(({ kind }) => kind))).toEqual(new Set(['block']));
+	const camera = { ...cityCameraHeightPreset, quarterElevationDeg: 45, peakFrameShare: 0.05 };
+	const elevation = cityElevation(0, 2000, camera);
+	expect(elevation).toBe(Math.PI / 4);
+	expect(cityProfile(5000, 4, 91, elevation, false, Infinity, camera).factor).toBeLessThan(
+		cityProfile(5000, 4, 91, elevation, false).factor
+	);
 });

@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/surface';
 import { required } from '../../core/invariant';
 import type { PlaceableObject, Shape } from '../../core/object';
 
@@ -166,11 +167,14 @@ export const stockSurfaces = Object.freeze({
 } as const);
 
 /** Upper tick of the fixed column height scale in true meters. */
-export const cityHeightScaleM = 140;
+export const { cityHeightScaleM } = defaults;
 
-/** Sequential palette shared by all settlements, with extra contrast at town heights. */
-export function heightRamp(height: number) {
-	const share = Math.min(1, Math.max(0, height / cityHeightScaleM));
+/** Sequential palette from zero to a finite positive upper elevation in meters.
+ * Uses the city height scale when omitted and clamps heights to the chosen range. */
+export function heightRamp(height: number, maximumHeightM: number = cityHeightScaleM) {
+	if (!Number.isFinite(maximumHeightM) || maximumHeightM <= 0)
+		throw new RangeError('Expected a finite positive height ramp range');
+	const share = Math.min(1, Math.max(0, height / maximumHeightM));
 	const breakPoint = 0.15;
 	const low = share <= breakPoint;
 	return {

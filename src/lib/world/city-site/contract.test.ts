@@ -405,3 +405,30 @@ test('uses a cell elevation range for buildability on a steady slope', () => {
 	expect(allowed.grid.cells.length).toBeGreaterThan(0);
 	expect(rejected.grid.cells.length).toBe(0);
 });
+
+test('terrain edits and undo refresh the carrier datum through one site', () => {
+	let revision = '0';
+	let height = 0;
+	let samples = 0;
+	const site = createCitySite(
+		() => {
+			samples++;
+			return { height, waterClearance: Infinity, waterKind: null };
+		},
+		{ terrainRevision: () => revision }
+	);
+	const datum = () => readCityGrid(site, 600, 'square').datumZ;
+	expect(datum()).toBe(0);
+	const initialSamples = samples;
+	expect(datum()).toBe(0);
+	expect(samples).toBe(initialSamples);
+
+	height = 35;
+	revision = '1';
+	expect(datum()).toBe(35);
+	expect(samples).toBeGreaterThan(initialSamples);
+
+	height = 0;
+	revision = '0';
+	expect(datum()).toBe(0);
+}, 20_000);

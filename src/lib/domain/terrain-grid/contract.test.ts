@@ -434,3 +434,25 @@ test('names Voronoi corners by site incidence across geometry changes', () => {
 	}
 	expect(stableMoved).toBeGreaterThan(20);
 });
+
+test('applies the caller’s outline distance limit from the site datum', () => {
+	const input: TerrainGridOptions = {
+		seed: 1201,
+		variant: 'square',
+		parameters: { cellSize: 60 },
+		heightAt: () => 0,
+		site: {
+			origin: [100, 100],
+			bearing: 0,
+			outline: [
+				[100, 100],
+				[4160, 100],
+				[4160, 160],
+				[100, 160]
+			]
+		}
+	};
+	expect(() => TerrainGrid.create(input)).toThrow('4 km');
+	const grid = TerrainGrid.create({ ...input, site: { ...input.site, maxOutlineDistanceM: 4200 } });
+	expect(grid.cells.length).toBeGreaterThan(60);
+});

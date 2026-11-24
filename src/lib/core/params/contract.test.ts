@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
-import { blockInputs, defineParams, resolveParams } from './index';
+import { createBlockInputs, defineParams, resolveParams } from './index';
+
+const blockInputs = createBlockInputs();
 
 test('returns defaults and detaches a schema from its caller', () => {
 	const field = { label: 'Radius', unit: 'm', default: 2, min: 1, max: 3, step: 0.25 };

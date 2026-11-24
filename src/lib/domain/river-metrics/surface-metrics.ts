@@ -138,7 +138,7 @@ function checkGrid(grid: SurfaceGrid): number {
 }
 
 // Exact arithmetic: floor indices at or above 2 identify terraces in the surface raster.
-const firstTerraceIndex = 2;
+const isDefaultTerrace = (floor: number) => floor >= 2;
 
 type ProfileWidths = {
 	widthM: number[];
@@ -164,13 +164,15 @@ function recordWidths(
 /**
  * Measures complete wet widths, step gains, core relief and land slope shares from a
  * north-first centered grid of millimeter heights and an interleaved XY course in meters.
- * Uses water-filled Gaussian-smoothed heights for terrain. The input buffers stay untouched.
+ * Uses water-filled Gaussian-smoothed heights for terrain. The terrace classifier defaults to
+ * floor indices of at least two. The input buffers stay untouched.
  * Throws RangeError for invalid raster dimensions, samples, spacings or classification thresholds.
  */
 export function measureRiverSurface(
 	grid: SurfaceGrid,
 	course: ArrayLike<number>,
-	protocol: SurfaceProtocol
+	protocol: SurfaceProtocol,
+	isTerrace: (floor: number) => boolean = isDefaultTerrace
 ) {
 	const side = checkGrid(grid);
 	checkProtocol(grid, protocol);
@@ -185,8 +187,7 @@ export function measureRiverSurface(
 	const height = gridSampler(surface.side, protocol.surfaceSpacingM, (i) => surface.heights[i]);
 	const widths: ProfileWidths = { widthM: [], bankPairsM: [], dryBankWidthsM: [] };
 	const { floor } = grid;
-	const terrace =
-		floor && gridSampler(side, grid.spacingM, (i) => Number(floor[i] >= firstTerraceIndex));
+	const terrace = floor && gridSampler(side, grid.spacingM, (i) => Number(isTerrace(floor[i])));
 	const stepHeightsM: number[] = [];
 	const stations = reach
 		? crossSections(

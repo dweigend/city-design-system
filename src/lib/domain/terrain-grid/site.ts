@@ -1,9 +1,12 @@
+import { defaults } from '../../../config/terrain-grid';
 import type { Vec2 } from '../../core/geometry';
 import { validateOutline } from './outline';
 
 type Datum = Readonly<{
 	origin: Vec2;
 	bearing: number;
+	/** Maximum outline distance from the datum, in meters. */
+	maxOutlineDistanceM?: number;
 }>;
 
 export type Site =
@@ -15,13 +18,10 @@ export type Site =
 			}>)
 	| (Datum & Readonly<{ outline: readonly Vec2[] }>);
 
-/** Largest distance in meters from the datum to an outline point. */
-export const outlineReach = 4000;
-
 export type HeightAt = (x: number, y: number) => number;
 
 export function siteOutline(site: Site): readonly Vec2[] {
-	const { origin, bearing } = site;
+	const { origin, bearing, maxOutlineDistanceM = defaults.outlineReachM } = site;
 	if (
 		!Array.isArray(origin) ||
 		origin.length !== 2 ||
@@ -29,11 +29,19 @@ export function siteOutline(site: Site): readonly Vec2[] {
 		!Number.isFinite(bearing)
 	)
 		throw new RangeError('Invalid terrain grid datum');
+	if (!Number.isFinite(maxOutlineDistanceM) || maxOutlineDistanceM <= 0)
+		throw new RangeError('Expected a finite, positive outline distance limit');
 
 	if ('outline' in site) {
 		validateOutline(site.outline);
-		if (site.outline.some(([x, y]) => Math.hypot(x - origin[0], y - origin[1]) > outlineReach))
-			throw new RangeError('Outline must stay within 4 km of its datum');
+		if (
+			site.outline.some(([x, y]) => Math.hypot(x - origin[0], y - origin[1]) > maxOutlineDistanceM)
+		)
+			throw new RangeError(
+				maxOutlineDistanceM === defaults.outlineReachM
+					? 'Outline must stay within 4 km of its datum'
+					: `Outline must stay within ${maxOutlineDistanceM} m of its datum`
+			);
 		return site.outline;
 	}
 	const { length, width, cornerCut = 0 } = site;
@@ -42,7 +50,7 @@ export function siteOutline(site: Site): readonly Vec2[] {
 		cornerCut < 0 ||
 		cornerCut > 0.5 ||
 		![length, width].every(
-			(extent) => Number.isFinite(extent) && extent > 0 && extent <= outlineReach
+			(extent) => Number.isFinite(extent) && extent > 0 && extent <= maxOutlineDistanceM
 		)
 	)
 		throw new RangeError('Invalid terrain grid site');

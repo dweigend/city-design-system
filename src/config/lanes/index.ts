@@ -1,6 +1,12 @@
 import { defineSettings, settingValues } from '../setting';
 
 export const settings = defineSettings({
+	cityCarrierCacheLimit: {
+		value: 8,
+		unit: 'count',
+		meaning: 'Maximum cached city carriers per site',
+		rationale: 'Bounds retained plan geometry when cycling through variants and seeds.'
+	},
 	promenadeWidthM: {
 		value: 6,
 		unit: 'm',

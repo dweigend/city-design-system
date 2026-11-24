@@ -7,7 +7,8 @@ import {
 	createCityTaper,
 	type CityColumn,
 	type CityLattice,
-	type CityTaper
+	type CityTaper,
+	type DistrictKind
 } from '../../domain/city-volume';
 import { districtSurfaces, planningStudy, resolveSurfaces, type Drawable } from '../surface';
 import { envelopeMeshes } from './envelope';
@@ -18,7 +19,12 @@ import { shadowBands, shadowMesh } from './shadow';
 
 type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) => Vec2 }>;
 /** Maps the camera framing to continuous detail and height presentation. */
-export { cityElevation, cityProfile } from './profile';
+export {
+	cityCameraHeightPreset,
+	cityElevation,
+	cityProfile,
+	type CityCameraHeightPreset
+} from './profile';
 /** Camera bearing and frame fill of the city picture. */
 export {
 	cityCameraBearingRad,
@@ -35,8 +41,8 @@ export { cityFocusPreset } from './focus-policy';
 /** Styles terrain, envelope and lattice by focus as the camera moves. */
 export { cityPresentation } from './presentation';
 
-const kinds = ['detached', 'block', 'center'] as const;
-const slots = [...kinds, 'shadow'] as const;
+/** Ordered district kinds of the default city projection. */
+export const cityDistrictKinds = Object.freeze(['detached', 'block', 'center'] as const);
 
 /** A drawable of the city volume with its focus metadata. */
 export type { CityDrawable } from './drawable';
@@ -45,14 +51,21 @@ export type { CityDrawable } from './drawable';
  * seeded pencil draw of stock, with their storey lines. Every envelope vertex carries its taper
  * offset. Each column also gets its simplest drawing, a plain box inset by a street, and each kind
  * two bands of ground shade under these boxes. An empty plan returns no drawables or focus. The
- * envelope follows the common level planes in true world meters. */
+ * envelope follows the common level planes in true world meters. The kinds select and order
+ * the stock, using the city preset when omitted. */
 export function projectCityDistricts(
 	columns: readonly CityColumn[],
 	datumZ: number,
 	frame: Frame,
 	taper: CityTaper = createCityTaper(columns, datumZ),
-	seed = 0
+	seed = 0,
+	kinds: readonly DistrictKind[] = cityDistrictKinds
 ) {
+	const slots = [...kinds, 'shadow'] as const;
+	const surfaces = {
+		...Object.fromEntries(kinds.map((kind) => [kind, districtSurfaces[kind]])),
+		shadow: districtSurfaces.shadow
+	};
 	const patches = envelopeMeshes(columns, datumZ, frame.toLocal, taper, seed);
 	const blocks = blockMeshes(columns, datumZ, frame.toLocal, seed);
 	const cells = columns.map((column) => ({
@@ -94,7 +107,7 @@ export function projectCityDistricts(
 		footprint: frame.footprint,
 		anchors: []
 	});
-	const parts = resolveSurfaces(object, districtSurfaces);
+	const parts = resolveSurfaces(object, surfaces);
 	const drawables: CityDrawable[] = parts.flatMap((part): CityDrawable[] => {
 		const shade = shades.find(({ id }) => id === part.id);
 		if (shade)

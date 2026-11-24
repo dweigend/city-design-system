@@ -643,3 +643,30 @@ test('routes wide stroke-only overlays to the background and local strokes by th
 	expect(tile([10, 20, 0, 410, 20, 0])).toBe('background');
 	expect(tile([180, 20, 0, 220, 20, 0])).toBe('1/0');
 });
+
+test('applies custom zoom limits to navigation', () => {
+	const target = Object.assign(new EventTarget(), {
+		getBoundingClientRect: () => ({ left: 0, top: 0, width: 200, height: 200 })
+	});
+	let fit: ViewFit | undefined;
+	const navigation = stageNavigation(
+		target as unknown as HTMLCanvasElement,
+		() => 2,
+		(next) => {
+			fit = next;
+		},
+		undefined,
+		undefined,
+		{ minZoom: 0.8, maxZoom: 1.2 }
+	);
+	const key = (value: string) =>
+		target.dispatchEvent(Object.assign(new Event('keydown'), { key: value }));
+	key('+');
+	expect(fit?.zoom).toBe(1.2);
+	key('-');
+	key('-');
+	expect(fit?.zoom).toBe(0.8);
+	key('Home');
+	expect(fit).toEqual({});
+	navigation.delete();
+});

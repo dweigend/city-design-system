@@ -164,10 +164,13 @@ export function terrainMeshes(
 	];
 	let lowest = Infinity;
 	for (const row of rows) for (const { z } of row) lowest = Math.min(lowest, z);
-	return [
+	const parts = [
 		{ id: 'ground', slot: 'ground', shape: groundMesh(rows) },
-		{ id: 'earth', slot: 'earth', shape: skirt(sides, lowest - 7 * scale) },
-		{ id: 'river', slot: 'water', shape: water.surface },
-		{ id: 'river-cut', slot: 'water-section', shape: waterSections(sides) }
+		{ id: 'earth', slot: 'earth', shape: skirt(sides, lowest - 7 * scale) }
 	];
+	if (water.surface.indices.length)
+		parts.push({ id: 'river', slot: 'water', shape: water.surface });
+	const cut = waterSections(sides);
+	if (cut.indices.length) parts.push({ id: 'river-cut', slot: 'water-section', shape: cut });
+	return parts;
 }

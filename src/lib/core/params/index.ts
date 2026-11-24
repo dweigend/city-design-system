@@ -1,19 +1,4 @@
 /** Module: Defines numeric parameter schemas and resolves player overrides. */
-const {
-	blockHeightDefaultM,
-	blockHeightMinM,
-	blockHeightMaxM,
-	blockHeightStepM,
-	blockWidthDefaultM,
-	blockWidthMinM,
-	blockWidthMaxM,
-	blockWidthStepM,
-	blockComplexityDefaultRatio,
-	blockComplexityMinRatio,
-	blockComplexityMaxRatio,
-	blockComplexityStepRatio
-} = defaults;
-
 import { defaults } from '../../../config/inputs';
 
 type NumberParam = Readonly<{
@@ -88,32 +73,33 @@ export function resolveParams<const S extends ParameterSchema>(
 	return Object.fromEntries(values) as Values<S>;
 }
 
-/** Shared block schema. Measure height and width in meters on the generated result's bounding
- * box, regardless of shape. Complexity is unitless. Reading the frozen schema has no side effects.
- */
-export const blockInputs = defineParams({
-	height: {
-		label: 'Height',
-		unit: 'm',
-		default: blockHeightDefaultM,
-		min: blockHeightMinM,
-		max: blockHeightMaxM,
-		step: blockHeightStepM
-	},
-	width: {
-		label: 'Width',
-		unit: 'm',
-		default: blockWidthDefaultM,
-		min: blockWidthMinM,
-		max: blockWidthMaxM,
-		step: blockWidthStepM
-	},
-	complexity: {
-		label: 'Complexity',
-		unit: '',
-		default: blockComplexityDefaultRatio,
-		min: blockComplexityMinRatio,
-		max: blockComplexityMaxRatio,
-		step: blockComplexityStepRatio
-	}
-});
+/** Creates the city block preset. Height and width are bounding-box meters, and complexity
+ * is unitless. The caller owns the frozen schema and can reuse it across resolutions. */
+export function createBlockInputs() {
+	return defineParams({
+		height: {
+			label: 'Height',
+			unit: 'm',
+			default: defaults.blockHeightDefaultM,
+			min: defaults.blockHeightMinM,
+			max: defaults.blockHeightMaxM,
+			step: defaults.blockHeightStepM
+		},
+		width: {
+			label: 'Width',
+			unit: 'm',
+			default: defaults.blockWidthDefaultM,
+			min: defaults.blockWidthMinM,
+			max: defaults.blockWidthMaxM,
+			step: defaults.blockWidthStepM
+		},
+		complexity: {
+			label: 'Complexity',
+			unit: '',
+			default: defaults.blockComplexityDefaultRatio,
+			min: defaults.blockComplexityMinRatio,
+			max: defaults.blockComplexityMaxRatio,
+			step: defaults.blockComplexityStepRatio
+		}
+	});
+}

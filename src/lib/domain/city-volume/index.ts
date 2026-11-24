@@ -2,7 +2,7 @@
 import { createCatalog } from '../../core/catalog';
 import type { Column } from './bay-addresses';
 import { required } from '../../core/invariant';
-import { blockInputs, defineParams, resolveParams } from '../../core/params';
+import { createBlockInputs, defineParams, resolveParams } from '../../core/params';
 import type { PlanVariant, TerrainGrid } from '../terrain-grid';
 import { columnPlanes } from './foundation';
 import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
@@ -15,11 +15,11 @@ import { createLattice, latticeVariants, type LatticeVariant } from './lattices'
 export { cityVolumeConfig } from './config';
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
-export { cityAccessibility } from './accessibility';
+export { cityAccessibility, type CityApproachPolicy } from './accessibility';
 /** Reads the world elevation of a column roof. */
 export { columnRoof } from './foundation';
 /** Produces a nested city footprint from the accessibility of plan cells. */
-export { cityGrowth } from './footprint';
+export { cityGrowth, cityGrowthDefaults, type CityGrowthPolicy } from './footprint';
 
 /** Level height, settlement thresholds, fixed district levels, neighbor step limit and the
  * peak law, with their units and reasons. */
@@ -51,7 +51,7 @@ export const cityVolumeParams = defineParams({
 		default: peakLaw.fullLevels * levelHeight,
 		step: levelHeight
 	},
-	complexity: { ...blockInputs.complexity, default: 0.35 },
+	complexity: { ...createBlockInputs().complexity, default: 0.35 },
 	taper: { label: 'Taper', unit: '', min: -1, max: 1, default: 1, step: 0.25 }
 });
 

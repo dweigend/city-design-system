@@ -5,7 +5,6 @@
 
 <script lang="ts">
 	import { page } from '$app/state';
-	import { blockInputs } from '../../lib/core/params';
 	import { Random } from '../../lib/core/random';
 	import type { HouseStyleName } from '../../lib/domain/house-court';
 	import type { DisplayLevel } from '../../lib/scene/focus';
@@ -18,7 +17,7 @@
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
 	import { parcelShapes, type ParcelShape } from './parcels';
-	import { readQuery } from './query';
+	import { blockInputs, readQuery } from './query';
 	import { sheets, single, styleNames } from './sheets';
 	import { townSheet, townStage, type TownDetail, type TownScope, type TownStyles } from './town';
 

@@ -1,5 +1,5 @@
 import { distance, type Vec2 } from '../../core/geometry';
-import { blockInputs, resolveParams } from '../../core/params';
+import { createBlockInputs, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
 import {
 	cellCentre,
@@ -21,6 +21,8 @@ import { defaults } from '../../../config/house-court';
 import { cellRoles, type CellRole } from './roles';
 import { hasCourtAccess, type HouseScale } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
+
+const blockInputs = createBlockInputs();
 
 const { eavesToleranceStoreys, cornerRiseStoreys, largeStoreys, entranceStepRiseM } = defaults;
 

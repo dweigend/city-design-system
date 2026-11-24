@@ -199,3 +199,14 @@ test('welds a sloped right-angle channel join at one shared elevation', () => {
 	);
 	expect(heights).toEqual([5]);
 });
+
+test('draws a dry crop as ground and earth without empty water meshes', () => {
+	const valley = Valley.create({ seed: 1201 });
+	const { drawables, triangleCount } = projectValleyWindow(
+		valley,
+		{ origin: [3500, 0], bearing: 0, length: 120, width: 120 },
+		1
+	);
+	expect(drawables.map(({ id }) => id)).toEqual(['ground', 'earth']);
+	expect(triangleCount).toBeGreaterThan(0);
+});

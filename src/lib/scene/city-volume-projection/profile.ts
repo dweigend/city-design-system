@@ -16,10 +16,32 @@ import {
 	uprightFadeMPerPx
 } from './constants';
 
-const peakTransition = peakTransitionLevels.map((levels) => levels * levelHeight) as [
-	number,
-	number
-];
+/** Camera elevation and height scaling parameters. Ranges increase from quarter to whole city. */
+export type CityCameraHeightPreset = Readonly<{
+	quarterElevationDeg: number;
+	cityElevationFlatDeg: number;
+	cityElevationPerReliefDeg: number;
+	cityElevationRangeM: readonly [number, number];
+	townFrameShare: number;
+	peakFrameShare: number;
+	peakTransitionM: readonly [number, number];
+	heightFadeMPerPx: readonly [number, number];
+}>;
+
+/** The default city camera keeps its existing tilt and height scaling as the frame widens. */
+export const cityCameraHeightPreset: CityCameraHeightPreset = Object.freeze({
+	quarterElevationDeg,
+	cityElevationFlatDeg,
+	cityElevationPerReliefDeg,
+	cityElevationRangeM: Object.freeze(cityElevationRangeM),
+	townFrameShare,
+	peakFrameShare,
+	peakTransitionM: Object.freeze([
+		peakTransitionLevels[0] * levelHeight,
+		peakTransitionLevels[1] * levelHeight
+	] as const),
+	heightFadeMPerPx: Object.freeze(heightFadeMPerPx)
+});
 
 function fade(value: number, [start, end]: readonly [number, number]) {
 	const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
@@ -27,7 +49,16 @@ function fade(value: number, [start, end]: readonly [number, number]) {
 }
 
 /** Camera elevation in radians for a true horizontal frame width in meters. */
-export function cityElevation(relief: number, widthM = Infinity) {
+export function cityElevation(
+	relief: number,
+	widthM = Infinity,
+	{
+		quarterElevationDeg,
+		cityElevationFlatDeg,
+		cityElevationPerReliefDeg,
+		cityElevationRangeM
+	} = cityCameraHeightPreset
+) {
 	const wholeCity = Math.max(
 		quarterElevationDeg,
 		cityElevationFlatDeg + cityElevationPerReliefDeg * relief
@@ -45,9 +76,10 @@ export function cityProfile(
 	peak: number,
 	elevation: number,
 	trueScale: boolean,
-	maxScale = Infinity
+	maxScale = Infinity,
+	{ townFrameShare, peakFrameShare, peakTransitionM, heightFadeMPerPx } = cityCameraHeightPreset
 ) {
-	const target = townFrameShare + (peakFrameShare - townFrameShare) * fade(peak, peakTransition);
+	const target = townFrameShare + (peakFrameShare - townFrameShare) * fade(peak, peakTransitionM);
 	const fullScale = Math.max(
 		1,
 		(width * target) / (Math.cos(elevation) * Math.max(levelHeight, peak))

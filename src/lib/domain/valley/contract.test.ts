@@ -90,7 +90,8 @@ test('versions the result and exposes frozen drainage geometry and terrain reads
 		Bun.hash(JSON.stringify([value.reaches, value.lakes, value.grid]));
 	expect(hash(Valley.create({ seed: 42, parameters: { relief: 1 } }))).toBe(hash(valley));
 	const lowland = surveyValley(valleyExample());
-	expect(surveyValley(valley).reliefM).toBeGreaterThan(lowland.reliefM * 3);
+	const { sampleTerrain, reaches } = valley;
+	expect(surveyValley({ sampleTerrain, reaches }).reliefM).toBeGreaterThan(lowland.reliefM * 3);
 	const reach = valley.reaches.find(({ trunk }) => trunk);
 	if (!reach) throw new Error('Expected an imported channel');
 	const sample = valley.readGround(...reach.stations[0].xy);

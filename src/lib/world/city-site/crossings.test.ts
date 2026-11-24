@@ -4,7 +4,13 @@ import { required } from '../../core/invariant';
 import { dryPlanEdges, planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
 import { createMainLaneRouter } from './main-lanes';
 import { channelCrossings } from './crossings';
-import { citySiteConfig, createCitySite, readCityGrid, type CityTerrainSampler } from './index';
+import {
+	citySiteConfig,
+	createCitySite,
+	readCityGrid,
+	riverCityRecipe,
+	type CityTerrainSampler
+} from './index';
 
 for (const [seed, relief, runoff, variant] of [
 	[1201, 0, 1, 'square'],
@@ -68,15 +74,20 @@ function clippedBank() {
 test('equal scores select the same crossings if built polygons are reversed', () => {
 	const { grid, plan, sample } = clippedBank();
 	const core: Vec2 = [0, 30];
-	const ranked = channelCrossings(plan, grid, sample, core);
+	const ranked = channelCrossings(plan, grid, sample, core, riverCityRecipe.isCrossable);
 	expect(ranked.length).toBeGreaterThan(0);
 	const reversed = { ...grid, cells: [...grid.cells].reverse() };
-	expect(channelCrossings(plan, reversed, sample, core)).toEqual(ranked);
+	expect(channelCrossings(plan, reversed, sample, core, riverCityRecipe.isCrossable)).toEqual(
+		ranked
+	);
 });
 
 test('routes from a real crossing head over addressed clipped bank intervals', () => {
 	const { grid, plan, sample } = clippedBank();
-	const crossing = required(channelCrossings(plan, grid, sample, [0, 30])[0], 'crossing');
+	const crossing = required(
+		channelCrossings(plan, grid, sample, [0, 30], riverCityRecipe.isCrossable)[0],
+		'crossing'
+	);
 	const dry = dryPlanEdges(grid, plan);
 	expect(
 		dry.some(
@@ -133,3 +144,25 @@ test('a main lane walks the square grid with its physical length', () => {
 	expect(path.edges).toHaveLength(3);
 	expect(path.edges.map(({ from }) => from)).toEqual(path.nodeIds.slice(0, -1));
 });
+
+test('accepts a crossing policy for a non-river channel', () => {
+	const sample: CityTerrainSampler = (x) => {
+		const waterClearance = Math.abs(x) - 46;
+		return waterClearance >= 0
+			? { height: 0, waterClearance, waterKind: null }
+			: { height: 0, waterClearance, waterKind: 'water', waterHeight: 1 };
+	};
+	const city = createCitySite(sample, {
+		recipe: {
+			isCrossable: (kind) => kind === 'water'
+		}
+	});
+	const { selectedCrossings, plan } = readCityGrid(city, 2600, 'square');
+	expect(selectedCrossings.length).toBeGreaterThan(0);
+	const graph = planEdgeGraph(plan);
+	for (const {
+		heads: [first, second]
+	} of selectedCrossings) {
+		expect(graph.point(first.nodeId)[0] * graph.point(second.nodeId)[0]).toBeLessThan(0);
+	}
+}, 20_000);

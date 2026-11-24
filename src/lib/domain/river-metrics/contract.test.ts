@@ -157,3 +157,19 @@ test('rejects profile offsets whose increment stalls or whose count is unreprese
 		).toThrow('profileHalfLengthM');
 	}
 });
+
+test('uses the supplied classifier to measure width to a different terrace class', () => {
+	const grid = {
+		windowM: 4,
+		spacingM: 1,
+		bedMm: [1000, 1000, -1000, 1000, 1000].flatMap((height) => Array(5).fill(height)),
+		meanWaterMm: Array<number>(25).fill(0),
+		floor: [1, 0, 0, 0, 1].flatMap((floor) => Array(5).fill(floor))
+	};
+	const course = [-2, 0, 2, 0];
+	const protocol = { ...surfaceProtocol, profileHalfLengthM: 2 };
+	expect(measureRiverSurface(grid, course, protocol).bankPairsM).toEqual([]);
+	const custom = measureRiverSurface(grid, course, protocol, (floor) => floor === 1);
+	expect(custom.bankPairsM.length).toBeGreaterThan(0);
+	expect(custom.bankPairsM).toEqual(custom.widthM.map(() => [1, 1]));
+});

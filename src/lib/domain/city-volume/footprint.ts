@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/city-volume';
 import { measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { TerrainGrid, TerrainGridCell } from '../terrain-grid';
@@ -156,25 +157,35 @@ function crossingEntries(
 	return { entry, sources };
 }
 
-const minimumStartAreaM2 = 10_800;
-const maximumParts = 8;
-const mainPartAreaM2 = 1_000_000;
-const satelliteEntryM = 180;
-const crossingCostPerMeter = 1.15;
+const { mainPartAreaM2, satelliteEntryM, crossingCostPerMeter } = defaults;
+
+/** Area needed to publish a new region and the maximum number of regions allowed to start. */
+export type CityGrowthPolicy = Readonly<{ startupAreaM2: number; maxRegions: number }>;
+
+/** Publication thresholds for the default city. */
+export const cityGrowthDefaults: CityGrowthPolicy = Object.freeze({
+	startupAreaM2: defaults.startupAreaM2,
+	maxRegions: defaults.maxRegions
+});
 
 /** Orders growth by access. Every prefix has edge-connected parts with no holes: a new cell
  * must meet each part it touches along an edge, and cannot increase the number of bounded
  * faces in the complement. Dry regions above the minimum area in m² begin at the best
  * access point of their connected component or at a crossing from an occupied region.
- * Crossing access cost increases with span. Small regions incur a cost and at most eight start.
- * A new part enters the published order as a group of at least 10,800 m². A plan takes
+ * Crossing access cost increases with span. Small regions incur a cost. The policy limits
+ * how many regions can start and the area required to publish a new part. A plan takes
  * prefixes only at complete steps. Deferred proposals retry when a neighboring corner changes. */
 export function cityGrowth(
 	grid: TerrainGrid,
 	cost: (center: Vec2, grade: number) => number,
 	minimumPartArea: number,
-	crossings: readonly Crossing[] = []
+	crossings: readonly Crossing[] = [],
+	{ startupAreaM2, maxRegions } = cityGrowthDefaults
 ) {
+	if (!Number.isFinite(startupAreaM2) || startupAreaM2 < 0)
+		throw new RangeError('Expected a finite, nonnegative startup area');
+	if (!Number.isSafeInteger(maxRegions) || maxRegions < 0)
+		throw new RangeError('Expected a nonnegative integer region limit');
 	const proposals = sampleCells(grid, cost);
 	const accepted = new Set<number>();
 	const { byId, part, areas } = partEntries(proposals, minimumPartArea);
@@ -183,7 +194,7 @@ export function cityGrowth(
 		return proposals[index].cost + satelliteEntryM * Math.max(0, 1 - area / mainPartAreaM2);
 	};
 	const usable = new Set(
-		[...areas.keys()].sort((a, b) => priority(a) - priority(b) || a - b).slice(0, maximumParts)
+		[...areas.keys()].sort((a, b) => priority(a) - priority(b) || a - b).slice(0, maxRegions)
 	);
 	const { entry, sources } = crossingEntries(crossings, byId, part, usable);
 	const published = new Set<number>();
@@ -226,7 +237,7 @@ export function cityGrowth(
 		const first = pending.get(region) ?? { area: 0, indexes: [] };
 		first.area += proposals[index].area;
 		first.indexes.push(index);
-		if (first.area < minimumStartAreaM2) {
+		if (first.area < startupAreaM2) {
 			pending.set(region, first);
 			return;
 		}

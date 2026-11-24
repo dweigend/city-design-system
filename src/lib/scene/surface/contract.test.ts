@@ -1,6 +1,13 @@
 import { expect, test } from 'bun:test';
 import { PlaceableObject } from '../../core/object';
-import { accent, existing, resolveSurfaces, validateTokens, type SurfaceAssignment } from './index';
+import {
+	accent,
+	existing,
+	heightRamp,
+	resolveSurfaces,
+	validateTokens,
+	type SurfaceAssignment
+} from './index';
 
 const object = PlaceableObject.create({
 	id: 'opening',
@@ -65,4 +72,10 @@ test('accents only the wall and keeps every other stock surface', () => {
 	expect(assigned).toEqual({ ...existing, wall: { ...existing.wall, color: '--cat-living' } });
 	expect(assigned.glass).toBe(existing.glass);
 	expect(existing.wall.color).toBe('--paper-2');
+});
+
+test('spreads the height palette over a caller-supplied elevation range', () => {
+	expect(heightRamp(21).colorMix.amount).toBe(1);
+	expect(heightRamp(21, 280).colorMix.amount).toBe(0.5);
+	expect(heightRamp(300, 280).colorMix.amount).toBe(1);
 });

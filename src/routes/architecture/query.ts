@@ -1,8 +1,10 @@
-import { blockInputs, resolveParams } from '../../lib/core/params';
+import { createBlockInputs, resolveParams } from '../../lib/core/params';
 import { houseStyles, type HouseStyleName } from '../../lib/domain/house-court';
 import { displayLevels, type DisplayLevel } from '../../lib/scene/focus';
 import { parcelShapes, type ParcelShape } from './parcels';
 import { sheets, type HouseSetup, type SheetName } from './sheets';
+
+export const blockInputs = createBlockInputs();
 
 const pickKey = <K extends string>(
 	table: Readonly<Record<K, unknown>>,

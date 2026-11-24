@@ -21,3 +21,10 @@ The example reads the opening town for seed 1201 and uses its growth data to der
 Parcel and block addresses belong to the plan. Use a block's `memberCellIds` to resolve its
 original cells and canonical bays. `readCityDistricts` gives the current density of those cells.
 A crossing's ID encodes its addressed path, independent of which of its head cells are active.
+
+An alternate sampler can provide `terrainRevision` as a getter in the site options. Update
+the revision with the sampled data on edits and undo. The carrier and trunk index recompute
+on demand when it changes. A sampler without a revision getter is treated as immutable.
+Read a new layout before deriving parcels after a revision change. Use `recipe` to override
+the river-city approach and growth policies. Supplying only `isCrossable` also uses that
+predicate to identify the primary channel.

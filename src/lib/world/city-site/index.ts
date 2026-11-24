@@ -1,6 +1,8 @@
 /** Module: Builds city growth selections on a valley or caller-supplied terrain. */
+import { createDeriveCache } from '../../core/derive';
+import type { Key } from '../../core/ref';
 import type { Vec2 } from '../../core/geometry';
-import { required } from '../../core/invariant';
+import { laneSettings } from '../../../config/lanes';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
 import {
@@ -15,6 +17,7 @@ import { growthPrefix, prepareCarrier } from './carrier';
 import { citySiteConfig } from './config';
 import type { CityTerrainSampler } from './sampling';
 import type { CityCrossing } from './crossings';
+import { resolveCityRecipe, riverCityRecipe, type CityRecipe } from './recipe';
 
 /** Maximum sampled height range, in meters, in a buildable city cell. */
 export const maximumCellRiseM = citySiteConfig.maximumCellRiseM;
@@ -23,7 +26,8 @@ export const cityBankSetbackM = citySiteConfig.bankSetbackM;
 /** City carrier limits used by planning and its studies. */
 export { citySiteConfig };
 export type { CityTerrainReading, CityTerrainSampler } from './sampling';
-export type { CityCrossing } from './crossings';
+export type { CityCrossing, CrossableWater } from './crossings';
+export { riverCityRecipe, type CityRecipe } from './recipe';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
 export const citySiteParams = defineParams({
@@ -41,11 +45,19 @@ function siteParams(citySize?: number, seed?: number) {
 	});
 }
 
-type Settings = Partial<ValleySettings> & Readonly<{ seed?: number }>;
+/** Keep the terrain revision getter in sync with mutable samplers, including after undo.
+ * Omitting the getter declares that the sampler stays immutable for the life of the site. */
+export type CitySiteOptions = Readonly<{
+	terrainRevision?: () => string | Key;
+	recipe?: Partial<CityRecipe>;
+}>;
+type Settings = Partial<ValleySettings> & Readonly<{ seed?: number }> & CitySiteOptions;
 type CityFrame = Readonly<{
 	origin: Vec2;
 	frame: Readonly<{ bearing: number }>;
 	sampleGround: CityTerrainSampler;
+	terrainRevision?: CitySiteOptions['terrainRevision'];
+	recipe?: CityRecipe;
 }>;
 
 /** A city site with a default valley or an alternate ground source. */
@@ -57,12 +69,26 @@ export function createCitySite(
 	settings?: Settings
 ): CityFrame & { readonly valley: Valley };
 /** Creates a site using the alternate ground source for planning and projection. */
-export function createCitySite(terrain: CityTerrainSampler): CityFrame & { readonly valley: null };
+export function createCitySite(
+	terrain: CityTerrainSampler,
+	options?: CitySiteOptions
+): CityFrame & { readonly valley: null };
 export function createCitySite(terrain?: CityTerrainSampler, settings?: Settings): CitySite {
-	const { seed = citySiteParams.seed.default, ...parameters } = settings ?? {};
+	const {
+		seed = citySiteParams.seed.default,
+		terrainRevision,
+		recipe,
+		...parameters
+	} = settings ?? {};
+
 	const frame = Object.freeze({ bearing: -Math.PI / 2 });
 	const origin = Object.freeze([0, 0] as const);
-	if (terrain) return Object.freeze({ valley: null, frame, origin, sampleGround: terrain });
+	const options = {
+		...(terrainRevision && { terrainRevision }),
+		...(recipe && { recipe: resolveCityRecipe(recipe) })
+	};
+	if (terrain)
+		return Object.freeze({ valley: null, frame, origin, sampleGround: terrain, ...options });
 	const valley = Valley.create({ seed, parameters });
 	const sampleGround: CityTerrainSampler = (x, y) => {
 		const { height, bank: waterClearance, waterKind, water } = valley.sampleTerrain(x, y);
@@ -70,13 +96,13 @@ export function createCitySite(terrain?: CityTerrainSampler, settings?: Settings
 			? { height, waterClearance, waterKind }
 			: { height, waterClearance, waterKind, waterHeight: water };
 	};
-	return Object.freeze({ valley, frame, origin, sampleGround });
+	return Object.freeze({ valley, frame, origin, sampleGround, ...options });
 }
 
 type Carrier = ReturnType<typeof prepareCarrier> & {
 	planSelection: ReturnType<typeof preparePlanSelection>;
 };
-const carriers = new WeakMap<CitySite, Map<string, Carrier>>();
+const carriers = createDeriveCache<CitySite, Carrier>(laneSettings.cityCarrierCacheLimit);
 
 function targetArea(citySizeM: number) {
 	const lengthKm = citySizeM / 1000;
@@ -88,50 +114,45 @@ function targetArea(citySizeM: number) {
 }
 
 function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
-	let cache = carriers.get(city);
-	if (!cache) {
-		cache = new Map();
-		carriers.set(city, cache);
-	}
-	const key = `${variant}/${seed}`;
-	const cached = cache.get(key);
-	if (cached) return cached;
-	const station = Random.create({ seed })
-		.derive('crossing-station')
-		.number({ min: -citySiteConfig.centerStationRangeM, max: citySiteConfig.centerStationRangeM });
-	const {
-		frame: { bearing },
-		sampleGround,
-		origin
-	} = city;
-	const prepared = prepareCarrier(
-		{
-			origin,
+	const revision = city.terrainRevision?.() ?? '';
+	return carriers(city, [variant, seed], revision, () => {
+		const station = Random.create({ seed }).derive('crossing-station').number({
+			min: -citySiteConfig.centerStationRangeM,
+			max: citySiteConfig.centerStationRangeM
+		});
+		const {
+			frame: { bearing },
 			sampleGround,
-			bearing,
-			bankSide: city.valley ? (point) => readCitySide(city, point) : undefined,
-			center: [origin[0] + station * Math.cos(bearing), origin[1] + station * Math.sin(bearing)]
-		},
-		coarseCellSize,
-		variant,
-		seed,
-		targetArea(citySiteParams.citySize.max)
-	);
-	if (cache.size === 8) cache.delete(required(cache.keys().next().value, 'oldest carrier'));
-	const result = { ...prepared, planSelection: preparePlanSelection(prepared.plan) };
-	cache.set(key, result);
-	return result;
+			origin
+		} = city;
+		const prepared = prepareCarrier(
+			{
+				origin,
+				sampleGround,
+				bearing,
+				bankSide: city.valley ? sections(city, revision) : undefined,
+				center: [origin[0] + station * Math.cos(bearing), origin[1] + station * Math.sin(bearing)]
+			},
+			coarseCellSize,
+			variant,
+			seed,
+			targetArea(citySiteParams.citySize.max),
+			city.recipe ?? riverCityRecipe
+		);
+		return { ...prepared, planSelection: preparePlanSelection(prepared.plan) };
+	});
 }
 
 type TrunkSegment = readonly [x: number, y: number, dx: number, dy: number, length2: number];
-const trunkSections = new WeakMap<CitySite, Map<number, TrunkSegment[]>>();
+const trunkSections = createDeriveCache<CitySite, (point: Vec2) => number>();
 const sectionSize = 250;
 
-function sections(city: CitySite) {
-	let index = trunkSections.get(city);
-	if (index) return index;
-	index = new Map();
-	const xy = city.valley?.course.xy ?? [];
+function sections(city: CitySite, revision: string | Key) {
+	return trunkSections(city, ['trunk'], revision, () => indexTrunk(city.valley?.course.xy ?? []));
+}
+
+function indexTrunk(xy: ArrayLike<number>) {
+	const index = new Map<number, TrunkSegment[]>();
 	for (let i = 2; i < xy.length; i += 2) {
 		const x = xy[i - 2];
 		const y = xy[i - 1];
@@ -150,24 +171,25 @@ function sections(city: CitySite) {
 			index.set(section, list);
 		}
 	}
-	trunkSections.set(city, index);
-	return index;
+	return ([x, y]: Vec2) => {
+		let nearest = Infinity;
+		let side = 0;
+		for (const [a, b, dx, dy, length2] of index.get(Math.floor(y / sectionSize)) ?? []) {
+			const u = x - a;
+			const v = y - b;
+			const t = Math.max(0, Math.min(1, (u * dx + v * dy) / length2));
+			const distance2 = (u - t * dx) ** 2 + (v - t * dy) ** 2;
+			if (distance2 >= nearest) continue;
+			nearest = distance2;
+			side = Math.sign(dx * v - dy * u);
+		}
+		return side;
+	};
 }
 
 /** Reads the side of the nearest trunk segment. Positive is left looking downstream. */
-export function readCitySide(city: CitySite, [x, y]: Vec2) {
-	let nearest = Infinity;
-	let side = 0;
-	for (const [a, b, dx, dy, length2] of sections(city).get(Math.floor(y / sectionSize)) ?? []) {
-		const u = x - a;
-		const v = y - b;
-		const t = Math.max(0, Math.min(1, (u * dx + v * dy) / length2));
-		const distance2 = (u - t * dx) ** 2 + (v - t * dy) ** 2;
-		if (distance2 >= nearest) continue;
-		nearest = distance2;
-		side = Math.sign(dx * v - dy * u);
-	}
-	return side;
+export function readCitySide(city: CitySite, point: Vec2) {
+	return sections(city, city.terrainRevision?.() ?? '')(point);
 }
 
 /** Frames the selected blocks on the surrounding terrain, in world XY meters and radians. */

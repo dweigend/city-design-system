@@ -1,5 +1,5 @@
 import { UnknownAssetError, type AssetEntry } from '../../core/asset-registry';
-import { blockInputs } from '../../core/params';
+import { createBlockInputs } from '../../core/params';
 import { createCellSpace } from '../../domain/cell-space';
 import {
 	createHouseCourt,
@@ -11,6 +11,8 @@ import {
 
 import { createParcelHouse, createParcelHouseObject, type ParcelHouseSite } from '../house-site';
 import type { CityAssetHost } from './hosts';
+
+const blockInputs = createBlockInputs();
 
 const houseId = ({ id }: HouseStyle) => `house/court-${id}`;
 const stylesByAssetId = new Map(Object.values(houseStyles).map((style) => [houseId(style), style]));

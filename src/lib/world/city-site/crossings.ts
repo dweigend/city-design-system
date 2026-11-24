@@ -2,7 +2,7 @@ import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeGraph, type PlanEdgePath, type TerrainGrid } from '../../domain/terrain-grid';
 import { citySiteConfig as config } from './config';
-import type { CityTerrainSampler } from './sampling';
+import type { CityTerrainReading, CityTerrainSampler } from './sampling';
 
 /** A bank-to-bank crossing addressed by an edge path, with an optional direct bridge span. */
 export type CityCrossing = Readonly<{
@@ -20,9 +20,16 @@ type Candidate = CityCrossing & {
 	midpoint: Vec2;
 	score: number;
 };
+/** Selects which wet ground kinds may form one continuous crossing. */
+export type CrossableWater = (kind: NonNullable<CityTerrainReading['waterKind']>) => boolean;
+
 type HeadCell = { id: string; point: Vec2 };
 
-function crossesChannel(points: readonly Vec2[], sample: CityTerrainSampler) {
+function crossesChannel(
+	points: readonly Vec2[],
+	sample: CityTerrainSampler,
+	crossable: CrossableWater
+) {
 	let wet = false;
 	let ended = false;
 	for (let segment = 1; segment < points.length; segment++) {
@@ -35,7 +42,7 @@ function crossesChannel(points: readonly Vec2[], sample: CityTerrainSampler) {
 				ended ||= wet;
 				continue;
 			}
-			if (ended || (ground.waterKind !== 'river' && ground.waterKind !== 'tributary')) return false;
+			if (ended || !crossable(ground.waterKind)) return false;
 			wet = true;
 		}
 	}
@@ -70,7 +77,8 @@ function oppositeHeads(
 	b: Vec2,
 	first: readonly HeadCell[],
 	last: readonly HeadCell[],
-	sample: CityTerrainSampler
+	sample: CityTerrainSampler,
+	crossable: CrossableWater
 ) {
 	const dx = b[0] - a[0];
 	const dy = b[1] - a[1];
@@ -79,7 +87,7 @@ function oppositeHeads(
 	const pairs = first.filter(behind).flatMap((from) =>
 		last
 			.filter(beyond)
-			.filter((to) => crossesChannel([from.point, to.point], sample))
+			.filter((to) => crossesChannel([from.point, to.point], sample, crossable))
 			.map((to) => [from.id, to.id] as const)
 	);
 	return [
@@ -93,16 +101,20 @@ export function channelCrossings(
 	plan: TerrainGrid,
 	built: TerrainGrid,
 	sample: CityTerrainSampler,
-	core: Vec2
+	core: Vec2,
+	crossable: CrossableWater
 ) {
 	const cells = new Map(plan.cells.map(({ id, groundKind }) => [id, groundKind]));
-	const flowing = (id: string) => cells.get(id) === 'river' || cells.get(id) === 'tributary';
+	const wet = (id: string) => {
+		const kind = cells.get(id);
+		return kind !== undefined && kind !== 'dry' && crossable(kind);
+	};
 	const graph = planEdgeGraph(
 		plan,
 		({ cellIds }) =>
 			cellIds.length === 2 &&
-			cellIds.some(flowing) &&
-			cellIds.every((id) => flowing(id) || cells.get(id) === 'dry')
+			cellIds.some(wet) &&
+			cellIds.every((id) => wet(id) || cells.get(id) === 'dry')
 	);
 	const byEdge = new Map(graph.edges.map((edge) => [edge.id, edge]));
 	const edgeNodes = new Set(graph.edges.flatMap(({ nodeIds }) => nodeIds));
@@ -119,19 +131,33 @@ export function channelCrossings(
 			const b = graph.point(end);
 			const lengthM = distance(a, b);
 			const straightness = lengthM / path.lengthM;
-			if (straightness < config.minimumPathStraightnessRatio || !crossesChannel([a, b], sample))
+			if (
+				straightness < config.minimumPathStraightnessRatio ||
+				!crossesChannel([a, b], sample, crossable)
+			)
 				continue;
 			const span =
 				straightness < config.straightSpanThresholdRatio
 					? Object.freeze({ nodeIds: Object.freeze([start, end] as const), lengthM })
 					: undefined;
-			const [from, to] = oppositeHeads(a, b, first, required(heads.get(end), 'bank heads'), sample);
-			if (!from.length || !to.length || !crossesChannel(path.nodeIds.map(graph.point), sample))
+			const [from, to] = oppositeHeads(
+				a,
+				b,
+				first,
+				required(heads.get(end), 'bank heads'),
+				sample,
+				crossable
+			);
+			if (
+				!from.length ||
+				!to.length ||
+				!crossesChannel(path.nodeIds.map(graph.point), sample, crossable)
+			)
 				continue;
 			const waterCellIds = [
 				...new Set(
 					path.edges.flatMap(({ id }) =>
-						required(byEdge.get(id), 'crossing edge').cellIds.filter(flowing)
+						required(byEdge.get(id), 'crossing edge').cellIds.filter(wet)
 					)
 				)
 			];

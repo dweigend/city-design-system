@@ -65,7 +65,10 @@ export { surveyDefaults } from './survey';
  * meters, steepest node slope, water share, lake area in m², the share of dry nodes below the
  * buildable slope, and hydrology faults (all zero when sound). Pure; samples each node once.
  * Invalid windows throw RangeError. */
-export function surveyValley(valley: Valley, window: SurveyWindow = surveyDefaults): GroundSurvey {
+export function surveyValley(
+	valley: Readonly<Pick<Valley, 'sampleTerrain' | 'reaches'>>,
+	window: SurveyWindow = surveyDefaults
+): GroundSurvey {
 	return surveyGround(valley.sampleTerrain, valley.reaches, window);
 }
 

@@ -5,17 +5,23 @@ import { valueNoise } from './value-noise';
 
 const span = (random: Random, min: number, max: number) => random.number({ min, max });
 
-type Ground = (x: number, y: number) => Readonly<{ height: number; waterKind: string | null }>;
+type GroundReading = Readonly<{ height: number; waterKind: string | null }>;
+type Ground = (x: number, y: number) => GroundReading;
+
+/** Determines which ground an approach may traverse. The default allows dry ground. */
+export type CityApproachPolicy = Readonly<{ isWalkable: (reading: GroundReading) => boolean }>;
+const dryGround: CityApproachPolicy = { isWalkable: ({ waterKind }) => waterKind === null };
+type Walkable = CityApproachPolicy['isWalkable'];
 type Route = (guide: readonly Vec2[], armKey: string, head: Vec2) => readonly Vec2[];
 type Arm = { path: readonly Vec2[]; speed: number; entry: number; width: number };
 
 const stepM = cityVolumeConfig.corridorStepM;
 const probes = Math.ceil(stepM / cityVolumeConfig.corridorProbeStepM);
 
-function drySegment(a: Vec2, b: Vec2, ground: Ground) {
+function walkableSegment(a: Vec2, b: Vec2, ground: Ground, walkable: Walkable) {
 	for (let i = 1; i < probes; i++) {
 		const t = i / probes;
-		if (ground(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])).waterKind !== null) return false;
+		if (!walkable(ground(a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))) return false;
 	}
 	return true;
 }
@@ -24,7 +30,8 @@ function advance(
 	point: Vec2,
 	heading: number,
 	bearing: number,
-	ground: Ground
+	ground: Ground,
+	walkable: Walkable
 ): { point: Vec2; heading: number; score: number } | undefined {
 	const current = ground(...point);
 	const options = [-0.85, -0.42, 0, 0.42, 0.85];
@@ -37,7 +44,7 @@ function advance(
 		];
 		const middle = ground((point[0] + next[0]) / 2, (point[1] + next[1]) / 2);
 		const end = ground(...next);
-		if (middle.waterKind !== null || end.waterKind !== null || !drySegment(point, next, ground))
+		if (!walkable(middle) || !walkable(end) || !walkableSegment(point, next, ground, walkable))
 			continue;
 		const rise = Math.abs(end.height - middle.height) + Math.abs(middle.height - current.height);
 		const score = rise / 5 + Math.abs(angle) * 0.9 - 0.25 * Math.abs(Math.cos(direction - bearing));
@@ -46,13 +53,20 @@ function advance(
 	return best;
 }
 
-function armPath(random: Random, head: Vec2, outward: number, bearing: number, ground: Ground) {
+function armPath(
+	random: Random,
+	head: Vec2,
+	outward: number,
+	bearing: number,
+	ground: Ground,
+	walkable: Walkable
+) {
 	const steps = Math.round(span(random, 8, 23));
 	let heading = outward + span(random, -0.29, 0.29);
 	const turn = span(random, 0.035, 0.115) * (random.number() < 0.5 ? -1 : 1);
 	const path = [head];
 	for (let i = 0; i < steps; i++) {
-		const next = advance(path[path.length - 1], heading + turn, bearing, ground);
+		const next = advance(path[path.length - 1], heading + turn, bearing, ground, walkable);
 		if (!next) break;
 		path.push(next.point);
 		heading = next.heading;
@@ -77,13 +91,14 @@ function armCost({ path, speed, entry, width }: Arm, [x, y]: Vec2) {
 	return cost;
 }
 
-function bankAccess(
+function approachAccess(
 	random: Random,
 	head: Vec2,
 	opposite: Vec2 | undefined,
 	bearing: number,
 	ground: Ground,
-	route: Route | undefined
+	route: Route | undefined,
+	walkable: Walkable
 ) {
 	const outward = opposite ? Math.atan2(head[1] - opposite[1], head[0] - opposite[0]) : bearing;
 	const inland = opposite ? span(random, 150, 430) : 0;
@@ -92,7 +107,7 @@ function bankAccess(
 		head[0] + inland * Math.cos(toward),
 		head[1] + inland * Math.sin(toward)
 	];
-	const center = ground(...inlandPoint).waterKind === null ? inlandPoint : head;
+	const center = walkable(ground(...inlandPoint)) ? inlandPoint : head;
 	const spread = span(random, 1.8, 2.45);
 	const edge = valueNoise(random.derive('edge'), 210);
 	const lobes = valueNoise(random.derive('lobes'), 530);
@@ -105,7 +120,8 @@ function bankAccess(
 			head,
 			outward + phaseOffset + 2.35 * ((index + 0.5) / count - 0.5),
 			bearing,
-			ground
+			ground,
+			walkable
 		);
 		return {
 			path: route ? route(guide, 'arm/' + index, head) : guide,
@@ -132,25 +148,42 @@ function bankAccess(
 	};
 }
 
-/** Ranks dry ground from independently drawn bank approaches. Arms start at the given heads
- * and take dry, shallow-rise steps along the valley. The caller supplies the bank classifier. */
+/** Ranks ground from independently drawn approaches. Arms start at the given heads
+ * and prefer shallow rises across walkable ground. The caller classifies which approach serves a point. */
 export function cityAccessibility(
 	seed: number,
 	heads: readonly [first: Vec2, second?: Vec2],
 	bearing: number,
 	ground: Ground,
-	secondBank: (point: Vec2) => boolean,
-	route?: Route
+	useSecondApproach: (point: Vec2) => boolean,
+	route?: Route,
+	{ isWalkable } = dryGround
 ) {
 	const random = Random.create({ seed }).derive('accessibility');
 	const [first, second] = heads;
-	const primary = bankAccess(random.derive('first-bank'), first, second, bearing, ground, route);
+	const primary = approachAccess(
+		random.derive('first-bank'),
+		first,
+		second,
+		bearing,
+		ground,
+		route,
+		isWalkable
+	);
 	if (!second) return primary;
-	const secondary = bankAccess(random.derive('second-bank'), second, first, bearing, ground, route);
+	const secondary = approachAccess(
+		random.derive('second-bank'),
+		second,
+		first,
+		bearing,
+		ground,
+		route,
+		isWalkable
+	);
 	const balance = random.derive('bank-balance');
 	const bias = span(balance, 250, 465) * (balance.number() < 0.5 ? -1 : 1);
 	return (point: Vec2, grade: number, clearance: number) =>
-		secondBank(point)
+		useSecondApproach(point)
 			? secondary(point, grade, clearance) + Math.max(0, bias)
 			: primary(point, grade, clearance) + Math.max(0, -bias);
 }

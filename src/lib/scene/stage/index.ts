@@ -27,7 +27,7 @@ export { surfaceLight } from './tone';
 /** Measures a subject in the plane of a fitted view. */
 export { projectFocus } from './camera';
 /** Connects pointer and keyboard navigation to camera framing. */
-export { stageNavigation } from './navigation';
+export { stageNavigation, type ZoomLimits } from './navigation';
 /** Triangulates a box, prism or mesh shape into flat positions and triangle indices. */
 export { shapeArrays } from './geometry';
 /** Horizontal framing in world meters and CSS pixels, independent of device pixel ratio. */

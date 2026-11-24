@@ -259,3 +259,27 @@ test('a proposed bank arm probes the wet strip between its dry midpoint and endp
 	);
 	expect(sawStripOnArm).toBe(true);
 });
+
+test('publishes a ten-cell demo with a smaller startup area', () => {
+	const plan = TerrainGrid.create({
+		seed: 1201,
+		variant: 'square',
+		parameters: { cellSize: 10 },
+		heightAt: () => 0,
+		site: {
+			origin: [0, 0],
+			bearing: 0,
+			outline: [
+				[0, 0],
+				[100, 0],
+				[100, 10],
+				[0, 10]
+			]
+		}
+	});
+	expect(plan.cells).toHaveLength(10);
+	const order = cityGrowth(plan, () => 0, 100, [], { startupAreaM2: 100, maxRegions: 1 });
+	expect(order.map(({ id }) => id).sort()).toEqual(plan.cells.map(({ id }) => id).sort());
+	expect(order[0]).toMatchObject({ builtArea: 100, complete: true });
+	expect(order.at(-1)).toMatchObject({ builtArea: 1000, complete: true });
+});

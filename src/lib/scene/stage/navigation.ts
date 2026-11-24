@@ -1,18 +1,27 @@
+import { defaults } from '../../../config/stage';
 import { anchoredPan, groundAt, type CameraFrame, type ViewFit } from './camera';
 
 type Point = Readonly<{ x: number; y: number }>;
 
+/** Positive, finite relative zoom bounds, inclusive. */
+export type ZoomLimits = Readonly<{ minZoom?: number; maxZoom?: number }>;
+
 /** Pointer and keyboard navigation. With `readFrame`, a zoom keeps the ground point under the
- * cursor exactly, even when the camera tilts with the frame width. */
+ * cursor exactly, even when the camera tilts with the frame width. Limits default to 0.55 and 32. */
 export function stageNavigation(
 	canvas: HTMLCanvasElement,
 	readScale: () => number,
 	fit: (value: ViewFit) => void,
 	readFrame?: (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) => CameraFrame,
-	canDrag?: () => boolean
+	canDrag?: () => boolean,
+	{ minZoom = defaults.navigationMinZoom, maxZoom = defaults.navigationMaxZoom }: ZoomLimits = {}
 ) {
+	if (!Number.isFinite(minZoom) || !Number.isFinite(maxZoom) || minZoom <= 0 || maxZoom < minZoom)
+		throw new RangeError('Expected finite, positive and ordered zoom limits');
+	const clampZoom = (zoom: number) => Math.min(maxZoom, Math.max(minZoom, zoom));
+	const initialZoom = clampZoom(1);
 	const pointers = new Map<number, Point>();
-	let zoom = 1;
+	let zoom = initialZoom;
 	let offset: [number, number] = [0, 0];
 	let metersPerPixel = 1;
 	let previousScale = 1;
@@ -21,7 +30,7 @@ export function stageNavigation(
 		const measured = readScale();
 		if (measured !== previousScale) metersPerPixel = measured;
 		previousScale = measured;
-		const next = Math.min(32, Math.max(0.55, zoom * ratio));
+		const next = clampZoom(zoom * ratio);
 		const scale = (metersPerPixel * zoom) / next;
 		const rect = canvas.getBoundingClientRect();
 		const x = rect.left + rect.width / 2;
@@ -58,10 +67,10 @@ export function stageNavigation(
 	}
 
 	function reset() {
-		zoom = 1;
+		zoom = initialZoom;
 		offset = [0, 0];
 		previousScale = NaN;
-		fit({});
+		fit(initialZoom === 1 ? {} : { zoom: initialZoom });
 	}
 
 	const listeners = new AbortController();
@@ -117,6 +126,8 @@ export function stageNavigation(
 		},
 		{ signal }
 	);
+
+	if (initialZoom !== 1) reset();
 
 	return {
 		reset,
