@@ -77,6 +77,7 @@ export function detachChildren(group: Group) {
 }
 
 type Chunk = {
+	key: string;
 	group: Group;
 	members: Set<BatchedPart>;
 	packed?: ReturnType<typeof packChunk>;
@@ -113,6 +114,8 @@ export function createContent(
 	function removeGround() {
 		if (!ground) return;
 		group.remove(ground.shadow, ground.outline);
+		ground.shadow.dispose();
+		ground.outline.dispose();
 		ground.shadow.geometry.dispose();
 		ground.shadow.material.dispose();
 		ground.outline.geometry.dispose();
@@ -168,7 +171,7 @@ export function createContent(
 		if ((part.arrays?.indices.length && drawable.finish !== 'line') || part.sources.length) {
 			part.row = rows.allocate();
 			const key = chunkKey(part);
-			const chunk = chunks.get(key) ?? { group: new Group(), members: new Set() };
+			const chunk = chunks.get(key) ?? { key, group: new Group(), members: new Set() };
 			chunk.members.add(part);
 			part.chunk = chunk;
 			chunks.set(key, chunk);
@@ -184,13 +187,15 @@ export function createContent(
 		individualParts.delete(part);
 		if (part.chunk) {
 			part.chunk.members.delete(part);
-			repack.add(chunkKey(part));
+			repack.add(part.chunk.key);
 			rows.release(part.row);
 		}
 		const { fill, individual } = part;
 		if (fill) {
 			individualMaterials--;
 			fill.mesh.removeFromParent();
+			fill.veil?.dispose();
+			fill.mesh.dispose();
 			fill.mesh.geometry.dispose();
 			fill.mesh.material.dispose();
 			fill.drawing.atlas?.dispose();
@@ -198,6 +203,7 @@ export function createContent(
 		const geometry = new Set(individual.map(({ line }) => line.geometry));
 		for (const { line, recede } of individual) {
 			line.removeFromParent();
+			line.dispose();
 			if (recede) {
 				individualMaterials--;
 				line.material.dispose();
@@ -333,8 +339,9 @@ export function createContent(
 			const refresh = new Set<Chunk>();
 			for (const part of all ? parts : restyle) {
 				const look = read(part.drawable, part.bounds.isEmpty() === false);
-				part.look = look;
 				if (part.chunk) {
+					const { opacity, strokeOpacity, hidden, visible, veil, scale, offset } = look;
+					part.look = { opacity, strokeOpacity, hidden, visible, veil, scale, offset };
 					rows.write(part.row, part.drawable, look);
 					refresh.add(part.chunk);
 				}

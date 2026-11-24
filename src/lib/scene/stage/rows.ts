@@ -19,6 +19,8 @@ import { pencilFill } from './material';
 import { levels, type drawingPalette } from './tone';
 import type { Drawable } from '../surface';
 
+// Five vec4s per part: fill RGBA, face tones and flat flag, Z transform and grain,
+// stroke RGBA, then hidden share, depth fade, hatch and visible width.
 const vectorsPerPart = 5;
 const components = 4;
 const rowSize = vectorsPerPart * components;
@@ -127,7 +129,8 @@ export function batchMaterials(
 	const [fill, faces, grain, ink, flags] = [0, 1, 2, 3, 4].map(rows.at);
 	const transform = rows.inVertex(2);
 	const position = vec3(positionLocal.xy, positionLocal.z.mul(transform.x).add(transform.y));
-	const normal = normalWorldGeometry.mul(vec3(1, 1, grain.x.reciprocal())).normalize();
+	const scale = grain.x.lessThan(0).select(grain.x.min(-1e-4), grain.x.max(1e-4));
+	const normal = normalWorldGeometry.mul(vec3(1, 1, scale.reciprocal())).normalize();
 	const color = mix(
 		pencilFill(palette, fill.rgb, normal, faces.xyz, grain.z, grain.w, flags.z),
 		fill.rgb,
@@ -160,8 +163,14 @@ export function batchMaterials(
 	const crease = strokes.crease.clone();
 	const grid = strokes.grid.clone();
 	const rim = strokes.gridBoundary.clone();
-	for (const pencil of [outer, crease, grid, rim]) pencil.opacityNode = flags.w;
-	for (const pencil of [grid, rim]) pencil.colorNode = ink.rgb;
+	// Line2 can write RGB even at zero alpha. Discard hidden rows before they cover an alpha fill.
+	const visible = flags.w.greaterThan(0);
+	outer.maskNode = strokes.silhouette.and(visible);
+	crease.maskNode = strokes.silhouette.not().and(visible);
+	for (const pencil of [grid, rim]) {
+		pencil.maskNode = visible;
+		pencil.colorNode = ink.rgb;
+	}
 	const front = explicitStroke(strokes.depth, false, { color: ink.rgb, recede: flags.y }).material;
 	const back = explicitStroke(strokes.depth, true, { color: ink.rgb, recede: flags.y }).material;
 	front.opacityNode = ink.a;

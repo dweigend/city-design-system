@@ -21,15 +21,16 @@ import {
 	viewZToOrthographicDepth
 } from 'three/tsl';
 
-type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
+type Edge = { start: number; end: number; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
 const creaseDot = Math.cos(Math.PI / 180);
 
 export function creases(
 	positions: readonly number[],
 	indices: readonly number[],
-	creaseAngleRad?: number
-) {
+	creaseAngleRad?: number,
+	vertices?: number[]
+): Edges {
 	const limit = creaseAngleRad === undefined ? creaseDot : Math.cos(creaseAngleRad);
 	const edges = new Map<string, Edge>();
 	for (let i = 0; i < indices.length; i += 3) {
@@ -50,7 +51,7 @@ export function creases(
 			const key = [keys[j], keys[next]].sort().join('/');
 			const edge = edges.get(key);
 			if (edge) edge.back ??= front;
-			else edges.set(key, { start: points[j], end: points[next], front });
+			else edges.set(key, { start: indices[i + j], end: indices[i + next], front });
 		}
 	}
 	const segments = [];
@@ -58,14 +59,18 @@ export function creases(
 	const backs = [];
 	for (const { start, end, front, back } of edges.values()) {
 		if (back && front.dot(back) > limit) continue;
-		segments.push(...start.toArray(), ...end.toArray());
+		segments.push(
+			...positions.slice(start * 3, start * 3 + 3),
+			...positions.slice(end * 3, end * 3 + 3)
+		);
+		vertices?.push(start, end);
 		fronts.push(...front.toArray());
 		backs.push(...(back ?? front).toArray());
 	}
-	return { segments, fronts, backs };
+	return { segments, fronts, backs, vertices };
 }
 
-export type Edges = ReturnType<typeof creases>;
+export type Edges = { segments: number[]; fronts: number[]; backs: number[]; vertices?: number[] };
 
 export function lineGeometry({ segments, fronts, backs }: Edges) {
 	const geometry = new LineSegmentsGeometry().setPositions(segments);
@@ -121,8 +126,9 @@ function openEdges(indices: readonly number[], vertexCount: number) {
 export function boundaries(
 	positions: readonly number[],
 	indices: readonly number[],
-	perCell = false
-) {
+	perCell = false,
+	vertices?: number[]
+): Edges {
 	if (!indices.length) return { segments: [], fronts: [], backs: [] };
 	const welded = weldVertices(positions);
 	// With separate cell indices, extract each rim before deduplicating shared segments.
@@ -138,8 +144,9 @@ export function boundaries(
 		drawn.add(segment);
 		segments.push(...positions.slice(a * 3, a * 3 + 3), ...positions.slice(b * 3, b * 3 + 3));
 		normals.push(0, 0, 1);
+		vertices?.push(a, b);
 	}
-	return { segments, fronts: normals, backs: normals };
+	return { segments, fronts: normals, backs: normals, vertices };
 }
 
 export function strokeMaterials(landscape = false) {
@@ -171,7 +178,7 @@ export function strokeMaterials(landscape = false) {
 	// Explicit strokes lie on faces; `pull` lifts them toward the eye in meters so the face in
 	// front of them decides visibility, and `near` and `far` bound the picture's view depth.
 	const depth = { pull: uniform(0), near: uniform(0), far: uniform(1) };
-	return { eye, outer, crease, grid, gridBoundary, ground, depth };
+	return { eye, silhouette, outer, crease, grid, gridBoundary, ground, depth };
 }
 
 /** One explicit stroke layer: the visible pass, or the hidden pass drawn only where a nearer

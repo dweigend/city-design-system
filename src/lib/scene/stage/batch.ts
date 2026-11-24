@@ -14,7 +14,13 @@ import { lineGeometry, type Edges } from './edges';
 import { renderOrder, segmentData, type ProjectedPart, type StrokeSource } from './part';
 import type { batchMaterials, PartLook } from './rows';
 
-export type BatchedPart = ProjectedPart & { row: number; look?: PartLook };
+export type BatchedPart = ProjectedPart & {
+	row: number;
+	look?: Pick<
+		PartLook,
+		'opacity' | 'strokeOpacity' | 'hidden' | 'visible' | 'veil' | 'scale' | 'offset'
+	>;
+};
 type Materials = ReturnType<typeof batchMaterials>;
 type Range = { start: number; count: number };
 type StrokeRange = {
@@ -26,18 +32,21 @@ type StrokeRange = {
 };
 
 export function chunkKey(part: ProjectedPart) {
-	const {
-		bounds: { min, max },
-		sources
-	} = part;
-	const size = defaults.chunkSizeM;
-	if (max.x - min.x > size || max.y - min.y > size || part.drawable.finish === 'terrain')
-		return 'background';
-	if (!Number.isFinite(min.x)) {
-		const points = sources[0]?.edges.segments;
-		if (!points) return 'background';
-		return `${Math.floor(points[0] / size)}/${Math.floor(points[1] / size)}`;
+	let { bounds } = part;
+	if (bounds.isEmpty()) {
+		bounds = new Box3();
+		const scratch = new Box3();
+		for (const { edges } of part.sources) bounds.union(scratch.setFromArray(edges.segments));
 	}
+	const { min, max } = bounds;
+	const size = defaults.chunkSizeM;
+	if (
+		bounds.isEmpty() ||
+		max.x - min.x > size ||
+		max.y - min.y > size ||
+		part.drawable.finish === 'terrain'
+	)
+		return 'background';
 	return `${Math.floor((min.x + max.x) / (2 * size))}/${Math.floor((min.y + max.y) / (2 * size))}`;
 }
 
@@ -161,7 +170,7 @@ function refreshStrokes({ geometry, lines, ranges }: ReturnType<typeof strokeBat
 	if (lines[1]) lines[1].visible = back;
 }
 
-/** Sortable ranges borrow GPU attributes from the chunk. The chunk alone disposes the buffers. */
+/** Each sortable range owns a geometry wrapper and borrows its buffers from the tile. */
 function rangeGeometry(geometry: BufferGeometry, { start, count }: Range) {
 	const view = new BufferGeometry();
 	view.attributes = { ...geometry.attributes };
@@ -217,6 +226,7 @@ export function packChunk(
 						group.add(alpha.veil);
 					} else if (!look.veil && alpha.veil) {
 						group.remove(alpha.veil);
+						alpha.veil.dispose();
 						alpha.veil = undefined;
 					}
 				}
@@ -226,7 +236,10 @@ export function packChunk(
 			for (const stroke of strokes) refreshStrokes(stroke);
 		},
 		delete() {
+			// Geometry disposal clears vertex state only. Retire the renderer's object bindings too.
+			for (const child of group.children) child.dispose();
 			for (const { body } of sorted.values()) {
+				// Clear borrowed references before disposing the view so only the tile frees buffers.
 				body.geometry.attributes = {};
 				body.geometry.setIndex(null);
 				body.geometry.dispose();

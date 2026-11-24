@@ -29,6 +29,9 @@ import {
 } from './camera';
 import { createContent, detachChildren, hasSameGeometry, rayHit } from './content';
 import { strokeMaterials } from './edges';
+import { chunkKey } from './batch';
+import { projectPart, segmentData } from './part';
+import { createRows } from './rows';
 import { drawingPalette } from './tone';
 
 function contentOf() {
@@ -380,7 +383,7 @@ test('moves warped fills with their normals and bounds', () => {
 });
 
 const ink = new Color();
-function appearance({ vertical, fillAlpha, visible }: Drawable) {
+function appearance({ vertical, fillAlpha, visible, occlude }: Drawable) {
 	const scale = vertical?.scale ?? 1;
 	return {
 		color: ink,
@@ -391,7 +394,12 @@ function appearance({ vertical, fillAlpha, visible }: Drawable) {
 		hidden: 0,
 		recede: 0,
 		visible: visible !== false,
-		veil: false,
+		veil:
+			occlude === true &&
+			visible !== false &&
+			fillAlpha !== undefined &&
+			fillAlpha > 0 &&
+			fillAlpha < 1,
 		scale,
 		offset: (vertical?.pivot ?? 0) * (1 - scale)
 	};
@@ -497,4 +505,141 @@ test('detaches large child lists and closes repeatedly without spreading them in
 		expect(content.group.children).toHaveLength(0);
 		content.delete();
 	}
+});
+
+test('extracts the same strokes from touching bodies when their crease groups are merged', () => {
+	const left = boxAt('left', -1);
+	const right = boxAt('right', 1);
+	const a = shapeArrays(left.shape);
+	const b = shapeArrays(right.shape);
+	const project = (part: Drawable) =>
+		projectPart(part, strokeMaterials(true), drawingPalette(), true);
+	const merged = project({
+		...left,
+		creaseGroups: [a.indices.length, a.indices.length + b.indices.length],
+		shape: {
+			kind: 'mesh',
+			positions: [...a.positions, ...b.positions],
+			indices: [...a.indices, ...b.indices.map((i) => i + a.positions.length / 3)]
+		}
+	});
+	const sources = [project(left), project(right)];
+	for (const key of ['segments', 'fronts', 'backs'] as const)
+		expect(merged.sources[0].edges[key]).toEqual(
+			sources.flatMap(({ sources }) => sources[0].edges[key])
+		);
+});
+
+test('style rows retain earlier data through growth and recycle released indices', () => {
+	const rows = createRows();
+	const part = boxAt('body', 1);
+	const first = rows.allocate();
+	rows.write(first, part, { ...appearance(part), opacity: 0.5 });
+	const before = rows.buffer.value;
+	const snapshot = [...before.array.slice(0, 20)];
+	const second = rows.allocate();
+	expect(rows.buffer.value).not.toBe(before);
+	const hidden = { ...part, visible: false };
+	rows.write(second, hidden, appearance(hidden));
+	expect([...rows.buffer.value.array.slice(0, 20)]).toEqual(snapshot);
+	expect(rows.buffer.value.array[23]).toBe(0);
+	expect(rows.buffer.value.array[39]).toBe(0);
+	rows.release(second);
+	expect(rows.allocate()).toBe(second);
+	rows.write(second, part, appearance(part));
+	expect(rows.buffer.value.array[39]).toBe(1);
+	expect([...rows.buffer.value.array.slice(0, 20)]).toEqual(snapshot);
+	rows.delete();
+});
+
+test('a mixed tile retains the visible stroke pass and disposes a removed veil independently', () => {
+	const { content } = contentOf();
+	const tinted = { ...boxAt('tinted', 5), fillAlpha: 0.5, occlude: true };
+	const hidden = { ...boxAt('hidden', 10), visible: false };
+	content.show([tinted, hidden]);
+	content.update(appearance, true);
+	const tile = content.parts[0].chunk?.group;
+	if (!tile) throw new Error('Expected a packed tile');
+	const passes = tile.children.slice();
+	const veil = passes.find((child) => child.renderOrder === 6);
+	if (!(veil instanceof Mesh)) throw new Error('Expected a depth-only mesh');
+	expect(
+		passes.filter((child) => [2, 3].includes(child.renderOrder) && child.visible)
+	).toHaveLength(2);
+	let released = 0;
+	veil.addEventListener('dispose', () => released++);
+	const builds = content.chunkBuilds;
+	content.style([{ ...tinted, occlude: false }, hidden]);
+	content.update(appearance, false);
+	expect(released).toBe(1);
+	expect(veil.parent).toBeNull();
+	expect(content.chunkBuilds).toBe(builds);
+	for (const child of tile.children) child.addEventListener('dispose', () => released++);
+	content.show([tinted, boxAt('changed', 11)]);
+	content.update(appearance, false);
+	expect(released).toBe(passes.length);
+	content.delete();
+});
+
+test('removing a veil from an individually drawn surface releases it and keeps the fill', () => {
+	const { content } = contentOf();
+	const terrain = {
+		...boxAt('terrain', 0),
+		finish: 'terrain',
+		fillAlpha: 0.5,
+		occlude: true
+	} as const;
+	content.show([terrain]);
+	content.update(appearance, true);
+	const fill = content.parts[0].fill;
+	const veil = fill?.veil;
+	if (!fill || !veil) throw new Error('Expected a depth-only terrain veil');
+	let released = 0;
+	veil.addEventListener('dispose', () => released++);
+	content.style([{ ...terrain, occlude: false }]);
+	content.update(appearance, false);
+	expect(released).toBe(1);
+	expect(veil.parent).toBeNull();
+	expect(content.parts[0].fill).toBe(fill);
+	expect(fill.veil).toBeUndefined();
+	content.delete();
+});
+
+test.each([true, false])(
+	'warps generated stroke endpoints with their fill (landscape %s)',
+	(landscape) => {
+		const content = createContent(strokeMaterials(landscape), drawingPalette(), landscape);
+		const shape = {
+			kind: 'mesh',
+			positions: [0, 0, 0, 0, 1, 0, 0, 0, 1],
+			indices: [0, 1, 2]
+		} as const;
+		const warp = { fill: [4, 0, 1, 2, -1, 0], amount: 0 };
+		const part = { ...boxAt('wall', 0), shape, warp };
+		content.show([part]);
+		const { fill, individual } = content.parts[0];
+		if (!fill) throw new Error('Expected a dedicated warped fill');
+		const data = segmentData(individual[0].line.geometry);
+		content.style([{ ...part, warp: { ...warp, amount: 1 } }]);
+		const positions = [...fill.mesh.geometry.attributes.position.array];
+		expect([...data.array]).toEqual([
+			...positions.slice(0, 6),
+			...positions.slice(3, 9),
+			...positions.slice(6, 9),
+			...positions.slice(0, 3)
+		]);
+		content.delete();
+	}
+);
+
+test('routes wide stroke-only overlays to the background and local strokes by their midpoint', () => {
+	const line = {
+		...boxAt('outline', 0),
+		shape: { kind: 'mesh', positions: [], indices: [] },
+		finish: 'line'
+	} as const;
+	const tile = (strokeSegments: number[]) =>
+		chunkKey(projectPart({ ...line, strokeSegments }, strokeMaterials(), drawingPalette(), true));
+	expect(tile([10, 20, 0, 410, 20, 0])).toBe('background');
+	expect(tile([180, 20, 0, 220, 20, 0])).toBe('1/0');
 });

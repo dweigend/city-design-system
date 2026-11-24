@@ -33,11 +33,12 @@ export function renderOrder(drawable: Drawable) {
 }
 
 function partsEdges(drawable: Drawable, { positions, indices }: ReturnType<typeof shapeArrays>) {
-	if (!drawable.creaseGroups) return creases(positions, indices, drawable.creaseAngleRad);
-	const merged: Edges = { segments: [], fronts: [], backs: [] };
+	const vertices = drawable.warp ? [] : undefined;
+	if (!drawable.creaseGroups) return creases(positions, indices, drawable.creaseAngleRad, vertices);
+	const merged: Edges = { segments: [], fronts: [], backs: [], vertices };
 	let start = 0;
 	for (const end of drawable.creaseGroups) {
-		const own = creases(positions, indices.slice(start, end), drawable.creaseAngleRad);
+		const own = creases(positions, indices.slice(start, end), drawable.creaseAngleRad, vertices);
 		for (const key of ['segments', 'fronts', 'backs'] as const)
 			for (const value of own[key]) merged[key].push(value);
 		start = end;
@@ -60,14 +61,19 @@ function strokeSources(
 		];
 	if (landscape && drawable.finish === 'line')
 		return [
-			{ kind: 'grid', edges: boundaries(positions, indices, true) },
-			{ kind: 'rim', edges: boundaries(positions, indices) }
+			{ kind: 'grid', edges: boundaries(positions, indices, true, drawable.warp ? [] : undefined) },
+			{ kind: 'rim', edges: boundaries(positions, indices, false, drawable.warp ? [] : undefined) }
 		];
 	const fold = drawable.creaseAngleRad !== undefined;
 	const edges =
 		!landscape || fold
 			? partsEdges(drawable, arrays)
-			: boundaries(positions, drawable.boundaryStroke ? indices : []);
+			: boundaries(
+					positions,
+					drawable.boundaryStroke ? indices : [],
+					false,
+					drawable.warp ? [] : undefined
+				);
 	return [{ kind: 'edge', edges }];
 }
 
@@ -116,10 +122,22 @@ function separateFill(
 	return { mesh, drawing, warpTargets, warpAmount: 0, veil: undefined as Mesh | undefined };
 }
 
-function separateStrokes(sources: StrokeSource[], strokes: ReturnType<typeof strokeMaterials>) {
+function separateStrokes(
+	sources: StrokeSource[],
+	strokes: ReturnType<typeof strokeMaterials>,
+	warp: NonNullable<Drawable['warp']>,
+	targets: WarpTarget[]
+) {
 	return sources.flatMap(({ kind, edges }) => {
 		const geometry = lineGeometry(edges);
 		const explicit = kind === 'explicit';
+		const offsets = explicit
+			? warp.stroke
+			: edges.vertices?.flatMap((i) => [warp.fill[2 * i], warp.fill[2 * i + 1]]);
+		if (offsets) {
+			const array = segmentData(geometry).array as Float32Array;
+			targets.push({ array, base: array.slice(), offsets });
+		}
 		const painters = explicit
 			? [explicitStroke(strokes.depth), explicitStroke(strokes.depth, true)]
 			: (kind === 'edge'
@@ -151,12 +169,8 @@ export function projectPart(
 		drawable.warp !== undefined ||
 		drawable.terrainField !== undefined;
 	const fill = standalone ? separateFill(drawable, arrays, palette, landscape) : undefined;
-	const individual = drawable.warp ? separateStrokes(sources, strokes) : [];
-	const offsets = drawable.warp?.stroke;
-	if (fill && offsets && individual.length) {
-		const array = segmentData(individual[0].line.geometry).array as Float32Array;
-		fill.warpTargets.push({ array, base: array.slice(), offsets });
-	}
+	const individual =
+		fill && drawable.warp ? separateStrokes(sources, strokes, drawable.warp, fill.warpTargets) : [];
 	return {
 		drawable,
 		bounds,
@@ -186,10 +200,10 @@ export function warpPart({ fill, drawable, bounds, individual }: ProjectedPart) 
 	geometry.computeBoundingBox();
 	geometry.computeBoundingSphere();
 	if (geometry.boundingBox) bounds.copy(geometry.boundingBox);
-	for (const { line } of individual) {
-		segmentData(line.geometry).needsUpdate = true;
-		line.geometry.computeBoundingBox();
-		line.geometry.computeBoundingSphere();
+	for (const geometry of new Set(individual.map(({ line }) => line.geometry))) {
+		segmentData(geometry).needsUpdate = true;
+		geometry.computeBoundingBox();
+		geometry.computeBoundingSphere();
 	}
 }
 
@@ -242,6 +256,7 @@ export function styleIndividual(
 			mesh.add(fill.veil);
 		} else if (!look.veil && fill.veil) {
 			mesh.remove(fill.veil);
+			fill.veil.dispose();
 			fill.veil = undefined;
 		}
 	}

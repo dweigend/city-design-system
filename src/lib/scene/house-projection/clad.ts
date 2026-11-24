@@ -268,17 +268,20 @@ function projectPlain(
 	byMaterial.set(materials, cached);
 	const key = JSON.stringify([placement, plainTone]);
 	const found = cached.get(key);
-	if (found) return found;
+	if (found) return [...found];
 
 	const shown = withoutHidden(object, 'plain', materials);
 	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
 	const table: SurfaceAssignment = houseLevels.full.surfaces;
 	const board = readModelSurface({ family: 'board', tone: plainTone }, 'normal', false);
 	const assignment = Object.fromEntries(
-		placed.slots.map((slot) => [
-			slot,
-			materials.slots[slot] ? { ...board, stroke: table[slot]?.stroke } : table[slot]
-		])
+		placed.slots.map((slot) => {
+			const surface = Object.hasOwn(table, slot) ? table[slot] : undefined;
+			return [
+				slot,
+				surface && materials.slots[slot] ? { ...board, stroke: surface.stroke } : surface
+			];
+		})
 	);
 	const groups = new Map<string, Drawable[]>();
 	for (const [i, drawable] of resolveSurfaces(placed, assignment).entries()) {
@@ -292,7 +295,7 @@ function projectPlain(
 	}
 	const drawables = Array.from(groups.values(), mergePlain);
 	cached.set(key, drawables);
-	return drawables;
+	return [...drawables];
 }
 
 function mergePlain(group: Drawable[]): Drawable {

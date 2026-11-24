@@ -146,6 +146,21 @@ test('plain block masses share one drawing and retain every source triangle and 
 	expect(bodies[0].creaseGroups).toEqual(original.map(({ indices }) => (end += indices.length)));
 	expect(shapeArrays(bodies[0].shape).indices).toHaveLength(end);
 	expect(bodies[0].id).toBe(masses[0].id);
+	drawables.length = 0;
+	const again = projectCladHouse(object, [], houseMaterials.neutral, 'full', {
+		budget: blockTriangleBudget
+	});
+	expect(again.drawables).toEqual(bodies);
+
+	const missing = PlaceableObject.create({
+		...object,
+		slots: ['unassigned'],
+		parts: masses.map((part) => ({ ...part, slot: 'unassigned' }))
+	});
+	const materials = { ...houseMaterials.neutral, slots: { unassigned: 'main' } } as const;
+	expect(() =>
+		projectCladHouse(missing, [], materials, 'full', { budget: blockTriangleBudget })
+	).toThrow('Missing surface for slot "unassigned"');
 });
 
 test('salience grants detail to few houses: capped per block, deterministic, focus first', () => {
