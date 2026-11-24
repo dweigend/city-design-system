@@ -45,14 +45,17 @@ function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: Hous
 	return shape.length < 3 ? [...quad] : shape;
 }
 
-/** A calm house's block outline: the cell inset by the gap only on sides that do not face another
- * built cell of the house over the whole run, so its bodies join into one building. */
+/** A calm house's block outline: the cell inset by the gap only toward the frontage, a shared
+ * court and open cells of the house. Sides on other parcel edges (party walls) and toward built
+ * cells covering the whole run stay flush, so bodies join into one building and a row of houses
+ * into one street front. */
 function joined(ctx: Context, cell: FineCell, gap: number, from: number, to: number): Vec2[] {
 	const g = Math.min(gap, inradius(cell.quad) * insetLimitRatio);
 	const shape = insetSides(
 		cell.quad,
-		cell.sides.map(({ neighbour }) => {
-			const other = neighbour === null ? undefined : ctx.occupancy.get(neighbour);
+		cell.sides.map(({ neighbour, frontage, court }) => {
+			if (neighbour === null) return frontage || court ? g : 0;
+			const other = ctx.occupancy.get(neighbour);
 			return other && other.fromStorey <= from && other.toStorey >= to ? 0 : g;
 		})
 	);
