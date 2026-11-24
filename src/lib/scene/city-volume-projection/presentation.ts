@@ -1,11 +1,9 @@
 import { levelHeight } from '../../domain/city-volume';
-import {
-	readFocusChoice,
-	readFocusLevel,
-	type DisplayLevel,
-	type FocusChoice,
-	type Subsystem
-} from '../focus';
+import type { DisplayLevel } from '../focus';
+import type { FocusChoice, Subsystem } from './focus';
+import { cityFocusPreset } from './focus-policy';
+
+const { readFocusChoice, readFocusLevel } = cityFocusPreset;
 import type { Presentation, Viewport } from '../stage';
 import { heightRamp, stockSurfaces, type Drawable } from '../surface';
 import {

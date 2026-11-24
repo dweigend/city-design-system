@@ -1,5 +1,12 @@
 import type { DistrictKind } from '../../domain/city-volume';
-import { offerFocus, readFocusChoice, type FocusChoice, type Subsystem } from '../focus';
+import { cityFocusPreset } from './focus-policy';
+
+/** A choice in the city's focus menu. */
+export type FocusChoice = (typeof cityFocusPreset.choices)[number];
+/** A projection row in the city preset. */
+export type Subsystem = (typeof cityFocusPreset.subsystems)[number];
+
+const { offerFocus, readFocusChoice } = cityFocusPreset;
 
 const kinds = ['detached', 'block', 'center'] as const satisfies readonly DistrictKind[];
 

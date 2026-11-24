@@ -14,7 +14,7 @@ import {
 } from '../../world/city-site';
 import { createParcelPlan } from '../../domain/parcels';
 import type { TerrainGrid } from '../../domain/terrain-grid';
-import type { FocusChoice } from '../focus';
+import type { FocusChoice } from './index';
 import type { Drawable } from '../surface';
 import { drawnInPencil } from './blocks';
 import { example } from './example';

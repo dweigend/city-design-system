@@ -1,9 +1,9 @@
-import { offerFocus, readFocusLevel } from './index';
+import { createFocusResolver } from './index';
 
-/** The choices a town with blocks and a lattice offers, and how Blocks draws its lattice. */
+/** A composition with a foreground and its context, independent of any city projection. */
 export function example() {
-	return {
-		offered: offerFocus(['terrain', 'water', 'detached', 'block', 'lattice']),
-		latticeInBlocks: readFocusLevel('block', 'lattice')
-	};
+	return createFocusResolver(
+		{ all: { label: 'All', subject: [] }, detail: { label: 'Detail', subject: ['subject'] } },
+		{ subject: { all: 'full', detail: 'full' }, backdrop: { all: 'full', detail: 'hidden' } }
+	);
 }

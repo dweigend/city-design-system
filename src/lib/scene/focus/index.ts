@@ -14,220 +14,79 @@ export type DisplayLevel = (typeof displayLevels)[number];
 /** Share of the stock drawn in pencil (COLOR-5). */
 export { stockPencilShare } from './constants';
 
-/** The focus choices in menu order, named for what they show today: the three district kinds are
- * districts, not houses, which will join as their own subsystem. `subject` lists the subsystems
- * the choice puts in focus; a choice whose subject is absent is not offered. */
-const choices = {
-	all: { label: 'All', subject: [] },
-	districts: { label: 'All districts', subject: ['detached', 'block', 'center'] },
-	center: { label: 'Center district', subject: ['center'] },
-	block: { label: 'Block district', subject: ['block'] },
-	detached: { label: 'Detached district', subject: ['detached'] },
-	lattice: { label: 'Lattice', subject: ['lattice'] },
-	height: { label: 'Height', subject: ['detached', 'block', 'center'], analysis: 'height' },
-	landscape: { label: 'Terrain and water', subject: ['terrain', 'water'] },
-	parcels: { label: 'Parcels', subject: ['lanes', 'parcels', 'merged-units'] },
-	plan: {
-		label: 'Plan and crossings',
-		subject: ['plan', 'water-cells', 'crossings', 'lanes', 'parcels', 'merged-units']
-	}
-} as const satisfies Record<
-	string,
-	Readonly<{ label: string; subject: readonly string[]; analysis?: 'height' }>
->;
+/** Menu label, the subsystems a choice highlights, and an optional analysis mode. */
+export type FocusOption = Readonly<{
+	label: string;
+	subject: readonly string[];
+	analysis?: string;
+}>;
 
-/** A player question that decides the drawing of the whole city. */
-export type FocusChoice = keyof typeof choices;
-/** Focus choices in menu order. */
-export const focusChoices = Object.freeze(Object.keys(choices) as FocusChoice[]);
-
-type Row = Readonly<Record<FocusChoice, DisplayLevel>>;
-
-/** The policy, one row per subsystem and one column per focus choice. The plan grid, its water
- * cells and the selected crossings are rows like the districts, so the Plan step is a focus
- * choice, not a second mechanism. A new subsystem (houses, paths, supply lines, forest) is one more
- * row; the projection reads its level here. */
-const policy = {
-	terrain: {
-		all: 'full',
-		districts: 'full',
-		center: 'full',
-		block: 'full',
-		detached: 'full',
-		lattice: 'full',
-		height: 'full',
-		landscape: 'full',
-		parcels: 'full',
-		plan: 'full'
-	},
-	water: {
-		all: 'full',
-		districts: 'full',
-		center: 'full',
-		block: 'full',
-		detached: 'full',
-		lattice: 'full',
-		height: 'full',
-		landscape: 'full',
-		parcels: 'full',
-		plan: 'full'
-	},
-	detached: {
-		all: 'full',
-		districts: 'full',
-		center: 'transparent',
-		block: 'transparent',
-		detached: 'full',
-		lattice: 'transparent',
-		height: 'full',
-		landscape: 'silhouette',
-		parcels: 'transparent',
-		plan: 'transparent'
-	},
-	block: {
-		all: 'full',
-		districts: 'full',
-		center: 'transparent',
-		block: 'full',
-		detached: 'transparent',
-		lattice: 'transparent',
-		height: 'full',
-		landscape: 'silhouette',
-		parcels: 'transparent',
-		plan: 'transparent'
-	},
-	center: {
-		all: 'full',
-		districts: 'full',
-		center: 'full',
-		block: 'transparent',
-		detached: 'transparent',
-		lattice: 'transparent',
-		height: 'full',
-		landscape: 'silhouette',
-		parcels: 'transparent',
-		plan: 'transparent'
-	},
-	lattice: {
-		all: 'full',
-		districts: 'hidden',
-		center: 'hidden',
-		block: 'hidden',
-		detached: 'hidden',
-		lattice: 'full',
-		height: 'hidden',
-		landscape: 'hidden',
-		parcels: 'hidden',
-		plan: 'hidden'
-	},
-	plan: {
-		all: 'transparent',
-		districts: 'transparent',
-		center: 'transparent',
-		block: 'transparent',
-		detached: 'transparent',
-		lattice: 'transparent',
-		height: 'transparent',
-		landscape: 'transparent',
-		parcels: 'transparent',
-		plan: 'full'
-	},
-	'water-cells': {
-		all: 'hidden',
-		districts: 'hidden',
-		center: 'hidden',
-		block: 'hidden',
-		detached: 'hidden',
-		lattice: 'hidden',
-		height: 'hidden',
-		landscape: 'full',
-		parcels: 'hidden',
-		plan: 'full'
-	},
-	crossings: {
-		all: 'full',
-		districts: 'full',
-		center: 'transparent',
-		block: 'transparent',
-		detached: 'transparent',
-		lattice: 'transparent',
-		height: 'transparent',
-		landscape: 'full',
-		parcels: 'full',
-		plan: 'full'
-	},
-	lanes: {
-		all: 'hidden',
-		districts: 'hidden',
-		center: 'hidden',
-		block: 'hidden',
-		detached: 'hidden',
-		lattice: 'hidden',
-		height: 'hidden',
-		landscape: 'hidden',
-		parcels: 'full',
-		plan: 'full'
-	},
-	parcels: {
-		all: 'hidden',
-		districts: 'hidden',
-		center: 'hidden',
-		block: 'hidden',
-		detached: 'hidden',
-		lattice: 'hidden',
-		height: 'hidden',
-		landscape: 'hidden',
-		parcels: 'full',
-		plan: 'full'
-	},
-	'merged-units': {
-		all: 'hidden',
-		districts: 'hidden',
-		center: 'hidden',
-		block: 'hidden',
-		detached: 'hidden',
-		lattice: 'hidden',
-		height: 'hidden',
-		landscape: 'hidden',
-		parcels: 'full',
-		plan: 'full'
-	}
-} as const satisfies Record<string, Row>;
-
-/** A part of the city that one focus switches as a whole. */
-export type Subsystem = keyof typeof policy;
-/** Subsystems in policy order. */
-export const subsystems = Object.freeze(Object.keys(policy) as Subsystem[]);
-
-/** Reads the display level of a subsystem under a focus choice. Throws RangeError for an
- * unknown choice or subsystem. */
-export function readFocusLevel(choice: FocusChoice, subsystem: Subsystem): DisplayLevel {
-	if (!Object.hasOwn(choices, choice)) throw new RangeError(`Unknown focus "${choice}"`);
-	if (!Object.hasOwn(policy, subsystem)) throw new RangeError(`Unknown subsystem "${subsystem}"`);
-	return policy[subsystem][choice];
+/** A preset is missing a subsystem or a display level in its vocabulary. */
+export class FocusPolicyError extends Error {
+	override name = 'FocusPolicyError';
 }
 
-/** Reads the label and the analysis colouring of a focus choice, if it has one. */
-export function readFocusChoice(choice: FocusChoice) {
-	if (!Object.hasOwn(choices, choice)) throw new RangeError(`Unknown focus "${choice}"`);
-	const { label, ...rest } = choices[choice];
-	return { label, analysis: 'analysis' in rest ? rest.analysis : undefined };
-}
+/** Compiles a page's ordered vocabulary and contributed rows into a detached resolver.
+ * Validates required and subject rows, and one display level per choice, at construction.
+ * An unknown subsystem supplied later also throws FocusPolicyError. */
+export function createFocusResolver<const Choice extends string, const Part extends string>(
+	vocabulary: Readonly<Record<Choice, FocusOption>>,
+	rows: Readonly<Record<Part, Readonly<Record<Choice, DisplayLevel>>>>,
+	required: readonly string[] = Object.keys(rows)
+) {
+	const choices = Object.freeze(Object.keys(vocabulary) as Choice[]);
+	const subsystems = Object.freeze(Object.keys(rows) as Part[]);
+	const options = new Map(
+		choices.map((choice) => {
+			const option = vocabulary[choice];
+			return [choice, { ...option, subject: [...option.subject] }] as const;
+		})
+	);
+	const policy = new Map<string, Readonly<Record<Choice, DisplayLevel>>>(
+		subsystems.map((part) => [part, { ...rows[part] }])
+	);
 
-/** The choices worth offering for the subsystems a picture holds, in menu order: a choice needs
- * a present subject, and a choice that draws the present subsystems exactly like an earlier one
- * is left out. */
-export function offerFocus(present: readonly Subsystem[]): FocusChoice[] {
-	const seen = new Set<string>();
-	return focusChoices.filter((choice) => {
-		const { subject } = choices[choice];
-		if (subject.length && !subject.some((part: Subsystem) => present.includes(part))) return false;
-		const key = JSON.stringify([
-			readFocusChoice(choice).analysis,
-			present.map((part) => policy[part][choice])
-		]);
-		if (seen.has(key)) return false;
-		seen.add(key);
-		return true;
+	function readRow(part: string) {
+		const row = policy.get(part);
+		if (!row) throw new FocusPolicyError(`Missing focus row for "${part}"`);
+		return row;
+	}
+
+	for (const part of required) readRow(part);
+	for (const { subject } of options.values()) for (const part of subject) readRow(part);
+	for (const [part, row] of policy)
+		for (const choice of choices)
+			if (!displayLevels.includes(row[choice]))
+				throw new FocusPolicyError(
+					`Missing or invalid focus level for "${part}" under "${choice}"`
+				);
+
+	return Object.freeze({
+		choices,
+		subsystems,
+		/** Reads one display level. An unknown choice throws RangeError. */
+		readFocusLevel(choice: Choice, part: string): DisplayLevel {
+			if (!options.has(choice)) throw new RangeError(`Unknown focus "${choice}"`);
+			return readRow(part)[choice];
+		},
+		/** Reads a choice's label and analysis mode. An unknown choice throws RangeError. */
+		readFocusChoice(choice: Choice) {
+			const option = options.get(choice);
+			if (!option) throw new RangeError(`Unknown focus "${choice}"`);
+			return { label: option.label, analysis: option.analysis };
+		},
+		/** Offers choices with a present subject, dropping duplicate drawings in menu order. */
+		offerFocus(present: readonly string[]): Choice[] {
+			const presentRows = present.map(readRow);
+			const seen = new Set<string>();
+			return choices.filter((choice) => {
+				const { subject, analysis } = options.get(choice)!;
+				if (subject.length && !subject.some((part) => present.includes(part))) return false;
+				const key = JSON.stringify([analysis, presentRows.map((row) => row[choice])]);
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+		}
 	});
 }

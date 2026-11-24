@@ -24,6 +24,9 @@
 		cityCameraBearingRad,
 		cityElevation,
 		cityFocus,
+		cityFocusPreset,
+		type FocusChoice,
+		type Subsystem,
 		cityFrameFillFlat,
 		cityFrameFillPerRelief,
 		cityPresentation,
@@ -32,7 +35,6 @@
 		projectCityTerrain,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
-	import { focusChoices, type FocusChoice, type Subsystem } from '../../lib/scene/focus';
 	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
@@ -55,6 +57,7 @@
 	import { chapterAt } from '../chapters';
 
 	const chapter = chapterAt('/city');
+	const { choices: focusChoices } = cityFocusPreset;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
 	const views = [
 		{ value: 'iso', label: 'Iso' },

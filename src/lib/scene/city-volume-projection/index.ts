@@ -23,7 +23,9 @@ export { cityCameraBearingRad, cityFrameFillFlat, cityFrameFillPerRelief } from 
 /** Projects the terrain and the city plan in one frame. */
 export { projectCityTerrain } from './terrain';
 /** Resolves the focus choices a city picture offers and the one in effect. */
-export { cityFocus, type CityContent } from './focus';
+export { cityFocus, type CityContent, type FocusChoice, type Subsystem } from './focus';
+/** The city page vocabulary and display levels. */
+export { cityFocusPreset } from './focus-policy';
 /** Styles terrain, envelope and lattice by focus as the camera moves. */
 export { cityPresentation } from './presentation';
 
