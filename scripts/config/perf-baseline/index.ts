@@ -139,25 +139,25 @@ export const budgets = defineSettings({
 	perfSmallLoadPacks: packs(90, 'Tile rebuilds during the small load.'),
 	perfTownLoadPacks: packs(420, 'Tile rebuilds during the town load.'),
 	perfPaintHeap: limit(
-		160,
+		120,
 		'MiB',
 		'Sandbox JavaScript heap used after collection following the stroke.',
 		'Allows growth while keeping the interactive brush heap small.'
 	),
 	perfArchitectureHeap: limit(
-		480,
+		440,
 		'MiB',
 		'Whole Town JavaScript heap used after collection.',
 		'Leaves room for native scene buffers and the GPU driver.'
 	),
 	perfSmallLoadHeap: limit(
-		240,
+		160,
 		'MiB',
 		'JavaScript heap used after collection following the small load.',
 		'Bounds retained data for the small save.'
 	),
 	perfTownLoadHeap: limit(
-		540,
+		320,
 		'MiB',
 		'JavaScript heap used after collection following the town load.',
 		'Leaves space for the other Chrome processes and native geometry.'
