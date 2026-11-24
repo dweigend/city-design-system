@@ -126,7 +126,7 @@
 	let focus = $derived<FocusChoice | undefined>(
 		focusChoices.find((value) => value === page.url.searchParams.get('focus'))
 	);
-	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0 });
+	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0, center: [0, 0, 0] });
 	let step = $derived(stepFromQuery());
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
 	let citySize = $derived(

@@ -1,11 +1,34 @@
 <script lang="ts">
-	import { ChevronDown, LocateFixed, X } from 'lucide-svelte';
+	import {
+		ChevronDown,
+		Dices,
+		Download,
+		Eraser,
+		LocateFixed,
+		MousePointer2,
+		Paintbrush,
+		Redo2,
+		Trash2,
+		Undo2,
+		Upload,
+		X
+	} from 'lucide-svelte';
 	import type { IconName } from './names';
 
-	const icons = { 'chevron-down': ChevronDown, 'locate-fixed': LocateFixed, x: X } satisfies Record<
-		IconName,
-		typeof X
-	>;
+	const icons = {
+		'chevron-down': ChevronDown,
+		'locate-fixed': LocateFixed,
+		x: X,
+		paintbrush: Paintbrush,
+		eraser: Eraser,
+		pointer: MousePointer2,
+		dices: Dices,
+		undo: Undo2,
+		redo: Redo2,
+		trash: Trash2,
+		download: Download,
+		upload: Upload
+	} satisfies Record<IconName, typeof X>;
 
 	interface Props {
 		/** Choose a symbol, for example "locate-fixed". */

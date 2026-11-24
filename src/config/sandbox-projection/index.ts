@@ -22,6 +22,13 @@ export const settings = defineSettings({
 		meaning: 'Screen width of the active parcel outline',
 		bounds: { exclusiveMin: 0 },
 		rationale: 'Keeps the active outline distinct from background parcel lines.'
+	},
+	markStrokePx: {
+		value: 1.75,
+		unit: 'px',
+		meaning: 'Screen width of a stroke, skip or selection outline',
+		bounds: { exclusiveMin: 0 },
+		rationale: 'Quieter than the active outline, still above background parcel lines.'
 	}
 });
 

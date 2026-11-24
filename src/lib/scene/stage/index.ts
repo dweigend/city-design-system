@@ -1,5 +1,5 @@
 /** Module: Renders drawables with WebGPU in shared camera views. */
-import type { Vec2 } from '../../core/geometry';
+import type { Vec2, Vec3 } from '../../core/geometry';
 import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import {
@@ -28,8 +28,11 @@ export { surfaceLight } from './tone';
 export { projectFocus } from './camera';
 /** Connects pointer and keyboard navigation to camera framing. */
 export { stageNavigation } from './navigation';
+/** Triangulates a box, prism or mesh shape into flat positions and triangle indices. */
+export { shapeArrays } from './geometry';
 /** Horizontal framing in world meters and CSS pixels, independent of device pixel ratio. */
-export type Viewport = Readonly<{ width: number; metersPerPixel: number }>;
+/** The fitted camera width and scale, and the point the camera looks at in stage meters. */
+export type Viewport = Readonly<{ width: number; metersPerPixel: number; center: Vec3 }>;
 /** Calculates presentation properties over existing drawable geometry for a fitted viewport. */
 export type Presentation = (viewport: Viewport) => readonly Drawable[];
 
@@ -60,7 +63,7 @@ async function create({
 	scene.add(content.group);
 	let aspect = 1;
 	let widthPx = 1;
-	let viewport: Viewport = { width: 1, metersPerPixel: 1 };
+	let viewport: Viewport = { width: 1, metersPerPixel: 1, center: [0, 0, 0] };
 	let present: Presentation | undefined;
 	const styleContent = createStyle(canvas, content, palette, strokes, scene, landscape);
 	let fit = initialFit;
@@ -78,8 +81,13 @@ async function create({
 			const bounds = content.bounds;
 			const framing = fitCamera(view, bounds, aspect, landscape, fit);
 			const width = framing.halfWidth * 2;
-			if (viewport.width !== width || viewport.metersPerPixel !== width / widthPx) {
-				viewport = { width, metersPerPixel: width / widthPx };
+			const looked = framing.center;
+			if (
+				viewport.width !== width ||
+				viewport.metersPerPixel !== width / widthPx ||
+				viewport.center.some((value, axis) => value !== looked[axis])
+			) {
+				viewport = { width, metersPerPixel: width / widthPx, center: looked };
 				onViewport?.(viewport);
 			}
 			if (present) content.style(present(viewport));

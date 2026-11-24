@@ -1,7 +1,10 @@
 import { defaults } from '../../config/sandbox-brush';
-import type { Vec3 } from '../../lib/core/geometry';
-import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
-import type { createSandboxDocument } from '../../lib/domain/sandbox-document';
+import { measurePolygon, type Vec2, type Vec3 } from '../../lib/core/geometry';
+import type { Parcel } from '../../lib/domain/parcels';
+import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
+import { blockTriangleBudget } from '../../lib/scene/house-projection';
+import { createSandboxProjection, styleTones } from '../../lib/scene/sandbox-projection';
+import type { Drawable } from '../../lib/scene/surface';
 import { createTownHouseStudy } from '../../lib/world/house-site';
 import { createPlacementCache, createSandboxWorld } from '../../lib/world/sandbox-world';
 
@@ -10,6 +13,21 @@ const brushParams = {
 	height: defaults.sandboxBrushHeightM,
 	complexity: defaults.sandboxBrushComplexity
 };
+
+/** The cladding level a request is built at, with that level's share of the block budget. */
+export type Detail = Readonly<{ level: 'flat' | 'relief'; budget: number }>;
+
+/** What the cache hands the build queue for one placement: everything a build needs, read at
+ * commit time, and a pure build that runs later at any detail. */
+export type HouseRequest = Readonly<{
+	placement: SandboxPlacement;
+	parcel?: Parcel;
+	block?: string;
+	center?: Vec2;
+	tone: `--${string}`;
+	reason?: string;
+	build?: (detail: Detail) => readonly Drawable[];
+}>;
 
 /** Uses the Architecture Town fixture as the opening subject of the editable city. */
 export function createTownSandbox() {
@@ -27,6 +45,11 @@ export function createTownSandbox() {
 			.concat(assets)
 			.map(({ id, kind }) => [id, kind])
 	);
+	const parcels = new Map(world.holdings.parcels.map((parcel) => [parcel.id, parcel]));
+	const toneOf = (assetId: string) =>
+		styleTones[assetId.replace('house/court-', '') as keyof typeof styleTones] ?? '--ink-3';
+	const centerOf = (parcel: Parcel) =>
+		projection.toLocal(...(measurePolygon(parcel.outline).centroid ?? parcel.outline[0]));
 	return {
 		world,
 		projection,
@@ -34,22 +57,37 @@ export function createTownSandbox() {
 		viewContextFill: defaults.sandboxViewContextFill,
 		assets,
 		brushParams,
-		/** Caches flat drawings against the current placements and their party walls. */
+		parcels,
+		toneOf,
+		/** Turns the current placements and their party walls into deferred build requests. */
 		createCache: (document: ReturnType<typeof createSandboxDocument>) =>
-			createPlacementCache(
+			createPlacementCache<HouseRequest>(
 				document,
-				(placement, house, adjoining) => {
-					if (house?.status === 'unbuildable') return { drawables: [], reason: house.reason };
-					const drawables = house
-						? projection.projectParcelHouse(house, adjoining, placement.id)
-						: projection.projectPlacement(
-								world.build(placement),
-								kinds.get(placement.assetId) ?? '',
-								placement.id
-							);
-					return { drawables };
+				(placement, house, adjoining): HouseRequest => {
+					const tone = toneOf(placement.assetId);
+					const parcel = placement.host.kind === 'parcel' ? parcels.get(placement.host.id) : undefined;
+					const where = parcel && { parcel, center: centerOf(parcel) };
+					if (house?.status === 'unbuildable')
+						return { placement, ...where, tone, reason: house.reason };
+					if (house)
+						return {
+							placement,
+							...where,
+							block: house.parcel.blockId,
+							tone,
+							build: (detail) => projection.projectParcelHouse(house, adjoining, placement.id, detail)
+						};
+					const object = world.build(placement);
+					return {
+						placement,
+						tone,
+						build: () =>
+							projection.projectPlacement(object, kinds.get(placement.assetId) ?? '', placement.id)
+					};
 				},
 				world.resolveHouse
-			)
+			),
+		/** The flat detail every house starts with. */
+		flat: { level: 'flat', budget: blockTriangleBudget } as Detail
 	};
 }

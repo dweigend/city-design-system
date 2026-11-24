@@ -202,7 +202,7 @@ test('styles plan overlays from their slots and reuses one list per viewport', (
 			maxProfileScale: 1,
 			taper: 0
 		});
-	const viewport = { width: 2600, metersPerPixel: 2 };
+	const viewport = { width: 2600, metersPerPixel: 2, center: [0, 0, 0] as const };
 	const all = present('all');
 	expect(all(viewport)).toBe(all({ ...viewport }));
 	const byId = (list: readonly Drawable[], id: string) =>

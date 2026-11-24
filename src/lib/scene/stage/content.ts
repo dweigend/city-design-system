@@ -5,6 +5,7 @@ import {
 	Group,
 	Mesh,
 	MeshBasicNodeMaterial,
+	type Object3D,
 	Raycaster,
 	Vector3
 } from 'three/webgpu';
@@ -323,9 +324,9 @@ export function createContent(
 				const matches = available.get(part.drawable.id) ?? [];
 				matches.push(part);
 				available.set(part.drawable.id, matches);
-				group.remove(part.mesh, ...part.lines);
 			}
 			let builds = 0;
+			const added: Part[] = [];
 			parts = drawables.map((drawable) => {
 				const matches = available.get(drawable.id) ?? [];
 				const index = matches.findIndex((part) => sameGeometry(part.drawable, drawable));
@@ -335,10 +336,23 @@ export function createContent(
 					return part;
 				}
 				builds++;
-				return project(drawable, strokes, palette, landscape);
+				const part = project(drawable, strokes, palette, landscape);
+				added.push(part);
+				return part;
 			});
-			for (const staleParts of available.values()) for (const part of staleParts) disposePart(part);
-			for (const { mesh, lines } of parts) group.add(mesh, ...lines);
+			const stale = [...available.values()].flat();
+			// Retained parts stay in the group: detaching only the stale ones keeps an update linear
+			// in the number of parts instead of splicing every child out and back in.
+			const detached = new Set<Object3D>(stale.flatMap(({ mesh, lines }) => [mesh, ...lines]));
+			if (detached.size) {
+				group.children = group.children.filter((child) => !detached.has(child));
+				for (const child of detached) {
+					child.parent = null;
+					child.dispatchEvent({ type: 'removed' });
+				}
+			}
+			for (const part of stale) disposePart(part);
+			for (const { mesh, lines } of added) group.add(mesh, ...lines);
 			fitGround();
 			return builds;
 		},

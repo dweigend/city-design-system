@@ -24,6 +24,14 @@ const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 const worldOrigin = [0, 0, 0] as const;
 const accessSurface = { color: '--ink-2', finish: 'matte' } as const;
 
+/** The one matte key tone of each house style, for stand-in bodies and style specimens. */
+export const styleTones = Object.freeze({
+	neutral: '--mat-masonry',
+	memphis: '--cat-mobility',
+	archigram: '--mat-metal',
+	organic: '--cat-foliage'
+} as const satisfies Record<HouseStyleName, `--${string}`>);
+
 function address(parts: readonly Drawable[], placementId: string): Drawable[] {
 	return parts.map((part) => ({ ...part, id: JSON.stringify([placementId, part.id]) }));
 }
@@ -41,6 +49,32 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 	const drape = createTerrainDrape(ground.shape);
 	const [x, y, z] = worldOrigin;
 	const offset = [...toLocal(x, y), z] as const;
+
+	function projectOutline(
+		{ outline }: Pick<Parcel, 'outline'>,
+		id: string,
+		color: `--${string}`,
+		width: number
+	): Drawable {
+		const strokeSegments: number[] = [];
+		for (const [i, point] of outline.entries()) {
+			const next = outline[(i + 1) % outline.length];
+			const points = drape.segment(toLocal(...point), toLocal(...next));
+			for (let j = 1; j < points.length; j++) {
+				for (const [x, y, z] of [points[j - 1], points[j]])
+					strokeSegments.push(x, y, z + defaults.hoverLiftM);
+			}
+		}
+		return {
+			id,
+			shape: emptyMesh,
+			color,
+			finish: 'line',
+			fillVisible: false,
+			strokeSegments,
+			stroke: { color, width, opacity: defaults.hoverOpacity }
+		};
+	}
 	return Object.freeze({
 		background: [...terrain.drawables, ...terrain.projectParcels(holdings)],
 		toLocal,
@@ -60,11 +94,16 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 						);
 			return address(parts, placementId);
 		},
-		/** Draws a town parcel house in flat cladding with its current party walls. */
+		/** Draws a town parcel house with its current party walls, in flat cladding unless a level
+		 * and that level's share of the block triangle budget are given. */
 		projectParcelHouse(
 			placed: PlacedParcelHouse,
 			adjoiningWalls: readonly AdjoiningWall[],
-			placementId: string
+			placementId: string,
+			detail: Readonly<{ level: 'flat' | 'relief'; budget: number }> = {
+				level: 'flat',
+				budget: blockTriangleBudget
+			}
 		): Drawable[] {
 			const { style, house, space } = placed;
 			if (!Object.hasOwn(houseMaterials, style.id))
@@ -75,32 +114,36 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 				houseMaterials[style.id as HouseStyleName],
 				'full',
 				{
-					budget: blockTriangleBudget,
+					budget: detail.budget,
 					placement: { translation: offset, radians: -bearing },
-					level: 'flat'
+					level: detail.level
 				}
 			);
 			return address(drawables, placementId);
 		},
 		/** Drapes a single contour on displayed ground so it remains visible above plan strokes. */
-		projectHover({ outline }: Pick<Parcel, 'outline'>): Drawable {
-			const strokeSegments: number[] = [];
-			for (const [i, point] of outline.entries()) {
-				const next = outline[(i + 1) % outline.length];
-				const points = drape.segment(toLocal(...point), toLocal(...next));
-				for (let j = 1; j < points.length; j++) {
-					for (const [x, y, z] of [points[j - 1], points[j]])
-						strokeSegments.push(x, y, z + defaults.hoverLiftM);
-				}
-			}
+		projectHover(parcel: Pick<Parcel, 'outline'>): Drawable {
+			return projectOutline(parcel, 'sandbox-hover', '--ink', defaults.hoverStrokePx);
+		},
+		/** Drapes a parcel contour in a colour token, for stroke, skip and selection marks. */
+		projectMark(parcel: Pick<Parcel, 'outline'>, id: string, color: `--${string}`): Drawable {
+			return projectOutline(parcel, id, color, defaults.markStrokePx);
+		},
+		/** A plain matte body standing on the parcel up to `heightM` above its lowest ground, the
+		 * immediate stand-in for a house that is still being built. */
+		projectBody(
+			{ outline }: Pick<Parcel, 'outline'>,
+			heightM: number,
+			id: string,
+			color: `--${string}`
+		): Drawable {
+			const base = Math.min(...outline.map(([x, y]) => site.sampleGround(x, y).height));
+			const polygon = outline.map(([x, y]) => toLocal(x, y));
 			return {
-				id: 'sandbox-hover',
-				shape: emptyMesh,
-				color: '--ink',
-				finish: 'line',
-				fillVisible: false,
-				strokeSegments,
-				stroke: { color: '--ink', width: defaults.hoverStrokePx, opacity: defaults.hoverOpacity }
+				id,
+				shape: { kind: 'prism', polygon, base, top: base + heightM },
+				color,
+				finish: 'matte'
 			};
 		}
 	});
