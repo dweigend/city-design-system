@@ -18,6 +18,7 @@
 	import { chapterAt } from '../chapters';
 	import { parcelShapes, type ParcelShape } from './parcels';
 	import { inputsSheet, levelsSheet, shapesSheet, single } from './sheets';
+	import { townSheet } from './town';
 
 	const chapter = chapterAt('/architecture');
 	const query = page.url.searchParams;
@@ -40,7 +41,8 @@
 		{ value: 'one', label: 'One house' },
 		{ value: 'shapes', label: 'All parcels' },
 		{ value: 'levels', label: 'Display levels' },
-		{ value: 'inputs', label: 'Height × complexity' }
+		{ value: 'inputs', label: 'Height × complexity' },
+		{ value: 'town', label: 'In the town' }
 	];
 	const views = [
 		{ value: 'iso', label: 'Iso' },
@@ -75,7 +77,9 @@
 				? levelsSheet(setup)
 				: sheet === 'inputs'
 					? inputsSheet(setup)
-					: house.drawables
+					: sheet === 'town'
+						? townSheet(setup).drawables
+						: house.drawables
 	);
 	const measurements = $derived([
 		{
