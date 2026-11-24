@@ -45,7 +45,8 @@ test('names ID, host and parameter failures independently', () => {
 	expect(() => buildAsset(id, { kind: 'ground', point: [0, 0, 0] }, {}, 1)).toThrow(
 		WrongAssetHostError
 	);
-	for (const params of [{ color: 1 }, { height: NaN }, { height: '1' }, null, []]) {
+	const invalidParams: unknown[] = [{ color: 1 }, { height: NaN }, { height: '1' }, null, []];
+	for (const params of invalidParams) {
 		expect(() => buildAsset(id, host, params as Record<string, number>, 1)).toThrow(
 			InvalidAssetParamsError
 		);

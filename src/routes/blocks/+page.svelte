@@ -84,6 +84,7 @@
 
 <section class="stack" aria-labelledby="catalogue">
 	<h2 id="catalogue">Module catalogue</h2>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users can scroll the wide table.) -->
 	<div class="blocks-table" role="region" aria-labelledby="catalogue" tabindex="0">
 		<table aria-labelledby="catalogue">
 			<thead>
