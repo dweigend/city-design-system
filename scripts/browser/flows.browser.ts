@@ -173,10 +173,14 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 		await page.mouse.move(box.x + box.width * 0.65, y, { steps: 16 });
 		await page.mouse.up();
 	};
-	await renderedChange(canvas, stroke);
+	const beforePaint = await canvas.screenshot(hideHud);
+	await stroke();
 	await expect.poll(placements).toBeGreaterThan(0);
 	await expect(page.getByRole('status')).toContainText(/\b[1-9]\d* houses? placed\b/);
 	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
+	// Park the pointer off the canvas so the hover contour clears before comparing drawn houses.
+	await page.mouse.move(0, 0);
+	await expect.poll(async () => (await canvas.screenshot(hideHud)).equals(beforePaint)).toBe(false);
 	const painted = await placements();
 
 	await erase.click();
