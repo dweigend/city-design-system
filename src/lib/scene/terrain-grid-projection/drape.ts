@@ -39,7 +39,10 @@ function clip(start: number[], end: number[]) {
 	if (to >= from) return [from, to];
 }
 
-export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>, bucketSize = 16) {
+export function createTerrainDrape(
+	{ positions, indices }: Extract<Shape, { kind: 'mesh' }>,
+	bucketSize = 16
+) {
 	if (!(Number.isFinite(bucketSize) && bucketSize > 0))
 		throw new RangeError('Expected a positive triangle bucket size');
 	const points: Vec3[] = [];
@@ -56,12 +59,15 @@ export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>, 
 			else triangles.set(key, [triangle]);
 		}
 	}
-	return (a: Vec2, b: Vec2): Vec3[] => {
+	function facets(outline: readonly Vec2[]): ReadonlySet<Triangle> {
 		const candidates = new Set<Triangle>();
-		for (const key of buckets([a, b], bucketSize))
+		for (const key of buckets(outline, bucketSize))
 			for (const triangle of triangles.get(key) ?? []) candidates.add(triangle);
+		return candidates;
+	}
+	function segment(a: Vec2, b: Vec2): Vec3[] {
 		const cuts: { t: number; z: number }[] = [];
-		for (const triangle of candidates) {
+		for (const triangle of facets([a, b])) {
 			const start = weights(a, triangle);
 			const end = weights(b, triangle);
 			for (const t of clip(start, end) ?? []) {
@@ -83,5 +89,18 @@ export function drape({ positions, indices }: Extract<Shape, { kind: 'mesh' }>, 
 			...interior.map(({ t, z }): Vec3 => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z]),
 			[...b, cuts[cuts.length - 1].z]
 		];
-	};
+	}
+
+	function heightOnFacet(point: Vec2, triangle: Triangle) {
+		// Polygon clipping rounds XY. Clamp those rounded points to the facet's height range
+		// without extrapolating off a very thin pinned triangle.
+		const barycentric = weights(point, triangle).map((value) => Math.max(0, value));
+		const sum = barycentric.reduce((total, value) => total + value, 0);
+		return triangle.reduce((height, corner, i) => height + corner[2] * (barycentric[i] / sum), 0);
+	}
+	return { segment, facets, heightOnFacet };
+}
+
+export function drape(ground: Extract<Shape, { kind: 'mesh' }>, bucketSize?: number) {
+	return createTerrainDrape(ground, bucketSize).segment;
 }

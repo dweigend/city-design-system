@@ -60,6 +60,17 @@ function splitFrom(ring: Ring, { points, edgeIndex }: Contact, toleranceM: numbe
 		.filter(({ left, edge }) => edge !== edgeIndex && left > toleranceM)
 		.sort((a, b) => a.left - b.left || a.edge - b.edge);
 	if (!exit) return;
+	// A tangent vertex can be absent from lineHits, which counts crossings only.
+	// A cut between two edge interiors must avoid every intervening vertex.
+	for (const point of ring) {
+		const [along, left] = frame.read(point);
+		if (
+			left > toleranceM &&
+			left <= exit.left + toleranceM &&
+			Math.abs(along - alongM) <= toleranceM
+		)
+			return;
+	}
 	const end = frame.pointAt(alongM, exit.left);
 	return [
 		arc(ring, entry, edgeIndex, exit.edge, end, toleranceM),
@@ -79,8 +90,11 @@ export function partitionFrontage(
 	const portals: ParcelPortal[] = [];
 	const contacts = (ring: Ring) =>
 		eligibleContacts(ring, frontage, rule.minimumFrontageM, tolerance.linearToleranceM);
+	if (polygon.length !== 1) return { parcels, portals };
+	const areaM2 = measurePolygon(polygon[0]).area;
+	if (rule.partition && areaM2 < rule.partition.minimumAreaM2) return { parcels, portals };
 	const root = contacts(polygon[0]);
-	if (!root.length || polygon.length !== 1) return { parcels, portals };
+	if (!root.length) return { parcels, portals };
 
 	function visit(ring: Ring, areaM2: number, accessible: Contact[], splitPath: readonly number[]) {
 		const partition = rule.partition;
@@ -116,6 +130,6 @@ export function partitionFrontage(
 		);
 		portals.push(Object.freeze({ id: portalId, parcelId: id, laneId, points, frontageM }));
 	}
-	visit(polygon[0], measurePolygon(polygon[0]).area, root, Object.freeze([component]));
+	visit(polygon[0], areaM2, root, Object.freeze([component]));
 	return { parcels, portals };
 }

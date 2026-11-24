@@ -10,6 +10,11 @@ import { drape } from './drape';
  * and throws if it leaves the mesh. */
 export { drape as terrainDrape };
 
+/** Indexes a mesh in local meters for segment draping and planar facet lookup. Facets are
+ * returned once per query from buckets touched by the outline's bounds. Heights are interpolated
+ * on the chosen facet, with its boundary used for rounding at shared edges. */
+export { createTerrainDrape } from './drape';
+
 /** Prepares the terrain's triangle index once. The returned function projects a grid as one
  * line-finished mesh batch, with a private ring of indices per cell. It splits edges at terrain
  * triangle crossings and follows the mesh's exaggerated Z. The stage applies the depth bias.

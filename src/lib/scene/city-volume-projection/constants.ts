@@ -80,6 +80,8 @@ export const uprightRunPerRise = 0.12;
 
 /** Height in meters at which plan lines float over ground and water. */
 export const planLineLiftM = 0.32;
+/** Decimal digits in meters for clipping fills to rendered terrain facets, the ClipperD limit. */
+export const overlayClipPrecisionDigits = 8;
 /** Height in meters above the sampled surface for the crossing overlay (COLOR-3). */
 export const crossingLiftM = 1.2;
 

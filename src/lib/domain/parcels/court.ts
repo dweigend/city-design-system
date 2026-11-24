@@ -1,6 +1,6 @@
 import { areaTolerance, eligibleContacts } from './frontage';
 import { edgeFrame, intersect, lineHits, polygonArea, rectangle, subtract } from './geometry';
-import { inwardStrip, type Frontage } from './reserve';
+import { frontageContacts, type Frontage } from './reserve';
 import type { CourtEntrance, HoldingRule, ParcelTolerance, PlanPolygon } from './types';
 
 export function reserveCourt(
@@ -15,7 +15,10 @@ export function reserveCourt(
 	const { linearToleranceM } = tolerance;
 	const insets = subtract(
 		net,
-		ring.map((point, i) => inwardStrip(edgeFrame(point, ring[(i + 1) % ring.length]), insetM)),
+		ring.map((point, i) => {
+			const frame = edgeFrame(point, ring[(i + 1) % ring.length]);
+			return rectangle(frame, -insetM, frame.lengthM + insetM, -insetM, insetM);
+		}),
 		linearToleranceM
 	);
 	if (insets.length !== 1 || insets[0].length !== 1) return;
@@ -44,24 +47,31 @@ export function reserveCourt(
 		const near = alongM - halfWidth;
 		const end = alongM + halfWidth;
 		const ribbon = rectangle(frame, near, end, entranceLineM, far);
-		const coveredM2 = intersect(net, ribbon, linearToleranceM).reduce(
-			(sum, part) => sum + polygonArea(part),
-			0
-		);
-		if (Math.abs(coveredM2 - areaM2) > areaTolerance(areaM2, tolerance)) continue;
-		const widthAtCourt = intersect(
-			court,
-			rectangle(frame, near, end, far - halfWidth, far),
+		const covered = intersect(net, ribbon, linearToleranceM);
+		if (covered.length !== 1 || covered[0].length !== 1) continue;
+		const [clipped] = covered;
+		if (Math.abs(polygonArea(clipped) - areaM2) > areaTolerance(areaM2, tolerance)) continue;
+		const mouth = frontageContacts(
+			clipped[0],
+			[{ laneId, frame, depthM: entranceLineM }],
 			linearToleranceM
 		);
-		const endM2 = passageWidthM * halfWidth;
-		if (
-			Math.abs(widthAtCourt.reduce((sum, part) => sum + polygonArea(part), 0) - endM2) >
-			areaTolerance(endM2, tolerance)
-		)
-			continue;
-		const passage = subtract(ribbon, [court], linearToleranceM);
-		const land = subtract(net, [court, ribbon], linearToleranceM);
+		if (!mouth.some(({ lengthM }) => lengthM >= passageWidthM - linearToleranceM)) continue;
+		const endStrip = rectangle(frame, near, end, far - halfWidth, far);
+		const courtContact = intersect(clipped, court, linearToleranceM);
+		const endM2 = courtContact.reduce(
+			(sum, part) =>
+				sum +
+				intersect(part, endStrip, linearToleranceM).reduce(
+					(area, piece) => area + polygonArea(piece),
+					0
+				),
+			0
+		);
+		const endToleranceM2 = 2 * (passageWidthM + halfWidth) * linearToleranceM;
+		if (Math.abs(endM2 - passageWidthM * halfWidth) > endToleranceM2) continue;
+		const passage = subtract(clipped, [court], linearToleranceM);
+		const land = subtract(net, [court, clipped], linearToleranceM);
 		if (
 			!land.length ||
 			land.some(

@@ -18,7 +18,7 @@ import { laneGrades, laneReservations } from './lane-policy';
 import { prepareCityParcels } from './parcel-policy';
 import { shoreDetours } from './promenade';
 import { createMainLaneRouter, type MainLanePath } from './main-lanes';
-import type { CityTerrainSampler } from './sampling';
+import { planGround, type CityTerrainSampler } from './sampling';
 import { channelCrossings } from './crossings';
 import { citySiteConfig as config } from './config';
 
@@ -90,6 +90,7 @@ export function prepareCarrier(
 		origin[0] + a * span.along * u - b * span.across * v,
 		origin[1] + a * span.along * v + b * span.across * u
 	]);
+	const ground = planGround(sampleGround, config.bankSetbackM);
 	const { grid: candidates, plan } = TerrainGrid.createPlan(
 		{
 			seed,
@@ -101,15 +102,12 @@ export function prepareCarrier(
 
 			shore: {
 				align: true,
-				clearanceAt: (x, y) => sampleGround(x, y).waterClearance - config.bankSetbackM,
+				clearanceAt: ground.clearanceAt,
 				minimumEdge: shorelineMorphLimits.clippedMinimumEdgeRatio * coarseCellSize,
 				minimumArea: shorelineMorphLimits.clippedMinimumAreaRatio * coarseCellSize ** 2
 			},
 			referenceHeightAt: (x, y) => sampleGround(x, y).height,
-			heightAt(x, y) {
-				const reading = sampleGround(x, y);
-				return reading.waterKind === null ? reading.height : undefined;
-			}
+			heightAt: ground.heightAt
 		},
 		(point) => {
 			const ground = sampleGround(...point);

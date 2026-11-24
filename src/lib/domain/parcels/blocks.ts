@@ -64,9 +64,9 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 		if (!boundary) return;
 		const nodeIds = Object.freeze(boundary.map(({ from }) => from));
 		const outline = Object.freeze(nodeIds.map(point));
-		const frontage = boundary.flatMap(({ edgeId, from, to }) => {
+		const frontage = boundary.flatMap(({ edgeId, from, to }, sideIndex) => {
 			const lane = lanes.get(edgeId);
-			return lane ? [frontageFrame(lane, point(from), point(to))] : [];
+			return lane ? [frontageFrame(lane, point(from), point(to), sideIndex)] : [];
 		});
 		return {
 			id: JSON.stringify(members),

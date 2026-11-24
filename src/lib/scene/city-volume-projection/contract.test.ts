@@ -12,6 +12,8 @@ import {
 	readCityGrid,
 	readCityParcels
 } from '../../world/city-site';
+import { createParcelPlan } from '../../domain/parcels';
+import type { TerrainGrid } from '../../domain/terrain-grid';
 import type { FocusChoice } from '../focus';
 import type { Drawable } from '../surface';
 import { drawnInPencil } from './blocks';
@@ -24,7 +26,8 @@ import {
 	projectCityLattice,
 	projectCityTerrain
 } from './index';
-import { cityElevationRangeM } from './constants';
+import { projectParcelPlan } from './parcel-plan';
+import { cityElevationRangeM, planLineLiftM } from './constants';
 import { memberRank } from './lattice';
 import { clockwise } from './mesh';
 
@@ -302,3 +305,41 @@ test('drapes occupied lane widths and holding outlines across pinned terrain fac
 	expect(lanes.strokeSegments?.length ?? 0).toBeGreaterThan(0);
 	expect(holdings.strokeSegments?.length ?? 0).toBeGreaterThan(0);
 }, 30_000);
+
+test('projects the interior of a public fill across a ten-meter terrain peak', () => {
+	const outline = [
+		[0, 0],
+		[20, 0],
+		[20, 20],
+		[0, 20]
+	] as const;
+	const terrain = {
+		kind: 'mesh',
+		positions: [0, 0, 0, 20, 0, 0, 20, 20, 0, 0, 20, 0, 10, 10, 10],
+		indices: [0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4]
+	} as const;
+	const grid: TerrainGrid = {
+		vertices: outline.map(([x, y], i) => ({ id: String(i), position: [x, y, 0] })),
+		cells: [{ id: 'a', vertexIds: ['0', '1', '2', '3'], neighbors: [null, null, null, null] }],
+		boundary: []
+	};
+	const plan = createParcelPlan({
+		grid,
+		lanes: [],
+		plannedKinds: { a: 'open' },
+		holdingRules: { open: { minimumFrontageM: 3 } },
+		tolerance: {
+			linearToleranceM: 0.000001,
+			areaToleranceM2: 0.01,
+			relativeAreaToleranceRatio: 1e-8
+		}
+	}).read();
+	const fill = required(projectParcelPlan(terrain, (x, y) => [x, y], plan)[0], 'public ground');
+	if (fill.shape.kind !== 'mesh') throw Error('Expected a public ground mesh');
+	expect(fill.shape.indices).toHaveLength(12);
+	for (let i = 0; i < fill.shape.positions.length; i += 3) {
+		const [x, y, z] = fill.shape.positions.slice(i, i + 3);
+		expect(z).toBeCloseTo(Math.min(x, y, 20 - x, 20 - y) + 2 * planLineLiftM, 8);
+	}
+	expect(Math.max(...fill.shape.positions.filter((_, i) => i % 3 === 2))).toBeCloseTo(10.64);
+});

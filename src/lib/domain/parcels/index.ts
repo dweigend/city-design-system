@@ -1,7 +1,7 @@
 import { required } from '../../core/invariant';
 import { prepareBlocks } from './blocks';
 import { laneAddress } from './reserve';
-import type { ParcelLane, ParcelPlanInput } from './types';
+import type { LaneInput, ParcelLane, ParcelPlanInput } from './types';
 
 export type {
 	CourtEntrance,
@@ -17,11 +17,33 @@ export type {
 	PlanPolygon
 } from './types';
 
+function combineReservations(input: readonly LaneInput[]) {
+	const specs = new Map<string, LaneInput>();
+	for (const lane of input) {
+		const previous = specs.get(lane.edge.id);
+		if (!previous) {
+			specs.set(lane.edge.id, lane);
+			continue;
+		}
+		specs.set(lane.edge.id, {
+			edge: lane.edge,
+			widthM: Math.max(lane.widthM, previous.widthM),
+			hierarchy: [...new Set([...lane.hierarchy, ...previous.hierarchy])].sort(),
+			surface: lane.surface === 'stairs' || previous.surface === 'stairs' ? 'stairs' : 'walk',
+			oneSided: lane.oneSided || previous.oneSided,
+			protectedFromMerge: lane.protectedFromMerge || previous.protectedFromMerge
+		});
+	}
+	return specs;
+}
+
 /** Prepares fixed block membership and pedestrian reservations for caller-supplied XY geometry.
+ * Repeated reservations on the same edge use the largest width and the sorted union of
+ * roles. Stairs, one-sided reservation and merge protection apply if any role calls for them.
  * Proposed pairs are considered in input order. A rejected pair leaves its cells available.
  * A read returns a frozen snapshot of the requested whole blocks and their permanent lane intervals. */
 export function createParcelPlan(input: ParcelPlanInput) {
-	const specs = new Map(input.lanes.map((lane) => [lane.edge.id, lane]));
+	const specs = combineReservations(input.lanes);
 	const { byCell, mergedUnits, point, realize } = prepareBlocks(input, specs);
 	const lanes = new Map<string, ParcelLane>();
 	for (const spec of specs.values()) {
