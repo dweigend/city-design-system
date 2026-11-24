@@ -93,3 +93,5 @@
 		</p>
 	</div>
 </section>
+
+<p class="small"><a href={resolve('/architecture/structure')}>Structural member example</a></p>

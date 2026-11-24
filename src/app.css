@@ -593,3 +593,24 @@
 	[data-tone='alpha-hull'] { --tone: var(--ink); opacity: var(--alpha-hull); }
 	[data-tone='alpha-trace'] { --tone: var(--ink); opacity: var(--alpha-trace); }
 }
+
+/* Structural utilization uses fixed stops shared by the stage palette and legend. */
+:root,
+[data-theme] {
+	--structure-use-low: color-mix(in srgb-linear, var(--height-low), var(--height-mid) 65%);
+	--structure-use-mid: var(--height-mid);
+	--structure-use-high: color-mix(in srgb-linear, var(--height-mid), var(--height-high) 60%);
+}
+
+@layer interface {
+	.structure-scale {
+		background: linear-gradient(
+			90deg in srgb-linear,
+			var(--height-low),
+			var(--structure-use-low),
+			var(--structure-use-mid),
+			var(--structure-use-high),
+			var(--height-high)
+		);
+	}
+}
