@@ -1,5 +1,5 @@
 import { taperDefaults as config } from '../../../config/city-volume';
-import type { Vec2, Vec3 } from '../../core/geometry';
+import { readVertexMean, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodeKey } from '../../core/ref';
 import { columnPlanes, levelHeight, planeIndex, requireLevelSpacing } from './foundation';
@@ -49,12 +49,10 @@ function cornerRetreat(topology: PlanTopology, bands: Bands) {
 		const depth = level - (interior ? Math.min(...cells.map(roof)) : base);
 		const carried = cells.filter((cell) => roof(cell) >= level);
 		if (depth <= 0 || !carried.length) return noRetreat();
-		const [x, y] = carried
-			.map((cell) => required(topology.centres.get(cell), 'taper centre'))
-			.reduce(
-				([a, b], [u, v]) => [a + u / carried.length, b + v / carried.length],
-				/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-			);
+		const [x, y] = readVertexMean(
+			carried.map((cell) => required(topology.centres.get(cell), 'taper centre')),
+			'before-sum'
+		);
 		const [dx, dy] = [x - corner.position[0], y - corner.position[1]];
 		const reach = Math.hypot(dx, dy);
 		// Columns that only touch diagonally across the corner give it no direction.
@@ -67,14 +65,6 @@ function cornerRetreat(topology: PlanTopology, bands: Bands) {
 		const move = Math.min(taperStep * depth, config.taperReachShare * reach, clearance) / reach;
 		return [dx * move, dy * move];
 	};
-}
-
-function mean(points: readonly Vec2[]): Vec2 {
-	const [x, y] = points.reduce(
-		([a, b], [u, v]) => [a + u, b + v],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-	);
-	return [x / points.length, y / points.length];
 }
 
 const planKey = (x: number, y: number) =>
@@ -105,16 +95,16 @@ export function createCityTaper(
 		);
 	for (const [id, [x, y]] of topology.centres) {
 		const { corners } = required(topology.columns.get(id), 'taper column');
-		const centre = (level: number) => mean(corners.map((c) => atCorner(c.id, level)));
+		const centre = (level: number) => readVertexMean(corners.map((c) => atCorner(c.id, level)));
 		// A cell answers at its area centroid and at the mean of its corners (a prism hub).
-		const [mx, my] = mean(corners.map(({ position: [u, v] }) => [u, v]));
+		const [mx, my] = readVertexMean(corners.map(({ position }) => position));
 		addresses.set(planKey(x, y), centre);
 		addresses.set(planKey(mx, my), centre);
 	}
 	for (const { ends } of topology.edges.values()) {
 		const [[ax, ay], [bx, by]] = ends.map(({ position }) => position);
 		addresses.set(planKey((ax + bx) / 2, (ay + by) / 2), (level) =>
-			mean(ends.map((end) => atCorner(end.id, level)))
+			readVertexMean(ends.map((end) => atCorner(end.id, level)))
 		);
 	}
 	return ([x, y, z]: Vec3): Vec2 => {

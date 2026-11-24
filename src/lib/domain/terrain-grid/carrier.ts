@@ -1,5 +1,5 @@
 import { defaults } from '../../../config/terrain-grid';
-import { distance, type Vec2 } from '../../core/geometry';
+import { distance, readVertexMean, type Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
 import { encodeKey } from '../../core/ref';
 import { planEdgeId } from './edge-path';
@@ -23,18 +23,14 @@ type Triangle<T> = readonly [T, T, T];
 type Address = readonly [column: number, row: number, half: number];
 
 export function ringMean(corners: readonly Node[]): Vec2 {
-	return corners.reduce<Vec2>(
-		([x, y], { xy: [a, b] }) => [x + a / corners.length, y + b / corners.length],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	return readVertexMean(
+		corners.map(({ xy }) => xy),
+		'before-sum'
 	);
 }
 
 function average(points: readonly Node[], id: string): Node {
-	const [x, y] = points.reduce(
-		([x, y], { xy }) => [x + xy[0], y + xy[1]],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-	);
-	return { id, xy: [x / points.length, y / points.length] };
+	return { id, xy: readVertexMean(points.map(({ xy }) => xy)) };
 }
 
 function faceCenter(points: readonly Node[], id: string): Node {

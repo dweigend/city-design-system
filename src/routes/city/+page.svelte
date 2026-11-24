@@ -18,20 +18,17 @@
 		type SettlementKind
 	} from '../../lib/domain/city-volume';
 	import {
-		cityCameraBearingRad,
 		cityElevation,
-		cityFocus,
 		cityFocusPreset,
 		type FocusChoice,
-		cityFrameFillFlat,
-		cityFrameFillPerRelief,
 		cityPresentation,
 		cityProfile,
 		projectCityDistricts,
 		projectCityTerrain,
 		projectCityLattice
 	} from '../../lib/scene/city-volume-projection';
-	import { projectFocus, type View, type Viewport } from '../../lib/scene/stage';
+	import type { View, Viewport } from '../../lib/scene/stage';
+	import { readCityFit, readCityStep, readCityStepFocus, readCitySubject } from './city';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { valleyParams } from '../../lib/domain/valley';
 	import { cityHeightScaleM } from '../../lib/scene/surface';
@@ -105,11 +102,6 @@
 		return Number.isFinite(value) ? value : undefined;
 	}
 
-	function stepFromQuery() {
-		const value = page.url.searchParams.get('step');
-		return value === '01' || value === '02' ? value : '03';
-	}
-
 	function choice<T extends string>(key: string, choices: readonly T[]) {
 		return choices.find((choice) => choice === page.url.searchParams.get(key)) ?? choices[0];
 	}
@@ -126,7 +118,7 @@
 		focusChoices.find((value) => value === page.url.searchParams.get('focus'))
 	);
 	let viewport = $state.raw<Viewport>({ width: 1, metersPerPixel: 0, center: [0, 0, 0] });
-	let step = $derived(stepFromQuery());
+	let step = $derived(readCityStep(page.url.searchParams.get('step')));
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
 	let citySize = $derived(
 		resolveParams(citySiteParams, { citySize: valueFromQuery('city') ?? sizeParam.default })
@@ -173,32 +165,16 @@
 	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits));
 	const parcelDrawables = $derived(terrain.projectParcels(holdings));
 	const focusState = $derived(
-		cityFocus(
-			{
-				shares: step === '01' ? { detached: 0, block: 0, center: 0 } : districts.shares,
-				lattice: step === '03',
-				planDrawables: [...planLines, ...parcelDrawables]
-			},
-			focus,
-			step === '01' ? 'plan' : 'all'
-		)
+		readCityStepFocus(step, districts.shares, [...planLines, ...parcelDrawables], focus)
 	);
 	const relief = $derived(city.valley.parameters.relief);
-	const elevation = $derived(cityElevation(relief));
-	// Leave room for the Auto profile to raise the ground and roof steps together.
-	const camera = $derived({
-		bearing: cityCameraBearingRad,
-		elevation,
-		fill: cityFrameFillFlat - cityFrameFillPerRelief * relief
-	});
-	const subject = $derived(projectFocus(view, camera, envelope.points()));
-	const cityFit = $derived({
-		...camera,
-		elevationAtWidth: (width: number) => cityElevation(relief, width),
-		subject,
-		width: valueFromQuery('width') ? Math.max(120, valueFromQuery('width') ?? 120) : undefined,
-		offset: [valueFromQuery('x') ?? 0, valueFromQuery('y') ?? 0] as const
-	});
+	const subject = $derived(readCitySubject(view, relief, envelope.points()));
+	const cityFit = $derived(
+		readCityFit(relief, subject, valueFromQuery('width'), [
+			valueFromQuery('x') ?? 0,
+			valueFromQuery('y') ?? 0
+		])
+	);
 	const ground = $derived([...terrain.drawables, ...planLines, ...parcelDrawables]);
 	const tiles = $derived(step === '01' ? [] : envelope.drawables);
 	const wires = $derived(step === '03' ? members.drawables : []);

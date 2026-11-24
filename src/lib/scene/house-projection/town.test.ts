@@ -115,7 +115,9 @@ test('a house is plain by default; a granted level adds openings; builds are cac
 		...options,
 		level: 'flat'
 	});
-	expect(flat.drawables.map(({ id }) => id)).toEqual(plain.drawables.map(({ id }) => id));
+	expect(flat.drawables).toHaveLength(plain.drawables.length);
+	for (const [index, drawable] of flat.drawables.entries())
+		expect(drawable).toBe(plain.drawables[index]);
 	const again = projectCladHouse(object, faces, houseMaterials.neutral, 'full', {
 		...options,
 		level: 'near'

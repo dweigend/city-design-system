@@ -2,7 +2,7 @@ import { Color, type Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
 import type { createContent } from './content';
 import type { strokeMaterials } from './edges';
-import { readColors, readDisplay, type Display } from './material';
+import { readColors, readDisplay, readStagePresentation, type Display } from './material';
 import type { drawingPalette } from './tone';
 
 export function createStyle(
@@ -39,7 +39,7 @@ export function createStyle(
 			if (landscape) strokes.crease.color.lerp(paper, dark ? 0.13 : 0.04);
 			strokes.ground.color.copy(paper).lerp(ink, 0.48);
 			palette.dark.value = Number(dark);
-			palette.hull.value = Number(display === 'transparency');
+			palette.hull.value = Number(readStagePresentation(display).treatment === 'ghost');
 		}
 		content.ground?.shadow.material.color.copy(paper).lerp(ink, dark ? 0.016 : 0.32);
 		const style = readDisplay(display);

@@ -1,4 +1,3 @@
-import { measurePolygon } from './index';
 import { expect, test } from 'bun:test';
 import {
 	bounds,
@@ -8,6 +7,9 @@ import {
 	dotProduct,
 	interpolation,
 	length,
+	measurePointSegmentDistance,
+	measurePolygon,
+	readVertexMean,
 	scaled,
 	size,
 	sum,
@@ -58,4 +60,31 @@ test('measures a five-meter square at the world coordinate limit', () => {
 		] as const;
 		expect(measurePolygon(square)).toEqual({ area: 25, centroid: [offset + 2.5, offset + 2.5] });
 	}
+});
+
+test('measures the minimum distance to the interior or either end of a segment', () => {
+	expect(measurePointSegmentDistance([2, 3], [0, 0], [4, 0])).toBe(3);
+	expect(measurePointSegmentDistance([-3, 4], [0, 0], [4, 0])).toBe(5);
+	expect(measurePointSegmentDistance([7, 4], [0, 0], [4, 0])).toBe(5);
+	expect(measurePointSegmentDistance([3, 4], [0, 0], [0, 0])).toBe(5);
+});
+
+test('averages vertices in order with either division policy', () => {
+	const ring = [
+		[0, 0],
+		[4, 0],
+		[2, 2],
+		[0, 2]
+	] as const;
+	expect(readVertexMean(ring)).toEqual([1.5, 1]);
+	expect(measurePolygon(ring).centroid).not.toEqual(readVertexMean(ring));
+	const points = [
+		[1e16, 1],
+		[1, 1],
+		[-1e16, 1]
+	] as const;
+	expect(readVertexMean(points)).toEqual([0, 1]);
+	expect(readVertexMean(points, 'before-sum')).toEqual([0.5, 1]);
+	expect(readVertexMean([])).toEqual([NaN, NaN]);
+	expect(readVertexMean([], 'before-sum')).toEqual([0, 0]);
 });

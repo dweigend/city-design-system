@@ -21,7 +21,15 @@ import {
 	viewZToOrthographicDepth
 } from 'three/tsl';
 
-type Edge = { start: number; end: number; front: Vector3; back?: Vector3 };
+type Edge = {
+	start: number;
+	end: number;
+	front: Vector3;
+	back?: Vector3;
+	frontTriangle?: readonly number[];
+	backTriangle?: readonly number[];
+};
+type EdgeFaces = { fronts: number[]; backs: number[] };
 const weldPerMeter = 10_000;
 const creaseDot = Math.cos(Math.PI / 180);
 
@@ -29,14 +37,14 @@ export function creases(
 	positions: readonly number[],
 	indices: readonly number[],
 	creaseAngleRad?: number,
-	vertices?: number[]
+	vertices?: number[],
+	faces?: EdgeFaces
 ): Edges {
 	const limit = creaseAngleRad === undefined ? creaseDot : Math.cos(creaseAngleRad);
 	const edges = new Map<string, Edge>();
 	for (let i = 0; i < indices.length; i += 3) {
-		const points = indices
-			.slice(i, i + 3)
-			.map((index) => new Vector3().fromArray(positions, index * 3));
+		const triangle = indices.slice(i, i + 3);
+		const points = triangle.map((index) => new Vector3().fromArray(positions, index * 3));
 		const [a, b, c] = points;
 		const front = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
 		if (!front.lengthSq()) continue;
@@ -50,14 +58,25 @@ export function creases(
 			const next = (j + 1) % 3;
 			const key = [keys[j], keys[next]].sort().join('/');
 			const edge = edges.get(key);
-			if (edge) edge.back ??= front;
-			else edges.set(key, { start: indices[i + j], end: indices[i + next], front });
+			if (edge) {
+				if (!edge.back) {
+					edge.back = front;
+					if (faces) edge.backTriangle = triangle;
+				}
+			} else {
+				edges.set(key, {
+					start: triangle[j],
+					end: triangle[next],
+					front,
+					frontTriangle: faces ? triangle : undefined
+				});
+			}
 		}
 	}
 	const segments = [];
 	const fronts = [];
 	const backs = [];
-	for (const { start, end, front, back } of edges.values()) {
+	for (const { start, end, front, back, frontTriangle, backTriangle } of edges.values()) {
 		if (back && front.dot(back) > limit) continue;
 		segments.push(
 			...positions.slice(start * 3, start * 3 + 3),
@@ -66,11 +85,21 @@ export function creases(
 		vertices?.push(start, end);
 		fronts.push(...front.toArray());
 		backs.push(...(back ?? front).toArray());
+		if (faces && frontTriangle) {
+			faces.fronts.push(...frontTriangle);
+			faces.backs.push(...(backTriangle ?? frontTriangle));
+		}
 	}
-	return { segments, fronts, backs, vertices };
+	return { segments, fronts, backs, vertices, faces };
 }
 
-export type Edges = { segments: number[]; fronts: number[]; backs: number[]; vertices?: number[] };
+export type Edges = {
+	segments: number[];
+	fronts: number[];
+	backs: number[];
+	vertices?: number[];
+	faces?: EdgeFaces;
+};
 
 export function lineGeometry({ segments, fronts, backs }: Edges) {
 	const geometry = new LineSegmentsGeometry().setPositions(segments);
@@ -178,7 +207,17 @@ export function strokeMaterials(landscape = false) {
 	// Explicit strokes lie on faces; `pull` lifts them toward the eye in meters so the face in
 	// front of them decides visibility, and `near` and `far` bound the picture's view depth.
 	const depth = { pull: uniform(0), near: uniform(0), far: uniform(1) };
-	return { eye, silhouette, outer, crease, grid, gridBoundary, ground, depth };
+	return {
+		eye,
+		silhouette,
+		outer,
+		crease,
+		grid,
+		gridBoundary,
+		ground,
+		depth,
+		materials: new Set([outer, crease, grid, gridBoundary, ground])
+	};
 }
 
 /** One explicit stroke layer: the visible pass, or the hidden pass drawn only where a nearer

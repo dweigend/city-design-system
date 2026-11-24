@@ -29,7 +29,7 @@ import {
 } from './camera';
 import { createContent, detachChildren, hasSameGeometry, rayHit } from './content';
 import { strokeMaterials } from './edges';
-import { chunkKey } from './batch';
+import { chunkKey, sortTranslucent } from './batch';
 import { projectPart, segmentData } from './part';
 import { createRows } from './rows';
 import { drawingPalette } from './tone';
@@ -437,6 +437,59 @@ test('one edit repacks only its tile and retains the terrain and its hit surface
 	content.delete();
 });
 
+test('reconciles a moving hover marker without reattaching fixed children', () => {
+	const { content } = contentOf();
+	const background: Drawable[] = Array.from({ length: 519 }, (_, i) => ({
+		...boxAt(`body/${i}`, 2 + i / 4),
+		fillAlpha: i % 128 === 0 ? 0.5 : 1
+	}));
+	const markers = [25, 30].map((x): Drawable => ({
+		id: 'hover',
+		color: '--ink',
+		finish: 'line',
+		shape: { kind: 'mesh', positions: [], indices: [] },
+		strokeSegments: [x, 0, 1, x + 1, 1, 1]
+	}));
+	background.push({ ...markers[0], id: 'fixed-trace', strokeSegments: [0, 0, 1, 2, 2, 1] });
+	const put = (marker: Drawable) => {
+		content.show([...background, marker]);
+		content.update(appearance, false);
+	};
+	put(markers[0]);
+	const fixed = new Map<Object3D, Object3D>();
+	let adds = 0;
+	let removes = 0;
+	content.group.traverse((child) => {
+		if (!child.parent || child === content.group) return;
+		fixed.set(child, child.parent);
+		child.addEventListener('added', () => adds++);
+		child.addEventListener('removed', () => removes++);
+	});
+
+	const benchmark = process.env.STAGE_RECONCILIATION_BENCHMARK;
+	const samples: number[] = [];
+	for (let i = 0; i < (benchmark ? 250 : 2); i++) {
+		const start = performance.now();
+		put(markers[(i + 1) % 2]);
+		samples.push(performance.now() - start);
+	}
+	if (benchmark) {
+		samples.splice(0, 50);
+		const sorted = samples.sort((a, b) => a - b);
+		console.log({
+			medianMs: sorted[sorted.length / 2],
+			p95Ms: sorted[Math.ceil(sorted.length * 0.95) - 1],
+			adds,
+			removes
+		});
+	}
+	expect(fixed.size).toBeGreaterThan(5);
+	expect(adds).toBe(0);
+	expect(removes).toBe(0);
+	for (const [child, parent] of fixed) expect(child.parent).toBe(parent);
+	content.delete();
+});
+
 test('moving to sorted alpha and back retains the geometry and tile build count', () => {
 	const { content } = contentOf();
 	const part = boxAt('body', 4);
@@ -463,7 +516,41 @@ test('moving to sorted alpha and back retains the geometry and tile build count'
 	expect(content.show([part])).toBe(0);
 	content.update(appearance, true);
 	expect(content.chunkBuilds).toBe(before);
-	expect(alpha?.visible).toBe(false);
+	expect(alpha?.parent).toBeNull();
+	expect((alpha as Mesh).geometry.index).toBeNull();
+	expect((opaque as Mesh).geometry.index).toBe(triangleBuffer);
+	content.delete();
+});
+
+test('restores the tie order of a released translucent range', () => {
+	const { content } = contentOf();
+	const first = { ...boxAt('first', 4), fillAlpha: 0.5 };
+	const second = { ...boxAt('second', 4), fillAlpha: 0.5 };
+	content.show([first, second]);
+	content.update(appearance, false);
+	const tile = content.parts[0].chunk?.group;
+	if (!tile) throw new Error('Expected a packed tile');
+	const alpha = () =>
+		tile.children.filter(
+			(child) => child instanceof Mesh && child.renderOrder === 0 && child.material.transparent
+		);
+	const [a, b] = alpha();
+	const item = (object: Object3D) => ({
+		object,
+		id: object.id,
+		z: 0,
+		groupOrder: 0,
+		renderOrder: object.renderOrder
+	});
+	expect(sortTranslucent(item(a), item(b))).toBeLessThan(0);
+	content.style([{ ...first, fillAlpha: 1 }, second]);
+	content.update(appearance, false);
+	expect(alpha().map(({ id }) => id)).toEqual([b.id]);
+	content.style([first, second]);
+	content.update(appearance, false);
+	const [, restored] = alpha();
+	expect(restored.id).not.toBe(a.id);
+	expect(sortTranslucent(item(restored), item(b))).toBeLessThan(0);
 	content.delete();
 });
 
@@ -574,11 +661,18 @@ test('a mixed tile retains the visible stroke pass and disposes a removed veil i
 	expect(released).toBe(1);
 	expect(veil.parent).toBeNull();
 	expect(content.chunkBuilds).toBe(builds);
-	for (const child of tile.children) child.addEventListener('dispose', () => released++);
+	const retained = tile.children.slice();
+	const opaque = retained.find((child) => child instanceof Mesh && !child.material.transparent);
+	if (!(opaque instanceof Mesh)) throw new Error('Expected an opaque fill pass');
+	const before = opaque.geometry.id;
+	for (const child of retained) child.addEventListener('dispose', () => released++);
 	content.show([tinted, boxAt('changed', 11)]);
 	content.update(appearance, false);
-	expect(released).toBe(passes.length);
+	expect(released).toBe(1);
+	expect(opaque.geometry.id).not.toBe(before);
+	for (const child of retained) expect(child.parent?.id).toBe(tile.id);
 	content.delete();
+	expect(released).toBe(passes.length);
 });
 
 test('removing a veil from an individually drawn surface releases it and keeps the fill', () => {
@@ -669,4 +763,39 @@ test('applies custom zoom limits to navigation', () => {
 	key('Home');
 	expect(fit).toEqual({});
 	navigation.delete();
+});
+
+test('warped line creases own their materials and refresh both adjacent normals', () => {
+	const strokes = strokeMaterials();
+	const content = createContent(strokes, drawingPalette(), false);
+	const fill = [0, 0, 0, 0, 0, 1, 0, 1];
+	const line: Drawable = {
+		id: 'fold',
+		color: '--ink',
+		finish: 'line',
+		shape: {
+			kind: 'mesh',
+			positions: [0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, -1],
+			indices: [0, 1, 2, 1, 0, 3]
+		},
+		warp: { fill, amount: 0 }
+	};
+	content.show([line]);
+	content.update(appearance, false);
+	const [crease, outer] = content.parts[0].individual.map(({ line }) => line);
+	expect(crease.material).not.toBe(strokes.crease);
+	expect(outer.material).not.toBe(strokes.outer);
+	const front = crease.geometry.getAttribute('edgeFront');
+	const back = crease.geometry.getAttribute('edgeBack');
+	const original = [front.getY(0), back.getY(0)];
+	const originalColor = strokes.crease.color.clone();
+	content.style([{ ...line, warp: { fill, amount: 1 } }]);
+	content.update(appearance, false);
+	expect(Math.abs(front.getY(0))).toBeLessThan(Math.abs(original[0]));
+	expect(Math.abs(back.getY(0))).toBeLessThan(Math.abs(original[1]));
+	expect(strokes.crease.color.equals(originalColor)).toBe(true);
+	content.style([line]);
+	content.update(appearance, false);
+	expect([front.getY(0), back.getY(0)]).toEqual(original);
+	content.delete();
 });

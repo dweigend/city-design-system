@@ -162,9 +162,9 @@ export function createContent(
 			individuals.add(part.fill.mesh);
 			individualMaterials++;
 		}
-		for (const { line, recede } of part.individual) {
+		for (const { line, owned } of part.individual) {
 			individuals.add(line);
-			if (recede) individualMaterials++;
+			if (owned) individualMaterials++;
 		}
 		if (part.fill || part.individual.length) individualParts.add(part);
 		if (drawable.finish === 'terrain') terrain.add(part);
@@ -194,6 +194,7 @@ export function createContent(
 		if (fill) {
 			individualMaterials--;
 			fill.mesh.removeFromParent();
+			fill.veil?.removeFromParent();
 			fill.veil?.dispose();
 			fill.mesh.dispose();
 			fill.mesh.geometry.dispose();
@@ -201,10 +202,10 @@ export function createContent(
 			fill.drawing.atlas?.dispose();
 		}
 		const geometry = new Set(individual.map(({ line }) => line.geometry));
-		for (const { line, recede } of individual) {
+		for (const { line, owned } of individual) {
 			line.removeFromParent();
 			line.dispose();
-			if (recede) {
+			if (owned) {
 				individualMaterials--;
 				line.material.dispose();
 			}
@@ -233,8 +234,8 @@ export function createContent(
 
 	function unpack(chunk: Chunk) {
 		chunk.group.removeFromParent();
-		chunk.packed?.delete();
 		detachChildren(chunk.group);
+		chunk.packed?.delete();
 	}
 
 	return {
@@ -249,7 +250,7 @@ export function createContent(
 			return chunkBuilds;
 		},
 		get materialCount() {
-			return materials.count + 6 + individualMaterials + Number(!!ground);
+			return materials.count + strokes.materials.size + Number(!!ground) + individualMaterials + 1;
 		},
 		get clippingBounds(): Bounds3 {
 			refreshBounds();
@@ -351,12 +352,15 @@ export function createContent(
 			for (const key of repack) {
 				const chunk = chunks.get(key);
 				if (!chunk) continue;
-				unpack(chunk);
 				if (chunk.members.size) {
-					chunk.packed = packChunk(chunk.members, materials, chunk.group, landscape);
-					group.add(chunk.group);
+					if (!chunk.packed) {
+						chunk.packed = packChunk(materials, chunk.group, landscape);
+						group.add(chunk.group);
+					}
+					chunk.packed.repack(chunk.members);
 					refresh.add(chunk);
 				} else {
+					unpack(chunk);
 					chunks.delete(key);
 					refresh.delete(chunk);
 				}

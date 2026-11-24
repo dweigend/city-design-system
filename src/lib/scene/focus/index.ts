@@ -114,17 +114,38 @@ export function createFocusResolver<const Choice extends string, const Part exte
 	});
 }
 
-const surfaceDetail = {
-	full: 'near',
-	silhouette: 'far',
-	transparent: 'far',
-	pencil: 'pencil',
-	hidden: undefined
-} as const satisfies Record<DisplayLevel, SurfaceLevel | undefined>;
+/** Geometric detail requested by a presentation. */
+export type DisplayDetail = 'plain' | 'flat' | 'full';
+
+/** Drawing treatment applied independently of geometric detail. */
+export type DisplayTreatment = 'solid' | 'ghost' | 'wire' | 'pencil';
+
+type DisplayPresentation = Readonly<{
+	detail: DisplayDetail;
+	treatment: DisplayTreatment;
+	visible: boolean;
+}>;
+
+const presentations = Object.freeze({
+	full: Object.freeze({ detail: 'full', treatment: 'solid', visible: true }),
+	silhouette: Object.freeze({ detail: 'plain', treatment: 'solid', visible: true }),
+	transparent: Object.freeze({ detail: 'plain', treatment: 'ghost', visible: true }),
+	pencil: Object.freeze({ detail: 'flat', treatment: 'pencil', visible: true }),
+	hidden: Object.freeze({ detail: 'plain', treatment: 'wire', visible: false })
+} satisfies Record<DisplayLevel, DisplayPresentation>);
+
+/** Reads the shared presentation of a focus level. Hidden omits even its wire treatment.
+ * An unknown level throws RangeError. The result is frozen and shared. */
+export function readDisplayPresentation<Level extends DisplayLevel>(level: Level) {
+	if (!Object.hasOwn(presentations, level))
+		throw new RangeError(`Unknown display level "${level}"`);
+	return presentations[level];
+}
 
 /** Maps focus display to surface detail. Hidden surfaces can be skipped. */
 export function readSurfaceLevel(level: DisplayLevel): SurfaceLevel | undefined {
-	if (!Object.hasOwn(surfaceDetail, level))
-		throw new RangeError(`Unknown display level "${level}"`);
-	return surfaceDetail[level];
+	const { detail, treatment, visible } = readDisplayPresentation(level);
+	if (!visible) return undefined;
+	if (treatment === 'pencil') return 'pencil';
+	return detail === 'full' ? 'near' : 'far';
 }

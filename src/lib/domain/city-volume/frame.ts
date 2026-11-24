@@ -1,5 +1,5 @@
 import type { StructuralColumn } from './columns';
-import type { Vec3 } from '../../core/geometry';
+import { readVertexMean, type Vec3 } from '../../core/geometry';
 import { encodePair } from '../../core/ref';
 import {
 	bayAddresses,
@@ -57,9 +57,9 @@ function hubCapHeight(ring: readonly Node[], x: number, y: number) {
 function centered(level: Level, connect: Connect) {
 	box(level, connect);
 	const corners = [...level.bottom, ...level.top];
-	const [x, y] = level.bottom.reduce(
-		([x, y], { position: [u, v] }) => [x + u / level.bottom.length, y + v / level.bottom.length],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	const [x, y] = readVertexMean(
+		level.bottom.map(({ position }) => position),
+		'before-sum'
 	);
 	const bottom = hubCapHeight(level.bottom, x, y);
 	const top = hubCapHeight(level.top, x, y);

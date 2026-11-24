@@ -233,8 +233,7 @@ async function create({
 					content.delete();
 				} finally {
 					try {
-						for (const name of ['outer', 'crease', 'ground', 'grid', 'gridBoundary'] as const)
-							strokes[name].dispose();
+						for (const material of strokes.materials) material.dispose();
 						for (const key of Object.keys(canvas.dataset))
 							if (key.startsWith('stage')) delete canvas.dataset[key];
 					} finally {

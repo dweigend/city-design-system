@@ -1,4 +1,4 @@
-import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
+import { isConvexCounterclockwise, readVertexMean, type Vec2 } from '../../core/geometry';
 import { encodeKey, encodePair } from '../../core/ref';
 
 /** A convex or simple plan ring, counterclockwise. `keys` name its points symbolically, so two rings
@@ -16,15 +16,6 @@ export type KeyedRing = Readonly<{
 }>;
 
 const midpoint = ([ax, ay]: Vec2, [bx, by]: Vec2): Vec2 => [(ax + bx) / 2, (ay + by) / 2];
-
-// Exact arithmetic: vertex average of a ring.
-function vertexAverage(points: readonly Vec2[]): Vec2 {
-	const [x, y] = points.reduce(
-		([sx, sy], [px, py]) => [sx + px, sy + py],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-	);
-	return [x / points.length, y / points.length];
-}
 
 /** Twice the signed area in square meters, measured from the first point so that far-off
  * coordinates keep their precision; positive when counterclockwise. */
@@ -102,7 +93,7 @@ export function convexParts(ring: KeyedRing): readonly KeyedRing[] {
  * and the previous edge midpoint (GRID-1). Child IDs are `<ring id>/child/<JSON [label]>`, with
  * the corner key as label at the first split and its role (corner, next, centre, previous) after. */
 export function cornerQuads(ring: KeyedRing, first: boolean): readonly KeyedRing[] {
-	const centre = vertexAverage(ring.points);
+	const centre = readVertexMean(ring.points);
 	const centreKey = encodeKey(['center', ring.id]);
 	const keys = first ? ring.keys.map((id) => encodeKey(['orig', id])) : ring.keys;
 	const n = ring.points.length;

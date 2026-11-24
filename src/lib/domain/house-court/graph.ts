@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
+import { measurePointSegmentDistance, readVertexMean, type Vec2 } from '../../core/geometry';
 import { cellCenter, type CellSpace, type FineCell } from '../cell-space';
 import { side } from './boxes';
 
@@ -34,13 +34,6 @@ export function boundaryDepth(space: CellSpace): ReadonlyMap<string, number> {
 	);
 }
 
-function segmentDistance([px, py]: Vec2, [ax, ay]: Vec2, [bx, by]: Vec2): number {
-	const [dx, dy] = [bx - ax, by - ay];
-	const span = dx * dx + dy * dy;
-	const t = span ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / span)) : 0;
-	return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
 /** Frontage sides of all cells as plan segments in meters. */
 export function frontageSegments(space: CellSpace): readonly (readonly [Vec2, Vec2])[] {
 	return space.cells.flatMap(({ quad, sides }) =>
@@ -53,16 +46,12 @@ export function frontageSegments(space: CellSpace): readonly (readonly [Vec2, Ve
 /** Plan distance in meters from a cell's centre to the nearest frontage side; infinite without one. */
 export function frontageDistance(cell: FineCell, segments: readonly (readonly [Vec2, Vec2])[]) {
 	const centre = cellCenter(cell);
-	return Math.min(Infinity, ...segments.map(([a, b]) => segmentDistance(centre, a, b)));
+	return Math.min(Infinity, ...segments.map(([a, b]) => measurePointSegmentDistance(centre, a, b)));
 }
 
 /** Average of the frontage side midpoints, the point the entrance seeks. */
 export function frontageCentre(segments: readonly (readonly [Vec2, Vec2])[]): Vec2 {
-	const [x, y] = segments.reduce(
-		([sx, sy], [[ax, ay], [bx, by]]) => [sx + (ax + bx) / 2, sy + (ay + by) / 2],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-	);
-	return [x / segments.length, y / segments.length];
+	return readVertexMean(segments.map(([[ax, ay], [bx, by]]) => [(ax + bx) / 2, (ay + by) / 2]));
 }
 
 /** The first entrance path's cell, frontage and wall in space meters. */

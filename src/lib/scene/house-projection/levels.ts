@@ -1,40 +1,36 @@
 import { defaults } from '../../../config/house-projection';
-import type { DisplayLevel } from '../focus';
+import { readDisplayPresentation, type DisplayLevel } from '../focus';
 import { blockSurfaces, fullSurfaces, pencilSurfaces, veilSurfaces } from './surfaces';
 
 const { pencilHatch, veilAlpha } = defaults;
 
+const houseTreatments = /* Exact arithmetic: opaque and omitted fills, and no-hatch switches. */ {
+	solid: { hatch: 0, fillAlpha: 1 },
+	ghost: { surfaces: veilSurfaces, hatch: 0, fillAlpha: veilAlpha },
+	pencil: { surfaces: pencilSurfaces, hatch: pencilHatch, fillAlpha: 1 },
+	wire: { surfaces: undefined, hatch: 0, fillAlpha: 0 }
+} as const;
+
+const solidDetails = {
+	full: { detail: 'full', surfaces: fullSurfaces },
+	plain: { detail: 'block', surfaces: blockSurfaces }
+} as const;
+
 /** The drawing of a house at each display level of COLOR-6: which object detail it reads and how
  * the slots look. `hidden` draws nothing. */
 export const houseLevels = Object.freeze({
-	full: /* Exact arithmetic: full display is opaque and has no hatch. */ {
-		detail: 'full',
-		surfaces: fullSurfaces,
-		hatch: 0,
-		fillAlpha: 1
+	full: {
+		...solidDetails[readDisplayPresentation('full').detail],
+		...houseTreatments[readDisplayPresentation('full').treatment]
 	},
-	silhouette: /* Exact arithmetic: silhouette is opaque and has no hatch. */ {
-		detail: 'block',
-		surfaces: blockSurfaces,
-		hatch: 0,
-		fillAlpha: 1
+	silhouette: {
+		...solidDetails[readDisplayPresentation('silhouette').detail],
+		...houseTreatments[readDisplayPresentation('silhouette').treatment]
 	},
-	transparent: /* Exact arithmetic: transparent display has no hatch. */ {
+	transparent: {
 		detail: 'block',
-		surfaces: veilSurfaces,
-		hatch: 0,
-		fillAlpha: veilAlpha
+		...houseTreatments[readDisplayPresentation('transparent').treatment]
 	},
-	pencil: /* Exact arithmetic: pencil face is opaque. */ {
-		detail: 'block',
-		surfaces: pencilSurfaces,
-		hatch: pencilHatch,
-		fillAlpha: 1
-	},
-	hidden: /* Exact arithmetic: hidden display has no fill or hatch. */ {
-		detail: 'block',
-		surfaces: undefined,
-		hatch: 0,
-		fillAlpha: 0
-	}
+	pencil: { detail: 'block', ...houseTreatments[readDisplayPresentation('pencil').treatment] },
+	hidden: { detail: 'block', ...houseTreatments[readDisplayPresentation('hidden').treatment] }
 } as const satisfies Record<DisplayLevel, unknown>);

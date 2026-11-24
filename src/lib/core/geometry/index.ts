@@ -59,6 +59,45 @@ export function distance(
 	return Math.hypot(bx - ax, by - ay, bz - az);
 }
 
+/** Returns the minimum XY distance in meters to the closed segment. A collapsed segment
+ * measures to its start point. Does not mutate or validate the points. */
+export function measurePointSegmentDistance(
+	[px, py]: Vec2,
+	[ax, ay]: Vec2,
+	[bx, by]: Vec2
+): number {
+	const dx = bx - ax;
+	const dy = by - ay;
+	const span = dx * dx + dy * dy;
+	const t = span ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / span)) : 0;
+	return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** Arithmetic mean of the vertices in input order, in meters. Each vertex has equal weight,
+ * unlike an area centroid. Use before-sum where an existing calculation divides each term
+ * first: that order has different floating-point rounding. For empty input, before-sum
+ * returns the origin and after-sum returns NaN components. */
+export function readVertexMean(
+	points: readonly (Vec2 | Vec3)[],
+	division: 'before-sum' | 'after-sum' = 'after-sum'
+): Vec2 {
+	let x = 0;
+	let y = 0;
+	const count = points.length;
+	if (division === 'before-sum') {
+		for (const [u, v] of points) {
+			x += u / count;
+			y += v / count;
+		}
+		return [x, y];
+	}
+	for (const [u, v] of points) {
+		x += u;
+		y += v;
+	}
+	return [x / count, y / count];
+}
+
 /** Returns a detached, unitless direction from a finite meter vector. Throws RangeError at zero. No mutation. */
 export function unitVector([x, y, z]: Vec3): Vec3 {
 	const scale = Math.max(Math.abs(x), Math.abs(y), Math.abs(z));

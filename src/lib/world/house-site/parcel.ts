@@ -1,4 +1,4 @@
-import { distance, type Vec2 } from '../../core/geometry';
+import { distance, measurePointSegmentDistance, type Vec2 } from '../../core/geometry';
 import { Random } from '../../core/random';
 import { defaults } from '../../../config/house-site';
 import {
@@ -47,19 +47,14 @@ function rings(polygons: readonly PlanPolygon[]): Segment[] {
 	);
 }
 
-function segmentDistance([px, py]: Vec2, [[ax, ay], [bx, by]]: Segment): number {
-	const [dx, dy] = [bx - ax, by - ay];
-	const length = dx * dx + dy * dy;
-	const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length)) : 0;
-	return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
 /** Indices of ring edges whose midpoint lies on one of the boundary segments. */
 function touching(ring: readonly Vec2[], boundary: readonly Segment[]): number[] {
 	return ring.flatMap(([x, y], i) => {
 		const [u, v] = ring[(i + 1) % ring.length];
 		const mid: Vec2 = [(x + u) / 2, (y + v) / 2];
-		return boundary.some((segment) => segmentDistance(mid, segment) <= contactToleranceM)
+		return boundary.some(
+			(segment) => measurePointSegmentDistance(mid, ...segment) <= contactToleranceM
+		)
 			? [i]
 			: [];
 	});

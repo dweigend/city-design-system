@@ -28,7 +28,7 @@ import {
 	type SurfaceAssignment
 } from '../surface';
 import { houseLevels } from './levels';
-import { planHouseMaterials, type HouseMaterials, type MaterialRole } from './materials';
+import { planHouseMaterials, type HouseMaterials } from './materials';
 
 const { cladOffsetM, cladSkinM, plainCreaseRad } = defaults;
 
@@ -235,16 +235,14 @@ function plainSurfaces(
 	object: PlaceableObject,
 	materials: HouseMaterials,
 	{ plan, level }: Built,
-	table: SurfaceAssignment,
-	tone: ModelTone = 'white'
+	table: SurfaceAssignment
 ): SurfaceAssignment {
-	const { grain, parts } = readLevelDetail(level);
+	const { grain } = readLevelDetail(level);
 	return Object.fromEntries(
 		object.slots.map((slot): [string, Surface | undefined] => {
 			const own = table[slot];
-			const role: MaterialRole | undefined = materials.slots[slot];
-			// A plain house is one pale matte volume, like the boxes of a study model (MAT-15).
-			const material = role ? (parts ? plan[role] : { family: 'board' as const, tone }) : undefined;
+			const role = materials.slots[slot];
+			const material = role && plan[role];
 			if (!own || !material) return [slot, own];
 			return [slot, { ...readModelSurface(material, 'normal', grain), stroke: own.stroke }];
 		})
@@ -274,7 +272,11 @@ function projectPlain(
 	const shown = withoutHidden(object, 'plain', materials);
 	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
 	const table: SurfaceAssignment = houseLevels.full.surfaces;
-	const board = readModelSurface({ family: 'board', tone: plainTone }, 'normal', false);
+	const board = readModelSurface(
+		{ family: 'board', tone: plainTone },
+		'normal',
+		readLevelDetail('plain').grain
+	);
 	const assignment = Object.fromEntries(
 		placed.slots.map((slot) => {
 			const surface = Object.hasOwn(table, slot) ? table[slot] : undefined;
@@ -347,7 +349,7 @@ export function projectCladHouse(
 	// Only the full display paints model materials; the other displays keep their stock looks.
 	const plain =
 		display === 'full'
-			? plainSurfaces(object, materials, house, surfaces, options.plainTone)
+			? plainSurfaces(object, materials, house, surfaces)
 			: Object.fromEntries(
 					object.slots.map((slot) => [slot, (surfaces as SurfaceAssignment)[slot]])
 				);

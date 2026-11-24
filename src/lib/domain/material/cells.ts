@@ -1,5 +1,5 @@
 import { materialSettings } from '../../../config/material';
-import type { Vec2 } from '../../core/geometry';
+import { readVertexMean, type Vec2 } from '../../core/geometry';
 import type { Rect } from './patch';
 
 const { planeToleranceM } = materialSettings;
@@ -66,15 +66,6 @@ function inside([u, v]: Vec2, [u0, v0, u1, v1]: Rect) {
 	return u > u0 && u < u1 && v > v0 && v < v1;
 }
 
-// Exact arithmetic: the mean of the corners starts at the origin.
-function centroid(polygon: readonly Vec2[]): Vec2 {
-	const [u, v] = polygon.reduce(
-		([a, b], [x, y]) => [a + x, b + y],
-		/* Exact arithmetic: initial sum of UV coordinates. */ [0, 0]
-	);
-	return [u / polygon.length, v / polygon.length];
-}
-
 /** Splits a convex polygon along every opening edge line that crosses it and drops the cells
  * inside an opening. All cells share one grid, so neighbours meet edge to edge without T-joints. */
 // Exact arithmetic: axis indices 0 and 1 of patch coordinates.
@@ -98,7 +89,7 @@ export function cutOpenings(polygon: readonly Vec2[], openings: readonly Rect[])
 	for (let i = 0; i + 1 < us.length; i++) {
 		for (let j = 0; j + 1 < vs.length; j++) {
 			const cell = clipToOutline(polygon, rectPolygon([us[i], vs[j], us[i + 1], vs[j + 1]]));
-			if (cell.length && !overlapping.some((rect) => inside(centroid(cell), rect)))
+			if (cell.length && !overlapping.some((rect) => inside(readVertexMean(cell), rect)))
 				cells.push(cell);
 		}
 	}

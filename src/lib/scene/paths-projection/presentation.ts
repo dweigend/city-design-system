@@ -1,3 +1,4 @@
+import { readDisplayPresentation } from '../focus';
 import { pathsFocusPreset, type PathsFocusChoice } from './focus';
 import type { Presentation } from '../stage';
 import type { Drawable } from '../surface';
@@ -12,15 +13,15 @@ export function pathsPresentation(
 	showRoute: boolean
 ): Presentation {
 	const { readFocusLevel } = pathsFocusPreset;
-	const laneLevel = readFocusLevel(focus, 'lanes');
-	const walkwayLevel = readFocusLevel(focus, 'walkways');
-	const railLevel = readFocusLevel(focus, 'transit');
+	const lanes = readDisplayPresentation(readFocusLevel(focus, 'lanes'));
+	const walkways = readDisplayPresentation(readFocusLevel(focus, 'walkways'));
+	const transit = readDisplayPresentation(readFocusLevel(focus, 'transit'));
 	const drawables = [
 		...paths.map((part) => ({
 			...part,
-			visible: (part.id === 'ground-lanes' ? laneLevel : walkwayLevel) !== 'hidden'
+			visible: (part.id === 'ground-lanes' ? lanes : walkways).visible
 		})),
-		...rail.map((part) => ({ ...part, visible: railLevel !== 'hidden' })),
+		...rail.map((part) => ({ ...part, visible: transit.visible })),
 		...route.map((part) => ({ ...part, visible: showRoute }))
 	];
 	let previous: readonly Drawable[] | undefined;

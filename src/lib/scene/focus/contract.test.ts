@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test';
 import { example } from './example';
-import { createFocusResolver, displayLevels, FocusPolicyError, readSurfaceLevel } from './index';
+import {
+	createFocusResolver,
+	displayLevels,
+	FocusPolicyError,
+	readDisplayPresentation,
+	readSurfaceLevel
+} from './index';
 
 test('a composition supplies its own vocabulary and rows', () => {
 	const preset = example();
@@ -29,4 +35,17 @@ test('all display levels map to material detail independently of the preset', ()
 	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'subject'))).toBe('near');
 	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'backdrop'))).toBeUndefined();
 	expect(() => readSurfaceLevel('unknown' as never)).toThrow(RangeError);
+});
+
+test('resolves each display level to a unique detail and treatment', () => {
+	const presentations = displayLevels.map(readDisplayPresentation);
+	expect(presentations).toEqual([
+		{ detail: 'full', treatment: 'solid', visible: true },
+		{ detail: 'plain', treatment: 'solid', visible: true },
+		{ detail: 'plain', treatment: 'ghost', visible: true },
+		{ detail: 'flat', treatment: 'pencil', visible: true },
+		{ detail: 'plain', treatment: 'wire', visible: false }
+	]);
+	expect(presentations.every(Object.isFrozen)).toBe(true);
+	expect(() => readDisplayPresentation('invalid' as never)).toThrow(RangeError);
 });

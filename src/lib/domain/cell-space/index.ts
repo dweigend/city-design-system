@@ -1,6 +1,6 @@
 /** Module: Splits metric parcels into addressed fine cells. */
 
-import type { Vec2 } from '../../core/geometry';
+import { readVertexMean, type Vec2 } from '../../core/geometry';
 import { encodeKey } from '../../core/ref';
 import { defaults } from '../../../config/cell-space';
 import { resolveSides } from './sides';
@@ -194,12 +194,7 @@ export function cellAreaM2(cell: FineCell): number {
 	return doubleArea(cell.quad) / 2;
 }
 
-// Exact arithmetic: vertex average of a quad.
 /** Vertex average of a fine cell in plan meters. */
 export function cellCenter({ quad }: FineCell): Vec2 {
-	const [x, y] = quad.reduce(
-		([sx, sy], [px, py]) => [sx + px, sy + py],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-	);
-	return [x / quad.length, y / quad.length];
+	return readVertexMean(quad);
 }

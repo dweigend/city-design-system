@@ -184,32 +184,13 @@ export function batchMaterials(
 	front.positionNode = mix(endpoint, positionLocal, width);
 	back.positionNode = mix(endpoint, positionLocal, width.mul(0.75));
 
+	const materials = { opaque, alpha, glass, veil, outer, crease, grid, rim, front, back };
+	const unique = new Set(Object.values(materials));
 	return {
-		opaque,
-		alpha,
-		glass,
-		veil,
-		outer,
-		crease,
-		grid,
-		rim,
-		front,
-		back,
-		count: landscape ? 9 : 10,
+		...materials,
+		count: unique.size,
 		delete() {
-			for (const material of new Set([
-				opaque,
-				alpha,
-				glass,
-				veil,
-				outer,
-				crease,
-				grid,
-				rim,
-				front,
-				back
-			]))
-				material.dispose();
+			for (const material of unique) material.dispose();
 		}
 	};
 }

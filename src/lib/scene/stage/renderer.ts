@@ -1,4 +1,5 @@
 import { WebGPURenderer } from 'three/webgpu';
+import { sortTranslucent } from './batch';
 
 type DemandRenderer = WebGPURenderer & {
 	_getFallback: null;
@@ -41,6 +42,7 @@ export async function openRenderer(canvas: HTMLCanvasElement) {
 		}) as DemandRenderer;
 		// r187 installs a WebGL fallback in the constructor. Keep backend init strict.
 		renderer._getFallback = null;
+		renderer.setTransparentSort(sortTranslucent);
 		await renderer.init();
 		return {
 			renderer,

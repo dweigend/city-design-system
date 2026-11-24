@@ -1,4 +1,4 @@
-import { convexHull, type Vec2 } from '../../core/geometry';
+import { convexHull, readVertexMean, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { TerrainGrid } from '../../domain/terrain-grid';
 
@@ -16,12 +16,9 @@ export function preparePlanSelection(plan: TerrainGrid) {
 		.map(({ id, vertexIds, neighbors }) => ({
 			id,
 			neighbors,
-			center: vertexIds.reduce<Vec2>(
-				([x, y], vertex) => {
-					const [a, b] = required(vertices.get(vertex), 'water cell vertex');
-					return [x + a / vertexIds.length, y + b / vertexIds.length];
-				},
-				/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+			center: readVertexMean(
+				vertexIds.map((vertex) => required(vertices.get(vertex), 'water cell vertex')),
+				'before-sum'
 			)
 		}));
 	return (built: TerrainGrid) => {

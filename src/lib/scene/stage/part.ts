@@ -6,7 +6,8 @@ import {
 	Mesh,
 	MinEquation,
 	NormalBlending,
-	OneFactor
+	OneFactor,
+	Vector3
 } from 'three/webgpu';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import type { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -34,11 +35,19 @@ export function renderOrder(drawable: Drawable) {
 
 function partsEdges(drawable: Drawable, { positions, indices }: ReturnType<typeof shapeArrays>) {
 	const vertices = drawable.warp ? [] : undefined;
-	if (!drawable.creaseGroups) return creases(positions, indices, drawable.creaseAngleRad, vertices);
-	const merged: Edges = { segments: [], fronts: [], backs: [], vertices };
+	const faces = drawable.warp ? { fronts: [], backs: [] } : undefined;
+	if (!drawable.creaseGroups)
+		return creases(positions, indices, drawable.creaseAngleRad, vertices, faces);
+	const merged: Edges = { segments: [], fronts: [], backs: [], vertices, faces };
 	let start = 0;
 	for (const end of drawable.creaseGroups) {
-		const own = creases(positions, indices.slice(start, end), drawable.creaseAngleRad, vertices);
+		const own = creases(
+			positions,
+			indices.slice(start, end),
+			drawable.creaseAngleRad,
+			vertices,
+			faces
+		);
 		for (const key of ['segments', 'fronts', 'backs'] as const)
 			for (const value of own[key]) merged[key].push(value);
 		start = end;
@@ -125,6 +134,7 @@ function separateFill(
 function separateStrokes(
 	sources: StrokeSource[],
 	strokes: ReturnType<typeof strokeMaterials>,
+	drawable: Drawable,
 	warp: NonNullable<Drawable['warp']>,
 	targets: WarpTarget[]
 ) {
@@ -138,16 +148,24 @@ function separateStrokes(
 			const array = segmentData(geometry).array as Float32Array;
 			targets.push({ array, base: array.slice(), offsets });
 		}
+		const base =
+			kind === 'edge'
+				? [strokes.crease, strokes.outer]
+				: [kind === 'grid' ? strokes.grid : strokes.gridBoundary];
 		const painters = explicit
-			? [explicitStroke(strokes.depth), explicitStroke(strokes.depth, true)]
-			: (kind === 'edge'
-					? [strokes.crease, strokes.outer]
-					: [kind === 'grid' ? strokes.grid : strokes.gridBoundary]
-				).map((material) => ({ material, recede: undefined }));
-		return painters.map(({ material, recede }, index) => {
+			? [explicitStroke(strokes.depth), explicitStroke(strokes.depth, true)].map((stroke) => ({
+					...stroke,
+					owned: true,
+					shared: undefined
+				}))
+			: base.map((shared) => {
+					const owned = drawable.finish === 'line';
+					return { material: owned ? shared.clone() : shared, recede: undefined, owned, shared };
+				});
+		return painters.map(({ material, recede, owned, shared }, index) => {
 			const line = new LineSegments2(geometry, material);
 			line.renderOrder = explicit ? 5 : 2 + index;
-			return { line, recede, hidden: explicit && index === 1 };
+			return { line, recede, owned, shared, faces: edges.faces, hidden: explicit && index === 1 };
 		});
 	});
 }
@@ -170,20 +188,56 @@ export function projectPart(
 		drawable.terrainField !== undefined;
 	const fill = standalone ? separateFill(drawable, arrays, palette, landscape) : undefined;
 	const individual =
-		fill && drawable.warp ? separateStrokes(sources, strokes, drawable.warp, fill.warpTargets) : [];
+		fill && drawable.warp
+			? separateStrokes(sources, strokes, drawable, drawable.warp, fill.warpTargets)
+			: [];
 	return {
 		drawable,
 		bounds,
 		fill,
 		individual,
 		arrays: fill ? undefined : arrays,
+		warpPositions:
+			drawable.warp && individual.some(({ faces }) => faces) ? arrays.positions : undefined,
 		sources: individual.length ? [] : sources
 	};
 }
 
 export type ProjectedPart = ReturnType<typeof projectPart>;
 
-export function warpPart({ fill, drawable, bounds, individual }: ProjectedPart) {
+function warpNormals(
+	geometry: LineSegmentsGeometry,
+	faces: NonNullable<Edges['faces']>,
+	positions: readonly number[],
+	offsets: readonly number[],
+	amount: number
+) {
+	const [a, b, c] = [new Vector3(), new Vector3(), new Vector3()];
+	function moveVertex(point: Vector3, vertex: number) {
+		const i = vertex * 3;
+		point.set(
+			positions[i] + amount * offsets[vertex * 2],
+			positions[i + 1] + amount * offsets[vertex * 2 + 1],
+			positions[i + 2]
+		);
+	}
+	for (const [name, triangles] of [
+		['edgeFront', faces.fronts],
+		['edgeBack', faces.backs]
+	] as const) {
+		const attribute = geometry.getAttribute(name);
+		for (let i = 0; i < triangles.length; i += 3) {
+			moveVertex(a, triangles[i]);
+			moveVertex(b, triangles[i + 1]);
+			moveVertex(c, triangles[i + 2]);
+			b.sub(a).cross(c.sub(a)).normalize();
+			attribute.setXYZ(i / 3, b.x, b.y, b.z);
+		}
+		attribute.needsUpdate = true;
+	}
+}
+
+export function warpPart({ fill, drawable, bounds, individual, warpPositions }: ProjectedPart) {
 	const amount = drawable.warp?.amount ?? 0;
 	if (!fill || !fill.warpTargets.length || amount === fill.warpAmount) return;
 	fill.warpAmount = amount;
@@ -200,7 +254,10 @@ export function warpPart({ fill, drawable, bounds, individual }: ProjectedPart) 
 	geometry.computeBoundingBox();
 	geometry.computeBoundingSphere();
 	if (geometry.boundingBox) bounds.copy(geometry.boundingBox);
-	for (const geometry of new Set(individual.map(({ line }) => line.geometry))) {
+	const strokes = new Map(individual.map(({ line, faces }) => [line.geometry, faces]));
+	for (const [geometry, faces] of strokes) {
+		if (faces && warpPositions && drawable.warp)
+			warpNormals(geometry, faces, warpPositions, drawable.warp.fill, amount);
 		segmentData(geometry).needsUpdate = true;
 		geometry.computeBoundingBox();
 		geometry.computeBoundingSphere();
@@ -260,7 +317,8 @@ export function styleIndividual(
 			fill.veil = undefined;
 		}
 	}
-	for (const { line, hidden, recede } of individual) {
+	for (const { line, hidden, recede, owned, shared } of individual) {
+		if (owned && shared) line.material.color.copy(shared.color);
 		if (recede) {
 			line.material.color.copy(look.strokeColor);
 			line.material.opacity = look.strokeOpacity * (hidden ? look.hidden : 1);

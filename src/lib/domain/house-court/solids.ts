@@ -1,4 +1,4 @@
-import type { Vec2, Vec3 } from '../../core/geometry';
+import { readVertexMean, type Vec2, type Vec3 } from '../../core/geometry';
 import { defaults } from '../../../config/house-court';
 import { side } from './boxes';
 
@@ -7,18 +7,9 @@ const { curveSegments, domeRings, wedgeLowRatio } = defaults;
 /** Closed planar faces wound outward, joined into a mesh by `faceMesh`. */
 export type Faces = Vec3[][];
 
-// Exact arithmetic: vertex average.
-function centre(points: readonly Vec2[]): Vec2 {
-	const [x, y] = points.reduce(
-		([sx, sy], [px, py]) => [sx + px, sy + py],
-		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
-	);
-	return [x / points.length, y / points.length];
-}
-
 /** Shortest distance in meters from the vertex average of a convex polygon to its sides. */
 export function inradius(points: readonly Vec2[]): number {
-	const [cx, cy] = centre(points);
+	const [cx, cy] = readVertexMean(points);
 	return Math.min(
 		...points.map((_, i) => {
 			const { a, normal } = side(points, i);
@@ -145,7 +136,7 @@ function lathe(
 	rings: number,
 	profile: (t: number) => Vec2
 ): Faces {
-	const [cx, cy] = centre(points);
+	const [cx, cy] = readVertexMean(points);
 	const ring = (t: number) => {
 		const [scale, share] = profile(t);
 		return points.map(([x, y]): Vec3 => [

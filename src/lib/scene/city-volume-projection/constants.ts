@@ -140,7 +140,7 @@ const fullLook: BodyLook = {
  * with nearly white roofs; edges behind a body stay faintly visible through it. */
 export const bodyLooks = {
 	full: fullLook,
-	silhouette: {
+	solid: {
 		surface: 'veil',
 		fill: 1,
 		faces: { top: 0.03, lit: -0.04, shadow: -0.11 },
@@ -153,7 +153,7 @@ export const bodyLooks = {
 		hatch: 0,
 		shade: 0.9
 	},
-	transparent: {
+	ghost: {
 		surface: 'veil',
 		fill: 0.6,
 		faces: { top: 0.035, lit: -0.035, shadow: -0.12 },
@@ -179,7 +179,7 @@ export const bodyLooks = {
 		hatch: 1,
 		shade: 0.75
 	}
-} as const satisfies Record<'full' | 'silhouette' | 'transparent' | 'pencil', BodyLook>;
+} as const satisfies Record<'full' | 'solid' | 'ghost' | 'pencil', BodyLook>;
 
 /** Out-of-focus edges keep this share of their opacity once member detail has faded from afar. */
 export const farStockEdgeShare = 0.5;
