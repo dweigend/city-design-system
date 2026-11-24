@@ -1,5 +1,6 @@
 import { renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { format, resolveConfig } from 'prettier';
 import { requireHeavySlot } from './perf/host';
 import { measure, type Baseline } from './perf/measure';
 import { report } from './perf/report';
@@ -23,7 +24,9 @@ async function main() {
 	if (write) {
 		const temporary = reference + '.tmp';
 		try {
-			await Bun.write(temporary, JSON.stringify(current, null, '\t') + '\n');
+			const options = await resolveConfig(reference);
+			const contents = await format(JSON.stringify(current), { ...options, filepath: reference });
+			await Bun.write(temporary, contents);
 			renameSync(temporary, reference);
 		} finally {
 			rmSync(temporary, { force: true });
