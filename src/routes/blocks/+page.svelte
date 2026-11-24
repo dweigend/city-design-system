@@ -14,6 +14,7 @@
 	let { data }: { data: { catalogue: ModuleRow[] } } = $props();
 	const chapter = chapterAt('/blocks');
 	const allAssets = listAssets();
+	const allBoard = buildBoard(allAssets);
 	const kindLabels: Record<string, string> = { house: 'Houses' };
 	const kinds = [
 		{ value: 'all', label: 'All kinds' },
@@ -31,7 +32,7 @@
 	let kind = $state('all');
 	let display = $state('full');
 	const assets = $derived(kind === 'all' ? allAssets : listAssets({ kind }));
-	const board = $derived(buildBoard(assets));
+	const board = $derived(assets.length === allAssets.length ? allBoard : buildBoard(assets));
 	const focus = $derived(
 		boardFocus.selectFocus(
 			['specimens'],
@@ -44,7 +45,7 @@
 		return () => styled;
 	});
 	const labels = $derived(assets.map(({ id }) => assetLabels[id] ?? id));
-	const fit = { fill: 0.87, bearing: 0.23, elevation: 0.58 };
+	const fit = { fill: 0.87, bearing: 0.23, elevation: 0.58, offset: [0, -4] as const };
 </script>
 
 <svelte:head>
@@ -68,14 +69,14 @@
 			display="normal"
 			label={`Placeable specimens on plinths: ${labels.join(', ')}`}
 		/>
-		<ol class="blocks-specimens" aria-label="Specimens">
+		<ul class="blocks-specimens" role="list" aria-label="Specimens">
 			{#each assets as asset, index (asset.id)}
 				<li>
 					<strong>{labels[index]}</strong>
 					<code>{asset.id}</code>
 				</li>
 			{/each}
-		</ol>
+		</ul>
 	{:else}
 		<p role="status">No assets match this kind.</p>
 	{/if}

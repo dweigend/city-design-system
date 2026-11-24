@@ -63,7 +63,7 @@ export function buildBoard(assets: readonly AssetDefinition[]) {
 	const bases: Drawable[] = [];
 	for (const [index, { id }] of assets.entries()) {
 		const x = (index % columnCount) * pitchM;
-		const y = Math.floor(index / columnCount) * pitchM;
+		const y = -Math.floor(index / columnCount) * pitchM;
 		const parcel = specimenParcel(id, x, y);
 		const object = buildAsset(id, { kind: 'parcel', parcel }, {}, seed);
 		specimens.push(

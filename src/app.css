@@ -281,7 +281,8 @@
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: var(--space-3);
-		padding-inline-start: var(--space-6);
+		padding: 0;
+		list-style: none;
 	}
 	.blocks-specimens > li > code { display: block; overflow-wrap: anywhere; color: var(--ink-2); }
 	.blocks-table { overflow-x: auto; }
