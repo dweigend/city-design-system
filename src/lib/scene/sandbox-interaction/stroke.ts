@@ -69,3 +69,28 @@ export function createStrokeState<P extends Readonly<{ id: string }>>() {
 		}
 	});
 }
+
+/** Stages ordered edits and visible overrides without touching the committed document or build
+ * queue. An undefined override hides an existing body. Only release publishes the draft. */
+export function createStrokeDraft<Edit, Body>() {
+	let edits: Edit[] = [];
+	const overrides = new Map<string, Body | undefined>();
+	return {
+		overrides: overrides as ReadonlyMap<string, Body | undefined>,
+		add(edit: Edit, override?: Readonly<{ id: string; body?: Body }>) {
+			edits.push(edit);
+			if (override) overrides.set(override.id, override.body);
+		},
+		finish(
+			kind: 'release' | 'cancel',
+			publish: (edits: readonly Edit[], overrides: ReadonlyMap<string, Body | undefined>) => void
+		) {
+			try {
+				if (kind === 'release' && edits.length) publish(edits, overrides);
+			} finally {
+				edits = [];
+				overrides.clear();
+			}
+		}
+	};
+}

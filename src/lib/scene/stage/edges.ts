@@ -3,6 +3,7 @@ import {
 	GreaterDepth,
 	type OrthographicCamera,
 	InstancedBufferAttribute,
+	type Node,
 	Line2NodeMaterial,
 	NormalBlending,
 	Vector3
@@ -20,15 +21,16 @@ import {
 	viewZToOrthographicDepth
 } from 'three/tsl';
 
-type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
+type Edge = { start: number; end: number; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
 const creaseDot = Math.cos(Math.PI / 180);
 
-export function edgeGeometry(
+export function creases(
 	positions: readonly number[],
 	indices: readonly number[],
-	creaseAngleRad?: number
-) {
+	creaseAngleRad?: number,
+	vertices?: number[]
+): Edges {
 	const limit = creaseAngleRad === undefined ? creaseDot : Math.cos(creaseAngleRad);
 	const edges = new Map<string, Edge>();
 	for (let i = 0; i < indices.length; i += 3) {
@@ -49,7 +51,7 @@ export function edgeGeometry(
 			const key = [keys[j], keys[next]].sort().join('/');
 			const edge = edges.get(key);
 			if (edge) edge.back ??= front;
-			else edges.set(key, { start: points[j], end: points[next], front });
+			else edges.set(key, { start: indices[i + j], end: indices[i + next], front });
 		}
 	}
 	const segments = [];
@@ -57,14 +59,34 @@ export function edgeGeometry(
 	const backs = [];
 	for (const { start, end, front, back } of edges.values()) {
 		if (back && front.dot(back) > limit) continue;
-		segments.push(...start.toArray(), ...end.toArray());
+		segments.push(
+			...positions.slice(start * 3, start * 3 + 3),
+			...positions.slice(end * 3, end * 3 + 3)
+		);
+		vertices?.push(start, end);
 		fronts.push(...front.toArray());
 		backs.push(...(back ?? front).toArray());
 	}
+	return { segments, fronts, backs, vertices };
+}
+
+export type Edges = { segments: number[]; fronts: number[]; backs: number[]; vertices?: number[] };
+
+export function lineGeometry({ segments, fronts, backs }: Edges) {
 	const geometry = new LineSegmentsGeometry().setPositions(segments);
-	geometry.setAttribute('edgeFront', new InstancedBufferAttribute(new Float32Array(fronts), 3));
-	geometry.setAttribute('edgeBack', new InstancedBufferAttribute(new Float32Array(backs), 3));
+	if (fronts.length) {
+		geometry.setAttribute('edgeFront', new InstancedBufferAttribute(new Float32Array(fronts), 3));
+		geometry.setAttribute('edgeBack', new InstancedBufferAttribute(new Float32Array(backs), 3));
+	}
 	return geometry;
+}
+
+export function edgeGeometry(
+	positions: readonly number[],
+	indices: readonly number[],
+	creaseAngleRad?: number
+) {
+	return lineGeometry(creases(positions, indices, creaseAngleRad));
 }
 
 function weldVertices(positions: readonly number[]) {
@@ -101,13 +123,13 @@ function openEdges(indices: readonly number[], vertexCount: number) {
 	return edges;
 }
 
-export function boundaryGeometry(
+export function boundaries(
 	positions: readonly number[],
 	indices: readonly number[],
-	perCell = false
-) {
-	const geometry = new LineSegmentsGeometry();
-	if (!indices.length) return geometry.setPositions([]);
+	perCell = false,
+	vertices?: number[]
+): Edges {
+	if (!indices.length) return { segments: [], fronts: [], backs: [] };
 	const welded = weldVertices(positions);
 	// With separate cell indices, extract each rim before deduplicating shared segments.
 	const edges = openEdges(perCell ? indices : indices.map((index) => welded[index]), welded.length);
@@ -122,12 +144,9 @@ export function boundaryGeometry(
 		drawn.add(segment);
 		segments.push(...positions.slice(a * 3, a * 3 + 3), ...positions.slice(b * 3, b * 3 + 3));
 		normals.push(0, 0, 1);
+		vertices?.push(a, b);
 	}
-	geometry.setPositions(segments);
-	const normal = new InstancedBufferAttribute(new Float32Array(normals), 3);
-	geometry.setAttribute('edgeFront', normal);
-	geometry.setAttribute('edgeBack', normal);
-	return geometry;
+	return { segments, fronts: normals, backs: normals, vertices };
 }
 
 export function strokeMaterials(landscape = false) {
@@ -159,12 +178,16 @@ export function strokeMaterials(landscape = false) {
 	// Explicit strokes lie on faces; `pull` lifts them toward the eye in meters so the face in
 	// front of them decides visibility, and `near` and `far` bound the picture's view depth.
 	const depth = { pull: uniform(0), near: uniform(0), far: uniform(1) };
-	return { eye, outer, crease, grid, gridBoundary, ground, depth };
+	return { eye, silhouette, outer, crease, grid, gridBoundary, ground, depth };
 }
 
 /** One explicit stroke layer: the visible pass, or the hidden pass drawn only where a nearer
  * surface covers the stroke. `recede` lightens strokes with their view depth. */
-export function explicitStroke(depth: ReturnType<typeof strokeMaterials>['depth'], hidden = false) {
+export function explicitStroke(
+	depth: ReturnType<typeof strokeMaterials>['depth'],
+	hidden = false,
+	style?: { color: Node<'vec3'>; recede: Node<'float'> }
+) {
 	const material = new Line2NodeMaterial({
 		transparent: true,
 		blending: NormalBlending,
@@ -180,7 +203,10 @@ export function explicitStroke(depth: ReturnType<typeof strokeMaterials>['depth'
 		.div(depth.far.sub(depth.near).max(1e-3))
 		.clamp(0, 1);
 	// Keep line coverage but blend the ink into all preceding layers, including other translucent fills.
-	material.outputNode = vec4(materialColor, diffuseColor.a.mul(distance.mul(recede).oneMinus()));
+	material.outputNode = vec4(
+		style?.color ?? materialColor,
+		diffuseColor.a.mul(distance.mul(style?.recede ?? recede).oneMinus())
+	);
 	material.depthNode = viewZToOrthographicDepth(
 		positionView.z.add(depth.pull),
 		cameraNear,

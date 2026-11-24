@@ -2,6 +2,7 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { move, PlaceableObject } from '../../core/object';
 import type { HouseFace } from '../../domain/house-court';
 import { defaults } from '../../../config/house-projection';
+import { shapeArrays } from '../stage';
 import { readSurfaceLevel, type DisplayLevel } from '../focus';
 import {
 	createClad,
@@ -19,6 +20,7 @@ import {
 import {
 	paintClad,
 	readModelSurface,
+	resolveSurfaces,
 	type Drawable,
 	type ModelMaterial,
 	type ModelTone,
@@ -248,6 +250,70 @@ function plainSurfaces(
 	);
 }
 
+const plainDrawings = new WeakMap<
+	PlaceableObject,
+	WeakMap<HouseMaterials, Map<string, Drawable[]>>
+>();
+
+/** Plain bodies have no cladding or printed marks. Keep each original body's triangle range
+ * for crease extraction, including where two touching bodies share edges. */
+function projectPlain(
+	object: PlaceableObject,
+	materials: HouseMaterials,
+	{ placement, plainTone = 'white' }: CladHouseOptions
+): Drawable[] {
+	const byMaterial = plainDrawings.get(object) ?? new WeakMap();
+	plainDrawings.set(object, byMaterial);
+	const cached = byMaterial.get(materials) ?? new Map<string, Drawable[]>();
+	byMaterial.set(materials, cached);
+	const key = JSON.stringify([placement, plainTone]);
+	const found = cached.get(key);
+	if (found) return [...found];
+
+	const shown = withoutHidden(object, 'plain', materials);
+	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
+	const table: SurfaceAssignment = houseLevels.full.surfaces;
+	const board = readModelSurface({ family: 'board', tone: plainTone }, 'normal', false);
+	const assignment = Object.fromEntries(
+		placed.slots.map((slot) => {
+			const surface = Object.hasOwn(table, slot) ? table[slot] : undefined;
+			return [
+				slot,
+				surface && materials.slots[slot] ? { ...board, stroke: surface.stroke } : surface
+			];
+		})
+	);
+	const groups = new Map<string, Drawable[]>();
+	for (const [i, drawable] of resolveSurfaces(placed, assignment).entries()) {
+		const slot = placed.parts[i].slot;
+		const body = materials.slots[slot] !== undefined;
+		const surface = assignment[slot];
+		const key = JSON.stringify([body, surface]);
+		const group = groups.get(key) ?? [];
+		group.push({ ...drawable, ...(body ? { creaseAngleRad: plainCreaseRad } : {}) });
+		groups.set(key, group);
+	}
+	const drawables = Array.from(groups.values(), mergePlain);
+	cached.set(key, drawables);
+	return [...drawables];
+}
+
+function mergePlain(group: Drawable[]): Drawable {
+	const [first] = group;
+	if (group.length === 1) return first;
+	const positions: number[] = [];
+	const indices: number[] = [];
+	const creaseGroups: number[] = [];
+	for (const { shape } of group) {
+		const src = shapeArrays(shape);
+		const offset = positions.length / 3;
+		for (const value of src.positions) positions.push(value);
+		for (const index of src.indices) indices.push(index + offset);
+		creaseGroups.push(indices.length);
+	}
+	return { ...first, shape: { kind: 'mesh', positions, indices }, creaseGroups };
+}
+
 /** Draws a house object as a model (MAT-3) at one display level. By default a house is plain: its
  * bodies in white board or the requested matte tint, without parts, openings or patterns (MAT-15). A
  * requested level (`options.level`, at most the display level's own) grants detail: far adds the
@@ -266,13 +332,10 @@ export function projectCladHouse(
 	const { surfaces, hatch, fillAlpha } = houseLevels[display];
 	const own = readSurfaceLevel(display);
 	if (!surfaces || !own) return { drawables: [], triangles: 0 };
-	const house = buildHouse(
-		object,
-		faces,
-		materials,
-		lowerLevel(own, options.level ?? 'plain'),
-		options
-	);
+	const level = lowerLevel(own, options.level ?? 'plain');
+	if (display === 'full' && level === 'plain')
+		return { drawables: projectPlain(object, materials, options), triangles: 0 };
+	const house = buildHouse(object, faces, materials, level, options);
 	// Only the full display paints model materials; the other displays keep their stock looks.
 	const plain =
 		display === 'full'
@@ -283,13 +346,10 @@ export function projectCladHouse(
 	const ownParts = new Map(object.parts.map(({ id, slot }) => [id, slot]));
 	const drawables = paintClad(house.clad, 'normal', plain).map((drawable): Drawable => {
 		const slot = ownParts.get(drawable.id);
-		const plainBody =
-			display === 'full' && house.level === 'plain' && slot && materials.slots[slot];
 		return {
 			...drawable,
 			id: slot !== undefined ? drawable.id : `${object.id}/${drawable.id}`,
 			...(slot !== undefined && hatch ? { hatch } : {}),
-			...(plainBody ? { creaseAngleRad: plainCreaseRad } : {}),
 			...(fillAlpha < 1 ? { fillAlpha, occlude: true } : {})
 		};
 	});

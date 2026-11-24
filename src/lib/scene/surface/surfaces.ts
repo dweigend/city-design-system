@@ -58,6 +58,8 @@ export type Drawable = Surface &
 		boundaryStroke?: boolean;
 		/** Fold angle in radians for mesh hairlines, including on landscape stages. */
 		creaseAngleRad?: number;
+		/** Exclusive mesh index ends of independent bodies for crease extraction. */
+		creaseGroups?: readonly number[];
 		strokeSegments?: readonly number[];
 		visible?: boolean;
 		fillVisible?: boolean;

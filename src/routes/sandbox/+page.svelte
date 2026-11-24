@@ -2,15 +2,17 @@
 	import { onMount } from 'svelte';
 	import { Random } from '../../lib/core/random';
 	import type { Parcel } from '../../lib/domain/parcels';
-	import type {
-		createSandboxDocument,
-		PlacementChange,
-		SandboxEdit,
-		SandboxPlacement
+	import {
+		readPlacementId,
+		type createSandboxDocument,
+		type PlacementChange,
+		type SandboxEdit,
+		type SandboxPlacement
 	} from '../../lib/domain/sandbox-document';
 	import { blockTriangleBudget } from '../../lib/scene/house-projection';
 	import {
 		createBuildQueue,
+		createStrokeDraft,
 		createStrokeState,
 		readPreviewHeight,
 		selectHouseDetail,
@@ -97,9 +99,13 @@
 	let frameWork = $state.raw<{ run: () => boolean }>();
 
 	type Sketch = ReturnType<Town['createSpecimens']> extends Map<string, infer S> ? S : never;
-	let open:
-		| { tool: string; changes: PlacementChange[]; tally: Tally; skipped: Map<string, Parcel> }
-		| undefined;
+	type Draft = {
+		tool: string;
+		drawing: ReturnType<typeof createStrokeDraft<SandboxEdit, Drawable>>;
+		tally: Tally;
+		skipped: Map<string, Parcel>;
+	};
+	let open: Draft | undefined;
 	let press: { x: number; y: number } | undefined;
 
 	const fit = $derived(
@@ -166,14 +172,20 @@
 	}
 
 	/** Brings the queue in line with the document: new requests wait, removed ones are cancelled. */
-	function sync() {
+	function sync(previews?: ReadonlyMap<string, Drawable | undefined>) {
 		const next = new Map(cache.read().map((request) => [request.placement.id, request]));
 		for (const id of requests.keys()) if (!next.has(id)) queue.cancel(id);
 		requests = next;
+		if (previews)
+			for (const [id, body] of previews) {
+				const request = next.get(id);
+				if (request && body) bodies.set(request, body);
+			}
 		submit();
 	}
 
 	function submit() {
+		if (open) return;
 		const details = readDetails();
 		for (const [id, request] of requests) {
 			const build = request.build;
@@ -207,6 +219,7 @@
 		const projection = town.projection;
 		const shown: Drawable[] = [];
 		for (const [id, request] of requests) {
+			if (open?.drawing.overrides.has(id)) continue;
 			const product = queue.read(id);
 			if (product) {
 				shown.push(...product);
@@ -221,6 +234,7 @@
 			}
 			shown.push(body);
 		}
+		if (open) for (const body of open.drawing.overrides.values()) if (body) shown.push(body);
 		placed = shown;
 		waiting = queue.readWaiting();
 		history = documentModel.readHistory();
@@ -229,39 +243,51 @@
 		marks = readMarks();
 	}
 
+	const skipMarks = new WeakMap<Parcel, Drawable>();
+	const selectMarks = new WeakMap<Parcel, Drawable>();
+
 	function readMarks() {
 		if (!town) return [];
 		const projection = town.projection;
 		const list: Drawable[] = [];
-		for (const [id, parcel] of open?.skipped ?? lastSkipped)
-			list.push(projection.projectMark(parcel, 'skip/' + id, '--signal'));
+		for (const [id, parcel] of open?.skipped ?? lastSkipped) {
+			const mark =
+				skipMarks.get(parcel) ?? projection.projectMark(parcel, 'skip/' + id, '--signal');
+			skipMarks.set(parcel, mark);
+			list.push(mark);
+		}
 		const chosen = selected && requests.get(selected.id)?.parcel;
-		if (chosen) list.push(projection.projectMark(chosen, 'selected', '--blueprint'));
+		if (chosen) {
+			const mark =
+				selectMarks.get(chosen) ?? projection.projectMark(chosen, 'selected', '--blueprint');
+			selectMarks.set(chosen, mark);
+			list.push(mark);
+		}
 		return list;
 	}
 	let lastSkipped = new Map<string, Parcel>();
 
-	function editsFor(
-		parcels: readonly Parcel[],
-		active: string,
-		tally: Tally,
-		skipped: Map<string, Parcel>
-	) {
-		const edits: SandboxEdit[] = [];
-		const opened = town;
-		if (!opened) return edits;
+	function preview(parcels: readonly Parcel[], draft: Draft) {
+		if (!town) return;
+		const { world, projection, brushParams, toneOf } = town;
+		const { tool: active, tally, skipped, drawing } = draft;
 		for (const parcel of parcels) {
-			const current = documentModel.readPlacement(address(parcel.id));
+			const host = address(parcel.id);
+			const current = documentModel.readPlacement(host);
 			if (active === 'erase' || active === 'reseed') {
 				if (!current) continue;
-				if (active === 'erase') edits.push({ kind: 'remove', id: current.id });
-				else
-					edits.push({
+				if (active === 'erase') {
+					drawing.add({ kind: 'remove', id: current.id }, { id: current.id });
+					tally.removed++;
+				} else {
+					drawing.add({
 						kind: 'replace',
 						id: current.id,
 						params: current.params,
 						seed: reseed(current)
 					});
+					tally.reseeded++;
+				}
 				continue;
 			}
 			if (current) {
@@ -270,14 +296,18 @@
 				continue;
 			}
 			try {
-				edits.push(opened.world.place(active, address(parcel.id), opened.brushParams));
+				const edit = world.place(active, host, brushParams);
+				const id = readPlacementId(documentModel.world, host);
+				const height = readPreviewHeight(Number(edit.params.height ?? 0));
+				const body = projection.projectBody(parcel, height, id + '/body', toneOf(active));
+				drawing.add(edit, { id, body });
+				tally.placed++;
 			} catch (error) {
 				if (!(error instanceof UnavailableHostError)) throw error;
 				tally.off++;
 				skipped.set(parcel.id, parcel);
 			}
 		}
-		return edits;
 	}
 
 	function reseed(current: SandboxPlacement) {
@@ -296,7 +326,7 @@
 		if (next.kind === 'begin') {
 			open = {
 				tool: next.tool,
-				changes: [],
+				drawing: createStrokeDraft<SandboxEdit, Drawable>(),
 				tally: { placed: 0, removed: 0, reseeded: 0, occupied: 0, off: 0 },
 				skipped: new Map()
 			};
@@ -304,52 +334,33 @@
 		}
 		if (!open) return;
 		if (next.kind === 'enter') {
-			const edits = editsFor(next.hosts, open.tool, open.tally, open.skipped);
-			const changes = edits.length
-				? open.changes.length
-					? documentModel.amend(edits)
-					: documentModel.apply(edits)
-				: [];
-			open.changes.push(...changes);
-			for (const { before, after } of changes) {
-				if (!before) open.tally.placed++;
-				else if (!after) open.tally.removed++;
-				else open.tally.reseeded++;
+			try {
+				preview(next.hosts, open);
+				compose();
+			} catch (error) {
+				fail(error);
 			}
-			if (changes.length) sync();
-			else marks = readMarks();
 			return;
 		}
 		const ended = open;
 		open = undefined;
-		if (next.kind === 'cancel') {
-			revert(ended.changes);
-			status = 'Stroke cancelled.';
-		} else status = report(ended);
-		lastSkipped = ended.skipped;
-		compose();
+		if (next.kind === 'release') lastSkipped = ended.skipped;
+		try {
+			let changes: readonly PlacementChange[] = [];
+			ended.drawing.finish(next.kind, (edits, previews) => {
+				changes = documentModel.apply(edits);
+				if (changes.length) sync(previews);
+			});
+			if (next.kind === 'cancel') status = 'Stroke cancelled.';
+			else status = report(ended.tally, changes);
+			if (!changes.length) compose();
+		} catch (error) {
+			compose();
+			fail(error);
+		}
 	}
 
-	/** Undoes an open stroke so that it leaves no trace in the history. */
-	function revert(changes: readonly PlacementChange[]) {
-		const inverse = [...changes].reverse().map(({ id, before }): SandboxEdit =>
-			!before
-				? { kind: 'remove', id }
-				: documentModel.readPlacements().some((placement) => placement.id === id)
-					? { kind: 'replace', id, params: before.params, seed: before.seed }
-					: {
-							kind: 'place',
-							assetId: before.assetId,
-							host: before.host,
-							params: before.params,
-							seed: before.seed
-						}
-		);
-		if (inverse.length) documentModel.amend(inverse);
-		sync();
-	}
-
-	function report({ tally, changes }: NonNullable<typeof open>) {
+	function report(tally: Tally, changes: readonly PlacementChange[]) {
 		const gardens = changes.filter(({ id, after }) => after && requests.get(id)?.reason);
 		const why = [
 			...new Set(gardens.map(({ id }) => reasons[requests.get(id)?.reason ?? ''] ?? ''))
@@ -379,7 +390,7 @@
 		}
 		if (event.type === 'pointerup' && event.pointerType === 'touch' && event.isPrimary)
 			panning = false;
-		if (tool === 'select' || panning) return selectPointer(input);
+		if (!open && (tool === 'select' || panning)) return selectPointer(input);
 		const read = pointer.read(input, strokeTool());
 		if (!read) return;
 		lastPointer = read.pointer;
@@ -405,6 +416,7 @@
 	}
 
 	function apply(edits: readonly SandboxEdit[], message = '') {
+		if (open) return;
 		try {
 			if (documentModel.apply(edits).length) sync();
 			status = message;
@@ -490,10 +502,11 @@
 			event.preventDefault();
 			moveHistory(event.shiftKey || key === 'y' ? 'redo' : 'undo');
 		} else if (key === 'escape') {
+			const wasOpen = stroke.isOpen();
 			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool }))
 				effect(next);
 			pointer?.release();
-			if (selectedId) {
+			if (selectedId && !wasOpen) {
 				selectedId = undefined;
 				submit();
 			}

@@ -65,6 +65,8 @@ async function create({
 	let widthPx = 1;
 	let viewport: Viewport = { width: 1, metersPerPixel: 1, center: [0, 0, 0] };
 	let present: Presentation | undefined;
+	let presentAt: Viewport | undefined;
+	let presented: readonly Drawable[] | undefined;
 	const styleContent = createStyle(canvas, content, palette, strokes, scene, landscape);
 	let fit = initialFit;
 	let frame: number | undefined;
@@ -88,7 +90,7 @@ async function create({
 			// A frame that only ran work, with nothing shown or moved, keeps the last image.
 			if (!stale) return;
 			stale = false;
-			const { view, display, geometryBatchCount, geometryBuildCount } = state.read();
+			const { view, display, drawableCount, geometryBatchCount, geometryBuildCount } = state.read();
 			const start = performance.now();
 			const bounds = content.bounds;
 			const framing = fitCamera(view, bounds, aspect, landscape, fit);
@@ -102,11 +104,15 @@ async function create({
 				viewport = { width, metersPerPixel: width / widthPx, center: looked };
 				onViewport?.(viewport);
 			}
-			if (present) content.style(present(viewport));
-			const clipping = present ? content.clippingBounds : bounds;
-			const { center, eye, up, halfWidth, halfHeight, near, far } = present
-				? fitCamera(view, bounds, aspect, landscape, fit, clipping)
-				: framing;
+			if (present && presentAt !== viewport) {
+				presentAt = viewport;
+				const next = present(viewport);
+				if (next !== presented) content.style(next);
+				presented = next;
+			}
+			const clipping = content.clippingBounds;
+			const { center, eye, up, halfWidth, halfHeight, near, far } =
+				clipping === bounds ? framing : fitCamera(view, bounds, aspect, landscape, fit, clipping);
 			Object.assign(camera, {
 				left: -halfWidth,
 				right: halfWidth,
@@ -136,6 +142,10 @@ async function create({
 					stageFrames: String(frameCount),
 					stageBuilds: String(geometryBatchCount),
 					stageDrawableBuilds: String(geometryBuildCount),
+					stageDrawables: String(drawableCount),
+					stageChunkBuilds: String(content.chunkBuilds),
+					stageDrawCalls: String(renderer.info.render.drawCalls),
+					stageMaterials: String(content.materialCount),
 					stageView: view,
 					stageDisplay: display,
 					stageTheme: dark ? 'dark' : 'light',
@@ -161,6 +171,8 @@ async function create({
 			if (closing) return;
 			present = presentation;
 			const start = performance.now();
+			presentAt = undefined;
+			presented = undefined;
 			const builds = content.show(drawables);
 			if (builds) canvas.dataset.stageMeshMs = (performance.now() - start).toFixed(2);
 			state.show(drawables, builds);
@@ -216,13 +228,19 @@ async function create({
 			return (closing ??= (async () => {
 				if (frame !== undefined) cancelAnimationFrame(frame);
 				theme.disconnect();
-				scene.remove(content.group);
-				content.delete();
-				for (const name of ['outer', 'crease', 'ground', 'grid', 'gridBoundary'] as const)
-					strokes[name].dispose();
-				for (const key of Object.keys(canvas.dataset))
-					if (key.startsWith('stage')) delete canvas.dataset[key];
-				await gpu.delete();
+				try {
+					scene.remove(content.group);
+					content.delete();
+				} finally {
+					try {
+						for (const name of ['outer', 'crease', 'ground', 'grid', 'gridBoundary'] as const)
+							strokes[name].dispose();
+						for (const key of Object.keys(canvas.dataset))
+							if (key.startsWith('stage')) delete canvas.dataset[key];
+					} finally {
+						await gpu.delete();
+					}
+				}
 			})());
 		}
 	};
