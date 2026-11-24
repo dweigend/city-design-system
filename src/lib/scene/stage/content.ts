@@ -1,22 +1,11 @@
-import {
-	Box3,
-	BufferGeometry,
-	Float32BufferAttribute,
-	Group,
-	Mesh,
-	MeshBasicNodeMaterial,
-	type Object3D,
-	Raycaster,
-	Vector3
-} from 'three/webgpu';
-import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
+import { Box3, Group, Mesh, MeshBasicNodeMaterial, Raycaster, Vector3 } from 'three/webgpu';
 import type { Bounds3, Vec3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
-import { shapeArrays } from './geometry';
-import { boundaryGeometry, edgeGeometry, explicitStroke, type strokeMaterials } from './edges';
+import { chunkKey, displayedBounds, packChunk, type BatchedPart } from './batch';
+import type { strokeMaterials } from './edges';
 import { projectGround } from './ground';
-import { fillMaterial } from './material';
+import { projectPart, styleIndividual, warpPart } from './part';
+import { batchMaterials, createRows, type PartLook } from './rows';
 import type { drawingPalette } from './tone';
 
 export function hasSameGeometry(
@@ -31,197 +20,44 @@ export function hasSameGeometry(
 
 function sameGeometry(a: Drawable, b: Drawable) {
 	return (
-		a.id === b.id &&
-		a.shape === b.shape &&
-		a.boundaryStroke === b.boundaryStroke &&
-		a.creaseAngleRad === b.creaseAngleRad &&
-		a.strokeSegments === b.strokeSegments &&
-		a.terrainField === b.terrainField &&
-		a.warp?.fill === b.warp?.fill &&
-		a.warp?.stroke === b.warp?.stroke &&
-		(a.finish === 'line') === (b.finish === 'line')
+		a === b ||
+		(a.id === b.id &&
+			a.shape === b.shape &&
+			a.boundaryStroke === b.boundaryStroke &&
+			a.creaseAngleRad === b.creaseAngleRad &&
+			a.creaseGroups === b.creaseGroups &&
+			a.strokeSegments === b.strokeSegments &&
+			a.terrainField === b.terrainField &&
+			a.warp?.fill === b.warp?.fill &&
+			a.warp?.stroke === b.warp?.stroke &&
+			(a.finish === 'line') === (b.finish === 'line') &&
+			(a.finish === 'terrain') === (b.finish === 'terrain') &&
+			(a.finish === 'shadow') === (b.finish === 'shadow'))
 	);
 }
-
-/** Retained base positions and aligned offsets of one warped array. */
-type WarpTarget = {
-	array: Float32Array;
-	base: Float32Array;
-	offsets: Float32Array;
-	stride: number;
-};
-
-function warpTarget(array: Float32Array, offsets: readonly number[], stride = 3): WarpTarget {
-	return { array, base: array.slice(), offsets: Float32Array.from(offsets), stride };
-}
-
-/** Moves every warped point to base + amount × offset in place. */
-function applyWarp(targets: readonly WarpTarget[], amount: number) {
-	for (const { array, base, offsets, stride } of targets) {
-		for (let point = 0; point < offsets.length / 2; point++) {
-			const i = point * stride;
-			array[i] = base[i] + amount * offsets[2 * point];
-			array[i + 1] = base[i + 1] + amount * offsets[2 * point + 1];
-		}
-	}
-}
-
-/** Expands per-vertex offsets to the order of a non-indexed copy. */
-function expandOffsets(offsets: readonly number[], indices: readonly number[]) {
-	return indices.flatMap((index) => [offsets[2 * index], offsets[2 * index + 1]]);
-}
-
-function project(
-	drawable: Drawable,
-	strokes: ReturnType<typeof strokeMaterials>,
-	palette: ReturnType<typeof drawingPalette>,
-	landscape: boolean
-) {
-	const { positions, indices } = shapeArrays(drawable.shape);
-	const indexed = new BufferGeometry();
-	indexed.setAttribute('position', new Float32BufferAttribute(positions, 3));
-	indexed.setIndex([...indices]);
-	const grid = landscape && drawable.finish === 'line';
-	const stroke = drawable.strokeSegments
-		? new LineSegmentsGeometry().setPositions([...drawable.strokeSegments])
-		: grid
-			? boundaryGeometry(positions, indices, true)
-			: landscape && drawable.creaseAngleRad === undefined
-				? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
-				: edgeGeometry(positions, indices, drawable.creaseAngleRad);
-	const explicit = drawable.strokeSegments
-		? [explicitStroke(strokes.depth), explicitStroke(strokes.depth, true)]
-		: [];
-	const strokesToDraw = grid
-		? [
-				{ geometry: stroke, material: strokes.grid.clone() },
-				{ geometry: boundaryGeometry(positions, indices), material: strokes.gridBoundary.clone() }
-			]
-		: drawable.strokeSegments
-			? explicit.map(({ material }) => ({ geometry: stroke, material }))
-			: [
-					{ geometry: stroke, material: strokes.crease },
-					{ geometry: stroke, material: strokes.outer }
-				];
-	// Draw explicit strokes after translucent faces, and ground shade between ground and bodies.
-	const layerOrder = drawable.strokeSegments ? 4 : 0;
-	const lines = strokesToDraw.map(({ geometry, material }, index) =>
-		projectStroke(geometry, material, layerOrder ? layerOrder + 1 : 2 + index)
-	);
-	const fill = landscape ? indexed : indexed.toNonIndexed();
-	if (fill !== indexed) indexed.dispose();
-	fill.computeVertexNormals();
-	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, hatch, faces, grain, atlas } = fillMaterial(
-		palette,
-		drawable.terrainField
-	);
-	const mesh = new Mesh(fill, material);
-	mesh.renderOrder = drawable.finish === 'shadow' ? 1 : layerOrder;
-	// The depth of a translucent body is laid after every opaque body, so a body behind it stays
-	// visible through the tint while strokes behind it switch to their hidden pass.
-	const veil = new Mesh(fill, new MeshBasicNodeMaterial({ colorWrite: false }));
-	veil.renderOrder = 6;
-	veil.visible = false;
-	mesh.add(veil);
-	const warp = drawable.warp;
-	const warpTargets = warp
-		? [
-				warpTarget(
-					fill.attributes.position.array as Float32Array,
-					fill === indexed ? warp.fill : expandOffsets(warp.fill, indices)
-				),
-				...(warp.stroke && stroke instanceof LineSegmentsGeometry
-					? [warpTarget(segmentArray(stroke), warp.stroke)]
-					: [])
-			]
-		: [];
-	return {
-		drawable,
-		mesh,
-		veil,
-		lines,
-		recede: explicit.map(({ recede }) => recede),
-		grid,
-		terrain,
-		flat,
-		heightScale,
-		hatch,
-		faces,
-		grain,
-		atlas,
-		warpTargets,
-		warpAmount: 0
-	};
-}
-
-function segmentArray(geometry: LineSegmentsGeometry) {
-	const start = geometry.getAttribute('instanceStart') as unknown as {
-		data: { array: Float32Array };
-	};
-	return start.data.array;
-}
-
-/** Moves a warped part to the drawable's amount, uploading only the changed arrays. */
-export function warpPart(part: Part) {
-	const amount = part.drawable.warp?.amount ?? 0;
-	if (!part.warpTargets.length || amount === part.warpAmount) return;
-	part.warpAmount = amount;
-	applyWarp(part.warpTargets, amount);
-	const fill = part.mesh.geometry;
-	fill.attributes.position.needsUpdate = true;
-	// Shading, culling and clipping read the warped faces, not the retained base.
-	fill.computeVertexNormals();
-	fill.computeBoundingBox();
-	fill.computeBoundingSphere();
-	for (const geometry of new Set(part.lines.map((line) => line.geometry))) {
-		const start = geometry.getAttribute('instanceStart') as unknown as {
-			data: { needsUpdate: boolean };
-		};
-		if (start) start.data.needsUpdate = true;
-	}
-}
-
-function projectStroke(
-	geometry: LineSegmentsGeometry,
-	material: ReturnType<typeof strokeMaterials>['grid'],
-	order: number
-) {
-	const line = new LineSegments2(geometry, material);
-
-	line.renderOrder = order;
-	line.visible = geometry.instanceCount > 0;
-	return line;
-}
-
-export type Part = ReturnType<typeof project>;
 
 const ray = new Raycaster();
 const origin = new Vector3();
+const center = new Vector3();
 
-/** The nearest point where a line through `point` along `direction` meets one of the meshes as
- * displayed, with their current scale and warp, or undefined. */
+/** The nearest point where a line through point meets one of the displayed meshes. */
 export function rayHit(meshes: readonly Mesh[], point: Vec3, direction: Vec3) {
 	ray.set(origin.fromArray(point), new Vector3(...direction).normalize());
-	// Start the ray behind every mesh, so a point on the image plane can lie inside the scene.
-	const reach = meshes.reduce((most, mesh) => {
+	let reach = 0;
+	for (const mesh of meshes) {
 		mesh.updateMatrixWorld();
 		if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
-		const { center, radius } = mesh.geometry.boundingSphere ?? { center: origin, radius: 0 };
-		return most + origin.distanceTo(center) + 2 * mesh.matrixWorld.getMaxScaleOnAxis() * radius;
-	}, 0);
+		const sphere = mesh.geometry.boundingSphere;
+		if (!sphere) continue;
+		center.copy(sphere.center).applyMatrix4(mesh.matrixWorld);
+		reach = Math.max(
+			reach,
+			origin.distanceTo(center) + sphere.radius * mesh.matrixWorld.getMaxScaleOnAxis()
+		);
+	}
 	ray.ray.origin.addScaledVector(ray.ray.direction, -reach);
 	const [first] = ray.intersectObjects([...meshes], false);
 	return first?.point.toArray() as Vec3 | undefined;
-}
-
-function disposePart({ drawable, mesh, veil, lines, grid, atlas }: Part) {
-	mesh.geometry.dispose();
-	mesh.material.dispose();
-	veil.material.dispose();
-	atlas?.dispose();
-	if (grid || drawable.strokeSegments) for (const line of lines) line.material.dispose();
-	for (const geometry of new Set(lines.map((line) => line.geometry))) geometry.dispose();
 }
 
 function toBounds(box: Box3): Bounds3 {
@@ -230,20 +66,51 @@ function toBounds(box: Box3): Bounds3 {
 		: { min: box.min.toArray(), max: box.max.toArray() };
 }
 
+/** Detach in linear time. Group.clear spreads the whole child list into remove(). */
+export function detachChildren(group: Group) {
+	const children = group.children;
+	group.children = [];
+	for (const child of children) {
+		child.parent = null;
+		child.dispatchEvent({ type: 'removed' });
+	}
+}
+
+type Chunk = {
+	group: Group;
+	members: Set<BatchedPart>;
+	packed?: ReturnType<typeof packChunk>;
+};
+type Part = BatchedPart & { chunk?: Chunk };
+
 export function createContent(
 	strokes: ReturnType<typeof strokeMaterials>,
 	palette: ReturnType<typeof drawingPalette>,
 	landscape: boolean
 ) {
 	const group = new Group();
+	const individuals = new Group();
+	group.add(individuals);
+	const rows = createRows();
+	const materials = batchMaterials(rows, palette, strokes, landscape);
+	const veil = new MeshBasicNodeMaterial({ colorWrite: false });
+	const chunks = new Map<string, Chunk>();
+	const repack = new Set<string>();
+	const restyle = new Set<Part>();
+	const terrain = new Set<Part>();
+	const individualParts = new Set<Part>();
 	let parts: Part[] = [];
 	let ground: ReturnType<typeof projectGround> | undefined;
 	const box = new Box3();
 	const footprint = new Box3();
-	const clipping = new Box3();
 	const scratch = new Box3();
+	let frameBounds = toBounds(box);
+	let clippingBounds = frameBounds;
+	let boundsDirty = true;
+	let chunkBuilds = 0;
+	let individualMaterials = 0;
 
-	function deleteGround() {
+	function removeGround() {
 		if (!ground) return;
 		group.remove(ground.shadow, ground.outline);
 		ground.shadow.geometry.dispose();
@@ -255,19 +122,113 @@ export function createContent(
 	function fitGround() {
 		const nextBox = new Box3();
 		const nextFootprint = new Box3();
-		const boxes = parts.flatMap(({ mesh }) => mesh.geometry.boundingBox ?? []);
-		for (const bounds of boxes) nextBox.union(bounds);
-		for (const bounds of boxes) {
-			if (bounds.min.z === nextBox.min.z) nextFootprint.union(bounds);
+		for (const part of parts) nextBox.union(part.bounds);
+		for (const part of parts) {
+			if (part.bounds.min.z === nextBox.min.z) nextFootprint.union(part.bounds);
 		}
 		if (box.equals(nextBox) && footprint.equals(nextFootprint)) return;
 		box.copy(nextBox);
 		footprint.copy(nextFootprint);
-		deleteGround();
+		removeGround();
 		if (footprint.isEmpty()) return;
 		ground = projectGround(toBounds(box), toBounds(footprint), strokes.ground);
 		ground.outline.visible = !landscape;
 		group.add(ground.shadow, ground.outline);
+	}
+
+	function assign(part: Part, drawable: Drawable) {
+		const previous = part.drawable;
+		if (previous === drawable) return;
+		part.drawable = drawable;
+		if (previous.warp?.amount !== drawable.warp?.amount) {
+			warpPart(part);
+			boundsDirty = true;
+		}
+		if (previous.visible !== drawable.visible || previous.vertical !== drawable.vertical)
+			boundsDirty = true;
+		restyle.add(part);
+	}
+
+	function add(drawable: Drawable) {
+		const part: Part = {
+			...projectPart(drawable, strokes, palette, landscape),
+			row: -1
+		};
+		warpPart(part);
+		if (part.fill) {
+			individuals.add(part.fill.mesh);
+			individualMaterials++;
+		}
+		for (const { line, recede } of part.individual) {
+			individuals.add(line);
+			if (recede) individualMaterials++;
+		}
+		if (part.fill || part.individual.length) individualParts.add(part);
+		if (drawable.finish === 'terrain') terrain.add(part);
+		if ((part.arrays?.indices.length && drawable.finish !== 'line') || part.sources.length) {
+			part.row = rows.allocate();
+			const key = chunkKey(part);
+			const chunk = chunks.get(key) ?? { group: new Group(), members: new Set() };
+			chunk.members.add(part);
+			part.chunk = chunk;
+			chunks.set(key, chunk);
+			repack.add(key);
+		}
+		restyle.add(part);
+		return part;
+	}
+
+	function remove(part: Part) {
+		restyle.delete(part);
+		terrain.delete(part);
+		individualParts.delete(part);
+		if (part.chunk) {
+			part.chunk.members.delete(part);
+			repack.add(chunkKey(part));
+			rows.release(part.row);
+		}
+		const { fill, individual } = part;
+		if (fill) {
+			individualMaterials--;
+			fill.mesh.removeFromParent();
+			fill.mesh.geometry.dispose();
+			fill.mesh.material.dispose();
+			fill.drawing.atlas?.dispose();
+		}
+		const geometry = new Set(individual.map(({ line }) => line.geometry));
+		for (const { line, recede } of individual) {
+			line.removeFromParent();
+			if (recede) {
+				individualMaterials--;
+				line.material.dispose();
+			}
+		}
+		for (const item of geometry) item.dispose();
+	}
+
+	function refreshBounds() {
+		if (!boundsDirty) return;
+		boundsDirty = false;
+		const visible = new Box3();
+		const clipped = new Box3();
+		for (const part of parts) {
+			const { drawable, bounds } = part;
+			if (drawable.visible === false || bounds.isEmpty()) continue;
+			visible.union(bounds);
+			const scale = drawable.vertical?.scale ?? 1;
+			clipped.union(
+				displayedBounds(part, scratch, scale, (drawable.vertical?.pivot ?? 0) * (1 - scale))
+			);
+		}
+		frameBounds = toBounds(visible.isEmpty() ? box : visible);
+		clippingBounds =
+			clipped.equals(visible) && !visible.isEmpty() ? frameBounds : toBounds(clipped);
+	}
+
+	function unpack(chunk: Chunk) {
+		chunk.group.removeFromParent();
+		chunk.packed?.delete();
+		detachChildren(chunk.group);
 	}
 
 	return {
@@ -278,90 +239,139 @@ export function createContent(
 		get ground() {
 			return ground;
 		},
-		get clippingBounds(): Bounds3 {
-			const visible = clipping.makeEmpty();
-			for (const { drawable, mesh } of parts) {
-				const bounds = mesh.geometry.boundingBox;
-				if (drawable.visible === false || !bounds || bounds.isEmpty()) continue;
-				const scale = drawable.vertical?.scale ?? 1;
-				const pivot = drawable.vertical?.pivot ?? 0;
-				scratch.copy(bounds);
-				scratch.min.z += (scratch.min.z - pivot) * (scale - 1);
-				scratch.max.z += (scratch.max.z - pivot) * (scale - 1);
-				visible.union(scratch);
-			}
-			return toBounds(visible);
+		get chunkBuilds() {
+			return chunkBuilds;
 		},
-		/** The displayed terrain point on a view ray through `point`, if any. */
-		hit: (point: Vec3, direction: Vec3) => {
-			const ground = parts.filter(
-				({ drawable: d, mesh }) => d.finish === 'terrain' && mesh.visible
-			);
-			return rayHit(
-				ground.map(({ mesh }) => mesh),
-				point,
-				direction
-			);
+		get materialCount() {
+			return materials.count + 6 + individualMaterials + Number(!!ground);
+		},
+		get clippingBounds(): Bounds3 {
+			refreshBounds();
+			return clippingBounds;
 		},
 		get bounds(): Bounds3 {
-			const visible = new Box3();
-			for (const { drawable, mesh } of parts) {
-				if (drawable.visible !== false && mesh.geometry.boundingBox)
-					visible.union(mesh.geometry.boundingBox);
-			}
-			return toBounds(visible.isEmpty() ? box : visible);
+			refreshBounds();
+			return frameBounds;
 		},
+		/** The displayed terrain point on a view ray through point, if any. */
+		hit: (point: Vec3, direction: Vec3) =>
+			rayHit(
+				[...terrain].flatMap(({ fill }) => (fill?.mesh.visible ? [fill.mesh] : [])),
+				point,
+				direction
+			),
 		style(drawables: readonly Drawable[]) {
 			if (!hasSameGeometry(parts, drawables))
 				throw new Error('Presentation must retain drawable geometry');
-			parts.forEach((part, index) => (part.drawable = drawables[index]));
+			for (let i = 0; i < parts.length; i++) assign(parts[i], drawables[i]);
 		},
 		show(drawables: readonly Drawable[]) {
-			if (hasSameGeometry(parts, drawables)) {
-				parts.forEach((part, index) => (part.drawable = drawables[index]));
-				return 0;
+			let first = 0;
+			let oldEnd = parts.length;
+			let newEnd = drawables.length;
+			while (
+				first < oldEnd &&
+				first < newEnd &&
+				sameGeometry(parts[first].drawable, drawables[first])
+			) {
+				assign(parts[first], drawables[first]);
+				first++;
 			}
+			if (first === oldEnd && first === newEnd) return 0;
+			while (
+				oldEnd > first &&
+				newEnd > first &&
+				sameGeometry(parts[oldEnd - 1].drawable, drawables[newEnd - 1])
+			) {
+				assign(parts[--oldEnd], drawables[--newEnd]);
+			}
+
 			const available = new Map<string, Part[]>();
-			for (const part of parts) {
-				const matches = available.get(part.drawable.id) ?? [];
-				matches.push(part);
-				available.set(part.drawable.id, matches);
+			for (let i = first; i < oldEnd; i++) {
+				const part = parts[i];
+				const matches = available.get(part.drawable.id);
+				if (matches) matches.push(part);
+				else available.set(part.drawable.id, [part]);
 			}
 			let builds = 0;
-			const added: Part[] = [];
-			parts = drawables.map((drawable) => {
-				const matches = available.get(drawable.id) ?? [];
-				const index = matches.findIndex((part) => sameGeometry(part.drawable, drawable));
-				if (index >= 0) {
+			let groundChanged = false;
+			const next = parts.slice(0, first);
+			for (let i = first; i < newEnd; i++) {
+				const drawable = drawables[i];
+				const matches = available.get(drawable.id);
+				const index = matches?.findIndex((part) => sameGeometry(part.drawable, drawable)) ?? -1;
+				if (matches && index >= 0) {
 					const [part] = matches.splice(index, 1);
-					part.drawable = drawable;
-					return part;
-				}
-				builds++;
-				const part = project(drawable, strokes, palette, landscape);
-				added.push(part);
-				return part;
-			});
-			const stale = [...available.values()].flat();
-			// Retained parts stay in the group: detaching only the stale ones keeps an update linear
-			// in the number of parts instead of splicing every child out and back in.
-			const detached = new Set<Object3D>(stale.flatMap(({ mesh, lines }) => [mesh, ...lines]));
-			if (detached.size) {
-				group.children = group.children.filter((child) => !detached.has(child));
-				for (const child of detached) {
-					child.parent = null;
-					child.dispatchEvent({ type: 'removed' });
+					assign(part, drawable);
+					next.push(part);
+				} else {
+					const part = add(drawable);
+					next.push(part);
+					groundChanged ||= !part.bounds.isEmpty();
+					builds++;
 				}
 			}
-			for (const part of stale) disposePart(part);
-			for (const { mesh, lines } of added) group.add(mesh, ...lines);
-			fitGround();
+			for (let i = oldEnd; i < parts.length; i++) next.push(parts[i]);
+			for (const matches of available.values())
+				for (const part of matches) {
+					groundChanged ||= !part.bounds.isEmpty();
+					remove(part);
+				}
+			parts = next;
+			if (groundChanged) {
+				fitGround();
+				boundsDirty = true;
+			}
 			return builds;
 		},
+		update(read: (drawable: Drawable, hasFill: boolean) => PartLook, all: boolean) {
+			if (!all && !restyle.size && !repack.size) return;
+			if (all) {
+				materials.outer.color.copy(strokes.outer.color);
+				materials.crease.color.copy(strokes.crease.color);
+			}
+			const refresh = new Set<Chunk>();
+			for (const part of all ? parts : restyle) {
+				const look = read(part.drawable, part.bounds.isEmpty() === false);
+				part.look = look;
+				if (part.chunk) {
+					rows.write(part.row, part.drawable, look);
+					refresh.add(part.chunk);
+				}
+				if (part.fill || part.individual.length) styleIndividual(part, look, veil, landscape);
+			}
+			restyle.clear();
+			for (const key of repack) {
+				const chunk = chunks.get(key);
+				if (!chunk) continue;
+				unpack(chunk);
+				if (chunk.members.size) {
+					chunk.packed = packChunk(chunk.members, materials, chunk.group, landscape);
+					group.add(chunk.group);
+					refresh.add(chunk);
+				} else {
+					chunks.delete(key);
+					refresh.delete(chunk);
+				}
+				chunkBuilds++;
+			}
+			repack.clear();
+			for (const chunk of refresh) chunk.packed?.refresh();
+			rows.flush();
+		},
 		delete() {
-			deleteGround();
-			for (const part of parts) disposePart(part);
-			group.clear();
+			removeGround();
+			detachChildren(individuals);
+			for (const part of individualParts) remove(part);
+			for (const chunk of chunks.values()) unpack(chunk);
+			detachChildren(group);
+			materials.delete();
+			veil.dispose();
+			rows.delete();
+			chunks.clear();
+			terrain.clear();
+			restyle.clear();
+			repack.clear();
 			parts = [];
 		}
 	};

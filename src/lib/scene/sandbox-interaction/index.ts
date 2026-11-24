@@ -3,7 +3,12 @@
 /** A time-budgeted, cancellable build queue with a small product cache per owner. */
 export { createBuildQueue, showIntervalMs, type BuildJob } from './queue';
 /** The preview state machine of one painting pointer. */
-export { createStrokeState, type StrokeEffect, type StrokeInput } from './stroke';
+export {
+	createStrokeDraft,
+	createStrokeState,
+	type StrokeEffect,
+	type StrokeInput
+} from './stroke';
 /** The thin level-of-detail policy and the block budget share. */
 export {
 	readPreviewHeight,

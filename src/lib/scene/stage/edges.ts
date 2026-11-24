@@ -3,6 +3,7 @@ import {
 	GreaterDepth,
 	type OrthographicCamera,
 	InstancedBufferAttribute,
+	type Node,
 	Line2NodeMaterial,
 	NormalBlending,
 	Vector3
@@ -24,7 +25,7 @@ type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
 const creaseDot = Math.cos(Math.PI / 180);
 
-export function edgeGeometry(
+export function creases(
 	positions: readonly number[],
 	indices: readonly number[],
 	creaseAngleRad?: number
@@ -61,10 +62,26 @@ export function edgeGeometry(
 		fronts.push(...front.toArray());
 		backs.push(...(back ?? front).toArray());
 	}
+	return { segments, fronts, backs };
+}
+
+export type Edges = ReturnType<typeof creases>;
+
+export function lineGeometry({ segments, fronts, backs }: Edges) {
 	const geometry = new LineSegmentsGeometry().setPositions(segments);
-	geometry.setAttribute('edgeFront', new InstancedBufferAttribute(new Float32Array(fronts), 3));
-	geometry.setAttribute('edgeBack', new InstancedBufferAttribute(new Float32Array(backs), 3));
+	if (fronts.length) {
+		geometry.setAttribute('edgeFront', new InstancedBufferAttribute(new Float32Array(fronts), 3));
+		geometry.setAttribute('edgeBack', new InstancedBufferAttribute(new Float32Array(backs), 3));
+	}
 	return geometry;
+}
+
+export function edgeGeometry(
+	positions: readonly number[],
+	indices: readonly number[],
+	creaseAngleRad?: number
+) {
+	return lineGeometry(creases(positions, indices, creaseAngleRad));
 }
 
 function weldVertices(positions: readonly number[]) {
@@ -101,13 +118,12 @@ function openEdges(indices: readonly number[], vertexCount: number) {
 	return edges;
 }
 
-export function boundaryGeometry(
+export function boundaries(
 	positions: readonly number[],
 	indices: readonly number[],
 	perCell = false
 ) {
-	const geometry = new LineSegmentsGeometry();
-	if (!indices.length) return geometry.setPositions([]);
+	if (!indices.length) return { segments: [], fronts: [], backs: [] };
 	const welded = weldVertices(positions);
 	// With separate cell indices, extract each rim before deduplicating shared segments.
 	const edges = openEdges(perCell ? indices : indices.map((index) => welded[index]), welded.length);
@@ -123,11 +139,7 @@ export function boundaryGeometry(
 		segments.push(...positions.slice(a * 3, a * 3 + 3), ...positions.slice(b * 3, b * 3 + 3));
 		normals.push(0, 0, 1);
 	}
-	geometry.setPositions(segments);
-	const normal = new InstancedBufferAttribute(new Float32Array(normals), 3);
-	geometry.setAttribute('edgeFront', normal);
-	geometry.setAttribute('edgeBack', normal);
-	return geometry;
+	return { segments, fronts: normals, backs: normals };
 }
 
 export function strokeMaterials(landscape = false) {
@@ -164,7 +176,11 @@ export function strokeMaterials(landscape = false) {
 
 /** One explicit stroke layer: the visible pass, or the hidden pass drawn only where a nearer
  * surface covers the stroke. `recede` lightens strokes with their view depth. */
-export function explicitStroke(depth: ReturnType<typeof strokeMaterials>['depth'], hidden = false) {
+export function explicitStroke(
+	depth: ReturnType<typeof strokeMaterials>['depth'],
+	hidden = false,
+	style?: { color: Node<'vec3'>; recede: Node<'float'> }
+) {
 	const material = new Line2NodeMaterial({
 		transparent: true,
 		blending: NormalBlending,
@@ -180,7 +196,10 @@ export function explicitStroke(depth: ReturnType<typeof strokeMaterials>['depth'
 		.div(depth.far.sub(depth.near).max(1e-3))
 		.clamp(0, 1);
 	// Keep line coverage but blend the ink into all preceding layers, including other translucent fills.
-	material.outputNode = vec4(materialColor, diffuseColor.a.mul(distance.mul(recede).oneMinus()));
+	material.outputNode = vec4(
+		style?.color ?? materialColor,
+		diffuseColor.a.mul(distance.mul(style?.recede ?? recede).oneMinus())
+	);
 	material.depthNode = viewZToOrthographicDepth(
 		positionView.z.add(depth.pull),
 		cameraNear,

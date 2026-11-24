@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { example } from './example';
 import {
 	createBuildQueue,
+	createStrokeDraft,
 	createStrokeState,
 	selectHouseDetail,
 	shareBlockBudget,
@@ -52,6 +53,36 @@ describe('sandbox interaction', () => {
 		stroke.read(input('down', ['b']));
 		expect(stroke.read(input('lost'))).toEqual([{ kind: 'release', hosts: hosts('b'), tool }]);
 		expect(stroke.read(input('up', ['c'])).map(({ kind }) => kind)).toEqual(['hover']);
+	});
+
+	test('draft keeps preview identity and resolves salience and budget only once on release', () => {
+		const features = { storeys: 1, corner: false, large: false };
+		const ordinary = { block: 'a', features, selected: false, hovered: false };
+		const subjects = [{ ...ordinary, id: 'settled' }];
+		const settled = subjects[0];
+		const preview = { shape: 'plain body' };
+		const draft = createStrokeDraft<(typeof subjects)[number], typeof preview>();
+		let publications = 0;
+		const publish = (edits: readonly (typeof subjects)[number][]) => {
+			publications++;
+			subjects.push(...edits);
+			expect(selectHouseDetail(subjects, 0).size).toBe(3);
+			expect([...shareBlockBudget(subjects, 90).values()]).toEqual([30, 30, 30]);
+		};
+		draft.add({ ...ordinary, id: 'cancelled' }, { id: 'cancelled', body: preview });
+		draft.finish('cancel', publish);
+		expect(publications).toBe(0);
+		expect(subjects).toEqual([settled]);
+		expect(draft.overrides.size).toBe(0);
+		draft.add({ ...ordinary, id: 'first' }, { id: 'first', body: preview });
+		draft.add({ ...ordinary, id: 'second' });
+		expect(draft.overrides.get('first')).toBe(preview);
+		expect(subjects[0]).toBe(settled);
+		expect(publications).toBe(0);
+		draft.finish('release', publish);
+		draft.finish('release', publish);
+		expect(publications).toBe(1);
+		expect(subjects.map(({ id }) => id)).toEqual(['settled', 'first', 'second']);
 	});
 
 	test('queue keeps order within the budget, reuses keys and cancels cleanly', () => {

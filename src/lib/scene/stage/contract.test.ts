@@ -1,5 +1,13 @@
 import { expect, test } from 'bun:test';
-import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial } from 'three/webgpu';
+import {
+	BufferGeometry,
+	Color,
+	Float32BufferAttribute,
+	Group,
+	Mesh,
+	MeshBasicMaterial,
+	Object3D
+} from 'three/webgpu';
 import { dotProduct, displacement, type Vec3 } from '../../core/geometry';
 import type { Drawable } from '../surface';
 import {
@@ -19,7 +27,7 @@ import {
 	readView,
 	type CameraFrame
 } from './camera';
-import { createContent, hasSameGeometry, rayHit, warpPart } from './content';
+import { createContent, detachChildren, hasSameGeometry, rayHit } from './content';
 import { strokeMaterials } from './edges';
 import { drawingPalette } from './tone';
 
@@ -361,11 +369,132 @@ test('moves warped fills with their normals and bounds', () => {
 	content.show([wall]);
 	content.style([{ ...wall, warp: { ...warp, amount: 1 } }]);
 	const [part] = content.parts;
-	warpPart(part);
-	const geometry = part.mesh.geometry;
+	expect(content.clippingBounds.max[0]).toBeCloseTo(1);
+	if (!part.fill) throw new Error('Expected a dedicated warped fill');
+	const geometry = part.fill.mesh.geometry;
 	expect(geometry.boundingBox?.max.x).toBeCloseTo(1);
 	const normal = geometry.getAttribute('normal');
 	expect(Math.abs(normal.getX(0))).toBeLessThan(0.99);
 	expect(Math.abs(normal.getZ(0))).toBeGreaterThan(0.5);
 	content.delete();
+});
+
+const ink = new Color();
+function appearance({ vertical, fillAlpha, visible }: Drawable) {
+	const scale = vertical?.scale ?? 1;
+	return {
+		color: ink,
+		strokeColor: ink,
+		opacity: visible === false ? 0 : (fillAlpha ?? 1),
+		strokeOpacity: 1,
+		width: 1,
+		hidden: 0,
+		recede: 0,
+		visible: visible !== false,
+		veil: false,
+		scale,
+		offset: (vertical?.pivot ?? 0) * (1 - scale)
+	};
+}
+
+function boxAt(id: string, x: number): Drawable {
+	return {
+		id,
+		color: '--paper',
+		finish: 'matte',
+		creaseAngleRad: 0,
+		shape: { kind: 'box', center: [x, 0, 1], size: [2, 2, 2], rotation: 0 }
+	};
+}
+
+test('one edit repacks only its tile and retains the terrain and its hit surface', () => {
+	const { content } = contentOf();
+	const terrain = { ...boxAt('terrain', 0), finish: 'terrain' } as const;
+	const left = boxAt('left', 10);
+	const right = boxAt('right', 400);
+	content.show([terrain, left, right]);
+	content.update(appearance, true);
+	const [oldTerrain] = content.parts;
+	const oldChunks = content.group.children.filter((child) => child instanceof Group);
+	const before = content.chunkBuilds;
+	expect(content.show([terrain, boxAt('edited', 12), right])).toBe(1);
+	content.update(appearance, false);
+	expect(content.chunkBuilds - before).toBe(1);
+	expect(content.group.children.filter((child) => child instanceof Group)).toHaveLength(
+		oldChunks.length
+	);
+	for (const chunk of oldChunks) expect(chunk.parent).toBe(content.group);
+	expect(content.parts[0]).toBe(oldTerrain);
+	expect(content.hit([0, 0, 0], [0, 0, -1])).toEqual([0, 0, 2]);
+	content.delete();
+});
+
+test('moving to sorted alpha and back retains the geometry and tile build count', () => {
+	const { content } = contentOf();
+	const part = boxAt('body', 4);
+	content.show([part]);
+	content.update(appearance, true);
+	const before = content.chunkBuilds;
+	const chunk = content.group.children.find((child) =>
+		child.children.some((object) => object instanceof Mesh)
+	);
+	if (!chunk) throw new Error('Expected a packed tile');
+	const [opaque] = chunk.children;
+	const triangleBuffer = (opaque as Mesh).geometry.index;
+	expect(content.show([{ ...part, fillAlpha: 0.5 }])).toBe(0);
+	content.update(appearance, true);
+	const alpha = chunk.children.find(
+		(object) =>
+			object.visible &&
+			object instanceof Mesh &&
+			object.material.transparent &&
+			object.geometry.index === triangleBuffer
+	);
+	expect(alpha).toBeDefined();
+	expect((alpha as Mesh).geometry.index).toBe(triangleBuffer);
+	expect(content.show([part])).toBe(0);
+	content.update(appearance, true);
+	expect(content.chunkBuilds).toBe(before);
+	expect(alpha?.visible).toBe(false);
+	content.delete();
+});
+
+test('warped and vertically scaled terrain is picked at its displayed height', () => {
+	const { content } = contentOf();
+	const body = boxAt('body', 4);
+	const warp = { fill: [4, 0, 4, 0, 4, 0], amount: 0 };
+	const terrain: Drawable = {
+		id: 'terrain',
+		color: '--paper',
+		finish: 'terrain',
+		shape: { kind: 'mesh', positions: [-1, -1, 2, 1, -1, 2, 0, 1, 2], indices: [0, 1, 2] },
+		warp
+	};
+	content.show([terrain, body]);
+	content.update(appearance, true);
+	const before = content.chunkBuilds;
+	expect(content.hit([4, 0, 0], [0, 0, -1])).toBeUndefined();
+	content.style([
+		{ ...terrain, warp: { ...warp, amount: 1 }, vertical: { scale: 3, pivot: 1 } },
+		body
+	]);
+	expect(content.clippingBounds.max[2]).toBe(4);
+	content.update(appearance, false);
+	expect(content.hit([4, 0, 0], [0, 0, -1])).toEqual([4, 0, 4]);
+	expect(content.chunkBuilds).toBe(before);
+	content.delete();
+});
+
+test('detaches large child lists and closes repeatedly without spreading them into remove', () => {
+	for (let run = 0; run < 2; run++) {
+		const { content } = contentOf();
+		const children = Array.from({ length: 130_000 }, () => new Object3D());
+		content.group.children = children;
+		for (const child of children) child.parent = content.group;
+		const last = children.at(-1);
+		detachChildren(content.group);
+		expect(last?.parent).toBeNull();
+		expect(content.group.children).toHaveLength(0);
+		content.delete();
+	}
 });

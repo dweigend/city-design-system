@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { PlaceableObject } from '../../core/object';
 import { createStripSpace, parcelEdgeId, type Parcel } from '../../domain/cell-space';
 import {
 	createHouseCourt,
@@ -14,6 +15,7 @@ import {
 	createTownHouseStudy
 } from '../../world/house-site';
 import { createClad } from '../material';
+import { shapeArrays } from '../stage';
 import {
 	blockTriangleBudget,
 	faceAreaM2,
@@ -119,6 +121,31 @@ test('a house is plain by default; a granted level adds openings; builds are cac
 		level: 'near'
 	});
 	expect(again.drawables[0].shape).toBe(near.drawables[0].shape);
+});
+
+test('plain block masses share one drawing and retain every source triangle and crease group', () => {
+	const masses = [-1, 1].map((x) => ({
+		id: 'mass/' + x,
+		slot: 'mass',
+		shape: { kind: 'box', center: [x, 0, 1], size: [2, 2, 2], rotation: 0 } as const
+	}));
+	const object = PlaceableObject.create({
+		id: 'two-touching-masses',
+		slots: ['mass'],
+		parts: masses,
+		footprint: { width: 4, depth: 2 },
+		anchors: []
+	});
+	const { drawables } = projectCladHouse(object, [], houseMaterials.neutral, 'full', {
+		budget: blockTriangleBudget
+	});
+	const bodies = drawables.filter(({ creaseAngleRad }) => creaseAngleRad !== undefined);
+	expect(bodies).toHaveLength(1);
+	const original = masses.map(({ shape }) => shapeArrays(shape));
+	let end = 0;
+	expect(bodies[0].creaseGroups).toEqual(original.map(({ indices }) => (end += indices.length)));
+	expect(shapeArrays(bodies[0].shape).indices).toHaveLength(end);
+	expect(bodies[0].id).toBe(masses[0].id);
 });
 
 test('salience grants detail to few houses: capped per block, deterministic, focus first', () => {

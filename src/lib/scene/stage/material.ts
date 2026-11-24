@@ -1,4 +1,11 @@
-import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace, Vector3 } from 'three/webgpu';
+import {
+	Color,
+	DoubleSide,
+	MeshBasicNodeMaterial,
+	SRGBColorSpace,
+	Vector3,
+	type Node
+} from 'three/webgpu';
 import {
 	hash,
 	materialColor,
@@ -52,30 +59,13 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const grainAmount = uniform(0);
 	const grainCell = uniform(1);
 
-	const normal = normalWorldGeometry;
-	const roof = normal.z.greaterThan(0.7);
-	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(-flatTolerance);
-	const top = roof.and(facesLight);
-	const shadow = roof.or(facesLight).not();
-	const level = top.select(faces.x, shadow.select(faces.z, faces.y));
-	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
-	// Fine even grain of cork and card: one random lightness per world-space speck. The cell index
-	// wraps every 509 specks, so the hash input stays exact in single precision at city scale.
-	const speck = positionWorld.div(grainCell).floor().mod(509);
-	const speckle = hash(speck.x.add(speck.y.mul(509)).add(speck.z.mul(259081))).sub(0.5);
-	const fill = graphite(
-		materialColor,
-		level.add(palette.dark.mul(0.076)).add(speckle.mul(grainAmount)).mul(palette.hull.oneMinus()),
-		mix(pressure, grain.top, palette.hull)
-	);
-	// Sparse 45° pencil strokes, 5 CSS pixels apart, on the faces turned from the sun.
-	const pixel = screenCoordinate.div(screenDPR);
-	const across = pixel.x.add(pixel.y).div(5).fract().sub(0.5).abs().mul(5);
-	const hatching = across.smoothstep(0.3, 0.9).oneMinus().mul(shadow.select(hatch, 0));
-	const drawn = mix(fill, palette.ink, hatching.mul(0.55));
 	const atlas = field ? projectTerrainField(field) : undefined;
 	material.colorNode = mix(
-		mix(drawn, materialColor, flat),
+		mix(
+			pencilFill(palette, materialColor, normalWorldGeometry, faces, grainAmount, grainCell, hatch),
+			materialColor,
+			flat
+		),
 		terrainColor(palette, heightScale, atlas?.sample),
 		terrain
 	);
@@ -89,6 +79,38 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 		grain: { amount: grainAmount, cell: grainCell },
 		atlas: atlas?.image
 	};
+}
+
+/** One pencil treatment for both retained batches and individually drawn surfaces. */
+export function pencilFill(
+	palette: ReturnType<typeof drawingPalette>,
+	color: Node<'vec3'>,
+	normal: Node<'vec3'>,
+	faces: Node<'vec3'>,
+	grainAmount: Node<'float'>,
+	grainCell: Node<'float'>,
+	hatch: Node<'float'>
+) {
+	const roof = normal.z.greaterThan(0.7);
+	const facesLight = normal.xy.dot(vec2(...sun)).greaterThanEqual(-flatTolerance);
+	const top = roof.and(facesLight);
+	const shadow = roof.or(facesLight).not();
+	const level = top.select(faces.x, shadow.select(faces.z, faces.y));
+	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
+	// Fine even grain of cork and card: one random lightness per world-space speck. The cell index
+	// wraps every 509 specks, so the hash input stays exact in single precision at city scale.
+	const speck = positionWorld.div(grainCell).floor().mod(509);
+	const speckle = hash(speck.x.add(speck.y.mul(509)).add(speck.z.mul(259081))).sub(0.5);
+	const fill = graphite(
+		color,
+		level.add(palette.dark.mul(0.076)).add(speckle.mul(grainAmount)).mul(palette.hull.oneMinus()),
+		mix(pressure, grain.top, palette.hull)
+	);
+	// Sparse 45° pencil strokes, 5 CSS pixels apart, on the faces turned from the sun.
+	const pixel = screenCoordinate.div(screenDPR);
+	const across = pixel.x.add(pixel.y).div(5).fract().sub(0.5).abs().mul(5);
+	const hatching = across.smoothstep(0.3, 0.9).oneMinus().mul(shadow.select(hatch, 0));
+	return mix(fill, palette.ink, hatching.mul(0.55));
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

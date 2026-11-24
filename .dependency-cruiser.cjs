@@ -24,6 +24,7 @@ const configOwners = {
 	'lib/world/city-structure': 'city-structure',
 	'lib/scene/paths-projection': 'paths-projection',
 	'lib/scene/structure-projection': 'structure-projection',
+	'lib/scene/stage': 'stage',
 	'lib/domain/material': 'material',
 	'lib/scene/material': 'material-drawing',
 	'lib/scene/house-projection': 'house-projection',
