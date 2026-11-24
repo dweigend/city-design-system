@@ -1,5 +1,5 @@
 import type { Vec2, Vec3 } from '../../lib/core/geometry';
-import { createCityLattice } from '../../lib/domain/city-volume';
+import { columnRoof, createCityLattice } from '../../lib/domain/city-volume';
 import type { ParcelBlock } from '../../lib/domain/parcels';
 import { createFocusResolver, type DisplayLevel } from '../../lib/scene/focus';
 import { houseLevels } from '../../lib/scene/house-projection';
@@ -21,8 +21,8 @@ import { townSheet, townStage } from '../architecture/town';
 import { crossingHeads, railDemo } from '../paths/demo';
 
 const choices = {
-	town: { label: 'Whole town', subject: [] },
-	plan: { label: 'Plan', subject: ['ground'] },
+	town: { label: 'Everything', subject: [] },
+	plan: { label: 'Ground plan', subject: ['ground'] },
 	houses: { label: 'Houses', subject: ['houses'] },
 	paths: { label: 'Paths and rail', subject: ['walkways', 'transit'] },
 	structure: { label: 'Structure', subject: ['structure'] }
@@ -91,15 +91,23 @@ export function createTownReview() {
 		['transit', transit]
 	];
 	const heights = sheet.points.map(([, , z]) => z);
-	const low = Math.min(...heights);
-	const top = Math.max(...heights);
-	const outline = (blocks: readonly ParcelBlock[]) =>
-		blocks.flatMap(({ outline }) =>
-			outline.flatMap(([x, y]: Vec2): Vec3[] => [
-				town.toLocal([x, y, low]),
-				town.toLocal([x, y, top])
-			])
+	const wholeLow = Math.min(...heights);
+	const wholeTop = Math.max(...heights);
+	const outline = (blocks: readonly ParcelBlock[]) => {
+		const blockHeights: number[] = [];
+		for (const block of blocks) {
+			for (const [x, y] of block.outline) blockHeights.push(site.sampleGround(x, y).height);
+			for (const cellId of block.memberCellIds) {
+				const column = town.columns.get(cellId);
+				if (column) blockHeights.push(columnRoof(column, layout.datumZ));
+			}
+		}
+		const low = blockHeights.length ? Math.min(...blockHeights) : wholeLow;
+		const top = blockHeights.length ? Math.max(...blockHeights) : wholeTop;
+		return blocks.flatMap(({ outline: ring }) =>
+			ring.flatMap(([x, y]: Vec2): Vec3[] => [town.toLocal([x, y, low]), town.toLocal([x, y, top])])
 		);
+	};
 	const subjects: Record<TownFrame, readonly Vec3[]> = {
 		whole: sheet.points,
 		quarter: outline([town.blocks.block, town.blocks.neighbour, town.blocks.merged]),

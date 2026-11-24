@@ -5,10 +5,25 @@ export type Shot = Readonly<{
 	route: string;
 	size: 'desktop' | 'phone';
 	theme: 'light' | 'dark';
+	stages: number;
 }>;
 
 /** Viewport sizes in CSS pixels. */
 export const sizes = { desktop: [1600, 1000], phone: [390, 844] } as const;
+
+const stageCounts: Readonly<Record<string, number>> = {
+	'/': 0,
+	'/supply': 0,
+	'/interface': 0,
+	'/content': 0,
+	'/story': 0,
+	'/surfaces': 2
+};
+
+function stagesFor(route: string) {
+	const path = route.split('?')[0];
+	return stageCounts[path] ?? 1;
+}
 
 const routes = [
 	'/',
@@ -46,16 +61,25 @@ const dark = [
 	'/interface'
 ];
 const phone = ['/', '/town', '/city', '/sandbox', '/interface'];
+const shot = (
+	sheet: string,
+	route: string,
+	size: 'desktop' | 'phone',
+	theme: 'light' | 'dark'
+): Shot => ({
+	sheet,
+	route,
+	size,
+	theme,
+	stages: stagesFor(route)
+});
+
 export const shots: Shot[] = [
-	...routes.map((route) => ({ sheet: 'routes', route, size: 'desktop', theme: 'light' }) as const),
-	...[...townFocus, ...cityFocus].map(
-		(route) => ({ sheet: 'town-focus', route, size: 'desktop', theme: 'light' }) as const
-	),
-	...frames.map(
-		(route) => ({ sheet: 'town-frames', route, size: 'desktop', theme: 'light' }) as const
-	),
-	...dark.map((route) => ({ sheet: 'dark', route, size: 'desktop', theme: 'dark' }) as const),
+	...routes.map((route) => shot('routes', route, 'desktop', 'light')),
+	...[...townFocus, ...cityFocus].map((route) => shot('town-focus', route, 'desktop', 'light')),
+	...frames.map((route) => shot('town-frames', route, 'desktop', 'light')),
+	...dark.map((route) => shot('dark', route, 'desktop', 'dark')),
 	...(['light', 'dark'] as const).flatMap((theme) =>
-		phone.map((route) => ({ sheet: 'phone', route, size: 'phone', theme }) as const)
+		phone.map((route) => shot('phone', route, 'phone', theme))
 	)
 ];

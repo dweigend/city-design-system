@@ -218,6 +218,45 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	expect(JSON.parse(await readFile(resaved, 'utf8'))).toEqual(original);
 });
 
+// Town review controls must preserve combined URL selections across reloads without rebuilding
+// house geometry on focus switches. Catches broken shallow routing or dropped query params.
+journeys('preserves town review focus, frame and view across reloads', async ({ page }) => {
+	await open(page, '/town');
+	await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
+	const canvas = (await readyStages(page, 1)).first();
+	const builds = await canvas.getAttribute('data-stage-drawable-builds');
+	expect(Number(builds)).toBeGreaterThan(0);
+
+	await choose(page, 'Focus', 'Paths and rail');
+	await page
+		.getByRole('radiogroup', { name: 'Frame' })
+		.getByRole('radio', { name: 'Quarter', exact: true })
+		.click();
+	await page
+		.getByRole('radiogroup', { name: 'View' })
+		.getByRole('radio', { name: 'Plan', exact: true })
+		.click();
+
+	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
+	await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
+	await expect(page).toHaveURL(/focus=paths/);
+	await expect(page).toHaveURL(/frame=quarter/);
+	await expect(page).toHaveURL(/view=plan/);
+
+	await page.reload();
+	await expect(page.getByRole('status')).toHaveCount(0, { timeout: 60_000 });
+	const reloaded = (await readyStages(page, 1)).first();
+	await expect(reloaded).toHaveAttribute('data-stage-view', 'plan');
+	await expect(page.getByRole('combobox', { name: 'Focus', exact: true })).toHaveText(
+		'Paths and rail'
+	);
+	await expect(
+		page
+			.getByRole('radiogroup', { name: 'Frame' })
+			.getByRole('radio', { name: 'Quarter', exact: true })
+	).toBeChecked();
+});
+
 async function saveSandbox(page: Page, filename: string) {
 	const downloadEvent = page.waitForEvent('download');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();

@@ -38,7 +38,17 @@ function servePreview() {
 		});
 		server.on('exit', (code) => fail(Error('Preview exited with ' + code)));
 	});
-	return { origin, stop: () => process.kill(-(server.pid ?? 0), 'SIGTERM') };
+	return {
+		origin,
+		stop: () => {
+			if (!server.pid) return;
+			try {
+				process.kill(-server.pid, 'SIGTERM');
+			} catch {
+				// The preview already exited before teardown.
+			}
+		}
+	};
 }
 
 function fileName({ route, size, theme }: Shot) {
@@ -76,19 +86,19 @@ async function paintSandbox(page: Page) {
 	return Number(await stage.getAttribute('data-sandbox-placements'));
 }
 
-/** Waits until every stage canvas has drawn and its frame count stops moving. */
-async function settle(page: Page) {
+/** Waits until every expected stage canvas has drawn and its frame count stops moving. */
+async function settle(page: Page, expectedStages: number, route: string) {
 	const building = page.getByRole('status').filter({ hasText: /^Building/ });
 	await building.waitFor({ state: 'detached', timeout: builtTimeoutMs });
-	const canvases = await page.locator('canvas').count();
-	if (!canvases) return;
+	if (!expectedStages) return;
 	await page.waitForFunction(
 		(count) => document.querySelectorAll('canvas[data-stage-ready="true"]').length === count,
-		canvases,
+		expectedStages,
 		{ timeout: builtTimeoutMs }
 	);
+	const deadline = performance.now() + builtTimeoutMs;
 	let previous = '';
-	for (;;) {
+	while (performance.now() < deadline) {
 		const frames = await page.$$eval('canvas', (all) =>
 			all.map((c) => c.dataset.stageFrames).join()
 		);
@@ -96,6 +106,7 @@ async function settle(page: Page) {
 		previous = frames;
 		await page.waitForTimeout(settleMs);
 	}
+	throw Error(`Stage frames did not settle on ${route} (last frames: ${previous})`);
 }
 
 async function capture(
@@ -134,13 +145,15 @@ async function capture(
 		const response = await page.goto(new URL(shot.route, origin).href, { timeout: builtTimeoutMs });
 		if (!response?.ok()) throw Error('Could not open ' + shot.route);
 		await page.evaluate(() => document.fonts.ready);
-		await settle(page);
+		await settle(page, shot.stages, shot.route);
 		const readyMs = Math.round(performance.now() - start);
 		const placements = shot.route === '/sandbox' ? await paintSandbox(page) : undefined;
-		if (placements !== undefined) await settle(page);
+		if (placements !== undefined) await settle(page, shot.stages, shot.route);
 		const stages = await page.$$eval('canvas[data-stage-ready]', (all) =>
 			all.map(({ dataset }) => ({ ...dataset }))
 		);
+		if (stages.length !== shot.stages)
+			throw Error(`Expected ${shot.stages} ready stage(s) on ${shot.route}, got ${stages.length}`);
 		for (const stage of stages)
 			if (
 				stage.stageHardware !== 'true' ||
