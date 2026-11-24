@@ -169,22 +169,19 @@ function accessParts(ctx: Context, house: HouseCourt): Part[] {
 	return [...galleries(ctx, sides, landing), ...stair(ctx, landing), ...steps];
 }
 
-function stepCells(ctx: Context): ReadonlySet<string> {
-	const entry = entranceStepCell(ctx);
-	return new Set(entry ? [entry.cell.id] : []);
-}
+
 
 function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] {
 	const solids = cellSolids(ctx);
 	if (detail === 'block')
 		return [
-			...plates(ctx, stepCells(ctx)),
+			...plates(ctx),
 			...entranceSteps(ctx, 'plot'),
 			...envelopeParts(ctx, detail),
 			...solidParts(solids, true)
 		];
 	return [
-		...plates(ctx, stepCells(ctx)),
+		...plates(ctx),
 		...envelopeParts(ctx, detail),
 		...solidParts(solids, false),
 		...patterns(ctx, solids),

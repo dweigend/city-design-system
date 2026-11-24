@@ -106,6 +106,21 @@ const town = defineSettings({
 		bounds: { exclusiveMin: 0 },
 		principle: 'FORM-3'
 	},
+	entranceStairWidthM: {
+		value: 2.4,
+		unit: 'm',
+		meaning: 'Width of the entrance steps, centred on the entrance cell frontage',
+		bounds: { exclusiveMin: 0 },
+		principle: 'COLOR-3',
+		rationale: 'Two people pass; narrow enough that the steps read as a path, not a plaza.'
+	},
+	entranceStepGoingM: {
+		value: 0.32,
+		unit: 'm',
+		meaning: 'Going (tread depth) of one entrance step',
+		bounds: { exclusiveMin: 0 },
+		principle: 'COLOR-3'
+	},
 	entranceStepRiseM: {
 		value: 0.15,
 		unit: 'm',

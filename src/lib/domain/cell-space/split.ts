@@ -152,8 +152,7 @@ function join(a: KeyedRing, b: KeyedRing, at: number): KeyedRing {
 
 /** Convex parts of a counterclockwise ring with few pieces: the ear triangles of `convexParts`,
  * merged across shared diagonals while the union stays convex within the strip concave sine
- * (Hertel–Mehlhorn), in ear order.
- * IDs are `<ring id>/part/<JSON corner keys>`. */
+ * (Hertel–Mehlhorn), in ear order. */
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
 	const parts = [...convexParts(ring)];
@@ -176,5 +175,5 @@ export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
 				break search;
 			}
 	}
-	return parts.map((part) => ({ ...part, id: `${ring.id}/part/${JSON.stringify(part.keys)}` }));
+	return parts;
 }

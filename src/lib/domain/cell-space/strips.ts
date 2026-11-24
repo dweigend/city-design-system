@@ -135,6 +135,7 @@ function patchPoint(f: Frame, u: number, v: number): Vec2 {
 }
 
 type Grid = Readonly<{
+	id: string;
 	breaks: readonly number[];
 	snapped: ReadonlyMap<number, number>;
 	rows: number;
@@ -144,7 +145,13 @@ type Grid = Readonly<{
  * sides lie on one parcel edge, then the even breaks of the column count that keep the minimum
  * width from them. */
 // Exact arithmetic: structural counts and unit parameters, not tunables.
-function columnBreaks(f: Frame, columns: number, rows: number, snap: ReadonlySet<number>): Grid {
+function columnBreaks(
+	f: Frame,
+	id: string,
+	columns: number,
+	rows: number,
+	snap: ReadonlySet<number>
+): Grid {
 	const reach = Math.max(
 		span(f.points[f.front.corners[0]], f.points[f.front.corners[1]]),
 		chainLength(f, f.rear)
@@ -161,13 +168,13 @@ function columnBreaks(f: Frame, columns: number, rows: number, snap: ReadonlySet
 	for (let k = 1; k < columns; k += 1)
 		if ([...snapped.keys()].every((s) => gap(s, k / columns) >= stripMinimumWidthM))
 			breaks.push(k / columns);
-	return { breaks: [...new Set(breaks)].sort((s, t) => s - t), snapped, rows };
+	return { id, breaks: [...new Set(breaks)].sort((s, t) => s - t), snapped, rows };
 }
 
 /** A ring point, its symbolic key and the parcel edge of the side that starts at it. */
 type Point = Readonly<{ key: string; at: Vec2; edge: string | null }>;
 
-/** Grid points, keyed by their parcel corner where they meet one, else by `strip(i,j)`. */
+/** Grid points, keyed by their parcel corner where they meet one, else by `<grid id>(i,j)`. */
 // Exact arithmetic: structural counts and unit parameters, not tunables.
 function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at: Vec2 } {
 	const last = grid.breaks.length - 1;
@@ -180,7 +187,7 @@ function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at:
 	if (j === grid.rows && f.rear.corners.length === 1) return corner(f.rear.corners[0]);
 	const snapped = j === grid.rows ? grid.snapped.get(grid.breaks[i]) : undefined;
 	if (snapped !== undefined) return corner(snapped);
-	return { key: `strip(${i},${j})`, at: patchPoint(f, grid.breaks[i], j / grid.rows) };
+	return { key: `${grid.id}(${i},${j})`, at: patchPoint(f, grid.breaks[i], j / grid.rows) };
 }
 
 /** Points along one cell side from parameter t0 to t1 of a chain: the start point and every
@@ -306,7 +313,7 @@ export function stripRings(parcel: Parcel, id: string, edge: (from: number) => s
 	let { columns, rows } = stripCounts(front, depth);
 	for (;;) {
 		for (const snap of choices) {
-			const grid = columnBreaks(f, columns, rows, snap);
+			const grid = columnBreaks(f, id, columns, rows, snap);
 			const cells = Array.from({ length: rows }, (_, j) =>
 				Array.from({ length: grid.breaks.length - 1 }, (_, i) => cellRing(f, grid, id, i, j))
 			).flat();

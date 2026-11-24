@@ -5,6 +5,7 @@ import { boxMesh, faceMesh, side, type Box } from './boxes';
 import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
 import { shellFaces, shells } from './shells';
+import { entranceGround } from './access';
 
 const {
 	floorEdgeOutsetM,
@@ -40,23 +41,40 @@ function part(id: string, slot: string, shape: Shape | undefined): Part[] {
 	return shape ? [{ id, slot, shape }] : [];
 }
 
-/** Ground plate of every cell below the parcel ground, and the raised court plates. A cell whose
- * ground the entrance steps take (`skip`) has no plate. */
-export function plates(context: Context, skip: ReadonlySet<string> = new Set()): Part[] {
+/** Ground plate of every cell below the parcel ground, and the raised court plates, reaching down
+ * to the site's lowest ground as a plinth when the site gives one. The entrance cell with steps
+ * keeps plates only on the ground the steps leave free. */
+export function plates(context: Context): Part[] {
 	const z = context.space.baseZ;
-	return context.space.cells.filter(({ id }) => !skip.has(id)).map((cell) =>
-		context.occupancy.get(cell.id)?.role === 'court'
-			? {
-					id: `${cell.id}/court`,
-					slot: 'court',
-					shape: { kind: 'prism', polygon: cell.quad, base: z, top: z + courtRaiseM }
-				}
-			: {
-					id: `${cell.id}/plot`,
-					slot: 'plot',
-					shape: { kind: 'prism', polygon: cell.quad, base: z - plotThicknessM, top: z }
-				}
-	);
+	const low = context.house.site.groundZ;
+	const base = low === null ? z - plotThicknessM : Math.min(low, z - plotThicknessM);
+	const ground = entranceGround(context);
+	return context.space.cells.flatMap((cell): Part[] => {
+		if (cell.id === ground?.cell.id)
+			return ground.rest.map((polygon, k) => ({
+				id: `${cell.id}/plot/${k}`,
+				slot: 'plot',
+				shape: { kind: 'prism', polygon, base, top: z }
+			}));
+		return [
+			context.occupancy.get(cell.id)?.role === 'court'
+				? {
+						id: `${cell.id}/court`,
+						slot: 'court',
+						shape: {
+							kind: 'prism',
+							polygon: cell.quad,
+							base: low === null ? z : base,
+							top: z + courtRaiseM
+						}
+					}
+				: {
+						id: `${cell.id}/plot`,
+						slot: 'plot',
+						shape: { kind: 'prism', polygon: cell.quad, base, top: z }
+					}
+		];
+	});
 }
 
 /** The closed envelope of all built cell storeys in the given slot, one mesh per shell: storeys

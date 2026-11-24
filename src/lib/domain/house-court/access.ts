@@ -16,6 +16,8 @@ const {
 	stairRiserM,
 	courtStairWidthM,
 	entranceStepRiseM,
+	entranceStairWidthM,
+	entranceStepGoingM,
 	plotThicknessM
 } = defaults;
 
@@ -145,27 +147,20 @@ export function stair(context: Context, chosen: CourtSide | undefined): Part[] {
 	return shape ? [{ id: `${chosen.cell.id}/stair`, slot: 'stair', shape }] : [];
 }
 
-/** Keeps the part of a convex polygon whose distance inward from a side lies between two depths. */
-function band(points: readonly Vec2[], index: number, from: number, to: number): Vec2[] {
-	const wall = side(points, index);
-	const inward = ([x, y]: Vec2) => -((x - wall.a[0]) * wall.normal[0] + (y - wall.a[1]) * wall.normal[1]);
-	const cut = (polygon: Vec2[], keep: (p: Vec2) => number) => {
-		const result: Vec2[] = [];
-		polygon.forEach((p, i) => {
-			const q = polygon[(i + 1) % polygon.length];
-			const [dp, dq] = [keep(p), keep(q)];
-			if (dp >= 0) result.push(p);
-			if (dp * dq < 0) {
-				const t = dp / (dp - dq);
-				result.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
-			}
-		});
-		return result;
-	};
-	return cut(
-		cut([...points], (p) => inward(p) - from),
-		(p) => to - inward(p)
-	);
+/** Keeps the part of a convex polygon where `keep` is not negative (a half-plane for a linear
+ * `keep`). */
+function clipBy(polygon: readonly Vec2[], keep: (point: Vec2) => number): Vec2[] {
+	const result: Vec2[] = [];
+	polygon.forEach((p, i) => {
+		const q = polygon[(i + 1) % polygon.length];
+		const [dp, dq] = [keep(p), keep(q)];
+		if (dp >= 0) result.push(p);
+		if (dp * dq < 0) {
+			const t = dp / (dp - dq);
+			result.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+		}
+	});
+	return result;
 }
 
 /** The entrance cell and its frontage side when the site's rise needs steps, else undefined. */
@@ -182,28 +177,56 @@ export function entranceStepCell(
 	return { cell, index };
 }
 
+/** The entrance cell's ground split around the steps: the step treads (front to back) and the
+ * rest of the cell. The steps are the entrance stair width wide, centred on the frontage side, and
+ * one going per riser deep, at most the cell's depth. */
+// Exact arithmetic: stair steps are whole counts, halves centre the stair.
+export function entranceGround(context: Pick<Context, 'space' | 'occupancy' | 'house'>) {
+	const entry = entranceStepCell(context);
+	if (!entry) return undefined;
+	const { cell, index } = entry;
+	const wall = side(cell.quad, index);
+	const inward = ([x, y]: Vec2) =>
+		-((x - wall.a[0]) * wall.normal[0] + (y - wall.a[1]) * wall.normal[1]);
+	const [ux, uy] = [(wall.b[0] - wall.a[0]) / wall.length, (wall.b[1] - wall.a[1]) / wall.length];
+	const lateral = ([x, y]: Vec2) => (x - wall.a[0]) * ux + (y - wall.a[1]) * uy - wall.length / 2;
+	const depth = Math.max(...cell.quad.map(inward));
+	const steps = Math.ceil(context.house.site.entranceRiseM / stairRiserM);
+	const run = Math.min(depth, steps * entranceStepGoingM);
+	const half = Math.min(entranceStairWidthM, wall.length) / 2;
+	const front = clipBy(cell.quad, (p) => run - inward(p));
+	const stairZone = clipBy(
+		clipBy(front, (p) => half - lateral(p)),
+		(p) => half + lateral(p)
+	);
+	const treads = Array.from({ length: steps }, (_, k) =>
+		clipBy(
+			clipBy(stairZone, (p) => inward(p) - (k * run) / steps),
+			(p) => ((k + 1) * run) / steps - inward(p)
+		)
+	);
+	const rest = [
+		clipBy(cell.quad, (p) => inward(p) - run),
+		clipBy(front, (p) => -half - lateral(p)),
+		clipBy(front, (p) => lateral(p) - half)
+	].filter((piece) => piece.length >= 3);
+	return { cell, treads, rest };
+}
+
 /** Steps from the lane up to the ground storey inside the open entrance cell: the rise split into
- * risers no higher than the stair riser, each step a prism of the cell band at its depth from the
- * frontage, standing from a plot plate below the lane. One mesh part in the given slot. */
+ * risers no higher than the stair riser, each tread a prism from the ground under the parcel (or a
+ * plot plate below the lane) to its height. One mesh part in the given slot. */
 // Exact arithmetic: stair steps are whole counts.
 export function entranceSteps(context: Context, slot: string): Part[] {
-	const entry = entranceStepCell(context);
-	if (!entry) return [];
-	const { cell, index } = entry;
+	const ground = entranceGround(context);
+	if (!ground) return [];
 	const rise = context.house.site.entranceRiseM;
-	const wall = side(cell.quad, index);
-	const depth = Math.max(
-		...cell.quad.map(([x, y]) => -((x - wall.a[0]) * wall.normal[0] + (y - wall.a[1]) * wall.normal[1]))
-	);
-	const steps = Math.ceil(rise / stairRiserM);
 	const lane = context.space.baseZ - rise;
-	const faces = Array.from({ length: steps }, (_, k) =>
-		band(cell.quad, index, (k * depth) / steps, ((k + 1) * depth) / steps)
-	).flatMap((outline, k) =>
-		outline.length >= 3
-			? extrusion(outline, lane - plotThicknessM, lane + ((k + 1) * rise) / steps)
-			: []
+	const base = Math.min(context.house.site.groundZ ?? Infinity, lane - plotThicknessM);
+	const steps = ground.treads.length;
+	const faces = ground.treads.flatMap((outline, k) =>
+		outline.length >= 3 ? extrusion(outline, base, lane + ((k + 1) * rise) / steps) : []
 	);
 	const shape = faceMesh(faces);
-	return shape ? [{ id: `${cell.id}/steps`, slot, shape }] : [];
+	return shape ? [{ id: `${ground.cell.id}/steps`, slot, shape }] : [];
 }

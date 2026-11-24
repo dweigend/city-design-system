@@ -114,33 +114,65 @@ function freeze(
  * from the frontage length and mean side depth over the target cell edge, between the minimum and
  * maximum cell count; columns break at rear corners so rear sides follow the parcel. A count that
  * leaves a cell non-convex or narrower than the minimum width steps down, columns first; a parcel
- * no count fits (a re-entrant notch the depth rows would cross) falls back to its convex parts,
- * the ear triangles merged while convex, one cell each, ID `<escaped parcel id>/part/<JSON keys>`.
- * Strip IDs:
+ * no count fits (a re-entrant notch the depth rows would cross) is cut into convex parts (the ear
+ * triangles merged while convex), each strip-split from its side on the frontage or its longest
+ * outer side, with IDs under `<escaped parcel id>/part/<index>`; the sides between parts carry
+ * `seamEdgeId` identities instead of a neighbour. Strip IDs:
  * `<escaped parcel id>/strip/<JSON [column, row]>`, row 0 on the frontage; `parent` is the
  * column `<escaped parcel id>/strip/<JSON [column]>` and `corner` is empty. Throws like
  * `createCellSpace`. */
 export function createStripSpace(parcel: Parcel): CellSpace {
 	validate(parcel, 0);
 	const ring = canonicalRing(parcel);
-	const rings = stripRings(parcel, ring.id, (i) =>
-		parcelEdgeId(parcel.corners[i].id, parcel.corners[(i + 1) % parcel.corners.length].id)
-	);
-	if (!rings) {
-		const parts = mergedParts(ring);
-		return freeze(
-			parcel,
-			parts,
-			parts.map(({ id }) => id),
-			parts.map(() => '')
-		);
-	}
+	const edgeAt = (i: number) =>
+		parcelEdgeId(parcel.corners[i].id, parcel.corners[(i + 1) % parcel.corners.length].id);
+	const rings = stripRings(parcel, ring.id, edgeAt) ?? partStrips(parcel, ring);
 	return freeze(
 		parcel,
 		rings,
 		rings.map(({ corner }) => corner),
 		rings.map(() => '')
 	);
+}
+
+/** Identity of an inner seam between two convex parts of a parcel, from one corner key to the next. */
+export function seamEdgeId(from: string, to: string): string {
+	return JSON.stringify(['seam', from, to]);
+}
+
+/** The side of a convex part a strip split fronts: the part's side on the parcel frontage, else its
+ * longest side on the parcel boundary, else its longest side. */
+// Exact arithmetic: side indices.
+function partFront(part: KeyedRing, frontage: ReadonlySet<string>): number {
+	const length = (i: number) => {
+		const [a, b] = [part.points[i], part.points[(i + 1) % part.points.length]];
+		return Math.hypot(b[0] - a[0], b[1] - a[1]);
+	};
+	const sides = part.keys.map((_, i) => i);
+	const longest = (list: number[]) => list.sort((a, b) => length(b) - length(a))[0];
+	const fronting = sides.filter((i) => frontage.has(part.edges[i] ?? ''));
+	const outer = sides.filter((i) => part.edges[i] !== null);
+	return longest(fronting.length ? fronting : outer.length ? outer : sides);
+}
+
+/** Strip cells of each convex part of a parcel the strip split cannot take whole. Seams between
+ * parts carry `seamEdgeId` identities; a part no strip count fits stays one cell. */
+function partStrips(parcel: Parcel, ring: KeyedRing): readonly KeyedRing[] {
+	const frontage = new Set(parcel.frontage);
+	return mergedParts(ring).flatMap((part, k) => {
+		const edges = part.edges.map(
+			(edge, i) => edge ?? seamEdgeId(part.keys[i], part.keys[(i + 1) % part.keys.length])
+		);
+		const front = partFront(part, frontage);
+		const corners = part.keys.map((id, i) => ({ id, position: part.points[i] }));
+		const id = `${ring.id}/part/${k}`;
+		const strips = stripRings(
+			{ ...parcel, corners, frontage: [edges[front]] },
+			id,
+			(i) => edges[i]
+		);
+		return strips ?? [{ ...part, id, corner: id, edges }];
+	});
 }
 
 /** Width of a fine cell in meters: twice its area over its perimeter. */

@@ -1,7 +1,13 @@
 import { distance } from '../../core/geometry';
 import { blockInputs, resolveParams } from '../../core/params';
 import { Random } from '../../core/random';
-import { cellCentre, type CellSpace, type FineCell } from '../cell-space';
+import {
+	cellCentre,
+	fineCellWidth,
+	minimumStripWidthM,
+	type CellSpace,
+	type FineCell
+} from '../cell-space';
 import {
 	boundaryDepth,
 	frontageCentre,
@@ -26,8 +32,10 @@ export type HouseInputs = Readonly<{
 }>;
 
 /** What the site tells the house: the rise in meters from the lane at the frontage to the cell
- * space's base, and whether the parcel holds a block corner. Both default to none. */
-export type HouseSite = Readonly<{ entranceRiseM?: number; corner?: boolean }>;
+ * space's base, whether the parcel holds a block corner, and the lowest ground elevation under the
+ * parcel, down to which ground plates reach as a plinth. Defaults: no rise, no corner, plates of
+ * plot thickness. */
+export type HouseSite = Readonly<{ entranceRiseM?: number; corner?: boolean; groundZ?: number }>;
 
 /** Occupancy of one fine cell: built storeys are `fromStorey` up to, not including, `toStorey`. */
 export type HouseCell = Readonly<{
@@ -48,7 +56,7 @@ export type HouseCourt = Readonly<{
 	entrances: readonly (readonly string[])[];
 	scale: HouseScale;
 	courtAccess: boolean;
-	site: Readonly<{ entranceRiseM: number; corner: boolean }>;
+	site: Readonly<{ entranceRiseM: number; corner: boolean; groundZ: number | null }>;
 }>;
 
 type Plan = Map<string, { role: CellRole; storeys: number }>;
@@ -183,7 +191,8 @@ function carve(plan: Plan, path: readonly string[]) {
  * boundary is the court, void to the sky, unless the space opens onto a shared court (a cell side
  * with `court`), the house is large and its style row keeps no court, or no inner cell exists.
  * Other cells are built when they touch the frontage or their centre lies within `width` meters of
- * it (a large house builds them all); the rest stay garden. Storeys are round(height / storey
+ * it (a large house builds them all) and are at least the strip minimum width; the rest stay
+ * garden. Storeys are round(height / storey
  * height), clamped to the space and, for a large house, to the large storey count; complexity
  * lowers cells toward the rear, steps court-facing cells down and lets seeded cells rise or fall,
  * all by the style's occupancy row. A calm house keeps its frontage cells on one eaves line: the
@@ -224,7 +233,8 @@ export function createHouseCourt(
 	for (const cell of space.cells) {
 		const span = distances.get(cell.id) ?? 0;
 		if (courtIds.has(cell.id)) plan.set(cell.id, { role: 'court', storeys: 0 });
-		else if (!fronting(cell) && span > reach) plan.set(cell.id, { role: 'garden', storeys: 0 });
+		else if ((!fronting(cell) && span > reach) || fineCellWidth(cell) < minimumStripWidthM)
+			plan.set(cell.id, { role: 'garden', storeys: 0 });
 		else if (scale === 'calm' && fronting(cell)) plan.set(cell.id, { role: 'wing', storeys: front });
 		else {
 			const faceCourt = cell.sides.some(
@@ -255,7 +265,11 @@ export function createHouseCourt(
 		entrances: Object.freeze(entrances.map((path) => Object.freeze(path))),
 		scale,
 		courtAccess,
-		site: Object.freeze({ entranceRiseM, corner: site.corner ?? false }),
+		site: Object.freeze({
+			entranceRiseM,
+			corner: site.corner ?? false,
+			groundZ: site.groundZ ?? null
+		}),
 		cells: Object.freeze(
 			space.cells.map(({ id }) => {
 				const { role, storeys } = plan.get(id) ?? { role: 'garden', storeys: 0 };

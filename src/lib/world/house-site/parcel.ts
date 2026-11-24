@@ -1,5 +1,5 @@
 import { distance, type Vec2 } from '../../core/geometry';
-import { PlaceableObject } from '../../core/object';
+import { Random } from '../../core/random';
 import { defaults } from '../../../config/house-site';
 import {
 	createStripSpace,
@@ -11,7 +11,6 @@ import { levelHeight, storeysPerLevel, type CityColumn } from '../../domain/city
 import {
 	createHouseCourt,
 	createHouseObject,
-	entranceStepCellId,
 	houseStyles,
 	type HouseDetail,
 	type HouseInputs,
@@ -112,7 +111,8 @@ function frontageIndex(ring: readonly Vec2[], points: readonly Vec2[], tolerance
  * IDs and world-meter coordinates; parcel edges on the block's public court become its court
  * edges, so the house opens onto that court instead of cutting its own. A parcel with another lane
  * edge turned from its frontage is a block corner. The entrance rise is the base above the ground
- * at the portal's middle. Edges below cell space's minimum collapse while surviving corners keep
+ * at the portal's middle. The house seed is the input seed derived by the parcel ID, so
+ * neighbours draw differently inside one style row. Edges below cell space's minimum collapse while surviving corners keep
  * their original keys. Throws RangeError for a public holding, mismatched frontage, missing
  * members or no shared bay. */
 export function createParcelHouse(
@@ -158,45 +158,34 @@ export function createParcelHouse(
 	);
 	const [[ax, ay], [bx, by]] = portal.points;
 	const laneZ = Math.min(space.baseZ, groundAt ? groundAt([(ax + bx) / 2, (ay + by) / 2]) : space.baseZ);
-	const site = { entranceRiseM: space.baseZ - laneZ, corner: isCorner(ring, edge, block) };
+	const lowest = Math.min(groundZ, laneZ);
+	const site = {
+		entranceRiseM: space.baseZ - laneZ,
+		corner: isCorner(ring, edge, block),
+		groundZ: lowest
+	};
 	return Object.freeze({
 		parcel,
 		portal,
 		style,
 		space,
-		house: createHouseCourt(space, inputs, style, site),
+		house: createHouseCourt(
+			space,
+			{ ...inputs, seed: Random.create({ seed: inputs.seed }).derive(parcel.id).seed },
+			style,
+			site
+		),
 		baseLevel,
-		groundZ: Math.min(groundZ, laneZ),
+		groundZ: lowest,
 		laneZ
 	});
 }
 
-/** Builds a placed house on a plinth: one prism per fine cell from the lowest ground of the block
- * up to the plot plates, and under the entrance steps only up to the lane. The house's occupancy
- * and its original parts stay intact. */
+/** Builds a placed house. Its ground plates reach down to the lowest ground under the block as a
+ * plinth, and the entrance steps stand on that ground. */
 export function createParcelHouseObject(
-	{ parcel, style, space, house, groundZ, laneZ }: ReturnType<typeof createParcelHouse>,
+	{ style, space, house }: ReturnType<typeof createParcelHouse>,
 	detail: HouseDetail
 ) {
-	const object = createHouseObject(space, house, detail, style);
-	const seat = object.parts.find(({ slot, shape }) => slot === 'plot' && shape.kind === 'prism');
-	if (seat?.shape.kind !== 'prism') return object;
-	const seatBase = seat.shape.base;
-	const steps = entranceStepCellId(space, house);
-	const depth = space.baseZ - seatBase;
-	const plinths = space.cells.flatMap((cell) => {
-		const top = cell.id === steps ? laneZ - depth : seatBase;
-		return groundZ < top
-			? [
-					{
-						id: `${cell.id}/plinth`,
-						slot: 'plot',
-						shape: { kind: 'prism' as const, polygon: cell.quad, base: groundZ, top }
-					}
-				]
-			: [];
-	});
-	return plinths.length
-		? PlaceableObject.create({ ...object, id: object.id, parts: [...plinths, ...object.parts] })
-		: object;
+	return createHouseObject(space, house, detail, style);
 }
