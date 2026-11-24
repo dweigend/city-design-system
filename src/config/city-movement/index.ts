@@ -1,0 +1,96 @@
+import { defineSettings, settingValues } from '../setting';
+
+export const settings = defineSettings({
+	walkwayLevelOffsets: {
+		value: [-1, 0, 1],
+		unit: 'levels',
+		meaning: 'Walkway levels relative to the local eaves plane',
+		principle: 'CITY-4'
+	},
+	walkwayRoofClearanceM: {
+		value: 1,
+		unit: 'm',
+		meaning: 'Minimum underside allowance over the incident roof envelopes',
+		rationale: 'Keep the whole deck above the taller column'
+	},
+	walkwaySideClearanceM: {
+		value: 3.5,
+		unit: 'm',
+		meaning: 'Lateral clearance around the pedestrian centerline',
+		rationale: 'Cover half the walkway ribbon and its widened corners'
+	},
+	walkwayCatchmentM: {
+		value: 240,
+		unit: 'm',
+		meaning: 'Extent of walkway branches from the primary crossing',
+		rationale: 'One visible quarter around the crossing'
+	},
+	groundTraceStepM: {
+		value: 8,
+		unit: 'm',
+		meaning: 'Terrain sampling interval along provisional lanes',
+		rationale: 'Follow the same ground as the plan'
+	},
+	stairCostRatio: {
+		value: 4,
+		unit: 'm/m',
+		meaning: 'Cost per meter of stair travel',
+		rationale: 'Include the inconvenience of switching levels'
+	},
+	stairFlightRiseM: {
+		value: 3.5,
+		unit: 'm',
+		meaning: 'Maximum rise along one flight of a switchback',
+		rationale: 'Use half a nominal lattice level'
+	},
+	stairRunRatio: {
+		value: 1.65,
+		unit: 'm/m',
+		meaning: 'Horizontal run per meter of stair rise',
+		rationale: 'Allow walkable treads'
+	},
+	stairFlightSeparationM: {
+		value: 1.8,
+		unit: 'm',
+		meaning: 'Distance between the two flight axes of a switchback',
+		rationale: 'Leave space between flights'
+	},
+	railHalfLengthM: {
+		value: 4000,
+		unit: 'm',
+		meaning: 'Half-length of the regional rail demonstration',
+		rationale: 'Cover the valley measurement reach'
+	},
+	railCorridorStepM: {
+		value: 60,
+		unit: 'm',
+		meaning: 'Spacing of parallel rail corridors',
+		principle: 'CITY-4'
+	},
+	railCorridorCount: {
+		value: 14,
+		unit: 'corridors/side',
+		meaning: 'Parallel rail candidates surveyed on either side of town',
+		rationale: 'Compare nearby routes across both terraces'
+	},
+	railDockReachM: {
+		value: 180,
+		unit: 'm',
+		meaning: 'Maximum horizontal reach of a station dock',
+		rationale: 'Constrain the demonstration to local connections'
+	},
+	railCatchmentSpacingM: {
+		value: 700,
+		unit: 'm',
+		meaning: 'Along-valley spacing between catchment centers',
+		rationale: 'Two town station catchments at walking distance'
+	},
+	railCatchmentHalfWidthM: {
+		value: 250,
+		unit: 'm',
+		meaning: 'Along-valley half-length of each station catchment',
+		rationale: 'Keep docking areas disjoint'
+	}
+});
+
+export const defaults = settingValues(settings);

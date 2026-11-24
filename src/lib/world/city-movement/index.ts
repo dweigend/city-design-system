@@ -1,0 +1,77 @@
+import { required } from '../../core/invariant';
+import { levelHeight, type CityColumn } from '../../domain/city-volume';
+import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';
+import type { CityGrid, CitySite } from '../city-site';
+import { defaults } from '../../../config/city-movement';
+import { groundLanes } from './ground';
+import { link, raised, support, type Link } from './links';
+import { cityRail } from './rail';
+import { stair } from './stairs';
+import { walkways } from './walkways';
+
+/** City adapter kinds. Chapter views may attach their own presentation to them. */
+export type { CityMovementKind } from './links';
+
+/** Alternative walkway planes relative to the derived eaves plane. */
+export const walkwayLevelOffsets = defaults.walkwayLevelOffsets;
+
+/** Surveys the regional rail once per city layout, independently of the displayed walkway level. */
+export function readCityRail(site: CitySite, layout: CityGrid, columns: readonly CityColumn[]) {
+	return cityRail(site, layout, groundLanes(site, layout), columns);
+}
+
+/** Composes plan lanes, selected crossings, the eaves walkways and platform access into one graph.
+ * A cell is accessible at each of its corner nodes. The demo endpoints use the primary crossing. */
+export function readCityMovement(
+	site: CitySite,
+	layout: CityGrid,
+	columns: readonly CityColumn[],
+	offset: number,
+	rail: ReturnType<typeof readCityRail>
+) {
+	const ground = groundLanes(site, layout);
+	const upper = walkways(ground, columns, layout.datumZ, offset);
+	const nodes = new Map(
+		[...ground.nodes.values(), ...upper.nodes.values()].map((node) => [node.id, node])
+	);
+	const docks: Link[] = [];
+	for (const station of rail?.stations ?? []) {
+		const approach = required(nodes.get(station.approachId), 'rail approach');
+		const z = station.position[2];
+		const level = Math.round((z - layout.datumZ) / levelHeight);
+		const platform: MovementNode = {
+			id: 'station/' + station.id,
+			position: station.position,
+			level
+		};
+		const top = raised(approach, level, z);
+		nodes.set(platform.id, platform);
+		if (top.position[0] === platform.position[0] && top.position[1] === platform.position[1]) {
+			docks.push(stair('dock-stair/' + station.id, approach, platform));
+			continue;
+		}
+		if (!nodes.has(top.id)) {
+			nodes.set(top.id, top);
+			docks.push(stair('station-stair/' + station.id, approach, top));
+		}
+		docks.push(
+			link(
+				'dock/' + station.id,
+				'walkway',
+				top,
+				platform,
+				[],
+				[support(approach, top), { base: station.base, top: platform.position }]
+			)
+		);
+	}
+	const network = createMovementNetwork(
+		[...nodes.values()],
+		[...ground.links, ...upper.links, ...docks]
+	);
+	const crossing = ground.crossings[0];
+	const from = crossing && (upper.nodes.get(crossing.first) ?? ground.node(crossing.first));
+	const to = crossing && (upper.nodes.get(crossing.last) ?? ground.node(crossing.last));
+	const demoEnds = from && to ? ([from.id, to.id] as const) : undefined;
+	return { network, level: upper.level, elevationM: upper.z, demoEnds };
+}
