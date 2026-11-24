@@ -1,20 +1,29 @@
 import { describe, expect, test } from 'bun:test';
 import type { Vec2 } from '../../core/geometry';
 import type { Shape } from '../../core/object';
-import { cellAreaM2, createCellSpace, type CellSpace, type Parcel } from '../cell-space';
+import {
+	cellAreaM2,
+	createCellSpace,
+	parcelEdgeId,
+	type CellSpace,
+	type Parcel
+} from '../cell-space';
+import { example } from './example';
 import {
 	cellRoles,
 	createHouseCourt,
 	createHouseObject,
-	houseDetails,
 	houseFigures,
-	type HouseCourt
+	houseSlots,
+	houseStyles,
+	type HouseCourt,
+	type HouseStyle
 } from './index';
 
 const parcel = (id: string, points: readonly Vec2[], frontage = [0]): Parcel => ({
 	id,
 	corners: points.map((position, i) => ({ id: `c${i}`, position })),
-	frontage,
+	frontage: frontage.map((i) => parcelEdgeId(`c${i}`, `c${(i + 1) % points.length}`)),
 	baseZ: 2,
 	storeyCount: 10
 });
@@ -55,14 +64,16 @@ const grid = [0, 0.5, 1].flatMap((complexity) =>
 		[1, 12, 32].map((width) => ({ height, width, complexity, seed: 5 }))
 	)
 );
+const styles = Object.values(houseStyles) as HouseStyle[];
 
-/** Signed volume and directed-edge balance of a triangle mesh; a closed, consistently wound
- * surface has every directed edge matched by its reverse. */
+/** Signed volume and unmatched directed edges of a triangle mesh; a closed, consistently wound
+ * two-manifold surface has none and counts every undirected edge exactly twice. */
 function closure(shape: Shape) {
 	if (shape.kind !== 'mesh') throw new Error('Expected a mesh');
 	const { positions: p, indices } = shape;
 	const key = (i: number) => [0, 1, 2].map((k) => Math.round(p[i * 3 + k] * 1e6)).join(',');
-	const edges = new Map<string, number>();
+	const directed = new Map<string, number>();
+	const uses = new Map<string, number>();
 	let volume = 0;
 	for (let t = 0; t < indices.length; t += 3) {
 		const [a, b, c] = [indices[t], indices[t + 1], indices[t + 2]];
@@ -77,13 +88,25 @@ function closure(shape: Shape) {
 			[b, c],
 			[c, a]
 		]) {
-			const forward = `${key(u)}>${key(v)}`;
-			const backward = `${key(v)}>${key(u)}`;
-			if (edges.get(backward)) edges.set(backward, (edges.get(backward) ?? 0) - 1);
-			else edges.set(forward, (edges.get(forward) ?? 0) + 1);
+			const [ku, kv] = [key(u), key(v)];
+			if (ku === kv) continue;
+			directed.set(`${ku}>${kv}`, (directed.get(`${ku}>${kv}`) ?? 0) + 1);
+			const pair = [ku, kv].sort().join('|');
+			uses.set(pair, (uses.get(pair) ?? 0) + 1);
 		}
 	}
-	return { volume, open: [...edges.values()].filter(Boolean).length };
+	const open = [...directed].filter(([edge, n]) => {
+		const [u, v] = edge.split('>');
+		return n !== (directed.get(`${v}>${u}`) ?? 0);
+	}).length;
+	return { volume, open, crowded: [...uses.values()].filter((n) => n > 2).length };
+}
+
+function inside(quad: readonly Vec2[], [px, py]: Vec2) {
+	return quad.every(([ax, ay], i) => {
+		const [bx, by] = quad[(i + 1) % quad.length];
+		return (bx - ax) * (py - ay) - (by - ay) * (px - ax) >= -1e-6;
+	});
 }
 
 function groundReach(space: CellSpace, house: HouseCourt) {
@@ -100,46 +123,79 @@ function groundReach(space: CellSpace, house: HouseCourt) {
 	return seen;
 }
 
+/** Every mass part is closed and stays inside its own cell and storey span, or is an envelope shell. */
+function checkMasses(space: CellSpace, house: HouseCourt, style: HouseStyle) {
+	const object = createHouseObject(space, house, 'block', style);
+	let volume = 0;
+	for (const { id, slot, shape } of object.parts) {
+		if (slot !== 'mass') continue;
+		const result = closure(shape);
+		expect(result.open).toBe(0);
+		expect(result.crowded).toBe(0);
+		expect(result.volume).toBeGreaterThan(0);
+		volume += result.volume;
+		const cell = space.cells.find((c) => id.startsWith(`${c.id}/`));
+		const occupancy = house.cells.find((c) => c.id === cell?.id);
+		if (!cell || !occupancy || shape.kind !== 'mesh') continue;
+		const { positions: p } = shape;
+		const top =
+			space.baseZ + Math.min(space.storeyCount, occupancy.toStorey + 1) * space.storeyHeightM;
+		for (let i = 0; i < p.length; i += 3) {
+			expect(inside(cell.quad, [p[i], p[i + 1]])).toBe(true);
+			expect(p[i + 2]).toBeGreaterThanOrEqual(
+				space.baseZ + occupancy.fromStorey * space.storeyHeightM - 1e-6
+			);
+			expect(p[i + 2]).toBeLessThanOrEqual(top + 1e-6);
+		}
+	}
+	return volume;
+}
+
 describe('createHouseCourt', () => {
 	test.each(spaces)(
-		'%s: closed, non-overlapping volume and a reachable court at every input bound',
+		'%s: closed, non-overlapping volume and a reachable court for every style at the input bounds',
 		(_, space) => {
-			for (const inputs of grid) {
-				const house = createHouseCourt(space, inputs);
-				const object = createHouseObject(space, house, 'block');
-				const mass = object.parts.find(({ slot }) => slot === 'mass');
-				const expected = house.cells.reduce((sum, { id, fromStorey, toStorey }) => {
-					const cell = space.cells.find((c) => c.id === id);
-					return (
-						sum + (cell ? cellAreaM2(cell) : 0) * (toStorey - fromStorey) * space.storeyHeightM
-					);
-				}, 0);
-				const { volume, open } = closure(
-					mass?.shape ?? { kind: 'mesh', positions: [], indices: [] }
-				);
-				expect(open).toBe(0);
-				expect(volume).toBeCloseTo(expected, 4);
-				const court = house.cells.filter(({ role }) => role === 'court');
-				expect(court.length).toBeGreaterThan(0);
-				const reach = groundReach(space, house);
-				for (const { id } of court) expect(reach.has(id)).toBe(true);
-				for (const cell of house.cells)
-					expect(cellRoles[cell.role].built).toBe(cell.toStorey > cell.fromStorey);
-			}
+			for (const style of styles)
+				for (const inputs of grid) {
+					const house = createHouseCourt(space, inputs, style);
+					const volume = checkMasses(space, house, style);
+					if (style.fill.kinds.includes('envelope')) {
+						const expected = house.cells.reduce((sum, { id, fromStorey, toStorey }) => {
+							const cell = space.cells.find((c) => c.id === id);
+							return (
+								sum + (cell ? cellAreaM2(cell) : 0) * (toStorey - fromStorey) * space.storeyHeightM
+							);
+						}, 0);
+						expect(volume).toBeCloseTo(expected, 4);
+					}
+					const court = house.cells.filter(({ role }) => role === 'court');
+					expect(court.length).toBeGreaterThan(0);
+					const reach = groundReach(space, house);
+					for (const { id } of court) expect(reach.has(id)).toBe(true);
+					for (const cell of house.cells)
+						expect(cellRoles[cell.role].built).toBe(cell.toStorey > cell.fromStorey);
+				}
 		}
 	);
 
-	test('is deterministic and the seed only moves storeys', () => {
+	test('is deterministic per style and the seed only moves storeys of the neutral row', () => {
 		const [, space] = spaces[2];
 		const inputs = { height: 21, width: 32, complexity: 1, seed: 9 };
-		expect(createHouseCourt(space, inputs)).toEqual(createHouseCourt(space, inputs));
+		for (const style of styles) {
+			expect(createHouseCourt(space, inputs, style)).toEqual(
+				createHouseCourt(space, inputs, style)
+			);
+			expect(
+				createHouseObject(space, createHouseCourt(space, inputs, style), 'full', style)
+			).toEqual(createHouseObject(space, createHouseCourt(space, inputs, style), 'full', style));
+		}
 		const other = createHouseCourt(space, { ...inputs, seed: 10 });
 		expect(other.cells.map(({ role }) => role)).toEqual(
 			createHouseCourt(space, inputs).cells.map(({ role }) => role)
 		);
 	});
 
-	test('built cells grow with width and every cell grows with height', () => {
+	test('built cells grow with width and every cell grows with height (neutral row)', () => {
 		for (const [, space] of spaces) {
 			const built = (width: number) =>
 				new Set(
@@ -147,9 +203,8 @@ describe('createHouseCourt', () => {
 						.cells.filter(({ toStorey }) => toStorey > 0)
 						.map(({ id }) => id)
 				);
-			for (const width of [1, 6, 12, 20, 32])
-				for (const id of built(width))
-					expect(built(width + 4).has(id) || width + 4 > 32).toBe(true);
+			for (const width of [1, 6, 12, 20, 28])
+				for (const id of built(width)) expect(built(width + 4).has(id)).toBe(true);
 			const storeys = (height: number) =>
 				createHouseCourt(space, { height, complexity: 1, width: 32, seed: 1 }).cells.map(
 					({ toStorey }) => toStorey
@@ -167,28 +222,144 @@ describe('createHouseCourt', () => {
 		expect(createHouseCourt(space, { height: 32, seed: 0 }).storeys).toBe(9);
 		const narrow = createHouseCourt(space, { width: 1, seed: 0 });
 		for (const cell of space.cells) {
-			const role = narrow.cells.find(({ id }) => id === cell.id)?.role;
-			if (!cell.sides.some(({ frontage }) => frontage))
-				expect(['court', 'garden']).toContain(role ?? '');
+			const role = narrow.cells.find(({ id }) => id === cell.id)?.role ?? '';
+			if (!cell.sides.some(({ frontage }) => frontage)) expect(['court', 'garden']).toContain(role);
 		}
 		expect(houseFigures(space, narrow).courtAreaM2).toBeGreaterThan(0);
 	});
 
-	test('geometry names role slots only and carries no colour', () => {
-		const [, space] = spaces[4];
-		const house = createHouseCourt(space, { height: 17.5, width: 32, complexity: 1, seed: 3 });
-		for (const detail of ['full', 'block'] as const) {
-			const object = createHouseObject(space, house, detail);
-			expect(object.slots).toEqual(houseDetails[detail]);
-			expect(JSON.stringify(object)).not.toMatch(/#[\da-f]{3,8}\b|rgba?\(|hsla?\(|"--/i);
-			expect(object.anchors.map(({ name }) => name)).toEqual(['entrance', 'court']);
-		}
-		expect(createHouseObject(space, house, 'full').parts.some(({ slot }) => slot === 'stair')).toBe(
-			true
-		);
+	test('the neutral row is the R11 house: its slots and parts', () => {
+		const [, space] = spaces[0];
+		const house = createHouseCourt(space, { height: 14, width: 28, complexity: 0.6, seed: 3 });
+		expect(houseSlots(houseStyles.neutral, 'full')).toEqual([
+			'plot',
+			'court',
+			'wall',
+			'floorEdge',
+			'roofEdge',
+			'opening',
+			'gallery',
+			'stair'
+		]);
+		const parts = createHouseObject(space, house, 'full').parts.map(({ slot }) => slot);
+		expect([...new Set(parts)]).toEqual([
+			'plot',
+			'court',
+			'wall',
+			'floorEdge',
+			'roofEdge',
+			'opening',
+			'gallery',
+			'stair'
+		]);
+		expect(
+			house.cells.map(({ role, toStorey }) => `${role}${toStorey}`).join(' ')
+		).toMatchSnapshot();
 	});
 
-	test('a space without frontage or a foreign house throws', () => {
+	test('geometry names role slots only and carries no colour, in every style', () => {
+		const [, space] = spaces[4];
+		for (const style of styles) {
+			const house = createHouseCourt(
+				space,
+				{ height: 17.5, width: 32, complexity: 1, seed: 3 },
+				style
+			);
+			for (const detail of ['full', 'block'] as const) {
+				const object = createHouseObject(space, house, detail, style);
+				expect(object.slots).toEqual(houseSlots(style, detail));
+				expect(JSON.stringify(object)).not.toMatch(/#[\da-f]{3,8}\b|rgba?\(|hsla?\(|"--/i);
+				expect(object.anchors.map(({ name }) => name)).toEqual(['entrance', 'court']);
+			}
+		}
+	});
+
+	test('the three styles differ in their parts on the same parcel and inputs', () => {
+		const [, space] = spaces[0];
+		const inputs = { height: 17.5, width: 28, complexity: 0.8, seed: 3 };
+		const slots = (style: HouseStyle) =>
+			new Set(
+				createHouseObject(space, createHouseCourt(space, inputs, style), 'full', style).parts.map(
+					({ slot }) => slot
+				)
+			);
+		expect(slots(houseStyles.archigram).has('frame')).toBe(true);
+		expect(slots(houseStyles.organic).has('planter')).toBe(true);
+		expect([...slots(houseStyles.memphis)].some((slot) => slot.startsWith('roof-'))).toBe(true);
+	});
+
+	test('R11-04: gallery and stair stay inside the court or are left out', () => {
+		const tiny = createCellSpace(
+			parcel('tiny', [
+				[0, 0],
+				[2, 0],
+				[2, 2],
+				[0, 2]
+			])
+		);
+		const house = createHouseCourt(tiny, { height: 21, width: 32, complexity: 1, seed: 3 });
+		for (const { slot, shape } of createHouseObject(tiny, house, 'full').parts)
+			if ((slot === 'gallery' || slot === 'stair') && shape.kind === 'mesh')
+				for (let i = 0; i < shape.positions.length; i += 3)
+					expect(
+						inside(
+							[
+								[0, 0],
+								[2, 0],
+								[2, 2],
+								[0, 2]
+							],
+							[shape.positions[i], shape.positions[i + 1]]
+						)
+					).toBe(true);
+	});
+
+	test('R11-05: cells touching only at an edge go to separate envelope shells', () => {
+		const space = createCellSpace(
+			parcel('wedge', [
+				[0, 0],
+				[28, 0],
+				[0, 28]
+			])
+		);
+		const house = createHouseCourt(space, { height: 21, width: 16, complexity: 1, seed: 0 });
+		for (const { slot, shape } of createHouseObject(space, house, 'full').parts)
+			if (slot === 'wall') expect(closure(shape).crowded).toBe(0);
+	});
+
+	test('R11-07: occupancy of a space with other cell identities or another style throws', () => {
+		const [, space] = spaces[0];
+		const renamed = createCellSpace({
+			...parcel(
+				'rectangle',
+				[
+					[0, 0],
+					[20, 0],
+					[20, 30],
+					[0, 30]
+				],
+				[]
+			),
+			corners: ['w', 'x', 'y', 'z'].map((id, i) => ({
+				id,
+				position:
+					space.cells[0].quad[0] &&
+					(
+						[
+							[0, 0],
+							[20, 0],
+							[20, 30],
+							[0, 30]
+						] as Vec2[]
+					)[i]
+			}))
+		});
+		const house = createHouseCourt(space, { seed: 1 });
+		expect(() => createHouseObject(renamed, { ...house }, 'block')).toThrow(RangeError);
+		expect(() => createHouseObject(space, house, 'block', houseStyles.memphis)).toThrow(RangeError);
+	});
+
+	test('a space without frontage throws and the example builds', () => {
 		const [, space] = spaces[0];
 		const blind = {
 			...space,
@@ -198,8 +369,6 @@ describe('createHouseCourt', () => {
 			}))
 		};
 		expect(() => createHouseCourt(blind, { seed: 1 })).toThrow(RangeError);
-		expect(() =>
-			createHouseObject(spaces[1][1], createHouseCourt(space, { seed: 1 }), 'block')
-		).toThrow(RangeError);
+		expect(example().parts.length).toBeGreaterThan(0);
 	});
 });

@@ -1,0 +1,3 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`createHouseCourt the neutral row is the R11 house: its slots and parts 1`] = `"wing4 gate2 court0 wing1 wing4 wing2 court0 wing3 wing2 wing3 court0 wing1 wing3 wing2 court0 wing2"`;

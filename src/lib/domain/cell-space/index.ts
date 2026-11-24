@@ -29,7 +29,8 @@ export function storeyAddress(cellId: string, storey: number): string {
 
 function refine(quad: KeyedRing, rounds: number): readonly KeyedRing[] {
 	let cells: readonly KeyedRing[] = [quad];
-	for (let round = 0; round < rounds; round += 1) cells = cells.flatMap((cell) => cornerQuads(cell, false));
+	for (let round = 0; round < rounds; round += 1)
+		cells = cells.flatMap((cell) => cornerQuads(cell, false));
 	return cells;
 }
 
@@ -55,11 +56,19 @@ function canonicalRing(parcel: Parcel): KeyedRing {
  * `<escaped parcel id>[/ear/<JSON corner keys>]/child/<JSON [corner key]>`, refined cells append
  * `/child/<JSON [corner|next|centre|previous]>`. Invalid parcels throw RangeError, degenerate ones
  * DegenerateParcelError. */
-export function createCellSpace(parcel: Parcel, rounds: number = defaults.refinementRounds): CellSpace {
+export function createCellSpace(
+	parcel: Parcel,
+	rounds: number = defaults.refinementRounds
+): CellSpace {
 	validate(parcel, rounds);
 	const parents = convexParts(canonicalRing(parcel)).flatMap((part) => cornerQuads(part, true));
-	const cells = parents.flatMap((quad) => refine(quad, rounds).map((cell) => ({ cell, parent: quad.id })));
-	const sides = resolveSides(cells.map(({ cell }) => cell), new Set(parcel.frontage));
+	const cells = parents.flatMap((quad) =>
+		refine(quad, rounds).map((cell) => ({ cell, parent: quad.id }))
+	);
+	const sides = resolveSides(
+		cells.map(({ cell }) => cell),
+		new Set(parcel.frontage)
+	);
 	return Object.freeze({
 		id: parcel.id,
 		baseZ: parcel.baseZ,

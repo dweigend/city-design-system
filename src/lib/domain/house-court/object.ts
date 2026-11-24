@@ -17,7 +17,9 @@ import { edges, envelope, openings, plates } from './parts';
  * closed solids as one `mass` slot. */
 export type HouseDetail = 'full' | 'block';
 
-const unique = (slots: readonly (string | false)[]) => [...new Set(slots.filter((slot): slot is string => !!slot))];
+const unique = (slots: readonly (string | false)[]) => [
+	...new Set(slots.filter((slot): slot is string => !!slot))
+];
 
 /** The ordered role slots a style declares at a detail, whether or not a given house uses them all. */
 export function houseSlots(style: HouseStyle, detail: HouseDetail): readonly string[] {
@@ -50,9 +52,14 @@ export function houseSlots(style: HouseStyle, detail: HouseDetail): readonly str
 
 function context(space: CellSpace, house: HouseCourt, style: HouseStyle): Context {
 	const ids = space.cells.map(({ id }) => id);
-	if (space.id !== house.spaceId || ids.length !== house.cellIds.length || ids.some((id, i) => id !== house.cellIds[i]))
+	if (
+		space.id !== house.spaceId ||
+		ids.length !== house.cellIds.length ||
+		ids.some((id, i) => id !== house.cellIds[i])
+	)
 		throw new RangeError('House occupancy belongs to another cell space');
-	if (style.id !== house.styleId) throw new RangeError('House occupancy was made with another style');
+	if (style.id !== house.styleId)
+		throw new RangeError('House occupancy was made with another style');
 	if (style.fill.kinds.includes('envelope') && style.fill.kinds.length > 1)
 		throw new RangeError('An envelope fill must be the only fill kind of a style');
 	return {
@@ -140,7 +147,8 @@ function accessParts(ctx: Context, house: HouseCourt): Part[] {
 
 function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] {
 	const solids = cellSolids(ctx);
-	if (detail === 'block') return [...plates(ctx), ...envelopeParts(ctx, detail), ...solidParts(solids, true)];
+	if (detail === 'block')
+		return [...plates(ctx), ...envelopeParts(ctx, detail), ...solidParts(solids, true)];
 	return [
 		...plates(ctx),
 		...envelopeParts(ctx, detail),

@@ -1,4 +1,4 @@
-import { createCellSpace } from '../cell-space';
+import { createCellSpace, parcelEdgeId } from '../cell-space';
 import { createHouseCourt, createHouseObject } from './index';
 
 // A small two-storey court house on a 14 x 14 m garden plot, fronting south, drawn as a block.
@@ -11,7 +11,7 @@ export function example() {
 			{ id: 'c', position: [14, 14] },
 			{ id: 'd', position: [0, 14] }
 		],
-		frontage: [0],
+		frontage: [parcelEdgeId('a', 'b')],
 		baseZ: 0,
 		storeyCount: 4
 	});

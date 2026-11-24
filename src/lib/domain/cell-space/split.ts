@@ -106,7 +106,12 @@ export function cornerQuads(ring: KeyedRing, first: boolean): readonly KeyedRing
 			id: `${ring.id}/child/${JSON.stringify([label])}`,
 			corner: first ? ring.keys[i] : ring.corner,
 			ear: ring.ear,
-			keys: [ring.keys[i], midpointKey(ring.keys[i], ring.keys[j]), centreKey, midpointKey(ring.keys[h], ring.keys[i])],
+			keys: [
+				ring.keys[i],
+				midpointKey(ring.keys[i], ring.keys[j]),
+				centreKey,
+				midpointKey(ring.keys[h], ring.keys[i])
+			],
 			points: [corner, midpoint(corner, ring.points[j]), centre, midpoint(ring.points[h], corner)],
 			edges: [ring.edges[i], null, null, ring.edges[h]]
 		};

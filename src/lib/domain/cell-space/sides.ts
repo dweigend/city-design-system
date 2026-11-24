@@ -20,7 +20,9 @@ export function resolveSides(
 ): readonly (readonly CellSide[])[] {
 	const owners = new Map<string, string[]>();
 	for (const cell of cells)
-		cell.keys.forEach((_, i) => owners.set(sideKey(cell, i), [...(owners.get(sideKey(cell, i)) ?? []), cell.id]));
+		cell.keys.forEach((_, i) =>
+			owners.set(sideKey(cell, i), [...(owners.get(sideKey(cell, i)) ?? []), cell.id])
+		);
 	return cells.map((cell) =>
 		cell.keys.map((_, i): CellSide => {
 			const others = (owners.get(sideKey(cell, i)) ?? []).filter((id) => id !== cell.id);

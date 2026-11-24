@@ -17,4 +17,3 @@ export function builtAt(context: Context, id: string | null, storey: number): bo
 	const cell = id === null ? undefined : context.occupancy.get(id);
 	return !!cell && storey >= cell.fromStorey && storey < cell.toStorey;
 }
-

@@ -39,7 +39,10 @@ function frame(ctx: Context): Faces {
 			add(at(corner, 0), at(corner, to));
 			for (let storey = from; storey <= to; storey += 1) add(at(corner, storey), at(next, storey));
 			for (let storey = from; storey < to; storey += 1)
-				if (!builtAt(ctx, cell.sides[i].neighbour, storey) && ctx.random.derive(`${cell.id}/brace/${i}/${storey}`).number() < brace)
+				if (
+					!builtAt(ctx, cell.sides[i].neighbour, storey) &&
+					ctx.random.derive(`${cell.id}/brace/${i}/${storey}`).number() < brace
+				)
 					add(at(corner, storey), at(next, storey + 1));
 		});
 	});
@@ -66,7 +69,16 @@ function tubes(ctx: Context): Faces {
 			if (neighbour !== null || ctx.random.derive(`${cell.id}/tube/${i}`).number() >= share) return;
 			const wall = side(cell.quad, i);
 			const [x, y] = wall.at(1 / 2, -(archigramTubeRadiusM + archigramBarM));
-			const ring = rounded([[x - archigramTubeRadiusM, y - archigramTubeRadiusM], [x + archigramTubeRadiusM, y - archigramTubeRadiusM], [x + archigramTubeRadiusM, y + archigramTubeRadiusM], [x - archigramTubeRadiusM, y + archigramTubeRadiusM]], 0, archigramTubeRadiusM * (1 - 1 / 8));
+			const ring = rounded(
+				[
+					[x - archigramTubeRadiusM, y - archigramTubeRadiusM],
+					[x + archigramTubeRadiusM, y - archigramTubeRadiusM],
+					[x + archigramTubeRadiusM, y + archigramTubeRadiusM],
+					[x - archigramTubeRadiusM, y + archigramTubeRadiusM]
+				],
+				0,
+				archigramTubeRadiusM * (1 - 1 / 8)
+			);
 			faces.push(...extrusion(ring, ctx.space.baseZ, level(ctx, to) + ctx.space.storeyHeightM / 2));
 		});
 	});

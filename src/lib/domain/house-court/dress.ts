@@ -8,10 +8,24 @@ import { builtAt, type Context } from './context';
 import { bar, dome, extrusion, inradius, inset, rounded, wallFigure, type Faces } from './solids';
 import type { OpeningKind } from './styles';
 
-const { curveSegments, figureDepthM, collarShareRatio, stripeShareRatio, stripeProudM, capShareRatio, treeTrunkM, treeHeightM, treeCrownM, organicPlanterM } = defaults;
+const {
+	curveSegments,
+	figureDepthM,
+	collarShareRatio,
+	stripeShareRatio,
+	stripeProudM,
+	capShareRatio,
+	treeTrunkM,
+	treeHeightM,
+	treeCrownM,
+	organicPlanterM
+} = defaults;
 
 // Exact arithmetic: corners of the opening figures.
-const figureSides: Record<Exclude<OpeningKind, 'rect'>, number> = { round: curveSegments, triangle: 3 };
+const figureSides: Record<Exclude<OpeningKind, 'rect'>, number> = {
+	round: curveSegments,
+	triangle: 3
+};
 
 const part = (id: string, slot: string, faces: Faces): Part[] => {
 	const shape = faceMesh(faces);
@@ -35,7 +49,17 @@ function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 		const [x, y] = wall.at((k + 1 / 2) / count, -s.gapM);
 		const at: Vec3 = [x, y, z];
 		panes.push(...wallFigure(at, along, wall.normal, radius, figureSides[kind], figureDepthM * 2));
-		if (opening.collar) collars.push(...wallFigure(at, along, wall.normal, radius * collarShareRatio, figureSides[kind], figureDepthM));
+		if (opening.collar)
+			collars.push(
+				...wallFigure(
+					at,
+					along,
+					wall.normal,
+					radius * collarShareRatio,
+					figureSides[kind],
+					figureDepthM
+				)
+			);
 	}
 	return { panes, collars };
 }
@@ -53,7 +77,10 @@ export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): Part
 				panes.push(...result.panes);
 				collars.push(...result.collars);
 			});
-		return [...part(`${s.key}/collars`, 'collar', collars), ...part(`${s.key}/openings`, 'opening', panes)];
+		return [
+			...part(`${s.key}/collars`, 'collar', collars),
+			...part(`${s.key}/openings`, 'opening', panes)
+		];
 	});
 }
 
@@ -62,11 +89,14 @@ export function patterns(ctx: Context, solids: readonly CellSolid[]): Part[] {
 	const share = ctx.style.parts.patternShareRatio * ctx.complexity;
 	const band = stripeShareRatio * ctx.space.storeyHeightM;
 	return solids.flatMap((s) => {
-		if (s.key.endsWith('/roof') || ctx.random.derive(`${s.key}/pattern`).number() >= share) return [];
+		if (s.key.endsWith('/roof') || ctx.random.derive(`${s.key}/pattern`).number() >= share)
+			return [];
 		const ring = inset(s.outline, -stripeProudM);
 		const base = ctx.space.baseZ + s.fromStorey * ctx.space.storeyHeightM;
 		const count = Math.floor(((s.toStorey - s.fromStorey) * ctx.space.storeyHeightM) / band);
-		const faces = Array.from({ length: count }, (_, k) => k).filter((k) => k % 2).flatMap((k) => extrusion(ring, base + k * band, base + (k + 1) * band));
+		const faces = Array.from({ length: count }, (_, k) => k)
+			.filter((k) => k % 2)
+			.flatMap((k) => extrusion(ring, base + k * band, base + (k + 1) * band));
 		return part(`${s.key}/pattern`, 'pattern', faces);
 	});
 }
@@ -78,8 +108,17 @@ export function caps(ctx: Context, solids: readonly CellSolid[]): Part[] {
 		if (!s.key.endsWith('/roof')) return [];
 		const rise = ctx.style.roof.riseRatio * ctx.space.storeyHeightM;
 		const r = inradius(s.outline) * capShareRatio;
-		const base = ctx.space.baseZ + s.fromStorey * ctx.space.storeyHeightM + rise * (1 - capShareRatio);
-		return part(`${s.key}/cap`, 'planter', dome(rounded(s.outline, inradius(s.outline) - r, r * capShareRatio), base, rise * capShareRatio + organicPlanterM));
+		const base =
+			ctx.space.baseZ + s.fromStorey * ctx.space.storeyHeightM + rise * (1 - capShareRatio);
+		return part(
+			`${s.key}/cap`,
+			'planter',
+			dome(
+				rounded(s.outline, inradius(s.outline) - r, r * capShareRatio),
+				base,
+				rise * capShareRatio + organicPlanterM
+			)
+		);
 	});
 }
 
@@ -87,13 +126,21 @@ export function caps(ctx: Context, solids: readonly CellSolid[]): Part[] {
 export function trees(ctx: Context): Part[] {
 	const share = ctx.style.parts.treeShareRatio * ctx.complexity;
 	return ctx.space.cells.flatMap((cell) => {
-		if (ctx.occupancy.get(cell.id)?.role !== 'court' || ctx.random.derive(`${cell.id}/tree`).number() >= share) return [];
+		if (
+			ctx.occupancy.get(cell.id)?.role !== 'court' ||
+			ctx.random.derive(`${cell.id}/tree`).number() >= share
+		)
+			return [];
 		const [x, y] = cellCentre(cell);
 		const z = ctx.space.baseZ;
 		const crown = Math.min(treeCrownM, inradius(cell.quad) * capShareRatio);
 		const crownPlan = rounded(cell.quad, inradius(cell.quad) - crown, crown * capShareRatio);
 		return [
-			...part(`${cell.id}/trunk`, 'trunk', bar([x, y, z], [x, y, z + treeHeightM - crown / 2], treeTrunkM)),
+			...part(
+				`${cell.id}/trunk`,
+				'trunk',
+				bar([x, y, z], [x, y, z + treeHeightM - crown / 2], treeTrunkM)
+			),
 			...part(`${cell.id}/crown`, 'foliage', dome(crownPlan, z + treeHeightM - crown, crown))
 		];
 	});

@@ -28,7 +28,10 @@ function inside(quad: readonly Vec2[], points: readonly Vec2[]): boolean {
 	return points.every(([px, py]) =>
 		quad.every(([ax, ay], i) => {
 			const [bx, by] = quad[(i + 1) % quad.length];
-			return (bx - ax) * (py - ay) - (by - ay) * (px - ax) >= -Number.EPSILON * (Math.abs(px) + Math.abs(py) + 1);
+			return (
+				(bx - ax) * (py - ay) - (by - ay) * (px - ax) >=
+				-Number.EPSILON * (Math.abs(px) + Math.abs(py) + 1)
+			);
 		})
 	);
 }
@@ -54,13 +57,23 @@ export function courtSides(context: Context, complexity: number): CourtSide[] {
 }
 
 /** The court side the stair runs along: nearest the entrance, with room for gallery and stair. */
-export function stairSide(context: Context, sides: readonly CourtSide[], entrance: Vec2 | undefined): CourtSide | undefined {
+export function stairSide(
+	context: Context,
+	sides: readonly CourtSide[],
+	entrance: Vec2 | undefined
+): CourtSide | undefined {
 	if (!entrance) return undefined;
 	const near = (s: CourtSide) => distance(side(s.cell.quad, s.index).at(1 / 2, 0), entrance);
-	return [...sides].filter((s) => fits(context, s, galleryDepthM + stairWidthM)).sort((a, b) => near(a) - near(b))[0];
+	return [...sides]
+		.filter((s) => fits(context, s, galleryDepthM + stairWidthM))
+		.sort((a, b) => near(a) - near(b))[0];
 }
 
-function galleryBoxes(context: Context, { cell, house, index }: CourtSide, landing: boolean): Box[] {
+function galleryBoxes(
+	context: Context,
+	{ cell, house, index }: CourtSide,
+	landing: boolean
+): Box[] {
 	const wall = side(cell.quad, index);
 	const first = Math.max(1, house.fromStorey);
 	const [mx, my] = wall.at(1 / 2, galleryDepthM / 2);
@@ -71,18 +84,32 @@ function galleryBoxes(context: Context, { cell, house, index }: CourtSide, landi
 		const gap = k === 0 ? open : 0;
 		const [rx, ry] = wall.at((1 - gap) / 2, galleryDepthM - railingThicknessM / 2);
 		return [
-			{ center: [mx, my, z - galleryThicknessM / 2], size: [wall.length, galleryDepthM, galleryThicknessM], rotation: wall.rotation },
-			{ center: [rx, ry, z + railingHeightM / 2], size: [wall.length * (1 - gap), railingThicknessM, railingHeightM], rotation: wall.rotation }
+			{
+				center: [mx, my, z - galleryThicknessM / 2],
+				size: [wall.length, galleryDepthM, galleryThicknessM],
+				rotation: wall.rotation
+			},
+			{
+				center: [rx, ry, z + railingHeightM / 2],
+				size: [wall.length * (1 - gap), railingThicknessM, railingHeightM],
+				rotation: wall.rotation
+			}
 		] satisfies Box[];
 	}).flat();
 }
 
 /** Galleries along every court side, one mesh part per side, in cell order; the railing opens at
  * the stair landing. */
-export function galleries(context: Context, sides: readonly CourtSide[], landing?: CourtSide): Part[] {
+export function galleries(
+	context: Context,
+	sides: readonly CourtSide[],
+	landing?: CourtSide
+): Part[] {
 	return sides.flatMap((courtSide) => {
 		const shape = boxMesh(galleryBoxes(context, courtSide, courtSide === landing));
-		return shape ? [{ id: `${courtSide.cell.id}/gallery/${courtSide.index}`, slot: 'gallery', shape }] : [];
+		return shape
+			? [{ id: `${courtSide.cell.id}/gallery/${courtSide.index}`, slot: 'gallery', shape }]
+			: [];
 	});
 }
 
@@ -97,7 +124,11 @@ export function stair(context: Context, chosen: CourtSide | undefined): Part[] {
 	const boxes = Array.from({ length: steps }, (_, k): Box => {
 		const [x, y] = wall.at((k + 1 / 2) / steps, galleryDepthM + stairWidthM / 2);
 		const top = ((k + 1) / steps) * rise;
-		return { center: [x, y, context.space.baseZ + top / 2], size: [wall.length / steps, stairWidthM, top], rotation: wall.rotation };
+		return {
+			center: [x, y, context.space.baseZ + top / 2],
+			size: [wall.length / steps, stairWidthM, top],
+			rotation: wall.rotation
+		};
 	});
 	const shape = boxMesh(boxes);
 	return shape ? [{ id: `${chosen.cell.id}/stair`, slot: 'stair', shape }] : [];

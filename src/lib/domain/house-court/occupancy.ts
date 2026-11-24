@@ -69,7 +69,11 @@ function cellStoreys(
 /** Wing cells of two or more storeys stand on an open ground storey with the style's share. */
 function raise(plan: Plan, random: Random, rule: Occupancy) {
 	for (const [id, cell] of plan)
-		if (cell.role === 'wing' && cell.storeys > 1 && random.derive(`${id}/ground`).number() < rule.groundOpenRatio)
+		if (
+			cell.role === 'wing' &&
+			cell.storeys > 1 &&
+			random.derive(`${id}/ground`).number() < rule.groundOpenRatio
+		)
 			plan.set(id, { role: 'raised', storeys: cell.storeys });
 }
 

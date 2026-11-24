@@ -8,4 +8,11 @@ export { createHouseCourt, type HouseCell, type HouseCourt, type HouseInputs } f
 export { createHouseObject, houseFigures, houseSlots, type HouseDetail } from './object';
 
 /** Style rows: occupancy tendencies, fills, roofs, openings, part kinds and slots per style. */
-export { houseStyles, type FillKind, type HouseStyle, type HouseStyleName, type OpeningKind, type RoofKind } from './styles';
+export {
+	houseStyles,
+	type FillKind,
+	type HouseStyle,
+	type HouseStyleName,
+	type OpeningKind,
+	type RoofKind
+} from './styles';

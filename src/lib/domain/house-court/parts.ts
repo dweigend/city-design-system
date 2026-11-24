@@ -131,4 +131,3 @@ export function openings(context: Context): Part[] {
 	});
 	return part(`${context.space.id}/openings`, 'opening', boxMesh(boxes));
 }
-

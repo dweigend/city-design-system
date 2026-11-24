@@ -32,7 +32,12 @@ export type HouseStyle = Readonly<{
 		capsuleGapM: number;
 	}>;
 	roof: Readonly<{ kinds: readonly RoofKind[]; riseRatio: number }>;
-	opening: Readonly<{ kinds: readonly OpeningKind[]; pitchM: number; sizeM: number; collar: boolean }>;
+	opening: Readonly<{
+		kinds: readonly OpeningKind[];
+		pitchM: number;
+		sizeM: number;
+		collar: boolean;
+	}>;
 	parts: Readonly<{
 		edges: boolean;
 		galleries: boolean;
@@ -48,7 +53,13 @@ export type HouseStyle = Readonly<{
 	slots: Readonly<{ body: readonly string[]; roof: readonly string[]; capsule: readonly string[] }>;
 }>;
 
-const none = { braceShareRatio: 0, tubeShareRatio: 0, mastStoreys: 0, patternShareRatio: 0, treeShareRatio: 0 };
+const none = {
+	braceShareRatio: 0,
+	tubeShareRatio: 0,
+	mastStoreys: 0,
+	patternShareRatio: 0,
+	treeShareRatio: 0
+};
 const neutralOccupancy = {
 	rearDropRatio: d.rearDropRatio,
 	courtStepComplexityRatio: d.courtStepComplexityRatio,
@@ -58,7 +69,14 @@ const neutralOccupancy = {
 	jitterStoreys: 1,
 	groundOpenRatio: 0
 };
-const solidFill = { insetM: 0, roundShareRatio: 0, stackShareRatio: 0, stackInsetM: 0, capsuleShareRatio: 0, capsuleGapM: 0 };
+const solidFill = {
+	insetM: 0,
+	roundShareRatio: 0,
+	stackShareRatio: 0,
+	stackInsetM: 0,
+	capsuleShareRatio: 0,
+	capsuleGapM: 0
+};
 
 /** The style rows of the chapter. `neutral` is the R11 house: one merged envelope with floor
  * edges, roof edges, window rows, galleries and a stair. */
@@ -74,29 +92,112 @@ export const houseStyles = Object.freeze({
 	},
 	memphis: {
 		id: 'memphis',
-		occupancy: { ...neutralOccupancy, rearDropRatio: d.memphisRearDropRatio, courtStepStoreys: 0, jitterComplexityRatio: 0, jitterShareRatio: d.memphisJitterShareRatio, jitterStoreys: d.memphisJitterStoreys },
-		fill: { ...solidFill, kinds: ['block', 'round', 'block', 'chamfer'], insetM: d.memphisInsetM, roundShareRatio: d.roundBlockShareRatio, stackShareRatio: d.memphisStackShareRatio, stackInsetM: d.memphisStackInsetM },
+		occupancy: {
+			...neutralOccupancy,
+			rearDropRatio: d.memphisRearDropRatio,
+			courtStepStoreys: 0,
+			jitterComplexityRatio: 0,
+			jitterShareRatio: d.memphisJitterShareRatio,
+			jitterStoreys: d.memphisJitterStoreys
+		},
+		fill: {
+			...solidFill,
+			kinds: ['block', 'round', 'block', 'chamfer'],
+			insetM: d.memphisInsetM,
+			roundShareRatio: d.roundBlockShareRatio,
+			stackShareRatio: d.memphisStackShareRatio,
+			stackInsetM: d.memphisStackInsetM
+		},
 		roof: { kinds: ['flat', 'wedge', 'cone', 'dome', 'flat'], riseRatio: d.memphisRoofRiseRatio },
-		opening: { kinds: ['round', 'triangle'], pitchM: d.memphisOpeningPitchM, sizeM: d.memphisOpeningSizeM, collar: true },
-		parts: { ...none, edges: false, galleries: false, stair: true, frame: false, planters: false, patternShareRatio: d.memphisPatternShareRatio },
-		slots: { body: ['body-white', 'body-yellow', 'body-blue', 'body-timber', 'body-red', 'body-white'], roof: ['roof-blue', 'roof-yellow', 'roof-red'], capsule: [] }
+		opening: {
+			kinds: ['round', 'triangle'],
+			pitchM: d.memphisOpeningPitchM,
+			sizeM: d.memphisOpeningSizeM,
+			collar: true
+		},
+		parts: {
+			...none,
+			edges: false,
+			galleries: false,
+			stair: true,
+			frame: false,
+			planters: false,
+			patternShareRatio: d.memphisPatternShareRatio
+		},
+		slots: {
+			body: ['body-white', 'body-yellow', 'body-blue', 'body-timber', 'body-red', 'body-white'],
+			roof: ['roof-blue', 'roof-yellow', 'roof-red'],
+			capsule: []
+		}
 	},
 	archigram: {
 		id: 'archigram',
-		occupancy: { ...neutralOccupancy, rearDropRatio: 0, courtStepStoreys: 0, jitterComplexityRatio: 0, jitterShareRatio: d.archigramJitterShareRatio, groundOpenRatio: d.archigramGroundOpenRatio },
-		fill: { ...solidFill, kinds: ['capsule'], insetM: d.archigramCapsuleInsetM, roundShareRatio: d.organicRoundShareRatio, capsuleShareRatio: d.archigramCapsuleShareRatio, capsuleGapM: d.archigramCapsuleGapM },
+		occupancy: {
+			...neutralOccupancy,
+			rearDropRatio: 0,
+			courtStepStoreys: 0,
+			jitterComplexityRatio: 0,
+			jitterShareRatio: d.archigramJitterShareRatio,
+			groundOpenRatio: d.archigramGroundOpenRatio
+		},
+		fill: {
+			...solidFill,
+			kinds: ['capsule'],
+			insetM: d.archigramCapsuleInsetM,
+			roundShareRatio: d.organicRoundShareRatio,
+			capsuleShareRatio: d.archigramCapsuleShareRatio,
+			capsuleGapM: d.archigramCapsuleGapM
+		},
 		roof: { kinds: ['flat'], riseRatio: 0 },
-		opening: { kinds: ['round'], pitchM: d.archigramOpeningPitchM, sizeM: d.archigramOpeningSizeM, collar: false },
-		parts: { ...none, edges: false, galleries: true, stair: true, frame: true, planters: false, braceShareRatio: d.archigramBraceShareRatio, tubeShareRatio: d.archigramTubeShareRatio, mastStoreys: d.archigramMastStoreys },
+		opening: {
+			kinds: ['round'],
+			pitchM: d.archigramOpeningPitchM,
+			sizeM: d.archigramOpeningSizeM,
+			collar: false
+		},
+		parts: {
+			...none,
+			edges: false,
+			galleries: true,
+			stair: true,
+			frame: true,
+			planters: false,
+			braceShareRatio: d.archigramBraceShareRatio,
+			tubeShareRatio: d.archigramTubeShareRatio,
+			mastStoreys: d.archigramMastStoreys
+		},
 		slots: { body: [], roof: [], capsule: ['capsule', 'capsule', 'capsule-accent', 'capsule'] }
 	},
 	organic: {
 		id: 'organic',
-		occupancy: { ...neutralOccupancy, rearDropRatio: d.organicRearDropRatio, courtStepComplexityRatio: 0, jitterShareRatio: d.organicJitterShareRatio },
-		fill: { ...solidFill, kinds: ['pod'], insetM: d.organicInsetM, roundShareRatio: d.organicRoundShareRatio },
+		occupancy: {
+			...neutralOccupancy,
+			rearDropRatio: d.organicRearDropRatio,
+			courtStepComplexityRatio: 0,
+			jitterShareRatio: d.organicJitterShareRatio
+		},
+		fill: {
+			...solidFill,
+			kinds: ['pod'],
+			insetM: d.organicInsetM,
+			roundShareRatio: d.organicRoundShareRatio
+		},
 		roof: { kinds: ['dome'], riseRatio: d.organicRoofRiseRatio },
-		opening: { kinds: ['round'], pitchM: d.organicOpeningPitchM, sizeM: d.organicOpeningSizeM, collar: true },
-		parts: { ...none, edges: false, galleries: false, stair: true, frame: false, planters: true, treeShareRatio: d.organicTreeShareRatio },
+		opening: {
+			kinds: ['round'],
+			pitchM: d.organicOpeningPitchM,
+			sizeM: d.organicOpeningSizeM,
+			collar: true
+		},
+		parts: {
+			...none,
+			edges: false,
+			galleries: false,
+			stair: true,
+			frame: false,
+			planters: true,
+			treeShareRatio: d.organicTreeShareRatio
+		},
 		slots: { body: ['body-shell'], roof: ['body-shell'], capsule: [] }
 	}
 } as const satisfies Record<string, HouseStyle>);

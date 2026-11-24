@@ -4,7 +4,17 @@ import { defaults } from '../../../config/house-court';
 import type { FineCell } from '../cell-space';
 import type { HouseCell } from './occupancy';
 import type { Context } from './context';
-import { chamfered, cone, dome, extrusion, inradius, inset, rounded, wedge, type Faces } from './solids';
+import {
+	chamfered,
+	cone,
+	dome,
+	extrusion,
+	inradius,
+	inset,
+	rounded,
+	wedge,
+	type Faces
+} from './solids';
 import type { FillKind, HouseStyle, RoofKind } from './styles';
 
 const { chamferShareRatio, insetLimitRatio } = defaults;
@@ -29,6 +39,11 @@ export function pick<T>(random: Random, key: string, list: readonly T[]): T {
 }
 
 function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
+	const shape = shaped(kind, quad, gap, style);
+	return shape.length < 3 ? [...quad] : shape;
+}
+
+function shaped(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
 	const limit = inradius(quad) * insetLimitRatio;
 	const g = Math.min(gap, limit);
 	const curve = style.fill.roundShareRatio * Math.max(0, inradius(quad) - g);
@@ -48,9 +63,28 @@ function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: Hous
 
 const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
 
-function solid(ctx: Context, cell: FineCell, kind: FillKind, gap: number, slot: string, from: number, to: number, key: string): CellSolid {
+function solid(
+	ctx: Context,
+	cell: FineCell,
+	kind: FillKind,
+	gap: number,
+	slot: string,
+	from: number,
+	to: number,
+	key: string
+): CellSolid {
 	const points = outline(kind, cell.quad, gap, ctx.style);
-	return { cell, slot, outline: points, gapM: Math.min(gap, inradius(cell.quad) * insetLimitRatio), fromStorey: from, toStorey: to, flat: kind === 'block' || kind === 'chamfer', faces: extrusion(points, level(ctx, from), level(ctx, to)), key };
+	return {
+		cell,
+		slot,
+		outline: points,
+		gapM: Math.min(gap, inradius(cell.quad) * insetLimitRatio),
+		fromStorey: from,
+		toStorey: to,
+		flat: kind === 'block' || kind === 'chamfer',
+		faces: extrusion(points, level(ctx, from), level(ctx, to)),
+		key
+	};
 }
 
 function capsules(ctx: Context, cell: FineCell, house: HouseCell): CellSolid[] {
@@ -62,7 +96,17 @@ function capsules(ctx: Context, cell: FineCell, house: HouseCell): CellSolid[] {
 		const points = outline('capsule', cell.quad, fill.insetM, ctx.style);
 		const base = level(ctx, storey) + fill.capsuleGapM;
 		const top = level(ctx, storey + 1) - fill.capsuleGapM;
-		result.push({ cell, slot: pick(ctx.random, `${key}/slot`, slots.capsule), outline: points, gapM: fill.insetM, fromStorey: storey, toStorey: storey + 1, flat: false, faces: extrusion(points, base, top), key });
+		result.push({
+			cell,
+			slot: pick(ctx.random, `${key}/slot`, slots.capsule),
+			outline: points,
+			gapM: fill.insetM,
+			fromStorey: storey,
+			toStorey: storey + 1,
+			flat: false,
+			faces: extrusion(points, base, top),
+			key
+		});
 	}
 	return result;
 }
@@ -71,11 +115,32 @@ function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind)
 	const { fill, slots } = ctx.style;
 	const stream = ctx.random.derive(`${cell.id}/stack`);
 	const runs = house.toStorey - house.fromStorey;
-	const split = runs > 1 && stream.number() < fill.stackShareRatio ? house.fromStorey + 1 + Math.floor(stream.number() * (runs - 1)) : house.toStorey;
-	const lower = solid(ctx, cell, kind, fill.insetM, pick(ctx.random, `${cell.id}/body/0`, slots.body), house.fromStorey, split, `${cell.id}/body/0`);
+	const split =
+		runs > 1 && stream.number() < fill.stackShareRatio
+			? house.fromStorey + 1 + Math.floor(stream.number() * (runs - 1))
+			: house.toStorey;
+	const lower = solid(
+		ctx,
+		cell,
+		kind,
+		fill.insetM,
+		pick(ctx.random, `${cell.id}/body/0`, slots.body),
+		house.fromStorey,
+		split,
+		`${cell.id}/body/0`
+	);
 	if (split === house.toStorey) return [lower];
 	const upperKind = fill.kinds[(fill.kinds.indexOf(kind) + 1) % fill.kinds.length];
-	const upper = solid(ctx, cell, upperKind, fill.insetM + fill.stackInsetM, pick(ctx.random, `${cell.id}/body/1`, slots.body), split, house.toStorey, `${cell.id}/body/1`);
+	const upper = solid(
+		ctx,
+		cell,
+		upperKind,
+		fill.insetM + fill.stackInsetM,
+		pick(ctx.random, `${cell.id}/body/1`, slots.body),
+		split,
+		house.toStorey,
+		`${cell.id}/body/1`
+	);
 	return [lower, upper];
 }
 
@@ -85,9 +150,25 @@ function roof(ctx: Context, top: CellSolid): CellSolid[] {
 	const { roof: rule, slots } = ctx.style;
 	const kind: RoofKind = pick(ctx.random, `${top.cell.id}/roof`, rule.kinds);
 	if (kind === 'flat' || top.toStorey >= ctx.space.storeyCount) return [];
-	const slot = slots.roof.length ? pick(ctx.random, `${top.cell.id}/roof/slot`, slots.roof) : top.slot;
-	const faces = roofShapes[kind](top.outline, level(ctx, top.toStorey), rule.riseRatio * ctx.space.storeyHeightM);
-	return [{ ...top, slot, fromStorey: top.toStorey, toStorey: top.toStorey + 1, flat: false, faces, key: `${top.cell.id}/roof` }];
+	const slot = slots.roof.length
+		? pick(ctx.random, `${top.cell.id}/roof/slot`, slots.roof)
+		: top.slot;
+	const faces = roofShapes[kind](
+		top.outline,
+		level(ctx, top.toStorey),
+		rule.riseRatio * ctx.space.storeyHeightM
+	);
+	return [
+		{
+			...top,
+			slot,
+			fromStorey: top.toStorey,
+			toStorey: top.toStorey + 1,
+			flat: false,
+			faces,
+			key: `${top.cell.id}/roof`
+		}
+	];
 }
 
 /** The closed solids of every built cell for a style without a merged envelope: stacked bodies,

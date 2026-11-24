@@ -38,4 +38,3 @@ export type CellSpace = Readonly<{
 	storeyCount: number;
 	cells: readonly FineCell[];
 }>;
-

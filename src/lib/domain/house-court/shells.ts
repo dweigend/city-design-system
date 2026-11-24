@@ -12,7 +12,11 @@ function nodes(ctx: Context): Node[] {
 	return ctx.space.cells.flatMap((cell) => {
 		const house = ctx.occupancy.get(cell.id);
 		if (!house) return [];
-		return Array.from({ length: Math.max(0, house.toStorey - house.fromStorey) }, (_, k) => ({ cell, storey: house.fromStorey + k, id: nodeId(cell.id, house.fromStorey + k) }));
+		return Array.from({ length: Math.max(0, house.toStorey - house.fromStorey) }, (_, k) => ({
+			cell,
+			storey: house.fromStorey + k,
+			id: nodeId(cell.id, house.fromStorey + k)
+		}));
 	});
 }
 
@@ -38,7 +42,10 @@ export function shellFaces(ctx: Context, members: ReadonlySet<string>): Face[] {
 				const j = (i + 1) % cell.quad.length;
 				const across = cell.sides[i].neighbour;
 				if (across === null || !members.has(nodeId(across, storey)))
-					faces.push({ owner: nodeId(cell.id, storey), points: [low[i], low[j], high[j], high[i]] });
+					faces.push({
+						owner: nodeId(cell.id, storey),
+						points: [low[i], low[j], high[j], high[i]]
+					});
 			});
 		}
 	}
@@ -94,4 +101,3 @@ export function shells(ctx: Context): ReadonlySet<string>[] {
 		}
 	}
 }
-

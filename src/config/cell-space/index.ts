@@ -5,7 +5,8 @@ export const settings = defineSettings({
 	refinementRounds: {
 		value: 1,
 		unit: 'count',
-		meaning: 'Default midpoint refinement rounds applied to every corner quad after the first split',
+		meaning:
+			'Default midpoint refinement rounds applied to every corner quad after the first split',
 		bounds: { min: 0 },
 		principle: 'GRID-1',
 		rationale:
@@ -16,7 +17,8 @@ export const settings = defineSettings({
 		unit: 'count',
 		meaning: 'Largest accepted number of refinement rounds',
 		bounds: { min: 0 },
-		rationale: 'Each round multiplies the cells by four; three rounds give 64 cells per corner quad.'
+		rationale:
+			'Each round multiplies the cells by four; three rounds give 64 cells per corner quad.'
 	},
 	storeyHeightM: {
 		value: 3.5,
