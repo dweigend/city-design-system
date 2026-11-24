@@ -39,7 +39,10 @@ for (const variant of [
 		}
 		for (const edge of network.edges.filter(({ kind }) => kind === 'walkway')) {
 			expect(edge.supports).toHaveLength(2);
-			expect(edge.supports?.map(({ top }) => top)).toEqual([edge.points[0], edge.points[edge.points.length - 1]]);
+			expect(edge.supports?.map(({ top }) => top)).toEqual([
+				edge.points[0],
+				edge.points[edge.points.length - 1]
+			]);
 			for (const { base, top } of edge.supports ?? []) {
 				expect(site.valley.readGround(base[0], base[1]).cover).toBe('dry');
 				expect(top[2]).toBeGreaterThan(base[2]);
