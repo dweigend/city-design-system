@@ -1,12 +1,12 @@
 import type { Browser } from '@playwright/test';
-import { driveFrames, measuredRss, openChrome, openRoute } from './chrome';
-import { nextFrame, readFrames, settledFrame, startFrames } from './frames';
+import { protocol } from '../config/perf-baseline';
+import { measuredRss, openChrome, openRoute } from './chrome';
+import { driveGestures, nextFrame, readFrames, settledFrame, startFrames } from './frames';
 import { round } from './host';
 import { townFixtures } from './pipeline';
 import { strokePath } from './stroke';
 
-const interactions = 20;
-const paintParcels = 30;
+const paintParcels = protocol.perfStrokeParcels.value;
 const wholeTown = '/architecture?sheet=town&block=all';
 
 type Route = Awaited<ReturnType<typeof openRoute>>;
@@ -30,12 +30,11 @@ async function withRoute<T>(
 
 async function architecture({ page, canvas, heapMiB }: Route) {
 	await canvas.focus();
-	const { index } = await startFrames(page);
-	await driveFrames(page, interactions, (i) =>
+	const frames = await driveGestures(page, (i) =>
 		page.keyboard.press(i % 2 ? 'ArrowLeft' : 'ArrowRight')
 	);
 	return {
-		...(await readFrames(page, index)),
+		...frames,
 		drawCalls: Number(await canvas.getAttribute('data-stage-draw-calls')),
 		heapMiB: await heapMiB()
 	};
@@ -62,28 +61,24 @@ async function sandbox(
 	const y = Math.round(box.y + box.height * 0.52);
 	await canvas.focus();
 	await page.keyboard.press('v');
-	await page.mouse.move(x, y);
-	await page.mouse.down();
-	const panStart = await startFrames(page);
-	await driveFrames(page, interactions, (i) => page.mouse.move(x + (i % 2 ? 4 : -4), y));
-	const pan = await readFrames(page, panStart.index);
-	await page.mouse.up();
-
-	const zoomStart = await startFrames(page);
-	await driveFrames(page, interactions, (i) => page.mouse.wheel(0, i % 2 ? -40 : 40));
-	const zoom = await readFrames(page, zoomStart.index);
+	const pan = await driveGestures(page, (i) => page.mouse.move(x + (i % 2 ? 4 : -4), y), {
+		async begin() {
+			await page.mouse.move(x, y);
+			await page.mouse.down();
+		},
+		end: () => page.mouse.up()
+	});
+	const zoom = await driveGestures(page, (i) => page.mouse.wheel(0, i % 2 ? -40 : 40));
 
 	const reset = await startFrames(page);
 	await page.keyboard.press('Home');
 	await nextFrame(page, reset.index);
 	await page.keyboard.press('b');
 
-	const hoverStart = await startFrames(page);
 	if (hoverPoints.length < 2) throw new Error('No distinct parcels for hovering');
-	await driveFrames(page, interactions, (i) =>
+	const hover = await driveGestures(page, (i) =>
 		page.mouse.move(...hoverPoints[i % hoverPoints.length])
 	);
-	const hover = await readFrames(page, hoverStart.index);
 
 	const first = path[0];
 	await page.mouse.move(...first);
@@ -96,7 +91,9 @@ async function sandbox(
 	await page.mouse.up();
 	const painted = await settledFrame(page, paintStart, paintParcels);
 	const paint = {
-		...(await readFrames(page, paintStart.index, painted.at)),
+		...(await readFrames(page, [
+			{ from: paintStart.index, to: (await startFrames(page)).index, through: painted.at }
+		])),
 		wallMs: round(painted.at - paintStart.ms),
 		parcels: paintParcels,
 		tilePacks: painted.chunks - paintStart.chunks,
@@ -112,7 +109,7 @@ async function sandbox(
 
 async function load(
 	{ page, heapMiB }: Route,
-	save: ReturnType<typeof townFixtures>['saves'][number],
+	save: ReturnType<typeof townFixtures>['saves']['small'],
 	sampleRss: () => Promise<number>
 ) {
 	return measuredRss(sampleRss, async () => {
@@ -137,11 +134,15 @@ async function load(
 	});
 }
 
-export async function measureBrowser(origin: URL) {
+export async function measureBrowser(origin: URL, signal: AbortSignal) {
+	signal.throwIfAborted();
 	const fixtures = townFixtures();
 	Bun.gc(true);
 	const { browser, environment, sampleRss } = await openChrome();
+	const abort = () => void browser.close().catch(() => {});
+	signal.addEventListener('abort', abort, { once: true });
 	try {
+		signal.throwIfAborted();
 		const city = await withRoute(browser, origin, '/city', async () => ({}));
 		const architectureTown = await withRoute(
 			browser,
@@ -155,13 +156,15 @@ export async function measureBrowser(origin: URL) {
 		const sand = await withRoute(browser, origin, '/sandbox', (route) =>
 			measuredRss(sampleRss, () => sandbox(route, fixtures))
 		);
-		const loads = [];
-		for (const save of fixtures.saves) {
+		const readSave = (save: typeof fixtures.saves.small) => {
+			signal.throwIfAborted();
 			console.log(`Loading ${save.count} house placements`);
-			loads.push(
-				await withRoute(browser, origin, '/sandbox', (route) => load(route, save, sampleRss))
-			);
-		}
+			return withRoute(browser, origin, '/sandbox', (route) => load(route, save, sampleRss));
+		};
+		const loads = {
+			small: await readSave(fixtures.saves.small),
+			town: await readSave(fixtures.saves.town)
+		};
 		return {
 			environment,
 			city,
@@ -171,6 +174,7 @@ export async function measureBrowser(origin: URL) {
 			loads
 		};
 	} finally {
+		signal.removeEventListener('abort', abort);
 		await browser.close();
 	}
 }

@@ -16,7 +16,7 @@ import { createSandboxProjection } from '../../src/lib/scene/sandbox-projection'
 import { blockTriangleBudget, readHouseSalience } from '../../src/lib/scene/house-projection';
 import { shareBlockBudget } from '../../src/lib/scene/sandbox-interaction';
 import { createTownSandbox } from '../../src/routes/sandbox/town';
-import { settings } from '../config/perf-baseline';
+import { protocol } from '../config/perf-baseline';
 import { bytesPerMiB, round } from './host';
 
 const brushParams = {
@@ -32,6 +32,7 @@ function memory() {
 }
 
 function measure(largest: boolean) {
+	const started = performance.now();
 	const stages: Record<string, { ms: number; heapMiB: number; rssMiB: number }> = {};
 	function stage<T>(name: string, run: () => T): T {
 		const start = performance.now();
@@ -58,7 +59,7 @@ function measure(largest: boolean) {
 		parcelsByBlock.get(id)?.some(({ publicUse }) => !publicUse)
 	);
 	// Spread the bounded sample across the plan rather than concentrating it near the center.
-	const sampleBlocks = settings.perfLargestSampleBlocks.value;
+	const sampleBlocks = protocol.perfLargestSampleBlocks.value;
 	const chosen = largest
 		? Array.from(
 				{ length: sampleBlocks },
@@ -135,7 +136,7 @@ function measure(largest: boolean) {
 			latticeMembers: lattice.edges.length,
 			...drawables
 		},
-		totalMs: round(Object.values(stages).reduce((sum, { ms }) => sum + ms, 0)),
+		totalMs: round(performance.now() - started),
 		peakRssMiB: round(process.resourceUsage().maxRSS / 1024)
 	};
 }
@@ -153,7 +154,12 @@ export function townFixtures() {
 		document.apply(edits.slice(0, count));
 		return { count, contents: document.serialize() };
 	}
-	return { world, projection, points, saves: [save(300), save(2198)] };
+	return {
+		world,
+		projection,
+		points,
+		saves: { small: save(protocol.perfSmallLoadPlacements.value), town: save(edits.length) }
+	};
 }
 
 if (import.meta.main) console.log(JSON.stringify(measure(process.argv[2] === 'largest')));

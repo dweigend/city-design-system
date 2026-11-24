@@ -1,80 +1,173 @@
-import { settings } from '../config/perf-baseline';
+import { budgets, protocol } from '../config/perf-baseline';
 import type { Baseline } from './measure';
 import { round } from './host';
 
-const limits = settings;
-type Limit = Exclude<keyof typeof limits, 'perfLargestSampleBlocks'>;
+type Budget = keyof typeof budgets;
+type Noise =
+	| 'perfTimeNoiseFloor'
+	| 'perfFrameNoiseFloor'
+	| 'perfCpuNoiseFloor'
+	| 'perfCallNoiseFloor'
+	| 'perfPackNoiseFloor';
 type Percentiles = { p50: number; p95: number; p99: number };
-type Metric = { value: number; unit: string; limit?: Limit; percentiles?: Percentiles };
+type Metric = {
+	value: number;
+	unit: string;
+	hard?: number;
+	noise?: Noise;
+	percentiles?: Percentiles;
+	intervals?: number;
+};
 
 function metrics(result: Baseline) {
 	const rows = new Map<string, Metric>();
-	const add = (name: string, value: number, unit: string, limit?: Limit) => {
-		rows.set(name, { value, unit, limit });
+	const budget = (name: string, value: number, key: Budget, noise?: Noise) => {
+		const { unit, value: hard } = budgets[key];
+		rows.set(name, { value, unit, hard, noise });
 	};
-	const budget = (name: string, value: number, limit: Limit) =>
-		add(name, value, limits[limit].unit, limit);
-	const timing = (name: string, percentiles: Percentiles, limit?: Limit) =>
-		rows.set(name, { value: percentiles.p95, unit: 'ms', limit, percentiles });
+	const time = (name: string, value: number, key: Budget) =>
+		budget(name, value, key, 'perfTimeNoiseFloor');
+	const profile = (
+		name: string,
+		stats: Baseline['browser']['sandbox']['pan'],
+		frame: Budget,
+		cpu: Budget
+	) => {
+		rows.set(name + ' frame', {
+			value: stats.frameMs.p95,
+			unit: 'ms',
+			hard: budgets[frame].value,
+			noise: 'perfFrameNoiseFloor',
+			percentiles: stats.frameMs,
+			intervals: stats.intervals
+		});
+		rows.set(name + ' stage CPU', {
+			value: stats.cpuMs.p95,
+			unit: 'ms',
+			hard: budgets[cpu].value,
+			noise: 'perfCpuNoiseFloor',
+			percentiles: stats.cpuMs,
+			intervals: stats.intervals
+		});
+	};
 	for (const [name, city] of Object.entries(result.pipeline)) {
-		budget(
-			`${name} pipeline`,
-			city.totalMs,
-			name === 'town' ? 'perfTownPipeline' : 'perfLargestPipeline'
-		);
+		const town = name === 'town';
+		time(`${name} pipeline wall`, city.totalMs, town ? 'perfTownPipeline' : 'perfLargestPipeline');
 		for (const [stage, stats] of Object.entries(city.stages))
-			add(`${name} · ${stage}`, stats.ms, 'ms');
-		budget(`${name} pipeline peak RSS`, city.peakRssMiB, 'perfPipelineRss');
+			rows.set(`${name} · ${stage}`, { value: stats.ms, unit: 'ms' });
+		budget(
+			`${name} pipeline peak RSS`,
+			city.peakRssMiB,
+			town ? 'perfTownPipelineRss' : 'perfLargestPipelineRss'
+		);
 	}
 	const { city, architecture, architectureTown, sandbox, loads } = result.browser;
-	budget('/city first frame', city.firstFrameMs, 'perfFirstFrame');
-	budget('Architecture study first frame', architectureTown.firstFrameMs, 'perfFirstFrame');
-	budget('Architecture Whole Town first frame', architecture.firstFrameMs, 'perfFirstFrame');
-	budget('/sandbox first frame', sandbox.firstFrameMs, 'perfFirstFrame');
-	const interactions = {
-		pan: sandbox.pan,
-		zoom: sandbox.zoom,
-		hover: sandbox.hover,
-		paint: sandbox.paint
-	};
-	for (const [name, stats] of Object.entries(interactions)) {
-		timing(
-			`${name} frame p50/p95/p99`,
-			stats.frameMs,
-			name === 'paint' ? 'perfPaintFrame' : 'perfPanZoomHoverFrame'
+	time('/city first frame', city.firstFrameMs, 'perfCityFirstFrame');
+	time('Architecture study first frame', architectureTown.firstFrameMs, 'perfStudyFirstFrame');
+	time('Architecture Whole Town first frame', architecture.firstFrameMs, 'perfWholeTownFirstFrame');
+	time('/sandbox first frame', sandbox.firstFrameMs, 'perfSandboxFirstFrame');
+	profile('Pan', sandbox.pan, 'perfPanFrame', 'perfPanCpu');
+	profile('Zoom', sandbox.zoom, 'perfZoomFrame', 'perfZoomCpu');
+	profile('Hover', sandbox.hover, 'perfHoverFrame', 'perfHoverCpu');
+	profile('Paint', sandbox.paint, 'perfPaintFrame', 'perfPaintCpu');
+	profile('Architecture', architecture, 'perfArchitectureFrame', 'perfArchitectureCpu');
+	time('Paint stroke wall', sandbox.paint.wallMs, 'perfStroke');
+	time('Undo wall', sandbox.undo.wallMs, 'perfUndo');
+	budget('Paint draw calls', sandbox.paint.drawCalls, 'perfPaintCalls', 'perfCallNoiseFloor');
+	budget('Paint tile packs', sandbox.paint.tilePacks, 'perfPaintPacks', 'perfPackNoiseFloor');
+	budget('Sandbox paint JS heap', sandbox.paint.heapMiB, 'perfPaintHeap');
+	budget('Sandbox interaction peak RSS', sandbox.peakRssMiB, 'perfSandboxRss');
+	budget(
+		'Architecture draw calls',
+		architecture.drawCalls,
+		'perfArchitectureCalls',
+		'perfCallNoiseFloor'
+	);
+	budget('Architecture JS heap', architecture.heapMiB, 'perfArchitectureHeap');
+	budget('Architecture peak RSS', architecture.peakRssMiB, 'perfArchitectureRss');
+	for (const [scope, load] of Object.entries(loads)) {
+		const small = scope === 'small';
+		const name = small ? 'Small load' : 'Full-town load';
+		time(name, load.wallMs, small ? 'perfSmallLoad' : 'perfTownLoad');
+		budget(
+			name + ' draw calls',
+			load.drawCalls,
+			small ? 'perfSmallLoadCalls' : 'perfTownLoadCalls',
+			'perfCallNoiseFloor'
 		);
-		timing(`${name} stage CPU p50/p95/p99`, stats.cpuMs, 'perfStageCpu');
-	}
-	budget('Paint stroke wall', sandbox.paint.wallMs, 'perfStroke');
-	budget('Undo wall', sandbox.undo.wallMs, 'perfUndo');
-	budget('Sandbox paint JS heap', sandbox.paint.heapMiB, 'perfBrowserHeap');
-	budget('Sandbox interaction peak RSS', sandbox.peakRssMiB, 'perfBrowserRss');
-	timing('Architecture frame p50/p95/p99', architecture.frameMs);
-	timing('Architecture stage CPU p50/p95/p99', architecture.cpuMs, 'perfStageCpu');
-	budget('Architecture draw calls', architecture.drawCalls, 'perfDrawCalls');
-	budget('Architecture JS heap', architecture.heapMiB, 'perfBrowserHeap');
-	budget('Architecture peak RSS', architecture.peakRssMiB, 'perfBrowserRss');
-	for (const load of loads) {
-		const name = `${load.houses}-house load`;
-		budget(name, load.wallMs, load.houses === 300 ? 'perfSmallLoad' : 'perfTownLoad');
-		budget(name + ' draw calls', load.drawCalls, 'perfDrawCalls');
-		budget(name + ' tile packs', load.tilePacks, 'perfTilePacks');
-		budget(name + ' JS heap', load.heapMiB, 'perfBrowserHeap');
-		budget(name + ' peak RSS', load.peakRssMiB, 'perfBrowserRss');
+		budget(
+			name + ' tile packs',
+			load.tilePacks,
+			small ? 'perfSmallLoadPacks' : 'perfTownLoadPacks',
+			'perfPackNoiseFloor'
+		);
+		budget(name + ' JS heap', load.heapMiB, small ? 'perfSmallLoadHeap' : 'perfTownLoadHeap');
+		budget(name + ' peak RSS', load.peakRssMiB, small ? 'perfSmallLoadRss' : 'perfTownLoadRss');
 	}
 	return rows;
 }
 
 function display(metric: Metric | undefined) {
 	if (!metric) return '—';
-	const { percentiles, unit, value } = metric;
-	const timing = percentiles && [percentiles.p50, percentiles.p95, percentiles.p99].join(' / ');
-	return `${timing ?? value} ${unit}`;
+	const { percentiles, intervals, unit, value } = metric;
+	if (!percentiles) return `${value} ${unit}`;
+	const { p50, p95, p99 } = percentiles;
+	return `${p50} / ${p95} / ${p99} ${unit} (n=${intervals})`;
+}
+
+function referenceLimit(reference: number | undefined, noise: Noise | undefined) {
+	if (reference === undefined || !noise) return undefined;
+	return Math.max(
+		reference * protocol.perfRegressionRatio.value,
+		reference + protocol[noise].value
+	);
+}
+
+function checkEnvironment(current: Baseline, baseline: Baseline) {
+	const actual = current.browser.environment;
+	const reference = baseline.browser.environment;
+	const fields = {
+		browser: [actual.browser, reference.browser],
+		driver: [actual.driver, reference.driver],
+		viewport: [
+			[actual.viewport, actual.deviceScaleFactor],
+			[reference.viewport, reference.deviceScaleFactor]
+		]
+	};
+	for (const [field, [value, old]] of Object.entries(fields)) {
+		if (JSON.stringify(value) !== JSON.stringify(old))
+			console.warn(`Warning: ${field} differs from the reference.`);
+	}
+}
+
+function compareReferences(current: Baseline, baseline: Baseline | undefined) {
+	if (!baseline) return undefined;
+	if (current.schemaVersion !== baseline.schemaVersion) {
+		console.warn(
+			`Warning: reference schema ${baseline.schemaVersion} differs from current schema ${current.schemaVersion}. Refresh the reference to compare results.`
+		);
+		return undefined;
+	}
+	checkEnvironment(current, baseline);
+	return metrics(baseline);
+}
+
+function printRow(name: string, metric: Metric, before: Metric | undefined) {
+	const { value, hard, noise } = metric;
+	const relative = referenceLimit(before?.value, noise);
+	const failed =
+		!Number.isFinite(value) || value > Math.min(hard ?? Infinity, relative ?? Infinity);
+	const delta = before === undefined ? '—' : round(value - before.value);
+	const allowed = relative === undefined ? '—' : round(relative);
+	console.log(
+		`| ${name} | ${display(metric)} | ${display(before)} | ${delta} | ${hard ?? '—'} | ${allowed}${failed ? ' **FAIL**' : ''} |`
+	);
+	return !failed;
 }
 
 export function report(current: Baseline, baseline?: Baseline) {
 	const measured = metrics(current);
-	const previous = baseline && metrics(baseline);
+	const previous = compareReferences(current, baseline);
 	const { browser, driver, viewport, deviceScaleFactor } = current.browser.environment;
 	console.log(
 		`\n${browser} · ${current.browser.sandbox.adapter} · ${driver.driverVendor} ${driver.driverVersion} · ${viewport.width}×${viewport.height} @ ${deviceScaleFactor}x`
@@ -85,19 +178,15 @@ export function report(current: Baseline, baseline?: Baseline) {
 	console.log(
 		`Host load ${current.hostBefore.loadAverage.join('/')} → ${current.hostAfter.loadAverage.join('/')} · MemAvailable ${current.hostBefore.memAvailableMiB} → ${current.hostAfter.memAvailableMiB} MiB\n`
 	);
-	console.log('| Metric | Current | Reference | Δ (p95 for percentiles) | Hard limit |');
-	console.log('| --- | ---: | ---: | ---: | ---: |');
-	let passed = true;
-	for (const [name, metric] of measured) {
-		const { value, limit } = metric;
-		const before = previous?.get(name);
-		const hard = limit && limits[limit].value;
-		const failed = !Number.isFinite(value) || (hard !== undefined && value > hard);
-		const delta = before === undefined ? '—' : round(value - before.value);
-		console.log(
-			`| ${name} | ${display(metric)} | ${display(before)} | ${delta} | ${hard ?? '—'}${failed ? ' **FAIL**' : ''} |`
-		);
-		passed &&= !failed;
-	}
+	console.log(
+		'Frame and CPU columns show p50 / p95 / p99 and the count of frame intervals. Limits and deltas use p95.'
+	);
+	console.log('| Metric | Current | Reference | Δ | Hard limit | Reference limit |');
+	console.log('| --- | ---: | ---: | ---: | ---: | ---: |');
+	const results = [...measured].map(([name, metric]) =>
+		printRow(name, metric, previous?.get(name))
+	);
+	const passed = results.every(Boolean) && (!baseline || previous !== undefined);
+	console.log(passed ? 'Performance budgets passed.' : 'Performance baseline check failed.');
 	return passed;
 }

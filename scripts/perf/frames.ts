@@ -1,42 +1,70 @@
 import type { Page } from '@playwright/test';
+import { protocol } from '../config/perf-baseline';
 import { round } from './host';
 
+type Publication = { placements: number; waiting: number; revision: number };
 type Frame = {
 	at: number;
 	cpu: number;
 	drawCalls: number;
 	chunks: number;
-	placements: number;
-	waiting: number;
+	publication: Publication;
 };
+type Range = { from: number; to: number; through?: number };
 
 declare global {
 	interface Window {
 		perfFrames: Frame[];
+		perfPublication: Publication;
 	}
 }
 
-/** Observe completed stage submissions through the stage's own counters. */
+/** Consume stage and sandbox mutations in DOM order. A pending draw can precede a queue update
+ * within a single observer batch and must retain its earlier publication. */
 export async function observeFrames(page: Page) {
 	await page.addInitScript(() => {
 		window.perfFrames = [];
+		window.perfPublication = { placements: 0, waiting: 0, revision: 0 };
 		new MutationObserver((records) => {
-			const canvas = records.at(-1)?.target;
-			if (!(canvas instanceof HTMLCanvasElement) || !canvas.dataset.stageReady) return;
-			const { stageFrameCpuMs, stageDrawCalls, stageChunkBuilds } = canvas.dataset;
-			const sandbox = canvas.closest<HTMLElement>('[data-sandbox-placements]');
-			window.perfFrames.push({
-				at: performance.now(),
-				cpu: Number(stageFrameCpuMs),
-				drawCalls: Number(stageDrawCalls),
-				chunks: Number(stageChunkBuilds),
-				placements: Number(sandbox?.dataset.sandboxPlacements ?? 0),
-				waiting: Number(sandbox?.dataset.sandboxWaiting ?? 0)
-			});
+			// Each record's new value is the next mutation's old value, or its final DOM value.
+			const later = new Map<string, string | null>();
+			const values = records.map(() => null as string | null);
+			for (let index = records.length - 1; index >= 0; index--) {
+				const { attributeName, target, oldValue } = records[index];
+				if (!attributeName || attributeName === 'data-stage-frames') continue;
+				if (!(target instanceof HTMLElement)) continue;
+				values[index] = later.has(attributeName)
+					? (later.get(attributeName) ?? null)
+					: target.getAttribute(attributeName);
+				later.set(attributeName, oldValue);
+			}
+			for (const [index, { target, attributeName }] of records.entries()) {
+				if (attributeName === 'data-stage-frames' && target instanceof HTMLCanvasElement) {
+					const { stageFrameCpuMs, stageDrawCalls, stageChunkBuilds } = target.dataset;
+					window.perfFrames.push({
+						at: performance.now(),
+						cpu: Number(stageFrameCpuMs),
+						drawCalls: Number(stageDrawCalls),
+						chunks: Number(stageChunkBuilds),
+						publication: window.perfPublication
+					});
+				} else if (
+					attributeName === 'data-sandbox-placements' ||
+					attributeName === 'data-sandbox-waiting'
+				) {
+					const key = attributeName === 'data-sandbox-placements' ? 'placements' : 'waiting';
+					window.perfPublication = {
+						...window.perfPublication,
+						[key]: Number(values[index]),
+						revision: window.perfPublication.revision + 1
+					};
+				}
+			}
 		}).observe(document, {
 			subtree: true,
 			attributes: true,
-			attributeFilter: ['data-stage-frames']
+			attributeOldValue: true,
+			attributeFilter: ['data-stage-frames', 'data-sandbox-placements', 'data-sandbox-waiting']
 		});
 	});
 }
@@ -45,12 +73,23 @@ export async function startFrames(page: Page) {
 	return page.evaluate(() => ({
 		ms: performance.now(),
 		index: window.perfFrames.length,
-		chunks: window.perfFrames.at(-1)?.chunks ?? 0
+		chunks: window.perfFrames.at(-1)?.chunks ?? 0,
+		publication: window.perfPublication.revision
 	}));
 }
 
 export async function nextFrame(page: Page, index: number) {
-	await page.waitForFunction((from) => window.perfFrames.length > from, index);
+	const handle = await page.waitForFunction(
+		(from) => window.perfFrames.length > from && window.perfFrames.length,
+		index
+	);
+	try {
+		const count = await handle.jsonValue();
+		if (!count) throw new Error('Missing stage submission');
+		return count;
+	} finally {
+		await handle.dispose();
+	}
 }
 
 export async function settledFrame(
@@ -58,23 +97,23 @@ export async function settledFrame(
 	start: Awaited<ReturnType<typeof startFrames>>,
 	count: number
 ) {
-	await page.waitForFunction(
-		({ from, count }) =>
+	const frame = await page.waitForFunction(
+		({ from, publication, count }) =>
 			window.perfFrames
 				.slice(from)
-				.some(({ placements, waiting }) => placements === count && waiting === 0),
-		{ from: start.index, count }
+				.find(
+					({ publication: state }) =>
+						state.revision > publication && state.placements === count && state.waiting === 0
+				),
+		{ from: start.index, publication: start.publication, count }
 	);
-	return page.evaluate(
-		({ from, count }) => {
-			const frame = window.perfFrames
-				.slice(from)
-				.find(({ placements, waiting }) => placements === count && waiting === 0);
-			if (!frame) throw new Error('Missing final sandbox frame');
-			return frame;
-		},
-		{ from: start.index, count }
-	);
+	try {
+		const submitted = await frame.jsonValue();
+		if (!submitted) throw new Error('Missing final sandbox frame');
+		return submitted;
+	} finally {
+		await frame.dispose();
+	}
 }
 
 function percentiles(numbers: readonly number[]) {
@@ -84,17 +123,44 @@ function percentiles(numbers: readonly number[]) {
 	return { p50: at(0.5), p95: at(0.95), p99: at(0.99) };
 }
 
-export async function readFrames(page: Page, index: number, through = Infinity) {
-	const samples = await page.evaluate(
-		({ from, end }) => window.perfFrames.slice(from).filter(({ at }) => at <= end),
-		{ from: index, end: through }
+export async function readFrames(page: Page, ranges: readonly Range[], minimum = 10) {
+	const groups = await page.evaluate(
+		(ranges) =>
+			ranges.map(({ from, to, through }) =>
+				window.perfFrames.slice(from, to).filter(({ at }) => through === undefined || at <= through)
+			),
+		ranges
 	);
-	const intervals = samples.slice(1).map(({ at }, i) => at - samples[i].at);
-	if (intervals.length < 10)
-		throw new Error(`Expected at least 10 stage intervals, observed ${intervals.length}`);
+	const intervals = groups.flatMap((frames) =>
+		frames.slice(1).map(({ at }, i) => at - frames[i].at)
+	);
+	if (intervals.length < minimum)
+		throw new Error(`Expected at least ${minimum} stage intervals, observed ${intervals.length}`);
 	return {
-		samples: samples.length,
+		intervals: intervals.length,
 		frameMs: percentiles(intervals),
-		cpuMs: percentiles(samples.map(({ cpu }) => cpu))
+		cpuMs: percentiles(groups.flatMap((frames) => frames.map(({ cpu }) => cpu)))
 	};
+}
+
+export async function driveGestures(
+	page: Page,
+	step: (index: number) => Promise<void>,
+	gesture?: { begin: () => Promise<void>; end: () => Promise<void> }
+) {
+	const repeats = protocol.perfGestureRepeats.value;
+	const steps = protocol.perfGestureSteps.value;
+	const ranges: Range[] = [];
+	for (let repeat = 0; repeat < repeats; repeat++) {
+		await gesture?.begin();
+		let { index: from } = await startFrames(page);
+		const start = from;
+		for (let i = 0; i < steps; i++) {
+			await step(repeat * steps + i);
+			from = await nextFrame(page, from);
+		}
+		ranges.push({ from: start, to: from });
+		await gesture?.end();
+	}
+	return readFrames(page, ranges, repeats * (steps - 1));
 }

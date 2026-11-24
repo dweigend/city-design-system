@@ -1,7 +1,7 @@
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { closeSync, openSync } from 'node:fs';
 import { bytesPerMiB, round, rssMiB } from './host';
-import { nextFrame, observeFrames, startFrames } from './frames';
+import { observeFrames } from './frames';
 
 const device = '/dev/dri/renderD128';
 const icd = '/usr/share/vulkan/icd.d/radeon_icd.json';
@@ -102,6 +102,7 @@ export async function openRoute(browser: Browser, url: URL) {
 				if (errors.length) throw new Error(errors.join('\n'));
 			},
 			async heapMiB() {
+				await session.send('HeapProfiler.collectGarbage');
 				const heap = await session.send('Runtime.getHeapUsage');
 				return round(heap.usedSize / bytesPerMiB);
 			}
@@ -136,13 +137,5 @@ export async function measuredRss<T>(sample: () => Promise<number>, run: () => P
 	} finally {
 		clearInterval(interval);
 		await active;
-	}
-}
-
-export async function driveFrames(page: Page, count: number, run: (i: number) => Promise<void>) {
-	for (let i = 0; i < count; i++) {
-		const { index } = await startFrames(page);
-		await run(i);
-		await nextFrame(page, index);
 	}
 }

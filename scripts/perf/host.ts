@@ -13,14 +13,27 @@ const read = (path: string) => {
 	}
 };
 
+function exclusiveOptions(args: string[]) {
+	for (let index = 0; index < args.length; index++) {
+		const option = args[index];
+		if (option === '--exclusive') return true;
+		if (!['--time', '--mem', '--wait'].includes(option)) return false;
+		index++;
+	}
+	return false;
+}
+
 export function requireHeavySlot() {
 	if (process.platform !== 'linux') return;
 	const wrapper = Bun.which('heavy-slot') ?? join(homedir(), '.local/bin/heavy-slot');
-	if (!existsSync(wrapper)) return;
+	if (!existsSync(wrapper)) throw new Error('Install heavy-slot on PATH or in ~/.local/bin');
 	const resolved = realpathSync(wrapper);
 	for (let pid = process.ppid; pid > 1;) {
-		const command = read(`/proc/${pid}/cmdline`).split('\0').slice(0, 2);
-		if (command.some((arg) => basename(arg) === 'heavy-slot' || arg === resolved)) return;
+		const command = read(`/proc/${pid}/cmdline`).split('\0');
+		const wrapperIndex = command
+			.slice(0, 2)
+			.findIndex((arg) => basename(arg) === 'heavy-slot' || arg === resolved);
+		if (wrapperIndex >= 0 && exclusiveOptions(command.slice(wrapperIndex + 1))) return;
 		pid = Number(read(`/proc/${pid}/status`).match(/^PPid:\s+(\d+)/m)?.[1]);
 	}
 	throw new Error(

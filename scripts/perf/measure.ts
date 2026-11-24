@@ -6,31 +6,41 @@ import { measureBrowser } from './workloads';
 const root = join(import.meta.dir, '../..');
 
 function git(...args: string[]) {
-	return Bun.spawnSync(['git', ...args], { cwd: root })
-		.stdout.toString()
-		.trim();
+	const result = Bun.spawnSync(['git', ...args], { cwd: root, stderr: 'inherit' });
+	if (!result.success) throw new Error(`git ${args.join(' ')} exited ${result.exitCode}`);
+	return result.stdout.toString().trim();
 }
 
-function command(args: string[]) {
-	const { success, exitCode } = Bun.spawnSync(args, {
-		cwd: root,
-		stdout: 'inherit',
-		stderr: 'inherit'
-	});
-	if (!success) throw new Error(`${args.join(' ')} exited ${exitCode}`);
+export function readRevision() {
+	return { gitRevision: git('rev-parse', 'HEAD'), dirty: git('status', '--porcelain') !== '' };
 }
 
-function pipeline(name: string) {
+async function command(args: string[], signal: AbortSignal) {
+	signal.throwIfAborted();
+	const child = Bun.spawn(args, { cwd: root, stdout: 'inherit', stderr: 'inherit', signal });
+	const exitCode = await child.exited;
+	signal.throwIfAborted();
+	if (exitCode !== 0) throw new Error(`${args.join(' ')} exited ${exitCode}`);
+}
+
+async function pipeline(name: string, signal: AbortSignal) {
+	signal.throwIfAborted();
 	console.log(`Measuring headless ${name} pipeline`);
-	const result = Bun.spawnSync(['bun', 'scripts/perf/pipeline.ts', name], {
+	const child = Bun.spawn(['bun', 'scripts/perf/pipeline.ts', name], {
 		cwd: root,
-		stderr: 'inherit'
+		stdout: 'pipe',
+		stderr: 'inherit',
+		signal
 	});
-	if (!result.success) throw new Error(`Headless ${name} pipeline exited ${result.exitCode}`);
-	return JSON.parse(result.stdout.toString()) as Pipeline;
+	const output = await new Response(child.stdout).text();
+	const exitCode = await child.exited;
+	signal.throwIfAborted();
+	if (exitCode !== 0) throw new Error(`Headless ${name} pipeline exited ${exitCode}`);
+	return JSON.parse(output) as Pipeline;
 }
 
-async function preview<T>(run: (origin: URL) => Promise<T>) {
+async function preview(signal: AbortSignal) {
+	signal.throwIfAborted();
 	const server = Bun.spawn(
 		[
 			'node',
@@ -46,25 +56,25 @@ async function preview<T>(run: (origin: URL) => Promise<T>) {
 			cwd: root,
 			stdout: 'pipe',
 			stderr: 'inherit',
-			env: { ...process.env, NO_COLOR: '1' }
+			env: { ...process.env, NO_COLOR: '1' },
+			signal
 		}
 	);
 	const stop = () => server.kill();
-	process.once('SIGINT', stop);
-	process.once('SIGTERM', stop);
 	const reader = server.stdout.pipeThrough(new TextDecoderStream()).getReader();
 	const timer = setTimeout(stop, 30_000);
 	try {
 		let output = '';
 		for (;;) {
 			const { value, done } = await reader.read();
+			signal.throwIfAborted();
 			if (done) throw new Error(`Vite preview did not report an address: ${output}`);
 			output += value;
 			const origin = output.match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+\/)/)?.[1];
 			if (origin) {
 				clearTimeout(timer);
 				console.log(`Vite preview at ${origin} (PID ${server.pid})`);
-				return await run(new URL(origin));
+				return await measureBrowser(new URL(origin), signal);
 			}
 		}
 	} finally {
@@ -72,24 +82,24 @@ async function preview<T>(run: (origin: URL) => Promise<T>) {
 		server.kill();
 		await server.exited;
 		await reader.cancel();
-		process.removeListener('SIGINT', stop);
-		process.removeListener('SIGTERM', stop);
 	}
 }
 
-export async function measure(skipBuild: boolean) {
-	const gitRevision = git('rev-parse', 'HEAD');
-	const dirty = git('status', '--porcelain') !== '';
+export async function measure(
+	skipBuild: boolean,
+	revision: ReturnType<typeof readRevision>,
+	signal: AbortSignal
+) {
 	const startedAt = new Date().toISOString();
 	const hostBefore = hostContext();
-	if (!skipBuild) command(['bun', 'run', 'build']);
-	const town = pipeline('town');
-	const largest = pipeline('largest');
-	const browser = await preview(measureBrowser);
+	if (!skipBuild) await command(['bun', 'run', 'build'], signal);
+	const town = await pipeline('town', signal);
+	const largest = await pipeline('largest', signal);
+	const browser = await preview(signal);
+	signal.throwIfAborted();
 	return {
-		schemaVersion: 1,
-		gitRevision,
-		dirty,
+		schemaVersion: 2,
+		...revision,
 		startedAt,
 		bun: Bun.version,
 		hostBefore,
