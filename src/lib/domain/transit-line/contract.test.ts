@@ -93,10 +93,12 @@ test('pairs dry approaches with the actual bearing within dock reach', () => {
 			catchments: [
 				{
 					id: 'dock',
-					approaches: [
-						{ id: 'far', point: [40, 0] },
-						{ id: 'near', point: [60, 5] }
-					]
+					approaches: dry
+						? [
+								{ id: 'far', point: [40, 0] },
+								{ id: 'near', point: [60, 5] }
+							]
+						: [{ id: 'near', point: [60, 5] }]
 				}
 			],
 			dockReachM: 10
