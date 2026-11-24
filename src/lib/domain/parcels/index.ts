@@ -97,6 +97,7 @@ export function createParcelPlan(input: ParcelPlanInput) {
 			const blocks = realized.map(({ block }) => block);
 			const laneIds = new Set(blocks.flatMap(({ laneIds }) => laneIds));
 			return Object.freeze({
+				linearToleranceM: input.tolerance.linearToleranceM,
 				lanes: Object.freeze(
 					[...laneIds].sort().map((id) => required(lanes.get(id), 'selected lane'))
 				),

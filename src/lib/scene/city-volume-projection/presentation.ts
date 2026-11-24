@@ -33,7 +33,8 @@ type Options = Readonly<{
 	terrain: readonly Drawable[];
 	envelope: readonly CityDrawable[];
 	members: readonly Drawable[];
-	focus: FocusChoice;
+	focus:
+		FocusChoice | Readonly<{ analysis?: string; readLevel: (part: Subsystem) => DisplayLevel }>;
 	peak: number;
 	relief: number;
 	trueScale: boolean;
@@ -60,8 +61,7 @@ function groundSubsystem(part: Drawable): Subsystem {
 	);
 }
 
-function bodyLevel(focus: FocusChoice, { kind, drawn }: CityDrawable): DisplayLevel {
-	const level = readFocusLevel(focus, kind);
+function bodyLevel(level: DisplayLevel, { drawn }: CityDrawable): DisplayLevel {
 	return level === 'transparent' && drawn ? 'pencil' : level;
 }
 
@@ -198,11 +198,13 @@ export function cityPresentation({
 	maxProfileScale,
 	taper
 }: Options): Presentation {
-	const analysis = readFocusChoice(focus).analysis;
-	const latticeLevel = readFocusLevel(focus, 'lattice');
+	const analysis = typeof focus === 'string' ? readFocusChoice(focus).analysis : focus.analysis;
+	const readLevel =
+		typeof focus === 'string' ? (part: Subsystem) => readFocusLevel(focus, part) : focus.readLevel;
+	const latticeLevel = readLevel('lattice');
 	const open = members.length > 0 && latticeLevel !== 'hidden';
-	const groundLevels = terrain.map((part) => readFocusLevel(focus, groundSubsystem(part)));
-	const bodyLevels = envelope.map((part) => bodyLevel(focus, part));
+	const groundLevels = terrain.map((part) => readLevel(groundSubsystem(part)));
+	const bodyLevels = envelope.map((part) => bodyLevel(readLevel(part.kind), part));
 	let last: { width: number; metersPerPixel: number; drawables: readonly Drawable[] } | undefined;
 	return ({ width, metersPerPixel }: Viewport) => {
 		if (last?.width === width && last.metersPerPixel === metersPerPixel) return last.drawables;

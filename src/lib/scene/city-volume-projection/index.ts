@@ -19,7 +19,12 @@ type Frame = Readonly<{ footprint: Footprint; toLocal: (x: number, y: number) =>
 /** Maps the camera framing to continuous detail and height presentation. */
 export { cityElevation, cityProfile } from './profile';
 /** Camera bearing and frame fill of the city picture. */
-export { cityCameraBearingRad, cityFrameFillFlat, cityFrameFillPerRelief } from './constants';
+export {
+	cityCameraBearingRad,
+	cityCameraMinimumWidthM,
+	cityFrameFillFlat,
+	cityFrameFillPerRelief
+} from './constants';
 /** Projects the terrain and the city plan in one frame. */
 export { projectCityTerrain } from './terrain';
 /** Resolves the focus choices a city picture offers and the one in effect. */

@@ -61,7 +61,7 @@ export function createFocusResolver<const Choice extends string, const Part exte
 					`Missing or invalid focus level for "${part}" under "${choice}"`
 				);
 
-	return Object.freeze({
+	const resolver = {
 		choices,
 		subsystems,
 		/** Reads one display level. An unknown choice throws RangeError. */
@@ -79,14 +79,34 @@ export function createFocusResolver<const Choice extends string, const Part exte
 		offerFocus(present: readonly string[]): Choice[] {
 			const presentRows = present.map(readRow);
 			const seen = new Set<string>();
-			return choices.filter((choice) => {
-				const { subject, analysis } = options.get(choice)!;
-				if (subject.length && !subject.some((part) => present.includes(part))) return false;
+			const offered: Choice[] = [];
+			for (const [choice, { subject, analysis }] of options) {
+				if (subject.length && !subject.some((part) => present.includes(part))) continue;
 				const key = JSON.stringify([analysis, presentRows.map((row) => row[choice])]);
-				if (seen.has(key)) return false;
+				if (seen.has(key)) continue;
 				seen.add(key);
-				return true;
-			});
+				offered.push(choice);
+			}
+			return offered;
+		}
+	};
+	return Object.freeze({
+		...resolver,
+		/** Selects the requested offered choice, the offered fallback, or the first menu entry. */
+		selectFocus(present: readonly string[], requested: Choice | undefined, fallback: Choice) {
+			const offered = resolver.offerFocus(present);
+			const active =
+				requested && offered.includes(requested)
+					? requested
+					: offered.includes(fallback)
+						? fallback
+						: (offered[0] ?? fallback);
+			return {
+				items: offered.map((value) => ({ value, label: resolver.readFocusChoice(value).label })),
+				active,
+				analysis: resolver.readFocusChoice(active).analysis,
+				readLevel: (part: string) => resolver.readFocusLevel(active, part)
+			};
 		}
 	});
 }

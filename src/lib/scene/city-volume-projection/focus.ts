@@ -6,8 +6,6 @@ export type FocusChoice = (typeof cityFocusPreset.choices)[number];
 /** A projection row in the city preset. */
 export type Subsystem = (typeof cityFocusPreset.subsystems)[number];
 
-const { offerFocus, readFocusChoice } = cityFocusPreset;
-
 const kinds = ['detached', 'block', 'center'] as const satisfies readonly DistrictKind[];
 
 /** What a city picture holds besides terrain, water and the plan grid. */
@@ -37,12 +35,6 @@ export function cityFocus(
 		...kinds.filter((kind) => shares[kind] > 0),
 		...(lattice ? (['lattice'] as const) : [])
 	];
-	const offered = offerFocus(present);
-	const wanted = requested ?? fallback;
-	const active = offered.includes(wanted) ? wanted : offered.includes(fallback) ? fallback : 'all';
-	return {
-		items: offered.map((value) => ({ value, label: readFocusChoice(value).label })),
-		active,
-		analysis: readFocusChoice(active).analysis
-	};
+	const { items, active, analysis } = cityFocusPreset.selectFocus(present, requested, fallback);
+	return { items, active, analysis };
 }
