@@ -203,8 +203,8 @@ const forms: DesignPrinciple[] = [
 		title: 'Solid and void',
 		rule: 'A house takes shape through the interplay of occupied cells and spaces left open or cut out of the same 3D grid.',
 		reason:
-			'Occupied regions form the body and open regions read as courtyards, passages and openings. Target: proven separately in the City Game volume prototype (tessellated storeys, VOLUME-VERIFICATION) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36).',
-		decided: '2026-11-21',
+			'Occupied regions form the body and open regions read as courtyards, passages and openings. Target: proven separately in the City Game volume prototype (tessellated storeys, VOLUME-VERIFICATION) and the Lab Voronoi lattice; the shared library has no 3D grid yet (ST6 #36). A house backing onto the public court of its block opens its rear to that court and cuts no court of its own; a row of small houses keeps one eaves line within a storey; a large merged unit is one building whose roof is the main figure.',
+		decided: '2026-11-24',
 		demo: { route: '/formen', anchor: 'volume-section', label: 'Read the solid and the passage' }
 	},
 	{
@@ -316,8 +316,8 @@ const grid: DesignPrinciple[] = [
 		title: 'Everything ends in quads',
 		rule: 'Every grid ends in quads: an n-gon becomes n quads through its center and its edge midpoints.',
 		reason:
-			'A concave ring is triangulated first, and each triangle gives three quads. Every block edge gets the same number of divisions; then the mesh relaxes and its quality is checked. The grid looks organic through free block polygons, not through odd cells.',
-		decided: '2026-11-18',
+			'A concave ring is triangulated first, and each triangle gives three quads. Every block edge gets the same number of divisions; then the mesh relaxes and its quality is checked. The grid looks organic through free block polygons, not through odd cells. A town parcel is split in strips instead: columns across its frontage and depth rows parallel to it, counted from the parcel size (target cell edge, minimum and maximum cells) and never narrower than the minimum cell width, so a wedge gives no slivers.',
+		decided: '2026-11-24',
 		demo: { route: '/raster', anchor: 'raster-vierecke', label: 'Every polygon becomes quads' }
 	},
 	{

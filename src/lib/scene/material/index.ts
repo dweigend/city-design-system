@@ -9,6 +9,7 @@ export {
 	familyNames,
 	readFamily,
 	readPatchArea,
+	fitModuleScale,
 	surfaceLevels,
 	type CladInput,
 	type CladObject,

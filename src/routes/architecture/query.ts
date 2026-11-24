@@ -35,9 +35,13 @@ export function readQuery(query: Pick<URLSearchParams, 'get' | 'has'>) {
 		seed: seed !== undefined && Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 3
 	};
 	const sheetNames = { one: true, town: true, ...sheets };
+	const scopes = { town: true, block: true, neighbour: true, merged: true } as const;
+	const relief = number(query, 'relief');
 	return {
 		setup,
-		block: query.get('block') === 'merged' ? ('merged' as const) : ('block' as const),
+		block: pickKey<keyof typeof scopes>(scopes, query.get('block'), 'block'),
+		styles: query.get('styles') === 'mixed' ? ('mixed' as const) : ('one' as const),
+		relief: relief !== undefined && relief >= 0 && relief <= 1 ? relief : undefined,
 		sheet: pickKey<SheetName | 'one' | 'town'>(sheetNames, query.get('sheet'), 'one'),
 		bearing: number(query, 'bearing') ?? 212,
 		elevation: number(query, 'elevation') ?? 36,

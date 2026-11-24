@@ -10,7 +10,9 @@ export type OpeningKind = 'rect' | 'round' | 'triangle';
 
 /** A style is a parameter set of the one house rule (FORM-10): occupancy tendencies, how a cell
  * is filled, roofs, openings, which part kinds appear, and the role slots its parts carry. Lists
- * are drawn from per cell with a keyed seed. Any record of this shape is a valid style. */
+ * are drawn from per cell with a keyed seed. `large` is the row's tendency for one building over a
+ * large unit (hall, market, station shed, court block): its fill and roof kinds and whether it
+ * keeps a court. Any record of this shape is a valid style. */
 export type HouseStyle = Readonly<{
 	id: string;
 	occupancy: Readonly<{
@@ -52,6 +54,7 @@ export type HouseStyle = Readonly<{
 		treeShareRatio: number;
 	}>;
 	slots: Readonly<{ body: readonly string[]; roof: readonly string[]; capsule: readonly string[] }>;
+	large: Readonly<{ fill: readonly FillKind[]; roof: readonly RoofKind[]; court: boolean }>;
 }>;
 
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
@@ -99,7 +102,8 @@ export const houseStyles = Object.freeze({
 			collar: false
 		},
 		parts: { ...none, edges: true, galleries: true, stair: true, frame: false, planters: false },
-		slots: { body: ['wall'], roof: [], capsule: [] }
+		slots: { body: ['wall'], roof: [], capsule: [] },
+		large: { fill: ['envelope'], roof: ['flat'], court: false }
 	},
 	memphis: {
 		id: 'memphis',
@@ -140,7 +144,8 @@ export const houseStyles = Object.freeze({
 			body: ['body-white', 'body-yellow', 'body-blue', 'body-timber', 'body-red', 'body-white'],
 			roof: ['roof-blue', 'roof-yellow', 'roof-red'],
 			capsule: []
-		}
+		},
+		large: { fill: ['envelope'], roof: ['wedge'], court: false }
 	},
 	archigram: {
 		id: 'archigram',
@@ -179,7 +184,8 @@ export const houseStyles = Object.freeze({
 			tubeShareRatio: d.archigramTubeShareRatio,
 			mastStoreys: d.archigramMastStoreys
 		},
-		slots: { body: [], roof: [], capsule: ['capsule', 'capsule', 'capsule-accent', 'capsule'] }
+		slots: { body: [], roof: [], capsule: ['capsule', 'capsule', 'capsule-accent', 'capsule'] },
+		large: { fill: ['capsule'], roof: ['flat'], court: false }
 	},
 	organic: {
 		id: 'organic',
@@ -212,7 +218,8 @@ export const houseStyles = Object.freeze({
 			planters: true,
 			treeShareRatio: d.organicTreeShareRatio
 		},
-		slots: { body: ['body-shell'], roof: ['body-shell'], capsule: [] }
+		slots: { body: ['body-shell'], roof: ['body-shell'], capsule: [] },
+		large: { fill: ['pod'], roof: ['dome'], court: true }
 	}
 } as const satisfies Record<string, HouseStyle>);
 

@@ -15,6 +15,7 @@ const {
 	maxLayoutUnits,
 	coarsenStepRatio,
 	coarsenStepLimit,
+	reliefTrianglesPerUnit,
 	pencilLiftM,
 	planeToleranceM
 } = materialSettings;
@@ -211,4 +212,22 @@ export function buildSurface(
 		scaled = scaleParams(params, scale, reliefScale);
 	}
 	return slab('flat');
+}
+
+/** The module scale at which a relief of the family is expected to fit the patch's triangle
+ * budget: the requested scale grown by coarsening steps until the estimated units times the relief
+ * triangles per unit fit, at most the step limit. Passing it as `moduleScale` lets `buildSurface`
+ * succeed on its first layout instead of building and discarding finer ones. */
+export function fitModuleScale(family: Family, patch: Patch, options: SurfaceOptions = {}): number {
+	const frame = readFrame(patch);
+	const { layout, params } = readFamily(family);
+	const { moduleScale, reliefScale } = readOptions(options);
+	const budget = readBudget(frame);
+	let scale = moduleScale;
+	for (let step = 0; step < coarsenStepLimit; step++) {
+		const estimate = estimateUnits(layout, scaleParams(params, scale, reliefScale), patch.size);
+		if (Number.isFinite(estimate) && estimate * reliefTrianglesPerUnit <= budget) return scale;
+		scale *= coarsenStepRatio;
+	}
+	return scale;
 }

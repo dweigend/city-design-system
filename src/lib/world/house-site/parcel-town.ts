@@ -1,4 +1,4 @@
-import { distance, measurePolygon } from '../../core/geometry';
+import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { readCityColumns } from '../../domain/city-volume';
 import type { ParcelBlock } from '../../domain/parcels';
@@ -10,14 +10,16 @@ import {
 	readCityParcels
 } from '../city-site';
 
-/** The perimeter holding and the merged hall used in the Town study. */
-export type TownHouseBlock = 'block' | 'merged';
+/** The perimeter holding, its neighbouring perimeter block and the merged hall of the Town study. */
+export type TownHouseBlock = 'block' | 'neighbour' | 'merged';
 
-/** Reads two buildable examples from the default parcel plan. Selects the nearest perimeter
- * block with a reserved public court and the nearest single-parcel merged hall to the first
- * selected bridge landing. Returns their permanent addresses and city context. */
-export function createTownHouseStudy() {
-	const site = createCitySite();
+/** Reads three buildable examples from the default parcel plan on a valley of the given relief
+ * (default: the valley default). Selects the nearest perimeter block with a reserved public court
+ * and the nearest single-parcel merged hall to the first selected bridge landing, and the perimeter
+ * block nearest the first that shares a lane with it. Returns their permanent addresses, the city
+ * context and `groundAt`, the sampled ground elevation at a plan point. */
+export function createTownHouseStudy(settings: Readonly<{ relief?: number }> = {}) {
+	const site = createCitySite(undefined, settings);
 	const layout = readCityGrid(site, citySiteParams.citySize.default);
 	const holdings = readCityParcels(site, layout);
 	const columns = new Map(
@@ -40,15 +42,36 @@ export function createTownHouseStudy() {
 		.sort((a, b) => a.distance - b.distance);
 	const find = (predicate: (block: ParcelBlock) => boolean) =>
 		required(ordered.find(({ block }) => predicate(block))?.block, 'town house block');
+	const block = find(
+		({ id, plannedKind, courtFit }) =>
+			plannedKind === 'block' && courtFit === 'fit' && Boolean(parcelsByBlock.get(id)?.length)
+	);
+	const lanes = new Set(block.laneIds);
+	const centre = required(measurePolygon(block.outline).centroid, 'town block centre');
+	const neighbour = required(
+		holdings.blocks
+			.filter(
+				({ id, plannedKind, laneIds }) =>
+					id !== block.id &&
+					plannedKind === 'block' &&
+					laneIds.some((lane) => lanes.has(lane)) &&
+					Boolean(parcelsByBlock.get(id)?.length)
+			)
+			.map((candidate) => ({
+				candidate,
+				distance: distance(measurePolygon(candidate.outline).centroid ?? target, centre)
+			}))
+			.sort((a, b) => a.distance - b.distance)[0]?.candidate,
+		'neighbouring town block'
+	);
 	const blocks = {
-		block: find(
-			({ id, plannedKind, courtFit }) =>
-				plannedKind === 'block' && courtFit === 'fit' && Boolean(parcelsByBlock.get(id)?.length)
-		),
+		block,
+		neighbour,
 		merged: find(
 			({ id, plannedKind, memberCellIds }) =>
 				plannedKind === 'hall' && memberCellIds.length > 1 && parcelsByBlock.get(id)?.length === 1
 		)
 	};
-	return { site, layout, holdings, columns, parcelsByBlock, portals, blocks };
+	const groundAt = ([x, y]: Vec2) => site.sampleGround(x, y).height;
+	return { site, layout, holdings, columns, parcelsByBlock, portals, blocks, groundAt };
 }

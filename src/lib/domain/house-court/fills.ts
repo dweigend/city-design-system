@@ -11,6 +11,7 @@ import {
 	extrusion,
 	inradius,
 	inset,
+	insetSides,
 	rounded,
 	wedge,
 	type Faces
@@ -31,6 +32,7 @@ export type CellSolid = Readonly<{
 	flat: boolean;
 	faces: Faces;
 	key: string;
+	roofKind?: RoofKind;
 }>;
 
 /** Picks one entry of a nonempty list with a keyed draw. */
@@ -42,6 +44,24 @@ export function pick<T>(random: Random, key: string, list: readonly T[]): T {
 function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
 	const shape = shaped(kind, quad, gap, style);
 	return shape.length < 3 ? [...quad] : shape;
+}
+
+/** A calm house's block outline: the cell inset by the gap only toward the frontage, a shared
+ * court and open cells of the house. Sides on other parcel edges (party walls) and toward built
+ * cells covering the whole run stay flush, so bodies join into one building and a row of houses
+ * into one street front. */
+// Exact arithmetic: a flush side has no gap.
+function joined(ctx: Context, cell: FineCell, gap: number, from: number, to: number): Vec2[] {
+	const g = Math.min(gap, inradius(cell.quad) * insetLimitRatio);
+	const shape = insetSides(
+		cell.quad,
+		cell.sides.map(({ neighbour, frontage, court }) => {
+			if (neighbour === null) return frontage || court ? g : 0;
+			const other = ctx.occupancy.get(neighbour);
+			return other && other.fromStorey <= from && other.toStorey >= to ? 0 : g;
+		})
+	);
+	return shape.length < 3 ? [...cell.quad] : shape;
 }
 
 function shaped(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
@@ -74,7 +94,8 @@ function solid(
 	to: number,
 	key: string
 ): CellSolid {
-	const points = outline(kind, cell.quad, gap, ctx.style);
+	const join = ctx.house.scale === 'calm' && kind === 'block';
+	const points = join ? joined(ctx, cell, gap, from, to) : outline(kind, cell.quad, gap, ctx.style);
 	return {
 		cell,
 		slot,
@@ -145,6 +166,22 @@ function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind)
 	return [lower, upper];
 }
 
+/** The top of an envelope cell run, which a roof solid can stand on. */
+// Exact arithmetic: the envelope keeps no gap.
+function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid {
+	return {
+		cell,
+		slot: 'wall',
+		outline: cell.quad,
+		gapM: 0,
+		fromStorey: house.fromStorey,
+		toStorey: house.toStorey,
+		flat: true,
+		faces: [],
+		key: `${cell.id}/envelope`
+	};
+}
+
 const roofShapes = { wedge, cone, dome } as const;
 
 function roof(ctx: Context, top: CellSolid): CellSolid[] {
@@ -167,20 +204,21 @@ function roof(ctx: Context, top: CellSolid): CellSolid[] {
 			toStorey: top.toStorey + 1,
 			flat: false,
 			faces,
-			key: `${top.cell.id}/roof`
+			key: `${top.cell.id}/roof`,
+			roofKind: kind
 		}
 	];
 }
 
-/** The closed solids of every built cell for a style without a merged envelope: stacked bodies,
- * or capsules per framed storey, then a roof solid in the storey above the run, all inside the
- * cell's own quad. Cells of an `envelope` fill yield nothing here. */
+/** The closed solids of every built cell: stacked bodies, or capsules per framed storey, then a
+ * roof solid in the storey above the run, all inside the cell's own quad. Cells of an `envelope`
+ * fill yield only their roof solid; a flat roof yields none. */
 export function cellSolids(ctx: Context): CellSolid[] {
 	return ctx.space.cells.flatMap((cell) => {
 		const house = ctx.occupancy.get(cell.id);
 		if (!house || house.toStorey <= house.fromStorey) return [];
 		const kind = pick(ctx.random, `${cell.id}/fill`, ctx.style.fill.kinds);
-		if (kind === 'envelope') return [];
+		if (kind === 'envelope') return roof(ctx, envelopeTop(ctx, cell, house));
 		if (kind === 'capsule') return capsules(ctx, cell, house);
 		const bodies = stacked(ctx, cell, house, kind);
 		return [...bodies, ...roof(ctx, bodies[bodies.length - 1])];

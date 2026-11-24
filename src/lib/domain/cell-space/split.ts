@@ -1,4 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
+import { defaults } from '../../../config/cell-space';
 
 /** A convex or simple plan ring, counterclockwise. `keys` name its points symbolically, so two rings
  * that share a side name it alike without comparing coordinates. `edges[i]` is the parcel edge
@@ -117,4 +118,63 @@ export function cornerQuads(ring: KeyedRing, first: boolean): readonly KeyedRing
 			edges: [ring.edges[i], null, null, ring.edges[h]]
 		};
 	});
+}
+
+/** True when no corner turns inward by more than the strip concave sine. */
+function nearlyConvex(points: readonly Vec2[]): boolean {
+	return points.every((point, i) => {
+		const a = points[(i + points.length - 1) % points.length];
+		const c = points[(i + 1) % points.length];
+		const lengths =
+			Math.hypot(point[0] - a[0], point[1] - a[1]) * Math.hypot(c[0] - point[0], c[1] - point[1]);
+		return turn(a, point, c) >= -defaults.stripConcaveSineRatio * lengths;
+	});
+}
+
+/** Joins two rings that share the side from key `from` to `to` in `a` (and `to` to `from` in
+ * `b`) into one ring, keeping keys, points and edges. */
+function join(a: KeyedRing, b: KeyedRing, at: number): KeyedRing {
+	const n = a.keys.length;
+	const m = b.keys.length;
+	const start = b.keys.indexOf(a.keys[(at + 1) % n]);
+	const order = [
+		...Array.from({ length: n - 1 }, (_, k) => ({ ring: a, i: (at + 1 + k) % n })),
+		...Array.from({ length: m - 1 }, (_, k) => ({ ring: b, i: (start + 1 + k) % m }))
+	];
+	return {
+		id: a.id,
+		corner: a.corner,
+		ear: null,
+		keys: order.map(({ ring, i }) => ring.keys[i]),
+		points: order.map(({ ring, i }) => ring.points[i]),
+		edges: order.map(({ ring, i }) => ring.edges[i])
+	};
+}
+
+/** Convex parts of a counterclockwise ring with few pieces: the ear triangles of `convexParts`,
+ * merged across shared diagonals while the union stays convex within the strip concave sine
+ * (Hertel–Mehlhorn), in ear order. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
+export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
+	const parts = [...convexParts(ring)];
+	for (let merged = true; merged;) {
+		merged = false;
+		search: for (let p = 0; p < parts.length; p += 1)
+			for (let q = p + 1; q < parts.length; q += 1) {
+				const a = parts[p];
+				const at = a.keys.findIndex((key, i) => {
+					const next = a.keys[(i + 1) % a.keys.length];
+					const j = parts[q].keys.indexOf(next);
+					return j >= 0 && parts[q].keys[(j + 1) % parts[q].keys.length] === key;
+				});
+				if (at < 0) continue;
+				const union = join(a, parts[q], at);
+				if (!nearlyConvex(union.points)) continue;
+				parts[p] = union;
+				parts.splice(q, 1);
+				merged = true;
+				break search;
+			}
+	}
+	return parts;
 }
