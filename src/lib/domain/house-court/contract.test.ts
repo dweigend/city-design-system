@@ -371,3 +371,52 @@ describe('createHouseCourt', () => {
 		expect(example().parts.length).toBeGreaterThan(0);
 	});
 });
+
+test('preserves frame connections and face counts across datum translations', () => {
+	const [, original] = spaces[0];
+	// Exercise separate storeys that can land in the same rounded Z bucket.
+	const space = { ...original, baseZ: 0, storeyHeightM: 0.00035 };
+	const style = houseStyles.archigram;
+	const house = createHouseCourt(space, { height: 21, width: 28, complexity: 0.8, seed: 3 }, style);
+	function frameAt(baseZ: number) {
+		const shape = createHouseObject({ ...space, baseZ }, house, 'full', style).parts.find(
+			({ slot }) => slot === 'frame'
+		)?.shape;
+		if (shape?.kind !== 'mesh') throw new Error('Expected a frame mesh');
+		return shape;
+	}
+	const frame = frameAt(space.baseZ);
+	for (const offset of [0.3333, 1000.123456]) {
+		const shifted = frameAt(space.baseZ + offset);
+		expect(shifted.positions).toHaveLength(frame.positions.length);
+		expect(shifted.indices).toEqual(frame.indices);
+		const positionError = shifted.positions.reduce((maximum, position, index) => {
+			const expected = frame.positions[index] + (index % 3 === 2 ? offset : 0);
+			return Math.max(maximum, Math.abs(position - expected));
+		}, 0);
+		expect(positionError).toBeLessThan(1e-9);
+	}
+});
+
+test('preserves envelope shell boundaries and face counts across datum translations', () => {
+	const space = createCellSpace({
+		...parcel('wedge', [
+			[0, 0],
+			[28, 0],
+			[0, 28]
+		]),
+		baseZ: 0,
+		storeyHeightM: 0.0000004
+	});
+	const house = createHouseCourt(space, { height: 21, width: 16, complexity: 1, seed: 0 });
+	const meshCounts = (baseZ: number) =>
+		createHouseObject({ ...space, baseZ }, house, 'full')
+			.parts.filter(({ slot }) => slot === 'wall')
+			.map(({ id, shape }) => {
+				if (shape.kind !== 'mesh') throw new Error('Expected an envelope mesh');
+				return [id, shape.indices.length, shape.positions.length];
+			});
+	const counts = meshCounts(space.baseZ);
+	expect(counts.length).toBeGreaterThan(1);
+	expect(meshCounts(1000.1234564)).toEqual(counts);
+});

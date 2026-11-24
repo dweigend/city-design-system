@@ -5,13 +5,10 @@ import type { Vec2 } from '../../core/geometry';
 import { laneSettings } from '../../../config/lanes';
 import { defineParams, resolveParams } from '../../core/params';
 import { Random, uint32Limit } from '../../core/random';
-import {
-	createCityDistricts,
-	type CityPlanVariant,
-	type DistrictGrowth
-} from '../../domain/city-volume';
+import { createCityDistricts, type DistrictGrowth } from '../../domain/city-volume';
 import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid';
 import { Valley, type ValleySettings } from '../../domain/valley';
+import type { CityPlanVariant } from './presets';
 import { preparePlanSelection } from './plan-selection';
 import { growthPrefix, prepareCarrier } from './carrier';
 import { citySiteConfig, citySiteDimensions as dimensions } from '../../../config/city-site';
@@ -28,6 +25,7 @@ export { citySiteConfig };
 export type { CityTerrainReading, CityTerrainSampler } from './sampling';
 export type { CityCrossing, CrossableWater } from './crossings';
 export { riverCityRecipe, type CityRecipe } from './recipe';
+export { cityLatticesByPlan, cityPlanVariants, type CityPlanVariant } from './presets';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
 export const citySiteParams = defineParams({

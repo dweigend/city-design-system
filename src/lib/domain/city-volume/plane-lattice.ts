@@ -1,6 +1,7 @@
 import { required } from '../../core/invariant';
 import { encodeKey, encodePair } from '../../core/ref';
-import { bayAddresses, type Column } from './bay-addresses';
+import { bayAddresses } from './bay-addresses';
+import type { StructuralColumn } from './columns';
 import { columnPlanes, cornerReader } from './foundation';
 import { hasCollapsedDiagonal } from './foundation-prism';
 import type { CityLattice } from './frame';
@@ -19,22 +20,29 @@ import { cleanFaces, closeSolid, type LatticeSolid } from './solid';
  * address frame of the box lattice; solids and members come from the rule. A member is a solid
  * edge: a chord joins two joints of one plane, a strut joins two planes. */
 export function createPlaneLattice(
-	columns: readonly Column[],
+	columns: readonly StructuralColumn[],
 	datumZ: number,
-	rule: PlaneRule
+	rule: PlaneRule,
+	levelHeightM: number
 ): CityLattice {
 	const triangulated = new Set<string>();
-	const anchors = cornerReader(datumZ);
-	const addresses = bayAddresses(columns, datumZ, anchors, ({ id, bottom, top }, first) => {
-		if (first && hasCollapsedDiagonal(bottom, top))
-			triangulated.add(id.slice(0, id.lastIndexOf('/level/')));
-	});
+	const anchors = cornerReader(datumZ, levelHeightM);
+	const addresses = bayAddresses(
+		columns,
+		datumZ,
+		anchors,
+		levelHeightM,
+		({ id, bottom, top }, first) => {
+			if (first && hasCollapsedDiagonal(bottom, top))
+				triangulated.add(id.slice(0, id.lastIndexOf('/level/')));
+		}
+	);
 	const topology = readPlanTopology(columns);
 	const byColumn = new Map(
-		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])
+		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ, levelHeightM)])
 	);
 	const bands: ColumnBands = (id) => required(byColumn.get(id), 'column planes');
-	const joints = jointsOf(topology, datumZ, anchors.read);
+	const joints = jointsOf(topology, datumZ, anchors.read, levelHeightM);
 	const kind = (id: string, level: number) => {
 		const { foundation: base } = bands(id);
 		return level < base ? 'plan' : rule.plane(level, level - base);

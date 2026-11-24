@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import {
-	cityLatticesByPlan,
+	latticeVariants,
 	createCityLattice,
 	latticeVolumes,
 	type CityColumn
@@ -9,16 +9,16 @@ import { gravityBalanceTolerance, runGravity } from '../../domain/structure';
 import { cityStructureSettings, createCityStructure, structureTownExample } from './index';
 
 const { columns, layout, quarter } = structureTownExample();
-const { datumZ, variant } = layout;
+const { datumZ } = layout;
 
 test('uses a connected quarter of the default town', () => {
 	expect(quarter.length).toBe(Math.ceil(columns.length / 4));
 	expect(quarter.some(({ kind }) => kind === 'block')).toBe(true);
 });
 
-for (const model of cityLatticesByPlan[variant]) {
+for (const model of latticeVariants) {
 	test(`${model} preserves lattice IDs and carries the quarter load to the ground`, () => {
-		const lattice = createCityLattice(quarter, datumZ, variant, model);
+		const lattice = createCityLattice(quarter, datumZ, model);
 		const { graph, loads } = createCityStructure(lattice, datumZ);
 		expect(graph.joints.map(({ id }) => id)).toEqual(lattice.nodes.map(({ id }) => id).sort());
 		expect(graph.members.map(({ id }) => id)).toEqual(lattice.edges.map(({ id }) => id).sort());
@@ -67,7 +67,7 @@ function flatCell(x = 0): CityColumn {
 
 test('keeps all twelve flat facade diagonals primary and shared-wall diagonals light', () => {
 	const build = (columns: readonly CityColumn[]) =>
-		createCityStructure(createCityLattice(columns, 0, 'square', 'braced'), 0).graph;
+		createCityStructure(createCityLattice(columns, 0, 'braced'), 0).graph;
 	const isolated = build([flatCell()]);
 	const braces = isolated.members.filter(({ role }) => role === 'brace');
 	expect(braces).toHaveLength(12);
@@ -89,10 +89,7 @@ test('keeps facade braces primary on a real shoreline-clipped cell', () => {
 	const column = columns.find(({ corners }) => corners.some(({ id }) => shore.has(id)));
 	expect(column).toBeDefined();
 	if (!column) return;
-	const { graph } = createCityStructure(
-		createCityLattice([column], datumZ, variant, 'braced'),
-		datumZ
-	);
+	const { graph } = createCityStructure(createCityLattice([column], datumZ, 'braced'), datumZ);
 	const braces = graph.members.filter(({ role }) => role === 'brace');
 	expect(braces.length).toBeGreaterThan(0);
 	expect(braces.every(({ section }) => section === 'heavy')).toBe(true);
@@ -100,10 +97,7 @@ test('keeps facade braces primary on a real shoreline-clipped cell', () => {
 
 for (const model of ['braced', 'centered'] as const) {
 	test(`${model} town utilization spreads across the reference range at nominal load`, () => {
-		const { graph, loads } = createCityStructure(
-			createCityLattice(columns, datumZ, variant, model),
-			datumZ
-		);
+		const { graph, loads } = createCityStructure(createCityLattice(columns, datumZ, model), datumZ);
 		const estimates = runGravity(graph, loads).members.flatMap(({ utilization }) =>
 			utilization === null ? [] : [utilization]
 		);

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
+import { encodeKey, encodePair } from '../../core/ref';
 import {
 	cellAreaM2,
 	createStripSpace,
@@ -160,4 +161,24 @@ test('strip counts preserve scale and aspect at extreme finite dimensions', () =
 	expect(stripCounts(1e308, 1e307)).toEqual({ columns: 22, rows: 2 });
 	expect(stripCounts(1e308, 1e-308)).toEqual({ columns: 48, rows: 1 });
 	expect(stripCounts(1e-308, 1e308)).toEqual({ columns: 1, rows: 48 });
+});
+
+test('independent strips use the same corner IDs at matching positions along their seam', () => {
+	const space = createStripSpace(
+		parcel([
+			[67.16, 49.16],
+			[0, 0],
+			[65.44, -20.33],
+			[82.96, 13.28],
+			[83.93, 14.05],
+			[122.49, 23.65],
+			[126.13, 91.85]
+		])
+	);
+	const seam = encodePair(encodeKey(['orig', 'c1']), encodeKey(['orig', 'c3']));
+	for (const fraction of [1 / 3, 2 / 3]) {
+		const key = encodeKey(['seam-point', seam, fraction]);
+		const joined = space.cells.filter(({ cornerIds }) => cornerIds.includes(key));
+		expect(new Set(joined.map(({ id }) => id.split('/strip/')[0])).size).toBe(2);
+	}
 });

@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test';
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { cityPlanVariants } from '../../domain/city-volume';
 import {
 	planCellSide,
 	planEdges,
@@ -9,7 +8,7 @@ import {
 	TerrainGrid,
 	type TerrainGridOptions
 } from '../../domain/terrain-grid';
-import { citySiteConfig, coarseCellSize, createCitySite } from './index';
+import { cityPlanVariants, citySiteConfig, coarseCellSize, createCitySite } from './index';
 
 const minimumEdge = coarseCellSize * shorelineMorphLimits.clippedMinimumEdgeRatio;
 const minimumArea = coarseCellSize ** 2 * shorelineMorphLimits.clippedMinimumAreaRatio;

@@ -1,9 +1,9 @@
+import type { StructuralColumn } from './columns';
 import type { Vec3 } from '../../core/geometry';
 import { encodePair } from '../../core/ref';
 import {
 	bayAddresses,
 	type BayFace,
-	type Column,
 	type BayRings,
 	type LatticeBay,
 	type LatticePoint
@@ -105,9 +105,10 @@ export type PrismVariant = keyof typeof frames;
 export const prismVariants = Object.freeze(Object.keys(frames) as PrismVariant[]);
 
 export function createFrame(
-	columns: readonly Column[],
+	columns: readonly StructuralColumn[],
 	datumZ: number,
-	variant: PrismVariant
+	variant: PrismVariant,
+	levelHeightM: number
 ): CityLattice {
 	const addMembers = frames[variant];
 	const nodes = new Map<string, Node>();
@@ -122,27 +123,33 @@ export function createFrame(
 		if (!edges.has(id)) edges.set(id, Object.freeze({ id, from, to }));
 	}
 	let triangulate = false;
-	const addresses = bayAddresses(columns, datumZ, cornerReader(datumZ), (bay, first) => {
-		const { id, bottom, top } = bay;
-		if (first) triangulate = hasCollapsedDiagonal(bottom, top);
-		addMembers(bay, connect);
-		if (!triangulate) {
-			solids.push(closeSolid(id, id, cleanFaces(prismFaces(bottom, top))));
-			return;
+	const addresses = bayAddresses(
+		columns,
+		datumZ,
+		cornerReader(datumZ, levelHeightM),
+		levelHeightM,
+		(bay, first) => {
+			const { id, bottom, top } = bay;
+			if (first) triangulate = hasCollapsedDiagonal(bottom, top);
+			addMembers(bay, connect);
+			if (!triangulate) {
+				solids.push(closeSolid(id, id, cleanFaces(prismFaces(bottom, top))));
+				return;
+			}
+			const split = hasCollapsedDiagonal(bottom, top);
+			const parts = split ? prismParts(bottom, top) : [{ bottom, top }];
+			for (const [i, part] of parts.entries()) {
+				const [floor, ceiling, ...sides] = prismFaces(part.bottom, part.top);
+				solids.push(
+					closeSolid(
+						parts.length === 1 ? id : `${id}/part/${i}`,
+						id,
+						cleanFaces([...fanTriangles(floor), ...fanTriangles(ceiling), ...sides])
+					)
+				);
+			}
 		}
-		const split = hasCollapsedDiagonal(bottom, top);
-		const parts = split ? prismParts(bottom, top) : [{ bottom, top }];
-		for (const [i, part] of parts.entries()) {
-			const [floor, ceiling, ...sides] = prismFaces(part.bottom, part.top);
-			solids.push(
-				closeSolid(
-					parts.length === 1 ? id : `${id}/part/${i}`,
-					id,
-					cleanFaces([...fanTriangles(floor), ...fanTriangles(ceiling), ...sides])
-				)
-			);
-		}
-	});
+	);
 	return Object.freeze({
 		...addresses,
 		nodes: Object.freeze([...nodes.values()]),

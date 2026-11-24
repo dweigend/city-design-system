@@ -3,12 +3,14 @@ import { encodeKey, encodePair } from '../../core/ref';
 
 /** A convex or simple plan ring, counterclockwise. `keys` name its points symbolically, so two rings
  * that share a side name it alike without comparing coordinates. `edges[i]` is the parcel edge
- * that side i (point i to i + 1) lies on, or null inside the parcel. */
+ * that side i (point i to i + 1) lies on, or null inside the parcel. `jointKeys` can identify
+ * shared seam points across independent strip parts while keeping their side addresses. */
 export type KeyedRing = Readonly<{
 	id: string;
 	corner: string;
 	ear: string | null;
 	keys: readonly string[];
+	jointKeys?: readonly string[];
 	points: readonly Vec2[];
 	edges: readonly (string | null)[];
 }>;

@@ -1,16 +1,13 @@
-import { defaults } from '../../../config/house-court';
 import type { Vec3 } from '../../core/geometry';
+import { encodePair, type Key } from '../../core/ref';
 import type { FineCell } from '../cell-space';
 import type { Context } from './context';
 
 type Node = Readonly<{ cell: FineCell; storey: number; id: string }>;
-type Face = Readonly<{ owner: string; points: Vec3[] }>;
+type Joint = Readonly<{ key: Key; position: Vec3 }>;
+type Face = Readonly<{ owner: string; joints: readonly Joint[] }>;
 
 const nodeId = (cell: string, storey: number) => `${cell}#${storey}`;
-const { shellCornerKeyDecimalPlaces } = defaults;
-const pointKey = ([x, y, z]: Vec3) =>
-	`${x.toFixed(shellCornerKeyDecimalPlaces)},${y.toFixed(shellCornerKeyDecimalPlaces)},${z.toFixed(shellCornerKeyDecimalPlaces)}`;
-
 function nodes(ctx: Context): Node[] {
 	return ctx.space.cells.flatMap((cell) => {
 		const house = ctx.occupancy.get(cell.id);
@@ -29,14 +26,18 @@ export function shellFaces(ctx: Context, members: ReadonlySet<string>): Face[] {
 	const level = (storey: number) => ctx.space.baseZ + storey * ctx.space.storeyHeightM;
 	const faces: Face[] = [];
 	for (const cell of ctx.space.cells) {
-		const ring = (storey: number) => cell.quad.map(([x, y]): Vec3 => [x, y, level(storey)]);
+		const ring = (storey: number) =>
+			cell.quad.map(([x, y], i): Joint => ({
+				key: [cell.cornerIds[i], storey],
+				position: [x, y, level(storey)]
+			}));
 		const inShell = (storey: number) => members.has(nodeId(cell.id, storey));
 		const house = ctx.occupancy.get(cell.id);
 		for (let storey = house?.fromStorey ?? 0; storey < (house?.toStorey ?? 0); storey += 1) {
 			if (!inShell(storey)) continue;
 			const owner = nodeId(cell.id, storey);
-			if (!inShell(storey - 1)) faces.push({ owner, points: [...ring(storey)].reverse() });
-			if (!inShell(storey + 1)) faces.push({ owner, points: ring(storey + 1) });
+			if (!inShell(storey - 1)) faces.push({ owner, joints: [...ring(storey)].reverse() });
+			if (!inShell(storey + 1)) faces.push({ owner, joints: ring(storey + 1) });
 		}
 		for (let storey = house?.fromStorey ?? 0; storey < (house?.toStorey ?? 0); storey += 1) {
 			if (!inShell(storey)) continue;
@@ -47,7 +48,7 @@ export function shellFaces(ctx: Context, members: ReadonlySet<string>): Face[] {
 				if (across === null || !members.has(nodeId(across, storey)))
 					faces.push({
 						owner: nodeId(cell.id, storey),
-						points: [low[i], low[j], high[j], high[i]]
+						joints: [low[i], low[j], high[j], high[i]]
 					});
 			});
 		}
@@ -63,9 +64,9 @@ function faceAdjacent(a: Node, b: Node): boolean {
 /** Pairs of members meeting on an edge shared by more than two faces of their shell. */
 function edgeContacts(faces: readonly Face[], byId: ReadonlyMap<string, Node>): [string, string][] {
 	const owners = new Map<string, string[]>();
-	for (const { owner, points } of faces)
-		points.forEach((point, i) => {
-			const edge = [pointKey(point), pointKey(points[(i + 1) % points.length])].sort().join('|');
+	for (const { owner, joints } of faces)
+		joints.forEach(({ key }, i) => {
+			const edge = encodePair(key, joints[(i + 1) % joints.length].key);
 			owners.set(edge, [...(owners.get(edge) ?? []), owner]);
 		});
 	const pairs: [string, string][] = [];

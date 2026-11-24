@@ -25,7 +25,7 @@ export function example() {
 		seed
 	);
 	const columns = readCityColumns(plan, districts);
-	const lattice = createCityLattice(columns, datumZ, 'square');
+	const lattice = createCityLattice(columns, datumZ);
 	const taper = createCityTaper(columns, datumZ);
 	const frame = {
 		footprint: { width: site.length, depth: site.width },

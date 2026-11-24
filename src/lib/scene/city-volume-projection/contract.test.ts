@@ -173,7 +173,7 @@ test('ranks lattice members by direction, so the slants of a model stay its own'
 	expect(memberRank([0, 0, 0], [0.4, 0, 7], false)).toBe('uprights');
 	expect(memberRank([0, 0, 0], [12, 9, 7], false)).toBe('detail');
 	const { lattice, frame, taper } = example();
-	const antiprism = createCityLattice(example().columns, example().datumZ, 'square', 'antiprism');
+	const antiprism = createCityLattice(example().columns, example().datumZ, 'antiprism');
 	const count = (value: typeof lattice) =>
 		projectCityLattice(value, frame, taper).drawables.find(({ id }) => id === 'detail')
 			?.strokeSegments?.length ?? 0;

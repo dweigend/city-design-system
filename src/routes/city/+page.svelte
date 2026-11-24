@@ -8,14 +8,11 @@
 	import { resolveParams } from '../../lib/core/params';
 	import { Random } from '../../lib/core/random';
 	import {
-		cityLatticesByPlan,
-		cityPlanVariants,
 		cityVolumeParams,
 		createCityLattice,
 		createCityTaper,
 		storeysPerLevel,
 		readCityColumns,
-		type CityPlanVariant,
 		type DistrictKind,
 		type LatticeVariant,
 		type SettlementKind
@@ -45,6 +42,9 @@
 	import { Tabs } from '../../lib/ui/tabs';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import {
+		cityLatticesByPlan,
+		cityPlanVariants,
+		type CityPlanVariant,
 		citySiteParams,
 		createCitySite,
 		readCityDistricts,
@@ -167,7 +167,7 @@
 	const columns = $derived(readCityColumns(plan.grid, districts));
 	const taperField = $derived(createCityTaper(columns, plan.datumZ));
 	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));
-	const lattice = $derived(createCityLattice(columns, plan.datumZ, gridVariant, latticeVariant));
+	const lattice = $derived(createCityLattice(columns, plan.datumZ, latticeVariant));
 	const members = $derived(projectCityLattice(lattice, terrain, taperField));
 	const holdings = $derived(readCityParcels(city, plan));
 	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits));

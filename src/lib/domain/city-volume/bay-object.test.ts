@@ -2,10 +2,11 @@ import { expect, test } from 'bun:test';
 import { crossProduct, displacement, dotProduct, type Vec3 } from '../../core/geometry';
 import { example } from './example';
 import {
-	cityLatticesByPlan,
+	latticeVariants,
 	createCityLattice,
 	createLatticeBayObject,
-	latticeVolumes
+	latticeVolumes,
+	readLatticeBay
 } from './index';
 
 function signedVolume(positions: readonly number[], indices: readonly number[]) {
@@ -34,8 +35,8 @@ test('builds canonical meshes and unique joint anchors in all seven models', () 
 			position: [corner.position[0], corner.position[1], corner.position[2] + (i % 2)] as const
 		}))
 	};
-	for (const model of cityLatticesByPlan.hex) {
-		const lattice = createCityLattice([warped], 0, 'hex', model);
+	for (const model of latticeVariants) {
+		const lattice = createCityLattice([warped], 0, model);
 		const id = lattice.cells[0].id;
 		const object = createLatticeBayObject(lattice, id);
 		const shape = object.parts.find(({ slot }) => slot === 'solid')?.shape;
@@ -48,6 +49,10 @@ test('builds canonical meshes and unique joint anchors in all seven models', () 
 		expect(signedVolume(shape.positions, shape.indices)).toBeCloseTo(expected, 7);
 		expect(object.anchors.length).toBeGreaterThan(2);
 		expect(new Set(object.anchors.map(({ name }) => name)).size).toBe(object.anchors.length);
+		const bay = readLatticeBay(lattice, id);
+		bay.solids.length = 0;
+		bay.joints.clear();
+		bay.members.length = 0;
 		expect(createLatticeBayObject(lattice, id)).toEqual(object);
 	}
 });

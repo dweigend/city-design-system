@@ -1,16 +1,12 @@
 import type { Vec2 } from '../../core/geometry';
-import {
-	cityAccessibility,
-	cityGrowth,
-	levelHeight,
-	type CityPlanVariant
-} from '../../domain/city-volume';
+import { cityAccessibility, cityGrowth, levelHeight } from '../../domain/city-volume';
 import {
 	dryPlanEdges,
 	planCellSide,
 	shorelineMorphLimits,
 	TerrainGrid
 } from '../../domain/terrain-grid';
+import type { CityPlanVariant } from './presets';
 import { laneGrades, laneReservations } from './lane-policy';
 import { prepareCityParcels } from './parcel-policy';
 import { shoreDetours } from './promenade';

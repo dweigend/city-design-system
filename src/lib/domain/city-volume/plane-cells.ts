@@ -1,7 +1,7 @@
 import { encodePair } from '../../core/ref';
 import { cityVolumeConfig } from '../../../config/city-volume';
 import { required } from '../../core/invariant';
-import type { Column } from './bay-addresses';
+import type { StructuralColumn } from './columns';
 import type { PlanTopology } from './plan-topology';
 import type { Joint, Joints, PlaneKind } from './plane-joints';
 import { capHeight, fanTriangles, hasCollapsedDiagonal, prismParts } from './foundation-prism';
@@ -41,18 +41,23 @@ type Context = Layer &
 		triangulated: ReadonlySet<string>;
 	}>;
 
-function polygon({ joints }: Context, { corners }: Column, level: number) {
+function polygon({ joints }: Context, { corners }: StructuralColumn, level: number) {
 	return corners.map((corner) => joints.corner(corner, level));
 }
 
-function medial({ joints, topology }: Context, { corners }: Column, level: number) {
+function medial({ joints, topology }: Context, { corners }: StructuralColumn, level: number) {
 	return corners.map((a, i) =>
 		joints.middle(topology.edgeKey(a, corners[(i + 1) % corners.length]), level)
 	);
 }
 
 /** A full bay meeting a frustum splits its shared side at the frustum's triangle. */
-function planSides(c: Context, column: Column, sides: Faces, indices?: readonly number[]) {
+function planSides(
+	c: Context,
+	column: StructuralColumn,
+	sides: Faces,
+	indices?: readonly number[]
+) {
 	const { level, topology, joints } = c;
 	return sides.flatMap((side, i) => {
 		const [a, b, d, e] = side;
@@ -99,7 +104,7 @@ function throughFoot(loop: readonly Joint[], foot: Joint) {
 	);
 }
 
-function addPlanBay(c: Context, column: Column, foot?: Joint) {
+function addPlanBay(c: Context, column: StructuralColumn, foot?: Joint) {
 	const { level } = c;
 	const id = column.planCellId;
 	const bay = c.bay(id);
@@ -138,7 +143,7 @@ const centrePlan = encodePair('centre', 'plan');
 const medialPlan = encodePair('medial', 'plan');
 
 /** The one cell solid of each plane pair, keyed by the sorted plane kinds. */
-const cellSolids: Record<string, (context: Context, column: Column) => Faces> = {
+const cellSolids: Record<string, (context: Context, column: StructuralColumn) => Faces> = {
 	[centrePlan]: (c, column) =>
 		pyramid(polygon(c, column, c.at('plan')), c.joints.centre(column.planCellId, c.at('centre'))),
 	[medialPlan]: (c, column) =>

@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test';
-import { cityPlanVariants } from '../src/lib/domain/city-volume';
 import { shorelineMorphLimits } from '../src/lib/domain/terrain-grid';
-import { createCitySite, readCityGrid } from '../src/lib/world/city-site';
+import { cityPlanVariants, createCitySite, readCityGrid } from '../src/lib/world/city-site';
 import { shoreMetrics } from './city-study-shore';
 
 const cases = [

@@ -4,9 +4,11 @@ import { TerrainGrid } from '../terrain-grid';
 import {
 	cityGrowth,
 	cityAccessibility,
-	cityLatticesByPlan,
+	latticeVariants,
+	columnRoof,
 	createCityDistricts,
 	createCityLattice,
+	createStructuralColumns,
 	districtLevels,
 	maximumLevelStep,
 	readCityColumns,
@@ -149,8 +151,8 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 			levels: 1
 		}
 	] as const;
-	const [box, braced, centered, tetrahedral] = cityLatticesByPlan.square.map((frame) =>
-		createCityLattice(columns, 10, 'square', frame)
+	const [box, braced, centered, tetrahedral] = latticeVariants.map((frame) =>
+		createCityLattice(columns, 10, frame)
 	);
 	for (const lattice of [braced, centered, tetrahedral]) {
 		expect(lattice.cells).toEqual(box.cells);
@@ -163,7 +165,7 @@ test('uses the same prism faces for all square frames, including a terrain-fitti
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/0')?.position).toEqual([14, 0, 1]);
 	expect(box.nodes.find(({ id }) => id === 'vertex/b/level/1')?.position).toEqual([14, 0, 17]);
 	expect(centered.nodes.find(({ id }) => id.endsWith('/center'))?.position).toEqual([7, 7, 9]);
-	const sloped = createCityLattice(columns, -4, 'square');
+	const sloped = createCityLattice(columns, -4);
 	expect(sloped.nodes.find(({ id }) => id === 'vertex/d/level/0')?.position).toEqual([0, 14, 3]);
 	expect(sloped.nodes.find(({ id }) => id === 'vertex/d/level/2')?.position).toEqual([0, 14, 10]);
 });
@@ -183,14 +185,14 @@ test('rejects malformed columns before allocating bays', () => {
 		neighbors: [null, null, null]
 	};
 	for (const levels of [Infinity, NaN, 1.5, 0, -1, 16])
-		expect(() => createCityLattice([{ ...column, levels }], 0, 'triangle')).toThrow(RangeError);
+		expect(() => createCityLattice([{ ...column, levels }], 0)).toThrow(RangeError);
 	for (let i = 0; i < 3; i++) {
 		const position: [number, number, number] = [0, 0, 0];
 		position[i] = i === 1 ? NaN : Infinity;
 		const corners = [{ id: 'a', position }, ...column.corners.slice(1)];
-		expect(() => createCityLattice([{ ...column, corners }], 0, 'triangle')).toThrow(RangeError);
+		expect(() => createCityLattice([{ ...column, corners }], 0)).toThrow(RangeError);
 	}
-	expect(createCityLattice([{ ...column, levels: 15 }], 0, 'triangle').cells.length).toBe(15);
+	expect(createCityLattice([{ ...column, levels: 15 }], 0).cells.length).toBe(15);
 	expect(storeysPerLevel).toBe(2);
 });
 
@@ -317,3 +319,105 @@ test('publishes a ten-cell demo with a smaller startup area', () => {
 	expect(order[0]).toMatchObject({ builtArea: 100, complete: true });
 	expect(order.at(-1)).toMatchObject({ builtArea: 1000, complete: true });
 });
+
+const structuralColumn: CityColumn = {
+	planCellId: 'column',
+	kind: 'block',
+	districtId: 'district',
+	densityRegionId: 'region',
+	levels: 1,
+	corners: [
+		{ id: 'a', position: [20, 0, 0] },
+		{ id: 'b', position: [40, 0, 0] },
+		{ id: 'c', position: [20, 20, 0] }
+	],
+	neighbors: [null, null, null]
+};
+
+test('rejects duplicate column cell IDs', () => {
+	expect(() => createCityLattice([structuralColumn, structuralColumn], 0)).toThrow(
+		new RangeError('Duplicate city column cell ID "column"')
+	);
+});
+
+test('rejects conflicting positions for a shared corner ID', () => {
+	const translated: CityColumn = {
+		...structuralColumn,
+		planCellId: 'translated',
+		corners: structuralColumn.corners.map(({ id, position: [x, y, z] }) => ({
+			id,
+			position: [x + 100, y, z]
+		}))
+	};
+	expect(() => createCityLattice([structuralColumn, translated], 0)).toThrow(
+		new RangeError('Conflicting positions for city corner ID "a"')
+	);
+});
+
+test('rejects a repeated corner ID within a column ring', () => {
+	const [a, b, c] = structuralColumn.corners;
+	const repeated = { ...structuralColumn, corners: [a, b, c, a] };
+	expect(() => createCityLattice([repeated], 0)).toThrow(
+		new RangeError('Duplicate city corner ID "a" in column "column"')
+	);
+});
+
+test('detaches validated columns and shares equal corner addresses across cells', () => {
+	const [a, b, c] = structuralColumn.corners;
+	const adjacent = {
+		...structuralColumn,
+		planCellId: 'adjacent',
+		corners: [b, a, { id: 'd', position: [20, -20, 0] as const }]
+	};
+	const columns = createStructuralColumns([{ ...structuralColumn, corners: [a, b, c] }, adjacent]);
+	expect(columns).toEqual([structuralColumn, adjacent]);
+	expect(columns[0].corners[0]).toBe(columns[1].corners[1]);
+	expect(columns[0].corners[0]).not.toBe(a);
+	expect(Object.isFrozen(columns[0].corners[0].position)).toBe(true);
+	expect(
+		createCityLattice(columns, 0).faces.filter(({ id }) => id.startsWith('side/'))
+	).toHaveLength(5);
+	expect(() => createStructuralColumns([adjacent, adjacent])).toThrow(RangeError);
+});
+
+test('uses an independent level cap and plane spacing for prism and plane models', () => {
+	const column = { ...structuralColumn, levels: 16 };
+	expect(() => createStructuralColumns([column])).toThrow(RangeError);
+	const columns = createStructuralColumns([column], 16);
+	const options = { levelHeightM: 4, maxLevels: 16 };
+	for (const model of ['box', 'diagrid'] as const) {
+		const lattice = createCityLattice(columns, 0, model, options);
+		expect(lattice.cells).toHaveLength(16);
+		expect(Math.max(...lattice.nodes.map(({ position }) => position[2]))).toBe(64);
+		expect(Math.max(...lattice.bayCorners.map(({ position }) => position[2]))).toBe(64);
+	}
+	expect(columnRoof(column, 0, options.levelHeightM)).toBe(64);
+	expect(() => createCityLattice(columns, 0, 'box', { ...options, levelHeightM: 0 })).toThrow(
+		RangeError
+	);
+	expect(() => createCityLattice(columns, 0, 'box', { ...options, maxLevels: 15 })).toThrow(
+		RangeError
+	);
+});
+
+for (const variant of ['polar', 'free-quad'] as const) {
+	test(`builds ${variant} columns from a caller's cell assignment`, () => {
+		const plan = TerrainGrid.create({
+			seed: 1201,
+			site: { origin: [0, 0], bearing: 0, length: 800, width: 600 },
+			variant,
+			heightAt: () => 0,
+			parameters: { cellSize: 60 }
+		});
+		const ids: string[] = [];
+		const columns = readCityColumns(plan, (id) => {
+			ids.push(id);
+			return { levels: 2, kind: 'block' };
+		});
+		expect(ids).toEqual(plan.cells.map(({ id }) => id));
+		expect(columns.length).toBeGreaterThan(1);
+		expect(columns.every(({ levels, kind }) => levels === 2 && kind === 'block')).toBe(true);
+		for (const model of latticeVariants)
+			expect(createCityLattice(columns, 0, model).cells).toHaveLength(2 * plan.cells.length);
+	});
+}

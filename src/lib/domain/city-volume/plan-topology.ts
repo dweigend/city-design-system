@@ -1,9 +1,9 @@
 import { measurePolygon, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeId, planEdges } from '../terrain-grid';
-import type { Column } from './bay-addresses';
+import type { StructuralColumn } from './columns';
 
-type Corner = Column['corners'][number];
+type Corner = StructuralColumn['corners'][number];
 
 /** One plan edge with its ordered end corners and the one or two columns that share it. */
 type PlanEdge = Readonly<{
@@ -23,7 +23,7 @@ export type PlanRing = Readonly<{
 
 /** The plan relations every non-prism lattice reads: centres, shared edges and corner rings. */
 export type PlanTopology = Readonly<{
-	columns: ReadonlyMap<string, Column>;
+	columns: ReadonlyMap<string, StructuralColumn>;
 	centres: ReadonlyMap<string, Vec2>;
 	edges: ReadonlyMap<string, PlanEdge>;
 	rings: ReadonlyMap<string, PlanRing>;
@@ -46,7 +46,7 @@ function midpoint({ ends: [a, b] }: PlanEdge): Vec2 {
 }
 
 /** Reads centres, shared edges and corner rings of the columns in plan order. */
-export function readPlanTopology(columns: readonly Column[]): PlanTopology {
+export function readPlanTopology(columns: readonly StructuralColumn[]): PlanTopology {
 	const centres = new Map<string, Vec2>();
 	const cornersById = new Map<string, Corner>();
 	const around = new Map<string, { corner: Corner; cells: string[]; edges: PlanEdge[] }>();

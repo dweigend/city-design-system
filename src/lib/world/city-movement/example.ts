@@ -1,6 +1,12 @@
 import type { Vec2 } from '../../core/geometry';
-import { readCityColumns, type CityPlanVariant } from '../../domain/city-volume';
-import { citySiteParams, createCitySite, readCityDistricts, readCityGrid } from '../city-site';
+import { readCityColumns } from '../../domain/city-volume';
+import {
+	citySiteParams,
+	createCitySite,
+	readCityDistricts,
+	readCityGrid,
+	type CityPlanVariant
+} from '../city-site';
 import { cityRailTerrainSlopeBound, readCityMovement, readCityRail } from './index';
 
 /** Builds a seeded valley settlement with walkway centres and rail catchments supplied by the caller. */

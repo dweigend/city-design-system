@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { cityPlanVariants } from '../../domain/city-volume';
 import {
+	cityPlanVariants,
 	citySiteParams,
 	createCitySite,
 	readCityDistricts,

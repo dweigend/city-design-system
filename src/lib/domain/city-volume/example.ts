@@ -20,7 +20,7 @@ export function example() {
 	const core = { origin: site.origin, bearing: site.bearing, aspect: 0.5 };
 	const districts = createCityDistricts(plan, core, seed);
 	const columns = readCityColumns(plan, districts);
-	const lattice = createCityLattice(columns, 0, 'hex', 'braced');
+	const lattice = createCityLattice(columns, 0, 'braced');
 	const bay = lattice.cells[0];
 	const floor = lattice.faces.find(({ id }) => id === bay.floorFace);
 	return {

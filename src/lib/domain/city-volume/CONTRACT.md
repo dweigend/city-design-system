@@ -13,7 +13,10 @@ Assigns district identity, density and levels to an immutable plan, then builds 
   ground at their own horizontal position. If those bounds leave no room, the bay has no hub.
 - A joint clamped to terrain carries `groundContact: true`. The flag does not enter its address.
 - A column roof has the assigned number of levels above the plane at or above the highest
-  corner. Each column validates its derived levels and occupied span before lattice allocation.
+  corner. Structural columns can come from the district profile or from a supplied level and kind
+  assignment. The lattice accepts a plane spacing and level cap, with defaults of 7 m and 15 levels.
+  Validation rejects duplicate cell IDs, duplicate corners within a ring and conflicting positions
+  for a shared corner ID. The lattice also checks each occupied span before allocating geometry.
 - Canonical bay addresses follow the plan and level. A bay carries its parent plan cell ID,
   lower level, counterclockwise plan corners, floor, ceiling and sides in plan edge order.
   Stacked bays share the cap at their common level. Neighbors share the side named by their

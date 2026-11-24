@@ -1,15 +1,8 @@
+import type { StructuralColumn } from './columns';
 import { planEdgeId } from '../terrain-grid';
 import { columnBays, type CornerReader, type LatticePoint } from './foundation';
 
 export type { LatticePoint } from './foundation';
-
-export type Column = Readonly<{
-	planCellId: string;
-	corners: readonly LatticePoint[];
-	neighbors: readonly (string | null)[];
-	levels: number;
-	groundAtHub?: number;
-}>;
 
 /** A coarse cell and its boundary in counterclockwise plan order. */
 export type LatticeBay = Readonly<{
@@ -39,9 +32,10 @@ const sideId = (edge: string, level: number) => `side/${edge}/level/${level}`;
 
 /** Builds the canonical addresses and visits their ground-clamped rings in plan order. */
 export function bayAddresses(
-	columns: readonly Column[],
+	columns: readonly StructuralColumn[],
 	datumZ: number,
 	anchors: CornerReader,
+	levelHeightM: number,
 	visit?: (bay: BayRings, first: boolean) => void
 ) {
 	const cells: LatticeBay[] = [];
@@ -59,7 +53,7 @@ export function bayAddresses(
 			return { edge: planEdgeId(a, b), from, to };
 		});
 		let first = true;
-		for (const { level, bottom, top } of columnBays(column, datumZ, anchors.read)) {
+		for (const { level, bottom, top } of columnBays(column, datumZ, anchors.read, levelHeightM)) {
 			const id = bayId(planCellId, level);
 			const floorFace = capId(planCellId, level);
 			const ceilingFace = capId(planCellId, level + 1);

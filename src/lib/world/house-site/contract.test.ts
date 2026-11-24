@@ -1,47 +1,16 @@
-import { describe, expect, test } from 'bun:test';
+import { expect, test } from 'bun:test';
 import { cellAreaM2 } from '../../domain/cell-space';
-import { levelHeight, subdivideBay, type LatticeBay } from '../../domain/city-volume';
+import { levelHeight } from '../../domain/city-volume';
 import { houseFigures, houseStyles } from '../../domain/house-court';
 import { example } from './example';
-import {
-	createParcelHouse,
-	createParcelHouseObject,
-	createTownHouseStudy,
-	readBaseLevel,
-	readChildBayAddress
-} from './index';
+import { createParcelHouse, createParcelHouseObject, createTownHouseStudy } from './index';
 
-describe('createBayHouse', () => {
-	test('R11-09: the house stands on the first lattice plane above the highest corner', () => {
-		const { space, house, baseLevel } = example();
-		expect(baseLevel).toBe(2);
-		expect(space.baseZ).toBe(14);
-		expect(space.storeyCount).toBe(4);
-		expect(house.storeys).toBe(4);
-		expect(houseFigures(space, house).courtAreaM2).toBeGreaterThan(0);
-	});
-
-	test('fine cells resolve to the absolute child bay addresses of subdivideBay', () => {
-		const { space, baseLevel } = example();
-		const addresses = new Set(
-			[baseLevel, baseLevel + 1].flatMap((level) => {
-				const bay: LatticeBay = {
-					id: `plan/7/level/${level}`,
-					planCellId: 'plan/7',
-					level,
-					planCorners: ['v1', 'v2', 'v3', 'v4'],
-					floorFace: '',
-					ceilingFace: '',
-					sideFaces: []
-				};
-				return subdivideBay(bay).map(({ id }) => id);
-			})
-		);
-		for (const cell of space.cells)
-			for (let storey = 0; storey < space.storeyCount; storey += 1)
-				expect(addresses.has(readChildBayAddress('plan/7', baseLevel, cell, storey))).toBe(true);
-		expect(readBaseLevel).toBeInstanceOf(Function);
-	});
+test('the parcel example stays on its common lattice base', () => {
+	const placed = example();
+	if (placed.status !== 'placed') throw new Error(placed.reason);
+	expect(placed.space.id).toBe(placed.parcel.id);
+	expect(placed.space.storeyCount).toBeGreaterThan(0);
+	expect(houseFigures(placed.space, placed.house).builtCells).toBeGreaterThan(0);
 });
 
 test('each Town parcel takes an addressed house, including merged halls with sub-centimeter edges', () => {

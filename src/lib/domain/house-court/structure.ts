@@ -1,5 +1,6 @@
-import type { Vec2, Vec3 } from '../../core/geometry';
+import type { Vec3 } from '../../core/geometry';
 import type { Part } from '../../core/object';
+import { encodePair, type Key } from '../../core/ref';
 import { defaults } from '../../../config/house-court';
 import { cellCenter, type FineCell } from '../cell-space';
 import { faceMesh, side } from './boxes';
@@ -12,8 +13,6 @@ const part = (id: string, slot: string, faces: Faces): Part[] => {
 	const shape = faceMesh(faces);
 	return shape ? [{ id, slot, shape }] : [];
 };
-const key = ([x, y, z]: Vec3) =>
-	[x, y, z].map((v) => v.toFixed(defaults.frameJointKeyDecimalPlaces)).join(',');
 const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
 
 function eachBuilt(ctx: Context, visit: (cell: FineCell, from: number, to: number) => void) {
@@ -28,23 +27,27 @@ function eachBuilt(ctx: Context, visit: (cell: FineCell, from: number, to: numbe
  * are emitted once. */
 function frame(ctx: Context): Faces {
 	const members = new Map<string, Faces>();
-	const add = (a: Vec3, b: Vec3) => {
-		const id = [key(a), key(b)].sort().join('>');
-		if (!members.has(id)) members.set(id, bar(a, b, archigramBarM));
+	type Joint = Readonly<{ key: Key; position: Vec3 }>;
+	const add = (a: Joint, b: Joint) => {
+		const id = encodePair(a.key, b.key);
+		if (!members.has(id)) members.set(id, bar(a.position, b.position, archigramBarM));
 	};
 	const brace = ctx.style.parts.braceShareRatio * ctx.complexity;
 	eachBuilt(ctx, (cell, from, to) => {
-		const at = ([x, y]: Vec2, storey: number): Vec3 => [x, y, level(ctx, storey)];
-		cell.quad.forEach((corner, i) => {
-			const next = cell.quad[(i + 1) % cell.quad.length];
-			add(at(corner, /* Exact arithmetic: ground story index. */ 0), at(corner, to));
-			for (let storey = from; storey <= to; storey += 1) add(at(corner, storey), at(next, storey));
+		const at = (corner: number, storey: number): Joint => {
+			const [x, y] = cell.quad[corner];
+			return { key: [cell.cornerIds[corner], storey], position: [x, y, level(ctx, storey)] };
+		};
+		cell.quad.forEach((_, i) => {
+			const next = (i + 1) % cell.quad.length;
+			add(at(i, /* Exact arithmetic: ground story index. */ 0), at(i, to));
+			for (let storey = from; storey <= to; storey += 1) add(at(i, storey), at(next, storey));
 			for (let storey = from; storey < to; storey += 1)
 				if (
 					!builtAt(ctx, cell.sides[i].neighbour, storey) &&
 					ctx.random.derive(`${cell.id}/brace/${i}/${storey}`).number() < brace
 				)
-					add(at(corner, storey), at(next, storey + 1));
+					add(at(i, storey), at(next, storey + 1));
 		});
 	});
 	return [...members.values()].flat();
