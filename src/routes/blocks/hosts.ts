@@ -6,6 +6,7 @@ import type { AssetDefinition, CityAssetHost } from '../../lib/world/asset-regis
 const parcelSideM = 16;
 const baySideM = 8;
 const frontage = parcelEdgeId('a', 'b');
+const alternatingLattices = new Set(['lattice/antiprism', 'lattice/diagrid', 'lattice/tree']);
 const column: CityColumn = {
 	planCellId: 'specimen',
 	corners: [
@@ -93,9 +94,12 @@ export function specimenHost({ id, kind }: AssetDefinition): CityAssetHost {
 			const readLattice: Extract<CityAssetHost, { kind: 'lattice-bay' }>['readLattice'] = (
 				variant
 			) => createCityLattice([column], datumZ, 'square', variant);
+			const level = alternatingLattices.has(id) ? 2 : 0;
+			const bay = readLattice(model).cells.find((cell) => cell.level === level);
+			if (!bay) throw new Error(`Missing specimen bay at level ${level}`);
 			return {
 				kind: 'lattice-bay',
-				id: readLattice(model).cells[0].id,
+				id: bay.id,
 				model,
 				datumZ,
 				readLattice
