@@ -286,11 +286,13 @@
 	}
 	.blocks-specimens > li > code { display: block; overflow-wrap: anywhere; color: var(--ink-2); }
 	.blocks-table { overflow-x: auto; }
-	.blocks-table table { min-inline-size: 52rem; }
+	.blocks-table table { min-inline-size: 62rem; table-layout: fixed; }
 	.blocks-table :is(th, td) { overflow-wrap: anywhere; }
-	.blocks-table th[scope='row'] { inline-size: 12rem; }
-	.blocks-table td:nth-child(2) { inline-size: 15rem; }
-	.blocks-table td:nth-child(4) { inline-size: 11rem; }
+	.blocks-table thead th:nth-child(1) { inline-size: 15%; }
+	.blocks-table thead th:nth-child(2) { inline-size: 18%; }
+	.blocks-table thead th:nth-child(4) { inline-size: 15%; }
+	.blocks-table thead th:nth-child(5) { inline-size: 9%; }
+	.blocks-table thead th:nth-child(6) { inline-size: 13%; }
 	@media (max-width: 720px) {
 		.blocks-assets > .frame { aspect-ratio: 1; }
 		.blocks-specimens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
