@@ -2,12 +2,25 @@ import { defaults } from '../../config/sandbox-brush';
 import type { Vec3 } from '../../lib/core/geometry';
 import type { Parcel } from '../../lib/domain/parcels';
 import type { createSandboxDocument, SandboxPlacement } from '../../lib/domain/sandbox-document';
-import { blockTriangleBudget, projectHouse } from '../../lib/scene/house-projection';
+import {
+	readHouseFeatures,
+	type HouseFeatures,
+	type HouseStyleName
+} from '../../lib/domain/house-court';
+import { blockTriangleBudget } from '../../lib/scene/house-projection';
+import type { SurfaceLevel } from '../../lib/scene/material';
 import { projectSketch } from '../../lib/scene/sketch';
-import { createSandboxProjection, styleTones } from '../../lib/scene/sandbox-projection';
-import type { Drawable } from '../../lib/scene/surface';
-import { createParcelHouseObject, createTownHouseStudy } from '../../lib/world/house-site';
+import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
+import type { Drawable, ModelTone } from '../../lib/scene/surface';
+import { createTownHouseStudy } from '../../lib/world/house-site';
 import { createPlacementCache, createSandboxWorld } from '../../lib/world/sandbox-world';
+
+const styleTones = {
+	neutral: 'cream',
+	memphis: 'pink',
+	archigram: 'grey',
+	organic: 'cork'
+} as const satisfies Record<HouseStyleName, ModelTone>;
 
 const brushParams = {
 	width: defaults.sandboxBrushWidthM,
@@ -16,15 +29,15 @@ const brushParams = {
 };
 
 /** The cladding level a request is built at, with that level's share of the block budget. */
-export type Detail = Readonly<{ level: 'volume' | 'flat' | 'relief'; budget: number }>;
+export type Detail = Readonly<{ level: SurfaceLevel; budget: number }>;
 
 /** What the cache hands the build queue for one placement: everything a build needs, read at
  * commit time, and a pure build that runs later at any detail. */
 export type HouseRequest = Readonly<{
 	placement: SandboxPlacement;
 	parcel?: Parcel;
-	block?: string;
-	tone: `--${string}`;
+	salience?: Readonly<{ block: string; features: HouseFeatures }>;
+	tone: ModelTone;
 	reason?: string;
 	build?: (detail: Detail) => readonly Drawable[];
 }>;
@@ -47,7 +60,7 @@ export function createTownSandbox() {
 	);
 	const parcels = new Map(world.holdings.parcels.map((parcel) => [parcel.id, parcel]));
 	const toneOf = (assetId: string) =>
-		styleTones[assetId.replace('house/court-', '') as keyof typeof styleTones] ?? '--ink-3';
+		styleTones[assetId.replace('house/court-', '') as keyof typeof styleTones] ?? 'white';
 	/** Draws each house style on the first parcel every style can build, as a small sketch. */
 	function createSpecimens() {
 		const host = (id: string) => ({ kind: 'parcel', id }) as const;
@@ -72,7 +85,11 @@ export function createTownSandbox() {
 					assets[index].id,
 					projectSketch(
 						house?.status === 'placed'
-							? projectHouse(createParcelHouseObject(house, 'full'), 'full')
+							? projection.projectParcelHouse(house, [], assets[index].id, {
+									level: 'plain',
+									budget: blockTriangleBudget,
+									tone: toneOf(assets[index].id)
+								})
 							: [],
 						{
 							marginRatio: defaults.sandboxSpecimenMarginRatio,
@@ -110,15 +127,13 @@ export function createTownSandbox() {
 						return {
 							placement,
 							...where,
-							block: house.parcel.blockId,
+							salience: {
+								block: house.parcel.blockId,
+								features: readHouseFeatures(house.space, house.house)
+							},
 							tone,
-							build: ({ level, budget }) =>
-								level === 'volume'
-									? projection.projectParcelVolume(house, adjoining, placement.id, tone)
-									: projection.projectParcelHouse(house, adjoining, placement.id, {
-											level,
-											budget
-										})
+							build: (detail) =>
+								projection.projectParcelHouse(house, adjoining, placement.id, { ...detail, tone })
 						};
 					const object = world.build(placement);
 					return {
@@ -129,8 +144,6 @@ export function createTownSandbox() {
 					};
 				},
 				world.resolveHouse
-			),
-		/** The plain volume every house starts with. */
-		volume: { level: 'volume', budget: blockTriangleBudget } as Detail
+			)
 	};
 }

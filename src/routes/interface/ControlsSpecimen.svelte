@@ -52,7 +52,7 @@
 			]
 		}) as const;
 	const blocks = [
-		{ value: 'tower', label: 'Tower', sketch: block('--mat-masonry', 4) },
+		{ value: 'tower', label: 'Tower', sketch: block('--model-cork', 4) },
 		{ value: 'slab', label: 'Slab', sketch: block('--cat-mobility', 0) }
 	];
 	let drawTool = $state('draw');

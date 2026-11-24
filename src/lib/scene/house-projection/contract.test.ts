@@ -97,12 +97,13 @@ test('paints an explicit wall patch alongside a house made with the wall role', 
 			)
 	);
 	if (!wall) throw new Error('Missing the house wall carrying the patch');
-	const clad = createClad(object, [{ role: wall.slot, family: 'masonry', patch }]);
+	const clad = createClad(object, [{ role: wall.slot, family: 'stripe', patch }]);
 	const declared = Object.fromEntries(
 		object.slots.map((slot) => [slot, fullSurfaces[slot as keyof typeof fullSurfaces]])
 	);
 	const drawing = paintClad(clad, 'normal', declared);
 	expect(clad.object.anchors).toEqual(object.anchors);
-	expect(drawing.find(({ id }) => id === wall.id)?.color).toBe('--paper');
-	expect(drawing.find(({ id }) => id === 'wall/unit')?.color).toBe('--mat-masonry');
+	expect(drawing.find(({ id }) => id === wall.id)?.color).toBe('--model-cream');
+	expect(drawing.find(({ id }) => id === 'wall/face')?.color).toBe('--model-white');
+	expect(drawing.find(({ id }) => id === 'wall/mark')?.color).toBe('--model-ink');
 });

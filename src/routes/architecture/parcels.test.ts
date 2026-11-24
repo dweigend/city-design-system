@@ -4,13 +4,13 @@ import { createCellSpace } from '../../lib/domain/cell-space';
 import { createHouseCourt, createHouseObject } from '../../lib/domain/house-court';
 import { parcelShapes } from './parcels';
 
-// Full neutral placeable objects at 1b4514ee, including envelope and opening meshes.
+// Full neutral model houses (#91), including envelope, rim, opening and canopy meshes.
 const specimens = {
-	rectangle: '35cbe514e29b25d0e2f2b3749f436528759407e970dd4bacda96ce2c05aed55a',
-	trapezoid: '74e3bd6491a1b2544bbfb37a9887dd142dd9a15f007f656f2376a7bd4aa69a2d',
-	hexagon: 'bf449f19e4ac8f8ec1f1b813f453421de45d637b5854c8d5ea31e4604e99104b',
-	triangle: 'c315298aba1240eb102bcc0412402a4afdf215d3be8e0d15d49fddbdcd8d42a9',
-	ell: '073cff312687a3b49e6db3a13894eb82b732d30ea2e7bc3493bb5b7504a7fd88'
+	rectangle: 'afdbdcc52d49553d5aac3600df2149ae36fe79fc7ecde3cc11cf29ab258cfe6f',
+	trapezoid: '07d738002798d0b561bfb01ef739bef2dc0a2b96b92ab60dd3f2ff944cf3c220',
+	hexagon: '852fed06adf567e8d098e6ba6c7fd81fbdbf9bf926cbaaa0b3b6364740163a65',
+	triangle: '6e841e7a6585c4e807422491186228c86ac86b0801e493bf1f67fcfc3c692b87',
+	ell: '67081efbd43b3090be6843b42696441516e9f0c60bc57cf587c41d845e9c4469'
 };
 
 test('the regular neutral specimens preserve their serialized geometry', () => {

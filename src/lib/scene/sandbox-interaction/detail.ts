@@ -1,17 +1,17 @@
 import { defaults } from '../../../config/sandbox-interaction';
 
-/** How much of a house is drawn: its plain volume, flat cladding or cladding relief. */
-export type HouseDetail = 'volume' | 'flat' | 'relief';
+import { readHouseSalience, type SalienceCandidate } from '../house-projection';
 
-/** What the level rule reads about one house: whether the player selected or points at it. */
-export type DetailSubject = Readonly<{ selected: boolean; hovered: boolean }>;
+/** One candidate with the sandbox's current selection and pointer state. */
+export type DetailSubject = Omit<SalienceCandidate, 'focus' | 'selected'> &
+	Readonly<{ selected: boolean; hovered: boolean }>;
 
-/** The thin level policy of the sandbox: every house is a plain volume; the hovered house shows
- * flat cladding and the selected house relief. A salience rule may replace this function behind
- * the same output. */
-export function selectHouseDetail({ selected, hovered }: DetailSubject): HouseDetail {
-	if (selected) return 'relief';
-	return hovered ? 'flat' : 'volume';
+/** Reads shared house salience for a sandbox view. The hovered house is the subject in focus. */
+export function selectHouseDetail(subjects: readonly DetailSubject[], seed: number) {
+	return readHouseSalience(
+		subjects.map(({ hovered, ...subject }) => ({ ...subject, focus: hovered })),
+		seed
+	);
 }
 
 /** Splits one block triangle budget evenly among the placed houses of the block, so the relief

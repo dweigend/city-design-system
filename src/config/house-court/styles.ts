@@ -45,13 +45,7 @@ export const memphis = defineSettings({
 		'Share of exposed Memphis wall storeys that carry a figure',
 		'FORM-2'
 	),
-	memphisOpeningSizeM: s(0.95, 'm', 'Radius of a Memphis figure opening', 'FORM-2'),
-	memphisPatternShareRatio: s(
-		0.45,
-		'ratio',
-		'Share of Memphis solids with stripes at complexity 1',
-		'COLOR-4'
-	)
+	memphisOpeningSizeM: s(0.95, 'm', 'Radius of a Memphis figure opening', 'FORM-2')
 });
 
 /** Archigram row: a grey hairline frame on the cell edges carrying plug-in capsules and services. */
@@ -179,8 +173,6 @@ export const shapes = defineSettings({
 	),
 	figureDepthM: s(0.16, 'm', 'Thickness of an opening figure, centred on its wall', 'FORM-3'),
 	collarShareRatio: s(1.35, 'ratio', 'Collar radius as a share of its opening radius', 'FORM-5'),
-	stripeShareRatio: s(0.25, 'ratio', 'Height of one stripe band as a share of a storey', 'COLOR-4'),
-	stripeProudM: s(0.05, 'm', 'Stripe projection beyond its facet', 'COLOR-4'),
 	treeTrunkM: s(0.25, 'm', 'Side of a court tree trunk', 'FORM-8'),
 	treeHeightM: s(5.5, 'm', 'Height of a court tree', 'FORM-8'),
 	treeCrownM: s(2.2, 'm', 'Radius of a court tree crown', 'FORM-8'),

@@ -11,7 +11,6 @@
 		type Family,
 		type SurfaceLevel
 	} from '../../lib/scene/material';
-	import { surfaceLight } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { existing, paintClad, type MaterialDisplay } from '../../lib/scene/surface';
 	import { Slider } from '../../lib/ui/slider';
@@ -26,16 +25,19 @@
 
 	const chapter = chapterAt('/surfaces');
 	const names: Record<Family, string> = {
-		render: 'Render',
-		masonry: 'Masonry',
-		timber: 'Timber',
-		metal: 'Metal',
-		glass: 'Glass',
-		paving: 'Paving'
+		board: 'Painted board',
+		card: 'Grey board',
+		cork: 'Cork',
+		stripe: 'Stripe laminate',
+		perforated: 'Perforated sheet',
+		acrylic: 'Lit acrylic',
+		ground: 'Ground'
 	};
 	const levelNames: Record<SurfaceLevel, string> = {
-		relief: 'Relief',
-		flat: 'Flat',
+		near: 'Near',
+		mid: 'Mid',
+		far: 'Far',
+		plain: 'Plain',
 		pencil: 'Pencil'
 	};
 	const wallFamilies = familyNames.filter((family) => family !== groundFamily);
@@ -51,25 +53,24 @@
 		.split(',')
 		.flatMap((value) => surfaceLevels.find((level) => level === value) ?? []);
 	let level = $state<SurfaceLevel>(
-		surfaceLevels.find((value) => value === query.get('level')) ?? 'relief'
+		surfaceLevels.find((value) => value === query.get('level')) ?? 'near'
 	);
 	let transparent = $state(query.get('display') === 'transparency');
 	let moduleScale = $state(readControl(query.get('module'), specimenSettings.moduleScaleBand));
-	let reliefScale = $state(readControl(query.get('relief'), specimenSettings.reliefScaleBand));
 	let seed = $state(readControl(query.get('seed'), specimenSettings.seedBand));
-	let bodyFamily = $state<string>(pickFamily(query.get('body')) ?? 'masonry');
+	let bodyFamily = $state<string>(pickFamily(query.get('body')) ?? 'board');
 	const zoom = number('zoom', 1);
 	const bodyZoom = number('bodyZoom', 1);
 
 	const display = $derived<MaterialDisplay>(transparent ? 'transparency' : 'normal');
-	const options = $derived({ light: surfaceLight, seed, moduleScale, reliefScale, level });
+	const options = $derived({ seed, moduleScale, level });
 	const entries = $derived<{ family: Family; level?: SurfaceLevel }[]>(
 		levelRow.length
-			? levelRow.map((rowLevel) => ({ family: shown[0] ?? 'masonry', level: rowLevel }))
+			? levelRow.map((rowLevel) => ({ family: shown[0] ?? 'stripe', level: rowLevel }))
 			: (shown.length ? shown : familyNames).map((family) => ({ family }))
 	);
 	const board = $derived(createSampleBoard(entries, options));
-	const body = $derived(createSampleBody(pickFamily(bodyFamily) ?? 'masonry', options));
+	const body = $derived(createSampleBody(pickFamily(bodyFamily) ?? 'board', options));
 	const plain = { stand: existing.roof };
 	const boardDrawables = $derived(paintClad(board, display, plain));
 	const bodyDrawables = $derived(paintClad(body, display));
@@ -78,7 +79,6 @@
 	const levels = surfaceLevels.map((value) => ({ value, label: levelNames[value] }));
 	const bodies = wallFamilies.map((value) => ({ value, label: names[value] }));
 	const [moduleMin, moduleMax, moduleStep] = specimenSettings.moduleScaleBand;
-	const [reliefMin, reliefMax, reliefStep] = specimenSettings.reliefScaleBand;
 	const [seedMin, seedMax, seedStep] = specimenSettings.seedBand;
 </script>
 
@@ -89,14 +89,30 @@
 <ChapterHeader number={chapter.number} title={chapter.title} {lead} />
 
 <section class="stack" aria-label="Sample plates">
-	<h2>Six surfaces, one recipe each</h2>
+	<h2>Model materials, not facades</h2>
 	<p>
-		Every surface is a recipe, not a picture: render, masonry, timber, metal, glass and paving lay
-		out units, joints and trim on any flat patch, in meters, and raise them as real relief. The
-		light picks out each joint with a lit face, a shaded face and a fine line. The recipe carries no
-		color; the palette colors each slot by material at one boundary, and the transparency view turns
-		every plate into the same grey veil.
+		A house is drawn as an architectural model, built from the materials of the model workshop:
+		painted board, grey board, cork, stripe laminate, perforated sheet, lit acrylic and an abstract
+		ground. Every body is one material in one tone. Texture is either fine and even, like the grain
+		of cork, or a flat graphic pattern, like stripes and dots, and a pattern covers a whole body and
+		runs on over its edges. Each recipe carries no colour; the palette paints it at one boundary,
+		and the transparency view turns every plate into the same grey veil.
 	</p>
+	<ul>
+		<li>One body, one material, one tone: no courses, joints or weathering across a face.</li>
+		<li>Three parts per house at most: a dominant body, a contrasting body, one small accent.</li>
+		<li>
+			Saturated matte solids beside cork, cream, chocolate and grey board, kept clear of the flow
+			colours.
+		</li>
+		<li>
+			Openings are few and plain: a recessed dark hole; a panel joint is one hairline at most.
+		</li>
+		<li>
+			Light makes the form: faces differ in value only. Lit acrylic is light as material, once per
+			house.
+		</li>
+	</ul>
 	<div class="city-stage">
 		<StageView
 			drawables={boardDrawables}
@@ -111,18 +127,11 @@
 		<ToggleGroup label="Level" items={levels} bind:value={level} />
 		<Switch label="Transparency" bind:checked={transparent} />
 		<Slider
-			label="Module"
+			label="Pattern scale"
 			min={moduleMin}
 			max={moduleMax}
 			step={moduleStep}
 			bind:value={moduleScale}
-		/>
-		<Slider
-			label="Relief"
-			min={reliefMin}
-			max={reliefMax}
-			step={reliefStep}
-			bind:value={reliefScale}
 		/>
 		<Slider label="Seed" min={seedMin} max={seedMax} step={seedStep} bind:value={seed} />
 	</div>
@@ -134,12 +143,14 @@
 </section>
 
 <section class="stack" aria-label="Surface on a body">
-	<h2>The same recipe on a house</h2>
+	<h2>The same material on a house</h2>
 	<p>
-		On a body the recipe meets corners, a gable, a door, a window and the ground. Units are cut at
-		every edge and opening, the reveal shows the wall's depth, and the roof and the paving use their
-		own families. Out of focus the same surface drops to a flat tone with edges, then to a pencil
-		drawing of its joints.
+		On a body the material meets corners, a gable, a door, two windows and the ground. Its pattern
+		is laid in the coordinates of the whole body, so stripes and dots run on round the corners
+		instead of starting again on every wall. The roof takes one flat tone and the windows are lit
+		acrylic. With distance the house simplifies: near shows grain and panel joints, mid the openings
+		and every pattern, far only the plain body and a large graphic pattern, and pencil a drawing of
+		its joints.
 	</p>
 	<div class="city-stage">
 		<StageView
@@ -148,7 +159,7 @@
 			{display}
 			fit={{ zoom: bodyZoom }}
 			interactive
-			label={`${names[pickFamily(bodyFamily) ?? 'masonry']} house with a metal gable roof on paving`}
+			label={`${names[pickFamily(bodyFamily) ?? 'board']} model house with a gable roof on a ground plate`}
 		/>
 	</div>
 	<div class="cluster">

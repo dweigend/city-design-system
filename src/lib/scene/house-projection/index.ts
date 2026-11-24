@@ -15,10 +15,18 @@ export {
 	type CladHouseOptions,
 	type HousePlacement
 } from './clad';
-/** Surface families per style row and role slot. */
-export { houseMaterials, type HouseMaterials } from './materials';
+/** Model materials per style row and role, and one house's draw of them. */
+export {
+	houseMaterials,
+	planHouseMaterials,
+	type HouseMaterials,
+	type MaterialRole
+} from './materials';
 
-/** Cladding triangles of one block of houses at the relief level. */
+/** The salience rule: which houses of a view are granted detail beyond the plain default. */
+export { readHouseSalience, type SalienceCandidate } from './salience';
+
+/** Cladding triangles of one block of houses at the near level. */
 export const blockTriangleBudget = defaults.blockTriangleBudget;
 
 const { sheetGapM } = defaults;

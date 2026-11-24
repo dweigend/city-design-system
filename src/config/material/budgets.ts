@@ -5,7 +5,7 @@ const positive = { exclusiveMin: 0 } as const;
 /** Triangle budgets and the coarsening applied when a patch would exceed them. */
 export const budgets = defineSettings({
 	patchTrianglesPerSquareM: {
-		value: 450,
+		value: 60,
 		unit: 'triangles/m²',
 		meaning: 'Default budget density for a patch without an explicit budget',
 		bounds: positive,
@@ -21,29 +21,21 @@ export const budgets = defineSettings({
 	maxLayoutUnits: {
 		value: 8192,
 		unit: 'units',
-		meaning: 'Maximum estimated candidate units per layout attempt',
+		meaning: 'Maximum estimated pattern marks per layout attempt',
 		bounds: positive,
 		rationale: 'Bounds temporary allocations even when the triangle budget grows with patch area.'
-	},
-	reliefTrianglesPerUnit: {
-		value: 16,
-		unit: 'triangles',
-		meaning: 'Upper estimate of relief triangles per laid unit, cast shade included',
-		bounds: positive,
-		rationale:
-			'Measured 10–16 on 6 × 3 m patches of all six families; used to pick a fitting module scale before building.'
 	},
 	coarsenStepRatio: {
 		value: 1.25,
 		unit: 'ratio',
-		meaning: 'Module growth per step when a patch exceeds its triangle budget',
+		meaning: 'Pattern pitch growth per step when a patch exceeds its triangle budget',
 		bounds: { exclusiveMin: 1 },
 		rationale: 'Small enough to keep the look, large enough to converge in a few steps.'
 	},
 	coarsenStepLimit: {
 		value: 12,
 		unit: 'steps',
-		meaning: 'Coarsening steps before the patch falls back to the flat level',
+		meaning: 'Coarsening steps before the patch drops its pattern marks',
 		bounds: { min: 1 },
 		rationale: 'Twelve steps grow the module about fourteenfold.'
 	},

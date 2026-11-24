@@ -20,7 +20,7 @@
 	import { parcelShapes, type ParcelShape } from './parcels';
 	import { readQuery } from './query';
 	import { sheets, single, styleNames } from './sheets';
-	import { townSheet, townStage, type TownScope, type TownStyles } from './town';
+	import { townSheet, townStage, type TownDetail, type TownScope, type TownStyles } from './town';
 
 	const chapter = chapterAt('/architecture');
 	const initial = readQuery(page.url.searchParams);
@@ -49,13 +49,18 @@
 		{ value: 'block', label: 'Perimeter block' },
 		{ value: 'neighbour', label: 'Neighbouring block' },
 		{ value: 'merged', label: 'Merged hall' },
-		{ value: 'town', label: 'Two blocks and a hall' }
+		{ value: 'town', label: 'Two blocks and a hall' },
+		{ value: 'all', label: 'Whole town' }
+	];
+	const detailItems = [
+		{ value: 'salient', label: 'Salient' },
+		{ value: 'plain', label: 'Plain' }
 	];
 	const townStyleItems = [
 		{ value: 'one', label: 'One style' },
 		{ value: 'mixed', label: 'One per block' }
 	];
-	const scopes: readonly TownScope[] = ['block', 'neighbour', 'merged', 'town'];
+	const scopes: readonly TownScope[] = ['block', 'neighbour', 'merged', 'town', 'all'];
 	const scopeOf = (value: string): TownScope => scopes.find((scope) => scope === value) ?? 'block';
 	const views = [
 		{ value: 'iso', label: 'Iso' },
@@ -79,10 +84,11 @@
 	let view = $state<View>(initial.view);
 	let block = $state<TownScope>(initial.block);
 	let townStyles = $state<TownStyles>(initial.styles);
+	let detail = $state<TownDetail>(initial.detail);
 
 	const setup = $derived({ shape, style, height, width, complexity, seed, level });
 	const town = $derived(sheet === 'town' ? townStage(initial.relief) : undefined);
-	const townResult = $derived(town && townSheet(town, block, setup, townStyles));
+	const townResult = $derived(town && townSheet(town, block, setup, townStyles, detail));
 	const frame = $derived(
 		townResult ? { ...fit, fill: 0.64, subject: projectFocus(view, fit, townResult.points) } : fit
 	);
@@ -198,6 +204,11 @@
 				label="Styles"
 				items={townStyleItems}
 				bind:value={() => townStyles, (value) => (townStyles = value === 'mixed' ? 'mixed' : 'one')}
+			/>
+			<ToggleGroup
+				label="Detail"
+				items={detailItems}
+				bind:value={() => detail, (value) => (detail = value === 'plain' ? 'plain' : 'salient')}
 			/>
 		{:else}
 			<Select

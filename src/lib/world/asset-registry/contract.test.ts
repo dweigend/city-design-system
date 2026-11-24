@@ -88,13 +88,13 @@ test('replays three JSON placements into identical objects', () => {
 	expect(original).toHaveLength(3);
 	expect(restored).toEqual(records);
 	expect(rebuilt).toEqual(original);
-	// Full placeable objects built from these saved addresses at e3052f71.
+	// Full placeable objects built from these saved addresses, model houses of #91.
 	expect(
 		rebuilt.map((object) => createHash('sha256').update(JSON.stringify(object)).digest('hex'))
 	).toEqual([
-		'046f52feff90a1601e5f36ac9bd052f850531296389ba19d84fe1817d94959e2',
-		'3dcca072ea9aa436c5bc5f693ebed17f4f5ba8c9997e1b008f204e9c37c43cdb',
-		'0b42d644b097e2165c4d1b3351301ea2174d0fe2a9ecb1c0c9aa89f51cc8bcd7'
+		'dedfb22543e7da9db986a9a7e32bf0a5608b3557fcba12d67125cdc0c1041b18',
+		'2971657b1a799ae384af327ee99ccf8abc2ce1eea24b6c016f81498a05f741f2',
+		'b4dde4b8b5178aacd93ff8f35199e2b7ef85e207c0871db3a7f61ecd9edf0c81'
 	]);
 });
 

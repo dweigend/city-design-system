@@ -54,26 +54,56 @@ export const settings = defineSettings({
 	cladOffsetM: {
 		value: 0.02,
 		unit: 'm',
-		meaning: 'Distance a cladding face stands proud of the house face it covers',
+		meaning: 'Distance a thin printed sheet or roof tone stands proud of the face it covers',
 		bounds: { exclusiveMin: 0 },
-		rationale: 'Keeps a flat cladding slab from depth fighting with the body face behind it.'
+		rationale: 'Keeps the sheet from depth fighting with the body face behind it.'
 	},
-	cladThicknessM: {
-		value: 0.03,
+	cladSkinM: {
+		value: 0.15,
 		unit: 'm',
-		meaning: 'Backing thickness of a cladding patch on a house face',
+		meaning: 'Depth of the skin that recesses the openings of a body, and its reach past wall ends',
 		bounds: { exclusiveMin: 0 },
-		principle: 'MAT-5'
+		principle: 'MAT-12',
+		rationale:
+			'The dark back of an opening sits this far behind the face, so the hole reads recessed.'
+	},
+	plainCreaseRad: {
+		value: Math.PI / 6,
+		unit: 'rad',
+		meaning: 'Minimum fold angle drawn on a plain house',
+		bounds: { min: 0, max: Math.PI },
+		rationale: 'Keep edges at walls, eaves and ridges while dropping facets on rounded bodies.'
 	},
 	blockTriangleBudget: {
-		value: 240000,
+		value: 30000,
 		unit: 'triangles',
 		meaning:
-			'Cladding triangles of one block of houses at the relief level, shared among its faces by area',
+			'Cladding triangles of one block of houses at the near level, shared among its faces by area',
 		bounds: { min: 0 },
 		principle: 'MAT-5',
 		rationale:
-			'About a quarter of a frame budget of one million triangles; the relief coarsens or turns flat beyond it.'
+			'A fifth of the relief block (148,226), so a block of model houses costs a small fraction of the former picture.'
+	},
+	salientShareRatio: {
+		value: 0.12,
+		unit: 'ratio',
+		meaning: 'Seeded share of ordinary houses granted detail besides the salient kinds',
+		bounds: { min: 0, max: 1 },
+		principle: 'MAT-15'
+	},
+	salientBlockCap: {
+		value: 3,
+		unit: 'houses',
+		meaning: 'Most houses of one block granted detail, focus and selection aside',
+		bounds: { min: 0 },
+		principle: 'MAT-15'
+	},
+	salientViewCap: {
+		value: 48,
+		unit: 'houses',
+		meaning: 'Most houses of one view granted detail, focus and selection aside',
+		bounds: { min: 0 },
+		principle: 'MAT-15'
 	},
 	veilAlpha: {
 		value: 0.35,

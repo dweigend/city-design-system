@@ -18,6 +18,7 @@ type DemoRoute =
 	| '/wachstum'
 	| '/farben'
 	| '/material'
+	| '/surfaces'
 	| '/interface'
 	| '/sandbox'
 	| '/sandbox/regel'
@@ -210,11 +211,11 @@ const forms: DesignPrinciple[] = [
 	{
 		id: 'FORM-2',
 		page: 'forms',
-		title: 'Sculpture, not building',
-		rule: 'Forms are large, expressive and sculptural: scaffold with guests, ceramic and Memphis volumes, punched round and arched openings, no ornament.',
+		title: 'Calm whole, interesting geometry',
+		rule: 'The whole picture of a block, a street front or a town is calm, geometrically interesting and homogeneous: interest comes from the geometry of the bodies and their composition, variety lives in the row and the massing, never in surface detail or many kinds per house.',
 		reason:
-			'White rounded houses with window bands and cornices read as tame 1930s modernism and were rejected. A form is never steered toward the calm or the well-behaved.',
-		decided: '2026-11-18',
+			'Forms stay large and sculptural, and small parcels may take calmer houses. White rounded houses with window bands and cornices read as tame 1930s modernism and were rejected; a busy surface or a house of many parts reads as noise at block scale. Every picture is judged first at block and town scale, then at the single house.',
+		decided: '2026-11-24',
 		demo: { route: '/sandbox/stile', label: 'Style variants side by side' }
 	},
 	{
@@ -523,20 +524,22 @@ const material: DesignPrinciple[] = [
 	{
 		id: 'MAT-2',
 		page: 'material',
-		title: 'Printed, not transparent',
-		rule: 'Where two color fields overlap, a third, darker field with a hard edge appears; shadows are halftone dots.',
-		reason: 'The picture reads as a print, not as glass.',
-		decided: '2026-11-19'
+		title: 'Light makes the form',
+		rule: 'Bodies read by the value differences of their faces under soft studio light with one soft shadow on the ground; relief belongs to the body (steps, recesses, rims), never to the surface.',
+		reason:
+			'Cast shade and halftone relief on every brick fought the homogeneous model look. A face is one tone per light direction; depth comes from the form.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
 	},
 	{
 		id: 'MAT-3',
 		page: 'material',
-		title: 'Glaze and terrazzo, no photo texture',
-		rule: 'A new house shows a glazed or terrazzo surface in a use color, and every surface also sits on curved forms.',
+		title: 'Model, not building',
+		rule: 'A house looks like a physical architectural model built from the materials of the model workshop: painted board with a matte lacquer, cork, card and grey board, perforated sheet, translucent acrylic and striped laminate, never brick courses, battens, corrugated sheet or setts as realistic imitation.',
 		reason:
-			'The level to reach is terrazzo, wood, acrylic and perforated metal under soft light with contact shading. The look is stylized and design-focused: no photo texture, no naturalism.',
-		decided: '2026-11-19',
-		demo: { route: '/material', anchor: 'material-familien', label: 'Material picker' }
+			'The realistic clinker, timber and metal plates were rejected as far too realistic. Model materials keep the city stylised, graphic and cheap to draw.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
 	},
 	{
 		id: 'MAT-4',
@@ -550,11 +553,11 @@ const material: DesignPrinciple[] = [
 	{
 		id: 'MAT-5',
 		page: 'material',
-		title: 'Two quality levels, one system',
-		rule: 'A full level for a strong GPU and a light level for phones show the same scene in the same design language.',
+		title: 'Simplification by distance',
+		rule: 'Distance may only lower the detail a house is granted, never raise it above its plain default: far is a plain matte body with its roof tone and only a large graphic pattern, mid adds openings and rims, near adds patterns, grain, joints and accents, and the steps are data that switch without popping the silhouette.',
 		reason:
-			'The light level saves on motion, shadow and detail. The levels are parameters, never a second code path.',
-		decided: '2026-11-19'
+			'Deliberate simplification is a design goal, not only a saving. The light level for phones uses the same steps; they are parameters, never a second code path.',
+		decided: '2026-11-24'
 	},
 	{
 		id: 'MAT-6',
@@ -565,6 +568,95 @@ const material: DesignPrinciple[] = [
 			'A dense lattice drawn with one line weight turns into black scribble. Weight by visibility, distance and rank lets a large city read as a stepped mass with structure; a translucent body in front still lets the subject behind it show, subdued.',
 		decided: '2026-11-23',
 		demo: { route: '/city', label: 'Lattice focus' }
+	},
+	{
+		id: 'MAT-7',
+		page: 'material',
+		title: 'One body, one material, one tone',
+		rule: 'Every volume is homogeneous, a single flat colour or a single material over the whole body, with no course lines, joints or tone variation across a face.',
+		reason:
+			'Calm variety across a row of houses comes from which body gets which material, not from surface detail.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-8',
+		page: 'material',
+		title: 'Fine and even, or graphic',
+		rule: 'Texture is either fine and even (cork grain, card fibre: small, low in contrast, without direction or seams) or a flat, regular, high-contrast graphic pattern (black and white stripes, a dot perforation, a grid of light dots), nothing in between.',
+		reason:
+			'Naturalistic relief sits between the two and reads as imitation; the model workshop knows only the even sheet and the printed pattern.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-9',
+		page: 'material',
+		title: 'A pattern wraps its body',
+		rule: 'A pattern covers a whole body or a whole face and runs on over its edges, as stripes run over roof and wall as one sheet, and it is never used as small decoration.',
+		reason:
+			'A pattern that restarts on every face reads as wallpaper. Patterns are laid in the coordinates of the whole body and fitted to whole periods, so every body edge is a period boundary.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-10',
+		page: 'material',
+		title: 'Three parts per house',
+		rule: 'A house has at most three parts: one dominant material for most of the volume, one secondary body in a contrasting material such as cork or stripes, and one small accent such as a disc, a canopy slab or a perforated cube in a signal tone.',
+		reason:
+			'More kinds per house turn a block into noise; three parts keep each house legible as one object.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-11',
+		page: 'material',
+		title: 'Matte solids, function colours reserved',
+		rule: 'Colour is saturated, matte and solid beside warm neutrals (cork, cream, chocolate brown, grey board), without gradients, weathering or gloss, and every model tone keeps the configured least distance from every flow colour in both themes.',
+		reason:
+			'Paths pink, water blue, energy yellow, food green and material orange carry function (COLOR-1 to COLOR-3); a model colour must never be mistaken for one, so the palette is tested against them.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-12',
+		page: 'material',
+		title: 'Few, plain openings',
+		rule: 'Openings are few and plain, a recessed dark hole with a thin frame or a flush pale pane, and a panel joint shows as one hairline at most, never as a mullion grid or a window rhythm that reads as realistic fenestration.',
+		reason: 'Windows in rows are the strongest sign of a real building; a model shows a few holes.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-13',
+		page: 'material',
+		title: 'Crisp edges, primitive forms',
+		rule: 'Edges are crisp and forms primitive (box, gable, cylinder segment, a flat roof with a simple parapet rim), and the roof plane is one darker or lighter flat tone.',
+		reason:
+			'A rim and a flat roof tone are how a model reads as a house from above without any surface detail.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-14',
+		page: 'material',
+		title: 'Light as material',
+		rule: 'A house may use light as material once: a translucent panel over a regular grid of glowing dots.',
+		reason:
+			'Lit acrylic is the one luminous element of the model workshop; used more than once it turns into decoration.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
+	},
+	{
+		id: 'MAT-15',
+		page: 'material',
+		title: 'Plain by default, detail by salience',
+		rule: 'Every house is by default a plain pale volume, its bodies in one white matte tone with hairline edges and no openings, pattern or parts, and one deterministic salience rule grants detail in steps to the subject in focus, a selected house and a capped, seeded few that carry the picture and give orientation (corner houses, the tallest of a block, large merged houses).',
+		reason:
+			'Most elements read best as a box; some facades and selected buildings make the picture work. Drawing was the whole cost of the editor, so the default must be cheap and already look calm and homogeneous as a town.',
+		decided: '2026-11-24',
+		demo: { route: '/surfaces', label: 'Model materials' }
 	}
 ];
 

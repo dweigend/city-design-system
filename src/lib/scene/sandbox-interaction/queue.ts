@@ -3,7 +3,7 @@ import { defaults } from '../../../config/sandbox-interaction';
 /** One requested product: a stable owner ID, a key naming its exact inputs and a pure build. */
 export type BuildJob<T> = Readonly<{ id: string; key: string; run: () => T }>;
 
-// Exact arithmetic: one product per display level a house switches between (flat and relief).
+// Exact arithmetic: keep the two latest builds of an owner.
 const productsPerOwner = 2;
 
 /** Creates a time-budgeted build queue. Jobs run first in, first out; resubmitting an owner moves

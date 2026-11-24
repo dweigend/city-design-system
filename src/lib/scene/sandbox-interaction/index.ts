@@ -9,6 +9,5 @@ export {
 	readPreviewHeight,
 	selectHouseDetail,
 	shareBlockBudget,
-	type DetailSubject,
-	type HouseDetail
+	type DetailSubject
 } from './detail';

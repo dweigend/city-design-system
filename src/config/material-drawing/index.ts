@@ -25,12 +25,33 @@ export const settings = defineSettings({
 		bounds: share,
 		principle: 'MAT-6'
 	},
-	shadeLightness: {
-		value: -0.17,
+	corkGrainLightness: {
+		value: 0.09,
 		unit: 'Oklab L',
-		meaning: 'Lightness offset of cast shade from the face it falls on',
-		bounds: { max: 0 },
-		principle: 'MAT-2'
+		meaning: 'Lightness swing of the fine even grain of cork',
+		bounds: { min: 0 },
+		principle: 'MAT-8'
+	},
+	cardGrainLightness: {
+		value: 0.035,
+		unit: 'Oklab L',
+		meaning: 'Lightness swing of the fibre of card, grey board and the abstract ground',
+		bounds: { min: 0 },
+		principle: 'MAT-8'
+	},
+	functionColourDistance: {
+		value: 0.08,
+		unit: 'Oklab ΔE',
+		meaning: 'Least distance of every model tone from every flow colour, in both themes',
+		bounds: { exclusiveMin: 0 },
+		principle: 'MAT-11'
+	},
+	grainCellM: {
+		value: 0.022,
+		unit: 'm',
+		meaning: 'Size of one grain speck in world meters',
+		bounds: { exclusiveMin: 0 },
+		principle: 'MAT-8'
 	}
 });
 

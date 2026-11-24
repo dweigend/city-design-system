@@ -34,6 +34,7 @@ function sameGeometry(a: Drawable, b: Drawable) {
 		a.id === b.id &&
 		a.shape === b.shape &&
 		a.boundaryStroke === b.boundaryStroke &&
+		a.creaseAngleRad === b.creaseAngleRad &&
 		a.strokeSegments === b.strokeSegments &&
 		a.terrainField === b.terrainField &&
 		a.warp?.fill === b.warp?.fill &&
@@ -85,9 +86,9 @@ function project(
 		? new LineSegmentsGeometry().setPositions([...drawable.strokeSegments])
 		: grid
 			? boundaryGeometry(positions, indices, true)
-			: landscape
+			: landscape && drawable.creaseAngleRad === undefined
 				? boundaryGeometry(positions, drawable.boundaryStroke ? indices : [])
-				: edgeGeometry(positions, indices);
+				: edgeGeometry(positions, indices, drawable.creaseAngleRad);
 	const explicit = drawable.strokeSegments
 		? [explicitStroke(strokes.depth), explicitStroke(strokes.depth, true)]
 		: [];
@@ -111,7 +112,7 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, hatch, faces, atlas } = fillMaterial(
+	const { material, terrain, flat, heightScale, hatch, faces, grain, atlas } = fillMaterial(
 		palette,
 		drawable.terrainField
 	);
@@ -147,6 +148,7 @@ function project(
 		heightScale,
 		hatch,
 		faces,
+		grain,
 		atlas,
 		warpTargets,
 		warpAmount: 0

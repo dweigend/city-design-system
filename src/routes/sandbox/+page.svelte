@@ -148,22 +148,21 @@
 
 	/** The detail each house is drawn at now, with its share of the block budget. */
 	function readDetails() {
-		const shares = shareBlockBudget(
-			[...requests.values()].flatMap(({ placement, block }) =>
-				block ? [{ id: placement.id, block }] : []
-			),
-			blockTriangleBudget
-		);
 		const pointed = tool === 'select' ? hoveredRequest?.placement.id : undefined;
-		const detailOf = ({ placement }: HouseRequest): [string, Detail] => {
-			const level = selectHouseDetail({
-				selected: placement.id === selectedId,
-				hovered: placement.id === pointed
-			});
-			const budget = level === 'relief' ? shares.get(placement.id) : undefined;
-			return [placement.id, { level, budget: budget ?? blockTriangleBudget }];
-		};
-		return new Map([...requests.values()].map(detailOf));
+		const candidates = [...requests.values()].flatMap(({ placement: { id }, salience }) =>
+			salience ? [{ id, ...salience, selected: id === selectedId, hovered: id === pointed }] : []
+		);
+		const levels = selectHouseDetail(candidates, town?.world.world.seed ?? 0);
+		const shares = shareBlockBudget(candidates, blockTriangleBudget);
+		return new Map(
+			[...requests.keys()].map((id): [string, Detail] => {
+				const level = levels.get(id) ?? 'plain';
+				return [
+					id,
+					{ level, budget: (level === 'plain' ? undefined : shares.get(id)) ?? blockTriangleBudget }
+				];
+			})
+		);
 	}
 
 	/** Brings the queue in line with the document: new requests wait, removed ones are cancelled. */

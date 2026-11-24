@@ -12,8 +12,19 @@ export function example() {
 	let clock = 0;
 	const queue = createBuildQueue<string>(() => clock, 2);
 	for (const id of ['a', 'b', 'c'])
-		queue.submit({ id, key: id + '/flat', run: () => ((clock += 1), id.toUpperCase()) });
+		queue.submit({ id, key: id + '/plain', run: () => ((clock += 1), id.toUpperCase()) });
 	const frames = [queue.advance(), queue.advance()];
-	const detail = selectHouseDetail({ selected: true, hovered: false });
+	const detail = selectHouseDetail(
+		[
+			{
+				id: 'a',
+				block: 'block',
+				features: { storeys: 1, large: false, corner: false },
+				selected: true,
+				hovered: false
+			}
+		],
+		0
+	).get('a');
 	return { effects, frames, detail };
 }

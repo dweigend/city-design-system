@@ -115,9 +115,9 @@ export function createFocusResolver<const Choice extends string, const Part exte
 }
 
 const surfaceDetail = {
-	full: 'relief',
-	silhouette: 'flat',
-	transparent: 'flat',
+	full: 'near',
+	silhouette: 'far',
+	transparent: 'far',
 	pencil: 'pencil',
 	hidden: undefined
 } as const satisfies Record<DisplayLevel, SurfaceLevel | undefined>;

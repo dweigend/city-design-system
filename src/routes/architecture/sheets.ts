@@ -1,14 +1,21 @@
-import { bounds, move } from '../../lib/core/object';
+import { bounds } from '../../lib/core/object';
 import { createCellSpace } from '../../lib/domain/cell-space';
 import {
 	createHouseCourt,
 	createHouseObject,
+	houseFaces,
 	houseFigures,
 	houseStyles,
 	type HouseStyleName
 } from '../../lib/domain/house-court';
 import type { DisplayLevel } from '../../lib/scene/focus';
-import { houseDetailOf, houseSheetGapM, projectHouse } from '../../lib/scene/house-projection';
+import {
+	blockTriangleBudget,
+	houseDetailOf,
+	houseMaterials,
+	houseSheetGapM,
+	projectCladHouse
+} from '../../lib/scene/house-projection';
 import type { Drawable } from '../../lib/scene/surface';
 import { parcelShapes, type ParcelShape } from './parcels';
 
@@ -31,14 +38,29 @@ function build(setup: HouseSetup) {
 	const style = houseStyles[setup.style];
 	const space = createCellSpace(parcelShapes[setup.shape].parcel);
 	const house = createHouseCourt(space, setup, style);
-	const object = createHouseObject(space, house, houseDetailOf(setup.level), style);
-	return { space, house, object };
+	const detail = houseDetailOf(setup.level);
+	const object = createHouseObject(space, house, detail, style);
+	return { space, house, object, faces: houseFaces(space, house, detail, style) };
+}
+
+/** Draws one built house as a model in its row's materials (MAT-3). */
+function draw(
+	{ object, faces }: ReturnType<typeof build>,
+	setup: HouseSetup,
+	placement?: Readonly<{ translation: readonly [number, number, number]; radians: number }>
+) {
+	return projectCladHouse(object, faces, houseMaterials[setup.style], setup.level, {
+		budget: blockTriangleBudget,
+		seed: setup.seed,
+		level: 'near',
+		...(placement ? { placement } : {})
+	}).drawables;
 }
 
 /** One house with its figures. */
 export function single(setup: HouseSetup) {
-	const { space, house, object } = build(setup);
-	return { drawables: projectHouse(object, setup.level), figures: houseFigures(space, house) };
+	const built = build(setup);
+	return { drawables: draw(built, setup), figures: houseFigures(built.space, built.house) };
 }
 
 /** Lays houses left to right, then rows front to back, each drawable id prefixed by its slot. */
@@ -46,13 +68,18 @@ function lay(rows: readonly (readonly HouseSetup[])[]): Drawable[] {
 	let y = 0;
 	return rows.flatMap((row, r) => {
 		let x = 0;
-		const built = row.map((setup) => build(setup).object);
-		const depth = Math.max(...built.map((object) => bounds(object).max[1] - bounds(object).min[1]));
-		const drawables = built.flatMap((object, c) => {
-			const { min, max } = bounds(object);
-			const placed = move(object, [x - min[0], -y - max[1], 0], 0);
+		const built = row.map((setup) => build(setup));
+		const depth = Math.max(
+			...built.map(({ object }) => bounds(object).max[1] - bounds(object).min[1])
+		);
+		const drawables = built.flatMap((house, c) => {
+			const { min, max } = bounds(house.object);
+			const translation = [x - min[0], -y - max[1], 0] as const;
 			x += max[0] - min[0] + houseSheetGapM;
-			return projectHouse(placed, row[c].level).map((d) => ({ ...d, id: `${r}/${c}/${d.id}` }));
+			return draw(house, row[c], { translation, radians: 0 }).map((d) => ({
+				...d,
+				id: `${r}/${c}/${d.id}`
+			}));
 		});
 		y += depth + houseSheetGapM;
 		return drawables;

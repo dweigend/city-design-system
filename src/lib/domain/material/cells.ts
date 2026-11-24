@@ -5,7 +5,7 @@ import type { Rect } from './patch';
 const { planeToleranceM } = materialSettings;
 
 /** Keeps the part of a convex polygon where `side(point) >= 0` for a linear `side`. */
-function clipHalfPlane(polygon: readonly Vec2[], side: (point: Vec2) => number): Vec2[] {
+export function clipHalfPlane(polygon: readonly Vec2[], side: (point: Vec2) => number): Vec2[] {
 	const kept: Vec2[] = [];
 	for (const [i, a] of polygon.entries()) {
 		const b = polygon[(i + 1) % polygon.length];

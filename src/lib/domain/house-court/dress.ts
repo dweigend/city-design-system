@@ -5,7 +5,7 @@ import { cellCentre } from '../cell-space';
 import { faceMesh, side } from './boxes';
 import { pick, type CellSolid } from './fills';
 import { builtAt, type Context } from './context';
-import { bar, dome, extrusion, inradius, inset, rounded, wallFigure, type Faces } from './solids';
+import { bar, dome, inradius, rounded, wallFigure, type Faces } from './solids';
 import type { OpeningKind } from './styles';
 import { exposedWall, fitsOpening } from './wall-contact';
 
@@ -13,8 +13,6 @@ const {
 	curveSegments,
 	figureDepthM,
 	collarShareRatio,
-	stripeShareRatio,
-	stripeProudM,
 	capShareRatio,
 	treeTrunkM,
 	treeHeightM,
@@ -97,24 +95,6 @@ export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): Part
 			...part(`${s.key}/collars`, 'collar', collars),
 			...part(`${s.key}/openings`, 'opening', panes)
 		];
-	});
-}
-
-/** Horizontal stripe bands around a share of the solids, rising with complexity (COLOR-4). */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
-export function patterns(ctx: Context, solids: readonly CellSolid[]): Part[] {
-	const share = ctx.style.parts.patternShareRatio * ctx.complexity;
-	const band = stripeShareRatio * ctx.space.storeyHeightM;
-	return solids.flatMap((s) => {
-		if (s.key.endsWith('/roof') || ctx.random.derive(`${s.key}/pattern`).number() >= share)
-			return [];
-		const ring = inset(s.outline, -stripeProudM);
-		const base = ctx.space.baseZ + s.fromStorey * ctx.space.storeyHeightM;
-		const count = Math.floor(((s.toStorey - s.fromStorey) * ctx.space.storeyHeightM) / band);
-		const faces = Array.from({ length: count }, (_, k) => k)
-			.filter((k) => k % 2)
-			.flatMap((k) => extrusion(ring, base + k * band, base + (k + 1) * band));
-		return part(`${s.key}/pattern`, 'pattern', faces);
 	});
 }
 

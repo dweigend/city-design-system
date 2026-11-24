@@ -5,14 +5,14 @@ const positive = { exclusiveMin: 0 } as const;
 /** Sample plates and the sample body shown on the surfaces page. */
 export const settings = defineSettings({
 	plateTriangleBudget: {
-		value: 6000,
+		value: 1200,
 		unit: 'triangles',
 		meaning: 'Most triangles one 2 x 2 m sample plate may use',
 		bounds: positive,
 		principle: 'MAT-5'
 	},
 	bodyTriangleBudget: {
-		value: 60000,
+		value: 4000,
 		unit: 'triangles',
 		meaning: 'Most triangles one sample body with roof, openings and ground may use',
 		bounds: positive,
@@ -21,17 +21,11 @@ export const settings = defineSettings({
 	moduleScaleBand: {
 		value: [0.5, 2, 0.25],
 		unit: 'ratio',
-		meaning: 'Lowest, highest and step of the module scale a player may choose',
+		meaning: 'Lowest, highest and step of the pattern scale a player may choose',
 		bounds: positive,
-		rationale: 'From half to double the configured module keeps every family recognisable.'
+		rationale: 'From half to double the configured pitch keeps every pattern recognisable.'
 	},
-	reliefScaleBand: {
-		value: [0, 2, 0.25],
-		unit: 'ratio',
-		meaning: 'Lowest, highest and step of the relief scale a player may choose',
-		bounds: { min: 0 },
-		rationale: 'Zero flattens the relief; double shows it at long distance.'
-	},
+
 	seedBand: {
 		value: [1, 64, 1],
 		unit: 'seed',
@@ -44,12 +38,12 @@ export const settings = defineSettings({
 		unit: 'm',
 		meaning: 'Width and height of one sample plate',
 		bounds: positive,
-		rationale: 'Large enough for several modules of every family.'
+		rationale: 'Large enough for several periods of every pattern.'
 	},
 	plateThicknessM: {
 		value: 0.12,
 		unit: 'm',
-		meaning: 'Thickness of a sample plate behind its relief',
+		meaning: 'Thickness of a sample plate behind its face',
 		bounds: positive,
 		rationale: 'Reads as a physical slab in iso.'
 	},
@@ -95,6 +89,13 @@ export const settings = defineSettings({
 		bounds: positive,
 		rationale: 'A visible eave line separates roof and wall.'
 	},
+	bodyRoofLiftM: {
+		value: 0.04,
+		unit: 'm',
+		meaning: 'Lift of the roof sheet above the gable walls along its normal',
+		bounds: positive,
+		rationale: 'Keeps the gable edges of the walls from showing through the flat roof tone.'
+	},
 	bodyDoorM: {
 		value: [1.2, 2.3, 1.6],
 		unit: 'm',
@@ -123,13 +124,7 @@ export const settings = defineSettings({
 		bounds: positive,
 		rationale: 'Thin enough to sit inside the reveal.'
 	},
-	bodyGroundModuleScale: {
-		value: 2,
-		unit: 'ratio',
-		meaning: 'Module scale of the forecourt paving around the sample body',
-		bounds: positive,
-		rationale: 'Large slabs keep the ground calm at house distance (MAT-6).'
-	},
+
 	bodyGroundM: {
 		value: [3, 0.12],
 		unit: 'm',

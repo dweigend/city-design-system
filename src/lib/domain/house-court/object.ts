@@ -6,7 +6,7 @@ import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSid
 import { faceMesh } from './boxes';
 import { entranceSide } from './graph';
 import type { Context } from './context';
-import { caps, figureOpenings, patterns, trees } from './dress';
+import { caps, figureOpenings, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
 import { structure } from './structure';
 import { envelopeFaces, solidFaces, type HouseFace } from './faces';
@@ -14,7 +14,7 @@ import { houseStyleFor } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
 import type { HouseCourt } from './occupancy';
-import { edges, envelope, openings, plates } from './parts';
+import { canopy, envelope, envelopeRims, openings, plates, solidRims } from './parts';
 import type { AdjoiningWall } from './wall-contact';
 
 /** A drawing detail of the house object: `full` carries every part of the style, `block` only the
@@ -39,14 +39,13 @@ export function houseSlots(
 		'plot',
 		'court',
 		envelopeFill && 'wall',
-		parts.edges && 'floorEdge',
-		parts.edges && 'roofEdge',
+		envelopeFill && parts.rims && 'rim',
 		...slots.body,
 		...slots.roof,
 		...slots.capsule,
-		parts.patternShareRatio > 0 && 'pattern',
 		opening.collar && 'collar',
 		'opening',
+		parts.accent && 'accent',
 		parts.frame && 'frame',
 		parts.frame && 'deck',
 		parts.frame && 'tube',
@@ -157,7 +156,11 @@ function solidParts(solids: readonly CellSolid[], block: boolean): Part[] {
 function envelopeParts(ctx: Context, detail: HouseDetail): Part[] {
 	if (!ctx.style.fill.kinds.includes('envelope')) return [];
 	if (detail === 'block') return envelope(ctx, 'mass');
-	return [...envelope(ctx, 'wall'), ...(ctx.style.parts.edges ? edges(ctx) : []), ...openings(ctx)];
+	return [
+		...envelope(ctx, 'wall'),
+		...(ctx.style.parts.rims ? envelopeRims(ctx, 'rim') : []),
+		...openings(ctx)
+	];
 }
 
 function accessParts(ctx: Context, house: HouseCourt): Part[] {
@@ -181,8 +184,9 @@ function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] 
 		...plates(ctx),
 		...envelopeParts(ctx, detail),
 		...solidParts(solids, false),
-		...patterns(ctx, solids),
+		...(ctx.style.parts.rims ? solidRims(ctx, solids) : []),
 		...figureOpenings(ctx, solids),
+		...(ctx.style.parts.accent ? canopy(ctx) : []),
 		...caps(ctx, solids),
 		...structure(ctx),
 		...trees(ctx),
@@ -191,10 +195,10 @@ function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] 
 }
 
 /** Builds the house as one placeable object in the space's meters from its style row: cell
- * plates; for an `envelope` fill the merged envelope shells with floor edges, roof edges and window
- * rows; otherwise one closed solid per cell body, capsule or roof inside its own cell; then
- * stripes, figure openings, planted caps, frame and services, court trees, galleries, the court
- * stair and the entrance steps. The row is applied at the house's scale (`houseStyleFor`): a calm
+ * plates; for an `envelope` fill the merged envelope shells with a parapet rim and plain openings;
+ * otherwise one closed solid per cell body, capsule or roof inside its own cell, flat tops with a
+ * parapet rim; then figure openings, the entrance canopy accent, planted caps, frame and services,
+ * court trees, galleries, the court stair and the entrance steps. The row is applied at the house's scale (`houseStyleFor`): a calm
  * house draws few kinds and colours, a large one its row's large tendency. Galleries also run
  * along parcel edges onto a shared court. `block` keeps plates, solids and steps, as slots `mass`
  * and `plot`. No colours; slots name roles (MAT-1). Anchors: `entrance` on the frontage at lane

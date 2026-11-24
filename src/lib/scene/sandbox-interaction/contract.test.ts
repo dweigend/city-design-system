@@ -21,7 +21,7 @@ describe('sandbox interaction', () => {
 		const { effects, frames, detail } = example();
 		expect(effects.filter(({ kind }) => kind === 'enter').length).toBe(3);
 		expect(frames).toEqual([['a', 'b'], ['c']]);
-		expect(detail).toBe('relief');
+		expect(detail).toBe('near');
 	});
 
 	test('stroke enters each host once at once, then keeps it on release', () => {
@@ -94,10 +94,18 @@ describe('sandbox interaction', () => {
 		expect(run()).toEqual(run());
 	});
 
-	test('detail is a plain volume by default, flat on hover and relief on selection', () => {
-		expect(selectHouseDetail({ selected: false, hovered: false })).toBe('volume');
-		expect(selectHouseDetail({ selected: false, hovered: true })).toBe('flat');
-		expect(selectHouseDetail({ selected: true, hovered: true })).toBe('relief');
+	test('detail grants near to the selected and hovered houses and keeps ordinary stock plain', () => {
+		const subject = { block: 'n', features: { storeys: 1, corner: false, large: false } };
+		const subjects = Array.from({ length: 8 }, (_, i) => ({
+			...subject,
+			id: String(i),
+			selected: i === 0,
+			hovered: i === 1
+		}));
+		const levels = selectHouseDetail(subjects, 0);
+		expect(levels.get('0')).toBe('near');
+		expect(levels.get('1')).toBe('near');
+		expect([...levels.values()].filter((level) => level === 'plain')).toHaveLength(3);
 		const shares = shareBlockBudget(
 			[
 				{ id: 'a', block: 'n' },

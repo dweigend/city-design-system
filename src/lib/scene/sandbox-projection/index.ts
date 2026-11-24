@@ -8,14 +8,9 @@ import type { createSandboxWorld } from '../../world/sandbox-world';
 import { cityWindow, type CityGrid, type CitySite } from '../../world/city-site';
 import { createParcelHouseObject, type PlacedParcelHouse } from '../../world/house-site';
 import { projectCityTerrain } from '../city-volume-projection';
-import {
-	blockTriangleBudget,
-	houseMaterials,
-	projectCladHouse,
-	projectHouse
-} from '../house-projection';
-import { shapeArrays } from '../stage';
-import { resolveSurfaces, type Drawable } from '../surface';
+import { houseMaterials, projectCladHouse, projectHouse } from '../house-projection';
+import type { SurfaceLevel } from '../material';
+import { readModelSurface, resolveSurfaces, type Drawable, type ModelTone } from '../surface';
 import { createTerrainDrape } from '../terrain-grid-projection';
 
 type Holdings = ReturnType<typeof createSandboxWorld>['holdings'];
@@ -25,59 +20,8 @@ const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 const worldOrigin = [0, 0, 0] as const;
 const accessSurface = { color: '--ink-2', finish: 'matte' } as const;
 
-/** The one matte key tone of each house style, for stand-in bodies and style specimens. */
-export const styleTones = Object.freeze({
-	neutral: '--mat-masonry',
-	memphis: '--cat-mobility',
-	archigram: '--mat-metal',
-	organic: '--cat-foliage'
-} as const satisfies Record<HouseStyleName, `--${string}`>);
-
 function address(parts: readonly Drawable[], placementId: string): Drawable[] {
 	return parts.map((part) => ({ ...part, id: JSON.stringify([placementId, part.id]) }));
-}
-
-function normalOf(positions: readonly number[], [a, b, c]: readonly number[]) {
-	const p = (i: number) => [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]];
-	const [pa, pb, pc] = [p(a), p(b), p(c)];
-	const u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
-	const v = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
-	const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
-	const length = Math.hypot(n[0], n[1], n[2]) || 1;
-	return n.map((value) => value / length);
-}
-
-/** The edges of a triangle mesh where the surface folds by more than the crease angle, or ends.
- * Vertices are matched by position, so separately triangulated faces still share their edges. */
-function readCreases(positions: readonly number[], indices: readonly number[]) {
-	const key = (i: number) =>
-		[positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]]
-			.map((value) => value.toFixed(defaults.volumeEdgeDecimals))
-			.join(',');
-	const edges = new Map<string, { from: number; to: number; normals: number[][] }>();
-	for (let t = 0; t < indices.length; t += 3) {
-		const corners = [indices[t], indices[t + 1], indices[t + 2]];
-		const normal = normalOf(positions, corners);
-		for (const [i, from] of corners.entries()) {
-			const to = corners[(i + 1) % corners.length];
-			const id = [key(from), key(to)].sort().join('|');
-			const edge = edges.get(id) ?? { from, to, normals: [] };
-			edge.normals.push(normal);
-			edges.set(id, edge);
-		}
-	}
-	// Exact arithmetic: degrees to radians.
-	const halfTurnDeg = 180;
-	const limit = Math.cos((defaults.volumeCreaseDeg * Math.PI) / halfTurnDeg);
-	const segments: number[] = [];
-	for (const { from, to, normals } of edges.values()) {
-		const [n, m] = normals;
-		const folds = !m || n[0] * m[0] + n[1] * m[1] + n[2] * m[2] < limit;
-		if (!folds) continue;
-		for (const i of [from, to])
-			segments.push(positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]);
-	}
-	return segments;
 }
 
 /** Builds the immutable terrain and parcel background once. The projection accepts all
@@ -138,77 +82,31 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 						);
 			return address(parts, placementId);
 		},
-		/** Draws a town parcel house with its current party walls, in flat cladding unless a level
-		 * and that level's share of the block triangle budget are given. */
+		/** Draws a parcel house at a model surface level with its current party walls and budget. */
 		projectParcelHouse(
 			placed: PlacedParcelHouse,
 			adjoiningWalls: readonly AdjoiningWall[],
 			placementId: string,
-			detail: Readonly<{ level: 'flat' | 'relief'; budget: number }> = {
-				level: 'flat',
-				budget: blockTriangleBudget
-			}
+			detail: Readonly<{ level: SurfaceLevel; budget: number; tone: ModelTone }>
 		): Drawable[] {
 			const { style, house, space } = placed;
 			if (!Object.hasOwn(houseMaterials, style.id))
 				throw new RangeError('No sandbox materials for ' + style.id);
+			const plain = detail.level === 'plain';
 			const { drawables } = projectCladHouse(
-				createParcelHouseObject(placed, 'full', adjoiningWalls),
-				houseFaces(space, house, 'full', style, adjoiningWalls),
+				createParcelHouseObject(placed, plain ? 'block' : 'full', adjoiningWalls),
+				plain ? [] : houseFaces(space, house, 'full', style, adjoiningWalls),
 				houseMaterials[style.id as HouseStyleName],
 				'full',
 				{
 					budget: detail.budget,
 					placement: { translation: offset, radians: -bearing },
-					level: detail.level
+					level: detail.level,
+					seed: house.inputs.seed,
+					plainTone: detail.tone
 				}
 			);
 			return address(drawables, placementId);
-		},
-		/** Draws a town parcel house as its plain massing: block detail merged into one matte body
-		 * in one tone with hairline edges. No cladding and no separate parts. */
-		projectParcelVolume(
-			placed: PlacedParcelHouse,
-			adjoiningWalls: readonly AdjoiningWall[],
-			placementId: string,
-			color: `--${string}`
-		): Drawable[] {
-			const local = move(
-				createParcelHouseObject(placed, 'block', adjoiningWalls),
-				offset,
-				-bearing
-			);
-			// Exact arithmetic: a mesh position has three coordinates.
-			const stride = 3;
-			const positions: number[] = [];
-			const indices: number[] = [];
-			for (const { shape } of local.parts) {
-				const arrays = shapeArrays(shape);
-				const base = positions.length / stride;
-				positions.push(...arrays.positions);
-				for (const index of arrays.indices) indices.push(base + index);
-			}
-			return [
-				{
-					id: JSON.stringify([placementId, 'volume']),
-					shape: { kind: 'mesh', positions, indices },
-					color,
-					finish: 'matte'
-				},
-				{
-					id: JSON.stringify([placementId, 'edges']),
-					shape: emptyMesh,
-					color: '--ink-2',
-					finish: 'line',
-					fillVisible: false,
-					strokeSegments: readCreases(positions, indices),
-					stroke: {
-						color: '--ink-2',
-						width: defaults.volumeEdgePx,
-						opacity: defaults.volumeEdgeOpacity
-					}
-				}
-			];
 		},
 		/** Drapes a single contour on displayed ground so it remains visible above plan strokes. */
 		projectHover(parcel: Pick<Parcel, 'outline'>): Drawable {
@@ -224,15 +122,14 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 			{ outline }: Pick<Parcel, 'outline'>,
 			heightM: number,
 			id: string,
-			color: `--${string}`
+			tone: ModelTone
 		): Drawable {
 			const base = Math.min(...outline.map(([x, y]) => site.sampleGround(x, y).height));
 			const polygon = outline.map(([x, y]) => toLocal(x, y));
 			return {
 				id,
 				shape: { kind: 'prism', polygon, base, top: base + heightM },
-				color,
-				finish: 'matte'
+				...readModelSurface({ family: 'board', tone }, 'normal')
 			};
 		}
 	});

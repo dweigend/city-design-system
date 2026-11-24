@@ -1,8 +1,10 @@
 import { Color, DoubleSide, MeshBasicNodeMaterial, SRGBColorSpace, Vector3 } from 'three/webgpu';
 import {
+	hash,
 	materialColor,
 	mix,
 	normalWorldGeometry,
+	positionWorld,
 	screenCoordinate,
 	screenDPR,
 	uniform,
@@ -47,6 +49,8 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const heightScale = uniform(1);
 	const hatch = uniform(0);
 	const faces = uniform(new Vector3(levels.top, levels.lit, levels.shadow));
+	const grainAmount = uniform(0);
+	const grainCell = uniform(1);
 
 	const normal = normalWorldGeometry;
 	const roof = normal.z.greaterThan(0.7);
@@ -55,9 +59,13 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 	const shadow = roof.or(facesLight).not();
 	const level = top.select(faces.x, shadow.select(faces.z, faces.y));
 	const pressure = top.select(grain.top, shadow.select(grain.shadow, grain.lit));
+	// Fine even grain of cork and card: one random lightness per world-space speck. The cell index
+	// wraps every 509 specks, so the hash input stays exact in single precision at city scale.
+	const speck = positionWorld.div(grainCell).floor().mod(509);
+	const speckle = hash(speck.x.add(speck.y.mul(509)).add(speck.z.mul(259081))).sub(0.5);
 	const fill = graphite(
 		materialColor,
-		level.add(palette.dark.mul(0.076)).mul(palette.hull.oneMinus()),
+		level.add(palette.dark.mul(0.076)).add(speckle.mul(grainAmount)).mul(palette.hull.oneMinus()),
 		mix(pressure, grain.top, palette.hull)
 	);
 	// Sparse 45° pencil strokes, 5 CSS pixels apart, on the faces turned from the sun.
@@ -71,7 +79,16 @@ export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?:
 		terrainColor(palette, heightScale, atlas?.sample),
 		terrain
 	);
-	return { material, terrain, flat, heightScale, hatch, faces, atlas: atlas?.image };
+	return {
+		material,
+		terrain,
+		flat,
+		heightScale,
+		hatch,
+		faces,
+		grain: { amount: grainAmount, cell: grainCell },
+		atlas: atlas?.image
+	};
 }
 
 export function readColors(css: CSSStyleDeclaration, document: Document) {

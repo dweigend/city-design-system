@@ -1,13 +1,17 @@
 import { materialSettings } from '../../../config/material';
-import type { Vec3 } from '../../core/geometry';
-import { Random } from '../../core/random';
-import { clipToOutline, cutOpenings } from './cells';
-import { jointLines } from './lines';
-import { readFamily, type Family, type FamilySlot } from './families';
-import { estimateUnits, layouts, type ReliefParams } from './layouts';
+import type { Vec2 } from '../../core/geometry';
+import { cutOpenings } from './cells';
+import { readFamily, type Family, type FamilySlot, type PatternParams } from './families';
+import {
+	readLevelDetail,
+	readSurfaceLevelName,
+	type SurfaceLevel,
+	type SurfaceLevelAlias
+} from './levels';
+import { dotMarks, estimateMarks, jointSegments, stripeMarks, type PrintFace } from './marks';
 import { frameArea, readFrame, type Frame, type Patch } from './patch';
-import { addCell, createSink, readIndices, type MeshSink, type Unit } from './prism';
-import { addCastShadow, addShade } from './shade';
+import { createPatternFrame, readFaceMap } from './pattern';
+import { addCell, createSink, readIndices, type MeshSink } from './prism';
 
 const {
 	patchTrianglesPerSquareM,
@@ -15,30 +19,24 @@ const {
 	maxLayoutUnits,
 	coarsenStepRatio,
 	coarsenStepLimit,
-	reliefTrianglesPerUnit,
+	farMarkPitchM,
+	markLiftM,
 	pencilLiftM,
+	dotSides,
 	planeToleranceM
 } = materialSettings;
 
-/** Drawing detail of a surface: raised units, one flat slab in the unit tone, or a flat slab
- * with the joints drawn as pencil lines. */
-export type SurfaceLevel = 'relief' | 'flat' | 'pencil';
-/** Surface levels from most to least detail. */
-export const surfaceLevels = Object.freeze(['relief', 'flat', 'pencil'] as const);
-
-/** Player or page choices for one surface. Scales are unitless multipliers of the configured
- * module and relief; the seed draws unit variants and face depths. `light` is the direction light
- * travels in world axes; with it, level unit tops cast hard shade into the `shade` slot. */
+/** Player or page choices for one surface. `moduleScale` is a unitless multiplier of the
+ * configured pattern pitch and panel module; `seed` is kept for callers and draws nothing, since a
+ * model material is even (MAT-7). */
 export type SurfaceOptions = Readonly<{
-	light?: Vec3;
 	seed?: number;
 	moduleScale?: number;
-	reliefScale?: number;
-	level?: SurfaceLevel;
+	level?: SurfaceLevel | SurfaceLevelAlias;
 }>;
 
-/** Meshes by family slot in world meters, pencil joint lines as XYZ endpoint pairs, the
- * triangle count, the level actually drawn and the module scale after coarsening. */
+/** Meshes by family slot in world meters, joint lines as XYZ endpoint pairs, the triangle count,
+ * the level drawn and the pattern scale after coarsening. */
 export type SurfaceMesh = Readonly<{
 	family: Family;
 	level: SurfaceLevel;
@@ -48,114 +46,25 @@ export type SurfaceMesh = Readonly<{
 	lines: readonly number[];
 }>;
 
-function scaleParams(params: ReliefParams, moduleScale: number, reliefScale: number): ReliefParams {
-	const scaled: ReliefParams = {
+function scaleParams(params: PatternParams, scale: number): PatternParams {
+	const scaled = {
 		...params,
-		module: [params.module[0] * moduleScale, params.module[1] * moduleScale],
-		joint: params.joint * moduleScale,
-		relief: params.relief.map((depth) => depth * reliefScale)
+		pitch: params.pitch * scale,
+		joint: [params.joint[0] * scale, params.joint[1] * scale] as const
 	};
 	if (
-		scaled.module.some((extent) => !Number.isFinite(extent) || extent <= planeToleranceM) ||
-		![scaled.joint, ...scaled.relief].every(Number.isFinite)
+		![scaled.pitch, ...scaled.joint].every(Number.isFinite) ||
+		(params.pitch > 0 && scaled.pitch <= planeToleranceM)
 	)
-		throw new RangeError(
-			'Scaled surface dimensions must be finite and modules must exceed the plane tolerance'
-		);
+		throw new RangeError('Scaled surface dimensions must be finite and exceed the plane tolerance');
 	return scaled;
 }
 
-function seeded(family: Family, seed: number) {
-	return Random.create({ seed }).derive(family);
-}
-
-function addUnits(sinks: Map<FamilySlot, MeshSink>, frame: Frame, units: readonly Unit[]) {
-	const openings = frame.patch.openings ?? [];
-	for (const { slot, polygon, base, top } of units) {
-		const clipped = clipToOutline(polygon, frame.outline);
-		if (!clipped.length) continue;
-		const sink = sinks.get(slot as FamilySlot) ?? createSink();
-		sinks.set(slot as FamilySlot, sink);
-		for (const cell of cutOpenings(clipped, openings)) addCell(sink, frame, cell, base, top, false);
-	}
-}
-
-function addSlab(sinks: Map<FamilySlot, MeshSink>, frame: Frame, slot: FamilySlot, top: number) {
-	const sink = sinks.get(slot) ?? createSink();
-	sinks.set(slot, sink);
-	const base = -frame.patch.thickness;
-	for (const cell of cutOpenings(frame.outline, frame.patch.openings ?? []))
-		addCell(sink, frame, cell, base, { at: top }, true);
-}
-
-function collect(
-	family: Family,
-	level: SurfaceLevel,
-	moduleScale: number,
-	sinks: Map<FamilySlot, MeshSink>,
-	lines: number[]
-): SurfaceMesh {
-	const meshes = new Map<FamilySlot, { positions: number[]; indices: number[] }>();
-	let triangles = 0;
-	for (const slot of readFamily(family).slots) {
-		const sink = sinks.get(slot);
-		const indices = sink ? readIndices(sink) : [];
-		if (!sink || !indices.length) continue;
-		meshes.set(slot, { positions: sink.positions, indices });
-		triangles += indices.length / 3;
-	}
-	return { family, level, moduleScale, triangles, meshes, lines };
-}
-
-function buildFlat(family: Family, frame: Frame, face: number, level: SurfaceLevel, scale: number) {
-	const sinks = new Map<FamilySlot, MeshSink>();
-	addSlab(sinks, frame, 'unit', face);
-	return collect(family, level, scale, sinks, []);
-}
-
-// Exact arithmetic: an empty mesh uses zero triangles.
-function emptySurface(family: Family, level: SurfaceLevel, moduleScale: number): SurfaceMesh {
-	return { family, level, moduleScale, triangles: 0, meshes: new Map(), lines: [] };
-}
-
-// Exact arithmetic: the backing plane lies at zero.
-function buildRelief(
-	family: Family,
-	frame: Frame,
-	units: readonly Unit[],
-	scale: number,
-	light?: Vec3
-) {
-	const sinks = new Map<FamilySlot, MeshSink>();
-	addSlab(sinks, frame, 'joint', 0);
-	addUnits(sinks, frame, units);
-	const shade = { joint: createSink(), unit: createSink() };
-	if (light)
-		for (const unit of units)
-			addShade(unit.castOnto ? shade.unit : shade.joint, frame, unit, light);
-	for (const shadow of frame.patch.shadows ?? []) addCastShadow(shade, frame, shadow, units);
-	sinks.set('shade', shade.joint);
-	sinks.set('shade-unit', shade.unit);
-	return collect(family, 'relief', scale, sinks, []);
-}
-
 // Exact arithmetic: neutral defaults.
-function readOptions({
-	seed = 1,
-	moduleScale = 1,
-	reliefScale = 1,
-	level = 'relief'
-}: SurfaceOptions) {
-	if (
-		!Number.isFinite(moduleScale) ||
-		moduleScale <= 0 ||
-		!Number.isFinite(reliefScale) ||
-		reliefScale < 0
-	)
-		throw new RangeError(
-			'Module scale must be finite and positive, relief scale finite and nonnegative'
-		);
-	return { seed, moduleScale, reliefScale, level };
+function readOptions({ moduleScale = 1, level = 'near' }: SurfaceOptions) {
+	if (!Number.isFinite(moduleScale) || moduleScale <= 0)
+		throw new RangeError('Module scale must be finite and positive');
+	return { moduleScale, level: readSurfaceLevelName(level) };
 }
 
 // Exact arithmetic: a triangle count cannot be negative.
@@ -166,68 +75,162 @@ function readBudget(frame: Frame) {
 	return budget;
 }
 
-/** Builds one patch within its triangle budget (explicit or proportional to patch area).
- * Coarsens layouts before generating units and falls back to a slab when detail does not fit.
- * Returns empty geometry when the budget is below the configured minimum or the slab exceeds it.
- * Throws RangeError for an invalid patch, family, scale or budget. */
-// Exact arithmetic: a rectangular unit top uses two triangles.
+function printFace(frame: Frame, openings: boolean): PrintFace {
+	const body = frame.patch.pattern ?? createPatternFrame([frame.patch]);
+	return {
+		outline: frame.outline,
+		openings: openings ? (frame.patch.openings ?? []) : [],
+		map: readFaceMap(frame, body),
+		body
+	};
+}
+
+// Exact arithmetic: the face lies at zero and the backing behind it.
+function addFace(sink: MeshSink, frame: Frame, face: PrintFace) {
+	const back = frame.patch.backed !== false;
+	const base = back ? -frame.patch.thickness : 0;
+	for (const cell of cutOpenings(face.outline, face.openings))
+		addCell(sink, frame, cell, base, { at: 0 }, back);
+}
+
+// Exact arithmetic: a flat mark has its base on its top.
+function addMarks(sink: MeshSink, frame: Frame, marks: readonly (readonly Vec2[])[]) {
+	for (const mark of marks) addCell(sink, frame, mark, markLiftM, { at: markLiftM }, false);
+}
+
+function lines(frame: Frame, segments: readonly (readonly [Vec2, Vec2])[]) {
+	return segments.flatMap(([a, b]) => [
+		...frame.point(a[0], a[1], pencilLiftM),
+		...frame.point(b[0], b[1], pencilLiftM)
+	]);
+}
+
+function prints(family: Family, params: PatternParams, level: SurfaceLevel) {
+	const { marks } = readLevelDetail(level);
+	if (readFamily(family).pattern === 'plain' || marks === 'none') return false;
+	return marks === 'all' || params.pitch >= farMarkPitchM;
+}
+
+/** Whether a level prints the marks of a family at a pattern scale: every pattern near and mid,
+ * only a large graphic one (pitch at least `farMarkPitchM`) far, none in pencil. */
+// Exact arithmetic: a module scale of one keeps the configured pitch.
+export function printsMarks(
+	family: Family,
+	level: SurfaceLevel | SurfaceLevelAlias,
+	moduleScale = 1
+): boolean {
+	return prints(
+		family,
+		scaleParams(readFamily(family).params, moduleScale),
+		readSurfaceLevelName(level)
+	);
+}
+
+function marksOf(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {
+	if (!prints(family, params, level)) return [];
+	return readFamily(family).pattern === 'stripe'
+		? stripeMarks(face, params)
+		: dotMarks(face, params);
+}
+
+function stripeEdges(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {
+	if (level !== 'pencil' || readFamily(family).pattern !== 'stripe') return [];
+	return stripeMarks(face, params).flatMap((mark) =>
+		mark.map((a, i) => [a, mark[(i + 1) % mark.length]] as const)
+	);
+}
+
+function collect(
+	family: Family,
+	level: SurfaceLevel,
+	moduleScale: number,
+	sinks: ReadonlyMap<FamilySlot, MeshSink>,
+	lineList: readonly number[]
+): SurfaceMesh {
+	const meshes = new Map<FamilySlot, { positions: number[]; indices: number[] }>();
+	let triangles = 0;
+	for (const [slot, sink] of sinks) {
+		const indices = readIndices(sink);
+		if (!indices.length) continue;
+		meshes.set(slot, { positions: sink.positions, indices });
+		triangles += indices.length / 3;
+	}
+	return { family, level, moduleScale, triangles, meshes, lines: lineList };
+}
+
+// Exact arithmetic: an empty mesh uses zero triangles.
+function emptySurface(family: Family, level: SurfaceLevel, moduleScale: number): SurfaceMesh {
+	return { family, level, moduleScale, triangles: 0, meshes: new Map(), lines: [] };
+}
+
+function buildAt(
+	family: Family,
+	frame: Frame,
+	level: SurfaceLevel,
+	scale: number,
+	withMarks: boolean
+) {
+	const detail = readLevelDetail(level);
+	const params = scaleParams(readFamily(family).params, scale);
+	const face = printFace(frame, detail.openings);
+	const sinks = new Map<FamilySlot, MeshSink>([['face', createSink()]]);
+	addFace(sinks.get('face') as MeshSink, frame, face);
+	if (withMarks) {
+		const mark = createSink();
+		addMarks(mark, frame, marksOf(family, face, params, level));
+		sinks.set('mark', mark);
+	}
+	const segments = detail.joints ? jointSegments(face, params) : [];
+	const edges = withMarks ? stripeEdges(family, face, params, level) : [];
+	return collect(family, level, scale, sinks, lines(frame, [...segments, ...edges]));
+}
+
+/** The pattern scale at which the marks of the family are expected to fit the patch's triangle
+ * budget: the requested scale grown by coarsening steps, at most the step limit. Passing it as
+ * `moduleScale` lets `buildSurface` succeed on its first layout. */
+// Exact arithmetic: a stripe band is one quad of two triangles, a dot n − 2.
+export function fitModuleScale(family: Family, patch: Patch, options: SurfaceOptions = {}): number {
+	const frame = readFrame(patch);
+	const { pattern, params } = readFamily(family);
+	const { moduleScale } = readOptions(options);
+	if (pattern === 'plain') return moduleScale;
+	const budget = readBudget(frame);
+	const area = frameArea(frame);
+	const perMark = pattern === 'dots' ? dotSides - 2 : 2;
+	let scale = moduleScale;
+	for (let step = 0; step < coarsenStepLimit; step++) {
+		const estimate = estimateMarks(area, scaleParams(params, scale), pattern === 'dots');
+		if (estimate <= maxLayoutUnits && estimate * perMark <= budget) return scale;
+		scale *= coarsenStepRatio;
+	}
+	return scale;
+}
+
+/** Builds one family on one patch at a level within its triangle budget (explicit or
+ * proportional to the patch area): the face in one tone, cut around the openings the level shows,
+ * the printed marks of its pattern in body coordinates (`patch.pattern`, or the patch's own box),
+ * and hairline joints as lines. Coarsens the pattern until the marks fit and drops them when they
+ * never do. Returns empty geometry when the budget is below the configured minimum or the face
+ * alone exceeds it. Throws RangeError for an invalid patch, family, level, scale or budget. */
 export function buildSurface(
 	family: Family,
 	patch: Patch,
 	options: SurfaceOptions = {}
 ): SurfaceMesh {
 	const frame = readFrame(patch);
-	const { layout, params } = readFamily(family);
-	const { seed, moduleScale, reliefScale, level } = readOptions(options);
+	const { moduleScale, level } = readOptions(options);
 	const budget = readBudget(frame);
+	if (budget < minimumMeshTriangles) return emptySurface(family, level, moduleScale);
+	const { pattern, params } = readFamily(family);
+	const area = frameArea(frame);
 	let scale = moduleScale;
-	let scaled = scaleParams(params, scale, reliefScale);
-	const flatLevel = level === 'relief' ? 'flat' : level;
-	if (budget < minimumMeshTriangles) return emptySurface(family, flatLevel, scale);
-	const face = Math.max(...scaled.relief);
-	const slab = (drawn: SurfaceLevel) => {
-		const mesh = buildFlat(family, frame, face, drawn, scale);
-		return mesh.triangles <= budget ? mesh : emptySurface(family, drawn, scale);
-	};
-	if (level === 'flat') return slab(level);
-	const unitLimit = Math.min(maxLayoutUnits, budget / 2);
-	const layoutUnits = () => layouts[layout](scaled, patch.size, seeded(family, seed));
-	const tryDetail = () => {
-		const estimate = estimateUnits(layout, scaled, patch.size);
-		if (!Number.isFinite(estimate) || estimate > unitLimit) return;
-		if (level === 'pencil') {
-			const mesh = slab(level);
-			if (!mesh.triangles) return mesh;
-			return { ...mesh, lines: jointLines(frame, layoutUnits(), face + pencilLiftM) };
-		}
-		const mesh = buildRelief(family, frame, layoutUnits(), scale, options.light);
-		if (mesh.triangles <= budget) return mesh;
-	};
-	for (let step = 0; step <= coarsenStepLimit; step++) {
-		const mesh = tryDetail();
-		if (mesh) return mesh;
-		const next = scale * coarsenStepRatio;
-		if (step === coarsenStepLimit || !Number.isFinite(next)) break;
-		scale = next;
-		scaled = scaleParams(params, scale, reliefScale);
-	}
-	return slab('flat');
-}
-
-/** The module scale at which a relief of the family is expected to fit the patch's triangle
- * budget: the requested scale grown by coarsening steps until the estimated units times the relief
- * triangles per unit fit, at most the step limit. Passing it as `moduleScale` lets `buildSurface`
- * succeed on its first layout instead of building and discarding finer ones. */
-export function fitModuleScale(family: Family, patch: Patch, options: SurfaceOptions = {}): number {
-	const frame = readFrame(patch);
-	const { layout, params } = readFamily(family);
-	const { moduleScale, reliefScale } = readOptions(options);
-	const budget = readBudget(frame);
-	let scale = moduleScale;
-	for (let step = 0; step < coarsenStepLimit; step++) {
-		const estimate = estimateUnits(layout, scaleParams(params, scale, reliefScale), patch.size);
-		if (Number.isFinite(estimate) && estimate * reliefTrianglesPerUnit <= budget) return scale;
+	for (let step = 0; pattern !== 'plain' && step <= coarsenStepLimit; step++) {
+		const estimate = estimateMarks(area, scaleParams(params, scale), pattern === 'dots');
+		const mesh =
+			estimate <= maxLayoutUnits ? buildAt(family, frame, level, scale, true) : undefined;
+		if (mesh && mesh.triangles <= budget) return mesh;
 		scale *= coarsenStepRatio;
 	}
-	return scale;
+	const plain = buildAt(family, frame, level, moduleScale, false);
+	return plain.triangles <= budget ? plain : emptySurface(family, level, moduleScale);
 }

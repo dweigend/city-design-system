@@ -24,7 +24,12 @@ type Edge = { start: Vector3; end: Vector3; front: Vector3; back?: Vector3 };
 const weldPerMeter = 10_000;
 const creaseDot = Math.cos(Math.PI / 180);
 
-export function edgeGeometry(positions: readonly number[], indices: readonly number[]) {
+export function edgeGeometry(
+	positions: readonly number[],
+	indices: readonly number[],
+	creaseAngleRad?: number
+) {
+	const limit = creaseAngleRad === undefined ? creaseDot : Math.cos(creaseAngleRad);
 	const edges = new Map<string, Edge>();
 	for (let i = 0; i < indices.length; i += 3) {
 		const points = indices
@@ -51,7 +56,7 @@ export function edgeGeometry(positions: readonly number[], indices: readonly num
 	const fronts = [];
 	const backs = [];
 	for (const { start, end, front, back } of edges.values()) {
-		if (back && front.dot(back) > creaseDot) continue;
+		if (back && front.dot(back) > limit) continue;
 		segments.push(...start.toArray(), ...end.toArray());
 		fronts.push(...front.toArray());
 		backs.push(...(back ?? front).toArray());

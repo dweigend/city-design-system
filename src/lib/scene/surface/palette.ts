@@ -1,7 +1,8 @@
 import {
-	castShade,
-	readFamily,
+	modelGrain,
 	pencilStroke,
+	readFamily,
+	readLevelDetail,
 	type CladObject,
 	type Family,
 	type FamilySlot
@@ -12,57 +13,65 @@ import { resolveSurfaces, type Drawable, type Surface, type SurfaceAssignment } 
  * transparency mode (COLOR-8). */
 export type MaterialDisplay = 'normal' | 'transparency';
 
-type Row = Readonly<Partial<Record<FamilySlot, Surface>>>;
-const matte = (color: `--${string}`): Surface => ({ color, finish: 'matte' });
-const glass = (color: `--${string}`): Surface => ({ color, finish: 'glass' });
+/** The tones of the model palette (MAT-11): warm neutrals, saturated matte solids, a signal pair
+ * for accents and the flat roof tone. Each names a `--model-<tone>` token. */
+export const modelTones = Object.freeze([
+	'white',
+	'cream',
+	'chocolate',
+	'grey',
+	'cork',
+	'blue',
+	'yellow',
+	'pink',
+	'orange',
+	'red',
+	'roof'
+] as const);
+/** One tone of the model palette. */
+export type ModelTone = (typeof modelTones)[number];
+/** A model material: a family and, for a tinted family, its tone. */
+export type ModelMaterial = Readonly<{ family: Family; tone?: ModelTone }>;
 
-/** Material colours by family and slot: few, low-chroma, warm-cool coordinated tones that keep
- * the five flow hues free for function (COLOR-1, COLOR-2). The darkest value is the glazing
- * frame, the structure line of MAT-4. Light and dark values live in the CSS tokens. */
-const normal = {
-	render: { unit: matte('--mat-render'), joint: matte('--mat-render-joint') },
-	masonry: {
-		unit: matte('--mat-masonry'),
-		'unit-alt': matte('--mat-masonry-alt'),
-		joint: matte('--mat-mortar')
-	},
-	timber: {
-		unit: matte('--mat-timber'),
-		'unit-alt': matte('--mat-timber-alt'),
-		trim: matte('--mat-timber-trim'),
-		joint: matte('--mat-timber-gap')
-	},
-	metal: { unit: matte('--mat-metal'), joint: matte('--mat-metal-joint') },
-	glass: {
-		unit: glass('--mat-glass'),
-		'unit-alt': glass('--mat-glass-alt'),
-		trim: matte('--mat-frame'),
-		joint: matte('--mat-glass-back')
-	},
-	paving: {
-		unit: matte('--mat-paving'),
-		'unit-alt': matte('--mat-paving-alt'),
-		joint: matte('--mat-paving-joint')
+type Row = Readonly<Partial<Record<FamilySlot, Surface>>>;
+const matte = (color: `--${string}`, grain?: Surface['grain']): Surface =>
+	grain ? { color, finish: 'matte', grain } : { color, finish: 'matte' };
+const token = (tone: ModelTone) => `--model-${tone}` as const;
+
+/** Families whose face takes the material's tone, and the tone they take by default. */
+const tintedDefault: Readonly<Partial<Record<Family, ModelTone>>> = {
+	board: 'white',
+	perforated: 'orange'
+};
+
+/** Model colours by family and slot (MAT-11): one even tone per face, black and white laminate,
+ * dark perforations, milky acrylic over flat glowing dots, grain only on cork and card. */
+function normalRow(family: Family, tone: ModelTone | undefined): Row {
+	const tint = token(tone ?? tintedDefault[family] ?? 'white');
+	switch (family) {
+		case 'board':
+			return { face: matte(tint) };
+		case 'card':
+			return { face: matte('--model-grey', modelGrain.card) };
+		case 'cork':
+			return { face: matte('--model-cork', modelGrain.cork) };
+		case 'stripe':
+			return { face: matte('--model-white'), mark: matte('--model-ink') };
+		case 'perforated':
+			return { face: matte(tint), mark: matte('--model-hole') };
+		case 'acrylic':
+			return {
+				face: { ...matte('--model-acrylic'), opacity: '--alpha-acrylic' },
+				mark: { ...matte('--model-glow'), flat: true }
+			};
+		case 'ground':
+			return { face: matte('--model-ground', modelGrain.card) };
 	}
-} as const satisfies Record<Family, Row>;
+}
 
 /** Transparency: every family turns to the neutral stock veil, so infrastructure carries colour. */
 const stock = (color: `--${string}`): Surface => ({ ...matte(color), preserveColor: true });
-const veil: Row = {
-	unit: stock('--stock-veil'),
-	'unit-alt': stock('--stock-veil'),
-	trim: stock('--stock-line'),
-	joint: stock('--stock-pencil')
-};
-
-const shadeTarget = {
-	shade: 'joint',
-	'shade-unit': 'unit'
-} as const;
-
-function isShade(slot: FamilySlot): slot is keyof typeof shadeTarget {
-	return Object.hasOwn(shadeTarget, slot);
-}
+const veil: Row = { face: stock('--stock-veil'), mark: stock('--stock-line') };
 
 /** The pencil level: paper fill with graphite hatching and joint lines (COLOR-5). */
 const pencil: Surface = Object.freeze({
@@ -75,29 +84,53 @@ const pencil: Surface = Object.freeze({
 	}
 });
 
-/** Reads the surface of a declared slot. Shade slots use the fill of the face they cover.
- * Throws RangeError for an unknown display, family or slot. */
+function readTone(family: Family, tone: ModelTone | undefined) {
+	if (tone !== undefined && !modelTones.includes(tone))
+		throw new RangeError(`Unknown model tone "${String(tone)}"`);
+	return Object.hasOwn(tintedDefault, family) ? tone : undefined;
+}
+
+/** Reads the surface of a declared slot of a family; `tone` tints the face of a tinted family
+ * (board, perforated) and is ignored by the others. Throws RangeError for an unknown display,
+ * family, slot or tone. */
 export function readMaterialSurface(
 	family: Family,
 	slot: FamilySlot,
-	display: MaterialDisplay
+	display: MaterialDisplay,
+	tone?: ModelTone
 ): Surface {
 	if (display !== 'normal' && display !== 'transparency')
 		throw new RangeError(`Unknown display "${String(display)}"`);
 	if (!readFamily(family).slots.includes(slot))
 		throw new RangeError(`No surface for ${family} slot "${slot}"`);
-	const target = isShade(slot) ? shadeTarget[slot] : slot;
-	const row: Row = display === 'normal' ? normal[family] : veil;
-	const surface = Object.hasOwn(row, target) ? row[target] : undefined;
+	const tint = readTone(family, tone);
+	const row = display === 'normal' ? normalRow(family, tint) : veil;
+	const surface = Object.hasOwn(row, slot) ? row[slot] : undefined;
 	if (!surface) throw new RangeError(`No surface for ${family} slot "${slot}"`);
 	return surface;
 }
 
-const noStrokes: readonly number[] = Object.freeze([]);
-const shadeFaces = Object.freeze({ top: castShade, lit: castShade, shadow: castShade });
+/** The surface of a plain body in a model material: the family's face in its tone, as a flat
+ * matte tone on any form, with its grain only when `grain` is set (MAT-7). */
+export function readModelSurface(
+	material: ModelMaterial,
+	display: MaterialDisplay,
+	grain = true
+): Surface {
+	const { grain: own, ...surface } = readMaterialSurface(
+		material.family,
+		'face',
+		display,
+		material.tone
+	);
+	return grain && own ? { ...surface, grain: own } : surface;
+}
 
-/** Paints compatible cladding groups by family, detail and slot. Plain slots take their
- * surfaces from `plain`. Throws RangeError for a missing surface. */
+const noStrokes: readonly number[] = Object.freeze([]);
+
+/** Paints compatible cladding groups by family, tone, level and slot. Printed marks draw no
+ * outline; grain shows only at levels that draw it. Plain slots take their surfaces from `plain`.
+ * Throws RangeError for a missing surface. */
 export function paintClad(
 	clad: CladObject,
 	display: MaterialDisplay,
@@ -106,20 +139,21 @@ export function paintClad(
 	const assignment: Record<string, Surface | undefined> = { ...plain };
 	const details = new Map<string, Partial<Drawable>>();
 	for (const group of clad.groups) {
+		const { grain } = readLevelDetail(group.level);
 		for (const [partSlot, familySlot] of group.slots) {
-			const surface = readMaterialSurface(group.family, familySlot, display);
 			if (group.level === 'pencil') {
 				assignment[partSlot] = pencil;
 				details.set(partSlot, { hatch: pencilStroke.hatch });
-			} else {
-				assignment[partSlot] = surface;
-				if (isShade(familySlot))
-					details.set(partSlot, {
-						faces: shadeFaces,
-						strokeSegments: noStrokes,
-						visible: display === 'normal'
-					});
+				continue;
 			}
+			const { grain: own, ...surface } = readMaterialSurface(
+				group.family,
+				familySlot,
+				display,
+				group.tone as ModelTone | undefined
+			);
+			assignment[partSlot] = grain && own ? { ...surface, grain: own } : surface;
+			if (familySlot === 'mark') details.set(partSlot, { strokeSegments: noStrokes });
 		}
 	}
 	const drawables = resolveSurfaces(clad.object, assignment).map((drawable): Drawable => ({
@@ -129,7 +163,7 @@ export function paintClad(
 	const parts = new Map(clad.object.parts.map(({ id, shape }) => [id, shape]));
 	for (const group of clad.groups) {
 		if (!group.lines.length) continue;
-		const shape = parts.get(`${group.id}/unit`);
+		const shape = parts.get(`${group.id}/face`);
 		if (!shape) continue;
 		drawables.push({
 			...pencil,

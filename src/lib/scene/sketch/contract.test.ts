@@ -6,7 +6,7 @@ describe('sketch', () => {
 		const { viewBox, faces } = example();
 		expect(faces).toHaveLength(6);
 		expect(new Set(faces.map(({ shade }) => shade))).toEqual(new Set(['top', 'lit', 'shadow']));
-		expect(faces.every(({ tone }) => tone === '--mat-render')).toBe(true);
+		expect(faces.every(({ tone }) => tone === '--model-white')).toBe(true);
 		const [x, y, width, height] = viewBox.split(' ').map(Number);
 		for (const { points } of faces)
 			for (const pair of points.split(' ')) {

@@ -1,34 +1,51 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
-import { move, type PlaceableObject } from '../../core/object';
+import { move, PlaceableObject } from '../../core/object';
 import type { HouseFace } from '../../domain/house-court';
 import { defaults } from '../../../config/house-projection';
 import { readSurfaceLevel, type DisplayLevel } from '../focus';
 import {
 	createClad,
 	fitModuleScale,
+	lowerLevel,
+	printsMarks,
+	readFamily,
+	readLevelDetail,
+	type CladObject,
 	type Cladding,
-	type Family,
 	type Patch,
-	type SurfaceLevel
+	type SurfaceLevel,
+	type SurfaceLevelAlias
 } from '../material';
-import { paintClad, type Drawable, type SurfaceAssignment } from '../surface';
+import {
+	paintClad,
+	readModelSurface,
+	type Drawable,
+	type ModelMaterial,
+	type ModelTone,
+	type Surface,
+	type SurfaceAssignment
+} from '../surface';
 import { houseLevels } from './levels';
-import type { HouseMaterials } from './materials';
+import { planHouseMaterials, type HouseMaterials, type MaterialRole } from './materials';
 
-const { cladOffsetM, cladThicknessM } = defaults;
+const { cladOffsetM, cladSkinM, plainCreaseRad } = defaults;
 
 /** Where a house stands on the stage: a translation after a rotation in radians about Z, as
  * `move` applies it. */
 export type HousePlacement = Readonly<{ translation: Vec3; radians: number }>;
 
-/** Options of a clad house drawing: its cladding triangle budget, the light direction in stage
- * axes, a placement, a seed and an optional surface level below the display level's own. */
+/** Options of a clad house drawing: its cladding triangle budget, a placement, a seed for the
+ * material draw and the surface level asked for, `plain` by default and at most the display
+ * level's own (aliases: `relief` is near, `flat` is plain); `readHouseSalience` grants more. `light` is accepted and unused: model surfaces cast no shade
+ * onto themselves (MAT-2). */
 export type CladHouseOptions = Readonly<{
 	budget: number;
 	light?: Vec3;
 	placement?: HousePlacement;
 	seed?: number;
-	level?: SurfaceLevel;
+	level?: SurfaceLevel | SurfaceLevelAlias;
+	/** Optional palette tint for the matte bodies at the plain level. Defaults to white board. */
+	plainTone?: ModelTone;
 }>;
 
 /** Plan area of a face in square meters, its outline (or rectangle) less its openings. */
@@ -60,50 +77,183 @@ function place(face: HouseFace, { translation, radians }: HousePlacement): House
 	};
 }
 
-function familyOf(materials: HouseMaterials, face: HouseFace): Family | undefined {
-	const table = face.place === 'wall' ? materials.wall : materials.roof;
-	return Object.hasOwn(table, face.slot) ? table[face.slot] : undefined;
+type Plan = ReturnType<typeof planHouseMaterials>;
+type Skin = 'deep' | 'thin';
+
+/** The material a face wears: its body's, or the flat roof tone on a roof face unless the body's
+ * pattern wraps over it (MAT-9, MAT-13). */
+function materialOf(materials: HouseMaterials, plan: Plan, face: HouseFace) {
+	const role = materials.slots[face.slot];
+	const body = role ? plan[role] : undefined;
+	if (!body) return undefined;
+	const wraps = readFamily(body.family).pattern === 'stripe';
+	return face.place === 'roof' && role !== 'roof' && !wraps ? plan.roof : body;
 }
 
-/** Claddings of the faces that have a family, each patch set off its face by the clad offset,
- * given its share of the budget by area. Relief and pencil also fit the surface modules. */
+/** Which faces need a cladding at a level: a printed pattern the level shows, a roof tone, or a
+ * deep skin that recesses the openings of a body that has any. Plain walls stay the body's own
+ * paint. */
+function skinOf(
+	material: ModelMaterial,
+	face: HouseFace,
+	level: SurfaceLevel,
+	recessed: boolean
+): Skin | undefined {
+	if (!readLevelDetail(level).parts) return undefined;
+	if (face.place === 'wall' && readLevelDetail(level).openings && recessed) return 'deep';
+	if (printsMarks(material.family, level) || face.place === 'roof') return 'thin';
+	return undefined;
+}
+
+// Exact arithmetic: a deep skin reaches back to the body face and past both ends of the wall.
+function patchOf(face: HouseFace, skin: Skin, budget: number): Patch {
+	const [ox, oy, oz] = face.origin;
+	const [nx, ny, nz] = face.normal;
+	const [ax, ay, az] = face.across;
+	const lift = skin === 'deep' ? cladSkinM : cladOffsetM;
+	const extend = skin === 'deep' ? cladSkinM : 0;
+	return {
+		origin: [
+			ox + nx * lift - ax * extend,
+			oy + ny * lift - ay * extend,
+			oz + nz * lift - az * extend
+		],
+		across: face.across,
+		normal: face.normal,
+		size: [face.size[0] + 2 * extend, face.size[1]],
+		thickness: skin === 'deep' ? cladSkinM : 0,
+		backed: false,
+		...(face.outline ? { outline: face.outline } : {}),
+		openings: face.openings.map(([u0, v0, u1, v1]) => [u0 + extend, v0, u1 + extend, v1] as const),
+		budget
+	};
+}
+
+/** Claddings of the faces that need one at the level (see `projectCladHouse`), each in its
+ * body's material from the house's material draw, faces of one body sharing one pattern box, given
+ * its share of the budget by area. `house` and `seed` key the draw. */
+// Exact arithmetic: seed zero is the default draw.
 export function houseCladdings(
 	faces: readonly HouseFace[],
 	materials: HouseMaterials,
 	budget: number,
-	level: SurfaceLevel = 'relief'
+	level: SurfaceLevel | SurfaceLevelAlias = 'near',
+	house = '',
+	seed = 0
 ): Cladding[] {
+	const drawn = lowerLevel(level, undefined);
+	const plan = planHouseMaterials(materials, house, seed);
+	const recessed = new Set(faces.filter(({ openings }) => openings.length).map(({ body }) => body));
 	const clad = faces.flatMap((face) => {
-		const family = familyOf(materials, face);
-		return family ? [{ face, family, area: faceAreaM2(face) }] : [];
+		const material = materialOf(materials, plan, face);
+		const skin = material && skinOf(material, face, drawn, recessed.has(face.body));
+		const area = faceAreaM2(face);
+		return material && skin && area > 0 ? [{ face, material, skin, area }] : [];
 	});
 	const total = clad.reduce((sum, { area }) => sum + area, 0);
-	return clad.flatMap(({ face, family, area }) => {
-		if (!(area > 0)) return [];
-		const [ox, oy, oz] = face.origin;
-		const [nx, ny, nz] = face.normal;
-		const patch: Patch = {
-			origin: [ox + nx * cladOffsetM, oy + ny * cladOffsetM, oz + nz * cladOffsetM],
-			across: face.across,
-			normal: face.normal,
-			size: face.size,
-			thickness: cladThicknessM,
-			...(face.outline ? { outline: face.outline } : {}),
-			openings: face.openings,
-			budget: Math.floor((budget * area) / total)
+	return clad.map(({ face, material, skin, area }) => {
+		const patch = patchOf(face, skin, Math.floor((budget * area) / total));
+		return {
+			role: face.slot,
+			family: material.family,
+			...(material.tone ? { tone: material.tone } : {}),
+			body: face.body,
+			patch,
+			moduleScale: fitModuleScale(material.family, patch)
 		};
-		const cladding = { role: face.slot, family, patch };
-		return [
-			level === 'flat' ? cladding : { ...cladding, moduleScale: fitModuleScale(family, patch) }
-		];
 	});
 }
 
-/** Draws a house object wearing surface families on its planar faces at one display level: the
- * object's own slots from the level's role table, the claddings painted through `paintClad`. The
- * level's surface detail (relief, flat or pencil; `options.level` may lower it) and the triangle
- * budget decide how much relief is built. The object and faces are placed alike before cladding;
- * cladding drawables get IDs under the object's ID. Returns the drawables and the cladding
+/** Slots a plain house keeps besides its bodies: the ground and the frame that carries capsules. */
+const plainKeeps = new Set(['plot', 'court', 'mass', 'frame', 'deck']);
+
+/** Whether a part's slot is drawn at a level: a plain house keeps only its bodies (MAT-15);
+ * openings and accents follow the level table. */
+function shownAt(level: SurfaceLevel, materials: HouseMaterials) {
+	const { openings, accents, parts } = readLevelDetail(level);
+	return (slot: string) => {
+		if (!parts) {
+			const role = materials.slots[slot];
+			return plainKeeps.has(slot) || (role !== undefined && role !== 'accent' && slot !== 'rim');
+		}
+		if (!openings && (slot === 'opening' || slot === 'collar')) return false;
+		return accents || slot !== 'accent';
+	};
+}
+
+function withoutHidden(object: PlaceableObject, level: SurfaceLevel, materials: HouseMaterials) {
+	const shown = shownAt(level, materials);
+	if (object.parts.every(({ slot }) => shown(slot))) return object;
+	return PlaceableObject.create({
+		...object,
+		parts: object.parts.filter(({ slot }) => shown(slot))
+	});
+}
+
+type Built = Readonly<{ clad: CladObject; plan: Plan; level: SurfaceLevel }>;
+const built = new WeakMap<PlaceableObject, WeakMap<object, WeakMap<object, Map<string, Built>>>>();
+
+/** One house built at one level, cached per object, faces, materials and options, so a display
+ * or focus change rebuilds nothing that exists. */
+function buildHouse(
+	object: PlaceableObject,
+	faces: readonly HouseFace[],
+	materials: HouseMaterials,
+	level: SurfaceLevel,
+	options: CladHouseOptions
+): Built {
+	const byFaces = built.get(object) ?? new WeakMap();
+	built.set(object, byFaces);
+	const byMaterials = byFaces.get(faces) ?? new WeakMap();
+	byFaces.set(faces, byMaterials);
+	const cache = byMaterials.get(materials) ?? new Map<string, Built>();
+	byMaterials.set(materials, cache);
+	const key = JSON.stringify([level, options.budget, options.seed ?? 0, options.placement ?? null]);
+	const found = cache.get(key);
+	if (found) return found;
+	const placement = options.placement;
+	const shown = withoutHidden(object, level, materials);
+	const placed = placement ? move(shown, placement.translation, placement.radians) : shown;
+	const moved = placement ? faces.map((face) => place(face, placement)) : faces;
+	const seed = options.seed ?? 0;
+	const claddings = houseCladdings(moved, materials, options.budget, level, object.id, seed);
+	const result = {
+		clad: createClad(placed, claddings, { level }),
+		plan: planHouseMaterials(materials, object.id, seed),
+		level
+	};
+	cache.set(key, result);
+	return result;
+}
+
+/** The plain slots of the house: the level's role table, with each body slot that has a role in
+ * the house's drawn material as one flat matte tone, grain where the level draws it. */
+function plainSurfaces(
+	object: PlaceableObject,
+	materials: HouseMaterials,
+	{ plan, level }: Built,
+	table: SurfaceAssignment,
+	tone: ModelTone = 'white'
+): SurfaceAssignment {
+	const { grain, parts } = readLevelDetail(level);
+	return Object.fromEntries(
+		object.slots.map((slot): [string, Surface | undefined] => {
+			const own = table[slot];
+			const role: MaterialRole | undefined = materials.slots[slot];
+			// A plain house is one pale matte volume, like the boxes of a study model (MAT-15).
+			const material = role ? (parts ? plan[role] : { family: 'board' as const, tone }) : undefined;
+			if (!own || !material) return [slot, own];
+			return [slot, { ...readModelSurface(material, 'normal', grain), stroke: own.stroke }];
+		})
+	);
+}
+
+/** Draws a house object as a model (MAT-3) at one display level. By default a house is plain: its
+ * bodies in white board or the requested matte tint, without parts, openings or patterns (MAT-15). A
+ * requested level (`options.level`, at most the display level's own) grants detail: far adds the
+ * roof tone, rims and large graphic patterns, mid openings, near patterns, grain, joints and the
+ * accent, each body in its drawn material, painted through `paintClad`. Builds are cached per house, faces, materials and options.
+ * Cladding drawables get IDs under the object's ID. Returns the drawables and the cladding
  * triangle count; `hidden` draws nothing. */
 // Exact arithmetic: an empty drawing has no triangles.
 export function projectCladHouse(
@@ -116,36 +266,32 @@ export function projectCladHouse(
 	const { surfaces, hatch, fillAlpha } = houseLevels[display];
 	const own = readSurfaceLevel(display);
 	if (!surfaces || !own) return { drawables: [], triangles: 0 };
-	const placed = options.placement
-		? move(object, options.placement.translation, options.placement.radians)
-		: object;
-	const placement = options.placement;
-	const moved = placement ? faces.map((face) => place(face, placement)) : faces;
-	const level = lower(own, options.level);
-	const clad = createClad(placed, houseCladdings(moved, materials, options.budget, level), {
-		...(options.light ? { light: options.light } : {}),
-		...(options.seed === undefined ? {} : { seed: options.seed }),
-		level
-	});
-	const table: SurfaceAssignment = surfaces;
-	const plain = Object.fromEntries(object.slots.map((slot) => [slot, table[slot]]));
-	const ownParts = new Set(object.parts.map(({ id }) => id));
-	const drawables = paintClad(clad, 'normal', plain).map((drawable): Drawable => {
-		const mine = ownParts.has(drawable.id);
+	const house = buildHouse(
+		object,
+		faces,
+		materials,
+		lowerLevel(own, options.level ?? 'plain'),
+		options
+	);
+	// Only the full display paints model materials; the other displays keep their stock looks.
+	const plain =
+		display === 'full'
+			? plainSurfaces(object, materials, house, surfaces, options.plainTone)
+			: Object.fromEntries(
+					object.slots.map((slot) => [slot, (surfaces as SurfaceAssignment)[slot]])
+				);
+	const ownParts = new Map(object.parts.map(({ id, slot }) => [id, slot]));
+	const drawables = paintClad(house.clad, 'normal', plain).map((drawable): Drawable => {
+		const slot = ownParts.get(drawable.id);
+		const plainBody =
+			display === 'full' && house.level === 'plain' && slot && materials.slots[slot];
 		return {
 			...drawable,
-			id: mine ? drawable.id : `${object.id}/${drawable.id}`,
-			...(mine && hatch ? { hatch } : {}),
+			id: slot !== undefined ? drawable.id : `${object.id}/${drawable.id}`,
+			...(slot !== undefined && hatch ? { hatch } : {}),
+			...(plainBody ? { creaseAngleRad: plainCreaseRad } : {}),
 			...(fillAlpha < 1 ? { fillAlpha, occlude: true } : {})
 		};
 	});
-	return { drawables, triangles: clad.triangles };
-}
-
-const order = ['relief', 'flat', 'pencil'] as const;
-
-/** The less detailed of two surface levels; pencil counts as least detailed. */
-// Exact arithmetic: list order.
-function lower(a: SurfaceLevel, b: SurfaceLevel | undefined): SurfaceLevel {
-	return b && order.indexOf(b) > order.indexOf(a) ? b : a;
+	return { drawables, triangles: house.clad.triangles };
 }
