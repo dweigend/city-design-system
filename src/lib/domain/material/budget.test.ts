@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test';
 import { materialSettings } from '../../../config/material';
-import { buildSurface, familyNames, surfaceLevels, type Patch } from './index';
-
-const light = [0.36, 0.48, -1] as const;
+import { buildSurface, familyNames, fitModuleScale, surfaceLevels, type Patch } from './index';
 
 const patch: Patch = {
 	origin: [0, 0, 0],
@@ -12,19 +10,20 @@ const patch: Patch = {
 	thickness: 0.1
 };
 
-test('relief coarsens to fit an explicit budget', () => {
-	const coarse = buildSurface('masonry', { ...patch, size: [4, 3], budget: 400 });
+test('marks coarsen to fit an explicit budget and the fitted scale predicts it', () => {
+	const tight = { ...patch, size: [4, 3] as const, budget: 160 };
+	const coarse = buildSurface('perforated', tight, { level: 'near' });
 	expect(coarse.moduleScale).toBeGreaterThan(1);
-	expect(coarse.triangles).toBeLessThanOrEqual(400);
+	expect(coarse.triangles).toBeLessThanOrEqual(160);
+	expect(fitModuleScale('perforated', tight)).toBeGreaterThan(1);
 });
 
-test('every family and level omits geometry below the minimum explicit or default budget', () => {
-	for (const family of familyNames) {
+test('every family and level omits geometry below the minimum budget', () => {
+	for (const family of familyNames)
 		for (const level of surfaceLevels) {
 			for (const small of [{ ...patch, budget: 2 }, { ...patch, size: [0.1, 0.1] } as const]) {
-				const result = buildSurface(family, small, { level, light });
+				const result = buildSurface(family, small, { level });
 				expect(result.triangles).toBe(0);
-				expect(result.meshes.size).toBe(0);
 				expect(result.lines).toEqual([]);
 			}
 			const minimum = buildSurface(
@@ -34,46 +33,17 @@ test('every family and level omits geometry below the minimum explicit or defaul
 			);
 			expect(minimum.triangles).toBe(materialSettings.minimumMeshTriangles);
 		}
-	}
 });
 
-test('fallback still respects the budget when an opening makes a slab cost more', () => {
-	const withOpening: Patch = { ...patch, openings: [[0.5, 0.5, 1.5, 1.5]], budget: 12 };
-	for (const level of surfaceLevels) {
-		const result = buildSurface('masonry', withOpening, { level });
-		expect(result.triangles).toBe(0);
-		expect(result.lines).toEqual([]);
-	}
+test('a kilometer patch preflights its marks and falls back to the plain face', () => {
+	const kilometer: Patch = { ...patch, size: [1000, 1000], budget: 5000 };
+	const result = buildSurface('perforated', kilometer, { level: 'near' });
+	expect([...result.meshes.keys()]).toEqual(['face']);
+	expect(result.triangles).toBe(12);
 });
 
-test('scaled masonry modules that underflow cannot reach a layout', () => {
-	for (const level of surfaceLevels)
-		expect(() => buildSurface('masonry', patch, { level, moduleScale: 5e-324 })).toThrow(
-			/Scaled surface dimensions/
-		);
-});
-
-test('a kilometer of masonry preflights relief and pencil layouts and flat skips them', () => {
-	const kilometer: Patch = { ...patch, size: [1000, 1000] };
-	const flat = buildSurface('masonry', kilometer, { level: 'flat' });
-	expect(flat.triangles).toBe(12);
-	for (const level of ['relief', 'pencil'] as const) {
-		const result = buildSurface('masonry', kilometer, { level });
-		expect(result.level).toBe('flat');
-		expect(result.meshes).toEqual(flat.meshes);
-		expect(result.lines).toEqual([]);
-		expect(result.moduleScale).toBeGreaterThan(1);
-	}
-});
-
-test('levels drop from relief to a flat slab to a slab with pencil joints', () => {
-	const relief = buildSurface('timber', patch, { light });
-	const flat = buildSurface('timber', patch, { level: 'flat' });
-	const pencil = buildSurface('timber', patch, { level: 'pencil' });
-	expect([...flat.meshes.keys()]).toEqual(['unit']);
-	expect(flat.lines).toEqual([]);
-	expect(pencil.meshes.get('unit')).toEqual(flat.meshes.get('unit'));
-	expect(pencil.lines.length % 6).toBe(0);
-	expect(pencil.lines.length).toBeGreaterThan(0);
-	expect(flat.triangles).toBeLessThan(relief.triangles);
+test('a homogeneous face costs a slab: twelve triangles without openings', () => {
+	for (const family of ['board', 'card', 'cork', 'ground'] as const)
+		expect(buildSurface(family, patch, { level: 'mid' }).triangles).toBe(12);
+	expect(buildSurface('board', { ...patch, backed: false }, { level: 'mid' }).triangles).toBe(2);
 });

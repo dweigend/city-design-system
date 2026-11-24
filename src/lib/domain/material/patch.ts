@@ -15,11 +15,21 @@ const { planeToleranceM } = materialSettings;
 /** An axis-aligned rectangle in patch meters: left, bottom, right, top. */
 export type Rect = readonly [u0: number, v0: number, u1: number, v1: number];
 
+/** The box of one body that its pattern wraps (MAT-9): an origin, three unit axes (along the
+ * body's long horizontal side, across it, up) and the extent in meters along each. Patterns are
+ * laid in these coordinates, so they run on across every face of the body. */
+export type PatternFrame = Readonly<{
+	origin: Vec3;
+	axes: readonly [Vec3, Vec3, Vec3];
+	size: Vec3;
+}>;
+
 /** A planar surface patch. `across` and `normal` are unit vectors; up is normal × across, so the
  * outward face looks along `normal`. Size, thickness and openings are in meters. The optional
  * outline is a convex counter-clockwise polygon in patch meters, e.g. a gable; the default is
- * the rectangle of `size`. Openings are holes cut through relief and backing. Shadows are convex
- * counter-clockwise polygons in patch meters that other bodies cast onto the face. */
+ * the rectangle of `size`. Openings are holes cut through face and backing. `pattern` is the
+ * box of the body the patch belongs to (default: the patch's own box); `backed: false` leaves out
+ * the back face of a patch laid onto a body. */
 export type Patch = Readonly<{
 	origin: Vec3;
 	across: Vec3;
@@ -28,8 +38,9 @@ export type Patch = Readonly<{
 	thickness: number;
 	outline?: readonly Vec2[];
 	openings?: readonly Rect[];
-	shadows?: readonly (readonly Vec2[])[];
 	budget?: number;
+	pattern?: PatternFrame;
+	backed?: boolean;
 }>;
 
 /** A patch with its derived up axis and a point mapping from patch meters to world meters. */
