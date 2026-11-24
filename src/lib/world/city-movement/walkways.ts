@@ -4,7 +4,7 @@ import { createMovementNetwork, type MovementNode } from '../../domain/movement-
 import { walkwayClearance } from './clearance';
 import { defaults } from '../../../config/city-movement';
 import type { groundLanes } from './ground';
-import { stair } from './stairs';
+import type { stairSurvey } from './stairs';
 import { link, raised, support, type Link } from './links';
 
 type Ground = ReturnType<typeof groundLanes>;
@@ -26,10 +26,11 @@ export function walkways(
 	ground: Ground,
 	columns: readonly CityColumn[],
 	datumZ: number,
-	offset: number
+	offset: number,
+	centers: readonly string[],
+	stair: ReturnType<typeof stairSurvey>
 ) {
-	const primary = ground.crossings[0];
-	const heads = primary ? [primary.first, primary.last] : [...ground.nodes.keys()].slice(0, 1);
+	const heads = centers.filter((id) => ground.nodes.has(id));
 	const roofs = roofsByVertex(columns, datumZ);
 	const roofAt = (id: string) => roofs.get(id) ?? ground.node(id).position[2];
 	const clearance = defaults.walkwayRoofClearanceM;
@@ -84,16 +85,25 @@ export function walkways(
 			);
 	}
 	const islands = createMovementNetwork([...nodes.values()], links).readComponents();
-	const accesses = new Map<string, string>();
-	for (const id of [...heads, ...nodes.keys()]) {
+	const accesses = new Set<string>();
+	for (const id of new Set([...heads, ...nodes.keys()])) {
 		const top = nodes.get(id);
 		const component = top && islands.get(top.id);
-		if (component && !accesses.has(component)) accesses.set(component, id);
+		if (!top || !component || (accesses.has(component) && !heads.includes(id))) continue;
+		const access = stair('stair/' + id, ground.node(id), top);
+		if (!access) continue;
+		links.push(access);
+		accesses.add(component);
 	}
-	const stairs = new Set([...heads.filter((id) => nodes.has(id)), ...accesses.values()]);
-	for (const id of stairs) {
-		const top = higher(id);
-		links.push(stair('stair/' + id, ground.node(id), top));
+	for (const [id, node] of nodes) {
+		const component = islands.get(node.id);
+		if (!component || !accesses.has(component)) nodes.delete(id);
 	}
-	return { nodes, links, level, z };
+	const accessible = new Set([...nodes.values()].map(({ id }) => id));
+	return {
+		nodes,
+		links: links.filter(({ nodeIds }) => nodeIds.some((id) => accessible.has(id))),
+		level,
+		z
+	};
 }

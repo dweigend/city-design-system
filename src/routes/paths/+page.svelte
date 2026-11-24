@@ -16,6 +16,7 @@
 	import { valleyParams } from '../../lib/domain/valley';
 	import {
 		cityCameraBearingRad,
+		cityCameraMinimumWidthM,
 		cityElevation,
 		cityFocus,
 		cityFrameFillFlat,
@@ -53,6 +54,7 @@
 	} from '../../lib/world/city-site';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
+	import { crossingHeads, railDemo } from './demo';
 
 	const chapter = chapterAt('/paths');
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
@@ -130,9 +132,13 @@
 	const layout = $derived(readCityGrid(site, citySize, grid, seed));
 	const districts = $derived(readCityDistricts(site, layout, seed));
 	const columns = $derived(readCityColumns(layout.grid, districts));
-	const rail = $derived(readCityRail(site, layout, columns));
-	const movement = $derived(readCityMovement(site, layout, columns, Number(offset), rail));
-	const route = $derived(movement.demoEnds && movement.network.readRoute(...movement.demoEnds));
+	const heads = $derived(crossingHeads(layout));
+	const rail = $derived(readCityRail(site, layout, columns, railDemo(site, layout, heads)));
+	const movement = $derived(readCityMovement(site, layout, columns, Number(offset), rail, heads));
+	const routeEnds = $derived(heads.map((id) => movement.elevatedNodeIds.get(id) ?? 'ground/' + id));
+	const route = $derived(
+		routeEnds.length === 2 ? movement.network.readRoute(routeEnds[0], routeEnds[1]) : undefined
+	);
 
 	const terrain = $derived.by(() => {
 		if (extent !== 'valley' || !rail) return projectCityTerrain(site, layout.grid, layout.plan);
@@ -198,9 +204,9 @@
 	});
 	const subject = $derived.by(() => {
 		if (extent === 'valley') return undefined;
-		if (page.url.searchParams.get('frame') !== 'crossing' || !movement.demoEnds)
+		if (page.url.searchParams.get('frame') !== 'crossing' || !routeEnds.length)
 			return projectFocus(view, camera, envelope.points());
-		const points = movement.demoEnds.flatMap((id): Vec3[] => {
+		const points = routeEnds.flatMap((id): Vec3[] => {
 			const node = movement.network.readNode(id);
 			if (!node) return [];
 			const [x, y, z] = node.position;
@@ -213,7 +219,7 @@
 		...camera,
 		elevationAtWidth: (width: number) => cityElevation(relief, width),
 		subject,
-		width: width === undefined ? undefined : Math.max(120, width),
+		width: width === undefined ? undefined : Math.max(cityCameraMinimumWidthM, width),
 		offset: [numberFromQuery('x') ?? 0, numberFromQuery('y') ?? 0] as const
 	});
 	const distances = $derived.by(() => {

@@ -1,15 +1,30 @@
 import type { Vec2 } from '../../core/geometry';
 import { columnRoof, levelHeight, type CityColumn } from '../../domain/city-volume';
-import { createTransitLine, type RailAnchor, type RailCorridor } from '../../domain/transit-line';
+import {
+	createStraightLevelTransitLine,
+	type RailAnchor,
+	type RailCorridor,
+	type StraightLevelRailSurvey
+} from '../../domain/transit-line';
 import type { CityGrid, CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
+import { stairSurvey } from './stairs';
+import { raised } from './links';
 import type { groundLanes } from './ground';
+
+/** Caller-selected rail survey origin, station catchment centres and terrain upper bounds. */
+export type CityRailOptions = Readonly<{
+	center: Vec2;
+	catchments: readonly { id: string; center: Vec2 }[];
+	readSpanUpperM: StraightLevelRailSurvey['readSpanUpperM'];
+}>;
 
 export function cityRail(
 	site: CitySite,
 	layout: CityGrid,
 	ground: ReturnType<typeof groundLanes>,
-	columns: readonly CityColumn[]
+	columns: readonly CityColumn[],
+	options: CityRailOptions
 ) {
 	const { bearing } = site.frame;
 	const u = Math.cos(bearing);
@@ -21,13 +36,7 @@ export function cityRail(
 	];
 	const getAlong = ([wx, wy]: Vec2) => (wx - x) * u + (wy - y) * v;
 	const getAcross = ([wx, wy]: Vec2) => (wy - y) * u - (wx - x) * v;
-	const head = ground.crossings[0];
-	const center = head
-		? ground.node(head.first).position
-		: ground.nodes.values().next().value?.position;
-	const cityCenter: Vec2 = center ? [center[0], center[1]] : site.origin;
-	const across = getAcross(cityCenter);
-	const along = getAlong(cityCenter);
+	const across = getAcross(options.center);
 	const half = defaults.railHalfLengthM;
 	const corridors: RailCorridor[] = [];
 	for (let i = 0; i <= defaults.railCorridorCount; i++) {
@@ -35,12 +44,26 @@ export function cityRail(
 		corridors.push([at(-half, across + offset), at(half, across + offset)]);
 		if (i) corridors.push([at(-half, across - offset), at(half, across - offset)]);
 	}
-	const approaches: RailAnchor[] = [...ground.nodes.values()].map(({ id, position: [wx, wy] }) => ({
-		id,
-		point: [wx, wy]
-	}));
-	const catchments = ['upstream', 'downstream'].map((id, i) => {
-		const target = along + (i - 0.5) * defaults.railCatchmentSpacingM;
+	const occupied = new Set(columns.map(({ planCellId }) => planCellId));
+	const boundary = new Set(
+		ground.edges
+			.filter(({ cellIds }) => cellIds.length === 1 || cellIds.some((id) => !occupied.has(id)))
+			.flatMap(({ nodeIds }) => nodeIds)
+	);
+	const approaches: RailAnchor[] = [...ground.nodes]
+		.filter(([id]) => boundary.has(id))
+		.map(
+			([
+				,
+				{
+					id,
+					position: [wx, wy]
+				}
+			]) => ({ id, point: [wx, wy] })
+		);
+
+	const catchments = options.catchments.map(({ id, center }) => {
+		const target = getAlong(center);
 		return {
 			id,
 			approaches: approaches.filter(
@@ -61,7 +84,23 @@ export function cityRail(
 	const alongMax = Math.max(...occupiedAlong);
 	const acrossMin = Math.min(...occupiedAcross);
 	const acrossMax = Math.max(...occupiedAcross);
-	return createTransitLine({
+	const stair = stairSurvey(site, columns, layout.datumZ);
+	const nodes = new Map([...ground.nodes.values()].map((node) => [node.id, node]));
+	const access = new Map<string, boolean>();
+	return createStraightLevelTransitLine({
+		readSpanUpperM: options.readSpanUpperM,
+		acceptsApproach({ id }, platform) {
+			const z = platform[2];
+			const key = id + '/' + z;
+			const cached = access.get(key);
+			if (cached !== undefined) return cached;
+			const node = nodes.get(id);
+			if (!node) return false;
+			const level = Math.round((z - layout.datumZ) / levelHeight);
+			const usable = Boolean(stair(id, node, raised(node, level, z)));
+			access.set(key, usable);
+			return usable;
+		},
 		corridors,
 		readGround(wx, wy) {
 			const sample = site.sampleGround(wx, wy);

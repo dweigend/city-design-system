@@ -22,7 +22,7 @@ export const settings = defineSettings({
 	walkwayCatchmentM: {
 		value: 240,
 		unit: 'm',
-		meaning: 'Extent of walkway branches from the primary crossing',
+		meaning: 'Extent of walkway branches from caller-selected anchors',
 		rationale: 'One visible quarter around the crossing'
 	},
 	groundTraceStepM: {
@@ -54,6 +54,30 @@ export const settings = defineSettings({
 		unit: 'm',
 		meaning: 'Distance between the two flight axes of a switchback',
 		rationale: 'Leave space between flights'
+	},
+	stairHalfWidthM: {
+		value: 0.8,
+		unit: 'm',
+		meaning: 'Half width of a stair flight',
+		rationale: 'Survey the whole walking surface and its bearings'
+	},
+	stairFootprintProbeStepM: {
+		value: 1,
+		unit: 'm',
+		meaning: 'Maximum spacing of dry-ground probes over a stair footprint',
+		rationale: 'Resolve small changes in bank position'
+	},
+	stairBearingCount: {
+		value: 32,
+		unit: 'directions',
+		meaning: 'Number of stair orientations tested around a node',
+		rationale: 'Sample acute corners while retaining stable order'
+	},
+	railTerrainSlopeBoundRatio: {
+		value: 2,
+		unit: 'm/m',
+		meaning: 'Grade allowance used by the valley rail demo terrain envelope',
+		rationale: 'Reserve clearance between the span probes on the regional terrain'
 	},
 	railHalfLengthM: {
 		value: 4000,

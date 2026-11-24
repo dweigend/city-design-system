@@ -5,8 +5,8 @@ import type { CityGrid, CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
 import { groundLanes } from './ground';
 import { link, raised, support, type Link } from './links';
-import { cityRail } from './rail';
-import { stair } from './stairs';
+import { cityRail, type CityRailOptions } from './rail';
+import { stairSurvey } from './stairs';
 import { walkways } from './walkways';
 
 /** City adapter kinds. Chapter views may attach their own presentation to them. */
@@ -15,22 +15,36 @@ export type { CityMovementKind } from './links';
 /** Alternative walkway planes relative to the derived eaves plane. */
 export const walkwayLevelOffsets = defaults.walkwayLevelOffsets;
 
+export type { CityRailOptions } from './rail';
+
+/** Grade bound used by the Paths valley fixture to envelope its terrain samples. */
+export const cityRailTerrainSlopeBound = defaults.railTerrainSlopeBoundRatio;
+/** Along-valley spacing available to callers laying out town station catchments. */
+export const cityRailCatchmentSpacingM = defaults.railCatchmentSpacingM;
+
 /** Surveys the regional rail once per city layout, independently of the displayed walkway level. */
-export function readCityRail(site: CitySite, layout: CityGrid, columns: readonly CityColumn[]) {
-	return cityRail(site, layout, groundLanes(site, layout), columns);
+export function readCityRail(
+	site: CitySite,
+	layout: CityGrid,
+	columns: readonly CityColumn[],
+	options: CityRailOptions
+) {
+	return cityRail(site, layout, groundLanes(site, layout), columns, options);
 }
 
 /** Composes plan lanes, selected crossings, the eaves walkways and platform access into one graph.
- * A cell is accessible at each of its corner nodes. The demo endpoints use the primary crossing. */
+ * A cell is accessible at each corner. Empty walkway centers build only ground and platform access. */
 export function readCityMovement(
 	site: CitySite,
 	layout: CityGrid,
 	columns: readonly CityColumn[],
 	offset: number,
-	rail: ReturnType<typeof readCityRail>
+	rail: ReturnType<typeof readCityRail>,
+	walkwayCenters: readonly string[]
 ) {
 	const ground = groundLanes(site, layout);
-	const upper = walkways(ground, columns, layout.datumZ, offset);
+	const stair = stairSurvey(site, columns, layout.datumZ);
+	const upper = walkways(ground, columns, layout.datumZ, offset, walkwayCenters, stair);
 	const nodes = new Map(
 		[...ground.nodes.values(), ...upper.nodes.values()].map((node) => [node.id, node])
 	);
@@ -45,33 +59,30 @@ export function readCityMovement(
 			level
 		};
 		const top = raised(approach, level, z);
-		nodes.set(platform.id, platform);
 		if (top.position[0] === platform.position[0] && top.position[1] === platform.position[1]) {
-			docks.push(stair('dock-stair/' + station.id, approach, platform));
+			const access = stair('dock-stair/' + station.id, approach, platform);
+			if (!access) continue;
+			nodes.set(platform.id, platform);
+			docks.push(access);
 			continue;
 		}
 		if (!nodes.has(top.id)) {
+			const access = stair('station-stair/' + station.id, approach, top);
+			if (!access) continue;
 			nodes.set(top.id, top);
-			docks.push(stair('station-stair/' + station.id, approach, top));
+			docks.push(access);
 		}
-		docks.push(
-			link(
-				'dock/' + station.id,
-				'walkway',
-				top,
-				platform,
-				[],
-				[support(approach, top), { base: station.base, top: platform.position }]
-			)
-		);
+		nodes.set(platform.id, platform);
+		docks.push(link('dock/' + station.id, 'walkway', top, platform, [], [support(approach, top)]));
 	}
 	const network = createMovementNetwork(
 		[...nodes.values()],
 		[...ground.links, ...upper.links, ...docks]
 	);
-	const crossing = ground.crossings[0];
-	const from = crossing && (upper.nodes.get(crossing.first) ?? ground.node(crossing.first));
-	const to = crossing && (upper.nodes.get(crossing.last) ?? ground.node(crossing.last));
-	const demoEnds = from && to ? ([from.id, to.id] as const) : undefined;
-	return { network, level: upper.level, elevationM: upper.z, demoEnds };
+	return {
+		network,
+		level: upper.level,
+		elevationM: upper.z,
+		elevatedNodeIds: new Map([...upper.nodes].map(([vertex, node]) => [vertex, node.id]))
+	};
 }

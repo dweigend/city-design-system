@@ -1,9 +1,13 @@
 import { defaults } from '../../../config/transit-line';
 import type { Vec2 } from '../../core/geometry';
 import type { Frame } from './corridor';
-import type { RailPier, RailSurvey } from './types';
+import type { RailPier, StraightLevelRailSurvey } from './types';
 
-export function railPiers(axis: Frame, survey: RailSurvey, heightM: number): RailPier[] {
+export function railPiers(
+	axis: Frame,
+	survey: StraightLevelRailSurvey,
+	heightM: number
+): RailPier[] {
 	const { pierIntervalM, pierDryClearanceM, pierSearchM, surveyStepM } = defaults;
 	const intervals = Math.ceil(axis.lengthM / pierIntervalM);
 	const anchors = (survey.anchors ?? []).flatMap(({ id, point }) => {
@@ -35,11 +39,12 @@ export function railPiers(axis: Frame, survey: RailSurvey, heightM: number): Rai
 				base: [...existing.point, existing.ground.heightM],
 				anchorId: existing.id
 			});
-		} else if (!survey.requiresAnchor?.(point)) {
+		} else {
 			const candidates: Vec2[] = [point];
 			for (let offset = surveyStepM; offset <= pierSearchM; offset += surveyStepM)
 				candidates.push(axis.at(station, offset), axis.at(station, -offset));
 			for (const base of candidates) {
+				if (survey.requiresAnchor?.(base)) continue;
 				const ground = survey.readGround(...base);
 				if (ground.dryClearanceM < pierDryClearanceM || ground.heightM >= heightM) continue;
 				piers.push({ top: [...point, heightM], base: [...base, ground.heightM] });

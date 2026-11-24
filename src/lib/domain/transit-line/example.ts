@@ -1,8 +1,8 @@
-import { createTransitLine } from './index';
+import { createStraightLevelTransitLine } from './index';
 
 /** A level guideway over an analytic slope with a shallow flooded band. */
 export function transitExample() {
-	return createTransitLine({
+	return createStraightLevelTransitLine({
 		corridors: [
 			[
 				[0, 0],
@@ -14,6 +14,7 @@ export function transitExample() {
 			]
 		],
 		readGround: (x, y) => ({ heightM: x / 36, dryClearanceM: Math.abs(y) - 15 }),
+		readSpanUpperM: (a, b) => Math.max(a[0], b[0]) / 36,
 		catchments: [{ id: 'orchard', approaches: [{ id: 'entrance', point: [100, 60] }] }],
 		dockReachM: 30
 	});

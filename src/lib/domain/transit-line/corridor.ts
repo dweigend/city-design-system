@@ -1,6 +1,6 @@
 import type { Vec2 } from '../../core/geometry';
 import { defaults } from '../../../config/transit-line';
-import type { RailCorridor, RailObstacle, RailSurvey } from './types';
+import type { RailCorridor, RailObstacle, StraightLevelRailSurvey } from './types';
 
 // Exact arithmetic: the transverse axis starts at a signed zero offset.
 export function frame([start, end]: RailCorridor) {
@@ -35,15 +35,23 @@ function near({ outline }: RailObstacle, frame: Frame, reachM: number) {
 	);
 }
 
-export function surveyCorridor(corridor: RailCorridor, survey: RailSurvey) {
+export function surveyCorridor(corridor: RailCorridor, survey: StraightLevelRailSurvey) {
 	const axis = frame(corridor);
 	const { lengthM } = axis;
 	const count = Math.ceil(lengthM / defaults.surveyStepM);
 	let wetRuns = 0;
 	let wet = false;
 	let heightM = -Infinity;
+	let previous = axis.at(0);
 	for (let i = 0; i <= count; i++) {
-		const ground = survey.readGround(...axis.at((i * lengthM) / count));
+		const point = axis.at((i * lengthM) / count);
+		const ground = survey.readGround(...point);
+		if (i > 0) {
+			const upperM = survey.readSpanUpperM(previous, point);
+			if (!Number.isFinite(upperM)) throw new RangeError('Expected a finite terrain span bound');
+			heightM = Math.max(heightM, upperM);
+		}
+		previous = point;
 		heightM = Math.max(heightM, ground.heightM);
 		const nextWet = ground.dryClearanceM <= 0;
 		if (nextWet && !wet) wetRuns++;
@@ -52,19 +60,5 @@ export function surveyCorridor(corridor: RailCorridor, survey: RailSurvey) {
 	for (const obstacle of survey.obstacles ?? []) {
 		if (near(obstacle, axis, survey.dockReachM)) heightM = Math.max(heightM, obstacle.topM);
 	}
-	const catchments = (survey.catchments ?? []).flatMap(({ id, approaches }) => {
-		const reachable = approaches.flatMap((approach) => {
-			const [stationM, offsetM] = axis.locate(approach.point);
-			return stationM >= defaults.stationMarginM &&
-				stationM <= lengthM - defaults.stationMarginM &&
-				Math.abs(offsetM) <= survey.dockReachM
-				? [{ approach, stationM, distanceM: Math.abs(offsetM) }]
-				: [];
-		});
-		const [best] = reachable.sort(
-			(a, b) => a.distanceM - b.distanceM || (a.approach.id < b.approach.id ? -1 : 1)
-		);
-		return best ? [{ id, ...best }] : [];
-	});
-	return { axis, heightM, wetRuns, catchments };
+	return { axis, heightM, wetRuns };
 }

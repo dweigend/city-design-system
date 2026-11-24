@@ -47,9 +47,14 @@ export type RailConstraints = Readonly<{
 
 /** Survey inputs and preferences. Ordered corridor ties retain the caller's preference order.
  * ID strings are nonempty, opaque addresses unique within their respective lists. */
-export type RailSurvey = Readonly<{
+export type StraightLevelRailSurvey = Readonly<{
 	corridors: readonly RailCorridor[];
 	readGround: (x: number, y: number) => RailGround;
+	/** Conservative upper bound on terrain and water over the entire closed centerline span.
+	 * Supply a bound from the terrain model, since point samples cannot rule out a hidden crest. */
+	readSpanUpperM: (start: Vec2, end: Vec2) => number;
+	/** Optional caller test for a usable connection to the actual elevated platform. */
+	acceptsApproach?: (approach: RailAnchor, platform: Vec3) => boolean;
 	obstacles?: readonly RailObstacle[];
 	anchors?: readonly RailAnchor[];
 	/** Requires an addressed pier in regions whose supports must stay on the plan. */
