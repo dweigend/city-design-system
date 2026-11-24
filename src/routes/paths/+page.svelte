@@ -8,11 +8,7 @@
 	import { Random } from '../../lib/core/random';
 	import type { Vec3 } from '../../lib/core/geometry';
 	import { resolveParams } from '../../lib/core/params';
-	import {
-		cityPlanVariants,
-		readCityColumns,
-		type CityPlanVariant
-	} from '../../lib/domain/city-volume';
+	import { readCityColumns } from '../../lib/domain/city-volume';
 	import { valleyParams } from '../../lib/domain/valley';
 	import {
 		cityCameraBearingRad,
@@ -46,6 +42,8 @@
 		type CityMovementKind
 	} from '../../lib/world/city-movement';
 	import {
+		cityPlanVariants,
+		type CityPlanVariant,
 		citySiteParams,
 		cityWindow,
 		createCitySite,

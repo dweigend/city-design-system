@@ -104,6 +104,7 @@ function freeze(
 					corner: corners[i],
 					ear: cell.ear,
 					quad: Object.freeze(cell.points.map(([x, y]) => Object.freeze<Vec2>([x, y]))),
+					cornerIds: Object.freeze([...(cell.jointKeys ?? cell.keys)]),
 					sides: Object.freeze(sides[i].map((side) => Object.freeze({ ...side })))
 				})
 			)
@@ -174,7 +175,8 @@ function partStrips(parcel: Parcel, ring: KeyedRing): readonly KeyedRing[] {
 		const strips = stripRings(
 			{ ...parcel, corners, frontage: [edges[front]] },
 			id,
-			(i) => edges[i]
+			(i) => edges[i],
+			new Set(edges.filter((_, i) => part.edges[i] === null))
 		);
 		if (strips) return strips;
 		const keys = part.keys.map((corner) => encodeKey(['orig', corner]));

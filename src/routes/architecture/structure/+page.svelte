@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { resolveParams } from '../../../lib/core/params';
-	import { cityLatticesByPlan, type LatticeVariant } from '../../../lib/domain/city-volume';
+	import { latticeVariants, type LatticeVariant } from '../../../lib/domain/city-volume';
 	import { portalExample, runGravity } from '../../../lib/domain/structure';
 	import { cityCameraBearingRad } from '../../../lib/scene/city-volume-projection';
 	import { projectFocus } from '../../../lib/scene/stage';
@@ -45,7 +45,7 @@
 		diagrid: 'Diagrid',
 		tree: 'Tree'
 	};
-	const latticeModels = cityLatticesByPlan.organic;
+	const latticeModels = latticeVariants;
 	const lattices = latticeModels.map((value) => ({ value, label: names[value] }));
 	const loadField = structureLoadParams.intensity;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 1 });

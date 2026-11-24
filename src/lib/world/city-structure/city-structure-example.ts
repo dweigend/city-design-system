@@ -34,8 +34,8 @@ export function structureTownExample() {
 }
 
 /** Largest organic envelope on the default site, using the requested lattice model. */
-export function largestStructureExample(variant: Parameters<typeof createCityLattice>[3]) {
+export function largestStructureExample(variant: Parameters<typeof createCityLattice>[2]) {
 	const { layout, columns } = settlement(citySiteParams.citySize.max);
 	const { datumZ } = layout;
-	return { lattice: createCityLattice(columns, datumZ, layout.variant, variant), datumZ };
+	return { lattice: createCityLattice(columns, datumZ, variant), datumZ };
 }

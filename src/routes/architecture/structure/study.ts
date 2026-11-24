@@ -17,7 +17,7 @@ export function townStudy() {
 		toLocal,
 		build: (model: LatticeVariant, town: boolean) => {
 			const selected = town ? columns : quarter;
-			const lattice = createCityLattice(selected, layout.datumZ, layout.variant, model);
+			const lattice = createCityLattice(selected, layout.datumZ, model);
 			return createCityStructure(lattice, layout.datumZ);
 		},
 		stock: () => {

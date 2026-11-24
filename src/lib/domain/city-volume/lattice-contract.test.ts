@@ -2,12 +2,11 @@ import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import type { Vec2 } from '../../core/geometry';
 import { createCellSpace, defaultStoreyHeightM } from '../cell-space';
-import { planEdgeId, TerrainGrid } from '../terrain-grid';
+import { planEdgeId, TerrainGrid, type PlanVariant } from '../terrain-grid';
 import {
-	cityLatticesByPlan,
+	latticeVariants,
 	cityVolumeConfig,
 	subdivideBay,
-	cityPlanVariants,
 	solidEdgeFaults,
 	columnRoof,
 	createCityDistricts,
@@ -20,7 +19,6 @@ import {
 	createCityTaper,
 	type CityColumn,
 	type CityLattice,
-	type CityPlanVariant,
 	type LatticeBay,
 	type LatticeVariant
 } from './index';
@@ -57,7 +55,7 @@ test('address example: neighboring sloped antiprism bays share four child faces 
 			position: [x, y, x / 10 + y / 20] as const
 		}))
 	}));
-	const { cells } = createCityLattice(columns, 0, 'square', 'antiprism');
+	const { cells } = createCityLattice(columns, 0, 'antiprism');
 	const a = required(
 		cells.find(({ id }) => id === 'c0,0/level/1'),
 		'west bay'
@@ -91,7 +89,7 @@ test('address example: child caps also weld across the coarse horizontal interfa
 const spatial = ['antiprism', 'diagrid', 'tree'] as const;
 const core = { origin: [0, 0], bearing: 0, aspect: 0.5 } as const;
 
-function town(variant: CityPlanVariant) {
+function town(variant: PlanVariant) {
 	const site = { origin: [0, 0], bearing: 0, length: 2000, width: 1000 } as const;
 	const plan = TerrainGrid.create({
 		seed: 1201,
@@ -124,11 +122,8 @@ function squares(levels: readonly number[][], size = 60): CityColumn[] {
 	);
 }
 
-const build = (
-	columns: readonly CityColumn[],
-	variant: LatticeVariant,
-	plan: CityPlanVariant = 'square'
-) => createCityLattice(columns, 10, plan, variant);
+const build = (columns: readonly CityColumn[], variant: LatticeVariant) =>
+	createCityLattice(columns, 10, variant);
 
 /** Every solid is closed: each directed edge of its faces meets its reverse exactly once. */
 function closedSolids(lattice: CityLattice) {
@@ -200,11 +195,19 @@ const datumOf = (columns: readonly CityColumn[]) =>
 	10 + Math.max(...columns.flatMap(({ corners }) => corners.map((c) => c.position[2])));
 
 test('every model builds closed, conforming, connected solids on every plan grid', () => {
-	for (const plan of cityPlanVariants) {
+	for (const plan of [
+		'organic',
+		'square',
+		'hex',
+		'triangle',
+		'bands',
+		'contour',
+		'voronoi'
+	] as const) {
 		const { columns } = town(plan);
 		const datum = datumOf(columns);
-		for (const variant of cityLatticesByPlan[plan]) {
-			const lattice = createCityLattice(columns, datum, plan, variant);
+		for (const variant of latticeVariants) {
+			const lattice = createCityLattice(columns, datum, variant);
 			const label = `${plan} ${variant}`;
 			const ids = new Set(lattice.nodes.map(({ id }) => id));
 			const places = new Set(
@@ -221,7 +224,7 @@ test('every model builds closed, conforming, connected solids on every plan grid
 			expect([label, closedSolids(lattice), conformingFaces(lattice)]).toEqual([label, true, true]);
 			expect([label, Math.min(...latticeVolumes(lattice)) > 1]).toEqual([label, true]);
 			expect([label, components(lattice)]).toEqual([label, planParts(columns)]);
-			expect(createCityLattice(columns, datum, plan, variant)).toEqual(lattice);
+			expect(createCityLattice(columns, datum, variant)).toEqual(lattice);
 			const peak = Math.max(...columns.map(({ levels }) => levels));
 			const top = Math.max(...lattice.nodes.map(({ position }) => position[2]));
 			expect([label, top]).toEqual([label, datum + levelHeight * peak]);
@@ -234,7 +237,7 @@ test('solids stay inside the bays and the members are exactly their edges', () =
 	const datum = datumOf(columns);
 	const bays = bayVolume(columns, datum);
 	for (const variant of spatial) {
-		const lattice = createCityLattice(columns, datum, 'hex', variant);
+		const lattice = createCityLattice(columns, datum, variant);
 		const volume = latticeVolumes(lattice).reduce((a, b) => a + b, 0);
 		expect(volume).toBeGreaterThan(0.25 * bays);
 		expect(volume).toBeLessThanOrEqual(bays * (1 + 1e-9));
@@ -283,13 +286,13 @@ test('example: the taper field retreats a corner by one step per level above its
 	near(taper([30, 0, 24]), [0, run]);
 	expect(() => taper([7, 7, 24])).toThrow(RangeError);
 	// Every lattice joint is a plan address of the field, also on irregular plan cells.
-	for (const variant of cityLatticesByPlan.square)
+	for (const variant of latticeVariants)
 		for (const { position } of build(one, variant).nodes) expect(taper(position)).toHaveLength(2);
 	const { columns } = town('organic');
 	const datum = datumOf(columns);
 	const field = createCityTaper(columns, datum);
-	for (const variant of cityLatticesByPlan.organic)
-		for (const { position } of createCityLattice(columns, datum, 'organic', variant).nodes)
+	for (const variant of latticeVariants)
+		for (const { position } of createCityLattice(columns, datum, variant).nodes)
 			expect(field(position)).toHaveLength(2);
 }, 60_000);
 
@@ -336,8 +339,8 @@ test('all seven models share exact slope contacts and close their clamped bays',
 			position: [x, y, 0.11 * x + 0.06 * y] as const
 		}))
 	}));
-	for (const model of cityLatticesByPlan.square) {
-		const frame = createCityLattice(columns, 0, 'square', model);
+	for (const model of latticeVariants) {
+		const frame = createCityLattice(columns, 0, model);
 		const nodes = new Map(frame.nodes.map(({ id, position }) => [id, position]));
 		for (const { corners } of columns)
 			for (const { id, position } of corners)
@@ -358,7 +361,7 @@ test('a diagrid frustum shares its triangle with the next column’s foundation'
 			position: [x, y, datum + (x === 0 ? 0 : x === 60 ? 8 : 15)] as const
 		}))
 	}));
-	const lattice = createCityLattice(columns, datum, 'square', 'diagrid');
+	const lattice = createCityLattice(columns, datum, 'diagrid');
 	const { solids } = lattice;
 	expect(closedSolids(lattice)).toBe(true);
 	const shared = [
@@ -384,8 +387,8 @@ test('separates the saddle along the collapsed high diagonal and checks both edg
 			position: [x, y, [14, 0, 14, 0][i]] as const
 		}))
 	};
-	for (const model of cityLatticesByPlan.square) {
-		const lattice = createCityLattice([saddle], 0, 'square', model);
+	for (const model of latticeVariants) {
+		const lattice = createCityLattice([saddle], 0, model);
 		const first = lattice.solids
 			.map(({ bay }, i) => (bay === 'c0,0/level/0' ? i : -1))
 			.filter((i) => i >= 0);
@@ -414,15 +417,11 @@ test('bounds occupied spans before walking levels but accepts a narrow high-alti
 			position: [x, y, i ? z : low] as const
 		}))
 	});
-	expect(() => createCityLattice([heights(1e300)], 0, 'square', 'antiprism')).toThrow(RangeError);
+	expect(() => createCityLattice([heights(1e300)], 0, 'antiprism')).toThrow(RangeError);
 	expect(() =>
-		createCityLattice(
-			[heights(levelHeight * cityVolumeConfig.maximumOccupiedBands, 0)],
-			0,
-			'square'
-		)
+		createCityLattice([heights(levelHeight * cityVolumeConfig.maximumOccupiedBands, 0)], 0)
 	).toThrow(RangeError);
-	const high = createCityLattice([heights(7e8)], 0, 'square', 'antiprism');
+	const high = createCityLattice([heights(7e8)], 0, 'antiprism');
 	expect(high.cells.map(({ level }) => level)).toEqual([1e8]);
 	expect(closedSolids(high)).toBe(true);
 });
@@ -435,7 +434,7 @@ test('keeps an exactly reconstructed fractional-datum contact on its plane', () 
 		id,
 		position: [x, y, ground] as const
 	}));
-	const lattice = createCityLattice([{ ...column, corners }], datum, 'square', 'diagrid');
+	const lattice = createCityLattice([{ ...column, corners }], datum, 'diagrid');
 	expect(lattice.cells.map(({ level }) => level)).toEqual([3]);
 	expect(closedSolids(lattice)).toBe(true);
 });
@@ -444,7 +443,7 @@ test.each(spatial)('%s retains every member with delimiter-bearing corner IDs', 
 	const ids = ['a', 'b/level/0\nvertex/z', 'a/level/0\nvertex/b', 'z'];
 	const [column] = squares([[6]]);
 	const corners = column.corners.map((corner, i) => ({ ...corner, id: ids[i] }));
-	const { edges, solids } = createCityLattice([{ ...column, corners }], 0, 'square', variant);
+	const { edges, solids } = createCityLattice([{ ...column, corners }], 0, variant);
 	const expected = new Set(
 		solids.flatMap(({ faces }) =>
 			faces.flatMap((face) =>

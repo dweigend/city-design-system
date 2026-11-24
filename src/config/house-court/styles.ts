@@ -201,18 +201,6 @@ export const shapes = defineSettings({
 		'Largest share of an edge cut by one chamfer',
 		'FORM-2'
 	),
-	frameJointKeyDecimalPlaces: s(
-		3,
-		'count',
-		'Decimal places used to identify coincident frame joints in meters',
-		'FORM-6'
-	),
-	shellCornerKeyDecimalPlaces: s(
-		6,
-		'count',
-		'Decimal places used to identify coincident shell corners in meters',
-		'FORM-1'
-	),
 	mastBarM: s(0.12, 'm', 'Side of a mast bar', 'FORM-6'),
 	tubeCornerInsetRatio: s(
 		1 / 8,

@@ -116,7 +116,7 @@ function measure(largest: boolean) {
 		salient: stage('salient', () => project(true)),
 		detailedHouses: [...levels.values()].filter((level) => level !== 'plain').length
 	};
-	const lattice = stage('lattice', () => createCityLattice(columns, layout.datumZ, variant));
+	const lattice = stage('lattice', () => createCityLattice(columns, layout.datumZ));
 
 	return {
 		sizeM,

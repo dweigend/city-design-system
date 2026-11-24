@@ -1,11 +1,4 @@
 import { cityVolumeConfig as config } from '../../../config/city-volume';
-import { defaultStoreyHeightM } from '../cell-space';
-
-/** Number of storeys on one coarse lattice level. */
-export const storeysPerLevel = config.storeysPerLevel;
-
-/** Meters between common upper level planes. */
-export const levelHeight = defaultStoreyHeightM * storeysPerLevel;
 
 export type SettlementKind = 'village' | 'town' | 'city';
 

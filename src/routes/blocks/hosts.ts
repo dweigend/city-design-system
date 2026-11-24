@@ -1,6 +1,11 @@
 import { defaults } from '../../config/blocks-board';
 import { parcelEdgeId } from '../../lib/domain/cell-space';
-import { createCityLattice, type CityColumn } from '../../lib/domain/city-volume';
+import {
+	createCityLattice,
+	type StructuralColumn,
+	type CityLattice,
+	type LatticeVariant
+} from '../../lib/domain/city-volume';
 import { portalExample } from '../../lib/domain/structure';
 import type { AssetDefinition, CityAssetHost } from '../../lib/world/asset-registry';
 
@@ -8,7 +13,7 @@ const { boardPlotSideM: parcelSideM } = defaults;
 const baySideM = 8;
 const frontage = parcelEdgeId('a', 'b');
 const alternatingLattices = new Set(['lattice/antiprism', 'lattice/diagrid', 'lattice/tree']);
-const column: CityColumn = {
+const column: StructuralColumn = {
 	planCellId: 'specimen',
 	corners: [
 		{ id: 'a', position: [0, 0, 0] },
@@ -17,11 +22,19 @@ const column: CityColumn = {
 		{ id: 'd', position: [0, baySideM, 0.3] }
 	],
 	neighbors: [null, null, null, null],
-	districtId: 'sample',
-	densityRegionId: 'sample',
-	kind: 'detached',
 	levels: 2
 };
+
+const datumZ = 0;
+const specimenLattices = new Map<LatticeVariant, CityLattice>();
+
+function readLattice(variant: LatticeVariant) {
+	const cached = specimenLattices.get(variant);
+	if (cached) return cached;
+	const lattice = createCityLattice([column], datumZ, variant);
+	specimenLattices.set(variant, lattice);
+	return lattice;
+}
 
 function parcel(id: string): CityAssetHost {
 	return {
@@ -91,10 +104,6 @@ export function specimenHost({ id, kind }: AssetDefinition): CityAssetHost {
 			return { kind: 'frame', id, graph: portalExample().graph };
 		case 'lattice': {
 			const model = 'box';
-			const datumZ = 0;
-			const readLattice: Extract<CityAssetHost, { kind: 'lattice-bay' }>['readLattice'] = (
-				variant
-			) => createCityLattice([column], datumZ, 'square', variant);
 			const level = alternatingLattices.has(id) ? 2 : 0;
 			const bay = readLattice(model).cells.find((cell) => cell.level === level);
 			if (!bay) throw new Error(`Missing specimen bay at level ${level}`);

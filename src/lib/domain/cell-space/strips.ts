@@ -1,5 +1,5 @@
 import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
-import { encodeKey } from '../../core/ref';
+import { encodeKey, encodePair } from '../../core/ref';
 import { defaults } from '../../../config/cell-space';
 import { doubleArea, type KeyedRing } from './split';
 import type { Parcel } from './types';
@@ -30,6 +30,7 @@ type Frame = Readonly<{
 	keys: readonly string[];
 	points: readonly Vec2[];
 	edge: (from: number) => string;
+	seams?: ReadonlySet<string>;
 	front: Chain;
 	right: Chain;
 	rear: Chain;
@@ -69,7 +70,11 @@ const chainLength = (f: Frame, c: Chain) =>
  * end through every corner that turns less than the straight sine, the left side likewise back
  * from its start; what remains between them is the rear (a single corner for a triangle). */
 // Exact arithmetic: ring indices.
-function frame(parcel: Parcel, edge: (from: number) => string): Frame | undefined {
+function frame(
+	parcel: Parcel,
+	edge: (from: number) => string,
+	seams?: ReadonlySet<string>
+): Frame | undefined {
 	const n = parcel.corners.length;
 	const points = parcel.corners.map(({ position }) => position);
 	const primary = parcel.frontage.toSorted()[0];
@@ -87,6 +92,7 @@ function frame(parcel: Parcel, edge: (from: number) => string): Frame | undefine
 		keys: parcel.corners.map(({ id }) => encodeKey(['orig', id])),
 		points,
 		edge,
+		seams,
 		front: chain(
 			points,
 			[
@@ -160,6 +166,8 @@ type Grid = Readonly<{
 	id: string;
 	breaks: readonly number[];
 	snapped: ReadonlyMap<number, number>;
+	steps: ReadonlyMap<number, number>;
+	columns: number;
 	rows: number;
 }>;
 
@@ -181,24 +189,48 @@ function columnBreaks(
 	const gap = (s: number, t: number) => reach * Math.abs(s - t);
 	const breaks = /* Exact arithmetic: whole strip interval. */ [0, 1];
 	const snapped = new Map<number, number>();
+	const steps = new Map<number, number>();
 	f.rear.params.slice(1, -1).forEach((t, i) => {
 		if (snap.has(i + 1) && breaks.every((s) => gap(s, t) >= stripMinimumWidthM)) {
 			breaks.push(t);
 			snapped.set(t, f.rear.corners[i + 1]);
 		}
 	});
-	for (let k = 1; k < columns; k += 1)
-		if ([...snapped.keys()].every((s) => gap(s, k / columns) >= stripMinimumWidthM))
-			breaks.push(k / columns);
-	return { id, breaks: [...new Set(breaks)].sort((s, t) => s - t), snapped, rows };
+	for (let k = 1; k < columns; k += 1) {
+		const t = k / columns;
+		if ([...snapped.keys()].every((s) => gap(s, t) >= stripMinimumWidthM)) {
+			breaks.push(t);
+			steps.set(t, k);
+		}
+	}
+	return { id, breaks: [...new Set(breaks)].sort((s, t) => s - t), snapped, steps, columns, rows };
 }
 
-/** A ring point, its symbolic key and the parcel edge of the side that starts at it. */
-type Point = Readonly<{ key: string; at: Vec2; edge: string | null }>;
+type GridPoint = Readonly<{ key: string; at: Vec2; jointKey?: string }>;
+type Point = GridPoint & Readonly<{ edge: string | null }>;
+
+/** A point on a strip side that spans one seam uses its fraction along the canonical seam.
+ * Fractions such as 1/3 and 2/6 then join even when the two strip grids have different counts. */
+function seamJointKey(f: Frame, c: Chain, step: number, count: number) {
+	const [a, b] = c.corners;
+	if (c.corners.length !== 2 || !f.seams?.has(f.edge(c.forward ? a : b))) return;
+	const [from, to] = [f.keys[a], f.keys[b]];
+	return encodeKey(['seam-point', encodePair(from, to), (from < to ? step : count - step) / count]);
+}
+
+function gridJointKey(f: Frame, grid: Grid, i: number, j: number) {
+	if (!f.seams?.size) return;
+	if (i === 0) return seamJointKey(f, f.left, j, grid.rows);
+	if (i === grid.breaks.length - 1) return seamJointKey(f, f.right, j, grid.rows);
+	const step = grid.steps.get(grid.breaks[i]);
+	if (step === undefined) return;
+	if (j === 0) return seamJointKey(f, f.front, step, grid.columns);
+	if (j === grid.rows) return seamJointKey(f, f.rear, step, grid.columns);
+}
 
 /** Grid points use the original corner key where they meet one and a strip tuple elsewhere. */
 // Exact arithmetic: structural counts and unit parameters, not tunables.
-function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at: Vec2 } {
+function gridKey(f: Frame, grid: Grid, i: number, j: number): GridPoint {
 	const last = grid.breaks.length - 1;
 	const corner = (k: number) => ({ key: f.keys[k], at: f.points[k] });
 	const end = (c: Chain) => c.corners[c.corners.length - 1];
@@ -211,6 +243,7 @@ function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at:
 	if (snapped !== undefined) return corner(snapped);
 	return {
 		key: encodeKey(['grid', grid.id, i, j]),
+		jointKey: gridJointKey(f, grid, i, j),
 		at: patchPoint(f, grid.breaks[i], j / grid.rows)
 	};
 }
@@ -218,14 +251,7 @@ function gridKey(f: Frame, grid: Grid, i: number, j: number): { key: string; at:
 /** Points along one cell side from parameter t0 to t1 of a chain: the start point and every
  * chain corner strictly between, each carrying the parcel edge of the side that starts at it,
  * or null for an inner side. */
-function run(
-	f: Frame,
-	c: Chain,
-	from: { key: string; at: Vec2 },
-	t0: number,
-	t1: number,
-	outer: boolean
-): Point[] {
+function run(f: Frame, c: Chain, from: GridPoint, t0: number, t1: number, outer: boolean): Point[] {
 	const inner = outer
 		? c.params
 				.map((t, k) => ({ t, k: c.corners[k] }))
@@ -233,7 +259,10 @@ function run(
 				.sort((a, b) => (t0 < t1 ? a.t - b.t : b.t - a.t))
 		: [];
 	const stops = [t0, ...inner.map(({ t }) => t), t1];
-	const points = [from, ...inner.map(({ k }) => ({ key: f.keys[k], at: f.points[k] }))];
+	const points: GridPoint[] = [
+		from,
+		...inner.map(({ k }) => ({ key: f.keys[k], at: f.points[k] }))
+	];
 	return points.map((point, s) => ({
 		...point,
 		edge: outer
@@ -272,6 +301,7 @@ function cellRing(f: Frame, grid: Grid, id: string, i: number, j: number): Keyed
 		corner: `${id}/strip/${encodeKey([i])}`,
 		ear: null,
 		keys: ring.map(({ key }) => key),
+		jointKeys: ring.map(({ key, jointKey }) => jointKey ?? key),
 		points: ring.map(({ at }) => at),
 		edges: ring.map(({ edge }) => edge)
 	};
@@ -339,8 +369,13 @@ function* snapChoices(f: Frame): Iterable<ReadonlySet<number>> {
 /** Strip cells of a parcel as keyed rings, or undefined when no count down to one cell keeps
  * every cell convex, at least the minimum width and the parcel's area. Unsnapped corners remain
  * in their rear cells. */
-export function stripRings(parcel: Parcel, id: string, edge: (from: number) => string) {
-	const f = frame(parcel, edge);
+export function stripRings(
+	parcel: Parcel,
+	id: string,
+	edge: (from: number) => string,
+	seams?: ReadonlySet<string>
+) {
+	const f = frame(parcel, edge, seams);
 	if (!f) return undefined;
 	const parcelArea = doubleArea(f.points) / 2;
 	const front = span(f.points[f.front.corners[0]], f.points[f.front.corners[1]]);

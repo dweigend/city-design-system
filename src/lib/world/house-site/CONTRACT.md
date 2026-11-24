@@ -1,6 +1,5 @@
 # House site
 
-A bay house uses plan corners and addresses its fine cells under `subdivideBay`.
 A parcel house uses its permanent city parcel ID and keyed ring. The portal supplies the directed
 frontage side. Edges below the cell-space minimum collapse and the public court
 boundary supplies court tags. The parcel ID derives the house seed from the input seed.

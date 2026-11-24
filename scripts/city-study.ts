@@ -4,14 +4,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-	cityLatticesByPlan,
-	cityPlanVariants,
 	createCityLattice,
 	maximumLevelStep,
 	prismVariants,
 	readCityColumns
 } from '../src/lib/domain/city-volume';
 import {
+	cityLatticesByPlan,
+	cityPlanVariants,
 	citySiteParams,
 	citySiteConfig,
 	createCitySite,
@@ -166,11 +166,11 @@ for (const { relief, runoff, seeds } of terrain) {
 					plan === 'organic' && seed === 1201 && relief === 0 && sizeClass === 'town';
 				const spans = crossings.map(({ path }) => path.lengthM).sort((a, b) => a - b);
 				for (const lattice of studyLattices) {
-					const [frame, latticeMs] = time(() => createCityLattice(columns, datumZ, plan, lattice));
+					const [frame, latticeMs] = time(() => createCityLattice(columns, datumZ, lattice));
 					// A single largest-plan replay per lattice covers the full input extent.
 					const frameStable =
 						sizeClass !== 'largest' ||
-						hash(createCityLattice(again, datumZ, plan, lattice)) === hash(frame);
+						hash(createCityLattice(again, datumZ, lattice)) === hash(frame);
 					const row: Row = {
 						plan,
 						lattice,

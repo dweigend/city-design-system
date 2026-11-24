@@ -2,7 +2,8 @@ import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodeKey, type Key } from '../../core/ref';
 import { planeElevation, planeIndex, type columnPlanes, type CornerReader } from './foundation';
-import type { Column, LatticePoint } from './bay-addresses';
+import type { StructuralColumn } from './columns';
+import type { LatticePoint } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
 
 /** What a level plane holds: the plan corners, the cell centres (the dual), the edge midpoints
@@ -22,9 +23,14 @@ export type Joint = LatticePoint &
 	}>;
 /** Occupied span and foundation cap of each column on the shared planes. */
 export type ColumnBands = (id: string) => ReturnType<typeof columnPlanes>;
-type Corner = Column['corners'][number];
+type Corner = StructuralColumn['corners'][number];
 /** Joint factory of one lattice: every joint is created once and keyed by plan address and level. */
-export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: CornerReader['read']) {
+export function jointsOf(
+	topology: PlanTopology,
+	datumZ: number,
+	readCorner: CornerReader['read'],
+	levelHeightM: number
+) {
 	const joints = new Map<string, Joint>();
 	const at = (
 		address: Key,
@@ -38,7 +44,7 @@ export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: Cor
 		let joint = joints.get(key);
 		if (!joint) {
 			const point = Object.freeze(position());
-			const index = corner && level === 0 ? planeIndex(datumZ, point[2]) : level;
+			const index = corner && level === 0 ? planeIndex(datumZ, point[2], levelHeightM) : level;
 			joint = Object.freeze({
 				id,
 				level,
@@ -51,7 +57,7 @@ export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: Cor
 		}
 		return joint;
 	};
-	const z = (level: number) => planeElevation(datumZ, level);
+	const z = (level: number) => planeElevation(datumZ, level, levelHeightM);
 	return {
 		corner(corner: Corner, level: number) {
 			const { point, level: index } = readCorner(corner, level);

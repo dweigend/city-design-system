@@ -121,7 +121,7 @@ export function createTownReview() {
 	/** The lattice and its primary members are drawn only once the Structure focus asks for them. */
 	function readStructure() {
 		if (structure) return structure;
-		const lattice = createCityLattice(columns, layout.datumZ, layout.variant, 'braced');
+		const lattice = createCityLattice(columns, layout.datumZ, 'braced');
 		const { graph } = createCityStructure(lattice, layout.datumZ);
 		structure = projectStructure(graph, {
 			view: 'primary',

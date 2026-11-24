@@ -2,8 +2,6 @@ import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
 import { measurePolygon } from '../../core/geometry';
 import {
-	cityLatticesByPlan,
-	cityPlanVariants,
 	createCityLattice,
 	columnRoof,
 	levelHeight,
@@ -14,6 +12,8 @@ import {
 } from '../../domain/city-volume';
 import { planEdgeGraph, TerrainGrid } from '../../domain/terrain-grid';
 import {
+	cityLatticesByPlan,
+	cityPlanVariants,
 	citySiteParams,
 	citySiteConfig,
 	cityWindow,
@@ -207,7 +207,7 @@ for (const plan of cityPlanVariants) {
 		for (const frame of cityLatticesByPlan[plan].filter((v) =>
 			prismVariants.some((p) => p === v)
 		)) {
-			const lattice = createCityLattice(columns, datumZ, plan, frame);
+			const lattice = createCityLattice(columns, datumZ, frame);
 			assertCarrier(columns, lattice, datumZ);
 		}
 	});
@@ -330,7 +330,7 @@ test('keeps an edge-connected grid over the channel on all seven plans', () => {
 		expect(() => readCityDistricts(site, { ...layout, grid: plan })).toThrow('buildable grid');
 		expect(() => readCityColumns(plan, districts)).toThrow('buildable grid');
 		const columns = readCityColumns(grid, districts);
-		const lattice = createCityLattice(columns, datumZ, variant, 'box');
+		const lattice = createCityLattice(columns, datumZ);
 		expect(columns.every(({ planCellId }) => cells.get(planCellId)?.groundKind === 'dry')).toBe(
 			true
 		);
@@ -351,7 +351,7 @@ test('clamps the body-centered ground hub to its own sampled terrain contact', (
 	const layout = readCityGrid(site, 600, 'square');
 	const { grid, datumZ } = layout;
 	const columns = readCityColumns(grid, readCityDistricts(site, layout));
-	const lattice = createCityLattice(columns, datumZ, 'square', 'centered');
+	const lattice = createCityLattice(columns, datumZ, 'centered');
 	const groundHubs = lattice.nodes.filter(({ id }) => id.endsWith('/ground-center'));
 	expect(groundHubs.length).toBeGreaterThan(0);
 	for (const {
@@ -380,7 +380,7 @@ test('keeps body-centered hubs above sampled ground on the seed 1201 organic tow
 	const site = createCitySite(undefined, { seed: 1201, relief: 0.35, runoff: 1 });
 	const layout = readCityGrid(site, 1800);
 	const columns = readCityColumns(layout.grid, readCityDistricts(site, layout));
-	const lattice = createCityLattice(columns, layout.datumZ, 'organic', 'centered');
+	const lattice = createCityLattice(columns, layout.datumZ, 'centered');
 	const hubs = lattice.nodes.filter(
 		({ id }) => id.endsWith('/center') || id.endsWith('/ground-center')
 	);

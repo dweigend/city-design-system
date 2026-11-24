@@ -87,7 +87,9 @@ export function plates(context: Context): Part[] {
  * shell keeps the ID `<space>/envelope`, later ones append `/<index>`. */
 export function envelope(context: Context, slot: string): Part[] {
 	return shells(context).flatMap((members, k) => {
-		const faces = shellFaces(context, members).map(({ points }) => points);
+		const faces = shellFaces(context, members).map(({ joints }) =>
+			joints.map(({ position }) => position)
+		);
 		const id = k ? `${context.space.id}/envelope/${k}` : `${context.space.id}/envelope`;
 		return part(id, slot, faceMesh(faces));
 	});

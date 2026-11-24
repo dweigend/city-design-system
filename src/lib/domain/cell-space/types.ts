@@ -21,18 +21,20 @@ export type Parcel = Readonly<{
 
 /** One fine plan cell: a convex counterclockwise polygon in meters and, per side i (corner i to i + 1), what
  * lies across it. `corner` is the parcel corner key of the corner quad it was refined from, `ear`
- * the JSON corner keys of its ear triangle (null for a convex parcel), `parent` that quad's ID. */
+ * the JSON corner keys of its ear triangle (null for a convex parcel), `parent` that quad's ID.
+ * `cornerIds` holds the shared topological point keys in polygon order. */
 export type FineCell = Readonly<{
 	id: string;
 	parent: string;
 	corner: string;
 	ear: string | null;
 	quad: readonly Vec2[];
+	cornerIds: readonly string[];
 	sides: readonly CellSide[];
 }>;
 
 /** The space a building rule fills: fine plan cells stacked in storeys from `baseZ`. Any source
- * that delivers this shape (a free parcel, a city bay, a later parcel package) can feed a rule. */
+ * that delivers this shape (a free parcel or an addressed city parcel) can feed a rule. */
 export type CellSpace = Readonly<{
 	id: string;
 	kind?: 'strip';

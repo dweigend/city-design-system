@@ -1,6 +1,4 @@
-/** Module: Ranks plan cells, sets district heights and builds compatible lattices. */
-import { createCatalog } from '../../core/catalog';
-import type { Column } from './bay-addresses';
+/** Module: Ranks plan cells, sets district heights and builds structural lattices. */
 import { required } from '../../core/invariant';
 import { createBlockInputs, defineParams, resolveParams } from '../../core/params';
 import {
@@ -8,13 +6,14 @@ import {
 	cityVolumeInputs as inputs
 } from '../../../config/city-volume';
 import { defaultStoreyHeightM } from '../cell-space';
-import type { PlanVariant, TerrainGrid } from '../terrain-grid';
-import { columnPlanes } from './foundation';
+import type { TerrainGrid } from '../terrain-grid';
+import { columnPlanes, levelHeight, requireLevelSpacing } from './foundation';
+import { createStructuralColumns, validateColumns, type StructuralColumn } from './columns';
 import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
 import type { CityCore } from './rank';
-import { districtLevels, levelHeight, peakLaw } from './settlement';
+import { districtLevels, peakLaw } from './settlement';
 import type { CityLattice } from './frame';
-import { createLattice, latticeVariants, type LatticeVariant } from './lattices';
+import { createLattice, type LatticeVariant } from './lattices';
 
 /** Coarse level, density and foundation settings. */
 export const cityVolumeConfig = Object.freeze({
@@ -24,21 +23,14 @@ export const cityVolumeConfig = Object.freeze({
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
 export { cityAccessibility, type CityApproachPolicy } from './accessibility';
-/** Reads the world elevation of a column roof. */
-export { columnRoof } from './foundation';
+/** Column roof elevation, default level spacing and storeys per structural level. */
+export { columnRoof, levelHeight, storeysPerLevel } from './foundation';
 /** Produces a nested city footprint from the accessibility of plan cells. */
 export { cityGrowth, cityGrowthDefaults, type CityGrowthPolicy } from './footprint';
 
-/** Level height, settlement thresholds, fixed district levels, neighbor step limit and the
+/** Settlement thresholds, fixed district levels, neighbor step limit and the
  * peak law, with their units and reasons. */
-export {
-	districtLevels,
-	levelHeight,
-	maximumLevelStep,
-	peakLaw,
-	settlementThresholds,
-	storeysPerLevel
-} from './settlement';
+export { districtLevels, maximumLevelStep, peakLaw, settlementThresholds } from './settlement';
 
 /** Village, town or city, decided by built-up area. */
 export type { SettlementKind } from './settlement';
@@ -85,35 +77,8 @@ export { createCityTaper, type CityTaper } from './taper';
 /** One closed volume cell of a lattice, owned by one bay, with faces wound outward. */
 export { solidEdgeFaults, type LatticeSolid } from './solid';
 
-/** Compatible carriers by tiled plan family. All models share the same bays and side faces.
- * Polar and free-quad are excluded from the chapter because its terrain mask can open holes. */
-export const cityLatticesByPlan = Object.freeze({
-	organic: latticeVariants,
-	square: latticeVariants,
-	hex: latticeVariants,
-	triangle: latticeVariants,
-	bands: latticeVariants,
-	contour: latticeVariants,
-	voronoi: latticeVariants
-} satisfies Partial<Record<PlanVariant, readonly LatticeVariant[]>>);
-
-/** Chapter plan families with a compatible carrier. */
-export type CityPlanVariant = keyof typeof cityLatticesByPlan;
-
-const plans = createCatalog({
-	rows: Object.entries(cityLatticesByPlan).map(([id, lattices]) => ({
-		id: id as CityPlanVariant,
-		lattices
-	})),
-	missingError: incompatibleLattice
-});
-
-function incompatibleLattice() {
-	return new RangeError('Incompatible plan and lattice');
-}
-
-/** Chapter plan families in display order. */
-export const cityPlanVariants = plans.ids;
+/** All structural lattice models, in display order. */
+export { latticeVariants } from './lattices';
 
 /** Stable district identity, current density region and height of a plan cell, and the ranked growth data. */
 export type { DistrictKind, DistrictCell, DistrictGrowth } from './districts';
@@ -127,7 +92,10 @@ export { subdivideBay, type ChildBay, type ChildBayFace } from './subdivision';
 export type { LatticeVariant, CityLattice };
 
 /** One column per plan cell, carrying district identity and terrain corners in world meters. */
-export type CityColumn = Column & DistrictCell;
+export type CityColumn = StructuralColumn & DistrictCell;
+
+/** Validates and detaches columns from caller-owned topology. */
+export { createStructuralColumns, type StructuralColumn } from './columns';
 
 function requireBuildableGrid(plan: TerrainGrid) {
 	if (plan.cells.some(({ groundKind }) => groundKind !== undefined && groundKind !== 'dry'))
@@ -169,50 +137,68 @@ export function createCityDistricts(
 /** Immutable district assignment of one plan. */
 export type CityDistricts = ReturnType<typeof createCityDistricts>;
 
-/** Returns immutable columns in buildable grid order. A grid containing water throws.
- * Each column starts at the sampled terrain corners and retains the sampled hub elevation. */
+type ColumnAssignment = Pick<DistrictCell, 'levels' | 'kind'> & Partial<DistrictCell>;
+type AssignmentReader<A> = ((id: string) => A) | Readonly<{ cell(id: string): A }>;
+
+/** Returns immutable columns in buildable grid order using the caller's cell assignments.
+ * A district profile can supply the assignments through its cell reader. A grid containing
+ * water throws. Each column retains the sampled terrain corners and hub elevation. */
 export function readCityColumns(
 	plan: TerrainGrid,
-	districts: CityDistricts
-): readonly CityColumn[] {
+	assignment: AssignmentReader<DistrictCell>,
+	maxLevels?: number
+): readonly CityColumn[];
+export function readCityColumns(
+	plan: TerrainGrid,
+	assignment: AssignmentReader<ColumnAssignment>,
+	maxLevels?: number
+): readonly (StructuralColumn & ColumnAssignment)[];
+export function readCityColumns(
+	plan: TerrainGrid,
+	assignment: AssignmentReader<ColumnAssignment>,
+	maxLevels?: number
+): readonly (StructuralColumn & ColumnAssignment)[] {
 	requireBuildableGrid(plan);
 	const vertices = new Map(plan.vertices.map((vertex) => [vertex.id, vertex]));
-	return Object.freeze(
-		plan.cells.map(({ id, vertexIds, neighbors, centerHeight }) =>
-			Object.freeze({
+	return createStructuralColumns(
+		plan.cells.map(({ id, vertexIds, neighbors, centerHeight }) => {
+			const { districtId, densityRegionId, kind, levels } =
+				typeof assignment === 'function' ? assignment(id) : assignment.cell(id);
+			return {
 				planCellId: id,
-				corners: Object.freeze(vertexIds.map((key) => required(vertices.get(key), 'plan corner'))),
+				corners: vertexIds.map((key) => required(vertices.get(key), 'plan corner')),
 				neighbors,
 				groundAtHub: centerHeight,
-				...districts.cell(id)
-			})
-		)
+				...(districtId === undefined ? {} : { districtId }),
+				...(densityRegionId === undefined ? {} : { densityRegionId }),
+				kind,
+				levels
+			};
+		}),
+		maxLevels
 	);
 }
 
-/** Builds a compatible frame. The base follows the terrain and higher planes are all measured
- * from datumZ in world meters. Local foundations join the first plane above each corner. Shared
- * faces, joints and members are emitted once. Unknown or incompatible variants throw. */
+/** Builds a frame from structural columns in plan order. Its base follows the terrain and
+ * upper planes use the supplied spacing above datumZ, in meters. The level cap counts levels
+ * above each foundation. Shared faces, joints and members are emitted once. */
 export function createCityLattice(
-	columns: readonly CityColumn[],
+	columns: readonly StructuralColumn[],
 	datumZ: number,
-	plan: CityPlanVariant,
-	variant: LatticeVariant = 'box'
+	variant: LatticeVariant = 'box',
+	{
+		levelHeightM = levelHeight,
+		maxLevels = coarseSettings.maximumColumnLevels
+	}: Readonly<{
+		levelHeightM?: number;
+		maxLevels?: number;
+	}> = {}
 ): CityLattice {
-	if (!plans.get(plan).lattices.includes(variant)) throw incompatibleLattice();
 	if (!Number.isFinite(datumZ)) throw new RangeError('Expected a finite city datum');
-	for (const column of columns) {
-		const { levels, corners } = column;
-		if (corners.length < 3) throw new RangeError('City columns require at least three corners');
-		if (!Number.isInteger(levels) || levels < 1 || levels > peakLaw.fullLevels)
-			throw new RangeError(`City columns require 1–${peakLaw.fullLevels} whole levels`);
-		for (const { position } of corners) {
-			if (position.length !== 3 || !position.every(Number.isFinite))
-				throw new RangeError('City corners require three finite coordinates');
-		}
-		columnPlanes(column, datumZ);
-	}
-	return createLattice(columns, datumZ, variant);
+	requireLevelSpacing(levelHeightM);
+	validateColumns(columns, maxLevels);
+	for (const column of columns) columnPlanes(column, datumZ, levelHeightM);
+	return createLattice(columns, datumZ, variant, levelHeightM);
 }
 
 /** Reads or builds one addressed bay using its canonical solid faces and members. */

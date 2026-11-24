@@ -3,7 +3,7 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodeKey } from '../../core/ref';
 import { columnPlanes, planeIndex } from './foundation';
-import type { Column } from './bay-addresses';
+import type { StructuralColumn } from './columns';
 import { readPlanTopology, type PlanRing, type PlanTopology } from './plan-topology';
 
 /** Horizontal meters a corner moves per level above the lowest column around it. */
@@ -85,7 +85,7 @@ const planKey = (x: number, y: number) =>
  * −1 overhangs the lower ones. A plan corner moves along its ring; a cell centre and an edge
  * midpoint move with the mean of their corners; a cell also answers at the mean of its corners. Between two level planes the move is linear in Z.
  * Throws RangeError for a point that is none of these plan addresses. */
-export function createCityTaper(columns: readonly Column[], datumZ: number) {
+export function createCityTaper(columns: readonly StructuralColumn[], datumZ: number) {
 	const topology = readPlanTopology(columns);
 	const planes = new Map(
 		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])

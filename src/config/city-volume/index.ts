@@ -56,6 +56,12 @@ const cityVolume = defineSettings({
 		meaning: 'Storeys on one coarse lattice level',
 		rationale: 'Keeps the established city density and lattice defaults.'
 	},
+	maximumColumnLevels: {
+		value: 15,
+		unit: 'levels',
+		meaning: 'Default construction limit above a structural column foundation',
+		rationale: 'Keeps the established lattice limit independent of district height policy.'
+	},
 	maximumOccupiedBands: {
 		value: 256,
 		unit: 'count',
@@ -101,7 +107,7 @@ const cityVolume = defineSettings({
 	fullPeakLevels: {
 		value: 15,
 		unit: 'levels',
-		meaning: 'Maximum nominal height of a column',
+		meaning: 'Maximum nominal peak of the settlement profile',
 		rationale: 'Keeps the established city density and lattice defaults.'
 	},
 	fullPeakAreaKm2: {
