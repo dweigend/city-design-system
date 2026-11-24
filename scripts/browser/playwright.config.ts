@@ -6,21 +6,12 @@ import { basename, join } from 'node:path';
 const ci = process.env.CI === 'true';
 const project = join(import.meta.dirname, '../..');
 
-if (!ci) {
-	if (!existsSync('/dev/dri/renderD128')) {
-		throw new Error('Local browser tests require the AMD render device /dev/dri/renderD128');
-	}
-	requireHeavySlot();
+requireHeavySlot();
+if (!ci && !existsSync('/dev/dri/renderD128')) {
+	throw new Error('Local browser tests require the AMD render device /dev/dri/renderD128');
 }
 
-// The native Vulkan path keeps Chromium's software WebGPU device alive through stage draws.
-const webGpuArgs = [
-	'--use-angle=vulkan',
-	'--use-vulkan=native',
-	'--enable-features=Vulkan',
-	'--enable-unsafe-webgpu',
-	'--ignore-gpu-blocklist'
-];
+const webGpuArgs = ['--enable-features=Vulkan', '--enable-unsafe-webgpu', '--ignore-gpu-blocklist'];
 const reuseBuild = ci || process.env.CITY_BROWSER_SKIP_BUILD === '1';
 const build = reuseBuild
 	? 'if [ ! -f .svelte-kit/output/server/index.js ]; then bun run build || exit; fi; '
@@ -39,13 +30,17 @@ export default defineConfig({
 		actionTimeout: 15_000,
 		viewport: { width: 1366, height: 900 },
 		launchOptions: ci
-			? { args: webGpuArgs }
+			? {
+					// Keep the compositor and Dawn on SwiftShader. Mixing native Vulkan
+					// with SwiftShader can leave the WebGPU canvas texture invalid.
+					args: ['--use-angle=swiftshader', '--use-vulkan=swiftshader', ...webGpuArgs]
+				}
 			: {
 					channel: 'chrome',
 					chromiumSandbox: true,
 					ignoreDefaultArgs: ['--enable-unsafe-swiftshader'],
 					env: { ...process.env, VK_DRIVER_FILES: '/usr/share/vulkan/icd.d/radeon_icd.json' },
-					args: webGpuArgs
+					args: ['--use-angle=vulkan', '--use-vulkan=native', ...webGpuArgs]
 				}
 	},
 	webServer: {
