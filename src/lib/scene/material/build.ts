@@ -94,15 +94,16 @@ function addShade(sink: MeshSink, frame: Frame, unit: Unit, light: Vec3) {
 
 /** Shade that another body casts onto the patch: on the backing between units and on every
  * level unit top it covers. */
-function addCastShadow(sink: MeshSink, frame: Frame, shadow: readonly Vec2[], units: readonly Unit[]) {
+function addCastShadow(sinks: Readonly<Record<'joint' | 'unit', MeshSink>>, frame: Frame, shadow: readonly Vec2[], units: readonly Unit[]) {
 	const openings = frame.patch.openings ?? [];
-	const place = (polygon: readonly Vec2[], at: number) => {
+	const place = (polygon: readonly Vec2[], at: number, sink: MeshSink) => {
 		const clipped = clipToOutline(clipToOutline(polygon, frame.outline), shadow);
 		if (!clipped.length) return;
 		for (const cell of cutOpenings(clipped, openings)) addCell(sink, frame, cell, at, { at }, false);
 	};
-	place(frame.outline, shadeLiftM);
-	for (const { polygon, top } of units) if (!top.perU && !top.perV) place(polygon, top.at + shadeLiftM);
+	place(frame.outline, shadeLiftM, sinks.joint);
+	for (const { polygon, top } of units)
+		if (!top.perU && !top.perV) place(polygon, top.at + shadeLiftM, sinks.unit);
 }
 
 function addSlab(sinks: Map<FamilySlot, MeshSink>, frame: Frame, slot: FamilySlot, top: number) {
@@ -185,10 +186,13 @@ export function buildSurface(family: Family, patch: Patch, options: SurfaceOptio
 		const sinks = new Map<FamilySlot, MeshSink>();
 		addSlab(sinks, frame, 'joint', 0);
 		addUnits(sinks, frame, units);
-		const shade = createSink();
-		if (options.light) for (const unit of units) addShade(shade, frame, unit, options.light);
+		const shade = { joint: createSink(), unit: createSink() };
+		if (options.light)
+			for (const unit of units)
+				addShade(unit.castOnto ? shade.unit : shade.joint, frame, unit, options.light);
 		for (const shadow of patch.shadows ?? []) addCastShadow(shade, frame, shadow, units);
-		sinks.set('shade', shade);
+		sinks.set('shade', shade.joint);
+		sinks.set('shade-unit', shade.unit);
 		const mesh = collect(family, 'relief', scale, sinks, []);
 		if (mesh.triangles <= budget) return mesh;
 		scale *= coarsenStepRatio;

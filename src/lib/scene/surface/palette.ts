@@ -61,6 +61,7 @@ export function readMaterialSurface(family: Family, slot: FamilySlot, display: M
 /** Shade keeps the colour of the face it falls on, darkened alike on every face, and draws no
  * outline of its own: an overprint, not an object (MAT-2). */
 const noStrokes: readonly number[] = Object.freeze([]);
+const shadeTarget: Partial<Record<FamilySlot, FamilySlot>> = { shade: 'joint', 'shade-unit': 'unit' };
 const shadeFaces = Object.freeze({ top: castShade, lit: castShade, shadow: castShade });
 
 function split(slot: string): [role: string, slot: FamilySlot] | undefined {
@@ -81,12 +82,12 @@ export function paintClad(clad: CladObject, display: MaterialDisplay, plain: Sur
 		const family = clad.materials[role];
 		assignment[slot] = pencilRoles.has(role)
 			? pencil
-			: readMaterialSurface(family, familySlot === 'shade' ? 'joint' : familySlot, display);
+			: readMaterialSurface(family, shadeTarget[familySlot] ?? familySlot, display);
 	}
 	const drawables = resolveSurfaces(clad.object, assignment).map((drawable): Drawable => {
 		const [role, familySlot] = split(drawable.id) ?? [];
 		if (role !== undefined && pencilRoles.has(role)) return { ...drawable, hatch: pencilStroke.hatch };
-		if (familySlot !== 'shade') return drawable;
+		if (familySlot === undefined || !shadeTarget[familySlot]) return drawable;
 		return { ...drawable, faces: shadeFaces, strokeSegments: noStrokes, visible: display === 'normal' };
 	});
 	for (const [role, lines] of Object.entries(clad.lines)) {

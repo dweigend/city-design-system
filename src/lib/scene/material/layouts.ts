@@ -42,7 +42,8 @@ function bond({ module: [length, rise], joint, relief, bond: shift, alt, jitter 
 	return units;
 }
 
-/** Vertical boards side by side with a raised batten over every board joint. */
+/** Vertical boards side by side with a raised batten over every board joint. Battens cast onto
+ * the highest board face, so their shade shows on every board. */
 function boards({ module: [board, run], joint, relief, alt, jitter }: ReliefParams, [width, height]: Vec2, random: Random): Unit[] {
 	const units: Unit[] = [];
 	const gap = joint / 2;
@@ -52,7 +53,7 @@ function boards({ module: [board, run], joint, relief, alt, jitter }: ReliefPara
 		const at = jittered(random, relief[0], jitter);
 		for (let v0 = 0; v0 < height; v0 += run)
 			units.push({ slot, polygon: rectPolygon([u0, v0, u0 + board, v0 + run - gap]), base: 0, top: { at } });
-		units.push({ slot: 'trim', polygon: rectPolygon([u0 - gap, 0, u0 + gap, height]), base: 0, top: { at: relief[1] }, castOnto: relief[0] });
+		units.push({ slot: 'trim', polygon: rectPolygon([u0 - gap, 0, u0 + gap, height]), base: 0, top: { at: relief[1] }, castOnto: relief[0] * (1 + jitter) });
 	}
 	return units;
 }

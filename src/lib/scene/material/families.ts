@@ -42,8 +42,8 @@ export const families = Object.freeze({
 /** A procedural surface family. */
 export type Family = keyof typeof families;
 /** A role slot a family emits: the module unit, its seeded variant, raised trim, and the joint
- * or backing behind the units, and the hard shade units cast when lit. */
-export type FamilySlot = 'unit' | 'unit-alt' | 'trim' | 'joint' | 'shade';
+ * or backing behind the units, and the hard shade cast onto the joint and onto the units. */
+export type FamilySlot = 'unit' | 'unit-alt' | 'trim' | 'joint' | 'shade' | 'shade-unit';
 /** Families in table order. */
 export const familyNames = Object.freeze(Object.keys(families) as Family[]);
 
@@ -53,5 +53,5 @@ export function readFamily(family: Family) {
 	const entry = families[family];
 	const { layout, slots, params } = entry;
 	const ground = 'ground' in entry && entry.ground;
-	return { layout, ground, slots: [...slots, 'shade'] as readonly FamilySlot[], params: params as ReliefParams };
+	return { layout, ground, slots: [...slots, 'shade', 'shade-unit'] as readonly FamilySlot[], params: params as ReliefParams };
 }
