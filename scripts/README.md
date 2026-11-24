@@ -53,3 +53,19 @@ Supply `--reference /absolute/path/to/image.png` or a matching first-parent capt
 ## Ship a package
 
 Run `bun run ship <package-branch>` from the clean package worktree with the rebuild preview running. Ship checks the package against the current `rebuild` base, captures the base, pushes the merge to `rebuild` and captures it. It removes the package worktree and branch after recording the delivery. Pass `--package <id>`, `--started-at <UTC timestamp>` and `--reference <path>` to include the package details.
+
+## Performance baseline
+
+On the Radeon server, run:
+
+```sh
+heavy-slot --exclusive --mem 4G --time 600 --wait 900 -- bun run perf:baseline
+```
+
+The command builds the preview, starts it on a free loopback port, and closes Chrome and Vite when the run ends. Use `-- --skip-build` to reuse the current build. Compare mode is the default. The table shows the difference from the committed run and fails if a hard limit is exceeded or the app cannot prove hardware AMD WebGPU on every measured route. To refresh the reference from a clean revision, replace the command suffix with `bun run perf:baseline -- --write`. The JSON records the revision, timestamp, inputs, hardware and results.
+
+Each Bun case starts in a fresh process. Both use the organic plan with seed 1201. The 1,800 m town builds every private parcel. The 7,000 m case builds the complete terrain, plan, parcel network, ground movement graph, lattice and ground drawables. It places and projects houses from 200 blocks evenly spaced in the private-block order. Plain and salient projections count and release house drawables one house at a time. The sample keeps the largest case within the slot while retaining actual placement and projection timings. The pipeline reports wall time, output counts, heap and RSS after each measured stage, plus process peak RSS.
+
+Chrome runs headless with native Radeon Vulkan, a 1366 × 900 viewport and DPR 1. Each route begins in a fresh browser context. Architecture measures first frame for the two blocks and hall (`block=town`). A separate **Whole town** run (`block=all`) measures camera updates with default salient detail. Sandbox runs a pointer drag, wheel zoom, parcel hover and one 30-parcel Paint stroke followed by Undo. Each load opens a generated save over the public file picker in a fresh Sandbox context. A load ends when a rendered frame shows the requested placement count with the build queue drained. Tile packs are the change in the stage’s cumulative chunk rebuild counter during the operation.
+
+First-frame time runs from navigation start to the first observed stage submission. Frame percentiles use completed stage submissions during the input sequences, following one opening frame per route. The stage CPU metric includes camera, style and render submission work and excludes queued house generation before the draw. Frame intervals also include input pacing, Playwright dispatch and any work between submissions. Browser heap is live Chrome JavaScript heap at the end of the workload. Peak browser RSS is sampled roughly every 200 ms and sums Chrome’s reported process IDs, including shared pages counted by each process. The reference records host load, available memory, swap and available DRM readings before and after the run. Desktop activity can affect the result.

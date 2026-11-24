@@ -56,6 +56,8 @@ bun run dev                # Development server (http://localhost:5173)
 
 Run `bun run verify` before every delivery. For browser-facing changes, also run `bun run test:browser`. See [Browser tests](scripts/README.md#browser-tests) for setup and the shared-server command.
 
+Run `bun run perf:baseline` inside the shared server’s 4 GiB exclusive slot to compare the town and largest-city pipeline and the Radeon WebGPU preview against the committed reference. See [Performance baseline](scripts/README.md#performance-baseline) for the command and measurement scope.
+
 ## Architecture
 
 1. **Headless core (`data/` and `logic/`):** Pure TypeScript data and deterministic procedural algorithms with no dependencies on Svelte, DOM, or `three.js`.
