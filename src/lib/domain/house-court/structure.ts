@@ -80,7 +80,13 @@ function tubes(ctx: Context): Faces {
 				/* Exact arithmetic: round the original ring without an inset. */ 0,
 				archigramTubeRadiusM * (1 - defaults.tubeCornerInsetRatio)
 			);
-			faces.push(...extrusion(ring, ctx.space.baseZ, level(ctx, to) + ctx.space.storeyHeightM / 2));
+			faces.push(
+				...extrusion(
+					ring,
+					ctx.space.baseZ,
+					level(ctx, to) + ctx.space.storeyHeightM / defaults.tubeRoofRiseStoreyDivisor
+				)
+			);
 		});
 	});
 	return faces;

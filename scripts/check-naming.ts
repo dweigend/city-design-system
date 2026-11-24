@@ -128,6 +128,8 @@ export function checkNaming(root: string) {
 		(path) => resolve(root, path)
 	).sort();
 	const program = ts.createProgram(entries, {
+		baseUrl: root,
+		paths: { $lib: ['src/lib'], '$lib/*': ['src/lib/*'] },
 		module: ts.ModuleKind.ESNext,
 		moduleResolution: ts.ModuleResolutionKind.Bundler,
 		skipLibCheck: true,
@@ -150,10 +152,12 @@ export function checkNaming(root: string) {
 			const type = checker.getTypeOfSymbolAtLocation(target, source);
 			if (!type.getCallSignatures().length) continue;
 			const name = symbol.getName();
-			if (/Centre|Colour/.test(name)) {
+			if (/centre|colour|neighbour/i.test(name)) {
 				violations.push(`${file}: ${name} must use US English`);
+			} else if (!/^[a-z][a-zA-Z0-9]*$/.test(name)) {
+				violations.push(`${file}: ${name} must use camelCase`);
 			} else if (
-				!allowed.includes(name.match(/^[a-z]+/)?.[0] ?? '') &&
+				!allowed.includes(name.match(/^([a-z]+)(?=[A-Z]|$)/)?.[1] ?? '') &&
 				!resultNames[layer].includes(name)
 			) {
 				violations.push(`${file}: ${name} must start with a ${layer} operation verb`);

@@ -220,6 +220,12 @@ export const shapes = defineSettings({
 		'Share of the service tube radius left out of the corner rounding',
 		'FORM-6'
 	),
+	tubeRoofRiseStoreyDivisor: s(
+		2,
+		'ratio',
+		'Divisor of one storey height for service tube extension above the roof',
+		'FORM-6'
+	),
 	mastArmReachRatio: s(
 		1 / 4,
 		'ratio',
