@@ -116,17 +116,24 @@ export function createCityDistricts(
 	core: CityCore,
 	seed: number,
 	parameters?: Readonly<{ height?: number; complexity?: number }>,
-	growth?: DistrictGrowth
+	growth?: DistrictGrowth,
+	levelHeightM = levelHeight
 ) {
 	requireBuildableGrid(plan);
-	const { height, complexity } = resolveParams(cityVolumeParams, parameters);
+	requireLevelSpacing(levelHeightM);
+	const requested = parameters?.height;
+	const scaled =
+		requested === undefined || levelHeightM === levelHeight
+			? parameters
+			: { ...parameters, height: (requested / levelHeightM) * levelHeight };
+	const { height, complexity } = resolveParams(cityVolumeParams, scaled);
 	const profile = seedDistricts(plan, core, seed, complexity, height / levelHeight, growth);
 	return Object.freeze({
 		settlement: profile.settlement,
 		areaKm2: profile.areaKm2,
 		/** Area share of each kind, summing to 1 for a settled plan. An empty plan has all-zero shares. */
 		shares: profile.shares,
-		peakHeight: profile.peakLevels * levelHeight,
+		peakHeight: profile.peakLevels * levelHeightM,
 		/** Reads the frozen district assignment of a plan cell. Unknown cells throw. */
 		cell(id: string): DistrictCell {
 			return required(profile.cells.get(id), 'district cell');

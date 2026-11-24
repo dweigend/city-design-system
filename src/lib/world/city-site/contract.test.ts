@@ -18,6 +18,7 @@ import {
 	citySiteConfig,
 	cityWindow,
 	createCitySite,
+	createCityVerticalRecipe,
 	readCitySide,
 	readCityDistricts,
 	readCityGrid
@@ -432,3 +433,33 @@ test('terrain edits and undo refresh the carrier datum through one site', () => 
 	revision = '0';
 	expect(datum()).toBe(0);
 }, 20_000);
+
+test('uses recipe spacing for the city datum, district heights and coarse lattice', () => {
+	const heights = [4.8, 3.2, 3.2, 4.5];
+	const site = createCitySite(undefined, { recipe: { storeyHeightsM: heights } });
+	const recipe = required(site.recipe, 'city recipe');
+	heights[0] = 6;
+	expect(recipe.storeysPerLevel).toBe(4);
+	expect(recipe.levelHeightM).toBe(15.7);
+	expect(recipe.storeyHeightsM).toEqual([4.8, 3.2, 3.2, 4.5]);
+	const layout = readCityGrid(site, 600);
+	expect(layout.datumZ / recipe.levelHeightM).toBeCloseTo(
+		Math.round(layout.datumZ / recipe.levelHeightM)
+	);
+	const districts = readCityDistricts(site, layout);
+	const columns = readCityColumns(layout.grid, districts);
+	expect(districts.peakHeight).toBe(
+		Math.max(...columns.map(({ levels }) => levels)) * recipe.levelHeightM
+	);
+	const column = columns[0];
+	const frame = createCityLattice([column], layout.datumZ, 'box', recipe);
+	expect(Math.max(...frame.nodes.map(({ position }) => position[2]))).toBe(
+		columnRoof(column, layout.datumZ, recipe.levelHeightM)
+	);
+	expect(createCityVerticalRecipe({ levelHeightM: 10, storeysPerLevel: 4 }).storeyHeightM).toBe(
+		2.5
+	);
+	expect(() => createCityVerticalRecipe({ levelHeightM: 12, storeyHeightsM: [4, 5] })).toThrow(
+		RangeError
+	);
+});

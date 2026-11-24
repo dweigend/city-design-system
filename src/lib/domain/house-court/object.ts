@@ -1,6 +1,7 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
-import { PlaceableObject, type Anchor, type Part } from '../../core/object';
+import { PlaceableObject, type Anchor } from '../../core/object';
 import { cellAreaM2, cellCenter, type CellSpace } from '../cell-space';
+import { createWorldReference } from '../../core/ref';
 import { Random } from '../../core/random';
 import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
 import { faceMesh } from './boxes';
@@ -13,7 +14,13 @@ import { envelopeFaces, solidFaces, type HouseFace } from './faces';
 import { houseStyleFor } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
-import type { HouseCourt } from './occupancy';
+import {
+	createHouseOccupancy,
+	type HouseInputs,
+	type HouseOccupancy,
+	type HouseSite
+} from './occupancy';
+import { partReferences, shapeParts, type HousePart, type HousePartRef } from './part-refs';
 import { canopy, envelope, envelopeRims, openings, plates, solidRims } from './parts';
 import type { AdjoiningWall } from './wall-contact';
 
@@ -60,7 +67,7 @@ export function houseSlots(
 
 function context(
 	space: CellSpace,
-	house: HouseCourt,
+	house: HouseOccupancy,
 	style: HouseStyle,
 	adjoiningWalls: readonly AdjoiningWall[]
 ): Context {
@@ -103,7 +110,7 @@ function courtDoor(ctx: Context): Anchor | undefined {
 	};
 }
 
-function courtEntry(ctx: Context, house: HouseCourt): Vec2 | undefined {
+function courtEntry(ctx: Context, house: HouseOccupancy): Vec2 | undefined {
 	const last = ctx.space.cells.find(({ id }) => id === house.entrances[0]?.at(-1));
 	const index =
 		last?.sides.findIndex(
@@ -112,7 +119,7 @@ function courtEntry(ctx: Context, house: HouseCourt): Vec2 | undefined {
 	return last && index >= 0 ? side(last.quad, index).at(1 / 2, 0) : undefined;
 }
 
-function anchors(ctx: Context, house: HouseCourt): Anchor[] {
+function anchors(ctx: Context, house: HouseOccupancy): Anchor[] {
 	const entry = entranceSide(ctx.space, house.entrances);
 	const courtCells = ctx.space.cells.filter(({ id }) => ctx.occupancy.get(id)?.role === 'court');
 	const result: Anchor[] = [];
@@ -153,14 +160,13 @@ function footprint(space: CellSpace) {
 	return { width: Math.max(...xs) - Math.min(...xs), depth: Math.max(...ys) - Math.min(...ys) };
 }
 
-function solidParts(solids: readonly CellSolid[], block: boolean): Part[] {
-	return solids.flatMap(({ key, slot, faces }) => {
-		const shape = faceMesh(faces);
-		return shape ? [{ id: key, slot: block ? 'mass' : slot, shape }] : [];
-	});
+function solidParts(solids: readonly CellSolid[], block: boolean): HousePart[] {
+	return solids.flatMap(({ key, slot, faces, cell, fromStorey, toStorey }) =>
+		shapeParts(key, block ? 'mass' : slot, faceMesh(faces), [[cell.id, fromStorey, toStorey]])
+	);
 }
 
-function envelopeParts(ctx: Context, detail: HouseDetail): Part[] {
+function envelopeParts(ctx: Context, detail: HouseDetail): HousePart[] {
 	if (!ctx.style.fill.kinds.includes('envelope')) return [];
 	if (detail === 'block') return envelope(ctx, 'mass');
 	return [
@@ -170,7 +176,7 @@ function envelopeParts(ctx: Context, detail: HouseDetail): Part[] {
 	];
 }
 
-function accessParts(ctx: Context, house: HouseCourt): Part[] {
+function accessParts(ctx: Context, house: HouseOccupancy): HousePart[] {
 	const steps = ctx.style.parts.stair ? entranceSteps(ctx, 'stair') : [];
 	if (!ctx.style.parts.galleries) return steps;
 	const sides = courtSides(ctx, house.inputs.complexity);
@@ -178,7 +184,7 @@ function accessParts(ctx: Context, house: HouseCourt): Part[] {
 	return [...galleries(ctx, sides, landing), ...stair(ctx, landing), ...steps];
 }
 
-function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] {
+function allParts(ctx: Context, house: HouseOccupancy, detail: HouseDetail): HousePart[] {
 	const solids = cellSolids(ctx);
 	if (detail === 'block')
 		return [
@@ -201,6 +207,54 @@ function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] 
 	];
 }
 
+/** Immutable occupancy with an address and the part references of its full-detail object. */
+export type HouseCourt = HouseOccupancy &
+	Readonly<{
+		id: string;
+		partRefs: readonly HousePartRef[];
+	}>;
+
+/** Plans a house around a court. Part references are derived on first read from its full-detail assembly. */
+export function createHouseCourt(
+	space: CellSpace,
+	inputs: HouseInputs,
+	style: HouseStyle = houseStyles.neutral,
+	site: HouseSite = {}
+): HouseCourt {
+	const house = createHouseOccupancy(space, inputs, style, site);
+	const id = houseId(space);
+	let refs: readonly HousePartRef[] | undefined;
+	return Object.freeze({
+		...house,
+		id,
+		get partRefs() {
+			if (refs) return refs;
+			const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
+			const ctx = context(space, house, used, []);
+			return (refs = partReferences(id, space.id, allParts(ctx, house, 'full')));
+		}
+	});
+}
+
+/** Reads part and storey references in full-detail part order, optionally in another world. */
+export function readHousePartRefs(house: HouseCourt, world?: string): readonly HousePartRef[] {
+	const refs = house.partRefs;
+	if (world === undefined) return refs;
+	return Object.freeze(
+		refs.map(({ ref, storeyRefs, ...part }) =>
+			Object.freeze({
+				...part,
+				ref: createWorldReference(world, ref.kind, ref.key),
+				storeyRefs: Object.freeze(
+					storeyRefs.map((ref) => createWorldReference(world, ref.kind, ref.key))
+				)
+			})
+		)
+	);
+}
+
+const houseId = (space: CellSpace) => `house/${space.id}`;
+
 /** Builds the house as one placeable object in the space's meters from its style row: cell
  * plates; for an `envelope` fill the merged envelope shells with a parapet rim and plain openings;
  * otherwise one closed solid per cell body, capsule or roof inside its own cell, flat tops with a
@@ -214,7 +268,7 @@ function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] 
  * RangeError. Adjoining walls suppress openings on the covered portion of a party wall. */
 export function createHouseObject(
 	space: CellSpace,
-	house: HouseCourt,
+	house: HouseOccupancy,
 	detail: HouseDetail,
 	style: HouseStyle = houseStyles.neutral,
 	adjoiningWalls: readonly AdjoiningWall[] = []
@@ -222,7 +276,7 @@ export function createHouseObject(
 	const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
 	const ctx = context(space, house, used, adjoiningWalls);
 	return PlaceableObject.create({
-		id: `house/${space.id}`,
+		id: houseId(space),
 		slots: houseSlots(used, detail, entranceStepCell(ctx) !== undefined),
 		parts: allParts(ctx, house, detail),
 		footprint: footprint(space),
@@ -231,7 +285,7 @@ export function createHouseObject(
 }
 
 /** The cell whose ground the entrance steps take, when the site's entrance rise needs steps. */
-export function entranceStepCellId(space: CellSpace, house: HouseCourt): string | undefined {
+export function entranceStepCellId(space: CellSpace, house: HouseOccupancy): string | undefined {
 	const occupancy = new Map(house.cells.map((cell) => [cell.id, cell]));
 	return entranceStepCell({ space, occupancy, house })?.cell.id;
 }
@@ -245,7 +299,7 @@ export function entranceStepCellId(space: CellSpace, house: HouseCourt): string 
  * their occupied spans from otherwise exposed faces. */
 export function houseFaces(
 	space: CellSpace,
-	house: HouseCourt,
+	house: HouseOccupancy,
 	detail: HouseDetail,
 	style: HouseStyle = houseStyles.neutral,
 	adjoiningWalls: readonly AdjoiningWall[] = []
@@ -261,7 +315,7 @@ export function houseFaces(
 }
 
 /** Built and void cell counts, gross floor area and court area in m², and the tallest storey count. */
-export function houseFigures(space: CellSpace, house: HouseCourt) {
+export function houseFigures(space: CellSpace, house: HouseOccupancy) {
 	const ids = space.cells.map(({ id }) => id);
 	if (ids.length !== house.cellIds.length || ids.some((id, i) => id !== house.cellIds[i]))
 		throw new RangeError('House occupancy belongs to another cell space');

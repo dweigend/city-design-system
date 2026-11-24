@@ -11,3 +11,6 @@ for its lane elevation. A parcel without room for a house and access returns a r
 The Town study selects two adjacent perimeter blocks and a merged hall from the default plan.
 Each block's placement opts into area-based scale and supplies coincident boundary walls
 to face and opening derivation after the occupied spans of its houses are known.
+
+The house recipe selects the subgrid and sizes the coarse level and its storeys. Terrain-aware
+placement starts at a recipe boundary and keeps the subdivision and common roof.

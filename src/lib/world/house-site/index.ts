@@ -3,6 +3,7 @@
 export {
 	createParcelHouse,
 	createParcelHouseObject,
+	type ParcelHouseRecipe,
 	type ParcelHouseResult,
 	type ParcelHouseSite,
 	type PlacedParcelHouse

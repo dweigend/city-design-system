@@ -1,12 +1,12 @@
 import type { Vec2 } from '../../core/geometry';
-import type { Part, Shape } from '../../core/object';
+import { groundStoreyRuns, shapeParts, type HousePart, type StoreyRun } from './part-refs';
 import { defaults } from '../../../config/house-court';
-import type { FineCell } from '../cell-space';
+import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
 import { boxMesh, faceMesh, side, type Box } from './boxes';
 import { extrusion, type Faces } from './solids';
 import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
-import { shellFaces, shells } from './shells';
+import { shellFaces, shells, shellStoreyRuns } from './shells';
 import { entranceGround } from './access';
 import { cellSolids, type CellSolid } from './fills';
 import { entranceSide } from './graph';
@@ -31,7 +31,7 @@ const {
 const exposed = (context: Context, cell: FineCell, i: number, storey: number) =>
 	!builtAt(context, cell.sides[i].neighbour, storey);
 
-const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
+const level = ({ space }: Context, storey: number) => readStoreyElevation(space, storey);
 
 type Visit = (cell: FineCell, house: HouseCell) => void;
 
@@ -42,23 +42,20 @@ function eachBuilt(context: Context, visit: Visit) {
 	}
 }
 
-function part(id: string, slot: string, shape: Shape | undefined): Part[] {
-	return shape ? [{ id, slot, shape }] : [];
-}
-
 /** Ground plate of every cell below the parcel ground, and the raised court plates, reaching down
  * to the site's lowest ground as a plinth when the site gives one. The entrance cell with steps
  * keeps plates only on the ground the steps leave free. */
-export function plates(context: Context): Part[] {
+export function plates(context: Context): HousePart[] {
 	const z = context.space.baseZ;
 	const low = context.house.site.groundZ;
 	const base = low === null ? z - plotThicknessM : Math.min(low, z - plotThicknessM);
 	const ground = entranceGround(context);
-	return context.space.cells.flatMap((cell): Part[] => {
+	return context.space.cells.flatMap((cell): HousePart[] => {
 		if (cell.id === ground?.cell.id)
 			return ground.rest.map((polygon, k) => ({
 				id: `${cell.id}/plot/${k}`,
 				slot: 'plot',
+				runs: groundStoreyRuns(cell.id),
 				shape: { kind: 'prism', polygon, base, top: z }
 			}));
 		return [
@@ -66,6 +63,7 @@ export function plates(context: Context): Part[] {
 				? {
 						id: `${cell.id}/court`,
 						slot: 'court',
+						runs: groundStoreyRuns(cell.id),
 						shape: {
 							kind: 'prism',
 							polygon: cell.quad,
@@ -76,6 +74,7 @@ export function plates(context: Context): Part[] {
 				: {
 						id: `${cell.id}/plot`,
 						slot: 'plot',
+						runs: groundStoreyRuns(cell.id),
 						shape: { kind: 'prism', polygon: cell.quad, base, top: z }
 					}
 		];
@@ -85,13 +84,13 @@ export function plates(context: Context): Part[] {
 /** The closed envelope of all built cell storeys in the given slot, one mesh per shell: storeys
  * that touch only along an edge go to separate shells, so every shell is two-manifold. The first
  * shell keeps the ID `<space>/envelope`, later ones append `/<index>`. */
-export function envelope(context: Context, slot: string): Part[] {
+export function envelope(context: Context, slot: string): HousePart[] {
 	return shells(context).flatMap((members, k) => {
 		const faces = shellFaces(context, members).map(({ joints }) =>
 			joints.map(({ position }) => position)
 		);
 		const id = k ? `${context.space.id}/envelope/${k}` : `${context.space.id}/envelope`;
-		return part(id, slot, faceMesh(faces));
+		return shapeParts(id, slot, faceMesh(faces), shellStoreyRuns(context, members));
 	});
 }
 
@@ -132,19 +131,22 @@ function signedArea(outline: readonly Vec2[]) {
 
 /** The parapet rim of the merged envelope (MAT-13): along every wall exposed at the top storey,
  * in the given slot, as one mesh. */
-export function envelopeRims(context: Context, slot: string): Part[] {
+export function envelopeRims(context: Context, slot: string): HousePart[] {
 	const rims: Faces = [];
+	const runs: StoreyRun[] = [];
 	eachBuilt(context, (cell, house) => {
 		cell.quad.forEach((_, i) => {
-			if (exposed(context, cell, i, house.toStorey - 1))
+			if (exposed(context, cell, i, house.toStorey - 1)) {
 				rims.push(...rim(cell.quad, i, level(context, house.toStorey)));
+				runs.push([cell.id, house.toStorey - 1, house.toStorey]);
+			}
 		});
 	});
-	return part(`${context.space.id}/rims`, slot, faceMesh(rims));
+	return shapeParts(`${context.space.id}/rims`, slot, faceMesh(rims), runs);
 }
 
 /** The parapet rim of every flat-topped body without a roof solid, in the body's slot. */
-export function solidRims(context: Context, solids: readonly CellSolid[]): Part[] {
+export function solidRims(context: Context, solids: readonly CellSolid[]): HousePart[] {
 	const roofed = new Set(
 		solids.filter(({ key }) => key.endsWith('/roof')).map(({ cell }) => cell.id)
 	);
@@ -153,10 +155,11 @@ export function solidRims(context: Context, solids: readonly CellSolid[]): Part[
 	return [...tops.values()].flatMap((s) => {
 		if (!s.flat || roofed.has(s.cell.id)) return [];
 		const z = level(context, s.toStorey);
-		return part(
+		return shapeParts(
 			`${s.key}/rims`,
 			s.slot,
-			faceMesh(s.outline.flatMap((_, i) => rim(s.outline, i, z)))
+			faceMesh(s.outline.flatMap((_, i) => rim(s.outline, i, z))),
+			[[s.cell.id, s.toStorey - 1, s.toStorey]]
 		);
 	});
 }
@@ -164,7 +167,7 @@ export function solidRims(context: Context, solids: readonly CellSolid[]): Part[
 /** The accent of the house (MAT-10): a canopy slab over the entrance, against the body that
  * stands in the entrance cell, in the `accent` slot. */
 // Exact arithmetic: the middle of the frontage side.
-export function canopy(context: Context): Part[] {
+export function canopy(context: Context): HousePart[] {
 	const entry = entranceSide(context.space, context.house.entrances);
 	const house = entry && context.occupancy.get(entry.cell.id);
 	if (!entry || !house || house.fromStorey > 0 || house.toStorey <= 0) return [];
@@ -176,7 +179,7 @@ export function canopy(context: Context): Part[] {
 	const gap = solids.length ? Math.min(...solids.map(({ gapM }) => gapM)) : 0;
 	const [x, y] = entry.wall.at(1 / 2, projection / 2 - gap);
 	const z = context.space.baseZ + entranceCanopyHeightM + thickness / 2;
-	return part(
+	return shapeParts(
 		`${context.space.id}/canopy`,
 		'accent',
 		boxMesh([
@@ -185,7 +188,8 @@ export function canopy(context: Context): Part[] {
 				size: [Math.min(width, entry.wall.length), projection, thickness],
 				rotation: entry.wall.rotation
 			}
-		])
+		]),
+		groundStoreyRuns(entry.cell.id)
 	);
 }
 
@@ -196,7 +200,7 @@ function openingRun(context: Context, length: number, storey: number) {
 	const sill = ground ? 0 : windowSillM * scale;
 	const nominalHeight = (ground ? groundOpeningHeightM : windowHeightM) * scale;
 	const nominalWidth = windowWidthM * scale;
-	const height = Math.min(nominalHeight, context.space.storeyHeightM - sill);
+	const height = Math.min(nominalHeight, readStoreyHeight(context.space, storey) - sill);
 	const width = count === 0 ? nominalWidth : Math.min(nominalWidth, length / count);
 	return { count: height > 0 ? count : 0, width, height, z: level(context, storey) + sill };
 }
@@ -232,12 +236,7 @@ function openingsOnSide(context: Context, cell: FineCell, i: number, storey: num
 	const wall = side(cell.quad, i);
 	const run = openingRun(context, wall.length, storey);
 	const base = level(context, storey);
-	const visible = exposedWall(
-		context.adjoiningWalls,
-		wall,
-		base,
-		base + context.space.storeyHeightM
-	);
+	const visible = exposedWall(context.adjoiningWalls, wall, base, level(context, storey + 1));
 	return Array.from({ length: run.count }, (_, k) => (k + 0.5) / run.count).flatMap((t) => {
 		if (context.adjoiningWalls.length && !fitsOpening(visible, openingRect(t * wall.length, run)))
 			return [];
@@ -254,14 +253,18 @@ function openingsOnSide(context: Context, cell: FineCell, i: number, storey: num
 
 /** Openings on every exposed wall storey of the house, as one mesh. A large house takes a few big
  * openings instead: the ground storey only, pitch and size scaled by the large opening ratio. */
-export function openings(context: Context): Part[] {
+export function openings(context: Context): HousePart[] {
 	const boxes: Box[] = [];
+	const runs: StoreyRun[] = [];
 	eachBuilt(context, (cell, house) => {
 		for (let storey = house.fromStorey; storey < openingStoreys(context, house); storey += 1)
 			cell.quad.forEach((_, i) => {
-				if (exposed(context, cell, i, storey))
-					boxes.push(...openingsOnSide(context, cell, i, storey));
+				if (!exposed(context, cell, i, storey)) return;
+				const openings = openingsOnSide(context, cell, i, storey);
+				if (!openings.length) return;
+				boxes.push(...openings);
+				runs.push([cell.id, storey, storey + 1]);
 			});
 	});
-	return part(`${context.space.id}/openings`, 'opening', boxMesh(boxes));
+	return shapeParts(`${context.space.id}/openings`, 'opening', boxMesh(boxes), runs);
 }

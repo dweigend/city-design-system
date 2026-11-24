@@ -1,14 +1,20 @@
 import { describe, expect, test } from 'bun:test';
+import { createCatalog } from '../../core/catalog';
+import { encodeKey, equalRefs, readWorldReference, type Ref } from '../../core/ref';
 import type { Vec2 } from '../../core/geometry';
 import type { Shape } from '../../core/object';
 import {
 	cellAreaM2,
+	cellSubgridCatalog,
 	createCellSpace,
+	createCellSpaceStoreys,
+	readStoreyElevation,
+	type CellSubgridGenerator,
 	parcelEdgeId,
 	type CellSpace,
 	type Parcel
 } from '../cell-space';
-import { example } from './example';
+import { example, mixedStoreyExample } from './example';
 import {
 	cellRoles,
 	createHouseCourt,
@@ -16,6 +22,7 @@ import {
 	houseFigures,
 	houseSlots,
 	houseStyles,
+	readHousePartRefs,
 	type HouseCourt,
 	type HouseStyle
 } from './index';
@@ -138,12 +145,11 @@ function checkMasses(space: CellSpace, house: HouseCourt, style: HouseStyle) {
 		const occupancy = house.cells.find((c) => c.id === cell?.id);
 		if (!cell || !occupancy || shape.kind !== 'mesh') continue;
 		const { positions: p } = shape;
-		const top =
-			space.baseZ + Math.min(space.storeyCount, occupancy.toStorey + 1) * space.storeyHeightM;
+		const top = readStoreyElevation(space, Math.min(space.storeyCount, occupancy.toStorey + 1));
 		for (let i = 0; i < p.length; i += 3) {
 			expect(inside(cell.quad, [p[i], p[i + 1]])).toBe(true);
 			expect(p[i + 2]).toBeGreaterThanOrEqual(
-				space.baseZ + occupancy.fromStorey * space.storeyHeightM - 1e-6
+				readStoreyElevation(space, occupancy.fromStorey) - 1e-6
 			);
 			expect(p[i + 2]).toBeLessThanOrEqual(top + 1e-6);
 		}
@@ -163,7 +169,9 @@ describe('createHouseCourt', () => {
 						const expected = house.cells.reduce((sum, { id, fromStorey, toStorey }) => {
 							const cell = space.cells.find((c) => c.id === id);
 							return (
-								sum + (cell ? cellAreaM2(cell) : 0) * (toStorey - fromStorey) * space.storeyHeightM
+								sum +
+								(cell ? cellAreaM2(cell) : 0) *
+									(readStoreyElevation(space, toStorey) - readStoreyElevation(space, fromStorey))
 							);
 						}, 0);
 						expect(volume).toBeCloseTo(expected, 4);
@@ -375,7 +383,11 @@ describe('createHouseCourt', () => {
 test('preserves frame connections and face counts across datum translations', () => {
 	const [, original] = spaces[0];
 	// Exercise separate storeys that can land in the same rounded Z bucket.
-	const space = { ...original, baseZ: 0, storeyHeightM: 0.00035 };
+	const space = createCellSpaceStoreys(original, {
+		baseZ: 0,
+		storeyCount: original.storeyCount,
+		storeyHeightM: 0.00035
+	});
 	const style = houseStyles.archigram;
 	const house = createHouseCourt(space, { height: 21, width: 28, complexity: 0.8, seed: 3 }, style);
 	function frameAt(baseZ: number) {
@@ -419,4 +431,108 @@ test('preserves envelope shell boundaries and face counts across datum translati
 	const counts = meshCounts(space.baseZ);
 	expect(counts.length).toBeGreaterThan(1);
 	expect(meshCounts(1000.1234564)).toEqual(counts);
+});
+
+test('builds closed mixed-height mass on all subgrids, including a caller-registered rule', () => {
+	const catalog = createCatalog<CellSubgridGenerator>({
+		rows: [
+			...cellSubgridCatalog.rows,
+			{ id: 'coarse-quad', create: (parcel) => createCellSpace(parcel, 0) }
+		]
+	});
+	for (const id of catalog.ids) {
+		for (const style of styles) {
+			const { space, house } = mixedStoreyExample(id, catalog, style);
+			expect(space.storeyElevationsM).toEqual([0, 4.8, 8, 11.2, 15.7]);
+			expect(house.unbuildable).toBeUndefined();
+			const volume = checkMasses(space, house, style);
+			expect(volume).toBeGreaterThan(0);
+			if (style.id !== 'neutral') continue;
+			const expected = house.cells.reduce(
+				(sum, { fromStorey, toStorey }, index) =>
+					sum +
+					cellAreaM2(space.cells[index]) *
+						(readStoreyElevation(space, toStorey) - readStoreyElevation(space, fromStorey)),
+				0
+			);
+			expect(volume).toBeCloseTo(expected, 6);
+		}
+	}
+});
+
+test('uses stable JSON refs to attach external functions to storeys and every house part', () => {
+	type FunctionKind = 'Public Space' | 'Workshop' | 'Office' | 'Housing' | 'City Farm';
+	const uses: readonly FunctionKind[] = [
+		'Public Space',
+		'Workshop',
+		'Office',
+		'Housing',
+		'City Farm'
+	];
+	const functions = new Map<string, FunctionKind>();
+	function attach(ref: Ref, index: number) {
+		const encoded = JSON.stringify(ref);
+		const restored = readWorldReference(JSON.parse(encoded));
+		expect(restored && equalRefs(ref, restored)).toBe(true);
+		expect(functions.has(encoded)).toBe(false);
+		functions.set(encoded, uses[index % uses.length]);
+	}
+	for (const style of styles) {
+		functions.clear();
+		const { space, house, object } = mixedStoreyExample('corner-quad', cellSubgridCatalog, style);
+		const before = JSON.stringify(object);
+		const rows = readHousePartRefs(house);
+		const storeys = new Set(
+			space.storeys.map(({ ref }, i) => {
+				attach(ref, i);
+				return JSON.stringify(ref);
+			})
+		);
+		expect(rows.map(({ partId, slot }) => [partId, slot])).toEqual(
+			object.parts.map(({ id, slot }) => [id, slot])
+		);
+		for (const [index, part] of rows.entries()) {
+			attach(part.ref, index);
+			expect(part.ref.key).toBe(encodeKey([house.id, part.partId]));
+			expect(part.storeyRefs.length).toBeGreaterThan(0);
+			for (const ref of part.storeyRefs) {
+				expect(storeys.has(JSON.stringify(ref))).toBe(true);
+				const [, cell, storey] = JSON.parse(ref.key);
+				expect(storey).toBeGreaterThanOrEqual(part.storeySpan[0]);
+				expect(storey).toBeLessThan(part.storeySpan[1]);
+				if (part.cellId !== null) expect(cell).toBe(part.cellId);
+			}
+		}
+		const replay = mixedStoreyExample('corner-quad', cellSubgridCatalog, style);
+		expect(replay.house.partRefs).toEqual(rows);
+		expect(new Set(functions.values())).toEqual(new Set(uses));
+		expect(JSON.stringify(replay.object)).toBe(before);
+		for (const { ref, storeyRefs } of readHousePartRefs(house, 'another-world')) {
+			expect(ref.world).toBe('another-world');
+			expect(storeyRefs.every(({ world }) => world === 'another-world')).toBe(true);
+		}
+	}
+});
+
+test('keeps framed capsules closed when a mixed slice is shorter than the nominal gaps', () => {
+	const { space: plan } = mixedStoreyExample();
+	const space = createCellSpaceStoreys(plan, {
+		baseZ: 0,
+		storeyCount: 4,
+		storeyHeightsM: [4.8, 0.7, 3.2, 4.5]
+	});
+	const style: HouseStyle = {
+		...houseStyles.archigram,
+		fill: { ...houseStyles.archigram.fill, capsuleShareRatio: 1 }
+	};
+	const house = createHouseCourt(space, { height: 13.2, width: 28, complexity: 0, seed: 7 }, style);
+	const capsules = createHouseObject(space, house, 'block', style).parts.filter(({ id }) =>
+		id.endsWith('/capsule/1')
+	);
+	expect(capsules.length).toBeGreaterThan(0);
+	for (const { shape } of capsules) {
+		const result = closure(shape);
+		expect(result).toMatchObject({ open: 0, crowded: 0 });
+		expect(result.volume).toBeGreaterThan(0);
+	}
 });

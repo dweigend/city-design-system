@@ -4,20 +4,18 @@
 export { cellRoles, type CellRole } from './roles';
 
 /** Inputs, per-cell occupancy and the occupancy rule of a house around a court. */
-export {
-	createHouseCourt,
-	type HouseCell,
-	type HouseCourt,
-	type HouseInputs,
-	type HouseSite
-} from './occupancy';
+export type { HouseCell, HouseInputs, HouseSite } from './occupancy';
+export type { HousePartRef } from './part-refs';
 
 /** Scale of a cell space, shared court access and the style row as one house applies it. */
 export { hasCourtAccess, houseScale, houseStyleFor, type HouseScale } from './scale';
 
 /** Slots per drawing detail, the house object builder and its figures. */
 export {
+	createHouseCourt,
 	createHouseObject,
+	readHousePartRefs,
+	type HouseCourt,
 	entranceStepCellId,
 	houseFaces,
 	houseFigures,

@@ -1,11 +1,13 @@
 /** Module: Splits metric parcels into addressed fine cells. */
 
 import { readVertexMean, type Vec2 } from '../../core/geometry';
+import { createCatalog, type Catalog } from '../../core/catalog';
 import { encodeKey } from '../../core/ref';
 import { defaults } from '../../../config/cell-space';
 import { resolveSides } from './sides';
 import { convexParts, cornerQuads, doubleArea, mergedParts, type KeyedRing } from './split';
 import { cellWidth, stripRings } from './strips';
+import { createCellSpaceStoreys } from './storeys';
 import type { CellSpace, FineCell, Parcel } from './types';
 import { parcelEdgeId, validate } from './validate';
 
@@ -18,8 +20,18 @@ export const minimumStripWidthM = defaults.stripMinimumWidthM;
 /** Thrown for a parcel with a vanishing edge or area. */
 export { DegenerateParcelError } from './validate';
 
-/** Default storey height in meters, two per 7 m coarse level (CITY-12). */
+/** Default river-city storey height, available to callers using uniform sizing. */
 export const defaultStoreyHeightM = defaults.storeyHeightM;
+
+/** Storey sizing and world-scoped storey addresses. */
+export {
+	createCellSpaceStoreys,
+	createStoreyStack,
+	readCellStoreys,
+	readStoreyElevation,
+	readStoreyHeight,
+	readStoreyRef
+} from './storeys';
 
 /** Smallest supported separation of consecutive parcel corners in plan meters. */
 export const minimumParcelEdgeM = defaults.minimumEdgeM;
@@ -28,7 +40,15 @@ export const minimumParcelEdgeM = defaults.minimumEdgeM;
 export { parcelEdgeId } from './validate';
 
 /** Parcel, fine cell and cell space shapes. */
-export type { CellSpace, FineCell, Parcel, ParcelCorner } from './types';
+export type {
+	CellSpace,
+	CellStorey,
+	FineCell,
+	Parcel,
+	ParcelCorner,
+	StoreySizing,
+	StoreyStack
+} from './types';
 
 /** Address of one storey of a fine cell: `<cell id>/storey/<integer from 0>`. */
 export function storeyAddress(cellId: string, storey: number): string {
@@ -90,26 +110,26 @@ function freeze(
 	kind?: CellSpace['kind']
 ): CellSpace {
 	const sides = resolveSides(rings, new Set(parcel.frontage), new Set(parcel.courtEdges ?? []));
-	return Object.freeze({
-		id: parcel.id,
-		...(kind ? { kind } : {}),
-		baseZ: parcel.baseZ,
-		storeyHeightM: parcel.storeyHeightM ?? defaults.storeyHeightM,
-		storeyCount: parcel.storeyCount,
-		cells: Object.freeze(
-			rings.map((cell, i) =>
-				Object.freeze({
-					id: cell.id,
-					parent: parents[i],
-					corner: corners[i],
-					ear: cell.ear,
-					quad: Object.freeze(cell.points.map(([x, y]) => Object.freeze<Vec2>([x, y]))),
-					cornerIds: Object.freeze([...(cell.jointKeys ?? cell.keys)]),
-					sides: Object.freeze(sides[i].map((side) => Object.freeze({ ...side })))
-				})
+	return createCellSpaceStoreys(
+		{
+			id: parcel.id,
+			...(kind ? { kind } : {}),
+			cells: Object.freeze(
+				rings.map((cell, i) =>
+					Object.freeze({
+						id: cell.id,
+						parent: parents[i],
+						corner: corners[i],
+						ear: cell.ear,
+						quad: Object.freeze(cell.points.map(([x, y]) => Object.freeze<Vec2>([x, y]))),
+						cornerIds: Object.freeze([...(cell.jointKeys ?? cell.keys)]),
+						sides: Object.freeze(sides[i].map((side) => Object.freeze({ ...side })))
+					})
+				)
 			)
-		)
-	});
+		},
+		parcel
+	);
 }
 
 /** Splits a parcel into strip cells that follow its frontage (GRID-1 for town parcels): columns
@@ -197,4 +217,34 @@ export function cellAreaM2(cell: FineCell): number {
 /** Vertex average of a fine cell in plan meters. */
 export function cellCenter({ quad }: FineCell): Vec2 {
 	return readVertexMean(quad);
+}
+
+/** Options a subgrid may use when laying out a parcel. */
+export type CellSubgridOptions = Readonly<{ refinementRounds?: number }>;
+
+/** A registered parcel-to-cell-space rule. */
+export type CellSubgridGenerator = Readonly<{
+	id: string;
+	create(parcel: Parcel, options: CellSubgridOptions): CellSpace;
+}>;
+
+/** Shared corner-quad and frontage-strip rules, ordered by registration. */
+export const cellSubgridCatalog = createCatalog<CellSubgridGenerator>({
+	rows: [
+		Object.freeze({
+			id: 'corner-quad',
+			create: (parcel, { refinementRounds }) => createCellSpace(parcel, refinementRounds)
+		}),
+		Object.freeze({ id: 'frontage-strip', create: createStripSpace })
+	]
+});
+
+/** Creates a cell space through a registered subgrid. Unknown IDs throw RangeError. */
+export function createSubgridSpace(
+	parcel: Parcel,
+	subgridId: string,
+	options: CellSubgridOptions = {},
+	catalog: Catalog<CellSubgridGenerator> = cellSubgridCatalog
+): CellSpace {
+	return catalog.get(subgridId).create(parcel, options);
 }

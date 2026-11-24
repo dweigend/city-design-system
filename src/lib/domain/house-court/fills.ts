@@ -1,7 +1,7 @@
 import type { Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
 import { defaults } from '../../../config/house-court';
-import type { FineCell } from '../cell-space';
+import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
 import type { HouseCell } from './occupancy';
 import type { Context } from './context';
 import {
@@ -81,7 +81,7 @@ function shaped(kind: FillKind, quad: readonly Vec2[], gap: number, style: House
 	}
 }
 
-const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
+const level = ({ space }: Context, storey: number) => readStoreyElevation(space, storey);
 
 function solid(
 	ctx: Context,
@@ -115,8 +115,15 @@ function capsules(ctx: Context, cell: FineCell, house: HouseCell): CellSolid[] {
 		const key = `${cell.id}/capsule/${storey}`;
 		if (ctx.random.derive(key).number() >= fill.capsuleShareRatio) continue;
 		const points = outline('capsule', cell.quad, fill.insetM, ctx.style);
-		const base = level(ctx, storey) + fill.capsuleGapM;
-		const top = level(ctx, storey + 1) - fill.capsuleGapM;
+		const bottom = level(ctx, storey);
+		const ceiling = level(ctx, storey + 1);
+		// The two gaps leave at least half the slice for the capsule.
+		const gap = Math.min(
+			fill.capsuleGapM,
+			(ceiling - bottom) / /* Exact arithmetic: quarter of the storey. */ 4
+		);
+		const base = bottom + gap;
+		const top = ceiling - gap;
 		result.push({
 			cell,
 			slot: pick(ctx.random, `${key}/slot`, slots.capsule),
@@ -193,7 +200,7 @@ function roof(ctx: Context, top: CellSolid): CellSolid[] {
 	const faces = roofShapes[kind](
 		top.outline,
 		level(ctx, top.toStorey),
-		rule.riseRatio * ctx.space.storeyHeightM
+		rule.riseRatio * readStoreyHeight(ctx.space, top.toStorey)
 	);
 	return [
 		{

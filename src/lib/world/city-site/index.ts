@@ -24,7 +24,12 @@ export const cityBankSetbackM = citySiteConfig.bankSetbackM;
 export { citySiteConfig };
 export type { CityTerrainReading, CityTerrainSampler } from './sampling';
 export type { CityCrossing, CrossableWater } from './crossings';
-export { riverCityRecipe, type CityRecipe } from './recipe';
+export {
+	createCityVerticalRecipe,
+	riverCityRecipe,
+	type CityRecipe,
+	type CityVerticalRecipe
+} from './recipe';
 export { cityLatticesByPlan, cityPlanVariants, type CityPlanVariant } from './presets';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
@@ -363,7 +368,14 @@ export function readCityDistricts(
 		bearing: city.frame.bearing,
 		aspect: 1
 	};
-	return createCityDistricts(grid, core, params.seed, parameters, growth);
+	return createCityDistricts(
+		grid,
+		core,
+		params.seed,
+		parameters,
+		growth,
+		(city.recipe ?? riverCityRecipe).levelHeightM
+	);
 }
 
 /** Samples the mesh geometry for an alternate terrain source in the city window. */

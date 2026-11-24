@@ -1,6 +1,7 @@
 import type { Vec3 } from '../../lib/core/geometry';
 import { required } from '../../lib/core/invariant';
 import { move, type PlaceableObject } from '../../lib/core/object';
+import { readStoreyElevation } from '../../lib/domain/cell-space';
 import type { CityColumn } from '../../lib/domain/city-volume';
 import {
 	houseFaces,
@@ -217,7 +218,7 @@ export function townSheet(
 	const low = Math.min(...ground, ...placed.map(({ groundZ }) => groundZ));
 	const top = Math.max(
 		...ground,
-		...placed.map(({ space, house }) => space.baseZ + house.storeys * space.storeyHeightM)
+		...placed.map(({ space, house }) => readStoreyElevation(space, house.storeys))
 	);
 	const points = chosen.flatMap((block) =>
 		block.outline.flatMap(([x, y]) => [toLocal([x, y, low]), toLocal([x, y, top])])

@@ -1,6 +1,6 @@
-import type { CellSpace } from '../cell-space';
+import { readStoreyElevation, type CellSpace } from '../cell-space';
 import { side } from './boxes';
-import type { HouseCourt } from './occupancy';
+import type { HouseOccupancy } from './occupancy';
 import { exposedWall, type AdjoiningWall } from './wall-contact';
 
 /** Identifies the exposed portions of parcel-boundary storeys after adjoining occupancy.
@@ -8,15 +8,15 @@ import { exposedWall, type AdjoiningWall } from './wall-contact';
 // Exact arithmetic: a full run starts at its local origin.
 export function readPartyWallExposure(
 	space: CellSpace,
-	house: HouseCourt,
+	house: HouseOccupancy,
 	adjoining: readonly AdjoiningWall[]
 ): string {
 	if (!adjoining.length) return '';
 	const clipped = space.cells.flatMap((cell, index) => {
 		const { fromStorey, toStorey } = house.cells[index];
 		if (toStorey <= fromStorey) return [];
-		const bottom = space.baseZ + fromStorey * space.storeyHeightM;
-		const top = space.baseZ + toStorey * space.storeyHeightM;
+		const bottom = readStoreyElevation(space, fromStorey);
+		const top = readStoreyElevation(space, toStorey);
 		return cell.sides.flatMap(({ edge }, i) => {
 			if (edge === null) return [];
 			const wall = side(cell.quad, i);

@@ -1,7 +1,13 @@
 import { expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
+import { createCatalog } from '../../core/catalog';
 import { bounds } from '../../core/object';
-import { createCellSpace, parcelEdgeId, type Parcel } from '../../domain/cell-space';
+import {
+	createCellSpace,
+	parcelEdgeId,
+	type CellSubgridGenerator,
+	type Parcel
+} from '../../domain/cell-space';
 import {
 	buildAsset,
 	InvalidAssetParamsError,
@@ -82,6 +88,31 @@ test('every court house builds at its defaults and every combination of bounds',
 			}
 		}
 	}
+});
+
+test('builds a house through the subgrid registered for its parcel host', () => {
+	const subgridCatalog = createCatalog<CellSubgridGenerator>({
+		rows: [
+			{
+				id: 'coarse-quad',
+				create: (parcel, { refinementRounds }) => createCellSpace(parcel, refinementRounds)
+			}
+		]
+	});
+	const selected = buildAsset(
+		id,
+		{
+			...host,
+			subgridId: 'coarse-quad',
+			subgridOptions: { refinementRounds: 0 },
+			subgridCatalog
+		},
+		{},
+		42
+	);
+	expect(selected).toEqual(
+		buildAsset(id, { kind: 'cell-space', space: createCellSpace(parcel, 0) }, {}, 42)
+	);
 });
 
 test('replays three JSON placements into identical objects', () => {

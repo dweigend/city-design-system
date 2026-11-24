@@ -1,6 +1,13 @@
 import { expect, test } from 'bun:test';
-import { cellAreaM2 } from '../../domain/cell-space';
-import { levelHeight } from '../../domain/city-volume';
+import { createCatalog } from '../../core/catalog';
+import { required } from '../../core/invariant';
+import {
+	cellAreaM2,
+	cellSubgridCatalog,
+	createCellSpace,
+	type CellSubgridGenerator
+} from '../../domain/cell-space';
+import { columnRoof, levelHeight } from '../../domain/city-volume';
 import { houseFigures, houseStyles } from '../../domain/house-court';
 import { example } from './example';
 import { createParcelHouse, createParcelHouseObject, createTownHouseStudy } from './index';
@@ -85,4 +92,37 @@ test('rotating the keyed parcel ring preserves its portal, strip IDs and occupan
 	if (original.status !== 'placed' || rotated.status !== 'placed') throw Error('Expected a house');
 	expect(rotated.space.cells).toEqual(original.space.cells);
 	expect(rotated.house).toEqual(original.house);
+});
+
+test('uses a custom parcel subgrid and repeats recipe heights from the coarse datum', () => {
+	const town = createTownHouseStudy();
+	const { id } = required(town.parcelsByBlock.get(town.blocks.block.id)?.[0], 'town parcel');
+	const site = required(town.readParcelSite(id), 'parcel site');
+	const subgridCatalog = createCatalog<CellSubgridGenerator>({
+		rows: [
+			...cellSubgridCatalog.rows,
+			{
+				id: 'coarse-quad',
+				create: (parcel) => createCellSpace(parcel, 0)
+			}
+		]
+	});
+	const levelHeightM = 15.7;
+	const storeyHeightsM = [4.8, 3.2, 3.2, 4.5];
+	const recipe = {
+		vertical: { levelHeightM, storeyHeightsM },
+		subgridId: 'coarse-quad',
+		subgridCatalog
+	};
+	const placed = createParcelHouse({ ...site, groundAt: undefined, recipe }, { seed: 3 });
+	if (placed.status !== 'placed') throw new Error(placed.reason);
+	expect(placed.space.storeyHeightsM.slice(0, 4)).toEqual(storeyHeightsM);
+	expect(placed.space.cells.every(({ id, parent }) => id === parent)).toBe(true);
+	const roof = Math.min(
+		...site.block.memberCellIds.map((id) =>
+			columnRoof(required(site.columns.get(id), 'parcel column'), site.datumZ, levelHeightM)
+		)
+	);
+	expect(placed.space.storeyElevationsM.at(-1)).toBeCloseTo(roof);
+	expect(createParcelHouseObject(placed, 'full').parts.length).toBeGreaterThan(0);
 });

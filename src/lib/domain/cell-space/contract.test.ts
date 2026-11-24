@@ -1,15 +1,25 @@
+import { createCatalog } from '../../core/catalog';
+import { equalRefs, readWorldReference } from '../../core/ref';
 import { describe, expect, test } from 'bun:test';
 import type { Vec2 } from '../../core/geometry';
 import {
 	cellAreaM2,
+	cellSubgridCatalog,
 	createCellSpace,
+	createCellSpaceStoreys,
+	createSubgridSpace,
+	readCellStoreys,
+	readStoreyElevation,
+	readStoreyHeight,
+	readStoreyRef,
+	type CellSubgridGenerator,
 	createStripSpace,
 	DegenerateParcelError,
 	parcelEdgeId,
 	storeyAddress,
 	type Parcel
 } from './index';
-import { example } from './example';
+import { example, mixedStoreyParcel } from './example';
 
 const parcel = (id: string, points: readonly Vec2[], frontage = [0]): Parcel => ({
 	id,
@@ -283,4 +293,78 @@ test('rejects a sparse plan coordinate before subdivision', () => {
 	expect(() =>
 		createCellSpace({ ...fixtures.rectangle, corners: [{ ...first, position }, ...rest] })
 	).toThrow('finite plan positions');
+});
+
+test('addresses every slice at the cumulative boundaries and keeps IDs across vertical growth', () => {
+	const space = createSubgridSpace(mixedStoreyParcel, 'corner-quad');
+	expect(space.storeyHeightM).toBeUndefined();
+	expect(space.storeyElevationsM).toEqual([0, 4.8, 8, 11.2, 15.7]);
+	expect(space.storeys).toHaveLength(space.cells.length * 4);
+	expect(new Set(space.storeys.map(({ ref }) => ref.key)).size).toBe(space.storeys.length);
+	const taller = createCellSpaceStoreys(space, {
+		baseZ: 9,
+		storeyCount: 5,
+		storeyHeightsM: [...mixedStoreyParcel.storeyHeightsM, 5]
+	});
+	const grownKeys = new Set(taller.storeys.map(({ ref }) => ref.key));
+	for (const { ref, cellId, storey, bottomZ, topZ, heightM } of readCellStoreys(space, 'fixture')) {
+		const restored = readWorldReference(JSON.parse(JSON.stringify(ref)));
+		expect(restored && equalRefs(ref, restored)).toBe(true);
+		expect(ref).toEqual(readStoreyRef(space.id, cellId, storey, 'fixture'));
+		expect(grownKeys.has(ref.key)).toBe(true);
+		expect(bottomZ).toBe(readStoreyElevation(space, storey));
+		expect(topZ).toBe(readStoreyElevation(space, storey + 1));
+		expect(heightM).toBe(readStoreyHeight(space, storey));
+	}
+	expect(() => readStoreyHeight(space, space.storeyCount)).toThrow(RangeError);
+	expect(() => readStoreyElevation(space, -1)).toThrow(RangeError);
+});
+
+test('resolves registered subgrids on one parcel and snapshots its vertical inputs', () => {
+	const catalog = createCatalog<CellSubgridGenerator>({
+		rows: [
+			...cellSubgridCatalog.rows,
+			{
+				id: 'coarse-quad',
+				create: (parcel, options) => createCellSpace(parcel, options.refinementRounds ?? 0)
+			}
+		]
+	});
+	const heights: number[] = [...mixedStoreyParcel.storeyHeightsM];
+	const parcel = { ...mixedStoreyParcel, storeyHeightsM: heights };
+	const spaces = catalog.ids.map((id) => createSubgridSpace(parcel, id, {}, catalog));
+	heights[0] = 9;
+	expect(spaces[2].cells).toHaveLength(4);
+	expect(spaces[2].cells.length).toBeLessThan(spaces[0].cells.length);
+	expect(spaces[1].kind).toBe('strip');
+	for (const space of spaces) {
+		expect(space.storeyHeightsM).toEqual(mixedStoreyParcel.storeyHeightsM);
+		expect(space.cells.reduce((sum, cell) => sum + cellAreaM2(cell), 0)).toBeCloseTo(28 * 32);
+	}
+	expect(() => createSubgridSpace(parcel, 'unknown', {}, catalog)).toThrow(RangeError);
+});
+
+test('rejects invalid storey arrays and keeps the uniform shorthand', () => {
+	for (const heights of [
+		[],
+		[1],
+		[4, 0, 4, 4],
+		[4, -1, 4, 4],
+		[4, NaN, 4, 4],
+		[4, Infinity, 4, 4],
+		Array<number>(4)
+	]) {
+		for (const id of cellSubgridCatalog.ids)
+			expect(() =>
+				createSubgridSpace({ ...mixedStoreyParcel, storeyHeightsM: heights }, id)
+			).toThrow(RangeError);
+	}
+	const uniform = createCellSpace({
+		...mixedStoreyParcel,
+		storeyHeightsM: undefined,
+		storeyHeightM: 2.5
+	});
+	expect(uniform.storeyHeightM).toBe(2.5);
+	expect(uniform.storeyHeightsM).toEqual([2.5, 2.5, 2.5, 2.5]);
+	expect(uniform.storeyElevationsM).toEqual([0, 2.5, 5, 7.5, 10]);
 });

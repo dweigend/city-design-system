@@ -5,6 +5,7 @@ import {
 	cellCenter,
 	fineCellWidth,
 	minimumStripWidthM,
+	readStoreyElevation,
 	type CellSpace,
 	type FineCell
 } from '../cell-space';
@@ -56,7 +57,7 @@ export type HouseCell = Readonly<{
 }>;
 
 /** The occupancy of a cell space, in cell order, with the resolved inputs it came from. */
-export type HouseCourt = Readonly<{
+export type HouseOccupancy = Readonly<{
 	spaceId: string;
 	cellIds: readonly string[];
 	styleId: string;
@@ -220,13 +221,24 @@ function buildFailure(space: CellSpace, entry: string | undefined, built: string
 	if (rise < -entranceStepRiseM) return 'entrance-below-lane';
 }
 
+/** Rounds a requested height to the nearest storey boundary, with ties rounding up. */
+function storeysAtHeight(space: CellSpace, height: number): number {
+	if (space.storeyHeightM !== undefined) return Math.round(height / space.storeyHeightM);
+	const target = space.baseZ + height;
+	for (let index = 1; index <= space.storeyCount; index += 1) {
+		const bottom = readStoreyElevation(space, index - 1);
+		const top = readStoreyElevation(space, index);
+		if (target < bottom + (top - bottom) / 2) return index - 1;
+	}
+	return space.storeyCount;
+}
+
 /** Fills a cell space with one house around a court (FORM-1). The deepest hop layer from the parcel
  * boundary is the court, void to the sky, unless the space opens onto a shared court (a cell side
  * with `court`), the house is large and its style row keeps no court, or no inner cell exists.
  * Other cells are built when they touch the frontage or their centre lies within `width` meters of
  * it (a large house builds them all). Strip cells must meet the strip minimum width; the rest stay
- * garden. Storeys are round(height / storey
- * height), clamped to the space; a large house stands evenly at the large storey count, leaving a
+ * garden. Requested height rounds to the nearest storey boundary, clamped to the space; a large house stands evenly at the large storey count, leaving a
  * storey for its roof figure when its row's large roof is not flat. Complexity
  * lowers cells toward the rear, steps court-facing cells down and lets seeded cells rise or fall,
  * all by the style's occupancy row. A calm house keeps its frontage cells on one eaves line: the
@@ -237,12 +249,12 @@ function buildFailure(space: CellSpace, entry: string | undefined, built: string
  * cells on an open ground storey. Roles fix the storey runs (`cellRoles`). Built cells grow
  * monotonically with width and every cell's storeys with height. If the entrance or built volume
  * cannot fit, the result names the reason and leaves the plot as garden. Deterministic for equal inputs. */
-export function createHouseCourt(
+export function createHouseOccupancy(
 	space: CellSpace,
 	inputs: HouseInputs,
 	style: HouseStyle = houseStyles.neutral,
 	site: HouseSite = {}
-): HouseCourt {
+): HouseOccupancy {
 	const random = Random.create({ seed: inputs.seed });
 	const { height, width, complexity } = resolveParams(blockInputs, shapeInputs(inputs));
 	const segments = frontageSegments(space);
@@ -265,10 +277,7 @@ export function createHouseCourt(
 		scale === 'large'
 			? Math.max(1, Math.min(largeStoreys, space.storeyCount - roofRoom))
 			: space.storeyCount;
-	const top = Math.max(
-		1,
-		Math.min(space.storeyCount, cap, Math.round(height / space.storeyHeightM))
-	);
+	const top = Math.max(1, Math.min(space.storeyCount, cap, storeysAtHeight(space, height)));
 	const front = scale === 'calm' ? eaves(top, cap, random, site.corner ?? false) : top;
 	const plan: Plan = new Map();
 	for (const cell of space.cells) {

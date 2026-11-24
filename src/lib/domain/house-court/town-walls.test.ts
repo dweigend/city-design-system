@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { createStripSpace, parcelEdgeId } from '../cell-space';
+import { createStripSpace, parcelEdgeId, readStoreyHeight } from '../cell-space';
 import {
 	createHouseCourt,
 	createHouseObject,
@@ -57,7 +57,7 @@ test('a one-storey 70 m hall fits its openings within each wall run', () => {
 	expect(pane?.kind).toBe('mesh');
 	if (pane?.kind === 'mesh')
 		expect(Math.max(...pane.positions.filter((_, i) => i % 3 === 2))).toBeLessThanOrEqual(
-			space.storeyHeightM
+			readStoreyHeight(space, 0)
 		);
 	const walls = houseFaces(space, house, 'full').filter(({ place }) => place === 'wall');
 	expect(walls.some(({ openings }) => openings.length)).toBe(true);

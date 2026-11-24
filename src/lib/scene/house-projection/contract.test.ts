@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { createCellSpace, parcelEdgeId } from '../../domain/cell-space';
+import {
+	createCellSpace,
+	parcelEdgeId,
+	readStoreyElevation,
+	readStoreyHeight
+} from '../../domain/cell-space';
 import {
 	createHouseCourt,
 	createHouseObject,
@@ -75,10 +80,10 @@ test('paints an explicit wall patch alongside a house made with the wall role', 
 		origin: [x, y, space.baseZ] as const,
 		across: [dx, dy, 0] as const,
 		normal: [dy, -dx, 0] as const,
-		size: [width, space.storeyHeightM] as const,
+		size: [width, readStoreyHeight(space, 0)] as const,
 		thickness: 0.05
 	};
-	const corners = [space.baseZ, space.baseZ + space.storeyHeightM].flatMap((z) => [
+	const corners = [space.baseZ, readStoreyElevation(space, 1)].flatMap((z) => [
 		[x, y, z],
 		[u, v, z]
 	]);

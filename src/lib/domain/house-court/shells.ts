@@ -1,6 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
 import { encodePair, type Key } from '../../core/ref';
-import type { FineCell } from '../cell-space';
+import { readStoreyElevation, type FineCell } from '../cell-space';
+import type { StoreyRun } from './part-refs';
 import type { Context } from './context';
 
 type Node = Readonly<{ cell: FineCell; storey: number; id: string }>;
@@ -20,10 +21,17 @@ function nodes(ctx: Context): Node[] {
 	});
 }
 
+/** All slices a shell encloses, including fully internal slices. */
+export function shellStoreyRuns(ctx: Context, members: ReadonlySet<string>): StoreyRun[] {
+	return nodes(ctx).flatMap(({ cell, storey, id }) =>
+		members.has(id) ? [[cell.id, storey, storey + 1]] : []
+	);
+}
+
 /** Faces of the shell `members`, cell by cell and run by run: a floor under each run, a roof
  * over it and the sides of each storey not shared with another member, wound outward. */
 export function shellFaces(ctx: Context, members: ReadonlySet<string>): Face[] {
-	const level = (storey: number) => ctx.space.baseZ + storey * ctx.space.storeyHeightM;
+	const level = (storey: number) => readStoreyElevation(ctx.space, storey);
 	const faces: Face[] = [];
 	for (const cell of ctx.space.cells) {
 		const ring = (storey: number) =>

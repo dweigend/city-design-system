@@ -1,6 +1,6 @@
 import type { CellSpace } from '../cell-space';
 import { side } from './boxes';
-import type { HouseCourt } from './occupancy';
+import type { HouseOccupancy } from './occupancy';
 
 /** What makes a house give orientation in a picture (MAT-15): its tallest storey count, whether
  * it turns a corner (frontage on two sides that meet at an angle) and whether it is a large house
@@ -12,7 +12,7 @@ const cornerCosine = 1 / 2;
 
 /** Reads the salience features of a house from its cell space and occupancy. */
 // Exact arithmetic: storeys start at zero.
-export function readHouseFeatures(space: CellSpace, house: HouseCourt): HouseFeatures {
+export function readHouseFeatures(space: CellSpace, house: HouseOccupancy): HouseFeatures {
 	const normals = space.cells.flatMap((cell) =>
 		cell.sides.flatMap(({ frontage }, i) => (frontage ? [side(cell.quad, i).normal] : []))
 	);

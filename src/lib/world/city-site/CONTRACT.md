@@ -28,3 +28,7 @@ on demand when it changes. A sampler without a revision getter is treated as imm
 Read a new layout before deriving parcels after a revision change. Use `recipe` to override
 the river-city approach and growth policies. Supplying only `isCrossable` also uses that
 predicate to identify the primary channel.
+
+The city recipe declares the coarse level spacing and the number and heights of the storeys
+within it. An explicit ordered stack repeats from each coarse plane. Without a stack, the
+recipe uses a uniform storey height. The river-city recipe uses two 3.5 m storeys per 7 m level.

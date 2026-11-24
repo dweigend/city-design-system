@@ -1,6 +1,6 @@
 import { UnknownAssetError, type AssetEntry } from '../../core/asset-registry';
 import { createBlockInputs } from '../../core/params';
-import { createCellSpace } from '../../domain/cell-space';
+import { createSubgridSpace } from '../../domain/cell-space';
 import {
 	createHouseCourt,
 	createHouseObject,
@@ -43,7 +43,12 @@ function courtHouse(style: HouseStyle): AssetEntry<CityAssetHost> {
 			}
 			const space =
 				host.kind === 'parcel'
-					? createCellSpace(host.parcel)
+					? createSubgridSpace(
+							host.parcel,
+							host.subgridId ?? 'corner-quad',
+							host.subgridOptions,
+							host.subgridCatalog
+						)
 					: host.kind === 'cell-space'
 						? host.space
 						: undefined;

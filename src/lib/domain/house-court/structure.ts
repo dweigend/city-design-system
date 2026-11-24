@@ -1,19 +1,15 @@
 import type { Vec3 } from '../../core/geometry';
-import type { Part } from '../../core/object';
+import { groundStorey, shapeParts, type HousePart, type StoreyRun } from './part-refs';
 import { encodePair, type Key } from '../../core/ref';
 import { defaults } from '../../../config/house-court';
-import { cellCenter, type FineCell } from '../cell-space';
+import { readStoreyElevation, readStoreyHeight, cellCenter, type FineCell } from '../cell-space';
 import { faceMesh, side } from './boxes';
 import { builtAt, type Context } from './context';
 import { bar, extrusion, inset, rounded, type Faces } from './solids';
 
 const { archigramBarM, archigramTubeRadiusM, frameDeckThicknessM, mastBarM } = defaults;
 
-const part = (id: string, slot: string, faces: Faces): Part[] => {
-	const shape = faceMesh(faces);
-	return shape ? [{ id, slot, shape }] : [];
-};
-const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
+const level = ({ space }: Context, storey: number) => readStoreyElevation(space, storey);
 
 function eachBuilt(ctx: Context, visit: (cell: FineCell, from: number, to: number) => void) {
 	for (const cell of ctx.space.cells) {
@@ -25,7 +21,7 @@ function eachBuilt(ctx: Context, visit: (cell: FineCell, from: number, to: numbe
 /** The exposed frame on the cell edges (FORM-6): posts from the ground to the top of each built
  * run, beams on every storey line, and diagonals on a share of the exposed bays. Shared members
  * are emitted once. */
-function frame(ctx: Context): Faces {
+function frame(ctx: Context, runs: StoreyRun[]): Faces {
 	const members = new Map<string, Faces>();
 	type Joint = Readonly<{ key: Key; position: Vec3 }>;
 	const add = (a: Joint, b: Joint) => {
@@ -34,6 +30,7 @@ function frame(ctx: Context): Faces {
 	};
 	const brace = ctx.style.parts.braceShareRatio * ctx.complexity;
 	eachBuilt(ctx, (cell, from, to) => {
+		runs.push([cell.id, groundStorey, to]);
 		const at = (corner: number, storey: number): Joint => {
 			const [x, y] = cell.quad[corner];
 			return { key: [cell.cornerIds[corner], storey], position: [x, y, level(ctx, storey)] };
@@ -54,18 +51,20 @@ function frame(ctx: Context): Faces {
 }
 
 /** A thin deck under every framed storey of every built cell. */
-function decks(ctx: Context): Faces {
+function decks(ctx: Context, runs: StoreyRun[]): Faces {
 	const faces: Faces = [];
 	eachBuilt(ctx, (cell, from, to) => {
 		const plate = inset(cell.quad, archigramBarM / 2);
-		for (let storey = Math.max(1, from); storey <= to; storey += 1)
+		const first = Math.max(1, from);
+		for (let storey = first; storey <= to; storey += 1)
 			faces.push(...extrusion(plate, level(ctx, storey) - frameDeckThicknessM, level(ctx, storey)));
+		runs.push([cell.id, first - 1, to]);
 	});
 	return faces;
 }
 
 /** Service tubes at a share of the outer cell corners, inside their cells, rising past the top. */
-function tubes(ctx: Context): Faces {
+function tubes(ctx: Context, runs: StoreyRun[]): Faces {
 	const share = ctx.style.parts.tubeShareRatio * ctx.complexity;
 	const faces: Faces = [];
 	eachBuilt(ctx, (cell, _, to) => {
@@ -83,11 +82,14 @@ function tubes(ctx: Context): Faces {
 				/* Exact arithmetic: round the original ring without an inset. */ 0,
 				archigramTubeRadiusM * (1 - defaults.tubeCornerInsetRatio)
 			);
+			runs.push([cell.id, groundStorey, Math.min(to + 1, ctx.space.storeyCount)]);
 			faces.push(
 				...extrusion(
 					ring,
 					ctx.space.baseZ,
-					level(ctx, to) + ctx.space.storeyHeightM / defaults.tubeRoofRiseStoreyDivisor
+					level(ctx, to) +
+						readStoreyHeight(ctx.space, Math.min(to, ctx.space.storeyCount - 1)) /
+							defaults.tubeRoofRiseStoreyDivisor
 				)
 			);
 		});
@@ -96,7 +98,7 @@ function tubes(ctx: Context): Faces {
 }
 
 /** A mast on the tallest built cell, inside its storey span above the roof. */
-function mast(ctx: Context): Faces {
+function mast(ctx: Context, runs: StoreyRun[]): Faces {
 	const storeys = ctx.style.parts.mastStoreys;
 	if (!storeys) return [];
 	let best: { cell: FineCell; to: number } | undefined;
@@ -104,6 +106,7 @@ function mast(ctx: Context): Faces {
 		if (!best || to > best.to) best = { cell, to };
 	});
 	if (!best || best.to + storeys > ctx.space.storeyCount) return [];
+	runs.push([best.cell.id, best.to, best.to + storeys]);
 	const [x, y] = cellCenter(best.cell);
 	const base = level(ctx, best.to);
 	const top = level(ctx, best.to + storeys);
@@ -120,13 +123,16 @@ function mast(ctx: Context): Faces {
 }
 
 /** Structure and services of a framed style: frame, decks, tubes and mast, one mesh per kind. */
-export function structure(ctx: Context): Part[] {
+export function structure(ctx: Context): HousePart[] {
 	if (!ctx.style.parts.frame) return [];
-	const id = ctx.space.id;
+	const part = (id: string, slot: string, build: (ctx: Context, runs: StoreyRun[]) => Faces) => {
+		const runs: StoreyRun[] = [];
+		return shapeParts(`${ctx.space.id}/${id}`, slot, faceMesh(build(ctx, runs)), runs);
+	};
 	return [
-		...part(`${id}/frame`, 'frame', frame(ctx)),
-		...part(`${id}/decks`, 'deck', decks(ctx)),
-		...part(`${id}/tubes`, 'tube', tubes(ctx)),
-		...part(`${id}/mast`, 'mast', mast(ctx))
+		...part('frame', 'frame', frame),
+		...part('decks', 'deck', decks),
+		...part('tubes', 'tube', tubes),
+		...part('mast', 'mast', mast)
 	];
 }

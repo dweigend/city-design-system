@@ -81,7 +81,9 @@ export function createTownHouseStudy(settings: Readonly<{ relief?: number }> = {
 		)
 	};
 	const groundAt = ([x, y]: Vec2) => site.sampleGround(x, y).height;
-	const readParcelSite = createTownParcelSites(holdings, columns, layout.datumZ, groundAt);
+	const readParcelSite = createTownParcelSites(holdings, columns, layout.datumZ, groundAt, {
+		vertical: site.recipe
+	});
 	return {
 		site,
 		layout,

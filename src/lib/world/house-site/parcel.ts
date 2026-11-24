@@ -1,13 +1,17 @@
 import { distance, measurePointSegmentDistance, type Vec2 } from '../../core/geometry';
+import type { Catalog } from '../../core/catalog';
 import { Random } from '../../core/random';
 import { defaults } from '../../../config/house-site';
 import {
-	createStripSpace,
+	createCellSpaceStoreys,
+	createSubgridSpace,
+	type CellSubgridGenerator,
+	type CellSubgridOptions,
 	minimumParcelEdgeM,
 	parcelEdgeId,
 	type ParcelCorner
 } from '../../domain/cell-space';
-import { levelHeight, storeysPerLevel, type CityColumn } from '../../domain/city-volume';
+import type { CityColumn } from '../../domain/city-volume';
 import {
 	createHouseCourt,
 	createHouseObject,
@@ -20,10 +24,20 @@ import {
 	type HouseScale
 } from '../../domain/house-court';
 import type { AddressedParcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
+import { createCityVerticalRecipe, riverCityRecipe, type CityVerticalRecipe } from '../city-site';
+import { createParcelStoreySizing } from './vertical';
 import { readBaseLevel } from './base';
 import { parcelGroundRange } from './parcel-ground';
 
 const { contactToleranceM, cornerSineRatio } = defaults;
+
+/** Selects vertical sizing and the plan subdivision of a parcel house. */
+export type ParcelHouseRecipe = Readonly<{
+	vertical?: Partial<CityVerticalRecipe>;
+	subgridId?: string;
+	subgridOptions?: CellSubgridOptions;
+	subgridCatalog?: Catalog<CellSubgridGenerator>;
+}>;
 
 /** A parcel and its permanent frontage, with the active columns and common city datum.
  * `groundAt` reads the ground elevation in meters at a plan point; without it the lane is taken
@@ -37,6 +51,7 @@ export type ParcelHouseSite = Readonly<{
 	linearToleranceM: number;
 	groundAt?: (point: Vec2) => number;
 	scale?: HouseScale | 'by-area';
+	recipe?: ParcelHouseRecipe;
 }>;
 
 type Segment = readonly [Vec2, Vec2];
@@ -94,12 +109,6 @@ function frontageCorners(parcel: AddressedParcel, [from, to]: ParcelPortal['side
 	return corners;
 }
 
-/** The first storey plane above the datum at or above the given height. */
-// Exact arithmetic: whole storeys from the datum.
-function storeyPlane(datumZ: number, storeyHeightM: number, z: number): number {
-	return datumZ + Math.ceil((z - datumZ) / storeyHeightM) * storeyHeightM;
-}
-
 /** Places one seeded house in an addressed private parcel. The portal identifies its CCW
  * frontage edge and the block's court tags identify the sides that open onto a shared court.
  * The highest common base and lowest roof of the member bays define the vertical range.
@@ -108,7 +117,7 @@ function storeyPlane(datumZ: number, storeyHeightM: number, z: number): number {
  * A parcel that cannot take a house returns `unbuildable` with its reason, leaving the ground
  * available as garden. Throws for a public holding, mismatched frontage or missing members. */
 export function createParcelHouse(
-	{ parcel, portal, block, columns, datumZ, groundAt, scale }: ParcelHouseSite,
+	{ parcel, portal, block, columns, datumZ, groundAt, scale, recipe }: ParcelHouseSite,
 	inputs: HouseInputs,
 	style: HouseStyle = houseStyles.neutral
 ) {
@@ -120,7 +129,9 @@ export function createParcelHouse(
 		if (!column) throw new RangeError('Missing house block member ' + id);
 		return column;
 	});
-	const bases = members.map((member) => readBaseLevel(member, datumZ));
+	const vertical = recipe?.vertical ? createCityVerticalRecipe(recipe.vertical) : riverCityRecipe;
+	const { levelHeightM } = vertical;
+	const bases = members.map((member) => readBaseLevel(member, datumZ, levelHeightM));
 	const baseLevel = Math.max(...bases);
 	const roofLevel = Math.min(...members.map(({ levels }, i) => bases[i] + levels));
 	if (!(roofLevel > baseLevel))
@@ -136,31 +147,34 @@ export function createParcelHouse(
 	// Exact arithmetic: the ring starts with the directed frontage.
 	const edge = /* Exact arithmetic: first parcel side is the entrance edge. */ 0;
 	const edgeId = (i: number) => parcelEdgeId(corners[i].id, corners[(i + 1) % corners.length].id);
-	const storeyHeightM = levelHeight / storeysPerLevel;
-	const roofZ = datumZ + roofLevel * levelHeight;
-	const bayBaseZ = datumZ + baseLevel * levelHeight;
-	const bay = createStripSpace({
-		id: parcel.id,
-		corners,
-		frontage: [edgeId(edge)],
-		courtEdges: touching(ring, rings(block.publicGround.court))
-			.filter((i) => i !== edge)
-			.map(edgeId),
-		baseZ: bayBaseZ,
-		storeyCount: Math.round((roofZ - bayBaseZ) / storeyHeightM),
-		storeyHeightM
-	});
+	const sizing = createParcelStoreySizing(vertical, datumZ, baseLevel, roofLevel);
+	const bay = createSubgridSpace(
+		{
+			id: parcel.id,
+			corners,
+			frontage: [edgeId(edge)],
+			courtEdges: touching(ring, rings(block.publicGround.court))
+				.filter((i) => i !== edge)
+				.map(edgeId),
+			...sizing
+		},
+		recipe?.subgridId ?? 'frontage-strip',
+		recipe?.subgridOptions,
+		recipe?.subgridCatalog
+	);
 	const terrain = groundAt
 		? parcelGroundRange(bay, parcel.outline, groundAt)
 		: {
 				low: Math.min(
 					...members.flatMap(({ corners }) => corners.map(({ position }) => position[2]))
 				),
-				high: bayBaseZ
+				high: sizing.baseZ
 			};
-	const baseZ = Math.min(storeyPlane(datumZ, storeyHeightM, terrain.high), roofZ - storeyHeightM);
 	const space = groundAt
-		? Object.freeze({ ...bay, baseZ, storeyCount: Math.round((roofZ - baseZ) / storeyHeightM) })
+		? createCellSpaceStoreys(
+				bay,
+				createParcelStoreySizing(vertical, datumZ, baseLevel, roofLevel, terrain.high)
+			)
 		: bay;
 	const house = createHouseCourt(
 		space,

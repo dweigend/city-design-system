@@ -1,5 +1,5 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
-import type { FineCell } from '../cell-space';
+import { readStoreyElevation, type FineCell } from '../cell-space';
 import { side } from './boxes';
 import { builtAt, type Context } from './context';
 import type { CellSolid } from './fills';
@@ -26,7 +26,7 @@ export type HouseFace = Readonly<{
 	openings: readonly (readonly [number, number, number, number])[];
 }>;
 
-const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
+const level = ({ space }: Context, storey: number) => readStoreyElevation(space, storey);
 
 // Exact arithmetic: horizontal axes and the run's base.
 function wallFace(

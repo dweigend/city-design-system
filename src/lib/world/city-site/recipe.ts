@@ -1,8 +1,11 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { defaultStoreyHeightM } from '../../domain/cell-space';
 import { Random } from '../../core/random';
 import {
 	cityGrowthDefaults,
+	levelHeight,
+	storeysPerLevel,
 	type CityApproachPolicy,
 	type CityGrowthPolicy
 } from '../../domain/city-volume';
@@ -19,22 +22,81 @@ export type CarrierSite = Readonly<{
 	bankSide?: (point: Vec2) => number;
 }>;
 
-/** Selects crossable water, the primary channel for approaches and the thresholds for growth. */
-export type CityRecipe = Readonly<{
-	isCrossable: CrossableWater;
-	isPrimaryWater: CrossableWater;
-	approach?: CityApproachPolicy;
-	minimumRegionAreaM2: number;
-	growth: CityGrowthPolicy;
+/** Sizes the coarse level and its ordered storeys. A mixed stack repeats at each coarse plane.
+ * `storeyHeightM` gives the uniform height when there is no explicit stack. */
+export type CityVerticalRecipe = Readonly<{
+	levelHeightM: number;
+	storeysPerLevel: number;
+	storeyHeightM: number;
+	storeyHeightsM?: readonly number[];
 }>;
+
+/** Selects water, growth thresholds and vertical sizing. */
+export type CityRecipe = CityVerticalRecipe &
+	Readonly<{
+		isCrossable: CrossableWater;
+		isPrimaryWater: CrossableWater;
+		approach?: CityApproachPolicy;
+		minimumRegionAreaM2: number;
+		growth: CityGrowthPolicy;
+	}>;
 
 /** The seeded valley favors main-river approaches and permits crossings of flowing water. */
 export const riverCityRecipe = Object.freeze<CityRecipe>({
 	isCrossable: (kind) => kind === 'river' || kind === 'tributary',
 	isPrimaryWater: (kind) => kind === 'river',
 	minimumRegionAreaM2: config.minimumRegionAreaM2,
-	growth: cityGrowthDefaults
+	growth: cityGrowthDefaults,
+	levelHeightM: levelHeight,
+	storeyHeightM: defaultStoreyHeightM,
+	storeysPerLevel
 });
+
+function readStoreysPerLevel(recipe: Partial<CityVerticalRecipe>): number {
+	const { storeyHeightsM } = recipe;
+	const count = recipe.storeysPerLevel ?? storeyHeightsM?.length ?? riverCityRecipe.storeysPerLevel;
+	if (
+		!Number.isSafeInteger(count) ||
+		count < 1 ||
+		(storeyHeightsM && storeyHeightsM.length !== count)
+	)
+		throw new RangeError('Expected one height per storey of a coarse level');
+	return count;
+}
+
+const isPositiveLength = (height: number) => Number.isFinite(height) && height > 0;
+
+function readLevelSpan(heights: readonly number[]): number {
+	if (!heights.every(isPositiveLength))
+		throw new RangeError('Storey heights must be positive finite lengths');
+	return heights.reduce((total, height) => total + height, 0);
+}
+
+/** Resolves a uniform or mixed stack that spans a full coarse level. */
+export function createCityVerticalRecipe(
+	recipe: Partial<CityVerticalRecipe> = {}
+): CityVerticalRecipe {
+	const storeysPerLevel = readStoreysPerLevel(recipe);
+	const storeyHeightsM = recipe.storeyHeightsM && Object.freeze([...recipe.storeyHeightsM]);
+	const mixedSpan = storeyHeightsM && readLevelSpan(storeyHeightsM);
+	const uniformSpan =
+		recipe.storeyHeightM === undefined ? undefined : recipe.storeyHeightM * storeysPerLevel;
+	const levelHeightM =
+		recipe.levelHeightM ?? mixedSpan ?? uniformSpan ?? riverCityRecipe.levelHeightM;
+	const storeyHeightM = recipe.storeyHeightM ?? levelHeightM / storeysPerLevel;
+	if (!isPositiveLength(levelHeightM) || !isPositiveLength(storeyHeightM))
+		throw new RangeError('City level and storey heights must be positive finite lengths');
+	const span = mixedSpan ?? uniformSpan ?? levelHeightM;
+	// Exact arithmetic: allow one rounding unit per summed height.
+	if (Math.abs(span / levelHeightM - 1) > Number.EPSILON * storeysPerLevel)
+		throw new RangeError('The storeys must span one coarse level');
+	return Object.freeze({
+		levelHeightM,
+		storeysPerLevel,
+		storeyHeightM,
+		...(storeyHeightsM && { storeyHeightsM })
+	});
+}
 
 export function resolveCityRecipe(recipe: Partial<CityRecipe>): CityRecipe {
 	return Object.freeze({
@@ -42,7 +104,8 @@ export function resolveCityRecipe(recipe: Partial<CityRecipe>): CityRecipe {
 		isPrimaryWater: recipe.isPrimaryWater ?? recipe.isCrossable ?? riverCityRecipe.isPrimaryWater,
 		minimumRegionAreaM2: recipe.minimumRegionAreaM2 ?? riverCityRecipe.minimumRegionAreaM2,
 		growth: recipe.growth ? Object.freeze({ ...recipe.growth }) : riverCityRecipe.growth,
-		approach: recipe.approach && Object.freeze({ ...recipe.approach })
+		approach: recipe.approach && Object.freeze({ ...recipe.approach }),
+		...createCityVerticalRecipe(recipe)
 	});
 }
 

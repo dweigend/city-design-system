@@ -1,7 +1,7 @@
 import { distance, type Vec2 } from '../../core/geometry';
-import type { Part } from '../../core/object';
+import { groundStorey, groundStoreyRuns, shapeParts, type HousePart } from './part-refs';
 import { defaults } from '../../../config/house-court';
-import type { FineCell } from '../cell-space';
+import { readStoreyElevation, readStoreyHeight, type FineCell } from '../cell-space';
 import { boxMesh, faceMesh, side, type Box } from './boxes';
 import { extrusion } from './solids';
 import type { HouseCell } from './occupancy';
@@ -92,9 +92,8 @@ function galleryBoxes(
 	const first = Math.max(1, house.fromStorey);
 	const [mx, my] = wall.at(1 / 2, galleryDepthM / 2);
 	const open = landing ? Math.min(courtStairWidthM, wall.length) / wall.length : 0;
-	const { baseZ, storeyHeightM } = context.space;
 	return Array.from({ length: house.toStorey - first }, (_, k) => {
-		const z = baseZ + (first + k) * storeyHeightM;
+		const z = readStoreyElevation(context.space, first + k);
 		const gap = k === 0 ? open : 0;
 		const [rx, ry] = wall.at((1 - gap) / 2, galleryDepthM - railingThicknessM / 2);
 		return [
@@ -118,22 +117,28 @@ export function galleries(
 	context: Context,
 	sides: readonly CourtSide[],
 	landing?: CourtSide
-): Part[] {
+): HousePart[] {
 	return sides.flatMap((courtSide) => {
 		const shape = boxMesh(galleryBoxes(context, courtSide, courtSide === landing));
-		return shape
-			? [{ id: `${courtSide.cell.id}/gallery/${courtSide.index}`, slot: 'gallery', shape }]
-			: [];
+		const { cell, house, index } = courtSide;
+		return shapeParts(`${cell.id}/gallery/${index}`, 'gallery', shape, [
+			[cell.id, Math.max(1, house.fromStorey), house.toStorey]
+		]);
 	});
 }
 
 /** One straight stair from the court floor to the first gallery beside the chosen side, rising
  * toward the side's end where the railing opens, as one stepped mesh part. */
 // Exact arithmetic: stair steps are whole counts.
-export function stair(context: Context, chosen: CourtSide | undefined): Part[] {
+export function stair(context: Context, chosen: CourtSide | undefined): HousePart[] {
 	if (!chosen) return [];
 	const wall = side(chosen.cell.quad, chosen.index);
-	const rise = Math.max(1, chosen.house.fromStorey) * context.space.storeyHeightM;
+	const landingStorey = Math.max(1, chosen.house.fromStorey);
+	const { space } = context;
+	const rise =
+		space.storeyHeightM === undefined
+			? readStoreyElevation(space, landingStorey) - readStoreyElevation(space, groundStorey)
+			: landingStorey * readStoreyHeight(space, groundStorey);
 	const steps = Math.ceil(rise / stairRiserM);
 	const boxes = Array.from({ length: steps }, (_, k): Box => {
 		const [x, y] = wall.at((k + 1 / 2) / steps, galleryDepthM + courtStairWidthM / 2);
@@ -145,7 +150,9 @@ export function stair(context: Context, chosen: CourtSide | undefined): Part[] {
 		};
 	});
 	const shape = boxMesh(boxes);
-	return shape ? [{ id: `${chosen.cell.id}/stair`, slot: 'stair', shape }] : [];
+	return shapeParts(`${chosen.cell.id}/stair`, 'stair', shape, [
+		[chosen.cell.id, groundStorey, landingStorey]
+	]);
 }
 
 /** Keeps the part of a convex polygon where `keep` is not negative (a half-plane for a linear
@@ -219,7 +226,7 @@ export function entranceGround(context: Pick<Context, 'space' | 'occupancy' | 'h
  * risers no higher than the stair riser, each tread a prism from the ground under the parcel (or a
  * plot plate below the lane) to its height. One mesh part in the given slot. */
 // Exact arithmetic: stair steps are whole counts.
-export function entranceSteps(context: Context, slot: string): Part[] {
+export function entranceSteps(context: Context, slot: string): HousePart[] {
 	const ground = entranceGround(context);
 	if (!ground) return [];
 	const rise = context.house.site.entranceRiseM;
@@ -230,5 +237,5 @@ export function entranceSteps(context: Context, slot: string): Part[] {
 		outline.length >= 3 ? extrusion(outline, base, lane + ((k + 1) * rise) / steps) : []
 	);
 	const shape = faceMesh(faces);
-	return shape ? [{ id: `${ground.cell.id}/steps`, slot, shape }] : [];
+	return shapeParts(`${ground.cell.id}/steps`, slot, shape, groundStoreyRuns(ground.cell.id));
 }

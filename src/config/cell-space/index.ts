@@ -23,7 +23,7 @@ export const settings = defineSettings({
 	storeyHeightM: {
 		value: 3.5,
 		unit: 'm',
-		meaning: 'Default storey height of a cell space, two storeys per 7 m coarse level',
+		meaning: 'Uniform height for standalone parcels that omit storey sizing',
 		bounds: { exclusiveMin: 0 },
 		principle: 'CITY-12'
 	},

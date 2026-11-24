@@ -50,11 +50,19 @@ const base = defineSettings({
 export const defaults = settingValues(base);
 
 const cityVolume = defineSettings({
+	levelHeightM: {
+		value: 7,
+		unit: 'm',
+		meaning: 'Coarse level spacing for standalone lattices that omit spacing',
+		bounds: { exclusiveMin: 0 },
+		principle: 'CITY-12'
+	},
 	storeysPerLevel: {
 		value: 2,
 		unit: 'storeys',
-		meaning: 'Storeys on one coarse lattice level',
-		rationale: 'Keeps the established city density and lattice defaults.'
+		meaning: 'Number of storeys per coarse level in the river-city recipe',
+		bounds: { min: 1 },
+		principle: 'CITY-12'
 	},
 	maximumColumnLevels: {
 		value: 15,

@@ -1,5 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
-import { cityAccessibility, cityGrowth, levelHeight } from '../../domain/city-volume';
+import { cityAccessibility, cityGrowth } from '../../domain/city-volume';
 import {
 	dryPlanEdges,
 	planCellSide,
@@ -143,7 +143,8 @@ export function prepareCarrier(
 		(low, { position }) => Math.min(low, position[2]),
 		Infinity
 	);
-	const datumZ = Number.isFinite(lowest) ? levelHeight * Math.floor(lowest / levelHeight) : 0;
+	const { levelHeightM } = recipe;
+	const datumZ = Number.isFinite(lowest) ? levelHeightM * Math.floor(lowest / levelHeightM) : 0;
 	return {
 		candidates,
 		plan,

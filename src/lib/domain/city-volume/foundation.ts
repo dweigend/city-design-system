@@ -1,12 +1,11 @@
 import type { Vec3 } from '../../core/geometry';
 import { cityVolumeConfig } from '../../../config/city-volume';
-import { defaultStoreyHeightM } from '../cell-space';
 
 /** Default number of fine storeys per structural level. */
 export const storeysPerLevel = cityVolumeConfig.storeysPerLevel;
 
 /** Default spacing of common upper level planes, in meters. */
-export const levelHeight = defaultStoreyHeightM * storeysPerLevel;
+export const levelHeight: number = cityVolumeConfig.levelHeightM;
 
 /** Lattice address in world meters. Ground contact marks a joint clamped to sampled terrain. */
 export type LatticePoint = Readonly<{ id: string; position: Vec3; groundContact?: true }>;

@@ -77,7 +77,8 @@ export function createSandboxWorld(
 		holdings,
 		columnSnapshot,
 		layout.datumZ,
-		([x, y]) => site.sampleGround(x, y).height
+		([x, y]) => site.sampleGround(x, y).height,
+		{ vertical: site.recipe }
 	);
 	// Exact arithmetic: ground-only movement uses no vertical offset and no upper-level centers.
 	const groundOffset = /* Exact arithmetic: zero offset places the asset on the ground. */ 0;

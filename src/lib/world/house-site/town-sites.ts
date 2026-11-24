@@ -1,6 +1,6 @@
 import type { CityColumn } from '../../domain/city-volume';
 import type { ParcelPlan } from '../../domain/parcels';
-import type { ParcelHouseSite } from './parcel';
+import type { ParcelHouseRecipe, ParcelHouseSite } from './parcel';
 
 /** Indexes the private parcels of a town for the shared house placement rule, including
  * their addressed frontage, world-meter terrain sampler and area-based scale. */
@@ -8,7 +8,8 @@ export function createTownParcelSites(
 	holdings: ParcelPlan,
 	columns: ReadonlyMap<string, CityColumn>,
 	datumZ: number,
-	groundAt: NonNullable<ParcelHouseSite['groundAt']>
+	groundAt: NonNullable<ParcelHouseSite['groundAt']>,
+	recipe?: ParcelHouseRecipe
 ) {
 	const parcels = new Map(holdings.parcels.map((parcel) => [parcel.id, parcel]));
 	const blocks = new Map(holdings.blocks.map((block) => [block.id, block]));
@@ -27,7 +28,8 @@ export function createTownParcelSites(
 			datumZ,
 			linearToleranceM: holdings.linearToleranceM,
 			groundAt,
-			scale: 'by-area'
+			scale: 'by-area',
+			recipe
 		};
 	};
 }

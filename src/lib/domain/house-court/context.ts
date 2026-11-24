@@ -1,6 +1,6 @@
 import type { Random } from '../../core/random';
 import type { CellSpace } from '../cell-space';
-import type { HouseCell, HouseCourt } from './occupancy';
+import type { HouseCell, HouseOccupancy } from './occupancy';
 import type { HouseStyle } from './styles';
 import type { AdjoiningWall } from './wall-contact';
 
@@ -11,7 +11,7 @@ export type Context = Readonly<{
 	style: HouseStyle;
 	random: Random;
 	complexity: number;
-	house: HouseCourt;
+	house: HouseOccupancy;
 	adjoiningWalls: readonly AdjoiningWall[];
 }>;
 
