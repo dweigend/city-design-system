@@ -1,3 +1,5 @@
+/** Module: Places houses on city bays and parcels. */
+
 import { readBaseLevel } from './base';
 import {
 	createCellSpace,
@@ -19,7 +21,13 @@ import {
 export type BayHouse = Readonly<{ space: CellSpace; house: HouseCourt; baseLevel: number }>;
 
 export { readBaseLevel } from './base';
-export { createParcelHouse, createParcelHouseObject, type ParcelHouseSite } from './parcel';
+export {
+	createParcelHouse,
+	createParcelHouseObject,
+	type ParcelHouseSite,
+	type PlacedParcelHouse
+} from './parcel';
+export { createTownBlockHouses } from './block-houses';
 export { createTownHouseStudy, type TownHouseBlock } from './parcel-town';
 
 /** Places a house rule on a city column. The column's plan corners (counterclockwise, keyed by

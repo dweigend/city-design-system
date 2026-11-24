@@ -5,6 +5,7 @@ import { builtAt, type Context } from './context';
 import type { CellSolid } from './fills';
 import { openingRects, openingStoreys } from './parts';
 import { defaults } from '../../../config/house-court';
+import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
 
 const { faceToleranceM } = defaults;
 
@@ -46,6 +47,30 @@ function wallFace(
 		size: [length, z1 - z0],
 		openings
 	};
+}
+
+function wallFaces(
+	ctx: Context,
+	slot: string,
+	wall: ReturnType<typeof side>,
+	bottom: number,
+	top: number,
+	openings: readonly WallRect[] = []
+): HouseFace[] {
+	return exposedWall(ctx.adjoiningWalls, wall, bottom, top).flatMap((rect) => {
+		const [u0, z0, u1, z1] = rect;
+		const cuts = openings
+			.filter((opening) => fitsOpening([rect], opening))
+			.map(([l, b, r, t]) => [l - u0, b - z0, r - u0, t - z0] as const);
+		const face = wallFace(
+			slot,
+			[wall.at(u0 / wall.length, 0), wall.at(u1 / wall.length, 0)],
+			z0,
+			z1,
+			cuts
+		);
+		return face ? [face] : [];
+	});
 }
 
 const subtract = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -98,14 +123,14 @@ export function roofFace(slot: string, ring: readonly Vec3[]): HouseFace | undef
 }
 
 /** True when a side of a solid's outline lies on a cell side hidden by another body for the whole
- * run: a built neighbour cell or a party wall (a parcel edge neither frontage nor court). */
+ * run by another built cell of the same house. */
 function hidden(ctx: Context, s: CellSolid, [a, b]: readonly [Vec2, Vec2]): boolean {
 	const mid: Vec2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-	return s.cell.sides.some(({ neighbour, frontage, court }, i) => {
+	return s.cell.sides.some(({ neighbour }, i) => {
 		const wall = side(s.cell.quad, i);
 		const offset = (mid[0] - wall.a[0]) * wall.normal[0] + (mid[1] - wall.a[1]) * wall.normal[1];
 		if (Math.abs(offset) > faceToleranceM) return false;
-		if (neighbour === null) return !frontage && !court && ctx.house.scale === 'calm';
+		if (neighbour === null) return false;
 		for (let storey = s.fromStorey; storey < s.toStorey; storey += 1)
 			if (!builtAt(ctx, neighbour, storey)) return false;
 		return true;
@@ -128,10 +153,10 @@ export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFac
 			if (!s.flat) return [];
 			const z0 = level(ctx, s.fromStorey);
 			const z1 = level(ctx, s.toStorey);
-			const walls = s.outline.map((a, i): readonly [Vec2, Vec2] => [
-				a,
-				s.outline[(i + 1) % s.outline.length]
-			]);
+			const walls = s.outline.flatMap((a, i) => {
+				const wall = side(s.outline, i);
+				return hidden(ctx, s, [a, wall.b]) ? [] : wallFaces(ctx, s.slot, wall, z0, z1);
+			});
 			const top =
 				tops.get(s.cell.id) === s && !roofed.has(s.cell.id)
 					? [
@@ -141,10 +166,7 @@ export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFac
 							)
 						]
 					: [];
-			return [
-				...walls.filter((w) => !hidden(ctx, s, w)).map((w) => wallFace(s.slot, w, z0, z1)),
-				...top
-			];
+			return [...walls, ...top];
 		})
 		.filter((face): face is HouseFace => face !== undefined);
 }
@@ -175,22 +197,13 @@ export function envelopeFaces(
 	return ctx.space.cells.flatMap((cell) => {
 		const house = ctx.occupancy.get(cell.id);
 		if (!house || house.toStorey <= house.fromStorey) return [];
-		const walls = cell.quad.flatMap((a, i) =>
-			exposedRuns(ctx, cell, i, house.fromStorey, house.toStorey).map(([from, to]) => {
-				const z0 = level(ctx, from);
+		const walls = cell.quad.flatMap((_, i) =>
+			exposedRuns(ctx, cell, i, house.fromStorey, house.toStorey).flatMap(([from, to]) => {
 				const openings = Array.from(
-					{ length: Math.min(to, openingStoreys(ctx, house)) - from },
+					{ length: Math.max(0, Math.min(to, openingStoreys(ctx, house)) - from) },
 					(_, k) => openingRects(ctx, cell, i, from + k)
-				)
-					.flat()
-					.map(([u0, zl, u1, zh]) => [u0, zl - z0, u1, zh - z0] as const);
-				return wallFace(
-					slot,
-					[a, cell.quad[(i + 1) % cell.quad.length]],
-					z0,
-					level(ctx, to),
-					openings
-				);
+				).flat();
+				return wallFaces(ctx, slot, side(cell.quad, i), level(ctx, from), level(ctx, to), openings);
 			})
 		);
 		const top = roofed.has(cell.id)

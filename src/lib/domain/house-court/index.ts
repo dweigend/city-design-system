@@ -1,3 +1,5 @@
+/** Module: Builds a house and its court from occupied storeys of a cell space. */
+
 /** What a fine cell is to the house, as a data table of roles. */
 export { cellRoles, type CellRole } from './roles';
 
@@ -25,6 +27,7 @@ export {
 
 /** A planar house face that a surface family can clad. */
 export type { HouseFace } from './faces';
+export type { AdjoiningWall } from './wall-contact';
 
 /** Style rows: occupancy tendencies, fills, roofs, openings, part kinds and slots per style. */
 export {

@@ -1,4 +1,7 @@
 /** Module: Provides metric vectors, bounds and polygon measurements. */
+
+import { defaults } from '../../../config/geometry';
+
 /** World coordinates are in meters. X and Y span the ground plane. Z is height. */
 export type Vec2 = readonly [x: number, y: number];
 
@@ -103,6 +106,22 @@ export function measurePolygon(points: readonly (Vec2 | Vec3)[]) {
 		? [ox + xMoment / (3 * twiceArea), oy + yMoment / (3 * twiceArea)]
 		: [ox, oy];
 	return { area: twiceArea / 2, centroid };
+}
+
+/** Tests convexity of a counterclockwise plan ring, allowing collinear points and arithmetic
+ * roundoff in its corner turns. A ring with no positive area is rejected. */
+// Exact arithmetic: at least three corners form a polygon.
+export function isConvexCounterclockwise(points: readonly Vec2[]): boolean {
+	if (points.length < 3) return false;
+	let positive = false;
+	for (const [i, [ax, ay]] of points.entries()) {
+		const [bx, by] = points[(i + 1) % points.length];
+		const [cx, cy] = points[(i + 2) % points.length];
+		const turn = (bx - ax) * (cy - by) - (by - ay) * (cx - bx);
+		if (turn < -defaults.convexTurnToleranceM2) return false;
+		if (turn > 0) positive = true;
+	}
+	return positive;
 }
 
 /** Returns the counterclockwise convex hull of world XY points. Collinear boundary points

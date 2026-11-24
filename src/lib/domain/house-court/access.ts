@@ -6,6 +6,7 @@ import { boxMesh, faceMesh, side, type Box } from './boxes';
 import { extrusion } from './solids';
 import type { HouseCell } from './occupancy';
 import type { Context } from './context';
+import { entranceSide } from './graph';
 
 const {
 	galleryComplexityRatio,
@@ -163,18 +164,15 @@ function clipBy(polygon: readonly Vec2[], keep: (point: Vec2) => number): Vec2[]
 	return result;
 }
 
-/** The entrance cell and its frontage side when the site's rise needs steps, else undefined. */
-export function entranceStepCell(
-	context: Pick<Context, 'space' | 'occupancy' | 'house'>
-): { cell: FineCell; index: number } | undefined {
-	const { house } = context;
+/** The entrance cell and its frontage side when the site's rise needs steps. */
+export function entranceStepCell({
+	space,
+	occupancy,
+	house
+}: Pick<Context, 'space' | 'occupancy' | 'house'>) {
 	if (house.site.entranceRiseM <= entranceStepRiseM) return undefined;
-	const id = house.entrances[0]?.[0];
-	const cell = context.space.cells.find((c) => c.id === id);
-	const index = cell?.sides.findIndex(({ frontage }) => frontage) ?? -1;
-	const role = cell ? context.occupancy.get(cell.id)?.role : undefined;
-	if (!cell || index < 0 || role === 'wing') return undefined;
-	return { cell, index };
+	const entry = entranceSide(space, house.entrances);
+	return entry && occupancy.get(entry.cell.id)?.role !== 'wing' ? entry : undefined;
 }
 
 /** The entrance cell's ground split around the steps: the step treads (front to back) and the

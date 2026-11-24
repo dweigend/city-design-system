@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { createHash } from 'node:crypto';
 import { bounds } from '../../core/object';
 import { createCellSpace, parcelEdgeId, type Parcel } from '../../domain/cell-space';
 import {
@@ -87,4 +88,12 @@ test('replays three JSON placements into identical objects', () => {
 	expect(original).toHaveLength(3);
 	expect(restored).toEqual(records);
 	expect(rebuilt).toEqual(original);
+	// Full placeable objects built from these saved addresses at e3052f71.
+	expect(
+		rebuilt.map((object) => createHash('sha256').update(JSON.stringify(object)).digest('hex'))
+	).toEqual([
+		'046f52feff90a1601e5f36ac9bd052f850531296389ba19d84fe1817d94959e2',
+		'3dcca072ea9aa436c5bc5f693ebed17f4f5ba8c9997e1b008f204e9c37c43cdb',
+		'0b42d644b097e2165c4d1b3351301ea2174d0fe2a9ecb1c0c9aa89f51cc8bcd7'
+	]);
 });

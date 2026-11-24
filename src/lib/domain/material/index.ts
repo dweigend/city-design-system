@@ -7,6 +7,7 @@ export { familyNames, readFamily, type Family, type FamilySlot } from './familie
 /** Builds one family on one patch at a drawing level within a triangle budget. */
 export {
 	buildSurface,
+	fitModuleScale,
 	surfaceLevels,
 	type SurfaceLevel,
 	type SurfaceMesh,

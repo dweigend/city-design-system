@@ -21,7 +21,7 @@ import {
 import { surfaceLight } from '../../lib/scene/stage';
 import { cityWindow } from '../../lib/world/city-site';
 import {
-	createParcelHouse,
+	createTownBlockHouses,
 	createParcelHouseObject,
 	createTownHouseStudy,
 	type TownHouseBlock
@@ -127,26 +127,17 @@ export function townSheet(
 	setup: HouseSetup,
 	styles: TownStyles = 'one'
 ) {
-	const { layout, holdings, portals, columns, parcelsByBlock, groundAt, placement, toLocal } = town;
+	const { groundAt, placement, toLocal } = town;
 	const { chosen, drawables } = town.context(scope);
 	const detail = houseDetailOf(setup.level);
-	const placed = chosen.flatMap((block, index) => {
+	const results = chosen.map((block, index) => {
 		const style = styleOf(setup, styles, index);
-		const houses = (parcelsByBlock.get(block.id) ?? []).map((parcel) => {
-			const house = createParcelHouse(
-				{
-					parcel,
-					portal: required(portals.get(parcel.portalId), 'house frontage'),
-					block,
-					columns,
-					datumZ: layout.datumZ,
-					linearToleranceM: holdings.linearToleranceM,
-					groundAt
-				},
-				setup,
-				houseStyles[style]
-			);
-			const faces = houseFaces(house.space, house.house, detail, houseStyles[style]);
+		return { style, ...createTownBlockHouses(town, block, setup, houseStyles[style]) };
+	});
+	const unbuildable = results.flatMap(({ unbuildable }) => unbuildable);
+	const placed = results.flatMap(({ style, placed }, index) => {
+		const houses = placed.map((house) => {
+			const faces = houseFaces(house.space, house.house, detail, house.style, house.adjoiningWalls);
 			return { ...house, faces, area: faces.reduce((sum, face) => sum + faceAreaM2(face), 0) };
 		});
 		const area = houses.reduce((sum, house) => sum + house.area, 0);
@@ -159,7 +150,7 @@ export function townSheet(
 	});
 	const projected = placed.map((house) =>
 		projectCladHouse(
-			createParcelHouseObject(house, detail),
+			createParcelHouseObject(house, detail, house.adjoiningWalls),
 			house.faces,
 			house.materials,
 			setup.level,
@@ -176,20 +167,32 @@ export function townSheet(
 	const triangles = projected.reduce((sum, { triangles }) => sum + triangles, 0);
 	const figures = placed
 		.map(({ space, house }) => houseFigures(space, house))
-		.reduce((sum, house) => ({
-			builtCells: sum.builtCells + house.builtCells,
-			voidCells: sum.voidCells + house.voidCells,
-			floorAreaM2: sum.floorAreaM2 + house.floorAreaM2,
-			courtAreaM2: sum.courtAreaM2 + house.courtAreaM2,
-			storeys: Math.max(sum.storeys, house.storeys),
-			cells: sum.cells + house.cells
-		}));
-	const low = Math.min(...placed.map(({ groundZ }) => groundZ));
+		.reduce(
+			(sum, house) => ({
+				builtCells: sum.builtCells + house.builtCells,
+				voidCells: sum.voidCells + house.voidCells,
+				floorAreaM2: sum.floorAreaM2 + house.floorAreaM2,
+				courtAreaM2: sum.courtAreaM2 + house.courtAreaM2,
+				storeys: Math.max(sum.storeys, house.storeys),
+				cells: sum.cells + house.cells
+			}),
+			{ builtCells: 0, voidCells: 0, floorAreaM2: 0, courtAreaM2: 0, storeys: 0, cells: 0 }
+		);
+	const ground = chosen.flatMap((block) => block.outline.map(groundAt));
+	const low = Math.min(...ground, ...placed.map(({ groundZ }) => groundZ));
 	const top = Math.max(
+		...ground,
 		...placed.map(({ space, house }) => space.baseZ + house.storeys * space.storeyHeightM)
 	);
 	const points = chosen.flatMap((block) =>
 		block.outline.flatMap(([x, y]) => [toLocal([x, y, low]), toLocal([x, y, top])])
 	);
-	return { drawables: [...drawables, ...houses], figures, points, count: placed.length, triangles };
+	return {
+		drawables: [...drawables, ...houses],
+		figures,
+		points,
+		count: placed.length,
+		triangles,
+		unbuildable
+	};
 }

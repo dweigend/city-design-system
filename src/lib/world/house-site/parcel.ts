@@ -12,12 +12,16 @@ import {
 	createHouseCourt,
 	createHouseObject,
 	houseStyles,
+	houseScale,
+	type AdjoiningWall,
 	type HouseDetail,
 	type HouseInputs,
-	type HouseStyle
+	type HouseStyle,
+	type HouseScale
 } from '../../domain/house-court';
 import type { Parcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
 import { readBaseLevel } from './base';
+import { parcelGroundRange } from './parcel-ground';
 
 const { contactToleranceM, cornerSineRatio } = defaults;
 
@@ -32,6 +36,7 @@ export type ParcelHouseSite = Readonly<{
 	datumZ: number;
 	linearToleranceM: number;
 	groundAt?: (point: Vec2) => number;
+	scale?: HouseScale | 'by-area';
 }>;
 
 type Segment = readonly [Vec2, Vec2];
@@ -111,20 +116,15 @@ function storeyPlane(datumZ: number, storeyHeightM: number, z: number): number {
 	return datumZ + Math.ceil((z - datumZ) / storeyHeightM) * storeyHeightM;
 }
 
-/** Places one house in an addressed city parcel. Its portal identifies the containing CCW
- * boundary edge. The highest member base and lowest member roof bound the shared vertical
- * space in lattice levels. With `groundAt`, the house stands instead on the first storey plane
- * (half a level) at or above the highest ground of its own parcel, so the entrance rise stays
- * below a storey and houses step with the slope; the lowest member roof still bounds it. The cell space is a strip space (`createStripSpace`) with parcel-local
- * IDs and world-meter coordinates; parcel edges on the block's public court become its court
- * edges, so the house opens onto that court instead of cutting its own. A parcel with another lane
- * edge turned from its frontage is a block corner. The entrance rise is the base above the ground
- * at the portal's middle. The house seed is the input seed derived by the parcel ID, so
- * neighbours draw differently inside one style row. Edges below cell space's minimum collapse while surviving corners keep
- * their original keys. Throws RangeError for a public holding, mismatched frontage, missing
- * members or no shared bay. */
+/** Places one seeded house in an addressed private parcel. The portal identifies its CCW
+ * frontage edge and the block's court tags identify the sides that open onto a shared court.
+ * The highest common base and lowest roof of the member bays define the vertical range.
+ * When given, `groundAt` samples the parcel footprint for the plinth and the chosen entrance
+ * midpoint for access. `scale` defaults to regular. The town requests area-based scale.
+ * A parcel that cannot take a house returns `unbuildable` with its reason, leaving the ground
+ * available as garden. Throws for a public holding, mismatched frontage or missing members. */
 export function createParcelHouse(
-	{ parcel, portal, block, columns, datumZ, linearToleranceM, groundAt }: ParcelHouseSite,
+	{ parcel, portal, block, columns, datumZ, linearToleranceM, groundAt, scale }: ParcelHouseSite,
 	inputs: HouseInputs,
 	style: HouseStyle = houseStyles.neutral
 ) {
@@ -139,7 +139,13 @@ export function createParcelHouse(
 	const bases = members.map((member) => readBaseLevel(member, datumZ));
 	const baseLevel = Math.max(...bases);
 	const roofLevel = Math.min(...members.map(({ levels }, i) => bases[i] + levels));
-	if (!(roofLevel > baseLevel)) throw new RangeError('The block has no common full bay');
+	if (!(roofLevel > baseLevel))
+		return Object.freeze({
+			status: 'unbuildable',
+			reason: 'no-common-bay',
+			parcel,
+			portal
+		} as const);
 
 	const corners = supportedCorners(parcel.outline);
 	const ring = corners.map(({ position }) => position);
@@ -152,59 +158,70 @@ export function createParcelHouse(
 	const edgeId = (i: number) => parcelEdgeId(corners[i].id, corners[(i + 1) % corners.length].id);
 	const storeyHeightM = levelHeight / storeysPerLevel;
 	const roofZ = datumZ + roofLevel * levelHeight;
-	const baseZ = groundAt
-		? storeyPlane(datumZ, storeyHeightM, Math.max(...ring.map(groundAt)))
-		: datumZ + baseLevel * levelHeight;
-	const space = createStripSpace({
+	const bayBaseZ = datumZ + baseLevel * levelHeight;
+	const bay = createStripSpace({
 		id: parcel.id,
 		corners,
 		frontage: [edgeId(edge)],
 		courtEdges: touching(ring, rings(block.publicGround.court))
 			.filter((i) => i !== edge)
 			.map(edgeId),
-		baseZ: Math.min(baseZ, roofZ - storeyHeightM),
-		storeyCount: Math.max(
-			1,
-			Math.round((roofZ - Math.min(baseZ, roofZ - storeyHeightM)) / storeyHeightM)
-		),
+		baseZ: bayBaseZ,
+		storeyCount: Math.round((roofZ - bayBaseZ) / storeyHeightM),
 		storeyHeightM
 	});
-	const groundZ = Math.min(
-		...members.flatMap(({ corners }) => corners.map(({ position }) => position[2]))
+	const terrain = groundAt
+		? parcelGroundRange(bay, parcel.outline, groundAt)
+		: {
+				low: Math.min(
+					...members.flatMap(({ corners }) => corners.map(({ position }) => position[2]))
+				),
+				high: bayBaseZ
+			};
+	const baseZ = Math.min(storeyPlane(datumZ, storeyHeightM, terrain.high), roofZ - storeyHeightM);
+	const space = groundAt
+		? Object.freeze({ ...bay, baseZ, storeyCount: Math.round((roofZ - baseZ) / storeyHeightM) })
+		: bay;
+	const house = createHouseCourt(
+		space,
+		{ ...inputs, seed: Random.create({ seed: inputs.seed }).derive(parcel.id).seed },
+		style,
+		{
+			groundAtEntrance: groundAt,
+			corner: isCorner(ring, edge, block),
+			groundZ: terrain.low,
+			scale: scale === 'by-area' ? houseScale(space) : scale
+		}
 	);
-	const [[ax, ay], [bx, by]] = portal.points;
-	const laneZ = Math.min(
-		space.baseZ,
-		groundAt ? groundAt([(ax + bx) / 2, (ay + by) / 2]) : space.baseZ
-	);
-	const lowest = Math.min(groundZ, laneZ);
-	const site = {
-		entranceRiseM: space.baseZ - laneZ,
-		corner: isCorner(ring, edge, block),
-		groundZ: lowest
-	};
+	if (house.unbuildable)
+		return Object.freeze({
+			status: 'unbuildable',
+			reason: house.unbuildable,
+			parcel,
+			portal
+		} as const);
 	return Object.freeze({
+		status: 'placed',
 		parcel,
 		portal,
 		style,
 		space,
-		house: createHouseCourt(
-			space,
-			{ ...inputs, seed: Random.create({ seed: inputs.seed }).derive(parcel.id).seed },
-			style,
-			site
-		),
+		house,
 		baseLevel,
-		groundZ: lowest,
-		laneZ
-	});
+		groundZ: house.site.groundZ ?? terrain.low,
+		laneZ: house.site.laneZ ?? space.baseZ
+	} as const);
 }
 
-/** Builds a placed house. Its ground plates reach down to the lowest ground under the block as a
- * plinth, and the entrance steps stand on that ground. */
+/** A private parcel house that fitted its frontage, ground and bay. */
+export type PlacedParcelHouse = Extract<ReturnType<typeof createParcelHouse>, { status: 'placed' }>;
+
+/** Builds a placed house. Its ground plates reach down to the lowest sampled ground under the parcel as a
+ * plinth, and the entrance steps stand on that ground. Adjoining walls suppress openings. */
 export function createParcelHouseObject(
-	{ style, space, house }: ReturnType<typeof createParcelHouse>,
-	detail: HouseDetail
+	{ style, space, house }: PlacedParcelHouse,
+	detail: HouseDetail,
+	adjoiningWalls: readonly AdjoiningWall[] = []
 ) {
-	return createHouseObject(space, house, detail, style);
+	return createHouseObject(space, house, detail, style, adjoiningWalls);
 }

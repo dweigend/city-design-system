@@ -7,6 +7,7 @@ import { pick, type CellSolid } from './fills';
 import { builtAt, type Context } from './context';
 import { bar, dome, extrusion, inradius, inset, rounded, wallFigure, type Faces } from './solids';
 import type { OpeningKind } from './styles';
+import { exposedWall, fitsOpening } from './wall-contact';
 
 const {
 	curveSegments,
@@ -41,13 +42,22 @@ function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 	const h = ctx.space.storeyHeightM;
 	const radius = Math.min(opening.sizeM, h / 3, wall.length / (count * 3));
 	const z = ctx.space.baseZ + (storey + 1 / 2) * h;
+	const visible = exposedWall(ctx.adjoiningWalls, wall, z - h / 2, z + h / 2);
 	const along: [number, number] = [Math.cos(wall.rotation), Math.sin(wall.rotation)];
 	const panes: Faces = [];
 	const collars: Faces = [];
 	for (let k = 0; k < count; k += 1) {
 		const kind = pick(ctx.random, `${s.key}/opening/${i}/${storey}`, opening.kinds);
 		if (kind === 'rect') continue;
-		const [x, y] = wall.at((k + 1 / 2) / count, -s.gapM);
+		const t = (k + 1 / 2) / count;
+		const u = t * wall.length;
+		const reach = opening.collar ? radius * collarShareRatio : radius;
+		if (
+			ctx.adjoiningWalls.length &&
+			!fitsOpening(visible, [u - reach, z - reach, u + reach, z + reach])
+		)
+			continue;
+		const [x, y] = wall.at(t, -s.gapM);
 		const at: Vec3 = [x, y, z];
 		panes.push(...wallFigure(at, along, wall.normal, radius, figureSides[kind], figureDepthM * 2));
 		if (opening.collar)

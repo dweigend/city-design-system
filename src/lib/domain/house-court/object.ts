@@ -4,6 +4,7 @@ import { cellAreaM2, cellCentre, type CellSpace } from '../cell-space';
 import { Random } from '../../core/random';
 import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
 import { faceMesh } from './boxes';
+import { entranceSide } from './graph';
 import type { Context } from './context';
 import { caps, figureOpenings, patterns, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
@@ -14,6 +15,7 @@ import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
 import type { HouseCourt } from './occupancy';
 import { edges, envelope, openings, plates } from './parts';
+import type { AdjoiningWall } from './wall-contact';
 
 /** A drawing detail of the house object: `full` carries every part of the style, `block` only the
  * closed solids as one `mass` slot. */
@@ -23,8 +25,13 @@ const unique = (slots: readonly (string | false)[]) => [
 	...new Set(slots.filter((slot): slot is string => !!slot))
 ];
 
-/** The ordered role slots a style declares at a detail, whether or not a given house uses them all. */
-export function houseSlots(style: HouseStyle, detail: HouseDetail): readonly string[] {
+/** The ordered role slots a style declares at a detail. Set `entranceSteps` to include the
+ * stair slot for a stepped entrance on a style that supports stairs without galleries. */
+export function houseSlots(
+	style: HouseStyle,
+	detail: HouseDetail,
+	entranceSteps = false
+): readonly string[] {
 	if (detail === 'block') return ['plot', 'court', 'mass'];
 	const { fill, opening, parts, slots } = style;
 	const envelopeFill = fill.kinds.includes('envelope');
@@ -48,11 +55,16 @@ export function houseSlots(style: HouseStyle, detail: HouseDetail): readonly str
 		parts.treeShareRatio > 0 && 'trunk',
 		parts.treeShareRatio > 0 && 'foliage',
 		parts.galleries && 'gallery',
-		parts.stair && 'stair'
+		parts.stair && (parts.galleries || entranceSteps) && 'stair'
 	]);
 }
 
-function context(space: CellSpace, house: HouseCourt, style: HouseStyle): Context {
+function context(
+	space: CellSpace,
+	house: HouseCourt,
+	style: HouseStyle,
+	adjoiningWalls: readonly AdjoiningWall[]
+): Context {
 	const ids = space.cells.map(({ id }) => id);
 	if (
 		space.id !== house.spaceId ||
@@ -70,7 +82,8 @@ function context(space: CellSpace, house: HouseCourt, style: HouseStyle): Contex
 		style,
 		random: Random.create({ seed: house.inputs.seed }).derive('skin'),
 		complexity: house.inputs.complexity,
-		house
+		house,
+		adjoiningWalls
 	};
 }
 
@@ -87,15 +100,6 @@ function courtDoor(ctx: Context): Anchor | undefined {
 	return { name: 'court', position: [x, y, ctx.space.baseZ], normal: [...door.normal, 0] };
 }
 
-function entrancePoint(ctx: Context, house: HouseCourt): { point: Vec2; normal: Vec2 } | undefined {
-	const [first] = house.entrances[0] ?? [];
-	const cell = ctx.space.cells.find(({ id }) => id === first);
-	const index = cell?.sides.findIndex(({ frontage }) => frontage) ?? -1;
-	if (!cell || index < 0) return undefined;
-	const wall = side(cell.quad, index);
-	return { point: wall.at(1 / 2, 0), normal: wall.normal };
-}
-
 function courtEntry(ctx: Context, house: HouseCourt): Vec2 | undefined {
 	const last = ctx.space.cells.find(({ id }) => id === house.entrances[0]?.at(-1));
 	const index =
@@ -107,15 +111,15 @@ function courtEntry(ctx: Context, house: HouseCourt): Vec2 | undefined {
 
 // Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function anchors(ctx: Context, house: HouseCourt): Anchor[] {
-	const entry = entrancePoint(ctx, house);
+	const entry = entranceSide(ctx.space, house.entrances);
 	const courtCells = ctx.space.cells.filter(({ id }) => ctx.occupancy.get(id)?.role === 'court');
 	const result: Anchor[] = [];
 	if (entry) {
-		const [x, y] = entry.point;
+		const [x, y] = entry.wall.at(1 / 2, 0);
 		result.push({
 			name: 'entrance',
 			position: [x, y, ctx.space.baseZ - (entranceStepCell(ctx) ? house.site.entranceRiseM : 0)],
-			normal: [...entry.normal, 0]
+			normal: [...entry.wall.normal, 0]
 		});
 	}
 	const door = courtDoor(ctx);
@@ -196,18 +200,19 @@ function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] 
  * and `plot`. No colours; slots name roles (MAT-1). Anchors: `entrance` on the frontage at lane
  * level, `court` at the own court's centre or at the middle of the longest built side onto a
  * shared court. Occupancy of another space (by cell identities) or another style throws
- * RangeError. */
+ * RangeError. Adjoining walls suppress openings on the covered portion of a party wall. */
 export function createHouseObject(
 	space: CellSpace,
 	house: HouseCourt,
 	detail: HouseDetail,
-	style: HouseStyle = houseStyles.neutral
+	style: HouseStyle = houseStyles.neutral,
+	adjoiningWalls: readonly AdjoiningWall[] = []
 ): PlaceableObject {
-	const used = houseStyleFor(space, style, house.inputs.seed);
-	const ctx = context(space, house, used);
+	const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
+	const ctx = context(space, house, used, adjoiningWalls);
 	return PlaceableObject.create({
 		id: `house/${space.id}`,
-		slots: houseSlots(used, detail),
+		slots: houseSlots(used, detail, entranceStepCell(ctx) !== undefined),
 		parts: allParts(ctx, house, detail),
 		footprint: footprint(space),
 		anchors: anchors(ctx, house)
@@ -225,15 +230,17 @@ export function entranceStepCellId(space: CellSpace, house: HouseCourt): string 
  * (blocks, chamfers) without the sides another body hides, their flat tops, and wedge roof planes.
  * Curved fills, domes, cones and capsules have no planar faces and stay unclad. Faces carry the
  * role slot of their part at the full detail; at the block detail every face is `mass`. Applies
- * the style row at the house's scale like `createHouseObject`. */
+ * the style row at the house's scale like `createHouseObject`. Adjoining walls remove only
+ * their occupied spans from otherwise exposed faces. */
 export function houseFaces(
 	space: CellSpace,
 	house: HouseCourt,
 	detail: HouseDetail,
-	style: HouseStyle = houseStyles.neutral
+	style: HouseStyle = houseStyles.neutral,
+	adjoiningWalls: readonly AdjoiningWall[] = []
 ): readonly HouseFace[] {
-	const used = houseStyleFor(space, style, house.inputs.seed);
-	const ctx = context(space, house, used);
+	const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
+	const ctx = context(space, house, used, adjoiningWalls);
 	const solids = cellSolids(ctx);
 	const faces = [
 		...(used.fill.kinds.includes('envelope') ? envelopeFaces(ctx, 'wall', solids) : []),

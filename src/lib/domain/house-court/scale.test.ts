@@ -29,7 +29,9 @@ test('a town plot is calm, a hall large, and a calm house draws few colours', ()
 	expect(houseScale(plot(30, 25))).toBe('regular');
 	expect(houseScale(plot(80, 60))).toBe('large');
 	const space = plot(18, 12);
-	const style = houseStyleFor(space, houseStyles.memphis, 7);
+	expect(createHouseCourt(space, { seed: 7 }, houseStyles.memphis).scale).toBe('regular');
+	expect(houseStyleFor(space, houseStyles.memphis, 7)).toBe(houseStyles.memphis);
+	const style = houseStyleFor(space, houseStyles.memphis, 7, houseScale(space));
 	expect(style.fill.kinds).toHaveLength(1);
 	expect(style.roof.kinds).toHaveLength(1);
 	expect(style.slots.body.length).toBeLessThanOrEqual(
@@ -40,7 +42,12 @@ test('a town plot is calm, a hall large, and a calm house draws few colours', ()
 test('frontage cells of a calm house share one eaves line', () => {
 	for (let seed = 0; seed < 8; seed += 1) {
 		const space = plot(26, 12);
-		const house = createHouseCourt(space, { height: 14, complexity: 1, seed }, houseStyles.memphis);
+		const house = createHouseCourt(
+			space,
+			{ height: 14, complexity: 1, seed },
+			houseStyles.memphis,
+			{ scale: 'calm' }
+		);
 		const front = space.cells.filter(({ sides }) => sides.some(({ frontage }) => frontage));
 		const heights = new Set(
 			front.map(({ id }) => house.cells.find((cell) => cell.id === id)?.toStorey)

@@ -6,6 +6,7 @@ import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
 import { shellFaces, shells } from './shells';
 import { entranceGround } from './access';
+import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
 
 const {
 	floorEdgeOutsetM,
@@ -122,25 +123,34 @@ export function edges(context: Context): Part[] {
 	];
 }
 
-/** Window openings of one wall storey as [u0, z0, u1, z1]: meters along the side from its first
- * corner and world heights. */
+function openingRun(context: Context, length: number, storey: number) {
+	const scale = context.house.scale === 'large' ? largeOpeningScaleRatio : 1;
+	const count = Math.floor(length / (windowPitchM * scale));
+	const ground = storey === 0;
+	const sill = ground ? 0 : windowSillM * scale;
+	const nominalHeight = (ground ? groundOpeningHeightM : windowHeightM) * scale;
+	const nominalWidth = windowWidthM * scale;
+	const height = Math.min(nominalHeight, context.space.storeyHeightM - sill);
+	const width = count === 0 ? nominalWidth : Math.min(nominalWidth, length / count);
+	return { count: height > 0 ? count : 0, width, height, z: level(context, storey) + sill };
+}
+
+function openingRect(u: number, { width, height, z }: ReturnType<typeof openingRun>): WallRect {
+	return [u - width / 2, z, u + width / 2, z + height];
+}
+
+/** Window openings of one wall storey in side meters and world heights. */
 export function openingRects(
 	context: Context,
 	cell: FineCell,
 	i: number,
 	storey: number
-): (readonly [number, number, number, number])[] {
-	const scale = context.house.scale === 'large' ? largeOpeningScaleRatio : 1;
+): WallRect[] {
 	const wall = side(cell.quad, i);
-	const count = Math.floor(wall.length / (windowPitchM * scale));
-	const ground = storey === 0;
-	const height = (ground ? groundOpeningHeightM : windowHeightM) * scale;
-	const z = level(context, storey) + (ground ? 0 : windowSillM * scale);
-	const width = windowWidthM * scale;
-	return Array.from({ length: count }, (_, k) => {
-		const u = ((k + 0.5) / count) * wall.length;
-		return [u - width / 2, z, u + width / 2, z + height] as const;
-	});
+	const run = openingRun(context, wall.length, storey);
+	return Array.from({ length: run.count }, (_, k) =>
+		openingRect(((k + 0.5) / run.count) * wall.length, run)
+	);
 }
 
 /** The storeys of a built run that carry window openings: all, or the ground storey of a large
@@ -154,13 +164,25 @@ export function openingStoreys(context: Context, house: HouseCell): number {
 
 function openingsOnSide(context: Context, cell: FineCell, i: number, storey: number): Box[] {
 	const wall = side(cell.quad, i);
-	return openingRects(context, cell, i, storey).map(([u0, z0, u1, z1]) => {
-		const [x, y] = wall.at((u0 + u1) / 2 / wall.length, 0);
-		return {
-			center: [x, y, (z0 + z1) / 2],
-			size: [u1 - u0, openingDepthM, z1 - z0],
-			rotation: wall.rotation
-		};
+	const run = openingRun(context, wall.length, storey);
+	const base = level(context, storey);
+	const visible = exposedWall(
+		context.adjoiningWalls,
+		wall,
+		base,
+		base + context.space.storeyHeightM
+	);
+	return Array.from({ length: run.count }, (_, k) => (k + 0.5) / run.count).flatMap((t) => {
+		if (context.adjoiningWalls.length && !fitsOpening(visible, openingRect(t * wall.length, run)))
+			return [];
+		const [x, y] = wall.at(t, 0);
+		return [
+			{
+				center: [x, y, run.z + run.height / 2],
+				size: [run.width, openingDepthM, run.height],
+				rotation: wall.rotation
+			}
+		];
 	});
 }
 

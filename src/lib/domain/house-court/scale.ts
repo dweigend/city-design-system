@@ -39,8 +39,12 @@ function draw<T>(random: Random, key: string, list: readonly T[], count: number)
  * fill and roof kinds and one roof colour. Regular houses use the row unchanged. Deterministic in
  * the seed. */
 // Exact arithmetic: one kind per calm house.
-export function houseStyleFor(space: CellSpace, style: HouseStyle, seed: number): HouseStyle {
-	const scale = houseScale(space);
+export function houseStyleFor(
+	space: CellSpace,
+	style: HouseStyle,
+	seed: number,
+	scale: HouseScale = 'regular'
+): HouseStyle {
 	if (scale === 'regular') return style;
 	const random = Random.create({ seed }).derive('calm');
 	if (scale === 'large')

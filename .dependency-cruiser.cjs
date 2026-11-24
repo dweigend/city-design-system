@@ -5,6 +5,7 @@ const layers = {
 	domain: ['domain', 'core']
 };
 const configOwners = {
+	'lib/core/geometry': 'geometry',
 	'lib/core/params': 'inputs',
 	'lib/core/object': 'object',
 	'lib/core/mesh': 'mesh',

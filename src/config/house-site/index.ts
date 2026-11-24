@@ -10,6 +10,20 @@ export const settings = defineSettings({
 		bounds: { exclusiveMin: 0 },
 		rationale: 'Parcel and court rings share edges to about 1e-7 m; a millimetre is far above that.'
 	},
+	groundSampleSpacingM: {
+		value: 4,
+		unit: 'm',
+		meaning: 'Maximum sample spacing along the edges of a terrain-contact triangle',
+		bounds: { exclusiveMin: 0 },
+		rationale: 'Samples inside each parcel cell as well as its boundary to seat bases on relief.'
+	},
+	groundToleranceM: {
+		value: 0.15,
+		unit: 'm',
+		meaning: 'Allowed vertical difference between house access or a foundation and sampled terrain',
+		bounds: { min: 0 },
+		rationale: 'At most one kerb height before a vertical gap needs a modeled connection.'
+	},
 	cornerSineRatio: {
 		value: 0.26,
 		unit: 'ratio',

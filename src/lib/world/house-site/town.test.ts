@@ -85,7 +85,7 @@ function sample(): { block: ParcelBlock; parcel: Parcel }[] {
 const parcels = sample();
 
 function place(block: ParcelBlock, parcel: Parcel, style: HouseStyle, ground = groundAt) {
-	return createParcelHouse(
+	const placed = createParcelHouse(
 		{
 			parcel,
 			portal: required(portals.get(parcel.portalId), 'portal'),
@@ -93,11 +93,14 @@ function place(block: ParcelBlock, parcel: Parcel, style: HouseStyle, ground = g
 			columns,
 			datumZ: layout.datumZ,
 			linearToleranceM: holdings.linearToleranceM,
-			groundAt: ground
+			groundAt: ground,
+			scale: 'by-area'
 		},
 		inputs,
 		style
 	);
+	if (placed.status === 'unbuildable') throw Error(placed.reason);
+	return placed;
 }
 
 describe('houses on the parcels of the default town', () => {
@@ -195,11 +198,13 @@ describe('ground contact on relief 0 and 0.5', () => {
 							columns: town.columns,
 							datumZ: town.layout.datumZ,
 							linearToleranceM: town.holdings.linearToleranceM,
-							groundAt: town.groundAt
+							groundAt: town.groundAt,
+							scale: 'by-area'
 						},
 						inputs,
 						houseStyles.memphis
 					);
+					if (placed.status === 'unbuildable') throw Error(placed.reason);
 					const object = createParcelHouseObject(placed, 'full');
 					const ground = Math.min(
 						...parcel.outline.map((point) => town.groundAt(point)),

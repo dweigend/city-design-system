@@ -2,6 +2,7 @@ import { materialSettings } from '../../../config/material';
 import {
 	crossProduct,
 	dotProduct,
+	isConvexCounterclockwise,
 	length,
 	sum,
 	scaled,
@@ -62,21 +63,11 @@ export function readFrame(patch: Patch): Frame {
 		[size[0], size[1]],
 		[0, size[1]]
 	];
-	if (!isConvex(outline))
+	if (!isConvexCounterclockwise(outline))
 		throw new RangeError('Patch outline must be convex and counter-clockwise');
 	const point = (u: number, v: number, w: number): Vec3 =>
 		sum(sum(origin, scaled(across, u)), sum(scaled(up, v), scaled(normal, w)));
 	return { patch, up, outline, point };
-}
-
-// Exact arithmetic: a polygon needs three corners.
-function isConvex(polygon: readonly Vec2[]) {
-	if (polygon.length < 3) return false;
-	return polygon.every((a, i) => {
-		const b = polygon[(i + 1) % polygon.length];
-		const c = polygon[(i + 2) % polygon.length];
-		return (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) >= -planeToleranceM;
-	});
 }
 
 /** Area of the outline minus the openings in square meters. */

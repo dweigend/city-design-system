@@ -1,5 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
-import { defaults } from '../../../config/cell-space';
+import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
 
 /** A convex or simple plan ring, counterclockwise. `keys` name its points symbolically, so two rings
  * that share a side name it alike without comparing coordinates. `edges[i]` is the parcel edge
@@ -120,17 +119,6 @@ export function cornerQuads(ring: KeyedRing, first: boolean): readonly KeyedRing
 	});
 }
 
-/** True when no corner turns inward by more than the strip concave sine. */
-function nearlyConvex(points: readonly Vec2[]): boolean {
-	return points.every((point, i) => {
-		const a = points[(i + points.length - 1) % points.length];
-		const c = points[(i + 1) % points.length];
-		const lengths =
-			Math.hypot(point[0] - a[0], point[1] - a[1]) * Math.hypot(c[0] - point[0], c[1] - point[1]);
-		return turn(a, point, c) >= -defaults.stripConcaveSineRatio * lengths;
-	});
-}
-
 /** Joins two rings that share the side from key `from` to `to` in `a` (and `to` to `from` in
  * `b`) into one ring, keeping keys, points and edges. */
 function join(a: KeyedRing, b: KeyedRing, at: number): KeyedRing {
@@ -152,8 +140,7 @@ function join(a: KeyedRing, b: KeyedRing, at: number): KeyedRing {
 }
 
 /** Convex parts of a counterclockwise ring with few pieces: the ear triangles of `convexParts`,
- * merged across shared diagonals while the union stays convex within the strip concave sine
- * (Hertel–Mehlhorn), in ear order. */
+ * merged across shared diagonals while the union stays convex (Hertel–Mehlhorn), in ear order. */
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
 	const parts = [...convexParts(ring)];
@@ -169,7 +156,7 @@ export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
 				});
 				if (at < 0) continue;
 				const union = join(a, parts[q], at);
-				if (!nearlyConvex(union.points)) continue;
+				if (!isConvexCounterclockwise(union.points)) continue;
 				parts[p] = union;
 				parts.splice(q, 1);
 				merged = true;

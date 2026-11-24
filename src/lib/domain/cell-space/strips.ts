@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/geometry';
+import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
 import { defaults } from '../../../config/cell-space';
 import { doubleArea, type KeyedRing } from './split';
 import type { Parcel } from './types';
@@ -9,7 +9,9 @@ const {
 	stripMaximumCells,
 	stripMinimumWidthM,
 	stripStraightSineRatio,
-	stripConcaveSineRatio
+	stripSnapRetries,
+	stripAreaToleranceRatio,
+	stripAreaToleranceM2
 } = defaults;
 
 /** Strip counts of a parcel: columns along the frontage and depth rows. */
@@ -69,7 +71,8 @@ const chainLength = (f: Frame, c: Chain) =>
 function frame(parcel: Parcel, edge: (from: number) => string): Frame | undefined {
 	const n = parcel.corners.length;
 	const points = parcel.corners.map(({ position }) => position);
-	const start = parcel.corners.findIndex((_, i) => parcel.frontage.includes(edge(i)));
+	const primary = parcel.frontage.toSorted()[0];
+	const start = parcel.corners.findIndex((_, i) => edge(i) === primary);
 	if (start < 0) return undefined;
 	const at = (k: number) => (start + k + n) % n;
 	const straight = (k: number) => Math.abs(turnSine(points, at(k))) < stripStraightSineRatio;
@@ -260,10 +263,13 @@ function accepted(cells: readonly KeyedRing[], parcelArea: number): boolean {
 		({ points }) =>
 			points.length >= 3 &&
 			cellWidth(points) >= stripMinimumWidthM &&
-			points.every((_, k) => turnSine(points, k) >= -stripConcaveSineRatio)
+			isConvexCounterclockwise(points)
 	);
 	const total = cells.reduce((sum, { points }) => sum + doubleArea(points) / 2, 0);
-	return ok && Math.abs(total - parcelArea) <= 1e-9 * parcelArea + 1e-9;
+	return (
+		ok &&
+		Math.abs(total - parcelArea) <= stripAreaToleranceRatio * parcelArea + stripAreaToleranceM2
+	);
 }
 
 /** Columns from the frontage length and rows from the mean side depth, each a whole number of
@@ -285,23 +291,20 @@ export function stripCounts(front: number, depth: number): StripCounts {
 	return { columns, rows };
 }
 
-/** Subsets of the inner rear corners (rear chain indices), most corners first, then lowest
- * indices first: the snapping choices tried for one count. */
-// Exact arithmetic: bit masks over the inner rear corners.
-function snapChoices(f: Frame): ReadonlySet<number>[] {
+/** Snap all rear corners first, then try dropping one corner at a time, then use even columns.
+ * The number of single-corner retries is bounded even on long rear chains. */
+function* snapChoices(f: Frame): Iterable<ReadonlySet<number>> {
 	const inner = f.rear.corners.slice(1, -1).map((_, i) => i + 1);
-	const subsets = Array.from({ length: 2 ** inner.length }, (_, mask) =>
-		inner.filter((_, bit) => mask & (2 ** bit))
-	);
-	return subsets
-		.sort((a, b) => b.length - a.length || a.join().localeCompare(b.join()))
-		.map((subset) => new Set(subset));
+	if (inner.length) yield new Set(inner);
+	if (inner.length > 1 && stripSnapRetries > 0)
+		for (const dropped of inner.slice(-stripSnapRetries).reverse())
+			yield new Set(inner.filter((corner) => corner !== dropped));
+	yield new Set();
 }
 
 /** Strip cells of a parcel as keyed rings, or undefined when no count down to one cell keeps
- * every cell convex within the concave sine, at least the minimum width and the parcel's area.
- * Each count tries the rear-corner snapping choices, most snapped corners first; an unsnapped
- * rear corner stays inside its rear cell. */
+ * every cell convex, at least the minimum width and the parcel's area. Unsnapped corners remain
+ * in their rear cells. */
 // Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function stripRings(parcel: Parcel, id: string, edge: (from: number) => string) {
 	const f = frame(parcel, edge);
@@ -309,10 +312,9 @@ export function stripRings(parcel: Parcel, id: string, edge: (from: number) => s
 	const parcelArea = doubleArea(f.points) / 2;
 	const front = span(f.points[f.front.corners[0]], f.points[f.front.corners[1]]);
 	const depth = (chainLength(f, f.left) + chainLength(f, f.right)) / 2;
-	const choices = snapChoices(f);
 	let { columns, rows } = stripCounts(front, depth);
 	for (;;) {
-		for (const snap of choices) {
+		for (const snap of snapChoices(f)) {
 			const grid = columnBreaks(f, id, columns, rows, snap);
 			const cells = Array.from({ length: rows }, (_, j) =>
 				Array.from({ length: grid.breaks.length - 1 }, (_, i) => cellRing(f, grid, id, i, j))

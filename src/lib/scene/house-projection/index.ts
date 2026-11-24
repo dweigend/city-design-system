@@ -1,3 +1,5 @@
+/** Module: Projects house objects and their cladding into the shared stage. */
+
 import type { PlaceableObject } from '../../core/object';
 import { defaults } from '../../../config/house-projection';
 import type { DisplayLevel } from '../focus';

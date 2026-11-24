@@ -96,6 +96,15 @@
 		...(townResult
 			? [
 					{ label: 'Houses', value: String(townResult.count), unit: '' },
+					...(townResult.unbuildable.length
+						? [
+								{
+									label: 'Unbuildable parcels',
+									value: String(townResult.unbuildable.length),
+									unit: ''
+								}
+							]
+						: []),
 					{ label: 'Cladding', value: format.format(townResult.triangles), unit: 'triangles' }
 				]
 			: []),
@@ -154,12 +163,19 @@
 	</div>
 
 	<div class="stack">
-		<p>
-			The parcel is split by the grid rule: one quad per corner through the centre and the edge
-			midpoints, once more inside each quad, and storeys of 3.5 m. The house claims cells from the
-			alley inward. The innermost ring stays open as the court, and a gate opens the shortest way to
-			it.
-		</p>
+		{#if townResult}
+			<p>
+				The Town view follows each frontage into the parcel in strips. Doors and steps meet the
+				lane, and the wings around a perimeter block share its public court.
+			</p>
+		{:else}
+			<p>
+				The parcel is split by the grid rule: one quad per corner through the centre and the edge
+				midpoints, once more inside each quad, and storeys of 3.5 m. The house claims cells from the
+				alley inward. The innermost ring stays open as the court, and a gate opens the shortest way
+				to it.
+			</p>
+		{/if}
 		<p>
 			A style is a row of parameters over the same cells. Memphis stacks bold primitive solids in
 			flat colour. Archigram raises a grey frame on the cell edges and plugs capsules and services

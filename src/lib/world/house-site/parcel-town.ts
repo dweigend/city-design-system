@@ -14,7 +14,7 @@ import {
 export type TownHouseBlock = 'block' | 'neighbour' | 'merged';
 
 /** Reads three buildable examples from the default parcel plan on a valley of the given relief
- * (default: the valley default). Selects the nearest perimeter block with a reserved public court
+ * (default: the valley default). Selects the nearest perimeter block with a reserved public court and an eligible neighbour
  * and the nearest single-parcel merged hall to the first selected bridge landing, and the perimeter
  * block nearest the first that shares a lane with it. Returns their permanent addresses, the city
  * context and `groundAt`, the sampled ground elevation at a plan point. */
@@ -42,22 +42,29 @@ export function createTownHouseStudy(settings: Readonly<{ relief?: number }> = {
 		.sort((a, b) => a.distance - b.distance);
 	const find = (predicate: (block: ParcelBlock) => boolean) =>
 		required(ordered.find(({ block }) => predicate(block))?.block, 'town house block');
-	const block = find(
-		({ id, plannedKind, courtFit }) =>
-			plannedKind === 'block' && courtFit === 'fit' && Boolean(parcelsByBlock.get(id)?.length)
+	const perimeter = ordered.filter(
+		({ block: { id, plannedKind } }) =>
+			plannedKind === 'block' &&
+			Boolean(parcelsByBlock.get(id)?.some(({ publicUse }) => !publicUse))
 	);
+	const pair = perimeter
+		.filter(({ block }) => block.courtFit === 'fit')
+		.find(({ block }) =>
+			perimeter.some(
+				({ block: candidate }) =>
+					candidate !== block && candidate.laneIds.some((lane) => block.laneIds.includes(lane))
+			)
+		);
+	const block = required(pair?.block, 'perimeter block with a neighbouring town block');
 	const lanes = new Set(block.laneIds);
 	const centre = required(measurePolygon(block.outline).centroid, 'town block centre');
 	const neighbour = required(
-		holdings.blocks
+		perimeter
 			.filter(
-				({ id, plannedKind, laneIds }) =>
-					id !== block.id &&
-					plannedKind === 'block' &&
-					laneIds.some((lane) => lanes.has(lane)) &&
-					Boolean(parcelsByBlock.get(id)?.length)
+				({ block: candidate }) =>
+					candidate !== block && candidate.laneIds.some((lane) => lanes.has(lane))
 			)
-			.map((candidate) => ({
+			.map(({ block: candidate }) => ({
 				candidate,
 				distance: distance(measurePolygon(candidate.outline).centroid ?? target, centre)
 			}))

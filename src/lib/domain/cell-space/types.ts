@@ -19,7 +19,7 @@ export type Parcel = Readonly<{
 	storeyHeightM?: number;
 }>;
 
-/** One fine plan cell: a counterclockwise quad in meters and, per side i (corner i to i + 1), what
+/** One fine plan cell: a convex counterclockwise polygon in meters and, per side i (corner i to i + 1), what
  * lies across it. `corner` is the parcel corner key of the corner quad it was refined from, `ear`
  * the JSON corner keys of its ear triangle (null for a convex parcel), `parent` that quad's ID. */
 export type FineCell = Readonly<{
@@ -35,6 +35,7 @@ export type FineCell = Readonly<{
  * that delivers this shape (a free parcel, a city bay, a later parcel package) can feed a rule. */
 export type CellSpace = Readonly<{
 	id: string;
+	kind?: 'strip';
 	baseZ: number;
 	storeyHeightM: number;
 	storeyCount: number;

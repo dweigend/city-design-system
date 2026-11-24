@@ -1,5 +1,6 @@
 import type { Vec2 } from '../../core/geometry';
 import { cellCentre, type CellSpace, type FineCell } from '../cell-space';
+import { side } from './boxes';
 
 /** Breadth-first hop counts from the seed cells across shared sides, in cell order. */
 // Exact arithmetic: structural counts, origins and unit axes, not tunables.
@@ -62,4 +63,13 @@ export function frontageCentre(segments: readonly (readonly [Vec2, Vec2])[]): Ve
 		[0, 0]
 	);
 	return [x / segments.length, y / segments.length];
+}
+
+/** The first entrance path's cell, frontage and wall in space meters. */
+export function entranceSide(space: CellSpace, entrances: readonly (readonly string[])[]) {
+	const id = entrances[0]?.[0];
+	const cell = space.cells.find((candidate) => candidate.id === id);
+	const index = cell?.sides.findIndex(({ frontage }) => frontage) ?? -1;
+	if (!cell || index < 0) return undefined;
+	return { cell, index, wall: side(cell.quad, index) };
 }

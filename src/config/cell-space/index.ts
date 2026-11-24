@@ -70,14 +70,26 @@ export const settings = defineSettings({
 		principle: 'GRID-1',
 		rationale: 'Parcel cuts leave nearly straight corners on long sides; they must not end a side.'
 	},
-	stripConcaveSineRatio: {
-		value: 0.035,
+	stripSnapRetries: {
+		value: 8,
+		unit: 'count',
+		meaning: 'Maximum single-corner omissions tried for each strip grid',
+		bounds: { min: 0 },
+		rationale: 'Most rear chains have only a few corners. Longer ones also try no snapping.'
+	},
+	stripAreaToleranceRatio: {
+		value: 1e-9,
 		unit: 'ratio',
-		meaning: 'Sine of the largest inward turn a strip cell may keep at a corner (about 2°)',
-		bounds: { min: 0, max: 1 },
-		principle: 'GRID-1',
-		rationale:
-			'Nearly straight parcel corners on a cell side stay; a real re-entrant corner does not.'
+		meaning: 'Relative area discrepancy allowed between the strip cells and their parcel',
+		bounds: { exclusiveMin: 0 },
+		rationale: 'Accounts for rounding as strip intersections are computed in world meters.'
+	},
+	stripAreaToleranceM2: {
+		value: 1e-9,
+		unit: 'm²',
+		meaning: 'Absolute area discrepancy allowed in addition to the relative tolerance',
+		bounds: { exclusiveMin: 0 },
+		rationale: 'Keeps the coverage check stable on small parcels.'
 	},
 	minimumEdgeM: {
 		value: 0.01,

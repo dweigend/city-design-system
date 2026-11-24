@@ -68,6 +68,7 @@ test('each Town parcel takes an addressed house, including merged halls with sub
 				{ seed: 3 },
 				houseStyles.memphis
 			);
+			if (placed.status === 'unbuildable') throw Error(placed.reason);
 			const { space, house, baseLevel } = placed;
 			expect(space.id).toBe(parcel.id);
 			expect(house.styleId).toBe(houseStyles.memphis.id);

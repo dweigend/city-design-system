@@ -1,3 +1,5 @@
+/** Module: Splits metric parcels into addressed fine cells. */
+
 import type { Vec2 } from '../../core/geometry';
 import { defaults } from '../../../config/cell-space';
 import { resolveSides } from './sides';
@@ -85,11 +87,13 @@ function freeze(
 	parcel: Parcel,
 	rings: readonly KeyedRing[],
 	parents: readonly string[],
-	corners: readonly string[]
+	corners: readonly string[],
+	kind?: CellSpace['kind']
 ): CellSpace {
 	const sides = resolveSides(rings, new Set(parcel.frontage), new Set(parcel.courtEdges ?? []));
 	return Object.freeze({
 		id: parcel.id,
+		...(kind ? { kind } : {}),
 		baseZ: parcel.baseZ,
 		storeyHeightM: parcel.storeyHeightM ?? defaults.storeyHeightM,
 		storeyCount: parcel.storeyCount,
@@ -109,7 +113,7 @@ function freeze(
 }
 
 /** Splits a parcel into strip cells that follow its frontage (GRID-1 for town parcels): columns
- * across the first frontage edge and depth rows parallel to it, laid as a Coons patch over the
+ * across the lowest keyed frontage edge and depth rows parallel to it, laid as a Coons patch over the
  * four parcel sides (front, the edge after it, the rear chain, the edge before it). Counts come
  * from the frontage length and mean side depth over the target cell edge, between the minimum and
  * maximum cell count; columns break at rear corners so rear sides follow the parcel. A count that
@@ -132,7 +136,8 @@ export function createStripSpace(parcel: Parcel): CellSpace {
 		parcel,
 		rings,
 		rings.map(({ corner }) => corner),
-		rings.map(() => '')
+		rings.map(() => ''),
+		'strip'
 	);
 }
 

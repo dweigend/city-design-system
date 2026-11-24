@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { Vec2 } from '../../core/geometry';
+import { isConvexCounterclockwise, type Vec2 } from '../../core/geometry';
 import {
 	cellAreaM2,
 	createStripSpace,
@@ -109,4 +109,42 @@ test('a notched parcel is split into convex parts with seams, covering its area'
 	);
 	expect(area(notched)).toBeCloseTo(shoelace(notchedRing), 9);
 	expect(notched.cells.length).toBeGreaterThan(1);
+});
+
+test('a shallow rear notch splits into convex cells suitable for cladding', () => {
+	const ring: Vec2[] = [
+		[0, 0],
+		[6, 0],
+		[6, 16],
+		[3, 15.96],
+		[0, 16]
+	];
+	const space = createStripSpace(parcel(ring));
+	expect(area(space)).toBeCloseTo(shoelace(ring), 9);
+	for (const { quad } of space.cells) expect(isConvexCounterclockwise(quad)).toBe(true);
+});
+
+test('a 40 m frontage and 38 rear corners take bounded snapping choices', () => {
+	const rear = Array.from({ length: 38 }, (_, i): Vec2 => {
+		const x = 40 * (1 - i / 37);
+		return [x, 16 + (x * (40 - x)) / 400];
+	});
+	const ring: Vec2[] = [[0, 0], [40, 0], ...rear];
+	const space = createStripSpace(parcel(ring));
+	expect(area(space)).toBeCloseTo(shoelace(ring), 9);
+	for (const { quad } of space.cells) expect(isConvexCounterclockwise(quad)).toBe(true);
+});
+
+test('two adjacent frontage edges give the same strip addresses after rotating the ring', () => {
+	const shape = {
+		...parcel([
+			[0, 0],
+			[30, 0],
+			[30, 10],
+			[0, 10]
+		]),
+		frontage: [parcelEdgeId('c0', 'c1'), parcelEdgeId('c1', 'c2')]
+	};
+	const corners = [...shape.corners.slice(1), shape.corners[0]];
+	expect(createStripSpace({ ...shape, corners })).toEqual(createStripSpace(shape));
 });
