@@ -1,26 +1,26 @@
 {
-	"schemaVersion": 1,
-	"gitRevision": "1c4967ba17545cbee59e8744e0d275040b7bff6e",
+	"schemaVersion": 2,
+	"gitRevision": "a0d34a0ad5c38637ed5deb63f1fc514e1afba14f",
 	"dirty": false,
-	"startedAt": "2026-11-24T14:48:25.135Z",
+	"startedAt": "2026-11-24T15:33:41.181Z",
 	"bun": "1.4.4",
 	"hostBefore": {
-		"loadAverage": [1.3, 1.37, 1.15],
-		"memAvailableMiB": 5996.72,
+		"loadAverage": [2.27, 2, 1.82],
+		"memAvailableMiB": 5777.07,
 		"swapTotalMiB": 8192,
-		"swapFreeMiB": 0.14,
+		"swapFreeMiB": 0,
 		"gpuBusyPercent": "0",
 		"gpuClocks": "0: 400Mhz \n1: 600Mhz *\n2: 2200Mhz",
-		"gpuTemperatureC": 61
+		"gpuTemperatureC": 63
 	},
 	"hostAfter": {
-		"loadAverage": [3.04, 2.04, 1.42],
-		"memAvailableMiB": 5440.68,
+		"loadAverage": [1.48, 1.85, 1.79],
+		"memAvailableMiB": 5201.22,
 		"swapTotalMiB": 8192,
-		"swapFreeMiB": 0.71,
+		"swapFreeMiB": 0.34,
 		"gpuBusyPercent": "0",
 		"gpuClocks": "0: 400Mhz \n1: 600Mhz *\n2: 2200Mhz",
-		"gpuTemperatureC": 62
+		"gpuTemperatureC": 63
 	},
 	"pipeline": {
 		"town": {
@@ -35,17 +35,17 @@
 				"style": "neutral"
 			},
 			"stages": {
-				"seed": { "ms": 0.09, "heapMiB": 6.34, "rssMiB": 61.71 },
-				"terrain": { "ms": 55.62, "heapMiB": 8.41, "rssMiB": 80.46 },
-				"plan": { "ms": 1647.31, "heapMiB": 60.71, "rssMiB": 205.44 },
-				"parcels": { "ms": 131.75, "heapMiB": 55.42, "rssMiB": 235.19 },
-				"houses": { "ms": 2162.5, "heapMiB": 121.76, "rssMiB": 343.39 },
-				"movement": { "ms": 154.58, "heapMiB": 121.76, "rssMiB": 355.83 },
-				"groundDrawables": { "ms": 654.45, "heapMiB": 179.99, "rssMiB": 468.24 },
-				"salience": { "ms": 21.83, "heapMiB": 179.99, "rssMiB": 468.74 },
-				"plain": { "ms": 3174.68, "heapMiB": 188.15, "rssMiB": 497.51 },
-				"salient": { "ms": 3582.79, "heapMiB": 202.47, "rssMiB": 520.73 },
-				"lattice": { "ms": 29.48, "heapMiB": 202.47, "rssMiB": 523.48 }
+				"seed": { "ms": 0.08, "heapMiB": 6.35, "rssMiB": 63.55 },
+				"terrain": { "ms": 53.87, "heapMiB": 8.43, "rssMiB": 82.85 },
+				"plan": { "ms": 1659.73, "heapMiB": 62.51, "rssMiB": 213.21 },
+				"parcels": { "ms": 135.64, "heapMiB": 56.71, "rssMiB": 241.21 },
+				"houses": { "ms": 2213.62, "heapMiB": 122.1, "rssMiB": 343.75 },
+				"movement": { "ms": 152.45, "heapMiB": 122.1, "rssMiB": 356.39 },
+				"groundDrawables": { "ms": 655.4, "heapMiB": 179.08, "rssMiB": 468.09 },
+				"salience": { "ms": 24.16, "heapMiB": 179.08, "rssMiB": 468.09 },
+				"plain": { "ms": 3106.4, "heapMiB": 186.46, "rssMiB": 497.1 },
+				"salient": { "ms": 3544.35, "heapMiB": 199.7, "rssMiB": 515.96 },
+				"lattice": { "ms": 30.91, "heapMiB": 199.7, "rssMiB": 517.71 }
 			},
 			"counts": {
 				"cells": 368,
@@ -62,8 +62,8 @@
 				"salient": 6036,
 				"detailedHouses": 48
 			},
-			"totalMs": 11615.08,
-			"peakRssMiB": 523.48
+			"totalMs": 11580.28,
+			"peakRssMiB": 517.71
 		},
 		"largest": {
 			"sizeM": 7000,
@@ -77,17 +77,17 @@
 				"style": "neutral"
 			},
 			"stages": {
-				"seed": { "ms": 0.1, "heapMiB": 6.33, "rssMiB": 61.55 },
-				"terrain": { "ms": 54.43, "heapMiB": 8.41, "rssMiB": 81.55 },
-				"plan": { "ms": 1621.54, "heapMiB": 64.38, "rssMiB": 214.96 },
-				"parcels": { "ms": 1234.65, "heapMiB": 161.46, "rssMiB": 397.66 },
-				"houses": { "ms": 1370.2, "heapMiB": 227.3, "rssMiB": 575.43 },
-				"movement": { "ms": 11446.24, "heapMiB": 388.48, "rssMiB": 744.99 },
-				"groundDrawables": { "ms": 2408.24, "heapMiB": 527.91, "rssMiB": 1189.08 },
-				"salience": { "ms": 19.3, "heapMiB": 527.91, "rssMiB": 1189.83 },
-				"plain": { "ms": 2531.06, "heapMiB": 543.83, "rssMiB": 1282.79 },
-				"salient": { "ms": 2821.95, "heapMiB": 547.97, "rssMiB": 1294.79 },
-				"lattice": { "ms": 257.9, "heapMiB": 547.97, "rssMiB": 1295.01 }
+				"seed": { "ms": 0.07, "heapMiB": 6.33, "rssMiB": 62 },
+				"terrain": { "ms": 52.26, "heapMiB": 8.43, "rssMiB": 82.27 },
+				"plan": { "ms": 1640.41, "heapMiB": 76.73, "rssMiB": 214.2 },
+				"parcels": { "ms": 1235.62, "heapMiB": 160.31, "rssMiB": 386.9 },
+				"houses": { "ms": 1261.64, "heapMiB": 226.86, "rssMiB": 540.64 },
+				"movement": { "ms": 10626.03, "heapMiB": 335.29, "rssMiB": 744.45 },
+				"groundDrawables": { "ms": 2554.22, "heapMiB": 524.19, "rssMiB": 1191.82 },
+				"salience": { "ms": 20.72, "heapMiB": 524.19, "rssMiB": 1192.57 },
+				"plain": { "ms": 2523.08, "heapMiB": 526.89, "rssMiB": 1290.68 },
+				"salient": { "ms": 2812.4, "heapMiB": 530.03, "rssMiB": 1297.54 },
+				"lattice": { "ms": 246.25, "heapMiB": 530.03, "rssMiB": 1329.5 }
 			},
 			"counts": {
 				"cells": 2508,
@@ -104,8 +104,8 @@
 				"salient": 5364,
 				"detailedHouses": 48
 			},
-			"totalMs": 23765.61,
-			"peakRssMiB": 1297.25
+			"totalMs": 22999.3,
+			"peakRssMiB": 1329.5
 		}
 	},
 	"browser": {
@@ -132,71 +132,71 @@
 			"viewport": { "width": 1366, "height": 900 },
 			"deviceScaleFactor": 1
 		},
-		"city": { "adapter": "amd rdna-2", "firstFrameMs": 3505.9 },
-		"architectureTown": { "adapter": "amd rdna-2", "firstFrameMs": 3166.7 },
+		"city": { "adapter": "amd rdna-2", "firstFrameMs": 3517.5 },
+		"architectureTown": { "adapter": "amd rdna-2", "firstFrameMs": 3087.5 },
 		"architecture": {
 			"route": "/architecture?sheet=town&block=all",
 			"adapter": "amd rdna-2",
-			"firstFrameMs": 10804.5,
-			"samples": 20,
-			"frameMs": { "p50": 17.9, "p95": 47, "p99": 47 },
-			"cpuMs": { "p50": 2.4, "p95": 4.5, "p99": 4.7 },
+			"firstFrameMs": 10893,
+			"intervals": 100,
+			"frameMs": { "p50": 17.2, "p95": 44.9, "p99": 47.4 },
+			"cpuMs": { "p50": 1.4, "p95": 4, "p99": 4.9 },
 			"drawCalls": 205,
-			"heapMiB": 236.46,
-			"peakRssMiB": 1775.5
+			"heapMiB": 212.81,
+			"peakRssMiB": 1775.16
 		},
 		"sandbox": {
 			"adapter": "amd rdna-2",
-			"firstFrameMs": 2127.3,
+			"firstFrameMs": 2175.3,
 			"pan": {
-				"samples": 20,
-				"frameMs": { "p50": 16.7, "p95": 17, "p99": 17 },
-				"cpuMs": { "p50": 0.4, "p95": 0.6, "p99": 0.7 }
+				"intervals": 100,
+				"frameMs": { "p50": 16.7, "p95": 17.1, "p99": 17.6 },
+				"cpuMs": { "p50": 0.3, "p95": 0.7, "p99": 0.9 }
 			},
 			"zoom": {
-				"samples": 21,
-				"frameMs": { "p50": 33.4, "p95": 34, "p99": 34 },
-				"cpuMs": { "p50": 0.4, "p95": 0.7, "p99": 0.7 }
+				"intervals": 101,
+				"frameMs": { "p50": 33.3, "p95": 34, "p99": 34.2 },
+				"cpuMs": { "p50": 0.4, "p95": 0.6, "p99": 0.6 }
 			},
 			"hover": {
-				"samples": 20,
-				"frameMs": { "p50": 16.7, "p95": 17, "p99": 17 },
-				"cpuMs": { "p50": 0.6, "p95": 1, "p99": 1.2 }
+				"intervals": 100,
+				"frameMs": { "p50": 16.6, "p95": 17.2, "p99": 17.9 },
+				"cpuMs": { "p50": 0.6, "p95": 1.2, "p99": 1.5 }
 			},
 			"paint": {
-				"samples": 33,
-				"frameMs": { "p50": 33.3, "p95": 71.2, "p99": 126.6 },
-				"cpuMs": { "p50": 0.9, "p95": 1.6, "p99": 16.5 },
-				"wallMs": 1248.3,
+				"intervals": 32,
+				"frameMs": { "p50": 33.3, "p95": 72.9, "p99": 142.5 },
+				"cpuMs": { "p50": 0.9, "p95": 1.3, "p99": 17.3 },
+				"wallMs": 1265.6,
 				"parcels": 30,
 				"tilePacks": 40,
 				"drawCalls": 18,
-				"heapMiB": 79.79
+				"heapMiB": 57.14
 			},
-			"undo": { "wallMs": 45.6 },
-			"peakRssMiB": 1112.71
+			"undo": { "wallMs": 27.6 },
+			"peakRssMiB": 1109.14
 		},
-		"loads": [
-			{
+		"loads": {
+			"small": {
 				"adapter": "amd rdna-2",
-				"firstFrameMs": 2198.9,
+				"firstFrameMs": 2209.1,
 				"houses": 300,
-				"wallMs": 1133.8,
+				"wallMs": 1130.7,
 				"drawCalls": 21,
 				"tilePacks": 42,
-				"heapMiB": 116.76,
-				"peakRssMiB": 1160.98
+				"heapMiB": 75.04,
+				"peakRssMiB": 1177.27
 			},
-			{
+			"town": {
 				"adapter": "amd rdna-2",
-				"firstFrameMs": 2130.1,
+				"firstFrameMs": 2225.9,
 				"houses": 2198,
-				"wallMs": 4726.7,
+				"wallMs": 4759.7,
 				"drawCalls": 41,
-				"tilePacks": 199,
-				"heapMiB": 264.89,
-				"peakRssMiB": 1382.73
+				"tilePacks": 200,
+				"heapMiB": 152.73,
+				"peakRssMiB": 1337.36
 			}
-		]
+		}
 	}
 }
