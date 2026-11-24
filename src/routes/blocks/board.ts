@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../lib/core/geometry';
 import { PlaceableObject } from '../../lib/core/object';
 import { parcelEdgeId, type Parcel } from '../../lib/domain/cell-space';
-import { createFocusResolver, type DisplayLevel } from '../../lib/scene/focus';
+import type { DisplayLevel } from '../../lib/scene/focus';
 import { houseLevels, projectHouse } from '../../lib/scene/house-projection';
 import { existing, resolveSurfaces, type Drawable } from '../../lib/scene/surface';
 import { buildAsset, type AssetDefinition } from '../../lib/world/asset-registry';
@@ -13,15 +13,6 @@ const plinthHeightM = 0.6;
 const plinthRimM = 0.5;
 const storeys = 10;
 const seed = 73;
-
-export const boardFocus = createFocusResolver(
-	{
-		full: { label: 'Full', subject: ['specimens'] },
-		transparent: { label: 'Transparent', subject: ['specimens'] },
-		pencil: { label: 'Pencil', subject: ['specimens'] }
-	},
-	{ specimens: { full: 'full', transparent: 'transparent', pencil: 'pencil' } }
-);
 
 function specimenParcel(id: string, x: number, y: number): Parcel {
 	return {

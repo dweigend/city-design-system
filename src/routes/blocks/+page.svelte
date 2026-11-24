@@ -3,12 +3,13 @@
 </script>
 
 <script lang="ts">
+	import { createFocusResolver } from '../../lib/scene/focus';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { Select } from '../../lib/ui/select';
 	import { listAssets } from '../../lib/world/asset-registry';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
-	import { boardFocus, buildBoard, presentBoard } from './board';
+	import { buildBoard, presentBoard } from './board';
 	import type { ModuleRow } from '../../../scripts/module-catalogue';
 
 	let { data }: { data: { catalogue: ModuleRow[] } } = $props();
@@ -29,6 +30,14 @@
 		'house/court-archigram': 'Archigram',
 		'house/court-organic': 'Organic'
 	};
+	const boardFocus = createFocusResolver(
+		{
+			full: { label: 'Full', subject: ['specimens'] },
+			transparent: { label: 'Transparent', subject: ['specimens'] },
+			pencil: { label: 'Pencil', subject: ['specimens'] }
+		},
+		{ specimens: { full: 'full', transparent: 'transparent', pencil: 'pencil' } }
+	);
 	let kind = $state('all');
 	let display = $state('full');
 	const assets = $derived(kind === 'all' ? allAssets : listAssets({ kind }));
