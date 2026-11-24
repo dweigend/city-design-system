@@ -11,6 +11,7 @@ import {
 	extrusion,
 	inradius,
 	inset,
+	insetSides,
 	rounded,
 	wedge,
 	type Faces
@@ -44,6 +45,20 @@ function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: Hous
 	return shape.length < 3 ? [...quad] : shape;
 }
 
+/** A calm house's block outline: the cell inset by the gap only on sides that do not face another
+ * built cell of the house over the whole run, so its bodies join into one building. */
+function joined(ctx: Context, cell: FineCell, gap: number, from: number, to: number): Vec2[] {
+	const g = Math.min(gap, inradius(cell.quad) * insetLimitRatio);
+	const shape = insetSides(
+		cell.quad,
+		cell.sides.map(({ neighbour }) => {
+			const other = neighbour === null ? undefined : ctx.occupancy.get(neighbour);
+			return other && other.fromStorey <= from && other.toStorey >= to ? 0 : g;
+		})
+	);
+	return shape.length < 3 ? [...cell.quad] : shape;
+}
+
 function shaped(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
 	const limit = inradius(quad) * insetLimitRatio;
 	const g = Math.min(gap, limit);
@@ -74,7 +89,8 @@ function solid(
 	to: number,
 	key: string
 ): CellSolid {
-	const points = outline(kind, cell.quad, gap, ctx.style);
+	const join = ctx.house.scale === 'calm' && kind === 'block';
+	const points = join ? joined(ctx, cell, gap, from, to) : outline(kind, cell.quad, gap, ctx.style);
 	return {
 		cell,
 		slot,

@@ -193,7 +193,8 @@ function carve(plan: Plan, path: readonly string[]) {
  * Other cells are built when they touch the frontage or their centre lies within `width` meters of
  * it (a large house builds them all) and are at least the strip minimum width; the rest stay
  * garden. Storeys are round(height / storey
- * height), clamped to the space and, for a large house, to the large storey count; complexity
+ * height), clamped to the space; a large house stands evenly at the large storey count, leaving a
+ * storey for its roof figure when its row's large roof is not flat. Complexity
  * lowers cells toward the rear, steps court-facing cells down and lets seeded cells rise or fall,
  * all by the style's occupancy row. A calm house keeps its frontage cells on one eaves line: the
  * height less a seeded drop up to the eaves tolerance, raised at a block corner. The shortest path
@@ -226,7 +227,8 @@ export function createHouseCourt(
 	const distances = new Map(space.cells.map((cell) => [cell.id, frontageDistance(cell, segments)]));
 	const farthest = Math.max(...distances.values());
 	const reach = scale === 'large' ? Infinity : width;
-	const cap = scale === 'large' ? largeStoreys : space.storeyCount;
+	const roofRoom = style.large.roof.some((kind) => kind !== 'flat') ? 1 : 0;
+	const cap = scale === 'large' ? Math.max(1, Math.min(largeStoreys, space.storeyCount - roofRoom)) : space.storeyCount;
 	const top = Math.max(1, Math.min(space.storeyCount, cap, Math.round(height / space.storeyHeightM)));
 	const front = scale === 'calm' ? eaves(top, random, site.corner ?? false) : top;
 	const plan: Plan = new Map();
@@ -235,7 +237,8 @@ export function createHouseCourt(
 		if (courtIds.has(cell.id)) plan.set(cell.id, { role: 'court', storeys: 0 });
 		else if ((!fronting(cell) && span > reach) || fineCellWidth(cell) < minimumStripWidthM)
 			plan.set(cell.id, { role: 'garden', storeys: 0 });
-		else if (scale === 'calm' && fronting(cell)) plan.set(cell.id, { role: 'wing', storeys: front });
+		else if ((scale === 'calm' && fronting(cell)) || scale === 'large')
+			plan.set(cell.id, { role: 'wing', storeys: front });
 		else {
 			const faceCourt = cell.sides.some(
 				({ neighbour }) => neighbour !== null && courtIds.has(neighbour)

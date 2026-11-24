@@ -51,6 +51,18 @@ export function inset(points: readonly Vec2[], distance: number): Vec2[] {
 	return polygon.length < 3 || doubleArea(polygon) <= 0 ? [] : polygon;
 }
 
+/** The convex counterclockwise polygon with side i moved inward by `distances[i]` meters; empty
+ * when nothing remains. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
+export function insetSides(points: readonly Vec2[], distances: readonly number[]): Vec2[] {
+	let polygon: Vec2[] = [...points];
+	points.forEach((_, i) => {
+		const { a, normal } = side(points, i);
+		polygon = clip(polygon, a, normal, distances[i] ?? 0);
+	});
+	return polygon.length < 3 || doubleArea(polygon) <= 0 ? [] : polygon;
+}
+
 // Exact arithmetic: twice the signed area from the first point.
 function doubleArea(points: readonly Vec2[]): number {
 	let sum = 0;
