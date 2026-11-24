@@ -2,6 +2,7 @@ import type { AssetEntry } from '../../core/asset-registry';
 import { createDeriveCache } from '../../core/derive';
 import {
 	latticeVariants,
+	levelHeight,
 	createLatticeBayObject,
 	readLatticeBay,
 	type CityLattice,
@@ -38,11 +39,12 @@ const frame: AssetEntry<CityAssetHost> = {
 			return createFrameBayObject(host.id, host.graph, { memberIds: host.memberIds });
 		if (host.kind !== 'lattice-bay') throw new RangeError('Expected a frame or lattice bay');
 		const lattice = host.readLattice(host.model);
+		const levelHeightM = host.levelHeightM ?? levelHeight;
 		const graph = frameGraphs(
 			lattice,
-			[host.datumZ],
+			[host.datumZ, levelHeightM],
 			[],
-			() => createCityStructure(lattice, host.datumZ).graph
+			() => createCityStructure(lattice, host.datumZ, levelHeightM).graph
 		);
 		const { members } = readLatticeBay(lattice, host.id);
 		return createFrameBayObject(host.id, graph, { memberIds: members.map(({ id }) => id) });

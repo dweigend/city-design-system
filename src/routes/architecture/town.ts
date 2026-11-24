@@ -21,7 +21,7 @@ import {
 	projectCladHouse,
 	readHouseSalience
 } from '../../lib/scene/house-projection';
-import { cityWindow } from '../../lib/world/city-site';
+import { cityWindow, riverCityRecipe } from '../../lib/world/city-site';
 import {
 	createTownBlockHouses,
 	createParcelHouseObject,
@@ -46,7 +46,8 @@ const townBlocks: readonly TownHouseBlock[] = ['block', 'neighbour', 'merged'];
 function paleStock(
 	columns: readonly CityColumn[],
 	datumZ: number,
-	terrain: ReturnType<typeof projectCityTerrain>
+	terrain: ReturnType<typeof projectCityTerrain>,
+	levelHeightM: number
 ) {
 	const { surfaces, fillAlpha } = houseLevels.transparent;
 	const ids = new Set(columns.map(({ planCellId }) => planCellId));
@@ -54,7 +55,15 @@ function paleStock(
 		...column,
 		neighbors: column.neighbors.map((id) => (id !== null && ids.has(id) ? id : null))
 	}));
-	return projectCityDistricts(selection, datumZ, terrain).drawables.flatMap((part) =>
+	return projectCityDistricts(
+		selection,
+		datumZ,
+		terrain,
+		undefined,
+		undefined,
+		undefined,
+		levelHeightM
+	).drawables.flatMap((part) =>
 		part.role.startsWith('block') ? [{ ...part, ...surfaces.mass, fillAlpha, occlude: true }] : []
 	);
 }
@@ -97,7 +106,11 @@ export function townStage(relief?: number) {
 		});
 		return {
 			chosen,
-			drawables: [...terrain.drawables, ...ground, ...paleStock(stock, layout.datumZ, terrain)]
+			drawables: [
+				...terrain.drawables,
+				...ground,
+				...paleStock(stock, layout.datumZ, terrain, (site.recipe ?? riverCityRecipe).levelHeightM)
+			]
 		};
 	}
 

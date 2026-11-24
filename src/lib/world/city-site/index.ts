@@ -14,7 +14,12 @@ import { growthPrefix, prepareCarrier } from './carrier';
 import { citySiteConfig, citySiteDimensions as dimensions } from '../../../config/city-site';
 import type { CityTerrainSampler } from './sampling';
 import type { CityCrossing } from './crossings';
-import { resolveCityRecipe, riverCityRecipe, type CityRecipe } from './recipe';
+import {
+	resolveCityRecipe,
+	riverCityRecipe,
+	type CityRecipe,
+	type CityRecipeInput
+} from './recipe';
 
 /** Maximum sampled height range, in meters, in a buildable city cell. */
 export const maximumCellRiseM = citySiteConfig.maximumCellRiseM;
@@ -28,7 +33,9 @@ export {
 	createCityVerticalRecipe,
 	riverCityRecipe,
 	type CityRecipe,
-	type CityVerticalRecipe
+	type CityRecipeInput,
+	type CityVerticalRecipe,
+	type CityVerticalRecipeInput
 } from './recipe';
 export { cityLatticesByPlan, cityPlanVariants, type CityPlanVariant } from './presets';
 
@@ -66,7 +73,7 @@ function siteParams(citySize?: number, seed?: number) {
  * Omitting the getter declares that the sampler stays immutable for the life of the site. */
 export type CitySiteOptions = Readonly<{
 	terrainRevision?: () => string | Key;
-	recipe?: Partial<CityRecipe>;
+	recipe?: CityRecipeInput;
 }>;
 type Settings = Partial<ValleySettings> & Readonly<{ seed?: number }> & CitySiteOptions;
 type CityFrame = Readonly<{

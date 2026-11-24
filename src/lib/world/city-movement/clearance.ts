@@ -18,17 +18,22 @@ function envelope(column: CityColumn) {
 export function walkwayClearance(
 	columns: readonly CityColumn[],
 	datumZ: number,
+	levelHeightM: number,
 	z: number,
 	verticalM: number,
 	sideM: number,
 	allowTouch = false
 ) {
-	return columnClearance(columns, datumZ)(z, verticalM, sideM, allowTouch);
+	return columnClearance(columns, datumZ, levelHeightM)(z, verticalM, sideM, allowTouch);
 }
 
-export function columnClearance(columns: readonly CityColumn[], datumZ: number) {
+export function columnClearance(
+	columns: readonly CityColumn[],
+	datumZ: number,
+	levelHeightM: number
+) {
 	const solids = columns.map((column) => ({
-		roofM: columnRoof(column, datumZ),
+		roofM: columnRoof(column, datumZ, levelHeightM),
 		bounds: envelope(column),
 		hull: convexHull(column.corners.map(({ position: [x, y] }) => [x, y]))
 	}));

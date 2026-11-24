@@ -3,7 +3,7 @@ import { defaults } from '../../../config/city-structure';
 import type { Vec3 } from '../../core/geometry';
 import { defineParams } from '../../core/params';
 import { required } from '../../core/invariant';
-import type { CityLattice } from '../../domain/city-volume';
+import { levelHeight, type CityLattice } from '../../domain/city-volume';
 import { createMemberGraph } from '../../domain/structure';
 import { tributaryForces } from './loads';
 import { primarySection, shellEdges } from './shell';
@@ -28,7 +28,11 @@ function memberRole(a: Vec3, b: Vec3, chord: boolean) {
 /** Adapts each lattice joint and edge once, keeping their IDs. Ground contacts are pinned.
  * Exposed solid edges carry the primary frame. Loads in kN come from the same lattice solids.
  * Returns a detached frozen graph and load list. Invalid graph geometry throws RangeError. */
-export function createCityStructure(lattice: CityLattice, datumZ: number) {
+export function createCityStructure(
+	lattice: CityLattice,
+	datumZ: number,
+	levelHeightM = levelHeight
+) {
 	if (!Number.isFinite(datumZ)) throw new RangeError('Expected a finite structural datum');
 	const nodes = new Map(lattice.nodes.map((node) => [node.id, node]));
 	const shell = shellEdges(lattice, nodes);
@@ -46,7 +50,7 @@ export function createCityStructure(lattice: CityLattice, datumZ: number) {
 				b.position,
 				rank === 'chord' || (a.groundContact === true && b.groundContact === true)
 			);
-			const section = primarySection(shell.get(id), role, a.position[2], datumZ);
+			const section = primarySection(shell.get(id), role, a.position[2], datumZ, levelHeightM);
 			return { id, from, to, role, section };
 		})
 	});

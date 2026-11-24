@@ -1,5 +1,4 @@
 import type { Vec2 } from '../../core/geometry';
-import type { Ref } from '../../core/ref';
 import type { CellSide } from './sides';
 
 /** One corner of a parcel outline: a stable key and its plan position in meters. */
@@ -61,7 +60,7 @@ export type StoreyStack = Readonly<{
 
 /** One addressed vertical slice of a fine cell. */
 export type CellStorey = Readonly<{
-	ref: Ref<'storey'>;
+	key: string;
 	cellId: string;
 	storey: number;
 	bottomZ: number;

@@ -60,7 +60,8 @@ export function blockMeshes(
 	columns: readonly CityColumn[],
 	datumZ: number,
 	toLocal: (x: number, y: number) => Vec2,
-	seed: number
+	seed: number,
+	levelHeightM = levelHeight
 ) {
 	const parts = new Map<string, BlockPart>();
 	const drawn = drawnInPencil(seed);
@@ -80,7 +81,7 @@ export function blockMeshes(
 			};
 			parts.set(id, part);
 		}
-		const top = columnRoof(column, datumZ);
+		const top = columnRoof(column, datumZ, levelHeightM);
 		const bottom =
 			Math.min(...column.corners.map(({ position }) => position[2])) - stockBoxFootingM;
 		const ring = insetRing(column.corners.map(({ position: [x, y] }) => toLocal(x, y)));
@@ -109,12 +110,11 @@ export function blockMeshes(
 			part.roof.push(ax, ay, top, bx, by, top);
 			part.walls.push(ax, ay, bottom + stockBoxFootingM, bx, by, bottom + stockBoxFootingM);
 			part.walls.push(ax, ay, bottom + stockBoxFootingM, ax, ay, top);
-			for (
-				let z = datumZ + levelHeight * Math.ceil((bottom - datumZ) / levelHeight + 0.5);
-				z < top - 1e-6;
-				z += levelHeight
-			)
+			for (let level = Math.ceil((bottom - datumZ) / levelHeightM + 0.5); ; level++) {
+				const z = datumZ + level * levelHeightM;
+				if (z >= top - 1e-6) break;
 				part.storeys.push(ax, ay, z, bx, by, z);
+			}
 		}
 	}
 	return parts;

@@ -7,7 +7,7 @@ and access reports why. The object builder supplies closed solids, role slots an
 face builder supplies planar patches with openings and leaves occupied adjoining wall spans
 unclad. Both work in world meters. See the fixed plots in `example.ts`.
 
-`readHousePartRefs` lists the full-detail parts in object order. Its keys encode the house ID
-and part ID. The storey span is half-open. A shared mesh has no single cell ID and lists the
-storeys contributed by all its cells. Ground parts are attached to the first storey of their
-cell. External callers can use the references as keys for their own data.
+Part addresses carry local house, part, and storey keys. `readHousePartRefs` requires a world ID
+to mint refs in full-detail object order. Pass the object builder's adjoining walls to get the
+same openings and contributors. Storey spans are half-open. Shared meshes list contributors
+from all their cells, and ground parts attach to the first storey.

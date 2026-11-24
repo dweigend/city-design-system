@@ -7,7 +7,12 @@ import {
 	type SandboxEdit,
 	type PlacementChange
 } from '../../domain/sandbox-document';
-import { houseStyles, readPartyWallExposure, type AdjoiningWall } from '../../domain/house-court';
+import {
+	houseStyles,
+	readHousePartRefs,
+	readPartyWallExposure,
+	type AdjoiningWall
+} from '../../domain/house-court';
 import {
 	createParcelHouse,
 	createParcelHouseObject,
@@ -79,7 +84,18 @@ test('paints and undoes an Architecture Town stroke through the registry', () =>
 	if (house.status !== 'placed') throw Error(house.reason);
 	const fromBible = createParcelHouseObject(house, 'full');
 	expect(world.build(placement)).toEqual(fromBible);
-	expect(world.resolveHouse(placement)).toEqual(house);
+	const resolved = world.resolveHouse(placement);
+	expect(resolved).toEqual(house);
+	if (resolved?.status !== 'placed') throw new Error('Expected sandbox house');
+	const refs = readHousePartRefs(resolved.house, world.world.id);
+	expect(refs.map(({ partId }) => partId)).toEqual(fromBible.parts.map(({ id }) => id));
+	expect(
+		refs.every(
+			({ ref, storeyRefs }) =>
+				ref.world === world.world.id &&
+				storeyRefs.every(({ world: scope }) => scope === world.world.id)
+		)
+	).toBe(true);
 	const garden = cache.read().find((result) => result && 'status' in result);
 	expect(garden).toMatchObject({ status: 'unbuildable', reason: 'no-built-cells' });
 

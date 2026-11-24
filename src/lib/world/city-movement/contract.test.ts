@@ -2,6 +2,9 @@ import { expect, test } from 'bun:test';
 import { columnRoof, levelHeight } from '../../domain/city-volume';
 import { railConstraints } from '../../domain/transit-line';
 import { citySiteParams, readCityParcels } from '../city-site';
+import { defaults } from '../../../config/city-movement';
+import { required } from '../../core/invariant';
+import { walkwayClearance } from './clearance';
 import { cityMovementExample } from './example';
 
 for (const variant of [
@@ -126,11 +129,12 @@ for (const variant of [
 function checkColumns(
 	points: readonly (readonly [number, number, number])[],
 	columns: ReturnType<typeof cityMovementExample>['columns'],
-	datumZ: number
+	datumZ: number,
+	levelHeightM = levelHeight
 ) {
 	const z = points[0][2];
 	for (const column of columns) {
-		if (columnRoof(column, datumZ) < z) continue;
+		if (columnRoof(column, datumZ, levelHeightM) < z) continue;
 		const outline = column.corners.map(({ position: [x, y] }) => [x, y] as const);
 		for (let i = 1; i < points.length; i++) {
 			const a = points[i - 1];
@@ -205,4 +209,45 @@ test('empty walkway centres keep the ground graph without inventing an eaves net
 	expect(network.edges.some(({ id }) => id.startsWith('upper/') || id.startsWith('walkway/'))).toBe(
 		false
 	);
+});
+
+test('uses the site spacing to clear roofs and address walkway and rail levels', () => {
+	const levelHeightM = 15.7;
+	const { layout, columns, heads, network, rail, level, elevationM } = cityMovementExample(
+		'organic',
+		undefined,
+		undefined,
+		true,
+		{ levelHeightM }
+	);
+	const { datumZ } = layout;
+	const headColumns = columns.filter(({ corners }) => corners.some(({ id }) => heads.includes(id)));
+	expect(headColumns.length).toBeGreaterThan(0);
+	const highestRoof = Math.max(
+		...headColumns.map((column) => columnRoof(column, datumZ, levelHeightM))
+	);
+	const expectedLevel = Math.ceil(
+		(highestRoof + defaults.walkwayRoofClearanceM - datumZ) / levelHeightM
+	);
+	expect(level).toBe(expectedLevel);
+	expect(elevationM).toBe(datumZ + expectedLevel * levelHeightM);
+	const walkways = network.edges.filter(
+		({ kind, id }) => kind === 'walkway' && !id.startsWith('dock/')
+	);
+	expect(walkways.length).toBeGreaterThan(0);
+	for (const { points } of walkways) checkColumns(points, columns, datumZ, levelHeightM);
+	for (const station of required(rail, 'custom-spacing rail').stations) {
+		const level = (station.position[2] - datumZ) / levelHeightM;
+		expect(level).toBeCloseTo(Math.round(level));
+		expect(network.readNode('station/' + station.id)?.level).toBe(Math.round(level));
+	}
+
+	const column = headColumns[0];
+	const [a, b] = column.corners.map(({ position }) => position);
+	const oldRoof = columnRoof(column, datumZ);
+	const roof = columnRoof(column, datumZ, levelHeightM);
+	expect(roof).toBeGreaterThan(oldRoof);
+	const inBetween = (oldRoof + roof) / 2;
+	expect(walkwayClearance([column], datumZ, levelHeight, inBetween, 0, 0)(a, b)).toBe(true);
+	expect(walkwayClearance([column], datumZ, levelHeightM, inBetween, 0, 0)(a, b)).toBe(false);
 });

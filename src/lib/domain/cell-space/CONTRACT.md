@@ -9,6 +9,6 @@ numbers. See the garden-lane plot in `example.ts`.
 
 Parcels specify a uniform height or an ordered stack of storey heights. The stack exposes each
 boundary from base to roof. `createCellSpaceStoreys` changes the sizing and keeps the subdivision.
-`readCellStoreys` lists world-scoped references in cell and vertical order. Their keys encode the
-space ID, cell ID and zero-based storey index, so moving the datum or adding storeys above the
-current roof preserves existing slice identities.
+Storeys carry local keys in cell and vertical order. `readCellStoreys` requires a world ID to
+mint refs. Keys encode the space ID, cell ID and zero-based storey index, so moving the datum or
+adding storeys above the current roof preserves slice identities.

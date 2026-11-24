@@ -1,8 +1,8 @@
 /** Module: Composes city lanes, crossings, walkways and transit access into a graph. */
 import { required } from '../../core/invariant';
-import { levelHeight, type CityColumn } from '../../domain/city-volume';
+import type { CityColumn } from '../../domain/city-volume';
 import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';
-import type { CityGrid, CitySite } from '../city-site';
+import { riverCityRecipe, type CityGrid, type CitySite } from '../city-site';
 import { defaults } from '../../../config/city-movement';
 import { groundLanes } from './ground';
 import { link, raised, support, type Link } from './links';
@@ -30,7 +30,14 @@ export function readCityRail(
 	columns: readonly CityColumn[],
 	options: CityRailOptions
 ) {
-	return cityRail(site, layout, groundLanes(site, layout), columns, options);
+	return cityRail(
+		site,
+		layout,
+		groundLanes(site, layout),
+		columns,
+		options,
+		(site.recipe ?? riverCityRecipe).levelHeightM
+	);
 }
 
 /** Composes plan lanes, selected crossings, the eaves walkways and platform access into one graph.
@@ -44,9 +51,19 @@ export function readCityMovement(
 	rail: ReturnType<typeof readCityRail>,
 	walkwayCenters: readonly string[]
 ) {
+	const { levelHeightM } = site.recipe ?? riverCityRecipe;
 	const ground = groundLanes(site, layout);
-	const stair = stairSurvey(site, columns, layout.datumZ, ground.clear);
-	const upper = walkways(site, ground, columns, layout.datumZ, offset, walkwayCenters, stair);
+	const stair = stairSurvey(site, columns, layout.datumZ, levelHeightM, ground.clear);
+	const upper = walkways(
+		site,
+		ground,
+		columns,
+		layout.datumZ,
+		levelHeightM,
+		offset,
+		walkwayCenters,
+		stair
+	);
 	const nodes = new Map(
 		[...ground.nodes.values(), ...ground.frontage.values(), ...upper.nodes.values()].map((node) => [
 			node.id,
@@ -57,7 +74,7 @@ export function readCityMovement(
 	for (const station of rail?.stations ?? []) {
 		const approach = required(nodes.get(station.approachId), 'rail approach');
 		const z = station.position[2];
-		const level = Math.round((z - layout.datumZ) / levelHeight);
+		const level = Math.round((z - layout.datumZ) / levelHeightM);
 		const platform: MovementNode = {
 			id: 'station/' + station.id,
 			position: station.position,

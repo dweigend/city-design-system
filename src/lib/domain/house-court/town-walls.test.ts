@@ -6,6 +6,7 @@ import {
 	houseFaces,
 	houseFigures,
 	houseStyles,
+	readHousePartRefs,
 	type AdjoiningWall
 } from './index';
 
@@ -97,9 +98,37 @@ test('two adjoining 15 m houses lose party-wall faces and panes, keeping exposed
 		const object = createHouseObject(space, house, 'full', houseStyles.neutral, [
 			{ ...adjacent, top: 7 }
 		]);
+		const context = [{ ...adjacent, top: 7 }];
+		const refs = readHousePartRefs(house, 'town-fixture', context);
+		expect(refs.map(({ partId, slot }) => [partId, slot])).toEqual(
+			object.parts.map(({ id, slot }) => [id, slot])
+		);
 		const pane = object.parts.find(({ slot }) => slot === 'opening')?.shape;
 		expect(pane?.kind).toBe('mesh');
 		if (pane?.kind === 'mesh')
 			expect(pane.positions.some((p, i) => i % 3 === 0 && Math.abs(p - 15) < 0.06)).toBe(false);
 	}
+});
+
+test('omits the opening part and its storey refs when adjoining walls cover all windows', () => {
+	const space = plot(15, 15, 2);
+	const house = createHouseCourt(space, { height: 7, seed: 0 });
+	const walls = space.cells.flatMap(({ quad }) =>
+		quad.map((b, i): AdjoiningWall => ({
+			a: quad[(i + 1) % quad.length],
+			b,
+			bottom: space.baseZ,
+			top: space.storeyElevationsM.at(-1) ?? space.baseZ
+		}))
+	);
+	const original = readHousePartRefs(house, 'town-fixture');
+	const opening = original.find(({ slot }) => slot === 'opening');
+	expect(opening?.storeyRefs.length).toBeGreaterThan(0);
+	const object = createHouseObject(space, house, 'full', houseStyles.neutral, walls);
+	const covered = readHousePartRefs(house, 'town-fixture', walls);
+	expect(covered.map(({ partId, slot }) => [partId, slot])).toEqual(
+		object.parts.map(({ id, slot }) => [id, slot])
+	);
+	expect(covered.some(({ slot }) => slot === 'opening')).toBe(false);
+	expect(readHousePartRefs(house, 'town-fixture', [])).toEqual(original);
 });

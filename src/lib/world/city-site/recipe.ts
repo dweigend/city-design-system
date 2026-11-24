@@ -22,39 +22,44 @@ export type CarrierSite = Readonly<{
 	bankSide?: (point: Vec2) => number;
 }>;
 
-/** Sizes the coarse level and its ordered storeys. A mixed stack repeats at each coarse plane.
- * `storeyHeightM` gives the uniform height when there is no explicit stack. */
-export type CityVerticalRecipe = Readonly<{
-	levelHeightM: number;
-	storeysPerLevel: number;
-	storeyHeightM: number;
+/** Vertical dimensions supplied by a recipe author. */
+export type CityVerticalRecipeInput = Readonly<{
+	levelHeightM?: number;
+	storeysPerLevel?: number;
+	storeyHeightM?: number;
 	storeyHeightsM?: readonly number[];
 }>;
 
-/** Selects water, growth thresholds and vertical sizing. */
-export type CityRecipe = CityVerticalRecipe &
-	Readonly<{
-		isCrossable: CrossableWater;
-		isPrimaryWater: CrossableWater;
-		approach?: CityApproachPolicy;
-		minimumRegionAreaM2: number;
-		growth: CityGrowthPolicy;
-	}>;
+/** Resolved coarse spacing and storey sizing. An ordered stack repeats from each coarse plane. */
+export type CityVerticalRecipe = Readonly<{ levelHeightM: number; storeysPerLevel: number }> &
+	(
+		| Readonly<{ storeyHeightM: number; storeyHeightsM?: undefined }>
+		| Readonly<{ storeyHeightM?: undefined; storeyHeightsM: readonly number[] }>
+	);
 
-/** The seeded valley favors main-river approaches and permits crossings of flowing water. */
-export const riverCityRecipe = Object.freeze<CityRecipe>({
-	isCrossable: (kind) => kind === 'river' || kind === 'tributary',
-	isPrimaryWater: (kind) => kind === 'river',
-	minimumRegionAreaM2: config.minimumRegionAreaM2,
-	growth: cityGrowthDefaults,
+type CityPlanningRecipe = Readonly<{
+	isCrossable: CrossableWater;
+	isPrimaryWater: CrossableWater;
+	approach?: CityApproachPolicy;
+	minimumRegionAreaM2: number;
+	growth: CityGrowthPolicy;
+}>;
+
+/** Selects water, growth thresholds and vertical sizing. */
+export type CityRecipe = CityVerticalRecipe & CityPlanningRecipe;
+
+/** Author-supplied overrides for the city recipe. */
+export type CityRecipeInput = CityVerticalRecipeInput & Partial<CityPlanningRecipe>;
+
+const defaultVertical = {
 	levelHeightM: levelHeight,
 	storeyHeightM: defaultStoreyHeightM,
 	storeysPerLevel
-});
+};
 
-function readStoreysPerLevel(recipe: Partial<CityVerticalRecipe>): number {
+function readStoreysPerLevel(recipe: CityVerticalRecipeInput): number {
 	const { storeyHeightsM } = recipe;
-	const count = recipe.storeysPerLevel ?? storeyHeightsM?.length ?? riverCityRecipe.storeysPerLevel;
+	const count = recipe.storeysPerLevel ?? storeyHeightsM?.length ?? defaultVertical.storeysPerLevel;
 	if (
 		!Number.isSafeInteger(count) ||
 		count < 1 ||
@@ -73,16 +78,16 @@ function readLevelSpan(heights: readonly number[]): number {
 }
 
 /** Resolves a uniform or mixed stack that spans a full coarse level. */
-export function createCityVerticalRecipe(
-	recipe: Partial<CityVerticalRecipe> = {}
-): CityVerticalRecipe {
+export function createCityVerticalRecipe(recipe: CityVerticalRecipeInput = {}): CityVerticalRecipe {
 	const storeysPerLevel = readStoreysPerLevel(recipe);
 	const storeyHeightsM = recipe.storeyHeightsM && Object.freeze([...recipe.storeyHeightsM]);
 	const mixedSpan = storeyHeightsM && readLevelSpan(storeyHeightsM);
-	const uniformSpan =
-		recipe.storeyHeightM === undefined ? undefined : recipe.storeyHeightM * storeysPerLevel;
+	const uniformHeight = recipe.storeyHeightM;
+	if (uniformHeight !== undefined && storeyHeightsM?.some((height) => height !== uniformHeight))
+		throw new RangeError('Uniform storey height disagrees with the stack');
+	const uniformSpan = uniformHeight === undefined ? undefined : uniformHeight * storeysPerLevel;
 	const levelHeightM =
-		recipe.levelHeightM ?? mixedSpan ?? uniformSpan ?? riverCityRecipe.levelHeightM;
+		recipe.levelHeightM ?? mixedSpan ?? uniformSpan ?? defaultVertical.levelHeightM;
 	const storeyHeightM = recipe.storeyHeightM ?? levelHeightM / storeysPerLevel;
 	if (!isPositiveLength(levelHeightM) || !isPositiveLength(storeyHeightM))
 		throw new RangeError('City level and storey heights must be positive finite lengths');
@@ -90,15 +95,22 @@ export function createCityVerticalRecipe(
 	// Exact arithmetic: allow one rounding unit per summed height.
 	if (Math.abs(span / levelHeightM - 1) > Number.EPSILON * storeysPerLevel)
 		throw new RangeError('The storeys must span one coarse level');
-	return Object.freeze({
-		levelHeightM,
-		storeysPerLevel,
-		storeyHeightM,
-		...(storeyHeightsM && { storeyHeightsM })
-	});
+	const level = { levelHeightM, storeysPerLevel };
+	return storeyHeightsM
+		? Object.freeze({ ...level, storeyHeightsM })
+		: Object.freeze({ ...level, storeyHeightM });
 }
 
-export function resolveCityRecipe(recipe: Partial<CityRecipe>): CityRecipe {
+/** The seeded valley favors main-river approaches and permits crossings of flowing water. */
+export const riverCityRecipe = Object.freeze<CityRecipe>({
+	isCrossable: (kind) => kind === 'river' || kind === 'tributary',
+	isPrimaryWater: (kind) => kind === 'river',
+	minimumRegionAreaM2: config.minimumRegionAreaM2,
+	growth: cityGrowthDefaults,
+	...createCityVerticalRecipe(defaultVertical)
+});
+
+export function resolveCityRecipe(recipe: CityRecipeInput): CityRecipe {
 	return Object.freeze({
 		isCrossable: recipe.isCrossable ?? riverCityRecipe.isCrossable,
 		isPrimaryWater: recipe.isPrimaryWater ?? recipe.isCrossable ?? riverCityRecipe.isPrimaryWater,

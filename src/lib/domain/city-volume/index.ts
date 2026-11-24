@@ -5,7 +5,6 @@ import {
 	cityVolumeConfig as coarseSettings,
 	cityVolumeInputs as inputs
 } from '../../../config/city-volume';
-import { defaultStoreyHeightM } from '../cell-space';
 import type { TerrainGrid } from '../terrain-grid';
 import { columnPlanes, levelHeight, requireLevelSpacing } from './foundation';
 import { createStructuralColumns, validateColumns, type StructuralColumn } from './columns';
@@ -16,15 +15,17 @@ import type { CityLattice } from './frame';
 import { createLattice, type LatticeVariant } from './lattices';
 
 /** Coarse level, density and foundation settings. */
-export const cityVolumeConfig = Object.freeze({
-	storeyHeightM: defaultStoreyHeightM,
-	...coarseSettings
-});
+export { cityVolumeConfig } from '../../../config/city-volume';
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
 export { cityAccessibility, type CityApproachPolicy } from './accessibility';
 /** Column roof elevation, default level spacing and storeys per structural level. */
-export { columnRoof, levelHeight, storeysPerLevel } from './foundation';
+export {
+	columnRoof,
+	levelHeight,
+	planeIndex as readLevelIndex,
+	storeysPerLevel
+} from './foundation';
 /** Produces a nested city footprint from the accessibility of plan cells. */
 export { cityGrowth, cityGrowthDefaults, type CityGrowthPolicy } from './footprint';
 

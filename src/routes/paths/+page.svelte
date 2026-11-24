@@ -49,7 +49,8 @@
 		createCitySite,
 		readCityDistricts,
 		readCityGrid,
-		readCityParcels
+		readCityParcels,
+		riverCityRecipe
 	} from '../../lib/world/city-site';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
@@ -153,7 +154,17 @@
 		...terrain.drawables,
 		...('projectParcels' in terrain ? terrain.projectParcels(holdings) : [])
 	]);
-	const envelope = $derived(projectCityDistricts(columns, layout.datumZ, terrain, undefined, seed));
+	const envelope = $derived(
+		projectCityDistricts(
+			columns,
+			layout.datumZ,
+			terrain,
+			undefined,
+			seed,
+			undefined,
+			(site.recipe ?? riverCityRecipe).levelHeightM
+		)
+	);
 	const paths = $derived(projectMovement(movement.network, mode, terrain));
 	const transit = $derived(projectTransitLine(rail, terrain));
 	const highlight = $derived(projectMovementRoute(movement.network, route, mode, terrain));

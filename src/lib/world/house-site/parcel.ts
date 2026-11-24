@@ -24,7 +24,11 @@ import {
 	type HouseScale
 } from '../../domain/house-court';
 import type { AddressedParcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
-import { createCityVerticalRecipe, riverCityRecipe, type CityVerticalRecipe } from '../city-site';
+import {
+	createCityVerticalRecipe,
+	riverCityRecipe,
+	type CityVerticalRecipeInput
+} from '../city-site';
 import { createParcelStoreySizing } from './vertical';
 import { readBaseLevel } from './base';
 import { parcelGroundRange } from './parcel-ground';
@@ -33,7 +37,7 @@ const { contactToleranceM, cornerSineRatio } = defaults;
 
 /** Selects vertical sizing and the plan subdivision of a parcel house. */
 export type ParcelHouseRecipe = Readonly<{
-	vertical?: Partial<CityVerticalRecipe>;
+	vertical?: CityVerticalRecipeInput;
 	subgridId?: string;
 	subgridOptions?: CellSubgridOptions;
 	subgridCatalog?: Catalog<CellSubgridGenerator>;

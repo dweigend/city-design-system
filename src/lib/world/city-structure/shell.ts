@@ -93,15 +93,16 @@ export function primarySection(
 	boundary: Boundary | undefined,
 	role: 'beam' | 'column' | 'brace',
 	elevation: number,
-	datumZ: number
+	datumZ: number,
+	levelHeightM = levelHeight
 ) {
 	if (!boundary) return 'light';
 	if (role === 'brace' && boundary.facadeDiagonal) return 'heavy';
 	if (!boundary.roof && !boundary.side) return 'light';
 	if (role !== 'beam') return 'heavy';
-	const band = (elevation - datumZ) / levelHeight;
+	const band = (elevation - datumZ) / levelHeightM;
 	const level = Math.round(band);
 	const onRing =
-		datumZ + level * levelHeight === elevation && level % defaults.ringIntervalLevels === 0;
+		datumZ + level * levelHeightM === elevation && level % defaults.ringIntervalLevels === 0;
 	return boundary.side && (boundary.roof || onRing) ? 'heavy' : 'light';
 }

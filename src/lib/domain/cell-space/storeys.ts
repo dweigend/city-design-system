@@ -2,8 +2,6 @@ import { createWorldReference, encodeKey } from '../../core/ref';
 import { defaults } from '../../../config/cell-space';
 import type { CellSpace, StoreySizing, StoreyStack } from './types';
 
-const worldScope = 'city';
-
 function requireIndex(index: number, count = Infinity) {
 	if (!Number.isSafeInteger(index) || index < 0 || index >= count)
 		throw new RangeError('Expected a storey index in range');
@@ -65,18 +63,34 @@ export function readStoreyHeight(space: StoreyStack, index: number): number {
 }
 
 /** Stable address of a storey in one fine cell. */
-export function readStoreyRef(spaceId: string, cellId: string, storey: number, world = worldScope) {
-	requireIndex(storey);
-	return createWorldReference(world, 'storey', encodeKey([spaceId, cellId, storey]));
+export function readStoreyRef(spaceId: string, cellId: string, storey: number, world: string) {
+	return createWorldReference(world, 'storey', readStoreyKey(spaceId, cellId, storey));
 }
 
-/** Storeys in cell order, then from bottom to top, with optional world scope. */
-export function readCellStoreys(space: CellSpace, world = worldScope) {
+/** World-independent tuple key for a storey. */
+export function readStoreyKey(spaceId: string, cellId: string, storey: number) {
+	requireIndex(storey);
+	return encodeKey([spaceId, cellId, storey]);
+}
+
+/** Storeys in cell order, then from bottom to top, with references in the supplied world. */
+export function readCellStoreys(space: CellSpace, world: string) {
+	return Object.freeze(
+		space.storeys.map((storey) =>
+			Object.freeze({
+				...storey,
+				ref: createWorldReference(world, 'storey', storey.key)
+			})
+		)
+	);
+}
+
+function cellStoreys(space: CellSpace) {
 	return Object.freeze(
 		space.cells.flatMap(({ id: cellId }) =>
 			Array.from({ length: space.storeyCount }, (_, storey) =>
 				Object.freeze({
-					ref: readStoreyRef(space.id, cellId, storey, world),
+					key: readStoreyKey(space.id, cellId, storey),
 					cellId,
 					storey,
 					bottomZ: readStoreyElevation(space, storey),
@@ -101,7 +115,7 @@ export function createCellSpaceStoreys(
 		...createStoreyStack(sizing),
 		cells,
 		get storeys() {
-			return (storeys ??= readCellStoreys(result));
+			return (storeys ??= cellStoreys(result));
 		}
 	});
 	return result;

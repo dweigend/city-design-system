@@ -5,6 +5,7 @@ import { bounds, PlaceableObject, type Footprint } from '../../core/object';
 import {
 	columnRoof,
 	createCityTaper,
+	levelHeight,
 	type CityColumn,
 	type CityLattice,
 	type CityTaper,
@@ -57,9 +58,10 @@ export function projectCityDistricts(
 	columns: readonly CityColumn[],
 	datumZ: number,
 	frame: Frame,
-	taper: CityTaper = createCityTaper(columns, datumZ),
+	taper?: CityTaper,
 	seed = 0,
-	kinds: readonly DistrictKind[] = cityDistrictKinds
+	kinds: readonly DistrictKind[] = cityDistrictKinds,
+	levelHeightM = levelHeight
 ) {
 	const selected = new Set(kinds);
 	if (selected.size !== kinds.length) throw new RangeError('Duplicate district kind');
@@ -74,15 +76,16 @@ export function projectCityDistricts(
 		columns,
 		datumZ,
 		frame.toLocal,
-		taper,
+		taper ?? createCityTaper(columns, datumZ, levelHeightM),
 		seed,
-		kinds === cityDistrictKinds ? undefined : selected
+		kinds === cityDistrictKinds ? undefined : selected,
+		levelHeightM
 	);
-	const blocks = blockMeshes(visibleColumns, datumZ, frame.toLocal, seed);
+	const blocks = blockMeshes(visibleColumns, datumZ, frame.toLocal, seed, levelHeightM);
 	const cells = visibleColumns.map((column) => ({
 		kind: column.kind,
 		ring: column.corners.map(({ position: [x, y, z] }): Vec3 => [...frame.toLocal(x, y), z]),
-		top: columnRoof(column, datumZ)
+		top: columnRoof(column, datumZ, levelHeightM)
 	}));
 	const shades = (['contact', 'cast'] as const).flatMap((role) =>
 		[true, false].flatMap((boxShade) =>

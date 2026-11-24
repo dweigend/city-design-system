@@ -1,6 +1,7 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor } from '../../core/object';
 import { cellAreaM2, cellCenter, type CellSpace } from '../cell-space';
+import { required } from '../../core/invariant';
 import { createWorldReference } from '../../core/ref';
 import { Random } from '../../core/random';
 import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
@@ -20,7 +21,13 @@ import {
 	type HouseOccupancy,
 	type HouseSite
 } from './occupancy';
-import { partReferences, shapeParts, type HousePart, type HousePartRef } from './part-refs';
+import {
+	partAddresses,
+	shapeParts,
+	type HousePart,
+	type HousePartAddress,
+	type HousePartRef
+} from './part-refs';
 import { canopy, envelope, envelopeRims, openings, plates, solidRims } from './parts';
 import type { AdjoiningWall } from './wall-contact';
 
@@ -207,14 +214,19 @@ function allParts(ctx: Context, house: HouseOccupancy, detail: HouseDetail): Hou
 	];
 }
 
-/** Immutable occupancy with an address and the part references of its full-detail object. */
+/** Immutable occupancy with an ID and the local part addresses of its full-detail object. */
 export type HouseCourt = HouseOccupancy &
 	Readonly<{
 		id: string;
-		partRefs: readonly HousePartRef[];
+		partAddresses: readonly HousePartAddress[];
 	}>;
 
-/** Plans a house around a court. Part references are derived on first read from its full-detail assembly. */
+const contextualParts = new WeakMap<
+	HouseCourt,
+	(walls: readonly AdjoiningWall[]) => readonly HousePartAddress[]
+>();
+
+/** Plans a house around a court. Local part addresses are derived on first read. */
 export function createHouseCourt(
 	space: CellSpace,
 	inputs: HouseInputs,
@@ -223,30 +235,39 @@ export function createHouseCourt(
 ): HouseCourt {
 	const house = createHouseOccupancy(space, inputs, style, site);
 	const id = houseId(space);
-	let refs: readonly HousePartRef[] | undefined;
-	return Object.freeze({
+	let addresses: readonly HousePartAddress[] | undefined;
+	const readAddresses = (walls: readonly AdjoiningWall[]) => {
+		const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
+		const ctx = context(space, house, used, walls);
+		return partAddresses(id, space.id, allParts(ctx, house, 'full'));
+	};
+	const result: HouseCourt = Object.freeze({
 		...house,
 		id,
-		get partRefs() {
-			if (refs) return refs;
-			const used = houseStyleFor(space, style, house.inputs.seed, house.scale);
-			const ctx = context(space, house, used, []);
-			return (refs = partReferences(id, space.id, allParts(ctx, house, 'full')));
+		get partAddresses() {
+			return (addresses ??= readAddresses([]));
 		}
 	});
+	contextualParts.set(result, readAddresses);
+	return result;
 }
 
-/** Reads part and storey references in full-detail part order, optionally in another world. */
-export function readHousePartRefs(house: HouseCourt, world?: string): readonly HousePartRef[] {
-	const refs = house.partRefs;
-	if (world === undefined) return refs;
+/** Mints world-scoped refs in full-detail part order. Pass the same adjoining walls as the object builder. */
+export function readHousePartRefs(
+	house: HouseCourt,
+	world: string,
+	adjoiningWalls: readonly AdjoiningWall[] = []
+): readonly HousePartRef[] {
+	const addresses = adjoiningWalls.length
+		? required(contextualParts.get(house), 'house assembly')(adjoiningWalls)
+		: house.partAddresses;
 	return Object.freeze(
-		refs.map(({ ref, storeyRefs, ...part }) =>
+		addresses.map(({ key, storeyKeys, ...part }) =>
 			Object.freeze({
 				...part,
-				ref: createWorldReference(world, ref.kind, ref.key),
+				ref: createWorldReference(world, 'house-part', key),
 				storeyRefs: Object.freeze(
-					storeyRefs.map((ref) => createWorldReference(world, ref.kind, ref.key))
+					storeyKeys.map((key) => createWorldReference(world, 'storey', key))
 				)
 			})
 		)

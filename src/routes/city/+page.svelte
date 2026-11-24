@@ -11,7 +11,6 @@
 		cityVolumeParams,
 		createCityLattice,
 		createCityTaper,
-		storeysPerLevel,
 		readCityColumns,
 		type DistrictKind,
 		type LatticeVariant,
@@ -46,7 +45,8 @@
 		createCitySite,
 		readCityDistricts,
 		readCityGrid,
-		readCityParcels
+		readCityParcels,
+		riverCityRecipe
 	} from '../../lib/world/city-site';
 	import TerrainControls from '../TerrainControls.svelte';
 	import ChapterHeader from '../ChapterHeader.svelte';
@@ -151,15 +151,26 @@
 	);
 	const city = $derived(createCitySite(undefined, { ...terrainSettings, seed }));
 	const plan = $derived(readCityGrid(city, citySize, gridVariant, seed));
+	const recipe = $derived(city.recipe ?? riverCityRecipe);
 	// Every step stands on the whole plan, water cells included, so the plan and its crossings are
 	// one set of overlays that the focus draws at every step.
 	const terrain = $derived(projectCityTerrain(city, plan.grid, plan.plan));
 	const maxProfileScale = $derived(terrain.autoHeightScale);
 	const districts = $derived(readCityDistricts(city, plan, seed, { height, complexity }));
 	const columns = $derived(readCityColumns(plan.grid, districts));
-	const taperField = $derived(createCityTaper(columns, plan.datumZ));
-	const envelope = $derived(projectCityDistricts(columns, plan.datumZ, terrain, taperField, seed));
-	const lattice = $derived(createCityLattice(columns, plan.datumZ, latticeVariant));
+	const taperField = $derived(createCityTaper(columns, plan.datumZ, recipe.levelHeightM));
+	const envelope = $derived(
+		projectCityDistricts(
+			columns,
+			plan.datumZ,
+			terrain,
+			taperField,
+			seed,
+			undefined,
+			recipe.levelHeightM
+		)
+	);
+	const lattice = $derived(createCityLattice(columns, plan.datumZ, latticeVariant, recipe));
 	const members = $derived(projectCityLattice(lattice, terrain, taperField));
 	const holdings = $derived(readCityParcels(city, plan));
 	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits));
@@ -199,6 +210,7 @@
 			relief,
 			trueScale: profile === 'true',
 			maxProfileScale,
+			levelHeightM: recipe.levelHeightM,
 			taper
 		})
 	);
@@ -231,7 +243,7 @@
 
 	function districtMeasurements(cells: typeof columns) {
 		const storeys: Record<DistrictKind, number[]> = { detached: [], block: [], center: [] };
-		for (const { kind, levels } of cells) storeys[kind].push(levels * storeysPerLevel);
+		for (const { kind, levels } of cells) storeys[kind].push(levels * recipe.storeysPerLevel);
 		return (Object.keys(storeys) as DistrictKind[])
 			.filter((kind) => storeys[kind].length)
 			.map((kind) => {

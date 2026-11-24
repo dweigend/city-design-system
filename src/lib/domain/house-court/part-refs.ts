@@ -1,7 +1,6 @@
 import type { Part, Shape } from '../../core/object';
-import { createWorldReference, encodeKey, type Ref } from '../../core/ref';
-import { required } from '../../core/invariant';
-import { readStoreyRef } from '../cell-space';
+import { encodeKey, type Ref } from '../../core/ref';
+import { readStoreyKey } from '../cell-space';
 
 export type StoreyRun = readonly [cellId: string, fromStorey: number, toStorey: number];
 export type HousePart = Part & Readonly<{ runs: readonly StoreyRun[] }>;
@@ -14,14 +13,18 @@ export function groundStoreyRuns(cellId: string): readonly StoreyRun[] {
 
 /** A part's identity and the addressed storeys it serves. The span end is exclusive.
  * Shared meshes report a null cellId and list the contributing storeys across their cells. */
-export type HousePartRef = Readonly<{
-	ref: Ref<'house-part'>;
+export type HousePartAddress = Readonly<{
+	key: string;
 	partId: string;
 	slot: string;
 	cellId: string | null;
 	storeySpan: readonly [number, number];
-	storeyRefs: readonly Ref<'storey'>[];
+	storeyKeys: readonly string[];
 }>;
+
+/** Part and storey addresses resolved in one supplied world. */
+export type HousePartRef = Omit<HousePartAddress, 'key' | 'storeyKeys'> &
+	Readonly<{ ref: Ref<'house-part'>; storeyRefs: readonly Ref<'storey'>[] }>;
 
 export function shapeParts(
 	id: string,
@@ -32,36 +35,30 @@ export function shapeParts(
 	return shape ? [{ id, slot, shape, runs }] : [];
 }
 
-export function partReferences(
+export function partAddresses(
 	houseId: string,
 	spaceId: string,
 	parts: readonly HousePart[]
-): readonly HousePartRef[] {
+): readonly HousePartAddress[] {
 	return Object.freeze(
 		parts.map(({ id, slot, runs }) => {
-			const refs = new Map<string, Ref<'storey'>>();
+			const keys = new Set<string>();
 			let from = Infinity;
 			let to = -Infinity;
 			const cellId = runs[0][0];
 			for (const [cell, bottom, top] of runs) {
 				from = Math.min(from, bottom);
 				to = Math.max(to, top);
-				for (let storey = bottom; storey < top; storey += 1) {
-					const ref = readStoreyRef(spaceId, cell, storey);
-					refs.set(ref.key, ref);
-				}
+				for (let storey = bottom; storey < top; storey += 1)
+					keys.add(readStoreyKey(spaceId, cell, storey));
 			}
 			return Object.freeze({
-				ref: createWorldReference(
-					required(refs.values().next().value, 'part storey').world,
-					'house-part',
-					encodeKey([houseId, id])
-				),
+				key: encodeKey([houseId, id]),
 				partId: id,
 				slot,
 				cellId: runs.every(([cell]) => cell === cellId) ? cellId : null,
 				storeySpan: Object.freeze<[number, number]>([from, to]),
-				storeyRefs: Object.freeze([...refs.values()])
+				storeyKeys: Object.freeze([...keys])
 			});
 		})
 	);

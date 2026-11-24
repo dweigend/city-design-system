@@ -1,5 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
-import { columnRoof, levelHeight, type CityColumn } from '../../domain/city-volume';
+import { columnRoof, type CityColumn } from '../../domain/city-volume';
 import { createMovementNetwork, type MovementNode } from '../../domain/movement-network';
 import { walkwayClearance } from './clearance';
 import { defaults } from '../../../config/city-movement';
@@ -14,10 +14,10 @@ function distance(a: Vec3, b: Vec3) {
 	return Math.hypot(a[0] - b[0], a[1] - b[1]);
 }
 
-function roofsByVertex(columns: readonly CityColumn[], datumZ: number) {
+function roofsByVertex(columns: readonly CityColumn[], datumZ: number, levelHeightM: number) {
 	const roofs = new Map<string, number>();
 	for (const column of columns) {
-		const top = columnRoof(column, datumZ);
+		const top = columnRoof(column, datumZ, levelHeightM);
 		for (const { id } of column.corners) roofs.set(id, Math.max(top, roofs.get(id) ?? -Infinity));
 	}
 	return roofs;
@@ -28,20 +28,22 @@ export function walkways(
 	ground: Ground,
 	columns: readonly CityColumn[],
 	datumZ: number,
+	levelHeightM: number,
 	offset: number,
 	centers: readonly string[],
 	stair: ReturnType<typeof stairSurvey>
 ) {
 	const heads = centers.filter((id) => ground.nodes.has(id));
-	const roofs = roofsByVertex(columns, datumZ);
+	const roofs = roofsByVertex(columns, datumZ, levelHeightM);
 	const roofAt = (id: string) => roofs.get(id) ?? ground.node(id).position[2];
 	const clearance = defaults.walkwayRoofClearanceM;
 	const highEave = Math.max(datumZ, ...heads.map(roofAt));
-	const level = Math.ceil((highEave + clearance - datumZ) / levelHeight) + offset;
-	const z = datumZ + level * levelHeight;
+	const level = Math.ceil((highEave + clearance - datumZ) / levelHeightM) + offset;
+	const z = datumZ + level * levelHeightM;
 	const segmentClear = walkwayClearance(
 		columns,
 		datumZ,
+		levelHeightM,
 		z,
 		clearance,
 		defaults.walkwaySideClearanceM

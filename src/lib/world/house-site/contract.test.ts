@@ -126,3 +126,56 @@ test('uses a custom parcel subgrid and repeats recipe heights from the coarse da
 	expect(placed.space.storeyElevationsM.at(-1)).toBeCloseTo(roof);
 	expect(createParcelHouseObject(placed, 'full').parts.length).toBeGreaterThan(0);
 });
+
+test('starts terrain-aware houses on the exact plane and keeps their mixed height phase', () => {
+	const town = createTownHouseStudy();
+	const { id } = required(town.parcelsByBlock.get(town.blocks.block.id)?.[0], 'town parcel');
+	const site = required(town.readParcelSite(id), 'parcel site');
+	const columns = new Map(
+		site.block.memberCellIds.map((id) => {
+			const column = required(site.columns.get(id), 'parcel column');
+			return [
+				id,
+				{
+					...column,
+					groundAtHub: 0,
+					levels: 2,
+					corners: column.corners.map(({ id, position: [x, y] }) => ({
+						id,
+						position: [x, y, 0] as const
+					}))
+				}
+			] as const;
+		})
+	);
+	const groundZ = 3 * 3.2;
+	const uniform = createParcelHouse(
+		{
+			...site,
+			columns,
+			datumZ: 0,
+			groundAt: () => groundZ,
+			recipe: { vertical: { storeyHeightM: 3.2, storeysPerLevel: 4 } }
+		},
+		{ seed: 3 }
+	);
+	if (uniform.status !== 'placed') throw new Error(uniform.reason);
+	expect(uniform.space.baseZ).toBe(groundZ);
+	expect(uniform.space.storeyElevationsM.at(-1)).toBeCloseTo(25.6);
+
+	const mixedGroundZ = 15.7 + (4.8 + 3.2);
+	const mixed = createParcelHouse(
+		{
+			...site,
+			columns,
+			datumZ: 0,
+			groundAt: () => mixedGroundZ,
+			recipe: { vertical: { levelHeightM: 15.7, storeyHeightsM: [4.8, 3.2, 3.2, 4.5] } }
+		},
+		{ seed: 3 }
+	);
+	if (mixed.status !== 'placed') throw new Error(mixed.reason);
+	expect(mixed.space.baseZ).toBe(mixedGroundZ);
+	expect(mixed.space.storeyHeightsM).toEqual([3.2, 4.5]);
+	expect(mixed.space.storeyElevationsM.at(-1)).toBeCloseTo(31.4);
+});

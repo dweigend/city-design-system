@@ -15,6 +15,7 @@ import {
 	readCityRail,
 	type CityMovementKind
 } from '../../lib/world/city-movement';
+import { riverCityRecipe } from '../../lib/world/city-site';
 import { createCityStructure } from '../../lib/world/city-structure';
 import { readQuery } from '../architecture/query';
 import { townSheet, townStage } from '../architecture/town';
@@ -78,6 +79,7 @@ export function createTownReview() {
 	const ground = new Set(town.context('all').drawables);
 	const columns = [...town.columns.values()];
 	const { site, layout, terrain } = town;
+	const recipe = site.recipe ?? riverCityRecipe;
 	const heads = crossingHeads(layout);
 	const rail = readCityRail(site, layout, columns, railDemo(site, layout, heads));
 	const movement = readCityMovement(site, layout, columns, 0, rail, heads);
@@ -99,7 +101,7 @@ export function createTownReview() {
 			for (const [x, y] of block.outline) blockHeights.push(site.sampleGround(x, y).height);
 			for (const cellId of block.memberCellIds) {
 				const column = town.columns.get(cellId);
-				if (column) blockHeights.push(columnRoof(column, layout.datumZ));
+				if (column) blockHeights.push(columnRoof(column, layout.datumZ, recipe.levelHeightM));
 			}
 		}
 		const low = blockHeights.length ? Math.min(...blockHeights) : wholeLow;
@@ -121,8 +123,8 @@ export function createTownReview() {
 	/** The lattice and its primary members are drawn only once the Structure focus asks for them. */
 	function readStructure() {
 		if (structure) return structure;
-		const lattice = createCityLattice(columns, layout.datumZ, 'braced');
-		const { graph } = createCityStructure(lattice, layout.datumZ);
+		const lattice = createCityLattice(columns, layout.datumZ, 'braced', recipe);
+		const { graph } = createCityStructure(lattice, layout.datumZ, recipe.levelHeightM);
 		structure = projectStructure(graph, {
 			view: 'primary',
 			supports: false,

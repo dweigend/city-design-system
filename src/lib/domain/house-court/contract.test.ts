@@ -9,6 +9,7 @@ import {
 	createCellSpace,
 	createCellSpaceStoreys,
 	readStoreyElevation,
+	readCellStoreys,
 	type CellSubgridGenerator,
 	parcelEdgeId,
 	type CellSpace,
@@ -481,9 +482,9 @@ test('uses stable JSON refs to attach external functions to storeys and every ho
 		functions.clear();
 		const { space, house, object } = mixedStoreyExample('corner-quad', cellSubgridCatalog, style);
 		const before = JSON.stringify(object);
-		const rows = readHousePartRefs(house);
+		const rows = readHousePartRefs(house, 'fixture');
 		const storeys = new Set(
-			space.storeys.map(({ ref }, i) => {
+			readCellStoreys(space, 'fixture').map(({ ref }, i) => {
 				attach(ref, i);
 				return JSON.stringify(ref);
 			})
@@ -504,7 +505,8 @@ test('uses stable JSON refs to attach external functions to storeys and every ho
 			}
 		}
 		const replay = mixedStoreyExample('corner-quad', cellSubgridCatalog, style);
-		expect(replay.house.partRefs).toEqual(rows);
+		expect(replay.house.partAddresses).toEqual(house.partAddresses);
+		expect(readHousePartRefs(replay.house, 'fixture')).toEqual(rows);
 		expect(new Set(functions.values())).toEqual(new Set(uses));
 		expect(JSON.stringify(replay.object)).toBe(before);
 		for (const { ref, storeyRefs } of readHousePartRefs(house, 'another-world')) {

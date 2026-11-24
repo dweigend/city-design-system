@@ -31,6 +31,7 @@ export type CityAssetHost =
 			kind: 'lattice-bay';
 			id: string;
 			datumZ: number;
+			levelHeightM?: number;
 			model: LatticeVariant;
 			readLattice: (model: LatticeVariant) => CityLattice;
 	  }>

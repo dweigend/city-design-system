@@ -84,9 +84,10 @@ export function stairSurvey(
 	site: CitySite,
 	columns: readonly CityColumn[],
 	datumZ: number,
+	levelHeightM: number,
 	publicGround: ReturnType<typeof parcelClearance>
 ) {
-	const clear = columnClearance(columns, datumZ);
+	const clear = columnClearance(columns, datumZ, levelHeightM);
 
 	return (id: string, base: MovementNode, top: MovementNode) => {
 		const z = base.position[2];

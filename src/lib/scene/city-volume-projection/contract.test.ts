@@ -410,3 +410,40 @@ test('keeps exposed walls against excluded neighbors when filtering district kin
 	// Filtering out the equal-height center neighbor exposes the shared 2-storey wall (+4 triangles = +12 indices).
 	expect(blockMesh(onlyBlock)).toBe(blockMesh(all) + 12);
 });
+
+test('projects roofs and wall wires on the requested coarse planes', () => {
+	const { columns, frame } = example();
+	const datumZ = 2;
+	const levelHeightM = 15.7;
+	const levels = 3;
+	const column = {
+		...columns[0],
+		levels,
+		corners: columns[0].corners.map(({ id, position: [x, y] }) => ({
+			id,
+			position: [x, y, datumZ] as const
+		})),
+		neighbors: columns[0].neighbors.map(() => null)
+	};
+	const projected = projectCityDistricts(
+		[column],
+		datumZ,
+		frame,
+		undefined,
+		0,
+		undefined,
+		levelHeightM
+	);
+	const roof = datumZ + levels * levelHeightM;
+	expect(projected.focus?.max[2]).toBe(roof);
+	for (const role of ['roof', 'block-roof', 'storeys', 'block-storeys'] as const) {
+		const wires = required(
+			projected.drawables.find((part) => part.role === role)?.strokeSegments,
+			role
+		);
+		const elevations = new Set(wires.filter((_, index) => index % 3 === 2));
+		expect(elevations).toEqual(
+			new Set(role.endsWith('roof') ? [roof] : [datumZ + levelHeightM, datumZ + 2 * levelHeightM])
+		);
+	}
+});

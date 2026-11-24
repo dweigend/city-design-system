@@ -5,7 +5,8 @@ import {
 	createCitySite,
 	readCityDistricts,
 	readCityGrid,
-	type CityPlanVariant
+	type CityPlanVariant,
+	type CitySiteOptions
 } from '../city-site';
 import { cityRailTerrainSlopeBound, readCityMovement, readCityRail } from './index';
 
@@ -14,9 +15,10 @@ export function cityMovementExample(
 	variant: CityPlanVariant = 'organic',
 	size = citySiteParams.citySize.default,
 	relief?: number,
-	useCrossing = true
+	useCrossing = true,
+	recipe?: CitySiteOptions['recipe']
 ) {
-	const site = createCitySite(undefined, relief === undefined ? undefined : { relief });
+	const site = createCitySite(undefined, { ...(relief === undefined ? {} : { relief }), recipe });
 	const layout = readCityGrid(site, size, variant);
 	const columns = readCityColumns(layout.grid, readCityDistricts(site, layout));
 	const heads = useCrossing

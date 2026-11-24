@@ -1,5 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
-import { columnRoof, levelHeight, type CityColumn } from '../../domain/city-volume';
+import { columnRoof, type CityColumn } from '../../domain/city-volume';
 import {
 	createStraightLevelTransitLine,
 	type RailAnchor,
@@ -24,7 +24,8 @@ export function cityRail(
 	layout: CityGrid,
 	ground: ReturnType<typeof groundLanes>,
 	columns: readonly CityColumn[],
-	options: CityRailOptions
+	options: CityRailOptions,
+	levelHeightM: number
 ) {
 	const { bearing } = site.frame;
 	const u = Math.cos(bearing);
@@ -73,7 +74,7 @@ export function cityRail(
 	});
 	const obstacles = columns.map((column) => ({
 		outline: column.corners.map(({ position: [wx, wy] }): Vec2 => [wx, wy]),
-		topM: columnRoof(column, layout.datumZ)
+		topM: columnRoof(column, layout.datumZ, levelHeightM)
 	}));
 	const anchorNodes = new Map(
 		[...layout.plan.vertices, ...layout.grid.vertices].map((node) => [node.id, node])
@@ -84,7 +85,7 @@ export function cityRail(
 	const alongMax = Math.max(...occupiedAlong);
 	const acrossMin = Math.min(...occupiedAcross);
 	const acrossMax = Math.max(...occupiedAcross);
-	const stair = stairSurvey(site, columns, layout.datumZ, ground.clear);
+	const stair = stairSurvey(site, columns, layout.datumZ, levelHeightM, ground.clear);
 	const nodes = new Map([...ground.nodes.values()].map((node) => [node.id, node]));
 	const access = new Map<string, boolean>();
 	return createStraightLevelTransitLine({
@@ -96,7 +97,7 @@ export function cityRail(
 			if (cached !== undefined) return cached;
 			const node = nodes.get(id);
 			if (!node) return false;
-			const level = Math.round((z - layout.datumZ) / levelHeight);
+			const level = Math.round((z - layout.datumZ) / levelHeightM);
 			const usable = Boolean(stair(id, node, raised(node, level, z)));
 			access.set(key, usable);
 			return usable;
@@ -122,6 +123,6 @@ export function cityRail(
 		obstacles,
 		catchments,
 		dockReachM: defaults.railDockReachM,
-		levels: { datumM: layout.datumZ, spacingM: levelHeight }
+		levels: { datumM: layout.datumZ, spacingM: levelHeightM }
 	});
 }

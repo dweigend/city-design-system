@@ -36,6 +36,7 @@ type Options = Readonly<{
 	relief: number;
 	trueScale: boolean;
 	maxProfileScale: number;
+	levelHeightM?: number;
 	/** Signed share of the taper field, 1 retreat … −1 overhang. */
 	taper: number;
 }>;
@@ -45,6 +46,7 @@ type Frame = Readonly<{
 	detail: Profile;
 	vertical: { pivot: number; scale: number };
 	amount: number;
+	levelHeightM: number;
 }>;
 
 function groundSubsystem(part: Drawable): Subsystem {
@@ -117,7 +119,7 @@ function styleBody(
 	drawing: VisibleDrawing,
 	open: boolean,
 	analysis: string | undefined,
-	{ detail, vertical, amount }: Frame
+	{ detail, vertical, amount, levelHeightM }: Frame
 ): CityDrawable {
 	const look = bodyLook(drawing);
 	const full = drawing.detail === 'full';
@@ -138,7 +140,7 @@ function styleBody(
 	// Neutral edges thin out where member detail fades, so far stock stays a quiet mass.
 	const far = full ? 1 : farStockEdgeShare + (1 - farStockEdgeShare) * detail.rims;
 	const neutral = look.surface && stockSurfaces[look.surface];
-	const { line, ...rampSurface } = heightRamp(part.levels * levelHeight);
+	const { line, ...rampSurface } = heightRamp(part.levels * levelHeightM);
 	return {
 		...part,
 		...(neutral ? { color: neutral.color } : {}),
@@ -198,6 +200,7 @@ export function cityPresentation({
 	relief,
 	trueScale,
 	maxProfileScale,
+	levelHeightM = levelHeight,
 	taper
 }: Options): Presentation {
 	const analysis = typeof focus === 'string' ? readFocusChoice(focus).analysis : focus.analysis;
@@ -218,6 +221,7 @@ export function cityPresentation({
 		const detail = cityProfile(width, metersPerPixel, peak, elevation, trueScale, maxProfileScale);
 		const frame: Frame = {
 			detail,
+			levelHeightM,
 			vertical: { pivot: 0, scale: detail.factor },
 			amount: taper * detail.taper
 		};

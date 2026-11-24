@@ -300,13 +300,13 @@ test('addresses every slice at the cumulative boundaries and keeps IDs across ve
 	expect(space.storeyHeightM).toBeUndefined();
 	expect(space.storeyElevationsM).toEqual([0, 4.8, 8, 11.2, 15.7]);
 	expect(space.storeys).toHaveLength(space.cells.length * 4);
-	expect(new Set(space.storeys.map(({ ref }) => ref.key)).size).toBe(space.storeys.length);
+	expect(new Set(space.storeys.map(({ key }) => key)).size).toBe(space.storeys.length);
 	const taller = createCellSpaceStoreys(space, {
 		baseZ: 9,
 		storeyCount: 5,
 		storeyHeightsM: [...mixedStoreyParcel.storeyHeightsM, 5]
 	});
-	const grownKeys = new Set(taller.storeys.map(({ ref }) => ref.key));
+	const grownKeys = new Set(taller.storeys.map(({ key }) => key));
 	for (const { ref, cellId, storey, bottomZ, topZ, heightM } of readCellStoreys(space, 'fixture')) {
 		const restored = readWorldReference(JSON.parse(JSON.stringify(ref)));
 		expect(restored && equalRefs(ref, restored)).toBe(true);
@@ -316,6 +316,11 @@ test('addresses every slice at the cumulative boundaries and keeps IDs across ve
 		expect(topZ).toBe(readStoreyElevation(space, storey + 1));
 		expect(heightM).toBe(readStoreyHeight(space, storey));
 	}
+	const [first] = readCellStoreys(space, 'fixture');
+	const [other] = readCellStoreys(space, 'another-world');
+	expect(first.ref.key).toBe(other.ref.key);
+	expect(equalRefs(first.ref, other.ref)).toBe(false);
+	expect(() => readCellStoreys(space, '')).toThrow(RangeError);
 	expect(() => readStoreyHeight(space, space.storeyCount)).toThrow(RangeError);
 	expect(() => readStoreyElevation(space, -1)).toThrow(RangeError);
 });

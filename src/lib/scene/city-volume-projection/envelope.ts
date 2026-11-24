@@ -73,10 +73,10 @@ function addWire(
 }
 
 /** Wall heights from the floor to the roof: the floor, every plane between, the roof. */
-function wallHeights(floor: number, top: number, datumZ: number) {
+function wallHeights(floor: number, top: number, datumZ: number, levelHeightM: number) {
 	const heights = [];
-	for (let level = Math.ceil((floor - datumZ) / levelHeight - 1e-9); ; level++) {
-		const z = datumZ + level * levelHeight;
+	for (let level = Math.ceil((floor - datumZ) / levelHeightM - 1e-9); ; level++) {
+		const z = datumZ + level * levelHeightM;
 		if (z >= top - 1e-9) break;
 		if (z > floor + 1e-9) heights.push(z);
 	}
@@ -93,7 +93,8 @@ export function envelopeMeshes(
 	toLocal: Local,
 	taper: CityTaper,
 	seed: number,
-	selectedKinds?: ReadonlySet<DistrictKind>
+	selectedKinds?: ReadonlySet<DistrictKind>,
+	levelHeightM = levelHeight
 ) {
 	const parts = new Map<string, EnvelopePart>();
 	const byId = new Map(columns.map((column) => [column.planCellId, column]));
@@ -116,7 +117,7 @@ export function envelopeMeshes(
 			};
 			parts.set(id, part);
 		}
-		const topZ = columnRoof(column, datumZ);
+		const topZ = columnRoof(column, datumZ, levelHeightM);
 		const base = column.corners.map(({ position }) => position);
 		const roof = base.map(([x, y]): Vec3 => [x, y, topZ]);
 		const ring = roof.map(local);
@@ -129,13 +130,13 @@ export function envelopeMeshes(
 			const resolved = id === null ? undefined : required(byId.get(id), 'envelope neighbor');
 			const neighbor =
 				resolved && (!selectedKinds || selectedKinds.has(resolved.kind)) ? resolved : undefined;
-			const lower = neighbor && columnRoof(neighbor, datumZ);
+			const lower = neighbor && columnRoof(neighbor, datumZ, levelHeightM);
 			const edge = pencil || neighbor?.densityRegionId !== column.densityRegionId || lower !== topZ;
 			addWire(part, edge ? 'roof' : 'joints', local(a), local(b));
 			if (lower !== undefined && lower >= topZ) continue;
 			const floorA = lower ?? base[i][2];
 			const floorB = lower ?? base[j][2];
-			const heights = wallHeights(Math.max(floorA, floorB), topZ, datumZ);
+			const heights = wallHeights(Math.max(floorA, floorB), topZ, datumZ, levelHeightM);
 			let bottom: [Vec3, Vec3] = [
 				[a[0], a[1], floorA],
 				[b[0], b[1], floorB]

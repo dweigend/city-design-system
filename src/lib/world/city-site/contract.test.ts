@@ -21,7 +21,8 @@ import {
 	createCityVerticalRecipe,
 	readCitySide,
 	readCityDistricts,
-	readCityGrid
+	readCityGrid,
+	riverCityRecipe
 } from './index';
 
 test('grows on both banks without moving cells or the common datum', () => {
@@ -462,4 +463,20 @@ test('uses recipe spacing for the city datum, district heights and coarse lattic
 	expect(() => createCityVerticalRecipe({ levelHeightM: 12, storeyHeightsM: [4, 5] })).toThrow(
 		RangeError
 	);
+});
+
+test('validates the river recipe and rejects a uniform height that conflicts with its stack', () => {
+	const { levelHeightM, storeysPerLevel } = riverCityRecipe;
+	const storeyHeightM = required(riverCityRecipe.storeyHeightM, 'default storey height');
+	expect(createCityVerticalRecipe({ levelHeightM, storeyHeightM, storeysPerLevel })).toEqual({
+		levelHeightM,
+		storeyHeightM,
+		storeysPerLevel
+	});
+	expect(() =>
+		createCityVerticalRecipe({ storeyHeightM: 3.5, storeyHeightsM: [4.8, 3.2] })
+	).toThrow('Uniform storey height disagrees with the stack');
+	const mixed = createCityVerticalRecipe({ storeyHeightsM: [4.8, 3.2] });
+	expect(mixed.storeyHeightM).toBeUndefined();
+	expect(createCityVerticalRecipe(mixed)).toEqual(mixed);
 });

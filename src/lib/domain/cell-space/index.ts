@@ -30,6 +30,7 @@ export {
 	readCellStoreys,
 	readStoreyElevation,
 	readStoreyHeight,
+	readStoreyKey,
 	readStoreyRef
 } from './storeys';
 

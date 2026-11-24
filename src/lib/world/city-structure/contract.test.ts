@@ -115,3 +115,19 @@ for (const model of ['braced', 'centered'] as const) {
 		}
 	});
 }
+
+test('puts primary shell chords on the lattice recipe rings', () => {
+	const levelHeightM = 15.7;
+	const interval = cityStructureSettings.ringIntervalLevels.value;
+	const column = { ...flatCell(), levels: interval + 1 };
+	const lattice = createCityLattice([column], 0, 'box', { levelHeightM });
+	const { graph } = createCityStructure(lattice, 0, levelHeightM);
+	const perimeter = new Set(
+		graph.joints
+			.filter(({ position }) => position[2] === interval * levelHeightM)
+			.map(({ id }) => id)
+	);
+	const ring = graph.members.filter(({ from, to }) => perimeter.has(from) && perimeter.has(to));
+	expect(ring).toHaveLength(4);
+	expect(ring.every(({ section }) => section === 'heavy')).toBe(true);
+});
