@@ -41,6 +41,8 @@ export function validateColumns(columns: readonly StructuralColumn[], maxLevels:
 		cells.add(planCellId);
 		if (!Number.isInteger(levels) || levels < 1 || levels > maxLevels)
 			throw new RangeError(`City columns require 1–${maxLevels} whole levels`);
+		if (column.groundAtHub !== undefined && !Number.isFinite(column.groundAtHub))
+			throw new RangeError('Expected a finite column hub ground elevation');
 		validateRing(column, positions);
 	}
 }

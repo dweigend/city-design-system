@@ -2,7 +2,7 @@ import { taperDefaults as config } from '../../../config/city-volume';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodeKey } from '../../core/ref';
-import { columnPlanes, planeIndex } from './foundation';
+import { columnPlanes, levelHeight, planeIndex, requireLevelSpacing } from './foundation';
 import type { StructuralColumn } from './columns';
 import { readPlanTopology, type PlanRing, type PlanTopology } from './plan-topology';
 
@@ -85,10 +85,15 @@ const planKey = (x: number, y: number) =>
  * −1 overhangs the lower ones. A plan corner moves along its ring; a cell centre and an edge
  * midpoint move with the mean of their corners; a cell also answers at the mean of its corners. Between two level planes the move is linear in Z.
  * Throws RangeError for a point that is none of these plan addresses. */
-export function createCityTaper(columns: readonly StructuralColumn[], datumZ: number) {
+export function createCityTaper(
+	columns: readonly StructuralColumn[],
+	datumZ: number,
+	levelHeightM = levelHeight
+) {
+	requireLevelSpacing(levelHeightM);
 	const topology = readPlanTopology(columns);
 	const planes = new Map(
-		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ)])
+		columns.map((column) => [column.planCellId, columnPlanes(column, datumZ, levelHeightM)])
 	);
 	const retreat = cornerRetreat(topology, (id) => required(planes.get(id), 'taper column'));
 	const atCorner = (id: string, level: number) =>
@@ -115,7 +120,7 @@ export function createCityTaper(columns: readonly StructuralColumn[], datumZ: nu
 	return ([x, y, z]: Vec3): Vec2 => {
 		const at = addresses.get(planKey(x, y));
 		if (!at) throw new RangeError(`No plan address at ${x}, ${y}`);
-		const index = Math.max(0, planeIndex(datumZ, z));
+		const index = Math.max(0, planeIndex(datumZ, z, levelHeightM));
 		const low = Math.floor(index + config.taperLevelTolerance);
 		const t = index - low;
 		const below = at(low);

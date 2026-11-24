@@ -50,6 +50,15 @@ export function columnPlanes(
 		Math.abs(planeElevation(datumZ, roof, levelHeightM)) > Number.MAX_SAFE_INTEGER
 	)
 		throw new RangeError('City occupied plane span is unsupported');
+	for (let level = first; level < roof; level++) {
+		if (
+			!(
+				planeElevation(datumZ, level + 1, levelHeightM) >
+				planeElevation(datumZ, level, levelHeightM)
+			)
+		)
+			throw new RangeError('City occupied plane elevations must strictly increase');
+	}
 	return { first, foundation, roof };
 }
 

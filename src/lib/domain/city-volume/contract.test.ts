@@ -398,6 +398,18 @@ test('uses an independent level cap and plane spacing for prism and plane models
 	expect(() => createCityLattice(columns, 0, 'box', { ...options, maxLevels: 15 })).toThrow(
 		RangeError
 	);
+	expect(() => createStructuralColumns([{ ...structuralColumn, groundAtHub: Number.NaN }])).toThrow(
+		RangeError
+	);
+	const raised = {
+		...structuralColumn,
+		levels: 1,
+		corners: structuralColumn.corners.map(({ id, position: [x, y] }) => ({
+			id,
+			position: [x, y, 1] as const
+		}))
+	};
+	expect(() => createCityLattice([raised], 1, 'box', { levelHeightM: 1e-20 })).toThrow(RangeError);
 });
 
 for (const variant of ['polar', 'free-quad'] as const) {
