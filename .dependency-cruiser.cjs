@@ -27,6 +27,7 @@ const configOwners = {
 	'lib/scene/material': 'material-drawing',
 	'lib/scene/house-projection': 'house-projection',
 	'lib/scene/sandbox-projection': 'sandbox-projection',
+	'lib/scene/sandbox-interaction': 'sandbox-interaction',
 	'routes/surfaces': 'surface-specimens',
 	'routes/blocks': 'blocks-board',
 	'routes/sandbox': 'sandbox-brush',
