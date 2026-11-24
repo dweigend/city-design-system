@@ -1,7 +1,8 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { PlaceableObject } from '../../core/object';
+import { defaults } from '../../../config/house-site';
 import {
-	createCellSpace,
+	createStripSpace,
 	minimumParcelEdgeM,
 	parcelEdgeId,
 	type ParcelCorner
@@ -10,15 +11,20 @@ import { levelHeight, storeysPerLevel, type CityColumn } from '../../domain/city
 import {
 	createHouseCourt,
 	createHouseObject,
+	entranceStepCellId,
 	houseStyles,
 	type HouseDetail,
 	type HouseInputs,
 	type HouseStyle
 } from '../../domain/house-court';
-import type { Parcel, ParcelBlock, ParcelPortal } from '../../domain/parcels';
+import type { Parcel, ParcelBlock, ParcelPortal, PlanPolygon } from '../../domain/parcels';
 import { readBaseLevel } from './base';
 
-/** A parcel and its permanent frontage, with the active columns and common city datum. */
+const { contactToleranceM, cornerSineRatio } = defaults;
+
+/** A parcel and its permanent frontage, with the active columns and common city datum.
+ * `groundAt` reads the ground elevation in meters at a plan point; without it the lane is taken
+ * at the house's base and the entrance needs no steps. */
 export type ParcelHouseSite = Readonly<{
 	parcel: Parcel;
 	portal: ParcelPortal;
@@ -26,7 +32,49 @@ export type ParcelHouseSite = Readonly<{
 	columns: ReadonlyMap<string, CityColumn>;
 	datumZ: number;
 	linearToleranceM: number;
+	groundAt?: (point: Vec2) => number;
 }>;
+
+type Segment = readonly [Vec2, Vec2];
+
+function rings(polygons: readonly PlanPolygon[]): Segment[] {
+	return polygons.flatMap((polygon) =>
+		polygon.flatMap((ring) => ring.map((point, i): Segment => [point, ring[(i + 1) % ring.length]]))
+	);
+}
+
+function segmentDistance([px, py]: Vec2, [[ax, ay], [bx, by]]: Segment): number {
+	const [dx, dy] = [bx - ax, by - ay];
+	const length = dx * dx + dy * dy;
+	const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length)) : 0;
+	return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** Indices of ring edges whose midpoint lies on one of the boundary segments. */
+function touching(ring: readonly Vec2[], boundary: readonly Segment[]): number[] {
+	return ring.flatMap(([x, y], i) => {
+		const [u, v] = ring[(i + 1) % ring.length];
+		const mid: Vec2 = [(x + u) / 2, (y + v) / 2];
+		return boundary.some((segment) => segmentDistance(mid, segment) <= contactToleranceM)
+			? [i]
+			: [];
+	});
+}
+
+function direction(ring: readonly Vec2[], i: number): Vec2 {
+	const [[x, y], [u, v]] = [ring[i], ring[(i + 1) % ring.length]];
+	const length = Math.hypot(u - x, v - y);
+	return [(u - x) / length, (v - y) / length];
+}
+
+/** True when another lane edge of the parcel turns away from the frontage: a block corner. */
+function isCorner(ring: readonly Vec2[], frontage: number, block: ParcelBlock): boolean {
+	const [fx, fy] = direction(ring, frontage);
+	return touching(ring, rings(block.netGround)).some((i) => {
+		const [dx, dy] = direction(ring, i);
+		return i !== frontage && Math.abs(fx * dy - fy * dx) > cornerSineRatio;
+	});
+}
 
 function supportedCorners(outline: readonly Vec2[]) {
 	const corners: ParcelCorner[] = [];
@@ -60,11 +108,15 @@ function frontageIndex(ring: readonly Vec2[], points: readonly Vec2[], tolerance
 
 /** Places one house in an addressed city parcel. Its portal identifies the containing CCW
  * boundary edge. The highest member base and lowest member roof bound the shared vertical
- * space in lattice levels. The cell space uses parcel-local IDs and world-meter coordinates.
- * Edges below cell space's minimum collapse while surviving corners keep their original keys.
- * Throws RangeError for a public holding, mismatched frontage, missing members or no shared bay. */
+ * space in lattice levels. The cell space is a strip space (`createStripSpace`) with parcel-local
+ * IDs and world-meter coordinates; parcel edges on the block's public court become its court
+ * edges, so the house opens onto that court instead of cutting its own. A parcel with another lane
+ * edge turned from its frontage is a block corner. The entrance rise is the base above the ground
+ * at the portal's middle. Edges below cell space's minimum collapse while surviving corners keep
+ * their original keys. Throws RangeError for a public holding, mismatched frontage, missing
+ * members or no shared bay. */
 export function createParcelHouse(
-	{ parcel, portal, block, columns, datumZ, linearToleranceM }: ParcelHouseSite,
+	{ parcel, portal, block, columns, datumZ, linearToleranceM, groundAt }: ParcelHouseSite,
 	inputs: HouseInputs,
 	style: HouseStyle = houseStyles.neutral
 ) {
@@ -82,20 +134,21 @@ export function createParcelHouse(
 	if (!(roofLevel > baseLevel)) throw new RangeError('The block has no common full bay');
 
 	const corners = supportedCorners(parcel.outline);
+	const ring = corners.map(({ position }) => position);
 	const tolerance =
 		corners.length === parcel.outline.length
 			? linearToleranceM
 			: Math.max(linearToleranceM, minimumParcelEdgeM);
-	const edge = frontageIndex(
-		corners.map(({ position }) => position),
-		portal.points,
-		tolerance
-	);
+	const edge = frontageIndex(ring, portal.points, tolerance);
 	if (edge < 0) throw new RangeError('The portal does not lie on a parcel edge ' + portal.id);
-	const space = createCellSpace({
+	const edgeId = (i: number) => parcelEdgeId(corners[i].id, corners[(i + 1) % corners.length].id);
+	const space = createStripSpace({
 		id: parcel.id,
 		corners,
-		frontage: [parcelEdgeId(corners[edge].id, corners[(edge + 1) % corners.length].id)],
+		frontage: [edgeId(edge)],
+		courtEdges: touching(ring, rings(block.publicGround.court))
+			.filter((i) => i !== edge)
+			.map(edgeId),
 		baseZ: datumZ + baseLevel * levelHeight,
 		storeyCount: (roofLevel - baseLevel) * storeysPerLevel,
 		storeyHeightM: levelHeight / storeysPerLevel
@@ -103,35 +156,47 @@ export function createParcelHouse(
 	const groundZ = Math.min(
 		...members.flatMap(({ corners }) => corners.map(({ position }) => position[2]))
 	);
+	const [[ax, ay], [bx, by]] = portal.points;
+	const laneZ = Math.min(space.baseZ, groundAt ? groundAt([(ax + bx) / 2, (ay + by) / 2]) : space.baseZ);
+	const site = { entranceRiseM: space.baseZ - laneZ, corner: isCorner(ring, edge, block) };
 	return Object.freeze({
 		parcel,
 		portal,
 		style,
 		space,
-		house: createHouseCourt(space, inputs, style),
+		house: createHouseCourt(space, inputs, style, site),
 		baseLevel,
-		groundZ
+		groundZ: Math.min(groundZ, laneZ),
+		laneZ
 	});
 }
 
-/** Builds a placed house with a plain parcel plinth from its coarse corner ground range to
- * the road-facing plot plates. The house's occupancy and its original parts stay intact. */
+/** Builds a placed house on a plinth: one prism per fine cell from the lowest ground of the block
+ * up to the plot plates, and under the entrance steps only up to the lane. The house's occupancy
+ * and its original parts stay intact. */
 export function createParcelHouseObject(
-	{ parcel, style, space, house, groundZ }: ReturnType<typeof createParcelHouse>,
+	{ parcel, style, space, house, groundZ, laneZ }: ReturnType<typeof createParcelHouse>,
 	detail: HouseDetail
 ) {
 	const object = createHouseObject(space, house, detail, style);
 	const seat = object.parts.find(({ slot, shape }) => slot === 'plot' && shape.kind === 'prism');
-	if (seat?.shape.kind !== 'prism' || groundZ >= seat.shape.base) return object;
-	return PlaceableObject.create({
-		...object,
-		parts: [
-			{
-				id: `${parcel.id}/plinth`,
-				slot: 'plot',
-				shape: { kind: 'prism', polygon: parcel.outline, base: groundZ, top: seat.shape.base }
-			},
-			...object.parts
-		]
+	if (seat?.shape.kind !== 'prism') return object;
+	const seatBase = seat.shape.base;
+	const steps = entranceStepCellId(space, house);
+	const depth = space.baseZ - seatBase;
+	const plinths = space.cells.flatMap((cell) => {
+		const top = cell.id === steps ? laneZ - depth : seatBase;
+		return groundZ < top
+			? [
+					{
+						id: `${cell.id}/plinth`,
+						slot: 'plot',
+						shape: { kind: 'prism' as const, polygon: cell.quad, base: groundZ, top }
+					}
+				]
+			: [];
 	});
+	return plinths.length
+		? PlaceableObject.create({ ...object, id: object.id, parts: [...plinths, ...object.parts] })
+		: object;
 }

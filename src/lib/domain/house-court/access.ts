@@ -169,7 +169,9 @@ function band(points: readonly Vec2[], index: number, from: number, to: number):
 }
 
 /** The entrance cell and its frontage side when the site's rise needs steps, else undefined. */
-export function entranceStepCell(context: Context): { cell: FineCell; index: number } | undefined {
+export function entranceStepCell(
+	context: Pick<Context, 'space' | 'occupancy' | 'house'>
+): { cell: FineCell; index: number } | undefined {
 	const { house } = context;
 	if (house.site.entranceRiseM <= entranceStepRiseM) return undefined;
 	const id = house.entrances[0]?.[0];

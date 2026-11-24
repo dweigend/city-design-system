@@ -10,7 +10,6 @@
 	import type { HouseStyleName } from '../../lib/domain/house-court';
 	import type { DisplayLevel } from '../../lib/scene/focus';
 	import { projectFocus, type View } from '../../lib/scene/stage';
-	import type { TownHouseBlock } from '../../lib/world/house-site';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { Button } from '../../lib/ui/button';
 	import { Select } from '../../lib/ui/select';
@@ -21,7 +20,7 @@
 	import { parcelShapes, type ParcelShape } from './parcels';
 	import { readQuery } from './query';
 	import { sheets, single, styleNames } from './sheets';
-	import { townSheet, townStage } from './town';
+	import { townSheet, townStage, type TownScope, type TownStyles } from './town';
 
 	const chapter = chapterAt('/architecture');
 	const initial = readQuery(page.url.searchParams);
@@ -48,8 +47,16 @@
 	];
 	const townBlocks = [
 		{ value: 'block', label: 'Perimeter block' },
-		{ value: 'merged', label: 'Merged hall' }
+		{ value: 'neighbour', label: 'Neighbouring block' },
+		{ value: 'merged', label: 'Merged hall' },
+		{ value: 'town', label: 'Two blocks and a hall' }
 	];
+	const townStyleItems = [
+		{ value: 'one', label: 'One style' },
+		{ value: 'mixed', label: 'One per block' }
+	];
+	const scopeOf = (value: string): TownScope =>
+		(townBlocks.find((item) => item.value === value)?.value as TownScope | undefined) ?? 'block';
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
@@ -70,11 +77,12 @@
 	let level = $state<DisplayLevel>(initial.setup.level);
 	let sheet = $state<string>(initial.sheet);
 	let view = $state<View>(initial.view);
-	let block = $state<TownHouseBlock>(initial.block);
+	let block = $state<TownScope>(initial.block);
+	let townStyles = $state<TownStyles>(initial.styles);
 
 	const setup = $derived({ shape, style, height, width, complexity, seed, level });
-	const town = $derived(sheet === 'town' ? townStage() : undefined);
-	const townResult = $derived(town && townSheet(town, block, setup));
+	const town = $derived(sheet === 'town' ? townStage(initial.relief) : undefined);
+	const townResult = $derived(town && townSheet(town, block, setup, townStyles));
 	const frame = $derived(
 		townResult ? { ...fit, fill: 0.64, subject: projectFocus(view, fit, townResult.points) } : fit
 	);
@@ -163,7 +171,12 @@
 			<Select
 				label="Block"
 				items={townBlocks}
-				bind:value={() => block, (value) => (block = value === 'merged' ? 'merged' : 'block')}
+				bind:value={() => block, (value) => (block = scopeOf(value))}
+			/>
+			<ToggleGroup
+				label="Styles"
+				items={townStyleItems}
+				bind:value={() => townStyles, (value) => (townStyles = value === 'mixed' ? 'mixed' : 'one')}
 			/>
 		{:else}
 			<Select

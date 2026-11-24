@@ -224,6 +224,12 @@ export function createHouseObject(
 	});
 }
 
+/** The cell whose ground the entrance steps take, when the site's entrance rise needs steps. */
+export function entranceStepCellId(space: CellSpace, house: HouseCourt): string | undefined {
+	const occupancy = new Map(house.cells.map((cell) => [cell.id, cell]));
+	return entranceStepCell({ space, occupancy, house })?.cell.id;
+}
+
 /** Built and void cell counts, gross floor area and court area in m², and the tallest storey count. */
 export function houseFigures(space: CellSpace, house: HouseCourt) {
 	const ids = space.cells.map(({ id }) => id);
