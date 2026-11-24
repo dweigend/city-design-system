@@ -9,6 +9,7 @@
 		type ViewFit,
 		type Viewport
 	} from '../stage';
+	import type { GroundPointer } from './ground-pointer';
 	import type { Drawable } from '../surface';
 
 	interface Props {
@@ -21,6 +22,8 @@
 		interactive?: boolean;
 		presentation?: Presentation;
 		onViewport?: (viewport: Viewport) => void;
+		onGroundPointer?: (pointer: GroundPointer) => void;
+		panOnDrag?: boolean;
 	}
 
 	let {
@@ -32,7 +35,9 @@
 		fit,
 		interactive = false,
 		presentation,
-		onViewport
+		onViewport,
+		onGroundPointer,
+		panOnDrag = true
 	}: Props = $props();
 	let canvas = $state<HTMLCanvasElement>();
 	let stage = $state.raw<Awaited<ReturnType<typeof Stage.create>>>();
@@ -49,6 +54,16 @@
 			] as const
 		};
 	}
+	function groundPointer(event: PointerEvent) {
+		if (!canvas || !stage || !onGroundPointer) return;
+		const { left, top, width, height } = canvas.getBoundingClientRect();
+		const ground = stage.pickGround([
+			event.clientX - left - width / 2,
+			event.clientY - top - height / 2
+		]);
+		onGroundPointer({ event, ground, canvas });
+	}
+
 	const cameraFit = $derived(combine(interaction));
 
 	onMount(() => {
@@ -92,7 +107,8 @@
 				const frame = stage?.readFrame(combine(value));
 				if (!frame) throw new Error('The stage closed during navigation');
 				return frame;
-			}
+			},
+			() => panOnDrag
 		);
 		navigation = next;
 		return () => next.delete();
@@ -112,6 +128,12 @@
 	{:else}
 		<canvas
 			class:stage-interactive={interactive}
+			class:stage-paint={Boolean(onGroundPointer) && !panOnDrag}
+			onpointerdown={groundPointer}
+			onpointermove={groundPointer}
+			onpointerup={groundPointer}
+			onpointercancel={groundPointer}
+			onlostpointercapture={groundPointer}
 			bind:this={canvas}
 			aria-label={label}
 			tabindex={interactive ? 0 : undefined}

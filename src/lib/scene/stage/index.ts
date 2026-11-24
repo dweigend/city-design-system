@@ -1,7 +1,15 @@
 /** Module: Renders drawables with WebGPU in shared camera views. */
+import type { Vec2 } from '../../core/geometry';
 import { OrthographicCamera, Scene } from 'three/webgpu';
 import type { Drawable } from '../surface';
-import { cameraFrame, fitCamera, type View, type ViewFit } from './camera';
+import {
+	cameraFrame,
+	fitCamera,
+	pickGround,
+	type CameraFrame,
+	type View,
+	type ViewFit
+} from './camera';
 import { setStrokeDepth, strokeMaterials } from './edges';
 import { createContent } from './content';
 import type { Display } from './material';
@@ -57,6 +65,8 @@ async function create({
 	const styleContent = createStyle(canvas, content, palette, strokes, scene, landscape);
 	let fit = initialFit;
 	let frame: number | undefined;
+	let displayedFrame: CameraFrame | undefined;
+	let frameCount = 0;
 	let closing: Promise<void> | undefined;
 
 	function draw() {
@@ -96,8 +106,14 @@ async function create({
 			styleContent(display, dark);
 			try {
 				renderer.render(scene, camera);
+				displayedFrame = {
+					...cameraFrame({ center, eye, up, halfWidth, halfHeight, near, far }, widthPx),
+					hit: content.hit
+				};
+				frameCount++;
 				Object.assign(canvas.dataset, {
 					stageReady: 'true',
+					stageFrames: String(frameCount),
 					stageBuilds: String(geometryBatchCount),
 					stageDrawableBuilds: String(geometryBuildCount),
 					stageView: view,
@@ -146,6 +162,8 @@ async function create({
 		},
 		/** Reads the current fitted camera width and scale. */
 		readViewport: () => viewport,
+		/** Reads ground at a CSS pixel offset from the last displayed image center. */
+		pickGround: (offset: Vec2) => displayedFrame && pickGround(displayedFrame, offset),
 		/** Reads the image axes and scale the stage would use for another fit. */
 		readFrame: (next: ViewFit) => ({
 			...cameraFrame(

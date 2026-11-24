@@ -24,6 +24,7 @@ const configOwners = {
 	'lib/domain/material': 'material',
 	'lib/scene/material': 'material-drawing',
 	'lib/scene/house-projection': 'house-projection',
+	'lib/scene/sandbox-projection': 'sandbox-projection',
 	'routes/surfaces': 'surface-specimens',
 	'lib/world/valley-protocol': 'valley-measurement'
 };

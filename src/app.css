@@ -314,6 +314,20 @@
 	.stage-interactive { touch-action: none; cursor: grab; }
 	.stage-interactive:focus-visible { outline-offset: calc(-1 * var(--stroke)); }
 	.stage-interactive:active { cursor: grabbing; }
+	.stage-paint, .stage-paint:active { cursor: crosshair; }
+	.page > .sandbox { display: grid; gap: var(--space-3); margin-block-start: 0; }
+	.sandbox > .frame { inline-size: 100%; max-block-size: max(26rem, 65svh); }
+	.sandbox-status { overflow-wrap: anywhere; }
+	.sandbox h1, .sandbox-status { margin: 0; }
+	.sandbox-tools, .sandbox-status {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: var(--space-2);
+	}
+	@media (max-width: 720px) {
+		.sandbox > .frame { aspect-ratio: 4 / 5; }
+	}
 	.frame > [role='status'] { margin: var(--space-4); }
 	.panel {
 		padding: var(--space-4);
