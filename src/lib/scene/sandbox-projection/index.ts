@@ -66,7 +66,9 @@ function readCreases(positions: readonly number[], indices: readonly number[]) {
 			edges.set(id, edge);
 		}
 	}
-	const limit = Math.cos((defaults.volumeCreaseDeg * Math.PI) / 180);
+	// Exact arithmetic: degrees to radians.
+	const halfTurnDeg = 180;
+	const limit = Math.cos((defaults.volumeCreaseDeg * Math.PI) / halfTurnDeg);
 	const segments: number[] = [];
 	for (const { from, to, normals } of edges.values()) {
 		const [n, m] = normals;
