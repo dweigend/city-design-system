@@ -2,7 +2,11 @@ import type { CityColumn } from '../../domain/city-volume';
 import type { MovementEdge } from '../../domain/movement-network';
 import type { ParcelPlan } from '../../domain/parcels';
 import type { WorldIdentity } from '../../domain/sandbox-document';
-import type { CityGrid, CitySite } from '../city-site';
+import { coarseCellSize, type CityGrid, type CitySite } from '../city-site';
+import { cityAssetRegistryRevision } from '../asset-registry';
+
+// Bump when a generator can reuse a local key for a different feature.
+const planAddressRevision = 'city-plan/1';
 
 // Exact arithmetic: FNV-1a over UTF-8, reduced to its unsigned 64-bit state at each step.
 function fingerprint(snapshot: unknown) {
@@ -19,7 +23,8 @@ export function readSandboxIdentity(
 	holdings: ParcelPlan,
 	columns: ReadonlyMap<string, CityColumn>,
 	edges: readonly MovementEdge[],
-	customTerrainRevision?: string
+	customTerrainRevision?: string,
+	customTerrainId?: string
 ): WorldIdentity {
 	const valley = site.valley;
 	if (!valley && !customTerrainRevision?.trim())
@@ -28,17 +33,26 @@ export function readSandboxIdentity(
 		? JSON.stringify(['valley', valley.revision, valley.seed, valley.parameters])
 		: JSON.stringify(['custom', customTerrainRevision]);
 	const topologyRevision = fingerprint({
-		frame: site.frame,
-		origin: site.origin,
+		citySize: layout.citySize,
+		plan: layout.plan,
+		grid: layout.grid,
 		holdings,
 		datumZ: layout.datumZ,
 		columns: [...columns].sort(([a], [b]) => (a < b ? -1 : Number(a > b))),
 		edges
 	});
 	return {
+		id: JSON.stringify([
+			planAddressRevision,
+			layout.seed,
+			layout.variant,
+			coarseCellSize,
+			site.origin,
+			site.frame.bearing,
+			valley ? ['valley', valley.seed] : ['custom', customTerrainId ?? customTerrainRevision]
+		]),
 		seed: layout.seed,
-		planFamily: layout.variant,
-		citySize: layout.citySize,
+		registryRevision: cityAssetRegistryRevision,
 		terrainRevision,
 		topologyRevision
 	};
