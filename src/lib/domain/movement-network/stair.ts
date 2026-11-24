@@ -1,9 +1,13 @@
 import { interpolation, type Vec3 } from '../../core/geometry';
-import { defaults } from '../../../config/paths-projection';
-import type { Mesh } from './mesh';
+import { defaults } from '../../../config/movement-network';
+import type { Mesh } from '../../core/mesh';
 
-export function drawStair(body: Mesh, points: readonly Vec3[]) {
-	const { stairWidthM, stairRiseM, deckThicknessM } = defaults;
+export function drawStair(
+	body: Mesh,
+	points: readonly Vec3[],
+	stairWidthM = defaults.stairWidthM as number
+) {
+	const { stairRiseM, deckThicknessM } = defaults;
 	for (let i = 1; i < points.length; i++) {
 		const a = points[i - 1];
 		const b = points[i];

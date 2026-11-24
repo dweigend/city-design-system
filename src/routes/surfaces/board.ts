@@ -1,10 +1,9 @@
 import { specimenSettings as m } from '../../config/surface-specimens';
-import type { Part } from '../../lib/core/object';
+import { PlaceableObject, type Part } from '../../lib/core/object';
 import { axes } from './axes';
 import {
-	createClad,
+	createSamplePlateObject,
 	type CladObject,
-	type Cladding,
 	type Family,
 	type Patch,
 	type SurfaceLevel,
@@ -23,7 +22,7 @@ export function createSampleBoard(
 	const [gapAcross, gapBack] = m.plateGapM;
 	const [standFront, standStep, standDepth] = m.plateStandM;
 	const columns = Math.min(m.plateColumns, entries.length);
-	const claddings: Cladding[] = [];
+	const plates: CladObject[] = [];
 	const stands: Part[] = [];
 	for (const [i, { family, level }] of entries.entries()) {
 		const column = i % columns;
@@ -49,7 +48,12 @@ export function createSampleBoard(
 					thickness: m.plateThicknessM,
 					budget: m.plateTriangleBudget
 				};
-		claddings.push({ role: `plate-${i}`, family, patch, level });
+		plates.push(
+			createSamplePlateObject(`plate-${i}`, patch, family, {
+				...options,
+				level: level ?? options.level
+			})
+		);
 		const depth = flat ? height : standDepth;
 		stands.push({
 			id: `stand-${i}`,
@@ -62,15 +66,17 @@ export function createSampleBoard(
 			}
 		});
 	}
-	return createClad(
-		{
+	const plateParts = plates.flatMap(({ object }) => object.parts);
+	return {
+		object: PlaceableObject.create({
 			id: 'sample-board',
 			footprint: { width: 0, depth: 0 },
 			anchors: [],
-			slots: stands.length ? ['stand'] : [],
-			parts: stands
-		},
-		claddings,
-		options
-	);
+			slots: [...plateParts.map(({ slot }) => slot), ...(stands.length ? ['stand'] : [])],
+			parts: [...plateParts, ...stands]
+		}),
+		groups: plates.flatMap(({ groups }) => groups),
+		surfaces: plates.flatMap(({ surfaces }) => surfaces),
+		triangles: plates.reduce((total, { triangles }) => total + triangles, 0)
+	};
 }

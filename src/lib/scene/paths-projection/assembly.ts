@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor } from '../../core/object';
 import { resolveSurfaces, type Surface } from '../surface';
-import { mesh } from './mesh';
+import { mesh, type Mesh } from '../../core/mesh';
 import type { PathsFrame } from './types';
 
 // Exact arithmetic: the outward normal points up in the Z-up frame.
@@ -67,5 +67,13 @@ export function trace(target: number[], points: readonly Vec3[], liftM: number) 
 		const [x, y, z] = points[i - 1];
 		const [a, b, c] = points[i];
 		target.push(x, y, z + liftM, a, b, c + liftM);
+	}
+}
+
+/** Appends a built object's mesh roles to the existing draw batches. */
+export function appendParts(object: PlaceableObject, layers: Readonly<Record<string, Mesh>>) {
+	for (const { slot, shape } of object.parts) {
+		if (shape.kind !== 'mesh') throw new TypeError('Path projection requires a mesh');
+		layers[slot].append(shape);
 	}
 }

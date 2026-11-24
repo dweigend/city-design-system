@@ -1,10 +1,18 @@
-import type { MovementNetwork, MovementRoute } from '../../domain/movement-network';
+import {
+	createStairObject,
+	createWalkwayObject,
+	type AccessEdge,
+	type MovementNetwork,
+	type MovementRoute
+} from '../../domain/movement-network';
 import { defaults } from '../../../config/paths-projection';
-import { assembly, local, trace, up } from './assembly';
-import { drawBearing } from './bearing';
-import { drawStair } from './stair';
+import { appendParts, assembly, local, trace, up } from './assembly';
 import { pathSurfaces } from './surfaces';
 import type { MovementDrawing, PathsFrame } from './types';
+
+function localSupports(frame: PathsFrame, supports: AccessEdge['supports'] = []) {
+	return supports.map(({ base, top }) => ({ base: local(frame, base), top: local(frame, top) }));
+}
 
 export function paths<K extends string>(
 	network: MovementNetwork<K>,
@@ -28,37 +36,36 @@ export function paths<K extends string>(
 				trace(lane.stroke, points, defaults.groundOverlayLiftM);
 				break;
 			case 'bridge':
-				bridge.body.ribbon(points, defaults.bridgeWidthM, defaults.deckThicknessM);
+				appendParts(createWalkwayObject({ id: edge.id, points }, defaults.bridgeWidthM), {
+					deck: bridge.body
+				});
 				trace(bridge.stroke, points, defaults.lineLiftM);
 				break;
-			case 'deck':
-				deck.body.ribbon(points, defaults.walkwayWidthM, defaults.deckThicknessM);
-				trace(deck.stroke, points, defaults.lineLiftM);
-				for (const bearing of edge.supports ?? []) {
+			case 'deck': {
+				const unique = (edge.supports ?? []).filter((bearing) => {
 					const id = bearing.base.join('/') + ':' + bearing.top.join('/');
-					if (bearings.has(id)) continue;
+					if (bearings.has(id)) return false;
 					bearings.add(id);
-					const base = local(frame, bearing.base);
-					drawBearing(
-						supports.body,
-						base,
-						local(frame, bearing.top),
-						defaults.walkwayPierRadiusM,
-						defaults.deckThicknessM
-					);
-				}
+					return true;
+				});
+				const object = createWalkwayObject({
+					id: edge.id,
+					points,
+					supports: localSupports(frame, unique)
+				});
+				appendParts(object, { deck: deck.body, bearing: supports.body });
+				trace(deck.stroke, points, defaults.lineLiftM);
 				break;
-			case 'stairs':
-				drawStair(stairs.body, points[0][2] === points[1][2] ? points.slice(1) : points);
-				for (const bearing of edge.supports ?? [])
-					drawBearing(
-						supports.body,
-						local(frame, bearing.base),
-						local(frame, bearing.top),
-						defaults.walkwayPierRadiusM,
-						defaults.deckThicknessM
-					);
+			}
+			case 'stairs': {
+				const object = createStairObject({
+					id: edge.id,
+					points,
+					supports: localSupports(frame, edge.supports)
+				});
+				appendParts(object, { stairs: stairs.body, bearing: supports.body });
 				break;
+			}
 		}
 	}
 	return drawing.complete(

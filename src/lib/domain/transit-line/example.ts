@@ -1,4 +1,8 @@
-import { createStraightLevelTransitLine } from './index';
+import {
+	createStraightLevelTransitLine,
+	createRailPierObject,
+	createStationPlatformObject
+} from './index';
 
 /** A level guideway over an analytic slope with a shallow flooded band. */
 export function transitExample() {
@@ -18,4 +22,12 @@ export function transitExample() {
 		catchments: [{ id: 'orchard', approaches: [{ id: 'entrance', point: [100, 60] }] }],
 		dockReachM: 30
 	});
+}
+
+/** An offset pier and one platform on a horizontal track axis. */
+export function example() {
+	return {
+		pier: createRailPierObject('bearing', [0, 0, 0], [2, 0, 8]),
+		station: createStationPlatformObject('station', [2, 0, 8], [3, 4])
+	};
 }

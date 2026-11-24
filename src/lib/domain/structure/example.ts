@@ -1,3 +1,4 @@
+import { createFrameBayObject } from './frame-object';
 import { createMemberGraph, type StructuralJoint, type StructuralMember } from './graph';
 import type { JointLoad } from './gravity';
 
@@ -26,4 +27,13 @@ export function portalExample() {
 		loads.push({ joint: roof, forceKN });
 	}
 	return { graph: createMemberGraph({ joints, members }), loads };
+}
+
+/** Builds the fixed standalone portal and its first addressed member. */
+export function example() {
+	const { graph } = portalExample();
+	return {
+		frame: createFrameBayObject('portal', graph),
+		oneMember: createFrameBayObject('one-member', graph, { memberIds: [graph.members[0].id] })
+	};
 }

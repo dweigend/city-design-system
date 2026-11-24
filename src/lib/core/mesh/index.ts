@@ -1,6 +1,10 @@
-import type { Vec3 } from '../../core/geometry';
-import type { Shape } from '../../core/object';
-import { defaults } from '../../../config/paths-projection';
+/** Module: Assembles metric ribbons, bearings and batched indexed meshes. */
+import { bounds, size, type Vec3 } from '../geometry';
+import { PlaceableObject, type Anchor, type Shape } from '../object';
+import { defaults } from '../../../config/mesh';
+
+/** Indexed shape in XYZ meters. */
+export type MeshShape = Extract<Shape, { kind: 'mesh' }>;
 
 type Ring = readonly [Vec3, Vec3, Vec3, Vec3];
 
@@ -35,6 +39,7 @@ function rim(points: readonly Vec3[], index: number, widthM: number, thicknessM:
 }
 
 // Exact arithmetic: quad triangulation and circular coordinates follow a full turn.
+/** Opens a mutable mesh builder for ribbons, piers and indexed geometry. */
 export function mesh() {
 	const positions: number[] = [];
 	const indices: number[] = [];
@@ -45,6 +50,11 @@ export function mesh() {
 	};
 	const quad = (a: number, b: number, c: number, d: number) => indices.push(a, b, c, a, c, d);
 	return {
+		append(shape: MeshShape) {
+			const offset = positions.length / 3;
+			for (const value of shape.positions) positions.push(value);
+			for (const index of shape.indices) indices.push(index + offset);
+		},
 		ribbon(points: readonly Vec3[], widthM: number, thicknessM: number) {
 			if (points.length < 2) return;
 			const rings = points.map((_, i) => rim(points, i, widthM, thicknessM).map(add));
@@ -80,10 +90,45 @@ export function mesh() {
 				indices.push(cap, upper[i], upper[next]);
 			}
 		},
-		shape(): Shape | undefined {
+		shape(): MeshShape | undefined {
 			return indices.length ? { kind: 'mesh', positions, indices } : undefined;
 		}
 	};
 }
 
 export type Mesh = ReturnType<typeof mesh>;
+
+/** Freezes nonempty mesh layers as an object and measures their XY footprint in meters. */
+// Exact arithmetic: points are XYZ triples and empty geometry spans zero meters.
+export function createMeshObject(
+	id: string,
+	layers: Readonly<Record<string, Mesh>>,
+	anchors: readonly Anchor[]
+) {
+	const parts = Object.entries(layers).flatMap(([slot, layer]) => {
+		const shape = layer.shape();
+		return shape ? [{ id: slot, slot, shape }] : [];
+	});
+	const points = parts.flatMap(({ shape }) =>
+		Array.from({ length: shape.positions.length / 3 }, (_, i): Vec3 => [
+			shape.positions[3 * i],
+			shape.positions[3 * i + 1],
+			shape.positions[3 * i + 2]
+		])
+	);
+	const extent = bounds(points);
+	const [width, depth] = extent ? size(extent) : [0, 0];
+	return PlaceableObject.create({
+		id,
+		slots: Object.keys(layers),
+		parts,
+		footprint: { width, depth },
+		anchors
+	});
+}
+
+/** Adds a vertical pier and, for an offset bearing, its horizontal crosshead. */
+export { drawBearing } from './bearing';
+
+/** Builds one square-profile segment along a metric span. */
+export { squareSegment } from './segment';

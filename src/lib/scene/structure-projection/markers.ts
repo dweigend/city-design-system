@@ -15,9 +15,9 @@ function addArrow(
 	const tip: Vec3 = [x, y, z - direction * gap];
 	const neck: Vec3 = [x, y, tip[2] - direction * defaults.arrowHeadM];
 	const tail: Vec3 = [x, y, tip[2] - direction * length];
-	addSegment(shape, tail, neck, defaults.arrowWidthM, false);
+	addSegment(shape, tail, neck, defaults.arrowWidthM);
 	for (const offset of [-gap, gap])
-		addSegment(shape, [x + offset, y, neck[2]], tip, defaults.arrowWidthM, false);
+		addSegment(shape, [x + offset, y, neck[2]], tip, defaults.arrowWidthM);
 }
 
 /** Builds bearing pads and, optionally, downward load and upward reaction arrows. */
@@ -44,8 +44,7 @@ export function markers(
 				parts[`${support}-support`],
 				[x, y, z - defaults.supportHeightM],
 				point,
-				defaults.supportWidthM,
-				false
+				defaults.supportWidthM
 			);
 		}
 		const load = applied.get(id);

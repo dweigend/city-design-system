@@ -1,4 +1,9 @@
-import { createMovementNetwork, type MovementNode } from './index';
+import {
+	createMovementNetwork,
+	createStairObject,
+	createWalkwayObject,
+	type MovementNode
+} from './index';
 
 /** Two garden entrances with a short direct path and a longer raised viewing path. */
 export function movementExample() {
@@ -12,4 +17,16 @@ export function movementExample() {
 		{ id: 'lookout-west', kind: 'steps', nodeIds: ['west', 'lookout'], cost: 6 },
 		{ id: 'lookout-east', kind: 'steps', nodeIds: ['lookout', 'east'], cost: 6 }
 	]);
+}
+
+/** A supported deck and stair built from the garden graph's resolved edges. */
+export function example() {
+	const { edges } = movementExample();
+	const [deck] = edges;
+	const stair = edges.find(({ kind }) => kind === 'steps');
+	if (!stair) throw new Error('Missing garden stair');
+	return {
+		deck: createWalkwayObject({ ...deck, supports: [{ base: [0, 0, -2], top: [0, 0, 0] }] }),
+		stair: createStairObject(stair)
+	};
 }

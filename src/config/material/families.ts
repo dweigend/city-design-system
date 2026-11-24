@@ -131,13 +131,6 @@ export const otherFamilies = defineSettings({
 		bounds: positive,
 		rationale: 'Clears depth precision at plate and house distance.'
 	},
-	shadeLightness: {
-		value: -0.17,
-		unit: 'Oklab L',
-		meaning: 'Lightness offset of cast shade from the face it falls on',
-		bounds: { max: 0 },
-		principle: 'MAT-2'
-	},
 	reliefJitterShare: {
 		value: 0.25,
 		unit: 'ratio',

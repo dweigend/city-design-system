@@ -117,3 +117,11 @@ export function createMovementNetwork<K extends string>(
 			byId.has(from) && byId.has(to) ? shortest(adjacent, from, to) : undefined
 	});
 }
+
+/** Single-edge access objects and their configured widths. */
+export {
+	accessObjectParams,
+	createStairObject,
+	createWalkwayObject,
+	type AccessEdge
+} from './object';

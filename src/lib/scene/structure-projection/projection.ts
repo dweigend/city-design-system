@@ -1,7 +1,7 @@
 import { bounds, size, type Vec3 } from '../../core/geometry';
 import { PlaceableObject } from '../../core/object';
 import {
-	memberSections,
+	createFrameBayObject,
 	type GravityResult,
 	type JointLoad,
 	type MemberGraph
@@ -10,7 +10,6 @@ import { resolveSurfaces, type SurfaceAssignment } from '../surface';
 import { markerSurfaces, memberAppearance, utilizationBand } from './appearance';
 import { structureFocusPreset, type StructureView } from './focus';
 import { markers } from './markers';
-import { addSegment, mesh } from './mesh';
 
 type Options = Readonly<{
 	view?: StructureView;
@@ -28,7 +27,7 @@ const emptyExtents = [0, 0] as const;
 function memberBatches(graph: MemberGraph, positions: ReadonlyMap<string, Vec3>, options: Options) {
 	const groups = new Map<
 		string,
-		{ geometry: ReturnType<typeof mesh>; heavy: boolean; band?: number }
+		{ memberIds: string[]; segments: number[]; heavy: boolean; band?: number }
 	>();
 	const view = options.view ?? 'all';
 	const { readFocusChoice, readFocusLevel } = structureFocusPreset;
@@ -47,16 +46,11 @@ function memberBatches(graph: MemberGraph, positions: ReadonlyMap<string, Vec3>,
 		const slot = `${role}/${section}/${band ?? 'neutral'}`;
 		let group = groups.get(slot);
 		if (!group) {
-			group = { geometry: mesh(), heavy, band };
+			group = { memberIds: [], segments: [], heavy, band };
 			groups.set(slot, group);
 		}
-		addSegment(
-			group.geometry,
-			positions.get(from) as Vec3,
-			positions.get(to) as Vec3,
-			memberSections[section].widthM,
-			true
-		);
+		group.memberIds.push(id);
+		group.segments.push(...(positions.get(from) as Vec3), ...(positions.get(to) as Vec3));
 	}
 	return groups;
 }
@@ -78,8 +72,19 @@ export function projectStructure(graph: MemberGraph, options: Options = {}) {
 		options.arrows && options.analysis,
 		options.supports
 	);
-	const markersPresent = Object.entries(markerParts).filter(([, shape]) => shape.indices.length);
-	const members = Array.from(groups, ([slot, { geometry }]) => [slot, geometry] as const);
+	const markersPresent = Object.entries(markerParts).flatMap(([slot, marker]) => {
+		const shape = marker.shape();
+		return shape ? [[slot, shape] as const] : [];
+	});
+	const members = Array.from(groups, ([slot, { memberIds, segments }]) => {
+		const { parts } = createFrameBayObject(slot, graph, {
+			memberIds,
+			toLocal: (position, id) => positions.get(id) ?? position
+		});
+		const shape = parts[0]?.shape;
+		if (shape?.kind !== 'mesh') throw new Error('Expected one structural member mesh');
+		return [slot, { ...shape, segments }] as const;
+	});
 	const slots = [...members, ...markersPresent];
 	const object = PlaceableObject.create({
 		id: 'structural-frame',

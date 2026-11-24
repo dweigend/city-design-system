@@ -82,3 +82,11 @@ function levelLine(
 		minimumRadiusM: Infinity
 	};
 }
+
+/** Single-pier and station objects used by the rail projection and placement registry. */
+export {
+	createRailPierObject,
+	createStationPlatformObject,
+	railDeckThicknessM,
+	transitObjectParams
+} from './objects';

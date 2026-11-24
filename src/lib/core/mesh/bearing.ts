@@ -1,9 +1,12 @@
-import type { Vec3 } from '../../core/geometry';
-import type { Mesh } from './mesh';
+import type { Vec3 } from '../geometry';
+type BearingMesh = {
+	pier(base: Vec3, topM: number, radiusM: number): void;
+	ribbon(points: readonly Vec3[], widthM: number, thicknessM: number): void;
+};
 
 // Exact arithmetic: the crosshead spans the two offsets at deck elevation.
 export function drawBearing(
-	mesh: Mesh,
+	mesh: BearingMesh,
 	base: Vec3,
 	top: Vec3,
 	radiusM: number,

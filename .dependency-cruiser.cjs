@@ -7,6 +7,9 @@ const layers = {
 const configOwners = {
 	'lib/core/params': 'inputs',
 	'lib/core/object': 'object',
+	'lib/core/mesh': 'mesh',
+	'lib/domain/movement-network': 'movement-network',
+	'lib/domain/city-volume': 'city-volume',
 	'lib/domain/cell-space': 'cell-space',
 	'lib/domain/house-court': 'house-court',
 	'lib/domain/river-metrics': 'river-metrics',
@@ -18,7 +21,8 @@ const configOwners = {
 	'lib/world/city-structure': 'city-structure',
 	'lib/scene/paths-projection': 'paths-projection',
 	'lib/scene/structure-projection': 'structure-projection',
-	'lib/scene/material': 'material',
+	'lib/domain/material': 'material',
+	'lib/scene/material': 'material-drawing',
 	'lib/scene/house-projection': 'house-projection',
 	'routes/surfaces': 'surface-specimens',
 	'lib/world/valley-protocol': 'valley-measurement'

@@ -187,3 +187,6 @@ export function createCityLattice(
 	}
 	return createLattice(columns, datumZ, variant);
 }
+
+/** Reads or builds one addressed bay using its canonical solid faces and members. */
+export { createLatticeBayObject, readLatticeBay } from './bay-object';

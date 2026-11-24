@@ -1,8 +1,12 @@
 import type { Vec3 } from '../../core/geometry';
-import type { TransitLine } from '../../domain/transit-line';
+import {
+	createRailPierObject,
+	createStationPlatformObject,
+	railDeckThicknessM,
+	type TransitLine
+} from '../../domain/transit-line';
 import { defaults } from '../../../config/paths-projection';
-import { assembly, local, trace, up } from './assembly';
-import { drawBearing } from './bearing';
+import { appendParts, assembly, local, trace, up } from './assembly';
 import { clip, onFootprint } from './clip';
 import { pathSurfaces } from './surfaces';
 import type { PathsFrame } from './types';
@@ -30,7 +34,7 @@ export function guideway(line: TransitLine | undefined, frame: PathsFrame) {
 		y + v * along + u * across,
 		z + lift
 	];
-	rail.body.ribbon([a, b], defaults.railWidthM, defaults.railDeckThicknessM);
+	rail.body.ribbon([a, b], defaults.railWidthM, railDeckThicknessM);
 	trace(rail.stroke, [a, b], defaults.lineLiftM);
 	for (const side of [-1, 1]) {
 		const offset = (side * defaults.trackSpacingM) / 2;
@@ -40,29 +44,13 @@ export function guideway(line: TransitLine | undefined, frame: PathsFrame) {
 		const point = local(frame, base);
 		const station = local(frame, top);
 		if (!onFootprint(station, frame.footprint) || !onFootprint(point, frame.footprint)) continue;
-		drawBearing(piers.body, point, station, defaults.railPierRadiusM, defaults.railDeckThicknessM);
+		appendParts(createRailPierObject('pier', point, station), { bearing: piers.body });
 	}
 	for (const { position } of line.stations) {
 		const station = local(frame, position);
 		if (!onFootprint(station, frame.footprint)) continue;
-		const half = defaults.platformLengthM / 2;
-		stations.body.ribbon(
-			[at(station, -half, 0), at(station, half, 0)],
-			defaults.platformWidthM,
-			defaults.deckThicknessM
-		);
-		for (const side of [-1, 1]) {
-			const offset = (side * defaults.platformWidthM) / 2;
-			const width = defaults.platformWidthM / 2;
-			const roof = defaults.canopyHeightM;
-			const canopy = [
-				at(station, -half * defaults.stationCanopyLengthShare, offset / 2, roof),
-				at(station, half * defaults.stationCanopyLengthShare, offset / 2, roof)
-			];
-			stations.body.ribbon(canopy, width, defaults.deckThicknessM);
-			for (const top of canopy)
-				piers.body.pier([top[0], top[1], station[2]], top[2], defaults.walkwayPierRadiusM);
-		}
+		const object = createStationPlatformObject('station', station, [b[0] - a[0], b[1] - a[1]]);
+		appendParts(object, { platform: stations.body, bearing: piers.body });
 	}
 	return drawing.complete(
 		line.stations.map(({ id, position }) => ({
