@@ -182,3 +182,9 @@ test('geometry excludes appearance fields in its type and source', async () => {
 		expect(source).not.toMatch(colorLiteral);
 	}
 });
+
+test('rejects a box center missing Z', () => {
+	// Runtime input can violate its declared tuple type.
+	const center = [2, 3] as unknown as typeof box.center;
+	expect(() => objectWith({ ...box, center })).toThrow(RangeError);
+});

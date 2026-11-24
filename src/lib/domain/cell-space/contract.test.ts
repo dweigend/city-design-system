@@ -4,6 +4,7 @@ import { levelHeight, storeysPerLevel, subdivideBay, type LatticeBay } from '../
 import {
 	cellAreaM2,
 	createCellSpace,
+	createStripSpace,
 	defaultStoreyHeightM,
 	DegenerateParcelError,
 	parcelEdgeId,
@@ -259,4 +260,18 @@ describe('createCellSpace', () => {
 			expect(corners.has((JSON.parse(id.split('/child/')[1]) as [string, number])[0])).toBe(true);
 		expect(corners.size).toBe(4);
 	});
+});
+
+test('both cell constructors reject a non-finite base elevation', () => {
+	for (const create of [createCellSpace, createStripSpace])
+		expect(() => create({ ...fixtures.rectangle, baseZ: NaN })).toThrow('baseZ');
+});
+
+test('rejects a sparse plan coordinate before subdivision', () => {
+	// Runtime input can violate its declared tuple type.
+	const position = new Array<number>(2) as unknown as Vec2;
+	const [first, ...rest] = fixtures.rectangle.corners;
+	expect(() =>
+		createCellSpace({ ...fixtures.rectangle, corners: [{ ...first, position }, ...rest] })
+	).toThrow('finite plan positions');
 });

@@ -62,8 +62,10 @@ export function bounds(object: PlaceableObject): Bounds3 {
  * frozen object with the same identity, order and local footprint. Normals only rotate.
  * Non-finite motion or resulting coordinates throw RangeError.
  */
+// Exact arithmetic: The translation has three coordinates.
 export function move(object: PlaceableObject, translation: Vec3, radians: number): PlaceableObject {
-	for (const value of [...translation, radians]) finite(value);
+	validateVector(translation, 3);
+	finite(radians);
 	const cos = Math.cos(radians);
 	const sin = Math.sin(radians);
 	const rotate = ([x, y, z]: Vec3): Vec3 => [x * cos - y * sin, x * sin + y * cos, z];
@@ -88,11 +90,23 @@ function copyCoordinates<T extends readonly number[]>(values: T): T {
 	return Object.freeze(Array.from(values, finite)) as T;
 }
 
+function validateVector(value: Vec2 | Vec3, arity: 2 | 3): void {
+	if (!geometry.isFiniteVector(value, arity))
+		throw new RangeError(`Expected ${arity} finite coordinates`);
+}
+
+function copyVector<T extends Vec2 | Vec3>(value: T, arity: T['length']): T {
+	validateVector(value, arity);
+	// Validation guarantees the copied array retains the tuple arity.
+	return copyCoordinates(value);
+}
+
+// Exact arithmetic: An anchor position and normal both have three coordinates.
 function copyAnchor({ name, position, normal }: Anchor): Anchor {
-	const direction = copyCoordinates(normal);
+	const direction = copyVector(normal, 3);
 	if (Math.abs(geometry.length(direction) - 1) > unitNormalLengthToleranceRatio)
 		throw new RangeError(`Anchor "${name}" requires a unit normal`);
-	return Object.freeze({ name, position: copyCoordinates(position), normal: direction });
+	return Object.freeze({ name, position: copyVector(position, 3), normal: direction });
 }
 
 // Exact arithmetic: each mesh position has one component per axis.
@@ -121,19 +135,20 @@ function copyMesh({ positions, indices }: Extract<Shape, { kind: 'mesh' }>): Sha
 	return Object.freeze({ kind: 'mesh', positions: points, indices: Object.freeze(triangles) });
 }
 
+// Exact arithmetic: Boxes use XYZ tuples and prism footprints use XY tuples.
 function copyShape(shape: Shape): Shape {
 	switch (shape.kind) {
 		case 'box': {
 			const { kind, rotation } = shape;
-			const center = copyCoordinates(shape.center);
-			const size = copyCoordinates(shape.size);
+			const center = copyVector(shape.center, 3);
+			const size = copyVector(shape.size, 3);
 			finite(rotation);
 			if (size.some((extent) => extent < 0)) throw new RangeError('Box size must be nonnegative');
 			return Object.freeze({ kind, center, size, rotation });
 		}
 		case 'prism': {
 			const { kind, base, top } = shape;
-			const polygon = Array.from(shape.polygon, copyCoordinates);
+			const polygon = Array.from(shape.polygon, (point) => copyVector(point, 2));
 			finite(base);
 			finite(top);
 			if (polygon.length < triangleVertexCount || top < base)

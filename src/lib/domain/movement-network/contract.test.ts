@@ -61,3 +61,13 @@ test('rejects costs that can overflow before indexing a connected route', () => 
 		])
 	).toThrow(RangeError);
 });
+
+test('rejects XYZ positions with a missing component', () => {
+	// Runtime input can violate its declared tuple type.
+	const short = [1, 2] as unknown as MovementNode['position'];
+	const sparse = new Array<number>(3) as unknown as MovementNode['position'];
+	for (const position of [short, sparse])
+		expect(() => createMovementNetwork([{ id: 'a', position, level: 'ground' }], [])).toThrow(
+			RangeError
+		);
+});

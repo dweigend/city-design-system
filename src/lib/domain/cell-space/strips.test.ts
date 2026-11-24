@@ -6,6 +6,7 @@ import {
 	fineCellWidth,
 	minimumStripWidthM,
 	parcelEdgeId,
+	stripCounts,
 	type Parcel
 } from './index';
 
@@ -147,4 +148,16 @@ test('two adjacent frontage edges give the same strip addresses after rotating t
 	};
 	const corners = [...shape.corners.slice(1), shape.corners[0]];
 	expect(createStripSpace({ ...shape, corners })).toEqual(createStripSpace(shape));
+});
+
+test.each([0, -1, NaN, Infinity])('strip counts reject invalid dimensions (%s)', (invalid) => {
+	expect(() => stripCounts(20, invalid)).toThrow(RangeError);
+	expect(() => stripCounts(invalid, 20)).toThrow(RangeError);
+});
+
+test('strip counts preserve scale and aspect at extreme finite dimensions', () => {
+	expect(stripCounts(1e308, 1e308)).toEqual({ columns: 6, rows: 7 });
+	expect(stripCounts(1e308, 1e307)).toEqual({ columns: 22, rows: 2 });
+	expect(stripCounts(1e308, 1e-308)).toEqual({ columns: 48, rows: 1 });
+	expect(stripCounts(1e-308, 1e308)).toEqual({ columns: 1, rows: 48 });
 });

@@ -1,3 +1,4 @@
+import { isFiniteVector } from '../../core/geometry';
 import { clipPolylineToSquare } from '../../core/polyline';
 import {
 	crossSections,
@@ -70,39 +71,71 @@ function surfaceStats(surface: Surface, signed: Sampler, protocol: SurfaceProtoc
 	return { reliefM: high - low, landSlopeShares: counts.map((count) => (land ? count / land : 0)) };
 }
 
-function validSurfaceProtocol(windowM: number, protocol: SurfaceProtocol): boolean {
-	return (
-		protocol.surfaceSpacingM > 0 &&
-		protocol.surfaceSpacingM <= windowM / 2 &&
-		protocol.smoothingSigmaM > 0 &&
-		Number.isFinite(protocol.smoothingSigmaM) &&
-		protocol.gaussianTruncateSigma > 0 &&
-		Number.isFinite(protocol.gaussianTruncateSigma) &&
-		protocol.reliefCoreM > 0
-	);
+// Exact arithmetic: three ordered thresholds define four slope classes.
+function checkSlopeLimits(limits: SurfaceProtocol['landSlopeClassLimits']): void {
+	if (
+		!isFiniteVector(limits, 3) ||
+		!(0 <= limits[0] && limits[0] < limits[1] && limits[1] < limits[2])
+	)
+		throw new RangeError(
+			'landSlopeClassLimits must be three finite, increasing, nonnegative values'
+		);
 }
 
-function validProfileProtocol(spacingM: number, protocol: SurfaceProtocol): boolean {
-	return (
-		protocol.profileSpacingM > 0 &&
-		protocol.profileHalfLengthM > 0 &&
-		protocol.profileHalfLengthM % spacingM === 0 &&
-		protocol.stationOffsetM >= 0 &&
-		protocol.stationTangentHalfLengthM > 0
-	);
+function checkProtocol(grid: SurfaceGrid, protocol: SurfaceProtocol): void {
+	const {
+		surfaceSpacingM,
+		profileHalfLengthM,
+		stationOffsetM,
+		stepMinimumSlope,
+		stepMinimumGainM,
+		landSlopeClassLimits: limits
+	} = protocol;
+	const positive = {
+		surfaceSpacingM,
+		profileHalfLengthM,
+		reliefCoreM: protocol.reliefCoreM,
+		smoothingSigmaM: protocol.smoothingSigmaM,
+		gaussianTruncateSigma: protocol.gaussianTruncateSigma,
+		profileSpacingM: protocol.profileSpacingM,
+		stationTangentHalfLengthM: protocol.stationTangentHalfLengthM
+	};
+	for (const [field, value] of Object.entries(positive))
+		if (!Number.isFinite(value) || value <= 0)
+			throw new RangeError(`${field} must be finite and positive`);
+	for (const [field, value] of Object.entries({
+		stationOffsetM,
+		stepMinimumSlope,
+		stepMinimumGainM
+	}))
+		if (!Number.isFinite(value) || value < 0)
+			throw new RangeError(`${field} must be finite and nonnegative`);
+	if (surfaceSpacingM > grid.windowM / 2)
+		throw new RangeError('surfaceSpacingM must fit twice in windowM');
+	if (profileHalfLengthM % grid.spacingM !== 0)
+		throw new RangeError('profileHalfLengthM must be a multiple of grid.spacingM');
+	checkSlopeLimits(limits);
+}
+
+function checkSamples(field: string, values: ArrayLike<number>, length: number): void {
+	if (values.length !== length) throw new RangeError(`${field} must contain ${length} samples`);
+	const array = Array.isArray(values);
+	for (let i = 0; i < length; i++)
+		if ((array && !Object.hasOwn(values, i)) || !Number.isFinite(values[i]))
+			throw new RangeError(`${field}[${i}] must be a populated finite sample`);
 }
 
 function checkGrid(grid: SurfaceGrid): number {
-	const side = grid.windowM / grid.spacingM + 1;
-	const valid =
-		Number.isInteger(side) &&
-		side > 1 &&
-		grid.spacingM > 0 &&
-		grid.windowM > 0 &&
-		grid.bedMm.length === side ** 2 &&
-		grid.meanWaterMm.length === side ** 2 &&
-		(grid.floor === undefined || grid.floor.length === side ** 2);
-	if (!valid) throw new RangeError('invalid-surface-grid');
+	const { windowM, spacingM, bedMm, meanWaterMm, floor } = grid;
+	if (!Number.isFinite(windowM) || windowM <= 0)
+		throw new RangeError('windowM must be finite and positive');
+	const side = windowM / spacingM + 1;
+	if (!Number.isFinite(spacingM) || spacingM <= 0 || !Number.isInteger(side) || side <= 1)
+		throw new RangeError('spacingM must be finite, positive and divide windowM');
+	const length = side ** 2;
+	checkSamples('bedMm', bedMm, length);
+	checkSamples('meanWaterMm', meanWaterMm, length);
+	if (floor !== undefined) checkSamples('floor', floor, length);
 	return side;
 }
 
@@ -134,6 +167,7 @@ function recordWidths(
  * Measures complete wet widths, step gains, core relief and land slope shares from a
  * north-first centered grid of millimeter heights and an interleaved XY course in meters.
  * Uses water-filled Gaussian-smoothed heights for terrain. The input buffers stay untouched.
+ * Throws RangeError for invalid raster dimensions, samples, spacings or classification thresholds.
  */
 export function measureRiverSurface(
 	grid: SurfaceGrid,
@@ -141,12 +175,7 @@ export function measureRiverSurface(
 	protocol: SurfaceProtocol
 ) {
 	const side = checkGrid(grid);
-	if (
-		!validSurfaceProtocol(grid.windowM, protocol) ||
-		!validProfileProtocol(grid.spacingM, protocol)
-	) {
-		throw new RangeError('invalid-surface-grid');
-	}
+	checkProtocol(grid, protocol);
 	const reach = clipPolylineToSquare(course, grid.windowM);
 	const surface = smoothSurface(
 		grid,
