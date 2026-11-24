@@ -17,7 +17,8 @@ import { mountSpecimen } from './mount-specimen';
 
 const maximumColumns = 5;
 const plotSideM = 16;
-const pitchM = 22;
+const columnPitchM = 22;
+const rowPitchM = 34;
 const plinthHeightM = 0.6;
 const plinthRimM = 0.5;
 
@@ -72,8 +73,8 @@ export function buildBoard(assets: readonly AssetDefinition[]) {
 	const columns = assets.length <= 4 ? Math.min(2, assets.length) : maximumColumns;
 	for (const [index, asset] of assets.entries()) {
 		const { id } = asset;
-		const x = (index % columns) * pitchM;
-		const y = -Math.floor(index / columns) * pitchM;
+		const x = (index % columns) * columnPitchM;
+		const y = -Math.floor(index / columns) * rowPitchM;
 		const object = buildAsset(id, specimenHost(asset), {}, seed);
 		const mounted = mountSpecimen(object, x, y, plotSideM);
 		specimens.push(...paint(mounted, asset).map((part) => ({ ...part, id: `${id}/${part.id}` })));

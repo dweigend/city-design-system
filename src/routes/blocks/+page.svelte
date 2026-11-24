@@ -66,7 +66,7 @@
 	const labels = $derived(
 		assets.map(({ id }) => assetLabels[id] ?? (id.split('/').at(-1) ?? id).replaceAll('-', ' '))
 	);
-	const fit = { fill: 0.87, bearing: 0.23, elevation: 0.58, offset: [0, -3] as const };
+	const fit = { fill: 0.87, bearing: 0.18, elevation: 0.76, offset: [0, -1] as const };
 </script>
 
 <svelte:head>
