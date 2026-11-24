@@ -1,3 +1,4 @@
+/** Module: Defines numeric parameter schemas and resolves player overrides. */
 const {
 	blockHeightDefaultM,
 	blockHeightMinM,
@@ -23,15 +24,16 @@ type NumberParam = Readonly<{
 	max: number;
 	step: number;
 }>;
-type Schema = Readonly<Record<string, NumberParam>>;
-type DefinedSchema<S extends Schema> = { readonly [K in keyof S]: Readonly<S[K]> };
-type Values<S extends Schema> = { readonly [K in keyof S]: number };
+/** A named table of numeric parameter metadata. */
+export type ParameterSchema = Readonly<Record<string, NumberParam>>;
+type DefinedSchema<S extends ParameterSchema> = { readonly [K in keyof S]: Readonly<S[K]> };
+type Values<S extends ParameterSchema> = { readonly [K in keyof S]: number };
 
 /** Validates numeric fields in their declared units and returns a detached, frozen schema.
  * Invalid metadata types throw TypeError. Invalid bounds, steps or defaults throw RangeError.
  * Leaves the source schema and fields untouched.
  */
-export function defineParams<const S extends Schema>(schema: S): DefinedSchema<S> {
+export function defineParams<const S extends ParameterSchema>(schema: S): DefinedSchema<S> {
 	const fields = Object.entries(schema).map(([key, field]) => {
 		const { label, unit, min, max, step, default: value } = field;
 		if (
@@ -62,7 +64,7 @@ export function defineParams<const S extends Schema>(schema: S): DefinedSchema<S
  * in floating-point arithmetic (ties toward max), capped at max. Inputs stay untouched.
  * Unknown keys and non-numbers throw TypeError. Non-finite numbers throw RangeError.
  */
-export function resolveParams<const S extends Schema>(
+export function resolveParams<const S extends ParameterSchema>(
 	schema: S,
 	overrides: Partial<Values<NoInfer<S>>> = {}
 ): Values<S> {
