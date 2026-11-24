@@ -1,4 +1,5 @@
 import { distance, type Vec2 } from '../../core/geometry';
+import { encodeKey } from '../../core/ref';
 import type { Carrier } from './carrier';
 import { axes } from './site';
 
@@ -32,7 +33,7 @@ function cornerAddress(point: Vec2, sites: readonly GeneratingSite[]) {
 		.filter(({ radius }) => radius - nearest <= 1 / bisectorPrecision)
 		.map(({ id }) => id)
 		.sort();
-	return 'bisector/' + JSON.stringify(incident);
+	return 'bisector/' + encodeKey(incident);
 }
 
 type Ring = Readonly<{ id: string; corners: readonly string[] }>;
@@ -82,10 +83,10 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 	const rows = local.map(([, y]) => y);
 	const sites = new Map<string, Vec2>();
 	function seedPoint(i: number, j: number): Vec2 {
-		const key = `${i},${j}`;
+		const key = encodeKey([i, j]);
 		const current = sites.get(key);
 		if (current) return current;
-		const stream = random.derive(key);
+		const stream = random.derive(`${i},${j}`);
 		const offset = { min: -0.22, max: 0.22 };
 		const point: Vec2 = [i + stream.number(offset), j + stream.number(offset)];
 		sites.set(key, point);

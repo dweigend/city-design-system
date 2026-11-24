@@ -36,6 +36,10 @@ test('distinguishes atom types, normalizes zero and rejects non-finite numbers',
 	}
 });
 
+test('rejects a string passed as a key tuple', () => {
+	expect(() => Reflect.apply(encodeKey, undefined, ['abc'])).toThrow(RangeError);
+});
+
 test('orders pairs by code units and distinguishes tuple endpoints from strings', () => {
 	expect(encodePair('a', 'Z')).toBe('["Z","a"]');
 	expect(encodePair('Z', 'a')).toBe(encodePair('a', 'Z'));

@@ -450,6 +450,7 @@ test.each(spatial)('%s retains every member with delimiter-bearing corner IDs', 
 	);
 	expect(edges).toHaveLength(expected.size);
 	expect(new Set(edges.map(({ from, to }) => JSON.stringify([from, to].sort())))).toEqual(expected);
+	expect(new Set(edges.map(({ id }) => id))).toEqual(expected);
 });
 
 test('cell-array order cannot change the settlement class at the town threshold', () => {

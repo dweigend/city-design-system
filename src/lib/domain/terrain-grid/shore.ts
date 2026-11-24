@@ -1,4 +1,5 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
+import { encodePair } from '../../core/ref';
 import type { Node } from './carrier';
 import { planEdgeId } from './edge-path';
 
@@ -15,7 +16,7 @@ export function shoreline(signedDistance: (x: number, y: number) => number) {
 		return dry.get(node.id);
 	}
 	function cut(land: Node, water: Node): Node {
-		const id = 'shore/' + JSON.stringify([land.id, water.id].sort());
+		const id = 'shore/' + encodePair(land.id, water.id);
 		const cached = crossings.get(id);
 		if (cached) return cached;
 		let inside = land.xy;

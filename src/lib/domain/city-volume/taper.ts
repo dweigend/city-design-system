@@ -1,5 +1,6 @@
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { encodeKey } from '../../core/ref';
 import { columnPlanes, planeIndex } from './foundation';
 import type { Column } from './bay-addresses';
 import { readPlanTopology, type PlanRing, type PlanTopology } from './plan-topology';
@@ -70,7 +71,7 @@ function mean(points: readonly Vec2[]): Vec2 {
 }
 
 const planKey = (x: number, y: number) =>
-	`${Math.round(x * keyPerMeter)},${Math.round(y * keyPerMeter)}`;
+	encodeKey([Math.round(x * keyPerMeter), Math.round(y * keyPerMeter)]);
 
 /** Builds the city's taper field: the full horizontal retreat in world meters of a point of the
  * city volume. Signed use scales it, 1 retreats toward the taller columns like a zoning setback and

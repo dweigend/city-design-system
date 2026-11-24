@@ -7,9 +7,10 @@ export type KeyAtom = string | number | boolean | null;
 export type Key = readonly KeyAtom[];
 
 /** Encodes a tuple as a canonical JSON array, with negative zero written as zero.
- * The input is unchanged. Non-finite numbers and values outside KeyAtom throw RangeError. */
+ * The input is unchanged. Non-array inputs and invalid atoms throw RangeError. */
 export function encodeKey(key: Key): string {
-	const atoms = Array.from(key, (atom) => {
+	if (!Array.isArray(key)) throw new RangeError('Expected a key tuple');
+	const atoms = Array.from(key, (atom: unknown): KeyAtom => {
 		if (atom === null || typeof atom === 'string' || typeof atom === 'boolean') return atom;
 		if (typeof atom === 'number' && Number.isFinite(atom)) return atom;
 		throw new RangeError('Expected a finite key atom');

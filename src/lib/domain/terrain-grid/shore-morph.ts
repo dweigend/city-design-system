@@ -1,7 +1,7 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { encodePair } from '../../core/ref';
 import { ringMean, type Candidate, type Node } from './carrier';
-import { planEdgeId } from './edge-path';
 import { shorelineMorphLimits as limits } from './config';
 
 type Clearance = (x: number, y: number) => number;
@@ -28,7 +28,7 @@ function network(cells: readonly Candidate[], clearance: Clearance) {
 			const b = required(vertices.get(next.id), 'shore neighbor');
 			a.neighbors.add(next.id);
 			b.neighbors.add(node.id);
-			const key = planEdgeId(node.id, next.id);
+			const key = encodePair(node.id, next.id);
 			const preceding = edges.get(key);
 			if (preceding !== undefined && preceding !== dry) {
 				a.boundary.add(next.id);

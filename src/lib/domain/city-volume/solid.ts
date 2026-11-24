@@ -1,4 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
+import { encodePair } from '../../core/ref';
 import { fanAnchor } from './foundation-prism';
 
 type Joint = Readonly<{ id: string; position: Vec3 }>;
@@ -86,7 +87,7 @@ export function solidEdgeFaults(faces: LatticeSolid['faces']) {
 		for (const [i, a] of face.entries()) {
 			const b = face[(i + 1) % face.length];
 			const forward = a < b;
-			const key = JSON.stringify(forward ? [a, b] : [b, a]);
+			const key = encodePair(a, b);
 			let edge = edges.get(key);
 			if (!edge) edges.set(key, (edge = { count: 0, balance: 0 }));
 			edge.count++;
