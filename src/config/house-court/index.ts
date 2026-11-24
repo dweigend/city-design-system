@@ -140,44 +140,44 @@ const town = defineSettings({
 });
 
 const skin = defineSettings({
-	floorEdgeOutsetM: {
-		value: 0.12,
+	parapetHeightM: {
+		value: 0.45,
 		unit: 'm',
-		meaning: 'Outward projection of a floor-edge band beyond an exposed wall',
-		bounds: { min: 0 },
-		principle: 'FORM-6',
-		rationale: 'Reads as a line of the storey at quarter zoom.'
+		meaning: 'Height of the parapet rim above a flat roof',
+		bounds: { exclusiveMin: 0 },
+		principle: 'MAT-13',
+		rationale: 'A rim that reads at block distance and still lets the flat roof tone show.'
 	},
-	floorEdgeThicknessM: {
+	rimWidthM: {
 		value: 0.3,
 		unit: 'm',
-		meaning: 'Height of a floor-edge band',
+		meaning: 'Width of the parapet rim, inside the wall line',
 		bounds: { exclusiveMin: 0 },
-		principle: 'FORM-6'
+		principle: 'MAT-13'
 	},
-	roofEdgeOutsetM: {
-		value: 0.28,
+	canopySizeM: {
+		value: [2.6, 1.3, 0.22],
 		unit: 'm',
-		meaning: 'Outward projection of the roof edge beyond an exposed wall',
-		bounds: { min: 0 },
-		principle: 'FORM-6'
-	},
-	roofEdgeThicknessM: {
-		value: 0.5,
-		unit: 'm',
-		meaning: 'Height of the roof edge slab',
+		meaning: 'Width, projection and thickness of the entrance canopy, the accent of a house',
 		bounds: { exclusiveMin: 0 },
-		principle: 'FORM-6'
+		principle: 'MAT-10'
+	},
+	canopyHeightM: {
+		value: 2.8,
+		unit: 'm',
+		meaning: 'Height of the canopy underside above the entrance floor',
+		bounds: { exclusiveMin: 0 },
+		principle: 'MAT-10'
 	},
 	windowPitchM: {
-		value: 2.7,
+		value: 4.2,
 		unit: 'm',
 		meaning: 'Wall length per opening along an exposed side',
 		bounds: { exclusiveMin: 0 },
-		principle: 'FORM-3'
+		principle: 'MAT-12'
 	},
 	windowWidthM: {
-		value: 1.3,
+		value: 1.5,
 		unit: 'm',
 		meaning: 'Width of an upper-storey opening',
 		bounds: { exclusiveMin: 0 },
@@ -198,7 +198,7 @@ const skin = defineSettings({
 		principle: 'FORM-3'
 	},
 	groundOpeningHeightM: {
-		value: 2.5,
+		value: 2.4,
 		unit: 'm',
 		meaning: 'Height of a ground-storey opening, standing on the floor',
 		bounds: { exclusiveMin: 0 },
@@ -207,7 +207,7 @@ const skin = defineSettings({
 	openingDepthM: {
 		value: 0.1,
 		unit: 'm',
-		meaning: 'Thickness of an opening pane, centred on the wall plane',
+		meaning: 'Thickness of the dark back of an opening, centred on the wall plane',
 		bounds: { exclusiveMin: 0 },
 		rationale: 'Thin enough to read as a pane, thick enough to avoid depth fighting with the wall.'
 	},

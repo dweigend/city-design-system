@@ -44,11 +44,14 @@ function paint(object: PlaceableObject, asset: AssetDefinition): Drawable[] {
 	return resolveSurfaces(
 		object,
 		Object.fromEntries(object.slots.map((slot) => [slot, surface(slot)]))
-	).map((part) =>
-		asset.kind === 'lattice' && part.id === 'solid'
-			? { ...part, fillAlpha: houseLevels.transparent.fillAlpha, occlude: true }
-			: part
-	);
+	).map((part) => {
+		if (asset.kind === 'lattice' && part.id === 'solid')
+			return { ...part, fillAlpha: houseLevels.transparent.fillAlpha, occlude: true };
+		// Printed pattern marks draw no outline (MAT-8).
+		return asset.kind === 'surface' && part.id.endsWith('/mark')
+			? { ...part, strokeSegments: [] }
+			: part;
+	});
 }
 
 function plinth(id: string, x: number, y: number) {

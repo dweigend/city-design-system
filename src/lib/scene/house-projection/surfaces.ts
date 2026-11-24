@@ -23,39 +23,32 @@ const surface = (
 });
 
 const ground = {
-	plot: surface('--paper-2', '--ink-3', false),
+	plot: surface('--model-ground', '--ink-3', false),
 	court: surface('--cat-lawn', '--ink-2', false)
 };
 
-/** Full drawing by role slot, shared by every style (COLOR-3, COLOR-4, COLOR-8): white bodies and
- * shells with graphite lines, flat Memphis colour blocks, a grey hairline frame with colour only on
- * services, path pink on galleries and stairs, greens for planting. A house uses the slots it
- * declares. */
+/** Full drawing by role slot, shared by every style: model bodies in default tones that a
+ * style row's materials override per house (MAT-10, MAT-11), dark plain openings (MAT-12), path
+ * pink on galleries and stairs (COLOR-3), greens for planting and the services in their flow
+ * colours. A house uses the slots it declares. */
 export const fullSurfaces = Object.freeze({
 	...ground,
-	wall: surface('--paper', '--ink', true),
-	floorEdge: surface('--paper-3', '--ink-2', false),
-	roofEdge: surface('--paper-2', '--ink-2', false),
-	opening: surface('--ink-3', '--ink-2', false, 'glass'),
+	wall: surface('--model-cream', '--ink', true),
+	opening: surface('--model-hole', '--ink-2', false),
 	gallery: surface('--path', '--ink', false),
 	stair: surface('--path', '--ink', false),
-	'body-white': surface('--paper', '--ink', true),
-	'body-yellow': surface('--cat-mobility', '--ink', true),
-	'body-blue': surface('--cat-health', '--ink', true),
-	'body-red': surface('--signal', '--ink', true),
-	'body-timber': surface('--terrain-soil', '--ink', true),
-	'roof-blue': surface('--cat-health', '--ink', true),
-	'roof-yellow': surface('--cat-mobility', '--ink', true),
-	'roof-red': surface('--signal', '--ink', true),
-	pattern: surface('--ink', '--ink', false),
-	collar: surface('--ground-clay', '--ink-2', false),
-	capsule: surface('--paper', '--ink-2', true),
-	'capsule-accent': surface('--cat-mobility', '--ink-2', true),
+	accent: surface('--model-orange', '--ink', true),
+	roof: surface('--model-roof', '--ink', true),
+	'body-main': surface('--model-blue', '--ink', true),
+	'body-second': surface('--model-cork', '--ink', true),
+	collar: surface('--model-white', '--ink-2', false),
+	capsule: surface('--model-white', '--ink-2', true),
+	'capsule-accent': surface('--model-yellow', '--ink-2', true),
 	frame: surface('--ink-3', '--ink-2', false),
 	deck: surface('--paper-3', '--ink-3', false),
 	tube: surface('--cat-health', '--ink-2', false),
 	mast: surface('--cat-mobility', '--ink-2', false),
-	'body-shell': surface('--paper', '--ink-2', false),
+	'body-shell': surface('--model-cream', '--ink-2', false),
 	planter: surface('--cat-foliage', '--ink-2', false),
 	foliage: surface('--cat-evergreen', '--ink-2', false),
 	trunk: surface('--cat-bark', '--ink-2', false)

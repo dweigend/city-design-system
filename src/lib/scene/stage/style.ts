@@ -56,6 +56,8 @@ export function createStyle(
 			flat.value = Number(drawable.flat === true || shade);
 			heightScale.value = drawable.heightScale ?? 1;
 			hatch.value = drawable.hatch ?? 0;
+			part.grain.amount.value = drawable.grain?.amount ?? 0;
+			part.grain.cell.value = drawable.grain?.cellM ?? 1;
 			const face = drawable.faces ?? levels;
 			part.faces.value.set(face.top, face.lit, face.shadow);
 			const vertical = drawable.vertical;

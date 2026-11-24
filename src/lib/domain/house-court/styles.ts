@@ -42,7 +42,8 @@ export type HouseStyle = Readonly<{
 		collar: boolean;
 	}>;
 	parts: Readonly<{
-		edges: boolean;
+		rims: boolean;
+		accent: boolean;
 		galleries: boolean;
 		stair: boolean;
 		frame: boolean;
@@ -50,7 +51,6 @@ export type HouseStyle = Readonly<{
 		tubeShareRatio: number;
 		mastStoreys: number;
 		planters: boolean;
-		patternShareRatio: number;
 		treeShareRatio: number;
 	}>;
 	slots: Readonly<{ body: readonly string[]; roof: readonly string[]; capsule: readonly string[] }>;
@@ -62,7 +62,6 @@ const none = {
 	braceShareRatio: 0,
 	tubeShareRatio: 0,
 	mastStoreys: 0,
-	patternShareRatio: 0,
 	treeShareRatio: 0
 };
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
@@ -85,8 +84,10 @@ const solidFill = {
 	capsuleGapM: 0
 };
 
-/** The style rows of the chapter. `neutral` is the R11 house: one merged envelope with floor
- * edges, roof edges, window rows, galleries and a stair. */
+/** The style rows of the chapter. `neutral` is the calm model house: one merged envelope with a
+ * parapet rim, few plain openings, galleries, a stair and an entrance canopy. Body slots name
+ * roles, not colours: `body-main` is the dominant body, `body-second` the contrasting one
+ * (MAT-10); the scene assigns their materials. */
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export const houseStyles = Object.freeze({
 	neutral: {
@@ -101,7 +102,15 @@ export const houseStyles = Object.freeze({
 			shareRatio: 1,
 			collar: false
 		},
-		parts: { ...none, edges: true, galleries: true, stair: true, frame: false, planters: false },
+		parts: {
+			...none,
+			rims: true,
+			accent: true,
+			galleries: true,
+			stair: true,
+			frame: false,
+			planters: false
+		},
 		slots: { body: ['wall'], roof: [], capsule: [] },
 		large: { fill: ['envelope'], roof: ['flat'], court: false }
 	},
@@ -129,20 +138,20 @@ export const houseStyles = Object.freeze({
 			pitchM: d.memphisOpeningPitchM,
 			sizeM: d.memphisOpeningSizeM,
 			shareRatio: d.memphisOpeningShareRatio,
-			collar: true
+			collar: false
 		},
 		parts: {
 			...none,
-			edges: false,
+			rims: true,
+			accent: true,
 			galleries: false,
 			stair: true,
 			frame: false,
-			planters: false,
-			patternShareRatio: d.memphisPatternShareRatio
+			planters: false
 		},
 		slots: {
-			body: ['body-white', 'body-yellow', 'body-blue', 'body-timber', 'body-red', 'body-white'],
-			roof: ['roof-blue', 'roof-yellow', 'roof-red'],
+			body: ['body-main', 'body-main', 'body-second', 'body-main'],
+			roof: ['roof', 'body-second', 'roof'],
 			capsule: []
 		},
 		large: { fill: ['envelope'], roof: ['wedge'], court: false }
@@ -175,7 +184,8 @@ export const houseStyles = Object.freeze({
 		},
 		parts: {
 			...none,
-			edges: false,
+			rims: false,
+			accent: false,
 			galleries: true,
 			stair: true,
 			frame: true,
@@ -207,11 +217,12 @@ export const houseStyles = Object.freeze({
 			pitchM: d.organicOpeningPitchM,
 			sizeM: d.organicOpeningSizeM,
 			shareRatio: d.organicOpeningShareRatio,
-			collar: true
+			collar: false
 		},
 		parts: {
 			...none,
-			edges: false,
+			rims: false,
+			accent: true,
 			galleries: false,
 			stair: true,
 			frame: false,

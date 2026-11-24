@@ -110,7 +110,7 @@ function project(
 	if (fill !== indexed) indexed.dispose();
 	fill.computeVertexNormals();
 	fill.computeBoundingBox();
-	const { material, terrain, flat, heightScale, hatch, faces, atlas } = fillMaterial(
+	const { material, terrain, flat, heightScale, hatch, faces, grain, atlas } = fillMaterial(
 		palette,
 		drawable.terrainField
 	);
@@ -146,6 +146,7 @@ function project(
 		heightScale,
 		hatch,
 		faces,
+		grain,
 		atlas,
 		warpTargets,
 		warpAmount: 0

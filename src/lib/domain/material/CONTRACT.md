@@ -1,24 +1,33 @@
 # Material contract
 
-A family lays units, joints and trim on a planar patch and raises them as relief. Geometry carries
-family slots in meters. Use `paintClad` from `scene/surface` to assign colors.
+A family is a material of the model workshop (MAT-3): painted board, grey board (card), cork,
+stripe laminate, perforated sheet, lit acrylic and an abstract ground. It lays one even face on a
+planar patch and prints the marks of its pattern on it. Geometry carries the slots `face` and
+`mark` in meters, never a colour. Use `paintClad` from `scene/surface` to assign colours; cork and
+card grain is shading, not geometry.
 
 - `buildSurface(family, patch, options?)` builds a patch from its origin, unit across axis, unit
   outward normal, size and backing thickness. The up axis is normal × across. Supply a convex
-  outline for a gable and rectangular openings to cut through both relief and backing.
-- Pass the direction the light travels in world axes as `options.light`. Pass external shadows
-  as convex, counter-clockwise polygons already projected into the patch's coordinates.
-  `surfaceLight` from `scene/stage` supplies the stage direction.
-- `relief` raises units, `flat` builds a single slab and `pencil` adds joint strokes to that slab.
-  `readSurfaceLevel` from `scene/focus` maps display policy to these levels.
-- The triangle budget is `patch.budget` or the configured density times patch area. Relief and
-  pencil preflight their layouts against the budget and a work limit, coarsening the module as
-  needed. If detail still exceeds either limit, the recipe tries a flat slab.
-  A budget below `minimumMeshTriangles` (12), or below the required slab cost when falling back,
-  yields zero triangles, empty meshes and no strokes.
+  outline for a gable and rectangular openings to cut. `backed: false` leaves out the back face of
+  a patch laid on a body.
+- Patterns are laid in the coordinates of a body box (`patch.pattern`, built by
+  `createPatternFrame` from all faces of the body; default the patch's own box) and fitted to whole
+  periods over the body. Stripes run across the body's long axis over every face that runs along
+  it; dot grids use the two body axes in the face. So a pattern continues across the shared edge of
+  two faces of one body (MAT-9). `createClad` builds the box for claddings that name the same
+  `body`.
+- Levels come from the level table in `config/material`: `near` (marks, openings, joint hairlines,
+  grain), `mid` (marks, openings), `far` (plain face, only marks with a pitch of at least
+  `farMarkPitchM`, no openings) and `pencil` (face, openings, joints as pencil lines). `relief` and
+  `flat` are aliases of `near` and `far`. `readSurfaceLevel` from `scene/focus` maps display policy
+  to these levels.
+- The triangle budget is `patch.budget` or the configured density times patch area. Marks are
+  preflighted against the budget and a work limit, coarsening the pattern pitch; if they never fit,
+  the plain face is drawn. A budget below `minimumMeshTriangles` (12), or below the face alone,
+  yields zero triangles, empty meshes and no lines.
 - `createClad(input, claddings, options?)` takes a footprint, anchors and any plain parts with
-  their declared slots. It combines meshes that share a role, family, drawn level and family
-  slot. The same inputs produce the same arrays. See `cladExample` in `example.ts` for two wall
-  faces sharing a role at a corner, with an opening in one face.
+  their declared slots. It combines meshes that share a role, family, tone, drawn level and family
+  slot. The same inputs produce the same arrays. See `cladExample` in `example.ts` for a wall and a
+  roof of one stripe body whose stripes meet at the eaves.
 
-The [surfaces page](/surfaces) shows all six families as plates and on a gabled body.
+The [surfaces page](/surfaces) shows all seven families as plates and on a model house.

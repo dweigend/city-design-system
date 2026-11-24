@@ -6,7 +6,7 @@ import { specimenHost } from './hosts';
 
 test('builds every registered specimen at defaults and every combination of parameter bounds', () => {
 	const assets = listAssets();
-	expect(assets).toHaveLength(22);
+	expect(assets).toHaveLength(23);
 	for (const entry of assets) {
 		const host = specimenHost(entry);
 		const edges = Object.entries(entry.params).reduce<Record<string, number>[]>(
@@ -39,7 +39,7 @@ test('places a frame on a resolved lattice bay', () => {
 	expect(frame.anchors.length).toBeGreaterThan(0);
 });
 
-test('spaces the 22 specimen plinths on the configured metric grid', () => {
+test('spaces the 23 specimen plinths on the configured metric grid', () => {
 	const { bases } = buildBoard(listAssets());
 	const {
 		boardMaximumColumns,
@@ -49,7 +49,7 @@ test('spaces the 22 specimen plinths on the configured metric grid', () => {
 		boardPlinthRimM,
 		boardPlinthHeightM
 	} = defaults;
-	expect(bases).toHaveLength(22);
+	expect(bases).toHaveLength(23);
 	const places = [
 		[1, [boardColumnPitchM, -0]],
 		[boardMaximumColumns, [0, -boardRowPitchM]]

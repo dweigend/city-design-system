@@ -13,9 +13,10 @@ const { faceToleranceM } = defaults;
  * along the face, a unit outward `normal` (up is normal × across), the size in meters, an optional
  * convex counterclockwise outline in face meters, and window openings as [u0, v0, u1, v1]
  * rectangles. `slot` is the role slot of the part the face belongs to; `place` tells walls from
- * roofs. */
+ * roofs; `body` names the body the face belongs to, so a pattern can wrap all faces of one body. */
 export type HouseFace = Readonly<{
 	slot: string;
+	body: string;
 	place: 'wall' | 'roof';
 	origin: Vec3;
 	across: Vec3;
@@ -30,6 +31,7 @@ const level = ({ space }: Context, storey: number) => space.baseZ + storey * spa
 // Exact arithmetic: horizontal axes and the run's base.
 function wallFace(
 	slot: string,
+	body: string,
 	[a, b]: readonly [Vec2, Vec2],
 	z0: number,
 	z1: number,
@@ -40,6 +42,7 @@ function wallFace(
 	const [dx, dy] = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
 	return {
 		slot,
+		body,
 		place: 'wall',
 		origin: [a[0], a[1], z0],
 		across: [dx, dy, 0],
@@ -52,6 +55,7 @@ function wallFace(
 function wallFaces(
 	ctx: Context,
 	slot: string,
+	body: string,
 	wall: ReturnType<typeof side>,
 	bottom: number,
 	top: number,
@@ -64,6 +68,7 @@ function wallFaces(
 			.map(([l, b, r, t]) => [l - u0, b - z0, r - u0, t - z0] as const);
 		const face = wallFace(
 			slot,
+			body,
 			[wall.at(u0 / wall.length, 0), wall.at(u1 / wall.length, 0)],
 			z0,
 			z1,
@@ -87,7 +92,7 @@ const unit = (a: Vec3): Vec3 => {
 
 /** A planar roof face over a convex ring of points, with its first side as the across axis. */
 // Exact arithmetic: Newell normal and the outline's bounding origin.
-export function roofFace(slot: string, ring: readonly Vec3[]): HouseFace | undefined {
+export function roofFace(slot: string, body: string, ring: readonly Vec3[]): HouseFace | undefined {
 	if (ring.length < 3) return undefined;
 	const newell = ring.reduce<Vec3>(
 		(sum, p, i) => {
@@ -119,7 +124,7 @@ export function roofFace(slot: string, ring: readonly Vec3[]): HouseFace | undef
 	const origin: Vec3 = [0, 1, 2].map(
 		(k) => ring[0][k] + across[k] * u0 + up[k] * v0
 	) as unknown as Vec3;
-	return { slot, place: 'roof', origin, across, normal, size, outline, openings: [] };
+	return { slot, body, place: 'roof', origin, across, normal, size, outline, openings: [] };
 }
 
 /** True when a side of a solid's outline lies on a cell side hidden by another body for the whole
@@ -149,19 +154,20 @@ export function solidFaces(ctx: Context, solids: readonly CellSolid[]): HouseFac
 	return solids
 		.flatMap((s): (HouseFace | undefined)[] => {
 			if (s.key.endsWith('/roof'))
-				return s.roofKind === 'wedge' ? [roofFace(s.slot, s.faces[1])] : [];
+				return s.roofKind === 'wedge' ? [roofFace(s.slot, s.key, s.faces[1])] : [];
 			if (!s.flat) return [];
 			const z0 = level(ctx, s.fromStorey);
 			const z1 = level(ctx, s.toStorey);
 			const walls = s.outline.flatMap((a, i) => {
 				const wall = side(s.outline, i);
-				return hidden(ctx, s, [a, wall.b]) ? [] : wallFaces(ctx, s.slot, wall, z0, z1);
+				return hidden(ctx, s, [a, wall.b]) ? [] : wallFaces(ctx, s.slot, s.key, wall, z0, z1);
 			});
 			const top =
 				tops.get(s.cell.id) === s && !roofed.has(s.cell.id)
 					? [
 							roofFace(
 								s.slot,
+								s.key,
 								s.outline.map(([x, y]): Vec3 => [x, y, z1])
 							)
 						]
@@ -203,13 +209,22 @@ export function envelopeFaces(
 					{ length: Math.max(0, Math.min(to, openingStoreys(ctx, house)) - from) },
 					(_, k) => openingRects(ctx, cell, i, from + k)
 				).flat();
-				return wallFaces(ctx, slot, side(cell.quad, i), level(ctx, from), level(ctx, to), openings);
+				return wallFaces(
+					ctx,
+					slot,
+					'envelope',
+					side(cell.quad, i),
+					level(ctx, from),
+					level(ctx, to),
+					openings
+				);
 			})
 		);
 		const top = roofed.has(cell.id)
 			? undefined
 			: roofFace(
 					slot,
+					'envelope',
 					cell.quad.map(([x, y]): Vec3 => [x, y, level(ctx, house.toStorey)])
 				);
 		return [...walls, top].filter((face): face is HouseFace => face !== undefined);

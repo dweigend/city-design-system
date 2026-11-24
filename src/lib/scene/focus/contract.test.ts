@@ -24,15 +24,9 @@ test('construction reports missing rows and incomplete choice coverage', () => {
 });
 
 test('all display levels map to material detail independently of the preset', () => {
-	expect(displayLevels.map(readSurfaceLevel)).toEqual([
-		'relief',
-		'flat',
-		'flat',
-		'pencil',
-		undefined
-	]);
+	expect(displayLevels.map(readSurfaceLevel)).toEqual(['near', 'far', 'far', 'pencil', undefined]);
 	const preset = example();
-	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'subject'))).toBe('relief');
+	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'subject'))).toBe('near');
 	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'backdrop'))).toBeUndefined();
 	expect(() => readSurfaceLevel('unknown' as never)).toThrow(RangeError);
 });

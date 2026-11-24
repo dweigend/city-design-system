@@ -13,6 +13,9 @@ export type Surface = Readonly<{
 	/** Keeps the authored fill color when the display applies its paper veil. */
 	preserveColor?: boolean;
 	opacity?: `--alpha-${string}`;
+	/** Fine even grain of a model material (MAT-8): an Oklab lightness swing of speckles of
+	 * `cellM` meters, fixed in world space. */
+	grain?: Readonly<{ amount: number; cellM: number }>;
 	stroke?: Readonly<{
 		color: `--${string}`;
 		width: number;

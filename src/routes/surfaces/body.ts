@@ -1,5 +1,5 @@
 import { specimenSettings as m } from '../../config/surface-specimens';
-import { convexHull, scaled, sum, type Vec2, type Vec3 } from '../../lib/core/geometry';
+import { scaled, sum, type Vec3 } from '../../lib/core/geometry';
 import { axes } from './axes';
 import {
 	createClad,
@@ -82,43 +82,20 @@ function glazing(wall: Wall, openings: readonly Rect[]): Patch[] {
 	}));
 }
 
-/** The ground shade of the body: the hull of its corners and ridge moved along the light onto
- * the ground, in the ground patch's meters. */
-// Exact arithmetic: corners on both sides of the centre, ground at zero.
-function bodyShadow(
-	light: Vec3,
-	origin: Vec3,
-	[width, depth, eaves, ridge]: readonly number[]
-): Vec2[] {
-	const [x, y] = [width / 2 + m.bodyEaveM, depth / 2];
-	const corners: Vec3[] = [-1, 1].flatMap((sx) =>
-		[-1, 1].flatMap((sy): Vec3[] => [
-			[(sx * width) / 2, sy * y, 0],
-			[sx * x, sy * y, eaves]
-		])
-	);
-	corners.push([-x, 0, ridge], [x, 0, ridge]);
-	const ground = corners.map(([px, py, pz]): Vec2 => {
-		const reach = -pz / light[2];
-		return [px + reach * light[0] - origin[0], py + reach * light[1] - origin[1]];
-	});
-	return [...convexHull(ground)];
-}
-
-/** A box house with a gable roof, a door and two windows, standing on a ground slab: walls in
- * the given family, roof in `roof`, ground in `ground`, glazing in glass. The triangle budget is
- * shared among the patches by area. Centred on the origin with the ground face at zero. */
+/** A model house with a gable roof, a door and two windows, standing on a ground slab: walls in
+ * the given family as one body, so a pattern wraps all four walls, the roof in the flat roof tone,
+ * the ground in `ground`, the windows in lit acrylic (MAT-14). The triangle budget is shared among
+ * the patches by area. Centred on the origin with the ground face at zero. */
 export function createSampleBody(
 	family: Family,
 	options: SurfaceOptions = {},
-	roof: Family = 'metal',
 	ground: Family = groundFamily
 ): CladObject {
 	const [width, depth, eaves, ridge] = m.bodySizeM;
 	const claddings = wallCladdings(family, m.bodySizeM);
 	for (const patch of roofSlopes(width, depth, eaves, ridge))
-		claddings.push({ role: 'roof', family: roof, patch });
-	claddings.push(groundCladding(ground, options.light));
+		claddings.push({ role: 'roof', family: 'board', tone: 'roof', body: 'roof', patch });
+	claddings.push(groundCladding(ground));
 	return createClad(
 		{ id: 'sample-body', footprint: { width, depth }, anchors: [] },
 		shareBudget(claddings, m.bodyTriangleBudget),
@@ -146,6 +123,7 @@ function wallCladdings(
 		claddings.push({
 			role: 'wall',
 			family,
+			body: 'house',
 			patch: {
 				origin: wall.origin,
 				across: wall.across,
@@ -157,29 +135,26 @@ function wallCladdings(
 			}
 		});
 		for (const patch of glazing(wall, openings))
-			claddings.push({ role: 'opening', family: 'glass', patch });
+			claddings.push({ role: 'opening', family: 'acrylic', patch });
 	}
 	return claddings;
 }
 
 // Exact arithmetic: the ground face lies at zero around the centred body.
-function groundCladding(ground: Family, light?: Vec3): Cladding {
+function groundCladding(ground: Family): Cladding {
 	const [width, depth] = m.bodySizeM;
 	const [margin, slab] = m.bodyGroundM;
 	const groundOrigin: Vec3 = [-width / 2 - margin, -depth / 2 - margin, 0];
-	const shadows = light ? [bodyShadow(light, groundOrigin, m.bodySizeM)] : [];
 	return {
 		role: 'ground',
 		family: ground,
-		moduleScale: m.bodyGroundModuleScale,
 		patch: {
 			origin: groundOrigin,
 			across: axes.east,
 			normal: axes.up,
 			size: [width + 2 * margin, depth + 2 * margin],
 			thickness: slab,
-			openings: [[margin, margin, margin + width, margin + depth]],
-			shadows
+			openings: [[margin, margin, margin + width, margin + depth]]
 		}
 	};
 }

@@ -1,6 +1,6 @@
-import { castShade, pencilStroke } from './index';
+import { modelGrain, pencilStroke } from './index';
 
-/** Reads the common shade and joint stroke styles used by the surface palette. */
+/** Reads the grain of cork and card and the joint stroke style used by the surface palette. */
 export function example() {
-	return { castShade, pencilStroke };
+	return { modelGrain, pencilStroke };
 }

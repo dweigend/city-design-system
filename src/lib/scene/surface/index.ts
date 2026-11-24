@@ -14,5 +14,14 @@ export {
 } from './surfaces';
 /** Accents a wall, resolves an object's slots to drawables and validates colour tokens. */
 export { accent, resolveSurfaces, validateTokens } from './surfaces';
-/** The material palette by family, slot and display, and the assignment boundary of clad objects. */
-export { paintClad, readMaterialSurface, type MaterialDisplay } from './palette';
+/** The model palette by family, slot, tone and display, and the assignment boundary of clad
+ * objects and of plain bodies in a model material. */
+export {
+	modelTones,
+	paintClad,
+	readMaterialSurface,
+	readModelSurface,
+	type MaterialDisplay,
+	type ModelMaterial,
+	type ModelTone
+} from './palette';

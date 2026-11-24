@@ -105,12 +105,31 @@ function lines(frame: Frame, segments: readonly (readonly [Vec2, Vec2])[]) {
 	]);
 }
 
-function marksOf(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {
-	const { pattern } = readFamily(family);
+function prints(family: Family, params: PatternParams, level: SurfaceLevel) {
 	const { marks } = readLevelDetail(level);
-	if (pattern === 'plain' || marks === 'none') return [];
-	if (marks === 'graphic' && params.pitch < farMarkPitchM) return [];
-	return pattern === 'stripe' ? stripeMarks(face, params) : dotMarks(face, params);
+	if (readFamily(family).pattern === 'plain' || marks === 'none') return false;
+	return marks === 'all' || params.pitch >= farMarkPitchM;
+}
+
+/** Whether a level prints the marks of a family at a pattern scale: every pattern near and mid,
+ * only a large graphic one (pitch at least `farMarkPitchM`) far, none in pencil. */
+export function printsMarks(
+	family: Family,
+	level: SurfaceLevel | SurfaceLevelAlias,
+	moduleScale = 1
+): boolean {
+	return prints(
+		family,
+		scaleParams(readFamily(family).params, moduleScale),
+		readSurfaceLevelName(level)
+	);
+}
+
+function marksOf(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {
+	if (!prints(family, params, level)) return [];
+	return readFamily(family).pattern === 'stripe'
+		? stripeMarks(face, params)
+		: dotMarks(face, params);
 }
 
 function stripeEdges(family: Family, face: PrintFace, params: PatternParams, level: SurfaceLevel) {

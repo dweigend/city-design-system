@@ -22,7 +22,13 @@ export {
 	type SurfaceLevelAlias
 } from './levels';
 /** Builds one family on one patch at a level within a triangle budget. */
-export { buildSurface, fitModuleScale, type SurfaceMesh, type SurfaceOptions } from './build';
+export {
+	buildSurface,
+	fitModuleScale,
+	printsMarks,
+	type SurfaceMesh,
+	type SurfaceOptions
+} from './build';
 /** Combines compatible claddings and plain parts in one placeable object. */
 export { createClad, type CladInput, type CladObject, type Cladding } from './clad';
 

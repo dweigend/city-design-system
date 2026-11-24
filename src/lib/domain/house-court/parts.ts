@@ -1,3 +1,4 @@
+import type { Vec2 } from '../../core/geometry';
 import type { Part, Shape } from '../../core/object';
 import { defaults } from '../../../config/house-court';
 import type { FineCell } from '../cell-space';
@@ -6,13 +7,15 @@ import { builtAt, type Context } from './context';
 import type { HouseCell } from './occupancy';
 import { shellFaces, shells } from './shells';
 import { entranceGround } from './access';
+import { cellSolids, type CellSolid } from './fills';
+import { entranceSide } from './graph';
 import { exposedWall, fitsOpening, type WallRect } from './wall-contact';
 
 const {
-	floorEdgeOutsetM,
-	floorEdgeThicknessM,
-	roofEdgeOutsetM,
-	roofEdgeThicknessM,
+	parapetHeightM,
+	rimWidthM,
+	canopySizeM,
+	canopyHeightM,
 	windowPitchM,
 	windowWidthM,
 	windowHeightM,
@@ -89,38 +92,71 @@ export function envelope(context: Context, slot: string): Part[] {
 	});
 }
 
-function strip(cell: FineCell, i: number, z: number, across: number, height: number): Box {
-	const wall = side(cell.quad, i);
-	const [x, y] = wall.at(1 / 2, across / 2);
+/** A parapet rim along one side of a flat roof outline, inside the wall line, standing on the
+ * roof at height z. */
+function rim(outline: readonly Vec2[], i: number, z: number): Box {
+	const wall = side(outline, i);
+	const [x, y] = wall.at(1 / 2, -rimWidthM / 2);
 	return {
-		center: [x, y, z],
-		size: [wall.length + across, across, height],
+		center: [x, y, z + parapetHeightM / 2],
+		size: [wall.length, rimWidthM, parapetHeightM],
 		rotation: wall.rotation
 	};
 }
 
-/** Floor-edge strips along exposed walls at inner storey lines and above a gate, and the roof
- * edge along every wall exposed at the top storey, each as one mesh. */
-export function edges(context: Context): Part[] {
-	const floors: Box[] = [];
-	const roofs: Box[] = [];
+/** The parapet rim of the merged envelope (MAT-13): along every wall exposed at the top storey,
+ * in the wall's own slot, as one mesh. */
+export function envelopeRims(context: Context, slot: string): Part[] {
+	const rims: Box[] = [];
 	eachBuilt(context, (cell, house) => {
 		cell.quad.forEach((_, i) => {
-			for (let storey = Math.max(1, house.fromStorey); storey < house.toStorey; storey += 1)
-				if (exposed(context, cell, i, storey) || exposed(context, cell, i, storey - 1))
-					floors.push(
-						strip(cell, i, level(context, storey), floorEdgeOutsetM, floorEdgeThicknessM)
-					);
 			if (exposed(context, cell, i, house.toStorey - 1))
-				roofs.push(
-					strip(cell, i, level(context, house.toStorey), roofEdgeOutsetM, roofEdgeThicknessM)
-				);
+				rims.push(rim(cell.quad, i, level(context, house.toStorey)));
 		});
 	});
-	return [
-		...part(`${context.space.id}/floor-edges`, 'floorEdge', boxMesh(floors)),
-		...part(`${context.space.id}/roof-edges`, 'roofEdge', boxMesh(roofs))
-	];
+	return part(`${context.space.id}/rims`, slot, boxMesh(rims));
+}
+
+/** The parapet rim of every flat-topped body without a roof solid, in the body's slot. */
+export function solidRims(context: Context, solids: readonly CellSolid[]): Part[] {
+	const roofed = new Set(
+		solids.filter(({ key }) => key.endsWith('/roof')).map(({ cell }) => cell.id)
+	);
+	const tops = new Map<string, CellSolid>();
+	for (const s of solids) if (!s.key.endsWith('/roof')) tops.set(s.cell.id, s);
+	return [...tops.values()].flatMap((s) => {
+		if (!s.flat || roofed.has(s.cell.id)) return [];
+		const z = level(context, s.toStorey);
+		return part(`${s.key}/rims`, s.slot, boxMesh(s.outline.map((_, i) => rim(s.outline, i, z))));
+	});
+}
+
+/** The accent of the house (MAT-10): a canopy slab over the entrance, against the body that
+ * stands in the entrance cell, in the `accent` slot. */
+// Exact arithmetic: the middle of the frontage side.
+export function canopy(context: Context): Part[] {
+	const entry = entranceSide(context.space, context.house.entrances);
+	const house = entry && context.occupancy.get(entry.cell.id);
+	if (!entry || !house || house.fromStorey > 0 || house.toStorey <= 0) return [];
+	const [width, projection, thickness] = canopySizeM;
+	const solids = cellSolids(context).filter(
+		({ cell, fromStorey, key }) =>
+			cell.id === entry.cell.id && fromStorey === 0 && !key.endsWith('/roof')
+	);
+	const gap = solids.length ? Math.min(...solids.map(({ gapM }) => gapM)) : 0;
+	const [x, y] = entry.wall.at(1 / 2, projection / 2 - gap);
+	const z = context.space.baseZ + canopyHeightM + thickness / 2;
+	return part(
+		`${context.space.id}/canopy`,
+		'accent',
+		boxMesh([
+			{
+				center: [x, y, z],
+				size: [Math.min(width, entry.wall.length), projection, thickness],
+				rotation: entry.wall.rotation
+			}
+		])
+	);
 }
 
 function openingRun(context: Context, length: number, storey: number) {
