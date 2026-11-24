@@ -316,13 +316,11 @@ export function packChunk(materials: Materials, group: Group, smooth: boolean) {
 		look: NonNullable<BatchedPart['look']>
 	) {
 		let alpha = sorted.get(part);
-		if (look.opacity >= 1) {
+		if (look.opacity <= 0 || look.opacity >= 1) {
 			if (alpha) releaseAlpha(part, alpha);
 			return;
 		}
-		const translucent = look.opacity > 0;
 		if (!alpha) {
-			if (!translucent) return;
 			const view = rangeGeometry(geometry, range);
 			const body = new Mesh(view, materials.alpha);
 			body.renderOrder = opaque.renderOrder;
@@ -334,17 +332,14 @@ export function packChunk(materials: Materials, group: Group, smooth: boolean) {
 			group.add(body);
 			sorted.set(part, alpha);
 		}
-		alpha.body.visible = translucent;
-		if (translucent) {
-			alpha.body.material = part.drawable.finish === 'glass' ? materials.glass : materials.alpha;
-			scratch.getBoundingSphere(alpha.sphere);
-		}
-		const hasVeil = translucent && look.veil;
-		if (hasVeil && !alpha.veil) {
+		alpha.body.visible = true;
+		alpha.body.material = part.drawable.finish === 'glass' ? materials.glass : materials.alpha;
+		scratch.getBoundingSphere(alpha.sphere);
+		if (look.veil && !alpha.veil) {
 			alpha.veil = new Mesh(alpha.body.geometry, materials.veil);
 			alpha.veil.renderOrder = 6;
 			group.add(alpha.veil);
-		} else if (!hasVeil && alpha.veil) {
+		} else if (!look.veil && alpha.veil) {
 			releaseVeil(alpha.veil);
 			alpha.veil = undefined;
 		}

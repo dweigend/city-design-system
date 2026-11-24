@@ -165,7 +165,15 @@ function separateStrokes(
 		return painters.map(({ material, recede, owned, shared }, index) => {
 			const line = new LineSegments2(geometry, material);
 			line.renderOrder = explicit ? 5 : 2 + index;
-			return { line, recede, owned, shared, faces: edges.faces, hidden: explicit && index === 1 };
+			return {
+				line,
+				kind,
+				recede,
+				owned,
+				shared,
+				faces: edges.faces,
+				hidden: explicit && index === 1
+			};
 		});
 	});
 }
@@ -317,8 +325,9 @@ export function styleIndividual(
 			fill.veil = undefined;
 		}
 	}
-	for (const { line, hidden, recede, owned, shared } of individual) {
-		if (owned && shared) line.material.color.copy(shared.color);
+	for (const { line, kind, hidden, recede, owned, shared } of individual) {
+		if (owned && shared)
+			line.material.color.copy(kind === 'grid' || kind === 'rim' ? look.strokeColor : shared.color);
 		if (recede) {
 			line.material.color.copy(look.strokeColor);
 			line.material.opacity = look.strokeOpacity * (hidden ? look.hidden : 1);

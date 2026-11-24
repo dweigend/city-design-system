@@ -799,3 +799,35 @@ test('warped line creases own their materials and refresh both adjacent normals'
 	expect([front.getY(0), back.getY(0)]).toEqual(original);
 	content.delete();
 });
+
+test('warped landscape line overlays keep distinct stroke colors at zero warp', () => {
+	const strokes = strokeMaterials();
+	const content = createContent(strokes, drawingPalette(), true);
+	const make = (id: string, color: `--${string}`): Drawable => ({
+		id,
+		color,
+		finish: 'line',
+		shape: {
+			kind: 'mesh',
+			positions: [0, 0, 0, 2, 0, 0, 2, 2, 0, 0, 2, 0],
+			indices: [0, 1, 2, 0, 2, 3]
+		},
+		warp: { fill: [0, 0, 0, 0, 0, 0, 0, 0], amount: 0 }
+	});
+	content.show([make('a', '--path'), make('b', '--water')]);
+	const rose = new Color('#ff0066');
+	const blue = new Color('#0066ff');
+	content.update(
+		(drawable) => ({
+			...appearance(drawable),
+			strokeColor: drawable.color === '--path' ? rose : blue
+		}),
+		false
+	);
+	const colorA = content.parts[0].individual[0].line.material.color;
+	const colorB = content.parts[1].individual[0].line.material.color;
+	expect(colorA.equals(rose)).toBe(true);
+	expect(colorB.equals(blue)).toBe(true);
+	expect(colorA.equals(colorB)).toBe(false);
+	content.delete();
+});
