@@ -18,7 +18,8 @@ test('the palette is complete for every family, slot and display, in light and d
 				const { color } = readMaterialSurface(family, slot, display);
 				expect(defined(light, color)).toBe(true);
 				// A material token is set again for the dark theme; stock tokens derive from paper and ink.
-				if (color.startsWith('--mat-')) expect({ color, dark: defined(dark, color) }).toEqual({ color, dark: true });
+				if (color.startsWith('--mat-'))
+					expect({ color, dark: defined(dark, color) }).toEqual({ color, dark: true });
 			}
 		}
 	}
@@ -26,7 +27,14 @@ test('the palette is complete for every family, slot and display, in light and d
 });
 
 test('material colours stay clear of the flow colours and the transparency view is neutral', () => {
-	const flows = ['--cat-living', '--cat-health', '--cat-mobility', '--cat-business', '--cat-nature', '--path'];
+	const flows = [
+		'--cat-living',
+		'--cat-health',
+		'--cat-mobility',
+		'--cat-business',
+		'--cat-nature',
+		'--path'
+	];
 	for (const family of familyNames)
 		for (const slot of readFamily(family).slots.filter((name) => !name.startsWith('shade'))) {
 			expect(flows).not.toContain(readMaterialSurface(family, slot, 'normal').color);
@@ -36,13 +44,25 @@ test('material colours stay clear of the flow colours and the transparency view 
 
 test('one boundary paints a clad object: shade overprints, pencil hatches and draws joints', () => {
 	const options = { light: readLight([0.6, 0.8], 0.6) };
-	const board = createSampleBoard([{ family: 'masonry' }, { family: 'timber', level: 'pencil' }], options);
+	const board = createSampleBoard(
+		[{ family: 'masonry' }, { family: 'timber', level: 'pencil' }],
+		options
+	);
 	const normal = paintClad(board, 'normal', { stand: existing.roof });
-	expect(normal.map(({ id }) => id)).toEqual([...board.object.parts.map(({ id }) => id), 'plate-1/lines']);
+	expect(normal.map(({ id }) => id)).toEqual([
+		...board.object.parts.map(({ id }) => id),
+		'plate-1/lines'
+	]);
 	const shade = normal.find(({ id }) => id === 'plate-0/shade');
 	expect(shade).toMatchObject({ color: '--mat-mortar', strokeSegments: [], visible: true });
-	expect(normal.find(({ id }) => id === 'plate-1/unit')).toMatchObject({ color: '--stock-pencil', hatch: expect.any(Number) });
-	expect(normal.at(-1)).toMatchObject({ fillVisible: false, strokeSegments: board.lines['plate-1'] });
+	expect(normal.find(({ id }) => id === 'plate-1/unit')).toMatchObject({
+		color: '--stock-pencil',
+		hatch: expect.any(Number)
+	});
+	expect(normal.at(-1)).toMatchObject({
+		fillVisible: false,
+		strokeSegments: board.lines['plate-1']
+	});
 	const veiled = paintClad(board, 'transparency', { stand: existing.roof });
 	expect(veiled.find(({ id }) => id === 'plate-0/shade')?.visible).toBe(false);
 	expect(veiled.find(({ id }) => id === 'plate-0/unit')?.color).toBe('--stock-veil');

@@ -30,6 +30,7 @@ export function createSink(): MeshSink {
 	return { positions: [], faces: [], sides: new Map() };
 }
 
+// Exact arithmetic: a missing slope is level.
 function height({ at, perU = 0, perV = 0 }: Plane, [u, v]: Vec2) {
 	return at + perU * u + perV * v;
 }
@@ -78,7 +79,11 @@ export function addCell(
 		sink,
 		polygon.map(([u, v], i) => frame.point(u, v, tops[i]))
 	);
-	if (closed) addPolygon(sink, [...polygon].reverse().map(([u, v]) => frame.point(u, v, base)));
+	if (closed)
+		addPolygon(
+			sink,
+			[...polygon].reverse().map(([u, v]) => frame.point(u, v, base))
+		);
 	for (const [i, [u0, v0]] of polygon.entries()) {
 		const next = (i + 1) % polygon.length;
 		const [u1, v1] = polygon[next];

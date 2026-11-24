@@ -28,7 +28,12 @@ function jittered(random: Random, depth: number, jitter: number) {
 
 /** Courses of rectangular units with a joint above and beside each, every second course shifted
  * by the bond share: masonry, scored render, paving. */
-function bond({ module: [length, rise], joint, relief, bond: shift, alt, jitter }: ReliefParams, [width, height]: Vec2, random: Random): Unit[] {
+// Exact arithmetic: units rest on the patch plane and every second course shifts.
+function bond(
+	{ module: [length, rise], joint, relief, bond: shift, alt, jitter }: ReliefParams,
+	[width, height]: Vec2,
+	random: Random
+): Unit[] {
 	const units: Unit[] = [];
 	for (let row = 0; row * rise < height; row++) {
 		const v0 = row * rise;
@@ -36,7 +41,12 @@ function bond({ module: [length, rise], joint, relief, bond: shift, alt, jitter 
 		for (let u0 = -offset; u0 < width; u0 += length) {
 			const slot = pick(random, alt);
 			const at = jittered(random, relief[0], jitter);
-			units.push({ slot, polygon: rectPolygon([u0, v0, u0 + length - joint, v0 + rise - joint]), base: 0, top: { at } });
+			units.push({
+				slot,
+				polygon: rectPolygon([u0, v0, u0 + length - joint, v0 + rise - joint]),
+				base: 0,
+				top: { at }
+			});
 		}
 	}
 	return units;
@@ -44,7 +54,12 @@ function bond({ module: [length, rise], joint, relief, bond: shift, alt, jitter 
 
 /** Vertical boards side by side with a raised batten over every board joint. Battens cast onto
  * the highest board face, so their shade shows on every board. */
-function boards({ module: [board, run], joint, relief, alt, jitter }: ReliefParams, [width, height]: Vec2, random: Random): Unit[] {
+// Exact arithmetic: boards and battens rest on the patch plane.
+function boards(
+	{ module: [board, run], joint, relief, alt, jitter }: ReliefParams,
+	[width, height]: Vec2,
+	random: Random
+): Unit[] {
 	const units: Unit[] = [];
 	const gap = joint / 2;
 	for (let column = 0; column * board <= width; column++) {
@@ -52,15 +67,30 @@ function boards({ module: [board, run], joint, relief, alt, jitter }: ReliefPara
 		const slot = pick(random, alt);
 		const at = jittered(random, relief[0], jitter);
 		for (let v0 = 0; v0 < height; v0 += run)
-			units.push({ slot, polygon: rectPolygon([u0, v0, u0 + board, v0 + run - gap]), base: 0, top: { at } });
-		units.push({ slot: 'trim', polygon: rectPolygon([u0 - gap, 0, u0 + gap, height]), base: 0, top: { at: relief[1] }, castOnto: relief[0] * (1 + jitter) });
+			units.push({
+				slot,
+				polygon: rectPolygon([u0, v0, u0 + board, v0 + run - gap]),
+				base: 0,
+				top: { at }
+			});
+		units.push({
+			slot: 'trim',
+			polygon: rectPolygon([u0 - gap, 0, u0 + gap, height]),
+			base: 0,
+			top: { at: relief[1] },
+			castOnto: relief[0] * (1 + jitter)
+		});
 	}
 	return units;
 }
 
 /** A trapezoid corrugation across the patch, extruded upward, with sheets lapping every module
  * height: every second sheet is lifted by the joint, so the lap reads as a step. */
-function profile({ module: [pitch, sheet], joint, relief, crest: [crestShare, flankShare] }: ReliefParams, [width, height]: Vec2): Unit[] {
+// Exact arithmetic: sheets rest on the patch plane and every second sheet laps.
+function profile(
+	{ module: [pitch, sheet], joint, relief, crest: [crestShare, flankShare] }: ReliefParams,
+	[width, height]: Vec2
+): Unit[] {
 	const units: Unit[] = [];
 	const depth = relief[0];
 	const crest = pitch * crestShare;
@@ -77,7 +107,12 @@ function profile({ module: [pitch, sheet], joint, relief, crest: [crestShare, fl
 			units.push(
 				{ slot: 'unit', polygon: rect(a, b), base: 0, top: { at: lap - slope * a, perU: slope } },
 				{ slot: 'unit', polygon: rect(b, c), base: 0, top: { at: lap + depth } },
-				{ slot: 'unit', polygon: rect(c, d), base: 0, top: { at: lap + depth + slope * c, perU: -slope } }
+				{
+					slot: 'unit',
+					polygon: rect(c, d),
+					base: 0,
+					top: { at: lap + depth + slope * c, perU: -slope }
+				}
 			);
 			if (lap > 0)
 				units.push(
@@ -90,7 +125,12 @@ function profile({ module: [pitch, sheet], joint, relief, crest: [crestShare, fl
 }
 
 /** A frame grid of mullions and transoms, edges included, with a recessed pane in every cell. */
-function grid({ module: [paneWidth, paneHeight], joint, relief, alt }: ReliefParams, [width, height]: Vec2, random: Random): Unit[] {
+// Exact arithmetic: frames and panes rest on the patch plane.
+function grid(
+	{ module: [paneWidth, paneHeight], joint, relief, alt }: ReliefParams,
+	[width, height]: Vec2,
+	random: Random
+): Unit[] {
 	const units: Unit[] = [];
 	const half = joint / 2;
 	const stops = (size: number, step: number) => {
@@ -101,10 +141,23 @@ function grid({ module: [paneWidth, paneHeight], joint, relief, alt }: ReliefPar
 	const us = stops(width, paneWidth);
 	const vs = stops(height, paneHeight);
 	const frame = { at: relief[1] };
-	for (const u of us) units.push({ slot: 'trim', polygon: rectPolygon([u - half, 0, u + half, height]), base: 0, top: frame, castOnto: relief[0] });
+	for (const u of us)
+		units.push({
+			slot: 'trim',
+			polygon: rectPolygon([u - half, 0, u + half, height]),
+			base: 0,
+			top: frame,
+			castOnto: relief[0]
+		});
 	for (let i = 0; i + 1 < us.length; i++) {
 		for (const [j, v] of vs.entries()) {
-			units.push({ slot: 'trim', polygon: rectPolygon([us[i] + half, v - half, us[i + 1] - half, v + half]), base: 0, top: frame, castOnto: relief[0] });
+			units.push({
+				slot: 'trim',
+				polygon: rectPolygon([us[i] + half, v - half, us[i + 1] - half, v + half]),
+				base: 0,
+				top: frame,
+				castOnto: relief[0]
+			});
 			if (j + 1 < vs.length)
 				units.push({
 					slot: pick(random, alt),
@@ -118,4 +171,7 @@ function grid({ module: [paneWidth, paneHeight], joint, relief, alt }: ReliefPar
 }
 
 /** The layouts by name; a family names one. */
-export const layouts = Object.freeze({ bond, boards, profile, grid } satisfies Record<string, Layout>);
+export const layouts = Object.freeze({ bond, boards, profile, grid } satisfies Record<
+	string,
+	Layout
+>);

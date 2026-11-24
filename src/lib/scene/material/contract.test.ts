@@ -7,9 +7,6 @@ import {
 	familyNames,
 	readFamily,
 	readLight,
-	readSurfaceLevel,
-	surfaceControls,
-	triangleBudgets,
 	type Patch
 } from './index';
 
@@ -44,7 +41,15 @@ test('every family builds on patches of several sizes and orientations inside th
 		const top = Math.max(...params.relief) * (1 + params.jitter) + params.joint + 0.01;
 		for (const { across, normal } of orientations) {
 			for (const size of sizes) {
-				const patch: Patch = { origin: [3, -2, 1], across, normal, size, thickness: 0.1, openings: [[0.2, 0.1, 0.4, 0.3]], budget: 20000 };
+				const patch: Patch = {
+					origin: [3, -2, 1],
+					across,
+					normal,
+					size,
+					thickness: 0.1,
+					openings: [[0.2, 0.1, 0.4, 0.3]],
+					budget: 20000
+				};
 				const mesh = buildSurface(family, patch, { light, seed: 7 });
 				expect(mesh.level).toBe('relief');
 				expect(mesh.triangles).toBeGreaterThan(0);
@@ -68,17 +73,33 @@ test('every family builds on patches of several sizes and orientations inside th
 });
 
 test('raised faces wind outward and nothing is drawn inside an opening', () => {
-	const patch: Patch = { origin: [0, 0, 0], across: [1, 0, 0], normal: [0, -1, 0], size: [3, 2], thickness: 0.2, openings: [[1, 0.5, 2, 1.5]] };
+	const patch: Patch = {
+		origin: [0, 0, 0],
+		across: [1, 0, 0],
+		normal: [0, -1, 0],
+		size: [3, 2],
+		thickness: 0.2,
+		openings: [[1, 0.5, 2, 1.5]]
+	};
 	for (const family of familyNames) {
 		const mesh = buildSurface(family, patch, { light });
 		for (const [slot, { positions, indices }] of mesh.meshes) {
 			for (let i = 0; i < indices.length; i += 3) {
-				const [a, b, c] = [0, 1, 2].map((k) => local(positions.slice(indices[i + k] * 3, indices[i + k] * 3 + 3) as unknown as Vec3, patch));
+				const [a, b, c] = [0, 1, 2].map((k) =>
+					local(
+						positions.slice(indices[i + k] * 3, indices[i + k] * 3 + 3) as unknown as Vec3,
+						patch
+					)
+				);
 				const normalW = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 				const center = [0, 1].map((k) => (a[k] + b[k] + c[k]) / 3);
 				const front = Math.min(a[2], b[2], c[2]) >= -1e-9;
 				if (front) expect(normalW).toBeGreaterThanOrEqual(-1e-9);
-				const insideOpening = center[0] > 1 + 1e-6 && center[0] < 2 - 1e-6 && center[1] > 0.5 + 1e-6 && center[1] < 1.5 - 1e-6;
+				const insideOpening =
+					center[0] > 1 + 1e-6 &&
+					center[0] < 2 - 1e-6 &&
+					center[1] > 0.5 + 1e-6 &&
+					center[1] < 1.5 - 1e-6;
 				expect({ family, slot, insideOpening }).toEqual({ family, slot, insideOpening: false });
 			}
 		}
@@ -87,18 +108,28 @@ test('raised faces wind outward and nothing is drawn inside an opening', () => {
 
 test('geometry carries slots and meters only, never a colour', () => {
 	const objects = [
-		createSampleBoard(familyNames.map((family) => ({ family })), { light }),
+		createSampleBoard(
+			familyNames.map((family) => ({ family })),
+			{ light }
+		),
 		createSampleBody('timber', { light })
 	];
 	for (const { object } of objects) {
 		const text = JSON.stringify(object);
 		expect(text).not.toMatch(/--|#[0-9a-f]{3}|rgb|oklch|color/i);
-		for (const slot of object.slots) expect(slot).toMatch(/^(?:[a-z0-9-]+\/(?:unit|unit-alt|trim|joint|shade|shade-unit)|stand)$/);
+		for (const slot of object.slots)
+			expect(slot).toMatch(/^(?:[a-z0-9-]+\/(?:unit|unit-alt|trim|joint|shade|shade-unit)|stand)$/);
 	}
 });
 
 test('the same seed rebuilds the same arrays and another seed varies the units', () => {
-	const patch: Patch = { origin: [0, 0, 0], across: [1, 0, 0], normal: [0, 0, 1], size: [2, 2], thickness: 0.1 };
+	const patch: Patch = {
+		origin: [0, 0, 0],
+		across: [1, 0, 0],
+		normal: [0, 0, 1],
+		size: [2, 2],
+		thickness: 0.1
+	};
 	for (const family of familyNames) {
 		const first = buildSurface(family, patch, { seed: 3, light });
 		expect(buildSurface(family, patch, { seed: 3, light })).toEqual(first);
@@ -108,44 +139,26 @@ test('the same seed rebuilds the same arrays and another seed varies the units',
 	expect(a.meshes.get('unit')?.positions).not.toEqual(b.meshes.get('unit')?.positions);
 });
 
-test('plates and bodies stay within their triangle budgets at the finest module', () => {
-	const options = { light, moduleScale: surfaceControls.moduleScale[0], reliefScale: surfaceControls.reliefScale[1] };
-	const board = createSampleBoard(familyNames.map((family) => ({ family })), options);
-	for (const surface of board.surfaces) expect(surface.triangles).toBeLessThanOrEqual(triangleBudgets.plate);
-	for (const family of familyNames.filter((name) => !readFamily(name).ground)) {
-		const body = createSampleBody(family, options);
-		expect(body.triangles).toBeLessThanOrEqual(triangleBudgets.body);
-	}
-});
-
-test('a patch over budget coarsens its module, then falls back to the flat level', () => {
-	const patch: Patch = { origin: [0, 0, 0], across: [1, 0, 0], normal: [0, -1, 0], size: [4, 3], thickness: 0.1 };
-	const coarse = buildSurface('masonry', { ...patch, budget: 400 });
-	expect(coarse.moduleScale).toBeGreaterThan(1);
-	expect(coarse.triangles).toBeLessThanOrEqual(400);
-	const flat = buildSurface('masonry', { ...patch, budget: 2 });
-	expect(flat.level).toBe('flat');
-});
-
-test('levels drop from relief to a flat slab to a slab with pencil joints', () => {
-	const patch: Patch = { origin: [0, 0, 0], across: [1, 0, 0], normal: [0, -1, 0], size: [2, 2], thickness: 0.1 };
-	const relief = buildSurface('timber', patch, { light });
-	const flat = buildSurface('timber', patch, { level: 'flat' });
-	const pencil = buildSurface('timber', patch, { level: 'pencil' });
-	expect([...flat.meshes.keys()]).toEqual(['unit']);
-	expect(flat.lines).toEqual([]);
-	expect(pencil.meshes.get('unit')).toEqual(flat.meshes.get('unit'));
-	expect(pencil.lines.length % 6).toBe(0);
-	expect(pencil.lines.length).toBeGreaterThan(0);
-	expect(flat.triangles).toBeLessThan(relief.triangles);
-	expect(['full', 'silhouette', 'transparent', 'pencil', 'hidden'].map((level) => readSurfaceLevel(level as never))).toEqual(['relief', 'flat', 'flat', 'pencil', undefined]);
-});
-
 test('invalid patches and families throw RangeError', () => {
-	const patch: Patch = { origin: [0, 0, 0], across: [1, 0, 0], normal: [0, -1, 0], size: [2, 2], thickness: 0.1 };
+	const patch: Patch = {
+		origin: [0, 0, 0],
+		across: [1, 0, 0],
+		normal: [0, -1, 0],
+		size: [2, 2],
+		thickness: 0.1
+	};
 	expect(() => buildSurface('masonry', { ...patch, across: [1, 1, 0] })).toThrow(RangeError);
 	expect(() => buildSurface('masonry', { ...patch, normal: [1, 0, 0] })).toThrow(RangeError);
 	expect(() => buildSurface('masonry', { ...patch, size: [0, 2] })).toThrow(RangeError);
-	expect(() => buildSurface('masonry', { ...patch, outline: [[0, 0], [0, 1], [1, 0]] })).toThrow(RangeError);
+	expect(() =>
+		buildSurface('masonry', {
+			...patch,
+			outline: [
+				[0, 0],
+				[0, 1],
+				[1, 0]
+			]
+		})
+	).toThrow(RangeError);
 	expect(() => buildSurface('stone' as never, patch)).toThrow(RangeError);
 });

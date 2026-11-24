@@ -1,12 +1,5 @@
 /** Surface finishes, the colour token and finish of a slot, drawable parts and their inputs. */
-export type {
-	Drawable,
-	Finish,
-	Surface,
-	SurfaceAssignment,
-	TerrainField,
-	Warp
-} from './surfaces';
+export type { Drawable, Finish, Surface, SurfaceAssignment, TerrainField, Warp } from './surfaces';
 /** Stock, landscape, district, study, plan and stock-drawing assignments, and the height ramp. */
 export {
 	cityHeightScaleM,

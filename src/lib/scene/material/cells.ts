@@ -20,6 +20,7 @@ function clipHalfPlane(polygon: readonly Vec2[], side: (point: Vec2) => number):
 	return dropRepeats(kept);
 }
 
+// Exact arithmetic: a triangle needs three corners; area tolerance is the square of the length tolerance.
 function dropRepeats(polygon: Vec2[]): Vec2[] {
 	const out = polygon.filter((point, i) => {
 		const next = polygon[(i + 1) % polygon.length];
@@ -43,7 +44,10 @@ export function clipToOutline(polygon: readonly Vec2[], outline: readonly Vec2[]
 	for (const [i, a] of outline.entries()) {
 		if (!result.length) break;
 		const b = outline[(i + 1) % outline.length];
-		result = clipHalfPlane(result, ([u, v]) => (b[0] - a[0]) * (v - a[1]) - (b[1] - a[1]) * (u - a[0]));
+		result = clipHalfPlane(
+			result,
+			([u, v]) => (b[0] - a[0]) * (v - a[1]) - (b[1] - a[1]) * (u - a[0])
+		);
 	}
 	return result;
 }
@@ -62,6 +66,7 @@ function inside([u, v]: Vec2, [u0, v0, u1, v1]: Rect) {
 	return u > u0 && u < u1 && v > v0 && v < v1;
 }
 
+// Exact arithmetic: the mean of the corners starts at the origin.
 function centroid(polygon: readonly Vec2[]): Vec2 {
 	const [u, v] = polygon.reduce(([a, b], [x, y]) => [a + x, b + y], [0, 0]);
 	return [u / polygon.length, v / polygon.length];
@@ -69,9 +74,13 @@ function centroid(polygon: readonly Vec2[]): Vec2 {
 
 /** Splits a convex polygon along every opening edge line that crosses it and drops the cells
  * inside an opening. All cells share one grid, so neighbours meet edge to edge without T-joints. */
+// Exact arithmetic: axis indices 0 and 1 of patch coordinates.
 export function cutOpenings(polygon: readonly Vec2[], openings: readonly Rect[]): Vec2[][] {
 	const [minU, maxU] = [Math.min(...polygon.map(([u]) => u)), Math.max(...polygon.map(([u]) => u))];
-	const [minV, maxV] = [Math.min(...polygon.map(([, v]) => v)), Math.max(...polygon.map(([, v]) => v))];
+	const [minV, maxV] = [
+		Math.min(...polygon.map(([, v]) => v)),
+		Math.max(...polygon.map(([, v]) => v))
+	];
 	const overlapping = openings.filter(
 		([u0, v0, u1, v1]) => u0 < maxU && u1 > minU && v0 < maxV && v1 > minV
 	);
@@ -86,23 +95,26 @@ export function cutOpenings(polygon: readonly Vec2[], openings: readonly Rect[])
 	for (let i = 0; i + 1 < us.length; i++) {
 		for (let j = 0; j + 1 < vs.length; j++) {
 			const cell = clipToOutline(polygon, rectPolygon([us[i], vs[j], us[i + 1], vs[j + 1]]));
-			if (cell.length && !overlapping.some((rect) => inside(centroid(cell), rect))) cells.push(cell);
+			if (cell.length && !overlapping.some((rect) => inside(centroid(cell), rect)))
+				cells.push(cell);
 		}
 	}
 	return cells;
 }
 
 /** Parts of the segment from a to b that lie outside every opening. */
+// Exact arithmetic: the segment parameter runs from 0 to 1.
 export function segmentOutside(a: Vec2, b: Vec2, openings: readonly Rect[]): [Vec2, Vec2][] {
 	let spans: [number, number][] = [[0, 1]];
 	for (const [u0, v0, u1, v1] of openings) {
 		const [enter, exit] = slab(a, b, [u0, v0, u1, v1]);
 		if (enter >= exit) continue;
-		spans = spans.flatMap(([s, e]): [number, number][] =>
-			[
-				[s, Math.min(e, enter)],
-				[Math.max(s, exit), e]
-			].filter(([x, y]) => y - x > planeToleranceM) as [number, number][]
+		spans = spans.flatMap(
+			([s, e]): [number, number][] =>
+				[
+					[s, Math.min(e, enter)],
+					[Math.max(s, exit), e]
+				].filter(([x, y]) => y - x > planeToleranceM) as [number, number][]
 		);
 	}
 	const at = (t: number): Vec2 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -110,6 +122,7 @@ export function segmentOutside(a: Vec2, b: Vec2, openings: readonly Rect[]): [Ve
 }
 
 /** Parameter interval of the segment strictly inside an axis-aligned rectangle. */
+// Exact arithmetic: axis indices and the empty interval [1, 0].
 function slab(a: Vec2, b: Vec2, rect: Rect): [number, number] {
 	let enter = 0;
 	let exit = 1;

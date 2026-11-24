@@ -8,9 +8,19 @@ export type { Patch, Rect } from './patch';
 /** Procedural surface families as data, their role slots and the family table reader. */
 export { familyNames, readFamily, type Family, type FamilySlot } from './families';
 /** Builds one family on one patch at a drawing level within a triangle budget. */
-export { buildSurface, surfaceLevels, type SurfaceLevel, type SurfaceMesh, type SurfaceOptions } from './build';
+export {
+	buildSurface,
+	surfaceLevels,
+	type SurfaceLevel,
+	type SurfaceMesh,
+	type SurfaceOptions
+} from './build';
 /** Merges claddings into one object with `role/slot` slots; sample plates and the sample body. */
-export { createClad, createSampleBoard, createSampleBody, type CladObject, type Cladding } from './specimen';
+export { createClad, type CladObject, type Cladding } from './clad';
+/** One sample plate per family entry, on tiered stands. */
+export { createSampleBoard } from './board';
+/** A gabled box house on paving, walls in one family. */
+export { createSampleBody } from './body';
 
 /** Triangle budgets of one sample plate and one sample body. */
 export const triangleBudgets = Object.freeze({
@@ -37,6 +47,7 @@ export const pencilStroke = Object.freeze({
 
 /** The direction light travels for a horizontal shadow direction and a reach in meters of shadow
  * per meter of height, as the stage casts its ground shade. */
+// Exact arithmetic: light descends one meter per meter of travel.
 export function readLight(direction: readonly [number, number], reach: number): Vec3 {
 	return [direction[0] * reach, direction[1] * reach, -1];
 }

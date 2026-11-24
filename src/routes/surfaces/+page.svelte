@@ -42,8 +42,7 @@
 	};
 	const wallFamilies = familyNames.filter((family) => !readFamily(family).ground);
 	const query = page.url.searchParams;
-	const pickFamily = (value: string | null) =>
-		familyNames.find((family) => family === value);
+	const pickFamily = (value: string | null) => familyNames.find((family) => family === value);
 	const number = (key: string, fallback: number) => {
 		const value = Number(query.get(key));
 		return query.has(key) && Number.isFinite(value) ? value : fallback;
@@ -53,7 +52,9 @@
 	const levelRow = (query.get('levels') ?? '')
 		.split(',')
 		.flatMap((value) => surfaceLevels.find((level) => level === value) ?? []);
-	let level = $state<SurfaceLevel>(surfaceLevels.find((value) => value === query.get('level')) ?? 'relief');
+	let level = $state<SurfaceLevel>(
+		surfaceLevels.find((value) => value === query.get('level')) ?? 'relief'
+	);
 	let transparent = $state(query.get('display') === 'transparency');
 	let moduleScale = $state(number('module', 1));
 	let reliefScale = $state(number('relief', 1));
@@ -95,9 +96,9 @@
 	<p>
 		Every surface is a recipe, not a picture: render, masonry, timber, metal, glass and paving lay
 		out units, joints and trim on any flat patch, in meters, and raise them as real relief. The
-		light picks out each joint with a lit face, a shaded face and a fine line. The recipe carries
-		no color; the palette colors each slot by material at one boundary, and the transparency view
-		turns every plate into the same grey veil.
+		light picks out each joint with a lit face, a shaded face and a fine line. The recipe carries no
+		color; the palette colors each slot by material at one boundary, and the transparency view turns
+		every plate into the same grey veil.
 	</p>
 	<div class="city-stage">
 		<StageView
@@ -112,8 +113,20 @@
 	<div class="cluster">
 		<ToggleGroup label="Level" items={levels} bind:value={level} />
 		<Switch label="Transparency" bind:checked={transparent} />
-		<Slider label="Module" min={moduleMin} max={moduleMax} step={moduleStep} bind:value={moduleScale} />
-		<Slider label="Relief" min={reliefMin} max={reliefMax} step={reliefStep} bind:value={reliefScale} />
+		<Slider
+			label="Module"
+			min={moduleMin}
+			max={moduleMax}
+			step={moduleStep}
+			bind:value={moduleScale}
+		/>
+		<Slider
+			label="Relief"
+			min={reliefMin}
+			max={reliefMax}
+			step={reliefStep}
+			bind:value={reliefScale}
+		/>
 		<Slider label="Seed" min={seedMin} max={seedMax} step={seedStep} bind:value={seed} />
 	</div>
 	<p class="data">
@@ -127,9 +140,9 @@
 	<h2>The same recipe on a house</h2>
 	<p>
 		On a body the recipe meets corners, a gable, a door, a window and the ground. Units are cut at
-		every edge and opening, the reveal shows the wall's depth, and the roof and the paving use
-		their own families. Out of focus the same surface drops to a flat tone with edges, then to a
-		pencil drawing of its joints.
+		every edge and opening, the reveal shows the wall's depth, and the roof and the paving use their
+		own families. Out of focus the same surface drops to a flat tone with edges, then to a pencil
+		drawing of its joints.
 	</p>
 	<div class="city-stage">
 		<StageView

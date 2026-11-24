@@ -1,5 +1,13 @@
 import { materialSettings } from '../../../config/material';
-import { crossProduct, dotProduct, length, sum, scaled, type Vec2, type Vec3 } from '../../core/geometry';
+import {
+	crossProduct,
+	dotProduct,
+	length,
+	sum,
+	scaled,
+	type Vec2,
+	type Vec3
+} from '../../core/geometry';
 
 const { planeToleranceM } = materialSettings;
 
@@ -33,11 +41,15 @@ export type Frame = Readonly<{
 
 /** Validates the patch and returns its frame. Throws RangeError for a non-unit or non-orthogonal
  * axis, a non-positive size or thickness, or an outline that is not convex and counter-clockwise. */
+// Exact arithmetic: the default outline starts at the patch origin.
 export function readFrame(patch: Patch): Frame {
 	const { origin, across, normal, size, thickness } = patch;
 	if ([...origin, ...across, ...normal, ...size, thickness].some((x) => !Number.isFinite(x)))
 		throw new RangeError('Patch requires finite numbers');
-	if (Math.abs(length(across) - 1) > planeToleranceM || Math.abs(length(normal) - 1) > planeToleranceM)
+	if (
+		Math.abs(length(across) - 1) > planeToleranceM ||
+		Math.abs(length(normal) - 1) > planeToleranceM
+	)
 		throw new RangeError('Patch axes must be unit vectors');
 	if (Math.abs(dotProduct(across, normal)) > planeToleranceM)
 		throw new RangeError('Patch axes must be orthogonal');
@@ -50,12 +62,14 @@ export function readFrame(patch: Patch): Frame {
 		[size[0], size[1]],
 		[0, size[1]]
 	];
-	if (!isConvex(outline)) throw new RangeError('Patch outline must be convex and counter-clockwise');
+	if (!isConvex(outline))
+		throw new RangeError('Patch outline must be convex and counter-clockwise');
 	const point = (u: number, v: number, w: number): Vec3 =>
 		sum(sum(origin, scaled(across, u)), sum(scaled(up, v), scaled(normal, w)));
 	return { patch, up, outline, point };
 }
 
+// Exact arithmetic: a polygon needs three corners.
 function isConvex(polygon: readonly Vec2[]) {
 	if (polygon.length < 3) return false;
 	return polygon.every((a, i) => {
