@@ -1,4 +1,5 @@
 import { defaults as d } from '../../../config/house-court';
+import { createCatalog } from '../../core/catalog';
 
 /** How a built cell run is filled: the merged envelope of all cells, an inset block, a round
  * or chamfered primitive, a soft pod, or framed storeys holding capsules. */
@@ -84,13 +85,9 @@ const solidFill = {
 	capsuleGapM: 0
 };
 
-/** The style rows of the chapter. `neutral` is the calm model house: one merged envelope with a
- * parapet rim, few plain openings, galleries, a stair and an entrance canopy. Body slots name
- * roles, not colours: `body-main` is the dominant body, `body-second` the contrasting one
- * (MAT-10); the scene assigns their materials. */
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
-export const houseStyles = Object.freeze({
-	neutral: {
+const styleRows = [
+	{
 		id: 'neutral',
 		occupancy: neutralOccupancy,
 		fill: { ...solidFill, kinds: ['envelope'] },
@@ -114,7 +111,7 @@ export const houseStyles = Object.freeze({
 		slots: { body: ['wall'], roof: [], capsule: [] },
 		large: { fill: ['envelope'], roof: ['flat'], court: false }
 	},
-	memphis: {
+	{
 		id: 'memphis',
 		occupancy: {
 			...neutralOccupancy,
@@ -156,7 +153,7 @@ export const houseStyles = Object.freeze({
 		},
 		large: { fill: ['envelope'], roof: ['wedge'], court: false }
 	},
-	archigram: {
+	{
 		id: 'archigram',
 		occupancy: {
 			...neutralOccupancy,
@@ -197,7 +194,7 @@ export const houseStyles = Object.freeze({
 		slots: { body: [], roof: [], capsule: ['capsule', 'capsule', 'capsule-accent', 'capsule'] },
 		large: { fill: ['capsule'], roof: ['flat'], court: false }
 	},
-	organic: {
+	{
 		id: 'organic',
 		occupancy: {
 			...neutralOccupancy,
@@ -232,7 +229,21 @@ export const houseStyles = Object.freeze({
 		slots: { body: ['body-shell'], roof: ['body-shell'], capsule: [] },
 		large: { fill: ['pod'], roof: ['dome'], court: true }
 	}
-} as const satisfies Record<string, HouseStyle>);
+] as const satisfies readonly HouseStyle[];
+
+const styles = createCatalog({ rows: styleRows });
+
+type RegisteredStyle = (typeof styles.rows)[number];
+
+/** The style rows of the chapter. `neutral` is the calm model house: one merged envelope with a
+ * parapet rim, few plain openings, galleries, a stair and an entrance canopy. Body slots name
+ * roles, not colours: `body-main` is the dominant body, `body-second` the contrasting one
+ * (MAT-10); the scene assigns their materials. */
+export const houseStyles = Object.freeze(
+	Object.fromEntries(styles.rows.map((style) => [style.id, style])) as {
+		[Style in RegisteredStyle as Style['id']]: Style;
+	}
+);
 
 /** Style names in menu order. */
 export type HouseStyleName = keyof typeof houseStyles;

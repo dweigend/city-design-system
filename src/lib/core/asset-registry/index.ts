@@ -1,4 +1,5 @@
 /** Module: Validates asset registrations and dispatches headless builds against resolved hosts. */
+import { createCatalog, type CatalogRow } from '../catalog';
 import { PlaceableObject } from '../object';
 import { defineParams, resolveParams, type ParameterSchema } from '../params';
 import { Random } from '../random';
@@ -87,32 +88,33 @@ function readInputs(schema: ParameterSchema, params: Parameters, seed: number) {
 export function createAssetRegistry<Host extends AssetHost, Metadata = never>(
 	entries: readonly AssetEntry<Host, Metadata>[]
 ) {
-	const byId = new Map<
-		string,
+	type RegisteredAsset = CatalogRow &
 		Pick<AssetEntry<Host, Metadata>, 'build' | 'validateHost'> & {
 			definition: AssetDefinition<Host>;
-		}
-	>();
-	for (const { id, kind, tags, params, hostKinds, build, validateHost } of entries) {
-		if (!assetId.test(id) || byId.has(id))
-			throw new RangeError(`Invalid or duplicate asset ID "${id}"`);
-		const definition = Object.freeze({
-			id,
-			kind,
-			tags: Object.freeze([...tags]),
-			params: defineParams(params),
-			hostKinds: Object.freeze([...hostKinds])
-		});
-		byId.set(id, { definition, build, validateHost });
-	}
-	const definitions = Object.freeze([...byId.values()].map(({ definition }) => definition));
-	function requireAsset(id: string) {
-		const entry = byId.get(id);
-		if (!entry) throw new UnknownAssetError(`Unknown asset "${id}"`);
-		return entry;
-	}
+		};
+	const assets = createCatalog<RegisteredAsset>({
+		rows: entries.map((entry) => ({
+			id: entry.id,
+			definition: entry,
+			build: entry.build,
+			validateHost: entry.validateHost
+		})),
+		validateId: (id) => assetId.test(id),
+		validateRow(row) {
+			// Snapshot definitions only after the ID passes the catalog checks.
+			const { kind, tags, params, hostKinds } = row.definition;
+			row.definition = Object.freeze({
+				id: row.id,
+				kind,
+				tags: Object.freeze([...tags]),
+				params: defineParams(params),
+				hostKinds: Object.freeze([...hostKinds])
+			});
+		},
+		missingError: (id) => new UnknownAssetError(`Unknown asset "${id}"`)
+	});
 	function requireHost(id: string, host: Host) {
-		const entry = requireAsset(id);
+		const entry = assets.get(id);
 		if (!entry.definition.hostKinds.includes(host?.kind))
 			throw new WrongAssetHostError(`Asset "${id}" cannot use host "${host?.kind}"`);
 		return entry;
@@ -140,15 +142,17 @@ export function createAssetRegistry<Host extends AssetHost, Metadata = never>(
 	return Object.freeze({
 		/** Returns definitions matching the kind and all requested tags in registration order. */
 		listAssets({ kind, tags = [] }: AssetFilter = {}): readonly AssetDefinition<Host>[] {
-			return definitions.filter(
-				(entry) =>
-					(kind === undefined || kind === entry.kind) &&
-					tags.every((tag) => entry.tags.includes(tag))
-			);
+			return assets
+				.list(
+					({ definition }) =>
+						(kind === undefined || kind === definition.kind) &&
+						tags.every((tag) => definition.tags.includes(tag))
+				)
+				.map(({ definition }) => definition);
 		},
 		/** Returns the immutable definition of one asset or throws UnknownAssetError. */
 		readAsset(id: string): AssetDefinition<Host> {
-			return requireAsset(id).definition;
+			return assets.get(id).definition;
 		},
 		/** Validates a resolved host's kind and asset-specific geometry, without building it. */
 		validateHost(id: string, host: Host): void {

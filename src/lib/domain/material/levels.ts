@@ -1,4 +1,5 @@
 import { surfaceLevelTable } from '../../../config/material';
+import { createCatalog } from '../../core/catalog';
 
 /** Drawing detail of a surface (MAT-5, MAT-15): plain is the default body in one tone, far adds
  * the roof tone and large graphic patterns, mid openings and rims, near patterns, grain, joints
@@ -6,22 +7,31 @@ import { surfaceLevelTable } from '../../../config/material';
 export type SurfaceLevel = keyof typeof surfaceLevelTable;
 /** Older level names kept for callers: `relief` is near, `flat` is the plain default. */
 export type SurfaceLevelAlias = 'relief' | 'flat';
-/** Surface levels from most to least detail. */
-export const surfaceLevels = Object.freeze(Object.keys(surfaceLevelTable) as SurfaceLevel[]);
+const levels = createCatalog({
+	rows: Object.entries(surfaceLevelTable).map(([id, detail]) => ({
+		id: id as SurfaceLevel,
+		detail
+	})),
+	missingError: (id) => new RangeError(`Unknown surface level "${String(id)}"`)
+});
 
-const aliases = Object.freeze({ relief: 'near', flat: 'plain' } as const);
+/** Surface levels from most to least detail. */
+export const surfaceLevels = levels.ids;
+
+function readLevel(level: SurfaceLevel | SurfaceLevelAlias) {
+	if (level === 'relief') return levels.get('near');
+	if (level === 'flat') return levels.get('plain');
+	return levels.get(level);
+}
 
 /** Resolves a level or an alias. Throws RangeError for an unknown name. */
 export function readSurfaceLevelName(level: SurfaceLevel | SurfaceLevelAlias): SurfaceLevel {
-	if (Object.hasOwn(aliases, level)) return aliases[level as SurfaceLevelAlias];
-	if (!Object.hasOwn(surfaceLevelTable, level))
-		throw new RangeError(`Unknown surface level "${String(level)}"`);
-	return level as SurfaceLevel;
+	return readLevel(level).id;
 }
 
 /** What a level draws: pattern marks, openings, joints, grain and accents. */
 export function readLevelDetail(level: SurfaceLevel | SurfaceLevelAlias) {
-	return surfaceLevelTable[readSurfaceLevelName(level)];
+	return readLevel(level).detail;
 }
 
 /** The less detailed of two levels, aliases resolved; pencil counts as least detailed. */

@@ -1,4 +1,5 @@
 /** Module: Ranks plan cells, sets district heights and builds compatible lattices. */
+import { createCatalog } from '../../core/catalog';
 import type { Column } from './bay-addresses';
 import { required } from '../../core/invariant';
 import { blockInputs, defineParams, resolveParams } from '../../core/params';
@@ -84,8 +85,20 @@ export const cityLatticesByPlan = Object.freeze({
 /** Chapter plan families with a compatible carrier. */
 export type CityPlanVariant = keyof typeof cityLatticesByPlan;
 
+const plans = createCatalog({
+	rows: Object.entries(cityLatticesByPlan).map(([id, lattices]) => ({
+		id: id as CityPlanVariant,
+		lattices
+	})),
+	missingError: incompatibleLattice
+});
+
+function incompatibleLattice() {
+	return new RangeError('Incompatible plan and lattice');
+}
+
 /** Chapter plan families in display order. */
-export const cityPlanVariants = Object.freeze(Object.keys(cityLatticesByPlan) as CityPlanVariant[]);
+export const cityPlanVariants = plans.ids;
 
 /** Stable district identity, current density region and height of a plan cell, and the ranked growth data. */
 export type { DistrictKind, DistrictCell, DistrictGrowth } from './districts';
@@ -171,8 +184,7 @@ export function createCityLattice(
 	plan: CityPlanVariant,
 	variant: LatticeVariant = 'box'
 ): CityLattice {
-	if (!Object.hasOwn(cityLatticesByPlan, plan) || !cityLatticesByPlan[plan].includes(variant))
-		throw new RangeError('Incompatible plan and lattice');
+	if (!plans.get(plan).lattices.includes(variant)) throw incompatibleLattice();
 	if (!Number.isFinite(datumZ)) throw new RangeError('Expected a finite city datum');
 	for (const column of columns) {
 		const { levels, corners } = column;

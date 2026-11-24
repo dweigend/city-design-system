@@ -1,4 +1,5 @@
 /** Module: Creates addressed plan grids from a sampled site. */
+import { createCatalog } from '../../core/catalog';
 import { distance, measurePolygon, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
@@ -68,39 +69,44 @@ export const planVariants = [
 /** Plan topology selected before clipping and ground sampling. */
 export type PlanVariant = (typeof planVariants)[number];
 
-const carriers: Record<
-	PlanVariant,
-	{ generate: Carrier; checkQuality?: boolean; defaultSize?: number }
-> = {
+type PlanSpecification = {
+	generate: Carrier;
+	checkQuality?: boolean;
+	defaultSize?: number;
+	cellSide: number;
+};
+
+const planSpecifications: Record<PlanVariant, PlanSpecification> = {
 	organic: {
 		generate: carrier,
 		checkQuality: true,
-		defaultSize: terrainGridParams.cellSize.default
+		defaultSize: terrainGridParams.cellSize.default,
+		cellSide: 0.927
 	},
-	square: { generate: square },
-	hex: { generate: hex },
-	triangle: { generate: triangle },
-	bands: { generate: bands },
-	contour: { generate: contour },
-	polar: { generate: polar },
-	voronoi: { generate: voronoi },
-	'free-quad': { generate: freeQuad, checkQuality: true }
+	square: { generate: square, cellSide: 1 },
+	hex: { generate: hex, cellSide: 1.612 },
+	triangle: { generate: triangle, cellSide: 0.658 },
+	bands: { generate: bands, cellSide: 1 },
+	contour: { generate: contour, cellSide: 1 },
+	polar: { generate: polar, cellSide: 1 },
+	voronoi: { generate: voronoi, cellSide: 1 },
+	'free-quad': { generate: freeQuad, checkQuality: true, cellSide: 0.927 }
 };
+
+const plans = createCatalog({
+	rows: planVariants.map((id) => ({ id, ...planSpecifications[id] })),
+	missingError: () => new RangeError('Unknown plan grid variant')
+});
 
 /** Equivalent square side of the mean cell at cell size 1, per plan family, measured on a flat
  * 1.2 km crop. Divide a target side in meters by it to get the cell size of a family. Polar
  * cells widen with their ring, so polar keeps 1. */
-export const planCellSide: Readonly<Record<PlanVariant, number>> = Object.freeze({
-	organic: 0.927,
-	square: 1,
-	hex: 1.612,
-	triangle: 0.658,
-	bands: 1,
-	contour: 1,
-	polar: 1,
-	voronoi: 1,
-	'free-quad': 0.927
-});
+export const planCellSide: Readonly<Record<PlanVariant, number>> = Object.freeze(
+	Object.fromEntries(plans.rows.map(({ id, cellSide }) => [id, cellSide])) as Record<
+		PlanVariant,
+		number
+	>
+);
 
 /** Pure height sampler in meters. Return undefined to exclude unavailable ground, such as water.
  * The datum and its 10 m XY probes require finite heights. */
@@ -289,8 +295,7 @@ function generateGrid(
 	}: TerrainGridOptions,
 	cover?: (point: Vec2) => GroundKind
 ) {
-	if (!Object.hasOwn(carriers, variant)) throw new RangeError('Unknown plan grid variant');
-	const { generate, checkQuality, defaultSize = 15 } = carriers[variant];
+	const { generate, checkQuality, defaultSize = 15 } = plans.get(variant);
 	const outline = siteOutline(site);
 	if (typeof heightAt !== 'function') throw new TypeError('Expected a ground height sampler');
 	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32)

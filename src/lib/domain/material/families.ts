@@ -1,4 +1,5 @@
 import { materialSettings as m } from '../../../config/material';
+import { createCatalog, type CatalogRow } from '../../core/catalog';
 
 /** How a family prints its face: one plain tone, black and white stripes across the body's long
  * axis, or a regular grid of dots over the two body axes that lie in the face. */
@@ -19,37 +20,42 @@ const noJoint = [0, 0] as const;
 
 /** Every model material as data (MAT-3): the pattern it prints and its parameters. A family
  * knows nothing of houses, pages or colour; the palette paints its face and marks (MAT-1). */
-export const families = Object.freeze({
-	board: { pattern: 'plain', params: plain },
-	card: { pattern: 'plain', params: { ...plain, joint: m.panelJointM } },
-	cork: { pattern: 'plain', params: plain },
-	stripe: {
-		pattern: 'stripe',
-		params: { pitch: m.stripePitchM, share: m.stripeShare, joint: noJoint }
-	},
-	perforated: {
-		pattern: 'dots',
-		params: { pitch: m.perforationPitchM, share: m.perforationShare, joint: noJoint }
-	},
-	acrylic: {
-		pattern: 'dots',
-		params: { pitch: m.lightDotPitchM, share: m.lightDotShare, joint: noJoint }
-	},
-	ground: { pattern: 'plain', params: plain }
-} as const satisfies Record<string, { pattern: PatternKind; params: PatternParams }>);
+const families = createCatalog({
+	rows: [
+		{ id: 'board', pattern: 'plain', params: plain },
+		{ id: 'card', pattern: 'plain', params: { ...plain, joint: m.panelJointM } },
+		{ id: 'cork', pattern: 'plain', params: plain },
+		{
+			id: 'stripe',
+			pattern: 'stripe',
+			params: { pitch: m.stripePitchM, share: m.stripeShare, joint: noJoint }
+		},
+		{
+			id: 'perforated',
+			pattern: 'dots',
+			params: { pitch: m.perforationPitchM, share: m.perforationShare, joint: noJoint }
+		},
+		{
+			id: 'acrylic',
+			pattern: 'dots',
+			params: { pitch: m.lightDotPitchM, share: m.lightDotShare, joint: noJoint }
+		},
+		{ id: 'ground', pattern: 'plain', params: plain }
+	] as const satisfies readonly (CatalogRow & { pattern: PatternKind; params: PatternParams })[],
+	missingError: (id) => new RangeError(`Unknown surface family "${id}"`)
+});
 
 /** A model material family. */
-export type Family = keyof typeof families;
+export type Family = (typeof families.ids)[number];
 /** A role slot a family emits: the face in one tone and the printed marks of its pattern. */
 export type FamilySlot = 'face' | 'mark';
 /** Families in table order. */
-export const familyNames = Object.freeze(Object.keys(families) as Family[]);
+export const familyNames = families.ids;
 
 /** Reads a family's pattern, slots and default parameters. Throws RangeError for an unknown
  * family. */
 export function readFamily(family: Family) {
-	if (!Object.hasOwn(families, family)) throw new RangeError(`Unknown surface family "${family}"`);
-	const { pattern, params } = families[family];
+	const { pattern, params } = families.get(family);
 	const slots: readonly FamilySlot[] = pattern === 'plain' ? ['face'] : ['face', 'mark'];
 	return { pattern, slots, params: params as PatternParams };
 }

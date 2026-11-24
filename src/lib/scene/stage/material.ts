@@ -17,12 +17,13 @@ import {
 	uniform,
 	vec2
 } from 'three/tsl';
+import { createCatalog } from '../../core/catalog';
 import type { Finish, TerrainField } from '../surface';
 import { projectTerrainField } from './field';
 import { flatTolerance, graphite, grain, levels, sun, type drawingPalette } from './tone';
 import { terrainColor } from './terrain';
 
-const finishes = {
+const finishOpacity = {
 	matte: 1,
 	gloss: 1,
 	glass: 0.7,
@@ -31,17 +32,30 @@ const finishes = {
 	shadow: 1
 } satisfies Record<Finish, number>;
 
-const displays = {
-	normal: (finish: Finish) => ({ opacity: finishes[finish], paper: false }),
-	transparency: (finish: Finish, hull: number) => ({
-		opacity: finish === 'line' ? 0 : hull,
-		paper: true
-	})
-};
-export type Display = keyof typeof displays;
+const finishes = createCatalog({
+	rows: Object.entries(finishOpacity).map(([id, opacity]) => ({ id, opacity }))
+});
+
+const displays = createCatalog({
+	rows: [
+		{
+			id: 'normal',
+			style: (finish: Finish) => ({ opacity: finishes.get(finish).opacity, paper: false })
+		},
+		{
+			id: 'transparency',
+			style: (finish: Finish, hull: number) => ({
+				opacity: finish === 'line' ? 0 : hull,
+				paper: true
+			})
+		}
+	] as const,
+	missingError: (id) => new RangeError(`Unknown stage display "${id}"`)
+});
+
+export type Display = (typeof displays.ids)[number];
 export function readDisplay(display: Display) {
-	if (!Object.hasOwn(displays, display)) throw new RangeError(`Unknown stage display "${display}"`);
-	return displays[display];
+	return displays.get(display).style;
 }
 
 export function fillMaterial(palette: ReturnType<typeof drawingPalette>, field?: TerrainField) {

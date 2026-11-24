@@ -1,3 +1,4 @@
+import { createCatalog } from '../../core/catalog';
 import type { Column } from './bay-addresses';
 import type { Vec3 } from '../../core/geometry';
 import { antiprism } from './antiprism';
@@ -19,22 +20,21 @@ const planes =
 	(columns, datumZ) =>
 		createPlaneLattice(columns, datumZ, rule);
 
-/** The one dispatch table: every lattice model by name, prisms first. */
-const builders = {
-	...(Object.fromEntries(prismVariants.map((variant) => [variant, prisms(variant)])) as Record<
-		PrismVariant,
-		Build
-	>),
-	antiprism: planes(antiprism),
-	diagrid: planes(diagrid),
-	tree: planes(tree)
-};
+/** Every lattice model in display order, prisms first. */
+const builders = createCatalog({
+	rows: [
+		...prismVariants.map((id) => ({ id, build: prisms(id) })),
+		{ id: 'antiprism', build: planes(antiprism) },
+		{ id: 'diagrid', build: planes(diagrid) },
+		{ id: 'tree', build: planes(tree) }
+	] as const
+});
 
-export type LatticeVariant = keyof typeof builders;
-export const latticeVariants = Object.freeze(Object.keys(builders) as LatticeVariant[]);
+export type LatticeVariant = (typeof builders.ids)[number];
+export const latticeVariants = builders.ids;
 
 export function createLattice(columns: readonly Column[], datumZ: number, variant: LatticeVariant) {
-	return builders[variant](columns, datumZ);
+	return builders.get(variant).build(columns, datumZ);
 }
 
 /** Signed volume in m³ of every solid of a lattice, in solid order. */
