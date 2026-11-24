@@ -85,7 +85,10 @@ export function createPlaneLattice(
 		for (const loop of loops) {
 			for (const [i, a] of loop.entries()) {
 				const b = loop[(i + 1) % loop.length];
-				if (!used.has(a.id)) used.set(a.id, Object.freeze({ id: a.id, position: a.position }));
+				if (!used.has(a.id)) {
+					const { id, position, groundContact } = a;
+					used.set(id, Object.freeze({ id, position, ...(groundContact && { groundContact }) }));
+				}
 				const [from, to] = a.id < b.id ? [a, b] : [b, a];
 				const key = `${from.id}\n${to.id}`;
 				if (edges.has(key)) continue;

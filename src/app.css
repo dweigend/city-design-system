@@ -630,3 +630,59 @@
 	[data-tone='alpha-hull'] { --tone: var(--ink); opacity: var(--alpha-hull); }
 	[data-tone='alpha-trace'] { --tone: var(--ink); opacity: var(--alpha-trace); }
 }
+
+/* Structural utilization uses fixed stops shared by the stage palette and legend. */
+:root,
+[data-theme] {
+	--structure-use-low: color-mix(in srgb-linear, var(--height-low), var(--height-mid) 65%);
+	--structure-use-mid: var(--height-mid);
+	--structure-use-high: color-mix(
+		in srgb-linear,
+		var(--height-mid),
+		var(--structure-use-limit) 60%
+	);
+	--structure-use-limit: var(--height-high);
+	--structure-use-overload: oklch(0.73 0.13 315);
+	--structure-use-overload-high: oklch(0.57 0.17 305);
+	--structure-use-overload-severe: oklch(0.41 0.16 297);
+}
+
+[data-theme='dark'] {
+	--structure-use-limit: oklch(0.51 0.1 54);
+	--structure-use-overload: oklch(0.79 0.12 315);
+	--structure-use-overload-high: oklch(0.67 0.16 305);
+	--structure-use-overload-severe: oklch(0.55 0.17 297);
+}
+
+@layer interface {
+	.structure-legend {
+		inline-size: min(100%, 24rem);
+	}
+	.structure-scale {
+		display: grid;
+		grid-template-columns: 2fr repeat(3, 1fr);
+		gap: var(--hair);
+	}
+	.structure-scale .scale-ramp {
+		display: block;
+	}
+	.structure-scale > :first-child > .scale-ramp {
+		background: linear-gradient(
+			90deg in srgb-linear,
+			var(--height-low),
+			var(--structure-use-low),
+			var(--structure-use-mid),
+			var(--structure-use-high),
+			var(--structure-use-limit)
+		);
+	}
+	.structure-scale > :nth-child(2) > .scale-ramp {
+		background: var(--structure-use-overload);
+	}
+	.structure-scale > :nth-child(3) > .scale-ramp {
+		background: var(--structure-use-overload-high);
+	}
+	.structure-scale > :nth-child(4) > .scale-ramp {
+		background: var(--structure-use-overload-severe);
+	}
+}

@@ -71,7 +71,11 @@ function centered(level: Level, connect: Connect) {
 		position[2] === level.groundAtHub
 			? `${level.id.slice(0, level.id.lastIndexOf('/level/'))}/ground-center`
 			: `${level.id}/center`;
-	const hub = Object.freeze({ id, position: Object.freeze(position) });
+	const hub = Object.freeze({
+		id,
+		position: Object.freeze(position),
+		...(z === level.groundAtHub && { groundContact: true as const })
+	});
 	for (const corner of corners) connect(hub, corner);
 }
 

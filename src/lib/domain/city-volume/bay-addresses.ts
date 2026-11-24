@@ -1,8 +1,7 @@
-import type { Vec3 } from '../../core/geometry';
 import { planEdgeId } from '../terrain-grid';
-import { columnBays, type CornerReader } from './foundation';
+import { columnBays, type CornerReader, type LatticePoint } from './foundation';
 
-export type LatticePoint = Readonly<{ id: string; position: Vec3 }>;
+export type { LatticePoint } from './foundation';
 
 export type Column = Readonly<{
 	planCellId: string;

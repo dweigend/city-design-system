@@ -2,7 +2,8 @@ import type { Vec3 } from '../../core/geometry';
 import { cityVolumeConfig } from './config';
 import { levelHeight } from './settlement';
 
-type Corner = Readonly<{ id: string; position: Vec3 }>;
+/** Lattice address in world meters. Ground contact marks a joint clamped to sampled terrain. */
+export type LatticePoint = Readonly<{ id: string; position: Vec3; groundContact?: true }>;
 /** The index of a point on the common level grid. */
 export function planeIndex(datumZ: number, z: number) {
 	const index = (z - datumZ) / levelHeight;
@@ -54,21 +55,23 @@ export function planeElevation(datumZ: number, level: number) {
 
 /** Interns ground-clamped corners by plan vertex and level for one lattice build. */
 export function cornerReader(datumZ: number) {
-	const byVertex = new Map<string, Map<number, { point: Corner; level: number }>>();
-	const points: Corner[] = [];
+	const byVertex = new Map<string, Map<number, { point: LatticePoint; level: number }>>();
+	const points: LatticePoint[] = [];
 	return {
 		points,
-		read(this: void, { id, position: [x, y, z] }: Corner, level: number) {
+		read(this: void, { id, position: [x, y, z] }: LatticePoint, level: number) {
 			const plane = planeElevation(datumZ, level);
 			const ground = level === 0 || plane <= z;
 			const index = ground ? 0 : level;
 			let rings = byVertex.get(id);
-			if (!rings) byVertex.set(id, (rings = new Map<number, { point: Corner; level: number }>()));
+			if (!rings)
+				byVertex.set(id, (rings = new Map<number, { point: LatticePoint; level: number }>()));
 			let anchor = rings.get(index);
 			if (!anchor) {
 				const point = Object.freeze({
 					id: `vertex/${id}/level/${index}`,
-					position: Object.freeze([x, y, ground ? z : plane] as Vec3)
+					position: Object.freeze([x, y, ground ? z : plane] as Vec3),
+					...(ground && { groundContact: true as const })
 				});
 				anchor = { point, level: index };
 				rings.set(index, anchor);
@@ -83,7 +86,7 @@ export type CornerReader = ReturnType<typeof cornerReader>;
 
 /** Iterates the bay rings from the lowest ground contact to the roof on the common grid. */
 export function* columnBays(
-	column: Readonly<{ corners: readonly Corner[]; levels: number }>,
+	column: Readonly<{ corners: readonly LatticePoint[]; levels: number }>,
 	datumZ: number,
 	read: CornerReader['read']
 ) {

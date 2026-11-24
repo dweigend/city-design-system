@@ -11,6 +11,7 @@ Assigns district identity, density and levels to an immutable plan, then builds 
 - Ground joints sit at the terrain corners. Above ground, every joint on an upright lies
   on a shared level plane. Body-centered hubs use the triangulated bay caps and sampled
   ground at their own horizontal position. If those bounds leave no room, the bay has no hub.
+- A joint clamped to terrain carries `groundContact: true`. The flag does not enter its address.
 - A column roof has the assigned number of levels above the plane at or above the highest
   corner. Each column validates its derived levels and occupied span before lattice allocation.
 - Canonical bay addresses follow the plan and level. A bay carries its parent plan cell ID,
