@@ -187,6 +187,9 @@ function withoutHidden(object: PlaceableObject, level: SurfaceLevel, materials: 
 	});
 }
 
+/** The one tone of every plain house: white board. */
+const plainMaterial: ModelMaterial = Object.freeze({ family: 'board', tone: 'white' });
+
 type Built = Readonly<{ clad: CladObject; plan: Plan; level: SurfaceLevel }>;
 const built = new WeakMap<PlaceableObject, WeakMap<object, WeakMap<object, Map<string, Built>>>>();
 
@@ -236,8 +239,8 @@ function plainSurfaces(
 		object.slots.map((slot): [string, Surface | undefined] => {
 			const own = table[slot];
 			const role: MaterialRole | undefined = materials.slots[slot];
-			// A plain house is one matte tone: every body takes the main material's tone.
-			const material = role ? (parts ? plan[role] : (plan.main ?? plan[role])) : undefined;
+			// A plain house is one pale matte volume, like the boxes of a study model (MAT-15).
+			const material = role ? (parts ? plan[role] : plainMaterial) : undefined;
 			if (!own || !material) return [slot, own];
 			return [slot, { ...readModelSurface(material, 'normal', grain), stroke: own.stroke }];
 		})

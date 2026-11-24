@@ -652,7 +652,7 @@ const material: DesignPrinciple[] = [
 		id: 'MAT-15',
 		page: 'material',
 		title: 'Plain by default, detail by salience',
-		rule: 'Every house is by default a plain volume, its bodies in one matte tone with hairline edges and no openings, pattern or parts, and one deterministic salience rule grants detail in steps to the subject in focus, a selected house and a capped, seeded few that carry the picture and give orientation (corner houses, the tallest of a block, large merged houses).',
+		rule: 'Every house is by default a plain pale volume, its bodies in one white matte tone with hairline edges and no openings, pattern or parts, and one deterministic salience rule grants detail in steps to the subject in focus, a selected house and a capped, seeded few that carry the picture and give orientation (corner houses, the tallest of a block, large merged houses).',
 		reason:
 			'Most elements read best as a box; some facades and selected buildings make the picture work. Drawing was the whole cost of the editor, so the default must be cheap and already look calm and homogeneous as a town.',
 		decided: '2026-11-24',

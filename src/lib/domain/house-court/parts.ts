@@ -105,6 +105,7 @@ function mitre(outline: readonly Vec2[], k: number): Vec2 {
 
 /** A parapet rim along side i of a flat roof outline: the band between the side and its mitred
  * inner line, standing on the roof at height z. */
+// Exact arithmetic: index arithmetic of a reversed ring.
 function rim(outline: readonly Vec2[], i: number, z: number): Faces {
 	const ring = signedArea(outline) < 0 ? [...outline].reverse() : outline;
 	const n = outline.length;
