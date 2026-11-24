@@ -1,6 +1,7 @@
 import { distance, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodePair } from '../../core/ref';
+import { readEdgeIncidence } from '../../core/topology';
 import { MinHeap } from './edge-queue';
 
 type AddressedPlan = Readonly<{
@@ -58,28 +59,14 @@ export function planEdgeId(a: string, b: string) {
 export function planEdges(grid: AddressedPlan): readonly PlanEdge[] {
 	const points = new Map(grid.vertices.map(({ id, position: [x, y] }) => [id, [x, y] as Vec2]));
 	const point = (id: string) => required(points.get(id), 'edge node');
-	const byPair = new Map<string, Omit<PlanEdge, 'cellIds'> & { cellIds: string[] }>();
-	for (const { id: cellId, vertexIds } of grid.cells) {
-		for (const [i, from] of vertexIds.entries()) {
-			const to = vertexIds[(i + 1) % vertexIds.length];
-			const key = encodePair(from, to);
-			const edge = byPair.get(key);
-			if (edge) edge.cellIds.push(cellId);
-			else {
-				const nodeIds = Object.freeze(from < to ? ([from, to] as const) : ([to, from] as const));
-				const id = planEdgeId(from, to);
-				byPair.set(key, {
-					id,
-					nodeIds,
-					cellIds: [cellId],
-					lengthM: distance(point(from), point(to))
-				});
-			}
-		}
-	}
 	return Object.freeze(
-		[...byPair.values()].map((edge): PlanEdge =>
-			Object.freeze({ ...edge, cellIds: Object.freeze(edge.cellIds) })
+		readEdgeIncidence(grid.cells).map(({ from, to, faceId, opposite }): PlanEdge =>
+			Object.freeze({
+				id: planEdgeId(from, to),
+				nodeIds: Object.freeze(from < to ? ([from, to] as const) : ([to, from] as const)),
+				cellIds: Object.freeze(opposite ? [faceId, opposite.id] : [faceId]),
+				lengthM: distance(point(from), point(to))
+			})
 		)
 	);
 }

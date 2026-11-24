@@ -1,43 +1,38 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
-import { encodePair } from '../../core/ref';
+import { readVertexAdjacency, type PlanarVertex } from '../../core/topology';
 import { ringMean, type Candidate, type Node } from './carrier';
 import { shorelineMorphLimits as limits } from '../../../config/terrain-grid';
 
 type Clearance = (x: number, y: number) => number;
-type Vertex = { node: Node; neighbors: Set<string>; boundary: Set<string>; fade: number };
+type Vertex = PlanarVertex & { node: Node; fade: number };
 
-function network(cells: readonly Candidate[], clearance: Clearance) {
-	const vertices = new Map<string, Vertex>();
-	const edges = new Map<string, boolean>();
-	for (const cell of cells) {
-		const dry = clearance(...ringMean(cell.corners)) >= 0;
-		for (const [i, node] of cell.corners.entries()) {
-			const next = cell.corners[(i + 1) % cell.corners.length];
-			for (const end of [node, next]) {
-				if (vertices.has(end.id)) continue;
-				const t = Math.max(0, 1 - Math.abs(clearance(...end.xy)) / limits.bandM);
-				vertices.set(end.id, {
-					node: end,
-					neighbors: new Set(),
-					boundary: new Set(),
-					fade: t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t)
-				});
+function shoreVertices(cells: readonly Candidate[], clearance: Clearance) {
+	const nodes = new Map<string, { node: Node; fade: number }>();
+	const dry = new Map<string, boolean>();
+	const faces = cells.map(({ id, corners }) => {
+		dry.set(id, clearance(...ringMean(corners)) >= 0);
+		const vertexIds = corners.map((node) => {
+			if (!nodes.has(node.id)) {
+				const t = Math.max(0, 1 - Math.abs(clearance(...node.xy)) / limits.bandM);
+				const fade =
+					t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t);
+				nodes.set(node.id, { node, fade });
 			}
-			const a = required(vertices.get(node.id), 'shore node');
-			const b = required(vertices.get(next.id), 'shore neighbor');
-			a.neighbors.add(next.id);
-			b.neighbors.add(node.id);
-			const key = encodePair(node.id, next.id);
-			const preceding = edges.get(key);
-			if (preceding !== undefined && preceding !== dry) {
-				a.boundary.add(next.id);
-				b.boundary.add(node.id);
-			}
-			edges.set(key, dry);
-		}
-	}
-	return vertices;
+			return node.id;
+		});
+		return { id, vertexIds };
+	});
+	const adjacency = readVertexAdjacency(
+		faces,
+		(first, second) => second !== null && dry.get(first) !== dry.get(second)
+	);
+	return new Map(
+		adjacency.map((vertex) => [
+			vertex.id,
+			{ ...vertex, ...required(nodes.get(vertex.id), 'shore node') }
+		])
+	);
 }
 
 function normal([x, y]: Vec2, clearance: Clearance) {
@@ -71,8 +66,9 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 		fade
 	} of vertices.values()) {
 		if (
-			!boundary.size ||
-			boundary.size > /* Exact arithmetic: a chain node has at most two boundary neighbors. */ 2 ||
+			!boundary.length ||
+			boundary.length >
+				/* Exact arithmetic: a chain node has at most two boundary neighbors. */ 2 ||
 			!fade
 		)
 			continue;
@@ -84,7 +80,7 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 			[...boundary].sort().reduce((sum, key) => {
 				const [x, y] = required(vertices.get(key), 'shore rail neighbor').node.xy;
 				return sum - (x - xy[0]) * n[1] + (y - xy[1]) * n[0];
-			}, 0) / boundary.size;
+			}, 0) / boundary.length;
 		const offset = limits.tangentRelaxationRatio * tangent;
 		const target = onShore([xy[0] - offset * n[1], xy[1] + offset * n[0]], clearance);
 		if (!target || distance(xy, target) > limits.maximumMoveM || !wideEnough(target, clearance))
@@ -234,7 +230,7 @@ export function alignShore(
 	clearance: Clearance,
 	inside: (ring: readonly Vec2[]) => boolean
 ): readonly Candidate[] {
-	const vertices = network(cells, clearance);
+	const vertices = shoreVertices(cells, clearance);
 	const fixed = anchors(vertices, clearance);
 	const field = relax(vertices, fixed);
 	const point = limitDisplacement(cells, inside, field, fixed);

@@ -1,50 +1,11 @@
 import { encodeKey } from '../../core/ref';
 import { measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
+import { readFaceUnionBoundary } from '../../core/topology';
 import { planEdgeId } from '../terrain-grid';
 import { realizeHoldings } from './holdings';
 import { frontageContacts, frontageFrame, reserveLanes } from './reserve';
 import type { LaneInput, ParcelPlanInput } from './types';
-
-function ringSides(ring: readonly string[]) {
-	return ring.map((from, i) => {
-		const to = ring[(i + 1) % ring.length];
-		return { from, to, edgeId: planEdgeId(from, to) };
-	});
-}
-
-function outerBoundary(
-	rings: readonly (readonly string[])[],
-	lanes: ReadonlyMap<string, LaneInput>
-) {
-	const edges = new Map<string, ReturnType<typeof ringSides>[number]>();
-	let seams = 0;
-	for (const ring of rings) {
-		for (const side of ringSides(ring)) {
-			const other = edges.get(side.edgeId);
-			if (!other) edges.set(side.edgeId, side);
-			else {
-				if (other.from !== side.to || lanes.get(side.edgeId)?.protectedFromMerge) return;
-				edges.delete(side.edgeId);
-				seams++;
-			}
-		}
-	}
-	if (seams !== rings.length - 1) return;
-	const from = new Map([...edges.values()].map((side) => [side.from, side]));
-	if (from.size !== edges.size) return;
-	const start = required([...from.keys()].sort()[0], 'block corner');
-	const boundary = [];
-	let node = start;
-	while (boundary.length < from.size) {
-		const side = from.get(node);
-		if (!side) return;
-		boundary.push(side);
-		node = side.to;
-		if (node === start) break;
-	}
-	return boundary.length === from.size && node === start ? boundary : undefined;
-}
 
 export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string, LaneInput>) {
 	const vertices = new Map(
@@ -59,14 +20,17 @@ export function prepareBlocks(input: ParcelPlanInput, lanes: ReadonlyMap<string,
 	);
 	const byCell = new Map<string, BlockSeed>();
 
+	const canJoin = (from: string, to: string) =>
+		!lanes.get(planEdgeId(from, to))?.protectedFromMerge;
+
 	function prepare(members: readonly string[], plannedKind: string) {
-		const rings = members.map((id) => required(cells.get(id), 'block member'));
-		const boundary = outerBoundary(rings, lanes);
-		if (!boundary) return;
-		const nodeIds = Object.freeze(boundary.map(({ from }) => from));
+		const faces = members.map((id) => ({ id, vertexIds: required(cells.get(id), 'block member') }));
+		const nodeIds = readFaceUnionBoundary(faces, canJoin);
+		if (!nodeIds) return;
 		const outline = Object.freeze(nodeIds.map(point));
-		const frontage = boundary.flatMap(({ edgeId, from, to }, sideIndex) => {
-			const lane = lanes.get(edgeId);
+		const frontage = nodeIds.flatMap((from, sideIndex) => {
+			const to = nodeIds[(sideIndex + 1) % nodeIds.length];
+			const lane = lanes.get(planEdgeId(from, to));
 			return lane ? [frontageFrame(lane, point(from), point(to), sideIndex)] : [];
 		});
 		return {

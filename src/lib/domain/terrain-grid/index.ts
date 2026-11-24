@@ -7,6 +7,7 @@ import { defineParams, resolveParams } from '../../core/params';
 import { Random, uint32Limit } from '../../core/random';
 import { carrier, freeQuad, ringMean, type Candidate, type Carrier, type Node } from './carrier';
 import { encodePair } from '../../core/ref';
+import { createPlanarTopology, readPlanarSubset } from '../../core/topology';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
@@ -236,52 +237,37 @@ function samples(
 	};
 }
 
-function topology(
+function toTerrainGrid(
 	candidates: readonly Candidate[],
 	height: (node: Node) => number | undefined,
-	properties?: (cell: Candidate) => Pick<TerrainGridCell, 'groundKind' | 'centerHeight'>
+	properties: (cell: Candidate) => Pick<TerrainGridCell, 'groundKind' | 'centerHeight'>
 ): TerrainGrid {
+	const { faces, boundary } = createPlanarTopology(
+		candidates.map(({ id, corners }) => ({
+			id,
+			vertexIds: Object.freeze(corners.map(({ id }) => id))
+		}))
+	);
 	const vertices = new Map<string, TerrainGridVertex>();
-	const open = new Map<
-		string,
-		{ id: string; from: string; to: string; neighbors: (string | null)[]; index: number }
-	>();
-	const cells = candidates.map((cell) => {
-		const { id, corners } = cell;
-		const vertexIds = Object.freeze(corners.map(({ id }) => id));
-		const neighbors: (string | null)[] = corners.map(() => null);
-		corners.forEach((node, index) => {
-			if (!vertices.has(node.id)) {
-				const position = Object.freeze([
-					...node.xy,
-					required(height(node), 'accepted vertex height')
-				] as const);
-				vertices.set(
-					node.id,
-					Object.freeze({ id: node.id, position, ...(node.shore ? { shore: node.shore } : {}) })
-				);
-			}
-			const from = node.id;
-			const to = vertexIds[(index + 1) % vertexIds.length];
-			const key = encodePair(from, to);
-			const opposite = open.get(key);
-			if (opposite) {
-				neighbors[index] = opposite.id;
-				opposite.neighbors[opposite.index] = id;
-				open.delete(key);
-			} else {
-				open.set(key, { id, from, to, neighbors, index });
-			}
-		});
-		return Object.freeze({ id, vertexIds, neighbors, ...properties?.(cell) });
+	const cells = faces.map(({ id, vertexIds, neighbors }, index) => {
+		const cell = candidates[index];
+		for (const node of cell.corners) {
+			if (vertices.has(node.id)) continue;
+			const position = Object.freeze([
+				...node.xy,
+				required(height(node), 'accepted vertex height')
+			] as const);
+			vertices.set(
+				node.id,
+				Object.freeze({ id: node.id, position, ...(node.shore ? { shore: node.shore } : {}) })
+			);
+		}
+		return Object.freeze({ id, vertexIds, neighbors, ...properties(cell) });
 	});
-	for (const cell of cells) Object.freeze(cell.neighbors);
 	return Object.freeze({
 		cells: Object.freeze(cells),
 		vertices: Object.freeze([...vertices.values()]),
-		boundary: Object.freeze(
-			[...open.values()].map(({ from, to }) => Object.freeze([from, to] as const))
-		)
+		boundary
 	});
 }
 
@@ -381,12 +367,12 @@ function generateGrid(
 		}
 		accepted.push(cell);
 	}
-	const grid = topology(accepted, ground.height, (cell) => ({
+	const grid = toTerrainGrid(accepted, ground.height, (cell) => ({
 		centerHeight: ground.read(...ringMean(cell.corners)),
 		...(cover ? { groundKind: 'dry' as const } : {})
 	}));
 	const plan = cover
-		? topology(
+		? toTerrainGrid(
 				layout,
 				({ xy }) => ground.datumHeight(...xy),
 				({ id }) => ({
@@ -443,27 +429,11 @@ function validSurface(
 
 /** Takes plan cells in first-occurrence order, ignoring repeated IDs and rebuilding adjacency. */
 function select(grid: TerrainGrid, ids: readonly string[]): TerrainGrid {
-	const byId = new Map(grid.cells.map((cell) => [cell.id, cell]));
-	const selected = new Set(ids);
-	const vertices = new Set<string>();
-	const boundary: (readonly [string, string])[] = [];
-	const cells = [...selected].map((id) => {
-		const cell = required(byId.get(id), 'selected plan cell');
-		const neighbors = cell.neighbors.map((neighbor, index) => {
-			const from = cell.vertexIds[index];
-			vertices.add(from);
-			if (neighbor !== null && selected.has(neighbor)) return neighbor;
-			boundary.push(
-				Object.freeze([from, cell.vertexIds[(index + 1) % cell.vertexIds.length]] as const)
-			);
-			return null;
-		});
-		return Object.freeze({ ...cell, neighbors: Object.freeze(neighbors) });
-	});
+	const { faces, boundary, hasVertex } = readPlanarSubset(grid.cells, ids);
 	return Object.freeze({
-		cells: Object.freeze(cells),
-		vertices: Object.freeze(grid.vertices.filter(({ id }) => vertices.has(id))),
-		boundary: Object.freeze(boundary)
+		cells: faces,
+		vertices: Object.freeze(grid.vertices.filter(({ id }) => hasVertex(id))),
+		boundary
 	});
 }
 
