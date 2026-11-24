@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from '@playwright/test';
+import { chromium, type Browser } from '@playwright/test';
 import { closeSync, openSync } from 'node:fs';
 import { bytesPerMiB, round, rssMiB } from './host';
 import { observeFrames } from './frames';
