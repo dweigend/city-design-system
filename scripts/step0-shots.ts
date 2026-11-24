@@ -38,17 +38,21 @@ function servePreview() {
 		});
 		server.on('exit', (code) => fail(Error('Preview exited with ' + code)));
 	});
-	return {
-		origin,
-		stop: () => {
-			if (!server.pid) return;
-			try {
-				process.kill(-server.pid, 'SIGTERM');
-			} catch {
-				// The preview already exited before teardown.
-			}
+	const stop = () => {
+		if (!server.pid) return;
+		try {
+			process.kill(-server.pid, 'SIGTERM');
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
 		}
 	};
+	for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+		process.once(signal, () => {
+			stop();
+			process.exit(128 + (signal === 'SIGINT' ? 2 : 15));
+		});
+	}
+	return { origin, stop };
 }
 
 function fileName({ route, size, theme }: Shot) {

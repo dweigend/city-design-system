@@ -145,7 +145,7 @@ export function createTownReview() {
 		 * change restyles the stage without building geometry. */
 		draw(focus: TownFocus): readonly Drawable[] {
 			const shown: [Subsystem, readonly Drawable[]][] =
-				focus === 'structure' ? [...parts, ['structure', readStructure()]] : parts;
+				focus === 'structure' || structure ? [...parts, ['structure', readStructure()]] : parts;
 			return shown.flatMap(([part, drawables]) =>
 				drawables.map((drawable) => style(drawable, townFocus.readFocusLevel(focus, part)))
 			);
