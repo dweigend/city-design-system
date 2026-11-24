@@ -146,6 +146,27 @@ export function createSandboxDocument(identity: WorldIdentity, resolveParams?: R
 			position++;
 			return changes;
 		},
+		/** Extends the last applied transaction with more edits, so a gesture that grows over time
+		 * stays one undo step. Publishes and returns only the new net changes. Without an applied
+		 * transaction it applies a new one. It drops the redo tail like `apply`. A transaction whose
+		 * merged edits cancel out leaves the history. */
+		amend(input: readonly SandboxEdit[], prepare?: Prepare) {
+			if (position === 0) return this.apply(input, prepare);
+			const { edits, changes } = stage(input);
+			if (!changes.length) return noChanges;
+			publish(changes, prepare);
+			const previous = history[position - 1];
+			const merged = new Map(previous.changes.map((change) => [change.id, change]));
+			for (const { id, before, after } of changes) {
+				const first = merged.has(id) ? merged.get(id)?.before : before;
+				merged.set(id, Object.freeze({ id, before: first, after }));
+			}
+			const net = Object.freeze([...merged.values()].filter((c) => c.before !== c.after));
+			const next = { edits: Object.freeze([...previous.edits, ...edits]), changes: net };
+			history.splice(position - 1, history.length - position + 1, ...(net.length ? [next] : []));
+			if (!net.length) position--;
+			return changes;
+		},
 		/** Reverses the last applied transaction. Returns its inverse change list. */
 		undo(prepare?: Prepare) {
 			if (position === 0) return noChanges;

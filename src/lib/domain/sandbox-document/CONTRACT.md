@@ -8,7 +8,9 @@ absent placement raise `MissingPlacementError`. A seed omitted at placement deri
 the world seed and the encoded host. Replacing parameters retains the seed unless supplied.
 
 Each transaction publishes its net changes atomically. Undo and redo apply inverse and forward
-changes. Only a successful, state-changing edit drops the redo tail. A caller can supply a
+changes. `amend` extends the last applied transaction, so a gesture that grows over time stays
+one undo step; a transaction whose edits cancel out leaves the history. Only a successful,
+state-changing edit drops the redo tail. A caller can supply a
 synchronous preparation callback for derived products. The callback must publish its own state
 atomically or throw before publication. It must not mutate the document.
 

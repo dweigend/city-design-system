@@ -64,6 +64,23 @@ describe('sandbox document', () => {
 		expect(document.readHistory()).toEqual({ placements: 3, strokes: 2, position: 2 });
 	});
 
+	test('amends a growing gesture into one undo step that saves and restores alike', () => {
+		const document = createSandboxDocument(world);
+		document.apply([place(parcel('a'))]);
+		document.amend([place(parcel('b'))]);
+		const third = document.amend([place(parcel('c'))]);
+		expect(third.map(({ after }) => after?.host)).toEqual([parcel('c')]);
+		expect(document.readHistory()).toEqual({ placements: 3, strokes: 1, position: 1 });
+		const restored = restoreSandboxDocument(document.serialize(), world);
+		expect(restored.readPlacements()).toEqual(document.readPlacements());
+		expect(document.undo()).toHaveLength(3);
+		expect(document.readHistory()).toEqual({ placements: 0, strokes: 1, position: 0 });
+		document.redo();
+		const ids = document.readPlacements().map(({ id }) => id);
+		document.amend(ids.map((id) => ({ kind: 'remove', id }) as const));
+		expect(document.readHistory()).toEqual({ placements: 0, strokes: 0, position: 0 });
+	});
+
 	test('restores the current position and redo tail, with stable IDs, order and seeds', () => {
 		const document = createSandboxDocument(world);
 		const north = parcel('north');
