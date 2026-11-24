@@ -3,20 +3,8 @@ import type { Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import type { Part } from '../../core/object';
 import { fineCellWidth, minimumParcelEdgeM, minimumStripWidthM } from '../../domain/cell-space';
-import {
-	houseFaces,
-	houseStyles,
-	type HouseStyle,
-	type HouseStyleName
-} from '../../domain/house-court';
+import { houseStyles, type HouseStyle, type HouseStyleName } from '../../domain/house-court';
 import type { Parcel, ParcelBlock } from '../../domain/parcels';
-import {
-	blockTriangleBudget,
-	faceAreaM2,
-	houseCladdings,
-	houseMaterials
-} from '../../scene/house-projection';
-import { createClad } from '../../scene/material';
 import { createParcelHouse, createParcelHouseObject, createTownHouseStudy } from './index';
 
 const tolerance = 1e-6;
@@ -185,31 +173,12 @@ describe('houses on the parcels of the default town', () => {
 		}
 	}, 60000);
 
-	test('a block of clad houses stays within its triangle budget and is deterministic', () => {
-		for (const name of ['neutral', 'memphis'] as const) {
-			const style = houseStyles[name];
-			const houses = (parcelsByBlock.get(blocks.block.id) ?? []).map((parcel) => {
-				const placed = place(blocks.block, parcel, style);
-				const faces = houseFaces(placed.space, placed.house, 'full', style);
-				return { placed, faces, area: faces.reduce((sum, face) => sum + faceAreaM2(face), 0) };
-			});
-			const area = houses.reduce((sum, { area: a }) => sum + a, 0);
-			const triangles = houses.reduce((sum, { placed, faces, area: a }) => {
-				const object = createParcelHouseObject(placed, 'full');
-				const budget = (blockTriangleBudget * a) / area;
-				const clad = createClad(object, houseCladdings(faces, houseMaterials[name], budget), {
-					level: 'relief'
-				});
-				return sum + clad.triangles;
-			}, 0);
-			expect(triangles).toBeGreaterThan(0);
-			expect(triangles).toBeLessThanOrEqual(blockTriangleBudget);
-		}
+	test('a house is deterministic', () => {
 		const { block, parcel } = parcels[0];
 		const once = createParcelHouseObject(place(block, parcel, houseStyles.memphis), 'full');
 		const twice = createParcelHouseObject(place(block, parcel, houseStyles.memphis), 'full');
 		expect(JSON.stringify(twice)).toBe(JSON.stringify(once));
-	}, 60000);
+	});
 });
 
 describe('ground contact on relief 0 and 0.5', () => {

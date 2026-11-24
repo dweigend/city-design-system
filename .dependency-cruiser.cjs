@@ -13,6 +13,7 @@ const configOwners = {
 	'lib/domain/structure': 'structure',
 	'lib/domain/valley': 'hydrology',
 	'lib/world/city-site': 'lanes|parcels',
+	'lib/world/house-site': 'house-site',
 	'lib/domain/transit-line': 'transit-line',
 	'lib/world/city-movement': 'city-movement',
 	'lib/world/city-structure': 'city-structure',
