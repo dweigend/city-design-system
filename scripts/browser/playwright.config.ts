@@ -66,5 +66,7 @@ function requireHeavySlot() {
 		if (command.some((arg) => basename(arg) === 'heavy-slot' || arg === resolvedWrapper)) return;
 		pid = Number(readFileSync(proc + '/status', 'utf8').match(/^PPid:\s+(\d+)/m)?.[1]);
 	}
-	throw new Error('Run heavy-slot --exclusive --mem 4G --wait 900 -- bun run test:browser');
+	throw new Error(
+		'Run heavy-slot --exclusive --mem 4G --wait 900 -- bun run test:browser scripts/browser/flows.browser.ts'
+	);
 }

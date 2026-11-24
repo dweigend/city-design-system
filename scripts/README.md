@@ -20,10 +20,10 @@ The [architecture rules](../docs/standards/ARCHITECTURE.md#rules) name the check
 
 `bun run test:browser` starts a Vite preview on a free loopback port and stops it when Playwright exits. Local runs build the app before starting the preview. Set `CITY_BROWSER_SKIP_BUILD=1` to reuse an existing build. CI reuses the output from `bun run verify`. If the output is missing, the suite builds it.
 
-Local runs require Chrome and the AMD render device `/dev/dri/renderD128`. On the shared server, use the slot wrapper for both Radeon and CI-mode runs.
+Local runs require Chrome and the AMD render device `/dev/dri/renderD128`. On the shared server, use the slot wrapper with the explicit test file path for both Radeon and CI-mode runs.
 
 ```sh
-heavy-slot --exclusive --mem 4G --wait 900 -- bun run test:browser
+heavy-slot --exclusive --mem 4G --wait 900 -- bun run test:browser scripts/browser/flows.browser.ts
 ```
 
 CI uses Playwright Chromium, installed with `bunx playwright install --with-deps chromium`. It uses SwiftShader for Vulkan and WebGPU. The suite requires a rendered stage in both modes.
