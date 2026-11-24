@@ -1,7 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { existsSync } from 'node:fs';
 
-const hardware = process.env.CI !== 'true' && existsSync('/dev/dri/renderD128');
+const hardware = process.env.CI !== 'true';
 const stageUnavailable = 'Use a browser with WebGPU to see this view.';
 export const journeys = test.extend<{ browserErrors: void }>({
 	browserErrors: [
@@ -38,24 +37,19 @@ export async function readyStages(page: Page, count: number) {
 	const stages = page.locator('canvas[data-stage-ready="true"]');
 	const fallback = page.getByText(stageUnavailable, { exact: true });
 	await expect(stages.first().or(fallback.first())).toBeVisible();
-	if (!hardware && (await fallback.count()) > 0) {
-		const adapterExists = await page.evaluate(
-			async () => !!(await navigator.gpu?.requestAdapter())
-		);
-		expect(adapterExists, 'The stage failed despite an available WebGPU adapter').toBe(false);
-		await expect(fallback).toHaveCount(count);
-		console.log(`${new URL(page.url()).pathname} WebGPU unavailable. Verified the fallback.`);
-		return;
-	}
+	await expect(fallback, 'This journey requires WebGPU rendering').toHaveCount(0, {
+		timeout: 1000
+	});
 	await expect(stages).toHaveCount(count);
-	if (hardware) {
-		for (const canvas of await stages.all()) {
+	for (const canvas of await stages.all()) {
+		const adapter = await canvas.getAttribute('data-stage-adapter');
+		expect(adapter).toBeTruthy();
+		if (hardware) {
 			await expect(canvas).toHaveAttribute('data-stage-hardware', 'true');
-			const adapter = await canvas.getAttribute('data-stage-adapter');
-			expect(adapter).toBeTruthy();
-			expect(adapter).not.toMatch(/swiftshader|llvmpipe|lavapipe|software|unknown/i);
-			console.log(`${new URL(page.url()).pathname} WebGPU: ${adapter}`);
+			expect(adapter).toMatch(/amd|radeon/i);
+			expect(adapter).not.toMatch(/swiftshader|llvmpipe|lavapipe|software/i);
 		}
+		console.log(`${new URL(page.url()).pathname} WebGPU: ${adapter}`);
 	}
 	return stages;
 }

@@ -2,6 +2,7 @@
 // failures that headless module tests cannot catch. Each test uses the public UI or rendered output.
 // Production code must have a user-facing purpose independent of these tests.
 import { expect, type Locator, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { distinctPixels, journeys, open, readyStages } from './fixtures';
 
 const routes = [
@@ -27,7 +28,6 @@ for (const [route, count] of routes) {
 		await open(page, route);
 		if (!count) return;
 		const stages = await readyStages(page, count);
-		if (!stages) return;
 		for (const canvas of await stages.all()) {
 			expect(
 				await canvas.evaluate((element: HTMLCanvasElement) => element.width * element.height)
@@ -48,24 +48,24 @@ async function choose(page: Page, control: string, option: string) {
 	await expect(trigger).toHaveText(option);
 }
 
-async function renderedChange(canvas: Locator | undefined, change: () => Promise<void>) {
-	const before = Number(await canvas?.getAttribute('data-stage-frames'));
+async function renderedChange(canvas: Locator, change: () => Promise<void>) {
+	const before = await canvas.screenshot();
+	const frame = Number(await canvas.getAttribute('data-stage-frames'));
 	await change();
-	if (canvas) {
-		await expect
-			.poll(async () => Number(await canvas.getAttribute('data-stage-frames')))
-			.toBeGreaterThan(before);
-		await expect(canvas).toHaveAttribute('data-stage-ready', 'true');
-	}
+	await expect
+		.poll(async () => Number(await canvas.getAttribute('data-stage-frames')))
+		.toBeGreaterThan(frame);
+	await expect(canvas).toHaveAttribute('data-stage-ready', 'true');
+	await expect.poll(async () => (await canvas.screenshot()).equals(before)).toBe(false);
 }
 
-// Changing view or display must render without uploading geometry (R07). This catches
-// replacement of GPU drawables that headless checks cannot observe. Uses the existing stage metrics.
-journeys('switches landscape camera and display without rebuilding drawables', async ({ page }) => {
+// Changing the camera must render without rebuilding geometry (R07). This catches replacement
+// of GPU drawables that headless checks cannot observe. Uses the existing stage metrics.
+journeys('switches landscape camera without rebuilding drawables', async ({ page }) => {
 	await open(page, '/landscape');
-	const canvas = (await readyStages(page, 1))?.first();
-	const builds = await canvas?.getAttribute('data-stage-drawable-builds');
-	if (canvas) expect(Number(builds)).toBeGreaterThan(0);
+	const canvas = (await readyStages(page, 1)).first();
+	const builds = await canvas.getAttribute('data-stage-drawable-builds');
+	expect(Number(builds)).toBeGreaterThan(0);
 	const view = page.getByRole('radiogroup', { name: 'View' });
 	for (const [name, value] of [
 		['Plan', 'plan'],
@@ -74,19 +74,8 @@ journeys('switches landscape camera and display without rebuilding drawables', a
 		const option = view.getByRole('radio', { name, exact: true });
 		await option.click();
 		await expect(option).toBeChecked();
-		if (canvas && builds) {
-			await expect(canvas).toHaveAttribute('data-stage-view', value);
-			await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds);
-		}
-	}
-	const transparency = page.getByRole('switch', { name: 'Transparency' });
-	for (const display of ['transparency', 'normal'] as const) {
-		await transparency.click();
-		await expect(transparency).toHaveAttribute('aria-checked', String(display === 'transparency'));
-		if (canvas && builds) {
-			await expect(canvas).toHaveAttribute('data-stage-display', display);
-			await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds);
-		}
+		await expect(canvas).toHaveAttribute('data-stage-view', value);
+		await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds ?? '');
 	}
 });
 
@@ -94,7 +83,7 @@ journeys('switches landscape camera and display without rebuilding drawables', a
 // and stale renders in the page wiring. Module tests cover the focus policy. No hooks are added.
 journeys('switches city steps and focuses on parcels', async ({ page }) => {
 	await open(page, '/city');
-	const canvas = (await readyStages(page, 1))?.first();
+	const canvas = (await readyStages(page, 1)).first();
 	for (const [step, label] of [
 		['Plan', 'City plan showing pedestrian lanes, bridges and holdings'],
 		['Districts', 'Stepped district heights above the city plan'],
@@ -103,52 +92,58 @@ journeys('switches city steps and focuses on parcels', async ({ page }) => {
 		const tab = page.getByRole('tab', { name: step, exact: true });
 		await renderedChange(canvas, () => tab.click());
 		await expect(tab).toHaveAttribute('aria-selected', 'true');
-		if (canvas) await expect(canvas).toHaveAccessibleName(label);
+		await expect(canvas).toHaveAccessibleName(label);
 	}
 	await renderedChange(canvas, () => choose(page, 'Focus', 'Parcels'));
-	if (canvas)
-		await expect(canvas).toHaveAccessibleName(
-			'City plan showing pedestrian lanes, bridges and holdings'
-		);
+	await expect(canvas).toHaveAccessibleName(
+		'City plan showing pedestrian lanes, bridges and holdings'
+	);
 });
 
 // Surface controls must update the plates and both stage displays. This catches a disconnected
 // level or switch after hydration. Geometry tests cannot exercise the controls. No hooks are added.
 journeys('changes the surface plate level and transparency', async ({ page }) => {
 	await open(page, '/surfaces');
-	const stages = await readyStages(page, 2);
+	const stages = await (await readyStages(page, 2)).all();
+	const builds = await Promise.all(
+		stages.map((canvas) => canvas.getAttribute('data-stage-drawable-builds'))
+	);
+	for (const count of builds) expect(Number(count)).toBeGreaterThan(0);
 	const plates = page.getByRole('region', { name: 'Sample plates' });
+	const transparency = plates.getByRole('switch', { name: 'Transparency' });
+	for (const display of ['transparency', 'normal'] as const) {
+		await transparency.click();
+		await expect(transparency).toHaveAttribute('aria-checked', String(display === 'transparency'));
+		for (const [index, canvas] of stages.entries()) {
+			await expect(canvas).toHaveAttribute('data-stage-display', display);
+			await expect(canvas).toHaveAttribute('data-stage-drawable-builds', builds[index] ?? '');
+		}
+	}
 	const triangles = plates.getByText(/^Largest plate /);
 	const before = await triangles.textContent();
 	const plain = plates.getByRole('radio', { name: 'Plain', exact: true });
 	await plain.click();
 	await expect(plain).toBeChecked();
 	await expect(triangles).not.toHaveText(before ?? '');
-	const transparency = plates.getByRole('switch', { name: 'Transparency' });
-	await transparency.click();
-	await expect(transparency).toBeChecked();
-	if (stages) {
-		for (const canvas of await stages.all()) {
-			await expect(canvas).toHaveAttribute('data-stage-display', 'transparency');
-		}
-	}
 });
 
 // Filtering must show the selected specimen kind and reset must restore the complete list.
 // This catches stale results that the asset registry's tests cannot detect. No hooks are added.
 journeys('filters the specimen list and restores all assets', async ({ page }) => {
 	await open(page, '/blocks');
-	const specimens = page.getByRole('list', { name: 'Specimens' }).getByRole('listitem');
-	const all = await specimens.allTextContents();
+	const specimens = page
+		.getByRole('list', { name: 'Specimens' })
+		.getByRole('listitem')
+		.filter({ visible: true });
+	const all = await specimens.allInnerTexts();
 	expect(all.length).toBeGreaterThan(1);
 	await choose(page, 'Asset kind', 'Houses');
-	const houses = await specimens.allTextContents();
+	const houses = await specimens.allInnerTexts();
 	expect(houses.length).toBeGreaterThan(0);
 	expect(houses.length).toBeLessThan(all.length);
-	for (const id of await specimens.locator('code').allTextContents())
-		expect(id).toMatch(/^house\//);
+	for (const item of houses) expect(item).toMatch(/\bhouse\/\S+/);
 	await choose(page, 'Asset kind', 'All kinds');
-	await expect(specimens).toHaveText(all);
+	await expect(specimens).toHaveText(all, { useInnerText: true });
 });
 
 // Painting and erasing change the document, and history and file actions preserve its contents.
@@ -156,22 +151,14 @@ journeys('filters the specimen list and restores all assets', async ({ page }) =
 // Inputs are real mouse strokes and a browser download. No app hooks are added.
 journeys('paints, erases, uses history and reloads the saved sandbox', async ({ page }) => {
 	await open(page, '/sandbox');
-	const canvas = (await readyStages(page, 1))?.first();
+	const canvas = (await readyStages(page, 1)).first();
 	const stage = page.locator('[data-sandbox-placements]');
 	const placements = async () => Number(await stage.getAttribute('data-sandbox-placements'));
 	const erase = page.getByRole('radio', { name: 'Erase', exact: true });
-	const paint = page.getByRole('radio', { name: 'Paint', exact: true });
 	const plan = page.getByRole('radio', { name: 'Plan', exact: true });
 	await expect(stage).toHaveAttribute('data-sandbox-placements', '0');
 	await plan.click();
 	await expect(plan).toBeChecked();
-	if (!canvas) {
-		await erase.click();
-		await expect(erase).toBeChecked();
-		await paint.click();
-		await expect(paint).toBeChecked();
-		return;
-	}
 
 	await expect(canvas).toHaveAttribute('data-stage-view', 'plan');
 	await canvas.scrollIntoViewIfNeeded();
@@ -204,11 +191,8 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	await page.getByRole('button', { name: 'Undo', exact: true }).click();
 	await expect(stage).toHaveAttribute('data-sandbox-placements', String(painted));
 	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
-	const downloadEvent = page.waitForEvent('download');
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	const download = await downloadEvent;
-	const saved = journeys.info().outputPath('sandbox.json');
-	await download.saveAs(saved);
+	const saved = await saveSandbox(page, 'sandbox.json');
+
 	await page.getByRole('button', { name: 'Clear', exact: true }).click();
 	await expect(stage).toHaveAttribute('data-sandbox-placements', '0');
 	const chooserEvent = page.waitForEvent('filechooser');
@@ -216,4 +200,18 @@ journeys('paints, erases, uses history and reloads the saved sandbox', async ({ 
 	await (await chooserEvent).setFiles(saved);
 	await expect(stage).toHaveAttribute('data-sandbox-placements', String(painted));
 	await expect(stage).toHaveAttribute('data-sandbox-waiting', '0');
+	const resaved = await saveSandbox(page, 'sandbox-restored.json');
+	// The public format stores an edit log and its position. Equality preserves the
+	// placement addresses, assets, parameters and seeds, including the redo history.
+	const original = JSON.parse(await readFile(saved, 'utf8'));
+	expect(original.strokes.length).toBeGreaterThan(0);
+	expect(JSON.parse(await readFile(resaved, 'utf8'))).toEqual(original);
 });
+
+async function saveSandbox(page: Page, filename: string) {
+	const downloadEvent = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	const path = journeys.info().outputPath(filename);
+	await (await downloadEvent).saveAs(path);
+	return path;
+}

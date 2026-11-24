@@ -1,13 +1,30 @@
 import { defineConfig } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 const ci = process.env.CI === 'true';
-const hardware = !ci && existsSync('/dev/dri/renderD128');
 const project = join(import.meta.dirname, '../..');
 
-if (!ci && process.platform === 'linux') requireHeavySlot();
+if (!ci) {
+	if (!existsSync('/dev/dri/renderD128')) {
+		throw new Error('Local browser tests require the AMD render device /dev/dri/renderD128');
+	}
+	requireHeavySlot();
+}
+
+// The native Vulkan path keeps Chromium's software WebGPU device alive through stage draws.
+const webGpuArgs = [
+	'--use-angle=vulkan',
+	'--use-vulkan=native',
+	'--enable-features=Vulkan',
+	'--enable-unsafe-webgpu',
+	'--ignore-gpu-blocklist'
+];
+const reuseBuild = ci || process.env.CITY_BROWSER_SKIP_BUILD === '1';
+const build = reuseBuild
+	? 'if [ ! -f .svelte-kit/output/server/index.js ]; then bun run build || exit; fi; '
+	: 'bun run build && ';
 
 export default defineConfig({
 	testDir: '.',
@@ -21,43 +38,38 @@ export default defineConfig({
 		browserName: 'chromium',
 		actionTimeout: 15_000,
 		viewport: { width: 1366, height: 900 },
-		launchOptions: hardware
-			? {
+		launchOptions: ci
+			? { args: webGpuArgs }
+			: {
 					channel: 'chrome',
 					chromiumSandbox: true,
 					ignoreDefaultArgs: ['--enable-unsafe-swiftshader'],
 					env: { ...process.env, VK_DRIVER_FILES: '/usr/share/vulkan/icd.d/radeon_icd.json' },
-					args: [
-						'--use-angle=vulkan',
-						'--use-vulkan=native',
-						'--enable-features=Vulkan',
-						'--enable-unsafe-webgpu',
-						'--ignore-gpu-blocklist'
-					]
+					args: webGpuArgs
 				}
-			: {}
 	},
 	webServer: {
 		cwd: project,
-		command:
-			'if [ ! -f .svelte-kit/output/server/index.js ]; then bun run build || exit; fi; ' +
-			'exec bun run preview --host 127.0.0.1 --port 0 --strictPort',
+		command: build + 'exec bun run preview --host 127.0.0.1 --port 0 --strictPort',
 		wait: { stdout: /Local:\s+(?<city_browser_url>http:\/\/127\.0\.0\.1:\d+\/)/ },
 		timeout: 180_000
 	}
 });
 
 function requireHeavySlot() {
-	const wrapper = execFileSync('sh', ['-c', 'command -v heavy-slot || true'], {
+	const found = execFileSync('sh', ['-c', 'command -v heavy-slot || true'], {
 		encoding: 'utf8'
 	}).trim();
-	if (!wrapper) return;
+	const wrapper = found || '/home/david/.local/bin/heavy-slot';
+	if (!existsSync(wrapper)) return;
+	const resolvedWrapper = realpathSync(wrapper);
 	for (let pid = process.ppid; pid > 1;) {
 		const proc = '/proc/' + pid;
-		if (readFileSync(proc + '/cmdline', 'utf8').split('\0')[1] === wrapper) return;
+		const command = readFileSync(proc + '/cmdline', 'utf8')
+			.split('\0')
+			.slice(0, 2);
+		if (command.some((arg) => basename(arg) === 'heavy-slot' || arg === resolvedWrapper)) return;
 		pid = Number(readFileSync(proc + '/status', 'utf8').match(/^PPid:\s+(\d+)/m)?.[1]);
 	}
-	throw new Error(
-		'Run heavy-slot --exclusive --mem 4G --wait 900 -- bun run test:browser scripts/browser/flows.browser.ts'
-	);
+	throw new Error('Run heavy-slot --exclusive --mem 4G --wait 900 -- bun run test:browser');
 }

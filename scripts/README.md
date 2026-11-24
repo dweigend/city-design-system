@@ -18,15 +18,15 @@ The [architecture rules](../docs/standards/ARCHITECTURE.md#rules) name the check
 
 ## Browser tests
 
-`bun run test:browser` starts a Vite preview on a free loopback port and stops it when Playwright exits. It builds the app if the production output is missing. Run `bun run build` before testing changes when a previous build exists.
+`bun run test:browser` starts a Vite preview on a free loopback port and stops it when Playwright exits. Local runs build the app before starting the preview. Set `CITY_BROWSER_SKIP_BUILD=1` to reuse an existing build. CI reuses the output from `bun run verify`. If the output is missing, the suite builds it.
 
-On the shared server, run the suite with Chrome and the Radeon GPU. The slot wrapper expects an explicit test file.
+Local runs require Chrome and the AMD render device `/dev/dri/renderD128`. On the shared server, run the suite through `heavy-slot` with the test file as an explicit argument.
 
 ```sh
 heavy-slot --exclusive --mem 4G --time 600 --wait 900 -- bun run test:browser scripts/browser/flows.browser.ts
 ```
 
-CI uses Playwright Chromium, installed with `bunx playwright install --with-deps chromium`. A local machine without the Radeon render device also uses Playwright Chromium. When Chromium exposes WebGPU, the suite tests rendering and sandbox strokes with its available adapter. Without an adapter it checks the stage's fallback and exercises the controls that work without a canvas.
+CI uses Playwright Chromium, installed with `bunx playwright install --with-deps chromium`. It enables WebGPU through native Vulkan and uses the available adapter, including a software adapter. The suite requires a rendered stage in both modes.
 
 ## Capture the preview
 
