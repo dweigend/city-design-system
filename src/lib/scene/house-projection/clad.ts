@@ -66,11 +66,12 @@ function familyOf(materials: HouseMaterials, face: HouseFace): Family | undefine
 }
 
 /** Claddings of the faces that have a family, each patch set off its face by the clad offset,
- * given its share of the budget by area and the module scale expected to fit it. */
+ * given its share of the budget by area. Relief and pencil also fit the surface modules. */
 export function houseCladdings(
 	faces: readonly HouseFace[],
 	materials: HouseMaterials,
-	budget: number
+	budget: number,
+	level: SurfaceLevel = 'relief'
 ): Cladding[] {
 	const clad = faces.flatMap((face) => {
 		const family = familyOf(materials, face);
@@ -91,7 +92,10 @@ export function houseCladdings(
 			openings: face.openings,
 			budget: Math.floor((budget * area) / total)
 		};
-		return [{ role: face.slot, family, patch, moduleScale: fitModuleScale(family, patch) }];
+		const cladding = { role: face.slot, family, patch };
+		return [
+			level === 'flat' ? cladding : { ...cladding, moduleScale: fitModuleScale(family, patch) }
+		];
 	});
 }
 
@@ -117,10 +121,11 @@ export function projectCladHouse(
 		: object;
 	const placement = options.placement;
 	const moved = placement ? faces.map((face) => place(face, placement)) : faces;
-	const clad = createClad(placed, houseCladdings(moved, materials, options.budget), {
+	const level = lower(own, options.level);
+	const clad = createClad(placed, houseCladdings(moved, materials, options.budget, level), {
 		...(options.light ? { light: options.light } : {}),
 		...(options.seed === undefined ? {} : { seed: options.seed }),
-		level: lower(own, options.level)
+		level
 	});
 	const table: SurfaceAssignment = surfaces;
 	const plain = Object.fromEntries(object.slots.map((slot) => [slot, table[slot]]));

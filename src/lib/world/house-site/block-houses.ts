@@ -42,7 +42,14 @@ function boundaryWall(face: HouseFace, outline: readonly Vec2[]): AdjoiningWall[
 	return onBoundary ? [{ a, b, bottom, top: bottom + height }] : [];
 }
 
-function wallsOf({ space, house, style, parcel }: PlacedParcelHouse): AdjoiningWall[] {
+/** Reads the occupied wall spans that lie on the parcel contour, in world meters.
+ * These unoccluded spans serve as inputs to neighbouring houses' skin derivation. */
+export function readParcelHouseWalls({
+	space,
+	house,
+	style,
+	parcel
+}: PlacedParcelHouse): AdjoiningWall[] {
 	return houseFaces(space, house, 'full', style).flatMap((face) =>
 		boundaryWall(face, parcel.outline)
 	);
@@ -57,27 +64,14 @@ export function createTownBlockHouses(
 	inputs: HouseInputs,
 	style: HouseStyle
 ) {
-	const { parcelsByBlock, portals, columns, layout, holdings, groundAt } = town;
+	const { parcelsByBlock, readParcelSite } = town;
 	const results = (parcelsByBlock.get(block.id) ?? [])
 		.filter(({ publicUse }) => !publicUse)
 		.map((parcel) =>
-			createParcelHouse(
-				{
-					parcel,
-					portal: required(portals.get(parcel.portalId), 'house frontage'),
-					block,
-					columns,
-					datumZ: layout.datumZ,
-					linearToleranceM: holdings.linearToleranceM,
-					groundAt,
-					scale: 'by-area'
-				},
-				inputs,
-				style
-			)
+			createParcelHouse(required(readParcelSite(parcel.id), 'house parcel site'), inputs, style)
 		);
 	const built = results.filter((result) => result.status === 'placed');
-	const walls = built.map(wallsOf);
+	const walls = built.map(readParcelHouseWalls);
 	return {
 		placed: built.map((house, i) => ({
 			...house,

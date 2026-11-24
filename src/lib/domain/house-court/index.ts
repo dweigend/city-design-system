@@ -28,6 +28,7 @@ export {
 /** A planar house face that a surface family can clad. */
 export type { HouseFace } from './faces';
 export type { AdjoiningWall } from './wall-contact';
+export { readPartyWallExposure } from './party-exposure';
 
 /** Style rows: occupancy tendencies, fills, roofs, openings, part kinds and slots per style. */
 export {

@@ -200,14 +200,19 @@ export function cameraFrame(camera: ReturnType<typeof fitCamera>, widthPx: numbe
 	};
 }
 
-/** The world point seen at a pixel offset from the image centre: the displayed ground the frame
- * hits there, else the horizontal plane through the frame's centre. */
-export function groundAt(frame: CameraFrame, [x, y]: Vec2): Vec3 {
-	const { center, right, imageUp, direction, metersPerPixel } = frame;
-	const onImage = sum(
-		center,
-		sum(scaled(right, x * metersPerPixel), scaled(imageUp, -y * metersPerPixel))
-	);
+function imagePoint({ center, right, imageUp, metersPerPixel }: CameraFrame, [x, y]: Vec2) {
+	return sum(center, sum(scaled(right, x * metersPerPixel), scaled(imageUp, -y * metersPerPixel)));
+}
+
+/** Reads the displayed terrain at a pixel offset from the image center. */
+export function pickGround(frame: CameraFrame, offset: Vec2): Vec3 | undefined {
+	return frame.hit?.(imagePoint(frame, offset), scaled(frame.direction, -1));
+}
+
+/** Reads the displayed ground, with a plane through the frame center as fallback. */
+export function groundAt(frame: CameraFrame, offset: Vec2): Vec3 {
+	const { center, direction } = frame;
+	const onImage = imagePoint(frame, offset);
 	const hit = frame.hit?.(onImage, scaled(direction, -1));
 	if (hit || Math.abs(direction[2]) < 1e-9) return hit ?? onImage;
 	return sum(onImage, scaled(direction, (center[2] - onImage[2]) / direction[2]));

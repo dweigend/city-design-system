@@ -72,6 +72,9 @@ test('a 6 × 16 m parcel with a shallow rear notch can be clad', () => {
 	const house = createHouseCourt(space, { seed: 3 }, houseStyles.neutral, { scale: 'calm' });
 	const faces = houseFaces(space, house, 'full');
 	const materials = houseCladdings(faces, houseMaterials.neutral, blockTriangleBudget);
+	const flat = houseCladdings(faces, houseMaterials.neutral, blockTriangleBudget, 'flat');
+	expect(flat.length).toBe(materials.length);
+	expect(flat.every(({ moduleScale }) => moduleScale === undefined)).toBe(true);
 	expect(
 		createClad(createHouseObject(space, house, 'full'), materials, { level: 'relief' }).triangles
 	).toBeGreaterThan(0);

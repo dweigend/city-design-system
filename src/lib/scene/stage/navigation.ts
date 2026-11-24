@@ -8,7 +8,8 @@ export function stageNavigation(
 	canvas: HTMLCanvasElement,
 	readScale: () => number,
 	fit: (value: ViewFit) => void,
-	readFrame?: (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) => CameraFrame
+	readFrame?: (value: Readonly<{ zoom: number; offset: readonly [number, number] }>) => CameraFrame,
+	canDrag?: () => boolean
 ) {
 	const pointers = new Map<number, Point>();
 	let zoom = 1;
@@ -79,7 +80,7 @@ export function stageNavigation(
 	canvas.addEventListener(
 		'pointerdown',
 		(event) => {
-			if (event.button !== 0 || pointers.size >= 2) return;
+			if (event.button !== 0 || pointers.size >= 2 || canDrag?.() === false) return;
 			canvas.setPointerCapture(event.pointerId);
 			pointers.set(event.pointerId, point(event));
 		},

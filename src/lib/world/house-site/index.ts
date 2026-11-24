@@ -24,10 +24,12 @@ export { readBaseLevel } from './base';
 export {
 	createParcelHouse,
 	createParcelHouseObject,
+	type ParcelHouseResult,
 	type ParcelHouseSite,
 	type PlacedParcelHouse
 } from './parcel';
-export { createTownBlockHouses } from './block-houses';
+export { createTownBlockHouses, readParcelHouseWalls } from './block-houses';
+export { createTownParcelSites } from './town-sites';
 export { createTownHouseStudy, type TownHouseBlock } from './parcel-town';
 
 /** Places a house rule on a city column. The column's plan corners (counterclockwise, keyed by

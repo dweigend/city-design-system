@@ -19,4 +19,10 @@
 			{label}
 		</a>
 	{/each}
+	<a
+		class="label"
+		href={resolve('/sandbox')}
+		aria-current={page.route.id === '/sandbox' ? 'page' : undefined}
+		onclick={onnavigate}>Sandbox</a
+	>
 </nav>

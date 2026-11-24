@@ -1,6 +1,8 @@
 import type { AssetHost } from '../../core/asset-registry';
 import type { CellSpace, Parcel } from '../../domain/cell-space';
 import type { CityLattice, LatticeVariant } from '../../domain/city-volume';
+import type { Parcel as PlanParcel } from '../../domain/parcels';
+import type { ParcelHouseSite } from '../house-site';
 import type { AccessEdge } from '../../domain/movement-network';
 import type { MemberGraph } from '../../domain/structure';
 
@@ -11,6 +13,7 @@ type Edge = Extract<Base, { kind: 'plan-edge' | 'graph-edge' }> & Pick<AccessEdg
 export type CityAssetHost =
 	| Exclude<Base, { kind: 'plan-edge' | 'graph-edge' | 'lattice-bay' | 'frame' }>
 	| Edge
+	| Readonly<{ kind: 'parcel'; parcel: PlanParcel; site: ParcelHouseSite }>
 	| Readonly<{
 			kind: 'lattice-bay';
 			id: string;

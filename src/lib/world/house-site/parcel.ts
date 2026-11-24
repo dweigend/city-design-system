@@ -213,8 +213,11 @@ export function createParcelHouse(
 	} as const);
 }
 
+/** A city parcel's occupied house or named reason why it remains garden. */
+export type ParcelHouseResult = ReturnType<typeof createParcelHouse>;
+
 /** A private parcel house that fitted its frontage, ground and bay. */
-export type PlacedParcelHouse = Extract<ReturnType<typeof createParcelHouse>, { status: 'placed' }>;
+export type PlacedParcelHouse = Extract<ParcelHouseResult, { status: 'placed' }>;
 
 /** Builds a placed house. Its ground plates reach down to the lowest sampled ground under the parcel as a
  * plinth, and the entrance steps stand on that ground. Adjoining walls suppress openings. */

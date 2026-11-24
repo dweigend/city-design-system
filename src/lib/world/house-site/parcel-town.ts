@@ -9,6 +9,7 @@ import {
 	readCityGrid,
 	readCityParcels
 } from '../city-site';
+import { createTownParcelSites } from './town-sites';
 
 /** The perimeter holding, its neighbouring perimeter block and the merged hall of the Town study. */
 export type TownHouseBlock = 'block' | 'neighbour' | 'merged';
@@ -80,5 +81,16 @@ export function createTownHouseStudy(settings: Readonly<{ relief?: number }> = {
 		)
 	};
 	const groundAt = ([x, y]: Vec2) => site.sampleGround(x, y).height;
-	return { site, layout, holdings, columns, parcelsByBlock, portals, blocks, groundAt };
+	const readParcelSite = createTownParcelSites(holdings, columns, layout.datumZ, groundAt);
+	return {
+		site,
+		layout,
+		holdings,
+		columns,
+		parcelsByBlock,
+		portals,
+		blocks,
+		groundAt,
+		readParcelSite
+	};
 }

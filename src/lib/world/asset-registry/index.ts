@@ -15,6 +15,7 @@ export {
 	type Placement
 } from '../../core/asset-registry';
 export type { CityAssetHost } from './hosts';
+export { placeParcelHouseAsset } from './houses';
 
 const registry = createAssetRegistry([
 	...courtHouses,
