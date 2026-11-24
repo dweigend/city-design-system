@@ -6,12 +6,14 @@ export type ParcelCorner = Readonly<{ id: string; position: Vec2 }>;
 
 /** A plan polygon of three or more corners, counterclockwise, convex or with re-entrant corners.
  * `frontage` lists edge identities (`parcelEdgeId(from, to)` of consecutive corners) that face the
- * alley. `baseZ` is the ground elevation, `storeyCount` the vertical extent of the space and
+ * alley, `courtEdges` (optional) edges that open onto a shared court beyond the parcel, such as
+ * the public court of a perimeter block. `baseZ` is the ground elevation, `storeyCount` the vertical extent of the space and
  * `storeyHeightM` its storey height (default 3.5 m). */
 export type Parcel = Readonly<{
 	id: string;
 	corners: readonly ParcelCorner[];
 	frontage: readonly string[];
+	courtEdges?: readonly string[];
 	baseZ: number;
 	storeyCount: number;
 	storeyHeightM?: number;

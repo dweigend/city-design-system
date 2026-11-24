@@ -1,12 +1,17 @@
 import type { Vec2 } from '../../core/geometry';
 import { defaults } from '../../../config/cell-space';
 import { resolveSides } from './sides';
-import { convexParts, cornerQuads, doubleArea, type KeyedRing } from './split';
+import { convexParts, cornerQuads, doubleArea, mergedParts, type KeyedRing } from './split';
+import { cellWidth, stripRings } from './strips';
 import type { CellSpace, FineCell, Parcel } from './types';
 import { validate } from './validate';
 
 /** What lies across one side of a fine cell. */
 export type { CellSide } from './sides';
+/** Strip counts of a parcel and the width measure of a cell's sliver check. */
+export { cellWidth, stripCounts, type StripCounts } from './strips';
+/** Smallest accepted strip cell width in meters. */
+export const minimumStripWidthM = defaults.stripMinimumWidthM;
 /** Thrown for a parcel with a vanishing edge or area. */
 export { DegenerateParcelError } from './validate';
 
@@ -68,21 +73,32 @@ export function createCellSpace(
 	const cells = parents.flatMap((quad) =>
 		refine(quad, rounds).map((cell) => ({ cell, parent: quad.id }))
 	);
-	const sides = resolveSides(
+	return freeze(
+		parcel,
 		cells.map(({ cell }) => cell),
-		new Set(parcel.frontage)
+		cells.map(({ parent }) => parent),
+		cells.map(({ cell }) => cell.corner)
 	);
+}
+
+function freeze(
+	parcel: Parcel,
+	rings: readonly KeyedRing[],
+	parents: readonly string[],
+	corners: readonly string[]
+): CellSpace {
+	const sides = resolveSides(rings, new Set(parcel.frontage), new Set(parcel.courtEdges ?? []));
 	return Object.freeze({
 		id: parcel.id,
 		baseZ: parcel.baseZ,
 		storeyHeightM: parcel.storeyHeightM ?? defaults.storeyHeightM,
 		storeyCount: parcel.storeyCount,
 		cells: Object.freeze(
-			cells.map(({ cell, parent }, i) =>
+			rings.map((cell, i) =>
 				Object.freeze({
 					id: cell.id,
-					parent,
-					corner: cell.corner,
+					parent: parents[i],
+					corner: corners[i],
 					ear: cell.ear,
 					quad: Object.freeze(cell.points.map(([x, y]) => Object.freeze<Vec2>([x, y]))),
 					sides: Object.freeze(sides[i].map((side) => Object.freeze({ ...side })))
@@ -90,6 +106,46 @@ export function createCellSpace(
 			)
 		)
 	});
+}
+
+/** Splits a parcel into strip cells that follow its frontage (GRID-1 for town parcels): columns
+ * across the first frontage edge and depth rows parallel to it, laid as a Coons patch over the
+ * four parcel sides (front, the edge after it, the rear chain, the edge before it). Counts come
+ * from the frontage length and mean side depth over the target cell edge, between the minimum and
+ * maximum cell count; columns break at rear corners so rear sides follow the parcel. A count that
+ * leaves a cell non-convex or narrower than the minimum width steps down, columns first; a parcel
+ * no count fits (a re-entrant notch the depth rows would cross) falls back to its convex parts,
+ * the ear triangles merged while convex, one cell each, ID `<escaped parcel id>/part/<JSON keys>`.
+ * Strip IDs:
+ * `<escaped parcel id>/strip/<JSON [column, row]>`, row 0 on the frontage; `parent` is the
+ * column `<escaped parcel id>/strip/<JSON [column]>` and `corner` is empty. Throws like
+ * `createCellSpace`. */
+export function createStripSpace(parcel: Parcel): CellSpace {
+	validate(parcel, 0);
+	const ring = canonicalRing(parcel);
+	const rings = stripRings(parcel, ring.id, (i) =>
+		parcelEdgeId(parcel.corners[i].id, parcel.corners[(i + 1) % parcel.corners.length].id)
+	);
+	if (!rings) {
+		const parts = mergedParts(ring);
+		return freeze(
+			parcel,
+			parts,
+			parts.map(({ id }) => id),
+			parts.map(() => '')
+		);
+	}
+	return freeze(
+		parcel,
+		rings,
+		rings.map(({ corner }) => corner),
+		rings.map(() => '')
+	);
+}
+
+/** Width of a fine cell in meters: twice its area over its perimeter. */
+export function fineCellWidth(cell: FineCell): number {
+	return cellWidth(cell.quad);
 }
 
 /** Plan area of a fine cell in square meters. */

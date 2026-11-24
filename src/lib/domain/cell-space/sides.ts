@@ -1,11 +1,13 @@
 import type { KeyedRing } from './split';
 
 /** What lies across one side of a fine cell: another cell, or the parcel edge with its identity
- * (`JSON [from corner key, to corner key]`) and whether it faces the frontage. */
+ * (`JSON [from corner key, to corner key]`) and whether it faces the frontage. `court: true` marks
+ * a parcel edge that opens onto a shared court; the field is absent otherwise. */
 export type CellSide = Readonly<{
 	neighbour: string | null;
 	edge: string | null;
 	frontage: boolean;
+	court?: true;
 }>;
 
 const sideKey = (ring: KeyedRing, i: number) =>
@@ -16,7 +18,8 @@ const sideKey = (ring: KeyedRing, i: number) =>
  * or more than one partner, throws: the split never leaves a hanging corner. */
 export function resolveSides(
 	cells: readonly KeyedRing[],
-	frontage: ReadonlySet<string>
+	frontage: ReadonlySet<string>,
+	court: ReadonlySet<string> = new Set()
 ): readonly (readonly CellSide[])[] {
 	const owners = new Map<string, string[]>();
 	for (const cell of cells)
@@ -30,7 +33,8 @@ export function resolveSides(
 			const edge = cell.edges[i];
 			if (others.length) return { neighbour: others[0], edge: null, frontage: false };
 			if (edge === null) throw new RangeError(`Cell side ${cell.id}#${i} has no partner`);
-			return { neighbour: null, edge, frontage: frontage.has(edge) };
+			const side = { neighbour: null, edge, frontage: frontage.has(edge) };
+			return court.has(edge) ? { ...side, court: true } : side;
 		})
 	);
 }

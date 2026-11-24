@@ -37,6 +37,8 @@ export function validate(parcel: Parcel, rounds: number) {
 	);
 	if (!frontage.every((edge) => edges.has(edge)))
 		throw new RangeError('Frontage must name parcel edges from one corner to the next');
+	if (!(parcel.courtEdges ?? []).every((edge) => edges.has(edge) && !frontage.includes(edge)))
+		throw new RangeError('Court edges must name parcel edges that are not frontage');
 	if (!Number.isInteger(storeyCount) || storeyCount < 1)
 		throw new RangeError('A cell space needs at least one storey');
 	if (storeyHeightM !== undefined && !(storeyHeightM > 0 && Number.isFinite(storeyHeightM)))
