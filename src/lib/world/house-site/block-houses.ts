@@ -59,7 +59,7 @@ export function readParcelHouseWalls({
  * paired with the occupied boundary walls of the other houses for face and opening derivation.
  * Unbuildable parcels retain their IDs and reasons, and stay garden. */
 export function createTownBlockHouses(
-	town: ReturnType<typeof createTownHouseStudy>,
+	town: Pick<ReturnType<typeof createTownHouseStudy>, 'parcelsByBlock' | 'readParcelSite'>,
 	block: ParcelBlock,
 	inputs: HouseInputs,
 	style: HouseStyle

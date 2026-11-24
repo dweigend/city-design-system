@@ -14,6 +14,7 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test": "bun test",
+		"perf:baseline": "bun scripts/perf-baseline.ts",
 		"test:browser": "playwright test --config scripts/browser/playwright.config.ts",
 		"check:boundaries": "bun scripts/check-boundaries.ts",
 		"check:config": "bun scripts/config-catalogue.ts --check",
