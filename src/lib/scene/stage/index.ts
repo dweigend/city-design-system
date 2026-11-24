@@ -13,6 +13,8 @@ import { drawingPalette } from './tone';
 export type { View, ViewFit } from './camera';
 /** Shadows fall along a horizontal unit direction, `shadowReach` metres per metre of height. */
 export { shadowDirection, shadowReach } from './tone';
+/** Direction of the stage light for surface recipes. */
+export { surfaceLight } from './tone';
 /** Measures a subject in the plane of a fitted view. */
 export { projectFocus } from './camera';
 /** Connects pointer and keyboard navigation to camera framing. */

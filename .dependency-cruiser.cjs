@@ -5,15 +5,17 @@ const layers = {
 	domain: ['domain', 'core']
 };
 const configOwners = {
-	'core/params': 'inputs',
-	'core/object': 'object',
-	'domain/river-metrics': 'river-metrics',
-	'domain/valley': 'hydrology',
-	'world/city-site': 'lanes|parcels',
-	'domain/transit-line': 'transit-line',
-	'world/city-movement': 'city-movement',
-	'scene/paths-projection': 'paths-projection',
-	'world/valley-protocol': 'valley-measurement'
+	'lib/core/params': 'inputs',
+	'lib/core/object': 'object',
+	'lib/domain/river-metrics': 'river-metrics',
+	'lib/domain/valley': 'hydrology',
+	'lib/world/city-site': 'lanes|parcels',
+	'lib/domain/transit-line': 'transit-line',
+	'lib/world/city-movement': 'city-movement',
+	'lib/scene/paths-projection': 'paths-projection',
+	'lib/scene/material': 'material',
+	'routes/surfaces': 'surface-specimens',
+	'lib/world/valley-protocol': 'valley-measurement'
 };
 const allowedConfigEntries = Object.values(configOwners).join('|');
 const modulePath = 'src/lib/(?:ui|scene|world|domain|core)/[^/]+';
@@ -47,14 +49,14 @@ module.exports = {
 			'config-owner-only',
 			{
 				path: '^src/',
-				pathNot: `^src/(?:config/|lib/(?:${Object.keys(configOwners).join('|')})/)`
+				pathNot: `^src/(?:config/|(?:${Object.keys(configOwners).join('|')})/)`
 			},
 			{ path: '^src/config/' }
 		),
 		...Object.entries(configOwners).map(([owner, slice]) =>
 			error(
 				`config-owner-only-${slice.split('|')[0]}`,
-				{ path: `^src/lib/${owner}/` },
+				{ path: `^src/${owner}/` },
 				{ path: '^src/config/', pathNot: `^src/config/(?:${slice})/index\\.ts$` }
 			)
 		),

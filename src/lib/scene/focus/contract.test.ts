@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { example } from './example';
-import { createFocusResolver, FocusPolicyError } from './index';
+import { createFocusResolver, displayLevels, FocusPolicyError, readSurfaceLevel } from './index';
 
 test('a composition supplies its own vocabulary and rows', () => {
 	const preset = example();
@@ -21,4 +21,18 @@ test('construction reports missing rows and incomplete choice coverage', () => {
 	expect(() =>
 		createFocusResolver({ all: { label: 'All', subject: [] } }, { incomplete: {} } as never)
 	).toThrow(FocusPolicyError);
+});
+
+test('all display levels map to material detail independently of the preset', () => {
+	expect(displayLevels.map(readSurfaceLevel)).toEqual([
+		'relief',
+		'flat',
+		'flat',
+		'pencil',
+		undefined
+	]);
+	const preset = example();
+	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'subject'))).toBe('relief');
+	expect(readSurfaceLevel(preset.readFocusLevel('detail', 'backdrop'))).toBeUndefined();
+	expect(() => readSurfaceLevel('unknown' as never)).toThrow(RangeError);
 });
