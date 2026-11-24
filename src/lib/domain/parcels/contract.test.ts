@@ -141,3 +141,32 @@ test('connects an inset court to a public lane with a three-meter passage', () =
 		expect(result.lanes.some(({ id }) => id === publicGround.entrance?.laneId)).toBe(true);
 	}
 });
+
+test('parcel policy is fixed before either of two blocks is read', () => {
+	const { grid, lanes, plannedKinds } = exampleGround();
+	const [first, second] = grid.cells.map(({ id }) => id);
+	const partition = { targetAreaM2: 1400, minimumAreaM2: 100 };
+	const court = { insetM: 12, passageWidthM: 3 };
+	const rule = { minimumFrontageM: 3, partition, court };
+	const tolerance = {
+		linearToleranceM: 0.000001,
+		areaToleranceM2: 0.01,
+		relativeAreaToleranceRatio: 1e-8
+	};
+	const input = { grid, lanes, plannedKinds, holdingRules: { exhibit: rule }, tolerance };
+	const expected = createParcelPlan(input).read([first, second]);
+	const forward = createParcelPlan(input);
+	const reverse = createParcelPlan(input);
+	forward.read([first]);
+	reverse.read([second]);
+
+	partition.targetAreaM2 = 3600;
+	court.insetM = 40;
+	rule.minimumFrontageM = 100;
+	tolerance.linearToleranceM = 0.01;
+	forward.read([second]);
+	reverse.read([first]);
+
+	expect(forward.read([first, second])).toEqual(expected);
+	expect(reverse.read([second, first])).toEqual(expected);
+});

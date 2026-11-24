@@ -2,7 +2,7 @@
 import { required } from '../../core/invariant';
 import { prepareBlocks } from './blocks';
 import { laneAddress } from './reserve';
-import type { LaneInput, ParcelLane, ParcelPlanInput } from './types';
+import type { HoldingRule, LaneInput, ParcelLane, ParcelPlanInput } from './types';
 
 export type {
 	AddressedParcel,
@@ -40,14 +40,30 @@ function combineReservations(input: readonly LaneInput[]) {
 	return specs;
 }
 
+function snapshotHoldingRule(rule: HoldingRule): HoldingRule {
+	return {
+		...rule,
+		...(rule.partition && { partition: { ...rule.partition } }),
+		...(rule.court && { court: { ...rule.court } })
+	};
+}
+
 /** Prepares fixed block membership and pedestrian reservations for caller-supplied XY geometry.
  * Repeated reservations on the same edge use the largest width and the sorted union of
  * roles. Stairs, one-sided reservation and merge protection apply if any role calls for them.
  * Proposed pairs are considered in input order. A rejected pair leaves its cells available.
+ * Holding rules and tolerances are captured at preparation.
  * A read returns a frozen snapshot of the requested whole blocks and their permanent lane intervals. */
 export function createParcelPlan(input: ParcelPlanInput) {
 	const specs = combineReservations(input.lanes);
-	const { byCell, mergedUnits, point, realize } = prepareBlocks(input, specs);
+	const tolerance = { ...input.tolerance };
+	const holdingRules = Object.fromEntries(
+		Object.entries(input.holdingRules).map(([kind, rule]) => [kind, snapshotHoldingRule(rule)])
+	);
+	const { byCell, mergedUnits, point, realize } = prepareBlocks(
+		{ ...input, tolerance, holdingRules },
+		specs
+	);
 	const lanes = new Map<string, ParcelLane>();
 	for (const spec of specs.values()) {
 		const { edge, hierarchy, widthM, surface } = spec;
@@ -100,7 +116,7 @@ export function createParcelPlan(input: ParcelPlanInput) {
 			const blocks = realized.map(({ block }) => block);
 			const laneIds = new Set(blocks.flatMap(({ laneIds }) => laneIds));
 			return Object.freeze({
-				linearToleranceM: input.tolerance.linearToleranceM,
+				linearToleranceM: tolerance.linearToleranceM,
 				lanes: Object.freeze(
 					[...laneIds].sort().map((id) => required(lanes.get(id), 'selected lane'))
 				),
