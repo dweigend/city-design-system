@@ -98,7 +98,9 @@
 	let frameWork = $state.raw<{ run: () => boolean }>();
 
 	type Sketch = ReturnType<Town['createSpecimens']> extends Map<string, infer S> ? S : never;
-	let open: { tool: string; changes: PlacementChange[]; tally: Tally; skipped: Map<string, Parcel> } | undefined;
+	let open:
+		| { tool: string; changes: PlacementChange[]; tally: Tally; skipped: Map<string, Parcel> }
+		| undefined;
 	let press: { x: number; y: number } | undefined;
 
 	const fit = $derived(
@@ -155,9 +157,8 @@
 		);
 		// Relief costs a few hundred milliseconds per house, so hover alone never asks for it.
 		const focus = [selectedId];
-		const details = new Map<string, Detail>();
-		for (const { placement, block, center } of requests.values()) {
-			const [cx, cy] = viewport?.center ?? [0, 0];
+		const [cx, cy] = viewport?.center ?? [0, 0];
+		const detailOf = ({ placement, block, center }: HouseRequest): [string, Detail] => {
 			const level = selectHouseDetail(
 				{
 					id: placement.id,
@@ -167,14 +168,14 @@
 				},
 				{ metersPerPixel: viewport?.metersPerPixel ?? Infinity }
 			);
-			details.set(
+			return [
 				placement.id,
 				level === 'relief'
 					? { level, budget: shares.get(placement.id) ?? blockTriangleBudget }
 					: (town?.flat ?? { level, budget: blockTriangleBudget })
-			);
-		}
-		return details;
+			];
+		};
+		return new Map([...requests.values()].map(detailOf));
 	}
 
 	/** Brings the queue in line with the document: new requests wait, removed ones are cancelled. */
@@ -253,14 +254,27 @@
 	}
 	let lastSkipped = new Map<string, Parcel>();
 
-	function editsFor(parcels: readonly Parcel[], active: string, tally: Tally, skipped: Map<string, Parcel>) {
+	function editsFor(
+		parcels: readonly Parcel[],
+		active: string,
+		tally: Tally,
+		skipped: Map<string, Parcel>
+	) {
 		const edits: SandboxEdit[] = [];
+		const opened = town;
+		if (!opened) return edits;
 		for (const parcel of parcels) {
 			const current = documentModel.readPlacement(address(parcel.id));
 			if (active === 'erase' || active === 'reseed') {
 				if (!current) continue;
 				if (active === 'erase') edits.push({ kind: 'remove', id: current.id });
-				else edits.push({ kind: 'replace', id: current.id, params: current.params, seed: reseed(current) });
+				else
+					edits.push({
+						kind: 'replace',
+						id: current.id,
+						params: current.params,
+						seed: reseed(current)
+					});
 				continue;
 			}
 			if (current) {
@@ -269,7 +283,7 @@
 				continue;
 			}
 			try {
-				edits.push(town!.world.place(active, address(parcel.id), town!.brushParams));
+				edits.push(opened.world.place(active, address(parcel.id), opened.brushParams));
 			} catch (error) {
 				if (!(error instanceof UnavailableHostError)) throw error;
 				tally.off++;
@@ -336,7 +350,13 @@
 				? { kind: 'remove', id }
 				: documentModel.readPlacements().some((placement) => placement.id === id)
 					? { kind: 'replace', id, params: before.params, seed: before.seed }
-					: { kind: 'place', assetId: before.assetId, host: before.host, params: before.params, seed: before.seed }
+					: {
+							kind: 'place',
+							assetId: before.assetId,
+							host: before.host,
+							params: before.params,
+							seed: before.seed
+						}
 		);
 		if (inverse.length) documentModel.amend(inverse);
 		sync();
@@ -344,9 +364,12 @@
 
 	function report({ tally, changes }: NonNullable<typeof open>) {
 		const gardens = changes.filter(({ id, after }) => after && requests.get(id)?.reason);
-		const why = [...new Set(gardens.map(({ id }) => reasons[requests.get(id)?.reason ?? ''] ?? ''))];
+		const why = [
+			...new Set(gardens.map(({ id }) => reasons[requests.get(id)?.reason ?? ''] ?? ''))
+		];
 		const parts = [
-			tally.placed - gardens.length > 0 && plural(tally.placed - gardens.length, 'house') + ' placed',
+			tally.placed - gardens.length > 0 &&
+				plural(tally.placed - gardens.length, 'house') + ' placed',
 			gardens.length && `${plural(gardens.length, 'parcel')} kept as garden: ${why.join(', ')}`,
 			tally.removed && plural(tally.removed, 'house') + ' erased',
 			tally.reseeded && plural(tally.reseeded, 'house') + ' reseeded',
@@ -361,12 +384,14 @@
 		const { event } = input;
 		if (event.pointerType === 'touch' && event.type === 'pointerdown' && !event.isPrimary) {
 			// A second finger turns the gesture into navigation; the open stroke is taken back.
-			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool })) effect(next);
+			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool }))
+				effect(next);
 			pointer.release();
 			panning = true;
 			return;
 		}
-		if (event.type === 'pointerup' && event.pointerType === 'touch' && event.isPrimary) panning = false;
+		if (event.type === 'pointerup' && event.pointerType === 'touch' && event.isPrimary)
+			panning = false;
 		if (tool === 'select' || panning) return selectPointer(input);
 		const read = pointer.read(input, strokeTool());
 		if (!read) return;
@@ -414,7 +439,10 @@
 
 	function clear() {
 		const all = documentModel.readPlacements();
-		apply(all.map(({ id }) => ({ kind: 'remove', id })), `Cleared ${plural(all.length, 'house')}.`);
+		apply(
+			all.map(({ id }) => ({ kind: 'remove', id })),
+			`Cleared ${plural(all.length, 'house')}.`
+		);
 	}
 
 	function setParam(key: string, value: number) {
@@ -434,7 +462,10 @@
 		if (selected.assetId === assetId) return;
 		const { id, host, params, seed } = selected;
 		apply(
-			[{ kind: 'remove', id }, { kind: 'place', assetId, host, params, seed }],
+			[
+				{ kind: 'remove', id },
+				{ kind: 'place', assetId, host, params, seed }
+			],
 			`Restyled as ${styleNames[assetId]}.`
 		);
 	}
@@ -460,7 +491,10 @@
 
 	function shortcut(event: KeyboardEvent) {
 		if (event.defaultPrevented || loading || !town) return;
-		if (event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable], [role="combobox"]'))
+		if (
+			event.target instanceof HTMLElement &&
+			event.target.closest('input, textarea, [contenteditable], [role="combobox"]')
+		)
 			return;
 		const key = event.key.toLowerCase();
 		const command = event.ctrlKey || event.metaKey;
@@ -474,7 +508,8 @@
 			event.preventDefault();
 			moveHistory(event.shiftKey || key === 'y' ? 'redo' : 'undo');
 		} else if (key === 'escape') {
-			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool })) effect(next);
+			for (const next of stroke.read({ type: 'cancel', pointer: lastPointer, hits: [], tool }))
+				effect(next);
 			pointer?.release();
 			if (selectedId) {
 				selectedId = undefined;
@@ -534,7 +569,11 @@
 <section class="sandbox">
 	<h1>Sandbox</h1>
 	{#if town}
-		<div class="sandbox-stage" data-sandbox-waiting={waiting} data-sandbox-placements={history.placements}>
+		<div
+			class="sandbox-stage"
+			data-sandbox-waiting={waiting}
+			data-sandbox-placements={history.placements}
+		>
 			<StageView
 				{drawables}
 				{view}
@@ -582,7 +621,10 @@
 					/>
 				</div>
 				{#if tool === 'paint' || (tool === 'select' && selected)}
-					<div class="sandbox-hud-panel panel" data-inspector={tool === 'select' && selected ? '' : undefined}>
+					<div
+						class="sandbox-hud-panel panel"
+						data-inspector={tool === 'select' && selected ? '' : undefined}
+					>
 						{#if tool === 'select' && selected && asset}
 							<p class="label">{styleNames[selected.assetId]} house</p>
 						{:else}
@@ -591,7 +633,9 @@
 						<SpecimenPicker
 							label="House style"
 							items={specimens}
-							bind:value={() => (tool === 'select' && selected ? selected.assetId : style), setStyle}
+							bind:value={
+								() => (tool === 'select' && selected ? selected.assetId : style), setStyle
+							}
 						/>
 						{#if tool === 'select' && selected && asset}
 							{#each Object.entries(asset.params) as [key, param] (key)}
@@ -601,7 +645,7 @@
 									max={param.max}
 									step={param.step}
 									value={selected.params[key] ?? param.default}
-									onCommit={(value) => setParam(key, value)}
+									onCommit={(value: number) => setParam(key, value)}
 								/>
 							{/each}
 							<div class="cluster">
@@ -612,9 +656,14 @@
 					</div>
 				{/if}
 				<p class="sandbox-hud-status small" role="status">
-					<span>{status || `${plural(history.placements, 'house')} on ${history.strokes ? plural(history.position, 'stroke') : 'an empty town'}.`}</span>
+					<span
+						>{status ||
+							`${plural(history.placements, 'house')} on ${history.strokes ? plural(history.position, 'stroke') : 'an empty town'}.`}</span
+					>
 					{#if waiting}<span class="data">Building {waiting}…</span>{/if}
-					<span class="sandbox-hint">{hint} · Space-drag or two fingers to move · Scroll to zoom</span>
+					<span class="sandbox-hint"
+						>{hint} · Space-drag or two fingers to move · Scroll to zoom</span
+					>
 				</p>
 				<div class="sandbox-hud-file cluster" role="group" aria-label="Document">
 					<IconButton label="Save" icon="download" disabled={loading} onclick={save} />

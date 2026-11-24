@@ -18,12 +18,22 @@
 		orientation?: 'horizontal' | 'vertical';
 	}
 
-	let { label, tools, value = $bindable(), actions = [], orientation = 'vertical' }: Props =
-		$props();
+	let {
+		label,
+		tools,
+		value = $bindable(),
+		actions = [],
+		orientation = 'vertical'
+	}: Props = $props();
 	const hint = (item: Tool) => (item.shortcut ? `${item.label} (${item.shortcut})` : item.label);
 </script>
 
-<Toolbar.Root class="control-tool-bar" aria-label={label} {orientation} data-orientation={orientation}>
+<Toolbar.Root
+	class="control-tool-bar"
+	aria-label={label}
+	{orientation}
+	data-orientation={orientation}
+>
 	<Toolbar.Group
 		class="control-tool-group"
 		type="single"

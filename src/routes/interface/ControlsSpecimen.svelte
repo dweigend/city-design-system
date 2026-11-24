@@ -42,14 +42,15 @@
 		{ value: 'pick', label: 'Pick', icon: 'pointer', shortcut: 'V' }
 	] as const;
 	// Two hand-drawn isometric blocks: a cube and a slab, in the specimen's own units.
-	const block = (tone: `--${string}`, high: number) => ({
-		viewBox: '-9 -9 18 18',
-		faces: [
-			{ points: `0,${-high} 7,${-high - 4} 0,${-high - 8} -7,${-high - 4}`, tone, shade: 'top' },
-			{ points: `0,${-high} 7,${-high - 4} 7,-4 0,0`, tone, shade: 'lit' },
-			{ points: `0,${-high} -7,${-high - 4} -7,-4 0,0`, tone, shade: 'shadow' }
-		]
-	}) as const;
+	const block = (tone: `--${string}`, high: number) =>
+		({
+			viewBox: '-9 -9 18 18',
+			faces: [
+				{ points: `0,${-high} 7,${-high - 4} 0,${-high - 8} -7,${-high - 4}`, tone, shade: 'top' },
+				{ points: `0,${-high} 7,${-high - 4} 7,-4 0,0`, tone, shade: 'lit' },
+				{ points: `0,${-high} -7,${-high - 4} -7,-4 0,0`, tone, shade: 'shadow' }
+			]
+		}) as const;
 	const blocks = [
 		{ value: 'tower', label: 'Tower', sketch: block('--mat-masonry', 4) },
 		{ value: 'slab', label: 'Slab', sketch: block('--cat-mobility', 0) }
@@ -154,7 +155,11 @@
 	{#snippet specimenPicker()}
 		<SpecimenPicker label="Block" items={blocks} bind:value={blockChoice} />
 	{/snippet}
-	{@render sample('SpecimenPicker', 'Choose an object by its drawing, not by its name.', specimenPicker)}
+	{@render sample(
+		'SpecimenPicker',
+		'Choose an object by its drawing, not by its name.',
+		specimenPicker
+	)}
 
 	{#snippet switches()}
 		<div class="cluster control-sample-states">

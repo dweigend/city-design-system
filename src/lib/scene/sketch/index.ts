@@ -16,7 +16,6 @@ export type Sketch = Readonly<{ viewBox: string; faces: readonly SketchFace[] }>
 // Exact arithmetic: the isometric axes, cos 30° and sin 30°, and the view direction (1, 1, 1).
 const cos30 = Math.sqrt(3) / 2;
 const sin30 = 1 / 2;
-const decimals = 2;
 
 function screen([x, y, z]: Vec3): [number, number] {
 	return [(x - y) * cos30, (x + y) * sin30 - z];
@@ -34,10 +33,17 @@ function normal(a: Vec3, b: Vec3, c: Vec3): Vec3 {
 	return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
 }
 
+/** How a sketch is fitted and written: the margin as a share of the drawing's larger side and the
+ * decimals kept in SVG coordinates. */
+export type SketchOptions = Readonly<{ marginRatio: number; decimals: number }>;
+
 /** Sketches the filled drawables seen from the isometric viewpoint (1, 1, 1): back faces are
  * dropped and the rest are painted far to near. Line-only drawables are skipped. The view box
- * fits the drawing with a margin of `marginRatio` of its larger side. */
-export function projectSketch(drawables: readonly Drawable[], marginRatio = 0): Sketch {
+ * fits the drawing with the given margin. */
+export function projectSketch(
+	drawables: readonly Drawable[],
+	{ marginRatio, decimals }: SketchOptions
+): Sketch {
 	const triangles: { depth: number; face: SketchFace; xy: [number, number][] }[] = [];
 	for (const { shape, color, finish, fillVisible } of drawables) {
 		if (finish === 'line' || fillVisible === false) continue;

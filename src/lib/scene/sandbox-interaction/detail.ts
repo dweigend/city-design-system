@@ -27,7 +27,10 @@ export function selectHouseDetail(subject: DetailSubject, view: DetailView): Hou
 /** Splits one block triangle budget evenly among the placed houses of the block, so the relief
  * houses of a block never exceed it together. A share changes only when the block's houses change,
  * not when the hover moves. Returns each house's budget by ID. */
-export function shareBlockBudget(subjects: readonly Pick<DetailSubject, 'id' | 'block'>[], blockBudget: number) {
+export function shareBlockBudget(
+	subjects: readonly Pick<DetailSubject, 'id' | 'block'>[],
+	blockBudget: number
+) {
 	const perBlock = Map.groupBy(subjects, ({ block }) => block);
 	return new Map(
 		subjects.map(({ id, block }) => [

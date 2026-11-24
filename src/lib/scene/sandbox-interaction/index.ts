@@ -1,5 +1,4 @@
-/** Module: Interaction state of the sandbox: the stroke preview, the build queue and the level of
- * detail per house. It holds no document state; the page feeds it inputs and applies its effects. */
+/** Module: Holds sandbox interaction state: stroke preview, build queue and detail per house. */
 
 /** A time-budgeted, cancellable build queue with a small product cache per owner. */
 export { createBuildQueue, showIntervalMs, type BuildJob } from './queue';

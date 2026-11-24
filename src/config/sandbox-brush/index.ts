@@ -50,6 +50,13 @@ export const settings = defineSettings({
 		meaning: 'Margin around a style specimen as a share of its larger side',
 		bounds: { min: 0 },
 		rationale: 'Keeps the drawing clear of the swatch border.'
+	},
+	sandboxSpecimenDecimals: {
+		value: 2,
+		unit: 'digits',
+		meaning: 'Decimals kept in the coordinates of a style specimen drawing',
+		bounds: { min: 0 },
+		rationale: 'Centimetre precision is far below a pixel at specimen size and keeps the SVG short.'
 	}
 });
 

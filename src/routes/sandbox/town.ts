@@ -78,7 +78,10 @@ export function createTownSandbox() {
 						house?.status === 'placed'
 							? projectHouse(createParcelHouseObject(house, 'full'), 'full')
 							: [],
-						defaults.sandboxSpecimenMarginRatio
+						{
+							marginRatio: defaults.sandboxSpecimenMarginRatio,
+							decimals: defaults.sandboxSpecimenDecimals
+						}
 					)
 				])
 			);
@@ -102,7 +105,8 @@ export function createTownSandbox() {
 				document,
 				(placement, house, adjoining): HouseRequest => {
 					const tone = toneOf(placement.assetId);
-					const parcel = placement.host.kind === 'parcel' ? parcels.get(placement.host.id) : undefined;
+					const parcel =
+						placement.host.kind === 'parcel' ? parcels.get(placement.host.id) : undefined;
 					const where = parcel && { parcel, center: centerOf(parcel) };
 					if (house?.status === 'unbuildable')
 						return { placement, ...where, tone, reason: house.reason };
@@ -112,7 +116,8 @@ export function createTownSandbox() {
 							...where,
 							block: house.parcel.blockId,
 							tone,
-							build: (detail) => projection.projectParcelHouse(house, adjoining, placement.id, detail)
+							build: (detail) =>
+								projection.projectParcelHouse(house, adjoining, placement.id, detail)
 						};
 					const object = world.build(placement);
 					return {

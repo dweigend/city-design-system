@@ -9,5 +9,5 @@ export function example() {
 		color: '--mat-render',
 		finish: 'matte'
 	};
-	return projectSketch([cube]);
+	return projectSketch([cube], { marginRatio: 0, decimals: 2 });
 }
