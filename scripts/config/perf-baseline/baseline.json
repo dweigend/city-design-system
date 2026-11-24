@@ -1,0 +1,202 @@
+{
+	"schemaVersion": 1,
+	"gitRevision": "1c4967ba17545cbee59e8744e0d275040b7bff6e",
+	"dirty": false,
+	"startedAt": "2026-11-24T14:48:25.135Z",
+	"bun": "1.4.4",
+	"hostBefore": {
+		"loadAverage": [1.3, 1.37, 1.15],
+		"memAvailableMiB": 5996.72,
+		"swapTotalMiB": 8192,
+		"swapFreeMiB": 0.14,
+		"gpuBusyPercent": "0",
+		"gpuClocks": "0: 400Mhz \n1: 600Mhz *\n2: 2200Mhz",
+		"gpuTemperatureC": 61
+	},
+	"hostAfter": {
+		"loadAverage": [3.04, 2.04, 1.42],
+		"memAvailableMiB": 5440.68,
+		"swapTotalMiB": 8192,
+		"swapFreeMiB": 0.71,
+		"gpuBusyPercent": "0",
+		"gpuClocks": "0: 400Mhz \n1: 600Mhz *\n2: 2200Mhz",
+		"gpuTemperatureC": 62
+	},
+	"pipeline": {
+		"town": {
+			"sizeM": 1800,
+			"seed": 1201,
+			"variant": "organic",
+			"houseInputs": {
+				"width": 28,
+				"height": 14,
+				"complexity": 0.6,
+				"seed": 7,
+				"style": "neutral"
+			},
+			"stages": {
+				"seed": { "ms": 0.09, "heapMiB": 6.34, "rssMiB": 61.71 },
+				"terrain": { "ms": 55.62, "heapMiB": 8.41, "rssMiB": 80.46 },
+				"plan": { "ms": 1647.31, "heapMiB": 60.71, "rssMiB": 205.44 },
+				"parcels": { "ms": 131.75, "heapMiB": 55.42, "rssMiB": 235.19 },
+				"houses": { "ms": 2162.5, "heapMiB": 121.76, "rssMiB": 343.39 },
+				"movement": { "ms": 154.58, "heapMiB": 121.76, "rssMiB": 355.83 },
+				"groundDrawables": { "ms": 654.45, "heapMiB": 179.99, "rssMiB": 468.24 },
+				"salience": { "ms": 21.83, "heapMiB": 179.99, "rssMiB": 468.74 },
+				"plain": { "ms": 3174.68, "heapMiB": 188.15, "rssMiB": 497.51 },
+				"salient": { "ms": 3582.79, "heapMiB": 202.47, "rssMiB": 520.73 },
+				"lattice": { "ms": 29.48, "heapMiB": 202.47, "rssMiB": 523.48 }
+			},
+			"counts": {
+				"cells": 368,
+				"parcels": 2208,
+				"privateParcels": 2198,
+				"sampledBlocks": 337,
+				"houses": 2169,
+				"movementNodes": 4872,
+				"movementEdges": 5220,
+				"latticeNodes": 1630,
+				"latticeMembers": 4113,
+				"background": 7,
+				"plain": 4793,
+				"salient": 6036,
+				"detailedHouses": 48
+			},
+			"totalMs": 11615.08,
+			"peakRssMiB": 523.48
+		},
+		"largest": {
+			"sizeM": 7000,
+			"seed": 1201,
+			"variant": "organic",
+			"houseInputs": {
+				"width": 28,
+				"height": 14,
+				"complexity": 0.6,
+				"seed": 7,
+				"style": "neutral"
+			},
+			"stages": {
+				"seed": { "ms": 0.1, "heapMiB": 6.33, "rssMiB": 61.55 },
+				"terrain": { "ms": 54.43, "heapMiB": 8.41, "rssMiB": 81.55 },
+				"plan": { "ms": 1621.54, "heapMiB": 64.38, "rssMiB": 214.96 },
+				"parcels": { "ms": 1234.65, "heapMiB": 161.46, "rssMiB": 397.66 },
+				"houses": { "ms": 1370.2, "heapMiB": 227.3, "rssMiB": 575.43 },
+				"movement": { "ms": 11446.24, "heapMiB": 388.48, "rssMiB": 744.99 },
+				"groundDrawables": { "ms": 2408.24, "heapMiB": 527.91, "rssMiB": 1189.08 },
+				"salience": { "ms": 19.3, "heapMiB": 527.91, "rssMiB": 1189.83 },
+				"plain": { "ms": 2531.06, "heapMiB": 543.83, "rssMiB": 1282.79 },
+				"salient": { "ms": 2821.95, "heapMiB": 547.97, "rssMiB": 1294.79 },
+				"lattice": { "ms": 257.9, "heapMiB": 547.97, "rssMiB": 1295.01 }
+			},
+			"counts": {
+				"cells": 2508,
+				"parcels": 26181,
+				"privateParcels": 26165,
+				"sampledBlocks": 200,
+				"houses": 2183,
+				"movementNodes": 55075,
+				"movementEdges": 57548,
+				"latticeNodes": 12604,
+				"latticeMembers": 33869,
+				"background": 7,
+				"plain": 4558,
+				"salient": 5364,
+				"detailedHouses": 48
+			},
+			"totalMs": 23765.61,
+			"peakRssMiB": 1297.25
+		}
+	},
+	"browser": {
+		"environment": {
+			"browser": "Chrome 157.0.8103.78",
+			"backend": "WebGPU / Dawn / Vulkan",
+			"driver": {
+				"vendorId": 4098,
+				"deviceId": 5710,
+				"vendorString": "Google Inc. (AMD)",
+				"deviceString": "ANGLE (AMD, Vulkan 1.4.335 (AMD Radeon 610M (RADV RAPHAEL_MENDOCINO) (0x0000164E)), radv-26.0.8)",
+				"driverVendor": "AMD",
+				"driverVersion": "26.0.8"
+			},
+			"renderDevice": "/dev/dri/renderD128",
+			"vulkanDriverFiles": "/usr/share/vulkan/icd.d/radeon_icd.json",
+			"args": [
+				"--use-angle=vulkan",
+				"--use-vulkan=native",
+				"--enable-features=Vulkan",
+				"--enable-unsafe-webgpu",
+				"--ignore-gpu-blocklist"
+			],
+			"viewport": { "width": 1366, "height": 900 },
+			"deviceScaleFactor": 1
+		},
+		"city": { "adapter": "amd rdna-2", "firstFrameMs": 3505.9 },
+		"architectureTown": { "adapter": "amd rdna-2", "firstFrameMs": 3166.7 },
+		"architecture": {
+			"route": "/architecture?sheet=town&block=all",
+			"adapter": "amd rdna-2",
+			"firstFrameMs": 10804.5,
+			"samples": 20,
+			"frameMs": { "p50": 17.9, "p95": 47, "p99": 47 },
+			"cpuMs": { "p50": 2.4, "p95": 4.5, "p99": 4.7 },
+			"drawCalls": 205,
+			"heapMiB": 236.46,
+			"peakRssMiB": 1775.5
+		},
+		"sandbox": {
+			"adapter": "amd rdna-2",
+			"firstFrameMs": 2127.3,
+			"pan": {
+				"samples": 20,
+				"frameMs": { "p50": 16.7, "p95": 17, "p99": 17 },
+				"cpuMs": { "p50": 0.4, "p95": 0.6, "p99": 0.7 }
+			},
+			"zoom": {
+				"samples": 21,
+				"frameMs": { "p50": 33.4, "p95": 34, "p99": 34 },
+				"cpuMs": { "p50": 0.4, "p95": 0.7, "p99": 0.7 }
+			},
+			"hover": {
+				"samples": 20,
+				"frameMs": { "p50": 16.7, "p95": 17, "p99": 17 },
+				"cpuMs": { "p50": 0.6, "p95": 1, "p99": 1.2 }
+			},
+			"paint": {
+				"samples": 33,
+				"frameMs": { "p50": 33.3, "p95": 71.2, "p99": 126.6 },
+				"cpuMs": { "p50": 0.9, "p95": 1.6, "p99": 16.5 },
+				"wallMs": 1248.3,
+				"parcels": 30,
+				"tilePacks": 40,
+				"drawCalls": 18,
+				"heapMiB": 79.79
+			},
+			"undo": { "wallMs": 45.6 },
+			"peakRssMiB": 1112.71
+		},
+		"loads": [
+			{
+				"adapter": "amd rdna-2",
+				"firstFrameMs": 2198.9,
+				"houses": 300,
+				"wallMs": 1133.8,
+				"drawCalls": 21,
+				"tilePacks": 42,
+				"heapMiB": 116.76,
+				"peakRssMiB": 1160.98
+			},
+			{
+				"adapter": "amd rdna-2",
+				"firstFrameMs": 2130.1,
+				"houses": 2198,
+				"wallMs": 4726.7,
+				"drawCalls": 41,
+				"tilePacks": 199,
+				"heapMiB": 264.89,
+				"peakRssMiB": 1382.73
+			}
+		]
+	}
+}
