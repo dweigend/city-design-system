@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planeElevation, planeIndex, type columnPlanes, type CornerReader } from './foundation';
-import type { Column } from './bay-addresses';
+import type { Column, LatticePoint } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';
 
 /** What a level plane holds: the plan corners, the cell centres (the dual), the edge midpoints
@@ -13,20 +13,25 @@ export type PlaneRule = Readonly<{
 	plane: (level: number, aboveBase: number) => PlaneKind;
 }>;
 
-export type Joint = Readonly<{
-	id: string;
-	position: Vec3;
-	level: number;
-	plane?: number;
-	corner?: Corner;
-}>;
+export type Joint = LatticePoint &
+	Readonly<{
+		level: number;
+		plane?: number;
+		corner?: Corner;
+	}>;
 /** Occupied span and foundation cap of each column on the shared planes. */
 export type ColumnBands = (id: string) => ReturnType<typeof columnPlanes>;
 type Corner = Column['corners'][number];
 /** Joint factory of one lattice: every joint is created once and keyed by plan address and level. */
 export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: CornerReader['read']) {
 	const joints = new Map<string, Joint>();
-	const at = (id: string, level: number, position: () => Vec3, corner?: Corner) => {
+	const at = (
+		id: string,
+		level: number,
+		position: () => Vec3,
+		corner?: Corner,
+		groundContact?: true
+	) => {
 		let joint = joints.get(id);
 		if (!joint) {
 			const point = Object.freeze(position());
@@ -36,6 +41,7 @@ export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: Cor
 				level,
 				plane: Number.isSafeInteger(index) ? index : undefined,
 				corner,
+				...(groundContact && { groundContact }),
 				position: point
 			});
 			joints.set(id, joint);
@@ -46,7 +52,7 @@ export function jointsOf(topology: PlanTopology, datumZ: number, readCorner: Cor
 	return {
 		corner(corner: Corner, level: number) {
 			const { point, level: index } = readCorner(corner, level);
-			return at(point.id, index, () => point.position, corner);
+			return at(point.id, index, () => point.position, corner, point.groundContact);
 		},
 		centre(cell: string, level: number) {
 			return at(`cell/${cell}/level/${level}`, level, () => {

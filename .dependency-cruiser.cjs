@@ -8,6 +8,9 @@ const configOwners = {
 	'core/params': 'inputs',
 	'core/object': 'object',
 	'domain/river-metrics': 'river-metrics',
+	'domain/structure': 'structure',
+	'world/city-structure': 'city-structure',
+	'scene/structure-projection': 'structure-projection',
 	'domain/valley': 'hydrology',
 	'world/city-site': 'lanes|parcels',
 	'world/valley-protocol': 'valley-measurement'
