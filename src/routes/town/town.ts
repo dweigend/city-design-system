@@ -34,8 +34,8 @@ const policy = {
 		town: 'full',
 		plan: 'hidden',
 		houses: 'full',
-		paths: 'transparent',
-		structure: 'transparent'
+		paths: 'silhouette',
+		structure: 'silhouette'
 	},
 	walkways: { town: 'full', plan: 'hidden', houses: 'hidden', paths: 'full', structure: 'hidden' },
 	transit: { town: 'full', plan: 'hidden', houses: 'hidden', paths: 'full', structure: 'hidden' },
@@ -145,10 +145,11 @@ export function createTownReview() {
 	};
 }
 
-/** Hidden parts stay built and invisible; transparent houses take the pale stock look (MAT-15). */
+/** Hidden parts stay built and invisible. Context houses take their display level's mass look:
+ * a silhouette is a plain neutral box (COLOR-6), opaque so the stage keeps it in its batches. */
 function style(part: Drawable, level: DisplayLevel): Drawable {
 	if (level === 'hidden') return { ...part, visible: false };
-	if (level !== 'transparent') return { ...part, visible: true };
-	const { surfaces, fillAlpha } = houseLevels.transparent;
-	return { ...part, ...surfaces.mass, fillAlpha, occlude: true, visible: true };
+	if (level === 'full') return { ...part, visible: true };
+	const { surfaces, fillAlpha } = houseLevels[level];
+	return { ...part, ...surfaces.mass, fillAlpha, visible: true };
 }

@@ -21,7 +21,7 @@
 	const relief = valleyParams.relief.default;
 	const format = new Intl.NumberFormat('en', { maximumFractionDigits: 1 });
 	const views = [
-		{ value: 'iso', label: 'Iso' },
+		{ value: 'iso', label: '3D' },
 		{ value: 'plan', label: 'Plan' }
 	];
 	const focusItems = townFocus.choices.map((value) => ({
