@@ -17,6 +17,7 @@ const boxQuads = [
 // Exact arithmetic: eight corners per box.
 const boxCorners = 8;
 
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function corners({ center: [cx, cy, cz], size: [sx, sy, sz], rotation }: Box): number[] {
 	const [cos, sin] = [Math.cos(rotation), Math.sin(rotation)];
 	const positions: number[] = [];

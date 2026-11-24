@@ -55,6 +55,7 @@ function refine(quads: readonly KeyedRing[], rounds: number): readonly KeyedRing
 	return cells;
 }
 
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function validate({ corners, frontage, storeyCount }: Parcel) {
 	if (corners.length < 3) throw new RangeError('A parcel needs at least three corners');
 	if (new Set(corners.map(({ id }) => id)).size !== corners.length)
@@ -99,7 +100,7 @@ export function createCellSpace(
 				Object.freeze({
 					id: cell.id,
 					parent,
-					quad: Object.freeze(cell.points.map((point) => Object.freeze([...point]) as Vec2)),
+					quad: Object.freeze(cell.points.map(([x, y]) => Object.freeze<Vec2>([x, y]))),
 					sides: Object.freeze(sides[i].map((side) => Object.freeze({ ...side })))
 				})
 			)
@@ -113,6 +114,7 @@ export function cellAreaM2(cell: FineCell): number {
 }
 
 /** Vertex average of a fine cell in plan meters. */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function cellCentre({ quad }: FineCell): Vec2 {
 	const [x, y] = quad.reduce(([sx, sy], [px, py]) => [sx + px, sy + py], [0, 0]);
 	return [x / quad.length, y / quad.length];

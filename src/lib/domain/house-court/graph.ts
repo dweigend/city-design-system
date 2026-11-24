@@ -2,6 +2,7 @@ import type { Vec2 } from '../../core/geometry';
 import { cellCentre, type CellSpace, type FineCell } from '../cell-space';
 
 /** Breadth-first hop counts from the seed cells across shared sides, in cell order. */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function hops(space: CellSpace, seeds: readonly string[]): ReadonlyMap<string, number> {
 	const byId = new Map(space.cells.map((cell) => [cell.id, cell]));
 	const result = new Map(seeds.map((id) => [id, 0]));
@@ -54,6 +55,7 @@ export function frontageDistance(cell: FineCell, segments: readonly (readonly [V
 }
 
 /** Average of the frontage side midpoints, the point the entrance seeks. */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function frontageCentre(segments: readonly (readonly [Vec2, Vec2])[]): Vec2 {
 	const [x, y] = segments.reduce(
 		([sx, sy], [[ax, ay], [bx, by]]) => [sx + (ax + bx) / 2, sy + (ay + by) / 2],

@@ -48,6 +48,7 @@ function courtEntry(ctx: Context, house: HouseCourt): Vec2 | undefined {
 	return last && index >= 0 ? side(last.quad, index).at(1 / 2, 0) : undefined;
 }
 
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function anchors(ctx: Context, house: HouseCourt): Anchor[] {
 	const entry = entrancePoint(ctx, house);
 	const courtCells = ctx.space.cells.filter(({ id }) => ctx.occupancy.get(id)?.role === 'court');

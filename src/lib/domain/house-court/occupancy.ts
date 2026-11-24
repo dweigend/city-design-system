@@ -94,6 +94,19 @@ function entrancePath(space: CellSpace, court: readonly string[]): readonly stri
 	return path;
 }
 
+function shapeInputs({ height, width, complexity }: HouseInputs) {
+	const entries = Object.entries({ height, width, complexity }).filter(
+		([, value]) => value !== undefined
+	);
+	return Object.fromEntries(entries) as Partial<Record<'height' | 'width' | 'complexity', number>>;
+}
+
+function neighboursIn(space: Map<string, FineCell>, id: string, court: ReadonlySet<string>) {
+	return (space.get(id)?.sides ?? []).flatMap(({ neighbour }) =>
+		neighbour && court.has(neighbour) ? [neighbour] : []
+	);
+}
+
 function components(space: CellSpace, court: ReadonlySet<string>): string[][] {
 	const byId = new Map(space.cells.map((cell) => [cell.id, cell]));
 	const seen = new Set<string>();
@@ -103,8 +116,8 @@ function components(space: CellSpace, court: ReadonlySet<string>): string[][] {
 		const group = [id];
 		seen.add(id);
 		for (let k = 0; k < group.length; k += 1)
-			for (const { neighbour } of byId.get(group[k])?.sides ?? [])
-				if (neighbour && court.has(neighbour) && !seen.has(neighbour)) {
+			for (const neighbour of neighboursIn(byId, group[k], court))
+				if (!seen.has(neighbour)) {
 					seen.add(neighbour);
 					group.push(neighbour);
 				}
@@ -113,6 +126,7 @@ function components(space: CellSpace, court: ReadonlySet<string>): string[][] {
 	return groups;
 }
 
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function carve(plan: Plan, path: readonly string[]) {
 	for (const id of path) {
 		const cell = plan.get(id);
@@ -131,13 +145,10 @@ function carve(plan: Plan, path: readonly string[]) {
  * steps court-facing cells down and lets seeded cells rise or fall one storey. The shortest path
  * from the frontage to each connected part of the court opens a ground-storey gate. Built cells grow monotonically with
  * width and every cell's storeys with height. Deterministic for equal inputs. */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function createHouseCourt(space: CellSpace, inputs: HouseInputs): HouseCourt {
 	const random = Random.create({ seed: inputs.seed });
-	const { height, width, complexity } = resolveParams(blockInputs, {
-		...(inputs.height === undefined ? {} : { height: inputs.height }),
-		...(inputs.width === undefined ? {} : { width: inputs.width }),
-		...(inputs.complexity === undefined ? {} : { complexity: inputs.complexity })
-	});
+	const { height, width, complexity } = resolveParams(blockInputs, shapeInputs(inputs));
 	const segments = frontageSegments(space);
 	if (!segments.length) throw new RangeError('A house needs at least one frontage side');
 	const depth = boundaryDepth(space);

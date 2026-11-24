@@ -8,6 +8,7 @@ const { pencilHatch, veilAlpha } = defaults;
 
 /** The drawing of a house at each display level of COLOR-6: which object detail it reads and how
  * the slots look. `hidden` draws nothing. */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export const houseLevels = Object.freeze({
 	full: { detail: 'full', surfaces: fullSurfaces, hatch: 0, fillAlpha: 1 },
 	silhouette: { detail: 'block', surfaces: blockSurfaces, hatch: 0, fillAlpha: 1 },

@@ -67,6 +67,7 @@ export function galleries(context: Context, sides: readonly CourtSide[]): Part[]
 
 /** One straight stair from the court floor to the first gallery, beside the court side nearest
  * the entrance point, as one stepped mesh part. */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function stair(
 	context: Context,
 	sides: readonly CourtSide[],

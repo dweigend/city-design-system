@@ -61,7 +61,7 @@ function context(bay: CityColumn, columns: readonly CityColumn[]) {
 	});
 }
 
-/** The house rule on one bay of the default town, ringed by its neighbour columns in pencil. */
+/** The house rule on one bay of the default town, ringed by its neighbour columns as see-through stock. */
 export function townSheet(inputs: HouseInputs): { drawables: Drawable[]; bayId: string } {
 	const { bay, edge, columns } = chooseBay();
 	const { space, house } = createBayHouse(bay, [edge], inputs);
@@ -71,7 +71,7 @@ export function townSheet(inputs: HouseInputs): { drawables: Drawable[]; bayId: 
 	return {
 		bayId: bay.planCellId,
 		drawables: [
-			...projectHouse(local(context(bay, columns)), 'pencil').map((d) => ({
+			...projectHouse(local(context(bay, columns)), 'transparent').map((d) => ({
 				...d,
 				id: `context/${d.id}`
 			})),

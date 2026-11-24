@@ -5,6 +5,7 @@ export type KeyedRing = Readonly<{ id: string; keys: readonly string[]; points: 
 
 const midpoint = ([ax, ay]: Vec2, [bx, by]: Vec2): Vec2 => [(ax + bx) / 2, (ay + by) / 2];
 
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function vertexAverage(points: readonly Vec2[]): Vec2 {
 	const [x, y] = points.reduce(([sx, sy], [px, py]) => [sx + px, sy + py], [0, 0]);
 	return [x / points.length, y / points.length];
@@ -46,6 +47,7 @@ function earAt(points: readonly Vec2[], order: readonly number[], at: number): b
 
 /** Splits a counterclockwise ring into convex parts: itself when convex, otherwise ear triangles
  * clipped at the lowest remaining corner index that forms an ear (stable ties). */
+// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function convexParts(ring: KeyedRing): readonly KeyedRing[] {
 	if (convex(ring.points)) return [ring];
 	const order = ring.keys.map((_, i) => i);
