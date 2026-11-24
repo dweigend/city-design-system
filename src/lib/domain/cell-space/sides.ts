@@ -11,7 +11,7 @@ export type CellSide = Readonly<{
 }>;
 
 const sideKey = (ring: KeyedRing, i: number) =>
-	[ring.keys[i], ring.keys[(i + 1) % ring.keys.length]].sort().join('|');
+	JSON.stringify([ring.keys[i], ring.keys[(i + 1) % ring.keys.length]].sort());
 
 /** Resolves every side to the cell naming the same side or the parcel edge it was split from.
  * Sides are matched by their symbolic point keys, never by coordinates. A side matching neither,

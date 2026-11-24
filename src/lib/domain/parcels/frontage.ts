@@ -1,7 +1,13 @@
 import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { edgeFrame, lineHits } from './geometry';
 import { frontageContacts, type Frontage } from './reserve';
-import type { HoldingRule, Parcel, ParcelPortal, ParcelTolerance, PlanPolygon } from './types';
+import type {
+	HoldingRule,
+	AddressedParcel,
+	ParcelPortal,
+	ParcelTolerance,
+	PlanPolygon
+} from './types';
 
 type Contact = ReturnType<typeof frontageContacts>[number];
 type Ring = readonly Vec2[];
@@ -20,7 +26,9 @@ export function eligibleContacts(
 		({ lengthM }) => lengthM >= minimumM
 	);
 	const byAddress = (a: Contact, b: Contact) =>
-		(a.laneId < b.laneId ? -1 : Number(a.laneId > b.laneId)) || a.edgeIndex - b.edgeIndex;
+		(a.laneId < b.laneId ? -1 : Number(a.laneId > b.laneId)) ||
+		a.points[0][0] - b.points[0][0] ||
+		a.points[0][1] - b.points[0][1];
 	contacts.sort((a, b) => b.lengthM - a.lengthM || byAddress(a, b));
 	const [first, ...rest] = contacts;
 	return first ? [first, ...rest.sort(byAddress)] : [];
@@ -86,7 +94,7 @@ export function partitionFrontage(
 	block: { id: string; plannedKind: string },
 	component: number
 ) {
-	const parcels: Parcel[] = [];
+	const parcels: AddressedParcel[] = [];
 	const portals: ParcelPortal[] = [];
 	const contacts = (ring: Ring) =>
 		eligibleContacts(ring, frontage, rule.minimumFrontageM, tolerance.linearToleranceM);
@@ -114,8 +122,27 @@ export function partitionFrontage(
 			}
 		}
 		const id = JSON.stringify([block.id, splitPath]);
-		const { laneId, points, lengthM: frontageM } = accessible[0];
+		const { laneId, points, lengthM: frontageM, edgeIndex } = accessible[0];
 		const portalId = JSON.stringify([id, laneId, 'frontage']);
+		// Relative to the addressed frontage, independent of the ring's starting vertex.
+		const corners = Object.freeze(
+			ring.map((position, index) =>
+				Object.freeze({
+					id:
+						'corner/' +
+						JSON.stringify([
+							portalId,
+							ring.length,
+							(index - edgeIndex + ring.length) % ring.length
+						]),
+					position
+				})
+			)
+		);
+		const side = Object.freeze([
+			corners[edgeIndex].id,
+			corners[(edgeIndex + 1) % ring.length].id
+		] as const);
 		parcels.push(
 			Object.freeze({
 				id,
@@ -124,11 +151,12 @@ export function partitionFrontage(
 				plannedKind: block.plannedKind,
 				publicUse: rule.publicUse ?? false,
 				outline: ring,
+				corners,
 				areaM2,
 				portalId
 			})
 		);
-		portals.push(Object.freeze({ id: portalId, parcelId: id, laneId, points, frontageM }));
+		portals.push(Object.freeze({ id: portalId, parcelId: id, laneId, points, frontageM, side }));
 	}
 	visit(polygon[0], areaM2, root, Object.freeze([component]));
 	return { parcels, portals };

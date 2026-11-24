@@ -43,7 +43,7 @@ export function groundLanes(site: CitySite, layout: CityGrid) {
 		)
 	);
 	const points = new Map(plan.vertices.map(({ id, position }) => [id, position]));
-	const crossings = selectedCrossings.map(({ heads: [first, last], path, span }, i) => {
+	const crossings = selectedCrossings.map(({ id, heads: [first, last], path, span }) => {
 		const from = node(first.nodeId);
 		const to = node(last.nodeId);
 		const via = span
@@ -65,7 +65,7 @@ export function groundLanes(site: CitySite, layout: CityGrid) {
 		return {
 			first: first.nodeId,
 			last: last.nodeId,
-			bridge: link('bridge/' + i, 'bridge', from, to, midpoints)
+			bridge: link('bridge/' + id, 'bridge', from, to, midpoints)
 		};
 	});
 	const links: Link[] = [...lanes, ...crossings.map(({ bridge }) => bridge)];

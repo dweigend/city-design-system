@@ -88,6 +88,9 @@ export type ParcelBlock = Readonly<{
 	}>;
 }>;
 
+/** A corner address and its current XY position in meters. */
+export type HoldingCorner = Readonly<{ id: string; position: Vec2 }>;
+
 /** A connected holding with an implicitly closed CCW outline and a permanent frontage portal. */
 export type Parcel = Readonly<{
 	id: string;
@@ -100,14 +103,19 @@ export type Parcel = Readonly<{
 	portalId: string;
 }>;
 
+/** A realized parcel with stable corner keys and its implicitly closed CCW ring. */
+export type AddressedParcel = Parcel & Readonly<{ corners: readonly HoldingCorner[] }>;
+
 /** Contiguous contact between a parcel and the public side of an addressed lane. */
 export type ParcelPortal = Readonly<{
 	id: string;
 	parcelId: string;
+	/** Supporting parcel side, from start to end in CCW ring order. */
+	side: readonly [string, string];
 	laneId: string;
 	points: readonly [Vec2, Vec2];
 	frontageM: number;
 }>;
 
 /** An entrance where a public court passage meets an addressed lane. */
-export type CourtEntrance = Omit<ParcelPortal, 'parcelId'> & Readonly<{ blockId: string }>;
+export type CourtEntrance = Omit<ParcelPortal, 'parcelId' | 'side'> & Readonly<{ blockId: string }>;

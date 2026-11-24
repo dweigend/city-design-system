@@ -4,7 +4,7 @@ import { polygonArea } from './geometry';
 import type { Frontage } from './reserve';
 import type {
 	HoldingRule,
-	Parcel,
+	AddressedParcel,
 	ParcelBlock,
 	ParcelPortal,
 	ParcelTolerance,
@@ -34,7 +34,7 @@ export function realizeHoldings(
 	const land = court?.land ?? block.netGround;
 	const parcelableGround: PlanPolygon[] = [];
 	const openGround: PlanPolygon[] = [];
-	const parcels: Parcel[] = [];
+	const parcels: AddressedParcel[] = [];
 	const portals: ParcelPortal[] = [];
 	for (const [component, polygon] of land.entries()) {
 		const split = partitionFrontage(polygon, frontage, rule, tolerance, block, component);

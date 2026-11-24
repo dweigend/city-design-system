@@ -13,7 +13,7 @@ export type KeyedRing = Readonly<{
 }>;
 
 const midpoint = ([ax, ay]: Vec2, [bx, by]: Vec2): Vec2 => [(ax + bx) / 2, (ay + by) / 2];
-const midpointKey = (a: string, b: string) => `m(${[a, b].sort().join('|')})`;
+const midpointKey = (a: string, b: string) => `m/${JSON.stringify([a, b].sort())}`;
 
 // Exact arithmetic: vertex average of a ring.
 function vertexAverage(points: readonly Vec2[]): Vec2 {

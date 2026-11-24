@@ -48,16 +48,17 @@ function planCells(plan: TerrainGrid): PlanCell[] {
 }
 
 /** Orders cells from the core outward and records the area share up to each cell's middle. */
-function rankCells(cells: readonly PlanCell[], rank: (cell: PlanCell) => number): Ranked[] {
-	const total = cells.reduce((sum, { area }) => sum + area, 0);
+function rankCells(cells: readonly PlanCell[], rank: (cell: PlanCell) => number) {
 	const ordered = cells
 		.map((cell) => ({ cell, rank: rank(cell) }))
 		.sort((a, b) => a.rank - b.rank || (a.cell.id < b.cell.id ? -1 : 1));
+	const total = ordered.reduce((sum, { cell }) => sum + cell.area, 0);
 	let cumulative = 0;
-	return ordered.map(({ cell, rank }) => {
+	const ranked: Ranked[] = ordered.map(({ cell, rank }) => {
 		cumulative += cell.area;
 		return { ...cell, rank, share: (cumulative - cell.area / 2) / total };
 	});
+	return { ranked, total };
 }
 
 /** A bell over the center: full height at its heart, the podium at its rim. Seeded tower noise
@@ -188,12 +189,12 @@ export function seedDistricts(
 ): DistrictPlan {
 	const random = Random.create({ seed }).derive('city-districts');
 	const cells = planCells(plan);
-	const areaKm2 = cells.reduce((sum, { area }) => sum + area, 0) / 1e6;
 	const fallback = districtRank(core, random.derive('rank'), complexity);
 	const ranks = growth && new Map(growth.rankedCellIds.map((id, rank) => [id, rank]));
-	const ranked = rankCells(cells, ({ id, centroid }) =>
+	const { ranked, total } = rankCells(cells, ({ id, centroid }) =>
 		ranks ? required(ranks.get(id), 'growth rank') : fallback(centroid)
 	);
+	const areaKm2 = total / 1e6;
 	const kinds = assignKinds(ranked, areaKm2);
 	const peak = Math.min(peakLevels(areaKm2), capLevels);
 	const levels = assignLevels(ranked, kinds, areaKm2, peak, random.derive('towers'), complexity);
@@ -212,9 +213,8 @@ export function seedDistricts(
 			})
 		])
 	);
-	const total = areaKm2 * 1e6;
 	const shares: Record<DistrictKind, number> = { detached: 0, block: 0, center: 0 };
-	for (const { id, area } of cells)
+	for (const { id, area } of ranked)
 		shares[required(kinds.get(id), 'district kind')] += area / total;
 	return Object.freeze({
 		settlement: settlementOf(areaKm2),

@@ -53,32 +53,36 @@ export function connectLane(
 		level: 'ground',
 		position: [px, py, site.sampleGround(px, py).height]
 	});
-	for (const portal of portals) {
+	const contacts = portals.flatMap((portal) => {
 		const midpoint = frontageMidpoint(portal);
 		const t = laneParameter(midpoint, lane);
 		const xy: Vec2 = [x + (u - x) * t, y + (v - y) * t];
-		if (!frontageClear(midpoint, xy)) continue;
-		const tap = stops.get(t) ?? ground('lane-tap/' + id + '/' + t, xy);
-		const entry = ground(portal.id, midpoint);
-		const via = drape(tap.position, entry.position, site);
-		// A frontage can meet the lane centerline at its endpoint.
-		if (tap.position.every((value, i) => value === entry.position[i])) {
-			stops.set(t, tap);
-			nodes.set(tap.id, tap);
-			portalNodeIds.set(portal.id, tap.id);
-			continue;
-		}
+		return frontageClear(midpoint, xy) ? [{ portal, midpoint, t, xy }] : [];
+	});
+	for (const [t, group] of Map.groupBy(contacts, ({ t }) => t)) {
+		const incident = group.map(({ portal }) => portal.id).sort();
+		const tap = stops.get(t) ?? ground('lane-tap/' + JSON.stringify([id, incident]), group[0].xy);
 		stops.set(t, tap);
 		nodes.set(tap.id, tap);
-		nodes.set(entry.id, entry);
-		portalNodeIds.set(portal.id, entry.id);
-		links.push(link('access/' + portal.id, 'lane', tap, entry, via));
+		for (const { portal, midpoint } of group) {
+			const entry = ground(portal.id, midpoint);
+			// A frontage can meet the lane centerline directly.
+			if (tap.position.every((value, i) => value === entry.position[i])) {
+				portalNodeIds.set(portal.id, tap.id);
+				continue;
+			}
+			nodes.set(entry.id, entry);
+			portalNodeIds.set(portal.id, entry.id);
+			links.push(
+				link('access/' + portal.id, 'lane', tap, entry, drape(tap.position, entry.position, site))
+			);
+		}
 	}
 	const ordered = [...stops].sort(([a], [b]) => a - b);
 	for (let i = 1; i < ordered.length; i++) {
-		const [t, a] = ordered[i - 1];
-		const [end, b] = ordered[i];
-		const key = 'lane/' + id + '/' + t + '/' + end;
+		const [, a] = ordered[i - 1];
+		const [, b] = ordered[i];
+		const key = 'lane/' + JSON.stringify([id, a.id, b.id]);
 		links.push(
 			link(key, 'lane', a, b, drape(a.position, b.position, site), undefined, {
 				widthM,

@@ -93,3 +93,27 @@ test('each Town parcel takes an addressed house, including merged halls with sub
 		}
 	}
 });
+
+test('rotating the keyed parcel ring preserves its portal, strip IDs and occupancy', () => {
+	const town = createTownHouseStudy();
+	const parcel = town.parcelsByBlock.get(town.blocks.block.id)?.[0];
+	const site = parcel && town.readParcelSite(parcel.id);
+	if (!site) throw new Error('Expected a private Town parcel');
+	const shift = <T>(ring: readonly T[]) => [...ring.slice(1), ring[0]];
+	const inputs = { seed: 1201, height: 14, width: 28, complexity: 0.4 };
+	const original = createParcelHouse(site, inputs);
+	const rotated = createParcelHouse(
+		{
+			...site,
+			parcel: {
+				...site.parcel,
+				outline: shift(site.parcel.outline),
+				corners: shift(site.parcel.corners)
+			}
+		},
+		inputs
+	);
+	if (original.status !== 'placed' || rotated.status !== 'placed') throw Error('Expected a house');
+	expect(rotated.space.cells).toEqual(original.space.cells);
+	expect(rotated.house).toEqual(original.house);
+});
