@@ -1,5 +1,5 @@
 /** Module: Indexes a weighted movement graph for route queries. */
-import type { Vec3 } from '../../core/geometry';
+import { isFiniteVector, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { shortest } from './route';
 
@@ -18,9 +18,10 @@ function index<T extends { id: string }>(items: readonly T[]) {
 	return byId;
 }
 
+// Exact arithmetic: movement positions are XYZ triples.
 function position(point: Vec3): Vec3 {
-	if (!point.every(Number.isFinite)) throw new RangeError('Invalid movement position');
-	return Object.freeze([...point] as Vec3);
+	if (!isFiniteVector(point, 3)) throw new RangeError('Invalid movement XYZ position');
+	return Object.freeze<Vec3>([point[0], point[1], point[2]]);
 }
 
 function measure(points: readonly Vec3[]) {

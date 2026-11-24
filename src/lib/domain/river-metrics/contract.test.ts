@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { clipPolylineToSquare, measureRiver, sinuosity } from './index';
+import { clipPolylineToSquare, measureRiver, measureRiverSurface, sinuosity } from './index';
 
 test('clips a straight line to its two interpolated border points', () => {
 	const input = new Float64Array([-4, -2, 4, 2]);
@@ -73,4 +73,87 @@ test('reports metric lengths, widths and wavelength for an independent repeating
 	expect(result.wavelengthToWidth).toBeCloseTo(2 * Math.SQRT2);
 	expect(measureRiver({ ...river, xy: [0, 0, 6, 0] }).wavelength).toBeNull();
 	expect(xy).toEqual([0, 0, 1, -1, 2, 0, 3, 1, 4, 0, 5, -1, 6, 0]);
+});
+
+const surfaceGrid = {
+	windowM: 2,
+	spacingM: 1,
+	bedMm: Array<number>(9).fill(1000),
+	meanWaterMm: Array<number>(9).fill(0)
+};
+const surfaceCourse = [-1, 0, 1, 0] as const;
+const surfaceProtocol = {
+	reliefCoreM: 2,
+	surfaceSpacingM: 1,
+	smoothingSigmaM: 1,
+	gaussianTruncateSigma: 2,
+	profileSpacingM: 1,
+	profileHalfLengthM: 1,
+	stationOffsetM: 0,
+	stationTangentHalfLengthM: 1,
+	stepMinimumSlope: 0.2,
+	stepMinimumGainM: 1,
+	landSlopeClassLimits: [0.1, 0.2, 0.4]
+} as const;
+
+test.each([
+	['bedMm', NaN],
+	['meanWaterMm', Infinity],
+	['floor', undefined]
+] as const)('identifies the invalid %s raster sample', (field, invalid) => {
+	const raster = Array<number>(9).fill(0);
+	if (invalid === undefined) delete raster[4];
+	else raster[4] = invalid;
+	expect(() =>
+		measureRiverSurface({ ...surfaceGrid, [field]: raster }, surfaceCourse, surfaceProtocol)
+	).toThrow(field + '[4]');
+});
+
+test.each([
+	['surfaceSpacingM', NaN],
+	['profileSpacingM', Infinity],
+	['stationTangentHalfLengthM', Infinity]
+] as const)('rejects an invalid %s before measuring', (field, invalid) => {
+	expect(() =>
+		measureRiverSurface(surfaceGrid, surfaceCourse, { ...surfaceProtocol, [field]: invalid })
+	).toThrow(field);
+});
+
+test.each([
+	[0.2, 0.1, 0.4],
+	[0.1, 0.2, Infinity]
+] as const)('rejects slope limits %j before classifying land', (a, b, c) => {
+	expect(() =>
+		measureRiverSurface(surfaceGrid, surfaceCourse, {
+			...surfaceProtocol,
+			landSlopeClassLimits: [a, b, c]
+		})
+	).toThrow('landSlopeClassLimits');
+});
+
+test('classifies a flat dry raster entirely in the lowest slope band', () => {
+	expect(measureRiverSurface(surfaceGrid, surfaceCourse, surfaceProtocol)).toMatchObject({
+		reliefM: 0,
+		landSlopeShares: [1, 0, 0, 0]
+	});
+});
+
+test('rejects station offsets whose increment stalls or whose count is unrepresentable', () => {
+	for (const profileSpacingM of [Number.MIN_VALUE, 2 ** -40]) {
+		expect(() =>
+			measureRiverSurface(surfaceGrid, surfaceCourse, {
+				...surfaceProtocol,
+				stationOffsetM: 1,
+				profileSpacingM
+			})
+		).toThrow('profileSpacingM');
+	}
+});
+
+test('rejects profile offsets whose increment stalls or whose count is unrepresentable', () => {
+	for (const profileHalfLengthM of [2 ** 54, 2 ** 32]) {
+		expect(() =>
+			measureRiverSurface(surfaceGrid, surfaceCourse, { ...surfaceProtocol, profileHalfLengthM })
+		).toThrow('profileHalfLengthM');
+	}
 });

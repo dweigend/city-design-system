@@ -1,12 +1,11 @@
 import {
-	modelGrain,
-	pencilStroke,
 	readFamily,
 	readLevelDetail,
 	type CladObject,
 	type Family,
 	type FamilySlot
-} from '../material';
+} from '../../domain/material';
+import { modelGrain, pencilStroke } from '../material';
 import { resolveSurfaces, type Drawable, type Surface, type SurfaceAssignment } from './surfaces';
 
 /** The two surface displays: authored material colours, or the grey see-through bodies of the

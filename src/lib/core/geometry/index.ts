@@ -8,6 +8,14 @@ export type Vec2 = readonly [x: number, y: number];
 /** Three-dimensional world point or vector in the same coordinate system as Vec2. */
 export type Vec3 = readonly [x: number, y: number, z: number];
 
+/** Checks the exact arity and finite components of a dense coordinate tuple. */
+export function isFiniteVector(value: unknown, arity: 2 | 3): boolean {
+	if (!Array.isArray(value) || value.length !== arity) return false;
+	for (let i = 0; i < arity; i++)
+		if (!Object.hasOwn(value, i) || !Number.isFinite(value[i])) return false;
+	return true;
+}
+
 /** Inclusive axis-aligned world bounds in meters, with min at or below max on each axis. */
 export type Bounds3 = { readonly min: Vec3; readonly max: Vec3 };
 

@@ -99,3 +99,16 @@ test('keeps rounded uniform results below the excluded upper endpoint', () => {
 		true
 	);
 });
+
+test('sampling rejects holes before drawing, including inherited indices', () => {
+	const random = Random.create({ seed: 7 });
+	const state = random.state;
+	const sparse = ['first', 'middle', 'third'];
+	delete sparse[1];
+	for (const list of [sparse, Object.setPrototypeOf(sparse.slice(), { 1: 'inherited' })]) {
+		expect(() => random.sample(list)).toThrow(TypeError);
+		expect(random.state).toEqual(state);
+	}
+	expect(random.sample([])).toEqual([]);
+	expect(random.state).toEqual(state);
+});

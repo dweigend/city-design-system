@@ -10,7 +10,7 @@
 		surfaceLevels,
 		type Family,
 		type SurfaceLevel
-	} from '../../lib/scene/material';
+	} from '../../lib/domain/material';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { existing, paintClad, type MaterialDisplay } from '../../lib/scene/surface';
 	import { Slider } from '../../lib/ui/slider';

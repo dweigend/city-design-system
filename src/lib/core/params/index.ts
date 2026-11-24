@@ -61,7 +61,8 @@ export function defineParams<const S extends ParameterSchema>(schema: S): Define
 
 /** Returns detached numbers in schema order and units, using defaults for omitted keys.
  * Clamps supplied values to inclusive bounds, then snaps to the nearest step from min
- * in floating-point arithmetic (ties toward max), capped at max. Inputs stay untouched.
+ * in floating-point arithmetic (ties toward max), capped at max. A supplied value equal to
+ * the declared default keeps that value so saved results replay exactly. Inputs stay untouched.
  * Unknown keys and non-numbers throw TypeError. Non-finite numbers throw RangeError.
  */
 export function resolveParams<const S extends ParameterSchema>(
@@ -78,6 +79,7 @@ export function resolveParams<const S extends ParameterSchema>(
 		const value = overrides[key];
 		if (typeof value !== 'number') throw new TypeError(`Parameter "${key}" must be numeric`);
 		if (!Number.isFinite(value)) throw new RangeError(`Parameter "${key}" must be finite`);
+		if (value === fallback) return [key, fallback];
 		const bounded = Math.max(min, Math.min(max, value));
 		const snapped = min + Math.round((bounded - min) / step) * step;
 		return [key, Math.min(max, snapped)];

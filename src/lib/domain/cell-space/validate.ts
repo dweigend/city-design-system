@@ -1,4 +1,5 @@
 import { defaults } from '../../../config/cell-space';
+import { isFiniteVector } from '../../core/geometry';
 import { doubleArea } from './split';
 import type { Parcel } from './types';
 
@@ -12,10 +13,10 @@ export class DegenerateParcelError extends RangeError {
 // Exact arithmetic: a ring needs three corners.
 function validateRing({ corners }: Parcel) {
 	if (corners.length < 3) throw new RangeError('A parcel needs at least three corners');
+	if (!Array.from(corners).every((corner) => isFiniteVector(corner?.position, 2)))
+		throw new RangeError('Parcel corners need finite plan positions');
 	if (new Set(corners.map(({ id }) => id)).size !== corners.length)
 		throw new RangeError('Parcel corner keys must be unique');
-	if (!corners.every(({ position }) => position.length === 2 && position.every(Number.isFinite)))
-		throw new RangeError('Parcel corners need finite plan positions');
 	const points = corners.map(({ position }) => position);
 	points.forEach(([ax, ay], i) => {
 		const [bx, by] = points[(i + 1) % points.length];
@@ -28,8 +29,9 @@ function validateRing({ corners }: Parcel) {
 	if (area < 0) throw new RangeError('Parcel corners must run counterclockwise');
 }
 
-/** Checks corners, frontage edge identities, storeys and the refinement rounds. */
+/** Checks corners, frontage edge identities, base elevation, storeys and refinement rounds. */
 export function validate(parcel: Parcel, rounds: number) {
+	if (!Number.isFinite(parcel.baseZ)) throw new RangeError('baseZ must be finite');
 	validateRing(parcel);
 	const { corners, frontage, storeyCount, storeyHeightM } = parcel;
 	const edges = new Set(

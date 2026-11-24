@@ -10,7 +10,7 @@ import {
 	type Patch,
 	type Rect,
 	type SurfaceOptions
-} from '../../lib/scene/material';
+} from '../../lib/domain/material';
 import { groundFamily } from './controls';
 
 type Wall = Readonly<{ origin: Vec3; across: Vec3; normal: Vec3; length: number; gable: boolean }>;

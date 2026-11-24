@@ -141,3 +141,75 @@ test('connects an inset court to a public lane with a three-meter passage', () =
 		expect(result.lanes.some(({ id }) => id === publicGround.entrance?.laneId)).toBe(true);
 	}
 });
+
+test('parcel policy is fixed before either of two blocks is read', () => {
+	const { grid, lanes, plannedKinds } = exampleGround();
+	const [first, second] = grid.cells.map(({ id }) => id);
+	const partition = { targetAreaM2: 1400, minimumAreaM2: 100 };
+	const court = { insetM: 12, passageWidthM: 3 };
+	const rule = { minimumFrontageM: 3, partition, court };
+	const tolerance = {
+		linearToleranceM: 0.000001,
+		areaToleranceM2: 0.01,
+		relativeAreaToleranceRatio: 1e-8
+	};
+	const input = { grid, lanes, plannedKinds, holdingRules: { exhibit: rule }, tolerance };
+	const expected = createParcelPlan(input).read([first, second]);
+	const forward = createParcelPlan(input);
+	const reverse = createParcelPlan(input);
+	forward.read([first]);
+	reverse.read([second]);
+
+	partition.targetAreaM2 = 3600;
+	court.insetM = 40;
+	rule.minimumFrontageM = 100;
+	tolerance.linearToleranceM = 0.01;
+	forward.read([second]);
+	reverse.read([first]);
+
+	expect(forward.read([first, second])).toEqual(expected);
+	expect(reverse.read([second, first])).toEqual(expected);
+});
+
+test.each([
+	['linearToleranceM', 0],
+	['linearToleranceM', Infinity],
+	['areaToleranceM2', -1],
+	['relativeAreaToleranceRatio', NaN]
+] as const)('rejects %s = %s at plan preparation', (field, value) => {
+	const input = exampleGround();
+	expect(() =>
+		createParcelPlan({ ...input, tolerance: { ...input.tolerance, [field]: value } })
+	).toThrow(field);
+});
+
+test.each([-1, NaN, Infinity])('rejects lane width %s before combining reservations', (widthM) => {
+	const input = exampleGround();
+	const lane = input.lanes[0];
+	expect(() => createParcelPlan({ ...input, lanes: [{ ...lane, widthM }, lane] })).toThrow(
+		'widthM'
+	);
+});
+
+test.each([
+	['minimumFrontageM', { minimumFrontageM: NaN }],
+	['targetAreaM2', { minimumFrontageM: 3, partition: { targetAreaM2: -1, minimumAreaM2: 1 } }],
+	['minimumAreaM2', { minimumFrontageM: 3, partition: { targetAreaM2: 10, minimumAreaM2: -1 } }],
+	['insetM', { minimumFrontageM: 3, court: { insetM: NaN, passageWidthM: 3 } }],
+	['passageWidthM', { minimumFrontageM: 3, court: { insetM: 12, passageWidthM: 0 } }]
+] as const)('rejects invalid holding dimension %s before a block is read', (field, exhibit) => {
+	expect(() => createParcelPlan({ ...exampleGround(), holdingRules: { exhibit } })).toThrow(field);
+});
+
+test('zero-width lanes keep frontage and reserve no area', () => {
+	const input = exampleGround();
+	const result = createParcelPlan({
+		...input,
+		lanes: input.lanes.map((lane) => ({ ...lane, widthM: 0 })),
+		tolerance: { ...input.tolerance, areaToleranceM2: 0, relativeAreaToleranceRatio: 0 }
+	}).read([input.grid.cells[0].id]);
+	expect(result.lanes).toHaveLength(4);
+	expect(result.blocks[0].laneAreaM2).toBe(0);
+	expect(result.parcels[0].areaM2).toBe(3600);
+	expect(result.portals[0].frontageM).toBe(60);
+});

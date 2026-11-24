@@ -1,9 +1,9 @@
 import { defaults } from '../../config/blocks-board';
 import type { Vec3 } from '../../lib/core/geometry';
 import { PlaceableObject } from '../../lib/core/object';
-import { type Family, type FamilySlot } from '../../lib/domain/material';
 import type { DisplayLevel } from '../../lib/scene/focus';
 import { houseLevels, projectHouse } from '../../lib/scene/house-projection';
+import { projectPathAsset } from '../../lib/scene/paths-projection';
 import {
 	existing,
 	readMaterialSurface,
@@ -11,7 +11,11 @@ import {
 	type Drawable,
 	type Surface
 } from '../../lib/scene/surface';
-import { buildAsset, type AssetDefinition } from '../../lib/world/asset-registry';
+import {
+	buildAssetResult,
+	type AssetDefinition,
+	type SpecimenMaterials
+} from '../../lib/world/asset-registry';
 
 import { specimenHost } from './hosts';
 import { mountSpecimen } from './mount-specimen';
@@ -28,27 +32,27 @@ const {
 	boardSeed
 } = defaults;
 
-function paint(object: PlaceableObject, asset: AssetDefinition): Drawable[] {
-	if (asset.kind === 'house') return projectHouse(object, 'full');
+function paint(object: PlaceableObject, kind: string, materials?: SpecimenMaterials): Drawable[] {
+	if (kind === 'house') return projectHouse(object, 'full');
+	const path = projectPathAsset(object, kind);
+	if (path) return path;
+	const materialAt = (slot: string) =>
+		materials && Object.hasOwn(materials, slot) ? materials[slot] : undefined;
 	const surface = (slot: string): Surface => {
-		if (asset.kind === 'surface')
-			return readMaterialSurface(
-				asset.tags[1] as Family,
-				slot.split('/').at(-1) as FamilySlot,
-				'normal'
-			);
-		if (slot === 'deck' || slot === 'stairs') return { ...existing.wall, color: '--path' };
+		const material = materialAt(slot);
+		if (material) return readMaterialSurface(material.family, material.role, 'normal');
+		if (kind === 'surface') throw new RangeError(`Missing specimen material for slot "${slot}"`);
 		if (slot === 'solid') return { ...existing.roof, color: '--stock-veil' };
 		return { ...existing.wall, color: '--ink-3' };
 	};
 	return resolveSurfaces(
 		object,
 		Object.fromEntries(object.slots.map((slot) => [slot, surface(slot)]))
-	).map((part) => {
-		if (asset.kind === 'lattice' && part.id === 'solid')
+	).map((part, index) => {
+		if (kind === 'lattice' && part.id === 'solid')
 			return { ...part, fillAlpha: houseLevels.transparent.fillAlpha, occlude: true };
 		// Printed pattern marks draw no outline (MAT-8).
-		return asset.kind === 'surface' && part.id.endsWith('/mark')
+		return materialAt(object.parts[index].slot)?.role === 'mark'
 			? { ...part, strokeSegments: [] }
 			: part;
 	});
@@ -85,9 +89,10 @@ export function buildBoard(assets: readonly AssetDefinition[]) {
 		const { id } = asset;
 		const x = (index % columns) * boardColumnPitchM;
 		const y = -Math.floor(index / columns) * boardRowPitchM;
-		const object = buildAsset(id, specimenHost(asset), {}, boardSeed);
+		const { object, metadata } = buildAssetResult(id, specimenHost(asset), {}, boardSeed);
 		const mounted = mountSpecimen(object, x, y, boardPlotSideM);
-		specimens.push(...paint(mounted, asset).map((part) => ({ ...part, id: `${id}/${part.id}` })));
+		for (const part of paint(mounted, asset.kind, metadata))
+			specimens.push({ ...part, id: `${id}/${part.id}` });
 		bases.push(...plinth(id, x, y));
 	}
 	return { specimens, bases, drawables: [...bases, ...specimens] };

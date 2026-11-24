@@ -273,15 +273,22 @@ function accepted(cells: readonly KeyedRing[], parcelArea: number): boolean {
 }
 
 /** Columns from the frontage length and rows from the mean side depth, each a whole number of
- * target edges, kept between the minimum and maximum cell count. */
+ * target edges, kept between the minimum and maximum cell count. Throws RangeError for
+ * nonpositive or nonfinite lengths in meters. */
 // Exact arithmetic: whole counts.
 export function stripCounts(front: number, depth: number): StripCounts {
+	if (![front, depth].every((length) => length > 0 && Number.isFinite(length)))
+		throw new RangeError('Strip frontage and depth must be finite positive lengths');
 	let edge: number = stripTargetEdgeM;
 	const count = (length: number) => Math.max(1, Math.round(length / edge));
 	let [columns, rows] = [count(front), count(depth)];
 	if (columns * rows > stripMaximumCells) {
-		edge = Math.sqrt((front * depth) / stripMaximumCells);
-		[columns, rows] = [count(front), count(depth)];
+		const area = front * depth;
+		edge = Number.isFinite(area)
+			? Math.sqrt(area / stripMaximumCells)
+			: Math.sqrt(front / stripMaximumCells) * Math.sqrt(depth);
+		columns = Math.min(stripMaximumCells, count(front));
+		rows = Math.min(stripMaximumCells, count(depth));
 		while (columns * rows > stripMaximumCells) {
 			if (columns >= rows) columns -= 1;
 			else rows -= 1;

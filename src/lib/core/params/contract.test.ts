@@ -48,3 +48,18 @@ test('rejects invalid field metadata and defaults', () => {
 		expect(() => defineParams({ height: invalid })).toThrow(RangeError);
 	}
 });
+
+test.each([
+	{ name: 'default', fallback: 0.5, input: {}, expected: 0.5 },
+	{ name: 'off-step default', fallback: 0.3, input: {}, expected: 0.3 },
+	{ name: 'min', fallback: 0.3, input: { width: 0 }, expected: 0 },
+	{ name: 'max', fallback: 0.3, input: { width: 1 }, expected: 1 },
+	{ name: 'negative zero', fallback: 0.3, input: { width: -0 }, expected: 0 }
+])('resolving $name again preserves the value', ({ fallback, input, expected }) => {
+	const schema = defineParams({
+		width: { label: 'Width', unit: 'm', default: fallback, min: 0, max: 1, step: 0.5 }
+	});
+	const resolved = resolveParams(schema, input);
+	expect(resolved.width).toBe(expected);
+	expect(resolveParams(schema, resolved)).toEqual(resolved);
+});

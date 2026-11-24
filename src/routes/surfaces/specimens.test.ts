@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { specimenSettings as settings } from '../../config/surface-specimens';
-import * as material from '../../lib/scene/material';
+import * as material from '../../lib/domain/material';
 import { createSampleBoard } from './board';
 import { createSampleBody } from './body';
 import { groundFamily, readControl } from './controls';

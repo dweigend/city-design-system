@@ -14,7 +14,7 @@ import {
 	createParcelHouseObject,
 	createTownHouseStudy
 } from '../../world/house-site';
-import { createClad } from '../material';
+import { createClad } from '../../domain/material';
 import { shapeArrays } from '../stage';
 import {
 	blockTriangleBudget,

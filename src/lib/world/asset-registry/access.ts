@@ -1,4 +1,5 @@
 import type { AssetEntry } from '../../core/asset-registry';
+import { isFiniteVector } from '../../core/geometry';
 import {
 	accessObjectParams,
 	createStairObject,
@@ -8,6 +9,7 @@ import {
 import {
 	createRailPierObject,
 	createStationPlatformObject,
+	trackDirectionLength,
 	transitObjectParams
 } from '../../domain/transit-line';
 import type { CityAssetHost } from './hosts';
@@ -59,9 +61,12 @@ export const accessAssets: readonly AssetEntry<CityAssetHost>[] = [
 		tags: ['station'],
 		params: transitObjectParams.platform,
 		hostKinds: ['graph-edge'],
+		validateHost(host) {
+			trackDirectionLength(platformEdge(host).direction);
+		},
 		build(host, { width }) {
-			const { id, start, end } = edgeEnds(host);
-			return createStationPlatformObject(id, start, [end[0] - start[0], end[1] - start[1]], width);
+			const { id, start, direction } = platformEdge(host);
+			return createStationPlatformObject(id, start, direction, width);
 		}
 	}
 ];
@@ -74,4 +79,12 @@ function edgeEnds(host: CityAssetHost) {
 	const last = host.points.at(-1);
 	if (!last) throw new RangeError('Expected an edge endpoint');
 	return { id: host.id, start: first, end: last };
+}
+
+// Exact arithmetic: graph endpoints are XYZ triples.
+function platformEdge(host: CityAssetHost) {
+	const { id, start, end } = edgeEnds(host);
+	if (!isFiniteVector(start, 3) || !isFiniteVector(end, 3))
+		throw new RangeError('Expected finite platform edge endpoints');
+	return { id, start, direction: [end[0] - start[0], end[1] - start[1]] as const };
 }

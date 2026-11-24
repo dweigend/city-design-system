@@ -8,7 +8,7 @@ import {
 	type HouseStyleName
 } from '../../lib/domain/house-court';
 import { blockTriangleBudget } from '../../lib/scene/house-projection';
-import type { SurfaceLevel } from '../../lib/scene/material';
+import type { SurfaceLevel } from '../../lib/domain/material';
 import { projectSketch } from '../../lib/scene/sketch';
 import { createSandboxProjection } from '../../lib/scene/sandbox-projection';
 import type { Drawable, ModelTone } from '../../lib/scene/surface';

@@ -24,6 +24,8 @@ export type PlaceableObject = Readonly<{
 	anchors: readonly Anchor[];
 }>;
 
+const validated = new WeakSet<PlaceableObject>();
+
 function create({ id, slots, parts, footprint, anchors }: PlaceableObject): PlaceableObject {
 	const declared = new Set(slots);
 	const partIds = new Set<string>();
@@ -31,7 +33,7 @@ function create({ id, slots, parts, footprint, anchors }: PlaceableObject): Plac
 	finite(width);
 	finite(depth);
 	if (width < 0 || depth < 0) throw new RangeError('Footprint dimensions must be nonnegative');
-	return Object.freeze({
+	const object = Object.freeze({
 		id,
 		slots: Object.freeze([...slots]),
 		parts: Object.freeze(
@@ -45,11 +47,19 @@ function create({ id, slots, parts, footprint, anchors }: PlaceableObject): Plac
 		footprint: Object.freeze({ width, depth }),
 		anchors: Object.freeze(Array.from(anchors, copyAnchor))
 	});
+	validated.add(object);
+	return object;
 }
 /** Creates detached, deeply frozen metric geometry in input order. Invalid fields throw
  * RangeError for numeric or contract violations and TypeError for unknown shapes.
  */
-export const PlaceableObject = Object.freeze({ create });
+export const PlaceableObject = Object.freeze({
+	create,
+	/** Checks whether this exact object was validated and deeply frozen by create. */
+	isValidated(object: PlaceableObject): boolean {
+		return validated.has(object);
+	}
+});
 
 /** Returns detached world bounds of the parts in meters. Throws RangeError for an empty object. */
 export function bounds(object: PlaceableObject): Bounds3 {
@@ -62,8 +72,10 @@ export function bounds(object: PlaceableObject): Bounds3 {
  * frozen object with the same identity, order and local footprint. Normals only rotate.
  * Non-finite motion or resulting coordinates throw RangeError.
  */
+// Exact arithmetic: The translation has three coordinates.
 export function move(object: PlaceableObject, translation: Vec3, radians: number): PlaceableObject {
-	for (const value of [...translation, radians]) finite(value);
+	validateVector(translation, 3);
+	finite(radians);
 	const cos = Math.cos(radians);
 	const sin = Math.sin(radians);
 	const rotate = ([x, y, z]: Vec3): Vec3 => [x * cos - y * sin, x * sin + y * cos, z];
@@ -88,11 +100,25 @@ function copyCoordinates<T extends readonly number[]>(values: T): T {
 	return Object.freeze(Array.from(values, finite)) as T;
 }
 
+function validateVector(value: Vec2 | Vec3, arity: 2 | 3): void {
+	if (!geometry.isFiniteVector(value, arity))
+		throw new RangeError(`Expected ${arity} finite coordinates`);
+}
+
+function copyVector<T extends Vec2 | Vec3>(value: T, arity: T['length']): T {
+	validateVector(value, arity);
+	const copy: number[] = [];
+	for (let i = 0; i < arity; i++) copy.push(finite(value[i]));
+	// The indexed copy has the validated arity and contains only finite coordinates.
+	return Object.freeze(copy) as unknown as T;
+}
+
+// Exact arithmetic: An anchor position and normal both have three coordinates.
 function copyAnchor({ name, position, normal }: Anchor): Anchor {
-	const direction = copyCoordinates(normal);
+	const direction = copyVector(normal, 3);
 	if (Math.abs(geometry.length(direction) - 1) > unitNormalLengthToleranceRatio)
 		throw new RangeError(`Anchor "${name}" requires a unit normal`);
-	return Object.freeze({ name, position: copyCoordinates(position), normal: direction });
+	return Object.freeze({ name, position: copyVector(position, 3), normal: direction });
 }
 
 // Exact arithmetic: each mesh position has one component per axis.
@@ -121,19 +147,20 @@ function copyMesh({ positions, indices }: Extract<Shape, { kind: 'mesh' }>): Sha
 	return Object.freeze({ kind: 'mesh', positions: points, indices: Object.freeze(triangles) });
 }
 
+// Exact arithmetic: Boxes use XYZ tuples and prism footprints use XY tuples.
 function copyShape(shape: Shape): Shape {
 	switch (shape.kind) {
 		case 'box': {
 			const { kind, rotation } = shape;
-			const center = copyCoordinates(shape.center);
-			const size = copyCoordinates(shape.size);
+			const center = copyVector(shape.center, 3);
+			const size = copyVector(shape.size, 3);
 			finite(rotation);
 			if (size.some((extent) => extent < 0)) throw new RangeError('Box size must be nonnegative');
 			return Object.freeze({ kind, center, size, rotation });
 		}
 		case 'prism': {
 			const { kind, base, top } = shape;
-			const polygon = Array.from(shape.polygon, copyCoordinates);
+			const polygon = Array.from(shape.polygon, (point) => copyVector(point, 2));
 			finite(base);
 			finite(top);
 			if (polygon.length < triangleVertexCount || top < base)

@@ -7,7 +7,7 @@ import {
 } from '../../domain/movement-network';
 import { defaults } from '../../../config/paths-projection';
 import { appendParts, assembly, local, trace, up } from './assembly';
-import { pathSurfaces } from './surfaces';
+import { accessSurfaces, pathSurfaces } from './surfaces';
 import type { MovementDrawing, PathsFrame } from './types';
 
 function localSupports(frame: PathsFrame, supports: AccessEdge['supports'] = []) {
@@ -21,10 +21,10 @@ export function paths<K extends string>(
 ) {
 	const drawing = assembly('movement', frame);
 	const lane = drawing.layer('ground-lanes', pathSurfaces.lane);
-	const bridge = drawing.layer('path-bridges', pathSurfaces.deck);
-	const deck = drawing.layer('path-walkways', pathSurfaces.deck);
-	const supports = drawing.layer('path-supports', pathSurfaces.support);
-	const stairs = drawing.layer('path-stairs', pathSurfaces.deck);
+	const bridge = drawing.layer('path-bridges', accessSurfaces.deck);
+	const deck = drawing.layer('path-walkways', accessSurfaces.deck);
+	const supports = drawing.layer('path-supports', accessSurfaces.bearing);
+	const stairs = drawing.layer('path-stairs', accessSurfaces.stairs);
 	const bearings = new Set<string>();
 	for (const edge of network.edges) {
 		const points = edge.points.map((point) => local(frame, point));

@@ -1,7 +1,7 @@
 import { Random } from '../../core/random';
 import type { HouseFeatures } from '../../domain/house-court';
 import { defaults } from '../../../config/house-projection';
-import type { SurfaceLevel } from '../material';
+import type { SurfaceLevel } from '../../domain/material';
 
 const { salientShareRatio, salientBlockCap, salientViewCap } = defaults;
 

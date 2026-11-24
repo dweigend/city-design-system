@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { accessSurfaces, railSurfaces } from '../../lib/scene/paths-projection';
 import { buildAsset, listAssets, readAsset } from '../../lib/world/asset-registry';
 import { defaults } from '../../config/blocks-board';
 import { buildBoard } from './board';
@@ -62,4 +63,33 @@ test('spaces the 23 specimen plinths on the configured metric grid', () => {
 			size: [side, side, boardPlinthHeightM]
 		});
 	}
+});
+
+test('material specimens paint the same face and printed marks when display tags change', () => {
+	const asset = readAsset('surface/stripe');
+	const original = buildBoard([asset]).specimens;
+	expect(original.length).toBeGreaterThan(1);
+	expect(original.find(({ id }) => id.endsWith('/mark'))?.strokeSegments).toEqual([]);
+	expect(buildBoard([{ ...asset, tags: ['display'] }]).specimens).toEqual(original);
+});
+
+test('access and rail specimens use the full Paths role surfaces', () => {
+	const { specimens } = buildBoard(
+		['access/walkway', 'access/stair', 'rail/pier', 'rail/platform'].map(readAsset)
+	);
+	const roles = [
+		['access/walkway/deck', accessSurfaces.deck],
+		['access/walkway/bearing', accessSurfaces.bearing],
+		['access/stair/stairs', accessSurfaces.stairs],
+		['rail/pier/bearing', railSurfaces.bearing],
+		['rail/platform/platform', railSurfaces.platform],
+		['rail/platform/bearing', railSurfaces.bearing]
+	] as const;
+	expect(specimens).toEqual(
+		roles.map(([id, surface], index) => ({
+			id,
+			shape: specimens[index]?.shape,
+			...surface
+		}))
+	);
 });

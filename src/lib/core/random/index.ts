@@ -104,6 +104,8 @@ function childSeed(seed: number, key: string): number {
 
 function requireList(source: unknown): void {
 	if (!Array.isArray(source)) throw new TypeError('Expected a sample list');
+	for (let i = 0; i < source.length; i++)
+		if (!Object.hasOwn(source, i)) throw new TypeError(`Missing sample list index ${i}`);
 }
 
 function stream(initialSeed: number): Random {

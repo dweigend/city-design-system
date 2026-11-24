@@ -8,7 +8,7 @@ import {
 	type Patch,
 	type SurfaceLevel,
 	type SurfaceOptions
-} from '../../lib/scene/material';
+} from '../../lib/domain/material';
 import { groundFamily } from './controls';
 
 /** One sample plate per entry, upright for wall families and flat for ground families, on

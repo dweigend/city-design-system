@@ -2,7 +2,7 @@
 import { required } from '../../core/invariant';
 import { prepareBlocks } from './blocks';
 import { laneAddress } from './reserve';
-import type { LaneInput, ParcelLane, ParcelPlanInput } from './types';
+import type { HoldingRule, LaneInput, ParcelLane, ParcelPlanInput } from './types';
 
 export type {
 	AddressedParcel,
@@ -20,9 +20,15 @@ export type {
 	PlanPolygon
 } from './types';
 
+function validateDimension(field: string, value: number, minimum: 'positive' | 'nonnegative') {
+	if (!Number.isFinite(value) || (minimum === 'positive' ? value <= 0 : value < 0))
+		throw new RangeError(`${field} must be finite and ${minimum}`);
+}
+
 function combineReservations(input: readonly LaneInput[]) {
 	const specs = new Map<string, LaneInput>();
 	for (const lane of input) {
+		validateDimension('Lane widthM', lane.widthM, 'nonnegative');
 		const previous = specs.get(lane.edge.id);
 		if (!previous) {
 			specs.set(lane.edge.id, lane);
@@ -40,14 +46,51 @@ function combineReservations(input: readonly LaneInput[]) {
 	return specs;
 }
 
+function snapshotHoldingRule(kind: string, rule: HoldingRule): HoldingRule {
+	const { minimumFrontageM, partition, court } = rule;
+	validateDimension(`${kind}.minimumFrontageM`, minimumFrontageM, 'nonnegative');
+	if (partition) {
+		validateDimension(`${kind}.targetAreaM2`, partition.targetAreaM2, 'positive');
+		validateDimension(`${kind}.minimumAreaM2`, partition.minimumAreaM2, 'nonnegative');
+	}
+	if (court) {
+		validateDimension(`${kind}.insetM`, court.insetM, 'positive');
+		validateDimension(`${kind}.passageWidthM`, court.passageWidthM, 'positive');
+	}
+	return {
+		...rule,
+		...(partition && { partition: { ...partition } }),
+		...(court && { court: { ...court } })
+	};
+}
+
 /** Prepares fixed block membership and pedestrian reservations for caller-supplied XY geometry.
  * Repeated reservations on the same edge use the largest width and the sorted union of
  * roles. Stairs, one-sided reservation and merge protection apply if any role calls for them.
  * Proposed pairs are considered in input order. A rejected pair leaves its cells available.
+ * Zero-width lanes retain frontage and reserve no area. Dimensions and tolerances are validated
+ * at preparation (RangeError), and holding rules and tolerances are captured for later reads.
  * A read returns a frozen snapshot of the requested whole blocks and their permanent lane intervals. */
 export function createParcelPlan(input: ParcelPlanInput) {
 	const specs = combineReservations(input.lanes);
-	const { byCell, mergedUnits, point, realize } = prepareBlocks(input, specs);
+	const tolerance = { ...input.tolerance };
+	validateDimension('linearToleranceM', tolerance.linearToleranceM, 'positive');
+	validateDimension('areaToleranceM2', tolerance.areaToleranceM2, 'nonnegative');
+	validateDimension(
+		'relativeAreaToleranceRatio',
+		tolerance.relativeAreaToleranceRatio,
+		'nonnegative'
+	);
+	const holdingRules = Object.fromEntries(
+		Object.entries(input.holdingRules).map(([kind, rule]) => [
+			kind,
+			snapshotHoldingRule(kind, rule)
+		])
+	);
+	const { byCell, mergedUnits, point, realize } = prepareBlocks(
+		{ ...input, tolerance, holdingRules },
+		specs
+	);
 	const lanes = new Map<string, ParcelLane>();
 	for (const spec of specs.values()) {
 		const { edge, hierarchy, widthM, surface } = spec;
@@ -100,7 +143,7 @@ export function createParcelPlan(input: ParcelPlanInput) {
 			const blocks = realized.map(({ block }) => block);
 			const laneIds = new Set(blocks.flatMap(({ laneIds }) => laneIds));
 			return Object.freeze({
-				linearToleranceM: input.tolerance.linearToleranceM,
+				linearToleranceM: tolerance.linearToleranceM,
 				lanes: Object.freeze(
 					[...laneIds].sort().map((id) => required(lanes.get(id), 'selected lane'))
 				),

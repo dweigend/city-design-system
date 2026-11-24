@@ -16,7 +16,7 @@ import {
 	type Patch,
 	type SurfaceLevel,
 	type SurfaceLevelAlias
-} from '../material';
+} from '../../domain/material';
 import {
 	paintClad,
 	readModelSurface,
