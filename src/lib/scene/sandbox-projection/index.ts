@@ -37,6 +37,47 @@ function address(parts: readonly Drawable[], placementId: string): Drawable[] {
 	return parts.map((part) => ({ ...part, id: JSON.stringify([placementId, part.id]) }));
 }
 
+function normalOf(positions: readonly number[], [a, b, c]: readonly number[]) {
+	const p = (i: number) => [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]];
+	const [pa, pb, pc] = [p(a), p(b), p(c)];
+	const u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
+	const v = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
+	const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+	const length = Math.hypot(n[0], n[1], n[2]) || 1;
+	return n.map((value) => value / length);
+}
+
+/** The edges of a triangle mesh where the surface folds by more than the crease angle, or ends.
+ * Vertices are matched by position, so separately triangulated faces still share their edges. */
+function readCreases(positions: readonly number[], indices: readonly number[]) {
+	const key = (i: number) =>
+		[positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]]
+			.map((value) => value.toFixed(defaults.volumeEdgeDecimals))
+			.join(',');
+	const edges = new Map<string, { from: number; to: number; normals: number[][] }>();
+	for (let t = 0; t < indices.length; t += 3) {
+		const corners = [indices[t], indices[t + 1], indices[t + 2]];
+		const normal = normalOf(positions, corners);
+		for (const [i, from] of corners.entries()) {
+			const to = corners[(i + 1) % corners.length];
+			const id = [key(from), key(to)].sort().join('|');
+			const edge = edges.get(id) ?? { from, to, normals: [] };
+			edge.normals.push(normal);
+			edges.set(id, edge);
+		}
+	}
+	const limit = Math.cos((defaults.volumeCreaseDeg * Math.PI) / 180);
+	const segments: number[] = [];
+	for (const { from, to, normals } of edges.values()) {
+		const [n, m] = normals;
+		const folds = !m || n[0] * m[0] + n[1] * m[1] + n[2] * m[2] < limit;
+		if (!folds) continue;
+		for (const i of [from, to])
+			segments.push(positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]);
+	}
+	return segments;
+}
+
 /** Builds the immutable terrain and parcel background once. The projection accepts all
  * addresses in world meters and uses the same city frame as the bible. */
 export function createSandboxProjection(site: CitySite, layout: CityGrid, holdings: Holdings) {
@@ -150,8 +191,20 @@ export function createSandboxProjection(site: CitySite, layout: CityGrid, holdin
 					id: JSON.stringify([placementId, 'volume']),
 					shape: { kind: 'mesh', positions, indices },
 					color,
-					finish: 'matte',
-					boundaryStroke: true
+					finish: 'matte'
+				},
+				{
+					id: JSON.stringify([placementId, 'edges']),
+					shape: emptyMesh,
+					color: '--ink-2',
+					finish: 'line',
+					fillVisible: false,
+					strokeSegments: readCreases(positions, indices),
+					stroke: {
+						color: '--ink-2',
+						width: defaults.volumeEdgePx,
+						opacity: defaults.volumeEdgeOpacity
+					}
 				}
 			];
 		},
