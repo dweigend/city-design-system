@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { createFocusResolver } from '../../lib/scene/focus';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { Select } from '../../lib/ui/select';
@@ -16,7 +17,14 @@
 	const chapter = chapterAt('/blocks');
 	const allAssets = listAssets();
 	const allBoard = buildBoard(allAssets);
-	const kindLabels: Record<string, string> = { house: 'Houses' };
+	const kindLabels: Record<string, string> = {
+		house: 'Houses',
+		access: 'Access',
+		rail: 'Rail',
+		surface: 'Surfaces',
+		structure: 'Frames',
+		lattice: 'Lattices'
+	};
 	const kinds = [
 		{ value: 'all', label: 'All kinds' },
 		...[...new Set(allAssets.map(({ kind }) => kind))].map((kind) => ({
@@ -28,7 +36,9 @@
 		'house/court-neutral': 'Neutral',
 		'house/court-memphis': 'Memphis',
 		'house/court-archigram': 'Archigram',
-		'house/court-organic': 'Organic'
+		'house/court-organic': 'Organic',
+		'structure/frame-bay': 'Frame bay',
+		'rail/platform': 'Station platform'
 	};
 	const boardFocus = createFocusResolver(
 		{
@@ -53,8 +63,10 @@
 		const styled = presentBoard(board, focus.readLevel('specimens'));
 		return () => styled;
 	});
-	const labels = $derived(assets.map(({ id }) => assetLabels[id] ?? id));
-	const fit = { fill: 0.87, bearing: 0.23, elevation: 0.58, offset: [0, -4] as const };
+	const labels = $derived(
+		assets.map(({ id }) => assetLabels[id] ?? (id.split('/').at(-1) ?? id).replaceAll('-', ' '))
+	);
+	const fit = { fill: 0.87, bearing: 0.23, elevation: 0.58, offset: [0, -3] as const };
 </script>
 
 <svelte:head>
@@ -115,6 +127,8 @@
 						<td>
 							{#if row.exampleCall}
 								<code>{row.exampleCall}()</code>
+							{:else if row.exampleDemo === '/interface'}
+								<a class="small" href={resolve(row.exampleDemo)}>Interface</a>
 							{:else}
 								<span class="small">{row.example ? 'Missing caller' : 'Missing example'}</span>
 							{/if}

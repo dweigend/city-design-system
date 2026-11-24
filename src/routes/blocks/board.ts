@@ -1,37 +1,54 @@
 import type { Vec3 } from '../../lib/core/geometry';
 import { PlaceableObject } from '../../lib/core/object';
-import { parcelEdgeId, type Parcel } from '../../lib/domain/cell-space';
+import { type Family, type FamilySlot } from '../../lib/domain/material';
 import type { DisplayLevel } from '../../lib/scene/focus';
 import { houseLevels, projectHouse } from '../../lib/scene/house-projection';
-import { existing, resolveSurfaces, type Drawable } from '../../lib/scene/surface';
+import {
+	existing,
+	readMaterialSurface,
+	resolveSurfaces,
+	type Drawable,
+	type Surface
+} from '../../lib/scene/surface';
 import { buildAsset, type AssetDefinition } from '../../lib/world/asset-registry';
 
-const columnCount = 2;
+import { specimenHost } from './hosts';
+import { mountSpecimen } from './mount-specimen';
+
+const maximumColumns = 5;
 const plotSideM = 16;
-const pitchM = 23;
+const pitchM = 22;
 const plinthHeightM = 0.6;
 const plinthRimM = 0.5;
-const storeys = 10;
+
 const seed = 73;
 
-function specimenParcel(id: string, x: number, y: number): Parcel {
-	return {
-		id,
-		corners: [
-			{ id: 'a', position: [x, y] },
-			{ id: 'b', position: [x + plotSideM, y] },
-			{ id: 'c', position: [x + plotSideM, y + plotSideM] },
-			{ id: 'd', position: [x, y + plotSideM] }
-		],
-		frontage: [parcelEdgeId('a', 'b')],
-		baseZ: 0,
-		storeyCount: storeys
+function paint(object: PlaceableObject, asset: AssetDefinition): Drawable[] {
+	if (asset.kind === 'house') return projectHouse(object, 'full');
+	const surface = (slot: string): Surface => {
+		if (asset.kind === 'surface')
+			return readMaterialSurface(
+				asset.tags[1] as Family,
+				slot.split('/').at(-1) as FamilySlot,
+				'normal'
+			);
+		if (slot === 'deck' || slot === 'stairs') return { ...existing.wall, color: '--path' };
+		if (slot === 'solid') return { ...existing.roof, color: '--stock-veil' };
+		return { ...existing.wall, color: '--ink-3' };
 	};
+	return resolveSurfaces(
+		object,
+		Object.fromEntries(object.slots.map((slot) => [slot, surface(slot)]))
+	).map((part) =>
+		asset.kind === 'lattice' && part.id === 'solid'
+			? { ...part, fillAlpha: houseLevels.transparent.fillAlpha, occlude: true }
+			: part
+	);
 }
 
 function plinth(id: string, x: number, y: number) {
 	const side = plotSideM + 2 * plinthRimM;
-	const center: Vec3 = [x + plotSideM / 2, y + plotSideM / 2, -plinthHeightM / 2];
+	const center: Vec3 = [x, y, -plinthHeightM / 2];
 	const base = PlaceableObject.create({
 		id,
 		slots: ['plinth'],
@@ -52,14 +69,14 @@ function plinth(id: string, x: number, y: number) {
 export function buildBoard(assets: readonly AssetDefinition[]) {
 	const specimens: Drawable[] = [];
 	const bases: Drawable[] = [];
-	for (const [index, { id }] of assets.entries()) {
-		const x = (index % columnCount) * pitchM;
-		const y = -Math.floor(index / columnCount) * pitchM;
-		const parcel = specimenParcel(id, x, y);
-		const object = buildAsset(id, { kind: 'parcel', parcel }, {}, seed);
-		specimens.push(
-			...projectHouse(object, 'full').map((part) => ({ ...part, id: `${id}/${part.id}` }))
-		);
+	const columns = assets.length <= 4 ? Math.min(2, assets.length) : maximumColumns;
+	for (const [index, asset] of assets.entries()) {
+		const { id } = asset;
+		const x = (index % columns) * pitchM;
+		const y = -Math.floor(index / columns) * pitchM;
+		const object = buildAsset(id, specimenHost(asset), {}, seed);
+		const mounted = mountSpecimen(object, x, y, plotSideM);
+		specimens.push(...paint(mounted, asset).map((part) => ({ ...part, id: `${id}/${part.id}` })));
 		bases.push(...plinth(id, x, y));
 	}
 	return { specimens, bases, drawables: [...bases, ...specimens] };

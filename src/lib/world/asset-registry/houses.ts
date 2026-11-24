@@ -1,6 +1,6 @@
-import type { AssetEntry, AssetHost } from '../../core/asset-registry';
+import type { AssetEntry } from '../../core/asset-registry';
 import { blockInputs } from '../../core/params';
-import { createCellSpace, type CellSpace, type Parcel } from '../../domain/cell-space';
+import { createCellSpace } from '../../domain/cell-space';
 import {
 	createHouseCourt,
 	createHouseObject,
@@ -8,8 +8,7 @@ import {
 	type HouseStyle
 } from '../../domain/house-court';
 
-/** Resolved city asset host. Parcel and cell-space data come from the domain contracts. */
-export type CityAssetHost = AssetHost<Parcel, CellSpace>;
+import type { CityAssetHost } from './hosts';
 
 function courtHouse(style: HouseStyle): AssetEntry<CityAssetHost> {
 	return {

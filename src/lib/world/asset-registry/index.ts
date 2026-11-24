@@ -1,6 +1,9 @@
 /** Module: Composes the city library’s public object builders into one placeable asset registry. */
 import { createAssetRegistry } from '../../core/asset-registry';
 import { courtHouses } from './houses';
+import { accessAssets } from './access';
+import { structuralAssets } from './structures';
+import { surfaceAssets } from './plates';
 
 export {
 	InvalidAssetParamsError,
@@ -11,9 +14,14 @@ export {
 	type HostAddress,
 	type Placement
 } from '../../core/asset-registry';
-export type { CityAssetHost } from './houses';
+export type { CityAssetHost } from './hosts';
 
-const registry = createAssetRegistry(courtHouses);
+const registry = createAssetRegistry([
+	...courtHouses,
+	...accessAssets,
+	...surfaceAssets,
+	...structuralAssets
+]);
 
 /** Lists city asset definitions matching the optional kind and tags. */
 export const listAssets = registry.listAssets;

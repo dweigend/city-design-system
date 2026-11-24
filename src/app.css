@@ -276,14 +276,15 @@
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
 		gap: var(--space-4);
 	}
-	.blocks-assets > .frame { aspect-ratio: 2 / 1; background: var(--paper-2); }
+	.blocks-assets > .frame { aspect-ratio: 3 / 2; background: var(--paper-2); }
 	.blocks-specimens {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-columns: repeat(5, minmax(0, 1fr));
 		gap: var(--space-3);
 		padding: 0;
 		list-style: none;
 	}
+	.blocks-specimens > li > strong { text-transform: capitalize; }
 	.blocks-specimens > li > code { display: block; overflow-wrap: anywhere; color: var(--ink-2); }
 	.blocks-table { overflow-x: auto; }
 	.blocks-table table { min-inline-size: 62rem; table-layout: fixed; }

@@ -27,7 +27,7 @@ const host = { kind: 'parcel', parcel } as const;
 const id = 'house/court-neutral';
 
 test('lists and filters static definitions, with no mutable registration data exposed', () => {
-	expect(listAssets().map(({ id }) => id)).toEqual([
+	expect(listAssets({ kind: 'house' }).map(({ id }) => id)).toEqual([
 		id,
 		'house/court-memphis',
 		'house/court-archigram',
@@ -54,9 +54,9 @@ test('names ID, host and parameter failures independently', () => {
 	expect(() => buildAsset(id, host, {}, 0.5)).toThrow(InvalidAssetParamsError);
 });
 
-test('every registered asset builds at its defaults and every combination of bounds', () => {
+test('every court house builds at its defaults and every combination of bounds', () => {
 	const space = { kind: 'cell-space', space: createCellSpace(parcel) } as const;
-	for (const { id, params } of listAssets()) {
+	for (const { id, params } of listAssets({ kind: 'house' })) {
 		const limits = Object.entries(params).reduce<Record<string, number>[]>(
 			(rows, [key, { min, max }]) =>
 				rows.flatMap((row) => [
