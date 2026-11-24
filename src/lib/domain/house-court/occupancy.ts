@@ -228,8 +228,14 @@ export function createHouseCourt(
 	const farthest = Math.max(...distances.values());
 	const reach = scale === 'large' ? Infinity : width;
 	const roofRoom = style.large.roof.some((kind) => kind !== 'flat') ? 1 : 0;
-	const cap = scale === 'large' ? Math.max(1, Math.min(largeStoreys, space.storeyCount - roofRoom)) : space.storeyCount;
-	const top = Math.max(1, Math.min(space.storeyCount, cap, Math.round(height / space.storeyHeightM)));
+	const cap =
+		scale === 'large'
+			? Math.max(1, Math.min(largeStoreys, space.storeyCount - roofRoom))
+			: space.storeyCount;
+	const top = Math.max(
+		1,
+		Math.min(space.storeyCount, cap, Math.round(height / space.storeyHeightM))
+	);
 	const front = scale === 'calm' ? eaves(top, random, site.corner ?? false) : top;
 	const plan: Plan = new Map();
 	for (const cell of space.cells) {
@@ -255,7 +261,9 @@ export function createHouseCourt(
 	}
 	const entranceRiseM = Math.max(0, site.entranceRiseM ?? 0);
 	const courts = components(space, courtIds);
-	const entrances = courts.length ? courts.map((court) => entrancePath(space, court)) : [frontDoor(space)];
+	const entrances = courts.length
+		? courts.map((court) => entrancePath(space, court))
+		: [frontDoor(space)];
 	for (const path of courts.length ? entrances : []) carve(plan, path);
 	if (!courts.length && entranceRiseM > entranceStepRiseM) carve(plan, entrances[0]);
 	raise(plan, random, style.occupancy);

@@ -122,23 +122,43 @@ export function edges(context: Context): Part[] {
 	];
 }
 
-function openingsOnSide(
+/** Window openings of one wall storey as [u0, z0, u1, z1]: meters along the side from its first
+ * corner and world heights. */
+export function openingRects(
 	context: Context,
 	cell: FineCell,
 	i: number,
-	storey: number,
-	scale: number
-): Box[] {
+	storey: number
+): (readonly [number, number, number, number])[] {
+	const scale = context.house.scale === 'large' ? largeOpeningScaleRatio : 1;
 	const wall = side(cell.quad, i);
 	const count = Math.floor(wall.length / (windowPitchM * scale));
 	const ground = storey === 0;
 	const height = (ground ? groundOpeningHeightM : windowHeightM) * scale;
-	const z = level(context, storey) + (ground ? 0 : windowSillM * scale) + height / 2;
+	const z = level(context, storey) + (ground ? 0 : windowSillM * scale);
+	const width = windowWidthM * scale;
 	return Array.from({ length: count }, (_, k) => {
-		const [x, y] = wall.at((k + 0.5) / count, 0);
+		const u = ((k + 0.5) / count) * wall.length;
+		return [u - width / 2, z, u + width / 2, z + height] as const;
+	});
+}
+
+/** The storeys of a built run that carry window openings: all, or the ground storey of a large
+ * house. */
+// Exact arithmetic: one storey.
+export function openingStoreys(context: Context, house: HouseCell): number {
+	return context.house.scale === 'large'
+		? Math.min(house.toStorey, house.fromStorey + 1)
+		: house.toStorey;
+}
+
+function openingsOnSide(context: Context, cell: FineCell, i: number, storey: number): Box[] {
+	const wall = side(cell.quad, i);
+	return openingRects(context, cell, i, storey).map(([u0, z0, u1, z1]) => {
+		const [x, y] = wall.at((u0 + u1) / 2 / wall.length, 0);
 		return {
-			center: [x, y, z],
-			size: [windowWidthM * scale, openingDepthM, height],
+			center: [x, y, (z0 + z1) / 2],
+			size: [u1 - u0, openingDepthM, z1 - z0],
 			rotation: wall.rotation
 		};
 	});
@@ -146,17 +166,13 @@ function openingsOnSide(
 
 /** Openings on every exposed wall storey of the house, as one mesh. A large house takes a few big
  * openings instead: the ground storey only, pitch and size scaled by the large opening ratio. */
-// Exact arithmetic: a regular house keeps the unit scale.
 export function openings(context: Context): Part[] {
-	const large = context.house.scale === 'large';
-	const scale = large ? largeOpeningScaleRatio : 1;
 	const boxes: Box[] = [];
 	eachBuilt(context, (cell, house) => {
-		const last = large ? Math.min(house.toStorey, house.fromStorey + 1) : house.toStorey;
-		for (let storey = house.fromStorey; storey < last; storey += 1)
+		for (let storey = house.fromStorey; storey < openingStoreys(context, house); storey += 1)
 			cell.quad.forEach((_, i) => {
 				if (exposed(context, cell, i, storey))
-					boxes.push(...openingsOnSide(context, cell, i, storey, scale));
+					boxes.push(...openingsOnSide(context, cell, i, storey));
 			});
 	});
 	return part(`${context.space.id}/openings`, 'opening', boxMesh(boxes));

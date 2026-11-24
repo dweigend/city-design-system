@@ -93,7 +93,12 @@
 		return { drawables: draw ? draw(setup) : house.drawables, figures: house.figures };
 	});
 	const measurements = $derived([
-		...(townResult ? [{ label: 'Houses', value: String(townResult.count), unit: '' }] : []),
+		...(townResult
+			? [
+					{ label: 'Houses', value: String(townResult.count), unit: '' },
+					{ label: 'Cladding', value: format.format(townResult.triangles), unit: 'triangles' }
+				]
+			: []),
 		{
 			label: 'Cells built / void',
 			value: `${shown.figures.builtCells} / ${shown.figures.voidCells}`,

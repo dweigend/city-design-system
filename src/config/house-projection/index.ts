@@ -51,6 +51,30 @@ export const settings = defineSettings({
 		bounds: { min: 0 },
 		rationale: 'Two storeys of clear ground keep neighbouring houses apart at sheet zoom.'
 	},
+	cladOffsetM: {
+		value: 0.02,
+		unit: 'm',
+		meaning: 'Distance a cladding face stands proud of the house face it covers',
+		bounds: { exclusiveMin: 0 },
+		rationale: 'Keeps a flat cladding slab from depth fighting with the body face behind it.'
+	},
+	cladThicknessM: {
+		value: 0.03,
+		unit: 'm',
+		meaning: 'Backing thickness of a cladding patch on a house face',
+		bounds: { exclusiveMin: 0 },
+		principle: 'MAT-5'
+	},
+	blockTriangleBudget: {
+		value: 240000,
+		unit: 'triangles',
+		meaning:
+			'Cladding triangles of one block of houses at the relief level, shared among its faces by area',
+		bounds: { min: 0 },
+		principle: 'MAT-5',
+		rationale:
+			'About a quarter of a frame budget of one million triangles; the relief coarsens or turns flat beyond it.'
+	},
 	veilAlpha: {
 		value: 0.35,
 		unit: 'ratio',

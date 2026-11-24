@@ -25,6 +25,14 @@ export const budgets = defineSettings({
 		bounds: positive,
 		rationale: 'Bounds temporary allocations even when the triangle budget grows with patch area.'
 	},
+	reliefTrianglesPerUnit: {
+		value: 16,
+		unit: 'triangles',
+		meaning: 'Upper estimate of relief triangles per laid unit, cast shade included',
+		bounds: positive,
+		rationale:
+			'Measured 10–16 on 6 × 3 m patches of all six families; used to pick a fitting module scale before building.'
+	},
 	coarsenStepRatio: {
 		value: 1.25,
 		unit: 'ratio',

@@ -2,19 +2,13 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor, type Part } from '../../core/object';
 import { cellAreaM2, cellCentre, type CellSpace } from '../cell-space';
 import { Random } from '../../core/random';
-import {
-	courtSides,
-	entranceStepCell,
-	entranceSteps,
-	galleries,
-	stair,
-	stairSide
-} from './access';
+import { courtSides, entranceStepCell, entranceSteps, galleries, stair, stairSide } from './access';
 import { faceMesh } from './boxes';
 import type { Context } from './context';
 import { caps, figureOpenings, patterns, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
 import { structure } from './structure';
+import { envelopeFaces, solidFaces, type HouseFace } from './faces';
 import { houseStyleFor } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
@@ -169,8 +163,6 @@ function accessParts(ctx: Context, house: HouseCourt): Part[] {
 	return [...galleries(ctx, sides, landing), ...stair(ctx, landing), ...steps];
 }
 
-
-
 function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] {
 	const solids = cellSolids(ctx);
 	if (detail === 'block')
@@ -225,6 +217,28 @@ export function createHouseObject(
 export function entranceStepCellId(space: CellSpace, house: HouseCourt): string | undefined {
 	const occupancy = new Map(house.cells.map((cell) => [cell.id, cell]));
 	return entranceStepCell({ space, occupancy, house })?.cell.id;
+}
+
+/** The planar faces of a house that surface families can clad, in the space's meters: the merged
+ * envelope's walls with their window openings and flat tops, the walls of flat-sided cell bodies
+ * (blocks, chamfers) without the sides another body hides, their flat tops, and wedge roof planes.
+ * Curved fills, domes, cones and capsules have no planar faces and stay unclad. Faces carry the
+ * role slot of their part at the full detail; at the block detail every face is `mass`. Applies
+ * the style row at the house's scale like `createHouseObject`. */
+export function houseFaces(
+	space: CellSpace,
+	house: HouseCourt,
+	detail: HouseDetail,
+	style: HouseStyle = houseStyles.neutral
+): readonly HouseFace[] {
+	const used = houseStyleFor(space, style, house.inputs.seed);
+	const ctx = context(space, house, used);
+	const solids = cellSolids(ctx);
+	const faces = [
+		...(used.fill.kinds.includes('envelope') ? envelopeFaces(ctx, 'wall', solids) : []),
+		...solidFaces(ctx, solids)
+	];
+	return detail === 'block' ? faces.map((face) => ({ ...face, slot: 'mass' })) : faces;
 }
 
 /** Built and void cell counts, gross floor area and court area in m², and the tallest storey count. */

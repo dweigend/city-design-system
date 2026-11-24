@@ -32,6 +32,7 @@ export type CellSolid = Readonly<{
 	flat: boolean;
 	faces: Faces;
 	key: string;
+	roofKind?: RoofKind;
 }>;
 
 /** Picks one entry of a nonempty list with a keyed draw. */
@@ -201,7 +202,8 @@ function roof(ctx: Context, top: CellSolid): CellSolid[] {
 			toStorey: top.toStorey + 1,
 			flat: false,
 			faces,
-			key: `${top.cell.id}/roof`
+			key: `${top.cell.id}/roof`,
+			roofKind: kind
 		}
 	];
 }

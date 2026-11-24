@@ -17,10 +17,14 @@ export { hasCourtAccess, houseScale, houseStyleFor, type HouseScale } from './sc
 export {
 	createHouseObject,
 	entranceStepCellId,
+	houseFaces,
 	houseFigures,
 	houseSlots,
 	type HouseDetail
 } from './object';
+
+/** A planar house face that a surface family can clad. */
+export type { HouseFace } from './faces';
 
 /** Style rows: occupancy tendencies, fills, roofs, openings, part kinds and slots per style. */
 export {
