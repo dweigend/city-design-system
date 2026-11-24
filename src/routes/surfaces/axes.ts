@@ -1,4 +1,4 @@
-import type { Vec3 } from '../../core/geometry';
+import type { Vec3 } from '../../lib/core/geometry';
 
 // Exact arithmetic: unit axes of the world frame, Z up.
 export const axes = Object.freeze({

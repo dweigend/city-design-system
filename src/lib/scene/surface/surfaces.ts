@@ -10,6 +10,8 @@ export type Surface = Readonly<{
 	color: `--${string}`;
 	finish: Finish;
 	flat?: boolean;
+	/** Keeps the authored fill color when the display applies its paper veil. */
+	preserveColor?: boolean;
 	opacity?: `--alpha-${string}`;
 	stroke?: Readonly<{
 		color: `--${string}`;
@@ -57,7 +59,6 @@ export type Drawable = Surface &
 		fillAlpha?: number;
 		colorMix?: Readonly<{ token: `--${string}`; amount: number }>;
 		vertical?: Readonly<{ scale: number; pivot: number }>;
-		preserveColor?: boolean;
 		/** A translucent fill still hides what lies behind it from strokes, and only its front
 		 * layer is tinted. */
 		occlude?: boolean;

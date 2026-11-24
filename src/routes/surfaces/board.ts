@@ -1,10 +1,16 @@
-import { materialSettings as m } from '../../../config/material';
-import type { Part } from '../../core/object';
+import { specimenSettings as m } from '../../config/surface-specimens';
+import type { Part } from '../../lib/core/object';
 import { axes } from './axes';
-import type { SurfaceLevel, SurfaceOptions } from './build';
-import { createClad, type CladObject, type Cladding } from './clad';
-import { readFamily, type Family } from './families';
-import type { Patch } from './patch';
+import {
+	createClad,
+	type CladObject,
+	type Cladding,
+	type Family,
+	type Patch,
+	type SurfaceLevel,
+	type SurfaceOptions
+} from '../../lib/scene/material';
+import { groundFamily } from './controls';
 
 /** One sample plate per entry, upright for wall families and flat for ground families, on
  * stands in rows that rise toward the back, centred on the origin. */
@@ -25,7 +31,7 @@ export function createSampleBoard(
 		const x = (column - (columns - 1) / 2) * (width + gapAcross) - width / 2;
 		const y = row * gapBack;
 		const z = standFront + row * standStep;
-		const flat = readFamily(family).ground;
+		const flat = family === groundFamily;
 		const patch: Patch = flat
 			? {
 					origin: [x, y, z + m.plateThicknessM],
@@ -56,5 +62,15 @@ export function createSampleBoard(
 			}
 		});
 	}
-	return createClad('sample-board', claddings, options, stands);
+	return createClad(
+		{
+			id: 'sample-board',
+			footprint: { width: 0, depth: 0 },
+			anchors: [],
+			slots: stands.length ? ['stand'] : [],
+			parts: stands
+		},
+		claddings,
+		options
+	);
 }

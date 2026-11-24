@@ -1,21 +1,24 @@
 # Material contract
 
-Procedural surface families as data. A family is a recipe that lays units, joints and trim on a
-planar patch and raises them as real relief geometry. It knows nothing of houses, cities or pages
-and carries no colour: it emits role slots (`unit`, `unit-alt`, `trim`, `joint`, `shade`), and
-`scene/surface` colours them at one boundary (`paintClad`).
+A family lays units, joints and trim on a planar patch and raises them as relief. Geometry carries
+family slots in meters. Use `paintClad` from `scene/surface` to assign colors.
 
-- A patch is an origin, a unit `across` axis and a unit outward `normal` (up = normal × across),
-  a size and backing thickness in meters, an optional convex outline (a gable), rectangular
-  openings and convex shadows cast by other bodies.
-- Families: render (scored panels), masonry (running bond), timber (boards and battens), metal
-  (trapezoid corrugation with lap seams), glass (mullion grid and panes), paving (setts, laid flat).
-  Module, joint, relief and shares come from `src/config/material`.
-- Levels: `relief` raises units and casts hard shade along `light`; `flat` is one slab in the unit
-  tone; `pencil` is that slab with one line per joint. `readSurfaceLevel` maps the focus display
-  levels onto them.
-- Budget: a relief patch coarsens its module until it fits `patch.budget` (else the configured
-  density times its area) and falls back to `flat` after the step limit.
-- The same family, patch and options always yield the same arrays.
+- `buildSurface(family, patch, options?)` builds a patch from its origin, unit across axis, unit
+  outward normal, size and backing thickness. The up axis is normal × across. Supply a convex
+  outline for a gable and rectangular openings to cut through both relief and backing.
+- Pass the direction the light travels in world axes as `options.light`. Pass external shadows
+  as convex, counter-clockwise polygons already projected into the patch's coordinates.
+  `surfaceLight` from `scene/stage` supplies the stage direction.
+- `relief` raises units, `flat` builds a single slab and `pencil` adds joint strokes to that slab.
+  `readSurfaceLevel` from `scene/focus` maps display policy to these levels.
+- The triangle budget is `patch.budget` or the configured density times patch area. Relief and
+  pencil preflight their layouts against the budget and a work limit, coarsening the module as
+  needed. If detail still exceeds either limit, the recipe tries a flat slab.
+  A budget below `minimumMeshTriangles` (12), or below the required slab cost when falling back,
+  yields zero triangles, empty meshes and no strokes.
+- `createClad(input, claddings, options?)` takes a footprint, anchors and any plain parts with
+  their declared slots. It combines meshes that share a role, family, drawn level and family
+  slot. The same inputs produce the same arrays. See `cladExample` in `example.ts` for two wall
+  faces sharing a role at a corner, with an opening in one face.
 
-See `/surfaces` for the sample plates and the sample body.
+The [surfaces page](/surfaces) shows all six families as plates and on a gabled body.

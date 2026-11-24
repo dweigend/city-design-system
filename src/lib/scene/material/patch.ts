@@ -80,7 +80,12 @@ function isConvex(polygon: readonly Vec2[]) {
 }
 
 /** Area of the outline minus the openings in square meters. */
-export function readPatchArea(frame: Frame) {
+export function readPatchArea(patch: Patch) {
+	return frameArea(readFrame(patch));
+}
+
+/** Area of an already validated patch frame, in square meters. */
+export function frameArea(frame: Frame) {
 	const { outline } = frame;
 	let twice = 0;
 	for (const [i, [u0, v0]] of outline.entries()) {

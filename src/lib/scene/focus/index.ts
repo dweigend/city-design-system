@@ -1,3 +1,5 @@
+import type { SurfaceLevel } from '../material';
+
 /** The five display levels of COLOR-6, from the subject to the omitted context. */
 export const displayLevels = Object.freeze([
 	'full',
@@ -181,4 +183,19 @@ export function offerFocus(present: readonly Subsystem[]): FocusChoice[] {
 		seen.add(key);
 		return true;
 	});
+}
+
+const surfaceDetail = {
+	full: 'relief',
+	silhouette: 'flat',
+	transparent: 'flat',
+	pencil: 'pencil',
+	hidden: undefined
+} as const satisfies Record<DisplayLevel, SurfaceLevel | undefined>;
+
+/** Maps focus display to surface detail. Hidden surfaces can be skipped. */
+export function readSurfaceLevel(level: DisplayLevel): SurfaceLevel | undefined {
+	if (!Object.hasOwn(surfaceDetail, level))
+		throw new RangeError(`Unknown display level "${level}"`);
+	return surfaceDetail[level];
 }

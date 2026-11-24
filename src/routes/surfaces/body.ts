@@ -1,10 +1,17 @@
-import { materialSettings as m } from '../../../config/material';
-import { convexHull, scaled, sum, type Vec2, type Vec3 } from '../../core/geometry';
+import { specimenSettings as m } from '../../config/surface-specimens';
+import { convexHull, scaled, sum, type Vec2, type Vec3 } from '../../lib/core/geometry';
 import { axes } from './axes';
-import type { SurfaceOptions } from './build';
-import { createClad, type CladObject, type Cladding } from './clad';
-import type { Family } from './families';
-import { readFrame, readPatchArea, type Patch, type Rect } from './patch';
+import {
+	createClad,
+	readPatchArea,
+	type CladObject,
+	type Cladding,
+	type Family,
+	type Patch,
+	type Rect,
+	type SurfaceOptions
+} from '../../lib/scene/material';
+import { groundFamily } from './controls';
 
 type Wall = Readonly<{ origin: Vec3; across: Vec3; normal: Vec3; length: number; gable: boolean }>;
 
@@ -105,14 +112,18 @@ export function createSampleBody(
 	family: Family,
 	options: SurfaceOptions = {},
 	roof: Family = 'metal',
-	ground: Family = 'paving'
+	ground: Family = groundFamily
 ): CladObject {
 	const [width, depth, eaves, ridge] = m.bodySizeM;
 	const claddings = wallCladdings(family, m.bodySizeM);
 	for (const patch of roofSlopes(width, depth, eaves, ridge))
 		claddings.push({ role: 'roof', family: roof, patch });
 	claddings.push(groundCladding(ground, options.light));
-	return createClad('sample-body', shareBudget(claddings, m.bodyTriangleBudget), options);
+	return createClad(
+		{ id: 'sample-body', footprint: { width, depth }, anchors: [] },
+		shareBudget(claddings, m.bodyTriangleBudget),
+		options
+	);
 }
 
 // Exact arithmetic: a gable outline starts at the patch origin and peaks at mid-length.
@@ -174,12 +185,12 @@ function groundCladding(ground: Family, light?: Vec3): Cladding {
 }
 
 function shareBudget(claddings: readonly Cladding[], budget: number): Cladding[] {
-	const total = claddings.reduce((sum, { patch }) => sum + readPatchArea(readFrame(patch)), 0);
+	const total = claddings.reduce((sum, { patch }) => sum + readPatchArea(patch), 0);
 	return claddings.map((cladding) => ({
 		...cladding,
 		patch: {
 			...cladding.patch,
-			budget: Math.floor((budget * readPatchArea(readFrame(cladding.patch))) / total)
+			budget: Math.floor((budget * readPatchArea(cladding.patch)) / total)
 		}
 	}));
 }

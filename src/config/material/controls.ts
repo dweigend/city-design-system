@@ -5,27 +5,6 @@ const share = { min: 0, max: 1 } as const;
 
 /** Player control bands and the pencil level. */
 export const controls = defineSettings({
-	moduleScaleBand: {
-		value: [0.5, 2, 0.25],
-		unit: 'ratio',
-		meaning: 'Lowest, highest and step of the module scale a player may choose',
-		bounds: positive,
-		rationale: 'From half to double the configured module keeps every family recognisable.'
-	},
-	reliefScaleBand: {
-		value: [0, 2, 0.25],
-		unit: 'ratio',
-		meaning: 'Lowest, highest and step of the relief scale a player may choose',
-		bounds: { min: 0 },
-		rationale: 'Zero flattens the relief; double shows it at long distance.'
-	},
-	seedBand: {
-		value: [1, 64, 1],
-		unit: 'seed',
-		meaning: 'Lowest, highest and step of the variation seed offered on the page',
-		bounds: { min: 0 },
-		rationale: 'A short range is enough to compare variations.'
-	},
 	pencilHatchRatio: {
 		value: 0.6,
 		unit: 'ratio',

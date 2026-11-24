@@ -175,3 +175,26 @@ export const layouts = Object.freeze({ bond, boards, profile, grid } satisfies R
 	string,
 	Layout
 >);
+
+/** Estimates candidate units over the whole patch, including the trim and overlapping profiles. */
+// Exact arithmetic: these factors follow the unit counts in the four layouts.
+export function estimateUnits(
+	layout: keyof typeof layouts,
+	{ module: [moduleWidth, moduleHeight], bond }: ReliefParams,
+	[width, height]: Vec2
+): number {
+	const columns = Math.ceil(width / moduleWidth);
+	const rows = Math.ceil(height / moduleHeight);
+	switch (layout) {
+		case 'bond':
+			return (
+				Math.ceil(rows / 2) * columns + Math.floor(rows / 2) * Math.ceil(width / moduleWidth + bond)
+			);
+		case 'boards':
+			return (Math.floor(width / moduleWidth) + 1) * (rows + 1);
+		case 'profile':
+			return columns * (3 * rows + 2 * Math.floor(rows / 2));
+		case 'grid':
+			return columns + 1 + columns * (2 * rows + 1);
+	}
+}

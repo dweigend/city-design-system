@@ -6,6 +6,7 @@ import {
 	offerFocus,
 	readFocusChoice,
 	readFocusLevel,
+	readSurfaceLevel,
 	stockPencilShare,
 	subsystems
 } from './index';
@@ -68,5 +69,15 @@ test('names the choices for the districts they show, not for houses', () => {
 		'Height',
 		'Terrain and water',
 		'Plan and crossings'
+	]);
+});
+
+test('surface detail follows the separate focus adapter', () => {
+	expect(displayLevels.map(readSurfaceLevel)).toEqual([
+		'relief',
+		'flat',
+		'flat',
+		'pencil',
+		undefined
 	]);
 });

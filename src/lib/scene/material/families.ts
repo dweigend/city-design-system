@@ -75,7 +75,6 @@ export const families = Object.freeze({
 	},
 	paving: {
 		layout: 'bond',
-		ground: true,
 		slots: ['unit', 'unit-alt', 'joint'],
 		params: {
 			module: m.pavingModuleM,
@@ -89,7 +88,7 @@ export const families = Object.freeze({
 	}
 } as const satisfies Record<
 	string,
-	{ layout: keyof typeof layouts; ground?: boolean; slots: readonly string[]; params: ReliefParams }
+	{ layout: keyof typeof layouts; slots: readonly string[]; params: ReliefParams }
 >);
 
 /** A procedural surface family. */
@@ -100,15 +99,13 @@ export type FamilySlot = 'unit' | 'unit-alt' | 'trim' | 'joint' | 'shade' | 'sha
 /** Families in table order. */
 export const familyNames = Object.freeze(Object.keys(families) as Family[]);
 
-/** Reads a family's slots, layout, default parameters and whether it is laid on the ground. Throws RangeError for an unknown family. */
+/** Reads a family's slots, layout, default parameters. Throws RangeError for an unknown family. */
 export function readFamily(family: Family) {
 	if (!Object.hasOwn(families, family)) throw new RangeError(`Unknown surface family "${family}"`);
 	const entry = families[family];
 	const { layout, slots, params } = entry;
-	const ground = 'ground' in entry && entry.ground;
 	return {
 		layout,
-		ground,
 		slots: [...slots, 'shade', 'shade-unit'] as readonly FamilySlot[],
 		params: params as ReliefParams
 	};

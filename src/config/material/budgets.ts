@@ -4,13 +4,6 @@ const positive = { exclusiveMin: 0 } as const;
 
 /** Triangle budgets and the coarsening applied when a patch would exceed them. */
 export const budgets = defineSettings({
-	plateTriangleBudget: {
-		value: 6000,
-		unit: 'triangles',
-		meaning: 'Most triangles one 2 x 2 m sample plate may use',
-		bounds: positive,
-		principle: 'MAT-5'
-	},
 	patchTrianglesPerSquareM: {
 		value: 450,
 		unit: 'triangles/m²',
@@ -18,12 +11,19 @@ export const budgets = defineSettings({
 		bounds: positive,
 		principle: 'MAT-5'
 	},
-	bodyTriangleBudget: {
-		value: 60000,
+	minimumMeshTriangles: {
+		value: 12,
 		unit: 'triangles',
-		meaning: 'Most triangles one sample body with roof, openings and ground may use',
+		meaning: 'Minimum patch budget for emitting a surface',
 		bounds: positive,
-		principle: 'MAT-5'
+		rationale: 'A rectangular closed slab has six faces with two triangles each.'
+	},
+	maxLayoutUnits: {
+		value: 8192,
+		unit: 'units',
+		meaning: 'Maximum estimated candidate units per layout attempt',
+		bounds: positive,
+		rationale: 'Bounds temporary allocations even when the triangle budget grows with patch area.'
 	},
 	coarsenStepRatio: {
 		value: 1.25,

@@ -6,18 +6,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import {
-		createSampleBoard,
-		readLight,
-		createSampleBody,
 		familyNames,
-		readFamily,
-		surfaceControls,
 		surfaceLevels,
-		triangleBudgets,
 		type Family,
 		type SurfaceLevel
 	} from '../../lib/scene/material';
-	import { shadowDirection, shadowReach } from '../../lib/scene/stage';
+	import { surfaceLight } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { existing, paintClad, type MaterialDisplay } from '../../lib/scene/surface';
 	import { Slider } from '../../lib/ui/slider';
@@ -25,6 +19,10 @@
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
+	import { createSampleBoard } from './board';
+	import { createSampleBody } from './body';
+	import { specimenSettings } from '../../config/surface-specimens';
+	import { groundFamily, readControl } from './controls';
 
 	const chapter = chapterAt('/surfaces');
 	const names: Record<Family, string> = {
@@ -40,7 +38,7 @@
 		flat: 'Flat',
 		pencil: 'Pencil'
 	};
-	const wallFamilies = familyNames.filter((family) => !readFamily(family).ground);
+	const wallFamilies = familyNames.filter((family) => family !== groundFamily);
 	const query = page.url.searchParams;
 	const pickFamily = (value: string | null) => familyNames.find((family) => family === value);
 	const number = (key: string, fallback: number) => {
@@ -56,16 +54,15 @@
 		surfaceLevels.find((value) => value === query.get('level')) ?? 'relief'
 	);
 	let transparent = $state(query.get('display') === 'transparency');
-	let moduleScale = $state(number('module', 1));
-	let reliefScale = $state(number('relief', 1));
-	let seed = $state(number('seed', 1));
+	let moduleScale = $state(readControl(query.get('module'), specimenSettings.moduleScaleBand));
+	let reliefScale = $state(readControl(query.get('relief'), specimenSettings.reliefScaleBand));
+	let seed = $state(readControl(query.get('seed'), specimenSettings.seedBand));
 	let bodyFamily = $state<string>(pickFamily(query.get('body')) ?? 'masonry');
 	const zoom = number('zoom', 1);
 	const bodyZoom = number('bodyZoom', 1);
 
 	const display = $derived<MaterialDisplay>(transparent ? 'transparency' : 'normal');
-	const light = readLight(shadowDirection, shadowReach);
-	const options = $derived({ light, seed, moduleScale, reliefScale, level });
+	const options = $derived({ light: surfaceLight, seed, moduleScale, reliefScale, level });
 	const entries = $derived<{ family: Family; level?: SurfaceLevel }[]>(
 		levelRow.length
 			? levelRow.map((rowLevel) => ({ family: shown[0] ?? 'masonry', level: rowLevel }))
@@ -80,9 +77,9 @@
 
 	const levels = surfaceLevels.map((value) => ({ value, label: levelNames[value] }));
 	const bodies = wallFamilies.map((value) => ({ value, label: names[value] }));
-	const [moduleMin, moduleMax, moduleStep] = surfaceControls.moduleScale;
-	const [reliefMin, reliefMax, reliefStep] = surfaceControls.reliefScale;
-	const [seedMin, seedMax, seedStep] = surfaceControls.seed;
+	const [moduleMin, moduleMax, moduleStep] = specimenSettings.moduleScaleBand;
+	const [reliefMin, reliefMax, reliefStep] = specimenSettings.reliefScaleBand;
+	const [seedMin, seedMax, seedStep] = specimenSettings.seedBand;
 </script>
 
 <svelte:head>
@@ -130,7 +127,7 @@
 		<Slider label="Seed" min={seedMin} max={seedMax} step={seedStep} bind:value={seed} />
 	</div>
 	<p class="data">
-		Largest plate {plateTriangles.toLocaleString('en')} of {triangleBudgets.plate.toLocaleString(
+		Largest plate {plateTriangles.toLocaleString('en')} of {specimenSettings.plateTriangleBudget.toLocaleString(
 			'en'
 		)} triangles · all plates {board.triangles.toLocaleString('en')}
 	</p>
@@ -158,6 +155,8 @@
 		<ToggleGroup label="Walls" items={bodies} bind:value={bodyFamily} />
 	</div>
 	<p class="data">
-		House {body.triangles.toLocaleString('en')} of {triangleBudgets.body.toLocaleString('en')} triangles
+		House {body.triangles.toLocaleString('en')} of {specimenSettings.bodyTriangleBudget.toLocaleString(
+			'en'
+		)} triangles
 	</p>
 </section>

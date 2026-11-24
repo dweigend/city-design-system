@@ -15,6 +15,14 @@ export const sun = [-0.6, -0.8] as const;
 export const flatTolerance = 1e-3;
 export const shadowReach = 0.6;
 export const shadowDirection = Object.freeze([-sun[0], -sun[1]] as const);
+
+/** Direction of the stage light in world axes, per meter of descent. */
+// Exact arithmetic: light descends one meter per meter of shadow reach.
+export const surfaceLight = Object.freeze([
+	shadowDirection[0] * shadowReach,
+	shadowDirection[1] * shadowReach,
+	-1
+] as const);
 export const levels = { top: 0.028, lit: -0.055, shadow: -0.145 };
 export const grain = { top: 0.014, lit: 0.008, shadow: 0.026 };
 

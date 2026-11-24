@@ -1,16 +1,9 @@
 import { expect, test } from 'bun:test';
 import type { Vec3 } from '../../core/geometry';
-import {
-	buildSurface,
-	createSampleBoard,
-	createSampleBody,
-	familyNames,
-	readFamily,
-	readLight,
-	type Patch
-} from './index';
+import { cladExample } from './example';
+import { buildSurface, familyNames, readFamily, type Patch } from './index';
 
-const light = readLight([0.6, 0.8], 0.6);
+const light: Vec3 = [0.36, 0.48, -1];
 const sqrt = Math.SQRT1_2;
 const orientations: readonly Readonly<{ across: Vec3; normal: Vec3 }>[] = [
 	{ across: [1, 0, 0], normal: [0, -1, 0] },
@@ -106,19 +99,22 @@ test('raised faces wind outward and nothing is drawn inside an opening', () => {
 	}
 });
 
-test('geometry carries slots and meters only, never a colour', () => {
-	const objects = [
-		createSampleBoard(
-			familyNames.map((family) => ({ family })),
-			{ light }
-		),
-		createSampleBody('timber', { light })
-	];
-	for (const { object } of objects) {
-		const text = JSON.stringify(object);
-		expect(text).not.toMatch(/--|#[0-9a-f]{3}|rgb|oklch|color/i);
-		for (const slot of object.slots)
-			expect(slot).toMatch(/^(?:[a-z0-9-]+\/(?:unit|unit-alt|trim|joint|shade|shade-unit)|stand)$/);
+test('an L-shaped wall clads two families around an opening and retains its object fields', () => {
+	const { object, groups, surfaces } = cladExample();
+	expect(object.footprint).toEqual({ width: 3, depth: 2 });
+	expect(object.anchors).toEqual([{ name: 'corner', position: [3, 0, 0], normal: [1, 0, 0] }]);
+	expect(object.parts.at(-1)).toMatchObject({ id: 'footing', slot: 'foot' });
+	expect(groups.map(({ family }) => family)).toEqual(['timber', 'render']);
+	expect(surfaces.every(({ triangles }) => triangles > 0)).toBe(true);
+	expect(JSON.stringify(object)).not.toMatch(/--|#[0-9a-f]{3}|rgb|oklch|color/i);
+
+	for (const mesh of surfaces[0].meshes.values()) {
+		for (let i = 0; i < mesh.indices.length; i += 3) {
+			const [a, b, c] = mesh.indices.slice(i, i + 3).map((index) => index * 3);
+			const x = (mesh.positions[a] + mesh.positions[b] + mesh.positions[c]) / 3;
+			const z = (mesh.positions[a + 2] + mesh.positions[b + 2] + mesh.positions[c + 2]) / 3;
+			expect(x > 1 && x < 2 && z > 0.5 && z < 1.5).toBe(false);
+		}
 	}
 });
 

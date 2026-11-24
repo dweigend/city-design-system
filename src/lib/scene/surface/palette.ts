@@ -1,6 +1,6 @@
 import {
 	castShade,
-	familyNames,
+	readFamily,
 	pencilStroke,
 	type CladObject,
 	type Family,
@@ -47,25 +47,26 @@ const normal = {
 } as const satisfies Record<Family, Row>;
 
 /** Transparency: every family turns to the neutral stock veil, so infrastructure carries colour. */
+const stock = (color: `--${string}`): Surface => ({ ...matte(color), preserveColor: true });
 const veil: Row = {
-	unit: matte('--stock-veil'),
-	'unit-alt': matte('--stock-veil'),
-	trim: matte('--stock-line'),
-	joint: matte('--stock-pencil')
+	unit: stock('--stock-veil'),
+	'unit-alt': stock('--stock-veil'),
+	trim: stock('--stock-line'),
+	joint: stock('--stock-pencil')
 };
-const transparency = Object.fromEntries(familyNames.map((family) => [family, veil])) as Record<
-	Family,
-	Row
->;
-const palettes = { normal, transparency } as const satisfies Record<
-	MaterialDisplay,
-	Record<Family, Row>
->;
+
+const shadeTarget = {
+	shade: 'joint',
+	'shade-unit': 'unit'
+} as const;
+
+function isShade(slot: FamilySlot): slot is keyof typeof shadeTarget {
+	return Object.hasOwn(shadeTarget, slot);
+}
 
 /** The pencil level: paper fill with graphite hatching and joint lines (COLOR-5). */
 const pencil: Surface = Object.freeze({
-	color: '--stock-pencil',
-	finish: 'matte',
+	...stock('--stock-pencil'),
 	stroke: {
 		color: '--stock-line' as const,
 		width: pencilStroke.width,
@@ -74,77 +75,67 @@ const pencil: Surface = Object.freeze({
 	}
 });
 
-/** Reads the surface of one family slot in one display. Throws RangeError when the family has no
- * such slot or the display is unknown. */
+/** Reads the surface of a declared slot. Shade slots use the fill of the face they cover.
+ * Throws RangeError for an unknown display, family or slot. */
 export function readMaterialSurface(
 	family: Family,
 	slot: FamilySlot,
 	display: MaterialDisplay
 ): Surface {
-	if (!Object.hasOwn(palettes, display)) throw new RangeError(`Unknown display "${display}"`);
-	const row: Row | undefined = Object.hasOwn(palettes[display], family)
-		? palettes[display][family]
-		: undefined;
-	const surface = row?.[slot];
+	if (display !== 'normal' && display !== 'transparency')
+		throw new RangeError(`Unknown display "${String(display)}"`);
+	if (!readFamily(family).slots.includes(slot))
+		throw new RangeError(`No surface for ${family} slot "${slot}"`);
+	const target = isShade(slot) ? shadeTarget[slot] : slot;
+	const row: Row = display === 'normal' ? normal[family] : veil;
+	const surface = Object.hasOwn(row, target) ? row[target] : undefined;
 	if (!surface) throw new RangeError(`No surface for ${family} slot "${slot}"`);
 	return surface;
 }
 
-/** Shade keeps the colour of the face it falls on, darkened alike on every face, and draws no
- * outline of its own: an overprint, not an object (MAT-2). */
 const noStrokes: readonly number[] = Object.freeze([]);
-const shadeTarget: Partial<Record<FamilySlot, FamilySlot>> = {
-	shade: 'joint',
-	'shade-unit': 'unit'
-};
 const shadeFaces = Object.freeze({ top: castShade, lit: castShade, shadow: castShade });
 
-function split(slot: string): [role: string, slot: FamilySlot] | undefined {
-	const at = slot.lastIndexOf('/');
-	return at < 0 ? undefined : [slot.slice(0, at), slot.slice(at + 1) as FamilySlot];
-}
-
-/** The one assignment boundary for clad objects: colours every `role/slot` by the role's family
- * and drawn level, takes plain slots from `plain`, and adds the pencil joint lines of each role
- * as a stroke-only drawable. Throws RangeError for a slot without a surface. */
+/** Paints compatible cladding groups by family, detail and slot. Plain slots take their
+ * surfaces from `plain`. Throws RangeError for a missing surface. */
 export function paintClad(
 	clad: CladObject,
 	display: MaterialDisplay,
 	plain: SurfaceAssignment = {}
 ): Drawable[] {
 	const assignment: Record<string, Surface | undefined> = { ...plain };
-	const pencilRoles = new Set(
-		Object.keys(clad.levels).filter((role) => clad.levels[role] === 'pencil')
-	);
-	for (const slot of clad.object.slots) {
-		const parts = split(slot);
-		if (!parts) continue;
-		const [role, familySlot] = parts;
-		const family = clad.materials[role];
-		assignment[slot] = pencilRoles.has(role)
-			? pencil
-			: readMaterialSurface(family, shadeTarget[familySlot] ?? familySlot, display);
+	const details = new Map<string, Partial<Drawable>>();
+	for (const group of clad.groups) {
+		for (const [partSlot, familySlot] of group.slots) {
+			const surface = readMaterialSurface(group.family, familySlot, display);
+			if (group.level === 'pencil') {
+				assignment[partSlot] = pencil;
+				details.set(partSlot, { hatch: pencilStroke.hatch });
+			} else {
+				assignment[partSlot] = surface;
+				if (isShade(familySlot))
+					details.set(partSlot, {
+						faces: shadeFaces,
+						strokeSegments: noStrokes,
+						visible: display === 'normal'
+					});
+			}
+		}
 	}
-	const drawables = resolveSurfaces(clad.object, assignment).map((drawable): Drawable => {
-		const [role, familySlot] = split(drawable.id) ?? [];
-		if (role !== undefined && pencilRoles.has(role))
-			return { ...drawable, hatch: pencilStroke.hatch };
-		if (familySlot === undefined || !shadeTarget[familySlot]) return drawable;
-		return {
-			...drawable,
-			faces: shadeFaces,
-			strokeSegments: noStrokes,
-			visible: display === 'normal'
-		};
-	});
-	for (const [role, lines] of Object.entries(clad.lines)) {
-		const host = drawables.find(({ id }) => id === `${role}/unit`);
-		if (!host || !lines.length) continue;
+	const drawables = resolveSurfaces(clad.object, assignment).map((drawable): Drawable => ({
+		...drawable,
+		...details.get(drawable.id)
+	}));
+	const parts = new Map(clad.object.parts.map(({ id, shape }) => [id, shape]));
+	for (const group of clad.groups) {
+		if (!group.lines.length) continue;
+		const shape = parts.get(`${group.id}/unit`);
+		if (!shape) continue;
 		drawables.push({
 			...pencil,
-			id: `${role}/lines`,
-			shape: host.shape,
-			strokeSegments: lines,
+			id: `${group.id}/lines`,
+			shape,
+			strokeSegments: group.lines,
 			fillVisible: false
 		});
 	}

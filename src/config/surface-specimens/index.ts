@@ -1,9 +1,44 @@
-import { defineSettings } from '../setting';
+import { defineSettings, settingValues } from '../setting';
 
 const positive = { exclusiveMin: 0 } as const;
 
 /** Sample plates and the sample body shown on the surfaces page. */
-export const samples = defineSettings({
+export const settings = defineSettings({
+	plateTriangleBudget: {
+		value: 6000,
+		unit: 'triangles',
+		meaning: 'Most triangles one 2 x 2 m sample plate may use',
+		bounds: positive,
+		principle: 'MAT-5'
+	},
+	bodyTriangleBudget: {
+		value: 60000,
+		unit: 'triangles',
+		meaning: 'Most triangles one sample body with roof, openings and ground may use',
+		bounds: positive,
+		principle: 'MAT-5'
+	},
+	moduleScaleBand: {
+		value: [0.5, 2, 0.25],
+		unit: 'ratio',
+		meaning: 'Lowest, highest and step of the module scale a player may choose',
+		bounds: positive,
+		rationale: 'From half to double the configured module keeps every family recognisable.'
+	},
+	reliefScaleBand: {
+		value: [0, 2, 0.25],
+		unit: 'ratio',
+		meaning: 'Lowest, highest and step of the relief scale a player may choose',
+		bounds: { min: 0 },
+		rationale: 'Zero flattens the relief; double shows it at long distance.'
+	},
+	seedBand: {
+		value: [1, 64, 1],
+		unit: 'seed',
+		meaning: 'Lowest, highest and step of the variation seed offered on the page',
+		bounds: { min: 0 },
+		rationale: 'A short range is enough to compare variations.'
+	},
 	plateSizeM: {
 		value: [2, 2],
 		unit: 'm',
@@ -103,3 +138,6 @@ export const samples = defineSettings({
 		rationale: 'Shows the ground contact and the cast shadow.'
 	}
 });
+
+/** Defaults consumed by the surfaces page. */
+export const specimenSettings = settingValues(settings);
