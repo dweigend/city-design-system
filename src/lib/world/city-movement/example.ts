@@ -6,7 +6,7 @@ import { cityRailTerrainSlopeBound, readCityMovement, readCityRail } from './ind
 /** Builds a seeded valley settlement with walkway centres and rail catchments supplied by the caller. */
 export function cityMovementExample(
 	variant: CityPlanVariant = 'organic',
-	size = citySiteParams.citySize.default as number,
+	size = citySiteParams.citySize.default,
 	relief?: number,
 	useCrossing = true
 ) {

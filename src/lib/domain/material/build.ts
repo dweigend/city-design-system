@@ -61,7 +61,10 @@ function scaleParams(params: PatternParams, scale: number): PatternParams {
 }
 
 // Exact arithmetic: neutral defaults.
-function readOptions({ moduleScale = 1, level = 'near' }: SurfaceOptions) {
+function readOptions({
+	moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1,
+	level = 'near'
+}: SurfaceOptions) {
 	if (!Number.isFinite(moduleScale) || moduleScale <= 0)
 		throw new RangeError('Module scale must be finite and positive');
 	return { moduleScale, level: readSurfaceLevelName(level) };
@@ -90,7 +93,14 @@ function addFace(sink: MeshSink, frame: Frame, face: PrintFace) {
 	const back = frame.patch.backed !== false;
 	const base = back ? -frame.patch.thickness : 0;
 	for (const cell of cutOpenings(face.outline, face.openings))
-		addCell(sink, frame, cell, base, { at: 0 }, back);
+		addCell(
+			sink,
+			frame,
+			cell,
+			base,
+			/* Exact arithmetic: unshifted material plane. */ { at: 0 },
+			back
+		);
 }
 
 // Exact arithmetic: a flat mark has its base on its top.
@@ -117,7 +127,7 @@ function prints(family: Family, params: PatternParams, level: SurfaceLevel) {
 export function printsMarks(
 	family: Family,
 	level: SurfaceLevel | SurfaceLevelAlias,
-	moduleScale = 1
+	moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1
 ): boolean {
 	return prints(
 		family,
@@ -160,7 +170,14 @@ function collect(
 
 // Exact arithmetic: an empty mesh uses zero triangles.
 function emptySurface(family: Family, level: SurfaceLevel, moduleScale: number): SurfaceMesh {
-	return { family, level, moduleScale, triangles: 0, meshes: new Map(), lines: [] };
+	return /* Exact arithmetic: an empty surface contains zero triangles. */ {
+		family,
+		level,
+		moduleScale,
+		triangles: 0,
+		meshes: new Map(),
+		lines: []
+	};
 }
 
 function buildAt(
@@ -196,7 +213,10 @@ export function fitModuleScale(family: Family, patch: Patch, options: SurfaceOpt
 	if (pattern === 'plain') return moduleScale;
 	const budget = readBudget(frame);
 	const area = frameArea(frame);
-	const perMark = pattern === 'dots' ? dotSides - 2 : 2;
+	const perMark =
+		pattern === 'dots'
+			? dotSides - /* Exact arithmetic: triangulated polygon loses two from its vertex count. */ 2
+			: /* Exact arithmetic: a quad triangulates into two triangles. */ 2;
 	let scale = moduleScale;
 	for (let step = 0; step < coarsenStepLimit; step++) {
 		const estimate = estimateMarks(area, scaleParams(params, scale), pattern === 'dots');

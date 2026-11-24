@@ -20,7 +20,7 @@ export type DrainageLake = Readonly<{
 type Outline = ReturnType<typeof outline>;
 
 // Exact arithmetic: two crossings bound a shore edge and a ring needs more than one edge.
-const edgeEndpoints = 2;
+const edgeEndpoints = /* Exact arithmetic: two endpoints define an edge. */ 2;
 
 function outline() {
 	const vertices: Vec2[] = [];

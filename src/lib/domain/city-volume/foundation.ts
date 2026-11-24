@@ -1,5 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
-import { cityVolumeConfig } from './config';
+import { cityVolumeConfig } from '../../../config/city-volume';
 import { levelHeight } from './settlement';
 
 /** Lattice address in world meters. Ground contact marks a joint clamped to sampled terrain. */

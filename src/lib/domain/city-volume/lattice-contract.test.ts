@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
 import { required } from '../../core/invariant';
+import type { Vec2 } from '../../core/geometry';
+import { createCellSpace, defaultStoreyHeightM } from '../cell-space';
 import { planEdgeId, TerrainGrid } from '../terrain-grid';
 import {
 	cityLatticesByPlan,
@@ -14,10 +16,12 @@ import {
 	levelHeight,
 	readCityColumns,
 	taperStep,
+	storeysPerLevel,
 	createCityTaper,
 	type CityColumn,
 	type CityLattice,
 	type CityPlanVariant,
+	type LatticeBay,
 	type LatticeVariant
 } from './index';
 
@@ -488,4 +492,38 @@ test('cell-array order cannot change the settlement class at the town threshold'
 	expect(reverse.areaKm2).toBe(first.areaKm2);
 	expect(reverse.settlement).toBe(first.settlement);
 	expect(reverse.shares).toEqual(first.shares);
+});
+
+test('matches the fine cell storey height and logical child bays', () => {
+	expect(levelHeight / storeysPerLevel).toBe(defaultStoreyHeightM);
+	const bay: LatticeBay = {
+		id: 'p/level/2',
+		planCellId: 'p',
+		level: 2,
+		planCorners: ['a', 'b', 'c', 'd'],
+		floorFace: '',
+		ceilingFace: '',
+		sideFaces: []
+	};
+	const points: Vec2[] = [
+		[0, 0],
+		[10, 0],
+		[10, 10],
+		[0, 10]
+	];
+	const space = createCellSpace(
+		{
+			id: 'p',
+			corners: bay.planCorners.map((id, i) => ({ id, position: points[i] })),
+			frontage: [],
+			baseZ: 0,
+			storeyCount: 4
+		},
+		0
+	);
+	const corners = new Set(space.cells.map(({ corner }) => corner));
+	for (const { id } of subdivideBay(bay)) {
+		expect(corners.has((JSON.parse(id.split('/child/')[1]) as [string, number])[0])).toBe(true);
+	}
+	expect(corners.size).toBe(4);
 });

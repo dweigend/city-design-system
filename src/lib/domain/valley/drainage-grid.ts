@@ -21,6 +21,14 @@ export function vertexArea(side: number, spacing: number, index: number) {
 	const y = (index / side) | 0;
 	const boundaryX = x === 0 || x === side - 1;
 	const boundaryY = y === 0 || y === side - 1;
-	const triangles = boundaryX && boundaryY ? 1 + Number(x === y) : boundaryX || boundaryY ? 3 : 6;
-	return (spacing * spacing * triangles) / 6;
+	const triangles =
+		boundaryX && boundaryY
+			? 1 + Number(x === y)
+			: boundaryX || boundaryY
+				? /* Exact arithmetic: triangles at an edge node. */ 3
+				: /* Exact arithmetic: triangles at an interior node. */ 6;
+	return (
+		(spacing * spacing * triangles) /
+		/* Exact arithmetic: sixth of a square per incident triangle contribution. */ 6
+	);
 }

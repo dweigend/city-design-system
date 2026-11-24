@@ -30,7 +30,7 @@ export function encodePair(a: string | Key, b: string | Key): string {
 }
 
 // Exact arithmetic: serial format discriminator.
-const version = 1;
+const version = /* Exact arithmetic: reference codec version. */ 1;
 
 /** Versioned JSON address. The producing adapter owns its world, kind vocabulary and local keys. */
 export type Ref<Kind extends string = string> = Readonly<{

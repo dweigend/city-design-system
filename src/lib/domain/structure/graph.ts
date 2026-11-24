@@ -47,7 +47,7 @@ function register(ids: Set<string>, id: string, kind: string) {
 }
 
 // Exact arithmetic: a world position has three XYZ coordinates.
-const positionSize = 3;
+const positionSize = /* Exact arithmetic: XYZ coordinate stride. */ 3;
 
 function copyPosition(value: unknown): Vec3 | undefined {
 	if (!Array.isArray(value) || value.length !== positionSize) return undefined;

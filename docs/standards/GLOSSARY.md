@@ -1,6 +1,6 @@
 # Glossary
 
-Use US English for repository text and names. The German column helps readers translate source material. Keep source quotations, titles, proper names, formulas and units intact. See [Naming Conventions](NAMING_CONVENTIONS.md#language).
+Use US English for repository text and names, including `center` and `color`. The German column helps readers translate source material. Keep source quotations, titles, proper names, formulas and units intact. See [Naming Conventions](NAMING_CONVENTIONS.md#language).
 
 ## 1. Chapters & Product Structure
 
@@ -127,6 +127,7 @@ Use US English for repository text and names. The German column helps readers tr
 | force density                            | Kraftdichte                  | Ratio of member force to member length during form finding.                                        |
 | strut / secondary strut / rib            | Stab / Nebenstab / Rippe     | Linear load-bearing members in the structural layout.                                              |
 | node / hub                               | Knoten / Nabe                | Connection point of struts in a space frame or dome.                                               |
+| endpoint                                 | Endpunkt                     | A point at either end of a segment, path, or edge.                                                 |
 | post and beam / mullion and transom      | Pfosten und Riegel           | Vertical and horizontal timber members of the honeycomb structure.                                 |
 | house principle                          | Hausprinzip                  | The way a house carries itself: layers, scaffold, exoskeleton, mast, tower, fanned truss.          |
 | rod / strut / tie                        | Stange / Druckstab / Zugstab | Straight member between two nodes of a house; a tie only pulls.                                    |

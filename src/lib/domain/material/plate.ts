@@ -17,7 +17,7 @@ export function createSamplePlateObject(
 ) {
 	const frame = readFrame(patch);
 	const corners = frame.outline.flatMap(([u, v]) => [
-		frame.point(u, v, 0),
+		frame.point(u, v, /* Exact arithmetic: point on the base plane. */ 0),
 		frame.point(u, v, -patch.thickness)
 	]);
 	const extents = bounds(corners);

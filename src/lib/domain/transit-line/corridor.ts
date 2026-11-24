@@ -12,7 +12,7 @@ export function frame([start, end]: RailCorridor) {
 	const v = dy / lengthM;
 	return {
 		lengthM,
-		at: (along: number, across = 0): Vec2 => [
+		at: (along: number, across = /* Exact arithmetic: centerline offset is zero. */ 0): Vec2 => [
 			start[0] + u * along - v * across,
 			start[1] + v * along + u * across
 		],

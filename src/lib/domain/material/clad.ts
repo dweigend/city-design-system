@@ -101,7 +101,14 @@ export function createClad(
 	const byRole = new Map<string, Group[]>();
 	const groups: Group[] = [];
 	const surfaces = withBodies(claddings).map(
-		({ role, family, patch, level, tone, moduleScale = 1 }) => {
+		({
+			role,
+			family,
+			patch,
+			level,
+			tone,
+			moduleScale = /* Exact arithmetic: unity scale preserves physical dimensions. */ 1
+		}) => {
 			const surface = buildSurface(family, patch, {
 				...options,
 				level: level ?? options.level,

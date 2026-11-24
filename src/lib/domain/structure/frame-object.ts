@@ -10,7 +10,7 @@ export type FrameBayOptions = Readonly<{
 }>;
 
 // Exact arithmetic: the unit normal points up at the support seat.
-const up: Vec3 = [0, 0, 1];
+const up: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 
 /** Builds square-profile members in graph order and preserves selected support anchors.
  * Unknown member addresses throw RangeError. */

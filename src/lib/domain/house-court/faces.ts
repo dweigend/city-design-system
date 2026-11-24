@@ -40,7 +40,7 @@ function wallFace(
 	const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
 	if (!(length > 0) || !(z1 > z0)) return undefined;
 	const [dx, dy] = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
-	return {
+	return /* Exact arithmetic: XY wall basis has no vertical component. */ {
 		slot,
 		body,
 		place: 'wall',
@@ -103,7 +103,7 @@ export function roofFace(slot: string, body: string, ring: readonly Vec3[]): Hou
 				sum[2] + (p[0] - q[0]) * (p[1] + q[1])
 			];
 		},
-		[0, 0, 0]
+		/* Exact arithmetic: initial sum of XYZ coordinates. */ [0, 0, 0]
 	);
 	if (!(Math.hypot(...newell) > 0) || newell[2] <= 0) return undefined;
 	const normal = unit(newell);
@@ -121,7 +121,7 @@ export function roofFace(slot: string, body: string, ring: readonly Vec3[]): Hou
 	const outline = local.map(([u, v]): Vec2 => [u - u0, v - v0]);
 	const size: Vec2 = [Math.max(...outline.map(([u]) => u)), Math.max(...outline.map(([, v]) => v))];
 	if (!(size[0] > 0 && size[1] > 0)) return undefined;
-	const origin: Vec3 = [0, 1, 2].map(
+	const origin: Vec3 = /* Exact arithmetic: XYZ coordinate indices. */ [0, 1, 2].map(
 		(k) => ring[0][k] + across[k] * u0 + up[k] * v0
 	) as unknown as Vec3;
 	return { slot, body, place: 'roof', origin, across, normal, size, outline, openings: [] };

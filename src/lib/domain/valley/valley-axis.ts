@@ -21,7 +21,11 @@ function reachChord(course: RiverCourse, reachM: number) {
 }
 
 // Exact arithmetic: the floodplain and two terraced floor IDs are ordered and stable.
-const floorId = { floodplain: 1, lowerTerrace: 2, upperTerrace: 3 } as const;
+const floorId = /* Exact arithmetic: floor band indices above the channel. */ {
+	floodplain: 1,
+	lowerTerrace: 2,
+	upperTerrace: 3
+} as const;
 
 /** Builds the alluvial profile and an independently tilted axis in the course frame. */
 export function createValleyAxis(random: Random, course: RiverCourse, openSide: number) {

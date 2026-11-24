@@ -13,8 +13,12 @@ const planAddressRevision = 'city-plan/1';
 function fingerprint(snapshot: unknown) {
 	const bytes = new TextEncoder().encode(JSON.stringify(snapshot));
 	let hash = 0xcbf29ce484222325n;
-	for (const byte of bytes) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
-	return hash.toString(16);
+	for (const byte of bytes)
+		hash = BigInt.asUintN(
+			/* Exact arithmetic: FNV-1a word width. */ 64,
+			(hash ^ BigInt(byte)) * 0x100000001b3n
+		);
+	return hash.toString(/* Exact arithmetic: hexadecimal revision representation. */ 16);
 }
 
 function byId<T extends { id: string }>(items: readonly T[]) {

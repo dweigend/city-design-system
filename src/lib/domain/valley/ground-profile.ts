@@ -6,12 +6,12 @@ const { farBeltEdgeM, nearBeltEdgeM } = defaults;
 // Exact arithmetic: the cubic smoothstep polynomial has zero derivative at both ends.
 function rise(distanceM: number, centerM: number, halfRunM: number): number {
 	const t = Math.min(1, Math.max(0, (distanceM - centerM + halfRunM) / (2 * halfRunM)));
-	return t * t * (3 - 2 * t);
+	return t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t);
 }
 
 // Exact arithmetic: the quadratic ease reaches full height with zero slope at t = 1.
 export function easeBank(height: number, t: number): number {
-	return height * t * (2 - t);
+	return height * t * /* Exact arithmetic: quadratic easing coefficient. */ (2 - t);
 }
 
 export function axisBow(axis: ValleyAxis, stationM: number) {
@@ -36,7 +36,7 @@ export function terraceEdgeM(
 }
 
 // Exact arithmetic: zero blend keeps the local terrace profile.
-const unblendedTerracesRatio = 0;
+const unblendedTerracesRatio = /* Exact arithmetic: zero blend retains the terraces. */ 0;
 
 /** Samples the inherited floodplain and two terrace benches above the datum. */
 export function heightAboveWaterM(

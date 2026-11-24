@@ -7,7 +7,7 @@ import {
 	type CityGrowthPolicy
 } from '../../domain/city-volume';
 import type { TerrainGrid } from '../../domain/terrain-grid';
-import { citySiteConfig as config } from './config';
+import { citySiteConfig as config } from '../../../config/city-site';
 import { channelCrossings, type CrossableWater } from './crossings';
 import type { CityTerrainSampler } from './sampling';
 

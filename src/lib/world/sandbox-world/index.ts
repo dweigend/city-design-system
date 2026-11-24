@@ -80,7 +80,7 @@ export function createSandboxWorld(
 		([x, y]) => site.sampleGround(x, y).height
 	);
 	// Exact arithmetic: ground-only movement uses no vertical offset and no upper-level centers.
-	const groundOffset = 0;
+	const groundOffset = /* Exact arithmetic: zero offset places the asset on the ground. */ 0;
 	const movement = readCityMovement(site, layout, [], groundOffset, undefined, []);
 	const edges = new Map(movement.network.edges.map((edge) => [edge.id, edge]));
 	const identity = readSandboxIdentity(

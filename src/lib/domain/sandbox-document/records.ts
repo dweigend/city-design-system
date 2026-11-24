@@ -191,7 +191,7 @@ function placementId({ world, kind, key }: Ref) {
 }
 
 // Exact arithmetic: deterministic initial seed for worlds that omit a seed.
-const defaultPlacementSeed = 0;
+const defaultPlacementSeed = /* Exact arithmetic: default seed in the placement wire format. */ 0;
 
 export function placement(
 	world: WorldIdentity,

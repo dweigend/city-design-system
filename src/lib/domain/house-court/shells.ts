@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/house-court';
 import type { Vec3 } from '../../core/geometry';
 import type { FineCell } from '../cell-space';
 import type { Context } from './context';
@@ -6,8 +7,9 @@ type Node = Readonly<{ cell: FineCell; storey: number; id: string }>;
 type Face = Readonly<{ owner: string; points: Vec3[] }>;
 
 const nodeId = (cell: string, storey: number) => `${cell}#${storey}`;
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
-const pointKey = ([x, y, z]: Vec3) => `${x.toFixed(6)},${y.toFixed(6)},${z.toFixed(6)}`;
+const { shellCornerKeyDecimalPlaces } = defaults;
+const pointKey = ([x, y, z]: Vec3) =>
+	`${x.toFixed(shellCornerKeyDecimalPlaces)},${y.toFixed(shellCornerKeyDecimalPlaces)},${z.toFixed(shellCornerKeyDecimalPlaces)}`;
 
 function nodes(ctx: Context): Node[] {
 	return ctx.space.cells.flatMap((cell) => {
@@ -59,7 +61,6 @@ function faceAdjacent(a: Node, b: Node): boolean {
 }
 
 /** Pairs of members meeting on an edge shared by more than two faces of their shell. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function edgeContacts(faces: readonly Face[], byId: ReadonlyMap<string, Node>): [string, string][] {
 	const owners = new Map<string, string[]>();
 	for (const { owner, points } of faces)

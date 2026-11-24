@@ -52,20 +52,54 @@ export function houseStyleFor(
 			...style,
 			fill: { ...style.fill, kinds: style.large.fill },
 			roof: { ...style.roof, kinds: style.large.roof },
-			slots: { ...style.slots, roof: draw(random, 'roof-slot', style.slots.roof, 1) }
+			slots: {
+				...style.slots,
+				roof: draw(
+					random,
+					'roof-slot',
+					style.slots.roof,
+					/* Exact arithmetic: one roof kind for a calm house. */ 1
+				)
+			}
 		};
 	const colours = Math.ceil(space.cells.length / cellsPerColour);
 	const fill = style.fill.kinds.includes('envelope')
 		? style.fill.kinds
-		: draw(random, 'fill', style.fill.kinds, 1);
+		: draw(
+				random,
+				'fill',
+				style.fill.kinds,
+				/* Exact arithmetic: one fill kind for a calm house. */ 1
+			);
 	return {
 		...style,
 		fill: { ...style.fill, kinds: fill },
-		roof: { ...style.roof, kinds: draw(random, 'roof', style.roof.kinds, 1) },
-		opening: { ...style.opening, kinds: draw(random, 'opening', style.opening.kinds, 1) },
+		roof: {
+			...style.roof,
+			kinds: draw(
+				random,
+				'roof',
+				style.roof.kinds,
+				/* Exact arithmetic: one roof kind for a calm house. */ 1
+			)
+		},
+		opening: {
+			...style.opening,
+			kinds: draw(
+				random,
+				'opening',
+				style.opening.kinds,
+				/* Exact arithmetic: one opening kind for a calm house. */ 1
+			)
+		},
 		slots: {
 			body: draw(random, 'body', style.slots.body, colours),
-			roof: draw(random, 'roof-slot', style.slots.roof, 1),
+			roof: draw(
+				random,
+				'roof-slot',
+				style.slots.roof,
+				/* Exact arithmetic: one roof slot for a calm house. */ 1
+			),
 			capsule: draw(random, 'capsule', style.slots.capsule, colours)
 		}
 	};

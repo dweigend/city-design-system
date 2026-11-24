@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../core/geometry';
 import type { Part } from '../../core/object';
 import { defaults } from '../../../config/house-court';
-import { cellCentre } from '../cell-space';
+import { cellCenter } from '../cell-space';
 import { faceMesh, side } from './boxes';
 import { pick, type CellSolid } from './fills';
 import { builtAt, type Context } from './context';
@@ -21,7 +21,10 @@ const {
 } = defaults;
 
 // Exact arithmetic: corners of the opening figures.
-const figureSides: Record<Exclude<OpeningKind, 'rect'>, number> = {
+const figureSides: Record<
+	Exclude<OpeningKind, 'rect'>,
+	number
+> = /* Exact arithmetic: corner counts of opening shapes. */ {
 	round: curveSegments,
 	triangle: 3
 };
@@ -31,14 +34,17 @@ const part = (id: string, slot: string, faces: Faces): Part[] => {
 	return shape ? [{ id, slot, shape }] : [];
 };
 
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 	const { opening } = ctx.style;
 	const wall = side(s.cell.quad, i);
 	const count = s.flat ? Math.max(1, Math.floor(wall.length / opening.pitchM)) : 1;
 	if (wall.length < opening.pitchM / 2) return { panes: [], collars: [] };
 	const h = ctx.space.storeyHeightM;
-	const radius = Math.min(opening.sizeM, h / 3, wall.length / (count * 3));
+	const radius = Math.min(
+		opening.sizeM,
+		h / defaults.figureOpeningClearanceDivisor,
+		wall.length / (count * defaults.figureOpeningClearanceDivisor)
+	);
 	const z = ctx.space.baseZ + (storey + 1 / 2) * h;
 	const visible = exposedWall(ctx.adjoiningWalls, wall, z - h / 2, z + h / 2);
 	const along: [number, number] = [Math.cos(wall.rotation), Math.sin(wall.rotation)];
@@ -128,7 +134,7 @@ export function trees(ctx: Context): Part[] {
 			ctx.random.derive(`${cell.id}/tree`).number() >= share
 		)
 			return [];
-		const [x, y] = cellCentre(cell);
+		const [x, y] = cellCenter(cell);
 		const z = ctx.space.baseZ;
 		const crown = Math.min(treeCrownM, inradius(cell.quad) * capShareRatio);
 		const crownPlan = rounded(cell.quad, inradius(cell.quad) - crown, crown * capShareRatio);

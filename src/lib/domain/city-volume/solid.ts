@@ -28,7 +28,7 @@ function signedVolume<T>(loops: readonly (readonly T[])[], position: (value: T) 
 				((ax - ox) * (uy * vz - uz * vy) +
 					(ay - oy) * (uz * vx - ux * vz) +
 					(az - oz) * (ux * vy - uy * vx)) /
-				6;
+				/* Exact arithmetic: signed tetrahedron volume denominator. */ 6;
 			bx = cx;
 			by = cy;
 			bz = cz;
@@ -89,7 +89,14 @@ export function solidEdgeFaults(faces: LatticeSolid['faces']) {
 			const forward = a < b;
 			const key = encodePair(a, b);
 			let edge = edges.get(key);
-			if (!edge) edges.set(key, (edge = { count: 0, balance: 0 }));
+			if (!edge)
+				edges.set(
+					key,
+					(edge = /* Exact arithmetic: initial edge incidences and winding balance. */ {
+						count: 0,
+						balance: 0
+					})
+				);
 			edge.count++;
 			edge.balance += forward ? 1 : -1;
 		}
@@ -97,8 +104,12 @@ export function solidEdgeFaults(faces: LatticeSolid['faces']) {
 	let nonManifold = 0;
 	let open = 0;
 	for (const { count, balance } of edges.values()) {
-		if (count > 2) nonManifold++;
-		else if (count !== 2 || balance !== 0) open++;
+		if (count > /* Exact arithmetic: two incident faces in a manifold. */ 2) nonManifold++;
+		else if (
+			count !== /* Exact arithmetic: two incident faces enclose an edge. */ 2 ||
+			balance !== 0
+		)
+			open++;
 	}
 	return { nonManifold, open };
 }

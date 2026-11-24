@@ -28,7 +28,7 @@ export function reserveCourt(
 	if (courtAreaM2 <= tolerance.areaToleranceM2) return;
 	const halfWidth = passageWidthM / 2;
 	// Exact arithmetic: The frontage is the datum of the passage frame.
-	const entranceLineM = 0;
+	const entranceLineM = /* Exact arithmetic: local entrance origin. */ 0;
 	const contacts = eligibleContacts(ring, frontage, passageWidthM, linearToleranceM);
 	const entrances = contacts.flatMap(({ points, laneId, edgeIndex }) => {
 		const frame = edgeFrame(...points);

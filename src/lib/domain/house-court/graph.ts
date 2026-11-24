@@ -1,12 +1,13 @@
 import type { Vec2 } from '../../core/geometry';
-import { cellCentre, type CellSpace, type FineCell } from '../cell-space';
+import { cellCenter, type CellSpace, type FineCell } from '../cell-space';
 import { side } from './boxes';
 
 /** Breadth-first hop counts from the seed cells across shared sides, in cell order. */
-// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function hops(space: CellSpace, seeds: readonly string[]): ReadonlyMap<string, number> {
 	const byId = new Map(space.cells.map((cell) => [cell.id, cell]));
-	const result = new Map(seeds.map((id) => [id, 0]));
+	const result = new Map(
+		seeds.map((id) => /* Exact arithmetic: graph seeds start at zero steps. */ [id, 0])
+	);
 	let frontier = [...seeds];
 	while (frontier.length) {
 		const next: string[] = [];
@@ -51,16 +52,15 @@ export function frontageSegments(space: CellSpace): readonly (readonly [Vec2, Ve
 
 /** Plan distance in meters from a cell's centre to the nearest frontage side; infinite without one. */
 export function frontageDistance(cell: FineCell, segments: readonly (readonly [Vec2, Vec2])[]) {
-	const centre = cellCentre(cell);
+	const centre = cellCenter(cell);
 	return Math.min(Infinity, ...segments.map(([a, b]) => segmentDistance(centre, a, b)));
 }
 
 /** Average of the frontage side midpoints, the point the entrance seeks. */
-// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function frontageCentre(segments: readonly (readonly [Vec2, Vec2])[]): Vec2 {
 	const [x, y] = segments.reduce(
 		([sx, sy], [[ax, ay], [bx, by]]) => [sx + (ax + bx) / 2, sy + (ay + by) / 2],
-		[0, 0]
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 	);
 	return [x / segments.length, y / segments.length];
 }

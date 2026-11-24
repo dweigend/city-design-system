@@ -1,3 +1,4 @@
+import { towerDefaults as config } from '../../../config/city-volume';
 import { measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { Random } from '../../core/random';
@@ -47,7 +48,8 @@ function planCells(plan: TerrainGrid): PlanCell[] {
 	});
 }
 
-/** Orders cells from the core outward and records the area share up to each cell's middle. */
+/** Orders cells from the core outward. Sum in that order so the same total drives
+ * both each cell's area share and the settlement threshold, regardless of plan iteration order. */
 function rankCells(cells: readonly PlanCell[], rank: (cell: PlanCell) => number) {
 	const ordered = cells
 		.map((cell) => ({ cell, rank: rank(cell) }))
@@ -156,7 +158,7 @@ function assignLevels(
 	complexity: number
 ) {
 	const { center } = districtShares(areaKm2);
-	const variation = 0.2 + 0.35 * complexity;
+	const variation = config.towerNoiseBaseRatio + config.towerNoiseComplexityRatio * complexity;
 	const levels = new Map<string, number>();
 	for (const [index, { id, share }] of ranked.entries()) {
 		const kind = required(kinds.get(id), 'district kind');
@@ -194,7 +196,7 @@ export function seedDistricts(
 	const { ranked, total } = rankCells(cells, ({ id, centroid }) =>
 		ranks ? required(ranks.get(id), 'growth rank') : fallback(centroid)
 	);
-	const areaKm2 = total / 1e6;
+	const areaKm2 = total / /* Exact arithmetic: square meters per square kilometer. */ 1e6;
 	const kinds = assignKinds(ranked, areaKm2);
 	const peak = Math.min(peakLevels(areaKm2), capLevels);
 	const levels = assignLevels(ranked, kinds, areaKm2, peak, random.derive('towers'), complexity);
@@ -213,7 +215,11 @@ export function seedDistricts(
 			})
 		])
 	);
-	const shares: Record<DistrictKind, number> = { detached: 0, block: 0, center: 0 };
+	const shares: Record<DistrictKind, number> = /* Exact arithmetic: unoccupied district shares. */ {
+		detached: 0,
+		block: 0,
+		center: 0
+	};
 	for (const { id, area } of ranked)
 		shares[required(kinds.get(id), 'district kind')] += area / total;
 	return Object.freeze({

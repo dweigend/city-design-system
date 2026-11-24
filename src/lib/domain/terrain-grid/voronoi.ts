@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/terrain-grid';
 import { distance, type Vec2 } from '../../core/geometry';
 import { encodeKey } from '../../core/ref';
 import type { Carrier } from './carrier';
@@ -20,10 +21,10 @@ function bisect(polygon: readonly Vec2[], [x, y]: Vec2, [u, v]: Vec2) {
 }
 
 /** Bisector edges shorter than this fraction of the cell size collapse to their midpoint. */
-const shortestEdge = 0.125;
+const shortestEdge = defaults.voronoiMinimumEdgeRatio;
 
 // Weld independently evaluated bisectors to one position at the existing submicron precision.
-const bisectorPrecision = 1e8;
+const bisectorPrecision = defaults.voronoiBisectorPrecision;
 type GeneratingSite = { id: string; point: Vec2 };
 
 function cornerAddress(point: Vec2, sites: readonly GeneratingSite[]) {
@@ -52,8 +53,8 @@ function collapseShortEdges(rings: readonly Ring[], points: ReadonlyMap<string, 
 	for (const { corners } of rings) {
 		corners.forEach((a, index) => {
 			const b = corners[(index + 1) % corners.length];
-			const [ax, ay] = points.get(a) ?? [0, 0];
-			const [bx, by] = points.get(b) ?? [0, 0];
+			const [ax, ay] = points.get(a) ?? /* Exact arithmetic: fallback site origin. */ [0, 0];
+			const [bx, by] = points.get(b) ?? /* Exact arithmetic: fallback site origin. */ [0, 0];
 			if (Math.hypot(bx - ax, by - ay) < shortestEdge) parent.set(find(a), find(b));
 		});
 	}
@@ -64,10 +65,10 @@ function collapseShortEdges(rings: readonly Ring[], points: ReadonlyMap<string, 
 		const id = [...members].sort()[0];
 		const at = members.reduce<Vec2>(
 			([x, y], member) => {
-				const [u, v] = points.get(member) ?? [0, 0];
+				const [u, v] = points.get(member) ?? /* Exact arithmetic: fallback site origin. */ [0, 0];
 				return [x + u / members.length, y + v / members.length];
 			},
-			[0, 0]
+			/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 		);
 		for (const member of members) merged.set(member, { id, at });
 	}
@@ -87,7 +88,7 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 		const current = sites.get(key);
 		if (current) return current;
 		const stream = random.derive(`${i},${j}`);
-		const offset = { min: -0.22, max: 0.22 };
+		const offset = { min: -defaults.voronoiJitterRatio, max: defaults.voronoiJitterRatio };
 		const point: Vec2 = [i + stream.number(offset), j + stream.number(offset)];
 		sites.set(key, point);
 		return point;
@@ -95,23 +96,27 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 	const rings: Ring[] = [];
 	const points = new Map<string, Vec2>();
 	// A margin of two sites completes every short-edge cluster of a cell inside the outline.
-	for (let j = Math.floor(Math.min(...rows)) - 2; j <= Math.ceil(Math.max(...rows)) + 2; j++) {
+	for (
+		let j = Math.floor(Math.min(...rows)) - defaults.voronoiSearchRadius;
+		j <= Math.ceil(Math.max(...rows)) + defaults.voronoiSearchRadius;
+		j++
+	) {
 		for (
-			let i = Math.floor(Math.min(...columns)) - 2;
-			i <= Math.ceil(Math.max(...columns)) + 2;
+			let i = Math.floor(Math.min(...columns)) - defaults.voronoiSearchRadius;
+			i <= Math.ceil(Math.max(...columns)) + defaults.voronoiSearchRadius;
 			i++
 		) {
 			const center = seedPoint(i, j);
 			const generators = [{ id: `${i},${j}`, point: center }];
 			let ring: Vec2[] = [
-				[i - 2, j - 2],
-				[i + 2, j - 2],
-				[i + 2, j + 2],
-				[i - 2, j + 2]
+				[i - defaults.voronoiSearchRadius, j - defaults.voronoiSearchRadius],
+				[i + defaults.voronoiSearchRadius, j - defaults.voronoiSearchRadius],
+				[i + defaults.voronoiSearchRadius, j + defaults.voronoiSearchRadius],
+				[i - defaults.voronoiSearchRadius, j + defaults.voronoiSearchRadius]
 			];
 			// Fixed local competitors keep every cell independent of the crop.
-			for (let v = -2; v <= 2; v++) {
-				for (let u = -2; u <= 2; u++) {
+			for (let v = -defaults.voronoiSearchRadius; v <= defaults.voronoiSearchRadius; v++) {
+				for (let u = -defaults.voronoiSearchRadius; u <= defaults.voronoiSearchRadius; u++) {
 					if (!u && !v) continue;
 					const point = seedPoint(i + u, j + v);
 					generators.push({ id: `${i + u},${j + v}`, point });
@@ -137,7 +142,10 @@ export const voronoi: Carrier = function* (site, outline, bearing, size, random)
 	for (const { id, corners } of rings) {
 		const nodes = new Map(
 			corners.map((corner) => {
-				const { id: address, at } = merged.get(corner) ?? { id: corner, at: [0, 0] };
+				const { id: address, at } = merged.get(corner) ?? {
+					id: corner,
+					at: /* Exact arithmetic: fallback site origin. */ [0, 0]
+				};
 				const [u, v] = toWorld(at[0] * size, at[1] * size);
 				return [address, { id: address, xy: [site.origin[0] + u, site.origin[1] + v] as const }];
 			})

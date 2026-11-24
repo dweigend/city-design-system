@@ -7,9 +7,12 @@ const { minimumLakeAreaM2, minimumLakeDepthMm } = defaults;
 export type Basin = { root: number; outlet: number; level: number; area: number; depth: number };
 
 // Exact arithmetic: the basin membership array starts with no basin at each vertex.
-const noBasin = -1;
+const noBasin = /* Exact arithmetic: unassigned basin sentinel. */ -1;
 // Exact arithmetic: area and depth start at the additive and nonnegative maximum identity.
-const emptyBasinMeasures = { area: 0, depth: 0 };
+const emptyBasinMeasures = /* Exact arithmetic: empty basin starts with zero area and depth. */ {
+	area: 0,
+	depth: 0
+};
 
 function fraction(a: number, b: number, c: number) {
 	if (a >= 0) return 0;

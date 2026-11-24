@@ -48,7 +48,9 @@ export function exposedWall(
 	bottom: number,
 	top: number
 ): WallRect[] {
-	let parts: WallRect[] = [[0, bottom, wall.length, top]];
+	let parts: WallRect[] = /* Exact arithmetic: wall run starts at its local origin. */ [
+		[0, bottom, wall.length, top]
+	];
 	for (const other of adjoiningWalls) {
 		if (other.top <= bottom || other.bottom >= top) continue;
 		const covered = overlap(wall, other);

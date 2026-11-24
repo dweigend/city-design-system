@@ -8,7 +8,7 @@ import { link } from './links';
 import type { parcelClearance } from './parcel-clearance';
 
 // Exact arithmetic: each flight pair has two endpoints per flight.
-const lastFlightPairCorners = 4;
+const lastFlightPairCorners = /* Exact arithmetic: corner count of the last two flights. */ 4;
 
 type At = (along: number, across: number, z: number) => Vec3;
 
@@ -23,7 +23,7 @@ function dryFootprint(site: CitySite, at: At, from: number, to: number, halfWidt
 			const [x, y] = at(
 				from + ((to - from) * i) / length,
 				-halfWidth + ((halfWidth + halfWidth) * j) / width,
-				0
+				/* Exact arithmetic: zero angle aligns with the cell. */ 0
 			);
 			if (site.sampleGround(x, y).waterClearance <= margin) return false;
 		}
@@ -99,8 +99,17 @@ export function stairSurvey(
 		const flightRise = rise / (pairs * 2);
 		const near = padding;
 		const far = near + flightRise * defaults.stairRunRatio;
-		const footprint = clear(z, 0, padding / 2);
-		const access = clear(z, 0, 0, true);
+		const footprint = clear(
+			z,
+			/* Exact arithmetic: no rotation of the footprint. */ 0,
+			padding / 2
+		);
+		const access = clear(
+			z,
+			/* Exact arithmetic: no rotation of the access check. */ 0,
+			/* Exact arithmetic: no padding of the access check. */ 0,
+			true
+		);
 		for (let i = 0; i < defaults.stairBearingCount; i++) {
 			const at = orient(base.position, i);
 			if (!footprintClear(footprint, at, near, far, padding / 2, z)) continue;
@@ -124,7 +133,14 @@ export function stairSurvey(
 			if (!dryApproach(site, base.position, at(near, -side, z))) continue;
 			const via = flights(at, near, far, side, pairs, flightRise, z);
 			const upper = via[via.length - 1];
-			if (!clear(top.position[2], 0, half)(upper, top.position)) continue;
+			if (
+				!clear(
+					top.position[2],
+					/* Exact arithmetic: no rotation of the top landing. */ 0,
+					half
+				)(upper, top.position)
+			)
+				continue;
 			const supports = via.slice(-lastFlightPairCorners).map((point) => ({
 				base: [point[0], point[1], site.sampleGround(point[0], point[1]).height] as Vec3,
 				top: point

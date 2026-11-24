@@ -35,9 +35,9 @@ function boxDistanceSquared(box: Bounds, x: number, y: number): number {
 }
 
 // Exact arithmetic: the initial interval starts at the first vertex.
-const firstVertex = 0;
+const firstVertex = /* Exact arithmetic: first packed vertex index. */ 0;
 // Exact arithmetic: zero is a lower bound on any squared distance.
-const minimumDistanceSquared = 0;
+const minimumDistanceSquared = /* Exact arithmetic: squared distance at the closest possible point. */ 0;
 
 /** Builds a nearest-segment sampler over the course quantized to millimeters. */
 export function courseProjection(course: RiverCourse) {

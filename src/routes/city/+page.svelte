@@ -26,7 +26,6 @@
 		cityFocus,
 		cityFocusPreset,
 		type FocusChoice,
-		type Subsystem,
 		cityFrameFillFlat,
 		cityFrameFillPerRelief,
 		cityPresentation,
@@ -173,23 +172,12 @@
 	const holdings = $derived(readCityParcels(city, plan));
 	const planLines = $derived(terrain.projectWetPlan(plan.selectedCrossings, holdings.mergedUnits));
 	const parcelDrawables = $derived(terrain.projectParcels(holdings));
-	const parcelFocusRows = $derived<Subsystem[]>([
-		...(holdings.lanes.length ? ['lanes' as const] : []),
-		...(holdings.parcels.length ? ['parcels' as const] : []),
-		...(holdings.blocks.some(
-			({ courtFit, memberCellIds }) => courtFit === 'fit' || memberCellIds.length > 1
-		)
-			? ['merged-units' as const]
-			: [])
-	]);
 	const focusState = $derived(
 		cityFocus(
 			{
 				shares: step === '01' ? { detached: 0, block: 0, center: 0 } : districts.shares,
 				lattice: step === '03',
-				waterCells: planLines.some(({ id }) => id === 'water-plan'),
-				crossings: plan.selectedCrossings.length > 0,
-				parcels: parcelFocusRows
+				planDrawables: [...planLines, ...parcelDrawables]
 			},
 			focus,
 			step === '01' ? 'plan' : 'all'

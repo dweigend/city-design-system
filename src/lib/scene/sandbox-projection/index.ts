@@ -18,7 +18,7 @@ type Holdings = ReturnType<typeof createSandboxWorld>['holdings'];
 
 const emptyMesh = { kind: 'mesh', positions: [], indices: [] } as const;
 // Exact arithmetic: the world origin and zero elevation are the frame transform anchor.
-const worldOrigin = [0, 0, 0] as const;
+const worldOrigin = /* Exact arithmetic: world origin. */ [0, 0, 0] as const;
 const placementSurface = { color: '--ink-2', finish: 'matte' } as const;
 
 function address(parts: readonly Drawable[], placementId: string): Drawable[] {

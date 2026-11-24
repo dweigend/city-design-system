@@ -1,5 +1,5 @@
 // Exact arithmetic: one meter is 1,000 millimeters.
-const millimetersPerMeter = 1000;
+const millimetersPerMeter = /* Exact arithmetic: millimeters per meter. */ 1000;
 
 export type SurfaceGrid = Readonly<{
 	windowM: number;

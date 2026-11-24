@@ -17,6 +17,7 @@
 		"perf:baseline": "bun scripts/perf-baseline.ts",
 		"test:browser": "playwright test --config scripts/browser/playwright.config.ts",
 		"check:boundaries": "bun scripts/check-boundaries.ts",
+		"check:naming": "bun scripts/check-naming.ts",
 		"check:config": "bun scripts/config-catalogue.ts --check",
 		"modules:catalogue": "bun scripts/read-module-catalogue.ts",
 		"config:catalogue": "bun scripts/config-catalogue.ts",

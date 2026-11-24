@@ -122,9 +122,9 @@ function copyAnchor({ name, position, normal }: Anchor): Anchor {
 }
 
 // Exact arithmetic: each mesh position has one component per axis.
-const coordinateStride = 3;
+const coordinateStride = /* Exact arithmetic: XYZ coordinate stride. */ 3;
 // Exact arithmetic: each mesh face is a triangle with three indices.
-const triangleVertexCount = 3;
+const triangleVertexCount = /* Exact arithmetic: vertices per triangle. */ 3;
 
 function copyMesh({ positions, indices }: Extract<Shape, { kind: 'mesh' }>): Shape {
 	const vertexCount = positions.length / coordinateStride;
@@ -203,7 +203,7 @@ function boundsPoints(shape: Shape): Vec3[] {
 }
 
 // Exact arithmetic: rotation about Z lets the prism footprint and height be moved independently.
-const axisOrigin = 0;
+const axisOrigin = /* Exact arithmetic: local rotation origin. */ 0;
 
 function moveShape(shape: Shape, point: PointTransform, radians: number): Shape {
 	switch (shape.kind) {

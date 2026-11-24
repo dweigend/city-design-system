@@ -52,7 +52,10 @@ export function length(vector: Vec3): number {
 /** Returns the Euclidean distance in meters between like-dimensional points. Does not mutate or validate. */
 export function distance(from: Vec2, to: Vec2): number;
 export function distance(from: Vec3, to: Vec3): number;
-export function distance([ax, ay, az = 0]: Vec2 | Vec3, [bx, by, bz = 0]: Vec2 | Vec3): number {
+export function distance(
+	[ax, ay, az = /* Exact arithmetic: XY points lie at zero elevation. */ 0]: Vec2 | Vec3,
+	[bx, by, bz = /* Exact arithmetic: XY points lie at zero elevation. */ 0]: Vec2 | Vec3
+): number {
 	return Math.hypot(bx - ax, by - ay, bz - az);
 }
 
@@ -94,7 +97,8 @@ export function size({ min, max }: Bounds3): Vec3 {
 /** Signed plan area in m² and area centroid in world meters, measured relative to the first
  * vertex. Z is ignored. Empty rings have no centroid; zero-area rings use the first vertex. */
 export function measurePolygon(points: readonly (Vec2 | Vec3)[]) {
-	if (!points.length) return { area: 0, centroid: undefined };
+	if (!points.length)
+		return /* Exact arithmetic: an empty ring has zero area. */ { area: 0, centroid: undefined };
 	const [ox, oy] = points[0];
 	let twiceArea = 0;
 	let xMoment = 0;
@@ -111,7 +115,10 @@ export function measurePolygon(points: readonly (Vec2 | Vec3)[]) {
 		yMoment += (ay + by) * cross;
 	}
 	const centroid: Vec2 = twiceArea
-		? [ox + xMoment / (3 * twiceArea), oy + yMoment / (3 * twiceArea)]
+		? [
+				ox + xMoment / /* Exact arithmetic: polygon centroid denominator. */ (3 * twiceArea),
+				oy + yMoment / /* Exact arithmetic: polygon centroid denominator. */ (3 * twiceArea)
+			]
 		: [ox, oy];
 	return { area: twiceArea / 2, centroid };
 }

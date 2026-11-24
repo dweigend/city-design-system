@@ -21,7 +21,7 @@ const {
 // Exact arithmetic: the cubic smoothstep polynomial has zero derivative at both ends.
 export function smoothstep(value: number) {
 	const t = Math.max(0, Math.min(1, value));
-	return t * t * (3 - 2 * t);
+	return t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t);
 }
 
 function alongCourse(course: RiverCourse, fx: number, fy: number) {
@@ -50,11 +50,11 @@ function alongCourse(course: RiverCourse, fx: number, fy: number) {
 
 // Exact arithmetic: the normalized three-point binomial stencil weights are 1:2:1.
 function smoothChordCenter(before: number, at: number, after: number) {
-	return (before + 2 * at + after) / 4;
+	return (before + 2 * at + after) / /* Exact arithmetic: sum of smoothing weights. */ 4;
 }
 
 // Exact arithmetic: the tangent slope is expressed per unit of longitudinal distance.
-const longitudinalUnit = 1;
+const longitudinalUnit = /* Exact arithmetic: unit baseline of the longitudinal profile. */ 1;
 
 /** Continues the local terrace profile along a smoothed meander belt beyond the measurement plot. */
 export function regionalProfile(course: RiverCourse, random: Random) {

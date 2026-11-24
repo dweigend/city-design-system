@@ -4,7 +4,7 @@ import { defaults } from '../../../config/sandbox-interaction';
 export type BuildJob<T> = Readonly<{ id: string; key: string; run: () => T }>;
 
 // Exact arithmetic: keep the two latest builds of an owner.
-const productsPerOwner = 2;
+const productsPerOwner = /* Exact arithmetic: both presentation products for an owner. */ 2;
 
 /** Creates a time-budgeted build queue. Jobs run first in, first out; resubmitting an owner moves
  * it to the back and replaces its waiting job. A product already built for the same key is reused

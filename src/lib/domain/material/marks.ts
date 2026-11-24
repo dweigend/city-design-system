@@ -30,9 +30,9 @@ function range(outline: readonly Vec2[], value: (point: Vec2) => number) {
  * does not run along the long axis (an end face) stays plain. Bands are cut around openings. */
 // Exact arithmetic: axis 0 is the body's long axis.
 export function stripeMarks(face: PrintFace, params: PatternParams): Vec2[][] {
-	if (slope(face.map, 0) <= planeToleranceM) return [];
+	if (slope(face.map, /* Exact arithmetic: first pattern axis. */ 0) <= planeToleranceM) return [];
 	const pitch = fitPitch(face.body.size[0], params.pitch);
-	const along = coordinate(face.map, 0);
+	const along = coordinate(face.map, /* Exact arithmetic: first pattern axis. */ 0);
 	const [low, high] = range(face.outline, along);
 	const marks: Vec2[][] = [];
 	for (let k = Math.floor(low / pitch); k * pitch < high; k++) {
@@ -49,7 +49,9 @@ export function stripeMarks(face: PrintFace, params: PatternParams): Vec2[][] {
 /** The two body axes that lie most in the face, steepest first. */
 // Exact arithmetic: the indices of the three body axes.
 function faceAxes(map: FaceMap): [number, number] {
-	const [first, second] = [0, 1, 2].sort((a, b) => slope(map, b) - slope(map, a));
+	const [first, second] = /* Exact arithmetic: pattern coordinate indices. */ [0, 1, 2].sort(
+		(a, b) => slope(map, b) - slope(map, a)
+	);
 	return [first, second];
 }
 
@@ -132,7 +134,7 @@ function chord(map: FaceMap, k: number, level: number, outline: readonly Vec2[])
 // Exact arithmetic: axes 0 and 2 are the body's long axis and up.
 export function jointSegments(face: PrintFace, params: PatternParams): [Vec2, Vec2][] {
 	const segments: [Vec2, Vec2][] = [];
-	for (const [k, module] of [
+	for (const [k, module] of /* Exact arithmetic: joint axis indices. */ [
 		[0, params.joint[0]],
 		[2, params.joint[1]]
 	] as const) {

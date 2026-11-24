@@ -1,5 +1,5 @@
 import { encodePair } from '../../core/ref';
-import { cityVolumeConfig } from './config';
+import { cityVolumeConfig } from '../../../config/city-volume';
 import { required } from '../../core/invariant';
 import type { Column } from './bay-addresses';
 import type { PlanTopology } from './plan-topology';

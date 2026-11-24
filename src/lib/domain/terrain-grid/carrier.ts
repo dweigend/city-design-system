@@ -1,3 +1,4 @@
+import { defaults } from '../../../config/terrain-grid';
 import { distance, type Vec2 } from '../../core/geometry';
 import type { Random } from '../../core/random';
 import { encodeKey } from '../../core/ref';
@@ -24,12 +25,15 @@ type Address = readonly [column: number, row: number, half: number];
 export function ringMean(corners: readonly Node[]): Vec2 {
 	return corners.reduce<Vec2>(
 		([x, y], { xy: [a, b] }) => [x + a / corners.length, y + b / corners.length],
-		[0, 0]
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 	);
 }
 
 function average(points: readonly Node[], id: string): Node {
-	const [x, y] = points.reduce(([x, y], { xy }) => [x + xy[0], y + xy[1]], [0, 0]);
+	const [x, y] = points.reduce(
+		([x, y], { xy }) => [x + xy[0], y + xy[1]],
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	);
 	return { id, xy: [x / points.length, y / points.length] };
 }
 
@@ -44,7 +48,7 @@ function faceCenter(points: readonly Node[], id: string): Node {
 			x + (u * weights[i]) / perimeter,
 			y + (v * weights[i]) / perimeter
 		],
-		[0, 0]
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 	);
 	return { id, xy };
 }
@@ -71,7 +75,10 @@ function* split(face: readonly Node[]) {
 }
 
 type Relaxation = Readonly<{ center: number; neighbor: number }>;
-const organicRelaxation = { center: 0.76, neighbor: 0.04 };
+const organicRelaxation = {
+	center: defaults.organicCenterWeight,
+	neighbor: defaults.organicNeighborWeight
+};
 
 function baseNodes(
 	random: Random,
@@ -88,7 +95,7 @@ function baseNodes(
 		const cached = offsets.get(key);
 		if (cached) return cached;
 		const local = random.derive(`offset/${column},${row}`);
-		const bounds = { min: -0.13, max: 0.13 };
+		const bounds = { min: -defaults.organicJitterRatio, max: defaults.organicJitterRatio };
 		const result: Vec2 = [local.number(bounds), local.number(bounds)];
 		offsets.set(key, result);
 		return result;
@@ -99,7 +106,7 @@ function baseNodes(
 		if (cached) return cached;
 		const [x, y] = offset(column, row);
 		// A fixed relaxation stencil keeps displacements independent of the crop boundary.
-		const adjacent = [
+		const adjacent = /* Exact arithmetic: six neighbors of a triangular lattice point. */ [
 			[1, 0],
 			[0, 1],
 			[-1, 1],
@@ -112,11 +119,15 @@ function baseNodes(
 				const [u, v] = offset(column + dc, row + dr);
 				return [dx + u, dy + v];
 			},
-			[0, 0]
+			/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 		);
 		const [u, v] = toWorld(
 			(column + row * 0.5 + relaxation.center * x + relaxation.neighbor * dx) * spacing,
-			((row * Math.sqrt(3)) / 2 + relaxation.center * y + relaxation.neighbor * dy) * spacing * 0.94
+			((row * Math.sqrt(/* Exact arithmetic: equilateral triangle height factor. */ 3)) / 2 +
+				relaxation.center * y +
+				relaxation.neighbor * dy) *
+				spacing *
+				defaults.organicRowScaleRatio
 		);
 		const node: Node = { id, xy: [site.origin[0] + u, site.origin[1] + v] };
 		nodes.set(id, node);
@@ -126,7 +137,8 @@ function baseNodes(
 
 function neighbor([column, row, half]: Address, side: number): Address {
 	if (side === 0) return [column, row + (half ? 1 : -1), 1 - half];
-	if (side === 2) return [column + (half ? 1 : -1), row, 1 - half];
+	if (side === /* Exact arithmetic: third side of the triangular cell. */ 2)
+		return [column + (half ? 1 : -1), row, 1 - half];
 	return [column, row, 1 - half];
 }
 
@@ -159,13 +171,16 @@ export function* carrier(
 	bearing: number,
 	size: number,
 	random: Random,
-	relaxation = organicRelaxation
+	relaxation: Relaxation = organicRelaxation
 ) {
-	const spacing = size * 2.25;
+	const spacing = size * defaults.organicSpacingRatio;
 	const { toLocal } = axes(bearing);
 	const axial = outline.map(([x, y]) => {
 		const [u, v] = toLocal(x - site.origin[0], y - site.origin[1]);
-		const row = v / (((spacing * Math.sqrt(3)) / 2) * 0.94);
+		const row =
+			v /
+			(((spacing * Math.sqrt(/* Exact arithmetic: equilateral triangle height factor. */ 3)) / 2) *
+				defaults.organicRowScaleRatio);
 		return [u / spacing - row * 0.5, row];
 	});
 	const columns = axial.map(([column]) => column);
@@ -173,16 +188,16 @@ export function* carrier(
 	const node = baseNodes(random, site, bearing, spacing, relaxation);
 	// A halo covers displaced vertices and every possible partner outside the requested cells.
 	for (
-		let row = Math.floor(Math.min(...rows)) - 2;
-		row <= Math.ceil(Math.max(...rows)) + 2;
+		let row = Math.floor(Math.min(...rows)) - defaults.organicPaddingCount;
+		row <= Math.ceil(Math.max(...rows)) + defaults.organicPaddingCount;
 		row++
 	) {
 		for (
-			let column = Math.floor(Math.min(...columns)) - 2;
-			column <= Math.ceil(Math.max(...columns)) + 2;
+			let column = Math.floor(Math.min(...columns)) - defaults.organicPaddingCount;
+			column <= Math.ceil(Math.max(...columns)) + defaults.organicPaddingCount;
 			column++
 		) {
-			for (const half of [0, 1]) {
+			for (const half of /* Exact arithmetic: two halves of a parent cell. */ [0, 1]) {
 				const address: Address = [column, row, half];
 				const ring = triangle(address, node);
 				const side = favorite(ring, random);
@@ -203,4 +218,14 @@ export function* carrier(
 }
 
 export const freeQuad: Carrier = (site, outline, bearing, size, random) =>
-	carrier(site, outline, bearing, size, random.derive('free-quad'), { center: 1, neighbor: 0 });
+	carrier(
+		site,
+		outline,
+		bearing,
+		size,
+		random.derive('free-quad'),
+		/* Exact arithmetic: free-quad uses the center sample without neighbor averaging. */ {
+			center: 1,
+			neighbor: 0
+		}
+	);

@@ -7,7 +7,7 @@ import type { CityLattice } from './frame';
 import type { LatticePoint } from './foundation';
 import type { LatticeSolid } from './solid';
 
-const normal: Vec3 = [0, 0, 1];
+const normal: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 
 /** Reads the owned solids, addressed joints and member connections of one lattice bay. */
 export function readLatticeBay(lattice: CityLattice, id: string) {

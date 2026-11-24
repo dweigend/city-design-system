@@ -7,6 +7,7 @@ const layers = {
 const configOwners = {
 	'lib/domain/sandbox-document': 'sandbox-document',
 	'lib/core/geometry': 'geometry',
+	'lib/core/random': 'random',
 	'lib/core/params': 'inputs',
 	'lib/core/object': 'object',
 	'lib/core/mesh': 'mesh',
@@ -18,7 +19,7 @@ const configOwners = {
 	'lib/domain/river-metrics': 'river-metrics',
 	'lib/domain/structure': 'structure',
 	'lib/domain/valley': 'hydrology',
-	'lib/world/city-site': 'lanes|parcels',
+	'lib/world/city-site': 'city-site|lanes|parcels',
 	'lib/world/house-site': 'house-site',
 	'lib/domain/transit-line': 'transit-line',
 	'lib/world/city-movement': 'city-movement',

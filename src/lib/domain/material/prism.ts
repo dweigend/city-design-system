@@ -20,7 +20,14 @@ export function createSink(): MeshSink {
 }
 
 // Exact arithmetic: a missing slope is level.
-function height({ at, perU = 0, perV = 0 }: Plane, [u, v]: Vec2) {
+function height(
+	{
+		at,
+		perU = /* Exact arithmetic: ungraded plane along U. */ 0,
+		perV = /* Exact arithmetic: ungraded plane along V. */ 0
+	}: Plane,
+	[u, v]: Vec2
+) {
 	return at + perU * u + perV * v;
 }
 

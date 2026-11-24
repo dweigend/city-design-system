@@ -21,7 +21,7 @@ export function preparePlanSelection(plan: TerrainGrid) {
 					const [a, b] = required(vertices.get(vertex), 'water cell vertex');
 					return [x + a / vertexIds.length, y + b / vertexIds.length];
 				},
-				[0, 0]
+				/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 			)
 		}));
 	return (built: TerrainGrid) => {

@@ -1,16 +1,17 @@
 /** Module: Creates addressed plan grids from a sampled site. */
+import { defaults } from '../../../config/terrain-grid';
 import { createCatalog } from '../../core/catalog';
 import { distance, measurePolygon, type Vec2, type Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { defineParams, resolveParams } from '../../core/params';
-import { Random } from '../../core/random';
+import { Random, uint32Limit } from '../../core/random';
 import { carrier, freeQuad, ringMean, type Candidate, type Carrier, type Node } from './carrier';
 import { encodePair } from '../../core/ref';
 import { meetsQuality, quality } from './metrics';
 import { insideOutline } from './outline';
 import { bands, contour, hex, polar, square, triangle } from './regular';
 import { alignShore } from './shore-morph';
-import { shorelineMorphLimits } from './config';
+import { shorelineMorphLimits } from '../../../config/terrain-grid';
 import { shoreline, usableShoreRing } from './shore';
 import { voronoi } from './voronoi';
 import { contourBearing, siteOutline, type HeightAt, type Site } from './site';
@@ -22,12 +23,19 @@ export type TerrainGridSite = Site;
 
 /** Supported nominal cell size in meters. */
 export const terrainGridParams = defineParams({
-	cellSize: { label: 'Cell size', unit: 'm', default: 40, min: 5, max: 120, step: 5 }
+	cellSize: {
+		label: 'Cell size',
+		unit: 'm',
+		default: defaults.organicCellSizeM,
+		min: defaults.minimumCellSizeM,
+		max: defaults.maximumCellSizeM,
+		step: defaults.cellSizeStepM
+	}
 });
 
 /** Immutable quality limits in plan (radians and ratio) and grade limit (rise/run). */
 export { quality as terrainGridQuality } from './metrics';
-export { shorelineMorphLimits } from './config';
+export { shorelineMorphLimits } from '../../../config/terrain-grid';
 
 /** Addressed vertex with sampled position, in meters with Z up. */
 export type TerrainGridVertex = Readonly<{ id: string; position: Vec3; shore?: Node['shore'] }>;
@@ -81,16 +89,16 @@ const planSpecifications: Record<PlanVariant, PlanSpecification> = {
 		generate: carrier,
 		checkQuality: true,
 		defaultSize: terrainGridParams.cellSize.default,
-		cellSide: 0.927
+		cellSide: defaults.quadCellSideRatio
 	},
-	square: { generate: square, cellSide: 1 },
-	hex: { generate: hex, cellSide: 1.612 },
-	triangle: { generate: triangle, cellSide: 0.658 },
-	bands: { generate: bands, cellSide: 1 },
-	contour: { generate: contour, cellSide: 1 },
-	polar: { generate: polar, cellSide: 1 },
-	voronoi: { generate: voronoi, cellSide: 1 },
-	'free-quad': { generate: freeQuad, checkQuality: true, cellSide: 0.927 }
+	square: /* Exact arithmetic: cell side equals tile size. */ { generate: square, cellSide: 1 },
+	hex: { generate: hex, cellSide: defaults.hexCellSideRatio },
+	triangle: { generate: triangle, cellSide: defaults.triangleCellSideRatio },
+	bands: /* Exact arithmetic: cell side equals tile size. */ { generate: bands, cellSide: 1 },
+	contour: /* Exact arithmetic: cell side equals tile size. */ { generate: contour, cellSide: 1 },
+	polar: /* Exact arithmetic: cell side equals tile size. */ { generate: polar, cellSide: 1 },
+	voronoi: /* Exact arithmetic: cell side equals tile size. */ { generate: voronoi, cellSide: 1 },
+	'free-quad': { generate: freeQuad, checkQuality: true, cellSide: defaults.quadCellSideRatio }
 };
 
 const plans = createCatalog({
@@ -141,11 +149,9 @@ export type TerrainGridOptions = Readonly<{
 	surface?: Readonly<{ sampleStep: number; accepts: (x: number, y: number) => boolean }>;
 }>;
 
-const maximumSampleSubdivisions = 512;
-
 function subdivisionCount(length: number, spacing: number) {
 	const count = Math.max(1, Math.ceil(length / spacing));
-	if (count > maximumSampleSubdivisions)
+	if (count > defaults.maximumSampleSubdivisions)
 		throw new RangeError('Terrain grid sample subdivisions exceed the limit');
 	return count;
 }
@@ -295,10 +301,10 @@ function generateGrid(
 	}: TerrainGridOptions,
 	cover?: (point: Vec2) => GroundKind
 ) {
-	const { generate, checkQuality, defaultSize = 15 } = plans.get(variant);
+	const { generate, checkQuality, defaultSize = defaults.regularCellSizeM } = plans.get(variant);
 	const outline = siteOutline(site);
 	if (typeof heightAt !== 'function') throw new TypeError('Expected a ground height sampler');
-	if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32)
+	if (!Number.isInteger(seed) || seed < 0 || seed >= uint32Limit)
 		throw new RangeError('Invalid terrain grid seed');
 	const { cellSize } = resolveParams(terrainGridParams, {
 		cellSize: parameters?.cellSize ?? defaultSize

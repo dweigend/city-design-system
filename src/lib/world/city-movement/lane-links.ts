@@ -43,10 +43,12 @@ export function connectLane(
 		points: [[x, y], [u, v]]
 	} = lane;
 	// Exact arithmetic: zero and one are the endpoints of the segment parameter.
-	const stops = new Map([
-		[0, from],
-		[1, to]
-	]);
+	const stops = new Map(
+		/* Exact arithmetic: parameters at the start and end of the segment. */ [
+			[0, from],
+			[1, to]
+		]
+	);
 	const links: Link[] = [];
 	const ground = (key: string, [px, py]: Vec2): MovementNode => ({
 		id: key,

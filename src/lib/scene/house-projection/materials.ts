@@ -79,7 +79,7 @@ export const houseMaterials = Object.freeze({
 export function planHouseMaterials(
 	materials: HouseMaterials,
 	house: string,
-	seed = 0
+	seed = /* Exact arithmetic: neutral default draw seed. */ 0
 ): Readonly<Partial<Record<MaterialRole, ModelMaterial>>> {
 	const random = Random.create({ seed }).derive(house);
 	const plan: Partial<Record<MaterialRole, ModelMaterial>> = {};

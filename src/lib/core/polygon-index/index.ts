@@ -27,7 +27,10 @@ function intersect<T>(node: Tree<T>, box: Bounds, margin: number, matches: Leaf<
 // Exact arithmetic: a simple polygon needs at least three vertices.
 /** Builds a bounding-volume index over simple XY polygon rings. Input order breaks edge,
  * corner and overlap ties. The margin in meters applies to point containment. */
-export function createPolygonIndex<T extends Polygon>(polygons: readonly T[], marginM = 0) {
+export function createPolygonIndex<T extends Polygon>(
+	polygons: readonly T[],
+	marginM = /* Exact arithmetic: zero margin leaves bounds unchanged. */ 0
+) {
 	if (!Number.isFinite(marginM) || marginM < 0) throw new RangeError('Invalid polygon margin');
 	const ids = new Set<string>();
 	const leaves = polygons.map((polygon, order) => {

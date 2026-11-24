@@ -14,7 +14,7 @@ export type SketchFace = Readonly<{
 export type Sketch = Readonly<{ viewBox: string; faces: readonly SketchFace[] }>;
 
 // Exact arithmetic: the isometric axes, cos 30° and sin 30°, and the view direction (1, 1, 1).
-const cos30 = Math.sqrt(3) / 2;
+const cos30 = Math.sqrt(/* Exact arithmetic: cosine of thirty degrees. */ 3) / 2;
 const sin30 = 1 / 2;
 
 function screen([x, y, z]: Vec3): [number, number] {

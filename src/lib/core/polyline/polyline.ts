@@ -12,7 +12,11 @@ export function distance(from: Point, to: Point): number {
 
 /** Validates and measures the length of a finite nondegenerate XY polyline. */
 export function polylineLength(xy: ArrayLike<number>): number {
-	if (!Number.isInteger(xy.length) || xy.length < 4 || xy.length % 2 !== 0) {
+	if (
+		!Number.isInteger(xy.length) ||
+		xy.length < /* Exact arithmetic: two XY endpoints take four entries. */ 4 ||
+		xy.length % 2 !== 0
+	) {
 		throw new RangeError('invalid-polyline');
 	}
 

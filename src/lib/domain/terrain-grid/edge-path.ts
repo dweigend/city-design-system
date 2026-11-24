@@ -178,7 +178,11 @@ export function planEdgeGraph(
 			maximumCost: number,
 			measure?: (edge: PlanEdge) => number
 		) {
-			const origin: Visit = { id: start, lengthM: 0, cost: 0 };
+			const origin: Visit = /* Exact arithmetic: path starts with zero length and cost. */ {
+				id: start,
+				lengthM: 0,
+				cost: 0
+			};
 			const best = new Map<string, Visit>([[start, origin]]);
 			// Keep the original node tie order for the existing length-only crossing search.
 			const compare = measure

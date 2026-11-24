@@ -1,7 +1,7 @@
 import { distance, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { planEdgeGraph, type PlanEdgePath, type TerrainGrid } from '../../domain/terrain-grid';
-import { citySiteConfig as config } from './config';
+import { citySiteConfig as config } from '../../../config/city-site';
 import type { CityTerrainReading, CityTerrainSampler } from './sampling';
 
 /** A bank-to-bank crossing addressed by an edge path, with an optional direct bridge span. */
@@ -61,7 +61,7 @@ function headCells(built: TerrainGrid, edgeNodes: ReadonlySet<string>) {
 				const [a, b] = required(vertices.get(node), 'head cell corner');
 				return [x + a / vertexIds.length, y + b / vertexIds.length];
 			},
-			[0, 0]
+			/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 		);
 		for (const node of attached) {
 			const list = heads.get(node) ?? [];

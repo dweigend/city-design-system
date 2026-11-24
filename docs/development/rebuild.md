@@ -33,7 +33,7 @@ A module is one folder: `index.ts` with documented exports, private sibling file
 
 ### Configuration
 
-Put a tunable in `src/config/<capability>/index.ts`. Give it one key, a unit, a meaning and any physical bounds. Cite its design principle or give the engineering reason for the value. Each module reads its own slice and shares facts through its public entry. Parameter schemas validate and snap player input. Derive values from their inputs and preserve the order of floating-point operations. Keep exact arithmetic with its implementation.
+Put a tunable in `src/config/<capability>/index.ts`. Give it one key, a unit, a meaning and any physical bounds. Cite its design principle or give the engineering reason for the value. Each module reads its own slice and shares facts through its public entry. Parameter schemas validate and snap player input. Derive values from their inputs and preserve the order of floating-point operations. Keep exact arithmetic with its implementation. If the numeric lint rule needs context, put a block comment such as `/* Exact arithmetic: endpoints of a segment. */ 2` immediately before the exact expression.
 
 Run `bun run config:catalogue` to list the settings. Frozen observations and acceptance ranges belong to their evidence. Styles keep theme values in CSS tokens. Study and host settings belong in `scripts/config/`. Register each slice owner in the dependency rules and enable the numeric lint rule when you finish migrating an existing module.
 

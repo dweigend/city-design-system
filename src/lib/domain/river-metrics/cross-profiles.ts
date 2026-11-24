@@ -27,7 +27,7 @@ function courseAt(xy: ArrayLike<number>, chain: Float64Array, target: number): P
 }
 
 // Exact arithmetic: the maximum representable JS array length and a bound on half an ULP.
-const maximumArrayLength = 2 ** 32 - 1;
+const maximumArrayLength = 2 ** /* Exact arithmetic: bit width of the array length limit. */ 32 - 1;
 const relativeHalfUlpBound = Number.EPSILON / 2;
 
 /** Rejects offset ranges that can stall or exceed the length of an array. */
@@ -127,7 +127,10 @@ function terraceEdge(profile: readonly ProfilePoint[], start: number, direction:
 }
 
 // Exact arithmetic: profile offsets increase from left to right.
-const outward = { left: -1, right: 1 } as const;
+const outward = /* Exact arithmetic: outward sign on either bank. */ {
+	left: -1,
+	right: 1
+} as const;
 
 /** Measures the dry distance from each bank to its first mapped terrace. */
 export function floodplainWidths(
@@ -149,9 +152,9 @@ function grade(profile: readonly ProfilePoint[], index: number): number {
 }
 
 // Exact arithmetic: measured runs rise or fall according to the sign of their grade.
-const gradeSigns = [-1, 1] as const;
+const gradeSigns = /* Exact arithmetic: signed grade probes. */ [-1, 1] as const;
 // Exact arithmetic: a negative index represents the absence of an active run.
-const noStep = -1;
+const noStep = /* Exact arithmetic: missing grade step sentinel. */ -1;
 
 /** Collects gains of contiguous, same-sign steep runs outside water on one profile. */
 export function stepCandidates(

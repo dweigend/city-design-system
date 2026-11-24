@@ -40,7 +40,6 @@ export function pick<T>(random: Random, key: string, list: readonly T[]): T {
 	return list[Math.floor(random.derive(key).number() * list.length)];
 }
 
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
 	const shape = shaped(kind, quad, gap, style);
 	return shape.length < 3 ? [...quad] : shape;
@@ -169,7 +168,7 @@ function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind)
 /** The top of an envelope cell run, which a roof solid can stand on. */
 // Exact arithmetic: the envelope keeps no gap.
 function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid {
-	return {
+	return /* Exact arithmetic: the envelope follows its full cell ring. */ {
 		cell,
 		slot: 'wall',
 		outline: cell.quad,

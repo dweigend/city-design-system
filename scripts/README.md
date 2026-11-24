@@ -10,9 +10,11 @@ Run tests, checks, builds and browsers through `heavy-slot` on the shared server
 | `bun test`                 | Runs unit tests and the architecture probes. Run `bun test scripts/rules.test.ts` for the probes alone.                                                                                    |
 | `bun run test:browser`     | Loads every chapter and exercises the stage, chapter controls, specimen filtering and sandbox in Playwright.                                                                               |
 | `bun run check:boundaries` | Checks file and module-folder cycles, layer direction, public entries, headless imports, stylesheets, routes and three.js. Counts distinct domain peers from the dependency-cruiser graph. |
+| `bun run check:config`     | Checks the settings catalogue for duplicate keys, invalid metadata and unrecognized design principle IDs.                                                                                  |
+| `bun run check:naming`     | Checks public function verbs and US English spelling in core, domain, world and scene entries.                                                                                             |
 | `bun run check:skills`     | Checks that Git tracks no private skills.                                                                                                                                                  |
 | `bun run build`            | Builds the app with Vite.                                                                                                                                                                  |
-| `bun run verify`           | Runs lint, type checks, tests, import boundaries, the private-skill check and the build. It reports every result and fails if any step fails.                                              |
+| `bun run verify`           | Runs lint, type checks, tests, import boundaries, configuration and naming checks, the private-skill check and the build. It reports every result and fails if any step fails.             |
 
 The [architecture rules](../docs/standards/ARCHITECTURE.md#rules) name the checks. Each test in `scripts/rules.test.ts` uses a failing and a passing source tree from `scripts/fixtures/rules/`. The probes apply the production lint and graph rules to the fixture paths. Bun skips the fixture trees during test discovery. ESLint, TypeScript and dependency-cruiser exclude them from product checks.
 

@@ -3,6 +3,11 @@ import { createCatalog } from '../../core/catalog';
 import type { Column } from './bay-addresses';
 import { required } from '../../core/invariant';
 import { createBlockInputs, defineParams, resolveParams } from '../../core/params';
+import {
+	cityVolumeConfig as coarseSettings,
+	cityVolumeInputs as inputs
+} from '../../../config/city-volume';
+import { defaultStoreyHeightM } from '../cell-space';
 import type { PlanVariant, TerrainGrid } from '../terrain-grid';
 import { columnPlanes } from './foundation';
 import { seedDistricts, type DistrictCell, type DistrictGrowth } from './districts';
@@ -12,7 +17,10 @@ import type { CityLattice } from './frame';
 import { createLattice, latticeVariants, type LatticeVariant } from './lattices';
 
 /** Coarse level, density and foundation settings. */
-export { cityVolumeConfig } from './config';
+export const cityVolumeConfig = Object.freeze({
+	storeyHeightM: defaultStoreyHeightM,
+	...coarseSettings
+});
 
 /** Ranks dry ground by distance, corridors, grade and water clearance. */
 export { cityAccessibility, type CityApproachPolicy } from './accessibility';
@@ -51,8 +59,15 @@ export const cityVolumeParams = defineParams({
 		default: peakLaw.fullLevels * levelHeight,
 		step: levelHeight
 	},
-	complexity: { ...createBlockInputs().complexity, default: 0.35 },
-	taper: { label: 'Taper', unit: '', min: -1, max: 1, default: 1, step: 0.25 }
+	complexity: { ...createBlockInputs().complexity, default: inputs.districtComplexityDefaultRatio },
+	taper: {
+		label: 'Taper',
+		unit: '',
+		min: -inputs.cityTaperLimitRatio,
+		max: inputs.cityTaperLimitRatio,
+		default: inputs.cityTaperDefaultRatio,
+		step: inputs.cityTaperStepRatio
+	}
 });
 
 /** Signed volume in m³ of every solid of a lattice, in solid order. Unknown joints throw. */

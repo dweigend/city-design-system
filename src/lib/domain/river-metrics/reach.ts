@@ -14,7 +14,7 @@ export type RiverGeometry = Readonly<{
 }>;
 
 // Exact arithmetic: one vertex occupies two entries in the interleaved XY array.
-const xyStride = 2;
+const xyStride = /* Exact arithmetic: entries in a packed XY point. */ 2;
 
 // An oscillation from one axis heading crossing to the next spans half a wave.
 function meanWavelength(xy: ArrayLike<number>, bearing: number): number | null {

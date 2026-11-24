@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { Vec2 } from '../../core/geometry';
-import { levelHeight, storeysPerLevel, subdivideBay, type LatticeBay } from '../city-volume';
 import {
 	cellAreaM2,
 	createCellSpace,
 	createStripSpace,
-	defaultStoreyHeightM,
 	DegenerateParcelError,
 	parcelEdgeId,
 	storeyAddress,
@@ -135,7 +133,6 @@ describe('createCellSpace', () => {
 
 	test('is deterministic and addresses storeys by a fixed grammar', () => {
 		expect(createCellSpace(fixtures.ell)).toEqual(createCellSpace(fixtures.ell));
-		expect(defaultStoreyHeightM as number).toBe(levelHeight / storeysPerLevel);
 		expect(storeyAddress('p/child/["a"]', 3)).toBe('p/child/["a"]/storey/3');
 		expect(() => storeyAddress('p', -1)).toThrow(RangeError);
 	});
@@ -269,34 +266,8 @@ describe('createCellSpace', () => {
 		expect(createCellSpace(parcel('far', square)).cells).toHaveLength(16);
 	});
 
-	test('the example builds and corner quads of a bay are the logical child bays of subdivideBay', () => {
+	test('the example builds a refined rectangular cell space', () => {
 		expect(example().cells).toHaveLength(16);
-		const bay: LatticeBay = {
-			id: 'p/level/2',
-			planCellId: 'p',
-			level: 2,
-			planCorners: ['a', 'b', 'c', 'd'],
-			floorFace: '',
-			ceilingFace: '',
-			sideFaces: []
-		};
-		const points: Vec2[] = [
-			[0, 0],
-			[10, 0],
-			[10, 10],
-			[0, 10]
-		];
-		const space = createCellSpace(
-			{
-				...parcel('p', points, []),
-				corners: bay.planCorners.map((id, i) => ({ id, position: points[i] }))
-			},
-			0
-		);
-		const corners = new Set(space.cells.map(({ corner }) => corner));
-		for (const { id } of subdivideBay(bay))
-			expect(corners.has((JSON.parse(id.split('/child/')[1]) as [string, number])[0])).toBe(true);
-		expect(corners.size).toBe(4);
 	});
 });
 

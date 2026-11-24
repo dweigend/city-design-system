@@ -109,7 +109,13 @@ function mitre(outline: readonly Vec2[], k: number): Vec2 {
 function rim(outline: readonly Vec2[], i: number, z: number): Faces {
 	const ring = signedArea(outline) < 0 ? [...outline].reverse() : outline;
 	const n = outline.length;
-	const k = signedArea(outline) < 0 ? (2 * n - 2 - i) % n : i;
+	const k =
+		signedArea(outline) < 0
+			? (2 * n -
+					/* Exact arithmetic: reverse corner indices relative to the chosen edge. */ 2 -
+					i) %
+				n
+			: i;
 	const j = (k + 1) % ring.length;
 	return extrusion([ring[k], ring[j], mitre(ring, j), mitre(ring, k)], z, z + parapetHeightM);
 }

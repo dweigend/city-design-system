@@ -68,7 +68,10 @@ function inside([u, v]: Vec2, [u0, v0, u1, v1]: Rect) {
 
 // Exact arithmetic: the mean of the corners starts at the origin.
 function centroid(polygon: readonly Vec2[]): Vec2 {
-	const [u, v] = polygon.reduce(([a, b], [x, y]) => [a + x, b + y], [0, 0]);
+	const [u, v] = polygon.reduce(
+		([a, b], [x, y]) => [a + x, b + y],
+		/* Exact arithmetic: initial sum of UV coordinates. */ [0, 0]
+	);
 	return [u / polygon.length, v / polygon.length];
 }
 
@@ -89,8 +92,8 @@ export function cutOpenings(polygon: readonly Vec2[], openings: readonly Rect[])
 		[...new Set(overlapping.flatMap((rect) => [rect[axis], rect[axis + 2]]))]
 			.filter((x) => x > low && x < high)
 			.sort((a, b) => a - b);
-	const us = [minU, ...lines(0, minU, maxU), maxU];
-	const vs = [minV, ...lines(1, minV, maxV), maxV];
+	const us = [minU, ...lines(/* Exact arithmetic: U axis index. */ 0, minU, maxU), maxU];
+	const vs = [minV, ...lines(/* Exact arithmetic: V axis index. */ 1, minV, maxV), maxV];
 	const cells: Vec2[][] = [];
 	for (let i = 0; i + 1 < us.length; i++) {
 		for (let j = 0; j + 1 < vs.length; j++) {
@@ -105,7 +108,7 @@ export function cutOpenings(polygon: readonly Vec2[], openings: readonly Rect[])
 /** Parts of the segment from a to b that lie outside every opening. */
 // Exact arithmetic: the segment parameter runs from 0 to 1.
 export function segmentOutside(a: Vec2, b: Vec2, openings: readonly Rect[]): [Vec2, Vec2][] {
-	let spans: [number, number][] = [[0, 1]];
+	let spans: [number, number][] = /* Exact arithmetic: whole segment interval. */ [[0, 1]];
 	for (const [u0, v0, u1, v1] of openings) {
 		const [enter, exit] = slab(a, b, [u0, v0, u1, v1]);
 		if (enter >= exit) continue;
@@ -126,11 +129,12 @@ export function segmentOutside(a: Vec2, b: Vec2, openings: readonly Rect[]): [Ve
 function slab(a: Vec2, b: Vec2, rect: Rect): [number, number] {
 	let enter = 0;
 	let exit = 1;
-	for (const axis of [0, 1] as const) {
+	for (const axis of /* Exact arithmetic: UV coordinate indices. */ [0, 1] as const) {
 		const delta = b[axis] - a[axis];
 		const [low, high] = [rect[axis], rect[axis + 2]];
 		if (Math.abs(delta) <= planeToleranceM) {
-			if (a[axis] <= low || a[axis] >= high) return [1, 0];
+			if (a[axis] <= low || a[axis] >= high)
+				return /* Exact arithmetic: empty clipping interval. */ [1, 0];
 			continue;
 		}
 		const t0 = (low - a[axis]) / delta;

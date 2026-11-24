@@ -22,7 +22,10 @@ export function halfWidth(start: ReachStation, end: ReachStation, t: number) {
 }
 
 // Exact arithmetic: these fractions select the endpoints of a normalized segment.
-export const sectionEndpoints = { start: 0, end: 1 } as const;
+export const sectionEndpoints = /* Exact arithmetic: first and last endpoint indices. */ {
+	start: 0,
+	end: 1
+} as const;
 
 function rim({ xy: [x, y], water }: ReachStation, radius: number, angle: number): Vec3 {
 	return [x + radius * Math.cos(angle), y + radius * Math.sin(angle), water];

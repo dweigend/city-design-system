@@ -68,12 +68,13 @@ export function readFrame(patch: Patch): Frame {
 	if (size[0] <= 0 || size[1] <= 0 || thickness < 0)
 		throw new RangeError('Patch size must be positive and thickness nonnegative');
 	const up = crossProduct(normal, across);
-	const outline = patch.outline ?? [
-		[0, 0],
-		[size[0], 0],
-		[size[0], size[1]],
-		[0, size[1]]
-	];
+	const outline =
+		patch.outline ?? /* Exact arithmetic: rectangle from the local origin to its stated size. */ [
+			[0, 0],
+			[size[0], 0],
+			[size[0], size[1]],
+			[0, size[1]]
+		];
 	if (!isConvexCounterclockwise(outline))
 		throw new RangeError('Patch outline must be convex and counter-clockwise');
 	const point = (u: number, v: number, w: number): Vec3 =>

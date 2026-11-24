@@ -15,25 +15,39 @@ export type ClippedReach = Readonly<{
 
 type Reach = { xy: number[]; length: number; borderHits: number };
 
+const emptyReach = (): Reach => /* Exact arithmetic: empty reach. */ ({
+	xy: [],
+	length: 0,
+	borderHits: 0
+});
+
 function longestReach(xy: ArrayLike<number>, half: number): Reach {
-	let longest: Reach = { xy: [], length: 0, borderHits: 0 };
+	let longest = emptyReach();
 	let current = longest;
 
 	for (let index = 2; index < xy.length; index += 2) {
-		const segment = clipSegment(pointAt(xy, index - 2), pointAt(xy, index), half);
+		const segment = clipSegment(
+			pointAt(xy, index - /* Exact arithmetic: previous packed XY point. */ 2),
+			pointAt(xy, index),
+			half
+		);
 		if (!segment) {
-			current = { xy: [], length: 0, borderHits: 0 };
+			current = emptyReach();
 			continue;
 		}
 		const { start, end, startsAtVertex, endsAtVertex, overlapsBorder } = segment;
 		if (!startsAtVertex || current.xy.length === 0) {
-			current = { xy: [start.x, start.y], length: 0, borderHits: Number(onBorder(start, half)) };
+			current = /* Exact arithmetic: new reach starts with zero length. */ {
+				xy: [start.x, start.y],
+				length: 0,
+				borderHits: Number(onBorder(start, half))
+			};
 		}
 		current.xy.push(end.x, end.y);
 		current.length += distance(start, end);
 		current.borderHits += overlapsBorder ? Infinity : Number(onBorder(end, half));
 		if (current.length > longest.length) longest = current;
-		if (!endsAtVertex) current = { xy: [], length: 0, borderHits: 0 };
+		if (!endsAtVertex) current = emptyReach();
 	}
 	return longest;
 }

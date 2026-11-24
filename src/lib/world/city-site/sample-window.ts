@@ -1,5 +1,5 @@
 import type { Vec2 } from '../../core/geometry';
-import { citySiteConfig } from './config';
+import { citySiteConfig } from '../../../config/city-site';
 import type { CityTerrainSampler } from './sampling';
 
 type Window = Readonly<{ origin: Vec2; bearing: number; length: number; width: number }>;

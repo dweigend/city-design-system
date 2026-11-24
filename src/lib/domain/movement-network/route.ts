@@ -73,7 +73,7 @@ export function shortest<K extends string>(
 	from: string,
 	to: string
 ) {
-	const origin = { id: from, cost: 0 };
+	const origin = /* Exact arithmetic: route begins with zero cost. */ { id: from, cost: 0 };
 	const best = new Map<string, Visit<K>>([[from, origin]]);
 	const pending = queue<K>();
 	pending.add(origin);

@@ -3,7 +3,7 @@ import { required } from '../../core/invariant';
 import { levelHeight, type CityLattice, type LatticePoint } from '../../domain/city-volume';
 
 // Exact arithmetic: an exterior face has exactly one incident solid.
-const exteriorIncidence = 1;
+const exteriorIncidence = /* Exact arithmetic: one incident face is exterior. */ 1;
 
 type Boundary = { roof: boolean; side: boolean; facadeDiagonal?: true };
 

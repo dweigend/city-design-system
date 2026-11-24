@@ -44,7 +44,9 @@ function gradient(
 }
 
 // Exact arithmetic: three ordered thresholds partition land into four slope classes.
-const emptySlopeCounts = [0, 0, 0, 0] as const;
+const emptySlopeCounts = /* Exact arithmetic: initial count of each slope band. */ [
+	0, 0, 0, 0
+] as const;
 
 function surfaceStats(surface: Surface, signed: Sampler, protocol: SurfaceProtocol) {
 	const { side, center, heights } = surface;
@@ -138,7 +140,8 @@ function checkGrid(grid: SurfaceGrid): number {
 }
 
 // Exact arithmetic: floor indices at or above 2 identify terraces in the surface raster.
-const isDefaultTerrace = (floor: number) => floor >= 2;
+const isDefaultTerrace = (floor: number) =>
+	floor >= /* Exact arithmetic: terrace classes follow the first two floor classes. */ 2;
 
 type ProfileWidths = {
 	widthM: number[];

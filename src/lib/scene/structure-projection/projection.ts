@@ -20,9 +20,9 @@ type Options = Readonly<{
 }>;
 
 // Exact arithmetic: +Z faces out of a support seat in ground-aligned metric coordinates.
-const supportNormal: Vec3 = [0, 0, 1];
+const supportNormal: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 // Exact arithmetic: an empty object occupies zero meters on both ground axes.
-const emptyExtents = [0, 0] as const;
+const emptyExtents = /* Exact arithmetic: empty extent along both axes. */ [0, 0] as const;
 
 function memberBatches(graph: MemberGraph, positions: ReadonlyMap<string, Vec3>, options: Options) {
 	const groups = new Map<

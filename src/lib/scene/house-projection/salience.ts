@@ -20,9 +20,9 @@ type Ranked = Readonly<{ id: string; block: string; rank: number; draw: number }
 // Exact arithmetic: ranks order the salient kinds; zero is an ordinary house.
 function rankOf(candidate: SalienceCandidate, tallest: number, random: Random) {
 	const { large, corner, storeys } = candidate.features;
-	if (large) return 4;
-	if (corner) return 3;
-	if (storeys >= tallest && tallest > 0) return 2;
+	if (large) return /* Exact arithmetic: large house rank. */ 4;
+	if (corner) return /* Exact arithmetic: corner house rank. */ 3;
+	if (storeys >= tallest && tallest > 0) return /* Exact arithmetic: tall house rank. */ 2;
 	return random.derive(candidate.id).number() < salientShareRatio ? 1 : 0;
 }
 
@@ -42,7 +42,7 @@ function tallestByBlock(candidates: readonly SalienceCandidate[]) {
 // Exact arithmetic: ranks and the first house of a block.
 export function readHouseSalience(
 	candidates: readonly SalienceCandidate[],
-	seed = 0
+	seed = /* Exact arithmetic: neutral default draw seed. */ 0
 ): ReadonlyMap<string, SurfaceLevel> {
 	const random = Random.create({ seed }).derive('salience');
 	const tallest = tallestByBlock(candidates);
@@ -65,7 +65,7 @@ export function readHouseSalience(
 		if (count >= salientBlockCap || granted >= salientViewCap) continue;
 		levels.set(id, count === 0 ? 'near' : 'mid');
 		perBlock.set(block, count + 1);
-		granted += 1;
+		granted += /* Exact arithmetic: grant one candidate. */ 1;
 	}
 	return levels;
 }

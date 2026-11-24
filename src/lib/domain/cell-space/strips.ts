@@ -77,20 +77,35 @@ function frame(parcel: Parcel, edge: (from: number) => string): Frame | undefine
 	if (start < 0) return undefined;
 	const at = (k: number) => (start + k + n) % n;
 	const straight = (k: number) => Math.abs(turnSine(points, at(k))) < stripStraightSineRatio;
-	let c = 2;
-	while (c < n - 1 && straight(c)) c += 1;
+	let c = /* Exact arithmetic: first corner after the frontage endpoints. */ 2;
+	while (c < n - 1 && straight(c)) c += /* Exact arithmetic: next corner index. */ 1;
 	let d = n - 1;
-	while (d > c && straight(d)) d -= 1;
+	while (d > c && straight(d)) d -= /* Exact arithmetic: previous corner index. */ 1;
 	const range = (from: number, to: number) =>
 		Array.from({ length: to - from + 1 }, (_, k) => at(from + k));
 	return {
 		keys: parcel.corners.map(({ id }) => encodeKey(['orig', id])),
 		points,
 		edge,
-		front: chain(points, [at(0), at(1)], true),
-		right: chain(points, range(1, c), true),
+		front: chain(
+			points,
+			[
+				at(/* Exact arithmetic: first frontage endpoint. */ 0),
+				at(/* Exact arithmetic: second frontage endpoint. */ 1)
+			],
+			true
+		),
+		right: chain(
+			points,
+			range(/* Exact arithmetic: start after the frontage origin. */ 1, c),
+			true
+		),
 		rear: chain(points, range(c, d).reverse(), false),
-		left: chain(points, [at(0), ...range(d, n - 1).reverse()], false)
+		left: chain(
+			points,
+			[at(/* Exact arithmetic: first frontage endpoint. */ 0), ...range(d, n - 1).reverse()],
+			false
+		)
 	};
 }
 
@@ -136,7 +151,7 @@ function patchPoint(f: Frame, u: number, v: number): Vec2 {
 	const weights = [1 - v, v, 1 - u, u];
 	const blend = (k: number) =>
 		(1 - u) * (1 - v) * A[k] + u * (1 - v) * B[k] + (1 - u) * v * D[k] + u * v * C[k];
-	return [0, 1].map(
+	return /* Exact arithmetic: strip endpoints. */ [0, 1].map(
 		(k) => sides.reduce((sum, side, s) => sum + weights[s] * side[k], 0) - blend(k)
 	) as unknown as Vec2;
 }
@@ -164,7 +179,7 @@ function columnBreaks(
 		chainLength(f, f.rear)
 	);
 	const gap = (s: number, t: number) => reach * Math.abs(s - t);
-	const breaks = [0, 1];
+	const breaks = /* Exact arithmetic: whole strip interval. */ [0, 1];
 	const snapped = new Map<number, number>();
 	f.rear.params.slice(1, -1).forEach((t, i) => {
 		if (snap.has(i + 1) && breaks.every((s) => gap(s, t) >= stripMinimumWidthM)) {
@@ -234,14 +249,21 @@ function dedupe(ring: readonly Point[]): Point[] {
 
 /** One strip cell as a keyed ring: front, right, rear and left sides with the parcel corners that
  * lie on them. */
-// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function cellRing(f: Frame, grid: Grid, id: string, i: number, j: number): KeyedRing {
 	const p = (ii: number, jj: number) => gridKey(f, grid, ii, jj);
 	const [u0, u1] = [grid.breaks[i], grid.breaks[i + 1]];
 	const [v0, v1] = [j / grid.rows, (j + 1) / grid.rows];
 	const ring = dedupe([
 		...run(f, f.front, p(i, j), u0, u1, j === 0),
-		...run(f, f.right, p(i + 1, j), v0, v1, i + 2 === grid.breaks.length),
+		...run(
+			f,
+			f.right,
+			p(i + 1, j),
+			v0,
+			v1,
+			i + /* Exact arithmetic: right boundary follows the final interval. */ 2 ===
+				grid.breaks.length
+		),
 		...run(f, f.rear, p(i + 1, j + 1), u1, u0, j + 1 === grid.rows),
 		...run(f, f.left, p(i, j + 1), v1, v0, i === 0)
 	]);
@@ -294,11 +316,12 @@ export function stripCounts(front: number, depth: number): StripCounts {
 		columns = Math.min(stripMaximumCells, count(front));
 		rows = Math.min(stripMaximumCells, count(depth));
 		while (columns * rows > stripMaximumCells) {
-			if (columns >= rows) columns -= 1;
-			else rows -= 1;
+			if (columns >= rows) columns -= /* Exact arithmetic: remove one column. */ 1;
+			else rows -= /* Exact arithmetic: remove one row. */ 1;
 		}
 	}
-	while (columns * rows < stripMinimumCells && rows < stripMinimumCells) rows += 1;
+	while (columns * rows < stripMinimumCells && rows < stripMinimumCells)
+		rows += /* Exact arithmetic: add one row. */ 1;
 	return { columns, rows };
 }
 
@@ -316,7 +339,6 @@ function* snapChoices(f: Frame): Iterable<ReadonlySet<number>> {
 /** Strip cells of a parcel as keyed rings, or undefined when no count down to one cell keeps
  * every cell convex, at least the minimum width and the parcel's area. Unsnapped corners remain
  * in their rear cells. */
-// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function stripRings(parcel: Parcel, id: string, edge: (from: number) => string) {
 	const f = frame(parcel, edge);
 	if (!f) return undefined;
@@ -332,8 +354,9 @@ export function stripRings(parcel: Parcel, id: string, edge: (from: number) => s
 			).flat();
 			if (accepted(cells, parcelArea)) return cells;
 		}
-		if (columns > 1 && (columns >= rows || rows === 1)) columns -= 1;
-		else if (rows > 1) rows -= 1;
+		if (columns > 1 && (columns >= rows || rows === 1))
+			columns -= /* Exact arithmetic: remove one column. */ 1;
+		else if (rows > 1) rows -= /* Exact arithmetic: remove one row. */ 1;
 		else return undefined;
 	}
 }

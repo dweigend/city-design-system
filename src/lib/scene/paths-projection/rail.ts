@@ -29,16 +29,24 @@ export function guideway(line: TransitLine | undefined, frame: PathsFrame) {
 	const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
 	const u = (b[0] - a[0]) / length;
 	const v = (b[1] - a[1]) / length;
-	const at = ([x, y, z]: Vec3, along: number, across: number, lift = 0): Vec3 => [
-		x + u * along - v * across,
-		y + v * along + u * across,
-		z + lift
-	];
+	const at = (
+		[x, y, z]: Vec3,
+		along: number,
+		across: number,
+		lift = /* Exact arithmetic: zero lift from the route datum. */ 0
+	): Vec3 => [x + u * along - v * across, y + v * along + u * across, z + lift];
 	rail.body.ribbon([a, b], defaults.railWidthM, railDeckThicknessM);
 	trace(rail.stroke, [a, b], defaults.lineLiftM);
-	for (const side of [-1, 1]) {
+	for (const side of /* Exact arithmetic: opposite rail sides. */ [-1, 1]) {
 		const offset = (side * defaults.trackSpacingM) / 2;
-		trace(track.stroke, [at(a, 0, offset), at(b, 0, offset)], defaults.lineLiftM * 2);
+		trace(
+			track.stroke,
+			[
+				at(a, /* Exact arithmetic: zero along-track offset. */ 0, offset),
+				at(b, /* Exact arithmetic: zero along-track offset. */ 0, offset)
+			],
+			defaults.lineLiftM * 2
+		);
 	}
 	for (const { top, base } of line.piers) {
 		const point = local(frame, base);

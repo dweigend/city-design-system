@@ -1,6 +1,7 @@
+import { defaults } from '../../../config/terrain-grid';
 import type { Vec2 } from '../../core/geometry';
 
-const epsilon = 1e-8;
+const epsilon = defaults.outlineToleranceM;
 
 export function cross([ax, ay]: Vec2, [bx, by]: Vec2, [x, y]: Vec2) {
 	return (bx - ax) * (y - ay) - (by - ay) * (x - ax);
@@ -59,7 +60,11 @@ export function validateOutline(ring: readonly Vec2[]) {
 		const next = ring[(i + 2) % ring.length];
 		if (onEdge(a, b, next) || onEdge(b, next, a))
 			throw new RangeError('Outline sides must not double back');
-		for (let j = i + 2; j < segments.length; j++) {
+		for (
+			let j = i + /* Exact arithmetic: skip the adjacent segment. */ 2;
+			j < segments.length;
+			j++
+		) {
 			if (i === 0 && j === segments.length - 1) continue;
 			if (intersects(segments[i], segments[j])) throw new RangeError('Outline must be simple');
 		}

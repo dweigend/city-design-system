@@ -87,7 +87,9 @@ function waitingByCorner(proposals: ReturnType<typeof sampleCells>) {
 
 function partEntries(proposals: ReturnType<typeof sampleCells>, minimumArea: number) {
 	const byId = new Map(proposals.map(({ cell }, index) => [cell.id, index]));
-	const part = new Int32Array(proposals.length).fill(-1);
+	const part = new Int32Array(proposals.length).fill(
+		/* Exact arithmetic: unassigned region sentinel. */ -1
+	);
 	const areas = new Map<number, number>();
 	for (const start of proposals.keys()) {
 		if (part[start] !== -1) continue;
@@ -234,7 +236,12 @@ export function cityGrowth(
 			append(index, true);
 			return;
 		}
-		const first = pending.get(region) ?? { area: 0, indexes: [] };
+		const first = pending.get(
+			region
+		) ?? /* Exact arithmetic: a pending region starts with no occupied area. */ {
+			area: 0,
+			indexes: []
+		};
 		first.area += proposals[index].area;
 		first.indexes.push(index);
 		if (first.area < startupAreaM2) {

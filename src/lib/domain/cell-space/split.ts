@@ -17,7 +17,10 @@ const midpoint = ([ax, ay]: Vec2, [bx, by]: Vec2): Vec2 => [(ax + bx) / 2, (ay +
 
 // Exact arithmetic: vertex average of a ring.
 function vertexAverage(points: readonly Vec2[]): Vec2 {
-	const [x, y] = points.reduce(([sx, sy], [px, py]) => [sx + px, sy + py], [0, 0]);
+	const [x, y] = points.reduce(
+		([sx, sy], [px, py]) => [sx + px, sy + py],
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	);
 	return [x / points.length, y / points.length];
 }
 
@@ -80,7 +83,6 @@ function clipEar(ring: KeyedRing, order: number[], at: number): KeyedRing {
 
 /** Splits a counterclockwise ring into convex parts: itself when convex, otherwise ear triangles
  * clipped at the lowest remaining corner that forms an ear with no other corner on or inside it. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function convexParts(ring: KeyedRing): readonly KeyedRing[] {
 	if (convex(ring.points)) return [ring];
 	const order = ring.keys.map((_, i) => i);
@@ -139,7 +141,6 @@ function join(a: KeyedRing, b: KeyedRing, at: number): KeyedRing {
 
 /** Convex parts of a counterclockwise ring with few pieces: the ear triangles of `convexParts`,
  * merged across shared diagonals while the union stays convex (Hertel–Mehlhorn), in ear order. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
 	const parts = [...convexParts(ring)];
 	for (let merged = true; merged;) {

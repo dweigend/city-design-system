@@ -4,7 +4,7 @@ import type { Key } from '../../core/ref';
 import type { Vec2 } from '../../core/geometry';
 import { laneSettings } from '../../../config/lanes';
 import { defineParams, resolveParams } from '../../core/params';
-import { Random } from '../../core/random';
+import { Random, uint32Limit } from '../../core/random';
 import {
 	createCityDistricts,
 	type CityPlanVariant,
@@ -14,7 +14,7 @@ import { TerrainGrid, type TerrainGrid as Grid } from '../../domain/terrain-grid
 import { Valley, type ValleySettings } from '../../domain/valley';
 import { preparePlanSelection } from './plan-selection';
 import { growthPrefix, prepareCarrier } from './carrier';
-import { citySiteConfig } from './config';
+import { citySiteConfig, citySiteDimensions as dimensions } from '../../../config/city-site';
 import type { CityTerrainSampler } from './sampling';
 import type { CityCrossing } from './crossings';
 import { resolveCityRecipe, riverCityRecipe, type CityRecipe } from './recipe';
@@ -31,8 +31,22 @@ export { riverCityRecipe, type CityRecipe } from './recipe';
 
 /** City size sets the target area in the fixed valley. The seed varies access and plan jitter. */
 export const citySiteParams = defineParams({
-	citySize: { label: 'City size', unit: 'm', default: 1800, min: 600, max: 7000, step: 200 },
-	seed: { label: 'Seed', unit: '', default: 1201, min: 0, max: 2 ** 32 - 1, step: 1 }
+	citySize: {
+		label: 'City size',
+		unit: 'm',
+		default: dimensions.citySizeDefaultM,
+		min: dimensions.citySizeMinimumM,
+		max: dimensions.citySizeMaximumM,
+		step: dimensions.citySizeStepM
+	},
+	seed: {
+		label: 'Seed',
+		unit: '',
+		default: dimensions.cityDefaultSeed,
+		min: /* Exact arithmetic: unsigned range starts at zero. */ 0,
+		max: uint32Limit - 1,
+		step: /* Exact arithmetic: adjacent integer seeds differ by one. */ 1
+	}
 });
 
 /** Equivalent square side of a typical coarse plan cell, in meters. */
@@ -81,8 +95,8 @@ export function createCitySite(terrain?: CityTerrainSampler, settings?: Settings
 		...parameters
 	} = settings ?? {};
 
-	const frame = Object.freeze({ bearing: -Math.PI / 2 });
-	const origin = Object.freeze([0, 0] as const);
+	const frame = Object.freeze({ bearing: dimensions.citySiteBearingRad });
+	const origin = Object.freeze(/* Exact arithmetic: city frame origin. */ [0, 0] as const);
 	const options = {
 		...(terrainRevision && { terrainRevision }),
 		...(recipe && { recipe: resolveCityRecipe(recipe) })
@@ -104,10 +118,13 @@ type Carrier = ReturnType<typeof prepareCarrier> & {
 };
 const carriers = createDeriveCache<CitySite, Carrier>(laneSettings.cityCarrierCacheLimit);
 
+const metersPerKilometer = /* Exact arithmetic: meters per kilometer. */ 1000;
+const squareMetersPerSquareKilometer = metersPerKilometer ** 2;
+
 function targetArea(citySizeM: number) {
-	const lengthKm = citySizeM / 1000;
+	const lengthKm = citySizeM / metersPerKilometer;
 	return (
-		1e6 *
+		squareMetersPerSquareKilometer *
 		lengthKm *
 		(citySiteConfig.targetAreaBaseRatio + citySiteConfig.targetAreaGrowthRatio * lengthKm)
 	);
@@ -145,7 +162,7 @@ function carrier(city: CitySite, variant: CityPlanVariant, seed: number) {
 
 type TrunkSegment = readonly [x: number, y: number, dx: number, dy: number, length2: number];
 const trunkSections = createDeriveCache<CitySite, (point: Vec2) => number>();
-const sectionSize = 250;
+const sectionSize = dimensions.trunkSectionSizeM;
 
 function sections(city: CitySite, revision: string | Key) {
 	return trunkSections(city, ['trunk'], revision, () => indexTrunk(city.valley?.course.xy ?? []));
@@ -162,8 +179,10 @@ function indexTrunk(xy: ArrayLike<number>) {
 		if (!length2) continue;
 		const segment: TrunkSegment = [x, y, dx, dy, length2];
 		for (
-			let section = Math.floor((Math.min(y, y + dy) - 3500) / sectionSize);
-			section <= Math.floor((Math.max(y, y + dy) + 3500) / sectionSize);
+			let section = Math.floor(
+				(Math.min(y, y + dy) - dimensions.trunkSectionSearchM) / sectionSize
+			);
+			section <= Math.floor((Math.max(y, y + dy) + dimensions.trunkSectionSearchM) / sectionSize);
 			section++
 		) {
 			const list = index.get(section) ?? [];
@@ -195,7 +214,13 @@ export function readCitySide(city: CitySite, point: Vec2) {
 /** Frames the selected blocks on the surrounding terrain, in world XY meters and radians. */
 export function cityWindow(city: CitySite, grid: Grid) {
 	const { bearing } = city.frame;
-	if (!grid.vertices.length) return { origin: city.origin, bearing, length: 1200, width: 900 };
+	if (!grid.vertices.length)
+		return {
+			origin: city.origin,
+			bearing,
+			length: dimensions.emptyCityWindowLengthM,
+			width: dimensions.emptyCityWindowWidthM
+		};
 	const u = Math.cos(bearing);
 	const v = Math.sin(bearing);
 	const [x, y] = city.origin;
@@ -218,8 +243,10 @@ export function cityWindow(city: CitySite, grid: Grid) {
 	return {
 		origin: [x + along * u - across * v, y + along * v + across * u] as const,
 		bearing,
-		length: (right - left) * 1.12 + 320,
-		width: (top - bottom) * 1.2 + 370
+		length:
+			(right - left) * dimensions.cityWindowLengthScaleRatio + dimensions.cityWindowLengthPaddingM,
+		width:
+			(top - bottom) * dimensions.cityWindowWidthScaleRatio + dimensions.cityWindowWidthPaddingM
 	};
 }
 
@@ -287,7 +314,7 @@ export function readCityGrid(
 		.map(({ builtArea }, i) => builtArea - (selected[i - 1]?.builtArea ?? 0))
 		.sort((a, b) => a - b);
 	const middle = Math.floor(areas.length / 2);
-	const areaKm2 = (selected.at(-1)?.builtArea ?? 0) / 1e6;
+	const areaKm2 = (selected.at(-1)?.builtArea ?? 0) / squareMetersPerSquareKilometer;
 	return Object.freeze({
 		grid,
 		growth,
@@ -333,7 +360,11 @@ export function readCityDistricts(
 	parameters?: Parameters<typeof createCityDistricts>[3]
 ) {
 	const params = siteParams(undefined, seed);
-	const core = { origin: city.origin, bearing: city.frame.bearing, aspect: 1 };
+	const core = /* Exact arithmetic: unit aspect keeps the initial plan round. */ {
+		origin: city.origin,
+		bearing: city.frame.bearing,
+		aspect: 1
+	};
 	return createCityDistricts(grid, core, params.seed, parameters, growth);
 }
 

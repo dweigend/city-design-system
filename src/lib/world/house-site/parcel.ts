@@ -139,7 +139,7 @@ export function createParcelHouse(
 	const corners = frontageCorners(parcel, portal.side);
 	const ring = corners.map(({ position }) => position);
 	// Exact arithmetic: the ring starts with the directed frontage.
-	const edge = 0;
+	const edge = /* Exact arithmetic: first parcel side is the entrance edge. */ 0;
 	const edgeId = (i: number) => parcelEdgeId(corners[i].id, corners[(i + 1) % corners.length].id);
 	const storeyHeightM = levelHeight / storeysPerLevel;
 	const roofZ = datumZ + roofLevel * levelHeight;

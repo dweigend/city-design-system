@@ -6,7 +6,7 @@ import type { Shape } from '../../core/object';
 export type Box = Readonly<{ center: Vec3; size: Vec3; rotation: number }>;
 
 // Exact arithmetic: corner v(i, j, k) = i + 2j + 4k; quads wound outward, split into triangles.
-const boxQuads = [
+const boxQuads = /* Exact arithmetic: four vertex indices per box face in outward winding. */ [
 	[0, 2, 3, 1],
 	[4, 5, 7, 6],
 	[0, 1, 5, 4],
@@ -15,16 +15,18 @@ const boxQuads = [
 	[1, 3, 7, 5]
 ] as const;
 // Exact arithmetic: eight corners per box.
-const boxCorners = 8;
+const boxCorners = /* Exact arithmetic: corners of a box. */ 8;
 
-// Exact arithmetic: structural counts, origins and unit axes, not tunables.
 function corners({ center: [cx, cy, cz], size: [sx, sy, sz], rotation }: Box): number[] {
 	const [cos, sin] = [Math.cos(rotation), Math.sin(rotation)];
 	const positions: number[] = [];
 	for (let corner = 0; corner < boxCorners; corner += 1) {
-		const u = (corner & 1 ? 1 : -1) * (sx / 2);
-		const v = (corner & 2 ? 1 : -1) * (sy / 2);
-		const w = (corner & 4 ? 1 : -1) * (sz / 2);
+		const u =
+			(corner & /* Exact arithmetic: bit mask for the X corner bit. */ 1 ? 1 : -1) * (sx / 2);
+		const v =
+			(corner & /* Exact arithmetic: bit mask for the Y corner bit. */ 2 ? 1 : -1) * (sy / 2);
+		const w =
+			(corner & /* Exact arithmetic: bit mask for the Z corner bit. */ 4 ? 1 : -1) * (sz / 2);
 		positions.push(cx + u * cos - v * sin, cy + u * sin + v * cos, cz + w);
 	}
 	return positions;

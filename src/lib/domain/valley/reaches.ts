@@ -39,7 +39,7 @@ export type Reach = Readonly<{
 }>;
 
 // Exact arithmetic: one square kilometer equals 1,000,000 square meters.
-const squareMetersPerSquareKilometer = 1e6;
+const squareMetersPerSquareKilometer = /* Exact arithmetic: square meters per square kilometer. */ 1e6;
 
 export function discharge(area: number, runoff: number) {
 	return (unitRunoffYieldM3PerSKm2 * runoff * area) / squareMetersPerSquareKilometer;
@@ -50,7 +50,7 @@ export function channelWidth(flow: number) {
 }
 
 // Exact arithmetic: the reference conversion uses a unit multiplier for runoff.
-const unitRunoff = 1;
+const unitRunoff = /* Exact arithmetic: unit runoff in the width law. */ 1;
 
 // Invert the width law for a caller-supplied reference width at unit runoff.
 function areaForWidth(width: number) {

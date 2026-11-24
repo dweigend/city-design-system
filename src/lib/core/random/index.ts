@@ -1,8 +1,12 @@
 /** Module: Creates continuing seeded streams with keyed child streams. */
+import { defaults } from '../../../config/random';
+
 const algorithm = 'mulberry32';
 const revision = 'agent-loom-random/1';
-const wordCount = 0x100000000;
-const increment = 0x6d2b79f5;
+/** Exclusive upper bound of an unsigned 32-bit seed or continuation word. */
+export const uint32Limit = /* Exact arithmetic: cardinality of a 32-bit word. */ 0x100000000;
+const int32Min = /* Exact arithmetic: minimum signed 32-bit integer. */ -0x80000000;
+const increment = /* Exact arithmetic: Mulberry32 word increment. */ 0x6d2b79f5;
 
 /** Detached frozen unitless continuation. The uniform-only stream has an empty Gaussian cache. */
 export type RandomState = Readonly<{
@@ -46,9 +50,9 @@ function optionsRecord(options: unknown, keys: readonly string[]): void {
 	}
 }
 
-function uint32(value: unknown, min = 0): number {
+function uint32(value: unknown, min = /* Exact arithmetic: unsigned lower bound. */ 0): number {
 	if (typeof value !== 'number') throw new TypeError('Expected a numeric seed or state word');
-	if (!Number.isInteger(value) || value < min || value >= wordCount) {
+	if (!Number.isInteger(value) || value < min || value >= uint32Limit) {
 		throw new RangeError('Seed or state word is out of range');
 	}
 	return value >>> 0;
@@ -56,10 +60,13 @@ function uint32(value: unknown, min = 0): number {
 
 function nextDown(value: number): number {
 	if (value === 0) return -Number.MIN_VALUE;
-	const view = new DataView(new ArrayBuffer(8));
-	view.setFloat64(0, value);
-	view.setBigUint64(0, view.getBigUint64(0) + (value > 0 ? -1n : 1n));
-	return view.getFloat64(0);
+	const view = new DataView(new ArrayBuffer(/* Exact arithmetic: bytes in a Float64. */ 8));
+	view.setFloat64(/* Exact arithmetic: buffer origin. */ 0, value);
+	view.setBigUint64(
+		/* Exact arithmetic: buffer origin. */ 0,
+		view.getBigUint64(/* Exact arithmetic: buffer origin. */ 0) + (value > 0 ? -1n : 1n)
+	);
+	return view.getFloat64(/* Exact arithmetic: buffer origin. */ 0);
 }
 
 function uniformLimit(value: unknown): number {
@@ -70,7 +77,12 @@ function uniformLimit(value: unknown): number {
 
 function uniformBounds(options: UniformOptions) {
 	optionsRecord(options, ['distribution', 'min', 'max', 'integer']);
-	const { distribution = 'uniform', min: lower = 0, max: upper = 1, integer = false } = options;
+	const {
+		distribution = 'uniform',
+		min: lower = /* Exact arithmetic: unit interval minimum. */ 0,
+		max: upper = /* Exact arithmetic: unit interval maximum. */ 1,
+		integer = false
+	} = options;
 	if (distribution !== 'uniform' || typeof integer !== 'boolean') {
 		throw new TypeError('Invalid uniform options');
 	}
@@ -95,9 +107,12 @@ function uniform(options: UniformOptions, draw: () => number): number {
 // FNV-1a mixing over UTF-16 code units, starting from a seed-dependent offset.
 function childSeed(seed: number, key: string): number {
 	if (typeof key !== 'string') throw new TypeError('Expected a string child key');
-	let hash = 0x811c9dc5 ^ seed;
+	let hash = /* Exact arithmetic: FNV-1a offset basis. */ 0x811c9dc5 ^ seed;
 	for (let index = 0; index < key.length; index += 1) {
-		hash = Math.imul(hash ^ key.charCodeAt(index), 0x01000193);
+		hash = Math.imul(
+			hash ^ key.charCodeAt(index),
+			/* Exact arithmetic: FNV-1a prime. */ 0x01000193
+		);
 	}
 	return hash >>> 0;
 }
@@ -113,9 +128,19 @@ function stream(initialSeed: number): Random {
 	let word = seed;
 	function draw(): number {
 		word = (word + increment) >>> 0;
-		let value = Math.imul(word ^ (word >>> 15), word | 1);
-		value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-		return ((value ^ (value >>> 14)) >>> 0) / wordCount;
+		let value = Math.imul(
+			word ^ (word >>> /* Exact arithmetic: Mulberry32 bit shift. */ 15),
+			word | 1
+		);
+		value ^=
+			value +
+			Math.imul(
+				value ^ (value >>> /* Exact arithmetic: Mulberry32 bit shift. */ 7),
+				value | /* Exact arithmetic: Mulberry32 mixing mask. */ 61
+			);
+		return (
+			((value ^ (value >>> /* Exact arithmetic: Mulberry32 bit shift. */ 14)) >>> 0) / uint32Limit
+		);
 	}
 
 	const random: Random = {
@@ -136,7 +161,7 @@ function stream(initialSeed: number): Random {
 			) {
 				throw new TypeError('Expected a Mulberry32 continuation with an empty Gaussian cache');
 			}
-			const restoredSeed = uint32(value.seed, -0x80000000);
+			const restoredSeed = uint32(value.seed, int32Min);
 			const restoredWord = uint32(value.continuation.word);
 			seed = restoredSeed;
 			word = restoredWord;
@@ -164,9 +189,9 @@ function stream(initialSeed: number): Random {
 /** Creates a fresh stream without drawing or mutating options. Defaults to seed 1. Invalid seed/options throw RangeError or TypeError. */
 function create(options: CreateOptions = {}): Random {
 	optionsRecord(options, ['seed', 'algorithm']);
-	const { seed = 1, algorithm: selected = algorithm } = options;
+	const { seed = defaults.randomDefaultSeed, algorithm: selected = algorithm } = options;
 	if (selected !== algorithm) throw new TypeError('Expected the Mulberry32 algorithm');
-	return stream(uint32(seed, -0x80000000));
+	return stream(uint32(seed, int32Min));
 }
 
 /** Frozen factory namespace for the uniform-only Mulberry32 stream. */

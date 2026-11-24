@@ -59,7 +59,7 @@ function centered(level: Level, connect: Connect) {
 	const corners = [...level.bottom, ...level.top];
 	const [x, y] = level.bottom.reduce(
 		([x, y], { position: [u, v] }) => [x + u / level.bottom.length, y + v / level.bottom.length],
-		[0, 0]
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
 	);
 	const bottom = hubCapHeight(level.bottom, x, y);
 	const top = hubCapHeight(level.top, x, y);

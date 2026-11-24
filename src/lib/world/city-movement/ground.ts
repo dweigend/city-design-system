@@ -50,7 +50,7 @@ export function groundLanes(site: CitySite, layout: CityGrid) {
 			? []
 			: path.nodeIds.slice(1, -1).map((id) => required(points.get(id), 'bridge node'));
 		const ring = [from.position, ...via, to.position];
-		const chainage = [0];
+		const chainage = /* Exact arithmetic: route starts with zero chainage. */ [0];
 		for (let j = 1; j < ring.length; j++)
 			chainage.push(
 				chainage[j - 1] + Math.hypot(ring[j][0] - ring[j - 1][0], ring[j][1] - ring[j - 1][1])

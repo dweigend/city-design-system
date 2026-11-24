@@ -22,7 +22,7 @@ import {
 	type Stroke
 } from './constants';
 import type { CityDrawable } from './drawable';
-import { planOverlayIds } from './plan-water';
+import { overlaySubsystems } from './focus';
 import { cityElevation, cityProfile } from './profile';
 
 /** Body and member looks per display level and rank, from the presentation constants. */
@@ -49,10 +49,6 @@ type Frame = Readonly<{
 	vertical: { pivot: number; scale: number };
 	amount: number;
 }>;
-
-const overlaySubsystems = new Map<string, Subsystem>(
-	Object.entries(planOverlayIds).map(([slot, id]) => [id, slot as Subsystem])
-);
 
 function groundSubsystem(part: Drawable): Subsystem {
 	return (

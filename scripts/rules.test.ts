@@ -90,7 +90,7 @@ const probes = [
 	{
 		fixture: '11-config',
 		graph: ['config-owner-only-hydrology', 'config-data-only'],
-		lint: Array<string>(6).fill(
+		lint: Array<string>(7).fill(
 			'config/no-tunable-number: Source numeric tunables from this module’s configuration slice.'
 		)
 	}

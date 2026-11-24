@@ -58,25 +58,22 @@ export type HouseStyle = Readonly<{
 	large: Readonly<{ fill: readonly FillKind[]; roof: readonly RoofKind[]; court: boolean }>;
 }>;
 
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
-const none = {
+const none = /* Exact arithmetic: absent optional parts have zero share and height. */ {
 	braceShareRatio: 0,
 	tubeShareRatio: 0,
 	mastStoreys: 0,
 	treeShareRatio: 0
 };
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 const neutralOccupancy = {
 	rearDropRatio: d.rearDropRatio,
 	courtStepComplexityRatio: d.courtStepComplexityRatio,
 	courtStepStoreys: d.courtStepStoreys,
 	jitterComplexityRatio: d.jitterComplexityRatio,
 	jitterShareRatio: d.jitterShareRatio,
-	jitterStoreys: 1,
-	groundOpenRatio: 0
+	jitterStoreys: /* Exact arithmetic: jitter changes by one story. */ 1,
+	groundOpenRatio: /* Exact arithmetic: the neutral body starts at the ground story. */ 0
 };
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
-const solidFill = {
+const solidFill = /* Exact arithmetic: solid fill has no cut, gap or capsule. */ {
 	insetM: 0,
 	roundShareRatio: 0,
 	stackShareRatio: 0,
@@ -85,14 +82,13 @@ const solidFill = {
 	capsuleGapM: 0
 };
 
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 const styleRows = [
 	{
 		id: 'neutral',
 		occupancy: neutralOccupancy,
 		fill: { ...solidFill, kinds: ['envelope'] },
-		roof: { kinds: ['flat'], riseRatio: 0 },
-		opening: {
+		roof: /* Exact arithmetic: flat roof has no rise. */ { kinds: ['flat'], riseRatio: 0 },
+		opening: /* Exact arithmetic: every exposed neutral opening uses the same figure. */ {
 			kinds: ['rect'],
 			pitchM: d.windowPitchM,
 			sizeM: d.windowWidthM,
@@ -113,7 +109,7 @@ const styleRows = [
 	},
 	{
 		id: 'memphis',
-		occupancy: {
+		occupancy: /* Exact arithmetic: Memphis occupancy has no court step or jitter threshold. */ {
 			...neutralOccupancy,
 			rearDropRatio: d.memphisRearDropRatio,
 			courtStepStoreys: 0,
@@ -155,14 +151,15 @@ const styleRows = [
 	},
 	{
 		id: 'archigram',
-		occupancy: {
-			...neutralOccupancy,
-			rearDropRatio: 0,
-			courtStepStoreys: 0,
-			jitterComplexityRatio: 0,
-			jitterShareRatio: d.archigramJitterShareRatio,
-			groundOpenRatio: d.archigramGroundOpenRatio
-		},
+		occupancy:
+			/* Exact arithmetic: framed occupancy has no drop, court step or jitter threshold. */ {
+				...neutralOccupancy,
+				rearDropRatio: 0,
+				courtStepStoreys: 0,
+				jitterComplexityRatio: 0,
+				jitterShareRatio: d.archigramJitterShareRatio,
+				groundOpenRatio: d.archigramGroundOpenRatio
+			},
 		fill: {
 			...solidFill,
 			kinds: ['capsule'],
@@ -171,7 +168,7 @@ const styleRows = [
 			capsuleShareRatio: d.archigramCapsuleShareRatio,
 			capsuleGapM: d.archigramCapsuleGapM
 		},
-		roof: { kinds: ['flat'], riseRatio: 0 },
+		roof: /* Exact arithmetic: flat roof has no rise. */ { kinds: ['flat'], riseRatio: 0 },
 		opening: {
 			kinds: ['round'],
 			pitchM: d.archigramOpeningPitchM,
@@ -196,7 +193,7 @@ const styleRows = [
 	},
 	{
 		id: 'organic',
-		occupancy: {
+		occupancy: /* Exact arithmetic: court stepping starts at zero complexity. */ {
 			...neutralOccupancy,
 			rearDropRatio: d.organicRearDropRatio,
 			courtStepComplexityRatio: 0,

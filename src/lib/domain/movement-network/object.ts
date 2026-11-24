@@ -42,7 +42,7 @@ function build(edge: AccessEdge, slot: string, draw: (mesh: Mesh) => void) {
 	draw(layers[slot]);
 	for (const { base, top } of edge.supports ?? [])
 		drawBearing(layers.bearing, base, top, defaults.walkwayPierRadiusM, defaults.deckThicknessM);
-	const normal: Vec3 = [0, 0, 1];
+	const normal: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 	const anchors: Anchor[] = [
 		{ name: 'start', position: start, normal },
 		{ name: 'end', position: end, normal }

@@ -3,7 +3,7 @@ import type { Vec3 } from '../geometry';
 import type { Shape } from '../object';
 
 // Exact arithmetic: six outward unit cube faces in the established vertex order.
-const half = 0.5;
+const half = /* Exact arithmetic: half the side of the unit cube. */ 0.5;
 const faces: readonly (readonly Vec3[])[] = [
 	[
 		[half, half, half],
@@ -46,7 +46,10 @@ const faces: readonly (readonly Vec3[])[] = [
 // Exact arithmetic: rotate the unit box's positive Z axis onto the span by the shortest rotation.
 function axes(x: number, y: number, z: number) {
 	const r = 1 + z;
-	const q = r < defaults.opposedDirectionTolerance ? [0, -1, 0] : [-y, x, r];
+	const q =
+		r < defaults.opposedDirectionTolerance
+			? /* Exact arithmetic: rotation axis for opposed directions. */ [0, -1, 0]
+			: [-y, x, r];
 	const inv = 1 / Math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2]);
 	const [u, v, w] = q.map((value) => value * inv);
 	const u2 = u + u;
@@ -76,7 +79,14 @@ export function squareSegment(
 	);
 	const indices = faces.flatMap((face, i) => {
 		const n = i * face.length;
-		return [n, n + 2, n + 1, n + 2, n + 3, n + 1];
+		return [
+			n,
+			n + /* Exact arithmetic: triangle vertex offset. */ 2,
+			n + 1,
+			n + /* Exact arithmetic: triangle vertex offset. */ 2,
+			n + /* Exact arithmetic: triangle vertex offset. */ 3,
+			n + 1
+		];
 	});
 	return { kind: 'mesh', positions, indices };
 }

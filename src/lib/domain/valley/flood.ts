@@ -32,7 +32,7 @@ function priorityQueue(level: Int32Array) {
 }
 
 // Exact arithmetic: unvisited is distinct from the outlet parent sentinel (-1).
-const unvisited = -2;
+const unvisited = /* Exact arithmetic: unvisited node sentinel. */ -2;
 
 export function floodTerrain({ side, bed }: DrainageGrid) {
 	const level = new Int32Array(bed.length);

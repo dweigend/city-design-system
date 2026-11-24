@@ -25,7 +25,9 @@ export function siteOutline(site: Site): readonly Vec2[] {
 	if (
 		!Array.isArray(origin) ||
 		origin.length !== 2 ||
-		![origin[0], origin[1]].every((value) => Number.isFinite(value) && Math.abs(value) <= 1e9) ||
+		![origin[0], origin[1]].every(
+			(value) => Number.isFinite(value) && Math.abs(value) <= defaults.datumCoordinateLimitM
+		) ||
 		!Number.isFinite(bearing)
 	)
 		throw new RangeError('Invalid terrain grid datum');
@@ -44,7 +46,11 @@ export function siteOutline(site: Site): readonly Vec2[] {
 			);
 		return site.outline;
 	}
-	const { length, width, cornerCut = 0 } = site;
+	const {
+		length,
+		width,
+		cornerCut = /* Exact arithmetic: zero corner cut keeps the rectangle. */ 0
+	} = site;
 	if (
 		!Number.isFinite(cornerCut) ||
 		cornerCut < 0 ||
@@ -57,7 +63,7 @@ export function siteOutline(site: Site): readonly Vec2[] {
 	const { toWorld } = axes(bearing);
 	const corners: Vec2[] =
 		cornerCut === 0
-			? [
+			? /* Exact arithmetic: normalized rectangle corners. */ [
 					[-1, -1],
 					[1, -1],
 					[1, 1],
@@ -72,13 +78,13 @@ export function siteOutline(site: Site): readonly Vec2[] {
 
 function clippedCorners(inset: number): Vec2[] {
 	if (inset === 0)
-		return [
+		return /* Exact arithmetic: maximal cut leaves the four edge midpoints. */ [
 			[0, -1],
 			[1, 0],
 			[0, 1],
 			[-1, 0]
 		];
-	return [
+	return /* Exact arithmetic: normalized clipped rectangle corners. */ [
 		[-inset, -1],
 		[inset, -1],
 		[1, -inset],
@@ -105,9 +111,12 @@ export function contourBearing(site: Site, sample: HeightAt) {
 		bearing
 	} = site;
 	// A symmetric 20 m baseline reads the local terrain trend through minor relief.
-	const dx = sample(x + 10, y) - sample(x - 10, y);
-	const dy = sample(x, y + 10) - sample(x, y - 10);
-	if (Math.hypot(dx, dy) < 20 * 0.015) return bearing;
+	const dx =
+		sample(x + defaults.contourProbeOffsetM, y) - sample(x - defaults.contourProbeOffsetM, y);
+	const dy =
+		sample(x, y + defaults.contourProbeOffsetM) - sample(x, y - defaults.contourProbeOffsetM);
+	if (Math.hypot(dx, dy) < 2 * defaults.contourProbeOffsetM * defaults.contourMinimumSlopeRatio)
+		return bearing;
 	const tangent = Math.atan2(dx, -dy);
 	// Choose the contour direction closest to the site's positive axis.
 	return Math.cos(tangent - bearing) < 0 ? tangent + Math.PI : tangent;

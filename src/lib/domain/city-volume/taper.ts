@@ -1,3 +1,4 @@
+import { taperDefaults as config } from '../../../config/city-volume';
 import type { Vec2, Vec3 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodeKey } from '../../core/ref';
@@ -6,11 +7,7 @@ import type { Column } from './bay-addresses';
 import { readPlanTopology, type PlanRing, type PlanTopology } from './plan-topology';
 
 /** Horizontal meters a corner moves per level above the lowest column around it. */
-export const taperStep = 5;
-/** Largest move as a share of the corner's distance to the centre of the columns it carries. */
-const taperCap = 0.4;
-/** Plan coordinates are matched to the centimetre. */
-const keyPerMeter = 100;
+export const taperStep = config.taperStepM;
 
 type Bands = (id: string) => ReturnType<typeof columnPlanes>;
 
@@ -29,7 +26,10 @@ function cornerClearance({ columns, centres }: PlanTopology, { corner, cells }: 
 			const [bx, by] = corners[j].position;
 			const area2 = Math.abs((ax - cx) * (by - cy) - (ay - cy) * (bx - cx));
 			const altitude = area2 / Math.max(a, Math.hypot(bx - cx, by - cy));
-			clearance = Math.min(clearance, altitude / 3);
+			clearance = Math.min(
+				clearance,
+				altitude / /* Exact arithmetic: bound on two linear terms and their product. */ 3
+			);
 		}
 	}
 	return clearance;
@@ -39,39 +39,46 @@ function cornerClearance({ columns, centres }: PlanTopology, { corner, cells }: 
  * along the line to the mean centre of the columns that still reach that level. Open plan edges
  * count as the foundation cap. */
 function cornerRetreat(topology: PlanTopology, bands: Bands) {
+	const noRetreat = (): Vec2 => /* Exact arithmetic: zero displacement. */ [0, 0];
 	const clearances = new Map<string, number>();
 	return (ring: PlanRing, level: number): Vec2 => {
 		const { corner, cells, interior } = ring;
 		const base = Math.max(...cells.map((cell) => bands(cell).foundation));
-		if (level <= base) return [0, 0];
+		if (level <= base) return noRetreat();
 		const roof = (cell: string) => bands(cell).roof;
 		const depth = level - (interior ? Math.min(...cells.map(roof)) : base);
 		const carried = cells.filter((cell) => roof(cell) >= level);
-		if (depth <= 0 || !carried.length) return [0, 0];
+		if (depth <= 0 || !carried.length) return noRetreat();
 		const [x, y] = carried
 			.map((cell) => required(topology.centres.get(cell), 'taper centre'))
-			.reduce(([a, b], [u, v]) => [a + u / carried.length, b + v / carried.length], [0, 0]);
+			.reduce(
+				([a, b], [u, v]) => [a + u / carried.length, b + v / carried.length],
+				/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+			);
 		const [dx, dy] = [x - corner.position[0], y - corner.position[1]];
 		const reach = Math.hypot(dx, dy);
 		// Columns that only touch diagonally across the corner give it no direction.
-		if (reach < 1e-6) return [0, 0];
+		if (reach < config.taperMinimumReachM) return noRetreat();
 		let clearance = clearances.get(corner.id);
 		if (clearance === undefined) {
 			clearance = cornerClearance(topology, ring);
 			clearances.set(corner.id, clearance);
 		}
-		const move = Math.min(taperStep * depth, taperCap * reach, clearance) / reach;
+		const move = Math.min(taperStep * depth, config.taperReachShare * reach, clearance) / reach;
 		return [dx * move, dy * move];
 	};
 }
 
 function mean(points: readonly Vec2[]): Vec2 {
-	const [x, y] = points.reduce(([a, b], [u, v]) => [a + u, b + v], [0, 0]);
+	const [x, y] = points.reduce(
+		([a, b], [u, v]) => [a + u, b + v],
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	);
 	return [x / points.length, y / points.length];
 }
 
 const planKey = (x: number, y: number) =>
-	encodeKey([Math.round(x * keyPerMeter), Math.round(y * keyPerMeter)]);
+	encodeKey([Math.round(x * config.taperKeysPerMeter), Math.round(y * config.taperKeysPerMeter)]);
 
 /** Builds the city's taper field: the full horizontal retreat in world meters of a point of the
  * city volume. Signed use scales it, 1 retreats toward the taller columns like a zoning setback and
@@ -109,10 +116,10 @@ export function createCityTaper(columns: readonly Column[], datumZ: number) {
 		const at = addresses.get(planKey(x, y));
 		if (!at) throw new RangeError(`No plan address at ${x}, ${y}`);
 		const index = Math.max(0, planeIndex(datumZ, z));
-		const low = Math.floor(index + 1e-9);
+		const low = Math.floor(index + config.taperLevelTolerance);
 		const t = index - low;
 		const below = at(low);
-		if (t < 1e-9) return below;
+		if (t < config.taperLevelTolerance) return below;
 		const above = at(low + 1);
 		return [below[0] + (above[0] - below[0]) * t, below[1] + (above[1] - below[1]) * t];
 	};

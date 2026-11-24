@@ -1,17 +1,18 @@
+import { defaults } from '../../../config/terrain-grid';
 import type { Vec2 } from '../../core/geometry';
 import type { Candidate, Carrier } from './carrier';
 import { axes } from './site';
 
 type Ring = readonly Vec2[];
 type Chart = (x: number, y: number) => Vec2;
-const hexRise = Math.sqrt(3) / 2;
-const squareRing: Ring = [
+const hexRise = Math.sqrt(/* Exact arithmetic: equilateral triangle height factor. */ 3) / 2;
+const squareRing: Ring = /* Exact arithmetic: unit square corner addresses. */ [
 	[0, 0],
 	[1, 0],
 	[1, 1],
 	[0, 1]
 ];
-const hexRing: Ring = [
+const hexRing: Ring = /* Exact arithmetic: hex corner addresses. */ [
 	[2, 0],
 	[1, 1],
 	[-1, 1],
@@ -34,10 +35,14 @@ export function addressCarrier(
 		const ij = local.map(([x, y]) => chart(x, y));
 		const rows = ij.map((p) => p[1]);
 		const columns = ij.map((p) => p[0]);
-		for (let j = Math.floor(Math.min(...rows)) - 3; j <= Math.ceil(Math.max(...rows)) + 3; j++) {
+		for (
+			let j = Math.floor(Math.min(...rows)) - defaults.regularPaddingCount;
+			j <= Math.ceil(Math.max(...rows)) + defaults.regularPaddingCount;
+			j++
+		) {
 			for (
-				let i = Math.floor(Math.min(...columns)) - 3;
-				i <= Math.ceil(Math.max(...columns)) + 3;
+				let i = Math.floor(Math.min(...columns)) - defaults.regularPaddingCount;
+				i <= Math.ceil(Math.max(...columns)) + defaults.regularPaddingCount;
 				i++
 			) {
 				for (const [part, ring] of rings(i, j).entries()) {
@@ -63,13 +68,19 @@ const squares = (i: number, j: number) => [squareRing.map(([a, b]): Vec2 => [i +
 export const square = addressCarrier(identity, identity, squares);
 
 function band(index: number) {
-	const cycle = Math.floor(index / 3);
-	return 3 * cycle + [0, 0.7, 2][index - cycle * 3];
+	const { bandPeriodRatio: period, bandBreaksRatio: breaks } = defaults;
+	const cycle = Math.floor(index / breaks.length);
+	return period * cycle + breaks[index - cycle * breaks.length];
 }
 
-export const bands = addressCarrier(identity, (i, j) => [band(i), band(j + 1) - 0.7], squares);
+export const bands = addressCarrier(
+	identity,
+	(i, j) => [band(i), band(j + 1) - defaults.bandBreaksRatio[1]],
+	squares
+);
 
-const contourShift = (x: number) => 1.2 * Math.sin(x / 7);
+const contourShift = (x: number) =>
+	defaults.contourAmplitudeRatio * Math.sin(x / defaults.contourGradientScaleRatio);
 export const contour = addressCarrier(
 	(x, y) => [x, y - contourShift(x)],
 	identity,
@@ -95,16 +106,24 @@ export const triangle = addressCarrier(
 );
 
 export const hex = addressCarrier(
-	(x, y) => [x / 1.5, y / (2 * hexRise) - x / 3],
+	(x, y) => [
+		x / /* Exact arithmetic: horizontal center spacing of the hex chart. */ 1.5,
+		y / (2 * hexRise) - x / /* Exact arithmetic: across offset of the hex chart. */ 3
+	],
 	(i, j) => [i / 2, j * hexRise],
-	(i, j) => [hexRing.map(([a, b]): Vec2 => [3 * i + a, 2 * j + i + b])]
+	(i, j) => [
+		hexRing.map(([a, b]): Vec2 => [
+			/* Exact arithmetic: hex center stride in chart coordinates. */ 3 * i + a,
+			2 * j + i + b
+		])
+	]
 );
 
 export const polar: Carrier = function* (site, outline, bearing, size) {
 	const radius = Math.max(
 		...outline.map(([x, y]) => Math.hypot(x - site.origin[0], y - site.origin[1]))
 	);
-	const sectors = 16;
+	const sectors = defaults.polarSectorCount;
 	function point(ring: number, sector: number) {
 		if (!ring) return { id: 'center', xy: site.origin };
 		const index = sector % sectors;

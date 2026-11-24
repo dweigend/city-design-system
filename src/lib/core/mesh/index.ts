@@ -11,7 +11,9 @@ type Ring = readonly [Vec3, Vec3, Vec3, Vec3];
 // Exact arithmetic: the zero-length edge has no directional offset.
 function norm(a: Vec3, b: Vec3): readonly [number, number] {
 	const distance = Math.hypot(b[0] - a[0], b[1] - a[1]);
-	return distance ? [(a[1] - b[1]) / distance, (b[0] - a[0]) / distance] : [0, 0];
+	return distance
+		? [(a[1] - b[1]) / distance, (b[0] - a[0]) / distance]
+		: /* Exact arithmetic: a zero-length edge has no normal. */ [0, 0];
 }
 
 // Exact arithmetic: one corner is half the full deck width from the centerline.
@@ -117,7 +119,9 @@ export function createMeshObject(
 		])
 	);
 	const extent = bounds(points);
-	const [width, depth] = extent ? size(extent) : [0, 0];
+	const [width, depth] = extent
+		? size(extent)
+		: /* Exact arithmetic: empty geometry has zero extent. */ [0, 0];
 	return PlaceableObject.create({
 		id,
 		slots: Object.keys(layers),

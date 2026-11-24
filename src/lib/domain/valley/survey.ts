@@ -15,7 +15,7 @@ export const surveyDefaults: SurveyWindow = Object.freeze({
 });
 
 // Exact arithmetic: four adjacent nodes on the rectangular survey lattice.
-const cardinalSteps = [
+const cardinalSteps = /* Exact arithmetic: four orthogonal neighbor offsets. */ [
 	[-1, 0],
 	[1, 0],
 	[0, -1],
@@ -149,7 +149,7 @@ export function surveyGround(
 	const nodes = sampleNodes(sample, window);
 	const { side, heights, wet } = nodes;
 	// Exact arithmetic: count and maximum accumulators start at zero.
-	const tally = {
+	const tally = /* Exact arithmetic: initial values of the survey accumulators. */ {
 		maxSlope: 0,
 		maxWetSlope: 0,
 		water: 0,
@@ -190,7 +190,11 @@ export function surveyGround(
 	drySlopes.sort((a, b) => a - b);
 	const drySlope = (q: number) => drySlopes[Math.round(q * (drySlopes.length - 1))] ?? 0;
 	// Exact arithmetic: these quantiles define the p50, p95 and maximum output fields.
-	const drySlopeSummary = { p50: drySlope(0.5), p95: drySlope(0.95), max: drySlope(1) };
+	const drySlopeSummary = {
+		p50: drySlope(/* Exact arithmetic: median quantile. */ 0.5),
+		p95: drySlope(/* Exact arithmetic: 95th percentile quantile. */ 0.95),
+		max: drySlope(/* Exact arithmetic: maximum quantile. */ 1)
+	};
 	return Object.freeze({
 		lowestM: lowest,
 		highestM: highest,

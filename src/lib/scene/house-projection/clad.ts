@@ -53,12 +53,13 @@ export type CladHouseOptions = Readonly<{
 /** Plan area of a face in square meters, its outline (or rectangle) less its openings. */
 // Exact arithmetic: the shoelace sum.
 export function faceAreaM2({ size, outline, openings }: HouseFace): number {
-	const ring: readonly Vec2[] = outline ?? [
-		[0, 0],
-		[size[0], 0],
-		[size[0], size[1]],
-		[0, size[1]]
-	];
+	const ring: readonly Vec2[] =
+		outline ?? /* Exact arithmetic: rectangle from the local origin to its stated size. */ [
+			[0, 0],
+			[size[0], 0],
+			[size[0], size[1]],
+			[0, size[1]]
+		];
 	const twice = ring.reduce((sum, [u0, v0], i) => {
 		const [u1, v1] = ring[(i + 1) % ring.length];
 		return sum + u0 * v1 - u1 * v0;
@@ -141,7 +142,7 @@ export function houseCladdings(
 	budget: number,
 	level: SurfaceLevel | SurfaceLevelAlias = 'near',
 	house = '',
-	seed = 0
+	seed = /* Exact arithmetic: neutral default draw seed. */ 0
 ): Cladding[] {
 	const drawn = lowerLevel(level, undefined);
 	const plan = planHouseMaterials(materials, house, seed);
@@ -331,10 +332,17 @@ export function projectCladHouse(
 ): Readonly<{ drawables: Drawable[]; triangles: number }> {
 	const { surfaces, hatch, fillAlpha } = houseLevels[display];
 	const own = readSurfaceLevel(display);
-	if (!surfaces || !own) return { drawables: [], triangles: 0 };
+	if (!surfaces || !own)
+		return /* Exact arithmetic: empty projection has zero triangles. */ {
+			drawables: [],
+			triangles: 0
+		};
 	const level = lowerLevel(own, options.level ?? 'plain');
 	if (display === 'full' && level === 'plain')
-		return { drawables: projectPlain(object, materials, options), triangles: 0 };
+		return /* Exact arithmetic: plain projection has no cladding triangles. */ {
+			drawables: projectPlain(object, materials, options),
+			triangles: 0
+		};
 	const house = buildHouse(object, faces, materials, level, options);
 	// Only the full display paints model materials; the other displays keep their stock looks.
 	const plain =

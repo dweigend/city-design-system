@@ -3,7 +3,7 @@ import { encodePair } from '../../core/ref';
 import type { Node } from './carrier';
 import { planEdgeId } from './edge-path';
 
-import { shorelineMorphLimits as limits } from './config';
+import { shorelineMorphLimits as limits } from '../../../config/terrain-grid';
 
 /** Clips one convex carrier polygon to a single dry shoreline crossing. Adjacent cells
  * reuse the same intersection on their common edge. Later ground checks reject dry
@@ -50,7 +50,9 @@ export function shoreline(signedDistance: (x: number, y: number) => number) {
 			if (node !== a && node !== b) result.push(node);
 			transitions++;
 		}
-		return transitions <= 2 ? result : [];
+		return transitions <= /* Exact arithmetic: a single kept interval can enter and exit once. */ 2
+			? result
+			: [];
 	};
 }
 

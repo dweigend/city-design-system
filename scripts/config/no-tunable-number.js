@@ -1,7 +1,15 @@
 /** @typedef {import('@typescript-eslint/utils').TSESTree.Node} Syntax */
 /** @typedef {import('@typescript-eslint/utils').TSESLint.SourceCode} SourceCode */
 
-const functions = new Set(['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression']);
+const exactExpressions = new Set([
+	'Literal',
+	'UnaryExpression',
+	'BinaryExpression',
+	'ConditionalExpression',
+	'ArrayExpression',
+	'ObjectExpression'
+]);
+const expressionWrappers = new Set(['Property', 'TSAsExpression', 'TSSatisfiesExpression']);
 const basicOperators = new Set([
 	'<',
 	'<=',
@@ -85,6 +93,13 @@ function isArithmetic(node, value) {
 	const { parent } = node;
 	if (!parent) return false;
 	if (parent.type === 'BinaryExpression') {
+		const other = parent.left === node ? parent.right : parent.left;
+		if (
+			isLength(other) &&
+			[2, 3].includes(value) &&
+			['<', '<=', '>', '>=', '===', '!=='].includes(parent.operator)
+		)
+			return true;
 		if (value <= 1) return basicOperators.has(parent.operator);
 		return value === 2 && parent.operator === '-' && identifier(parent.left) === 'side';
 	}
@@ -106,12 +121,30 @@ function isArithmetic(node, value) {
 }
 
 /** @param {Syntax} node @param {SourceCode} source */
-function isExactHelper(node, source) {
-	for (let current = node.parent; current; current = current.parent) {
-		if (!functions.has(current.type) && current.type !== 'VariableDeclaration') continue;
-		const owner = current.parent?.type === 'ExportNamedDeclaration' ? current.parent : current;
-		if (source.getCommentsBefore(owner).some(({ value }) => /^ Exact arithmetic: \S/.test(value)))
+function hasExactComment(node, source) {
+	/** @type {Syntax | import('@typescript-eslint/utils').TSESTree.Token | null} */
+	let start = node;
+	while (start) {
+		if (
+			source
+				.getCommentsBefore(start)
+				.some(({ type, value }) => type === 'Block' && /^ Exact arithmetic: \S/.test(value))
+		)
 			return true;
+		/** @type {import('@typescript-eslint/utils').TSESTree.Token | null} */
+		const previous = source.getTokenBefore(start);
+		start = previous?.value === '(' ? previous : null;
+	}
+	return false;
+}
+
+/** @param {Syntax} node @param {SourceCode} source */
+function isExactNumber(node, source) {
+	let current = node;
+	while (expressionWrappers.has(current.type) || exactExpressions.has(current.type)) {
+		if (exactExpressions.has(current.type) && hasExactComment(current, source)) return true;
+		if (!current.parent) break;
+		current = current.parent;
 	}
 	return false;
 }
@@ -122,12 +155,19 @@ function isPositionalArgument(node, value) {
 	if (parent?.type !== 'CallExpression' || value > 3 || !Number.isInteger(value)) return false;
 	const { callee } = parent;
 	if (callee.type === 'Identifier')
-		return callee.name === 'pointAt' && parent.arguments[1] === node;
+		return (
+			(callee.name === 'pointAt' ||
+				callee.name === 'isFiniteVector' ||
+				callee.name === 'copyVector' ||
+				callee.name === 'validateVector') &&
+			parent.arguments[1] === node
+		);
 	if (callee.type !== 'MemberExpression') return false;
 	const name = identifier(callee.property);
 	return (
 		name === 'at' ||
 		name === 'slice' ||
+		(name === 'splice' && value === 1 && parent.arguments[1] === node) ||
 		(name === 'reduce' && value <= 1 && parent.arguments[1] === node)
 	);
 }
@@ -135,7 +175,7 @@ function isPositionalArgument(node, value) {
 /** @param {Syntax} node @param {number} value */
 function structural(node, value) {
 	if (isIndex(node) && Number.isInteger(value)) return true;
-	if (isLoopStart(node) && value <= 1) return true;
+	if (isLoopStart(node) && value <= 2) return true;
 	if (isStride(node, value) || isLoopStride(node, value) || isArithmetic(node, value)) return true;
 	if (isPositionalArgument(node, value)) return true;
 	const { parent } = node;
@@ -158,8 +198,8 @@ export const noTunableNumber = {
 				if (typeof literal.value !== 'number') return;
 				// The configured parsers add TypeScript and Svelte node kinds to ESLint's standard tree.
 				const node = expression(/** @type {Syntax} */ (/** @type {unknown} */ (literal)));
-				if (node.parent?.type === 'TSLiteralType') return;
-				if (structural(node, literal.value) || isExactHelper(node, source)) return;
+				if (node.parent?.type === 'TSLiteralType' || 'bigint' in literal) return;
+				if (structural(node, literal.value) || isExactNumber(node, source)) return;
 				context.report({ node: literal, messageId: 'setting' });
 			}
 		};

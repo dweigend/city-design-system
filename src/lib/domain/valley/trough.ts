@@ -5,7 +5,7 @@ import type { RiverCourse } from './course';
 type Station = { index: number; x: number; y: number; length: number };
 
 // Exact arithmetic: one point occupies an XY pair in the interleaved course.
-const xyStride = 2;
+const xyStride = /* Exact arithmetic: entries per packed XY point. */ 2;
 
 /** Embed the inherited meander as a descending breakline on the regional triangulation.
  * A cardinal connector bridges a corner if the triangulation uses the other diagonal. */

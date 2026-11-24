@@ -189,5 +189,54 @@ export const shapes = defineSettings({
 		'FORM-9'
 	),
 	frameDeckThicknessM: s(0.2, 'm', 'Thickness of a frame deck', 'FORM-6'),
-	mastBarM: s(0.12, 'm', 'Side of a mast bar', 'FORM-6')
+	figureOpeningClearanceDivisor: s(
+		3,
+		'ratio',
+		'Minimum span in opening radii to leave clearance around a figure',
+		'FORM-5'
+	),
+	chamferMaximumEdgeShareRatio: s(
+		1 / 3,
+		'ratio',
+		'Largest share of an edge cut by one chamfer',
+		'FORM-2'
+	),
+	frameJointKeyDecimalPlaces: s(
+		3,
+		'count',
+		'Decimal places used to identify coincident frame joints in meters',
+		'FORM-6'
+	),
+	shellCornerKeyDecimalPlaces: s(
+		6,
+		'count',
+		'Decimal places used to identify coincident shell corners in meters',
+		'FORM-1'
+	),
+	mastBarM: s(0.12, 'm', 'Side of a mast bar', 'FORM-6'),
+	tubeCornerInsetRatio: s(
+		1 / 8,
+		'ratio',
+		'Share of the service tube radius left out of the corner rounding',
+		'FORM-6'
+	),
+	mastArmReachRatio: s(
+		1 / 4,
+		'ratio',
+		'Mast arm reach from the pole as a share of the cell edge',
+		'FORM-6'
+	),
+	mastUpperBarOffsetRatio: s(
+		4,
+		'ratio',
+		'Upper crossbar distance below the mast top in bar widths',
+		'FORM-6'
+	),
+	mastLowerBarOffsetRatio: s(
+		8,
+		'ratio',
+		'Lower crossbar distance below the mast top in bar widths',
+		'FORM-6'
+	),
+	mastPoleGaugeRatio: s(2, 'ratio', 'Pole width in crossbar widths', 'FORM-6')
 });

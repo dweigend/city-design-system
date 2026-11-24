@@ -4,7 +4,7 @@ import { defineParams } from '../../core/params';
 import { createMeshObject, drawBearing, mesh } from '../../core/mesh';
 
 // Exact arithmetic: attachments use the positive Z normal.
-const up: Vec3 = [0, 0, 1];
+const up: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 
 /** Thickness of the guideway slab and its crossheads in meters. */
 export const railDeckThicknessM = defaults.railDeckThicknessM;
@@ -70,17 +70,24 @@ export function createStationPlatformObject(
 	const length = trackDirectionLength(direction);
 	const [u, v] = [direction[0] / length, direction[1] / length];
 	const [x, y, z] = position;
-	const at = (along: number, across: number, lift = 0): Vec3 => [
-		x + u * along - v * across,
-		y + v * along + u * across,
-		z + lift
-	];
+	const at = (
+		along: number,
+		across: number,
+		lift = /* Exact arithmetic: zero lift lies on the reference plane. */ 0
+	): Vec3 => [x + u * along - v * across, y + v * along + u * across, z + lift];
 	const platform = mesh();
 	const bearing = mesh();
 	const half = defaults.platformLengthM / 2;
 	const slab = defaults.platformSlabThicknessM;
-	platform.ribbon([at(-half, 0), at(half, 0)], width, slab);
-	for (const side of [-1, 1]) {
+	platform.ribbon(
+		[
+			at(-half, /* Exact arithmetic: ribbon starts on the centerline. */ 0),
+			at(half, /* Exact arithmetic: ribbon ends on the centerline. */ 0)
+		],
+		width,
+		slab
+	);
+	for (const side of /* Exact arithmetic: opposite platform sides. */ [-1, 1]) {
 		const offset = (side * width) / 2;
 		const roof = defaults.canopyHeightM;
 		const canopy = [

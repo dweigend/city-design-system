@@ -2,7 +2,7 @@ import { distance, measurePolygon, type Vec2 } from '../../core/geometry';
 import { required } from '../../core/invariant';
 import { encodePair } from '../../core/ref';
 import { ringMean, type Candidate, type Node } from './carrier';
-import { shorelineMorphLimits as limits } from './config';
+import { shorelineMorphLimits as limits } from '../../../config/terrain-grid';
 
 type Clearance = (x: number, y: number) => number;
 type Vertex = { node: Node; neighbors: Set<string>; boundary: Set<string>; fade: number };
@@ -21,7 +21,7 @@ function network(cells: readonly Candidate[], clearance: Clearance) {
 					node: end,
 					neighbors: new Set(),
 					boundary: new Set(),
-					fade: t * t * (3 - 2 * t)
+					fade: t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t)
 				});
 			}
 			const a = required(vertices.get(node.id), 'shore node');
@@ -70,7 +70,12 @@ function anchors(vertices: ReadonlyMap<string, Vertex>, clearance: Clearance) {
 		boundary,
 		fade
 	} of vertices.values()) {
-		if (!boundary.size || boundary.size > 2 || !fade) continue;
+		if (
+			!boundary.size ||
+			boundary.size > /* Exact arithmetic: a chain node has at most two boundary neighbors. */ 2 ||
+			!fade
+		)
+			continue;
 		const n = normal(xy, clearance);
 		if (!n) continue;
 		// Redistribute the rail tangentially before projecting. A stair turn otherwise

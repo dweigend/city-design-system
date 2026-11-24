@@ -1,7 +1,7 @@
 /** Module: Generates a seeded catchment, solves drainage and samples terrain. */
 import { defaults } from './settings';
 import type { Vec2, Vec3 } from '../../core/geometry';
-import { Random } from '../../core/random';
+import { Random, uint32Limit } from '../../core/random';
 import { resolveParams } from '../../core/params';
 import { generateCourse, type RiverCourse } from './course';
 import { heightGrid, valleyBands, windowSize, type HeightGrid } from './ground';
@@ -132,16 +132,16 @@ export type Valley = Readonly<{
 	readGround(x: number, y: number): GroundReading;
 }>;
 
-// Exact arithmetic: Valley accepts the unsigned range of a Mulberry32 seed.
-const seedLimit = 2 ** 32;
 // Exact arithmetic: the exported generator identity stays fixed for bit-identical behavior.
-const revision = 4;
+const revision = /* Exact arithmetic: terrain revision recorded in saves. */ 4;
 // Exact arithmetic: test both lateral directions, then step away from the nominal point.
-const drySearchDirections = [1, -1] as const;
+const drySearchDirections = /* Exact arithmetic: search both directions from the water. */ [
+	1, -1
+] as const;
 
 /** Builds one deterministic catchment and routes water from a seeded ancestral valley. */
 function create({ seed, parameters, wetWidth, onTiming }: ValleyOptions): Valley {
-	if (!Number.isInteger(seed) || seed < 0 || seed >= seedLimit)
+	if (!Number.isInteger(seed) || seed < 0 || seed >= uint32Limit)
 		throw new RangeError('invalid-seed');
 	const resolved = resolveParams(valleyParams, parameters);
 	const settings = Object.freeze({

@@ -92,9 +92,6 @@ const scopes = [
 ];
 // Existing modules still using their local constants join this rule when migrated.
 const pendingConfigModules = [
-	'core/{geometry,invariant,polyline,random}',
-	'domain/{city-volume,terrain-grid}',
-	'world/city-site',
 	'scene/{city-volume-projection,focus,stage,stage-view,surface,terrain-grid-projection,valley-projection}',
 	'ui/{accordion,button,icon,icon-button,popover,scale-legend,select,slider,switch,tabs,toggle-group}'
 ];

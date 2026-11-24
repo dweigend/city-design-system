@@ -5,13 +5,15 @@ import { mesh, type Mesh } from '../../core/mesh';
 import type { PathsFrame } from './types';
 
 // Exact arithmetic: the outward normal points up in the Z-up frame.
-export const up: Vec3 = [0, 0, 1];
+export const up: Vec3 = /* Exact arithmetic: positive Z axis. */ [0, 0, 1];
 
 // Exact arithmetic: one placeholder triangle is three XYZ positions.
 function strokePlaceholder(positions: readonly number[]) {
-	return {
+	return /* Exact arithmetic: placeholder mesh with one triangle. */ {
 		kind: 'mesh' as const,
-		positions: positions.slice(0, 6).concat(positions.slice(0, 3)),
+		positions: positions
+			.slice(0, /* Exact arithmetic: two XYZ positions. */ 6)
+			.concat(positions.slice(0, 3)),
 		indices: [0, 1, 2]
 	};
 }

@@ -1,6 +1,7 @@
+import { accessibilityDefaults as config } from '../../../config/city-volume';
 import { distance, type Vec2 } from '../../core/geometry';
 import { Random } from '../../core/random';
-import { cityVolumeConfig } from './config';
+import { cityVolumeConfig } from '../../../config/city-volume';
 import { valueNoise } from './value-noise';
 
 const span = (random: Random, min: number, max: number) => random.number({ min, max });
@@ -34,7 +35,7 @@ function advance(
 	walkable: Walkable
 ): { point: Vec2; heading: number; score: number } | undefined {
 	const current = ground(...point);
-	const options = [-0.85, -0.42, 0, 0.42, 0.85];
+	const options = config.corridorTurnOptionsRad;
 	let best: { point: Vec2; heading: number; score: number } | undefined;
 	for (const angle of options) {
 		const direction = heading + angle;
@@ -47,7 +48,10 @@ function advance(
 		if (!walkable(middle) || !walkable(end) || !walkableSegment(point, next, ground, walkable))
 			continue;
 		const rise = Math.abs(end.height - middle.height) + Math.abs(middle.height - current.height);
-		const score = rise / 5 + Math.abs(angle) * 0.9 - 0.25 * Math.abs(Math.cos(direction - bearing));
+		const score =
+			rise / config.corridorRiseCostScaleM +
+			Math.abs(angle) * config.corridorTurnCost -
+			config.corridorAlignmentBonus * Math.abs(Math.cos(direction - bearing));
 		if (!best || score < best.score) best = { point: next, heading: direction, score };
 	}
 	return best;
@@ -61,9 +65,10 @@ function armPath(
 	ground: Ground,
 	walkable: Walkable
 ) {
-	const steps = Math.round(span(random, 8, 23));
-	let heading = outward + span(random, -0.29, 0.29);
-	const turn = span(random, 0.035, 0.115) * (random.number() < 0.5 ? -1 : 1);
+	const steps = Math.round(span(random, ...config.corridorStepRange));
+	let heading =
+		outward + span(random, -config.corridorHeadingOffsetRad, config.corridorHeadingOffsetRad);
+	const turn = span(random, ...config.corridorCurvatureRangeRad) * (random.number() < 0.5 ? -1 : 1);
 	const path = [head];
 	for (let i = 0; i < steps; i++) {
 		const next = advance(path[path.length - 1], heading + turn, bearing, ground, walkable);
@@ -101,37 +106,50 @@ function approachAccess(
 	walkable: Walkable
 ) {
 	const outward = opposite ? Math.atan2(head[1] - opposite[1], head[0] - opposite[0]) : bearing;
-	const inland = opposite ? span(random, 150, 430) : 0;
-	const toward = outward + span(random, -1.22, 1.22);
+	const inland = opposite ? span(random, ...config.approachCenterOffsetRangeM) : 0;
+	const toward =
+		outward +
+		span(random, -config.approachCenterBearingOffsetRad, config.approachCenterBearingOffsetRad);
 	const inlandPoint: Vec2 = [
 		head[0] + inland * Math.cos(toward),
 		head[1] + inland * Math.sin(toward)
 	];
 	const center = walkable(ground(...inlandPoint)) ? inlandPoint : head;
-	const spread = span(random, 1.8, 2.45);
-	const edge = valueNoise(random.derive('edge'), 210);
-	const lobes = valueNoise(random.derive('lobes'), 530);
-	const count = Math.floor(span(random.derive('count'), 0, 4));
-	const phaseOffset = span(random.derive('bearing'), -0.42, 0.42);
+	const spread = span(random, ...config.approachSpreadRange);
+	const edge = valueNoise(random.derive('edge'), config.approachEdgeWavelengthM);
+	const lobes = valueNoise(random.derive('lobes'), config.approachLobeWavelengthM);
+	const count = Math.floor(
+		span(
+			random.derive('count'),
+			/* Exact arithmetic: a crossing can have no arms. */ 0,
+			config.approachArmCountLimit
+		)
+	);
+	const phaseOffset = span(
+		random.derive('bearing'),
+		-config.approachBearingOffsetRad,
+		config.approachBearingOffsetRad
+	);
 	const arms: Arm[] = Array.from({ length: count }, (_, index) => {
 		const arm = random.derive('arm/' + index);
 		const guide = armPath(
 			arm,
 			head,
-			outward + phaseOffset + 2.35 * ((index + 0.5) / count - 0.5),
+			outward + phaseOffset + config.approachFanWidthRad * ((index + 0.5) / count - 0.5),
 			bearing,
 			ground,
 			walkable
 		);
 		return {
 			path: route ? route(guide, 'arm/' + index, head) : guide,
-			speed: span(arm, 2.7, 4.8),
-			entry: span(arm, 5, 90),
-			width: span(arm, 1.58, 2.1)
+			speed: span(arm, ...config.approachArmSpeedRange),
+			entry: span(arm, ...config.approachArmEntryRangeM),
+			width: span(arm, ...config.approachArmWidthCostRange)
 		};
 	});
-	const aspect = span(random, 0.68, 1.6);
-	const phase = bearing + span(random, -1.55, 1.55);
+	const aspect = span(random, ...config.approachAspectRange);
+	const phase =
+		bearing + span(random, -config.approachPhaseOffsetRad, config.approachPhaseOffsetRad);
 	const u = Math.cos(phase);
 	const v = Math.sin(phase);
 	return (point: Vec2, grade: number, clearance: number) => {
@@ -141,10 +159,21 @@ function approachAccess(
 		const approach = distance(point, head);
 		const travel = arms.reduce(
 			(cost, arm) => Math.min(cost, armCost(arm, point)),
-			Math.min(radial * spread, 70 + 2.85 * approach)
+			Math.min(
+				radial * spread,
+				config.directApproachEntryM + config.directApproachCostRatio * approach
+			)
 		);
-		const raggedness = Math.min(1, approach / 350) * (125 * edge(...point) + 620 * lobes(...point));
-		return travel + 240 * grade - 18 * Math.exp(-Math.max(0, clearance) / 55) + raggedness;
+		const raggedness =
+			Math.min(1, approach / config.approachNoiseFadeDistanceM) *
+			(config.approachEdgeAmplitudeM * edge(...point) +
+				config.approachLobeAmplitudeM * lobes(...point));
+		return (
+			travel +
+			config.approachGradeCostM * grade -
+			config.approachShoreBonusM * Math.exp(-Math.max(0, clearance) / config.approachShoreDecayM) +
+			raggedness
+		);
 	};
 }
 
@@ -181,7 +210,7 @@ export function cityAccessibility(
 		isWalkable
 	);
 	const balance = random.derive('bank-balance');
-	const bias = span(balance, 250, 465) * (balance.number() < 0.5 ? -1 : 1);
+	const bias = span(balance, ...config.approachBankBiasRangeM) * (balance.number() < 0.5 ? -1 : 1);
 	return (point: Vec2, grade: number, clearance: number) =>
 		useSecondApproach(point)
 			? secondary(point, grade, clearance) + Math.max(0, bias)

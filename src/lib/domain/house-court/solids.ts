@@ -9,7 +9,10 @@ export type Faces = Vec3[][];
 
 // Exact arithmetic: vertex average.
 function centre(points: readonly Vec2[]): Vec2 {
-	const [x, y] = points.reduce(([sx, sy], [px, py]) => [sx + px, sy + py], [0, 0]);
+	const [x, y] = points.reduce(
+		([sx, sy], [px, py]) => [sx + px, sy + py],
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	);
 	return [x / points.length, y / points.length];
 }
 
@@ -41,7 +44,6 @@ function clip(polygon: readonly Vec2[], a: Vec2, normal: Vec2, distance: number)
 
 /** The convex counterclockwise polygon with every side moved inward by `distance` meters, as the
  * intersection of the moved half-planes; sides that vanish drop out. Empty when nothing remains. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function inset(points: readonly Vec2[], distance: number): Vec2[] {
 	let polygon: Vec2[] = [...points];
 	points.forEach((_, i) => {
@@ -53,7 +55,6 @@ export function inset(points: readonly Vec2[], distance: number): Vec2[] {
 
 /** The convex counterclockwise polygon with side i moved inward by `distances[i]` meters; empty
  * when nothing remains. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function insetSides(points: readonly Vec2[], distances: readonly number[]): Vec2[] {
 	let polygon: Vec2[] = [...points];
 	points.forEach((_, i) => {
@@ -77,12 +78,11 @@ function doubleArea(points: readonly Vec2[]): number {
 /** A convex polygon inset by `gap` with corners rounded to `radius`: the polygon inset by
  * gap + radius and grown back by radius along arcs, so it stays inside the original. The radius
  * halves until the inner polygon keeps an area. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function rounded(points: readonly Vec2[], gap: number, radius: number): Vec2[] {
 	let r = radius;
 	let core = inset(points, gap + r);
 	while (!core.length && r > Number.EPSILON) {
-		r /= 2;
+		r /= /* Exact arithmetic: bisect the rounding radius. */ 2;
 		core = inset(points, gap + r);
 	}
 	if (!core.length) return inset(points, gap);
@@ -109,14 +109,13 @@ export function rounded(points: readonly Vec2[], gap: number, radius: number): V
 }
 
 /** A convex polygon inset by `gap` with each corner cut back by `cut` meters along its sides. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function chamfered(points: readonly Vec2[], gap: number, cut: number): Vec2[] {
 	const core = inset(points, gap);
 	const n = core.length;
 	return core.flatMap((point, i) => {
 		const toward = (other: Vec2): Vec2 => {
 			const [dx, dy] = [other[0] - point[0], other[1] - point[1]];
-			const share = Math.min(1 / 3, cut / Math.hypot(dx, dy));
+			const share = Math.min(defaults.chamferMaximumEdgeShareRatio, cut / Math.hypot(dx, dy));
 			return [point[0] + dx * share, point[1] + dy * share];
 		};
 		return [toward(core[(i + n - 1) % n]), toward(core[(i + 1) % n])];
@@ -178,15 +177,19 @@ export function dome(points: readonly Vec2[], base: number, rise: number): Faces
 }
 
 /** A cone of the given rise over the polygon. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function cone(points: readonly Vec2[], base: number, rise: number): Faces {
-	return lathe(points, base, rise, 1, () => [1, 0]);
+	return lathe(
+		points,
+		base,
+		rise,
+		/* Exact arithmetic: one interval from base to apex. */ 1,
+		() => /* Exact arithmetic: unit profile at the base. */ [1, 0]
+	);
 }
 
 /** A mono-pitch wedge rising away from the polygon's first side. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function wedge(points: readonly Vec2[], base: number, rise: number): Faces {
-	const { a, normal } = side(points, 0);
+	const { a, normal } = side(points, /* Exact arithmetic: first edge of the wedge. */ 0);
 	const depth = Math.max(
 		...points.map(([x, y]) => -((x - a[0]) * normal[0] + (y - a[1]) * normal[1]))
 	);
@@ -233,7 +236,6 @@ function sweep(outline: readonly Vec3[], offset: Vec3): Faces {
 
 /** A flat figure (circle or polygon of `sides` corners, apex up) of the given radius on a wall
  * plane, extruded `depth` meters across the wall and centred on it. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function wallFigure(
 	at: Vec3,
 	along: Vec2,
@@ -251,16 +253,21 @@ export function wallFigure(
 			at[2] + v
 		];
 	});
-	return sweep(outline, [out[0] * depth, out[1] * depth, 0]);
+	return sweep(
+		outline,
+		/* Exact arithmetic: sweep parallel to the ground plane. */ [out[0] * depth, out[1] * depth, 0]
+	);
 }
 
 /** A square bar of side `thickness` from a to b. */
-// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function bar(a: Vec3, b: Vec3, thickness: number): Faces {
 	const axis: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
 	const length = Math.hypot(...axis);
 	const d: Vec3 = [axis[0] / length, axis[1] / length, axis[2] / length];
-	const helper: Vec3 = Math.abs(d[2]) < 1 / 2 ? [0, 0, 1] : [1, 0, 0];
+	const helper: Vec3 =
+		Math.abs(d[2]) < 1 / 2
+			? /* Exact arithmetic: positive Z axis. */ [0, 0, 1]
+			: /* Exact arithmetic: positive X axis. */ [1, 0, 0];
 	const cross = (p: Vec3, q: Vec3): Vec3 => [
 		p[1] * q[2] - p[2] * q[1],
 		p[2] * q[0] - p[0] * q[2],
@@ -271,8 +278,10 @@ export function bar(a: Vec3, b: Vec3, thickness: number): Faces {
 	const v: Vec3 = [raw[0] / size, raw[1] / size, raw[2] / size];
 	const w = cross(d, v);
 	const corner = (j: number, k: number): Vec3 =>
-		[0, 1, 2].map(
+		/* Exact arithmetic: XYZ coordinate indices. */ [0, 1, 2].map(
 			(i) => a[i] + (j - 1 / 2) * thickness * v[i] + (k - 1 / 2) * thickness * w[i]
 		) as unknown as Vec3;
-	return sweep([corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1)], axis);
+	const low = /* Exact arithmetic: unit square minimum. */ 0;
+	const high = /* Exact arithmetic: unit square maximum. */ 1;
+	return sweep([corner(low, low), corner(high, low), corner(high, high), corner(low, high)], axis);
 }

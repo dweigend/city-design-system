@@ -17,7 +17,10 @@ import { shoreDetours } from './promenade';
 import { createMainLaneRouter, type MainLanePath } from './main-lanes';
 import { planGround } from './sampling';
 import { crossingApproaches, type CarrierSite, type CityRecipe } from './recipe';
-import { citySiteConfig as config } from './config';
+import {
+	citySiteConfig as config,
+	citySiteDimensions as dimensions
+} from '../../../config/city-site';
 
 export function prepareCarrier(
 	site: CarrierSite,
@@ -28,10 +31,10 @@ export function prepareCarrier(
 	recipe: CityRecipe
 ) {
 	const { sampleGround, origin, bearing } = site;
-	const span = { along: 3500, across: 1900 };
+	const span = { along: dimensions.citySizeMaximumM / 2, across: dimensions.cityCarrierHalfWidthM };
 	const u = Math.cos(bearing);
 	const v = Math.sin(bearing);
-	const outline = [
+	const outline = /* Exact arithmetic: normalized carrier outline. */ [
 		[-1, -1],
 		[1, -1],
 		[1, 1],
@@ -131,7 +134,11 @@ export function prepareCarrier(
 		maximumOrder,
 		lanes,
 		grade,
-		{ origin, bearing, aspect: 1 },
+		/* Exact arithmetic: unit aspect keeps the initial plan round. */ {
+			origin,
+			bearing,
+			aspect: 1
+		},
 		coarseCellSize,
 		seed
 	);

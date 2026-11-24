@@ -19,7 +19,10 @@ const {
 } = defaults;
 
 // Exact arithmetic: a half turn spans every distinct orientation of an ellipse.
-const axisBearing = { min: 0, max: Math.PI };
+const axisBearing = /* Exact arithmetic: a non-oriented axis spans a half turn. */ {
+	min: 0,
+	max: Math.PI
+};
 
 function massif(random: Random, x: number, y: number, height: number) {
 	const centerX =

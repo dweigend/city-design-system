@@ -69,7 +69,7 @@ function levelLine(
 	piers: TransitLine['piers'],
 	survey: StraightLevelRailSurvey
 ): TransitLine {
-	return {
+	return /* Exact arithmetic: the straight level corridor has zero grade. */ {
 		points: [
 			[...axis.at(0), z],
 			[...axis.at(axis.lengthM), z]

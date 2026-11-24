@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { displayLevels, stockPencilShare } from '../focus';
-import { cityFocusPreset } from './index';
+import { cityFocus, cityFocusPreset } from './index';
 
 const {
 	choices: focusChoices,
@@ -97,4 +97,21 @@ test('preserves all 120 city display levels', () => {
 		parcels: 'HHHHHHHHFF',
 		'merged-units': 'HHHHHHHHFF'
 	});
+});
+
+test('falls back to All when an empty plan has no overlays in focus', () => {
+	const content = {
+		shares: { detached: 0, block: 0, center: 0 },
+		lattice: false,
+		planDrawables: []
+	};
+	const { items, active } = cityFocus(content, 'plan', 'plan');
+	expect(items.map(({ value }) => value)).toEqual(['all']);
+	expect(active).toBe('all');
+	const planned = cityFocus(
+		{ ...content, planDrawables: [{ id: 'dry-plan' }, { id: 'selected-crossings' }] },
+		'plan'
+	);
+	expect(planned.items).toContainEqual({ value: 'plan', label: 'Plan and crossings' });
+	expect(planned.active).toBe('plan');
 });

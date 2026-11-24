@@ -4,5 +4,8 @@ import type { PlaneRule } from './plane-joints';
  * each edge midpoint. Diagonals cross every facade without a vertical; cut-corner frustums and
  * corner pyramids fill every layer. */
 export const diagrid: PlaneRule = {
-	plane: (level, aboveBase) => (aboveBase > 0 && level % 2 ? 'medial' : 'plan')
+	plane: (level, aboveBase) =>
+		aboveBase > 0 && level % /* Exact arithmetic: alternate the carrier on odd levels. */ 2
+			? 'medial'
+			: 'plan'
 };

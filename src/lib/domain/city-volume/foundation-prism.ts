@@ -1,5 +1,5 @@
 import type { Vec3 } from '../../core/geometry';
-import { cityVolumeConfig } from './config';
+import { cityVolumeConfig } from '../../../config/city-volume';
 
 type Point = Readonly<{ id: string; position: Vec3 }>;
 

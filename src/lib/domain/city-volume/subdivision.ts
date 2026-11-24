@@ -1,6 +1,6 @@
 import { encodeKey, encodePair } from '../../core/ref';
 import { planEdgeId } from '../terrain-grid';
-import { cityVolumeConfig } from './config';
+import { cityVolumeConfig } from '../../../config/city-volume';
 import type { LatticeBay } from './bay-addresses';
 
 /** A child bay and its six face loops of logical point IDs. */

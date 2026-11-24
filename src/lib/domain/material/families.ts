@@ -14,9 +14,13 @@ export type PatternParams = Readonly<{
 }>;
 
 // Exact arithmetic: a plain face has no period and no joint.
-const plain = { pitch: 0, share: 0, joint: [0, 0] as const };
+const plain = /* Exact arithmetic: plain faces have no pattern or joint. */ {
+	pitch: 0,
+	share: 0,
+	joint: [0, 0] as const
+};
 // Exact arithmetic: no joint module along the body or up.
-const noJoint = [0, 0] as const;
+const noJoint = /* Exact arithmetic: no joint in either axis. */ [0, 0] as const;
 
 /** Every model material as data (MAT-3): the pattern it prints and its parameters. A family
  * knows nothing of houses, pages or colour; the palette paints its face and marks (MAT-1). */

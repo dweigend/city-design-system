@@ -5,6 +5,7 @@ const steps = [
 	'test',
 	'check:boundaries',
 	'check:config',
+	'check:naming',
 	'check:skills',
 	'build'
 ];

@@ -4,13 +4,13 @@ Use the same name for a concept in APIs, code, tests, UI and documentation.
 
 ## Language
 
-| ID    | Rule                                                                                                                                                      |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NC-01 | Use English for repository text, comments, UI copy, identifiers, filenames, folders and routes. Keep external API names and source quotations as written. |
-| NC-02 | Name operations using the [verb table](#operations). Use the glossary for domain nouns.                                                                   |
-| NC-03 | Commit subjects are in English ([GW-21](../development/git-workflow.md#commits)).                                                                         |
-| NC-04 | An established domain term beats an abbreviation and a generic infrastructure name. Scientific terms and algorithm names remain intact.                   |
-| NC-05 | Parts of the system do not receive proper names. A part is named after what it is or does.                                                                |
+| ID    | Rule                                                                                                                                                                                   |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NC-01 | Use US English for repository text, comments, UI copy, identifiers, filenames, folders and routes. Use `center` and `color`. Keep external API names and source quotations as written. |
+| NC-02 | Name operations using the [layer verb table](#layer-verb-table). Use the glossary for domain nouns.                                                                                    |
+| NC-03 | Commit subjects are in English ([GW-21](../development/git-workflow.md#commits)).                                                                                                      |
+| NC-04 | An established domain term beats an abbreviation and a generic infrastructure name. Scientific terms and algorithm names remain intact.                                                |
+| NC-05 | Parts of the system do not receive proper names. A part is named after what it is or does.                                                                                             |
 
 ## Glossary
 
@@ -55,7 +55,7 @@ Existing names are not renamed solely to switch between allowed casings. No name
 <!-- prettier-ignore -->
 | Kind of operation | Verb | Do not use | Rule |
 | --- | --- | --- | --- |
-| Construct | `create` | make, new*, build, free `createX` | `Name.create(options)` builds and never adds membership. |
+| Construct | `create` | make, new*, build | `Name.create(options)` and `createX(options)` construct without adding membership. |
 | Insert into an owner or collection | `add` | put, insert, attach, register, admit, join, record, push (in the API) | Any membership change or append, including one that may wait. |
 | Remove or empty | `delete` | remove, detach, clear, dispose, destroy | Removes one member; called with no argument on a container, it empties the container. |
 | Take out and return | `take` | pop, dequeue, get | Removes the next item and returns it immediately. |
@@ -75,6 +75,25 @@ Existing names are not renamed solely to switch between allowed casings. No name
 | Computed results | nouns | get*, find*, compute* | Such as `neighbors`, `distances` or `route`. |
 
 A domain verb names an operation the table does not cover. Keep `validate`, `parse`, `encode` and `decode` at representation boundaries. Platform APIs keep their spelling. Public actions and their UI labels use the same meaning.
+
+### Layer verb table
+
+| Layer  | Public function verbs                                                                                                    | Examples                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Core   | `clip`, `create`, `define`, `draw`, `encode`, `equal`, `is`, `measure`, `move`, `read`, `resolve`                        | `measurePolygon(points)`, `encodePair(a, b)`                                           |
+| Domain | `build`, `clip`, `create`, `fit`, `has`, `lower`, `measure`, `read`, `restore`, `run`, `subdivide`, `survey`, `validate` | `createCellSpace(parcel, rounds)`, `buildSurface(family, patch, options)`              |
+| World  | `build`, `create`, `list`, `place`, `read`, `sample`, `validate`                                                         | `readCityGrid(site, citySize, variant, seed)`, `buildAsset(id, host, overrides, seed)` |
+| Scene  | `create`, `paint`, `plan`, `project`, `read`, `resolve`, `select`, `share`, `validate`                                   | `projectCityTerrain(city, grid, plan)`, `resolveSurfaces(object, surfaces)`            |
+
+Use `build` to realize a recipe or registered asset. A computed query can use the exact name of its result, such as `cellCenter`, `latticeVolumes`, or `cityWindow`. The naming check lists these names explicitly so each new noun has a reviewable entry. `required` is the core invariant assertion.
+
+- Put the subject first, followed by required inputs in dependency order and optional choices last. Ordered endpoints go from start to end, as in `distance(from, to)`.
+- Group independent optional choices in a trailing `Options` object. Factories with several named inputs take one object, as in `TerrainGrid.create({ seed, site, variant, heightAt })`.
+- Use `TypeError` for an input of the wrong shape, `RangeError` for an out-of-range value, and `Error` for a broken invariant. Document an empty result when absence is expected. `clipPolylineToSquare` returns `null` if no positive-length reach survives.
+- Use `id` on the owner and a qualified `Id` name at a reference, as in `planCellId` on a city column. Keep IDs independent of display labels.
+- Document and explicitly export each public name from the flat module's `index.ts`. Keep the implementation, `contract.test.ts`, and fixed-input `example.ts` beside that entry.
+
+Run `bun run check:naming` to check callable exports of core, domain, world and scene entries, including named re-exports.
 
 ## Type Roles
 

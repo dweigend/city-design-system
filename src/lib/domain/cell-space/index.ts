@@ -126,7 +126,7 @@ function freeze(
  * `createCellSpace`. */
 // Exact arithmetic: no refinement rounds.
 export function createStripSpace(parcel: Parcel): CellSpace {
-	validate(parcel, 0);
+	validate(parcel, /* Exact arithmetic: strip space has no midpoint refinement. */ 0);
 	const ring = canonicalRing(parcel);
 	const edgeAt = (i: number) =>
 		parcelEdgeId(parcel.corners[i].id, parcel.corners[(i + 1) % parcel.corners.length].id);
@@ -194,7 +194,10 @@ export function cellAreaM2(cell: FineCell): number {
 
 // Exact arithmetic: vertex average of a quad.
 /** Vertex average of a fine cell in plan meters. */
-export function cellCentre({ quad }: FineCell): Vec2 {
-	const [x, y] = quad.reduce(([sx, sy], [px, py]) => [sx + px, sy + py], [0, 0]);
+export function cellCenter({ quad }: FineCell): Vec2 {
+	const [x, y] = quad.reduce(
+		([sx, sy], [px, py]) => [sx + px, sy + py],
+		/* Exact arithmetic: initial sum of XY coordinates. */ [0, 0]
+	);
 	return [x / quad.length, y / quad.length];
 }

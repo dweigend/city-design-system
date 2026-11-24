@@ -28,7 +28,7 @@ export function frontageFrame(lane: LaneInput, a: Vec2, b: Vec2, sideIndex: numb
 }
 
 // Exact arithmetic: The supporting lane edge is the origin of its local frame.
-const edgeLineM = 0;
+const edgeLineM = /* Exact arithmetic: local edge origin. */ 0;
 
 function laneBuffers(gross: PlanPolygon, sides: readonly Frontage[], toleranceM: number) {
 	const [outline] = gross;

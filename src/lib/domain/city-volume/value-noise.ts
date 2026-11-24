@@ -1,7 +1,7 @@
 import type { Random } from '../../core/random';
 
 function fade(t: number) {
-	return t * t * (3 - 2 * t);
+	return t * t * /* Exact arithmetic: cubic Hermite interpolation coefficient. */ (3 - 2 * t);
 }
 
 /** Seeded value noise in [-1, 1] on a fixed world lattice, so the value at a point never
@@ -12,7 +12,9 @@ export function valueNoise(random: Random, noiseWavelength: number) {
 		const key = `${i},${j}`;
 		let value = values.get(key);
 		if (value === undefined) {
-			value = random.derive(key).number({ min: -1, max: 1 });
+			value = random
+				.derive(key)
+				.number(/* Exact arithmetic: bounds of signed unit noise. */ { min: -1, max: 1 });
 			values.set(key, value);
 		}
 		return value;

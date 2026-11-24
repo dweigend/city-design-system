@@ -53,6 +53,40 @@ test('derives district kinds and the peak from the built-up area of the plan', (
 	expect(example().lattice.cells.length).toBeGreaterThan(0);
 });
 
+test('classifies 250 cells at the town threshold in rank order', () => {
+	const areas = [...Array<number>(249).fill(1 / 249), 999_999];
+	const vertices: Array<TerrainGrid['vertices'][number]> = [];
+	const cells = areas.map((area, index) => {
+		const id = `c${index}`;
+		const x = index * 2;
+		const corners = [
+			[x, 0, 0],
+			[x + 1, 0, 0],
+			[x + 1, area, 0],
+			[x, area, 0]
+		] as const;
+		const vertexIds = corners.map((position, corner) => {
+			const vertexId = `${id}/${corner}`;
+			vertices.push({ id: vertexId, position });
+			return vertexId;
+		});
+		return { id, vertexIds, neighbors: corners.map(() => null) };
+	});
+	const growth = { rankedCellIds: cells.map(({ id }) => id), futureFringe: [] };
+	const read = (ordered: typeof cells) => {
+		const { areaKm2, settlement } = createCityDistricts(
+			{ cells: ordered, vertices, boundary: [] },
+			core,
+			1201,
+			undefined,
+			growth
+		);
+		return { areaKm2, settlement };
+	};
+	expect(read(cells)).toEqual({ areaKm2: 1, settlement: 'town' });
+	expect(read(cells.toReversed())).toEqual(read(cells));
+});
+
 test('grades the center and bounds the step between neighboring columns', () => {
 	const plan = flatPlan(3800);
 	const columns = readCityColumns(plan, createCityDistricts(plan, core, 1201));
