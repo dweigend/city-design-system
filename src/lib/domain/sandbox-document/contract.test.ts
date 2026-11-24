@@ -62,7 +62,8 @@ describe('sandbox document', () => {
 		const document = createSandboxDocument(world);
 		const north = parcel('north');
 		document.apply([place(parcel('west')), place(north)]);
-		const first = document.readPlacement(north)!;
+		const first = document.readPlacement(north);
+		if (!first) throw new Error('Expected the north placement');
 		document.apply([{ kind: 'remove', id: first.id }]);
 		document.apply([place(north)]);
 		expect(document.readPlacement(north)).toEqual(first);
