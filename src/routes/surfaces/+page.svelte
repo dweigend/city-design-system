@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import {
 		createSampleBoard,
+		readLight,
 		createSampleBody,
 		familyNames,
 		readFamily,
@@ -16,6 +17,7 @@
 		type Family,
 		type SurfaceLevel
 	} from '../../lib/scene/material';
+	import { shadowDirection, shadowReach } from '../../lib/scene/stage';
 	import { StageView } from '../../lib/scene/stage-view';
 	import { existing, paintClad, type MaterialDisplay } from '../../lib/scene/surface';
 	import { Slider } from '../../lib/ui/slider';
@@ -58,10 +60,12 @@
 	let seed = $state(number('seed', 1));
 	let bodyFamily = $state<string>(pickFamily(query.get('body')) ?? 'masonry');
 	const zoom = number('zoom', 1);
+	const bodyZoom = number('bodyZoom', 1);
 
 	const display = $derived<MaterialDisplay>(transparent ? 'transparency' : 'normal');
-	const options = $derived({ seed, moduleScale, reliefScale, level });
-	const entries = $derived(
+	const light = readLight(shadowDirection, shadowReach);
+	const options = $derived({ light, seed, moduleScale, reliefScale, level });
+	const entries = $derived<{ family: Family; level?: SurfaceLevel }[]>(
 		levelRow.length
 			? levelRow.map((rowLevel) => ({ family: shown[0] ?? 'masonry', level: rowLevel }))
 			: (shown.length ? shown : familyNames).map((family) => ({ family }))
@@ -132,6 +136,7 @@
 			drawables={bodyDrawables}
 			view="iso"
 			{display}
+			fit={{ zoom: bodyZoom }}
 			interactive
 			label={`${names[pickFamily(bodyFamily) ?? 'masonry']} house with a metal gable roof on paving`}
 		/>

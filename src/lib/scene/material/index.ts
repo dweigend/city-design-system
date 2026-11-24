@@ -1,4 +1,5 @@
 import { materialSettings } from '../../../config/material';
+import type { Vec3 } from '../../core/geometry';
 import type { DisplayLevel } from '../focus';
 import type { SurfaceLevel } from './build';
 
@@ -24,12 +25,21 @@ export const surfaceControls = Object.freeze({
 	seed: materialSettings.seedBand
 });
 
+/** Oklab lightness offset of cast shade from every face it falls on (MAT-2). */
+export const castShade = materialSettings.shadeLightness;
+
 /** Hatch strength and joint-line width (CSS px) and opacity of the pencil level. */
 export const pencilStroke = Object.freeze({
 	hatch: materialSettings.pencilHatchRatio,
 	width: materialSettings.pencilStrokeWidthPx,
 	opacity: materialSettings.pencilStrokeOpacityRatio
 });
+
+/** The direction light travels for a horizontal shadow direction and a reach in meters of shadow
+ * per meter of height, as the stage casts its ground shade. */
+export function readLight(direction: readonly [number, number], reach: number): Vec3 {
+	return [direction[0] * reach, direction[1] * reach, -1];
+}
 
 const detail = {
 	full: 'relief',

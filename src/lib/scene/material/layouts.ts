@@ -52,7 +52,7 @@ function boards({ module: [board, run], joint, relief, alt, jitter }: ReliefPara
 		const at = jittered(random, relief[0], jitter);
 		for (let v0 = 0; v0 < height; v0 += run)
 			units.push({ slot, polygon: rectPolygon([u0, v0, u0 + board, v0 + run - gap]), base: 0, top: { at } });
-		units.push({ slot: 'trim', polygon: rectPolygon([u0 - gap, 0, u0 + gap, height]), base: 0, top: { at: relief[1] } });
+		units.push({ slot: 'trim', polygon: rectPolygon([u0 - gap, 0, u0 + gap, height]), base: 0, top: { at: relief[1] }, castOnto: relief[0] });
 	}
 	return units;
 }
@@ -100,10 +100,10 @@ function grid({ module: [paneWidth, paneHeight], joint, relief, alt }: ReliefPar
 	const us = stops(width, paneWidth);
 	const vs = stops(height, paneHeight);
 	const frame = { at: relief[1] };
-	for (const u of us) units.push({ slot: 'trim', polygon: rectPolygon([u - half, 0, u + half, height]), base: 0, top: frame });
+	for (const u of us) units.push({ slot: 'trim', polygon: rectPolygon([u - half, 0, u + half, height]), base: 0, top: frame, castOnto: relief[0] });
 	for (let i = 0; i + 1 < us.length; i++) {
 		for (const [j, v] of vs.entries()) {
-			units.push({ slot: 'trim', polygon: rectPolygon([us[i] + half, v - half, us[i + 1] - half, v + half]), base: 0, top: frame });
+			units.push({ slot: 'trim', polygon: rectPolygon([us[i] + half, v - half, us[i + 1] - half, v + half]), base: 0, top: frame, castOnto: relief[0] });
 			if (j + 1 < vs.length)
 				units.push({
 					slot: pick(random, alt),

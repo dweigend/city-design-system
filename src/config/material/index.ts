@@ -126,11 +126,11 @@ const families = defineSettings({
 		principle: 'MAT-3'
 	},
 	metalCrestShare: {
-		value: [0.3, 0.2],
+		value: [0.34, 0.12],
 		unit: 'ratio',
 		meaning: 'Crest width and each flank width as shares of the pitch; the rest is trough',
 		bounds: share,
-		rationale: 'A trapezoid profile whose flanks catch light and shade.'
+		rationale: 'Flanks steeper than the sun split into a lit and a shaded side on a lit wall.'
 	},
 	glassModuleM: {
 		value: [1.2, 1.5],
@@ -194,6 +194,20 @@ const families = defineSettings({
 		meaning: 'Share of setts drawn in the variant tone',
 		bounds: share,
 		rationale: 'Mixed stone batches, a common paving look.'
+	},
+	shadeLiftM: {
+		value: 0.002,
+		unit: 'm',
+		meaning: 'Offset of cast shade in front of the face it falls on',
+		bounds: positive,
+		rationale: 'Clears depth precision at plate and house distance.'
+	},
+	shadeLightness: {
+		value: -0.17,
+		unit: 'Oklab L',
+		meaning: 'Lightness offset of cast shade from the face it falls on',
+		bounds: { max: 0 },
+		principle: 'MAT-2'
 	},
 	reliefJitterShare: {
 		value: 0.25,
@@ -342,6 +356,13 @@ const samples = defineSettings({
 		meaning: 'Thickness of the dark backing behind the glazing in an opening',
 		bounds: positive,
 		rationale: 'Thin enough to sit inside the reveal.'
+	},
+	bodyGroundModuleScale: {
+		value: 2,
+		unit: 'ratio',
+		meaning: 'Module scale of the forecourt paving around the sample body',
+		bounds: positive,
+		rationale: 'Large slabs keep the ground calm at house distance (MAT-6).'
 	},
 	bodyGroundM: {
 		value: [3, 0.12],

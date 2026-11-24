@@ -1,5 +1,5 @@
 import { materialSettings } from '../../../config/material';
-import type { Vec2 } from '../../core/geometry';
+import { dotProduct, type Vec2, type Vec3 } from '../../core/geometry';
 import { Random } from '../../core/random';
 import { clipToOutline, cutOpenings, segmentOutside } from './cells';
 import { readFamily, type Family, type FamilySlot } from './families';
@@ -7,8 +7,14 @@ import { layouts, type ReliefParams } from './layouts';
 import { readFrame, readPatchArea, type Frame, type Patch } from './patch';
 import { addCell, createSink, readIndices, type MeshSink, type Unit } from './prism';
 
-const { patchTrianglesPerSquareM, coarsenStepRatio, coarsenStepLimit, pencilLiftM, planeToleranceM } =
-	materialSettings;
+const {
+	patchTrianglesPerSquareM,
+	coarsenStepRatio,
+	coarsenStepLimit,
+	pencilLiftM,
+	planeToleranceM,
+	shadeLiftM
+} = materialSettings;
 
 /** Drawing detail of a surface: raised units, one flat slab in the unit tone, or a flat slab
  * with the joints drawn as pencil lines. */
@@ -17,8 +23,10 @@ export type SurfaceLevel = 'relief' | 'flat' | 'pencil';
 export const surfaceLevels = Object.freeze(['relief', 'flat', 'pencil'] as const);
 
 /** Player or page choices for one surface. Scales are unitless multipliers of the configured
- * module and relief; the seed draws unit variants and face depths. */
+ * module and relief; the seed draws unit variants and face depths. `light` is the direction light
+ * travels in world axes; with it, level unit tops cast hard shade into the `shade` slot. */
 export type SurfaceOptions = Readonly<{
+	light?: Vec3;
 	seed?: number;
 	moduleScale?: number;
 	reliefScale?: number;
@@ -58,6 +66,43 @@ function addUnits(sinks: Map<FamilySlot, MeshSink>, frame: Frame, units: readonl
 		sinks.set(slot as FamilySlot, sink);
 		for (const cell of cutOpenings(clipped, openings)) addCell(sink, frame, cell, base, top, false);
 	}
+}
+
+/** The hard shade a level unit casts onto its `castOnto` plane: its outline moved along the
+ * light, minus the unit's own bounding rectangle, lifted just above the plane it falls on. */
+function addShade(sink: MeshSink, frame: Frame, unit: Unit, light: Vec3) {
+	const { polygon, base, top, castOnto = base } = unit;
+	const facing = dotProduct(light, frame.patch.normal);
+	const rise = top.at - castOnto;
+	if (top.perU || top.perV || facing >= 0 || rise <= planeToleranceM) return;
+	const reach = -rise / facing;
+	const [du, dv] = [reach * dotProduct(light, frame.patch.across), reach * dotProduct(light, frame.up)];
+	const clipped = clipToOutline(polygon, frame.outline);
+	if (!clipped.length) return;
+	const us = clipped.map(([u]) => u);
+	const vs = clipped.map(([, v]) => v);
+	const own = [Math.min(...us), Math.min(...vs), Math.max(...us), Math.max(...vs)] as const;
+	const moved = clipToOutline(
+		clipped.map(([u, v]): Vec2 => [u + du, v + dv]),
+		frame.outline
+	);
+	if (!moved.length) return;
+	const at = castOnto + shadeLiftM;
+	for (const cell of cutOpenings(moved, [own, ...(frame.patch.openings ?? [])]))
+		addCell(sink, frame, cell, at, { at }, false);
+}
+
+/** Shade that another body casts onto the patch: on the backing between units and on every
+ * level unit top it covers. */
+function addCastShadow(sink: MeshSink, frame: Frame, shadow: readonly Vec2[], units: readonly Unit[]) {
+	const openings = frame.patch.openings ?? [];
+	const place = (polygon: readonly Vec2[], at: number) => {
+		const clipped = clipToOutline(clipToOutline(polygon, frame.outline), shadow);
+		if (!clipped.length) return;
+		for (const cell of cutOpenings(clipped, openings)) addCell(sink, frame, cell, at, { at }, false);
+	};
+	place(frame.outline, shadeLiftM);
+	for (const { polygon, top } of units) if (!top.perU && !top.perV) place(polygon, top.at + shadeLiftM);
 }
 
 function addSlab(sinks: Map<FamilySlot, MeshSink>, frame: Frame, slot: FamilySlot, top: number) {
@@ -140,6 +185,10 @@ export function buildSurface(family: Family, patch: Patch, options: SurfaceOptio
 		const sinks = new Map<FamilySlot, MeshSink>();
 		addSlab(sinks, frame, 'joint', 0);
 		addUnits(sinks, frame, units);
+		const shade = createSink();
+		if (options.light) for (const unit of units) addShade(shade, frame, unit, options.light);
+		for (const shadow of patch.shadows ?? []) addCastShadow(shade, frame, shadow, units);
+		sinks.set('shade', shade);
 		const mesh = collect(family, 'relief', scale, sinks, []);
 		if (mesh.triangles <= budget) return mesh;
 		scale *= coarsenStepRatio;

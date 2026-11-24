@@ -8,8 +8,15 @@ const { planeToleranceM, faceWeldM } = materialSettings;
 export type Plane = Readonly<{ at: number; perU?: number; perV?: number }>;
 
 /** One relief unit before cutting: a convex counter-clockwise polygon in patch meters, raised
- * from `base` to its top plane along the patch normal. */
-export type Unit = Readonly<{ slot: string; polygon: readonly Vec2[]; base: number; top: Plane }>;
+ * from `base` to its top plane along the patch normal. A unit with a level top casts shade onto
+ * the plane `castOnto` (default its base). */
+export type Unit = Readonly<{
+	slot: string;
+	polygon: readonly Vec2[];
+	base: number;
+	top: Plane;
+	castOnto?: number;
+}>;
 
 /** Growing triangle soup for one slot, in world meters, with each face's vertices unshared.
  * Side faces are keyed by their rounded corners so a hidden pair can be dropped. */

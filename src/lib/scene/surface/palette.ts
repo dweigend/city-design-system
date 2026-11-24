@@ -1,4 +1,4 @@
-import { familyNames, pencilStroke, type CladObject, type Family, type FamilySlot } from '../material';
+import { castShade, familyNames, pencilStroke, type CladObject, type Family, type FamilySlot } from '../material';
 import { resolveSurfaces, type Drawable, type Surface, type SurfaceAssignment } from './surfaces';
 
 /** The two surface displays: authored material colours, or the grey see-through bodies of the
@@ -45,7 +45,7 @@ const palettes = { normal, transparency } as const satisfies Record<MaterialDisp
 const pencil: Surface = Object.freeze({
 	color: '--stock-pencil',
 	finish: 'matte',
-	stroke: { color: '--stock-line', width: pencilStroke.width, opacity: pencilStroke.opacity, hidden: 0 }
+	stroke: { color: '--stock-line' as const, width: pencilStroke.width, opacity: pencilStroke.opacity, hidden: 0 }
 });
 
 /** Reads the surface of one family slot in one display. Throws RangeError when the family has no
@@ -57,6 +57,11 @@ export function readMaterialSurface(family: Family, slot: FamilySlot, display: M
 	if (!surface) throw new RangeError(`No surface for ${family} slot "${slot}"`);
 	return surface;
 }
+
+/** Shade keeps the colour of the face it falls on, darkened alike on every face, and draws no
+ * outline of its own: an overprint, not an object (MAT-2). */
+const noStrokes: readonly number[] = Object.freeze([]);
+const shadeFaces = Object.freeze({ top: castShade, lit: castShade, shadow: castShade });
 
 function split(slot: string): [role: string, slot: FamilySlot] | undefined {
 	const at = slot.lastIndexOf('/');
@@ -73,11 +78,17 @@ export function paintClad(clad: CladObject, display: MaterialDisplay, plain: Sur
 		const parts = split(slot);
 		if (!parts) continue;
 		const [role, familySlot] = parts;
-		assignment[slot] = pencilRoles.has(role) ? pencil : readMaterialSurface(clad.materials[role], familySlot, display);
+		const family = clad.materials[role];
+		assignment[slot] = pencilRoles.has(role)
+			? pencil
+			: readMaterialSurface(family, familySlot === 'shade' ? 'joint' : familySlot, display);
 	}
-	const drawables = resolveSurfaces(clad.object, assignment).map((drawable) =>
-		pencilRoles.has(split(drawable.id)?.[0] ?? '') ? { ...drawable, hatch: pencilStroke.hatch } : drawable
-	);
+	const drawables = resolveSurfaces(clad.object, assignment).map((drawable): Drawable => {
+		const [role, familySlot] = split(drawable.id) ?? [];
+		if (role !== undefined && pencilRoles.has(role)) return { ...drawable, hatch: pencilStroke.hatch };
+		if (familySlot !== 'shade') return drawable;
+		return { ...drawable, faces: shadeFaces, strokeSegments: noStrokes, visible: display === 'normal' };
+	});
 	for (const [role, lines] of Object.entries(clad.lines)) {
 		const host = drawables.find(({ id }) => id === `${role}/unit`);
 		if (!host || !lines.length) continue;

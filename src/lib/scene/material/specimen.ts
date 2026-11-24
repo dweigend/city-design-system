@@ -1,5 +1,5 @@
 import { materialSettings } from '../../../config/material';
-import { scaled, sum, type Vec3 } from '../../core/geometry';
+import { convexHull, scaled, sum, type Vec2, type Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Part } from '../../core/object';
 import { buildSurface, type SurfaceLevel, type SurfaceMesh, type SurfaceOptions } from './build';
 import { readFamily, type Family } from './families';
@@ -7,8 +7,15 @@ import type { Patch, Rect } from './patch';
 
 const m = materialSettings;
 
-/** One family laid on one patch under a role name, such as wall or plate-2. */
-export type Cladding = Readonly<{ role: string; family: Family; patch: Patch; level?: SurfaceLevel }>;
+/** One family laid on one patch under a role name, such as wall or plate-2, with an optional
+ * level and a module scale that multiplies the shared one. */
+export type Cladding = Readonly<{
+	role: string;
+	family: Family;
+	patch: Patch;
+	level?: SurfaceLevel;
+	moduleScale?: number;
+}>;
 
 /** An object whose slots are `role/slot` pairs, plus plain parts in slot `stand`. Materials and
  * drawn levels are keyed by role; lines are the pencil joint lines of a role. */
@@ -36,8 +43,12 @@ export function createClad(
 	const levels: Record<string, SurfaceLevel> = {};
 	const lines: Record<string, number[]> = {};
 	const surfaces: SurfaceMesh[] = [];
-	for (const { role, family, patch, level } of claddings) {
-		const surface = buildSurface(family, patch, { ...options, level: level ?? options.level });
+	for (const { role, family, patch, level, moduleScale = 1 } of claddings) {
+		const surface = buildSurface(family, patch, {
+			...options,
+			level: level ?? options.level,
+			moduleScale: (options.moduleScale ?? 1) * moduleScale
+		});
 		surfaces.push(surface);
 		materials[role] = family;
 		levels[role] = surface.level;
@@ -142,6 +153,24 @@ function glazing(wall: Wall, openings: readonly Rect[]): Patch[] {
 	}));
 }
 
+/** The ground shade of the body: the hull of its corners and ridge moved along the light onto
+ * the ground, in the ground patch's meters. */
+function bodyShadow(light: Vec3, origin: Vec3, [width, depth, eaves, ridge]: readonly number[]): Vec2[] {
+	const [x, y] = [width / 2 + m.bodyEaveM, depth / 2];
+	const corners: Vec3[] = [-1, 1].flatMap((sx) =>
+		[-1, 1].flatMap((sy): Vec3[] => [
+			[(sx * width) / 2, sy * y, 0],
+			[sx * x, sy * y, eaves]
+		])
+	);
+	corners.push([-x, 0, ridge], [x, 0, ridge]);
+	const ground = corners.map(([px, py, pz]): Vec2 => {
+		const reach = -pz / light[2];
+		return [px + reach * light[0] - origin[0], py + reach * light[1] - origin[1]];
+	});
+	return [...convexHull(ground)];
+}
+
 /** A box house with a gable roof, a door and two windows, standing on a ground slab: walls in
  * the given family, roof in `roof`, ground in `ground`, glazing in glass. The triangle budget is
  * shared among the patches by area. Centred on the origin with the ground face at zero. */
@@ -158,10 +187,13 @@ export function createSampleBody(family: Family, options: SurfaceOptions = {}, r
 		for (const patch of glazing(wall, openings)) claddings.push({ role: 'opening', family: 'glass', patch });
 	}
 	for (const patch of roofSlopes(width, depth, eaves, ridge)) claddings.push({ role: 'roof', family: roof, patch });
+	const groundOrigin: Vec3 = [-width / 2 - margin, -depth / 2 - margin, 0];
+	const shadows = options.light ? [bodyShadow(options.light, groundOrigin, m.bodySizeM)] : [];
 	claddings.push({
 		role: 'ground',
 		family: ground,
-		patch: { origin: [-width / 2 - margin, -depth / 2 - margin, 0], across: east, normal: up, size: [width + 2 * margin, depth + 2 * margin], thickness: slab, openings: [[margin, margin, margin + width, margin + depth]] }
+		moduleScale: m.bodyGroundModuleScale,
+		patch: { origin: groundOrigin, across: east, normal: up, size: [width + 2 * margin, depth + 2 * margin], thickness: slab, openings: [[margin, margin, margin + width, margin + depth]], shadows }
 	});
 	return createClad('sample-body', shareBudget(claddings, m.bodyTriangleBudget), options);
 }

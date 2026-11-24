@@ -9,7 +9,8 @@ export type Rect = readonly [u0: number, v0: number, u1: number, v1: number];
 /** A planar surface patch. `across` and `normal` are unit vectors; up is normal × across, so the
  * outward face looks along `normal`. Size, thickness and openings are in meters. The optional
  * outline is a convex counter-clockwise polygon in patch meters, e.g. a gable; the default is
- * the rectangle of `size`. Openings are holes cut through relief and backing. */
+ * the rectangle of `size`. Openings are holes cut through relief and backing. Shadows are convex
+ * counter-clockwise polygons in patch meters that other bodies cast onto the face. */
 export type Patch = Readonly<{
 	origin: Vec3;
 	across: Vec3;
@@ -18,12 +19,14 @@ export type Patch = Readonly<{
 	thickness: number;
 	outline?: readonly Vec2[];
 	openings?: readonly Rect[];
+	shadows?: readonly (readonly Vec2[])[];
 	budget?: number;
 }>;
 
 /** A patch with its derived up axis and a point mapping from patch meters to world meters. */
 export type Frame = Readonly<{
 	patch: Patch;
+	up: Vec3;
 	outline: readonly Vec2[];
 	point: (u: number, v: number, w: number) => Vec3;
 }>;
@@ -50,7 +53,7 @@ export function readFrame(patch: Patch): Frame {
 	if (!isConvex(outline)) throw new RangeError('Patch outline must be convex and counter-clockwise');
 	const point = (u: number, v: number, w: number): Vec3 =>
 		sum(sum(origin, scaled(across, u)), sum(scaled(up, v), scaled(normal, w)));
-	return { patch, outline, point };
+	return { patch, up, outline, point };
 }
 
 function isConvex(polygon: readonly Vec2[]) {
