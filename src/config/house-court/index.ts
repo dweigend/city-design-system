@@ -48,6 +48,75 @@ const occupancy = defineSettings({
 	}
 });
 
+const town = defineSettings({
+	calmAreaM2: {
+		value: 450,
+		unit: 'm²',
+		meaning:
+			'Largest cell space of a calm house: it draws one fill, roof and opening kind and few colours, and keeps the eaves line',
+		bounds: { exclusiveMin: 0 },
+		principle: 'FORM-2',
+		rationale:
+			'Perimeter parcels are 100–320 m²; neighbours vary by seed, not by noise inside one small house.'
+	},
+	cellsPerColour: {
+		value: 3,
+		unit: 'count',
+		meaning: 'Cells per body colour of a calm house; two cells take one colour, six take two',
+		bounds: { min: 1 },
+		principle: 'COLOR-4'
+	},
+	eavesToleranceStoreys: {
+		value: 1,
+		unit: 'storeys',
+		meaning:
+			'Largest seeded drop of a calm house below the block height; frontage cells share that eaves line',
+		bounds: { min: 0 },
+		principle: 'FORM-2',
+		rationale: 'A row of houses reads as one street front when eaves differ by at most a storey.'
+	},
+	cornerRiseStoreys: {
+		value: 1,
+		unit: 'storeys',
+		meaning: 'Storeys a calm house on a block corner rises above the eaves line',
+		bounds: { min: 0 },
+		principle: 'FORM-2'
+	},
+	largeUnitAreaM2: {
+		value: 4000,
+		unit: 'm²',
+		meaning:
+			'Cell space area from which one large building fills the whole unit with the style row large tendency',
+		bounds: { exclusiveMin: 0 },
+		principle: 'FORM-1',
+		rationale:
+			'Merged units and halls span several coarse cells; one coarse cell (about 3,600 m²) stays a court house.'
+	},
+	largeStoreys: {
+		value: 2,
+		unit: 'storeys',
+		meaning: 'Storeys of a large building below its roof figure',
+		bounds: { min: 1 },
+		principle: 'FORM-1'
+	},
+	largeOpeningScaleRatio: {
+		value: 2,
+		unit: 'ratio',
+		meaning: 'Scale of opening pitch, width and height on a large building: a few big openings',
+		bounds: { exclusiveMin: 0 },
+		principle: 'FORM-3'
+	},
+	entranceStepRiseM: {
+		value: 0.15,
+		unit: 'm',
+		meaning:
+			'Rise from the lane to the ground storey above which the entrance takes steps inside its cell',
+		bounds: { min: 0 },
+		principle: 'COLOR-3',
+		rationale: 'One kerb height; below it a sill suffices.'
+	}
+});
+
 const skin = defineSettings({
 	floorEdgeOutsetM: {
 		value: 0.12,
@@ -179,7 +248,7 @@ const skin = defineSettings({
 });
 
 /** Numeric settings of the house-and-court rule and its skin. */
-export const settings = joinSettings(occupancy, skin, memphis, archigram, organic, shapes);
+export const settings = joinSettings(occupancy, town, skin, memphis, archigram, organic, shapes);
 
 /** Frozen defaults consumed by the owning module. */
 export const defaults = settingValues(settings);

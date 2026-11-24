@@ -2,12 +2,20 @@ import type { Vec2, Vec3 } from '../../core/geometry';
 import { PlaceableObject, type Anchor, type Part } from '../../core/object';
 import { cellAreaM2, cellCentre, type CellSpace } from '../cell-space';
 import { Random } from '../../core/random';
-import { courtSides, galleries, stair, stairSide } from './access';
+import {
+	courtSides,
+	entranceStepCell,
+	entranceSteps,
+	galleries,
+	stair,
+	stairSide
+} from './access';
 import { faceMesh } from './boxes';
 import type { Context } from './context';
 import { caps, figureOpenings, patterns, trees } from './dress';
 import { cellSolids, type CellSolid } from './fills';
 import { structure } from './structure';
+import { houseStyleFor } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
 import { side } from './boxes';
 import type { HouseCourt } from './occupancy';
@@ -46,7 +54,7 @@ export function houseSlots(style: HouseStyle, detail: HouseDetail): readonly str
 		parts.treeShareRatio > 0 && 'trunk',
 		parts.treeShareRatio > 0 && 'foliage',
 		parts.galleries && 'gallery',
-		parts.galleries && parts.stair && 'stair'
+		parts.stair && 'stair'
 	]);
 }
 
@@ -67,8 +75,21 @@ function context(space: CellSpace, house: HouseCourt, style: HouseStyle): Contex
 		occupancy: new Map(house.cells.map((cell) => [cell.id, cell])),
 		style,
 		random: Random.create({ seed: house.inputs.seed }).derive('skin'),
-		complexity: house.inputs.complexity
+		complexity: house.inputs.complexity,
+		house
 	};
+}
+
+function courtDoor(ctx: Context): Anchor | undefined {
+	const doors = ctx.space.cells.flatMap((cell) =>
+		cell.sides.flatMap((s, i) =>
+			s.court && (ctx.occupancy.get(cell.id)?.toStorey ?? 0) > 0 ? [side(cell.quad, i)] : []
+		)
+	);
+	const door = doors.sort((a, b) => b.length - a.length)[0];
+	if (!door) return undefined;
+	const [x, y] = door.at(1 / 2, 0);
+	return { name: 'court', position: [x, y, ctx.space.baseZ], normal: [...door.normal, 0] };
 }
 
 function entrancePoint(ctx: Context, house: HouseCourt): { point: Vec2; normal: Vec2 } | undefined {
@@ -98,10 +119,12 @@ function anchors(ctx: Context, house: HouseCourt): Anchor[] {
 		const [x, y] = entry.point;
 		result.push({
 			name: 'entrance',
-			position: [x, y, ctx.space.baseZ],
+			position: [x, y, ctx.space.baseZ - (entranceStepCell(ctx) ? house.site.entranceRiseM : 0)],
 			normal: [...entry.normal, 0]
 		});
 	}
+	const door = courtDoor(ctx);
+	if (door) result.push(door);
 	if (courtCells.length) {
 		const [x, y] = courtCells
 			.map(cellCentre)
@@ -139,18 +162,29 @@ function envelopeParts(ctx: Context, detail: HouseDetail): Part[] {
 }
 
 function accessParts(ctx: Context, house: HouseCourt): Part[] {
-	if (!ctx.style.parts.galleries) return [];
+	const steps = ctx.style.parts.stair ? entranceSteps(ctx, 'stair') : [];
+	if (!ctx.style.parts.galleries) return steps;
 	const sides = courtSides(ctx, house.inputs.complexity);
 	const landing = ctx.style.parts.stair ? stairSide(ctx, sides, courtEntry(ctx, house)) : undefined;
-	return [...galleries(ctx, sides, landing), ...stair(ctx, landing)];
+	return [...galleries(ctx, sides, landing), ...stair(ctx, landing), ...steps];
+}
+
+function stepCells(ctx: Context): ReadonlySet<string> {
+	const entry = entranceStepCell(ctx);
+	return new Set(entry ? [entry.cell.id] : []);
 }
 
 function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] {
 	const solids = cellSolids(ctx);
 	if (detail === 'block')
-		return [...plates(ctx), ...envelopeParts(ctx, detail), ...solidParts(solids, true)];
+		return [
+			...plates(ctx, stepCells(ctx)),
+			...entranceSteps(ctx, 'plot'),
+			...envelopeParts(ctx, detail),
+			...solidParts(solids, true)
+		];
 	return [
-		...plates(ctx),
+		...plates(ctx, stepCells(ctx)),
 		...envelopeParts(ctx, detail),
 		...solidParts(solids, false),
 		...patterns(ctx, solids),
@@ -165,20 +199,25 @@ function allParts(ctx: Context, house: HouseCourt, detail: HouseDetail): Part[] 
 /** Builds the house as one placeable object in the space's meters from its style row: cell
  * plates; for an `envelope` fill the merged envelope shells with floor edges, roof edges and window
  * rows; otherwise one closed solid per cell body, capsule or roof inside its own cell; then
- * stripes, figure openings, planted caps, frame and services, court trees, galleries and the
- * stair. `block` keeps plates and solids, as slot `mass`. No colours; slots name roles (MAT-1).
- * Anchors: `entrance` on the frontage, `court` at the court's centre. Occupancy of another space
- * (by cell identities) or another style throws RangeError. */
+ * stripes, figure openings, planted caps, frame and services, court trees, galleries, the court
+ * stair and the entrance steps. The row is applied at the house's scale (`houseStyleFor`): a calm
+ * house draws few kinds and colours, a large one its row's large tendency. Galleries also run
+ * along parcel edges onto a shared court. `block` keeps plates, solids and steps, as slots `mass`
+ * and `plot`. No colours; slots name roles (MAT-1). Anchors: `entrance` on the frontage at lane
+ * level, `court` at the own court's centre or at the middle of the longest built side onto a
+ * shared court. Occupancy of another space (by cell identities) or another style throws
+ * RangeError. */
 export function createHouseObject(
 	space: CellSpace,
 	house: HouseCourt,
 	detail: HouseDetail,
 	style: HouseStyle = houseStyles.neutral
 ): PlaceableObject {
-	const ctx = context(space, house, style);
+	const used = houseStyleFor(space, style, house.inputs.seed);
+	const ctx = context(space, house, used);
 	return PlaceableObject.create({
 		id: `house/${space.id}`,
-		slots: houseSlots(style, detail),
+		slots: houseSlots(used, detail),
 		parts: allParts(ctx, house, detail),
 		footprint: footprint(space),
 		anchors: anchors(ctx, house)

@@ -145,6 +145,21 @@ function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind)
 	return [lower, upper];
 }
 
+/** The top of an envelope cell run, which a roof solid can stand on. */
+function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid {
+	return {
+		cell,
+		slot: 'wall',
+		outline: cell.quad,
+		gapM: 0,
+		fromStorey: house.fromStorey,
+		toStorey: house.toStorey,
+		flat: true,
+		faces: [],
+		key: `${cell.id}/envelope`
+	};
+}
+
 const roofShapes = { wedge, cone, dome } as const;
 
 function roof(ctx: Context, top: CellSolid): CellSolid[] {
@@ -172,15 +187,15 @@ function roof(ctx: Context, top: CellSolid): CellSolid[] {
 	];
 }
 
-/** The closed solids of every built cell for a style without a merged envelope: stacked bodies,
- * or capsules per framed storey, then a roof solid in the storey above the run, all inside the
- * cell's own quad. Cells of an `envelope` fill yield nothing here. */
+/** The closed solids of every built cell: stacked bodies, or capsules per framed storey, then a
+ * roof solid in the storey above the run, all inside the cell's own quad. Cells of an `envelope`
+ * fill yield only their roof solid; a flat roof yields none. */
 export function cellSolids(ctx: Context): CellSolid[] {
 	return ctx.space.cells.flatMap((cell) => {
 		const house = ctx.occupancy.get(cell.id);
 		if (!house || house.toStorey <= house.fromStorey) return [];
 		const kind = pick(ctx.random, `${cell.id}/fill`, ctx.style.fill.kinds);
-		if (kind === 'envelope') return [];
+		if (kind === 'envelope') return roof(ctx, envelopeTop(ctx, cell, house));
 		if (kind === 'capsule') return capsules(ctx, cell, house);
 		const bodies = stacked(ctx, cell, house, kind);
 		return [...bodies, ...roof(ctx, bodies[bodies.length - 1])];

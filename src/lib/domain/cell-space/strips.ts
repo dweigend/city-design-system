@@ -263,7 +263,7 @@ function accepted(cells: readonly KeyedRing[], parcelArea: number): boolean {
  * target edges, kept between the minimum and maximum cell count. */
 // Exact arithmetic: whole counts.
 export function stripCounts(front: number, depth: number): StripCounts {
-	let edge = stripTargetEdgeM;
+	let edge: number = stripTargetEdgeM;
 	const count = (length: number) => Math.max(1, Math.round(length / edge));
 	let [columns, rows] = [count(front), count(depth)];
 	if (columns * rows > stripMaximumCells) {

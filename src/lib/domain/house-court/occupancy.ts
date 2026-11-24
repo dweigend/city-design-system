@@ -10,8 +10,12 @@ import {
 	fronting,
 	hops
 } from './graph';
+import { defaults } from '../../../config/house-court';
 import { cellRoles, type CellRole } from './roles';
+import { hasCourtAccess, houseScale, type HouseScale } from './scale';
 import { houseStyles, type HouseStyle } from './styles';
+
+const { eavesToleranceStoreys, cornerRiseStoreys, largeStoreys, entranceStepRiseM } = defaults;
 
 /** Shared block inputs in meters and the unitless complexity, plus a uint32 seed. */
 export type HouseInputs = Readonly<{
@@ -20,6 +24,10 @@ export type HouseInputs = Readonly<{
 	complexity?: number;
 	seed: number;
 }>;
+
+/** What the site tells the house: the rise in meters from the lane at the frontage to the cell
+ * space's base, and whether the parcel holds a block corner. Both default to none. */
+export type HouseSite = Readonly<{ entranceRiseM?: number; corner?: boolean }>;
 
 /** Occupancy of one fine cell: built storeys are `fromStorey` up to, not including, `toStorey`. */
 export type HouseCell = Readonly<{
@@ -38,11 +46,21 @@ export type HouseCourt = Readonly<{
 	storeys: number;
 	cells: readonly HouseCell[];
 	entrances: readonly (readonly string[])[];
+	scale: HouseScale;
+	courtAccess: boolean;
+	site: Readonly<{ entranceRiseM: number; corner: boolean }>;
 }>;
 
 type Plan = Map<string, { role: CellRole; storeys: number }>;
 
 type Occupancy = HouseStyle['occupancy'];
+
+/** Storeys of a calm frontage cell: the house's eaves line, risen at a block corner. */
+// Exact arithmetic: one storey is the smallest built run.
+function eaves(top: number, random: Random, corner: boolean): number {
+	const drop = Math.floor(random.derive('eaves').number() * (eavesToleranceStoreys + 1));
+	return Math.max(1, top - drop + (corner ? cornerRiseStoreys : 0));
+}
 
 // Exact arithmetic: one storey is the smallest built run.
 function cellStoreys(
@@ -75,6 +93,18 @@ function raise(plan: Plan, random: Random, rule: Occupancy) {
 			random.derive(`${id}/ground`).number() < rule.groundOpenRatio
 		)
 			plan.set(id, { role: 'raised', storeys: cell.storeys });
+}
+
+/** The frontage cell nearest the frontage centre, the front door of a house without its own court. */
+function frontDoor(space: CellSpace): readonly string[] {
+	const target = frontageCentre(frontageSegments(space));
+	const [door] = space.cells
+		.filter(fronting)
+		.sort(
+			(a, b) =>
+				distance(cellCentre(a), target) - distance(cellCentre(b), target) || (a.id < b.id ? -1 : 1)
+		);
+	return door ? [door.id] : [];
 }
 
 function entrancePath(space: CellSpace, court: readonly string[]): readonly string[] {
@@ -150,38 +180,52 @@ function carve(plan: Plan, path: readonly string[]) {
 }
 
 /** Fills a cell space with one house around a court (FORM-1). The deepest hop layer from the parcel
- * boundary is the court, void to the sky. Other cells are built when they touch the frontage or
- * their centre lies within `width` meters of it; the rest stay garden. Storeys are
- * round(height / storey height), clamped to the space; complexity lowers cells toward the rear,
- * steps court-facing cells down and lets seeded cells rise or fall, all by the style's occupancy
- * row. The shortest path from the frontage to each connected part of the court opens a ground-storey
- * gate; the style may then raise further wing cells on an open ground storey. Roles fix the storey
- * runs (`cellRoles`). A space without inner cells (a convex parcel without refinement) has no court
- * and no entrance. Built cells grow monotonically with
- * width and every cell's storeys with height. Deterministic for equal inputs. */
+ * boundary is the court, void to the sky, unless the space opens onto a shared court (a cell side
+ * with `court`), the house is large and its style row keeps no court, or no inner cell exists.
+ * Other cells are built when they touch the frontage or their centre lies within `width` meters of
+ * it (a large house builds them all); the rest stay garden. Storeys are round(height / storey
+ * height), clamped to the space and, for a large house, to the large storey count; complexity
+ * lowers cells toward the rear, steps court-facing cells down and lets seeded cells rise or fall,
+ * all by the style's occupancy row. A calm house keeps its frontage cells on one eaves line: the
+ * height less a seeded drop up to the eaves tolerance, raised at a block corner. The shortest path
+ * from the frontage to each connected part of an own court opens a ground-storey gate; a house
+ * without one has its front door in the frontage cell nearest the frontage centre, opened at the
+ * ground storey when the site's entrance rise needs steps. The style may then raise further wing
+ * cells on an open ground storey. Roles fix the storey runs (`cellRoles`). Built cells grow
+ * monotonically with width and every cell's storeys with height. Deterministic for equal inputs. */
 // Exact arithmetic: structural counts, origins and unit axes, not tunables.
 export function createHouseCourt(
 	space: CellSpace,
 	inputs: HouseInputs,
-	style: HouseStyle = houseStyles.neutral
+	style: HouseStyle = houseStyles.neutral,
+	site: HouseSite = {}
 ): HouseCourt {
 	const random = Random.create({ seed: inputs.seed });
 	const { height, width, complexity } = resolveParams(blockInputs, shapeInputs(inputs));
 	const segments = frontageSegments(space);
 	if (!segments.length) throw new RangeError('A house needs at least one frontage side');
+	const scale = houseScale(space);
+	const courtAccess = hasCourtAccess(space);
+	const ownCourt = !courtAccess && (scale !== 'large' || style.large.court);
 	const depth = boundaryDepth(space);
 	const deepest = Math.max(...depth.values());
 	const courtIds = new Set(
-		space.cells.filter(({ id }) => deepest > 0 && depth.get(id) === deepest).map(({ id }) => id)
+		space.cells
+			.filter(({ id }) => ownCourt && deepest > 0 && depth.get(id) === deepest)
+			.map(({ id }) => id)
 	);
 	const distances = new Map(space.cells.map((cell) => [cell.id, frontageDistance(cell, segments)]));
 	const farthest = Math.max(...distances.values());
-	const top = Math.max(1, Math.min(space.storeyCount, Math.round(height / space.storeyHeightM)));
+	const reach = scale === 'large' ? Infinity : width;
+	const cap = scale === 'large' ? largeStoreys : space.storeyCount;
+	const top = Math.max(1, Math.min(space.storeyCount, cap, Math.round(height / space.storeyHeightM)));
+	const front = scale === 'calm' ? eaves(top, random, site.corner ?? false) : top;
 	const plan: Plan = new Map();
 	for (const cell of space.cells) {
 		const span = distances.get(cell.id) ?? 0;
 		if (courtIds.has(cell.id)) plan.set(cell.id, { role: 'court', storeys: 0 });
-		else if (!fronting(cell) && span > width) plan.set(cell.id, { role: 'garden', storeys: 0 });
+		else if (!fronting(cell) && span > reach) plan.set(cell.id, { role: 'garden', storeys: 0 });
+		else if (scale === 'calm' && fronting(cell)) plan.set(cell.id, { role: 'wing', storeys: front });
 		else {
 			const faceCourt = cell.sides.some(
 				({ neighbour }) => neighbour !== null && courtIds.has(neighbour)
@@ -189,20 +233,29 @@ export function createHouseCourt(
 			const rear = farthest > 0 ? span / farthest : 0;
 			plan.set(cell.id, {
 				role: 'wing',
-				storeys: cellStoreys(cell, top, rear, faceCourt, random, complexity, style.occupancy)
+				storeys: Math.min(
+					front,
+					cellStoreys(cell, top, rear, faceCourt, random, complexity, style.occupancy)
+				)
 			});
 		}
 	}
-	const entrances = components(space, courtIds).map((court) => entrancePath(space, court));
-	for (const path of entrances) carve(plan, path);
+	const entranceRiseM = Math.max(0, site.entranceRiseM ?? 0);
+	const courts = components(space, courtIds);
+	const entrances = courts.length ? courts.map((court) => entrancePath(space, court)) : [frontDoor(space)];
+	for (const path of courts.length ? entrances : []) carve(plan, path);
+	if (!courts.length && entranceRiseM > entranceStepRiseM) carve(plan, entrances[0]);
 	raise(plan, random, style.occupancy);
 	return Object.freeze({
 		spaceId: space.id,
 		cellIds: Object.freeze(space.cells.map(({ id }) => id)),
 		styleId: style.id,
 		inputs: Object.freeze({ height, width, complexity, seed: random.seed }),
-		storeys: top,
+		storeys: Math.max(top, front),
 		entrances: Object.freeze(entrances.map((path) => Object.freeze(path))),
+		scale,
+		courtAccess,
+		site: Object.freeze({ entranceRiseM, corner: site.corner ?? false }),
 		cells: Object.freeze(
 			space.cells.map(({ id }) => {
 				const { role, storeys } = plan.get(id) ?? { role: 'garden', storeys: 0 };

@@ -18,7 +18,8 @@ const {
 	groundOpeningHeightM,
 	openingDepthM,
 	plotThicknessM,
-	courtRaiseM
+	courtRaiseM,
+	largeOpeningScaleRatio
 } = defaults;
 
 const exposed = (context: Context, cell: FineCell, i: number, storey: number) =>
@@ -39,10 +40,11 @@ function part(id: string, slot: string, shape: Shape | undefined): Part[] {
 	return shape ? [{ id, slot, shape }] : [];
 }
 
-/** Ground plate of every cell below the parcel ground, and the raised court plates. */
-export function plates(context: Context): Part[] {
+/** Ground plate of every cell below the parcel ground, and the raised court plates. A cell whose
+ * ground the entrance steps take (`skip`) has no plate. */
+export function plates(context: Context, skip: ReadonlySet<string> = new Set()): Part[] {
 	const z = context.space.baseZ;
-	return context.space.cells.map((cell) =>
+	return context.space.cells.filter(({ id }) => !skip.has(id)).map((cell) =>
 		context.occupancy.get(cell.id)?.role === 'court'
 			? {
 					id: `${cell.id}/court`,
@@ -102,30 +104,41 @@ export function edges(context: Context): Part[] {
 	];
 }
 
-function openingsOnSide(context: Context, cell: FineCell, i: number, storey: number): Box[] {
+function openingsOnSide(
+	context: Context,
+	cell: FineCell,
+	i: number,
+	storey: number,
+	scale: number
+): Box[] {
 	const wall = side(cell.quad, i);
-	const count = Math.floor(wall.length / windowPitchM);
+	const count = Math.floor(wall.length / (windowPitchM * scale));
 	const ground = storey === 0;
-	const height = ground ? groundOpeningHeightM : windowHeightM;
-	const z = level(context, storey) + (ground ? 0 : windowSillM) + height / 2;
+	const height = (ground ? groundOpeningHeightM : windowHeightM) * scale;
+	const z = level(context, storey) + (ground ? 0 : windowSillM * scale) + height / 2;
 	return Array.from({ length: count }, (_, k) => {
 		const [x, y] = wall.at((k + 0.5) / count, 0);
 		return {
 			center: [x, y, z],
-			size: [windowWidthM, openingDepthM, height],
+			size: [windowWidthM * scale, openingDepthM, height],
 			rotation: wall.rotation
 		};
 	});
 }
 
-/** Openings on every exposed wall storey of the house, as one mesh. */
+/** Openings on every exposed wall storey of the house, as one mesh. A large house takes a few big
+ * openings instead: the ground storey only, pitch and size scaled by the large opening ratio. */
+// Exact arithmetic: a regular house keeps the unit scale.
 export function openings(context: Context): Part[] {
+	const large = context.house.scale === 'large';
+	const scale = large ? largeOpeningScaleRatio : 1;
 	const boxes: Box[] = [];
 	eachBuilt(context, (cell, house) => {
-		for (let storey = house.fromStorey; storey < house.toStorey; storey += 1)
+		const last = large ? Math.min(house.toStorey, house.fromStorey + 1) : house.toStorey;
+		for (let storey = house.fromStorey; storey < last; storey += 1)
 			cell.quad.forEach((_, i) => {
 				if (exposed(context, cell, i, storey))
-					boxes.push(...openingsOnSide(context, cell, i, storey));
+					boxes.push(...openingsOnSide(context, cell, i, storey, scale));
 			});
 	});
 	return part(`${context.space.id}/openings`, 'opening', boxMesh(boxes));
