@@ -41,7 +41,7 @@ function local(point: Vec3, { origin, across, normal }: Patch) {
 test('every family builds on patches of several sizes and orientations inside the patch box', () => {
 	for (const family of familyNames) {
 		const { params, slots } = readFamily(family);
-		const top = Math.max(...params.relief) * (1 + params.jitter) + 0.01;
+		const top = Math.max(...params.relief) * (1 + params.jitter) + params.joint + 0.01;
 		for (const { across, normal } of orientations) {
 			for (const size of sizes) {
 				const patch: Patch = { origin: [3, -2, 1], across, normal, size, thickness: 0.1, openings: [[0.2, 0.1, 0.4, 0.3]], budget: 20000 };
