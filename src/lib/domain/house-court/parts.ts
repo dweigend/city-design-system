@@ -1,4 +1,3 @@
-import type { Vec3 } from '../../core/geometry';
 import type { Part, Shape } from '../../core/object';
 import { defaults } from '../../../config/house-court';
 import type { FineCell } from '../cell-space';

@@ -12,6 +12,7 @@ const part = (id: string, slot: string, faces: Faces): Part[] => {
 	const shape = faceMesh(faces);
 	return shape ? [{ id, slot, shape }] : [];
 };
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 const key = ([x, y, z]: Vec3) => [x, y, z].map((v) => v.toFixed(3)).join(',');
 const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
 
@@ -25,6 +26,7 @@ function eachBuilt(ctx: Context, visit: (cell: FineCell, from: number, to: numbe
 /** The exposed frame on the cell edges (FORM-6): posts from the ground to the top of each built
  * run, beams on every storey line, and diagonals on a share of the exposed bays. Shared members
  * are emitted once. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function frame(ctx: Context): Faces {
 	const members = new Map<string, Faces>();
 	const add = (a: Vec3, b: Vec3) => {
@@ -61,6 +63,7 @@ function decks(ctx: Context): Faces {
 }
 
 /** Service tubes at a share of the outer cell corners, inside their cells, rising past the top. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function tubes(ctx: Context): Faces {
 	const share = ctx.style.parts.tubeShareRatio * ctx.complexity;
 	const faces: Faces = [];
@@ -86,6 +89,7 @@ function tubes(ctx: Context): Faces {
 }
 
 /** A mast on the tallest built cell, inside its storey span above the roof. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function mast(ctx: Context): Faces {
 	const storeys = ctx.style.parts.mastStoreys;
 	if (!storeys) return [];

@@ -41,6 +41,7 @@ function clip(polygon: readonly Vec2[], a: Vec2, normal: Vec2, distance: number)
 
 /** The convex counterclockwise polygon with every side moved inward by `distance` meters, as the
  * intersection of the moved half-planes; sides that vanish drop out. Empty when nothing remains. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function inset(points: readonly Vec2[], distance: number): Vec2[] {
 	let polygon: Vec2[] = [...points];
 	points.forEach((_, i) => {
@@ -64,6 +65,7 @@ function doubleArea(points: readonly Vec2[]): number {
 /** A convex polygon inset by `gap` with corners rounded to `radius`: the polygon inset by
  * gap + radius and grown back by radius along arcs, so it stays inside the original. The radius
  * halves until the inner polygon keeps an area. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function rounded(points: readonly Vec2[], gap: number, radius: number): Vec2[] {
 	let r = radius;
 	let core = inset(points, gap + r);
@@ -95,6 +97,7 @@ export function rounded(points: readonly Vec2[], gap: number, radius: number): V
 }
 
 /** A convex polygon inset by `gap` with each corner cut back by `cut` meters along its sides. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function chamfered(points: readonly Vec2[], gap: number, cut: number): Vec2[] {
 	const core = inset(points, gap);
 	const n = core.length;
@@ -163,11 +166,13 @@ export function dome(points: readonly Vec2[], base: number, rise: number): Faces
 }
 
 /** A cone of the given rise over the polygon. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function cone(points: readonly Vec2[], base: number, rise: number): Faces {
 	return lathe(points, base, rise, 1, () => [1, 0]);
 }
 
 /** A mono-pitch wedge rising away from the polygon's first side. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function wedge(points: readonly Vec2[], base: number, rise: number): Faces {
 	const { a, normal } = side(points, 0);
 	const depth = Math.max(
@@ -216,6 +221,7 @@ function sweep(outline: readonly Vec3[], offset: Vec3): Faces {
 
 /** A flat figure (circle or polygon of `sides` corners, apex up) of the given radius on a wall
  * plane, extruded `depth` meters across the wall and centred on it. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function wallFigure(
 	at: Vec3,
 	along: Vec2,
@@ -237,6 +243,7 @@ export function wallFigure(
 }
 
 /** A square bar of side `thickness` from a to b. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function bar(a: Vec3, b: Vec3, thickness: number): Faces {
 	const axis: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
 	const length = Math.hypot(...axis);

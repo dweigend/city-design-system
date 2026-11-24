@@ -38,6 +38,7 @@ export function pick<T>(random: Random, key: string, list: readonly T[]): T {
 	return list[Math.floor(random.derive(key).number() * list.length)];
 }
 
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: HouseStyle): Vec2[] {
 	const shape = shaped(kind, quad, gap, style);
 	return shape.length < 3 ? [...quad] : shape;

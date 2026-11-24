@@ -1,5 +1,6 @@
 /** What a fine cell is to the house. `built` roles carry closed volume from `fromStorey` up; the
  * occupancy reads both fields here instead of deciding them per role. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export const cellRoles = Object.freeze({
 	wing: Object.freeze({ built: true, fromStorey: 0, meaning: 'Built from the ground up' }),
 	gate: Object.freeze({

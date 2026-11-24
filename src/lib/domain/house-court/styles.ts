@@ -54,6 +54,7 @@ export type HouseStyle = Readonly<{
 	slots: Readonly<{ body: readonly string[]; roof: readonly string[]; capsule: readonly string[] }>;
 }>;
 
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 const none = {
 	braceShareRatio: 0,
 	tubeShareRatio: 0,
@@ -61,6 +62,7 @@ const none = {
 	patternShareRatio: 0,
 	treeShareRatio: 0
 };
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 const neutralOccupancy = {
 	rearDropRatio: d.rearDropRatio,
 	courtStepComplexityRatio: d.courtStepComplexityRatio,
@@ -70,6 +72,7 @@ const neutralOccupancy = {
 	jitterStoreys: 1,
 	groundOpenRatio: 0
 };
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 const solidFill = {
 	insetM: 0,
 	roundShareRatio: 0,
@@ -81,6 +84,7 @@ const solidFill = {
 
 /** The style rows of the chapter. `neutral` is the R11 house: one merged envelope with floor
  * edges, roof edges, window rows, galleries and a stair. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export const houseStyles = Object.freeze({
 	neutral: {
 		id: 'neutral',

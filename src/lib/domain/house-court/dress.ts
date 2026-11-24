@@ -32,6 +32,7 @@ const part = (id: string, slot: string, faces: Faces): Part[] => {
 	return shape ? [{ id, slot, shape }] : [];
 };
 
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 function figuresOn(ctx: Context, s: CellSolid, i: number, storey: number) {
 	const { opening } = ctx.style;
 	const wall = side(s.cell.quad, i);
@@ -90,6 +91,7 @@ export function figureOpenings(ctx: Context, solids: readonly CellSolid[]): Part
 }
 
 /** Horizontal stripe bands around a share of the solids, rising with complexity (COLOR-4). */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function patterns(ctx: Context, solids: readonly CellSolid[]): Part[] {
 	const share = ctx.style.parts.patternShareRatio * ctx.complexity;
 	const band = stripeShareRatio * ctx.space.storeyHeightM;

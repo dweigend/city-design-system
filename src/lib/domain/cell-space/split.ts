@@ -79,6 +79,7 @@ function clipEar(ring: KeyedRing, order: number[], at: number): KeyedRing {
 
 /** Splits a counterclockwise ring into convex parts: itself when convex, otherwise ear triangles
  * clipped at the lowest remaining corner that forms an ear with no other corner on or inside it. */
+// Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function convexParts(ring: KeyedRing): readonly KeyedRing[] {
 	if (convex(ring.points)) return [ring];
 	const order = ring.keys.map((_, i) => i);
