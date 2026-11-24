@@ -582,7 +582,7 @@
 					/>
 				</div>
 				{#if tool === 'paint' || (tool === 'select' && selected)}
-					<div class="sandbox-hud-panel panel">
+					<div class="sandbox-hud-panel panel" data-inspector={tool === 'select' && selected ? '' : undefined}>
 						{#if tool === 'select' && selected && asset}
 							<p class="label">{styleNames[selected.assetId]} house</p>
 						{:else}

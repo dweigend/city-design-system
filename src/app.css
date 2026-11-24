@@ -342,6 +342,10 @@
 		background: var(--paper);
 	}
 	.sandbox-hud-panel > p { margin: 0; }
+	.sandbox-hud-panel[data-inspector] .control-specimens { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); }
+	.sandbox-hud-panel[data-inspector] .control-specimen { padding: var(--space-1); }
+	.sandbox-hud-panel[data-inspector] .control-specimen > svg { block-size: 2.25rem; }
+	.sandbox-hud-panel[data-inspector] .control-specimen-label { display: none; }
 	.sandbox-hud-panel .control-slider-field { inline-size: 100%; }
 	.sandbox-hud-status {
 		grid-area: status;
@@ -368,6 +372,9 @@
 			padding: var(--space-3) 0 0;
 		}
 		.sandbox-hud-panel { inline-size: auto; }
+		.sandbox-hud .control-tool-bar { flex-direction: row; flex-wrap: wrap; }
+		.sandbox-hud .control-tool + .control-tool { margin-block-start: 0; margin-inline-start: calc(-1 * var(--hair)); }
+		.sandbox-hud .control-tool-rule { block-size: auto; inline-size: var(--space-2); }
 		.sandbox-hud-status { max-inline-size: none; justify-self: stretch; }
 		.sandbox-stage { grid-template-rows: auto auto; }
 		.control-specimens { grid-template-columns: repeat(4, minmax(0, 1fr)); }
