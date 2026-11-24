@@ -11,7 +11,9 @@ changes. `amend` extends the last applied transaction, so a gesture that grows o
 undo step; a transaction whose edits cancel out leaves the history. Only a successful
 state-changing edit drops the redo tail. A caller can prepare derived
 products synchronously before publication or attach one projection to the document. Preparation
-must publish atomically or throw before publication and must leave the document alone.
+must publish atomically or throw before publication. The resolver, preparation and initial
+attachment callbacks can read the current document. A callback that tries to write to the same
+document while a write is in progress receives a `SandboxDataError`.
 
 The optional resolver canonicalizes and validates placement parameters. Restore replays every
 stroke, including transient edits and the redo tail. If the resolver raises `UnavailableHostError`,

@@ -42,8 +42,26 @@ function byId<T extends { id: string }>(items: readonly T[]) {
 	return new Map(items.map((item) => [item.id, item]));
 }
 
+function snapshotColumns(columns: ReadonlyMap<string, CityColumn>) {
+	const snapshot = new Map<string, CityColumn>();
+	for (const [id, column] of columns) {
+		const corners = column.corners.map(({ position: [x, y, z], ...corner }) =>
+			Object.freeze({ ...corner, position: Object.freeze([x, y, z] as const) })
+		);
+		snapshot.set(
+			id,
+			Object.freeze({
+				...column,
+				corners: Object.freeze(corners),
+				neighbors: Object.freeze([...column.neighbors])
+			})
+		);
+	}
+	return snapshot;
+}
+
 /** Indexes the supplied city's private parcels and ground movement edges.
- * Derives the save identity from the layout and terrain. Supply a stable revision for a custom
+ * Detaches the column inputs and derives the save identity from the layout and terrain. Supply a stable revision for a custom
  * terrain sampler. Give snapshots of the same custom terrain a common ID to allow replay across revisions. */
 export function createSandboxWorld(
 	site: CitySite,
@@ -52,11 +70,12 @@ export function createSandboxWorld(
 	customTerrainRevision?: string,
 	customTerrainId?: string
 ) {
+	const columnSnapshot = snapshotColumns(columns);
 	const holdings = readCityParcels(site, layout);
 	const polygons = createPolygonIndex(holdings.parcels, holdings.linearToleranceM);
 	const readParcelSite = createTownParcelSites(
 		holdings,
-		columns,
+		columnSnapshot,
 		layout.datumZ,
 		([x, y]) => site.sampleGround(x, y).height
 	);
@@ -68,8 +87,8 @@ export function createSandboxWorld(
 		site,
 		layout,
 		holdings,
-		columns,
-		movement.network.edges,
+		columnSnapshot,
+		movement.network,
 		customTerrainRevision,
 		customTerrainId
 	);
@@ -144,8 +163,13 @@ export function createSandboxWorld(
 		holdings,
 		movement,
 		polygons,
-		/** Resolves a city parcel or addressed movement edge into registry inputs. */
-		resolveHost,
+		/** Resolves registry inputs. A parcel host gets its own map of immutable column records. */
+		resolveHost(host: HostAddress): CityAssetHost {
+			const resolved = resolveHost(host);
+			if (resolved.kind === 'parcel' && 'site' in resolved)
+				return { ...resolved, site: { ...resolved.site, columns: new Map(columnSnapshot) } };
+			return resolved;
+		},
 		/** Offers the registry assets that accept the given host kind. */
 		listAssets: (kind: HostAddress['kind']) =>
 			kind !== 'ground' && hosts.has(kind)

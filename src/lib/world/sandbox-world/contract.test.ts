@@ -178,6 +178,12 @@ test('derives snapshot identity from the resolved city size, terrain and topolog
 		world,
 		town: { site, layout, columns }
 	} = example();
+	// The browser save journey pins these same revisions for the Architecture Town.
+	expect(world.world).toMatchObject({
+		terrainRevision: '["valley",4,1201,{"sinuosity":1.15,"relief":0,"runoff":1}]',
+		topologyRevision: '2992ab70a4f9fad2',
+		registryRevision: 'city-assets/2'
+	});
 	const other = createSandboxWorld(site, readCityGrid(site, 600), columns);
 	expect(other.world.id).toBe(world.world.id);
 	expect(other.world.topologyRevision).not.toBe(world.world.topologyRevision);
@@ -303,4 +309,75 @@ test('owns each placement cache by document even when worlds and placement IDs c
 		'already owns a projection'
 	);
 	expect(b.read()).toEqual([2]);
+});
+
+test('keeps parcel host resolution tied to its original column inputs', () => {
+	const { town, parcels } = example();
+	const columns = new Map(town.columns);
+	const [id, source] = [...columns][0];
+	const [x, y, z] = source.corners[0].position;
+	const position: [number, number, number] = [x, y, z];
+	const corner = { ...source.corners[0], position };
+	const column = { ...source, corners: [corner, ...source.corners.slice(1)] };
+	columns.set(id, column);
+	const world = createSandboxWorld(town.site, town.layout, columns);
+	const host = { kind: 'parcel', id: parcels[0].id } as const;
+	const resolved = world.resolveHost(host);
+	if (resolved.kind !== 'parcel' || !('site' in resolved))
+		throw new Error('Expected a parcel site');
+	const expected = structuredClone(column);
+
+	column.levels++;
+	corner.id = 'caller-edited-corner';
+	position[2] += 7;
+	expect(resolved.site.columns.get(id)).toEqual(expected);
+	columns.clear();
+	const after = world.resolveHost(host);
+	if (after.kind !== 'parcel' || !('site' in after)) throw new Error('Expected a parcel site');
+	expect(after.site.columns.get(id)).toEqual(expected);
+});
+
+test('preserves topology identity when column geometry and map insertion order change', () => {
+	const { world, town } = example();
+	const columns = new Map(
+		[...town.columns].reverse().map(([id, column]) => [id, { ...column, groundAtHub: 123 }])
+	);
+	const moved = createSandboxWorld(town.site, town.layout, columns);
+	expect(moved.world.topologyRevision).toBe(world.world.topologyRevision);
+});
+
+test('passes adjoining walls to the builder in code-unit placement order', () => {
+	const { world, parcels } = example();
+	const source = world.createDocument();
+	source.apply(parcels.map(({ id }) => world.place('house/court-neutral', { kind: 'parcel', id })));
+	const houses = source.readPlacements().flatMap((placement) => {
+		const house = world.resolveHouse(placement);
+		return house?.status === 'placed' && readParcelHouseWalls(house).length ? [house] : [];
+	});
+	const [upper, lower, observer] = houses;
+	if (!observer) throw new Error('Expected three houses with adjoining-wall candidates');
+
+	const document = createSandboxDocument(testWorld);
+	const fixtures = new Map([
+		['Z', upper],
+		['a', lower],
+		['observer', observer]
+	]);
+	const cache = createPlacementCache(
+		document,
+		(placement, _house, walls) => ({ key: placement.hostReference.key, walls }),
+		({ hostReference }) => fixtures.get(hostReference.key)
+	);
+	document.apply(
+		[...fixtures.keys()].map((id) => ({
+			kind: 'place',
+			assetId: 'house/court-neutral',
+			host: { kind: 'parcel', id },
+			params: {}
+		}))
+	);
+	expect(cache.read().find(({ key }) => key === 'observer')?.walls).toEqual([
+		...readParcelHouseWalls(upper),
+		...readParcelHouseWalls(lower)
+	]);
 });

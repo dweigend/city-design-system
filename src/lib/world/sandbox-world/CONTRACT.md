@@ -8,8 +8,10 @@ from those installed resolvers. A valid parcel with no room for a house keeps it
 returns a garden reason.
 
 The city plan namespace uses its address-generator revision, city seed, carrier family and
-cell size, frame and terrain source identity. The requested growth extent contributes to the
-snapshot revision. The terrain revision can change with the source's geometry. Supply a
+cell size, frame and terrain source identity. The topology revision hashes ordered address and
+incidence data, including discrete column levels. Metric geometry belongs to the terrain or
+placement inputs. The world copies the columns and their nested data when it opens the snapshot.
+Saves from earlier topology hashes still replay using their world ID and host addresses. Supply a
 revision for a custom sampler and a common custom terrain ID to keep the scope across its
 revisions. Each separately editable world with otherwise identical inputs needs a distinct
 scope. The default valley adapter identifies a generated plan, so copies of the same

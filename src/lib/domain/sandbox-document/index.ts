@@ -62,6 +62,7 @@ export class UnsupportedSandboxVersionError extends SandboxDataError {
 /** Creates an empty document. Each exact host has one slot. A transaction is atomic.
  * A caller may prepare the derived state from the change list before the transaction takes effect.
  * The optional resolver validates and canonicalizes every staged placement and replacement.
+ * Callbacks can read the document. A nested write throws SandboxDataError.
  * If preparation throws, the document and its history retain their prior state. */
 export function createSandboxDocument(identity: WorldIdentity, resolveParams?: ResolveParams) {
 	return createDocument(identity, resolveParams);
@@ -81,6 +82,17 @@ function createDocument(
 	let position = 0;
 	let orphanCount = 0;
 	let projection: Prepare | undefined;
+	let writing = false;
+
+	function write<T>(operation: () => T): T {
+		if (writing) throw new SandboxDataError('Sandbox document write already in progress');
+		writing = true;
+		try {
+			return operation();
+		} finally {
+			writing = false;
+		}
+	}
 
 	function publish(changes: readonly PlacementChange[], prepare?: Prepare) {
 		if (projection && prepare)
@@ -171,14 +183,38 @@ function createDocument(
 			.sort((a, b) => (a.id < b.id ? -1 : Number(a.id > b.id)));
 	}
 
+	function applyStroke(mode: 'apply' | 'amend', input: readonly SandboxEdit[], prepare?: Prepare) {
+		const { edits, changes } = stage(input);
+		if (!changes.length) return noChanges;
+		publish(changes, prepare);
+		if (mode === 'apply' || position === 0) {
+			history.splice(position, history.length - position, { edits, changes });
+			position++;
+			return changes;
+		}
+		const previous = history[position - 1];
+		const merged = new Map(previous.changes.map((change) => [change.id, change]));
+		for (const { id, before, after } of changes) {
+			const first = merged.has(id) ? merged.get(id)?.before : before;
+			merged.set(id, Object.freeze({ id, before: first, after }));
+		}
+		const net = Object.freeze([...merged.values()].filter((c) => c.before !== c.after));
+		const next = { edits: Object.freeze([...previous.edits, ...edits]), changes: net };
+		history.splice(position - 1, history.length - position + 1, ...(net.length ? [next] : []));
+		if (!net.length) position--;
+		return changes;
+	}
+
 	return Object.freeze({
 		world,
 		/** Attaches one derived projection to this document and initializes it from active records.
 		 * All later changes prepare that projection before publishing history. */
 		attach(prepare: Prepare) {
-			if (projection) throw new SandboxDataError('This document already owns a projection');
-			prepare(records(false).map((after) => ({ id: after.id, before: undefined, after })));
-			projection = prepare;
+			write(() => {
+				if (projection) throw new SandboxDataError('This document already owns a projection');
+				prepare(records(false).map((after) => ({ id: after.id, before: undefined, after })));
+				projection = prepare;
+			});
 		},
 		/** Reads one active, usable placement for a local host address. */
 		readPlacement: (host: HostAddress) => available(placements.get(readPlacementId(world, host))),
@@ -203,52 +239,37 @@ function createDocument(
 		}),
 		/** Applies one ordered stroke, drops redo on a state change, and returns its net changes. */
 		apply(input: readonly SandboxEdit[], prepare?: Prepare) {
-			const { edits, changes } = stage(input);
-			if (!changes.length) return noChanges;
-			publish(changes, prepare);
-			history.splice(position, history.length - position, { edits, changes });
-			position++;
-			return changes;
+			return write(() => applyStroke('apply', input, prepare));
 		},
 		/** Extends the last applied transaction with more edits, so a gesture that grows over time
 		 * stays one undo step. Publishes and returns only the new net changes. Without an applied
 		 * transaction it applies a new one. It drops the redo tail like `apply`. A transaction whose
 		 * merged edits cancel out leaves the history. */
 		amend(input: readonly SandboxEdit[], prepare?: Prepare) {
-			if (position === 0) return this.apply(input, prepare);
-			const { edits, changes } = stage(input);
-			if (!changes.length) return noChanges;
-			publish(changes, prepare);
-			const previous = history[position - 1];
-			const merged = new Map(previous.changes.map((change) => [change.id, change]));
-			for (const { id, before, after } of changes) {
-				const first = merged.has(id) ? merged.get(id)?.before : before;
-				merged.set(id, Object.freeze({ id, before: first, after }));
-			}
-			const net = Object.freeze([...merged.values()].filter((c) => c.before !== c.after));
-			const next = { edits: Object.freeze([...previous.edits, ...edits]), changes: net };
-			history.splice(position - 1, history.length - position + 1, ...(net.length ? [next] : []));
-			if (!net.length) position--;
-			return changes;
+			return write(() => applyStroke('amend', input, prepare));
 		},
 		/** Reverses the last applied transaction. Returns its inverse change list. */
 		undo(prepare?: Prepare) {
-			if (position === 0) return noChanges;
-			const inverse = Object.freeze(
-				history[position - 1].changes.map(({ id, before, after }) =>
-					Object.freeze({ id, before: after, after: before })
-				)
-			);
-			publish(inverse, prepare);
-			position--;
-			return inverse;
+			return write(() => {
+				if (position === 0) return noChanges;
+				const inverse = Object.freeze(
+					history[position - 1].changes.map(({ id, before, after }) =>
+						Object.freeze({ id, before: after, after: before })
+					)
+				);
+				publish(inverse, prepare);
+				position--;
+				return inverse;
+			});
 		},
 		/** Reapplies the next transaction and returns its change list. */
 		redo(prepare?: Prepare) {
-			if (position === history.length) return noChanges;
-			const changes = publish(history[position].changes, prepare);
-			position++;
-			return changes;
+			return write(() => {
+				if (position === history.length) return noChanges;
+				const changes = publish(history[position].changes, prepare);
+				position++;
+				return changes;
+			});
 		},
 		/** Serializes the full edit log including redo and the current position. */
 		serialize() {

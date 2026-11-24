@@ -162,3 +162,55 @@ test('opaque identity needs no city size, family or seed', () => {
 	expect(rebuilt.readPlacements()).toEqual(document.readPlacements());
 	expect(rebuilt.world.terrainRevision).toBe('later');
 });
+
+test('rejects a nested placement before a prepare callback can publish the same host twice', () => {
+	const document = createSandboxDocument(world);
+	const edit = place(parcel('north'));
+	const before = document.serialize();
+	expect(() =>
+		document.apply([edit], () => {
+			expect(document.readPlacements()).toEqual([]);
+			document.apply([edit]);
+		})
+	).toThrow('Sandbox document write already in progress');
+	expect(document.serialize()).toBe(before);
+	expect(document.readPlacements()).toEqual([]);
+
+	document.apply([edit]);
+	expect(restoreSandboxDocument(document.serialize()).readHistory()).toEqual({
+		placements: 1,
+		strokes: 1,
+		position: 1
+	});
+});
+
+test('guards staging, amendment, history changes and projection initialization', () => {
+	let duringResolve = () => {};
+	const document = createSandboxDocument(world, (_id, _host, params) => {
+		duringResolve();
+		return params;
+	});
+	const edit = place(parcel('north'));
+	const south = place(parcel('south'));
+	const expectRejected = (write: () => unknown) => {
+		const before = document.serialize();
+		const placements = document.readPlacements();
+		expect(write).toThrow('Sandbox document write already in progress');
+		expect(document.serialize()).toBe(before);
+		expect(document.readPlacements()).toEqual(placements);
+	};
+	duringResolve = () => document.undo();
+	expectRejected(() => document.amend([edit]));
+	duringResolve = () => {};
+	document.apply([edit]);
+
+	expectRejected(() => document.amend([south], () => document.attach(() => {})));
+	expectRejected(() => document.undo(() => document.amend([south])));
+	document.undo();
+	expectRejected(() => document.redo(() => document.redo()));
+	expectRejected(() => document.attach(() => document.apply([south])));
+
+	document.attach(() => {});
+	document.redo();
+	expect(restoreSandboxDocument(document.serialize()).serialize()).toBe(document.serialize());
+});

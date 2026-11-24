@@ -66,7 +66,7 @@ export function createPlacementCache<T>(
 			if (block && candidate) blocks.get(block)?.push(candidate);
 		}
 		for (const group of blocks.values())
-			group.sort((a, b) => a.placement.id.localeCompare(b.placement.id));
+			group.sort(({ placement: a }, { placement: b }) => (a.id < b.id ? -1 : Number(a.id > b.id)));
 
 		const built = new Map<string, Entry<T>>();
 		const removed: string[] = [];

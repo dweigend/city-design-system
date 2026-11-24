@@ -152,6 +152,18 @@ journeys('filters the specimen list and restores all assets', async ({ page }) =
 	await expect(specimens).toHaveText(all, { useInnerText: true });
 });
 
+// The browser's save must carry the same revisions as the Bun default-town contract.
+journeys('saves the default town with engine-portable revisions', async ({ page }) => {
+	await open(page, '/sandbox');
+	await readyStages(page, 1);
+	const saved = await saveSandbox(page, 'sandbox.json');
+	expect(JSON.parse(await readFile(saved, 'utf8')).world).toMatchObject({
+		terrainRevision: '["valley",4,1201,{"sinuosity":1.15,"relief":0,"runoff":1}]',
+		topologyRevision: '2992ab70a4f9fad2',
+		registryRevision: 'city-assets/2'
+	});
+});
+
 // Painting and erasing change the document, and history and file actions preserve its contents.
 // This catches broken pointer handling, queue drains and file wiring beyond model tests.
 // Inputs are real mouse strokes and a browser download. No app hooks are added.
