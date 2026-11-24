@@ -22,6 +22,11 @@ See [Lanes](docs/standards/README.md#lanes) and [Git Workflow](docs/development/
 - Follow the [rebuild package order](docs/development/rebuild.md#packages). Run the checks and put the hardware-GPU shot beside its reference for David's approval when the package delivers a picture.
 - Cite design principles by ID. Update the register with any changed design rule and name the IDs in the result. Otherwise report “principles unchanged.”
 
+## When you do not know
+
+- Do not guess and do not research at length in your own context. By default, send a subagent on GPT Sol 6.2 at low reasoning with one precise question.
+- Ask for a short answer: the finding, its source, and what stayed unverified. Only that answer enters your context.
+
 ## Library
 
 - [Architecture](docs/standards/ARCHITECTURE.md) owns the ten rules. `src/lib/` contains `core`, `domain`, `world`, `scene` and `ui`. Each module is one flat folder with a documented `index.ts`, private siblings, a contract test and a fixed-input example.
