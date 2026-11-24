@@ -1,6 +1,7 @@
 import type { MovementNetwork, MovementRoute } from '../../domain/movement-network';
 import { defaults } from '../../../config/paths-projection';
 import { assembly, local, trace, up } from './assembly';
+import { drawBearing } from './bearing';
 import { drawStair } from './stair';
 import { pathSurfaces } from './surfaces';
 import type { MovementDrawing, PathsFrame } from './types';
@@ -36,17 +37,26 @@ export function paths<K extends string>(
 					if (bearings.has(id)) continue;
 					bearings.add(id);
 					const base = local(frame, bearing.base);
-					supports.body.pier(base, bearing.top[2], defaults.walkwayPierRadiusM);
+					drawBearing(
+						supports.body,
+						base,
+						local(frame, bearing.top),
+						defaults.walkwayPierRadiusM,
+						defaults.deckThicknessM
+					);
 				}
 				break;
-			case 'stairs': {
-				drawStair(stairs.body, points);
-				const floor = Math.min(points[0][2], points[points.length - 1][2]);
-				for (const point of points.slice(1, -1)) {
-					supports.body.pier([point[0], point[1], floor], point[2], defaults.walkwayPierRadiusM);
-				}
+			case 'stairs':
+				drawStair(stairs.body, points[0][2] === points[1][2] ? points.slice(1) : points);
+				for (const bearing of edge.supports ?? [])
+					drawBearing(
+						supports.body,
+						local(frame, bearing.base),
+						local(frame, bearing.top),
+						defaults.walkwayPierRadiusM,
+						defaults.deckThicknessM
+					);
 				break;
-			}
 		}
 	}
 	return drawing.complete(

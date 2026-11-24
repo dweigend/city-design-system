@@ -54,7 +54,8 @@ function readComponents<K extends string>(
 	return components;
 }
 
-/** Detaches and validates a graph and indexes its edges once for repeated route queries. */
+/** Detaches and indexes a graph for repeated route queries. Link costs must be positive and
+ * at most Number.MAX_VALUE divided by the node count, so every simple route cost is finite. */
 export function createMovementNetwork<K extends string>(
 	inputNodes: readonly MovementNode[],
 	links: readonly MovementLink<K>[]
@@ -67,6 +68,7 @@ export function createMovementNetwork<K extends string>(
 		})
 	);
 	const byId = index(nodes);
+	const maximumCost = Number.MAX_VALUE / Math.max(1, nodes.length);
 	const adjacent = new Map<string, MovementEdge<K>[]>();
 	const linkIndex = index(links);
 	const edges = Object.freeze(
@@ -75,8 +77,8 @@ export function createMovementNetwork<K extends string>(
 			const [from, to] = link.nodeIds;
 			const a = byId.get(from);
 			const b = byId.get(to);
-			if (!a || !b || from === to || !(link.cost > 0 && Number.isFinite(link.cost)))
-				throw new RangeError('Invalid movement link ' + id);
+			if (!a || !b || from === to || !(link.cost > 0 && link.cost <= maximumCost))
+				throw new RangeError('Invalid movement link or unsupported cost ' + id);
 			const via = Object.freeze(link.via?.map(position) ?? []);
 			const points = Object.freeze([a.position, ...via, b.position]);
 			const supports = link.supports?.map(({ base, top }) =>

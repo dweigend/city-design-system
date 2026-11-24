@@ -2,6 +2,7 @@ import type { Vec3 } from '../../core/geometry';
 import type { TransitLine } from '../../domain/transit-line';
 import { defaults } from '../../../config/paths-projection';
 import { assembly, local, trace, up } from './assembly';
+import { drawBearing } from './bearing';
 import { clip, onFootprint } from './clip';
 import { pathSurfaces } from './surfaces';
 import type { PathsFrame } from './types';
@@ -39,11 +40,7 @@ export function guideway(line: TransitLine | undefined, frame: PathsFrame) {
 		const point = local(frame, base);
 		const station = local(frame, top);
 		if (!onFootprint(station, frame.footprint) || !onFootprint(point, frame.footprint)) continue;
-		const neck: Vec3 = [point[0], point[1], top[2]];
-		piers.body.pier(point, top[2], defaults.railPierRadiusM);
-		if (Math.hypot(neck[0] - station[0], neck[1] - station[1]) <= defaults.railPierRadiusM)
-			continue;
-		piers.body.ribbon([neck, station], defaults.railPierRadiusM * 2, defaults.railDeckThicknessM);
+		drawBearing(piers.body, point, station, defaults.railPierRadiusM, defaults.railDeckThicknessM);
 	}
 	for (const { position } of line.stations) {
 		const station = local(frame, position);

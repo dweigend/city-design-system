@@ -15,6 +15,8 @@ export const cityCameraBearingRad = (34 * Math.PI) / 180;
 export const cityFrameFillFlat = 0.92;
 /** Share of the frame given back per unit of relief, so Auto can raise ground and roofs. */
 export const cityFrameFillPerRelief = 0.2;
+/** Smallest explicit city camera frame width, in meters. */
+export const cityCameraMinimumWidthM = 120;
 /** Camera elevation at quarter zoom, in degrees. */
 export const quarterElevationDeg = 32;
 /** Camera elevation over a whole flat city, in degrees; the whole-city view never sits below the

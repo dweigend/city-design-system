@@ -47,3 +47,17 @@ test('measures climbs in traversal direction along caller-provided centerlines',
 		lengthM: 0
 	});
 });
+
+test('rejects costs that can overflow before indexing a connected route', () => {
+	const nodes: MovementNode[] = ['start', 'mid', 'end'].map((id, i) => ({
+		id,
+		level: 'ground',
+		position: [i, 0, 0]
+	}));
+	expect(() =>
+		createMovementNetwork(nodes, [
+			{ id: 'a', kind: 'walk', nodeIds: ['start', 'mid'], cost: 1e308 },
+			{ id: 'b', kind: 'walk', nodeIds: ['mid', 'end'], cost: 1e308 }
+		])
+	).toThrow(RangeError);
+});
