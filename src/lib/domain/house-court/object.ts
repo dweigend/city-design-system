@@ -74,6 +74,7 @@ function context(space: CellSpace, house: HouseCourt, style: HouseStyle): Contex
 	};
 }
 
+// Exact arithmetic: the middle of the side, horizontal normal.
 function courtDoor(ctx: Context): Anchor | undefined {
 	const doors = ctx.space.cells.flatMap((cell) =>
 		cell.sides.flatMap((s, i) =>

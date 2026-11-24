@@ -106,6 +106,13 @@ const town = defineSettings({
 		bounds: { exclusiveMin: 0 },
 		principle: 'FORM-3'
 	},
+	faceToleranceM: {
+		value: 1e-6,
+		unit: 'm',
+		meaning: 'Distance below which a solid side lies on a cell side when deciding what hides it',
+		bounds: { exclusiveMin: 0 },
+		rationale: 'Far below any built feature, above roundoff at city coordinates.'
+	},
 	entranceStairWidthM: {
 		value: 2.4,
 		unit: 'm',

@@ -125,7 +125,8 @@ function nearlyConvex(points: readonly Vec2[]): boolean {
 	return points.every((point, i) => {
 		const a = points[(i + points.length - 1) % points.length];
 		const c = points[(i + 1) % points.length];
-		const lengths = Math.hypot(point[0] - a[0], point[1] - a[1]) * Math.hypot(c[0] - point[0], c[1] - point[1]);
+		const lengths =
+			Math.hypot(point[0] - a[0], point[1] - a[1]) * Math.hypot(c[0] - point[0], c[1] - point[1]);
 		return turn(a, point, c) >= -defaults.stripConcaveSineRatio * lengths;
 	});
 }
@@ -156,7 +157,7 @@ function join(a: KeyedRing, b: KeyedRing, at: number): KeyedRing {
 // Exact arithmetic: structural counts, switches, origins and unit axes, not tunables.
 export function mergedParts(ring: KeyedRing): readonly KeyedRing[] {
 	const parts = [...convexParts(ring)];
-	for (let merged = true; merged; ) {
+	for (let merged = true; merged;) {
 		merged = false;
 		search: for (let p = 0; p < parts.length; p += 1)
 			for (let q = p + 1; q < parts.length; q += 1) {

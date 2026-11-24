@@ -76,7 +76,8 @@ export const settings = defineSettings({
 		meaning: 'Sine of the largest inward turn a strip cell may keep at a corner (about 2°)',
 		bounds: { min: 0, max: 1 },
 		principle: 'GRID-1',
-		rationale: 'Nearly straight parcel corners on a cell side stay; a real re-entrant corner does not.'
+		rationale:
+			'Nearly straight parcel corners on a cell side stay; a real re-entrant corner does not.'
 	},
 	minimumEdgeM: {
 		value: 0.01,

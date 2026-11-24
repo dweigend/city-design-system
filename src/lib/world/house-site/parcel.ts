@@ -105,9 +105,17 @@ function frontageIndex(ring: readonly Vec2[], points: readonly Vec2[], tolerance
 	});
 }
 
+/** The first storey plane above the datum at or above the given height. */
+// Exact arithmetic: whole storeys from the datum.
+function storeyPlane(datumZ: number, storeyHeightM: number, z: number): number {
+	return datumZ + Math.ceil((z - datumZ) / storeyHeightM) * storeyHeightM;
+}
+
 /** Places one house in an addressed city parcel. Its portal identifies the containing CCW
  * boundary edge. The highest member base and lowest member roof bound the shared vertical
- * space in lattice levels. The cell space is a strip space (`createStripSpace`) with parcel-local
+ * space in lattice levels. With `groundAt`, the house stands instead on the first storey plane
+ * (half a level) at or above the highest ground of its own parcel, so the entrance rise stays
+ * below a storey and houses step with the slope; the lowest member roof still bounds it. The cell space is a strip space (`createStripSpace`) with parcel-local
  * IDs and world-meter coordinates; parcel edges on the block's public court become its court
  * edges, so the house opens onto that court instead of cutting its own. A parcel with another lane
  * edge turned from its frontage is a block corner. The entrance rise is the base above the ground
@@ -142,6 +150,11 @@ export function createParcelHouse(
 	const edge = frontageIndex(ring, portal.points, tolerance);
 	if (edge < 0) throw new RangeError('The portal does not lie on a parcel edge ' + portal.id);
 	const edgeId = (i: number) => parcelEdgeId(corners[i].id, corners[(i + 1) % corners.length].id);
+	const storeyHeightM = levelHeight / storeysPerLevel;
+	const roofZ = datumZ + roofLevel * levelHeight;
+	const baseZ = groundAt
+		? storeyPlane(datumZ, storeyHeightM, Math.max(...ring.map(groundAt)))
+		: datumZ + baseLevel * levelHeight;
 	const space = createStripSpace({
 		id: parcel.id,
 		corners,
@@ -149,15 +162,21 @@ export function createParcelHouse(
 		courtEdges: touching(ring, rings(block.publicGround.court))
 			.filter((i) => i !== edge)
 			.map(edgeId),
-		baseZ: datumZ + baseLevel * levelHeight,
-		storeyCount: (roofLevel - baseLevel) * storeysPerLevel,
-		storeyHeightM: levelHeight / storeysPerLevel
+		baseZ: Math.min(baseZ, roofZ - storeyHeightM),
+		storeyCount: Math.max(
+			1,
+			Math.round((roofZ - Math.min(baseZ, roofZ - storeyHeightM)) / storeyHeightM)
+		),
+		storeyHeightM
 	});
 	const groundZ = Math.min(
 		...members.flatMap(({ corners }) => corners.map(({ position }) => position[2]))
 	);
 	const [[ax, ay], [bx, by]] = portal.points;
-	const laneZ = Math.min(space.baseZ, groundAt ? groundAt([(ax + bx) / 2, (ay + by) / 2]) : space.baseZ);
+	const laneZ = Math.min(
+		space.baseZ,
+		groundAt ? groundAt([(ax + bx) / 2, (ay + by) / 2]) : space.baseZ
+	);
 	const lowest = Math.min(groundZ, laneZ);
 	const site = {
 		entranceRiseM: space.baseZ - laneZ,

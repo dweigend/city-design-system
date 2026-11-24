@@ -101,6 +101,7 @@ export function houseCladdings(
  * budget decide how much relief is built. The object and faces are placed alike before cladding;
  * cladding drawables get IDs under the object's ID. Returns the drawables and the cladding
  * triangle count; `hidden` draws nothing. */
+// Exact arithmetic: an empty drawing has no triangles.
 export function projectCladHouse(
 	object: PlaceableObject,
 	faces: readonly HouseFace[],

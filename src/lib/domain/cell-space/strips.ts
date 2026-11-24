@@ -106,7 +106,10 @@ function chainAt(f: Frame, c: Chain, t: number): Vec2 {
 function chainEdge(f: Frame, c: Chain, t0: number, t1: number): string | null {
 	if (c.corners.length < 2) return null;
 	const mid = (t0 + t1) / 2;
-	const s = Math.max(1, c.params.findIndex((t) => t >= mid));
+	const s = Math.max(
+		1,
+		c.params.findIndex((t) => t >= mid)
+	);
 	return f.edge(c.forward ? c.corners[s - 1] : c.corners[s]);
 }
 
@@ -247,10 +250,7 @@ function cellRing(f: Frame, grid: Grid, id: string, i: number, j: number): Keyed
 
 /** Width of a cell: twice its area over its perimeter, the inradius-like measure of a sliver. */
 export function cellWidth(points: readonly Vec2[]): number {
-	const perimeter = points.reduce(
-		(sum, p, i) => sum + span(p, points[(i + 1) % points.length]),
-		0
-	);
+	const perimeter = points.reduce((sum, p, i) => sum + span(p, points[(i + 1) % points.length]), 0);
 	return perimeter > 0 ? doubleArea(points) / perimeter : 0;
 }
 

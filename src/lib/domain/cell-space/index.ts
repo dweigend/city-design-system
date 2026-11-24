@@ -121,6 +121,7 @@ function freeze(
  * `<escaped parcel id>/strip/<JSON [column, row]>`, row 0 on the frontage; `parent` is the
  * column `<escaped parcel id>/strip/<JSON [column]>` and `corner` is empty. Throws like
  * `createCellSpace`. */
+// Exact arithmetic: no refinement rounds.
 export function createStripSpace(parcel: Parcel): CellSpace {
 	validate(parcel, 0);
 	const ring = canonicalRing(parcel);

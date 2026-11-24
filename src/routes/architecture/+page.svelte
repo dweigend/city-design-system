@@ -55,8 +55,8 @@
 		{ value: 'one', label: 'One style' },
 		{ value: 'mixed', label: 'One per block' }
 	];
-	const scopeOf = (value: string): TownScope =>
-		(townBlocks.find((item) => item.value === value)?.value as TownScope | undefined) ?? 'block';
+	const scopes: readonly TownScope[] = ['block', 'neighbour', 'merged', 'town'];
+	const scopeOf = (value: string): TownScope => scopes.find((scope) => scope === value) ?? 'block';
 	const views = [
 		{ value: 'iso', label: 'Iso' },
 		{ value: 'plan', label: 'Plan' }
@@ -176,7 +176,7 @@
 			<Select
 				label="Block"
 				items={townBlocks}
-				bind:value={() => block, (value) => (block = scopeOf(value))}
+				bind:value={() => block, (value) => (block = scopeOf(String(value)))}
 			/>
 			<ToggleGroup
 				label="Styles"

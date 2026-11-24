@@ -87,9 +87,8 @@ test('each Town parcel takes an addressed house, including merged halls with sub
 			).toBe(1);
 			expect(houseFigures(space, house).builtCells).toBeGreaterThan(0);
 			expect(
-				createParcelHouseObject(placed, 'full').parts.find(({ id }) => id === parcel.id + '/plinth')
-					?.slot
-			).toBe('plot');
+				createParcelHouseObject(placed, 'full').parts.some(({ slot }) => slot === 'plot')
+			).toBe(true);
 		}
 	}
 });

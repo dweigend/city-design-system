@@ -4,6 +4,9 @@ import { side } from './boxes';
 import { builtAt, type Context } from './context';
 import type { CellSolid } from './fills';
 import { openingRects, openingStoreys } from './parts';
+import { defaults } from '../../../config/house-court';
+
+const { faceToleranceM } = defaults;
 
 /** A planar face of the house that a surface family can clad: an origin, a unit `across` axis
  * along the face, a unit outward `normal` (up is normal × across), the size in meters, an optional
@@ -23,6 +26,7 @@ export type HouseFace = Readonly<{
 
 const level = ({ space }: Context, storey: number) => space.baseZ + storey * space.storeyHeightM;
 
+// Exact arithmetic: horizontal axes and the run's base.
 function wallFace(
 	slot: string,
 	[a, b]: readonly [Vec2, Vec2],
@@ -100,7 +104,7 @@ function hidden(ctx: Context, s: CellSolid, [a, b]: readonly [Vec2, Vec2]): bool
 	return s.cell.sides.some(({ neighbour, frontage, court }, i) => {
 		const wall = side(s.cell.quad, i);
 		const offset = (mid[0] - wall.a[0]) * wall.normal[0] + (mid[1] - wall.a[1]) * wall.normal[1];
-		if (Math.abs(offset) > wall.length * Number.EPSILON * 16 + 1e-9) return false;
+		if (Math.abs(offset) > faceToleranceM) return false;
 		if (neighbour === null) return !frontage && !court && ctx.house.scale === 'calm';
 		for (let storey = s.fromStorey; storey < s.toStorey; storey += 1)
 			if (!builtAt(ctx, neighbour, storey)) return false;

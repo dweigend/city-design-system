@@ -50,6 +50,7 @@ function outline(kind: FillKind, quad: readonly Vec2[], gap: number, style: Hous
  * court and open cells of the house. Sides on other parcel edges (party walls) and toward built
  * cells covering the whole run stay flush, so bodies join into one building and a row of houses
  * into one street front. */
+// Exact arithmetic: a flush side has no gap.
 function joined(ctx: Context, cell: FineCell, gap: number, from: number, to: number): Vec2[] {
 	const g = Math.min(gap, inradius(cell.quad) * insetLimitRatio);
 	const shape = insetSides(
@@ -166,6 +167,7 @@ function stacked(ctx: Context, cell: FineCell, house: HouseCell, kind: FillKind)
 }
 
 /** The top of an envelope cell run, which a roof solid can stand on. */
+// Exact arithmetic: the envelope keeps no gap.
 function envelopeTop(ctx: Context, cell: FineCell, house: HouseCell): CellSolid {
 	return {
 		cell,

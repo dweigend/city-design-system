@@ -179,7 +179,7 @@ export function entranceStepCell(
 
 /** The entrance cell's ground split around the steps: the step treads (front to back) and the
  * rest of the cell. The steps are the entrance stair width wide, centred on the frontage side, and
- * one going per riser deep, at most the cell's depth. */
+ * one going per riser deep, at most the depth of the cell within that width. */
 // Exact arithmetic: stair steps are whole counts, halves centre the stair.
 export function entranceGround(context: Pick<Context, 'space' | 'occupancy' | 'house'>) {
 	const entry = entranceStepCell(context);
@@ -190,10 +190,14 @@ export function entranceGround(context: Pick<Context, 'space' | 'occupancy' | 'h
 		-((x - wall.a[0]) * wall.normal[0] + (y - wall.a[1]) * wall.normal[1]);
 	const [ux, uy] = [(wall.b[0] - wall.a[0]) / wall.length, (wall.b[1] - wall.a[1]) / wall.length];
 	const lateral = ([x, y]: Vec2) => (x - wall.a[0]) * ux + (y - wall.a[1]) * uy - wall.length / 2;
-	const depth = Math.max(...cell.quad.map(inward));
+	const half = Math.min(entranceStairWidthM, wall.length) / 2;
+	const strip = clipBy(
+		clipBy(cell.quad, (p) => half - lateral(p)),
+		(p) => half + lateral(p)
+	);
+	const depth = Math.max(...strip.map(inward));
 	const steps = Math.ceil(context.house.site.entranceRiseM / stairRiserM);
 	const run = Math.min(depth, steps * entranceStepGoingM);
-	const half = Math.min(entranceStairWidthM, wall.length) / 2;
 	const front = clipBy(cell.quad, (p) => run - inward(p));
 	const stairZone = clipBy(
 		clipBy(front, (p) => half - lateral(p)),
