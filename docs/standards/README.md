@@ -23,6 +23,7 @@ Read the principles for the area and the standard for the work.
 | Visible design                                       | [Principles register](../../src/routes/design-principles.ts) and the relevant bible page |
 | Layers, modules and dependencies                     | [Architecture](ARCHITECTURE.md)                                                          |
 | Code, public APIs and refactors                      | [Coding Standards](CODING_STANDARDS.md)                                                  |
+| Test design                                          | [Tests](CODING_STANDARDS.md#tests)                                                       |
 | Names and domain terms                               | [Naming Conventions](NAMING_CONVENTIONS.md), [Glossary](GLOSSARY.md)                     |
 | Units, geometry, determinism and measurement         | [Procedural Principles](PROCEDURAL_PRINCIPLES.md)                                        |
 | Visual design, accessibility and screenshot evidence | [Design Standards](DESIGN_STANDARDS.md)                                                  |

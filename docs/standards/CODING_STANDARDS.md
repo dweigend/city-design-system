@@ -65,6 +65,22 @@ The bible runs the library through its public entries.
 | C-53 | Tests verify public behavior, not private file splits. New regression tests only for meaningful, unprotected contracts.                                                                                                           |
 | C-54 | Tools: ESLint, Prettier, TypeScript, and svelte-check remain. No second formatter (Biome is not adopted). No repo-wide reformatting inside a local refactor.                                                                      |
 
+## Tests
+
+| ID   | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C-55 | Answer the four test design questions before writing a test.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| C-56 | Exercise public behavior with realistic inputs and independently chosen expectations. Keep each assertion at the layer that can detect its failure. Avoid private implementation details, duplicate coverage across layers, expectations calculated by production code, and mocks that manufacture a passing result. In the browser, check what the user can see and do. Use screenshots for inspection and reserve automated pixel checks for coarse invariants such as whether a stage drew anything. |
+| C-57 | For a regression, run the test before the fix and check that it fails for the reported reason. Run it again after the fix and check that it passes.                                                                                                                                                                                                                                                                                                                                                     |
+| C-58 | When exercising plan families, draw a seeded random sample per run. Report the seed so a failure can be replayed and provide a way to run the full set on demand.                                                                                                                                                                                                                                                                                                                                       |
+
+### Before writing a test
+
+1. Which observable behavior or public contract does the test protect?
+2. Which realistic regression would make it fail?
+3. Why do the existing tests miss that regression?
+4. Does every production change serve a purpose independent of the test?
+
 ## Verification
 
 | ID   | Rule                                                                                                                                         |

@@ -54,7 +54,7 @@ bun install
 bun run dev                # Development server (http://localhost:5173)
 ```
 
-Run `bun run verify` before every delivery. For browser-facing changes, also run `bun run test:browser`.
+Run `bun run verify` before every delivery. For browser-facing changes, also run `bun run test:browser`. See [Browser tests](scripts/README.md#browser-tests) for setup and the shared-server command.
 
 ## Architecture
 

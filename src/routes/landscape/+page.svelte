@@ -13,6 +13,7 @@
 	import type { View } from '../../lib/scene/stage';
 	import { Button } from '../../lib/ui/button';
 	import { Slider } from '../../lib/ui/slider';
+	import { Switch } from '../../lib/ui/switch';
 	import { ToggleGroup } from '../../lib/ui/toggle-group';
 	import ChapterHeader from '../ChapterHeader.svelte';
 	import { chapterAt } from '../chapters';
@@ -48,6 +49,7 @@
 			: defaultSinuosity
 	);
 	let view = $derived<View>(page.url.searchParams.get('view') === 'plan' ? 'plan' : 'iso');
+	let transparent = $derived(page.url.searchParams.get('display') === 'transparency');
 
 	function prepareValley(seed: number, sinuosity: number, relief: number, runoff: number) {
 		const start = performance.now();
@@ -92,7 +94,7 @@
 	<StageView
 		drawables={model.drawables}
 		{view}
-		display="normal"
+		display={transparent ? 'transparency' : 'normal'}
 		label="Relief map of the river valley with its floodplain, terraces, slopes and any mountains or lake"
 		landscape
 		{fit}
@@ -132,6 +134,7 @@
 			<Button label="New terrain" onclick={nextValley} />
 			<span class="data">Seed {seed}</span>
 			<ToggleGroup label="View" items={views} bind:value={() => view, selectView} />
+			<Switch label="Transparency" bind:checked={transparent} />
 		</div>
 		<a href={resolve('/landscape?seed=42&relief=1&view=plan')}>Side-lake example</a>
 		<div class="stack valley-observations">

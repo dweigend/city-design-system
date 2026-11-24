@@ -8,12 +8,25 @@ Run tests, checks, builds and browsers through `heavy-slot` on the shared server
 | `bun run lint`             | Checks formatting and runs ESLint, including the rules for slots, exports, styles, controls, headless globals and the stage.                                                               |
 | `bun run check`            | Syncs SvelteKit and checks types for the app, tests and scripts.                                                                                                                           |
 | `bun test`                 | Runs unit tests and the architecture probes. Run `bun test scripts/rules.test.ts` for the probes alone.                                                                                    |
+| `bun run test:browser`     | Loads every chapter and exercises the stage, chapter controls, specimen filtering and sandbox in Playwright.                                                                               |
 | `bun run check:boundaries` | Checks file and module-folder cycles, layer direction, public entries, headless imports, stylesheets, routes and three.js. Counts distinct domain peers from the dependency-cruiser graph. |
 | `bun run check:skills`     | Checks that Git tracks no private skills.                                                                                                                                                  |
 | `bun run build`            | Builds the app with Vite.                                                                                                                                                                  |
 | `bun run verify`           | Runs lint, type checks, tests, import boundaries, the private-skill check and the build. It reports every result and fails if any step fails.                                              |
 
 The [architecture rules](../docs/standards/ARCHITECTURE.md#rules) name the checks. Each test in `scripts/rules.test.ts` uses a failing and a passing source tree from `scripts/fixtures/rules/`. The probes apply the production lint and graph rules to the fixture paths. Bun skips the fixture trees during test discovery. ESLint, TypeScript and dependency-cruiser exclude them from product checks.
+
+## Browser tests
+
+`bun run test:browser` starts a Vite preview on a free loopback port and stops it when Playwright exits. It builds the app if the production output is missing. Run `bun run build` before testing changes when a previous build exists.
+
+On the shared server, run the suite with Chrome and the Radeon GPU. The slot wrapper expects an explicit test file.
+
+```sh
+heavy-slot --exclusive --mem 4G --time 600 --wait 900 -- bun run test:browser scripts/browser/flows.browser.ts
+```
+
+CI uses Playwright Chromium, installed with `bunx playwright install --with-deps chromium`. A local machine without the Radeon render device also uses Playwright Chromium. When Chromium exposes WebGPU, the suite tests rendering and sandbox strokes with its available adapter. Without an adapter it checks the stage's fallback and exercises the controls that work without a canvas.
 
 ## Capture the preview
 
