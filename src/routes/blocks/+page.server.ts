@@ -2,7 +2,11 @@ import { buildModuleCatalogue } from '../../../scripts/module-catalogue';
 import { designPrinciples } from '../design-principles';
 
 const files = import.meta.glob<string>(
-	['/src/lib/{core,domain,world,scene,ui}/**/*.{ts,svelte,md}', '/src/config/**/*.ts'],
+	[
+		'/src/lib/{core,domain,world,scene,ui}/**/*.{ts,svelte,md}',
+		'/src/config/**/*.ts',
+		'/docs/standards/ARCHITECTURE.md'
+	],
 	{ query: '?raw', import: 'default', eager: true }
 );
 

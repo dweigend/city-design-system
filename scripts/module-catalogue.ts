@@ -9,12 +9,15 @@ export type ModuleRow = Readonly<{
 	exports: readonly string[];
 	example: string | null;
 	exampleCall: string | null;
+	exampleDemo: string | null;
 	config: readonly string[];
 	principles: readonly string[];
 	errors: readonly string[];
 }>;
 
 const moduleEntry = /^(src\/lib\/(?:core|domain|world|scene|ui)\/[^/]+)\/index\.ts$/;
+const exampleExemption =
+	/^Modules under `(src\/lib\/[a-z-]+)`[^\n]*demonstrated on the `(\/[a-z-]+)` page instead of carrying `contract\.test\.ts` and `example\.ts`\./gm;
 const purposeLine = /^\/\*\* Module: ([^\n]+) \*\//;
 const configImport = /['"](?:\.\.\/)+config\/([\w-]+)['"]/g;
 const principleId = /\b[A-Z]+-\d+\b/g;
@@ -88,14 +91,21 @@ function row(
 	const exampleCall = calls.includes('example') ? 'example' : (calls[0] ?? null);
 	const errors = [];
 	if (!purpose) errors.push('Missing module purpose in index.ts');
-	if (!example) errors.push('Missing example.ts');
-	else if (!exampleCall) errors.push('Missing example caller');
+	const architecture = sources['docs/standards/ARCHITECTURE.md'] ?? '';
+	const exampleDemo = example
+		? null
+		: (Array.from(architecture.matchAll(exampleExemption)).find(([, path]) =>
+				folder.startsWith(path + '/')
+			)?.[2] ?? null);
+	if (!example && !exampleDemo) errors.push('Missing example.ts');
+	else if (example && !exampleCall) errors.push('Missing example caller');
 	return {
 		module: folder.slice('src/lib/'.length),
 		purpose,
 		exports: [...new Set(statements(sources[entry]).flatMap(exportedNames))],
 		example,
 		exampleCall,
+		exampleDemo,
 		...collectCitations(sources, folder, knownPrinciples),
 		errors
 	};

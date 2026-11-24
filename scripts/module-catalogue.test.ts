@@ -28,6 +28,7 @@ test('discovers public names, aliases, the fixed caller, config ownership and kn
 		exports: ['Marker', 'Point', 'Label', 'roles', 'names', 'create'],
 		example: 'src/lib/core/marker/example.ts',
 		exampleCall: 'example',
+		exampleDemo: null,
 		config: ['survey'],
 		principles: ['GRID-1', 'LIB-2'],
 		errors: []
@@ -48,6 +49,24 @@ test('reports missing purpose, missing example and example without a caller', ()
 		['Missing module purpose in index.ts', 'Missing example.ts'],
 		['Missing example caller']
 	]);
+});
+
+test('reads the UI example exemption from the architecture standard', () => {
+	const entries = {
+		'src/lib/ui/button/index.ts': '/** Module: Runs an action. */',
+		'src/lib/scene/stage-view/index.ts': '/** Module: Hosts a stage. */'
+	};
+	const rule =
+		'Modules under `src/lib/ui` are presentational and are demonstrated on the `/interface` page instead of carrying `contract.test.ts` and `example.ts`.';
+	const rows = buildModuleCatalogue(
+		{ ...entries, 'docs/standards/ARCHITECTURE.md': rule },
+		new Set()
+	);
+	expect(rows.map(({ errors, exampleDemo }) => [errors, exampleDemo])).toEqual([
+		[['Missing example.ts'], null],
+		[[], '/interface']
+	]);
+	expect(buildModuleCatalogue(entries, new Set())[1].errors).toEqual(['Missing example.ts']);
 });
 
 const rows = await readModuleCatalogue();

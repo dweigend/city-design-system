@@ -4,9 +4,12 @@ import { buildModuleCatalogue } from './module-catalogue';
 
 /** Reads the source tree used by the catalogue CLI and the executable example tests. */
 export async function readModuleCatalogue(root = resolve(import.meta.dir, '..')) {
-	const paths = ['src/lib/**/*.{ts,svelte,md}', 'src/config/**/*.ts'].flatMap((pattern) =>
-		Array.from(new Bun.Glob(pattern).scanSync(root))
-	);
+	const paths = [
+		'docs/standards/ARCHITECTURE.md',
+		...['src/lib/**/*.{ts,svelte,md}', 'src/config/**/*.ts'].flatMap((pattern) =>
+			Array.from(new Bun.Glob(pattern).scanSync(root))
+		)
+	];
 	const files = await Promise.all(
 		Array.from(paths, async (path) => [path, await Bun.file(resolve(root, path)).text()] as const)
 	);
